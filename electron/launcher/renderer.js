@@ -197,7 +197,7 @@ $('#navigation').addEventListener('click', (event) => {
     if (button) activatePage(button.dataset.page);
 });
 $('#start-backend').addEventListener('click', startBackend);
-$('#open-web').addEventListener('click', async () => api.openExternal(await api.backendUrl()));
+$('#open-web').addEventListener('click', async () => api.openExternal(`${await api.backendUrl()}/web/workbench.html`));
 $('#open-web-training').addEventListener('click', async () => api.openExternal(`${await api.backendUrl()}/web/workbench.html`));
 $('#refresh-state').addEventListener('click', () => refreshState(true));
 $('#load-assets').addEventListener('click', () => refreshState(true));
