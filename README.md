@@ -1,93 +1,58 @@
 # Legged Studio
 
-足式机器人强化学习工作台
+Version `0.3.0` is the first distributable desktop preview.
 
----
+Legged Studio is a local, contract-driven workbench for validating legged
+robot assets, configuring rewards and algorithms, running MuJoCo or native
+MJLab training, and replaying evaluation/navigation routes for Go2 and Go2W.
 
-## 项目愿景
+## Quick start
 
-详见：[`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md) 和根目录的 [`PROJECT_VISION_LEGGED_STUDIO.md`](../PROJECT_VISION_LEGGED_STUDIO.md)。
-
-**核心定位**：
-- 🖱️ Windows 桌面应用
-- 🌐 Web 界面
-- 🤖 6 种分类（S/M/L × 点足/轮足）
-- 🔄 全流程闭环（验证→训练→仿真→部署）
-- 📊 契约驱动
-
----
-
-## 参考资源
-
-- **项目愿景**：`../PROJECT_VISION_LEGGED_STUDIO.md`
-- **参考清单**：`../REFERENCE_AND_RECOMMENDATIONS.md`
-- **资产清单**：`../QUADRUPED_ASSET_INVENTORY.md`
-- **1000frames 参考**：`../references_1000framesai/`
-
----
-
-## 快速开始
-
-### 1. Electron 桌面启动器（推荐）
-```bash
+```powershell
+npm ci
 npm start
 ```
 
-启动器会自动定位项目资源和 Python 运行时，但打开桌面程序时不会创建目录、安装依赖或启动后端。点击“一键启动”后，才会准备工作区、探测 Python、按 `backend/requirements.txt` 安装控制平面依赖并启动后端；健康检查通过后可打开 Web 工作台。Windows 下即使系统设置了 `ELECTRON_RUN_AS_NODE`，启动脚本也会自动清理该变量。
+The Electron launcher does not install or start services when it opens. Click
+Start in the launcher, configure the Python runtime and service port if needed,
+then open the Web workbench. Native MJLab training uses the isolated adapter
+environment and can be installed with:
 
-首次安装依赖：
-
-```bash
-npm install
+```powershell
+uv sync --project adapters/mjlab --extra cu128
 ```
 
-当前内置可训练资产：Unitree Go2（M-P，12 DOF）和 Unitree Go2W（M-W，16 DOF）。训练页从 `/api/robots/presets` 加载版本化 Contract，不再使用虚构的 URDF 路径；worker 会直接加载 canonical MJCF，执行 MuJoCo rollout 和 PPO update，并保存真实 PyTorch checkpoint 与 PolicyArtifact。详细资产和适配器说明见 [docs/GO2_TRAINING_ASSETS.md](docs/GO2_TRAINING_ASSETS.md)。
+## Build a release
 
-训练页支持按任务编辑奖惩项：每项可独立关闭或修改权重，配置会随训练任务保存。算法切换入口只展示已完成真实适配的算法；当前为 PPO，SAC/TD3 会明确标记为未接入。
-
-当前 MVP 工作流已包含资产浏览、Contract 训练、任务监控、策略产物和本地评估工作台，详见 [docs/WORKFLOW_IMPLEMENTATION.md](docs/WORKFLOW_IMPLEMENTATION.md)。
-
-### 2. 或手动启动
-```bash
-# 仅在无桌面环境时手动启动后端
-python backend/api_complete.py
-
-# 访问控制台
-http://127.0.0.1:8765
+```powershell
+npm ci
+npm run release:check
+npm run build:portable
 ```
 
----
-
-## 桌面发布
-
-生成 Windows 未压缩目录（用于本机验证）：
+The Windows portable artifact is written to `dist/`. Build the Linux AppImage
+on a Linux host or CI runner:
 
 ```bash
-npx electron-builder --dir
+npm ci
+npm run release:check
+npm run build:linux
 ```
 
-生成 portable 发布包：
+See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for runtime requirements,
+packaging boundaries, and release limitations. See [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)
+for the product workflow and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for
+adapter boundaries.
 
-```bash
-npm run build
-```
+## Verified capabilities
 
-打包会携带 `backend`、`contracts`、`pipeline`、适配器源码和 `QUADRUPED_ASSET_INVENTORY`，不会携带适配器虚拟环境目录。
+- Versioned Robot Contract and canonical Go2/Go2W MJCF assets.
+- Local MuJoCo simulation and PPO/SAC/TD3 adapter smoke paths.
+- Native MJLab Go2/Go2W PPO training with isolated workers.
+- Native evaluation and waypoint navigation.
+- CUDA Torch selection for the validated MJLab adapter environment.
+- Configurable local backend port and desktop-owned backend lifecycle.
 
-## Phase 1 任务
-
-见 [TODO.md](TODO.md)
-
-**优先级**：
-1. 分析 1000frames 参考设计（`../references_1000framesai/`）
-2. 改进 Web 界面
-3. ONNX 导出功能
-4. 预训练模型库
-
----
-
-## 技术文档
-
-- `docs/` — 技术文档
-- `README.md` — 本文件
-- `TODO.md` — 任务清单
+The first distribution does not bundle Python, CUDA, MJLab source, or the
+external UniLab/Unitree source trees. Those are configured after launch or
+installed through the adapter instructions.

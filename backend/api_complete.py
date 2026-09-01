@@ -1,5 +1,5 @@
 """
-Legged Studio Backend - Complete API v0.5.0
+Legged Studio Backend - Complete API v0.3.0
 修复：添加缺失的 system API
 """
 
@@ -54,11 +54,12 @@ from contracts.robot_contract_v2 import RobotContractV2
 from contracts.validator import validate_contract as validate_robot_contract
 from contracts.scenario_contract import ScenarioContract
 from adapters.mjlab_new.native_adapter import preflight as native_mjlab_preflight
+from backend.version import APP_VERSION
 
 app = FastAPI(
     title="Legged Studio API",
     description="Legged Robot RL Platform - Complete Backend",
-    version="0.5.0"
+    version=APP_VERSION
 )
 
 # CORS
@@ -254,7 +255,7 @@ async def health():
     }
     return {
         "status": "ok",
-        "version": "0.5.0",
+        "version": APP_VERSION,
         "optional": optional,
         "features": [
             "training_management",
@@ -303,7 +304,7 @@ async def get_adapter_status():
 async def api_info():
     return {
         "name": "Legged Studio API",
-        "version": "0.5.0",
+        "version": APP_VERSION,
         "endpoints": {
             "training": "/api/training",
             "export": "/api/export",
@@ -360,7 +361,7 @@ if __name__ == "__main__":
     import uvicorn
 
     print("=" * 70)
-    print("Legged Studio Backend - v0.5.0")
+    print(f"Legged Studio Backend - v{APP_VERSION}")
     print("=" * 70)
     print()
     print("Features:")
