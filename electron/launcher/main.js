@@ -77,10 +77,12 @@ function writeSettings(value) {
 }
 
 function ensureWorkspaceDirectories() {
-    for (const directory of [PATHS.logs, PATHS.output, path.join(app.getPath('userData'), 'workspace')]) {
+    const workspace = PATHS.workspace || path.join(app.getPath('userData'), 'workspace');
+    PATHS.workspace = workspace;
+    for (const directory of [PATHS.logs, PATHS.output, workspace]) {
         fs.mkdirSync(directory, { recursive: true });
     }
-    return [PATHS.logs, PATHS.workspace, PATHS.output];
+    return [PATHS.logs, workspace, PATHS.output];
 }
 
 function configureWritablePaths() {
@@ -102,6 +104,40 @@ function probePython(executable) {
             resolve({ ok: true, executable: executable || PATHS.python, version: lines[0] || 'unknown', implementation: lines[1] || 'unknown', target: '3.12', targetMatch: /^3\.12\./.test(lines[0] || ''), dependencies, dependenciesReady: Object.values(dependencies).every((value) => value === 'true') });
         });
     });
+}
+
+function installPythonDependencies(executable) {
+    const requirements = path.join(PATHS.root, 'backend', 'requirements.txt');
+    if (!fs.existsSync(requirements)) {
+        return Promise.resolve({ ok: false, error: `requirements file not found: ${requirements}` });
+    }
+    emit('backend-log', `[launcher] installing control-plane dependencies from ${requirements}`);
+    return new Promise((resolve) => {
+        execFile(executable, ['-m', 'pip', 'install', '-r', requirements], {
+            windowsHide: true,
+            timeout: 300000,
+            maxBuffer: 1024 * 1024 * 8,
+        }, (error, stdout, stderr) => {
+            if (stdout) emit('backend-log', stdout);
+            if (stderr) emit('backend-log', stderr);
+            resolve(error ? { ok: false, error: stderr.trim() || error.message } : { ok: true });
+        });
+    });
+}
+
+async function setupEnvironment({ installDependencies = true } = {}) {
+    const directories = ensureWorkspaceDirectories();
+    const configuredPython = readSettings().pythonPath;
+    const executable = configuredPython || PATHS.python;
+    let probe = await probePython(executable);
+    let installed = false;
+    if (probe.ok && !probe.dependenciesReady && installDependencies) {
+        const install = await installPythonDependencies(executable);
+        installed = install.ok;
+        if (install.ok) probe = await probePython(executable);
+        else return { ok: false, directories, python: probe, installed, error: install.error };
+    }
+    return { ok: probe.ok && probe.dependenciesReady, directories, python: probe, installed, error: probe.ok ? undefined : probe.error };
 }
 
 function emit(channel, payload) {
@@ -186,12 +222,23 @@ async function startBackend() {
     if (pythonProcess && pythonProcess.exitCode === null) {
         return waitForBackend(2500);
     }
+    try {
+        const health = await backendHealth();
+        emit('backend-status', true);
+        return health;
+    } catch {
+        // No service is listening yet; continue with local startup.
+    }
     if (!fs.existsSync(PATHS.backend)) {
         throw new Error(`找不到后端入口: ${PATHS.backend}`);
     }
 
     const configuredPython = readSettings().pythonPath;
     const pythonExecutable = configuredPython || PATHS.python;
+    const setup = await setupEnvironment({ installDependencies: true });
+    if (!setup.ok) {
+        throw new Error(setup.error || 'Python runtime or control-plane dependencies are unavailable');
+    }
     emit('backend-log', `[launcher] starting backend: ${PATHS.backend}`);
     emit('backend-log', `[launcher] python: ${pythonExecutable}`);
     pythonProcess = spawn(pythonExecutable, [PATHS.backend], {
@@ -269,6 +316,13 @@ ipcMain.handle('environment:probe', async (_event, executable) => probePython(ex
 ipcMain.handle('environment:prepare', () => {
     try {
         return { ok: true, directories: ensureWorkspaceDirectories() };
+    } catch (error) {
+        return { ok: false, directories: [], error: error.message };
+    }
+});
+ipcMain.handle('environment:setup', async () => {
+    try {
+        return await setupEnvironment({ installDependencies: true });
     } catch (error) {
         return { ok: false, directories: [], error: error.message };
     }

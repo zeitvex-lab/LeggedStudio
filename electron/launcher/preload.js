@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('leggedStudio', {
     updateSettings: (value) => ipcRenderer.invoke('settings:update', value),
     probePython: (executable) => ipcRenderer.invoke('environment:probe', executable),
     prepareEnvironment: () => ipcRenderer.invoke('environment:prepare'),
+    setupEnvironment: () => ipcRenderer.invoke('environment:setup'),
     openPath: (key) => ipcRenderer.invoke('path:open', key),
     openExternal: (url) => ipcRenderer.invoke('external:open', url),
     minimize: () => ipcRenderer.invoke('window:minimize'),
