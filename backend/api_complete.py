@@ -71,7 +71,6 @@ app.add_middleware(
 
 # 注册所有路由
 app.include_router(pipeline_router)
-app.include_router(pipeline_router)
 if training_router is not None:
     app.include_router(training_router)
 if export_router is not None:

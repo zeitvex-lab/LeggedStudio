@@ -3,11 +3,13 @@ const { spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const net = require('net');
 
-const BACKEND_PORT = 8765;
+const DEFAULT_BACKEND_PORT = 8765;
 const IS_DEV = process.env.NODE_ENV === 'development' || !app.isPackaged;
 let launcherWindow = null;
 let pythonProcess = null;
+let activeBackendPort = null;
 
 function firstExisting(candidates) {
     return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[0];
@@ -26,6 +28,8 @@ function resolvePaths() {
     ]);
     const python = firstExisting([
         path.join(root, 'runtime', 'python', 'python.exe'),
+        path.join(root, 'adapters', 'mjlab', '.venv', 'Scripts', 'python.exe'),
+        path.join(root, 'adapters', 'mjlab_new', '.venv', 'Scripts', 'python.exe'),
         path.join(resourceRoot, 'runtime', 'python', 'python.exe'),
         path.join(projectRoot, 'runtime', 'python', 'python.exe'),
     ]);
@@ -51,6 +55,7 @@ const PATHS = resolvePaths();
 const DEFAULT_SETTINGS = {
     autoStartBackend: false,
     pythonPath: '',
+    backendPort: DEFAULT_BACKEND_PORT,
 };
 
 function settingsPath() {
@@ -67,13 +72,23 @@ function readSettings() {
 }
 
 function writeSettings(value) {
+    const backendPort = Number(value?.backendPort ?? DEFAULT_BACKEND_PORT);
+    if (!Number.isInteger(backendPort) || backendPort < 1024 || backendPort > 65535) {
+        throw new Error('Backend port must be an integer between 1024 and 65535');
+    }
     const next = {
         autoStartBackend: Boolean(value?.autoStartBackend),
         pythonPath: typeof value?.pythonPath === 'string' ? value.pythonPath.trim() : '',
+        backendPort,
     };
     fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
     fs.writeFileSync(settingsPath(), JSON.stringify(next, null, 2), 'utf8');
     return next;
+}
+
+function configuredBackendPort() {
+    const port = Number(readSettings().backendPort);
+    return Number.isInteger(port) && port >= 1024 && port <= 65535 ? port : DEFAULT_BACKEND_PORT;
 }
 
 function ensureWorkspaceDirectories() {
@@ -146,11 +161,11 @@ function emit(channel, payload) {
     }
 }
 
-function requestJson(route) {
+function requestJson(route, port = activeBackendPort || configuredBackendPort()) {
     return new Promise((resolve, reject) => {
         const request = http.request({
             hostname: '127.0.0.1',
-            port: BACKEND_PORT,
+            port,
             path: route,
             method: 'GET',
             timeout: 1500,
@@ -177,22 +192,31 @@ function requestJson(route) {
     });
 }
 
-async function backendHealth() {
-    return requestJson('/health');
+async function backendHealth(port = activeBackendPort || configuredBackendPort()) {
+    return requestJson('/health', port);
 }
 
-async function waitForBackend(timeoutMs = 10000) {
+async function waitForBackend(port, timeoutMs = 10000) {
     const deadline = Date.now() + timeoutMs;
     let lastError = null;
     while (Date.now() < deadline) {
         try {
-            return await backendHealth();
+            return await backendHealth(port);
         } catch (error) {
             lastError = error;
             await new Promise((resolve) => setTimeout(resolve, 250));
         }
     }
     throw lastError || new Error('backend did not become ready');
+}
+
+function assertPortAvailable(port) {
+    return new Promise((resolve, reject) => {
+        const server = net.createServer();
+        server.unref();
+        server.once('error', (error) => reject(new Error(`Port ${port} is unavailable: ${error.code || error.message}`)));
+        server.listen({ host: '127.0.0.1', port, exclusive: true }, () => server.close(resolve));
+    });
 }
 
 function createLauncherWindow() {
@@ -219,16 +243,19 @@ function createLauncherWindow() {
 }
 
 async function startBackend() {
+    const port = configuredBackendPort();
     if (pythonProcess && pythonProcess.exitCode === null) {
-        return waitForBackend(2500);
+        return waitForBackend(activeBackendPort || port, 2500);
     }
     try {
-        const health = await backendHealth();
+        const health = await backendHealth(port);
+        activeBackendPort = port;
         emit('backend-status', true);
         return health;
     } catch {
         // No service is listening yet; continue with local startup.
     }
+    await assertPortAvailable(port);
     if (!fs.existsSync(PATHS.backend)) {
         throw new Error(`找不到后端入口: ${PATHS.backend}`);
     }
@@ -241,8 +268,8 @@ async function startBackend() {
     }
     emit('backend-log', `[launcher] starting backend: ${PATHS.backend}`);
     emit('backend-log', `[launcher] python: ${pythonExecutable}`);
-    pythonProcess = spawn(pythonExecutable, [PATHS.backend], {
-        cwd: path.dirname(PATHS.backend),
+    pythonProcess = spawn(pythonExecutable, ['-m', 'uvicorn', 'backend.api_complete:app', '--host', '127.0.0.1', '--port', String(port)], {
+        cwd: PATHS.root,
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
         env: {
@@ -261,10 +288,12 @@ async function startBackend() {
     pythonProcess.on('close', (code) => {
         emit('backend-log', `[launcher] backend exited with code ${code}`);
         pythonProcess = null;
+        activeBackendPort = null;
         emit('backend-status', false);
     });
 
-    const health = await waitForBackend();
+    const health = await waitForBackend(port);
+    activeBackendPort = port;
     emit('backend-status', true);
     return health;
 }
@@ -281,6 +310,7 @@ async function stopBackend() {
         pythonProcess.kill('SIGTERM');
     }
     pythonProcess = null;
+    activeBackendPort = null;
     emit('backend-status', false);
     return true;
 }
@@ -308,7 +338,7 @@ ipcMain.handle('backend:check', async () => {
     try { return { ok: true, health: await backendHealth() }; }
     catch { return { ok: false }; }
 });
-ipcMain.handle('backend:url', () => `http://127.0.0.1:${BACKEND_PORT}`);
+ipcMain.handle('backend:url', () => `http://127.0.0.1:${activeBackendPort || configuredBackendPort()}`);
 ipcMain.handle('launcher:paths', () => ({ ...PATHS, backend: PATHS.backend, python: PATHS.python }));
 ipcMain.handle('settings:get', () => readSettings());
 ipcMain.handle('settings:update', (_event, value) => writeSettings(value));

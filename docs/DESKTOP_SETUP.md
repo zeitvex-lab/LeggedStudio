@@ -23,10 +23,14 @@ Open **系统设置** in the desktop launcher.
 |---|---|
 | Python runtime | Detects executable, version, implementation, Python 3.12 policy match, and control-plane dependencies |
 | Python path override | Uses the supplied `python.exe` for subsequent backend starts |
+| Service port | Uses a configurable local port (`8765` by default, valid range `1024-65535`) and rejects conflicts before launch |
 | Auto-start control plane | Starts the local API after the launcher is ready |
 | Initialize workspace | Creates missing `logs/`, `workspace/`, and `output/` directories |
 
 Settings are stored in the Electron user-data directory as `settings.json`; project source files are not modified by the settings form.
+Changing the service port while the backend is running takes effect after the
+backend is stopped and started again. The current session URL remains stable
+until that restart.
 
 ## Runtime policy
 
@@ -36,8 +40,13 @@ The launcher selects a runtime in this order:
 
 1. Python path override saved in settings.
 2. Packaged `runtime/python/python.exe`.
-3. Development `runtime/python/python.exe`.
-4. System `python` on `PATH`.
+3. Existing `adapters/mjlab/.venv` or `adapters/mjlab_new/.venv` runtime.
+4. Development `runtime/python/python.exe`.
+5. System `python` on `PATH`.
+
+Opening the launcher remains read-only. After **Start control plane** is
+clicked, missing FastAPI/Uvicorn dependencies are installed into the selected
+runtime; existing MuJoCo, Torch, ONNX, and MJLab packages are reused.
 
 ## Build a Windows package
 

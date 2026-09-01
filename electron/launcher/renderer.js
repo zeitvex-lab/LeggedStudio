@@ -155,14 +155,22 @@ async function loadSettings(runProbe = true) {
     state.settings = await api.getSettings();
     $('#auto-start-backend').checked = Boolean(state.settings.autoStartBackend);
     $('#python-path-input').value = state.settings.pythonPath || '';
+    $('#backend-port-input').value = state.settings.backendPort || 8765;
     if (runProbe) await probePython();
 }
 
 async function saveSettings() {
+    const backendPort = Number($('#backend-port-input').value);
+    if (!Number.isInteger(backendPort) || backendPort < 1024 || backendPort > 65535) {
+        toast('服务端口必须是 1024–65535 之间的整数', 'error');
+        return;
+    }
     state.settings = await api.updateSettings({
         autoStartBackend: $('#auto-start-backend').checked,
         pythonPath: $('#python-path-input').value,
+        backendPort,
     });
+    $('#backend-url').textContent = await api.backendUrl();
     await probePython();
     toast('设置已保存', 'success');
 }
