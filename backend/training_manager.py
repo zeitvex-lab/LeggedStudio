@@ -56,6 +56,13 @@ class TrainingTask:
         """转为字典"""
         progress = self.get_progress()
         status_info = self.get_status_info()
+        runtime_info = {}
+        runtime_file = self.task_dir / "runtime.json"
+        if runtime_file.exists():
+            try:
+                runtime_info = json.loads(runtime_file.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                runtime_info = {}
 
         return {
             "task_id": self.task_id,
@@ -73,6 +80,8 @@ class TrainingTask:
             ,"pid": status_info.get("pid")
             ,"exit_code": status_info.get("exit_code")
             ,"error": status_info.get("error")
+            ,"device": status_info.get("device", runtime_info.get("resolved"))
+            ,"runtime": runtime_info
         }
 
 

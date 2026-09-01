@@ -276,7 +276,7 @@ async def get_capabilities():
         "control_plane": True,
         "adapters": {
             "local_mujoco": simulation_router is not None,
-            "native_mjlab": native_mjlab_preflight().get("exists", False),
+            "native_mjlab": native_mjlab_preflight().get("execution_ready", False),
             "export_onnx": export_router is not None,
         },
         "import_errors": {

@@ -110,6 +110,8 @@ def main():
             "artifact_id": artifact.artifact_id,
             "success_rate": artifact.metrics.success_rate,
             "avg_reward": artifact.metrics.avg_reward,
+            "device": adapter.runtime_device,
+            "runtime": adapter.runtime_info,
             "completed_at": datetime.now().isoformat()
         }
 

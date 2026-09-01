@@ -32,6 +32,7 @@
     </section>
 
     <section id="training" class="panel step-panel">
+      <div class="grid three"><label>训练后端<select id="backend"><option value="local_mujoco">Local MuJoCo (GPU policy)</option><option value="native_mjlab" disabled>Native MJLab (preflight required)</option></select></label><span id="hardwareHint" class="muted">正在检测 GPU...</span></div>
       <div class="panel-head"><div><span class="eyebrow">TRAINING CONFIG</span><h2>算法、环境与奖惩设置</h2><p>配置将直接提交给 `/api/training/create`，权重为 0 的奖惩项会被禁用。</p></div><span id="configBadge" class="pill pending">未保存</span></div>
       <div class="grid three"><label>任务名称<input id="taskName" value="forward_walk"></label><label>算法<select id="algorithm"><option value="PPO">PPO</option></select></label><label>地形<select id="terrain"><option value="plane">平地</option><option value="rough">崎岖</option><option value="stairs">楼梯</option></select></label></div>
       <div class="grid four"><label>环境数量<input id="numEnvs" type="number" min="64" step="64" value="4096"></label><label>最大迭代<input id="maxIterations" type="number" min="10" step="10" value="1000"></label><label>学习率<input id="learningRate" type="number" min="0.00001" step="0.00001" value="0.0003"></label><label>设备<select id="device"><option value="cuda">CUDA</option><option value="cpu">CPU</option></select></label></div>

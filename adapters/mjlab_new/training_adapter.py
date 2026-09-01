@@ -19,6 +19,54 @@ from adapters.mjlab_new.algorithms.registry import create_algorithm
 from adapters.mjlab_new.algorithms.off_policy import OffPolicyAlgorithm
 
 
+def resolve_torch_device(requested: str = "auto") -> str:
+    """Resolve a user device request without silently hiding CUDA failures."""
+    import torch
+
+    value = str(requested or "auto").strip().lower()
+    if value == "auto":
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    if value == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA was requested but torch.cuda.is_available() is false")
+        return "cuda"
+    if value.startswith("cuda:"):
+        if not torch.cuda.is_available():
+            raise RuntimeError(f"{value} was requested but CUDA is unavailable")
+        try:
+            index = int(value.split(":", 1)[1])
+        except ValueError as exc:
+            raise ValueError(f"invalid CUDA device {requested!r}") from exc
+        if index < 0 or index >= torch.cuda.device_count():
+            raise ValueError(f"CUDA device index {index} is out of range (count={torch.cuda.device_count()})")
+        return f"cuda:{index}"
+    if value == "cpu":
+        return "cpu"
+    raise ValueError(f"unsupported device {requested!r}; use auto, cpu, cuda, or cuda:N")
+
+
+def runtime_device_info(device: str) -> dict[str, Any]:
+    import torch
+
+    info: dict[str, Any] = {
+        "requested": device,
+        "resolved": device,
+        "torch_version": torch.__version__,
+        "cuda_available": bool(torch.cuda.is_available()),
+        "cuda_version": torch.version.cuda,
+        "cuda_device_count": int(torch.cuda.device_count()),
+    }
+    if device.startswith("cuda") and torch.cuda.is_available():
+        index = torch.device(device).index or 0
+        props = torch.cuda.get_device_properties(index)
+        info.update({
+            "cuda_device_index": index,
+            "cuda_device_name": props.name,
+            "cuda_total_memory_bytes": int(props.total_memory),
+        })
+    return info
+
+
 @dataclass
 class TrainingConfig:
     """训练配置"""
@@ -83,6 +131,8 @@ class MJLabTrainingAdapter:
         self.agent = None
         self.metrics_history = []
         self.started_at = None
+        self.runtime_device = "cpu"
+        self.runtime_info: dict[str, Any] = {}
 
     def setup_environment(self):
         """设置训练环境"""
@@ -131,12 +181,20 @@ class MJLabTrainingAdapter:
         with open(self.output_dir / "agent_config.json", 'w') as f:
             json.dump(agent_config, f, indent=2)
 
+        self.runtime_device = resolve_torch_device(self.config.device)
+        self.runtime_info = runtime_device_info(self.runtime_device)
+        (self.output_dir / "runtime.json").write_text(
+            json.dumps(self.runtime_info, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(f"[Adapter] Runtime device: {self.runtime_device} ({self.runtime_info.get('cuda_device_name', 'CPU')})")
+
         self.agent = create_algorithm(
             name=self.config.algorithm,
             num_obs=self.contract.observation.dimension,
             num_actions=self.contract.action.dimension,
             config=agent_config,
-            device="cuda" if self.config.device == "cuda" and __import__("torch").cuda.is_available() else "cpu",
+            device=self.runtime_device,
         )
 
     def train(
@@ -181,6 +239,7 @@ class MJLabTrainingAdapter:
                     "reward_std": float(np.std(rewards)),
                     "episode_length": num_steps,
                     "learning_rate": self.config.learning_rate,
+                    "device": self.runtime_device,
                     **(metrics_history[-1] if metrics_history else {}),
                 }
                 self.metrics_history.append(metrics)
@@ -212,7 +271,7 @@ class MJLabTrainingAdapter:
                 np.asarray(rollout_actions).reshape(-1, self.contract.action.dimension),
                 returns.reshape(-1), advantages.reshape(-1), np.asarray(rollout_log_probs).reshape(-1),
             )
-            metrics = {"iteration": iteration, "reward_mean": float(rewards.mean()), "reward_std": float(rewards.std()), "episode_length": num_steps, "learning_rate": self.config.learning_rate, **update_metrics}
+            metrics = {"iteration": iteration, "reward_mean": float(rewards.mean()), "reward_std": float(rewards.std()), "episode_length": num_steps, "learning_rate": self.config.learning_rate, "device": self.runtime_device, **update_metrics}
 
             self.metrics_history.append(metrics)
 

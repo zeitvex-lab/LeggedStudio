@@ -51,6 +51,25 @@ async function loadTrainingOptions() {
   const payload = await jsonFetch('/api/training/options');
   $('algorithm').innerHTML = (payload.algorithms || []).map((item) => `<option value="${item.id}" ${item.available ? '' : 'disabled'}>${item.label}${item.available ? '' : '（未接入）'}</option>`).join('');
   rewardDefaults = payload.reward_terms || {};
+  const hardware = payload.hardware || {};
+  const torch = hardware.torch || {};
+  const deviceSelect = $('device');
+  if (deviceSelect) {
+    const options = ['auto'];
+    if (torch.cuda_available) options.push('cuda', ...(torch.devices || []).map((item) => `cuda:${item.index}`));
+    options.push('cpu');
+    const previous = deviceSelect.value;
+    deviceSelect.innerHTML = options.map((value) => `<option value="${value}">${value === 'auto' ? '自动' : value.toUpperCase()}</option>`).join('');
+    deviceSelect.value = options.includes(previous) ? previous : (torch.cuda_available ? 'auto' : 'cpu');
+  }
+  const hardwareHint = $('hardwareHint');
+  if (hardwareHint) hardwareHint.textContent = torch.cuda_available
+    ? `GPU 可用: ${(torch.devices || []).map((item) => item.name).join(', ')}`
+    : `GPU 不可用，训练将使用 CPU (${torch.error || 'torch CUDA unavailable'})`;
+  const backendSelect = $('backend');
+  const native = hardware.native_mjlab || {};
+  const nativeOption = backendSelect?.querySelector('option[value="native_mjlab"]');
+  if (nativeOption) nativeOption.disabled = !(native.execution_ready && native.exists && native.manager_env_available && native.dependencies_importable);
   renderRewards();
 }
 
@@ -226,6 +245,7 @@ function trainingPayload() {
     task_name: $('taskName').value || 'forward_walk',
     terrain_type: $('terrain').value,
     device: $('device').value,
+    backend: $('backend')?.value || 'local_mujoco',
     reward_scales,
     gamma: Number($('gamma').value),
     gae_lambda: Number($('gaeLambda').value),

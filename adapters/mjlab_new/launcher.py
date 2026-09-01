@@ -6,6 +6,7 @@ MJLab Training Launcher
 import subprocess
 import sys
 import json
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime
@@ -49,8 +50,7 @@ class TrainingLauncher:
             json.dump(config, f, indent=2)
 
         # 准备命令
-        mjlab_venv = self._find_mjlab_venv()
-        python_exe = mjlab_venv / "Scripts" / "python.exe" if mjlab_venv else sys.executable
+        python_exe = self._select_python(config)
 
         worker_script = Path(__file__).parent / "train_worker.py"
 
@@ -197,6 +197,39 @@ class TrainingLauncher:
             if mjlab_venv.exists():
                 return mjlab_venv
         return None
+
+    @staticmethod
+    def _python_has_cuda(python_exe: Path) -> bool:
+        """Probe an interpreter in a short-lived process before launching a run."""
+        try:
+            result = subprocess.run(
+                [str(python_exe), "-c", "import torch; print(int(torch.cuda.is_available()))"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            return result.returncode == 0 and result.stdout.strip().endswith("1")
+        except (OSError, subprocess.SubprocessError):
+            return False
+
+    def _select_python(self, config: dict) -> Path:
+        requested = str(config.get("device", "auto")).lower()
+        explicit = os.environ.get("LEGGED_STUDIO_TRAIN_PYTHON")
+        candidates: list[Path] = []
+        if explicit:
+            candidates.append(Path(explicit))
+        venv = self._find_mjlab_venv()
+        if venv:
+            candidates.append(venv / "Scripts" / "python.exe")
+        candidates.append(Path(sys.executable))
+        candidates = [item for item in candidates if item.exists()]
+        if requested.startswith("cuda") or requested == "auto":
+            for candidate in candidates:
+                if self._python_has_cuda(candidate):
+                    return candidate
+            if requested.startswith("cuda"):
+                raise RuntimeError("CUDA training requested, but no candidate Python environment has CUDA-enabled torch")
+        return candidates[0] if candidates else Path(sys.executable)
 
     def _prepare_env(self) -> dict:
         """准备环境变量"""

@@ -44,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("algorithms", help="list registered algorithms")
+    sub.add_parser("hardware", help="show CUDA and native MJLab capabilities")
     model = sub.add_parser("validate-model", help="validate a URDF/MJCF model")
     model.add_argument("path")
     model.add_argument("--format", choices=["auto", "urdf", "mjcf"], default="auto")
@@ -67,6 +68,8 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--algorithm", default="PPO")
     train.add_argument("--iterations", type=int, default=1000)
     train.add_argument("--num-envs", type=int, default=4096)
+    train.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    train.add_argument("--backend", choices=["local_mujoco", "native_mjlab"], default="local_mujoco")
 
     evaluate = sub.add_parser("evaluate", help="evaluate a completed task")
     evaluate.add_argument("task_id")
@@ -86,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     base = args.base_url
     if args.command == "algorithms":
         result = _request(base, "GET", "/api/training/options")
+    elif args.command == "hardware":
+        result = _request(base, "GET", "/api/training/hardware")
     elif args.command == "validate-model":
         result = _request(base, "POST", "/api/models/validate", {"path": args.path, "format": args.format})
     elif args.command == "validate-contract":
@@ -100,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
             session_id = result["session_id"]
             result = _request(base, "POST", f"/api/simulation/sessions/{session_id}/step", {"command": {"vx": args.vx, "vy": args.vy, "wz": args.wz}})
     elif args.command == "train":
-        result = _request(base, "POST", "/api/training/create", {"contract": _json_file(args.contract), "algorithm": args.algorithm, "max_iterations": args.iterations, "num_envs": args.num_envs})
+        result = _request(base, "POST", "/api/training/create", {"contract": _json_file(args.contract), "algorithm": args.algorithm, "max_iterations": args.iterations, "num_envs": args.num_envs, "device": args.device, "backend": args.backend})
     elif args.command == "evaluate":
         result = _request(base, "POST", "/api/evaluation/run", {"task_id": args.task_id, "episodes": args.episodes})
     else:

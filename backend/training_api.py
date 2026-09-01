@@ -18,6 +18,44 @@ from adapters.mjlab_new.recipe_registry import list_tasks, resolve_recipe
 router = APIRouter(prefix="/api/training", tags=["training"])
 
 
+@router.get("/hardware")
+async def training_hardware():
+    """Report the runtime capabilities used by the training worker."""
+    import importlib.util
+    import sys
+
+    result = {
+        "python": sys.executable,
+        "torch": {"available": False, "version": None, "cuda_available": False, "cuda_version": None, "devices": []},
+    }
+    try:
+        import torch
+
+        devices = []
+        if torch.cuda.is_available():
+            for index in range(torch.cuda.device_count()):
+                props = torch.cuda.get_device_properties(index)
+                devices.append({"index": index, "name": props.name, "total_memory_bytes": int(props.total_memory)})
+        result["torch"] = {
+            "available": True,
+            "version": torch.__version__,
+            "cuda_available": bool(torch.cuda.is_available()),
+            "cuda_version": torch.version.cuda,
+            "devices": devices,
+        }
+    except Exception as exc:
+        result["torch"]["error"] = str(exc)
+
+    from adapters.mjlab_new.native_adapter import preflight
+    native = preflight()
+    result["native_mjlab"] = {
+        **native,
+        "dependencies_importable": bool(native.get("runtime", {}).get("available")) or all(importlib.util.find_spec(name) for name in ("tyro", "warp", "mujoco_warp", "rsl_rl")),
+    }
+    result["supported_devices"] = ["auto", "cpu"] + (["cuda"] + [f"cuda:{i}" for i in range(len(result["torch"]["devices"]))] if result["torch"]["cuda_available"] else [])
+    return result
+
+
 # ========== 请求/响应模型 ==========
 
 class CreateTrainingRequest(BaseModel):
@@ -31,7 +69,7 @@ class CreateTrainingRequest(BaseModel):
     episode_length_s: float = 20.0
     task_name: str = "forward_walk"
     terrain_type: str = "plane"
-    device: str = "auto"
+    device: str = Field(default="auto", pattern=r"^(auto|cpu|cuda(?::\d+)?)$")
     reward_scales: dict[str, float] = Field(default_factory=dict)
     # Shared advanced fields. PPO ignores off-policy-only values; keeping one
     # request shape makes Web, CLI, and future adapters interchangeable.
@@ -174,6 +212,7 @@ async def training_options():
         "algorithms": list_algorithms(),
         "reward_terms": get_reward_terms(),
         "tasks": list_tasks(),
+        "hardware": await training_hardware(),
     }
 
 
