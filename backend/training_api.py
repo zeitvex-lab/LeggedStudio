@@ -11,6 +11,7 @@ from backend.training_manager import get_training_manager
 from contracts.robot_contract_v2 import RobotContractV2
 from adapters.mjlab_new.env_factory import get_reward_terms
 from adapters.mjlab_new.algorithms.registry import list_algorithms
+from adapters.mjlab_new.recipe_registry import list_tasks, resolve_recipe
 
 
 router = APIRouter(prefix="/api/training", tags=["training"])
@@ -45,6 +46,8 @@ class CreateTrainingRequest(BaseModel):
     alpha: float = Field(default=0.2, gt=0.0)
     policy_delay: int = Field(default=2, ge=1, le=16)
     exploration_noise: float = Field(default=0.1, ge=0.0, le=2.0)
+    seed: int = Field(default=0, ge=0, le=2_147_483_647)
+    backend: str = Field(default="local_mujoco", pattern="^(local_mujoco|native_mjlab)$")
 
 
 class TrainingStatusResponse(BaseModel):
@@ -112,7 +115,20 @@ async def create_training(request: CreateTrainingRequest):
             "alpha": request.alpha,
             "policy_delay": request.policy_delay,
             "exploration_noise": request.exploration_noise,
+            "seed": request.seed,
+            "backend": request.backend,
         }
+        try:
+            resolved_recipe = resolve_recipe(config)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        config["resolved_recipe"] = resolved_recipe.model_dump(mode="json")
+        if request.backend == "native_mjlab":
+            from adapters.mjlab_new.native_adapter import preflight
+            native = preflight()
+            if not native["exists"] or not native["manager_env_available"]:
+                raise HTTPException(status_code=501, detail={"message": "native MJLab adapter is not ready", "preflight": native})
+            raise HTTPException(status_code=501, detail="native MJLab worker boundary is reserved; select local_mujoco for the verified path")
 
         # 创建任务
         manager = get_training_manager()
@@ -138,8 +154,18 @@ async def training_options():
     return {
         "algorithms": list_algorithms(),
         "reward_terms": get_reward_terms(),
-        "tasks": ["forward_walk", "trot", "rough_terrain"],
+        "tasks": list_tasks(),
     }
+
+
+@router.post("/resolve-recipe")
+async def resolve_training_recipe(config: dict):
+    """Validate and return the canonical recipe consumed by workers."""
+    try:
+        recipe = resolve_recipe(config)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"valid": True, "recipe": recipe.model_dump(mode="json")}
 
 
 @router.get("/list")

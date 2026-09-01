@@ -12,6 +12,7 @@ import json
 import math
 import time
 import uuid
+import threading
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -21,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from adapters.mjlab_new.mujoco_env import ContractMujocoEnv
 from backend.robot_presets import get_robot_preset
+from contracts.scenario_contract import ScenarioContract
 
 
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
@@ -87,6 +89,8 @@ class SimulationSessionRequest(BaseModel):
     map_id: str = "flat"
     mode: str = Field(default="basic", pattern="^(basic|navigation)$")
     episode_length_s: float = Field(default=60.0, gt=0.0, le=600.0)
+    seed: int = 0
+    scenario: dict[str, Any] | None = None
 
 
 class SimulationStepRequest(BaseModel):
@@ -118,15 +122,19 @@ class SimulationSession:
         wz = float(np.clip(command.get("wz", 0.0), -1.0, 1.0))
         action = np.zeros(self.env.action_dim, dtype=np.float32)
         phase = self.step_index * 0.25
-        leg_count = max(1, self.env.action_dim // 3)
-        for leg in range(leg_count):
+        joint_order = list(self.env.contract.action.joint_order)
+        for index, joint_name in enumerate(joint_order):
+            name = joint_name.lower()
+            leg = index // 4 if len(joint_order) >= 16 else index // 3
             offset = 0.0 if leg % 2 == 0 else math.pi
-            base = leg * 3
-            if base + 2 >= len(action):
-                break
-            action[base] = np.clip(0.08 * vy + 0.06 * wz, -1.0, 1.0)
-            action[base + 1] = np.clip(0.20 * vx * math.sin(phase + offset), -1.0, 1.0)
-            action[base + 2] = np.clip(-0.25 * abs(vx) * max(0.0, math.sin(phase + offset)), -1.0, 1.0)
+            if "wheel" in name:
+                action[index] = np.clip(0.55 * vx + 0.15 * vy + 0.1 * wz, -1.0, 1.0)
+            elif name.endswith("hip_joint"):
+                action[index] = np.clip(0.08 * vy + 0.06 * wz, -1.0, 1.0)
+            elif name.endswith("thigh_joint"):
+                action[index] = np.clip(0.20 * vx * math.sin(phase + offset), -1.0, 1.0)
+            else:
+                action[index] = np.clip(-0.25 * abs(vx) * max(0.0, math.sin(phase + offset)), -1.0, 1.0)
         return action
 
     def step(self, request: SimulationStepRequest) -> dict[str, Any]:
@@ -157,11 +165,30 @@ class SimulationSession:
 
 
 sessions: dict[str, SimulationSession] = {}
+sessions_lock = threading.Lock()
+SESSION_TTL_SECONDS = 30 * 60
+
+
+def _cleanup_sessions() -> None:
+    now = time.time()
+    with sessions_lock:
+        expired = [key for key, value in sessions.items() if now - value.created_at > SESSION_TTL_SECONDS]
+        for key in expired:
+            session = sessions.pop(key)
+            session.env.close()
 
 
 @router.get("/maps")
 async def list_maps() -> dict[str, Any]:
     return {"maps": list(MAPS.values()), "count": len(MAPS)}
+
+
+@router.get("/sessions")
+async def list_sessions() -> dict[str, Any]:
+    _cleanup_sessions()
+    with sessions_lock:
+        items = [{"session_id": item.session_id, "robot_id": item.robot_id, "map_id": item.map_id, "mode": item.mode, "step": item.step_index, "created_at": item.created_at} for item in sessions.values()]
+    return {"sessions": items, "count": len(items)}
 
 
 @router.post("/sessions")
@@ -177,15 +204,23 @@ async def create_session(request: SimulationSessionRequest) -> dict[str, Any]:
     from contracts.robot_contract_v2 import RobotContractV2
 
     contract = RobotContractV2(**preset["contract"])
+    scenario_payload = request.scenario or {"scenario_id": f"{request.map_id}_session", "map_id": request.map_id, "mode": mode, "seed": request.seed, "episode_length_s": request.episode_length_s}
+    try:
+        scenario = ScenarioContract(**scenario_payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"invalid scenario: {exc}") from exc
     env = ContractMujocoEnv(contract, num_envs=1, episode_length_s=request.episode_length_s, scene_geoms=_scene_geoms(request.map_id))
     session_id = f"sim_{uuid.uuid4().hex[:12]}"
     session = SimulationSession(session_id, request.robot_id, request.map_id, mode, env)
-    sessions[session_id] = session
-    return {"success": True, "session_id": session_id, "map": MAPS[request.map_id], "frame": session.reset()}
+    with sessions_lock:
+        sessions[session_id] = session
+    return {"success": True, "session_id": session_id, "scenario": scenario.to_payload(), "map": MAPS[request.map_id], "frame": session.reset()}
 
 
 def _get_session(session_id: str) -> SimulationSession:
-    session = sessions.get(session_id)
+    _cleanup_sessions()
+    with sessions_lock:
+        session = sessions.get(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail=f"Simulation session not found: {session_id}")
     return session
@@ -216,5 +251,6 @@ async def reset_session(session_id: str) -> dict[str, Any]:
 async def close_session(session_id: str) -> dict[str, Any]:
     session = _get_session(session_id)
     session.env.close()
-    sessions.pop(session_id, None)
+    with sessions_lock:
+        sessions.pop(session_id, None)
     return {"success": True, "session_id": session_id}

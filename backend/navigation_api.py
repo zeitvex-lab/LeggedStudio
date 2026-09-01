@@ -9,7 +9,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from adapters.mjlab_new.algorithms.ppo import PPOAlgorithm, PPOConfig
+from adapters.mjlab_new.algorithms.registry import create_algorithm
 from adapters.mjlab_new.mujoco_env import ContractMujocoEnv
 from contracts.policy_artifact import PolicyArtifact
 from backend.simulation_api import MAPS, _scene_geoms
@@ -70,10 +70,11 @@ async def run_navigation(request: NavigationRequest):
         reward_scales=config.get("reward_scales", {}),
         scene_geoms=_scene_geoms(request.map_id),
     )
-    agent = PPOAlgorithm(
+    agent = create_algorithm(
+        name=str(config.get("algorithm", "PPO")),
         num_obs=task.contract.observation.dimension,
         num_actions=task.contract.action.dimension,
-        config=PPOConfig(learning_rate=float(config.get("learning_rate", 3e-4))),
+        config=config,
         device="cpu",
     )
     try:
@@ -98,14 +99,19 @@ async def run_navigation(request: NavigationRequest):
                     wz = float(np.clip(command.get("wz", 0.0), -1.0, 1.0))
                     action = np.zeros(task.contract.action.dimension, dtype=np.float32)
                     phase = steps * 0.25
-                    for leg in range(max(1, task.contract.action.dimension // 3)):
+                    joint_order = list(task.contract.action.joint_order)
+                    for index, joint_name in enumerate(joint_order):
+                        name = joint_name.lower()
+                        leg = index // 4 if len(joint_order) >= 16 else index // 3
                         offset = 0.0 if leg % 2 == 0 else np.pi
-                        base = leg * 3
-                        if base + 2 >= len(action):
-                            break
-                        action[base] = np.clip(0.08 * vy + 0.06 * wz, -1.0, 1.0)
-                        action[base + 1] = np.clip(0.20 * vx * np.sin(phase + offset), -1.0, 1.0)
-                        action[base + 2] = np.clip(-0.25 * abs(vx) * max(0.0, np.sin(phase + offset)), -1.0, 1.0)
+                        if "wheel" in name:
+                            action[index] = np.clip(0.55 * vx + 0.15 * vy + 0.1 * wz, -1.0, 1.0)
+                        elif name.endswith("hip_joint"):
+                            action[index] = np.clip(0.08 * vy + 0.06 * wz, -1.0, 1.0)
+                        elif name.endswith("thigh_joint"):
+                            action[index] = np.clip(0.20 * vx * np.sin(phase + offset), -1.0, 1.0)
+                        else:
+                            action[index] = np.clip(-0.25 * abs(vx) * max(0.0, np.sin(phase + offset)), -1.0, 1.0)
                 else:
                     action, _ = agent.act(obs, deterministic=True)
                 obs, reward, done, info = env.step(action)

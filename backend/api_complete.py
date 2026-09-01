@@ -52,6 +52,8 @@ except ImportError as exc:  # optional MuJoCo/NumPy stack
     SIM_IMPORT_ERROR = str(exc)
 from contracts.robot_contract_v2 import RobotContractV2
 from contracts.validator import validate_contract as validate_robot_contract
+from contracts.scenario_contract import ScenarioContract
+from adapters.mjlab_new.native_adapter import preflight as native_mjlab_preflight
 
 app = FastAPI(
     title="Legged Studio API",
@@ -195,6 +197,15 @@ async def validate_robot_contract_endpoint(contract_data: dict[str, Any]) -> dic
         "summary": contract.get_summary(),
     }
 
+
+@app.post("/api/scenarios/validate")
+async def validate_scenario(scenario_data: dict[str, Any]) -> dict[str, Any]:
+    try:
+        scenario = ScenarioContract(**scenario_data)
+    except Exception as exc:
+        return {"valid": False, "errors": [str(exc)], "warnings": []}
+    return {"valid": True, "errors": [], "warnings": [], "scenario": scenario.to_payload()}
+
 # Web 控制台
 WEB_DIR = Path(__file__).parent.parent / "web"
 
@@ -266,7 +277,7 @@ async def get_capabilities():
         "control_plane": True,
         "adapters": {
             "local_mujoco": simulation_router is not None,
-            "native_mjlab": False,
+            "native_mjlab": native_mjlab_preflight().get("exists", False),
             "export_onnx": export_router is not None,
         },
         "import_errors": {
@@ -276,6 +287,17 @@ async def get_capabilities():
                 "simulation": globals().get("SIM_IMPORT_ERROR"),
             }.items() if value
         },
+    }
+
+
+@app.get("/api/adapters/status")
+async def get_adapter_status():
+    """Report local and native adapter readiness for the Web setup panel."""
+    native = native_mjlab_preflight()
+    return {
+        "local_mujoco": {"status": "ready" if simulation_router is not None else "missing_dependencies", "api_loaded": simulation_router is not None},
+        "native_mjlab": native,
+        "policy": "native MJLab is opt-in and runs in an isolated adapter process",
     }
 
 @app.get("/api")
@@ -290,6 +312,8 @@ async def api_info():
             "pipeline": "/api/pipeline",
             "navigation": "/api/navigation",
             "simulation": "/api/simulation",
+            "scenarios": "/api/scenarios/validate",
+            "adapters": "/api/adapters/status",
             "system": "/api/system"
         },
         "docs": "/docs"

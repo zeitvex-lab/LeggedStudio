@@ -28,8 +28,10 @@ flowchart LR
 | Desktop/Web | Lifecycle, forms, logs, plots, workflow navigation | Implemented for local control plane |
 | Contract store | Versioned robot, scenario, recipe, and policy metadata | Robot Contract v2 and PolicyArtifact are implemented; Scenario Contract is the next extension |
 | Registry | Discover algorithms, rewards, maps, and task options | PPO/SAC/TD3 registry and reward/map discovery implemented |
+| Recipe registry | Resolve task, algorithm, terrain, commands, and reward scales into one reproducible payload | `adapters/mjlab_new/recipe_registry.py` and `/api/training/resolve-recipe` implemented |
+| Scenario Contract | Version map, waypoints, command limits, seed, and metrics | `contracts/scenario_contract.py` and `/api/scenarios/validate` implemented |
 | Local adapter | Small CPU MuJoCo environment and smoke training | Verified for PPO/SAC/TD3 smoke runs when adapter dependencies are installed |
-| Native MJLab adapter | `mjlab_new/mjlab` manager-based GPU training | Reserved adapter boundary; requires a pinned Python/CUDA environment and is not claimed as complete |
+| Native MJLab adapter | `mjlab_new/mjlab` manager-based GPU training | Preflight and manager-based launch spec implemented; worker execution remains opt-in future work |
 | Navigation planner | Waypoints, manual commands, locomotion policy replay | Waypoint replay API implemented; pure-pursuit/recovery state machine is a Phase 2 enhancement |
 | Artifact/export | Checkpoints, manifest, ONNX/deployment mapping | Manifest/checkpoint path exists; hardware-specific export remains an explicit boundary |
 
@@ -61,5 +63,5 @@ Python environment.
 ## Verification levels
 
 - **Verified**: API health, model and Contract validation, local MuJoCo session lifecycle, and low-scale PPO/SAC/TD3 smoke training.
-- **Candidate**: native MJLab manager-based training, GPU acceleration, and Viser/Three.js rich simulation rendering.
+- **Candidate**: native MJLab manager-based training, GPU acceleration, and Viser/Three.js rich simulation rendering. `/api/adapters/status` reports source readiness without importing the native stack into the control plane.
 - **Phase 2/3**: waypoint-conditioned planner, scenario persistence, ONNX numerical replay gates, and hardware deployment.

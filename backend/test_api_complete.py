@@ -27,6 +27,19 @@ class CompleteApiContractTests(unittest.TestCase):
         self.assertFalse(payload["valid"])
         self.assertTrue(payload["errors"])
 
+    def test_scenario_validation_and_recipe_resolution(self):
+        client = TestClient(app)
+        scenario = {"scenario_id": "warehouse_demo", "map_id": "warehouse", "mode": "navigation", "waypoints": [{"x": 0, "y": 0}, {"x": 2, "y": 1}]}
+        response = client.post("/api/scenarios/validate", json=scenario)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["valid"])
+
+        response = client.post("/api/training/resolve-recipe", json={"task_name": "rough_terrain", "algorithm": "sac", "reward_scales": {"torques": 0}})
+        self.assertEqual(response.status_code, 200)
+        recipe = response.json()["recipe"]
+        self.assertEqual(recipe["algorithm"], "SAC")
+        self.assertEqual(recipe["reward_scales"]["torques"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

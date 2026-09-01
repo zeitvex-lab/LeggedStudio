@@ -49,6 +49,8 @@ def build_parser() -> argparse.ArgumentParser:
     model.add_argument("--format", choices=["auto", "urdf", "mjcf"], default="auto")
     contract = sub.add_parser("validate-contract", help="validate a Robot Contract JSON")
     contract.add_argument("path")
+    scenario = sub.add_parser("validate-scenario", help="validate a Scenario Contract JSON")
+    scenario.add_argument("path")
     sub.add_parser("maps", help="list simulation and navigation maps")
 
     simulate = sub.add_parser("simulate", help="create and optionally step a simulation session")
@@ -88,6 +90,8 @@ def main(argv: list[str] | None = None) -> int:
         result = _request(base, "POST", "/api/models/validate", {"path": args.path, "format": args.format})
     elif args.command == "validate-contract":
         result = _request(base, "POST", "/api/contracts/validate", _json_file(args.path))
+    elif args.command == "validate-scenario":
+        result = _request(base, "POST", "/api/scenarios/validate", _json_file(args.path))
     elif args.command == "maps":
         result = _request(base, "GET", "/api/simulation/maps")
     elif args.command == "simulate":

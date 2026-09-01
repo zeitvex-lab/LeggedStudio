@@ -160,6 +160,24 @@ class EnvFactory:
 
         return True
 
+    @staticmethod
+    def manager_based_config(contract: RobotContractV2, recipe: Dict[str, Any]) -> Dict[str, Any]:
+        """Translate a resolved recipe to MJLab's manager-based vocabulary."""
+        environment = recipe.get("environment", {})
+        return {
+            "env_class": "mjlab.envs.ManagerBasedRlEnv",
+            "num_envs": int(environment.get("num_envs", 4096)),
+            "episode_length_s": float(environment.get("episode_length_s", 20.0)),
+            "scene": {"robot": contract.robot_id, "asset_path": str(resolve_asset_path(contract.urdf.path)), "terrain": environment.get("terrain_type", "plane")},
+            "commands": {"base_velocity": {"ranges": {"lin_vel_x": [-1.0, 1.0], "lin_vel_y": [-1.0, 1.0], "ang_vel_z": [-1.0, 1.0]} }},
+            "observations": {"policy": {"components": contract.observation.components, "dimension": contract.observation.dimension}},
+            "actions": {"joint_position": {"joint_names": contract.action.joint_order, "scale": contract.action.action_scale}},
+            "rewards": recipe.get("reward_scales", {}),
+            "terminations": {"time_out": True, "fallen": True},
+            "curriculum": {},
+            "metrics": ["episode_reward", "episode_length", "tracking_error"],
+        }
+
 
 # ========== 奖励配置预设 ==========
 
