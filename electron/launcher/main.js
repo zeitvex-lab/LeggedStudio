@@ -20,6 +20,8 @@ function resolvePaths() {
     const resourceRoot = process.resourcesPath || path.dirname(process.execPath);
     const packagedRoot = path.join(resourceRoot, 'app');
     const root = IS_DEV ? projectRoot : firstExisting([packagedRoot, path.dirname(process.execPath)]);
+    const pythonExecutable = process.platform === 'win32' ? 'python.exe' : 'python';
+    const venvBin = process.platform === 'win32' ? 'Scripts' : 'bin';
     const backend = firstExisting([
         path.join(root, 'backend', 'api_complete.py'),
         path.join(root, 'backend', 'api.py'),
@@ -27,11 +29,11 @@ function resolvePaths() {
         path.join(resourceRoot, 'backend', 'api_complete.py'),
     ]);
     const python = firstExisting([
-        path.join(root, 'runtime', 'python', 'python.exe'),
-        path.join(root, 'adapters', 'mjlab', '.venv', 'Scripts', 'python.exe'),
-        path.join(root, 'adapters', 'mjlab_new', '.venv', 'Scripts', 'python.exe'),
-        path.join(resourceRoot, 'runtime', 'python', 'python.exe'),
-        path.join(projectRoot, 'runtime', 'python', 'python.exe'),
+        path.join(root, 'runtime', 'python', pythonExecutable),
+        path.join(root, 'adapters', 'mjlab', '.venv', venvBin, pythonExecutable),
+        path.join(root, 'adapters', 'mjlab_new', '.venv', venvBin, pythonExecutable),
+        path.join(resourceRoot, 'runtime', 'python', pythonExecutable),
+        path.join(projectRoot, 'runtime', 'python', pythonExecutable),
     ]);
     const inventory = firstExisting([
         path.join(root, 'QUADRUPED_ASSET_INVENTORY.json'),

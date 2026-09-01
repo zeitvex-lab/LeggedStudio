@@ -15,8 +15,14 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_SOURCE = Path(os.environ.get("LEGGED_STUDIO_MJLAB_SOURCE", "C:/Users/31560/Documents/00_open/mjlab_new/mjlab"))
-DEFAULT_EXTENSION = Path(os.environ.get("LEGGED_STUDIO_MJLAB_EXTENSION", "C:/Users/31560/Documents/00_open/uni_rl/unitree_rl_mjlab"))
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_SOURCE = Path(os.environ.get("LEGGED_STUDIO_MJLAB_SOURCE", "C:/Users/31560/Documents/00_open/mjlab_new/mjlab" if os.name == "nt" else str(_PROJECT_ROOT / "vendor" / "mjlab")))
+DEFAULT_EXTENSION = Path(os.environ.get("LEGGED_STUDIO_MJLAB_EXTENSION", "C:/Users/31560/Documents/00_open/uni_rl/unitree_rl_mjlab" if os.name == "nt" else str(_PROJECT_ROOT / "vendor" / "unitree_rl_mjlab")))
+
+
+def _venv_python(venv: Path) -> Path:
+    """Resolve the interpreter layout on Windows and POSIX hosts."""
+    return venv / ("Scripts" if os.name == "nt" else "bin") / ("python.exe" if os.name == "nt" else "python")
 
 
 def _probe_runtime(source: Path) -> dict[str, Any]:
@@ -26,7 +32,7 @@ def _probe_runtime(source: Path) -> dict[str, Any]:
     if explicit:
         candidates.append(Path(explicit))
     adapter_venv = Path(__file__).parent.parent / "mjlab" / ".venv"
-    candidates.append(adapter_venv / "Scripts" / "python.exe")
+    candidates.append(_venv_python(adapter_venv))
     candidates.append(Path(sys.executable))
     modules = "import tyro, warp, mujoco_warp, rsl_rl, mjlab; import torch; print('ok cuda=' + str(int(torch.cuda.is_available())))"
     probes = []

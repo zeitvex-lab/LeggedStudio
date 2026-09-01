@@ -48,7 +48,7 @@ Opening the launcher remains read-only. After **Start control plane** is
 clicked, missing FastAPI/Uvicorn dependencies are installed into the selected
 runtime; existing MuJoCo, Torch, ONNX, and MJLab packages are reused.
 
-## Build a Windows package
+## Build desktop packages
 
 Use a directory build for local verification:
 
@@ -56,7 +56,26 @@ Use a directory build for local verification:
 npx electron-builder --dir
 ```
 
-The package includes the launcher, backend, contracts, pipeline, Web assets, adapter source, and the quadruped inventory. Adapter virtual environments and Python bytecode are excluded from the package; install them separately per adapter.
+The package includes the launcher, backend, contracts, pipeline, Web assets, adapter source, and the quadruped inventory. Adapter virtual environments and Python bytecode are excluded from the package; install or select them separately after opening the launcher.
+
+Windows portable package:
+
+```powershell
+npm run build:win
+```
+
+Linux AppImage (build on a Linux host or CI runner):
+
+```bash
+npm ci
+npm run build:linux
+```
+
+The Linux launcher uses `bin/python`, sends SIGTERM when stopping the backend,
+and stores writable data under the platform Electron user-data directory. Native
+MJLab still requires a separately installed source tree and CUDA-capable Python
+environment; set the MJLab source/extension paths in the environment or runtime
+settings before creating native runs.
 
 ## Troubleshooting
 

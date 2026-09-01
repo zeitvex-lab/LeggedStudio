@@ -5,8 +5,11 @@
   "main": "electron/launcher/main.js",
   "scripts": {
     "start": "node scripts/start-electron.js",
-    "dev": "set NODE_ENV=development&& node scripts/start-electron.js",
+    "dev": "node scripts/start-electron.js --dev",
     "build": "electron-builder",
+    "build:win": "electron-builder --win portable",
+    "build:linux": "electron-builder --linux AppImage",
+    "build:dir": "electron-builder --dir",
     "test": "uv run --no-sync python -m unittest discover -s backend -p \"test_*.py\" -v"
   },
   "keywords": [
@@ -90,6 +93,13 @@
     "win": {
       "target": "portable",
       "signAndEditExecutable": false
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "dir"
+      ],
+      "category": "Development"
     }
   }
 }

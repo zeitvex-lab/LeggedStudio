@@ -55,8 +55,10 @@ class TrainingLauncher:
         native = str(config.get("backend", "local_mujoco")) == "native_mjlab"
         worker_script = Path(__file__).parent / ("native_worker.py" if native else "train_worker.py")
         if native:
-            extension = config.get("mjlab_extension_root", os.environ.get("LEGGED_STUDIO_MJLAB_EXTENSION", "C:/Users/31560/Documents/00_open/uni_rl/unitree_rl_mjlab"))
-            cmd = [str(python_exe), str(worker_script), "--source", str(config.get("mjlab_source", os.environ.get("LEGGED_STUDIO_MJLAB_SOURCE", "C:/Users/31560/Documents/00_open/mjlab_new/mjlab"))), "--extension-root", str(extension), "--contract", str(contract_path), "--config", str(config_path), "--output", str(task_dir)]
+            from .native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE
+            extension = config.get("mjlab_extension_root", str(DEFAULT_EXTENSION))
+            source = config.get("mjlab_source", str(DEFAULT_SOURCE))
+            cmd = [str(python_exe), str(worker_script), "--source", str(source), "--extension-root", str(extension), "--contract", str(contract_path), "--config", str(config_path), "--output", str(task_dir)]
         else:
             cmd = [str(python_exe), str(worker_script), "--contract", str(contract_path), "--config", str(config_path), "--output", str(task_dir), "--task-id", task_id]
 
@@ -198,6 +200,11 @@ class TrainingLauncher:
         return None
 
     @staticmethod
+    def _venv_python(venv: Path) -> Path:
+        """Resolve the interpreter layout on Windows and POSIX hosts."""
+        return venv / ("Scripts" if os.name == "nt" else "bin") / ("python.exe" if os.name == "nt" else "python")
+
+    @staticmethod
     def _python_has_cuda(python_exe: Path) -> bool:
         """Probe an interpreter in a short-lived process before launching a run."""
         try:
@@ -219,7 +226,7 @@ class TrainingLauncher:
             candidates.append(Path(explicit))
         venv = self._find_mjlab_venv()
         if venv:
-            candidates.append(venv / "Scripts" / "python.exe")
+            candidates.append(self._venv_python(venv))
         candidates.append(Path(sys.executable))
         candidates = [item for item in candidates if item.exists()]
         if str(config.get("backend", "local_mujoco")) == "native_mjlab":

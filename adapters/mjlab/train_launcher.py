@@ -5,11 +5,12 @@
 
 import subprocess
 import sys
+import os
 from pathlib import Path
 
 
 ADAPTER_ROOT = Path(__file__).parent
-VENV_PYTHON = ADAPTER_ROOT / ".venv" / "Scripts" / "python.exe"
+VENV_PYTHON = ADAPTER_ROOT / ".venv" / ("Scripts" if os.name == "nt" else "bin") / ("python.exe" if os.name == "nt" else "python")
 
 
 def check_environment():

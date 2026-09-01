@@ -174,8 +174,8 @@ async def create_training(request: CreateTrainingRequest):
                 config["native_task_id"] = "Unitree-Go2W-Flat"
             else:
                 config["native_task_id"] = "Unitree-Go2-Rough" if request.terrain_type in {"rough", "stairs"} else "Unitree-Go2-Flat"
-            config["mjlab_extension_root"] = "C:/Users/31560/Documents/00_open/uni_rl/unitree_rl_mjlab"
-            from adapters.mjlab_new.native_adapter import preflight
+            from adapters.mjlab_new.native_adapter import DEFAULT_EXTENSION, preflight
+            config["mjlab_extension_root"] = str(DEFAULT_EXTENSION)
             native = preflight()
             if not native["exists"] or not native["manager_env_available"] or not native.get("runtime", {}).get("available"):
                 raise HTTPException(status_code=501, detail={"message": "native MJLab adapter is not ready", "preflight": native})

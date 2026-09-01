@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Optional
 import json
 import subprocess
+import os
 
 
 class MJLabTrainer:
@@ -14,7 +15,7 @@ class MJLabTrainer:
 
     def __init__(self, adapter_root: Path):
         self.adapter_root = Path(adapter_root)
-        self.venv_python = self.adapter_root / ".venv" / "Scripts" / "python.exe"
+        self.venv_python = self.adapter_root / ".venv" / ("Scripts" if os.name == "nt" else "bin") / ("python.exe" if os.name == "nt" else "python")
 
     def check_environment(self) -> bool:
         """检查环境"""

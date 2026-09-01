@@ -342,7 +342,7 @@ async def get_environment_status():
         adapters[adapter_id] = {
             "name": "MJLab Adapter",
             "venv_exists": exists,
-            "python_path": str(venv_path / ("Scripts" if sys.platform == "win32" else "bin") / "python.exe") if exists else None,
+            "python_path": str(venv_path / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python")) if exists else None,
             "status": "installed" if exists else "not_installed",
         }
 
