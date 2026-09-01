@@ -24,7 +24,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from backend.pipeline_api import router as pipeline_router
 
 # 导入所有路由
-from backend.pipeline_api import router as pipeline_router
 try:
     from backend.training_api import router as training_router
 except ImportError as exc:  # optional training stack; enabled after adapter setup
