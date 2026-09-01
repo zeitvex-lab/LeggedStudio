@@ -1,0 +1,7 @@
+# 控制面依赖
+fastapi>=0.115.0
+uvicorn[standard]>=0.31.0
+pydantic>=2.0.0
+
+# 用于加载 asset inventory（如果使用 JSON）
+# orjson>=3.9.0  # 可选：更快的 JSON 解析

@@ -1,0 +1,8 @@
+# Legged Studio Tools Dependencies
+
+# STL 体积计算工具
+numpy-stl>=3.0.0
+
+# 未来可能需要的工具依赖
+# matplotlib  # 可视化
+# trimesh     # 高级网格操作

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f0f1e">
+  <title>Legged Studio - 控制台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <!-- 壁纸层 -->
+  <div class="wallpaper-layer" id="wallpaper-layer">
+    <div class="wallpaper-gradient"></div>
+  </div>
+
+  <div class="layout">
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">🤖</div>
+        <div class="brand-text">
+          <strong>Legged Studio</strong>
+          <span>强化学习工作台</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <!-- 训练 -->
+        <div class="nav-group">
+          <div class="nav-group-label">训练</div>
+          <button class="nav-item active" data-tab="pipeline">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            <span>训练流水线</span>
+          </button>
+          <button class="nav-item" data-tab="tasks">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M8 12h8M8 16h5"/>
+            </svg>
+            <span>任务监控</span>
+          </button>
+          <button class="nav-item" data-tab="models">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 7V4h16v3M9 20v-6M15 20v-6M5 12h14M7 20h10"/>
+            </svg>
+            <span>模型管理</span>
+          </button>
+        </div>
+
+        <!-- 资源 -->
+        <div class="nav-group">
+          <div class="nav-group-label">资源</div>
+          <button class="nav-item" data-tab="assets">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="8" r="6"/>
+              <path d="M12 14v8M8 18l4 4 4-4"/>
+            </svg>
+            <span>机器人资产</span>
+          </button>
+          <button class="nav-item" data-tab="urdf">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>
+            </svg>
+            <span>URDF 查看器</span>
+          </button>
+          <button class="nav-item" data-tab="tools">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+            <span>工具箱</span>
+          </button>
+        </div>
+
+        <!-- 系统 -->
+        <div class="nav-group">
+          <div class="nav-group-label">系统</div>
+          <button class="nav-item" data-tab="settings">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v6m0 6v6m5-16.69V7m0 10v4.69M7 2.31V7m0 10v4.69M3 8a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8zm12 0a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8z"/>
+            </svg>
+            <span>设置</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- 侧边栏底部 -->
+      <div class="sidebar-footer">
+        <button class="sidebar-footer-btn" title="主题切换">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <button class="sidebar-footer-btn" title="帮助文档">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3m.08 4h.01"/>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="main">
+      <!-- 顶部状态栏 -->
+      <div class="topbar">
+        <div class="topbar-left">
+          <h1 class="page-title" id="page-title">训练流水线</h1>
+        </div>
+        <div class="topbar-right">
+          <div class="status-group">
+            <span class="status-indicator status-success">
+              <span class="status-dot"></span>
+              MJLab 就绪
+            </span>
+            <span class="status-indicator status-success">
+              <span class="status-dot"></span>
+              CUDA 可用
+            </span>
+          </div>
+          <div class="metrics-group">
+            <span class="metric">
+              <span class="metric-label">GPU</span>
+              <span class="metric-value" id="gpu-usage">—</span>
+            </span>
+            <span class="metric">
+              <span class="metric-label">内存</span>
+              <span class="metric-value" id="mem-usage">—</span>
+            </span>
+          </div>
+          <span class="clock" id="clock">00:00:00</span>
+        </div>
+      </div>
+
+      <!-- 内容区 -->
+      <div class="content" id="content">
+        <!-- 默认显示：训练流水线 -->
+        <div class="content-inner">
+          <!-- 快速操作卡片 -->
+          <div class="quick-cards">
+            <div class="card card-featured">
+              <div class="card-icon-lg">⚡</div>
+              <h3>快速体验</h3>
+              <p>加载预训练模型，立即查看 Sim2Sim 效果</p>
+              <button class="btn btn-primary btn-lg">开始体验</button>
+            </div>
+
+            <div class="card">
+              <div class="card-icon-lg">🚀</div>
+              <h3>新建训练</h3>
+              <p>上传 Contract，开始完整训练流程</p>
+              <button class="btn btn-secondary btn-lg">创建训练</button>
+            </div>
+
+            <div class="card">
+              <div class="card-icon-lg">📊</div>
+              <h3>模型库</h3>
+              <p>浏览预训练模型和历史训练结果</p>
+              <button class="btn btn-secondary btn-lg">浏览模型</button>
+            </div>
+          </div>
+
+          <!-- 系统状态 -->
+          <div class="section">
+            <h2 class="section-title">系统状态</h2>
+            <div class="status-cards">
+              <div class="status-card">
+                <div class="status-card-header">
+                  <span class="status-card-label">控制面</span>
+                  <span class="badge badge-success">运行中</span>
+                </div>
+                <div class="status-card-body">
+                  <div class="status-card-metric">
+                    <span class="label">Python</span>
+                    <span class="value">3.12.2</span>
+                  </div>
+                  <div class="status-card-metric">
+                    <span class="label">API</span>
+                    <span class="value">20+ 端点</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="status-card">
+                <div class="status-card-header">
+                  <span class="status-card-label">MJLab Adapter</span>
+                  <span class="badge badge-success">就绪</span>
+                </div>
+                <div class="status-card-body">
+                  <div class="status-card-metric">
+                    <span class="label">PyTorch</span>
+                    <span class="value">2.11.0</span>
+                  </div>
+                  <div class="status-card-metric">
+                    <span class="label">CUDA</span>
+                    <span class="value">12.8</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="status-card">
+                <div class="status-card-header">
+                  <span class="status-card-label">训练任务</span>
+                  <span class="badge badge-info">0 运行中</span>
+                </div>
+                <div class="status-card-body">
+                  <div class="status-card-metric">
+                    <span class="label">队列</span>
+                    <span class="value">0 等待</span>
+                  </div>
+                  <div class="status-card-metric">
+                    <span class="label">今日</span>
+                    <span class="value">0 完成</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 最近训练 -->
+          <div class="section">
+            <div class="section-header">
+              <h2 class="section-title">最近训练</h2>
+              <button class="btn btn-sm btn-ghost">查看全部</button>
+            </div>
+            <div class="task-list">
+              <div class="task-item">
+                <div class="task-icon">✅</div>
+                <div class="task-content">
+                  <div class="task-name">go2_forward_walk</div>
+                  <div class="task-meta">
+                    <span class="task-metric">Success Rate: 85%</span>
+                    <span class="task-time">2 小时前</span>
+                  </div>
+                </div>
+                <div class="task-actions">
+                  <button class="btn btn-xs btn-ghost">查看</button>
+                  <button class="btn btn-xs btn-ghost">导出</button>
+                </div>
+              </div>
+
+              <div class="task-item">
+                <div class="task-icon">✅</div>
+                <div class="task-content">
+                  <div class="task-name">a1_basic_locomotion</div>
+                  <div class="task-meta">
+                    <span class="task-metric">Success Rate: 78%</span>
+                    <span class="task-time">5 小时前</span>
+                  </div>
+                </div>
+                <div class="task-actions">
+                  <button class="btn btn-xs btn-ghost">查看</button>
+                  <button class="btn btn-xs btn-ghost">导出</button>
+                </div>
+              </div>
+
+              <div class="empty-state">
+                <p>暂无更多训练任务</p>
+                <button class="btn btn-primary">开始第一个训练</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

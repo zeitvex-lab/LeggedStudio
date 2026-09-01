@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>训练监控 - Legged Studio</title>
+  <link rel="stylesheet" href="dashboard_v2.css">
+  <style>
+    .monitor-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      margin-bottom: 24px;
+    }
+
+    .status-info h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .status-info p {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .progress-section {
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background: var(--surface-soft);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.3s ease;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .metric-card {
+      padding: 20px;
+      background: var(--surface-raised);
+      border-radius: var(--radius);
+      border: 1px solid var(--border-soft);
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: 'SF Mono', Consolas, monospace;
+    }
+
+    .log-section {
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .log-container {
+      background: var(--surface-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      margin-top: 16px;
+    }
+
+    .log-line {
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .log-line.error {
+      color: var(--danger);
+    }
+
+    .log-line.success {
+      color: var(--success);
+    }
+  </style>
+</head>
+<body>
+  <div class="monitor-container">
+    <!-- 页面头部 -->
+    <header class="page-header">
+      <div>
+        <span class="page-kicker">Training Monitor</span>
+        <h1 id="taskTitle">训练监控</h1>
+        <p id="taskSubtitle">实时监控训练进度和指标</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn" onclick="stopTraining()" id="stopBtn" style="display:none;">停止训练</button>
+        <a class="btn" href="dashboard_v2.html">返回</a>
+      </div>
+    </header>
+
+    <!-- 状态栏 -->
+    <div class="status-bar">
+      <div class="status-info">
+        <h3 id="statusTitle">加载中...</h3>
+        <p id="statusSubtitle">正在获取训练状态</p>
+      </div>
+      <span class="status-badge" id="statusBadge">...</span>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="progress-section">
+      <h3 style="font-size: 16px; margin-bottom: 8px;">训练进度</h3>
+      <p style="font-size: 13px; color: var(--muted);" id="progressText">0 / 0 (0%)</p>
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="progressBar" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- 训练指标 -->
+    <div class="progress-section">
+      <h3 style="font-size: 16px; margin-bottom: 16px;">训练指标</h3>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">当前迭代</div>
+          <div class="metric-value" id="metricIteration">0</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">平均奖励</div>
+          <div class="metric-value" id="metricReward">0.00</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">成功率</div>
+          <div class="metric-value" id="metricSuccess">0%</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">学习率</div>
+          <div class="metric-value" style="font-size: 20px;" id="metricLR">0.0003</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 日志 -->
+    <div class="log-section">
+      <h3 style="font-size: 16px; margin-bottom: 8px;">训练日志</h3>
+      <div class="log-container" id="logContainer">
+        <div class="log-line">等待日志数据...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:8765';
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskId = urlParams.get('task_id');
+
+    if (!taskId) {
+      alert('缺少任务 ID');
+      window.location.href = 'dashboard_v2.html';
+    }
+
+    let refreshInterval;
+
+    async function loadTrainingStatus() {
+      try {
+        const response = await fetch(`${API_BASE}/api/training/${taskId}/status`);
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.detail || '获取状态失败');
+        }
+
+        const status = data.status;
+
+        // 更新标题
+        document.getElementById('taskTitle').textContent = `训练: ${status.task_id}`;
+        document.getElementById('taskSubtitle').textContent = `${status.robot} · ${status.algorithm}`;
+
+        // 更新状态
+        document.getElementById('statusTitle').textContent = status.task_id;
+        document.getElementById('statusSubtitle').textContent =
+          `${status.robot} · ${status.algorithm} · ${status.status}`;
+
+        const statusBadge = document.getElementById('statusBadge');
+        statusBadge.textContent = status.status === 'running' ? '运行中' : status.status === 'completed' ? '已完成' : '已停止';
+        statusBadge.className = 'status-badge ' + (status.status === 'running' ? 'running' : '');
+
+        // 显示/隐藏停止按钮
+        if (status.status === 'running') {
+          document.getElementById('stopBtn').style.display = 'inline-flex';
+        } else {
+          document.getElementById('stopBtn').style.display = 'none';
+        }
+
+        // 更新进度
+        const progress = status.progress || 0;
+        const current = status.current_iteration || 0;
+        const max = status.max_iterations || 0;
+
+        document.getElementById('progressText').textContent =
+          `${current} / ${max} (${(progress * 100).toFixed(1)}%)`;
+        document.getElementById('progressBar').style.width = `${progress * 100}%`;
+
+        // 更新指标
+        document.getElementById('metricIteration').textContent = current;
+        document.getElementById('metricReward').textContent = (status.reward || 0).toFixed(2);
+        document.getElementById('metricSuccess').textContent =
+          ((status.success_rate || 0) * 100).toFixed(1) + '%';
+
+      } catch (error) {
+        console.error('Failed to load status:', error);
+      }
+    }
+
+    async function loadTrainingLogs() {
+      try {
+        const response = await fetch(`${API_BASE}/api/training/${taskId}/logs?lines=50`);
+        const data = await response.json();
+
+        if (data.success && data.logs && data.logs.length > 0) {
+          const logContainer = document.getElementById('logContainer');
+          logContainer.innerHTML = data.logs.map(line => {
+            let className = 'log-line';
+            if (line.includes('ERROR') || line.includes('Failed')) {
+              className += ' error';
+            } else if (line.includes('✅') || line.includes('completed')) {
+              className += ' success';
+            }
+            return `<div class="${className}">${line}</div>`;
+          }).join('');
+
+          // 自动滚动到底部
+          logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+      } catch (error) {
+        console.error('Failed to load logs:', error);
+      }
+    }
+
+    async function stopTraining() {
+      if (!confirm('确定要停止训练吗？')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/training/${taskId}/stop`, {
+          method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert('✅ 训练已停止');
+          loadTrainingStatus();
+        }
+
+      } catch (error) {
+        console.error('Failed to stop training:', error);
+        alert('❌ 停止失败: ' + error.message);
+      }
+    }
+
+    // 初始加载
+    loadTrainingStatus();
+    loadTrainingLogs();
+
+    // 定时刷新
+    refreshInterval = setInterval(() => {
+      loadTrainingStatus();
+      loadTrainingLogs();
+    }, 3000); // 每 3 秒刷新
+
+    // 页面卸载时清除定时器
+    window.addEventListener('beforeunload', () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    });
+  </script>
+</body>
+</html>

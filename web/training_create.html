@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>创建训练 - Legged Studio</title>
+  <link rel="stylesheet" href="dashboard_v2.css">
+  <style>
+    .form-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    .form-section {
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .form-section h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 12px;
+      background: var(--surface-input);
+      color: var(--text);
+      font-size: 13px;
+      transition: all 0.15s ease;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.12);
+    }
+
+    .form-group textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 32px;
+    }
+
+    .robot-select {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .robot-card {
+      padding: 16px;
+      background: var(--surface-raised);
+      border: 2px solid var(--border-soft);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .robot-card:hover {
+      border-color: var(--accent);
+      background: var(--surface-soft);
+    }
+
+    .robot-card.selected {
+      border-color: var(--accent);
+      background: rgba(45, 212, 191, 0.12);
+    }
+
+    .robot-card h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .robot-card p {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .reward-grid { display: grid; gap: 10px; }
+    .reward-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 120px; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: var(--radius); background: var(--surface-raised); }
+    .reward-row input[type="number"] { min-height: 32px; }
+    .reward-row small { display: block; color: var(--muted); font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <!-- 页面头部 -->
+    <header class="page-header">
+      <div>
+        <span class="page-kicker">Training</span>
+        <h1>创建训练任务</h1>
+        <p>配置训练参数并开始训练足式机器人策略</p>
+      </div>
+
+      <div class="page-actions">
+        <a class="btn" href="dashboard_v2.html">返回</a>
+      </div>
+    </header>
+
+    <!-- 训练表单 -->
+    <form id="trainingForm">
+      <!-- 机器人选择 -->
+      <div class="form-section">
+        <h3>选择机器人</h3>
+        <div class="robot-select" id="robotSelect"><div class="empty-state">正在加载可用训练资产...</div></div>
+      </div>
+
+      <!-- 任务配置 -->
+      <div class="form-section">
+        <h3>任务配置</h3>
+        <div class="form-group">
+          <label>任务名称</label>
+          <input type="text" id="taskName" value="forward_walk" placeholder="例如: forward_walk, trot, rough_terrain">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>算法</label>
+            <select id="algorithm">
+              <option value="PPO" selected>PPO (推荐)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>训练模式</label>
+            <select id="trainMode">
+              <option value="normal">标准训练（平地）</option>
+              <option value="rough">崎岖地形</option>
+              <option value="stairs">楼梯训练</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>奖惩配置</h3>
+        <p class="muted">取消勾选即可关闭该项；权重会写入训练配置并用于 MuJoCo reward 计算。</p>
+        <div class="reward-grid" id="rewardTerms"><div class="empty-state">正在加载奖惩项...</div></div>
+      </div>
+
+      <!-- 训练参数 -->
+      <div class="form-section">
+        <h3>训练参数</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>环境数量</label>
+            <input type="number" id="numEnvs" value="4096" min="64" max="8192" step="64">
+            <small style="color: var(--muted); font-size: 11px;">推荐: 4096</small>
+          </div>
+          <div class="form-group">
+            <label>最大迭代数</label>
+            <input type="number" id="maxIterations" value="1000" min="10" max="10000" step="10">
+            <small style="color: var(--muted); font-size: 11px;">推荐: 1000</small>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>学习率</label>
+            <input type="number" id="learningRate" value="0.0003" min="0.00001" max="0.01" step="0.00001">
+          </div>
+          <div class="form-group">
+            <label>Episode 长度 (秒)</label>
+            <input type="number" id="episodeLength" value="20" min="5" max="60" step="1">
+          </div>
+        </div>
+      </div>
+
+      <!-- 高级选项 -->
+      <div class="form-section">
+        <h3>高级选项</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>保存间隔</label>
+            <input type="number" id="saveInterval" value="100" min="10" max="500" step="10">
+            <small style="color: var(--muted); font-size: 11px;">每 N 次迭代保存检查点</small>
+          </div>
+          <div class="form-group">
+            <label>设备</label>
+            <select id="device">
+              <option value="cuda">GPU (CUDA)</option>
+              <option value="cpu">CPU</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="form-actions">
+        <a class="btn" href="dashboard_v2.html">取消</a>
+        <button type="submit" class="btn primary">开始训练</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:8765';
+
+    let presets = [];
+    let selectedPreset = null;
+
+    async function loadOptions() {
+      const response = await fetch(`${API_BASE}/api/training/options`);
+      if (!response.ok) throw new Error('无法加载训练选项');
+      const options = await response.json();
+      const algorithm = document.getElementById('algorithm');
+      algorithm.innerHTML = options.algorithms.map(item => `<option value="${item.id}" ${item.available ? '' : 'disabled'}>${item.label}${item.available ? '' : '（未接入）'}</option>`).join('');
+      const terms = document.getElementById('rewardTerms');
+      terms.innerHTML = Object.entries(options.reward_terms || {}).map(([id, term]) => `<label class="reward-row"><input type="checkbox" data-reward-id="${id}" checked><span><strong>${term.label}</strong><small>${term.description}</small></span><input type="number" data-reward-weight="${id}" value="${term.default}" step="0.0001"></label>`).join('');
+    }
+
+    async function loadPresets() {
+      const response = await fetch(`${API_BASE}/api/robots/presets`);
+      if (!response.ok) throw new Error('无法加载机器人训练资产');
+      const payload = await response.json();
+      presets = payload.presets || [];
+      const container = document.getElementById('robotSelect');
+      container.innerHTML = presets.map((preset, index) => `<div class="robot-card ${index === 0 ? 'selected' : ''}" data-robot="${preset.robot_id}"><h4>${preset.family}</h4><p>${preset.size_class} 级${preset.locomotion_type === 'W' ? '轮足' : '点足'} · ${preset.dof} DOF · ${Number(preset.mass_kg).toFixed(1)} kg</p><small>${preset.asset_path}</small></div>`).join('');
+      selectedPreset = presets[0] || null;
+      container.querySelectorAll('.robot-card').forEach(card => card.addEventListener('click', () => {
+        container.querySelectorAll('.robot-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedPreset = presets.find(preset => preset.robot_id === card.dataset.robot) || null;
+      }));
+    }
+
+    Promise.all([loadOptions(), loadPresets()]).catch(error => {
+      document.getElementById('robotSelect').innerHTML = `<div class="empty-state">${error.message}</div>`;
+    });
+
+    // 提交表单
+    document.getElementById('trainingForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = '创建中...';
+      submitBtn.disabled = true;
+
+      try {
+        // 获取选中的机器人
+        if (!selectedPreset) throw new Error('没有可用的机器人训练资产');
+
+        // 构建请求数据
+        const reward_scales = {};
+        document.querySelectorAll('[data-reward-id]').forEach(toggle => {
+          const id = toggle.dataset.rewardId;
+          const weight = parseFloat(document.querySelector(`[data-reward-weight="${id}"]`).value);
+          reward_scales[id] = toggle.checked ? weight : 0;
+        });
+        const requestData = {
+          contract: selectedPreset.contract,
+          algorithm: document.getElementById('algorithm').value,
+          num_envs: parseInt(document.getElementById('numEnvs').value),
+          max_iterations: parseInt(document.getElementById('maxIterations').value),
+          learning_rate: parseFloat(document.getElementById('learningRate').value),
+          save_interval: parseInt(document.getElementById('saveInterval').value),
+          episode_length_s: parseFloat(document.getElementById('episodeLength').value),
+          task_name: document.getElementById('taskName').value || 'forward_walk',
+          terrain_type: document.getElementById('trainMode').value === 'normal' ? 'plane' : document.getElementById('trainMode').value,
+          device: document.getElementById('device').value,
+          reward_scales
+        };
+
+        console.log('Creating training with:', requestData);
+
+        // 发送请求
+        const response = await fetch(`${API_BASE}/api/training/create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestData)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert(`✅ 训练任务创建成功！\n\n任务 ID: ${data.task_id}\n\n正在跳转到监控页面...`);
+          window.location.href = `training_monitor.html?task_id=${data.task_id}`;
+        } else {
+          throw new Error(data.detail || '创建失败');
+        }
+
+      } catch (error) {
+        console.error('Failed to create training:', error);
+        alert(`❌ 创建训练失败\n\n${error.message}`);
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

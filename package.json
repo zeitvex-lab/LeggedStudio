@@ -1,0 +1,95 @@
+{
+  "name": "legged-studio",
+  "version": "0.2.0",
+  "description": "Legged Robot RL Studio - Desktop Launcher",
+  "main": "electron/launcher/main.js",
+  "scripts": {
+    "start": "node scripts/start-electron.js",
+    "dev": "set NODE_ENV=development&& node scripts/start-electron.js",
+    "build": "electron-builder",
+    "test": "python -m unittest discover -s backend -p \"test_*.py\" -v"
+  },
+  "keywords": [
+    "robotics",
+    "reinforcement-learning",
+    "legged-robot"
+  ],
+  "author": "zeitvex",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.leggedstudio.app",
+    "productName": "Legged Studio",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/launcher/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "app/backend"
+      },
+      {
+        "from": "contracts",
+        "to": "app/contracts"
+      },
+      {
+        "from": "pipeline",
+        "to": "app/pipeline"
+      },
+      {
+        "from": "assets/robots",
+        "to": "app/assets/robots",
+        "filter": [
+          "!**/__pycache__{,/**/*}"
+        ]
+      },
+      {
+        "from": "presets",
+        "to": "app/presets"
+      },
+      {
+        "from": "docs",
+        "to": "app/docs",
+        "filter": [
+          "!**/__pycache__{,/**/*}",
+          "!**/*.pyc"
+        ]
+      },
+      {
+        "from": "web",
+        "to": "app/web"
+      },
+      {
+        "from": "adapters",
+        "to": "app/adapters",
+        "filter": [
+          "!**/.venv{,/**/*}",
+          "!**/__pycache__{,/**/*}",
+          "!**/*.pyc"
+        ]
+      },
+      {
+        "from": "tools",
+        "to": "app/tools"
+      },
+      {
+        "from": "../QUADRUPED_ASSET_INVENTORY.json",
+        "to": "app/QUADRUPED_ASSET_INVENTORY.json"
+      },
+      {
+        "from": "../QUADRUPED_ASSET_INVENTORY.md",
+        "to": "app/QUADRUPED_ASSET_INVENTORY.md"
+      }
+    ],
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false
+    }
+  }
+}

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Legged Studio</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="titlebar">
+      <div class="brand-mark" aria-hidden="true">LS</div>
+      <div class="titlebar-title">Legged Studio <span>桌面控制台</span></div>
+      <div class="titlebar-actions">
+        <button class="window-button" id="minimize" title="最小化">−</button>
+        <button class="window-button" id="maximize" title="最大化">□</button>
+        <button class="window-button close" id="close" title="关闭">×</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="sidebar">
+        <div class="sidebar-heading">工作台</div>
+        <nav id="navigation" aria-label="主导航">
+          <button class="nav-item active" data-page="home"><span class="nav-icon">⌂</span><span>总览</span></button>
+          <button class="nav-item" data-page="assets"><span class="nav-icon">▦</span><span>机器人资产</span></button>
+          <button class="nav-item" data-page="training"><span class="nav-icon">▶</span><span>训练任务</span></button>
+          <button class="nav-item" data-page="artifacts"><span class="nav-icon">◇</span><span>策略产物</span></button>
+          <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span><span>系统设置</span></button>
+          <button class="nav-item" data-page="console"><span class="nav-icon">›_</span><span>控制台</span></button>
+        </nav>
+        <div class="sidebar-footer">
+          <button class="sidebar-link" id="open-docs">文档</button>
+          <button class="sidebar-link" id="open-root">打开项目目录</button>
+          <div class="version">v0.1.0 · Python 3.12</div>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <section class="page active" data-view="home">
+          <div class="page-header hero-header">
+            <div>
+              <p class="eyebrow">LEGged ROBOT REINFORCEMENT LEARNING</p>
+              <h1>训练、验证、部署，一处完成</h1>
+              <p class="muted">统一管理四足机器人资产、Robot Contract、训练任务与策略产物。</p>
+            </div>
+            <div class="hero-actions">
+              <button class="button primary" id="start-backend">▶ 启动控制平面</button>
+              <button class="button secondary" id="open-web" disabled>打开 Web 控制台</button>
+            </div>
+          </div>
+
+          <div class="status-grid" id="status-grid">
+            <article class="status-card" data-status-card="backend"><div class="status-dot pending"></div><div><span>控制平面</span><strong id="backend-value">未启动</strong></div></article>
+            <article class="status-card" data-status-card="python"><div class="status-dot pending"></div><div><span>Python 运行时</span><strong id="python-value">等待检查</strong></div></article>
+            <article class="status-card" data-status-card="adapter"><div class="status-dot pending"></div><div><span>训练适配器</span><strong id="adapter-value">等待检查</strong></div></article>
+            <article class="status-card" data-status-card="assets"><div class="status-dot pending"></div><div><span>机器人资产</span><strong id="assets-value">等待检查</strong></div></article>
+          </div>
+
+          <div class="content-grid">
+            <section class="panel wide-panel">
+              <div class="panel-heading"><div><p class="eyebrow">QUICK ACTIONS</p><h2>常用入口</h2></div><button class="icon-button" id="refresh-state" title="刷新状态">↻</button></div>
+              <div class="folder-grid">
+                <button class="folder-card" data-open-path="root"><span class="folder-icon">⌂</span><span><strong>项目根目录</strong><small>legged_studio</small></span><b>›</b></button>
+                <button class="folder-card" data-open-path="output"><span class="folder-icon">▧</span><span><strong>输出与报告</strong><small>output</small></span><b>›</b></button>
+                <button class="folder-card" data-open-path="assets"><span class="folder-icon">▦</span><span><strong>资产清单</strong><small>QUADRUPED_ASSET_INVENTORY</small></span><b>›</b></button>
+                <button class="folder-card" data-open-path="docs"><span class="folder-icon">▤</span><span><strong>项目文档</strong><small>docs</small></span><b>›</b></button>
+              </div>
+            </section>
+            <section class="panel activity-panel">
+              <div class="panel-heading"><div><p class="eyebrow">ACTIVITY</p><h2>最近状态</h2></div></div>
+              <div id="activity-list" class="activity-list"><div class="empty-state">启动控制平面后显示运行状态。</div></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="page" data-view="assets">
+          <div class="page-header"><div><p class="eyebrow">ASSET INVENTORY</p><h1>机器人资产</h1><p class="muted">按体型、运动构型和可用性筛选四足机器人模型。</p></div></div>
+          <div class="metric-grid" id="asset-metrics"><div class="metric"><span>总资产</span><strong>—</strong></div><div class="metric"><span>小型 S</span><strong>—</strong></div><div class="metric"><span>中型 M</span><strong>—</strong></div><div class="metric"><span>大型 L</span><strong>—</strong></div></div>
+          <section class="panel"><div class="panel-heading"><h2>资产摘要</h2><div class="panel-actions"><button class="button secondary small" id="load-assets">刷新资产</button><button class="button secondary small" id="open-assets-workbench">打开资产工作台</button></div></div><div id="asset-summary" class="table-wrap"><div class="empty-state">启动控制平面后加载 QUADRUPED_ASSET_INVENTORY。</div></div></section>
+        </section>
+
+        <section class="page" data-view="training">
+          <div class="page-header"><div><p class="eyebrow">TRAINING RUNS</p><h1>训练任务</h1><p class="muted">任务状态由后端训练管理器维护，桌面端只负责观察和控制。</p></div><button class="button primary" id="open-web-training" disabled>进入训练工作流</button></div>
+          <section class="panel"><div class="panel-heading"><h2>任务列表</h2><div class="panel-actions"><button class="button secondary small" id="load-training">刷新任务</button><button class="button secondary small" id="open-evaluation">打开验证</button></div></div><div id="training-summary" class="table-wrap"><div class="empty-state">暂无训练任务。</div></div></section>
+        </section>
+
+        <section class="page" data-view="artifacts">
+          <div class="page-header"><div><p class="eyebrow">POLICY ARTIFACTS</p><h1>策略产物</h1><p class="muted">查看模型、Normalizer、Robot Contract 和 sim2sim 验证结果。</p></div></div>
+          <section class="panel artifact-panel"><div class="artifact-icon">◇</div><div><h2>产物浏览器</h2><p class="muted">训练完成后，策略文件和验证报告会出现在工作区输出目录。</p><div class="panel-actions"><button class="button secondary" id="open-artifacts-workbench">打开产物工作台</button><button class="button secondary" data-open-path="output">打开输出目录</button></div></div></section>
+        </section>
+
+        <section class="page" data-view="settings">
+          <div class="page-header"><div><p class="eyebrow">SYSTEM SETTINGS</p><h1>系统设置</h1><p class="muted">桌面启动参数和运行时路径。</p></div></div>
+          <section class="panel settings-panel">
+            <div class="setting-row"><div><strong>控制平面地址</strong><small>本机回环地址，不对外暴露</small></div><code id="backend-url">http://127.0.0.1:8765</code></div>
+            <div class="setting-row"><div><strong>Python 运行时</strong><small id="python-runtime-detail">检测中</small></div><div class="setting-actions"><code id="python-runtime-path">等待检测</code><button class="button secondary small" id="probe-python">重新检测</button></div></div>
+            <div class="setting-row"><div><strong>自动启动控制平面</strong><small>打开桌面后自动启动本地 API 服务</small></div><label class="switch"><input type="checkbox" id="auto-start-backend"><span></span></label></div>
+            <div class="setting-row"><div><strong>Python 路径覆盖</strong><small>留空时自动选择便携运行时或系统 Python</small></div><div class="setting-actions"><input class="setting-input" id="python-path-input" placeholder="python.exe" spellcheck="false"><button class="button secondary small" id="save-settings">保存</button></div></div>
+            <div class="setting-row"><div><strong>工作区目录</strong><small id="workspace-detail">日志、输出和文档目录</small></div><button class="button secondary small" id="prepare-environment">初始化目录</button></div>
+            <div class="setting-row"><div><strong>项目路径</strong><small id="root-path">等待读取</small></div><button class="button secondary small" id="settings-open-root">打开</button></div>
+          </section>
+        </section>
+
+        <section class="page" data-view="console">
+          <div class="page-header"><div><p class="eyebrow">RUNTIME LOG</p><h1>控制台</h1><p class="muted">显示桌面启动器和 Python 控制平面的实时输出。</p></div><div><button class="button secondary small" id="clear-console">清空</button><button class="button secondary small" id="console-open-logs">打开日志目录</button></div></div>
+          <section class="panel console-panel"><pre id="console-output">Legged Studio launcher ready.\n</pre></section>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="renderer.js"></script>
+</body>
+</html>

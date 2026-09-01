@@ -1,0 +1,119 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #0f0f1e;
+  color: #e0e0ff;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  padding: 1.5rem 2rem;
+  background: #16162a;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.header h1 {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+  background: linear-gradient(135deg, #fff, #a0a0ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.header p {
+  color: #a0a0c0;
+  font-size: 0.875rem;
+}
+
+.controls {
+  padding: 1rem 2rem;
+  background: #16162a;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.button-primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  display: inline-block;
+}
+
+.button-primary:hover {
+  transform: scale(1.02);
+}
+
+.button-secondary {
+  background: #1e1e3a;
+  color: #e0e0ff;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.button-secondary:hover {
+  border-color: #6366f1;
+}
+
+.file-name {
+  color: #a0a0c0;
+  font-size: 0.875rem;
+}
+
+.error {
+  padding: 1rem 2rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid #ef4444;
+  color: #ef4444;
+}
+
+.info {
+  padding: 0.75rem 2rem;
+  background: rgba(99, 102, 241, 0.1);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+  display: flex;
+  gap: 2rem;
+  font-size: 0.875rem;
+}
+
+.info strong {
+  color: #fff;
+}
+
+.viewer {
+  flex: 1;
+  position: relative;
+}
+
+.footer {
+  padding: 1rem 2rem;
+  background: #16162a;
+  border-top: 1px solid rgba(99, 102, 241, 0.2);
+  text-align: center;
+  font-size: 0.875rem;
+  color: #a0a0c0;
+}
+
+.footer p {
+  margin: 0.25rem 0;
+}

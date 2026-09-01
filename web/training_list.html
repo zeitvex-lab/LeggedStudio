@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>训练列表 - Legged Studio</title>
+  <link rel="stylesheet" href="dashboard_v2.css">
+  <style>
+    .list-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .training-table {
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .table-header {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr 120px;
+      gap: 16px;
+      padding: 16px 24px;
+      background: var(--surface-raised);
+      border-bottom: 1px solid var(--border-soft);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .table-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr 120px;
+      gap: 16px;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-soft);
+      align-items: center;
+      transition: background 0.15s ease;
+    }
+
+    .table-row:hover {
+      background: var(--surface-raised);
+    }
+
+    .table-row:last-child {
+      border-bottom: none;
+    }
+
+    .task-info strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .task-info span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .progress-mini {
+      width: 100%;
+      height: 4px;
+      background: var(--surface-soft);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .progress-mini-bar {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.3s ease;
+    }
+
+    .table-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+      min-height: 28px;
+    }
+  </style>
+</head>
+<body>
+  <div class="list-container">
+    <!-- 页面头部 -->
+    <header class="page-header">
+      <div>
+        <span class="page-kicker">Training</span>
+        <h1>训练任务</h1>
+        <p id="subtitle">管理所有训练任务</p>
+      </div>
+      <div class="page-actions">
+        <a class="btn primary" href="training_create.html">新建训练</a>
+        <button class="btn" onclick="refreshList()">刷新</button>
+        <a class="btn" href="dashboard_v2.html">返回</a>
+      </div>
+    </header>
+
+    <!-- 过滤栏 -->
+    <div class="filter-bar">
+      <select class="btn" id="filterStatus" onchange="refreshList()">
+        <option value="all">全部状态</option>
+        <option value="running">运行中</option>
+        <option value="completed">已完成</option>
+        <option value="stopped">已停止</option>
+      </select>
+    </div>
+
+    <!-- 训练列表 -->
+    <div class="training-table">
+      <div class="table-header">
+        <div>任务</div>
+        <div>机器人</div>
+        <div>算法</div>
+        <div>状态</div>
+        <div>进度</div>
+        <div>操作</div>
+      </div>
+      <div id="tableBody">
+        <div style="padding: 60px 24px; text-align: center; color: var(--muted);">
+          加载中...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:8765';
+
+    async function loadTrainingList() {
+      try {
+        const response = await fetch(`${API_BASE}/api/training/list`);
+        const data = await response.json();
+
+        const filterStatus = document.getElementById('filterStatus').value;
+        let tasks = data.tasks || [];
+
+        // 过滤
+        if (filterStatus !== 'all') {
+          tasks = tasks.filter(t => t.status === filterStatus);
+        }
+
+        // 更新副标题
+        document.getElementById('subtitle').textContent =
+          `共 ${data.tasks?.length || 0} 个任务${filterStatus !== 'all' ? ` · 筛选: ${filterStatus}` : ''}`;
+
+        const tableBody = document.getElementById('tableBody');
+
+        if (tasks.length === 0) {
+          tableBody.innerHTML = `
+            <div style="padding: 60px 24px; text-align: center;">
+              <p style="color: var(--muted); margin-bottom: 20px;">暂无训练任务</p>
+              <a class="btn primary" href="training_create.html">创建第一个训练</a>
+            </div>
+          `;
+          return;
+        }
+
+        tableBody.innerHTML = tasks.map(task => `
+          <div class="table-row">
+            <div class="task-info">
+              <strong>${task.task_id}</strong>
+              <span>${task.created_at || ''}</span>
+            </div>
+            <div>${task.robot || 'Unknown'}</div>
+            <div>${task.algorithm || 'PPO'}</div>
+            <div>
+              <span class="status-badge ${task.status === 'running' ? 'running' : ''}">
+                ${task.status === 'running' ? '运行中' : task.status === 'completed' ? '已完成' : '已停止'}
+              </span>
+            </div>
+            <div>
+              <div>${(task.progress * 100).toFixed(1)}%</div>
+              <div class="progress-mini">
+                <div class="progress-mini-bar" style="width: ${task.progress * 100}%;"></div>
+              </div>
+            </div>
+            <div class="table-actions">
+              <button class="btn btn-small" onclick="viewTask('${task.task_id}')">查看</button>
+              ${task.status === 'running' ?
+                `<button class="btn btn-small" onclick="stopTask('${task.task_id}')">停止</button>` :
+                ''
+              }
+            </div>
+          </div>
+        `).join('');
+
+      } catch (error) {
+        console.error('Failed to load training list:', error);
+        document.getElementById('tableBody').innerHTML = `
+          <div style="padding: 60px 24px; text-align: center; color: var(--danger);">
+            加载失败: ${error.message}
+          </div>
+        `;
+      }
+    }
+
+    function refreshList() {
+      loadTrainingList();
+    }
+
+    function viewTask(taskId) {
+      window.location.href = `training_monitor.html?task_id=${taskId}`;
+    }
+
+    async function stopTask(taskId) {
+      if (!confirm('确定要停止这个训练任务吗？')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/training/${taskId}/stop`, {
+          method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert('✅ 训练已停止');
+          loadTrainingList();
+        }
+
+      } catch (error) {
+        console.error('Failed to stop training:', error);
+        alert('❌ 停止失败: ' + error.message);
+      }
+    }
+
+    // 初始加载
+    loadTrainingList();
+
+    // 定时刷新
+    setInterval(loadTrainingList, 5000);
+  </script>
+</body>
+</html>

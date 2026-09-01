@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legged Studio - API 测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #0f0f1e;
+            color: #e0e0ff;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, #fff, #a0a0ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .endpoint {
+            background: #16162a;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .endpoint h3 {
+            color: #6366f1;
+            margin-bottom: 0.5rem;
+        }
+
+        .method {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .get { background: #10b981; color: white; }
+        .post { background: #f59e0b; color: white; }
+
+        button {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+
+        button:hover {
+            transform: scale(1.02);
+        }
+
+        pre {
+            background: #0f0f1e;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 6px;
+            padding: 1rem;
+            overflow-x: auto;
+            margin-top: 1rem;
+            color: #a0a0c0;
+        }
+
+        .loading { color: #f59e0b; }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 API 测试工具</h1>
+
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /health</h3>
+            <p>健康检查</p>
+            <button onclick="testEndpoint('/health')">测试</button>
+            <pre id="result-health"></pre>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /api/assets/summary</h3>
+            <p>资产清单摘要</p>
+            <button onclick="testEndpoint('/api/assets/summary')">测试</button>
+            <pre id="result-summary"></pre>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /api/assets/robots?size=M</h3>
+            <p>查询 M 级机器人</p>
+            <button onclick="testEndpoint('/api/assets/robots?size=M')">测试</button>
+            <pre id="result-robots"></pre>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /api/assets/robots/Go2</h3>
+            <p>获取 Go2 详情</p>
+            <button onclick="testEndpoint('/api/assets/robots/Go2')">测试</button>
+            <pre id="result-go2"></pre>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /api/system/info</h3>
+            <p>系统信息</p>
+            <button onclick="testEndpoint('/api/system/info')">测试</button>
+            <pre id="result-info"></pre>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /api/system/environment</h3>
+            <p>环境状态</p>
+            <button onclick="testEndpoint('/api/system/environment')">测试</button>
+            <pre id="result-env"></pre>
+        </div>
+
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /api/contracts/template</h3>
+            <p>Contract 模板</p>
+            <button onclick="testEndpoint('/api/contracts/template')">测试</button>
+            <pre id="result-template"></pre>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8765';
+
+        async function testEndpoint(path) {
+            const resultId = 'result-' + path.split('/').pop().split('?')[0];
+            const resultElement = document.getElementById(resultId);
+
+            resultElement.innerHTML = '<span class="loading">⏳ 请求中...</span>';
+
+            try {
+                const response = await fetch(API_BASE + path);
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultElement.innerHTML = '<span class="success">✅ 成功</span>\n' +
+                        JSON.stringify(data, null, 2);
+                } else {
+                    resultElement.innerHTML = '<span class="error">❌ 错误</span>\n' +
+                        JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                resultElement.innerHTML = '<span class="error">❌ 请求失败</span>\n' +
+                    error.message + '\n\n提示：请确保后端服务已启动（python backend/api.py）';
+            }
+        }
+
+        // 页面加载时测试健康检查
+        window.addEventListener('load', () => {
+            testEndpoint('/health');
+        });
+    </script>
+</body>
+</html>
