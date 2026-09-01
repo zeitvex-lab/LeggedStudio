@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Legged Studio Workbench</title>
+  <link rel="stylesheet" href="workbench.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div><span class="eyebrow">LEGGED STUDIO / WORKBENCH</span><h1>从模型到闭环验证</h1><p class="lede">在一个工作区完成 Contract 校验、强化学习训练、基础仿真与导航回放。</p></div>
+      <div class="top-actions"><span id="backendState" class="pill pending">后端检查中</span><a class="btn ghost" href="dashboard_v2.html">控制台</a></div>
+    </header>
+
+    <nav class="steps" aria-label="工作流步骤">
+      <button class="step active" data-step="model"><b>01</b><span>模型验证</span><small>URDF / MJCF</small></button>
+      <button class="step" data-step="training"><b>02</b><span>训练配置</span><small>算法与奖惩</small></button>
+      <button class="step" data-step="simulation"><b>03</b><span>训练与仿真</span><small>实时状态</small></button>
+      <button class="step" data-step="navigation"><b>04</b><span>导航回放</span><small>Sim2Sim 闭环</small></button>
+    </nav>
+
+    <section id="model" class="panel step-panel active-panel">
+      <div class="panel-head"><div><span class="eyebrow">MODEL CONTRACT</span><h2>选择机器人并验证模型</h2><p>复用 contracts/fixtures 中的 Robot Contract；修改后可立即校验。</p></div><span id="modelBadge" class="pill pending">未验证</span></div>
+      <div class="grid two">
+        <div><label>机器人 preset<select id="preset"><option>加载中...</option></select></label><div id="presetMeta" class="meta-box">选择 preset 后显示关节、质量和资源路径。</div></div>
+        <div><label>模型格式<select id="format"><option value="urdf">URDF</option><option value="mjcf">MJCF</option></select></label><label>模型路径<input id="modelPath" placeholder="assets/robots/unitree_go2/go2.xml"></label><div class="inline"><button id="validateBtn" class="btn primary">验证 Contract</button><a class="btn ghost" href="assets.html">浏览资产</a></div></div>
+      </div>
+      <label>Contract JSON（可选编辑）<textarea id="contractJson" spellcheck="false"></textarea></label>
+      <pre id="validationLog" class="log">等待验证...</pre>
+      <div class="panel-foot"><button class="btn primary next" data-next="training">下一步：训练配置</button></div>
+    </section>
+
+    <section id="training" class="panel step-panel">
+      <div class="panel-head"><div><span class="eyebrow">TRAINING CONFIG</span><h2>算法、环境与奖惩设置</h2><p>配置将直接提交给 `/api/training/create`，权重为 0 的奖惩项会被禁用。</p></div><span id="configBadge" class="pill pending">未保存</span></div>
+      <div class="grid three"><label>任务名称<input id="taskName" value="forward_walk"></label><label>算法<select id="algorithm"><option value="PPO">PPO</option></select></label><label>地形<select id="terrain"><option value="plane">平地</option><option value="rough">崎岖</option><option value="stairs">楼梯</option></select></label></div>
+      <div class="grid four"><label>环境数量<input id="numEnvs" type="number" min="64" step="64" value="4096"></label><label>最大迭代<input id="maxIterations" type="number" min="10" step="10" value="1000"></label><label>学习率<input id="learningRate" type="number" min="0.00001" step="0.00001" value="0.0003"></label><label>设备<select id="device"><option value="cuda">CUDA</option><option value="cpu">CPU</option></select></label></div>
+      <div class="reward-head"><h3>奖惩项</h3><button id="resetRewards" class="btn ghost small">恢复默认</button></div><div id="rewards" class="rewards"><div class="muted">加载奖惩项...</div></div>
+      <div class="panel-foot"><button class="btn ghost prev" data-prev="model">返回</button><button id="startTraining" class="btn primary">开始训练</button></div>
+    </section>
+
+    <section id="simulation" class="panel step-panel">
+      <div class="panel-head"><div><span class="eyebrow">TRAIN / SIMULATION</span><h2>训练与基础仿真</h2><p>训练状态、奖励曲线和验证阶段会持续刷新。</p></div><span id="runBadge" class="pill pending">等待任务</span></div>
+      <div class="progress"><div class="progress-label"><span id="runStage">尚未启动</span><b id="runPercent">0%</b></div><div class="track"><i id="runProgress"></i></div></div>
+      <div class="metrics"><div><span>迭代</span><b id="metricIteration">-</b></div><div><span>平均奖励</span><b id="metricReward">-</b></div><div><span>成功率</span><b id="metricSuccess">-</b></div><div><span>任务 ID</span><b id="metricTask">-</b></div></div>
+      <pre id="runLog" class="log tall">启动训练后显示实时日志...</pre>
+      <div class="panel-foot"><button class="btn ghost prev" data-prev="training">返回配置</button><button id="stopTraining" class="btn danger" disabled>停止训练</button><button id="enterNavigation" class="btn primary next" data-next="navigation" disabled>进入导航回放</button></div>
+    </section>
+
+    <section id="navigation" class="panel step-panel">
+      <div class="panel-head"><div><span class="eyebrow">NAVIGATION / SIM2SIM</span><h2>导航仿真与闭环检查</h2><p>训练完成后运行评估，检查控制器在 Contract-MuJoCo 环境的稳定性。</p></div><span id="evalBadge" class="pill pending">未运行</span></div>
+      <div class="grid two"><label>评估回合数<input id="episodes" type="number" min="1" max="100" value="5"></label><div class="inline align-end"><button id="runEvaluation" class="btn primary" disabled>运行 Sim2Sim 评估</button><a class="btn ghost" href="evaluation.html">高级评估</a></div></div>
+      <div id="evalResult" class="result empty">训练完成后可运行评估。</div>
+      <div class="panel-foot"><button class="btn ghost prev" data-prev="simulation">返回仿真</button><a class="btn primary" href="dashboard_v2.html">完成并返回控制台</a></div>
+    </section>
+  </main>
+  <script src="workbench.js"></script>
+</body>
+</html>

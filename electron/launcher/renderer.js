@@ -110,13 +110,26 @@ async function refreshState(showToast = false) {
 async function startBackend() {
     const button = $('#start-backend');
     button.disabled = true;
+    button.textContent = '准备工作区…';
+    log('[launcher] preparing workspace and runtime\n');
+    const prepared = await api.setupEnvironment();
+    if (!prepared.ok) {
+        button.disabled = false;
+        button.textContent = '▶ 启动控制平面';
+        log(`[error] environment preparation failed: ${prepared.error}\n`);
+        toast(`环境准备失败: ${prepared.error}`, 'error');
+        return;
+    }
+    $('#workspace-detail').textContent = prepared.directories.join(' · ');
     button.textContent = '检查运行时…';
+    button.textContent = '启动控制平面…';
     const result = await api.startBackend();
     if (result.ok) {
         state.backendRunning = true;
         button.textContent = '✓ 控制平面运行中';
         renderHealth(result.health);
         await refreshState();
+        await api.openExternal(`${await api.backendUrl()}/web/workbench.html`);
         toast('控制平面已启动', 'success');
     } else {
         button.disabled = false;
@@ -138,11 +151,11 @@ async function probePython(showToast = false) {
     return result;
 }
 
-async function loadSettings() {
+async function loadSettings(runProbe = true) {
     state.settings = await api.getSettings();
     $('#auto-start-backend').checked = Boolean(state.settings.autoStartBackend);
     $('#python-path-input').value = state.settings.pythonPath || '';
-    await probePython();
+    if (runProbe) await probePython();
 }
 
 async function saveSettings() {
@@ -185,7 +198,7 @@ $('#navigation').addEventListener('click', (event) => {
 });
 $('#start-backend').addEventListener('click', startBackend);
 $('#open-web').addEventListener('click', async () => api.openExternal(await api.backendUrl()));
-$('#open-web-training').addEventListener('click', async () => api.openExternal(`${await api.backendUrl()}/web/training_create.html`));
+$('#open-web-training').addEventListener('click', async () => api.openExternal(`${await api.backendUrl()}/web/workbench.html`));
 $('#refresh-state').addEventListener('click', () => refreshState(true));
 $('#load-assets').addEventListener('click', () => refreshState(true));
 $('#load-training').addEventListener('click', () => refreshState(true));
@@ -219,10 +232,10 @@ api.onBackendStatus((running) => {
     state.paths = paths;
     $('#root-path').textContent = paths.root;
     $('#backend-url').textContent = await api.backendUrl();
-    await loadSettings();
-    await prepareEnvironment();
+    // Opening the desktop app is read-only. Preparation and probing happen
+    // only after the user explicitly clicks Start.
+    await loadSettings(false);
     log(`[launcher] root: ${paths.root}\n`);
     log(`[launcher] python: ${paths.python}\n`);
     await refreshState();
-    if (state.settings?.autoStartBackend) await startBackend();
 })();

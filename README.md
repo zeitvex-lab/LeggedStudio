@@ -6,7 +6,7 @@
 
 ## 项目愿景
 
-详见：`../PROJECT_VISION_LEGGED_STUDIO.md`
+详见：[`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md) 和根目录的 [`PROJECT_VISION_LEGGED_STUDIO.md`](../PROJECT_VISION_LEGGED_STUDIO.md)。
 
 **核心定位**：
 - 🖱️ Windows 桌面应用
@@ -33,7 +33,7 @@
 npm start
 ```
 
-启动器会自动定位项目资源、Python 运行时和资产清单；进入桌面后点击“启动控制平面”即可启动后端。Windows 下即使系统设置了 `ELECTRON_RUN_AS_NODE`，启动脚本也会自动清理该变量。
+启动器会自动定位项目资源和 Python 运行时，但打开桌面程序时不会创建目录、安装依赖或启动后端。点击“一键启动”后，才会准备工作区、探测 Python、按 `backend/requirements.txt` 安装控制平面依赖并启动后端；健康检查通过后可打开 Web 工作台。Windows 下即使系统设置了 `ELECTRON_RUN_AS_NODE`，启动脚本也会自动清理该变量。
 
 首次安装依赖：
 

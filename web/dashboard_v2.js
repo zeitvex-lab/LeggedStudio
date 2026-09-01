@@ -157,16 +157,15 @@ function loadPretrainedModel(modelId) {
 
 // ========== 导航功能 ==========
 function openTraining() {
-  // 打开图形化训练创建页面
-  window.location.href = 'training_create.html';
+  window.location.href = 'workbench.html';
 }
 
 function openRobots() {
-  window.location.href = 'assets.html';
+  window.location.href = 'workbench.html#model';
 }
 
 function openAlgorithms() {
-  window.location.href = 'training_create.html';
+  window.location.href = 'workbench.html#training';
 }
 
 function viewAllTrainings() {
