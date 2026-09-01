@@ -21,11 +21,32 @@ class ContractMujocoEnv:
     the same PPO/training pipeline while preserving their 12/16 actuator sets.
     """
 
-    def __init__(self, contract: RobotContractV2, num_envs: int, episode_length_s: float = 20.0, seed: int = 0, reward_scales: dict[str, float] | None = None):
+    def __init__(
+        self,
+        contract: RobotContractV2,
+        num_envs: int,
+        episode_length_s: float = 20.0,
+        seed: int = 0,
+        reward_scales: dict[str, float] | None = None,
+        scene_geoms: list[dict[str, Any]] | None = None,
+    ):
         self.contract = contract
         self.num_envs = max(1, int(num_envs))
         self.model_path = resolve_asset_path(contract.urdf.path)
-        self.model = mujoco.MjModel.from_xml_path(str(self.model_path))
+        if scene_geoms:
+            spec = mujoco.MjSpec.from_file(str(self.model_path))
+            for item in scene_geoms:
+                geom = spec.worldbody.add_geom()
+                geom.name = str(item.get("name", f"scene_geom_{len(scene_geoms)}"))
+                geom.type = mujoco.mjtGeom.mjGEOM_BOX
+                geom.size = np.asarray(item.get("size", [0.5, 0.5, 0.2]), dtype=np.float64)
+                geom.pos = np.asarray(item.get("pos", [0.0, 0.0, 0.2]), dtype=np.float64)
+                geom.friction = np.asarray(item.get("friction", [0.8, 0.1, 0.1]), dtype=np.float64)
+                geom.contype = 1
+                geom.conaffinity = 1
+            self.model = spec.compile()
+        else:
+            self.model = mujoco.MjModel.from_xml_path(str(self.model_path))
         self.data = [mujoco.MjData(self.model) for _ in range(self.num_envs)]
         self.rng = np.random.default_rng(seed)
         self.step_count = np.zeros(self.num_envs, dtype=np.int32)
@@ -108,7 +129,14 @@ class ContractMujocoEnv:
             rewards += float(self.reward_scales.get(name, 0.0)) * values
         dones = (self.step_count >= self.max_steps) | (height < 0.12) | ~np.isfinite(rewards)
         self.previous_action[:] = actions
-        info = {"base_velocity": base_velocity, "upright": upright, "reward_components": components, "reward_scales": self.reward_scales}
+        base_position = np.asarray([item.qpos[:3] for item in self.data], dtype=np.float32)
+        info = {
+            "base_velocity": base_velocity,
+            "base_position": base_position,
+            "upright": upright,
+            "reward_components": components,
+            "reward_scales": self.reward_scales,
+        }
         return observations, rewards.astype(np.float32), dones.astype(np.bool_), info
 
     def close(self) -> None:

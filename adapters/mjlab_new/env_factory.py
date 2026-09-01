@@ -6,8 +6,6 @@ Environment Factory
 
 from typing import Dict, Any, Optional
 from pathlib import Path
-import numpy as np
-
 from contracts.robot_contract_v2 import RobotContractV2
 from contracts.asset_paths import resolve_asset_path
 

@@ -21,15 +21,38 @@ if sys.platform == 'win32':
 
 # 添加路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from backend.pipeline_api import router as pipeline_router
 
 # 导入所有路由
 from backend.pipeline_api import router as pipeline_router
-from backend.training_api import router as training_router
-from backend.export_api import router as export_router
+try:
+    from backend.training_api import router as training_router
+except ImportError as exc:  # optional training stack; enabled after adapter setup
+    training_router = None
+    TRAINING_IMPORT_ERROR = str(exc)
+try:
+    from backend.export_api import router as export_router
+except ImportError as exc:  # optional export stack (torch/ONNX)
+    export_router = None
+    EXPORT_IMPORT_ERROR = str(exc)
 from backend.pretrained_api import router as pretrained_router
 from backend.app import load_inventory, filter_records, _records, InventoryError
 from backend.robot_presets import list_robot_presets, get_robot_preset as load_robot_preset
-from backend.evaluation_api import router as evaluation_router
+try:
+    from backend.evaluation_api import router as evaluation_router
+    from backend.navigation_api import router as navigation_router
+except ImportError as exc:  # optional MuJoCo/NumPy stack
+    evaluation_router = None
+    navigation_router = None
+    SIM_IMPORT_ERROR = str(exc)
+from backend.model_api import router as model_router
+try:
+    from backend.simulation_api import router as simulation_router
+except ImportError as exc:  # optional MuJoCo/NumPy stack
+    simulation_router = None
+    SIM_IMPORT_ERROR = str(exc)
+from contracts.robot_contract_v2 import RobotContractV2
+from contracts.validator import validate_contract as validate_robot_contract
 
 app = FastAPI(
     title="Legged Studio API",
@@ -47,10 +70,19 @@ app.add_middleware(
 
 # 注册所有路由
 app.include_router(pipeline_router)
-app.include_router(training_router)
-app.include_router(export_router)
+app.include_router(pipeline_router)
+if training_router is not None:
+    app.include_router(training_router)
+if export_router is not None:
+    app.include_router(export_router)
 app.include_router(pretrained_router)
-app.include_router(evaluation_router)
+if evaluation_router is not None:
+    app.include_router(evaluation_router)
+if navigation_router is not None:
+    app.include_router(navigation_router)
+app.include_router(model_router)
+if simulation_router is not None:
+    app.include_router(simulation_router)
 
 
 # Asset inventory endpoints are kept on the complete API as well as the
@@ -142,6 +174,28 @@ async def get_robot_preset(robot_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"Unknown robot preset: {robot_id}")
     return preset
 
+
+@app.post("/api/contracts/validate")
+async def validate_robot_contract_endpoint(contract_data: dict[str, Any]) -> dict[str, Any]:
+    """Validate the canonical Robot Contract v2 used by every workflow step."""
+    try:
+        contract = RobotContractV2(**contract_data)
+    except Exception as exc:
+        return {"valid": False, "errors": [str(exc)], "warnings": []}
+
+    result = validate_robot_contract(contract)
+    return {
+        "valid": result.valid,
+        "errors": [item.message for item in result.errors],
+        "warnings": [item.message for item in result.warnings],
+        "robot_id": contract.robot_id,
+        "contract_id": contract.contract_id,
+        "schema_version": contract.schema_version,
+        "actuated_joints": len(contract.joints.actuated_joints),
+        "control_hz": contract.control.control_hz,
+        "summary": contract.get_summary(),
+    }
+
 # Web 控制台
 WEB_DIR = Path(__file__).parent.parent / "web"
 
@@ -182,9 +236,17 @@ if WEB_DIR.is_dir():
 
 @app.get("/health")
 async def health():
+    optional = {
+        "training": training_router is not None,
+        "export": export_router is not None,
+        "evaluation": evaluation_router is not None,
+        "navigation": navigation_router is not None,
+        "simulation": simulation_router is not None,
+    }
     return {
         "status": "ok",
         "version": "0.5.0",
+        "optional": optional,
         "features": [
             "training_management",
             "onnx_export",
@@ -193,8 +255,28 @@ async def health():
             "pretrained_models",
             "urdf_validation",
             "evaluation",
-            "sim2sim"
-        ]
+            "sim2sim",
+            "navigation_replay"
+        ] if all(optional.values()) else [name for name, enabled in optional.items() if enabled]
+    }
+
+@app.get("/api/system/capabilities")
+async def get_capabilities():
+    """Expose adapter availability without importing optional runtimes."""
+    return {
+        "control_plane": True,
+        "adapters": {
+            "local_mujoco": simulation_router is not None,
+            "native_mjlab": False,
+            "export_onnx": export_router is not None,
+        },
+        "import_errors": {
+            key: value for key, value in {
+                "training": globals().get("TRAINING_IMPORT_ERROR"),
+                "export": globals().get("EXPORT_IMPORT_ERROR"),
+                "simulation": globals().get("SIM_IMPORT_ERROR"),
+            }.items() if value
+        },
     }
 
 @app.get("/api")
@@ -207,6 +289,8 @@ async def api_info():
             "export": "/api/export",
             "pretrained": "/api/pretrained",
             "pipeline": "/api/pipeline",
+            "navigation": "/api/navigation",
+            "simulation": "/api/simulation",
             "system": "/api/system"
         },
         "docs": "/docs"

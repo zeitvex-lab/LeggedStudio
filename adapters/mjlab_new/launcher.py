@@ -82,6 +82,26 @@ class TrainingLauncher:
             "task_dir": task_dir,
             "started_at": datetime.now()
         }
+        self._write_status(task_dir, {"status": "running", "pid": process.pid, "exit_code": None})
+
+        def finalize(child, directory=task_dir, identifier=task_id):
+            code = child.returncode
+            current = self._read_status(directory)
+            if current.get("status") == "stopped":
+                return
+            self._write_status(directory, {
+                **current,
+                "status": "completed" if code == 0 else "failed",
+                "pid": child.pid,
+                "exit_code": code,
+                "error": None if code == 0 else f"training worker exited with code {code}",
+            })
+            self.processes.pop(identifier, None)
+
+        # Popen has no callback API; a lightweight watcher keeps status.json
+        # authoritative without blocking the control-plane request.
+        import threading
+        threading.Thread(target=lambda: (process.wait(), finalize(process)), daemon=True).start()
 
         print(f"[Launcher] Training started: {task_id} (PID: {process.pid})")
         print(f"[Launcher] Log: {log_file}")
@@ -130,14 +150,28 @@ class TrainingLauncher:
             except Exception:
                 pass
 
+        status_info = self._read_status(proc_info["task_dir"])
+        process_status = "running" if process.poll() is None else ("completed" if process.returncode == 0 else "failed")
         return {
             "task_id": task_id,
-            "status": "running" if process.poll() is None else "completed",
+            "status": status_info.get("status", process_status),
             "pid": process.pid,
             "exit_code": process.poll(),
             "started_at": proc_info["started_at"].isoformat(),
             "progress": progress
         }
+
+    @staticmethod
+    def _read_status(task_dir: Path) -> dict:
+        path = task_dir / "status.json"
+        try:
+            return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    @staticmethod
+    def _write_status(task_dir: Path, value: dict) -> None:
+        (task_dir / "status.json").write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     def cleanup(self):
         """清理所有进程"""
@@ -149,7 +183,7 @@ class TrainingLauncher:
 
     def _generate_task_id(self) -> str:
         """生成任务 ID"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         return f"train_{timestamp}"
 
     def _find_mjlab_venv(self) -> Optional[Path]:

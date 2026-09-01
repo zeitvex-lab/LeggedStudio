@@ -15,7 +15,8 @@ from dataclasses import dataclass, field
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from contracts.robot_contract_v2 import RobotContractV2
 from contracts.policy_artifact import PolicyArtifact, TrainingMetrics
-from adapters.mjlab_new.algorithms.ppo import PPOAlgorithm, PPOConfig
+from adapters.mjlab_new.algorithms.registry import create_algorithm
+from adapters.mjlab_new.algorithms.off_policy import OffPolicyAlgorithm
 
 
 @dataclass
@@ -42,6 +43,17 @@ class TrainingConfig:
     terrain_type: str = "plane"
     device: str = "auto"
     reward_scales: Dict[str, float] = field(default_factory=dict)
+
+    # Off-policy algorithm parameters. They are ignored by PPO but remain in
+    # the resolved recipe so a run can be reproduced from one config shape.
+    tau: float = 0.005
+    batch_size: int = 256
+    replay_size: int = 100_000
+    alpha: float = 0.2
+    policy_delay: int = 2
+    exploration_noise: float = 0.1
+    target_noise: float = 0.2
+    target_noise_clip: float = 0.5
 
     def to_dict(self) -> dict:
         return self.__dict__
@@ -104,28 +116,17 @@ class MJLabTrainingAdapter:
         """设置训练智能体（PPO/SAC/TD3）"""
         print(f"[Adapter] Setting up {self.config.algorithm} agent...")
 
-        if self.config.algorithm == "PPO":
-            agent_config = {
-                "learning_rate": self.config.learning_rate,
-                "num_steps": self.config.num_steps,
-                "num_minibatches": self.config.num_minibatches,
-                "gamma": self.config.gamma,
-                "gae_lambda": self.config.gae_lambda,
-                "clip_param": self.config.clip_param,
-                "entropy_coef": self.config.entropy_coef,
-                "value_loss_coef": self.config.value_loss_coef,
-            }
-        else:
-            raise NotImplementedError(f"Algorithm {self.config.algorithm} not implemented")
+        agent_config = self.config.to_dict()
 
         # 保存智能体配置
         with open(self.output_dir / "agent_config.json", 'w') as f:
             json.dump(agent_config, f, indent=2)
 
-        self.agent = PPOAlgorithm(
+        self.agent = create_algorithm(
+            name=self.config.algorithm,
             num_obs=self.contract.observation.dimension,
             num_actions=self.contract.action.dimension,
-            config=PPOConfig(**{key: value for key, value in agent_config.items() if key in PPOConfig.__annotations__}),
+            config=agent_config,
             device="cuda" if self.config.device == "cuda" and __import__("torch").cuda.is_available() else "cpu",
         )
 
@@ -152,6 +153,32 @@ class MJLabTrainingAdapter:
         observations = self.env.reset()
         num_steps = max(4, self.config.num_steps)
         for iteration in range(self.config.max_iterations):
+            if isinstance(self.agent, OffPolicyAlgorithm):
+                metrics_history = []
+                for _ in range(num_steps):
+                    actions, _ = self.agent.act(observations, deterministic=False)
+                    next_observations, rewards, dones, _ = self.env.step(actions)
+                    self.agent.add_transition(observations, actions, rewards, next_observations, dones.astype(np.float32))
+                    update_metrics = self.agent.update()
+                    metrics_history.append(update_metrics)
+                    observations = next_observations
+                    if np.any(dones):
+                        reset_observations = self.env.reset()
+                        observations[dones] = reset_observations[dones]
+                metrics = {
+                    "iteration": iteration,
+                    "reward_mean": float(np.mean(rewards)),
+                    "reward_std": float(np.std(rewards)),
+                    "episode_length": num_steps,
+                    "learning_rate": self.config.learning_rate,
+                    **(metrics_history[-1] if metrics_history else {}),
+                }
+                self.metrics_history.append(metrics)
+                if progress_callback:
+                    progress_callback(metrics)
+                if (iteration + 1) % self.config.save_interval == 0:
+                    self._save_checkpoint(iteration)
+                continue
             rollout_obs, rollout_actions, rollout_rewards, rollout_dones, rollout_values, rollout_log_probs = [], [], [], [], [], []
             for _ in range(num_steps):
                 actions, values, log_probs = self.agent.act_with_log_prob(observations)

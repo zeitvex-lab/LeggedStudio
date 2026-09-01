@@ -69,6 +69,10 @@ class TrainingTask:
             "current_iteration": progress.get("iteration", 0),
             "max_iterations": self.config.get("max_iterations", 0),
             "reward": progress.get("reward_mean", 0.0)
+            ,"success_rate": progress.get("success_rate", status_info.get("success_rate", 0.0))
+            ,"pid": status_info.get("pid")
+            ,"exit_code": status_info.get("exit_code")
+            ,"error": status_info.get("error")
         }
 
 
@@ -120,7 +124,7 @@ class TrainingManager:
 
         # 创建任务目录
         task_dir = self.workspace_dir / task_id
-        task_dir.mkdir(parents=True, exist_ok=True)
+        task_dir.mkdir(parents=True, exist_ok=False)
 
         # 保存 Contract
         contract_path = task_dir / "contract.json"
@@ -135,6 +139,11 @@ class TrainingManager:
         )
 
         self.tasks[task_id] = task
+
+        (task_dir / "status.json").write_text(
+            json.dumps({"status": "pending", "pid": None, "exit_code": None}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
         # 启动训练
         self.launcher.launch_training(
@@ -210,8 +219,14 @@ class TrainingManager:
 
     def _generate_task_id(self, contract_id: str) -> str:
         """生成任务 ID"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return f"{contract_id}_{timestamp}"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        base = f"{contract_id}_{timestamp}"
+        candidate = base
+        suffix = 1
+        while candidate in self.tasks or (self.workspace_dir / candidate).exists():
+            candidate = f"{base}_{suffix}"
+            suffix += 1
+        return candidate
 
 
 # ========== 全局管理器实例 ==========

@@ -10,6 +10,7 @@ from typing import List, Optional
 from backend.training_manager import get_training_manager
 from contracts.robot_contract_v2 import RobotContractV2
 from adapters.mjlab_new.env_factory import get_reward_terms
+from adapters.mjlab_new.algorithms.registry import list_algorithms
 
 
 router = APIRouter(prefix="/api/training", tags=["training"])
@@ -30,6 +31,20 @@ class CreateTrainingRequest(BaseModel):
     terrain_type: str = "plane"
     device: str = "auto"
     reward_scales: dict[str, float] = Field(default_factory=dict)
+    # Shared advanced fields. PPO ignores off-policy-only values; keeping one
+    # request shape makes Web, CLI, and future adapters interchangeable.
+    num_steps: int = Field(default=24, ge=4, le=4096)
+    num_minibatches: int = Field(default=4, ge=1, le=64)
+    gamma: float = Field(default=0.99, gt=0.0, lt=1.0)
+    gae_lambda: float = Field(default=0.95, gt=0.0, le=1.0)
+    clip_param: float = Field(default=0.2, gt=0.0, lt=1.0)
+    entropy_coef: float = Field(default=0.01, ge=0.0)
+    tau: float = Field(default=0.005, gt=0.0, le=1.0)
+    batch_size: int = Field(default=256, ge=1, le=8192)
+    replay_size: int = Field(default=100_000, ge=1024, le=10_000_000)
+    alpha: float = Field(default=0.2, gt=0.0)
+    policy_delay: int = Field(default=2, ge=1, le=16)
+    exploration_noise: float = Field(default=0.1, ge=0.0, le=2.0)
 
 
 class TrainingStatusResponse(BaseModel):
@@ -56,8 +71,10 @@ async def create_training(request: CreateTrainingRequest):
     启动独立进程进行训练
     """
     try:
-        if request.algorithm != "PPO":
-            raise HTTPException(status_code=400, detail=f"算法 {request.algorithm} 尚未接入真实训练，目前可用算法：PPO")
+        algorithm = request.algorithm.upper()
+        available = {item["id"] for item in list_algorithms() if item.get("available")}
+        if algorithm not in available:
+            raise HTTPException(status_code=400, detail=f"算法 {request.algorithm} 不可用，目前可用算法：{', '.join(sorted(available))}")
         # 解析 Contract
         contract = RobotContractV2(**request.contract)
 
@@ -73,7 +90,7 @@ async def create_training(request: CreateTrainingRequest):
 
         # 准备配置
         config = {
-            "algorithm": request.algorithm,
+            "algorithm": algorithm,
             "num_envs": request.num_envs,
             "max_iterations": request.max_iterations,
             "learning_rate": request.learning_rate,
@@ -83,6 +100,18 @@ async def create_training(request: CreateTrainingRequest):
             "terrain_type": request.terrain_type,
             "device": request.device,
             "reward_scales": request.reward_scales,
+            "num_steps": request.num_steps,
+            "num_minibatches": request.num_minibatches,
+            "gamma": request.gamma,
+            "gae_lambda": request.gae_lambda,
+            "clip_param": request.clip_param,
+            "entropy_coef": request.entropy_coef,
+            "tau": request.tau,
+            "batch_size": request.batch_size,
+            "replay_size": request.replay_size,
+            "alpha": request.alpha,
+            "policy_delay": request.policy_delay,
+            "exploration_noise": request.exploration_noise,
         }
 
         # 创建任务
@@ -107,7 +136,7 @@ async def create_training(request: CreateTrainingRequest):
 @router.get("/options")
 async def training_options():
     return {
-        "algorithms": [{"id": "PPO", "label": "PPO", "available": True}, {"id": "SAC", "label": "SAC", "available": False}, {"id": "TD3", "label": "TD3", "available": False}],
+        "algorithms": list_algorithms(),
         "reward_terms": get_reward_terms(),
         "tasks": ["forward_walk", "trot", "rough_terrain"],
     }
@@ -140,6 +169,8 @@ async def get_training_status(task_id: str):
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -158,6 +189,8 @@ async def stop_training(task_id: str):
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -209,6 +242,8 @@ async def get_training_logs(task_id: str, lines: int = 100):
             "total_lines": len(all_lines)
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -240,5 +275,7 @@ async def get_training_artifact(task_id: str):
             "artifact": artifact.model_dump()
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
