@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import traceback
+from dataclasses import asdict
 from pathlib import Path
 
 
@@ -52,7 +53,7 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         robots_pkg.get_go2_robot_cfg = go2_constants.get_go2_robot_cfg
         import src.tasks.velocity.config.go2  # noqa: F401
     from mjlab.envs import ManagerBasedRlEnv
-    from mjlab.tasks.registry import list_tasks, load_env_cfg
+    from mjlab.tasks.registry import list_tasks, load_env_cfg, load_rl_cfg
 
     task_id = config.get("native_task_id") or config.get("task_name")
     tasks = list_tasks()
@@ -104,6 +105,21 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             "observation_groups": list(obs.keys()),
             "action_dim": action_dim,
         })
+        if config.get("mode") == "train":
+            from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
+            rl_cfg = load_rl_cfg(task_id)
+            rl_cfg.max_iterations = max(1, int(config.get("max_iterations", 1)))
+            rl_cfg.num_steps_per_env = max(4, int(config.get("num_steps", rl_cfg.num_steps_per_env)))
+            rl_cfg.experiment_name = str(config.get("experiment_name", "legged_studio_native"))
+            # Keep the isolated worker offline by default. The Unitree
+            # extension's wandb writer is incompatible with newer wandb.
+            rl_cfg.logger = str(config.get("logger", "tensorboard"))
+            wrapped = RslRlVecEnvWrapper(env, clip_actions=rl_cfg.clip_actions)
+            runner = MjlabOnPolicyRunner(wrapped, asdict(rl_cfg), str(output), device)
+            runner.learn(num_learning_iterations=rl_cfg.max_iterations, init_at_random_ep_len=True)
+            report["status"] = "train_completed"
+            report["max_iterations"] = rl_cfg.max_iterations
+            report["checkpoint_dir"] = str(output)
         _write(output / "native_preflight.json", report)
         _write(output / "status.json", {"status": "completed", **report})
         return 0
