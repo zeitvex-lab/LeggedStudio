@@ -12,7 +12,26 @@ let pythonProcess = null;
 let activeBackendPort = null;
 
 function firstExisting(candidates) {
-    return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[0];
+    const valid = candidates.filter(Boolean);
+    return valid.find((candidate) => fs.existsSync(candidate)) || valid[0];
+}
+
+function findRuntimePython(runtimeRoot, executable) {
+    const direct = path.join(runtimeRoot, executable);
+    if (fs.existsSync(direct)) return direct;
+    try {
+        const entries = fs.readdirSync(runtimeRoot, { withFileTypes: true });
+        for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            const candidate = path.join(runtimeRoot, entry.name, executable);
+            if (fs.existsSync(candidate)) return candidate;
+            const scriptsCandidate = path.join(runtimeRoot, entry.name, process.platform === 'win32' ? 'Scripts' : 'bin', executable);
+            if (fs.existsSync(scriptsCandidate)) return scriptsCandidate;
+        }
+    } catch {
+        return null;
+    }
+    return null;
 }
 
 function resolvePaths() {
@@ -28,7 +47,9 @@ function resolvePaths() {
         path.join(resourceRoot, 'app', 'backend', 'api_complete.py'),
         path.join(resourceRoot, 'backend', 'api_complete.py'),
     ]);
+    const embeddedPython = findRuntimePython(path.join(root, 'runtime', 'python'), pythonExecutable);
     const python = firstExisting([
+        embeddedPython,
         path.join(root, 'runtime', 'python', pythonExecutable),
         path.join(root, 'adapters', 'mjlab', '.venv', venvBin, pythonExecutable),
         path.join(root, 'adapters', 'mjlab_new', '.venv', venvBin, pythonExecutable),
@@ -40,6 +61,16 @@ function resolvePaths() {
         path.join(projectRoot, '..', 'QUADRUPED_ASSET_INVENTORY.json'),
         path.join(resourceRoot, 'app', 'QUADRUPED_ASSET_INVENTORY.json'),
     ]);
+    const mjlabSource = firstExisting([
+        path.join(root, 'runtime', 'mjlab_source'),
+        path.join(root, 'vendor', 'mjlab'),
+        path.join(projectRoot, '..', 'mjlab_new', 'mjlab'),
+    ]);
+    const mjlabExtension = firstExisting([
+        path.join(root, 'runtime', 'mjlab_extension'),
+        path.join(root, 'vendor', 'unitree_rl_mjlab'),
+        path.join(projectRoot, '..', 'uni_rl', 'unitree_rl_mjlab'),
+    ]);
     return {
         root,
         backend,
@@ -49,6 +80,8 @@ function resolvePaths() {
         output: path.join(root, 'output'),
         assets: inventory,
         inventory,
+        mjlabSource,
+        mjlabExtension,
     };
 }
 
@@ -281,6 +314,10 @@ async function startBackend() {
             LEGGED_STUDIO_DATA_DIR: app.getPath('userData'),
             LEGGED_STUDIO_WORKSPACE: PATHS.workspace || path.join(app.getPath('userData'), 'workspace'),
             LEGGED_STUDIO_OUTPUT: PATHS.output,
+            LEGGED_STUDIO_MJLAB_SOURCE: PATHS.mjlabSource,
+            LEGGED_STUDIO_MJLAB_EXTENSION: PATHS.mjlabExtension,
+            LEGGED_STUDIO_MJLAB_PYTHON: PATHS.python,
+            LEGGED_STUDIO_RUNTIME_PYTHON: PATHS.python,
         },
     });
 

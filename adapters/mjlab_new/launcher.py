@@ -224,6 +224,9 @@ class TrainingLauncher:
         candidates: list[Path] = []
         if explicit:
             candidates.append(Path(explicit))
+        runtime_python = os.environ.get("LEGGED_STUDIO_RUNTIME_PYTHON")
+        if runtime_python:
+            candidates.append(Path(runtime_python))
         venv = self._find_mjlab_venv()
         if venv:
             candidates.append(self._venv_python(venv))

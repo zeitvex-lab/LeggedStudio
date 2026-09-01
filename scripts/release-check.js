@@ -14,6 +14,10 @@ const required = [
   'assets/robots/unitree_go2/go2.xml',
   'assets/robots/unitree_go2w/go2w.xml',
   'web/workbench.html',
+  'packaging/electron-builder.embedded.js',
+  'scripts/stage_windows_runtime.ps1',
+  'scripts/package_windows_embedded.ps1',
+  'scripts/verify_windows_embedded.ps1',
 ];
 
 const missing = required.filter((file) => !fs.existsSync(path.join(root, file)));
@@ -34,6 +38,21 @@ const packageConfig = pkg.build || {};
 if (!Array.isArray(packageConfig.extraResources) || !packageConfig.extraResources.length) {
   console.error('Release check failed: electron-builder extraResources are empty');
   process.exit(1);
+}
+
+const embeddedRuntime = path.join(root, 'build', 'embedded-runtime');
+if (fs.existsSync(embeddedRuntime)) {
+  const manifestPath = path.join(embeddedRuntime, 'runtime-manifest.json');
+  if (!fs.existsSync(manifestPath)) {
+    console.error('Release check failed: embedded runtime is incomplete');
+    process.exit(1);
+  }
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8').replace(/^\uFEFF/, ''));
+  const pythonPath = path.join(embeddedRuntime, manifest.python || '');
+  if (!manifest.python || !fs.existsSync(pythonPath)) {
+    console.error(`Release check failed: embedded Python is missing: ${pythonPath}`);
+    process.exit(1);
+  }
 }
 
 console.log(`Release check passed for Legged Studio ${version}`);

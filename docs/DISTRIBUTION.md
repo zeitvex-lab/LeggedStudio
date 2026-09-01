@@ -4,11 +4,22 @@ This is the first distributable desktop preview. It packages the Electron
 launcher, FastAPI control plane source, Web workbenches, Contracts, canonical
 Go2/Go2W assets, adapters, and documentation.
 
-The package does not embed a Python distribution, NVIDIA drivers, CUDA, MJLab
+The default package does not embed a Python distribution, NVIDIA drivers, CUDA, MJLab
 source, or the external UniLab/Unitree extension trees. The launcher remains
 read-only until the user clicks Start. After that action, choose a Python
 runtime, configure the service port if needed, and prepare the control-plane
 environment. Training adapters are selected separately by the backend.
+
+For a Windows package that does embed the Python/MJLab GPU runtime, use
+`npm run build:portable:embedded`. That target stages a standalone CPython
+3.12 distribution, CUDA Torch (cu128), MJLab 1.6.0, and the Unitree extension
+under `build/embedded-runtime` before Electron Builder packages it. The staged
+directory is generated output and is not committed to Git.
+
+The embedded target produces `dist/embedded-win/win-unpacked` and
+`dist/Legged-Studio-0.3.0-Windows-CUDA.7z`. It intentionally does not create a
+single EXE: the CUDA/MJLab payload is larger than the NSIS memory-mapped input
+limit. Extracting the 7z archive preserves the same portable directory layout.
 
 ## Build on Windows
 
@@ -18,6 +29,13 @@ Install Node.js 18 or newer and npm dependencies:
 npm ci
 npm run release:check
 npm run build:portable
+```
+
+Embedded Windows runtime (large package, requires `uv` and network access):
+
+```powershell
+npm run build:portable:embedded
+npm run verify:embedded:win
 ```
 
 The portable output is written to `dist/`.
@@ -72,9 +90,9 @@ native MJLab CUDA training does require a compatible NVIDIA driver.
 
 ## Release limitations
 
-- A fully self-contained Python/MJLab runtime is not included in the first
-  package; this keeps the desktop artifact portable and avoids shipping a
-  multi-gigabyte GPU stack for every platform.
+- The default package remains lightweight. The Windows embedded target adds
+  CPython, CUDA Torch, MJLab, and the Unitree extension, but NVIDIA display
+  drivers must still be installed by the user.
 - Native MJLab currently exposes PPO. Native SAC/TD3, complex map planning,
   rich native 3D playback, hardware deployment, and TensorRT remain future
   adapter work.

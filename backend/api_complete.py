@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+import os
 import sys
 import platform
 from typing import Any
@@ -333,17 +334,21 @@ async def get_system_info():
 async def get_environment_status():
     """获取环境状态"""
     project_root = Path(__file__).parent.parent
+    embedded_python_value = os.environ.get("LEGGED_STUDIO_RUNTIME_PYTHON", "").strip()
+    embedded_python = Path(embedded_python_value) if embedded_python_value else None
     adapter_paths = {
         "mjlab": project_root / "adapters" / "mjlab" / ".venv",
         "mjlab_new": project_root / "adapters" / "mjlab_new" / ".venv",
     }
     adapters = {}
     for adapter_id, venv_path in adapter_paths.items():
-        exists = venv_path.exists()
+        python_path = embedded_python if embedded_python and embedded_python.exists() else venv_path / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python")
+        exists = python_path.exists()
         adapters[adapter_id] = {
             "name": "MJLab Adapter",
             "venv_exists": exists,
-            "python_path": str(venv_path / ("Scripts" if sys.platform == "win32" else "bin") / ("python.exe" if sys.platform == "win32" else "python")) if exists else None,
+            "python_path": str(python_path) if exists else None,
+            "embedded": bool(embedded_python and embedded_python.exists()),
             "status": "installed" if exists else "not_installed",
         }
 
