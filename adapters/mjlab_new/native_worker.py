@@ -12,6 +12,7 @@ import os
 import sys
 import traceback
 from dataclasses import asdict
+import time
 from pathlib import Path
 
 
@@ -22,6 +23,9 @@ def _write(path: Path, value: dict) -> None:
 
 def run(config: dict, source: Path, output: Path, extension_root: Path | None = None) -> int:
     _write(output / "status.json", {"status": "running", "backend": "native_mjlab"})
+    project_root = Path(__file__).resolve().parents[2]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
     sys.path.insert(0, str(source / "src"))
     if extension_root and extension_root.exists():
         sys.path.insert(0, str(extension_root))
@@ -83,6 +87,13 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
 
     env_cfg = load_env_cfg(task_id)
     env_cfg.scene.num_envs = max(1, int(config.get("num_envs", env_cfg.scene.num_envs)))
+    actor_terms = env_cfg.observations.get("actor")
+    critic_terms = env_cfg.observations.get("critic")
+    if actor_terms and critic_terms and "phase" in actor_terms.terms and "base_lin_vel" in critic_terms.terms:
+        # Match the unified Go2 Contract actor layout: 3 base linear velocity
+        # values replace the extension's 2-value gait phase.
+        actor_terms.terms.pop("phase", None)
+        actor_terms.terms["base_lin_vel"] = critic_terms.terms["base_lin_vel"]
     # MJLab 1.6 requires structural collision dictionaries to have a default;
     # Unitree's extension was authored against the previous sparse-dict API.
     for entity_cfg in env_cfg.scene.entities.values():
@@ -106,6 +117,7 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             "action_dim": action_dim,
         })
         if config.get("mode") == "train":
+            started = time.time()
             from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
             rl_cfg = load_rl_cfg(task_id)
             rl_cfg.max_iterations = max(1, int(config.get("max_iterations", 1)))
@@ -120,6 +132,36 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             report["status"] = "train_completed"
             report["max_iterations"] = rl_cfg.max_iterations
             report["checkpoint_dir"] = str(output)
+            model_path = output / f"model_{rl_cfg.max_iterations - 1}.pt"
+            if not model_path.exists():
+                candidates = sorted(output.glob("model_*.pt"))
+                model_path = candidates[-1] if candidates else model_path
+            contract_path = config.get("contract_path")
+            if model_path.exists() and contract_path:
+                from contracts.policy_artifact import TrainingMetrics, create_artifact_from_training
+                from contracts.robot_contract_v2 import RobotContractV2
+                contract = RobotContractV2.from_json_file(str(contract_path))
+                logical_task = str(config.get("task_name", task_id)).lower().replace(" ", "_").replace("-", "_")
+                artifact = create_artifact_from_training(
+                    contract=contract,
+                    task_name=logical_task,
+                    algorithm=str(config.get("algorithm", "PPO")),
+                    model_path=str(model_path.resolve()),
+                    metrics=TrainingMetrics(
+                        iterations=rl_cfg.max_iterations,
+                        episodes=env.num_envs * rl_cfg.max_iterations,
+                        success_rate=0.0,
+                        avg_reward=0.0,
+                        final_reward=0.0,
+                        training_duration_seconds=time.time() - started,
+                    ),
+                    algorithm_config=asdict(rl_cfg),
+                    obs_normalizer={"mean": [], "std": []},
+                    mjlab_version="1.6.0-native",
+                    tags=["native_mjlab", contract.robot_id],
+                )
+                artifact.to_json_file(str(output / "artifact.json"))
+                report["artifact_id"] = artifact.artifact_id
         _write(output / "native_preflight.json", report)
         _write(output / "status.json", {"status": "completed", **report})
         return 0
@@ -134,10 +176,13 @@ def main() -> int:
     parser.add_argument("--config", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--extension-root")
+    parser.add_argument("--contract")
     args = parser.parse_args()
     output = Path(args.output)
     try:
         config = json.loads(Path(args.config).read_text(encoding="utf-8"))
+        if args.contract:
+            config["contract_path"] = str(Path(args.contract).resolve())
         extension = Path(args.extension_root).resolve() if args.extension_root else None
         return run(config, Path(args.source).resolve(), output, extension)
     except Exception as exc:

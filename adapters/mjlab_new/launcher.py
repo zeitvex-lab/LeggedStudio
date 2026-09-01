@@ -56,7 +56,7 @@ class TrainingLauncher:
         worker_script = Path(__file__).parent / ("native_worker.py" if native else "train_worker.py")
         if native:
             extension = config.get("mjlab_extension_root", os.environ.get("LEGGED_STUDIO_MJLAB_EXTENSION", "C:/Users/31560/Documents/00_open/uni_rl/unitree_rl_mjlab"))
-            cmd = [str(python_exe), str(worker_script), "--source", str(config.get("mjlab_source", os.environ.get("LEGGED_STUDIO_MJLAB_SOURCE", "C:/Users/31560/Documents/00_open/mjlab_new/mjlab"))), "--extension-root", str(extension), "--config", str(config_path), "--output", str(task_dir)]
+            cmd = [str(python_exe), str(worker_script), "--source", str(config.get("mjlab_source", os.environ.get("LEGGED_STUDIO_MJLAB_SOURCE", "C:/Users/31560/Documents/00_open/mjlab_new/mjlab"))), "--extension-root", str(extension), "--contract", str(contract_path), "--config", str(config_path), "--output", str(task_dir)]
         else:
             cmd = [str(python_exe), str(worker_script), "--contract", str(contract_path), "--config", str(config_path), "--output", str(task_dir), "--task-id", task_id]
 
