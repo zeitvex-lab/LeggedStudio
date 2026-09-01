@@ -43,6 +43,9 @@ class TrainingConfig:
     terrain_type: str = "plane"
     device: str = "auto"
     reward_scales: Dict[str, float] = field(default_factory=dict)
+    seed: int = 0
+    backend: str = "local_mujoco"
+    resolved_recipe: Dict[str, Any] = field(default_factory=dict)
 
     # Off-policy algorithm parameters. They are ignored by PPO but remain in
     # the resolved recipe so a run can be reproduced from one config shape.
@@ -107,6 +110,7 @@ class MJLabTrainingAdapter:
             self.contract,
             self.config.num_envs,
             self.config.episode_length_s,
+            seed=self.config.seed,
             reward_scales=reward_scales,
             command_ranges=env_config.get("command_ranges"),
         )
