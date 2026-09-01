@@ -55,4 +55,4 @@ For an API-managed run, start `python backend/api_complete.py`, select a preset 
 
 ## Capability boundary
 
-Go2 and Go2W are real Contract-MuJoCo/PPO training presets. The local upstream MJLab 1.6.0 source only ships Go1/G1 registry tasks, so this product adapter does not claim native MJLab registry integration. SAC and TD3 are listed as unavailable until their complete training and checkpoint path is implemented. GPU readiness is reported by adapter preflight and must be verified on the target machine.
+Go2 and Go2W are real Contract-MuJoCo/PPO training presets. The isolated native MJLab worker registers the Unitree Go2 and Go2W manager-based tasks, writes RSL-RL checkpoints/artifacts, and exposes native evaluation/navigation through the same control-plane APIs. SAC and TD3 remain local-adapter options until their complete native checkpoint path is implemented. GPU readiness is reported by adapter preflight and must be verified on the target machine.

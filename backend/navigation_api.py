@@ -169,7 +169,8 @@ async def _run_native_navigation(task, request: NavigationRequest):
     if not artifact_path.exists() or not checkpoints:
         raise HTTPException(status_code=400, detail="Native artifact or checkpoint is not ready")
     config = dict(task.config)
-    config.update({"mode": "navigation", "episodes": request.episodes, "max_steps": request.max_steps or 500, "waypoints": request.waypoints, "waypoint_tolerance": request.waypoint_tolerance, "checkpoint": str(checkpoints[-1].resolve()), "native_task_id": config.get("native_task_id", "Unitree-Go2-Flat")})
+    default_task = "Unitree-Go2W-Flat" if task.contract.robot_id == "unitree_go2w" else "Unitree-Go2-Flat"
+    config.update({"mode": "navigation", "episodes": request.episodes, "max_steps": request.max_steps or 500, "waypoints": request.waypoints, "waypoint_tolerance": request.waypoint_tolerance, "checkpoint": str(checkpoints[-1].resolve()), "native_task_id": config.get("native_task_id", default_task)})
     config_path = task.task_dir / "native_navigation_config.json"
     config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     launcher = TrainingLauncher(workspace_dir=str(task.task_dir.parent))

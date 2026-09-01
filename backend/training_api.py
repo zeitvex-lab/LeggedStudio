@@ -167,10 +167,13 @@ async def create_training(request: CreateTrainingRequest):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         config["resolved_recipe"] = resolved_recipe.model_dump(mode="json")
         if request.backend == "native_mjlab":
-            if contract.robot_id != "unitree_go2":
-                raise HTTPException(status_code=501, detail="native MJLab currently supports Go2 only; use local_mujoco for Go2W")
+            if contract.robot_id not in {"unitree_go2", "unitree_go2w"}:
+                raise HTTPException(status_code=501, detail="native MJLab currently supports Unitree Go2 and Go2W")
             config["mode"] = "train"
-            config["native_task_id"] = "Unitree-Go2-Rough" if request.terrain_type in {"rough", "stairs"} else "Unitree-Go2-Flat"
+            if contract.robot_id == "unitree_go2w":
+                config["native_task_id"] = "Unitree-Go2W-Flat"
+            else:
+                config["native_task_id"] = "Unitree-Go2-Rough" if request.terrain_type in {"rough", "stairs"} else "Unitree-Go2-Flat"
             config["mjlab_extension_root"] = "C:/Users/31560/Documents/00_open/uni_rl/unitree_rl_mjlab"
             from adapters.mjlab_new.native_adapter import preflight
             native = preflight()
@@ -178,6 +181,8 @@ async def create_training(request: CreateTrainingRequest):
                 raise HTTPException(status_code=501, detail={"message": "native MJLab adapter is not ready", "preflight": native})
             if not native.get("execution_ready"):
                 raise HTTPException(status_code=501, detail={"message": native.get("execution_note", "native MJLab task adapter is not ready"), "preflight": native})
+            if contract.robot_id == "unitree_go2w" and not native.get("go2w_task_available"):
+                raise HTTPException(status_code=501, detail={"message": "native Go2W asset/task adapter is not ready", "preflight": native})
 
         # 创建任务
         manager = get_training_manager()

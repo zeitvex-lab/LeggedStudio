@@ -47,6 +47,9 @@ def _probe_runtime(source: Path) -> dict[str, Any]:
 def preflight(source: Path = DEFAULT_SOURCE) -> dict[str, Any]:
     source = source.expanduser().resolve()
     package_root = source / "src"
+    project_root = Path(__file__).resolve().parents[2]
+    go2w_xml = project_root / "assets" / "robots" / "unitree_go2w" / "go2w.xml"
+    go2w_assets = go2w_xml.parent / "assets"
     report = {
         "source": str(source),
         "exists": source.exists(),
@@ -58,12 +61,15 @@ def preflight(source: Path = DEFAULT_SOURCE) -> dict[str, Any]:
         "extension_root": str(DEFAULT_EXTENSION),
         "extension_exists": DEFAULT_EXTENSION.exists(),
         "go2_task_source": (DEFAULT_EXTENSION / "src" / "tasks" / "velocity" / "config" / "go2" / "__init__.py").exists(),
+        "go2w_task_source": (project_root / "adapters" / "mjlab_new" / "native_worker.py").exists(),
+        "go2w_asset": str(go2w_xml),
+        "go2w_task_available": go2w_xml.exists() and go2w_assets.exists() and any(go2w_assets.iterdir()),
     }
     report["runtime"] = _probe_runtime(source) if source.exists() else {"available": False, "interpreters": []}
     report["smoke_ready"] = bool(report["exists"] and report["manager_env_available"] and report["extension_exists"] and report["go2_task_source"] and report["runtime"]["available"])
     report["execution_ready"] = report["smoke_ready"]
     report["training_ready"] = report["smoke_ready"]
-    report["execution_note"] = "Go2 native MJLab training/evaluation/navigation is available in the isolated worker; CUDA depends on the selected native Python environment."
+    report["execution_note"] = "Go2 and Go2W native MJLab training/evaluation/navigation are available in the isolated worker; CUDA depends on the selected native Python environment."
     return report
 
 

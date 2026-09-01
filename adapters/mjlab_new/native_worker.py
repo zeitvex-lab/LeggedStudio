@@ -14,12 +14,80 @@ import traceback
 from dataclasses import asdict
 import time
 import shutil
+import copy
 from pathlib import Path
 
 
 def _write(path: Path, value: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _go2w_base_lin_vel_xy(env, sensor_name: str = "robot/local_linvel"):
+    """Return planar base velocity for the 56D Go2W actor contract."""
+    from mjlab.envs.mdp.observations import builtin_sensor
+
+    return builtin_sensor(env, sensor_name)[..., :2]
+
+
+def _register_go2w_task(project_root: Path, register_mjlab_task, load_env_cfg, load_rl_cfg) -> None:
+    """Register a wheel-leg task using the versioned Legged Studio Go2W MJCF."""
+    import mujoco
+    from mjlab.actuator import BuiltinPositionActuatorCfg, BuiltinVelocityActuatorCfg
+    from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
+    from mjlab.envs.mdp.actions import JointPositionActionCfg, JointVelocityActionCfg
+
+    xml_path = project_root / "assets" / "robots" / "unitree_go2w" / "go2w.xml"
+    asset_dir = xml_path.parent / "assets"
+
+    def get_spec():
+        spec = mujoco.MjSpec.from_file(str(xml_path))
+        spec.assets = {item.name: item.read_bytes() for item in asset_dir.iterdir() if item.is_file()}
+        return spec
+
+    robot = EntityCfg(
+        init_state=EntityCfg.InitialStateCfg(pos=(0.0, 0.0, 0.38), joint_pos={".*": 0.0}, joint_vel={".*": 0.0}),
+        collisions=(),
+        spec_fn=get_spec,
+        articulation=EntityArticulationInfoCfg(actuators=(
+            BuiltinPositionActuatorCfg(target_names_expr=(".*_hip_joint", ".*_thigh_joint", ".*_calf_joint"), stiffness=20.0, damping=1.0, effort_limit=45.0, armature=0.01),
+            BuiltinVelocityActuatorCfg(target_names_expr=(".*_wheel_joint",), damping=0.5, effort_limit=15.0, armature=0.0042),
+        ), soft_joint_pos_limit_factor=0.9),
+    )
+    env_cfg = copy.deepcopy(load_env_cfg("Unitree-Go2-Flat"))
+    play_cfg = copy.deepcopy(load_env_cfg("Unitree-Go2-Flat", play=True))
+    env_cfg.scene.entities = {"robot": robot}
+    play_cfg.scene.entities = {"robot": copy.deepcopy(robot)}
+    # 16D wheel-leg action contract: 12 joint positions + 4 wheel velocities.
+    env_cfg.actions = {
+        "joint_pos": JointPositionActionCfg(entity_name="robot", actuator_names=(".*_(hip|thigh|calf)_joint",), scale=0.25, use_default_offset=True),
+        "wheel_vel": JointVelocityActionCfg(entity_name="robot", actuator_names=(".*_wheel_joint",), scale=6.0, use_default_offset=False),
+    }
+    play_cfg.actions = copy.deepcopy(env_cfg.actions)
+    # Keep the 56D Go2W actor contract: gait phase (2) replaces command (3).
+    for cfg in (env_cfg, play_cfg):
+        actor = cfg.observations["actor"]
+        actor.terms.pop("command", None)
+        actor.terms.pop("phase", None)
+        actor.terms["base_lin_vel"] = copy.deepcopy(cfg.observations["critic"].terms["base_lin_vel"])
+        actor.terms["base_ang_vel"].params["sensor_name"] = "robot/gyro"
+        actor.terms["base_lin_vel"].params["sensor_name"] = "robot/local_linvel"
+        actor.terms["base_lin_vel"].func = _go2w_base_lin_vel_xy
+        cfg.observations["critic"].terms["base_ang_vel"].params["sensor_name"] = "robot/gyro"
+        cfg.observations["critic"].terms["base_lin_vel"].params["sensor_name"] = "robot/local_linvel"
+        # Go2W MJCF uses unnamed collision geoms, so the Go2 contact-sensor
+        # patterns cannot be resolved. Keep the wheel-leg flat task free of
+        # those optional sensors and contact-dependent terms.
+        cfg.scene.sensors = ()
+        for group in cfg.observations.values():
+            for name in ("height_scan", "foot_height", "foot_air_time", "foot_contact", "foot_contact_forces"):
+                group.terms.pop(name, None)
+        for name in ("feet_ground_contact", "foot_gait", "soft_landing", "self_collision", "thigh_ground_touch", "shank_ground_touch", "trunk_head_ground_touch", "foot_clearance", "foot_slip", "air_time", "illegal_contact", "pose", "angular_momentum"):
+            cfg.rewards.pop(name, None)
+            cfg.terminations.pop(name, None)
+        for name in ("foot_friction", "foot_friction_slide", "foot_friction_spin", "foot_friction_roll"):
+            cfg.events.pop(name, None)
+    register_mjlab_task("Unitree-Go2W-Flat", env_cfg, play_cfg, load_rl_cfg("Unitree-Go2-Flat"))
 
 
 def run(config: dict, source: Path, output: Path, extension_root: Path | None = None) -> int:
@@ -57,6 +125,9 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         go2_constants = __import__("src.assets.robots.unitree_go2.go2_constants", fromlist=["get_go2_robot_cfg"])
         robots_pkg.get_go2_robot_cfg = go2_constants.get_go2_robot_cfg
         import src.tasks.velocity.config.go2  # noqa: F401
+    if config.get("native_task_id") == "Unitree-Go2W-Flat":
+        from mjlab.tasks.registry import register_mjlab_task, load_env_cfg, load_rl_cfg
+        _register_go2w_task(project_root, register_mjlab_task, load_env_cfg, load_rl_cfg)
     from mjlab.envs import ManagerBasedRlEnv
     from mjlab.tasks.registry import list_tasks, load_env_cfg, load_rl_cfg
 
@@ -90,7 +161,7 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
     env_cfg.scene.num_envs = max(1, int(config.get("num_envs", env_cfg.scene.num_envs)))
     actor_terms = env_cfg.observations.get("actor")
     critic_terms = env_cfg.observations.get("critic")
-    if actor_terms and critic_terms and "phase" in actor_terms.terms and "base_lin_vel" in critic_terms.terms:
+    if task_id != "Unitree-Go2W-Flat" and actor_terms and critic_terms and "phase" in actor_terms.terms and "base_lin_vel" in critic_terms.terms:
         # Match the unified Go2 Contract actor layout: 3 base linear velocity
         # values replace the extension's 2-value gait phase.
         actor_terms.terms.pop("phase", None)
@@ -115,6 +186,7 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             "device": device,
             "num_envs": env.num_envs,
             "observation_groups": list(obs.keys()),
+            "observation_dimensions": {name: list(value.shape[1:]) for name, value in obs.items()},
             "action_dim": action_dim,
         })
         if config.get("mode") == "train":
