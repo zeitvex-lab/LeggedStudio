@@ -8,6 +8,8 @@ let pollTimer = null;
 let modelValidated = false;
 let simulationSessionId = null;
 let simulationMaps = [];
+let activeSimulationMap = null;
+let simulationTrail = [];
 
 function setStep(name) {
   document.querySelectorAll('.step-panel').forEach((panel) => panel.classList.toggle('active-panel', panel.id === name));
@@ -63,6 +65,11 @@ async function loadSimulationMaps() {
 }
 
 function renderSimulationFrame(frame) {
+  const position = Array.isArray(frame.position) ? frame.position : [0, 0, 0];
+  simulationTrail.push([Number(position[0] || 0), Number(position[1] || 0)]);
+  if (simulationTrail.length > 500) simulationTrail.shift();
+  $('simPoseLabel').textContent = `x ${Number(position[0] || 0).toFixed(2)} / y ${Number(position[1] || 0).toFixed(2)}`;
+  drawSimulationMap(position);
   $('simFrame').textContent = JSON.stringify({
     session_id: frame.session_id,
     map_id: frame.map_id,
@@ -72,6 +79,33 @@ function renderSimulationFrame(frame) {
     reward: Number(frame.reward || 0).toFixed(4),
     done: frame.done,
   }, null, 2);
+}
+
+function drawSimulationMap(position = [0, 0, 0]) {
+  const canvas = $('simCanvas');
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const ratio = Math.max(1, window.devicePixelRatio || 1);
+  const width = Math.max(320, Math.round(rect.width || 800));
+  const height = Math.max(220, Math.round(rect.height || 320));
+  if (canvas.width !== width * ratio || canvas.height !== height * ratio) { canvas.width = width * ratio; canvas.height = height * ratio; }
+  const context = canvas.getContext('2d');
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = '#07111a'; context.fillRect(0, 0, width, height);
+  const [xmin, xmax, ymin, ymax] = activeSimulationMap?.bounds || [-5, 5, -5, 5];
+  const padding = 30;
+  const project = ([x, y]) => [padding + ((x - xmin) / (xmax - xmin)) * (width - padding * 2), height - padding - ((y - ymin) / (ymax - ymin)) * (height - padding * 2)];
+  context.strokeStyle = '#172b3b'; context.lineWidth = 1;
+  for (let x = Math.ceil(xmin); x <= xmax; x += 1) { const [px] = project([x, 0]); context.beginPath(); context.moveTo(px, padding); context.lineTo(px, height - padding); context.stroke(); }
+  for (let y = Math.ceil(ymin); y <= ymax; y += 1) { const [, py] = project([0, y]); context.beginPath(); context.moveTo(padding, py); context.lineTo(width - padding, py); context.stroke(); }
+  context.fillStyle = '#384b5a';
+  (activeSimulationMap?.obstacles || []).forEach(([x, y, w, h]) => { const [a, b] = project([x - w / 2, y + h / 2]); const [c, d] = project([x + w / 2, y - h / 2]); context.fillRect(a, b, c - a, d - b); });
+  const waypoints = activeSimulationMap?.default_waypoints || [];
+  if (waypoints.length) { context.strokeStyle = '#f2bf70'; context.setLineDash([5, 5]); context.beginPath(); waypoints.forEach((point, index) => { const [x, y] = project(point); index ? context.lineTo(x, y) : context.moveTo(x, y); }); context.stroke(); context.setLineDash([]); }
+  if (simulationTrail.length > 1) { context.strokeStyle = '#43d6cb'; context.lineWidth = 2; context.beginPath(); simulationTrail.forEach((point, index) => { const [x, y] = project(point); index ? context.lineTo(x, y) : context.moveTo(x, y); }); context.stroke(); }
+  const [robotX, robotY] = project(position);
+  context.fillStyle = '#78a9ff'; context.beginPath(); context.arc(robotX, robotY, 6, 0, Math.PI * 2); context.fill();
 }
 
 function updateCommandLabels() {
@@ -90,6 +124,9 @@ async function startSimulation() {
       body: JSON.stringify({ robot_id: selectedPreset.robot_id, map_id: $('simMap').value || 'flat', mode: 'basic' }),
     });
     simulationSessionId = payload.session_id;
+    activeSimulationMap = payload.map;
+    simulationTrail = [];
+    $('simMapLabel').textContent = `${payload.map?.label || payload.map?.id || 'scene'} / ${selectedPreset.family}`;
     $('resetSimulation').disabled = false;
     $('closeSimulation').disabled = false;
     $('simStep').disabled = false;
@@ -119,16 +156,23 @@ async function closeSimulation() {
   if (!simulationSessionId) return;
   await jsonFetch(`/api/simulation/sessions/${simulationSessionId}`, { method: 'DELETE' });
   simulationSessionId = null;
+  activeSimulationMap = null;
+  simulationTrail = [];
   $('resetSimulation').disabled = true;
   $('closeSimulation').disabled = true;
   $('simStep').disabled = true;
   $('simStopCommand').disabled = true;
+  $('simMapLabel').textContent = '无活动场景';
+  $('simPoseLabel').textContent = 'x 0.00 / y 0.00';
+  drawSimulationMap();
   $('simFrame').textContent = '仿真会话已关闭。';
 }
 
 function stopSimulationCommand() {
   ['simVx', 'simVy', 'simWz'].forEach((id) => { $(id).value = 0; });
   updateCommandLabels();
+  drawSimulationMap();
+  window.addEventListener('resize', () => drawSimulationMap(simulationTrail.at(-1) || [0, 0, 0]));
 }
 
 function renderRewards() {
