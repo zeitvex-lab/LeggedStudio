@@ -16,6 +16,7 @@ from typing import Any
 
 
 DEFAULT_SOURCE = Path(os.environ.get("LEGGED_STUDIO_MJLAB_SOURCE", "C:/Users/31560/Documents/00_open/mjlab_new/mjlab"))
+DEFAULT_EXTENSION = Path(os.environ.get("LEGGED_STUDIO_MJLAB_EXTENSION", "C:/Users/31560/Documents/00_open/uni_rl/unitree_rl_mjlab"))
 
 
 def _probe_runtime(source: Path) -> dict[str, Any]:
@@ -54,10 +55,14 @@ def preflight(source: Path = DEFAULT_SOURCE) -> dict[str, Any]:
         "runner_available": (package_root / "mjlab" / "rl" / "runner.py").exists(),
         "python_importable_in_control_plane": bool(importlib.util.find_spec("mjlab")),
         "status": "candidate" if source.exists() else "not_found",
+        "extension_root": str(DEFAULT_EXTENSION),
+        "extension_exists": DEFAULT_EXTENSION.exists(),
+        "go2_task_source": (DEFAULT_EXTENSION / "src" / "tasks" / "velocity" / "config" / "go2" / "__init__.py").exists(),
     }
     report["runtime"] = _probe_runtime(source) if source.exists() else {"available": False, "interpreters": []}
+    report["smoke_ready"] = bool(report["exists"] and report["manager_env_available"] and report["extension_exists"] and report["go2_task_source"] and report["runtime"]["available"])
     report["execution_ready"] = False
-    report["execution_note"] = "Native worker launch is intentionally gated until a registered Go2/Go2W task adapter is available."
+    report["execution_note"] = "Go2 native task extension is available for manager-environment smoke; full policy training remains gated until runner artifact wiring is enabled."
     return report
 
 
@@ -66,6 +71,7 @@ def build_launch_spec(recipe: dict[str, Any], contract: dict[str, Any]) -> dict[
     return {
         "backend": "native_mjlab",
         "source": str(DEFAULT_SOURCE),
+        "extension_root": str(DEFAULT_EXTENSION),
         "task_name": recipe.get("task_name", "forward_walk"),
         "algorithm": recipe.get("algorithm", "PPO"),
         "num_envs": recipe.get("environment", {}).get("num_envs", 4096),

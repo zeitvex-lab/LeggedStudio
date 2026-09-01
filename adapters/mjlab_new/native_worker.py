@@ -19,11 +19,38 @@ def _write(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def run(config: dict, source: Path, output: Path) -> int:
+def run(config: dict, source: Path, output: Path, extension_root: Path | None = None) -> int:
     _write(output / "status.json", {"status": "running", "backend": "native_mjlab"})
     sys.path.insert(0, str(source / "src"))
+    if extension_root and extension_root.exists():
+        sys.path.insert(0, str(extension_root))
+        # Unitree's extension targets the pre-1.6 helper name. Keep the
+        # compatibility shim local to this isolated process.
+        import mjlab.utils.os as mjlab_os
+        if not hasattr(mjlab_os, "update_assets"):
+            def update_assets(assets, asset_dir, _meshdir):
+                for asset in Path(asset_dir).rglob("*"):
+                    if asset.is_file():
+                        assets[asset.name] = asset.read_bytes()
+            mjlab_os.update_assets = update_assets
     import torch
     import mjlab.tasks  # noqa: F401
+    if extension_root and (extension_root / "src" / "tasks").exists():
+        # Avoid importing every historical Unitree task: older configs use
+        # CollisionCfg fields removed in MJLab 1.6. Load only Go2 velocity.
+        import types
+        tasks_pkg = types.ModuleType("src.tasks")
+        tasks_pkg.__path__ = [str(extension_root / "src" / "tasks")]
+        sys.modules.setdefault("src.tasks", tasks_pkg)
+        assets_pkg = types.ModuleType("src.assets")
+        assets_pkg.__path__ = [str(extension_root / "src" / "assets")]
+        sys.modules.setdefault("src.assets", assets_pkg)
+        robots_pkg = types.ModuleType("src.assets.robots")
+        robots_pkg.__path__ = [str(extension_root / "src" / "assets" / "robots")]
+        sys.modules.setdefault("src.assets.robots", robots_pkg)
+        go2_constants = __import__("src.assets.robots.unitree_go2.go2_constants", fromlist=["get_go2_robot_cfg"])
+        robots_pkg.get_go2_robot_cfg = go2_constants.get_go2_robot_cfg
+        import src.tasks.velocity.config.go2  # noqa: F401
     from mjlab.envs import ManagerBasedRlEnv
     from mjlab.tasks.registry import list_tasks, load_env_cfg
 
@@ -55,6 +82,12 @@ def run(config: dict, source: Path, output: Path) -> int:
 
     env_cfg = load_env_cfg(task_id)
     env_cfg.scene.num_envs = max(1, int(config.get("num_envs", env_cfg.scene.num_envs)))
+    # MJLab 1.6 requires structural collision dictionaries to have a default;
+    # Unitree's extension was authored against the previous sparse-dict API.
+    for entity_cfg in env_cfg.scene.entities.values():
+        for collision_cfg in entity_cfg.collisions or ():
+            if isinstance(collision_cfg.priority, dict) and ".*" not in collision_cfg.priority:
+                collision_cfg.priority[".*"] = 0
     if config.get("seed") is not None:
         env_cfg.seed = int(config["seed"])
     env = None
@@ -84,11 +117,13 @@ def main() -> int:
     parser.add_argument("--source", required=True)
     parser.add_argument("--config", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--extension-root")
     args = parser.parse_args()
     output = Path(args.output)
     try:
         config = json.loads(Path(args.config).read_text(encoding="utf-8"))
-        return run(config, Path(args.source).resolve(), output)
+        extension = Path(args.extension_root).resolve() if args.extension_root else None
+        return run(config, Path(args.source).resolve(), output, extension)
     except Exception as exc:
         _write(output / "status.json", {"status": "failed", "error": str(exc), "traceback": traceback.format_exc()})
         print(f"[native-worker] failed: {exc}", file=sys.stderr)
