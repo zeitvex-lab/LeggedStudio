@@ -40,6 +40,11 @@ class CompleteApiContractTests(unittest.TestCase):
         self.assertEqual(recipe["algorithm"], "SAC")
         self.assertEqual(recipe["reward_scales"]["torques"], 0)
 
+    def test_missing_training_logs_returns_not_found(self):
+        client = TestClient(app)
+        response = client.get("/api/training/does-not-exist/logs")
+        self.assertEqual(response.status_code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()

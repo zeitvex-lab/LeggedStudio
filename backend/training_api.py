@@ -6,6 +6,7 @@ Training API
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional
+import json
 
 from backend.training_manager import get_training_manager
 from contracts.robot_contract_v2 import RobotContractV2
@@ -62,6 +63,10 @@ class TrainingStatusResponse(BaseModel):
     current_iteration: int
     max_iterations: int
     reward: float
+
+
+class CompareTrainingRequest(CreateTrainingRequest):
+    algorithms: list[str] = Field(default_factory=lambda: ["PPO", "SAC"], min_length=2, max_length=6)
 
 
 # ========== API 端点 ==========
@@ -147,6 +152,20 @@ async def create_training(request: CreateTrainingRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/compare")
+async def create_comparison(request: CompareTrainingRequest):
+    """Create a comparable matrix of runs sharing one contract and recipe."""
+    algorithms = [str(item).upper() for item in request.algorithms]
+    if len(set(algorithms)) != len(algorithms):
+        raise HTTPException(status_code=400, detail="algorithms must be unique")
+    tasks = []
+    for algorithm in algorithms:
+        single = request.model_copy(update={"algorithm": algorithm})
+        result = await create_training(single)
+        tasks.append({"algorithm": algorithm, "task_id": result["task_id"]})
+    return {"success": True, "count": len(tasks), "tasks": tasks, "session_config": request.model_dump(mode="json")}
 
 
 @router.get("/options")
@@ -272,6 +291,27 @@ async def get_training_logs(task_id: str, lines: int = 100):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{task_id}/metrics")
+async def get_training_metrics(task_id: str):
+    """Return the append-only metric series for plotting and comparisons."""
+    task = get_training_manager().get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    metrics_file = task.task_dir / "metrics.jsonl"
+    rows = []
+    if metrics_file.exists():
+        for line in metrics_file.read_text(encoding="utf-8").splitlines():
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    if not rows:
+        progress = task.get_progress()
+        if progress:
+            rows.append(progress)
+    return {"success": True, "task_id": task_id, "metrics": rows}
 
 
 @router.get("/{task_id}/artifact")

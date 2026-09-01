@@ -23,6 +23,11 @@ def save_progress(output_dir: Path, progress: dict):
         json.dump(progress, f, indent=2)
 
 
+def append_metrics(output_dir: Path, metrics: dict) -> None:
+    with (output_dir / "metrics.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(metrics, ensure_ascii=False) + "\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description="MJLab Training Worker")
     parser.add_argument("--contract", required=True, help="Contract JSON path")
@@ -79,6 +84,7 @@ def main():
         }
 
         save_progress(Path(args.output), progress)
+        append_metrics(Path(args.output), metrics)
 
         # 打印进度
         print(f"[Worker] Iteration {metrics['iteration'] + 1}/{config.max_iterations} "
