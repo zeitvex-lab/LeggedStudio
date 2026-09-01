@@ -52,16 +52,12 @@ class TrainingLauncher:
         # 准备命令
         python_exe = self._select_python(config)
 
-        worker_script = Path(__file__).parent / "train_worker.py"
-
-        cmd = [
-            str(python_exe),
-            str(worker_script),
-            "--contract", str(contract_path),
-            "--config", str(config_path),
-            "--output", str(task_dir),
-            "--task-id", task_id
-        ]
+        native = str(config.get("backend", "local_mujoco")) == "native_mjlab"
+        worker_script = Path(__file__).parent / ("native_worker.py" if native else "train_worker.py")
+        if native:
+            cmd = [str(python_exe), str(worker_script), "--source", str(config.get("mjlab_source", os.environ.get("LEGGED_STUDIO_MJLAB_SOURCE", "C:/Users/31560/Documents/00_open/mjlab_new/mjlab"))), "--config", str(config_path), "--output", str(task_dir)]
+        else:
+            cmd = [str(python_exe), str(worker_script), "--contract", str(contract_path), "--config", str(config_path), "--output", str(task_dir), "--task-id", task_id]
 
         # 启动进程
         log_file = task_dir / "training.log"
@@ -89,12 +85,14 @@ class TrainingLauncher:
             current = self._read_status(directory)
             if current.get("status") == "stopped":
                 return
+            worker_status = current.get("status")
+            terminal_status = ("completed" if code == 0 else "failed") if worker_status in (None, "running") else worker_status
             self._write_status(directory, {
                 **current,
-                "status": "completed" if code == 0 else "failed",
+                "status": terminal_status,
                 "pid": child.pid,
                 "exit_code": code,
-                "error": None if code == 0 else f"training worker exited with code {code}",
+                "error": current.get("error") if current.get("error") else (None if code == 0 else f"training worker exited with code {code}"),
             })
             self.processes.pop(identifier, None)
 
@@ -223,6 +221,11 @@ class TrainingLauncher:
             candidates.append(venv / "Scripts" / "python.exe")
         candidates.append(Path(sys.executable))
         candidates = [item for item in candidates if item.exists()]
+        if str(config.get("backend", "local_mujoco")) == "native_mjlab":
+            native_candidates = [item for item in candidates if self._python_has_native(item)]
+            if native_candidates:
+                return native_candidates[0]
+            raise RuntimeError("native MJLab requested, but no candidate Python environment imports mjlab dependencies")
         if requested.startswith("cuda") or requested == "auto":
             for candidate in candidates:
                 if self._python_has_cuda(candidate):
@@ -230,6 +233,18 @@ class TrainingLauncher:
             if requested.startswith("cuda"):
                 raise RuntimeError("CUDA training requested, but no candidate Python environment has CUDA-enabled torch")
         return candidates[0] if candidates else Path(sys.executable)
+
+    @staticmethod
+    def _python_has_native(python_exe: Path) -> bool:
+        try:
+            result = subprocess.run(
+                [str(python_exe), "-c", "import tyro, warp, mujoco_warp, rsl_rl, mjlab"],
+                capture_output=True,
+                timeout=20,
+            )
+            return result.returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
 
     def _prepare_env(self) -> dict:
         """准备环境变量"""

@@ -169,9 +169,10 @@ async def create_training(request: CreateTrainingRequest):
         if request.backend == "native_mjlab":
             from adapters.mjlab_new.native_adapter import preflight
             native = preflight()
-            if not native["exists"] or not native["manager_env_available"]:
+            if not native["exists"] or not native["manager_env_available"] or not native.get("runtime", {}).get("available"):
                 raise HTTPException(status_code=501, detail={"message": "native MJLab adapter is not ready", "preflight": native})
-            raise HTTPException(status_code=501, detail="native MJLab worker boundary is reserved; select local_mujoco for the verified path")
+            if not native.get("execution_ready"):
+                raise HTTPException(status_code=501, detail={"message": native.get("execution_note", "native MJLab task adapter is not ready"), "preflight": native})
 
         # 创建任务
         manager = get_training_manager()
