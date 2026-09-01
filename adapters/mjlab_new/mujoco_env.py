@@ -29,6 +29,7 @@ class ContractMujocoEnv:
         seed: int = 0,
         reward_scales: dict[str, float] | None = None,
         scene_geoms: list[dict[str, Any]] | None = None,
+        command_ranges: dict[str, list[float]] | None = None,
     ):
         self.contract = contract
         self.num_envs = max(1, int(num_envs))
@@ -59,10 +60,31 @@ class ContractMujocoEnv:
         self.actuator_ids = np.asarray([self.model.actuator(name).id for name in self._actuator_names()], dtype=np.int32)
         self.actuator_types = [self.model.actuator_trntype[index] for index in self.actuator_ids]
         self.previous_action = np.zeros((self.num_envs, self.action_dim), dtype=np.float32)
+        self.commands = np.zeros((self.num_envs, 3), dtype=np.float32)
+        self.commands[:, 0] = 0.3
+        ranges = command_ranges or {"lin_vel_x": [-1.0, 1.0], "lin_vel_y": [-1.0, 1.0], "ang_vel_yaw": [-1.0, 1.0]}
+        self.command_ranges = np.asarray([ranges.get("lin_vel_x", [-1.0, 1.0]), ranges.get("lin_vel_y", [-1.0, 1.0]), ranges.get("ang_vel_yaw", [-1.0, 1.0])], dtype=np.float32)
         self.default_pose = np.asarray(contract.joints.default_pose, dtype=np.float64)
         self.reward_scales = {"tracking_lin_vel": 1.0, "upright": 0.1, "base_height": 0.0, "torques": -0.001, "action_rate": -0.01}
         self.reward_scales.update(reward_scales or {})
         self.reset()
+
+    def set_commands(self, commands: np.ndarray | list[float] | dict[str, float]) -> None:
+        """Set velocity targets consumed by observations and tracking rewards."""
+        if isinstance(commands, dict):
+            value = [commands.get("vx", 0.0), commands.get("vy", 0.0), commands.get("wz", 0.0)]
+            array = np.asarray(value, dtype=np.float32)
+        else:
+            array = np.asarray(commands, dtype=np.float32)
+        if array.ndim == 1:
+            array = np.broadcast_to(array.reshape(1, 3), (self.num_envs, 3))
+        if array.shape != (self.num_envs, 3):
+            raise ValueError(f"commands must have shape ({self.num_envs}, 3)")
+        self.commands[:] = np.clip(array, -1.0, 1.0)
+
+    def resample_commands(self) -> np.ndarray:
+        self.commands[:] = self.rng.uniform(self.command_ranges[:, 0], self.command_ranges[:, 1], size=(self.num_envs, 3))
+        return self.commands.copy()
 
     def _actuator_names(self) -> list[str]:
         names = []
@@ -84,12 +106,19 @@ class ContractMujocoEnv:
             mujoco.mj_forward(self.model, item)
             self.step_count[index] = 0
         self.previous_action.fill(0.0)
+        self.commands[:, 0] = 0.3
+        self.commands[:, 1:] = 0.0
         return self._observations()
 
     def _observations(self) -> np.ndarray:
         observations = np.zeros((self.num_envs, self.obs_dim), dtype=np.float32)
         for index, item in enumerate(self.data):
-            values = np.concatenate((item.qvel[:6], item.qpos[self.qpos_adrs], item.qvel[self.dof_adrs], self.previous_action[index]))
+            gravity = np.asarray([0.0, 0.0, -1.0], dtype=np.float32)
+            if item.qpos.shape[0] >= 7:
+                rotation = np.zeros(9, dtype=np.float64)
+                mujoco.mju_quat2Mat(rotation, item.qpos[3:7])
+                gravity = rotation.reshape(3, 3).T @ np.asarray([0.0, 0.0, -1.0])
+            values = np.concatenate((item.qvel[:6], gravity.astype(np.float32), self.commands[index], item.qpos[self.qpos_adrs], item.qvel[self.dof_adrs], self.previous_action[index]))
             observations[index, :min(self.obs_dim, len(values))] = values[:self.obs_dim]
         return observations
 
@@ -116,8 +145,8 @@ class ContractMujocoEnv:
         torque_cost = np.asarray([np.mean(item.ctrl[self.actuator_ids] ** 2) for item in self.data], dtype=np.float32)
         action_rate_cost = np.mean((actions - self.previous_action) ** 2, axis=1)
         components = {
-            "tracking_lin_vel": base_velocity,
-            "tracking_ang_vel": -np.abs(yaw_velocity),
+            "tracking_lin_vel": np.exp(-((base_velocity - self.commands[:, 0]) ** 2) / 0.25),
+            "tracking_ang_vel": np.exp(-((yaw_velocity - self.commands[:, 2]) ** 2) / 0.25),
             "orientation": 1.0 - upright,
             "upright": upright,
             "base_height": height_error,
@@ -136,6 +165,7 @@ class ContractMujocoEnv:
             "upright": upright,
             "reward_components": components,
             "reward_scales": self.reward_scales,
+            "commands": self.commands.copy(),
         }
         return observations, rewards.astype(np.float32), dones.astype(np.bool_), info
 

@@ -138,6 +138,7 @@ class SimulationSession:
         return action
 
     def step(self, request: SimulationStepRequest) -> dict[str, Any]:
+        self.env.set_commands(request.command)
         action = np.asarray(request.action, dtype=np.float32) if request.action is not None else self.command_to_action(request.command)
         if action.size != self.env.action_dim:
             raise ValueError(f"action dimension must be {self.env.action_dim}")

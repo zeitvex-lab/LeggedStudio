@@ -89,7 +89,6 @@ class MJLabTrainingAdapter:
         # 参考 RC_WheelLeg 的 env.py
 
         from adapters.mjlab_new.env_factory import EnvFactory, get_reward_preset
-        from adapters.mjlab_new.env_factory import get_reward_preset
         reward_scales = get_reward_preset(self.config.task_name)
         reward_scales.update(self.config.reward_scales)
         env_config = EnvFactory.create_from_contract(self.contract, {
@@ -104,7 +103,13 @@ class MJLabTrainingAdapter:
             json.dump(env_config, f, indent=2)
 
         from adapters.mjlab_new.mujoco_env import ContractMujocoEnv
-        self.env = ContractMujocoEnv(self.contract, self.config.num_envs, self.config.episode_length_s, reward_scales=reward_scales)
+        self.env = ContractMujocoEnv(
+            self.contract,
+            self.config.num_envs,
+            self.config.episode_length_s,
+            reward_scales=reward_scales,
+            command_ranges=env_config.get("command_ranges"),
+        )
 
         print(f"[Adapter] Environment configured with {self.config.num_envs} envs")
 
@@ -153,6 +158,7 @@ class MJLabTrainingAdapter:
         observations = self.env.reset()
         num_steps = max(4, self.config.num_steps)
         for iteration in range(self.config.max_iterations):
+            self.env.resample_commands()
             if isinstance(self.agent, OffPolicyAlgorithm):
                 metrics_history = []
                 for _ in range(num_steps):

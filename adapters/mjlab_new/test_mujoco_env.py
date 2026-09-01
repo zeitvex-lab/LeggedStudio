@@ -40,6 +40,18 @@ class ContractMujocoEnvTests(unittest.TestCase):
         finally:
             env.close()
 
+    def test_commands_are_in_observation_and_tracking_reward(self):
+        contract = RobotContractV2.from_json_file("contracts/fixtures/unitree_go2.v2.json")
+        env = ContractMujocoEnv(contract, num_envs=1, episode_length_s=0.1)
+        try:
+            env.set_commands({"vx": 0.6, "vy": -0.2, "wz": 0.1})
+            observation, _, _, info = env.step(np.zeros((1, contract.action.dimension), dtype=np.float32))
+            self.assertEqual(observation.shape, (1, contract.observation.dimension))
+            np.testing.assert_allclose(info["commands"][0], [0.6, -0.2, 0.1], atol=1e-6)
+            self.assertIn("tracking_lin_vel", info["reward_components"])
+        finally:
+            env.close()
+
 
 if __name__ == "__main__":
     unittest.main()
