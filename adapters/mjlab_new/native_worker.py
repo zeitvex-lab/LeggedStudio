@@ -13,6 +13,7 @@ import sys
 import traceback
 from dataclasses import asdict
 import time
+import shutil
 from pathlib import Path
 
 
@@ -136,6 +137,8 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             if not model_path.exists():
                 candidates = sorted(output.glob("model_*.pt"))
                 model_path = candidates[-1] if candidates else model_path
+            if model_path.exists() and not (output / "model_final.pt").exists():
+                shutil.copy2(model_path, output / "model_final.pt")
             contract_path = config.get("contract_path")
             if model_path.exists() and contract_path:
                 from contracts.policy_artifact import TrainingMetrics, create_artifact_from_training
@@ -162,6 +165,75 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                 )
                 artifact.to_json_file(str(output / "artifact.json"))
                 report["artifact_id"] = artifact.artifact_id
+        elif config.get("mode") == "evaluate":
+            from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
+            checkpoint = Path(str(config.get("checkpoint", ""))).resolve()
+            if not checkpoint.exists():
+                raise FileNotFoundError(f"native checkpoint not found: {checkpoint}")
+            rl_cfg = load_rl_cfg(task_id)
+            rl_cfg.logger = "tensorboard"
+            wrapped = RslRlVecEnvWrapper(env, clip_actions=rl_cfg.clip_actions)
+            runner = MjlabOnPolicyRunner(wrapped, asdict(rl_cfg), device)
+            runner.load(str(checkpoint), load_cfg={"actor": True}, strict=True, map_location=device)
+            policy = runner.get_inference_policy(device=device)
+            episodes = max(1, int(config.get("episodes", 1)))
+            max_steps = max(1, int(config.get("max_steps", 500)))
+            episode_rewards = []
+            with torch.no_grad():
+                for _ in range(episodes):
+                    obs, _ = wrapped.reset()
+                    total = 0.0
+                    for _step_index in range(max_steps):
+                        action = policy(obs)
+                        obs, reward, dones, _extras = wrapped.step(action)
+                        total += float(reward.mean().item())
+                        if bool(dones.any().item()):
+                            break
+                    episode_rewards.append(total)
+            report.update({"status": "evaluate_completed", "episodes": episodes, "avg_reward": sum(episode_rewards) / len(episode_rewards), "evaluated_env": "native_mjlab"})
+            _write(output / "evaluation.json", report)
+        elif config.get("mode") == "navigation":
+            from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
+            checkpoint = Path(str(config.get("checkpoint", ""))).resolve()
+            if not checkpoint.exists():
+                raise FileNotFoundError(f"native checkpoint not found: {checkpoint}")
+            rl_cfg = load_rl_cfg(task_id)
+            rl_cfg.logger = "tensorboard"
+            wrapped = RslRlVecEnvWrapper(env, clip_actions=rl_cfg.clip_actions)
+            runner = MjlabOnPolicyRunner(wrapped, asdict(rl_cfg), device)
+            runner.load(str(checkpoint), load_cfg={"actor": True}, strict=True, map_location=device)
+            policy = runner.get_inference_policy(device=device)
+            route = config.get("waypoints") or [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]]
+            tolerance = float(config.get("waypoint_tolerance", 0.35))
+            max_steps = max(1, int(config.get("max_steps", 500)))
+            term = env.command_manager.get_term("twist")
+            completions = []
+            with torch.no_grad():
+                for _ in range(max(1, int(config.get("episodes", 1)))):
+                    obs, _ = wrapped.reset()
+                    waypoint_index = 0
+                    for _step_index in range(max_steps):
+                        position = env.scene["robot"].data.root_link_pos_w[0, :2]
+                        while waypoint_index < len(route):
+                            initial_target = torch.as_tensor(route[waypoint_index], device=device, dtype=position.dtype)
+                            if float(torch.linalg.norm(position - initial_target).item()) > tolerance:
+                                break
+                            waypoint_index += 1
+                        if waypoint_index >= len(route):
+                            break
+                        target = torch.as_tensor(route[min(waypoint_index, len(route) - 1)], device=device, dtype=position.dtype)
+                        delta = target - position
+                        term.command[:] = torch.stack((torch.clamp(delta[0], -1.0, 1.0), torch.clamp(delta[1], -1.0, 1.0), torch.tensor(0.0, device=device)))
+                        action = policy(obs)
+                        obs, _reward, dones, _extras = wrapped.step(action)
+                        position = env.scene["robot"].data.root_link_pos_w[0, :2]
+                        if waypoint_index < len(route) and float(torch.linalg.norm(position - target).item()) <= tolerance:
+                            waypoint_index += 1
+                        if bool(dones.any().item()) or waypoint_index >= len(route):
+                            break
+                    completions.append(waypoint_index / len(route))
+            report.update({"status": "navigation_completed", "route_completion": sum(completions) / len(completions), "waypoints": route, "evaluated_env": "native_mjlab_navigation"})
+            _write(output / "navigation.json", report)
         _write(output / "native_preflight.json", report)
         _write(output / "status.json", {"status": "completed", **report})
         return 0

@@ -167,9 +167,11 @@ async def create_training(request: CreateTrainingRequest):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         config["resolved_recipe"] = resolved_recipe.model_dump(mode="json")
         if request.backend == "native_mjlab":
-            if contract.robot_id == "unitree_go2":
-                config["native_task_id"] = "Unitree-Go2-Rough" if request.terrain_type in {"rough", "stairs"} else "Unitree-Go2-Flat"
-                config["mjlab_extension_root"] = "C:/Users/31560/Documents/00_open/uni_rl/unitree_rl_mjlab"
+            if contract.robot_id != "unitree_go2":
+                raise HTTPException(status_code=501, detail="native MJLab currently supports Go2 only; use local_mujoco for Go2W")
+            config["mode"] = "train"
+            config["native_task_id"] = "Unitree-Go2-Rough" if request.terrain_type in {"rough", "stairs"} else "Unitree-Go2-Flat"
+            config["mjlab_extension_root"] = "C:/Users/31560/Documents/00_open/uni_rl/unitree_rl_mjlab"
             from adapters.mjlab_new.native_adapter import preflight
             native = preflight()
             if not native["exists"] or not native["manager_env_available"] or not native.get("runtime", {}).get("available"):

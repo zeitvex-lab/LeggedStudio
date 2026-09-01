@@ -61,8 +61,9 @@ def preflight(source: Path = DEFAULT_SOURCE) -> dict[str, Any]:
     }
     report["runtime"] = _probe_runtime(source) if source.exists() else {"available": False, "interpreters": []}
     report["smoke_ready"] = bool(report["exists"] and report["manager_env_available"] and report["extension_exists"] and report["go2_task_source"] and report["runtime"]["available"])
-    report["execution_ready"] = False
-    report["execution_note"] = "Go2 native task extension is available for manager-environment smoke; full policy training remains gated until runner artifact wiring is enabled."
+    report["execution_ready"] = report["smoke_ready"]
+    report["training_ready"] = report["smoke_ready"]
+    report["execution_note"] = "Go2 native MJLab training/evaluation/navigation is available in the isolated worker; CUDA depends on the selected native Python environment."
     return report
 
 

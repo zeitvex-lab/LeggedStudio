@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -54,6 +55,8 @@ def _task(task_id: str):
 async def run_navigation(request: NavigationRequest):
     """Replay a trained policy through a waypoint route in Contract-MuJoCo."""
     task = _task(request.task_id)
+    if task.config.get("backend") == "native_mjlab":
+        return await _run_native_navigation(task, request)
     if request.map_id not in MAPS:
         raise HTTPException(status_code=404, detail=f"Unknown simulation map: {request.map_id}")
     artifact_path = task.task_dir / "artifact.json"
@@ -154,3 +157,30 @@ async def run_navigation(request: NavigationRequest):
         return {"success": True, "result": result}
     finally:
         env.close()
+
+
+async def _run_native_navigation(task, request: NavigationRequest):
+    """Run waypoint following with a native MJLab/RSL-RL checkpoint."""
+    from adapters.mjlab_new.launcher import TrainingLauncher
+    from adapters.mjlab_new.native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE
+
+    artifact_path = task.task_dir / "artifact.json"
+    checkpoints = sorted(task.task_dir.glob("model_*.pt"))
+    if not artifact_path.exists() or not checkpoints:
+        raise HTTPException(status_code=400, detail="Native artifact or checkpoint is not ready")
+    config = dict(task.config)
+    config.update({"mode": "navigation", "episodes": request.episodes, "max_steps": request.max_steps or 500, "waypoints": request.waypoints, "waypoint_tolerance": request.waypoint_tolerance, "checkpoint": str(checkpoints[-1].resolve()), "native_task_id": config.get("native_task_id", "Unitree-Go2-Flat")})
+    config_path = task.task_dir / "native_navigation_config.json"
+    config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    launcher = TrainingLauncher(workspace_dir=str(task.task_dir.parent))
+    try:
+        python_exe = launcher._select_python(config)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
+    worker = Path(__file__).resolve().parents[1] / "adapters" / "mjlab_new" / "native_worker.py"
+    result = subprocess.run([str(python_exe), str(worker), "--source", str(DEFAULT_SOURCE), "--extension-root", str(DEFAULT_EXTENSION), "--config", str(config_path), "--output", str(task.task_dir)], cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=300)
+    navigation_file = task.task_dir / "navigation.json"
+    if result.returncode != 0 or not navigation_file.exists():
+        detail = result.stderr.strip()[-2000:] or result.stdout.strip()[-2000:] or f"native navigation exited with code {result.returncode}"
+        raise HTTPException(status_code=500, detail=detail)
+    return {"success": True, "result": json.loads(navigation_file.read_text(encoding="utf-8"))}
