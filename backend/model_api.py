@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import base64
+import json
 import os
 import tempfile
 import uuid
@@ -20,6 +21,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from contracts.asset_paths import resolve_asset_path
+from backend.robot_packages import write_package_manifest
 
 
 router = APIRouter(prefix="/api/models", tags=["models"])
@@ -58,8 +60,11 @@ def _contract_draft(model_path: Path, model_format: str, inspection: dict[str, A
     joint_names = [item.get("name") for item in joints if item.get("name")]
     actuated = [item for item in joints if item.get("type") not in {"fixed", "floating", "planar"}]
     actuated_names = [item.get("name") for item in actuated if item.get("name")]
-    if model_format == "mjcf" and not actuated_names:
-        actuated_names = joint_names
+    if model_format == "mjcf":
+        targets = inspection.get("actuators", {}).get("targets", [])
+        actuated_names = [name for name in targets if name in joint_names]
+        if not actuated_names:
+            actuated_names = joint_names
     wheel = any("wheel" in name.lower() for name in joint_names)
     robot_name = inspection.get("root_name") or model_path.stem
     robot_id = "imported_" + "".join(char.lower() if char.isalnum() else "_" for char in model_path.stem).strip("_")
@@ -360,6 +365,8 @@ async def import_model(request: ModelImportRequest) -> dict[str, Any]:
         validation["import_root"] = str(import_root)
         validation["model_path"] = str(model_path.relative_to(project_root)).replace("\\", "/")
         validation["contract_draft"] = _contract_draft(Path(validation["model_path"]), validation.get("format", model_format), validation.get("inspection", {}), validation.get("sha256", ""))
+        (import_root / "contract.json").write_text(json.dumps(validation["contract_draft"], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        write_package_manifest(import_root, package_id=validation["contract_draft"]["robot_id"], task_kind="generic")
         return validation
     except Exception as exc:
         return {"valid": False, "imported": False, "errors": [str(exc)], "warnings": []}

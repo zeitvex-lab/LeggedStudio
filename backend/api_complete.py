@@ -55,6 +55,7 @@ from contracts.validator import validate_contract as validate_robot_contract
 from contracts.scenario_contract import ScenarioContract
 from adapters.mjlab.native_adapter import preflight as native_mjlab_preflight
 from backend.version import APP_VERSION
+from backend.project_api import router as project_router
 
 app = FastAPI(
     title="Legged Studio API",
@@ -81,6 +82,7 @@ if evaluation_router is not None:
 if navigation_router is not None:
     app.include_router(navigation_router)
 app.include_router(model_router)
+app.include_router(project_router)
 if simulation_router is not None:
     app.include_router(simulation_router)
 

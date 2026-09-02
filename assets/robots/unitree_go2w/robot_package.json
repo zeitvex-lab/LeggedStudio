@@ -1,0 +1,6 @@
+{
+  "schema_version": "robot-package-1.0",
+  "package_id": "unitree_go2w",
+  "task_kind": "generic",
+  "capabilities": ["generic_mjlab", "velocity_task", "wheel_leg"]
+}

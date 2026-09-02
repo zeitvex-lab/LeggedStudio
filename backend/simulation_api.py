@@ -29,6 +29,21 @@ from contracts.scenario_contract import ScenarioContract
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
 
 
+def _get_robot_definition(robot_id: str) -> dict[str, Any] | None:
+    preset = get_robot_preset(robot_id)
+    if preset is not None:
+        return preset
+    imports_root = Path(__file__).resolve().parents[1] / "workspace" / "imports"
+    for contract_path in imports_root.rglob("contract.json"):
+        try:
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if contract.get("robot_id") == robot_id:
+            return {"robot_id": robot_id, "family": contract.get("family", robot_id), "contract": contract, "asset_path": contract.get("urdf", {}).get("path", "")}
+    return None
+
+
 def _scene_geoms(map_id: str) -> list[dict[str, Any]]:
     """Create lightweight MuJoCo collision geometry for the selected map."""
     geoms: list[dict[str, Any]] = [{"name": "map_floor", "size": [10.0, 10.0, 0.03], "pos": [0.0, 0.0, -0.03]}]
@@ -47,6 +62,7 @@ def _scene_geoms(map_id: str) -> list[dict[str, Any]]:
 
 class SimulationSessionRequest(BaseModel):
     robot_id: str = "unitree_go2"
+    contract: dict[str, Any] | None = None
     map_id: str = "flat"
     mode: str = Field(default="basic", pattern="^(basic|navigation)$")
     episode_length_s: float = Field(default=60.0, gt=0.0, le=600.0)
@@ -157,7 +173,9 @@ async def list_sessions() -> dict[str, Any]:
 async def create_session(request: SimulationSessionRequest) -> dict[str, Any]:
     if request.map_id not in MAPS:
         raise HTTPException(status_code=404, detail=f"Unknown simulation map: {request.map_id}")
-    preset = get_robot_preset(request.robot_id)
+    preset = _get_robot_definition(request.robot_id)
+    if request.contract is not None:
+        preset = {"robot_id": request.robot_id, "family": request.contract.get("family", request.robot_id), "contract": request.contract, "asset_path": request.contract.get("urdf", {}).get("path", "")}
     if preset is None:
         raise HTTPException(status_code=404, detail=f"Unknown robot preset: {request.robot_id}")
     mode = request.mode

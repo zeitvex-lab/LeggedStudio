@@ -23,6 +23,8 @@
 
 项目已有统一 FastAPI 控制面、Electron 启动器、五功能 Web Workbench、MJLab 训练 worker、MuJoCo 仿真 API、Go2/Go2W 契约和 Windows Online 打包流程。训练与控制面通过进程边界隔离，仿真仍保留 MuJoCo。
 
+验证页可以导入用户自己的 URDF/MJCF 和相对 mesh，生成 Contract 草稿并保存到工作区；首页项目包可以把这些资产、Contract、训练 recipe 和场景一起导出/导入。自定义导入机器人当前可用于验证和 MuJoCo 仿真，native MJLab 训练仍受任务专属传感器、动作、奖励和地形映射限制，只开放 Go2/Go2W。
+
 ### `mjlab_new/mjlab`
 
 这是当前唯一的训练主线和 Play/Viser 视觉参考。其 manager-based 环境、runner、Torch/Warp/MuJoCo-Warp 依赖应继续放在 `adapters/mjlab` 的锁定环境中，不复制第二套 `mjlab` 目录。0.4.0 只把 PPO 标记为可运行算法。
@@ -48,7 +50,7 @@ Web 视觉基线采用 MJLab Play/Viser 的浅色工作区：白色或浅灰场�
 | --- | --- | --- |
 | `lain_job/RoboLab` | PolicyArtifact、工作流、部署抽象和 Web 任务组织 | 先完成契约字段对齐与许可证确认 |
 | `unilab_new/UniLab` | Sim2Sim、CPU 仿真和后续 adapter 结构 | 不改变当前 MJLab 主线，单独隔离环境 |
-| `rc_old/RC_WheelLeg/.../rc_mjlab` | 轮足任务、关节/动作映射和部署约束 | 先新增 Robot Contract fixture 和 smoke |
+| `rc_old/RC_WheelLeg/.../rc_mjlab` | ZEX-W 轮足任务、关节/动作映射和部署约束 | 作为通用 Robot Package 导入，不新增机器人特例 |
 | `references_1000framesai` | 地图任务与导航交互 | 需要明确复杂地图规划和终止条件 |
 
 Isaac Gym、Isaac Lab、RoboGauge、MATRiX 等不属于 0.4.0 默认后端。它们可以提供算法、仿真或部署参考，但不能在文档或 UI 中被写成当前已支持能力。

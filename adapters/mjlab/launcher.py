@@ -61,7 +61,10 @@ class TrainingLauncher:
             from .native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE
             extension = config.get("mjlab_extension_root", str(DEFAULT_EXTENSION))
             source = config.get("mjlab_source", str(DEFAULT_SOURCE))
-            cmd = [str(python_exe), str(worker_script), "--source", str(source), "--extension-root", str(extension), "--contract", str(contract_path), "--config", str(config_path), "--output", str(task_dir)]
+            cmd = [str(python_exe), str(worker_script), "--source", str(source)]
+            if config.get("mjlab_extension_root"):
+                cmd += ["--extension-root", str(config["mjlab_extension_root"])]
+            cmd += ["--contract", str(contract_path), "--config", str(config_path), "--output", str(task_dir)]
         else:
             cmd = [str(python_exe), str(worker_script), "--contract", str(contract_path), "--config", str(config_path), "--output", str(task_dir), "--task-id", task_id]
 

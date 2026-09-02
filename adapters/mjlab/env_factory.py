@@ -183,29 +183,27 @@ class EnvFactory:
 
 REWARD_PRESETS = {
     "forward_walk": {
-        "tracking_lin_vel": 1.5,
-        "tracking_ang_vel": 0.5,
-        "orientation": -2.0,
-        "base_height": -1.0,
-        "torques": -0.0002,
-        "action_rate": -0.01
+        "track_linear_velocity": 1.5,
+        "track_angular_velocity": 0.5,
+        "body_orientation_l2": -2.0,
+        "joint_torques_l2": -0.0002,
+        "action_rate_l2": -0.01
     },
 
     "trot": {
-        "tracking_lin_vel": 2.0,
-        "feet_air_time": 1.5,
-        "orientation": -1.5,
-        "torques": -0.0001,
-        "action_rate": -0.02
+        "track_linear_velocity": 2.0,
+        "air_time": 1.5,
+        "body_orientation_l2": -1.5,
+        "joint_torques_l2": -0.0001,
+        "action_rate_l2": -0.02
     },
 
     "rough_terrain": {
-        "tracking_lin_vel": 1.0,
-        "orientation": -3.0,
-        "base_height": -2.0,
-        "collision": -2.0,
-        "stumble": -1.0,
-        "torques": -0.0003
+        "track_linear_velocity": 1.0,
+        "body_orientation_l2": -3.0,
+        "joint_pos_limits": -2.0,
+        "action_rate_l2": -0.05,
+        "joint_torques_l2": -0.0003
     }
 }
 

@@ -53,15 +53,14 @@ async def run_evaluation(request: EvaluationRequest):
 async def _run_native_evaluation(task, request: EvaluationRequest):
     """Evaluate an RSL-RL native checkpoint in the isolated MJLab worker."""
     from adapters.mjlab.launcher import TrainingLauncher
-    from adapters.mjlab.native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE
+    from adapters.mjlab.native_adapter import DEFAULT_SOURCE
 
     artifact_path = task.task_dir / "artifact.json"
     checkpoints = sorted(task.task_dir.glob("model_*.pt"))
     if not artifact_path.exists() or not checkpoints:
         raise HTTPException(status_code=400, detail="Native artifact or checkpoint is not ready")
     config = dict(task.config)
-    default_task = "Unitree-Go2W-Flat" if task.contract.robot_id == "unitree_go2w" else "Unitree-Go2-Flat"
-    config.update({"mode": "evaluate", "episodes": request.episodes, "max_steps": request.max_steps or 500, "checkpoint": str(checkpoints[-1].resolve()), "native_task_id": config.get("native_task_id", default_task)})
+    config.update({"mode": "evaluate", "episodes": request.episodes, "max_steps": request.max_steps or 500, "checkpoint": str(checkpoints[-1].resolve()), "generic_task": True})
     config_path = task.task_dir / "native_evaluation_config.json"
     config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     launcher = TrainingLauncher(workspace_dir=str(task.task_dir.parent))
@@ -70,7 +69,7 @@ async def _run_native_evaluation(task, request: EvaluationRequest):
     except RuntimeError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
     worker = Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / "native_worker.py"
-    cmd = [str(python_exe), str(worker), "--source", str(DEFAULT_SOURCE), "--extension-root", str(DEFAULT_EXTENSION), "--config", str(config_path), "--output", str(task.task_dir)]
+    cmd = [str(python_exe), str(worker), "--source", str(DEFAULT_SOURCE), "--config", str(config_path), "--output", str(task.task_dir)]
     result = subprocess.run(cmd, cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=300)
     evaluation_file = task.task_dir / "evaluation.json"
     if result.returncode != 0 or not evaluation_file.exists():

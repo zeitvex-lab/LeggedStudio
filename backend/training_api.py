@@ -13,6 +13,7 @@ from contracts.robot_contract_v2 import RobotContractV2
 from adapters.mjlab.env_factory import get_reward_terms
 from adapters.mjlab.algorithms.registry import list_algorithms
 from adapters.mjlab.recipe_registry import list_tasks, resolve_recipe
+from backend.robot_packages import package_for_contract
 
 
 router = APIRouter(prefix="/api/training", tags=["training"])
@@ -59,6 +60,11 @@ class CreateTrainingRequest(BaseModel):
     terrain_type: str = "plane"
     device: str = Field(default="auto", pattern=r"^(auto|cpu|cuda(?::\d+)?)$")
     reward_scales: dict[str, float] = Field(default_factory=dict)
+    reward_params: dict[str, dict] = Field(default_factory=dict)
+    terrain: dict = Field(default_factory=dict)
+    command_ranges: dict[str, list[float]] = Field(default_factory=dict)
+    noise: dict = Field(default_factory=dict)
+    curriculum: dict = Field(default_factory=dict)
     # Shared advanced fields. PPO ignores off-policy-only values; keeping one
     # request shape makes Web, CLI, and future adapters interchangeable.
     num_steps: int = Field(default=24, ge=4, le=4096)
@@ -136,6 +142,11 @@ async def create_training(request: CreateTrainingRequest):
             "terrain_type": request.terrain_type,
             "device": request.device,
             "reward_scales": request.reward_scales,
+            "reward_params": request.reward_params,
+            "terrain": request.terrain,
+            "command_ranges": request.command_ranges,
+            "noise": request.noise,
+            "curriculum": request.curriculum,
             "num_steps": request.num_steps,
             "num_minibatches": request.num_minibatches,
             "gamma": request.gamma,
@@ -157,22 +168,16 @@ async def create_training(request: CreateTrainingRequest):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         config["resolved_recipe"] = resolved_recipe.model_dump(mode="json")
         if request.backend == "native_mjlab":
-            if contract.robot_id not in {"unitree_go2", "unitree_go2w"}:
-                raise HTTPException(status_code=501, detail="native MJLab currently supports Unitree Go2 and Go2W")
             config["mode"] = "train"
-            if contract.robot_id == "unitree_go2w":
-                config["native_task_id"] = "Unitree-Go2W-Flat"
-            else:
-                config["native_task_id"] = "Unitree-Go2-Rough" if request.terrain_type in {"rough", "stairs"} else "Unitree-Go2-Flat"
+            package = package_for_contract(contract.model_dump(mode="json"))
+            config["robot_package"] = package
+            config["generic_task"] = True
             from adapters.mjlab.native_adapter import DEFAULT_EXTENSION, preflight
-            config["mjlab_extension_root"] = str(DEFAULT_EXTENSION)
             native = preflight()
             if not native["exists"] or not native["manager_env_available"] or not native.get("runtime", {}).get("available"):
                 raise HTTPException(status_code=501, detail={"message": "native MJLab adapter is not ready", "preflight": native})
             if not native.get("execution_ready"):
                 raise HTTPException(status_code=501, detail={"message": native.get("execution_note", "native MJLab task adapter is not ready"), "preflight": native})
-            if contract.robot_id == "unitree_go2w" and not native.get("go2w_task_available"):
-                raise HTTPException(status_code=501, detail={"message": "native Go2W asset/task adapter is not ready", "preflight": native})
 
         # 创建任务
         manager = get_training_manager()

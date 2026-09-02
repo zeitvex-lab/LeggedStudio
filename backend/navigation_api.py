@@ -62,15 +62,14 @@ async def run_navigation(request: NavigationRequest):
 async def _run_native_navigation(task, request: NavigationRequest):
     """Run waypoint following with a native MJLab/RSL-RL checkpoint."""
     from adapters.mjlab.launcher import TrainingLauncher
-    from adapters.mjlab.native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE
+    from adapters.mjlab.native_adapter import DEFAULT_SOURCE
 
     artifact_path = task.task_dir / "artifact.json"
     checkpoints = sorted(task.task_dir.glob("model_*.pt"))
     if not artifact_path.exists() or not checkpoints:
         raise HTTPException(status_code=400, detail="Native artifact or checkpoint is not ready")
     config = dict(task.config)
-    default_task = "Unitree-Go2W-Flat" if task.contract.robot_id == "unitree_go2w" else "Unitree-Go2-Flat"
-    config.update({"mode": "navigation", "episodes": request.episodes, "max_steps": request.max_steps or 500, "waypoints": request.waypoints, "waypoint_tolerance": request.waypoint_tolerance, "checkpoint": str(checkpoints[-1].resolve()), "native_task_id": config.get("native_task_id", default_task)})
+    config.update({"mode": "navigation", "episodes": request.episodes, "max_steps": request.max_steps or 500, "waypoints": request.waypoints, "waypoint_tolerance": request.waypoint_tolerance, "checkpoint": str(checkpoints[-1].resolve()), "generic_task": True})
     config_path = task.task_dir / "native_navigation_config.json"
     config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     launcher = TrainingLauncher(workspace_dir=str(task.task_dir.parent))
@@ -79,7 +78,7 @@ async def _run_native_navigation(task, request: NavigationRequest):
     except RuntimeError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
     worker = Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / "native_worker.py"
-    result = subprocess.run([str(python_exe), str(worker), "--source", str(DEFAULT_SOURCE), "--extension-root", str(DEFAULT_EXTENSION), "--config", str(config_path), "--output", str(task.task_dir)], cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=300)
+    result = subprocess.run([str(python_exe), str(worker), "--source", str(DEFAULT_SOURCE), "--config", str(config_path), "--output", str(task.task_dir)], cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=300)
     navigation_file = task.task_dir / "navigation.json"
     if result.returncode != 0 or not navigation_file.exists():
         detail = result.stderr.strip()[-2000:] or result.stdout.strip()[-2000:] or f"native navigation exited with code {result.returncode}"

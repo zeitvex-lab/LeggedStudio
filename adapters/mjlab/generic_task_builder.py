@@ -1,0 +1,368 @@
+"""Build a robot-agnostic MJLab manager-based task from a Robot Contract.
+
+The builder intentionally contains only generic MDP terms.  Robot-specific
+contact sensors, gait rewards, actuator groups and terrain curricula belong in
+an optional project extension and are not inferred from ``robot_id``.
+"""
+
+from __future__ import annotations
+
+import math
+import re
+from copy import deepcopy
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+
+@dataclass
+class GenericTaskBundle:
+    """Configs and diagnostics produced by :func:`build_generic_task`."""
+
+    task_id: str
+    env_cfg: Any
+    play_env_cfg: Any
+    rl_cfg: Any
+    diagnostics: dict[str, Any]
+
+
+def _get(value: Any, key: str, default: Any = None) -> Any:
+    if isinstance(value, dict):
+        return value.get(key, default)
+    return getattr(value, key, default)
+
+
+def _contract_value(contract: Any, path: str, default: Any = None) -> Any:
+    current = contract
+    for item in path.split("."):
+        current = _get(current, item, default)
+        if current is default:
+            return default
+    return current
+
+
+def _asset_path(contract: Any, asset_root: str | Path | None = None) -> Path:
+    raw = Path(str(_contract_value(contract, "urdf.path", "")))
+    if raw.is_absolute():
+        return raw.resolve()
+    candidates = []
+    if asset_root:
+        candidates.append(Path(asset_root) / raw)
+    # resolve_asset_path is kept lazy: this module remains importable without
+    # MJLab installed (the control-plane uses it for diagnostics and tests).
+    try:
+        from contracts.asset_paths import resolve_asset_path
+
+        candidates.append(resolve_asset_path(str(raw)))
+    except Exception:
+        pass
+    candidates.append(Path.cwd() / raw)
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+    return candidates[0].resolve() if candidates else raw.resolve()
+
+
+def _safe_id(value: str) -> str:
+    value = re.sub(r"[^a-zA-Z0-9_-]+", "_", value).strip("_")
+    return value[:64] or "robot"
+
+
+def _component_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
+
+
+def _recipe_environment(recipe: Any) -> dict[str, Any]:
+    return dict(_get(recipe, "environment", {}) or {})
+
+
+def _recipe_rewards(recipe: Any) -> dict[str, float]:
+    values = _get(recipe, "reward_scales", {}) or {}
+    return {str(key): float(value) for key, value in values.items() if value is not None}
+
+
+def _make_spec_fn(xml_path: Path, *, strip_actuators: bool = False):
+    import mujoco
+
+    def get_spec():
+        spec = mujoco.MjSpec.from_file(str(xml_path))
+        if strip_actuators:
+            for actuator in list(spec.actuators):
+                actuator.delete()
+        return spec
+
+    return get_spec
+
+
+def _xml_actuated_targets(xml_path: Path) -> tuple[set[str], dict[str, str], set[str]]:
+    """Return joint names and the XML actuator selected for each joint."""
+    import mujoco
+
+    spec = mujoco.MjSpec.from_file(str(xml_path))
+    joints = {str(item.name) for item in spec.joints if item.name}
+    targets: dict[str, str] = {}
+    unsupported: set[str] = set()
+    for actuator in spec.actuators:
+        target = getattr(actuator, "target", None)
+        if target:
+            targets.setdefault(str(target), str(actuator.name))
+            try:
+                from mjlab.utils.mujoco import detect_command_field
+                detect_command_field(actuator)
+            except (ValueError, TypeError):
+                unsupported.add(str(target))
+    return joints, targets, unsupported
+
+
+def _build_entity(contract: Any, xml_path: Path):
+    from mjlab.actuator import BuiltinPositionActuatorCfg, BuiltinVelocityActuatorCfg
+    from mjlab.actuator.xml_actuator import XmlActuatorCfg
+    from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
+
+    joint_order = [str(item) for item in _contract_value(contract, "action.joint_order", [])]
+    if not joint_order:
+        joint_order = [str(item) for item in _contract_value(contract, "joints.actuated_joints", [])]
+    if not joint_order:
+        raise ValueError("generic MJLab task requires at least one actuated joint")
+
+    _, xml_targets, unsupported_targets = _xml_actuated_targets(xml_path)
+    xml_names = tuple(item for item in joint_order if item in xml_targets and item not in unsupported_targets)
+    generated_names = tuple(item for item in joint_order if item not in xml_targets or item in unsupported_targets)
+    actuators = []
+    if xml_names:
+        actuators.append(XmlActuatorCfg(target_names_expr=xml_names))
+    if generated_names:
+        # A conservative generic PD actuator makes MJCF files without an
+        # actuator section trainable while preserving XML actuator semantics.
+        position_names = tuple(item for item in generated_names if "wheel" not in item.lower())
+        velocity_names = tuple(item for item in generated_names if "wheel" in item.lower())
+        if position_names:
+            actuators.append(BuiltinPositionActuatorCfg(target_names_expr=position_names, stiffness=20.0, damping=1.0, effort_limit=None))
+        if velocity_names:
+            actuators.append(BuiltinVelocityActuatorCfg(target_names_expr=velocity_names, damping=1.0, effort_limit=None))
+
+    pose = list(_contract_value(contract, "joints.default_pose", []))
+    if len(pose) != len(joint_order):
+        pose = [0.0] * len(joint_order)
+    init = EntityCfg.InitialStateCfg(
+        pos=(0.0, 0.0, 0.3),
+        joint_pos={name: float(value) for name, value in zip(joint_order, pose)},
+        joint_vel={".*": 0.0},
+    )
+    entity = EntityCfg(
+        init_state=init,
+        spec_fn=_make_spec_fn(xml_path, strip_actuators=bool(unsupported_targets)),
+        articulation=EntityArticulationInfoCfg(actuators=tuple(actuators)),
+    )
+    action_actuator_names = tuple(xml_targets[item] for item in xml_names) + generated_names
+    return entity, joint_order, {
+        "xml_actuated_joints": list(xml_names),
+        "generated_actuated_joints": list(generated_names),
+        "action_actuator_names": list(action_actuator_names),
+        "unsupported_xml_actuators_rebuilt": sorted(unsupported_targets),
+    }
+
+
+def _build_observations(contract: Any):
+    from mjlab.envs import mdp
+    from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
+    from mjlab.managers.scene_entity_config import SceneEntityCfg
+
+    joint_names = tuple(str(item) for item in _contract_value(contract, "action.joint_order", []))
+    joint_cfg = SceneEntityCfg("robot", joint_names=joint_names or (".*",))
+    aliases = {
+        "base_linear_velocity": "base_lin_vel",
+        "linear_velocity": "base_lin_vel",
+        "base_angular_velocity": "base_ang_vel",
+        "angular_velocity": "base_ang_vel",
+        "gravity": "projected_gravity",
+        "joint_positions": "joint_pos",
+        "joint_velocities": "joint_vel",
+        "actions": "last_action",
+        "last_actions": "last_action",
+        "commands": "command",
+    }
+    factories = {
+        "base_lin_vel": lambda: ObservationTermCfg(func=mdp.base_lin_vel),
+        "base_ang_vel": lambda: ObservationTermCfg(func=mdp.base_ang_vel),
+        "projected_gravity": lambda: ObservationTermCfg(func=mdp.projected_gravity),
+        "joint_pos": lambda: ObservationTermCfg(func=mdp.joint_pos_rel, params={"asset_cfg": joint_cfg}),
+        "joint_vel": lambda: ObservationTermCfg(func=mdp.joint_vel_rel, params={"asset_cfg": joint_cfg}),
+        "last_action": lambda: ObservationTermCfg(func=mdp.last_action),
+        "command": lambda: ObservationTermCfg(func=mdp.generated_commands, params={"command_name": "twist"}),
+    }
+    requested = list(_contract_value(contract, "observation.components", []) or [])
+    if not requested:
+        requested = ["base_lin_vel", "base_ang_vel", "projected_gravity", "joint_pos", "joint_vel", "last_action"]
+    terms = {}
+    unsupported = []
+    for component in requested:
+        key = aliases.get(_component_key(component), _component_key(component))
+        if key not in factories:
+            unsupported.append(str(component))
+            continue
+        terms.setdefault(key, factories[key]())
+    if unsupported:
+        raise ValueError(f"unsupported generic observation components: {', '.join(unsupported)}")
+    actor = ObservationGroupCfg(terms=terms, concatenate_terms=True, enable_corruption=True)
+    critic = ObservationGroupCfg(terms=deepcopy(terms), concatenate_terms=True, enable_corruption=False)
+    return {"actor": actor, "critic": critic}, list(terms), unsupported
+
+
+def _build_commands(environment: dict[str, Any], observation_terms: list[str]):
+    if "command" not in observation_terms:
+        return {}
+    from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
+    ranges = environment.get("command_ranges", {}) or {}
+    def pair(name: str, default: tuple[float, float]):
+        value = ranges.get(name)
+        if value is None:
+            aliases = {"lin_vel_x": "vx", "lin_vel_y": "vy", "ang_vel_z": "wz"}
+            value = ranges.get(aliases[name])
+        return tuple(float(item) for item in value) if value is not None else default
+    return {
+        "twist": UniformVelocityCommandCfg(
+            entity_name="robot",
+            ranges=UniformVelocityCommandCfg.Ranges(
+                lin_vel_x=pair("lin_vel_x", (-1.0, 1.0)),
+                lin_vel_y=pair("lin_vel_y", (-1.0, 1.0)),
+                ang_vel_z=pair("ang_vel_z", (-1.0, 1.0)),
+                heading=(-math.pi, math.pi),
+            ),
+            debug_vis=False,
+        )
+    }
+
+
+def _build_rewards(recipe: Any, has_commands: bool):
+    from mjlab.envs import mdp
+    from mjlab.tasks.velocity import mdp as velocity_mdp
+    from mjlab.managers.reward_manager import RewardTermCfg
+    from mjlab.managers.scene_entity_config import SceneEntityCfg
+
+    asset = SceneEntityCfg("robot", joint_names=(".*",))
+    aliases = {
+        "tracking_lin_vel": "track_linear_velocity",
+        "tracking_ang_vel": "track_angular_velocity",
+        "orientation": "upright",
+        "torques": "joint_torques_l2",
+        "dof_vel": "joint_vel_l2",
+        "dof_acc": "joint_acc_l2",
+        "action_rate": "action_rate_l2",
+        "joint_pos_limits": "joint_pos_limits",
+    }
+    funcs = {
+        "track_linear_velocity": (velocity_mdp.track_linear_velocity, {"std": 0.5, "command_name": "twist", "asset_cfg": SceneEntityCfg("robot")}),
+        "track_angular_velocity": (velocity_mdp.track_angular_velocity, {"std": 0.7, "command_name": "twist", "asset_cfg": SceneEntityCfg("robot")}),
+        "upright": (velocity_mdp.upright, {"std": math.sqrt(0.2), "asset_cfg": SceneEntityCfg("robot")}),
+        "joint_torques_l2": (mdp.joint_torques_l2, {"asset_cfg": asset}),
+        "joint_vel_l2": (mdp.joint_vel_l2, {"asset_cfg": asset}),
+        "joint_acc_l2": (mdp.joint_acc_l2, {"asset_cfg": asset}),
+        "action_rate_l2": (mdp.action_rate_l2, {}),
+        "joint_pos_limits": (mdp.joint_pos_limits, {"asset_cfg": asset}),
+        "is_alive": (mdp.is_alive, {}),
+    }
+    configured = _recipe_rewards(recipe)
+    if not configured:
+        configured = {"track_linear_velocity": 1.0, "track_angular_velocity": 0.5, "upright": 0.2, "joint_torques_l2": -2e-4, "action_rate_l2": -0.01}
+    result = {}
+    skipped = []
+    for raw_name, weight in configured.items():
+        name = aliases.get(_component_key(raw_name), _component_key(raw_name))
+        if name in {"track_linear_velocity", "track_angular_velocity"} and not has_commands:
+            skipped.append(raw_name)
+            continue
+        if name not in funcs:
+            if float(weight) == 0.0:
+                continue
+            skipped.append(raw_name)
+            continue
+        func, params = funcs[name]
+        result[name] = RewardTermCfg(func=func, weight=float(weight), params=params)
+    return result, skipped
+
+
+def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | None = None, task_id: str | None = None) -> GenericTaskBundle:
+    """Construct a generic MJLab task from a Contract and resolved recipe.
+
+    Only MJCF assets are accepted because MJLab's Entity consumes a compiled
+    ``mujoco.MjSpec``. URDF assets must first be converted by the validation
+    workbench, which then stores the resulting MJCF path in the project package.
+    """
+    xml_path = _asset_path(contract, asset_root)
+    if xml_path.suffix.lower() not in {".xml", ".mjcf"}:
+        raise ValueError(f"generic MJLab task requires MJCF/XML asset, got {xml_path}")
+    if not xml_path.exists():
+        raise FileNotFoundError(f"MJCF asset not found: {xml_path}")
+    from mjlab.envs import ManagerBasedRlEnvCfg, mdp
+    from mjlab.managers.event_manager import EventTermCfg
+    from mjlab.managers.observation_manager import ObservationGroupCfg
+    from mjlab.managers.termination_manager import TerminationTermCfg
+    from mjlab.rl import RslRlOnPolicyRunnerCfg
+    from mjlab.scene import SceneCfg
+    from mjlab.sim import MujocoCfg, SimulationCfg
+    from mjlab.terrains import TerrainEntityCfg
+    from mjlab.terrains.config import ROUGH_TERRAINS_CFG
+    from dataclasses import replace
+
+    environment = _recipe_environment(recipe)
+    entity, joint_order, actuator_report = _build_entity(contract, xml_path)
+    observations, observation_terms, unsupported_obs = _build_observations(contract)
+    commands = _build_commands(environment, observation_terms)
+    rewards, skipped_rewards = _build_rewards(recipe, bool(commands))
+    terrain_type = str(environment.get("terrain_type", "plane")).lower()
+    if terrain_type not in {"plane", "rough"}:
+        raise ValueError(f"generic MJLab terrain supports plane or rough, got {terrain_type!r}")
+    terrain = TerrainEntityCfg(terrain_type="plane") if terrain_type == "plane" else TerrainEntityCfg(terrain_type="generator", terrain_generator=replace(ROUGH_TERRAINS_CFG))
+    num_envs = max(1, int(environment.get("num_envs", 1)))
+    episode_length = float(environment.get("episode_length_s", 20.0))
+    decimation = max(1, int(_contract_value(contract, "control.decimation", 1)))
+    env_cfg = ManagerBasedRlEnvCfg(
+        decimation=decimation,
+        scene=SceneCfg(terrain=terrain, entities={"robot": entity}, num_envs=num_envs, extent=2.0),
+        observations=observations,
+        # MJLab action selectors are transmission targets (joint names), not
+        # MuJoCo actuator element names. This remains stable for XML and
+        # generated actuator groups alike.
+        actions={"joint_pos": __import__("mjlab.envs.mdp.actions", fromlist=["JointPositionActionCfg"]).JointPositionActionCfg(entity_name="robot", actuator_names=tuple(joint_order), scale=float(_contract_value(contract, "action.action_scale", 0.25)), use_default_offset=True)},
+        events={"reset_scene_to_default": EventTermCfg(func=mdp.reset_scene_to_default, mode="reset")},
+        rewards=rewards,
+        terminations={"time_out": TerminationTermCfg(func=mdp.time_out, time_out=True)},
+        commands=commands,
+        seed=int(_get(recipe, "seed", 0) or 0),
+        sim=SimulationCfg(mujoco=MujocoCfg(timestep=1.0 / max(1, int(_contract_value(contract, "control.physics_hz", 1000))))),
+        episode_length_s=episode_length,
+    )
+    play_cfg = deepcopy(env_cfg)
+    play_cfg.scene.num_envs = min(num_envs, 64)
+    play_cfg.episode_length_s = max(episode_length, 1e6)
+    play_cfg.observations["actor"].enable_corruption = False
+
+    algorithm = dict(_get(recipe, "algorithm_config", {}) or {})
+    rl_cfg = RslRlOnPolicyRunnerCfg(
+        num_steps_per_env=max(4, int(algorithm.get("num_steps", 24))),
+        max_iterations=max(1, int(algorithm.get("max_iterations", 1000))),
+        save_interval=max(1, int(algorithm.get("save_interval", 100))),
+        experiment_name=_safe_id(str(_get(recipe, "task_name", "generic"))),
+        logger="tensorboard",
+    )
+    for source, target in (("learning_rate", "learning_rate"), ("gamma", "gamma"), ("gae_lambda", "lam"), ("clip_param", "clip_param"), ("entropy_coef", "entropy_coef")):
+        if source in algorithm and hasattr(rl_cfg.algorithm, target):
+            setattr(rl_cfg.algorithm, target, type(getattr(rl_cfg.algorithm, target))(algorithm[source]))
+    if "num_minibatches" in algorithm:
+        rl_cfg.algorithm.num_mini_batches = max(1, int(algorithm["num_minibatches"]))
+    generated_id = task_id or f"LeggedStudio-Generic-{_safe_id(str(_get(contract, 'contract_id', 'robot')))}"
+    diagnostics = {
+        "asset": str(xml_path),
+        "joint_order": joint_order,
+        "observation_terms": observation_terms,
+        "terrain_type": terrain_type,
+        "reward_terms": sorted(rewards),
+        "skipped_rewards": skipped_rewards,
+        "unsupported_observations": unsupported_obs,
+        **actuator_report,
+    }
+    return GenericTaskBundle(generated_id, env_cfg, play_cfg, rl_cfg, diagnostics)
+
+
+__all__ = ["GenericTaskBundle", "build_generic_task"]

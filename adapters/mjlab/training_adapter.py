@@ -14,6 +14,7 @@ from typing import Any, Callable, Dict, Optional
 
 from contracts.policy_artifact import PolicyArtifact
 from contracts.robot_contract_v2 import RobotContractV2
+from backend.robot_packages import package_for_contract
 
 
 def resolve_torch_device(requested: str = "auto") -> str:
@@ -129,8 +130,8 @@ class MJLabTrainingAdapter:
 
         contract_path = self.output_dir / "contract.json"
         self.contract.to_json_file(str(contract_path))
-        task_id = "Unitree-Go2W-Flat" if self.contract.robot_id == "unitree_go2w" else "Unitree-Go2-Flat"
-        config = {**self.config.to_dict(), "backend": "native_mjlab", "mode": "train", "native_task_id": task_id, "contract_path": str(contract_path.resolve())}
+        package = package_for_contract(self.contract.model_dump(mode="json"))
+        config = {**self.config.to_dict(), "backend": "native_mjlab", "mode": "train", "robot_package": package, "generic_task": True, "contract_path": str(contract_path.resolve())}
         exit_code = run(config, DEFAULT_SOURCE, self.output_dir, DEFAULT_EXTENSION)
         if exit_code != 0:
             raise RuntimeError(f"native MJLab worker exited with code {exit_code}")

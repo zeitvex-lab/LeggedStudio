@@ -7,6 +7,7 @@ from typing import Optional, Callable, Dict, Any
 import time
 
 from contracts.robot_contract_v2 import RobotContractV2
+from backend.robot_packages import package_for_contract
 from contracts.policy_artifact import PolicyArtifact, TrainingMetrics, create_artifact_from_training
 
 
@@ -77,7 +78,8 @@ class CompleteTrainer:
             "backend": "native_mjlab",
             "mode": "train",
             "contract_path": str(contract_path.resolve()),
-            "native_task_id": "Unitree-Go2W-Flat" if self.contract.robot_id == "unitree_go2w" else "Unitree-Go2-Flat",
+            "robot_package": package_for_contract(self.contract.model_dump(mode="json")),
+            "generic_task": True,
         }
         exit_code = run(config, DEFAULT_SOURCE, self.output_dir, DEFAULT_EXTENSION)
         if exit_code != 0:

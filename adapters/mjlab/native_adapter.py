@@ -74,10 +74,13 @@ def preflight(source: Path = DEFAULT_SOURCE) -> dict[str, Any]:
         "go2w_task_available": go2w_xml.exists() and go2w_assets.exists() and any(go2w_assets.iterdir()),
     }
     report["runtime"] = _probe_runtime(source) if source.exists() else {"available": False, "interpreters": []}
-    report["smoke_ready"] = bool(report["exists"] and report["manager_env_available"] and report["extension_exists"] and report["go2_task_source"] and report["runtime"]["available"])
+    # Core MJLab readiness is independent of any robot package. Package
+    # extensions (for example the bundled Go2/Go2W recipes) are checked by
+    # the caller only when that package explicitly requests them.
+    report["smoke_ready"] = bool(report["exists"] and report["manager_env_available"] and report["runtime"]["available"])
     report["execution_ready"] = report["smoke_ready"]
     report["training_ready"] = report["smoke_ready"]
-    report["execution_note"] = "Go2 and Go2W native MJLab training/evaluation/navigation are available in the isolated worker; CUDA depends on the selected native Python environment."
+    report["execution_note"] = "MJLab core is ready; package-specific extensions are optional and are validated when selected. CUDA depends on the selected native Python environment."
     return report
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from backend.robot_packages import package_for_contract
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -30,6 +31,7 @@ def list_robot_presets() -> list[dict[str, Any]]:
             "asset_path": contract["urdf"]["path"],
             "training_config": config,
             "contract": contract,
+            "robot_package": package_for_contract(contract),
         })
     return result
 

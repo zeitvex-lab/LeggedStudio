@@ -20,6 +20,7 @@ Useful endpoints:
 | Robot presets | `GET /api/robots/presets` |
 | Import model assets | `POST /api/models/import` |
 | Validate model/report | `POST /api/models/validate` |
+| Export/import project package | `POST /api/project/export`, `POST /api/project/import` |
 | Training options | `GET /api/training/options` |
 | Training tasks | `GET /api/training/list` |
 | Scenario validation | `POST /api/scenarios/validate` |
@@ -35,6 +36,24 @@ mesh files with relative paths. It stores the complete asset package under
 `workspace/imports/<id>`, validates the selected URDF/MJCF, and returns a
 generated Robot Contract draft. The Web workbench uses this route for user
 assets; presets are only shortcuts for canonical Go2/Go2W fixtures.
+
+Project packages are ZIP files with a versioned manifest. They contain imported
+robot assets, their contracts, the active MJLab training recipe and the active
+MuJoCo scenario. Package import rewrites model paths into the local workspace
+and never executes files from the archive.
+
+## Robot packages
+
+Every imported robot is stored as a package with `robot_package.json`,
+`contract.json`, its MJCF/URDF and referenced meshes. Every package uses the
+same generic MJLab task builder. Historical source code may be retained in the
+package for reference, but it is never an execution requirement.
+
+The same importer accepts a ZIP of the ZEX-W source project (or any other robot
+project). After extraction it persists one package directory containing the
+model, `contract.json`, `robot_package.json`, recipes and scenario data. Its
+historical source folders remain available as portable reference files; the
+generic MJLab builder is the only training entrypoint.
 
 ## Tests
 

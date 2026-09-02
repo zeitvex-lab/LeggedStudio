@@ -23,71 +23,86 @@ def _write(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def _go2w_base_lin_vel_xy(env, sensor_name: str = "robot/local_linvel"):
-    """Return planar base velocity for the 56D Go2W actor contract."""
-    from mjlab.envs.mdp.observations import builtin_sensor
+def apply_training_recipe(env_cfg, rl_cfg, config: dict) -> dict:
+    """Apply the canonical Web/CLI recipe to real MJLab config objects."""
+    recipe = config.get("resolved_recipe") or config.get("recipe") or {}
+    environment = recipe.get("environment", {}) if isinstance(recipe, dict) else {}
+    rewards = recipe.get("reward_scales", {}) if isinstance(recipe, dict) else {}
+    rewards = rewards or config.get("reward_scales", {})
+    terrain_type = str(environment.get("terrain_type", config.get("terrain_type", "plane"))).lower()
+    if terrain_type not in {"plane", "rough"}:
+        raise ValueError(f"native MJLab training supports terrain_type plane or rough; got {terrain_type!r}")
+    terrain = getattr(getattr(env_cfg, "scene", None), "terrain", None)
+    if terrain is not None:
+        if terrain_type == "plane":
+            terrain.terrain_type = "plane"
+            terrain.terrain_generator = None
+        elif terrain.terrain_generator is None:
+            raise ValueError("rough terrain recipe requires an MJLab terrain generator")
 
-    return builtin_sensor(env, sensor_name)[..., :2]
-
-
-def _register_go2w_task(project_root: Path, register_mjlab_task, load_env_cfg, load_rl_cfg) -> None:
-    """Register a wheel-leg task using the versioned Legged Studio Go2W MJCF."""
-    import mujoco
-    from mjlab.actuator import BuiltinPositionActuatorCfg, BuiltinVelocityActuatorCfg
-    from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
-    from mjlab.envs.mdp.actions import JointPositionActionCfg, JointVelocityActionCfg
-
-    xml_path = project_root / "assets" / "robots" / "unitree_go2w" / "go2w.xml"
-    asset_dir = xml_path.parent / "assets"
-
-    def get_spec():
-        spec = mujoco.MjSpec.from_file(str(xml_path))
-        spec.assets = {item.name: item.read_bytes() for item in asset_dir.iterdir() if item.is_file()}
-        return spec
-
-    robot = EntityCfg(
-        init_state=EntityCfg.InitialStateCfg(pos=(0.0, 0.0, 0.38), joint_pos={".*": 0.0}, joint_vel={".*": 0.0}),
-        collisions=(),
-        spec_fn=get_spec,
-        articulation=EntityArticulationInfoCfg(actuators=(
-            BuiltinPositionActuatorCfg(target_names_expr=(".*_hip_joint", ".*_thigh_joint", ".*_calf_joint"), stiffness=20.0, damping=1.0, effort_limit=45.0, armature=0.01),
-            BuiltinVelocityActuatorCfg(target_names_expr=(".*_wheel_joint",), damping=0.5, effort_limit=15.0, armature=0.0042),
-        ), soft_joint_pos_limit_factor=0.9),
-    )
-    env_cfg = copy.deepcopy(load_env_cfg("Unitree-Go2-Flat"))
-    play_cfg = copy.deepcopy(load_env_cfg("Unitree-Go2-Flat", play=True))
-    env_cfg.scene.entities = {"robot": robot}
-    play_cfg.scene.entities = {"robot": copy.deepcopy(robot)}
-    # 16D wheel-leg action contract: 12 joint positions + 4 wheel velocities.
-    env_cfg.actions = {
-        "joint_pos": JointPositionActionCfg(entity_name="robot", actuator_names=(".*_(hip|thigh|calf)_joint",), scale=0.25, use_default_offset=True),
-        "wheel_vel": JointVelocityActionCfg(entity_name="robot", actuator_names=(".*_wheel_joint",), scale=6.0, use_default_offset=False),
+    aliases = {
+        "tracking_lin_vel": "track_linear_velocity", "tracking_ang_vel": "track_angular_velocity",
+        "orientation": "body_orientation_l2", "torques": "joint_torques_l2", "dof_vel": "joint_vel_l2",
+        "dof_acc": "joint_acc_l2", "action_rate": "action_rate_l2", "collision": "illegal_contact",
+        "feet_air_time": "air_time", "base_height": "upright", "stumble": "body_orientation_l2",
     }
-    play_cfg.actions = copy.deepcopy(env_cfg.actions)
-    # Keep the 56D Go2W actor contract: gait phase (2) replaces command (3).
-    for cfg in (env_cfg, play_cfg):
-        actor = cfg.observations["actor"]
-        actor.terms.pop("command", None)
-        actor.terms.pop("phase", None)
-        actor.terms["base_lin_vel"] = copy.deepcopy(cfg.observations["critic"].terms["base_lin_vel"])
-        actor.terms["base_ang_vel"].params["sensor_name"] = "robot/gyro"
-        actor.terms["base_lin_vel"].params["sensor_name"] = "robot/local_linvel"
-        actor.terms["base_lin_vel"].func = _go2w_base_lin_vel_xy
-        cfg.observations["critic"].terms["base_ang_vel"].params["sensor_name"] = "robot/gyro"
-        cfg.observations["critic"].terms["base_lin_vel"].params["sensor_name"] = "robot/local_linvel"
-        # Go2W MJCF uses unnamed collision geoms, so the Go2 contact-sensor
-        # patterns cannot be resolved. Keep the wheel-leg flat task free of
-        # those optional sensors and contact-dependent terms.
-        cfg.scene.sensors = ()
-        for group in cfg.observations.values():
-            for name in ("height_scan", "foot_height", "foot_air_time", "foot_contact", "foot_contact_forces"):
-                group.terms.pop(name, None)
-        for name in ("feet_ground_contact", "foot_gait", "soft_landing", "self_collision", "thigh_ground_touch", "shank_ground_touch", "trunk_head_ground_touch", "foot_clearance", "foot_slip", "air_time", "illegal_contact", "pose", "angular_momentum"):
-            cfg.rewards.pop(name, None)
-            cfg.terminations.pop(name, None)
-        for name in ("foot_friction", "foot_friction_slide", "foot_friction_spin", "foot_friction_roll"):
-            cfg.events.pop(name, None)
-    register_mjlab_task("Unitree-Go2W-Flat", env_cfg, play_cfg, load_rl_cfg("Unitree-Go2-Flat"))
+    reward_terms = getattr(env_cfg, "rewards", {})
+    unmatched = []
+    for name, weight in rewards.items():
+        target = name if name in reward_terms else aliases.get(name)
+        if target not in reward_terms:
+            if float(weight) == 0.0:
+                continue
+            unmatched.append(name)
+            continue
+        reward_terms[target].weight = float(weight)
+    if unmatched:
+        raise ValueError(f"reward terms are not available in MJLab task {unmatched}")
+
+    reward_params = (environment.get("reward_params") if isinstance(environment, dict) else None) or config.get("reward_params", {})
+    for name, params in reward_params.items():
+        target = name if name in reward_terms else aliases.get(name)
+        if target not in reward_terms or not isinstance(params, dict):
+            raise ValueError(f"reward parameter target is not available in MJLab task: {name}")
+        term_params = getattr(reward_terms[target], "params", None)
+        if isinstance(term_params, dict):
+            term_params.update(params)
+        else:
+            for key, value in params.items():
+                if hasattr(term_params, key): setattr(term_params, key, value)
+
+    command_ranges = (environment.get("command_ranges") if isinstance(environment, dict) else None) or config.get("command_ranges", {})
+    if command_ranges:
+        command = getattr(env_cfg, "commands", {}).get("twist")
+        ranges = getattr(command, "ranges", None)
+        if ranges is not None:
+            for key, value in command_ranges.items():
+                target = "ang_vel_z" if key in {"wz", "ang_vel_yaw"} else "lin_vel_x" if key in {"vx", "lin_vel_x"} else "lin_vel_y" if key in {"vy", "lin_vel_y"} else key
+                if hasattr(ranges, target): setattr(ranges, target, tuple(value))
+                elif value is not None: raise ValueError(f"command range is not supported by MJLab: {key}")
+
+    if hasattr(env_cfg, "episode_length_s"):
+        env_cfg.episode_length_s = float(environment.get("episode_length_s", config.get("episode_length_s", env_cfg.episode_length_s)))
+    if hasattr(env_cfg.scene, "num_envs"):
+        env_cfg.scene.num_envs = max(1, int(environment.get("num_envs", config.get("num_envs", env_cfg.scene.num_envs))))
+
+    algorithm_config = recipe.get("algorithm_config", {}) if isinstance(recipe, dict) else {}
+    algorithm_config = {**algorithm_config, **config}
+    algorithm = getattr(rl_cfg, "algorithm", None)
+    field_aliases = {"gae_lambda": "lam", "num_minibatches": "num_mini_batches"}
+    for source, target in field_aliases.items():
+        if source in algorithm_config and algorithm is not None and hasattr(algorithm, target):
+            setattr(algorithm, target, type(getattr(algorithm, target))(algorithm_config[source]))
+    for name in ("learning_rate", "gamma", "clip_param", "entropy_coef"):
+        if name in algorithm_config and algorithm is not None and hasattr(algorithm, name):
+            setattr(algorithm, name, type(getattr(algorithm, name))(algorithm_config[name]))
+    if "num_steps" in algorithm_config and hasattr(rl_cfg, "num_steps_per_env"):
+        rl_cfg.num_steps_per_env = max(4, int(algorithm_config["num_steps"]))
+    if "max_iterations" in algorithm_config and hasattr(rl_cfg, "max_iterations"):
+        rl_cfg.max_iterations = max(1, int(algorithm_config["max_iterations"]))
+    if "save_interval" in algorithm_config and hasattr(rl_cfg, "save_interval"):
+        rl_cfg.save_interval = max(1, int(algorithm_config["save_interval"]))
+    return {"terrain_type": terrain_type, "reward_terms_applied": len(rewards) - len(unmatched), "reward_params_applied": len(reward_params), "command_ranges_applied": len(command_ranges), "algorithm": str(config.get("algorithm", recipe.get("algorithm", "PPO"))).upper()}
 
 
 def run(config: dict, source: Path, output: Path, extension_root: Path | None = None) -> int:
@@ -96,40 +111,33 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
     sys.path.insert(0, str(source / "src"))
-    if extension_root and extension_root.exists():
-        sys.path.insert(0, str(extension_root))
-        # Unitree's extension targets the pre-1.6 helper name. Keep the
-        # compatibility shim local to this isolated process.
-        import mjlab.utils.os as mjlab_os
-        if not hasattr(mjlab_os, "update_assets"):
-            def update_assets(assets, asset_dir, _meshdir):
-                for asset in Path(asset_dir).rglob("*"):
-                    if asset.is_file():
-                        assets[asset.name] = asset.read_bytes()
-            mjlab_os.update_assets = update_assets
+    package = config.get("robot_package") or {}
+    generic_bundle = None
     import torch
     import mjlab.tasks  # noqa: F401
-    if extension_root and (extension_root / "src" / "tasks").exists():
-        # Avoid importing every historical Unitree task: older configs use
-        # CollisionCfg fields removed in MJLab 1.6. Load only Go2 velocity.
-        import types
-        tasks_pkg = types.ModuleType("src.tasks")
-        tasks_pkg.__path__ = [str(extension_root / "src" / "tasks")]
-        sys.modules.setdefault("src.tasks", tasks_pkg)
-        assets_pkg = types.ModuleType("src.assets")
-        assets_pkg.__path__ = [str(extension_root / "src" / "assets")]
-        sys.modules.setdefault("src.assets", assets_pkg)
-        robots_pkg = types.ModuleType("src.assets.robots")
-        robots_pkg.__path__ = [str(extension_root / "src" / "assets" / "robots")]
-        sys.modules.setdefault("src.assets.robots", robots_pkg)
-        go2_constants = __import__("src.assets.robots.unitree_go2.go2_constants", fromlist=["get_go2_robot_cfg"])
-        robots_pkg.get_go2_robot_cfg = go2_constants.get_go2_robot_cfg
-        import src.tasks.velocity.config.go2  # noqa: F401
-    if config.get("native_task_id") == "Unitree-Go2W-Flat":
-        from mjlab.tasks.registry import register_mjlab_task, load_env_cfg, load_rl_cfg
-        _register_go2w_task(project_root, register_mjlab_task, load_env_cfg, load_rl_cfg)
     from mjlab.envs import ManagerBasedRlEnv
-    from mjlab.tasks.registry import list_tasks, load_env_cfg, load_rl_cfg
+    from mjlab.tasks.registry import list_tasks, load_env_cfg, load_rl_cfg, register_mjlab_task
+
+    # Generic tasks are registered dynamically from the imported Robot Contract.
+    # This path is opt-in so historical extension tasks remain untouched while
+    # Web/CLI callers can train any valid MJCF asset without a robot-id branch.
+    if config.get("generic_task", True):
+        contract_path = config.get("contract_path")
+        if not contract_path:
+            raise ValueError("generic MJLab task requires contract_path")
+        from contracts.robot_contract_v2 import RobotContractV2
+        from adapters.mjlab.generic_task_builder import build_generic_task
+
+        contract = RobotContractV2.from_json_file(str(contract_path))
+        bundle = build_generic_task(
+            contract,
+            config.get("resolved_recipe") or config.get("recipe") or config,
+            asset_root=package.get("package_root") or Path(__file__).resolve().parents[2],
+            task_id=str(config.get("native_task_id") or "") or None,
+        )
+        register_mjlab_task(bundle.task_id, bundle.env_cfg, bundle.play_env_cfg, bundle.rl_cfg)
+        config["native_task_id"] = bundle.task_id
+        config["generic_task_diagnostics"] = bundle.diagnostics
 
     task_id = config.get("native_task_id") or config.get("task_name")
     tasks = list_tasks()
@@ -139,7 +147,11 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         "registered_tasks": tasks,
         "torch_version": torch.__version__,
         "cuda_available": bool(torch.cuda.is_available()),
+        "package": {"package_id": package.get("package_id"), "task_kind": "generic", "capabilities": package.get("capabilities", [])},
     }
+    if config.get("generic_task"):
+        report["generic_task"] = True
+        report["generic_task_diagnostics"] = config.get("generic_task_diagnostics", {})
     if task_id not in tasks:
         report.update({"status": "unsupported_task", "error": f"task {task_id!r} is not registered by MJLab"})
         _write(output / "native_preflight.json", report)
@@ -158,14 +170,11 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         device = "cpu"
 
     env_cfg = load_env_cfg(task_id)
+    rl_cfg = load_rl_cfg(task_id)
+    recipe_report = apply_training_recipe(env_cfg, rl_cfg, config)
     env_cfg.scene.num_envs = max(1, int(config.get("num_envs", env_cfg.scene.num_envs)))
     actor_terms = env_cfg.observations.get("actor")
     critic_terms = env_cfg.observations.get("critic")
-    if task_id != "Unitree-Go2W-Flat" and actor_terms and critic_terms and "phase" in actor_terms.terms and "base_lin_vel" in critic_terms.terms:
-        # Match the unified Go2 Contract actor layout: 3 base linear velocity
-        # values replace the extension's 2-value gait phase.
-        actor_terms.terms.pop("phase", None)
-        actor_terms.terms["base_lin_vel"] = critic_terms.terms["base_lin_vel"]
     # MJLab 1.6 requires structural collision dictionaries to have a default;
     # Unitree's extension was authored against the previous sparse-dict API.
     for entity_cfg in env_cfg.scene.entities.values():
@@ -188,11 +197,12 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             "observation_groups": list(obs.keys()),
             "observation_dimensions": {name: list(value.shape[1:]) for name, value in obs.items()},
             "action_dim": action_dim,
+            "recipe": recipe_report,
+            "generic_task": config.get("generic_task_diagnostics"),
         })
         if config.get("mode") == "train":
             started = time.time()
             from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
-            rl_cfg = load_rl_cfg(task_id)
             rl_cfg.max_iterations = max(1, int(config.get("max_iterations", 1)))
             rl_cfg.num_steps_per_env = max(4, int(config.get("num_steps", rl_cfg.num_steps_per_env)))
             rl_cfg.experiment_name = str(config.get("experiment_name", "legged_studio_native"))
