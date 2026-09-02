@@ -3,65 +3,73 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Legged Studio Workbench</title>
+  <title>Legged Studio</title>
   <link rel="stylesheet" href="workbench.css">
 </head>
 <body>
-  <main class="shell">
+  <div class="app-shell">
     <header class="topbar">
-      <div><span class="eyebrow">LEGGED STUDIO / WORKBENCH</span><h1>从模型到闭环验证</h1><p class="lede">在一个工作区完成 Contract 校验、强化学习训练、基础仿真与导航回放。</p></div>
-      <div class="top-actions"><span id="backendState" class="pill pending">后端检查中</span><a class="btn ghost" href="dashboard.html">控制台</a></div>
+      <a class="brand" href="#home" data-step="home" aria-label="Legged Studio 首页">
+        <span class="brand-mark">LS</span>
+        <span><strong>Legged Studio</strong><small>MJLab Robotics Workbench</small></span>
+      </a>
+      <nav class="main-nav" aria-label="主功能">
+        <button class="nav-item active" data-step="home"><span class="nav-index">01</span>首页</button>
+        <button class="nav-item" data-step="validate"><span class="nav-index">02</span>验证</button>
+        <button class="nav-item" data-step="config"><span class="nav-index">03</span>训练配置</button>
+        <button class="nav-item" data-step="training"><span class="nav-index">04</span>训练</button>
+        <button class="nav-item" data-step="simulation"><span class="nav-index">05</span>仿真</button>
+      </nav>
+      <div class="top-status"><span id="backendState" class="status-dot pending"><i></i>后端检查中</span><button class="icon-button" id="refreshApp" title="刷新数据">↻</button></div>
     </header>
 
-    <nav class="steps" aria-label="工作流步骤">
-      <button class="step active" data-step="model"><b>01</b><span>模型验证</span><small>URDF / MJCF</small></button>
-      <button class="step" data-step="training"><b>02</b><span>训练配置</span><small>算法与奖惩</small></button>
-      <button class="step" data-step="simulation"><b>03</b><span>训练与仿真</span><small>实时状态</small></button>
-      <button class="step" data-step="navigation"><b>04</b><span>导航回放</span><small>Sim2Sim 闭环</small></button>
-    </nav>
+    <main class="content">
+      <section id="home" class="view active-view">
+        <div class="view-heading"><div><span class="eyebrow">WORKSPACE / OVERVIEW</span><h1>统一的足式机器人实验工作台</h1><p>从模型 Contract 到 MJLab GPU 训练，再到 MuJoCo 交互仿真，所有状态在同一条工作流中可追踪。</p></div><div class="heading-actions"><button class="button primary" data-step="validate">开始一次实验</button></div></div>
+        <div class="hero-grid">
+          <div class="hero-panel"><div class="hero-label"><span class="pulse"></span> NATIVE MJLAB PIPELINE</div><h2>让每次实验都可复现</h2><p>固定源代码、隔离 Torch 与 Warp 环境，Go2 / Go2W 使用统一 Contract 和训练接口。</p><div class="hero-actions"><button class="button primary" data-step="config">配置训练</button><button class="button ghost" data-step="simulation">打开仿真</button></div></div>
+          <div class="system-panel"><div class="panel-title"><span>系统状态</span><button class="text-button" id="homeRefresh">刷新</button></div><div id="homeCapabilities" class="system-list"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+        </div>
+        <div class="section-title"><div><span class="eyebrow">RECENT RUNS</span><h2>最近实验</h2></div><button class="text-button" data-step="training">查看训练监控</button></div>
+        <div id="homeRuns" class="run-list"><div class="empty-state">正在读取训练任务...</div></div>
+      </section>
 
-    <section id="model" class="panel step-panel active-panel">
-      <div class="panel-head"><div><span class="eyebrow">MODEL CONTRACT</span><h2>选择机器人并验证模型</h2><p>复用 contracts/fixtures 中的 Robot Contract；修改后可立即校验。</p></div><span id="modelBadge" class="pill pending">未验证</span></div>
-      <div class="grid two">
-        <div><label>机器人 preset<select id="preset"><option>加载中...</option></select></label><div id="presetMeta" class="meta-box">选择 preset 后显示关节、质量和资源路径。</div></div>
-        <div><label>模型格式<select id="format"><option value="urdf">URDF</option><option value="mjcf">MJCF</option></select></label><label>模型路径<input id="modelPath" placeholder="assets/robots/unitree_go2/go2.xml"></label><div class="inline"><button id="validateBtn" class="btn primary">验证 Contract</button><a class="btn ghost" href="assets.html">浏览资产</a></div></div>
-      </div>
-      <label>Contract JSON（可选编辑）<textarea id="contractJson" spellcheck="false"></textarea></label>
-      <pre id="validationLog" class="log">等待验证...</pre>
-      <div class="panel-foot"><button class="btn primary next" data-next="training">下一步：训练配置</button></div>
-    </section>
+      <section id="validate" class="view">
+        <div class="view-heading compact"><div><span class="eyebrow">02 / MODEL VALIDATION</span><h1>验证</h1><p>参考 URDF-Studio 的编辑器布局，先确认模型资源与 Robot Contract，再进入训练。</p></div><span id="modelBadge" class="badge pending">未验证</span></div>
+        <div class="validation-layout">
+          <div class="viewer-panel"><div class="viewer-toolbar"><span class="toolbar-title">MODEL VIEWER</span><span id="viewerFormat" class="toolbar-meta">MJCF</span><button class="icon-button" id="fitModel" title="适配视图">⌗</button></div><div class="model-stage"><div class="stage-grid"></div><div class="robot-placeholder"><span>ROBOT</span><strong id="stageRobotName">Go2</strong><small>资源预览占位 · Contract 驱动</small></div><div class="axis axis-x">X</div><div class="axis axis-y">Y</div><div class="axis axis-z">Z</div></div><div class="viewer-footer"><span id="stageStatus">等待模型资源</span><span>结构检查 · 关节映射 · 控制频率</span></div></div>
+          <div class="form-panel"><div class="panel-title"><div><span class="eyebrow">ROBOT CONTRACT</span><h2>模型与接口</h2></div><button class="text-button" id="copyContract">复制 JSON</button></div><label class="field-label">机器人 preset<select id="preset"><option>加载中...</option></select></label><div id="presetMeta" class="meta-box">选择 preset 后显示关节、质量和资源路径。</div><div class="field-row"><label class="field-label">模型格式<select id="format"><option value="urdf">URDF</option><option value="mjcf">MJCF</option></select></label><label class="field-label wide">模型路径<input id="modelPath" placeholder="assets/robots/unitree_go2/go2.xml"></label></div><label class="field-label">Contract JSON<textarea id="contractJson" spellcheck="false"></textarea></label><button id="validateBtn" class="button primary full">运行验证</button><pre id="validationLog" class="console">等待验证...</pre></div>
+        </div>
+        <div class="view-footer"><span class="muted">验证通过后，配置页会自动使用当前机器人和 Contract。</span><button class="button primary" data-step="config">继续配置训练 →</button></div>
+      </section>
 
-    <section id="training" class="panel step-panel">
-      <div class="grid three"><label>训练后端<select id="backend"><option value="native_mjlab" disabled>Native MJLab (isolated worker)</option></select></label><span id="hardwareHint" class="muted">正在检测 MJLab GPU 运行时...</span></div>
-      <div class="panel-head"><div><span class="eyebrow">TRAINING CONFIG</span><h2>算法、环境与奖惩设置</h2><p>配置将直接提交给 `/api/training/create`，权重为 0 的奖惩项会被禁用。</p></div><span id="configBadge" class="pill pending">未保存</span></div>
-      <div class="grid three"><label>任务名称<input id="taskName" value="forward_walk"></label><label>算法<select id="algorithm"><option value="PPO">PPO</option></select></label><label>地形<select id="terrain"><option value="plane">平地</option><option value="rough">崎岖</option><option value="stairs">楼梯</option></select></label></div>
-      <div class="grid four"><label>环境数量<input id="numEnvs" type="number" min="64" step="64" value="4096"></label><label>最大迭代<input id="maxIterations" type="number" min="10" step="10" value="1000"></label><label>学习率<input id="learningRate" type="number" min="0.00001" step="0.00001" value="0.0003"></label><label>设备<select id="device"><option value="cuda">CUDA</option><option value="cpu">CPU</option></select></label></div>
-      <details class="advanced"><summary>高级算法参数</summary><div class="grid four"><label>Gamma<input id="gamma" type="number" min="0.01" max="0.9999" step="0.001" value="0.99"></label><label>GAE Lambda<input id="gaeLambda" type="number" min="0.01" max="1" step="0.01" value="0.95"></label><label>Rollout steps<input id="numSteps" type="number" min="4" max="4096" step="4" value="24"></label><label>Mini-batches<input id="numMinibatches" type="number" min="1" max="64" step="1" value="4"></label><label>Target tau<input id="tau" type="number" min="0.0001" max="1" step="0.0001" value="0.005"></label><label>Replay batch<input id="batchSize" type="number" min="1" max="8192" step="1" value="256"></label><label>Entropy alpha<input id="alpha" type="number" min="0.0001" step="0.01" value="0.2"></label><label>Policy delay<input id="policyDelay" type="number" min="1" max="16" step="1" value="2"></label></div></details>
-      <div class="reward-head"><h3>奖惩项</h3><button id="resetRewards" class="btn ghost small">恢复默认</button></div><div id="rewards" class="rewards"><div class="muted">加载奖惩项...</div></div>
-      <div class="panel-foot"><button class="btn ghost prev" data-prev="model">返回</button><button id="startTraining" class="btn primary">开始训练</button></div>
-    </section>
+      <section id="config" class="view">
+        <div class="view-heading compact"><div><span class="eyebrow">03 / MODULAR TRAINING CONFIG</span><h1>训练配置</h1><p>MJLab 是当前唯一训练框架。算法、环境和奖惩分组管理，配置可直接提交给 native worker。</p></div><span id="configBadge" class="badge pending">未保存</span></div>
+        <div class="config-layout">
+          <aside class="config-sidebar"><div class="config-context"><span class="eyebrow">TARGET</span><strong id="configRobot">Go2</strong><small id="configContract">等待 Contract</small></div><div class="config-tabs"><button class="config-tab active" data-config-tab="algorithm">算法与环境</button><button class="config-tab" data-config-tab="rewards">奖惩设置</button><button class="config-tab" data-config-tab="runtime">运行参数</button></div><div class="config-summary"><span>框架</span><strong>MJLab 1.6.0</strong><span>训练设备</span><strong id="configDeviceSummary">检测中</strong></div></aside>
+          <div class="config-main">
+            <div class="config-pane active-pane" data-config-pane="algorithm"><div class="pane-heading"><div><span class="eyebrow">MANAGER-BASED RL</span><h2>算法与环境</h2></div><span class="framework-lock">框架固定 · native_mjlab</span></div><div class="field-grid three"><label class="field-label">训练后端<select id="backend"><option value="native_mjlab">Native MJLab</option></select></label><label class="field-label">算法<select id="algorithm"><option value="PPO">PPO</option></select></label><label class="field-label">任务名称<input id="taskName" value="forward_walk"></label></div><div class="field-grid four"><label class="field-label">地形<select id="terrain"><option value="plane">平地</option><option value="rough">崎岖</option><option value="stairs">楼梯</option></select></label><label class="field-label">环境数量<input id="numEnvs" type="number" min="64" step="64" value="4096"></label><label class="field-label">最大迭代<input id="maxIterations" type="number" min="10" step="10" value="1000"></label><label class="field-label">设备<select id="device"><option value="auto">自动</option><option value="cuda">CUDA</option><option value="cpu">CPU</option></select></label></div><div id="hardwareHint" class="runtime-hint">正在检测 MJLab 运行时...</div><details class="advanced"><summary>展开 PPO 高级参数</summary><div class="field-grid four"><label class="field-label">学习率<input id="learningRate" type="number" min="0.00001" step="0.00001" value="0.0003"></label><label class="field-label">Gamma<input id="gamma" type="number" min="0.01" max="0.9999" step="0.001" value="0.99"></label><label class="field-label">GAE Lambda<input id="gaeLambda" type="number" min="0.01" max="1" step="0.01" value="0.95"></label><label class="field-label">Rollout steps<input id="numSteps" type="number" min="4" max="4096" step="4" value="24"></label><label class="field-label">Mini-batches<input id="numMinibatches" type="number" min="1" max="64" step="1" value="4"></label><label class="field-label">Entropy coefficient<input id="alpha" type="number" min="0" step="0.001" value="0.01"></label><label class="field-label">保存间隔<input id="saveInterval" type="number" min="1" step="1" value="100"></label><label class="field-label">随机种子<input id="seed" type="number" step="1" value="42"></label></div></details></div>
+            <div class="config-pane" data-config-pane="rewards"><div class="pane-heading"><div><span class="eyebrow">REWARD MANAGER</span><h2>奖惩设置</h2><p>关闭项权重会写为 0；拖动或输入权重后立即反映在配置摘要中。</p></div><button id="resetRewards" class="button ghost small">恢复默认</button></div><div class="reward-toolbar"><span>启用</span><span>奖励项</span><span>权重</span></div><div id="rewards" class="rewards"><div class="empty-state">加载奖惩项...</div></div></div>
+            <div class="config-pane" data-config-pane="runtime"><div class="pane-heading"><div><span class="eyebrow">RUNTIME</span><h2>运行参数</h2></div></div><div class="runtime-card"><div><span>控制面</span><strong>FastAPI + MuJoCo Simulation</strong><small>MuJoCo 只用于基础交互仿真，不参与训练。</small></div><div><span>训练 worker</span><strong>MJLab + Torch + Warp + RSL-RL</strong><small>独立适配器环境，优先使用 CUDA。</small></div></div><pre id="runtimeDetails" class="console">等待运行时检测...</pre></div>
+            <div class="config-actions"><button class="button ghost" data-step="validate">← 返回验证</button><button id="startTraining" class="button primary">创建并开始训练 →</button></div>
+          </div>
+        </div>
+      </section>
 
-    <section id="simulation" class="panel step-panel">
-      <div class="panel-head"><div><span class="eyebrow">TRAIN / SIMULATION</span><h2>训练与基础仿真</h2><p>训练状态、奖励曲线和验证阶段会持续刷新。</p></div><span id="runBadge" class="pill pending">等待任务</span></div>
-      <div class="progress"><div class="progress-label"><span id="runStage">尚未启动</span><b id="runPercent">0%</b></div><div class="track"><i id="runProgress"></i></div></div>
-      <div class="metrics"><div><span>迭代</span><b id="metricIteration">-</b></div><div><span>平均奖励</span><b id="metricReward">-</b></div><div><span>成功率</span><b id="metricSuccess">-</b></div><div><span>任务 ID</span><b id="metricTask">-</b></div></div>
-      <div class="sim-toolbar"><label>基础仿真地图<select id="simMap"></select></label><button id="startSimulation" class="btn primary">启动基础仿真</button><button id="resetSimulation" class="btn ghost" disabled>重置</button><button id="closeSimulation" class="btn ghost" disabled>关闭</button></div>
-      <div class="sim-viewport"><canvas id="simCanvas" aria-label="仿真地图视图"></canvas><div class="sim-overlay"><span id="simMapLabel">无活动场景</span><b id="simPoseLabel">x 0.00 / y 0.00</b></div></div>
-      <div class="sim-grid"><div class="sim-controls"><h3>手动遥控</h3><div class="grid three"><label>Vx<input id="simVx" type="range" min="-1" max="1" step="0.05" value="0"><output id="simVxValue">0.00</output></label><label>Vy<input id="simVy" type="range" min="-1" max="1" step="0.05" value="0"><output id="simVyValue">0.00</output></label><label>Wz<input id="simWz" type="range" min="-1" max="1" step="0.05" value="0"><output id="simWzValue">0.00</output></label></div><div class="inline"><button id="simStep" class="btn primary" disabled>执行一步</button><button id="simStopCommand" class="btn danger" disabled>停止指令</button><span class="muted">方向键也可发送 Vx/Vy 指令</span></div></div><pre id="simFrame" class="log">尚未创建仿真会话。</pre></div>
-      <pre id="runLog" class="log tall">启动训练后显示实时日志...</pre>
-      <div class="panel-foot"><button class="btn ghost prev" data-prev="training">返回配置</button><button id="stopTraining" class="btn danger" disabled>停止训练</button><button id="enterNavigation" class="btn primary next" data-next="navigation" disabled>进入导航回放</button></div>
-    </section>
+      <section id="training" class="view">
+        <div class="view-heading compact"><div><span class="eyebrow">04 / TRAINING CONSOLE</span><h1>训练</h1><p>实时查看 native MJLab worker 的状态、控制台输出和训练曲线。</p></div><span id="runBadge" class="badge pending">等待任务</span></div>
+        <div class="training-header"><div class="training-identity"><span class="run-pulse"></span><div><strong id="trainingTaskLabel">尚未启动训练任务</strong><small id="trainingTaskMeta">配置页创建任务后显示实时数据</small></div></div><div class="training-actions"><button id="stopTraining" class="button danger" disabled>停止训练</button><button class="button primary" data-step="simulation">进入仿真 →</button></div></div>
+        <div class="progress-strip"><div><span id="runStage">尚未启动</span><b id="runPercent">0%</b></div><div class="progress-track"><i id="runProgress"></i></div></div>
+        <div class="metric-grid"><div><span>当前迭代</span><strong id="metricIteration">-</strong></div><div><span>平均奖励</span><strong id="metricReward">-</strong></div><div><span>成功率</span><strong id="metricSuccess">-</strong></div><div><span>设备</span><strong id="metricDevice">-</strong></div></div>
+        <div class="training-grid"><div class="chart-panel"><div class="panel-title"><div><span class="eyebrow">LIVE METRICS</span><h2>奖励曲线</h2></div><span class="panel-meta">按 worker 状态刷新</span></div><div class="chart-wrap"><canvas id="rewardChart" aria-label="训练奖励曲线"></canvas><div id="chartEmpty" class="chart-empty">等待第一条训练指标...</div></div></div><div class="log-panel"><div class="panel-title"><div><span class="eyebrow">WORKER OUTPUT</span><h2>控制台</h2></div><button class="text-button" id="clearLog">清空视图</button></div><pre id="runLog" class="console log-console">启动训练后显示实时日志...</pre></div></div>
+      </section>
 
-    <section id="navigation" class="panel step-panel">
-      <div class="panel-head"><div><span class="eyebrow">NAVIGATION / SIM2SIM</span><h2>导航仿真与闭环检查</h2><p>训练完成后运行评估，在隔离的 native MJLab 环境运行评估和路线回放。</p></div><span id="evalBadge" class="pill pending">未运行</span></div>
-      <div class="grid three"><label>评估回合数<input id="episodes" type="number" min="1" max="100" value="5"></label><label>导航地图<select id="navigationMap"><option value="warehouse">Warehouse</option><option value="rough">Rough</option><option value="stairs">Stairs</option></select></label><label>控制模式<select id="navigationMode"><option value="auto">自动策略</option><option value="manual">手动命令序列</option></select></label></div><div class="inline align-end"><button id="runEvaluation" class="btn primary" disabled>运行 Sim2Sim 评估</button><a class="btn ghost" href="evaluation.html">高级评估</a></div>
-      <label>导航路线（waypoints，JSON 二维坐标）<textarea id="waypoints" rows="3" spellcheck="false">[[0, 0], [1, 0], [2, 0]]</textarea></label>
-      <label>手动命令序列（仅手动模式，JSON；每项持续一步）<textarea id="manualCommands" rows="3" spellcheck="false">[{"vx": 0.4, "vy": 0, "wz": 0}]</textarea></label>
-      <div class="inline"><button id="runNavigation" class="btn primary" disabled>运行导航回放</button><span id="navigationHint" class="muted">训练完成后可在 native MJLab 中回放路线。</span></div>
-      <div id="evalResult" class="result empty">训练完成后可运行评估。</div>
-      <div class="panel-foot"><button class="btn ghost prev" data-prev="simulation">返回仿真</button><a class="btn primary" href="dashboard.html">完成并返回控制台</a></div>
-    </section>
-  </main>
+      <section id="simulation" class="view simulation-view">
+        <div class="sim-stage"><canvas id="simCanvas" aria-label="MuJoCo 仿真地图视图"></canvas><div class="sim-vignette"></div><div class="sim-hud top-left"><span class="eyebrow">MUJOCO PLAY / INTERACTIVE</span><strong id="simMapLabel">未启动场景</strong><small id="simPoseLabel">x 0.00 · y 0.00 · step 0</small></div><div class="sim-hud top-right"><span id="engineStatus" class="status-dot pending"><i></i>等待引擎</span><button id="closeSimulation" class="icon-button" title="关闭会话" disabled>×</button></div><div class="sim-hud bottom-left"><span id="simFrameStatus">选择地图后启动基础仿真</span><span id="simClock">t 0.00</span></div></div>
+        <aside class="sim-panel"><div class="sim-panel-head"><div><span class="eyebrow">05 / SIMULATION</span><h1>仿真</h1><p>基础遥控和导航任务共享同一 MuJoCo 会话视图。</p></div><span id="simModeBadge" class="badge pending">未运行</span></div><div class="sim-section"><div class="field-row"><label class="field-label">机器人<select id="simRobot"><option value="unitree_go2">Go2</option><option value="unitree_go2w">Go2W</option></select></label><label class="field-label">地图<select id="simMap"></select></label></div><div class="mode-switch"><button class="mode-button active" data-sim-mode="basic">基础遥控</button><button class="mode-button" data-sim-mode="navigation">导航任务</button></div><div class="sim-actions"><button id="startSimulation" class="button primary full">启动仿真</button><button id="resetSimulation" class="button ghost" disabled>重置</button></div></div><div id="basicControls" class="sim-section"><div class="section-title"><h2>运动指令</h2><span class="muted">方向键可直接控制</span></div><div class="control-row"><label>Vx <input id="simVx" type="range" min="-1" max="1" step="0.05" value="0"><output id="simVxValue">0.00</output></label><label>Vy <input id="simVy" type="range" min="-1" max="1" step="0.05" value="0"><output id="simVyValue">0.00</output></label><label>Wz <input id="simWz" type="range" min="-1" max="1" step="0.05" value="0"><output id="simWzValue">0.00</output></label></div><div class="sim-actions"><button id="simStep" class="button primary" disabled>执行一步</button><button id="simStopCommand" class="button ghost" disabled>停止</button></div></div><div id="navigationControls" class="sim-section hidden"><div class="section-title"><h2>导航任务</h2><span class="muted">训练完成后可运行策略</span></div><div class="field-row"><label class="field-label">评估回合<input id="episodes" type="number" min="1" max="100" value="5"></label><label class="field-label">地图<select id="navigationMap"><option value="warehouse">Warehouse</option><option value="rough">Rough</option><option value="stairs">Stairs</option></select></label></div><label class="field-label">控制模式<select id="navigationMode"><option value="auto">自动策略</option><option value="manual">手动命令序列</option></select></label><label class="field-label">路线 JSON<textarea id="waypoints" rows="3" spellcheck="false">[[0, 0], [1, 0], [2, 0]]</textarea></label><div class="sim-actions"><button id="runEvaluation" class="button ghost" disabled>运行评估</button><button id="runNavigation" class="button primary" disabled>执行导航</button></div><div id="evalResult" class="result-box">训练完成后可运行评估或导航。</div></div><pre id="simFrame" class="console sim-console">尚未创建仿真会话。</pre></aside>
+      </section>
+    </main>
+  </div>
   <script src="workbench.js"></script>
 </body>
 </html>

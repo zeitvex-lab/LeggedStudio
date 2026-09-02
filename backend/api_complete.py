@@ -210,7 +210,7 @@ WEB_DIR = Path(__file__).parent.parent / "web"
 
 @app.get("/", include_in_schema=False)
 async def root_redirect():
-    return RedirectResponse(url="/web/dashboard.html", status_code=302)
+    return RedirectResponse(url="/web/workbench.html#home", status_code=302)
 
 @app.get("/web/dashboard.html", include_in_schema=False)
 async def serve_dashboard():
