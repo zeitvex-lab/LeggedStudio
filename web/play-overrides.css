@@ -1,22 +1,27 @@
-/* Final Play surface alignment. Loaded after workbench.css. */
-body { background: #101214; }
-.app-shell { background: #101214; }
-.topbar { height: 54px; padding: 0 20px; background: rgba(16, 18, 20, .82); }
+/* Final Viser Play surface alignment. The Viser play reference uses a
+   light scene, white control surfaces, blue actions and neutral gray text. */
+:root { --bg: #f4f6f8; --surface: #ffffff; --surface-raised: #f8fafc; --surface-input: #ffffff; --line: #d9e0e7; --line-soft: #e8edf2; --text: #1f2933; --muted: #687582; --faint: #8b98a5; --cyan: #2588df; --cyan-dim: rgba(37, 136, 223, .10); --blue: #2478c5; --green: #32a36c; --amber: #d88922; --red: #d84b4b; }
+body { background: #f4f6f8; color: #1f2933; }
+.app-shell { background: #f4f6f8; }
+.topbar { height: 54px; padding: 0 20px; background: rgba(255, 255, 255, .92); border-bottom-color: #d9e0e7; }
 .brand { min-width: 205px; }
-.brand-mark { width: 28px; height: 28px; border-radius: 6px; background: #182124; border-color: #33565b; }
+.brand-mark { width: 28px; height: 28px; border-radius: 6px; background: #e8f3fd; border-color: #8fc2eb; color: #1672bd; }
 .brand strong { font-size: 13px; }
 .brand small { font-size: 9px; }
 .main-nav { gap: 2px; }
 .nav-item { min-height: 54px; padding: 0 12px; border-bottom-width: 1px; font-size: 12px; }
+.nav-item:hover { color: #1f2933; background: #f0f5fa; }
+.nav-item.active { color: #1769a9; background: #eef6fd; border-bottom-color: #2588df; }
 .content { width: min(100% - 40px, 1380px); padding-top: 28px; }
 .view-heading { align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(190, 205, 210, .11); }
 .view-heading h1 { font-size: 22px; font-weight: 650; }
 .view-heading p { display: none; }
-.button { min-height: 32px; border-radius: 5px; background: #171b1e; font-size: 11px; }
-.button.primary { background: #2fc9bd; border-color: #2fc9bd; }
+.button { min-height: 32px; border-radius: 5px; background: #ffffff; border-color: #cfd8e1; color: #334155; font-size: 11px; }
+.button:hover { background: #f3f7fb; border-color: #79b5e6; color: #1769a9; }
+.button.primary { background: #2588df; border-color: #2588df; color: #ffffff; }
 .hero-grid { grid-template-columns: minmax(0, 1fr) 320px; gap: 10px; margin-bottom: 22px; }
-.hero-panel, .system-panel, .run-row, .viewer-panel, .form-panel, .config-sidebar, .config-main, .training-header, .chart-panel, .log-panel { border-radius: 5px; background: rgba(20, 25, 28, .86); box-shadow: none; }
-.hero-panel { min-height: 0; padding: 20px; background: rgba(20, 25, 28, .88); }
+.hero-panel, .system-panel, .run-row, .viewer-panel, .form-panel, .config-sidebar, .config-main, .training-header, .chart-panel, .log-panel { border-radius: 5px; background: rgba(255, 255, 255, .94); box-shadow: 0 5px 18px rgba(65, 82, 99, .08); }
+.hero-panel { min-height: 0; padding: 20px; background: #ffffff; }
 .hero-panel h2 { margin: 22px 0 7px; font-size: 19px; }
 .hero-panel p { max-width: 580px; margin-bottom: 18px; font-size: 12px; }
 .system-list { padding: 4px 14px 10px; }
@@ -25,7 +30,7 @@ body { background: #101214; }
 .validation-layout { gap: 10px; }
 .viewer-panel { min-height: 560px; }
 .viewer-toolbar, .viewer-footer { padding: 10px 12px; }
-.model-stage { min-height: 420px; background: #0c1114; }
+.model-stage { min-height: 420px; background: #ffffff; }
 .form-panel { padding: 14px; }
 .form-panel .panel-title { padding: 0 0 12px; margin-bottom: 14px; }
 .field-label { font-size: 10px; margin-bottom: 11px; }
@@ -50,7 +55,18 @@ body { background: #101214; }
 .chart-wrap { height: 310px; }
 .log-console { height: 310px; }
 .simulation-view { margin: -28px calc((100% - min(100% - 40px, 1380px)) / 2) -64px; }
-.sim-panel { border-radius: 5px; background: rgba(14, 19, 22, .93); }
+.sim-panel { border-radius: 5px; background: rgba(255, 255, 255, .96); border-color: #d5dde5; box-shadow: 0 12px 36px rgba(65, 82, 99, .15); }
+.hero-label, .eyebrow, .toolbar-title { color: #1976bd; }
+.system-row, .run-row small, .muted, .panel-meta, .viewer-footer { color: #687582; }
+.stage-grid { background-image: linear-gradient(rgba(113, 133, 151, .15) 1px, transparent 1px), linear-gradient(90deg, rgba(113, 133, 151, .15) 1px, transparent 1px); }
+.robot-placeholder { border-color: #8ebce1; background: rgba(238, 247, 253, .88); box-shadow: 0 8px 30px rgba(74, 122, 160, .16); color: #2588df; }
+.robot-placeholder strong { color: #263746; }
+.field-label input, .field-label select, .field-label textarea { background: #ffffff; border-color: #cbd5df; color: #263746; }
+.console { background: #f8fafc; border-color: #d9e0e7; color: #445362; }
+.sim-stage { background: #ffffff; }
+.sim-vignette { background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02)); }
+.sim-hud { border-color: rgba(142, 160, 176, .35); background: rgba(255, 255, 255, .88); box-shadow: 0 5px 18px rgba(65, 82, 99, .08); color: #263746; }
+.sim-hud small, .sim-hud.bottom-left { color: #687582; }
 @media (max-width: 1000px) {
   .hero-grid, .validation-layout, .config-layout, .training-grid { grid-template-columns: 1fr; }
   .config-sidebar { display: flex; align-items: center; gap: 14px; }
