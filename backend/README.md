@@ -48,6 +48,9 @@ Every imported robot is stored as a package with `robot_package.json`,
 `contract.json`, its MJCF/URDF and referenced meshes. Every package uses the
 same generic MJLab task builder. Historical source code may be retained in the
 package for reference, but it is never an execution requirement.
+Mature robot projects can additionally ship `training/profiles/*.json` and
+`training/source/`; these profiles expose tuned rewards, terrain curricula,
+actuator gains and PPO settings without changing the generic API.
 
 The same importer accepts a ZIP of the ZEX-W source project (or any other robot
 project). After extraction it persists one package directory containing the

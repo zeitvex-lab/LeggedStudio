@@ -1,0 +1,16 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "zex-w-flat",
+  "display_name": "ZEX-W Flat",
+  "source": "training/source/robot/config/env_cfgs.py::flat_env_cfg",
+  "backend": "native_mjlab",
+  "algorithm": "PPO",
+  "num_envs": 2048,
+  "episode_length_s": 20.0,
+  "decimation": 4,
+  "action": {"leg_control": "position", "wheel_control": "velocity", "leg_scale": 0.25, "wheel_scale": 5.0, "stiffness": 50.0, "damping": 1.5, "wheel_damping": 1.0, "effort_limit": 17.0},
+  "command_ranges": {"lin_vel_x": [-1.0, 1.0], "lin_vel_y": [-1.0, 1.0], "ang_vel_z": [-1.0, 1.0]},
+  "terrain": {"type": "generator", "sub_terrains": ["flat"]},
+  "reward_terms": ["track_lin_vel", "track_ang_vel", "upright", "base_height_l2", "body_ang_vel", "is_terminated", "joint_torques", "joint_acc", "action_rate", "joint_pos_limits", "wheel_roll_tracking", "wheel_contact_bonus", "feet_air_time", "leg_motion_penalty", "stand_still", "body_collision"],
+  "runner": {"hidden_dims": [512, 256, 128], "learning_rate": 0.0008, "entropy_coef": 0.003, "num_learning_epochs": 5, "num_mini_batches": 4, "num_steps_per_env": 24, "max_iterations": 10000}
+}

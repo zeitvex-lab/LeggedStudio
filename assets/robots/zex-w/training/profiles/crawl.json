@@ -1,0 +1,14 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "zex-w-crawl",
+  "display_name": "ZEX-W Crawl",
+  "source": "training/source/robot/config/env_cfgs.py::crawl_env_cfg",
+  "backend": "native_mjlab",
+  "algorithm": "PPO",
+  "num_envs": 2048,
+  "episode_length_s": 30.0,
+  "terrain": {"type": "generator", "curriculum": false, "sub_terrains": ["flat", "pyramid_stairs", "random_grid"]},
+  "init_pose": {"hip_abduction": 0.4, "hip_pitch": 1.65, "knee": -2.55},
+  "reward_terms": ["track_lin_vel", "track_ang_vel", "upright", "crawl_height_reward", "joint_torques", "joint_acc", "action_rate", "joint_pos_limits", "stand_still"],
+  "runner": {"hidden_dims": [512, 256, 128], "learning_rate": 0.0008, "entropy_coef": 0.003, "num_learning_epochs": 5, "num_mini_batches": 4, "num_steps_per_env": 24, "max_iterations": 20000}
+}

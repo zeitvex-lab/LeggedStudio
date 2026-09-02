@@ -177,6 +177,15 @@ async def get_robot_preset(robot_id: str) -> dict[str, Any]:
     return preset
 
 
+@app.get("/api/robots/presets/{robot_id}/profiles")
+async def get_robot_profiles(robot_id: str) -> dict[str, Any]:
+    """Return package-owned training profiles without executing package code."""
+    preset = load_robot_preset(robot_id)
+    if preset is None:
+        raise HTTPException(status_code=404, detail=f"Unknown robot package: {robot_id}")
+    return {"robot_id": robot_id, "profiles": preset.get("training_profiles", []), "source": preset.get("robot_package", {}).get("package_root")}
+
+
 @app.post("/api/contracts/validate")
 async def validate_robot_contract_endpoint(contract_data: dict[str, Any]) -> dict[str, Any]:
     """Validate the canonical Robot Contract v2 used by every workflow step."""

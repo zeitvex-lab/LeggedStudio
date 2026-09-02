@@ -57,6 +57,7 @@ class CreateTrainingRequest(BaseModel):
     save_interval: int = 100
     episode_length_s: float = 20.0
     task_name: str = "forward_walk"
+    profile_id: str | None = None
     terrain_type: str = "plane"
     device: str = Field(default="auto", pattern=r"^(auto|cpu|cuda(?::\d+)?)$")
     reward_scales: dict[str, float] = Field(default_factory=dict)
@@ -139,6 +140,7 @@ async def create_training(request: CreateTrainingRequest):
             "save_interval": request.save_interval,
             "episode_length_s": request.episode_length_s,
             "task_name": request.task_name,
+            "profile_id": request.profile_id,
             "terrain_type": request.terrain_type,
             "device": request.device,
             "reward_scales": request.reward_scales,

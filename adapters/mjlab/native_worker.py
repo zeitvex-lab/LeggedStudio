@@ -113,6 +113,21 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
     sys.path.insert(0, str(source / "src"))
     package = config.get("robot_package") or {}
     generic_bundle = None
+    profile = None
+    profile_id = config.get("profile_id")
+    if profile_id:
+        profile_root = Path(str(package.get("package_root", ""))) / "training" / "profiles"
+        for profile_path in profile_root.glob("*.json") if profile_root.exists() else []:
+            try:
+                candidate = json.loads(profile_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if candidate.get("profile_id") == profile_id:
+                profile = candidate
+                break
+        if profile is None:
+            raise ValueError(f"training profile not found in robot package: {profile_id}")
+        config["package_profile"] = profile
     import torch
     import mjlab.tasks  # noqa: F401
     from mjlab.envs import ManagerBasedRlEnv
@@ -148,6 +163,7 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         "torch_version": torch.__version__,
         "cuda_available": bool(torch.cuda.is_available()),
         "package": {"package_id": package.get("package_id"), "task_kind": "generic", "capabilities": package.get("capabilities", [])},
+        "profile": {"profile_id": profile.get("profile_id"), "source": profile.get("source")} if profile else None,
     }
     if config.get("generic_task"):
         report["generic_task"] = True

@@ -21,6 +21,10 @@ class RobotPresetTests(unittest.TestCase):
             self.assertEqual(package["training_config_path"], "training/config.json")
             self.assertEqual(package["simulation_config_path"], "simulation/config.json")
 
+    def test_zex_w_exposes_mature_training_profiles(self):
+        zex = next(item for item in list_robot_presets() if item["robot_id"] == "zex-w")
+        self.assertEqual({item["profile_id"] for item in zex["training_profiles"]}, {"zex-w-flat", "zex-w-rough", "zex-w-crawl"})
+
 
 if __name__ == "__main__":
     unittest.main()
