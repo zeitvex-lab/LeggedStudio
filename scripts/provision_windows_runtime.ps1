@@ -56,6 +56,20 @@ function Publish-Stage([string]$stageName, [int]$percent, [string]$message) {
     Write-Output "::progress::$stageName|$percent|$message"
 }
 
+function Move-WithRetry([string]$sourcePath, [string]$destinationPath, [int]$maxAttempts = 10) {
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        try {
+            Move-Item -LiteralPath $sourcePath -Destination $destinationPath -ErrorAction Stop
+            return
+        } catch {
+            if ($attempt -eq $maxAttempts) {
+                throw "Move failed after $maxAttempts attempts: $($_.Exception.Message)"
+            }
+            Start-Sleep -Milliseconds ($attempt * 400)
+        }
+    }
+}
+
 $target = [System.IO.Path]::GetFullPath($TargetRoot)
 $parent = Split-Path $target -Parent
 $stage = "$target.installing"
@@ -151,7 +165,7 @@ function Install-GitHubSnapshot([string]$repository, [string]$commit, [string]$d
     Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
     $sourceDirectory = if (Test-Path (Join-Path $extract 'src')) { Get-Item $extract } else { Get-ChildItem $extract -Directory | Select-Object -First 1 }
     if (-not $sourceDirectory) { throw "Unable to extract $repository" }
-    Move-Item -LiteralPath $sourceDirectory.FullName -Destination $destination
+    Move-WithRetry $sourceDirectory.FullName $destination
     if (Test-Path $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
 }
 
@@ -181,6 +195,6 @@ $manifest = [ordered]@{
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'runtime-manifest.json') -Encoding UTF8
 
 if (Test-Path $target) { Remove-Item -LiteralPath $target -Recurse -Force }
-Move-Item -LiteralPath $stage -Destination $target
+Move-WithRetry $stage $target
 Publish-Stage 'complete' 100 'Runtime configuration complete'
 Write-Host "Legged Studio Windows runtime is ready: $target"
