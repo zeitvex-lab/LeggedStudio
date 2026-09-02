@@ -13,14 +13,20 @@ npm ci
 npm start
 ```
 
-The Electron launcher does not install or start services when it opens. Click
-Start in the launcher, configure the Python runtime and service port if needed,
-then open the Web workbench. Native MJLab training uses the isolated adapter
-environment and can be installed with:
+The Electron launcher does not install or start services when it opens. The
+Windows Online package contains no installed Torch/MJLab environment. It does
+carry the small bootstrap inputs that would otherwise require GitHub: uv,
+CPython base files, and fixed MJLab/Unitree source snapshots. Click **Configure
+Runtime** to install the GPU profile into the user data directory, then click
+Start and open the Web workbench.
 
-```powershell
-uv sync --project adapters/mjlab --extra cu128
-```
+The downloaded Windows profile is:
+
+- Python 3.12.13 and uv 0.11.8.
+- Torch 2.11.0+cu128.
+- MJLab 1.6.0 and MuJoCo/MuJoCo-Warp 3.11.0.
+- MJLab source `b517e0c` and Unitree extension `1425b15`.
+- Tsinghua PyPI and Shanghai Jiao Tong PyTorch cu128 mirrors by default.
 
 ## Build a release
 
@@ -29,6 +35,15 @@ npm ci
 npm run release:check
 npm run build:portable
 ```
+
+Build the non-embedded, on-demand Windows 7z distribution:
+
+```powershell
+npm run build:online:win
+```
+
+The archive and its top-level directory are named
+`Legged-Studio-0.3.0-Windows-Online`, not `win-unpacked` or Electron.
 
 To build the Windows package with an embedded CPython 3.12 runtime, CUDA
 Torch, MJLab, and the Unitree MJLab extension, run this target on Windows:
@@ -65,6 +80,8 @@ adapter boundaries.
 - CUDA Torch selection for the validated MJLab adapter environment.
 - Configurable local backend port and desktop-owned backend lifecycle.
 
-The default lightweight distribution does not bundle Python, CUDA, MJLab, or
-the external source trees. The Windows embedded target bundles Python, CUDA
-Torch, MJLab, and the Unitree MJLab extension; UniLab remains a future adapter.
+The default lightweight distribution does not bundle an installed Torch/MJLab
+runtime. It includes a small bootstrap Python/uv runtime and fixed source
+snapshots; GPU dependencies are installed after the user clicks Configure
+Runtime. The Windows embedded target bundles Python, CUDA Torch, MJLab, and the
+Unitree MJLab extension; UniLab remains a future adapter.

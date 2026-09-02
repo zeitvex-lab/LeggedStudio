@@ -7,6 +7,11 @@ from backend.robot_presets import list_robot_presets
 
 
 class CompleteApiContractTests(unittest.TestCase):
+    def test_health_identifies_compatible_backend(self):
+        payload = TestClient(app).get("/health").json()
+        self.assertEqual(payload["app_id"], "legged-studio")
+        self.assertEqual(payload["api_schema"], "legged-studio-api-1")
+
     def test_v2_contract_validation_endpoint(self):
         client = TestClient(app)
         contract = list_robot_presets()[0]["contract"]

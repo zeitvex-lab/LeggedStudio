@@ -51,7 +51,7 @@ python adapters\mjlab_new\train_worker.py `
   --task-id go2_smoke
 ```
 
-For an API-managed run, start `python backend/api_complete.py`, select a preset from `GET /api/robots/presets`, and submit the returned Contract to `/api/training/create`. After the worker reaches `completed`, call `/api/evaluation/run` with the task ID.
+For an API-managed run, start `python -m uvicorn backend.api_complete:app --host 127.0.0.1 --port 8765`, select a preset from `GET /api/robots/presets`, and submit the returned Contract to `/api/training/create`. After the worker reaches `completed`, call `/api/evaluation/run` with the task ID.
 
 ## Capability boundary
 

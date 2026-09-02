@@ -6,9 +6,12 @@ const http = require('http');
 const net = require('net');
 
 const DEFAULT_BACKEND_PORT = 8765;
+const DOWNLOAD_RUNTIME_VERSION = 'windows-cuda-2026.09';
+const EXPECTED_API_SCHEMA = 'legged-studio-api-1';
 const IS_DEV = process.env.NODE_ENV === 'development' || !app.isPackaged;
 let launcherWindow = null;
 let pythonProcess = null;
+let runtimeProvisionProcess = null;
 let activeBackendPort = null;
 
 function firstExisting(candidates) {
@@ -43,7 +46,6 @@ function resolvePaths() {
     const venvBin = process.platform === 'win32' ? 'Scripts' : 'bin';
     const backend = firstExisting([
         path.join(root, 'backend', 'api_complete.py'),
-        path.join(root, 'backend', 'api.py'),
         path.join(resourceRoot, 'app', 'backend', 'api_complete.py'),
         path.join(resourceRoot, 'backend', 'api_complete.py'),
     ]);
@@ -140,6 +142,84 @@ function configureWritablePaths() {
     PATHS.logs = path.join(userData, 'logs');
     PATHS.output = path.join(userData, 'output');
     PATHS.workspace = path.join(userData, 'workspace');
+    PATHS.runtime = path.join(userData, 'runtime');
+    refreshDownloadedRuntimePaths();
+}
+
+function refreshDownloadedRuntimePaths() {
+    if (!PATHS.runtime) return false;
+    const executable = process.platform === 'win32' ? 'python.exe' : 'python';
+    const downloadedPython = findRuntimePython(path.join(PATHS.runtime, 'python'), executable);
+    if (downloadedPython && fs.existsSync(downloadedPython)) PATHS.python = downloadedPython;
+    const downloadedSource = path.join(PATHS.runtime, 'mjlab_source');
+    const downloadedExtension = path.join(PATHS.runtime, 'mjlab_extension');
+    const runtimeManifest = path.join(PATHS.runtime, 'runtime-manifest.json');
+    if (fs.existsSync(downloadedSource)) PATHS.mjlabSource = downloadedSource;
+    if (fs.existsSync(downloadedExtension)) PATHS.mjlabExtension = downloadedExtension;
+    return Boolean(downloadedPython && fs.existsSync(downloadedSource) && fs.existsSync(downloadedExtension) && fs.existsSync(runtimeManifest));
+}
+
+function provisionWindowsRuntime() {
+    if (process.platform !== 'win32') {
+        return Promise.resolve({ ok: false, error: 'This runtime profile is available for Windows only.' });
+    }
+    if (runtimeProvisionProcess && runtimeProvisionProcess.exitCode === null) {
+        return Promise.resolve({ ok: false, error: 'Runtime provisioning is already running.' });
+    }
+    const script = path.join(PATHS.root, 'scripts', 'provision_windows_runtime.ps1');
+    if (!fs.existsSync(script)) {
+        return Promise.resolve({ ok: false, error: `Runtime provisioner not found: ${script}` });
+    }
+    const target = PATHS.runtime || path.join(app.getPath('userData'), 'runtime');
+    const bootstrap = path.join(PATHS.root, 'bootstrap');
+    ensureWorkspaceDirectories();
+    emit('backend-log', `[runtime] profile ${DOWNLOAD_RUNTIME_VERSION}\n`);
+    emit('backend-log', `[runtime] download target: ${target}\n`);
+    return new Promise((resolve) => {
+        runtimeProvisionProcess = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-TargetRoot', target, '-BootstrapRoot', bootstrap], {
+            cwd: PATHS.root,
+            windowsHide: true,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+        });
+        let stdoutBuffer = '';
+        runtimeProvisionProcess.stdout.on('data', (data) => {
+            stdoutBuffer += data.toString();
+            const lines = stdoutBuffer.split(/\r?\n/);
+            stdoutBuffer = lines.pop() || '';
+            for (const line of lines) {
+                const progress = line.match(/^::progress::(\w+)\|(\d+)\|(.*)$/);
+                if (progress) {
+                    emit('runtime-progress', { stage: progress[1], percent: Number(progress[2]), message: progress[3] });
+                } else if (line) {
+                    emit('backend-log', `${line}\n`);
+                }
+            }
+        });
+        runtimeProvisionProcess.stderr.on('data', (data) => emit('backend-log', data.toString()));
+        runtimeProvisionProcess.on('error', (error) => {
+            runtimeProvisionProcess = null;
+            resolve({ ok: false, error: error.message });
+        });
+        runtimeProvisionProcess.on('close', (code) => {
+            if (stdoutBuffer) emit('backend-log', `${stdoutBuffer}\n`);
+            runtimeProvisionProcess = null;
+            if (code !== 0) {
+                emit('runtime-progress', { stage: 'failed', percent: 0, message: `配置失败，退出码 ${code}` });
+                resolve({ ok: false, error: `Runtime provisioning exited with code ${code}. See Console for details.` });
+                return;
+            }
+            const ready = refreshDownloadedRuntimePaths();
+            if (!ready) {
+                resolve({ ok: false, error: 'Runtime download completed but required files are missing.' });
+                return;
+            }
+            const current = readSettings();
+            writeSettings({ ...current, pythonPath: PATHS.python });
+            emit('runtime-progress', { stage: 'complete', percent: 100, message: '运行环境配置完成' });
+            resolve({ ok: true, python: PATHS.python, runtime: PATHS.runtime, profile: DOWNLOAD_RUNTIME_VERSION });
+        });
+    });
 }
 
 function probePython(executable) {
@@ -167,6 +247,7 @@ function installPythonDependencies(executable) {
             windowsHide: true,
             timeout: 300000,
             maxBuffer: 1024 * 1024 * 8,
+            env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
         }, (error, stdout, stderr) => {
             if (stdout) emit('backend-log', stdout);
             if (stderr) emit('backend-log', stderr);
@@ -181,6 +262,12 @@ async function setupEnvironment({ installDependencies = true } = {}) {
     const executable = configuredPython || PATHS.python;
     let probe = await probePython(executable);
     let installed = false;
+    if (!probe.ok) {
+        return { ok: false, directories, python: probe, installed, error: `Python 3.12 runtime is not configured: ${probe.error || executable}` };
+    }
+    if (!probe.targetMatch) {
+        return { ok: false, directories, python: probe, installed, error: `Python ${probe.version} is unsupported. Configure the pinned Python 3.12 runtime first.` };
+    }
     if (probe.ok && !probe.dependenciesReady && installDependencies) {
         const install = await installPythonDependencies(executable);
         installed = install.ok;
@@ -228,7 +315,11 @@ function requestJson(route, port = activeBackendPort || configuredBackendPort())
 }
 
 async function backendHealth(port = activeBackendPort || configuredBackendPort()) {
-    return requestJson('/health', port);
+    const health = await requestJson('/health', port);
+    if (health?.app_id !== 'legged-studio' || health?.api_schema !== EXPECTED_API_SCHEMA) {
+        throw new Error(`Port ${port} is occupied by another or incompatible service`);
+    }
+    return health;
 }
 
 async function waitForBackend(port, timeoutMs = 10000) {
@@ -396,6 +487,21 @@ ipcMain.handle('environment:setup', async () => {
         return { ok: false, directories: [], error: error.message };
     }
 });
+ipcMain.handle('environment:provision-windows', () => provisionWindowsRuntime());
+ipcMain.handle('environment:runtime-profile', () => ({
+    id: DOWNLOAD_RUNTIME_VERSION,
+    platform: 'win32-x64',
+    python: '3.12.13',
+    uv: '0.11.8',
+    torch: '2.11.0+cu128',
+    mjlab: '1.6.0',
+    mujoco: '3.11.0',
+    unitree: '1425b15',
+    packageIndex: '清华 PyPI',
+    torchIndex: '上海交大 PyTorch cu128',
+    installed: refreshDownloadedRuntimePaths(),
+    root: PATHS.runtime,
+}));
 ipcMain.handle('path:open', (_event, key) => safeOpenPath(key));
 ipcMain.handle('external:open', (_event, url) => {
     if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) throw new Error('only http(s) URLs are allowed');
@@ -415,7 +521,10 @@ app.whenReady().then(() => {
     createLauncherWindow();
 });
 app.on('activate', () => { if (!launcherWindow) createLauncherWindow(); });
-app.on('before-quit', () => { if (pythonProcess) stopBackend(); });
+app.on('before-quit', () => {
+    if (pythonProcess) stopBackend();
+    if (runtimeProvisionProcess && runtimeProvisionProcess.exitCode === null) runtimeProvisionProcess.kill();
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
 process.on('uncaughtException', (error) => emit('backend-log', `[launcher] uncaught exception: ${error.message}`));

@@ -1,5 +1,5 @@
 const api = window.leggedStudio;
-const state = { backendRunning: false, health: null, assets: null, training: null, settings: null, paths: null };
+const state = { backendRunning: false, provisioning: false, health: null, assets: null, training: null, settings: null, paths: null, runtimeProfile: null };
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -34,17 +34,30 @@ function setCard(name, value, status = 'pending') {
     card.querySelector('.status-dot').className = `status-dot ${status}`;
 }
 
+function setBackendAvailability(running) {
+    state.backendRunning = Boolean(running);
+    $$('[data-requires-backend]').forEach((button) => { button.disabled = !state.backendRunning; });
+    $('#open-web').disabled = !state.backendRunning;
+    $('#open-web-training').disabled = !state.backendRunning;
+}
+
+function requireBackend() {
+    if (state.backendRunning) return true;
+    toast('请先启动控制平面', 'warning');
+    return false;
+}
+
 function renderHealth(health) {
     state.health = health;
     const features = health?.features || [];
     setCard('backend', health?.status === 'ok' ? '运行中' : '异常', health?.status === 'ok' ? 'ready' : 'error');
-    $('#open-web').disabled = health?.status !== 'ok';
-    $('#open-web-training').disabled = health?.status !== 'ok';
+    setBackendAvailability(health?.status === 'ok');
     $('#backend-value').textContent = health?.status === 'ok' ? '运行中' : '未启动';
     log(`[health] backend v${health?.version || 'unknown'} · ${features.length} features\n`);
 }
 
 async function fetchJson(route) {
+    if (!state.backendRunning) throw new Error('Control plane is not running');
     const base = await api.backendUrl();
     const response = await fetch(`${base}${route}`);
     if (!response.ok) throw new Error(`${route}: HTTP ${response.status}`);
@@ -85,13 +98,12 @@ function renderTraining(tasks) {
 
 async function refreshState(showToast = false) {
     const checked = await api.checkBackend();
-    state.backendRunning = checked.ok;
+    setBackendAvailability(checked.ok);
     if (!checked.ok) {
         setCard('backend', '未启动', 'pending');
-        setCard('python', '等待检查', 'pending');
-        setCard('adapter', '等待检查', 'pending');
-        setCard('assets', '等待检查', 'pending');
-        $('#open-web').disabled = true;
+        setCard('python', state.runtimeProfile?.installed ? `已配置 ${state.runtimeProfile.python}` : '未配置', state.runtimeProfile?.installed ? 'ready' : 'pending');
+        setCard('adapter', state.runtimeProfile?.installed ? '待服务验证' : '未配置', 'pending');
+        setCard('assets', '待服务启动', 'pending');
         if (showToast) toast('控制平面尚未启动', 'warning');
         return;
     }
@@ -102,18 +114,26 @@ async function refreshState(showToast = false) {
         fetchJson('/api/training/list'),
     ]);
     if (results[0].status === 'fulfilled') renderEnvironment(results[0].value);
+    else { setCard('python', '状态读取失败', 'error'); setCard('adapter', '状态读取失败', 'error'); }
     if (results[1].status === 'fulfilled') renderAssets(results[1].value);
+    else setCard('assets', '状态读取失败', 'error');
     if (results[2].status === 'fulfilled') renderTraining(results[2].value);
     if (showToast) toast('状态已刷新', 'success');
 }
 
 async function startBackend() {
+    if (state.provisioning) {
+        toast('运行环境仍在配置中', 'warning');
+        return;
+    }
     const button = $('#start-backend');
     button.disabled = true;
     button.textContent = '准备工作区…';
     log('[launcher] preparing workspace and runtime\n');
     const prepared = await api.setupEnvironment();
     if (!prepared.ok) {
+        setBackendAvailability(false);
+        setCard('python', '未就绪', 'error');
         button.disabled = false;
         button.textContent = '▶ 启动控制平面';
         log(`[error] environment preparation failed: ${prepared.error}\n`);
@@ -132,6 +152,7 @@ async function startBackend() {
         await api.openExternal(`${await api.backendUrl()}/web/workbench.html`);
         toast('控制平面已启动', 'success');
     } else {
+        setBackendAvailability(false);
         button.disabled = false;
         button.textContent = '▶ 启动控制平面';
         log(`[error] ${result.error}\n`);
@@ -153,7 +174,6 @@ async function probePython(showToast = false) {
 
 async function loadSettings(runProbe = true) {
     state.settings = await api.getSettings();
-    $('#auto-start-backend').checked = Boolean(state.settings.autoStartBackend);
     $('#python-path-input').value = state.settings.pythonPath || '';
     $('#backend-port-input').value = state.settings.backendPort || 8765;
     if (runProbe) await probePython();
@@ -166,7 +186,7 @@ async function saveSettings() {
         return;
     }
     state.settings = await api.updateSettings({
-        autoStartBackend: $('#auto-start-backend').checked,
+        autoStartBackend: false,
         pythonPath: $('#python-path-input').value,
         backendPort,
     });
@@ -181,14 +201,41 @@ async function prepareEnvironment() {
     toast(result.ok ? '工作区目录已准备' : '工作区初始化失败', result.ok ? 'success' : 'error');
 }
 
+async function configureRuntime() {
+    const buttons = [$('#configure-runtime'), $('#configure-runtime-settings')];
+    state.provisioning = true;
+    $('#runtime-progress').hidden = false;
+    $('#runtime-progress-bar').value = 0;
+    $('#runtime-progress-value').textContent = '0%';
+    buttons.forEach((button) => { button.disabled = true; button.textContent = '正在下载配置...'; });
+    $('#start-backend').disabled = true;
+    $('#runtime-profile-detail').textContent = '正在使用国内镜像安装 CUDA Torch 与 MJLab';
+    log('[runtime] starting on-demand Windows GPU runtime setup\n');
+    const result = await api.provisionWindowsRuntime();
+    buttons[0].textContent = '配置运行环境';
+    buttons[1].textContent = '一键下载配置';
+    buttons.forEach((button) => { button.disabled = false; });
+    state.provisioning = false;
+    $('#start-backend').disabled = false;
+    if (!result.ok) {
+        $('#runtime-profile-detail').textContent = `配置失败：${result.error}`;
+        toast(result.error, 'error');
+        return;
+    }
+    $('#runtime-profile-detail').textContent = '已安装 · Python 3.12.13 · Torch 2.11.0+cu128 · MJLab 1.6.0';
+    state.runtimeProfile = await api.runtimeProfile();
+    state.settings = await api.getSettings();
+    $('#python-path-input').value = state.settings.pythonPath || result.python;
+    await probePython();
+    toast('Windows GPU 运行环境配置完成', 'success');
+}
+
 async function stopBackend() {
     await api.stopBackend();
-    state.backendRunning = false;
+    setBackendAvailability(false);
     $('#start-backend').disabled = false;
     $('#start-backend').textContent = '▶ 启动控制平面';
     setCard('backend', '未启动', 'pending');
-    $('#open-web').disabled = true;
-    $('#open-web-training').disabled = true;
     log('[launcher] backend stopped\n');
     toast('控制平面已停止', 'info');
 }
@@ -205,8 +252,8 @@ $('#navigation').addEventListener('click', (event) => {
     if (button) activatePage(button.dataset.page);
 });
 $('#start-backend').addEventListener('click', startBackend);
-$('#open-web').addEventListener('click', async () => api.openExternal(`${await api.backendUrl()}/web/workbench.html`));
-$('#open-web-training').addEventListener('click', async () => api.openExternal(`${await api.backendUrl()}/web/workbench.html`));
+$('#open-web').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/workbench.html`); });
+$('#open-web-training').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/workbench.html`); });
 $('#refresh-state').addEventListener('click', () => refreshState(true));
 $('#load-assets').addEventListener('click', () => refreshState(true));
 $('#load-training').addEventListener('click', () => refreshState(true));
@@ -215,10 +262,12 @@ $('#console-open-logs').addEventListener('click', () => api.openPath('logs'));
 $('#open-docs').addEventListener('click', () => api.openPath('docs'));
 $('#open-root').addEventListener('click', () => api.openPath('root'));
 $('#settings-open-root').addEventListener('click', () => api.openPath('root'));
-$('#open-assets-workbench').addEventListener('click', async () => api.openExternal(`${await api.backendUrl()}/web/assets.html`));
-$('#open-artifacts-workbench').addEventListener('click', async () => api.openExternal(`${await api.backendUrl()}/web/artifacts.html`));
-$('#open-evaluation').addEventListener('click', async () => api.openExternal(`${await api.backendUrl()}/web/evaluation.html`));
+$('#open-assets-workbench').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/assets.html`); });
+$('#open-artifacts-workbench').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/artifacts.html`); });
+$('#open-evaluation').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/evaluation.html`); });
 $('#probe-python').addEventListener('click', () => probePython(true));
+$('#configure-runtime').addEventListener('click', configureRuntime);
+$('#configure-runtime-settings').addEventListener('click', configureRuntime);
 $('#save-settings').addEventListener('click', saveSettings);
 $('#prepare-environment').addEventListener('click', prepareEnvironment);
 $$('[data-open-path]').forEach((button) => button.addEventListener('click', () => api.openPath(button.dataset.openPath)));
@@ -228,11 +277,26 @@ $('#close').addEventListener('click', () => api.close());
 
 api.onBackendLog(log);
 api.onBackendStatus((running) => {
-    state.backendRunning = running;
+    setBackendAvailability(running);
     if (!running) {
         setCard('backend', '未启动', 'pending');
-        $('#open-web').disabled = true;
     }
+});
+api.onRuntimeProgress((progress) => {
+    const labels = {
+        bootstrap: '检查内置安装组件',
+        python: '准备 Python 3.12.13',
+        dependencies: progress.percent < 80 ? '从国内镜像安装 CUDA Torch 与 MJLab' : 'GPU 依赖安装完成',
+        sources: '准备 MJLab 与 Unitree 源码快照',
+        verify: '验证 Python、Torch、CUDA 与 MJLab',
+        complete: '运行环境配置完成',
+        failed: '配置失败，请查看控制台日志',
+    };
+    $('#runtime-progress').hidden = false;
+    $('#runtime-progress-bar').value = progress.percent || 0;
+    $('#runtime-progress-value').textContent = `${progress.percent || 0}%`;
+    $('#runtime-progress-title').textContent = progress.stage === 'failed' ? '配置失败' : '配置运行环境';
+    $('#runtime-progress-message').textContent = labels[progress.stage] || progress.message || progress.stage;
 });
 
 (async () => {
@@ -243,6 +307,11 @@ api.onBackendStatus((running) => {
     // Opening the desktop app is read-only. Preparation and probing happen
     // only after the user explicitly clicks Start.
     await loadSettings(false);
+    const runtimeProfile = await api.runtimeProfile();
+    state.runtimeProfile = runtimeProfile;
+    $('#runtime-profile-detail').textContent = runtimeProfile.installed
+        ? `已安装 · Python ${runtimeProfile.python} · Torch ${runtimeProfile.torch} · MJLab ${runtimeProfile.mjlab}`
+        : `按需配置 · ${runtimeProfile.packageIndex} · ${runtimeProfile.torchIndex}`;
     log(`[launcher] root: ${paths.root}\n`);
     log(`[launcher] python: ${paths.python}\n`);
     await refreshState();

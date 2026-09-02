@@ -1,82 +1,68 @@
 # Desktop setup
 
-This document describes the Windows desktop launcher path for Legged Studio. The launcher owns the local control-plane process; training adapters remain isolated under `adapters/`.
+Legged Studio uses a thin Electron launcher and a local FastAPI control plane.
+Opening the launcher is read-only: it does not create directories, install
+packages, or start a service.
 
-## Start the workspace
+## Start on Windows
 
-From the project directory:
+Extract the project-branded Online archive and run `Legged Studio.exe`:
 
 ```powershell
-npm install
+Legged-Studio-0.3.0-Windows-Online\Legged Studio.exe
+```
+
+Click **Configure Runtime** to install the pinned Windows GPU profile into the
+Electron user-data directory. The Online archive already contains uv, the
+CPython 3.12.13 bootstrap, and fixed MJLab/Unitree source snapshots, so the
+configuration step does not need GitHub.
+
+The runtime profile uses:
+
+- Python 3.12.13 and uv 0.11.8
+- Torch 2.11.0+cu128
+- MJLab 1.6.0
+- MuJoCo and MuJoCo-Warp 3.11.0
+- Tsinghua PyPI and Shanghai Jiao Tong cu128 PyTorch mirrors
+
+After provisioning completes, click **Start control plane**. The launcher
+creates writable user-data directories, verifies Python and dependencies, starts
+Uvicorn, validates `/health` identity (`app_id=legged-studio` and
+`api_schema=legged-studio-api-1`), and only then enables Web actions.
+
+## Port and Python settings
+
+The service port defaults to `8765` and accepts integers from `1024` through
+`65535`. Change it in Settings before starting the backend. A port occupied by
+another service is rejected; an unrelated service can never be mistaken for
+Legged Studio.
+
+The Python path override is optional. Unsupported Python versions are rejected
+before pip runs. The launcher never installs control-plane packages into an
+unintended Python 3.9/3.10/3.11 interpreter.
+
+## Development commands
+
+```powershell
+npm ci
 npm start
 ```
 
-The launcher automatically checks the control-plane Python executable, prepares writable `logs/`, `workspace/`, and `output/` directories in the Electron user-data directory, and waits for `/health` before enabling the Web console buttons.
-
-After the control plane is running, the desktop pages link to the Web workbenches for asset inspection (`/web/assets.html`), policy artifacts/ONNX (`/web/artifacts.html`), and local evaluation (`/web/evaluation.html`).
-
-## Configure the runtime
-
-Open **系统设置** in the desktop launcher.
-
-| Setting | Behavior |
-|---|---|
-| Python runtime | Detects executable, version, implementation, Python 3.12 policy match, and control-plane dependencies |
-| Python path override | Uses the supplied `python.exe` for subsequent backend starts |
-| Service port | Uses a configurable local port (`8765` by default, valid range `1024-65535`) and rejects conflicts before launch |
-| Auto-start control plane | Starts the local API after the launcher is ready |
-| Initialize workspace | Creates missing `logs/`, `workspace/`, and `output/` directories |
-
-Settings are stored in the Electron user-data directory as `settings.json`; project source files are not modified by the settings form.
-Changing the service port while the backend is running takes effect after the
-backend is stopped and started again. The current session URL remains stable
-until that restart.
-
-## Runtime policy
-
-The control plane targets Python 3.12 (`>=3.12,<3.13`). Training environments are adapter-specific and are reported independently. A missing adapter virtual environment is a warning for training, not a reason to prevent the desktop launcher from opening.
-
-The launcher selects a runtime in this order:
-
-1. Python path override saved in settings.
-2. Packaged `runtime/python/python.exe`.
-3. Existing `adapters/mjlab/.venv` or `adapters/mjlab_new/.venv` runtime.
-4. Development `runtime/python/python.exe`.
-5. System `python` on `PATH`.
-
-Opening the launcher remains read-only. After **Start control plane** is
-clicked, missing FastAPI/Uvicorn dependencies are installed into the selected
-runtime; existing MuJoCo, Torch, ONNX, and MJLab packages are reused.
-
-## Build desktop packages
-
-Use a directory build for local verification:
+For a non-embedded Windows archive:
 
 ```powershell
-npx electron-builder --dir
+npm run build:online:win
+npm run verify:online:win
 ```
 
-The package includes the launcher, backend, contracts, pipeline, Web assets, adapter source, and the quadruped inventory. Adapter virtual environments and Python bytecode are excluded from the package; install or select them separately after opening the launcher.
-
-Windows portable package:
-
-```powershell
-npm run build:win
-```
-
-Linux AppImage (build on a Linux host or CI runner):
-
-```bash
-npm ci
-npm run build:linux
-```
-
-The Linux launcher uses `bin/python`, sends SIGTERM when stopping the backend,
-and stores writable data under the platform Electron user-data directory. Native
-MJLab still requires a separately installed source tree and CUDA-capable Python
-environment; set the MJLab source/extension paths in the environment or runtime
-settings before creating native runs.
+For a large embedded CUDA/MJLab directory package, use
+`npm run build:portable:embedded`. It is separate from the Online build and is
+not required for normal development.
 
 ## Troubleshooting
 
-If the launcher reports an unhealthy backend, open **控制台** and inspect the Python output. The most common causes are an unavailable Python executable, missing control-plane dependencies (`fastapi`, `uvicorn`, or `pydantic`), or port `8765` already being used. Stop a conflicting process or select a different configured runtime before restarting the backend.
+Use the Console page for the exact provisioning or backend error. Common
+causes are blocked mirror access, missing NVIDIA display drivers, an occupied
+service port, or a runtime that has not been configured yet. The launcher keeps
+backend-dependent buttons disabled until the corresponding API request has
+returned a verified result.

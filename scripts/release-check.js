@@ -15,9 +15,13 @@ const required = [
   'assets/robots/unitree_go2w/go2w.xml',
   'web/workbench.html',
   'packaging/electron-builder.embedded.js',
+  'packaging/electron-builder.online.js',
   'scripts/stage_windows_runtime.ps1',
   'scripts/package_windows_embedded.ps1',
   'scripts/verify_windows_embedded.ps1',
+  'scripts/provision_windows_runtime.ps1',
+  'scripts/package_windows_online.ps1',
+  'scripts/verify_windows_online.ps1',
 ];
 
 const missing = required.filter((file) => !fs.existsSync(path.join(root, file)));

@@ -45,6 +45,7 @@
               <p class="muted">统一管理四足机器人资产、Robot Contract、训练任务与策略产物。</p>
             </div>
             <div class="hero-actions">
+              <button class="button secondary" id="configure-runtime">配置运行环境</button>
               <button class="button primary" id="start-backend">▶ 启动控制平面</button>
               <button class="button secondary" id="open-web" disabled>打开 Web 控制台</button>
             </div>
@@ -56,6 +57,12 @@
             <article class="status-card" data-status-card="adapter"><div class="status-dot pending"></div><div><span>训练适配器</span><strong id="adapter-value">等待检查</strong></div></article>
             <article class="status-card" data-status-card="assets"><div class="status-dot pending"></div><div><span>机器人资产</span><strong id="assets-value">等待检查</strong></div></article>
           </div>
+
+          <section class="runtime-progress" id="runtime-progress" hidden aria-live="polite">
+            <div><strong id="runtime-progress-title">配置运行环境</strong><span id="runtime-progress-value">0%</span></div>
+            <progress id="runtime-progress-bar" max="100" value="0"></progress>
+            <small id="runtime-progress-message">等待开始</small>
+          </section>
 
           <div class="content-grid">
             <section class="panel wide-panel">
@@ -77,17 +84,17 @@
         <section class="page" data-view="assets">
           <div class="page-header"><div><p class="eyebrow">ASSET INVENTORY</p><h1>机器人资产</h1><p class="muted">按体型、运动构型和可用性筛选四足机器人模型。</p></div></div>
           <div class="metric-grid" id="asset-metrics"><div class="metric"><span>总资产</span><strong>—</strong></div><div class="metric"><span>小型 S</span><strong>—</strong></div><div class="metric"><span>中型 M</span><strong>—</strong></div><div class="metric"><span>大型 L</span><strong>—</strong></div></div>
-          <section class="panel"><div class="panel-heading"><h2>资产摘要</h2><div class="panel-actions"><button class="button secondary small" id="load-assets">刷新资产</button><button class="button secondary small" id="open-assets-workbench">打开资产工作台</button></div></div><div id="asset-summary" class="table-wrap"><div class="empty-state">启动控制平面后加载 QUADRUPED_ASSET_INVENTORY。</div></div></section>
+          <section class="panel"><div class="panel-heading"><h2>资产摘要</h2><div class="panel-actions"><button class="button secondary small" id="load-assets" data-requires-backend disabled>刷新资产</button><button class="button secondary small" id="open-assets-workbench" data-requires-backend disabled>打开资产工作台</button></div></div><div id="asset-summary" class="table-wrap"><div class="empty-state">启动控制平面后加载 QUADRUPED_ASSET_INVENTORY。</div></div></section>
         </section>
 
         <section class="page" data-view="training">
           <div class="page-header"><div><p class="eyebrow">TRAINING RUNS</p><h1>训练任务</h1><p class="muted">任务状态由后端训练管理器维护，桌面端只负责观察和控制。</p></div><button class="button primary" id="open-web-training" disabled>进入训练工作流</button></div>
-          <section class="panel"><div class="panel-heading"><h2>任务列表</h2><div class="panel-actions"><button class="button secondary small" id="load-training">刷新任务</button><button class="button secondary small" id="open-evaluation">打开验证</button></div></div><div id="training-summary" class="table-wrap"><div class="empty-state">暂无训练任务。</div></div></section>
+          <section class="panel"><div class="panel-heading"><h2>任务列表</h2><div class="panel-actions"><button class="button secondary small" id="load-training" data-requires-backend disabled>刷新任务</button><button class="button secondary small" id="open-evaluation" data-requires-backend disabled>打开验证</button></div></div><div id="training-summary" class="table-wrap"><div class="empty-state">暂无训练任务。</div></div></section>
         </section>
 
         <section class="page" data-view="artifacts">
           <div class="page-header"><div><p class="eyebrow">POLICY ARTIFACTS</p><h1>策略产物</h1><p class="muted">查看模型、Normalizer、Robot Contract 和 sim2sim 验证结果。</p></div></div>
-          <section class="panel artifact-panel"><div class="artifact-icon">◇</div><div><h2>产物浏览器</h2><p class="muted">训练完成后，策略文件和验证报告会出现在工作区输出目录。</p><div class="panel-actions"><button class="button secondary" id="open-artifacts-workbench">打开产物工作台</button><button class="button secondary" data-open-path="output">打开输出目录</button></div></div></section>
+          <section class="panel artifact-panel"><div class="artifact-icon">◇</div><div><h2>产物浏览器</h2><p class="muted">训练完成后，策略文件和验证报告会出现在工作区输出目录。</p><div class="panel-actions"><button class="button secondary" id="open-artifacts-workbench" data-requires-backend disabled>打开产物工作台</button><button class="button secondary" data-open-path="output">打开输出目录</button></div></div></section>
         </section>
 
         <section class="page" data-view="settings">
@@ -95,7 +102,7 @@
           <section class="panel settings-panel">
             <div class="setting-row"><div><strong>控制平面地址</strong><small>本机回环地址，不对外暴露</small></div><code id="backend-url">http://127.0.0.1:8765</code></div>
             <div class="setting-row"><div><strong>Python 运行时</strong><small id="python-runtime-detail">检测中</small></div><div class="setting-actions"><code id="python-runtime-path">等待检测</code><button class="button secondary small" id="probe-python">重新检测</button></div></div>
-            <div class="setting-row"><div><strong>自动启动控制平面</strong><small>打开桌面后自动启动本地 API 服务</small></div><label class="switch"><input type="checkbox" id="auto-start-backend"><span></span></label></div>
+            <div class="setting-row"><div><strong>Windows GPU 运行环境</strong><small id="runtime-profile-detail">Python 3.12.13 · Torch 2.11.0+cu128 · 清华/上海交大镜像</small></div><button class="button secondary small" id="configure-runtime-settings">一键下载配置</button></div>
             <div class="setting-row"><div><strong>服务端口</strong><small>保存后在下次启动控制平面时生效，范围 1024–65535</small></div><div class="setting-actions"><input class="setting-input port-input" id="backend-port-input" type="number" min="1024" max="65535" step="1" value="8765"></div></div>
             <div class="setting-row"><div><strong>Python 路径覆盖</strong><small>留空时自动选择便携运行时或系统 Python</small></div><div class="setting-actions"><input class="setting-input" id="python-path-input" placeholder="python.exe" spellcheck="false"><button class="button secondary small" id="save-settings">保存</button></div></div>
             <div class="setting-row"><div><strong>工作区目录</strong><small id="workspace-detail">日志、输出和文档目录</small></div><button class="button secondary small" id="prepare-environment">初始化目录</button></div>

@@ -9,6 +9,8 @@
     "build": "electron-builder",
     "release:check": "node scripts/release-check.js",
     "build:portable": "npm run release:check && electron-builder --win portable",
+    "build:online:win": "npm run release:check && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package_windows_online.ps1",
+    "verify:online:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_windows_online.ps1",
     "stage:runtime:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stage_windows_runtime.ps1",
     "build:portable:embedded": "npm run release:check && npm run stage:runtime:win && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package_windows_embedded.ps1",
     "verify:embedded:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_windows_embedded.ps1",
@@ -87,6 +89,14 @@
         "to": "app/tools"
       },
       {
+        "from": "scripts",
+        "to": "app/scripts",
+        "filter": [
+          "!**/__pycache__{,/**/*}",
+          "!**/*.pyc"
+        ]
+      },
+      {
         "from": "VERSION",
         "to": "app/VERSION"
       },
@@ -101,6 +111,7 @@
     ],
     "win": {
       "target": "portable",
+      "executableName": "Legged Studio",
       "signAndEditExecutable": false
     },
     "linux": {

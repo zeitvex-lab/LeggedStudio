@@ -4,11 +4,33 @@ This is the first distributable desktop preview. It packages the Electron
 launcher, FastAPI control plane source, Web workbenches, Contracts, canonical
 Go2/Go2W assets, adapters, and documentation.
 
-The default package does not embed a Python distribution, NVIDIA drivers, CUDA, MJLab
-source, or the external UniLab/Unitree extension trees. The launcher remains
-read-only until the user clicks Start. After that action, choose a Python
-runtime, configure the service port if needed, and prepare the control-plane
-environment. Training adapters are selected separately by the backend.
+The default package does not embed an installed Python/Torch/MJLab environment,
+NVIDIA drivers, or CUDA runtime. The launcher remains
+read-only until the user clicks Configure Runtime or Start. Configure Runtime
+downloads the pinned environment; Start prepares the workspace and launches
+the control plane. Training adapters are selected separately by the backend.
+
+The recommended non-embedded Windows artifact is the Online 7z package. The
+desktop application stays read-only on open; clicking Configure Runtime
+downloads the pinned runtime into Electron's user data directory. The program
+directory remains small and can be replaced without deleting the downloaded
+environment.
+
+To avoid unreliable GitHub access for users in China, the Online archive
+already carries uv, the unconfigured CPython base distribution, and the fixed
+MJLab/Unitree source snapshots. Runtime wheel installation defaults to
+Tsinghua PyPI and the Shanghai Jiao Tong cu128 PyTorch mirror. No GitHub request
+is made during the packaged one-click setup.
+
+| Component | Downloaded version |
+| --- | --- |
+| uv | 0.11.8 |
+| Python | 3.12.13 |
+| Torch | 2.11.0+cu128 |
+| MJLab | 1.6.0 |
+| MuJoCo / MuJoCo-Warp | 3.11.0 |
+| MJLab source | b517e0c489139e7fcee95702cfb2b01931264985 |
+| Unitree extension | 1425b15f73bd4095f0df53709d7c389c3eb9e790 |
 
 For a Windows package that does embed the Python/MJLab GPU runtime, use
 `npm run build:portable:embedded`. That target stages a standalone CPython
@@ -39,6 +61,14 @@ npm run verify:embedded:win
 ```
 
 The portable output is written to `dist/`.
+
+Non-embedded Online 7z package with project-branded directory names:
+
+```powershell
+npm run build:online:win
+```
+
+Output: `dist/Legged-Studio-0.3.0-Windows-Online.7z`.
 
 For a directory package used during QA:
 

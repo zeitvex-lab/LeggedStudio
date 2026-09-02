@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('leggedStudio', {
     probePython: (executable) => ipcRenderer.invoke('environment:probe', executable),
     prepareEnvironment: () => ipcRenderer.invoke('environment:prepare'),
     setupEnvironment: () => ipcRenderer.invoke('environment:setup'),
+    provisionWindowsRuntime: () => ipcRenderer.invoke('environment:provision-windows'),
+    runtimeProfile: () => ipcRenderer.invoke('environment:runtime-profile'),
     openPath: (key) => ipcRenderer.invoke('path:open', key),
     openExternal: (url) => ipcRenderer.invoke('external:open', url),
     minimize: () => ipcRenderer.invoke('window:minimize'),
@@ -25,5 +27,10 @@ contextBridge.exposeInMainWorld('leggedStudio', {
         const handler = (_event, running) => listener(running);
         ipcRenderer.on('backend-status', handler);
         return () => ipcRenderer.removeListener('backend-status', handler);
+    },
+    onRuntimeProgress: (listener) => {
+        const handler = (_event, progress) => listener(progress);
+        ipcRenderer.on('runtime-progress', handler);
+        return () => ipcRenderer.removeListener('runtime-progress', handler);
     },
 });

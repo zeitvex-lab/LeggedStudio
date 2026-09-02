@@ -255,6 +255,8 @@ async def health():
         "simulation": simulation_router is not None,
     }
     return {
+        "app_id": "legged-studio",
+        "api_schema": "legged-studio-api-1",
         "status": "ok",
         "version": APP_VERSION,
         "optional": optional,
