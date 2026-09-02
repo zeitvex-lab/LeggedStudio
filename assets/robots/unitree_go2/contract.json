@@ -1,0 +1,89 @@
+{
+  "schema_version": "robot-contract-2.0",
+  "contract_id": "unitree_go2_mvp_v1",
+  "robot_id": "unitree_go2",
+  "family": "Unitree Go2",
+  "size_class": "M",
+  "locomotion_type": "P",
+  "urdf": {
+    "path": "assets/robots/unitree_go2/go2.xml",
+    "hash": "",
+    "total_mass_kg": 15.206408,
+    "mass_source": "manual"
+  },
+  "joints": {
+    "actuated_joints": [
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint"
+    ],
+    "passive_joints": [],
+    "default_pose": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "observation": {
+    "dimension": 48,
+    "components": [
+      "base_lin_vel",
+      "base_ang_vel",
+      "projected_gravity",
+      "joint_pos",
+      "joint_vel",
+      "last_action"
+    ]
+  },
+  "action": {
+    "dimension": 12,
+    "joint_order": [
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint"
+    ],
+    "action_scale": 0.25
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 1000,
+    "decimation": 20
+  },
+  "description": "Canonical Unitree Go2 MJCF preset sourced from the local UniLab asset snapshot.",
+  "tags": [
+    "mvp",
+    "mjcf",
+    "P",
+    "python-3.12"
+  ],
+  "source": "unilab_new/UniLab",
+  "python_version": "3.12"
+}
+

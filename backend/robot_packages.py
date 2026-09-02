@@ -77,3 +77,41 @@ def write_package_manifest(package_root: Path, *, package_id: str, task_kind: st
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def list_robot_packages() -> list[dict[str, Any]]:
+    """Discover every persisted robot package using one filesystem contract."""
+    roots = [ROOT / "assets" / "robots", WORKSPACE / "packages"]
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for root in roots:
+        if not root.exists():
+            continue
+        for package_root in sorted(root.iterdir()):
+            if not package_root.is_dir() or package_root.name in seen:
+                continue
+            contract_path = package_root / "contract.json"
+            descriptor_path = package_root / "robot_package.json"
+            if not contract_path.exists() or not descriptor_path.exists():
+                continue
+            contract = _read_json(contract_path)
+            descriptor = _read_json(descriptor_path)
+            if not contract:
+                continue
+            seen.add(package_root.name)
+            training_path = package_root / "training_config.json"
+            result.append({
+                "robot_id": contract.get("robot_id", package_root.name),
+                "family": contract.get("family", package_root.name),
+                "size_class": contract.get("size_class", "M"),
+                "locomotion_type": contract.get("locomotion_type", "P"),
+                "dof": len(contract.get("joints", {}).get("actuated_joints", [])),
+                "mass_kg": contract.get("urdf", {}).get("total_mass_kg", 0.0),
+                "contract_id": contract.get("contract_id"),
+                "contract_path": str(contract_path.relative_to(ROOT)).replace("\\", "/"),
+                "asset_path": contract.get("urdf", {}).get("path"),
+                "training_config": _read_json(training_path) if training_path.exists() else {},
+                "contract": contract,
+                "robot_package": {**descriptor, "package_root": str(package_root), "contract_path": str(contract_path)},
+            })
+    return result
