@@ -69,7 +69,12 @@ async def export_project(request: ProjectExportRequest) -> Response:
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         exported_roots: set[str] = set()
-        for import_dir in sorted((WORKSPACE / "imports").glob("*")) if (WORKSPACE / "imports").exists() else []:
+        import_dirs = sorted((WORKSPACE / "imports").glob("*"), key=lambda item: item.stat().st_mtime, reverse=True) if (WORKSPACE / "imports").exists() else []
+        # Only explicitly selected legacy imports are copied. Robot packages
+        # referenced by training_config are handled by the robots/ section.
+        if not request.import_ids:
+            import_dirs = []
+        for import_dir in import_dirs:
             if request.import_ids and import_dir.name not in request.import_ids:
                 continue
             if not import_dir.is_dir():
