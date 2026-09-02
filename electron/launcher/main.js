@@ -279,7 +279,10 @@ function probePython(executable) {
                 return;
             }
             const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
-            const dependencies = Object.fromEntries((lines[2] || '').split(';').filter(Boolean).map((item) => item.split('=')));
+            const dependencies = Object.fromEntries((lines[2] || '').split(';').filter(Boolean).map((item) => {
+                const [key, value] = item.split('=');
+                return [key, String(value).toLowerCase()];
+            }));
             resolve({ ok: true, executable: executable || PATHS.python, version: lines[0] || 'unknown', implementation: lines[1] || 'unknown', target: '3.12', targetMatch: /^3\.12\./.test(lines[0] || ''), dependencies, dependenciesReady: Object.values(dependencies).every((value) => value === 'true') });
         });
     });
