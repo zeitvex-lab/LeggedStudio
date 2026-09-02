@@ -34,6 +34,7 @@ async function loadPresets() {
   const payload = await jsonFetch('/api/robots/presets');
   presets = payload.presets || [];
   $('preset').innerHTML = presets.map((item) => `<option value="${item.robot_id}">${item.family} · ${item.robot_id}</option>`).join('') || '<option value="">暂无 preset</option>';
+  if ($('simRobot')) $('simRobot').innerHTML = presets.map((item) => `<option value="${item.robot_id}">${item.family}</option>`).join('') || '<option value="">暂无机器人包</option>';
   if (presets[0]) applyPreset(presets[0]);
 }
 function renderRewards() {
