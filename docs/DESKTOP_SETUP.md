@@ -9,7 +9,7 @@ packages, or start a service.
 Extract the project-branded Online archive and run `Legged Studio.exe`:
 
 ```powershell
-Legged-Studio-0.3.0-Windows-Online\Legged Studio.exe
+Legged-Studio-0.4.0-Windows-Online\Legged Studio.exe
 ```
 
 The default runtime never uses the system Python interpreter. The launcher

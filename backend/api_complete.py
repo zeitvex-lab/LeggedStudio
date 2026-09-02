@@ -1,5 +1,5 @@
 """
-Legged Studio Backend - Complete API v0.3.0
+Legged Studio Backend - Complete API v0.4.0
 修复：添加缺失的 system API
 """
 
