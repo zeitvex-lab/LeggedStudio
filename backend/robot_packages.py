@@ -81,7 +81,9 @@ def write_package_manifest(package_root: Path, *, package_id: str, task_kind: st
 
 def list_robot_packages() -> list[dict[str, Any]]:
     """Discover every persisted robot package using one filesystem contract."""
-    roots = [ROOT / "assets" / "robots", WORKSPACE / "packages"]
+    # Persisted packages are authoritative. The source asset tree is only a
+    # migration fallback for installations created before package discovery.
+    roots = [WORKSPACE / "packages", ROOT / "assets" / "robots"]
     result: list[dict[str, Any]] = []
     seen: set[str] = set()
     for root in roots:
