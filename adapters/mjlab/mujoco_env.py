@@ -166,6 +166,10 @@ class ContractMujocoEnv:
             "reward_components": components,
             "reward_scales": self.reward_scales,
             "commands": self.commands.copy(),
+            "joint_positions": np.asarray([item.qpos[self.qpos_adrs] for item in self.data], dtype=np.float32),
+            "joint_velocities": np.asarray([item.qvel[self.dof_adrs] for item in self.data], dtype=np.float32),
+            "base_quaternion": np.asarray([item.qpos[3:7] if item.qpos.shape[0] >= 7 else np.array([1.0, 0.0, 0.0, 0.0]) for item in self.data], dtype=np.float32),
+            "control": np.asarray([item.ctrl[self.actuator_ids] for item in self.data], dtype=np.float32),
         }
         return observations, rewards.astype(np.float32), dones.astype(np.bool_), info
 

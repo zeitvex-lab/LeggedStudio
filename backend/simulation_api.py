@@ -148,6 +148,10 @@ class SimulationSession:
             "observation": self.env._observations()[0].tolist(),
             "reward_components": {key: float(np.asarray(value).reshape(-1)[0]) for key, value in info.get("reward_components", {}).items()},
             "contacts": int(getattr(self.env.data[0], "ncon", 0)),
+            "joint_positions": np.asarray(info.get("joint_positions", []))[0].tolist() if np.asarray(info.get("joint_positions", [])).ndim > 1 else [],
+            "joint_velocities": np.asarray(info.get("joint_velocities", []))[0].tolist() if np.asarray(info.get("joint_velocities", [])).ndim > 1 else [],
+            "base_quaternion": np.asarray(info.get("base_quaternion", []))[0].tolist() if np.asarray(info.get("base_quaternion", [])).ndim > 1 else [],
+            "control": np.asarray(info.get("control", []))[0].tolist() if np.asarray(info.get("control", [])).ndim > 1 else [],
         }
 
     def render(self, width: int = 960, height: int = 640) -> str:

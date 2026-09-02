@@ -17,7 +17,7 @@ WORKSPACE = ROOT / "workspace"
 
 def _read_json(path: Path) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(path.read_text(encoding="utf-8-sig"))
         return value if isinstance(value, dict) else {}
     except (OSError, json.JSONDecodeError):
         return {}
@@ -101,7 +101,7 @@ def list_robot_packages() -> list[dict[str, Any]]:
             if not contract:
                 continue
             seen.add(package_root.name)
-            training_path = package_root / "training_config.json"
+            training_path = package_root / "training" / "config.json"
             descriptor_model = descriptor.get("model", {}) if isinstance(descriptor.get("model"), dict) else {}
             asset_value = contract.get("urdf", {}).get("path") or descriptor_model.get("path")
             if isinstance(asset_value, str) and asset_value.startswith("workspace/packages/") and not (ROOT / asset_value).exists():
@@ -120,6 +120,6 @@ def list_robot_packages() -> list[dict[str, Any]]:
                 "asset_path": asset_value,
                 "training_config": _read_json(training_path) if training_path.exists() else {},
                 "contract": contract,
-                "robot_package": {**descriptor, "package_root": str(package_root), "contract_path": str(contract_path)},
+                "robot_package": {**descriptor, "package_root": str(package_root), "contract_path": descriptor.get("contract_path", "contract.json"), "model": descriptor_model or {"format": "mjcf", "path": "model/robot.xml", "assets_path": "model/assets"}, "training_config_path": descriptor.get("training_config_path", "training/config.json"), "simulation_config_path": descriptor.get("simulation_config_path", "simulation/config.json")},
             })
     return result
