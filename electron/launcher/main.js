@@ -295,7 +295,7 @@ function installPythonDependencies(executable) {
     }
     emit('backend-log', `[launcher] installing control-plane dependencies from ${requirements}`);
     return new Promise((resolve) => {
-        execFile(executable, ['-m', 'pip', 'install', '-r', requirements], {
+        execFile(executable, ['-m', 'pip', 'install', '--break-system-packages', '-r', requirements], {
             windowsHide: true,
             timeout: 300000,
             maxBuffer: 1024 * 1024 * 8,
