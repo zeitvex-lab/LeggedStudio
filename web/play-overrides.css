@@ -1,0 +1,74 @@
+/* Final Play surface alignment. Loaded after workbench.css. */
+body { background: #101214; }
+.app-shell { background: #101214; }
+.topbar { height: 54px; padding: 0 20px; background: rgba(16, 18, 20, .82); }
+.brand { min-width: 205px; }
+.brand-mark { width: 28px; height: 28px; border-radius: 6px; background: #182124; border-color: #33565b; }
+.brand strong { font-size: 13px; }
+.brand small { font-size: 9px; }
+.main-nav { gap: 2px; }
+.nav-item { min-height: 54px; padding: 0 12px; border-bottom-width: 1px; font-size: 12px; }
+.content { width: min(100% - 40px, 1380px); padding-top: 28px; }
+.view-heading { align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(190, 205, 210, .11); }
+.view-heading h1 { font-size: 22px; font-weight: 650; }
+.view-heading p { display: none; }
+.button { min-height: 32px; border-radius: 5px; background: #171b1e; font-size: 11px; }
+.button.primary { background: #2fc9bd; border-color: #2fc9bd; }
+.hero-grid { grid-template-columns: minmax(0, 1fr) 320px; gap: 10px; margin-bottom: 22px; }
+.hero-panel, .system-panel, .run-row, .viewer-panel, .form-panel, .config-sidebar, .config-main, .training-header, .chart-panel, .log-panel { border-radius: 5px; background: rgba(20, 25, 28, .86); box-shadow: none; }
+.hero-panel { min-height: 0; padding: 20px; background: rgba(20, 25, 28, .88); }
+.hero-panel h2 { margin: 22px 0 7px; font-size: 19px; }
+.hero-panel p { max-width: 580px; margin-bottom: 18px; font-size: 12px; }
+.system-list { padding: 4px 14px 10px; }
+.system-row { padding: 10px 0; font-size: 11px; }
+.run-row { grid-template-columns: minmax(160px, 1fr) 130px 90px 80px; padding: 11px 13px; }
+.validation-layout { gap: 10px; }
+.viewer-panel { min-height: 560px; }
+.viewer-toolbar, .viewer-footer { padding: 10px 12px; }
+.model-stage { min-height: 420px; background: #0c1114; }
+.form-panel { padding: 14px; }
+.form-panel .panel-title { padding: 0 0 12px; margin-bottom: 14px; }
+.field-label { font-size: 10px; margin-bottom: 11px; }
+.field-label input, .field-label select, .field-label textarea { min-height: 33px; border-radius: 4px; font-size: 12px; padding: 6px 8px; }
+.field-label textarea { min-height: 160px; font-size: 10px; }
+.config-layout { grid-template-columns: 190px minmax(0, 1fr); gap: 10px; }
+.config-sidebar { padding: 12px; }
+.config-main { padding: 15px; }
+.config-context strong { font-size: 19px; }
+.config-tab { padding: 9px 8px; font-size: 11px; }
+.config-main .field-grid { gap: 9px; margin-bottom: 12px; }
+.advanced summary { font-size: 11px; padding: 9px; }
+.reward { padding: 8px 10px; }
+.reward span { font-size: 11px; }
+.reward small { font-size: 9px; }
+.training-header { padding: 12px 14px; }
+.progress-strip { padding: 11px 13px; }
+.metric-grid { gap: 7px; margin: 10px 0; }
+.metric-grid > div { padding: 11px; }
+.metric-grid strong { font-size: 17px; }
+.chart-panel, .log-panel { min-height: 380px; }
+.chart-wrap { height: 310px; }
+.log-console { height: 310px; }
+.simulation-view { margin: -28px calc((100% - min(100% - 40px, 1380px)) / 2) -64px; }
+.sim-panel { border-radius: 5px; background: rgba(14, 19, 22, .93); }
+@media (max-width: 1000px) {
+  .hero-grid, .validation-layout, .config-layout, .training-grid { grid-template-columns: 1fr; }
+  .config-sidebar { display: flex; align-items: center; gap: 14px; }
+  .config-context { min-width: 130px; padding: 0; border: 0; }
+  .config-summary { display: none; }
+  .viewer-panel { min-height: 470px; }
+  .model-stage { min-height: 340px; }
+  .simulation-view { margin: -28px -14px -64px; min-height: calc(100vh - 82px); }
+  .sim-stage { min-height: calc(100vh - 82px); }
+}
+@media (max-width: 680px) {
+  .main-nav { top: 54px; height: 42px; }
+  .topbar { height: 96px; }
+  .content { width: min(100% - 24px, 760px); padding-top: 18px; }
+  .config-sidebar { display: block; }
+  .config-tabs { margin-top: 10px; overflow: auto; }
+  .config-tab { white-space: nowrap; }
+  .run-row { grid-template-columns: 1fr 1fr; }
+  .simulation-view { margin: -18px -12px -64px; }
+  .sim-panel { margin: 8px; }
+}
