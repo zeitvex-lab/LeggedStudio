@@ -49,10 +49,6 @@
         "to": "app/contracts"
       },
       {
-        "from": "pipeline",
-        "to": "app/pipeline"
-      },
-      {
         "from": "assets/robots",
         "to": "app/assets/robots",
         "filter": [

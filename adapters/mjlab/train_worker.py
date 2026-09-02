@@ -13,7 +13,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from contracts.robot_contract_v2 import RobotContractV2
-from adapters.mjlab_new.training_adapter import TrainingConfig, MJLabTrainingAdapter
+from adapters.mjlab.training_adapter import TrainingConfig, MJLabTrainingAdapter
 
 
 def save_progress(output_dir: Path, progress: dict):

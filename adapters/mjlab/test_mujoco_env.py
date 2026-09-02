@@ -3,8 +3,8 @@ import unittest
 import numpy as np
 
 from contracts.robot_contract_v2 import RobotContractV2
-from adapters.mjlab_new.mujoco_env import ContractMujocoEnv
-from adapters.mjlab_new.training_adapter import TrainingConfig
+from adapters.mjlab.mujoco_env import ContractMujocoEnv
+from adapters.mjlab.training_adapter import TrainingConfig
 
 
 class ContractMujocoEnvTests(unittest.TestCase):

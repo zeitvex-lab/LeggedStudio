@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from pathlib import Path
 import json
 
-from adapters.mjlab_new.onnx_exporter import export_policy_to_onnx
+from adapters.mjlab.onnx_exporter import export_policy_to_onnx
 
 
 router = APIRouter(prefix="/api/export", tags=["export"])

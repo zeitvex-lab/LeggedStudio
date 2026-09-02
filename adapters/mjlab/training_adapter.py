@@ -1,6 +1,6 @@
 """
 MJLab Training Adapter
-基于 mjlab_new 和 RC_WheelLeg 的训练适配器
+基于 MJLab 和 RC_WheelLeg 的训练适配器
 """
 
 import sys
@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from contracts.robot_contract_v2 import RobotContractV2
 from contracts.policy_artifact import PolicyArtifact, TrainingMetrics
-from adapters.mjlab_new.algorithms.registry import create_algorithm
-from adapters.mjlab_new.algorithms.off_policy import OffPolicyAlgorithm
+from adapters.mjlab.algorithms.registry import create_algorithm
+from adapters.mjlab.algorithms.off_policy import OffPolicyAlgorithm
 
 
 def resolve_torch_device(requested: str = "auto") -> str:
@@ -138,10 +138,10 @@ class MJLabTrainingAdapter:
         """设置训练环境"""
         print("[Adapter] Setting up environment...")
 
-        # 这里需要根据实际的 mjlab_new API 创建环境
+        # 这里需要根据实际的 MJLab API 创建环境
         # 参考 RC_WheelLeg 的 env.py
 
-        from adapters.mjlab_new.env_factory import EnvFactory, get_reward_preset
+        from adapters.mjlab.env_factory import EnvFactory, get_reward_preset
         reward_scales = get_reward_preset(self.config.task_name)
         reward_scales.update(self.config.reward_scales)
         env_config = EnvFactory.create_from_contract(self.contract, {
@@ -155,7 +155,7 @@ class MJLabTrainingAdapter:
         with open(self.output_dir / "env_config.json", 'w') as f:
             json.dump(env_config, f, indent=2)
 
-        from adapters.mjlab_new.mujoco_env import ContractMujocoEnv
+        from adapters.mjlab.mujoco_env import ContractMujocoEnv
         self.env = ContractMujocoEnv(
             self.contract,
             self.config.num_envs,

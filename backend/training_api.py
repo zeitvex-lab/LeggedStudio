@@ -10,9 +10,9 @@ import json
 
 from backend.training_manager import get_training_manager
 from contracts.robot_contract_v2 import RobotContractV2
-from adapters.mjlab_new.env_factory import get_reward_terms
-from adapters.mjlab_new.algorithms.registry import list_algorithms
-from adapters.mjlab_new.recipe_registry import list_tasks, resolve_recipe
+from adapters.mjlab.env_factory import get_reward_terms
+from adapters.mjlab.algorithms.registry import list_algorithms
+from adapters.mjlab.recipe_registry import list_tasks, resolve_recipe
 
 
 router = APIRouter(prefix="/api/training", tags=["training"])
@@ -46,7 +46,7 @@ async def training_hardware():
     except Exception as exc:
         result["torch"]["error"] = str(exc)
 
-    from adapters.mjlab_new.native_adapter import preflight
+    from adapters.mjlab.native_adapter import preflight
     native = preflight()
     result["native_mjlab"] = {
         **native,
@@ -174,7 +174,7 @@ async def create_training(request: CreateTrainingRequest):
                 config["native_task_id"] = "Unitree-Go2W-Flat"
             else:
                 config["native_task_id"] = "Unitree-Go2-Rough" if request.terrain_type in {"rough", "stairs"} else "Unitree-Go2-Flat"
-            from adapters.mjlab_new.native_adapter import DEFAULT_EXTENSION, preflight
+            from adapters.mjlab.native_adapter import DEFAULT_EXTENSION, preflight
             config["mjlab_extension_root"] = str(DEFAULT_EXTENSION)
             native = preflight()
             if not native["exists"] or not native["manager_env_available"] or not native.get("runtime", {}).get("available"):

@@ -12,6 +12,10 @@ class CompleteApiContractTests(unittest.TestCase):
         self.assertEqual(payload["app_id"], "legged-studio")
         self.assertEqual(payload["api_schema"], "legged-studio-api-1")
 
+    def test_environment_exposes_only_mjlab(self):
+        payload = TestClient(app).get("/api/system/environment").json()
+        self.assertEqual(set(payload["adapters"]), {"mjlab"})
+
     def test_v2_contract_validation_endpoint(self):
         client = TestClient(app)
         contract = list_robot_presets()[0]["contract"]

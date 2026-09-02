@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from contracts.robot_contract_v2 import create_go2_contract
-from adapters.mjlab_new.complete_trainer import CompleteTrainer
+from adapters.mjlab.complete_trainer import CompleteTrainer
 from datetime import datetime
 import json
 

@@ -1,7 +1,7 @@
 """
 Environment Factory
 基于 Contract 创建 MJLab 训练环境
-参考 mjlab_new 和 microduck_all
+参考 MJLab 和 microduck_all
 """
 
 from typing import Dict, Any, Optional
@@ -120,7 +120,7 @@ class EnvFactory:
         }
 
         # TODO: 实际创建环境
-        # 这里需要根据实际的 mjlab_new API 创建
+        # 这里需要根据实际的 MJLab API 创建
         # from mjlab import VecEnv
         # env = VecEnv(env_config)
 

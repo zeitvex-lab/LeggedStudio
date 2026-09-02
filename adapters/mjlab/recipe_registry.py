@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from contracts.scenario_contract import TrainingRecipe
-from adapters.mjlab_new.env_factory import get_reward_preset, get_reward_terms
+from adapters.mjlab.env_factory import get_reward_preset, get_reward_terms
 
 
 TASKS: dict[str, dict[str, Any]] = {

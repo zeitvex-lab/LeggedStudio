@@ -20,7 +20,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from adapters.mjlab_new.mujoco_env import ContractMujocoEnv
+from adapters.mjlab.mujoco_env import ContractMujocoEnv
 from backend.robot_presets import get_robot_preset
 from contracts.scenario_contract import ScenarioContract
 

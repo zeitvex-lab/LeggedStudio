@@ -1,7 +1,9 @@
 # MJLab adapter
 
-This directory contains the isolated MJLab adapter project. The FastAPI
-control plane does not import MJLab, Torch, Warp, or MuJoCo-Warp directly.
+This is the single MJLab adapter directory. It contains the locked runtime
+project, training and simulation implementation, native worker, algorithms,
+preflight checks, and tests. The FastAPI control plane does not import MJLab,
+Torch, Warp, or MuJoCo-Warp directly.
 
 ## Development environment
 

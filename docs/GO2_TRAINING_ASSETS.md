@@ -22,7 +22,7 @@ Training options are exposed by `/api/training/options`. PPO is currently the av
 
 ## Adapter environment
 
-The control plane remains on Python 3.12. The MJLab adapter is isolated in `adapters/mjlab/.venv` (or `adapters/mjlab_new/.venv` when present). The training launcher checks both locations and uses the first available environment. Install/update the adapter from its project file:
+The control plane remains on Python 3.12. The unified MJLab adapter and its isolated environment live in `adapters/mjlab`. Install or update the adapter from its project file:
 
 ```powershell
 uv sync --project adapters/mjlab --extra cu128
@@ -34,4 +34,4 @@ Run the dependency and GPU preflight before a long run:
 python adapters/mjlab/preflight.py
 ```
 
-The `mjlab_new` worker performs real Contract-MuJoCo rollouts and the isolated native worker performs manager-based MJLab rollouts against the canonical MJCF. Native Go2 and Go2W tasks write RSL-RL PyTorch checkpoints and a `PolicyArtifact`, and the same checkpoints can be replayed through native evaluation and waypoint navigation. Go2W uses 12 position actions plus 4 wheel-velocity actions and a 56D actor observation (planar base velocity, angular velocity, projected gravity, 16 joint positions, 16 joint velocities, and 16 previous actions).
+The unified MJLab worker performs Contract-MuJoCo rollouts and manager-based native MJLab rollouts against the canonical MJCF. Native Go2 and Go2W tasks write RSL-RL PyTorch checkpoints and a `PolicyArtifact`, and the same checkpoints can be replayed through native evaluation and waypoint navigation. Go2W uses 12 position actions plus 4 wheel-velocity actions and a 56D actor observation (planar base velocity, angular velocity, projected gravity, 16 joint positions, 16 joint velocities, and 16 previous actions).

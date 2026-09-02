@@ -11,8 +11,8 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from adapters.mjlab_new.algorithms.ppo import PPOAlgorithm, PPOConfig
-from adapters.mjlab_new.mujoco_env import ContractMujocoEnv
+from adapters.mjlab.algorithms.ppo import PPOAlgorithm, PPOConfig
+from adapters.mjlab.mujoco_env import ContractMujocoEnv
 from contracts.policy_artifact import PolicyArtifact
 from contracts.robot_contract_v2 import RobotContractV2
 
@@ -113,8 +113,8 @@ async def run_evaluation(request: EvaluationRequest):
 
 async def _run_native_evaluation(task, request: EvaluationRequest):
     """Evaluate an RSL-RL native checkpoint in the isolated MJLab worker."""
-    from adapters.mjlab_new.launcher import TrainingLauncher
-    from adapters.mjlab_new.native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE
+    from adapters.mjlab.launcher import TrainingLauncher
+    from adapters.mjlab.native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE
 
     artifact_path = task.task_dir / "artifact.json"
     checkpoints = sorted(task.task_dir.glob("model_*.pt"))
@@ -130,7 +130,7 @@ async def _run_native_evaluation(task, request: EvaluationRequest):
         python_exe = launcher._select_python(config)
     except RuntimeError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
-    worker = Path(__file__).resolve().parents[1] / "adapters" / "mjlab_new" / "native_worker.py"
+    worker = Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / "native_worker.py"
     cmd = [str(python_exe), str(worker), "--source", str(DEFAULT_SOURCE), "--extension-root", str(DEFAULT_EXTENSION), "--config", str(config_path), "--output", str(task.task_dir)]
     result = subprocess.run(cmd, cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=300)
     evaluation_file = task.task_dir / "evaluation.json"

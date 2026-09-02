@@ -36,8 +36,8 @@ def list_algorithms() -> list[dict[str, Any]]:
 def create_algorithm(name: str, num_obs: int, num_actions: int, config: dict[str, Any], device: str):
     # Keep registry discovery available in the lightweight control-plane
     # environment.  Training dependencies are loaded only when a run starts.
-    from adapters.mjlab_new.algorithms.off_policy import OffPolicyConfig, SACAlgorithm, TD3Algorithm
-    from adapters.mjlab_new.algorithms.ppo import PPOAlgorithm, PPOConfig
+    from adapters.mjlab.algorithms.off_policy import OffPolicyConfig, SACAlgorithm, TD3Algorithm
+    from adapters.mjlab.algorithms.ppo import PPOAlgorithm, PPOConfig
     normalized = name.upper()
     if normalized not in ALGORITHM_REGISTRY:
         raise ValueError(f"unknown algorithm {name}; available: {', '.join(ALGORITHM_REGISTRY)}")

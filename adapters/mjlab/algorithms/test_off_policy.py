@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from adapters.mjlab_new.algorithms.off_policy import OffPolicyConfig, SACAlgorithm
+from adapters.mjlab.algorithms.off_policy import OffPolicyConfig, SACAlgorithm
 
 
 class SacCheckpointTests(unittest.TestCase):

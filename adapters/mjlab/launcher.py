@@ -189,15 +189,8 @@ class TrainingLauncher:
 
     def _find_mjlab_venv(self) -> Optional[Path]:
         """查找 MJLab 虚拟环境"""
-        project_root = Path(__file__).parent.parent.parent
-        candidates = [
-            Path(__file__).parent / ".venv",
-            project_root / "adapters" / "mjlab" / ".venv",
-        ]
-        for mjlab_venv in candidates:
-            if mjlab_venv.exists():
-                return mjlab_venv
-        return None
+        mjlab_venv = Path(__file__).parent / ".venv"
+        return mjlab_venv if mjlab_venv.exists() else None
 
     @staticmethod
     def _venv_python(venv: Path) -> Path:

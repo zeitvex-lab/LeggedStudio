@@ -9,7 +9,7 @@ from pathlib import Path
 import json
 import os
 
-from adapters.mjlab_new.launcher import TrainingLauncher
+from adapters.mjlab.launcher import TrainingLauncher
 from contracts.robot_contract_v2 import RobotContractV2
 
 

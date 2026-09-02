@@ -54,7 +54,6 @@ function resolvePaths() {
         embeddedPython,
         path.join(root, 'runtime', 'python', pythonExecutable),
         path.join(root, 'adapters', 'mjlab', '.venv', venvBin, pythonExecutable),
-        path.join(root, 'adapters', 'mjlab_new', '.venv', venvBin, pythonExecutable),
         path.join(resourceRoot, 'runtime', 'python', pythonExecutable),
         path.join(projectRoot, 'runtime', 'python', pythonExecutable),
     ]);

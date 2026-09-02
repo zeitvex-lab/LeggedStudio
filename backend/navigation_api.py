@@ -10,8 +10,8 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from adapters.mjlab_new.algorithms.registry import create_algorithm
-from adapters.mjlab_new.mujoco_env import ContractMujocoEnv
+from adapters.mjlab.algorithms.registry import create_algorithm
+from adapters.mjlab.mujoco_env import ContractMujocoEnv
 from contracts.policy_artifact import PolicyArtifact
 from backend.simulation_api import MAPS, _scene_geoms
 
@@ -161,8 +161,8 @@ async def run_navigation(request: NavigationRequest):
 
 async def _run_native_navigation(task, request: NavigationRequest):
     """Run waypoint following with a native MJLab/RSL-RL checkpoint."""
-    from adapters.mjlab_new.launcher import TrainingLauncher
-    from adapters.mjlab_new.native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE
+    from adapters.mjlab.launcher import TrainingLauncher
+    from adapters.mjlab.native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE
 
     artifact_path = task.task_dir / "artifact.json"
     checkpoints = sorted(task.task_dir.glob("model_*.pt"))
@@ -178,7 +178,7 @@ async def _run_native_navigation(task, request: NavigationRequest):
         python_exe = launcher._select_python(config)
     except RuntimeError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
-    worker = Path(__file__).resolve().parents[1] / "adapters" / "mjlab_new" / "native_worker.py"
+    worker = Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / "native_worker.py"
     result = subprocess.run([str(python_exe), str(worker), "--source", str(DEFAULT_SOURCE), "--extension-root", str(DEFAULT_EXTENSION), "--config", str(config_path), "--output", str(task.task_dir)], cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=300)
     navigation_file = task.task_dir / "navigation.json"
     if result.returncode != 0 or not navigation_file.exists():

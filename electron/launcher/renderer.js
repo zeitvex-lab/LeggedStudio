@@ -66,7 +66,7 @@ async function fetchJson(route) {
 
 function renderEnvironment(payload) {
     const control = payload?.control_plane;
-    const adapter = payload?.adapters?.mjlab_new || payload?.adapters?.mjlab;
+    const adapter = payload?.adapters?.mjlab;
     const pythonReady = control?.status === 'running' && control?.python_target_match !== false;
     setCard('python', control?.python_version || '不可用', pythonReady ? 'ready' : 'error');
     setCard('adapter', adapter?.status === 'installed' ? 'MJLab 就绪' : '未安装', adapter?.status === 'installed' ? 'ready' : 'pending');

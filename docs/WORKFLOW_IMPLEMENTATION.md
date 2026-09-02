@@ -44,7 +44,7 @@ The control plane remains responsible for orchestration. Training code runs in a
 ```powershell
 cd C:\Users\31560\Documents\00_open\legged_studio
 python scripts\generate_robot_presets.py
-python adapters\mjlab_new\train_worker.py `
+python adapters\mjlab\train_worker.py `
   --contract contracts\fixtures\unitree_go2.v2.json `
   --config presets\training\unitree_go2_forward_walk.json `
   --output workspace\go2_smoke `

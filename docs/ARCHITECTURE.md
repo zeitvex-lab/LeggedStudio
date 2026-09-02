@@ -28,10 +28,10 @@ flowchart LR
 | Desktop/Web | Lifecycle, forms, logs, plots, workflow navigation | Implemented for local control plane |
 | Contract store | Versioned robot, scenario, recipe, and policy metadata | Robot Contract v2 and PolicyArtifact are implemented; Scenario Contract is the next extension |
 | Registry | Discover algorithms, rewards, maps, and task options | PPO/SAC/TD3 registry and reward/map discovery implemented |
-| Recipe registry | Resolve task, algorithm, terrain, commands, and reward scales into one reproducible payload | `adapters/mjlab_new/recipe_registry.py` and `/api/training/resolve-recipe` implemented |
+| Recipe registry | Resolve task, algorithm, terrain, commands, and reward scales into one reproducible payload | `adapters/mjlab/recipe_registry.py` and `/api/training/resolve-recipe` implemented |
 | Scenario Contract | Version map, waypoints, command limits, seed, and metrics | `contracts/scenario_contract.py` and `/api/scenarios/validate` implemented |
 | Local adapter | Small CPU MuJoCo environment and smoke training | Verified for PPO/SAC/TD3 smoke runs when adapter dependencies are installed |
-| Native MJLab adapter | `mjlab_new/mjlab` manager-based GPU training | Go2/Go2W worker training, evaluation, and navigation verified; source tree and CUDA runtime remain host-configured |
+| Native MJLab adapter | External MJLab source with the unified `adapters/mjlab` worker | Go2/Go2W worker training, evaluation, and navigation verified; source tree and CUDA runtime remain host-configured |
 | Navigation planner | Waypoints, manual commands, locomotion policy replay | Waypoint replay API implemented; pure-pursuit/recovery state machine is a Phase 2 enhancement |
 | Artifact/export | Checkpoints, manifest, ONNX/deployment mapping | Manifest/checkpoint path exists; hardware-specific export remains an explicit boundary |
 

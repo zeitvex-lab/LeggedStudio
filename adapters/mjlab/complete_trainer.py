@@ -8,7 +8,7 @@ import time
 
 from contracts.robot_contract_v2 import RobotContractV2
 from contracts.policy_artifact import PolicyArtifact, TrainingMetrics, create_artifact_from_training
-from adapters.mjlab_new.training_adapter import MJLabTrainingAdapter, TrainingConfig
+from adapters.mjlab.training_adapter import MJLabTrainingAdapter, TrainingConfig
 
 
 class RunningMeanStd:

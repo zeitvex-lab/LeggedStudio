@@ -16,7 +16,8 @@ from typing import Any
 
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_SOURCE = Path(os.environ.get("LEGGED_STUDIO_MJLAB_SOURCE", "C:/Users/31560/Documents/00_open/mjlab_new/mjlab" if os.name == "nt" else str(_PROJECT_ROOT / "vendor" / "mjlab")))
+_WORKSPACE_ROOT = _PROJECT_ROOT.parent
+DEFAULT_SOURCE = Path(os.environ.get("LEGGED_STUDIO_MJLAB_SOURCE", str(_WORKSPACE_ROOT / "mjlab_new" / "mjlab") if os.name == "nt" else str(_PROJECT_ROOT / "vendor" / "mjlab")))
 DEFAULT_EXTENSION = Path(os.environ.get("LEGGED_STUDIO_MJLAB_EXTENSION", "C:/Users/31560/Documents/00_open/uni_rl/unitree_rl_mjlab" if os.name == "nt" else str(_PROJECT_ROOT / "vendor" / "unitree_rl_mjlab")))
 
 
@@ -67,7 +68,7 @@ def preflight(source: Path = DEFAULT_SOURCE) -> dict[str, Any]:
         "extension_root": str(DEFAULT_EXTENSION),
         "extension_exists": DEFAULT_EXTENSION.exists(),
         "go2_task_source": (DEFAULT_EXTENSION / "src" / "tasks" / "velocity" / "config" / "go2" / "__init__.py").exists(),
-        "go2w_task_source": (project_root / "adapters" / "mjlab_new" / "native_worker.py").exists(),
+        "go2w_task_source": (project_root / "adapters" / "mjlab" / "native_worker.py").exists(),
         "go2w_asset": str(go2w_xml),
         "go2w_task_available": go2w_xml.exists() and go2w_assets.exists() and any(go2w_assets.iterdir()),
     }

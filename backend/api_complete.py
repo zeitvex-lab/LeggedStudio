@@ -22,7 +22,6 @@ if sys.platform == 'win32':
 
 # 添加路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from backend.pipeline_api import router as pipeline_router
 
 # 导入所有路由
 try:
@@ -54,7 +53,7 @@ except ImportError as exc:  # optional MuJoCo/NumPy stack
 from contracts.robot_contract_v2 import RobotContractV2
 from contracts.validator import validate_contract as validate_robot_contract
 from contracts.scenario_contract import ScenarioContract
-from adapters.mjlab_new.native_adapter import preflight as native_mjlab_preflight
+from adapters.mjlab.native_adapter import preflight as native_mjlab_preflight
 from backend.version import APP_VERSION
 
 app = FastAPI(
@@ -72,7 +71,6 @@ app.add_middleware(
 )
 
 # 注册所有路由
-app.include_router(pipeline_router)
 if training_router is not None:
     app.include_router(training_router)
 if export_router is not None:
@@ -312,7 +310,6 @@ async def api_info():
             "training": "/api/training",
             "export": "/api/export",
             "pretrained": "/api/pretrained",
-            "pipeline": "/api/pipeline",
             "navigation": "/api/navigation",
             "simulation": "/api/simulation",
             "scenarios": "/api/scenarios/validate",
@@ -340,7 +337,6 @@ async def get_environment_status():
     embedded_python = Path(embedded_python_value) if embedded_python_value else None
     adapter_paths = {
         "mjlab": project_root / "adapters" / "mjlab" / ".venv",
-        "mjlab_new": project_root / "adapters" / "mjlab_new" / ".venv",
     }
     adapters = {}
     for adapter_id, venv_path in adapter_paths.items():
