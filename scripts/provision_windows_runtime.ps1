@@ -152,7 +152,7 @@ function Install-GitHubSnapshot([string]$repository, [string]$commit, [string]$d
     $sourceDirectory = if (Test-Path (Join-Path $extract 'src')) { Get-Item $extract } else { Get-ChildItem $extract -Directory | Select-Object -First 1 }
     if (-not $sourceDirectory) { throw "Unable to extract $repository" }
     Move-Item -LiteralPath $sourceDirectory.FullName -Destination $destination
-    Remove-Item -LiteralPath $extract -Recurse -Force
+    if (Test-Path $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
 }
 
 Install-GitHubSnapshot 'mujocolab/mjlab' $mjlabCommit (Join-Path $stage 'mjlab_source')
