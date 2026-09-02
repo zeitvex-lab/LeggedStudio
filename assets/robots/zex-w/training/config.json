@@ -1,0 +1,7 @@
+{
+  "robot_id": "zex-w",
+  "task_name": "forward_walk",
+  "algorithm": "PPO",
+  "backend": "native_mjlab",
+  "terrain_type": "plane"
+}

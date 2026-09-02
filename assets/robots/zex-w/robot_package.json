@@ -1,0 +1,23 @@
+﻿{
+    "schema_version":  "robot-package-1.0",
+    "package_id":  "zex-w",
+    "task_kind":  "generic",
+    "capabilities":  [
+                         "generic_mjlab",
+                         "package_source",
+                         "wheel_leg",
+                         "mujoco_sim",
+                         "sim2sim"
+                     ],
+    "model_path":  "workspace/packages/zex-w/mjcf/wheelleg.xml",
+    "source_project":  "C:\\Users\\31560\\Documents\\00_open\\rc_old\\RC_WheelLeg\\05_software\\train\\rc_mjlab",
+    "display_name":  "ZEX-W",
+    "model":  {
+                  "format":  "mjcf",
+                  "path":  "model/robot.xml",
+                  "assets_path":  "model/assets"
+              },
+    "contract_path":  "contract.json",
+    "training_config_path":  "training/config.json",
+    "simulation_config_path":  "simulation/config.json"
+}

@@ -1,6 +1,6 @@
 {
   "robot_id": "unitree_go2w",
-  "contract_path": "contracts/fixtures/unitree_go2w.v2.json",
+  "contract_path": "assets/robots/unitree_go2w/contract.json",
   "task_name": "forward_walk",
   "algorithm": "PPO",
   "num_envs": 4096,

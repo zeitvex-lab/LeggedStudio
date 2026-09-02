@@ -13,10 +13,14 @@ import math
 import time
 import uuid
 import threading
+import base64
+import io
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import mujoco
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -139,7 +143,23 @@ class SimulationSession:
             "done": done,
             "action": action.tolist(),
             "timestamp": time.time(),
+            "time": float(self.step_index * self.env.contract.control.decimation / self.env.contract.control.physics_hz),
+            "command": self.env.commands[0].tolist(),
+            "observation": self.env._observations()[0].tolist(),
+            "reward_components": {key: float(np.asarray(value).reshape(-1)[0]) for key, value in info.get("reward_components", {}).items()},
+            "contacts": int(getattr(self.env.data[0], "ncon", 0)),
         }
+
+    def render(self, width: int = 960, height: int = 640) -> str:
+        """Render the current MuJoCo state for the Web Play-style viewport."""
+        renderer = mujoco.Renderer(self.env.model, height=max(120, min(height, 1440)), width=max(160, min(width, 1920)))
+        renderer.update_scene(self.env.data[0], camera=-1)
+        pixels = renderer.render()
+        renderer.close()
+        from PIL import Image
+        stream = io.BytesIO()
+        Image.fromarray(np.asarray(pixels, dtype=np.uint8)).save(stream, format="PNG")
+        return base64.b64encode(stream.getvalue()).decode("ascii")
 
 
 sessions: dict[str, SimulationSession] = {}
@@ -210,6 +230,16 @@ def _get_session(session_id: str) -> SimulationSession:
 async def get_session(session_id: str) -> dict[str, Any]:
     session = _get_session(session_id)
     return {"success": True, "frame": session.last_frame, "map": MAPS[session.map_id]}
+
+
+@router.get("/sessions/{session_id}/render")
+async def render_session(session_id: str, width: int = 960, height: int = 640) -> dict[str, Any]:
+    session = _get_session(session_id)
+    try:
+        image = session.render(width, height)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"MuJoCo render failed: {exc}") from exc
+    return {"success": True, "format": "png", "width": max(160, min(width, 1920)), "height": max(120, min(height, 1440)), "image_base64": image, "frame": session.last_frame}
 
 
 @router.post("/sessions/{session_id}/step")

@@ -7,13 +7,15 @@ Legged Studio now carries two self-contained canonical MuJoCo assets sourced fro
 | Unitree Go2 | `unitree_go2_mvp_v1` | `go2.xml` | M-P | 12 | 15.206408 kg |
 | Unitree Go2W | `unitree_go2w_mvp_v1` | `go2w.xml` | M-W | 16 | 19.126408 kg |
 
-Assets live under `assets/robots/` with their mesh files in a sibling `assets/` directory. Contracts and default forward-walk recipes are checked in at:
+Each bundled robot uses the same package layout under `assets/robots/<id>`:
+`robot_package.json`, `contract.json`, `model/robot.xml`, `model/assets/`,
+`training/config.json`, and `simulation/config.json`. The runtime copies this
+same layout into `workspace/packages/<id>` for user-persisted packages.
 
 ```text
-contracts/fixtures/unitree_go2.v2.json
-contracts/fixtures/unitree_go2w.v2.json
-presets/training/unitree_go2_forward_walk.json
-presets/training/unitree_go2w_forward_walk.json
+assets/robots/unitree_go2/contract.json
+assets/robots/unitree_go2w/contract.json
+assets/robots/zex-w/contract.json
 ```
 
 The Web training form reads `/api/robots/presets` and submits the selected Contract, so action dimensions and joint order are no longer hard-coded. Go2 uses 12 actions and Go2W uses 16 actions including the four wheel joints.

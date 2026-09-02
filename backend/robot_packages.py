@@ -102,6 +102,12 @@ def list_robot_packages() -> list[dict[str, Any]]:
                 continue
             seen.add(package_root.name)
             training_path = package_root / "training_config.json"
+            descriptor_model = descriptor.get("model", {}) if isinstance(descriptor.get("model"), dict) else {}
+            asset_value = contract.get("urdf", {}).get("path") or descriptor_model.get("path")
+            if isinstance(asset_value, str) and asset_value.startswith("workspace/packages/") and not (ROOT / asset_value).exists():
+                candidate = package_root / Path(asset_value).name
+                if (package_root / "model" / "robot.xml").exists():
+                    asset_value = str((package_root / "model" / "robot.xml").relative_to(ROOT)).replace("\\", "/")
             result.append({
                 "robot_id": contract.get("robot_id", package_root.name),
                 "family": contract.get("family", package_root.name),
@@ -111,7 +117,7 @@ def list_robot_packages() -> list[dict[str, Any]]:
                 "mass_kg": contract.get("urdf", {}).get("total_mass_kg", 0.0),
                 "contract_id": contract.get("contract_id"),
                 "contract_path": str(contract_path.relative_to(ROOT)).replace("\\", "/"),
-                "asset_path": contract.get("urdf", {}).get("path"),
+                "asset_path": asset_value,
                 "training_config": _read_json(training_path) if training_path.exists() else {},
                 "contract": contract,
                 "robot_package": {**descriptor, "package_root": str(package_root), "contract_path": str(contract_path)},

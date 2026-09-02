@@ -1,6 +1,17 @@
-{
-  "schema_version": "robot-package-1.0",
-  "package_id": "unitree_go2w",
-  "task_kind": "generic",
-  "capabilities": ["generic_mjlab", "velocity_task", "wheel_leg"]
+﻿{
+    "capabilities":  [
+                         "generic_mjlab",
+                         "mujoco_sim"
+                     ],
+    "package_id":  "unitree_go2w",
+    "model":  {
+                  "format":  "mjcf",
+                  "path":  "model/robot.xml",
+                  "assets_path":  "model/assets"
+              },
+    "schema_version":  "robot-package-1.0",
+    "simulation_config_path":  "simulation/config.json",
+    "training_config_path":  "training/config.json",
+    "contract_path":  "contract.json",
+    "display_name":  "unitree_go2w"
 }

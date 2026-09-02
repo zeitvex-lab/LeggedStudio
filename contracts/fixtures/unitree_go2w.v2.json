@@ -6,7 +6,7 @@
   "size_class": "M",
   "locomotion_type": "W",
   "urdf": {
-    "path": "assets/robots/unitree_go2w/go2w.xml",
+    "path": "assets/robots/unitree_go2w/model/robot.xml",
     "hash": "",
     "total_mass_kg": 19.126408,
     "mass_source": "manual"

@@ -185,5 +185,5 @@ def _normalise_robot_packages(imported_root: Path, manifest: dict[str, Any]) -> 
         contract.update({"robot_id": package_id or "imported_robot", "contract_id": f"{package_id}_contract_v1", "source": "legged_studio_project_import", "tags": ["imported", "project_package"]})
         (imported_root / "contract.json").write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         package = {"schema_version": "robot-package-1.0", "package_id": package_id, "task_kind": "generic", "capabilities": ["generic_mjlab", "mujoco_sim"], "model_path": relative}
-        (imported_root / "robot_package.json").write_text(json.dumps(package, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        (imported_root / "robot_package.json").write_text(json.dumps({**package, "model": {"format": fmt, "path": str(model.relative_to(imported_root)).replace("\\", "/"), "assets_path": "model/assets"}, "contract_path": "contract.json", "training_config_path": "training/config.json", "simulation_config_path": "simulation/config.json"}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         break
