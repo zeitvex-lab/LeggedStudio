@@ -1,6 +1,7 @@
 import unittest
 
 from .training_adapter import resolve_torch_device, runtime_device_info
+from .recipe_registry import resolve_recipe
 
 
 class TrainingRuntimeTests(unittest.TestCase):
@@ -17,6 +18,13 @@ class TrainingRuntimeTests(unittest.TestCase):
 
     def test_cpu_is_always_supported(self):
         self.assertEqual(resolve_torch_device("cpu"), "cpu")
+
+    def test_recipe_defaults_to_native_mjlab(self):
+        self.assertEqual(resolve_recipe({}).backend, "native_mjlab")
+
+    def test_recipe_rejects_local_mujoco(self):
+        with self.assertRaises(ValueError):
+            resolve_recipe({"backend": "local_mujoco"})
 
 
 if __name__ == "__main__":

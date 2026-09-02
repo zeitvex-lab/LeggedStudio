@@ -32,7 +32,7 @@
     </section>
 
     <section id="training" class="panel step-panel">
-      <div class="grid three"><label>训练后端<select id="backend"><option value="local_mujoco">Local MuJoCo (GPU policy)</option><option value="native_mjlab" disabled>Native MJLab (preflight required)</option></select></label><span id="hardwareHint" class="muted">正在检测 GPU...</span></div>
+      <div class="grid three"><label>训练后端<select id="backend"><option value="native_mjlab" disabled>Native MJLab (isolated worker)</option></select></label><span id="hardwareHint" class="muted">正在检测 MJLab GPU 运行时...</span></div>
       <div class="panel-head"><div><span class="eyebrow">TRAINING CONFIG</span><h2>算法、环境与奖惩设置</h2><p>配置将直接提交给 `/api/training/create`，权重为 0 的奖惩项会被禁用。</p></div><span id="configBadge" class="pill pending">未保存</span></div>
       <div class="grid three"><label>任务名称<input id="taskName" value="forward_walk"></label><label>算法<select id="algorithm"><option value="PPO">PPO</option></select></label><label>地形<select id="terrain"><option value="plane">平地</option><option value="rough">崎岖</option><option value="stairs">楼梯</option></select></label></div>
       <div class="grid four"><label>环境数量<input id="numEnvs" type="number" min="64" step="64" value="4096"></label><label>最大迭代<input id="maxIterations" type="number" min="10" step="10" value="1000"></label><label>学习率<input id="learningRate" type="number" min="0.00001" step="0.00001" value="0.0003"></label><label>设备<select id="device"><option value="cuda">CUDA</option><option value="cpu">CPU</option></select></label></div>
@@ -53,11 +53,11 @@
     </section>
 
     <section id="navigation" class="panel step-panel">
-      <div class="panel-head"><div><span class="eyebrow">NAVIGATION / SIM2SIM</span><h2>导航仿真与闭环检查</h2><p>训练完成后运行评估，检查控制器在 Contract-MuJoCo 环境的稳定性。</p></div><span id="evalBadge" class="pill pending">未运行</span></div>
+      <div class="panel-head"><div><span class="eyebrow">NAVIGATION / SIM2SIM</span><h2>导航仿真与闭环检查</h2><p>训练完成后运行评估，在隔离的 native MJLab 环境运行评估和路线回放。</p></div><span id="evalBadge" class="pill pending">未运行</span></div>
       <div class="grid three"><label>评估回合数<input id="episodes" type="number" min="1" max="100" value="5"></label><label>导航地图<select id="navigationMap"><option value="warehouse">Warehouse</option><option value="rough">Rough</option><option value="stairs">Stairs</option></select></label><label>控制模式<select id="navigationMode"><option value="auto">自动策略</option><option value="manual">手动命令序列</option></select></label></div><div class="inline align-end"><button id="runEvaluation" class="btn primary" disabled>运行 Sim2Sim 评估</button><a class="btn ghost" href="evaluation.html">高级评估</a></div>
       <label>导航路线（waypoints，JSON 二维坐标）<textarea id="waypoints" rows="3" spellcheck="false">[[0, 0], [1, 0], [2, 0]]</textarea></label>
       <label>手动命令序列（仅手动模式，JSON；每项持续一步）<textarea id="manualCommands" rows="3" spellcheck="false">[{"vx": 0.4, "vy": 0, "wz": 0}]</textarea></label>
-      <div class="inline"><button id="runNavigation" class="btn primary" disabled>运行导航回放</button><span id="navigationHint" class="muted">训练完成后可在 Contract-MuJoCo 中回放路线。</span></div>
+      <div class="inline"><button id="runNavigation" class="btn primary" disabled>运行导航回放</button><span id="navigationHint" class="muted">训练完成后可在 native MJLab 中回放路线。</span></div>
       <div id="evalResult" class="result empty">训练完成后可运行评估。</div>
       <div class="panel-foot"><button class="btn ghost prev" data-prev="simulation">返回仿真</button><a class="btn primary" href="dashboard.html">完成并返回控制台</a></div>
     </section>

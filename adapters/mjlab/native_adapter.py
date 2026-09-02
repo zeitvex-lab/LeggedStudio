@@ -35,7 +35,7 @@ def _probe_runtime(source: Path) -> dict[str, Any]:
     adapter_venv = Path(__file__).parent.parent / "mjlab" / ".venv"
     candidates.append(_venv_python(adapter_venv))
     candidates.append(Path(sys.executable))
-    modules = "import tyro, warp, mujoco_warp, rsl_rl, mjlab; import torch; print('ok cuda=' + str(int(torch.cuda.is_available())))"
+    modules = "import tyro, warp, mujoco_warp, rsl_rl, mjlab; import torch; print('ok|torch=' + torch.__version__ + '|cuda=' + str(int(torch.cuda.is_available())) + '|count=' + str(torch.cuda.device_count()))"
     probes = []
     for python in dict.fromkeys(candidates):
         if not python.exists():
@@ -45,7 +45,8 @@ def _probe_runtime(source: Path) -> dict[str, Any]:
         try:
             result = subprocess.run([str(python), "-c", modules], capture_output=True, text=True, timeout=20, env=env)
             output = result.stdout.strip()
-            probes.append({"python": str(python), "available": result.returncode == 0 and output.startswith("ok"), "cuda_available": output.endswith("cuda=1"), "error": result.stderr.strip()[-500:] if result.returncode else None})
+            fields = dict(item.split("=", 1) for item in output.split("|")[1:] if "=" in item) if output.startswith("ok|") else {}
+            probes.append({"python": str(python), "available": result.returncode == 0 and output.startswith("ok|"), "torch_version": fields.get("torch"), "cuda_available": fields.get("cuda") == "1", "cuda_device_count": int(fields.get("count", "0")), "error": result.stderr.strip()[-500:] if result.returncode else None})
         except (OSError, subprocess.SubprocessError) as exc:
             probes.append({"python": str(python), "available": False, "error": str(exc)})
     return {"available": any(item["available"] for item in probes), "interpreters": probes}

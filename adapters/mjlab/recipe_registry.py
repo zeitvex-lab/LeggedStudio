@@ -32,7 +32,10 @@ def resolve_recipe(config: dict[str, Any]) -> TrainingRecipe:
         "terrain_type": str(config.get("terrain_type", TASKS[task_name]["terrain"])),
     }
     algorithm_config = {key: value for key, value in config.items() if key not in {"task_name", "algorithm", "reward_scales", "num_envs", "episode_length_s", "terrain_type"}}
-    return TrainingRecipe(task_name=task_name, algorithm=algorithm, backend=str(config.get("backend", "local_mujoco")), reward_scales=rewards, environment=environment, algorithm_config=algorithm_config, seed=int(config.get("seed", 0)))
+    backend = str(config.get("backend", "native_mjlab"))
+    if backend != "native_mjlab":
+        raise ValueError("Legged Studio training supports only the native_mjlab backend")
+    return TrainingRecipe(task_name=task_name, algorithm=algorithm, backend=backend, reward_scales=rewards, environment=environment, algorithm_config=algorithm_config, seed=int(config.get("seed", 0)))
 
 
 def list_tasks() -> list[dict[str, Any]]:

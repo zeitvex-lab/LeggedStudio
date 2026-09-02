@@ -22,50 +22,11 @@ from pydantic import BaseModel, Field
 
 from adapters.mjlab.mujoco_env import ContractMujocoEnv
 from backend.robot_presets import get_robot_preset
+from backend.scenario_maps import MAPS
 from contracts.scenario_contract import ScenarioContract
 
 
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
-
-
-MAPS: dict[str, dict[str, Any]] = {
-    "flat": {
-        "id": "flat",
-        "label": "Flat / 基础遥控",
-        "kind": "flat",
-        "mode": "basic",
-        "description": "平面环境，用于关节和速度指令的快速检查。",
-        "bounds": [-5.0, 5.0, -5.0, 5.0],
-    },
-    "warehouse": {
-        "id": "warehouse",
-        "label": "Warehouse / 导航",
-        "kind": "grid",
-        "mode": "navigation",
-        "description": "带固定障碍物的二维路线场景，适合 waypoint 任务。",
-        "bounds": [-2.0, 8.0, -4.0, 4.0],
-        "obstacles": [[2.0, -1.2, 0.6, 2.4], [4.5, 0.8, 0.8, 2.0]],
-        "default_waypoints": [[0.0, 0.0], [1.5, 2.2], [3.2, 2.2], [6.0, 0.0]],
-    },
-    "rough": {
-        "id": "rough",
-        "label": "Rough / 复杂地形",
-        "kind": "terrain",
-        "mode": "navigation",
-        "description": "粗糙地形任务元数据；native mjlab terrain adapter 可接入。",
-        "bounds": [-2.0, 8.0, -4.0, 4.0],
-        "default_waypoints": [[0.0, 0.0], [2.0, 0.5], [4.0, -0.8], [6.0, 0.0]],
-    },
-    "stairs": {
-        "id": "stairs",
-        "label": "Stairs / 特定任务",
-        "kind": "terrain",
-        "mode": "navigation",
-        "description": "楼梯路线任务元数据；通过 Scenario Contract 绑定实际地形。",
-        "bounds": [-2.0, 8.0, -4.0, 4.0],
-        "default_waypoints": [[0.0, 0.0], [2.0, 0.0], [4.0, 0.8], [6.0, 1.6]],
-    },
-}
 
 
 def _scene_geoms(map_id: str) -> list[dict[str, Any]]:

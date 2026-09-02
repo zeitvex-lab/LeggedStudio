@@ -69,7 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--iterations", type=int, default=1000)
     train.add_argument("--num-envs", type=int, default=4096)
     train.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
-    train.add_argument("--backend", choices=["local_mujoco", "native_mjlab"], default="local_mujoco")
+    train.add_argument("--backend", choices=["native_mjlab"], default="native_mjlab")
 
     evaluate = sub.add_parser("evaluate", help="evaluate a completed task")
     evaluate.add_argument("task_id")

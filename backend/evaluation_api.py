@@ -1,21 +1,13 @@
-"""Local policy evaluation API for completed Contract-driven training runs."""
+"""Native MJLab policy evaluation API for completed training runs."""
 
 from __future__ import annotations
 
 import json
-import pickle
 import subprocess
 from pathlib import Path
 
-import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-
-from adapters.mjlab.algorithms.ppo import PPOAlgorithm, PPOConfig
-from adapters.mjlab.mujoco_env import ContractMujocoEnv
-from contracts.policy_artifact import PolicyArtifact
-from contracts.robot_contract_v2 import RobotContractV2
-
 
 router = APIRouter(prefix="/api/evaluation", tags=["evaluation"])
 
@@ -53,62 +45,9 @@ async def list_evaluable_tasks():
 @router.post("/run")
 async def run_evaluation(request: EvaluationRequest):
     task = _task(request.task_id)
-    if task.config.get("backend") == "native_mjlab":
-        return await _run_native_evaluation(task, request)
-    artifact_path = task.task_dir / "artifact.json"
-    model_path = task.task_dir / "model_final.pt"
-    if not artifact_path.exists() or not model_path.exists():
-        raise HTTPException(status_code=400, detail="Training artifact or model is not ready")
-
-    artifact = PolicyArtifact.from_json_file(str(artifact_path))
-    config = task.config
-    env = ContractMujocoEnv(task.contract, num_envs=1, episode_length_s=float(config.get("episode_length_s", 20.0)), reward_scales=config.get("reward_scales", {}))
-    agent = PPOAlgorithm(
-        num_obs=task.contract.observation.dimension,
-        num_actions=task.contract.action.dimension,
-        config=PPOConfig(learning_rate=float(config.get("learning_rate", 3e-4))),
-        device="cpu",
-    )
-    try:
-        try:
-            agent.load(str(model_path))
-        except (RuntimeError, ValueError, EOFError, ImportError, pickle.UnpicklingError) as exc:
-            raise HTTPException(status_code=400, detail=f"Model checkpoint is not compatible with the current PPO adapter: {exc}") from exc
-        rewards: list[float] = []
-        velocities: list[float] = []
-        successes: list[bool] = []
-        for _ in range(request.episodes):
-            obs = env.reset()
-            total_reward = 0.0
-            velocity_sum = 0.0
-            steps = 0
-            limit = request.max_steps or env.max_steps
-            while steps < limit:
-                action, _ = agent.act(obs, deterministic=True)
-                obs, reward, done, info = env.step(action)
-                total_reward += float(reward[0])
-                velocity_sum += float(info["base_velocity"][0])
-                steps += 1
-                if bool(done[0]):
-                    break
-            rewards.append(total_reward)
-            velocities.append(velocity_sum / max(1, steps))
-            successes.append(bool(steps >= min(limit, env.max_steps) and total_reward > 0))
-        result = {
-            "task_id": task.task_id,
-            "artifact_id": artifact.artifact_id,
-            "robot": task.contract.family,
-            "episodes": request.episodes,
-            "avg_reward": float(np.mean(rewards)),
-            "std_reward": float(np.std(rewards)),
-            "avg_forward_velocity": float(np.mean(velocities)),
-            "success_rate": float(np.mean(successes)),
-            "evaluated_env": "contract-mujoco",
-        }
-        (task.task_dir / "evaluation.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        return {"success": True, "result": result}
-    finally:
-        env.close()
+    if task.config.get("backend", "native_mjlab") != "native_mjlab":
+        raise HTTPException(status_code=400, detail="Training task is not a native MJLab task")
+    return await _run_native_evaluation(task, request)
 
 
 async def _run_native_evaluation(task, request: EvaluationRequest):

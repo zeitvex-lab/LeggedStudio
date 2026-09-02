@@ -245,7 +245,7 @@ function trainingPayload() {
     task_name: $('taskName').value || 'forward_walk',
     terrain_type: $('terrain').value,
     device: $('device').value,
-    backend: $('backend')?.value || 'local_mujoco',
+    backend: 'native_mjlab',
     reward_scales,
     gamma: Number($('gamma').value),
     gae_lambda: Number($('gaeLambda').value),

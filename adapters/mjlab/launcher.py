@@ -52,7 +52,10 @@ class TrainingLauncher:
         # 准备命令
         python_exe = self._select_python(config)
 
-        native = str(config.get("backend", "local_mujoco")) == "native_mjlab"
+        backend = str(config.get("backend", "native_mjlab"))
+        if backend != "native_mjlab":
+            raise ValueError("Legged Studio training requires the native_mjlab backend")
+        native = True
         worker_script = Path(__file__).parent / ("native_worker.py" if native else "train_worker.py")
         if native:
             from .native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE
@@ -225,7 +228,7 @@ class TrainingLauncher:
             candidates.append(self._venv_python(venv))
         candidates.append(Path(sys.executable))
         candidates = [item for item in candidates if item.exists()]
-        if str(config.get("backend", "local_mujoco")) == "native_mjlab":
+        if str(config.get("backend", "native_mjlab")) == "native_mjlab":
             native_candidates = [item for item in candidates if self._python_has_native(item)]
             if native_candidates:
                 return native_candidates[0]

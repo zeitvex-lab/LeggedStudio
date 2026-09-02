@@ -5,7 +5,7 @@ Training API
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Literal
 import json
 
 from backend.training_manager import get_training_manager
@@ -21,38 +21,26 @@ router = APIRouter(prefix="/api/training", tags=["training"])
 @router.get("/hardware")
 async def training_hardware():
     """Report the runtime capabilities used by the training worker."""
-    import importlib.util
-    import sys
-
-    result = {
-        "python": sys.executable,
-        "torch": {"available": False, "version": None, "cuda_available": False, "cuda_version": None, "devices": []},
-    }
-    try:
-        import torch
-
-        devices = []
-        if torch.cuda.is_available():
-            for index in range(torch.cuda.device_count()):
-                props = torch.cuda.get_device_properties(index)
-                devices.append({"index": index, "name": props.name, "total_memory_bytes": int(props.total_memory)})
-        result["torch"] = {
-            "available": True,
-            "version": torch.__version__,
-            "cuda_available": bool(torch.cuda.is_available()),
-            "cuda_version": torch.version.cuda,
-            "devices": devices,
-        }
-    except Exception as exc:
-        result["torch"]["error"] = str(exc)
-
     from adapters.mjlab.native_adapter import preflight
     native = preflight()
+    interpreters = native.get("runtime", {}).get("interpreters", [])
+    selected = next((item for item in interpreters if item.get("available")), {})
+    cuda_count = int(selected.get("cuda_device_count", 0))
+    result = {
+        "python": selected.get("python"),
+        "torch": {
+            "available": bool(selected.get("available")),
+            "version": selected.get("torch_version"),
+            "cuda_available": bool(selected.get("cuda_available")),
+            "cuda_version": None,
+            "devices": [{"index": index} for index in range(cuda_count)] if selected.get("cuda_available") else [],
+        },
+    }
     result["native_mjlab"] = {
         **native,
-        "dependencies_importable": bool(native.get("runtime", {}).get("available")) or all(importlib.util.find_spec(name) for name in ("tyro", "warp", "mujoco_warp", "rsl_rl")),
+        "dependencies_importable": bool(native.get("runtime", {}).get("available")),
     }
-    result["supported_devices"] = ["auto", "cpu"] + (["cuda"] + [f"cuda:{i}" for i in range(len(result["torch"]["devices"]))] if result["torch"]["cuda_available"] else [])
+    result["supported_devices"] = ["auto", "cpu"] + (["cuda"] + [f"cuda:{i}" for i in range(cuda_count)] if result["torch"]["cuda_available"] else [])
     return result
 
 
@@ -86,7 +74,7 @@ class CreateTrainingRequest(BaseModel):
     policy_delay: int = Field(default=2, ge=1, le=16)
     exploration_noise: float = Field(default=0.1, ge=0.0, le=2.0)
     seed: int = Field(default=0, ge=0, le=2_147_483_647)
-    backend: str = Field(default="local_mujoco", pattern="^(local_mujoco|native_mjlab)$")
+    backend: Literal["native_mjlab"] = "native_mjlab"
 
 
 class TrainingStatusResponse(BaseModel):
@@ -104,7 +92,7 @@ class TrainingStatusResponse(BaseModel):
 
 
 class CompareTrainingRequest(CreateTrainingRequest):
-    algorithms: list[str] = Field(default_factory=lambda: ["PPO", "SAC"], min_length=2, max_length=6)
+    algorithms: list[str] = Field(default_factory=lambda: ["PPO"], min_length=1, max_length=6)
 
 
 # ========== API 端点 ==========
@@ -121,6 +109,8 @@ async def create_training(request: CreateTrainingRequest):
         available = {item["id"] for item in list_algorithms() if item.get("available")}
         if algorithm not in available:
             raise HTTPException(status_code=400, detail=f"算法 {request.algorithm} 不可用，目前可用算法：{', '.join(sorted(available))}")
+        if algorithm != "PPO":
+            raise HTTPException(status_code=501, detail="native MJLab currently exposes PPO training; native SAC/TD3 are not implemented")
         # 解析 Contract
         contract = RobotContractV2(**request.contract)
 

@@ -128,6 +128,9 @@ class TrainingManager:
         Returns:
             task_id: 任务 ID
         """
+        if str(config.get("backend", "native_mjlab")) != "native_mjlab":
+            raise ValueError("TrainingManager only supports the native_mjlab backend")
+
         # 生成任务 ID
         task_id = self._generate_task_id(contract.contract_id)
 

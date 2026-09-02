@@ -18,7 +18,7 @@ presets/training/unitree_go2w_forward_walk.json
 
 The Web training form reads `/api/robots/presets` and submits the selected Contract, so action dimensions and joint order are no longer hard-coded. Go2 uses 12 actions and Go2W uses 16 actions including the four wheel joints.
 
-Training options are exposed by `/api/training/options`. PPO is currently the available algorithm. Each listed reward term has an editable weight and an enable toggle; the resulting map is stored in the task configuration and applied by the MuJoCo environment. Disabling a term writes a zero weight, which keeps runs reproducible and auditable.
+Training options are exposed by `/api/training/options`. PPO is currently the available native MJLab algorithm. Each listed reward term has an editable weight and an enable toggle; the resulting map is stored in the task configuration and passed to the native worker. Disabling a term writes a zero weight, which keeps runs reproducible and auditable.
 
 ## Adapter environment
 
@@ -34,4 +34,4 @@ Run the dependency and GPU preflight before a long run:
 python adapters/mjlab/preflight.py
 ```
 
-The unified MJLab worker performs Contract-MuJoCo rollouts and manager-based native MJLab rollouts against the canonical MJCF. Native Go2 and Go2W tasks write RSL-RL PyTorch checkpoints and a `PolicyArtifact`, and the same checkpoints can be replayed through native evaluation and waypoint navigation. Go2W uses 12 position actions plus 4 wheel-velocity actions and a 56D actor observation (planar base velocity, angular velocity, projected gravity, 16 joint positions, 16 joint velocities, and 16 previous actions).
+The native MJLab worker performs manager-based MJLab rollouts against the canonical MJCF. Native Go2 and Go2W tasks write RSL-RL PyTorch checkpoints and a `PolicyArtifact`, and the same checkpoints can be replayed through native evaluation and waypoint navigation. MuJoCo is retained for interactive simulation sessions, not training. Go2W uses 12 position actions plus 4 wheel-velocity actions and a 56D actor observation (planar base velocity, angular velocity, projected gravity, 16 joint positions, 16 joint velocities, and 16 previous actions).

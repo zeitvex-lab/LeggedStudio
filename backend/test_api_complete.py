@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from backend.api_complete import app
 from backend.robot_presets import list_robot_presets
+from backend.training_api import CreateTrainingRequest
 
 
 class CompleteApiContractTests(unittest.TestCase):
@@ -11,6 +12,14 @@ class CompleteApiContractTests(unittest.TestCase):
         payload = TestClient(app).get("/health").json()
         self.assertEqual(payload["app_id"], "legged-studio")
         self.assertEqual(payload["api_schema"], "legged-studio-api-1")
+
+    def test_training_defaults_to_native_mjlab(self):
+        request = CreateTrainingRequest(contract=list_robot_presets()[0]["contract"])
+        self.assertEqual(request.backend, "native_mjlab")
+
+    def test_local_mujoco_is_not_a_training_backend(self):
+        with self.assertRaises(ValueError):
+            CreateTrainingRequest(contract=list_robot_presets()[0]["contract"], backend="local_mujoco")
 
     def test_environment_exposes_only_mjlab(self):
         payload = TestClient(app).get("/api/system/environment").json()

@@ -1,7 +1,7 @@
 """Versioned scenario and training-recipe contracts.
 
-These models are deliberately backend-neutral. Native MJLab, the local
-MuJoCo fallback, and future CLI workflows can resolve the same payload.
+These models are shared by native MJLab training and MuJoCo simulation
+workflows.
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ class TrainingRecipe(BaseModel):
     schema_version: str = "training-recipe-1.0"
     task_name: str = "forward_walk"
     algorithm: str = "PPO"
-    backend: str = "local_mujoco"
+    backend: Literal["native_mjlab"] = "native_mjlab"
     reward_scales: dict[str, float] = Field(default_factory=dict)
     environment: dict[str, Any] = Field(default_factory=dict)
     algorithm_config: dict[str, Any] = Field(default_factory=dict)
@@ -58,4 +58,3 @@ class TrainingRecipe(BaseModel):
     @classmethod
     def normalize_algorithm(cls, value: str) -> str:
         return value.upper()
-

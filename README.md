@@ -3,8 +3,9 @@
 Version `0.3.0` is the first distributable desktop preview.
 
 Legged Studio is a local, contract-driven workbench for validating legged
-robot assets, configuring rewards and algorithms, running MuJoCo or native
-MJLab training, and replaying evaluation/navigation routes for Go2 and Go2W.
+robot assets, configuring rewards and algorithms, running native MJLab training,
+using MuJoCo for interactive simulation, and replaying evaluation/navigation
+routes for Go2 and Go2W.
 
 ## Quick start
 
@@ -74,7 +75,7 @@ adapter boundaries.
 ## Verified capabilities
 
 - Versioned Robot Contract and canonical Go2/Go2W MJCF assets.
-- Local MuJoCo simulation and PPO/SAC/TD3 adapter smoke paths.
+- MuJoCo interactive simulation for basic teleoperation and map stepping.
 - Native MJLab Go2/Go2W PPO training with isolated workers.
 - Native evaluation and waypoint navigation.
 - CUDA Torch selection for the validated MJLab adapter environment.

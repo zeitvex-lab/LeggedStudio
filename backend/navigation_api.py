@@ -1,4 +1,4 @@
-"""Route replay API for the Contract-driven MuJoCo policy loop."""
+"""Route replay API for the native MJLab policy loop."""
 
 from __future__ import annotations
 
@@ -10,10 +10,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from adapters.mjlab.algorithms.registry import create_algorithm
-from adapters.mjlab.mujoco_env import ContractMujocoEnv
-from contracts.policy_artifact import PolicyArtifact
-from backend.simulation_api import MAPS, _scene_geoms
+from backend.scenario_maps import MAPS
 
 
 router = APIRouter(prefix="/api/navigation", tags=["navigation"])
@@ -53,110 +50,13 @@ def _task(task_id: str):
 
 @router.post("/run")
 async def run_navigation(request: NavigationRequest):
-    """Replay a trained policy through a waypoint route in Contract-MuJoCo."""
+    """Replay a trained policy through a waypoint route in native MJLab."""
     task = _task(request.task_id)
-    if task.config.get("backend") == "native_mjlab":
-        return await _run_native_navigation(task, request)
+    if task.config.get("backend", "native_mjlab") != "native_mjlab":
+        raise HTTPException(status_code=400, detail="Training task is not a native MJLab task")
     if request.map_id not in MAPS:
         raise HTTPException(status_code=404, detail=f"Unknown simulation map: {request.map_id}")
-    artifact_path = task.task_dir / "artifact.json"
-    model_path = task.task_dir / "model_final.pt"
-    if not artifact_path.exists() or not model_path.exists():
-        raise HTTPException(status_code=400, detail="Training artifact or model is not ready")
-
-    artifact = PolicyArtifact.from_json_file(str(artifact_path))
-    config = task.config
-    env = ContractMujocoEnv(
-        task.contract,
-        num_envs=1,
-        episode_length_s=float(config.get("episode_length_s", 20.0)),
-        reward_scales=config.get("reward_scales", {}),
-        scene_geoms=_scene_geoms(request.map_id),
-    )
-    agent = create_algorithm(
-        name=str(config.get("algorithm", "PPO")),
-        num_obs=task.contract.observation.dimension,
-        num_actions=task.contract.action.dimension,
-        config=config,
-        device="cpu",
-    )
-    try:
-        try:
-            agent.load(str(model_path))
-        except Exception as exc:
-            raise HTTPException(status_code=400, detail=f"Model checkpoint is not compatible: {exc}") from exc
-
-        route = np.asarray(request.waypoints, dtype=np.float32)
-        episode_results: list[dict] = []
-        for _ in range(request.episodes):
-            obs = env.reset()
-            waypoint_index = 0
-            steps = 0
-            total_reward = 0.0
-            start = np.asarray([0.0, 0.0], dtype=np.float32)
-            while steps < (request.max_steps or env.max_steps):
-                if request.control_mode == "manual":
-                    command = request.manual_commands[min(steps, len(request.manual_commands) - 1)] if request.manual_commands else {}
-                    vx = float(np.clip(command.get("vx", 0.0), -1.0, 1.0))
-                    vy = float(np.clip(command.get("vy", 0.0), -1.0, 1.0))
-                    wz = float(np.clip(command.get("wz", 0.0), -1.0, 1.0))
-                    action = np.zeros(task.contract.action.dimension, dtype=np.float32)
-                    phase = steps * 0.25
-                    joint_order = list(task.contract.action.joint_order)
-                    for index, joint_name in enumerate(joint_order):
-                        name = joint_name.lower()
-                        leg = index // 4 if len(joint_order) >= 16 else index // 3
-                        offset = 0.0 if leg % 2 == 0 else np.pi
-                        if "wheel" in name:
-                            action[index] = np.clip(0.55 * vx + 0.15 * vy + 0.1 * wz, -1.0, 1.0)
-                        elif name.endswith("hip_joint"):
-                            action[index] = np.clip(0.08 * vy + 0.06 * wz, -1.0, 1.0)
-                        elif name.endswith("thigh_joint"):
-                            action[index] = np.clip(0.20 * vx * np.sin(phase + offset), -1.0, 1.0)
-                        else:
-                            action[index] = np.clip(-0.25 * abs(vx) * max(0.0, np.sin(phase + offset)), -1.0, 1.0)
-                else:
-                    action, _ = agent.act(obs, deterministic=True)
-                obs, reward, done, info = env.step(action)
-                position = np.asarray(info["base_position"][0][:2], dtype=np.float32)
-                total_reward += float(reward[0])
-                steps += 1
-                if waypoint_index < len(route):
-                    target = route[waypoint_index]
-                    if float(np.linalg.norm(position - target)) <= request.waypoint_tolerance:
-                        waypoint_index += 1
-                if bool(done[0]):
-                    break
-            final_position = np.asarray(info["base_position"][0][:2], dtype=np.float32)
-            route_distance = float(np.linalg.norm(final_position - start))
-            episode_results.append({
-                "steps": steps,
-                "waypoints_reached": waypoint_index,
-                "route_completion": waypoint_index / len(route),
-                "distance_travelled": route_distance,
-                "reward": total_reward,
-                "final_position": final_position.tolist(),
-            })
-
-        result = {
-            "task_id": task.task_id,
-            "artifact_id": artifact.artifact_id,
-            "robot": task.contract.family,
-            "evaluated_env": "contract-mujoco-navigation",
-            "map_id": request.map_id,
-            "control_mode": request.control_mode,
-            "waypoints": route.tolist(),
-            "episodes": request.episodes,
-            "route_completion": float(np.mean([item["route_completion"] for item in episode_results])),
-            "waypoints_reached": int(np.mean([item["waypoints_reached"] for item in episode_results])),
-            "avg_distance_travelled": float(np.mean([item["distance_travelled"] for item in episode_results])),
-            "avg_reward": float(np.mean([item["reward"] for item in episode_results])),
-            "episode_results": episode_results,
-        }
-        (task.task_dir / "navigation.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        return {"success": True, "result": result}
-    finally:
-        env.close()
+    return await _run_native_navigation(task, request)
 
 
 async def _run_native_navigation(task, request: NavigationRequest):

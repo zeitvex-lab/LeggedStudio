@@ -9,9 +9,9 @@ from adapters.mjlab.training_adapter import TrainingConfig
 
 class ContractMujocoEnvTests(unittest.TestCase):
     def test_worker_config_accepts_resolved_recipe_metadata(self):
-        config = TrainingConfig(seed=7, backend="local_mujoco", resolved_recipe={"schema_version": "training-recipe-1.0"})
+        config = TrainingConfig(seed=7, resolved_recipe={"schema_version": "training-recipe-1.0"})
         self.assertEqual(config.seed, 7)
-        self.assertEqual(config.backend, "local_mujoco")
+        self.assertEqual(config.backend, "native_mjlab")
 
     def test_go2_rollout_shapes(self):
         contract = RobotContractV2.from_json_file("contracts/fixtures/unitree_go2.v2.json")

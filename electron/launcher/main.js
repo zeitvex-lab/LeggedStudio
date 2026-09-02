@@ -438,12 +438,14 @@ async function startBackend() {
         throw new Error(`找不到后端入口: ${PATHS.backend}`);
     }
 
-    const configuredPython = readSettings().pythonPath;
-    const pythonExecutable = configuredPython || PATHS.python;
     const setup = await setupEnvironment({ installDependencies: true });
     if (!setup.ok) {
         throw new Error(setup.error || 'Python runtime or control-plane dependencies are unavailable');
     }
+    // Provisioning can replace PATHS.python, so resolve the executable only
+    // after setup has completed.
+    const configuredPython = readSettings().pythonPath;
+    const pythonExecutable = configuredPython || PATHS.python;
     emit('backend-log', `[launcher] starting backend: ${PATHS.backend}`);
     emit('backend-log', `[launcher] python: ${pythonExecutable}`);
     pythonProcess = spawn(pythonExecutable, ['-m', 'uvicorn', 'backend.api_complete:app', '--host', '127.0.0.1', '--port', String(port)], {

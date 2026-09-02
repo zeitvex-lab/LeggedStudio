@@ -1,4 +1,4 @@
-"""Compatibility entry point for the Contract-driven MuJoCo trainer."""
+"""Compatibility entry point for the native MJLab trainer."""
 
 import numpy as np
 import torch
@@ -8,7 +8,6 @@ import time
 
 from contracts.robot_contract_v2 import RobotContractV2
 from contracts.policy_artifact import PolicyArtifact, TrainingMetrics, create_artifact_from_training
-from adapters.mjlab.training_adapter import MJLabTrainingAdapter, TrainingConfig
 
 
 class RunningMeanStd:
@@ -45,7 +44,7 @@ class RunningMeanStd:
 
 class CompleteTrainer:
     """
-    Backwards-compatible wrapper around the real MuJoCo/PPO adapter.
+    Backwards-compatible wrapper around the native MJLab/PPO worker.
 
     Older callers can keep using ``CompleteTrainer`` while all new training
     flows share the same Contract-driven environment and artifact semantics.
@@ -61,18 +60,32 @@ class CompleteTrainer:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.config = dict(config)
-        self.adapter = MJLabTrainingAdapter(
-            contract=contract,
-            config=TrainingConfig(**{key: value for key, value in self.config.items() if key in TrainingConfig.__annotations__}),
-            output_dir=output_dir,
-        )
+        self.adapter = None
 
     def train(
         self,
         progress_callback: Optional[Callable[[dict], None]] = None
     ) -> PolicyArtifact:
-        """Execute real MuJoCo rollouts and PPO updates."""
-        return self.adapter.train(progress_callback=progress_callback)
+        """Execute native MJLab training in the isolated worker runtime."""
+        from adapters.mjlab.native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE
+        from adapters.mjlab.native_worker import run
+
+        contract_path = self.output_dir / "contract.json"
+        self.contract.to_json_file(str(contract_path))
+        config = {
+            **self.config,
+            "backend": "native_mjlab",
+            "mode": "train",
+            "contract_path": str(contract_path.resolve()),
+            "native_task_id": "Unitree-Go2W-Flat" if self.contract.robot_id == "unitree_go2w" else "Unitree-Go2-Flat",
+        }
+        exit_code = run(config, DEFAULT_SOURCE, self.output_dir, DEFAULT_EXTENSION)
+        if exit_code != 0:
+            raise RuntimeError(f"native MJLab worker exited with code {exit_code}")
+        artifact_path = self.output_dir / "artifact.json"
+        if not artifact_path.exists():
+            raise RuntimeError("native MJLab worker completed without an artifact")
+        return PolicyArtifact.from_json_file(str(artifact_path))
 
 # ========== 便捷函数 ==========
 

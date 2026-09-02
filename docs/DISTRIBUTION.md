@@ -118,7 +118,7 @@ native MJLab CUDA training does require a compatible NVIDIA driver.
 
 - Electron launcher and configurable local backend port.
 - Contract validation and canonical Go2/Go2W asset loading.
-- Local MuJoCo simulation and PPO/SAC/TD3 adapter smoke paths.
+- MuJoCo interactive simulation for basic teleoperation.
 - Native MJLab Go2/Go2W PPO training, evaluation, and waypoint navigation.
 - CUDA native MJLab selection on the validated RTX 4060 environment.
 

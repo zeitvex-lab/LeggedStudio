@@ -15,7 +15,8 @@ flowchart LR
   Contract --> Validate[URDF/MJCF validation]
   Validate --> Recipe[Task + algorithm + reward recipe]
   Recipe --> Worker[Adapter worker]
-  Worker --> Train[MuJoCo fallback / native MJLab]
+  Worker --> Train[Native MJLab worker]
+  API --> Sim[MuJoCo interactive simulation]
   Train --> Artifact[PolicyArtifact + metrics]
   Artifact --> Eval[Evaluation and navigation]
   Eval --> Export[Deployment/export boundary]
@@ -27,11 +28,11 @@ flowchart LR
 | --- | --- | --- |
 | Desktop/Web | Lifecycle, forms, logs, plots, workflow navigation | Implemented for local control plane |
 | Contract store | Versioned robot, scenario, recipe, and policy metadata | Robot Contract v2 and PolicyArtifact are implemented; Scenario Contract is the next extension |
-| Registry | Discover algorithms, rewards, maps, and task options | PPO/SAC/TD3 registry and reward/map discovery implemented |
+| Registry | Discover algorithms, rewards, maps, and task options | PPO is exposed for native MJLab training; SAC/TD3 remain registered for future native implementations |
 | Recipe registry | Resolve task, algorithm, terrain, commands, and reward scales into one reproducible payload | `adapters/mjlab/recipe_registry.py` and `/api/training/resolve-recipe` implemented |
 | Scenario Contract | Version map, waypoints, command limits, seed, and metrics | `contracts/scenario_contract.py` and `/api/scenarios/validate` implemented |
-| Local adapter | Small CPU MuJoCo environment and smoke training | Verified for PPO/SAC/TD3 smoke runs when adapter dependencies are installed |
-| Native MJLab adapter | External MJLab source with the unified `adapters/mjlab` worker | Go2/Go2W worker training, evaluation, and navigation verified; source tree and CUDA runtime remain host-configured |
+| Simulation adapter | Interactive MuJoCo sessions for basic teleoperation and map stepping | Available through `/api/simulation`; this is simulation only, never a training backend |
+| Native MJLab adapter | External MJLab source with the unified `adapters/mjlab` worker | The only training backend; Go2/Go2W training, evaluation, and navigation use the isolated worker |
 | Navigation planner | Waypoints, manual commands, locomotion policy replay | Waypoint replay API implemented; pure-pursuit/recovery state machine is a Phase 2 enhancement |
 | Artifact/export | Checkpoints, manifest, ONNX/deployment mapping | Manifest/checkpoint path exists; hardware-specific export remains an explicit boundary |
 
@@ -54,15 +55,14 @@ python scripts/legged_studio_cli.py simulate --map flat --steps 10 --vx 0.3
 ## Runtime and dependency policy
 
 The control plane should remain importable with FastAPI, Uvicorn, and Pydantic.
-NumPy, MuJoCo, PyTorch, ONNX Runtime, and native MJLab are adapter dependencies:
-they are loaded only by the relevant routes or workers. The desktop launcher
-does not install or start anything on open. Configuration is an explicit action
-after the user clicks the start button, and each adapter may use its own locked
-Python environment.
+MuJoCo is used by the interactive simulation and MJLab runtime; PyTorch, Warp,
+RSL-RL, and native MJLab are loaded only by the isolated training worker. The
+desktop launcher does not install or start anything on open. Configuration is
+an explicit action after the user clicks the start button.
 
 ## Verification levels
 
-- **Verified**: API health, model and Contract validation, local MuJoCo session lifecycle, and low-scale PPO/SAC/TD3 smoke training.
+- **Verified**: API health, model and Contract validation, and MuJoCo session lifecycle for interactive simulation.
 - **Verified**: native MJLab manager-based Go2/Go2W training, CUDA selection, evaluation, and waypoint navigation in the isolated worker. `/api/adapters/status` reports source readiness without importing the native stack into the control plane.
 - **Candidate**: packaged native-runtime provisioning and Viser/Three.js rich simulation rendering.
 - **Phase 2/3**: waypoint-conditioned planner, scenario persistence, ONNX numerical replay gates, and hardware deployment.

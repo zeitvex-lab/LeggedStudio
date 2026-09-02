@@ -1,4 +1,4 @@
-"""Contract-driven MuJoCo vector environment for Go2 and Go2W training."""
+"""Contract-driven MuJoCo vector environment for interactive simulation."""
 
 from __future__ import annotations
 

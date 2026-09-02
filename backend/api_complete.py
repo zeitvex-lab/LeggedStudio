@@ -277,8 +277,8 @@ async def get_capabilities():
     return {
         "control_plane": True,
         "adapters": {
-            "local_mujoco": simulation_router is not None,
             "native_mjlab": native_mjlab_preflight().get("execution_ready", False),
+            "mujoco_simulation": simulation_router is not None,
             "export_onnx": export_router is not None,
         },
         "import_errors": {
@@ -293,12 +293,12 @@ async def get_capabilities():
 
 @app.get("/api/adapters/status")
 async def get_adapter_status():
-    """Report local and native adapter readiness for the Web setup panel."""
+    """Report native MJLab training and MuJoCo simulation readiness."""
     native = native_mjlab_preflight()
     return {
-        "local_mujoco": {"status": "ready" if simulation_router is not None else "missing_dependencies", "api_loaded": simulation_router is not None},
         "native_mjlab": native,
-        "policy": "native MJLab is opt-in and runs in an isolated adapter process",
+        "mujoco_simulation": {"status": "ready" if simulation_router is not None else "missing_dependencies", "api_loaded": simulation_router is not None},
+        "policy": "training uses native MJLab in its isolated adapter environment; interactive simulation uses MuJoCo",
     }
 
 @app.get("/api")
