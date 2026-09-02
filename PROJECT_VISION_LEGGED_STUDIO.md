@@ -25,11 +25,12 @@ Web 工作台目前聚焦五个功能区：
 ## 已实现能力
 
 - FastAPI 控制面、Electron 桌面启动器和可配置本地端口。
-- Go2/Go2W Robot Contract、资产清单和基础验证接口。
+- Go2/Go2W Robot Contract、资产清单和基础验证接口；验证页可导入用户自己的 URDF/MJCF 与相对 mesh 资源，保存到工作区并生成 Contract 草稿，preset 仅作为快捷模板。
 - 唯一训练框架为 native MJLab；当前注册并可运行的算法为 PPO。
 - MJLab worker 的运行时预检、训练任务状态、日志、metrics 和 artifact 索引。
 - MuJoCo 基础仿真会话，支持 flat、rough、stairs、warehouse 地图及基础/导航模式数据契约。
 - Web 与桌面启动器采用接近 MJLab Play/Viser 的白色、浅灰、蓝色控件风格。
+- 训练配置支持 JSON 导入/导出，导出的配置可作为后续 CLI 的输入。
 - Windows Online 7z 打包脚本，以及按需配置 Python、Torch、MJLab 的流程。
 
 ## 明确的边界

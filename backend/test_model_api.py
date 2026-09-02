@@ -37,6 +37,18 @@ class ModelInspectionTests(unittest.TestCase):
         self.assertTrue(any("missing limit" in item for item in payload["errors"]))
         self.assertIn("inertial", payload["inspection"])
 
+    def test_import_persists_model_and_generates_contract_draft(self):
+        urdf = """<robot name='imported'><link name='base'><inertial><mass value='2'/></inertial></link></robot>"""
+        response = self.client.post(
+            "/api/models/import",
+            json={"files": [{"path": "demo/model.urdf", "content": urdf, "encoding": "utf-8"}], "model_filename": "demo/model.urdf", "format": "auto"},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["imported"])
+        self.assertTrue(payload["model_path"].startswith("workspace/imports/"))
+        self.assertEqual(payload["contract_draft"]["source"], "legged_studio_asset_import")
+
 
 if __name__ == "__main__":
     unittest.main()
