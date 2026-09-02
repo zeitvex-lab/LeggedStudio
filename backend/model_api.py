@@ -31,6 +31,124 @@ class ModelValidationRequest(BaseModel):
     contract: dict[str, Any] | None = None
 
 
+def _resolve_resource(raw_value: str, source_path: Path) -> Path:
+    """Resolve URDF/package resources using the same relative semantics as viewers."""
+    value = raw_value.strip()
+    if value.startswith("package://"):
+        value = value[len("package://"):]
+        candidates = [source_path.parent / value]
+        parts = value.split("/", 1)
+        if len(parts) == 2:
+            candidates.append(source_path.parent / parts[1])
+    else:
+        candidates = [Path(value) if Path(value).is_absolute() else source_path.parent / value]
+    roots = [Path(__file__).resolve().parent.parent, Path(os.environ.get("LEGGED_STUDIO_WORKSPACE", "workspace")).resolve()]
+    candidates.extend(root / value for root in roots)
+    return next((candidate.resolve() for candidate in candidates if candidate.exists()), candidates[0].resolve())
+
+
+def _urdf_inspection(root: ET.Element, source_path: Path, errors: list[str], warnings: list[str]) -> tuple[dict[str, Any], dict[str, Any]]:
+    links = root.findall(".//link")
+    joints = root.findall("./joint")
+    actuated = [item for item in joints if item.get("type") not in {"fixed", "floating", "planar"}]
+    mesh_files = sorted({item.get("filename") for item in root.findall(".//geometry/mesh") if item.get("filename")})
+    missing_meshes = [mesh for mesh in mesh_files if not _resolve_resource(mesh, source_path).exists()]
+    errors.extend([f"mesh file not found: {item}" for item in missing_meshes[:20]])
+
+    link_names = [item.get("name") for item in links if item.get("name")]
+    joint_names = [item.get("name") for item in joints if item.get("name")]
+    duplicate_links = sorted({name for name in link_names if link_names.count(name) > 1})
+    duplicate_joints = sorted({name for name in joint_names if joint_names.count(name) > 1})
+    if duplicate_links:
+        errors.append(f"duplicate link names: {', '.join(duplicate_links[:12])}")
+    if duplicate_joints:
+        errors.append(f"duplicate joint names: {', '.join(duplicate_joints[:12])}")
+
+    child_links = {item.findtext("child") for item in joints if item.findtext("child")}
+    parent_links = {item.findtext("parent") for item in joints if item.findtext("parent")}
+    roots = sorted(set(link_names) - child_links)
+    disconnected = sorted(set(link_names) - (parent_links | child_links | set(roots)))
+    if len(roots) != 1 and links:
+        warnings.append(f"URDF has {len(roots)} root links; expected one")
+    if disconnected:
+        warnings.append(f"disconnected links: {', '.join(disconnected[:12])}")
+
+    inertial_missing: list[str] = []
+    invalid_mass: list[str] = []
+    total_mass = 0.0
+    for link in links:
+        inertial = link.find("inertial")
+        if inertial is None:
+            inertial_missing.append(link.get("name", "<unnamed>"))
+            continue
+        mass_node = inertial.find("mass")
+        try:
+            mass = float(mass_node.get("value", "nan")) if mass_node is not None else float("nan")
+            if not mass > 0:
+                raise ValueError
+            total_mass += mass
+        except (TypeError, ValueError):
+            invalid_mass.append(link.get("name", "<unnamed>"))
+    if inertial_missing:
+        warnings.append(f"links without inertial: {len(inertial_missing)}")
+    if invalid_mass:
+        errors.append(f"invalid or non-positive mass on: {', '.join(invalid_mass[:12])}")
+
+    limit_issues: list[str] = []
+    for joint in actuated:
+        kind = joint.get("type", "")
+        limit = joint.find("limit")
+        if kind in {"revolute", "prismatic"} and limit is None:
+            limit_issues.append(f"{joint.get('name', '<unnamed>')}: missing limit")
+        if limit is not None and limit.get("lower") is not None and limit.get("upper") is not None:
+            try:
+                if float(limit.get("lower")) > float(limit.get("upper")):
+                    limit_issues.append(f"{joint.get('name', '<unnamed>')}: lower > upper")
+            except ValueError:
+                limit_issues.append(f"{joint.get('name', '<unnamed>')}: invalid limits")
+    errors.extend(limit_issues[:20])
+
+    stats = {"links": len(links), "joints": len(joints), "actuated_joints": len(actuated), "actuators": None, "total_mass_kg": total_mass}
+    inspection = {
+        "root_name": root.get("name"),
+        "links": link_names,
+        "joints": [{"name": item.get("name"), "type": item.get("type"), "parent": item.findtext("parent"), "child": item.findtext("child")} for item in joints],
+        "mesh_files": mesh_files,
+        "missing_meshes": missing_meshes,
+        "topology": {"root_links": roots, "disconnected_links": disconnected, "duplicate_links": duplicate_links, "duplicate_joints": duplicate_joints},
+        "inertial": {"missing_links": inertial_missing, "invalid_mass_links": invalid_mass, "total_mass_kg": total_mass},
+        "limits": {"issues": limit_issues},
+    }
+    return stats, inspection
+
+
+def _mjcf_inspection(root: ET.Element, errors: list[str], warnings: list[str]) -> tuple[dict[str, Any], dict[str, Any]]:
+    bodies = root.findall(".//body")
+    joints = root.findall(".//joint")
+    actuators = root.findall(".//actuator/*")
+    joint_names = [item.get("name") for item in joints if item.get("name")]
+    actuator_names = [item.get("name") for item in actuators if item.get("name")]
+    actuator_targets = [item.get("joint") or item.get("tendon") for item in actuators]
+    missing_targets = [name for name in actuator_targets if name and name not in joint_names and name not in {item.get("name") for item in root.findall(".//tendon/*")}]
+    if missing_targets:
+        errors.extend([f"actuator target not found: {item}" for item in missing_targets[:20]])
+    if joints and not actuators:
+        warnings.append("MJCF contains joints but no actuators")
+    stats = {"links": len(bodies), "joints": len(joints), "actuated_joints": len(joints), "actuators": len(actuators), "total_mass_kg": None}
+    inspection = {
+        "root_name": root.get("model"),
+        "links": [item.get("name") for item in bodies if item.get("name")],
+        "joints": [{"name": item.get("name"), "type": item.get("type"), "parent": None, "child": None} for item in joints],
+        "mesh_files": sorted({item.get("file") for item in root.findall(".//mesh") if item.get("file")}),
+        "missing_meshes": [],
+        "topology": {"root_links": [], "disconnected_links": [], "duplicate_links": [], "duplicate_joints": []},
+        "inertial": {"missing_links": [], "invalid_mass_links": [], "total_mass_kg": None},
+        "limits": {"issues": []},
+        "actuators": {"names": actuator_names, "targets": actuator_targets, "missing_targets": missing_targets},
+    }
+    return stats, inspection
+
+
 def _safe_path(value: str) -> Path:
     candidate = resolve_asset_path(value)
     allowed_roots = [
@@ -79,38 +197,16 @@ def _validate(request: ModelValidationRequest) -> dict[str, Any]:
             errors.append("MJCF root element must be <mujoco>")
 
         if model_format == "urdf":
-            links = root.findall(".//link")
-            joints = root.findall("./joint")
-            actuated = [item for item in joints if item.get("type") not in {"fixed", "floating", "planar"}]
-            mesh_files = [item.get("filename") for item in root.findall(".//geometry/mesh") if item.get("filename")]
-            missing_meshes = []
-            for mesh in mesh_files:
-                mesh_path = Path(mesh.replace("package://", ""))
-                if not mesh_path.is_absolute():
-                    mesh_path = path.parent / mesh_path
-                if not mesh_path.exists():
-                    missing_meshes.append(mesh)
-            if missing_meshes:
-                errors.extend([f"mesh file not found: {item}" for item in missing_meshes[:20]])
-            mass = 0.0
-            for element in root.findall(".//inertial/mass"):
-                try:
-                    mass += float(element.get("value", "0"))
-                except ValueError:
-                    errors.append(f"invalid mass value on link: {element.get('value')}")
-            stats = {"links": len(links), "joints": len(joints), "actuated_joints": len(actuated), "actuators": None, "total_mass_kg": mass}
-            if not links:
+            stats, inspection = _urdf_inspection(root, path, errors, warnings)
+            if not stats["links"]:
                 errors.append("URDF contains no links")
-            if not joints:
+            if not stats["joints"]:
                 warnings.append("model contains no joints")
             mujoco_loadable = None
             mujoco_error = "URDF inspection does not compile through MJCF loader; convert/import it in the asset workbench"
         elif model_format == "mjcf":
-            bodies = root.findall(".//body")
-            joints = root.findall(".//joint")
-            actuators = root.findall(".//actuator/*")
-            stats = {"links": len(bodies), "joints": len(joints), "actuated_joints": len(joints), "actuators": len(actuators), "total_mass_kg": None}
-            if not bodies:
+            stats, inspection = _mjcf_inspection(root, errors, warnings)
+            if not stats["links"]:
                 errors.append("MJCF contains no bodies")
             mujoco_loadable = False
             mujoco_error = ""
@@ -124,6 +220,7 @@ def _validate(request: ModelValidationRequest) -> dict[str, Any]:
                 errors.append(f"MuJoCo compilation failed: {exc}")
         else:
             stats = {"links": 0, "joints": 0, "actuated_joints": 0, "actuators": 0, "total_mass_kg": None}
+            inspection = {"root_name": None, "links": [], "joints": [], "mesh_files": [], "missing_meshes": [], "topology": {}, "inertial": {}, "limits": {}}
             errors.append("could not infer URDF or MJCF format")
             mujoco_loadable = False
             mujoco_error = "unknown XML root"
@@ -142,7 +239,7 @@ def _validate(request: ModelValidationRequest) -> dict[str, Any]:
                     "warnings": [item.message for item in validation.warnings],
                 }
                 if model_format == "urdf":
-                    model_joint_names = {item.get("name") for item in root.findall("./joint")}
+                    model_joint_names = {item.get("name") for item in root.findall("./joint")} if model_format == "urdf" else {item.get("name") for item in root.findall(".//joint")}
                     missing = [name for name in contract.joints.actuated_joints if name not in model_joint_names]
                     if missing:
                         errors.append(f"Contract joints missing from model: {', '.join(missing[:12])}")
@@ -157,6 +254,7 @@ def _validate(request: ModelValidationRequest) -> dict[str, Any]:
             "source_path": str(path),
             "sha256": digest,
             "stats": stats,
+            "inspection": inspection,
             "joint_names": [item.get("name") for item in root.findall(".//joint") if item.get("name")],
             "actuator_names": [item.get("name") for item in root.findall(".//actuator/*") if item.get("name")],
             "mujoco_loadable": mujoco_loadable,
