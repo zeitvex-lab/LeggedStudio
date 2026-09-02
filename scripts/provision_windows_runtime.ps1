@@ -1,7 +1,11 @@
 param(
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [string]$TargetRoot,
-    [string]$BootstrapRoot = ''
+    [Parameter(Mandatory = $false)]
+    [string]$BootstrapRoot = '',
+    [ValidateSet('gpu', 'cpu', '')]
+    [string]$Device = 'gpu',
+    [switch]$DetectGpus
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,9 +16,41 @@ $mjlabVersion = '1.6.0'
 $mjlabCommit = 'b517e0c489139e7fcee95702cfb2b01931264985'
 $unitreeCommit = '1425b15f73bd4095f0df53709d7c389c3eb9e790'
 $pypiIndex = if ($env:LEGGED_STUDIO_PYPI_INDEX) { $env:LEGGED_STUDIO_PYPI_INDEX } else { 'https://pypi.tuna.tsinghua.edu.cn/simple' }
-$torchIndex = if ($env:LEGGED_STUDIO_TORCH_INDEX) { $env:LEGGED_STUDIO_TORCH_INDEX } else { 'https://mirror.sjtu.edu.cn/pytorch-wheels/cu128/' }
 
 if (-not $IsWindows -and $env:OS -ne 'Windows_NT') { throw 'Windows runtime provisioning requires Windows.' }
+
+# GPU detection mode: print one JSON line with NVIDIA device names (available
+# to Torch via CUDA) then exit. Used by the desktop launcher to list accelerators.
+if ($DetectGpus) {
+    $gpus = @()
+    try {
+        $controllers = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue
+        foreach ($controller in $controllers) {
+            $gpu = @{
+                name = $controller.Name
+                pnp_device_id = $controller.PNPDeviceID
+                is_nvidia = $false
+            }
+            if ($controller.PNPDeviceID -match '(?i)VEN_10DE') { $gpu.is_nvidia = $true }
+            $gpus += $gpu
+        }
+    } catch {}
+    Write-Output (($gpus | ConvertTo-Json -Compress) -replace '\\u0000', '')
+    exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($Device)) { $Device = 'gpu' }
+$device = $Device.ToLowerInvariant()
+
+# Select the Torch wheel index by requested device. cu128 includes bundled CUDA
+# wheels; the CPU index installs a CPU-only build that runs without an NVIDIA GPU.
+if ($device -eq 'cpu') {
+    $torchIndex = 'https://download.pytorch.org/whl/cpu'
+    $torchSuffix = 'cpu'
+} else {
+    $torchIndex = if ($env:LEGGED_STUDIO_TORCH_INDEX) { $env:LEGGED_STUDIO_TORCH_INDEX } else { 'https://mirror.sjtu.edu.cn/pytorch-wheels/cu128/' }
+    $torchSuffix = 'cu128'
+}
 
 function Publish-Stage([string]$stageName, [int]$percent, [string]$message) {
     Write-Output "::progress::$stageName|$percent|$message"
@@ -41,8 +77,14 @@ function Get-ManifestPython([string]$root, [string]$manifestFile) {
 
 $installedPython = Get-ManifestPython $target $manifestPath
 if ($installedPython) {
-    & $installedPython -c "import torch,mjlab,warp,mujoco_warp,fastapi; assert torch.__version__.startswith('$torchVersion')"
-    if ($LASTEXITCODE -eq 0) {
+    $installedDevice = 'unknown'
+    try {
+        $installedManifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+        $installedDevice = $installedManifest.device
+    } catch {}
+    $torchCheck = "import torch,mjlab,warp,mujoco_warp,fastapi; assert torch.__version__.startswith('$torchVersion')"
+    & $installedPython -c $torchCheck
+    if ($LASTEXITCODE -eq 0 -and $installedDevice -eq $device) {
         Publish-Stage 'complete' 100 'Runtime is already configured'
         Write-Host "Legged Studio runtime is already ready: $target"
         exit 0
@@ -85,13 +127,14 @@ Get-ChildItem $pythonRoot -Attributes ReparsePoint -ErrorAction SilentlyContinue
 $tempPython = Join-Path $pythonRoot '.temp'
 if (Test-Path $tempPython) { Remove-Item -LiteralPath $tempPython -Recurse -Force }
 
-Write-Host "Installing the Windows GPU profile from domestic mirrors..."
+Write-Host "Installing the Windows $device profile from domestic mirrors..."
 Publish-Stage 'dependencies' 25 'Resolving dependencies from domestic mirrors'
 Write-Host "PyPI: $pypiIndex"
 Write-Host "Torch: $torchIndex"
-& $uvExe pip install --break-system-packages --python $pythonExe --index-strategy unsafe-best-match --index $torchIndex --default-index $pypiIndex "torch==$torchVersion+cu128" "mjlab==$mjlabVersion" 'onnxruntime>=1.20,<2' 'fastapi>=0.115.0' 'uvicorn[standard]>=0.31.0' 'pydantic>=2.0.0'
+$torchRequirement = "torch==$torchVersion+$torchSuffix"
+& $uvExe pip install -v --break-system-packages --python $pythonExe --index-strategy unsafe-best-match --index $torchIndex --default-index $pypiIndex $torchRequirement "mjlab==$mjlabVersion" 'onnxruntime>=1.20,<2' 'fastapi>=0.115.0' 'uvicorn[standard]>=0.31.0' 'pydantic>=2.0.0'
 if ($LASTEXITCODE -ne 0) { throw 'MJLab dependency installation failed' }
-Publish-Stage 'dependencies' 80 'Python and GPU dependencies installed'
+Publish-Stage 'dependencies' 80 'Python and dependencies installed'
 
 function Install-GitHubSnapshot([string]$repository, [string]$commit, [string]$destination) {
     $safeName = $repository.Replace('/', '-')
@@ -123,10 +166,11 @@ Publish-Stage 'verify' 95 'Runtime verification passed'
 $manifest = [ordered]@{
     schema_version = 'downloaded-runtime-1'
     platform = 'win32-x64'
+    device = $device
     python = (Get-Item $pythonExe).FullName.Substring($stage.Length + 1)
     python_version = $pythonVersion
     uv_version = $uvVersion
-    torch_version = "$torchVersion+cu128"
+    torch_version = "$torchVersion+$torchSuffix"
     mjlab_version = $mjlabVersion
     mjlab_commit = $mjlabCommit
     unitree_commit = $unitreeCommit

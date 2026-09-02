@@ -210,25 +210,25 @@ WEB_DIR = Path(__file__).parent.parent / "web"
 
 @app.get("/", include_in_schema=False)
 async def root_redirect():
-    return RedirectResponse(url="/web/dashboard_v2.html", status_code=302)
+    return RedirectResponse(url="/web/dashboard.html", status_code=302)
 
-@app.get("/web/dashboard_v2.html", include_in_schema=False)
+@app.get("/web/dashboard.html", include_in_schema=False)
 async def serve_dashboard():
-    dashboard_path = WEB_DIR / "dashboard_v2.html"
+    dashboard_path = WEB_DIR / "dashboard.html"
     if dashboard_path.exists():
         return FileResponse(dashboard_path, media_type="text/html")
     return {"error": "Dashboard not found"}
 
-@app.get("/web/dashboard_v2.css", include_in_schema=False)
+@app.get("/web/dashboard.css", include_in_schema=False)
 async def serve_css():
-    css_path = WEB_DIR / "dashboard_v2.css"
+    css_path = WEB_DIR / "dashboard.css"
     if css_path.exists():
         return FileResponse(css_path, media_type="text/css")
     return {"error": "CSS not found"}
 
-@app.get("/web/dashboard_v2.js", include_in_schema=False)
+@app.get("/web/dashboard.js", include_in_schema=False)
 async def serve_js():
-    js_path = WEB_DIR / "dashboard_v2.js"
+    js_path = WEB_DIR / "dashboard.js"
     if js_path.exists():
         return FileResponse(js_path, media_type="application/javascript")
     return {"error": "JS not found"}

@@ -12,18 +12,25 @@ Extract the project-branded Online archive and run `Legged Studio.exe`:
 Legged-Studio-0.3.0-Windows-Online\Legged Studio.exe
 ```
 
-Click **Configure Runtime** to install the pinned Windows GPU profile into the
-Electron user-data directory. The Online archive already contains uv, the
-CPython 3.12.13 bootstrap, and fixed MJLab/Unitree source snapshots, so the
-configuration step does not need GitHub.
+The default runtime never uses the system Python interpreter. The launcher
+uses the bundled/on-demand portable Python 3.12.13 only; the Python path is
+used from Settings only when you explicitly override it there.
+
+Click **Configure Runtime** to install the pinned Windows runtime profile into
+the Electron user-data directory. In Settings you can choose the compute
+device (**GPU** by default, or **CPU**); when GPU is selected the launcher
+lists the detected NVIDIA graphics cards. The Online archive already contains
+uv, the CPython 3.12.13 bootstrap, and fixed MJLab/Unitree source snapshots, so
+the configuration step does not need GitHub.
 
 The runtime profile uses:
 
 - Python 3.12.13 and uv 0.11.8
-- Torch 2.11.0+cu128
+- Torch 2.11.0 (`+cu128` when GPU, `+cpu` when CPU)
 - MJLab 1.6.0
 - MuJoCo and MuJoCo-Warp 3.11.0
-- Tsinghua PyPI and Shanghai Jiao Tong cu128 PyTorch mirrors
+- Tsinghua PyPI and Shanghai Jiao Tong cu128 PyTorch mirrors (GPU) or the
+  PyTorch CPU index
 
 After provisioning completes, click **Start control plane**. The launcher
 creates writable user-data directories, verifies Python and dependencies, starts
@@ -37,9 +44,9 @@ The service port defaults to `8765` and accepts integers from `1024` through
 another service is rejected; an unrelated service can never be mistaken for
 Legged Studio.
 
-The Python path override is optional. Unsupported Python versions are rejected
-before pip runs. The launcher never installs control-plane packages into an
-unintended Python 3.9/3.10/3.11 interpreter.
+The Python path override is optional and opens a file picker. Leave it empty to
+always use the project-bundled portable Python; the launcher never falls back to
+the system Python. Unsupported Python versions are rejected before pip runs.
 
 ## Development commands
 

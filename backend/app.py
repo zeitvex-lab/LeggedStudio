@@ -170,7 +170,7 @@ try:  # Optional dependency; stdlib fallback remains the supported baseline.
 
     @app.get("/", include_in_schema=False)
     def index() -> FileResponse:
-        return FileResponse(WEB_DIR / "index.html")
+        return FileResponse(WEB_DIR / "dashboard.html")
 
     if WEB_DIR.is_dir():
         app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
@@ -184,7 +184,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         if not parsed.path.startswith("/api/"):
-            relative = "index.html" if parsed.path in {"", "/"} else parsed.path.lstrip("/")
+            relative = "dashboard.html" if parsed.path in {"", "/"} else parsed.path.lstrip("/")
             target = (WEB_DIR / relative).resolve()
             web_root = WEB_DIR.resolve()
             if target == web_root or web_root not in target.parents or not target.is_file():

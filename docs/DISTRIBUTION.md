@@ -19,14 +19,18 @@ environment.
 To avoid unreliable GitHub access for users in China, the Online archive
 already carries uv, the unconfigured CPython base distribution, and the fixed
 MJLab/Unitree source snapshots. Runtime wheel installation defaults to
-Tsinghua PyPI and the Shanghai Jiao Tong cu128 PyTorch mirror. No GitHub request
-is made during the packaged one-click setup.
+Tsinghua PyPI and (for the GPU profile) the Shanghai Jiao Tong cu128 PyTorch
+mirror. No GitHub request is made during the packaged one-click setup.
+
+The compute device is chosen in the launcher Settings (GPU by default, CPU as
+an alternative). The launcher lists the detected GPU names when GPU is selected
+and installs `torch==2.11.0+cu128` (GPU) or `torch==2.11.0+cpu` (CPU).
 
 | Component | Downloaded version |
 | --- | --- |
 | uv | 0.11.8 |
 | Python | 3.12.13 |
-| Torch | 2.11.0+cu128 |
+| Torch | 2.11.0 (`+cu128` GPU / `+cpu` CPU) |
 | MJLab | 1.6.0 |
 | MuJoCo / MuJoCo-Warp | 3.11.0 |
 | MJLab source | b517e0c489139e7fcee95702cfb2b01931264985 |

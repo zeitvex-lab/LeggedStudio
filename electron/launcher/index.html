@@ -62,6 +62,7 @@
             <div><strong id="runtime-progress-title">配置运行环境</strong><span id="runtime-progress-value">0%</span></div>
             <progress id="runtime-progress-bar" max="100" value="0"></progress>
             <small id="runtime-progress-message">等待开始</small>
+            <small id="runtime-progress-meta" class="runtime-progress-meta"></small>
           </section>
 
           <div class="content-grid">
@@ -102,9 +103,10 @@
           <section class="panel settings-panel">
             <div class="setting-row"><div><strong>控制平面地址</strong><small>本机回环地址，不对外暴露</small></div><code id="backend-url">http://127.0.0.1:8765</code></div>
             <div class="setting-row"><div><strong>Python 运行时</strong><small id="python-runtime-detail">检测中</small></div><div class="setting-actions"><code id="python-runtime-path">等待检测</code><button class="button secondary small" id="probe-python">重新检测</button></div></div>
-            <div class="setting-row"><div><strong>Windows GPU 运行环境</strong><small id="runtime-profile-detail">Python 3.12.13 · Torch 2.11.0+cu128 · 清华/上海交大镜像</small></div><button class="button secondary small" id="configure-runtime-settings">一键下载配置</button></div>
+            <div class="setting-row"><div><strong>Windows 运行环境</strong><small id="runtime-profile-detail">Python 3.12.13 · Torch 2.11.0 · 清华/上海交大镜像</small></div><div class="setting-actions"><button class="button secondary small" id="configure-runtime-settings">一键下载配置</button></div></div>
+            <div class="setting-row"><div><strong>计算设备</strong><small id="device-detail">选择训练运行所使用的设备，默认 GPU</small></div><div class="setting-actions radio-group" id="device-radio-group"><label class="radio-option"><input type="radio" name="torch-device" value="gpu" checked><span>GPU</span></label><label class="radio-option"><input type="radio" name="torch-device" value="cpu"><span>CPU</span></label><code id="device-name">检测中</code></div></div>
             <div class="setting-row"><div><strong>服务端口</strong><small>保存后在下次启动控制平面时生效，范围 1024–65535</small></div><div class="setting-actions"><input class="setting-input port-input" id="backend-port-input" type="number" min="1024" max="65535" step="1" value="8765"></div></div>
-            <div class="setting-row"><div><strong>Python 路径覆盖</strong><small>留空时自动选择便携运行时或系统 Python</small></div><div class="setting-actions"><input class="setting-input" id="python-path-input" placeholder="python.exe" spellcheck="false"><button class="button secondary small" id="save-settings">保存</button></div></div>
+            <div class="setting-row"><div><strong>Python 路径覆盖</strong><small>默认使用项目内置 Python；留空时自动选择内置运行时</small></div><div class="setting-actions"><input class="setting-input" id="python-path-input" placeholder="python.exe" spellcheck="false"><button class="button secondary small" id="pick-python">选择文件</button><button class="button secondary small" id="save-settings">保存</button></div></div>
             <div class="setting-row"><div><strong>工作区目录</strong><small id="workspace-detail">日志、输出和文档目录</small></div><button class="button secondary small" id="prepare-environment">初始化目录</button></div>
             <div class="setting-row"><div><strong>项目路径</strong><small id="root-path">等待读取</small></div><button class="button secondary small" id="settings-open-root">打开</button></div>
           </section>

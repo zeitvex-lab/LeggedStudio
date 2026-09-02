@@ -10,7 +10,7 @@
   <main class="shell">
     <header class="topbar">
       <div><span class="eyebrow">LEGGED STUDIO / WORKBENCH</span><h1>从模型到闭环验证</h1><p class="lede">在一个工作区完成 Contract 校验、强化学习训练、基础仿真与导航回放。</p></div>
-      <div class="top-actions"><span id="backendState" class="pill pending">后端检查中</span><a class="btn ghost" href="dashboard_v2.html">控制台</a></div>
+      <div class="top-actions"><span id="backendState" class="pill pending">后端检查中</span><a class="btn ghost" href="dashboard.html">控制台</a></div>
     </header>
 
     <nav class="steps" aria-label="工作流步骤">
@@ -59,7 +59,7 @@
       <label>手动命令序列（仅手动模式，JSON；每项持续一步）<textarea id="manualCommands" rows="3" spellcheck="false">[{"vx": 0.4, "vy": 0, "wz": 0}]</textarea></label>
       <div class="inline"><button id="runNavigation" class="btn primary" disabled>运行导航回放</button><span id="navigationHint" class="muted">训练完成后可在 Contract-MuJoCo 中回放路线。</span></div>
       <div id="evalResult" class="result empty">训练完成后可运行评估。</div>
-      <div class="panel-foot"><button class="btn ghost prev" data-prev="simulation">返回仿真</button><a class="btn primary" href="dashboard_v2.html">完成并返回控制台</a></div>
+      <div class="panel-foot"><button class="btn ghost prev" data-prev="simulation">返回仿真</button><a class="btn primary" href="dashboard.html">完成并返回控制台</a></div>
     </section>
   </main>
   <script src="workbench.js"></script>

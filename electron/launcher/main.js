@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const { spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -53,7 +53,6 @@ function resolvePaths() {
     const python = firstExisting([
         embeddedPython,
         path.join(root, 'runtime', 'python', pythonExecutable),
-        path.join(root, 'adapters', 'mjlab', '.venv', venvBin, pythonExecutable),
         path.join(resourceRoot, 'runtime', 'python', pythonExecutable),
         path.join(projectRoot, 'runtime', 'python', pythonExecutable),
     ]);
@@ -75,7 +74,7 @@ function resolvePaths() {
     return {
         root,
         backend,
-        python: fs.existsSync(python) ? python : 'python',
+        python: python,
         logs: path.join(root, 'logs'),
         docs: path.join(root, 'docs'),
         output: path.join(root, 'output'),
@@ -92,6 +91,7 @@ const DEFAULT_SETTINGS = {
     autoStartBackend: false,
     pythonPath: '',
     backendPort: DEFAULT_BACKEND_PORT,
+    torchDevice: 'gpu',
 };
 
 function settingsPath() {
@@ -116,6 +116,7 @@ function writeSettings(value) {
         autoStartBackend: Boolean(value?.autoStartBackend),
         pythonPath: typeof value?.pythonPath === 'string' ? value.pythonPath.trim() : '',
         backendPort,
+        torchDevice: value?.torchDevice === 'cpu' ? 'cpu' : 'gpu',
     };
     fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
     fs.writeFileSync(settingsPath(), JSON.stringify(next, null, 2), 'utf8');
@@ -158,6 +159,38 @@ function refreshDownloadedRuntimePaths() {
     return Boolean(downloadedPython && fs.existsSync(downloadedSource) && fs.existsSync(downloadedExtension) && fs.existsSync(runtimeManifest));
 }
 
+function getRuntimeDevice() {
+    const device = readSettings().torchDevice;
+    return device === 'cpu' ? 'cpu' : 'gpu';
+}
+
+function detectGpus() {
+    return new Promise((resolve) => {
+        const script = path.join(PATHS.root, 'scripts', 'provision_windows_runtime.ps1');
+        if (process.platform !== 'win32' || !fs.existsSync(script)) {
+            resolve({ ok: false, gpus: [], error: 'GPU detection is available on Windows only.' });
+            return;
+        }
+        execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-DetectGpus'], {
+            windowsHide: true,
+            timeout: 15000,
+            maxBuffer: 1024 * 1024 * 2,
+        }, (error, stdout, stderr) => {
+            if (error) {
+                resolve({ ok: false, gpus: [], error: stderr.trim() || error.message });
+                return;
+            }
+            const line = stdout.trim().split(/\r?\n/).filter((item) => item.trim().startsWith('[')).pop();
+            try {
+                const gpus = line ? JSON.parse(line) : [];
+                resolve({ ok: true, gpus });
+            } catch {
+                resolve({ ok: false, gpus: [], error: 'Unable to parse GPU detection output' });
+            }
+        });
+    });
+}
+
 function provisionWindowsRuntime() {
     if (process.platform !== 'win32') {
         return Promise.resolve({ ok: false, error: 'This runtime profile is available for Windows only.' });
@@ -171,11 +204,12 @@ function provisionWindowsRuntime() {
     }
     const target = PATHS.runtime || path.join(app.getPath('userData'), 'runtime');
     const bootstrap = path.join(PATHS.root, 'bootstrap');
+    const device = getRuntimeDevice();
     ensureWorkspaceDirectories();
-    emit('backend-log', `[runtime] profile ${DOWNLOAD_RUNTIME_VERSION}\n`);
+    emit('backend-log', `[runtime] profile ${DOWNLOAD_RUNTIME_VERSION} (${device})\n`);
     emit('backend-log', `[runtime] download target: ${target}\n`);
     return new Promise((resolve) => {
-        runtimeProvisionProcess = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-TargetRoot', target, '-BootstrapRoot', bootstrap], {
+        runtimeProvisionProcess = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-TargetRoot', target, '-BootstrapRoot', bootstrap, '-Device', device], {
             cwd: PATHS.root,
             windowsHide: true,
             stdio: ['ignore', 'pipe', 'pipe'],
@@ -191,17 +225,33 @@ function provisionWindowsRuntime() {
                 if (progress) {
                     emit('runtime-progress', { stage: progress[1], percent: Number(progress[2]), message: progress[3] });
                 } else if (line) {
+                    const trimmed = line.trim();
+                    if (trimmed.startsWith('DEBUG ') || trimmed.startsWith('WARN ')) continue;
                     emit('backend-log', `${line}\n`);
                 }
             }
         });
-        runtimeProvisionProcess.stderr.on('data', (data) => emit('backend-log', data.toString()));
+        let stderrBuffer = '';
+        runtimeProvisionProcess.stderr.on('data', (data) => {
+            stderrBuffer += data.toString();
+            const lines = stderrBuffer.split(/\r?\n/);
+            stderrBuffer = lines.pop() || '';
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('DEBUG ') || trimmed.startsWith('WARN ')) continue;
+                emit('backend-log', `${line}\n`);
+            }
+        });
         runtimeProvisionProcess.on('error', (error) => {
             runtimeProvisionProcess = null;
             resolve({ ok: false, error: error.message });
         });
         runtimeProvisionProcess.on('close', (code) => {
             if (stdoutBuffer) emit('backend-log', `${stdoutBuffer}\n`);
+            if (stderrBuffer) {
+                const trimmed = stderrBuffer.trim();
+                if (trimmed && !trimmed.startsWith('DEBUG ') && !trimmed.startsWith('WARN ')) emit('backend-log', `${stderrBuffer}\n`);
+            }
             runtimeProvisionProcess = null;
             if (code !== 0) {
                 emit('runtime-progress', { stage: 'failed', percent: 0, message: `配置失败，退出码 ${code}` });
@@ -216,7 +266,7 @@ function provisionWindowsRuntime() {
             const current = readSettings();
             writeSettings({ ...current, pythonPath: PATHS.python });
             emit('runtime-progress', { stage: 'complete', percent: 100, message: '运行环境配置完成' });
-            resolve({ ok: true, python: PATHS.python, runtime: PATHS.runtime, profile: DOWNLOAD_RUNTIME_VERSION });
+            resolve({ ok: true, python: PATHS.python, runtime: PATHS.runtime, profile: DOWNLOAD_RUNTIME_VERSION, device });
         });
     });
 }
@@ -487,20 +537,44 @@ ipcMain.handle('environment:setup', async () => {
     }
 });
 ipcMain.handle('environment:provision-windows', () => provisionWindowsRuntime());
-ipcMain.handle('environment:runtime-profile', () => ({
-    id: DOWNLOAD_RUNTIME_VERSION,
-    platform: 'win32-x64',
-    python: '3.12.13',
-    uv: '0.11.8',
-    torch: '2.11.0+cu128',
-    mjlab: '1.6.0',
-    mujoco: '3.11.0',
-    unitree: '1425b15',
-    packageIndex: '清华 PyPI',
-    torchIndex: '上海交大 PyTorch cu128',
-    installed: refreshDownloadedRuntimePaths(),
-    root: PATHS.runtime,
-}));
+ipcMain.handle('environment:gpu-list', () => detectGpus());
+ipcMain.handle('environment:runtime-profile', () => {
+    const device = getRuntimeDevice();
+    const torch = device === 'cpu' ? '2.11.0+cpu' : '2.11.0+cu128';
+    const torchIndex = device === 'cpu' ? 'PyTorch 官方 CPU' : '上海交大 PyTorch cu128';
+    return {
+        id: DOWNLOAD_RUNTIME_VERSION,
+        platform: 'win32-x64',
+        device,
+        torch,
+        python: '3.12.13',
+        uv: '0.11.8',
+        mjlab: '1.6.0',
+        mujoco: '3.11.0',
+        unitree: '1425b15',
+        packageIndex: '清华 PyPI',
+        torchIndex,
+        installed: refreshDownloadedRuntimePaths(),
+        root: PATHS.runtime,
+    };
+});
+ipcMain.handle('settings:pick-python', async (event) => {
+    const filtered = process.platform === 'win32'
+        ? [{ name: 'Python 可执行文件', extensions: ['exe'] }]
+        : [{ name: 'Python 可执行文件', extensions: ['*'] }];
+    const options = {
+        title: '选择 Python 可执行文件',
+        properties: ['openFile'],
+        filters: filtered,
+        defaultPath: readSettings().pythonPath || undefined,
+    };
+    const result = await dialog.showOpenDialog(event.sender, options);
+    if (result.canceled || !result.filePaths.length) return { ok: false, path: '' };
+    const selected = result.filePaths[0];
+    const settings = readSettings();
+    writeSettings({ ...settings, pythonPath: selected });
+    return { ok: true, path: selected };
+});
 ipcMain.handle('path:open', (_event, key) => safeOpenPath(key));
 ipcMain.handle('external:open', (_event, url) => {
     if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) throw new Error('only http(s) URLs are allowed');
