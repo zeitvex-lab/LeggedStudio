@@ -1,0 +1,35 @@
+<mujoco model="go2 scene">
+  <include file="go2.xml" />
+  <!-- Discrete obstacles. max_height=0.13 diff=0.4 -->
+  <statistic center="3 0 0.3" extent="1.2" />
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
+    <rgba haze="0.15 0.25 0.35 1" />
+    <global azimuth="-130" elevation="-20" />
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.0" />
+    <material name="terrain" rgba="0.55 0.58 0.62 1" reflectance="0.05" />
+  </asset>
+  <worldbody>
+    <light pos="3 0 3.0" dir="0 0 -1" directional="true" />
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+    <!-- start pad -->
+    <geom type="box" pos="0.50000 0.00000 0.02000" size="0.50000 0.90000 0.02000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <!-- discrete obstacles -->
+    <geom type="box" pos="1.40000 -0.40439 0.05815" size="0.12400 0.16951 0.05815" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="2.10301 -0.62919 0.04505" size="0.21448 0.12572 0.04505" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="2.78362 -0.10523 0.05068" size="0.23456 0.24624 0.05068" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="3.36707 -0.11627 0.04622" size="0.24141 0.14874 0.04622" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="3.93167 -0.20070 0.04794" size="0.13635 0.18839 0.04794" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="3.93167 -0.06266 0.04225" size="0.16232 0.12782 0.04225" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="4.70836 0.14950 0.06140" size="0.20833 0.26929 0.06140" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="5.38156 -0.31128 0.04107" size="0.12733 0.16102 0.04107" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="5.95140 0.46668 0.04323" size="0.18082 0.20161 0.04323" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="6.55798 -0.56314 0.05551" size="0.23229 0.24304 0.05551" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="6.55798 -0.05555 0.04602" size="0.20546 0.16407 0.04602" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="7.83560 0.00000 0.02000" size="0.50000 0.90000 0.02000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+  </worldbody>
+</mujoco>

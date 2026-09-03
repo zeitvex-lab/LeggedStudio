@@ -1,5 +1,5 @@
 <mujoco model="wheelleg">
-  <compiler angle="radian" meshdir="assets/"/>
+  <compiler angle="radian" meshdir="meshes/"/>
 
   <default>
     <geom margin="0"/>

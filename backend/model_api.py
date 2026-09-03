@@ -13,6 +13,7 @@ import json
 import os
 import tempfile
 import uuid
+import io
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Literal
@@ -45,6 +46,11 @@ class ModelImportRequest(BaseModel):
     files: list[ImportedAssetFile] = Field(..., min_length=1, max_length=2000)
     model_filename: str | None = None
     format: Literal["urdf", "mjcf", "auto"] = "auto"
+
+
+class ModelPreviewRequest(ModelValidationRequest):
+    width: int = Field(default=960, ge=320, le=1920)
+    height: int = Field(default=640, ge=240, le=1440)
 
 
 def _safe_import_relative_path(value: str) -> Path:
@@ -123,8 +129,11 @@ def _urdf_inspection(root: ET.Element, source_path: Path, errors: list[str], war
     if duplicate_joints:
         errors.append(f"duplicate joint names: {', '.join(duplicate_joints[:12])}")
 
-    child_links = {item.findtext("child") for item in joints if item.findtext("child")}
-    parent_links = {item.findtext("parent") for item in joints if item.findtext("parent")}
+    def joint_link(item: ET.Element, tag: str) -> str | None:
+        node = item.find(tag)
+        return (node.get("link") if node is not None else None) or (node.text.strip() if node is not None and node.text else None)
+    child_links = {value for item in joints if (value := joint_link(item, "child"))}
+    parent_links = {value for item in joints if (value := joint_link(item, "parent"))}
     roots = sorted(set(link_names) - child_links)
     disconnected = sorted(set(link_names) - (parent_links | child_links | set(roots)))
     if len(roots) != 1 and links:
@@ -171,7 +180,7 @@ def _urdf_inspection(root: ET.Element, source_path: Path, errors: list[str], war
     inspection = {
         "root_name": root.get("name"),
         "links": link_names,
-        "joints": [{"name": item.get("name"), "type": item.get("type"), "parent": item.findtext("parent"), "child": item.findtext("child")} for item in joints],
+        "joints": [{"name": item.get("name"), "type": item.get("type"), "parent": joint_link(item, "parent"), "child": joint_link(item, "child")} for item in joints],
         "mesh_files": mesh_files,
         "missing_meshes": missing_meshes,
         "topology": {"root_links": roots, "disconnected_links": disconnected, "duplicate_links": duplicate_links, "duplicate_joints": duplicate_joints},
@@ -333,6 +342,86 @@ async def validate_model(request: ModelValidationRequest) -> dict[str, Any]:
         return _validate(request)
     except Exception as exc:
         return {"valid": False, "errors": [str(exc)], "warnings": []}
+
+
+def _urdf_preview_svg(root: ET.Element) -> str:
+    """Render a deterministic topology preview for URDF assets in the browser."""
+    links = {item.get("name"): item for item in root.findall("./link") if item.get("name")}
+    joints = []
+    children: dict[str, list[tuple[str, str]]] = {}
+    child_names = set()
+    for joint in root.findall("./joint"):
+        parent_node = joint.find("parent")
+        child_node = joint.find("child")
+        parent = (parent_node.get("link") if parent_node is not None else None) or (parent_node.text.strip() if parent_node is not None and parent_node.text else "")
+        child = (child_node.get("link") if child_node is not None else None) or (child_node.text.strip() if child_node is not None and child_node.text else "")
+        if parent and child and child in links:
+            joints.append((parent, child, joint.get("name") or "joint", joint.get("type") or "fixed"))
+            children.setdefault(parent, []).append((child, joint.get("type") or "fixed"))
+            child_names.add(child)
+    roots = [name for name in links if name not in child_names] or list(links)[:1]
+    positions: dict[str, tuple[float, float]] = {}
+    queue = [(roots[0], 0.0, 0.0)] if roots else []
+    while queue:
+        name, x, y = queue.pop(0)
+        if name in positions:
+            continue
+        positions[name] = (x, y)
+        children_for_parent = children.get(name, [])
+        spread = max(1, len(children_for_parent))
+        for index, (child, _kind) in enumerate(children_for_parent):
+            queue.append((child, x + 150.0, y + (index - (spread - 1) / 2) * 70.0))
+    for index, name in enumerate(links):
+        positions.setdefault(name, (float(index % 5) * 150.0, float(index // 5) * 70.0))
+    max_x = max((point[0] for point in positions.values()), default=0.0) + 100.0
+    min_y = min((point[1] for point in positions.values()), default=0.0) - 50.0
+    max_y = max((point[1] for point in positions.values()), default=0.0) + 50.0
+    width = max(520.0, max_x + 50.0)
+    height = max(260.0, max_y - min_y + 50.0)
+    lines = []
+    for parent, child, joint_name, joint_type in joints:
+        px, py = positions[parent]
+        cx, cy = positions[child]
+        lines.append(f'<line x1="{px + 54:.1f}" y1="{py - min_y + 24:.1f}" x2="{cx + 54:.1f}" y2="{cy - min_y + 24:.1f}" stroke="#7b93a6" stroke-width="2"/><text x="{(px + cx) / 2 + 54:.1f}" y="{(py + cy) / 2 - min_y + 18:.1f}" fill="#496173" font-size="10" text-anchor="middle">{_svg_escape(joint_name)} · {_svg_escape(joint_type)}</text>')
+    nodes = []
+    for name, (x, y) in positions.items():
+        nodes.append(f'<g><rect x="{x + 8:.1f}" y="{y - min_y:.1f}" width="92" height="48" rx="5" fill="#dce8f0" stroke="#3e6e8c"/><text x="{x + 54:.1f}" y="{y - min_y + 22:.1f}" fill="#173247" font-size="11" text-anchor="middle">{_svg_escape(name[:16])}</text><text x="{x + 54:.1f}" y="{y - min_y + 37:.1f}" fill="#5c7484" font-size="9" text-anchor="middle">link</text></g>')
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width:.0f} {height:.0f}" role="img" aria-label="URDF link and joint topology">{"".join(lines)}{"".join(nodes)}</svg>'
+
+
+def _svg_escape(value: str) -> str:
+    return (str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;"))
+
+
+@router.post("/preview")
+async def preview_model(request: ModelPreviewRequest) -> dict[str, Any]:
+    path, temporary = _read_source(request)
+    try:
+        root = ET.fromstring(path.read_bytes())
+        model_format = root.tag.lower() == "robot" and "urdf" or "mjcf"
+        if model_format == "urdf":
+            return {"success": True, "format": "urdf", "svg": _urdf_preview_svg(root)}
+        import mujoco
+        import numpy as np
+        model = mujoco.MjModel.from_xml_path(str(path))
+        width = min(request.width, int(getattr(model.vis.global_, "offwidth", request.width)))
+        height = min(request.height, int(getattr(model.vis.global_, "offheight", request.height)))
+        renderer = mujoco.Renderer(model, height=max(120, height), width=max(160, width))
+        data = mujoco.MjData(model)
+        mujoco.mj_forward(model, data)
+        renderer.update_scene(data, camera=-1)
+        pixels = renderer.render()
+        renderer.close()
+        from PIL import Image
+        stream = io.BytesIO()
+        Image.fromarray(np.asarray(pixels, dtype=np.uint8)).save(stream, format="PNG")
+        import base64
+        return {"success": True, "format": "mjcf", "image_base64": base64.b64encode(stream.getvalue()).decode("ascii"), "width": width, "height": height}
+    except Exception as exc:
+        return {"success": False, "format": request.format, "error": str(exc)}
+    finally:
+        if temporary:
+            path.unlink(missing_ok=True)
 
 
 @router.post("/import")

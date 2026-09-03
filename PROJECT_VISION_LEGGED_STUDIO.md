@@ -1,6 +1,6 @@
 # Legged Studio 项目愿景
 
-**产品版本**：0.4.0  
+**产品版本**：0.5.0
 **更新日期**：2026-09-02  
 **文档定位**：当前产品事实、使用主线与后续边界
 
@@ -8,7 +8,7 @@
 
 Legged Studio 是面向足式机器人强化学习的本地桌面/Web 工作台。它把机器人模型验证、MJLab 训练配置、训练监控和 MuJoCo 交互仿真放到统一控制面，并为后续 CLI、评估和部署适配保留稳定的 JSON 契约。
 
-0.4.0 的主线机器人是 Unitree Go2 与 Go2W：训练使用隔离的 native MJLab worker，基础交互仿真使用 MuJoCo。控制面本身不导入 Torch、Warp 或 MuJoCo-Warp。
+0.5.0 的主线机器人是 Unitree Go2、Go2W 与 ZEX-W：训练使用隔离的 native MJLab worker，基础交互仿真使用 MuJoCo。控制面本身不导入 Torch、Warp 或 MuJoCo-Warp。
 
 ## 当前用户流程
 
@@ -57,7 +57,7 @@ Electron launcher
 
 ## 版本运行时
 
-| 组件 | 0.4.0 目标版本 |
+| 组件 | 0.5.0 目标版本 |
 | --- | --- |
 | Python | 3.12.13 |
 | uv | 0.11.8 |

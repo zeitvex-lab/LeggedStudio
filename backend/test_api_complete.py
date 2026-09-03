@@ -63,6 +63,16 @@ class CompleteApiContractTests(unittest.TestCase):
         response = client.get("/api/training/does-not-exist/logs")
         self.assertEqual(response.status_code, 404)
 
+    def test_browser_simulation_manifest_serves_package_assets(self):
+        client = TestClient(app)
+        response = client.get("/api/simulation/browser-config/zex-w")
+        self.assertEqual(response.status_code, 200)
+        manifest = response.json()["sim"]["asset_package"]
+        self.assertIn("scene.xml", manifest["files"])
+        asset = client.get("/api/simulation/browser-package/zex-w/scene.xml")
+        self.assertEqual(asset.status_code, 200)
+        self.assertIn("model/robot.xml", asset.text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -61,6 +61,7 @@ class CreateTrainingRequest(BaseModel):
     terrain_type: str = "plane"
     device: str = Field(default="auto", pattern=r"^(auto|cpu|cuda(?::\d+)?)$")
     reward_scales: dict[str, float] = Field(default_factory=dict)
+    reward_overrides: bool = False
     reward_params: dict[str, dict] = Field(default_factory=dict)
     terrain: dict = Field(default_factory=dict)
     command_ranges: dict[str, list[float]] = Field(default_factory=dict)
@@ -144,6 +145,7 @@ async def create_training(request: CreateTrainingRequest):
             "terrain_type": request.terrain_type,
             "device": request.device,
             "reward_scales": request.reward_scales,
+            "reward_overrides": request.reward_overrides,
             "reward_params": request.reward_params,
             "terrain": request.terrain,
             "command_ranges": request.command_ranges,

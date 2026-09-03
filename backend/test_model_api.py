@@ -45,6 +45,23 @@ class ModelInspectionTests(unittest.TestCase):
         self.assertTrue(any("missing limit" in item for item in payload["errors"]))
         self.assertIn("inertial", payload["inspection"])
 
+    def test_uploaded_urdf_has_real_topology_preview(self):
+        urdf = """<robot name='fixture'><link name='base'/><link name='foot'/><joint name='hip' type='revolute'><parent link='base'/><child link='foot'/></joint></robot>"""
+        response = self.client.post("/api/models/preview", json={"content": urdf, "filename": "fixture.urdf", "format": "urdf"})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertIn("<svg", payload["svg"])
+        self.assertIn("hip", payload["svg"])
+
+    def test_mjcf_has_real_render_preview(self):
+        preset = next(item for item in list_robot_presets() if item["robot_id"] == "unitree_go2")
+        response = self.client.post("/api/models/preview", json={"path": preset["asset_path"], "format": "mjcf", "width": 960, "height": 640})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"], payload)
+        self.assertTrue(payload["image_base64"])
+
     def test_import_persists_model_and_generates_contract_draft(self):
         urdf = """<robot name='imported'><link name='base'><inertial><mass value='2'/></inertial></link></robot>"""
         response = self.client.post(

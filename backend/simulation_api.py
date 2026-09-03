@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 import mujoco
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from adapters.mjlab.mujoco_env import ContractMujocoEnv
@@ -156,7 +157,9 @@ class SimulationSession:
 
     def render(self, width: int = 960, height: int = 640) -> str:
         """Render the current MuJoCo state for the Web Play-style viewport."""
-        renderer = mujoco.Renderer(self.env.model, height=max(120, min(height, 1440)), width=max(160, min(width, 1920)))
+        render_width = min(width, int(getattr(self.env.model.vis.global_, "offwidth", width)))
+        render_height = min(height, int(getattr(self.env.model.vis.global_, "offheight", height)))
+        renderer = mujoco.Renderer(self.env.model, height=max(120, render_height), width=max(160, render_width))
         renderer.update_scene(self.env.data[0], camera=-1)
         pixels = renderer.render()
         renderer.close()
@@ -183,6 +186,90 @@ def _cleanup_sessions() -> None:
 @router.get("/maps")
 async def list_maps() -> dict[str, Any]:
     return {"maps": list(MAPS.values()), "count": len(MAPS)}
+
+
+def _browser_package_root(robot_id: str) -> Path:
+    preset = get_robot_preset(robot_id)
+    if not preset:
+        normalized = robot_id.replace("_", "-").lower()
+        from backend.robot_presets import list_robot_presets
+        preset = next((item for item in list_robot_presets() if str(item.get("robot_id", "")).lower().replace("_", "-") == normalized), None)
+    if not preset:
+        raise HTTPException(status_code=404, detail=f"Unknown robot package: {robot_id}")
+    package = preset.get("robot_package") or {}
+    root = Path(str(package.get("package_root", ""))).resolve()
+    if not root.exists():
+        raise HTTPException(status_code=404, detail=f"Robot package files not found: {robot_id}")
+    if not (root / "model" / "robot.xml").exists():
+        raise HTTPException(status_code=404, detail=f"Robot package has no browser MJCF model: {robot_id}")
+    return root
+
+
+@router.get("/browser-config/{robot_id}")
+async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
+    """Return the browser-native MuJoCo/Three.js package manifest."""
+    root = _browser_package_root(robot_id)
+    preset = get_robot_preset(robot_id) or {}
+    contract = preset.get("contract") or {}
+    order = list(contract.get("action", {}).get("joint_order") or contract.get("joints", {}).get("actuated_joints") or [])
+    default_pose = list(contract.get("joints", {}).get("default_pose") or [0.0] * len(order))
+    files = ["scene.xml", "model/robot.xml"]
+    files.extend(str(item.relative_to(root)).replace("\\", "/") for item in sorted((root / "model" / "assets").rglob("*")) if item.is_file())
+    asset_bytes = sum(item.stat().st_size for item in (root / "model" / "assets").rglob("*") if item.is_file())
+    return {
+        "run_id": None,
+        "robot": {
+            "name": preset.get("family", robot_id),
+            "joint_order": order,
+            "default_joint_angles": {name: float(value) for name, value in zip(order, default_pose)},
+            "control": {
+                "action_scale": float(contract.get("action", {}).get("action_scale", 0.25)),
+                "decimation": int(contract.get("control", {}).get("decimation", 4)),
+                "sim_dt": 1.0 / float(contract.get("control", {}).get("physics_hz", 1000)),
+                "stiffness": {"hip": 50.0, "thigh": 50.0, "calf": 50.0, "joint": 50.0},
+                "damping": {"hip": 1.5, "thigh": 1.5, "calf": 1.5, "wheel": 1.0, "joint": 1.5},
+                "action_scale_by_role": {"leg": 0.25, "wheel": 5.0},
+                "velocity_scale": 5.0,
+                "control_modes": {"wheel": "velocity"},
+            },
+        },
+        "policy": {"disabled": True, "contract": {"obs_dim": 0, "action_dim": len(order), "history_len": 1}},
+        "sim": {
+            "robot": robot_id,
+            "asset_package": {
+                "base_url": f"/api/simulation/browser-package/{robot_id}/",
+                "files": files,
+                "scenes": ["scene.xml"],
+                "revision": str((root / "robot_package.json").stat().st_mtime_ns),
+                # Large mesh packages are previewed with collision geometry in
+                # the browser to keep synchronous WASM compilation responsive.
+                "lightweight_preview": asset_bytes >= 20 * 1024 * 1024,
+                "asset_bytes": asset_bytes,
+            },
+        },
+    }
+
+
+@router.get("/browser-package/{robot_id}/{asset_path:path}")
+async def browser_simulation_asset(robot_id: str, asset_path: str):
+    """Serve allowlisted package files to the browser MuJoCo virtual FS."""
+    root = _browser_package_root(robot_id)
+    normalized = asset_path.replace("\\", "/").lstrip("/")
+    if normalized == "scene.xml":
+        scene = root / "simulation" / "scene.xml"
+        if not scene.exists():
+            scene_text = '<mujoco model="legged-studio-scene"><include file="model/robot.xml"/><worldbody><geom name="floor" type="plane" size="0 0 0.05"/></worldbody></mujoco>'
+        else:
+            source = scene.read_text(encoding="utf-8-sig")
+            source = source.replace('file="../model/robot.xml"', 'file="model/robot.xml"')
+            scene_text = source
+        return PlainTextResponse(scene_text, media_type="application/xml")
+    candidate = (root / normalized).resolve()
+    if candidate != root and root not in candidate.parents:
+        raise HTTPException(status_code=400, detail="invalid package asset path")
+    if not candidate.is_file() or (candidate != root / "model" / "robot.xml" and root / "model" not in candidate.parents):
+        raise HTTPException(status_code=404, detail="browser package asset not found")
+    return FileResponse(candidate)
 
 
 @router.get("/sessions")
@@ -243,7 +330,9 @@ async def render_session(session_id: str, width: int = 960, height: int = 640) -
         image = session.render(width, height)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"MuJoCo render failed: {exc}") from exc
-    return {"success": True, "format": "png", "width": max(160, min(width, 1920)), "height": max(120, min(height, 1440)), "image_base64": image, "frame": session.last_frame}
+    actual_width = max(160, min(width, 1920, int(getattr(session.env.model.vis.global_, "offwidth", width))))
+    actual_height = max(120, min(height, 1440, int(getattr(session.env.model.vis.global_, "offheight", height))))
+    return {"success": True, "format": "png", "width": actual_width, "height": actual_height, "image_base64": image, "frame": session.last_frame}
 
 
 @router.post("/sessions/{session_id}/step")

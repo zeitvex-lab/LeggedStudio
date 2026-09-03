@@ -1,6 +1,6 @@
 # Legged Studio 参考清单与实施建议
 
-**产品版本**：0.4.0  
+**产品版本**：0.5.0
 **更新日期**：2026-09-02  
 **依据**：[PROJECT_VISION_LEGGED_STUDIO.md](./PROJECT_VISION_LEGGED_STUDIO.md)
 
@@ -8,7 +8,7 @@
 
 ## 当前产品证据
 
-| 证据级别 | 含义 | 0.4.0 结论 |
+| 证据级别 | 含义 | 0.5.0 结论 |
 | --- | --- | --- |
 | L1 | 文件、资产或声明存在 | 只能证明候选来源 |
 | L2 | 已读取源码、配置或测试 | 可以说明静态行为 |
@@ -27,7 +27,7 @@
 
 ### `mjlab_new/mjlab`
 
-这是当前唯一的训练主线和 Play/Viser 视觉参考。其 manager-based 环境、runner、Torch/Warp/MuJoCo-Warp 依赖应继续放在 `adapters/mjlab` 的锁定环境中，不复制第二套 `mjlab` 目录。0.4.0 只把 PPO 标记为可运行算法。
+这是当前唯一的训练主线和 Play/Viser 视觉参考。其 manager-based 环境、runner、Torch/Warp/MuJoCo-Warp 依赖应继续放在 `adapters/mjlab` 的锁定环境中，不复制第二套 `mjlab` 目录。0.5.0 只把 PPO 标记为可运行算法。
 
 ### `uni_rl/unitree_rl_mjlab`
 
@@ -53,7 +53,7 @@ Web 视觉基线采用 MJLab Play/Viser 的浅色工作区：白色或浅灰场�
 | `rc_old/RC_WheelLeg/.../rc_mjlab` | ZEX-W 轮足任务、关节/动作映射和部署约束 | 作为通用 Robot Package 导入，不新增机器人特例 |
 | `references_1000framesai` | 地图任务与导航交互 | 需要明确复杂地图规划和终止条件 |
 
-Isaac Gym、Isaac Lab、RoboGauge、MATRiX 等不属于 0.4.0 默认后端。它们可以提供算法、仿真或部署参考，但不能在文档或 UI 中被写成当前已支持能力。
+Isaac Gym、Isaac Lab、RoboGauge、MATRiX 等不属于 0.5.0 默认后端。它们可以提供算法、仿真或部署参考，但不能在文档或 UI 中被写成当前已支持能力。
 
 ## 契约与复用原则
 

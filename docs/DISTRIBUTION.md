@@ -1,4 +1,4 @@
-# Legged Studio 0.4.0 distribution
+# Legged Studio 0.5.0 distribution
 
 This is the first distributable desktop preview. It packages the Electron
 launcher, FastAPI control plane source, Web workbenches, Contracts, canonical
@@ -43,7 +43,7 @@ under `build/embedded-runtime` before Electron Builder packages it. The staged
 directory is generated output and is not committed to Git.
 
 The embedded target produces `dist/embedded-win/win-unpacked` and
-`dist/Legged-Studio-0.4.0-Windows-CUDA.7z`. It intentionally does not create a
+`dist/Legged-Studio-0.5.0-Windows-CUDA.7z`. It intentionally does not create a
 single EXE: the CUDA/MJLab payload is larger than the NSIS memory-mapped input
 limit. Extracting the 7z archive preserves the same portable directory layout.
 
@@ -72,7 +72,7 @@ Non-embedded Online 7z package with project-branded directory names:
 npm run build:online:win
 ```
 
-Output: `dist/Legged-Studio-0.4.0-Windows-Online.7z`.
+Output: `dist/Legged-Studio-0.5.0-Windows-Online.7z`.
 
 For a directory package used during QA:
 

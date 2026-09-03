@@ -24,7 +24,7 @@
         <div class="sidebar-heading">工作台</div>
         <nav id="navigation" aria-label="主导航">
           <button class="nav-item active" data-page="home"><span class="nav-icon">⌂</span><span>总览</span></button>
-          <button class="nav-item" data-page="assets"><span class="nav-icon">▦</span><span>机器人资产</span></button>
+          <button class="nav-item" data-page="assets"><span class="nav-icon">▦</span><span>包管理</span></button>
           <button class="nav-item" data-page="training"><span class="nav-icon">▶</span><span>训练任务</span></button>
           <button class="nav-item" data-page="artifacts"><span class="nav-icon">◇</span><span>策略产物</span></button>
           <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span><span>系统设置</span></button>
@@ -33,7 +33,7 @@
         <div class="sidebar-footer">
           <button class="sidebar-link" id="open-docs">文档</button>
           <button class="sidebar-link" id="open-root">打开项目目录</button>
-          <div class="version">v0.4.0 · Python 3.12</div>
+          <div class="version">v0.5.0 · Python 3.12</div>
         </div>
       </aside>
 
@@ -43,7 +43,7 @@
             <div>
               <p class="eyebrow">LEGged ROBOT REINFORCEMENT LEARNING</p>
               <h1>训练、验证、部署，一处完成</h1>
-              <p class="muted">统一管理四足机器人资产、Robot Contract、训练任务与策略产物。</p>
+              <p class="muted">统一管理导入包、Robot Contract、训练任务与策略产物。</p>
             </div>
             <div class="hero-actions">
               <button class="button secondary" id="configure-runtime">配置运行环境</button>
@@ -56,7 +56,7 @@
             <article class="status-card" data-status-card="backend"><div class="status-dot pending"></div><div><span>控制平面</span><strong id="backend-value">未启动</strong></div></article>
             <article class="status-card" data-status-card="python"><div class="status-dot pending"></div><div><span>Python 运行时</span><strong id="python-value">等待检查</strong></div></article>
             <article class="status-card" data-status-card="adapter"><div class="status-dot pending"></div><div><span>训练适配器</span><strong id="adapter-value">等待检查</strong></div></article>
-            <article class="status-card" data-status-card="assets"><div class="status-dot pending"></div><div><span>机器人资产</span><strong id="assets-value">等待检查</strong></div></article>
+            <article class="status-card" data-status-card="assets"><div class="status-dot pending"></div><div><span>包管理</span><strong id="assets-value">等待检查</strong></div></article>
           </div>
 
           <section class="runtime-progress" id="runtime-progress" hidden aria-live="polite">
@@ -72,7 +72,7 @@
               <div class="folder-grid">
                 <button class="folder-card" data-open-path="root"><span class="folder-icon">⌂</span><span><strong>项目根目录</strong><small>legged_studio</small></span><b>›</b></button>
                 <button class="folder-card" data-open-path="output"><span class="folder-icon">▧</span><span><strong>输出与报告</strong><small>output</small></span><b>›</b></button>
-                <button class="folder-card" data-open-path="assets"><span class="folder-icon">▦</span><span><strong>资产清单</strong><small>QUADRUPED_ASSET_INVENTORY</small></span><b>›</b></button>
+                <button class="folder-card" id="open-packages-home"><span class="folder-icon">▦</span><span><strong>包管理</strong><small>LOCAL_PACKAGE_STORE</small></span><b>›</b></button>
                 <button class="folder-card" data-open-path="docs"><span class="folder-icon">▤</span><span><strong>项目文档</strong><small>docs</small></span><b>›</b></button>
               </div>
             </section>
@@ -84,9 +84,9 @@
         </section>
 
         <section class="page" data-view="assets">
-          <div class="page-header"><div><p class="eyebrow">ASSET INVENTORY</p><h1>机器人资产</h1><p class="muted">按体型、运动构型和可用性筛选四足机器人模型。</p></div></div>
-          <div class="metric-grid" id="asset-metrics"><div class="metric"><span>总资产</span><strong>—</strong></div><div class="metric"><span>小型 S</span><strong>—</strong></div><div class="metric"><span>中型 M</span><strong>—</strong></div><div class="metric"><span>大型 L</span><strong>—</strong></div></div>
-          <section class="panel"><div class="panel-heading"><h2>资产摘要</h2><div class="panel-actions"><button class="button secondary small" id="load-assets" data-requires-backend disabled>刷新资产</button><button class="button secondary small" id="open-assets-workbench" data-requires-backend disabled>打开资产工作台</button></div></div><div id="asset-summary" class="table-wrap"><div class="empty-state">启动控制平面后加载 QUADRUPED_ASSET_INVENTORY。</div></div></section>
+          <div class="page-header"><div><p class="eyebrow">PACKAGE MANAGER</p><h1>包管理</h1><p class="muted">管理本地持久化的导入包，以及包内模型、Contract、训练和仿真配置。</p></div></div>
+          <div class="metric-grid" id="asset-metrics"><div class="metric"><span>包数量</span><strong>—</strong></div><div class="metric"><span>模型文件</span><strong>—</strong></div><div class="metric"><span>训练配置</span><strong>—</strong></div><div class="metric"><span>仿真配置</span><strong>—</strong></div></div>
+          <section class="panel"><div class="panel-heading"><h2>本地包列表</h2><div class="panel-actions"><button class="button secondary small" id="load-assets" data-requires-backend disabled>刷新包列表</button><button class="button secondary small" id="open-assets-workbench" data-requires-backend disabled>打开包管理</button></div></div><div id="asset-summary" class="table-wrap"><div class="empty-state">启动控制平面后加载包列表。</div></div></section>
         </section>
 
         <section class="page" data-view="training">

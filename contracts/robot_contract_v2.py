@@ -144,7 +144,9 @@ class RobotContractV2(BaseModel):
     @classmethod
     def from_json_file(cls, path: str) -> 'RobotContractV2':
         """从 JSON 文件加载"""
-        with open(path, 'r', encoding='utf-8') as f:
+        # Accept contracts created by Windows editors and PowerShell, which
+        # commonly prepend a UTF-8 BOM.
+        with open(path, 'r', encoding='utf-8-sig') as f:
             data = json.load(f)
         return cls(**data)
 

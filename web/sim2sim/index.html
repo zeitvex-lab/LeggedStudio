@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>仿真验证 · Locomotion Platform</title>
+    <link rel="stylesheet" href="./styles.css?v=play-light-2" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./vendor/three/build/three.module.js",
+          "three/addons/": "./vendor/three/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="app">
+      <section id="viewer" class="viewer" aria-label="MuJoCo 仿真视口">
+        <div id="loading" class="loading">
+          <strong>仿真验证</strong>
+          <span id="loadingText">加载 MuJoCo WASM...</span>
+          <span class="loading-bar"><i id="loadingBar"></i></span>
+        </div>
+      </section>
+
+      <header class="hud hud-top">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <div>
+            <h1>仿真验证</h1>
+            <p id="modelSubtitle">MuJoCo WASM · ONNX 策略</p>
+          </div>
+        </div>
+
+        <nav class="studio-nav" aria-label="Legged Studio 模块">
+          <a href="/web/workbench.html#home">首页</a>
+          <a href="/web/workbench.html#validate">验证</a>
+          <a href="/web/workbench.html#config">训练配置</a>
+          <a href="/web/workbench.html#training">训练</a>
+          <a class="active" href="/web/sim2sim/index.html">仿真</a>
+        </nav>
+
+        <div class="toolbar">
+          <label class="select-field">
+            <span>机器人</span>
+            <select id="robotSelect" aria-label="选择机器人">
+              <option value="unitree_go2">Go2</option>
+              <option value="unitree_go2w">Go2W</option>
+              <option value="zex-w">ZEX-W</option>
+            </select>
+          </label>
+          <label class="select-field">
+            <span>模型</span>
+            <select id="modelSelect" aria-label="选择模型">
+              <option value="default">默认模型</option>
+            </select>
+          </label>
+          <label class="select-field">
+            <span>地形</span>
+            <select id="terrainSelect">
+              <option value="flat.xml">平地</option>
+              <option value="stairs.xml">楼梯</option>
+              <option value="cross_stairs.xml">交叉楼梯</option>
+              <option value="high_platforms.xml">高台（30-100 cm）</option>
+              <option value="cross_slope.xml">横坡</option>
+              <option value="race_track.xml">赛道</option>
+            </select>
+          </label>
+          <button id="playButton" type="button">暂停</button>
+          <button id="resetButton" type="button">重置</button>
+          <button id="jumpButton" type="button" title="Space" data-jump-command aria-pressed="false" hidden>跳跃</button>
+        </div>
+      </header>
+
+      <div id="mobileJoystick" class="mobile-joystick" role="application" aria-label="前后与转向轮盘">
+        <div class="mobile-joystick-ring" aria-hidden="true">
+          <i id="mobileJoystickKnob"></i>
+        </div>
+      </div>
+
+      <aside class="hud panel panel-left is-collapsed">
+        <button id="mobileControlsToggle" class="mobile-panel-toggle" type="button" aria-expanded="false">
+          <span>控制面板</span>
+          <span aria-hidden="true">⌄</span>
+        </button>
+        <div class="mobile-cruise-controls" aria-label="手机移动控制">
+          <button type="button" data-cruise-speed="0.5" aria-pressed="false">前进 0.5 m/s</button>
+          <button type="button" data-cruise-speed="0" aria-pressed="false">停止</button>
+          <button id="mobileJumpButton" type="button" data-jump-command aria-pressed="false" hidden>跳跃</button>
+        </div>
+        <div class="status-line">
+          <span id="engineStatus" class="dot-label"><i></i>初始化中</span>
+          <span id="policyStatus" class="dot-label"><i></i>策略</span>
+        </div>
+
+        <div class="model-card">
+          <small>任务</small>
+          <strong id="jobLabel">-</strong>
+          <small>机器人</small>
+          <strong id="robotLabel">-</strong>
+          <small>模型</small>
+          <strong id="modelLabel">-</strong>
+          <small>健康度</small>
+          <strong id="policyHealthLabel">-</strong>
+        </div>
+        <div id="policyHealthChecks" class="health-checks" aria-label="策略健康检查"></div>
+        <div id="policyUpdatePrompt" class="policy-update is-hidden" role="status" aria-live="polite">
+          <span id="policyUpdateText">发现新的 ONNX</span>
+          <button id="policyUpdateButton" type="button">切到最新</button>
+        </div>
+
+        <div class="metric-grid">
+          <div><small>指令 vx</small><strong id="cmdVx">0.00</strong></div>
+          <div><small>指令 vy</small><strong id="cmdVy">0.00</strong></div>
+          <div><small>指令偏航</small><strong id="cmdYaw">0.00</strong></div>
+          <div id="cmdJumpMetric" hidden><small>跳跃高度</small><strong id="cmdJump">-</strong></div>
+          <div><small>机身高度</small><strong id="baseHeight">0.00</strong></div>
+          <div><small>局部 vx</small><strong id="velVx">0.00</strong></div>
+          <div><small>局部 vy</small><strong id="velVy">0.00</strong></div>
+          <div><small>局部偏航</small><strong id="velYaw">0.00</strong></div>
+          <div><small>接触数</small><strong id="contacts">0</strong></div>
+        </div>
+
+        <div class="control-panel">
+          <div class="section-title">
+            <span>运动指令</span>
+            <output id="speedLabel">X 速度上限 | 1.0 m/s</output>
+          </div>
+          <input id="vxSpeedLimit" type="range" min="0.2" max="8" value="1" step="0.1" aria-label="X 速度上限（米每秒）" />
+          <div id="gaitControl" class="gait-control" hidden>
+            <span>Gait</span>
+            <label class="gait-toggle">
+              <input id="gaitToggle" type="checkbox" role="switch" aria-label="Gait on/off" checked />
+              <span class="gait-toggle-track" aria-hidden="true"><i></i></span>
+              <output id="gaitToggleState" for="gaitToggle">ON</output>
+            </label>
+          </div>
+          <div class="payload-control">
+            <div class="payload-control-row">
+              <span>附加负载</span>
+              <output id="payloadMassLabel">0.0 kg</output>
+            </div>
+            <input id="payloadMass" type="range" min="0" max="70" value="0" step="0.5" aria-label="附加负载（千克）" />
+          </div>
+          <details class="com-offset-control">
+            <summary>
+              <span>重心偏移</span>
+              <output id="comOffsetSummary">0 mm</output>
+            </summary>
+            <div class="com-offset-rows">
+              <label class="com-offset-row">
+                <span>前后 X</span>
+                <input type="range" min="-0.1" max="0.1" value="0" step="0.005" data-com-axis="0" aria-label="重心前后偏移" />
+                <output data-com-value="0">0 mm</output>
+              </label>
+              <label class="com-offset-row">
+                <span>左右 Y</span>
+                <input type="range" min="-0.1" max="0.1" value="0" step="0.005" data-com-axis="1" aria-label="重心左右偏移" />
+                <output data-com-value="1">0 mm</output>
+              </label>
+              <label class="com-offset-row">
+                <span>上下 Z</span>
+                <input type="range" min="-0.1" max="0.1" value="0" step="0.005" data-com-axis="2" aria-label="重心上下偏移" />
+                <output data-com-value="2">0 mm</output>
+              </label>
+            </div>
+          </details>
+          <div class="payload-control terrain-friction-control">
+            <div class="payload-control-row">
+              <span>接触摩擦力</span>
+              <output id="terrainFrictionLabel">0.70</output>
+            </div>
+            <input id="terrainFriction" type="range" min="0" max="1.5" value="0.7" step="0.01" aria-label="接触摩擦力" />
+          </div>
+          <details class="imu-axis-control">
+            <summary>
+              <span>IMU 轴向</span>
+              <output id="imuAxisSummary">原始</output>
+            </summary>
+            <div class="imu-axis-rows">
+              <div class="imu-axis-row" role="group" aria-label="角速度轴向反向">
+                <span>角速度</span>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="angular" data-imu-axis="0" aria-label="角速度 X 轴反向" /><span>X</span></label>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="angular" data-imu-axis="1" aria-label="角速度 Y 轴反向" /><span>Y</span></label>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="angular" data-imu-axis="2" aria-label="角速度 Z 轴反向" /><span>Z</span></label>
+              </div>
+              <div class="imu-axis-row" role="group" aria-label="重力投影轴向反向">
+                <span>重力投影</span>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="gravity" data-imu-axis="0" aria-label="重力投影 X 轴反向" /><span>X</span></label>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="gravity" data-imu-axis="1" aria-label="重力投影 Y 轴反向" /><span>Y</span></label>
+                <label class="imu-axis-toggle"><input type="checkbox" data-imu-vector="gravity" data-imu-axis="2" aria-label="重力投影 Z 轴反向" /><span>Z</span></label>
+              </div>
+            </div>
+          </details>
+          <details class="signal-delay-control">
+            <summary>
+              <span>随机延迟</span>
+              <output id="signalDelaySummary">关闭</output>
+            </summary>
+            <div class="signal-delay-rows">
+              <div class="signal-delay-row">
+                <label><input id="motorDelayToggle" type="checkbox" /> 电机指令</label>
+                <select id="motorDelaySteps" aria-label="电机指令随机延迟最大步数">
+                  <option value="1">1 步</option>
+                  <option value="2" selected>2 步</option>
+                  <option value="3">3 步</option>
+                  <option value="4">4 步</option>
+                  <option value="5">5 步</option>
+                  <option value="6">6 步</option>
+                  <option value="7">7 步</option>
+                  <option value="8">8 步</option>
+                  <option value="9">9 步</option>
+                  <option value="10">10 步</option>
+                </select>
+              </div>
+              <div class="signal-delay-row">
+                <label><input id="imuDelayToggle" type="checkbox" /> IMU 数据</label>
+                <select id="imuDelaySteps" aria-label="IMU 数据随机延迟最大步数">
+                  <option value="1">1 步</option>
+                  <option value="2" selected>2 步</option>
+                  <option value="3">3 步</option>
+                  <option value="4">4 步</option>
+                  <option value="5">5 步</option>
+                  <option value="6">6 步</option>
+                  <option value="7">7 步</option>
+                  <option value="8">8 步</option>
+                  <option value="9">9 步</option>
+                  <option value="10">10 步</option>
+                </select>
+              </div>
+            </div>
+          </details>
+          <div id="jumpCommandControl" class="jump-command-control" hidden>
+            <div class="jump-command-row">
+              <span>跳跃高度</span>
+              <output id="jumpHeightLabel">0.68 m</output>
+            </div>
+            <div class="jump-command-presets" aria-label="跳跃高度预设">
+              <button type="button" data-jump-height="0.32">行走</button>
+              <button type="button" data-jump-height="0.50">0.50</button>
+              <button type="button" data-jump-height="0.68">0.68</button>
+              <button type="button" data-jump-height="0.85">0.85</button>
+            </div>
+          </div>
+          <div class="key-grid" aria-label="键盘指令状态">
+            <kbd id="keyW">W</kbd>
+            <kbd id="keyS">S</kbd>
+            <kbd id="keyA">A</kbd>
+            <kbd id="keyD">D</kbd>
+            <kbd id="keyQ">Q</kbd>
+            <kbd id="keyE">E</kbd>
+          </div>
+        </div>
+      </aside>
+
+      <footer class="hud footer">
+        <label><input id="followToggle" type="checkbox" checked /> 跟随</label>
+        <label><input id="flipVisualToggle" type="checkbox" /> 翻转视角</label>
+        <label><input id="collisionToggle" type="checkbox" /> 碰撞体</label>
+        <label><input id="wireToggle" type="checkbox" /> 线框</label>
+        <span id="simClock">时间 0.00</span>
+        <span id="perfStats">0 帧/秒 · 0x</span>
+      </footer>
+    </main>
+
+    <script type="module" src="./app.js?v=play-light-4"></script>
+  </body>
+</html>

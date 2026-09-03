@@ -20,6 +20,8 @@ Useful endpoints:
 | Robot presets | `GET /api/robots/presets` |
 | Import model assets | `POST /api/models/import` |
 | Validate model/report | `POST /api/models/validate` |
+| Render model preview | `POST /api/models/preview` |
+| Browser-native sim2sim manifest | `GET /api/simulation/browser-config/{robot_id}` |
 | Export/import project package | `POST /api/project/export`, `POST /api/project/import` |
 | Training options | `GET /api/training/options` |
 | Training tasks | `GET /api/training/list` |
@@ -49,14 +51,24 @@ Every imported robot is stored as a package with `robot_package.json`,
 same generic MJLab task builder. Historical source code may be retained in the
 package for reference, but it is never an execution requirement.
 Mature robot projects can additionally ship `training/profiles/*.json` and
-`training/source/`; these profiles expose tuned rewards, terrain curricula,
-actuator gains and PPO settings without changing the generic API.
+`training/source/`. Each profile declares `source_root` plus
+`entrypoints.env` and `entrypoints.runner`; the isolated MJLab worker loads
+those factories and registers the resulting task through the same API. When
+no profile is selected, the generic Contract builder remains the fallback.
 
 The same importer accepts a ZIP of the ZEX-W source project (or any other robot
 project). After extraction it persists one package directory containing the
 model, `contract.json`, `robot_package.json`, recipes and scenario data. Its
 historical source folders remain available as portable reference files; the
-generic MJLab builder is the only training entrypoint.
+the selected profile or generic Contract task is the training entrypoint.
+
+## Browser simulation
+
+`/sim2sim/` is the 1000framesai-style path. The browser loads MuJoCo WASM,
+Three.js and ONNX Runtime Web, copies the selected package's MJCF and meshes
+into the WASM virtual filesystem, then advances physics and renders every
+frame locally. The Python MuJoCo session API remains available for headless
+verification and automation; it is not used for the browser render loop.
 
 ## Tests
 

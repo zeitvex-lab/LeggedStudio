@@ -1,11 +1,11 @@
 """
-Legged Studio Backend - Complete API v0.4.0
+Legged Studio Backend - Complete API v0.5.0
 修复：添加缺失的 system API
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import os
@@ -13,6 +13,7 @@ import sys
 import platform
 from typing import Any
 from fastapi import HTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # 修复 Windows 控制台编码
 if sys.platform == 'win32':
@@ -70,6 +71,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class BrowserSimulationIsolationMiddleware(BaseHTTPMiddleware):
+    """Enable SharedArrayBuffer for the browser MuJoCo pthread build."""
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/web/sim2sim"):
+            response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+            response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+            response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        return response
+
+
+app.add_middleware(BrowserSimulationIsolationMiddleware)
 
 # 注册所有路由
 if training_router is not None:
@@ -223,6 +239,12 @@ WEB_DIR = Path(__file__).parent.parent / "web"
 async def root_redirect():
     return RedirectResponse(url="/web/workbench.html#home", status_code=302)
 
+
+@app.get("/sim2sim/", include_in_schema=False)
+async def browser_sim2sim_redirect():
+    """Open the simulation module inside the unified workbench."""
+    return RedirectResponse(url="/web/workbench.html#simulation", status_code=302)
+
 @app.get("/web/dashboard.html", include_in_schema=False)
 async def serve_dashboard():
     dashboard_path = WEB_DIR / "dashboard.html"
@@ -243,6 +265,53 @@ async def serve_js():
     if js_path.exists():
         return FileResponse(js_path, media_type="application/javascript")
     return {"error": "JS not found"}
+
+
+@app.get("/web/sim2sim/vendor/onnxruntime-web/dist/ort.wasm.min.mjs", include_in_schema=False)
+async def serve_onnx_runtime_module():
+    """Serve the ONNX Runtime ESM shim as JavaScript.
+
+    On Windows Starlette may infer ``.mjs`` as ``text/plain``. Chromium then
+    rejects the module before the MuJoCo page can finish initializing.
+    """
+    module_path = WEB_DIR / "sim2sim" / "vendor" / "onnxruntime-web" / "dist" / "ort.wasm.min.mjs"
+    if module_path.exists():
+        return FileResponse(module_path, media_type="text/javascript")
+    raise HTTPException(status_code=404, detail="ONNX Runtime module not found")
+
+
+@app.get("/web/sim2sim/vendor/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs", include_in_schema=False)
+async def serve_onnx_runtime_threaded_module():
+    module_path = WEB_DIR / "sim2sim" / "vendor" / "onnxruntime-web" / "dist" / "ort-wasm-simd-threaded.mjs"
+    if module_path.exists():
+        return FileResponse(module_path, media_type="text/javascript")
+    raise HTTPException(status_code=404, detail="ONNX Runtime threaded module not found")
+
+
+@app.get("/web/sim2sim/vendor/onnxruntime-web/dist/{runtime_file}", include_in_schema=False)
+async def serve_onnx_runtime_asset(runtime_file: str):
+    """Serve bundled ORT WASM sidecars with correct MIME types."""
+    allowed = {
+        "ort.wasm.min.js": "text/javascript",
+        "ort.wasm.js": "text/javascript",
+        "ort-wasm-simd-threaded.wasm": "application/wasm",
+        "ort-wasm-simd-threaded.asyncify.mjs": "text/javascript",
+        "ort-wasm-simd-threaded.jsep.mjs": "text/javascript",
+        "ort-wasm-simd-threaded.asyncify.wasm": "application/wasm",
+        "ort-wasm-simd-threaded.jsep.wasm": "application/wasm",
+    }
+    media_type = allowed.get(runtime_file)
+    if not media_type:
+        raise HTTPException(status_code=404, detail="ONNX Runtime asset not found")
+    path = WEB_DIR / "sim2sim" / "vendor" / "onnxruntime-web" / "dist" / runtime_file
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="ONNX Runtime asset not found")
+    return FileResponse(path, media_type=media_type)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
 
 
 # Keep the legacy multi-page web console available to the desktop launcher and

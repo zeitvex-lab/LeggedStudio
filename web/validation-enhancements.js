@@ -114,9 +114,10 @@
   }
   function mountProjectControls() {
     const home = $('home'); if (!home || $('projectPackageTools')) return;
-    const section = document.createElement('section'); section.id = 'projectPackageTools'; section.className = 'panel project-package-tools'; section.innerHTML = '<div class="panel-title"><div><span class="eyebrow">PROJECT PACKAGE</span><h2>机器人资产与实验包</h2></div><span id="projectPackageStatus" class="panel-meta">ZIP 包含资产、训练配置和场景</span></div><div class="project-package-actions"><button id="exportProjectPackage" class="button secondary">导出项目包</button><label class="button ghost">导入项目包<input id="importProjectPackage" type="file" accept=".zip,.lsproj.zip" hidden></label></div>';
+    const section = document.createElement('section'); section.id = 'projectPackageTools'; section.className = 'panel project-package-tools'; section.innerHTML = '<div class="panel-title"><div><span class="eyebrow">PACKAGE MANAGER</span><h2>包管理与实验包</h2></div><span id="projectPackageStatus" class="panel-meta">管理本地包及其模型、训练配置和场景</span></div><div class="project-package-actions"><button id="openPackageManager" class="button secondary">打开包管理</button><button id="exportProjectPackage" class="button ghost">导出项目包</button><label class="button ghost">导入项目包<input id="importProjectPackage" type="file" accept=".zip,.lsproj.zip" hidden></label></div>';
     home.insertBefore(section, $('homeRuns')?.previousElementSibling || home.lastElementChild);
     $('exportProjectPackage').addEventListener('click', () => exportProject().catch((error) => { $('projectPackageStatus').textContent = error.message; }));
+    $('openPackageManager').addEventListener('click', () => { window.location.href = 'assets.html'; });
     $('importProjectPackage').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) importProject(file).catch((error) => { $('projectPackageStatus').textContent = error.message; }); });
   }
   function patchTrainingPayload() {
@@ -138,7 +139,7 @@
     if (picker) picker.multiple = true;
     picker?.addEventListener('change', (event) => { selectedFiles = Array.from(event.target.files || []); if ($('modelFileName')) $('modelFileName').textContent = selectedFiles.length ? `${selectedFiles.length} 个文件：${selectedFiles[0].webkitRelativePath || selectedFiles[0].name}` : '未选择文件'; });
     const form = picker?.closest('.form-panel');
-    if (form && !$('importModel')) {
+    if (false && form && !$('importModel')) {
       const folderRow = document.createElement('div'); folderRow.className = 'import-folder-row'; folderRow.innerHTML = '<label class="button ghost">选择资产目录<input id="assetFolder" type="file" webkitdirectory directory multiple hidden></label><span id="assetFolderName" class="panel-meta">可选：包含 mesh 的目录</span>'; form.insertBefore(folderRow, $('validateBtn'));
       const row = document.createElement('div'); row.className = 'import-actions'; row.innerHTML = '<button id="importModel" class="button secondary">导入资产到工作区</button><span id="assetImportStatus" class="panel-meta">保存模型、mesh 和相对路径</span>'; form.insertBefore(row, $('validateBtn'));
       $('assetFolder').addEventListener('change', (event) => { const folderFiles = Array.from(event.target.files || []); selectedFiles = [...selectedFiles.filter((file) => !folderFiles.some((item) => item.name === file.name && item.size === file.size)), ...folderFiles]; $('assetFolderName').textContent = folderFiles.length ? `${folderFiles.length} 个目录文件` : '可选：包含 mesh 的目录'; });
@@ -146,7 +147,6 @@
     }
     const actions = $('startTraining')?.parentElement;
     if (actions && !$('exportTrainingConfig')) { const label = document.createElement('label'); label.className = 'config-file-button button ghost'; label.textContent = '导入配置'; label.innerHTML += '<input id="trainingConfigFile" type="file" accept="application/json,.json" hidden>'; const button = document.createElement('button'); button.id = 'exportTrainingConfig'; button.className = 'button ghost'; button.textContent = '导出配置'; actions.insertBefore(label, $('startTraining')); actions.insertBefore(button, $('startTraining')); $('exportTrainingConfig').addEventListener('click', exportConfig); $('trainingConfigFile').addEventListener('change', async (event) => { const file = event.target.files?.[0]; if (!file) return; try { setConfig(JSON.parse(await file.text())); } catch (error) { alert(`配置导入失败：${error.message}`); } }); }
-    $('validateBtn')?.addEventListener('click', validate, true);
     const simStart = $('startSimulation');
     if (simStart && !simStart.dataset.projectPatched) {
       simStart.dataset.projectPatched = 'true';

@@ -6,7 +6,10 @@ from mjlab.actuator import BuiltinPositionActuatorCfg, BuiltinVelocityActuatorCf
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.utils.spec_config import CollisionCfg
 
-_PROJECT_ROOT = Path(__file__).parent.parent.parent
+# The package keeps the original project-relative ``source/mjcf`` layout.
+# Resolve it from the source package root so imported profiles work from both
+# the bundled assets tree and persisted workspace packages.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ROBOT_XML = _PROJECT_ROOT / "mjcf" / "wheelleg.xml"
 
 LEG_JOINT_PATTERNS = (

@@ -1,6 +1,6 @@
 # Legged Studio
 
-Version `0.4.0` is the first focused MJLab training and MuJoCo simulation release.
+Version `0.5.0` is the first focused MJLab training and MuJoCo simulation release.
 
 Legged Studio is a local, contract-driven workbench for validating legged
 robot assets, configuring rewards and algorithms, running native MJLab training,
@@ -44,7 +44,7 @@ npm run build:online:win
 ```
 
 The archive and its top-level directory are named
-`Legged-Studio-0.4.0-Windows-Online`, not `win-unpacked` or Electron.
+`Legged-Studio-0.5.0-Windows-Online`, not `win-unpacked` or Electron.
 
 To build the Windows package with an embedded CPython 3.12 runtime, CUDA
 Torch, MJLab, and the Unitree MJLab extension, run this target on Windows:

@@ -196,6 +196,7 @@ function renderEnvironment(payload) {
 }
 
 function renderAssets(payload) {
+    if (Array.isArray(payload?.packages)) return renderImportedPackages(payload);
     state.assets = payload || {};
     const bySize = payload?.by_size || {};
     const total = payload?.total ?? payload?.count ?? '—';
@@ -205,6 +206,16 @@ function renderAssets(payload) {
         .map(([label, value]) => `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`).join('');
     const families = payload?.families || [];
     $('#asset-summary').innerHTML = `<div class="summary-line"><span>可用家族</span><strong>${families.length ? families.join(' · ') : '暂无数据'}</strong></div><div class="summary-line"><span>运动构型</span><strong>${Object.entries(payload?.by_locomotion || {}).map(([key, value]) => `${key}: ${value}`).join(' · ') || '暂无数据'}</strong></div>`;
+}
+
+function renderImportedPackages(payload) {
+    const packages = payload.packages || [];
+    const total = payload.count ?? packages.length;
+    state.assets = payload;
+    setCard('assets', `${total} 个`, 'ready');
+    $('#assets-value').textContent = `${total} 个`;
+    $('#asset-metrics').innerHTML = [['包管理', total], ['模型文件', packages.filter((item) => item.contract?.urdf?.path || item.robot_package?.model).length], ['训练配置', packages.length], ['仿真配置', packages.length]].map(([label, value]) => `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`).join('');
+    $('#asset-summary').innerHTML = packages.length ? `<table><thead><tr><th>包</th><th>模型</th><th>文件</th><th>来源</th></tr></thead><tbody>${packages.map((item) => { const c = item.contract || {}; const p = item.robot_package || {}; return `<tr><td>${c.family || c.robot_id || item.package_id}</td><td>${c.urdf?.path || p.model?.path || '未声明'}</td><td>${item.file_count ?? 0}</td><td>${item.source === 'imported' ? '已导入' : '工作区'}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty-state">暂无包，请从验证模块导入本地资产文件夹。</div>';
 }
 
 function renderTraining(tasks) {
@@ -231,7 +242,7 @@ async function refreshState(showToast = false) {
     renderHealth(checked.health);
     const results = await Promise.allSettled([
         fetchJson('/api/system/environment'),
-        fetchJson('/api/assets/summary'),
+        fetchJson('/api/project/packages'),
         fetchJson('/api/training/list'),
     ]);
     if (results[0].status === 'fulfilled') renderEnvironment(results[0].value);
@@ -432,6 +443,7 @@ $('#open-docs').addEventListener('click', () => api.openPath('docs'));
 $('#open-root').addEventListener('click', () => api.openPath('root'));
 $('#settings-open-root').addEventListener('click', () => api.openPath('root'));
 $('#open-assets-workbench').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/assets.html`); });
+$('#open-packages-home')?.addEventListener('click', () => activatePage('assets'));
 $('#open-artifacts-workbench').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/artifacts.html`); });
 $('#open-evaluation').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/evaluation.html`); });
 $('#probe-python').addEventListener('click', () => probePython(true));

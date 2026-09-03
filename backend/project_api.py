@@ -35,25 +35,51 @@ class ProjectImportRequest(BaseModel):
 
 @router.get("/packages")
 async def list_project_packages() -> dict[str, Any]:
-    """List locally persisted robot packages available to Web and CLI."""
+    """List locally persisted imported packages available to Web and CLI."""
     packages = []
-    root = WORKSPACE / "packages"
-    for package_root in sorted(root.iterdir()) if root.exists() else []:
+    roots = [WORKSPACE / "packages", WORKSPACE / "imports"]
+    seen: set[str] = set()
+    for root in roots:
+      for package_root in sorted(root.iterdir()) if root.exists() else []:
         if not package_root.is_dir():
-            continue
+          continue
+        package_key = str(package_root.resolve())
+        if package_key in seen:
+          continue
         descriptor = package_root / "robot_package.json"
         contract = package_root / "contract.json"
         if not descriptor.exists() or not contract.exists():
-            continue
+          continue
         try:
-            packages.append({
-                "package_root": str(package_root.relative_to(PROJECT_ROOT)).replace("\\", "/"),
-                "robot_package": json.loads(descriptor.read_text(encoding="utf-8")),
-                "contract": json.loads(contract.read_text(encoding="utf-8")),
-            })
+          package = json.loads(descriptor.read_text(encoding="utf-8"))
+          contract_data = json.loads(contract.read_text(encoding="utf-8"))
+          seen.add(package_key)
+          files = [item for item in package_root.rglob("*") if item.is_file()]
+          packages.append({
+            "package_id": package.get("package_id") or contract_data.get("robot_id") or package_root.name,
+            "package_root": str(package_root.relative_to(PROJECT_ROOT)).replace("\\", "/"),
+            "source": "imported" if root.name == "imports" else "workspace",
+            "file_count": len(files),
+            "size_bytes": sum(item.stat().st_size for item in files),
+            "robot_package": package,
+            "contract": contract_data,
+          })
         except (OSError, json.JSONDecodeError):
-            continue
+          continue
     return {"success": True, "packages": packages, "count": len(packages)}
+
+
+@router.delete("/packages/{package_id}")
+async def delete_project_package(package_id: str) -> dict[str, Any]:
+    """Delete an imported package by its persisted directory id."""
+    if not package_id or Path(package_id).name != package_id:
+        return {"success": False, "error": "invalid package id"}
+    candidates = [WORKSPACE / "imports" / package_id, WORKSPACE / "packages" / package_id]
+    target = next((item for item in candidates if item.exists() and item.is_dir()), None)
+    if target is None:
+        return {"success": False, "error": "package not found"}
+    shutil.rmtree(target)
+    return {"success": True, "package_id": package_id}
 
 
 def _safe_zip_path(name: str) -> Path:
@@ -65,7 +91,7 @@ def _safe_zip_path(name: str) -> Path:
 
 @router.post("/export")
 async def export_project(request: ProjectExportRequest) -> Response:
-    manifest = {"schema_version": "legged-studio-project-1.0", "product_version": "0.4.0", "imports": [], "files": ["training/config.json", "scenarios/active.json"]}
+    manifest = {"schema_version": "legged-studio-project-1.0", "product_version": "0.5.0", "imports": [], "files": ["training/config.json", "scenarios/active.json"]}
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         exported_roots: set[str] = set()
