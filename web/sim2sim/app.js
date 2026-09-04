@@ -1125,8 +1125,8 @@ function applyRuntimeConfig(config) {
   if (order.length >= CONFIG.numActions) {
     for (let i = 0; i < CONFIG.numActions; i += 1) {
       const group = jointGroup(order[i]);
-      CONFIG.kps[i] = controlValue(stiffness, group, CONFIG.kps[i]);
-      CONFIG.kds[i] = controlValue(damping, group, CONFIG.kds[i]);
+      CONFIG.kps[i] = controlValue(stiffness, order[i], group, CONFIG.kps[i]);
+      CONFIG.kds[i] = controlValue(damping, order[i], group, CONFIG.kds[i]);
     }
   }
   CONFIG.actionScale = finiteNumber(control.action_scale, CONFIG.actionScale);
@@ -1148,6 +1148,7 @@ function applyRuntimeConfig(config) {
   applyActionFilterCutoffs(control.action_filter_cutoffs);
   updateSignalDelayUi();
   applyTorqueLimits(control.torque_limits, order);
+  applyVelocityLimits(control.velocity_limits, order);
   applyMotorEnvelopes(control.motor_envelopes, order);
 
   // Reindex is data, not code: PolicyContract.reindex is a single permutation
@@ -1537,9 +1538,26 @@ function jointGroup(jointName) {
   return "hip";
 }
 
-function controlValue(values, group, fallback) {
+// Morphology-agnostic joint segment: strips the leg-side prefix and the
+// trailing "joint" token, so "fl_hip_abduction_joint" -> "hip_abduction",
+// "left_hip_yaw" -> "hip_yaw". Works for quadrupeds, bipeds, wheel-legs…
+function jointSegment(jointName) {
+  const parts = String(jointName).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  if (parts.length > 1 && ["joint", "actuator", "motor"].includes(parts[parts.length - 1])) parts.pop();
+  if (parts.length > 1 && /^(fl|fr|rl|rr|lf|rf|lh|rh|l1|r1|l|r|hr|hl|front|rear|left|right)$/.test(parts[0])) parts.shift();
+  return parts.join("_") || String(jointName).toLowerCase();
+}
+
+function controlValue(values, jointName, group, fallback) {
   const table = values || {};
-  return finiteNumber(table[group], finiteNumber(table.joint, fallback));
+  const segment = jointSegment(jointName);
+  return finiteNumber(
+    table[jointName],
+    finiteNumber(
+      table[segment],
+      finiteNumber(table[group], finiteNumber(table.joint, fallback)),
+    ),
+  );
 }
 
 function finiteNumber(value, fallback) {
@@ -1551,6 +1569,30 @@ function integerOrNull(value) {
   if (value === undefined || value === null || value === "") return null;
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function applyVelocityLimits(limits, order = null) {
+  // Motor speed caps keyed by exact joint name, inferred body segment, or the
+  // legacy hip/thigh/calf/wheel groups — whatever the package provides.
+  if (!limits || typeof limits !== "object") return;
+  if (Array.isArray(limits) && limits.length === CONFIG.numActions) {
+    for (let i = 0; i < CONFIG.numActions; i += 1) {
+      CONFIG.motorVelocityLimits[i] = Math.max(0, finiteNumber(limits[i], CONFIG.motorVelocityLimits[i]));
+    }
+    return;
+  }
+  const jointOrder = Array.isArray(order) && order.length >= CONFIG.numActions
+    ? order
+    : CONFIG.jointOrder;
+  for (let i = 0; i < CONFIG.numActions; i += 1) {
+    const joint = String(jointOrder[i] || "");
+    for (const key of [joint, jointSegment(joint), jointGroup(joint), joint.toLowerCase()]) {
+      if (Object.prototype.hasOwnProperty.call(limits, key)) {
+        CONFIG.motorVelocityLimits[i] = Math.max(0, finiteNumber(limits[key], CONFIG.motorVelocityLimits[i]));
+        break;
+      }
+    }
+  }
 }
 
 function applyTorqueLimits(limits, order = null) {
@@ -1566,7 +1608,17 @@ function applyTorqueLimits(limits, order = null) {
     ? order
     : CONFIG.jointOrder;
   for (let i = 0; i < CONFIG.numActions; i += 1) {
-    const group = jointGroup(jointOrder[i]);
+    const joint = jointOrder[i];
+    const group = jointGroup(joint);
+    if (Object.prototype.hasOwnProperty.call(limits, joint)) {
+      CONFIG.torqueLimits[i] = Math.max(0, finiteNumber(limits[joint], CONFIG.torqueLimits[i]));
+      continue;
+    }
+    const segment = jointSegment(joint);
+    if (Object.prototype.hasOwnProperty.call(limits, segment)) {
+      CONFIG.torqueLimits[i] = Math.max(0, finiteNumber(limits[segment], CONFIG.torqueLimits[i]));
+      continue;
+    }
     if (Object.prototype.hasOwnProperty.call(limits, group)) {
       CONFIG.torqueLimits[i] = Math.max(0, finiteNumber(limits[group], CONFIG.torqueLimits[i]));
     }

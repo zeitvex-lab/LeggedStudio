@@ -63,14 +63,8 @@ function buildRobotWorkspace() {
         </div>
         <div class="robot-pane" data-robot-pane="mapping"><div class="pane-note">动作索引必须与训练和策略输出顺序一致。</div><div id="robotJointEditor" class="robot-joint-editor"><div class="empty-state">未选择机器人包</div></div></div>
         <div class="robot-pane" data-robot-pane="motor">
-          <div class="pane-note">Kp / Kd / 力矩限幅按关节组生效，保存后写入机器人包并同步到浏览器仿真配置。</div>
+          <div class="pane-note">Kp / Kd / 力矩限幅 / 速度限幅按关节组生效，保存后写入机器人包并同步到浏览器仿真配置。</div>
           <div id="controlGainsGrid" class="control-gains-grid"></div>
-          <div class="control-parameter-grid">
-            <label class="field-label">目标机身高度 (m)<input id="baseHeightTarget" type="number" min="0.05" max="1.5" step="0.01" placeholder="留空则不设定"></label>
-            <label class="field-label">最大前进速度 (m/s)<input id="maxCmdVx" type="number" min="0" step="0.1"></label>
-            <label class="field-label">最大侧移速度 (m/s)<input id="maxCmdVy" type="number" min="0" step="0.1"></label>
-            <label class="field-label">最大转向角速度 (rad/s)<input id="maxCmdWyaw" type="number" min="0" step="0.1"></label>
-          </div>
         </div>
         <div class="robot-pane" data-robot-pane="inertia"><div class="pane-note">来自模型 inertial 定义；勾选“惯性”可在 3D 视图查看等效惯量盒与质心。</div><div id="inertialTable" class="inertial-table"><div class="empty-state">未选择机器人包</div></div></div>
         <textarea id="contractJson" hidden></textarea><select id="preset" hidden></select><span id="presetMeta" hidden></span><span id="stageRobotName" hidden></span><button id="copyContract" hidden></button><input id="modelPath" type="hidden"><select id="format" hidden><option value="auto">auto</option><option value="urdf">urdf</option><option value="mjcf">mjcf</option></select><button id="validateBtn" hidden></button><pre id="validationLog" hidden></pre><span id="modelBadge" hidden></span>
@@ -124,12 +118,9 @@ function renderRobotEditor(preset) {
     damping: control.damping || simConfig.damping || null,
     torque_limits: control.torque_limits || simConfig.torque_limits || null,
   };
+  gainsSource.torque_limits = gainsSource.torque_limits || simConfig.torque_limits || null;
+  gainsSource.velocity_limits = control.velocity_limits || simConfig.velocity_limits || null;
   renderControlGainsGrid(gainsSource, mappedJoints);
-  const savedLimits = Array.isArray(control.max_command) ? control.max_command : [];
-  setInputValue('baseHeightTarget', control.base_height_target ?? simConfig.initial_base_height ?? '');
-  setInputValue('maxCmdVx', savedLimits[0] ?? '');
-  setInputValue('maxCmdVy', savedLimits[1] ?? '');
-  setInputValue('maxCmdWyaw', savedLimits[2] ?? '');
   renderInertialTable();
   $('saveRobotPackage')?.toggleAttribute('disabled', !preset);
   $('deleteRobotPackage')?.toggleAttribute('disabled', !preset || preset.source !== 'workspace');
@@ -165,89 +156,98 @@ function renderRobotEditor(preset) {
   };
 }
 
-function controlGainGroups(mappedJoints) {
-  // Group set mirrors the references_1000framesai robot config page: hip /
-  // thigh / calf, plus a wheel column only for wheeled morphologies.
-  const groups = ['hip', 'thigh', 'calf'];
-  if (mappedJoints.some((name) => String(name).includes('wheel'))) groups.push('wheel');
-  return groups;
+function inferMotorSegments(mappedJoints) {
+  // Morphology-agnostic: strip the leg-side prefix and trailing "joint" token
+  // so each distinct body segment becomes a row. Quadrupeds yield hip/thigh/
+  // calf(+wheel), bipeds yield hip_yaw/hip_roll/knee/ankle..., whatever the
+  // robot actually names its joints.
+  const sideHint = /^(fl|fr|rl|rr|lf|rf|lh|rh|l1|r1|l|r|hr|hl|front|rear|left|right)$/;
+  const segments = [];
+  const jointToSegment = {};
+  for (const joint of mappedJoints) {
+    let parts = String(joint).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    if (parts.length > 1 && ['joint', 'actuator', 'motor'].includes(parts[parts.length - 1])) parts.pop();
+    if (parts.length > 1 && sideHint.test(parts[0])) parts.shift();
+    const segment = parts.join('_') || String(joint).toLowerCase();
+    if (!segments.includes(segment)) segments.push(segment);
+    jointToSegment[joint] = segment;
+  }
+  return { segments, jointToSegment };
 }
 
-function readGainGroup(map, group) {
+function resolveGainValue(map, segment, joints) {
   if (!map || typeof map !== 'object') return '';
-  const value = Number(map[group] ?? map.joint);
-  return Number.isFinite(value) ? value : '';
+  for (const joint of joints) {
+    const value = Number(map[joint]);
+    if (Number.isFinite(value)) return value;
+  }
+  const bySegment = Number(map[segment]);
+  if (Number.isFinite(bySegment)) return bySegment;
+  const jointWide = Number(map.joint);
+  return Number.isFinite(jointWide) ? jointWide : '';
 }
 
 function renderControlGainsGrid(control, mappedJoints) {
   const grid = $('controlGainsGrid');
   if (!grid) return;
-  const groups = controlGainGroups(mappedJoints);
+  if (!mappedJoints.length) {
+    grid.innerHTML = '<div class="empty-state">Contract 未声明动作关节</div>';
+    return;
+  }
+  const { segments, jointToSegment } = inferMotorSegments(mappedJoints);
   const rows = [
-    { key: 'stiffness', label: 'Kp (刚度)' },
-    { key: 'damping', label: 'Kd (阻尼)' },
-    { key: 'torque_limits', label: '力矩限幅 (N·m)' },
+    { key: 'stiffness', label: 'Kp', step: '0.1' },
+    { key: 'damping', label: 'Kd', step: '0.01' },
+    { key: 'torque_limits', label: '力矩限幅', step: '0.1' },
+    { key: 'velocity_limits', label: '速度限幅', step: '0.1' },
   ];
-  const header = `<div class="gains-row gains-head" style="grid-template-columns:110px repeat(${groups.length},1fr)"><span></span>${groups.map((group) => `<span>${group}</span>`).join('')}</div>`;
-  grid.innerHTML = header + rows.map((row) => {
-    const source = control[row.key];
-    const cells = groups.map((group) => {
-      const value = readGainGroup(source, group);
-      return `<input data-gain-key="${row.key}" data-gain-group="${group}" type="number" min="0" step="${row.key === 'damping' ? 0.01 : 0.1}" value="${value}">`;
+  const jointsBySegment = {};
+  for (const joint of mappedJoints) (jointsBySegment[jointToSegment[joint]] ||= []).push(joint);
+  const cols = 'minmax(140px,1.5fr) repeat(4,minmax(64px,1fr))';
+  const header = `<div class="gains-row gains-head" style="grid-template-columns:${cols}"><span>部位</span><span>Kp</span><span>Kd</span><span>力矩限幅</span><span>速度限幅</span></div>`;
+  grid.innerHTML = header + segments.map((segment) => {
+    const joints = jointsBySegment[segment] || [];
+    const cells = rows.map((row) => {
+      const value = resolveGainValue(control[row.key], segment, joints);
+      return `<input data-gain-key="${row.key}" data-gain-segment="${segment}" type="number" min="0" step="${row.step}" value="${value}">`;
     }).join('');
-    return `<div class="gains-row" style="grid-template-columns:110px repeat(${groups.length},1fr)"><span>${row.label}</span>${cells}</div>`;
+    return `<div class="gains-row" style="grid-template-columns:${cols}" title="${escapeHtml(joints.join(', '))}"><span>${escapeHtml(segment)}</span>${cells}</div>`;
   }).join('');
 }
 
-function collectControlGains(control) {
+function collectControlGains(control, mappedJoints) {
+  // Expand each segment row into explicit per-joint keys so any consumer
+  // (per-joint or grouped) can resolve values for any morphology.
   const collect = (key) => {
     const values = {};
     document.querySelectorAll(`[data-gain-key="${key}"]`).forEach((input) => {
+      if (input.value === '') return;
       const value = Number(input.value);
-      if (Number.isFinite(value) && input.value !== '') values[input.dataset.gainGroup] = value;
+      if (!Number.isFinite(value)) return;
+      mappedJoints.filter((joint) => inferMotorSegments([joint]).segments[0] === input.dataset.gainSegment)
+        .forEach((joint) => { values[joint] = value; });
     });
     return values;
   };
   const stiffness = collect('stiffness');
   const damping = collect('damping');
   const torqueLimits = collect('torque_limits');
-  const maxCommand = ['maxCmdVx', 'maxCmdVy', 'maxCmdWyaw']
-    .map((id) => Number($(id)?.value))
-    .filter((value) => Number.isFinite(value) && value >= 0);
+  const velocityLimits = collect('velocity_limits');
   return {
     control: {
       ...(control || {}),
       ...(Object.keys(stiffness).length ? { stiffness } : {}),
       ...(Object.keys(damping).length ? { damping } : {}),
       ...(Object.keys(torqueLimits).length ? { torque_limits: torqueLimits } : {}),
-      base_height_target: Number($('baseHeightTarget')?.value) || undefined,
-      ...(maxCommand.length === 3 ? { max_command: maxCommand } : {}),
+      ...(Object.keys(velocityLimits).length ? { velocity_limits: velocityLimits } : {}),
     },
     simulation: {
       ...(Object.keys(stiffness).length ? { stiffness } : {}),
       ...(Object.keys(damping).length ? { damping } : {}),
       ...(Object.keys(torqueLimits).length ? { torque_limits: torqueLimits } : {}),
-      initial_base_height: Number($('baseHeightTarget')?.value) || undefined,
+      ...(Object.keys(velocityLimits).length ? { velocity_limits: velocityLimits } : {}),
     },
   };
-}
-
-function renderInertialTable() {
-  const table = $('inertialTable');
-  if (!table) return;
-  const records = typeof window.getRobotInertialData === 'function' ? window.getRobotInertialData() : [];
-  if (!records.length) {
-    table.innerHTML = '<div class="empty-state">模型未提供 inertial 数据</div>';
-    return;
-  }
-  const totalMass = records.reduce((sum, record) => sum + (record.mass || 0), 0);
-  const format = (value) => (Number.isFinite(value) ? Number(value).toPrecision(5).replace(/\.?0+$/, '') : 'N/A');
-  const rows = records.map((record) => {
-    const principal = record.principal ? record.principal.map(format).join(' / ') : 'N/A';
-    const com = record.com.map(format).join(', ');
-    return `<div class="inertial-row"><span class="inertial-link" title="${escapeHtml(record.link)}">${escapeHtml(record.link)}</span><span>${Number(record.mass ?? 0).toFixed(4)}</span><span>${com}</span><span>${principal}</span></div>`;
-  }).join('');
-  table.innerHTML = `<div class="inertial-row inertial-head"><span>连杆</span><span>质量 (kg)</span><span>质心 (m)</span><span>主惯量 I1/I2/I3 (kg·m²)</span></div>${rows}<div class="inertial-total">总质量 ${totalMass.toFixed(4)} kg</div>`;
 }
 
 function jointControlMarkup(name, index, value) {
@@ -302,7 +302,7 @@ async function saveRobotPackage() {
     });
     contract.joints = { ...(contract.joints || {}), actuated_joints: joints, default_pose: defaultPose };
     contract.action = { ...(contract.action || {}), dimension: joints.length, joint_order: joints, action_scale: contract.action?.action_scale ?? 0.25 };
-    const gains = collectControlGains(contract.control);
+    const gains = collectControlGains(contract.control, joints.length ? joints : (contract.joints?.actuated_joints || []));
     contract.control = { ...contract.control, ...gains.control, control_hz: contract.control?.control_hz ?? 50, physics_hz: contract.control?.physics_hz ?? 1000, decimation: contract.control?.decimation ?? 20 };
     const result = await jsonFetch(`/api/robots/packages/${encodeURIComponent(selectedPreset.robot_id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contract, simulation: { control_hz: contract.control.control_hz, physics_hz: contract.control.physics_hz, decimation: contract.control.decimation, default_pose: contract.joints.default_pose, ...gains.simulation } }) });
     $('contractJson').value = JSON.stringify(result.contract || contract, null, 2); setBadge($('robotState'), '已保存', 'ok'); $('robotDiagnostics').textContent = '配置已写入本地机器人包'; await loadPresets(selectedPreset.robot_id);
