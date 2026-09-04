@@ -27,15 +27,6 @@ class ContractMujocoEnvTests(unittest.TestCase):
         finally:
             env.close()
 
-    def test_go2w_has_sixteen_actuators(self):
-        contract = RobotContractV2.from_json_file("contracts/fixtures/unitree_go2w.v2.json")
-        env = ContractMujocoEnv(contract, num_envs=1, episode_length_s=0.1)
-        try:
-            self.assertEqual(env.model.nu, 16)
-            self.assertEqual(env.reset().shape, (1, 56))
-        finally:
-            env.close()
-
     def test_reward_terms_can_be_disabled_or_reweighted(self):
         contract = RobotContractV2.from_json_file("contracts/fixtures/unitree_go2.v2.json")
         env = ContractMujocoEnv(contract, num_envs=1, episode_length_s=0.1, reward_scales={"upright": 0.0, "tracking_lin_vel": 0.0, "torques": 0.0, "action_rate": 0.0, "base_height": 0.0})

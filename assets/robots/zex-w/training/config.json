@@ -3,5 +3,19 @@
   "task_name": "forward_walk",
   "algorithm": "PPO",
   "backend": "native_mjlab",
-  "terrain_type": "plane"
+  "terrain_type": "plane",
+  "num_envs": 2048,
+  "episode_length_s": 20.0,
+  "max_iterations": 10000,
+  "learning_rate": 0.0008,
+  "save_interval": 100,
+  "num_steps": 24,
+  "num_minibatches": 4,
+  "gamma": 0.99,
+  "gae_lambda": 0.95,
+  "clip_param": 0.2,
+  "entropy_coef": 0.003,
+  "seed": 42,
+  "command_ranges": {"lin_vel_x": [-1.0, 1.0], "lin_vel_y": [-0.5, 0.5], "ang_vel_z": [-1.0, 1.0]},
+  "reward_scales": {"track_linear_velocity": 2.5, "track_angular_velocity": 2.5, "upright": 1.0, "joint_torques_l2": -0.0002, "joint_acc_l2": -2.5e-07, "action_rate_l2": -0.01, "joint_pos_limits": -10.0, "body_orientation_l2": 0.0}
 }

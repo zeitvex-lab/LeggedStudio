@@ -17,7 +17,9 @@ import shutil
 import copy
 import importlib
 import inspect
+import importlib.metadata
 from pathlib import Path
+
 
 
 def _write(path: Path, value: dict) -> None:
@@ -34,7 +36,7 @@ def apply_training_recipe(env_cfg, rl_cfg, config: dict, *, preserve_profile: bo
     if preserve_profile and not config.get("reward_overrides", False):
         rewards = {}
     terrain_type = str(environment.get("terrain_type", config.get("terrain_type", "plane"))).lower()
-    if terrain_type not in {"plane", "rough"}:
+    if not preserve_profile and terrain_type not in {"plane", "rough"}:
         raise ValueError(f"native MJLab training supports terrain_type plane or rough; got {terrain_type!r}")
     terrain = getattr(getattr(env_cfg, "scene", None), "terrain", None)
     if terrain is not None and not preserve_profile:
@@ -144,6 +146,14 @@ def _import_entrypoint(value: str):
     return factory
 
 
+def _resolve_entrypoint(value: str):
+    """Resolve a package entrypoint that may be a factory or config object."""
+    module_name, separator, attr_name = str(value).partition(":")
+    if not separator or not module_name or not attr_name:
+        raise ValueError(f"invalid package entrypoint: {value!r}; expected module:callable")
+    return getattr(importlib.import_module(module_name), attr_name, None)
+
+
 def _call_factory(factory, *, play: bool = False):
     """Call factories with the optional MJLab play flag when supported."""
     try:
@@ -155,7 +165,7 @@ def _call_factory(factory, *, play: bool = False):
     return factory()
 
 
-def _load_profile_bundle(profile: dict, package: dict):
+def _load_profile_bundle(profile: dict, package: dict, config: dict):
     """Load an isolated package profile without robot-id-specific branches."""
     package_root = Path(str(package.get("package_root", ""))).resolve()
     source_root = package_root / str(profile.get("source_root", "training/source"))
@@ -169,11 +179,58 @@ def _load_profile_bundle(profile: dict, package: dict):
     if not env_entrypoint or not runner_entrypoint:
         raise ValueError(f"profile {profile.get('profile_id')} must declare entrypoints.env and entrypoints.runner")
     env_factory = _import_entrypoint(env_entrypoint)
-    runner_factory = _import_entrypoint(runner_entrypoint)
+    runner_factory = _resolve_entrypoint(runner_entrypoint)
+    if runner_factory is None:
+        raise AttributeError(f"package entrypoint attribute not found: {runner_entrypoint}")
     env_cfg = _call_factory(env_factory, play=False)
     play_env_cfg = _call_factory(env_factory, play=True)
-    rl_cfg = _call_factory(runner_factory)
+    # MJLab profiles commonly export a runner config instance (for example
+    # ``MicroduckRlCfg = RslRlOnPolicyRunnerCfg(...)``) rather than a factory.
+    # Accept both forms so package authors do not need a platform-specific
+    # wrapper.
+    rl_cfg = _call_factory(runner_factory) if callable(runner_factory) else copy.deepcopy(runner_factory)
+    configure_entrypoint = entrypoints.get("configure")
+    if configure_entrypoint:
+        configure = _import_entrypoint(configure_entrypoint)
+        configured = configure(
+            env_cfg=env_cfg,
+            play_env_cfg=play_env_cfg,
+            rl_cfg=rl_cfg,
+            config=copy.deepcopy(config),
+        )
+        if isinstance(configured, dict):
+            env_cfg = configured.get("env_cfg", env_cfg)
+            play_env_cfg = configured.get("play_env_cfg", play_env_cfg)
+            rl_cfg = configured.get("rl_cfg", rl_cfg)
     return env_cfg, play_env_cfg, rl_cfg
+
+
+def _load_package_extension(package: dict) -> dict:
+    """Load a package-owned MJLab extension declared by its manifest.
+
+    Extensions are deliberately data-driven: a package may expose an
+    ``extension_entrypoint`` (``module:register``) and optional
+    ``extension_root``.  The worker never branches on robot identity and the
+    shared MJLab source tree remains untouched.
+    """
+    entrypoint = package.get("extension_entrypoint") or package.get("extension_module")
+    if not entrypoint:
+        return {}
+    package_root = Path(str(package.get("package_root", ""))).resolve()
+    extension_root = package.get("extension_root")
+    if extension_root:
+        root = Path(str(extension_root))
+        if not root.is_absolute():
+            root = package_root / root
+        if root.exists() and str(root) not in sys.path:
+            sys.path.insert(0, str(root))
+    # Package source is always available for its extension module, even when
+    # the selected profile has a different source_root.
+    if str(package_root) not in sys.path:
+        sys.path.insert(0, str(package_root))
+    register = _import_entrypoint(str(entrypoint))
+    result = _call_factory(register)
+    return result if isinstance(result, dict) else {"result": result}
 
 
 def run(config: dict, source: Path, output: Path, extension_root: Path | None = None) -> int:
@@ -181,6 +238,7 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
     project_root = Path(__file__).resolve().parents[2]
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
+    from adapters.mjlab.runtime_compat import evaluate_package_runtime
     sys.path.insert(0, str(source / "src"))
     package = config.get("robot_package") or {}
     generic_bundle = None
@@ -190,7 +248,7 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         profile_root = Path(str(package.get("package_root", ""))) / "training" / "profiles"
         for profile_path in profile_root.glob("*.json") if profile_root.exists() else []:
             try:
-                candidate = json.loads(profile_path.read_text(encoding="utf-8"))
+                candidate = json.loads(profile_path.read_text(encoding="utf-8-sig"))
             except (OSError, json.JSONDecodeError):
                 continue
             if candidate.get("profile_id") == profile_id:
@@ -199,20 +257,26 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         if profile is None:
             raise ValueError(f"training profile not found in robot package: {profile_id}")
         config["package_profile"] = profile
+    extension_report = _load_package_extension(package)
     import torch
+    import mjlab
     import mjlab.tasks  # noqa: F401
     from mjlab.envs import ManagerBasedRlEnv
-    from mjlab.tasks.registry import list_tasks, load_env_cfg, load_rl_cfg, register_mjlab_task
+    from mjlab.tasks.registry import list_tasks, load_env_cfg, load_rl_cfg, load_runner_cls, register_mjlab_task
 
     # Generic tasks are registered dynamically from the imported Robot Contract.
     # This path is opt-in so historical extension tasks remain untouched while
     # Web/CLI callers can train any valid MJCF asset without a robot-id branch.
     profile_bundle = None
     if profile:
-        profile_bundle = _load_profile_bundle(profile, package)
+        profile_bundle = _load_profile_bundle(profile, package, config)
         from mjlab.tasks.registry import register_mjlab_task
         profile_task_id = str(config.get("native_task_id") or f"LeggedStudio-{profile.get('profile_id')}")
-        register_mjlab_task(profile_task_id, profile_bundle[0], profile_bundle[1], profile_bundle[2])
+        runner_cls = None
+        runner_entrypoint = (profile.get("entrypoints") or {}).get("runner_class")
+        if runner_entrypoint:
+            runner_cls = _import_entrypoint(runner_entrypoint)
+        register_mjlab_task(profile_task_id, profile_bundle[0], profile_bundle[1], profile_bundle[2], runner_cls=runner_cls)
         config["native_task_id"] = profile_task_id
         config["profile_task"] = True
     if config.get("generic_task", True) and profile_bundle is None:
@@ -243,7 +307,24 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         "cuda_available": bool(torch.cuda.is_available()),
         "package": {"package_id": package.get("package_id"), "task_kind": "generic", "capabilities": package.get("capabilities", [])},
         "profile": {"profile_id": profile.get("profile_id"), "source": profile.get("source")} if profile else None,
+        "package_extension": extension_report or None,
     }
+    try:
+        mjlab_version = str(importlib.metadata.version("mjlab"))
+    except importlib.metadata.PackageNotFoundError:
+        mjlab_version = str(getattr(mjlab, "__version__", "")) or None
+    report["package_compatibility"] = evaluate_package_runtime(
+        package,
+        {
+            "mjlab_version": mjlab_version,
+            "python_version": ".".join(str(value) for value in sys.version_info[:3]),
+            "torch_version": str(torch.__version__),
+        },
+    )
+    if report["package_compatibility"]["status"] != "compatible":
+        report.update({"status": "runtime_incompatible", "error": "robot package runtime requirements are not satisfied"})
+        _write(output / "native_preflight.json", report)
+        return 4
     if config.get("generic_task"):
         report["generic_task"] = True
         report["generic_task_diagnostics"] = config.get("generic_task_diagnostics", {})
@@ -304,11 +385,12 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             rl_cfg.max_iterations = max(1, int(config.get("max_iterations", 1)))
             rl_cfg.num_steps_per_env = max(4, int(config.get("num_steps", rl_cfg.num_steps_per_env)))
             rl_cfg.experiment_name = str(config.get("experiment_name", "legged_studio_native"))
-            # Keep the isolated worker offline by default. The Unitree
-            # extension's wandb writer is incompatible with newer wandb.
+            # Keep the isolated worker offline by default. Package extensions
+            # may carry optional writers; the control plane uses TensorBoard.
             rl_cfg.logger = str(config.get("logger", "tensorboard"))
             wrapped = RslRlVecEnvWrapper(env, clip_actions=rl_cfg.clip_actions)
-            runner = MjlabOnPolicyRunner(wrapped, asdict(rl_cfg), str(output), device)
+            runner_type = load_runner_cls(task_id) or MjlabOnPolicyRunner
+            runner = runner_type(wrapped, asdict(rl_cfg), str(output), device)
             runner.learn(num_learning_iterations=rl_cfg.max_iterations, init_at_random_ep_len=True)
             report["status"] = "train_completed"
             report["max_iterations"] = rl_cfg.max_iterations
@@ -350,10 +432,12 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             checkpoint = Path(str(config.get("checkpoint", ""))).resolve()
             if not checkpoint.exists():
                 raise FileNotFoundError(f"native checkpoint not found: {checkpoint}")
-            rl_cfg = load_rl_cfg(task_id)
+            if profile_bundle is None:
+                rl_cfg = load_rl_cfg(task_id)
             rl_cfg.logger = "tensorboard"
             wrapped = RslRlVecEnvWrapper(env, clip_actions=rl_cfg.clip_actions)
-            runner = MjlabOnPolicyRunner(wrapped, asdict(rl_cfg), device)
+            runner_type = load_runner_cls(task_id) or MjlabOnPolicyRunner
+            runner = runner_type(wrapped, asdict(rl_cfg), str(output), device)
             runner.load(str(checkpoint), load_cfg={"actor": True}, strict=True, map_location=device)
             policy = runner.get_inference_policy(device=device)
             episodes = max(1, int(config.get("episodes", 1)))
@@ -377,10 +461,12 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             checkpoint = Path(str(config.get("checkpoint", ""))).resolve()
             if not checkpoint.exists():
                 raise FileNotFoundError(f"native checkpoint not found: {checkpoint}")
-            rl_cfg = load_rl_cfg(task_id)
+            if profile_bundle is None:
+                rl_cfg = load_rl_cfg(task_id)
             rl_cfg.logger = "tensorboard"
             wrapped = RslRlVecEnvWrapper(env, clip_actions=rl_cfg.clip_actions)
-            runner = MjlabOnPolicyRunner(wrapped, asdict(rl_cfg), device)
+            runner_type = load_runner_cls(task_id) or MjlabOnPolicyRunner
+            runner = runner_type(wrapped, asdict(rl_cfg), str(output), device)
             runner.load(str(checkpoint), load_cfg={"actor": True}, strict=True, map_location=device)
             policy = runner.get_inference_policy(device=device)
             route = config.get("waypoints") or [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]]
@@ -432,7 +518,9 @@ def main() -> int:
     args = parser.parse_args()
     output = Path(args.output)
     try:
-        config = json.loads(Path(args.config).read_text(encoding="utf-8"))
+        # PowerShell's ``-Encoding utf8`` emits a BOM on Windows; accepting
+        # utf-8-sig keeps CLI and desktop launches interoperable.
+        config = json.loads(Path(args.config).read_text(encoding="utf-8-sig"))
         if args.contract:
             config["contract_path"] = str(Path(args.contract).resolve())
         extension = Path(args.extension_root).resolve() if args.extension_root else None

@@ -6,7 +6,7 @@
   "size_class": "M",
   "locomotion_type": "P",
   "urdf": {
-    "path": "assets/robots/unitree_go2/model/robot.xml",
+    "path": "workspace/packages/unitree_go2/model/robot.xml",
     "hash": "",
     "total_mass_kg": 15.206408,
     "mass_source": "manual"
@@ -28,18 +28,18 @@
     ],
     "passive_joints": [],
     "default_pose": [
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0
+      0.1,
+      0.8,
+      -1.5,
+      -0.1,
+      0.8,
+      -1.5,
+      0.1,
+      1.0,
+      -1.5,
+      -0.1,
+      1.0,
+      -1.5
     ]
   },
   "observation": {
@@ -86,4 +86,3 @@
   "source": "unilab_new/UniLab",
   "python_version": "3.12"
 }
-

@@ -1,6 +1,0 @@
-{
-    "schema_version":  "simulation-config-1.0",
-    "backend":  "mujoco",
-    "default_map":  "flat",
-    "scene_path":  "simulation/scene.xml"
-}

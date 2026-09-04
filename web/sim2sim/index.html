@@ -47,13 +47,19 @@
             <select id="robotSelect" aria-label="选择机器人">
               <option value="unitree_go2">Go2</option>
               <option value="unitree_go2w">Go2W</option>
-              <option value="zex-w">ZEX-W</option>
+              <option value="zex-w">ZEX-W</option><option value="microduck">MicroDuck</option>
             </select>
           </label>
           <label class="select-field">
             <span>模型</span>
             <select id="modelSelect" aria-label="选择模型">
               <option value="default">默认模型</option>
+            </select>
+          </label>
+          <label class="select-field">
+            <span>策略</span>
+            <select id="policySelect" aria-label="选择策略">
+              <option value="off">无策略（姿态保持）</option>
             </select>
           </label>
           <label class="select-field">
@@ -264,6 +270,6 @@
       </footer>
     </main>
 
-    <script type="module" src="./app.js?v=play-light-4"></script>
+    <script type="module" src="./app.js?v=0.6.0-sim-1"></script>
   </body>
 </html>

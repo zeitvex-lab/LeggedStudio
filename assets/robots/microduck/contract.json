@@ -1,0 +1,102 @@
+﻿{
+    "schema_version":  "robot-contract-2.0",
+    "contract_id":  "microduck_mjlab_v1",
+    "robot_id":  "microduck",
+    "family":  "MicroDuck",
+    "size_class":  "S",
+    "locomotion_type":  "P",
+    "urdf":  {
+                 "path":  "assets/robots/microduck/model/robot.xml",
+                 "hash":  "",
+                 "total_mass_kg":  0.8,
+                 "mass_source":  "manual",
+                 "mesh_files":  [
+
+                                ]
+             },
+    "joints":  {
+                   "actuated_joints":  [
+                                           "left_hip_yaw",
+                                           "left_hip_roll",
+                                           "left_hip_pitch",
+                                           "left_knee",
+                                           "left_ankle",
+                                           "neck_pitch",
+                                           "head_pitch",
+                                           "head_yaw",
+                                           "head_roll",
+                                           "right_hip_yaw",
+                                           "right_hip_roll",
+                                           "right_hip_pitch",
+                                           "right_knee",
+                                           "right_ankle"
+                                       ],
+                   "passive_joints":  [
+
+                                      ],
+                   "default_pose":  [
+                                        0,
+                                        -0.0873,
+                                        -0.4579,
+                                        -0.0049,
+                                        0.453,
+                                        0.3491,
+                                        0.3491,
+                                        0,
+                                        0,
+                                        0,
+                                        0.0873,
+                                        0.4579,
+                                        0.0049,
+                                        -0.453
+                                    ]
+               },
+    "observation":  {
+                        "dimension":  61,
+                        "components":  [
+                                           "base_lin_vel",
+                                           "base_ang_vel",
+                                           "projected_gravity",
+                                           "joint_pos",
+                                           "joint_vel",
+                                           "last_action",
+                                           "velocity_command",
+                                           "head_pose_command",
+                                           "body_pose_command"
+                                       ]
+                    },
+    "action":  {
+                   "dimension":  14,
+                   "joint_order":  [
+                                       "left_hip_yaw",
+                                       "left_hip_roll",
+                                       "left_hip_pitch",
+                                       "left_knee",
+                                       "left_ankle",
+                                       "neck_pitch",
+                                       "head_pitch",
+                                       "head_yaw",
+                                       "head_roll",
+                                       "right_hip_yaw",
+                                       "right_hip_roll",
+                                       "right_hip_pitch",
+                                       "right_knee",
+                                       "right_ankle"
+                                   ],
+                    "action_scale":  1.0
+               },
+    "control":  {
+                    "control_hz":  50,
+                    "physics_hz":  200,
+                    "decimation":  4
+                },
+    "description":  "MicroDuck biped package imported from microduck_rl and microduck-simulator.",
+    "tags":  [
+                 "microduck",
+                 "mjlab",
+                 "bam",
+                 "biped"
+             ],
+    "source":  "microduck_rl",
+    "python_version":  "3.12"
+}

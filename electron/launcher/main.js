@@ -4,11 +4,13 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const net = require('net');
+const crypto = require('crypto');
 
 const DEFAULT_BACKEND_PORT = 8765;
 const DOWNLOAD_RUNTIME_VERSION = 'windows-cuda-2026.09';
 const EXPECTED_API_SCHEMA = 'legged-studio-api-1';
 const IS_DEV = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const INSTANCE_ID = crypto.randomUUID();
 let launcherWindow = null;
 let pythonProcess = null;
 let runtimeProvisionProcess = null;
@@ -366,10 +368,13 @@ function requestJson(route, port = activeBackendPort || configuredBackendPort())
     });
 }
 
-async function backendHealth(port = activeBackendPort || configuredBackendPort()) {
+async function backendHealth(port = activeBackendPort || configuredBackendPort(), requireCurrentInstance = false) {
     const health = await requestJson('/health', port);
     if (health?.app_id !== 'legged-studio' || health?.api_schema !== EXPECTED_API_SCHEMA) {
         throw new Error(`Port ${port} is occupied by another or incompatible service`);
+    }
+    if (requireCurrentInstance && health?.instance_id !== INSTANCE_ID) {
+        throw new Error(`Port ${port} is served by a stale Legged Studio backend`);
     }
     return health;
 }
@@ -379,7 +384,7 @@ async function waitForBackend(port, timeoutMs = 10000) {
     let lastError = null;
     while (Date.now() < deadline) {
         try {
-            return await backendHealth(port);
+            return await backendHealth(port, true);
         } catch (error) {
             lastError = error;
             await new Promise((resolve) => setTimeout(resolve, 250));
@@ -395,6 +400,44 @@ function assertPortAvailable(port) {
         server.once('error', (error) => reject(new Error(`Port ${port} is unavailable: ${error.code || error.message}`)));
         server.listen({ host: '127.0.0.1', port, exclusive: true }, () => server.close(resolve));
     });
+}
+
+function stopStaleWindowsBackend(port, health) {
+    if (process.platform !== 'win32' || !IS_DEV) return Promise.resolve(false);
+    if (health?.app_id !== 'legged-studio' || health?.api_schema !== EXPECTED_API_SCHEMA) return Promise.resolve(false);
+    return new Promise((resolve, reject) => {
+        const script = [
+            `$connection = Get-NetTCPConnection -State Listen -LocalPort ${Number(port)} -ErrorAction SilentlyContinue | Select-Object -First 1`,
+            'if (-not $connection) { exit 0 }',
+            '$process = Get-CimInstance Win32_Process -Filter ("ProcessId=" + $connection.OwningProcess)',
+            'if (-not $process -or $process.CommandLine -notmatch "backend\\.api_complete:app") { exit 7 }',
+            'Stop-Process -Id $connection.OwningProcess -Force',
+        ].join('; ');
+        execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+            windowsHide: true,
+            timeout: 10000,
+        }, (error) => {
+            if (error) {
+                reject(new Error(`Unable to stop stale Legged Studio backend on port ${port}`));
+                return;
+            }
+            emit('backend-log', `[launcher] stopped stale backend on port ${port}\n`);
+            resolve(true);
+        });
+    });
+}
+
+async function waitForPortRelease(port, timeoutMs = 5000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        try {
+            await assertPortAvailable(port);
+            return;
+        } catch {
+            await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+    }
+    throw new Error(`Port ${port} did not become available after stopping the stale backend`);
 }
 
 function createLauncherWindow() {
@@ -427,11 +470,15 @@ async function startBackend() {
     }
     try {
         const health = await backendHealth(port);
-        activeBackendPort = port;
-        emit('backend-status', true);
-        return health;
+        if (health.instance_id === INSTANCE_ID) {
+            activeBackendPort = port;
+            emit('backend-status', true);
+            return health;
+        }
+        await stopStaleWindowsBackend(port, health);
+        await waitForPortRelease(port);
     } catch {
-        // No service is listening yet; continue with local startup.
+        // No compatible service is listening yet; continue with local startup.
     }
     await assertPortAvailable(port);
     if (!fs.existsSync(PATHS.backend)) {
@@ -457,6 +504,7 @@ async function startBackend() {
             PYTHONIOENCODING: 'utf-8',
             PYTHONUNBUFFERED: '1',
             LEGGED_STUDIO_DATA_DIR: app.getPath('userData'),
+            LEGGED_STUDIO_INSTANCE_ID: INSTANCE_ID,
             LEGGED_STUDIO_WORKSPACE: PATHS.workspace || path.join(app.getPath('userData'), 'workspace'),
             LEGGED_STUDIO_OUTPUT: PATHS.output,
             LEGGED_STUDIO_MJLAB_SOURCE: PATHS.mjlabSource,
@@ -519,7 +567,7 @@ ipcMain.handle('backend:start', async () => {
 
 ipcMain.handle('backend:stop', async () => ({ ok: await stopBackend() }));
 ipcMain.handle('backend:check', async () => {
-    try { return { ok: true, health: await backendHealth() }; }
+    try { return { ok: true, health: await backendHealth(undefined, true) }; }
     catch { return { ok: false }; }
 });
 ipcMain.handle('backend:url', () => `http://127.0.0.1:${activeBackendPort || configuredBackendPort()}`);

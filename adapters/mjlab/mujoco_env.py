@@ -17,7 +17,7 @@ class ContractMujocoEnv:
 
     The environment intentionally keeps the observation layout deterministic:
     free-base velocity, actuated joint position/velocity, and previous action,
-    padded to the Contract observation dimension. This makes Go2 and Go2W use
+    padded to the Contract observation dimension. This lets packaged robots use
     the same PPO/training pipeline while preserving their 12/16 actuator sets.
     """
 

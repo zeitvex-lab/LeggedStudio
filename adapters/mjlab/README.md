@@ -19,7 +19,7 @@ Create the development CUDA environment with uv:
 uv sync --project adapters/mjlab --extra cu128
 ```
 
-The adapter targets Python 3.12 and pins MJLab 1.6.0. Native Go2 and Go2W
+The adapter targets Python 3.12 and pins MJLab 1.6.0. Native Go2 and ZEX-W
 workers use manager-based MJLab training, evaluation, and waypoint navigation.
 The Web control plane communicates with these workers through JSON task state
 and artifact manifests.

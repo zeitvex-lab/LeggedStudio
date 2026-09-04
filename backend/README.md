@@ -35,9 +35,9 @@ configured port.
 
 `POST /api/models/import` accepts a list of UTF-8 XML files and base64-encoded
 mesh files with relative paths. It stores the complete asset package under
-`workspace/imports/<id>`, validates the selected URDF/MJCF, and returns a
+`workspace/packages/<package-id>`, validates the selected URDF/MJCF, and returns a
 generated Robot Contract draft. The Web workbench uses this route for user
-assets; presets are only shortcuts for canonical Go2/Go2W fixtures.
+assets; presets are only shortcuts for canonical Go2/ZEX-W fixtures.
 
 Project packages are ZIP files with a versioned manifest. They contain imported
 robot assets, their contracts, the active MJLab training recipe and the active

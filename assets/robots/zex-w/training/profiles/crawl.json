@@ -6,12 +6,18 @@
   "source_root": "training/source",
   "entrypoints": {"env": "robot.config.env_cfgs:crawl_env_cfg", "runner": "robot.config.rl_cfg:crawl_ppo_runner_cfg"},
   "backend": "native_mjlab",
+  "task_name": "rough_terrain",
   "terrain_type": "rough",
   "algorithm": "PPO",
   "num_envs": 2048,
   "episode_length_s": 30.0,
-  "terrain": {"type": "generator", "curriculum": false, "sub_terrains": ["flat", "pyramid_stairs", "random_grid"]},
-  "init_pose": {"hip_abduction": 0.4, "hip_pitch": 1.65, "knee": -2.55},
-  "reward_terms": ["track_lin_vel", "track_ang_vel", "upright", "crawl_height_reward", "joint_torques", "joint_acc", "action_rate", "joint_pos_limits", "stand_still"],
-  "runner": {"hidden_dims": [512, 256, 128], "learning_rate": 0.0008, "entropy_coef": 0.003, "num_learning_epochs": 5, "num_mini_batches": 4, "num_steps_per_env": 24, "max_iterations": 20000}
+  "decimation": 4,
+  "action": {"leg_control": "position", "wheel_control": "velocity", "leg_scale": {"hip_abduction": 0.125, "hip_pitch": 0.25, "knee": 0.25}, "wheel_scale": 5.0, "stiffness": 50.0, "damping": 1.5, "wheel_damping": 1.0, "effort_limit": 17.0, "lowpass_cutoff_hz": {"legs": 5.0, "wheels": 15.0}, "delay_steps": [0, 2]},
+  "command_ranges": {"lin_vel_x": [-1.0, 1.0], "lin_vel_y": [-0.5, 0.5], "ang_vel_z": [-1.0, 1.0]},
+  "terrain": {"type": "generator", "curriculum": true, "curriculum_mode": "velocity", "max_init_terrain_level": 0, "sub_terrains": {"flat": 0.25, "rc_low_bar": 0.35, "random_grid": 0.2, "perlin_noise": 0.2}},
+  "init_pose": {"base_z": 0.2, "hip_abduction": {"fl_rl": 0.4, "fr_rr": -0.4}, "hip_pitch": 1.65, "knee": -2.55},
+  "curriculum": {"terrain_levels": "velocity_mdp.terrain_levels_vel", "heading_command": false, "rel_standing_envs": 0.05, "rel_forward_envs": 0.4},
+  "reward_terms": ["track_lin_vel", "track_ang_vel", "upright", "is_terminated", "joint_torques", "joint_acc", "action_rate", "joint_pos_limits", "leg_motion_penalty", "body_collision", "crawl_height_reward", "lin_vel_z", "ang_vel_xy", "leg_joint_deviation", "flat_orientation"],
+  "runner": {"hidden_dims": [512, 256, 128], "activation": "elu", "learning_rate": 0.0008, "entropy_coef": 0.003, "gamma": 0.99, "gae_lambda": 0.95, "clip_param": 0.2, "num_learning_epochs": 5, "num_mini_batches": 4, "num_steps_per_env": 24, "save_interval": 100, "max_iterations": 20000},
+  "sort_order": 30
 }

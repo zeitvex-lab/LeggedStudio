@@ -1,6 +1,6 @@
 """
-Legged Studio Backend - Complete API v0.5.0
-修复：添加缺失的 system API
+Legged Studio Backend - Complete API v0.6.0
+濞ｅ浂鍠栭ˇ鏌ユ晬濮橆厼娼戦柛鏃傚Х瀹歌鲸寰勬潏鈺傜暠 system API
 """
 
 from fastapi import FastAPI
@@ -8,23 +8,36 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+import json
+import mimetypes
 import os
+import socket
 import sys
 import platform
+import shutil
+
+# Module scripts and WASM streaming need exact MIME types. The registry-backed
+# mimetypes table on Windows (and the launcher's runtime Python) can report
+# .mjs as text/plain, which makes Chromium refuse the dynamic import of the
+# ONNX runtime with "Failed to fetch dynamically imported module".
+mimetypes.add_type("text/javascript", ".mjs")
+mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("application/wasm", ".wasm")
 from typing import Any
 from fastapi import HTTPException
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# 修复 Windows 控制台编码
+# 濞ｅ浂鍠栭ˇ?Windows 闁硅矇鍐ㄧ厬闁告瑦澹嗙槐顏堟儘?
 if sys.platform == 'win32':
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# 添加路径
+# 婵烇綀顕ф慨鐐垫崉椤栨氨绐?
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# 导入所有路由
+# 閻庣數鍘ч崣鍡涘箥閳ь剟寮垫径搴ｇ唴闁?
 try:
     from backend.training_api import router as training_router
 except ImportError as exc:  # optional training stack; enabled after adapter setup
@@ -78,6 +91,12 @@ class BrowserSimulationIsolationMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request, call_next):
         response = await call_next(request)
+        if request.url.path.startswith("/web"):
+            # Dev edits must show up on reload, but a full no-store re-downloads
+            # ~1.3 MB of vendored three.js plus every stylesheet on every page
+            # load. ETag revalidation keeps edits fresh (changed files get a new
+            # ETag) while unchanged files resolve to a 304.
+            response.headers["Cache-Control"] = "no-cache"
         if request.url.path.startswith("/web/sim2sim"):
             response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
             response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
@@ -87,7 +106,7 @@ class BrowserSimulationIsolationMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(BrowserSimulationIsolationMiddleware)
 
-# 注册所有路由
+# 婵炲鍔岄崬浠嬪箥閳ь剟寮垫径搴ｇ唴闁?
 if training_router is not None:
     app.include_router(training_router)
 if export_router is not None:
@@ -180,8 +199,26 @@ async def get_asset_family(family_name: str, readiness: str | None = None, size:
 
 
 @app.get("/api/robots/presets")
-async def get_robot_presets() -> dict[str, Any]:
+async def get_robot_presets(summary: bool = False) -> dict[str, Any]:
     presets = list_robot_presets()
+    if summary:
+        presets = [
+            {
+                "source": item.get("source"),
+                "robot_id": item.get("robot_id"),
+                "package_id": item.get("package_id"),
+                "family": item.get("family"),
+                "size_class": item.get("size_class"),
+                "locomotion_type": item.get("locomotion_type"),
+                "dof": item.get("dof"),
+                "mass_kg": item.get("mass_kg"),
+                "contract_id": item.get("contract_id"),
+                "robot_package": {
+                    "model": (item.get("robot_package") or {}).get("model", {}),
+                },
+            }
+            for item in presets
+        ]
     return {"count": len(presets), "presets": presets}
 
 
@@ -200,6 +237,80 @@ async def get_robot_profiles(robot_id: str) -> dict[str, Any]:
     if preset is None:
         raise HTTPException(status_code=404, detail=f"Unknown robot package: {robot_id}")
     return {"robot_id": robot_id, "profiles": preset.get("training_profiles", []), "source": preset.get("robot_package", {}).get("package_root")}
+@app.get("/api/robots/presets/{robot_id}/files/{asset_path:path}")
+async def get_robot_package_file(robot_id: str, asset_path: str):
+    """Serve a read-only file from any discovered robot package."""
+    preset = load_robot_preset(robot_id)
+    if preset is None:
+        raise HTTPException(status_code=404, detail=f"Unknown robot package: {robot_id}")
+    package_root_value = preset.get("robot_package", {}).get("package_root")
+    if not package_root_value:
+        raise HTTPException(status_code=404, detail="Robot package root is unavailable")
+    root = Path(str(package_root_value)).resolve()
+    normalized = asset_path.replace("\\", "/").lstrip("/")
+    candidate = (root / normalized).resolve()
+    if candidate != root and root not in candidate.parents:
+        raise HTTPException(status_code=400, detail="invalid package asset path")
+    if not candidate.is_file():
+        raise HTTPException(status_code=404, detail="Robot package file not found")
+    # Mesh/XML re-downloads dominate the robot page preview time. FileResponse
+    # already carries ETag + Last-Modified; no-cache turns repeat selections
+    # into cheap 304 revalidations instead of full transfers.
+    response = FileResponse(candidate)
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+@app.put("/api/robots/packages/{robot_id}")
+async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Persist a generic robot package configuration with copy-on-write."""
+    preset = load_robot_preset(robot_id)
+    if preset is None:
+        raise HTTPException(status_code=404, detail=f"Unknown robot package: {robot_id}")
+    contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else payload
+    if not isinstance(contract, dict):
+        raise HTTPException(status_code=400, detail="contract must be an object")
+    try:
+        contract_model = RobotContractV2(**contract)
+        contract_result = validate_robot_contract(contract_model)
+        if not contract_result.valid:
+            raise ValueError("; ".join(item.message for item in contract_result.errors))
+        from backend.robot_packages import _workspace_root, upsert_package
+        root = Path(str(preset.get("robot_package", {}).get("package_root", ""))).resolve()
+        workspace_root = _workspace_root().resolve()
+        packages_root = (workspace_root / "packages").resolve()
+        assets_root = (Path(__file__).resolve().parents[1] / "assets" / "robots").resolve()
+        if root == packages_root or packages_root in root.parents:
+            target = root
+        elif root == assets_root or assets_root in root.parents:
+            target = packages_root / root.name
+            if not target.exists():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(root, target)
+        else:
+            raise ValueError("package is outside writable package roots")
+        contract_path = target / "contract.json"
+        contract_path.write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+        simulation = payload.get("simulation") if isinstance(payload.get("simulation"), dict) else {}
+        simulation_path = target / "simulation" / "config.json"
+        previous = {}
+        if simulation_path.exists():
+            try:
+                previous = json.loads(simulation_path.read_text(encoding="utf-8-sig"))
+            except json.JSONDecodeError:
+                previous = {}
+        simulation_path.parent.mkdir(parents=True, exist_ok=True)
+        merged_simulation = {**previous, **simulation}
+        simulation_path.write_text(json.dumps(merged_simulation, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+        descriptor_path = target / "robot_package.json"
+        if descriptor_path.exists():
+            descriptor = json.loads(descriptor_path.read_text(encoding="utf-8-sig"))
+            descriptor["content_sha256"] = __import__("hashlib").sha256(contract_path.read_bytes()).hexdigest()
+            descriptor_path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+        upsert_package(target)
+        return {"success": True, "robot_id": robot_id, "package_root": str(target), "contract": contract, "simulation": merged_simulation, "diagnostics": {"valid": True, "writable_root": str(target)}}
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/contracts/validate")
@@ -232,7 +343,7 @@ async def validate_scenario(scenario_data: dict[str, Any]) -> dict[str, Any]:
         return {"valid": False, "errors": [str(exc)], "warnings": []}
     return {"valid": True, "errors": [], "warnings": [], "scenario": scenario.to_payload()}
 
-# Web 控制台
+# Web 闁硅矇鍐ㄧ厬闁?
 WEB_DIR = Path(__file__).parent.parent / "web"
 
 @app.get("/", include_in_schema=False)
@@ -320,7 +431,7 @@ if WEB_DIR.is_dir():
     app.mount("/web", StaticFiles(directory=WEB_DIR, html=True), name="web")
 
 # ============================================================================
-# 基础端点
+# 闁糕晞娅ｉ、鍛博椤栨粌浠?
 # ============================================================================
 
 @app.get("/health")
@@ -335,6 +446,10 @@ async def health():
     return {
         "app_id": "legged-studio",
         "api_schema": "legged-studio-api-1",
+        "instance_id": os.environ.get("LEGGED_STUDIO_INSTANCE_ID"),
+        "process_id": os.getpid(),
+        "source_root": str(Path(__file__).resolve().parents[1]),
+        "hostname": socket.gethostname(),
         "status": "ok",
         "version": APP_VERSION,
         "optional": optional,
@@ -353,11 +468,18 @@ async def health():
 
 @app.get("/api/system/capabilities")
 async def get_capabilities():
-    """Expose adapter availability without importing optional runtimes."""
+    """Expose adapter availability without touching optional runtimes.
+
+    The MJLab readiness probe imports torch in worker interpreters, which only
+    training needs; page loads get the cached snapshot (or not_probed) so the
+    event loop is never blocked by a subprocess probe.
+    """
+    native = await run_in_threadpool(native_mjlab_preflight)
     return {
         "control_plane": True,
         "adapters": {
-            "native_mjlab": native_mjlab_preflight().get("execution_ready", False),
+            "native_mjlab": native.get("execution_ready", False),
+            "native_mjlab_status": native.get("status", "not_probed"),
             "mujoco_simulation": simulation_router is not None,
             "export_onnx": export_router is not None,
         },
@@ -374,7 +496,7 @@ async def get_capabilities():
 @app.get("/api/adapters/status")
 async def get_adapter_status():
     """Report native MJLab training and MuJoCo simulation readiness."""
-    native = native_mjlab_preflight()
+    native = await run_in_threadpool(native_mjlab_preflight)
     return {
         "native_mjlab": native,
         "mujoco_simulation": {"status": "ready" if simulation_router is not None else "missing_dependencies", "api_loaded": simulation_router is not None},
@@ -401,7 +523,7 @@ async def api_info():
 
 @app.get("/api/system/info")
 async def get_system_info():
-    """获取系统信息"""
+    """Return basic system information."""
     return {
         "platform": platform.system(),
         "platform_version": platform.version(),
@@ -411,7 +533,7 @@ async def get_system_info():
 
 @app.get("/api/system/environment")
 async def get_environment_status():
-    """获取环境状态"""
+    """Report runtime environment status."""
     project_root = Path(__file__).parent.parent
     embedded_python_value = os.environ.get("LEGGED_STUDIO_RUNTIME_PYTHON", "").strip()
     embedded_python = Path(embedded_python_value) if embedded_python_value else None
@@ -448,14 +570,14 @@ if __name__ == "__main__":
     print("=" * 70)
     print()
     print("Features:")
-    print("  ✅ Training Management API")
-    print("  ✅ ONNX Export API")
-    print("  ✅ Pretrained Models API")
-    print("  ✅ Contract System V2")
-    print("  ✅ Policy Artifacts")
-    print("  ✅ URDF Validation")
-    print("  ✅ Evaluation Tools")
-    print("  ✅ Sim2Sim Validation")
+    print("  闁?Training Management API")
+    print("  闁?ONNX Export API")
+    print("  闁?Pretrained Models API")
+    print("  闁?Contract System V2")
+    print("  闁?Policy Artifacts")
+    print("  闁?URDF Validation")
+    print("  闁?Evaluation Tools")
+    print("  闁?Sim2Sim Validation")
     print()
     print("Web Console: http://127.0.0.1:8765")
     print("API Docs:    http://127.0.0.1:8765/docs")

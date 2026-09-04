@@ -137,21 +137,21 @@
   </worldbody>
 
   <actuator>
-    <general name="fl_hip_abduction_joint" joint="fl_hip_abduction_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="fl_hip_pitch_joint" joint="fl_hip_pitch_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="fl_knee_joint" joint="fl_knee_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="fl_wheel_joint" joint="fl_wheel_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="0.5"/>
-    <general name="fr_hip_abduction_joint" joint="fr_hip_abduction_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="fr_hip_pitch_joint" joint="fr_hip_pitch_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="fr_knee_joint" joint="fr_knee_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="fr_wheel_joint" joint="fr_wheel_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="0.5"/>
-    <general name="rl_hip_abduction_joint" joint="rl_hip_abduction_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="rl_hip_pitch_joint" joint="rl_hip_pitch_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="rl_knee_joint" joint="rl_knee_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="rl_wheel_joint" joint="rl_wheel_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="0.5"/>
-    <general name="rr_hip_abduction_joint" joint="rr_hip_abduction_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="rr_hip_pitch_joint" joint="rr_hip_pitch_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="rr_knee_joint" joint="rr_knee_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="120" biasprm="0 -8 -8"/>
-    <general name="rr_wheel_joint" joint="rr_wheel_joint" ctrlrange="-17 17" forcerange="-17 17" gainprm="0.5"/>
+    <general name="fl_hip_abduction_joint" joint="fl_hip_abduction_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="fl_hip_pitch_joint" joint="fl_hip_pitch_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="fl_knee_joint" joint="fl_knee_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="fl_wheel_joint" joint="fl_wheel_joint" forcerange="-17 17" gainprm="1" biasprm="0 0 -1"/>
+    <general name="fr_hip_abduction_joint" joint="fr_hip_abduction_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="fr_hip_pitch_joint" joint="fr_hip_pitch_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="fr_knee_joint" joint="fr_knee_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="fr_wheel_joint" joint="fr_wheel_joint" forcerange="-17 17" gainprm="1" biasprm="0 0 -1"/>
+    <general name="rl_hip_abduction_joint" joint="rl_hip_abduction_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="rl_hip_pitch_joint" joint="rl_hip_pitch_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="rl_knee_joint" joint="rl_knee_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="rl_wheel_joint" joint="rl_wheel_joint" forcerange="-17 17" gainprm="1" biasprm="0 0 -1"/>
+    <general name="rr_hip_abduction_joint" joint="rr_hip_abduction_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="rr_hip_pitch_joint" joint="rr_hip_pitch_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="rr_knee_joint" joint="rr_knee_joint" forcerange="-17 17" gainprm="50" biasprm="0 -50 -1.5"/>
+    <general name="rr_wheel_joint" joint="rr_wheel_joint" forcerange="-17 17" gainprm="1" biasprm="0 0 -1"/>
   </actuator>
 </mujoco>

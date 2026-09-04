@@ -1,4 +1,7 @@
 import unittest
+import os
+import tempfile
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -9,7 +12,17 @@ from backend.robot_packages import package_for_contract
 
 class ModelInspectionTests(unittest.TestCase):
     def setUp(self):
+        self.workspace_temp = tempfile.TemporaryDirectory(prefix="legged-studio-test-")
+        self.previous_workspace = os.environ.get("LEGGED_STUDIO_WORKSPACE")
+        os.environ["LEGGED_STUDIO_WORKSPACE"] = self.workspace_temp.name
         self.client = TestClient(app)
+
+    def tearDown(self):
+        if self.previous_workspace is None:
+            os.environ.pop("LEGGED_STUDIO_WORKSPACE", None)
+        else:
+            os.environ["LEGGED_STUDIO_WORKSPACE"] = self.previous_workspace
+        self.workspace_temp.cleanup()
 
     def test_builtin_robot_is_described_as_a_package(self):
         package = package_for_contract(list_robot_presets()[0]["contract"])
@@ -71,8 +84,21 @@ class ModelInspectionTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertTrue(payload["imported"])
-        self.assertTrue(payload["model_path"].startswith("workspace/imports/"))
+        package_root = Path(payload["package_root"])
+        self.assertEqual(package_root.parent, Path(self.workspace_temp.name) / "packages")
+        self.assertTrue(Path(payload["model_path"]).is_file())
         self.assertEqual(payload["contract_draft"]["source"], "legged_studio_asset_import")
+
+        # Importing identical content reuses the immutable package rather than
+        # creating another random workspace entry.
+        again = self.client.post(
+            "/api/models/import",
+            json={"files": [{"path": "demo/model.urdf", "content": urdf, "encoding": "utf-8"}], "model_filename": "demo/model.urdf", "format": "auto"},
+        ).json()
+        self.assertEqual(again["package_id"], payload["package_id"])
+        packages = self.client.get("/api/project/packages").json()
+        self.assertEqual(packages["count"], 1)
+        self.assertEqual(packages["packages"][0]["source"], "workspace")
 
     def test_project_package_round_trip_contains_training_and_scenario(self):
         import base64
@@ -85,6 +111,7 @@ class ModelInspectionTests(unittest.TestCase):
         self.assertTrue(payload["success"])
         self.assertEqual(payload["training_config"]["algorithm"], "PPO")
         self.assertEqual(payload["scenario"]["map_id"], "warehouse")
+        self.assertFalse((Path(self.workspace_temp.name) / "imports").exists())
 
 
 if __name__ == "__main__":

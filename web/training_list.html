@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>训练列表 - Legged Studio</title>
+  <title>训练任务 - Legged Studio</title>
   <link rel="stylesheet" href="dashboard.css">
   <style>
     .list-container {
@@ -12,12 +12,95 @@
       padding: 40px 24px;
     }
 
-    .filter-bar {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 24px;
+    /* 汇总卡片 */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
     }
 
+    .summary-card {
+      padding: 16px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .summary-card:hover { border-color: var(--border); background: var(--surface-raised); }
+    .summary-card.active { border-color: rgba(45, 212, 191, 0.55); background: rgba(45, 212, 191, 0.08); }
+
+    .summary-card .value {
+      font-size: 26px;
+      font-weight: 700;
+      font-family: 'SF Mono', Consolas, monospace;
+      color: var(--text);
+    }
+
+    .summary-card.running .value { color: var(--accent); }
+    .summary-card.completed .value { color: var(--success); }
+    .summary-card.failed .value { color: var(--danger); }
+
+    .summary-card .label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* 过滤栏 */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .filter-bar select {
+      min-height: 36px;
+      padding: 0 10px;
+      background: #111922;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 13px;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 220px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 0 12px;
+      background: #111922;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .search-box input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-size: 13px;
+      min-height: 34px;
+    }
+
+    .refresh-note {
+      font-size: 12px;
+      color: var(--faint);
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
+    /* 表格 */
     .training-table {
       background: var(--surface);
       border: 1px solid var(--border-soft);
@@ -25,48 +108,71 @@
       overflow: hidden;
     }
 
-    .table-header {
+    .table-header,
+    .table-row {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr 1fr 120px;
-      gap: 16px;
-      padding: 16px 24px;
+      grid-template-columns: 2.4fr 0.9fr 0.7fr 1fr 1.5fr 0.9fr 150px;
+      gap: 14px;
+      align-items: center;
+      padding: 14px 20px;
+    }
+
+    .table-header {
       background: var(--surface-raised);
       border-bottom: 1px solid var(--border-soft);
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 11px;
+      font-weight: 700;
       color: var(--muted);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.6px;
     }
 
     .table-row {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr 1fr 120px;
-      gap: 16px;
-      padding: 20px 24px;
       border-bottom: 1px solid var(--border-soft);
-      align-items: center;
       transition: background 0.15s ease;
+      cursor: pointer;
     }
 
-    .table-row:hover {
-      background: var(--surface-raised);
-    }
+    .table-row:hover { background: var(--surface-raised); }
+    .table-row:last-child { border-bottom: none; }
 
-    .table-row:last-child {
-      border-bottom: none;
-    }
+    .task-info { min-width: 0; }
 
     .task-info strong {
       display: block;
-      font-size: 14px;
-      margin-bottom: 4px;
+      font-size: 13px;
+      margin-bottom: 3px;
+      font-family: 'SF Mono', Consolas, monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .task-info span {
-      font-size: 12px;
+      display: block;
+      font-size: 11px;
       color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
+
+    .cell-muted { font-size: 13px; color: var(--muted); }
+    .cell-mono { font-size: 13px; font-family: 'SF Mono', Consolas, monospace; }
+
+    .progress-cell { min-width: 0; }
+
+    .progress-cell .pct-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+
+    .progress-cell .pct { font-family: 'SF Mono', Consolas, monospace; font-weight: 600; }
+    .progress-cell .eta { color: var(--faint); font-size: 11px; white-space: nowrap; }
 
     .progress-mini {
       width: 100%;
@@ -74,24 +180,92 @@
       background: var(--surface-soft);
       border-radius: 2px;
       overflow: hidden;
-      margin-top: 4px;
     }
 
     .progress-mini-bar {
       height: 100%;
       background: var(--accent);
+      border-radius: 2px;
       transition: width 0.3s ease;
     }
 
+    .progress-mini-bar.completed { background: var(--success); }
+    .progress-mini-bar.failed { background: var(--danger); }
+
     .table-actions {
       display: flex;
-      gap: 8px;
+      gap: 6px;
+      flex-wrap: wrap;
     }
 
     .btn-small {
-      padding: 6px 12px;
+      padding: 5px 10px;
       font-size: 12px;
-      min-height: 28px;
+      min-height: 26px;
+      min-width: 0;
+    }
+
+    .btn-small.danger { color: #fecaca; border-color: rgba(248, 113, 113, 0.35); }
+    .btn-small.danger:hover { background: rgba(127, 29, 29, 0.25); border-color: rgba(248, 113, 113, 0.6); }
+
+    /* 状态徽标（全部状态） */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: var(--surface-raised);
+      white-space: nowrap;
+    }
+
+    .status-badge .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--faint);
+      flex-shrink: 0;
+    }
+
+    .status-badge.running { background: rgba(45, 212, 191, 0.12); color: var(--accent); border-color: rgba(45, 212, 191, 0.35); }
+    .status-badge.running .status-dot { background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+    .status-badge.pending { color: #cbd5e1; }
+    .status-badge.pending .status-dot { animation: pulse 1.6s ease-in-out infinite; }
+    .status-badge.completed { background: rgba(94, 234, 212, 0.1); color: var(--success); border-color: rgba(94, 234, 212, 0.3); }
+    .status-badge.completed .status-dot { background: var(--success); }
+    .status-badge.failed { background: rgba(248, 113, 113, 0.12); color: var(--danger); border-color: rgba(248, 113, 113, 0.35); }
+    .status-badge.failed .status-dot { background: var(--danger); }
+    .status-badge.stopped { color: #fde68a; border-color: rgba(251, 191, 36, 0.3); }
+    .status-badge.stopped .status-dot { background: #fbbf24; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    .empty-state p { margin-bottom: 16px; }
+    .error-state { color: var(--danger); }
+
+    .table-footer {
+      padding: 10px 20px;
+      font-size: 11px;
+      color: var(--faint);
+      background: var(--surface-raised);
+      border-top: 1px solid var(--border-soft);
+    }
+
+    @media (max-width: 1080px) {
+      .table-header, .table-row { grid-template-columns: 2fr 1fr 1fr 1.2fr 140px; }
+      .col-robot, .col-reward, .head-robot, .head-reward { display: none; }
+    }
+
+    @media (max-width: 680px) {
+      .table-header, .table-row { grid-template-columns: 1.6fr 1fr 1.2fr 110px; }
+      .col-algo, .head-algo { display: none; }
     }
   </style>
 </head>
@@ -111,141 +285,255 @@
       </div>
     </header>
 
+    <!-- 汇总卡片（点击即筛选） -->
+    <div class="summary-grid" id="summaryGrid">
+      <div class="summary-card" data-filter="all"><span class="value">-</span><span class="label">全部任务</span></div>
+      <div class="summary-card running" data-filter="running"><span class="value">-</span><span class="label">运行中</span></div>
+      <div class="summary-card completed" data-filter="completed"><span class="value">-</span><span class="label">已完成</span></div>
+      <div class="summary-card failed" data-filter="failed"><span class="value">-</span><span class="label">失败</span></div>
+      <div class="summary-card" data-filter="stopped"><span class="value">-</span><span class="label">已停止</span></div>
+    </div>
+
     <!-- 过滤栏 -->
     <div class="filter-bar">
-      <select class="btn" id="filterStatus" onchange="refreshList()">
+      <select id="filterStatus" onchange="refreshList()" title="按状态筛选">
         <option value="all">全部状态</option>
         <option value="running">运行中</option>
         <option value="completed">已完成</option>
+        <option value="failed">失败</option>
         <option value="stopped">已停止</option>
       </select>
+      <div class="search-box">
+        <span style="color: var(--faint); font-size: 12px;">⌕</span>
+        <input id="searchInput" type="text" placeholder="搜索任务 ID / 机器人 / 算法..." oninput="renderList()">
+      </div>
+      <span class="refresh-note" id="refreshNote">每 5 秒自动刷新</span>
     </div>
 
     <!-- 训练列表 -->
     <div class="training-table">
       <div class="table-header">
         <div>任务</div>
-        <div>机器人</div>
-        <div>算法</div>
+        <div class="head-robot">机器人</div>
+        <div class="head-algo">算法</div>
         <div>状态</div>
         <div>进度</div>
+        <div class="head-reward">平均奖励</div>
         <div>操作</div>
       </div>
       <div id="tableBody">
-        <div style="padding: 60px 24px; text-align: center; color: var(--muted);">
-          加载中...
-        </div>
+        <div class="empty-state">加载中...</div>
       </div>
+      <div class="table-footer" id="tableFooter"></div>
     </div>
   </div>
 
+  <script src="training-common.js"></script>
   <script>
-    const API_BASE = 'http://127.0.0.1:8765';
+    const {
+      escapeHtml, fetchJson, statusBadge, fmtRelativeTime, fmtMetric, fmtDuration,
+      statusInfo, RateTracker,
+    } = window.TrainingUI;
+
+    let allTasks = [];
+    let loadError = null;
+    let lastUpdated = null;
+    const rateTrackers = new Map();  // task_id -> RateTracker
+
+    function trackerFor(taskId) {
+      if (!rateTrackers.has(taskId)) rateTrackers.set(taskId, new RateTracker(8));
+      return rateTrackers.get(taskId);
+    }
 
     async function loadTrainingList() {
       try {
-        const response = await fetch(`${API_BASE}/api/training/list`);
-        const data = await response.json();
-
-        const filterStatus = document.getElementById('filterStatus').value;
-        let tasks = data.tasks || [];
-
-        // 过滤
-        if (filterStatus !== 'all') {
-          tasks = tasks.filter(t => t.status === filterStatus);
-        }
-
-        // 更新副标题
-        document.getElementById('subtitle').textContent =
-          `共 ${data.tasks?.length || 0} 个任务${filterStatus !== 'all' ? ` · 筛选: ${filterStatus}` : ''}`;
-
-        const tableBody = document.getElementById('tableBody');
-
-        if (tasks.length === 0) {
-          tableBody.innerHTML = `
-            <div style="padding: 60px 24px; text-align: center;">
-              <p style="color: var(--muted); margin-bottom: 20px;">暂无训练任务</p>
-              <a class="btn primary" href="training_create.html">创建第一个训练</a>
-            </div>
-          `;
-          return;
-        }
-
-        tableBody.innerHTML = tasks.map(task => `
-          <div class="table-row">
-            <div class="task-info">
-              <strong>${task.task_id}</strong>
-              <span>${task.created_at || ''}</span>
-            </div>
-            <div>${task.robot || 'Unknown'}</div>
-            <div>${task.algorithm || 'PPO'}</div>
-            <div>
-              <span class="status-badge ${task.status === 'running' ? 'running' : ''}">
-                ${task.status === 'running' ? '运行中' : task.status === 'completed' ? '已完成' : '已停止'}
-              </span>
-            </div>
-            <div>
-              <div>${(task.progress * 100).toFixed(1)}%</div>
-              <div class="progress-mini">
-                <div class="progress-mini-bar" style="width: ${task.progress * 100}%;"></div>
-              </div>
-            </div>
-            <div class="table-actions">
-              <button class="btn btn-small" onclick="viewTask('${task.task_id}')">查看</button>
-              ${task.status === 'running' ?
-                `<button class="btn btn-small" onclick="stopTask('${task.task_id}')">停止</button>` :
-                ''
-              }
-            </div>
-          </div>
-        `).join('');
-
+        const data = await fetchJson('/api/training/list');
+        allTasks = data.tasks || [];
+        loadError = null;
+        lastUpdated = new Date();
       } catch (error) {
         console.error('Failed to load training list:', error);
-        document.getElementById('tableBody').innerHTML = `
-          <div style="padding: 60px 24px; text-align: center; color: var(--danger);">
-            加载失败: ${error.message}
-          </div>
-        `;
+        loadError = error.message;
       }
+      render();
     }
 
     function refreshList() {
       loadTrainingList();
     }
 
-    function viewTask(taskId) {
-      window.location.href = `training_monitor.html?task_id=${taskId}`;
+    function progressMeta(task) {
+      const progress = Number(task.progress || 0);
+      const pct = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0)) * 100;
+      const current = Number(task.current_iteration || 0);
+      const max = Number(task.max_iterations || 0);
+      const tracker = trackerFor(task.task_id);
+      tracker.push(current);
+      const rate = tracker.rate();
+
+      let etaText = '';
+      const info = statusInfo(task.status);
+      if (info.cls === 'running') {
+        if (rate != null && max > current) {
+          etaText = `ETA ${fmtDuration(tracker.eta(max))}`;
+        } else if (rate == null) {
+          etaText = '估算中';
+        }
+      }
+      const speedText = info.cls === 'running' && rate != null ? `${(rate * 60).toFixed(1)} it/min` : '';
+      return { pct, current, max, etaText, speedText };
     }
 
-    async function stopTask(taskId) {
-      if (!confirm('确定要停止这个训练任务吗？')) {
+    function taskSubtitle(task) {
+      const config = task.config || {};
+      const parts = [];
+      if (config.task_name) parts.push(String(config.task_name));
+      if (config.num_envs) parts.push(`${config.num_envs} envs`);
+      if (task.created_at) parts.push(fmtRelativeTime(task.created_at));
+      return parts.join(' · ');
+    }
+
+    function filteredTasks() {
+      const statusFilter = document.getElementById('filterStatus').value;
+      const query = document.getElementById('searchInput').value.trim().toLowerCase();
+      return allTasks.filter((task) => {
+        if (statusFilter !== 'all' && statusInfo(task.status).cls !== statusFilter) return false;
+        if (!query) return true;
+        const haystack = [task.task_id, task.robot, task.algorithm, (task.config || {}).task_name]
+          .filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(query);
+      });
+    }
+
+    function render() {
+      renderSummary();
+
+      const tasks = filteredTasks();
+      const total = allTasks.length;
+      document.getElementById('subtitle').textContent = `共 ${total} 个任务 · 展示 ${tasks.length} 个`;
+
+      const footer = document.getElementById('tableFooter');
+      footer.textContent = lastUpdated
+        ? `最后更新 ${lastUpdated.toLocaleTimeString('zh-CN', { hour12: false })} · 每 5 秒自动刷新`
+        : '';
+
+      const tableBody = document.getElementById('tableBody');
+
+      if (loadError && !total) {
+        tableBody.innerHTML = `
+          <div class="empty-state error-state">
+            <p>加载失败: ${escapeHtml(loadError)}</p>
+            <button class="btn" onclick="refreshList()">重试</button>
+          </div>`;
         return;
       }
 
+      if (!total) {
+        tableBody.innerHTML = `
+          <div class="empty-state">
+            <p>暂无训练任务</p>
+            <a class="btn primary" href="training_create.html">创建第一个训练</a>
+          </div>`;
+        return;
+      }
+
+      if (!tasks.length) {
+        tableBody.innerHTML = `<div class="empty-state"><p>没有匹配当前筛选的任务</p></div>`;
+        return;
+      }
+
+      tableBody.innerHTML = tasks.map((task) => {
+        const meta = progressMeta(task);
+        const info = statusInfo(task.status);
+        const canStop = info.cls === 'running' || info.cls === 'pending';
+        const canDelete = info.cls !== 'running';
+        const progressCell = `
+          <div class="progress-cell">
+            <div class="pct-row">
+              <span class="pct">${meta.pct.toFixed(1)}%</span>
+              <span class="eta">${escapeHtml(meta.etaText || (meta.max ? `${meta.current}/${meta.max}` : ''))}</span>
+            </div>
+            <div class="progress-mini">
+              <div class="progress-mini-bar ${info.cls}" style="width: ${info.cls === 'completed' ? 100 : meta.pct}%;"></div>
+            </div>
+            <span style="display:block; font-size:10px; color: var(--faint); margin-top:4px;">${escapeHtml(meta.speedText)}</span>
+          </div>`;
+        return `
+          <div class="table-row" onclick="viewTask('${escapeHtml(task.task_id)}')" title="点击查看监控页面">
+            <div class="task-info">
+              <strong title="${escapeHtml(task.task_id)}">${escapeHtml(task.task_id)}</strong>
+              <span>${escapeHtml(taskSubtitle(task))}</span>
+            </div>
+            <div class="cell-muted col-robot">${escapeHtml(task.robot || 'Unknown')}</div>
+            <div class="cell-muted col-algo">${escapeHtml(task.algorithm || 'PPO')}</div>
+            <div>${statusBadge(task.status)}</div>
+            ${progressCell}
+            <div class="cell-mono col-reward" title="最近一次汇报的平均奖励">${escapeHtml(fmtMetric(task.reward))}</div>
+            <div class="table-actions" onclick="event.stopPropagation()">
+              <button class="btn btn-small" onclick="viewTask('${escapeHtml(task.task_id)}')">查看</button>
+              ${canStop ? `<button class="btn btn-small" onclick="stopTask('${escapeHtml(task.task_id)}')">停止</button>` : ''}
+              ${canDelete ? `<button class="btn btn-small danger" onclick="deleteTask('${escapeHtml(task.task_id)}')" title="从列表移除该任务记录">删除</button>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderList() { render(); }
+
+    function renderSummary() {
+      const counts = { all: allTasks.length, running: 0, completed: 0, failed: 0, stopped: 0 };
+      allTasks.forEach((task) => {
+        const cls = statusInfo(task.status).cls;
+        if (counts[cls] !== undefined) counts[cls] += 1;
+      });
+      document.querySelectorAll('.summary-card').forEach((card) => {
+        const key = card.dataset.filter;
+        card.querySelector('.value').textContent = counts[key] !== undefined ? counts[key] : 0;
+        card.classList.toggle('active', document.getElementById('filterStatus').value === key);
+      });
+    }
+
+    document.querySelectorAll('.summary-card').forEach((card) => card.addEventListener('click', () => {
+      document.getElementById('filterStatus').value = card.dataset.filter;
+      render();
+    }));
+
+    function viewTask(taskId) {
+      window.location.href = `training_monitor.html?task_id=${encodeURIComponent(taskId)}`;
+    }
+
+    async function stopTask(taskId) {
+      if (!confirm(`确定要停止训练任务 ${taskId} 吗？`)) return;
       try {
-        const response = await fetch(`${API_BASE}/api/training/${taskId}/stop`, {
-          method: 'POST'
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          alert('✅ 训练已停止');
-          loadTrainingList();
-        }
-
+        const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/stop`, { method: 'POST' });
+        if (data.success) loadTrainingList();
       } catch (error) {
-        console.error('Failed to stop training:', error);
-        alert('❌ 停止失败: ' + error.message);
+        alert('停止失败: ' + error.message);
       }
     }
 
-    // 初始加载
-    loadTrainingList();
+    async function deleteTask(taskId) {
+      if (!confirm(`确定要从列表删除任务 ${taskId} 吗？\n（仅移除任务记录，不会删除工作区文件）`)) return;
+      try {
+        const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}`, { method: 'DELETE' });
+        if (data.success) {
+          rateTrackers.delete(taskId);
+          loadTrainingList();
+        }
+      } catch (error) {
+        alert('删除失败: ' + error.message);
+      }
+    }
 
-    // 定时刷新
-    setInterval(loadTrainingList, 5000);
+    // 初始加载 + 定时刷新（页面隐藏时暂停，回到前台立即刷新一次）
+    loadTrainingList();
+    const refreshTimer = setInterval(() => {
+      if (!document.hidden) loadTrainingList();
+    }, 5000);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) loadTrainingList();
+    });
+    window.addEventListener('beforeunload', () => clearInterval(refreshTimer));
   </script>
 </body>
 </html>

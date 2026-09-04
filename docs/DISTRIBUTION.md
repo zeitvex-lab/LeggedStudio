@@ -2,7 +2,7 @@
 
 This is the first distributable desktop preview. It packages the Electron
 launcher, FastAPI control plane source, Web workbenches, Contracts, canonical
-Go2/Go2W assets, adapters, and documentation.
+Go2/ZEX-W assets, adapters, and documentation.
 
 The default package does not embed an installed Python/Torch/MJLab environment,
 NVIDIA drivers, or CUDA runtime. The launcher remains
@@ -117,9 +117,9 @@ native MJLab CUDA training does require a compatible NVIDIA driver.
 ## What this release verifies
 
 - Electron launcher and configurable local backend port.
-- Contract validation and canonical Go2/Go2W asset loading.
+- Contract validation and canonical Go2/ZEX-W asset loading.
 - MuJoCo interactive simulation for basic teleoperation.
-- Native MJLab Go2/Go2W PPO training, evaluation, and waypoint navigation.
+- Native MJLab Go2/ZEX-W PPO training, evaluation, and waypoint navigation.
 - CUDA native MJLab selection on the validated RTX 4060 environment.
 
 ## Release limitations

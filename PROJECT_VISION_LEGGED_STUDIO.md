@@ -1,14 +1,16 @@
 # Legged Studio 项目愿景
 
-**产品版本**：0.5.0
-**更新日期**：2026-09-02  
+**产品版本**：0.6.0
+**更新日期**：2026-09-05  
 **文档定位**：当前产品事实、使用主线与后续边界
 
 ## 产品定位
 
 Legged Studio 是面向足式机器人强化学习的本地桌面/Web 工作台。它把机器人模型验证、MJLab 训练配置、训练监控和 MuJoCo 交互仿真放到统一控制面，并为后续 CLI、评估和部署适配保留稳定的 JSON 契约。
 
-0.5.0 的主线机器人是 Unitree Go2、Go2W 与 ZEX-W：训练使用隔离的 native MJLab worker，基础交互仿真使用 MuJoCo。控制面本身不导入 Torch、Warp 或 MuJoCo-Warp。
+0.6.0 的主线机器人是 Unitree Go2、ZEX-W 与 MicroDuck：训练使用隔离的 native MJLab worker，
+浏览器 sim2sim 已按实机合同验证三台机器人的策略部署（Go2 行走、ZEX-W 站立行驶、MicroDuck 全网格加载）。
+控制面本身不导入 Torch、Warp 或 MuJoCo-Warp，页面加载也不会触发训练探针。
 
 ## 当前用户流程
 
@@ -17,7 +19,7 @@ Legged Studio 是面向足式机器人强化学习的本地桌面/Web 工作台�
 Web 工作台目前聚焦五个功能区：
 
 1. **首页**：显示服务、运行时、适配器和资产状态。
-2. **验证**：检查 Robot Contract、场景参数和 Go2/Go2W 资产。
+2. **验证**：检查 Robot Contract、场景参数和 Go2/ZEX-W 资产。
 3. **训练配置**：选择 MJLab 与 PPO，调整环境、算法参数及奖励项的启用状态和权重。
 4. **训练**：创建/停止 native MJLab worker，查看真实日志、进度和 metrics 曲线。
 5. **仿真**：通过 MuJoCo 进行基础遥控、地图切换和导航会话入口。
@@ -25,15 +27,19 @@ Web 工作台目前聚焦五个功能区：
 ## 已实现能力
 
 - FastAPI 控制面、Electron 桌面启动器和可配置本地端口。
-- Go2/Go2W Robot Contract、资产清单和基础验证接口；验证页可导入用户自己的 URDF/MJCF 与相对 mesh 资源，保存到工作区并生成 Contract 草稿，preset 仅作为快捷模板。
+- Go2/ZEX-W Robot Contract、资产清单和基础验证接口；验证页可导入用户自己的 URDF/MJCF 与相对 mesh 资源，保存到工作区并生成 Contract 草稿，preset 仅作为快捷模板。
 - 首页支持导出/导入项目 ZIP 包，包内可携带机器人资产、Contract、MJLab training recipe 和 MuJoCo 场景。
 - 唯一训练框架为 native MJLab；当前注册并可运行的算法为 PPO。
 - MJLab worker 的运行时预检、训练任务状态、日志、metrics 和 artifact 索引。
 - MuJoCo 基础仿真会话，支持 flat、rough、stairs、warehouse 地图及基础/导航模式数据契约。
-- 导入资产可在 MuJoCo 仿真下选择和运行；native MJLab 训练仍只对已有机器人专属任务映射的 Go2/Go2W 开放。
+- 导入资产可在 MuJoCo 仿真下选择和运行；当前产品主线以 Go2 与 ZEX-W 的 Robot Package 和训练 profile 为验收对象。
 - Web 与桌面启动器采用接近 MJLab Play/Viser 的白色、浅灰、蓝色控件风格。
 - 训练配置支持 JSON 导入/导出，导出的配置可作为后续 CLI 的输入。
 - Windows Online 7z 打包脚本，以及按需配置 Python、Torch、MJLab 的流程。
+- 浏览器 sim2sim 按实机部署合同对齐三台机器人：逐腿+轮关节布局、默认姿态、PD/低通参数与 ONNX 输入输出顺序一一对应，并内置各机器人地形场景。
+- 控制面与训练路径解耦：页面加载不再触发 torch 探针；训练启动时才探测并缓存运行时状态。
+- 机器人工作台性能优化：Web 资源 ETag 协商缓存、碰撞网格懒加载、网格并行拉取与快速解析。
+- 训练配置/训练监控页面重构：任务预设、健康度面板、实时曲线、日志过滤与检查点面板。
 
 ## 明确的边界
 
@@ -57,7 +63,7 @@ Electron launcher
 
 ## 版本运行时
 
-| 组件 | 0.5.0 目标版本 |
+| 组件 | 0.6.0 目标版本 |
 | --- | --- |
 | Python | 3.12.13 |
 | uv | 0.11.8 |
@@ -69,7 +75,7 @@ Online 包不内置完整 Torch/MJLab 安装，仅携带 uv、CPython 基础文�
 
 ## 后续路线
 
-优先完成 GPU 短 smoke 与长训练验收、Go2/Go2W 的评估和导航闭环、ONNX 数值一致性验证，再扩展通用导航任务、URDF-Studio 3D 工作区、UniLab/RoboLab adapter、CLI 和人工确认的实机部署包。每项扩展都必须先通过同一 Robot/Scenario/Policy 契约和可复现测试。
+优先完成 GPU 短 smoke 与长训练验收、Go2/ZEX-W 的评估和导航闭环、ONNX 数值一致性验证，再扩展通用导航任务、URDF-Studio 3D 工作区、UniLab/RoboLab adapter、CLI 和人工确认的实机部署包。每项扩展都必须先通过同一 Robot/Scenario/Policy 契约和可复现测试。
 
 ## 事实源
 

@@ -11,14 +11,30 @@ import importlib.util
 import os
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Any
+
+from adapters.mjlab.runtime_compat import evaluate_package_runtime
 
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _WORKSPACE_ROOT = _PROJECT_ROOT.parent
+
+# Preflight reports are expensive (torch import in up to three interpreters)
+# and only depend on the source tree + installed environments, so a short TTL
+# keeps the web console responsive without making runtime changes invisible.
+_PREFLIGHT_TTL_S = 300.0
+_PROBE_TIMEOUT_S = 20.0 * 3 + 5.0  # worst case: three sequential probes
+_PREFLIGHT_LOCK = threading.Lock()
+_PREFLIGHT_CACHE: dict[str, dict[str, Any]] = {}
+_PREFLIGHT_INFLIGHT: dict[str, threading.Event] = {}
 DEFAULT_SOURCE = Path(os.environ.get("LEGGED_STUDIO_MJLAB_SOURCE", str(_WORKSPACE_ROOT / "mjlab_new" / "mjlab") if os.name == "nt" else str(_PROJECT_ROOT / "vendor" / "mjlab")))
-DEFAULT_EXTENSION = Path(os.environ.get("LEGGED_STUDIO_MJLAB_EXTENSION", "C:/Users/31560/Documents/00_open/uni_rl/unitree_rl_mjlab" if os.name == "nt" else str(_PROJECT_ROOT / "vendor" / "unitree_rl_mjlab")))
+# Robot assets are package-owned.  The optional override is retained for
+# future third-party packages, but the default no longer points at the legacy
+# ``unitree_rl_mjlab`` repository.
+DEFAULT_EXTENSION = Path(os.environ["LEGGED_STUDIO_MJLAB_EXTENSION"]) if os.environ.get("LEGGED_STUDIO_MJLAB_EXTENSION") else (_PROJECT_ROOT / "assets" / "robots")
 
 
 def _venv_python(venv: Path) -> Path:
@@ -35,7 +51,7 @@ def _probe_runtime(source: Path) -> dict[str, Any]:
     adapter_venv = Path(__file__).parent.parent / "mjlab" / ".venv"
     candidates.append(_venv_python(adapter_venv))
     candidates.append(Path(sys.executable))
-    modules = "import tyro, warp, mujoco_warp, rsl_rl, mjlab; import torch; print('ok|torch=' + torch.__version__ + '|cuda=' + str(int(torch.cuda.is_available())) + '|count=' + str(torch.cuda.device_count()))"
+    modules = "import importlib.metadata as md; import tyro, warp, mujoco_warp, rsl_rl, mjlab; import torch; print('ok|torch=' + torch.__version__ + '|cuda=' + str(int(torch.cuda.is_available())) + '|count=' + str(torch.cuda.device_count()) + '|mjlab=' + str(getattr(mjlab, '__version__', md.version('mjlab'))) + '|python=' + __import__('sys').version.split()[0])"
     probes = []
     for python in dict.fromkeys(candidates):
         if not python.exists():
@@ -46,18 +62,72 @@ def _probe_runtime(source: Path) -> dict[str, Any]:
             result = subprocess.run([str(python), "-c", modules], capture_output=True, text=True, timeout=20, env=env)
             output = result.stdout.strip()
             fields = dict(item.split("=", 1) for item in output.split("|")[1:] if "=" in item) if output.startswith("ok|") else {}
-            probes.append({"python": str(python), "available": result.returncode == 0 and output.startswith("ok|"), "torch_version": fields.get("torch"), "cuda_available": fields.get("cuda") == "1", "cuda_device_count": int(fields.get("count", "0")), "error": result.stderr.strip()[-500:] if result.returncode else None})
+            probes.append({"python": str(python), "available": result.returncode == 0 and output.startswith("ok|"), "torch_version": fields.get("torch"), "cuda_available": fields.get("cuda") == "1", "cuda_device_count": int(fields.get("count", "0")), "mjlab_version": fields.get("mjlab"), "python_version": fields.get("python"), "error": result.stderr.strip()[-500:] if result.returncode else None})
         except (OSError, subprocess.SubprocessError) as exc:
             probes.append({"python": str(python), "available": False, "error": str(exc)})
     return {"available": any(item["available"] for item in probes), "interpreters": probes}
 
 
-def preflight(source: Path = DEFAULT_SOURCE) -> dict[str, Any]:
+def preflight(source: Path = DEFAULT_SOURCE, force: bool = False) -> dict[str, Any]:
+    """Report native MJLab readiness.
+
+    The runtime probe shells out to worker interpreters and imports torch, so
+    it can take tens of seconds — and nothing outside training needs it. Page
+    loads therefore call this with ``force=False``: they get the last known
+    snapshot (cheap filesystem checks included) or a ``not_probed`` skeleton
+    and never spawn a subprocess. Only the training path passes
+    ``force=True``, which runs (or reuses an in-flight) probe and caches the
+    report.
+    """
+    source = source.expanduser().resolve()
+    cache_key = str(source)
+    with _PREFLIGHT_LOCK:
+        cached = _PREFLIGHT_CACHE.get(cache_key)
+    if cached:
+        report = dict(cached["report"])
+        report["cached"] = True
+        report["cache_age_s"] = round(time.monotonic() - cached["at"], 1)
+        report["stale"] = time.monotonic() - cached["at"] >= _PREFLIGHT_TTL_S
+        return report
+    if not force:
+        # Cheap filesystem-only snapshot: no worker interpreter, no torch.
+        report = _filesystem_preflight(source)
+        report["status"] = "not_probed"
+        report["not_probed"] = True
+        return report
+
+    deadline = time.monotonic() + _PROBE_TIMEOUT_S * 4
+    while True:
+        with _PREFLIGHT_LOCK:
+            event = _PREFLIGHT_INFLIGHT.get(cache_key)
+            if event is None:
+                event = threading.Event()
+                _PREFLIGHT_INFLIGHT[cache_key] = event
+                break
+        # Another thread is probing right now; wait for its result instead of
+        # spawning a duplicate torch import.
+        event.wait(timeout=max(deadline - time.monotonic(), 0.1))
+        with _PREFLIGHT_LOCK:
+            cached = _PREFLIGHT_CACHE.get(cache_key)
+        if cached:
+            report = dict(cached["report"])
+            report["cached"] = True
+            return report
+    try:
+        report = _preflight_uncached(source)
+    finally:
+        with _PREFLIGHT_LOCK:
+            _PREFLIGHT_CACHE[cache_key] = {"at": time.monotonic(), "report": dict(report)}
+            done = _PREFLIGHT_INFLIGHT.pop(cache_key, None)
+        if done:
+            done.set()
+    return report
+
+
+def _filesystem_preflight(source: Path) -> dict[str, Any]:
+    """Preflight without the interpreter probe (stat calls only)."""
     source = source.expanduser().resolve()
     package_root = source / "src"
-    project_root = Path(__file__).resolve().parents[2]
-    go2w_xml = project_root / "assets" / "robots" / "unitree_go2w" / "go2w.xml"
-    go2w_assets = go2w_xml.parent / "assets"
     report = {
         "source": str(source),
         "exists": source.exists(),
@@ -68,14 +138,35 @@ def preflight(source: Path = DEFAULT_SOURCE) -> dict[str, Any]:
         "status": "candidate" if source.exists() else "not_found",
         "extension_root": str(DEFAULT_EXTENSION),
         "extension_exists": DEFAULT_EXTENSION.exists(),
-        "go2_task_source": (DEFAULT_EXTENSION / "src" / "tasks" / "velocity" / "config" / "go2" / "__init__.py").exists(),
-        "go2w_task_source": (project_root / "adapters" / "mjlab" / "native_worker.py").exists(),
-        "go2w_asset": str(go2w_xml),
-        "go2w_task_available": go2w_xml.exists() and go2w_assets.exists() and any(go2w_assets.iterdir()),
+        "package_extensions_root": str(DEFAULT_EXTENSION),
+    }
+    report["runtime"] = {"available": False, "interpreters": []}
+    report["smoke_ready"] = False
+    report["execution_ready"] = False
+    report["training_ready"] = False
+    report["execution_note"] = "training runtime has not been probed yet; it is verified when a training run starts"
+    return report
+
+
+def _preflight_uncached(source: Path) -> dict[str, Any]:
+    source = source.expanduser().resolve()
+    package_root = source / "src"
+    project_root = Path(__file__).resolve().parents[2]
+    report = {
+        "source": str(source),
+        "exists": source.exists(),
+        "package_root": str(package_root),
+        "manager_env_available": (package_root / "mjlab" / "envs" / "manager_based_rl_env.py").exists(),
+        "runner_available": (package_root / "mjlab" / "rl" / "runner.py").exists(),
+        "python_importable_in_control_plane": bool(importlib.util.find_spec("mjlab")),
+        "status": "candidate" if source.exists() else "not_found",
+        "extension_root": str(DEFAULT_EXTENSION),
+        "extension_exists": DEFAULT_EXTENSION.exists(),
+        "package_extensions_root": str(DEFAULT_EXTENSION),
     }
     report["runtime"] = _probe_runtime(source) if source.exists() else {"available": False, "interpreters": []}
     # Core MJLab readiness is independent of any robot package. Package
-    # extensions (for example the bundled Go2/Go2W recipes) are checked by
+    # Package extensions are checked by
     # the caller only when that package explicitly requests them.
     report["smoke_ready"] = bool(report["exists"] and report["manager_env_available"] and report["runtime"]["available"])
     report["execution_ready"] = report["smoke_ready"]
@@ -99,3 +190,15 @@ def build_launch_spec(recipe: dict[str, Any], contract: dict[str, Any]) -> dict[
         "reward_scales": recipe.get("reward_scales", {}),
         "managers": ["scene", "commands", "observations", "actions", "rewards", "terminations", "curriculum", "metrics"],
     }
+
+
+def package_runtime_diagnostics(package: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
+    """Return package/runtime compatibility without importing package code."""
+    runtime = report.get("runtime", {}) if isinstance(report, dict) else {}
+    selected = next((item for item in runtime.get("interpreters", []) if item.get("available")), {})
+    values = {
+        "mjlab_version": selected.get("mjlab_version"),
+        "python_version": selected.get("python_version"),
+        "torch_version": selected.get("torch_version"),
+    }
+    return evaluate_package_runtime(package, values)

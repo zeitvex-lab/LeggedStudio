@@ -10,14 +10,16 @@ from __future__ import annotations
 
 import json
 import math
+import struct
 import time
 import uuid
 import threading
 import base64
 import io
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 import mujoco
@@ -38,8 +40,8 @@ def _get_robot_definition(robot_id: str) -> dict[str, Any] | None:
     preset = get_robot_preset(robot_id)
     if preset is not None:
         return preset
-    imports_root = Path(__file__).resolve().parents[1] / "workspace" / "imports"
-    for contract_path in imports_root.rglob("contract.json"):
+    packages_root = Path(__file__).resolve().parents[1] / "workspace" / "packages"
+    for contract_path in packages_root.glob("*/contract.json"):
         try:
             contract = json.loads(contract_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -172,6 +174,21 @@ class SimulationSession:
 sessions: dict[str, SimulationSession] = {}
 sessions_lock = threading.Lock()
 SESSION_TTL_SECONDS = 30 * 60
+# Go2's bundled path already streams a 7.8 MB OBJ to the same browser runtime,
+# so individual meshes up to ~12 MB compile fine. The limit only guards against
+# pathological single files; meshes above it fall back to primitive proxies.
+BROWSER_MESH_LIMIT_BYTES = 12 * 1024 * 1024
+BROWSER_MESH_SUFFIXES = {".obj", ".stl", ".dae", ".ply", ".msh"}
+BROWSER_INITIAL_KEYFRAME = "__browser_init__"
+GO2_BROWSER_SCENES = (
+    "flat.xml",
+    "stairs.xml",
+    "cross_stairs.xml",
+    "high_platforms.xml",
+    "cross_slope.xml",
+    "race_track.xml",
+)
+GO2_TERRAIN_ROOT = Path(__file__).resolve().parents[1] / "web" / "sim2sim" / "assets" / "go2"
 
 
 def _cleanup_sessions() -> None:
@@ -188,7 +205,7 @@ async def list_maps() -> dict[str, Any]:
     return {"maps": list(MAPS.values()), "count": len(MAPS)}
 
 
-def _browser_package_root(robot_id: str) -> Path:
+def _browser_package(robot_id: str) -> tuple[Path, dict[str, Any]]:
     preset = get_robot_preset(robot_id)
     if not preset:
         normalized = robot_id.replace("_", "-").lower()
@@ -200,22 +217,477 @@ def _browser_package_root(robot_id: str) -> Path:
     root = Path(str(package.get("package_root", ""))).resolve()
     if not root.exists():
         raise HTTPException(status_code=404, detail=f"Robot package files not found: {robot_id}")
-    if not (root / "model" / "robot.xml").exists():
+    model_info = package.get("model") if isinstance(package.get("model"), dict) else {}
+    model_path = root / str(model_info.get("path") or "model/robot.xml")
+    if not model_path.exists():
         raise HTTPException(status_code=404, detail=f"Robot package has no browser MJCF model: {robot_id}")
-    return root
+    return root, preset
+
+
+def _browser_package_root(robot_id: str) -> Path:
+    return _browser_package(robot_id)[0]
+
+
+def _browser_asset_bytes(root: Path) -> int:
+    assets = root / "model" / "assets"
+    return sum(item.stat().st_size for item in assets.rglob("*") if item.is_file()) if assets.exists() else 0
+
+
+def _read_simulation_config(root: Path) -> dict[str, Any]:
+    path = root / "simulation" / "config.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8-sig")) if path.exists() else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _browser_asset_files(root: Path) -> tuple[list[str], list[str], int]:
+    """Select package assets using the browser's per-mesh transfer limit."""
+    assets = root / "model" / "assets"
+    included: list[str] = []
+    omitted_meshes: list[str] = []
+    included_bytes = 0
+    if not assets.exists():
+        return included, omitted_meshes, included_bytes
+    for item in sorted(assets.rglob("*")):
+        if not item.is_file():
+            continue
+        relative = str(item.relative_to(root)).replace("\\", "/")
+        if item.suffix.lower() in BROWSER_MESH_SUFFIXES and item.stat().st_size >= BROWSER_MESH_LIMIT_BYTES:
+            omitted_meshes.append(relative)
+            continue
+        included.append(relative)
+        included_bytes += item.stat().st_size
+    return included, omitted_meshes, included_bytes
+
+
+def _initial_key_qpos(document: ET.Element, preset: dict[str, Any], simulation_config: dict[str, Any]) -> list[float]:
+    contract = preset.get("contract") or {}
+    order = list(contract.get("action", {}).get("joint_order") or contract.get("joints", {}).get("actuated_joints") or [])
+    pose = list(contract.get("joints", {}).get("default_pose") or [])
+    pose_by_name = {name: float(value) for name, value in zip(order, pose)}
+    requested_height = simulation_config.get("initial_base_height")
+    values: list[float] = []
+
+    def floats(value: str | None, fallback: list[float]) -> list[float]:
+        try:
+            parsed = [float(item) for item in (value or "").split()]
+        except ValueError:
+            parsed = []
+        return parsed if len(parsed) == len(fallback) else list(fallback)
+
+    def visit_body(body: ET.Element) -> None:
+        for joint in list(body):
+            if joint.tag not in {"joint", "freejoint"}:
+                continue
+            joint_type = "free" if joint.tag == "freejoint" else (joint.get("type") or "hinge").lower()
+            if joint_type == "free":
+                position = floats(body.get("pos"), [0.0, 0.0, 0.0])
+                if requested_height is not None:
+                    position[2] = float(requested_height)
+                values.extend(position)
+                values.extend(floats(body.get("quat"), [1.0, 0.0, 0.0, 0.0]))
+            elif joint_type == "ball":
+                values.extend([1.0, 0.0, 0.0, 0.0])
+            else:
+                values.append(pose_by_name.get(joint.get("name") or "", float(joint.get("ref") or 0.0)))
+        for child in body.findall("./body"):
+            visit_body(child)
+
+    worldbody = document.find("worldbody")
+    if worldbody is not None:
+        for body in worldbody.findall("./body"):
+            visit_body(body)
+    return values
+
+
+def _mesh_aabb(path: Path) -> tuple[list[float], list[float]] | None:
+    """Return the (min, max) corners of a binary/ASCII STL or OBJ mesh."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    lo = [float("inf")] * 3
+    hi = [float("-inf")] * 3
+
+    def absorb(vertex: Sequence[float]) -> None:
+        for axis in range(3):
+            lo[axis] = min(lo[axis], vertex[axis])
+            hi[axis] = max(hi[axis], vertex[axis])
+
+    if path.suffix.lower() == ".stl" and len(data) >= 84:
+        count = int.from_bytes(data[80:84], "little")
+        if count > 0 and len(data) >= 84 + count * 50:
+            for index in range(count):
+                offset = 84 + index * 50 + 12  # skip the normal vector
+                for corner in range(3):
+                    absorb(struct.unpack_from("<3f", data, offset + corner * 12))
+            return lo, hi
+    text = data.decode("utf-8", "ignore")
+    for line in text.splitlines():
+        parts = line.strip().split()
+        if len(parts) >= 4 and (parts[0] == "vertex" or parts[0] == "v"):
+            try:
+                absorb([float(parts[1]), float(parts[2]), float(parts[3])])
+            except ValueError:
+                return None
+    if lo[0] == float("inf"):
+        return None
+    return lo, hi
+
+
+def _proxy_geom(geom: ET.Element, body_name: str, mesh_path: Path | None = None) -> None:
+    """Replace one unavailable mesh geom with a fitting primitive.
+
+    The proxy must sit where the real mesh sits: imported MJCFs reference the
+    mesh at its file coordinates (geom pos stays 0 and MuJoCo applies the
+    centring offset itself), so the box is placed at the mesh bounding-box
+    centre with the matching half extents instead of a hardcoded guess.
+    """
+    geom.attrib.pop("mesh", None)
+    name = body_name.lower()
+    if "base" in name or "trunk" in name:
+        geom.set("type", "box")
+    elif "wheel" in name:
+        geom.set("type", "cylinder")
+    else:
+        geom.set("type", "capsule")
+    aabb = _mesh_aabb(mesh_path) if mesh_path is not None else None
+    if aabb is None:
+        if "base" in name or "trunk" in name:
+            geom.set("size", "0.16 0.10 0.06")
+        elif "wheel" in name:
+            geom.set("size", "0.06 0.025")
+        else:
+            geom.set("size", "0.035 0.10")
+        return
+    lo, hi = aabb
+    base_pos = [float(value) for value in (geom.get("pos") or "0 0 0").split()[:3]]
+    while len(base_pos) < 3:
+        base_pos.append(0.0)
+    centre = [(lo[axis] + hi[axis]) / 2 for axis in range(3)]
+    half = [max((hi[axis] - lo[axis]) / 2, 0.01) for axis in range(3)]
+    geom.set("pos", " ".join(f"{base_pos[axis] + centre[axis]:.4f}" for axis in range(3)))
+    if geom.get("type") == "capsule" and half[2] > 0:
+        geom.set("size", f"{min(half[0], half[1]):.4f} {max(half[2] - min(half[0], half[1]), 0.01):.4f}")
+    else:
+        geom.set("size", " ".join(f"{value:.4f}" for value in half))
+
+
+def _browser_model_xml(root: Path, model_path: Path, preset: dict[str, Any]) -> str:
+    """Return a browser-safe model while retaining every mesh below the size limit.
+
+    The source package stays untouched. Visual mesh geoms are replaced before
+    transfer only when their individual file reaches the transfer limit.
+    """
+    source = model_path.read_text(encoding="utf-8-sig")
+    document = ET.fromstring(source)
+    _configure_browser_actuators(document, preset)
+    compiler = document.find("compiler")
+    mesh_dir = (compiler.get("meshdir") if compiler is not None else "") or ""
+    oversized_files: dict[str, Path] = {}
+    for asset in document.findall(".//asset"):
+        for mesh in list(asset.findall("mesh")):
+            file_name = mesh.get("file") or ""
+            candidate = (model_path.parent / mesh_dir / file_name).resolve()
+            if candidate.is_file() and candidate.suffix.lower() in BROWSER_MESH_SUFFIXES and candidate.stat().st_size >= BROWSER_MESH_LIMIT_BYTES:
+                oversized_files[mesh.get("name") or Path(file_name).stem] = candidate
+                asset.remove(mesh)
+    if oversized_files:
+        for body in document.findall(".//body"):
+            for geom in body.findall("./geom"):
+                mesh_path = oversized_files.get(geom.get("mesh") or "")
+                if mesh_path is not None:
+                    _proxy_geom(geom, body.get("name") or "", mesh_path)
+
+    simulation_config = _read_simulation_config(root)
+    configured_keyframe = str(simulation_config.get("initial_keyframe") or "").strip()
+    configured_key = next((key for key in document.findall(".//key") if key.get("name") == configured_keyframe), None)
+    if not configured_keyframe or configured_key is None:
+        qpos = _initial_key_qpos(document, preset, simulation_config)
+        if qpos:
+            keyframe = document.find("keyframe")
+            if keyframe is None:
+                keyframe = ET.SubElement(document, "keyframe")
+            for existing in list(keyframe.findall(f"key[@name='{BROWSER_INITIAL_KEYFRAME}']")):
+                keyframe.remove(existing)
+            ET.SubElement(keyframe, "key", {"name": BROWSER_INITIAL_KEYFRAME, "qpos": " ".join(f"{value:.12g}" for value in qpos)})
+    return ET.tostring(document, encoding="unicode")
+
+
+def _configure_browser_actuators(document: ET.Element, preset: dict[str, Any]) -> None:
+    """Normalize actuator semantics for the browser runtime.
+
+    Package MJCFs come from different simulators.  The browser controller uses
+    the same contracts as the reference projects: Go2 receives external PD
+    torque through ``motor`` actuators, while ZEX-W receives position targets
+    for its legs and velocity targets for its wheels.  MicroDuck already ships
+    the position actuators used by ``microduck-simulator`` and is left intact.
+    """
+    robot_id = str(preset.get("robot_id") or "").lower().replace("_", "-")
+    if robot_id not in {"unitree-go2", "zex-w"}:
+        return
+    contract = preset.get("contract") or {}
+    order = list(
+        contract.get("action", {}).get("joint_order")
+        or contract.get("joints", {}).get("actuated_joints")
+        or []
+    )
+    if not order:
+        return
+    actuator = document.find("actuator")
+    if actuator is None:
+        actuator = ET.SubElement(document, "actuator")
+    for child in list(actuator):
+        actuator.remove(child)
+
+    if robot_id == "unitree-go2":
+        limits = {"hip": 23.7, "thigh": 23.7, "calf": 35.55}
+        for joint_name in order:
+            group = "calf" if "calf" in str(joint_name).lower() else ("hip" if "hip" in str(joint_name).lower() else "thigh")
+            limit = limits[group]
+            ET.SubElement(
+                actuator,
+                "motor",
+                {
+                    "name": str(joint_name).removesuffix("_joint"),
+                    "joint": str(joint_name),
+                    "gear": "1",
+                    "forcelimited": "true",
+                    "forcerange": f"{-limit:g} {limit:g}",
+                },
+            )
+        return
+
+    # ZEX-W's source XML uses general actuators with an embedded PD loop.  The
+    # policy, however, emits target positions/velocities and the reference
+    # sim2sim rebuilds these as native MuJoCo position/velocity actuators.
+    for joint_name in order:
+        name = str(joint_name)
+        if "wheel" in name.lower():
+            ET.SubElement(
+                actuator,
+                "velocity",
+                {
+                    "name": name,
+                    "joint": name,
+                    "kv": "1",
+                    "forcelimited": "true",
+                    "forcerange": "-17 17",
+                },
+            )
+        else:
+            ET.SubElement(
+                actuator,
+                "position",
+                {
+                    "name": name,
+                    "joint": name,
+                    "kp": "50",
+                    "kv": "1.5",
+                    "forcelimited": "true",
+                    "forcerange": "-17 17",
+                },
+            )
+
+
+def _go2_browser_scene(scene_name: str) -> str:
+    """Build a self-contained primitive terrain scene for the package model."""
+    source_path = GO2_TERRAIN_ROOT / scene_name
+    document = ET.fromstring(source_path.read_text(encoding="utf-8-sig"))
+    for include in document.findall("include"):
+        if include.get("file") == "go2.xml":
+            include.set("file", "model/robot.xml")
+    for texture in document.findall(".//texture[@file]"):
+        texture.attrib.pop("file", None)
+        texture.set("builtin", "checker")
+        texture.set("rgb1", "0.62 0.66 0.70")
+        texture.set("rgb2", "0.34 0.38 0.42")
+        texture.set("width", "64")
+        texture.set("height", "64")
+    return ET.tostring(document, encoding="unicode")
 
 
 @router.get("/browser-config/{robot_id}")
 async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     """Return the browser-native MuJoCo/Three.js package manifest."""
-    root = _browser_package_root(robot_id)
-    preset = get_robot_preset(robot_id) or {}
+    root, preset = _browser_package(robot_id)
+    canonical_robot_id = str(preset.get("robot_id") or robot_id)
     contract = preset.get("contract") or {}
     order = list(contract.get("action", {}).get("joint_order") or contract.get("joints", {}).get("actuated_joints") or [])
     default_pose = list(contract.get("joints", {}).get("default_pose") or [0.0] * len(order))
-    files = ["scene.xml", "model/robot.xml"]
-    files.extend(str(item.relative_to(root)).replace("\\", "/") for item in sorted((root / "model" / "assets").rglob("*")) if item.is_file())
-    asset_bytes = sum(item.stat().st_size for item in (root / "model" / "assets").rglob("*") if item.is_file())
+    simulation_config = _read_simulation_config(root)
+    policy: dict[str, Any] = {
+        "disabled": True,
+        "contract": {"obs_dim": 0, "action_dim": len(order), "history_len": 1},
+    }
+    asset_bytes = _browser_asset_bytes(root)
+    browser_assets, omitted_meshes, browser_asset_bytes = _browser_asset_files(root)
+    lightweight_preview = bool(omitted_meshes)
+    preview_mode = "hybrid_visual_meshes" if lightweight_preview else "visual_meshes"
+    if canonical_robot_id == "unitree_go2":
+        scenes = list(GO2_BROWSER_SCENES)
+        terrain_options = [
+            {"id": Path(path).stem, "label": Path(path).stem.replace("_", " ").title(), "path": path}
+            for path in scenes
+        ]
+    else:
+        configured_scenes = simulation_config.get("terrains") or simulation_config.get("scenes") or []
+        terrain_options = []
+        for item in configured_scenes:
+            if isinstance(item, str):
+                path = item.replace("\\", "/")
+                terrain_options.append({"id": Path(path).stem, "label": Path(path).stem.replace("_", " ").title(), "path": path})
+            elif isinstance(item, dict) and item.get("path"):
+                path = str(item["path"]).replace("\\", "/")
+                terrain_options.append({
+                    "id": str(item.get("id") or Path(path).stem),
+                    "label": str(item.get("label") or item.get("id") or Path(path).stem.replace("_", " ").title()),
+                    "path": path,
+                })
+        if not terrain_options:
+            scene_files = sorted((root / "simulation").glob("scene*.xml"))
+            terrain_options = [
+                {
+                    "id": path.stem,
+                    "label": "Default scene" if path.name == "scene.xml" else path.stem.removeprefix("scene_").replace("_", " ").title(),
+                    "path": "scene.xml" if path.name == "scene.xml" else str(path.relative_to(root)).replace("\\", "/"),
+                }
+                for path in scene_files
+            ]
+        if not terrain_options:
+            terrain_options = [{"id": "default", "label": "Default scene", "path": "scene.xml"}]
+        scenes = [item["path"] for item in terrain_options]
+    package = preset.get("robot_package") or {}
+    model_info = package.get("model") if isinstance(package.get("model"), dict) else {}
+    model_rel = str(model_info.get("path") or "model/robot.xml").replace("\\", "/")
+    model_variants = simulation_config.get("model_variants") if isinstance(simulation_config.get("model_variants"), list) else []
+    public_models: list[dict[str, Any]] = []
+    for item in model_variants:
+        if not isinstance(item, dict) or not item.get("path"):
+            continue
+        path = str(item["path"]).replace("\\", "/")
+        public_models.append({
+            "id": str(item.get("id") or Path(path).stem),
+            "label": str(item.get("label") or item.get("id") or Path(path).stem),
+            "path": path,
+            "preview_mode": preview_mode,
+        })
+    if not public_models:
+        public_models = [{
+            "id": "default",
+            "label": str(model_info.get("label") or Path(model_rel).stem),
+            "path": model_rel,
+            "preview_mode": preview_mode,
+        }]
+
+    # ONNX files are fetched by ONNX Runtime, not copied into MuJoCo's virtual
+    # filesystem. Keeping them out of this list makes the robot visible before
+    # a potentially large policy download starts.
+    files = list(dict.fromkeys([*scenes, model_rel, *(item["path"] for item in public_models)]))
+    if canonical_robot_id != "unitree_go2":
+        files.extend(
+            str(item.relative_to(root)).replace("\\", "/")
+            for item in sorted((root / "simulation").glob("*.xml"))
+            if item.is_file() and item.name != "scene.xml"
+        )
+    files.extend(browser_assets)
+    package_policies = simulation_config.get("policies") if isinstance(simulation_config.get("policies"), list) else []
+    default_policy_contract = simulation_config.get("policy_contract") if isinstance(simulation_config.get("policy_contract"), dict) else {}
+    public_policies: list[dict[str, Any]] = []
+    for item in package_policies:
+        if isinstance(item, dict) and item.get("path"):
+            policy_path = str(item["path"]).replace("\\", "/")
+            public_policies.append({
+                "id": str(item.get("id") or Path(policy_path).stem),
+                "label": str(item.get("label") or item.get("id") or Path(policy_path).stem),
+                "url": f"/api/simulation/browser-package/{canonical_robot_id}/{policy_path}",
+                "path": policy_path,
+                "obs_dim": int(item.get("obs_dim") or contract.get("observation", {}).get("dimension") or 0),
+                "action_dim": int(item.get("action_dim") or len(order)),
+                "history_len": int(item.get("history_len") or 1),
+                "contract": {
+                    **default_policy_contract,
+                    **(item.get("contract") if isinstance(item.get("contract"), dict) else {}),
+                    "obs_dim": int(item.get("obs_dim") or contract.get("observation", {}).get("dimension") or 0),
+                    "action_dim": int(item.get("action_dim") or len(order)),
+                    "history_len": int(item.get("history_len") or 1),
+                },
+            })
+    if package_policies:
+        selected_policy = next((item for item in package_policies if isinstance(item, dict) and item.get("path")), None)
+        if selected_policy:
+            policy_path = str(selected_policy["path"]).replace("\\", "/")
+            policy = {
+                "id": str(selected_policy.get("id") or Path(policy_path).stem),
+                "disabled": False,
+                "onnx_url": f"/api/simulation/browser-package/{canonical_robot_id}/{policy_path}",
+                "checkpoint_iteration": selected_policy.get("checkpoint_iteration"),
+                "health": {"status": "pass", "checks": [{"id": "package", "ok": True, "message": "Package policy manifest"}]},
+                "contract": {
+                    **default_policy_contract,
+                    **(selected_policy.get("contract") if isinstance(selected_policy.get("contract"), dict) else {}),
+                    "obs_dim": int(selected_policy.get("obs_dim") or contract.get("observation", {}).get("dimension") or 0),
+                    "action_dim": int(selected_policy.get("action_dim") or len(order)),
+                    "history_len": int(selected_policy.get("history_len") or 1),
+                    "action_scale": float(contract.get("action", {}).get("action_scale", 0.25)),
+                },
+            }
+    if canonical_robot_id == "unitree_go2":
+        go2_policy_url = "/web/sim2sim/models/go2_moe_cts_high_slope_164k.onnx"
+        policy = {
+            "id": "go2-baseline-164k",
+            "disabled": False,
+            "onnx_url": go2_policy_url,
+            "checkpoint_iteration": 164000,
+            "health": {"status": "pass", "checks": [{"id": "bundled", "ok": True, "message": "Bundled Go2 baseline"}]},
+            "contract": {
+                "obs_dim": 45,
+                "action_dim": len(order),
+                "history_len": 5,
+                "action_scale": float(contract.get("action", {}).get("action_scale", 0.25)),
+                "autoplay": False,
+                "default_joint_angles": {name: float(value) for name, value in zip(order, default_pose)},
+            },
+        }
+        public_policies = [{
+            "id": "go2-baseline-164k",
+            "label": "Go2 baseline 164k",
+            "url": go2_policy_url,
+            "path": "models/go2_moe_cts_high_slope_164k.onnx",
+            "obs_dim": 45,
+            "action_dim": len(order),
+            "history_len": 5,
+            "contract": policy["contract"],
+        }]
+    simulation_control = simulation_config.get("control") if isinstance(simulation_config.get("control"), dict) else {}
+    action_scale = float(
+        simulation_config.get("action_scale", contract.get("action", {}).get("action_scale", 0.25))
+    )
+    decimation = int(
+        simulation_config.get(
+            "decimation",
+            simulation_control.get("decimation", contract.get("control", {}).get("decimation", 4)),
+        )
+    )
+    physics_hz = float(
+        simulation_config.get(
+            "physics_hz",
+            simulation_control.get("physics_hz", contract.get("control", {}).get("physics_hz", 1000)),
+        )
+    )
+    action_scale_by_role = simulation_config.get("action_scale_by_role")
+    if not isinstance(action_scale_by_role, dict):
+        action_scale_by_role = {"leg": action_scale, "wheel": 5.0}
+    control_modes = simulation_config.get("control_modes")
+    if not isinstance(control_modes, dict):
+        control_modes = {"wheel": "velocity"}
+    files = list(dict.fromkeys(files))
+    # The revision busts the browser HTTP cache for every package file. It must
+    # react to any served XML change (scenes included), not just the manifest.
+    revision_sources = [root / "robot_package.json", root / "model" / "robot.xml"]
+    revision_sources.extend(sorted((root / "simulation").glob("*.xml")))
+    revision_ts = max((p.stat().st_mtime_ns for p in revision_sources if p.is_file()), default=0)
     return {
         "run_id": None,
         "robot": {
@@ -223,28 +695,49 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
             "joint_order": order,
             "default_joint_angles": {name: float(value) for name, value in zip(order, default_pose)},
             "control": {
-                "action_scale": float(contract.get("action", {}).get("action_scale", 0.25)),
-                "decimation": int(contract.get("control", {}).get("decimation", 4)),
-                "sim_dt": 1.0 / float(contract.get("control", {}).get("physics_hz", 1000)),
-                "stiffness": {"hip": 50.0, "thigh": 50.0, "calf": 50.0, "joint": 50.0},
-                "damping": {"hip": 1.5, "thigh": 1.5, "calf": 1.5, "wheel": 1.0, "joint": 1.5},
-                "action_scale_by_role": {"leg": 0.25, "wheel": 5.0},
-                "velocity_scale": 5.0,
-                "control_modes": {"wheel": "velocity"},
+                "action_scale": action_scale,
+                "decimation": max(1, decimation),
+                "sim_dt": 1.0 / max(1.0, physics_hz),
+                "actuator_interface": str(simulation_config.get("actuator_interface") or "").lower(),
+                "base_height_target": simulation_config.get("initial_base_height"),
+                "initial_keyframe": str(simulation_config.get("initial_keyframe") or BROWSER_INITIAL_KEYFRAME),
+                "stiffness": simulation_config.get("stiffness") or {"hip": 50.0, "thigh": 50.0, "calf": 50.0, "joint": 50.0},
+                "damping": simulation_config.get("damping") or {"hip": 1.5, "thigh": 1.5, "calf": 1.5, "wheel": 1.0, "joint": 1.5},
+                "torque_limits": simulation_config.get("torque_limits"),
+                "action_scale_by_role": action_scale_by_role,
+                "action_scale_by_joint": simulation_config.get("action_scale_by_joint") or {},
+                "velocity_scale": float(simulation_config.get("velocity_scale", 5.0)),
+                "control_modes": control_modes,
+                # Deployment sim2sim extras: per-role action low-pass cutoffs
+                # (Hz) and the PD settle hold (physics steps) applied on reset.
+                "action_filter_cutoffs": (
+                    simulation_config.get("action_filter_cutoffs")
+                    if isinstance(simulation_config.get("action_filter_cutoffs"), dict)
+                    else simulation_control.get("action_filter_cutoffs")
+                ),
+                "settle_steps": simulation_config.get("settle_steps", simulation_control.get("settle_steps", 0)),
             },
         },
-        "policy": {"disabled": True, "contract": {"obs_dim": 0, "action_dim": len(order), "history_len": 1}},
+        "policy": policy,
         "sim": {
-            "robot": robot_id,
+            "robot": canonical_robot_id,
+            "custom_robot_mjcf_supported": True,
             "asset_package": {
-                "base_url": f"/api/simulation/browser-package/{robot_id}/",
+                "base_url": f"/api/simulation/browser-package/{canonical_robot_id}/",
                 "files": files,
-                "scenes": ["scene.xml"],
-                "revision": str((root / "robot_package.json").stat().st_mtime_ns),
-                # Large mesh packages are previewed with collision geometry in
-                # the browser to keep synchronous WASM compilation responsive.
-                "lightweight_preview": asset_bytes >= 20 * 1024 * 1024,
+                "scenes": scenes,
+                "models": public_models,
+                "policies": public_policies,
+                "terrains": terrain_options,
+                "revision": str(revision_ts),
+                # Only individual mesh files at or above the browser limit are
+                # represented by generated primitive proxies.
+                "lightweight_preview": lightweight_preview,
+                "preview_mode": preview_mode,
                 "asset_bytes": asset_bytes,
+                "browser_asset_bytes": browser_asset_bytes,
+                "mesh_limit_bytes": BROWSER_MESH_LIMIT_BYTES,
+                "omitted_meshes": omitted_meshes,
             },
         },
     }
@@ -253,8 +746,11 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
 @router.get("/browser-package/{robot_id}/{asset_path:path}")
 async def browser_simulation_asset(robot_id: str, asset_path: str):
     """Serve allowlisted package files to the browser MuJoCo virtual FS."""
-    root = _browser_package_root(robot_id)
+    root, preset = _browser_package(robot_id)
+    canonical_robot_id = str(preset.get("robot_id") or robot_id)
     normalized = asset_path.replace("\\", "/").lstrip("/")
+    if canonical_robot_id == "unitree_go2" and normalized in GO2_BROWSER_SCENES:
+        return PlainTextResponse(_go2_browser_scene(normalized), media_type="application/xml")
     if normalized == "scene.xml":
         scene = root / "simulation" / "scene.xml"
         if not scene.exists():
@@ -264,10 +760,31 @@ async def browser_simulation_asset(robot_id: str, asset_path: str):
             source = source.replace('file="../model/robot.xml"', 'file="model/robot.xml"')
             scene_text = source
         return PlainTextResponse(scene_text, media_type="application/xml")
+    if normalized.startswith("model/") and normalized.lower().endswith((".xml", ".mjcf")):
+        candidate = (root / normalized).resolve()
+        model_root = (root / "model").resolve()
+        if not candidate.is_file() or model_root not in candidate.parents:
+            raise HTTPException(status_code=404, detail="browser simulation model not found")
+        return PlainTextResponse(_browser_model_xml(root, candidate, preset), media_type="application/xml")
+    if normalized.startswith("simulation/") and normalized.endswith(".xml"):
+        candidate = (root / normalized).resolve()
+        simulation_root = (root / "simulation").resolve()
+        if not candidate.is_file() or simulation_root not in candidate.parents:
+            raise HTTPException(status_code=404, detail="browser simulation scene not found")
+        source = candidate.read_text(encoding="utf-8-sig")
+        # Package scenes execute from /platform/simulation in the browser FS.
+        # Normalize common source-project paths without introducing a
+        # robot-specific adapter.
+        source = source.replace('file="model/robot.xml"', 'file="../model/robot.xml"')
+        source = source.replace("file='model/robot.xml'", "file='../model/robot.xml'")
+        source = source.replace('meshdir="assets"', 'meshdir="../model/assets"')
+        source = source.replace("meshdir='assets'", "meshdir='../model/assets'")
+        return PlainTextResponse(source, media_type="application/xml")
     candidate = (root / normalized).resolve()
     if candidate != root and root not in candidate.parents:
         raise HTTPException(status_code=400, detail="invalid package asset path")
-    if not candidate.is_file() or (candidate != root / "model" / "robot.xml" and root / "model" not in candidate.parents):
+    allowed_prefixes = (root / "model", root / "simulation" / "policies", root / "simulation" / "visual")
+    if not candidate.is_file() or not any(candidate == prefix or prefix in candidate.parents for prefix in allowed_prefixes):
         raise HTTPException(status_code=404, detail="browser package asset not found")
     return FileResponse(candidate)
 

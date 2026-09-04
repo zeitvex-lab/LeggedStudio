@@ -3,6 +3,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import loadMujoco from "./vendor/mujoco/mujoco.js";
 // Loaded on demand only for an explicitly selected policy.
 let ort = null;
+const ORT_DIST_URL = new URL("./vendor/onnxruntime-web/dist/", import.meta.url);
+const ORT_RUNTIME_REVISION = "1.23.2-local-2";
 
 const CONFIG = {
   simulationDt: 0.002,
@@ -18,6 +20,9 @@ const CONFIG = {
   dofVelScale: 0.05,
   actionScale: 0.25,
   actionFilterAlpha: 1.0,
+  actionFilterAlphas: null,
+  actionFilterCutoffs: null,
+  settleSteps: 0,
   hipScaleReduction: 1.0,
   baseHeightTarget: null,
   cmdScale: new Float32Array([2.0, 2.0, 0.25]),
@@ -39,6 +44,7 @@ const CONFIG = {
   jointOrder: [],
   actuatorRoles: new Array(12).fill("leg"),
   controlModes: new Array(12).fill("position"),
+  actuatorInterface: "torque",
   positionActionScales: new Float32Array(12).fill(0.25),
   velocityActionScales: new Float32Array(12).fill(20),
   observationKind: "default",
@@ -132,6 +138,7 @@ const MESH_FILES = [
 ];
 const IMAGE_FILES = ["label_1.png", "label_4.png", "label_7.png", "label_10.png"];
 const PAGE_PARAMS = new URLSearchParams(window.location.search);
+const VIEWER_ONLY = PAGE_PARAMS.get("viewer") === "1";
 // An explicit query parameter must be able to override a policy contract.
 // Autoplay only selects the idle command; a loaded policy always stays active.
 const URL_AUTOPLAY = PAGE_PARAMS.has("autoplay")
@@ -142,6 +149,7 @@ const DEFAULT_TERRAIN = "wave";
 const URL_ROBOT = normalizeRobotParam(PAGE_PARAMS.get("robot") || "");
 const DEBUG_ENABLED = PAGE_PARAMS.get("debug") === "1" || PAGE_PARAMS.has("qa");
 if (PAGE_PARAMS.get("embedded") === "1") document.body.classList.add("embedded");
+if (VIEWER_ONLY) document.body.classList.add("viewer-only");
 const LATEST_POLICY_POLL_MS = 20000;
 const MAX_PAYLOAD_KG = 70;
 
@@ -153,6 +161,7 @@ const elements = {
   terrainSelect: document.querySelector("#terrainSelect"),
   robotSelect: document.querySelector("#robotSelect"),
   modelSelect: document.querySelector("#modelSelect"),
+  policySelect: document.querySelector("#policySelect"),
   configLink: document.querySelector("#configLink"),
   trainLink: document.querySelector("#trainLink"),
   playButton: document.querySelector("#playButton"),
@@ -235,6 +244,7 @@ const sim = {
   geomType: null,
   policy: null,
   policyInfo: null,
+  policyLoading: false,
   recurrentState: Object.create(null),
   policyStateEpoch: 0,
   platformConfig: null,
@@ -269,9 +279,14 @@ const sim = {
   policyEnabled: PAGE_PARAMS.get("policy") !== "off",
   ready: false,
   loadingTerrain: false,
+  pendingTerrain: "",
+  currentTerrain: "",
   qpos: null,
   qvel: null,
   ctrl: null,
+  actuatorIds: [],
+  jointQposAdr: [],
+  jointDofAdr: [],
   baseBodyId: -1,
   baseBodyMassKg: 0,
   baseBodyComLocal: new Float64Array(3),
@@ -330,17 +345,35 @@ if (debugStateNode) {
 
 init();
 
+// Embedded Workbench pages can be laid out after this document starts. Accept
+// an explicit size from the parent and remeasure locally so WebGL never keeps
+// its default backing buffer while the iframe itself is full size.
+window.addEventListener("message", (event) => {
+  if (event.source !== window.parent || event.origin !== window.location.origin) return;
+  if (event.data?.type !== "legged-studio:resize") return;
+  resize(Number(event.data.width), Number(event.data.height));
+});
+
 async function init() {
   try {
     initExpertBars();
     initThree();
     bindUi();
+    await loadRobotOptions();
     setStatus(elements.engineStatus, "MuJoCo 初始化中", "pending");
     setStatus(elements.policyStatus, "ONNX 策略初始化中", "pending");
     sim.platformConfig = await loadPlatformConfig();
     applyPlatformLabels(sim.platformConfig);
-    if (elements.robotSelect) elements.robotSelect.value = URL_ROBOT || sim.platformConfig?.sim?.robot || "unitree_go2";
-    if (elements.modelSelect) elements.modelSelect.value = "default";
+    if (elements.robotSelect) {
+      // URL_ROBOT is a normalized key ("go2", "zex_w") that may not equal any
+      // option value ("unitree_go2", "zex-w"); match the way loadRobotOptions
+      // does, otherwise the dropdown renders blank for Go2 and ZEX-W.
+      const requested = URL_ROBOT || sim.platformConfig?.sim?.robot || "unitree_go2";
+      const match = Array.from(elements.robotSelect.options).find(
+        (option) => option.value === requested || normalizeRobotParam(option.value) === normalizeRobotParam(requested),
+      );
+      if (match) elements.robotSelect.value = match.value;
+    }
 
     await setLoadingPainted(0.12, "① 加载 MuJoCo WASM...");
     const tMujoco = performance.now();
@@ -361,22 +394,7 @@ async function init() {
     await loadMujocoAssets();
     console.log(`[sim2sim] ✔ loadMujocoAssets ${(performance.now() - tAssets).toFixed(0)}ms`);
 
-    if (!sim.platformConfig?.policy?.disabled && sim.platformConfig?.policy?.onnx_url && ort?.env) {
-    ort.env.logLevel = "error";
-    ort.env.wasm.wasmPaths = new URL("./vendor/onnxruntime-web/dist/", window.location.href).href;
-    // Use the non-threaded WASM backend for maximum compatibility. The
-    // threaded SIMD module requires SharedArrayBuffer and a dynamic .mjs
-    // import, which is unavailable in packaged/localhost launchers.
-    ort.env.wasm.simd = false;
-    ort.env.wasm.numThreads = 1;
-    const tOnnx = await setLoadingPainted(0.62, "③ 加载 ONNX 策略...");
-    await loadPolicyFromConfig(sim.platformConfig, true);
-    } else {
-      await loadPolicyFromConfig(sim.platformConfig, true);
-    }
-    if (typeof tOnnx !== "undefined") console.log(`[sim2sim] ✔ ONNX policy ${(performance.now() - tOnnx).toFixed(0)}ms`);
-
-    const tScene = await setLoadingPainted(0.78, "④ 编译 MuJoCo 场景...");
+    const tScene = await setLoadingPainted(0.62, "④ 编译 MuJoCo 场景...");
     // Always start with the package's explicitly declared flat scene when
     // available. Complex terrains are opt-in after the model is visible.
     const initialScene = sim.platformConfig?.sim?.asset_package?.scenes?.find((name) => /(^|\/)flat\.xml$/i.test(name))
@@ -385,7 +403,26 @@ async function init() {
     await loadTerrain(initialScene);
     console.log(`[sim2sim] ✔ MuJoCo scene ${(performance.now() - tScene).toFixed(0)}ms`);
 
-    await setLoadingPainted(1, "⑤ 启动仿真...");
+    // Policy loading is deliberately independent from scene compilation. A
+    // missing or incompatible ONNX runtime must not leave a blank viewport.
+    if (!sim.platformConfig?.policy?.disabled && sim.platformConfig?.policy?.onnx_url) {
+      const tOnnx = await setLoadingPainted(0.86, "⑤ 加载 ONNX 策略...");
+      try {
+        await loadPolicyFromConfig(sim.platformConfig, true);
+        console.log(`[sim2sim] ✔ ONNX policy ${(performance.now() - tOnnx).toFixed(0)}ms`);
+      } catch (error) {
+        console.error("[sim2sim] policy unavailable; continuing in pose-hold mode", error);
+        sim.policy = null;
+        sim.policyInfo = null;
+        sim.policyEnabled = false;
+        sim.paused = VIEWER_ONLY;
+        setStatus(elements.policyStatus, `策略不可用: ${error?.message || error}`, "error");
+      }
+    } else {
+      await loadPolicyFromConfig(sim.platformConfig, true);
+    }
+
+    await setLoadingPainted(1, "⑥ 启动仿真...");
     elements.loading.classList.add("is-hidden");
     startPlatformPolling();
     startLatestPolicyPolling();
@@ -399,6 +436,39 @@ async function init() {
   }
 }
 
+async function loadRobotOptions() {
+  if (!elements.robotSelect) return;
+  try {
+    const response = await fetch("/api/robots/presets", { cache: "no-store" });
+    if (!response.ok) return;
+    const payload = await response.json();
+    const presets = Array.isArray(payload?.presets) ? payload.presets : [];
+    if (!presets.length) return;
+    const requested = PAGE_PARAMS.get("robot") || "";
+    elements.robotSelect.innerHTML = "";
+    for (const preset of presets) {
+      const option = document.createElement("option");
+      option.value = String(preset.robot_id || "");
+      option.textContent = String(preset.family || preset.robot_id || "Robot");
+      option.disabled = !preset.robot_package?.model?.path;
+      elements.robotSelect.append(option);
+    }
+    const match = requested && Array.from(elements.robotSelect.options).find(
+      (option) => option.value === requested || normalizeRobotParam(option.value) === normalizeRobotParam(requested),
+    );
+    if (match) elements.robotSelect.value = match.value;
+    else {
+      const defaultOption = Array.from(elements.robotSelect.options).find(
+        (option) => normalizeRobotParam(option.value) === "go2",
+      );
+      if (defaultOption) elements.robotSelect.value = defaultOption.value;
+      else if (elements.robotSelect.options.length) elements.robotSelect.selectedIndex = 0;
+    }
+  } catch (error) {
+    console.warn("robot package list unavailable; keeping static simulation options", error);
+  }
+}
+
 async function loadPlatformConfig() {
   // Public demos use a dedicated allowlisted endpoint; private runs keep the
   // owner-scoped /api/play/{run_id} contract.
@@ -407,10 +477,30 @@ async function loadPlatformConfig() {
   const demoId = params.get("demo") || "";
   const runId = params.get("run_id") || params.get("job_id") || "";
   const policyId = params.get("policy") || "";
-  if (!runId && !demoId && URL_ROBOT && URL_ROBOT !== "go2" && URL_ROBOT !== "unitree_go2") {
-    const response = await fetch(`/api/simulation/browser-config/${encodeURIComponent(URL_ROBOT)}`, { cache: "no-store" });
-    if (!response.ok) throw new Error(`browser simulation package unavailable: ${URL_ROBOT}`);
-    return applyRobotOverride(await response.json());
+  const selectedRobot = URL_ROBOT || normalizeRobotParam(elements.robotSelect?.value || "");
+  // A package-backed browser session is the default for every robot. The
+  // historical /api/play/latest path is only used when an explicit run/demo
+  // is supplied; otherwise it cannot provide the selected package model.
+  if (!runId && !demoId && selectedRobot) {
+    const response = await fetch(`/api/simulation/browser-config/${encodeURIComponent(elements.robotSelect?.value || selectedRobot)}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`browser simulation package unavailable: ${selectedRobot}`);
+    const config = await response.json();
+    if (policyId === "off") {
+      config.policy = { disabled: true, onnx_url: "", contract: config.policy?.contract || {} };
+    }
+    const requestedPolicy = PAGE_PARAMS.get("policy") || "";
+    const policies = config?.sim?.asset_package?.policies || [];
+    const selectedPolicy = policies.find((item) => item.id === requestedPolicy || item.path === requestedPolicy || item.url === requestedPolicy);
+    if (selectedPolicy) {
+      config.policy = {
+        ...(config.policy || {}),
+        id: selectedPolicy.id || config.policy?.id,
+        disabled: false,
+        onnx_url: selectedPolicy.url || config.policy?.onnx_url || "",
+        contract: { ...(config.policy?.contract || {}), ...selectedPolicy.contract },
+      };
+    }
+    return applyRobotOverride(config);
   }
   const base = demoId
     ? `/api/play/demos/${encodeURIComponent(demoId)}`
@@ -544,23 +634,22 @@ async function loadPolicyFromConfig(config, initial = false) {
     setStatus(elements.policyStatus, "No policy - manual mode", "ready");
     return false;
   }
-  if (!ort) {
-    ort = await import("./vendor/onnxruntime-web/dist/ort.wasm.min.mjs");
-    ort.env.logLevel = "error";
-    ort.env.wasm.wasmPaths = new URL("./vendor/onnxruntime-web/dist/", import.meta.url).href;
-    ort.env.wasm.simd = false;
-    ort.env.wasm.numThreads = 1;
-  }
+  await ensureOrtRuntime();
   const contract = policy.contract || {};
   const revision = platformPolicyRevision(config, url);
   if (!initial && revision === sim.platformRevision) return false;
   setStatus(elements.policyStatus, initial ? "正在加载策略" : "正在加载新策略", "pending");
-  const session = await ort.InferenceSession.create(cacheBustedUrl(url, revision), {
-    executionProviders: ["wasm"],
-    // "all" runs heavy graph optimizations at load time — slow to initialize for
-    // little runtime gain on a small replay policy. "basic" loads much faster.
-    graphOptimizationLevel: "basic",
-  });
+  sim.policyLoading = true;
+  let session;
+  try {
+    session = await ort.InferenceSession.create(cacheBustedUrl(url, revision), {
+      executionProviders: ["wasm"],
+      graphOptimizationLevel: "basic",
+    });
+  } finally {
+    sim.policyLoading = false;
+  }
+  const previousPolicy = sim.policy;
   sim.policy = session;
   sim.policyInfo = inspectPolicy(session, contract);
   resetPolicyState();
@@ -576,7 +665,86 @@ async function loadPolicyFromConfig(config, initial = false) {
   );
   applyPlatformLabels(config);
   setStatus(elements.policyStatus, `${sim.policyInfo.mode} 已就绪`, "ready");
+  if (previousPolicy && previousPolicy !== session) {
+    try { await previousPolicy.release?.(); } catch (error) { console.warn("policy release failed", error); }
+  }
   return true;
+}
+
+async function ensureOrtRuntime() {
+  if (ort) return ort;
+  const wrapperUrl = new URL("ort.wasm.min.mjs", ORT_DIST_URL);
+  wrapperUrl.searchParams.set("v", ORT_RUNTIME_REVISION);
+  ort = await import(wrapperUrl.href);
+
+  const runtimeUrl = new URL("ort-wasm-simd-threaded.mjs", ORT_DIST_URL);
+  runtimeUrl.searchParams.set("v", ORT_RUNTIME_REVISION);
+  const wasmUrl = new URL("ort-wasm-simd-threaded.wasm", ORT_DIST_URL);
+  wasmUrl.searchParams.set("v", ORT_RUNTIME_REVISION);
+  ort.env.logLevel = "error";
+  ort.env.wasm.wasmPaths = {
+    "ort-wasm-simd-threaded.mjs": runtimeUrl.href,
+    "ort-wasm-simd-threaded.wasm": wasmUrl.href,
+  };
+  ort.env.wasm.numThreads = 1;
+  ort.env.wasm.proxy = false;
+  return ort;
+}
+
+async function switchPolicy(policyId) {
+  if (!sim.platformConfig || sim.policyLoading) return;
+  const select = elements.policySelect;
+  if (select) select.disabled = true;
+  const previousConfig = sim.platformConfig;
+  const previousPolicy = sim.policy;
+  try {
+    if (!policyId || policyId === "off") {
+      sim.policy = null;
+      sim.policyInfo = null;
+      sim.policyEnabled = false;
+      sim.platformRevision = "";
+      sim.platformConfig = {
+        ...previousConfig,
+        policy: { ...(previousConfig.policy || {}), id: "off", disabled: true, onnx_url: "" },
+      };
+      resetPolicyState();
+      resetSimulation();
+      sim.paused = VIEWER_ONLY;
+      elements.playButton.textContent = sim.paused ? "继续" : "暂停";
+      applyPlatformLabels(sim.platformConfig);
+      setStatus(elements.policyStatus, "无策略 · 姿态保持", "ready");
+      try { await previousPolicy?.release?.(); } catch (error) { console.warn("policy release failed", error); }
+    } else {
+      const candidates = previousConfig?.sim?.asset_package?.policies || [];
+      const selected = candidates.find((item) => (item.id || item.url || item.path) === policyId);
+      if (!selected) throw new Error(`包内不存在策略: ${policyId}`);
+      const nextConfig = {
+        ...previousConfig,
+        policy: {
+          ...(previousConfig.policy || {}),
+          id: selected.id || policyId,
+          disabled: false,
+          onnx_url: selected.url,
+          health: { status: "pass", checks: [{ id: "package", ok: true, message: "Package policy manifest" }] },
+          contract: { ...(previousConfig.policy?.contract || {}), ...(selected.contract || {}) },
+        },
+      };
+      await loadPolicyFromConfig(nextConfig, false);
+      sim.policyEnabled = true;
+      resetSimulation();
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set("policy", policyId || "off");
+    history.replaceState(null, "", url);
+  } catch (error) {
+    console.error("policy switch failed", error);
+    sim.platformConfig = previousConfig;
+    sim.policy = previousPolicy;
+    applyPlatformLabels(previousConfig);
+    setStatus(elements.policyStatus, `策略切换失败: ${error?.message || error}`, "error");
+  } finally {
+    if (select) select.disabled = false;
+  }
 }
 
 function platformPolicyRevision(config, url) {
@@ -638,7 +806,7 @@ function inspectPolicy(session, contract = {}) {
   const contractHistoryFrames = validObservationDim(contract?.history_len);
   const flatHistorySize = !hasHistory
     && inputNames.length === 1
-    && (["w1w_moe_cts", WHEEL_LEG_GAIT_OBSERVATION].includes(contract?.observation_kind)
+    && (["w1w_moe_cts", "zexw_53", WHEEL_LEG_GAIT_OBSERVATION].includes(contract?.observation_kind)
       || contract?.observation_kind === WHEEL_LEG_JUMP_OBSERVATION)
     && contractHistoryFrames > 1
     ? baseObsSize * contractHistoryFrames
@@ -822,20 +990,39 @@ function applyPlatformLabels(config) {
   const diagnostics = config?.policy_diagnostics || {};
   const health = policy.health || diagnostics.health || {};
   const policyId = policy.id ? ` / ${policy.id}` : "";
+  const packageInfo = config?.sim?.asset_package || {};
+  const packageModels = Array.isArray(packageInfo.models) ? packageInfo.models : [];
   if (elements.modelSelect) {
-    const current = PAGE_PARAMS.get("model") || "default";
-    elements.modelSelect.innerHTML = `<option value="default">默认模型</option>`;
-    if (policy.onnx_url) {
+    const requestedModel = PAGE_PARAMS.get("model") || packageModels[0]?.id || "default";
+    elements.modelSelect.innerHTML = "";
+    (packageModels.length ? packageModels : [{ id: "default", label: "Default model", path: "model/robot.xml" }]).forEach((item) => {
       const option = document.createElement("option");
-      option.value = policy.onnx_url;
-      option.textContent = checkpointLabel;
+      option.value = item.id || item.path || "default";
+      option.textContent = item.label || item.id || item.path || "Default model";
       elements.modelSelect.append(option);
-    }
-    elements.modelSelect.value = current === "default" || policy.onnx_url === current ? current : "default";
+    });
+    elements.modelSelect.value = Array.from(elements.modelSelect.options).some((option) => option.value === requestedModel)
+      ? requestedModel
+      : elements.modelSelect.options[0]?.value;
+  }
+  if (elements.policySelect) {
+    const current = policy.disabled || !policy.onnx_url ? "off" : (policy.id || policy.onnx_url);
+    elements.policySelect.innerHTML = `<option value="off">无策略（姿态保持）</option>`;
+    const packagePolicies = packageInfo.policies || [];
+    const candidates = packagePolicies.length ? packagePolicies : (policy.onnx_url ? [{ id: policy.id || policy.onnx_url, url: policy.onnx_url, label: checkpointLabel }] : []);
+    candidates.forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item.id || item.url || item.path;
+      option.textContent = item.label || item.id || checkpointLabel;
+      elements.policySelect.append(option);
+    });
+    elements.policySelect.value = candidates.some((item) => (item.id || item.url || item.path) === current) ? current : "off";
   }
   elements.jobLabel.textContent = config?.run_id || "-";
   elements.robotLabel.textContent = robot.name || robot.robot_name || "机器人";
-  elements.modelLabel.textContent = policy.onnx_url ? checkpointLabel : "Manual control";
+  elements.modelLabel.textContent = packageModels.find((item) => (item.id || item.path) === elements.modelSelect?.value)?.label
+    || packageModels[0]?.label
+    || "Default model";
   elements.policyHealthLabel.textContent = health.status
     ? `${health.status}${policyId}`
     : diagnostics.status || "-";
@@ -927,6 +1114,10 @@ function applyRuntimeConfig(config) {
   }
 
   const control = robot.control || {};
+  CONFIG.actuatorInterface = String(
+    control.actuator_interface
+      || (activeRobotKey() === "microduck" || activeRobotKey() === "zex-w" ? "position_target" : "torque"),
+  ).toLowerCase();
   applyJointMotorLimits(robot.joint_limits, order);
   applyActuatorContract(contract, control, order);
   const stiffness = control.stiffness || {};
@@ -953,6 +1144,8 @@ function applyRuntimeConfig(config) {
   // forward motion (robot balanced in place). A live model's timestep is updated too.
   CONFIG.simulationDt = finiteNumber(control.sim_dt, CONFIG.simulationDt);
   if (sim.model) sim.model.opt.timestep = CONFIG.simulationDt;
+  CONFIG.settleSteps = Math.max(0, Math.round(finiteNumber(control.settle_steps, 0)));
+  applyActionFilterCutoffs(control.action_filter_cutoffs);
   updateSignalDelayUi();
   applyTorqueLimits(control.torque_limits, order);
   applyMotorEnvelopes(control.motor_envelopes, order);
@@ -1034,7 +1227,9 @@ function applyPolicyContract(contract, order = []) {
     finiteNumber(contract?.gait_yaw_command_radius, 0.25),
   );
   CONFIG.commandAxes = normalizeCommandAxes(contract?.command_axes);
-  CONFIG.commandDims = commandDimsFromContract(contract);
+  const requestedCommandDims = Math.max(3, Math.round(finiteNumber(contract?.command_dims, commandDimsFromContract(contract))));
+  resizeCommandBuffers(requestedCommandDims);
+  CONFIG.commandDims = requestedCommandDims;
   CONFIG.agilityCommandDims = CONFIG.observationKind === "quadrupedal_agility_ll" ? 9 : 0;
   CONFIG.defaultCommand.fill(0);
   if (hasHeightCommand()) CONFIG.defaultCommand[heightCommandIndex()] = 0.68;
@@ -1065,6 +1260,25 @@ function applyPolicyContract(contract, order = []) {
   }
   updateCommandLabel();
   updateGaitControl();
+}
+
+function resizeCommandBuffers(commandDim) {
+  const size = Math.max(3, commandDim);
+  if (CONFIG.defaultCommand.length !== size) {
+    const nextDefault = new Float32Array(size);
+    nextDefault.set(CONFIG.defaultCommand.subarray(0, Math.min(size, CONFIG.defaultCommand.length)));
+    CONFIG.defaultCommand = nextDefault;
+  }
+  if (sim.cmd.length !== size) {
+    const next = new Float32Array(size);
+    next.set(sim.cmd.subarray(0, Math.min(size, sim.cmd.length)));
+    sim.cmd = next;
+  }
+  if (sim.targetCmd.length !== size) {
+    const next = new Float32Array(size);
+    next.set(sim.targetCmd.subarray(0, Math.min(size, sim.targetCmd.length)));
+    sim.targetCmd = next;
+  }
 }
 
 function resizeActionBuffers(actionDim) {
@@ -1106,6 +1320,7 @@ function applyActuatorContract(contract, control, order) {
   const contractModes = normalizedNameMap(contract?.control_modes);
   const robotModes = normalizedNameMap(control?.control_modes);
   const roleScales = control?.action_scale_by_role || {};
+  const jointScales = normalizedNameMap(control?.action_scale_by_joint || contract?.action_scale_by_joint);
   const defaultPositionScale = finiteNumber(contract?.action_scale, finiteNumber(control?.action_scale, CONFIG.actionScale));
   const defaultVelocityScale = finiteNumber(
     contract?.control?.velocity_scale,
@@ -1125,8 +1340,56 @@ function applyActuatorContract(contract, control, order) {
     ).toLowerCase();
     CONFIG.actuatorRoles[i] = role;
     CONFIG.controlModes[i] = ["position", "velocity", "torque"].includes(mode) ? mode : "position";
-    CONFIG.positionActionScales[i] = finiteNumber(roleScales[role], defaultPositionScale);
+    CONFIG.positionActionScales[i] = finiteNumber(
+      jointScales[name],
+      finiteNumber(roleScales[role], defaultPositionScale),
+    );
     CONFIG.velocityActionScales[i] = finiteNumber(roleScales[role], defaultVelocityScale);
+  }
+}
+
+function applyActionFilterCutoffs(cutoffs) {
+  // Deployment references filter actuator targets per role (rc_mjlab wheels:
+  // legs 5 Hz, wheels 15 Hz). alpha = dt / (dt + 1/(2*pi*fc)) evaluated at the
+  // control period, matching LowPassFilter.alpha in the Python sim2sim.
+  const source = cutoffs && typeof cutoffs === "object" ? cutoffs : null;
+  if (!source) {
+    CONFIG.actionFilterCutoffs = null;
+    CONFIG.actionFilterAlphas = null;
+    return;
+  }
+  const controlDt = CONFIG.simulationDt * CONFIG.controlDecimation;
+  const perJoint = new Float32Array(CONFIG.numActions);
+  const alphas = new Float32Array(CONFIG.numActions);
+  for (let i = 0; i < CONFIG.numActions; i += 1) {
+    const role = CONFIG.actuatorRoles[i] || "leg";
+    const name = String(CONFIG.jointOrder[i] || "").toLowerCase();
+    const cutoff = finiteNumber(source[name], finiteNumber(source[role], 0));
+    perJoint[i] = cutoff;
+    alphas[i] = cutoff > 0 && controlDt > 0
+      ? controlDt / (controlDt + 1 / (2 * Math.PI * cutoff))
+      : 1;
+  }
+  CONFIG.actionFilterCutoffs = perJoint;
+  CONFIG.actionFilterAlphas = alphas;
+}
+
+function filterAlphaForJoint(index) {
+  const alphas = CONFIG.actionFilterAlphas;
+  return alphas ? alphas[index] : CONFIG.actionFilterAlpha;
+}
+
+function settleRobot() {
+  // Deployment scripts hold the default pose under PD for ~1 s before the
+  // policy takes over; free-falling from the spawn height without this
+  // transient corrupts the initial observation and history.
+  for (let i = 0; i < CONFIG.numActions; i += 1) {
+    const actuatorId = sim.actuatorIds[i] ?? i;
+    if (actuatorId < 0 || actuatorId >= sim.ctrl.length) continue;
+    sim.ctrl[actuatorId] = CONFIG.controlModes[i] === "velocity" ? 0 : CONFIG.defaultAngles[i];
+  }
+  for (let step = 0; step < CONFIG.settleSteps; step += 1) {
+    sim.mujoco.mj_step(sim.model, sim.data);
   }
 }
 
@@ -1393,8 +1656,10 @@ function velocityScaleForJoint(index) {
 }
 
 function applyTerrainOptions(config) {
-  const scenes = config?.sim?.asset_package?.scenes?.length
-    ? config.sim.asset_package.scenes
+  const packageInfo = config?.sim?.asset_package || {};
+  const terrainOptions = Array.isArray(packageInfo.terrains) ? packageInfo.terrains : [];
+  const scenes = packageInfo.scenes?.length
+    ? packageInfo.scenes
     : (activeRobotKey() === "fsdog1" ? FSDOG_SCENE_FILES : XML_FILES);
   const current = elements.terrainSelect.value;
   const requested = resolveTerrainName(URL_TERRAIN, scenes);
@@ -1404,7 +1669,8 @@ function applyTerrainOptions(config) {
   scenes.forEach((sceneName) => {
     const option = document.createElement("option");
     option.value = sceneName;
-    option.textContent = terrainLabel(sceneName);
+    const manifestEntry = terrainOptions.find((item) => item?.path === sceneName);
+    option.textContent = manifestEntry?.label || terrainLabel(sceneName);
     elements.terrainSelect.append(option);
   });
   if (requested) {
@@ -1419,7 +1685,7 @@ function applyTerrainOptions(config) {
 }
 
 function terrainLabel(sceneName) {
-  const key = sceneBasename(sceneName).replace(/\.xml$/i, "").toLowerCase();
+  const key = sceneBasename(sceneName).replace(/\.xml$/i, "").replace(/^scene_/, "").toLowerCase();
   return TERRAIN_LABELS[key] || key.replace(/_/g, " ");
 }
 
@@ -1568,7 +1834,11 @@ function navigateToPolicyUpdate(update) {
 
 function initThree() {
   view.scene = new THREE.Scene();
-  view.scene.fog = new THREE.Fog(0x141a20, 9, 45);
+  // Keep the WebGL stage legible while a package is loading.  The previous
+  // dark fog plus an alpha renderer made a missing/undersized terrain look
+  // like a black viewport.
+  view.scene.background = new THREE.Color(0xdbe5eb);
+  view.scene.fog = new THREE.Fog(0xdbe5eb, 18, 80);
 
   view.camera = new THREE.PerspectiveCamera(48, 1, 0.01, 120);
   view.camera.up.set(0, 0, 1);
@@ -1597,6 +1867,8 @@ function initThree() {
 
   resize();
   window.addEventListener("resize", resize);
+  if ("ResizeObserver" in window) new ResizeObserver(() => resize()).observe(elements.viewer);
+  requestAnimationFrame(() => resize());
 }
 
 function bindUi() {
@@ -1606,12 +1878,16 @@ function bindUi() {
     const url = new URL(window.location.href);
     url.searchParams.set("robot", robot);
     url.searchParams.delete("model");
+    url.searchParams.delete("policy");
     window.location.href = url.toString();
   });
   elements.modelSelect?.addEventListener("change", () => {
     const url = new URL(window.location.href);
     url.searchParams.set("model", elements.modelSelect.value);
     window.location.href = url.toString();
+  });
+  elements.policySelect?.addEventListener("change", async () => {
+    await switchPolicy(elements.policySelect.value);
   });
   window.addEventListener("keydown", (event) => {
     if (
@@ -1678,6 +1954,26 @@ function bindUi() {
   elements.terrainSelect.addEventListener("change", async () => {
     await loadTerrain(elements.terrainSelect.value);
   });
+  window.addEventListener("message", (event) => {
+    if (!VIEWER_ONLY || event.origin !== window.location.origin || !sim.ready) return;
+    const payload = event.data || {};
+    if (payload.type === "legged-studio:set-joints" && payload.positions) {
+      const positions = payload.positions;
+      CONFIG.jointOrder.forEach((name, index) => {
+        if (!(name in positions)) return;
+        const value = finiteNumber(positions[name], CONFIG.defaultAngles[index]);
+        setJointQpos(index, value);
+        sim.targetDofPos[index] = value;
+      });
+      sim.mujoco.mj_forward(sim.model, sim.data);
+      syncVisualScene();
+      updateHud(true);
+    } else if (payload.type === "legged-studio:reset-pose") {
+      resetSimulation();
+    } else if (payload.type === "legged-studio:fit-view") {
+      fitViewerCamera();
+    }
+  });
   elements.vxSpeedLimit.addEventListener("input", () => {
     input.vxSpeedLimit = clamp(Number(elements.vxSpeedLimit.value) || 1, 0.2, CONFIG.maxCmd[0]);
     updateCommandLabel();
@@ -1716,6 +2012,19 @@ function bindUi() {
   });
   elements.collisionToggle.addEventListener("change", updateRenderFlags);
   elements.wireToggle.addEventListener("change", updateRenderFlags);
+}
+
+function fitViewerCamera() {
+  if (!view.camera || !view.controls) return;
+  const robot = activeRobotKey();
+  const height = finiteNumber(CONFIG.baseHeightTarget, robot === "microduck" ? 0.12 : robot === "zex-w" ? 0.6 : 0.45);
+  const scale = robot === "microduck" ? 0.36 : robot === "zex-w" ? 0.95 : 1.0;
+  view.controls.target.set(0, 0, height);
+  view.controls.minDistance = Math.max(0.08, 0.35 * scale);
+  view.controls.maxDistance = robot === "microduck" ? 8 : 22;
+  view.camera.position.set(1.35 * scale, -1.55 * scale, Math.max(height + 0.28 * scale, height + 0.12));
+  view.camera.lookAt(view.controls.target);
+  view.controls.update();
 }
 
 function applyImuAxisToggle(toggle) {
@@ -1841,14 +2150,20 @@ function setupMujocoFs(mujoco) {
 
 async function loadMujocoAssets() {
   const packageInfo = sim.platformConfig?.sim?.asset_package;
+  // Go2's learned policy is coupled to the reference MJCF in
+  // references_1000framesai.  Keep that exact model/terrain bundle for the
+  // browser session even when the package index also exposes a generic Go2
+  // descriptor from assets/robots.
+  if (activeRobotKey() === "go2") {
+    await loadBundledGo2Assets();
+    return;
+  }
   if (packageInfo?.base_url && Array.isArray(packageInfo.files) && packageInfo.files.length) {
     sim.assetRoot = "/working/platform";
     sim.browserLightweight = Boolean(packageInfo.lightweight_preview);
     ensureDir(sim.assetRoot);
     const revision = packageInfo.revision || packageInfo.generated_at || Date.now();
-    const packageFiles = sim.browserLightweight
-      ? packageInfo.files.filter((path) => /^(scene\.xml|model\/robot\.xml)$/i.test(String(path)))
-      : packageInfo.files;
+    const packageFiles = packageInfo.files;
     await loadAssetEntries(
       packageFiles.map((path) => {
         const relPath = String(path).replace(/^\/+/, "");
@@ -1861,6 +2176,7 @@ async function loadMujocoAssets() {
       }),
       { start: 0.28, span: 0.3, loadingLabel: "加载平台资源" },
     );
+    activateSelectedPackageModel(packageInfo);
     return;
   }
 
@@ -1927,11 +2243,14 @@ async function loadAssetEntries(entries, { start, span, loadingLabel }) {
       });
       if (!response.ok) throw new Error(`资源加载失败：${entry.label || entry.src}`);
       const data = new Uint8Array(await response.arrayBuffer());
-      if (entry.dest.endsWith("/model/robot.xml")) {
-        const rawXml = new TextDecoder().decode(data)
-          .replace(/meshdir\s*=\s*["']assets\/?["']/gi, 'meshdir="model/assets/"');
-        const xml = makeBrowserMjcf(rawXml, sim.browserLightweight);
-        sim.mujoco.FS.writeFile(entry.dest, xml);
+      if (entry.dest.toLowerCase().endsWith(".xml")) {
+        let rawXml = new TextDecoder().decode(data);
+        if (entry.dest.endsWith("/model/robot.xml")) {
+          // A trailing slash makes MuJoCo silently drop the whole meshdir
+          // (observed on wasm and desktop), so keep it slash-free.
+          rawXml = rawXml.replace(/meshdir\s*=\s*["']assets\/?["']/gi, 'meshdir="model/assets"');
+        }
+        sim.mujoco.FS.writeFile(entry.dest, rawXml);
       } else {
         sim.mujoco.FS.writeFile(entry.dest, data);
       }
@@ -1941,41 +2260,6 @@ async function loadAssetEntries(entries, { start, span, loadingLabel }) {
   }
 
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
-}
-
-/**
- * Browser preview compiler. Native packages can contain very high-poly STL/
- * OBJ meshes which make synchronous MuJoCo WASM compilation appear frozen.
- * Keep the physical contract (bodies, joints, inertials and actuators) and
- * replace visual meshes with cheap primitive proxies. The source package is
- * never modified, so native simulation and training retain full fidelity.
- */
-function makeBrowserMjcf(source, lightweight = false) {
-  if (!lightweight || !source.includes("<mesh")) return source;
-  try {
-    const document = new DOMParser().parseFromString(source, "application/xml");
-    if (document.querySelector("parsererror")) return source;
-    document.querySelectorAll("asset mesh").forEach((node) => node.remove());
-    document.querySelectorAll('geom[type="mesh"], geom[mesh]').forEach((node) => node.remove());
-    document.querySelectorAll("body").forEach((body) => {
-      if (body.querySelector("geom")) return;
-      const joints = body.querySelectorAll(":scope > joint");
-      if (!joints.length) return;
-      const geom = document.createElement("geom");
-      geom.setAttribute("type", "capsule");
-      geom.setAttribute("size", "0.035 0.11");
-      geom.setAttribute("rgba", "0.18 0.38 0.72 1");
-      geom.setAttribute("contype", "0");
-      geom.setAttribute("conaffinity", "0");
-      body.appendChild(geom);
-    });
-    const compiler = document.querySelector("compiler");
-    compiler?.removeAttribute("meshdir");
-    return new XMLSerializer().serializeToString(document);
-  } catch (error) {
-    console.warn("browser MJCF proxy generation failed; using source XML", error);
-    return source;
-  }
 }
 
 async function buildFsdogSceneFiles() {
@@ -1996,42 +2280,81 @@ function bundledTerrainUrl(name) {
 }
 
 async function loadTerrain(xmlName) {
-  if (!sim.mujoco || sim.loadingTerrain) return;
+  if (!sim.mujoco || !xmlName) return;
+  if (sim.loadingTerrain) {
+    sim.pendingTerrain = xmlName;
+    return;
+  }
   sim.loadingTerrain = true;
+  sim.pendingTerrain = "";
   sim.ready = false;
+  elements.terrainSelect.disabled = true;
   elements.loading.classList.remove("is-hidden");
   setLoading(0.72, `加载${terrainLabel(xmlName)}...`);
 
+  let nextModel = null;
+  let nextData = null;
   try {
-    disposeMujocoScene();
-    clearRenderGeoms();
-
     await setLoadingPainted(0.72, `④a 编译 ${terrainLabel(xmlName)} 场景...`);
     const tXml = performance.now();
-    sim.model = loadMjModel(`${sim.assetRoot}/${xmlName}`);
+    nextModel = loadMjModel(`${sim.assetRoot}/${xmlName}`);
     console.log(`[sim2sim] ✔ loadMjModel(${xmlName}) ${(performance.now() - tXml).toFixed(0)}ms`);
-    sim.model.opt.timestep = CONFIG.simulationDt;
-    initializeTerrainFriction(xmlName);
-    sim.data = new sim.mujoco.MjData(sim.model);
+    nextModel.opt.timestep = CONFIG.simulationDt;
+    nextData = new sim.mujoco.MjData(nextModel);
+
+    disposeMujocoScene();
+    clearRenderGeoms();
+    sim.model = nextModel;
+    sim.data = nextData;
+    nextModel = null;
+    nextData = null;
     sim.qpos = sim.data.qpos;
     sim.qvel = sim.data.qvel;
     sim.ctrl = sim.data.ctrl;
+    resolveJointAddresses();
+    resolveActuatorAddresses();
+    initializeTerrainFriction(xmlName);
     initializePayloadMass();
 
     resetSimulation();
-    if (sim.platformConfig?.sim?.custom_robot_mjcf_supported && !shouldAutoplayPolicy()) {
-      sim.paused = true;
-      elements.playButton.textContent = "继续";
-    }
+    fitViewerCamera();
+    sim.paused = VIEWER_ONLY;
+    elements.playButton.textContent = sim.paused ? "继续" : "暂停";
     sim.ready = true;
+    sim.currentTerrain = xmlName;
     setStatus(elements.engineStatus, "MuJoCo 已就绪", "ready");
     elements.loading.classList.add("is-hidden");
   } catch (error) {
+    try { nextData?.delete?.(); } catch (_) { /* no-op */ }
+    try { nextModel?.delete?.(); } catch (_) { /* no-op */ }
     console.error(error);
     setStatus(elements.engineStatus, "MuJoCo 错误", "error");
     showLoadingError(error?.message || String(error));
+    if (sim.model && sim.data) {
+      sim.ready = true;
+      elements.terrainSelect.value = sim.currentTerrain;
+    }
   } finally {
     sim.loadingTerrain = false;
+    elements.terrainSelect.disabled = false;
+    const pending = sim.pendingTerrain;
+    sim.pendingTerrain = "";
+    if (pending && pending !== sim.currentTerrain) queueMicrotask(() => loadTerrain(pending));
+  }
+}
+
+function activateSelectedPackageModel(packageInfo) {
+  const models = Array.isArray(packageInfo.models) ? packageInfo.models : [];
+  const requested = PAGE_PARAMS.get("model") || models[0]?.id || "default";
+  const selected = models.find((item) => item?.id === requested || item?.path === requested) || models[0];
+  const selectedPath = String(selected?.path || "model/robot.xml").replace(/^\/+/, "");
+  if (selectedPath === "model/robot.xml") return;
+  const source = `${sim.assetRoot}/${selectedPath}`;
+  const destination = `${sim.assetRoot}/model/robot.xml`;
+  try {
+    sim.mujoco.FS.writeFile(destination, sim.mujoco.FS.readFile(source));
+  } catch (error) {
+    throw new Error(`Selected model is unavailable: ${selectedPath} (${error?.message || error})`);
   }
 }
 
@@ -2089,17 +2412,89 @@ function loadMjModel(path) {
   throw new Error("当前 MuJoCo 组件不支持加载 XML 场景");
 }
 
+function resolveJointAddresses() {
+  sim.jointQposAdr = CONFIG.jointOrder.map((name, index) => {
+    try {
+      const address = Number(sim.model?.jnt?.(name)?.qposadr);
+      if (Number.isInteger(address) && address >= 0) return address;
+    } catch (_) { /* use the conventional free-joint layout */ }
+    return 7 + index;
+  });
+  sim.jointDofAdr = CONFIG.jointOrder.map((name, index) => {
+    try {
+      const address = Number(sim.model?.jnt?.(name)?.dofadr);
+      if (Number.isInteger(address) && address >= 0) return address;
+    } catch (_) { /* use the conventional free-joint layout */ }
+    return 6 + index;
+  });
+}
+
+function resolveActuatorAddresses() {
+  const count = Number(sim.model?.nu || sim.ctrl?.length || 0);
+  const actuatorEnum = enumValue(sim.mujoco?.mjtObj?.mjOBJ_ACTUATOR);
+  const jointEnum = enumValue(sim.mujoco?.mjtObj?.mjOBJ_JOINT);
+  const trnid = sim.model?.actuator_trnid;
+  sim.actuatorIds = CONFIG.jointOrder.map((jointName, index) => {
+    let jointId = -1;
+    try {
+      jointId = Number(sim.mujoco.mj_name2id(sim.model, jointEnum, jointName));
+    } catch (_) { /* fall through to name/order lookup */ }
+    if (jointId >= 0 && trnid) {
+      for (let actuatorId = 0; actuatorId < count; actuatorId += 1) {
+        if (Number(trnid[actuatorId * 2]) === jointId) return actuatorId;
+      }
+    }
+    try {
+      const named = sim.model?.actuator?.(jointName);
+      const namedId = Number(named?.id);
+      if (Number.isInteger(namedId) && namedId >= 0) return namedId;
+    } catch (_) { /* use mj_name2id below */ }
+    try {
+      const namedId = Number(sim.mujoco.mj_name2id(sim.model, actuatorEnum, jointName));
+      if (Number.isInteger(namedId) && namedId >= 0) return namedId;
+    } catch (_) { /* final positional fallback */ }
+    return index < count ? index : -1;
+  });
+  if (DEBUG_ENABLED) console.info("[sim2sim] actuator map", sim.actuatorIds, CONFIG.jointOrder);
+}
+
+function jointQpos(index) {
+  return sim.qpos?.[sim.jointQposAdr[index] ?? (7 + index)] ?? 0;
+}
+
+function jointQvel(index) {
+  return sim.qvel?.[sim.jointDofAdr[index] ?? (6 + index)] ?? 0;
+}
+
+function setJointQpos(index, value) {
+  const address = sim.jointQposAdr[index] ?? (7 + index);
+  if (sim.qpos && address < sim.qpos.length) sim.qpos[address] = value;
+}
+
 function resetSimulation() {
   if (!sim.model || !sim.data) return;
   resetPolicyState();
-  sim.mujoco.mj_resetData(sim.model, sim.data);
+  const initialKeyframe = String(sim.platformConfig?.robot?.control?.initial_keyframe || "");
+  let keyframeId = -1;
+  if (initialKeyframe && sim.mujoco.mj_name2id && sim.mujoco.mjtObj?.mjOBJ_KEY !== undefined) {
+    keyframeId = Number(sim.mujoco.mj_name2id(
+      sim.model,
+      enumValue(sim.mujoco.mjtObj.mjOBJ_KEY),
+      initialKeyframe,
+    ));
+  }
+  if (keyframeId >= 0 && typeof sim.mujoco.mj_resetDataKeyframe === "function") {
+    sim.mujoco.mj_resetDataKeyframe(sim.model, sim.data, keyframeId);
+  } else {
+    sim.mujoco.mj_resetData(sim.model, sim.data);
+  }
   applyPayloadMass();
   applyCenterOfMassOffset();
   if (CONFIG.baseHeightTarget !== null && sim.qpos.length >= 7 + CONFIG.numActions) {
-    sim.qpos[2] = CONFIG.baseHeightTarget + 0.02;
+    sim.qpos[2] = CONFIG.baseHeightTarget;
   }
   for (let i = 0; i < CONFIG.numActions; i += 1) {
-    sim.qpos[7 + i] = CONFIG.defaultAngles[i];
+    setJointQpos(i, CONFIG.defaultAngles[i]);
     sim.action[i] = 0;
     sim.appliedAction[i] = 0;
     sim.filteredAction[i] = 0;
@@ -2110,6 +2505,7 @@ function resetSimulation() {
   }
   sim.motorTargetPending = false;
   sim.motorDelayRemaining = 0;
+  sim.filterPrimed = false;
   input.motorDelaySampleSteps = 0;
   input.imuDelaySampleSteps = 0;
   sim.history.fill(0);
@@ -2128,6 +2524,10 @@ function resetSimulation() {
   sim.accumulator = 0;
   sim.data.time = 0;
   sim.mujoco.mj_forward(sim.model, sim.data);
+  if (CONFIG.settleSteps > 0 && CONFIG.actuatorInterface === "position_target") {
+    settleRobot();
+    sim.data.time = 0;
+  }
   resetImuSamples();
   buildObservation();
   seedHistory(sim.obs);
@@ -2250,9 +2650,23 @@ async function stepSimulation() {
   advanceMotorDelay();
 
   for (let i = 0; i < CONFIG.numActions; i += 1) {
-    const q = sim.qpos[7 + i];
-    const dq = sim.qvel[6 + i];
+    const q = jointQpos(i);
+    const dq = jointQvel(i);
     const mode = CONFIG.controlModes[i];
+    const actuatorId = sim.actuatorIds[i] ?? i;
+    if (actuatorId < 0 || actuatorId >= sim.ctrl.length) continue;
+
+    // Native MuJoCo position/velocity actuators consume targets directly.
+    // Applying a second browser-side PD loop here turns a target into a
+    // nonsensical angle/velocity and was the source of MicroDuck/ZEX-W falls.
+    if (CONFIG.actuatorInterface === "position_target") {
+      sim.ctrl[actuatorId] = mode === "velocity"
+        ? sim.targetDofVel[i]
+        : (mode === "torque" ? sim.filteredAction[i] * actionScaleForJoint(i) : sim.targetDofPos[i]);
+      CONFIG.dynamicTorqueLimits[i] = 0;
+      continue;
+    }
+
     let torque;
     if (mode === "velocity") {
       torque = (sim.targetDofVel[i] - dq) * CONFIG.kds[i];
@@ -2272,7 +2686,7 @@ async function stepSimulation() {
       : (fixedLimit > 0 ? Math.min(fixedLimit, envelopeLimit) : envelopeLimit);
     CONFIG.dynamicTorqueLimits[i] = limit === null ? 0 : limit;
     if (limit !== null) torque = clamp(torque, -limit, limit);
-    sim.ctrl[i] = torque;
+    sim.ctrl[actuatorId] = torque;
   }
 
   sim.mujoco.mj_step(sim.model, sim.data);
@@ -2304,6 +2718,14 @@ async function runPolicy() {
     return;
   }
   buildObservation();
+  if (sim.frameLog && sim.frameLog.length < 300) {
+    sim.frameLog.push({
+      t: Number((sim.data?.time ?? 0).toFixed(3)),
+      obs: Array.from(sim.obs),
+      action: null,
+      ctrlBefore: Array.from(sim.ctrl),
+    });
+  }
   const info = sim.policyInfo;
   const policyStateEpoch = sim.policyStateEpoch;
   const feeds = {};
@@ -2331,21 +2753,35 @@ async function runPolicy() {
 
   for (let i = 0; i < CONFIG.numActions; i += 1) {
     // sim.action keeps the raw network output order (this is what the obs action
-    // segment feeds back, matching NP3O's action_history_buf[:,-1]).
-    sim.action[i] = action[i];
+    // segment feeds back, matching NP3O's action_history_buf[:,-1]). Linear
+    // heads can emit extreme values on a corrupted observation; deployment
+    // clips raw actions to +-100 before feeding them back.
+    sim.action[i] = clamp(action[i], -100, 100);
     // Some policies train with a target low-pass filter.  This is explicit in
     // the policy contract: go2_rl_gym uses alpha=1 (no persistent filter).
-    const previousApplied = sim.appliedAction[i];
+    // True IIR against the previous filtered output — averaging against the
+    // previous raw input kills the filter and destabilises filtered policies.
     const applied = CONFIG.actionReindex ? action[CONFIG.actionReindex[i]] : action[i];
+    const previousFiltered = sim.filterPrimed ? sim.filteredAction[i] : applied;
     sim.appliedAction[i] = applied;
-    sim.filteredAction[i] = applied * CONFIG.actionFilterAlpha
-      + previousApplied * (1 - CONFIG.actionFilterAlpha);
+    const alpha = filterAlphaForJoint(i);
+    sim.filteredAction[i] = applied * alpha + previousFiltered * (1 - alpha);
     if (CONFIG.controlModes[i] === "velocity") {
       sim.pendingTargetDofPos[i] = CONFIG.defaultAngles[i];
       sim.pendingTargetDofVel[i] = sim.filteredAction[i] * velocityScaleForJoint(i);
     } else {
       sim.pendingTargetDofPos[i] = sim.filteredAction[i] * actionScaleForJoint(i) + CONFIG.defaultAngles[i];
       sim.pendingTargetDofVel[i] = 0;
+    }
+  }
+  sim.filterPrimed = true;
+  if (sim.frameLog?.length) {
+    const entry = sim.frameLog[sim.frameLog.length - 1];
+    if (entry && entry.action === null) {
+      entry.action = Array.from(sim.action);
+      entry.targetsPos = Array.from(sim.targetDofPos);
+      entry.targetsVel = Array.from(sim.targetDofVel);
+      entry.actuatorIds = [...sim.actuatorIds];
     }
   }
   scheduleMotorTargets();
@@ -2423,6 +2859,34 @@ if (DEBUG_ENABLED) {
     reset() {
       resetSimulation();
     },
+    startFrameLog() {
+      sim.frameLog = [];
+      return true;
+    },
+    stopFrameLog() {
+      return sim.frameLog || [];
+    },
+    openLoopTest(ctrlValue, steps) {
+      // Deterministic physical check: settle into the default pose, then hold
+      // a constant ctrl vector and report the resulting base trajectory.
+      const record = [];
+      resetSimulation();
+      const isArray = Array.isArray(ctrlValue);
+      for (let i = 0; i < CONFIG.numActions; i += 1) {
+        const actuatorId = sim.actuatorIds[i] ?? i;
+        if (actuatorId >= 0 && actuatorId < sim.ctrl.length) {
+          sim.ctrl[actuatorId] = isArray ? Number(ctrlValue[i]) || 0 : Number(ctrlValue) || 0;
+        }
+      }
+      for (let step = 0; step < Number(steps) || 0; step += 1) {
+        sim.mujoco.mj_step(sim.model, sim.data);
+        if (step % 10 === 0) {
+          record.push({ t: Number(sim.data.time.toFixed(3)), z: Number(sim.qpos[2].toFixed(4)), qvel: Array.from(sim.qvel.subarray(3, 6)).map((v) => Number(v.toFixed(4))) });
+        }
+      }
+      record.push({ t: Number(sim.data.time.toFixed(3)), z: Number(sim.qpos[2].toFixed(4)), qvel: Array.from(sim.qvel.subarray(3, 6)).map((v) => Number(v.toFixed(4))) });
+      return record;
+    },
   };
 }
 
@@ -2455,6 +2919,14 @@ function readImuSample() {
 }
 
 function buildObservation() {
+  if (CONFIG.observationKind === "microduck_61") {
+    buildMicroDuckObservation();
+    return;
+  }
+  if (CONFIG.observationKind === "zexw_53") {
+    buildZexWObservation();
+    return;
+  }
   if (CONFIG.observationKind === "quadrupedal_agility_ll") {
     buildAgilityLowLevelObservation();
     return;
@@ -2472,6 +2944,49 @@ function buildObservation() {
     return;
   }
   buildLocomotionObservation();
+}
+
+function buildMicroDuckObservation() {
+  if (CONFIG.numObs !== 61 || CONFIG.numActions !== 14) {
+    throw new Error(`microduck_61 requires 61 observations and 14 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQpos(i) - CONFIG.defaultAngles[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i);
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+  for (let i = 0; i < 13; i += 1) sim.obs[offset++] = sim.cmd[i] || 0;
+}
+
+function buildZexWObservation() {
+  if (CONFIG.numObs !== 53 || CONFIG.numActions !== 16) {
+    throw new Error(`zexw_53 requires 53 observations and 16 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  // Matches rc_mjlab/sim2sim.py: angular velocity, projected gravity,
+  // command, 12 leg positions, 12 leg velocities, 4 wheel velocities,
+  // then the raw 16-action history slot.
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) {
+    if (CONFIG.controlModes[i] === "velocity") continue;
+    sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
+  }
+  for (let i = 0; i < CONFIG.numActions; i += 1) {
+    if (CONFIG.controlModes[i] === "velocity") continue;
+    sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  }
+  for (let i = 0; i < CONFIG.numActions; i += 1) {
+    if (CONFIG.controlModes[i] !== "velocity") continue;
+    sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  }
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
 }
 
 function buildWheelLegGaitObservation() {
@@ -2601,8 +3116,8 @@ function buildLocomotionObservation() {
     const src = CONFIG.dofReindex ? CONFIG.dofReindex[i] : i;
     sim.obs[layout.jointOffset + i] = CONFIG.controlModes[src] === "velocity"
       ? 0
-      : (sim.qpos[7 + src] - CONFIG.defaultAngles[src]) * CONFIG.dofPosScale;
-    sim.obs[layout.velocityOffset + i] = sim.qvel[6 + src] * CONFIG.dofVelScale;
+      : (jointQpos(src) - CONFIG.defaultAngles[src]) * CONFIG.dofPosScale;
+    sim.obs[layout.velocityOffset + i] = jointQvel(src) * CONFIG.dofVelScale;
     // Action segment mirrors the network output order (already stored permuted
     // in sim.action), so no extra reindex here.
     sim.obs[layout.actionOffset + i] = sim.action[i];
@@ -2627,8 +3142,8 @@ function buildAgilityLowLevelObservation() {
     const src = CONFIG.dofReindex ? CONFIG.dofReindex[i] : i;
     sim.obs[jointOffset + i] = CONFIG.controlModes[src] === "velocity"
       ? 0
-      : (sim.qpos[7 + src] - CONFIG.defaultAngles[src]) * CONFIG.dofPosScale;
-    sim.obs[velocityOffset + i] = sim.qvel[6 + src] * CONFIG.dofVelScale;
+      : (jointQpos(src) - CONFIG.defaultAngles[src]) * CONFIG.dofPosScale;
+    sim.obs[velocityOffset + i] = jointQvel(src) * CONFIG.dofVelScale;
     sim.obs[actionOffset + i] = sim.action[i];
   }
   const contactOffset = actionOffset + CONFIG.numActions;
@@ -2744,6 +3259,18 @@ function packObsHistoryByTerm(frames) {
   // go2_rl_gym's ONNX exporter expects stacked observations grouped by term:
   // ang_vel history, gravity history, command history, q, dq, action, then
   // task-specific suffixes when the contract opts into the corrected layout.
+  if (CONFIG.observationKind === "zexw_53") {
+    const terms = [[0, 3], [3, 3], [6, 3], [9, 12], [21, 12], [33, 4], [37, 16]];
+    const packed = new Float32Array(frames.length * CONFIG.numObs);
+    let cursor = 0;
+    for (const [offset, length] of terms) {
+      for (const obs of frames) {
+        packed.set(obs.subarray(offset, offset + length), cursor);
+        cursor += length;
+      }
+    }
+    return packed;
+  }
   const layout = observationLayout();
   const terms = [
     [0, 3],
@@ -3142,12 +3669,15 @@ function mergeGeometries(geometries) {
 function makeMaterial(info) {
   const rgba = info.rgba;
   const kind = classifyGeom(info);
+  const color = kind === "terrain"
+    ? new THREE.Color(0x5f7486)
+    : new THREE.Color(rgba[0], rgba[1], rgba[2]);
   const material = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(rgba[0], rgba[1], rgba[2]),
-    roughness: kind === "visual" ? 0.52 : 0.78,
+    color,
+    roughness: kind === "visual" ? 0.52 : 0.84,
     metalness: kind === "visual" ? 0.18 : 0.02,
-    transparent: rgba[3] < 0.98 || kind === "collision",
-    opacity: rgba[3] * (kind === "collision" ? 0.28 : 1),
+    transparent: kind === "terrain" ? false : (rgba[3] < 0.98 || kind === "collision"),
+    opacity: kind === "terrain" ? 1 : rgba[3] * (kind === "collision" ? 0.28 : 1),
     side: THREE.DoubleSide,
   });
   return material;
@@ -3157,11 +3687,38 @@ function classifyGeom(info) {
   if (info.objtype === sim.objGeom && info.objid >= 0 && sim.model) {
     const group = sim.model.geom_group[info.objid];
     const body = sim.model.geom_bodyid[info.objid];
-    if (group === 2) return "visual";
-    if (body === 0) return "terrain";
+    const contype = Number(sim.model.geom_contype?.[info.objid] ?? 1);
+    const conaffinity = Number(sim.model.geom_conaffinity?.[info.objid] ?? 1);
+    // Imported packages do not consistently mark visual meshes as group=2.
+    // A geom with no contact masks is visual regardless of its group/type.
+    if (group === 2 || (contype === 0 && conaffinity === 0 && body !== 0)) return "visual";
+    if (body === 0) {
+      // World-body geoms are terrain only when they are ground-like: planes,
+      // height fields, terrain-named geoms, or the unnamed primitive slabs the
+      // bundled terrain scenes are composed of. Robot meshes and link-named
+      // geoms that happen to sit on the world body must stay visual instead of
+      // being repainted (and shadow-cast) as terrain.
+      const name = geomName(info.objid).toLowerCase();
+      if (info.type === sim.geomType.plane || info.type === sim.geomType.hfield) return "terrain";
+      if (/floor|ground|terrain|wall|step|stair|slope|ramp|platform|obstacle|hfield/.test(name)) return "terrain";
+      if (!name && info.type !== sim.geomType.mesh) return "terrain";
+      return "visual";
+    }
     return "collision";
   }
   return "visual";
+}
+
+function geomName(geomId) {
+  if (!sim.model || geomId == null || geomId < 0) return "";
+  try {
+    if (typeof sim.model.geom === "function") return sim.model.geom(geomId)?.name || "";
+  } catch (_) { /* use the C API below */ }
+  try {
+    return sim.mujoco.mj_id2name(sim.model, sim.objGeom, geomId) || "";
+  } catch (_) {
+    return "";
+  }
 }
 
 function geometryKey(info) {
@@ -3302,6 +3859,51 @@ function buildDebugState() {
     paused: sim.paused,
     policyEnabled: sim.policyEnabled,
     time: sim.data?.time ?? null,
+    model: sim.model ? {
+      geomPos0: sim.model.geom_pos ? Array.from(sim.model.geom_pos.subarray(0, 3)) : null,
+      ngeom: Number(sim.model.ngeom || 0),
+      nmesh: Number(sim.model.nmesh || 0),
+      geoms: (() => {
+        try {
+          const rows = [];
+          for (let g = 0; g < Math.min(4, Number(sim.model.ngeom || 0)); g += 1) {
+            rows.push({
+              g,
+              type: Number(sim.model.geom_type[g]),
+              dataid: Number(sim.model.geom_dataid[g]),
+              body: Number(sim.model.geom_bodyid[g]),
+              pos: Array.from(sim.model.geom_pos.subarray(g * 3, g * 3 + 3)).map((v) => Number(v.toFixed(4))),
+            });
+          }
+          return rows;
+        } catch (_) { return null; }
+      })(),
+      meshes: (() => {
+        try {
+          const rows = [];
+          for (let mi = 0; mi < Math.min(3, Number(sim.model.nmesh || 0)); mi += 1) {
+            const vad = sim.model.mesh_vertadr[mi];
+            const vnum = sim.model.mesh_vertnum[mi];
+            const verts = sim.model.mesh_vert.subarray(vad * 3, (vad + vnum) * 3);
+            const min = [Infinity, Infinity, Infinity];
+            const max = [-Infinity, -Infinity, -Infinity];
+            for (let i = 0; i < vnum; i += 1) {
+              for (let a = 0; a < 3; a += 1) {
+                const v = verts[i * 3 + a];
+                if (v < min[a]) min[a] = v;
+                if (v > max[a]) max[a] = v;
+              }
+            }
+            rows.push({
+              mi,
+              pos: sim.model.mesh_pos ? Array.from(sim.model.mesh_pos.subarray(mi * 3, mi * 3 + 3)).map((v) => Number(v.toFixed(4))) : null,
+              bounds: { min: min.map((v) => Number(v.toFixed(3))), max: max.map((v) => Number(v.toFixed(3))) },
+            });
+          }
+          return rows;
+        } catch (_) { return null; }
+      })(),
+    } : null,
     qpos: sim.qpos ? Array.from(sim.qpos) : [],
     qvel: sim.qvel ? Array.from(sim.qvel) : [],
     ctrl: sim.ctrl ? Array.from(sim.ctrl) : [],
@@ -3330,6 +3932,7 @@ function buildDebugState() {
     cruiseVx: input.cruiseVx,
     joystickActive: input.joystickPointer !== null,
     obsDim: CONFIG.numObs,
+    obs: Array.from(sim.obs),
     commandDims: CONFIG.commandDims,
     agilityCommandDims: CONFIG.agilityCommandDims,
     historyFrames: Math.floor(sim.history.length / CONFIG.numObs),
@@ -3576,12 +4179,15 @@ function setStatus(element, text, state) {
   element.classList.toggle("error", state === "error");
 }
 
-function resize() {
-  const width = elements.viewer.clientWidth || window.innerWidth;
-  const height = elements.viewer.clientHeight || window.innerHeight;
+function resize(explicitWidth = 0, explicitHeight = 0) {
+  if (!elements.viewer || !view.renderer || !view.camera) return;
+  const width = Math.max(1, Math.round(explicitWidth || elements.viewer.clientWidth || window.innerWidth));
+  const height = Math.max(1, Math.round(explicitHeight || elements.viewer.clientHeight || window.innerHeight));
   view.camera.aspect = width / Math.max(height, 1);
   view.camera.updateProjectionMatrix();
   view.renderer.setSize(width, height, false);
+  view.renderer.domElement.style.width = "100%";
+  view.renderer.domElement.style.height = "100%";
 }
 
 function disposeMujocoScene() {

@@ -1,11 +1,13 @@
 # Legged Studio
 
-Version `0.5.0` is the first focused MJLab training and MuJoCo simulation release.
+Version `0.6.0` brings deployment-accurate browser sim2sim for all three built-in
+robots (Unitree Go2, ZEX-W, MicroDuck), built-in terrains, a faster robot page, and
+reworked training configuration and monitoring views.
 
 Legged Studio is a local, contract-driven workbench for validating legged
 robot assets, configuring rewards and algorithms, running native MJLab training,
 using MuJoCo for interactive simulation, and replaying evaluation/navigation
-routes for Go2 and Go2W.
+routes for Go2 and ZEX-W.
 
 ## Quick start
 
@@ -44,7 +46,7 @@ npm run build:online:win
 ```
 
 The archive and its top-level directory are named
-`Legged-Studio-0.5.0-Windows-Online`, not `win-unpacked` or Electron.
+`Legged-Studio-0.6.0-Windows-Online`, not `win-unpacked` or Electron.
 
 To build the Windows package with an embedded CPython 3.12 runtime, CUDA
 Torch, MJLab, and the Unitree MJLab extension, run this target on Windows:
@@ -74,11 +76,23 @@ adapter boundaries.
 
 ## Verified capabilities
 
-- Versioned Robot Contract and canonical Go2/Go2W MJCF assets.
+- Versioned Robot Contract and canonical Go2/ZEX-W MJCF assets.
 - MuJoCo interactive simulation for basic teleoperation and map stepping.
-- Native MJLab Go2/Go2W PPO training with isolated workers.
+- Native MJLab Go2/ZEX-W PPO training with isolated workers.
 - Native evaluation and waypoint navigation.
 - CUDA Torch selection for the validated MJLab adapter environment.
+- Browser sim2sim policies verified live for all three robots: Go2 walks at the commanded
+  speed, ZEX-W stands and drives with the real-robot joint layout (12 legs then 4 wheels,
+  default pose `[0, 0.55, -1.125]`), MicroDuck loads its full mesh set and arenas.
+- Per-robot built-in terrains: Go2 keeps the reference six-scene set; ZEX-W ships
+  flat/rough/stairs/slope; MicroDuck ships flat, a walled relief arena, and the apartment.
+- Control-plane endpoints never spawn the torch probe; only the training path probes the
+  worker runtimes (cached), so page loads stay responsive.
+- Robot workbench loads faster: ETag revalidation for web assets, cached robot package
+  responses, collision meshes load lazily, and mesh fetching/decoding is parallel.
+- Training pages rebuilt: preset-driven configuration, run health grid, live metric charts,
+  log filtering, and a checkpoints/artifacts panel.
+- Correct MIME types for `.mjs`/`.wasm` so ONNX Runtime web loads under any Python runtime.
 - Configurable local backend port and desktop-owned backend lifecycle.
 
 The default lightweight distribution does not bundle an installed Torch/MJLab

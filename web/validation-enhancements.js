@@ -56,6 +56,7 @@
   async function importAssets() {
     const status = $('assetImportStatus');
     try {
+      if (!selectedFiles.length && window.importedAssetFiles && window.importedAssetFiles.length) selectedFiles = window.importedAssetFiles.slice();
       if (!selectedFiles.length) throw new Error('请先选择 URDF/MJCF 文件或资产目录');
       const modelFile = selectedFiles.find((file) => /\.(urdf|xml|mjcf)$/i.test(file.name));
       if (!modelFile) throw new Error('资产目录中未找到 URDF/MJCF 主模型文件');
@@ -66,14 +67,15 @@
       window.__leggedStudioImportedRobot = payload.contract_draft;
       $('modelPath').value = payload.model_path;
       $('contractJson').value = JSON.stringify(payload.contract_draft, null, 2);
-      $('stageRobotName').textContent = payload.contract_draft?.family || modelFile.name;
+      if ($('stageRobotName')) $('stageRobotName').textContent = payload.contract_draft?.family || modelFile.name;
       const simRobot = $('simRobot');
       if (simRobot && payload.contract_draft?.robot_id && !simRobot.querySelector(`option[value="${payload.contract_draft.robot_id}"]`)) { const option = document.createElement('option'); option.value = payload.contract_draft.robot_id; option.textContent = `${payload.contract_draft.family || payload.contract_draft.robot_id} (导入)`; simRobot.appendChild(option); }
       $('presetMeta').innerHTML = `<strong>Imported asset</strong><br>${selectedFiles.length} files · ${payload.stats?.links || 0} links / ${payload.stats?.joints || 0} joints<br><span>${payload.model_path}</span>`;
       if (status) status.textContent = `已导入：${payload.model_path}`;
       selectedFiles = [];
       if ($('modelFile')) $('modelFile').value = '';
-    } catch (error) { if (status) status.textContent = `导入失败：${error.message}`; }
+      return payload;
+    } catch (error) { if (status) status.textContent = `导入失败：${error.message}`; return null; }
   }
 
   function configPayload() {
@@ -133,18 +135,63 @@
     };
     window.__leggedStudioTrainingPatched = true;
   }
+  function localFormatFor(name) {
+    const fileName = String(name || '').toLowerCase();
+    return /\.mjcf$/i.test(fileName) ? 'mjcf' : /\.(urdf|xml)$/i.test(fileName) ? 'urdf' : 'auto';
+  }
+
+  function openModelInspect() {
+    const report = $('validationReport');
+    if (report) report.hidden = false;
+    report?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  async function renderLocalModel(files) {
+    const modelFile = files.find((file) => /\.(urdf|xml|mjcf)$/i.test(file.name));
+    if (!modelFile) throw new Error('拖入的文件中未找到 URDF / MJCF / XML 主模型文件');
+    if (typeof window.renderRobotModel !== 'function' || typeof window.refreshModelPreview !== 'function') throw new Error('本地 Three.js 预览不可用');
+    window.importedAssetFiles = files.slice();
+    const format = $('format').value === 'auto' ? localFormatFor(modelFile.name) : $('format').value;
+    const source = { content: await modelFile.text(), filename: modelFile.webkitRelativePath || modelFile.name, baseUrl: '' };
+    const summary = await window.refreshModelPreview(source, format, true);
+    if ($('viewerFormat')) $('viewerFormat').textContent = `${String(format).toUpperCase()} · THREE.JS (本地)`;
+    if ($('modelFileName')) $('modelFileName').textContent = `${files.length} 个本地资产 · ${modelFile.webkitRelativePath || modelFile.name}`;
+    if ($('stageStatus')) $('stageStatus').textContent = `本地文件已即时渲染：${summary?.links || 0} links · ${(summary?.joints || []).length} joints`;
+    if ($('presetMeta')) $('presetMeta').innerHTML = `<strong>Local files (browser)</strong><br>${files.length} 个文件 · 未写入工作区<br><span>${modelFile.webkitRelativePath || modelFile.name}</span>`;
+    return modelFile;
+  }
+
+  function mountDragDrop() {
+    const stage = document.querySelector('.model-stage');
+    const host = stage || document.body;
+    ['dragenter', 'dragover'].forEach((type) => host.addEventListener(type, (event) => { event.preventDefault(); event.stopPropagation(); host.classList.add('drag-over'); }));
+    ['dragleave', 'drop'].forEach((type) => host.addEventListener(type, (event) => { event.preventDefault(); event.stopPropagation(); host.classList.remove('drag-over'); }));
+    host.addEventListener('drop', async (event) => {
+      const files = Array.from(event.dataTransfer?.files || []);
+      if (!files.length) return;
+      selectedFiles = files;
+      try {
+        await renderLocalModel(files);
+        openModelInspect();
+      } catch (error) {
+        if ($('modelFileName')) $('modelFileName').textContent = `本地预览失败：${error.message}`;
+        if ($('stageStatus')) $('stageStatus').textContent = error.message;
+      }
+    });
+  }
+
   function mountControls() {
-    mountProjectControls(); patchTrainingPayload();
+    mountProjectControls(); patchTrainingPayload(); mountDragDrop();
     const picker = $('modelFile');
     if (picker) picker.multiple = true;
-    picker?.addEventListener('change', (event) => { selectedFiles = Array.from(event.target.files || []); if ($('modelFileName')) $('modelFileName').textContent = selectedFiles.length ? `${selectedFiles.length} 个文件：${selectedFiles[0].webkitRelativePath || selectedFiles[0].name}` : '未选择文件'; });
     const form = picker?.closest('.form-panel');
-    if (false && form && !$('importModel')) {
+    if (form && !$('importModel')) {
       const folderRow = document.createElement('div'); folderRow.className = 'import-folder-row'; folderRow.innerHTML = '<label class="button ghost">选择资产目录<input id="assetFolder" type="file" webkitdirectory directory multiple hidden></label><span id="assetFolderName" class="panel-meta">可选：包含 mesh 的目录</span>'; form.insertBefore(folderRow, $('validateBtn'));
-      const row = document.createElement('div'); row.className = 'import-actions'; row.innerHTML = '<button id="importModel" class="button secondary">导入资产到工作区</button><span id="assetImportStatus" class="panel-meta">保存模型、mesh 和相对路径</span>'; form.insertBefore(row, $('validateBtn'));
+      const row = document.createElement('div'); row.className = 'import-actions'; row.innerHTML = '<button id="importModel" class="button secondary">导入到工作区</button><span id="assetImportStatus" class="panel-meta">写入后端，生成 Contract 与 model path</span>'; form.insertBefore(row, $('validateBtn'));
       $('assetFolder').addEventListener('change', (event) => { const folderFiles = Array.from(event.target.files || []); selectedFiles = [...selectedFiles.filter((file) => !folderFiles.some((item) => item.name === file.name && item.size === file.size)), ...folderFiles]; $('assetFolderName').textContent = folderFiles.length ? `${folderFiles.length} 个目录文件` : '可选：包含 mesh 的目录'; });
       $('importModel').addEventListener('click', importAssets);
     }
+    window.__lsImportAssets = importAssets;
     const actions = $('startTraining')?.parentElement;
     if (actions && !$('exportTrainingConfig')) { const label = document.createElement('label'); label.className = 'config-file-button button ghost'; label.textContent = '导入配置'; label.innerHTML += '<input id="trainingConfigFile" type="file" accept="application/json,.json" hidden>'; const button = document.createElement('button'); button.id = 'exportTrainingConfig'; button.className = 'button ghost'; button.textContent = '导出配置'; actions.insertBefore(label, $('startTraining')); actions.insertBefore(button, $('startTraining')); $('exportTrainingConfig').addEventListener('click', exportConfig); $('trainingConfigFile').addEventListener('change', async (event) => { const file = event.target.files?.[0]; if (!file) return; try { setConfig(JSON.parse(await file.text())); } catch (error) { alert(`配置导入失败：${error.message}`); } }); }
     const simStart = $('startSimulation');

@@ -12,7 +12,6 @@ import base64
 import json
 import os
 import tempfile
-import uuid
 import io
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -26,6 +25,34 @@ from backend.robot_packages import write_package_manifest
 
 
 router = APIRouter(prefix="/api/models", tags=["models"])
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _workspace_root() -> Path:
+    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE")
+    return Path(configured).expanduser().resolve() if configured else PROJECT_ROOT / "workspace"
+
+
+def _api_path(path: Path) -> str:
+    path = path.resolve()
+    try:
+        return path.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _package_content_hash(request: "ModelImportRequest") -> str:
+    digest = hashlib.sha256()
+    items = sorted(zip(request.files, (_safe_import_relative_path(item.path) for item in request.files)), key=lambda pair: pair[1].as_posix())
+    for item, relative in items:
+        digest.update(relative.as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        if item.encoding == "base64":
+            digest.update(base64.b64decode(item.content, validate=True))
+        else:
+            digest.update(item.content.encode("utf-8"))
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 class ModelValidationRequest(BaseModel):
@@ -107,7 +134,7 @@ def _resolve_resource(raw_value: str, source_path: Path) -> Path:
             candidates.append(source_path.parent / parts[1])
     else:
         candidates = [Path(value) if Path(value).is_absolute() else source_path.parent / value]
-    roots = [Path(__file__).resolve().parent.parent, Path(os.environ.get("LEGGED_STUDIO_WORKSPACE", "workspace")).resolve()]
+    roots = [PROJECT_ROOT, _workspace_root()]
     candidates.extend(root / value for root in roots)
     return next((candidate.resolve() for candidate in candidates if candidate.exists()), candidates[0].resolve())
 
@@ -220,8 +247,8 @@ def _mjcf_inspection(root: ET.Element, errors: list[str], warnings: list[str]) -
 def _safe_path(value: str) -> Path:
     candidate = resolve_asset_path(value)
     allowed_roots = [
-        Path(__file__).resolve().parent.parent,
-        Path(os.environ.get("LEGGED_STUDIO_WORKSPACE", "workspace")).resolve(),
+        PROJECT_ROOT,
+        _workspace_root(),
         Path(os.environ.get("LEGGED_STUDIO_DATA_DIR", "workspace")).resolve(),
     ]
     if not any(candidate == root or root in candidate.parents for root in allowed_roots):
@@ -408,15 +435,34 @@ async def preview_model(request: ModelPreviewRequest) -> dict[str, Any]:
         height = min(request.height, int(getattr(model.vis.global_, "offheight", request.height)))
         renderer = mujoco.Renderer(model, height=max(120, height), width=max(160, width))
         data = mujoco.MjData(model)
+        camera = mujoco.MjvCamera()
+        mujoco.mjv_defaultFreeCamera(model, camera)
+        if model.nbody > 1:
+            body_pos = model.body_pos[1:]
+            lower = body_pos.min(axis=0)
+            upper = body_pos.max(axis=0)
+            camera.lookat[:] = (lower + upper) * 0.5
+            camera.distance = max(float((upper - lower).max()) * 2.8, 0.8)
+            camera.azimuth = 135.0
+            camera.elevation = -20.0
         mujoco.mj_forward(model, data)
-        renderer.update_scene(data, camera=-1)
+        renderer.update_scene(data, camera=camera)
         pixels = renderer.render()
         renderer.close()
-        from PIL import Image
-        stream = io.BytesIO()
-        Image.fromarray(np.asarray(pixels, dtype=np.uint8)).save(stream, format="PNG")
-        import base64
-        return {"success": True, "format": "mjcf", "image_base64": base64.b64encode(stream.getvalue()).decode("ascii"), "width": width, "height": height}
+        try:
+            from PIL import Image
+            stream = io.BytesIO()
+            Image.fromarray(np.asarray(pixels, dtype=np.uint8)).save(stream, format="PNG")
+            png_bytes = stream.getvalue()
+        except ImportError:
+            # Keep preview functional in the lean control-plane environment.
+            import struct, zlib
+            rgba = np.asarray(pixels, dtype=np.uint8)
+            raw_rows = b"".join(b"\0" + row.tobytes() for row in rgba)
+            def chunk(kind, data):
+                return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff)
+            png_bytes = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw_rows)) + chunk(b"IEND", b"")
+        return {"success": True, "format": "mjcf", "image_base64": base64.b64encode(png_bytes).decode("ascii"), "width": width, "height": height}
     except Exception as exc:
         return {"success": False, "format": request.format, "error": str(exc)}
     finally:
@@ -426,37 +472,76 @@ async def preview_model(request: ModelPreviewRequest) -> dict[str, Any]:
 
 @router.post("/import")
 async def import_model(request: ModelImportRequest) -> dict[str, Any]:
-    """Persist a model plus relative mesh resources into the project workspace."""
+    """Validate and persist a model as a stable robot package.
+
+    The package id includes a hash of every imported file. Re-importing the
+    same asset is idempotent, while changing a mesh produces a new immutable
+    package instead of silently mutating a training dependency.
+    """
     try:
-        project_root = Path(__file__).resolve().parents[1]
-        import_root = project_root / "workspace" / "imports" / uuid.uuid4().hex[:12]
-        import_root.mkdir(parents=True, exist_ok=True)
+        packages_root = _workspace_root() / "packages"
+        packages_root.mkdir(parents=True, exist_ok=True)
         names = [_safe_import_relative_path(item.path) for item in request.files]
-        model_path: Path | None = None
         requested_model = _safe_import_relative_path(request.model_filename).as_posix() if request.model_filename else None
-        for item, relative in zip(request.files, names):
-            target = import_root / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            if item.encoding == "base64":
-                try:
-                    target.write_bytes(base64.b64decode(item.content, validate=True))
-                except Exception as exc:
-                    raise ValueError(f"invalid base64 content for {item.path}: {exc}") from exc
-            else:
-                target.write_text(item.content, encoding="utf-8")
-            if requested_model == relative.as_posix() or (model_path is None and relative.suffix.lower() in {".urdf", ".xml", ".mjcf"}):
-                model_path = target
-        if model_path is None:
-            raise ValueError("no URDF/MJCF model file found in import")
-        model_format = request.format if request.format != "auto" else ("urdf" if model_path.suffix.lower() == ".urdf" else "mjcf")
-        validation = _validate(ModelValidationRequest(path=str(model_path), filename=model_path.name, format=model_format))
-        validation["imported"] = True
-        validation["import_root"] = str(import_root)
-        validation["model_path"] = str(model_path.relative_to(project_root)).replace("\\", "/")
-        validation["contract_draft"] = _contract_draft(Path(validation["model_path"]), validation.get("format", model_format), validation.get("inspection", {}), validation.get("sha256", ""))
-        (import_root / "contract.json").write_text(json.dumps(validation["contract_draft"], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        write_package_manifest(import_root, package_id=validation["contract_draft"]["robot_id"], task_kind="generic")
-        return validation
+        content_hash = _package_content_hash(request)
+        with tempfile.TemporaryDirectory(prefix=".staging-", dir=packages_root) as staging_value:
+            staging = Path(staging_value)
+            model_relative: Path | None = None
+            for item, relative in zip(request.files, names):
+                target = staging / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if item.encoding == "base64":
+                    try:
+                        target.write_bytes(base64.b64decode(item.content, validate=True))
+                    except Exception as exc:
+                        raise ValueError(f"invalid base64 content for {item.path}: {exc}") from exc
+                else:
+                    target.write_text(item.content, encoding="utf-8")
+                if requested_model == relative.as_posix() or (model_relative is None and relative.suffix.lower() in {".urdf", ".xml", ".mjcf"}):
+                    model_relative = relative
+            if model_relative is None:
+                raise ValueError("no URDF/MJCF model file found in import")
+            staged_model = staging / model_relative
+            model_format = request.format if request.format != "auto" else ("urdf" if staged_model.suffix.lower() == ".urdf" else "mjcf")
+            validation = _validate(ModelValidationRequest(path=str(staged_model), filename=staged_model.name, format=model_format))
+            if not validation.get("valid"):
+                validation.update({"imported": False, "import_root": None, "model_path": None})
+                return validation
+
+            provisional = _contract_draft(staged_model, validation.get("format", model_format), validation.get("inspection", {}), validation.get("sha256", ""))
+            package_id = f"{provisional['robot_id']}_{content_hash[:10]}"
+            package_root = packages_root / package_id
+            final_model = package_root / model_relative
+            final_model_value = _api_path(final_model)
+            contract = _contract_draft(Path(final_model_value), validation.get("format", model_format), validation.get("inspection", {}), validation.get("sha256", ""))
+            contract["robot_id"] = package_id
+            contract["contract_id"] = f"{package_id}_contract_v1"
+
+            if not package_root.exists():
+                (staging / "contract.json").write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                write_package_manifest(staging, package_id=package_id, task_kind="generic")
+                descriptor_path = staging / "robot_package.json"
+                descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+                descriptor.update({
+                    "model": {"format": model_format, "path": model_relative.as_posix(), "assets_path": str(model_relative.parent).replace("\\", "/")},
+                    "contract_path": "contract.json",
+                    "content_sha256": content_hash,
+                })
+                descriptor_path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                staging.rename(package_root)
+
+            from backend.robot_packages import upsert_package
+            upsert_package(package_root, source="workspace")
+
+            validation.update({
+                "imported": True,
+                "package_id": package_id,
+                "import_root": _api_path(package_root),
+                "package_root": _api_path(package_root),
+                "model_path": final_model_value,
+                "contract_draft": contract,
+            })
+            return validation
     except Exception as exc:
         return {"valid": False, "imported": False, "errors": [str(exc)], "warnings": []}
 

@@ -32,7 +32,7 @@ flowchart LR
 | Recipe registry | Resolve task, algorithm, terrain, commands, and reward scales into one reproducible payload | `adapters/mjlab/recipe_registry.py` and `/api/training/resolve-recipe` implemented |
 | Scenario Contract | Version map, waypoints, command limits, seed, and metrics | `contracts/scenario_contract.py` and `/api/scenarios/validate` implemented |
 | Simulation adapter | Interactive MuJoCo sessions for basic teleoperation and map stepping | Available through `/api/simulation`; this is simulation only, never a training backend |
-| Native MJLab adapter | External MJLab source with the unified `adapters/mjlab` worker | The only training backend; Go2/Go2W training, evaluation, and navigation use the isolated worker |
+| Native MJLab adapter | External MJLab source with the unified `adapters/mjlab` worker | The only training backend; Go2/ZEX-W training, evaluation, and navigation use the isolated worker |
 | Navigation planner | Waypoints, manual commands, locomotion policy replay | Waypoint replay API implemented; pure-pursuit/recovery state machine is a Phase 2 enhancement |
 | Artifact/export | Checkpoints, manifest, ONNX/deployment mapping | Manifest/checkpoint path exists; hardware-specific export remains an explicit boundary |
 
@@ -63,6 +63,6 @@ an explicit action after the user clicks the start button.
 ## Verification levels
 
 - **Verified**: API health, model and Contract validation, and MuJoCo session lifecycle for interactive simulation.
-- **Verified**: native MJLab manager-based Go2/Go2W training, CUDA selection, evaluation, and waypoint navigation in the isolated worker. `/api/adapters/status` reports source readiness without importing the native stack into the control plane.
+- **Verified**: native MJLab manager-based Go2/ZEX-W training, CUDA selection, evaluation, and waypoint navigation in the isolated worker. `/api/adapters/status` reports source readiness without importing the native stack into the control plane.
 - **Candidate**: packaged native-runtime provisioning and Viser/Three.js rich simulation rendering.
 - **Phase 2/3**: waypoint-conditioned planner, scenario persistence, ONNX numerical replay gates, and hardware deployment.

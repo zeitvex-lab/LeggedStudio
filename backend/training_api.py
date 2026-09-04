@@ -5,7 +5,10 @@ Training API
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 from typing import List, Optional, Literal
+from datetime import datetime
+from pathlib import Path
 import json
 
 from backend.training_manager import get_training_manager
@@ -21,9 +24,14 @@ router = APIRouter(prefix="/api/training", tags=["training"])
 
 @router.get("/hardware")
 async def training_hardware():
-    """Report the runtime capabilities used by the training worker."""
-    from adapters.mjlab.native_adapter import preflight
-    native = preflight()
+    """Report the runtime capabilities used by the training worker.
+
+    Runs the real interpreter probe (force=True) — this endpoint backs the
+    training pages where waiting for torch import is acceptable. Off the event
+    loop so a concurrent probe cannot stall unrelated requests.
+    """
+    from adapters.mjlab.native_adapter import DEFAULT_SOURCE, preflight
+    native = await run_in_threadpool(preflight, DEFAULT_SOURCE, True)
     interpreters = native.get("runtime", {}).get("interpreters", [])
     selected = next((item for item in interpreters if item.get("available")), {})
     cuda_count = int(selected.get("cuda_device_count", 0))
@@ -176,12 +184,20 @@ async def create_training(request: CreateTrainingRequest):
             package = package_for_contract(contract.model_dump(mode="json"))
             config["robot_package"] = package
             config["generic_task"] = True
-            from adapters.mjlab.native_adapter import DEFAULT_EXTENSION, preflight
-            native = preflight()
+            from adapters.mjlab.native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE, package_runtime_diagnostics, preflight
+            # Training launch is the one path that must really probe torch —
+            # waiting here is acceptable, and the cached report makes repeats instant.
+            native = await run_in_threadpool(preflight, DEFAULT_SOURCE, True)
             if not native["exists"] or not native["manager_env_available"] or not native.get("runtime", {}).get("available"):
                 raise HTTPException(status_code=501, detail={"message": "native MJLab adapter is not ready", "preflight": native})
             if not native.get("execution_ready"):
                 raise HTTPException(status_code=501, detail={"message": native.get("execution_note", "native MJLab task adapter is not ready"), "preflight": native})
+            compatibility = package_runtime_diagnostics(package, native)
+            native["package_compatibility"] = compatibility
+            if compatibility["status"] == "incompatible":
+                raise HTTPException(status_code=501, detail={"message": "selected robot package is incompatible with the active MJLab runtime", "compatibility": compatibility, "preflight": native})
+            if compatibility["status"] == "unknown":
+                raise HTTPException(status_code=501, detail={"message": "active MJLab runtime version could not be verified for the selected robot package", "compatibility": compatibility, "preflight": native})
 
         # 创建任务
         manager = get_training_manager()
@@ -361,6 +377,58 @@ async def get_training_metrics(task_id: str):
         if progress:
             rows.append(progress)
     return {"success": True, "task_id": task_id, "metrics": rows}
+
+
+@router.get("/{task_id}/checkpoints")
+async def get_training_checkpoints(task_id: str):
+    """List checkpoint files and exported artifacts produced by the training worker.
+
+    Purely additive read-only inventory over the task directory so the monitor
+    page can render checkpoints, ONNX exports and TensorBoard event files.
+    """
+    task = get_training_manager().get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    def _entry(path: Path) -> dict:
+        stat = path.stat()
+        return {
+            "name": path.name,
+            "path": str(path),
+            "size_bytes": stat.st_size,
+            "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+        }
+
+    checkpoints: list[dict] = []
+    exports: list[dict] = []
+    event_files: list[dict] = []
+    if task.task_dir.exists():
+        for path in task.task_dir.iterdir():
+            try:
+                if not path.is_file():
+                    continue
+                if path.suffix == ".pt" and path.stem.startswith("model_"):
+                    entry = _entry(path)
+                    digits = path.stem.removeprefix("model_")
+                    entry["iteration"] = int(digits) if digits.isdigit() else None
+                    entry["final"] = path.name == "model_final.pt"
+                    checkpoints.append(entry)
+                elif path.suffix == ".onnx":
+                    exports.append(_entry(path))
+                elif path.name.startswith("events.out.tfevents"):
+                    event_files.append(_entry(path))
+            except OSError:
+                continue
+    checkpoints.sort(key=lambda item: (item.get("iteration") is None, item.get("iteration") or 0))
+
+    return {
+        "success": True,
+        "task_id": task_id,
+        "checkpoints": checkpoints,
+        "exports": exports,
+        "tensorboard_event_files": event_files,
+        "artifact_available": (task.task_dir / "artifact.json").exists(),
+    }
 
 
 @router.get("/{task_id}/artifact")

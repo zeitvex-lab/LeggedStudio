@@ -1,39 +1,74 @@
-# Go2 and Go2W training assets
+# Go2 and ZEX-W training assets
 
-Legged Studio now carries two self-contained canonical MuJoCo assets sourced from the local UniLab snapshot:
+The current product line contains two Robot Packages: Unitree Go2 and ZEX-W.
+The filename is retained for compatibility with existing documentation links;
+this document describes both supported packages.
 
-| Preset | Contract | Format | Class | Actuators | Compiled mass |
-|---|---|---|---|---:|---:|
-| Unitree Go2 | `unitree_go2_mvp_v1` | `go2.xml` | M-P | 12 | 15.206408 kg |
-| Unitree Go2W | `unitree_go2w_mvp_v1` | `go2w.xml` | M-W | 16 | 19.126408 kg |
+| Preset | Contract | Format | Class | Actions | Package root |
+| --- | --- | --- | --- | ---: | --- |
+| Unitree Go2 | `unitree_go2_mvp_v1` | MJCF | M-P | 12 | `assets/robots/unitree_go2` (persisted copies supported) |
+| ZEX-W | `zex-w_contract_v1` | MJCF | M-W | 16 | `workspace/packages/zex-w` |
 
-Each bundled robot uses the same package layout under `assets/robots/<id>`:
-`robot_package.json`, `contract.json`, `model/robot.xml`, `model/assets/`,
-`training/config.json`, and `simulation/config.json`. The runtime copies this
-same layout into `workspace/packages/<id>` for user-persisted packages.
+Each robot follows the same package layout:
 
 ```text
-assets/robots/unitree_go2/contract.json
-assets/robots/unitree_go2w/contract.json
-assets/robots/zex-w/contract.json
+workspace/packages/<package-id>/
+  robot_package.json
+  contract.json
+  model/robot.xml
+  model/assets/
+  training/config.json
+  training/profiles/
+  training/source/
+  simulation/config.json
 ```
 
-The Web training form reads `/api/robots/presets` and submits the selected Contract, so action dimensions and joint order are no longer hard-coded. Go2 uses 12 actions and Go2W uses 16 actions including the four wheel joints.
+Every source-backed training profile uses the same robot-neutral fields:
 
-Training options are exposed by `/api/training/options`. PPO is currently the available native MJLab algorithm. Each listed reward term has an editable weight and an enable toggle; the resulting map is stored in the task configuration and passed to the native worker. Disabling a term writes a zero weight, which keeps runs reproducible and auditable.
+| Field | Purpose |
+| --- | --- |
+| `source_root` | Import root inside the persisted package |
+| `entrypoints.env` | MJLab environment factory (`module:callable`) |
+| `entrypoints.runner` | Algorithm runner-config factory |
+| `entrypoints.runner_class` | Optional custom runner class |
+| `entrypoints.configure` | Optional package hook for robot-specific field mapping |
+| `runner` | UI-editable algorithm defaults |
+| `command_ranges` | UI-editable unified `lin_vel_x`, `lin_vel_y`, `ang_vel_z` ranges |
+
+The Web UI and native worker never branch on a robot id. A package that needs
+special joint mappings, sensors, rewards, terrain, or command semantics keeps
+that implementation below `training/source/` and exposes it through these
+entrypoints. Project ZIP import/export copies the complete package tree, so
+profiles and their source modules remain available after persistence.
+
+The Web training form reads `/api/robots/presets` and submits the selected
+Contract. Action dimensions and joint order therefore come from package data,
+not from UI or worker conditionals. Go2 has 12 position actions. ZEX-W has 16
+actions covering twelve leg joints and four wheel joints; its maintained
+training profiles live under `training/profiles/`.
+
+Go2's LLoco implementation uses the package extension contract shared by all
+robots: `extension_entrypoint` registers the package asset factory under
+MJLab's canonical asset-zoo path. The backend does not import or depend on
+`unitree_rl_mjlab`; robot-specific XML, actuators, observations, rewards, and
+terrain logic remain inside the Go2 package profile.
+
+Training options are exposed by `/api/training/options`. PPO is currently the
+available native MJLab algorithm. Each reward term has an editable weight and
+enable toggle. The resolved recipe and selected package profile are stored with
+the task so runs remain reproducible and auditable.
 
 ## Adapter environment
 
-The control plane remains on Python 3.12. The unified MJLab adapter and its isolated environment live in `adapters/mjlab`. Install or update the adapter from its project file:
+The control plane remains on Python 3.12. The unified MJLab adapter and its
+isolated environment live in `adapters/mjlab`:
 
 ```powershell
 uv sync --project adapters/mjlab --extra cu128
-```
-
-Run the dependency and GPU preflight before a long run:
-
-```powershell
 python adapters/mjlab/preflight.py
 ```
 
-The native MJLab worker performs manager-based MJLab rollouts against the canonical MJCF. Native Go2 and Go2W tasks write RSL-RL PyTorch checkpoints and a `PolicyArtifact`, and the same checkpoints can be replayed through native evaluation and waypoint navigation. MuJoCo is retained for interactive simulation sessions, not training. Go2W uses 12 position actions plus 4 wheel-velocity actions and a 56D actor observation (planar base velocity, angular velocity, projected gravity, 16 joint positions, 16 joint velocities, and 16 previous actions).
+The native worker builds manager-based MJLab tasks from Robot Package metadata
+and selected training profiles. It writes RSL-RL checkpoints and a
+`PolicyArtifact`; MuJoCo is retained for interactive simulation sessions, not
+as a training backend.

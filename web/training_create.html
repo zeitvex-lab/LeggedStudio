@@ -7,9 +7,9 @@
   <link rel="stylesheet" href="dashboard.css">
   <style>
     .form-container {
-      max-width: 800px;
+      max-width: 880px;
       margin: 0 auto;
-      padding: 40px 24px;
+      padding: 40px 24px 96px;
     }
 
     .form-section {
@@ -17,39 +17,54 @@
       border: 1px solid var(--border-soft);
       border-radius: var(--radius);
       padding: 24px;
-      margin-bottom: 24px;
-    }
-
-    .form-section h3 {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 16px;
-      color: var(--text);
-    }
-
-    .form-group {
       margin-bottom: 20px;
     }
 
-    .form-group label {
-      display: block;
-      font-size: 13px;
+    .form-section h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-section .section-hint {
+      font-size: 12px;
       color: var(--muted);
-      margin-bottom: 8px;
+      margin-bottom: 18px;
+    }
+
+    .form-group {
+      margin-bottom: 0;
+      min-width: 0;
+    }
+
+    .form-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 7px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
 
     .form-group input,
     .form-group select,
     .form-group textarea {
       width: 100%;
-      min-height: 38px;
+      min-height: 36px;
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 8px 12px;
+      padding: 7px 11px;
       background: var(--surface-input);
       color: var(--text);
       font-size: 13px;
-      transition: all 0.15s ease;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
     .form-group input:focus,
@@ -60,65 +75,365 @@
       box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.12);
     }
 
-    .form-group textarea {
-      min-height: 80px;
-      resize: vertical;
+    .field-hint {
+      display: block;
+      color: var(--faint);
+      font-size: 11px;
+      margin-top: 5px;
+      line-height: 1.45;
     }
 
-    .form-row {
+    .param-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px;
     }
 
-    .form-actions {
-      display: flex;
-      gap: 12px;
-      justify-content: flex-end;
-      margin-top: 32px;
-    }
-
+    /* 机器人选择卡片 */
     .robot-select {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 12px;
-      margin-top: 12px;
     }
 
     .robot-card {
+      position: relative;
       padding: 16px;
       background: var(--surface-raised);
       border: 2px solid var(--border-soft);
       border-radius: var(--radius);
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
     }
 
     .robot-card:hover {
       border-color: var(--accent);
-      background: var(--surface-soft);
+      transform: translateY(-1px);
     }
 
     .robot-card.selected {
       border-color: var(--accent);
-      background: rgba(45, 212, 191, 0.12);
+      background: rgba(45, 212, 191, 0.10);
     }
 
     .robot-card h4 {
       font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 4px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      padding-right: 22px;
     }
 
     .robot-card p {
       font-size: 12px;
       color: var(--muted);
+      margin-bottom: 6px;
     }
 
-    .reward-grid { display: grid; gap: 10px; }
-    .reward-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 120px; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: var(--radius); background: var(--surface-raised); }
-    .reward-row input[type="number"] { min-height: 32px; }
-    .reward-row small { display: block; color: var(--muted); font-size: 11px; }
+    .robot-card small {
+      display: block;
+      color: var(--faint);
+      font-size: 10px;
+      font-family: 'SF Mono', Consolas, monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .robot-card .check {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: transparent;
+      transition: all 0.15s ease;
+    }
+
+    .robot-card.selected .check {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #0a0d10;
+    }
+
+    /* 任务预设 chip */
+    .task-chips {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+    }
+
+    .task-chip {
+      padding: 12px 14px;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      background: var(--surface-raised);
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+      text-align: left;
+    }
+
+    .task-chip:hover { border-color: var(--accent); }
+
+    .task-chip.selected {
+      border-color: rgba(45, 212, 191, 0.6);
+      background: rgba(45, 212, 191, 0.10);
+    }
+
+    .task-chip strong {
+      display: block;
+      font-size: 13px;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .task-chip small {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .task-chip .tag {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* 奖惩配置 */
+    .reward-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .reward-summary {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .reward-summary b { color: var(--accent); }
+
+    .reward-grid { display: grid; gap: 8px; }
+
+    .reward-row {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr) 120px;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      background: var(--surface-raised);
+      transition: opacity 0.15s ease;
+    }
+
+    .reward-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .reward-row .reward-label strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .reward-row .reward-label small {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    .reward-row input[type="number"] {
+      min-height: 30px;
+      font-size: 12px;
+      font-family: 'SF Mono', Consolas, monospace;
+    }
+
+    .reward-row.disabled { opacity: 0.45; }
+
+    /* 折叠的高级参数抽屉 */
+    .advanced-drawer {
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      background: var(--surface);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .advanced-drawer summary {
+      list-style: none;
+      min-height: 50px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .advanced-drawer summary::-webkit-details-marker { display: none; }
+
+    .advanced-drawer summary .chevron {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-size: 11px;
+      transition: transform 0.16s ease;
+    }
+
+    .advanced-drawer:not([open]) summary .chevron { transform: rotate(-90deg); }
+
+    .advanced-drawer .drawer-body {
+      border-top: 1px solid var(--border-soft);
+      padding: 18px;
+    }
+
+    .drawer-note {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .drawer-note p { font-size: 12px; color: var(--muted); }
+
+    /* 硬件徽标 */
+    .hw-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .hw-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface-raised);
+    }
+
+    .hw-badge .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--faint);
+    }
+
+    .hw-badge.ok { border-color: rgba(45, 212, 191, 0.3); color: var(--accent); }
+    .hw-badge.ok .dot { background: var(--accent); }
+    .hw-badge.warn { border-color: rgba(251, 191, 36, 0.3); color: #fde68a; }
+    .hw-badge.warn .dot { background: #fbbf24; }
+
+    /* 底部粘性操作条 */
+    .sticky-bar {
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 18px;
+      background: rgba(18, 24, 32, 0.97);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+      flex-wrap: wrap;
+    }
+
+    .sticky-summary {
+      font-size: 12px;
+      color: var(--muted);
+      min-width: 0;
+    }
+
+    .sticky-summary b { color: var(--text); font-weight: 600; }
+
+    .sticky-actions { display: flex; gap: 10px; }
+
+    /* 行内错误 / 提示 */
+    .inline-error {
+      display: none;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      border-radius: var(--radius);
+      background: rgba(127, 29, 29, 0.16);
+      color: #fecaca;
+      font-size: 13px;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+
+    .inline-error.visible { display: block; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 32px;
+      transform: translateX(-50%) translateY(8px);
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      background: rgba(94, 234, 212, 0.14);
+      border: 1px solid rgba(45, 212, 191, 0.4);
+      color: var(--success);
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 100;
+    }
+
+    .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .btn.small { min-height: 30px; padding: 0 12px; font-size: 12px; }
+
+    .retry-link {
+      color: var(--accent);
+      cursor: pointer;
+      text-decoration: underline;
+      background: none;
+      border: none;
+      font-size: inherit;
+      font-family: inherit;
+    }
+
+    @media (max-width: 720px) {
+      .reward-row { grid-template-columns: 22px minmax(0, 1fr); }
+      .reward-row input[type="number"] { grid-column: 2; }
+      .sticky-bar { position: static; }
+    }
   </style>
 </head>
 <body>
@@ -128,203 +443,599 @@
       <div>
         <span class="page-kicker">Training</span>
         <h1>创建训练任务</h1>
-        <p>配置训练参数并开始训练足式机器人策略</p>
+        <p>配置训练参数并开始训练足式机器人策略，全部参数会随任务归档，可导出复现。</p>
       </div>
-
       <div class="page-actions">
-        <a class="btn" href="dashboard.html">返回</a>
+        <button class="btn" id="importBtn" type="button" title="从 JSON 文件导入此前导出的训练配置">导入配置</button>
+        <button class="btn" id="exportBtn" type="button" title="将当前表单导出为 JSON，便于对比与复现">导出配置</button>
+        <a class="btn" href="training_list.html">任务列表</a>
       </div>
     </header>
 
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <div class="inline-error" id="formError"></div>
+
     <!-- 训练表单 -->
-    <form id="trainingForm">
+    <form id="trainingForm" novalidate>
       <!-- 机器人选择 -->
       <div class="form-section">
         <h3>选择机器人</h3>
-        <div class="robot-select" id="robotSelect"><div class="empty-state">正在加载可用训练资产...</div></div>
+        <p class="section-hint">卡片来自已导入的机器人训练资产（Robot Contract preset），点击切换。</p>
+        <div class="robot-select" id="robotSelect">
+          <div class="empty-state">正在加载可用训练资产...</div>
+        </div>
       </div>
 
-      <!-- 任务配置 -->
+      <!-- 任务与算法 -->
       <div class="form-section">
-        <h3>任务配置</h3>
-        <div class="form-group">
-          <label>任务名称</label>
-          <input type="text" id="taskName" value="forward_walk" placeholder="例如: forward_walk, trot, rough_terrain">
+        <h3>任务与算法</h3>
+        <p class="section-hint">任务预设决定奖励模板与默认地形；地形类型会写入训练配置。</p>
+        <div class="task-chips" id="taskChips">
+          <button type="button" class="task-chip selected" data-task="forward_walk" data-terrain="plane">
+            <strong>Forward walk</strong>
+            <small>forward_walk</small>
+            <span class="tag">plane</span>
+          </button>
         </div>
-        <div class="form-row">
+        <div class="param-grid" style="margin-top: 16px;">
           <div class="form-group">
-            <label>算法</label>
-            <select id="algorithm">
+            <label for="algorithm">算法</label>
+            <select id="algorithm" title="native MJLab 当前仅开放 PPO 训练">
               <option value="PPO" selected>PPO (推荐)</option>
             </select>
+            <small class="field-hint">策略梯度算法，足式运动控制的标准选择</small>
           </div>
           <div class="form-group">
-            <label>训练模式</label>
-            <select id="trainMode">
-              <option value="normal">标准训练（平地）</option>
-              <option value="rough">崎岖地形</option>
-              <option value="stairs">楼梯训练</option>
+            <label for="device">运行设备</label>
+            <select id="device" title="auto 会优先使用 CUDA，无 GPU 时回退 CPU">
+              <option value="auto" selected>auto (自动选择)</option>
+              <option value="cpu">CPU</option>
+              <option value="cuda">GPU (CUDA)</option>
             </select>
+            <small class="field-hint">由训练运行时探测结果决定可选项</small>
           </div>
         </div>
-      </div>
-
-      <div class="form-section">
-        <h3>奖惩配置</h3>
-        <p class="muted">取消勾选即可关闭该项；权重会写入训练配置并用于 MuJoCo reward 计算。</p>
-        <div class="reward-grid" id="rewardTerms"><div class="empty-state">正在加载奖惩项...</div></div>
+        <div class="hw-badges" id="hwBadges">
+          <span class="hw-badge"><span class="dot"></span>正在探测运行环境...</span>
+        </div>
       </div>
 
       <!-- 训练参数 -->
       <div class="form-section">
         <h3>训练参数</h3>
-        <div class="form-row">
+        <p class="section-hint">悬停查看每个参数的取值建议；这些是影响训练时长和效果的核心旋钮。</p>
+        <div class="param-grid">
           <div class="form-group">
-            <label>环境数量</label>
-            <input type="number" id="numEnvs" value="4096" min="64" max="8192" step="64">
-            <small style="color: var(--muted); font-size: 11px;">推荐: 4096</small>
+            <label for="numEnvs">并行环境数量</label>
+            <input type="number" id="numEnvs" value="4096" min="64" max="8192" step="64"
+                   title="并行仿真环境数。越大采样越快但显存占用越高；GPU 训练推荐 4096，CPU 调试建议 64-256">
+            <small class="field-hint">推荐 4096 · 调试可用 256</small>
           </div>
           <div class="form-group">
-            <label>最大迭代数</label>
-            <input type="number" id="maxIterations" value="1000" min="10" max="10000" step="10">
-            <small style="color: var(--muted); font-size: 11px;">推荐: 1000</small>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>学习率</label>
-            <input type="number" id="learningRate" value="0.0003" min="0.00001" max="0.01" step="0.00001">
+            <label for="maxIterations">最大迭代数</label>
+            <input type="number" id="maxIterations" value="1000" min="10" max="10000" step="10"
+                   title="训练迭代上限。平地行走约 1000 轮收敛，崎岖地形通常需要 2000+ 轮">
+            <small class="field-hint">推荐 1000 · 崎岖地形 2000+</small>
           </div>
           <div class="form-group">
-            <label>Episode 长度 (秒)</label>
-            <input type="number" id="episodeLength" value="20" min="5" max="60" step="1">
+            <label for="episodeLength">Episode 长度 (秒)</label>
+            <input type="number" id="episodeLength" value="20" min="5" max="60" step="1"
+                   title="单个回合的仿真时长（秒）。过长会拖慢早期探索，过短影响信用分配">
+            <small class="field-hint">推荐 20s</small>
+          </div>
+          <div class="form-group">
+            <label for="learningRate">学习率</label>
+            <input type="number" id="learningRate" value="0.0003" min="0.00001" max="0.01" step="0.00001"
+                   title="PPO 的优化步长。过大容易发散（奖励崩溃），过小收敛缓慢">
+            <small class="field-hint">推荐 3e-4</small>
+          </div>
+          <div class="form-group">
+            <label for="saveInterval">保存间隔</label>
+            <input type="number" id="saveInterval" value="100" min="10" max="500" step="10"
+                   title="每 N 次迭代保存一个 model_<iter>.pt 检查点">
+            <small class="field-hint">每 N 次迭代保存检查点</small>
+          </div>
+          <div class="form-group">
+            <label for="seed">随机种子</label>
+            <input type="number" id="seed" value="0" min="0" max="2147483647" step="1"
+                   title="控制环境初始化与网络权重的随机性。相同种子 + 相同配置可复现实验">
+            <small class="field-hint">0 表示不固定</small>
           </div>
         </div>
       </div>
 
-      <!-- 高级选项 -->
+      <!-- 高级选项（可折叠） -->
+      <details class="advanced-drawer" id="advancedDrawer">
+        <summary>
+          <span style="display: inline-flex; align-items: center; gap: 10px;">
+            <span class="chevron">▾</span>PPO 超参数
+          </span>
+          <span class="reward-summary" id="advancedSummary">使用默认值</span>
+        </summary>
+        <div class="drawer-body">
+          <div class="drawer-note">
+            <p>保持默认即可获得稳定基线；仅在被要求调参时修改。</p>
+            <button type="button" class="btn small" id="resetAdvanced">恢复默认</button>
+          </div>
+          <div class="param-grid">
+            <div class="form-group">
+              <label for="numSteps">Rollout 步数</label>
+              <input type="number" id="numSteps" value="24" min="4" max="4096" step="1"
+                     title="每次更新前每个环境收集的步数（num_steps_per_env）">
+              <small class="field-hint">默认 24</small>
+            </div>
+            <div class="form-group">
+              <label for="gamma">折扣因子 γ</label>
+              <input type="number" id="gamma" value="0.99" min="0.9" max="0.9999" step="0.0001"
+                     title="未来奖励的折扣率。越接近 1 越重视长期稳定行走">
+              <small class="field-hint">默认 0.99</small>
+            </div>
+            <div class="form-group">
+              <label for="gaeLambda">GAE λ</label>
+              <input type="number" id="gaeLambda" value="0.95" min="0.1" max="1" step="0.01"
+                     title="优势估计的偏差-方差折中">
+              <small class="field-hint">默认 0.95</small>
+            </div>
+            <div class="form-group">
+              <label for="clipParam">裁剪系数 ε</label>
+              <input type="number" id="clipParam" value="0.2" min="0.05" max="0.5" step="0.01"
+                     title="PPO 策略比率裁剪范围，限制单次更新幅度">
+              <small class="field-hint">默认 0.2</small>
+            </div>
+            <div class="form-group">
+              <label for="entropyCoef">熵正则系数</label>
+              <input type="number" id="entropyCoef" value="0.01" min="0" max="0.2" step="0.001"
+                     title="鼓励探索。奖励过早坍缩（突然下跌）时可适当调大">
+              <small class="field-hint">默认 0.01</small>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- 奖惩配置 -->
       <div class="form-section">
-        <h3>高级选项</h3>
-        <div class="form-row">
-          <div class="form-group">
-            <label>保存间隔</label>
-            <input type="number" id="saveInterval" value="100" min="10" max="500" step="10">
-            <small style="color: var(--muted); font-size: 11px;">每 N 次迭代保存检查点</small>
-          </div>
-          <div class="form-group">
-            <label>设备</label>
-            <select id="device">
-              <option value="cuda">GPU (CUDA)</option>
-              <option value="cpu">CPU</option>
-            </select>
-          </div>
+        <h3>奖惩配置</h3>
+        <p class="section-hint">取消勾选即可关闭该项；权重写入训练配置并用于 MuJoCo reward 计算，负值为惩罚项。</p>
+        <div class="reward-toolbar">
+          <span class="reward-summary" id="rewardSummary">正在加载奖惩项...</span>
+          <span style="display: flex; gap: 8px;">
+            <button type="button" class="btn small" id="rewardAll">全部启用</button>
+            <button type="button" class="btn small" id="rewardReset">恢复默认</button>
+          </span>
+        </div>
+        <div class="reward-grid" id="rewardTerms">
+          <div class="empty-state">正在加载奖惩项...</div>
         </div>
       </div>
 
-      <!-- 操作按钮 -->
-      <div class="form-actions">
-        <a class="btn" href="dashboard.html">取消</a>
-        <button type="submit" class="btn primary">开始训练</button>
+      <!-- 粘性提交栏 -->
+      <div class="sticky-bar">
+        <div class="sticky-summary" id="stickySummary">-</div>
+        <div class="sticky-actions">
+          <a class="btn" href="training_list.html">取消</a>
+          <button type="submit" class="btn primary" id="submitBtn">开始训练</button>
+        </div>
       </div>
     </form>
   </div>
 
+  <div class="toast" id="toast"></div>
+
+  <script src="training-common.js"></script>
   <script>
-    const API_BASE = 'http://127.0.0.1:8765';
+    const { escapeHtml, fetchJson, downloadText } = window.TrainingUI;
 
     let presets = [];
     let selectedPreset = null;
+    let rewardDefaults = {};   // id -> default weight
+    let selectedTask = { id: 'forward_walk', terrain: 'plane' };
+    let optionsData = null;
 
+    const DEFAULT_TASKS = [
+      { id: 'forward_walk', label: 'Forward walk', terrain: 'plane' },
+      { id: 'trot', label: 'Trot', terrain: 'plane' },
+      { id: 'rough_terrain', label: 'Rough terrain', terrain: 'rough' },
+      { id: 'stairs', label: 'Stairs', terrain: 'stairs' },
+    ];
+
+    function showError(message) {
+      const box = document.getElementById('formError');
+      if (!message) { box.classList.remove('visible'); box.textContent = ''; return; }
+      box.textContent = message;
+      box.classList.add('visible');
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    let toastTimer = null;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('visible');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('visible'), 2200);
+    }
+
+    function numValue(id) { return parseFloat(document.getElementById(id).value); }
+    function intValue(id) { return parseInt(document.getElementById(id).value, 10); }
+
+    // ---------- 选项与硬件 ----------
     async function loadOptions() {
-      const response = await fetch(`${API_BASE}/api/training/options`);
-      if (!response.ok) throw new Error('无法加载训练选项');
-      const options = await response.json();
+      optionsData = await fetchJson('/api/training/options');
+
+      // 算法下拉
       const algorithm = document.getElementById('algorithm');
-      algorithm.innerHTML = options.algorithms.map(item => `<option value="${item.id}" ${item.available ? '' : 'disabled'}>${item.label}${item.available ? '' : '（未接入）'}</option>`).join('');
-      const terms = document.getElementById('rewardTerms');
-      terms.innerHTML = Object.entries(options.reward_terms || {}).map(([id, term]) => `<label class="reward-row"><input type="checkbox" data-reward-id="${id}" checked><span><strong>${term.label}</strong><small>${term.description}</small></span><input type="number" data-reward-weight="${id}" value="${term.default}" step="0.0001"></label>`).join('');
+      const algorithms = optionsData.algorithms || [];
+      if (algorithms.length) {
+        algorithm.innerHTML = algorithms.map((item) =>
+          `<option value="${escapeHtml(item.id)}" ${item.available ? '' : 'disabled'}>${escapeHtml(item.label || item.id)}${item.available ? '' : '（未接入）'}</option>`
+        ).join('');
+        const preferred = algorithms.find((item) => item.available);
+        if (preferred) algorithm.value = preferred.id;
+      }
+
+      // 任务预设 chips
+      const tasks = (optionsData.tasks && optionsData.tasks.length)
+        ? optionsData.tasks.map((task) => ({ id: task.id, label: task.label || task.id, terrain: task.terrain || 'plane' }))
+        : DEFAULT_TASKS;
+      renderTaskChips(tasks);
+
+      // 设备选项 + 硬件徽标
+      const hardware = optionsData.hardware || {};
+      const supported = hardware.supported_devices || ['auto', 'cpu'];
+      const device = document.getElementById('device');
+      const previous = device.value;
+      device.innerHTML = supported.map((item) => {
+        const label = item === 'auto' ? 'auto (自动选择)' : item.startsWith('cuda') ? `GPU (${item})` : item.toUpperCase();
+        return `<option value="${escapeHtml(item)}">${escapeHtml(label)}</option>`;
+      }).join('');
+      device.value = supported.includes(previous) ? previous : 'auto';
+
+      const torch = hardware.torch || {};
+      const badges = [];
+      badges.push(`<span class="hw-badge ${torch.cuda_available ? 'ok' : 'warn'}"><span class="dot"></span>${torch.cuda_available ? `CUDA 可用${torch.version ? ' · ' + escapeHtml(torch.version) : ''}` : 'CUDA 不可用（将以 CPU 训练）'}</span>`);
+      if (hardware.python) badges.push(`<span class="hw-badge" title="训练 worker 解释器"><span class="dot"></span>Python ${escapeHtml(hardware.python)}</span>`);
+      if (hardware.native_mjlab && hardware.native_mjlab.dependencies_importable) badges.push(`<span class="hw-badge ok"><span class="dot"></span>MJLab 运行时就绪</span>`);
+      document.getElementById('hwBadges').innerHTML = badges.join('');
+
+      // 奖惩项
+      rewardDefaults = {};
+      const terms = optionsData.reward_terms || {};
+      Object.entries(terms).forEach(([id, term]) => { rewardDefaults[id] = Number(term.default); });
+      renderRewardTerms(terms);
     }
 
-    async function loadPresets() {
-      const response = await fetch(`${API_BASE}/api/robots/presets`);
-      if (!response.ok) throw new Error('无法加载机器人训练资产');
-      const payload = await response.json();
-      presets = payload.presets || [];
-      const container = document.getElementById('robotSelect');
-      container.innerHTML = presets.map((preset, index) => `<div class="robot-card ${index === 0 ? 'selected' : ''}" data-robot="${preset.robot_id}"><h4>${preset.family}</h4><p>${preset.size_class} 级${preset.locomotion_type === 'W' ? '轮足' : '点足'} · ${preset.dof} DOF · ${Number(preset.mass_kg).toFixed(1)} kg</p><small>${preset.asset_path}</small></div>`).join('');
-      selectedPreset = presets[0] || null;
-      container.querySelectorAll('.robot-card').forEach(card => card.addEventListener('click', () => {
-        container.querySelectorAll('.robot-card').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        selectedPreset = presets.find(preset => preset.robot_id === card.dataset.robot) || null;
+    function renderTaskChips(tasks) {
+      const container = document.getElementById('taskChips');
+      container.innerHTML = tasks.map((task) => `
+        <button type="button" class="task-chip ${task.id === selectedTask.id ? 'selected' : ''}" data-task="${escapeHtml(task.id)}" data-terrain="${escapeHtml(task.terrain)}" title="任务 ${escapeHtml(task.id)} · 地形 ${escapeHtml(task.terrain)}">
+          <strong>${escapeHtml(task.label)}</strong>
+          <small>${escapeHtml(task.id)}</small>
+          <span class="tag">${escapeHtml(task.terrain)}</span>
+        </button>
+      `).join('');
+      const active = container.querySelector('.task-chip.selected') || container.querySelector('.task-chip');
+      if (active) {
+        selectedTask = { id: active.dataset.task, terrain: active.dataset.terrain };
+        active.classList.add('selected');
+      }
+      container.querySelectorAll('.task-chip').forEach((chip) => chip.addEventListener('click', () => {
+        container.querySelectorAll('.task-chip').forEach((c) => c.classList.remove('selected'));
+        chip.classList.add('selected');
+        selectedTask = { id: chip.dataset.task, terrain: chip.dataset.terrain };
+        updateSummary();
       }));
+      updateSummary();
     }
 
-    Promise.all([loadOptions(), loadPresets()]).catch(error => {
-      document.getElementById('robotSelect').innerHTML = `<div class="empty-state">${error.message}</div>`;
+    function renderRewardTerms(terms) {
+      const container = document.getElementById('rewardTerms');
+      const entries = Object.entries(terms || {});
+      if (!entries.length) {
+        container.innerHTML = '<div class="empty-state">后端未返回奖惩项，将使用任务默认奖励。</div>';
+        updateRewardSummary();
+        return;
+      }
+      container.innerHTML = entries.map(([id, term]) => `
+        <label class="reward-row" data-reward-row="${escapeHtml(id)}" title="${escapeHtml(term.description || '')}">
+          <input type="checkbox" data-reward-id="${escapeHtml(id)}" checked>
+          <span class="reward-label"><strong>${escapeHtml(term.label || id)}</strong><small>${escapeHtml(term.description || id)}</small></span>
+          <input type="number" data-reward-weight="${escapeHtml(id)}" value="${Number(term.default)}" step="0.0001" title="权重（负值为惩罚）">
+        </label>
+      `).join('');
+
+      container.querySelectorAll('[data-reward-id]').forEach((toggle) => {
+        toggle.addEventListener('change', () => syncRewardRow(toggle));
+        syncRewardRow(toggle);
+      });
+      container.querySelectorAll('[data-reward-weight]').forEach((input) => {
+        input.addEventListener('input', updateRewardSummary);
+      });
+      updateRewardSummary();
+    }
+
+    function syncRewardRow(toggle) {
+      const row = document.querySelector(`[data-reward-row="${toggle.dataset.rewardId}"]`);
+      if (row) row.classList.toggle('disabled', !toggle.checked);
+      updateRewardSummary();
+    }
+
+    function updateRewardSummary() {
+      const toggles = [...document.querySelectorAll('[data-reward-id]')];
+      if (!toggles.length) {
+        document.getElementById('rewardSummary').textContent = '无奖惩项';
+        updateSummary();
+        return;
+      }
+      const enabled = toggles.filter((toggle) => toggle.checked).length;
+      document.getElementById('rewardSummary').innerHTML = `<b>${enabled}</b> / ${toggles.length} 项启用`;
+      updateSummary();
+    }
+
+    function setAllRewards(enabled) {
+      document.querySelectorAll('[data-reward-id]').forEach((toggle) => {
+        toggle.checked = enabled;
+        syncRewardRow(toggle);
+      });
+    }
+
+    function resetRewards() {
+      Object.entries(rewardDefaults).forEach(([id, weight]) => {
+        const toggle = document.querySelector(`[data-reward-id="${id}"]`);
+        const input = document.querySelector(`[data-reward-weight="${id}"]`);
+        if (toggle) toggle.checked = true;
+        if (input) input.value = weight;
+        if (toggle) syncRewardRow(toggle);
+      });
+    }
+
+    // ---------- 机器人 ----------
+    async function loadPresets() {
+      const payload = await fetchJson('/api/robots/presets');
+      presets = payload.presets || [];
+      if (!presets.length) throw new Error('没有可用的机器人训练资产，请先在模型验证页导入资产');
+      const container = document.getElementById('robotSelect');
+      container.innerHTML = presets.map((preset, index) => `
+        <div class="robot-card ${index === 0 ? 'selected' : ''}" data-robot="${escapeHtml(preset.robot_id)}" title="asset: ${escapeHtml(preset.asset_path || '')}">
+          <span class="check">✓</span>
+          <h4>${escapeHtml(preset.family)}</h4>
+          <p>${escapeHtml(preset.size_class || '')} 级${preset.locomotion_type === 'W' ? '轮足' : '点足'} · ${escapeHtml(String(preset.dof ?? '-'))} DOF · ${Number(preset.mass_kg || 0).toFixed(1)} kg</p>
+          <small>${escapeHtml(preset.asset_path || '')}</small>
+        </div>
+      `).join('');
+      selectedPreset = presets[0] || null;
+      container.querySelectorAll('.robot-card').forEach((card) => card.addEventListener('click', () => {
+        container.querySelectorAll('.robot-card').forEach((c) => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedPreset = presets.find((preset) => preset.robot_id === card.dataset.robot) || null;
+        updateSummary();
+      }));
+      updateSummary();
+    }
+
+    function renderLoadError(error) {
+      document.getElementById('robotSelect').innerHTML =
+        `<div class="empty-state"><p>加载失败：${escapeHtml(error.message)}</p><button class="btn retry-link" type="button" onclick="location.reload()">点击重试</button></div>`;
+    }
+
+    // ---------- 摘要栏 ----------
+    function updateSummary() {
+      const parts = [];
+      if (selectedPreset) parts.push(`<b>${escapeHtml(selectedPreset.family)}</b>`);
+      parts.push(`${escapeHtml(selectedTask.id)}`);
+      parts.push(`${intValue('numEnvs') || '-'} envs`);
+      parts.push(`${intValue('maxIterations') || '-'} iter`);
+      parts.push(`${escapeHtml(document.getElementById('device').value)}`);
+      const enabled = [...document.querySelectorAll('[data-reward-id]')].filter((t) => t.checked).length;
+      if (enabled || document.querySelector('[data-reward-id]')) parts.push(`${enabled} 奖惩项`);
+      document.getElementById('stickySummary').innerHTML = parts.join(' · ');
+    }
+
+    ['numEnvs', 'maxIterations', 'device'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateSummary);
     });
 
-    // 提交表单
-    document.getElementById('trainingForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+    // ---------- 配置收集 / 导入导出 ----------
+    function collectRewardScales() {
+      const rewardScales = {};
+      document.querySelectorAll('[data-reward-id]').forEach((toggle) => {
+        const id = toggle.dataset.rewardId;
+        const input = document.querySelector(`[data-reward-weight="${id}"]`);
+        const weight = parseFloat(input ? input.value : '0');
+        rewardScales[id] = toggle.checked ? (Number.isFinite(weight) ? weight : 0) : 0;
+      });
+      return rewardScales;
+    }
 
-      const submitBtn = e.target.querySelector('button[type="submit"]');
+    function collectConfig() {
+      return {
+        robot_id: selectedPreset ? selectedPreset.robot_id : null,
+        algorithm: document.getElementById('algorithm').value,
+        task_name: selectedTask.id,
+        terrain_type: selectedTask.terrain || 'plane',
+        num_envs: intValue('numEnvs'),
+        max_iterations: intValue('maxIterations'),
+        learning_rate: numValue('learningRate'),
+        save_interval: intValue('saveInterval'),
+        episode_length_s: numValue('episodeLength'),
+        seed: intValue('seed'),
+        device: document.getElementById('device').value,
+        num_steps: intValue('numSteps'),
+        gamma: numValue('gamma'),
+        gae_lambda: numValue('gaeLambda'),
+        clip_param: numValue('clipParam'),
+        entropy_coef: numValue('entropyCoef'),
+        reward_scales: collectRewardScales(),
+      };
+    }
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const config = collectConfig();
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      downloadText(`training-config-${config.task_name || 'task'}-${stamp}.json`, JSON.stringify(config, null, 2) + '\n');
+      showToast('配置已导出为 JSON');
+    });
+
+    document.getElementById('importBtn').addEventListener('click', () => {
+      document.getElementById('importFile').click();
+    });
+
+    document.getElementById('importFile').addEventListener('change', (event) => {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          applyConfig(JSON.parse(String(reader.result)));
+          showToast('配置已导入');
+          showError('');
+        } catch (error) {
+          showError(`导入失败：${error.message}`);
+        }
+      };
+      reader.onerror = () => showError('导入失败：无法读取文件');
+      reader.readAsText(file);
+    });
+
+    function applyConfig(config) {
+      if (!config || typeof config !== 'object') throw new Error('JSON 不是对象');
+      // 机器人
+      if (config.robot_id) {
+        const card = document.querySelector(`.robot-card[data-robot="${CSS.escape(config.robot_id)}"]`);
+        if (card) card.click();
+      }
+      // 任务
+      if (config.task_name) {
+        const chip = document.querySelector(`.task-chip[data-task="${CSS.escape(config.task_name)}"]`);
+        if (chip) chip.click();
+        else throw new Error(`未知任务 ${config.task_name}`);
+      }
+      const numericMap = {
+        num_envs: 'numEnvs', max_iterations: 'maxIterations', learning_rate: 'learningRate',
+        save_interval: 'saveInterval', episode_length_s: 'episodeLength', seed: 'seed',
+        num_steps: 'numSteps', gamma: 'gamma', gae_lambda: 'gaeLambda',
+        clip_param: 'clipParam', entropy_coef: 'entropyCoef',
+      };
+      Object.entries(numericMap).forEach(([key, id]) => {
+        if (config[key] !== undefined) document.getElementById(id).value = config[key];
+      });
+      if (config.algorithm) {
+        const algo = document.getElementById('algorithm');
+        if ([...algo.options].some((option) => option.value === config.algorithm)) algo.value = config.algorithm;
+      }
+      if (config.device) {
+        const device = document.getElementById('device');
+        if ([...device.options].some((option) => option.value === config.device)) device.value = config.device;
+      }
+      if (config.reward_scales && typeof config.reward_scales === 'object') {
+        Object.entries(config.reward_scales).forEach(([id, weight]) => {
+          const toggle = document.querySelector(`[data-reward-id="${CSS.escape(id)}"]`);
+          const input = document.querySelector(`[data-reward-weight="${CSS.escape(id)}"]`);
+          if (input) input.value = Number(weight);
+          if (toggle) { toggle.checked = Number(weight) !== 0; syncRewardRow(toggle); }
+        });
+      }
+      updateSummary();
+    }
+
+    // ---------- 高级参数 ----------
+    const ADVANCED_DEFAULTS = { numSteps: 24, gamma: 0.99, gaeLambda: 0.95, clipParam: 0.2, entropyCoef: 0.01 };
+
+    function updateAdvancedSummary() {
+      const changed = Object.entries(ADVANCED_DEFAULTS).some(([id, value]) => parseFloat(document.getElementById(id).value) !== value);
+      document.getElementById('advancedSummary').textContent = changed ? '已自定义' : '使用默认值';
+    }
+
+    document.getElementById('resetAdvanced').addEventListener('click', () => {
+      Object.entries(ADVANCED_DEFAULTS).forEach(([id, value]) => { document.getElementById(id).value = value; });
+      updateAdvancedSummary();
+    });
+
+    Object.keys(ADVANCED_DEFAULTS).forEach((id) => {
+      document.getElementById(id).addEventListener('input', updateAdvancedSummary);
+    });
+
+    document.getElementById('rewardAll').addEventListener('click', () => setAllRewards(true));
+    document.getElementById('rewardReset').addEventListener('click', resetRewards);
+
+    // ---------- 校验与提交 ----------
+    function validate() {
+      const numEnvs = intValue('numEnvs');
+      if (!Number.isFinite(numEnvs) || numEnvs < 64 || numEnvs > 8192) return '并行环境数量需在 64 - 8192 之间';
+      const maxIter = intValue('maxIterations');
+      if (!Number.isFinite(maxIter) || maxIter < 10 || maxIter > 10000) return '最大迭代数需在 10 - 10000 之间';
+      const lr = numValue('learningRate');
+      if (!Number.isFinite(lr) || lr <= 0 || lr > 0.01) return '学习率需在 (0, 0.01] 之间';
+      const episode = numValue('episodeLength');
+      if (!Number.isFinite(episode) || episode < 5 || episode > 60) return 'Episode 长度需在 5 - 60 秒之间';
+      return null;
+    }
+
+    document.getElementById('trainingForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      showError('');
+
+      const invalid = validate();
+      if (invalid) { showError(invalid); return; }
+      if (!selectedPreset) { showError('没有可用的机器人训练资产，请先在模型验证页导入资产'); return; }
+
+      const submitBtn = document.getElementById('submitBtn');
       const originalText = submitBtn.textContent;
       submitBtn.textContent = '创建中...';
       submitBtn.disabled = true;
 
       try {
-        // 获取选中的机器人
-        if (!selectedPreset) throw new Error('没有可用的机器人训练资产');
-
-        // 构建请求数据
-        const reward_scales = {};
-        document.querySelectorAll('[data-reward-id]').forEach(toggle => {
-          const id = toggle.dataset.rewardId;
-          const weight = parseFloat(document.querySelector(`[data-reward-weight="${id}"]`).value);
-          reward_scales[id] = toggle.checked ? weight : 0;
-        });
+        const form = collectConfig();
         const requestData = {
           contract: selectedPreset.contract,
-          algorithm: document.getElementById('algorithm').value,
-          num_envs: parseInt(document.getElementById('numEnvs').value),
-          max_iterations: parseInt(document.getElementById('maxIterations').value),
-          learning_rate: parseFloat(document.getElementById('learningRate').value),
-          save_interval: parseInt(document.getElementById('saveInterval').value),
-          episode_length_s: parseFloat(document.getElementById('episodeLength').value),
-          task_name: document.getElementById('taskName').value || 'forward_walk',
-          terrain_type: document.getElementById('trainMode').value === 'normal' ? 'plane' : document.getElementById('trainMode').value,
-          device: document.getElementById('device').value,
-          reward_scales
+          algorithm: form.algorithm,
+          num_envs: form.num_envs,
+          max_iterations: form.max_iterations,
+          learning_rate: form.learning_rate,
+          save_interval: form.save_interval,
+          episode_length_s: form.episode_length_s,
+          task_name: form.task_name,
+          terrain_type: form.terrain_type,
+          device: form.device,
+          seed: form.seed,
+          num_steps: form.num_steps,
+          gamma: form.gamma,
+          gae_lambda: form.gae_lambda,
+          clip_param: form.clip_param,
+          entropy_coef: form.entropy_coef,
+          reward_scales: form.reward_scales,
         };
 
-        console.log('Creating training with:', requestData);
-
-        // 发送请求
-        const response = await fetch(`${API_BASE}/api/training/create`, {
+        const data = await fetchJson('/api/training/create', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestData)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData),
         });
 
-        const data = await response.json();
+        if (!data.success) throw new Error(data.detail || '创建失败');
 
-        if (data.success) {
-          alert(`✅ 训练任务创建成功！\n\n任务 ID: ${data.task_id}\n\n正在跳转到监控页面...`);
-          window.location.href = `training_monitor.html?task_id=${data.task_id}`;
-        } else {
-          throw new Error(data.detail || '创建失败');
-        }
-
+        showToast(`训练任务已创建：${data.task_id}`);
+        setTimeout(() => { window.location.href = `training_monitor.html?task_id=${encodeURIComponent(data.task_id)}`; }, 500);
       } catch (error) {
-        console.error('Failed to create training:', error);
-        alert(`❌ 创建训练失败\n\n${error.message}`);
+        showError(`创建训练失败：${error.message}`);
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
       }
     });
+
+    // ---------- 初始化 ----------
+    (async function init() {
+      updateSummary();
+      updateAdvancedSummary();
+      try {
+        await Promise.all([loadOptions(), loadPresets()]);
+      } catch (error) {
+        console.error('[training_create] init failed:', error);
+        showError(error.message);
+        renderLoadError(error);
+      }
+    })();
   </script>
 </body>
 </html>

@@ -18,4 +18,13 @@ def list_robot_presets() -> list[dict[str, Any]]:
 
 
 def get_robot_preset(robot_id: str) -> dict[str, Any] | None:
-    return next((item for item in list_robot_presets() if item["robot_id"] == robot_id), None)
+    """Return a single package record by ``robot_id``.
+
+    ``list_robot_packages`` is backed by the persistent index (a cheap in-
+    memory read), so building this lookup fresh each call is fast and always
+    reflects the latest index without fragile versioning bookkeeping.
+    """
+    for item in list_robot_packages():
+        if str(item.get("robot_id")) == robot_id:
+            return item
+    return None

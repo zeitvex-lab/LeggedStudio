@@ -1,0 +1,89 @@
+{
+  "schema_version": "simulation-config-1.0",
+  "backend": "mujoco",
+  "default_map": "flat",
+  "scene_path": "simulation/scene.xml",
+  "actuator_interface": "position_target",
+  "action_scale": 1.0,
+  "control_hz": 50,
+  "physics_hz": 200,
+  "decimation": 4,
+  "model_variants": [
+    {
+      "id": "groundcontact",
+      "path": "model/robot.xml",
+      "label": "Ground contact"
+    }
+  ],
+  "visual_model": "simulation/visual/microduck.glb",
+  "kinematics": "simulation/visual/kinematics.json",
+  "policy_contract": {
+    "observation_kind": "microduck_61",
+    "command_dims": 13,
+    "history_len": 1,
+    "scales": {
+      "ang_vel": 1.0,
+      "dof_pos": 1.0,
+      "dof_vel": 1.0,
+      "command": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  },
+  "policies": [
+    {
+      "id": "walking",
+      "path": "simulation/policies/BEST_alpha_walking.onnx",
+      "label": "Walking",
+      "obs_dim": 61,
+      "action_dim": 14
+    },
+    {
+      "id": "stand",
+      "path": "simulation/policies/BEST_alpha_stand.onnx",
+      "label": "Stand",
+      "obs_dim": 61,
+      "action_dim": 14
+    },
+    {
+      "id": "sitstand",
+      "path": "simulation/policies/BEST_alpha_sitstand.onnx",
+      "label": "Sit / Stand",
+      "obs_dim": 61,
+      "action_dim": 14
+    },
+    {
+      "id": "roulade",
+      "path": "simulation/policies/roulade.onnx",
+      "label": "Roulade",
+      "obs_dim": 61,
+      "action_dim": 14
+    }
+  ],
+  "initial_base_height": 0.12,
+  "stiffness": {
+    "joint": 10
+  },
+  "damping": {
+    "joint": 0.1
+  },
+  "terrains": [
+    {
+      "id": "flat",
+      "label": "平地",
+      "path": "simulation/scene.xml"
+    },
+    {
+      "id": "relief",
+      "label": "起伏围场",
+      "path": "simulation/relief.xml"
+    },
+    {
+      "id": "apartment",
+      "label": "公寓",
+      "path": "simulation/scene_apartment.xml"
+    }
+  ]
+}

@@ -6,14 +6,16 @@
   "source_root": "training/source",
   "entrypoints": {"env": "robot.config.env_cfgs:flat_env_cfg", "runner": "robot.config.rl_cfg:flat_ppo_runner_cfg"},
   "backend": "native_mjlab",
+  "task_name": "forward_walk",
   "terrain_type": "plane",
   "algorithm": "PPO",
   "num_envs": 2048,
   "episode_length_s": 20.0,
   "decimation": 4,
-  "action": {"leg_control": "position", "wheel_control": "velocity", "leg_scale": 0.25, "wheel_scale": 5.0, "stiffness": 50.0, "damping": 1.5, "wheel_damping": 1.0, "effort_limit": 17.0},
-  "command_ranges": {"lin_vel_x": [-1.0, 1.0], "lin_vel_y": [-1.0, 1.0], "ang_vel_z": [-1.0, 1.0]},
+  "action": {"leg_control": "position", "wheel_control": "velocity", "leg_scale": {"hip_abduction": 0.125, "hip_pitch": 0.25, "knee": 0.25}, "wheel_scale": 5.0, "stiffness": 50.0, "damping": 1.5, "wheel_damping": 1.0, "effort_limit": 17.0, "lowpass_cutoff_hz": {"legs": 5.0, "wheels": 15.0}, "delay_steps": [0, 2]},
+  "command_ranges": {"lin_vel_x": [-1.0, 1.0], "lin_vel_y": [-0.5, 0.5], "ang_vel_z": [-1.0, 1.0]},
   "terrain": {"type": "generator", "sub_terrains": ["flat"]},
   "reward_terms": ["track_lin_vel", "track_ang_vel", "upright", "base_height_l2", "body_ang_vel", "is_terminated", "joint_torques", "joint_acc", "action_rate", "joint_pos_limits", "wheel_roll_tracking", "wheel_contact_bonus", "feet_air_time", "leg_motion_penalty", "stand_still", "body_collision"],
-  "runner": {"hidden_dims": [512, 256, 128], "learning_rate": 0.0008, "entropy_coef": 0.003, "num_learning_epochs": 5, "num_mini_batches": 4, "num_steps_per_env": 24, "max_iterations": 10000}
+  "runner": {"hidden_dims": [512, 256, 128], "activation": "elu", "learning_rate": 0.0008, "entropy_coef": 0.003, "gamma": 0.99, "gae_lambda": 0.95, "clip_param": 0.2, "num_learning_epochs": 5, "num_mini_batches": 4, "num_steps_per_env": 24, "save_interval": 100, "max_iterations": 10000},
+  "sort_order": 10
 }

@@ -36,7 +36,14 @@ body {
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -99,8 +106,11 @@ input[type="checkbox"] {
 }
 
 .viewer {
-  background:
-    radial-gradient(circle at 50% 100%, rgba(61, 214, 198, 0.12), transparent 34%),
+  background: radial-gradient(
+      circle at 50% 100%,
+      rgba(61, 214, 198, 0.12),
+      transparent 34%
+    ),
     linear-gradient(180deg, #1b252f 0%, #11171d 58%, #0a0d10 100%);
 }
 
@@ -149,8 +159,7 @@ input[type="checkbox"] {
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, var(--teal), rgba(114, 167, 255, 0.88)),
+  background: linear-gradient(135deg, var(--teal), rgba(114, 167, 255, 0.88)),
     #182027;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
@@ -510,7 +519,9 @@ input[type="checkbox"] {
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.07);
-  transition: border-color 120ms ease, background 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
 }
 
 .gait-toggle-track i {
@@ -518,7 +529,9 @@ input[type="checkbox"] {
   height: 14px;
   border-radius: 50%;
   background: var(--muted);
-  transition: transform 120ms ease, background 120ms ease;
+  transition:
+    transform 120ms ease,
+    background 120ms ease;
 }
 
 .gait-toggle input:checked + .gait-toggle-track {
@@ -1008,16 +1021,46 @@ kbd.active {
 }
 
 @media (max-width: 620px) {
-  .hud-top { top: 68px; left: 12px; right: 12px; }
-  .brand, .toolbar, .panel, .footer { width: calc(100vw - 24px); }
-  .brand { min-height: 48px; padding: 8px 10px; }
-  .brand h1 { font-size: 16px; }
-  .brand p { display: none; }
-  .brand-mark { width: 28px; height: 28px; }
-  .toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 7px; }
-  .toolbar > * { min-width: 0; }
-  .select-field { width: 100%; }
-  .select-field select { flex: 1; }
+  .hud-top {
+    top: 68px;
+    left: 12px;
+    right: 12px;
+  }
+  .brand,
+  .toolbar,
+  .panel,
+  .footer {
+    width: calc(100vw - 24px);
+  }
+  .brand {
+    min-height: 48px;
+    padding: 8px 10px;
+  }
+  .brand h1 {
+    font-size: 16px;
+  }
+  .brand p {
+    display: none;
+  }
+  .brand-mark {
+    width: 28px;
+    height: 28px;
+  }
+  .toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 7px;
+  }
+  .toolbar > * {
+    min-width: 0;
+  }
+  .select-field {
+    width: 100%;
+  }
+  .select-field select {
+    flex: 1;
+  }
   .panel-left {
     left: 12px;
     top: auto;
@@ -1125,14 +1168,21 @@ kbd.active {
     background: rgba(61, 214, 198, 0.18);
     color: var(--text);
   }
-  .panel-left.is-collapsed > :not(.mobile-panel-toggle):not(.mobile-cruise-controls) { display: none; }
+  .panel-left.is-collapsed
+    > :not(.mobile-panel-toggle):not(.mobile-cruise-controls) {
+    display: none;
+  }
   .panel-right {
     display: none;
   }
   .health-checks-list {
     max-height: 118px;
   }
-  .footer { left: 12px; right: 12px; bottom: 12px; }
+  .footer {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1142,10 +1192,30 @@ kbd.active {
   }
 }
 
-body.embedded .studio-nav { display: none; }
-body.embedded .brand { display: none; }
-body.embedded .hud-top { top: 12px; left: 12px; right: 12px; justify-content: flex-end; }
-body.embedded .panel-left { top: 76px; }
+body.embedded .studio-nav {
+  display: none;
+}
+body.embedded .brand {
+  display: none;
+}
+body.embedded .hud-top {
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  justify-content: flex-end;
+}
+body.viewer-only .hud,
+body.viewer-only .panel-left,
+body.viewer-only .viewer-footer,
+body.viewer-only .mobile-joystick {
+  display: none !important;
+}
+body.viewer-only .viewer {
+  inset: 0;
+}
+body.embedded .panel-left {
+  top: 76px;
+}
 
 /* Keep the touch control clear of the robot on the narrowest phones. */
 @media (max-width: 380px) {
@@ -1193,53 +1263,202 @@ body.embedded .panel-left { top: 76px; }
   --shadow: 0 8px 24px rgba(32, 48, 70, 0.13);
 }
 
-body { background: var(--bg); color: var(--text); }
-.viewer { background: linear-gradient(180deg, #f1f4f7 0%, #dbe2ea 100%); }
-.brand, .toolbar, .panel, .footer {
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+.viewer {
+  background: linear-gradient(180deg, #f1f4f7 0%, #dbe2ea 100%);
+}
+.brand,
+.toolbar,
+.panel,
+.footer {
   border-color: var(--border);
   background: var(--panel);
   box-shadow: var(--shadow);
   backdrop-filter: blur(12px);
 }
-.hud-top { top: 16px; left: 16px; right: 16px; align-items: center; }
-.brand { min-height: 52px; padding: 9px 13px 9px 10px; }
-.brand-mark { width: 30px; height: 30px; border-radius: 6px; background: #2563eb; box-shadow: none; }
-.brand h1 { color: #182230; font-size: 18px; }
-.brand p, .select-field, .dot-label, .model-card small, .metric-grid small,
-.section-title output, .footer, .key-grid kbd { color: var(--muted); }
-.studio-nav { display: flex; align-items: center; gap: 4px; margin-left: 0; }
-.studio-nav a { padding: 7px 9px; border-bottom: 2px solid transparent; color: var(--muted); font-size: 12px; text-decoration: none; }
-.studio-nav a:hover { color: var(--text); background: #f3f6fa; }
-.studio-nav a.active { border-bottom-color: var(--blue); color: var(--blue); }
-.toolbar { padding: 7px; gap: 7px; }
-.hud-top { flex-wrap: wrap; }
-button, select, .nav-button {
+.hud-top {
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  align-items: center;
+}
+.brand {
+  min-height: 52px;
+  padding: 9px 13px 9px 10px;
+}
+.brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: #2563eb;
+  box-shadow: none;
+}
+.brand h1 {
+  color: #182230;
+  font-size: 18px;
+}
+.brand p,
+.select-field,
+.dot-label,
+.model-card small,
+.metric-grid small,
+.section-title output,
+.footer,
+.key-grid kbd {
+  color: var(--muted);
+}
+.studio-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 0;
+}
+.studio-nav a {
+  padding: 7px 9px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+.studio-nav a:hover {
+  color: var(--text);
+  background: #f3f6fa;
+}
+.studio-nav a.active {
+  border-bottom-color: var(--blue);
+  color: var(--blue);
+}
+.toolbar {
+  padding: 7px;
+  gap: 7px;
+}
+.hud-top {
+  flex-wrap: wrap;
+}
+button,
+select,
+.nav-button {
   min-height: 34px;
   border-color: var(--border);
   border-radius: 5px;
   background: #fff;
   color: var(--text);
 }
-button:hover, select:hover, .nav-button:hover { border-color: #8aa9dc; background: #f5f8ff; }
-#playButton, .toolbar .nav-button:first-child { border-color: #2563eb; background: #2563eb; color: #fff; }
-.panel { border-radius: 6px; padding: 13px; max-height: calc(100vh - 100px); }
-.panel-left { top: 84px; right: 16px; left: auto; width: min(390px, calc(100vw - 32px)); }
-.toolbar .select-field { min-width: 118px; }
-.toolbar .select-field select { max-width: 150px; }
-#expertPanel { display: none !important; }
-.model-card, .health-checks, .control-panel, .expert-bars { border-color: var(--border); background: var(--panel-soft); }
-.model-card strong, .metric-grid strong { color: #1e293b; }
-.metric-grid > div { border-color: var(--border); background: #fff; }
-input[type="range"] { accent-color: var(--blue); }
-.loading { border-color: var(--border); border-radius: 6px; background: rgba(255,255,255,.98); box-shadow: var(--shadow); color: var(--text); }
-.loading strong { color: #1d4ed8; }
-.loading-bar { background: #e5eaf1; }
-.loading-bar i { background: #2563eb; }
-.footer { right: 16px; bottom: 16px; left: 16px; border-radius: 5px; box-shadow: 0 4px 16px rgba(32,48,70,.1); }
+button:hover,
+select:hover,
+.nav-button:hover {
+  border-color: #8aa9dc;
+  background: #f5f8ff;
+}
+#playButton,
+.toolbar .nav-button:first-child {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+.panel {
+  border-radius: 6px;
+  padding: 13px;
+  max-height: calc(100vh - 100px);
+}
+.panel-left {
+  top: 84px;
+  right: 16px;
+  left: auto;
+  width: min(390px, calc(100vw - 32px));
+}
+.toolbar .select-field {
+  min-width: 118px;
+}
+.toolbar .select-field select {
+  max-width: 150px;
+}
+#expertPanel {
+  display: none !important;
+}
+.model-card,
+.health-checks,
+.control-panel,
+.expert-bars {
+  border-color: var(--border);
+  background: var(--panel-soft);
+}
+.model-card strong,
+.metric-grid strong {
+  color: #1e293b;
+}
+.metric-grid > div {
+  border-color: var(--border);
+  background: #fff;
+}
+input[type="range"] {
+  accent-color: var(--blue);
+}
+.loading {
+  border-color: var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+.loading strong {
+  color: #1d4ed8;
+}
+.loading-bar {
+  background: #e5eaf1;
+}
+.loading-bar i {
+  background: #2563eb;
+}
+.footer {
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  border-radius: 5px;
+  box-shadow: 0 4px 16px rgba(32, 48, 70, 0.1);
+}
+.preview-only .hud,
+.preview-only .mobile-joystick {
+  display: none !important;
+}
+.preview-only .loading,
+.preview-only .footer,
+.preview-only .panel {
+  display: none !important;
+}
+.preview-only .viewer {
+  position: fixed;
+  inset: 0;
+  background: #f7f9fb;
+}
+.preview-only .viewer {
+  background: linear-gradient(180deg, #f7f9fb 0%, #e7edf3 100%);
+}
 
 @media (max-width: 620px) {
-  .hud-top { top: 12px; left: 12px; right: 12px; }
-  .studio-nav { order: 3; width: 100%; justify-content: space-between; margin-left: 0; }
-  .studio-nav a { flex: 1; text-align: center; }
-  .panel-left { top: auto; right: 12px; bottom: 64px; left: 12px; width: auto; }
+  .hud-top {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+  }
+  .studio-nav {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+  }
+  .studio-nav a {
+    flex: 1;
+    text-align: center;
+  }
+  .panel-left {
+    top: auto;
+    right: 12px;
+    bottom: 64px;
+    left: 12px;
+    width: auto;
+  }
 }

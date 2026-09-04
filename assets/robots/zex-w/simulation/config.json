@@ -2,5 +2,143 @@
   "schema_version": "simulation-config-1.0",
   "backend": "mujoco",
   "scene_path": "simulation/scene.xml",
-  "default_map": "flat"
+  "initial_base_height": 0.55,
+  "actuator_interface": "position_target",
+  "control_hz": 50,
+  "physics_hz": 500,
+  "decimation": 10,
+  "stiffness": {
+    "hip": 50.0,
+    "thigh": 50.0,
+    "calf": 50.0,
+    "joint": 50.0
+  },
+  "damping": {
+    "hip": 1.5,
+    "thigh": 1.5,
+    "calf": 1.5,
+    "wheel": 1.0,
+    "joint": 1.5
+  },
+  "action_scale_by_role": {
+    "leg": 0.25,
+    "wheel": 5.0
+  },
+  "action_scale_by_joint": {
+    "fl_hip_abduction_joint": 0.125,
+    "fr_hip_abduction_joint": 0.125,
+    "rl_hip_abduction_joint": 0.125,
+    "rr_hip_abduction_joint": 0.125
+  },
+  "velocity_scale": 5.0,
+  "control_modes": {
+    "wheel": "velocity",
+    "fl_wheel_joint": "velocity",
+    "fr_wheel_joint": "velocity",
+    "rl_wheel_joint": "velocity",
+    "rr_wheel_joint": "velocity"
+  },
+  "torque_limit": 17.0,
+  "policy_contract": {
+    "observation_kind": "zexw_53",
+    "obs_dim": 53,
+    "action_dim": 16,
+    "history_len": 1,
+    "scales": {
+      "ang_vel": 0.25,
+      "dof_pos": 1.0,
+      "dof_vel": 0.05,
+      "command": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  },
+  "policies": [
+    {
+      "id": "model-6800",
+      "path": "simulation/policies/model_6800.onnx",
+      "label": "rough 6800 (v3 比赛)",
+      "obs_dim": 53,
+      "action_dim": 16,
+      "history_len": 1,
+      "contract": {
+        "observation_kind": "zexw_53",
+        "obs_dim": 53,
+        "action_dim": 16,
+        "history_len": 1
+      }
+    },
+    {
+      "id": "model-84",
+      "path": "simulation/policies/model_84.onnx",
+      "label": "wall 84 (v3)",
+      "obs_dim": 53,
+      "action_dim": 16,
+      "history_len": 1,
+      "contract": {
+        "observation_kind": "zexw_53",
+        "obs_dim": 53,
+        "action_dim": 16,
+        "history_len": 1
+      }
+    },
+    {
+      "id": "model-9600",
+      "path": "simulation/policies/model_9600.onnx",
+      "label": "rough 9600 (v2 里程计)",
+      "obs_dim": 53,
+      "action_dim": 16,
+      "history_len": 1,
+      "contract": {
+        "observation_kind": "zexw_53",
+        "obs_dim": 53,
+        "action_dim": 16,
+        "history_len": 1
+      }
+    },
+    {
+      "id": "model-rough",
+      "path": "simulation/policies/model_rough.onnx",
+      "label": "rough 基线 (v2 契约参考)",
+      "obs_dim": 53,
+      "action_dim": 16,
+      "history_len": 1,
+      "contract": {
+        "observation_kind": "zexw_53",
+        "obs_dim": 53,
+        "action_dim": 16,
+        "history_len": 1
+      }
+    }
+  ],
+  "default_map": "flat",
+  "settle_steps": 500,
+  "action_filter_cutoffs": {
+    "leg": 5.0,
+    "wheel": 15.0
+  },
+  "terrains": [
+    {
+      "id": "flat",
+      "label": "平地",
+      "path": "simulation/flat.xml"
+    },
+    {
+      "id": "rough",
+      "label": "粗糙地形",
+      "path": "simulation/rough.xml"
+    },
+    {
+      "id": "stairs",
+      "label": "楼梯",
+      "path": "simulation/stairs.xml"
+    },
+    {
+      "id": "slope",
+      "label": "斜坡",
+      "path": "simulation/slope.xml"
+    }
+  ]
 }

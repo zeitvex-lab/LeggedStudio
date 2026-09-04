@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import base64
 import io
+import hashlib
 import json
+import os
 import shutil
-import uuid
+import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,36 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = PROJECT_ROOT / "workspace"
 
 
+def _workspace_root() -> Path:
+    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE")
+    return Path(configured).expanduser().resolve() if configured else WORKSPACE
+
+
+def _api_path(path: Path) -> str:
+    path = path.resolve()
+    try:
+        return path.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _safe_package_id(value: str) -> str:
+    normalized = "".join(char.lower() if char.isalnum() or char in "_-" else "_" for char in value).strip("_-")
+    if not normalized:
+        raise ValueError("package id is empty")
+    return normalized[:80]
+
+
+def _tree_hash(root: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted((item for item in root.rglob("*") if item.is_file()), key=lambda item: item.relative_to(root).as_posix()):
+        digest.update(path.relative_to(root).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 class ProjectExportRequest(BaseModel):
     training_config: dict[str, Any] = Field(default_factory=dict)
     scenario: dict[str, Any] = Field(default_factory=dict)
@@ -37,48 +69,52 @@ class ProjectImportRequest(BaseModel):
 async def list_project_packages() -> dict[str, Any]:
     """List locally persisted imported packages available to Web and CLI."""
     packages = []
-    roots = [WORKSPACE / "packages", WORKSPACE / "imports"]
-    seen: set[str] = set()
-    for root in roots:
-      for package_root in sorted(root.iterdir()) if root.exists() else []:
+    root = _workspace_root() / "packages"
+    for package_root in sorted(root.iterdir()) if root.exists() else []:
         if not package_root.is_dir():
-          continue
-        package_key = str(package_root.resolve())
-        if package_key in seen:
-          continue
+            continue
         descriptor = package_root / "robot_package.json"
         contract = package_root / "contract.json"
         if not descriptor.exists() or not contract.exists():
-          continue
+            continue
         try:
-          package = json.loads(descriptor.read_text(encoding="utf-8"))
-          contract_data = json.loads(contract.read_text(encoding="utf-8"))
-          seen.add(package_key)
-          files = [item for item in package_root.rglob("*") if item.is_file()]
-          packages.append({
-            "package_id": package.get("package_id") or contract_data.get("robot_id") or package_root.name,
-            "package_root": str(package_root.relative_to(PROJECT_ROOT)).replace("\\", "/"),
-            "source": "imported" if root.name == "imports" else "workspace",
-            "file_count": len(files),
-            "size_bytes": sum(item.stat().st_size for item in files),
-            "robot_package": package,
-            "contract": contract_data,
-          })
+            package = json.loads(descriptor.read_text(encoding="utf-8-sig"))
+            contract_data = json.loads(contract.read_text(encoding="utf-8-sig"))
+            files = [item for item in package_root.rglob("*") if item.is_file()]
+            packages.append({
+                "package_id": package.get("package_id") or contract_data.get("robot_id") or package_root.name,
+                "package_root": _api_path(package_root),
+                "source": "workspace",
+                "file_count": len(files),
+                "size_bytes": sum(item.stat().st_size for item in files),
+                "robot_package": package,
+                "contract": contract_data,
+            })
         except (OSError, json.JSONDecodeError):
-          continue
+            continue
     return {"success": True, "packages": packages, "count": len(packages)}
 
 
 @router.delete("/packages/{package_id}")
 async def delete_project_package(package_id: str) -> dict[str, Any]:
     """Delete an imported package by its persisted directory id."""
-    if not package_id or Path(package_id).name != package_id:
+    try:
+        safe_id = _safe_package_id(package_id)
+    except ValueError:
+        safe_id = ""
+    if not package_id or safe_id != package_id:
         return {"success": False, "error": "invalid package id"}
-    candidates = [WORKSPACE / "imports" / package_id, WORKSPACE / "packages" / package_id]
-    target = next((item for item in candidates if item.exists() and item.is_dir()), None)
+    packages_root = (_workspace_root() / "packages").resolve()
+    target = (packages_root / package_id).resolve()
+    if target.parent != packages_root:
+        return {"success": False, "error": "invalid package id"}
+    if not target.exists() or not target.is_dir():
+        target = None
     if target is None:
         return {"success": False, "error": "package not found"}
     shutil.rmtree(target)
+    from backend.robot_packages import remove_package
+    remove_package(package_id)
     return {"success": True, "package_id": package_id}
 
 
@@ -91,25 +127,25 @@ def _safe_zip_path(name: str) -> Path:
 
 @router.post("/export")
 async def export_project(request: ProjectExportRequest) -> Response:
-    manifest = {"schema_version": "legged-studio-project-1.0", "product_version": "0.5.0", "imports": [], "files": ["training/config.json", "scenarios/active.json"]}
+    manifest = {"schema_version": "legged-studio-project-1.0", "product_version": "0.6.0", "imports": [], "files": ["training/config.json", "scenarios/active.json"]}
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         exported_roots: set[str] = set()
-        import_dirs = sorted((WORKSPACE / "imports").glob("*"), key=lambda item: item.stat().st_mtime, reverse=True) if (WORKSPACE / "imports").exists() else []
-        # Only explicitly selected legacy imports are copied. Robot packages
-        # referenced by training_config are handled by the robots/ section.
+        package_dirs = sorted((_workspace_root() / "packages").glob("*"), key=lambda item: item.stat().st_mtime, reverse=True) if (_workspace_root() / "packages").exists() else []
+        # ``import_ids`` is retained as a wire-compatible field, but now
+        # selects formal package ids rather than legacy imports.
         if not request.import_ids:
-            import_dirs = []
-        for import_dir in import_dirs:
-            if request.import_ids and import_dir.name not in request.import_ids:
+            package_dirs = []
+        for package_dir in package_dirs:
+            if request.import_ids and package_dir.name not in request.import_ids:
                 continue
-            if not import_dir.is_dir():
+            if not package_dir.is_dir():
                 continue
-            manifest["imports"].append(import_dir.name)
-            for file in import_dir.rglob("*"):
-                if file.is_file(): archive.write(file, f"imports/{import_dir.name}/{file.relative_to(import_dir).as_posix()}")
+            exported_roots.add(package_dir.name)
+            for file in package_dir.rglob("*"):
+                if file.is_file(): archive.write(file, f"robots/{package_dir.name}/{file.relative_to(package_dir).as_posix()}")
         # A project can reference a built-in or previously imported package
-        # outside workspace/imports. Carry that package with the project so a
+        # outside workspace/packages. Carry that package with the project so a
         # recipe remains reproducible on another machine.
         contract_data = request.training_config.get("contract") if isinstance(request.training_config, dict) else None
         if isinstance(contract_data, dict):
@@ -117,6 +153,9 @@ async def export_project(request: ProjectExportRequest) -> Response:
             package_root = Path(str(package.get("package_root", "")))
             if package_root.exists() and package_root.is_dir():
                 package_id = str(package.get("package_id") or package_root.name)
+                if package_id in exported_roots:
+                    package_root = None
+            if package_root is not None and package_root.exists() and package_root.is_dir():
                 exported_roots.add(package_id)
                 for file in package_root.rglob("*"):
                     if file.is_file():
@@ -135,42 +174,29 @@ async def export_project(request: ProjectExportRequest) -> Response:
 async def import_project(request: ProjectImportRequest) -> dict[str, Any]:
     try:
         raw = base64.b64decode(request.archive_base64, validate=True)
-        imported_root = WORKSPACE / "imports" / f"package_{uuid.uuid4().hex[:10]}"
-        imported_root.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
-            members = [_safe_zip_path(item.filename) for item in archive.infolist() if not item.is_dir()]
-            if len(members) > 5000:
-                raise ValueError("project package contains too many files")
-            for info, relative in zip([item for item in archive.infolist() if not item.is_dir()], members):
-                if relative.parts[0] not in {"imports", "robots", "training", "scenarios", "manifest.json"}:
-                    raise ValueError(f"unsupported package entry: {relative}")
-                target = imported_root / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(archive.read(info))
-        manifest_path = imported_root / "manifest.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
-        _normalise_robot_packages(imported_root, manifest)
-        # Relocate imported contract model paths to the new workspace package.
-        for contract_path in imported_root.rglob("contract.json"):
-            try:
-                contract = json.loads(contract_path.read_text(encoding="utf-8"))
-                old_path = Path(str(contract.get("urdf", {}).get("path", "")))
-                matches = list(contract_path.parent.rglob(old_path.name))
-                if matches:
-                    contract.setdefault("urdf", {})["path"] = str(matches[0].relative_to(PROJECT_ROOT)).replace("\\", "/")
-                    contract_path.write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            except (OSError, json.JSONDecodeError, ValueError):
-                continue
-        robots = []
-        for contract_path in imported_root.rglob("contract.json"):
-            try:
-                contract = json.loads(contract_path.read_text(encoding="utf-8"))
-                package_path = contract_path.parent / "robot_package.json"
-                package = json.loads(package_path.read_text(encoding="utf-8")) if package_path.exists() else {}
-                robots.append({"robot_id": contract.get("robot_id"), "family": contract.get("family"), "contract": contract, "asset_path": contract.get("urdf", {}).get("path"), "robot_package": package})
-            except (OSError, json.JSONDecodeError):
-                continue
-        return {"success": True, "import_root": str(imported_root.relative_to(PROJECT_ROOT)).replace("\\", "/"), "manifest": manifest, "robots": robots, "training_config": json.loads((imported_root / "training/config.json").read_text(encoding="utf-8")) if (imported_root / "training/config.json").exists() else {}, "scenario": json.loads((imported_root / "scenarios/active.json").read_text(encoding="utf-8")) if (imported_root / "scenarios/active.json").exists() else {}}
+        workspace = _workspace_root()
+        packages_root = workspace / "packages"
+        packages_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="legged-studio-project-", dir=workspace) as extracted_value:
+            extracted_root = Path(extracted_value)
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                files = [item for item in archive.infolist() if not item.is_dir()]
+                members = [_safe_zip_path(item.filename) for item in files]
+                if len(members) > 5000:
+                    raise ValueError("project package contains too many files")
+                for info, relative in zip(files, members):
+                    if relative.parts[0] not in {"imports", "robots", "training", "scenarios", "manifest.json"}:
+                        raise ValueError(f"unsupported package entry: {relative}")
+                    target = extracted_root / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(archive.read(info))
+            manifest_path = extracted_root / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+            _normalise_robot_packages(extracted_root, manifest)
+            training_config = json.loads((extracted_root / "training/config.json").read_text(encoding="utf-8")) if (extracted_root / "training/config.json").exists() else {}
+            scenario = json.loads((extracted_root / "scenarios/active.json").read_text(encoding="utf-8")) if (extracted_root / "scenarios/active.json").exists() else {}
+            robots = _persist_robot_packages(extracted_root, packages_root)
+        return {"success": True, "import_root": _api_path(packages_root), "package_ids": [item["package_id"] for item in robots], "manifest": manifest, "robots": robots, "training_config": training_config, "scenario": scenario}
     except Exception as exc:
         return {"success": False, "error": str(exc)}
 
@@ -200,7 +226,7 @@ def _normalise_robot_packages(imported_root: Path, manifest: dict[str, Any]) -> 
         requested_path = imported_root / _safe_zip_path(str(requested))
         candidates.sort(key=lambda item: 0 if item == requested_path else 1)
     for model in candidates:
-        relative = str(model.relative_to(PROJECT_ROOT)).replace("\\", "/")
+        relative = _api_path(model)
         fmt = "urdf" if model.suffix.lower() == ".urdf" else "mjcf"
         report = _validate(ModelValidationRequest(path=relative, filename=model.name, format=fmt))
         if not report.get("valid"):
@@ -213,3 +239,48 @@ def _normalise_robot_packages(imported_root: Path, manifest: dict[str, Any]) -> 
         package = {"schema_version": "robot-package-1.0", "package_id": package_id, "task_kind": "generic", "capabilities": ["generic_mjlab", "mujoco_sim"], "model_path": relative}
         (imported_root / "robot_package.json").write_text(json.dumps({**package, "model": {"format": fmt, "path": str(model.relative_to(imported_root)).replace("\\", "/"), "assets_path": "model/assets"}, "contract_path": "contract.json", "training_config_path": "training/config.json", "simulation_config_path": "simulation/config.json"}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         break
+
+
+def _persist_robot_packages(extracted_root: Path, packages_root: Path) -> list[dict[str, Any]]:
+    """Atomically promote valid extracted robot packages into the workspace."""
+    package_roots = sorted({path.parent for path in extracted_root.rglob("robot_package.json") if (path.parent / "contract.json").exists()})
+    robots: list[dict[str, Any]] = []
+    for source in package_roots:
+        descriptor = json.loads((source / "robot_package.json").read_text(encoding="utf-8"))
+        contract = json.loads((source / "contract.json").read_text(encoding="utf-8"))
+        base_id = _safe_package_id(str(descriptor.get("package_id") or contract.get("robot_id") or source.name))
+        source_hash = str(descriptor.get("content_sha256") or _tree_hash(source))
+        target = packages_root / base_id
+        if target.exists():
+            existing_descriptor = json.loads((target / "robot_package.json").read_text(encoding="utf-8")) if (target / "robot_package.json").exists() else {}
+            existing_hash = str(existing_descriptor.get("content_sha256") or _tree_hash(target))
+            if existing_hash != source_hash:
+                target = packages_root / f"{base_id}_{source_hash[:10]}"
+        if not target.exists():
+            staging = packages_root / f".staging-{target.name}"
+            if staging.exists():
+                shutil.rmtree(staging)
+            shutil.copytree(source, staging)
+            staging.rename(target)
+
+        contract_path = target / "contract.json"
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        descriptor_path = target / "robot_package.json"
+        descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+        model_entry = descriptor.get("model", {}) if isinstance(descriptor.get("model"), dict) else {}
+        model = target / str(model_entry.get("path", "")) if model_entry.get("path") else None
+        if model is None or not model.is_file():
+            old_name = Path(str(contract.get("urdf", {}).get("path", ""))).name
+            matches = [item for item in target.rglob(old_name) if item.is_file()] if old_name else []
+            model = matches[0] if matches else None
+        if model is not None:
+            contract.setdefault("urdf", {})["path"] = _api_path(model)
+        descriptor["package_id"] = target.name
+        descriptor.setdefault("content_sha256", source_hash)
+        contract["robot_id"] = target.name
+        contract_path.write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        descriptor_path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        from backend.robot_packages import upsert_package
+        upsert_package(target, source="workspace")
+        robots.append({"package_id": target.name, "package_root": _api_path(target), "robot_id": contract.get("robot_id"), "family": contract.get("family"), "contract": contract, "asset_path": contract.get("urdf", {}).get("path"), "robot_package": descriptor})
+    return robots

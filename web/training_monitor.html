@@ -12,36 +12,146 @@
       padding: 40px 24px;
     }
 
-    .status-bar {
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+
+    .panel-title {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 20px 24px;
-      background: var(--surface);
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      margin-bottom: 24px;
+      gap: 14px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
     }
 
-    .status-info h3 {
-      font-size: 16px;
+    .panel-title h3 {
+      font-size: 15px;
       font-weight: 600;
-      margin-bottom: 8px;
+      color: var(--text);
     }
 
-    .status-info p {
-      font-size: 13px;
+    .panel-title .panel-note {
+      font-size: 12px;
       color: var(--muted);
     }
 
-    .progress-section {
-      background: var(--surface);
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      padding: 24px;
-      margin-bottom: 24px;
+    /* 状态栏 */
+    .status-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
     }
 
+    .status-head h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      font-family: 'SF Mono', Consolas, monospace;
+      word-break: break-all;
+    }
+
+    .status-head .meta {
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: var(--surface-raised);
+      white-space: nowrap;
+    }
+
+    .status-badge .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
+    .status-badge.running { background: rgba(45, 212, 191, 0.12); color: var(--accent); border-color: rgba(45, 212, 191, 0.35); }
+    .status-badge.running .status-dot { background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+    .status-badge.pending .status-dot { animation: pulse 1.6s ease-in-out infinite; }
+    .status-badge.completed { background: rgba(94, 234, 212, 0.1); color: var(--success); border-color: rgba(94, 234, 212, 0.3); }
+    .status-badge.completed .status-dot { background: var(--success); }
+    .status-badge.failed { background: rgba(248, 113, 113, 0.12); color: var(--danger); border-color: rgba(248, 113, 113, 0.35); }
+    .status-badge.failed .status-dot { background: var(--danger); }
+    .status-badge.stopped { color: #fde68a; border-color: rgba(251, 191, 36, 0.3); }
+    .status-badge.stopped .status-dot { background: #fbbf24; }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+    .error-banner {
+      display: none;
+      margin-top: 14px;
+      padding: 12px 16px;
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      border-radius: var(--radius);
+      background: rgba(127, 29, 29, 0.16);
+      color: #fecaca;
+      font-size: 13px;
+      line-height: 1.5;
+      word-break: break-all;
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .error-banner.visible { display: block; }
+
+    /* 健康指标网格 */
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .health-item {
+      min-width: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      background: var(--surface-raised);
+      display: grid;
+      gap: 4px;
+      align-content: center;
+    }
+
+    .health-item span {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .health-item strong {
+      font-size: 14px;
+      color: var(--text);
+      font-family: 'SF Mono', Consolas, monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .health-item.accent strong { color: var(--accent); }
+
+    /* 进度条 */
     .progress-bar-container {
       width: 100%;
       height: 8px;
@@ -53,70 +163,267 @@
 
     .progress-bar {
       height: 100%;
-      background: var(--accent);
-      transition: width 0.3s ease;
+      background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+      border-radius: 4px;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 16px rgba(45, 212, 191, 0.25);
     }
 
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-top: 24px;
+    .progress-bar.done { background: var(--success); box-shadow: none; }
+    .progress-bar.failed { background: var(--danger); box-shadow: none; }
+
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      color: var(--muted);
     }
 
-    .metric-card {
-      padding: 20px;
-      background: var(--surface-raised);
+    .progress-text b { color: var(--text); font-family: 'SF Mono', Consolas, monospace; }
+
+    /* 图表 */
+    .chart-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chart-controls select {
+      min-height: 30px;
+      padding: 0 8px;
+      background: #111922;
+      color: var(--text);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
-      border: 1px solid var(--border-soft);
+      font-size: 12px;
     }
 
-    .metric-label {
+    .series-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .series-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface-raised);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s ease, color 0.15s ease;
+      user-select: none;
+    }
+
+    .series-chip .swatch { width: 10px; height: 3px; border-radius: 2px; background: currentColor; opacity: 0.4; }
+    .series-chip.on { border-color: rgba(45, 212, 191, 0.45); }
+    .series-chip.on .swatch { opacity: 1; }
+    .series-chip:hover { border-color: var(--accent); }
+
+    .chart-box { position: relative; }
+
+    #metricChart {
+      width: 100%;
+      height: 260px;
+      display: block;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      background: #070d14;
+    }
+
+    .chart-empty-note {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--faint);
+      line-height: 1.5;
+    }
+
+    /* 上下两栏 */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 980px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+    /* 日志 */
+    .log-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .log-toolbar input[type="text"] {
+      flex: 1;
+      min-width: 160px;
+      min-height: 30px;
+      padding: 4px 10px;
+      background: var(--surface-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+    }
+
+    .log-toolbar input[type="text"]:focus { border-color: var(--accent); }
+
+    .log-toolbar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .log-toolbar input[type="checkbox"] { accent-color: var(--accent); }
+
+    .log-container {
+      background: #050810;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      max-height: 420px;
+      min-height: 180px;
+      overflow-y: auto;
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .log-line { color: #c2ceda; white-space: pre-wrap; word-break: break-all; padding: 1px 0; }
+    .log-line.error { color: var(--danger); }
+    .log-line.warn { color: #fde68a; }
+    .log-line.success { color: var(--success); }
+    .log-empty { color: var(--faint); text-align: center; padding: 40px 0; }
+
+    /* 检查点列表 */
+    .ckpt-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .ckpt-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 12px;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      background: var(--surface-raised);
+    }
+
+    .ckpt-iter {
+      min-width: 44px;
+      text-align: center;
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(45, 212, 191, 0.3);
+      background: rgba(45, 212, 191, 0.08);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'SF Mono', Consolas, monospace;
+    }
+
+    .ckpt-info { min-width: 0; }
+    .ckpt-info strong { display: block; font-size: 12px; font-family: 'SF Mono', Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ckpt-info small { display: block; color: var(--faint); font-size: 10px; margin-top: 2px; }
+
+    .copy-btn {
+      min-height: 26px;
+      padding: 0 9px;
+      font-size: 11px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #111922;
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .artifact-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 12px;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      background: var(--surface-raised);
       font-size: 12px;
       color: var(--muted);
       margin-bottom: 8px;
     }
 
-    .metric-value {
-      font-size: 28px;
-      font-weight: 700;
-      color: var(--accent);
-      font-family: 'SF Mono', Consolas, monospace;
-    }
+    .artifact-row b { color: var(--text); font-size: 12px; }
+    .pill { padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; border: 1px solid var(--border); }
+    .pill.ok { color: var(--success); border-color: rgba(94, 234, 212, 0.35); background: rgba(94, 234, 212, 0.08); }
+    .pill.no { color: var(--faint); }
 
-    .log-section {
-      background: var(--surface);
+    /* 配置摘要 */
+    .config-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .config-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+    .config-table td:first-child { color: var(--muted); white-space: nowrap; width: 130px; }
+    .config-table td:last-child { color: var(--text); font-family: 'SF Mono', Consolas, monospace; word-break: break-all; }
+
+    details.raw-config { margin-top: 10px; }
+    details.raw-config summary { font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
+    details.raw-config pre {
+      margin-top: 8px;
+      padding: 12px;
+      background: #050810;
       border: 1px solid var(--border-soft);
       border-radius: var(--radius);
-      padding: 24px;
-      margin-bottom: 24px;
-    }
-
-    .log-container {
-      background: var(--surface-input);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      max-height: 400px;
-      overflow-y: auto;
-      font-family: 'SF Mono', Consolas, monospace;
-      font-size: 12px;
+      color: #c2ceda;
+      font-size: 11px;
       line-height: 1.6;
-      margin-top: 16px;
+      max-height: 320px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
     }
 
-    .log-line {
-      color: var(--text);
-      margin-bottom: 4px;
+    .missing-id {
+      padding: 60px 20px;
+      text-align: center;
     }
 
-    .log-line.error {
-      color: var(--danger);
-    }
+    .missing-id p { color: var(--muted); margin-bottom: 16px; }
 
-    .log-line.success {
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 32px;
+      transform: translateX(-50%) translateY(8px);
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      background: rgba(94, 234, 212, 0.14);
+      border: 1px solid rgba(45, 212, 191, 0.4);
       color: var(--success);
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 100;
     }
+
+    .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
@@ -126,192 +433,588 @@
       <div>
         <span class="page-kicker">Training Monitor</span>
         <h1 id="taskTitle">训练监控</h1>
-        <p id="taskSubtitle">实时监控训练进度和指标</p>
+        <p id="taskSubtitle">实时监控训练进度、指标曲线与日志</p>
       </div>
       <div class="page-actions">
+        <button class="btn" onclick="loadAllNow()" id="refreshBtn" title="立即刷新全部数据">刷新</button>
         <button class="btn" onclick="stopTraining()" id="stopBtn" style="display:none;">停止训练</button>
+        <a class="btn" href="training_list.html">任务列表</a>
         <a class="btn" href="dashboard.html">返回</a>
       </div>
     </header>
 
-    <!-- 状态栏 -->
-    <div class="status-bar">
-      <div class="status-info">
-        <h3 id="statusTitle">加载中...</h3>
-        <p id="statusSubtitle">正在获取训练状态</p>
+    <div id="monitorBody">
+      <!-- 状态与运行指标 -->
+      <div class="panel">
+        <div class="status-head">
+          <div style="min-width: 0;">
+            <h2 id="statusTitle">加载中...</h2>
+            <div class="meta">
+              <span id="metaRobot">-</span>
+              <span>·</span>
+              <span id="metaAlgo">-</span>
+              <span>·</span>
+              <span id="metaCreated" title="任务创建时间">-</span>
+            </div>
+          </div>
+          <span id="statusBadge" class="status-badge"><span class="status-dot"></span>...</span>
+        </div>
+        <div class="error-banner" id="errorBanner"></div>
+
+        <div class="health-grid" id="healthGrid">
+          <div class="health-item"><span>当前迭代</span><strong id="metricIteration">0</strong></div>
+          <div class="health-item"><span>总迭代</span><strong id="metricMaxIter">0</strong></div>
+          <div class="health-item accent"><span>平均奖励</span><strong id="metricReward">0.00</strong></div>
+          <div class="health-item accent"><span>成功率</span><strong id="metricSuccess">0%</strong></div>
+          <div class="health-item"><span>运行设备</span><strong id="metricDevice">-</strong></div>
+          <div class="health-item"><span>迭代速度</span><strong id="metricSpeed">-</strong></div>
+          <div class="health-item"><span>已运行</span><strong id="metricElapsed">-</strong></div>
+          <div class="health-item"><span>预计剩余</span><strong id="metricEta">-</strong></div>
+        </div>
       </div>
-      <span class="status-badge" id="statusBadge">...</span>
+
+      <!-- 进度 -->
+      <div class="panel">
+        <div class="panel-title">
+          <h3>训练进度</h3>
+          <span class="panel-note" id="progressNote">-</span>
+        </div>
+        <div class="progress-text">
+          <span>迭代 <b id="progressText">0 / 0 (0%)</b></span>
+          <span id="progressDetail">-</span>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progressBar" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- 指标曲线 -->
+      <div class="panel">
+        <div class="panel-title">
+          <h3>训练指标曲线</h3>
+          <div class="chart-controls">
+            <select id="metricWindowSelect" title="曲线展示范围" aria-label="曲线范围">
+              <option value="0">全部范围</option>
+              <option value="300" selected>最近 300 点</option>
+              <option value="100">最近 100 点</option>
+            </select>
+            <select id="metricSmoothSelect" title="滑动平均平滑窗口" aria-label="曲线平滑">
+              <option value="1">原始</option>
+              <option value="5" selected>平滑 5</option>
+              <option value="15">平滑 15</option>
+            </select>
+            <span class="panel-note" id="chartStatus">等待指标数据</span>
+          </div>
+        </div>
+        <div class="series-chips" id="seriesChips"></div>
+        <div class="chart-box">
+          <canvas id="metricChart"></canvas>
+        </div>
+        <p class="chart-empty-note" id="chartEmptyNote"></p>
+      </div>
+
+      <!-- 日志 + 检查点 -->
+      <div class="bottom-grid">
+        <div class="panel" style="margin-bottom: 0;">
+          <div class="panel-title">
+            <h3>训练日志</h3>
+            <span class="panel-note" id="logNote">-</span>
+          </div>
+          <div class="log-toolbar">
+            <input type="text" id="logFilter" placeholder="过滤日志关键字 (如 ERROR / iteration)...">
+            <label title="仅当滚动位置接近底部时自动跟随最新日志">
+              <input type="checkbox" id="logAutoscroll" checked> 自动滚动
+            </label>
+          </div>
+          <div class="log-container" id="logContainer">
+            <div class="log-empty">等待日志数据...</div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 20px; min-width: 0;">
+          <!-- 检查点与产物 -->
+          <div class="panel" style="margin-bottom: 0;">
+            <div class="panel-title">
+              <h3>检查点与产物</h3>
+              <span class="panel-note" id="ckptNote">-</span>
+            </div>
+            <div class="artifact-row">
+              <span>训练产物 <b>artifact.json</b></span>
+              <span class="pill no" id="artifactPill">检测中</span>
+            </div>
+            <div class="ckpt-list" id="ckptList">
+              <div class="log-empty">加载中...</div>
+            </div>
+          </div>
+
+          <!-- 训练配置 -->
+          <div class="panel" style="margin-bottom: 0;">
+            <div class="panel-title">
+              <h3>训练配置</h3>
+              <span class="panel-note">任务归档的可追溯配置</span>
+            </div>
+            <table class="config-table" id="configTable">
+              <tbody><tr><td>加载中</td><td>-</td></tr></tbody>
+            </table>
+            <details class="raw-config" id="rawConfigDetails" style="display:none;">
+              <summary>查看原始配置 JSON</summary>
+              <pre id="rawConfigPre"></pre>
+            </details>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- 进度条 -->
-    <div class="progress-section">
-      <h3 style="font-size: 16px; margin-bottom: 8px;">训练进度</h3>
-      <p style="font-size: 13px; color: var(--muted);" id="progressText">0 / 0 (0%)</p>
-      <div class="progress-bar-container">
-        <div class="progress-bar" id="progressBar" style="width: 0%;"></div>
-      </div>
-    </div>
-
-    <!-- 训练指标 -->
-    <div class="progress-section">
-      <h3 style="font-size: 16px; margin-bottom: 16px;">训练指标</h3>
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-label">当前迭代</div>
-          <div class="metric-value" id="metricIteration">0</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">平均奖励</div>
-          <div class="metric-value" id="metricReward">0.00</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">成功率</div>
-          <div class="metric-value" id="metricSuccess">0%</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">学习率</div>
-          <div class="metric-value" style="font-size: 20px;" id="metricLR">0.0003</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 日志 -->
-    <div class="log-section">
-      <h3 style="font-size: 16px; margin-bottom: 8px;">训练日志</h3>
-      <div class="log-container" id="logContainer">
-        <div class="log-line">等待日志数据...</div>
-      </div>
+    <div id="missingIdBox" class="panel missing-id" style="display:none;">
+      <p id="missingIdText">缺少任务 ID 参数。</p>
+      <a class="btn primary" href="training_list.html">返回任务列表</a>
     </div>
   </div>
 
+  <div class="toast" id="toast"></div>
+
+  <script src="training-common.js"></script>
   <script>
-    const API_BASE = 'http://127.0.0.1:8765';
+    const {
+      escapeHtml, stripAnsi, fetchJson, fmtMetric, fmtDuration, fmtRelativeTime,
+      fmtDateTime, fmtBytes, statusInfo, smoothSeries, TrainingChart, RateTracker, CHART_COLORS,
+    } = window.TrainingUI;
+
     const urlParams = new URLSearchParams(window.location.search);
     const taskId = urlParams.get('task_id');
+    const LOG_LINES = 200;
 
+    const state = {
+      status: null,
+      metricsRows: [],
+      selectedSeries: new Set(['reward_mean']),
+      rate: new RateTracker(10),
+      seriesKeys: [],
+      stopped: false,
+    };
+
+    const chart = new TrainingChart(document.getElementById('metricChart'), {
+      xLabel: '迭代',
+    });
+
+    // ---------- 缺少 task_id ----------
     if (!taskId) {
-      alert('缺少任务 ID');
-      window.location.href = 'dashboard.html';
+      document.getElementById('monitorBody').style.display = 'none';
+      document.getElementById('missingIdBox').style.display = 'block';
+      document.getElementById('missingIdText').textContent = '缺少任务 ID 参数（URL 需要 ?task_id=...）。';
     }
 
-    let refreshInterval;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('visible');
+      setTimeout(() => toast.classList.remove('visible'), 1800);
+    }
 
+    function loadAllNow() {
+      loadTrainingStatus();
+      loadTrainingLogs();
+      loadTrainingMetrics();
+      loadCheckpoints();
+    }
+
+    // ---------- 状态 ----------
     async function loadTrainingStatus() {
+      if (!taskId) return;
       try {
-        const response = await fetch(`${API_BASE}/api/training/${taskId}/status`);
-        const data = await response.json();
-
-        if (!data.success) {
-          throw new Error(data.detail || '获取状态失败');
-        }
-
-        const status = data.status;
-
-        // 更新标题
-        document.getElementById('taskTitle').textContent = `训练: ${status.task_id}`;
-        document.getElementById('taskSubtitle').textContent = `${status.robot} · ${status.algorithm}`;
-
-        // 更新状态
-        document.getElementById('statusTitle').textContent = status.task_id;
-        document.getElementById('statusSubtitle').textContent =
-          `${status.robot} · ${status.algorithm} · ${status.status}`;
-
-        const statusBadge = document.getElementById('statusBadge');
-        statusBadge.textContent = status.status === 'running' ? '运行中' : status.status === 'completed' ? '已完成' : '已停止';
-        statusBadge.className = 'status-badge ' + (status.status === 'running' ? 'running' : '');
-
-        // 显示/隐藏停止按钮
-        if (status.status === 'running') {
-          document.getElementById('stopBtn').style.display = 'inline-flex';
-        } else {
-          document.getElementById('stopBtn').style.display = 'none';
-        }
-
-        // 更新进度
-        const progress = status.progress || 0;
-        const current = status.current_iteration || 0;
-        const max = status.max_iterations || 0;
-
-        document.getElementById('progressText').textContent =
-          `${current} / ${max} (${(progress * 100).toFixed(1)}%)`;
-        document.getElementById('progressBar').style.width = `${progress * 100}%`;
-
-        // 更新指标
-        document.getElementById('metricIteration').textContent = current;
-        document.getElementById('metricReward').textContent = (status.reward || 0).toFixed(2);
-        document.getElementById('metricSuccess').textContent =
-          ((status.success_rate || 0) * 100).toFixed(1) + '%';
-
+        const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/status`);
+        if (!data.success) throw new Error(data.detail || '获取状态失败');
+        applyStatus(data.status);
       } catch (error) {
         console.error('Failed to load status:', error);
+        document.getElementById('statusTitle').textContent = '状态加载失败';
+        document.getElementById('taskSubtitle').textContent = error.message;
       }
     }
 
-    async function loadTrainingLogs() {
+    function applyStatus(status) {
+      state.status = status;
+      const info = statusInfo(status.status);
+
+      document.getElementById('taskTitle').textContent = '训练监控';
+      document.getElementById('taskSubtitle').textContent = `${status.robot} · ${status.algorithm} · 创建于 ${fmtDateTime(status.created_at)}`;
+      document.getElementById('statusTitle').textContent = status.task_id;
+      document.getElementById('metaRobot').textContent = status.robot || '-';
+      document.getElementById('metaAlgo').textContent = status.algorithm || '-';
+      document.getElementById('metaCreated').textContent = `创建于 ${fmtDateTime(status.created_at)}`;
+
+      const badge = document.getElementById('statusBadge');
+      badge.innerHTML = `<span class="status-dot"></span>${escapeHtml(info.label)}`;
+      badge.className = `status-badge ${info.cls}`;
+      badge.title = String(status.status || '');
+
+      // 错误横幅
+      const banner = document.getElementById('errorBanner');
+      if (status.error) {
+        banner.textContent = `错误：${status.error}`;
+        banner.classList.add('visible');
+      } else if (info.cls === 'failed' && status.exit_code != null && status.exit_code !== 0) {
+        banner.textContent = `训练进程异常退出（exit code ${status.exit_code}），详见日志。`;
+        banner.classList.add('visible');
+      } else {
+        banner.classList.remove('visible');
+      }
+
+      document.getElementById('stopBtn').style.display = (info.cls === 'running' || info.cls === 'pending') ? 'inline-flex' : 'none';
+
+      // 进度
+      const progress = Math.max(0, Math.min(1, Number(status.progress) || 0));
+      const current = Number(status.current_iteration) || 0;
+      const max = Number(status.max_iterations) || 0;
+      state.rate.push(current);
+
+      document.getElementById('progressText').textContent = `${current} / ${max} (${(progress * 100).toFixed(1)}%)`;
+      const bar = document.getElementById('progressBar');
+      bar.style.width = `${(info.cls === 'completed' ? 100 : progress * 100).toFixed(2)}%`;
+      bar.className = `progress-bar ${info.cls === 'completed' ? 'done' : info.cls === 'failed' ? 'failed' : ''}`;
+
+      // 速度 / ETA / 已运行
+      const rate = state.rate.rate();
+      const eta = max > 0 ? state.rate.eta(max) : null;
+      const elapsed = status.created_at ? (Date.now() - Date.parse(status.created_at)) / 1000 : null;
+
+      document.getElementById('metricIteration').textContent = current;
+      document.getElementById('metricMaxIter').textContent = max || '-';
+      document.getElementById('metricReward').textContent = fmtMetric(status.reward);
+      document.getElementById('metricSuccess').textContent = ((Number(status.success_rate) || 0) * 100).toFixed(1) + '%';
+      document.getElementById('metricDevice').textContent = status.device || (status.runtime && status.runtime.resolved) || '-';
+      document.getElementById('metricSpeed').textContent = (info.cls === 'running' && rate != null) ? `${(rate * 60).toFixed(1)} it/min` : '-';
+      document.getElementById('metricElapsed').textContent = elapsed != null ? fmtDuration(elapsed) : '-';
+      document.getElementById('metricEta').textContent = (info.cls === 'running' && eta != null) ? fmtDuration(eta) : (info.cls === 'running' ? '估算中' : '-');
+
+      document.getElementById('progressNote').textContent = `${info.label} · PID ${status.pid ?? '-'}`;
+      document.getElementById('progressDetail').textContent = [
+        info.cls === 'running' && rate != null ? `${(rate * 60).toFixed(1)} it/min` : '',
+        info.cls === 'running' && eta != null ? `预计剩余 ${fmtDuration(eta)}` : '',
+      ].filter(Boolean).join(' · ') || '-';
+
+      // 检测到终态后停止轮询（日志/检查点会再补刷一轮）
+      if (info.cls !== 'running' && info.cls !== 'pending' && !state.stopped) {
+        state.stopped = true;
+        pollTimers.forEach((timer) => clearInterval(timer));
+        pollTimers = [];
+        setTimeout(loadAllNow, 1200);
+      }
+
+      renderConfig(status.config || {});
+    }
+
+    // ---------- 指标 ----------
+    const METRIC_LABELS = {
+      reward_mean: '平均奖励',
+      reward_sum: '回合总奖励',
+      success_rate: '成功率',
+      loss: '损失',
+      value_loss: '价值损失',
+      policy_loss: '策略损失',
+      kl: 'KL 散度',
+      entropy: '策略熵',
+      learning_rate: '学习率',
+      fps: 'FPS',
+      iteration: '迭代',
+    };
+
+    function metricLabel(key) {
+      if (METRIC_LABELS[key]) return METRIC_LABELS[key];
+      return String(key).replace(/_/g, ' ');
+    }
+
+    const EXCLUDED_KEYS = new Set(['iteration', 'max_iterations', 'progress', 'updated_at', 'timestamp']);
+
+    async function loadTrainingMetrics() {
+      if (!taskId) return;
       try {
-        const response = await fetch(`${API_BASE}/api/training/${taskId}/logs?lines=50`);
-        const data = await response.json();
+        const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/metrics`);
+        if (!data.success) return;
+        state.metricsRows = Array.isArray(data.metrics) ? data.metrics : [];
+        renderSeriesChips();
+        renderChart();
+      } catch (error) {
+        console.error('Failed to load metrics:', error);
+      }
+    }
 
-        if (data.success && data.logs && data.logs.length > 0) {
-          const logContainer = document.getElementById('logContainer');
-          logContainer.innerHTML = data.logs.map(line => {
-            let className = 'log-line';
-            if (line.includes('ERROR') || line.includes('Failed')) {
-              className += ' error';
-            } else if (line.includes('✅') || line.includes('completed')) {
-              className += ' success';
-            }
-            return `<div class="${className}">${line}</div>`;
-          }).join('');
+    function extractSeries() {
+      const rows = state.metricsRows;
+      const keys = new Set();
+      rows.forEach((row) => {
+        Object.entries(row || {}).forEach(([key, value]) => {
+          if (!EXCLUDED_KEYS.has(key) && typeof value === 'number' && Number.isFinite(value)) keys.add(key);
+        });
+      });
+      return [...keys];
+    }
 
-          // 自动滚动到底部
-          logContainer.scrollTop = logContainer.scrollHeight;
+    function renderSeriesChips() {
+      const keys = extractSeries();
+      const added = keys.filter((key) => !state.seriesKeys.includes(key));
+      const removedKeys = state.seriesKeys.filter((key) => !keys.includes(key));
+      added.forEach((key) => { if (/reward/i.test(key)) state.selectedSeries.add(key); });
+      removedKeys.forEach((key) => state.selectedSeries.delete(key));
+      state.seriesKeys = keys;
+
+      const container = document.getElementById('seriesChips');
+      if (!keys.length) {
+        container.innerHTML = '<span class="panel-note">尚无可用指标序列（worker 未上报 metrics.jsonl 时仅能展示进度卡片）</span>';
+        return;
+      }
+      container.innerHTML = keys.map((key, index) => `
+        <span class="series-chip ${state.selectedSeries.has(key) ? 'on' : ''}" data-series="${escapeHtml(key)}"
+              title="${escapeHtml(key)}" style="color: ${CHART_COLORS[index % CHART_COLORS.length]};">
+          <span class="swatch"></span>${escapeHtml(metricLabel(key))}
+        </span>
+      `).join('');
+      container.querySelectorAll('.series-chip').forEach((chip) => chip.addEventListener('click', () => {
+        const key = chip.dataset.series;
+        if (state.selectedSeries.has(key)) state.selectedSeries.delete(key);
+        else state.selectedSeries.add(key);
+        chip.classList.toggle('on', state.selectedSeries.has(key));
+        renderChart();
+      }));
+    }
+
+    function renderChart() {
+      const rows = state.metricsRows;
+      const range = Number(document.getElementById('metricWindowSelect').value || 0);
+      const smoothWindow = Number(document.getElementById('metricSmoothSelect').value || 1);
+
+      const selected = state.seriesKeys.filter((key) => state.selectedSeries.has(key));
+      const statusEl = document.getElementById('chartStatus');
+      const noteEl = document.getElementById('chartEmptyNote');
+
+      if (!rows.length || !selected.length) {
+        chart.setSeries([]);
+        statusEl.textContent = rows.length ? '未选择指标' : '等待指标数据';
+        noteEl.textContent = rows.length
+          ? '点击上方指标标签切换曲线。'
+          : '当前任务没有 metrics.jsonl 记录：native MJLab 训练把标量写入 TensorBoard 事件文件（可在检查点面板查看），进度仍以顶部卡片为准。';
+        return;
+      }
+
+      const visibleRows = range > 0 ? rows.slice(-range) : rows;
+      const series = selected.map((key) => {
+        const points = [];
+        visibleRows.forEach((row, index) => {
+          const y = Number(row ? row[key] : NaN);
+          if (!Number.isFinite(y)) return;
+          const x = row.iteration != null ? Number(row.iteration) : index;
+          points.push({ x, y });
+        });
+        points.sort((a, b) => a.x - b.x);
+        return {
+          name: metricLabel(key),
+          color: CHART_COLORS[state.seriesKeys.indexOf(key) % CHART_COLORS.length],
+          points: smoothSeries(points, smoothWindow),
+        };
+      });
+
+      chart.setSeries(series);
+      const shown = series.map((item) => item.points.length).reduce((a, b) => Math.max(a, b), 0);
+      statusEl.textContent = `${shown} 个点 · 平滑 ${smoothWindow}${range > 0 ? ` · 最近 ${range} 点` : ' · 全部'}`;
+      noteEl.textContent = '悬停曲线可查看精确数值；点击指标标签可显示/隐藏序列。';
+    }
+
+    document.getElementById('metricWindowSelect').addEventListener('change', renderChart);
+    document.getElementById('metricSmoothSelect').addEventListener('change', renderChart);
+
+    // ---------- 日志 ----------
+    let logLines = [];
+
+    async function loadTrainingLogs() {
+      if (!taskId) return;
+      try {
+        const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/logs?lines=${LOG_LINES}`);
+        if (data.success && Array.isArray(data.logs)) {
+          logLines = data.logs.map(stripAnsi);
+          renderLogs();
         }
-
       } catch (error) {
         console.error('Failed to load logs:', error);
       }
     }
 
-    async function stopTraining() {
-      if (!confirm('确定要停止训练吗？')) {
+    function classifyLog(line) {
+      const upper = line.toUpperCase();
+      if (upper.includes('ERROR') || upper.includes('FAILED') || upper.includes('TRACEBACK') || line.includes('✗')) return 'error';
+      if (upper.includes('WARN')) return 'warn';
+      if (line.includes('✅') || upper.includes('COMPLETED') || upper.includes('SUCCESS')) return 'success';
+      return '';
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('logContainer');
+      const filter = document.getElementById('logFilter').value.trim().toLowerCase();
+      // 仅当用户已在底部附近时才跟随滚动（避免阅读被打断）。
+      const autoscroll = document.getElementById('logAutoscroll').checked;
+      const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 48;
+
+      const rows = !logLines.length
+        ? null
+        : logLines.filter((line) => !filter || line.toLowerCase().includes(filter));
+
+      if (!logLines.length) {
+        container.innerHTML = '<div class="log-empty">暂无日志（任务可能仍在启动中）</div>';
+        document.getElementById('logNote').textContent = '0 行';
         return;
       }
 
+      container.innerHTML = rows && rows.length
+        ? rows.map((line) => `<div class="log-line ${classifyLog(line)}">${escapeHtml(line)}</div>`).join('')
+        : '<div class="log-empty">没有匹配过滤条件的日志行</div>';
+      document.getElementById('logNote').textContent = `最近 ${logLines.length} 行${filter ? ` · 匹配 ${rows.length} 行` : ''}`;
+
+      if (autoscroll && nearBottom) container.scrollTop = container.scrollHeight;
+    }
+
+    document.getElementById('logFilter').addEventListener('input', renderLogs);
+
+    // ---------- 检查点 ----------
+    let copyablePaths = [];
+
+    async function loadCheckpoints() {
+      if (!taskId) return;
+      const listEl = document.getElementById('ckptList');
+      const noteEl = document.getElementById('ckptNote');
       try {
-        const response = await fetch(`${API_BASE}/api/training/${taskId}/stop`, {
-          method: 'POST'
-        });
+        const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/checkpoints`);
+        if (!data.success) throw new Error('checkpoints unavailable');
 
-        const data = await response.json();
+        const artifactPill = document.getElementById('artifactPill');
+        artifactPill.textContent = data.artifact_available ? '已生成' : '未生成';
+        artifactPill.className = `pill ${data.artifact_available ? 'ok' : 'no'}`;
 
-        if (data.success) {
-          alert('✅ 训练已停止');
-          loadTrainingStatus();
-        }
+        const checkpoints = data.checkpoints || [];
+        const exports = data.exports || [];
+        const eventFiles = data.tensorboard_event_files || [];
+        noteEl.textContent = `${checkpoints.length} 个检查点${exports.length ? ` · ${exports.length} 个 ONNX` : ''}`;
 
+        copyablePaths = [...checkpoints, ...exports].map((file) => file.path);
+
+        const rows = checkpoints.map((ckpt, index) => `
+          <div class="ckpt-item">
+            <span class="ckpt-iter" title="检查点迭代">${ckpt.iteration != null ? `#${ckpt.iteration}` : 'N/A'}</span>
+            <div class="ckpt-info">
+              <strong title="${escapeHtml(ckpt.path)}">${escapeHtml(ckpt.name)}${ckpt.final ? ' · final' : ''}</strong>
+              <small>${fmtBytes(ckpt.size_bytes)} · ${fmtRelativeTime(ckpt.modified_at)}</small>
+            </div>
+            <button class="copy-btn" type="button" data-copy-index="${index}" title="复制完整路径">复制路径</button>
+          </div>
+        `).join('');
+
+        const exportRows = exports.map((file, i) => `
+          <div class="ckpt-item">
+            <span class="ckpt-iter" style="border-color: rgba(96, 165, 250, 0.3); background: rgba(96, 165, 250, 0.08); color: #60a5fa;">ONNX</span>
+            <div class="ckpt-info">
+              <strong title="${escapeHtml(file.path)}">${escapeHtml(file.name)}</strong>
+              <small>${fmtBytes(file.size_bytes)} · ${fmtRelativeTime(file.modified_at)}</small>
+            </div>
+            <button class="copy-btn" type="button" data-copy-index="${checkpoints.length + i}" title="复制完整路径">复制路径</button>
+          </div>
+        `).join('');
+
+        const eventNote = eventFiles.length
+          ? `<div class="ckpt-item" style="grid-template-columns: auto minmax(0,1fr);"><span class="ckpt-iter" style="border-color: rgba(148,163,184,0.3); background: rgba(148,163,184,0.08); color: #94a3b8;">TB</span><div class="ckpt-info"><strong title="${escapeHtml(eventFiles.map((f) => f.name).join(' / '))}">TensorBoard 事件文件 × ${eventFiles.length}</strong><small>native MJLab 的标量日志写入事件文件</small></div></div>`
+          : '';
+
+        listEl.innerHTML = rows + exportRows + eventNote
+          || '<div class="log-empty">尚无检查点（等待第一次 save_interval）</div>';
+        listEl.querySelectorAll('[data-copy-index]').forEach((button) => button.addEventListener('click', () => {
+          const path = copyablePaths[Number(button.dataset.copyIndex)];
+          if (path) copyText(path);
+        }));
       } catch (error) {
-        console.error('Failed to stop training:', error);
-        alert('❌ 停止失败: ' + error.message);
+        console.error('Failed to load checkpoints:', error);
+        noteEl.textContent = '不可用';
+        listEl.innerHTML = `<div class="log-empty">检查点信息加载失败：${escapeHtml(error.message)}</div>`;
       }
     }
 
-    // 初始加载
-    loadTrainingStatus();
-    loadTrainingLogs();
-
-    // 定时刷新
-    refreshInterval = setInterval(() => {
-      loadTrainingStatus();
-      loadTrainingLogs();
-    }, 3000); // 每 3 秒刷新
-
-    // 页面卸载时清除定时器
-    window.addEventListener('beforeunload', () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
+    function copyText(text) {
+      const done = () => showToast('路径已复制');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+      } else {
+        fallbackCopy(text, done);
       }
-    });
+    }
+
+    function fallbackCopy(text, done) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try { document.execCommand('copy'); done(); } catch (err) { /* ignore */ }
+      textarea.remove();
+    }
+
+    // ---------- 配置 ----------
+    function renderConfig(config) {
+      const table = document.getElementById('configTable').querySelector('tbody');
+      const rows = [
+        ['任务', config.task_name],
+        ['地形', config.terrain_type],
+        ['算法', config.algorithm],
+        ['并行环境', config.num_envs],
+        ['最大迭代', config.max_iterations],
+        ['学习率', config.learning_rate],
+        ['保存间隔', config.save_interval],
+        ['Episode 长度', config.episode_length_s],
+        ['随机种子', config.seed],
+        ['设备', config.device],
+        ['后端', config.backend],
+      ].filter(([, value]) => value !== undefined && value !== null && value !== '');
+
+      const scales = config.reward_scales || {};
+      const scaleEntries = Object.entries(scales).filter(([, value]) => Number(value) !== 0);
+      if (scaleEntries.length) rows.push(['奖惩项', scaleEntries.map(([key, value]) => `${key}=${value}`).join('  ')]);
+
+      table.innerHTML = rows.length
+        ? rows.map(([key, value]) => `<tr><td>${escapeHtml(key)}</td><td>${escapeHtml(String(value))}</td></tr>`).join('')
+        : '<tr><td colspan="2">无配置信息</td></tr>';
+
+      // 原始 JSON（剔除体积巨大的机器人包字段，便于人工检查差异）
+      const compact = { ...config };
+      delete compact.robot_package;
+      const details = document.getElementById('rawConfigDetails');
+      if (Object.keys(compact).length) {
+        details.style.display = 'block';
+        document.getElementById('rawConfigPre').textContent = JSON.stringify(compact, null, 2);
+      }
+    }
+
+    // ---------- 停止 ----------
+    async function stopTraining() {
+      if (!taskId) return;
+      if (!confirm(`确定要停止训练任务 ${taskId} 吗？`)) return;
+      try {
+        const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/stop`, { method: 'POST' });
+        if (data.success) {
+          showToast('训练已停止');
+          loadTrainingStatus();
+        }
+      } catch (error) {
+        alert('停止失败: ' + error.message);
+      }
+    }
+
+    // ---------- 轮询 ----------
+    let pollTimers = [];
+    if (taskId) {
+      loadAllNow();
+      pollTimers.push(setInterval(() => { if (!document.hidden) loadTrainingStatus(); }, 3000));
+      pollTimers.push(setInterval(() => { if (!document.hidden) loadTrainingLogs(); }, 4000));
+      pollTimers.push(setInterval(() => { if (!document.hidden) loadTrainingMetrics(); }, 5000));
+      pollTimers.push(setInterval(() => { if (!document.hidden) loadCheckpoints(); }, 15000));
+      document.addEventListener('visibilitychange', () => { if (!document.hidden && !state.stopped) loadAllNow(); });
+    }
+    window.addEventListener('beforeunload', () => { pollTimers.forEach((timer) => clearInterval(timer)); });
   </script>
 </body>
 </html>

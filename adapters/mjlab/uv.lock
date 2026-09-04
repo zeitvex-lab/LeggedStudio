@@ -79,6 +79,15 @@ wheels = [
 ]
 
 [[package]]
+name = "better-actuator-models"
+version = "1.0.2"
+source = { git = "https://github.com/Rhoban/bam.git?branch=main#620a64fe67c1afe94fca81da73b128c7aed17c5f" }
+dependencies = [
+    { name = "colorama" },
+    { name = "numpy" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -706,8 +715,10 @@ name = "legged-studio-mjlab-adapter"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "better-actuator-models" },
     { name = "mjlab" },
     { name = "onnxruntime" },
+    { name = "scipy" },
 ]
 
 [package.optional-dependencies]
@@ -725,9 +736,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "better-actuator-models", git = "https://github.com/Rhoban/bam.git?branch=main" },
     { name = "mjlab", specifier = "==1.6.0" },
     { name = "onnxruntime", specifier = ">=1.20,<2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9,<10" },
+    { name = "scipy", specifier = ">=1.15" },
     { name = "torch", marker = "sys_platform == 'darwin' and extra == 'cu128'", specifier = ">=2.7.0" },
     { name = "torch", marker = "sys_platform != 'darwin' and extra == 'cu128'", specifier = ">=2.7.0", index = "https://download.pytorch.org/whl/cu128", conflict = { package = "legged-studio-mjlab-adapter", extra = "cu128" } },
     { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.7.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "legged-studio-mjlab-adapter", extra = "cpu" } },

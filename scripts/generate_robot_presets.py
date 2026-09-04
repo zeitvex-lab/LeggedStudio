@@ -1,4 +1,4 @@
-"""Create the checked-in Go2 and Go2W Robot Contract/training presets."""
+"""Create the checked-in Go2 Robot Contract and training preset."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def joint_names(xml_path: Path) -> list[str]:
 
 def write_preset(robot_id: str, family: str, locomotion: str, size: str, mass: float, obs_dim: int) -> None:
     robot_dir = ROOT / "assets" / "robots" / robot_id
-    model_file = "go2w.xml" if robot_id.endswith("go2w") else "go2.xml"
+    model_file = "go2.xml"
     xml_path = robot_dir / model_file
     joints = joint_names(xml_path)
     contract = {
@@ -56,4 +56,3 @@ def write_preset(robot_id: str, family: str, locomotion: str, size: str, mass: f
 
 if __name__ == "__main__":
     write_preset("unitree_go2", "Unitree Go2", "P", "M", 15.206408, 48)
-    write_preset("unitree_go2w", "Unitree Go2W", "W", "M", 19.126408, 56)

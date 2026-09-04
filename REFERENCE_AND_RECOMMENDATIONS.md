@@ -15,15 +15,15 @@
 | L3 | 本机定向测试或接口探测 | 只对当前环境成立 |
 | L4 | 训练、导出、仿真/部署链路完整通过 | 才能宣称闭环支持 |
 
-当前已验证的是控制面单元测试、MJLab 适配器测试、Python/JS 编译检查、发布检查、健康接口、地图接口和浏览器页面 smoke。GPU 长训练、ONNX 数值 replay、复杂导航、实机控制和非 Go2/Go2W 机器人仍未完成 L4 验收。
+当前已验证的是控制面单元测试、MJLab 适配器测试、Python/JS 编译检查、发布检查、健康接口、地图接口和浏览器页面 smoke。GPU 长训练、ONNX 数值 replay、复杂导航、实机控制和非 Go2/ZEX-W 机器人仍未完成 L4 验收。
 
 ## 已接入的主线
 
 ### `legged_studio`
 
-项目已有统一 FastAPI 控制面、Electron 启动器、五功能 Web Workbench、MJLab 训练 worker、MuJoCo 仿真 API、Go2/Go2W 契约和 Windows Online 打包流程。训练与控制面通过进程边界隔离，仿真仍保留 MuJoCo。
+项目已有统一 FastAPI 控制面、Electron 启动器、五功能 Web Workbench、MJLab 训练 worker、MuJoCo 仿真 API、Go2/ZEX-W 契约和 Windows Online 打包流程。训练与控制面通过进程边界隔离，仿真仍保留 MuJoCo。
 
-验证页可以导入用户自己的 URDF/MJCF 和相对 mesh，生成 Contract 草稿并保存到工作区；首页项目包可以把这些资产、Contract、训练 recipe 和场景一起导出/导入。自定义导入机器人当前可用于验证和 MuJoCo 仿真，native MJLab 训练仍受任务专属传感器、动作、奖励和地形映射限制，只开放 Go2/Go2W。
+验证页可以导入用户自己的 URDF/MJCF 和相对 mesh，生成 Contract 草稿并保存到工作区；首页项目包可以把这些资产、Contract、训练 recipe 和场景一起导出/导入。当前训练主线通过 Go2 与 ZEX-W 的 Robot Package、Contract 和训练 profile 验收，其他导入机器人仍需补齐对应配置并通过 smoke。
 
 ### `mjlab_new/mjlab`
 
@@ -31,7 +31,7 @@
 
 ### `uni_rl/unitree_rl_mjlab`
 
-这是 Go2 任务扩展和资产映射的源码来源。当前 worker 已围绕 Go2/Go2W 接入；新增任务必须通过 Robot Contract、预检和独立 smoke。
+这是 Go2 任务扩展和资产映射的源码来源。当前 Go2 接入保留其可复用配置；新增任务必须通过 Robot Contract、预检和独立 smoke。
 
 ## Web 与交互参考
 
@@ -67,7 +67,7 @@ Isaac Gym、Isaac Lab、RoboGauge、MATRiX 等不属于 0.5.0 默认后端。它
 ## 推荐验收顺序
 
 ```text
-Go2/Go2W asset validation
+Go2/ZEX-W asset validation
   -> MJLab PPO short smoke (CPU/GPU)
   -> live logs and metrics
   -> MuJoCo basic replay

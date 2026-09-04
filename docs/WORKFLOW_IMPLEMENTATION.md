@@ -22,7 +22,7 @@ The control plane remains responsible for orchestration. Training code runs in a
 | Purpose | Endpoint | Notes |
 |---|---|---|
 | Robot inventory | `GET /api/assets` | Filters: `family`, `size`, `locomotion`, `readiness` |
-| Robot presets | `GET /api/robots/presets` | Returns Go2/Go2W Contract and forward-walk recipe |
+| Robot presets | `GET /api/robots/presets` | Returns Go2/ZEX-W Contracts and training profiles |
 | Training options | `GET /api/training/options` | Reports available algorithms and reward terms |
 | Create training | `POST /api/training/create` | Validates Contract before spawning worker |
 | Task status | `GET /api/training/{task_id}/status` | Progress and current reward |
@@ -46,7 +46,7 @@ cd C:\Users\31560\Documents\00_open\legged_studio
 python scripts\generate_robot_presets.py
 python adapters\mjlab\native_worker.py `
   --source C:\Users\31560\Documents\00_open\mjlab_new\mjlab `
-  --extension-root C:\Users\31560\Documents\00_open\uni_rl\unitree_rl_mjlab `
+  --extension-root C:\Users\31560\Documents\00_open\legged_studio\assets\robots `
   --contract contracts\fixtures\unitree_go2.v2.json `
   --config presets\training\unitree_go2_forward_walk.json `
   --output workspace\go2_smoke
@@ -56,4 +56,4 @@ For an API-managed run, start `python -m uvicorn backend.api_complete:app --host
 
 ## Capability boundary
 
-Go2 and Go2W are native MJLab/PPO training presets. The isolated native MJLab worker registers the Unitree Go2 and Go2W manager-based tasks, writes RSL-RL checkpoints/artifacts, and exposes native evaluation/navigation through the same control-plane APIs. MuJoCo remains the interactive simulation engine only. Native SAC and TD3 are not exposed until their MJLab/RSL-RL checkpoint paths are implemented. GPU readiness is reported by adapter preflight and must be verified on the target machine.
+Go2 and ZEX-W are the current MJLab/PPO training presets. The isolated native MJLab worker builds their manager-based tasks from Robot Packages and selected training profiles, writes RSL-RL checkpoints/artifacts, and exposes evaluation/navigation through the same control-plane APIs. MuJoCo remains the interactive simulation engine only. Native SAC and TD3 are not exposed until their MJLab/RSL-RL checkpoint paths are implemented. GPU readiness is reported by adapter preflight and must be verified on the target machine.

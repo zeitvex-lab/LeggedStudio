@@ -1,0 +1,28 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "microduck-groundpick-rough",
+  "display_name": "GroundPick / Rough",
+  "source": "microduck_rl",
+  "backend": "native_mjlab",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "mjlab_microduck.tasks.microduck_ground_pick_env_cfg:make_microduck_ground_pick_env_cfg",
+    "runner": "mjlab_microduck.tasks:MicroduckGroundPickRlCfg",
+    "runner_class": "mjlab_microduck.tasks:MicroduckOnPolicyRunner"
+  },
+  "runner": {
+    "max_iterations": 20000,
+    "learning_rate": 0.001,
+    "save_interval": 250,
+    "num_steps_per_env": 24,
+    "num_mini_batches": 4,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "entropy_coef": 0.01
+  },
+  "algorithm": "PPO",
+  "task_name": "forward_walk",
+  "terrain_type": "rough",
+  "num_envs": 4096,
+  "sort_order": 100
+}
