@@ -6,6 +6,7 @@
   let THREE = null;
   let state = null;
   const geometryCache = new Map();
+  let inertialRecords = [];
 
   function numbers(value, fallback = []) {
     const result = String(value || '').trim().split(/\s+/).filter(Boolean).map(Number);
@@ -282,48 +283,93 @@
     return { moments: [matrix[0][0], matrix[1][1], matrix[2][2]], rotation: new THREE.Quaternion().setFromRotationMatrix(rotationMatrix) };
   }
 
-  function inertiaRadii(mass, moments) {
-    if (!(mass > 0) || moments.length < 3 || !moments.every((value) => Number.isFinite(value) && value >= 0)) return null;
-    const [ix, iy, iz] = moments;
-    const factor = 5 / (2 * mass);
-    const squared = [
-      factor * (iy + iz - ix),
-      factor * (ix + iz - iy),
-      factor * (ix + iy - iz),
-    ];
-    if (!squared.every((value) => Number.isFinite(value) && value > 0)) return null;
-    return squared.map((value) => Math.sqrt(value));
+
+  function computeInertiaBoxData(tensor, mass, maxSize) {
+    // Gazebo-style equivalent uniform box (see robot_viewer/URDF-Studio):
+    // principal moments inverted through I = m/12 (h² + d²) with plausibility
+    // gates so placeholder or nonsensical links render nothing.
+    if (!(mass > 0) || tensor.length < 3 || !tensor.every(Number.isFinite)) return null;
+    if (tensor.slice(0, 3).every((value) => Math.abs(value) < 1e-12)) return null;
+    const principal = principalInertia(tensor);
+    if (!principal) return null;
+    const [ix, iy, iz] = principal.moments;
+    if (![ix, iy, iz].every((value) => Number.isFinite(value))) return null;
+    const factor = 6 / mass;
+    const dim = (a, b, c) => Math.sqrt(Math.max(Math.abs(factor * (a + b - c)), 1e-6));
+    let width = dim(iy, iz, ix);
+    let height = dim(ix, iz, iy);
+    let depth = dim(ix, iy, iz);
+    // Plausibility: characteristic inertia radius far above the box implies a
+    // placeholder link; density far below implies nonsense parameters.
+    const avgMoment = (Math.abs(ix) + Math.abs(iy) + Math.abs(iz)) / 3;
+    const inertiaRadius = Math.sqrt(avgMoment / mass);
+    const avgBox = (width + height + depth) / 3;
+    if (inertiaRadius > avgBox) return null;
+    if ((mass / Math.max(width * height * depth, 1e-9)) < 1e-4) return null;
+    const minSize = 0.005;
+    width = Math.max(minSize, Math.min(width, 2.0));
+    height = Math.max(minSize, Math.min(height, 2.0));
+    depth = Math.max(minSize, Math.min(depth, 2.0));
+    if (maxSize > 0) {
+      width = Math.min(width, maxSize * 2);
+      height = Math.min(height, maxSize * 2);
+      depth = Math.min(depth, maxSize * 2);
+    }
+    return { width, height, depth, rotation: principal.rotation, moments: principal.moments };
   }
 
-  function addMassProperties(parent, mass, tensor, applyOrigin) {
+  function addMassProperties(parent, mass, tensor, applyOrigin, maxSize, linkName) {
     if (!(mass > 0)) return;
-    const principal = principalInertia(tensor);
-    const radii = principal ? inertiaRadii(mass, principal.moments) : null;
-    if (radii) {
+    const box = computeInertiaBoxData(tensor, mass, maxSize);
+    if (box) {
+      // Semi-transparent cyan box on the principal axes (URDF-Studio style).
       const inertia = new THREE.Group();
       applyOrigin(inertia);
-      inertia.quaternion.multiply(principal.rotation);
-      const geometry = new THREE.SphereGeometry(1, 18, 12);
-      geometry.scale(...radii);
-      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x7957d5, wireframe: true, transparent: true, opacity: 0.62, depthTest: false }));
-      mesh.renderOrder = 20;
-      inertia.add(mesh);
+      const geometry = new THREE.BoxGeometry(box.width, box.height, box.depth);
+      const fill = new THREE.Mesh(
+        geometry,
+        new THREE.MeshBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.22, depthWrite: false }),
+      );
+      const edges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(geometry),
+        new THREE.LineBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.6 }),
+      );
+      const holder = new THREE.Group();
+      holder.quaternion.copy(box.rotation);
+      holder.add(fill);
+      holder.add(edges);
+      inertia.add(holder);
       inertia.visible = false;
       parent.add(inertia);
       registerHelper(inertia, 'inertial');
     }
+    // Blender-style quarter black/white sphere marks the centre of mass.
     const center = new THREE.Group();
     applyOrigin(center);
-    const radius = radii ? Math.max(0.006, Math.min(0.025, Math.min(...radii) * 0.28)) : 0.01;
-    const marker = new THREE.Mesh(
-      new THREE.SphereGeometry(radius, 16, 10),
-      new THREE.MeshBasicMaterial({ color: 0xf04d5e, depthTest: false }),
-    );
-    marker.renderOrder = 21;
-    center.add(marker);
+    const quadrantRadius = 0.008;
+    const segments = 16;
+    for (let quadrant = 0; quadrant < 8; quadrant += 1) {
+      const phiStart = (quadrant % 4) * (Math.PI / 2);
+      const thetaStart = quadrant < 4 ? 0 : Math.PI / 2;
+      const white = (quadrant % 2 === 0) === (quadrant < 4);
+      const quadrantMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(quadrantRadius, segments, segments, phiStart, Math.PI / 2, thetaStart, Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: white ? 0xffffff : 0x1a1a1e, depthTest: false }),
+      );
+      quadrantMesh.renderOrder = 21;
+      center.add(quadrantMesh);
+    }
     center.visible = false;
     parent.add(center);
     registerHelper(center, 'centerOfMass');
+    if (linkName) {
+      inertialRecords.push({
+        link: linkName,
+        mass,
+        com: [center.position.x, center.position.y, center.position.z].map((value) => Number(value.toFixed(7))),
+        principal: box ? box.moments.map((value) => Number(value.toPrecision(6))) : null,
+      });
+    }
   }
 
   function addJointAxis(parent, axis) {
@@ -407,7 +453,9 @@
     const mass = Number(directChild(inertial, 'mass')?.getAttribute('value'));
     const tensor = directChild(inertial, 'inertia');
     const components = ['ixx', 'iyy', 'izz', 'ixy', 'ixz', 'iyz'].map((name) => Number(tensor?.getAttribute(name) || 0));
-    addMassProperties(group, mass, components, (object) => urdfOrigin(object, inertial));
+    const bounds = new THREE.Box3().setFromObject(group);
+    const maxSize = bounds.isEmpty() ? 0 : Math.max(...bounds.getSize(new THREE.Vector3()).toArray());
+    addMassProperties(group, mass, components, (object) => urdfOrigin(object, inertial), maxSize, linkElement.getAttribute('name'));
   }
 
   async function parseUrdf(documentNode, context) {
@@ -589,14 +637,16 @@
     }));
   }
 
-  function addMjcfMassProperties(bodyElement, content) {
+  function addMjcfMassProperties(bodyElement, content, linkName) {
     const inertial = directChild(bodyElement, 'inertial');
     if (!inertial) return;
     const mass = Number(inertial.getAttribute('mass'));
     const diagonal = numbers(inertial.getAttribute('diaginertia'));
     const full = numbers(inertial.getAttribute('fullinertia'));
     const tensor = diagonal.length >= 3 ? diagonal.slice(0, 3) : full.slice(0, 6);
-    addMassProperties(content, mass, tensor, (object) => applyPose(object, inertial));
+    const bounds = new THREE.Box3().setFromObject(content);
+    const maxSize = bounds.isEmpty() ? 0 : Math.max(...bounds.getSize(new THREE.Vector3()).toArray());
+    addMassProperties(content, mass, tensor, (object) => applyPose(object, inertial), maxSize, linkName);
   }
 
   async function parseMjcfBody(element, parent, inheritedClass, defaults, assets, context) {
@@ -641,7 +691,7 @@
       }
     });
 
-    addMjcfMassProperties(element, content);
+    addMjcfMassProperties(element, content, element.getAttribute('name') || 'body');
     await addMjcfGeoms(element, content, bodyClass, defaults, assets, context);
     for (const child of directChildren(element, 'body')) await parseMjcfBody(child, content, bodyClass, defaults, assets, context);
   }
@@ -872,6 +922,7 @@
     if (!THREE) THREE = await import(THREE_URL);
     if (!state) createViewer(); else disposeRoot();
     state.generation += 1;
+    inertialRecords = [];
     const documentNode = new DOMParser().parseFromString(String(xmlText || ''), 'application/xml');
     if (documentNode.querySelector('parsererror')) throw new Error('Robot XML could not be parsed');
     const format = String(options.format || (documentNode.querySelector('mujoco') ? 'mjcf' : 'urdf')).toLowerCase();
@@ -915,6 +966,7 @@
   }
 
   window.renderRobotModel = renderRobotModel;
+  window.getRobotInertialData = () => inertialRecords.slice();
   window.renderUrdfModel = (xmlText, files, filename, baseUrl) => renderRobotModel(xmlText, { format: 'urdf', files, filename, baseUrl });
   window.setRobotJointPositions = setJointPositions;
   window.setUrdfJointPositions = setJointPositions;
