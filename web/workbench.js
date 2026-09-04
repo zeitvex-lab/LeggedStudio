@@ -53,7 +53,7 @@ function buildRobotWorkspace() {
         <div class="robot-editor-tabs" role="tablist">
           <button class="robot-tab active" data-robot-tab="joints" type="button">关节控制</button>
           <button class="robot-tab" data-robot-tab="mapping" type="button">动作映射</button>
-          <button class="robot-tab" data-robot-tab="control" type="button">控制参数</button>
+          <button class="robot-tab" data-robot-tab="motor" type="button">电机参数</button>
           <button class="robot-tab" data-robot-tab="inertia" type="button">质量与惯量</button>
         </div>
         <div class="robot-pane active-pane" data-robot-pane="joints">
@@ -62,10 +62,8 @@ function buildRobotWorkspace() {
           <div id="robotPoseEditor" class="robot-pose-editor"><div class="empty-state">未加载可动关节</div></div>
         </div>
         <div class="robot-pane" data-robot-pane="mapping"><div class="pane-note">动作索引必须与训练和策略输出顺序一致。</div><div id="robotJointEditor" class="robot-joint-editor"><div class="empty-state">未选择机器人包</div></div></div>
-        <div class="robot-pane" data-robot-pane="control">
-          <div class="control-parameter-grid"><label class="field-label">控制频率 (Hz)<input id="controlHz" type="number" min="1" step="1"></label><label class="field-label">物理频率 (Hz)<input id="physicsHz" type="number" min="1" step="1"></label><label class="field-label">控制降采样<input id="decimation" type="number" min="1" step="1"></label><label class="field-label">动作缩放<input id="actionScale" type="number" min="0" step="0.01"></label></div>
-          <div id="controlRateHint" class="pane-note"></div>
-          <div class="control-section-title">PD 增益与力矩限幅</div>
+        <div class="robot-pane" data-robot-pane="motor">
+          <div class="pane-note">Kp / Kd / 力矩限幅按关节组生效，保存后写入机器人包并同步到浏览器仿真配置。</div>
           <div id="controlGainsGrid" class="control-gains-grid"></div>
           <div class="control-parameter-grid">
             <label class="field-label">目标机身高度 (m)<input id="baseHeightTarget" type="number" min="0.05" max="1.5" step="0.01" placeholder="留空则不设定"></label>
@@ -118,12 +116,8 @@ function renderRobotEditor(preset) {
       return jointControlMarkup(name, index, initial);
     }).join('')}` : '<div class="empty-state">模型中没有可动关节</div>';
   }
-  setInputValue('controlHz', control.control_hz ?? 50);
-  setInputValue('physicsHz', control.physics_hz ?? 1000);
-  setInputValue('decimation', control.decimation ?? 20);
-  setInputValue('actionScale', contract.action?.action_scale ?? 0.25);
-  // Gain fields fall back to the package simulation config when the contract
-  // has not authored them yet (mirrors browser sim2sim consumption).
+  // Frequencies and action scale stay owned by the training configuration
+  // (03 训练配置); this panel only edits motor-level parameters.
   const simConfig = preset?.simulation_config || {};
   const gainsSource = {
     stiffness: control.stiffness || simConfig.stiffness || null,
@@ -137,7 +131,6 @@ function renderRobotEditor(preset) {
   setInputValue('maxCmdVy', savedLimits[1] ?? '');
   setInputValue('maxCmdWyaw', savedLimits[2] ?? '');
   renderInertialTable();
-  updateControlRateHint();
   $('saveRobotPackage')?.toggleAttribute('disabled', !preset);
   $('deleteRobotPackage')?.toggleAttribute('disabled', !preset || preset.source !== 'workspace');
   ['resetRobotPose', 'zeroRobotPose'].forEach((id) => $(id)?.toggleAttribute('disabled', !preset || !controlledJoints.length));
@@ -170,7 +163,6 @@ function renderRobotEditor(preset) {
     if ($('robotDiagnostics')) $('robotDiagnostics').textContent = '当前姿态已设为默认，保存配置后写入机器人包';
     setBadge($('robotState'), '有未保存更改', 'pending');
   };
-  ['controlHz', 'physicsHz', 'decimation'].forEach((id) => { if ($(id)) $(id).oninput = updateControlRateHint; });
 }
 
 function controlGainGroups(mappedJoints) {
@@ -298,18 +290,6 @@ function setPoseControls(joints, values) {
   if (typeof window.setUrdfJointPositions === 'function') window.setUrdfJointPositions(positions);
 }
 
-function updateControlRateHint() {
-  const hint = $('controlRateHint');
-  if (!hint) return;
-  const controlHz = Number($('controlHz')?.value || 0);
-  const physicsHz = Number($('physicsHz')?.value || 0);
-  const decimation = Number($('decimation')?.value || 0);
-  const derived = decimation > 0 ? physicsHz / decimation : 0;
-  const matches = controlHz > 0 && Math.abs(derived - controlHz) < 0.01;
-  hint.textContent = matches ? `物理频率 ÷ 降采样 = ${derived.toFixed(1)} Hz` : `当前组合得到 ${derived.toFixed(1)} Hz，与控制频率 ${controlHz.toFixed(1)} Hz 不一致`;
-  hint.classList.toggle('warning', !matches);
-}
-
 async function saveRobotPackage() {
   if (!selectedPreset) return;
   try {
@@ -321,9 +301,9 @@ async function saveRobotPackage() {
       return Number(robotPoseDraft[index] ?? (previousIndex >= 0 ? previousPose[previousIndex] : robotCurrentPose[name]) ?? 0);
     });
     contract.joints = { ...(contract.joints || {}), actuated_joints: joints, default_pose: defaultPose };
-    contract.action = { ...(contract.action || {}), dimension: joints.length, joint_order: joints, action_scale: Number($('actionScale').value || 0.25) };
+    contract.action = { ...(contract.action || {}), dimension: joints.length, joint_order: joints, action_scale: contract.action?.action_scale ?? 0.25 };
     const gains = collectControlGains(contract.control);
-    contract.control = { ...gains.control, control_hz: Number($('controlHz').value || 50), physics_hz: Number($('physicsHz').value || 1000), decimation: Number($('decimation').value || 20) };
+    contract.control = { ...contract.control, ...gains.control, control_hz: contract.control?.control_hz ?? 50, physics_hz: contract.control?.physics_hz ?? 1000, decimation: contract.control?.decimation ?? 20 };
     const result = await jsonFetch(`/api/robots/packages/${encodeURIComponent(selectedPreset.robot_id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contract, simulation: { control_hz: contract.control.control_hz, physics_hz: contract.control.physics_hz, decimation: contract.control.decimation, default_pose: contract.joints.default_pose, ...gains.simulation } }) });
     $('contractJson').value = JSON.stringify(result.contract || contract, null, 2); setBadge($('robotState'), '已保存', 'ok'); $('robotDiagnostics').textContent = '配置已写入本地机器人包'; await loadPresets(selectedPreset.robot_id);
   } catch (error) { $('robotDiagnostics').textContent = `保存失败：${error.message}`; setBadge($('robotState'), '保存失败', 'error'); }
