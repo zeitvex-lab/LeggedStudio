@@ -24,34 +24,39 @@ body{background:#101214;color:#e7eef0}.app-shell{background:#101214}.topbar{heig
 .control-gains-grid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 14px;
+  max-width: 100%;
+  overflow-x: auto;
 }
 .gains-row {
   display: grid;
-  gap: 8px;
+  grid-template-columns: minmax(84px, 1.3fr) repeat(4, minmax(0, 1fr));
+  gap: 6px;
   align-items: center;
-  padding: 9px 10px;
+  padding: 7px 8px;
   border: 1px solid var(--line, #d5dbe3);
   border-radius: 8px;
   background: var(--paper-soft, #f4f6f9);
 }
-.gains-row span { font-size: 12px; font-weight: 600; color: var(--ink, #1d2733); }
+.gains-row span { font-size: 11px; font-weight: 600; color: var(--ink, #1d2733); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gains-row input {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  min-height: 30px;
-  padding: 5px 8px;
+  min-height: 26px;
+  padding: 4px 5px;
   border: 1px solid var(--line, #d5dbe3);
-  border-radius: 6px;
+  border-radius: 5px;
   background: var(--field-bg, #fff);
   color: var(--ink, #1d2733);
   font: inherit;
+  font-size: 11px;
+  text-align: center;
 }
 .gains-row input:focus { outline: none; border-color: var(--cyan, #2588df); }
-.gains-head { border-color: transparent; background: transparent; padding: 0 10px; }
-.gains-head span { font-weight: 700; color: var(--ink-soft, #5b6472); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.gains-head { border-color: transparent; background: transparent; padding: 0 8px; }
+.gains-head span { font-weight: 700; color: var(--ink-soft, #5b6472); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; white-space: normal; line-height: 1.2; }
 
 /* --- inertia table (0.6.0 robot page) --- */
 .inertial-table {

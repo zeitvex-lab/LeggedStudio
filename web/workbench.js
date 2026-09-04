@@ -203,7 +203,7 @@ function renderControlGainsGrid(control, mappedJoints) {
   ];
   const jointsBySegment = {};
   for (const joint of mappedJoints) (jointsBySegment[jointToSegment[joint]] ||= []).push(joint);
-  const cols = 'minmax(140px,1.5fr) repeat(4,minmax(64px,1fr))';
+  const cols = 'minmax(84px,1.3fr) repeat(4,minmax(0,1fr))';
   const header = `<div class="gains-row gains-head" style="grid-template-columns:${cols}"><span>部位</span><span>Kp</span><span>Kd</span><span>力矩限幅</span><span>速度限幅</span></div>`;
   grid.innerHTML = header + segments.map((segment) => {
     const joints = jointsBySegment[segment] || [];
