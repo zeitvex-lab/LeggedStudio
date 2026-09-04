@@ -120,7 +120,7 @@ function renderRobotEditor(preset) {
   };
   gainsSource.torque_limits = gainsSource.torque_limits || simConfig.torque_limits || null;
   gainsSource.velocity_limits = control.velocity_limits || simConfig.velocity_limits || null;
-  renderControlGainsGrid(gainsSource, mappedJoints);
+  renderControlGainsGrid(gainsSource, mappedJoints, control.control_modes || simConfig.control_modes || null);
   renderInertialTable();
   $('saveRobotPackage')?.toggleAttribute('disabled', !preset);
   $('deleteRobotPackage')?.toggleAttribute('disabled', !preset || preset.source !== 'workspace');
@@ -187,7 +187,7 @@ function resolveGainValue(map, segment, joints) {
   return Number.isFinite(jointWide) ? jointWide : '';
 }
 
-function renderControlGainsGrid(control, mappedJoints) {
+function renderControlGainsGrid(control, mappedJoints, motorModes = {}) {
   const grid = $('controlGainsGrid');
   if (!grid) return;
   if (!mappedJoints.length) {
@@ -204,11 +204,20 @@ function renderControlGainsGrid(control, mappedJoints) {
   const jointsBySegment = {};
   for (const joint of mappedJoints) (jointsBySegment[jointToSegment[joint]] ||= []).push(joint);
   const cols = 'minmax(84px,1.3fr) repeat(4,minmax(0,1fr))';
+  // Velocity-driven segments (wheels) have no stiffness: fill Kp with 0.
+  const modeFor = (segment, joints) => {
+    if (motorModes[segment]) return String(motorModes[segment]).toLowerCase();
+    for (const joint of joints) if (motorModes[joint]) return String(motorModes[joint]).toLowerCase();
+    return segment.includes('wheel') ? 'velocity' : 'position';
+  };
   const header = `<div class="gains-row gains-head" style="grid-template-columns:${cols}"><span>部位</span><span>Kp</span><span>Kd</span><span>力矩限幅</span><span>速度限幅</span></div>`;
   grid.innerHTML = header + segments.map((segment) => {
     const joints = jointsBySegment[segment] || [];
+    const mode = modeFor(segment, joints);
     const cells = rows.map((row) => {
-      const value = resolveGainValue(control[row.key], segment, joints);
+      const value = row.key === 'stiffness' && mode === 'velocity'
+        ? 0
+        : resolveGainValue(control[row.key], segment, joints);
       return `<input data-gain-key="${row.key}" data-gain-segment="${segment}" type="number" min="0" step="${row.step}" value="${value}">`;
     }).join('');
     return `<div class="gains-row" style="grid-template-columns:${cols}" title="${escapeHtml(joints.join(', '))}"><span>${escapeHtml(segment)}</span>${cells}</div>`;
