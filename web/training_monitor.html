@@ -5,571 +5,176 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>训练监控 - Legged Studio</title>
   <link rel="stylesheet" href="dashboard.css">
-  <style>
-    .monitor-container {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 40px 24px;
-    }
-
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      padding: 20px 24px;
-      margin-bottom: 20px;
-    }
-
-    .panel-title {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      margin-bottom: 14px;
-      flex-wrap: wrap;
-    }
-
-    .panel-title h3 {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .panel-title .panel-note {
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    /* 状态栏 */
-    .status-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .status-head h2 {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 4px;
-      font-family: 'SF Mono', Consolas, monospace;
-      word-break: break-all;
-    }
-
-    .status-head .meta {
-      font-size: 13px;
-      color: var(--muted);
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      background: var(--surface-raised);
-      white-space: nowrap;
-    }
-
-    .status-badge .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
-    .status-badge.running { background: rgba(45, 212, 191, 0.12); color: var(--accent); border-color: rgba(45, 212, 191, 0.35); }
-    .status-badge.running .status-dot { background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
-    .status-badge.pending .status-dot { animation: pulse 1.6s ease-in-out infinite; }
-    .status-badge.completed { background: rgba(94, 234, 212, 0.1); color: var(--success); border-color: rgba(94, 234, 212, 0.3); }
-    .status-badge.completed .status-dot { background: var(--success); }
-    .status-badge.failed { background: rgba(248, 113, 113, 0.12); color: var(--danger); border-color: rgba(248, 113, 113, 0.35); }
-    .status-badge.failed .status-dot { background: var(--danger); }
-    .status-badge.stopped { color: #fde68a; border-color: rgba(251, 191, 36, 0.3); }
-    .status-badge.stopped .status-dot { background: #fbbf24; }
-
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-
-    .error-banner {
-      display: none;
-      margin-top: 14px;
-      padding: 12px 16px;
-      border: 1px solid rgba(248, 113, 113, 0.35);
-      border-radius: var(--radius);
-      background: rgba(127, 29, 29, 0.16);
-      color: #fecaca;
-      font-size: 13px;
-      line-height: 1.5;
-      word-break: break-all;
-      font-family: 'SF Mono', Consolas, monospace;
-      font-size: 12px;
-    }
-
-    .error-banner.visible { display: block; }
-
-    /* 健康指标网格 */
-    .health-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 10px;
-      margin-top: 16px;
-    }
-
-    .health-item {
-      min-width: 0;
-      padding: 10px 12px;
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      background: var(--surface-raised);
-      display: grid;
-      gap: 4px;
-      align-content: center;
-    }
-
-    .health-item span {
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .health-item strong {
-      font-size: 14px;
-      color: var(--text);
-      font-family: 'SF Mono', Consolas, monospace;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .health-item.accent strong { color: var(--accent); }
-
-    /* 进度条 */
-    .progress-bar-container {
-      width: 100%;
-      height: 8px;
-      background: var(--surface-soft);
-      border-radius: 4px;
-      overflow: hidden;
-      margin-top: 12px;
-    }
-
-    .progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent-strong), var(--accent));
-      border-radius: 4px;
-      transition: width 0.4s ease;
-      box-shadow: 0 0 16px rgba(45, 212, 191, 0.25);
-    }
-
-    .progress-bar.done { background: var(--success); box-shadow: none; }
-    .progress-bar.failed { background: var(--danger); box-shadow: none; }
-
-    .progress-text {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    .progress-text b { color: var(--text); font-family: 'SF Mono', Consolas, monospace; }
-
-    /* 图表 */
-    .chart-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .chart-controls select {
-      min-height: 30px;
-      padding: 0 8px;
-      background: #111922;
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      font-size: 12px;
-    }
-
-    .series-chips {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-    }
-
-    .series-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      background: var(--surface-raised);
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: border-color 0.15s ease, color 0.15s ease;
-      user-select: none;
-    }
-
-    .series-chip .swatch { width: 10px; height: 3px; border-radius: 2px; background: currentColor; opacity: 0.4; }
-    .series-chip.on { border-color: rgba(45, 212, 191, 0.45); }
-    .series-chip.on .swatch { opacity: 1; }
-    .series-chip:hover { border-color: var(--accent); }
-
-    .chart-box { position: relative; }
-
-    #metricChart {
-      width: 100%;
-      height: 260px;
-      display: block;
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      background: #070d14;
-    }
-
-    .chart-empty-note {
-      margin-top: 8px;
-      font-size: 12px;
-      color: var(--faint);
-      line-height: 1.5;
-    }
-
-    /* 上下两栏 */
-    .bottom-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
-      gap: 20px;
-      align-items: start;
-    }
-
-    @media (max-width: 980px) { .bottom-grid { grid-template-columns: 1fr; } }
-
-    /* 日志 */
-    .log-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-    }
-
-    .log-toolbar input[type="text"] {
-      flex: 1;
-      min-width: 160px;
-      min-height: 30px;
-      padding: 4px 10px;
-      background: var(--surface-input);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      color: var(--text);
-      font-size: 12px;
-      outline: none;
-    }
-
-    .log-toolbar input[type="text"]:focus { border-color: var(--accent); }
-
-    .log-toolbar label {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--muted);
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .log-toolbar input[type="checkbox"] { accent-color: var(--accent); }
-
-    .log-container {
-      background: #050810;
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      padding: 12px 14px;
-      max-height: 420px;
-      min-height: 180px;
-      overflow-y: auto;
-      font-family: 'SF Mono', Consolas, monospace;
-      font-size: 12px;
-      line-height: 1.65;
-    }
-
-    .log-line { color: #c2ceda; white-space: pre-wrap; word-break: break-all; padding: 1px 0; }
-    .log-line.error { color: var(--danger); }
-    .log-line.warn { color: #fde68a; }
-    .log-line.success { color: var(--success); }
-    .log-empty { color: var(--faint); text-align: center; padding: 40px 0; }
-
-    /* 检查点列表 */
-    .ckpt-list { display: flex; flex-direction: column; gap: 8px; }
-
-    .ckpt-item {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      gap: 10px;
-      align-items: center;
-      padding: 9px 12px;
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      background: var(--surface-raised);
-    }
-
-    .ckpt-iter {
-      min-width: 44px;
-      text-align: center;
-      padding: 3px 8px;
-      border-radius: 6px;
-      border: 1px solid rgba(45, 212, 191, 0.3);
-      background: rgba(45, 212, 191, 0.08);
-      color: var(--accent);
-      font-size: 11px;
-      font-weight: 700;
-      font-family: 'SF Mono', Consolas, monospace;
-    }
-
-    .ckpt-info { min-width: 0; }
-    .ckpt-info strong { display: block; font-size: 12px; font-family: 'SF Mono', Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .ckpt-info small { display: block; color: var(--faint); font-size: 10px; margin-top: 2px; }
-
-    .copy-btn {
-      min-height: 26px;
-      padding: 0 9px;
-      font-size: 11px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: #111922;
-      color: var(--muted);
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-    .artifact-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 9px 12px;
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      background: var(--surface-raised);
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-
-    .artifact-row b { color: var(--text); font-size: 12px; }
-    .pill { padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; border: 1px solid var(--border); }
-    .pill.ok { color: var(--success); border-color: rgba(94, 234, 212, 0.35); background: rgba(94, 234, 212, 0.08); }
-    .pill.no { color: var(--faint); }
-
-    /* 配置摘要 */
-    .config-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .config-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
-    .config-table td:first-child { color: var(--muted); white-space: nowrap; width: 130px; }
-    .config-table td:last-child { color: var(--text); font-family: 'SF Mono', Consolas, monospace; word-break: break-all; }
-
-    details.raw-config { margin-top: 10px; }
-    details.raw-config summary { font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
-    details.raw-config pre {
-      margin-top: 8px;
-      padding: 12px;
-      background: #050810;
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      color: #c2ceda;
-      font-size: 11px;
-      line-height: 1.6;
-      max-height: 320px;
-      overflow: auto;
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
-
-    .missing-id {
-      padding: 60px 20px;
-      text-align: center;
-    }
-
-    .missing-id p { color: var(--muted); margin-bottom: 16px; }
-
-    .toast {
-      position: fixed;
-      left: 50%;
-      bottom: 32px;
-      transform: translateX(-50%) translateY(8px);
-      padding: 12px 20px;
-      border-radius: var(--radius);
-      background: rgba(94, 234, 212, 0.14);
-      border: 1px solid rgba(45, 212, 191, 0.4);
-      color: var(--success);
-      font-size: 13px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s ease, transform 0.2s ease;
-      z-index: 100;
-    }
-
-    .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-  </style>
+  <link rel="stylesheet" href="training-monitor.css">
 </head>
 <body>
-  <div class="monitor-container">
-    <!-- 页面头部 -->
-    <header class="page-header">
-      <div>
-        <span class="page-kicker">Training Monitor</span>
-        <h1 id="taskTitle">训练监控</h1>
-        <p id="taskSubtitle">实时监控训练进度、指标曲线与日志</p>
+  <div class="monitor-shell" id="monitorBody">
+
+    <!-- 1) 运行头部 / 状态栏 -->
+    <header class="run-header card">
+      <div class="run-id-block">
+        <span id="stateDot" class="tsui-dot js-state idle" title="状态未知"></span>
+        <div class="run-id-text">
+          <div class="run-id-row">
+            <h1 class="run-id" id="runIdTitle" title="task_id">加载中...</h1>
+            <span class="status-pill" id="statusPill">...</span>
+          </div>
+          <div class="run-meta">
+            <span id="metaRobot">-</span>
+            <span class="meta-sep">·</span>
+            <span id="metaAlgo">-</span>
+            <span class="meta-sep">·</span>
+            <span id="metaCreated" title="任务创建时间">-</span>
+          </div>
+        </div>
       </div>
-      <div class="page-actions">
-        <button class="btn" onclick="loadAllNow()" id="refreshBtn" title="立即刷新全部数据">刷新</button>
-        <button class="btn" onclick="stopTraining()" id="stopBtn" style="display:none;">停止训练</button>
+      <div class="run-actions">
+        <button class="btn danger" id="stopBtn" style="display:none;" title="停止该训练任务">停止</button>
+        <button class="btn" id="refreshBtn" title="立即刷新全部数据">刷新</button>
+        <button class="btn" id="copyIdBtn" title="复制 task_id 到剪贴板">复制 task_id</button>
         <a class="btn" href="training_list.html">任务列表</a>
         <a class="btn" href="dashboard.html">返回</a>
       </div>
     </header>
 
-    <div id="monitorBody">
-      <!-- 状态与运行指标 -->
-      <div class="panel">
-        <div class="status-head">
-          <div style="min-width: 0;">
-            <h2 id="statusTitle">加载中...</h2>
-            <div class="meta">
-              <span id="metaRobot">-</span>
-              <span>·</span>
-              <span id="metaAlgo">-</span>
-              <span>·</span>
-              <span id="metaCreated" title="任务创建时间">-</span>
-            </div>
-          </div>
-          <span id="statusBadge" class="status-badge"><span class="status-dot"></span>...</span>
-        </div>
-        <div class="error-banner" id="errorBanner"></div>
+    <div class="error-banner" id="errorBanner"></div>
 
-        <div class="health-grid" id="healthGrid">
-          <div class="health-item"><span>当前迭代</span><strong id="metricIteration">0</strong></div>
-          <div class="health-item"><span>总迭代</span><strong id="metricMaxIter">0</strong></div>
-          <div class="health-item accent"><span>平均奖励</span><strong id="metricReward">0.00</strong></div>
-          <div class="health-item accent"><span>成功率</span><strong id="metricSuccess">0%</strong></div>
-          <div class="health-item"><span>运行设备</span><strong id="metricDevice">-</strong></div>
-          <div class="health-item"><span>迭代速度</span><strong id="metricSpeed">-</strong></div>
-          <div class="health-item"><span>已运行</span><strong id="metricElapsed">-</strong></div>
-          <div class="health-item"><span>预计剩余</span><strong id="metricEta">-</strong></div>
+    <!-- 2) 进度条 -->
+    <section class="progress-strip card">
+      <div class="progress-top">
+        <span class="progress-pct" id="progressPct">--%</span>
+        <div class="progress-track">
+          <div class="progress-bar" id="progressBar" style="width:0%;"></div>
         </div>
+        <span class="progress-note" id="progressNote">加载中...</span>
       </div>
-
-      <!-- 进度 -->
-      <div class="panel">
-        <div class="panel-title">
-          <h3>训练进度</h3>
-          <span class="panel-note" id="progressNote">-</span>
-        </div>
-        <div class="progress-text">
-          <span>迭代 <b id="progressText">0 / 0 (0%)</b></span>
-          <span id="progressDetail">-</span>
-        </div>
-        <div class="progress-bar-container">
-          <div class="progress-bar" id="progressBar" style="width: 0%;"></div>
-        </div>
+      <div class="progress-stats">
+        <div class="pstat"><span>当前迭代</span><b id="metricIteration">0</b></div>
+        <div class="pstat"><span>总迭代</span><b id="metricMaxIter">0</b></div>
+        <div class="pstat accent"><span>平均奖励</span><b id="metricReward">-</b></div>
+        <div class="pstat accent"><span>成功率</span><b id="metricSuccess">-</b></div>
+        <div class="pstat"><span>迭代速度</span><b id="metricSpeed">-</b></div>
+        <div class="pstat"><span>已运行</span><b id="metricElapsed">-</b></div>
+        <div class="pstat"><span>预计剩余</span><b id="metricEta">-</b></div>
       </div>
+    </section>
 
-      <!-- 指标曲线 -->
-      <div class="panel">
-        <div class="panel-title">
-          <h3>训练指标曲线</h3>
-          <div class="chart-controls">
-            <select id="metricWindowSelect" title="曲线展示范围" aria-label="曲线范围">
-              <option value="0">全部范围</option>
-              <option value="300" selected>最近 300 点</option>
-              <option value="100">最近 100 点</option>
-            </select>
-            <select id="metricSmoothSelect" title="滑动平均平滑窗口" aria-label="曲线平滑">
-              <option value="1">原始</option>
-              <option value="5" selected>平滑 5</option>
-              <option value="15">平滑 15</option>
-            </select>
-            <span class="panel-note" id="chartStatus">等待指标数据</span>
+    <!-- 3) 三段概览侧栏 + 指标小图网格 -->
+    <div class="monitor-grid">
+      <aside class="overview-sidebar">
+        <section class="overview-section card">
+          <div class="ov-head">
+            <h3>环境 <small>Environment</small></h3>
+            <span class="count-badge" id="envCount">0</span>
           </div>
-        </div>
-        <div class="series-chips" id="seriesChips"></div>
-        <div class="chart-box">
-          <canvas id="metricChart"></canvas>
-        </div>
-        <p class="chart-empty-note" id="chartEmptyNote"></p>
-      </div>
+          <input type="text" class="ov-filter" id="envFilter" placeholder="筛选键 / 值..." spellcheck="false">
+          <div class="kv-list" id="envList">
+            <div class="ov-empty">等待状态数据（每 3 秒刷新）...</div>
+          </div>
+        </section>
 
-      <!-- 日志 + 检查点 -->
-      <div class="bottom-grid">
-        <div class="panel" style="margin-bottom: 0;">
-          <div class="panel-title">
-            <h3>训练日志</h3>
-            <span class="panel-note" id="logNote">-</span>
+        <section class="overview-section card">
+          <div class="ov-head">
+            <h3>配置 <small>Config</small></h3>
+            <span class="count-badge" id="configCount">0</span>
           </div>
-          <div class="log-toolbar">
-            <input type="text" id="logFilter" placeholder="过滤日志关键字 (如 ERROR / iteration)...">
-            <label title="仅当滚动位置接近底部时自动跟随最新日志">
-              <input type="checkbox" id="logAutoscroll" checked> 自动滚动
-            </label>
+          <input type="text" class="ov-filter" id="configFilter" placeholder="筛选键 / 值..." spellcheck="false">
+          <div class="kv-list" id="configList">
+            <div class="ov-empty">等待状态数据（每 3 秒刷新）...</div>
           </div>
-          <div class="log-container" id="logContainer">
-            <div class="log-empty">等待日志数据...</div>
-          </div>
-        </div>
+          <details class="raw-config" id="rawConfigDetails" style="display:none;">
+            <summary>查看原始配置 JSON</summary>
+            <pre id="rawConfigPre"></pre>
+          </details>
+        </section>
 
-        <div style="display: flex; flex-direction: column; gap: 20px; min-width: 0;">
-          <!-- 检查点与产物 -->
-          <div class="panel" style="margin-bottom: 0;">
-            <div class="panel-title">
-              <h3>检查点与产物</h3>
-              <span class="panel-note" id="ckptNote">-</span>
-            </div>
-            <div class="artifact-row">
-              <span>训练产物 <b>artifact.json</b></span>
-              <span class="pill no" id="artifactPill">检测中</span>
-            </div>
-            <div class="ckpt-list" id="ckptList">
-              <div class="log-empty">加载中...</div>
-            </div>
+        <section class="overview-section card">
+          <div class="ov-head">
+            <h3>摘要 <small>Summary</small></h3>
+            <span class="count-badge" id="summaryCount">0</span>
           </div>
+          <input type="text" class="ov-filter" id="summaryFilter" placeholder="筛选键 / 值..." spellcheck="false">
+          <div class="kv-list" id="summaryList">
+            <div class="ov-empty">等待状态数据（每 3 秒刷新）...</div>
+          </div>
+        </section>
+      </aside>
 
-          <!-- 训练配置 -->
-          <div class="panel" style="margin-bottom: 0;">
-            <div class="panel-title">
-              <h3>训练配置</h3>
-              <span class="panel-note">任务归档的可追溯配置</span>
-            </div>
-            <table class="config-table" id="configTable">
-              <tbody><tr><td>加载中</td><td>-</td></tr></tbody>
-            </table>
-            <details class="raw-config" id="rawConfigDetails" style="display:none;">
-              <summary>查看原始配置 JSON</summary>
-              <pre id="rawConfigPre"></pre>
-            </details>
-          </div>
+      <main class="metrics-main card">
+        <div class="metrics-toolbar">
+          <h3 class="metrics-title">指标 <span class="panel-note" id="metricCountNote"></span></h3>
+          <input type="text" class="metrics-filter" id="metricFilter" placeholder="按名称筛选指标..." spellcheck="false" title="按指标名称过滤下方小图">
+          <select id="metricWindowSelect" title="曲线展示范围" aria-label="曲线范围">
+            <option value="0">全部范围</option>
+            <option value="300" selected>最近 300 点</option>
+            <option value="100">最近 100 点</option>
+          </select>
+          <select id="metricSmoothSelect" title="滑动平均平滑窗口" aria-label="曲线平滑">
+            <option value="1">原始</option>
+            <option value="5" selected>平滑 5</option>
+            <option value="15">平滑 15</option>
+          </select>
         </div>
-      </div>
+        <p class="metrics-note" id="chartStatus">等待指标数据</p>
+        <div class="metrics-grid" id="metricsGrid">
+          <div class="ov-empty">等待指标数据（每 5 秒自动刷新）...</div>
+        </div>
+        <p class="metrics-note" id="chartEmptyNote"></p>
+      </main>
     </div>
 
-    <div id="missingIdBox" class="panel missing-id" style="display:none;">
-      <p id="missingIdText">缺少任务 ID 参数。</p>
-      <a class="btn primary" href="training_list.html">返回任务列表</a>
-    </div>
+    <!-- 4) 训练日志（可折叠） -->
+    <section class="collapsible open card" id="logsPane">
+      <button type="button" class="collapse-head" data-collapse-target="logsBody" aria-expanded="true" aria-controls="logsBody">
+        <span class="chevron">▾</span>
+        <h3>训练日志</h3>
+        <span class="panel-note" id="logNote">-</span>
+      </button>
+      <div class="collapse-body" id="logsBody">
+        <div class="log-toolbar">
+          <input type="text" id="logFilter" placeholder="过滤日志关键字（如 ERROR / iteration）...">
+          <label title="仅当滚动位置接近底部时自动跟随最新日志">
+            <input type="checkbox" id="logAutoscroll" checked> 自动滚动
+          </label>
+        </div>
+        <div class="log-container" id="logContainer">
+          <div class="log-empty">等待日志数据（任务启动后此处显示最近 200 行）...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5) 检查点与产物（可折叠） -->
+    <section class="collapsible open card" id="ckptPane">
+      <button type="button" class="collapse-head" data-collapse-target="ckptBody" aria-expanded="true" aria-controls="ckptBody">
+        <span class="chevron">▾</span>
+        <h3>检查点与产物</h3>
+        <span class="panel-note" id="ckptNote">-</span>
+      </button>
+      <div class="collapse-body" id="ckptBody">
+        <div class="artifact-row">
+          <span>训练产物 <b>artifact.json</b></span>
+          <span class="pill no" id="artifactPill">检测中</span>
+        </div>
+        <div class="ckpt-list" id="ckptList">
+          <div class="log-empty">加载中...</div>
+        </div>
+      </div>
+    </section>
   </div>
+
+  <div id="missingIdBox" class="card missing-id" style="display:none;">
+    <p id="missingIdText">缺少任务 ID 参数。</p>
+    <a class="btn primary" href="training_list.html">返回任务列表</a>
+  </div>
+
+  <!-- 底部状态栏 -->
+  <footer class="bottom-status-bar">
+    <div class="bs-left">
+      <span id="footDot" class="tsui-dot js-state idle" title="状态未知"></span>
+      <span id="footStatusText">正在连接控制面...</span>
+    </div>
+    <div class="bs-right" id="pollHint">状态 3s · 日志 4s · 指标 5s · 检查点 15s · 页面隐藏时暂停</div>
+  </footer>
 
   <div class="toast" id="toast"></div>
 
@@ -577,35 +182,46 @@
   <script>
     const {
       escapeHtml, stripAnsi, fetchJson, fmtMetric, fmtDuration, fmtRelativeTime,
-      fmtDateTime, fmtBytes, statusInfo, smoothSeries, TrainingChart, RateTracker, CHART_COLORS,
+      fmtDateTime, fmtBytes, statusInfo, smoothSeries, TrainingChart, RateTracker,
+      CHART_COLORS, runColor, flattenDict,
     } = window.TrainingUI;
 
     const urlParams = new URLSearchParams(window.location.search);
     const taskId = urlParams.get('task_id');
     const LOG_LINES = 200;
+    const POLL_HINT_TEXT = '状态 3s · 日志 4s · 指标 5s · 检查点 15s · 页面隐藏时暂停';
+    const POLL_HINT_STOPPED = '任务已进入终态 · 轮询已停止';
+    // 配置里体积巨大的机器人包与已解析 recipe 不进入扁平列表（仍可在原始 JSON 中查看）
+    const CONFIG_FLAT_EXCLUDE = ['robot_package', 'resolved_recipe'];
+
+    const $ = (id) => document.getElementById(id);
 
     const state = {
       status: null,
       metricsRows: [],
-      selectedSeries: new Set(['reward_mean']),
-      rate: new RateTracker(10),
       seriesKeys: [],
+      summaryLatest: new Map(),  // 指标 key -> 最新有限值（进入摘要侧栏）
+      charts: new Map(),         // 指标 key -> { chart, card, lastEl, color }
+      envEntries: [],
+      configEntries: [],
+      summaryEntries: [],
+      rate: new RateTracker(10),
       stopped: false,
     };
 
-    const chart = new TrainingChart(document.getElementById('metricChart'), {
-      xLabel: '迭代',
-    });
+    let pollTimers = [];
 
     // ---------- 缺少 task_id ----------
     if (!taskId) {
-      document.getElementById('monitorBody').style.display = 'none';
-      document.getElementById('missingIdBox').style.display = 'block';
-      document.getElementById('missingIdText').textContent = '缺少任务 ID 参数（URL 需要 ?task_id=...）。';
+      $('monitorBody').style.display = 'none';
+      $('missingIdBox').style.display = 'block';
+      $('missingIdText').textContent = '缺少任务 ID 参数（URL 需要 ?task_id=...）。';
+      $('footStatusText').textContent = '未指定任务，监控未启动';
+      $('pollHint').textContent = '无轮询';
     }
 
     function showToast(message) {
-      const toast = document.getElementById('toast');
+      const toast = $('toast');
       toast.textContent = message;
       toast.classList.add('visible');
       setTimeout(() => toast.classList.remove('visible'), 1800);
@@ -618,6 +234,44 @@
       loadCheckpoints();
     }
 
+    // ---------- 复制工具 ----------
+    function copyText(text) {
+      const done = () => showToast('已复制到剪贴板');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+      } else {
+        fallbackCopy(text, done);
+      }
+    }
+
+    function fallbackCopy(text, done) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try { document.execCommand('copy'); done(); } catch (err) { /* ignore */ }
+      textarea.remove();
+    }
+
+    // ---------- 状态点 / 底部状态栏 ----------
+    function paintDots(info) {
+      const breathe = info.cls === 'running' || info.cls === 'pending';
+      document.querySelectorAll('.tsui-dot.js-state').forEach((dot) => {
+        dot.className = `tsui-dot js-state ${info.cls}${breathe ? ' tsui-breathe' : ''}`;
+        dot.title = info.label;
+      });
+    }
+
+    function setFootStatus(text, cls) {
+      $('footStatusText').textContent = text;
+      if (cls) {
+        const info = { cls, label: text };
+        paintDots(info);
+      }
+    }
+
     // ---------- 状态 ----------
     async function loadTrainingStatus() {
       if (!taskId) return;
@@ -627,8 +281,8 @@
         applyStatus(data.status);
       } catch (error) {
         console.error('Failed to load status:', error);
-        document.getElementById('statusTitle').textContent = '状态加载失败';
-        document.getElementById('taskSubtitle').textContent = error.message;
+        $('runIdTitle').textContent = '状态加载失败';
+        setFootStatus(`状态加载失败（${error.message}）· 将自动重试`, 'failed');
       }
     }
 
@@ -636,20 +290,20 @@
       state.status = status;
       const info = statusInfo(status.status);
 
-      document.getElementById('taskTitle').textContent = '训练监控';
-      document.getElementById('taskSubtitle').textContent = `${status.robot} · ${status.algorithm} · 创建于 ${fmtDateTime(status.created_at)}`;
-      document.getElementById('statusTitle').textContent = status.task_id;
-      document.getElementById('metaRobot').textContent = status.robot || '-';
-      document.getElementById('metaAlgo').textContent = status.algorithm || '-';
-      document.getElementById('metaCreated').textContent = `创建于 ${fmtDateTime(status.created_at)}`;
-
-      const badge = document.getElementById('statusBadge');
-      badge.innerHTML = `<span class="status-dot"></span>${escapeHtml(info.label)}`;
-      badge.className = `status-badge ${info.cls}`;
-      badge.title = String(status.status || '');
+      // 头部：run ID + 状态点 + 徽标 + 元信息
+      $('runIdTitle').textContent = status.task_id || taskId;
+      $('runIdTitle').title = `task_id: ${status.task_id || taskId}`;
+      const pill = $('statusPill');
+      pill.textContent = info.label;
+      pill.className = `status-pill ${info.cls}`;
+      pill.title = String(status.status || '');
+      $('metaRobot').textContent = status.robot || '-';
+      $('metaAlgo').textContent = status.algorithm || '-';
+      $('metaCreated').textContent = status.created_at ? `创建于 ${fmtDateTime(status.created_at)}` : '-';
+      paintDots(info);
 
       // 错误横幅
-      const banner = document.getElementById('errorBanner');
+      const banner = $('errorBanner');
       if (status.error) {
         banner.textContent = `错误：${status.error}`;
         banner.classList.add('visible');
@@ -660,51 +314,164 @@
         banner.classList.remove('visible');
       }
 
-      document.getElementById('stopBtn').style.display = (info.cls === 'running' || info.cls === 'pending') ? 'inline-flex' : 'none';
+      $('stopBtn').style.display = (info.cls === 'running' || info.cls === 'pending') ? 'inline-flex' : 'none';
 
-      // 进度
+      // 进度条（RateTracker / ETA 逻辑保持不变）
       const progress = Math.max(0, Math.min(1, Number(status.progress) || 0));
       const current = Number(status.current_iteration) || 0;
       const max = Number(status.max_iterations) || 0;
       state.rate.push(current);
 
-      document.getElementById('progressText').textContent = `${current} / ${max} (${(progress * 100).toFixed(1)}%)`;
-      const bar = document.getElementById('progressBar');
-      bar.style.width = `${(info.cls === 'completed' ? 100 : progress * 100).toFixed(2)}%`;
+      const pctShown = info.cls === 'completed' ? 100 : progress * 100;
+      $('progressPct').textContent = `${pctShown.toFixed(1)}%`;
+      const bar = $('progressBar');
+      bar.style.width = `${pctShown.toFixed(2)}%`;
       bar.className = `progress-bar ${info.cls === 'completed' ? 'done' : info.cls === 'failed' ? 'failed' : ''}`;
+      $('progressNote').textContent = `${info.label} · PID ${status.pid ?? '-'}`;
 
-      // 速度 / ETA / 已运行
+      // 实时数字：当前迭代 / 总迭代 / 平均奖励 / 成功率 / it/min / 已运行 / 预计剩余
       const rate = state.rate.rate();
       const eta = max > 0 ? state.rate.eta(max) : null;
       const elapsed = status.created_at ? (Date.now() - Date.parse(status.created_at)) / 1000 : null;
 
-      document.getElementById('metricIteration').textContent = current;
-      document.getElementById('metricMaxIter').textContent = max || '-';
-      document.getElementById('metricReward').textContent = fmtMetric(status.reward);
-      document.getElementById('metricSuccess').textContent = ((Number(status.success_rate) || 0) * 100).toFixed(1) + '%';
-      document.getElementById('metricDevice').textContent = status.device || (status.runtime && status.runtime.resolved) || '-';
-      document.getElementById('metricSpeed').textContent = (info.cls === 'running' && rate != null) ? `${(rate * 60).toFixed(1)} it/min` : '-';
-      document.getElementById('metricElapsed').textContent = elapsed != null ? fmtDuration(elapsed) : '-';
-      document.getElementById('metricEta').textContent = (info.cls === 'running' && eta != null) ? fmtDuration(eta) : (info.cls === 'running' ? '估算中' : '-');
+      $('metricIteration').textContent = current;
+      $('metricMaxIter').textContent = max || '-';
+      $('metricReward').textContent = fmtMetric(status.reward);
+      $('metricSuccess').textContent = `${((Number(status.success_rate) || 0) * 100).toFixed(1)}%`;
+      $('metricSpeed').textContent = (info.cls === 'running' && rate != null) ? `${(rate * 60).toFixed(1)} it/min` : '-';
+      $('metricElapsed').textContent = elapsed != null ? fmtDuration(elapsed) : '-';
+      $('metricEta').textContent = (info.cls === 'running' && eta != null) ? fmtDuration(eta) : (info.cls === 'running' ? '估算中' : '-');
 
-      document.getElementById('progressNote').textContent = `${info.label} · PID ${status.pid ?? '-'}`;
-      document.getElementById('progressDetail').textContent = [
-        info.cls === 'running' && rate != null ? `${(rate * 60).toFixed(1)} it/min` : '',
-        info.cls === 'running' && eta != null ? `预计剩余 ${fmtDuration(eta)}` : '',
-      ].filter(Boolean).join(' · ') || '-';
+      // 底部状态栏实时文案
+      let footText;
+      switch (info.cls) {
+        case 'running': footText = `运行中 · 迭代 ${current}/${max || '?'} · ${pctShown.toFixed(1)}%`; break;
+        case 'pending': footText = '等待中 · 任务排队 / 启动中'; break;
+        case 'completed': footText = `已完成 · 共 ${max} 次迭代`; break;
+        case 'failed': footText = `失败${status.error ? ` · ${status.error}` : ''}`; break;
+        case 'stopped': footText = `已停止 · 迭代 ${current}/${max || '?'} · ${pctShown.toFixed(1)}%`; break;
+        default: footText = `状态：${status.status || '未知'}`;
+      }
+      if (state.stopped) footText += ' · 轮询已停止';
+      $('footStatusText').textContent = footText;
 
       // 检测到终态后停止轮询（日志/检查点会再补刷一轮）
       if (info.cls !== 'running' && info.cls !== 'pending' && !state.stopped) {
         state.stopped = true;
         pollTimers.forEach((timer) => clearInterval(timer));
         pollTimers = [];
+        $('pollHint').textContent = POLL_HINT_STOPPED;
         setTimeout(loadAllNow, 1200);
       }
 
-      renderConfig(status.config || {});
+      buildSidebars(status);
     }
 
-    // ---------- 指标 ----------
+    // ---------- 概览侧栏（环境 / 配置 / 摘要） ----------
+    const SIDEBAR_SECTIONS = {
+      env: { list: 'envList', count: 'envCount', filter: 'envFilter' },
+      config: { list: 'configList', count: 'configCount', filter: 'configFilter' },
+      summary: { list: 'summaryList', count: 'summaryCount', filter: 'summaryFilter' },
+    };
+
+    function renderValue(value) {
+      if (value === null) return 'null';
+      if (typeof value === 'number') return Number.isInteger(value) ? String(value) : fmtMetric(value);
+      if (typeof value === 'boolean') return value ? '是' : '否';
+      if (typeof value === 'object') return JSON.stringify(value);
+      return String(value);
+    }
+
+    function sortedEntries(record) {
+      return Object.keys(record).sort((a, b) => a.localeCompare(b)).map((key) => [key, record[key]]);
+    }
+
+    function buildSidebars(status) {
+      const config = status.config || {};
+
+      // 环境：任务身份 + 运行时环境（device / runtime / pid / 后端模式）
+      const envFlat = flattenDict(status.runtime || {});
+      const envEntries = [];
+      ['robot', 'contract_id', 'device', 'pid', 'exit_code'].forEach((key) => {
+        if (status[key] !== undefined && status[key] !== null) envEntries.push([key, status[key]]);
+      });
+      if (status.created_at) envEntries.push(['created_at', fmtDateTime(status.created_at)]);
+      Object.keys(envFlat).forEach((key) => envEntries.push([`runtime.${key}`, envFlat[key]]));
+      ['backend', 'mode', 'generic_task'].forEach((key) => {
+        if (config[key] !== undefined) envEntries.push([`config.${key}`, config[key]]);
+      });
+      envEntries.sort((a, b) => a[0].localeCompare(b[0]));
+      state.envEntries = envEntries;
+
+      // 配置：嵌套字段按 a.b.c 点路径扁平化，键名字典序
+      const flat = flattenDict(config);
+      state.configEntries = sortedEntries(flat).filter(([key]) =>
+        !CONFIG_FLAT_EXCLUDE.some((prefix) => key === prefix || key.startsWith(`${prefix}.`)));
+
+      // 摘要：实时进度 + 每个指标序列的最新值（wandb summary 风格）
+      state.summaryEntries = buildSummaryEntries(status);
+
+      renderSidebarSection('env');
+      renderSidebarSection('config');
+      renderSidebarSection('summary');
+
+      // 原始 JSON（剔除体积巨大的机器人包字段，便于人工检查差异）
+      const compact = { ...config };
+      delete compact.robot_package;
+      const details = $('rawConfigDetails');
+      if (Object.keys(compact).length) {
+        details.style.display = 'block';
+        $('rawConfigPre').textContent = JSON.stringify(compact, null, 2);
+      }
+    }
+
+    function buildSummaryEntries(status) {
+      const info = statusInfo(status.status);
+      const entries = [['status', `${info.label} (${status.status || 'unknown'})`]];
+      const add = (key, value) => {
+        if (value !== undefined && value !== null) entries.push([key, value]);
+      };
+      add('progress', `${((Number(status.progress) || 0) * 100).toFixed(1)}%`);
+      add('current_iteration', status.current_iteration);
+      add('max_iterations', status.max_iterations);
+      add('reward', status.reward);
+      add('success_rate', status.success_rate);
+      if (status.error) add('error', status.error);
+      state.summaryLatest.forEach((value, key) => entries.push([key, value]));
+      entries.sort((a, b) => a[0].localeCompare(b[0]));
+      return entries;
+    }
+
+    function renderSidebarSection(name) {
+      const section = SIDEBAR_SECTIONS[name];
+      if (!section) return;
+      const entries = name === 'env' ? state.envEntries
+        : name === 'config' ? state.configEntries
+          : state.summaryEntries;
+      renderKvSection($(section.list), $(section.count), $(section.filter), entries);
+    }
+
+    function renderKvSection(listEl, countEl, filterEl, entries) {
+      const query = filterEl.value.trim().toLowerCase();
+      const rows = entries.filter(([key, value]) => !query
+        || key.toLowerCase().includes(query)
+        || String(value).toLowerCase().includes(query));
+      countEl.textContent = query ? `${rows.length}/${entries.length}` : String(entries.length);
+
+      if (!entries.length) {
+        listEl.innerHTML = '<div class="ov-empty">暂无数据（等待任务上报）</div>';
+        return;
+      }
+      listEl.innerHTML = rows.length
+        ? rows.map(([key, value]) => {
+          const text = renderValue(value);
+          return `<div class="kv-row"><span class="kv-key" title="${escapeHtml(key)}">${escapeHtml(key)}</span>` +
+            `<span class="kv-val" title="${escapeHtml(text)}">${escapeHtml(text)}</span></div>`;
+        }).join('')
+        : '<div class="ov-empty">没有匹配筛选条件的条目</div>';
+    }
+
+    // ---------- 指标小图（small multiples） ----------
     const METRIC_LABELS = {
       reward_mean: '平均奖励',
       reward_sum: '回合总奖励',
@@ -732,8 +499,7 @@
         const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/metrics`);
         if (!data.success) return;
         state.metricsRows = Array.isArray(data.metrics) ? data.metrics : [];
-        renderSeriesChips();
-        renderChart();
+        ingestMetrics();
       } catch (error) {
         console.error('Failed to load metrics:', error);
       }
@@ -750,54 +516,104 @@
       return [...keys];
     }
 
-    function renderSeriesChips() {
+    function ingestMetrics() {
       const keys = extractSeries();
-      const added = keys.filter((key) => !state.seriesKeys.includes(key));
-      const removedKeys = state.seriesKeys.filter((key) => !keys.includes(key));
-      added.forEach((key) => { if (/reward/i.test(key)) state.selectedSeries.add(key); });
-      removedKeys.forEach((key) => state.selectedSeries.delete(key));
+      state.seriesKeys.filter((key) => !keys.includes(key)).forEach((key) => state.summaryLatest.delete(key));
       state.seriesKeys = keys;
 
-      const container = document.getElementById('seriesChips');
-      if (!keys.length) {
-        container.innerHTML = '<span class="panel-note">尚无可用指标序列（worker 未上报 metrics.jsonl 时仅能展示进度卡片）</span>';
-        return;
+      // 每个指标的最新有限值进入摘要侧栏
+      keys.forEach((key) => {
+        let last = null;
+        state.metricsRows.forEach((row) => {
+          const y = Number(row ? row[key] : NaN);
+          if (Number.isFinite(y)) last = y;
+        });
+        if (last != null) state.summaryLatest.set(key, last);
+      });
+      if (state.status) {
+        state.summaryEntries = buildSummaryEntries(state.status);
+        renderSidebarSection('summary');
       }
-      container.innerHTML = keys.map((key, index) => `
-        <span class="series-chip ${state.selectedSeries.has(key) ? 'on' : ''}" data-series="${escapeHtml(key)}"
-              title="${escapeHtml(key)}" style="color: ${CHART_COLORS[index % CHART_COLORS.length]};">
-          <span class="swatch"></span>${escapeHtml(metricLabel(key))}
-        </span>
-      `).join('');
-      container.querySelectorAll('.series-chip').forEach((chip) => chip.addEventListener('click', () => {
-        const key = chip.dataset.series;
-        if (state.selectedSeries.has(key)) state.selectedSeries.delete(key);
-        else state.selectedSeries.add(key);
-        chip.classList.toggle('on', state.selectedSeries.has(key));
-        renderChart();
-      }));
+
+      rebuildMetricCards();
     }
 
-    function renderChart() {
-      const rows = state.metricsRows;
-      const range = Number(document.getElementById('metricWindowSelect').value || 0);
-      const smoothWindow = Number(document.getElementById('metricSmoothSelect').value || 1);
+    function rebuildMetricCards() {
+      const grid = $('metricsGrid');
 
-      const selected = state.seriesKeys.filter((key) => state.selectedSeries.has(key));
-      const statusEl = document.getElementById('chartStatus');
-      const noteEl = document.getElementById('chartEmptyNote');
-
-      if (!rows.length || !selected.length) {
-        chart.setSeries([]);
-        statusEl.textContent = rows.length ? '未选择指标' : '等待指标数据';
-        noteEl.textContent = rows.length
-          ? '点击上方指标标签切换曲线。'
-          : '当前任务没有 metrics.jsonl 记录：native MJLab 训练把标量写入 TensorBoard 事件文件（可在检查点面板查看），进度仍以顶部卡片为准。';
+      if (!state.seriesKeys.length) {
+        state.charts.forEach((entry) => entry.chart.destroy());
+        state.charts.clear();
+        grid.innerHTML = '<div class="ov-empty">当前任务没有数值指标序列：native MJLab 训练把标量写入 TensorBoard 事件文件' +
+          '（见下方「检查点与产物」），进度以上方进度条为准。</div>';
+        $('chartStatus').textContent = '暂无指标序列';
+        $('chartEmptyNote').textContent = 'worker 上报 metrics.jsonl 后，此处会按指标自动生成一张张小图。';
+        $('metricCountNote').textContent = '';
         return;
       }
 
+      // 移除已消失的指标卡片
+      state.charts.forEach((entry, key) => {
+        if (!state.seriesKeys.includes(key)) {
+          entry.chart.destroy();
+          entry.card.remove();
+          state.charts.delete(key);
+        }
+      });
+
+      state.seriesKeys.forEach((key) => {
+        if (state.charts.has(key)) return;
+        const color = runColor(key, CHART_COLORS); // 按指标名稳定分配颜色
+        const card = document.createElement('div');
+        card.className = 'metric-card';
+        card.dataset.metric = key;
+        const head = document.createElement('div');
+        head.className = 'metric-card-head';
+        head.innerHTML = `<span class="swatch" style="background:${color}"></span>` +
+          `<span class="metric-name" title="${escapeHtml(key)}">${escapeHtml(metricLabel(key))}</span>` +
+          `<span class="metric-last" title="最新值">-</span>`;
+        const canvas = document.createElement('canvas');
+        card.appendChild(head);
+        card.appendChild(canvas);
+        grid.appendChild(card);
+        const chart = new TrainingChart(canvas, {
+          xLabel: '迭代',
+          pad: { left: 44, right: 12, top: 10, bottom: 24 },
+        });
+        state.charts.set(key, { chart, card, lastEl: head.querySelector('.metric-last'), color });
+      });
+
+      const placeholder = grid.querySelector('.ov-empty');
+      if (placeholder) placeholder.remove();
+
+      applyMetricFilter();
+      updateMetricCharts();
+      $('chartEmptyNote').textContent = `共 ${state.seriesKeys.length} 个指标 · 悬停小图可查看精确数值；每个指标一条曲线，颜色按指标名稳定分配。`;
+    }
+
+    function applyMetricFilter() {
+      const query = $('metricFilter').value.trim().toLowerCase();
+      let shown = 0;
+      state.charts.forEach((entry, key) => {
+        const haystack = `${key} ${metricLabel(key)}`.toLowerCase();
+        const visible = !query || haystack.includes(query);
+        entry.card.style.display = visible ? '' : 'none';
+        if (visible) {
+          shown += 1;
+          entry.chart.draw();
+        }
+      });
+      const total = state.charts.size;
+      $('metricCountNote').textContent = total ? (query ? `显示 ${shown}/${total}` : `共 ${total} 个`) : '';
+    }
+
+    function updateMetricCharts() {
+      const rows = state.metricsRows;
+      const range = Number($('metricWindowSelect').value || 0);
+      const smoothWindow = Number($('metricSmoothSelect').value || 1);
       const visibleRows = range > 0 ? rows.slice(-range) : rows;
-      const series = selected.map((key) => {
+
+      state.charts.forEach((entry, key) => {
         const points = [];
         visibleRows.forEach((row, index) => {
           const y = Number(row ? row[key] : NaN);
@@ -806,21 +622,23 @@
           points.push({ x, y });
         });
         points.sort((a, b) => a.x - b.x);
-        return {
+        entry.chart.setSeries([{
           name: metricLabel(key),
-          color: CHART_COLORS[state.seriesKeys.indexOf(key) % CHART_COLORS.length],
+          color: entry.color,
           points: smoothSeries(points, smoothWindow),
-        };
+        }]);
+        const lastPoint = points.length ? points[points.length - 1] : null;
+        entry.lastEl.textContent = lastPoint ? fmtMetric(lastPoint.y) : '-';
       });
 
-      chart.setSeries(series);
-      const shown = series.map((item) => item.points.length).reduce((a, b) => Math.max(a, b), 0);
-      statusEl.textContent = `${shown} 个点 · 平滑 ${smoothWindow}${range > 0 ? ` · 最近 ${range} 点` : ' · 全部'}`;
-      noteEl.textContent = '悬停曲线可查看精确数值；点击指标标签可显示/隐藏序列。';
+      $('chartStatus').textContent = rows.length
+        ? `${state.seriesKeys.length} 个指标 · ${rows.length} 个采样点 · 平滑 ${smoothWindow}${range > 0 ? ` · 最近 ${range} 点` : ' · 全部范围'}`
+        : '等待指标数据';
     }
 
-    document.getElementById('metricWindowSelect').addEventListener('change', renderChart);
-    document.getElementById('metricSmoothSelect').addEventListener('change', renderChart);
+    $('metricWindowSelect').addEventListener('change', updateMetricCharts);
+    $('metricSmoothSelect').addEventListener('change', updateMetricCharts);
+    $('metricFilter').addEventListener('input', applyMetricFilter);
 
     // ---------- 日志 ----------
     let logLines = [];
@@ -847,44 +665,41 @@
     }
 
     function renderLogs() {
-      const container = document.getElementById('logContainer');
-      const filter = document.getElementById('logFilter').value.trim().toLowerCase();
+      const container = $('logContainer');
+      const filter = $('logFilter').value.trim().toLowerCase();
       // 仅当用户已在底部附近时才跟随滚动（避免阅读被打断）。
-      const autoscroll = document.getElementById('logAutoscroll').checked;
+      const autoscroll = $('logAutoscroll').checked;
       const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 48;
-
-      const rows = !logLines.length
-        ? null
-        : logLines.filter((line) => !filter || line.toLowerCase().includes(filter));
 
       if (!logLines.length) {
         container.innerHTML = '<div class="log-empty">暂无日志（任务可能仍在启动中）</div>';
-        document.getElementById('logNote').textContent = '0 行';
+        $('logNote').textContent = '0 行';
         return;
       }
 
+      const rows = logLines.filter((line) => !filter || line.toLowerCase().includes(filter));
       container.innerHTML = rows && rows.length
         ? rows.map((line) => `<div class="log-line ${classifyLog(line)}">${escapeHtml(line)}</div>`).join('')
         : '<div class="log-empty">没有匹配过滤条件的日志行</div>';
-      document.getElementById('logNote').textContent = `最近 ${logLines.length} 行${filter ? ` · 匹配 ${rows.length} 行` : ''}`;
+      $('logNote').textContent = `最近 ${logLines.length} 行${filter ? ` · 匹配 ${rows.length} 行` : ''}`;
 
       if (autoscroll && nearBottom) container.scrollTop = container.scrollHeight;
     }
 
-    document.getElementById('logFilter').addEventListener('input', renderLogs);
+    $('logFilter').addEventListener('input', renderLogs);
 
     // ---------- 检查点 ----------
     let copyablePaths = [];
 
     async function loadCheckpoints() {
       if (!taskId) return;
-      const listEl = document.getElementById('ckptList');
-      const noteEl = document.getElementById('ckptNote');
+      const listEl = $('ckptList');
+      const noteEl = $('ckptNote');
       try {
         const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/checkpoints`);
         if (!data.success) throw new Error('checkpoints unavailable');
 
-        const artifactPill = document.getElementById('artifactPill');
+        const artifactPill = $('artifactPill');
         artifactPill.textContent = data.artifact_available ? '已生成' : '未生成';
         artifactPill.className = `pill ${data.artifact_available ? 'ok' : 'no'}`;
 
@@ -934,61 +749,6 @@
       }
     }
 
-    function copyText(text) {
-      const done = () => showToast('路径已复制');
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
-      } else {
-        fallbackCopy(text, done);
-      }
-    }
-
-    function fallbackCopy(text, done) {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      try { document.execCommand('copy'); done(); } catch (err) { /* ignore */ }
-      textarea.remove();
-    }
-
-    // ---------- 配置 ----------
-    function renderConfig(config) {
-      const table = document.getElementById('configTable').querySelector('tbody');
-      const rows = [
-        ['任务', config.task_name],
-        ['地形', config.terrain_type],
-        ['算法', config.algorithm],
-        ['并行环境', config.num_envs],
-        ['最大迭代', config.max_iterations],
-        ['学习率', config.learning_rate],
-        ['保存间隔', config.save_interval],
-        ['Episode 长度', config.episode_length_s],
-        ['随机种子', config.seed],
-        ['设备', config.device],
-        ['后端', config.backend],
-      ].filter(([, value]) => value !== undefined && value !== null && value !== '');
-
-      const scales = config.reward_scales || {};
-      const scaleEntries = Object.entries(scales).filter(([, value]) => Number(value) !== 0);
-      if (scaleEntries.length) rows.push(['奖惩项', scaleEntries.map(([key, value]) => `${key}=${value}`).join('  ')]);
-
-      table.innerHTML = rows.length
-        ? rows.map(([key, value]) => `<tr><td>${escapeHtml(key)}</td><td>${escapeHtml(String(value))}</td></tr>`).join('')
-        : '<tr><td colspan="2">无配置信息</td></tr>';
-
-      // 原始 JSON（剔除体积巨大的机器人包字段，便于人工检查差异）
-      const compact = { ...config };
-      delete compact.robot_package;
-      const details = document.getElementById('rawConfigDetails');
-      if (Object.keys(compact).length) {
-        details.style.display = 'block';
-        document.getElementById('rawConfigPre').textContent = JSON.stringify(compact, null, 2);
-      }
-    }
-
     // ---------- 停止 ----------
     async function stopTraining() {
       if (!taskId) return;
@@ -1004,15 +764,42 @@
       }
     }
 
-    // ---------- 轮询 ----------
-    let pollTimers = [];
+    // ---------- 折叠面板 / 头部按钮 / 侧栏筛选 ----------
+    document.querySelectorAll('.collapse-head').forEach((head) => head.addEventListener('click', () => {
+      const section = head.closest('.collapsible');
+      const open = section.classList.toggle('open');
+      head.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open && head.dataset.collapseTarget === 'logsBody') renderLogs();
+    }));
+
+    $('refreshBtn').addEventListener('click', () => {
+      loadAllNow();
+      showToast('已刷新');
+    });
+
+    $('copyIdBtn').addEventListener('click', () => {
+      if (taskId) copyText(taskId);
+    });
+
+    $('stopBtn').addEventListener('click', stopTraining);
+
+    $('envFilter').addEventListener('input', () => renderSidebarSection('env'));
+    $('configFilter').addEventListener('input', () => renderSidebarSection('config'));
+    $('summaryFilter').addEventListener('input', () => renderSidebarSection('summary'));
+
+    // ---------- 轮询：3s 状态 / 4s 日志 / 5s 指标 / 15s 检查点，页面隐藏时暂停，终态停止 ----------
     if (taskId) {
       loadAllNow();
       pollTimers.push(setInterval(() => { if (!document.hidden) loadTrainingStatus(); }, 3000));
       pollTimers.push(setInterval(() => { if (!document.hidden) loadTrainingLogs(); }, 4000));
       pollTimers.push(setInterval(() => { if (!document.hidden) loadTrainingMetrics(); }, 5000));
       pollTimers.push(setInterval(() => { if (!document.hidden) loadCheckpoints(); }, 15000));
-      document.addEventListener('visibilitychange', () => { if (!document.hidden && !state.stopped) loadAllNow(); });
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && !state.stopped) {
+          loadAllNow();
+          $('pollHint').textContent = POLL_HINT_TEXT;
+        }
+      });
     }
     window.addEventListener('beforeunload', () => { pollTimers.forEach((timer) => clearInterval(timer)); });
   </script>

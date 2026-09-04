@@ -66,6 +66,44 @@ class CompleteApiContractTests(unittest.TestCase):
         self.assertEqual(recipe["algorithm"], "SAC")
         self.assertEqual(recipe["reward_scales"]["torques"], 0)
 
+    def test_training_config_preview_exposes_five_categories(self):
+        client = TestClient(app)
+        preset = next(item for item in list_robot_presets() if item.get("training_profiles"))
+        profile = preset["training_profiles"][0]
+        response = client.get(
+            f"/api/training/config-preview?robot_id={preset['robot_id']}&profile_id={profile['profile_id']}"
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["robot_id"], preset["robot_id"])
+        self.assertEqual(payload["profile_id"], profile["profile_id"])
+        self.assertEqual(payload["task_name"], profile["task_name"])
+        for category in ("simulator", "environment", "embodiment", "learning", "robustness", "editable_vs_readonly"):
+            self.assertIn(category, payload)
+        self.assertEqual(payload["learning"]["algorithm"], "PPO")
+        self.assertEqual(payload["learning"]["runner"], profile.get("runner"))
+        expected_decimation = profile.get("decimation") or preset["contract"]["control"]["decimation"]
+        self.assertEqual(payload["simulator"]["decimation"], expected_decimation)
+        self.assertEqual(payload["embodiment"]["joint_order"], preset["contract"]["action"]["joint_order"])
+        editable = payload["editable_vs_readonly"]["editable_keys"]
+        for key in ("profile_id", "num_minibatches", "reward_overrides", "command_ranges", "seed"):
+            self.assertIn(key, editable)
+        self.assertTrue(all(item["reason"] for item in payload["editable_vs_readonly"]["readonly_categories"]))
+
+    def test_training_config_preview_without_profile_and_unknown_ids(self):
+        client = TestClient(app)
+        preset = list_robot_presets()[0]
+        response = client.get(f"/api/training/config-preview?robot_id={preset['robot_id']}")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIsNone(payload["profile_id"])
+        self.assertIsNone(payload["environment"]["curriculum"])
+        self.assertEqual(client.get("/api/training/config-preview?robot_id=does-not-exist").status_code, 404)
+        unknown_profile = client.get(
+            f"/api/training/config-preview?robot_id={preset['robot_id']}&profile_id=does-not-exist"
+        )
+        self.assertEqual(unknown_profile.status_code, 404)
+
     def test_missing_training_logs_returns_not_found(self):
         client = TestClient(app)
         response = client.get("/api/training/does-not-exist/logs")

@@ -232,9 +232,9 @@
     }
 
     .status-badge.running { background: rgba(45, 212, 191, 0.12); color: var(--accent); border-color: rgba(45, 212, 191, 0.35); }
-    .status-badge.running .status-dot { background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+    .status-badge.running .status-dot { background: var(--accent); animation: tsui-breathe 1.5s ease-in-out infinite; }
     .status-badge.pending { color: #cbd5e1; }
-    .status-badge.pending .status-dot { animation: pulse 1.6s ease-in-out infinite; }
+    .status-badge.pending .status-dot { animation: tsui-breathe 1.5s ease-in-out infinite; }
     .status-badge.completed { background: rgba(94, 234, 212, 0.1); color: var(--success); border-color: rgba(94, 234, 212, 0.3); }
     .status-badge.completed .status-dot { background: var(--success); }
     .status-badge.failed { background: rgba(248, 113, 113, 0.12); color: var(--danger); border-color: rgba(248, 113, 113, 0.35); }
@@ -242,7 +242,8 @@
     .status-badge.stopped { color: #fde68a; border-color: rgba(251, 191, 36, 0.3); }
     .status-badge.stopped .status-dot { background: #fbbf24; }
 
-    @keyframes pulse {
+    /* 与 training-common.js 注入的共享状态点动画保持一致（1.5s 呼吸） */
+    @keyframes tsui-breathe {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.35; }
     }

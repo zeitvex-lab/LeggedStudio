@@ -25,6 +25,30 @@
     '#34d399', '#fb7185', '#38bdf8', '#facc15', '#c084fc',
   ];
 
+  /**
+   * Run-level color palette (wandb-style). Paired with runColor(key) below so
+   * a run/series key always maps to the same color regardless of insertion
+   * order — adding a new metric never reshuffles the existing colors.
+   */
+  const RUN_COLORS = [
+    '#2dd4bf', '#60a5fa', '#f59e0b', '#f472b6', '#a78bfa', '#34d399',
+    '#fb7185', '#38bdf8', '#facc15', '#c084fc', '#4ade80', '#e879f9',
+  ];
+
+  /** Deterministic 32-bit string hash (djb2). */
+  function hashString(value) {
+    const str = String(value == null ? '' : value);
+    let h = 5381;
+    for (let i = 0; i < str.length; i += 1) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+
+  /** Stable color for a key inside a palette (defaults to RUN_COLORS). */
+  function runColor(key, palette) {
+    const colors = Array.isArray(palette) && palette.length ? palette : RUN_COLORS;
+    return colors[hashString(key) % colors.length];
+  }
+
   function escapeHtml(value) {
     return String(value == null ? '' : value)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -127,7 +151,65 @@
 
   function statusBadge(status) {
     const info = statusInfo(status);
-    return `<span class="status-badge ${info.cls}" title="${escapeHtml(status)}"><span class="status-dot"></span>${escapeHtml(info.label)}</span>`;
+    const breathe = info.cls === 'running' || info.cls === 'pending' ? ' tsui-breathe' : '';
+    return `<span class="status-badge ${info.cls}" title="${escapeHtml(status)}"><span class="status-dot${breathe}"></span>${escapeHtml(info.label)}</span>`;
+  }
+
+  // ---------- 共享状态点样式（breathing dot） ----------
+  // 由各页面通过 ensureSharedStyles() 注入一次；训练列表/监控页的状态点
+  // 共用同一组颜色约定：绿=运行中 / 蓝=已完成 / 红=失败 / 灰=停止·等待。
+  const SHARED_STYLE_ID = 'tsui-shared-styles';
+
+  function ensureSharedStyles() {
+    if (typeof document === 'undefined' || !document.head) return;
+    if (document.getElementById(SHARED_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = SHARED_STYLE_ID;
+    style.textContent = [
+      '@keyframes tsui-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }',
+      '.tsui-breathe { animation: tsui-breathe 1.5s ease-in-out infinite; }',
+      '.tsui-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; flex-shrink: 0; }',
+      '.tsui-dot.running { background: #2dd4bf; }',
+      '.tsui-dot.completed { background: #60a5fa; }',
+      '.tsui-dot.failed { background: #f87171; }',
+      '.tsui-dot.stopped, .tsui-dot.pending, .tsui-dot.unknown, .tsui-dot.idle { background: #94a3b8; }',
+    ].join('\n');
+    document.head.appendChild(style);
+  }
+
+  /**
+   * Colored state dot HTML (wandb run-state convention): green running /
+   * blue completed / red failed / gray stopped or pending. The dot breathes
+   * (1.5s opacity keyframe) while the run is live unless options.breathe
+   * says otherwise.
+   */
+  function statusDotHtml(status, options) {
+    const opts = options || {};
+    const info = statusInfo(status);
+    const breathe = opts.breathe == null
+      ? (info.cls === 'running' || info.cls === 'pending')
+      : !!opts.breathe;
+    return `<span class="tsui-dot ${info.cls}${breathe ? ' tsui-breathe' : ''}" title="${escapeHtml(status == null ? '' : status)}"></span>`;
+  }
+
+  /**
+   * Flatten nested objects into dotted key paths (a.b.c). Plain objects are
+   * recursed; arrays and primitives are kept as leaf values.
+   */
+  function flattenDict(value, prefix, out) {
+    const result = out || {};
+    const base = prefix || '';
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      Object.keys(value).forEach((key) => {
+        const path = base ? `${base}.${key}` : key;
+        const child = value[key];
+        if (child && typeof child === 'object' && !Array.isArray(child)) flattenDict(child, path, result);
+        else result[path] = child;
+      });
+    } else if (base) {
+      result[base] = value;
+    }
+    return result;
   }
 
   /**
@@ -490,9 +572,12 @@
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
+  ensureSharedStyles();
+
   global.TrainingUI = {
     API_BASE,
     CHART_COLORS,
+    RUN_COLORS,
     TrainingChart,
     RateTracker,
     escapeHtml,
@@ -505,8 +590,13 @@
     fmtDateTime,
     statusInfo,
     statusBadge,
+    statusDotHtml,
     smoothSeries,
     fetchJson,
     downloadText,
+    hashString,
+    runColor,
+    flattenDict,
+    ensureSharedStyles,
   };
 })(window);

@@ -6,7 +6,7 @@ Training API
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
-from typing import List, Optional, Literal
+from typing import Any, List, Optional, Literal
 from datetime import datetime
 from pathlib import Path
 import json
@@ -17,6 +17,7 @@ from adapters.mjlab.env_factory import get_reward_terms
 from adapters.mjlab.algorithms.registry import list_algorithms
 from adapters.mjlab.recipe_registry import list_tasks, resolve_recipe
 from backend.robot_packages import package_for_contract
+from backend.robot_presets import get_robot_preset
 
 
 router = APIRouter(prefix="/api/training", tags=["training"])
@@ -240,6 +241,164 @@ async def training_options():
         "tasks": list_tasks(),
         "hardware": await training_hardware(),
     }
+
+
+# ========== 五分类配置预览（read-only, preview-only） ==========
+
+RECIPE_READONLY_NOTE = "由训练配方源码决定"
+CONTRACT_READONLY_NOTE = "由机器人契约决定（训练资产页面 02 编辑）"
+ARCHIVED_ONLY_NOTE = "仅随任务归档，训练 worker 不应用"
+# Keys the create endpoint accepts and the worker really applies.
+EDITABLE_CREATE_KEYS = [
+    "algorithm", "num_envs", "max_iterations", "learning_rate", "save_interval",
+    "episode_length_s", "task_name", "profile_id", "terrain_type", "device",
+    "reward_scales", "reward_overrides", "reward_params", "command_ranges",
+    "num_steps", "num_minibatches", "gamma", "gae_lambda", "clip_param",
+    "entropy_coef", "seed",
+]
+
+
+def _terrain_mixes(terrain: Any) -> Optional[List[dict]]:
+    """Normalize a profile terrain block into a flat sub-terrain mix list."""
+    if not isinstance(terrain, dict):
+        return None
+    subs = terrain.get("sub_terrains")
+    if isinstance(subs, dict):
+        return [{"name": str(name), "proportion": value} for name, value in subs.items()]
+    if isinstance(subs, list):
+        return [{"name": str(name), "proportion": None} for name in subs]
+    return None
+
+
+def _observation_summary(contract: dict, profile: dict) -> Optional[str]:
+    observation = contract.get("observation") if isinstance(contract.get("observation"), dict) else {}
+    parts: List[str] = []
+    if observation.get("dimension") is not None:
+        parts.append(f"{observation['dimension']} 维")
+    components = observation.get("components")
+    if isinstance(components, list) and components:
+        parts.append(" + ".join(str(item) for item in components))
+    if profile.get("history_length"):
+        parts.append(f"历史 {profile['history_length']} 步堆叠")
+    return "；".join(parts) if parts else None
+
+
+def _terminations_summary(profile: dict) -> Optional[str]:
+    terminations = profile.get("terminations")
+    if isinstance(terminations, dict) and terminations:
+        return "、".join(str(name) for name in terminations)
+    if isinstance(terminations, list) and terminations:
+        return "、".join(str(item) for item in terminations)
+    reward_terms = profile.get("reward_terms")
+    if isinstance(reward_terms, list) and any("terminat" in str(term) for term in reward_terms):
+        return "配方内置失败终止（is_terminated 计入奖励惩罚）；完整终止项由配方源码决定"
+    return None
+
+
+def _domain_randomization(profile: dict) -> Optional[dict]:
+    for key in ("domain_randomization", "domain_rand", "randomization", "noise"):
+        value = profile.get(key)
+        if isinstance(value, dict) and value:
+            return {"source_key": key, **value}
+    return None
+
+
+@router.get("/config-preview")
+async def training_config_preview(robot_id: str, profile_id: Optional[str] = None):
+    """Five-category structured preview of the training configuration.
+
+    Preview only: reads the persisted package index / profile JSON through the
+    existing robot preset accessors. Never imports package code and never
+    probes the MJLab runtime, so it is safe to call while typing.
+    """
+    preset = get_robot_preset(robot_id)
+    if preset is None:
+        raise HTTPException(status_code=404, detail=f"Unknown robot package: {robot_id}")
+    profile: dict = {}
+    if profile_id:
+        found = next(
+            (item for item in preset.get("training_profiles", []) if str(item.get("profile_id")) == profile_id),
+            None,
+        )
+        if found is None:
+            raise HTTPException(status_code=404, detail=f"Training profile not found in package {robot_id}: {profile_id}")
+        profile = found
+
+    contract = preset.get("contract") or {}
+    joints = contract.get("joints") or {}
+    contract_action = contract.get("action") or {}
+    control = contract.get("control") or {}
+    training_config = preset.get("training_config") or {}
+    runner = profile.get("runner")
+    if not isinstance(runner, dict):
+        runner = None
+
+    physics_hz = profile.get("physics_hz") if profile.get("physics_hz") is not None else control.get("physics_hz")
+    decimation = profile.get("decimation") if profile.get("decimation") is not None else control.get("decimation")
+    num_envs = profile.get("num_envs") if profile.get("num_envs") is not None else training_config.get("num_envs")
+    device_hint = "auto 优先选择 CUDA；并行环境 ≥1024 时建议使用 GPU，CPU 调试建议 ≤256 环境" if (num_envs or 0) >= 1024 else "auto 优先选择 CUDA；CPU 调试即可"
+
+    simulator_notes = [
+        "physics_hz / decimation 由机器人契约决定，本页只读",
+        "MJLab 运行时状态徽标来自 GET /api/training/hardware 探测结果",
+    ]
+    learning_notes = ["MJLab 当前仅开放 PPO 训练"]
+    if runner:
+        learning_notes.append("hidden_dims / activation / 观测归一化沿用 runner 配方默认值，本页只读")
+        learning_notes.append("学习率自适应调度由 runner 配方决定，此处填写的是初始学习率")
+    else:
+        learning_notes.append("当前档案未声明 runner 覆盖，将使用通用 runner 默认值")
+
+    payload = {
+        "robot_id": robot_id,
+        "profile_id": profile_id,
+        "task_name": profile.get("task_name") or training_config.get("task_name") or "forward_walk",
+        "profile_label": profile.get("display_name"),
+        "simulator": {
+            "backend": profile.get("backend") or "native_mjlab",
+            "device_hint": device_hint,
+            "physics_hz": physics_hz,
+            "decimation": decimation,
+            "control_hz": control.get("control_hz"),
+            "notes": simulator_notes,
+        },
+        "environment": {
+            "terrain_type": profile.get("terrain_type") or training_config.get("terrain", {}).get("terrain_type") or "plane",
+            "terrain_mixes": _terrain_mixes(profile.get("terrain")),
+            "command_ranges": profile.get("command_ranges") or training_config.get("command_ranges") or None,
+            "curriculum": profile.get("curriculum") or None,
+            "episode_length_s": profile.get("episode_length_s") or training_config.get("episode_length_s") or None,
+        },
+        "embodiment": {
+            "joint_order": contract_action.get("joint_order") or joints.get("actuated_joints") or [],
+            "default_pose": joints.get("default_pose") or None,
+            "init_pose": profile.get("init_pose") or None,
+            "action": profile.get("action") or None,
+            "observation_summary": _observation_summary(contract, profile),
+        },
+        "learning": {
+            "algorithm": "PPO",
+            "runner": runner,
+            "notes": learning_notes,
+        },
+        "robustness": {
+            "reward_terms": profile.get("reward_terms") or None,
+            "terminations_summary": _terminations_summary(profile),
+            "domain_randomization": _domain_randomization(profile),
+        },
+        "editable_vs_readonly": {
+            "editable_keys": list(EDITABLE_CREATE_KEYS),
+            "readonly_categories": [
+                {"category": "simulator", "keys": ["physics_hz", "decimation"], "reason": CONTRACT_READONLY_NOTE},
+                {"category": "environment", "keys": ["terrain_mixes", "curriculum"], "reason": RECIPE_READONLY_NOTE},
+                {"category": "environment", "keys": ["noise", "terrain"], "reason": ARCHIVED_ONLY_NOTE},
+                {"category": "embodiment", "keys": ["joint_order", "default_pose"], "reason": CONTRACT_READONLY_NOTE},
+                {"category": "learning", "keys": ["hidden_dims", "activation", "obs_normalization"], "reason": RECIPE_READONLY_NOTE + "（runner 默认）"},
+                {"category": "robustness", "keys": ["terminations", "domain_randomization"], "reason": RECIPE_READONLY_NOTE},
+            ],
+        },
+    }
+    return payload
 
 
 @router.post("/resolve-recipe")
