@@ -1216,6 +1216,7 @@
       preview: null,   // GET /api/training/config-preview
       recipe: null,    // POST /api/training/resolve-recipe
       rewardDefaults: {},
+      groups: {},
       schema: null,        // GET /api/training/profile-schema -> {environment, runner, entrypoints}
       params: [],          // 同响应的 params：descriptor 目录解析出的常用参数（卡片主界面）
       schemaStatus: 'idle', // idle | loading | ready | unavailable | error
@@ -1730,6 +1731,7 @@
       if (!state.preset || !state.profileId) {
         state.schema = null;
         state.params = [];
+        state.groups = {};
         state.schemaStatus = 'idle';
         renderSchemaViews();
         updateOverrideUI();
@@ -1742,6 +1744,7 @@
         const data = await fetchJson(`/api/training/profile-schema?${params.toString()}`);
         state.schema = (data && (data.schema || data.tree)) || null;
         state.params = (data && Array.isArray(data.params)) ? data.params : [];
+        state.groups = (data && typeof data.groups === 'object' && data.groups) || {};
         state.schemaStatus = state.schema ? 'ready' : 'error';
         state.schemaError = state.schema ? '' : 'schema 返回为空';
       } catch (error) {
@@ -1787,7 +1790,7 @@
       const container = document.querySelector(`[data-ovr-category="${CSS.escape(category)}"] [data-param-block]`);
       if (!container) return;
       if (state.schemaStatus === 'idle') {
-        container.innerHTML = '<div class="ovr-status">通用任务模式没有档案配置；选择训练档案后，这里会列出该分类的常用训练参数。</div>';
+        container.innerHTML = '<div class="ovr-status">通用任务模式没有档案配置；选择训练档案后，这里会按模块分组列出该分类的全部训练参数。</div>';
         return;
       }
       if (state.schemaStatus === 'loading') {
@@ -1802,36 +1805,32 @@
         container.innerHTML = `<div class="ovr-status">训练配方解析失败：${escapeHtml(state.schemaError || '未知错误')} <button type="button" class="button small" data-schema-retry>重试</button></div>`;
         return;
       }
-      if (!(state.params || []).length) {
-        container.innerHTML = '<div class="ovr-status">后端未返回参数目录（请更新控制面）；可在下方专家模式中编辑全部参数。</div>';
-        return;
-      }
-      const params = categoryParams(category);
-      if (!params.length) {
-        container.innerHTML = '<div class="ovr-status">该分类暂无精选参数；全部参数见专家模式。</div>';
+      const groups = (state.groups || {})[category] || [];
+      if (!groups.length) {
+        container.innerHTML = '<div class="ovr-status">该分类下没有配置项。</div>';
         return;
       }
       let html = '';
-      let lastGroup = '';
-      params.forEach((param) => {
-        if (param.group && param.group !== lastGroup) {
-          lastGroup = param.group;
-          html += `<div class="param-group-title">${escapeHtml(param.group)}</div>`;
-        } else if (!param.group) {
-          lastGroup = '';
-        }
-        const overridden = Object.prototype.hasOwnProperty.call(state.overrides, param.path);
-        const unit = param.unit ? `<small>（${escapeHtml(param.unit)}）</small>` : '';
-        const labelTitle = [param.hint, param.path].filter(Boolean).join('\n');
-        html += `<div class="param-row ${param.readonly ? 'ro' : ''} ${overridden ? 'overridden' : ''}" data-ovr-row="${escapeHtml(param.path)}">
-          <div class="param-main" title="${escapeHtml(labelTitle)}">
-            <span class="param-label">${escapeHtml(param.label)}${unit}</span>
-            ${param.hint ? `<small class="param-hint">${escapeHtml(param.hint)}</small>` : ''}
-          </div>
-          <span class="param-current" title="配方当前值（输入框留空即沿用）">${escapeHtml(formatValue(param.value))}</span>
-          ${paramControlHtml(param)}
-        </div>`;
+      let expertRows = 0;
+      groups.forEach((group) => {
+        html += `<div class="param-group-title">${escapeHtml(group.title)}</div>`;
+        group.params.forEach((param) => {
+          const overridden = Object.prototype.hasOwnProperty.call(state.overrides, param.path);
+          if (param.advanced) { expertRows += 1; }
+          html += `<div class="param-row ${param.readonly ? 'ro' : ''} ${overridden ? 'overridden' : ''} ${param.advanced ? 'adv' : ''}" data-ovr-row="${escapeHtml(param.path)}">
+            <div class="param-main" title="${escapeHtml(param.path)}">
+              <span class="param-label">${escapeHtml(param.label)}${param.unit ? `<small>（${escapeHtml(param.unit)}）</small>` : ''}</span>
+              <small class="param-hint">${escapeHtml(param.path)}</small>
+            </div>
+            <span class="param-current" title="配方当前值（输入框留空即沿用）">${escapeHtml(formatValue(param.value))}</span>
+            ${paramControlHtml(param)}
+          </div>`;
+        });
       });
+      if (expertRows > 0) {
+        // 收尾：把 advanced 行折进专家 details（简单方式：CSS 类 + 提示行）
+        html += `<div class="ovr-note">另有 ${expertRows} 个高级参数行已在上方列出（灰色标记），全部可修改。</div>`;
+      }
       container.innerHTML = html;
     }
 

@@ -601,7 +601,8 @@ async def training_profile_schema(robot_id: str, profile_id: str):
     if not package_root:
         raise HTTPException(status_code=404, detail=f"Package root is not registered for robot {robot_id}")
 
-    from adapters.mjlab.param_registry import resolve_params
+    from adapters.mjlab.param_groups import build_param_groups
+    from adapters.mjlab.param_descriptors import resolve_params
 
     mtime = _read_profile_mtime(profile)
     cache_path = _schema_cache_path(profile_id)
@@ -618,6 +619,14 @@ async def training_profile_schema(robot_id: str, profile_id: str):
                 "schema": schema,
                 "tree": schema,
                 "params": resolve_params(schema),
+        "groups": {
+            cat: build_param_groups(schema, cat)
+            for cat in ("simulator", "environment", "embodiment", "learning", "rewards", "robustness")
+        },
+                "groups": {
+                    cat: build_param_groups(schema, cat)
+                    for cat in ("simulator", "environment", "embodiment", "learning", "rewards", "robustness")
+                },
                 "cached": True,
             }
 
