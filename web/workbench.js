@@ -259,6 +259,24 @@ function collectControlGains(control, mappedJoints) {
   };
 }
 
+function renderInertialTable() {
+  const table = $('inertialTable');
+  if (!table) return;
+  const records = typeof window.getRobotInertialData === 'function' ? window.getRobotInertialData() : [];
+  if (!records.length) {
+    table.innerHTML = '<div class="empty-state">模型未提供 inertial 数据</div>';
+    return;
+  }
+  const totalMass = records.reduce((sum, record) => sum + (record.mass || 0), 0);
+  const format = (value) => (Number.isFinite(value) ? Number(value).toPrecision(5).replace(/\.?0+$/, '') : 'N/A');
+  const rows = records.map((record) => {
+    const principal = record.principal ? record.principal.map(format).join(' / ') : 'N/A';
+    const com = record.com.map(format).join(', ');
+    return `<div class="inertial-row"><span class="inertial-link" title="${escapeHtml(record.link)}">${escapeHtml(record.link)}</span><span>${Number(record.mass ?? 0).toFixed(4)}</span><span>${com}</span><span>${principal}</span></div>`;
+  }).join('');
+  table.innerHTML = `<div class="inertial-row inertial-head"><span>连杆</span><span>质量 (kg)</span><span>质心 (m)</span><span>主惯量 I1/I2/I3 (kg·m²)</span></div>${rows}<div class="inertial-total">总质量 ${totalMass.toFixed(4)} kg</div>`;
+}
+
 function jointControlMarkup(name, index, value) {
   const metadata = jointMetadata.get(name) || {};
   const lower = Number.isFinite(metadata.lower) ? metadata.lower : -Math.PI;
@@ -327,6 +345,10 @@ async function jsonFetch(path, options = {}) {
   return payload;
 }
 function setView(name) {
+  // 03 训练配置 / 04 训练 live on dedicated pages (five-category creator and
+  // the wandb-style monitor). Jump there instead of the legacy embedded views.
+  if (name === 'config') { window.location.href = `training_create.html?v=0.6.0${selectedPreset ? `&robot=${encodeURIComponent(selectedPreset.robot_id)}` : ''}`; return; }
+  if (name === 'training') { window.location.href = `training_list.html?v=0.6.0`; return; }
   document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active-view', view.id === name));
   document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
   history.replaceState(null, '', `#${name}`);

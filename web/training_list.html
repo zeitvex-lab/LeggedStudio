@@ -280,7 +280,7 @@
         <p id="subtitle">管理所有训练任务</p>
       </div>
       <div class="page-actions">
-        <a class="btn primary" href="training_create.html">新建训练</a>
+        <a class="btn primary" href="training_create.html?v=0.6.0">新建训练</a>
         <button class="btn" onclick="refreshList()">刷新</button>
         <a class="btn" href="dashboard.html">返回</a>
       </div>
@@ -433,7 +433,7 @@
         tableBody.innerHTML = `
           <div class="empty-state">
             <p>暂无训练任务</p>
-            <a class="btn primary" href="training_create.html">创建第一个训练</a>
+            <a class="btn primary" href="training_create.html?v=0.6.0">创建第一个训练</a>
           </div>`;
         return;
       }
