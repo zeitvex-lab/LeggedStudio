@@ -1,5 +1,6 @@
 import unittest
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass, field
 
 from fastapi.testclient import TestClient
 
@@ -25,9 +26,92 @@ class CompleteApiContractTests(unittest.TestCase):
         request = CreateTrainingRequest(contract=list_robot_presets()[0]["contract"])
         self.assertEqual(request.backend, "native_mjlab")
 
-    def test_local_mujoco_is_not_a_training_backend(self):
-        with self.assertRaises(ValueError):
-            CreateTrainingRequest(contract=list_robot_presets()[0]["contract"], backend="local_mujoco")
+    def test_create_request_accepts_and_stores_overrides(self):
+        # Generic dot-path overrides ride through the create request into the
+        # stored worker config untouched; the worker applies them per path.
+        overrides = {
+            "environment.sim.mujoco.timestep": 0.002,
+            "runner.max_iterations": 25000,
+            "environment.rewards.action_rate.weight": -0.02,
+        }
+        request = CreateTrainingRequest(
+            contract=list_robot_presets()[0]["contract"],
+            profile_id="zex-w-rough",
+            overrides=overrides,
+        )
+        self.assertEqual(request.overrides, overrides)
+        payload = request.model_dump(mode="json")
+        self.assertEqual(payload["overrides"], overrides)
+        # Default stays an empty dict so existing callers are unaffected.
+        self.assertEqual(CreateTrainingRequest(contract=list_robot_presets()[0]["contract"]).overrides, {})
+
+    def test_config_introspect_dump_and_set_by_path(self):
+        from adapters.mjlab import config_introspect
+
+        @dataclass
+        class RewardTermCfg:
+            weight: float = 1.0
+            params: dict = field(default_factory=dict)
+
+        @dataclass
+        class SimCfg:
+            timestep: float = 0.005
+            use_gpu: bool = False
+
+        @dataclass
+        class EnvCfg:
+            sim: SimCfg = field(default_factory=SimCfg)
+            rewards: dict = field(default_factory=lambda: {"action_rate": RewardTermCfg(weight=-0.01)})
+            num_envs: int = 2048
+            label: str = "rough"
+            hidden: tuple = (512, 256)
+            nothing: object = None
+            _private: int = 7
+
+        cfg = EnvCfg()
+        tree = config_introspect.dump_config_tree(cfg)
+        self.assertEqual(tree["__type__"], "EnvCfg")
+        self.assertEqual(tree["sim"]["__type__"], "SimCfg")
+        self.assertEqual(tree["sim"]["timestep"], 0.005)
+        self.assertEqual(tree["rewards"]["action_rate"]["weight"], -0.01)
+        self.assertNotIn("_private", tree)
+
+        config_introspect.set_by_path(cfg, "sim.timestep", "0.002")
+        self.assertEqual(cfg.sim.timestep, 0.002)
+        self.assertIsInstance(cfg.sim.timestep, float)
+        config_introspect.set_by_path(cfg, "sim.use_gpu", 1)
+        self.assertIs(cfg.sim.use_gpu, True)
+        config_introspect.set_by_path(cfg, "num_envs", "4096")
+        self.assertEqual(cfg.num_envs, 4096)
+        self.assertIsInstance(cfg.num_envs, int)
+        config_introspect.set_by_path(cfg, "rewards.action_rate.weight", -0.05)
+        self.assertEqual(cfg.rewards["action_rate"].weight, -0.05)
+        config_introspect.set_by_path(cfg, "hidden", [1, 2])
+        self.assertEqual(cfg.hidden, (1, 2))
+        config_introspect.set_by_path(cfg, "nothing", "kept")
+        self.assertEqual(cfg.nothing, "kept")
+        for bad_path in ("missing", "sim.missing", "rewards.missing.weight"):
+            with self.assertRaises(KeyError):
+                config_introspect.set_by_path(cfg, bad_path, 1)
+
+        leaves = dict(config_introspect.iter_leaves(cfg))
+        self.assertEqual(leaves["sim.timestep"], 0.002)
+        self.assertEqual(leaves["rewards.action_rate.weight"], -0.05)
+        self.assertEqual(leaves["hidden"], [1, 2])
+        self.assertEqual(set(leaves) & {"_private"}, set())
+
+    def test_profile_schema_endpoint_validates_ids_without_spawning(self):
+        client = TestClient(app)
+        missing_robot = client.get("/api/training/profile-schema?robot_id=does-not-exist&profile_id=zex-w-rough")
+        self.assertEqual(missing_robot.status_code, 404)
+        missing_profile = client.get("/api/training/profile-schema?robot_id=zex-w&profile_id=does-not-exist")
+        self.assertEqual(missing_profile.status_code, 404)
+
+    def test_unknown_backend_is_accepted_but_rejected_at_launch(self):
+        # The schema accepts any backend string (future frameworks such as
+        # unilab); launch-time validation rejects the ones not wired yet.
+        request = CreateTrainingRequest(contract=list_robot_presets()[0]["contract"], backend="local_mujoco")
+        self.assertEqual(request.backend, "local_mujoco")
 
     def test_environment_exposes_only_mjlab(self):
         payload = TestClient(app).get("/api/system/environment").json()

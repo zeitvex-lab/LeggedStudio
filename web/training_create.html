@@ -520,6 +520,65 @@
 
     .preview-empty { padding: 26px 0; text-align: center; color: var(--faint); font-size: 12px; }
 
+    /* ========== 高级覆盖（训练配方全量配置 schema dot-path rows） ========== */
+    .ovr-details { margin-top: 16px; }
+
+    .ovr-details summary {
+      list-style: none;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--cyan);
+    }
+
+    .ovr-details summary .chev { display: inline-block; transition: transform 0.16s ease; }
+    .ovr-details:not([open]) summary .chev { transform: rotate(-90deg); }
+    .ovr-details summary .ovr-count { color: var(--faint); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: auto; }
+    .ovr-details summary::-webkit-details-marker { display: none; }
+
+    .ovr-block { padding: 8px 0 4px; }
+    .ovr-status { font-size: 11px; color: var(--muted); line-height: 1.65; word-break: break-all; }
+    .ovr-note { font-size: 10px; color: var(--faint); line-height: 1.55; margin: 0 0 6px; }
+
+    .ovr-rows { display: flex; flex-direction: column; gap: 2px; max-height: 420px; overflow: auto; margin-top: 4px; padding-right: 4px; }
+
+    .ovr-row {
+      display: grid;
+      grid-template-columns: minmax(160px, 340px) minmax(64px, 130px) minmax(110px, 1fr);
+      gap: 10px;
+      align-items: center;
+      padding: 4px 8px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+    }
+
+    .ovr-row:hover { background: var(--surface-input); }
+    .ovr-row.overridden { border-color: rgba(242, 189, 108, 0.35); background: rgba(242, 189, 108, 0.05); }
+
+    .ovr-row .ovr-path { font: 11px Consolas, monospace; color: var(--text); word-break: break-all; }
+    .ovr-row .ovr-current { font: 11px Consolas, monospace; color: var(--muted); text-align: right; word-break: break-all; }
+    .ovr-row .ovr-current::before { content: '= '; color: var(--faint); }
+    .ovr-row input[type="number"], .ovr-row input[type="text"] {
+      min-height: 28px;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 4px 8px;
+      background: var(--surface-input);
+      color: var(--text);
+      font: 12px Consolas, monospace;
+    }
+    .ovr-row input[type="number"]:focus, .ovr-row input[type="text"]:focus { outline: none; border-color: var(--cyan); }
+    .ovr-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--cyan); cursor: pointer; justify-self: start; }
+
     @media (max-width: 1000px) {
       .cat-nav { position: static; }
       .nav-foot { display: none; }
@@ -663,6 +722,13 @@
               <div class="hw-badges" id="hwBadges">
                 <span class="hw-badge"><span class="dot"></span>正在探测运行环境...</span>
               </div>
+              <details class="recipe-built-in"><summary>训练配方内置 · 物理引擎设置（启动后按配方执行）</summary>
+              <div id="simRoWrap"></div>
+              </details>
+              <details class="ovr-details" data-ovr-category="simulator">
+                <summary><span class="chev">▾</span>高级覆盖（来自训练配方全量配置）<span class="ovr-count" data-ovr-count></span></summary>
+                <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+              </details>
             </section>
 
             <!-- 02 环境构建 -->
@@ -720,6 +786,10 @@
               <details class="recipe-built-in"><summary>训练配方内置 · 地形子混合与课程（启动后按配方执行）</summary>
               <div id="envRoWrap"></div>
               </details>
+              <details class="ovr-details" data-ovr-category="environment">
+                <summary><span class="chev">▾</span>高级覆盖（来自训练配方全量配置）<span class="ovr-count" data-ovr-count></span></summary>
+                <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+              </details>
             </section>
 
             <!-- 03 机器人具身 -->
@@ -733,6 +803,10 @@
                 <div class="ro-head"><span class="lock-glyph" data-lock></span><b>契约只读</b><span id="robotMeta">-</span></div>
                 <div id="embodWrap"></div>
               </div>
+              <details class="ovr-details" data-ovr-category="embodiment">
+                <summary><span class="chev">▾</span>高级覆盖（来自训练配方全量配置）<span class="ovr-count" data-ovr-count></span></summary>
+                <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+              </details>
             </section>
 
             <!-- 04 学习优化 -->
@@ -806,6 +880,10 @@
               <details class="recipe-built-in"><summary>训练配方内置 · Runner 网络与训练默认</summary>
               <div id="learnRoWrap"></div>
               </details>
+              <details class="ovr-details" data-ovr-category="learning">
+                <summary><span class="chev">▾</span>高级覆盖（来自训练配方全量配置）<span class="ovr-count" data-ovr-count></span></summary>
+                <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+              </details>
             </section>
 
             <!-- 05 鲁棒迁移 -->
@@ -835,6 +913,10 @@
               <details class="recipe-built-in"><summary>训练配方内置 · 终止条件与域随机化</summary>
               <div id="robustRoWrap"></div>
               </details>
+              <details class="ovr-details" data-ovr-category="robustness">
+                <summary><span class="chev">▾</span>高级覆盖（来自训练配方全量配置）<span class="ovr-count" data-ovr-count></span></summary>
+                <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+              </details>
             </section>
 
             <!-- 配置预览 -->
@@ -859,6 +941,8 @@
             <div class="sticky-bar view-footer">
               <div class="sticky-summary" id="stickySummary">-</div>
               <div class="heading-actions">
+                <span class="valid-chip" id="overrideChip" hidden title="点路径覆盖将写入训练配置 overrides，启动训练时由 worker 应用到配方对象">覆盖 0 项</span>
+                <button type="button" class="button small" id="clearOverrides" hidden title="清除全部高级覆盖，恢复配方默认">清除覆盖</button>
                 <a class="button" href="training_list.html?v=0.6.0">取消</a>
                 <button type="submit" class="button primary" id="submitBtn">启动训练</button>
               </div>
@@ -904,6 +988,10 @@
       preview: null,   // GET /api/training/config-preview
       recipe: null,    // POST /api/training/resolve-recipe
       rewardDefaults: {},
+      schema: null,        // GET /api/training/profile-schema -> {environment, runner, entrypoints}
+      schemaStatus: 'idle', // idle | loading | ready | unavailable | error
+      schemaError: '',
+      overrides: {},       // dot-path -> 新值（仅记录用户显式修改）
     };
 
     const $ = (id) => document.getElementById(id);
@@ -1211,8 +1299,14 @@
         : null;
       $('profileSelect').value = state.profileId;
       $('profileModeHint').classList.toggle('visible', !!state.profileId);
+      // 覆盖项与档案绑定：切换档案 / 回到通用任务时清空，避免旧路径误写入新配方
+      state.overrides = {};
+      state.schema = null;
+      state.schemaError = '';
+      state.schemaStatus = 'idle';
       applyDefaults();
       updateAll();
+      loadProfileSchema();
     }
 
     function applyDefaults() {
@@ -1364,6 +1458,7 @@
       const seq = ++resolveSeq;
       const payload = collectConfig();
       delete payload.robot_id;
+      delete payload.overrides; // 覆盖由 worker 应用，不参与配方校验预览
       try {
         const data = await fetchJson('/api/training/resolve-recipe', {
           method: 'POST',
@@ -1403,6 +1498,158 @@
       $('previewList').innerHTML = filtered.map((row) =>
         `<div class="kv"><span class="kv-key">${escapeHtml(row.key)}</span><span class="kv-val">${escapeHtml(formatValue(row.value))}</span></div>`
       ).join('');
+    }
+
+    // ---------- 高级覆盖：profile-schema 加载与 dot-path 编辑 ----------
+    // 五分类面板 ↔ schema 子树映射（路径相对 dump 树根：environment.* / runner.*）
+    const CATEGORY_SCHEMA_PREFIXES = {
+      simulator: ['environment.sim', 'environment.scene'],
+      environment: ['environment.terrain', 'environment.commands', 'environment.curriculum'],
+      embodiment: ['environment.observations', 'environment.actions', 'environment.events'],
+      learning: ['runner'],
+      robustness: ['environment.rewards', 'environment.terminations'],
+    };
+
+    function schemaLeaves(node, prefix, out) {
+      // 扁平化 dump 树：跳过 __type__ 元数据与 fn:/深度截断标记；
+      // bool / number / string 叶子可编辑，list / null 只读展示。
+      for (const [key, value] of Object.entries(node || {})) {
+        if (key === '__type__') continue;
+        const path = prefix ? `${prefix}.${key}` : key;
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          schemaLeaves(value, path, out);
+          continue;
+        }
+        if (typeof value === 'string' && (value.startsWith('fn:') || value === '…')) continue;
+        const kind = typeof value === 'boolean' ? 'bool'
+          : typeof value === 'number' ? 'number'
+          : Array.isArray(value) ? 'list'
+          : value === null ? 'null' : 'string';
+        out.push({ path, value, kind });
+      }
+      return out;
+    }
+
+    function categoryLeaves(category) {
+      if (!state.schema) return [];
+      const prefixes = CATEGORY_SCHEMA_PREFIXES[category] || [];
+      return schemaLeaves(state.schema, '', []).filter((leaf) =>
+        prefixes.some((prefix) => leaf.path === prefix || leaf.path.startsWith(`${prefix}.`))
+      );
+    }
+
+    async function loadProfileSchema() {
+      if (!state.preset || !state.profileId) {
+        state.schema = null;
+        state.schemaStatus = 'idle';
+        renderOverrideBlocks();
+        updateOverrideUI();
+        return;
+      }
+      state.schemaStatus = 'loading';
+      renderOverrideBlocks();
+      const params = new URLSearchParams({ robot_id: state.preset.robot_id, profile_id: state.profileId });
+      try {
+        const data = await fetchJson(`/api/training/profile-schema?${params.toString()}`);
+        state.schema = (data && data.schema) || null;
+        state.schemaStatus = state.schema ? 'ready' : 'error';
+        state.schemaError = state.schema ? '' : 'schema 返回为空';
+      } catch (error) {
+        state.schema = null;
+        state.schemaStatus = /^501\b/.test(String(error.message || '')) ? 'unavailable' : 'error';
+        state.schemaError = error.message || String(error);
+      }
+      renderOverrideBlocks();
+      updateOverrideUI();
+    }
+
+    function ovrInputHtml(leaf) {
+      const overridden = Object.prototype.hasOwnProperty.call(state.overrides, leaf.path);
+      const current = formatValue(leaf.value);
+      const value = overridden ? state.overrides[leaf.path] : '';
+      if (leaf.kind === 'bool') {
+        const checked = overridden ? !!value : !!leaf.value;
+        return `<input type="checkbox" data-ovr-path="${escapeHtml(leaf.path)}" data-kind="bool" title="覆盖为 ${checked ? 'true' : 'false'}（配方值：${escapeHtml(current)}）" ${checked ? 'checked' : ''}>`;
+      }
+      if (leaf.kind === 'number') {
+        return `<input type="number" step="any" data-ovr-path="${escapeHtml(leaf.path)}" data-kind="number" value="${escapeHtml(String(value))}" placeholder="${escapeHtml(String(leaf.value))}" title="配方当前值：${escapeHtml(current)}；留空表示不覆盖">`;
+      }
+      return `<input type="text" data-ovr-path="${escapeHtml(leaf.path)}" data-kind="string" value="${escapeHtml(String(value))}" placeholder="${escapeHtml(current)}" title="配方当前值：${escapeHtml(current)}；留空表示不覆盖">`;
+    }
+
+    function renderOverrideBlock(category) {
+      const container = document.querySelector(`[data-ovr-category="${CSS.escape(category)}"] [data-ovr-block]`);
+      if (!container) return;
+      if (state.schemaStatus === 'idle') {
+        container.innerHTML = '<div class="ovr-status">通用任务模式没有档案全量配置；选择训练档案后，这里会列出配方源码中的全部可覆盖配置项。</div>';
+        return;
+      }
+      if (state.schemaStatus === 'loading') {
+        container.innerHTML = '<div class="ovr-status">正在加载训练配方全量配置（需在隔离环境中导入配方源码，首次可能需要数十秒）...</div>';
+        return;
+      }
+      if (state.schemaStatus === 'unavailable') {
+        container.innerHTML = '<div class="ovr-status">需要先配置运行时：未找到 MJLab 适配器 Python 解释器（adapters/mjlab/.venv），无法读取配方全量配置。</div>';
+        return;
+      }
+      if (state.schemaStatus !== 'ready' || !state.schema) {
+        container.innerHTML = `<div class="ovr-status">配方全量配置加载失败：${escapeHtml(state.schemaError || '未知错误')}</div>`;
+        return;
+      }
+      const leaves = categoryLeaves(category);
+      if (!leaves.length) {
+        container.innerHTML = '<div class="ovr-status">该分类下没有可展示的配方配置项。</div>';
+        return;
+      }
+      const rows = leaves.map((leaf) => {
+        if (leaf.kind === 'list' || leaf.kind === 'null') {
+          return `<div class="ovr-row ro" title="只读：数组 / 空值不支持表单覆盖">
+            <span class="ovr-path">${escapeHtml(leaf.path)}</span>
+            <span class="ovr-current">${escapeHtml(formatValue(leaf.value))}</span>
+            <span class="ovr-status">只读</span>
+          </div>`;
+        }
+        const overridden = Object.prototype.hasOwnProperty.call(state.overrides, leaf.path);
+        return `<div class="ovr-row ${overridden ? 'overridden' : ''}" data-ovr-row="${escapeHtml(leaf.path)}">
+          <span class="ovr-path" title="${escapeHtml(leaf.path)}">${escapeHtml(leaf.path)}</span>
+          <span class="ovr-current">${escapeHtml(formatValue(leaf.value))}</span>
+          ${ovrInputHtml(leaf)}
+        </div>`;
+      }).join('');
+      container.innerHTML = `
+        <div class="ovr-note">留空 = 不覆盖（沿用配方值）；填写后以点路径写入 overrides，启动训练时由 worker 在配方之后应用（用户修改优先）。布尔项勾选状态即覆盖值。</div>
+        <div class="ovr-rows">${rows}</div>`;
+    }
+
+    function renderOverrideBlocks() {
+      Object.keys(CATEGORY_SCHEMA_PREFIXES).forEach((category) => {
+        renderOverrideBlock(category);
+        updateOverrideCategoryCount(category);
+      });
+    }
+
+    function updateOverrideCategoryCount(category) {
+      const holder = document.querySelector(`[data-ovr-category="${CSS.escape(category)}"] [data-ovr-count]`);
+      if (!holder) return;
+      if (state.schemaStatus !== 'ready') { holder.textContent = ''; return; }
+      const leaves = categoryLeaves(category);
+      const overridden = leaves.filter((leaf) => Object.prototype.hasOwnProperty.call(state.overrides, leaf.path)).length;
+      holder.textContent = leaves.length ? `（${leaves.length} 项${overridden ? ` · 已覆盖 ${overridden}` : ''}）` : '';
+    }
+
+    function refreshOverrideRow(input) {
+      const row = input.closest('.ovr-row');
+      if (row) row.classList.toggle('overridden', Object.prototype.hasOwnProperty.call(state.overrides, input.dataset.ovrPath));
+      Object.keys(CATEGORY_SCHEMA_PREFIXES).forEach(updateOverrideCategoryCount);
+      updateOverrideUI();
+    }
+
+    function updateOverrideUI() {
+      const count = Object.keys(state.overrides).length;
+      const chip = $('overrideChip');
+      const clearBtn = $('clearOverrides');
+      if (chip) { chip.hidden = count === 0; chip.textContent = `覆盖 ${count} 项`; }
+      if (clearBtn) clearBtn.hidden = count === 0;
     }
 
     // ---------- 配置收集 / 导入导出 ----------
@@ -1453,6 +1700,7 @@
         command_ranges: collectCommandRanges(),
         noise: {},
         curriculum: {},
+        overrides: { ...state.overrides },
       };
     }
 
@@ -1526,6 +1774,13 @@
         });
       }
       if (config.reward_overrides !== undefined) $('rewardOverrides').checked = !!config.reward_overrides;
+      if (config.overrides !== undefined) {
+        // 导入的覆盖项与 schema 无关也会保留，启动时由 worker 校验路径
+        state.overrides = (config.overrides && typeof config.overrides === 'object' && !Array.isArray(config.overrides))
+          ? { ...config.overrides }
+          : {};
+        renderOverrideBlocks();
+      }
       if (config.reward_scales && typeof config.reward_scales === 'object') {
         Object.entries(config.reward_scales).forEach(([id, weight]) => {
           const toggle = document.querySelector(`[data-reward-id="${CSS.escape(id)}"]`);
@@ -1633,6 +1888,7 @@
       updateNavDots();
       updateSummary();
       updateTaskBadge();
+      updateOverrideUI();
       scheduleResolve();
     }
 
@@ -1678,6 +1934,8 @@
           entropy_coef: form.entropy_coef,
           seed: form.seed,
         };
+        // 仅在用户填写了高级覆盖时携带，保持默认请求体与既有行为一致
+        if (Object.keys(state.overrides).length) requestData.overrides = { ...state.overrides };
 
         const data = await fetchJson('/api/training/create', {
           method: 'POST',
@@ -1694,6 +1952,38 @@
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
       }
+    });
+
+    // ---------- 高级覆盖：事件绑定（一次性委托，重渲染不重复） ----------
+    document.querySelectorAll('[data-ovr-category]').forEach((holder) => {
+      holder.addEventListener('input', (event) => {
+        const input = event.target.closest('[data-ovr-path]');
+        if (!input || input.type === 'checkbox') return;
+        const path = input.dataset.ovrPath;
+        const raw = input.value.trim();
+        if (raw === '') {
+          delete state.overrides[path];
+        } else if (input.dataset.kind === 'number') {
+          const num = parseFloat(raw);
+          if (!Number.isFinite(num)) { delete state.overrides[path]; }
+          else state.overrides[path] = num;
+        } else {
+          state.overrides[path] = input.value;
+        }
+        refreshOverrideRow(input);
+      });
+      holder.addEventListener('change', (event) => {
+        const input = event.target.closest('[data-ovr-path]');
+        if (!input || input.type !== 'checkbox') return;
+        state.overrides[input.dataset.ovrPath] = input.checked;
+        refreshOverrideRow(input);
+      });
+    });
+    $('clearOverrides').addEventListener('click', () => {
+      state.overrides = {};
+      renderOverrideBlocks();
+      updateOverrideUI();
+      showToast('已清除全部高级覆盖');
     });
 
     // ---------- 导航交互 ----------

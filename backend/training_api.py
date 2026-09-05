@@ -10,6 +10,10 @@ from typing import Any, List, Optional, Literal
 from datetime import datetime
 from pathlib import Path
 import json
+import os
+import subprocess
+import sys
+import tempfile
 
 from backend.training_manager import get_training_manager
 from contracts.robot_contract_v2 import RobotContractV2
@@ -91,7 +95,11 @@ class CreateTrainingRequest(BaseModel):
     policy_delay: int = Field(default=2, ge=1, le=16)
     exploration_noise: float = Field(default=0.1, ge=0.0, le=2.0)
     seed: int = Field(default=0, ge=0, le=2_147_483_647)
-    backend: Literal["native_mjlab"] = "native_mjlab"
+    # Generic dot-path overrides over the profile's full config tree (e.g.
+    # "environment.sim.mujoco.timestep": 0.002). Applied by the worker after
+    # the recipe so user edits always win; unknown paths are skipped there.
+    overrides: dict[str, Any] = Field(default_factory=dict)
+    backend: str = "native_mjlab"  # runtime-validated; other frameworks reserved (unilab)
 
 
 class TrainingStatusResponse(BaseModel):
@@ -173,6 +181,7 @@ async def create_training(request: CreateTrainingRequest):
             "policy_delay": request.policy_delay,
             "exploration_noise": request.exploration_noise,
             "seed": request.seed,
+            "overrides": request.overrides,
             "backend": request.backend,
         }
         try:
@@ -180,6 +189,8 @@ async def create_training(request: CreateTrainingRequest):
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         config["resolved_recipe"] = resolved_recipe.model_dump(mode="json")
+        if request.backend not in ("native_mjlab", ""):
+            raise HTTPException(status_code=501, detail={"message": f"backend '{request.backend}' is reserved for a future framework and is not wired yet"})
         if request.backend == "native_mjlab":
             config["mode"] = "train"
             package = package_for_contract(contract.model_dump(mode="json"))
@@ -240,6 +251,14 @@ async def training_options():
         "reward_terms": get_reward_terms(),
         "tasks": list_tasks(),
         "hardware": await training_hardware(),
+        # 框架选择：native_mjlab 可用；unilab 为已规划、尚未接入的框架。
+        "frameworks": [
+            {"id": "native_mjlab", "label": "MJLab", "available": True,
+             "note": "当前唯一接入的框架，训练走隔离 adapter 环境"},
+            {"id": "unilab", "label": "UniLab", "available": False,
+             "planned": True,
+             "note": "Hydra/OmegaConf 配置体系已调研，适配后开放"},
+        ],
     }
 
 
@@ -399,6 +418,166 @@ async def training_config_preview(robot_id: str, profile_id: Optional[str] = Non
         },
     }
     return payload
+
+
+# ========== 训练配方全量配置 schema（introspected profile config tree） ==========
+
+_SCHEMA_TIMEOUT_S = 180
+_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _schema_workspace() -> Path:
+    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE")
+    return Path(configured).expanduser().resolve() if configured else _ROOT / "workspace"
+
+
+def _schema_cache_path(profile_id: str) -> Path:
+    safe = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in str(profile_id)) or "profile"
+    return _schema_workspace() / "schema_cache" / f"{safe}.json"
+
+
+def _schema_interpreter() -> Optional[Path]:
+    """Reuse the native adapter's worker interpreter candidates."""
+    from adapters.mjlab.native_adapter import _venv_python
+
+    candidates = []
+    explicit = os.environ.get("LEGGED_STUDIO_MJLAB_PYTHON")
+    if explicit:
+        candidates.append(Path(explicit))
+    candidates.append(_venv_python(_ROOT / "adapters" / "mjlab" / ".venv"))
+    candidates.append(Path(sys.executable))
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _read_profile_mtime(profile: dict) -> Optional[float]:
+    raw_path = profile.get("path")
+    if not raw_path:
+        return None
+    profile_path = Path(str(raw_path))
+    if not profile_path.is_absolute():
+        profile_path = _ROOT / profile_path
+    try:
+        return profile_path.stat().st_mtime
+    except OSError:
+        return None
+
+
+def _dump_schema_via_worker(robot_id: str, profile_id: str, profile: dict, package_root: str) -> dict:
+    """Spawn the adapter interpreter in --dump-schema mode and parse its JSON."""
+    interpreter = _schema_interpreter()
+    if interpreter is None:
+        raise HTTPException(
+            status_code=501,
+            detail={"message": "需要先配置运行时：未找到 MJLab 适配器 Python 解释器（adapters/mjlab/.venv）", "robot_id": robot_id, "profile_id": profile_id},
+        )
+    source_root = str(profile.get("source_root", "training/source"))
+    dump_config = {
+        "profile_id": profile_id,
+        "package_root": package_root,
+        "source_root": source_root,
+        "entrypoints": profile.get("entrypoints") or {},
+    }
+    tmp = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
+    try:
+        json.dump(dump_config, tmp, ensure_ascii=False)
+        tmp.close()
+        source_abs = Path(source_root)
+        if not source_abs.is_absolute():
+            source_abs = Path(package_root) / source_abs
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.pathsep.join([str(source_abs), env.get("PYTHONPATH", "")]).strip(os.pathsep)
+        try:
+            completed = subprocess.run(
+                [str(interpreter), "-m", "adapters.mjlab.native_worker", "--dump-schema", "--config", tmp.name],
+                cwd=str(_ROOT),
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=_SCHEMA_TIMEOUT_S,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise HTTPException(status_code=502, detail={"message": f"schema dump worker failed to launch: {exc}", "interpreter": str(interpreter)}) from exc
+        stdout = completed.stdout or ""
+        start = stdout.find("{")
+        if completed.returncode != 0 or start < 0:
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "message": "schema dump worker did not return a config tree",
+                    "interpreter": str(interpreter),
+                    "returncode": completed.returncode,
+                    "stderr": (completed.stderr or "")[-800:],
+                },
+            )
+        try:
+            schema, _end = json.JSONDecoder().raw_decode(stdout[start:])
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=502, detail={"message": f"schema dump output was not valid JSON: {exc}"}) from exc
+        return schema
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+
+
+@router.get("/profile-schema")
+async def training_profile_schema(robot_id: str, profile_id: str):
+    """Full introspected config tree (environment + runner) for a profile.
+
+    Spawns the isolated adapter interpreter with ``--dump-schema`` so the
+    package-owned entrypoints are imported once, outside this process, and the
+    resulting tree is cached under ``<workspace>/schema_cache/`` keyed by the
+    profile JSON mtime. The 03 training page renders this tree as editable
+    dot-path override rows, eliminating the source-code black box.
+    """
+    preset = get_robot_preset(robot_id)
+    if preset is None:
+        raise HTTPException(status_code=404, detail=f"Unknown robot package: {robot_id}")
+    profile = next(
+        (item for item in preset.get("training_profiles", []) if str(item.get("profile_id")) == profile_id),
+        None,
+    )
+    if profile is None:
+        raise HTTPException(status_code=404, detail=f"Training profile not found in package {robot_id}: {profile_id}")
+    package_root = str((preset.get("robot_package") or {}).get("package_root", ""))
+    if not package_root:
+        raise HTTPException(status_code=404, detail=f"Package root is not registered for robot {robot_id}")
+
+    mtime = _read_profile_mtime(profile)
+    cache_path = _schema_cache_path(profile_id)
+    if mtime is not None and cache_path.exists():
+        try:
+            cached = json.loads(cache_path.read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError):
+            cached = None
+        if isinstance(cached, dict) and cached.get("profile_mtime") == mtime and isinstance(cached.get("schema"), dict):
+            return {
+                "robot_id": robot_id,
+                "profile_id": profile_id,
+                "schema": cached["schema"],
+                "cached": True,
+            }
+
+    schema = await run_in_threadpool(_dump_schema_via_worker, robot_id, profile_id, profile, package_root)
+    if mtime is not None:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            cache_path.write_text(
+                json.dumps({"profile_id": profile_id, "profile_mtime": mtime, "generated_at": datetime.now().isoformat(), "schema": schema}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+    return {
+        "robot_id": robot_id,
+        "profile_id": profile_id,
+        "schema": schema,
+        "cached": False,
+    }
 
 
 @router.post("/resolve-recipe")

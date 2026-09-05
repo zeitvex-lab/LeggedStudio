@@ -233,6 +233,58 @@ def _load_package_extension(package: dict) -> dict:
     return result if isinstance(result, dict) else {"result": result}
 
 
+def _apply_config_overrides(env_cfg, rl_cfg, config: dict) -> list[str]:
+    """Apply generic dot-path overrides from the create request to live configs.
+
+    Keys are full schema paths as displayed in the Web console, e.g.
+    ``environment.sim.mujoco.timestep`` or ``runner.max_iterations``. Applied
+    after the recipe so user edits always win. Unknown paths are logged and
+    skipped — an override must never crash a launch.
+    """
+    overrides = config.get("overrides")
+    if not isinstance(overrides, dict) or not overrides:
+        return []
+    from adapters.mjlab.config_introspect import set_by_path
+
+    applied: list[str] = []
+    for dot_path, value in overrides.items():
+        path = str(dot_path).strip()
+        targets: list[tuple[str, object]] = []
+        if path.startswith("environment."):
+            targets = [("env", env_cfg)] if env_cfg is not None else []
+            stripped = path.removeprefix("environment.")
+        elif path.startswith("runner."):
+            targets = [("runner", rl_cfg)] if rl_cfg is not None else []
+            stripped = path.removeprefix("runner.")
+        else:
+            targets = ([("env", env_cfg)] if env_cfg is not None else []) + ([("runner", rl_cfg)] if rl_cfg is not None else [])
+            stripped = path
+        for label, target in targets:
+            try:
+                set_by_path(target, stripped, value)
+            except KeyError:
+                continue
+            except (TypeError, ValueError) as exc:
+                print(f"[native-worker] override {dot_path}={value!r} rejected: {exc}", file=sys.stderr)
+                break
+            applied.append(path)
+            break
+        else:
+            print(f"[native-worker] override path not found, ignored: {dot_path}", file=sys.stderr)
+    return applied
+
+
+def _dump_profile_schema(config: dict) -> dict:
+    """Build the full config-tree schema for a resolved profile bundle."""
+    package_root = Path(str(config.get("package_root", ""))).resolve()
+    source_root = Path(str(config.get("source_root", "training/source")))
+    if not source_root.is_absolute():
+        source_root = package_root / source_root
+    from adapters.mjlab.config_introspect import build_profile_schema
+
+    return build_profile_schema(source_root, config.get("entrypoints") or {}, config.get("profile_id"))
+
+
 def run(config: dict, source: Path, output: Path, extension_root: Path | None = None) -> int:
     _write(output / "status.json", {"status": "running", "backend": "native_mjlab"})
     project_root = Path(__file__).resolve().parents[2]
@@ -362,6 +414,9 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                 collision_cfg.priority[".*"] = 0
     if config.get("seed") is not None:
         env_cfg.seed = int(config["seed"])
+    # Generic dot-path overrides run LAST so user edits win over every recipe
+    # and request merge above (never crash: unknown paths are logged instead).
+    report["overrides_applied"] = _apply_config_overrides(env_cfg, rl_cfg, config)
     env = None
     try:
         env = ManagerBasedRlEnv(cfg=env_cfg, device=device)
@@ -510,22 +565,42 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Legged Studio native MJLab worker")
-    parser.add_argument("--source", required=True)
+    parser.add_argument("--source")
     parser.add_argument("--config", required=True)
-    parser.add_argument("--output", required=True)
+    parser.add_argument("--output")
     parser.add_argument("--extension-root")
     parser.add_argument("--contract")
+    parser.add_argument(
+        "--dump-schema",
+        action="store_true",
+        help="print the profile's full env/runner config tree as JSON to stdout and exit",
+    )
     args = parser.parse_args()
-    output = Path(args.output)
     try:
         # PowerShell's ``-Encoding utf8`` emits a BOM on Windows; accepting
         # utf-8-sig keeps CLI and desktop launches interoperable.
         config = json.loads(Path(args.config).read_text(encoding="utf-8-sig"))
         if args.contract:
             config["contract_path"] = str(Path(args.contract).resolve())
+        if args.dump_schema:
+            # Must stay ahead of any torch/mjlab import: the schema dump only
+            # needs the package source tree. stdout may carry interpreter noise
+            # before the JSON; callers extract from the first ``{``.
+            try:
+                schema = _dump_profile_schema(config)
+            except Exception as exc:
+                print(f"[native-worker] schema dump failed: {exc}", file=sys.stderr)
+                traceback.print_exc()
+                return 6
+            print(json.dumps(schema, ensure_ascii=False))
+            return 0
+        if not args.source or not args.output:
+            parser.error("--source and --output are required unless --dump-schema is used")
+        output = Path(args.output)
         extension = Path(args.extension_root).resolve() if args.extension_root else None
         return run(config, Path(args.source).resolve(), output, extension)
     except Exception as exc:
+        output = Path(args.output) if args.output else Path.cwd() / "native_worker_output"
         _write(output / "status.json", {"status": "failed", "error": str(exc), "traceback": traceback.format_exc()})
         print(f"[native-worker] failed: {exc}", file=sys.stderr)
         traceback.print_exc()
