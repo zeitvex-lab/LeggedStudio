@@ -531,8 +531,15 @@ async def training_profile_schema(robot_id: str, profile_id: str):
     Spawns the isolated adapter interpreter with ``--dump-schema`` so the
     package-owned entrypoints are imported once, outside this process, and the
     resulting tree is cached under ``<workspace>/schema_cache/`` keyed by the
-    profile JSON mtime. The 03 training page renders this tree as editable
-    dot-path override rows, eliminating the source-code black box.
+    profile JSON mtime. The response carries three views of the same dump:
+
+    - ``schema`` / ``tree``: the raw config tree (expert mode renders it as
+      dot-path override rows),
+    - ``params``: the curated descriptor catalog (:mod:`adapters.mjlab.param_registry`)
+      resolved against the tree — 中文 label / unit / hint / type per commonly
+      tuned parameter, expanded for reward weights, event params, action
+      scales and termination thresholds. The 03 training page renders these
+      as the primary parameter cards per category.
     """
     preset = get_robot_preset(robot_id)
     if preset is None:
@@ -547,6 +554,8 @@ async def training_profile_schema(robot_id: str, profile_id: str):
     if not package_root:
         raise HTTPException(status_code=404, detail=f"Package root is not registered for robot {robot_id}")
 
+    from adapters.mjlab.param_registry import resolve_params
+
     mtime = _read_profile_mtime(profile)
     cache_path = _schema_cache_path(profile_id)
     if mtime is not None and cache_path.exists():
@@ -555,10 +564,13 @@ async def training_profile_schema(robot_id: str, profile_id: str):
         except (OSError, json.JSONDecodeError):
             cached = None
         if isinstance(cached, dict) and cached.get("profile_mtime") == mtime and isinstance(cached.get("schema"), dict):
+            schema = cached["schema"]
             return {
                 "robot_id": robot_id,
                 "profile_id": profile_id,
-                "schema": cached["schema"],
+                "schema": schema,
+                "tree": schema,
+                "params": resolve_params(schema),
                 "cached": True,
             }
 
@@ -576,6 +588,8 @@ async def training_profile_schema(robot_id: str, profile_id: str):
         "robot_id": robot_id,
         "profile_id": profile_id,
         "schema": schema,
+        "tree": schema,
+        "params": resolve_params(schema),
         "cached": False,
     }
 

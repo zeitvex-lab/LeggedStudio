@@ -127,6 +127,24 @@ def _child(obj: Any, segment: str) -> Any:
     raise KeyError(segment)
 
 
+def get_by_path(root_obj: Any, dot_path: str, default: Any = None) -> Any:
+    """Read a nested dataclass/dict attribute addressed by a dot path.
+
+    Mirrors :func:`set_by_path` addressing; unknown segments (or a traversal
+    through a non-container) return ``default`` instead of raising, so callers
+    can probe catalog paths against arbitrary configs without try/except.
+    """
+    current = root_obj
+    for segment in (part for part in str(dot_path).split(".") if part):
+        try:
+            current = _child(current, segment)
+        except KeyError:
+            return default
+        except (TypeError, AttributeError):
+            return default
+    return current
+
+
 def set_by_path(root_obj: Any, dot_path: str, value: Any) -> None:
     """Set a nested dataclass/dict attribute addressed by a dot path.
 

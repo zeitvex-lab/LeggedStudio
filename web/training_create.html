@@ -520,7 +520,7 @@
 
     .preview-empty { padding: 26px 0; text-align: center; color: var(--faint); font-size: 12px; }
 
-    /* ========== 配方参数分区（全量，直接平铺可修改） ========== */
+    /* ========== 常用参数卡片（descriptor 驱动的主界面） ========== */
     .ovr-section { margin: 20px 0 8px; }
     .ovr-section .sub-block-title {
       display: flex;
@@ -535,23 +535,65 @@
     .ovr-section .sub-block-title { color: var(--text); font-size: 12px; text-transform: none; letter-spacing: 0; }
     .ovr-count { color: var(--muted); font: 10px Consolas, monospace; }
     .ovr-block { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
-    .ovr-row {
+
+    .param-block { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+
+    .param-group-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 10px 0 2px;
+    }
+
+    .param-row {
       display: grid;
-      grid-template-columns: minmax(180px, 1.6fr) minmax(110px, 1fr) 90px;
+      grid-template-columns: minmax(160px, 1.3fr) minmax(70px, 130px) minmax(130px, 1fr);
       gap: 10px;
       align-items: center;
-      padding: 6px 9px;
+      padding: 7px 10px;
       border: 1px solid var(--line-soft);
       border-radius: 6px;
       background: #ffffff;
     }
-    .ovr-row.ro { background: var(--surface-soft, #f8fafc); }
-    .ovr-path { font: 11px Consolas, monospace; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .ovr-current { color: var(--muted); font: 11px Consolas, monospace; overflow: hidden; text-overflow: ellipsis; }
-    .ovr-row input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 28px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--text); font: inherit; }
-    .ovr-row input:focus { outline: none; border-color: var(--cyan, #2588df); }
-    .ovr-row input[type="checkbox"] { width: auto; min-height: 0; }
-    .ovr-row.overridden { border-color: rgba(37, 136, 223, .45); background: #f4f9ff; }
+    .param-row:hover { border-color: var(--line); }
+    .param-row.overridden { border-color: rgba(37, 136, 223, .45); background: #f4f9ff; }
+    .param-row.ro { background: var(--surface-raised); }
+    .param-main { min-width: 0; }
+    .param-label { display: block; font-size: 12px; font-weight: 600; color: var(--text); }
+    .param-label small { color: var(--faint); font-weight: 400; margin-left: 3px; }
+    .param-hint {
+      display: block;
+      color: var(--faint);
+      font-size: 10px;
+      line-height: 1.4;
+      margin-top: 1px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .param-current {
+      color: var(--muted);
+      font: 11px Consolas, monospace;
+      text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      word-break: break-all;
+    }
+    .param-current::before { content: '= '; color: var(--faint); }
+    .param-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .param-row input[type="number"], .param-row input[type="text"] {
+      min-height: 28px;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 4px 8px;
+      background: var(--surface-input);
+      color: var(--text);
+      font: 12px Consolas, monospace;
+    }
+    .param-row input:focus { outline: none; border-color: var(--cyan, #2588df); }
+    .param-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--cyan); cursor: pointer; justify-self: start; }
     .ovr-status { color: var(--muted); font-size: 11px; }
     .ovr-details > summary { cursor: pointer; }
 
@@ -758,8 +800,12 @@
                 <span class="hw-badge"><span class="dot"></span>正在探测运行环境...</span>
               </div>
               <div class="ovr-section" data-ovr-category="simulator">
-                <div class="sub-block-title editable">运行与场景参数（全量，可修改）<span class="ovr-count" data-ovr-count></span></div>
-                <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+                <div class="sub-block-title editable">常用参数<span class="ovr-count" data-ovr-count></span></div>
+                <div class="param-block" data-param-block><div class="ovr-status">等待训练档案...</div></div>
+                <details class="ovr-details" data-expert-details>
+                  <summary><span class="chev">▾</span>专家模式 · 全部参数<span class="ovr-count" data-expert-count></span></summary>
+                  <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+                </details>
               </div>
             </section>
 
@@ -816,8 +862,12 @@
                 </div>
               </div>
               <div class="ovr-section" data-ovr-category="environment">
-                <div class="sub-block-title editable">环境与课程参数（全量，可修改）<span class="ovr-count" data-ovr-count></span></div>
-                <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+                <div class="sub-block-title editable">常用参数<span class="ovr-count" data-ovr-count></span></div>
+                <div class="param-block" data-param-block><div class="ovr-status">等待训练档案...</div></div>
+                <details class="ovr-details" data-expert-details>
+                  <summary><span class="chev">▾</span>专家模式 · 全部参数<span class="ovr-count" data-expert-count></span></summary>
+                  <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+                </details>
               </div>
             </section>
 
@@ -833,8 +883,12 @@
                 <div id="embodWrap"></div>
               </div>
               <div class="ovr-section" data-ovr-category="embodiment">
-                <div class="sub-block-title editable">观测 / 动作 / 事件（全量，可修改）<span class="ovr-count" data-ovr-count></span></div>
-                <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+                <div class="sub-block-title editable">常用参数<span class="ovr-count" data-ovr-count></span></div>
+                <div class="param-block" data-param-block><div class="ovr-status">等待训练档案...</div></div>
+                <details class="ovr-details" data-expert-details>
+                  <summary><span class="chev">▾</span>专家模式 · 全部参数<span class="ovr-count" data-expert-count></span></summary>
+                  <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+                </details>
               </div>
             </section>
 
@@ -907,8 +961,12 @@
                 </div>
               </div>
               <div class="ovr-section" data-ovr-category="learning">
-                <div class="sub-block-title editable">算法与 Runner 参数（全量，可修改）<span class="ovr-count" data-ovr-count></span></div>
-                <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+                <div class="sub-block-title editable">常用参数<span class="ovr-count" data-ovr-count></span></div>
+                <div class="param-block" data-param-block><div class="ovr-status">等待训练档案...</div></div>
+                <details class="ovr-details" data-expert-details>
+                  <summary><span class="chev">▾</span>专家模式 · 全部参数<span class="ovr-count" data-expert-count></span></summary>
+                  <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+                </details>
               </div>
             </section>
 
@@ -937,8 +995,12 @@
                 <div class="empty-state">正在加载奖惩项...</div>
               </div>
               <div class="ovr-section" data-ovr-category="robustness">
-                <div class="sub-block-title editable">奖励 / 终止 / 域随机化（全量，可修改）<span class="ovr-count" data-ovr-count></span></div>
-                <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+                <div class="sub-block-title editable">常用参数<span class="ovr-count" data-ovr-count></span></div>
+                <div class="param-block" data-param-block><div class="ovr-status">等待训练档案...</div></div>
+                <details class="ovr-details" data-expert-details>
+                  <summary><span class="chev">▾</span>专家模式 · 全部参数<span class="ovr-count" data-expert-count></span></summary>
+                  <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
+                </details>
               </div>
             </section>
 
@@ -1012,6 +1074,7 @@
       recipe: null,    // POST /api/training/resolve-recipe
       rewardDefaults: {},
       schema: null,        // GET /api/training/profile-schema -> {environment, runner, entrypoints}
+      params: [],          // 同响应的 params：descriptor 目录解析出的常用参数（卡片主界面）
       schemaStatus: 'idle', // idle | loading | ready | unavailable | error
       schemaError: '',
       overrides: {},       // dot-path -> 新值（仅记录用户显式修改）
@@ -1068,13 +1131,6 @@
       return `<div class="kv-list">${rows.map(([key, value]) =>
         `<div class="kv"><span class="kv-key">${escapeHtml(key)}</span><span class="kv-val">${escapeHtml(formatValue(value))}</span></div>`
       ).join('')}</div>`;
-    }
-
-    function roBlock(title, note, innerHtml) {
-      return `<div class="ro-block">
-        <div class="ro-head"><span class="lock-glyph">${LOCK_SVG}</span><b>${escapeHtml(title)}</b><span>${escapeHtml(note)}</span></div>
-        ${innerHtml}
-      </div>`;
     }
 
     function flatten(obj, prefix, out) {
@@ -1325,6 +1381,7 @@
       // 覆盖项与档案绑定：切换档案 / 回到通用任务时清空，避免旧路径误写入新配方
       state.overrides = {};
       state.schema = null;
+      state.params = [];
       state.schemaError = '';
       state.schemaStatus = 'idle';
       applyDefaults();
@@ -1376,39 +1433,24 @@
         state.preview = await fetchJson(`/api/training/config-preview?${params.toString()}`);
       } catch (error) {
         state.preview = null;
-        $('simRoWrap').innerHTML = `<div class="ro-note">配置预览获取失败：${escapeHtml(error.message)}</div>`;
+        setInner('simRoWrap', `<div class="ro-note">配置预览获取失败：${escapeHtml(error.message)}</div>`);
         return;
       }
       renderReadonlyBlocks();
       scheduleResolve();
     }
 
+    function setInner(id, html) {
+      const el = $(id);
+      if (el) el.innerHTML = html;
+    }
+
     function renderReadonlyBlocks() {
       const preview = state.preview;
       if (!preview) return;
 
-      const sim = preview.simulator || {};
-      $('simRoWrap').innerHTML = roBlock('物理引擎（机器人契约）', '由机器人契约决定（训练资产页面 02 编辑）', kvRows([
-        ['backend', sim.backend],
-        ['physics_hz', sim.physics_hz],
-        ['decimation', sim.decimation],
-        ['control_hz', sim.control_hz],
-        ['device_hint', sim.device_hint],
-      ]) + '<div class="ro-note">' + (sim.notes || []).map(escapeHtml).join('<br>') + '</div>');
-
-      const env = preview.environment || {};
-      const terrainMixText = env.terrain_mixes && env.terrain_mixes.length
-        ? env.terrain_mixes.map((mix) =>
-            `${mix.name}${mix.proportion !== null && mix.proportion !== undefined ? ` ${(Number(mix.proportion) * 100).toFixed(0)}%` : ''}`
-          ).join(' · ')
-        : null;
-      $('envRoWrap').innerHTML = roBlock('地形与课程（训练配方）', '由训练配方源码决定；terrain / curriculum 配置键仅随任务归档，worker 不直接应用', kvRows([
-        ['terrain_type（配方）', env.terrain_type],
-        ['terrain_mixes', terrainMixText],
-        ['curriculum', env.curriculum ? formatValue(env.curriculum) : null],
-        ['episode_length_s（配方）', env.episode_length_s],
-      ]));
-
+      // 旧版 sim/env/learning/robustness 只读区块已由各分类的常用参数卡片取代；
+      // 这里只渲染仍然存在的容器（embodWrap / robotMeta），缺失时静默跳过。
       const body = preview.embodiment || {};
       const jointOrder = body.joint_order || [];
       const pose = body.default_pose || null;
@@ -1424,33 +1466,13 @@
       if (body.action && typeof body.action === 'object') {
         Object.entries(body.action).forEach(([key, value]) => bodyEntries.push([`action.${key}`, value]));
       }
-      $('embodWrap').innerHTML = `<div class="ro-note" style="margin:0 0 8px;">action.joint_order + joints.default_pose（共 ${jointOrder.length} 关节）</div>${jointChips}
-        <div style="margin-top:10px;">${kvRows(bodyEntries)}</div>`;
-
-      const learn = preview.learning || {};
-      const runnerEntries = learn.runner && typeof learn.runner === 'object'
-        ? Object.entries(learn.runner).map(([key, value]) => [`runner.${key}`, value])
-        : [];
-      $('learnRoWrap').innerHTML = roBlock('Runner 默认（训练配方源码）', '由训练配方源码决定（runner 默认）', kvRows(runnerEntries))
-        + '<div class="ro-note">' + (learn.notes || []).map(escapeHtml).join('<br>') + '</div>';
-
-      const robust = preview.robustness || {};
-      const termNames = Array.isArray(robust.reward_terms) ? robust.reward_terms : null;
-      const robustParts = [];
-      robustParts.push(roBlock('终止与域随机化（训练配方）', '由训练配方源码决定', kvRows([
-        ['terminations', robust.terminations_summary],
-        ['domain_randomization', robust.domain_randomization ? formatValue(robust.domain_randomization) : null],
-      ])));
-      if (termNames && termNames.length) {
-        robustParts.push(`<div class="ro-note" style="margin-top:8px;">配方奖励项（${termNames.length}，只读）：</div>
-          <div class="joint-chips" style="margin-top:6px;">${termNames.map((name) => `<span class="term-chip">${escapeHtml(name)}</span>`).join('')}</div>`);
-      }
-      $('robustRoWrap').innerHTML = robustParts.join('');
+      setInner('embodWrap', `<div class="ro-note" style="margin:0 0 8px;">action.joint_order + joints.default_pose（共 ${jointOrder.length} 关节）</div>${jointChips}
+        <div style="margin-top:10px;">${kvRows(bodyEntries)}</div>`);
 
       const meta = state.preset
         ? `${escapeHtml(state.preset.family)} · ${escapeHtml(String(state.preset.dof ?? '-'))} DOF · ${Number(state.preset.mass_kg || 0).toFixed(1)} kg · ${escapeHtml(state.preset.contract_id || '')}`
         : '-';
-      $('robotMeta').innerHTML = meta;
+      setInner('robotMeta', meta);
       updateTaskBadge();
     }
 
@@ -1564,26 +1586,119 @@
     async function loadProfileSchema() {
       if (!state.preset || !state.profileId) {
         state.schema = null;
+        state.params = [];
         state.schemaStatus = 'idle';
-        renderOverrideBlocks();
+        renderSchemaViews();
         updateOverrideUI();
         return;
       }
       state.schemaStatus = 'loading';
-      renderOverrideBlocks();
+      renderSchemaViews();
       const params = new URLSearchParams({ robot_id: state.preset.robot_id, profile_id: state.profileId });
       try {
         const data = await fetchJson(`/api/training/profile-schema?${params.toString()}`);
-        state.schema = (data && data.schema) || null;
+        state.schema = (data && (data.schema || data.tree)) || null;
+        state.params = (data && Array.isArray(data.params)) ? data.params : [];
         state.schemaStatus = state.schema ? 'ready' : 'error';
         state.schemaError = state.schema ? '' : 'schema 返回为空';
       } catch (error) {
         state.schema = null;
+        state.params = [];
         state.schemaStatus = /^501\b/.test(String(error.message || '')) ? 'unavailable' : 'error';
         state.schemaError = error.message || String(error);
       }
-      renderOverrideBlocks();
+      renderSchemaViews();
       updateOverrideUI();
+    }
+
+    // ---------- 常用参数卡片（descriptor 目录 -> 主界面） ----------
+    function categoryParams(category) {
+      return (state.params || []).filter((param) => param.category === category && !param.advanced);
+    }
+
+    function paramControlHtml(param) {
+      const path = param.path;
+      const overridden = Object.prototype.hasOwnProperty.call(state.overrides, path);
+      if (param.readonly) return '<span class="ovr-status">只读</span>';
+      if (param.type === 'bool') {
+        const checked = overridden ? !!state.overrides[path] : !!param.value;
+        return `<input type="checkbox" data-ovr-path="${escapeHtml(path)}" data-kind="bool" title="勾选 = true，取消 = false（配方值：${param.value ? 'true' : 'false'}）" ${checked ? 'checked' : ''}>`;
+      }
+      if (param.type === 'list') {
+        const pair = (overridden && Array.isArray(state.overrides[path])) ? state.overrides[path] : param.value;
+        const min = Array.isArray(pair) && Number.isFinite(Number(pair[0])) ? String(pair[0]) : '';
+        const max = Array.isArray(pair) && Number.isFinite(Number(pair[1])) ? String(pair[1]) : '';
+        return `<span class="param-pair">
+          <input type="number" step="any" data-ovr-list="${escapeHtml(path)}" data-bound="min" value="${escapeHtml(min)}" placeholder="min" title="范围下限（配方当前值：${escapeHtml(formatValue(param.value))}）；两项留空 = 不覆盖">
+          <input type="number" step="any" data-ovr-list="${escapeHtml(path)}" data-bound="max" value="${escapeHtml(max)}" placeholder="max" title="范围上限；两项留空 = 不覆盖">
+        </span>`;
+      }
+      const value = overridden ? state.overrides[path] : '';
+      if (param.type === 'int' || param.type === 'float') {
+        return `<input type="number" step="any" data-ovr-path="${escapeHtml(path)}" data-kind="number" value="${escapeHtml(String(value))}" placeholder="${escapeHtml(String(param.value))}" title="配方当前值：${escapeHtml(formatValue(param.value))}；留空表示不覆盖">`;
+      }
+      return `<input type="text" data-ovr-path="${escapeHtml(path)}" data-kind="string" value="${escapeHtml(String(value))}" placeholder="${escapeHtml(formatValue(param.value))}" title="配方当前值：${escapeHtml(formatValue(param.value))}；留空表示不覆盖">`;
+    }
+
+    function renderParamBlock(category) {
+      const container = document.querySelector(`[data-ovr-category="${CSS.escape(category)}"] [data-param-block]`);
+      if (!container) return;
+      if (state.schemaStatus === 'idle') {
+        container.innerHTML = '<div class="ovr-status">通用任务模式没有档案配置；选择训练档案后，这里会列出该分类的常用训练参数。</div>';
+        return;
+      }
+      if (state.schemaStatus === 'loading') {
+        container.innerHTML = '<div class="ovr-status">正在解析训练配方（需在隔离环境中导入配方源码，首次可能需要数十秒）...</div>';
+        return;
+      }
+      if (state.schemaStatus === 'unavailable') {
+        container.innerHTML = '<div class="ovr-status">需要先配置运行时：未找到 MJLab 适配器 Python 解释器（adapters/mjlab/.venv），无法读取配方参数。</div>';
+        return;
+      }
+      if (state.schemaStatus !== 'ready' || !state.schema) {
+        container.innerHTML = `<div class="ovr-status">训练配方解析失败：${escapeHtml(state.schemaError || '未知错误')}</div>`;
+        return;
+      }
+      if (!(state.params || []).length) {
+        container.innerHTML = '<div class="ovr-status">后端未返回参数目录（请更新控制面）；可在下方专家模式中编辑全部参数。</div>';
+        return;
+      }
+      const params = categoryParams(category);
+      if (!params.length) {
+        container.innerHTML = '<div class="ovr-status">该分类暂无精选参数；全部参数见专家模式。</div>';
+        return;
+      }
+      let html = '';
+      let lastGroup = '';
+      params.forEach((param) => {
+        if (param.group && param.group !== lastGroup) {
+          lastGroup = param.group;
+          html += `<div class="param-group-title">${escapeHtml(param.group)}</div>`;
+        } else if (!param.group) {
+          lastGroup = '';
+        }
+        const overridden = Object.prototype.hasOwnProperty.call(state.overrides, param.path);
+        const unit = param.unit ? `<small>（${escapeHtml(param.unit)}）</small>` : '';
+        const labelTitle = [param.hint, param.path].filter(Boolean).join('\n');
+        html += `<div class="param-row ${param.readonly ? 'ro' : ''} ${overridden ? 'overridden' : ''}" data-ovr-row="${escapeHtml(param.path)}">
+          <div class="param-main" title="${escapeHtml(labelTitle)}">
+            <span class="param-label">${escapeHtml(param.label)}${unit}</span>
+            ${param.hint ? `<small class="param-hint">${escapeHtml(param.hint)}</small>` : ''}
+          </div>
+          <span class="param-current" title="配方当前值（输入框留空即沿用）">${escapeHtml(formatValue(param.value))}</span>
+          ${paramControlHtml(param)}
+        </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    function renderParamBlocks() {
+      Object.keys(CATEGORY_SCHEMA_PREFIXES).forEach(renderParamBlock);
+    }
+
+    function renderSchemaViews() {
+      renderParamBlocks();
+      renderOverrideBlocks();
     }
 
     function ovrInputHtml(leaf) {
@@ -1608,7 +1723,7 @@
         return;
       }
       if (state.schemaStatus === 'loading') {
-        container.innerHTML = '<div class="ovr-status">正在加载训练配方全量配置（需在隔离环境中导入配方源码，首次可能需要数十秒）...</div>';
+        container.innerHTML = '<div class="ovr-status">正在加载训练配方全量配置...</div>';
         return;
       }
       if (state.schemaStatus === 'unavailable') {
@@ -1652,17 +1767,33 @@
     }
 
     function updateOverrideCategoryCount(category) {
-      const holder = document.querySelector(`[data-ovr-category="${CSS.escape(category)}"] [data-ovr-count]`);
-      if (!holder) return;
-      if (state.schemaStatus !== 'ready') { holder.textContent = ''; return; }
-      const leaves = categoryLeaves(category);
-      const overridden = leaves.filter((leaf) => Object.prototype.hasOwnProperty.call(state.overrides, leaf.path)).length;
-      holder.textContent = leaves.length ? `（${leaves.length} 项${overridden ? ` · 已覆盖 ${overridden}` : ''}）` : '';
+      const section = document.querySelector(`[data-ovr-category="${CSS.escape(category)}"]`);
+      const holder = section ? section.querySelector('[data-ovr-count]') : null;
+      if (holder) {
+        if (state.schemaStatus !== 'ready') {
+          holder.textContent = '';
+        } else {
+          const params = categoryParams(category);
+          const overridden = params.filter((param) => Object.prototype.hasOwnProperty.call(state.overrides, param.path)).length;
+          holder.textContent = params.length ? `（${params.length} 项${overridden ? ` · 已覆盖 ${overridden}` : ''}）` : '';
+        }
+      }
+      const expertHolder = section ? section.querySelector('[data-expert-count]') : null;
+      if (expertHolder) {
+        if (state.schemaStatus !== 'ready') {
+          expertHolder.textContent = '';
+        } else {
+          const leaves = categoryLeaves(category);
+          const overridden = leaves.filter((leaf) => Object.prototype.hasOwnProperty.call(state.overrides, leaf.path)).length;
+          expertHolder.textContent = leaves.length ? `（${leaves.length}${overridden ? ` · 已覆盖 ${overridden}` : ''}）` : '';
+        }
+      }
     }
 
     function refreshOverrideRow(input) {
-      const row = input.closest('.ovr-row');
-      if (row) row.classList.toggle('overridden', Object.prototype.hasOwnProperty.call(state.overrides, input.dataset.ovrPath));
+      const path = input.dataset.ovrPath || input.dataset.ovrList;
+      const row = input.closest('.ovr-row, .param-row');
+      if (row && path) row.classList.toggle('overridden', Object.prototype.hasOwnProperty.call(state.overrides, path));
       Object.keys(CATEGORY_SCHEMA_PREFIXES).forEach(updateOverrideCategoryCount);
       updateOverrideUI();
     }
@@ -1802,7 +1933,7 @@
         state.overrides = (config.overrides && typeof config.overrides === 'object' && !Array.isArray(config.overrides))
           ? { ...config.overrides }
           : {};
-        renderOverrideBlocks();
+        renderSchemaViews();
       }
       if (config.reward_scales && typeof config.reward_scales === 'object') {
         Object.entries(config.reward_scales).forEach(([id, weight]) => {
@@ -1977,9 +2108,30 @@
       }
     });
 
-    // ---------- 高级覆盖：事件绑定（一次性委托，重渲染不重复） ----------
+    // ---------- 覆盖编辑：事件绑定（一次性委托，重渲染不重复） ----------
+    function applyListPairInput(input) {
+      // 范围对（[min, max]）：任一项变化都重算；两项留空 = 不覆盖
+      const path = input.dataset.ovrList;
+      const row = input.closest('.param-row, .ovr-row');
+      const minInput = row ? row.querySelector('[data-ovr-list][data-bound="min"]') : null;
+      const maxInput = row ? row.querySelector('[data-ovr-list][data-bound="max"]') : null;
+      const rawMin = minInput ? minInput.value.trim() : '';
+      const rawMax = maxInput ? maxInput.value.trim() : '';
+      if (rawMin === '' && rawMax === '') {
+        delete state.overrides[path];
+      } else {
+        const min = parseFloat(rawMin);
+        const max = parseFloat(rawMax);
+        if (Number.isFinite(min) && Number.isFinite(max) && min <= max) state.overrides[path] = [min, max];
+        else delete state.overrides[path];
+      }
+      refreshOverrideRow(input);
+    }
+
     document.querySelectorAll('[data-ovr-category]').forEach((holder) => {
       holder.addEventListener('input', (event) => {
+        const listInput = event.target.closest('[data-ovr-list]');
+        if (listInput) { applyListPairInput(listInput); return; }
         const input = event.target.closest('[data-ovr-path]');
         if (!input || input.type === 'checkbox') return;
         const path = input.dataset.ovrPath;
@@ -2004,7 +2156,7 @@
     });
     $('clearOverrides').addEventListener('click', () => {
       state.overrides = {};
-      renderOverrideBlocks();
+      renderSchemaViews();
       updateOverrideUI();
       showToast('已清除全部高级覆盖');
     });
@@ -2043,8 +2195,7 @@
     });
     $('device').addEventListener('change', (event) => { $('deviceMirror').value = event.target.value; updateAll(); });
     $('rewardOverrides').addEventListener('change', () => {
-      const payload = typeof collectOptionsPayload === 'function' ? null : null;
-      renderRewardTerms(optionsData.reward_terms || {});
+      renderRewardTerms((state.options && state.options.reward_terms) || {});
       updateAll();
     });
     $('rewardAll').addEventListener('click', () => setAllRewards(true));
