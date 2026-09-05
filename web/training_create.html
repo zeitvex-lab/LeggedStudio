@@ -520,6 +520,41 @@
 
     .preview-empty { padding: 26px 0; text-align: center; color: var(--faint); font-size: 12px; }
 
+    /* ========== 配方参数分区（全量，直接平铺可修改） ========== */
+    .ovr-section { margin: 20px 0 8px; }
+    .ovr-section .sub-block-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: var(--surface-raised, #f8fafc);
+      border: 1px solid var(--line-soft);
+    }
+    .ovr-section .sub-block-title { color: var(--text); font-size: 12px; text-transform: none; letter-spacing: 0; }
+    .ovr-count { color: var(--muted); font: 10px Consolas, monospace; }
+    .ovr-block { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+    .ovr-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.6fr) minmax(110px, 1fr) 90px;
+      gap: 10px;
+      align-items: center;
+      padding: 6px 9px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: #ffffff;
+    }
+    .ovr-row.ro { background: var(--surface-soft, #f8fafc); }
+    .ovr-path { font: 11px Consolas, monospace; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ovr-current { color: var(--muted); font: 11px Consolas, monospace; overflow: hidden; text-overflow: ellipsis; }
+    .ovr-row input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 28px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--text); font: inherit; }
+    .ovr-row input:focus { outline: none; border-color: var(--cyan, #2588df); }
+    .ovr-row input[type="checkbox"] { width: auto; min-height: 0; }
+    .ovr-row.overridden { border-color: rgba(37, 136, 223, .45); background: #f4f9ff; }
+    .ovr-status { color: var(--muted); font-size: 11px; }
+    .ovr-details > summary { cursor: pointer; }
+
     /* ========== 高级覆盖（训练配方全量配置 schema dot-path rows） ========== */
     .ovr-details { margin-top: 16px; }
 
@@ -722,13 +757,10 @@
               <div class="hw-badges" id="hwBadges">
                 <span class="hw-badge"><span class="dot"></span>正在探测运行环境...</span>
               </div>
-              <details class="recipe-built-in"><summary>训练配方内置 · 物理引擎设置（启动后按配方执行）</summary>
-              <div id="simRoWrap"></div>
-              </details>
-              <details class="ovr-details" data-ovr-category="simulator">
-                <summary><span class="chev">▾</span>高级覆盖（来自训练配方全量配置）<span class="ovr-count" data-ovr-count></span></summary>
+              <div class="ovr-section" data-ovr-category="simulator">
+                <div class="sub-block-title editable">运行与场景参数（全量，可修改）<span class="ovr-count" data-ovr-count></span></div>
                 <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
-              </details>
+              </div>
             </section>
 
             <!-- 02 环境构建 -->
@@ -783,13 +815,10 @@
                   </span>
                 </div>
               </div>
-              <details class="recipe-built-in"><summary>训练配方内置 · 地形子混合与课程（启动后按配方执行）</summary>
-              <div id="envRoWrap"></div>
-              </details>
-              <details class="ovr-details" data-ovr-category="environment">
-                <summary><span class="chev">▾</span>高级覆盖（来自训练配方全量配置）<span class="ovr-count" data-ovr-count></span></summary>
+              <div class="ovr-section" data-ovr-category="environment">
+                <div class="sub-block-title editable">环境与课程参数（全量，可修改）<span class="ovr-count" data-ovr-count></span></div>
                 <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
-              </details>
+              </div>
             </section>
 
             <!-- 03 机器人具身 -->
@@ -803,10 +832,10 @@
                 <div class="ro-head"><span class="lock-glyph" data-lock></span><b>契约只读</b><span id="robotMeta">-</span></div>
                 <div id="embodWrap"></div>
               </div>
-              <details class="ovr-details" data-ovr-category="embodiment">
-                <summary><span class="chev">▾</span>高级覆盖（来自训练配方全量配置）<span class="ovr-count" data-ovr-count></span></summary>
+              <div class="ovr-section" data-ovr-category="embodiment">
+                <div class="sub-block-title editable">观测 / 动作 / 事件（全量，可修改）<span class="ovr-count" data-ovr-count></span></div>
                 <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
-              </details>
+              </div>
             </section>
 
             <!-- 04 学习优化 -->
@@ -877,13 +906,10 @@
                   <small class="field-hint">≥ 0 · 默认 0.01</small>
                 </div>
               </div>
-              <details class="recipe-built-in"><summary>训练配方内置 · Runner 网络与训练默认</summary>
-              <div id="learnRoWrap"></div>
-              </details>
-              <details class="ovr-details" data-ovr-category="learning">
-                <summary><span class="chev">▾</span>高级覆盖（来自训练配方全量配置）<span class="ovr-count" data-ovr-count></span></summary>
+              <div class="ovr-section" data-ovr-category="learning">
+                <div class="sub-block-title editable">算法与 Runner 参数（全量，可修改）<span class="ovr-count" data-ovr-count></span></div>
                 <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
-              </details>
+              </div>
             </section>
 
             <!-- 05 鲁棒迁移 -->
@@ -910,13 +936,10 @@
               <div class="rewards" id="rewardTerms">
                 <div class="empty-state">正在加载奖惩项...</div>
               </div>
-              <details class="recipe-built-in"><summary>训练配方内置 · 终止条件与域随机化</summary>
-              <div id="robustRoWrap"></div>
-              </details>
-              <details class="ovr-details" data-ovr-category="robustness">
-                <summary><span class="chev">▾</span>高级覆盖（来自训练配方全量配置）<span class="ovr-count" data-ovr-count></span></summary>
+              <div class="ovr-section" data-ovr-category="robustness">
+                <div class="sub-block-title editable">奖励 / 终止 / 域随机化（全量，可修改）<span class="ovr-count" data-ovr-count></span></div>
                 <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
-              </details>
+              </div>
             </section>
 
             <!-- 配置预览 -->
