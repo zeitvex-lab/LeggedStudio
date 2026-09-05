@@ -1,5 +1,5 @@
 """
-Legged Studio Backend - Complete API v0.6.0
+Legged Studio Backend - Complete API v0.6.1
 濞ｅ浂鍠栭ˇ鏌ユ晬濮橆厼娼戦柛鏃傚Х瀹歌鲸寰勬潏鈺傜暠 system API
 """
 

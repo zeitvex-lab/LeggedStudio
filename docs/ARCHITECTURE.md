@@ -30,8 +30,9 @@ flowchart LR
 | Contract store | Versioned robot, scenario, recipe, and policy metadata | Robot Contract v2 and PolicyArtifact are implemented; Scenario Contract is the next extension |
 | Registry | Discover algorithms, rewards, maps, and task options | PPO is exposed for native MJLab training; SAC/TD3 remain registered for future native implementations |
 | Recipe registry | Resolve task, algorithm, terrain, commands, and reward scales into one reproducible payload | `adapters/mjlab/recipe_registry.py` and `/api/training/resolve-recipe` implemented |
+| Config introspection | Derive the full training config tree from the adapter itself; expose dot-path overrides shared by CLI, API, and front-end | `adapters/mjlab/config_introspect.py` and `adapters/mjlab/param_registry.py` implemented; `/api/training/config-preview` and `/api/training/profile-schema` serve the five-category config editor (no source-code black boxes) |
 | Scenario Contract | Version map, waypoints, command limits, seed, and metrics | `contracts/scenario_contract.py` and `/api/scenarios/validate` implemented |
-| Simulation adapter | Interactive MuJoCo sessions for basic teleoperation and map stepping | Available through `/api/simulation`; this is simulation only, never a training backend |
+| Simulation adapter | Interactive MuJoCo sessions for basic teleoperation and map stepping | Available through `/api/simulation`; keyboard teleoperation (WASD + QE) verified on the sim page; simulation only, never a training backend |
 | Native MJLab adapter | External MJLab source with the unified `adapters/mjlab` worker | The only training backend; Go2/ZEX-W training, evaluation, and navigation use the isolated worker |
 | Navigation planner | Waypoints, manual commands, locomotion policy replay | Waypoint replay API implemented; pure-pursuit/recovery state machine is a Phase 2 enhancement |
 | Artifact/export | Checkpoints, manifest, ONNX/deployment mapping | Manifest/checkpoint path exists; hardware-specific export remains an explicit boundary |

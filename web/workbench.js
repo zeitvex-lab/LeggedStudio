@@ -352,8 +352,8 @@ function setView(name) {
     if (!frame) return;
     const robot = selectedPreset?.robot_id || 'unitree_go2';
     const page = name === 'config'
-      ? `training_create.html?v=0.6.0&embedded=1&robot=${encodeURIComponent(robot)}`
-      : `training_list.html?v=0.6.0&embedded=1`;
+      ? `training_create.html?v=0.6.1&embedded=1&robot=${encodeURIComponent(robot)}`
+      : `training_list.html?v=0.6.1&embedded=1`;
     const expected = new URL(page, window.location.href).toString();
     if (frame.getAttribute('src') !== expected) frame.src = expected;
   }

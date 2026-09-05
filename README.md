@@ -1,8 +1,9 @@
 # Legged Studio
 
-Version `0.6.0` brings deployment-accurate browser sim2sim for all three built-in
-robots (Unitree Go2, ZEX-W, MicroDuck), built-in terrains, a faster robot page, and
-reworked training configuration and monitoring views.
+Version `0.6.1` brings deployment-accurate browser sim2sim for all three built-in
+robots (Unitree Go2, ZEX-W, MicroDuck), built-in terrains, a faster robot page with
+inertia-box visualization and motor parameter cards, a modular five-category training
+config editor, and a wandb-style training monitor.
 
 Legged Studio is a local, contract-driven workbench for validating legged
 robot assets, configuring rewards and algorithms, running native MJLab training,
@@ -46,7 +47,7 @@ npm run build:online:win
 ```
 
 The archive and its top-level directory are named
-`Legged-Studio-0.6.0-Windows-Online`, not `win-unpacked` or Electron.
+`Legged-Studio-0.6.1-Windows-Online`, not `win-unpacked` or Electron.
 
 To build the Windows package with an embedded CPython 3.12 runtime, CUDA
 Torch, MJLab, and the Unitree MJLab extension, run this target on Windows:
@@ -90,8 +91,18 @@ adapter boundaries.
   worker runtimes (cached), so page loads stay responsive.
 - Robot workbench loads faster: ETag revalidation for web assets, cached robot package
   responses, collision meshes load lazily, and mesh fetching/decoding is parallel.
-- Training pages rebuilt: preset-driven configuration, run health grid, live metric charts,
-  log filtering, and a checkpoints/artifacts panel.
+- Training pages rebuilt: the config page is a five-category modular editor with framework
+  selection (MJLab active, UniLab planned), curated parameter cards plus an expert mode over
+  the full introspected config tree (dot-path overrides); the monitor page is a wandb-style
+  view with a three-section overview sidebar, a metric small-multiples grid, and a checkpoints
+  panel. Both pages are embedded in-frame views of the workbench shell.
+- Unified config introspection (`adapters/mjlab/config_introspect.py` +
+  `adapters/mjlab/param_registry.py`): the full config tree is derived from the adapter itself,
+  with no source-code black boxes; CLI, API, and front-end share the same override mechanism
+  via the `/api/training/config-preview` and `/api/training/profile-schema` endpoints.
+- Robot page shows inertia-box visualization with a mass/inertia table and per-segment motor
+  parameter cards (Kp/Kd/torque/velocity limits).
+- Keyboard teleoperation verified on the sim page (WASD drive, QE yaw).
 - Correct MIME types for `.mjs`/`.wasm` so ONNX Runtime web loads under any Python runtime.
 - Configurable local backend port and desktop-owned backend lifecycle.
 

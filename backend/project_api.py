@@ -127,7 +127,7 @@ def _safe_zip_path(name: str) -> Path:
 
 @router.post("/export")
 async def export_project(request: ProjectExportRequest) -> Response:
-    manifest = {"schema_version": "legged-studio-project-1.0", "product_version": "0.6.0", "imports": [], "files": ["training/config.json", "scenarios/active.json"]}
+    manifest = {"schema_version": "legged-studio-project-1.0", "product_version": "0.6.1", "imports": [], "files": ["training/config.json", "scenarios/active.json"]}
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         exported_roots: set[str] = set()
