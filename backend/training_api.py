@@ -510,6 +510,7 @@ def _dump_schema_via_worker(robot_id: str, profile_id: str, profile: dict, packa
                     "interpreter": str(interpreter),
                     "returncode": completed.returncode,
                     "stderr": (completed.stderr or "")[-800:],
+                    "stdout_head": (completed.stdout or "")[:300],
                 },
             )
         try:
