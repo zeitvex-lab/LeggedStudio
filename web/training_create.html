@@ -155,6 +155,24 @@
     .sub-block-title.editable { color: var(--cyan); }
     .sub-block-title.readonly { color: var(--faint); }
 
+    /* 奖励行浅色化（workbench.css 的 .reward 基础样式是深底） */
+    .reward { background: #ffffff; border: 1px solid var(--line-soft); }
+    .reward:hover { border-color: var(--cyan); }
+    .reward input[type="number"] { background: #ffffff; color: var(--text); }
+    .reward-group { margin-bottom: 14px; }
+    .reward-group-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 0 0 6px;
+    }
+    .reward-group-title small { color: var(--faint); font-weight: 400; margin-left: 6px; }
+    .reward.locked { opacity: 0.85; }
+    .reward-weight-locked { color: var(--muted); font: 11px Consolas, monospace; white-space: nowrap; }
+    .reward-group .reward-group-title { display: block; }
+    #rewardTerms .reward-group { display: block; }
+    #rewardTerms .reward-group .reward { display: grid; grid-template-columns: 30px minmax(0, 1fr) 130px; }
+
     /* 只读 KV 表（锁定配方，meta-box / system-row 风格） */
     .ro-block {
       border: 1px solid var(--line-soft);
@@ -537,7 +555,7 @@
         <div>
           <span class="eyebrow">03 / TRAINING CREATE</span>
           <h1>创建训练任务</h1>
-          <p>五分类配置 · 可编辑项实时生效 · 配方只读项由训练资产决定</p>
+          <p>五分类配置 · 可编辑项实时生效 · 训练配方内置项由档案源码决定</p>
         </div>
         <div class="heading-actions">
           <button class="button" id="importBtn" type="button" title="从 JSON 文件导入此前导出的训练配置">导入配置</button>
@@ -577,27 +595,27 @@
           <div class="config-tabs">
             <button type="button" class="config-tab active" data-target="panel-simulator">
               <span class="index">01</span>
-              <span><span class="cat-name">仿真器</span><span class="cat-sub">Simulator</span></span>
+              <span><span class="cat-name">仿真器与运行时</span><span class="cat-sub">Simulator</span></span>
               <span class="dot" id="dot-simulator"></span>
             </button>
             <button type="button" class="config-tab" data-target="panel-environment">
               <span class="index">02</span>
-              <span><span class="cat-name">环境构建</span><span class="cat-sub">Environment</span></span>
+              <span><span class="cat-name">环境与地形</span><span class="cat-sub">Environment</span></span>
               <span class="dot" id="dot-environment"></span>
             </button>
             <button type="button" class="config-tab" data-target="panel-embodiment">
               <span class="index">03</span>
-              <span><span class="cat-name">机器人具身</span><span class="cat-sub">Embodiment</span></span>
+              <span><span class="cat-name">机器人与观测</span><span class="cat-sub">Embodiment</span></span>
               <span class="dot" id="dot-embodiment"></span>
             </button>
             <button type="button" class="config-tab" data-target="panel-learning">
               <span class="index">04</span>
-              <span><span class="cat-name">学习优化</span><span class="cat-sub">Learning</span></span>
+              <span><span class="cat-name">算法与超参数</span><span class="cat-sub">Learning</span></span>
               <span class="dot" id="dot-learning"></span>
             </button>
             <button type="button" class="config-tab" data-target="panel-robustness">
               <span class="index">05</span>
-              <span><span class="cat-name">鲁棒迁移</span><span class="cat-sub">Robustness</span></span>
+              <span><span class="cat-name">奖励与鲁棒性</span><span class="cat-sub">Robustness</span></span>
               <span class="dot" id="dot-robustness"></span>
             </button>
             <button type="button" class="config-tab" data-target="panel-preview">
@@ -607,7 +625,7 @@
           </div>
           <div class="nav-foot">
             绿点 = 该分类必填项校验通过；<br>
-            锁形区块为配方只读，由训练配方源码 / 机器人契约决定。
+            「训练配方内置」区块由所选档案的源码决定，启动后按配方执行。
           </div>
         </aside>
 
@@ -645,17 +663,15 @@
               <div class="hw-badges" id="hwBadges">
                 <span class="hw-badge"><span class="dot"></span>正在探测运行环境...</span>
               </div>
-              <div class="sub-block-title readonly">配方只读 · 物理引擎参数</div>
-              <div id="simRoWrap"></div>
             </section>
 
             <!-- 02 环境构建 -->
             <section class="cat-panel form-panel" id="panel-environment">
               <div class="panel-title">
-                <div><span class="eyebrow">02 / ENVIRONMENT</span><h2>环境构建</h2></div>
+                <div><span class="eyebrow">02 / ENVIRONMENT</span><h2>环境与地形</h2></div>
                 <span class="panel-meta">Environment</span>
               </div>
-              <p class="section-hint">任务 / 地形 / 指令范围与回合长度；地形子混合与课程表属于训练配方，只读展示。</p>
+              <p class="section-hint">地形类型、速度指令范围与回合长度可直接调整；地形混合比例与难度课程来自训练配方。</p>
               <div class="runtime-hint mode-hint" id="profileModeHint">
                 档案模式：任务与奖励 / 地形默认保留训练配方；指令范围、回合长度、并行环境、种子与 PPO 参数仍会覆盖配方。开启「鲁棒迁移」中的覆盖开关后奖励权重才会生效。
               </div>
@@ -701,17 +717,18 @@
                   </span>
                 </div>
               </div>
-              <div class="sub-block-title readonly">配方只读 · 地形子混合与课程</div>
+              <details class="recipe-built-in"><summary>训练配方内置 · 地形子混合与课程（启动后按配方执行）</summary>
               <div id="envRoWrap"></div>
+              </details>
             </section>
 
             <!-- 03 机器人具身 -->
             <section class="cat-panel form-panel" id="panel-embodiment">
               <div class="panel-title">
-                <div><span class="eyebrow">03 / EMBODIMENT</span><h2>机器人具身</h2></div>
+                <div><span class="eyebrow">03 / EMBODIMENT</span><h2>机器人与观测</h2></div>
                 <span class="panel-meta">Embodiment</span>
               </div>
-              <p class="section-hint">机器人在顶部工具条选择；关节顺序与默认姿态由机器人契约决定，在本页只读预览。</p>
+              <p class="section-hint">关节顺序、默认姿态与观测结构由机器人契约与训练配方决定，此处只读预览。</p>
               <div class="ro-block">
                 <div class="ro-head"><span class="lock-glyph" data-lock></span><b>契约只读</b><span id="robotMeta">-</span></div>
                 <div id="embodWrap"></div>
@@ -721,7 +738,7 @@
             <!-- 04 学习优化 -->
             <section class="cat-panel form-panel" id="panel-learning">
               <div class="panel-title">
-                <div><span class="eyebrow">04 / LEARNING</span><h2>学习优化</h2></div>
+                <div><span class="eyebrow">04 / LEARNING</span><h2>算法与超参数</h2></div>
                 <span class="panel-meta">Learning</span>
               </div>
               <p class="section-hint">PPO 超参数直接写入训练配置；网络结构与归一化沿用 runner 配方默认，只读展示。</p>
@@ -750,13 +767,13 @@
                   <small class="field-hint">每 N 次迭代保存检查点</small>
                 </div>
                 <div class="field-label">
-                  <label for="numSteps">Rollout 步数</label>
+                  <label for="numSteps">每环境采样步数</label>
                   <input type="number" id="numSteps" value="24" min="4" max="4096" step="1"
                          title="每次更新前每个环境收集的步数（num_steps_per_env）">
                   <small class="field-hint">4 - 4096 · 默认 24</small>
                 </div>
                 <div class="field-label">
-                  <label for="numMinibatches">小批次数量</label>
+                  <label for="numMinibatches">小批量数</label>
                   <input type="number" id="numMinibatches" value="4" min="1" max="64" step="1"
                          title="每次更新把 rollout 数据切成的 minibatch 数（num_mini_batches）">
                   <small class="field-hint">1 - 64 · 默认 4</small>
@@ -774,7 +791,7 @@
                   <small class="field-hint">(0, 1] · 默认 0.95</small>
                 </div>
                 <div class="field-label">
-                  <label for="clipParam">裁剪系数 ε</label>
+                  <label for="clipParam">裁剪范围 ε</label>
                   <input type="number" id="clipParam" value="0.2" min="0.05" max="0.5" step="0.01"
                          title="PPO 策略比率裁剪范围，限制单次更新幅度">
                   <small class="field-hint">(0, 1) · 默认 0.2</small>
@@ -786,17 +803,18 @@
                   <small class="field-hint">≥ 0 · 默认 0.01</small>
                 </div>
               </div>
-              <div class="sub-block-title readonly">配方只读 · Runner 网络与训练默认</div>
+              <details class="recipe-built-in"><summary>训练配方内置 · Runner 网络与训练默认</summary>
               <div id="learnRoWrap"></div>
+              </details>
             </section>
 
             <!-- 05 鲁棒迁移 -->
             <section class="cat-panel form-panel" id="panel-robustness">
               <div class="panel-title">
-                <div><span class="eyebrow">05 / ROBUSTNESS</span><h2>鲁棒迁移</h2></div>
+                <div><span class="eyebrow">05 / ROBUSTNESS</span><h2>奖励与鲁棒性</h2></div>
                 <span class="panel-meta">Robustness</span>
               </div>
-              <p class="section-hint">奖励权重写入训练配置；终止条件与域随机化由训练配方决定，只读展示。</p>
+              <p class="section-hint">奖励权重写入训练配置；终止条件与域随机化由训练配方决定。</p>
               <label class="override-toggle" title="档案模式下默认保留配方奖励；开启后下方编辑器权重才会写入训练配置">
                 <input type="checkbox" id="rewardOverrides">
                 <span>
@@ -814,8 +832,9 @@
               <div class="rewards" id="rewardTerms">
                 <div class="empty-state">正在加载奖惩项...</div>
               </div>
-              <div class="sub-block-title readonly">配方只读 · 终止与域随机化</div>
+              <details class="recipe-built-in"><summary>训练配方内置 · 终止条件与域随机化</summary>
               <div id="robustRoWrap"></div>
+              </details>
             </section>
 
             <!-- 配置预览 -->
@@ -1036,21 +1055,59 @@
       }));
     }
 
+    // 奖励项按语义分组（关键词匹配，未匹配进「其他」）
+    function rewardGroup(name) {
+      const n = String(name).toLowerCase();
+      if (/track|vel|command/.test(n)) return '速度与指令跟踪';
+      if (/pose|orient|upright|upward|flat|height|mirror/.test(n)) return '姿态与稳定';
+      if (/torque|power|acc|energy|effort|action_rate/.test(n)) return '能耗与平滑';
+      if (/contact|collision|limit|slip|swing|air|feet|gait|stance/.test(n)) return '接触与步态';
+      return '其他';
+    }
+    const GROUP_ORDER = ['速度与指令跟踪', '姿态与稳定', '接触与步态', '能耗与平滑', '其他'];
+
     function renderRewardTerms(terms) {
       const container = $('rewardTerms');
+      const overridesOn = $('rewardOverrides').checked;
+      const profileTerms = (!state.profileId && !overridesOn) ? null : collectProfileRewardTerms();
+
+      if (state.profileId && profileTerms && profileTerms.length && !overridesOn) {
+        // 档案模式且未开启覆盖：显示配方的完整奖励集（锁定，标注配方内置）
+        const groups = {};
+        profileTerms.forEach((name) => (groups[rewardGroup(name)] ||= []).push(name));
+        const ordered = [...GROUP_ORDER.filter((g) => groups[g]), ...Object.keys(groups).filter((g) => !GROUP_ORDER.includes(g))];
+        container.innerHTML = ordered.map((group) => `
+          <div class="reward-group"><div class="reward-group-title">${escapeHtml(group)} <small>配方内置</small></div>
+          ${groups[group].map((name) => `
+            <label class="reward locked" title="训练配方内置权重；开启「覆盖配方奖励」后可调整">
+              <input type="checkbox" checked disabled>
+              <span class="reward-label"><strong>${escapeHtml(name)}</strong><small>训练配方内置</small></span>
+              <span class="reward-weight-locked">配方权重</span>
+            </label>`).join('')}
+          </div>`).join('');
+        updateRewardSummary();
+        return;
+      }
+
+      // 通用模式（或档案 + 覆盖开）：可编辑奖励表
       const entries = Object.entries(terms);
       if (!entries.length) {
         container.innerHTML = '<div class="empty-state">后端未返回奖惩项，将使用任务默认奖励。</div>';
         updateRewardSummary();
         return;
       }
-      container.innerHTML = entries.map(([id, term]) => `
-        <label class="reward" data-reward-row="${escapeHtml(id)}" title="${escapeHtml(term.description || '')}">
-          <input type="checkbox" data-reward-id="${escapeHtml(id)}" checked>
-          <span class="reward-label"><strong>${escapeHtml(term.label || id)}</strong><small>${escapeHtml(term.description || id)}</small></span>
-          <input type="number" data-reward-weight="${escapeHtml(id)}" value="${Number(term.default)}" step="0.0001" title="权重（负值为惩罚）">
-        </label>
-      `).join('');
+      const groups = {};
+      entries.forEach(([id, term]) => (groups[rewardGroup(id)] ||= []).push([id, term]));
+      const ordered = [...GROUP_ORDER.filter((g) => groups[g]), ...Object.keys(groups).filter((g) => !GROUP_ORDER.includes(g))];
+      container.innerHTML = ordered.map((group) => `
+        <div class="reward-group"><div class="reward-group-title">${escapeHtml(group)}</div>
+        ${groups[group].map(([id, term]) => `
+          <label class="reward" data-reward-row="${escapeHtml(id)}" title="${escapeHtml(term.description || '')}">
+            <input type="checkbox" data-reward-id="${escapeHtml(id)}" checked>
+            <span class="reward-label"><strong>${escapeHtml(term.label || id)}</strong><small>${escapeHtml(term.description || id)}</small></span>
+            <input type="number" data-reward-weight="${escapeHtml(id)}" value="${Number(term.default)}" step="0.0001" title="权重（负值为惩罚）">
+          </label>`).join('')}
+        </div>`).join('');
       container.querySelectorAll('[data-reward-id]').forEach((toggle) => {
         toggle.addEventListener('change', () => { syncRewardRow(toggle); updateAll(); });
         syncRewardRow(toggle);
@@ -1059,6 +1116,17 @@
         input.addEventListener('input', updateAll);
       });
       updateRewardSummary();
+    }
+
+    function collectProfileRewardTerms() {
+      // 来源优先级：config-preview 的五分类数据 > 训练档案 JSON 的 reward_terms
+      const fromPreview = state.preview?.robustness?.reward_terms;
+      if (Array.isArray(fromPreview) && fromPreview.length) return fromPreview;
+      const fromProfile = state.profile?.reward_terms;
+      if (Array.isArray(fromProfile)) {
+        return fromProfile.map((item) => (typeof item === 'string' ? item : item?.name || item?.term)).filter(Boolean);
+      }
+      return [];
     }
 
     function syncRewardRow(toggle) {
@@ -1102,7 +1170,7 @@
       strip.innerHTML = state.presets.map((preset) => `
         <div class="robot-card compact ${preset === state.preset ? 'selected' : ''}" data-robot="${escapeHtml(preset.robot_id)}" title="asset: ${escapeHtml(preset.asset_path || '')}">
           <h4>${escapeHtml(preset.family)}</h4>
-          <p>${escapeHtml(preset.size_class || '')} 级 · ${escapeHtml(String(preset.dof ?? '-'))} DOF · ${Number(preset.mass_kg || 0).toFixed(1)} kg</p>
+          <p>${escapeHtml(({ S: '小型', M: '中型', L: '大型' }[preset.size_class] || preset.size_class || ''))} · ${escapeHtml(String(preset.dof ?? '-'))} 自由度 · ${Number(preset.mass_kg || 0).toFixed(1)} kg</p>
         </div>
       `).join('');
       strip.querySelectorAll('.robot-card').forEach((card) => card.addEventListener('click', () => selectRobot(card.dataset.robot)));
@@ -1661,7 +1729,11 @@
       refreshConfigPreview();
     });
     $('device').addEventListener('change', (event) => { $('deviceMirror').value = event.target.value; updateAll(); });
-    $('rewardOverrides').addEventListener('change', updateAll);
+    $('rewardOverrides').addEventListener('change', () => {
+      const payload = typeof collectOptionsPayload === 'function' ? null : null;
+      renderRewardTerms(optionsData.reward_terms || {});
+      updateAll();
+    });
     $('rewardAll').addEventListener('click', () => setAllRewards(true));
     $('rewardReset').addEventListener('click', resetRewards);
     $('previewFilter').addEventListener('input', renderPreviewList);

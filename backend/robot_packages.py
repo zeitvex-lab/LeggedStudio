@@ -238,7 +238,7 @@ def _build_record(
         "size_class": contract.get("size_class", "M"),
         "locomotion_type": contract.get("locomotion_type", "P"),
         "dof": len(contract.get("joints", {}).get("actuated_joints", [])),
-        "mass_kg": contract.get("urdf", {}).get("total_mass_kg", 0.0),
+        "mass_kg": _package_mass_kg(contract, package_root),
         "contract_id": contract.get("contract_id"),
         "contract_path": _public_path(contract_path),
         "asset_path": asset_value,
@@ -250,6 +250,43 @@ def _build_record(
         "contract": contract,
         "robot_package": {**descriptor, "package_root": str(package_root), "contract_path": descriptor.get("contract_path", "contract.json"), "model": descriptor_model or {"format": "mjcf", "path": "model/robot.xml", "assets_path": "model/assets"}, "training_config_path": descriptor.get("training_config_path", "training/config.json"), "simulation_config_path": descriptor.get("simulation_config_path", "simulation/config.json")},
     }
+
+
+
+_MJCF_MASS_CACHE: dict[str, tuple[float, float]] = {}
+
+
+def _mjcf_total_mass(mjcf_path: Path) -> float:
+    """Sum inertial masses of a package MJCF without importing mujoco."""
+    import re as _re
+    stat = mjcf_path.stat()
+    key = f"{mjcf_path}:{stat.st_mtime_ns}"
+    cached = _MJCF_MASS_CACHE.get(key)
+    if cached:
+        return cached[0]
+    total = 0.0
+    try:
+        text = mjcf_path.read_text(encoding="utf-8-sig")
+        for match in _re.finditer(r'<inertial[^>]*mass="([0-9.eE+-]+)"', text):
+            total += float(match.group(1))
+    except (OSError, ValueError):
+        total = 0.0
+    _MJCF_MASS_CACHE[key] = (total, stat.st_mtime_ns)
+    return total
+
+
+def _package_mass_kg(contract: dict, package_root: Path) -> float:
+    """Declared contract mass, with an MJCF inertial-sum fallback for 0/None."""
+    declared = (contract.get("urdf") or {}).get("total_mass_kg") or 0.0
+    if float(declared) > 0.0:
+        return float(declared)
+    model_rel = ((contract.get("robot_package") or {}).get("model") or {}).get("path") or contract.get("model_path")
+    if not model_rel:
+        return 0.0
+    try:
+        return round(_mjcf_total_mass(package_root / model_rel), 3)
+    except (OSError, ValueError):
+        return 0.0
 
 
 def _scan_package_records() -> list[dict[str, Any]]:
