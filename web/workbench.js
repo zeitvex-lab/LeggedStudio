@@ -187,7 +187,8 @@ function resolveGainValue(map, segment, joints) {
   return Number.isFinite(jointWide) ? jointWide : '';
 }
 
-function renderControlGainsGrid(control, mappedJoints, motorModes = {}) {
+function renderControlGainsGrid(control, mappedJoints, motorModes) {
+  motorModes = motorModes || {};
   const grid = $('controlGainsGrid');
   if (!grid) return;
   if (!mappedJoints.length) {
