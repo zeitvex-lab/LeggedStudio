@@ -214,6 +214,10 @@ const elements = {
   jumpHeightButtons: Array.from(document.querySelectorAll("[data-jump-height]")),
   cruiseButtons: Array.from(document.querySelectorAll("[data-cruise-speed]")),
   expertBars: document.querySelector("#expertBars"),
+  rollBar: document.querySelector("#rollBar"),
+  pitchBar: document.querySelector("#pitchBar"),
+  rollVal: document.querySelector("#rollVal"),
+  pitchVal: document.querySelector("#pitchVal"),
   expertPanel: document.querySelector("#expertPanel"),
   dominantExpert: document.querySelector("#dominantExpert"),
   followToggle: document.querySelector("#followToggle"),
@@ -3846,6 +3850,20 @@ function updateHud(force) {
   elements.velYaw.textContent = localAngVel[2].toFixed(2);
   elements.baseHeight.textContent = sim.qpos[2].toFixed(2);
   elements.contacts.textContent = String(sim.data.ncon || 0);
+  if (elements.rollBar && elements.pitchBar) {
+    const quaternion = sim.qpos.subarray(3, 7);
+    const roll = Math.atan2(2 * (quaternion[0] * quaternion[1] + quaternion[2] * quaternion[3]), 1 - 2 * (quaternion[1] ** 2 + quaternion[2] ** 2));
+    const pitch = Math.asin(clamp(2 * (quaternion[0] * quaternion[2] - quaternion[3] * quaternion[1]), -1, 1));
+    const degrees = 45;
+    const rollPct = clamp((roll * 180) / Math.PI / degrees, -1, 1) * 50;
+    const pitchPct = clamp((pitch * 180) / Math.PI / degrees, -1, 1) * 50;
+    elements.rollBar.style.width = `${Math.abs(rollPct)}%`;
+    elements.rollBar.style.left = `${50 + Math.min(0, rollPct)}%`;
+    elements.pitchBar.style.width = `${Math.abs(pitchPct)}%`;
+    elements.pitchBar.style.left = `${50 + Math.min(0, pitchPct)}%`;
+    if (elements.rollVal) elements.rollVal.textContent = `${((roll * 180) / Math.PI).toFixed(1)}°`;
+    if (elements.pitchVal) elements.pitchVal.textContent = `${((pitch * 180) / Math.PI).toFixed(1)}°`;
+  }
   elements.simClock.textContent = `时间 ${sim.data.time.toFixed(2)}`;
   updateExpertBars();
   publishDebugState();

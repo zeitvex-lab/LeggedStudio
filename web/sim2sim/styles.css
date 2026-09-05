@@ -1462,3 +1462,14 @@ input[type="range"] {
     width: auto;
   }
 }
+
+
+/* 机身姿态仪表（借鉴 viser 状态面板） */
+.attitude-gauge { display: grid; gap: 6px; margin-top: 4px; padding: 8px 0; border-top: 1px dashed rgba(148, 178, 188, 0.25); }
+.att-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) 48px; align-items: center; gap: 8px; }
+.att-row small { color: var(--muted, #8ea1ae); font: 10px Consolas, monospace; }
+.att-track { position: relative; height: 8px; border-radius: 4px; background: rgba(148, 178, 188, 0.18); overflow: hidden; }
+.att-track i { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; border-radius: 4px; background: var(--cyan, #2588df); transition: width 0.08s linear, left 0.08s linear; }
+.att-track b.att-center { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: rgba(148, 178, 188, 0.5); }
+.att-row output { color: var(--cyan, #2588df); font: 11px Consolas, monospace; text-align: right; }
+

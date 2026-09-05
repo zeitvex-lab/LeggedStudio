@@ -754,6 +754,7 @@
               <strong title="${escapeHtml(ckpt.path)}">${escapeHtml(ckpt.name)}${ckpt.final ? ' · final' : ''}</strong>
               <small>${fmtBytes(ckpt.size_bytes)} · ${fmtRelativeTime(ckpt.modified_at)}</small>
             </div>
+            <button class="copy-btn" type="button" data-sim-index="${index}" data-ckpt-name="${escapeHtml(ckpt.name)}" data-ckpt-iteration="${ckpt.iteration ?? ''}" title="在仿真页加载该检查点上下文">仿真</button>
             <button class="copy-btn" type="button" data-copy-index="${index}" title="复制完整路径">复制路径</button>
           </div>
         `).join('');
@@ -776,6 +777,11 @@
         listEl.innerHTML = rows + exportRows + eventNote
           || '<div class="log-empty">尚无检查点（等待第一次 save_interval）</div>';
         listEl.querySelectorAll('[data-copy-index]').forEach((button) => button.addEventListener('click', () => {
+        listEl.querySelectorAll('[data-sim-index]').forEach((button) => button.addEventListener('click', () => {
+          const params = new URLSearchParams({ task_id: taskId, checkpoint: button.dataset.ckptName || '' });
+          if (button.dataset.ckptIteration) params.set('checkpoint_iteration', button.dataset.ckptIteration);
+          window.open(`/web/sim2sim/index.html?${params.toString()}`, '_blank');
+        }));
           const path = copyablePaths[Number(button.dataset.copyIndex)];
           if (path) copyText(path);
         }));
