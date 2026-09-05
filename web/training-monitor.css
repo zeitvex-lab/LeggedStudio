@@ -468,8 +468,8 @@
   gap: 16px;
   height: 34px;
   padding: 0 16px;
-  background: rgba(9, 13, 17, 0.94);
-  border-top: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.94);
+  border-top: 1px solid var(--line, #d9e0e7);
   font-size: 11px;
   color: var(--muted);
 }
