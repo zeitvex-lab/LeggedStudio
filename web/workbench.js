@@ -1,7 +1,6 @@
 const API = window.location.origin;
 const $ = (id) => document.getElementById(id);
 let presets = [], selectedPreset = null, selectedModelContent = null;
-let rewardDefaults = {}, rewardOverrides = false, taskId = null, pollTimer = null, rewardHistory = [];
 let urdfSceneState = null;
 let importedAssetFiles = [];
 let jointMetadata = new Map();
@@ -382,8 +381,6 @@ async function loadViewData(name) {
   loadedViews.add(name);
   try {
     if (name === 'home') await Promise.all([loadCapabilities(), loadRuns()]);
-    else if (name === 'config') await loadTrainingOptions();
-    else if (name === 'training') await Promise.all([loadTrainingOptions(), loadRuns()]);
   } catch (error) {
     loadedViews.delete(name);
     console.error(`Failed to load ${name} data`, error);
@@ -406,38 +403,6 @@ function setInputValue(id, value) {
   const input = $(id);
   if (input && value !== undefined && value !== null) input.value = value;
 }
-function applyTrainingProfile(profile) {
-  if (!profile) {
-    if ($('profileDetails')) $('profileDetails').textContent = 'Generic MJLab Contract task';
-    return;
-  }
-  const runner = profile.runner || {};
-  setInputValue('algorithm', profile.algorithm || 'PPO');
-  setInputValue('taskName', profile.task_name);
-  setInputValue('terrain', profile.terrain_type);
-  setInputValue('numEnvs', profile.num_envs);
-  setInputValue('maxIterations', runner.max_iterations ?? profile.max_iterations);
-  setInputValue('learningRate', runner.learning_rate ?? profile.learning_rate);
-  setInputValue('saveInterval', runner.save_interval ?? profile.save_interval);
-  setInputValue('numSteps', runner.num_steps_per_env ?? profile.num_steps);
-  setInputValue('numMinibatches', runner.num_mini_batches ?? profile.num_minibatches);
-  setInputValue('gamma', runner.gamma ?? profile.gamma);
-  setInputValue('gaeLambda', runner.gae_lambda ?? runner.lam ?? profile.gae_lambda);
-  setInputValue('alpha', runner.entropy_coef ?? profile.entropy_coef);
-  const ranges = profile.command_ranges || {};
-  const vx = ranges.lin_vel_x || ranges.vx;
-  const vy = ranges.lin_vel_y || ranges.vy;
-  const wz = ranges.ang_vel_z || ranges.ang_vel_yaw || ranges.wz;
-  if (vx) { setInputValue('commandVxMin', vx[0]); setInputValue('commandVxMax', vx[1]); }
-  if (vy) { setInputValue('commandVyMin', vy[0]); setInputValue('commandVyMax', vy[1]); }
-  if (wz) { setInputValue('commandWzMin', wz[0]); setInputValue('commandWzMax', wz[1]); }
-  if ($('profileDetails')) {
-    const iterations = runner.max_iterations ?? profile.max_iterations ?? '-';
-    const rate = runner.learning_rate ?? profile.learning_rate ?? '-';
-    $('profileDetails').textContent = `${profile.source || profile.profile_id} · ${profile.task_name || '-'} · ${profile.num_envs || '-'} envs · ${iterations} iterations · lr ${rate}`;
-  }
-  setBadge($('configBadge'), profile.display_name || profile.profile_id, 'ok');
-}
 async function applyPreset(preset) {
   if (!preset) return;
   selectedPreset = preset;
@@ -449,12 +414,6 @@ async function applyPreset(preset) {
   $('contractJson').value = JSON.stringify(preset.contract || {}, null, 2);
   $('presetMeta').innerHTML = `<strong>${preset.family || preset.robot_id}</strong><br>${preset.dof || 0} DOF / ${Number(preset.mass_kg || 0).toFixed(1)} kg<br><span>${preset.contract_path || ''}</span>`;
   if ($('stageRobotName')) $('stageRobotName').textContent = preset.family || preset.robot_id;
-  $('configRobot').textContent = preset.family || preset.robot_id;
-  $('configContract').textContent = preset.contract?.contract_id || 'Contract loaded';
-  const profiles = (preset.training_profiles || []).filter((item) => item.valid !== false);
-  $('profile').innerHTML = '<option value="">Generic Contract task</option>' + profiles.map((item) => `<option value="${item.profile_id}">${item.display_name || item.profile_id}</option>`).join('');
-  $('profile').value = profiles[0]?.profile_id || '';
-  applyTrainingProfile(profiles[0]);
   selectedModelContent = null;
   renderRobotPackageList();
   const packageId = String(preset?.robot_id || '');
@@ -657,20 +616,6 @@ async function validateModel() {
     return valid;
   } catch (error) { setBadge($('modelBadge'), 'Validation error', 'error'); $('validationLog').textContent = error.message; return false; }
 }
-function trainingPayload() {
-  const contract = JSON.parse($('contractJson').value), reward_scales = {};
-  document.querySelectorAll('[data-reward]').forEach((input) => { reward_scales[input.dataset.reward] = input.checked ? Number(document.querySelector(`[data-weight="${input.dataset.reward}"]`)?.value || 0) : 0; });
-  const command_ranges = {
-    lin_vel_x: [Number($('commandVxMin').value), Number($('commandVxMax').value)],
-    lin_vel_y: [Number($('commandVyMin').value), Number($('commandVyMax').value)],
-    ang_vel_z: [Number($('commandWzMin').value), Number($('commandWzMax').value)],
-  };
-  return { contract, backend: 'native_mjlab', algorithm: $('algorithm').value, num_envs: Number($('numEnvs').value), max_iterations: Number($('maxIterations').value), learning_rate: Number($('learningRate').value), save_interval: Number($('saveInterval').value), task_name: $('taskName').value || 'forward_walk', profile_id: $('profile').value || null, terrain_type: $('terrain').value, device: $('device').value, reward_scales, reward_overrides: rewardOverrides, command_ranges, gamma: Number($('gamma').value), gae_lambda: Number($('gaeLambda').value), num_steps: Number($('numSteps').value), num_minibatches: Number($('numMinibatches').value), alpha: Number($('alpha').value), seed: Number($('seed').value) };
-}
-async function startTraining() { if (!(await validateModel())) { setView('validate'); return; } try { const payload = await jsonFetch('/api/training/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(trainingPayload()) }); taskId = payload.task_id; setBadge($('configBadge'), 'Task created', 'ok'); setView('training'); pollStatus(); } catch (error) { setBadge($('configBadge'), 'Create failed', 'error'); alert(error.message); } }
-function drawChart() { const canvas = $('rewardChart'); if (!canvas) return; const rect = canvas.getBoundingClientRect(), ratio = Math.max(1, devicePixelRatio || 1), width = Math.max(320, Math.round(rect.width)), height = Math.max(220, Math.round(rect.height)); canvas.width = width * ratio; canvas.height = height * ratio; const ctx = canvas.getContext('2d'); ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.clearRect(0, 0, width, height); if (!rewardHistory.length) return; const min = Math.min(...rewardHistory), max = Math.max(...rewardHistory, min + 1); ctx.strokeStyle = '#37d6c6'; ctx.lineWidth = 2; ctx.beginPath(); rewardHistory.forEach((value, index) => { const x = 14 + index / Math.max(1, rewardHistory.length - 1) * (width - 28), y = height - 14 - (value - min) / (max - min) * (height - 28); index ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); $('chartEmpty').style.display = 'none'; }
-async function pollStatus() { if (!taskId) return; let terminal = false; try { const payload = await jsonFetch(`/api/training/${taskId}/status`), status = payload.status || payload, progress = Math.max(0, Math.min(1, Number(status.progress || 0))); $('trainingTaskLabel').textContent = `${status.robot || selectedPreset?.family || '-'} · ${taskId}`; $('trainingTaskMeta').textContent = `${status.algorithm || 'PPO'} · ${status.device || 'native worker'}`; $('runProgress').style.width = `${progress * 100}%`; $('runPercent').textContent = `${(progress * 100).toFixed(1)}%`; $('runStage').textContent = `${status.status || 'unknown'} · ${status.current_iteration || 0}/${status.max_iterations || '-'}`; $('metricIteration').textContent = status.current_iteration ?? '-'; $('metricReward').textContent = Number(status.reward || 0).toFixed(3); $('metricSuccess').textContent = `${(Number(status.success_rate || 0) * 100).toFixed(1)}%`; $('metricDevice').textContent = status.device || '-'; if (status.reward !== undefined) { rewardHistory.push(Number(status.reward)); if (rewardHistory.length > 120) rewardHistory.shift(); drawChart(); } const logs = await jsonFetch(`/api/training/${taskId}/logs?lines=120`); $('runLog').textContent = (logs.logs || []).join('\n') || 'No worker output'; terminal = ['completed', 'failed', 'stopped'].includes(status.status); $('stopTraining').disabled = terminal; if ($('runNavigation')) $('runNavigation').disabled = !terminal || status.status !== 'completed'; if ($('runEvaluation')) $('runEvaluation').disabled = !terminal || status.status !== 'completed'; } catch (error) { $('runLog').textContent = error.message; } clearTimeout(pollTimer); if (!terminal) pollTimer = setTimeout(pollStatus, 2500); }
-async function stopTraining() { if (taskId) { await jsonFetch(`/api/training/${taskId}/stop`, { method: 'POST' }); pollStatus(); } }
 function startSimulation() {
   setView('simulation');
   const robot = selectedPreset?.robot_id || 'unitree_go2';
@@ -692,7 +637,6 @@ function bindEvents() {
     $('stageStatus').textContent = detail.complete ? 'Three.js 视觉模型已加载' : `视觉网格后台加载 ${detail.loaded || 0}/${detail.total}`;
   });
   document.querySelectorAll('[data-step]').forEach((item) => item.addEventListener('click', () => setView(item.dataset.step)));
-  document.querySelectorAll('[data-config-tab]').forEach((tab) => tab.addEventListener('click', () => { document.querySelectorAll('.config-tab').forEach((x) => x.classList.toggle('active', x === tab)); document.querySelectorAll('[data-config-pane]').forEach((pane) => pane.classList.toggle('active-pane', pane.dataset.configPane === tab.dataset.configTab)); }));
   $('preset').addEventListener('change', (event) => applyPreset(presets.find((item) => item.robot_id === event.target.value)));
   $('fitModel')?.addEventListener('click', () => window.fitRobotViewer?.());
   [['toggleVisual', 'visual'], ['toggleCollision', 'collision'], ['toggleInertial', 'inertial'], ['toggleCenterOfMass', 'centerOfMass'], ['toggleGrid', 'grid'], ['toggleAxes', 'axes'], ['toggleJointAxes', 'jointAxes']].forEach(([id, key]) => $(id)?.addEventListener('click', (event) => {
@@ -720,10 +664,9 @@ function bindEvents() {
       if ($('stageStatus')) $('stageStatus').textContent = `本地文件已即时渲染：${summary.links || 0} links · ${(summary.joints || []).length} joints`;
     } catch (error) { $('stageStatus').textContent = `本地渲染失败：${error.message}`; }
   });
-  $('profile').addEventListener('change', (event) => applyTrainingProfile(selectedPreset?.training_profiles?.find((item) => item.profile_id === event.target.value)));
   document.querySelectorAll('[data-robot-tab]').forEach((tab) => tab.addEventListener('click', () => { document.querySelectorAll('.robot-tab').forEach((x) => x.classList.toggle('active', x === tab)); document.querySelectorAll('[data-robot-pane]').forEach((pane) => pane.classList.toggle('active-pane', pane.dataset.robotPane === tab.dataset.robotTab)); }));
   $('saveRobotPackage')?.addEventListener('click', saveRobotPackage); $('refreshRobotPackages')?.addEventListener('click', () => loadPresets(selectedPreset?.robot_id)); $('deleteRobotPackage')?.addEventListener('click', async () => { if (!selectedPreset || selectedPreset.source !== 'workspace') return; if (!confirm('删除当前机器人包？')) return; await jsonFetch('/api/project/packages/' + encodeURIComponent(selectedPreset.robot_id), { method: 'DELETE' }); selectedPreset = null; await loadPresets(); });
-  $('validateBtn').addEventListener('click', validateModel); $('startTraining').addEventListener('click', startTraining); $('stopTraining').addEventListener('click', stopTraining); $('resetRewards').addEventListener('click', renderRewards); $('startSimulation')?.addEventListener('click', startSimulation); $('clearLog').addEventListener('click', () => { $('runLog').textContent = ''; }); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
+  $('validateBtn').addEventListener('click', validateModel); $('startSimulation')?.addEventListener('click', startSimulation); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
   window.addEventListener('resize', () => { drawChart(); });
 }
 document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home', 'validate', 'config', 'training', 'simulation'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });
