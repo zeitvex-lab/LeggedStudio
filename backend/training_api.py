@@ -505,17 +505,26 @@ def _dump_schema_via_worker(robot_id: str, profile_id: str, profile: dict, packa
         "entrypoints": profile.get("entrypoints") or {},
     }
     tmp = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
+    schema_out = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
     try:
         json.dump(dump_config, tmp, ensure_ascii=False)
         tmp.close()
+        schema_out.close()
         source_abs = Path(source_root)
         if not source_abs.is_absolute():
             source_abs = Path(package_root) / source_abs
         env = os.environ.copy()
         env["PYTHONPATH"] = os.pathsep.join([str(source_abs), env.get("PYTHONPATH", "")]).strip(os.pathsep)
+        env["PYTHONIOENCODING"] = "utf-8"
         try:
             completed = subprocess.run(
-                [str(interpreter), "-m", "adapters.mjlab.native_worker", "--dump-schema", "--config", tmp.name],
+                [
+                    str(interpreter),
+                    "-m", "adapters.mjlab.native_worker",
+                    "--dump-schema",
+                    "--config", tmp.name,
+                    "--schema-output", schema_out.name,
+                ],
                 cwd=str(_ROOT),
                 env=env,
                 capture_output=True,
@@ -524,9 +533,25 @@ def _dump_schema_via_worker(robot_id: str, profile_id: str, profile: dict, packa
             )
         except (OSError, subprocess.SubprocessError) as exc:
             raise HTTPException(status_code=502, detail={"message": f"schema dump worker failed to launch: {exc}", "interpreter": str(interpreter)}) from exc
-        stdout = completed.stdout or ""
-        start = stdout.find("{")
-        if completed.returncode != 0 or start < 0:
+        # The worker writes the tree to --schema-output; stdout pipes on
+        # Windows truncated large dumps (Errno 22), so the file is the
+        # reliable transport and stdout is only a legacy fallback.
+        schema = None
+        schema_file = Path(schema_out.name)
+        if schema_file.exists() and schema_file.stat().st_size > 0:
+            try:
+                schema = json.loads(schema_file.read_text(encoding="utf-8-sig"))
+            except json.JSONDecodeError:
+                schema = None
+        if schema is None:
+            stdout = completed.stdout or ""
+            start = stdout.find("{")
+            if start >= 0:
+                try:
+                    schema, _end = json.JSONDecoder().raw_decode(stdout[start:])
+                except json.JSONDecodeError:
+                    schema = None
+        if completed.returncode != 0 or not isinstance(schema, dict) or not schema:
             raise HTTPException(
                 status_code=502,
                 detail={
@@ -537,16 +562,13 @@ def _dump_schema_via_worker(robot_id: str, profile_id: str, profile: dict, packa
                     "stdout_head": (completed.stdout or "")[:300],
                 },
             )
-        try:
-            schema, _end = json.JSONDecoder().raw_decode(stdout[start:])
-        except json.JSONDecodeError as exc:
-            raise HTTPException(status_code=502, detail={"message": f"schema dump output was not valid JSON: {exc}"}) from exc
         return schema
     finally:
-        try:
-            os.unlink(tmp.name)
-        except OSError:
-            pass
+        for handle in (tmp, schema_out):
+            try:
+                os.unlink(handle.name)
+            except OSError:
+                pass
 
 
 @router.get("/profile-schema")

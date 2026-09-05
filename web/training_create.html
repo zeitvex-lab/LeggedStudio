@@ -600,6 +600,127 @@
     .ovr-status { color: var(--muted); font-size: 11px; }
     .ovr-details > summary { cursor: pointer; }
 
+
+    /* ========== 可视化配置画布 ========== */
+    .canvas-wrap { padding: 6px 2px 20px; }
+    .canvas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 14px;
+    }
+    .mod-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 14px 16px;
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      background: var(--surface);
+      cursor: pointer;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+      text-align: left;
+      font: inherit;
+      color: inherit;
+      min-height: 148px;
+    }
+    .mod-card:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 6px 22px rgba(37, 136, 223, 0.13);
+      transform: translateY(-1px);
+    }
+    .mod-card .card-head {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .mod-card .card-icon {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      font-size: 17px;
+      background: var(--cyan-dim, rgba(37, 136, 223, 0.1));
+    }
+    .mod-card .card-head h3 { margin: 0; font-size: 14px; }
+    .mod-card .card-head small { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
+    .mod-card .card-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px 6px;
+    }
+    .mod-card .stat {
+      padding: 3px 8px;
+      border-radius: 5px;
+      background: var(--surface-soft, #f0f4f8);
+      font: 11px Consolas, monospace;
+      color: var(--text);
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mod-card .stat.off { color: var(--faint); text-decoration: line-through; }
+    .mod-card .stat.more { color: var(--blue, #2588df); background: transparent; }
+    .mod-card .card-foot {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+      font-size: 10px;
+    }
+    .mod-card .card-foot .edited { color: var(--amber, #d88922); font-weight: 600; }
+    .mod-card.has-edits { border-color: rgba(216, 137, 34, 0.5); }
+
+    /* 抽屉 */
+    .drawer-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: rgba(15, 23, 32, 0.42);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+    }
+    .drawer-mask.open { opacity: 1; pointer-events: auto; }
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 41;
+      width: min(560px, 94vw);
+      background: var(--surface, #fff);
+      border-left: 1px solid var(--line-soft);
+      box-shadow: -18px 0 50px rgba(20, 35, 48, 0.18);
+      transform: translateX(102%);
+      transition: transform 0.2s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .drawer-head h2 { margin: 0; font-size: 16px; }
+    .drawer-head .drawer-meta { color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .drawer-body { flex: 1; overflow-y: auto; padding: 14px 18px 30px; }
+    .drawer-group-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      margin: 16px 0 8px;
+    }
+
     /* ========== 高级覆盖（训练配方全量配置 schema dot-path rows） ========== */
     .ovr-details { margin-top: 16px; }
 
@@ -731,6 +852,26 @@
 
       <div class="config-layout">
         <!-- ========== 左侧五分类导航 ========== -->
+        <!-- ========== 可视化配置画布 ========== -->
+        <div class="canvas-wrap" id="configCanvas">
+          <div class="canvas-grid" id="canvasGrid"><!-- cards rendered by JS --></div>
+        </div>
+
+        <!-- 抽屉遮罩与抽屉（复用既有五分类面板作为抽屉内容） -->
+        <div class="drawer-mask" id="drawerMask"></div>
+        <aside class="drawer" id="moduleDrawer" aria-hidden="true">
+          <div class="drawer-head">
+            <div>
+              <h2 id="drawerTitle">模块</h2>
+              <div class="drawer-meta" id="drawerMeta"></div>
+            </div>
+            <button type="button" class="button small" id="drawerClose">关闭</button>
+          </div>
+          <div class="drawer-body" id="drawerBody"><!-- moved panel content --></div>
+        </aside>
+
+        <div id="legacyPanels" hidden>
+
         <aside class="config-sidebar cat-nav" id="catNav" aria-label="五分类配置导航">
           <div class="config-tabs">
             <button type="button" class="config-tab active" data-target="panel-simulator">
@@ -1039,6 +1180,7 @@
           </form>
         </div>
       </div>
+        </div><!-- /legacyPanels -->
     </main>
   </div>
 
@@ -1810,6 +1952,179 @@
       if (clearBtn) clearBtn.hidden = count === 0;
     }
 
+
+    // ---------- 可视化配置画布 ----------
+    const MODULE_DEFS = [
+      { id: 'robot',     icon: '🤖', name: '机器人',     sub: 'Robot',       panel: null },
+      { id: 'simulator', icon: '⚙️', name: '仿真器与运行时', sub: 'Simulator',   panel: 'panel-simulator' },
+      { id: 'environment', icon: '🌍', name: '环境与地形', sub: 'Environment', panel: 'panel-environment' },
+      { id: 'embodiment', icon: '👁️', name: '机器人与观测', sub: 'Observations', panel: 'panel-embodiment' },
+      { id: 'learning',  icon: '🧠', name: '算法与超参数', sub: 'Algorithm',   panel: 'panel-learning' },
+      { id: 'robustness', icon: '🛡️', name: '奖励与鲁棒性', sub: 'Rewards',     panel: 'panel-robustness' },
+    ];
+
+    const FORM_FALLBACKS = {
+      'environment.scene.num_envs': () => intValue('numEnvs'),
+      'runner.max_iterations': () => intValue('maxIterations'),
+      'runner.num_steps_per_env': () => intValue('numSteps'),
+      'runner.algorithm.learning_rate': () => Number(valueOf('learningRate')),
+      'runner.algorithm.gamma': () => Number(valueOf('gamma')),
+      'runner.algorithm.gae_lambda': () => Number(valueOf('gaeLambda')),
+      'environment.episode_length_s': () => Number(valueOf('episodeLength')),
+    };
+
+    function schemaGet(path) {
+      let node = state.schema;
+      for (const part of path.split('.')) {
+        if (!node || typeof node !== 'object') return undefined;
+        node = node[part];
+      }
+      if (node === undefined && FORM_FALLBACKS[path]) {
+        const fallback = FORM_FALLBACKS[path]();
+        if (fallback !== undefined) return fallback;
+      }
+      return node;
+    }
+
+    function fmtStat(value) {
+      if (value === undefined || value === null) return '—';
+      if (Array.isArray(value)) {
+        if (value.length === 2 && value.every(Number.isFinite)) return `[${value[0]}, ${value[1]}]`;
+        return value.slice(0, 3).join(',');
+      }
+      if (typeof value === 'number') return Number(value).toPrecision(4).replace(/\.?0+$/, '');
+      if (typeof value === 'boolean') return value ? '开' : '关';
+      return String(value);
+    }
+
+    function countOverrides(moduleId) {
+      const prefixes = CATEGORY_SCHEMA_PREFIXES[moduleId] || [];
+      return Object.keys(state.overrides).filter((path) =>
+        prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}.`)),
+      ).length;
+    }
+
+    function cardStats(moduleId) {
+      if (moduleId === 'robot') return { stats: robotCardStats(), more: 0, edited: 0 };
+      const stats = [];
+      let more = 0;
+      const emit = (label, value) => {
+        if (stats.length < 4) stats.push(`${label} ${fmtStat(value)}`);
+        else more += 1;
+      };
+      if (moduleId === 'simulator') {
+        emit('环境', schemaGet('environment.scene.num_envs') ?? intValue('numEnvs'));
+        emit('步长', schemaGet('environment.sim.mujoco.timestep'));
+        emit('求解器', schemaGet('environment.sim.mujoco.solver'));
+        emit('摩擦锥', schemaGet('environment.sim.mujoco.cone'));
+        more += Math.max(0, (categoryLeaves('simulator') || []).length - 4);
+      } else if (moduleId === 'environment') {
+        emit('回合', schemaGet('environment.episode_length_s'));
+        const vx = schemaGet('environment.commands.twist.ranges.lin_vel_x');
+        if (vx) emit('Vx', vx);
+        emit('站立比例', schemaGet('environment.commands.twist.rel_standing_envs'));
+        emit('地形', schemaGet('environment.scene.terrain.terrain_type'));
+        more += Math.max(0, (categoryLeaves('environment') || []).length - 4);
+      } else if (moduleId === 'embodiment') {
+        const actions = schemaGet('environment.actions') || {};
+        Object.entries(actions).slice(0, 3).forEach(([name, cfg]) => emit(`动作.${name}`, cfg?.scale ?? '—'));
+        const leaves = categoryLeaves('embodiment') || [];
+        more += Math.max(0, leaves.length - 3);
+      } else if (moduleId === 'learning') {
+        emit('lr', schemaGet('runner.algorithm.learning_rate') ?? Number(valueOf('learningRate')));
+        emit('γ', schemaGet('runner.algorithm.gamma') ?? 0.99);
+        emit('迭代', schemaGet('runner.max_iterations') ?? intValue('maxIterations'));
+        emit('步数', schemaGet('runner.num_steps_per_env') ?? 24);
+        more += Math.max(0, (categoryLeaves('learning') || []).length - 4);
+      } else if (moduleId === 'robustness') {
+        const rewards = schemaGet('environment.rewards') || {};
+        const names = Object.keys(rewards);
+        const active = names.filter((n) => {
+          const w = rewards[n]?.weight;
+          return typeof w === 'number' && w !== 0;
+        });
+        stats.push(`奖励 ${active.length}/${names.length} 启用`);
+        const events = schemaGet('environment.events') || {};
+        const push = Object.keys(events).find((n) => /push/i.test(n));
+        if (push) emit('推力', events[push]?.params?.velocity_range?.x ?? '—');
+        more += Math.max(0, names.length - active.length + Object.keys(events).length);
+      }
+      return { stats, more, edited: countOverrides(moduleId) };
+    }
+
+    function valueOf(id) { try { return $(id)?.value; } catch { return undefined; } }
+    function intValue(id) { const v = Number(valueOf(id)); return Number.isFinite(v) ? v : undefined; }
+    function robotCardStats() {
+      const preset = state.preset || {};
+      return [`${preset.dof ?? '-'} 自由度`, `${Number(preset.mass_kg || 0).toFixed(1)} kg`];
+    }
+
+    function renderCanvas() {
+      const grid = $('canvasGrid');
+      if (!grid) return;
+      grid.innerHTML = MODULE_DEFS.map((mod) => {
+        const { stats, more, edited } = cardStats(mod.id);
+        return `
+          <button type="button" class="mod-card ${edited ? 'has-edits' : ''}" data-module="${mod.id}" aria-label="打开${mod.name}配置">
+            <div class="card-head">
+              <span class="card-icon">${mod.icon}</span>
+              <div><h3>${mod.name}</h3><small>${mod.sub}</small></div>
+            </div>
+            <div class="card-stats">
+              ${stats.map((s) => `<span class="stat">${escapeHtml(String(s))}</span>`).join('')}
+              ${more > 0 ? `<span class="stat more">+${more} 项</span>` : ''}
+            </div>
+            <div class="card-foot">
+              <span>${edited ? `<span class="edited">已调整 ${edited} 项</span>` : '点击配置'}</span>
+              <span>›</span>
+            </div>
+          </button>
+        `;
+      }).join('');
+      grid.querySelectorAll('[data-module]').forEach((card) => {
+        card.addEventListener('click', () => openModuleDrawer(card.dataset.module));
+      });
+    }
+
+    function openModuleDrawer(moduleId) {
+      const def = MODULE_DEFS.find((m) => m.id === moduleId);
+      if (!def) return;
+      $('drawerTitle').textContent = `${def.icon} ${def.name}`;
+      $('drawerMeta').textContent = `${state.preset?.family || ''} · ${state.profileId || '通用任务'} · ${def.sub}`;
+      const body = $('drawerBody');
+      if (moduleId === 'robot') {
+        const preset = state.preset || {};
+        const rows = (state.presets.length ? state.presets : [{ robot_id: preset.robot_id, family: preset.family }])
+          .map((p) => `<div class="system-row"><span>${escapeHtml(p.family || p.robot_id)}</span><strong>${Number(p.dof ?? 0)} 自由度 · ${Number(p.mass_kg || 0).toFixed(1)} kg</strong></div>`)
+          .join('');
+        body.innerHTML = `<div class="drawer-group-title">机器人契约（02 页维护）</div><div class="system-panel" style="padding:4px 12px 10px;">${rows}</div>
+          <p class="section-hint">选择机器人后自动应用到全部配置模块。</p>`;
+      } else {
+        const panel = $(def.panel);
+        body.innerHTML = '';
+        if (panel) body.appendChild(panel);
+      }
+      $('moduleDrawer').classList.add('open');
+      $('drawerMask').classList.add('open');
+      $('moduleDrawer').setAttribute('aria-hidden', 'false');
+    }
+
+    function closeModuleDrawer() {
+      MODULE_DEFS.forEach((def) => {
+        if (!def.panel) return;
+        const panel = $(def.panel);
+        const home = $('legacyPanels');
+        if (panel && home && panel.parentElement !== home) home.appendChild(panel);
+      });
+      $('moduleDrawer').classList.remove('open');
+      $('drawerMask').classList.remove('open');
+      $('moduleDrawer').setAttribute('aria-hidden', 'true');
+    }
+
+    $('drawerClose')?.addEventListener('click', closeModuleDrawer);
+    $('drawerMask')?.addEventListener('click', closeModuleDrawer);
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeModuleDrawer(); });
+
     // ---------- 配置收集 / 导入导出 ----------
     function collectRewardScales() {
       const rewardScales = {};
@@ -2041,6 +2356,7 @@
     }
 
     function updateAll() {
+      if (typeof renderCanvas === 'function' && $('canvasGrid')) { try { renderCanvas(); } catch (_) {} }
       syncHeaderOffset();
       updateRewardSummary();
       updateNavDots();

@@ -573,8 +573,9 @@ def main() -> int:
     parser.add_argument(
         "--dump-schema",
         action="store_true",
-        help="print the profile's full env/runner config tree as JSON to stdout and exit",
+        help="build the profile's full env/runner config tree and exit",
     )
+    parser.add_argument("--schema-output", help="write the schema JSON to this file (bypasses stdout pipe limits)")
     args = parser.parse_args()
     try:
         # PowerShell's ``-Encoding utf8`` emits a BOM on Windows; accepting
@@ -584,15 +585,20 @@ def main() -> int:
             config["contract_path"] = str(Path(args.contract).resolve())
         if args.dump_schema:
             # Must stay ahead of any torch/mjlab import: the schema dump only
-            # needs the package source tree. stdout may carry interpreter noise
-            # before the JSON; callers extract from the first ``{``.
+            # needs the package source tree. Large trees can hit Windows pipe
+            # limits when printed (Errno 22 mid-write), so prefer writing to
+            # --schema-output and keep stdout printing as a CLI fallback.
             try:
                 schema = _dump_profile_schema(config)
             except Exception as exc:
                 print(f"[native-worker] schema dump failed: {exc}", file=sys.stderr)
                 traceback.print_exc()
                 return 6
-            print(json.dumps(schema, ensure_ascii=False))
+            if args.schema_output:
+                Path(args.schema_output).write_text(json.dumps(schema, ensure_ascii=False), encoding="utf-8")
+            else:
+                sys.stdout.write(json.dumps(schema, ensure_ascii=False))
+                sys.stdout.flush()
             return 0
         if not args.source or not args.output:
             parser.error("--source and --output are required unless --dump-schema is used")
