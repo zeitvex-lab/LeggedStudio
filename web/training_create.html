@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="workbench.css">
   <link rel="stylesheet" href="play-overrides.css">
   <style>
+    body.embedded .topbar, body.embedded .app-shell > .topbar { display: none; }
+    body.embedded .list-container, body.embedded .content { padding-top: 14px; }
+  
     /* 页面局部样式：仅布局与原生 workbench.css 未覆盖的细节。
        颜色一律来自 workbench.css 的设计变量（--cyan/--line/--surface-*/…）。 */
     :root { --header-h: 66px; }
@@ -669,6 +672,7 @@
   </style>
 </head>
 <body>
+  <script>if (new URLSearchParams(location.search).get('embedded') === '1') document.body.classList.add('embedded');</script>
   <div class="app-shell">
     <!-- ========== 原生顶栏 ========== -->
     <header class="topbar">

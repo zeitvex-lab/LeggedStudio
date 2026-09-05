@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="workbench.css">
   <link rel="stylesheet" href="play-overrides.css">
   <style>
+    body.embedded .topbar, body.embedded .app-shell > .topbar { display: none; }
+    body.embedded .list-container, body.embedded .content { padding-top: 14px; }
+  
     .list-container {
       max-width: 1280px;
       margin: 0 auto;
@@ -272,6 +275,7 @@
   </style>
 </head>
 <body>
+  <script>if (new URLSearchParams(location.search).get('embedded') === '1') document.body.classList.add('embedded');</script>
   <div class="app-shell">
     <header class="topbar">
       <a class="brand" href="dashboard.html" aria-label="Legged Studio 首页">

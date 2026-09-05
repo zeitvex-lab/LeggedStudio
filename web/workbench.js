@@ -345,11 +345,19 @@ async function jsonFetch(path, options = {}) {
   return payload;
 }
 function setView(name) {
-  // 03 训练配置 / 04 训练 live on dedicated pages (five-category creator and
-  // the wandb-style monitor). Jump there instead of the legacy embedded views.
-  if (name === 'config') { window.location.href = `training_create.html?v=0.6.0${selectedPreset ? `&robot=${encodeURIComponent(selectedPreset.robot_id)}` : ''}`; return; }
-  if (name === 'training') { window.location.href = `training_list.html?v=0.6.0`; return; }
-  document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active-view', view.id === name));
+  // 03 训练配置 / 04 训练 live on dedicated pages, embedded in-frame so the
+  // shell (topbar/nav) stays identical to the other views.
+  if (name === 'config' || name === 'training') {
+    const frame = $(name === 'config' ? 'configFrame' : 'trainingFrame');
+    if (!frame) return;
+    const robot = selectedPreset?.robot_id || 'unitree_go2';
+    const page = name === 'config'
+      ? `training_create.html?v=0.6.0&embedded=1&robot=${encodeURIComponent(robot)}`
+      : `training_list.html?v=0.6.0&embedded=1`;
+    const expected = new URL(page, window.location.href).toString();
+    if (frame.getAttribute('src') !== expected) frame.src = expected;
+  }
+    document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active-view', view.id === name));
   document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
   history.replaceState(null, '', `#${name}`);
   if (name === 'simulation') {

@@ -92,3 +92,11 @@ body{background:#101214;color:#e7eef0}.app-shell{background:#101214}.topbar{heig
   font-weight: 700;
   color: var(--ink, #1d2733);
 }
+
+
+/* 内嵌页面视图（03/04 以 iframe 承载独立页面） */
+.frame-view { padding: 0; overflow: hidden; }
+.page-frame { display: block; width: 100%; height: calc(100vh - 54px); border: 0; background: #f4f6f8; }
+body.embedded .topbar { display: none; }
+body.embedded .app-shell { min-height: 100vh; background: #f4f6f8; }
+body.embedded .content { padding-top: 16px; }
