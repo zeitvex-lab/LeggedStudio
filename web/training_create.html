@@ -4,73 +4,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>创建训练 - Legged Studio</title>
-  <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="workbench.css">
   <style>
-    :root { --header-h: 150px; }
+    /* 页面局部样式：仅布局与原生 workbench.css 未覆盖的细节。
+       颜色一律来自 workbench.css 的设计变量（--cyan/--line/--surface-*/…）。 */
+    :root { --header-h: 66px; }
 
-    /* ========== 顶部粘性工具条 ========== */
-    .top-bar {
-      position: sticky;
-      top: 0;
-      z-index: 30;
-      background: rgba(10, 13, 16, 0.92);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border-soft);
-    }
+    /* ========== 顶部选择条（机器人 / 档案 / 任务 / 设备） ========== */
+    .selector-bar { flex-wrap: wrap; align-items: flex-end; gap: 14px 16px; }
 
-    .top-bar-inner {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 14px 24px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+    .head-field { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--muted); }
 
-    .topbar-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .brand-kicker {
-      font-size: 11px;
-      color: var(--accent);
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
-    }
-
-    .brand-title {
-      display: flex;
-      align-items: baseline;
-      gap: 12px;
-      margin-top: 2px;
-    }
-
-    .brand-title h1 {
-      font-size: 20px;
-      font-weight: 700;
+    .head-field select {
+      min-width: 210px;
+      min-height: 33px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 10px;
+      background: var(--surface-input);
       color: var(--text);
+      font-size: 13px;
     }
 
-    .brand-title p {
-      font-size: 12px;
-      color: var(--muted);
+    .head-field select:focus {
+      outline: none;
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px var(--cyan-dim);
     }
 
-    .topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .head-field select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .selector-row {
-      display: flex;
-      align-items: flex-end;
-      gap: 14px;
-      flex-wrap: wrap;
-    }
-
-    /* 紧凑机器人卡片 */
     .robot-strip {
       display: flex;
       gap: 8px;
@@ -86,30 +49,31 @@
       min-width: 148px;
       max-width: 190px;
       padding: 9px 12px;
-      background: var(--surface);
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
+      background: var(--surface-input);
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
       cursor: pointer;
       transition: border-color 0.15s ease, background 0.15s ease;
     }
 
-    .robot-card.compact:hover { border-color: var(--accent); }
+    .robot-card.compact:hover { border-color: var(--cyan); }
 
     .robot-card.compact.selected {
-      border-color: var(--accent);
-      background: rgba(45, 212, 191, 0.10);
+      border-color: rgba(55, 214, 198, 0.55);
+      background: var(--cyan-dim);
     }
 
     .robot-card.compact h4 {
       font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 2px;
+      font-weight: 600;
+      margin: 0 0 2px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     .robot-card.compact p {
+      margin: 0;
       font-size: 10px;
       color: var(--muted);
       white-space: nowrap;
@@ -117,158 +81,63 @@
       text-overflow: ellipsis;
     }
 
-    .head-field {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }
+    #taskBadge { gap: 7px; }
 
-    .head-field select {
-      min-width: 210px;
-      min-height: 34px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 6px 10px;
-      background: var(--surface-input, #0b1117);
-      color: var(--text);
-      font-size: 13px;
-    }
-
-    .head-field select:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.12);
-    }
-
-    .head-field select:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .task-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      min-height: 34px;
-      padding: 4px 12px;
-      border: 1px solid rgba(45, 212, 191, 0.35);
-      border-radius: var(--radius);
-      background: rgba(45, 212, 191, 0.08);
-      color: var(--accent);
-      font: 600 12px 'SF Mono', Consolas, monospace;
-      white-space: nowrap;
-    }
-
-    .task-badge::before {
+    #taskBadge::before {
       content: '';
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: var(--accent);
+      background: var(--cyan);
     }
 
-    .task-badge small { color: var(--muted); font-weight: 500; }
+    #taskBadge small { color: var(--muted); margin-left: 4px; }
 
-    /* ========== 主体布局 ========== */
-    .create-layout {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 20px 24px 48px;
-      display: grid;
-      grid-template-columns: 208px minmax(0, 1fr);
-      gap: 18px;
-      align-items: start;
-    }
+    /* ========== 左侧五分类导航（native config-tabs 模式） ========== */
+    .cat-nav { position: sticky; top: calc(var(--header-h) + 14px); align-self: start; }
 
-    /* 左侧五分类导航 */
-    .cat-nav {
-      position: sticky;
-      top: calc(var(--header-h) + 14px);
-      display: grid;
-      gap: 6px;
-    }
+    .config-tab { display: flex; align-items: center; gap: 10px; text-align: left; }
 
-    .cat-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      padding: 11px 12px;
-      border: 1px solid transparent;
-      border-radius: var(--radius);
-      background: transparent;
-      color: var(--muted);
-      text-align: left;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
+    .config-tab .index { font: 11px Consolas, monospace; color: var(--faint); }
 
-    .cat-item:hover { background: rgba(255, 255, 255, 0.03); color: var(--text); }
+    .config-tab.active .index { color: var(--cyan); }
 
-    .cat-item.active {
-      border-color: rgba(45, 212, 191, 0.3);
-      background: rgba(45, 212, 191, 0.08);
-      color: var(--accent);
-    }
+    .config-tab .cat-name { display: block; font-size: 13px; font-weight: 600; }
+    .config-tab .cat-sub { display: block; font-size: 10px; color: var(--faint); margin-top: 1px; }
 
-    .cat-item .index { font: 11px 'SF Mono', Consolas, monospace; color: var(--faint); }
-
-    .cat-item.active .index { color: var(--accent); }
-
-    .cat-item .cat-name { display: block; font-size: 13px; font-weight: 600; }
-    .cat-item .cat-sub { display: block; font-size: 10px; color: var(--faint); margin-top: 1px; }
-
-    .dot {
+    .config-tab .dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--border);
+      background: var(--line);
       flex-shrink: 0;
       margin-left: auto;
       transition: background 0.2s ease;
     }
 
-    .dot.ok { background: var(--success, #5eead4); box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.14); }
-    .dot.bad { background: var(--danger, #f87171); box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.14); }
+    .config-tab .dot.ok { background: var(--green); box-shadow: 0 0 0 3px rgba(105, 224, 169, 0.14); }
+    .config-tab .dot.bad { background: var(--red); box-shadow: 0 0 0 3px rgba(255, 128, 120, 0.14); }
 
     .nav-foot {
-      margin-top: 10px;
+      margin-top: 4px;
       padding: 12px;
-      border: 1px dashed var(--border);
-      border-radius: var(--radius);
+      border: 1px dashed var(--line);
       color: var(--faint);
       font-size: 10px;
       line-height: 1.6;
     }
 
-    /* ========== 分类卡片 ========== */
+    /* ========== 分类卡片（native form-panel + panel-title） ========== */
     .cat-panel {
-      background: var(--surface);
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      padding: 22px;
-      margin-bottom: 18px;
+      margin-bottom: 14px;
       scroll-margin-top: calc(var(--header-h) + 16px);
     }
 
-    .cat-panel h3 {
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 4px;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 9px;
-    }
-
-    .cat-panel h3 .index { font: 11px 'SF Mono', Consolas, monospace; color: var(--accent); }
-
-    .cat-panel .section-hint {
-      font-size: 12px;
+    .section-hint {
+      margin: -6px 0 16px;
       color: var(--muted);
-      margin-bottom: 18px;
+      font-size: 12px;
+      line-height: 1.6;
     }
 
     .sub-block-title {
@@ -282,15 +151,15 @@
       margin: 18px 0 10px;
     }
 
-    .sub-block-title.editable { color: var(--accent); }
+    .sub-block-title.editable { color: var(--cyan); }
     .sub-block-title.readonly { color: var(--faint); }
 
-    /* 只读 KV 表（锁定配方） */
+    /* 只读 KV 表（锁定配方，meta-box / system-row 风格） */
     .ro-block {
-      border: 1px solid var(--border-soft);
-      border-left: 2px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--surface-soft, #0d1319);
+      border: 1px solid var(--line-soft);
+      border-left: 2px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface-input);
       padding: 12px 14px;
     }
 
@@ -301,6 +170,7 @@
       font-size: 11px;
       color: var(--faint);
       margin-bottom: 8px;
+      flex-wrap: wrap;
     }
 
     .ro-head .lock-glyph { display: inline-flex; color: var(--faint); }
@@ -312,8 +182,8 @@
       display: grid;
       grid-template-columns: minmax(120px, 240px) minmax(0, 1fr);
       gap: 12px;
-      padding: 5px 0;
-      border-bottom: 1px dashed var(--border-soft);
+      padding: 6px 0;
+      border-bottom: 1px solid var(--line-soft);
       font-size: 12px;
     }
 
@@ -321,13 +191,13 @@
 
     .kv .kv-key {
       color: var(--muted);
-      font: 11px 'SF Mono', Consolas, monospace;
+      font: 11px Consolas, monospace;
       word-break: break-all;
     }
 
     .kv .kv-val {
       color: var(--text);
-      font: 11px 'SF Mono', Consolas, monospace;
+      font: 11px Consolas, monospace;
       word-break: break-all;
     }
 
@@ -342,9 +212,9 @@
 
     .joint-chip {
       padding: 2px 8px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--line);
       border-radius: 999px;
-      font: 10px 'SF Mono', Consolas, monospace;
+      font: 10px Consolas, monospace;
       color: var(--muted);
       background: var(--surface-raised);
     }
@@ -355,11 +225,11 @@
       display: inline-flex;
       align-items: center;
       padding: 3px 9px;
-      border: 1px solid rgba(45, 212, 191, 0.25);
+      border: 1px solid rgba(55, 214, 198, 0.25);
       border-radius: 999px;
-      font: 10px 'SF Mono', Consolas, monospace;
-      color: var(--accent);
-      background: rgba(45, 212, 191, 0.06);
+      font: 10px Consolas, monospace;
+      color: var(--cyan);
+      background: var(--cyan-dim);
     }
 
     /* 命令范围行 */
@@ -371,23 +241,23 @@
       gap: 10px;
       align-items: center;
       padding: 9px 12px;
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
       background: var(--surface-raised);
     }
 
-    .cmd-row .cmd-name { font: 600 12px 'SF Mono', Consolas, monospace; color: var(--text); }
+    .cmd-row .cmd-name { font: 600 12px Consolas, monospace; color: var(--text); }
     .cmd-row .cmd-name small { display: block; color: var(--faint); font-weight: 400; font-size: 10px; }
     .cmd-row input {
       min-height: 32px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      border-radius: 6px;
       padding: 5px 9px;
-      background: var(--surface-input, #0b1117);
+      background: var(--surface-input);
       color: var(--text);
-      font: 12px 'SF Mono', Consolas, monospace;
+      font: 12px Consolas, monospace;
     }
-    .cmd-row input:focus { outline: none; border-color: var(--accent); }
+    .cmd-row input:focus { outline: none; border-color: var(--cyan); }
 
     .cmd-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
@@ -396,35 +266,26 @@
 
     .task-chip {
       padding: 9px 13px;
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
       background: var(--surface-raised);
       cursor: pointer;
       transition: border-color 0.15s ease, background 0.15s ease;
       text-align: left;
     }
 
-    .task-chip:hover { border-color: var(--accent); }
+    .task-chip:hover { border-color: var(--cyan); }
 
     .task-chip.selected {
-      border-color: rgba(45, 212, 191, 0.6);
-      background: rgba(45, 212, 191, 0.10);
+      border-color: rgba(55, 214, 198, 0.6);
+      background: var(--cyan-dim);
     }
 
     .task-chip strong { display: block; font-size: 12px; color: var(--text); }
-    .task-chip small { font-size: 10px; color: var(--muted); font-family: 'SF Mono', Consolas, monospace; }
+    .task-chip small { font-size: 10px; color: var(--muted); font-family: Consolas, monospace; }
 
-    .mode-hint {
-      display: none;
-      margin: 0 0 12px;
-      padding: 10px 12px;
-      border-left: 2px solid var(--accent);
-      background: rgba(45, 212, 191, 0.06);
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.6;
-    }
-
+    /* 档案模式提示（native runtime-hint 外观 + 显示开关） */
+    .mode-hint { display: none; margin: 0 0 14px; }
     .mode-hint.visible { display: block; }
 
     /* 覆盖开关 */
@@ -433,9 +294,9 @@
       align-items: flex-start;
       gap: 10px;
       padding: 11px 13px;
-      border: 1px solid rgba(251, 191, 36, 0.3);
-      border-radius: var(--radius);
-      background: rgba(251, 191, 36, 0.06);
+      border: 1px solid rgba(242, 189, 108, 0.3);
+      border-radius: 6px;
+      background: rgba(242, 189, 108, 0.06);
       margin-bottom: 14px;
       cursor: pointer;
     }
@@ -444,162 +305,36 @@
       width: 16px;
       height: 16px;
       margin-top: 2px;
-      accent-color: var(--accent);
+      accent-color: var(--cyan);
       cursor: pointer;
     }
 
     .override-toggle strong { display: block; font-size: 12px; color: var(--text); }
     .override-toggle small { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); line-height: 1.55; }
 
-    /* 配置预览抽屉 */
-    .preview-drawer {
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      background: var(--surface);
-      margin-bottom: 18px;
-      overflow: hidden;
-      scroll-margin-top: calc(var(--header-h) + 16px);
-    }
-
-    .preview-drawer summary {
-      list-style: none;
-      min-height: 50px;
-      padding: 0 18px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      cursor: pointer;
-      user-select: none;
-      font-size: 15px;
-      font-weight: 600;
-    }
-
-    .preview-drawer summary::-webkit-details-marker { display: none; }
-
-    .preview-drawer summary .chevron {
-      width: 22px;
-      height: 22px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--accent);
-      font-size: 11px;
-      transition: transform 0.16s ease;
-    }
-
-    .preview-drawer:not([open]) summary .chevron { transform: rotate(-90deg); }
-
-    .preview-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 18px;
-      border-bottom: 1px solid var(--border-soft);
-      flex-wrap: wrap;
-    }
-
-    .preview-toolbar input {
-      flex: 1;
-      min-width: 180px;
-      min-height: 32px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 5px 11px;
-      background: var(--surface-input, #0b1117);
-      color: var(--text);
-      font-size: 12px;
-    }
-
-    .preview-toolbar input:focus { outline: none; border-color: var(--accent); }
-
-    .preview-status { font-size: 11px; color: var(--muted); white-space: nowrap; }
-
-    .preview-list-wrap {
-      max-height: 420px;
-      overflow: auto;
-      padding: 8px 18px 16px;
-    }
-
-    .preview-empty { padding: 26px 0; text-align: center; color: var(--faint); font-size: 12px; }
-
-    /* 通用表单 */
-    .form-group { margin-bottom: 0; min-width: 0; }
-
-    .form-group label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--muted);
-      margin-bottom: 7px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }
-
-    .form-group input,
-    .form-group select {
-      width: 100%;
-      min-height: 36px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 7px 11px;
-      background: var(--surface-input, #0b1117);
-      color: var(--text);
-      font-size: 13px;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.12);
-    }
-
-    .form-group input:disabled, .form-group select:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .field-hint {
-      display: block;
-      color: var(--faint);
-      font-size: 11px;
-      margin-top: 5px;
-      line-height: 1.45;
-    }
-
-    .param-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
-      gap: 14px;
-    }
-
     /* 硬件徽标 */
-    .hw-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .hw-badges { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; }
 
     .hw-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       padding: 4px 10px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--line);
       border-radius: 999px;
       font-size: 11px;
       color: var(--muted);
       background: var(--surface-raised);
     }
 
-    .hw-badge .dot { margin-left: 0; }
+    .hw-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+    .hw-badge.ok { border-color: rgba(105, 224, 169, 0.3); color: var(--green); }
+    .hw-badge.ok .dot { background: var(--green); box-shadow: none; }
+    .hw-badge.warn { border-color: rgba(242, 189, 108, 0.3); color: var(--amber); }
+    .hw-badge.warn .dot { background: var(--amber); box-shadow: none; }
 
-    .hw-badge.ok { border-color: rgba(45, 212, 191, 0.3); color: var(--accent); }
-    .hw-badge.ok .dot { background: var(--accent); box-shadow: none; }
-    .hw-badge.warn { border-color: rgba(251, 191, 36, 0.3); color: #fde68a; }
-    .hw-badge.warn .dot { background: #fbbf24; box-shadow: none; }
-
-    /* 奖惩编辑器 */
-    .reward-toolbar {
+    /* 奖惩编辑器（native .reward 行 + .rewards 网格） */
+    .reward-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -609,50 +344,29 @@
     }
 
     .reward-summary { font-size: 12px; color: var(--muted); }
-    .reward-summary b { color: var(--accent); }
+    .reward-summary b { color: var(--cyan); }
 
-    .reward-grid { display: grid; gap: 8px; }
+    .reward-label strong { display: block; font-size: 13px; }
+    .reward-label small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
 
-    .reward-row {
-      display: grid;
-      grid-template-columns: 22px minmax(0, 1fr) 120px;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 12px;
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
-      background: var(--surface-raised);
-      transition: opacity 0.15s ease;
+    .reward.disabled { opacity: 0.45; }
+
+    .field-hint {
+      color: var(--faint);
+      font-size: 10px;
+      line-height: 1.45;
     }
 
-    .reward-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
-    .reward-row .reward-label strong { display: block; font-size: 13px; }
-    .reward-row .reward-label small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
-    .reward-row input[type="number"] {
-      min-height: 30px;
-      font-size: 12px;
-      font-family: 'SF Mono', Consolas, monospace;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--surface-input, #0b1117);
-      color: var(--text);
-      padding: 5px 9px;
-    }
-    .reward-row.disabled { opacity: 0.45; }
-
-    /* 底部粘性摘要条 */
+    /* 底部粘性摘要条（native view-footer + 页面局部粘性定位） */
     .sticky-bar {
       position: sticky;
       bottom: 0;
       z-index: 10;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
+      margin-top: 18px;
       padding: 14px 18px;
-      background: rgba(18, 24, 32, 0.97);
-      border: 1px solid var(--border-soft);
-      border-radius: var(--radius);
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: var(--surface-raised);
       box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
       flex-wrap: wrap;
     }
@@ -667,26 +381,23 @@
       padding: 2px 9px;
       border-radius: 999px;
       font-size: 11px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--line);
       color: var(--muted);
       margin-left: 8px;
     }
 
-    .valid-chip.ok { border-color: rgba(94, 234, 212, 0.4); color: var(--success, #5eead4); }
-    .valid-chip.bad { border-color: rgba(248, 113, 113, 0.4); color: var(--danger, #f87171); }
-
-    .sticky-actions { display: flex; gap: 10px; }
+    .valid-chip.ok { border-color: rgba(105, 224, 169, 0.4); color: var(--green); }
+    .valid-chip.bad { border-color: rgba(255, 128, 120, 0.4); color: var(--red); }
 
     /* 错误 / 提示 */
     .inline-error {
       display: none;
-      max-width: 1280px;
-      margin: 14px auto 0;
+      margin: 0 0 14px;
       padding: 12px 16px;
-      border: 1px solid rgba(248, 113, 113, 0.35);
-      border-radius: var(--radius);
-      background: rgba(127, 29, 29, 0.16);
-      color: #fecaca;
+      border: 1px solid rgba(255, 128, 120, 0.35);
+      border-radius: 6px;
+      background: rgba(112, 32, 30, 0.2);
+      color: var(--red);
       font-size: 13px;
       line-height: 1.5;
       word-break: break-all;
@@ -700,10 +411,10 @@
       bottom: 32px;
       transform: translateX(-50%) translateY(8px);
       padding: 12px 20px;
-      border-radius: var(--radius);
-      background: rgba(94, 234, 212, 0.14);
-      border: 1px solid rgba(45, 212, 191, 0.4);
-      color: var(--success);
+      border-radius: 6px;
+      background: var(--cyan-dim);
+      border: 1px solid rgba(55, 214, 198, 0.4);
+      color: var(--cyan);
       font-size: 13px;
       opacity: 0;
       pointer-events: none;
@@ -713,51 +424,129 @@
 
     .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    .btn.small { min-height: 30px; padding: 0 12px; font-size: 12px; }
-
     .retry-link {
-      color: var(--accent);
+      color: var(--cyan);
       cursor: pointer;
       text-decoration: underline;
       background: none;
       border: none;
-      font-size: inherit;
-      font-family: inherit;
+      font: inherit;
     }
 
-    .empty-state { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 12px; }
-    .empty-state p { margin-bottom: 14px; }
+    /* 配置预览抽屉（native .advanced + 页面局部布局） */
+    .preview-drawer { scroll-margin-top: calc(var(--header-h) + 16px); }
 
-    @media (max-width: 900px) {
-      .create-layout { grid-template-columns: 1fr; }
-      .cat-nav { position: static; grid-template-columns: 1; }
-      .reward-row { grid-template-columns: 22px minmax(0, 1fr); }
-      .reward-row input[type="number"] { grid-column: 2; }
+    .preview-drawer summary {
+      list-style: none;
+      min-height: 50px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .preview-drawer[open] summary { border-bottom: 1px solid var(--line-soft); }
+
+    .preview-drawer summary::-webkit-details-marker { display: none; }
+
+    .preview-drawer summary .chevron {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--cyan);
+      font-size: 11px;
+      transition: transform 0.16s ease;
+    }
+
+    .preview-drawer:not([open]) summary .chevron { transform: rotate(-90deg); }
+
+    .preview-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      flex-wrap: wrap;
+    }
+
+    .preview-toolbar input {
+      flex: 1;
+      min-width: 180px;
+      min-height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 5px 11px;
+      background: var(--surface-input);
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    .preview-toolbar input:focus { outline: none; border-color: var(--cyan); }
+
+    .preview-status { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+    .preview-list-wrap {
+      max-height: 420px;
+      overflow: auto;
+      padding: 8px 16px 16px;
+    }
+
+    .preview-empty { padding: 26px 0; text-align: center; color: var(--faint); font-size: 12px; }
+
+    @media (max-width: 1000px) {
+      .cat-nav { position: static; }
+      .nav-foot { display: none; }
+    }
+
+    @media (max-width: 680px) {
+      .head-field select { min-width: 150px; }
       .cmd-row { grid-template-columns: 1fr; }
       .sticky-bar { position: static; }
-      .head-field select { min-width: 150px; }
     }
   </style>
 </head>
 <body>
-  <!-- ========== 顶部粘性工具条 ========== -->
-  <header class="top-bar">
-    <div class="top-bar-inner">
-      <div class="topbar-row">
+  <div class="app-shell">
+    <!-- ========== 原生顶栏 ========== -->
+    <header class="topbar">
+      <a class="brand" href="dashboard.html" aria-label="Legged Studio 首页">
+        <span class="brand-mark">LS</span>
+        <span><strong>Legged Studio</strong><small>Training Console</small></span>
+      </a>
+      <nav class="main-nav" aria-label="主功能">
+        <a class="nav-item" href="dashboard.html"><span class="nav-index">01</span>首页</a>
+        <a class="nav-item" href="workbench.html#validate"><span class="nav-index">02</span>验证</a>
+        <a class="nav-item active" href="training_create.html"><span class="nav-index">03</span>训练配置</a>
+        <a class="nav-item" href="training_list.html"><span class="nav-index">04</span>训练</a>
+        <a class="nav-item" href="workbench.html#simulation"><span class="nav-index">05</span>仿真</a>
+      </nav>
+      <div class="top-status"><span id="backendState" class="status-dot pending"><i></i>Control plane…</span></div>
+    </header>
+
+    <main class="content">
+      <div class="view-heading compact">
         <div>
-          <span class="brand-kicker">Training</span>
-          <div class="brand-title">
-            <h1>创建训练任务</h1>
-            <p>五分类配置 · 可编辑项实时生效 · 配方只读项由训练资产决定</p>
-          </div>
+          <span class="eyebrow">03 / TRAINING CREATE</span>
+          <h1>创建训练任务</h1>
+          <p>五分类配置 · 可编辑项实时生效 · 配方只读项由训练资产决定</p>
         </div>
-        <div class="topbar-actions">
-          <button class="btn" id="importBtn" type="button" title="从 JSON 文件导入此前导出的训练配置">导入配置</button>
-          <button class="btn" id="exportBtn" type="button" title="将当前表单导出为 JSON，便于对比与复现">保存配置 JSON</button>
-          <a class="btn" href="training_list.html">任务列表</a>
+        <div class="heading-actions">
+          <button class="button" id="importBtn" type="button" title="从 JSON 文件导入此前导出的训练配置">导入配置</button>
+          <button class="button" id="exportBtn" type="button" title="将当前表单导出为 JSON，便于对比与复现">保存配置 JSON</button>
+          <a class="button" href="training_list.html">任务列表</a>
         </div>
       </div>
-      <div class="selector-row">
+
+      <!-- 机器人 / 档案 / 任务 / 设备选择条 -->
+      <section class="training-header selector-bar">
         <div class="head-field" style="flex: 1; min-width: 280px;">
           机器人
           <div class="robot-strip" id="robotStrip">
@@ -769,277 +558,294 @@
             <option value="">加载中...</option>
           </select>
         </label>
-        <span class="task-badge" id="taskBadge" title="任务由所选训练档案派生或由下方任务预设决定">task: -</span>
+        <span class="badge" id="taskBadge" title="任务由所选训练档案派生或由下方任务预设决定">task: -</span>
         <label class="head-field" for="device">设备
           <select id="device" title="auto 会优先使用 CUDA，无 GPU 时回退 CPU">
             <option value="auto">auto</option>
           </select>
         </label>
-        <button class="btn primary" type="submit" form="trainingForm" id="submitTop">启动训练</button>
-      </div>
-    </div>
-  </header>
+        <button class="button primary" type="submit" form="trainingForm" id="submitTop">启动训练</button>
+      </section>
 
-  <input type="file" id="importFile" accept="application/json,.json" hidden>
-  <div class="inline-error" id="formError"></div>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+      <div class="inline-error" id="formError"></div>
 
-  <div class="create-layout">
-    <!-- ========== 左侧五分类导航 ========== -->
-    <nav class="cat-nav" id="catNav" aria-label="五分类配置导航">
-      <button type="button" class="cat-item active" data-target="panel-simulator">
-        <span class="index">01</span>
-        <span><span class="cat-name">仿真器</span><span class="cat-sub">Simulator</span></span>
-        <span class="dot" id="dot-simulator"></span>
-      </button>
-      <button type="button" class="cat-item" data-target="panel-environment">
-        <span class="index">02</span>
-        <span><span class="cat-name">环境构建</span><span class="cat-sub">Environment</span></span>
-        <span class="dot" id="dot-environment"></span>
-      </button>
-      <button type="button" class="cat-item" data-target="panel-embodiment">
-        <span class="index">03</span>
-        <span><span class="cat-name">机器人具身</span><span class="cat-sub">Embodiment</span></span>
-        <span class="dot" id="dot-embodiment"></span>
-      </button>
-      <button type="button" class="cat-item" data-target="panel-learning">
-        <span class="index">04</span>
-        <span><span class="cat-name">学习优化</span><span class="cat-sub">Learning</span></span>
-        <span class="dot" id="dot-learning"></span>
-      </button>
-      <button type="button" class="cat-item" data-target="panel-robustness">
-        <span class="index">05</span>
-        <span><span class="cat-name">鲁棒迁移</span><span class="cat-sub">Robustness</span></span>
-        <span class="dot" id="dot-robustness"></span>
-      </button>
-      <button type="button" class="cat-item" data-target="panel-preview">
-        <span class="index">KV</span>
-        <span><span class="cat-name">配置预览</span><span class="cat-sub">Resolved recipe</span></span>
-      </button>
-      <div class="nav-foot">
-        绿点 = 该分类必填项校验通过；<br>
-        锁形区块为配方只读，由训练配方源码 / 机器人契约决定。
-      </div>
-    </nav>
+      <div class="config-layout">
+        <!-- ========== 左侧五分类导航 ========== -->
+        <aside class="config-sidebar cat-nav" id="catNav" aria-label="五分类配置导航">
+          <div class="config-tabs">
+            <button type="button" class="config-tab active" data-target="panel-simulator">
+              <span class="index">01</span>
+              <span><span class="cat-name">仿真器</span><span class="cat-sub">Simulator</span></span>
+              <span class="dot" id="dot-simulator"></span>
+            </button>
+            <button type="button" class="config-tab" data-target="panel-environment">
+              <span class="index">02</span>
+              <span><span class="cat-name">环境构建</span><span class="cat-sub">Environment</span></span>
+              <span class="dot" id="dot-environment"></span>
+            </button>
+            <button type="button" class="config-tab" data-target="panel-embodiment">
+              <span class="index">03</span>
+              <span><span class="cat-name">机器人具身</span><span class="cat-sub">Embodiment</span></span>
+              <span class="dot" id="dot-embodiment"></span>
+            </button>
+            <button type="button" class="config-tab" data-target="panel-learning">
+              <span class="index">04</span>
+              <span><span class="cat-name">学习优化</span><span class="cat-sub">Learning</span></span>
+              <span class="dot" id="dot-learning"></span>
+            </button>
+            <button type="button" class="config-tab" data-target="panel-robustness">
+              <span class="index">05</span>
+              <span><span class="cat-name">鲁棒迁移</span><span class="cat-sub">Robustness</span></span>
+              <span class="dot" id="dot-robustness"></span>
+            </button>
+            <button type="button" class="config-tab" data-target="panel-preview">
+              <span class="index">KV</span>
+              <span><span class="cat-name">配置预览</span><span class="cat-sub">Resolved recipe</span></span>
+            </button>
+          </div>
+          <div class="nav-foot">
+            绿点 = 该分类必填项校验通过；<br>
+            锁形区块为配方只读，由训练配方源码 / 机器人契约决定。
+          </div>
+        </aside>
 
-    <!-- ========== 主区：五分类卡片 ========== -->
-    <main>
-      <form id="trainingForm" novalidate>
-        <!-- 01 仿真器 -->
-        <section class="cat-panel" id="panel-simulator">
-          <h3><span class="index">01</span>仿真器 <span style="font-weight:400;color:var(--faint);font-size:12px;">Simulator</span></h3>
-          <p class="section-hint">native MJLab 运行时；并行环境数与随机种子直接写入训练配置。</p>
-          <div class="param-grid">
-            <div class="form-group">
-              <label for="numEnvs">并行环境数量</label>
-              <input type="number" id="numEnvs" value="4096" min="64" max="8192" step="64"
-                     title="并行仿真环境数。越大采样越快但显存占用越高；GPU 训练推荐 4096，CPU 调试建议 64-256">
-              <small class="field-hint">64 - 8192 · 推荐 4096 · 调试 256</small>
-            </div>
-            <div class="form-group">
-              <label for="seed">随机种子</label>
-              <input type="number" id="seed" value="0" min="0" max="2147483647" step="1"
-                     title="控制环境初始化与网络权重的随机性。相同种子 + 相同配置可复现实验">
-              <small class="field-hint">相同种子 + 相同配置可复现</small>
-            </div>
-            <div class="form-group">
-              <label for="deviceMirror">运行设备（顶部同步）</label>
-              <select id="deviceMirror" disabled title="在页面顶部工具条切换运行设备">
-                <option value="auto">auto</option>
-              </select>
-              <small class="field-hint">与顶部工具条联动</small>
-            </div>
-          </div>
-          <div class="hw-badges" id="hwBadges">
-            <span class="hw-badge"><span class="dot"></span>正在探测运行环境...</span>
-          </div>
-          <div class="sub-block-title readonly">配方只读 · 物理引擎参数</div>
-          <div id="simRoWrap"></div>
-        </section>
+        <!-- ========== 主区：五分类卡片 ========== -->
+        <div class="config-main">
+          <form id="trainingForm" novalidate>
+            <!-- 01 仿真器 -->
+            <section class="cat-panel form-panel" id="panel-simulator">
+              <div class="panel-title">
+                <div><span class="eyebrow">01 / SIMULATOR</span><h2>仿真器</h2></div>
+                <span class="panel-meta">Simulator</span>
+              </div>
+              <p class="section-hint">native MJLab 运行时；并行环境数与随机种子直接写入训练配置。</p>
+              <div class="field-grid three">
+                <div class="field-label">
+                  <label for="numEnvs">并行环境数量</label>
+                  <input type="number" id="numEnvs" value="4096" min="64" max="8192" step="64"
+                         title="并行仿真环境数。越大采样越快但显存占用越高；GPU 训练推荐 4096，CPU 调试建议 64-256">
+                  <small class="field-hint">64 - 8192 · 推荐 4096 · 调试 256</small>
+                </div>
+                <div class="field-label">
+                  <label for="seed">随机种子</label>
+                  <input type="number" id="seed" value="0" min="0" max="2147483647" step="1"
+                         title="控制环境初始化与网络权重的随机性。相同种子 + 相同配置可复现实验">
+                  <small class="field-hint">相同种子 + 相同配置可复现</small>
+                </div>
+                <div class="field-label">
+                  <label for="deviceMirror">运行设备（顶部同步）</label>
+                  <select id="deviceMirror" disabled title="在页面顶部工具条切换运行设备">
+                    <option value="auto">auto</option>
+                  </select>
+                  <small class="field-hint">与顶部工具条联动</small>
+                </div>
+              </div>
+              <div class="hw-badges" id="hwBadges">
+                <span class="hw-badge"><span class="dot"></span>正在探测运行环境...</span>
+              </div>
+              <div class="sub-block-title readonly">配方只读 · 物理引擎参数</div>
+              <div id="simRoWrap"></div>
+            </section>
 
-        <!-- 02 环境构建 -->
-        <section class="cat-panel" id="panel-environment">
-          <h3><span class="index">02</span>环境构建 <span style="font-weight:400;color:var(--faint);font-size:12px;">Environment</span></h3>
-          <p class="section-hint">任务 / 地形 / 指令范围与回合长度；地形子混合与课程表属于训练配方，只读展示。</p>
-          <div class="mode-hint" id="profileModeHint">
-            档案模式：任务与奖励 / 地形默认保留训练配方；指令范围、回合长度、并行环境、种子与 PPO 参数仍会覆盖配方。开启「鲁棒迁移」中的覆盖开关后奖励权重才会生效。
-          </div>
-          <div class="sub-block-title editable">任务预设</div>
-          <div class="task-chips" id="taskChips"></div>
-          <div class="param-grid" style="margin-top: 16px;">
-            <div class="form-group">
-              <label for="terrainType">地形类型</label>
-              <select id="terrainType" title="通用任务模式支持 plane / rough；档案模式保留配方地形">
-                <option value="plane">plane · 平地</option>
-                <option value="rough">rough · 崎岖</option>
-              </select>
-              <small class="field-hint" id="terrainHint">worker 仅应用 plane / rough；其余由配方内部实现</small>
-            </div>
-            <div class="form-group">
-              <label for="episodeLength">Episode 长度 (秒)</label>
-              <input type="number" id="episodeLength" value="20" min="5" max="60" step="1"
-                     title="单个回合的仿真时长（秒）。过长会拖慢早期探索，过短影响信用分配">
-              <small class="field-hint">5 - 60 秒 · 推荐 20s</small>
-            </div>
-          </div>
-          <div class="sub-block-title editable">指令范围 command_ranges</div>
-          <div class="cmd-grid" id="cmdGrid">
-            <div class="cmd-row" data-cmd="lin_vel_x">
-              <span class="cmd-name">lin_vel_x<small>X 线速度 (m/s)</small></span>
-              <span class="cmd-pair">
-                <input type="number" step="0.05" data-bound="min" title="最小值" placeholder="min">
-                <input type="number" step="0.05" data-bound="max" title="最大值" placeholder="max">
-              </span>
-            </div>
-            <div class="cmd-row" data-cmd="lin_vel_y">
-              <span class="cmd-name">lin_vel_y<small>Y 线速度 (m/s)</small></span>
-              <span class="cmd-pair">
-                <input type="number" step="0.05" data-bound="min" title="最小值" placeholder="min">
-                <input type="number" step="0.05" data-bound="max" title="最大值" placeholder="max">
-              </span>
-            </div>
-            <div class="cmd-row" data-cmd="ang_vel_z">
-              <span class="cmd-name">ang_vel_z<small>偏航角速度 (rad/s)</small></span>
-              <span class="cmd-pair">
-                <input type="number" step="0.05" data-bound="min" title="最小值" placeholder="min">
-                <input type="number" step="0.05" data-bound="max" title="最大值" placeholder="max">
-              </span>
-            </div>
-          </div>
-          <div class="sub-block-title readonly">配方只读 · 地形子混合与课程</div>
-          <div id="envRoWrap"></div>
-        </section>
+            <!-- 02 环境构建 -->
+            <section class="cat-panel form-panel" id="panel-environment">
+              <div class="panel-title">
+                <div><span class="eyebrow">02 / ENVIRONMENT</span><h2>环境构建</h2></div>
+                <span class="panel-meta">Environment</span>
+              </div>
+              <p class="section-hint">任务 / 地形 / 指令范围与回合长度；地形子混合与课程表属于训练配方，只读展示。</p>
+              <div class="runtime-hint mode-hint" id="profileModeHint">
+                档案模式：任务与奖励 / 地形默认保留训练配方；指令范围、回合长度、并行环境、种子与 PPO 参数仍会覆盖配方。开启「鲁棒迁移」中的覆盖开关后奖励权重才会生效。
+              </div>
+              <div class="sub-block-title editable">任务预设</div>
+              <div class="task-chips" id="taskChips"></div>
+              <div class="field-row" style="margin-top: 16px;">
+                <div class="field-label">
+                  <label for="terrainType">地形类型</label>
+                  <select id="terrainType" title="通用任务模式支持 plane / rough；档案模式保留配方地形">
+                    <option value="plane">plane · 平地</option>
+                    <option value="rough">rough · 崎岖</option>
+                  </select>
+                  <small class="field-hint" id="terrainHint">worker 仅应用 plane / rough；其余由配方内部实现</small>
+                </div>
+                <div class="field-label">
+                  <label for="episodeLength">Episode 长度 (秒)</label>
+                  <input type="number" id="episodeLength" value="20" min="5" max="60" step="1"
+                         title="单个回合的仿真时长（秒）。过长会拖慢早期探索，过短影响信用分配">
+                  <small class="field-hint">5 - 60 秒 · 推荐 20s</small>
+                </div>
+              </div>
+              <div class="sub-block-title editable">指令范围 command_ranges</div>
+              <div class="cmd-grid" id="cmdGrid">
+                <div class="cmd-row" data-cmd="lin_vel_x">
+                  <span class="cmd-name">lin_vel_x<small>X 线速度 (m/s)</small></span>
+                  <span class="cmd-pair">
+                    <input type="number" step="0.05" data-bound="min" title="最小值" placeholder="min">
+                    <input type="number" step="0.05" data-bound="max" title="最大值" placeholder="max">
+                  </span>
+                </div>
+                <div class="cmd-row" data-cmd="lin_vel_y">
+                  <span class="cmd-name">lin_vel_y<small>Y 线速度 (m/s)</small></span>
+                  <span class="cmd-pair">
+                    <input type="number" step="0.05" data-bound="min" title="最小值" placeholder="min">
+                    <input type="number" step="0.05" data-bound="max" title="最大值" placeholder="max">
+                  </span>
+                </div>
+                <div class="cmd-row" data-cmd="ang_vel_z">
+                  <span class="cmd-name">ang_vel_z<small>偏航角速度 (rad/s)</small></span>
+                  <span class="cmd-pair">
+                    <input type="number" step="0.05" data-bound="min" title="最小值" placeholder="min">
+                    <input type="number" step="0.05" data-bound="max" title="最大值" placeholder="max">
+                  </span>
+                </div>
+              </div>
+              <div class="sub-block-title readonly">配方只读 · 地形子混合与课程</div>
+              <div id="envRoWrap"></div>
+            </section>
 
-        <!-- 03 机器人具身 -->
-        <section class="cat-panel" id="panel-embodiment">
-          <h3><span class="index">03</span>机器人具身 <span style="font-weight:400;color:var(--faint);font-size:12px;">Embodiment</span></h3>
-          <p class="section-hint">机器人在顶部工具条选择；关节顺序与默认姿态由机器人契约决定，在本页只读预览。</p>
-          <div class="ro-block">
-            <div class="ro-head"><span class="lock-glyph" data-lock></span><b>契约只读</b><span id="robotMeta">-</span></div>
-            <div id="embodWrap"></div>
-          </div>
-        </section>
+            <!-- 03 机器人具身 -->
+            <section class="cat-panel form-panel" id="panel-embodiment">
+              <div class="panel-title">
+                <div><span class="eyebrow">03 / EMBODIMENT</span><h2>机器人具身</h2></div>
+                <span class="panel-meta">Embodiment</span>
+              </div>
+              <p class="section-hint">机器人在顶部工具条选择；关节顺序与默认姿态由机器人契约决定，在本页只读预览。</p>
+              <div class="ro-block">
+                <div class="ro-head"><span class="lock-glyph" data-lock></span><b>契约只读</b><span id="robotMeta">-</span></div>
+                <div id="embodWrap"></div>
+              </div>
+            </section>
 
-        <!-- 04 学习优化 -->
-        <section class="cat-panel" id="panel-learning">
-          <h3><span class="index">04</span>学习优化 <span style="font-weight:400;color:var(--faint);font-size:12px;">Learning</span></h3>
-          <p class="section-hint">PPO 超参数直接写入训练配置；网络结构与归一化沿用 runner 配方默认，只读展示。</p>
-          <div class="param-grid">
-            <div class="form-group">
-              <label for="algorithm">算法</label>
-              <select id="algorithm" title="native MJLab 当前仅开放 PPO 训练"></select>
-              <small class="field-hint">MJLab 当前仅开放 PPO；其余算法接入后自动开放</small>
-            </div>
-            <div class="form-group">
-              <label for="learningRate">学习率（初始）</label>
-              <input type="number" id="learningRate" value="0.0003" min="0.00001" max="0.01" step="0.00001"
-                     title="PPO 的优化步长。过大容易发散（奖励崩溃），过小收敛缓慢">
-              <small class="field-hint">(0, 0.01] · 推荐 3e-4 · 自适应调度由 runner 配方决定，此处为初始值</small>
-            </div>
-            <div class="form-group">
-              <label for="maxIterations">最大迭代数</label>
-              <input type="number" id="maxIterations" value="1000" min="10" max="10000" step="10"
-                     title="训练迭代上限。平地行走约 1000 轮收敛，崎岖地形通常需要 2000+ 轮">
-              <small class="field-hint">10 - 10000 · 崎岖地形 2000+</small>
-            </div>
-            <div class="form-group">
-              <label for="saveInterval">保存间隔</label>
-              <input type="number" id="saveInterval" value="100" min="10" max="500" step="10"
-                     title="每 N 次迭代保存一个 model_<iter>.pt 检查点">
-              <small class="field-hint">每 N 次迭代保存检查点</small>
-            </div>
-            <div class="form-group">
-              <label for="numSteps">Rollout 步数</label>
-              <input type="number" id="numSteps" value="24" min="4" max="4096" step="1"
-                     title="每次更新前每个环境收集的步数（num_steps_per_env）">
-              <small class="field-hint">4 - 4096 · 默认 24</small>
-            </div>
-            <div class="form-group">
-              <label for="numMinibatches">小批次数量</label>
-              <input type="number" id="numMinibatches" value="4" min="1" max="64" step="1"
-                     title="每次更新把 rollout 数据切成的 minibatch 数（num_mini_batches）">
-              <small class="field-hint">1 - 64 · 默认 4</small>
-            </div>
-            <div class="form-group">
-              <label for="gamma">折扣因子 γ</label>
-              <input type="number" id="gamma" value="0.99" min="0.9" max="0.9999" step="0.0001"
-                     title="未来奖励的折扣率。越接近 1 越重视长期稳定行走">
-              <small class="field-hint">(0, 1) · 默认 0.99</small>
-            </div>
-            <div class="form-group">
-              <label for="gaeLambda">GAE λ</label>
-              <input type="number" id="gaeLambda" value="0.95" min="0.1" max="1" step="0.01"
-                     title="优势估计的偏差-方差折中">
-              <small class="field-hint">(0, 1] · 默认 0.95</small>
-            </div>
-            <div class="form-group">
-              <label for="clipParam">裁剪系数 ε</label>
-              <input type="number" id="clipParam" value="0.2" min="0.05" max="0.5" step="0.01"
-                     title="PPO 策略比率裁剪范围，限制单次更新幅度">
-              <small class="field-hint">(0, 1) · 默认 0.2</small>
-            </div>
-            <div class="form-group">
-              <label for="entropyCoef">熵正则系数</label>
-              <input type="number" id="entropyCoef" value="0.01" min="0" max="0.2" step="0.001"
-                     title="鼓励探索。奖励过早坍缩（突然下跌）时可适当调大">
-              <small class="field-hint">≥ 0 · 默认 0.01</small>
-            </div>
-          </div>
-          <div class="sub-block-title readonly">配方只读 · Runner 网络与训练默认</div>
-          <div id="learnRoWrap"></div>
-        </section>
+            <!-- 04 学习优化 -->
+            <section class="cat-panel form-panel" id="panel-learning">
+              <div class="panel-title">
+                <div><span class="eyebrow">04 / LEARNING</span><h2>学习优化</h2></div>
+                <span class="panel-meta">Learning</span>
+              </div>
+              <p class="section-hint">PPO 超参数直接写入训练配置；网络结构与归一化沿用 runner 配方默认，只读展示。</p>
+              <div class="field-grid four">
+                <div class="field-label">
+                  <label for="algorithm">算法</label>
+                  <select id="algorithm" title="native MJLab 当前仅开放 PPO 训练"></select>
+                  <small class="field-hint">MJLab 当前仅开放 PPO；其余算法接入后自动开放</small>
+                </div>
+                <div class="field-label">
+                  <label for="learningRate">学习率（初始）</label>
+                  <input type="number" id="learningRate" value="0.0003" min="0.00001" max="0.01" step="0.00001"
+                         title="PPO 的优化步长。过大容易发散（奖励崩溃），过小收敛缓慢">
+                  <small class="field-hint">(0, 0.01] · 推荐 3e-4 · 自适应调度由 runner 配方决定，此处为初始值</small>
+                </div>
+                <div class="field-label">
+                  <label for="maxIterations">最大迭代数</label>
+                  <input type="number" id="maxIterations" value="1000" min="10" max="10000" step="10"
+                         title="训练迭代上限。平地行走约 1000 轮收敛，崎岖地形通常需要 2000+ 轮">
+                  <small class="field-hint">10 - 10000 · 崎岖地形 2000+</small>
+                </div>
+                <div class="field-label">
+                  <label for="saveInterval">保存间隔</label>
+                  <input type="number" id="saveInterval" value="100" min="10" max="500" step="10"
+                         title="每 N 次迭代保存一个 model_<iter>.pt 检查点">
+                  <small class="field-hint">每 N 次迭代保存检查点</small>
+                </div>
+                <div class="field-label">
+                  <label for="numSteps">Rollout 步数</label>
+                  <input type="number" id="numSteps" value="24" min="4" max="4096" step="1"
+                         title="每次更新前每个环境收集的步数（num_steps_per_env）">
+                  <small class="field-hint">4 - 4096 · 默认 24</small>
+                </div>
+                <div class="field-label">
+                  <label for="numMinibatches">小批次数量</label>
+                  <input type="number" id="numMinibatches" value="4" min="1" max="64" step="1"
+                         title="每次更新把 rollout 数据切成的 minibatch 数（num_mini_batches）">
+                  <small class="field-hint">1 - 64 · 默认 4</small>
+                </div>
+                <div class="field-label">
+                  <label for="gamma">折扣因子 γ</label>
+                  <input type="number" id="gamma" value="0.99" min="0.9" max="0.9999" step="0.0001"
+                         title="未来奖励的折扣率。越接近 1 越重视长期稳定行走">
+                  <small class="field-hint">(0, 1) · 默认 0.99</small>
+                </div>
+                <div class="field-label">
+                  <label for="gaeLambda">GAE λ</label>
+                  <input type="number" id="gaeLambda" value="0.95" min="0.1" max="1" step="0.01"
+                         title="优势估计的偏差-方差折中">
+                  <small class="field-hint">(0, 1] · 默认 0.95</small>
+                </div>
+                <div class="field-label">
+                  <label for="clipParam">裁剪系数 ε</label>
+                  <input type="number" id="clipParam" value="0.2" min="0.05" max="0.5" step="0.01"
+                         title="PPO 策略比率裁剪范围，限制单次更新幅度">
+                  <small class="field-hint">(0, 1) · 默认 0.2</small>
+                </div>
+                <div class="field-label">
+                  <label for="entropyCoef">熵正则系数</label>
+                  <input type="number" id="entropyCoef" value="0.01" min="0" max="0.2" step="0.001"
+                         title="鼓励探索。奖励过早坍缩（突然下跌）时可适当调大">
+                  <small class="field-hint">≥ 0 · 默认 0.01</small>
+                </div>
+              </div>
+              <div class="sub-block-title readonly">配方只读 · Runner 网络与训练默认</div>
+              <div id="learnRoWrap"></div>
+            </section>
 
-        <!-- 05 鲁棒迁移 -->
-        <section class="cat-panel" id="panel-robustness">
-          <h3><span class="index">05</span>鲁棒迁移 <span style="font-weight:400;color:var(--faint);font-size:12px;">Robustness</span></h3>
-          <p class="section-hint">奖励权重写入训练配置；终止条件与域随机化由训练配方决定，只读展示。</p>
-          <label class="override-toggle" title="档案模式下默认保留配方奖励；开启后下方编辑器权重才会写入训练配置">
-            <input type="checkbox" id="rewardOverrides">
-            <span>
-              <strong>覆盖配方奖励（reward_overrides）</strong>
-              <small>仅档案模式生效：关闭时保留训练配方自带奖励；开启后，下方编辑器的启用项与权重会被 alias 匹配后写入配方，未匹配项按 0 处理（不报错）。通用任务模式下奖励权重始终生效。</small>
-            </span>
-          </label>
-          <div class="reward-toolbar">
-            <span class="reward-summary" id="rewardSummary">正在加载奖惩项...</span>
-            <span style="display: flex; gap: 8px;">
-              <button type="button" class="btn small" id="rewardAll">全部启用</button>
-              <button type="button" class="btn small" id="rewardReset">恢复默认</button>
-            </span>
-          </div>
-          <div class="reward-grid" id="rewardTerms">
-            <div class="empty-state">正在加载奖惩项...</div>
-          </div>
-          <div class="sub-block-title readonly">配方只读 · 终止与域随机化</div>
-          <div id="robustRoWrap"></div>
-        </section>
+            <!-- 05 鲁棒迁移 -->
+            <section class="cat-panel form-panel" id="panel-robustness">
+              <div class="panel-title">
+                <div><span class="eyebrow">05 / ROBUSTNESS</span><h2>鲁棒迁移</h2></div>
+                <span class="panel-meta">Robustness</span>
+              </div>
+              <p class="section-hint">奖励权重写入训练配置；终止条件与域随机化由训练配方决定，只读展示。</p>
+              <label class="override-toggle" title="档案模式下默认保留配方奖励；开启后下方编辑器权重才会写入训练配置">
+                <input type="checkbox" id="rewardOverrides">
+                <span>
+                  <strong>覆盖配方奖励（reward_overrides）</strong>
+                  <small>仅档案模式生效：关闭时保留训练配方自带奖励；开启后，下方编辑器的启用项与权重会被 alias 匹配后写入配方，未匹配项按 0 处理（不报错）。通用任务模式下奖励权重始终生效。</small>
+                </span>
+              </label>
+              <div class="reward-head">
+                <span class="reward-summary" id="rewardSummary">正在加载奖惩项...</span>
+                <span style="display: flex; gap: 8px;">
+                  <button type="button" class="button small" id="rewardAll">全部启用</button>
+                  <button type="button" class="button small" id="rewardReset">恢复默认</button>
+                </span>
+              </div>
+              <div class="rewards" id="rewardTerms">
+                <div class="empty-state">正在加载奖惩项...</div>
+              </div>
+              <div class="sub-block-title readonly">配方只读 · 终止与域随机化</div>
+              <div id="robustRoWrap"></div>
+            </section>
 
-        <!-- 配置预览 -->
-        <details class="preview-drawer" id="panel-preview">
-          <summary>
-            <span style="display: inline-flex; align-items: center; gap: 10px;">
-              <span class="chevron">▾</span>配置预览 <span style="font-weight:400;color:var(--faint);font-size:12px;" id="previewCount"></span>
-            </span>
-            <span class="preview-status" id="previewStatus">等待配置解析...</span>
-          </summary>
-          <div class="preview-toolbar">
-            <input type="search" id="previewFilter" placeholder="过滤键名 / 值，例如 gamma、terrain、reward..." title="对扁平化后的键与值做子串过滤">
-            <span class="preview-status">配方来自 POST /api/training/resolve-recipe + config-preview，扁平化为点号键</span>
-          </div>
-          <div class="preview-list-wrap">
-            <div class="kv-list" id="previewList"></div>
-            <div class="preview-empty" id="previewEmpty" hidden>没有匹配的配置项</div>
-          </div>
-        </details>
+            <!-- 配置预览 -->
+            <details class="advanced preview-drawer" id="panel-preview">
+              <summary>
+                <span style="display: inline-flex; align-items: center; gap: 10px;">
+                  <span class="chevron">▾</span>配置预览 <span class="panel-meta" id="previewCount"></span>
+                </span>
+                <span class="preview-status" id="previewStatus">等待配置解析...</span>
+              </summary>
+              <div class="preview-toolbar">
+                <input type="search" id="previewFilter" placeholder="过滤键名 / 值，例如 gamma、terrain、reward..." title="对扁平化后的键与值做子串过滤">
+                <span class="preview-status">配方来自 POST /api/training/resolve-recipe + config-preview，扁平化为点号键</span>
+              </div>
+              <div class="preview-list-wrap">
+                <div class="kv-list" id="previewList"></div>
+                <div class="preview-empty" id="previewEmpty" hidden>没有匹配的配置项</div>
+              </div>
+            </details>
 
-        <!-- 粘性提交栏 -->
-        <div class="sticky-bar">
-          <div class="sticky-summary" id="stickySummary">-</div>
-          <div class="sticky-actions">
-            <a class="btn" href="training_list.html">取消</a>
-            <button type="submit" class="btn primary" id="submitBtn">启动训练</button>
-          </div>
+            <!-- 粘性提交栏 -->
+            <div class="sticky-bar view-footer">
+              <div class="sticky-summary" id="stickySummary">-</div>
+              <div class="heading-actions">
+                <a class="button" href="training_list.html">取消</a>
+                <button type="submit" class="button primary" id="submitBtn">启动训练</button>
+              </div>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
     </main>
   </div>
 
@@ -1048,6 +854,22 @@
   <script src="training-common.js"></script>
   <script>
     const { escapeHtml, fetchJson, downloadText } = window.TrainingUI;
+
+    // ---------- 顶部控制面状态（与工作台一致：/health 探测） ----------
+    (async () => {
+      const dot = document.getElementById('backendState');
+      if (!dot) return;
+      try {
+        const base = window.TrainingUI && window.TrainingUI.API_BASE ? window.TrainingUI.API_BASE : '';
+        const response = await fetch(`${base}/health`);
+        if (!response.ok) throw new Error(String(response.status));
+        dot.className = 'status-dot ok';
+        dot.innerHTML = '<i></i>Control plane online';
+      } catch (error) {
+        dot.className = 'status-dot error';
+        dot.innerHTML = '<i></i>Control plane offline';
+      }
+    })();
 
     const LOCK_SVG = '<svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V6H4a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 4 15h8a1.5 1.5 0 0 0 1.5-1.5v-6A1.5 1.5 0 0 0 12 6h-.5V4.5A3.5 3.5 0 0 0 8 1Zm2 5H6V4.5a2 2 0 1 1 4 0V6Z"/></svg>';
 
@@ -1222,7 +1044,7 @@
         return;
       }
       container.innerHTML = entries.map(([id, term]) => `
-        <label class="reward-row" data-reward-row="${escapeHtml(id)}" title="${escapeHtml(term.description || '')}">
+        <label class="reward" data-reward-row="${escapeHtml(id)}" title="${escapeHtml(term.description || '')}">
           <input type="checkbox" data-reward-id="${escapeHtml(id)}" checked>
           <span class="reward-label"><strong>${escapeHtml(term.label || id)}</strong><small>${escapeHtml(term.description || id)}</small></span>
           <input type="number" data-reward-weight="${escapeHtml(id)}" value="${Number(term.default)}" step="0.0001" title="权重（负值为惩罚）">
@@ -1486,7 +1308,7 @@
         if (seq === resolveSeq) {
           state.recipe = null;
           $('previewStatus').textContent = `配方校验失败：${error.message}`;
-          $('previewStatus').style.color = 'var(--danger)';
+          $('previewStatus').style.color = 'var(--red)';
         }
       }
       if (seq === resolveSeq) renderPreviewList();
@@ -1804,9 +1626,9 @@
     });
 
     // ---------- 导航交互 ----------
-    document.querySelectorAll('.cat-item[data-target]').forEach((item) => {
+    document.querySelectorAll('.config-tab[data-target]').forEach((item) => {
       item.addEventListener('click', () => {
-        document.querySelectorAll('.cat-item').forEach((entry) => entry.classList.remove('active'));
+        document.querySelectorAll('.config-tab').forEach((entry) => entry.classList.remove('active'));
         item.classList.add('active');
         const target = $(item.dataset.target);
         if (item.dataset.target === 'panel-preview' && target && !target.open) target.open = true;
@@ -1817,14 +1639,14 @@
     const panelObserver = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
-        document.querySelectorAll('.cat-item').forEach((item) => {
+        document.querySelectorAll('.config-tab').forEach((item) => {
           item.classList.toggle('active', item.dataset.target === entry.target.id);
         });
       });
     }, { rootMargin: '-45% 0px -50% 0px' }) : null;
 
     function syncHeaderOffset() {
-      const bar = document.querySelector('.top-bar');
+      const bar = document.querySelector('.topbar');
       if (!bar) return;
       document.documentElement.style.setProperty('--header-h', `${bar.offsetHeight}px`);
     }
@@ -1860,7 +1682,7 @@
         console.error('[training_create] init failed:', error);
         showError(error.message);
         $('robotStrip').innerHTML =
-          `<div class="empty-state" style="padding: 8px 12px;"><p>加载失败：${escapeHtml(error.message)}</p><button class="btn retry-link" type="button" onclick="location.reload()">点击重试</button></div>`;
+          `<div class="empty-state" style="padding: 8px 12px;"><p>加载失败：${escapeHtml(error.message)}</p><button class="button small retry-link" type="button" onclick="location.reload()">点击重试</button></div>`;
       }
     })();
   </script>

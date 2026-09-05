@@ -4,167 +4,186 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>训练监控 - Legged Studio</title>
-  <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="workbench.css">
   <link rel="stylesheet" href="training-monitor.css">
 </head>
 <body>
-  <div class="monitor-shell" id="monitorBody">
-
-    <!-- 1) 运行头部 / 状态栏 -->
-    <header class="run-header card">
-      <div class="run-id-block">
-        <span id="stateDot" class="tsui-dot js-state idle" title="状态未知"></span>
-        <div class="run-id-text">
-          <div class="run-id-row">
-            <h1 class="run-id" id="runIdTitle" title="task_id">加载中...</h1>
-            <span class="status-pill" id="statusPill">...</span>
-          </div>
-          <div class="run-meta">
-            <span id="metaRobot">-</span>
-            <span class="meta-sep">·</span>
-            <span id="metaAlgo">-</span>
-            <span class="meta-sep">·</span>
-            <span id="metaCreated" title="任务创建时间">-</span>
-          </div>
-        </div>
-      </div>
-      <div class="run-actions">
-        <button class="btn danger" id="stopBtn" style="display:none;" title="停止该训练任务">停止</button>
-        <button class="btn" id="refreshBtn" title="立即刷新全部数据">刷新</button>
-        <button class="btn" id="copyIdBtn" title="复制 task_id 到剪贴板">复制 task_id</button>
-        <a class="btn" href="training_list.html">任务列表</a>
-        <a class="btn" href="dashboard.html">返回</a>
-      </div>
+  <div class="app-shell" id="monitorBody">
+    <!-- 原生顶栏 -->
+    <header class="topbar">
+      <a class="brand" href="dashboard.html" aria-label="Legged Studio 首页">
+        <span class="brand-mark">LS</span>
+        <span><strong>Legged Studio</strong><small>Training Console</small></span>
+      </a>
+      <nav class="main-nav" aria-label="主功能">
+        <a class="nav-item" href="dashboard.html"><span class="nav-index">01</span>首页</a>
+        <a class="nav-item" href="workbench.html#validate"><span class="nav-index">02</span>验证</a>
+        <a class="nav-item" href="training_create.html"><span class="nav-index">03</span>训练配置</a>
+        <a class="nav-item active" href="training_list.html"><span class="nav-index">04</span>训练</a>
+        <a class="nav-item" href="workbench.html#simulation"><span class="nav-index">05</span>仿真</a>
+      </nav>
+      <div class="top-status"><span id="backendState" class="status-dot pending"><i></i>Control plane…</span></div>
     </header>
 
-    <div class="error-banner" id="errorBanner"></div>
+    <main class="content">
 
-    <!-- 2) 进度条 -->
-    <section class="progress-strip card">
-      <div class="progress-top">
-        <span class="progress-pct" id="progressPct">--%</span>
+      <!-- 1) 运行头部 / 状态栏 -->
+      <header class="training-header run-header">
+        <div class="run-id-block">
+          <span id="stateDot" class="tsui-dot js-state idle" title="状态未知"></span>
+          <div class="run-id-text">
+            <div class="run-id-row">
+              <h1 class="run-id" id="runIdTitle" title="task_id">加载中...</h1>
+              <span class="badge" id="statusPill">...</span>
+            </div>
+            <div class="run-meta">
+              <span id="metaRobot">-</span>
+              <span class="meta-sep">·</span>
+              <span id="metaAlgo">-</span>
+              <span class="meta-sep">·</span>
+              <span id="metaCreated" title="任务创建时间">-</span>
+            </div>
+          </div>
+        </div>
+        <div class="training-actions">
+          <button class="button danger" id="stopBtn" style="display:none;" title="停止该训练任务">停止</button>
+          <button class="button" id="refreshBtn" title="立即刷新全部数据">刷新</button>
+          <button class="button" id="copyIdBtn" title="复制 task_id 到剪贴板">复制 task_id</button>
+          <a class="button" href="training_list.html">任务列表</a>
+          <a class="button" href="dashboard.html">返回</a>
+        </div>
+      </header>
+
+      <div class="error-banner" id="errorBanner"></div>
+
+      <!-- 2) 进度条 + 实时数字 -->
+      <section class="progress-strip">
+        <div>
+          <span class="progress-note" id="progressNote">加载中...</span>
+          <b id="progressPct">--%</b>
+        </div>
         <div class="progress-track">
-          <div class="progress-bar" id="progressBar" style="width:0%;"></div>
+          <i id="progressBar" style="width:0%;"></i>
         </div>
-        <span class="progress-note" id="progressNote">加载中...</span>
+      </section>
+
+      <div class="metric-grid">
+        <div><span>当前迭代</span><strong id="metricIteration">0</strong></div>
+        <div><span>总迭代</span><strong id="metricMaxIter">0</strong></div>
+        <div class="accent"><span>平均奖励</span><strong id="metricReward">-</strong></div>
+        <div class="accent"><span>成功率</span><strong id="metricSuccess">-</strong></div>
+        <div><span>迭代速度</span><strong id="metricSpeed">-</strong></div>
+        <div><span>已运行</span><strong id="metricElapsed">-</strong></div>
+        <div><span>预计剩余</span><strong id="metricEta">-</strong></div>
       </div>
-      <div class="progress-stats">
-        <div class="pstat"><span>当前迭代</span><b id="metricIteration">0</b></div>
-        <div class="pstat"><span>总迭代</span><b id="metricMaxIter">0</b></div>
-        <div class="pstat accent"><span>平均奖励</span><b id="metricReward">-</b></div>
-        <div class="pstat accent"><span>成功率</span><b id="metricSuccess">-</b></div>
-        <div class="pstat"><span>迭代速度</span><b id="metricSpeed">-</b></div>
-        <div class="pstat"><span>已运行</span><b id="metricElapsed">-</b></div>
-        <div class="pstat"><span>预计剩余</span><b id="metricEta">-</b></div>
+
+      <!-- 3) 三段概览侧栏 + 指标小图网格 -->
+      <div class="monitor-grid">
+        <aside class="overview-sidebar">
+          <section class="overview-section system-panel">
+            <div class="ov-head">
+              <h3>环境 <small>Environment</small></h3>
+              <span class="count-badge" id="envCount">0</span>
+            </div>
+            <input type="text" class="ov-filter" id="envFilter" placeholder="筛选键 / 值..." spellcheck="false">
+            <div class="kv-list" id="envList">
+              <div class="ov-empty">等待状态数据（每 3 秒刷新）...</div>
+            </div>
+          </section>
+
+          <section class="overview-section system-panel">
+            <div class="ov-head">
+              <h3>配置 <small>Config</small></h3>
+              <span class="count-badge" id="configCount">0</span>
+            </div>
+            <input type="text" class="ov-filter" id="configFilter" placeholder="筛选键 / 值..." spellcheck="false">
+            <div class="kv-list" id="configList">
+              <div class="ov-empty">等待状态数据（每 3 秒刷新）...</div>
+            </div>
+            <details class="raw-config" id="rawConfigDetails" style="display:none;">
+              <summary>查看原始配置 JSON</summary>
+              <pre id="rawConfigPre" class="console"></pre>
+            </details>
+          </section>
+
+          <section class="overview-section system-panel">
+            <div class="ov-head">
+              <h3>摘要 <small>Summary</small></h3>
+              <span class="count-badge" id="summaryCount">0</span>
+            </div>
+            <input type="text" class="ov-filter" id="summaryFilter" placeholder="筛选键 / 值..." spellcheck="false">
+            <div class="kv-list" id="summaryList">
+              <div class="ov-empty">等待状态数据（每 3 秒刷新）...</div>
+            </div>
+          </section>
+        </aside>
+
+        <main class="metrics-main chart-panel">
+          <div class="metrics-toolbar">
+            <h3 class="metrics-title">指标 <span class="panel-note" id="metricCountNote"></span></h3>
+            <input type="text" class="metrics-filter" id="metricFilter" placeholder="按名称筛选指标..." spellcheck="false" title="按指标名称过滤下方小图">
+            <select id="metricWindowSelect" title="曲线展示范围" aria-label="曲线范围">
+              <option value="0">全部范围</option>
+              <option value="300" selected>最近 300 点</option>
+              <option value="100">最近 100 点</option>
+            </select>
+            <select id="metricSmoothSelect" title="滑动平均平滑窗口" aria-label="曲线平滑">
+              <option value="1">原始</option>
+              <option value="5" selected>平滑 5</option>
+              <option value="15">平滑 15</option>
+            </select>
+          </div>
+          <p class="metrics-note" id="chartStatus">等待指标数据</p>
+          <div class="metrics-grid" id="metricsGrid">
+            <div class="ov-empty">等待指标数据（每 5 秒自动刷新）...</div>
+          </div>
+          <p class="metrics-note" id="chartEmptyNote"></p>
+        </main>
       </div>
-    </section>
 
-    <!-- 3) 三段概览侧栏 + 指标小图网格 -->
-    <div class="monitor-grid">
-      <aside class="overview-sidebar">
-        <section class="overview-section card">
-          <div class="ov-head">
-            <h3>环境 <small>Environment</small></h3>
-            <span class="count-badge" id="envCount">0</span>
+      <!-- 4) 训练日志（可折叠） -->
+      <section class="collapsible open log-panel" id="logsPane">
+        <button type="button" class="collapse-head" data-collapse-target="logsBody" aria-expanded="true" aria-controls="logsBody">
+          <span class="chevron">▾</span>
+          <h3>训练日志</h3>
+          <span class="panel-note" id="logNote">-</span>
+        </button>
+        <div class="collapse-body" id="logsBody">
+          <div class="log-toolbar">
+            <input type="text" id="logFilter" placeholder="过滤日志关键字（如 ERROR / iteration）...">
+            <label title="仅当滚动位置接近底部时自动跟随最新日志">
+              <input type="checkbox" id="logAutoscroll" checked> 自动滚动
+            </label>
           </div>
-          <input type="text" class="ov-filter" id="envFilter" placeholder="筛选键 / 值..." spellcheck="false">
-          <div class="kv-list" id="envList">
-            <div class="ov-empty">等待状态数据（每 3 秒刷新）...</div>
+          <div class="log-container console" id="logContainer">
+            <div class="log-empty">等待日志数据（任务启动后此处显示最近 200 行）...</div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="overview-section card">
-          <div class="ov-head">
-            <h3>配置 <small>Config</small></h3>
-            <span class="count-badge" id="configCount">0</span>
+      <!-- 5) 检查点与产物（可折叠） -->
+      <section class="collapsible open log-panel" id="ckptPane">
+        <button type="button" class="collapse-head" data-collapse-target="ckptBody" aria-expanded="true" aria-controls="ckptBody">
+          <span class="chevron">▾</span>
+          <h3>检查点与产物</h3>
+          <span class="panel-note" id="ckptNote">-</span>
+        </button>
+        <div class="collapse-body" id="ckptBody">
+          <div class="artifact-row">
+            <span>训练产物 <b>artifact.json</b></span>
+            <span class="pill no" id="artifactPill">检测中</span>
           </div>
-          <input type="text" class="ov-filter" id="configFilter" placeholder="筛选键 / 值..." spellcheck="false">
-          <div class="kv-list" id="configList">
-            <div class="ov-empty">等待状态数据（每 3 秒刷新）...</div>
+          <div class="ckpt-list" id="ckptList">
+            <div class="log-empty">加载中...</div>
           </div>
-          <details class="raw-config" id="rawConfigDetails" style="display:none;">
-            <summary>查看原始配置 JSON</summary>
-            <pre id="rawConfigPre"></pre>
-          </details>
-        </section>
-
-        <section class="overview-section card">
-          <div class="ov-head">
-            <h3>摘要 <small>Summary</small></h3>
-            <span class="count-badge" id="summaryCount">0</span>
-          </div>
-          <input type="text" class="ov-filter" id="summaryFilter" placeholder="筛选键 / 值..." spellcheck="false">
-          <div class="kv-list" id="summaryList">
-            <div class="ov-empty">等待状态数据（每 3 秒刷新）...</div>
-          </div>
-        </section>
-      </aside>
-
-      <main class="metrics-main card">
-        <div class="metrics-toolbar">
-          <h3 class="metrics-title">指标 <span class="panel-note" id="metricCountNote"></span></h3>
-          <input type="text" class="metrics-filter" id="metricFilter" placeholder="按名称筛选指标..." spellcheck="false" title="按指标名称过滤下方小图">
-          <select id="metricWindowSelect" title="曲线展示范围" aria-label="曲线范围">
-            <option value="0">全部范围</option>
-            <option value="300" selected>最近 300 点</option>
-            <option value="100">最近 100 点</option>
-          </select>
-          <select id="metricSmoothSelect" title="滑动平均平滑窗口" aria-label="曲线平滑">
-            <option value="1">原始</option>
-            <option value="5" selected>平滑 5</option>
-            <option value="15">平滑 15</option>
-          </select>
         </div>
-        <p class="metrics-note" id="chartStatus">等待指标数据</p>
-        <div class="metrics-grid" id="metricsGrid">
-          <div class="ov-empty">等待指标数据（每 5 秒自动刷新）...</div>
-        </div>
-        <p class="metrics-note" id="chartEmptyNote"></p>
-      </main>
-    </div>
-
-    <!-- 4) 训练日志（可折叠） -->
-    <section class="collapsible open card" id="logsPane">
-      <button type="button" class="collapse-head" data-collapse-target="logsBody" aria-expanded="true" aria-controls="logsBody">
-        <span class="chevron">▾</span>
-        <h3>训练日志</h3>
-        <span class="panel-note" id="logNote">-</span>
-      </button>
-      <div class="collapse-body" id="logsBody">
-        <div class="log-toolbar">
-          <input type="text" id="logFilter" placeholder="过滤日志关键字（如 ERROR / iteration）...">
-          <label title="仅当滚动位置接近底部时自动跟随最新日志">
-            <input type="checkbox" id="logAutoscroll" checked> 自动滚动
-          </label>
-        </div>
-        <div class="log-container" id="logContainer">
-          <div class="log-empty">等待日志数据（任务启动后此处显示最近 200 行）...</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 5) 检查点与产物（可折叠） -->
-    <section class="collapsible open card" id="ckptPane">
-      <button type="button" class="collapse-head" data-collapse-target="ckptBody" aria-expanded="true" aria-controls="ckptBody">
-        <span class="chevron">▾</span>
-        <h3>检查点与产物</h3>
-        <span class="panel-note" id="ckptNote">-</span>
-      </button>
-      <div class="collapse-body" id="ckptBody">
-        <div class="artifact-row">
-          <span>训练产物 <b>artifact.json</b></span>
-          <span class="pill no" id="artifactPill">检测中</span>
-        </div>
-        <div class="ckpt-list" id="ckptList">
-          <div class="log-empty">加载中...</div>
-        </div>
-      </div>
-    </section>
+      </section>
+    </main>
   </div>
 
-  <div id="missingIdBox" class="card missing-id" style="display:none;">
+  <div id="missingIdBox" class="missing-id" style="display:none;">
     <p id="missingIdText">缺少任务 ID 参数。</p>
-    <a class="btn primary" href="training_list.html">返回任务列表</a>
+    <a class="button primary" href="training_list.html">返回任务列表</a>
   </div>
 
   <!-- 底部状态栏 -->
@@ -185,6 +204,22 @@
       fmtDateTime, fmtBytes, statusInfo, smoothSeries, TrainingChart, RateTracker,
       CHART_COLORS, runColor, flattenDict,
     } = window.TrainingUI;
+
+    // ---------- 顶部控制面状态（与工作台一致：/health 探测） ----------
+    (async () => {
+      const dot = document.getElementById('backendState');
+      if (!dot) return;
+      try {
+        const base = window.TrainingUI && window.TrainingUI.API_BASE ? window.TrainingUI.API_BASE : '';
+        const response = await fetch(`${base}/health`);
+        if (!response.ok) throw new Error(String(response.status));
+        dot.className = 'status-dot ok';
+        dot.innerHTML = '<i></i>Control plane online';
+      } catch (error) {
+        dot.className = 'status-dot error';
+        dot.innerHTML = '<i></i>Control plane offline';
+      }
+    })();
 
     const urlParams = new URLSearchParams(window.location.search);
     const taskId = urlParams.get('task_id');
@@ -295,7 +330,7 @@
       $('runIdTitle').title = `task_id: ${status.task_id || taskId}`;
       const pill = $('statusPill');
       pill.textContent = info.label;
-      pill.className = `status-pill ${info.cls}`;
+      pill.className = `badge ${info.cls}`;
       pill.title = String(status.status || '');
       $('metaRobot').textContent = status.robot || '-';
       $('metaAlgo').textContent = status.algorithm || '-';
@@ -723,7 +758,7 @@
 
         const exportRows = exports.map((file, i) => `
           <div class="ckpt-item">
-            <span class="ckpt-iter" style="border-color: rgba(96, 165, 250, 0.3); background: rgba(96, 165, 250, 0.08); color: #60a5fa;">ONNX</span>
+            <span class="ckpt-iter onnx" title="ONNX 导出">ONNX</span>
             <div class="ckpt-info">
               <strong title="${escapeHtml(file.path)}">${escapeHtml(file.name)}</strong>
               <small>${fmtBytes(file.size_bytes)} · ${fmtRelativeTime(file.modified_at)}</small>
@@ -733,7 +768,7 @@
         `).join('');
 
         const eventNote = eventFiles.length
-          ? `<div class="ckpt-item" style="grid-template-columns: auto minmax(0,1fr);"><span class="ckpt-iter" style="border-color: rgba(148,163,184,0.3); background: rgba(148,163,184,0.08); color: #94a3b8;">TB</span><div class="ckpt-info"><strong title="${escapeHtml(eventFiles.map((f) => f.name).join(' / '))}">TensorBoard 事件文件 × ${eventFiles.length}</strong><small>native MJLab 的标量日志写入事件文件</small></div></div>`
+          ? `<div class="ckpt-item" style="grid-template-columns: auto minmax(0,1fr);"><span class="ckpt-iter tb">TB</span><div class="ckpt-info"><strong title="${escapeHtml(eventFiles.map((f) => f.name).join(' / '))}">TensorBoard 事件文件 × ${eventFiles.length}</strong><small>native MJLab 的标量日志写入事件文件</small></div></div>`
           : '';
 
         listEl.innerHTML = rows + exportRows + eventNote
