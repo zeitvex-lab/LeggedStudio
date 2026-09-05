@@ -9,6 +9,9 @@
   <style>
     body.embedded .topbar, body.embedded .app-shell > .topbar { display: none; }
     body.embedded .list-container, body.embedded .content { padding-top: 14px; }
+    body.embedded .content { width: min(100% - 28px, 1380px); padding-top: 12px; }
+    body.embedded .config-layout { grid-template-columns: minmax(0, 1fr); }
+    body.embedded .canvas-wrap { padding: 4px 0; }
   
     /* 页面局部样式：仅布局与原生 workbench.css 未覆盖的细节。
        颜色一律来自 workbench.css 的设计变量（--cyan/--line/--surface-*/…）。 */
@@ -601,78 +604,74 @@
     .ovr-details > summary { cursor: pointer; }
 
 
-    /* ========== 可视化配置画布 ========== */
-    .canvas-wrap { padding: 6px 2px 20px; }
-    .canvas-grid {
+    /* ========== 训练工作流画布 ========== */
+    .canvas-wrap { padding: 10px 2px 26px; overflow-x: auto; }
+    .flow-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 14px;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 22px 34px;
+      position: relative;
+      padding: 8px 4px 4px;
     }
-    .mod-card {
+    .flow-node {
       position: relative;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      padding: 14px 16px;
-      border: 1px solid var(--line-soft);
-      border-radius: 10px;
+      padding: 13px 15px;
+      border: 1.5px solid var(--line-soft);
+      border-radius: 11px;
       background: var(--surface);
       cursor: pointer;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
       text-align: left;
       font: inherit;
       color: inherit;
-      min-height: 148px;
+      min-height: 132px;
     }
-    .mod-card:hover {
+    .flow-node::after {
+      content: '▶';
+      position: absolute;
+      right: -32px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--faint, #8b98a5);
+      font-size: 12px;
+    }
+    .flow-node.no-arrow::after { content: none; }
+    .flow-node:hover {
       border-color: var(--cyan);
-      box-shadow: 0 6px 22px rgba(37, 136, 223, 0.13);
-      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(37, 136, 223, 0.15);
     }
-    .mod-card .card-head {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-    }
-    .mod-card .card-icon {
+    .flow-node.has-edits { border-color: rgba(216, 137, 34, 0.55); }
+    .flow-node .node-head { display: flex; align-items: center; gap: 9px; }
+    .flow-node .node-step {
       display: grid;
       place-items: center;
-      width: 34px;
-      height: 34px;
-      border-radius: 9px;
-      font-size: 17px;
-      background: var(--cyan-dim, rgba(37, 136, 223, 0.1));
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: rgba(37, 136, 223, 0.12);
+      color: var(--cyan, #2588df);
+      font: 700 11px Consolas, monospace;
+      flex-shrink: 0;
     }
-    .mod-card .card-head h3 { margin: 0; font-size: 14px; }
-    .mod-card .card-head small { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
-    .mod-card .card-stats {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px 6px;
-    }
-    .mod-card .stat {
-      padding: 3px 8px;
-      border-radius: 5px;
-      background: var(--surface-soft, #f0f4f8);
-      font: 11px Consolas, monospace;
-      color: var(--text);
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .mod-card .stat.off { color: var(--faint); text-decoration: line-through; }
-    .mod-card .stat.more { color: var(--blue, #2588df); background: transparent; }
-    .mod-card .card-foot {
+    .flow-node .node-head h3 { margin: 0; font-size: 13.5px; }
+    .flow-node .node-head small { display: block; color: var(--muted); font-size: 10px; margin-top: 1px; }
+    .flow-node .node-body { display: flex; flex-direction: column; gap: 4px; }
+    .flow-node .nline { display: flex; justify-content: space-between; gap: 8px; font: 11px Consolas, monospace; }
+    .flow-node .nline .k { color: var(--muted); }
+    .flow-node .nline .v { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62%; }
+    .flow-node .node-foot {
       margin-top: auto;
       display: flex;
       justify-content: space-between;
       align-items: center;
       color: var(--muted);
       font-size: 10px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--line-soft);
     }
-    .mod-card .card-foot .edited { color: var(--amber, #d88922); font-weight: 600; }
-    .mod-card.has-edits { border-color: rgba(216, 137, 34, 0.5); }
+    .flow-node .node-foot .edited { color: var(--amber, #d88922); font-weight: 600; }
 
     /* 抽屉 */
     .drawer-mask {
@@ -687,9 +686,7 @@
     .drawer-mask.open { opacity: 1; pointer-events: auto; }
     .drawer {
       position: fixed;
-      top: 0;
-      right: 0;
-      bottom: 0;
+      top: 0; right: 0; bottom: 0;
       z-index: 41;
       width: min(560px, 94vw);
       background: var(--surface, #fff);
@@ -854,7 +851,7 @@
         <!-- ========== 左侧五分类导航 ========== -->
         <!-- ========== 可视化配置画布 ========== -->
         <div class="canvas-wrap" id="configCanvas">
-          <div class="canvas-grid" id="canvasGrid"><!-- cards rendered by JS --></div>
+          <div class="flow-grid" id="canvasGrid"><!-- cards rendered by JS --></div>
         </div>
 
         <!-- 抽屉遮罩与抽屉（复用既有五分类面板作为抽屉内容） -->
@@ -1954,13 +1951,15 @@
 
 
     // ---------- 可视化配置画布 ----------
+    // 训练流水线节点（4 列 × 2 行）：机器人 → 仿真器 → 环境 → 观测动作
+    //                                   算法 → 奖励 → 鲁棒性 → 产物
     const MODULE_DEFS = [
-      { id: 'robot',     icon: '🤖', name: '机器人',     sub: 'Robot',       panel: null },
-      { id: 'simulator', icon: '⚙️', name: '仿真器与运行时', sub: 'Simulator',   panel: 'panel-simulator' },
-      { id: 'environment', icon: '🌍', name: '环境与地形', sub: 'Environment', panel: 'panel-environment' },
-      { id: 'embodiment', icon: '👁️', name: '机器人与观测', sub: 'Observations', panel: 'panel-embodiment' },
-      { id: 'learning',  icon: '🧠', name: '算法与超参数', sub: 'Algorithm',   panel: 'panel-learning' },
-      { id: 'robustness', icon: '🛡️', name: '奖励与鲁棒性', sub: 'Rewards',     panel: 'panel-robustness' },
+      { id: 'robot',      step: 'A1', name: '机器人',     sub: 'Robot',       panel: null },
+      { id: 'simulator',  step: 'A2', name: '仿真器',     sub: 'Simulator',   panel: 'panel-simulator' },
+      { id: 'environment', step: 'A3', name: '环境与地形', sub: 'Environment', panel: 'panel-environment' },
+      { id: 'embodiment', step: 'A4', name: '观测 / 动作', sub: 'Obs / Action', panel: 'panel-embodiment' },
+      { id: 'learning',   step: 'B1', name: '算法与超参数', sub: 'PPO',        panel: 'panel-learning' },
+      { id: 'robustness', step: 'B2', name: '奖励与鲁棒性', sub: 'Rewards',    panel: 'panel-robustness' },
     ];
 
     const FORM_FALLBACKS = {
@@ -2059,23 +2058,81 @@
       return [`${preset.dof ?? '-'} 自由度`, `${Number(preset.mass_kg || 0).toFixed(1)} kg`];
     }
 
+    function moduleLines(moduleId) {
+      const g = (path) => schemaGet(path);
+      const f = (v, digits = 3) => (Number.isFinite(Number(v)) ? Number(Number(v).toFixed(digits)) : (v ?? '—'));
+      if (moduleId === 'robot') {
+        const preset = state.preset || {};
+        return [
+          { k: '自由度', v: preset.dof ?? '—' },
+          { k: '质量', v: `${Number(preset.mass_kg || 0).toFixed(1)} kg` },
+          { k: '形态', v: preset.locomotion_type || preset.size_class || '—' },
+        ];
+      }
+      if (moduleId === 'simulator') {
+        return [
+          { k: '并行环境', v: g('environment.scene.num_envs') ?? intValue('numEnvs') ?? '—' },
+          { k: '物理步长', v: g('environment.sim.mujoco.timestep') ?? '—' },
+          { k: '求解器', v: g('environment.sim.mujoco.solver') ?? '—' },
+        ];
+      }
+      if (moduleId === 'environment') {
+        return [
+          { k: '回合长度', v: `${f(g('environment.episode_length_s'), 1)} s` },
+          { k: '前进速度', v: fmtStat(g('environment.commands.twist.ranges.lin_vel_x')) },
+          { k: '地形', v: g('environment.scene.terrain.terrain_type') ?? '—' },
+        ];
+      }
+      if (moduleId === 'embodiment') {
+        const actions = g('environment.actions') || {};
+        const names = Object.keys(actions);
+        if (!names.length) return [{ k: '动作项', v: '—' }];
+        return names.slice(0, 3).map((name) => ({
+          k: `动作.${name.replace(/_joint_pos|_joint_vel/, '')}`,
+          v: fmtStat(actions[name]?.scale) + (actions[name]?.cut_off_frequency ? ` · ${actions[name].cut_off_frequency}Hz` : ''),
+        }));
+      }
+      if (moduleId === 'learning') {
+        return [
+          { k: '学习率', v: g('runner.algorithm.learning_rate') ?? valueOf('learningRate') ?? '—' },
+          { k: 'γ / λ', v: `${f(g('runner.algorithm.gamma'), 2)} / ${f(g('runner.algorithm.lam'), 2)}` },
+          { k: '迭代', v: g('runner.max_iterations') ?? intValue('maxIterations') ?? '—' },
+        ];
+      }
+      if (moduleId === 'robustness') {
+        const rewards = g('environment.rewards') || {};
+        const names = Object.keys(rewards);
+        const active = names.filter((n) => {
+          const w = rewards[n]?.weight;
+          return typeof w === 'number' && w !== 0;
+        });
+        const lines = [{ k: '奖励项', v: `${active.length} / ${names.length} 启用` }];
+        const events = g('environment.events') || {};
+        const push = Object.keys(events).find((n) => /push/i.test(n));
+        if (push) lines.push({ k: '推力扰动', v: fmtStat((events[push]?.params || {}).velocity_range?.x) });
+        return lines;
+      }
+      return [{ k: '—', v: '—' }];
+    }
+
     function renderCanvas() {
       const grid = $('canvasGrid');
       if (!grid) return;
-      grid.innerHTML = MODULE_DEFS.map((mod) => {
-        const { stats, more, edited } = cardStats(mod.id);
+      grid.innerHTML = MODULE_DEFS.map((mod, index) => {
+        const lines = moduleLines(mod.id);
+        const edited = countOverrides(mod.id);
+        const lastInRow = (index % 4) === 3 || index === MODULE_DEFS.length - 1;
         return `
-          <button type="button" class="mod-card ${edited ? 'has-edits' : ''}" data-module="${mod.id}" aria-label="打开${mod.name}配置">
-            <div class="card-head">
-              <span class="card-icon">${mod.icon}</span>
+          <button type="button" class="flow-node ${lastInRow ? 'no-arrow' : ''} ${edited ? 'has-edits' : ''}" data-module="${mod.id}" aria-label="打开${mod.name}配置">
+            <div class="node-head">
+              <span class="node-step">${mod.step}</span>
               <div><h3>${mod.name}</h3><small>${mod.sub}</small></div>
             </div>
-            <div class="card-stats">
-              ${stats.map((s) => `<span class="stat">${escapeHtml(String(s))}</span>`).join('')}
-              ${more > 0 ? `<span class="stat more">+${more} 项</span>` : ''}
+            <div class="node-body">
+              ${lines.map((line) => `<div class="nline"><span class="k">${escapeHtml(line.k)}</span><span class="v" title="${escapeHtml(String(line.v))}">${escapeHtml(String(line.v))}</span></div>`).join('')}
             </div>
-            <div class="card-foot">
-              <span>${edited ? `<span class="edited">已调整 ${edited} 项</span>` : '点击配置'}</span>
+            <div class="node-foot">
+              <span>${edited ? `<span class="edited">已调整 ${edited} 项</span>` : '点击查看 / 编辑'}</span>
               <span>›</span>
             </div>
           </button>
