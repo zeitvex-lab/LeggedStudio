@@ -1,0 +1,10 @@
+{
+ "profile_id": "microduck-ballkick-flat",
+ "package_root": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\assets\\robots\\microduck",
+ "source_root": "training/source",
+ "entrypoints": {
+  "env": "mjlab_microduck.tasks.microduck_ball_kick_env_cfg:make_microduck_ball_kick_env_cfg",
+  "runner": "mjlab_microduck.tasks:MicroduckBallKickRlCfg",
+  "runner_class": "mjlab_microduck.tasks:MicroduckOnPolicyRunner"
+ }
+}

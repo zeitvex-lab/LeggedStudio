@@ -1660,7 +1660,7 @@
         return;
       }
       if (state.schemaStatus !== 'ready' || !state.schema) {
-        container.innerHTML = `<div class="ovr-status">训练配方解析失败：${escapeHtml(state.schemaError || '未知错误')}</div>`;
+        container.innerHTML = `<div class="ovr-status">训练配方解析失败：${escapeHtml(state.schemaError || '未知错误')} <button type="button" class="button small" data-schema-retry>重试</button></div>`;
         return;
       }
       if (!(state.params || []).length) {
@@ -1735,7 +1735,7 @@
         return;
       }
       if (state.schemaStatus !== 'ready' || !state.schema) {
-        container.innerHTML = `<div class="ovr-status">配方全量配置加载失败：${escapeHtml(state.schemaError || '未知错误')}</div>`;
+        container.innerHTML = `<div class="ovr-status">配方全量配置加载失败：${escapeHtml(state.schemaError || '未知错误')} <button type="button" class="button small" data-schema-retry>重试</button></div>`;
         return;
       }
       const leaves = categoryLeaves(category);
@@ -2198,6 +2198,11 @@
       refreshConfigPreview();
     });
     $('device').addEventListener('change', (event) => { $('deviceMirror').value = event.target.value; updateAll(); });
+    document.addEventListener('click', (event) => {
+      if (event.target instanceof Element && event.target.matches('[data-schema-retry]')) {
+        loadProfileSchema();
+      }
+    });
     $('rewardOverrides').addEventListener('change', () => {
       renderRewardTerms((state.options && state.options.reward_terms) || {});
       updateAll();
