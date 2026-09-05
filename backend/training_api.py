@@ -437,15 +437,39 @@ def _schema_cache_path(profile_id: str) -> Path:
 
 
 def _schema_interpreter() -> Optional[Path]:
-    """Reuse the native adapter's worker interpreter candidates."""
+    """Pick an interpreter able to import the profile's source dependencies.
+
+    The schema dump imports the profile entrypoints, which depend on packages
+    installed in the adapter venv (mjlab, bam, ...). The desktop runtime
+    python (LEGGED_STUDIO_MJLAB_PYTHON) launches training workers but does
+    not carry those deps, so it is only a last-resort candidate.
+    """
     from adapters.mjlab.native_adapter import _venv_python
 
     candidates = []
+    candidates.append(_venv_python(_ROOT / "adapters" / "mjlab" / ".venv"))
     explicit = os.environ.get("LEGGED_STUDIO_MJLAB_PYTHON")
     if explicit:
         candidates.append(Path(explicit))
-    candidates.append(_venv_python(_ROOT / "adapters" / "mjlab" / ".venv"))
     candidates.append(Path(sys.executable))
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        # Cheap capability probe: the dump imports heavy deps lazily inside
+        # the worker, but the entrypoint import itself needs the framework.
+        try:
+            probe = subprocess.run(
+                [str(candidate), "-c", "import mjlab"],
+                capture_output=True,
+                timeout=30,
+            )
+            if probe.returncode == 0:
+                return candidate
+        except (OSError, subprocess.SubprocessError):
+            continue
+    # All probes failed (or mjlab missing everywhere): fall back to the first
+    # existing candidate so the 502 carries the real import error instead of
+    # a bare 501 "interpreter not found".
     for candidate in candidates:
         if candidate.exists():
             return candidate
