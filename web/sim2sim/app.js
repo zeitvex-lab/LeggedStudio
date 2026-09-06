@@ -1,3 +1,10 @@
+// 全局错误捕获（诊断用）
+window.__lastLoadError = null;
+const __origConsoleError = console.error.bind(console);
+console.error = (...args) => {
+  window.__lastLoadError = args.map((a) => (a && a.stack) ? a.stack : String(a)).join(' | ');
+  __origConsoleError(...args);
+};
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import loadMujoco from "./vendor/mujoco/mujoco.js";
@@ -55,6 +62,7 @@ const CONFIG = {
   gaitYawCommandRadius: 0.25,
   agilityCommandDims: 0,
   commandAxes: [],
+  commandRanges: null,
 };
 const DEMO_MODEL_URL = "./models/go2_moe_cts_high_slope_164k.onnx";
 const ASSET_FETCH_CONCURRENCY = 4;
@@ -190,8 +198,6 @@ const elements = {
   velYaw: document.querySelector("#velYaw"),
   baseHeight: document.querySelector("#baseHeight"),
   contacts: document.querySelector("#contacts"),
-  vxSpeedLimit: document.querySelector("#vxSpeedLimit"),
-  speedLabel: document.querySelector("#speedLabel"),
   gaitControl: document.querySelector("#gaitControl"),
   gaitToggle: document.querySelector("#gaitToggle"),
   gaitToggleState: document.querySelector("#gaitToggleState"),
@@ -226,6 +232,23 @@ const elements = {
   wireToggle: document.querySelector("#wireToggle"),
   simClock: document.querySelector("#simClock"),
   perfStats: document.querySelector("#perfStats"),
+  fitViewButton: document.querySelector("#fitViewButton"),
+  trailToggle: document.querySelector("#trailToggle"),
+  velocityCommandControl: document.querySelector("#velocityCommandControl"),
+  velCmdVx: document.querySelector("#velCmdVx"),
+  velCmdVy: document.querySelector("#velCmdVy"),
+  velCmdYaw: document.querySelector("#velCmdYaw"),
+  velCmdEnable: document.querySelector("#velCmdEnable"),
+  velCmdVxMax: document.querySelector("#velCmdVxMax"),
+  velCmdVyMax: document.querySelector("#velCmdVyMax"),
+  velCmdYawMax: document.querySelector("#velCmdYawMax"),
+  velCmdVxMaxVal: document.querySelector("#velCmdVxMaxVal"),
+  velCmdVyMaxVal: document.querySelector("#velCmdVyMaxVal"),
+  velCmdYawMaxVal: document.querySelector("#velCmdYawMaxVal"),
+  velCmdVxVal: document.querySelector("#velCmdVxVal"),
+  velCmdVyVal: document.querySelector("#velCmdVyVal"),
+  velCmdYawVal: document.querySelector("#velCmdYawVal"),
+  velCmdZero: document.querySelector("#velCmdZero"),
   keys: {
     KeyW: document.querySelector("#keyW"),
     KeyS: document.querySelector("#keyS"),
@@ -299,6 +322,7 @@ const sim = {
   jumpStartedAt: 0,
   jumpActive: false,
   jumpStartPending: false,
+  g1PhaseS: 0,
 };
 
 const view = {
@@ -315,10 +339,15 @@ const view = {
   simSteps: 0,
   fps: 0,
   simRate: 0,
+  frameErrorCount: 0,
+  trail: null,
+  dragArrow: null,
 };
 
 const input = {
   keys: new Set(),
+  // 「运动指令」滑条（vxSpeedLimit）已从面板移除；键盘 WASD/摇杆的前进速度
+  // 固定 1.0 m/s（与原滑条默认值一致），速度指令滑条不受影响。
   vxSpeedLimit: 1,
   gaitEnabled: PAGE_PARAMS.get("gait") !== "0",
   payloadMassKg: 0,
@@ -339,6 +368,11 @@ const input = {
   joystickPointer: null,
   joystickForward: 0,
   joystickTurn: 0,
+  // 速度指令滑条直连策略（item 10）：用户触碰滑条后接管 idle 指令。
+  manualCmd: new Float32Array(3),
+  manualCmdActive: false,
+  // 鼠标拖拽施力（item 9）：move 只记 NDC，力在物理步内写入 xfrc_applied。
+  drag: null,
 };
 const debugStateNode = DEBUG_ENABLED ? document.createElement("script") : null;
 if (debugStateNode) {
@@ -363,6 +397,7 @@ async function init() {
     initExpertBars();
     initThree();
     bindUi();
+    applyViewerStateFromUrl();
     await loadRobotOptions();
     setStatus(elements.engineStatus, "MuJoCo 初始化中", "pending");
     setStatus(elements.policyStatus, "ONNX 策略初始化中", "pending");
@@ -420,7 +455,8 @@ async function init() {
         sim.policyInfo = null;
         sim.policyEnabled = false;
         sim.paused = VIEWER_ONLY;
-        setStatus(elements.policyStatus, `策略不可用: ${error?.message || error}`, "error");
+        const described = describeLoadError(error);
+        setStatus(elements.policyStatus, `策略不可用: ${described?.message || error}`, "error");
       }
     } else {
       await loadPolicyFromConfig(sim.platformConfig, true);
@@ -433,9 +469,10 @@ async function init() {
     requestAnimationFrame(frame);
   } catch (error) {
     console.error(error);
+    const described = describeLoadError(error);
     setStatus(elements.engineStatus, "MuJoCo 错误", "error");
     setStatus(elements.policyStatus, "策略错误", "error");
-    showLoadingError(error?.message || String(error));
+    showLoadingError(described?.message || String(described || error));
     await checkLatestPolicyUpdate({ quiet: true });
   }
 }
@@ -646,7 +683,11 @@ async function loadPolicyFromConfig(config, initial = false) {
   sim.policyLoading = true;
   let session;
   try {
-    session = await ort.InferenceSession.create(cacheBustedUrl(url, revision), {
+    // 手动 fetch(cache:"no-store") 拿字节再交给 ort：彻底绕开 HTTP 缓存里
+    // 残留的旧版（带外部数据引用）ONNX 字节——go2w 曾因此报
+    // 'Failed to load external data file "policy.onnx.data"'。
+    const modelBytes = await fetchPolicyModelBytes(cacheBustedUrl(url, `${revision}-t${Date.now()}`));
+    session = await ort.InferenceSession.create(modelBytes, {
       executionProviders: ["wasm"],
       graphOptimizationLevel: "basic",
     });
@@ -745,7 +786,8 @@ async function switchPolicy(policyId) {
     sim.platformConfig = previousConfig;
     sim.policy = previousPolicy;
     applyPlatformLabels(previousConfig);
-    setStatus(elements.policyStatus, `策略切换失败: ${error?.message || error}`, "error");
+    const described = describeLoadError(error);
+    setStatus(elements.policyStatus, `策略切换失败: ${described?.message || error}`, "error");
   } finally {
     if (select) select.disabled = false;
   }
@@ -984,6 +1026,35 @@ function cacheBustedUrl(url, revision) {
   return absolute.toString();
 }
 
+/**
+ * 策略 ONNX 一律手动 fetch(cache:"no-store") 后以 Uint8Array 交给
+ * ort.InferenceSession.create——URL 直传会命中浏览器缓存的旧字节（曾导致
+ * go2w 报外部数据文件缺失）。前后打日志确认实际收到的字节数与耗时，并在
+ * 字节里检测到外部数据引用时给出明确告警。
+ */
+async function fetchPolicyModelBytes(url) {
+  const started = performance.now();
+  const response = await fetch(url, { cache: "no-store", credentials: "include" });
+  if (!response.ok) {
+    throw new Error(`策略 ONNX 下载失败 ${response.status} ${response.statusText}（cache no-store）: ${url}`);
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  console.log(
+    `[sim2sim] policy fetch ${bytes.length} bytes in ${(performance.now() - started).toFixed(0)}ms (no-store) ${url}`,
+  );
+  if (!bytes.length) throw new Error("策略 ONNX 为空文件（0 字节）");
+  // ONNX 是 protobuf：外部数据引用以 ASCII 文件名（如 policy.onnx.data）内嵌
+  // 在字节流中，其后通常紧跟字段定界控制字节。据此给出旧字节/未内联告警。
+  const head = new TextDecoder("latin1").decode(bytes.subarray(0, Math.min(bytes.length, 1 << 18)));
+  const externalRef = /[\w./\\-]{2,120}\.data[\x00-\x1f]/.exec(head);
+  if (externalRef) {
+    console.warn(
+      `[sim2sim] 收到的 ONNX 字节仍引用外部数据文件 ${externalRef[0].trim()} ——服务端文件未内联或缓存未刷新`,
+    );
+  }
+  return bytes;
+}
+
 function applyPlatformLabels(config) {
   const robot = config?.robot || {};
   const policy = config?.policy || {};
@@ -1095,13 +1166,22 @@ function updateNavigationLinks(config) {
 
 function applyRuntimeConfig(config) {
   const robot = config?.robot || {};
-  const order = Array.isArray(robot.joint_order) ? robot.joint_order : [];
+  let order = Array.isArray(robot.joint_order) ? robot.joint_order : [];
   const contract = config?.policy?.contract || {};
   const requestedActionDim = Number(contract.action_dim || order.length || CONFIG.numActions);
   if (Number.isInteger(requestedActionDim) && requestedActionDim > 0 && requestedActionDim <= 64) {
     resizeActionBuffers(requestedActionDim);
   }
+  // 腿子集策略（如 go2w legs-only）：动作槽顺序来自 contract.action_joint_order
+  // （SDK 序的 12 条腿），覆盖默认的模型前 N 关节序——执行器/默认角/限幅/增益
+  // 的逐槽查找由此全部对准动作槽；轮子执行器不在其中，保持 ctrl=0 被动阻尼。
+  if (Array.isArray(contract.action_joint_order) && contract.action_joint_order.length >= requestedActionDim) {
+    order = contract.action_joint_order.slice(0, requestedActionDim);
+  }
   CONFIG.jointOrder = order.slice(0, CONFIG.numActions);
+  CONFIG.actionJointOrder = (Array.isArray(contract.action_joint_order) && contract.action_joint_order.length)
+    ? contract.action_joint_order.slice(0)
+    : null;
   const defaults = Object.keys(contract.default_joint_angles || {}).length
     ? contract.default_joint_angles
     : (robot.default_joint_angles || {});
@@ -1109,6 +1189,7 @@ function applyRuntimeConfig(config) {
   // real URDF casing, so look up each order entry case-insensitively.
   const loweredDefaults = {};
   for (const [k, v] of Object.entries(defaults)) loweredDefaults[String(k).toLowerCase()] = v;
+  CONFIG.defaultJointAnglesByName = loweredDefaults; // go2w_53 构造器按名查 default
   if (order.length >= CONFIG.numActions) {
     for (let i = 0; i < CONFIG.numActions; i += 1) {
       const key = String(order[i]).toLowerCase();
@@ -1235,6 +1316,8 @@ function applyPolicyContract(contract, order = []) {
   const requestedCommandDims = Math.max(3, Math.round(finiteNumber(contract?.command_dims, commandDimsFromContract(contract))));
   resizeCommandBuffers(requestedCommandDims);
   CONFIG.commandDims = requestedCommandDims;
+  // 速度指令滑条（vx/vy/ωz）的范围与默认值来自策略契约。
+  CONFIG.commandRanges = normalizeCommandRanges(contract?.command_ranges);
   CONFIG.agilityCommandDims = CONFIG.observationKind === "quadrupedal_agility_ll" ? 9 : 0;
   CONFIG.defaultCommand.fill(0);
   if (hasHeightCommand()) CONFIG.defaultCommand[heightCommandIndex()] = 0.68;
@@ -1243,6 +1326,7 @@ function applyPolicyContract(contract, order = []) {
       CONFIG.defaultCommand[i] = finiteNumber(contract.default_command[i], 0);
     }
   }
+  applyVelocityCommandDefaults();
   CONFIG.autoplay = Boolean(contract?.autoplay);
   CONFIG.angVelScale = finiteNumber(scales.ang_vel, CONFIG.angVelScale);
   CONFIG.dofPosScale = finiteNumber(scales.dof_pos, CONFIG.dofPosScale);
@@ -1265,6 +1349,7 @@ function applyPolicyContract(contract, order = []) {
   }
   updateCommandLabel();
   updateGaitControl();
+  updateVelocityCommandControls();
 }
 
 function resizeCommandBuffers(commandDim) {
@@ -1758,6 +1843,8 @@ function normalizeRobotParam(value) {
     .replace(/^_+|_+$/g, "");
   if (!key) return "";
   if (key.includes("fsdog")) return "fsdog1";
+  // go2w 必须先于 go2 判断（unitree_go2w 包含 unitree_go2 子串）
+  if (key === "go2w" || key.includes("go2w")) return "go2w";
   if (key === "go2" || key.includes("unitree_go2")) return "go2";
   return key;
 }
@@ -1906,6 +1993,11 @@ function initThree() {
   view.renderer.outputColorSpace = THREE.SRGBColorSpace;
   elements.viewer.append(view.renderer.domElement);
 
+  // 拖拽施力必须在 OrbitControls 之前注册：target 阶段监听按注册顺序执行，
+  // 先注册才能用 stopImmediatePropagation 挡住 OrbitControls 的旋转起点。
+  initDragInteraction();
+  ensureDragArrow();
+
   view.controls = new OrbitControls(view.camera, view.renderer.domElement);
   view.controls.target.set(0, 0, 0.35);
   view.controls.enableDamping = true;
@@ -1946,6 +2038,20 @@ function bindUi() {
     await switchPolicy(elements.policySelect.value);
   });
   window.addEventListener("keydown", (event) => {
+    // 全局快捷键（C = 隐/显控制面板，R = 重置）。输入控件聚焦时不触发，
+    // 但按钮/链接聚焦时仍可用（与移动键不同，不会与控件默认行为冲突）。
+    if (!isEditableElement(event.target) && !event.repeat) {
+      if (event.code === "KeyC") {
+        event.preventDefault();
+        toggleControlPanel();
+        return;
+      }
+      if (event.code === "KeyR") {
+        event.preventDefault();
+        resetSimulation();
+        return;
+      }
+    }
     if (
       event.target instanceof HTMLInputElement
       || event.target instanceof HTMLSelectElement
@@ -2027,12 +2133,8 @@ function bindUi() {
     } else if (payload.type === "legged-studio:reset-pose") {
       resetSimulation();
     } else if (payload.type === "legged-studio:fit-view") {
-      fitViewerCamera();
+      frameCameraToModel();
     }
-  });
-  elements.vxSpeedLimit.addEventListener("input", () => {
-    input.vxSpeedLimit = clamp(Number(elements.vxSpeedLimit.value) || 1, 0.2, CONFIG.maxCmd[0]);
-    updateCommandLabel();
   });
   elements.gaitToggle?.addEventListener("change", () => {
     setWheelLegGaitEnabled(elements.gaitToggle.checked);
@@ -2068,6 +2170,14 @@ function bindUi() {
   });
   elements.collisionToggle.addEventListener("change", updateRenderFlags);
   elements.wireToggle.addEventListener("change", updateRenderFlags);
+  elements.fitViewButton?.addEventListener("click", () => {
+    frameCameraToModel();
+  });
+  elements.trailToggle?.addEventListener("change", () => {
+    updateTrail();
+    syncViewerStateToUrl();
+  });
+  bindVelocityCommandControls();
 }
 
 function fitViewerCamera() {
@@ -2081,6 +2191,60 @@ function fitViewerCamera() {
   view.camera.position.set(1.35 * scale, -1.55 * scale, Math.max(height + 0.28 * scale, height + 0.12));
   view.camera.lookAt(view.controls.target);
   view.controls.update();
+}
+
+// 自适应取景（借鉴 mjswan 的 lookat/distance 语义）：按模型包围盒计算
+// fitDistance 并居中，保持当前视线方向，只调整距离。
+function frameCameraToModel() {
+  if (!view.camera || !view.controls) return;
+  const box = modelBoundingBox();
+  if (!box) {
+    fitViewerCamera();
+    return;
+  }
+  const center = box.getCenter(new THREE.Vector3());
+  const sphere = box.getBoundingSphere(new THREE.Sphere());
+  const radius = Math.max(sphere.radius, 0.15);
+  const fov = THREE.MathUtils.degToRad(view.camera.fov || 48);
+  const verticalFit = radius / Math.max(Math.sin(fov / 2), 1e-3);
+  const horizontalFit = verticalFit / Math.max(view.camera.aspect, 0.2);
+  const distance = Math.max(verticalFit, horizontalFit) * 1.12;
+  const direction = view.camera.position.clone().sub(view.controls.target);
+  if (direction.lengthSq() < 1e-6) direction.set(1.35, -1.55, 0.6);
+  direction.normalize();
+  view.controls.minDistance = Math.max(0.08, radius * 0.25);
+  view.controls.maxDistance = Math.max(8, distance * 6);
+  view.controls.target.copy(center);
+  view.camera.position.copy(center).add(direction.multiplyScalar(distance));
+  view.followTarget.copy(center);
+  view.camera.lookAt(center);
+  view.controls.update();
+}
+
+/** 机器人（非 world body）geom 的世界包围盒；没有动态 geom 时返回 null。 */
+function modelBoundingBox() {
+  if (!view.geoms.length) return null;
+  const box = new THREE.Box3();
+  const tmp = new THREE.Box3();
+  let included = 0;
+  // 排除 world body 上的 90m 地面/地形，避免整片地面把相机拉得过远；
+  // 同时跳过当前被「视觉模型/碰撞体」开关隐藏的 geom，取景与显示一致。
+  for (const renderable of view.geoms) {
+    const mesh = renderable?.mesh;
+    if (!mesh || !mesh.visible) continue;
+    const geomId = mesh.userData.geomId;
+    const bodyId = geomId != null ? Number(sim.model?.geom_bodyid?.[geomId] ?? 0) : 0;
+    if (bodyId <= 0) continue;
+    const geometry = mesh.geometry;
+    if (!geometry) continue;
+    if (!geometry.boundingBox) geometry.computeBoundingBox();
+    if (!geometry.boundingBox) continue;
+    tmp.copy(geometry.boundingBox).applyMatrix4(mesh.matrix);
+    box.union(tmp);
+    included += 1;
+  }
+  if (!included || box.isEmpty()) return null;
+  return box;
 }
 
 function applyImuAxisToggle(toggle) {
@@ -2373,7 +2537,7 @@ async function loadTerrain(xmlName) {
     initializePayloadMass();
 
     resetSimulation();
-    fitViewerCamera();
+    frameCameraToModel();
     sim.paused = VIEWER_ONLY;
     elements.playButton.textContent = sim.paused ? "继续" : "暂停";
     sim.ready = true;
@@ -2384,8 +2548,9 @@ async function loadTerrain(xmlName) {
     try { nextData?.delete?.(); } catch (_) { /* no-op */ }
     try { nextModel?.delete?.(); } catch (_) { /* no-op */ }
     console.error(error);
+    const described = describeLoadError(error);
     setStatus(elements.engineStatus, "MuJoCo 错误", "error");
-    showLoadingError(error?.message || String(error));
+    showLoadingError(described?.message || String(described || error));
     if (sim.model && sim.data) {
       sim.ready = true;
       elements.terrainSelect.value = sim.currentTerrain;
@@ -2466,6 +2631,32 @@ function loadMjModel(path) {
     return sim.mujoco.MjModel.mj_loadXML(path);
   }
   throw new Error("当前 MuJoCo 组件不支持加载 XML 场景");
+}
+
+// ---------------------------------------------------------------------------
+// .mjz 打包格式脚手架（item 14，借鉴 mjswan utils/mjzLoader 的思路）
+// ---------------------------------------------------------------------------
+// 约定：.mjz = ZIP 包，根目录含一个主 MJCF XML（唯一 *.xml 或 model.xml），
+// 其余为 XML 引用的 assets（mesh/texture/hfield 等），保持包内相对路径。
+//
+// JSZip 引入方案（TODO）：
+//   1. 下载 jszip.min.js 放入 web/sim2sim/vendor/jszip/（与 three/mujoco 同级，
+//      本地 vendored，避免 CDN 运行时依赖）；
+//   2. 因 importmap 只映射了 three，JSZip 用动态 import 加载：
+//        const JSZip = (await import("./vendor/jszip/jszip.min.js")).default;
+//   3. 失败时抛出可读错误提示部署方放置依赖，而不是静默降级。
+//
+// TODO(实现清单)：
+//   a) zip.loadAsync(arrayBuffer) 遍历 entries；
+//   b) 根目录 *.xml（TextDecoder 解码）写入 MEMFS /working/mjz/<name>；
+//   c) 其余条目按包内相对路径写入 /working/mjz/（保持 meshdir 相对引用成立），
+//      注意目录条目（以 / 结尾）要跳过；
+//   d) 返回主 XML 的 MEMFS 路径，调用方交给 loadMjModel(path)。
+async function loadMjzPackage(arrayBuffer, { entry = "" } = {}) {
+  void entry;
+  throw new Error(
+    ".mjz 打包加载尚未实现：请按 app.js 中 loadMjzPackage 的注释放置 vendor/jszip 并完成解包流程。",
+  );
 }
 
 function resolveJointAddresses() {
@@ -2572,6 +2763,9 @@ function resetSimulation() {
   sim.jumpStartedAt = 0;
   sim.jumpActive = false;
   sim.jumpStartPending = false;
+  sim.g1PhaseS = 0;
+  cancelDragInteraction();
+  resetTrail();
   sim.weights.fill(0);
   sim.estimatedVel.fill(0);
   sim.latent.fill(0);
@@ -2675,20 +2869,47 @@ async function frame(now) {
         steps += 1;
       }
       if (steps === CONFIG.maxStepsPerFrame) sim.accumulator = 0;
+      // 本帧物理成功则清除连续错误计数，恢复正常状态显示。
+      if (view.frameErrorCount) {
+        view.frameErrorCount = 0;
+        setStatus(elements.engineStatus, "MuJoCo 已就绪", "ready");
+      }
     } catch (error) {
-      console.error(error);
-      sim.paused = true;
-      elements.playButton.textContent = "继续";
-      setStatus(elements.engineStatus, "MuJoCo 已暂停", "error");
-      showLoadingError(error?.message || String(error));
+      // 借鉴 mjswan runtime.ts 的容错语义：单步异常只记录并显示状态，
+      // 下一帧继续尝试（清空 accumulator 防止错误后爆发性补步），
+      // 而不是永久置错误态卡死循环。
+      view.frameErrorCount = (view.frameErrorCount || 0) + 1;
+      sim.accumulator = 0;
+      console.error(`[sim2sim] frame error #${view.frameErrorCount}`, error);
+      setStatus(
+        elements.engineStatus,
+        `仿真异常 · 自动重试中（${view.frameErrorCount}）`,
+        "error",
+      );
     }
   }
 
+  // 暂停（sim.paused）只停 stepSimulation；syncVisualScene + renderer.render
+  // 照常执行，冻结帧仍可旋转视角/缩放（对齐 mjswan 的 pause 语义）。
   if (sim.ready) {
     syncVisualScene();
     updateFollowCamera();
+    updateDragArrow();
+    updateTrail();
     updateHud(false);
   }
+  // 诊断探针：骨盆高度 / 是否在跑
+  try {
+    window.__probe = {
+      z: sim.qpos ? sim.qpos[2] : null,
+      playing: sim.ready && !sim.paused,
+      act0: sim.action ? Number(sim.action[0]) : null,
+      obsNonZero: sim.obs ? Array.from(sim.obs).some((v) => Math.abs(v) > 1e-6) : null,
+      obsHead: sim.obs ? Array.from(sim.obs.slice(0, 8)).map((v) => Number(v.toFixed(3))) : null,
+      tpos0: sim.targetDofPos ? Number(sim.targetDofPos[0].toFixed(3)) : null,
+      actIds: sim.actuatorIds ? Array.from(sim.actuatorIds.slice(0, 4)) : null,
+    };
+  } catch (_) {}
 
   view.controls.update();
   view.renderer.render(view.scene, view.camera);
@@ -2745,6 +2966,7 @@ async function stepSimulation() {
     sim.ctrl[actuatorId] = torque;
   }
 
+  applyDragForce();
   sim.mujoco.mj_step(sim.model, sim.data);
   if (!stateIsFinite()) {
     resetSimulation();
@@ -2754,6 +2976,25 @@ async function stepSimulation() {
   recordImuSample();
   sim.counter += 1;
   view.simSteps += 1;
+}
+
+// ---------------------------------------------------------------------------
+// ONNX 推理串行队列（item 11，借鉴 mjswan runQueue.ts）
+// ---------------------------------------------------------------------------
+
+// ORT-Web 的 wasm 绑定持有模块级 active-run 槽位：并发 run() 会抛
+// "Session already started" / "Session mismatch"。全部 session.run 走这条
+// promise 链即可串行化——wasm 后端本来就是单线程，没有吞吐损失。
+let ortRunTail = Promise.resolve();
+
+/**
+ * 等前一次推理落定后再执行 `inference`。
+ * 成功/失败两条路径都推进队列：失败的 run 同样会释放 ORT 的槽位。
+ */
+function queueOrtRun(inference) {
+  const result = ortRunTail.then(inference, inference);
+  ortRunTail = result.catch(() => undefined);
+  return result;
 }
 
 function stateIsFinite() {
@@ -2797,7 +3038,7 @@ async function runPolicy() {
     const data = sim.recurrentState[state.inputName] || allocateTensorData(state.type, state.size);
     feeds[state.inputName] = new ort.Tensor(state.type, data, state.shape);
   }
-  const output = await sim.policy.run(feeds);
+  const output = await queueOrtRun(() => sim.policy.run(feeds));
   if (policyStateEpoch !== sim.policyStateEpoch) return;
   const action = output[info.actionName]?.data || output.action?.data || output.actions?.data;
   const weights = info.weightsName ? output[info.weightsName]?.data : null;
@@ -2889,6 +3130,7 @@ function holdStance() {
   sim.motorTargetPending = false;
   sim.motorDelayRemaining = 0;
   input.motorDelaySampleSteps = 0;
+  sim.g1PhaseS = 0; // 步态相位时钟归零
   for (let i = 0; i < CONFIG.numActions; i += 1) {
     sim.action[i] = 0;
     sim.appliedAction[i] = 0;
@@ -2948,11 +3190,49 @@ if (DEBUG_ENABLED) {
 
 function captureImuSample() {
   const quaternion = sim.qpos.subarray(3, 7);
+  // mjlab 语义：base_lin_vel/base_ang_vel 取自 root body 的 link 速度
+  // （cvel 绕 subtree COM，须修正到 body origin，见 rootLinkVelW）。qvel 的自由关节
+  // 线速度是 root body 原点速度，但角速度为体坐标系；mjswan 用 cvel 统一世界系后再投影，
+  // 走行策略对参考点敏感（G1 实测：qvel 版 3 秒跌倒，cvel 版稳定行走）。
+  let angular = sim.qvel.subarray(3, 6);
+  let linearWorld = null;
+  if (sim.model?.cvel && sim.model?.nbody > 1 && sim.data?.cvel) {
+    try {
+      const rootBody = 1; // 自由关节根 body（pelvis/torso）
+      const cvel = sim.data.cvel;
+      const base = rootBody * 6;
+      const angW = [cvel[base], cvel[base + 1], cvel[base + 2]];
+      const linC = [cvel[base + 3], cvel[base + 4], cvel[base + 5]];
+      const pos = sim.data.xpos[rootBody];
+      const com = sim.data.subtree_com[rootBody];
+      const ox = com[0] - pos[0], oy = com[1] - pos[1], oz = com[2] - pos[2];
+      linearWorld = [
+        linC[0] - (angW[1] * oz - angW[2] * oy),
+        linC[1] - (angW[2] * ox - angW[0] * oz),
+        linC[2] - (angW[0] * oy - angW[1] * ox),
+      ];
+      // 角速度也走 cvel（世界系），与 mjswan slotReader 一致
+      angular = new Float32Array(angW);
+    } catch (_) { /* 回退到 qvel */ }
+  }
+  if (!linearWorld) linearWorld = [sim.qvel[0], sim.qvel[1], sim.qvel[2]];
   return {
-    angular: new Float32Array(sim.qvel.subarray(3, 6)),
+    angular: new Float32Array(rotateVectorByQuatInverse(quaternion, angular)),
+    linear: new Float32Array(rotateVectorByQuatInverse(quaternion, linearWorld)),
     gravity: new Float32Array(getGravityOrientation(quaternion)),
     rpy: new Float32Array(quatToRpy(quaternion)),
   };
+}
+
+// v_body = R^T · v_world
+function rotateVectorByQuatInverse(quaternion, v) {
+  const qw = quaternion[0], qx = quaternion[1], qy = quaternion[2], qz = quaternion[3];
+  const [vx, vy, vz] = v;
+  return [
+    (1 - 2 * (qy * qy + qz * qz)) * vx + 2 * (qx * qy + qw * qz) * vy + 2 * (qx * qz - qw * qy) * vz,
+    2 * (qx * qy - qw * qz) * vx + (1 - 2 * (qx * qx + qz * qz)) * vy + 2 * (qy * qz + qw * qx) * vz,
+    2 * (qx * qz + qw * qy) * vx + 2 * (qy * qz - qw * qx) * vy + (1 - 2 * (qx * qx + qy * qy)) * vz,
+  ];
 }
 
 function recordImuSample() {
@@ -2989,6 +3269,30 @@ function buildObservation() {
   }
   if (CONFIG.observationKind === "s07_amp_cts") {
     buildS07AmpCtsObservation();
+    return;
+  }
+  if (CONFIG.observationKind === "g1_amp_96") {
+    buildG1AmpObservation();
+    return;
+  }
+  if (CONFIG.observationKind === "go2w_53") {
+    buildGo2wLegsObservation();
+    return;
+  }
+  if (CONFIG.observationKind === "go2w_mjlab_legs_53") {
+    buildGo2wMjlabLegsObservation();
+    return;
+  }
+  if (CONFIG.observationKind === "g1_mjlab_velocity_98") {
+    buildG1MjlabVelocityObservation();
+    return;
+  }
+  if (CONFIG.observationKind === "g1_mjswan_locomotion") {
+    buildG1MjswanLocomotionObservation();
+    return;
+  }
+  if (CONFIG.observationKind === "g1_mjswan_balance") {
+    buildG1MjswanBalanceObservation();
     return;
   }
   if (CONFIG.observationKind === WHEEL_LEG_GAIT_OBSERVATION) {
@@ -3143,6 +3447,179 @@ function buildS07AmpCtsObservation() {
     throw new Error(`s07_amp_cts 需要 45 维观测和 12 维动作，当前为 ${CONFIG.numObs}/${CONFIG.numActions}`);
   }
   buildLocomotionObservation();
+}
+
+// Go2-W legs-only（unitree_rl_mjlab_go2w 部署契约，53 维）：
+// base_ang_vel(3), projected_gravity(3), command(3),
+// leg_jpos_rel(12 SDK 序), leg_jvel(12), wheel_jpos_rel(4), wheel_jvel(4), prev_leg_actions(12)
+// 重力直立 (0,0,-1) 取负；关节顺序经 contract.action_joint_order 映射到模型索引；轮被动（ctrl=0）。
+// Go2-W legs+wheel 混合策略（go2w_sim2sim 参考项目，53 维）：
+// gyro*0.25(3), projected_gravity(3), cmd(3), 腿pos_rel(12), 全关节vel*0.05(16), last_action(16)
+// 传感器序：FL,FR,RL,RR 每腿 hip/thigh/calf（12 腿 pos）；vel 追加 4 轮（FL,FR,RL,RR）。重力直立 (0,0,-1)。
+function buildGo2wLegsObservation() {
+  if (CONFIG.numObs !== 53 || CONFIG.numActions !== 16) {
+    throw new Error(`go2w_53 requires 53 observations and 16 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  const full = (sim.platformConfig?.robot?.joint_order) || [];
+  const key = full.join(",") + "|" + (CONFIG.actionJointOrder || []).join(",");
+  if (!sim.g2wIdx || sim.g2wIdxKey !== key) {
+    const sensorLegOrder = [
+      "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint",
+      "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint",
+      "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint",
+      "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint",
+    ];
+    const resolveAddr = (name) => {
+      try {
+        const jid = Number(sim.mujoco.mj_name2id(sim.model, enumValue(sim.mujoco.mjtObj.mjOBJ_JOINT), String(name)));
+        if (jid >= 0) return { q: Number(sim.model.jnt_qposadr[jid]) - 7, d: Number(sim.model.jnt_dofadr[jid]) - 6 };
+      } catch (_) { /* 名单序回退 */ }
+      return { q: 7 + full.indexOf(String(name)), d: 6 + full.indexOf(String(name)) };
+    };
+    // 动作槽 0..15 = SDK 序（12 腿 + 4 轮），需映射回模型 q/d 地址
+    const sdkOrder = (CONFIG.actionJointOrder || []).slice(0, 16);
+    const actAddr = sdkOrder.map((name) => resolveAddr(String(name)));
+    // obs 腿段顺序 = 动作槽 SDK 序（FR,FL,RR,RL），与策略观测一致
+  const legAddr = (CONFIG.actionJointOrder || []).slice(0, 12).map((name) => resolveAddr(name));
+  const legDefaultBySlot = (CONFIG.actionJointOrder || []).slice(0, 12).map((name) =>
+    Number(CONFIG.defaultJointAnglesByName?.[String(name).toLowerCase()] ?? 0));
+    const wheelAddr = ["FL_wheel_joint", "FR_wheel_joint", "RL_wheel_joint", "RR_wheel_joint"].map((name) => resolveAddr(name));
+    sim.g2wIdx = { key, legAddr, wheelAddr, actAddr, legDefault: legDefaultBySlot };
+  }
+  const { legAddr, wheelAddr, actAddr, legDefault } = sim.g2wIdx;
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * 0.25;
+  // go2w_sim2sim 参考实现：projected_gravity = R^T·[0,0,-1]，直立 (0,0,-1)，与采样同号，勿取负。
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
+  for (let i = 0; i < 12; i += 1) {
+    const { q } = legAddr[i];
+    sim.obs[offset++] = (sim.qpos[q] - legDefault[i]) * 1.0;
+  }
+  // dof_vel 16：12 腿（传感器序）+ 4 轮（FL,FR,RL,RR）×0.05
+  for (let i = 0; i < 12; i += 1) sim.obs[offset++] = sim.qvel[legAddr[i].d] * 0.05;
+  for (const addr of wheelAddr) sim.obs[offset++] = sim.qvel[addr.d] * 0.05;
+  for (let i = 0; i < 16; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
+// Go2-W（unitree_rl_mjlab_go2w velocity_legs_only，53 维，12 腿动作 + 轮被动）：
+// base_ang_vel(3), projected_gravity(3), command(3), joint_pos_rel(12), joint_vel_rel(12),
+// wheel_pos_rel(4, wrap ±π), wheel_vel_rel(4), last_action(12)。
+// 顺序 = mjlab 实体序：腿 SDK 按腿分组（FR,FL,RR,RL），轮 FR,FL,RR,RL。
+// 重力：mjlab projected_gravity_b = R^T·[0,0,-1]，直立 (0,0,-1)，与采样同号，勿取负。
+function buildGo2wMjlabLegsObservation() {
+  if (CONFIG.numObs !== 53 || CONFIG.numActions !== 12) {
+    throw new Error(`go2w_mjlab_legs_53 requires 53 observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  const key = (sim.platformConfig?.robot?.joint_order || []).join(",");
+  if (!sim.g2wMjIdx || sim.g2wMjIdxKey !== key) {
+    const resolve = (name) => {
+      const jid = Number(sim.mujoco.mj_name2id(sim.model, enumValue(sim.mujoco.mjtObj.mjOBJ_JOINT), name));
+      return jid >= 0
+        ? { q: Number(sim.model.jnt_qposadr[jid]), d: Number(sim.model.jnt_dofadr[jid]) }
+        : null;
+    };
+    sim.g2wMjIdx = {
+      key,
+      wheels: ["FR_wheel_joint", "FL_wheel_joint", "RR_wheel_joint", "RL_wheel_joint"].map(resolve),
+    };
+  }
+  const wrapPi = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  for (const w of sim.g2wMjIdx.wheels) sim.obs[offset++] = w ? wrapPi(sim.qpos[w.q]) : 0;
+  for (const w of sim.g2wMjIdx.wheels) sim.obs[offset++] = (w ? sim.qvel[w.d] : 0) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
+// G1 AMP（parkour_mjlab sim2sim 契约，96 维）：
+// 约定：mjlab projected_gravity_b = R^T·[0,0,-1]，直立 (0,0,-1)，与 app IMU 采样同号。
+function buildG1AmpObservation() {
+  if (CONFIG.numObs !== 96 || CONFIG.numActions !== 29) {
+    throw new Error(`g1_amp_96 requires 96 observations and 29 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
+// G1 mjlab velocity（98 维，含步态相位）：
+// base_ang_vel(3), projected_gravity(3), command(3), phase(2), joint_pos_rel(29), joint_vel(29), actions(29)
+// phase：周期 0.6s 的 [sin, cos]，|command| < 0.1（站立）时清零；重力直立 (0,0,-1)，与采样同号。
+function buildG1MjlabVelocityObservation() {
+  if (CONFIG.numObs !== 98 || CONFIG.numActions !== 29) {
+    throw new Error(`g1_mjlab_velocity_98 requires 98 observations and 29 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  if (!Number.isFinite(sim.g1PhaseS)) sim.g1PhaseS = 0;
+  const period = CONFIG.gaitPeriodS > 0 ? CONFIG.gaitPeriodS : 0.6;
+  const cmdNorm = Math.hypot(sim.cmd[0], sim.cmd[1], sim.cmd[2]);
+  // 训练相位钟 = 回合时间，每控制步推进 step_dt；站立只清零输出，时钟不停。
+  sim.g1PhaseS += CONFIG.simulationDt * CONFIG.controlDecimation;
+  const globalPhase = (sim.g1PhaseS % period) / period;
+  const phaseSin = cmdNorm < 0.1 ? 0 : Math.sin(globalPhase * Math.PI * 2);
+  const phaseCos = cmdNorm < 0.1 ? 0 : Math.cos(globalPhase * Math.PI * 2);
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
+  sim.obs[offset++] = phaseSin;
+  sim.obs[offset++] = phaseCos;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
+// G1（mjswan 移植策略，mjlab velocity 观测序）：base_lin_vel(3), base_ang_vel(3),
+// projected_gravity(3), joint_pos_rel(29), joint_vel(29), last_action(29), command(3)
+// 注意：mjlab projected_gravity_b = R^T·[0,0,-1]，直立 (0,0,-1)，与 app IMU 采样同号，勿取负。
+function buildG1MjswanLocomotionObservation() {
+  if (CONFIG.numObs !== 99 || CONFIG.numActions !== 29) {
+    throw new Error(`g1_mjswan_locomotion requires 99 observations and 29 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = (imu.linear ? imu.linear[i] : 0);
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  // mjlab joint_pos_rel：关节角减 default（桌面复现环验证 rel 站立/行走稳定）
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
+}
+
+// G1 Balance（mjswan 移植策略）：base_ang_vel(3), projected_gravity(3),
+// joint_pos_rel(29), joint_vel(29), last_action(29) —— 无指令输入
+function buildG1MjswanBalanceObservation() {
+  if (CONFIG.numObs !== 93 || CONFIG.numActions !== 29) {
+    throw new Error(`g1_mjswan_balance requires 93 observations and 29 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  // 同上：rel 语义
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
 }
 
 function buildLocomotionObservation() {
@@ -3387,6 +3864,7 @@ function updateCommand() {
 
   if (!hasMotionKey()) {
     if (input.joystickPointer !== null) applyJoystickCommand();
+    else if (input.manualCmdActive) applyManualCommand();
     else applyIdleCommand();
     syncBinaryJumpCommand();
     return;
@@ -3470,10 +3948,12 @@ function updateJumpCommandState() {
 }
 
 function applyIdleCommand() {
+  // 命令唯一直连源 = 速度指令滑条（manualCmd），初始化为契约 default_command。
+  // "启用"是真实开关：未勾选时命令清零（拖滑条只改数值不生效）；勾选后滑条接管。
   if (input.cruiseVx !== null) {
     applyCruiseCommand();
-  } else if (shouldAutoplayPolicy()) {
-    applyDefaultCommand();
+  } else if (input.manualCmdActive) {
+    applyManualCommand();
   } else {
     zeroCommand();
   }
@@ -3595,11 +4075,20 @@ function createRenderable(info, key) {
   const material = makeMaterial(info);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.matrixAutoUpdate = false;
-  mesh.castShadow = classifyGeom(info) !== "terrain";
+  const kind = classifyGeom(info);
+  mesh.castShadow = kind !== "terrain";
   mesh.receiveShadow = true;
-  mesh.userData.kind = classifyGeom(info);
+  mesh.userData.kind = kind;
   mesh.userData.type = type;
   mesh.userData.geomId = info.objid;
+  // 「视觉模型」开关按 geom 分组归属切换可见性：记录每个 mesh 对应的
+  // geom group 与接触掩码（group 2 / contype=0 为视觉，group 3 等为碰撞）。
+  if (info.objtype === sim.objGeom && info.objid >= 0 && sim.model) {
+    mesh.userData.geomGroup = Number(sim.model.geom_group?.[info.objid] ?? 0);
+    mesh.userData.contype = Number(sim.model.geom_contype?.[info.objid] ?? 0);
+    mesh.userData.conaffinity = Number(sim.model.geom_conaffinity?.[info.objid] ?? 0);
+  }
+  mesh.userData.baseOpacity = material.opacity;
   view.materials.add(material);
   return { key, mesh, material };
 }
@@ -3653,6 +4142,8 @@ function getGeometry(info, key) {
     geometry = makeCapsuleGeometry(Math.max(size[0], 0.001), Math.max(size[1], 0.001));
   } else if (type === sim.geomType.plane) {
     geometry = new THREE.PlaneGeometry(90, 90, 1, 1);
+  } else if (type === sim.geomType.hfield) {
+    geometry = buildHFieldGeometry(info);
   } else {
     geometry = new THREE.BoxGeometry(Math.max(size[0] * 2, 0.01), Math.max(size[1] * 2, 0.01), Math.max(size[2] * 2, 0.01));
   }
@@ -3687,6 +4178,63 @@ function buildMeshGeometry(meshId) {
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   view.geometryCache.set(cacheKey, geometry);
+  return geometry;
+}
+
+// 高度场网格（item 13）：按 mjModel.hfield_data 生成 PlaneGeometry 式网格。
+// 参考 mjswan scene.ts 的 createHFieldGeometry；本查看器直接使用 MuJoCo 的
+// Z-up 坐标系渲染（相机 up=(0,0,1)），因此无需 mjswan 的坐标轴重排。
+function buildHFieldGeometry(info) {
+  const hfieldId = meshIdFromGeom(info);
+  const nrow = Number(sim.model?.hfield_nrow?.[hfieldId] || 0);
+  const ncol = Number(sim.model?.hfield_ncol?.[hfieldId] || 0);
+  if (!Number.isInteger(hfieldId) || hfieldId < 0 || nrow < 2 || ncol < 2 || !sim.model?.hfield_data) {
+    return new THREE.BoxGeometry(1, 1, 0.01);
+  }
+  const size = sim.model.hfield_size;
+  const halfSizeX = Number(size[hfieldId * 4]) || 0;
+  const halfSizeY = Number(size[hfieldId * 4 + 1]) || 0;
+  const elevationScale = Number(size[hfieldId * 4 + 2]) || 0;
+  const baseLevel = Number(size[hfieldId * 4 + 3]) || 0;
+  const address = Number(sim.model.hfield_adr[hfieldId]) || 0;
+  const data = sim.model.hfield_data.subarray(address, address + nrow * ncol);
+
+  const positions = new Float32Array(nrow * ncol * 3);
+  const stepX = ncol > 1 ? (2 * halfSizeX) / (ncol - 1) : 0;
+  const stepY = nrow > 1 ? (2 * halfSizeY) / (nrow - 1) : 0;
+
+  let vertexOffset = 0;
+  for (let row = 0; row < nrow; row += 1) {
+    const y = stepY * row - halfSizeY;
+    for (let col = 0; col < ncol; col += 1) {
+      positions[vertexOffset++] = stepX * col - halfSizeX;
+      positions[vertexOffset++] = y;
+      positions[vertexOffset++] = baseLevel + data[row * ncol + col] * elevationScale;
+    }
+  }
+
+  const indexCount = (nrow - 1) * (ncol - 1) * 6;
+  const indices = indexCount > 65535 ? new Uint32Array(indexCount) : new Uint16Array(indexCount);
+  let indexOffset = 0;
+  for (let row = 0; row < nrow - 1; row += 1) {
+    for (let col = 0; col < ncol - 1; col += 1) {
+      const i0 = row * ncol + col;
+      const i1 = i0 + 1;
+      const i2 = i0 + ncol;
+      const i3 = i2 + 1;
+      indices[indexOffset++] = i0;
+      indices[indexOffset++] = i1;
+      indices[indexOffset++] = i3;
+      indices[indexOffset++] = i0;
+      indices[indexOffset++] = i3;
+      indices[indexOffset++] = i2;
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+  geometry.computeVertexNormals();
   return geometry;
 }
 
@@ -3780,6 +4328,7 @@ function geomName(geomId) {
 function geometryKey(info) {
   const type = info.type;
   if (type === sim.geomType.mesh) return `mesh:${meshIdFromGeom(info)}`;
+  if (type === sim.geomType.hfield) return `hfield:${meshIdFromGeom(info)}`;
   const size = info.size;
   return `${type}:${size[0].toFixed(5)}:${size[1].toFixed(5)}:${size[2].toFixed(5)}`;
 }
@@ -3811,23 +4360,457 @@ function geomRgba(geomId) {
 }
 
 function updateRenderFlags() {
+  // 「碰撞体」开关（合并自原「视觉模型」+「碰撞体」两个复选框，语义取原
+  // 「视觉模型」不勾选分支）：不勾选（默认）= 渲染视觉 mesh（geom group 2 /
+  // 无接触掩码）；勾选 = 隐藏视觉 mesh、只渲染碰撞体（group 3 及所有非视觉
+  // geom），此时碰撞几何强制可见并改为不透明，保证机器人仍可辨识。只动
+  // three.js 可见性/材质，不影响物理。
   const showCollision = elements.collisionToggle.checked;
   const wireframe = elements.wireToggle.checked;
   for (const renderable of view.geoms) {
     if (!renderable) continue;
-    renderable.mesh.visible = renderable.mesh.userData.kind !== "collision" || showCollision;
+    const mesh = renderable.mesh;
+    const kind = mesh.userData.kind;
+    mesh.visible = kind === "collision"
+      ? showCollision
+      : kind === "visual" ? !showCollision : true; // terrain 始终可见
     renderable.material.wireframe = wireframe;
+    if (kind === "collision") {
+      const baseOpacity = Number(mesh.userData.baseOpacity ?? renderable.material.opacity);
+      const opaque = showCollision;
+      renderable.material.opacity = opaque ? 1 : baseOpacity;
+      renderable.material.transparent = opaque ? false : baseOpacity < 0.98;
+    }
   }
 }
 
 function updateFollowCamera() {
-  if (!elements.followToggle.checked || !sim.qpos) return;
-  const next = new THREE.Vector3(sim.qpos[0], sim.qpos[1], Math.max(sim.qpos[2], 0.35));
+  if (!elements.followToggle?.checked || !sim.data || !sim.qpos) return;
+  // 平行跟踪（借鉴 mjswan viewer_config.ts 的 updateCameraFromData）：把根
+  // body（自由关节 base）的世界位移 delta 同时加到轨道 target 与相机位置，
+  // 视线角度与缩放保持不变。可通过页脚「跟随」开关关闭，默认开启。
+  const offset = sim.baseBodyId >= 0 ? sim.baseBodyId * 3 : 0;
+  const xpos = sim.data.xpos;
+  const next = new THREE.Vector3(
+    Number(xpos?.[offset] ?? sim.qpos[0]) || 0,
+    Number(xpos?.[offset + 1] ?? sim.qpos[1]) || 0,
+    Math.max(Number(xpos?.[offset + 2] ?? sim.qpos[2]) || 0, 0.35),
+  );
   const previous = view.controls.target.clone();
   view.followTarget.lerp(next, 0.18);
   const delta = view.followTarget.clone().sub(previous);
   view.controls.target.copy(view.followTarget);
   view.camera.position.add(delta);
+}
+
+// ---------------------------------------------------------------------------
+// 鼠标拖拽施力（item 9，借鉴 mjswan DragStateManager 思路）
+// ---------------------------------------------------------------------------
+
+const DRAG_FORCE_GAIN = 100; // offset(m) → 力(N) 的比例系数
+const DRAG_FORCE_MAX = 300;  // 单轴力上限，防止把机器人弹飞
+
+/** 注册 renderer 画布上的拖拽施力交互（capture 阶段，抢在 OrbitControls 之前）。 */
+function initDragInteraction() {
+  const canvas = view.renderer?.domElement;
+  if (!canvas || input.drag) return;
+  input.drag = {
+    active: false,
+    pointerId: null,
+    bodyId: -1,
+    ndc: new THREE.Vector2(),
+    plane: new THREE.Plane(),
+    raycaster: new THREE.Raycaster(),
+    target: new THREE.Vector3(),
+    direction: new THREE.Vector3(),
+  };
+
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || !sim.ready || !sim.model) return;
+    const drag = input.drag;
+    const bodyId = pickDynamicBodyAt(event.clientX, event.clientY);
+    if (bodyId < 0) return;
+    // 命中动态 body：接管指针事件，禁止 OrbitControls 在拖拽期间转动视角。
+    event.stopImmediatePropagation();
+    event.preventDefault();
+    drag.active = true;
+    drag.pointerId = event.pointerId;
+    drag.bodyId = bodyId;
+    updateDragNdc(event.clientX, event.clientY);
+    // 拖拽平面：过抓取点、垂直于视线，拖动过程中保持抓取深度不变。
+    view.camera.getWorldDirection(drag.direction);
+    drag.plane.setFromNormalAndCoplanarPoint(drag.direction, bodyWorldPosition(bodyId, drag.target));
+    view.controls.enabled = false;
+    try { canvas.setPointerCapture(event.pointerId); } catch (_) { /* no-op */ }
+  }, true);
+
+  // move 只记录 NDC 坐标；力在物理步内（applyDragForce）按当前 NDC 计算，防抖。
+  canvas.addEventListener("pointermove", (event) => {
+    const drag = input.drag;
+    if (!drag?.active || event.pointerId !== drag.pointerId) return;
+    updateDragNdc(event.clientX, event.clientY);
+  }, true);
+
+  const release = (event) => {
+    if (!input.drag?.active || event.pointerId !== input.drag.pointerId) return;
+    cancelDragInteraction();
+  };
+  canvas.addEventListener("pointerup", release, true);
+  canvas.addEventListener("pointercancel", release, true);
+  window.addEventListener("blur", () => cancelDragInteraction());
+}
+
+function updateDragNdc(clientX, clientY) {
+  const rect = view.renderer.domElement.getBoundingClientRect();
+  const drag = input.drag;
+  drag.ndc.x = ((clientX - rect.left) / Math.max(rect.width, 1)) * 2 - 1;
+  drag.ndc.y = -((clientY - rect.top) / Math.max(rect.height, 1)) * 2 + 1;
+}
+
+/** raycast 拾取动态 body（有自由/关节驱动的非 world body），返回 bodyId 或 -1。 */
+function pickDynamicBodyAt(clientX, clientY) {
+  const drag = input.drag;
+  if (!drag) return -1;
+  updateDragNdc(clientX, clientY);
+  view.scene.updateMatrixWorld();
+  drag.raycaster.setFromCamera(drag.ndc, view.camera);
+  const meshes = view.geoms.map((renderable) => renderable?.mesh).filter(Boolean);
+  const hits = drag.raycaster.intersectObjects(meshes, false);
+  for (const hit of hits) {
+    const geomId = hit.object?.userData?.geomId;
+    if (!Number.isInteger(geomId) || geomId < 0) continue;
+    const bodyId = Number(sim.model.geom_bodyid?.[geomId] ?? 0);
+    if (bodyId <= 0) continue;
+    // 只抓可动 body：挂了关节（含自由关节）的才算动态。
+    const jointCount = Number(sim.model.body_jntnum?.[bodyId] ?? 0);
+    if (jointCount <= 0) continue;
+    return bodyId;
+  }
+  return -1;
+}
+
+function bodyWorldPosition(bodyId, target) {
+  const offset = bodyId * 3;
+  const xpos = sim.data?.xpos;
+  return target.set(
+    Number(xpos?.[offset] || 0),
+    Number(xpos?.[offset + 1] || 0),
+    Number(xpos?.[offset + 2] || 0),
+  );
+}
+
+/** 物理步内调用：把当前拖拽 NDC 换算为目标点并写入 xfrc_applied（力 + 零力矩）。 */
+function applyDragForce() {
+  const drag = input.drag;
+  if (!drag?.active || drag.bodyId < 0 || !sim.data?.xfrc_applied) return;
+  drag.raycaster.setFromCamera(drag.ndc, view.camera);
+  if (!drag.raycaster.ray.intersectPlane(drag.plane, drag.target)) return;
+  const positionOffset = drag.bodyId * 3;
+  const xpos = sim.data.xpos;
+  const fx = clamp((drag.target.x - Number(xpos?.[positionOffset] || 0)) * DRAG_FORCE_GAIN, -DRAG_FORCE_MAX, DRAG_FORCE_MAX);
+  const fy = clamp((drag.target.y - Number(xpos?.[positionOffset + 1] || 0)) * DRAG_FORCE_GAIN, -DRAG_FORCE_MAX, DRAG_FORCE_MAX);
+  const fz = clamp((drag.target.z - Number(xpos?.[positionOffset + 2] || 0)) * DRAG_FORCE_GAIN, -DRAG_FORCE_MAX, DRAG_FORCE_MAX);
+  const forceOffset = drag.bodyId * 6;
+  sim.data.xfrc_applied[forceOffset] = fx;
+  sim.data.xfrc_applied[forceOffset + 1] = fy;
+  sim.data.xfrc_applied[forceOffset + 2] = fz;
+  sim.data.xfrc_applied[forceOffset + 3] = 0;
+  sim.data.xfrc_applied[forceOffset + 4] = 0;
+  sim.data.xfrc_applied[forceOffset + 5] = 0;
+}
+
+/** 松开/重置/换场景时清零施力并恢复轨道控制。 */
+function cancelDragInteraction() {
+  const drag = input.drag;
+  if (drag?.bodyId >= 0 && sim.data?.xfrc_applied) {
+    const forceOffset = drag.bodyId * 6;
+    for (let i = 0; i < 6; i += 1) sim.data.xfrc_applied[forceOffset + i] = 0;
+  }
+  if (drag) {
+    drag.active = false;
+    drag.pointerId = null;
+    drag.bodyId = -1;
+  }
+  if (view.controls) view.controls.enabled = true;
+  if (view.dragArrow) view.dragArrow.visible = false;
+}
+
+/** 每帧更新拖拽力箭头（three ArrowHelper），方向/长度跟随当前施力。 */
+function updateDragArrow() {
+  const drag = input.drag;
+  const arrow = view.dragArrow;
+  if (!arrow) return;
+  if (!drag?.active || drag.bodyId < 0 || !sim.data?.xfrc_applied) {
+    arrow.visible = false;
+    return;
+  }
+  const forceOffset = drag.bodyId * 6;
+  const fx = Number(sim.data.xfrc_applied[forceOffset] || 0);
+  const fy = Number(sim.data.xfrc_applied[forceOffset + 1] || 0);
+  const fz = Number(sim.data.xfrc_applied[forceOffset + 2] || 0);
+  const magnitude = Math.hypot(fx, fy, fz);
+  if (magnitude < 0.5) {
+    arrow.visible = false;
+    return;
+  }
+  bodyWorldPosition(drag.bodyId, arrow.position);
+  arrow.setDirection(drag.direction.set(fx / magnitude, fy / magnitude, fz / magnitude));
+  arrow.setLength(clamp(magnitude / DRAG_FORCE_GAIN, 0.15, 1.5), 0.16, 0.09);
+  arrow.visible = true;
+}
+
+function ensureDragArrow() {
+  if (view.dragArrow) return view.dragArrow;
+  view.dragArrow = new THREE.ArrowHelper(
+    new THREE.Vector3(0, 0, 1),
+    new THREE.Vector3(),
+    0.6,
+    0xe05a3a,
+    0.16,
+    0.09,
+  );
+  view.dragArrow.visible = false;
+  view.scene.add(view.dragArrow);
+  return view.dragArrow;
+}
+
+// ---------------------------------------------------------------------------
+// 根轨迹拖尾（item 12，简化版幽灵）
+// ---------------------------------------------------------------------------
+
+const TRAIL_SAMPLE_INTERVAL_S = 0.2;
+const TRAIL_MAX_POINTS = 200;
+const TRAIL_COLOR_FROM = new THREE.Color(0xb9c8d4); // 旧点：趋近背景
+const TRAIL_COLOR_TO = new THREE.Color(0x1f7ae0);   // 新点：青蓝色
+
+function ensureTrail() {
+  if (view.trail) return view.trail;
+  const positions = new Float32Array(TRAIL_MAX_POINTS * 3);
+  const colors = new Float32Array(TRAIL_MAX_POINTS * 3);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  geometry.setDrawRange(0, 0);
+  const line = new THREE.Line(
+    geometry,
+    new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85 }),
+  );
+  line.frustumCulled = false;
+  line.visible = false;
+  view.scene.add(line);
+  view.trail = { line, geometry, positions, colors, count: 0, lastTime: -Infinity };
+  return view.trail;
+}
+
+function updateTrail() {
+  const enabled = Boolean(elements.trailToggle?.checked);
+  const trail = ensureTrail();
+  trail.line.visible = enabled && trail.count >= 2;
+  if (!enabled || !sim.data) return;
+  const now = Number(sim.data.time || 0);
+  if (trail.count && now - trail.lastTime < TRAIL_SAMPLE_INTERVAL_S) return;
+  const positionOffset = sim.baseBodyId >= 0 ? sim.baseBodyId * 3 : 0;
+  const xpos = sim.data.xpos;
+  const x = Number(xpos?.[positionOffset] || 0);
+  const y = Number(xpos?.[positionOffset + 1] || 0);
+  const z = Number(xpos?.[positionOffset + 2] || 0);
+  if (trail.count >= TRAIL_MAX_POINTS) {
+    trail.positions.copyWithin(0, 3);
+    trail.colors.copyWithin(0, 3);
+    trail.count = TRAIL_MAX_POINTS - 1;
+  }
+  const vertex = trail.count * 3;
+  trail.positions[vertex] = x;
+  trail.positions[vertex + 1] = y;
+  trail.positions[vertex + 2] = z;
+  trail.count += 1;
+  // 渐隐配色：头（旧）→ 背景，尾（新）→ 青蓝。
+  for (let i = 0; i < trail.count; i += 1) {
+    const t = trail.count <= 1 ? 1 : i / (trail.count - 1);
+    const base = i * 3;
+    trail.colors[base] = TRAIL_COLOR_FROM.r + (TRAIL_COLOR_TO.r - TRAIL_COLOR_FROM.r) * t;
+    trail.colors[base + 1] = TRAIL_COLOR_FROM.g + (TRAIL_COLOR_TO.g - TRAIL_COLOR_FROM.g) * t;
+    trail.colors[base + 2] = TRAIL_COLOR_FROM.b + (TRAIL_COLOR_TO.b - TRAIL_COLOR_FROM.b) * t;
+  }
+  trail.geometry.setDrawRange(0, trail.count);
+  trail.geometry.attributes.position.needsUpdate = true;
+  trail.geometry.attributes.color.needsUpdate = true;
+  trail.lastTime = now;
+}
+
+function resetTrail() {
+  if (!view.trail) return;
+  view.trail.count = 0;
+  view.trail.lastTime = -Infinity;
+  view.trail.geometry.setDrawRange(0, 0);
+  view.trail.line.visible = false;
+}
+
+// ---------------------------------------------------------------------------
+// 速度命令滑条直连策略（item 10）
+// ---------------------------------------------------------------------------
+
+function normalizeCommandRanges(value) {
+  if (!Array.isArray(value) || !value.length) return null;
+  let pairs = value;
+  // 兼容扁平布局 [min0, max0, min1, max1, ...]
+  if (value.every((item) => typeof item === "number")) {
+    pairs = [];
+    for (let i = 0; i + 1 < value.length; i += 2) pairs.push([value[i], value[i + 1]]);
+  }
+  const normalized = pairs
+    .map((pair) => (Array.isArray(pair)
+      && pair.length >= 2
+      && Number.isFinite(Number(pair[0]))
+      && Number.isFinite(Number(pair[1]))
+      ? [Number(pair[0]), Number(pair[1])]
+      : null))
+    .filter(Boolean);
+  return normalized.length ? normalized : null;
+}
+
+/** 前三个命令轴（vx/vy/ωz）的有效范围；契约缺省时回落到 CONFIG.maxCmd。 */
+function velocityCommandRanges() {
+  const ranges = CONFIG.commandRanges;
+  const result = [];
+  for (let i = 0; i < 3; i += 1) {
+    const pair = Array.isArray(ranges?.[i])
+      && ranges[i].length === 2
+      && ranges[i].every((value) => Number.isFinite(Number(value)))
+      ? [Number(ranges[i][0]), Number(ranges[i][1])]
+      : [-CONFIG.maxCmd[i], CONFIG.maxCmd[i]];
+    result.push([Math.min(pair[0], pair[1]), Math.max(pair[0], pair[1])]);
+  }
+  return result;
+}
+
+function velocityCommandSliders() {
+  return [
+    [elements.velCmdVx, elements.velCmdVxVal],
+    [elements.velCmdVy, elements.velCmdVyVal],
+    [elements.velCmdYaw, elements.velCmdYawVal],
+  ];
+}
+
+/** 每轴命令滑条的当前上限（mjlab play 的 "Max xxx" 语义），Max 滑条未就绪时用默认值。 */
+function velocityCommandMax(index) {
+  const maxEl = [elements.velCmdVxMax, elements.velCmdVyMax, elements.velCmdYawMax][index];
+  if (maxEl && Number.isFinite(Number(maxEl.value)) && maxEl.value !== "") return Number(maxEl.value);
+  return velocityCommandMaxDefault(index);
+}
+
+/** Max 滑条初始值：一律 1.0；vy 若契约范围上下限均为 0（无横移能力）则保持 0.5。 */
+function velocityCommandMaxDefault(index) {
+  if (index === 1) {
+    const [dMin, dMax] = velocityCommandRanges()[index];
+    if (dMin === 0 && dMax === 0) return 0.5;
+  }
+  return 1.0;
+}
+
+/** contract.command_dims ≥ 3 时显示 vx/vy/ωz 滑条并同步范围与默认值（mjlab play 语义）。 */
+function updateVelocityCommandControls() {
+  const control = elements.velocityCommandControl;
+  if (!control) return;
+  // 无命令观测的策略（如 g1_mjswan_balance）不显示。
+  const available = CONFIG.commandDims >= 3 && CONFIG.observationKind !== "g1_mjswan_balance";
+  control.hidden = !available;
+  if (!available) return;
+  const sliders = velocityCommandSliders();
+  const maxEls = [elements.velCmdVxMax, elements.velCmdVyMax, elements.velCmdYawMax];
+  const maxOuts = [elements.velCmdVxMaxVal, elements.velCmdVyMaxVal, elements.velCmdYawMaxVal];
+  for (let i = 0; i < 3; i += 1) {
+    const [slider, output] = sliders[i];
+    if (!slider) continue;
+    // Max 滑条：初始一律 1.0（vy 契约范围为 0 时 0.5），用户此后可调 0.1~10
+    const maxEl = maxEls[i];
+    // 每次策略/机器人切换都重置为默认 Max（1.0），不继承上一策略的旧值（曾出现残留 5.1）。
+    if (maxEl) maxEl.value = String(velocityCommandMaxDefault(i));
+    if (maxOuts[i]) maxOuts[i].textContent = Number(maxEl?.value || 0).toFixed(1);
+    const max = velocityCommandMax(i);
+    slider.min = String(-max);
+    slider.max = String(max);
+    slider.step = "0.05";
+    const value = clamp(Number(input.manualCmd[i]) || 0, -max, max);
+    slider.value = String(value);
+    if (output) output.textContent = formatSigned(value);
+  }
+}
+
+/** 速度指令值带符号显示（+0.50 / -0.30 / 0.00）。 */
+function formatSigned(value) {
+  const n = Number(value) || 0;
+  return `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
+}
+
+function setVelocityCommandValue(index, value) {
+  const max = velocityCommandMax(index);
+  const clamped = clamp(Number(value) || 0, -max, max);
+  input.manualCmd[index] = clamped;
+  const sliders = velocityCommandSliders();
+  if (sliders[index][0]) sliders[index][0].value = String(clamped);
+  if (sliders[index][1]) sliders[index][1].textContent = formatSigned(clamped);
+}
+
+function bindVelocityCommandControls() {
+  velocityCommandSliders().forEach(([slider], index) => {
+    slider?.addEventListener("input", () => {
+      setVelocityCommandValue(index, slider.value);
+      // 启用是真实开关：只有勾选时滑条命令才接管；未勾选只更新数值，不改变指令生效状态。
+      input.manualCmdActive = Boolean(elements.velCmdEnable?.checked);
+    });
+  });
+  // mjlab play 的 "Max xxx" 语义：改 Max 即把该轴命令滑条对称重设为 ±Max。
+  const maxSliders = [
+    [elements.velCmdVxMax, elements.velCmdVxMaxVal, 0],
+    [elements.velCmdVyMax, elements.velCmdVyMaxVal, 1],
+    [elements.velCmdYawMax, elements.velCmdYawMaxVal, 2],
+  ];
+  for (const [maxEl, maxOut, axis] of maxSliders) {
+    maxEl?.addEventListener("input", () => {
+      const max = Math.max(0.1, Number(maxEl.value) || 0.1);
+      if (maxOut) maxOut.textContent = max.toFixed(1);
+      const [slider, output] = velocityCommandSliders()[axis];
+      if (slider) {
+        slider.min = String(-max);
+        slider.max = String(max);
+        const clamped = clamp(Number(input.manualCmd[axis]) || 0, -max, max);
+        slider.value = String(clamped);
+        input.manualCmd[axis] = clamped;
+        if (output) output.textContent = formatSigned(clamped);
+      }
+    });
+  }
+  // Enable 勾选 = 滑条命令接管（未启用时保持零指令，键盘/摇杆仍优先）。
+  elements.velCmdEnable?.addEventListener("change", () => {
+    input.manualCmdActive = elements.velCmdEnable.checked;
+    if (elements.velCmdEnable.checked) updateVelocityCommandControls();
+  });
+  elements.velCmdZero?.addEventListener("click", () => {
+    input.manualCmd.fill(0);
+    // 归零只清数值；生效状态完全跟随"启用"勾选（勾选时归零后保持零指令接管）。
+    input.manualCmdActive = Boolean(elements.velCmdEnable?.checked);
+    updateVelocityCommandControls();
+  });
+}
+
+/** 把策略契约的 default_command 写入滑条初始值（仅用户未显式设置时）。 */
+function applyVelocityCommandDefaults() {
+  // 活跃轮询会周期性重放契约；用户已经触碰滑条后不得被默认值覆盖。
+  if (input.manualCmdActive) return;
+  for (let i = 0; i < 3; i += 1) {
+    if (Number.isFinite(CONFIG.defaultCommand[i])) input.manualCmd[i] = CONFIG.defaultCommand[i];
+  }
+}
+
+/** 手动滑条命令：无按键/摇杆时作为 idle 目标直写 sim.cmd。 */
+function applyManualCommand() {
+  zeroCommand();
+  for (let i = 0; i < 3; i += 1) {
+    const value = clamp(Number(input.manualCmd[i]) || 0, -CONFIG.maxCmd[i], CONFIG.maxCmd[i]);
+    sim.targetCmd[i] = value;
+    sim.cmd[i] = value;
+  }
 }
 
 function updateHud(force) {
@@ -3870,10 +4853,9 @@ function updateHud(force) {
 }
 
 function updateCommandLabel() {
-  const speedText = `${input.vxSpeedLimit.toFixed(1)} m/s`;
+  // 「运动指令」区块（speedLabel）已移除；本函数只负责跳跃命令相关 UI。
   updateJumpControls();
   if (isWheelLegJumpPolicy()) {
-    if (elements.speedLabel) elements.speedLabel.textContent = `X 速度上限 + Space 跳跃 | ${speedText}`;
     if (elements.cmdJumpMetric) elements.cmdJumpMetric.hidden = false;
     if (elements.cmdJumpMetric?.querySelector("small")) elements.cmdJumpMetric.querySelector("small").textContent = "跳跃命令";
     if (elements.cmdJump) elements.cmdJump.textContent = isJumpCommandActive() ? "ON" : "OFF";
@@ -3884,7 +4866,6 @@ function updateCommandLabel() {
     const axis = heightCommandAxis();
     const heightLabel = axis?.label || "跳跃高度";
     const heightUnit = axis?.unit || "m";
-    if (elements.speedLabel) elements.speedLabel.textContent = `X 速度上限 + 横移/偏航 | ${speedText}`;
     if (elements.cmdJumpMetric) elements.cmdJumpMetric.hidden = false;
     if (elements.jumpCommandControl) elements.jumpCommandControl.hidden = false;
     if (elements.jumpHeightLabel) elements.jumpHeightLabel.textContent = `${height.toFixed(2)} ${heightUnit}`.trim();
@@ -3896,7 +4877,6 @@ function updateCommandLabel() {
     }
     return;
   }
-  if (elements.speedLabel) elements.speedLabel.textContent = `X 速度上限 | ${speedText}`;
   if (elements.cmdJumpMetric) elements.cmdJumpMetric.hidden = true;
   if (elements.jumpCommandControl) elements.jumpCommandControl.hidden = true;
 }
@@ -4148,6 +5128,19 @@ function getGravityOrientation(quaternion) {
   ];
 }
 
+// 世界系线速度 → 机体系（v_body = R^T · v_world，与 getGravityOrientation 同一约定）
+function getLinearVelocityBody(quaternion, vx, vy, vz) {
+  const qw = quaternion[0];
+  const qx = quaternion[1];
+  const qy = quaternion[2];
+  const qz = quaternion[3];
+  return [
+    (1 - 2 * (qy * qy + qz * qz)) * vx + 2 * (qx * qy + qw * qz) * vy + 2 * (qx * qz - qw * qy) * vz,
+    2 * (qx * qy - qw * qz) * vx + (1 - 2 * (qx * qx + qz * qz)) * vy + 2 * (qy * qz + qw * qx) * vz,
+    2 * (qx * qz + qw * qy) * vx + 2 * (qy * qz - qw * qx) * vy + (1 - 2 * (qx * qx + qy * qy)) * vz,
+  ];
+}
+
 function quatToRpy(q) {
   const x = q[0], y = q[1], z = q[2], w = q[3];
   const sinrCosp = 2 * (w * x + y * z);
@@ -4186,6 +5179,7 @@ function makeGeomTypes(mujoco) {
     cylinder: enumValue(mujoco.mjtGeom.mjGEOM_CYLINDER),
     box: enumValue(mujoco.mjtGeom.mjGEOM_BOX),
     mesh: enumValue(mujoco.mjtGeom.mjGEOM_MESH),
+    hfield: enumValue(mujoco.mjtGeom.mjGEOM_HFIELD),
   };
 }
 
@@ -4234,6 +5228,102 @@ async function setLoadingPainted(progress, text) {
     );
   });
   return t;
+}
+
+// ---------------------------------------------------------------------------
+// 查看器状态与 URL 持久化（借鉴 mjswan urlState.ts 的纯函数思路）
+// ---------------------------------------------------------------------------
+
+/**
+ * 从 URL query 读取查看器 UI 状态（纯函数：只依赖入参，不触碰 DOM/地址栏）。
+ * @param {URLSearchParams} params
+ * @returns {{ panelVisible: boolean, trailVisible: boolean }}
+ */
+function readViewerStateFromUrl(params = new URLSearchParams(window.location.search)) {
+  return {
+    // panel=0 → 隐藏控制面板；缺省/其它值 → 显示。
+    panelVisible: params.get("panel") !== "0",
+    // trail=1 → 显示根轨迹拖尾；缺省 → 关闭。
+    trailVisible: params.get("trail") === "1",
+  };
+}
+
+/**
+ * 把查看器 UI 状态合并进 query 串（纯函数：返回新的查询串，不改地址栏）。
+ * @param {URLSearchParams} params 现有参数
+ * @param {{ panelVisible?: boolean, trailVisible?: boolean }} state 增量状态
+ * @returns {string} 新的 query（以 "?" 开头）
+ */
+function writeViewerStateToQuery(params, state) {
+  const next = new URLSearchParams(params);
+  if (typeof state.panelVisible === "boolean") next.set("panel", state.panelVisible ? "1" : "0");
+  if (typeof state.trailVisible === "boolean") next.set("trail", state.trailVisible ? "1" : "0");
+  return `?${next.toString()}`;
+}
+
+/** 把当前 UI 状态写入地址栏（replaceState，不产生历史记录）。 */
+function syncViewerStateToUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const query = writeViewerStateToQuery(params, {
+      panelVisible: !document.body.classList.contains("panel-hidden"),
+      trailVisible: Boolean(elements.trailToggle?.checked),
+    });
+    history.replaceState(null, "", `${window.location.pathname}${query}${window.location.hash}`);
+  } catch (error) {
+    console.warn("viewer state url sync skipped", error);
+  }
+}
+
+/** 应用 URL 中的查看器状态（init 时调用一次）。 */
+function applyViewerStateFromUrl() {
+  const state = readViewerStateFromUrl();
+  document.body.classList.toggle("panel-hidden", !state.panelVisible);
+  if (elements.trailToggle) elements.trailToggle.checked = state.trailVisible;
+  if (elements.mobileControlsToggle) {
+    elements.mobileControlsToggle.setAttribute("aria-expanded", String(state.panelVisible));
+  }
+}
+
+/** C 键 / 面板折叠按钮共用的显隐切换。 */
+function toggleControlPanel(force) {
+  const nextHidden = typeof force === "boolean"
+    ? !force
+    : !document.body.classList.contains("panel-hidden");
+  document.body.classList.toggle("panel-hidden", nextHidden);
+  if (elements.mobileControlsToggle) {
+    elements.mobileControlsToggle.setAttribute("aria-expanded", String(!nextHidden));
+  }
+  syncViewerStateToUrl();
+}
+
+function isEditableElement(target) {
+  if (!(target instanceof Element)) return false;
+  return target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement
+    || target.isContentEditable;
+}
+
+// ---------------------------------------------------------------------------
+// WASM OOM 友好报错（借鉴 mjswan runtime.ts 的 isWasmOom 思路）
+// ---------------------------------------------------------------------------
+
+// mj_loadXML / InferenceSession.create 在触顶 2 GB WASM 内存时有多种报错路径：
+// null 返回值、MuJoCo 分配错误串、lodepng 解码错误、原始 bad_alloc 等。
+function isWasmOom(error) {
+  const message = error instanceof Error
+    ? `${error.message || ""}\n${error.stack || ""}`
+    : String(error);
+  return /MjModel loading returned null|Could not allocate memory|memory allocation failed|bad_alloc|lodepng|Cannot enlarge memory|out of (memory|GPU memory)|array buffer allocation failed/i.test(message);
+}
+
+/** 统一把加载/编译错误转换成面向用户的中文提示。 */
+function describeLoadError(error) {
+  if (isWasmOom(error)) {
+    return new Error("超出 WebAssembly 内存上限（约 2 GB）。请减小模型/网格规模，或关闭其它标签页后重试。");
+  }
+  return error;
 }
 
 function showLoadingError(text) {

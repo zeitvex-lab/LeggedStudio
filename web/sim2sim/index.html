@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>仿真验证 · Locomotion Platform</title>
-    <link rel="stylesheet" href="./styles.css?v=play-light-2" />
+    <link rel="stylesheet" href="./styles.css?v=0.8.7" />
     <script type="importmap">
       {
         "imports": {
@@ -73,8 +73,8 @@
               <option value="race_track.xml">赛道</option>
             </select>
           </label>
-          <button id="playButton" type="button">暂停</button>
-          <button id="resetButton" type="button">重置</button>
+          <button id="playButton" type="button" title="暂停/继续（Space）">暂停</button>
+          <button id="resetButton" type="button" title="重置仿真（R）">重置</button>
           <button id="jumpButton" type="button" title="Space" data-jump-command aria-pressed="false" hidden>跳跃</button>
         </div>
       </header>
@@ -140,11 +140,39 @@
         </div>
 
         <div class="control-panel">
-          <div class="section-title">
-            <span>运动指令</span>
-            <output id="speedLabel">X 速度上限 | 1.0 m/s</output>
+          <div id="velocityCommandControl" class="velocity-command-control" hidden>
+            <div class="section-title">
+              <span>速度指令</span>
+            </div>
+            <label class="vel-cmd-row">
+              <span>vx m/s</span>
+              <input id="velCmdVx" type="range" aria-label="速度指令 vx（米每秒）" />
+              <output id="velCmdVxVal">0.00</output>
+              <span class="vel-cmd-max-label" title="vx 上下限（±Max）">Max</span>
+              <input id="velCmdVxMax" class="vel-cmd-max" type="range" min="0.1" max="5" step="0.1" aria-label="vx 上限（米每秒）" />
+              <output id="velCmdVxMaxVal">1.0</output>
+            </label>
+            <label class="vel-cmd-row">
+              <span>vy m/s</span>
+              <input id="velCmdVy" type="range" aria-label="速度指令 vy（米每秒）" />
+              <output id="velCmdVyVal">0.00</output>
+              <span class="vel-cmd-max-label" title="vy 上下限（±Max）">Max</span>
+              <input id="velCmdVyMax" class="vel-cmd-max" type="range" min="0.1" max="5" step="0.1" aria-label="vy 上限（米每秒）" />
+              <output id="velCmdVyMaxVal">0.5</output>
+            </label>
+            <label class="vel-cmd-row">
+              <span>ωz rad/s</span>
+              <input id="velCmdYaw" type="range" aria-label="速度指令偏航角速度（弧度每秒）" />
+              <output id="velCmdYawVal">0.00</output>
+              <span class="vel-cmd-max-label" title="ωz 上下限（±Max）">Max</span>
+              <input id="velCmdYawMax" class="vel-cmd-max" type="range" min="0.1" max="5" step="0.1" aria-label="ωz 上限（弧度每秒）" />
+              <output id="velCmdYawMaxVal">1.0</output>
+            </label>
+            <div class="vel-cmd-actions">
+              <button id="velCmdZero" type="button">归零</button>
+              <label class="vel-cmd-enable"><input id="velCmdEnable" type="checkbox" /> <span>启用</span></label>
+            </div>
           </div>
-          <input id="vxSpeedLimit" type="range" min="0.2" max="8" value="1" step="0.1" aria-label="X 速度上限（米每秒）" />
           <div id="gaitControl" class="gait-control" hidden>
             <span>Gait</span>
             <label class="gait-toggle">
@@ -276,11 +304,13 @@
         <label><input id="flipVisualToggle" type="checkbox" /> 翻转视角</label>
         <label><input id="collisionToggle" type="checkbox" /> 碰撞体</label>
         <label><input id="wireToggle" type="checkbox" /> 线框</label>
+        <label><input id="trailToggle" type="checkbox" /> 轨迹</label>
+        <button id="fitViewButton" type="button" title="按模型包围盒自适应取景">取景</button>
         <span id="simClock">时间 0.00</span>
         <span id="perfStats">0 帧/秒 · 0x</span>
       </footer>
     </main>
 
-    <script type="module" src="./app.js?v=0.6.1"></script>
+    <script type="module" src="./app.js?v=0.8.9"></script>
   </body>
 </html>

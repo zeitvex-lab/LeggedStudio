@@ -1,0 +1,274 @@
+{
+  "schema_version": "simulation-config-1.0",
+  "backend": "mujoco",
+  "scene_path": "simulation/scene.xml",
+  "initial_base_height": 0.4,
+  "actuator_interface": "position_target",
+  "control_hz": 50,
+  "physics_hz": 200,
+  "decimation": 4,
+  "stiffness": {
+    "hip": 20.0,
+    "thigh": 20.0,
+    "calf": 40.0,
+    "joint": 20.0
+  },
+  "damping": {
+    "hip": 1.0,
+    "thigh": 1.0,
+    "calf": 2.0,
+    "wheel": 2.0,
+    "joint": 1.0
+  },
+  "action_scale_by_role": {
+    "leg": 0.5,
+    "wheel": 5.0
+  },
+  "velocity_scale": 5.0,
+  "control_modes": {
+    "wheel": "velocity",
+    "FR_wheel_joint": "velocity",
+    "FL_wheel_joint": "velocity",
+    "RR_wheel_joint": "velocity",
+    "RL_wheel_joint": "velocity"
+  },
+  "torque_limit": 45.0,
+  "torque_limits": {
+    "hip": 23.5,
+    "thigh": 23.5,
+    "calf": 45.0,
+    "wheel": 45.0,
+    "joint": 23.5
+  },
+  "policy_contract": {
+    "observation_kind": "go2w_53",
+    "obs_dim": 53,
+    "action_dim": 16,
+    "history_len": 1,
+    "command_dims": 3
+  },
+  "policies": [
+    {
+      "id": "unitree-velocity-legs",
+      "path": "simulation/policies/unitree_velocity_legs.onnx",
+      "label": "Velocity Legs-Only (mjlab)",
+      "obs_dim": 53,
+      "action_dim": 12,
+      "history_len": 1,
+      "source": "unitree_rl_mjlab_go2w velocity_legs_only v0（12 腿位置 + 轮被动）",
+      "contract": {
+        "observation_kind": "go2w_mjlab_legs_53",
+        "obs_dim": 53,
+        "action_dim": 12,
+        "history_len": 1,
+        "command_dims": 3,
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "command_ranges": {
+          "lin_vel_x": [
+            -0.5,
+            0.8
+          ],
+          "lin_vel_y": [
+            -0.4,
+            0.4
+          ],
+          "ang_vel_z": [
+            -0.6,
+            0.6
+          ]
+        },
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ],
+        "default_joint_angles": {
+          "FR_hip_joint": 0.1,
+          "FR_thigh_joint": 0.9,
+          "FR_calf_joint": -1.8,
+          "FL_hip_joint": -0.1,
+          "FL_thigh_joint": 0.9,
+          "FL_calf_joint": -1.8,
+          "RR_hip_joint": 0.1,
+          "RR_thigh_joint": 0.9,
+          "RR_calf_joint": -1.8,
+          "RL_hip_joint": -0.1,
+          "RL_thigh_joint": 0.9,
+          "RL_calf_joint": -1.8,
+          "FR_wheel_joint": 0.0,
+          "FL_wheel_joint": 0.0,
+          "RR_wheel_joint": 0.0,
+          "RL_wheel_joint": 0.0
+        },
+        "action_scale": 0.35,
+        "action_scale_by_joint": {
+          "FR_hip_joint": 0.35,
+          "FR_thigh_joint": 0.35,
+          "FR_calf_joint": 0.35,
+          "FL_hip_joint": 0.35,
+          "FL_thigh_joint": 0.35,
+          "FL_calf_joint": 0.35,
+          "RR_hip_joint": 0.35,
+          "RR_thigh_joint": 0.35,
+          "RR_calf_joint": 0.35,
+          "RL_hip_joint": 0.35,
+          "RL_thigh_joint": 0.35,
+          "RL_calf_joint": 0.35
+        },
+        "scales": {
+          "ang_vel": 1.0,
+          "dof_pos": 1.0,
+          "dof_vel": 1.0,
+          "command": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "autoplay": true
+      }
+    },
+    {
+      "id": "velocity",
+      "path": "simulation/policies/policy.onnx",
+      "label": "Velocity (go2w_sim2sim)",
+      "obs_dim": 53,
+      "action_dim": 16,
+      "history_len": 1,
+      "contract": {
+        "observation_kind": "go2w_53",
+        "obs_dim": 53,
+        "action_dim": 16,
+        "history_len": 1,
+        "command_dims": 3,
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "command_ranges": {
+          "lin_vel_x": [
+            -1.0,
+            1.0
+          ],
+          "lin_vel_y": [
+            -0.5,
+            0.5
+          ],
+          "ang_vel_z": [
+            -1.0,
+            1.0
+          ]
+        },
+        "action_scale": 0.25,
+        "action_joint_order": [
+          "FL_hip_joint",
+          "FR_hip_joint",
+          "RL_hip_joint",
+          "RR_hip_joint",
+          "FL_thigh_joint",
+          "FR_thigh_joint",
+          "RL_thigh_joint",
+          "RR_thigh_joint",
+          "FL_calf_joint",
+          "FR_calf_joint",
+          "RL_calf_joint",
+          "RR_calf_joint",
+          "FL_wheel_joint",
+          "FR_wheel_joint",
+          "RL_wheel_joint",
+          "RR_wheel_joint"
+        ],
+        "default_joint_angles": {
+          "FL_hip_joint": 0.0,
+          "FL_thigh_joint": 0.8,
+          "FL_calf_joint": -1.5,
+          "FR_hip_joint": 0.0,
+          "FR_thigh_joint": 0.8,
+          "FR_calf_joint": -1.5,
+          "RL_hip_joint": 0.0,
+          "RL_thigh_joint": 0.8,
+          "RL_calf_joint": -1.5,
+          "RR_hip_joint": 0.0,
+          "RR_thigh_joint": 0.8,
+          "RR_calf_joint": -1.5
+        },
+        "action_scale_by_joint": {
+          "FR_hip_joint": 0.125,
+          "FR_thigh_joint": 0.25,
+          "FR_calf_joint": 0.25,
+          "FL_hip_joint": 0.125,
+          "FL_thigh_joint": 0.25,
+          "FL_calf_joint": 0.25,
+          "RR_hip_joint": 0.125,
+          "RR_thigh_joint": 0.25,
+          "RR_calf_joint": 0.25,
+          "RL_hip_joint": 0.125,
+          "RL_thigh_joint": 0.25,
+          "RL_calf_joint": 0.25,
+          "FR_wheel_joint": 5.0,
+          "FL_wheel_joint": 5.0,
+          "RR_wheel_joint": 5.0,
+          "RL_wheel_joint": 5.0
+        },
+        "scales": {
+          "ang_vel": 0.25,
+          "dof_pos": 1.0,
+          "dof_vel": 0.05,
+          "command": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "wheel_mode": "velocity",
+        "autoplay": false,
+        "action_default_joint_angles": {
+          "FR_hip_joint": 0.0,
+          "FR_thigh_joint": 0.8,
+          "FR_calf_joint": -1.5,
+          "FL_hip_joint": 0.0,
+          "FL_thigh_joint": 0.8,
+          "FL_calf_joint": -1.5,
+          "RR_hip_joint": 0.0,
+          "RR_thigh_joint": 0.8,
+          "RR_calf_joint": -1.5,
+          "RL_hip_joint": 0.0,
+          "RL_thigh_joint": 0.8,
+          "RL_calf_joint": -1.5,
+          "FR_wheel_joint": 0.0,
+          "FL_wheel_joint": 0.0,
+          "RR_wheel_joint": 0.0,
+          "RL_wheel_joint": 0.0
+        }
+      },
+      "source": "go2w_sim2sim policy/history_1/model.onnx（16 维混合策略，SDK 序）"
+    }
+  ],
+  "default_map": "flat",
+  "settle_steps": 500,
+  "action_filter_cutoffs": {
+    "leg": 5.0,
+    "wheel": 15.0
+  },
+  "terrains": [
+    {
+      "id": "flat",
+      "label": "平地",
+      "path": "simulation/flat.xml"
+    }
+  ]
+}

@@ -619,10 +619,6 @@ async def training_profile_schema(robot_id: str, profile_id: str):
                 "schema": schema,
                 "tree": schema,
                 "params": resolve_params(schema),
-        "groups": {
-            cat: build_param_groups(schema, cat)
-            for cat in ("simulator", "environment", "embodiment", "learning", "rewards", "robustness")
-        },
                 "groups": {
                     cat: build_param_groups(schema, cat)
                     for cat in ("simulator", "environment", "embodiment", "learning", "rewards", "robustness")
@@ -646,6 +642,10 @@ async def training_profile_schema(robot_id: str, profile_id: str):
         "schema": schema,
         "tree": schema,
         "params": resolve_params(schema),
+        "groups": {
+            cat: build_param_groups(schema, cat)
+            for cat in ("simulator", "environment", "embodiment", "learning", "rewards", "robustness")
+        },
         "cached": False,
     }
 

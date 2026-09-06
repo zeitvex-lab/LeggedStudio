@@ -1,0 +1,13 @@
+{
+  "robot_id": "unitree_g1",
+  "contract_path": "assets/robots/unitree_g1/contract.json",
+  "profile_id": "g1-amp-flat",
+  "task_name": "amp_locomotion",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "max_iterations": 5000,
+  "episode_length_s": 20.0,
+  "learning_rate": 0.001,
+  "save_interval": 100,
+  "seed": 1
+}

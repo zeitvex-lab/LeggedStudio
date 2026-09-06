@@ -9,10 +9,8 @@
   <style>
     body.embedded .topbar, body.embedded .app-shell > .topbar { display: none; }
     body.embedded .list-container, body.embedded .content { padding-top: 14px; }
-    body.embedded .content { width: min(100% - 28px, 1380px); padding-top: 12px; }
-    body.embedded .config-layout { grid-template-columns: minmax(0, 1fr); }
-    body.embedded .canvas-wrap { padding: 4px 0; }
-  
+    body.embedded .content { width: min(100% - 28px, 1560px); padding-top: 12px; }
+
     /* 页面局部样式：仅布局与原生 workbench.css 未覆盖的细节。
        颜色一律来自 workbench.css 的设计变量（--cyan/--line/--surface-*/…）。 */
     :root { --header-h: 66px; }
@@ -41,52 +39,29 @@
 
     .head-field select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .robot-strip {
+    /* 当前机器人参数框（选择框旁的只读摘要） */
+    .robot-meta-box {
       display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      padding: 2px;
-      flex: 1;
-      min-width: 260px;
-      scrollbar-width: thin;
-    }
-
-    .robot-card.compact {
-      flex: 0 0 auto;
-      min-width: 148px;
-      max-width: 190px;
-      padding: 9px 12px;
-      background: var(--surface-input);
+      align-items: center;
+      gap: 10px;
+      min-height: 33px;
+      padding: 6px 12px;
       border: 1px solid var(--line-soft);
       border-radius: 6px;
-      cursor: pointer;
-      transition: border-color 0.15s ease, background 0.15s ease;
-    }
-
-    .robot-card.compact:hover { border-color: var(--cyan); }
-
-    .robot-card.compact.selected {
-      border-color: rgba(55, 214, 198, 0.55);
-      background: var(--cyan-dim);
-    }
-
-    .robot-card.compact h4 {
-      font-size: 13px;
-      font-weight: 600;
-      margin: 0 0 2px;
+      background: var(--surface-input);
+      font-size: 12px;
+      color: var(--text);
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
 
-    .robot-card.compact p {
-      margin: 0;
-      font-size: 10px;
+    .robot-meta-box b { font-weight: 600; }
+
+    .robot-meta-box span {
       color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font: 11px Consolas, monospace;
     }
+
+    .robot-meta-box .sep { color: var(--faint); }
 
     #taskBadge { gap: 7px; }
 
@@ -100,30 +75,69 @@
 
     #taskBadge small { color: var(--muted); margin-left: 4px; }
 
-    /* ========== 左侧五分类导航（native config-tabs 模式） ========== */
-    .cat-nav { position: sticky; top: calc(var(--header-h) + 14px); align-self: start; }
+    /* ========== 规格书三栏布局：章节导航 / 章节文档 / 上下文栏 ========== */
+    .config-layout {
+      display: grid;
+      grid-template-columns: 224px minmax(0, 1fr) 296px;
+      gap: 16px;
+      align-items: start;
+    }
 
-    .config-tab { display: flex; align-items: center; gap: 10px; text-align: left; }
+    /* 左侧章节导航（显式浅色：workbench.css 的 color-scheme:dark 会让未设背景的按钮走 UA 深色渲染） */
+    .chapter-nav { position: sticky; top: calc(var(--header-h) + 14px); align-self: start; }
 
-    .config-tab .index { font: 11px Consolas, monospace; color: var(--faint); }
+    .toc-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+    }
 
-    .config-tab.active .index { color: var(--cyan); }
+    .toc-item:hover { border-color: var(--line-soft); background: var(--surface-input); color: var(--text); }
 
-    .config-tab .cat-name { display: block; font-size: 13px; font-weight: 600; }
-    .config-tab .cat-sub { display: block; font-size: 10px; color: var(--faint); margin-top: 1px; }
+    .toc-item.active {
+      border-color: rgba(55, 214, 198, 0.35);
+      background: var(--cyan-dim);
+      color: var(--text);
+    }
 
-    .config-tab .dot {
+    .toc-item.active .cat-name { color: var(--cyan); }
+
+    .toc-item .index { font: 11px Consolas, monospace; color: var(--faint); }
+
+    .toc-item.active .index { color: var(--cyan); }
+
+    .toc-item .cat-name { display: block; font-size: 13px; font-weight: 600; }
+    .toc-item .cat-sub { display: block; font-size: 10px; color: var(--faint); margin-top: 1px; }
+
+    .toc-item .toc-edits {
+      margin-left: auto;
+      font: 10px Consolas, monospace;
+      color: var(--amber, #d88922);
+      background: rgba(216, 137, 34, 0.12);
+      border-radius: 999px;
+      padding: 1px 7px;
+    }
+
+    .toc-item .dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
       background: var(--line);
       flex-shrink: 0;
-      margin-left: auto;
       transition: background 0.2s ease;
     }
+    .toc-item .dot + .toc-edits,
+    .toc-edits + .dot { margin-left: 0; }
+    .toc-item .toc-edits:not([hidden]) + .dot { margin-left: 6px; }
 
-    .config-tab .dot.ok { background: var(--green); box-shadow: 0 0 0 3px rgba(105, 224, 169, 0.14); }
-    .config-tab .dot.bad { background: var(--red); box-shadow: 0 0 0 3px rgba(255, 128, 120, 0.14); }
+    .toc-item .dot.ok { background: var(--green); box-shadow: 0 0 0 3px rgba(105, 224, 169, 0.14); }
+    .toc-item .dot.bad { background: var(--red); box-shadow: 0 0 0 3px rgba(255, 128, 120, 0.14); }
 
     .nav-foot {
       margin-top: 4px;
@@ -131,10 +145,10 @@
       border: 1px dashed var(--line);
       color: var(--faint);
       font-size: 10px;
-      line-height: 1.6;
+      line-height: 1.65;
     }
 
-    /* ========== 分类卡片（native form-panel + panel-title） ========== */
+    /* 中间章节文档 */
     .cat-panel {
       margin-bottom: 14px;
       scroll-margin-top: calc(var(--header-h) + 16px);
@@ -146,6 +160,7 @@
       font-size: 12px;
       line-height: 1.6;
     }
+    .section-hint .kb-src { color: var(--faint); font-size: 10px; }
 
     .sub-block-title {
       display: flex;
@@ -159,222 +174,6 @@
     }
 
     .sub-block-title.editable { color: var(--cyan); }
-    .sub-block-title.readonly { color: var(--faint); }
-
-    /* 奖励行浅色化（workbench.css 的 .reward 基础样式是深底） */
-    .reward { background: #ffffff; border: 1px solid var(--line-soft); }
-    .reward:hover { border-color: var(--cyan); }
-    .reward input[type="number"] { background: #ffffff; color: var(--text); }
-    .reward-group { margin-bottom: 14px; }
-    .reward-group-title {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--muted);
-      margin: 0 0 6px;
-    }
-    .reward-group-title small { color: var(--faint); font-weight: 400; margin-left: 6px; }
-    .reward.locked { opacity: 0.85; }
-    .reward-weight-locked { color: var(--muted); font: 11px Consolas, monospace; white-space: nowrap; }
-    .reward-group .reward-group-title { display: block; }
-    #rewardTerms .reward-group { display: block; }
-    #rewardTerms .reward-group .reward { display: grid; grid-template-columns: 30px minmax(0, 1fr) 130px; }
-
-    /* 只读 KV 表（锁定配方，meta-box / system-row 风格） */
-    .ro-block {
-      border: 1px solid var(--line-soft);
-      border-left: 2px solid var(--line);
-      border-radius: 6px;
-      background: var(--surface-input);
-      padding: 12px 14px;
-    }
-
-    .ro-head {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 11px;
-      color: var(--faint);
-      margin-bottom: 8px;
-      flex-wrap: wrap;
-    }
-
-    .ro-head .lock-glyph { display: inline-flex; color: var(--faint); }
-    .ro-head b { color: var(--muted); font-weight: 600; }
-
-    .kv-list { display: grid; gap: 0; }
-
-    .kv {
-      display: grid;
-      grid-template-columns: minmax(120px, 240px) minmax(0, 1fr);
-      gap: 12px;
-      padding: 6px 0;
-      border-bottom: 1px solid var(--line-soft);
-      font-size: 12px;
-    }
-
-    .kv:last-child { border-bottom: 0; }
-
-    .kv .kv-key {
-      color: var(--muted);
-      font: 11px Consolas, monospace;
-      word-break: break-all;
-    }
-
-    .kv .kv-val {
-      color: var(--text);
-      font: 11px Consolas, monospace;
-      word-break: break-all;
-    }
-
-    .ro-note {
-      margin-top: 8px;
-      font-size: 10px;
-      color: var(--faint);
-      line-height: 1.55;
-    }
-
-    .joint-chips { display: flex; flex-wrap: wrap; gap: 5px; }
-
-    .joint-chip {
-      padding: 2px 8px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      font: 10px Consolas, monospace;
-      color: var(--muted);
-      background: var(--surface-raised);
-    }
-
-    .joint-chip small { color: var(--faint); margin-right: 4px; }
-
-    .term-chip {
-      display: inline-flex;
-      align-items: center;
-      padding: 3px 9px;
-      border: 1px solid rgba(55, 214, 198, 0.25);
-      border-radius: 999px;
-      font: 10px Consolas, monospace;
-      color: var(--cyan);
-      background: var(--cyan-dim);
-    }
-
-    /* 命令范围行 */
-    .cmd-grid { display: grid; gap: 8px; }
-
-    .cmd-row {
-      display: grid;
-      grid-template-columns: minmax(90px, 130px) 1fr 1fr;
-      gap: 10px;
-      align-items: center;
-      padding: 9px 12px;
-      border: 1px solid var(--line-soft);
-      border-radius: 6px;
-      background: var(--surface-raised);
-    }
-
-    .cmd-row .cmd-name { font: 600 12px Consolas, monospace; color: var(--text); }
-    .cmd-row .cmd-name small { display: block; color: var(--faint); font-weight: 400; font-size: 10px; }
-    .cmd-row input {
-      min-height: 32px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 5px 9px;
-      background: var(--surface-input);
-      color: var(--text);
-      font: 12px Consolas, monospace;
-    }
-    .cmd-row input:focus { outline: none; border-color: var(--cyan); }
-
-    .cmd-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-
-    /* 任务 chips（通用任务模式） */
-    .task-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-
-    .task-chip {
-      padding: 9px 13px;
-      border: 1px solid var(--line-soft);
-      border-radius: 6px;
-      background: var(--surface-raised);
-      cursor: pointer;
-      transition: border-color 0.15s ease, background 0.15s ease;
-      text-align: left;
-    }
-
-    .task-chip:hover { border-color: var(--cyan); }
-
-    .task-chip.selected {
-      border-color: rgba(55, 214, 198, 0.6);
-      background: var(--cyan-dim);
-    }
-
-    .task-chip strong { display: block; font-size: 12px; color: var(--text); }
-    .task-chip small { font-size: 10px; color: var(--muted); font-family: Consolas, monospace; }
-
-    /* 档案模式提示（native runtime-hint 外观 + 显示开关） */
-    .mode-hint { display: none; margin: 0 0 14px; }
-    .mode-hint.visible { display: block; }
-
-    /* 覆盖开关 */
-    .override-toggle {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 11px 13px;
-      border: 1px solid rgba(242, 189, 108, 0.3);
-      border-radius: 6px;
-      background: rgba(242, 189, 108, 0.06);
-      margin-bottom: 14px;
-      cursor: pointer;
-    }
-
-    .override-toggle input {
-      width: 16px;
-      height: 16px;
-      margin-top: 2px;
-      accent-color: var(--cyan);
-      cursor: pointer;
-    }
-
-    .override-toggle strong { display: block; font-size: 12px; color: var(--text); }
-    .override-toggle small { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); line-height: 1.55; }
-
-    /* 硬件徽标 */
-    .hw-badges { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; }
-
-    .hw-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      font-size: 11px;
-      color: var(--muted);
-      background: var(--surface-raised);
-    }
-
-    .hw-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
-    .hw-badge.ok { border-color: rgba(105, 224, 169, 0.3); color: var(--green); }
-    .hw-badge.ok .dot { background: var(--green); box-shadow: none; }
-    .hw-badge.warn { border-color: rgba(242, 189, 108, 0.3); color: var(--amber); }
-    .hw-badge.warn .dot { background: var(--amber); box-shadow: none; }
-
-    /* 奖惩编辑器（native .reward 行 + .rewards 网格） */
-    .reward-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-    }
-
-    .reward-summary { font-size: 12px; color: var(--muted); }
-    .reward-summary b { color: var(--cyan); }
-
-    .reward-label strong { display: block; font-size: 13px; }
-    .reward-label small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
-
-    .reward.disabled { opacity: 0.45; }
 
     .field-hint {
       color: var(--faint);
@@ -382,188 +181,95 @@
       line-height: 1.45;
     }
 
-    /* 底部粘性摘要条（native view-footer + 页面局部粘性定位） */
-    .sticky-bar {
-      position: sticky;
-      bottom: 0;
-      z-index: 10;
-      margin-top: 18px;
-      padding: 14px 18px;
+    /* 章节内分组（来自 profile-schema 自动分组树） */
+    .spec-groups { margin-top: 6px; }
+
+    .param-group {
       border: 1px solid var(--line-soft);
-      border-radius: 6px;
+      border-radius: 8px;
+      background: #ffffff;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+
+    .param-group-head {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 9px 12px 7px;
+      border-bottom: 1px solid var(--line-soft);
       background: var(--surface-raised);
-      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
-      flex-wrap: wrap;
     }
 
-    .sticky-summary { font-size: 12px; color: var(--muted); min-width: 0; }
-    .sticky-summary b { color: var(--text); font-weight: 600; }
+    .param-group-head .g-title { font-size: 12px; font-weight: 700; color: var(--text); }
+    .param-group-head .g-path { font: 10px Consolas, monospace; color: var(--faint); word-break: break-all; }
+    .param-group-head .g-count { margin-left: auto; font: 10px Consolas, monospace; color: var(--muted); flex-shrink: 0; }
+    .param-group-head .g-edited { font: 10px Consolas, monospace; color: var(--amber, #d88922); flex-shrink: 0; }
 
-    .valid-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 2px 9px;
-      border-radius: 999px;
-      font-size: 11px;
-      border: 1px solid var(--line);
-      color: var(--muted);
-      margin-left: 8px;
+    .param-rows { display: flex; flex-direction: column; }
+
+    /* 高级参数折叠区（六类「几乎不改」规则命中项，默认收起、可编辑） */
+    .adv-fold {
+      margin-top: 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: #ffffff;
     }
-
-    .valid-chip.ok { border-color: rgba(105, 224, 169, 0.4); color: var(--green); }
-    .valid-chip.bad { border-color: rgba(255, 128, 120, 0.4); color: var(--red); }
-
-    /* 错误 / 提示 */
-    .inline-error {
-      display: none;
-      margin: 0 0 14px;
-      padding: 12px 16px;
-      border: 1px solid rgba(255, 128, 120, 0.35);
-      border-radius: 6px;
-      background: rgba(112, 32, 30, 0.2);
-      color: var(--red);
-      font-size: 13px;
-      line-height: 1.5;
-      word-break: break-all;
-    }
-
-    .inline-error.visible { display: block; }
-
-    .toast {
-      position: fixed;
-      left: 50%;
-      bottom: 32px;
-      transform: translateX(-50%) translateY(8px);
-      padding: 12px 20px;
-      border-radius: 6px;
-      background: var(--cyan-dim);
-      border: 1px solid rgba(55, 214, 198, 0.4);
-      color: var(--cyan);
-      font-size: 13px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s ease, transform 0.2s ease;
-      z-index: 100;
-    }
-
-    .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-    .retry-link {
-      color: var(--cyan);
-      cursor: pointer;
-      text-decoration: underline;
-      background: none;
-      border: none;
-      font: inherit;
-    }
-
-    /* 配置预览抽屉（native .advanced + 页面局部布局） */
-    .preview-drawer { scroll-margin-top: calc(var(--header-h) + 16px); }
-
-    .preview-drawer summary {
+    .adv-fold > summary {
       list-style: none;
-      min-height: 50px;
-      padding: 0 16px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+      gap: 8px;
+      min-height: 42px;
+      padding: 0 14px;
       cursor: pointer;
       user-select: none;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .preview-drawer[open] summary { border-bottom: 1px solid var(--line-soft); }
-
-    .preview-drawer summary::-webkit-details-marker { display: none; }
-
-    .preview-drawer summary .chevron {
-      width: 22px;
-      height: 22px;
-      border-radius: 6px;
-      border: 1px solid var(--line);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--cyan);
-      font-size: 11px;
-      transition: transform 0.16s ease;
-    }
-
-    .preview-drawer:not([open]) summary .chevron { transform: rotate(-90deg); }
-
-    .preview-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 16px;
-      flex-wrap: wrap;
-    }
-
-    .preview-toolbar input {
-      flex: 1;
-      min-width: 180px;
-      min-height: 32px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 5px 11px;
-      background: var(--surface-input);
-      color: var(--text);
       font-size: 12px;
-    }
-
-    .preview-toolbar input:focus { outline: none; border-color: var(--cyan); }
-
-    .preview-status { font-size: 11px; color: var(--muted); white-space: nowrap; }
-
-    .preview-list-wrap {
-      max-height: 420px;
-      overflow: auto;
-      padding: 8px 16px 16px;
-    }
-
-    .preview-empty { padding: 26px 0; text-align: center; color: var(--faint); font-size: 12px; }
-
-    /* ========== 常用参数卡片（descriptor 驱动的主界面） ========== */
-    .ovr-section { margin: 20px 0 8px; }
-    .ovr-section .sub-block-title {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 8px 10px;
-      border-radius: 6px;
-      background: var(--surface-raised, #f8fafc);
-      border: 1px solid var(--line-soft);
-    }
-    .ovr-section .sub-block-title { color: var(--text); font-size: 12px; text-transform: none; letter-spacing: 0; }
-    .ovr-count { color: var(--muted); font: 10px Consolas, monospace; }
-    .ovr-block { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
-
-    .param-block { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
-
-    .param-group-title {
-      font-size: 11px;
-      font-weight: 700;
+      font-weight: 600;
       color: var(--muted);
-      margin: 10px 0 2px;
     }
+    .adv-fold > summary::-webkit-details-marker { display: none; }
+    .adv-fold > summary .chev {
+      display: inline-block;
+      transition: transform 0.16s ease;
+      color: var(--cyan);
+    }
+    .adv-fold:not([open]) > summary .chev { transform: rotate(-90deg); }
+    .adv-fold > summary .adv-count { color: var(--text); }
+    .adv-fold > summary .adv-note {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--faint);
+      font-weight: 400;
+      text-align: right;
+    }
+    .adv-fold[open] > summary { border-bottom: 1px solid var(--line-soft); }
+    .adv-fold-body { padding: 10px 12px 12px; }
+    .adv-fold-body .param-group:last-child { margin-bottom: 0; }
+
+    .rt-adv { margin-top: 6px; }
+    .rt-adv > summary {
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+      font: 10px Consolas, monospace;
+      color: var(--faint);
+    }
+    .rt-adv > summary::-webkit-details-marker { display: none; }
+    .rt-adv .param-rows { margin-top: 4px; border: 1px solid var(--line-soft); border-radius: 6px; }
 
     .param-row {
       display: grid;
-      grid-template-columns: minmax(160px, 1.3fr) minmax(70px, 130px) minmax(130px, 1fr);
+      grid-template-columns: minmax(150px, 1.25fr) minmax(80px, 130px) minmax(120px, 1fr);
       gap: 10px;
       align-items: center;
-      padding: 7px 10px;
-      border: 1px solid var(--line-soft);
-      border-radius: 6px;
-      background: #ffffff;
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--line-soft);
     }
-    .param-row:hover { border-color: var(--line); }
-    .param-row.overridden { border-color: rgba(37, 136, 223, .45); background: #f4f9ff; }
-    .param-row.ro { background: var(--surface-raised); }
+    .param-row:last-child { border-bottom: 0; }
+    .param-row:hover { background: var(--surface-input); }
+    .param-row.overridden { background: #f4f9ff; box-shadow: inset 2px 0 0 rgba(37, 136, 223, 0.55); }
+    .param-row.adv { opacity: 0.72; }
     .param-main { min-width: 0; }
     .param-label { display: block; font-size: 12px; font-weight: 600; color: var(--text); }
     .param-label small { color: var(--faint); font-weight: 400; margin-left: 3px; }
@@ -601,184 +307,361 @@
     .param-row input:focus { outline: none; border-color: var(--cyan, #2588df); }
     .param-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--cyan); cursor: pointer; justify-self: start; }
     .ovr-status { color: var(--muted); font-size: 11px; }
-    .ovr-details > summary { cursor: pointer; }
 
+    /* ========== 奖励四层看板（跟踪 / 正则化 / 风格 / 接触安全） ========== */
+    .reward-board { display: flex; flex-direction: column; gap: 12px; }
 
-    /* ========== 训练工作流画布 ========== */
-    .canvas-wrap { padding: 10px 2px 26px; overflow-x: auto; }
-    .flow-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-      gap: 22px 34px;
-      position: relative;
-      padding: 8px 4px 4px;
-    }
-    .flow-node {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 13px 15px;
-      border: 1.5px solid var(--line-soft);
-      border-radius: 11px;
-      background: var(--surface);
-      cursor: pointer;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
-      text-align: left;
-      font: inherit;
-      color: inherit;
-      min-height: 132px;
-    }
-    .flow-node::after {
-      content: '▶';
-      position: absolute;
-      right: -32px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--faint, #8b98a5);
-      font-size: 12px;
-    }
-    .flow-node.no-arrow::after { content: none; }
-    .flow-node:hover {
-      border-color: var(--cyan);
-      box-shadow: 0 6px 24px rgba(37, 136, 223, 0.15);
-    }
-    .flow-node.has-edits { border-color: rgba(216, 137, 34, 0.55); }
-    .flow-node .node-head { display: flex; align-items: center; gap: 9px; }
-    .flow-node .node-step {
-      display: grid;
-      place-items: center;
-      width: 24px; height: 24px;
-      border-radius: 50%;
-      background: rgba(37, 136, 223, 0.12);
-      color: var(--cyan, #2588df);
-      font: 700 11px Consolas, monospace;
-      flex-shrink: 0;
-    }
-    .flow-node .node-head h3 { margin: 0; font-size: 13.5px; }
-    .flow-node .node-head small { display: block; color: var(--muted); font-size: 10px; margin-top: 1px; }
-    .flow-node .node-body { display: flex; flex-direction: column; gap: 4px; }
-    .flow-node .nline { display: flex; justify-content: space-between; gap: 8px; font: 11px Consolas, monospace; }
-    .flow-node .nline .k { color: var(--muted); }
-    .flow-node .nline .v { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62%; }
-    .flow-node .node-foot {
-      margin-top: auto;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: var(--muted);
-      font-size: 10px;
-      padding-top: 6px;
-      border-top: 1px dashed var(--line-soft);
-    }
-    .flow-node .node-foot .edited { color: var(--amber, #d88922); font-weight: 600; }
+    .reward-layer { border: 1px solid var(--line-soft); border-radius: 8px; background: #ffffff; overflow: hidden; }
 
-    /* 抽屉 */
-    .drawer-mask {
-      position: fixed;
-      inset: 0;
-      z-index: 40;
-      background: rgba(15, 23, 32, 0.42);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.18s ease;
-    }
-    .drawer-mask.open { opacity: 1; pointer-events: auto; }
-    .drawer {
-      position: fixed;
-      top: 0; right: 0; bottom: 0;
-      z-index: 41;
-      width: min(560px, 94vw);
-      background: var(--surface, #fff);
-      border-left: 1px solid var(--line-soft);
-      box-shadow: -18px 0 50px rgba(20, 35, 48, 0.18);
-      transform: translateX(102%);
-      transition: transform 0.2s ease;
+    .reward-layer-head {
       display: flex;
-      flex-direction: column;
-    }
-    .drawer.open { transform: translateX(0); }
-    .drawer-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px 18px;
+      align-items: baseline;
+      gap: 9px;
+      padding: 9px 12px 7px;
       border-bottom: 1px solid var(--line-soft);
-    }
-    .drawer-head h2 { margin: 0; font-size: 16px; }
-    .drawer-head .drawer-meta { color: var(--muted); font-size: 11px; margin-top: 3px; }
-    .drawer-body { flex: 1; overflow-y: auto; padding: 14px 18px 30px; }
-    .drawer-group-title {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: var(--muted);
-      margin: 16px 0 8px;
+      background: var(--surface-raised);
     }
 
-    /* ========== 高级覆盖（训练配方全量配置 schema dot-path rows） ========== */
-    .ovr-details { margin-top: 16px; }
-
-    .ovr-details summary {
-      list-style: none;
-      min-height: 32px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      user-select: none;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: var(--cyan);
+    .reward-layer-head .l-tag {
+      font: 700 10px Consolas, monospace;
+      padding: 2px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.4px;
     }
+    .reward-layer[data-layer="tracking"] .l-tag { color: var(--green); background: rgba(105, 224, 169, 0.13); }
+    .reward-layer[data-layer="regularization"] .l-tag { color: var(--red); background: rgba(255, 128, 120, 0.12); }
+    .reward-layer[data-layer="style"] .l-tag { color: var(--cyan); background: var(--cyan-dim); }
+    .reward-layer[data-layer="safety"] .l-tag { color: var(--amber, #d88922); background: rgba(216, 137, 34, 0.12); }
 
-    .ovr-details summary .chev { display: inline-block; transition: transform 0.16s ease; }
-    .ovr-details:not([open]) summary .chev { transform: rotate(-90deg); }
-    .ovr-details summary .ovr-count { color: var(--faint); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: auto; }
-    .ovr-details summary::-webkit-details-marker { display: none; }
+    .reward-layer-head .l-name { font-size: 12px; font-weight: 700; }
+    .reward-layer-head .l-desc { font-size: 10px; color: var(--faint); }
+    .reward-layer-head .l-sum { margin-left: auto; font: 10px Consolas, monospace; color: var(--muted); flex-shrink: 0; }
 
-    .ovr-block { padding: 8px 0 4px; }
-    .ovr-status { font-size: 11px; color: var(--muted); line-height: 1.65; word-break: break-all; }
-    .ovr-note { font-size: 10px; color: var(--faint); line-height: 1.55; margin: 0 0 6px; }
-
-    .ovr-rows { display: flex; flex-direction: column; gap: 2px; max-height: 420px; overflow: auto; margin-top: 4px; padding-right: 4px; }
-
-    .ovr-row {
+    .reward-term {
       display: grid;
-      grid-template-columns: minmax(160px, 340px) minmax(64px, 130px) minmax(110px, 1fr);
+      grid-template-columns: 96px minmax(0, 1fr) auto;
       gap: 10px;
       align-items: center;
-      padding: 4px 8px;
-      border: 1px solid transparent;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .reward-term:last-child { border-bottom: 0; }
+    .reward-term:hover { background: var(--surface-input); }
+    .reward-term.off { opacity: 0.45; }
+
+    .reward-term .rt-weight input {
+      min-height: 27px; width: 100%; box-sizing: border-box;
+      border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px;
+      background: var(--surface-input); color: var(--text); font: 12px Consolas, monospace;
+      text-align: right;
+    }
+    .reward-term .rt-weight input:focus { outline: none; border-color: var(--cyan); }
+
+    .reward-term .rt-main { min-width: 0; }
+    .reward-term .rt-name { font-size: 12px; font-weight: 600; color: var(--text); word-break: break-all; }
+    .reward-term .rt-path { display: block; font: 10px Consolas, monospace; color: var(--faint); word-break: break-all; }
+    .reward-term .rt-bar {
+      display: block;
+      height: 4px;
+      border-radius: 999px;
+      background: var(--line-soft);
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    .reward-term .rt-bar i { display: block; height: 100%; border-radius: 999px; }
+    .reward-term .rt-bar i.pos { background: var(--green); }
+    .reward-term .rt-bar i.neg { background: var(--red); }
+
+    .reward-term .rt-side { display: flex; align-items: center; gap: 8px; }
+    .reward-term .rt-side input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--cyan); cursor: pointer; }
+
+    .reward-term details.rt-params { grid-column: 1 / -1; margin: 0 0 6px; }
+    .reward-term details.rt-params > summary {
+      cursor: pointer; user-select: none; list-style: none;
+      font: 10px Consolas, monospace; color: var(--cyan);
+    }
+    .reward-term details.rt-params > summary::-webkit-details-marker { display: none; }
+    .reward-term details.rt-params .param-rows { margin-top: 4px; border: 1px solid var(--line-soft); border-radius: 6px; }
+    .reward-term details.rt-params .param-row { grid-template-columns: minmax(140px, 1.2fr) minmax(70px, 110px) minmax(110px, 1fr); padding: 5px 10px; }
+
+    .reward-top-params { margin-top: 10px; }
+
+    /* 奖励行浅色化（workbench.css 的 .reward 基础样式是深底，通用模式仍复用 .reward 结构） */
+    .reward { background: #ffffff; border: 1px solid var(--line-soft); }
+    .reward:hover { border-color: var(--cyan); }
+    .reward input[type="number"] { background: #ffffff; color: var(--text); }
+    .reward-group { margin-bottom: 14px; }
+    .reward-group-title { font-size: 12px; font-weight: 700; color: var(--muted); margin: 0 0 6px; }
+    .reward-group-title small { color: var(--faint); font-weight: 400; margin-left: 6px; }
+    #rewardTerms .reward-group .reward { display: grid; grid-template-columns: 30px minmax(0, 1fr) 130px; }
+    .reward-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .reward-summary { font-size: 12px; color: var(--muted); }
+    .reward-summary b { color: var(--cyan); }
+    .reward-label strong { display: block; font-size: 13px; }
+    .reward-label small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .reward.disabled { opacity: 0.45; }
+
+    /* 只读 KV 表（契约信息） */
+    .ro-block {
+      border: 1px solid var(--line-soft);
+      border-left: 2px solid var(--line);
       border-radius: 6px;
+      background: var(--surface-input);
+      padding: 12px 14px;
     }
 
-    .ovr-row:hover { background: var(--surface-input); }
-    .ovr-row.overridden { border-color: rgba(242, 189, 108, 0.35); background: rgba(242, 189, 108, 0.05); }
+    .ro-head {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 11px; color: var(--faint); margin-bottom: 8px; flex-wrap: wrap;
+    }
+    .ro-head .lock-glyph { display: inline-flex; color: var(--faint); }
+    .ro-head b { color: var(--muted); font-weight: 600; }
 
-    .ovr-row .ovr-path { font: 11px Consolas, monospace; color: var(--text); word-break: break-all; }
-    .ovr-row .ovr-current { font: 11px Consolas, monospace; color: var(--muted); text-align: right; word-break: break-all; }
-    .ovr-row .ovr-current::before { content: '= '; color: var(--faint); }
-    .ovr-row input[type="number"], .ovr-row input[type="text"] {
-      min-height: 28px;
-      width: 100%;
-      box-sizing: border-box;
+    .kv-list { display: grid; gap: 0; }
+
+    .kv {
+      display: grid;
+      grid-template-columns: minmax(120px, 240px) minmax(0, 1fr);
+      gap: 12px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--line-soft);
+      font-size: 12px;
+    }
+    .kv:last-child { border-bottom: 0; }
+    .kv .kv-key { color: var(--muted); font: 11px Consolas, monospace; word-break: break-all; }
+    .kv .kv-val { color: var(--text); font: 11px Consolas, monospace; word-break: break-all; }
+
+    .ro-note { margin-top: 8px; font-size: 10px; color: var(--faint); line-height: 1.55; }
+
+    .joint-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .joint-chip {
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font: 10px Consolas, monospace;
+      color: var(--muted);
+      background: var(--surface-raised);
+    }
+    .joint-chip small { color: var(--faint); margin-right: 4px; }
+
+    /* 命令范围行 */
+    .cmd-grid { display: grid; gap: 8px; }
+    .cmd-row {
+      display: grid;
+      grid-template-columns: minmax(90px, 130px) 1fr 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: var(--surface-raised);
+    }
+    .cmd-row .cmd-name { font: 600 12px Consolas, monospace; color: var(--text); }
+    .cmd-row .cmd-name small { display: block; color: var(--faint); font-weight: 400; font-size: 10px; }
+    .cmd-row input {
+      min-height: 32px;
       border: 1px solid var(--line);
       border-radius: 6px;
-      padding: 4px 8px;
+      padding: 5px 9px;
       background: var(--surface-input);
       color: var(--text);
       font: 12px Consolas, monospace;
     }
-    .ovr-row input[type="number"]:focus, .ovr-row input[type="text"]:focus { outline: none; border-color: var(--cyan); }
-    .ovr-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--cyan); cursor: pointer; justify-self: start; }
+    .cmd-row input:focus { outline: none; border-color: var(--cyan); }
+    .cmd-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
-    @media (max-width: 1000px) {
-      .cat-nav { position: static; }
+    /* 任务 chips */
+    .task-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .task-chip {
+      padding: 9px 13px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: var(--surface-raised);
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+      text-align: left;
+    }
+    .task-chip:hover { border-color: var(--cyan); }
+    .task-chip.selected { border-color: rgba(55, 214, 198, 0.6); background: var(--cyan-dim); }
+    .task-chip strong { display: block; font-size: 12px; color: var(--text); }
+    .task-chip small { font-size: 10px; color: var(--muted); font-family: Consolas, monospace; }
+
+    /* 档案模式提示 */
+    .mode-hint { display: none; margin: 0 0 14px; }
+    .mode-hint.visible { display: block; }
+
+    /* 硬件徽标（右栏） */
+    .hw-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .hw-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px;
+      font-size: 11px; color: var(--muted); background: var(--surface-raised);
+    }
+    .hw-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+    .hw-badge.ok { border-color: rgba(105, 224, 169, 0.3); color: var(--green); }
+    .hw-badge.ok .dot { background: var(--green); box-shadow: none; }
+    .hw-badge.warn { border-color: rgba(242, 189, 108, 0.3); color: var(--amber); }
+    .hw-badge.warn .dot { background: var(--amber); box-shadow: none; }
+
+    /* ========== 右侧上下文栏 ========== */
+    .context-rail {
+      position: sticky;
+      top: calc(var(--header-h) + 14px);
+      align-self: start;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .ctx-block {
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 11px 13px;
+    }
+
+    .ctx-block h4 {
+      margin: 0 0 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+    }
+
+    .ctx-dl { display: grid; gap: 0; }
+    .ctx-dl > div {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      padding: 4px 0;
+      border-bottom: 1px dashed var(--line-soft);
+      font-size: 11px;
+    }
+    .ctx-dl > div:last-child { border-bottom: 0; }
+    .ctx-dl dt { color: var(--muted); }
+    .ctx-dl dd { margin: 0; font: 11px Consolas, monospace; color: var(--text); text-align: right; word-break: break-all; }
+    .ctx-dl dd small { display: block; color: var(--faint); font: 9px Consolas, monospace; }
+
+    .ctx-warns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+    .ctx-warns li {
+      font-size: 10.5px;
+      line-height: 1.55;
+      padding: 7px 9px;
+      border-radius: 6px;
+      border: 1px solid var(--line-soft);
+      color: var(--muted);
+      background: var(--surface-raised);
+    }
+    .ctx-warns li b { display: block; font-size: 10px; margin-bottom: 1px; }
+    .ctx-warns li.info b { color: var(--cyan); }
+    .ctx-warns li.warn { border-color: rgba(242, 189, 108, 0.35); background: rgba(242, 189, 108, 0.06); }
+    .ctx-warns li.warn b { color: var(--amber, #d88922); }
+    .ctx-warns li.none { color: var(--faint); }
+
+    /* 配置预览抽屉（显式浅色底，覆盖 workbench.css .advanced 的深色底） */
+    .preview-drawer { scroll-margin-top: calc(var(--header-h) + 16px); background: #ffffff; }
+    .preview-drawer summary { color: var(--text); }
+    .preview-drawer .chevron { background: #ffffff; }
+    .preview-drawer summary {
+      list-style: none;
+      min-height: 50px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .preview-drawer[open] summary { border-bottom: 1px solid var(--line-soft); }
+    .preview-drawer summary::-webkit-details-marker { display: none; }
+    .preview-drawer summary .chevron {
+      width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line);
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--cyan); font-size: 11px;
+      transition: transform 0.16s ease;
+    }
+    .preview-drawer:not([open]) summary .chevron { transform: rotate(-90deg); }
+    .preview-toolbar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; flex-wrap: wrap; }
+    .preview-toolbar input {
+      flex: 1; min-width: 180px; min-height: 32px;
+      border: 1px solid var(--line); border-radius: 6px; padding: 5px 11px;
+      background: var(--surface-input); color: var(--text); font-size: 12px;
+    }
+    .preview-toolbar input:focus { outline: none; border-color: var(--cyan); }
+    .preview-status { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .preview-list-wrap { max-height: 420px; overflow: auto; padding: 8px 16px 16px; }
+    .preview-empty { padding: 26px 0; text-align: center; color: var(--faint); font-size: 12px; }
+
+    /* 底部粘性摘要条 */
+    .sticky-bar {
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+      margin-top: 18px;
+      padding: 14px 18px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: var(--surface-raised);
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+      flex-wrap: wrap;
+    }
+    .sticky-summary { font-size: 12px; color: var(--muted); min-width: 0; }
+    .sticky-summary b { color: var(--text); font-weight: 600; }
+
+    .valid-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 9px; border-radius: 999px; font-size: 11px;
+      border: 1px solid var(--line); color: var(--muted); margin-left: 8px;
+    }
+    .valid-chip.ok { border-color: rgba(105, 224, 169, 0.4); color: var(--green); }
+    .valid-chip.bad { border-color: rgba(255, 128, 120, 0.4); color: var(--red); }
+
+    /* 错误 / 提示 */
+    .inline-error {
+      display: none;
+      margin: 0 0 14px;
+      padding: 12px 16px;
+      border: 1px solid rgba(255, 128, 120, 0.35);
+      border-radius: 6px;
+      background: rgba(112, 32, 30, 0.2);
+      color: var(--red);
+      font-size: 13px;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+    .inline-error.visible { display: block; }
+
+    .toast {
+      position: fixed;
+      left: 50%; bottom: 32px;
+      transform: translateX(-50%) translateY(8px);
+      padding: 12px 20px;
+      border-radius: 6px;
+      background: var(--cyan-dim);
+      border: 1px solid rgba(55, 214, 198, 0.4);
+      color: var(--cyan);
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 100;
+    }
+    .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .retry-link { color: var(--cyan); cursor: pointer; text-decoration: underline; background: none; border: none; font: inherit; }
+
+    @media (max-width: 1280px) {
+      .config-layout { grid-template-columns: 200px minmax(0, 1fr); }
+      .context-rail { display: none; }
+    }
+
+    @media (max-width: 920px) {
+      .config-layout { grid-template-columns: minmax(0, 1fr); }
+      .chapter-nav { position: static; }
       .nav-foot { display: none; }
     }
 
@@ -801,7 +684,7 @@
       <nav class="main-nav" aria-label="主功能">
         <a class="nav-item" href="dashboard.html"><span class="nav-index">01</span>首页</a>
         <a class="nav-item" href="workbench.html#validate"><span class="nav-index">02</span>验证</a>
-        <a class="nav-item active" href="training_create.html?v=0.6.1"><span class="nav-index">03</span>训练配置</a>
+        <a class="nav-item active" href="training_create.html?v=0.7.0"><span class="nav-index">03</span>训练配置</a>
         <a class="nav-item" href="training_list.html?v=0.6.1"><span class="nav-index">04</span>训练</a>
         <a class="nav-item" href="workbench.html#simulation"><span class="nav-index">05</span>仿真</a>
       </nav>
@@ -813,7 +696,7 @@
         <div>
           <span class="eyebrow">03 / TRAINING CREATE</span>
           <h1>创建训练任务</h1>
-          <p>五分类配置 · 可编辑项实时生效 · 训练配方内置项由档案源码决定</p>
+          <p>规格书工作台 · 章节对齐 mjlab / Isaac Lab 规范配置骨架 · 配方全量参数按章节列出，直接修改即以点路径覆盖写入</p>
         </div>
         <div class="heading-actions">
           <button class="button" id="importBtn" type="button" title="从 JSON 文件导入此前导出的训练配置">导入配置</button>
@@ -824,14 +707,17 @@
 
       <!-- 机器人 / 档案 / 任务 / 设备选择条 -->
       <section class="training-header selector-bar">
-        <div class="head-field" style="flex: 1; min-width: 280px;">
-          机器人
-          <div class="robot-strip" id="robotStrip">
-            <div class="empty-state" style="padding: 8px 12px;">正在加载训练资产...</div>
-          </div>
+        <label class="head-field" for="robotSelect">机器人
+          <select id="robotSelect" title="选择机器人训练资产；机器人参数显示在右侧参数框">
+            <option value="">加载中...</option>
+          </select>
+        </label>
+        <div class="head-field" style="min-width: 0;">
+          当前机器人
+          <div class="robot-meta-box" id="robotMetaBox">-</div>
         </div>
         <label class="head-field" for="profileSelect">训练档案
-          <select id="profileSelect" title="训练档案来自机器人训练包（按 sort_order 排序）；选择后任务与配方由档案派生">
+          <select id="profileSelect" title="训练档案来自机器人训练包（按 sort_order 排序）；选择后加载该档案的完整配方树">
             <option value="">加载中...</option>
           </select>
         </label>
@@ -848,75 +734,64 @@
       <div class="inline-error" id="formError"></div>
 
       <div class="config-layout">
-        <!-- ========== 左侧五分类导航 ========== -->
-        <!-- ========== 可视化配置画布 ========== -->
-        <div class="canvas-wrap" id="configCanvas">
-          <div class="flow-grid" id="canvasGrid"><!-- cards rendered by JS --></div>
-        </div>
-
-        <!-- 抽屉遮罩与抽屉（复用既有五分类面板作为抽屉内容） -->
-        <div class="drawer-mask" id="drawerMask"></div>
-        <aside class="drawer" id="moduleDrawer" aria-hidden="true">
-          <div class="drawer-head">
-            <div>
-              <h2 id="drawerTitle">模块</h2>
-              <div class="drawer-meta" id="drawerMeta"></div>
-            </div>
-            <button type="button" class="button small" id="drawerClose">关闭</button>
-          </div>
-          <div class="drawer-body" id="drawerBody"><!-- moved panel content --></div>
-        </aside>
-
-        <div id="legacyPanels" hidden>
-
-        <aside class="config-sidebar cat-nav" id="catNav" aria-label="五分类配置导航">
+        <!-- ========== 左侧章节导航 ========== -->
+        <aside class="config-sidebar chapter-nav" id="chapterNav" aria-label="配置章节导航">
           <div class="config-tabs">
-            <button type="button" class="config-tab active" data-target="panel-simulator">
+            <button type="button" class="toc-item active" data-target="ch-sim">
               <span class="index">01</span>
-              <span><span class="cat-name">仿真器与运行时</span><span class="cat-sub">Simulator</span></span>
-              <span class="dot" id="dot-simulator"></span>
+              <span><span class="cat-name">环境与仿真</span><span class="cat-sub">Sim · Scene · Terrain</span></span>
+              <span class="toc-edits" id="tocEdits-sim" hidden>0</span>
+              <span class="dot" id="dot-sim"></span>
             </button>
-            <button type="button" class="config-tab" data-target="panel-environment">
+            <button type="button" class="toc-item" data-target="ch-iface">
               <span class="index">02</span>
-              <span><span class="cat-name">环境与地形</span><span class="cat-sub">Environment</span></span>
-              <span class="dot" id="dot-environment"></span>
+              <span><span class="cat-name">接口</span><span class="cat-sub">Obs · Action · Command</span></span>
+              <span class="toc-edits" id="tocEdits-iface" hidden>0</span>
+              <span class="dot" id="dot-iface"></span>
             </button>
-            <button type="button" class="config-tab" data-target="panel-embodiment">
+            <button type="button" class="toc-item" data-target="ch-goal">
               <span class="index">03</span>
-              <span><span class="cat-name">机器人与观测</span><span class="cat-sub">Embodiment</span></span>
-              <span class="dot" id="dot-embodiment"></span>
+              <span><span class="cat-name">目标</span><span class="cat-sub">Rewards · Terminations</span></span>
+              <span class="toc-edits" id="tocEdits-goal" hidden>0</span>
+              <span class="dot" id="dot-goal"></span>
             </button>
-            <button type="button" class="config-tab" data-target="panel-learning">
+            <button type="button" class="toc-item" data-target="ch-robust">
               <span class="index">04</span>
-              <span><span class="cat-name">算法与超参数</span><span class="cat-sub">Learning</span></span>
-              <span class="dot" id="dot-learning"></span>
+              <span><span class="cat-name">鲁棒性与课程</span><span class="cat-sub">Events · Curriculum</span></span>
+              <span class="toc-edits" id="tocEdits-robust" hidden>0</span>
+              <span class="dot" id="dot-robust"></span>
             </button>
-            <button type="button" class="config-tab" data-target="panel-robustness">
+            <button type="button" class="toc-item" data-target="ch-train">
               <span class="index">05</span>
-              <span><span class="cat-name">奖励与鲁棒性</span><span class="cat-sub">Robustness</span></span>
-              <span class="dot" id="dot-robustness"></span>
+              <span><span class="cat-name">训练器</span><span class="cat-sub">PPO · Network</span></span>
+              <span class="toc-edits" id="tocEdits-train" hidden>0</span>
+              <span class="dot" id="dot-train"></span>
             </button>
-            <button type="button" class="config-tab" data-target="panel-preview">
+            <button type="button" class="toc-item" data-target="panel-preview">
               <span class="index">KV</span>
               <span><span class="cat-name">配置预览</span><span class="cat-sub">Resolved recipe</span></span>
             </button>
           </div>
           <div class="nav-foot">
-            绿点 = 该分类必填项校验通过；<br>
-            「训练配方内置」区块由所选档案的源码决定，启动后按配方执行。
+            章节结构 = mjlab / Isaac Lab 规范配置骨架（sim → scene → obs / action / command → reward / termination → event / curriculum → runner）。<br>
+            所有参数读取自训练配方内省树；「高级参数」折叠区收纳实体绑定、观测底层、接线、求解器等几乎不改的项，展开即可修改；修改以点路径写入 overrides，worker 在配方之后应用（用户修改优先）。
           </div>
         </aside>
 
-        <!-- ========== 主区：五分类卡片 ========== -->
+        <!-- ========== 中间：章节文档 ========== -->
         <div class="config-main">
           <form id="trainingForm" novalidate>
-            <!-- 01 仿真器 -->
-            <section class="cat-panel form-panel" id="panel-simulator">
+            <!-- 01 环境与仿真 -->
+            <section class="cat-panel form-panel" id="ch-sim" data-chapter="sim">
               <div class="panel-title">
-                <div><span class="eyebrow">01 / SIMULATOR</span><h2>仿真器</h2></div>
-                <span class="panel-meta">Simulator</span>
+                <div><span class="eyebrow">01 / SIMULATION &amp; ENVIRONMENT</span><h2>环境与仿真</h2></div>
+                <span class="panel-meta">Sim · Scene · Terrain</span>
               </div>
-              <p class="section-hint">native MJLab 运行时；并行环境数与随机种子直接写入训练配置。</p>
+              <p class="section-hint">物理引擎、并行环境、回合长度与地形。对应配置骨架 sim → scene → terrain。
+                <span class="kb-src">骨架来源：ManagerBasedRlEnvCfg（Ch03/Ch04）</span></p>
+              <div class="runtime-hint mode-hint" id="profileModeHint">
+                档案模式：下方表单为顶层运行参数；所选档案的配方全量参数已按模块分组列出，直接修改即以点路径覆盖写入训练配置。
+              </div>
               <div class="field-grid three">
                 <div class="field-label">
                   <label for="numEnvs">并行环境数量</label>
@@ -938,32 +813,7 @@
                   <small class="field-hint">与顶部工具条联动</small>
                 </div>
               </div>
-              <div class="hw-badges" id="hwBadges">
-                <span class="hw-badge"><span class="dot"></span>正在探测运行环境...</span>
-              </div>
-              <div class="ovr-section" data-ovr-category="simulator">
-                <div class="sub-block-title editable">常用参数<span class="ovr-count" data-ovr-count></span></div>
-                <div class="param-block" data-param-block><div class="ovr-status">等待训练档案...</div></div>
-                <details class="ovr-details" data-expert-details>
-                  <summary><span class="chev">▾</span>专家模式 · 全部参数<span class="ovr-count" data-expert-count></span></summary>
-                  <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
-                </details>
-              </div>
-            </section>
-
-            <!-- 02 环境构建 -->
-            <section class="cat-panel form-panel" id="panel-environment">
-              <div class="panel-title">
-                <div><span class="eyebrow">02 / ENVIRONMENT</span><h2>环境与地形</h2></div>
-                <span class="panel-meta">Environment</span>
-              </div>
-              <p class="section-hint">地形类型、速度指令范围与回合长度可直接调整；地形混合比例与难度课程来自训练配方。</p>
-              <div class="runtime-hint mode-hint" id="profileModeHint">
-                档案模式：任务与奖励 / 地形默认保留训练配方；指令范围、回合长度、并行环境、种子与 PPO 参数仍会覆盖配方。开启「鲁棒迁移」中的覆盖开关后奖励权重才会生效。
-              </div>
-              <div class="sub-block-title editable">任务预设</div>
-              <div class="task-chips" id="taskChips"></div>
-              <div class="field-row" style="margin-top: 16px;">
+              <div class="field-row" style="margin-top: 14px;">
                 <div class="field-label">
                   <label for="terrainType">地形类型</label>
                   <select id="terrainType" title="通用任务模式支持 plane / rough；档案模式保留配方地形">
@@ -979,7 +829,24 @@
                   <small class="field-hint">5 - 60 秒 · 推荐 20s</small>
                 </div>
               </div>
-              <div class="sub-block-title editable">指令范围 command_ranges</div>
+              <div class="sub-block-title editable" id="taskChipsTitle">任务预设</div>
+              <div class="task-chips" id="taskChips"></div>
+              <div class="spec-groups" data-chapter-groups="sim"><div class="ro-note">选择训练档案后，此处列出仿真 / 场景 / 地形的配方参数。</div></div>
+            </section>
+
+            <!-- 02 接口：观测 · 动作 · 命令 -->
+            <section class="cat-panel form-panel" id="ch-iface" data-chapter="iface">
+              <div class="panel-title">
+                <div><span class="eyebrow">02 / INTERFACE</span><h2>接口：观测 · 动作 · 命令</h2></div>
+                <span class="panel-meta">Observations · Actions · Commands</span>
+              </div>
+              <p class="section-hint">策略看到什么（观测组与噪声）、执行什么（动作缩放与偏移）、被要求做什么（速度指令范围）。
+                <span class="kb-src">观测/动作设计（Ch05）· 命令配置（Ch04）</span></p>
+              <div class="ro-block">
+                <div class="ro-head"><span class="lock-glyph" data-lock></span><b>机器人契约（02 页维护）</b><span id="robotMeta">-</span></div>
+                <div id="embodWrap"></div>
+              </div>
+              <div class="sub-block-title editable">速度指令范围 command_ranges</div>
               <div class="cmd-grid" id="cmdGrid">
                 <div class="cmd-row" data-cmd="lin_vel_x">
                   <span class="cmd-name">lin_vel_x<small>X 线速度 (m/s)</small></span>
@@ -1003,44 +870,49 @@
                   </span>
                 </div>
               </div>
-              <div class="ovr-section" data-ovr-category="environment">
-                <div class="sub-block-title editable">常用参数<span class="ovr-count" data-ovr-count></span></div>
-                <div class="param-block" data-param-block><div class="ovr-status">等待训练档案...</div></div>
-                <details class="ovr-details" data-expert-details>
-                  <summary><span class="chev">▾</span>专家模式 · 全部参数<span class="ovr-count" data-expert-count></span></summary>
-                  <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
-                </details>
-              </div>
+              <div class="spec-groups" data-chapter-groups="iface"><div class="ro-note">选择训练档案后，此处列出观测 / 动作 / 命令的配方参数（含动作缩放、噪声、历史帧等）。</div></div>
             </section>
 
-            <!-- 03 机器人具身 -->
-            <section class="cat-panel form-panel" id="panel-embodiment">
+            <!-- 03 目标：奖励与终止 -->
+            <section class="cat-panel form-panel" id="ch-goal" data-chapter="goal">
               <div class="panel-title">
-                <div><span class="eyebrow">03 / EMBODIMENT</span><h2>机器人与观测</h2></div>
-                <span class="panel-meta">Embodiment</span>
+                <div><span class="eyebrow">03 / OBJECTIVE</span><h2>目标：奖励与终止</h2></div>
+                <span class="panel-meta">Rewards (4 layers) · Terminations</span>
               </div>
-              <p class="section-hint">关节顺序、默认姿态与观测结构由机器人契约与训练配方决定，此处只读预览。</p>
-              <div class="ro-block">
-                <div class="ro-head"><span class="lock-glyph" data-lock></span><b>契约只读</b><span id="robotMeta">-</span></div>
-                <div id="embodWrap"></div>
+              <p class="section-hint">奖励按四层组织：跟踪（任务目标，正）/ 正则化（平滑与能耗，负）/ 风格（步态品质）/ 接触安全（红线）。
+                比较权重大小时请看每层的贡献，跟踪贡献应大于全部惩罚之和。
+                <span class="kb-src">奖励四层框架（Ch06/Ch13 附录A）· 终止与 time_out 语义（Ch06/Ch25）</span></p>
+              <div class="reward-head">
+                <span class="reward-summary" id="rewardSummary">正在加载奖惩项...</span>
+                <span style="display: flex; gap: 8px;">
+                  <button type="button" class="button small" id="rewardAll" title="将全部奖励项权重恢复为启用">全部启用</button>
+                  <button type="button" class="button small" id="rewardReset" title="恢复后端默认权重">恢复默认</button>
+                </span>
               </div>
-              <div class="ovr-section" data-ovr-category="embodiment">
-                <div class="sub-block-title editable">常用参数<span class="ovr-count" data-ovr-count></span></div>
-                <div class="param-block" data-param-block><div class="ovr-status">等待训练档案...</div></div>
-                <details class="ovr-details" data-expert-details>
-                  <summary><span class="chev">▾</span>专家模式 · 全部参数<span class="ovr-count" data-expert-count></span></summary>
-                  <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
-                </details>
-              </div>
+              <div class="reward-board" id="rewardBoard"><div class="empty-state">正在加载奖惩项...</div></div>
+              <div class="spec-groups" data-chapter-groups="goal" style="margin-top: 14px;"><div class="ro-note">选择训练档案后，此处列出终止条件配方参数。</div></div>
             </section>
 
-            <!-- 04 学习优化 -->
-            <section class="cat-panel form-panel" id="panel-learning">
+            <!-- 04 鲁棒性与课程 -->
+            <section class="cat-panel form-panel" id="ch-robust" data-chapter="robust">
               <div class="panel-title">
-                <div><span class="eyebrow">04 / LEARNING</span><h2>算法与超参数</h2></div>
-                <span class="panel-meta">Learning</span>
+                <div><span class="eyebrow">04 / ROBUSTNESS &amp; CURRICULUM</span><h2>鲁棒性与课程</h2></div>
+                <span class="panel-meta">Events (DR) · Curriculum</span>
               </div>
-              <p class="section-hint">PPO 超参数直接写入训练配置；网络结构与归一化沿用 runner 配方默认，只读展示。</p>
+              <p class="section-hint">域随机化事件按四种模式组织：startup（出厂差异：质量/惯量）、reset（每回合：摩擦/PD/初始姿态）、interval（间歇推扰）、step（逐步，建议改用观测噪声）。
+                课程有三条轴：地形难度 / 指令范围 / 奖励严格度，不可同时推进。
+                <span class="kb-src">事件模式决策树与推荐范围（Ch08）· 课程三轴（Ch06）</span></p>
+              <div class="spec-groups" data-chapter-groups="robust"><div class="ro-note">选择训练档案后，此处列出域随机化事件与课程配方参数。</div></div>
+            </section>
+
+            <!-- 05 训练器 -->
+            <section class="cat-panel form-panel" id="ch-train" data-chapter="train">
+              <div class="panel-title">
+                <div><span class="eyebrow">05 / TRAINER</span><h2>训练器</h2></div>
+                <span class="panel-meta">Runner · PPO · Network</span>
+              </div>
+              <p class="section-hint">90% 的训练失败根因在奖励 / 观测 / 动作配置，而非 PPO 超参数——优先调整前四章，最后才动这里。
+                <span class="kb-src">PPO 超参表与调参优先级阶梯（Ch07/Ch25）</span></p>
               <div class="field-grid four">
                 <div class="field-label">
                   <label for="algorithm">算法</label>
@@ -1050,8 +922,8 @@
                 <div class="field-label">
                   <label for="learningRate">学习率（初始）</label>
                   <input type="number" id="learningRate" value="0.0003" min="0.00001" max="0.01" step="0.00001"
-                         title="PPO 的优化步长。过大容易发散（奖励崩溃），过小收敛缓慢">
-                  <small class="field-hint">(0, 0.01] · 推荐 3e-4 · 自适应调度由 runner 配方决定，此处为初始值</small>
+                         title="PPO 的优化步长。过大容易发散（奖励崩溃），过小收敛缓慢；自适应调度以 KL=desired_kl 为目标自动调节">
+                  <small class="field-hint">(0, 0.01] · 推荐 3e-4 · 自适应调度看 KL</small>
                 </div>
                 <div class="field-label">
                   <label for="maxIterations">最大迭代数</label>
@@ -1068,8 +940,8 @@
                 <div class="field-label">
                   <label for="numSteps">每环境采样步数</label>
                   <input type="number" id="numSteps" value="24" min="4" max="4096" step="1"
-                         title="每次更新前每个环境收集的步数（num_steps_per_env）">
-                  <small class="field-hint">4 - 4096 · 默认 24</small>
+                         title="每次更新前每个环境收集的步数（num_steps_per_env）。24 步 × 0.02s ≈ 0.48s，约 1-2 个步态周期">
+                  <small class="field-hint">4 - 4096 · 默认 24（≈1-2 步态周期）</small>
                 </div>
                 <div class="field-label">
                   <label for="numMinibatches">小批量数</label>
@@ -1102,48 +974,7 @@
                   <small class="field-hint">≥ 0 · 默认 0.01</small>
                 </div>
               </div>
-              <div class="ovr-section" data-ovr-category="learning">
-                <div class="sub-block-title editable">常用参数<span class="ovr-count" data-ovr-count></span></div>
-                <div class="param-block" data-param-block><div class="ovr-status">等待训练档案...</div></div>
-                <details class="ovr-details" data-expert-details>
-                  <summary><span class="chev">▾</span>专家模式 · 全部参数<span class="ovr-count" data-expert-count></span></summary>
-                  <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
-                </details>
-              </div>
-            </section>
-
-            <!-- 05 鲁棒迁移 -->
-            <section class="cat-panel form-panel" id="panel-robustness">
-              <div class="panel-title">
-                <div><span class="eyebrow">05 / ROBUSTNESS</span><h2>奖励与鲁棒性</h2></div>
-                <span class="panel-meta">Robustness</span>
-              </div>
-              <p class="section-hint">奖励权重写入训练配置；终止条件与域随机化由训练配方决定。</p>
-              <label class="override-toggle" title="档案模式下默认保留配方奖励；开启后下方编辑器权重才会写入训练配置">
-                <input type="checkbox" id="rewardOverrides">
-                <span>
-                  <strong>覆盖配方奖励（reward_overrides）</strong>
-                  <small>仅档案模式生效：关闭时保留训练配方自带奖励；开启后，下方编辑器的启用项与权重会被 alias 匹配后写入配方，未匹配项按 0 处理（不报错）。通用任务模式下奖励权重始终生效。</small>
-                </span>
-              </label>
-              <div class="reward-head">
-                <span class="reward-summary" id="rewardSummary">正在加载奖惩项...</span>
-                <span style="display: flex; gap: 8px;">
-                  <button type="button" class="button small" id="rewardAll">全部启用</button>
-                  <button type="button" class="button small" id="rewardReset">恢复默认</button>
-                </span>
-              </div>
-              <div class="rewards" id="rewardTerms">
-                <div class="empty-state">正在加载奖惩项...</div>
-              </div>
-              <div class="ovr-section" data-ovr-category="robustness">
-                <div class="sub-block-title editable">常用参数<span class="ovr-count" data-ovr-count></span></div>
-                <div class="param-block" data-param-block><div class="ovr-status">等待训练档案...</div></div>
-                <details class="ovr-details" data-expert-details>
-                  <summary><span class="chev">▾</span>专家模式 · 全部参数<span class="ovr-count" data-expert-count></span></summary>
-                  <div class="ovr-block" data-ovr-block><div class="ovr-status">等待训练档案...</div></div>
-                </details>
-              </div>
+              <div class="spec-groups" data-chapter-groups="train"><div class="ro-note">选择训练档案后，此处列出 runner 配方参数（网络结构、归一化、KL 目标等）。</div></div>
             </section>
 
             <!-- 配置预览 -->
@@ -1169,15 +1000,36 @@
               <div class="sticky-summary" id="stickySummary">-</div>
               <div class="heading-actions">
                 <span class="valid-chip" id="overrideChip" hidden title="点路径覆盖将写入训练配置 overrides，启动训练时由 worker 应用到配方对象">覆盖 0 项</span>
-                <button type="button" class="button small" id="clearOverrides" hidden title="清除全部高级覆盖，恢复配方默认">清除覆盖</button>
+                <button type="button" class="button small" id="clearOverrides" hidden title="清除全部覆盖，恢复配方默认">清除覆盖</button>
                 <a class="button" href="training_list.html?v=0.6.1">取消</a>
                 <button type="submit" class="button primary" id="submitBtn">启动训练</button>
               </div>
             </div>
           </form>
         </div>
+
+        <!-- ========== 右侧上下文栏 ========== -->
+        <aside class="context-rail" id="contextRail" aria-label="派生量与依赖检查">
+          <div class="ctx-block">
+            <h4>派生量</h4>
+            <dl class="ctx-dl" id="derivedList">
+              <div><dt>—</dt><dd>—</dd></div>
+            </dl>
+          </div>
+          <div class="ctx-block">
+            <h4>依赖检查</h4>
+            <ul class="ctx-warns" id="depWarnings">
+              <li class="none">选择训练档案后显示耦合规则检查。</li>
+            </ul>
+          </div>
+          <div class="ctx-block">
+            <h4>运行时</h4>
+            <div class="hw-badges" id="hwBadges">
+              <span class="hw-badge"><span class="dot"></span>正在探测运行环境...</span>
+            </div>
+          </div>
+        </aside>
       </div>
-        </div><!-- /legacyPanels -->
     </main>
   </div>
 
@@ -1216,15 +1068,33 @@
       preview: null,   // GET /api/training/config-preview
       recipe: null,    // POST /api/training/resolve-recipe
       rewardDefaults: {},
-      groups: {},
-      schema: null,        // GET /api/training/profile-schema -> {environment, runner, entrypoints}
-      params: [],          // 同响应的 params：descriptor 目录解析出的常用参数（卡片主界面）
+      schema: null,         // GET /api/training/profile-schema -> {environment, runner, entrypoints}
+      groupsCache: null,    // 同响应的 groups：{simulator|environment|...: [{title,node,params}]}
+      params: [],           // descriptor 目录（用于给分组行补充 unit / hint）
       schemaStatus: 'idle', // idle | loading | ready | unavailable | error
       schemaError: '',
-      overrides: {},       // dot-path -> 新值（仅记录用户显式修改）
+      overrides: {},        // dot-path -> 新值（仅记录用户显式修改）
     };
 
     const $ = (id) => document.getElementById(id);
+
+    // ---------- 规格书章节（对齐 mjlab / Isaac Lab 规范配置骨架） ----------
+    const CHAPTERS = [
+      { id: 'sim',    label: '环境与仿真' },
+      { id: 'iface',  label: '接口' },
+      { id: 'goal',   label: '目标' },
+      { id: 'robust', label: '鲁棒性与课程' },
+      { id: 'train',  label: '训练器' },
+    ];
+
+    // 章节 ↔ 配方树子树映射（路径相对 dump 根：environment.* / runner.*）
+    const CHAPTER_NODE_PREFIXES = {
+      sim:    ['environment.sim', 'environment.scene', 'environment.episode_length_s', 'environment.seed', 'environment.terrain'],
+      iface:  ['environment.observations', 'environment.actions', 'environment.commands'],
+      goal:   ['environment.terminations'], // 奖励由四层看板专门渲染
+      robust: ['environment.events', 'environment.curriculum'],
+      train:  ['runner'],
+    };
 
     // ---------- 通用小工具 ----------
     let toastTimer = null;
@@ -1244,8 +1114,9 @@
       box.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    function intValue(id) { return parseInt($(id).value, 10); }
-    function numValue(id) { return parseFloat($(id).value); }
+    function valueOf(id) { try { return $(id)?.value; } catch { return undefined; } }
+    function intValue(id) { const v = Number(valueOf(id)); return Number.isFinite(v) ? v : undefined; }
+    function numValue(id) { const v = Number(valueOf(id)); return Number.isFinite(v) ? v : undefined; }
     function setValue(id, value) { const el = $(id); if (el && value !== undefined && value !== null) el.value = value; }
     function inRange(value, min, max) { return Number.isFinite(value) && value >= min && value <= max; }
     function clampValue(value, min, max) {
@@ -1266,16 +1137,11 @@
       if (value && typeof value === 'object') return JSON.stringify(value);
       return fmtVal(value);
     }
-    document.querySelectorAll('[data-lock]').forEach((el) => { el.innerHTML = LOCK_SVG; });
-
-    // ---------- KV 渲染 ----------
-    function kvRows(entries) {
-      const rows = entries.filter(([, value]) => value !== undefined && value !== null);
-      if (!rows.length) return '<div class="ro-note">当前档案未提供此信息，将使用 runner / 任务默认值。</div>';
-      return `<div class="kv-list">${rows.map(([key, value]) =>
-        `<div class="kv"><span class="kv-key">${escapeHtml(key)}</span><span class="kv-val">${escapeHtml(formatValue(value))}</span></div>`
-      ).join('')}</div>`;
+    function fmtNum(value, digits = 3) {
+      const n = Number(value);
+      return Number.isFinite(n) ? String(Number(n.toFixed(digits))) : '—';
     }
+    document.querySelectorAll('[data-lock]').forEach((el) => { el.innerHTML = LOCK_SVG; });
 
     function flatten(obj, prefix, out) {
       for (const [key, value] of Object.entries(obj || {})) {
@@ -1286,7 +1152,32 @@
       return out;
     }
 
-    // ---------- 选项加载（算法 / 任务 / 硬件 / 奖惩项） ----------
+    // ---------- schema 访问 ----------
+    const FORM_FALLBACKS = {
+      'environment.scene.num_envs': () => intValue('numEnvs'),
+      'environment.seed': () => intValue('seed'),
+      'environment.episode_length_s': () => numValue('episodeLength'),
+      'runner.max_iterations': () => intValue('maxIterations'),
+      'runner.num_steps_per_env': () => intValue('numSteps'),
+      'runner.algorithm.learning_rate': () => numValue('learningRate'),
+      'runner.algorithm.gamma': () => numValue('gamma'),
+      'runner.algorithm.lam': () => numValue('gaeLambda'),
+    };
+
+    function schemaGet(path) {
+      let node = state.schema;
+      for (const part of path.split('.')) {
+        if (!node || typeof node !== 'object') { node = undefined; break; }
+        node = node[part];
+      }
+      if (node === undefined && FORM_FALLBACKS[path]) {
+        const fallback = FORM_FALLBACKS[path]();
+        if (fallback !== undefined) return fallback;
+      }
+      return node;
+    }
+
+    // ---------- 选项加载（算法 / 任务 / 硬件 / 默认奖励权重） ----------
     async function loadOptions() {
       state.options = await fetchJson('/api/training/options');
       const optionsData = state.options;
@@ -1326,7 +1217,6 @@
 
       state.rewardDefaults = {};
       Object.entries(optionsData.reward_terms || {}).forEach(([id, term]) => { state.rewardDefaults[id] = Number(term.default); });
-      renderRewardTerms(optionsData.reward_terms || {});
     }
 
     function renderHardwareBadges(hardware) {
@@ -1346,6 +1236,8 @@
       const container = $('taskChips');
       const profileMode = !!state.profileId;
       container.style.display = profileMode ? 'none' : 'flex';
+      const title = $('taskChipsTitle');
+      if (title) title.style.display = profileMode ? 'none' : '';
       if (profileMode) {
         container.innerHTML = '';
         return;
@@ -1360,94 +1252,221 @@
         state.task = { id: chip.dataset.task, terrain: chip.dataset.terrain };
         container.querySelectorAll('.task-chip').forEach((c) => c.classList.remove('selected'));
         chip.classList.add('selected');
-        // 通用模式下 terrain_type 只允许 plane/rough；其余任务地形由配方内部实现
         if (['plane', 'rough'].includes(state.task.terrain)) setValue('terrainType', state.task.terrain);
         updateAll();
       }));
     }
 
-    // 奖励项按语义分组（关键词匹配，未匹配进「其他」）
-    function rewardGroup(name) {
+    // ---------- 奖励四层看板 ----------
+    // 层划分依据知识库四层框架：跟踪（正）/ 正则化（负）/ 风格（步态）/ 接触安全（红线）
+    const REWARD_LAYERS = [
+      { id: 'tracking', tag: 'TRACK', name: '跟踪', desc: '任务目标 · exp 核 · 正向', hint: 'track / command 类项；跟踪贡献应大于全部惩罚之和（Ch06）' },
+      { id: 'regularization', tag: 'REG', name: '正则化', desc: '平滑 · 能耗 · 负权重', hint: 'action_rate / torque / 加速度 / 限位类惩罚' },
+      { id: 'style', tag: 'STYLE', name: '风格', desc: '步态品质 · 姿态', hint: '姿态 / 高度 / 空中时间 / 站立类项' },
+      { id: 'safety', tag: 'SAFETY', name: '接触安全', desc: '红线惩罚', hint: '接触 / 打滑 / 清空高度 / 碰撞类项' },
+    ];
+
+    function rewardLayer(name) {
       const n = String(name).toLowerCase();
-      if (/track|vel|command/.test(n)) return '速度与指令跟踪';
-      if (/pose|orient|upright|upward|flat|height|mirror/.test(n)) return '姿态与稳定';
-      if (/torque|power|acc|energy|effort|action_rate/.test(n)) return '能耗与平滑';
-      if (/contact|collision|limit|slip|swing|air|feet|gait|stance/.test(n)) return '接触与步态';
-      return '其他';
+      if (/track|command/.test(n)) return 'tracking';
+      if (/action_rate|torque|power|energy|accel|effort|dof_|limit|work|smooth/.test(n)) return 'regularization';
+      if (/contact|slip|clearance|collision|undesired|impact|terminated|alive/.test(n)) return 'safety';
+      if (/pose|orient|upright|upward|flat|height|air_time|swing|stance|gait|stand|mirror|feet|vel_z|ang_vel_xy/.test(n)) return 'style';
+      return 'style';
     }
-    const GROUP_ORDER = ['速度与指令跟踪', '姿态与稳定', '接触与步态', '能耗与平滑', '其他'];
 
-    function renderRewardTerms(terms) {
-      const container = $('rewardTerms');
-      const overridesOn = $('rewardOverrides').checked;
-      const profileTerms = (!state.profileId && !overridesOn) ? null : collectProfileRewardTerms();
+    let rewardMaxAbs = 0; // 权重条相对比例的基准（同一次渲染内）
 
-      if (state.profileId && profileTerms && profileTerms.length && !overridesOn) {
-        // 档案模式且未开启覆盖：显示配方的完整奖励集（锁定，标注配方内置）
-        const groups = {};
-        profileTerms.forEach((name) => (groups[rewardGroup(name)] ||= []).push(name));
-        const ordered = [...GROUP_ORDER.filter((g) => groups[g]), ...Object.keys(groups).filter((g) => !GROUP_ORDER.includes(g))];
-        container.innerHTML = ordered.map((group) => `
-          <div class="reward-group"><div class="reward-group-title">${escapeHtml(group)} <small>配方内置</small></div>
-          ${groups[group].map((name) => `
-            <label class="reward locked" title="训练配方内置权重；开启「覆盖配方奖励」后可调整">
-              <input type="checkbox" checked disabled>
-              <span class="reward-label"><strong>${escapeHtml(name)}</strong><small>训练配方内置</small></span>
-              <span class="reward-weight-locked">配方权重</span>
-            </label>`).join('')}
-          </div>`).join('');
-        updateRewardSummary();
-        return;
+    function rewardWeightValue(path, fallback) {
+      if (Object.prototype.hasOwnProperty.call(state.overrides, path)) {
+        const v = Number(state.overrides[path]);
+        return Number.isFinite(v) ? v : 0;
+      }
+      const v = Number(fallback);
+      return Number.isFinite(v) ? v : 0;
+    }
+
+    function rewardWeightInputHtml(path, value) {
+      return `<span class="rt-weight"><input type="number" step="any" data-ovr-path="${escapeHtml(path)}" data-kind="number" data-reward-weight-path="${escapeHtml(path)}" value="${escapeHtml(String(value))}" title="权重（负值为惩罚）；留空即恢复配方值"></span>`;
+    }
+
+    function rewardBarHtml(weight, extraClass = '') {
+      const ratio = rewardMaxAbs > 0 ? Math.min(100, (Math.abs(weight) / rewardMaxAbs) * 100) : 0;
+      const sign = weight >= 0 ? 'pos' : 'neg';
+      return `<span class="rt-bar ${extraClass}"><i class="${sign}" style="width:${ratio.toFixed(1)}%"></i></span>`;
+    }
+
+    function flattenRewardSubLeaves(termCfg, termPath) {
+      // 展开奖励项 params 子树（跳过 __type__ / func / weight 本身）
+      const out = [];
+      const walk = (node, prefix) => {
+        for (const [key, value] of Object.entries(node || {})) {
+          if (key === '__type__') continue;
+          const path = prefix ? `${prefix}.${key}` : key;
+          if (value !== null && typeof value === 'object' && !Array.isArray(value)) { walk(value, path); continue; }
+          if (typeof value === 'string' && (value.startsWith('fn:') || value === '…')) continue;
+          out.push({ path, value, kind: typeof value === 'boolean' ? 'bool' : typeof value === 'number' ? 'number' : Array.isArray(value) ? 'list' : value === null ? 'null' : 'string' });
+        }
+      };
+      walk(termCfg, termPath);
+      return out.filter((leaf) => !leaf.path.endsWith('.weight') && !leaf.path.endsWith('.func'));
+    }
+
+    function schemaRewardTermEntries() {
+      const rewards = schemaGet('environment.rewards');
+      if (!rewards || typeof rewards !== 'object') return { terms: [], scalars: [] };
+      const terms = [];
+      const scalars = [];
+      for (const [key, value] of Object.entries(rewards)) {
+        if (key === '__type__') continue;
+        const path = `environment.rewards.${key}`;
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          terms.push({ name: key, path, cfg: value });
+        } else {
+          scalars.push({ path, key, value });
+        }
+      }
+      return { terms, scalars };
+    }
+
+    function renderTermParamsDetails(subLeaves) {
+      if (!subLeaves.length) return '';
+      const common = subLeaves.filter((leaf) => !pathIsAdvanced(leaf.path));
+      const adv = subLeaves.filter((leaf) => pathIsAdvanced(leaf.path));
+      const label = [common.length ? `参数 ${common.length}` : '', adv.length ? `高级 ${adv.length}` : '']
+        .filter(Boolean).join(' · ');
+      let inner = common.length ? `<div class="param-rows">${common.map((leaf) => overrideRowInnerHtml(leaf)).join('')}</div>` : '';
+      if (adv.length) {
+        inner += `<details class="rt-adv"><summary>高级参数 ${adv.length} ▾（实体绑定等，默认沿用配方值）</summary>
+          <div class="param-rows">${adv.map((leaf) => overrideRowInnerHtml(leaf)).join('')}</div>
+        </details>`;
+      }
+      return `<details class="rt-params"><summary>${escapeHtml(label)} ▾</summary>${inner}</details>`;
+    }
+
+    function rewardBoardHtml() {
+      // 档案模式 + schema 就绪：看板来自配方内省树（权重以点路径覆盖）
+      if (state.profileId && state.schemaStatus === 'ready' && state.schema) {
+        const { terms, scalars } = schemaRewardTermEntries();
+        if (!terms.length && !scalars.length) {
+          return '<div class="ro-note">配方树中没有 environment.rewards 节点。</div>';
+        }
+        rewardMaxAbs = terms.reduce((max, term) => Math.max(max, Math.abs(rewardWeightValue(`${term.path}.weight`, term.cfg?.weight))), 0);
+        const byLayer = {};
+        REWARD_LAYERS.forEach((layer) => { byLayer[layer.id] = []; });
+        terms.forEach((term) => byLayer[rewardLayer(term.name)].push(term));
+        let html = '';
+        for (const layer of REWARD_LAYERS) {
+          const items = byLayer[layer.id];
+          if (!items.length) continue;
+          const sum = items.reduce((acc, term) => acc + rewardWeightValue(`${term.path}.weight`, term.cfg?.weight), 0);
+          html += `<div class="reward-layer" data-layer="${layer.id}">
+            <div class="reward-layer-head" title="${escapeHtml(layer.hint)}">
+              <span class="l-tag">${layer.tag}</span>
+              <span class="l-name">${layer.name}</span>
+              <span class="l-desc">${layer.desc}</span>
+              <span class="l-sum">Σw = ${fmtNum(sum, 3)}</span>
+            </div>
+            ${items.map((term) => {
+              const weightPath = `${term.path}.weight`;
+              const weight = rewardWeightValue(weightPath, term.cfg?.weight);
+              const subLeaves = flattenRewardSubLeaves(term.cfg, term.path);
+              return `<div class="reward-term" data-reward-term="${escapeHtml(term.path)}" data-reward-layer="${layer.id}">
+                ${rewardWeightInputHtml(weightPath, weight)}
+                <div class="rt-main">
+                  <span class="rt-name">${escapeHtml(term.name)}</span>
+                  <span class="rt-path">${escapeHtml(term.path)}</span>
+                  ${rewardBarHtml(weight)}
+                </div>
+                <div class="rt-side">
+                  ${renderTermParamsDetails(subLeaves)}
+                </div>
+              </div>`;
+            }).join('')}
+          </div>`;
+        }
+        if (scalars.length) {
+          html += `<div class="reward-top-params param-rows">${scalars.map((leaf) =>
+            `<div class="param-row" data-ovr-row="${escapeHtml(leaf.path)}">${overrideRowInnerHtml({ path: leaf.path, value: leaf.value, kind: typeof leaf.value === 'boolean' ? 'bool' : typeof leaf.value === 'number' ? 'number' : 'string' })}</div>`
+          ).join('')}</div>`;
+        }
+        return html;
       }
 
-      // 通用模式（或档案 + 覆盖开）：可编辑奖励表
-      const entries = Object.entries(terms);
+      // 通用模式（或档案尚未解析）：可编辑奖励表（权重写入 reward_scales）
+      const entries = Object.entries((state.options && state.options.reward_terms) || {});
       if (!entries.length) {
-        container.innerHTML = '<div class="empty-state">后端未返回奖惩项，将使用任务默认奖励。</div>';
-        updateRewardSummary();
+        return state.profileId
+          ? '<div class="ro-note">等待训练配方解析（需在隔离环境中导入配方源码，首次可能需要数十秒）...</div>'
+          : '<div class="ro-note">后端未返回奖惩项，将使用任务默认奖励。</div>';
+      }
+      rewardMaxAbs = entries.reduce((max, [, term]) => Math.max(max, Math.abs(Number(term.default) || 0)), 0);
+      const byLayer = {};
+      REWARD_LAYERS.forEach((layer) => { byLayer[layer.id] = []; });
+      entries.forEach(([id, term]) => byLayer[rewardLayer(id)].push([id, term]));
+      let html = '';
+      for (const layer of REWARD_LAYERS) {
+        const items = byLayer[layer.id];
+        if (!items.length) continue;
+        html += `<div class="reward-layer" data-layer="${layer.id}">
+          <div class="reward-layer-head" title="${escapeHtml(layer.hint)}">
+            <span class="l-tag">${layer.tag}</span>
+            <span class="l-name">${layer.name}</span>
+            <span class="l-desc">${layer.desc}</span>
+            <span class="l-sum">${items.length} 项</span>
+          </div>
+          ${items.map(([id, term]) => {
+            const weight = Number(term.default) || 0;
+            return `<label class="reward-term" data-reward-row="${escapeHtml(id)}" data-reward-layer="${layer.id}" title="${escapeHtml(term.description || '')}">
+              <span class="rt-weight"><input type="number" step="0.0001" data-reward-weight="${escapeHtml(id)}" value="${weight}" title="权重（负值为惩罚）"></span>
+              <div class="rt-main">
+                <span class="rt-name">${escapeHtml(term.label || id)}</span>
+                <span class="rt-path">${escapeHtml(id)}</span>
+                ${rewardBarHtml(weight)}
+              </div>
+              <div class="rt-side"><input type="checkbox" data-reward-id="${escapeHtml(id)}" checked title="启用 / 禁用该项（禁用按 0 计）"></div>
+            </label>`;
+          }).join('')}
+        </div>`;
+      }
+      return html;
+    }
+
+    function renderRewardBoard() {
+      const container = $('rewardBoard');
+      if (!container) return;
+      if (state.schemaStatus === 'loading' && state.profileId) {
+        container.innerHTML = '<div class="ro-note">正在解析训练配方（需在隔离环境中导入配方源码，首次可能需要数十秒）...</div>';
         return;
       }
-      const groups = {};
-      entries.forEach(([id, term]) => (groups[rewardGroup(id)] ||= []).push([id, term]));
-      const ordered = [...GROUP_ORDER.filter((g) => groups[g]), ...Object.keys(groups).filter((g) => !GROUP_ORDER.includes(g))];
-      container.innerHTML = ordered.map((group) => `
-        <div class="reward-group"><div class="reward-group-title">${escapeHtml(group)}</div>
-        ${groups[group].map(([id, term]) => `
-          <label class="reward" data-reward-row="${escapeHtml(id)}" title="${escapeHtml(term.description || '')}">
-            <input type="checkbox" data-reward-id="${escapeHtml(id)}" checked>
-            <span class="reward-label"><strong>${escapeHtml(term.label || id)}</strong><small>${escapeHtml(term.description || id)}</small></span>
-            <input type="number" data-reward-weight="${escapeHtml(id)}" value="${Number(term.default)}" step="0.0001" title="权重（负值为惩罚）">
-          </label>`).join('')}
-        </div>`).join('');
+      if (state.schemaStatus === 'unavailable' && state.profileId) {
+        container.innerHTML = '<div class="ro-note">需要先配置运行时：未找到 MJLab 适配器 Python 解释器（adapters/mjlab/.venv），无法读取配方奖励。</div>';
+        return;
+      }
+      if ((state.schemaStatus === 'error') && state.profileId) {
+        container.innerHTML = `<div class="ro-note">训练配方解析失败：${escapeHtml(state.schemaError || '未知错误')} <button type="button" class="button small" data-schema-retry>重试</button></div>`;
+        return;
+      }
+      container.innerHTML = rewardBoardHtml();
       container.querySelectorAll('[data-reward-id]').forEach((toggle) => {
-        toggle.addEventListener('change', () => { syncRewardRow(toggle); updateAll(); });
-        syncRewardRow(toggle);
-      });
-      container.querySelectorAll('[data-reward-weight]').forEach((input) => {
-        input.addEventListener('input', updateAll);
+        toggle.addEventListener('change', () => {
+          const row = toggle.closest('.reward-term');
+          if (row) row.classList.toggle('off', !toggle.checked);
+          updateAll();
+        });
       });
       updateRewardSummary();
     }
 
-    function collectProfileRewardTerms() {
-      // 来源优先级：config-preview 的五分类数据 > 训练档案 JSON 的 reward_terms
-      const fromPreview = state.preview?.robustness?.reward_terms;
-      if (Array.isArray(fromPreview) && fromPreview.length) return fromPreview;
-      const fromProfile = state.profile?.reward_terms;
-      if (Array.isArray(fromProfile)) {
-        return fromProfile.map((item) => (typeof item === 'string' ? item : item?.name || item?.term)).filter(Boolean);
-      }
-      return [];
-    }
-
-    function syncRewardRow(toggle) {
-      const row = document.querySelector(`[data-reward-row="${toggle.dataset.rewardId}"]`);
-      if (row) row.classList.toggle('disabled', !toggle.checked);
-    }
-
     function updateRewardSummary() {
-      const toggles = [...document.querySelectorAll('[data-reward-id]')];
       const summary = $('rewardSummary');
+      if (state.profileId && state.schemaStatus === 'ready' && state.schema) {
+        const { terms } = schemaRewardTermEntries();
+        const active = terms.filter((term) => rewardWeightValue(`${term.path}.weight`, term.cfg?.weight) !== 0);
+        summary.innerHTML = `<b>${active.length}</b> / ${terms.length} 项启用 <span class="field-hint">（配方权重 · 修改即覆盖）</span>`;
+        return;
+      }
+      const toggles = [...document.querySelectorAll('[data-reward-id]')];
       if (!toggles.length) { summary.textContent = '无奖惩项'; return; }
       const enabled = toggles.filter((toggle) => toggle.checked).length;
       summary.innerHTML = `<b>${enabled}</b> / ${toggles.length} 项启用`;
@@ -1456,18 +1475,28 @@
     function setAllRewards(enabled) {
       document.querySelectorAll('[data-reward-id]').forEach((toggle) => {
         toggle.checked = enabled;
-        syncRewardRow(toggle);
+        const row = toggle.closest('.reward-term');
+        if (row) row.classList.toggle('off', !enabled);
       });
       updateAll();
     }
 
     function resetRewards() {
+      if (state.profileId && state.schemaStatus === 'ready') {
+        // 档案模式：清除奖励相关覆盖（恢复配方权重）
+        Object.keys(state.overrides).forEach((path) => {
+          if (path.startsWith('environment.rewards.')) delete state.overrides[path];
+        });
+        renderSchemaViews();
+        updateAll();
+        showToast('已恢复配方奖励权重');
+        return;
+      }
       Object.entries(state.rewardDefaults).forEach(([id, weight]) => {
-        const toggle = document.querySelector(`[data-reward-id="${CSS.escape(id)}"]`);
         const input = document.querySelector(`[data-reward-weight="${CSS.escape(id)}"]`);
-        if (toggle) toggle.checked = true;
+        const toggle = document.querySelector(`[data-reward-id="${CSS.escape(id)}"]`);
         if (input) input.value = weight;
-        if (toggle) syncRewardRow(toggle);
+        if (toggle) { toggle.checked = true; const row = toggle.closest('.reward-term'); if (row) row.classList.remove('off'); }
       });
       updateAll();
     }
@@ -1477,23 +1506,36 @@
       const payload = await fetchJson('/api/robots/presets');
       state.presets = payload.presets || [];
       if (!state.presets.length) throw new Error('没有可用的机器人训练资产，请先在模型验证页导入资产');
-      const strip = $('robotStrip');
-      strip.innerHTML = state.presets.map((preset) => `
-        <div class="robot-card compact ${preset === state.preset ? 'selected' : ''}" data-robot="${escapeHtml(preset.robot_id)}" title="asset: ${escapeHtml(preset.asset_path || '')}">
-          <h4>${escapeHtml(preset.family)}</h4>
-          <p>${escapeHtml(({ S: '小型', M: '中型', L: '大型' }[preset.size_class] || preset.size_class || ''))} · ${escapeHtml(String(preset.dof ?? '-'))} 自由度 · ${Number(preset.mass_kg || 0).toFixed(1)} kg</p>
-        </div>
-      `).join('');
-      strip.querySelectorAll('.robot-card').forEach((card) => card.addEventListener('click', () => selectRobot(card.dataset.robot)));
+      const select = $('robotSelect');
+      select.innerHTML = state.presets.map((preset) =>
+        `<option value="${escapeHtml(preset.robot_id)}">${escapeHtml(preset.family || preset.robot_id)}</option>`
+      ).join('');
+      select.addEventListener('change', (event) => selectRobot(event.target.value));
       const requested = new URLSearchParams(window.location.search).get('robot');
       const requestedPreset = requested && state.presets.find((preset) => preset.robot_id === requested);
       selectRobot(requestedPreset ? requestedPreset.robot_id : state.presets[0].robot_id);
     }
 
+    function renderRobotMeta() {
+      const box = $('robotMetaBox');
+      const preset = state.preset;
+      if (!box) return;
+      if (!preset) { box.textContent = '-'; return; }
+      const sizeLabel = { S: '小型', M: '中型', L: '大型' }[preset.size_class] || preset.size_class || '';
+      const parts = [
+        `<b>${escapeHtml(preset.family || preset.robot_id)}</b>`,
+        `<span>${escapeHtml(String(preset.dof ?? '-'))} DOF</span>`,
+        `<span>${Number(preset.mass_kg || 0).toFixed(1)} kg</span>`,
+      ];
+      if (sizeLabel) parts.push(`<span>${escapeHtml(sizeLabel)}</span>`);
+      if (preset.locomotion_type) parts.push(`<span>${escapeHtml(preset.locomotion_type)}</span>`);
+      box.innerHTML = parts.join('<span class="sep">·</span>');
+    }
+
     function selectRobot(robotId) {
       state.preset = state.presets.find((preset) => preset.robot_id === robotId) || null;
-      const strip = $('robotStrip');
-      strip.querySelectorAll('.robot-card').forEach((card) => card.classList.toggle('selected', card.dataset.robot === robotId));
+      $('robotSelect').value = robotId;
+      renderRobotMeta();
       renderProfileOptions();
       refreshConfigPreview();
     }
@@ -1510,7 +1552,6 @@
           const invalid = profile.valid === false ? '（校验未通过）' : '';
           return `<option value="${escapeHtml(profile.profile_id)}">${escapeHtml(`${order}${label}${invalid}`)}</option>`;
         })).join('');
-      // 默认选择第一个通过校验的档案；没有可用档案时退回通用任务
       const firstValid = profiles.find((profile) => profile.valid !== false) || null;
       setProfile(firstValid ? firstValid.profile_id : '');
     }
@@ -1525,6 +1566,7 @@
       // 覆盖项与档案绑定：切换档案 / 回到通用任务时清空，避免旧路径误写入新配方
       state.overrides = {};
       state.schema = null;
+      state.groupsCache = null;
       state.params = [];
       state.schemaError = '';
       state.schemaStatus = 'idle';
@@ -1541,7 +1583,6 @@
       const runner = profile.runner || {};
       const pick = (...values) => values.find((value) => value !== undefined && value !== null);
       setValue('numEnvs', clampValue(pick(profile.num_envs, tc.num_envs, 4096), 64, 8192));
-      // runner.max_iterations 可能达到 50000（配方级上限），页面可编辑范围是 10 - 10000
       setValue('maxIterations', clampValue(pick(runner.max_iterations, tc.max_iterations, 1000), 10, 10000));
       setValue('learningRate', pick(runner.learning_rate, tc.learning_rate, 0.0003));
       setValue('saveInterval', clampValue(pick(runner.save_interval, tc.save_interval, 100), 1, 10000));
@@ -1568,7 +1609,7 @@
       renderTaskChips();
     }
 
-    // ---------- 配方只读区（config-preview） ----------
+    // ---------- 配方只读区（config-preview：契约 / 关节顺序） ----------
     async function refreshConfigPreview() {
       if (!state.preset) return;
       const params = new URLSearchParams({ robot_id: state.preset.robot_id });
@@ -1577,7 +1618,7 @@
         state.preview = await fetchJson(`/api/training/config-preview?${params.toString()}`);
       } catch (error) {
         state.preview = null;
-        setInner('simRoWrap', `<div class="ro-note">配置预览获取失败：${escapeHtml(error.message)}</div>`);
+        setInner('embodWrap', `<div class="ro-note">配置预览获取失败：${escapeHtml(error.message)}</div>`);
         return;
       }
       renderReadonlyBlocks();
@@ -1589,12 +1630,17 @@
       if (el) el.innerHTML = html;
     }
 
+    function kvRows(entries) {
+      const rows = entries.filter(([, value]) => value !== undefined && value !== null);
+      if (!rows.length) return '<div class="ro-note">当前档案未提供此信息，将使用 runner / 任务默认值。</div>';
+      return `<div class="kv-list">${rows.map(([key, value]) =>
+        `<div class="kv"><span class="kv-key">${escapeHtml(key)}</span><span class="kv-val">${escapeHtml(formatValue(value))}</span></div>`
+      ).join('')}</div>`;
+    }
+
     function renderReadonlyBlocks() {
       const preview = state.preview;
       if (!preview) return;
-
-      // 旧版 sim/env/learning/robustness 只读区块已由各分类的常用参数卡片取代；
-      // 这里只渲染仍然存在的容器（embodWrap / robotMeta），缺失时静默跳过。
       const body = preview.embodiment || {};
       const jointOrder = body.joint_order || [];
       const pose = body.default_pose || null;
@@ -1689,49 +1735,12 @@
       ).join('');
     }
 
-    // ---------- 高级覆盖：profile-schema 加载与 dot-path 编辑 ----------
-    // 五分类面板 ↔ schema 子树映射（路径相对 dump 树根：environment.* / runner.*）
-    const CATEGORY_SCHEMA_PREFIXES = {
-      simulator: ['environment.sim', 'environment.scene'],
-      environment: ['environment.terrain', 'environment.commands', 'environment.curriculum'],
-      embodiment: ['environment.observations', 'environment.actions', 'environment.events'],
-      learning: ['runner'],
-      robustness: ['environment.rewards', 'environment.terminations'],
-    };
-
-    function schemaLeaves(node, prefix, out) {
-      // 扁平化 dump 树：跳过 __type__ 元数据与 fn:/深度截断标记；
-      // bool / number / string 叶子可编辑，list / null 只读展示。
-      for (const [key, value] of Object.entries(node || {})) {
-        if (key === '__type__') continue;
-        const path = prefix ? `${prefix}.${key}` : key;
-        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-          schemaLeaves(value, path, out);
-          continue;
-        }
-        if (typeof value === 'string' && (value.startsWith('fn:') || value === '…')) continue;
-        const kind = typeof value === 'boolean' ? 'bool'
-          : typeof value === 'number' ? 'number'
-          : Array.isArray(value) ? 'list'
-          : value === null ? 'null' : 'string';
-        out.push({ path, value, kind });
-      }
-      return out;
-    }
-
-    function categoryLeaves(category) {
-      if (!state.schema) return [];
-      const prefixes = CATEGORY_SCHEMA_PREFIXES[category] || [];
-      return schemaLeaves(state.schema, '', []).filter((leaf) =>
-        prefixes.some((prefix) => leaf.path === prefix || leaf.path.startsWith(`${prefix}.`))
-      );
-    }
-
+    // ---------- profile-schema 加载 ----------
     async function loadProfileSchema() {
       if (!state.preset || !state.profileId) {
         state.schema = null;
+        state.groupsCache = null;
         state.params = [];
-        state.groups = {};
         state.schemaStatus = 'idle';
         renderSchemaViews();
         updateOverrideUI();
@@ -1743,23 +1752,46 @@
       try {
         const data = await fetchJson(`/api/training/profile-schema?${params.toString()}`);
         state.schema = (data && (data.schema || data.tree)) || null;
+        state.groupsCache = (data && typeof data.groups === 'object' && data.groups) || null;
         state.params = (data && Array.isArray(data.params)) ? data.params : [];
-        state.groups = (data && typeof data.groups === 'object' && data.groups) || {};
         state.schemaStatus = state.schema ? 'ready' : 'error';
         state.schemaError = state.schema ? '' : 'schema 返回为空';
       } catch (error) {
         state.schema = null;
+        state.groupsCache = null;
         state.params = [];
         state.schemaStatus = /^501\b/.test(String(error.message || '')) ? 'unavailable' : 'error';
         state.schemaError = error.message || String(error);
       }
       renderSchemaViews();
       updateOverrideUI();
+      updateTocBadges();
+      updateContextRail();
     }
 
-    // ---------- 常用参数卡片（descriptor 目录 -> 主界面） ----------
-    function categoryParams(category) {
-      return (state.params || []).filter((param) => param.category === category && !param.advanced);
+    // ---------- 章节分组渲染（自动分组树，无精选） ----------
+    function allGroups() {
+      // 后端 groups 以分类为键：simulator / environment / embodiment / learning / rewards / robustness
+      const groups = [];
+      const order = ['simulator', 'environment', 'embodiment', 'learning', 'rewards', 'robustness'];
+      for (const cat of order) {
+        const list = (state.groupsCache || {})[cat];
+        if (Array.isArray(list)) groups.push(...list);
+      }
+      return groups;
+    }
+
+    function chapterGroups(chapter) {
+      const prefixes = CHAPTER_NODE_PREFIXES[chapter] || [];
+      return allGroups().filter((group) =>
+        prefixes.some((prefix) => group.node === prefix || group.node.startsWith(`${prefix}.`))
+      );
+    }
+
+    const paramMap = new Map(); // path -> descriptor 元数据（unit / hint）
+    function rebuildParamMap() {
+      paramMap.clear();
+      (state.params || []).forEach((param) => { if (param && param.path) paramMap.set(param.path, param); });
     }
 
     function paramControlHtml(param) {
@@ -1774,6 +1806,9 @@
         const pair = (overridden && Array.isArray(state.overrides[path])) ? state.overrides[path] : param.value;
         const min = Array.isArray(pair) && Number.isFinite(Number(pair[0])) ? String(pair[0]) : '';
         const max = Array.isArray(pair) && Number.isFinite(Number(pair[1])) ? String(pair[1]) : '';
+        if (!min && !max && Array.isArray(param.value) && param.value.length !== 2) {
+          return `<span class="param-current" style="text-align:left;">${escapeHtml(formatValue(param.value))}</span>`;
+        }
         return `<span class="param-pair">
           <input type="number" step="any" data-ovr-list="${escapeHtml(path)}" data-bound="min" value="${escapeHtml(min)}" placeholder="min" title="范围下限（配方当前值：${escapeHtml(formatValue(param.value))}）；两项留空 = 不覆盖">
           <input type="number" step="any" data-ovr-list="${escapeHtml(path)}" data-bound="max" value="${escapeHtml(max)}" placeholder="max" title="范围上限；两项留空 = 不覆盖">
@@ -1786,158 +1821,255 @@
       return `<input type="text" data-ovr-path="${escapeHtml(path)}" data-kind="string" value="${escapeHtml(String(value))}" placeholder="${escapeHtml(formatValue(param.value))}" title="配方当前值：${escapeHtml(formatValue(param.value))}；留空表示不覆盖">`;
     }
 
-    function renderParamBlock(category) {
-      const container = document.querySelector(`[data-ovr-category="${CSS.escape(category)}"] [data-param-block]`);
+    function overrideRowInnerHtml(leaf) {
+      // 供奖励项 params 子行复用：leaf = {path, value, kind}
+      const param = { path: leaf.path, value: leaf.value, type: leaf.kind === 'list' ? 'list' : leaf.kind, readonly: leaf.kind === 'null' };
+      const overridden = Object.prototype.hasOwnProperty.call(state.overrides, leaf.path);
+      const meta = paramMap.get(leaf.path) || {};
+      const label = meta.label || leaf.path.split('.').pop();
+      const hint = leaf.path;
+      const timeoutHint = /(^|\.)time_out$/.test(leaf.path)
+        ? ' · true=截断(bootstrap GAE) / false=真终止；标错会导致自杀策略或终点冲刺（Ch25）' : '';
+      return `<div class="param-main" title="${escapeHtml(leaf.path + timeoutHint)}">
+          <span class="param-label">${escapeHtml(label)}</span>
+          <small class="param-hint">${escapeHtml(hint)}</small>
+        </div>
+        <span class="param-current" title="配方当前值（输入框留空即沿用）">${escapeHtml(formatValue(leaf.value))}</span>
+        ${paramControlHtml(param)}`;
+    }
+
+    // ---------- 高级参数折叠规则（跨 29 档案统计的「几乎不改」六类，用户选定） ----------
+    const ADVANCED_RULES = [
+      { id: 'asset-cfg', label: '实体绑定字段',
+        test: (p) => p.includes('.asset_cfg.') || p.includes('.body_cfg.') || p.includes('.sensor_cfg.') },
+      { id: 'obs-detail', label: '观测项底层细节',
+        test: (p) => p.startsWith('environment.observations.')
+          && /[.](noise|clip|scale|history_length|flatten_history_dim|concatenate_dim|delay_|enable_corruption|nan_policy)/.test(p) },
+      { id: 'scene-wiring', label: '场景/资产/地形接线',
+        test: (p) => p.startsWith('environment.scene.') && p !== 'environment.scene.num_envs' },
+      { id: 'sim-lowlevel', label: '求解器与性能底层',
+        test: (p) => p.startsWith('environment.sim.')
+          && p !== 'environment.sim.mujoco.timestep' && p !== 'environment.sim.mujoco.gravity' },
+      { id: 'network', label: '网络结构',
+        test: (p) => p.startsWith('runner.')
+          && /(actor|critic)[.](hidden_dims|activation|rnn_|cnn|obs_normalization|class_name)|distribution_cfg|init_noise_std|init_std/.test(p) },
+      { id: 'ppo-second', label: 'PPO 二阶超参',
+        test: (p) => p.startsWith('runner.algorithm.')
+          && /(num_learning_epochs|optimizer|value_loss_coef|use_clipped_value_loss|normalize_advantage|max_grad_norm|schedule|std_type)$/.test(p) },
+    ];
+
+    function pathIsAdvanced(path) {
+      return ADVANCED_RULES.some((rule) => rule.test(path));
+    }
+
+    function paramIsAdvanced(param) {
+      return param.advanced === true || pathIsAdvanced(param.path);
+    }
+
+    function renderParamRow(param) {
+      const overridden = Object.prototype.hasOwnProperty.call(state.overrides, param.path);
+      const meta = paramMap.get(param.path) || {};
+      const timeoutHint = /(^|\.)time_out$/.test(param.path)
+        ? ' · true=截断(bootstrap GAE) / false=真终止；标错会导致自杀策略或终点冲刺（Ch25）' : '';
+      const hint = meta.hint || param.path;
+      const unit = param.unit || meta.unit;
+      return `<div class="param-row ${param.readonly ? 'ro' : ''} ${overridden ? 'overridden' : ''}" data-ovr-row="${escapeHtml(param.path)}">
+        <div class="param-main" title="${escapeHtml(param.path + timeoutHint)}">
+          <span class="param-label">${escapeHtml(param.label)}${unit ? `<small>（${escapeHtml(unit)}）</small>` : ''}</span>
+          <small class="param-hint">${escapeHtml(hint)}</small>
+        </div>
+        <span class="param-current" title="配方当前值（输入框留空即沿用）">${escapeHtml(formatValue(param.value))}</span>
+        ${paramControlHtml(param)}
+      </div>`;
+    }
+
+    function renderGroupCard(title, node, params) {
+      const edited = params.filter((param) => Object.prototype.hasOwnProperty.call(state.overrides, param.path)).length;
+      return `<div class="param-group">
+        <div class="param-group-head">
+          <span class="g-title">${escapeHtml(title)}</span>
+          <span class="g-path">${escapeHtml(node)}</span>
+          ${edited ? `<span class="g-edited">已调 ${edited}</span>` : ''}
+          <span class="g-count">${params.length} 项</span>
+        </div>
+        <div class="param-rows">
+          ${params.map(renderParamRow).join('')}
+        </div>
+      </div>`;
+    }
+
+    function renderChapterGroups(chapter) {
+      const container = document.querySelector(`[data-chapter-groups="${CSS.escape(chapter)}"]`);
       if (!container) return;
       if (state.schemaStatus === 'idle') {
-        container.innerHTML = '<div class="ovr-status">通用任务模式没有档案配置；选择训练档案后，这里会按模块分组列出该分类的全部训练参数。</div>';
+        container.innerHTML = '<div class="ro-note">通用任务模式没有档案配置树；选择训练档案后，此处按模块分组列出配方参数（全部可修改）。</div>';
         return;
       }
       if (state.schemaStatus === 'loading') {
-        container.innerHTML = '<div class="ovr-status">正在解析训练配方（需在隔离环境中导入配方源码，首次可能需要数十秒）...</div>';
+        container.innerHTML = '<div class="ro-note">正在解析训练配方（需在隔离环境中导入配方源码，首次可能需要数十秒）...</div>';
         return;
       }
       if (state.schemaStatus === 'unavailable') {
-        container.innerHTML = '<div class="ovr-status">需要先配置运行时：未找到 MJLab 适配器 Python 解释器（adapters/mjlab/.venv），无法读取配方参数。</div>';
+        container.innerHTML = '<div class="ro-note">需要先配置运行时：未找到 MJLab 适配器 Python 解释器（adapters/mjlab/.venv），无法读取配方参数。</div>';
         return;
       }
-      if (state.schemaStatus !== 'ready' || !state.schema) {
-        container.innerHTML = `<div class="ovr-status">训练配方解析失败：${escapeHtml(state.schemaError || '未知错误')} <button type="button" class="button small" data-schema-retry>重试</button></div>`;
+      if (state.schemaStatus !== 'ready') {
+        container.innerHTML = `<div class="ro-note">训练配方解析失败：${escapeHtml(state.schemaError || '未知错误')} <button type="button" class="button small" data-schema-retry>重试</button></div>`;
         return;
       }
-      const groups = (state.groups || {})[category] || [];
+      const groups = chapterGroups(chapter);
       if (!groups.length) {
-        container.innerHTML = '<div class="ovr-status">该分类下没有配置项。</div>';
+        container.innerHTML = `<div class="ro-note">配方树中没有${CHAPTERS.find((c) => c.id === chapter)?.label || ''}章节对应的配置节点。</div>`;
         return;
       }
-      let html = '';
-      let expertRows = 0;
+      // 常用区 + 高级折叠区（高级 = 六类规则命中 或 内省树深度>6；不删不减，仍可编辑）
+      let commonHtml = '';
+      let advTotal = 0;
+      let advEdited = 0;
+      const advGroups = [];
       groups.forEach((group) => {
-        html += `<div class="param-group-title">${escapeHtml(group.title)}</div>`;
-        group.params.forEach((param) => {
-          const overridden = Object.prototype.hasOwnProperty.call(state.overrides, param.path);
-          if (param.advanced) { expertRows += 1; }
-          html += `<div class="param-row ${param.readonly ? 'ro' : ''} ${overridden ? 'overridden' : ''} ${param.advanced ? 'adv' : ''}" data-ovr-row="${escapeHtml(param.path)}">
-            <div class="param-main" title="${escapeHtml(param.path)}">
-              <span class="param-label">${escapeHtml(param.label)}${param.unit ? `<small>（${escapeHtml(param.unit)}）</small>` : ''}</span>
-              <small class="param-hint">${escapeHtml(param.path)}</small>
-            </div>
-            <span class="param-current" title="配方当前值（输入框留空即沿用）">${escapeHtml(formatValue(param.value))}</span>
-            ${paramControlHtml(param)}
-          </div>`;
-        });
+        const common = group.params.filter((param) => !paramIsAdvanced(param));
+        const adv = group.params.filter(paramIsAdvanced);
+        if (adv.length) {
+          advTotal += adv.length;
+          advEdited += adv.filter((param) => Object.prototype.hasOwnProperty.call(state.overrides, param.path)).length;
+          advGroups.push({ title: group.title, node: group.node, params: adv });
+        }
+        if (common.length) commonHtml += renderGroupCard(group.title, group.node, common);
       });
-      if (expertRows > 0) {
-        // 收尾：把 advanced 行折进专家 details（简单方式：CSS 类 + 提示行）
-        html += `<div class="ovr-note">另有 ${expertRows} 个高级参数行已在上方列出（灰色标记），全部可修改。</div>`;
+      let html = commonHtml;
+      if (advTotal) {
+        html += `<details class="adv-fold">
+          <summary>
+            <span class="chev">▾</span>高级参数<span class="adv-count">${advTotal} 项${advEdited ? ` · 已调 ${advEdited}` : ''}</span>
+            <span class="adv-note">实体绑定 / 观测底层 / 接线 / 求解器 / 网络 / PPO 二阶——默认沿用配方值</span>
+          </summary>
+          <div class="adv-fold-body">${advGroups.map((group) => renderGroupCard(group.title, group.node, group.params)).join('')}</div>
+        </details>`;
+      }
+      if (!commonHtml && !advTotal) {
+        container.innerHTML = '<div class="ro-note">本章节没有可展示的配置项。</div>';
+        return;
       }
       container.innerHTML = html;
     }
 
-    function renderParamBlocks() {
-      Object.keys(CATEGORY_SCHEMA_PREFIXES).forEach(renderParamBlock);
-    }
-
     function renderSchemaViews() {
-      renderParamBlocks();
-      renderOverrideBlocks();
+      rebuildParamMap();
+      CHAPTERS.forEach((chapter) => renderChapterGroups(chapter.id));
+      renderRewardBoard();
     }
 
-    function ovrInputHtml(leaf) {
-      const overridden = Object.prototype.hasOwnProperty.call(state.overrides, leaf.path);
-      const current = formatValue(leaf.value);
-      const value = overridden ? state.overrides[leaf.path] : '';
-      if (leaf.kind === 'bool') {
-        const checked = overridden ? !!value : !!leaf.value;
-        return `<input type="checkbox" data-ovr-path="${escapeHtml(leaf.path)}" data-kind="bool" title="覆盖为 ${checked ? 'true' : 'false'}（配方值：${escapeHtml(current)}）" ${checked ? 'checked' : ''}>`;
+    // ---------- 覆盖编辑：事件委托（一次性绑定，重渲染不重复） ----------
+    function applyListPairInput(input) {
+      const path = input.dataset.ovrList;
+      const row = input.closest('.param-row');
+      const minInput = row ? row.querySelector('[data-ovr-list][data-bound="min"]') : null;
+      const maxInput = row ? row.querySelector('[data-ovr-list][data-bound="max"]') : null;
+      const rawMin = minInput ? minInput.value.trim() : '';
+      const rawMax = maxInput ? maxInput.value.trim() : '';
+      if (rawMin === '' && rawMax === '') {
+        delete state.overrides[path];
+      } else {
+        const min = parseFloat(rawMin);
+        const max = parseFloat(rawMax);
+        if (Number.isFinite(min) && Number.isFinite(max) && min <= max) state.overrides[path] = [min, max];
+        else delete state.overrides[path];
       }
-      if (leaf.kind === 'number') {
-        return `<input type="number" step="any" data-ovr-path="${escapeHtml(leaf.path)}" data-kind="number" value="${escapeHtml(String(value))}" placeholder="${escapeHtml(String(leaf.value))}" title="配方当前值：${escapeHtml(current)}；留空表示不覆盖">`;
-      }
-      return `<input type="text" data-ovr-path="${escapeHtml(leaf.path)}" data-kind="string" value="${escapeHtml(String(value))}" placeholder="${escapeHtml(current)}" title="配方当前值：${escapeHtml(current)}；留空表示不覆盖">`;
-    }
-
-    function renderOverrideBlock(category) {
-      const container = document.querySelector(`[data-ovr-category="${CSS.escape(category)}"] [data-ovr-block]`);
-      if (!container) return;
-      if (state.schemaStatus === 'idle') {
-        container.innerHTML = '<div class="ovr-status">通用任务模式没有档案全量配置；选择训练档案后，这里会列出配方源码中的全部可覆盖配置项。</div>';
-        return;
-      }
-      if (state.schemaStatus === 'loading') {
-        container.innerHTML = '<div class="ovr-status">正在加载训练配方全量配置...</div>';
-        return;
-      }
-      if (state.schemaStatus === 'unavailable') {
-        container.innerHTML = '<div class="ovr-status">需要先配置运行时：未找到 MJLab 适配器 Python 解释器（adapters/mjlab/.venv），无法读取配方全量配置。</div>';
-        return;
-      }
-      if (state.schemaStatus !== 'ready' || !state.schema) {
-        container.innerHTML = `<div class="ovr-status">配方全量配置加载失败：${escapeHtml(state.schemaError || '未知错误')} <button type="button" class="button small" data-schema-retry>重试</button></div>`;
-        return;
-      }
-      const leaves = categoryLeaves(category);
-      if (!leaves.length) {
-        container.innerHTML = '<div class="ovr-status">该分类下没有可展示的配方配置项。</div>';
-        return;
-      }
-      const rows = leaves.map((leaf) => {
-        if (leaf.kind === 'list' || leaf.kind === 'null') {
-          return `<div class="ovr-row ro" title="只读：数组 / 空值不支持表单覆盖">
-            <span class="ovr-path">${escapeHtml(leaf.path)}</span>
-            <span class="ovr-current">${escapeHtml(formatValue(leaf.value))}</span>
-            <span class="ovr-status">只读</span>
-          </div>`;
-        }
-        const overridden = Object.prototype.hasOwnProperty.call(state.overrides, leaf.path);
-        return `<div class="ovr-row ${overridden ? 'overridden' : ''}" data-ovr-row="${escapeHtml(leaf.path)}">
-          <span class="ovr-path" title="${escapeHtml(leaf.path)}">${escapeHtml(leaf.path)}</span>
-          <span class="ovr-current">${escapeHtml(formatValue(leaf.value))}</span>
-          ${ovrInputHtml(leaf)}
-        </div>`;
-      }).join('');
-      container.innerHTML = `
-        <div class="ovr-note">留空 = 不覆盖（沿用配方值）；填写后以点路径写入 overrides，启动训练时由 worker 在配方之后应用（用户修改优先）。布尔项勾选状态即覆盖值。</div>
-        <div class="ovr-rows">${rows}</div>`;
-    }
-
-    function renderOverrideBlocks() {
-      Object.keys(CATEGORY_SCHEMA_PREFIXES).forEach((category) => {
-        renderOverrideBlock(category);
-        updateOverrideCategoryCount(category);
-      });
-    }
-
-    function updateOverrideCategoryCount(category) {
-      const section = document.querySelector(`[data-ovr-category="${CSS.escape(category)}"]`);
-      const holder = section ? section.querySelector('[data-ovr-count]') : null;
-      if (holder) {
-        if (state.schemaStatus !== 'ready') {
-          holder.textContent = '';
-        } else {
-          const params = categoryParams(category);
-          const overridden = params.filter((param) => Object.prototype.hasOwnProperty.call(state.overrides, param.path)).length;
-          holder.textContent = params.length ? `（${params.length} 项${overridden ? ` · 已覆盖 ${overridden}` : ''}）` : '';
-        }
-      }
-      const expertHolder = section ? section.querySelector('[data-expert-count]') : null;
-      if (expertHolder) {
-        if (state.schemaStatus !== 'ready') {
-          expertHolder.textContent = '';
-        } else {
-          const leaves = categoryLeaves(category);
-          const overridden = leaves.filter((leaf) => Object.prototype.hasOwnProperty.call(state.overrides, leaf.path)).length;
-          expertHolder.textContent = leaves.length ? `（${leaves.length}${overridden ? ` · 已覆盖 ${overridden}` : ''}）` : '';
-        }
-      }
+      refreshOverrideRow(input);
     }
 
     function refreshOverrideRow(input) {
       const path = input.dataset.ovrPath || input.dataset.ovrList;
-      const row = input.closest('.ovr-row, .param-row');
-      if (row && path) row.classList.toggle('overridden', Object.prototype.hasOwnProperty.call(state.overrides, path));
-      Object.keys(CATEGORY_SCHEMA_PREFIXES).forEach(updateOverrideCategoryCount);
+      const row = input.closest('.param-row, .reward-term');
+      if (row && path) {
+        if (row.classList.contains('reward-term')) {
+          // 奖励权重行：更新高亮 + 权重条 + 摘要，不重建 DOM（保持输入焦点）
+          const weight = rewardWeightValue(path, schemaGet(path));
+          row.classList.toggle('overridden', Object.prototype.hasOwnProperty.call(state.overrides, path));
+          row.classList.toggle('off', weight === 0);
+          const bar = row.querySelector('.rt-bar');
+          if (bar && path.endsWith('.weight') && Number.isFinite(weight)) {
+            const ratio = rewardMaxAbs > 0 ? Math.min(100, (Math.abs(weight) / rewardMaxAbs) * 100) : 0;
+            const fill = bar.querySelector('i');
+            if (fill) {
+              fill.style.width = `${ratio.toFixed(1)}%`;
+              fill.className = weight >= 0 ? 'pos' : 'neg';
+            }
+          }
+          updateRewardSummary();
+        } else {
+          row.classList.toggle('overridden', Object.prototype.hasOwnProperty.call(state.overrides, path));
+        }
+      }
       updateOverrideUI();
+      updateTocBadges();
+      updateContextRail();
+    }
+
+    $('trainingForm').addEventListener('input', (event) => {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest('#previewFilter')) return;
+      const listInput = event.target.closest('[data-ovr-list]');
+      if (listInput) { applyListPairInput(listInput); return; }
+      const input = event.target.closest('[data-ovr-path]');
+      if (input && input.type !== 'checkbox') {
+        const path = input.dataset.ovrPath;
+        const raw = input.value.trim();
+        if (raw === '') {
+          delete state.overrides[path];
+        } else if (input.dataset.kind === 'number') {
+          const num = parseFloat(raw);
+          if (!Number.isFinite(num)) delete state.overrides[path];
+          else state.overrides[path] = num;
+        } else {
+          state.overrides[path] = input.value;
+        }
+        refreshOverrideRow(input);
+        return;
+      }
+      if (event.target.closest('[data-reward-weight]') || event.target.closest('#cmdGrid')) {
+        updateRewardSummary();
+      }
+      updateAll();
+    });
+
+    $('trainingForm').addEventListener('change', (event) => {
+      if (!(event.target instanceof Element)) return;
+      const input = event.target.closest('[data-ovr-path]');
+      if (input && input.type === 'checkbox') {
+        state.overrides[input.dataset.ovrPath] = input.checked;
+        refreshOverrideRow(input);
+      }
+    });
+
+    $('clearOverrides').addEventListener('click', () => {
+      state.overrides = {};
+      renderSchemaViews();
+      updateOverrideUI();
+      updateTocBadges();
+      showToast('已清除全部覆盖，恢复配方默认');
+    });
+
+    function chapterOverrideCount(chapter) {
+      const prefixes = CHAPTER_NODE_PREFIXES[chapter] || [];
+      let count = Object.keys(state.overrides).filter((path) =>
+        prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}.`))
+      ).length;
+      if (chapter === 'goal') {
+        count += Object.keys(state.overrides).filter((path) => path.startsWith('environment.rewards.')).length;
+      }
+      return count;
+    }
+
+    function updateTocBadges() {
+      CHAPTERS.forEach((chapter) => {
+        const badge = $(`tocEdits-${chapter.id}`);
+        if (!badge) return;
+        const count = chapterOverrideCount(chapter.id);
+        badge.hidden = count === 0;
+        badge.textContent = String(count);
+      });
     }
 
     function updateOverrideUI() {
@@ -1948,238 +2080,104 @@
       if (clearBtn) clearBtn.hidden = count === 0;
     }
 
-
-    // ---------- 可视化配置画布 ----------
-    // 训练流水线节点（4 列 × 2 行）：机器人 → 仿真器 → 环境 → 观测动作
-    //                                   算法 → 奖励 → 鲁棒性 → 产物
-    const MODULE_DEFS = [
-      { id: 'robot',      step: 'A1', name: '机器人',     sub: 'Robot',       panel: null },
-      { id: 'simulator',  step: 'A2', name: '仿真器',     sub: 'Simulator',   panel: 'panel-simulator' },
-      { id: 'environment', step: 'A3', name: '环境与地形', sub: 'Environment', panel: 'panel-environment' },
-      { id: 'embodiment', step: 'A4', name: '观测 / 动作', sub: 'Obs / Action', panel: 'panel-embodiment' },
-      { id: 'learning',   step: 'B1', name: '算法与超参数', sub: 'PPO',        panel: 'panel-learning' },
-      { id: 'robustness', step: 'B2', name: '奖励与鲁棒性', sub: 'Rewards',    panel: 'panel-robustness' },
-    ];
-
-    const FORM_FALLBACKS = {
-      'environment.scene.num_envs': () => intValue('numEnvs'),
-      'runner.max_iterations': () => intValue('maxIterations'),
-      'runner.num_steps_per_env': () => intValue('numSteps'),
-      'runner.algorithm.learning_rate': () => Number(valueOf('learningRate')),
-      'runner.algorithm.gamma': () => Number(valueOf('gamma')),
-      'runner.algorithm.gae_lambda': () => Number(valueOf('gaeLambda')),
-      'environment.episode_length_s': () => Number(valueOf('episodeLength')),
-    };
-
-    function schemaGet(path) {
-      let node = state.schema;
-      for (const part of path.split('.')) {
-        if (!node || typeof node !== 'object') return undefined;
-        node = node[part];
+    // ---------- 右侧上下文栏：派生量 + 依赖检查 ----------
+    function schemaScalar(paths) {
+      for (const path of paths) {
+        const value = schemaGet(path);
+        if (value !== undefined && value !== null && typeof value !== 'object') return value;
       }
-      if (node === undefined && FORM_FALLBACKS[path]) {
-        const fallback = FORM_FALLBACKS[path]();
-        if (fallback !== undefined) return fallback;
-      }
-      return node;
+      return undefined;
     }
 
-    function fmtStat(value) {
-      if (value === undefined || value === null) return '—';
-      if (Array.isArray(value)) {
-        if (value.length === 2 && value.every(Number.isFinite)) return `[${value[0]}, ${value[1]}]`;
-        return value.slice(0, 3).join(',');
+    function updateContextRail() {
+      const list = $('derivedList');
+      const warns = $('depWarnings');
+      if (!list || !warns) return;
+
+      if (!state.schema) {
+        list.innerHTML = '<div><dt>控制频率</dt><dd>50 Hz<small>通用任务默认</small></dd></div>';
+        warns.innerHTML = '<li class="none">选择训练档案后显示派生量与耦合规则检查（decimation 耦合 / 观测噪声作用域 / 奖励贡献比 / 课程轴）。</li>';
+        return;
       }
-      if (typeof value === 'number') return Number(value).toPrecision(4).replace(/\.?0+$/, '');
-      if (typeof value === 'boolean') return value ? '开' : '关';
-      return String(value);
-    }
 
-    function countOverrides(moduleId) {
-      const prefixes = CATEGORY_SCHEMA_PREFIXES[moduleId] || [];
-      return Object.keys(state.overrides).filter((path) =>
-        prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}.`)),
-      ).length;
-    }
+      const timestep = Number(schemaScalar(['environment.sim.mujoco.timestep', 'environment.sim.timestep']));
+      const decimation = Number(schemaScalar(['environment.sim.decimation', 'environment.decimation', 'environment.scene.decimation']));
+      let stepDt = Number(schemaScalar(['environment.step_dt', 'environment.sim.step_dt']));
+      if (!Number.isFinite(stepDt) && Number.isFinite(timestep) && Number.isFinite(decimation) && decimation > 0) {
+        stepDt = timestep * decimation;
+      }
+      const episodeS = Number(schemaScalar(['environment.episode_length_s']));
+      const numEnvs = schemaScalar(['environment.scene.num_envs']);
+      const numSteps = Number(schemaScalar(['runner.num_steps_per_env']));
+      const kl = Number(schemaScalar(['runner.algorithm.desired_kl']));
+      const obs = schemaGet('environment.observations') || {};
+      const actorTerms = obs.actor && typeof obs.actor === 'object' ? Object.keys(obs.actor).filter((k) => k !== '__type__').length : undefined;
+      const criticTerms = obs.critic && typeof obs.critic === 'object' ? Object.keys(obs.critic).filter((k) => k !== '__type__').length : undefined;
+      const { terms: rewardTerms } = schemaRewardTermEntries();
+      const rewardActive = rewardTerms.filter((term) => rewardWeightValue(`${term.path}.weight`, term.cfg?.weight) !== 0).length;
+      const events = schemaGet('environment.events') || {};
+      const eventCount = Object.keys(events).filter((k) => k !== '__type__').length;
+      const terminations = schemaGet('environment.terminations') || {};
+      const termCount = Object.keys(terminations).filter((k) => k !== '__type__').length;
 
-    function cardStats(moduleId) {
-      if (moduleId === 'robot') return { stats: robotCardStats(), more: 0, edited: 0 };
-      const stats = [];
-      let more = 0;
-      const emit = (label, value) => {
-        if (stats.length < 4) stats.push(`${label} ${fmtStat(value)}`);
-        else more += 1;
+      const rows = [];
+      if (Number.isFinite(timestep)) rows.push(['物理步长', `${fmtNum(timestep, 4)} s`]);
+      if (Number.isFinite(decimation)) rows.push(['decimation', fmtNum(decimation, 0)]);
+      if (Number.isFinite(stepDt)) rows.push(['step_dt（控制周期）', `${fmtNum(stepDt, 4)} s`, `≈ ${fmtNum(1 / stepDt, 1)} Hz`]);
+      if (Number.isFinite(episodeS)) rows.push(['回合长度', `${fmtNum(episodeS, 1)} s`, Number.isFinite(stepDt) ? `≈ ${fmtNum(episodeS / stepDt, 0)} 步` : undefined]);
+      if (numEnvs !== undefined) rows.push(['并行环境', String(numEnvs)]);
+      if (Number.isFinite(numSteps) && Number.isFinite(stepDt)) rows.push(['rollout 时长', `${fmtNum(numSteps * stepDt, 2)} s`, `${numSteps} 步 / 更新`]);
+      if (actorTerms !== undefined) rows.push(['观测组 actor', `${actorTerms} 项`, criticTerms !== undefined ? `critic ${criticTerms} 项` : undefined]);
+      rows.push(['奖励项', `${rewardActive} / ${rewardTerms.length} 启用`]);
+      if (eventCount) rows.push(['DR 事件', `${eventCount} 项`]);
+      if (termCount) rows.push(['终止条件', `${termCount} 项`]);
+      if (Number.isFinite(kl)) rows.push(['目标 KL', fmtNum(kl, 3), '健康区间 0.005 - 0.02']);
+      list.innerHTML = rows.map(([k, v, small]) =>
+        `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}${small ? `<small>${escapeHtml(small)}</small>` : ''}</dd></div>`
+      ).join('') || '<div><dt>—</dt><dd>—</dd></div>';
+
+      // 依赖检查（知识库耦合规则，值感知）
+      const items = [];
+      if (Number.isFinite(timestep) && Number.isFinite(decimation)) {
+        items.push(['info', 'decimation 耦合', `step_dt = 物理步长 × decimation = ${fmtNum(stepDt, 4)} s。修改 decimation 会同步改变动作延迟换算、action_rate 物理含义，并约成正比改变仿真开销（Ch05 耦合表）。`]);
+      }
+      let criticCorrupt = false;
+      const walkCorruption = (node) => {
+        if (!node || typeof node !== 'object') return;
+        if (node.enable_corruption === true) criticCorrupt = true;
+        Object.values(node).forEach((child) => { if (child && typeof child === 'object') walkCorruption(child); });
       };
-      if (moduleId === 'simulator') {
-        emit('环境', schemaGet('environment.scene.num_envs') ?? intValue('numEnvs'));
-        emit('步长', schemaGet('environment.sim.mujoco.timestep'));
-        emit('求解器', schemaGet('environment.sim.mujoco.solver'));
-        emit('摩擦锥', schemaGet('environment.sim.mujoco.cone'));
-        more += Math.max(0, (categoryLeaves('simulator') || []).length - 4);
-      } else if (moduleId === 'environment') {
-        emit('回合', schemaGet('environment.episode_length_s'));
-        const vx = schemaGet('environment.commands.twist.ranges.lin_vel_x');
-        if (vx) emit('Vx', vx);
-        emit('站立比例', schemaGet('environment.commands.twist.rel_standing_envs'));
-        emit('地形', schemaGet('environment.scene.terrain.terrain_type'));
-        more += Math.max(0, (categoryLeaves('environment') || []).length - 4);
-      } else if (moduleId === 'embodiment') {
-        const actions = schemaGet('environment.actions') || {};
-        Object.entries(actions).slice(0, 3).forEach(([name, cfg]) => emit(`动作.${name}`, cfg?.scale ?? '—'));
-        const leaves = categoryLeaves('embodiment') || [];
-        more += Math.max(0, leaves.length - 3);
-      } else if (moduleId === 'learning') {
-        emit('lr', schemaGet('runner.algorithm.learning_rate') ?? Number(valueOf('learningRate')));
-        emit('γ', schemaGet('runner.algorithm.gamma') ?? 0.99);
-        emit('迭代', schemaGet('runner.max_iterations') ?? intValue('maxIterations'));
-        emit('步数', schemaGet('runner.num_steps_per_env') ?? 24);
-        more += Math.max(0, (categoryLeaves('learning') || []).length - 4);
-      } else if (moduleId === 'robustness') {
-        const rewards = schemaGet('environment.rewards') || {};
-        const names = Object.keys(rewards);
-        const active = names.filter((n) => {
-          const w = rewards[n]?.weight;
-          return typeof w === 'number' && w !== 0;
-        });
-        stats.push(`奖励 ${active.length}/${names.length} 启用`);
-        const events = schemaGet('environment.events') || {};
-        const push = Object.keys(events).find((n) => /push/i.test(n));
-        if (push) emit('推力', events[push]?.params?.velocity_range?.x ?? '—');
-        more += Math.max(0, names.length - active.length + Object.keys(events).length);
+      if (obs.critic) walkCorruption(obs.critic);
+      if (criticCorrupt) {
+        items.push(['warn', 'critic 观测含噪声', 'critic 观测组存在 enable_corruption=true：观测噪声只应作用于 actor，critic 噪声会污染价值目标（Ch08）。']);
       }
-      return { stats, more, edited: countOverrides(moduleId) };
-    }
-
-    function valueOf(id) { try { return $(id)?.value; } catch { return undefined; } }
-    function intValue(id) { const v = Number(valueOf(id)); return Number.isFinite(v) ? v : undefined; }
-    function robotCardStats() {
-      const preset = state.preset || {};
-      return [`${preset.dof ?? '-'} 自由度`, `${Number(preset.mass_kg || 0).toFixed(1)} kg`];
-    }
-
-    function moduleLines(moduleId) {
-      const g = (path) => schemaGet(path);
-      const f = (v, digits = 3) => (Number.isFinite(Number(v)) ? Number(Number(v).toFixed(digits)) : (v ?? '—'));
-      if (moduleId === 'robot') {
-        const preset = state.preset || {};
-        return [
-          { k: '自由度', v: preset.dof ?? '—' },
-          { k: '质量', v: `${Number(preset.mass_kg || 0).toFixed(1)} kg` },
-          { k: '形态', v: preset.locomotion_type || preset.size_class || '—' },
-        ];
+      if (rewardTerms.length) {
+        const trackingSum = rewardTerms.filter((t) => rewardLayer(t.name) === 'tracking')
+          .reduce((acc, t) => acc + Math.abs(rewardWeightValue(`${t.path}.weight`, t.cfg?.weight)), 0);
+        const penaltySum = rewardTerms.filter((t) => rewardLayer(t.name) !== 'tracking')
+          .reduce((acc, t) => acc + Math.abs(rewardWeightValue(`${t.path}.weight`, t.cfg?.weight)), 0);
+        if (penaltySum > trackingSum && trackingSum > 0) {
+          items.push(['warn', '惩罚权重偏高', `惩罚项权重绝对值合计 ${fmtNum(penaltySum, 2)} 已超过跟踪权重合计 ${fmtNum(trackingSum, 2)}：跟踪贡献应大于全部惩罚之和（Ch06）。`]);
+        }
       }
-      if (moduleId === 'simulator') {
-        return [
-          { k: '并行环境', v: g('environment.scene.num_envs') ?? intValue('numEnvs') ?? '—' },
-          { k: '物理步长', v: g('environment.sim.mujoco.timestep') ?? '—' },
-          { k: '求解器', v: g('environment.sim.mujoco.solver') ?? '—' },
-        ];
+      const curriculumKeys = Object.keys(schemaGet('environment.curriculum') || {}).filter((k) => k !== '__type__');
+      if (curriculumKeys.length) {
+        items.push(['info', '课程轴互斥', `当前课程项：${curriculumKeys.join(' / ')}。地形 / 指令范围 / 奖励严格度三轴不可同时推进，切换课程时避免同改奖励权重（Ch06/Ch25）。`]);
       }
-      if (moduleId === 'environment') {
-        return [
-          { k: '回合长度', v: `${f(g('environment.episode_length_s'), 1)} s` },
-          { k: '前进速度', v: fmtStat(g('environment.commands.twist.ranges.lin_vel_x')) },
-          { k: '地形', v: g('environment.scene.terrain.terrain_type') ?? '—' },
-        ];
-      }
-      if (moduleId === 'embodiment') {
-        const actions = g('environment.actions') || {};
-        const names = Object.keys(actions);
-        if (!names.length) return [{ k: '动作项', v: '—' }];
-        return names.slice(0, 3).map((name) => ({
-          k: `动作.${name.replace(/_joint_pos|_joint_vel/, '')}`,
-          v: fmtStat(actions[name]?.scale) + (actions[name]?.cut_off_frequency ? ` · ${actions[name].cut_off_frequency}Hz` : ''),
-        }));
-      }
-      if (moduleId === 'learning') {
-        return [
-          { k: '学习率', v: g('runner.algorithm.learning_rate') ?? valueOf('learningRate') ?? '—' },
-          { k: 'γ / λ', v: `${f(g('runner.algorithm.gamma'), 2)} / ${f(g('runner.algorithm.lam'), 2)}` },
-          { k: '迭代', v: g('runner.max_iterations') ?? intValue('maxIterations') ?? '—' },
-        ];
-      }
-      if (moduleId === 'robustness') {
-        const rewards = g('environment.rewards') || {};
-        const names = Object.keys(rewards);
-        const active = names.filter((n) => {
-          const w = rewards[n]?.weight;
-          return typeof w === 'number' && w !== 0;
-        });
-        const lines = [{ k: '奖励项', v: `${active.length} / ${names.length} 启用` }];
-        const events = g('environment.events') || {};
-        const push = Object.keys(events).find((n) => /push/i.test(n));
-        if (push) lines.push({ k: '推力扰动', v: fmtStat((events[push]?.params || {}).velocity_range?.x) });
-        return lines;
-      }
-      return [{ k: '—', v: '—' }];
-    }
-
-    function renderCanvas() {
-      const grid = $('canvasGrid');
-      if (!grid) return;
-      grid.innerHTML = MODULE_DEFS.map((mod, index) => {
-        const lines = moduleLines(mod.id);
-        const edited = countOverrides(mod.id);
-        const lastInRow = (index % 4) === 3 || index === MODULE_DEFS.length - 1;
-        return `
-          <button type="button" class="flow-node ${lastInRow ? 'no-arrow' : ''} ${edited ? 'has-edits' : ''}" data-module="${mod.id}" aria-label="打开${mod.name}配置">
-            <div class="node-head">
-              <span class="node-step">${mod.step}</span>
-              <div><h3>${mod.name}</h3><small>${mod.sub}</small></div>
-            </div>
-            <div class="node-body">
-              ${lines.map((line) => `<div class="nline"><span class="k">${escapeHtml(line.k)}</span><span class="v" title="${escapeHtml(String(line.v))}">${escapeHtml(String(line.v))}</span></div>`).join('')}
-            </div>
-            <div class="node-foot">
-              <span>${edited ? `<span class="edited">已调整 ${edited} 项</span>` : '点击查看 / 编辑'}</span>
-              <span>›</span>
-            </div>
-          </button>
-        `;
-      }).join('');
-      grid.querySelectorAll('[data-module]').forEach((card) => {
-        card.addEventListener('click', () => openModuleDrawer(card.dataset.module));
+      const eventModes = {};
+      Object.entries(events).forEach(([name, cfg]) => {
+        if (name === '__type__' || !cfg || typeof cfg !== 'object') return;
+        const mode = String(cfg.mode || '未知');
+        eventModes[mode] = (eventModes[mode] || 0) + 1;
       });
-    }
-
-    function openModuleDrawer(moduleId) {
-      const def = MODULE_DEFS.find((m) => m.id === moduleId);
-      if (!def) return;
-      $('drawerTitle').textContent = `${def.icon} ${def.name}`;
-      $('drawerMeta').textContent = `${state.preset?.family || ''} · ${state.profileId || '通用任务'} · ${def.sub}`;
-      const body = $('drawerBody');
-      if (moduleId === 'robot') {
-        const preset = state.preset || {};
-        const rows = (state.presets.length ? state.presets : [{ robot_id: preset.robot_id, family: preset.family }])
-          .map((p) => `<div class="system-row"><span>${escapeHtml(p.family || p.robot_id)}</span><strong>${Number(p.dof ?? 0)} 自由度 · ${Number(p.mass_kg || 0).toFixed(1)} kg</strong></div>`)
-          .join('');
-        body.innerHTML = `<div class="drawer-group-title">机器人契约（02 页维护）</div><div class="system-panel" style="padding:4px 12px 10px;">${rows}</div>
-          <p class="section-hint">选择机器人后自动应用到全部配置模块。</p>`;
-      } else {
-        const panel = $(def.panel);
-        body.innerHTML = '';
-        if (panel) body.appendChild(panel);
+      const modeText = Object.entries(eventModes).map(([mode, count]) => `${mode} ${count}`).join(' · ');
+      if (modeText) {
+        items.push(['info', 'DR 模式分布', `${modeText}。质量/惯量类扰动应在 startup/reset 模式；interval 用于间歇推扰；step 模式建议改用观测噪声（Ch08 模式决策树）。`]);
       }
-      $('moduleDrawer').classList.add('open');
-      $('drawerMask').classList.add('open');
-      $('moduleDrawer').setAttribute('aria-hidden', 'false');
+      warns.innerHTML = items.length
+        ? items.map(([kind, title, body]) => `<li class="${kind}"><b>${escapeHtml(title)}</b>${escapeHtml(body)}</li>`).join('')
+        : '<li class="none">未发现耦合规则冲突。</li>';
     }
-
-    function closeModuleDrawer() {
-      MODULE_DEFS.forEach((def) => {
-        if (!def.panel) return;
-        const panel = $(def.panel);
-        const home = $('legacyPanels');
-        if (panel && home && panel.parentElement !== home) home.appendChild(panel);
-      });
-      $('moduleDrawer').classList.remove('open');
-      $('drawerMask').classList.remove('open');
-      $('moduleDrawer').setAttribute('aria-hidden', 'true');
-    }
-
-    $('drawerClose')?.addEventListener('click', closeModuleDrawer);
-    $('drawerMask')?.addEventListener('click', closeModuleDrawer);
-    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeModuleDrawer(); });
 
     // ---------- 配置收集 / 导入导出 ----------
     function collectRewardScales() {
@@ -2204,6 +2202,7 @@
     }
 
     function collectConfig() {
+      const profileMode = !!state.profileId;
       return {
         robot_id: state.preset ? state.preset.robot_id : null,
         profile_id: state.profileId || null,
@@ -2223,8 +2222,9 @@
         gae_lambda: numValue('gaeLambda'),
         clip_param: numValue('clipParam'),
         entropy_coef: numValue('entropyCoef'),
-        reward_scales: collectRewardScales(),
-        reward_overrides: $('rewardOverrides').checked,
+        // 档案模式：奖励修改走点路径覆盖（overrides），不再走 reward_scales 别名匹配
+        reward_scales: profileMode ? {} : collectRewardScales(),
+        reward_overrides: profileMode ? false : true,
         reward_params: {},
         command_ranges: collectCommandRanges(),
         noise: {},
@@ -2302,7 +2302,6 @@
           }
         });
       }
-      if (config.reward_overrides !== undefined) $('rewardOverrides').checked = !!config.reward_overrides;
       if (config.overrides !== undefined) {
         // 导入的覆盖项与 schema 无关也会保留，启动时由 worker 校验路径
         state.overrides = (config.overrides && typeof config.overrides === 'object' && !Array.isArray(config.overrides))
@@ -2310,28 +2309,28 @@
           : {};
         renderSchemaViews();
       }
-      if (config.reward_scales && typeof config.reward_scales === 'object') {
+      if (!state.profileId && config.reward_scales && typeof config.reward_scales === 'object') {
         Object.entries(config.reward_scales).forEach(([id, weight]) => {
           const toggle = document.querySelector(`[data-reward-id="${CSS.escape(id)}"]`);
           const input = document.querySelector(`[data-reward-weight="${CSS.escape(id)}"]`);
           if (input) input.value = Number(weight);
-          if (toggle) { toggle.checked = Number(weight) !== 0; syncRewardRow(toggle); }
+          if (toggle) { toggle.checked = Number(weight) !== 0; const row = toggle.closest('.reward-term'); if (row) row.classList.toggle('off', !toggle.checked); }
         });
       }
       updateAll();
       scheduleResolve();
     }
 
-    // ---------- 校验 / 摘要 / 就绪点 ----------
+    // ---------- 校验 / 摘要 / 导航点 ----------
     const VALIDATORS = {
-      simulator() {
+      sim() {
         if (!inRange(intValue('numEnvs'), 64, 8192)) return '并行环境数量需在 64 - 8192 之间';
         if (!inRange(intValue('seed'), 0, 2147483647)) return '随机种子需在 0 - 2147483647 之间';
-        return null;
-      },
-      environment() {
         const episode = numValue('episodeLength');
         if (!inRange(episode, 5, 60)) return 'Episode 长度需在 5 - 60 秒之间';
+        return null;
+      },
+      iface() {
         let paired = 0;
         for (const row of document.querySelectorAll('#cmdGrid .cmd-row')) {
           const min = row.querySelector('[data-bound="min"]').value;
@@ -2342,14 +2341,18 @@
           if (hasMin && Number(min) > Number(max)) return `${row.dataset.cmd} 的最小值不能大于最大值`;
           if (hasMin) paired += 1;
         }
-        if (!state.tasks.some((task) => task.id === derivedTaskId())) return '任务不在注册表中';
-        return null;
-      },
-      embodiment() {
         if (!state.preset) return '没有可用的机器人训练资产';
         return null;
       },
-      learning() {
+      goal() {
+        for (const input of document.querySelectorAll('[data-reward-weight]')) {
+          if (input.dataset.rewardWeightPath) continue; // 档案模式权重走 overrides，留空 = 不覆盖
+          if (!Number.isFinite(parseFloat(input.value))) return `奖惩项权重无效：${input.dataset.rewardWeight}`;
+        }
+        return null;
+      },
+      robust() { return null; },
+      train() {
         const lr = numValue('learningRate');
         if (!Number.isFinite(lr) || lr <= 0 || lr > 0.01) return '学习率需在 (0, 0.01] 之间';
         if (!inRange(intValue('maxIterations'), 10, 10000)) return '最大迭代数需在 10 - 10000 之间';
@@ -2366,32 +2369,28 @@
         if (!Number.isFinite(entropy) || entropy < 0) return '熵正则系数需 ≥ 0';
         return null;
       },
-      robustness() {
-        for (const input of document.querySelectorAll('[data-reward-weight]')) {
-          if (!Number.isFinite(parseFloat(input.value))) return `奖惩项权重无效：${input.dataset.rewardWeight}`;
-        }
-        return null;
-      },
     };
 
-    function categoryError(category) {
-      const validator = VALIDATORS[category];
+    function chapterError(chapter) {
+      const validator = VALIDATORS[chapter];
       return validator ? validator() : null;
     }
 
     function validate() {
-      for (const category of Object.keys(VALIDATORS)) {
-        const message = categoryError(category);
+      for (const chapter of Object.keys(VALIDATORS)) {
+        const message = chapterError(chapter);
         if (message) return message;
       }
       return null;
     }
 
     function updateNavDots() {
-      Object.keys(VALIDATORS).forEach((category) => {
-        const dot = $(`dot-${category}`);
-        if (dot) dot.classList.toggle('ok', categoryError(category) === null);
-        if (dot) dot.classList.toggle('bad', categoryError(category) !== null);
+      Object.keys(VALIDATORS).forEach((chapter) => {
+        const dot = $(`dot-${chapter}`);
+        if (!dot) return;
+        const error = chapterError(chapter);
+        dot.classList.toggle('ok', error === null);
+        dot.classList.toggle('bad', error !== null);
       });
     }
 
@@ -2403,8 +2402,6 @@
       parts.push(`${intValue('numEnvs') || '-'} envs`);
       parts.push(`${intValue('maxIterations') || '-'} iter`);
       parts.push(`${escapeHtml($('device').value)}`);
-      const enabled = [...document.querySelectorAll('[data-reward-id]')].filter((toggle) => toggle.checked).length;
-      if (document.querySelector('[data-reward-id]')) parts.push(`${enabled} 奖励项${$('rewardOverrides').checked ? '（覆盖开）' : ''}`);
       const invalid = validate();
       $('stickySummary').innerHTML = parts.join(' · ')
         + `<span class="valid-chip ${invalid ? 'bad' : 'ok'}">${invalid ? '待完善' : '校验通过'}</span>`;
@@ -2412,13 +2409,14 @@
     }
 
     function updateAll() {
-      if (typeof renderCanvas === 'function' && $('canvasGrid')) { try { renderCanvas(); } catch (_) {} }
       syncHeaderOffset();
       updateRewardSummary();
       updateNavDots();
+      updateTocBadges();
       updateSummary();
       updateTaskBadge();
       updateOverrideUI();
+      updateContextRail();
       scheduleResolve();
     }
 
@@ -2464,7 +2462,7 @@
           entropy_coef: form.entropy_coef,
           seed: form.seed,
         };
-        // 仅在用户填写了高级覆盖时携带，保持默认请求体与既有行为一致
+        // 仅在用户填写了覆盖时携带，保持默认请求体与既有行为一致
         if (Object.keys(state.overrides).length) requestData.overrides = { ...state.overrides };
 
         const data = await fetchJson('/api/training/create', {
@@ -2484,63 +2482,16 @@
       }
     });
 
-    // ---------- 覆盖编辑：事件绑定（一次性委托，重渲染不重复） ----------
-    function applyListPairInput(input) {
-      // 范围对（[min, max]）：任一项变化都重算；两项留空 = 不覆盖
-      const path = input.dataset.ovrList;
-      const row = input.closest('.param-row, .ovr-row');
-      const minInput = row ? row.querySelector('[data-ovr-list][data-bound="min"]') : null;
-      const maxInput = row ? row.querySelector('[data-ovr-list][data-bound="max"]') : null;
-      const rawMin = minInput ? minInput.value.trim() : '';
-      const rawMax = maxInput ? maxInput.value.trim() : '';
-      if (rawMin === '' && rawMax === '') {
-        delete state.overrides[path];
-      } else {
-        const min = parseFloat(rawMin);
-        const max = parseFloat(rawMax);
-        if (Number.isFinite(min) && Number.isFinite(max) && min <= max) state.overrides[path] = [min, max];
-        else delete state.overrides[path];
+    document.addEventListener('click', (event) => {
+      if (event.target instanceof Element && event.target.matches('[data-schema-retry]')) {
+        loadProfileSchema();
       }
-      refreshOverrideRow(input);
-    }
-
-    document.querySelectorAll('[data-ovr-category]').forEach((holder) => {
-      holder.addEventListener('input', (event) => {
-        const listInput = event.target.closest('[data-ovr-list]');
-        if (listInput) { applyListPairInput(listInput); return; }
-        const input = event.target.closest('[data-ovr-path]');
-        if (!input || input.type === 'checkbox') return;
-        const path = input.dataset.ovrPath;
-        const raw = input.value.trim();
-        if (raw === '') {
-          delete state.overrides[path];
-        } else if (input.dataset.kind === 'number') {
-          const num = parseFloat(raw);
-          if (!Number.isFinite(num)) { delete state.overrides[path]; }
-          else state.overrides[path] = num;
-        } else {
-          state.overrides[path] = input.value;
-        }
-        refreshOverrideRow(input);
-      });
-      holder.addEventListener('change', (event) => {
-        const input = event.target.closest('[data-ovr-path]');
-        if (!input || input.type !== 'checkbox') return;
-        state.overrides[input.dataset.ovrPath] = input.checked;
-        refreshOverrideRow(input);
-      });
-    });
-    $('clearOverrides').addEventListener('click', () => {
-      state.overrides = {};
-      renderSchemaViews();
-      updateOverrideUI();
-      showToast('已清除全部高级覆盖');
     });
 
     // ---------- 导航交互 ----------
-    document.querySelectorAll('.config-tab[data-target]').forEach((item) => {
+    document.querySelectorAll('.toc-item[data-target]').forEach((item) => {
       item.addEventListener('click', () => {
-        document.querySelectorAll('.config-tab').forEach((entry) => entry.classList.remove('active'));
+        document.querySelectorAll('.toc-item').forEach((entry) => entry.classList.remove('active'));
         item.classList.add('active');
         const target = $(item.dataset.target);
         if (item.dataset.target === 'panel-preview' && target && !target.open) target.open = true;
@@ -2551,7 +2502,7 @@
     const panelObserver = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
-        document.querySelectorAll('.config-tab').forEach((item) => {
+        document.querySelectorAll('.toc-item').forEach((item) => {
           item.classList.toggle('active', item.dataset.target === entry.target.id);
         });
       });
@@ -2570,23 +2521,10 @@
       refreshConfigPreview();
     });
     $('device').addEventListener('change', (event) => { $('deviceMirror').value = event.target.value; updateAll(); });
-    document.addEventListener('click', (event) => {
-      if (event.target instanceof Element && event.target.matches('[data-schema-retry]')) {
-        loadProfileSchema();
-      }
-    });
-    $('rewardOverrides').addEventListener('change', () => {
-      renderRewardTerms((state.options && state.options.reward_terms) || {});
-      updateAll();
-    });
     $('rewardAll').addEventListener('click', () => setAllRewards(true));
     $('rewardReset').addEventListener('click', resetRewards);
     $('previewFilter').addEventListener('input', renderPreviewList);
     $('panel-preview').addEventListener('toggle', () => { if ($('panel-preview').open && !state.recipe) resolveRecipe(); });
-    $('trainingForm').addEventListener('input', (event) => {
-      if (event.target.closest('#previewFilter')) return;
-      updateAll();
-    });
 
     // ---------- 初始化 ----------
     (async function init() {
@@ -2601,8 +2539,8 @@
       } catch (error) {
         console.error('[training_create] init failed:', error);
         showError(error.message);
-        $('robotStrip').innerHTML =
-          `<div class="empty-state" style="padding: 8px 12px;"><p>加载失败：${escapeHtml(error.message)}</p><button class="button small retry-link" type="button" onclick="location.reload()">点击重试</button></div>`;
+        $('robotSelect').innerHTML = `<option value="">加载失败</option>`;
+        $('robotMetaBox').textContent = error.message;
       }
     })();
   </script>

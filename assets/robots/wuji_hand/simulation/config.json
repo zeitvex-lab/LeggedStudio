@@ -1,0 +1,20 @@
+{
+  "schema_version": "simulation-config-1.0",
+  "backend": "mujoco",
+  "default_map": "flat",
+  "scene_path": "simulation/scene.xml",
+  "initial_base_height": 0.5,
+  "actuator_interface": "position_target",
+  "action_scale": 0.5,
+  "control_hz": 20,
+  "physics_hz": 100,
+  "decimation": 5,
+  "stiffness": {
+    "joint": 0.323
+  },
+  "damping": {
+    "joint": 0.0148
+  },
+  "policies": [],
+  "notes": "灵巧手固定基座；20 关节滑条可直接驱动。episode 50s，timestep 0.01（Euler，eulerdamp 关闭）。"
+}

@@ -1,0 +1,38 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "wuji-reorient",
+  "display_name": "Wuji Reorient",
+  "source": "wuji-mjlab WujiHand_Reorient",
+  "source_root": "C:/Users/31560/Documents/00_open/wuji-mjlab/src",
+  "entrypoints": {
+    "env": "wuji_mjlab.tasks.reorient.config.wuji_hand.env_cfgs:wuji_hand_reorient_env_cfg",
+    "runner": "wuji_mjlab.tasks.reorient.config.wuji_hand.rsl_rl.ppo:wuji_hand_reorient_ppo_runner_cfg",
+    "runner_class": "wuji_mjlab.rl.runner:WujiOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "reorient",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "num_envs": 8192,
+  "episode_length_s": 50.0,
+  "runner": {
+    "hidden_dims": [
+      512,
+      256,
+      128
+    ],
+    "learning_rate": 0.0001,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_param": 0.2,
+    "entropy_coef": 0.001,
+    "num_learning_epochs": 5,
+    "num_mini_batches": 32,
+    "num_steps_per_env": 24,
+    "save_interval": 100,
+    "max_iterations": 5000
+  },
+  "sort_order": 10,
+  "source_project": "wuji-mjlab",
+  "notes": "in-hand 方块重定向（canonical）：8192 envs x 5000 iters，W&B logger。"
+}

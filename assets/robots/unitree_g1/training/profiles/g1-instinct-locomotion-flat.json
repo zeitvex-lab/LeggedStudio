@@ -1,0 +1,38 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "g1-instinct-locomotion-flat",
+  "display_name": "G1 Instinct Locomotion",
+  "source": "InstinctMJ Instinct-Locomotion-Flat-G1-v0",
+  "source_root": "C:/Users/31560/Documents/00_open/InstinctMJ/src",
+  "entrypoints": {
+    "env": "instinct_mj.tasks.locomotion.config.g1.flat_env_cfg:instinct_g1_locomotion_flat_env_cfg",
+    "runner": "instinct_mj.tasks.locomotion.config.g1.rl_cfg:g1_locomotion_instinct_rl_cfg",
+    "runner_class": "instinct_rl.runners:OnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "instinct_locomotion",
+  "terrain_type": "flat",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "runner": {
+    "hidden_dims": [
+      256,
+      128,
+      128
+    ],
+    "learning_rate": 0.001,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_param": 0.2,
+    "entropy_coef": 0.008,
+    "num_learning_epochs": 5,
+    "num_mini_batches": 4,
+    "num_steps_per_env": 24,
+    "max_iterations": 5000,
+    "save_interval": 100
+  },
+  "sort_order": 50,
+  "source_project": "InstinctMJ Instinct-Locomotion-Flat-G1-v0",
+  "notes": "InstinctMJ 关节顺序与 AMP_mjlab 不同（waist 在前）；checkpoint 不可跨源码树混用。"
+}

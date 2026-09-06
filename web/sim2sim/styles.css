@@ -474,7 +474,6 @@ input[type="checkbox"] {
   font-variant-numeric: tabular-nums;
 }
 
-#vxSpeedLimit,
 #payloadMass,
 #terrainFriction,
 .com-offset-row input {
@@ -1414,11 +1413,41 @@ input[type="range"] {
   background: #2563eb;
 }
 .footer {
-  right: 16px;
-  bottom: 16px;
   left: 16px;
-  border-radius: 5px;
+  right: auto;
+  bottom: 16px;
+  /* 左下角紧凑竖排小卡片：宽度自适应内容（max-content），不再占全宽横条，
+     避免遮挡右侧控制面板与底部视图；时间/FPS 状态文字一并收进卡片。基础
+     规则的居中位移（left:50% + translateX(-50%)）仍需取消；竖排后无需换行。 */
+  transform: none;
+  width: auto;
+  max-width: max-content;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  overflow: visible;
   box-shadow: 0 4px 16px rgba(32, 48, 70, 0.1);
+}
+.footer #fitViewButton {
+  margin-top: 2px;
+  min-height: 24px;
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.footer #fitViewButton:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.footer span {
+  font-size: 11px;
+  line-height: 1.3;
 }
 .preview-only .hud,
 .preview-only .mobile-joystick {
@@ -1454,10 +1483,26 @@ input[type="range"] {
     flex: 1;
     text-align: center;
   }
+  .footer {
+    left: 12px;
+    bottom: 12px;
+    /* 窄屏把复选框排成两列，压低卡片高度 */
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, max-content));
+    align-items: center;
+    justify-content: start;
+    gap: 4px 14px;
+  }
+  .footer button,
+  .footer span {
+    grid-column: 1 / -1;
+  }
   .panel-left {
     top: auto;
     right: 12px;
-    bottom: 64px;
+    /* 页脚已改为左下角紧凑小卡片（约 150px 高，不再全宽换行），
+       控制面板底部抬升避让即可 */
+    bottom: 178px;
     left: 12px;
     width: auto;
   }
@@ -1472,4 +1517,40 @@ input[type="range"] {
 .att-track i { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; border-radius: 4px; background: var(--cyan, #2588df); transition: width 0.08s linear, left 0.08s linear; }
 .att-track b.att-center { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: rgba(148, 178, 188, 0.5); }
 .att-row output { color: var(--cyan, #2588df); font: 11px Consolas, monospace; text-align: right; }
+
+/* 键盘 C 键 / URL panel=0 的控制面板显隐（所有断点生效，区别于移动端 is-collapsed） */
+body.panel-hidden .panel-left { display: none !important; }
+
+/* 速度指令滑条（直连策略命令向量） */
+.velocity-command-control {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+.velocity-command-control .section-title { margin-bottom: 7px; }
+.velocity-command-control .vel-cmd-row {
+  display: grid;
+  grid-template-columns: 48px minmax(56px, 1fr) 38px 26px 52px 34px;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.vel-cmd-enable { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11px; color: var(--muted); }
+.vel-cmd-enable input { accent-color: var(--teal, var(--cyan, #2588df)); }
+.vel-cmd-max-label { color: var(--faint, #8b98a5); font-size: 10px; text-align: right; }
+.velocity-command-control .vel-cmd-max { accent-color: var(--amber, #d88922); }
+.velocity-command-control .vel-cmd-row input {
+  width: 100%;
+  accent-color: var(--teal);
+}
+.velocity-command-control .vel-cmd-row output {
+  color: var(--soft);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.vel-cmd-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 7px; }
+.vel-cmd-actions button { min-height: 26px; padding: 0 10px; font-size: 11px; }
+
 

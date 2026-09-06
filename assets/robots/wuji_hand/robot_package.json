@@ -1,0 +1,19 @@
+{
+  "schema_version": "robot-package-1.0",
+  "package_id": "wuji_hand",
+  "capabilities": [
+    "generic_mjlab",
+    "mjlab_source_profiles",
+    "mujoco_sim"
+  ],
+  "model": {
+    "format": "mjcf",
+    "path": "model/robot.xml",
+    "assets_path": "model/assets"
+  },
+  "simulation_config_path": "simulation/config.json",
+  "training_config_path": "training/config.json",
+  "contract_path": "contract.json",
+  "source_project": "wuji-mjlab",
+  "notes": "训练档案 source_root 指向外部源码树 wuji-mjlab/src；mjlab 1.6 下零修改通过。"
+}

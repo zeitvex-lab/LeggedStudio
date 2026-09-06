@@ -6,29 +6,94 @@
   <title>包管理 - Legged Studio</title>
   <link rel="stylesheet" href="dashboard.css">
   <style>
-    .packages-shell{max-width:1320px;margin:0 auto;padding:32px 24px}.package-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-top:22px}.package-card{padding:18px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)}.package-card h3{margin:0 0 7px}.package-card p{margin:6px 0;color:var(--muted);font-size:12px}.package-card code{display:block;margin-top:12px;color:var(--muted);font-size:11px;word-break:break-all}.package-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.package-actions{display:flex;gap:8px;margin-top:15px}.badge{display:inline-flex;padding:3px 8px;border-radius:99px;background:var(--surface-raised);color:var(--accent);font-size:11px}.empty{padding:60px;text-align:center;color:var(--muted);border:1px dashed var(--border-soft)}
+    .packages-shell{max-width:1320px;margin:0 auto;padding:32px 24px}
+    .package-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-top:22px}
+    .package-card{padding:18px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)}
+    .package-card h3{margin:0 0 7px}
+    .package-card p{margin:6px 0;color:var(--muted);font-size:12px}
+    .package-card code{display:block;margin-top:12px;color:var(--muted);font-size:11px;word-break:break-all}
+    .package-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+    .package-actions{display:flex;gap:8px;margin-top:15px;flex-wrap:wrap}
+    .badge{display:inline-flex;padding:3px 8px;border-radius:99px;background:var(--surface-raised);color:var(--accent);font-size:11px}
+    .badge.ok{background:rgba(46,160,67,.15);color:#2ea043}
+    .badge.warn{background:rgba(216,137,34,.15);color:#d88922}
+    .badge.readonly{background:var(--surface-raised);color:var(--muted)}
+    .empty{padding:60px;text-align:center;color:var(--muted);border:1px dashed var(--border-soft)}
+    .import-bar{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+    .import-bar input{flex:1;min-width:280px;padding:9px 12px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:12px}
+    .btn.primary{background:var(--accent);color:#04121a;border-color:var(--accent)}
+    .btn.danger{color:#f85149;border-color:rgba(248,81,73,.4)}
+    .profile-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+    .profile-chips .badge{font-size:10px}
+    .toolbar-note{margin-top:10px;color:var(--muted);font-size:11px}
   </style>
 </head>
 <body>
   <main class="packages-shell">
     <header class="page-header">
-      <div><span class="page-kicker">Package Manager</span><h1>包管理</h1><p>管理本地持久化的导入包。每个包可包含模型、网格、Contract、训练配置和仿真配置。</p></div>
-      <div class="page-actions"><a class="btn" href="workbench.html#home">返回工作台</a><button class="btn" id="refresh">刷新</button></div>
+      <div><span class="page-kicker">Package Manager</span><h1>包管理</h1><p>统一管理机器人包：内置包与工作区包自动合并展示，新增/修改会自动同步到训练配置与仿真页。支持从本地路径导入、导出与删除。</p></div>
+      <div class="page-actions"><a class="btn" href="workbench.html#home">返回工作台</a><button class="btn" id="refresh">刷新索引</button></div>
     </header>
-    <section id="packageList" class="package-grid"><div class="empty">正在读取本地包...</div></section>
+    <div class="import-bar">
+      <input id="importPath" type="text" placeholder="输入机器人包的绝对路径（目录需包含 contract.json 与 robot_package.json），例如 C:\data\my_robot_pkg" spellcheck="false">
+      <button class="btn primary" id="importBtn">导入包</button>
+    </div>
+    <p class="toolbar-note">索引具备自动同步：任何包新增/修改/删除都会在下一次读取时被检测并重建，无需手动刷新。内置包（assets/robots）为只读。</p>
+    <section id="packageList" class="package-grid"><div class="empty">正在读取机器人包...</div></section>
   </main>
   <script>
     const API=window.location.origin,$=s=>document.querySelector(s);
-    function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
     async function load(){
-      const list=$('#packageList');list.innerHTML='<div class="empty">正在读取本地包...</div>';
+      const list=$('#packageList');list.innerHTML='<div class="empty">正在读取机器人包...</div>';
       try{
-        const response=await fetch(API+'/api/project/packages');const data=await response.json();const packages=data.packages||[];
-        list.innerHTML=packages.length?packages.map(item=>{const c=item.contract||{},p=item.robot_package||{},model=p.model||{};return `<article class="package-card"><div class="package-head"><div><h3>${esc(c.family||c.robot_id||item.package_id)}</h3><span class="badge">${esc(item.source==='imported'?'已导入':'工作区')}</span></div><span class="badge">${esc(c.urdf?.format||model.format||'robot package')}</span></div><p>${esc(item.file_count)} 个文件 · ${(Number(item.size_bytes||0)/1048576).toFixed(2)} MB</p><p>关节 ${esc(c.joints?.actuated_joints?.length||0)} · Contract ${esc(c.contract_id||'-')}</p><p>模型 ${esc(c.urdf?.path||model.path||'未声明')}</p><code>${esc(item.package_root)}</code><div class="package-actions"><a class="btn" href="workbench.html#validate">打开验证</a><button class="btn" data-delete="${esc(item.package_id)}">删除</button></div></article>`}).join(''):'<div class="empty">暂无包。请在验证模块选择本地资产文件夹。</div>';
-        list.querySelectorAll('[data-delete]').forEach(button=>button.onclick=async()=>{if(!confirm('确认删除这个包？'))return;const result=await fetch(API+'/api/project/packages/'+encodeURIComponent(button.dataset.delete),{method:'DELETE'});if(result.ok)load();});
+        const r=await fetch(API+'/api/robots/presets');const data=await r.json();
+        const packages=(data.presets||[]).slice().sort((a,b)=>String(a.robot_id).localeCompare(String(b.robot_id)));
+        list.innerHTML=packages.length?packages.map(item=>{
+          const pkg=item.robot_package||{},root=pkg.package_root||'';
+          const isWorkspace=root.replace(/\\/g,'/').includes('/workspace/packages');
+          const profiles=item.training_profiles||[];
+          const profileChips=profiles.length?`<div class="profile-chips">${profiles.map(p=>`<span class="badge ${p.valid===false?'warn':'ok'}" title="${esc(p.validation_errors&&p.validation_errors.length?p.validation_errors.join('; '):'校验通过')}">${esc(p.profile_id||'?')}${p.valid===false?'（校验失败）':''}</span>`).join('')}</div>`:'<p>无训练档案</p>';
+          const actions=`<div class="package-actions">
+            <a class="btn" href="/api/robots/packages/${esc(item.robot_id)}/export">导出 zip</a>
+            <a class="btn" href="training_create.html?robot=${esc(item.robot_id)}">配置训练</a>
+            ${isWorkspace?`<button class="btn danger" data-delete="${esc(item.robot_id)}">删除</button>`:'<span class="badge readonly">内置 · 只读</span>'}
+          </div>`;
+          return `<article class="package-card" data-robot="${esc(item.robot_id)}">
+            <div class="package-head"><div><h3>${esc(item.family||item.robot_id)}</h3><span class="badge">${esc(item.robot_id)}</span></div>
+            <span class="badge ${isWorkspace?'':'readonly'}">${isWorkspace?'工作区':'内置'}</span></div>
+            <p>${esc(item.dof??'-')} 自由度 · ${Number(item.mass_kg||0).toFixed(2)} kg · ${esc(item.size_class||'-')}/${esc(item.locomotion_type||'-')} · ${profiles.length} 个训练档案</p>
+            ${profileChips}
+            <code>${esc(root||'-')}</code>${actions}
+          </article>`}).join(''):'<div class="empty">没有机器人包。可在上方输入路径导入，或将包放入工作区 packages/ 目录。</div>';
+        list.querySelectorAll('[data-delete]').forEach(button=>button.onclick=async()=>{
+          if(!confirm('确认删除该工作区包？（内置包不受影响）'))return;
+          const r=await fetch(API+'/api/robots/packages/'+encodeURIComponent(button.dataset.delete),{method:'DELETE'});
+          const d=await r.json().catch(()=>({}));
+          if(!r.ok||d.success===false){alert('删除失败：'+(d.error||d.detail||r.status));}
+          load();
+        });
       }catch(error){list.innerHTML='<div class="empty">包列表读取失败：'+esc(error.message)+'</div>';}
     }
-    $('#refresh').onclick=load;load();
+    $('#refresh').onclick=async()=>{
+      const btn=$('#refresh');btn.disabled=true;const old=btn.textContent;btn.textContent='重建中...';
+      try{const r=await fetch(API+'/api/robots/packages/refresh',{method:'POST'});const d=await r.json();
+        btn.textContent=`已同步 ${d.count||0} 个`;}catch(e){btn.textContent='刷新失败';}
+      setTimeout(()=>{btn.disabled=false;btn.textContent=old;load();},900);
+    };
+    $('#importBtn').onclick=async()=>{
+      const input=$('#importPath');const path=input.value.trim();
+      if(!path){alert('请先输入机器人包目录的绝对路径');return;}
+      const btn=$('#importBtn');btn.disabled=true;const old=btn.textContent;btn.textContent='导入中...';
+      try{
+        const r=await fetch(API+'/api/robots/packages/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
+        const d=await r.json().catch(()=>({}));
+        if(!r.ok||d.success===false){alert('导入失败：'+(d.detail||d.error||r.status));}
+        else{input.value='';alert(`已导入 ${d.robot_id}\n档案：${(d.record_summary&&d.record_summary.profiles||[]).join(', ')||'无'}`);}
+      }catch(e){alert('导入失败：'+e.message);}
+      btn.disabled=false;btn.textContent=old;load();
+    };
+    load();
   </script>
 </body>
 </html>

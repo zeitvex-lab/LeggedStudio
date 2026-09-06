@@ -1,9 +1,11 @@
 # Legged Studio
 
-Version `0.6.1` brings deployment-accurate browser sim2sim for all three built-in
-robots (Unitree Go2, ZEX-W, MicroDuck), built-in terrains, a faster robot page with
-inertia-box visualization and motor parameter cards, a modular five-category training
-config editor, and a wandb-style training monitor.
+Version `0.7.0` brings browser sim2sim for Unitree G1 (mjswan balance/locomotion and
+Unitree mjlab velocity) and Unitree Go2-W (mjlab velocity legs-only), robot package
+import/export/refresh, projection-gravity observation fixes shared across all
+mjlab-trained policies, a real enable gate for velocity command sliders, and the
+previous release’s deployment-accurate sim2sim, terrains, training config editor,
+and wandb-style monitor.
 
 Legged Studio is a local, contract-driven workbench for validating legged
 robot assets, configuring rewards and algorithms, running native MJLab training,
@@ -47,7 +49,7 @@ npm run build:online:win
 ```
 
 The archive and its top-level directory are named
-`Legged-Studio-0.6.1-Windows-Online`, not `win-unpacked` or Electron.
+`Legged-Studio-0.7.0-Windows-Online`, not `win-unpacked` or Electron.
 
 To build the Windows package with an embedded CPython 3.12 runtime, CUDA
 Torch, MJLab, and the Unitree MJLab extension, run this target on Windows:

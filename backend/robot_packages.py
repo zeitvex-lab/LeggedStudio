@@ -158,6 +158,66 @@ def _index_path() -> Path:
     return _workspace_root() / _INDEX_FILENAME
 
 
+_INDEX_META_FILENAME = "package_index.meta.json"
+
+
+def _package_roots() -> list[Path]:
+    workspace_root = _workspace_root()
+    return [workspace_root / "packages", ROOT / "assets" / "robots"]
+
+
+def _package_signature() -> str:
+    """Cheap freshness signature over both package roots.
+
+    Covers: which package dirs exist, and the mtimes of each contract /
+    manifest / profiles dir.  Any add / edit / delete flips the signature so
+    the persisted index can be auto-refreshed (fixes "stale index" bugs where
+    newly added robots never showed up in the desktop app).
+    """
+    parts: list[str] = []
+    for root in _package_roots():
+        if not root.exists():
+            parts.append(f"{root}:missing")
+            continue
+        try:
+            entries = sorted(p.name for p in root.iterdir() if p.is_dir())
+        except OSError:
+            entries = []
+        parts.append(f"{root}:{','.join(entries)}")
+        for name in entries:
+            pkg = root / name
+            for rel in ("contract.json", "robot_package.json"):
+                f = pkg / rel
+                try:
+                    parts.append(f"{name}/{rel}:{int(f.stat().st_mtime_ns)}")
+                except OSError:
+                    parts.append(f"{name}/{rel}:-")
+            profiles = pkg / "training" / "profiles"
+            if profiles.is_dir():
+                try:
+                    count = sum(1 for x in profiles.glob("*.json"))
+                    parts.append(f"{name}/profiles:{int(profiles.stat().st_mtime_ns)}:{count}")
+                except OSError:
+                    pass
+    return "|".join(parts)
+
+
+def _index_meta_path() -> Path:
+    return _workspace_root() / _INDEX_META_FILENAME
+
+
+def _index_is_stale() -> bool:
+    meta = _read_json(_index_meta_path())
+    return bool(meta) is False or meta.get("signature") != _package_signature()
+
+
+def _write_index_meta(signature: str) -> None:
+    path = _index_meta_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    import time
+    path.write_text(json.dumps({"signature": signature, "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S")}, ensure_ascii=False), encoding="utf-8")
+
+
 def _read_index() -> list[dict[str, Any]]:
     """Return the persisted package records, or an empty list."""
     path = _index_path()
@@ -358,8 +418,10 @@ def list_robot_packages() -> list[dict[str, Any]]:
     """Return the list of known robot packages.
 
     Reads the persistent workspace index — a single JSON load, not a
-    filesystem scan.  The index is kept in sync by explicit import/save/delete
-    operations (``upsert_package`` / ``remove_package``).
+    filesystem scan.  Before reading, a cheap freshness signature over both
+    package roots is compared against the index meta: any package added /
+    edited / deleted on disk (shipped tree or workspace) auto-refreshes the
+    index, so new robots always surface without manual rebuilds.
     """
     global _INDEX_CACHE
     workspace_key = str(_workspace_root())
@@ -368,12 +430,14 @@ def list_robot_packages() -> list[dict[str, Any]]:
     if cached is not None and cached[0] == workspace_key:
         return [dict(item) for item in cached[1]]
     records = _read_index()
-    if not records:
-        # Bootstrap: no index yet (fresh install) or the index was cleared.
-        # Rebuild once from disk so existing packages still surface.
+    signature = _package_signature()
+    if not records or _index_is_stale():
+        # Bootstrap (fresh install) or on-disk changes since the last index
+        # write: rebuild from disk so reality always wins over the index.
         records = _scan_package_records()
-        if records:
+        if records or not _read_index():
             _write_index(records)
+        _write_index_meta(signature)
     with _INDEX_CACHE_LOCK:
         _INDEX_CACHE = (workspace_key, [dict(item) for item in records])
     return [dict(item) for item in records]

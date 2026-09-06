@@ -36,3 +36,8 @@ output/
 
 # Portable runtime (generated)
 runtime/
+
+# Local runtime artifacts (generated)
+MUJOCO_LOG.TXT
+*.stackdump
+var/

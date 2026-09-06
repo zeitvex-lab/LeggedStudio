@@ -265,6 +265,11 @@ def _initial_key_qpos(document: ET.Element, preset: dict[str, Any], simulation_c
     contract = preset.get("contract") or {}
     order = list(contract.get("action", {}).get("joint_order") or contract.get("joints", {}).get("actuated_joints") or [])
     pose = list(contract.get("joints", {}).get("default_pose") or [])
+    # default_pose 可能按模型树序（joints.actuated_joints）而非 action.joint_order 给出：
+    # action 块若带显式 default_pose（action.default_pose + default_pose_order="sdk"），优先用它配 zip。
+    pose_order = str(contract.get("joints", {}).get("default_pose_order") or "").lower()
+    if pose_order == "tree" and len(pose) == len(contract.get("joints", {}).get("actuated_joints") or []):
+        pose = [dict(zip(contract["joints"]["actuated_joints"], pose)).get(name, 0.0) for name in order]
     pose_by_name = {name: float(value) for name, value in zip(order, pose)}
     requested_height = simulation_config.get("initial_base_height")
     values: list[float] = []
@@ -516,6 +521,11 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     contract = preset.get("contract") or {}
     order = list(contract.get("action", {}).get("joint_order") or contract.get("joints", {}).get("actuated_joints") or [])
     default_pose = list(contract.get("joints", {}).get("default_pose") or [0.0] * len(order))
+    # 与 _initial_key_qpos 同规则：joints.default_pose 若标注为模型树序，先重排到 action.joint_order。
+    pose_order = str(contract.get("joints", {}).get("default_pose_order") or "").lower()
+    if pose_order == "tree" and len(default_pose) == len(contract.get("joints", {}).get("actuated_joints") or []):
+        tree_map = dict(zip(contract["joints"]["actuated_joints"], default_pose))
+        default_pose = [tree_map.get(name, 0.0) for name in order]
     simulation_config = _read_simulation_config(root)
     policy: dict[str, Any] = {
         "disabled": True,
@@ -786,6 +796,11 @@ async def browser_simulation_asset(robot_id: str, asset_path: str):
     allowed_prefixes = (root / "model", root / "simulation" / "policies", root / "simulation" / "visual")
     if not candidate.is_file() or not any(candidate == prefix or prefix in candidate.parents for prefix in allowed_prefixes):
         raise HTTPException(status_code=404, detail="browser package asset not found")
+    # 策略 ONNX（及外部数据文件）会在原地被重写（例如外部数据内联）。
+    # 绝不能让浏览器复用 HTTP 缓存里的旧字节，否则 onnxruntime 会按旧引用去
+    # 请求不存在的 policy.onnx.data 并报 "Failed to load external data file"。
+    if candidate.suffix.lower() in {".onnx", ".data"}:
+        return FileResponse(candidate, headers={"Cache-Control": "no-store"})
     return FileResponse(candidate)
 
 

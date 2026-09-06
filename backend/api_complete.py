@@ -261,6 +261,100 @@ async def get_robot_package_file(robot_id: str, asset_path: str):
     return response
 
 
+@app.post("/api/robots/packages/refresh")
+async def refresh_robot_packages() -> dict[str, Any]:
+    """Force a full rescan of both package roots and rebuild the index."""
+    from backend import robot_packages
+    records = robot_packages.rebuild_package_index()
+    return {"success": True, "count": len(records), "robot_ids": [r.get("robot_id") for r in records]}
+
+
+@app.post("/api/robots/packages/import")
+async def import_robot_package(payload: dict[str, Any]) -> dict[str, Any]:
+    """Import a robot package from an absolute source path.
+
+    Validates contract + manifest, copies the whole package directory into the
+    workspace ``packages/`` root (the writable, persisted location) and
+    refreshes the index.  Re-importing an existing ``package_id`` refreshes it
+    in place.
+    """
+    from backend import robot_packages
+    source = Path(str(payload.get("path", "")).strip()).expanduser()
+    if not source.is_absolute():
+        raise HTTPException(status_code=400, detail="path 必须是绝对路径")
+    if not source.is_dir():
+        raise HTTPException(status_code=404, detail=f"目录不存在: {source}")
+    if not (source / "contract.json").is_file() or not (source / "robot_package.json").is_file():
+        raise HTTPException(status_code=400, detail="目标目录缺少 contract.json 或 robot_package.json，不是有效的机器人包")
+    contract = robot_packages._read_json(source / "contract.json")
+    robot_id = str(contract.get("robot_id") or robot_packages._read_json(source / "robot_package.json").get("package_id") or source.name)
+    workspace_root = robot_packages._workspace_root()
+    packages_root = (workspace_root / "packages").resolve()
+    source_resolved = source.resolve()
+    if packages_root in source_resolved.parents or source_resolved == packages_root:
+        target = source_resolved  # 已在工作区内，直接登记
+    else:
+        target = packages_root / source_resolved.name
+        if target.exists():
+            raise HTTPException(status_code=409, detail=f"工作区已存在同名目录: {target.name}；如需覆盖请先删除")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source_resolved, target)
+    upserted = robot_packages.upsert_package(target, source="workspace")
+    if upserted is None:
+        raise HTTPException(status_code=400, detail="包校验失败：contract/manifest 缺失或不可读")
+    robot_packages._write_index_meta(robot_packages._package_signature())
+    record = next((r for r in robot_packages.list_robot_packages() if r.get("robot_id") == upserted), None)
+    return {"success": True, "robot_id": upserted, "package_root": str(target), "record_summary": {
+        "family": (record or {}).get("family"),
+        "dof": (record or {}).get("dof"),
+        "mass_kg": (record or {}).get("mass_kg"),
+        "profiles": [p.get("profile_id") for p in (record or {}).get("training_profiles", [])],
+    }}
+
+
+@app.delete("/api/robots/packages/{robot_id}")
+async def delete_robot_package(robot_id: str) -> dict[str, Any]:
+    """Delete a workspace-resident package (shipped assets are read-only)."""
+    from backend import robot_packages
+    record = next((r for r in robot_packages.list_robot_packages() if r.get("robot_id") == robot_id), None)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"未知机器人包: {robot_id}")
+    root = Path(str(record.get("robot_package", {}).get("package_root", ""))).resolve()
+    workspace_packages = (robot_packages._workspace_root() / "packages").resolve()
+    assets_root = (Path(__file__).resolve().parents[1] / "assets" / "robots").resolve()
+    if assets_root in root.parents or root == assets_root:
+        raise HTTPException(status_code=400, detail="内置包为只读，只能删除工作区中的包")
+    if workspace_packages not in root.parents:
+        raise HTTPException(status_code=400, detail="仅支持删除工作区 packages/ 目录下的包")
+    shutil.rmtree(root, ignore_errors=True)
+    robot_packages.invalidate_package_cache()
+    records = robot_packages.rebuild_package_index()
+    return {"success": True, "deleted": robot_id, "robot_ids": [r.get("robot_id") for r in records]}
+
+
+@app.get("/api/robots/packages/{robot_id}/export")
+async def export_robot_package(robot_id: str):
+    """Download the whole package as a zip (model + contract + configs + profiles)."""
+    import tempfile
+    import zipfile
+    from starlette.background import BackgroundTask
+    from backend import robot_packages
+    record = next((r for r in robot_packages.list_robot_packages() if r.get("robot_id") == robot_id), None)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"未知机器人包: {robot_id}")
+    root = Path(str(record.get("robot_package", {}).get("package_root", ""))).resolve()
+    if not root.is_dir():
+        raise HTTPException(status_code=404, detail="包目录不存在")
+    fd, zip_path = tempfile.mkstemp(suffix=".zip")
+    os.close(fd)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in sorted(root.rglob("*")):
+            if f.is_file() and "logs" not in f.parts:
+                zf.write(f, f.relative_to(root))
+    return FileResponse(zip_path, media_type="application/zip", filename=f"{robot_id}-package.zip",
+                        background=BackgroundTask(os.remove, zip_path))
+
+
 @app.put("/api/robots/packages/{robot_id}")
 async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Persist a generic robot package configuration with copy-on-write."""
