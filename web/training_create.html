@@ -1557,7 +1557,14 @@
           const label = profile.display_name || profile.profile_id;
           const order = profile.sort_order !== undefined ? `${profile.sort_order} · ` : '';
           const invalid = profile.valid === false ? '（校验未通过）' : '';
-          return `<option value="${escapeHtml(profile.profile_id)}">${escapeHtml(`${order}${label}${invalid}`)}</option>`;
+          // 来源标识（清单 4）：外部上游桥接 / 包扩展 / 内置
+          const source = String(profile.source || '').toLowerCase();
+          let tag = '';
+          if (source.includes('lloco')) tag = ' [LLoco]';
+          else if (source.includes('unitree_rl_mjlab')) tag = ' [Unitree]';
+          else if (profile.source_root && !String(profile.source_root).startsWith('training/source/')) tag = ' [外部源]';
+          else if (source) tag = ' [扩展]';
+          return `<option value="${escapeHtml(profile.profile_id)}">${escapeHtml(`${order}${label}${tag}${invalid}`)}</option>`;
         })).join('');
       const firstValid = profiles.find((profile) => profile.valid !== false) || null;
       setProfile(firstValid ? firstValid.profile_id : '');
