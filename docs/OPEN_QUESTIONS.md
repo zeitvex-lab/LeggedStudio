@@ -36,3 +36,16 @@
 - robot_lab 的双后端适配层已证明可行，但 legged_studio 训练目前只有 mjlab worker。
   若要加 IsaacLab 后端：contract.json 的中立数据层已经够用（增益/默认角/限位同源），
   需要新增 `adapters/isaaclab` builder + venv；属大版本决策。
+
+## 5. G1 浏览器端长时间行走后摔倒（验收器通过但浏览器 ~30s 摔倒）
+
+- 现象：确定性回放（?replay=0.4,0,0&seed=7）下 unitree-velocity 策略 ~30s 前倾摔倒；
+  同一策略同一指令模式在 policy_acceptance.py（6s/模式）5/5 通过。
+- 已排除：观测构建器布局（98 维逐项一致）、重力符号、元数据/契约校验、动作缩放。
+- 候选差异：
+  1. 线速度测量路径（浏览器 cvel 修正 vs Python qvel 回退，见第 2 条）；
+  2. 步态相位钟漂移（浏览器按 wall-clock 累加 simulationDt*decimation，Python 按步数）；
+  3. 长时域累积的数值差（obs normalizer 缺失、fp 精度）。
+- 下一步：用 ?debug=1 startFrameLog 导出浏览器 obs 序列，与 policy_acceptance.py
+  同 seed 重放逐维 diff，第一个发散维度即根因。
+- 备注：这正是清单 ⑦ 的用途——"验收器通过但确定性回放不通过"被回放模式当场抓住。
