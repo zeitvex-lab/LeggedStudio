@@ -26,6 +26,22 @@ class ExportResult:
     error_message: str = ""
 
 
+def attach_metadata_to_onnx(onnx_path: str, metadata: dict) -> None:
+    """把部署契约作为 metadata_props 盖章进 ONNX（键名与 mjlab exporter 对齐）。
+
+    浏览器 sim2sim 加载策略时读取同一组键做契约校验：
+    joint_names / joint_stiffness / joint_damping / default_joint_pos /
+    command_names / observation_names / action_scale / clip_actions / run_path
+    """
+    model = onnx.load(onnx_path)
+    for k, v in metadata.items():
+        entry = onnx.StringStringEntryProto()
+        entry.key = k
+        entry.value = ",".join(str(x) for x in v) if isinstance(v, (list, tuple)) else str(v)
+        model.metadata_props.append(entry)
+    onnx.save(model, onnx_path)
+
+
 class ONNXExporter:
     """
     ONNX 导出器
@@ -42,7 +58,8 @@ class ONNXExporter:
         output_path: str,
         input_names: list = None,
         output_names: list = None,
-        dynamic_axes: dict = None
+        dynamic_axes: dict = None,
+        metadata: dict = None
     ) -> ExportResult:
         """
         导出 ONNX 模型并验证
@@ -91,6 +108,11 @@ class ONNXExporter:
                 )
 
             print(f"[Exporter] ONNX model saved: {output_path}")
+
+            # 部署契约盖章（joint_names/增益/默认角/clip 等），浏览器加载时校验
+            if metadata:
+                attach_metadata_to_onnx(output_path, metadata)
+                print(f"[Exporter] Metadata stamped: {sorted(metadata.keys())}")
 
             # 验证模型
             print("[Exporter] Validating ONNX model...")

@@ -27,6 +27,103 @@ def _write(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def export_runner_policy_onnx(report: dict, env, runner, wrapped, rl_cfg, output: Path,
+                              device: str, contract=None, contract_path=None) -> None:
+    """训练完成即导出（清单 ⑤）：actor -> exported/policy.onnx + 部署元数据盖章。
+
+    元数据键与 adapters/mjlab/onnx_exporter.attach_metadata_to_onnx 及浏览器
+    sim2sim 的 validatePolicyMetadata 对齐：joint_names / joint_stiffness /
+    joint_damping / default_joint_pos / observation_names / command_names /
+    action_scale / clip_actions。导出失败只记录，不影响训练结果。
+    """
+    import torch
+
+    try:
+        import onnx  # noqa: F401
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError(f"适配器 venv 缺少 onnx 包: {exc}")
+
+    if contract is None and contract_path:
+        from contracts.robot_contract_v2 import RobotContractV2
+        contract = RobotContractV2.from_json_file(str(contract_path))
+
+    robot = env.scene["robot"]
+    joint_names = list(getattr(robot, "joint_names", []) or [])
+    if not joint_names and contract is not None:
+        joint_names = [joint.name for joint in contract.joints.actuated_joints]
+
+    with torch.no_grad():
+        obs, _ = wrapped.reset()
+        if isinstance(obs, tuple):
+            obs = obs[0]
+        sample = obs.reshape(obs.shape[0], -1)[:1].to(device)
+        policy = runner.get_inference_policy(device=device)
+        export_path = Path(output) / "exported" / "policy.onnx"
+        export_path.parent.mkdir(parents=True, exist_ok=True)
+        torch.onnx.export(
+            policy,
+            sample,
+            str(export_path),
+            input_names=["obs"],
+            output_names=["action"],
+            dynamic_axes={"obs": {0: "batch"}, "action": {0: "batch"}},
+            opset_version=17,
+        )
+
+    import mujoco
+    mj_model = env.sim.mj_model
+    joint_to_ctrl = {}
+    for aid in range(mj_model.nu):
+        jid = int(mj_model.actuator_trnid[aid, 0])
+        name = mujoco.mj_id2name(mj_model, mujoco.mjtObj.mjOBJ_JOINT, jid)
+        joint_to_ctrl[name] = aid
+    stiffness: list[float] = []
+    damping: list[float] = []
+    for name in joint_names:
+        aid = joint_to_ctrl.get(name)
+        stiffness.append(float(mj_model.actuator_gainprm[aid, 0]) if aid is not None else 0.0)
+        damping.append(float(-mj_model.actuator_biasprm[aid, 2]) if aid is not None else 0.0)
+    default_joint_pos = robot.data.default_joint_pos[0].detach().cpu().tolist()
+
+    try:
+        action_term = env.action_manager.get_term("joint_pos")
+        scale = getattr(action_term, "_scale")
+        action_scale = scale.flatten().tolist() if hasattr(scale, "flatten") else [float(x) for x in scale]
+    except Exception:
+        action_scale = []
+    try:
+        observation_names = list(env.observation_manager.active_terms.get("policy", []))
+    except Exception:
+        observation_names = []
+    try:
+        command_names = list(env.command_manager.active_terms)
+    except Exception:
+        command_names = []
+
+    try:
+        from onnx_exporter import attach_metadata_to_onnx
+    except ImportError:
+        from adapters.mjlab.onnx_exporter import attach_metadata_to_onnx
+
+    metadata: dict = {
+        "run_path": str(output),
+        "joint_names": joint_names,
+        "joint_stiffness": stiffness,
+        "joint_damping": damping,
+        "default_joint_pos": default_joint_pos,
+        "observation_names": observation_names,
+        "command_names": command_names,
+        "action_scale": action_scale,
+    }
+    clip = getattr(rl_cfg, "clip_actions", None)
+    if clip is not None:
+        metadata["clip_actions"] = float(clip)
+    attach_metadata_to_onnx(str(export_path), metadata)
+    report["onnx_path"] = str(export_path)
+    report["onnx_metadata_keys"] = sorted(metadata.keys())
+    print(f"[native_worker] policy exported: {export_path}")
+
+
 def apply_training_recipe(env_cfg, rl_cfg, config: dict, *, preserve_profile: bool = False) -> dict:
     """Apply the canonical Web/CLI recipe to real MJLab config objects."""
     recipe = config.get("resolved_recipe") or config.get("recipe") or {}
@@ -482,6 +579,23 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                 )
                 artifact.to_json_file(str(output / "artifact.json"))
                 report["artifact_id"] = artifact.artifact_id
+            # 训练完成即导出（⑤）：ONNX + 部署元数据随 checkpoint 一起产出
+            if model_path.exists():
+                try:
+                    export_runner_policy_onnx(
+                        report=report,
+                        env=env,
+                        runner=runner,
+                        wrapped=wrapped,
+                        rl_cfg=rl_cfg,
+                        output=output,
+                        device=device,
+                        contract=locals().get("contract"),
+                        contract_path=contract_path,
+                    )
+                except Exception as exc:  # 导出失败不影响训练产物
+                    report["onnx_export_error"] = f"{type(exc).__name__}: {exc}"
+                    print(f"[native_worker] onnx export failed: {exc}")
         elif config.get("mode") == "evaluate":
             from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
             checkpoint = Path(str(config.get("checkpoint", ""))).resolve()
