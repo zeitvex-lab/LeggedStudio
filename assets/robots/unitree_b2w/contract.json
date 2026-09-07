@@ -1,0 +1,106 @@
+{
+  "schema_version": "robot-contract-2.0",
+  "robot_id": "unitree_b2w",
+  "description": "Unitree B2-W 轮足（12 腿 + 4 轮，40.8kg 级负载平台）。模型与任务为包内资产，统一 mjlab 1.6 运行时。",
+  "model": {
+    "format": "mjcf",
+    "path": "model/robot.xml"
+  },
+  "tags": [
+    "wheel_leg",
+    "quadruped",
+    "mjcf",
+    "imported",
+    "package",
+    "unitree_b2w"
+  ],
+  "source": "rl_sar_zoo_import",
+  "min_mjlab_version": "1.6.0",
+  "python_version": "3.12",
+  "joints": {
+    "actuated_joints": [
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "FR_wheel_joint",
+      "FL_wheel_joint",
+      "RR_wheel_joint",
+      "RL_wheel_joint"
+    ],
+    "canonical_order": [
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "FR_wheel_joint",
+      "FL_wheel_joint",
+      "RR_wheel_joint",
+      "RL_wheel_joint"
+    ],
+    "action_joint_order": [
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "FR_wheel_joint",
+      "FL_wheel_joint",
+      "RR_wheel_joint",
+      "RL_wheel_joint"
+    ],
+    "default_pose": [
+      0.0,
+      0.8,
+      -1.5,
+      0.0,
+      0.8,
+      -1.5,
+      0.0,
+      0.8,
+      -1.5,
+      0.0,
+      0.8,
+      -1.5,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "action": {
+    "type": "joint_position_velocity_hybrid",
+    "dimension": 16
+  },
+  "observation": {
+    "dimension": 57
+  },
+  "control": {
+    "physics_hz": 200,
+    "control_hz": 50,
+    "decimation": 4
+  }
+}
