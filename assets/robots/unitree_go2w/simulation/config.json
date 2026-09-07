@@ -146,6 +146,30 @@
             "RR_wheel_joint",
             "RL_wheel_joint"
           ]
+        },
+        "joint_ids_map": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "observation_history_lengths": {
+          "base_ang_vel": 1,
+          "projected_gravity": 1,
+          "velocity_commands": 1,
+          "joint_pos_rel": 1,
+          "joint_vel_rel": 1,
+          "wheel_joint_pos_rel": 1,
+          "wheel_joint_vel_rel": 1,
+          "last_action": 1
         }
       }
     },

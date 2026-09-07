@@ -75,6 +75,20 @@ def build_deploy_metadata(env, rl_cfg, joint_names: list[str]) -> dict:
     return metadata
 
 
+def stamp_contract_extras(metadata: dict, contract_entry: dict | None) -> dict:
+    """把包契约的部署字段补进元数据（清单：joint_ids_map / history_lengths / clip）。"""
+    if not isinstance(contract_entry, dict):
+        return metadata
+    extras = contract_entry.get("contract") or {}
+    if extras.get("joint_ids_map"):
+        metadata["joint_ids_map"] = [int(x) for x in extras["joint_ids_map"]]
+    if extras.get("observation_history_lengths"):
+        metadata["observation_history_lengths"] = json.dumps(extras["observation_history_lengths"], ensure_ascii=False)
+    if extras.get("clip_actions") is not None and "clip_actions" not in metadata:
+        metadata["clip_actions"] = str(extras["clip_actions"])
+    return metadata
+
+
 def export_runner_policy_onnx(report: dict, env, runner, wrapped, rl_cfg, output: Path,
                               device: str, contract=None, contract_path=None) -> None:
     """训练完成即导出（清单 ⑤）：actor -> exported/policy.onnx + 部署元数据盖章。

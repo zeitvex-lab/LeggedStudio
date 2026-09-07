@@ -812,6 +812,15 @@ function validatePolicyMetadata(modelBytes) {
     const first = stamped.findIndex((name, i) => name !== expected[i]);
     if (first >= 0) return `槽 ${first}: 元数据=${stamped[first]} 契约=${expected[first]}`;
     console.info(`[sim2sim] ✔ 策略元数据与契约一致（${stamped.length} 关节，来源=${meta.source || "stamped"}）`);
+    // joint_ids_map：策略槽位 → 电机 ID 排列；非恒等映射时提示（浏览器按槽位直写执行器，
+    // 硬件部署需要该排列，浏览器语义不受影响但值得可见）。
+    if (meta.joint_ids_map) {
+      try {
+        const map = meta.joint_ids_map.split(",").map((s) => Number(s.trim()));
+        const identity = map.every((v, i) => v === i);
+        if (!identity) console.info(`[sim2sim] 策略携带非恒等 joint_ids_map（硬件部署用）：[${map.join(",")}]`);
+      } catch (_) { /* 忽略解析失败 */ }
+    }
     return null;
   } catch (error) {
     console.warn("[sim2sim] policy metadata validation skipped", error);
