@@ -9,8 +9,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from .m20_constants import (
-  GO2W_LEG_JOINT_NAMES,
-  GO2W_WHEEL_JOINT_NAMES,
+  M20_LEG_JOINT_NAMES,
+  M20_WHEEL_JOINT_NAMES,
   get_m20_robot_cfg,
 )
 from mjlab.managers.scene_entity_config import SceneEntityCfg
@@ -26,7 +26,7 @@ def m20_leg_joint_cfg() -> SceneEntityCfg:
   """Leg joints in the canonical Go2-W order."""
   return SceneEntityCfg(
     "robot",
-    joint_names=GO2W_LEG_JOINT_NAMES,
+    joint_names=M20_LEG_JOINT_NAMES,
     preserve_order=True,
   )
 
@@ -35,7 +35,7 @@ def m20_wheel_joint_cfg() -> SceneEntityCfg:
   """Wheel joints in the canonical Go2-W order."""
   return SceneEntityCfg(
     "robot",
-    joint_names=GO2W_WHEEL_JOINT_NAMES,
+    joint_names=M20_WHEEL_JOINT_NAMES,
     preserve_order=True,
   )
 

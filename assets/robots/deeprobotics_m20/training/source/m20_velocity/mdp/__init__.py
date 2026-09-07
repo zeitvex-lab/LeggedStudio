@@ -17,3 +17,5 @@ from mjlab.envs.mdp.rewards import (  # noqa: F401
     joint_acc_l2,
 )
 from mjlab.envs.mdp.dr.joint import encoder_bias as randomize_encoder_bias  # noqa: F401
+from .m20_rewards import *  # noqa: F401, F403
+from .m20_rewards import joint_pos_rel_zero_wheel  # noqa: F401
