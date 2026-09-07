@@ -213,6 +213,7 @@ async def get_robot_presets(summary: bool = False) -> dict[str, Any]:
                 "dof": item.get("dof"),
                 "mass_kg": item.get("mass_kg"),
                 "contract_id": item.get("contract_id"),
+                "capabilities": (item.get("robot_package") or {}).get("capabilities", []),
                 "robot_package": {
                     "model": (item.get("robot_package") or {}).get("model", {}),
                 },
