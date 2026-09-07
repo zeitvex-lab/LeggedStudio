@@ -50,3 +50,15 @@
   `joint_names` 顺序与契约 `action_joint_order` 一致。
 - motions NPZ 的 `dof_names` 必须与 `contract.json → joints.actuated_joints` 一致（导入时可校验）。
 - 部署参数（若单独成文件）数组长度必须等于 `action.dimension` / `observation.dimension`。
+
+## LLoco 桥接（external source_root 模式）
+
+`training/source_lloco/lloco_bridge/` 是外部训练源仓库（`lain_job/LLoco`，mjlab==1.6.0
+Apache-2.0）的薄桥：把 LLoco 的 `src` 加入 sys.path 并把带参工厂
+（`make_flat_env_cfg(profile)`）适配成 worker 契约的无参 `module:factory`。
+
+- profile：`training/profiles/lloco-go2-flat.json`（entrypoints 指向 bridge）
+- 冒烟已验证：env 构建 / reset / step / reward 全通；worker `_load_profile_bundle` 加载通过
+- **注意**：运行时读取的是 `workspace/packages/<id>/` 副本——assets 与 workspace 两边都要放
+  （capabilities、profiles、bridge 同步），改包后需 `POST /api/robots/packages/refresh`
+- 扩展：给其他机器人加 LLoco 任务只需在 bridge 的 `_PROFILE_BY_KEY` 加一行
