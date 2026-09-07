@@ -601,6 +601,10 @@ def _go2_browser_scene(scene_name: str) -> str:
 async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     """Return the browser-native MuJoCo/Three.js package manifest."""
     root, preset = _browser_package(robot_id)
+    # 能力门控（robot_lab register/detect 模式）：未声明 mujoco_sim 的包不进浏览器仿真
+    package_capabilities = ((preset.get("robot_package") or {}).get("capabilities")) or []
+    if "mujoco_sim" not in package_capabilities:
+        raise HTTPException(status_code=422, detail=f"robot package {robot_id} does not declare the mujoco_sim capability")
     canonical_robot_id = str(preset.get("robot_id") or robot_id)
     contract = preset.get("contract") or {}
     order = list(contract.get("action", {}).get("joint_order") or contract.get("joints", {}).get("actuated_joints") or [])
