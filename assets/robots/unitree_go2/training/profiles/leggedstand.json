@@ -2,16 +2,35 @@
   "schema_version": "training-profile-1.0",
   "profile_id": "go2-leggedstand",
   "display_name": "Go2 Legged Stand",
-  "source": "LLoco Go2 leggedstand",
+  "source": "package-local task",
   "source_root": "training/source",
-  "entrypoints": {"env": "lainloco.robot_profiles:leggedstand_env_cfg", "runner": "lainloco.robot_profiles:leggedstand_ppo_runner_cfg", "runner_class": "lainloco.robots.unitree.go2.training.runner:VelocityOnPolicyRunner"},
+  "entrypoints": {
+    "env": "local_tasks.robot_profiles:leggedstand_env_cfg",
+    "runner": "local_tasks.robot_profiles:leggedstand_ppo_runner_cfg",
+    "runner_class": "local_tasks.robots.unitree.go2.training.runner:VelocityOnPolicyRunner"
+  },
   "backend": "native_mjlab",
   "task_name": "leggedstand",
   "terrain_type": "plane",
   "algorithm": "PPO",
   "num_envs": 4096,
   "episode_length_s": 20.0,
-  "runner": {"hidden_dims": [512, 256, 128], "learning_rate": 0.001, "gamma": 0.99, "gae_lambda": 0.95, "clip_param": 0.2, "entropy_coef": 0.01, "num_learning_epochs": 5, "num_mini_batches": 4, "num_steps_per_env": 24, "max_iterations": 15000, "save_interval": 100},
-  "sort_order": 80,
-  "source_project": "lain_job/LLoco"
+  "runner": {
+    "hidden_dims": [
+      512,
+      256,
+      128
+    ],
+    "learning_rate": 0.001,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_param": 0.2,
+    "entropy_coef": 0.01,
+    "num_learning_epochs": 5,
+    "num_mini_batches": 4,
+    "num_steps_per_env": 24,
+    "max_iterations": 15000,
+    "save_interval": 100
+  },
+  "sort_order": 80
 }

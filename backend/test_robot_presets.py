@@ -43,11 +43,10 @@ class RobotPresetTests(unittest.TestCase):
     def test_go2_exposes_package_owned_mjlab_profiles(self):
         go2 = next(item for item in list_robot_presets() if item["robot_id"] == "unitree_go2")
         package = go2["robot_package"]
-        self.assertEqual(package.get("extension_entrypoint"), "lainloco.mjlab_extension:register")
+        self.assertEqual(package.get("extension_entrypoint"), "local_tasks.mjlab_extension:register")
         self.assertEqual(package.get("extension_root"), "training/source")
         profile_ids = {item["profile_id"] for item in go2["training_profiles"]}
         self.assertIn("go2-velocity-flat", profile_ids)
-        self.assertIn("lloco-go2-flat", profile_ids)
         self.assertTrue(all(item["backend"] == "native_mjlab" for item in go2["training_profiles"]))
         self.assertTrue(all(item["entrypoints"].get("runner_class") for item in go2["training_profiles"]))
 

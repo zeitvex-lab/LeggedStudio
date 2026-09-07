@@ -504,22 +504,33 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
     import shutil
 
     shipped_root = ROOT / "assets" / "robots"
-    workspace_root = roots[0]
+    packages_root = roots[0]  # already the workspace/packages directory
     synced = 0
     if not shipped_root.exists():
         return 0
     for shipped in sorted(shipped_root.iterdir()):
         if not shipped.is_dir():
             continue
-        target = workspace_root / "packages" / shipped.name
+        target = packages_root / shipped.name
         if not (target / "contract.json").exists():
             continue  # workspace 没有该包副本，让正常扫描直接用源树
         # 只同步"内容"子树，避开 logs/checkpoints 等运行产物
-        for relative_root in ("training/profiles", "training/source_lloco"):
+        for relative_root in ("training/profiles", "training/source"):
             src_dir = shipped / relative_root
             if not src_dir.exists():
                 continue
             dst_dir = target / relative_root
+            # 源树已删除的副本文件（如废弃的 profile）同步清除，保证
+            # workspace 副本与源树的内容集合一致，不残留陈旧的训练入口。
+            if dst_dir.is_dir():
+                src_rel = {str(p.relative_to(src_dir)) for p in src_dir.rglob("*") if p.is_file()}
+                for stale in dst_dir.rglob("*"):
+                    if not stale.is_file() or "__pycache__" in stale.parts:
+                        continue
+                    rel = str(stale.relative_to(dst_dir))
+                    if rel not in src_rel:
+                        stale.unlink()
+                        synced += 1
             for src_file in src_dir.rglob("*"):
                 if not src_file.is_file() or "__pycache__" in src_file.parts:
                     continue
@@ -533,7 +544,9 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
                         synced += 1
                 except OSError:
                     continue
-        # 顶层 JSON（capabilities 等声明）以源树为准补缺失字段
+        # 顶层 JSON 声明以源树为准：新增/变更字段覆盖过去，源树已删除的
+        # 字段（如移除的 extension_entrypoint）也从副本里清除，避免 stale
+        # workspace 副本用旧的扩展入口遮蔽源树更新。
         src_manifest = shipped / "robot_package.json"
         dst_manifest = target / "robot_package.json"
         if src_manifest.exists() and dst_manifest.exists():
@@ -547,6 +560,13 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
                         if dst_data.get(key) != merged:
                             dst_data[key] = merged
                             changed = True
+                for key in ("extension_entrypoint", "extension_root", "source_project"):
+                    if dst_data.get(key) != src_data.get(key):
+                        if src_data.get(key) is None:
+                            dst_data.pop(key, None)
+                        else:
+                            dst_data[key] = src_data[key]
+                        changed = True
                 if changed:
                     dst_manifest.write_text(json.dumps(dst_data, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")
                     synced += 1

@@ -15,9 +15,9 @@
   "simulation_config_path": "simulation/config.json",
   "training_config_path": "training/config.json",
   "training_source_path": "training/source",
-  "extension_entrypoint": "lainloco.mjlab_extension:register",
+  "extension_entrypoint": "local_tasks.mjlab_extension:register",
   "extension_root": "training/source",
-  "source_project": "lain_job/LLoco",
+  "source_project": "package-local task source",
   "contract_path": "contract.json",
   "display_name": "unitree_go2"
 }

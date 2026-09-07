@@ -1,0 +1,24 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "h1_2-velocity-flat",
+  "display_name": "H1_2 Velocity Flat",
+  "source": "package-local velocity task",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "h1_2_velocity:h1_2_flat_env_cfg",
+    "runner": "h1_2_velocity:h1_2_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "Unitree-H1_2-Flat",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "command_ranges": {
+    "lin_vel_x": [-1.0, 1.5],
+    "lin_vel_y": [-0.5, 0.5],
+    "ang_vel_z": [-0.7, 0.7]
+  },
+  "sort_order": 50
+}

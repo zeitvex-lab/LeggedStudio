@@ -2,7 +2,7 @@
 
 Legged Studio 是一个面向足式机器人强化学习的本地桌面/Web 工作台：机器人资产验证、MJLab 训练配置与监控、MuJoCo 交互仿真、浏览器 sim2sim 策略回放，全部通过版本化 JSON 契约（Robot / Scenario / Policy）串成可追溯链路。
 
-Version `0.9.0` 发布八个机器人包（Unitree Go2、ZEX-W、MicroDuck、Unitree G1、Unitree Go2-W、Unitree A2、Wuji Hand、Unitree H1_2），浏览器 sim2sim 按实机部署合同对齐；Go2/A2/G1 增加基于 LLoco 上游源码的技能/速度训练 profile，契约化的逐关节 armature/frictionloss 贯穿验收、浏览器与配置链路，并新增桌面工具链可复用的 MjSpec 场景构建器与浏览器↔桌面 replay 控制步对齐工具。
+Version `0.9.0` 发布八个机器人包（Unitree Go2、ZEX-W、MicroDuck、Unitree G1、Unitree Go2-W、Unitree A2、Wuji Hand、Unitree H1_2），浏览器 sim2sim 按实机部署合同对齐；Go2/A2/G1/H1_2 的训练任务已完全内化为包内本地任务库（`training/source/`），契约化的逐关节 armature/frictionloss 贯穿验收、浏览器与配置链路，并新增桌面工具链可复用的 MjSpec 场景构建器与浏览器↔桌面 replay 控制步对齐工具。
 
 **文档**：产品愿景与路线见 [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)；桌面程序见 [docs/DESKTOP_APP.md](docs/DESKTOP_APP.md)；Web 工作台见 [docs/WEB_APP.md](docs/WEB_APP.md)；机器人包建包/训练/验收的完整工程约定见 [docs/ROBOT_PACKAGE.md](docs/ROBOT_PACKAGE.md)。
 

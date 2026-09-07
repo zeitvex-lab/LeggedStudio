@@ -2,12 +2,12 @@
   "schema_version": "training-profile-1.0",
   "profile_id": "g1-velocity-rough",
   "display_name": "G1 Velocity Rough",
-  "source": "AMP_mjlab Unitree-G1-Rough",
-  "source_root": "C:/Users/31560/Documents/00_open/AMP_mjlab",
+  "source": "package-local velocity task",
+  "source_root": "training/source",
   "entrypoints": {
-    "env": "src.tasks.velocity.config.g1.env_cfgs:unitree_g1_rough_env_cfg",
-    "runner": "src.tasks.velocity.config.g1.rl_cfg:unitree_g1_ppo_runner_cfg",
-    "runner_class": "src.tasks.velocity.rl:VelocityOnPolicyRunner"
+    "env": "g1_velocity:g1_rough_env_cfg",
+    "runner": "g1_velocity:g1_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
   },
   "backend": "native_mjlab",
   "task_name": "velocity",
@@ -32,6 +32,5 @@
     "max_iterations": 5000,
     "save_interval": 100
   },
-  "sort_order": 40,
-  "source_project": "AMP_mjlab Unitree-G1-Rough"
+  "sort_order": 40
 }

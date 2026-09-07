@@ -22,7 +22,7 @@ Legged Studio 是面向足式机器人强化学习的本地桌面/Web 工作台�
 
 0.9.0 发布八个机器人包：Unitree Go2、ZEX-W、MicroDuck、Unitree G1、Unitree Go2-W、Unitree A2、Wuji Hand、Unitree H1_2。训练使用隔离的 native MJLab worker（唯一可运行算法为 PPO）；浏览器 sim2sim 已按实机部署合同对齐已发布机器人（关节布局、默认姿态、PD/低通参数、ONNX 输入输出顺序一一对应）。控制面本身不导入 Torch、Warp 或 MuJoCo-Warp，页面加载不触发训练探针。
 
-0.9.0 同时落地：Go2 的 LLoco 技能 profile（rear-stand、jump、handstand）、A2/G1 的 LLoco 上游速度 profile（经共享桥接）、逐关节 armature/frictionloss 的契约化（贯穿验收、浏览器与配置链路）、桌面工具链可复用的 MjSpec 场景构建器（`adapters/mjlab/scene_builder.py`），以及浏览器与桌面 replay 的控制步对齐工具（`adapters/mjlab/replay_diff.py`）。H1_2 策略训练（lloco-h1_2-flat profile 已就绪）出策略后，其姿态保持即从当前预期的趴地行为恢复为主动平衡站立。
+0.9.0 同时落地：Go2 的技能任务（rear-stand、jump、handstand）与 A2/G1/H1_2 的 velocity 任务全部内化为包内本地任务库（`training/source/`，无外部训练源依赖）、逐关节 armature/frictionloss 的契约化（贯穿验收、浏览器与配置链路）、桌面工具链可复用的 MjSpec 场景构建器（`adapters/mjlab/scene_builder.py`），以及浏览器与桌面 replay 的控制步对齐工具（`adapters/mjlab/replay_diff.py`）。H1_2 的 velocity 训练 profile 已就绪，出策略后其姿态保持即从当前预期的趴地行为恢复为主动平衡站立。
 
 ## 产品边界
 

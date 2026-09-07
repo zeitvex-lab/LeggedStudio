@@ -14,6 +14,6 @@
   "simulation_config_path": "simulation/config.json",
   "training_config_path": "training/config.json",
   "contract_path": "contract.json",
-  "source_project": "AMP_mjlab + InstinctMJ",
-  "notes": "训练档案 source_root 指向外部源码树（AMP_mjlab / InstinctMJ），依赖统一装于 adapters/mjlab/.venv（mjlab 1.6.0）。"
+  "source_project": "package-local task source",
+  "notes": "训练档案 source_root 指向包内本地任务（training/source），依赖统一装于 adapters/mjlab/.venv（mjlab 1.6.0）。"
 }

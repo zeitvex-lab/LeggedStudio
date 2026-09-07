@@ -1,0 +1,24 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "a2-velocity-flat",
+  "display_name": "A2 Velocity Flat",
+  "source": "package-local velocity task",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "a2_velocity:a2_flat_env_cfg",
+    "runner": "a2_velocity:a2_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "Unitree-A2-Flat",
+  "terrain_type": "flat",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "command_ranges": {
+    "lin_vel_x": [-0.5, 1.0],
+    "lin_vel_y": [-0.5, 0.5],
+    "ang_vel_z": [-0.5, 0.5]
+  },
+  "sort_order": 50
+}

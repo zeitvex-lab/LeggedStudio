@@ -121,7 +121,7 @@
       "right_wrist_yaw_joint"
     ],
     "action_scale": 0.5,
-    "action_scale_note": "按关节组 0.29-0.55（腿 0.35 / 髋偏航 0.55 / 臂 0.44 / 腕 0.29），来自 AMP_mjlab g1_constants"
+    "action_scale_note": "按关节组 0.29-0.55（腿 0.35 / 髋偏航 0.55 / 臂 0.44 / 腕 0.29），来自 mjlab G1 常量"
   },
   "control": {
     "control_hz": 50,
@@ -158,14 +158,12 @@
       ]
     }
   },
-  "description": "Unitree G1 29-DOF humanoid（球面手变体）。模型与 AMP 策略取自 parkour_mjlab sim2sim 部署包。",
+  "description": "Unitree G1 29-DOF humanoid（球面手变体）。模型来自 mjswan sim2sim 部署包。",
   "tags": [
     "humanoid",
     "mjcf",
     "B",
-    "mjlab-1.6",
-    "amp",
-    "instinct"
+    "mjlab-1.6"
   ],
   "source": "mjswan (unitree_rl_mjlab)",
   "python_version": "3.12"
