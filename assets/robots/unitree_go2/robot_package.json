@@ -1,23 +1,23 @@
-﻿{
-    "capabilities":  [
-                         "generic_mjlab",
+{
+  "capabilities": [
+    "generic_mjlab",
     "mjlab_source_profiles",
     "package_extension",
     "mujoco_sim"
-                     ],
-    "package_id":  "unitree_go2",
-    "model":  {
-                  "format":  "mjcf",
-                  "path":  "model/robot.xml",
-                  "assets_path":  "model/assets"
-              },
-    "schema_version":  "robot-package-1.0",
-    "simulation_config_path":  "simulation/config.json",
-    "training_config_path":  "training/config.json",
-    "training_source_path":  "training/source",
-    "extension_entrypoint": "lainloco.mjlab_extension:register",
-    "extension_root": "training/source",
-    "source_project":  "lain_job/LLoco",
-    "contract_path":  "contract.json",
-    "display_name":  "unitree_go2"
+  ],
+  "package_id": "unitree_go2",
+  "model": {
+    "format": "mjcf",
+    "path": "model/robot.xml",
+    "assets_path": "model/assets"
+  },
+  "schema_version": "robot-package-1.0",
+  "simulation_config_path": "simulation/config.json",
+  "training_config_path": "training/config.json",
+  "training_source_path": "training/source",
+  "extension_entrypoint": "lainloco.mjlab_extension:register",
+  "extension_root": "training/source",
+  "source_project": "lain_job/LLoco",
+  "contract_path": "contract.json",
+  "display_name": "unitree_go2"
 }
