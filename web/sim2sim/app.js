@@ -3190,8 +3190,11 @@ async function runPolicy() {
   }
   buildObservation();
   if (sim.frameLog && sim.frameLog.length < 300) {
+    // 帧口径 = 控制步序号（counter/decimation），与桌面验收器的逐帧序列一一对应；
+    // sim.time 仍随记录（调试用），但对齐 replay_diff 时以 stepIndex 为准。
     sim.frameLog.push({
       t: Number((sim.data?.time ?? 0).toFixed(3)),
+      stepIndex: Math.floor(sim.counter / CONFIG.controlDecimation),
       obs: Array.from(sim.obs),
       action: null,
       ctrlBefore: Array.from(sim.ctrl),
@@ -3343,6 +3346,7 @@ if (DEBUG_ENABLED) {
     },
     startFrameLog() {
       sim.frameLog = [];
+      // 帧口径：stepIndex = 控制步序号（reset 后从 0 起）。replay_diff.py 按此对齐桌面序列。
       return true;
     },
     stopFrameLog() {

@@ -56,7 +56,10 @@ def main() -> None:
     if not frames:
         raise SystemExit("framelog 为空")
     browser_obs = np.asarray([f["obs"] for f in frames], dtype=np.float32)
-    print(f"浏览器帧数: {len(frames)}，obs 维度: {browser_obs.shape[1]}")
+    # 新口径：帧带 stepIndex（控制步序号，reset 后从 0 起）。frames[0] 若 stepIndex==0
+    # 且速度/动作全零，则为初始 obs（reset 尾部的 buildObservation），对齐时跳过。
+    has_step_index = isinstance(frames[0], dict) and "stepIndex" in frames[0]
+    print(f"浏览器帧数: {len(frames)}，obs 维度: {browser_obs.shape[1]}，stepIndex 口径: {has_step_index}")
 
     sim_cfg = json.loads((package_dir / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
     contract = PackageContract(package_dir, next(
@@ -96,11 +99,19 @@ def main() -> None:
         mujoco.mj_step(model, data)
 
     desktop = np.asarray(desktop_obs[: len(frames)], dtype=np.float32)
-    # 口径对齐：浏览器 frames[0] 是 reset 后的初始 obs（速度/动作恒 0），
-    # 从 frames[1] 起才是与桌面第一控制步可对齐的序列。
-    browser_aligned = browser_obs[1:len(desktop) + 1]
-    n = min(len(desktop), len(browser_aligned))
-    diff = np.abs(desktop[:n] - browser_aligned[:n])
+    # 口径对齐：stepIndex 存在时按控制步序号精确对齐（桌面 obs 序号 = stepIndex - 1，
+    # 因为浏览器帧在 build 之后、动作应用之前记录；桌面序列同样先 build 后 actuate）。
+    if has_step_index:
+        index_map = [f["stepIndex"] for f in frames]
+        pairs = [(i, idx - 1) for i, idx in enumerate(index_map) if idx >= 1]
+        browser_aligned = np.asarray([browser_obs[i] for i, _ in pairs], dtype=np.float32)
+        desktop_aligned = np.asarray([desktop[min(j, len(desktop) - 1)] for _, j in pairs], dtype=np.float32)
+    else:
+        browser_aligned = browser_obs[1:len(desktop) + 1]
+        desktop_aligned = desktop
+    n = min(len(desktop_aligned), len(browser_aligned))
+    diff = np.abs(desktop_aligned[:n] - browser_aligned[:n])
+    desktop, browser_aligned, desktop_aligned = desktop_aligned, browser_aligned, desktop
 
     print(f"\n逐帧最大差异（前 10 帧控制步）:")
     for i in range(min(10, n)):
