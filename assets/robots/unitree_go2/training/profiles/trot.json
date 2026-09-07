@@ -2,11 +2,11 @@
   "schema_version": "training-profile-1.0",
   "profile_id": "go2-trot",
   "display_name": "Go2 Trot / Source Compatible",
-  "source": "package-local task",
+  "source": "package-local skill task",
   "source_root": "training/source",
   "entrypoints": {
-    "env": "local_tasks.robot_profiles:trot_env_cfg",
-    "runner": "local_tasks.robot_profiles:trot_ppo_runner_cfg",
+    "env": "local_tasks.robots.unitree.go2.tasks.go2_skills.trot.config:make_trot_env_cfg",
+    "runner": "local_tasks.robots.unitree.go2.tasks.go2_skills.trot.config:make_trot_runner_cfg",
     "runner_class": "local_tasks.robots.unitree.go2.training.runner:VelocityOnPolicyRunner"
   },
   "backend": "native_mjlab",
