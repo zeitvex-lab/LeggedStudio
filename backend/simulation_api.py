@@ -522,7 +522,7 @@ def _configure_browser_actuators(document: ET.Element, preset: dict[str, Any]) -
     the position actuators used by ``microduck-simulator`` and is left intact.
     """
     robot_id = str(preset.get("robot_id") or "").lower().replace("_", "-")
-    if robot_id not in {"unitree-go2", "zex-w", "unitree-a2"}:
+    if robot_id not in {"unitree-go2", "zex-w", "unitree-a2", "unitree-h1-2"}:
         return
     simulation_config = _read_simulation_config(root) if (root := _find_package_root_quiet(preset)) else {}
     contract = preset.get("contract") or {}
@@ -573,6 +573,26 @@ def _configure_browser_actuators(document: ET.Element, preset: dict[str, Any]) -
             kp = lowered_kp.get(key, 100.0)
             kv = lowered_kd.get(key, 4.0)
             tau = lowered_tau.get(key, 120.0)
+            ET.SubElement(
+                actuator,
+                "position",
+                {"name": name, "joint": name, "kp": f"{kp:g}", "kv": f"{kv:g}",
+                 "forcelimited": "true", "forcerange": f"{-tau:g} {tau:g}"},
+            )
+        return
+
+    # H1-2 (Unitree 人形)：27 关节 position 执行器，4 组电机增益取自包契约。
+    if robot_id == "unitree-h1-2":
+        sim_cfg = simulation_config or {}
+        lowered_kp = {k.lower(): float(v) for k, v in (sim_cfg.get("stiffness") or {}).items()}
+        lowered_kd = {k.lower(): float(v) for k, v in (sim_cfg.get("damping") or {}).items()}
+        lowered_tau = {k.lower(): float(v) for k, v in (sim_cfg.get("torque_limits") or {}).items()}
+        for joint_name in order:
+            name = str(joint_name)
+            key = name.lower()
+            kp = lowered_kp.get(key, 20.0)
+            kv = lowered_kd.get(key, 1.0)
+            tau = lowered_tau.get(key, 40.0)
             ET.SubElement(
                 actuator,
                 "position",
