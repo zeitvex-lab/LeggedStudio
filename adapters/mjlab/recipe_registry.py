@@ -37,6 +37,17 @@ def resolve_recipe(config: dict[str, Any]) -> TrainingRecipe:
     rewards = {REWARD_ALIASES.get(str(key), str(key)): float(value) for key, value in get_reward_preset(task_name).items()}
     rewards.update({str(key): float(value) for key, value in config.get("reward_scales", {}).items()})
     rewards = {key: value for key, value in rewards.items() if value is not None}
+    # 能力矩阵精确报错（清单 ⑬）：请求了声明为不支持的奖励项时，启动即失败并说明原因，
+    # 杜绝"配置了 reward 但训练里静默不生效"。
+    from adapters.mjlab.env_factory import get_reward_terms as _get_reward_terms
+    _term_table = _get_reward_terms()
+    _unsupported = sorted(
+        name for name, value in rewards.items()
+        if name in _term_table and not _term_table[name].get("supported", True)
+    )
+    if _unsupported:
+        _reasons = "; ".join(f"{name}: {_term_table[name].get('reason', 'not implemented')}" for name in _unsupported)
+        raise ValueError(f"reward terms not supported by the generic mjlab task — {_reasons}")
     environment = {
         "num_envs": int(config.get("num_envs", 4096)),
         "episode_length_s": float(config.get("episode_length_s", 20.0)),

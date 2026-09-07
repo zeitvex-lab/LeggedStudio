@@ -207,14 +207,21 @@ REWARD_PRESETS = {
     }
 }
 
+# 能力矩阵（清单 ⑬）：每个奖励项声明支持的后端与实现状态。
+# supported: 本平台 mjlab 通用任务已实现的项；planned: 声明了但尚未实现（前端置灰，
+# 训练启动时 resolve 侧报精确错误，而不是训练几轮后静默不生效）。
 REWARD_TERMS = {
-    "tracking_lin_vel": {"label": "线速度跟踪", "default": 1.5, "description": "鼓励沿 X 轴稳定前进"},
-    "tracking_ang_vel": {"label": "角速度稳定", "default": 0.5, "description": "抑制偏航角速度误差"},
-    "orientation": {"label": "姿态稳定", "default": -2.0, "description": "惩罚机身倾倒"},
-    "upright": {"label": "机身直立", "default": 0.1, "description": "惩罚跌倒和过低机身高度"},
-    "base_height": {"label": "目标高度", "default": -1.0, "description": "保持机身在站立高度附近"},
-    "torques": {"label": "执行器能耗", "default": -0.0002, "description": "降低控制输出平方和"},
-    "action_rate": {"label": "动作平滑", "default": -0.01, "description": "抑制相邻动作突变"},
+    "tracking_lin_vel": {"label": "线速度跟踪", "default": 1.5, "description": "鼓励沿 X 轴稳定前进", "supported": True},
+    "tracking_ang_vel": {"label": "角速度稳定", "default": 0.5, "description": "抑制偏航角速度误差", "supported": True},
+    "orientation": {"label": "姿态稳定", "default": -2.0, "description": "惩罚机身倾倒", "supported": True},
+    "upright": {"label": "机身直立", "default": 0.1, "description": "惩罚跌倒和过低机身高度", "supported": True},
+    "base_height": {"label": "目标高度", "default": -1.0, "description": "保持机身在站立高度附近", "supported": True},
+    "torques": {"label": "执行器能耗", "default": -0.0002, "description": "降低控制输出平方和", "supported": True},
+    "action_rate": {"label": "动作平滑", "default": -0.01, "description": "抑制相邻动作突变", "supported": True},
+    "feet_air_time": {"label": "摆腿节律", "default": 0.5, "description": "鼓励双腿交替摆动时相", "supported": False,
+                       "reason": "需要接触传感器按足部分组，通用任务尚未接入"},
+    "energy": {"label": "机械功率", "default": -0.001, "description": "惩罚瞬时机械功率", "supported": False,
+               "reason": "依赖 qfrc_actuator 读数通路，待接入"},
 }
 
 

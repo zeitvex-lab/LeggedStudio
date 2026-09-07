@@ -359,7 +359,11 @@
 
     .reward-term .rt-main { min-width: 0; }
     .reward-term .rt-name { font-size: 12px; font-weight: 600; color: var(--text); word-break: break-all; }
-    .reward-term .rt-path { display: block; font: 10px Consolas, monospace; color: var(--faint); word-break: break-all; }
+    .reward-term-unsupported { opacity: 0.5; }
+.reward-term-unsupported .rt-name { color: var(--red, #b91c1c); }
+.rt-uns-tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px;
+  font-size: 10px; color: var(--red, #b91c1c); border: 1px solid rgba(185, 28, 28, 0.35); }
+.reward-term .rt-path { display: block; font: 10px Consolas, monospace; color: var(--faint); word-break: break-all; }
     .reward-term .rt-bar {
       display: block;
       height: 4px;
@@ -1417,14 +1421,17 @@
           </div>
           ${items.map(([id, term]) => {
             const weight = Number(term.default) || 0;
-            return `<label class="reward-term" data-reward-row="${escapeHtml(id)}" data-reward-layer="${layer.id}" title="${escapeHtml(term.description || '')}">
-              <span class="rt-weight"><input type="number" step="0.0001" data-reward-weight="${escapeHtml(id)}" value="${weight}" title="权重（负值为惩罚）"></span>
+            // 能力矩阵（清单 ⑬）：后端声明不支持的奖励项置灰禁用，并给出原因
+            const unsupported = term.supported === false;
+            const reason = escapeHtml(unsupported ? (term.reason || '通用任务尚未实现该项') : (term.description || ''));
+            return `<label class="reward-term ${unsupported ? 'reward-term-unsupported' : ''}" data-reward-row="${escapeHtml(id)}" data-reward-layer="${layer.id}" title="${reason}">
+              <span class="rt-weight"><input type="number" step="0.0001" data-reward-weight="${escapeHtml(id)}" value="${weight}" ${unsupported ? 'disabled' : ''} title="${unsupported ? '通用任务暂不支持该项' : '权重（负值为惩罚）'}"></span>
               <div class="rt-main">
-                <span class="rt-name">${escapeHtml(term.label || id)}</span>
+                <span class="rt-name">${escapeHtml(term.label || id)}${unsupported ? ' <span class="rt-uns-tag" title="' + reason + '">未实现</span>' : ''}</span>
                 <span class="rt-path">${escapeHtml(id)}</span>
                 ${rewardBarHtml(weight)}
               </div>
-              <div class="rt-side"><input type="checkbox" data-reward-id="${escapeHtml(id)}" checked title="启用 / 禁用该项（禁用按 0 计）"></div>
+              <div class="rt-side"><input type="checkbox" data-reward-id="${escapeHtml(id)}" ${unsupported ? 'disabled' : 'checked'} title="${unsupported ? '通用任务暂不支持该项' : '启用 / 禁用该项（禁用按 0 计）'}"></div>
             </label>`;
           }).join('')}
         </div>`;
