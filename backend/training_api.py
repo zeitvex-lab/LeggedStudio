@@ -839,6 +839,58 @@ async def get_training_checkpoints(task_id: str):
     }
 
 
+@router.get("/{task_id}/quality")
+async def get_training_quality(task_id: str):
+    """聚合任务的质量信号（清单 ⑥⑧）：preflight 探针 + ONNX 验收指标。
+
+    数据源都是 worker 产物：native_preflight.json 的 acceptance_probe、
+    exported/policy.onnx 的同目录验收报告。前端训练列表/monitor 用它渲染
+    "pre-flight" 与"验收"徽章，而不是只有 reward 曲线。
+    """
+    task = get_training_manager().get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    task_dir = task.task_dir
+
+    probe = None
+    preflight_file = task_dir / "native_preflight.json"
+    if preflight_file.exists():
+        try:
+            preflight = json.loads(preflight_file.read_text(encoding="utf-8-sig"))
+            probe = preflight.get("acceptance_probe") or None
+            if probe is None and preflight.get("acceptance_probe_error"):
+                probe = {"verdict": "error", "error": str(preflight["acceptance_probe_error"])}
+        except (OSError, json.JSONDecodeError):
+            probe = {"verdict": "error", "error": "native_preflight.json unreadable"}
+
+    acceptance = None
+    exported_dir = task_dir / "exported"
+    policy_file = exported_dir / "policy.onnx"
+    if policy_file.exists():
+        report_file = exported_dir / "policy.acceptance.json"
+        if report_file.exists():
+            try:
+                acceptance = json.loads(report_file.read_text(encoding="utf-8-sig"))
+            except (OSError, json.JSONDecodeError):
+                acceptance = None
+        else:
+            acceptance = {"verdict": "not_evaluated"}
+
+    probe_verdict = (probe or {}).get("verdict")
+    acceptance_verdict = (acceptance or {}).get("verdict")
+    return {
+        "success": True,
+        "task_id": task_id,
+        "probe": probe,
+        "acceptance": acceptance,
+        "onnx_exported": policy_file.exists(),
+        "badges": {
+            "preflight": probe_verdict,       # pass | warn | error | None(未跑)
+            "acceptance": acceptance_verdict, # pass | fail | not_evaluated | None(未导出)
+        },
+    }
+
+
 @router.get("/{task_id}/artifact")
 async def get_training_artifact(task_id: str):
     """获取训练产物（Artifact）"""

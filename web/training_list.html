@@ -245,6 +245,12 @@
     .status-badge.failed .status-dot { background: var(--red); }
     .status-badge.stopped { color: #fde68a; border-color: rgba(251, 191, 36, 0.3); }
     .status-badge.stopped .status-dot { background: #fbbf24; }
+    .quality-chip { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+      font-size: 10px; vertical-align: 1px; border: 1px solid; }
+    .quality-chip.q-ok { color: var(--green); border-color: rgba(94, 234, 212, 0.3); background: rgba(94, 234, 212, 0.08); }
+    .quality-chip.q-warn { color: #fbbf24; border-color: rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.08); }
+    .quality-chip.q-bad { color: var(--red); border-color: rgba(248, 113, 113, 0.35); background: rgba(248, 113, 113, 0.1); }
+    .quality-chip.q-mute { color: #94a3b8; border-color: rgba(148, 163, 184, 0.3); background: rgba(148, 163, 184, 0.08); }
 
     /* 与 training-common.js 注入的共享状态点动画保持一致（1.5s 呼吸） */
     @keyframes tsui-breathe {
@@ -373,11 +379,45 @@
         allTasks = data.tasks || [];
         loadError = null;
         lastUpdated = new Date();
+        loadQualityBadges();
       } catch (error) {
         console.error('Failed to load training list:', error);
         loadError = error.message;
       }
       render();
+    }
+
+    // 质量徽章（清单 ⑥⑧）：并行拉每个任务的 preflight 探针 / ONNX 验收结论。
+    // 失败静默——徽章缺失只影响信息密度，不影响列表可用性。
+    let qualityByTask = {};
+    let qualitySeq = 0;
+    async function loadQualityBadges() {
+      const seq = ++qualitySeq;
+      const targets = allTasks.filter((t) => ['completed', 'stopped'].includes(String(t.status || '')));
+      await Promise.all(targets.map(async (task) => {
+        try {
+          const res = await fetch(`/api/training/${encodeURIComponent(task.task_id)}/quality`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (seq === qualitySeq) qualityByTask[task.task_id] = data.badges || {};
+        } catch (_) { /* ignore */ }
+      }));
+      if (seq === qualitySeq) render();
+    }
+
+    function qualityBadges(taskId) {
+      const badges = qualityByTask[taskId];
+      if (!badges) return '';
+      const chip = (cls, text, title) =>
+        `<span class="quality-chip ${cls}" title="${title}">${text}</span>`;
+      let html = '';
+      if (badges.preflight === 'pass') html += chip('q-ok', '预检', '训练前物理可达性预检通过（开环动作包络扫描）');
+      else if (badges.preflight === 'warn') html += chip('q-warn', '预检', '预检警告：部分动作幅值下姿态/高度接近边界');
+      else if (badges.preflight === 'error') html += chip('q-bad', '预检', '预检执行失败（详见 native_preflight.json）');
+      if (badges.acceptance === 'pass') html += chip('q-ok', '验收', 'ONNX 策略验收全部指令模式通过');
+      else if (badges.acceptance === 'fail') html += chip('q-bad', '验收', 'ONNX 策略验收存在未通过指令模式');
+      else if (badges.acceptance === 'not_evaluated') html += chip('q-mute', '验收', '已导出 ONNX，尚未运行验收评估');
+      return html;
     }
 
     function refreshList() {
@@ -484,7 +524,7 @@
           <div class="table-row" onclick="viewTask('${escapeHtml(task.task_id)}')" title="点击查看监控页面">
             <div class="task-info">
               <strong title="${escapeHtml(task.task_id)}">${escapeHtml(task.task_id)}</strong>
-              <span>${escapeHtml(taskSubtitle(task))}</span>
+              <span>${escapeHtml(taskSubtitle(task))}${qualityBadges(task.task_id)}</span>
             </div>
             <div class="cell-muted col-robot">${escapeHtml(task.robot || 'Unknown')}</div>
             <div class="cell-muted col-algo">${escapeHtml(task.algorithm || 'PPO')}</div>
