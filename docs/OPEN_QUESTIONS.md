@@ -46,6 +46,12 @@
   1. 线速度测量路径（浏览器 cvel 修正 vs Python qvel 回退，见第 2 条）；
   2. 步态相位钟漂移（浏览器按 wall-clock 累加 simulationDt*decimation，Python 按步数）；
   3. 长时域累积的数值差（obs normalizer 缺失、fp 精度）。
-- 下一步：用 ?debug=1 startFrameLog 导出浏览器 obs 序列，与 policy_acceptance.py
-  同 seed 重放逐维 diff，第一个发散维度即根因。
+- 下一步（已做）：新增 `adapters/mjlab/replay_diff.py` 逐维 diff 工具并实测。
+  已确认：观测布局/重力符号/缩放/指令注入全部一致；差异集中在 joint_vel_rel 段且从
+  早期就存在——根因是**两侧时间轴口径不同**（浏览器 frameLog[0]=reset 初始 obs，
+  后续帧受后台 rAF 节流影响墙钟≠仿真钟；桌面 spawn 后立即带 settle 相位偏移 0.125s）。
+  另发现并已修复：G1 unitree-velocity 契约缺 `gait_period_s: 0.6`（前端曾回落 0.7，
+  相位率差 17%）；默认策略顺序已把 unitree-velocity 提到首位。
+- 再下一步：浏览器 startFrameLog 改为在**仿真时**对齐（sim.time 采样而非墙钟），
+  桌面端 spawn 后加与浏览器一致的 settle 步数；之后逐帧 diff 才有物理意义。
 - 备注：这正是清单 ⑦ 的用途——"验收器通过但确定性回放不通过"被回放模式当场抓住。

@@ -90,84 +90,6 @@
   },
   "policies": [
     {
-      "id": "locomotion",
-      "path": "simulation/policies/locomotion.onnx",
-      "label": "Locomotion (mjswan)",
-      "obs_dim": 99,
-      "action_dim": 29,
-      "history_len": 1,
-      "source": "mjswan examples/demo（mjlab G1 velocity，99 维观测）",
-      "contract": {
-        "observation_kind": "g1_mjswan_locomotion",
-        "obs_dim": 99,
-        "action_dim": 29,
-        "history_len": 1,
-        "command_dims": 3,
-        "default_command": [
-          0.5,
-          0.0,
-          0.0
-        ],
-        "command_ranges": {
-          "lin_vel_x": [
-            -1.5,
-            1.5
-          ],
-          "lin_vel_y": [
-            -0.5,
-            0.5
-          ],
-          "ang_vel_z": [
-            -1.0,
-            1.0
-          ]
-        },
-        "action_scale": 0.5,
-        "action_scale_by_joint": {
-          "left_hip_pitch_joint": 0.547546,
-          "left_hip_roll_joint": 0.350661,
-          "left_hip_yaw_joint": 0.547546,
-          "left_knee_joint": 0.350661,
-          "left_ankle_pitch_joint": 0.438577,
-          "left_ankle_roll_joint": 0.438577,
-          "right_hip_pitch_joint": 0.547546,
-          "right_hip_roll_joint": 0.350661,
-          "right_hip_yaw_joint": 0.547546,
-          "right_knee_joint": 0.350661,
-          "right_ankle_pitch_joint": 0.438577,
-          "right_ankle_roll_joint": 0.438577,
-          "waist_yaw_joint": 0.547546,
-          "waist_roll_joint": 0.438577,
-          "waist_pitch_joint": 0.438577,
-          "left_shoulder_pitch_joint": 0.438577,
-          "left_shoulder_roll_joint": 0.438577,
-          "left_shoulder_yaw_joint": 0.438577,
-          "left_elbow_joint": 0.438577,
-          "left_wrist_roll_joint": 0.438577,
-          "left_wrist_pitch_joint": 0.074501,
-          "left_wrist_yaw_joint": 0.074501,
-          "right_shoulder_pitch_joint": 0.438577,
-          "right_shoulder_roll_joint": 0.438577,
-          "right_shoulder_yaw_joint": 0.438577,
-          "right_elbow_joint": 0.438577,
-          "right_wrist_roll_joint": 0.438577,
-          "right_wrist_pitch_joint": 0.074501,
-          "right_wrist_yaw_joint": 0.074501
-        },
-        "scales": {
-          "ang_vel": 1.0,
-          "dof_pos": 1.0,
-          "dof_vel": 1.0,
-          "command": [
-            1.0,
-            1.0,
-            1.0
-          ]
-        },
-        "autoplay": false
-      }
-    },
-    {
       "id": "unitree-velocity",
       "path": "simulation/policies/unitree_velocity.onnx",
       "label": "Velocity (Unitree mjlab)",
@@ -305,6 +227,84 @@
           "joint_vel_rel": 1,
           "last_action": 1
         }
+      }
+    },
+    {
+      "id": "locomotion",
+      "path": "simulation/policies/locomotion.onnx",
+      "label": "Locomotion (mjswan)",
+      "obs_dim": 99,
+      "action_dim": 29,
+      "history_len": 1,
+      "source": "mjswan examples/demo（mjlab G1 velocity，99 维观测）",
+      "contract": {
+        "observation_kind": "g1_mjswan_locomotion",
+        "obs_dim": 99,
+        "action_dim": 29,
+        "history_len": 1,
+        "command_dims": 3,
+        "default_command": [
+          0.5,
+          0.0,
+          0.0
+        ],
+        "command_ranges": {
+          "lin_vel_x": [
+            -1.5,
+            1.5
+          ],
+          "lin_vel_y": [
+            -0.5,
+            0.5
+          ],
+          "ang_vel_z": [
+            -1.0,
+            1.0
+          ]
+        },
+        "action_scale": 0.5,
+        "action_scale_by_joint": {
+          "left_hip_pitch_joint": 0.547546,
+          "left_hip_roll_joint": 0.350661,
+          "left_hip_yaw_joint": 0.547546,
+          "left_knee_joint": 0.350661,
+          "left_ankle_pitch_joint": 0.438577,
+          "left_ankle_roll_joint": 0.438577,
+          "right_hip_pitch_joint": 0.547546,
+          "right_hip_roll_joint": 0.350661,
+          "right_hip_yaw_joint": 0.547546,
+          "right_knee_joint": 0.350661,
+          "right_ankle_pitch_joint": 0.438577,
+          "right_ankle_roll_joint": 0.438577,
+          "waist_yaw_joint": 0.547546,
+          "waist_roll_joint": 0.438577,
+          "waist_pitch_joint": 0.438577,
+          "left_shoulder_pitch_joint": 0.438577,
+          "left_shoulder_roll_joint": 0.438577,
+          "left_shoulder_yaw_joint": 0.438577,
+          "left_elbow_joint": 0.438577,
+          "left_wrist_roll_joint": 0.438577,
+          "left_wrist_pitch_joint": 0.074501,
+          "left_wrist_yaw_joint": 0.074501,
+          "right_shoulder_pitch_joint": 0.438577,
+          "right_shoulder_roll_joint": 0.438577,
+          "right_shoulder_yaw_joint": 0.438577,
+          "right_elbow_joint": 0.438577,
+          "right_wrist_roll_joint": 0.438577,
+          "right_wrist_pitch_joint": 0.074501,
+          "right_wrist_yaw_joint": 0.074501
+        },
+        "scales": {
+          "ang_vel": 1.0,
+          "dof_pos": 1.0,
+          "dof_vel": 1.0,
+          "command": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "autoplay": false
       }
     }
   ],

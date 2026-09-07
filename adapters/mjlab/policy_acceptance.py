@@ -167,7 +167,13 @@ def spawn_default(contract: PackageContract, model, data, obs: "ObsBuilder") -> 
             data.qpos[qa] = contract.default_for(name)
     mujoco.mj_forward(model, data)
 
-    def build(self, cmd: np.ndarray) -> np.ndarray:
+
+class ObsBuilderContinuation:
+    """占位：build 方法在下方以模块级函数补挂回 ObsBuilder（历史编辑事故的修复）。"""
+
+
+def _restore_obsbuilder_build():
+    def build(self: "ObsBuilder", cmd: np.ndarray) -> np.ndarray:
         kind = self.contract.observation_kind
         q, ang_b, lin_b = self.base_state()
         c = self.contract
@@ -187,7 +193,7 @@ def spawn_default(contract: PackageContract, model, data, obs: "ObsBuilder") -> 
                 obs.append(self.data.qvel[a[1]] * c.dof_vel_scale if a else 0.0)
             obs += list(self.last_action)
         elif kind == "g1_mjlab_velocity_98":
-            self.phase_s += c.step_dt
+            # 帧序与浏览器一致：当前相位进观测，随后推进（下一帧相位 = 帧号 × step_dt / period）
             phase = (self.phase_s % c.gait_period) / c.gait_period
             moving = float(np.linalg.norm(cmd)) >= 0.1
             obs += list(ang_b * c.ang_vel_scale)
@@ -195,6 +201,7 @@ def spawn_default(contract: PackageContract, model, data, obs: "ObsBuilder") -> 
             obs += list(cmd * np.asarray(c.cmd_scale))
             obs += [math.sin(phase * 2 * math.pi) if moving else 0.0]
             obs += [math.cos(phase * 2 * math.pi) if moving else 0.0]
+            self.phase_s += c.step_dt
             obs += [(self.data.qpos[self.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale for n in c.action_joint_order]
             obs += [self.data.qvel[self.jadr[n][1]] * c.dof_vel_scale for n in c.action_joint_order]
             obs += list(self.last_action)
@@ -212,6 +219,10 @@ def spawn_default(contract: PackageContract, model, data, obs: "ObsBuilder") -> 
         if c.obs_dim and arr.shape[0] != c.obs_dim:
             raise ValueError(f"观测维度不符: 构建 {arr.shape[0]} vs 契约 {c.obs_dim}")
         return arr[None, :]
+    return build
+
+
+ObsBuilder.build = _restore_obsbuilder_build()
 
 
 # ---------- 单模式滚出 ----------
