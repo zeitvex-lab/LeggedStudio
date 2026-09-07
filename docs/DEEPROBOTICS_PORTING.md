@@ -19,12 +19,6 @@
 - **契约要点**：模型执行器序为每腿交错（hipx,hipy,knee,wheel ×4），策略序为 12 腿+4 轮，
   以 `contract.joint_ids_map = [0,1,2,4,5,6,8,9,10,12,13,14,3,7,11,15]` 桥接。
 
-### deeprobotics_x30（第 15 包）
-
-- 官方 `X30_mjcf/X30.xml`（nq=12 nu=0，55.8kg，新一代四足）+ STL 网格（meshdir `.`）。
-- 训练任务 `x30_velocity`（lite3 模板移植，HipX effort 150 / HipY·Knee 84）。
-- **策略待训练后回填**（simulation/config.json 的 policies 为空数组）。
-
 ### deeprobotics_lite3 官方部署档案
 
 - `simulation/config.json` 新增 `lite3-official-sdk-45` 策略条目：himloco 权重 + 官方
@@ -41,7 +35,7 @@
 ### 新工具
 
 - `tools/urdf_to_mjcf.py`：URDF→MJCF 通用转换器（MjSpec 编译，碰撞 primitive 化，
-  惯性保留，无 mesh 依赖）——Lite3/A1/X30 的模型均经此路径生成。
+  惯性保留，无 mesh 依赖）——Lite3/A1 的模型均经此路径生成。
 
 ## 待办候选（未落地）
 
