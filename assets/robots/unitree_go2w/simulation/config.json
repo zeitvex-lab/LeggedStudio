@@ -278,5 +278,19 @@
       "label": "平地",
       "path": "simulation/flat.xml"
     }
-  ]
+  ],
+  "armature": {
+    "FL_calf_joint": 0.02,
+    "FL_wheel_joint": 0.02,
+    "FR_calf_joint": 0.02,
+    "FR_wheel_joint": 0.02,
+    "RL_calf_joint": 0.02,
+    "RL_wheel_joint": 0.02,
+    "RR_calf_joint": 0.02,
+    "RR_wheel_joint": 0.02,
+    "__default__": 0.01
+  },
+  "frictionloss": {
+    "__default__": 0.2
+  }
 }

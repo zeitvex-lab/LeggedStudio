@@ -825,6 +825,10 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                     else simulation_control.get("action_filter_cutoffs")
                 ),
                 "settle_steps": simulation_config.get("settle_steps", simulation_control.get("settle_steps", 0)),
+                # 物理常量契约（armature/frictionloss 增量真值，覆盖 XML default）：
+                # 训练 worker / 验收器 / 浏览器三方消费同一份数字，封死物理漂移。
+                "armature": simulation_config.get("armature") or {},
+                "frictionloss": simulation_config.get("frictionloss") or {},
             },
         },
         "policy": policy,

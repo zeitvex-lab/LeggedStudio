@@ -25,5 +25,11 @@
     "thigh": 23.7,
     "calf": 35.55,
     "joint": 35.55
+  },
+  "armature": {
+    "__default__": 0.01
+  },
+  "frictionloss": {
+    "__default__": 0.2
   }
 }

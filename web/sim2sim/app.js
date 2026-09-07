@@ -1332,6 +1332,9 @@ function applyRuntimeConfig(config) {
   // forward motion (robot balanced in place). A live model's timestep is updated too.
   CONFIG.simulationDt = finiteNumber(control.sim_dt, CONFIG.simulationDt);
   if (sim.model) sim.model.opt.timestep = CONFIG.simulationDt;
+  // 物理常量契约（清单：armature/frictionloss 三端同源）：契约增量覆盖模型 default，
+  // 与训练 worker / 验收器一致。按关节名覆盖，__default__ 兜底。
+  applyJointPhysicsConstants(control.armature, control.frictionloss);
   CONFIG.settleSteps = Math.max(0, Math.round(finiteNumber(control.settle_steps, 0)));
   applyActionFilterCutoffs(control.action_filter_cutoffs);
   updateSignalDelayUi();
@@ -1378,6 +1381,41 @@ function applyRuntimeConfig(config) {
     },
   );
   sim.angleSignature = CONFIG.defaultAngles.join(",");
+}
+
+/** 把契约的 armature/frictionloss（增量真值）应用到已编译模型。
+ * 键为关节名（或 __default__ 兜底）；模型编译后的 dof_armature/frictionloss 直接改写。 */
+function applyJointPhysicsConstants(armature, frictionloss) {
+  if ((!armature || !Object.keys(armature).length) && (!frictionloss || !Object.keys(frictionloss).length)) return;
+  if (!sim.model || !sim.platformConfig?.robot?.joint_order) return;
+  const model = sim.model;
+  const resolveDof = (name) => {
+    try {
+      const jid = Number(model.mj_name2id(model, enumValue(sim.mujoco.mjtObj.mjOBJ_JOINT), String(name)));
+      return jid >= 0 ? Number(model.jnt_dofadr[jid]) : -1;
+    } catch (_) { return -1; }
+  };
+  let applied = 0;
+  const applyTable = (table, target) => {
+    if (!table || typeof table !== "object") return;
+    const fallback = table.__default__;
+    for (const [name, value] of Object.entries(table)) {
+      if (name === "__default__" || !Number.isFinite(Number(value))) continue;
+      const dof = resolveDof(name);
+      if (dof >= 0) { target[dof] = Number(value); applied += 1; }
+    }
+    if (Number.isFinite(Number(fallback))) {
+      // 未显式列出的关节回落到 __default__（按契约关节序，避免动世界自由关节）
+      for (const name of sim.platformConfig.robot.joint_order) {
+        if (table[String(name).toLowerCase()] !== undefined && table[String(name).toLowerCase()] !== null) continue;
+        const dof = resolveDof(name);
+        if (dof >= 0) target[dof] = Number(fallback);
+      }
+    }
+  };
+  applyTable(armature, model.dof_armature);
+  applyTable(frictionloss, model.dof_frictionloss);
+  if (applied) console.info(`[sim2sim] ✔ 契约物理常量已应用（${applied} 项 armature/frictionloss 覆盖）`);
 }
 
 function applyPolicyContract(contract, order = []) {

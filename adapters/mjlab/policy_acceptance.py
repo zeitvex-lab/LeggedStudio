@@ -324,13 +324,36 @@ def default_modes(ranges) -> list[list[float]]:
 
 
 def load_package_model(package_dir: Path, sim_cfg: dict[str, Any]):
-    """直接编译 model/robot.xml（meshdir 相对自身目录可解析），并补一块验收平地。"""
+    """直接编译 model/robot.xml（meshdir 相对自身目录可解析），并补一块验收平地。
+
+    编译前应用契约的 armature/frictionloss（增量真值，覆盖 XML default）——
+    训练/验收/浏览器三方消费同一份物理常量。
+    """
     import mujoco
 
     model_xml = package_dir / "model" / "robot.xml"
     if not model_xml.is_file():
         raise SystemExit(f"包内缺少模型: {model_xml}")
     spec = mujoco.MjSpec.from_file(str(model_xml))
+
+    armature = sim_cfg.get("armature") or {}
+    frictionloss = sim_cfg.get("frictionloss") or {}
+    default_arm = armature.get("__default__")
+    default_fric = frictionloss.get("__default__")
+    for joint in spec.joints:
+        name = joint.name
+        if not name:
+            continue
+        lowered = name.lower()
+        if lowered in armature:
+            joint.armature = float(armature[lowered])
+        elif default_arm is not None:
+            joint.armature = float(default_arm)
+        if lowered in frictionloss:
+            joint.frictionloss = float(frictionloss[lowered])
+        elif default_fric is not None:
+            joint.frictionloss = float(default_fric)
+
     spec.worldbody.add_geom(
         type=mujoco.mjtGeom.mjGEOM_PLANE,
         name="acceptance_floor",
