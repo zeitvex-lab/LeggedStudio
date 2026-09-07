@@ -14,6 +14,6 @@
   "simulation_config_path": "simulation/config.json",
   "training_config_path": "training/config.json",
   "contract_path": "contract.json",
-  "source_project": "wuji-mjlab",
-  "notes": "训练档案 source_root 指向外部源码树 wuji-mjlab/src；mjlab 1.6 下零修改通过。"
+  "source_project": "package-local task source",
+  "notes": "训练任务内化为包内 wuji_tasks（training/source）；mjlab 1.6 下零修改通过。"
 }

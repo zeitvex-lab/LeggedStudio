@@ -116,7 +116,7 @@
       ]
     }
   },
-  "description": "Wuji Hand 右手五指灵巧手（20 关节，固定基座）。模型与任务取自 wuji-mjlab（in-hand 方块重定向 WujiHand_Reorient），统一 mjlab 1.6 运行时。",
+  "description": "Wuji Hand 右手五指灵巧手（20 关节，固定基座）。模型与任务为包内资产（in-hand 方块重定向 WujiHand_Reorient），统一 mjlab 1.6 运行时。",
   "tags": [
     "dexterous-hand",
     "mjcf",
@@ -124,6 +124,6 @@
     "mjlab-1.6",
     "in-hand"
   ],
-  "source": "wuji-mjlab",
+  "source": "package-local asset",
   "python_version": "3.12"
 }

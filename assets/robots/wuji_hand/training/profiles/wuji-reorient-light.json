@@ -2,12 +2,12 @@
   "schema_version": "training-profile-1.0",
   "profile_id": "wuji-reorient-light",
   "display_name": "Wuji Reorient Light",
-  "source": "wuji-mjlab WujiHand_Reorient_Light",
-  "source_root": "C:/Users/31560/Documents/00_open/wuji-mjlab/src",
+  "source": "package-local reorient task",
+  "source_root": "training/source",
   "entrypoints": {
-    "env": "wuji_mjlab.tasks.reorient.config.wuji_hand.env_cfgs:wuji_hand_reorient_env_cfg",
-    "runner": "wuji_mjlab.tasks.reorient.config.wuji_hand.rsl_rl.ppo:wuji_hand_reorient_ppo_runner_cfg",
-    "runner_class": "wuji_mjlab.rl.runner:WujiOnPolicyRunner"
+    "env": "wuji_tasks.tasks.reorient.config.wuji_hand.env_cfgs:wuji_hand_reorient_env_cfg",
+    "runner": "wuji_tasks.tasks.reorient.config.wuji_hand.rsl_rl.ppo:wuji_hand_reorient_ppo_runner_cfg",
+    "runner_class": "wuji_tasks.rl.runner:WujiOnPolicyRunner"
   },
   "backend": "native_mjlab",
   "task_name": "reorient",
@@ -33,6 +33,5 @@
     "max_iterations": 7500
   },
   "sort_order": 20,
-  "source_project": "wuji-mjlab",
   "notes": "轻量版：4096 envs x 7500 iters。"
 }
