@@ -1,14 +1,14 @@
 {
   "schema_version": "robot-contract-2.0",
-  "contract_id": "unitree_b2w_v1",
-  "robot_id": "unitree_b2w",
-  "family": "Unitree B2-W",
+  "contract_id": "unitree_a1_v1",
+  "robot_id": "unitree_a1",
+  "family": "Unitree A1",
   "size_class": "L",
-  "locomotion_type": "W",
+  "locomotion_type": "P",
   "urdf": {
-    "path": "assets/robots/unitree_b2w/model/robot.xml",
+    "path": "assets/robots/unitree_a1/model/robot.xml",
     "hash": "",
-    "total_mass_kg": 87.17,
+    "total_mass_kg": 7.5,
     "mass_source": "manual"
   },
   "joints": {
@@ -24,30 +24,22 @@
       "RR_calf_joint",
       "RL_hip_joint",
       "RL_thigh_joint",
-      "RL_calf_joint",
-      "FR_wheel_joint",
-      "FL_wheel_joint",
-      "RR_wheel_joint",
-      "RL_wheel_joint"
+      "RL_calf_joint"
     ],
     "passive_joints": [],
     "default_pose": [
-      0.0,
-      0.5,
-      -1.5,
-      0.0,
-      0.5,
-      -1.5,
-      0.0,
+      0.1,
       0.8,
       -1.5,
-      0.0,
+      -0.1,
       0.8,
       -1.5,
-      0.0,
-      0.0,
-      0.0,
-      0.0
+      0.1,
+      0.8,
+      -1.5,
+      -0.1,
+      0.8,
+      -1.5
     ]
   },
   "observation": {
@@ -62,7 +54,7 @@
     ]
   },
   "action": {
-    "dimension": 16,
+    "dimension": 12,
     "joint_order": [
       "FR_hip_joint",
       "FR_thigh_joint",
@@ -75,11 +67,7 @@
       "RR_calf_joint",
       "RL_hip_joint",
       "RL_thigh_joint",
-      "RL_calf_joint",
-      "FR_wheel_joint",
-      "FL_wheel_joint",
-      "RR_wheel_joint",
-      "RL_wheel_joint"
+      "RL_calf_joint"
     ],
     "action_scale": 0.125
   },
@@ -88,13 +76,13 @@
     "physics_hz": 200,
     "decimation": 4
   },
-  "description": "Unitree B2-W。模型为包内 MJCF（rl_sar_zoo 资产），统一 mjlab 1.6 运行时。",
+  "description": "Unitree A1。模型为包内 MJCF（rl_sar_zoo 资产），统一 mjlab 1.6 运行时。",
   "tags": [
-    "wheel_leg",
+    "quadruped",
     "mjcf",
     "imported",
     "package",
-    "unitree_b2w"
+    "unitree_a1"
   ],
   "source": "rl_sar_zoo_import",
   "python_version": "3.12"

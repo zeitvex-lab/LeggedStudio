@@ -1,10 +1,10 @@
-"""Unitree H1_2 velocity environment configurations.
+"""Deeprobotics Lite3 velocity environment configurations.
 
-Humanoid flat/rough velocity tasks built from the package-local robot
-constants and mjlab's shared velocity base.  Tuning follows the H1_2
-contract documented in the package manifest (root body ``pelvis``, viewer
-body ``torso_link``, per-foot height scan, self-collision penalty,
-1.55 m command z-offset).
+Quadruped flat/rough velocity tasks built from the package-local robot
+constants and mjlab's shared velocity base.  The wiring mirrors the A2
+tuning documented in the package manifest (root body ``base_link``, four
+leg feet, 0.5 m command z-offset) so the trained policy matches the
+deployed sim2sim contract.
 """
 
 from __future__ import annotations
@@ -27,15 +27,11 @@ from mjlab.tasks.velocity import mdp
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
 from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
 
-from .robot_constants import H1_2_ACTION_SCALE, get_h1_2_robot_cfg
+from .robot_constants import LITE3_ACTION_SCALE, get_lite3_robot_cfg
 
-_SITES = ("left_foot", "right_foot")
-_FOOT_GEOMS = tuple(
-    f"{side}_foot{i}_collision" for side in ("left", "right") for i in range(1, 8)
-)
-_ROOT_BODY = "pelvis"
-_VIEWER_BODY = "torso_link"
-_FOOT_CONTACT = r"^(left_ankle_roll_link|right_ankle_roll_link)$"
+_QUAD_FEET = ("FR", "FL", "RR", "RL")
+_QUAD_GEOMS = tuple(f"{name}_foot_collision" for name in _QUAD_FEET)
+_ROOT_BODY = "base_link"
 
 
 def _configure_height_sensors(cfg: ManagerBasedRlEnvCfg) -> None:
@@ -47,16 +43,16 @@ def _configure_height_sensors(cfg: ManagerBasedRlEnvCfg) -> None:
         elif sensor.name == "foot_height_scan":
             assert isinstance(sensor, TerrainHeightSensorCfg)
             sensor.frame = tuple(
-                ObjRef(type="site", name=name, entity="robot") for name in _SITES
+                ObjRef(type="site", name=name, entity="robot") for name in _QUAD_FEET
             )
-            sensor.pattern = RingPatternCfg.single_ring(radius=0.03, num_samples=6)
+            sensor.pattern = RingPatternCfg.single_ring(radius=0.04, num_samples=4)
 
 
 def _contact_sensors() -> tuple[ContactSensorCfg, ContactSensorCfg]:
     feet = ContactSensorCfg(
         name="feet_ground_contact",
         primary=ContactMatch(
-            mode="subtree", pattern=_FOOT_CONTACT, entity="robot"
+            mode="geom", pattern=_QUAD_GEOMS, entity="robot"
         ),
         secondary=ContactMatch(mode="body", pattern="terrain"),
         fields=("found", "force"),
@@ -65,41 +61,37 @@ def _contact_sensors() -> tuple[ContactSensorCfg, ContactSensorCfg]:
         track_air_time=True,
     )
     other = ContactSensorCfg(
-        name="self_collision",
-        primary=ContactMatch(mode="subtree", pattern=_ROOT_BODY, entity="robot"),
-        secondary=ContactMatch(mode="subtree", pattern=_ROOT_BODY, entity="robot"),
+        name="nonfoot_ground_touch",
+        primary=ContactMatch(mode="geom", pattern=".*_collision", entity="robot"),
+        secondary=ContactMatch(mode="body", pattern="terrain"),
         fields=("found", "force"),
-        reduce="none",
+        reduce="netforce",
         num_slots=1,
-        history_length=4,
+        track_air_time=True,
     )
     return feet, other
 
 
 def _configure_posture(cfg: ManagerBasedRlEnvCfg) -> None:
-    cfg.rewards["pose"].params["std_standing"] = {".*": 0.05}
+    cfg.rewards["pose"].params["std_standing"] = {
+        r".*_(hip|thigh)_joint.*": 0.05,
+        r".*_calf_joint.*": 0.1,
+    }
     moving = {
-        r".*hip_pitch.*": 0.3,
-        r".*hip_(roll|yaw).*": 0.15,
-        r".*knee.*": 0.35,
-        r".*ankle_pitch.*": 0.25,
-        r".*ankle_roll.*": 0.1,
-        r".*(waist|torso).*": 0.2,
-        r".*shoulder.*": 0.15,
-        r".*elbow.*": 0.15,
-        r".*wrist.*": 0.3,
+        r".*_(hip|thigh)_joint.*": 0.3,
+        r".*_calf_joint.*": 0.6,
     }
     cfg.rewards["pose"].params["std_walking"] = moving
     cfg.rewards["pose"].params["std_running"] = moving
 
 
-def make_h1_2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """Rough-terrain H1_2 velocity configuration."""
+def make_lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Rough-terrain A2 velocity configuration."""
     cfg = make_velocity_env_cfg()
     cfg.sim.mujoco.ccd_iterations = 500
     cfg.sim.contact_sensor_maxmatch = 500
-    cfg.sim.nconmax = 70
-    cfg.scene.entities = {"robot": get_h1_2_robot_cfg()}
+    cfg.sim.nconmax = None
+    cfg.scene.entities = {"robot": get_lite3_robot_cfg()}
 
     _configure_height_sensors(cfg)
     feet_sensor, other_sensor = _contact_sensors()
@@ -110,28 +102,26 @@ def make_h1_2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
     action = cfg.actions["joint_pos"]
     assert isinstance(action, JointPositionActionCfg)
-    action.scale = H1_2_ACTION_SCALE
+    action.scale = LITE3_ACTION_SCALE
 
-    cfg.viewer.body_name = _VIEWER_BODY
+    cfg.viewer.body_name = _ROOT_BODY
     cfg.viewer.distance = 1.5
     cfg.viewer.elevation = -10.0
     command = cfg.commands["twist"]
     assert isinstance(command, UniformVelocityCommandCfg)
-    command.viz.z_offset = 1.55
+    command.viz.z_offset = 0.5
 
-    cfg.events["foot_friction"].params["asset_cfg"].geom_names = _FOOT_GEOMS
-    cfg.events["base_com"].params["asset_cfg"].body_names = (_VIEWER_BODY,)
+    cfg.events["foot_friction"].params["asset_cfg"].geom_names = _QUAD_GEOMS
+    cfg.events["base_com"].params["asset_cfg"].body_names = (_ROOT_BODY,)
     _configure_posture(cfg)
-    cfg.rewards["upright"].params["asset_cfg"].body_names = (_VIEWER_BODY,)
-    cfg.rewards["body_ang_vel"].params["asset_cfg"].body_names = (_VIEWER_BODY,)
+    cfg.rewards["upright"].params["asset_cfg"].body_names = (_ROOT_BODY,)
+    cfg.rewards["body_ang_vel"].params["asset_cfg"].body_names = (_ROOT_BODY,)
     for name in ("foot_clearance", "foot_slip"):
-        cfg.rewards[name].params["asset_cfg"].site_names = _SITES
+        cfg.rewards[name].params["asset_cfg"].site_names = _QUAD_FEET
 
-    cfg.rewards["body_ang_vel"].weight = -0.05
-    cfg.rewards["angular_momentum"].weight = -0.02
-    cfg.rewards["self_collisions"] = RewardTermCfg(
-        func=mdp.self_collision_cost,
-        weight=-1.0,
+    cfg.terminations.pop("fell_over", None)
+    cfg.terminations["illegal_contact"] = TerminationTermCfg(
+        func=mdp.illegal_contact,
         params={"sensor_name": other_sensor.name, "force_threshold": 10.0},
     )
 
@@ -155,9 +145,9 @@ def make_h1_2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     return cfg
 
 
-def make_h1_2_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """Flat-ground H1_2 velocity configuration."""
-    cfg = make_h1_2_rough_env_cfg(play=play)
+def make_lite3_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Flat-ground A2 velocity configuration."""
+    cfg = make_lite3_rough_env_cfg(play=play)
     cfg.sim.njmax = 300
     cfg.sim.mujoco.ccd_iterations = 50
     cfg.sim.contact_sensor_maxmatch = 64
@@ -181,15 +171,15 @@ def make_h1_2_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     return cfg
 
 
-def h1_2_flat_env_cfg(*, play: bool = False):
-    return make_h1_2_flat_env_cfg(play=play)
+def lite3_flat_env_cfg(*, play: bool = False):
+    return make_lite3_flat_env_cfg(play=play)
 
 
-def h1_2_rough_env_cfg(*, play: bool = False):
-    return make_h1_2_rough_env_cfg(play=play)
+def lite3_rough_env_cfg(*, play: bool = False):
+    return make_lite3_rough_env_cfg(play=play)
 
 
-def h1_2_runner_cfg():
+def lite3_runner_cfg():
     from mjlab.rl import (
         RslRlModelCfg,
         RslRlOnPolicyRunnerCfg,
@@ -226,8 +216,8 @@ def h1_2_runner_cfg():
             desired_kl=0.01,
             max_grad_norm=1.0,
         ),
-        experiment_name="h1_2_velocity",
+        experiment_name="lite3_velocity",
         save_interval=100,
         num_steps_per_env=24,
-        max_iterations=30000,
+        max_iterations=10_000,
     )

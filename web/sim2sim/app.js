@@ -3491,6 +3491,10 @@ function buildObservation() {
     buildGo2wRlSdkObservation();
     return;
   }
+  if (CONFIG.observationKind === "go2_rl_sdk_45") {
+    buildGo2RlSdkObservation();
+    return;
+  }
   if (CONFIG.observationKind === "g1_mjlab_velocity_98") {
     buildG1MjlabVelocityObservation();
     return;
@@ -3769,6 +3773,23 @@ function buildGo2wRlSdkObservation() {
     const rel = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
     sim.obs[offset++] = CONFIG.controlModes[i] === "velocity" ? 0 : rel;
   }
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
+// Go2/B2 四足 rl_sar/robot_lab 部署契约（45 维，12 位置动作）：
+// ang_vel×0.25(body), gravity, cmd×1.0, (dof_pos-default)×1.0, dof_vel×0.05, 原始 action。
+function buildGo2RlSdkObservation() {
+  if (CONFIG.numObs !== 45 || CONFIG.numActions !== 12) {
+    throw new Error(`go2_rl_sdk_45 requires 45 observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
 }
