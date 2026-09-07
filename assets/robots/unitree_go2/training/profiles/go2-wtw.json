@@ -1,0 +1,19 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "go2-wtw",
+  "display_name": "Go2 Walk-These-Ways (periodic gait)",
+  "source": "package-local periodic reward framework task",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "local_tasks.robots.unitree.go2.tasks.locomotion.wtw:go2_wtw_flat_env_cfg",
+    "runner": "local_tasks.robots.unitree.go2.tasks.locomotion.wtw:go2_wtw_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "Unitree-Go2-WTW",
+  "terrain_type": "rough",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "sort_order": 12
+}
