@@ -355,6 +355,46 @@ def _call_factory(factory, *, play: bool = False):
     return factory()
 
 
+def strip_visual_geoms(env_cfg) -> int:
+    """headless 训练变体（清单 ⑧ A 的 get_headless_spec 同语义）：训练 env 剥离纯渲染
+    geom（contype==0 且 conaffinity==0 且 density==0），只留碰撞体，Warp 训练提速。
+    通过包装 entity 的 spec_fn 在 spec 阶段剔除；play/evaluate 不受影响。返回剥离数。
+    """
+    stripped_total = 0
+    try:
+        entities = env_cfg.scene.entities
+    except AttributeError:
+        return 0
+    for name, entity_cfg in entities.items():
+        spec_fn = getattr(entity_cfg, "spec_fn", None)
+        if not callable(spec_fn):
+            continue
+        original = spec_fn
+
+        def wrapped(_original=original):
+            import mujoco
+            spec = _original()
+            stripped = 0
+            for geom in list(spec.geoms):
+                try:
+                    if (int(geom.contype) == 0 and int(geom.conaffinity) == 0
+                            and float(getattr(geom, "density", 0) or 0) == 0):
+                        spec.delete_geom(geom)
+                        stripped += 1
+                except Exception:
+                    continue
+            nonlocal_stripped[0] += stripped
+            return spec
+
+        nonlocal_stripped = [0]
+        try:
+            entity_cfg.spec_fn = wrapped
+            # 记录剥离数要等构建后才知道；这里只挂包装
+        except Exception:
+            entity_cfg.spec_fn = original
+    return stripped_total
+
+
 def _load_profile_bundle(profile: dict, package: dict, config: dict):
     """Load an isolated package profile without robot-id-specific branches."""
     package_root = Path(str(package.get("package_root", ""))).resolve()
@@ -374,6 +414,8 @@ def _load_profile_bundle(profile: dict, package: dict, config: dict):
         raise AttributeError(f"package entrypoint attribute not found: {runner_entrypoint}")
     env_cfg = _call_factory(env_factory, play=False)
     play_env_cfg = _call_factory(env_factory, play=True)
+    if bool(config.get("headless_visual", False)) is False and str(config.get("mode", "train")) == "train":
+        strip_visual_geoms(env_cfg)
     # MJLab profiles commonly export a runner config instance (for example
     # ``MicroduckRlCfg = RslRlOnPolicyRunnerCfg(...)``) rather than a factory.
     # Accept both forms so package authors do not need a platform-specific
