@@ -4,6 +4,11 @@
 
 ## 1. scene.xml 桌面端编译失败（include + meshdir 双重前缀）
 
+> **2026-09-07 更新**：已落地推荐方案——`adapters/mjlab/scene_builder.py` 提供
+> MjSpec 场景组装（机器人+契约物理常量+平地/box 障碍），go2w 实测通过
+> （nq=23/nu=16，含障碍 55 geom）。桌面工具链（验收器/回放 diff/地形生成）统一走它；
+> scene.xml 保留为浏览器 include 场景（浏览器不受影响）。
+
 - 现象：`assets/robots/*/simulation/scene.xml`（`<include file="../model/robot.xml"/>` +
   `<compiler meshdir="model/assets"/>`）在桌面 mujoco 3.11 下报
   `Error opening file 'model/assets/assets/robots/<pkg>/model/<mesh>'`——include 机制把
@@ -32,6 +37,17 @@
 - 待决策：是否只保留最新 N 个 onnx（滚动清理），或仅对 `model_final` 保留。
 
 ## 4. IsaacLab 第二后端
+
+## 4b. 浏览器 height-scan 观测（调研结论）
+
+- 参照实现：parkour_mjlab `src/tasks/pie/config/go2/env_cfgs.py` L134-147——
+  `RayCastSensorCfg + GridPatternCfg(size=(1.7,1.0), resolution=0.1) + max_distance=5.0`
+  （身体扫描）+ 近距足下精细网格 (0.02)。传感器在 mjlab 训练侧产出高度图向量。
+- 浏览器复现路径：训练导出的策略若含 height_scan 段，浏览器需按同一 GridPattern
+  对地形 mesh 做射线/采样。MuJoCo WASM 有 `mj_ray` 可用（ros2-nav-sim 项目已验证），
+  但 17×10 网格 × 每控制步的射线量在 WASM 里是可行的性能量级。
+- 结论：可行但工作量大（网格 raycast + 观测段布局），等第一个带 height_scan 的
+  策略实际需要回放时再做；契约里已有 observation_mask 机制可标注该段。
 
 - robot_lab 的双后端适配层已证明可行，但 legged_studio 训练目前只有 mjlab worker。
   若要加 IsaacLab 后端：contract.json 的中立数据层已经够用（增益/默认角/限位同源），
