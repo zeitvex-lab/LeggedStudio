@@ -288,6 +288,123 @@
         }
       },
       "source": "go2w_sim2sim policy/history_1/model.onnx（16 维混合策略，SDK 序）"
+    },
+    {
+      "id": "robotlab-velocity-57",
+      "path": "simulation/policies/robotlab_velocity_57.onnx",
+      "label": "Velocity 57D (rl_sar robot_lab)",
+      "obs_dim": 57,
+      "action_dim": 16,
+      "history_len": 1,
+      "source": "rl_sar policy/go2w/robot_lab（Apache-2.0，社区 IsaacLab 系训练基准）",
+      "contract": {
+        "observation_kind": "go2w_rl_sdk_57",
+        "obs_dim": 57,
+        "action_dim": 16,
+        "history_len": 1,
+        "command_dims": 3,
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "command_ranges": {
+          "lin_vel_x": [
+            -1.0,
+            1.0
+          ],
+          "lin_vel_y": [
+            -0.5,
+            0.5
+          ],
+          "ang_vel_z": [
+            -1.0,
+            1.0
+          ]
+        },
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint",
+          "FR_wheel_joint",
+          "FL_wheel_joint",
+          "RR_wheel_joint",
+          "RL_wheel_joint"
+        ],
+        "default_joint_angles": {
+          "FR_hip_joint": 0.0,
+          "FR_thigh_joint": 0.5,
+          "FR_calf_joint": -1.5,
+          "FL_hip_joint": 0.0,
+          "FL_thigh_joint": 0.5,
+          "FL_calf_joint": -1.5,
+          "RR_hip_joint": 0.0,
+          "RR_thigh_joint": 0.8,
+          "RR_calf_joint": -1.5,
+          "RL_hip_joint": 0.0,
+          "RL_thigh_joint": 0.8,
+          "RL_calf_joint": -1.5,
+          "FR_wheel_joint": 0.0,
+          "FL_wheel_joint": 0.0,
+          "RR_wheel_joint": 0.0,
+          "RL_wheel_joint": 0.0
+        },
+        "action_scale": 0.25,
+        "action_scale_by_joint": {
+          "FR_hip_joint": 0.125,
+          "FR_thigh_joint": 0.25,
+          "FR_calf_joint": 0.25,
+          "FL_hip_joint": 0.125,
+          "FL_thigh_joint": 0.25,
+          "FL_calf_joint": 0.25,
+          "RR_hip_joint": 0.125,
+          "RR_thigh_joint": 0.25,
+          "RR_calf_joint": 0.25,
+          "RL_hip_joint": 0.125,
+          "RL_thigh_joint": 0.25,
+          "RL_calf_joint": 0.25,
+          "FR_wheel_joint": 5.0,
+          "FL_wheel_joint": 5.0,
+          "RR_wheel_joint": 5.0,
+          "RL_wheel_joint": 5.0
+        },
+        "scales": {
+          "ang_vel": 0.25,
+          "dof_pos": 1.0,
+          "dof_vel": 0.05,
+          "command": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "autoplay": false,
+        "control": {
+          "stiffness": {
+            "hip": 20.0,
+            "thigh": 20.0,
+            "calf": 20.0,
+            "wheel": 0.0,
+            "joint": 20.0
+          },
+          "damping": {
+            "hip": 0.5,
+            "thigh": 0.5,
+            "calf": 0.5,
+            "wheel": 0.5,
+            "joint": 0.5
+          }
+        }
+      }
     }
   ],
   "default_map": "flat",

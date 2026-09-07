@@ -1326,6 +1326,22 @@ function applyRuntimeConfig(config) {
       CONFIG.kds[i] = controlValue(damping, order[i], group, CONFIG.kds[i]);
     }
   }
+  // Per-policy PD override (third-party rl_sar-style contracts pin their own
+  // rl_kp/rl_kd, which can differ from the package-wide gains).
+  const policyKps = normalizedNameMap(contract?.control?.stiffness);
+  const policyKds = normalizedNameMap(contract?.control?.damping);
+  if (policyKps.size || policyKds.size) {
+    for (let i = 0; i < CONFIG.numActions; i += 1) {
+      const name = String(order[i] || CONFIG.jointOrder[i] || "").toLowerCase();
+      const group = jointGroup(name);
+      if (policyKps.size) {
+        CONFIG.kps[i] = controlValue(policyKps, name, group, CONFIG.kps[i]);
+      }
+      if (policyKds.size) {
+        CONFIG.kds[i] = controlValue(policyKds, name, group, CONFIG.kds[i]);
+      }
+    }
+  }
   CONFIG.actionScale = finiteNumber(control.action_scale, CONFIG.actionScale);
   CONFIG.hipScaleReduction = finiteNumber(control.hip_scale_reduction, CONFIG.hipScaleReduction);
   const requestedBaseHeight = Number(control.base_height_target);
@@ -3471,6 +3487,10 @@ function buildObservation() {
     buildGo2wMjlabLegsObservation();
     return;
   }
+  if (CONFIG.observationKind === "go2w_rl_sdk_57") {
+    buildGo2wRlSdkObservation();
+    return;
+  }
   if (CONFIG.observationKind === "g1_mjlab_velocity_98") {
     buildG1MjlabVelocityObservation();
     return;
@@ -3728,6 +3748,28 @@ function buildGo2wMjlabLegsObservation() {
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
   for (const w of sim.g2wMjIdx.wheels) sim.obs[offset++] = w ? wrapPi(sim.qpos[w.q]) : 0;
   for (const w of sim.g2wMjIdx.wheels) sim.obs[offset++] = (w ? sim.qvel[w.d] : 0) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
+// Go2-W rl_sar/robot_lab 部署契约（57 维，16 动作 = 12 腿位置 + 4 轮速度）：
+// ang_vel×0.25(body), gravity, cmd×1.0, (dof_pos-default)×1.0【轮位置清零】,
+// dof_vel×0.05（全 16）, 原始 action（未乘 scale，clip ±100 后）。
+// 输出端：腿 PD 目标 = a×scale+default（rl_kp20/rl_kd0.5）；轮 = a×5.0 纯速度目标（rl_kp=0）。
+function buildGo2wRlSdkObservation() {
+  if (CONFIG.numObs !== 57 || CONFIG.numActions !== 16) {
+    throw new Error(`go2w_rl_sdk_57 requires 57 observations and 16 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) {
+    const rel = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
+    sim.obs[offset++] = CONFIG.controlModes[i] === "velocity" ? 0 : rel;
+  }
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
 }
 
