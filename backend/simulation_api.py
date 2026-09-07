@@ -504,6 +504,14 @@ def _browser_model_xml(root: Path, model_path: Path, preset: dict[str, Any]) -> 
     return ET.tostring(document, encoding="unicode")
 
 
+def _find_package_root_quiet(preset: dict[str, Any]) -> Path | None:
+    try:
+        root = Path(str((preset.get("robot_package") or {}).get("package_root", ""))).resolve()
+        return root if root.exists() else None
+    except (TypeError, ValueError, OSError):
+        return None
+
+
 def _configure_browser_actuators(document: ET.Element, preset: dict[str, Any]) -> None:
     """Normalize actuator semantics for the browser runtime.
 
@@ -514,8 +522,9 @@ def _configure_browser_actuators(document: ET.Element, preset: dict[str, Any]) -
     the position actuators used by ``microduck-simulator`` and is left intact.
     """
     robot_id = str(preset.get("robot_id") or "").lower().replace("_", "-")
-    if robot_id not in {"unitree-go2", "zex-w"}:
+    if robot_id not in {"unitree-go2", "zex-w", "unitree-a2"}:
         return
+    simulation_config = _read_simulation_config(root) if (root := _find_package_root_quiet(preset)) else {}
     contract = preset.get("contract") or {}
     order = list(
         contract.get("action", {}).get("joint_order")
@@ -545,6 +554,30 @@ def _configure_browser_actuators(document: ET.Element, preset: dict[str, Any]) -
                     "forcelimited": "true",
                     "forcerange": f"{-limit:g} {limit:g}",
                 },
+            )
+        return
+
+    # A2 (Unitree A2 quadruped)：12 关节 position 执行器，增益取自包契约
+    # （hip/thigh 100/4，calf 150/6，effort 120/120/180——与 mjlab A2 任务一致）。
+    if robot_id == "unitree-a2":
+        sim_cfg = simulation_config or {}
+        stiffness = sim_cfg.get("stiffness") or {}
+        damping = sim_cfg.get("damping") or {}
+        torque_limits = sim_cfg.get("torque_limits") or {}
+        lowered_kp = {k.lower(): float(v) for k, v in stiffness.items()}
+        lowered_kd = {k.lower(): float(v) for k, v in damping.items()}
+        lowered_tau = {k.lower(): float(v) for k, v in torque_limits.items()}
+        for joint_name in order:
+            name = str(joint_name)
+            key = name.lower()
+            kp = lowered_kp.get(key, 100.0)
+            kv = lowered_kd.get(key, 4.0)
+            tau = lowered_tau.get(key, 120.0)
+            ET.SubElement(
+                actuator,
+                "position",
+                {"name": name, "joint": name, "kp": f"{kp:g}", "kv": f"{kv:g}",
+                 "forcelimited": "true", "forcerange": f"{-tau:g} {tau:g}"},
             )
         return
 

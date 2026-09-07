@@ -1,0 +1,20 @@
+{
+  "schema_version": "robot-package-1.0",
+  "package_id": "unitree_a2",
+  "task_kind": "generic",
+  "capabilities": [
+    "generic_mjlab",
+    "mujoco_sim"
+  ],
+  "model": {
+    "format": "mjcf",
+    "path": "model/robot.xml",
+    "assets_path": "model/assets"
+  },
+  "contract_path": "contract.json",
+  "simulation_config_path": "simulation/config.json",
+  "training_config_path": "training/config.json",
+  "display_name": "Unitree A2",
+  "source_project": "unitree_rl_mjlab (mjlab upstream A2 velocity)",
+  "notes": "12-DoF quadruped; position actuators hip/thigh 100/4, calf 150/6, armature 0.03, effort 120/120/180; default pose hip ±0.1 thigh 0.9 calf -1.8 @ z 0.4"
+}

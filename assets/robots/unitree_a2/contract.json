@@ -1,0 +1,81 @@
+{
+  "contract_id": "unitree_a2_12dof_v1",
+  "schema_version": "robot-contract-2.0",
+  "robot_id": "unitree_a2",
+  "family": "Unitree A2",
+  "size_class": "M",
+  "locomotion_type": "P",
+  "urdf": {
+    "path": "model/robot.xml",
+    "hash": "",
+    "total_mass_kg": null
+  },
+  "joints": {
+    "actuated_joints": [
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint"
+    ],
+    "passive_joints": [],
+    "default_pose": [
+      -0.1,
+      0.9,
+      -1.8,
+      0.1,
+      0.9,
+      -1.8,
+      -0.1,
+      0.9,
+      -1.8,
+      0.1,
+      0.9,
+      -1.8
+    ]
+  },
+  "observation": {
+    "dimension": 45,
+    "components": [
+      "ang_vel",
+      "gravity",
+      "cmd",
+      "joint_pos_rel",
+      "joint_vel",
+      "last_action",
+      "history"
+    ],
+    "normalizer": null
+  },
+  "action": {
+    "dimension": 12,
+    "joint_order": [
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint"
+    ],
+    "action_scale": 0.5,
+    "action_scale_note": "mjlab A2 velocity 任务统一 0.5"
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 200,
+    "decimation": 4
+  }
+}
