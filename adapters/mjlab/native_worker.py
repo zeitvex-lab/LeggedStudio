@@ -27,6 +27,54 @@ def _write(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def build_deploy_metadata(env, rl_cfg, joint_names: list[str]) -> dict:
+    """从 mjlab env 提取部署契约元数据（键与 onnx_exporter/浏览器校验对齐）。"""
+    import mujoco
+
+    mj_model = env.sim.mj_model
+    joint_to_ctrl = {}
+    for aid in range(mj_model.nu):
+        jid = int(mj_model.actuator_trnid[aid, 0])
+        name = mujoco.mj_id2name(mj_model, mujoco.mjtObj.mjOBJ_JOINT, jid)
+        joint_to_ctrl[name] = aid
+    stiffness: list[float] = []
+    damping: list[float] = []
+    for name in joint_names:
+        aid = joint_to_ctrl.get(name)
+        stiffness.append(float(mj_model.actuator_gainprm[aid, 0]) if aid is not None else 0.0)
+        damping.append(float(-mj_model.actuator_biasprm[aid, 2]) if aid is not None else 0.0)
+    default_joint_pos = env.scene["robot"].data.default_joint_pos[0].detach().cpu().tolist()
+
+    try:
+        action_term = env.action_manager.get_term("joint_pos")
+        scale = getattr(action_term, "_scale")
+        action_scale = scale.flatten().tolist() if hasattr(scale, "flatten") else [float(x) for x in scale]
+    except Exception:
+        action_scale = []
+    try:
+        observation_names = list(env.observation_manager.active_terms.get("policy", []))
+    except Exception:
+        observation_names = []
+    try:
+        command_names = list(env.command_manager.active_terms)
+    except Exception:
+        command_names = []
+
+    metadata: dict = {
+        "joint_names": joint_names,
+        "joint_stiffness": stiffness,
+        "joint_damping": damping,
+        "default_joint_pos": default_joint_pos,
+        "observation_names": observation_names,
+        "command_names": command_names,
+        "action_scale": action_scale,
+    }
+    clip = getattr(rl_cfg, "clip_actions", None)
+    if clip is not None:
+        metadata["clip_actions"] = float(clip)
+    return metadata
+
+
 def export_runner_policy_onnx(report: dict, env, runner, wrapped, rl_cfg, output: Path,
                               device: str, contract=None, contract_path=None) -> None:
     """训练完成即导出（清单 ⑤）：actor -> exported/policy.onnx + 部署元数据盖章。
@@ -70,58 +118,53 @@ def export_runner_policy_onnx(report: dict, env, runner, wrapped, rl_cfg, output
             opset_version=17,
         )
 
-    import mujoco
-    mj_model = env.sim.mj_model
-    joint_to_ctrl = {}
-    for aid in range(mj_model.nu):
-        jid = int(mj_model.actuator_trnid[aid, 0])
-        name = mujoco.mj_id2name(mj_model, mujoco.mjtObj.mjOBJ_JOINT, jid)
-        joint_to_ctrl[name] = aid
-    stiffness: list[float] = []
-    damping: list[float] = []
-    for name in joint_names:
-        aid = joint_to_ctrl.get(name)
-        stiffness.append(float(mj_model.actuator_gainprm[aid, 0]) if aid is not None else 0.0)
-        damping.append(float(-mj_model.actuator_biasprm[aid, 2]) if aid is not None else 0.0)
-    default_joint_pos = robot.data.default_joint_pos[0].detach().cpu().tolist()
-
-    try:
-        action_term = env.action_manager.get_term("joint_pos")
-        scale = getattr(action_term, "_scale")
-        action_scale = scale.flatten().tolist() if hasattr(scale, "flatten") else [float(x) for x in scale]
-    except Exception:
-        action_scale = []
-    try:
-        observation_names = list(env.observation_manager.active_terms.get("policy", []))
-    except Exception:
-        observation_names = []
-    try:
-        command_names = list(env.command_manager.active_terms)
-    except Exception:
-        command_names = []
+    metadata = build_deploy_metadata(env, rl_cfg, joint_names)
 
     try:
         from onnx_exporter import attach_metadata_to_onnx
     except ImportError:
         from adapters.mjlab.onnx_exporter import attach_metadata_to_onnx
 
-    metadata: dict = {
-        "run_path": str(output),
-        "joint_names": joint_names,
-        "joint_stiffness": stiffness,
-        "joint_damping": damping,
-        "default_joint_pos": default_joint_pos,
-        "observation_names": observation_names,
-        "command_names": command_names,
-        "action_scale": action_scale,
-    }
-    clip = getattr(rl_cfg, "clip_actions", None)
-    if clip is not None:
-        metadata["clip_actions"] = float(clip)
+    metadata["run_path"] = str(output)
     attach_metadata_to_onnx(str(export_path), metadata)
     report["onnx_path"] = str(export_path)
     report["onnx_metadata_keys"] = sorted(metadata.keys())
     print(f"[native_worker] policy exported: {export_path}")
+
+
+def wrap_runner_with_checkpoint_export(runner_cls, metadata_builder):
+    """包一层 runner：每次 save checkpoint 时同步导出 onnx 并盖章部署元数据。
+
+    仅对 MjlabOnPolicyRunner 及其子类生效；其他 runner 原样返回。
+    metadata_builder(runner) 返回元数据 dict；导出失败只打印，不中断训练。
+    """
+    try:
+        from mjlab.rl import MjlabOnPolicyRunner
+    except ImportError:
+        return runner_cls
+    if not (isinstance(runner_cls, type) and issubclass(runner_cls, MjlabOnPolicyRunner)):
+        return runner_cls
+
+    class ExportingRunner(runner_cls):  # type: ignore[misc,valid-type]
+        _deploy_metadata_builder = staticmethod(metadata_builder)
+
+        def save(self, path: str, infos=None) -> None:
+            super().save(path, infos)
+            try:
+                export_dir, filename, export_path = self._get_export_paths(str(path))
+                self.export_policy_to_onnx(str(export_dir), filename)
+                metadata = type(self)._deploy_metadata_builder(self)
+                if metadata:
+                    metadata = {**metadata, "checkpoint_path": str(path)}
+                    try:
+                        from onnx_exporter import attach_metadata_to_onnx
+                    except ImportError:
+                        from adapters.mjlab.onnx_exporter import attach_metadata_to_onnx
+                    attach_metadata_to_onnx(str(export_path), metadata)
+            except Exception as exc:
+                print(f"[native_worker] checkpoint onnx export failed: {exc}")
+
+    return ExportingRunner
 
 
 def apply_training_recipe(env_cfg, rl_cfg, config: dict, *, preserve_profile: bool = False) -> dict:
@@ -457,7 +500,27 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         "package": {"package_id": package.get("package_id"), "task_kind": "generic", "capabilities": package.get("capabilities", [])},
         "profile": {"profile_id": profile.get("profile_id"), "source": profile.get("source")} if profile else None,
         "package_extension": extension_report or None,
+        # 训练前可达性预检（清单 ⑧）：包模型开环恒定动作扫描（纯 mujoco，无策略）。
+        # 默认姿态不稳或动作包络即刻发散时在这里暴露，而不是训练几小时后。
     }
+    try:
+        package_root = Path(str(package.get("package_root", ""))) if package else None
+        if package_root and (package_root / "model" / "robot.xml").is_file():
+            import mujoco
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from policy_acceptance import ObsBuilder, PackageContract, load_package_model, run_probe
+
+            package_contract = PackageContract(package_root, (config.get("policy") or {}))
+            probe_model = load_package_model(package_root, package_contract.sim)
+            probe_model.opt.timestep = 1.0 / package_contract.physics_hz
+            probe_data = mujoco.MjData(probe_model)
+            probe_obs = ObsBuilder(package_contract, probe_model, probe_data)
+            report["acceptance_probe"] = run_probe(
+                package_contract, probe_model, probe_data, probe_obs,
+                seconds=float(config.get("probe_seconds", 2.0)),
+            )
+    except Exception as exc:
+        report["acceptance_probe_error"] = f"{type(exc).__name__}: {exc}"
     try:
         mjlab_version = str(importlib.metadata.version("mjlab"))
     except importlib.metadata.PackageNotFoundError:
@@ -542,6 +605,16 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             rl_cfg.logger = str(config.get("logger", "tensorboard"))
             wrapped = RslRlVecEnvWrapper(env, clip_actions=rl_cfg.clip_actions)
             runner_type = load_runner_cls(task_id) or MjlabOnPolicyRunner
+
+            def _checkpoint_metadata(r, _rl_cfg=rl_cfg, _cp=contract_path):
+                joint_names = list(getattr(r.env.unwrapped.scene["robot"], "joint_names", []) or [])
+                if not joint_names and _cp:
+                    from contracts.robot_contract_v2 import RobotContractV2
+                    loaded = RobotContractV2.from_json_file(str(_cp))
+                    joint_names = [joint.name for joint in loaded.joints.actuated_joints]
+                return build_deploy_metadata(r.env.unwrapped, _rl_cfg, joint_names)
+
+            runner_type = wrap_runner_with_checkpoint_export(runner_type, _checkpoint_metadata)
             runner = runner_type(wrapped, asdict(rl_cfg), str(output), device)
             runner.learn(num_learning_iterations=rl_cfg.max_iterations, init_at_random_ep_len=True)
             report["status"] = "train_completed"
