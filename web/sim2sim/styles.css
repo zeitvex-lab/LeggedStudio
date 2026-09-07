@@ -1191,9 +1191,6 @@ kbd.active {
   }
 }
 
-body.embedded .studio-nav {
-  display: none;
-}
 body.embedded .brand {
   display: none;
 }
@@ -1308,27 +1305,6 @@ body {
 .footer,
 .key-grid kbd {
   color: var(--muted);
-}
-.studio-nav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 0;
-}
-.studio-nav a {
-  padding: 7px 9px;
-  border-bottom: 2px solid transparent;
-  color: var(--muted);
-  font-size: 12px;
-  text-decoration: none;
-}
-.studio-nav a:hover {
-  color: var(--text);
-  background: #f3f6fa;
-}
-.studio-nav a.active {
-  border-bottom-color: var(--blue);
-  color: var(--blue);
 }
 .toolbar {
   padding: 7px;
@@ -1472,16 +1448,6 @@ input[type="range"] {
     top: 12px;
     left: 12px;
     right: 12px;
-  }
-  .studio-nav {
-    order: 3;
-    width: 100%;
-    justify-content: space-between;
-    margin-left: 0;
-  }
-  .studio-nav a {
-    flex: 1;
-    text-align: center;
   }
   .footer {
     left: 12px;

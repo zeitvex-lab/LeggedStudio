@@ -54,6 +54,7 @@ const CONFIG = {
   actuatorInterface: "torque",
   positionActionScales: new Float32Array(12).fill(0.25),
   velocityActionScales: new Float32Array(12).fill(20),
+  actionClip: null,
   observationKind: "default",
   historyLayout: "",
   gaitCommandGated: false,
@@ -368,9 +369,10 @@ const input = {
   joystickPointer: null,
   joystickForward: 0,
   joystickTurn: 0,
-  // 速度指令滑条直连策略（item 10）：用户触碰滑条后接管 idle 指令。
+  // 速度指令滑条直连策略（item 10）："启用"默认勾选 = 滑条默认接管 idle 指令。
   manualCmd: new Float32Array(3),
-  manualCmdActive: false,
+  manualCmdActive: true,
+  velocityCmdTouched: false,
   // 鼠标拖拽施力（item 9）：move 只记 NDC，力在物理步内写入 xfrc_applied。
   drag: null,
 };
@@ -682,11 +684,12 @@ async function loadPolicyFromConfig(config, initial = false) {
   setStatus(elements.policyStatus, initial ? "正在加载策略" : "正在加载新策略", "pending");
   sim.policyLoading = true;
   let session;
+  let modelBytes;
   try {
     // 手动 fetch(cache:"no-store") 拿字节再交给 ort：彻底绕开 HTTP 缓存里
     // 残留的旧版（带外部数据引用）ONNX 字节——go2w 曾因此报
     // 'Failed to load external data file "policy.onnx.data"'。
-    const modelBytes = await fetchPolicyModelBytes(cacheBustedUrl(url, `${revision}-t${Date.now()}`));
+    modelBytes = await fetchPolicyModelBytes(cacheBustedUrl(url, `${revision}-t${Date.now()}`));
     session = await ort.InferenceSession.create(modelBytes, {
       executionProviders: ["wasm"],
       graphOptimizationLevel: "basic",
@@ -708,12 +711,108 @@ async function loadPolicyFromConfig(config, initial = false) {
     sim.policyInfo.baseObsSize || CONFIG.numObs,
     sim.policyInfo.historyFrames || contract.history_len || 5,
   );
+  const metaProblem = validatePolicyMetadata(modelBytes);
   applyPlatformLabels(config);
-  setStatus(elements.policyStatus, `${sim.policyInfo.mode} 已就绪`, "ready");
+  setStatus(
+    elements.policyStatus,
+    metaProblem ? `已就绪 · 元数据不匹配（${metaProblem}）` : `${sim.policyInfo.mode} 已就绪`,
+    metaProblem ? "error" : "ready",
+  );
   if (previousPolicy && previousPolicy !== session) {
     try { await previousPolicy.release?.(); } catch (error) { console.warn("policy release failed", error); }
   }
   return true;
+}
+
+/** 极简 ONNX protobuf 扫描：只提取顶层 metadata_props（field 14），其余字段按 wire type 跳过。
+ * vendored onnxruntime-web 是精简版、没有 InferenceSession.metadata API，所以自己读模型字节。 */
+function readOnnxMetadataBytes(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const decoder = new TextDecoder();
+  const cursor = { pos: 0 };
+  const readVarint = () => {
+    let result = 0, shift = 0;
+    for (;;) {
+      const b = view.getUint8(cursor.pos);
+      cursor.pos += 1;
+      result += (b & 0x7f) * Math.pow(2, shift);
+      if (!(b & 0x80)) return result;
+      shift += 7;
+    }
+  };
+  const readSlice = () => {
+    const len = readVarint();
+    const slice = bytes.subarray(cursor.pos, cursor.pos + len);
+    cursor.pos += len;
+    return slice;
+  };
+  const readString = (slice) => decoder.decode(slice);
+  const meta = {};
+  while (cursor.pos < bytes.length) {
+    const tag = readVarint();
+    const field = tag >>> 3;
+    const wire = tag & 7;
+    if (wire === 0) {
+      readVarint();
+    } else if (wire === 1) {
+      cursor.pos += 8;
+    } else if (wire === 5) {
+      cursor.pos += 4;
+    } else if (wire === 2) {
+      const slice = readSlice();
+      if (field !== 14) continue;
+      // StringStringEntryProto: key = field 1, value = field 2（都是 length-delim 字符串）
+      const inner = { pos: 0 };
+      const innerVarint = () => {
+        let result = 0, shift = 0;
+        for (;;) {
+          const b = slice[inner.pos];
+          inner.pos += 1;
+          result += (b & 0x7f) * Math.pow(2, shift);
+          if (!(b & 0x80)) return result;
+          shift += 7;
+        }
+      };
+      let key = null;
+      let value = null;
+      while (inner.pos < slice.length) {
+        const tag2 = innerVarint();
+        if ((tag2 & 7) !== 2) { inner.pos = slice.length; break; }
+        const len2 = innerVarint();
+        const s = readString(slice.subarray(inner.pos, inner.pos + len2));
+        inner.pos += len2;
+        if ((tag2 >>> 3) === 1) key = s;
+        else if ((tag2 >>> 3) === 2) value = s;
+      }
+      if (key !== null) meta[key] = value ?? "";
+    } else {
+      throw new Error(`ONNX protobuf: 未知 wire type ${wire} @${cursor.pos}`);
+    }
+  }
+  return meta;
+}
+
+/** 元数据契约校验：导出时盖章的 joint_names/clip_actions 与当前契约比对。
+ * 无盖章的旧策略静默跳过；返回问题描述（用于就绪状态提示），一致返回 null。 */
+function validatePolicyMetadata(modelBytes) {
+  try {
+    const meta = readOnnxMetadataBytes(modelBytes);
+    const jointNamesCsv = meta.joint_names;
+    if (!jointNamesCsv) return null;
+    const stamped = jointNamesCsv.split(",").map((s) => s.trim());
+    const expected = (CONFIG.actionJointOrder || CONFIG.jointOrder || []).map((s) => String(s));
+    if (!expected.length) return null;
+    if (stamped.length !== expected.length) {
+      return `关节数 ${stamped.length} ≠ 契约 ${expected.length}`;
+    }
+    const first = stamped.findIndex((name, i) => name !== expected[i]);
+    if (first >= 0) return `槽 ${first}: 元数据=${stamped[first]} 契约=${expected[first]}`;
+    console.info(`[sim2sim] ✔ 策略元数据与契约一致（${stamped.length} 关节，来源=${meta.source || "stamped"}）`);
+    return null;
+  } catch (error) {
+    console.warn("[sim2sim] policy metadata validation skipped", error);
+    return null;
+  }
 }
 
 async function ensureOrtRuntime() {
@@ -1298,6 +1397,19 @@ function applyPolicyContract(contract, order = []) {
     || (CONFIG.numObs === 99 ? "quadrupedal_agility_ll" : "default");
   CONFIG.historyLayout = String(contract?.history_layout || "");
   CONFIG.gaitCommandGated = Boolean(contract?.gait_command_gated);
+  // 部署一致的动作裁剪（训练 vec-env wrapper 在 scale/offset 前施加同一界）。
+  // 接受 数字 / "0.9" / "0.9,0.9,..."（逐关节 CSV）；空值 = 不裁剪（仅保留 ±100 安全界）。
+  const clipRaw = contract?.clip_actions;
+  if (clipRaw === null || clipRaw === undefined || clipRaw === "") {
+    CONFIG.actionClip = null;
+  } else if (Array.isArray(clipRaw)) {
+    CONFIG.actionClip = clipRaw.map(Number);
+  } else if (typeof clipRaw === "string" && clipRaw.includes(",")) {
+    CONFIG.actionClip = clipRaw.split(",").map((v) => Number(v.trim()));
+  } else {
+    const n = Number(clipRaw);
+    CONFIG.actionClip = Number.isFinite(n) && n > 0 ? n : null;
+  }
   const gaitPeriodS = finiteNumber(contract?.gait_period_s, WHEEL_LEG_GAIT_PERIOD_S);
   CONFIG.gaitPeriodS = gaitPeriodS > 0 ? gaitPeriodS : WHEEL_LEG_GAIT_PERIOD_S;
   const gaitGate = contract?.gait_locomotion_gate;
@@ -3048,17 +3160,27 @@ async function runPolicy() {
   if (!action) throw new Error(`策略输出缺少动作张量；输出=${info.outputNames.join(",")}`);
   updateRecurrentStates(output, info);
 
+  // 训练端 clip_actions 在 scale/offset 前逐关节裁剪原始动作（部署一致）。
+  const clip = CONFIG.actionClip;
+  const clipped = new Float32Array(CONFIG.numActions);
   for (let i = 0; i < CONFIG.numActions; i += 1) {
     // sim.action keeps the raw network output order (this is what the obs action
     // segment feeds back, matching NP3O's action_history_buf[:,-1]). Linear
     // heads can emit extreme values on a corrupted observation; deployment
-    // clips raw actions to +-100 before feeding them back.
-    sim.action[i] = clamp(action[i], -100, 100);
+    // clips raw actions to +-100 before feeding them back, then to the
+    // contract's clip_actions bound (if any).
+    let value = clamp(action[i], -100, 100);
+    if (clip !== null && clip !== undefined) {
+      const limit = typeof clip === "number" ? clip : clip[i];
+      if (Number.isFinite(limit) && limit > 0) value = clamp(value, -limit, limit);
+    }
+    clipped[i] = value;
+    sim.action[i] = value;
     // Some policies train with a target low-pass filter.  This is explicit in
     // the policy contract: go2_rl_gym uses alpha=1 (no persistent filter).
     // True IIR against the previous filtered output — averaging against the
     // previous raw input kills the filter and destabilises filtered policies.
-    const applied = CONFIG.actionReindex ? action[CONFIG.actionReindex[i]] : action[i];
+    const applied = CONFIG.actionReindex ? clipped[CONFIG.actionReindex[i]] : clipped[i];
     const previousFiltered = sim.filterPrimed ? sim.filteredAction[i] : applied;
     sim.appliedAction[i] = applied;
     const alpha = filterAlphaForJoint(i);
@@ -4757,6 +4879,7 @@ function bindVelocityCommandControls() {
     slider?.addEventListener("input", () => {
       setVelocityCommandValue(index, slider.value);
       // 启用是真实开关：只有勾选时滑条命令才接管；未勾选只更新数值，不改变指令生效状态。
+      input.velocityCmdTouched = true;
       input.manualCmdActive = Boolean(elements.velCmdEnable?.checked);
     });
   });
@@ -4789,6 +4912,7 @@ function bindVelocityCommandControls() {
   elements.velCmdZero?.addEventListener("click", () => {
     input.manualCmd.fill(0);
     // 归零只清数值；生效状态完全跟随"启用"勾选（勾选时归零后保持零指令接管）。
+    input.velocityCmdTouched = true;
     input.manualCmdActive = Boolean(elements.velCmdEnable?.checked);
     updateVelocityCommandControls();
   });
@@ -4796,8 +4920,8 @@ function bindVelocityCommandControls() {
 
 /** 把策略契约的 default_command 写入滑条初始值（仅用户未显式设置时）。 */
 function applyVelocityCommandDefaults() {
-  // 活跃轮询会周期性重放契约；用户已经触碰滑条后不得被默认值覆盖。
-  if (input.manualCmdActive) return;
+  // 活跃轮询会周期性重放契约；用户已经触碰滑条/归零后不得被默认值覆盖。
+  if (input.velocityCmdTouched) return;
   for (let i = 0; i < 3; i += 1) {
     if (Number.isFinite(CONFIG.defaultCommand[i])) input.manualCmd[i] = CONFIG.defaultCommand[i];
   }
