@@ -1,6 +1,6 @@
 # Legged Studio
 
-Version `0.7.0` brings browser sim2sim for Unitree G1 (mjswan balance/locomotion and
+Version `0.8.0` brings browser sim2sim for Unitree G1 (mjswan balance/locomotion and
 Unitree mjlab velocity) and Unitree Go2-W (mjlab velocity legs-only), robot package
 import/export/refresh, projection-gravity observation fixes shared across all
 mjlab-trained policies, a real enable gate for velocity command sliders, and the
@@ -49,7 +49,7 @@ npm run build:online:win
 ```
 
 The archive and its top-level directory are named
-`Legged-Studio-0.7.0-Windows-Online`, not `win-unpacked` or Electron.
+`Legged-Studio-0.8.0-Windows-Online`, not `win-unpacked` or Electron.
 
 To build the Windows package with an embedded CPython 3.12 runtime, CUDA
 Torch, MJLab, and the Unitree MJLab extension, run this target on Windows:
