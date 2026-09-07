@@ -42,3 +42,35 @@ def go2_flat_runner_cfg():
     from lloco.tasks.rl import make_ppo_runner_cfg
 
     return make_ppo_runner_cfg("go2_flat_velocity", max_iterations=10_000)
+
+
+# ---- Go2 技能任务（LLoco go2_skills）：无参工厂，worker _call_factory 直接支持 ----
+
+def go2_rear_stand_env_cfg(play: bool = False):
+    from lloco.tasks.go2_skills.rear_stand.config import make_rear_stand_env_cfg
+    return make_rear_stand_env_cfg(play=play)
+
+
+def go2_rear_stand_runner_cfg():
+    from lloco.tasks.go2_skills.rear_stand.config import make_rear_stand_runner_cfg
+    return make_rear_stand_runner_cfg()
+
+
+def go2_jump_env_cfg(play: bool = False):
+    from lloco.tasks.go2_skills.jump.config import make_jump_env_cfg
+    return make_jump_env_cfg(play=play)
+
+
+def go2_jump_runner_cfg():
+    from lloco.tasks.go2_skills.jump.config import make_jump_runner_cfg
+    return make_jump_runner_cfg()
+
+
+def go2_handstand_env_cfg(play: bool = False):
+    from lloco.tasks.go2_skills.handstand.config import make_handstand_env_cfg
+    return make_handstand_env_cfg(play=play)
+
+
+def go2_handstand_runner_cfg():
+    from lloco.tasks.go2_skills.handstand.config import make_handstand_runner_cfg
+    return make_handstand_runner_cfg()

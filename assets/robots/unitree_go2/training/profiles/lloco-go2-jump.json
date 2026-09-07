@@ -1,0 +1,20 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "lloco-go2-jump",
+  "display_name": "LLoco Go2 Jump (mjlab 1.6)",
+  "source": "lain_job/LLoco go2_skills (Apache-2.0)",
+  "source_root": "training/source_lloco",
+  "entrypoints": {
+    "env": "lloco_bridge:go2_jump_env_cfg",
+    "runner": "lloco_bridge:go2_jump_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "Unitree-Go2-Jump-Flat",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "sort_order": 51,
+  "source_project": "C:/Users/31560/Documents/00_open/lain_job/LLoco"
+}
