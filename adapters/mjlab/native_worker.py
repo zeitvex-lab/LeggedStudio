@@ -132,6 +132,42 @@ def export_runner_policy_onnx(report: dict, env, runner, wrapped, rl_cfg, output
     print(f"[native_worker] policy exported: {export_path}")
 
 
+def collect_curriculum_snapshot(env) -> dict:
+    """课程阶段状态快照（清单 ⑰）：可序列化的 per-term 状态表。
+
+    mjlab 的课程 term 在 _curriculum_state 里维护每步更新的状态（如命令范围
+    缩放系数、阶段索引）。序列化为 {term: {key: float}} 供 monitor 渲染
+    "当前课程阶段 + 各阶段指标"，而不是只有 reward 曲线。
+    """
+    import torch
+
+    snapshot: dict = {}
+    try:
+        manager = env.unwrapped.curriculum_manager
+    except AttributeError:
+        try:
+            manager = env.unwrapped.curriculum
+        except AttributeError:
+            return snapshot
+    state = getattr(manager, "_curriculum_state", {}) or {}
+    for term_name, term_state in state.items():
+        if term_state is None:
+            continue
+        if isinstance(term_state, dict):
+            entry = {}
+            for key, value in term_state.items():
+                entry[str(key)] = float(value.item()) if isinstance(value, torch.Tensor) else float(value)
+            snapshot[str(term_name)] = entry
+        elif isinstance(term_state, torch.Tensor):
+            snapshot[str(term_name)] = {"value": float(term_state.item())}
+        else:
+            try:
+                snapshot[str(term_name)] = {"value": float(term_state)}
+            except (TypeError, ValueError):
+                snapshot[str(term_name)] = {"repr": str(term_state)}
+    return snapshot
+
+
 def wrap_runner_with_checkpoint_export(runner_cls, metadata_builder):
     """包一层 runner：每次 save checkpoint 时同步导出 onnx 并盖章部署元数据。
 
@@ -618,6 +654,11 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             runner = runner_type(wrapped, asdict(rl_cfg), str(output), device)
             runner.learn(num_learning_iterations=rl_cfg.max_iterations, init_at_random_ep_len=True)
             report["status"] = "train_completed"
+            # 课程阶段快照（⑰）：训练结束时的 per-term 课程状态
+            try:
+                report["curriculum_final"] = collect_curriculum_snapshot(env)
+            except Exception as exc:
+                report["curriculum_final_error"] = f"{type(exc).__name__}: {exc}"
             report["max_iterations"] = rl_cfg.max_iterations
             report["checkpoint_dir"] = str(output)
             model_path = output / f"model_{rl_cfg.max_iterations - 1}.pt"
