@@ -289,6 +289,13 @@ def _build_record(
     model_path = str(descriptor_model.get("path") or "model/robot.xml")
     asset_value = _public_path((package_root / model_path).resolve())
     robot_id = str(contract.get("robot_id") or descriptor.get("package_id") or package_root.name)
+    # 磁盘 manifest 的 capabilities 是增量真值：合并去重（内置 descriptor 可能滞后）
+    manifest_capabilities: list[str] = []
+    manifest_path = package_root / "robot_package.json"
+    if manifest_path.exists():
+        manifest = _read_json(manifest_path) or {}
+        manifest_capabilities = [str(x) for x in (manifest.get("capabilities") or [])]
+    capabilities = list(dict.fromkeys([*(descriptor.get("capabilities") or []), *manifest_capabilities])) or ["generic_mjlab"]
     return {
         "schema_version": "robot-package-1.0",
         "source": "workspace" if source_priority else "bundled",
@@ -308,7 +315,7 @@ def _build_record(
         "runtime_requirements": descriptor.get("runtime_requirements", {}),
         "source_runtime": descriptor.get("source_runtime", {}),
         "contract": contract,
-        "robot_package": {**descriptor, "package_root": str(package_root), "contract_path": descriptor.get("contract_path", "contract.json"), "model": descriptor_model or {"format": "mjcf", "path": "model/robot.xml", "assets_path": "model/assets"}, "training_config_path": descriptor.get("training_config_path", "training/config.json"), "simulation_config_path": descriptor.get("simulation_config_path", "simulation/config.json")},
+        "robot_package": {**descriptor, "capabilities": capabilities, "package_root": str(package_root), "contract_path": descriptor.get("contract_path", "contract.json"), "model": descriptor_model or {"format": "mjcf", "path": "model/robot.xml", "assets_path": "model/assets"}, "training_config_path": descriptor.get("training_config_path", "training/config.json"), "simulation_config_path": descriptor.get("simulation_config_path", "simulation/config.json")},
     }
 
 
