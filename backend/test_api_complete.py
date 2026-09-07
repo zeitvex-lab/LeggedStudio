@@ -12,8 +12,9 @@ from backend.training_api import CreateTrainingRequest
 class CompleteApiContractTests(unittest.TestCase):
     def test_robot_summary_does_not_eagerly_return_model_contracts(self):
         payload = TestClient(app).get("/api/robots/presets?summary=true").json()
-        self.assertEqual(payload["count"], 3)
-        self.assertEqual({item["robot_id"] for item in payload["presets"]}, {"unitree_go2", "zex-w", "microduck"})
+        expected_ids = {preset["robot_id"] for preset in list_robot_presets()}
+        self.assertEqual(payload["count"], len(expected_ids))
+        self.assertEqual({item["robot_id"] for item in payload["presets"]}, expected_ids)
         self.assertTrue(all("contract" not in item for item in payload["presets"]))
         self.assertTrue(all("training_profiles" not in item for item in payload["presets"]))
 
