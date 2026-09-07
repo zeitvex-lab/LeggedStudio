@@ -1,12 +1,12 @@
 {
   "schema_version": "training-profile-1.0",
   "profile_id": "go2w-rough",
-  "display_name": "Go2-W Velocity / Rough (hybrid wheel)",
-  "source": "unitree_rl_mjlab_go2w go2w velocity rough",
-  "source_root": "C:/Users/31560/Documents/00_open/unitree_rl_mjlab_go2w",
+  "display_name": "Go2-W Velocity Rough",
+  "source": "package-local velocity task",
+  "source_root": "training/source",
   "entrypoints": {
-    "env": "mjlab.tasks.robots.unitree_go2w.velocity.env_cfgs:unitree_go2w_rough_env_cfg",
-    "runner": "mjlab.tasks.robots.unitree_go2w.velocity.rl_cfg:unitree_go2w_rough_ppo_runner_cfg",
+    "env": "go2w_velocity:unitree_go2w_rough_env_cfg",
+    "runner": "go2w_velocity:unitree_go2w_rough_ppo_runner_cfg",
     "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
   },
   "backend": "native_mjlab",
@@ -46,6 +46,5 @@
     "max_iterations": 10000,
     "save_interval": 1000
   },
-  "sort_order": 20,
-  "source_project": "unitree_rl_mjlab_go2w"
+  "sort_order": 20
 }

@@ -16,5 +16,5 @@
   "training_config_path": "training/config.json",
   "simulation_config_path": "simulation/config.json",
   "display_name": "Unitree Go2-W",
-  "source_project": "C:\\Users\\31560\\Documents\\00_open\\unitree_rl_mjlab_go2w"
+  "source_project": "package-local task source"
 }
