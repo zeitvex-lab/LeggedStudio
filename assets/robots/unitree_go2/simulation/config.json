@@ -27,7 +27,18 @@
     "joint": 35.55
   },
   "armature": {
-    "__default__": 0.01
+    "FL_hip_joint": 0.01,
+    "FL_thigh_joint": 0.01,
+    "FL_calf_joint": 0.02,
+    "FR_hip_joint": 0.01,
+    "FR_thigh_joint": 0.01,
+    "FR_calf_joint": 0.02,
+    "RL_hip_joint": 0.01,
+    "RL_thigh_joint": 0.01,
+    "RL_calf_joint": 0.02,
+    "RR_hip_joint": 0.01,
+    "RR_thigh_joint": 0.01,
+    "RR_calf_joint": 0.02
   },
   "frictionloss": {
     "__default__": 0.2
