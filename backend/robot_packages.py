@@ -367,6 +367,7 @@ def _scan_package_records() -> list[dict[str, Any]]:
     # Persisted packages are authoritative. The source asset tree is only a
     # migration fallback for installations created before package discovery.
     roots = [workspace_root / "packages", ROOT / "assets" / "robots"]
+    _sync_shipped_packages_into_workspace(roots)
     result: list[dict[str, Any]] = []
     # A package may exist both in the persisted workspace and in the shipped
     # assets tree. Prefer the persisted copy when it is complete; otherwise
@@ -489,6 +490,71 @@ def remove_package(robot_id: str) -> bool:
         return False
     _write_index(remaining)
     return True
+
+
+def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
+    """内置包 → workspace 副本的单向内容同步（refresh 时执行）。
+
+    背景：运行时读取 workspace/packages/<id>（持久化权威），但开发期新增的
+    profiles/capabilities/bridge 常只落在 assets/robots 源树里——曾因此出现
+    capabilities 丢失、新 profile 不可见两类事故。这里把源树新增/更新的**内容文件**
+    （profiles、bridge、schema 配置）单向复制过去；workspace 独有的运行产物
+    （logs、模型、checkpoint）永不触碰。返回同步的文件数。
+    """
+    import shutil
+
+    shipped_root = ROOT / "assets" / "robots"
+    workspace_root = roots[0]
+    synced = 0
+    if not shipped_root.exists():
+        return 0
+    for shipped in sorted(shipped_root.iterdir()):
+        if not shipped.is_dir():
+            continue
+        target = workspace_root / "packages" / shipped.name
+        if not (target / "contract.json").exists():
+            continue  # workspace 没有该包副本，让正常扫描直接用源树
+        # 只同步"内容"子树，避开 logs/checkpoints 等运行产物
+        for relative_root in ("training/profiles", "training/source_lloco"):
+            src_dir = shipped / relative_root
+            if not src_dir.exists():
+                continue
+            dst_dir = target / relative_root
+            for src_file in src_dir.rglob("*"):
+                if not src_file.is_file() or "__pycache__" in src_file.parts:
+                    continue
+                dst_file = dst_dir / src_file.relative_to(src_dir)
+                try:
+                    if (not dst_file.exists()
+                            or src_file.stat().st_size != dst_file.stat().st_size
+                            or int(src_file.stat().st_mtime) > int(dst_file.stat().st_mtime)):
+                        dst_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(src_file, dst_file)
+                        synced += 1
+                except OSError:
+                    continue
+        # 顶层 JSON（capabilities 等声明）以源树为准补缺失字段
+        src_manifest = shipped / "robot_package.json"
+        dst_manifest = target / "robot_package.json"
+        if src_manifest.exists() and dst_manifest.exists():
+            try:
+                src_data = _read_json(src_manifest) or {}
+                dst_data = _read_json(dst_manifest) or {}
+                changed = False
+                for key in ("capabilities", "display_name", "notes"):
+                    if src_data.get(key) and dst_data.get(key) != src_data[key]:
+                        merged = list(dict.fromkeys([*(dst_data.get(key) or []), *src_data[key]])) if key == "capabilities" else src_data[key]
+                        if dst_data.get(key) != merged:
+                            dst_data[key] = merged
+                            changed = True
+                if changed:
+                    dst_manifest.write_text(json.dumps(dst_data, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")
+                    synced += 1
+            except (OSError, ValueError):
+                pass
+    if synced:
+        print(f"[robot_packages] synced {synced} content file(s) from shipped assets into workspace")
+    return synced
 
 
 def rebuild_package_index() -> list[dict[str, Any]]:
