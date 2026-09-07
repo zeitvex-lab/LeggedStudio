@@ -138,7 +138,15 @@
             1.0
           ]
         },
-        "autoplay": true
+        "autoplay": true,
+        "observation_mask": {
+          "wrap_pi": [
+            "FR_wheel_joint",
+            "FL_wheel_joint",
+            "RR_wheel_joint",
+            "RL_wheel_joint"
+          ]
+        }
       }
     },
     {

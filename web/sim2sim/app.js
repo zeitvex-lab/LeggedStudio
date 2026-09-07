@@ -58,6 +58,9 @@ const CONFIG = {
   observationKind: "default",
   historyLayout: "",
   gaitCommandGated: false,
+  // 观测掩码（契约声明式，清单 ②）：{ "wrap_pi": ["FR_wheel_joint", ...], "zero": [...] }
+  // 命中的槽位由构建器按声明处理，替代散落在各构建器里的硬编码约定。
+  observationMask: null,
   gaitPeriodS: 0.7,
   gaitLocomotionGate: [0.05, 0.15],
   gaitYawCommandRadius: 0.25,
@@ -1397,6 +1400,17 @@ function applyPolicyContract(contract, order = []) {
     || (CONFIG.numObs === 99 ? "quadrupedal_agility_ll" : "default");
   CONFIG.historyLayout = String(contract?.history_layout || "");
   CONFIG.gaitCommandGated = Boolean(contract?.gait_command_gated);
+  // observation_mask（清单 ②）：{wrap_pi: [关节名], zero: [关节名]}，按关节名声明，
+  // 构建器据此对连续关节位置观测做 wrap/清零——新增布局不再硬编码约定。
+  const mask = contract?.observation_mask;
+  if (mask && typeof mask === "object") {
+    CONFIG.observationMask = {
+      wrapPi: Array.isArray(mask.wrap_pi) ? mask.wrap_pi.map((s) => String(s).toLowerCase()) : [],
+      zero: Array.isArray(mask.zero) ? mask.zero.map((s) => String(s).toLowerCase()) : [],
+    };
+  } else {
+    CONFIG.observationMask = null;
+  }
   // 部署一致的动作裁剪（训练 vec-env wrapper 在 scale/offset 前施加同一界）。
   // 接受 数字 / "0.9" / "0.9,0.9,..."（逐关节 CSV）；空值 = 不裁剪（仅保留 ±100 安全界）。
   const clipRaw = contract?.clip_actions;
@@ -3646,7 +3660,10 @@ function buildGo2wMjlabLegsObservation() {
     };
     sim.g2wMjIdx = {
       key,
-      wheels: ["FR_wheel_joint", "FL_wheel_joint", "RR_wheel_joint", "RL_wheel_joint"].map(resolve),
+      wheels: (CONFIG.observationMask?.wrapPi?.length
+      ? CONFIG.observationMask.wrapPi
+      : ["FR_wheel_joint", "FL_wheel_joint", "RR_wheel_joint", "RL_wheel_joint"]
+    ).map(resolve),
     };
   }
   const wrapPi = (a) => Math.atan2(Math.sin(a), Math.cos(a));
