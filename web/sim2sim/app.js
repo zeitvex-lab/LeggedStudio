@@ -403,6 +403,7 @@ async function init() {
     initThree();
     bindUi();
     applyViewerStateFromUrl();
+    applyDeterministicReplayFromUrl();
     await loadRobotOptions();
     setStatus(elements.engineStatus, "MuJoCo 初始化中", "pending");
     setStatus(elements.policyStatus, "ONNX 策略初始化中", "pending");
@@ -3986,6 +3987,18 @@ function seedHistory(obs) {
 }
 
 function updateCommand() {
+  // 确定性回放指令源：压过键盘/摇杆/滑条（验收协议中的"固定指令"环节）。
+  if (sim.deterministicReplay) {
+    const cmd = sim.deterministicReplay.command;
+    for (let i = 0; i < 3; i += 1) {
+      const max = CONFIG.maxCmd[i];
+      const value = clamp(cmd[i], -max, max);
+      sim.targetCmd[i] = value;
+      sim.cmd[i] = value;
+    }
+    syncBinaryJumpCommand();
+    return;
+  }
   const xSpeed = clamp(input.vxSpeedLimit, 0.2, CONFIG.maxCmd[0]);
   const target = sim.targetCmd;
   const heightIndex = heightCommandIndex();
@@ -5400,6 +5413,30 @@ function writeViewerStateToQuery(params, state) {
   if (typeof state.panelVisible === "boolean") next.set("panel", state.panelVisible ? "1" : "0");
   if (typeof state.trailVisible === "boolean") next.set("trail", state.trailVisible ? "1" : "0");
   return `?${next.toString()}`;
+}
+
+// 确定性回放（清单 ⑦，验收协议的浏览器环节）：?replay=vx,vy,wz[&seed=N]
+// 固定指令优先级最高（压过键盘/摇杆/滑条），observation 随机化关闭，保证同一
+// 策略+模型+seed 在任何机器上回放出同一条轨迹；配合 /acceptance 指标做"视觉不通过 = 不通过"。
+function applyDeterministicReplayFromUrl() {
+  // 注意：本函数在 init() 里调用；不能依赖模块顶层赋值（顶层语句会在 init()
+  // 启动后才执行，覆盖掉这里设置的状态——曾导致回放指令被静默清零）。
+  sim.deterministicReplay = null;
+  const raw = PAGE_PARAMS.get("replay") || "";
+  if (!raw) return;
+  const parts = raw.split(",").map((v) => Number(v.trim()));
+  if (parts.length < 1 || parts.some((v) => !Number.isFinite(v))) {
+    console.warn("[sim2sim] invalid replay command, ignoring:", raw);
+    return;
+  }
+  while (parts.length < 3) parts.push(0);
+  const seedParam = Number(PAGE_PARAMS.get("seed") || "0");
+  sim.deterministicReplay = {
+    command: [parts[0], parts[1], parts[2]],
+    seed: Number.isFinite(seedParam) ? seedParam : 0,
+  };
+  document.title = `确定性回放 ${raw} · seed ${sim.deterministicReplay.seed} · Locomotion Platform`;
+  console.info(`[sim2sim] deterministic replay: cmd=[${parts.slice(0, 3)}] seed=${sim.deterministicReplay.seed}`);
 }
 
 /** 把当前 UI 状态写入地址栏（replaceState，不产生历史记录）。 */
