@@ -8,9 +8,13 @@ changing the control API.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
+import os
 import struct
+import subprocess
+import sys
 import time
 import uuid
 import threading
@@ -239,6 +243,86 @@ def _read_simulation_config(root: Path) -> dict[str, Any]:
         return json.loads(path.read_text(encoding="utf-8-sig")) if path.exists() else {}
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def _acceptance_report_path(root: Path, policy_rel_path: str) -> Path:
+    """验收指标约定：<onnx 文件名去扩展名>.acceptance.json，与策略同目录。"""
+    policy_file = Path(policy_rel_path.replace("\\", "/")).name
+    return root / "simulation" / "policies" / f"{Path(policy_file).stem}.acceptance.json"
+
+
+def _load_acceptance_report(root: Path, policy_rel_path: str) -> dict[str, Any] | None:
+    path = _acceptance_report_path(root, policy_rel_path)
+    if not path.exists():
+        return None
+    try:
+        report = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return report if isinstance(report, dict) and report.get("modes") else None
+
+
+def _acceptance_health_check(root: Path, policy_rel_path: str) -> dict[str, Any] | None:
+    """把验收报告折算成一条策略健康检查（mjlab evaluate 三件套的产物）。"""
+    report = _load_acceptance_report(root, policy_rel_path)
+    if not report:
+        return None
+    passed = int(report.get("passed") or 0)
+    total = int(report.get("total") or 0)
+    ok = total > 0 and passed == total
+    errs = [round(m["vel_track_err"], 2) for m in report.get("modes", []) if isinstance(m.get("vel_track_err"), (int, float))]
+    err_hint = f" · 跟踪误差≤{min(errs)}~{max(errs)}" if errs else ""
+    return {
+        "id": "acceptance",
+        "ok": ok,
+        "message": f"验收 {passed}/{total} 模式通过{err_hint}（{report.get('seconds_per_mode', '?')}s/模式）",
+    }
+
+
+@router.post("/policies/acceptance")
+async def run_policy_acceptance(payload: dict[str, Any]) -> dict[str, Any]:
+    """对机器人包内已导出的 ONNX 策略跑验收评估（定种子固定指令滚出）。
+
+    在隔离的 mjlab 适配器 venv 里执行 policy_acceptance.py（依赖 mujoco+onnxruntime），
+    指标写入策略同目录的 <stem>.acceptance.json，随 browser-config 下发为健康检查。
+    """
+    robot_id = str(payload.get("robot_id") or "")
+    policy_id = str(payload.get("policy_id") or "")
+    if not robot_id or not policy_id:
+        raise HTTPException(status_code=400, detail="robot_id 与 policy_id 必填")
+    root, _preset = _browser_package(robot_id)
+    sim_cfg = _read_simulation_config(root)
+    policies = sim_cfg.get("policies") if isinstance(sim_cfg.get("policies"), list) else []
+    policy = next((p for p in policies if isinstance(p, dict) and p.get("id") == policy_id), None)
+    if not policy:
+        raise HTTPException(status_code=404, detail=f"包内不存在策略: {policy_id}")
+    policy_rel = str(policy["path"]).replace("\\", "/")
+    policy_path = root / policy_rel
+    if not policy_path.exists():
+        raise HTTPException(status_code=404, detail=f"策略文件缺失: {policy_rel}")
+    output = _acceptance_report_path(root, policy_rel)
+
+    script = Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / "policy_acceptance.py"
+    venv_dir = Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / ".venv"
+    venv_python = venv_dir / ("Scripts" if os.name == "nt" else "bin") / ("python.exe" if os.name == "nt" else "python")
+    python_exe = str(venv_python) if venv_python.exists() else sys.executable
+    command = [python_exe, str(script), "--package", str(root), "--policy", str(policy_path), "--output", str(output)]
+    try:
+        completed = await asyncio.wait_for(
+            asyncio.to_thread(
+                subprocess.run, command, capture_output=True, text=True, timeout=900, cwd=str(script.parent.parent)
+            ),
+            timeout=920,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="验收评估超时（>920s）")
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip().splitlines()[-6:]
+        raise HTTPException(status_code=500, detail="验收评估失败: " + " | ".join(detail))
+    report = _load_acceptance_report(root, policy_rel)
+    if not report:
+        raise HTTPException(status_code=500, detail="验收评估未产出指标文件")
+    return report
 
 
 def _browser_asset_files(root: Path) -> tuple[list[str], list[str], int]:
@@ -608,6 +692,10 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     for item in package_policies:
         if isinstance(item, dict) and item.get("path"):
             policy_path = str(item["path"]).replace("\\", "/")
+            entry_checks: list[dict[str, Any]] = [{"id": "package", "ok": True, "message": "Package policy manifest"}]
+            acceptance_check = _acceptance_health_check(root, policy_path)
+            if acceptance_check:
+                entry_checks.append(acceptance_check)
             public_policies.append({
                 "id": str(item.get("id") or Path(policy_path).stem),
                 "label": str(item.get("label") or item.get("id") or Path(policy_path).stem),
@@ -616,6 +704,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                 "obs_dim": int(item.get("obs_dim") or contract.get("observation", {}).get("dimension") or 0),
                 "action_dim": int(item.get("action_dim") or len(order)),
                 "history_len": int(item.get("history_len") or 1),
+                "acceptance": _load_acceptance_report(root, policy_path),
                 "contract": {
                     **default_policy_contract,
                     **(item.get("contract") if isinstance(item.get("contract"), dict) else {}),
@@ -628,12 +717,18 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
         selected_policy = next((item for item in package_policies if isinstance(item, dict) and item.get("path")), None)
         if selected_policy:
             policy_path = str(selected_policy["path"]).replace("\\", "/")
+            selected_checks: list[dict[str, Any]] = [{"id": "package", "ok": True, "message": "Package policy manifest"}]
+            selected_acceptance = _acceptance_health_check(root, policy_path)
+            selected_ok = True
+            if selected_acceptance:
+                selected_checks.append(selected_acceptance)
+                selected_ok = bool(selected_acceptance["ok"])
             policy = {
                 "id": str(selected_policy.get("id") or Path(policy_path).stem),
                 "disabled": False,
                 "onnx_url": f"/api/simulation/browser-package/{canonical_robot_id}/{policy_path}",
                 "checkpoint_iteration": selected_policy.get("checkpoint_iteration"),
-                "health": {"status": "pass", "checks": [{"id": "package", "ok": True, "message": "Package policy manifest"}]},
+                "health": {"status": "pass" if selected_ok else "warn", "checks": selected_checks},
                 "contract": {
                     **default_policy_contract,
                     **(selected_policy.get("contract") if isinstance(selected_policy.get("contract"), dict) else {}),
