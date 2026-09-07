@@ -8,6 +8,7 @@ console.error = (...args) => {
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import loadMujoco from "./vendor/mujoco/mujoco.js";
+import { MotionLoader } from "./motion_loader.js";
 // Loaded on demand only for an explicitly selected policy.
 let ort = null;
 const ORT_DIST_URL = new URL("./vendor/onnxruntime-web/dist/", import.meta.url);
@@ -689,6 +690,21 @@ async function loadPolicyFromConfig(config, initial = false) {
   sim.policyLoading = true;
   let session;
   let modelBytes;
+  let session;
+  let modelBytes;
+  if (contract.motion_params?.motion_csv) {
+    try {
+      const csvUrl = `/api/simulation/browser-package/${config.robot_id || ""}/${contract.motion_params.motion_csv}`;
+      const csvText = await (await fetch(csvUrl, { cache: "no-store" })).text();
+      sim.motionLoader = new MotionLoader(csvText, contract.motion_params);
+      motionTime = 0;
+    } catch (err) {
+      console.warn("[sim2sim] motion csv load failed:", err);
+      sim.motionLoader = null;
+    }
+  } else {
+    sim.motionLoader = null;
+  }
   try {
     // 手动 fetch(cache:"no-store") 拿字节再交给 ort：彻底绕开 HTTP 缓存里
     // 残留的旧版（带外部数据引用）ONNX 字节——go2w 曾因此报
@@ -2947,6 +2963,13 @@ function resetSimulation() {
   input.imuDelaySampleSteps = 0;
   sim.history.fill(0);
   sim.gaitElapsedS = 0;
+  // Imitation policies: realign the reference motion to the robot's current
+  // heading (yaw-only) and restart from the configured start time.
+  if (sim.motionLoader) {
+    motionTime = 0;
+    sim.motionLoader.update(0);
+    sim.motionLoader.reset(Array.from(sim.qpos.subarray(3, 7)), 0);
+  }
   sim.gaitActive = false;
   sim.jumpPulseDuration = 0;
   sim.jumpPulseUntil = 0;
@@ -3495,6 +3518,10 @@ function buildObservation() {
     buildGo2RlSdkObservation();
     return;
   }
+  if (CONFIG.observationKind === "go2_motion_69") {
+    buildGo2MotionObservation();
+    return;
+  }
   if (CONFIG.observationKind === "g1_mjlab_velocity_98") {
     buildG1MjlabVelocityObservation();
     return;
@@ -3791,6 +3818,46 @@ function buildGo2RlSdkObservation() {
   for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
+// Go2 模仿学习技能（LeggedSkillDeploy 协议，69 维）：
+// motion_command(24) = [ref_joint_pos(12), ref_joint_vel(12)]（按 joint_mapping 从 CSV 序重排到训练序）
+// motion_anchor_ori_b(6) = conj(init_quat*ref_quat)*real_quat 旋转矩阵前两列展平
+// ang_vel×1.0 + (dof_pos−default)×1.0 + dof_vel×1.0 + action
+// 参考动作 CSV：simulation/policies/backflip_motion.csv（fps50, 0-1.6s, xyzw 四元数）
+let motionTime = 0;
+function buildGo2MotionObservation() {
+  if (CONFIG.numObs !== 69 || CONFIG.numActions !== 12) {
+    throw new Error(`go2_motion_69 requires 69 observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const loader = sim.motionLoader;
+  sim.obs.fill(0);
+  if (!loader) return;
+  motionTime += 0.02;
+  if (motionTime > loader.duration) motionTime = motionTime % loader.duration;
+  loader.update(motionTime);
+
+  const imu = readImuSample();
+  let offset = 0;
+
+  // motion_command(24): reference joint pos/vel mapped into training order
+  const refPos = loader.jointPos();
+  const refVel = loader.jointVel();
+  const mapping = CONFIG.motionJointMapping || refPos.map((_, i) => i);
+  for (let i = 0; i < mapping.length; i += 1) sim.obs[offset++] = refPos[mapping[i]];
+  for (let i = 0; i < mapping.length; i += 1) sim.obs[offset++] = refVel[mapping[i]];
+
+  // motion_anchor_ori_b(6)
+  const realQuat = Array.from(sim.qpos.subarray(3, 7));
+  const refQuat = loader.rootQuaternion();
+  sim.obs.set(loader.motionAnchorOriB(realQuat, refQuat), offset);
+  offset += 6;
+
+  // ang_vel + dof_pos + dof_vel + actions
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQpos(i) - CONFIG.defaultAngles[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i);
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
 }
 
