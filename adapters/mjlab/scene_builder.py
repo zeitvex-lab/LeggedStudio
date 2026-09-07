@@ -1,4 +1,4 @@
-"""MjSpec 场景组装工具（OPEN_QUESTIONS #1 的落地路线）。
+"""MjSpec 场景组装工具：机器人 + 契约物理常量 + 平地/box 障碍的统一桌面场景来源。
 
 背景：`<include file="../model/robot.xml"/>` + `<compiler meshdir=...>` 的场景 XML
 在桌面 MuJoCo 3.11 下会因 include 的 mesh 路径自动改写产生双重前缀，无法直接编译。

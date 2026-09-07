@@ -1,6 +1,8 @@
 """
-Legged Studio Backend - Complete API v0.6.1
-濞ｅ浂鍠栭ˇ鏌ユ晬濮橆厼娼戦柛鏃傚Х瀹歌鲸寰勬潏鈺傜暠 system API
+Legged Studio Backend - Complete API
+
+FastAPI control plane for the Web workbench: robot packages, asset inventory,
+training orchestration, simulation, evaluation, and export endpoints.
 """
 
 from fastapi import FastAPI
@@ -28,16 +30,16 @@ from fastapi import HTTPException
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# 濞ｅ浂鍠栭ˇ?Windows 闁硅矇鍐ㄧ厬闁告瑦澹嗙槐顏堟儘?
+# Force UTF-8 console output on Windows regardless of the active code page.
 if sys.platform == 'win32':
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# 婵烇綀顕ф慨鐐垫崉椤栨氨绐?
+# Make the repository root importable when started as a plain script.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# 閻庣數鍘ч崣鍡涘箥閳ь剟寮垫径搴ｇ唴闁?
+# Optional stacks: keep the control plane importable without them.
 try:
     from backend.training_api import router as training_router
 except ImportError as exc:  # optional training stack; enabled after adapter setup
@@ -49,7 +51,7 @@ except ImportError as exc:  # optional export stack (torch/ONNX)
     export_router = None
     EXPORT_IMPORT_ERROR = str(exc)
 from backend.pretrained_api import router as pretrained_router
-from backend.app import load_inventory, filter_records, _records, InventoryError
+from backend.inventory import InventoryError, dict_records, filter_records, load_inventory
 from backend.robot_presets import list_robot_presets, get_robot_preset as load_robot_preset
 try:
     from backend.evaluation_api import router as evaluation_router
@@ -106,7 +108,7 @@ class BrowserSimulationIsolationMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(BrowserSimulationIsolationMiddleware)
 
-# 婵炲鍔岄崬浠嬪箥閳ь剟寮垫径搴ｇ唴闁?
+# Register only the routers whose optional stacks are installed.
 if training_router is not None:
     app.include_router(training_router)
 if export_router is not None:
@@ -126,7 +128,7 @@ if simulation_router is not None:
 # read-only inventory service so the desktop launcher has one control-plane
 # process to start.
 def _inventory_summary(inventory: dict[str, Any]) -> dict[str, Any]:
-    records = _records(inventory)
+    records = dict_records(inventory)
     by_size: dict[str, int] = {}
     by_locomotion: dict[str, int] = {}
     families: set[str] = set()
@@ -178,7 +180,7 @@ async def get_assets(
     except InventoryError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     records = filter_records(
-        _records(inventory), readiness=readiness, size=size,
+        dict_records(inventory), readiness=readiness, size=size,
         locomotion=locomotion, family=family,
     )
     offset = max(0, offset)
@@ -192,7 +194,7 @@ async def get_asset_family(family_name: str, readiness: str | None = None, size:
         inventory = load_inventory()
     except InventoryError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    records = filter_records(_records(inventory), readiness=readiness, size=size, locomotion=locomotion, family=family_name)
+    records = filter_records(dict_records(inventory), readiness=readiness, size=size, locomotion=locomotion, family=family_name)
     if not records:
         raise HTTPException(status_code=404, detail=f"Unknown asset family: {family_name}")
     return {"family": family_name, "count": len(records), "records": records}
@@ -438,7 +440,7 @@ async def validate_scenario(scenario_data: dict[str, Any]) -> dict[str, Any]:
         return {"valid": False, "errors": [str(exc)], "warnings": []}
     return {"valid": True, "errors": [], "warnings": [], "scenario": scenario.to_payload()}
 
-# Web 闁硅矇鍐ㄧ厬闁?
+# Web workbench static files
 WEB_DIR = Path(__file__).parent.parent / "web"
 
 @app.get("/", include_in_schema=False)
@@ -526,7 +528,7 @@ if WEB_DIR.is_dir():
     app.mount("/web", StaticFiles(directory=WEB_DIR, html=True), name="web")
 
 # ============================================================================
-# 闁糕晞娅ｉ、鍛博椤栨粌浠?
+# Health and system status
 # ============================================================================
 
 @app.get("/health")
@@ -665,14 +667,14 @@ if __name__ == "__main__":
     print("=" * 70)
     print()
     print("Features:")
-    print("  闁?Training Management API")
-    print("  闁?ONNX Export API")
-    print("  闁?Pretrained Models API")
-    print("  闁?Contract System V2")
-    print("  闁?Policy Artifacts")
-    print("  闁?URDF Validation")
-    print("  闁?Evaluation Tools")
-    print("  闁?Sim2Sim Validation")
+    print("  ✓ Training Management API")
+    print("  ✓ ONNX Export API")
+    print("  ✓ Pretrained Models API")
+    print("  ✓ Contract System V2")
+    print("  ✓ Policy Artifacts")
+    print("  ✓ URDF Validation")
+    print("  ✓ Evaluation Tools")
+    print("  ✓ Sim2Sim Validation")
     print()
     print("Web Console: http://127.0.0.1:8765")
     print("API Docs:    http://127.0.0.1:8765/docs")

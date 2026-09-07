@@ -40,4 +40,7 @@ runtime/
 # Local runtime artifacts (generated)
 MUJOCO_LOG.TXT
 *.stackdump
-var/
+
+# Debug scratch files (never commit)
+.tmp-*
+native_worker_output/

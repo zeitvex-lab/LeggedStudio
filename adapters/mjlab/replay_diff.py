@@ -1,4 +1,4 @@
-"""G1 浏览器回放 vs 桌面验收 obs 逐维 diff（OPEN_QUESTIONS #5 定位工具）。
+"""G1 浏览器回放 vs 桌面验收 obs 逐维 diff 定位工具。
 
 用法：
   1. 浏览器打开 ?robot=unitree_g1&policy=unitree-velocity&replay=0.4,0,0&seed=7&debug=1

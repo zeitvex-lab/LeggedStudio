@@ -1,115 +1,91 @@
 # Legged Studio
 
-Version `0.8.0` brings browser sim2sim for Unitree G1 (mjswan balance/locomotion and
-Unitree mjlab velocity) and Unitree Go2-W (mjlab velocity legs-only), robot package
-import/export/refresh, projection-gravity observation fixes shared across all
-mjlab-trained policies, a real enable gate for velocity command sliders, and the
-previous release’s deployment-accurate sim2sim, terrains, training config editor,
-and wandb-style monitor.
+Legged Studio 是一个面向足式机器人强化学习的本地桌面/Web 工作台：机器人资产验证、MJLab 训练配置与监控、MuJoCo 交互仿真、浏览器 sim2sim 策略回放，全部通过版本化 JSON 契约（Robot / Scenario / Policy）串成可追溯链路。
 
-Legged Studio is a local, contract-driven workbench for validating legged
-robot assets, configuring rewards and algorithms, running native MJLab training,
-using MuJoCo for interactive simulation, and replaying evaluation/navigation
-routes for Go2 and ZEX-W.
+Version `0.9.0` 发布八个机器人包（Unitree Go2、ZEX-W、MicroDuck、Unitree G1、Unitree Go2-W、Unitree A2、Wuji Hand、Unitree H1_2），浏览器 sim2sim 按实机部署合同对齐；Go2/A2/G1 增加基于 LLoco 上游源码的技能/速度训练 profile，契约化的逐关节 armature/frictionloss 贯穿验收、浏览器与配置链路，并新增桌面工具链可复用的 MjSpec 场景构建器与浏览器↔桌面 replay 控制步对齐工具。
 
-## Quick start
+**文档**：产品愿景与路线见 [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)；桌面程序见 [docs/DESKTOP_APP.md](docs/DESKTOP_APP.md)；Web 工作台见 [docs/WEB_APP.md](docs/WEB_APP.md)；机器人包建包/训练/验收的完整工程约定见 [docs/ROBOT_PACKAGE.md](docs/ROBOT_PACKAGE.md)。
+
+## 快速开始
 
 ```powershell
 npm ci
 npm start
 ```
 
-The Electron launcher does not install or start services when it opens. The
-Windows Online package contains no installed Torch/MJLab environment. It does
-carry the small bootstrap inputs that would otherwise require GitHub: uv,
-CPython base files, and fixed MJLab/Unitree source snapshots. Click **Configure
-Runtime** to install the GPU profile into the user data directory, then click
-Start and open the Web workbench.
+启动器打开是只读的：点 **Configure Runtime** 安装 GPU profile 到用户数据目录，再点 **Start** 启动后端并打开 Web 工作台（详见 [docs/DESKTOP_APP.md](docs/DESKTOP_APP.md)）。
 
-The downloaded Windows profile is:
-
-- Python 3.12.13 and uv 0.11.8.
-- Torch 2.11.0+cu128.
-- MJLab 1.6.0 and MuJoCo/MuJoCo-Warp 3.11.0.
-- MJLab source `b517e0c` and Unitree extension `1425b15`.
-- Tsinghua PyPI and Shanghai Jiao Tong PyTorch cu128 mirrors by default.
-
-## Build a release
+构建发布：
 
 ```powershell
 npm ci
 npm run release:check
-npm run build:portable
+npm run build:online:win      # 推荐：Windows Online 7z 包
+npm run build:portable        # Windows 便携 EXE
+npm run build:portable:embedded  # 嵌入式 CUDA 大包（数 GB）
 ```
 
-Build the non-embedded, on-demand Windows 7z distribution:
+Linux AppImage 需在 Linux 主机/CI 上 `npm run build:linux`。产物写入 `dist/`；Online 包目录名为 `Legged-Studio-0.9.0-Windows-Online`。嵌入式运行时暂存于 `build/embedded-runtime`（Git 忽略）；CUDA 载荷超过 NSIS 上限，故刻意不用单 EXE。
+
+## 目录职责（哪些能删、哪些不能）
+
+| 目录/文件 | 职责 | 可否删除 |
+| --- | --- | --- |
+| `backend/` | FastAPI 控制面（`api_complete.py`）+ 各 API 子模块 + 测试 | 源码，勿删 |
+| `contracts/` | Robot/Scenario/Policy 契约模型、校验器、fixture | 源码，勿删 |
+| `adapters/mjlab/` | 隔离的 MJLab 训练适配器（独立 venv：Torch/Warp/RSL-RL） | 源码，勿删；`adapters/mjlab/.venv` 可删可重建 |
+| `assets/robots/` | 内置机器人包（MJCF、网格、契约、训练 profile、仿真配置） | 源码，勿删 |
+| `web/` | Web 工作台与浏览器 sim2sim（含 `vendor/` 离线三方库） | 源码，勿删 |
+| `electron/` | 桌面启动器 | 源码，勿删 |
+| `scripts/` | 发布检查、打包、运行时配置、CLI、生成器 | 源码，勿删 |
+| `tools/` | 外部工具链包装（验证器/评估器/sim2sim 校验） | 源码，勿删 |
+| `packaging/` | electron-builder 嵌入式/Online 两个配置 | 源码，勿删 |
+| `docs/` | 产品愿景 + 桌面/Web 程序说明 + 工程约定 | 源码，勿删 |
+| `contracts/fixtures/` | 契约测试样本 | 源码，勿删 |
+| `.venv/` | 控制面 Python 环境 | 可删，`uv sync` 重建 |
+| `node_modules/` | Electron 构建依赖 | 可删，`npm ci` 重建 |
+| `workspace/` | 用户工作区：导入的包、训练产物、策略 | 运行时数据，删了丢训练历史 |
+| `dist/` `build/` | 打包产物（Git 忽略） | 随时可删，重新构建即得 |
+| `uv.lock` `package-lock.json` | 依赖锁 | 勿删 |
+| `start.bat` | Windows 一键启动脚本 | 便捷入口 |
+| `VERSION` | 当前发布版本号（release:check 校验一致性） | 勿删 |
+
+## 架构
+
+```text
+Electron launcher（薄壳：生命周期/端口/运行时配置）
+  -> FastAPI control plane（Python 3.12，轻量：backend/api_complete.py）
+     -> contracts / assets / task supervisor
+     -> MuJoCo simulation API（交互仿真，仅此用途）
+     -> isolated MJLab adapter process（训练 worker：Torch、Warp、MuJoCo-Warp、RSL-RL）
+```
+
+核心约束：
+
+- **控制面永远不导入训练栈**。Torch/Warp/MuJoCo-Warp 只存在于隔离的 adapter 进程/环境；页面加载不触发 torch 探针，训练启动时才探测并缓存运行时状态。
+- **契约驱动**：跨进程数据一律走版本化 JSON。Robot Contract 是模型/关节序/观测/动作/控制频率的唯一入口；禁止在 UI、训练器和部署脚本中重复维护关节顺序或观测布局。
+- **一个契约，两个入口**：Web 工作台与 `scripts/legged_studio_cli.py` 调同一组 HTTP 路由，语义天然一致。
+- **训练后端唯一**：native MJLab（PPO 为唯一注册可运行算法）；MuJoCo 只做交互仿真。SAC/TD3 保留注册字段但不可运行；UniLab/RoboLab 为未来 adapter。
+
+### 配置内省
+
+训练配置不是源码黑盒：`adapters/mjlab/config_introspect.py` + `param_registry.py` 从 adapter 自身推导完整配置树，CLI、API 与前端共用同一套 dot-path 覆盖机制（`/api/training/config-preview`、`/api/training/profile-schema`）。
+
+## 测试与发布检查
 
 ```powershell
-npm run build:online:win
+npm test               # uv run python -m unittest discover -s backend
+npm run release:check  # 版本一致性 + 18 项必需资源 + extraResources
 ```
 
-The archive and its top-level directory are named
-`Legged-Studio-0.8.0-Windows-Online`, not `win-unpacked` or Electron.
+adapter 侧测试在 `adapters/mjlab/test_*.py`（其 venv 内运行）。
 
-To build the Windows package with an embedded CPython 3.12 runtime, CUDA
-Torch, MJLab, and the Unitree MJLab extension, run this target on Windows:
+## 能力边界（诚实声明）
 
-```powershell
-npm run build:portable:embedded
-```
+- 已验证：控制面单测、MJLab adapter 测试、Go2/ZEX-W/MicroDuck/G1/Go2-W 的浏览器 sim2sim 实机合同对齐、键盘遥控、CUDA 选择（RTX 4060 验证环境）。
+- 未闭环：GPU 长训练验收、ONNX 数值一致性 replay、复杂导航规划、实机控制与安全门禁（L4）。
+- Online 包不内置 Torch/MJLab：仅携带 uv、CPython 引导文件与固定源码快照，用户点 Configure Runtime 后才安装。国内默认清华 PyPI + 上海交大 cu128 镜像；NVIDIA 驱动用户自备。
 
-This downloads several gigabytes of GPU wheels and produces an extract-and-run
-directory plus a ZIP64-capable 7z archive. A single portable EXE is not used
-because the CUDA runtime exceeds the NSIS payload limit. The generated runtime
-is staged under `build/embedded-runtime` and is intentionally ignored by Git.
+## 运行时版本（0.9.0）
 
-The Windows portable artifact is written to `dist/`. Build the Linux AppImage
-on a Linux host or CI runner:
-
-```bash
-npm ci
-npm run release:check
-npm run build:linux
-```
-
-See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for runtime requirements,
-packaging boundaries, and release limitations. See [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)
-for the product workflow and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for
-adapter boundaries.
-
-## Verified capabilities
-
-- Versioned Robot Contract and canonical Go2/ZEX-W MJCF assets.
-- MuJoCo interactive simulation for basic teleoperation and map stepping.
-- Native MJLab Go2/ZEX-W PPO training with isolated workers.
-- Native evaluation and waypoint navigation.
-- CUDA Torch selection for the validated MJLab adapter environment.
-- Browser sim2sim policies verified live for all three robots: Go2 walks at the commanded
-  speed, ZEX-W stands and drives with the real-robot joint layout (12 legs then 4 wheels,
-  default pose `[0, 0.55, -1.125]`), MicroDuck loads its full mesh set and arenas.
-- Per-robot built-in terrains: Go2 keeps the reference six-scene set; ZEX-W ships
-  flat/rough/stairs/slope; MicroDuck ships flat, a walled relief arena, and the apartment.
-- Control-plane endpoints never spawn the torch probe; only the training path probes the
-  worker runtimes (cached), so page loads stay responsive.
-- Robot workbench loads faster: ETag revalidation for web assets, cached robot package
-  responses, collision meshes load lazily, and mesh fetching/decoding is parallel.
-- Training pages rebuilt: the config page is a five-category modular editor with framework
-  selection (MJLab active, UniLab planned), curated parameter cards plus an expert mode over
-  the full introspected config tree (dot-path overrides); the monitor page is a wandb-style
-  view with a three-section overview sidebar, a metric small-multiples grid, and a checkpoints
-  panel. Both pages are embedded in-frame views of the workbench shell.
-- Unified config introspection (`adapters/mjlab/config_introspect.py` +
-  `adapters/mjlab/param_registry.py`): the full config tree is derived from the adapter itself,
-  with no source-code black boxes; CLI, API, and front-end share the same override mechanism
-  via the `/api/training/config-preview` and `/api/training/profile-schema` endpoints.
-- Robot page shows inertia-box visualization with a mass/inertia table and per-segment motor
-  parameter cards (Kp/Kd/torque/velocity limits).
-- Keyboard teleoperation verified on the sim page (WASD drive, QE yaw).
-- Correct MIME types for `.mjs`/`.wasm` so ONNX Runtime web loads under any Python runtime.
-- Configurable local backend port and desktop-owned backend lifecycle.
-
-The default lightweight distribution does not bundle an installed Torch/MJLab
-runtime. It includes a small bootstrap Python/uv runtime and fixed source
-snapshots; GPU dependencies are installed after the user clicks Configure
-Runtime. The Windows embedded target bundles Python, CUDA Torch, MJLab, and the
-Unitree MJLab extension; UniLab remains a future adapter.
+Python 3.12.13 · uv 0.11.8 · Torch 2.11.0+cu128（GPU）/ +cpu · MJLab 1.6.0（快照 b517e0c）· Unitree 扩展 1425b15 · MuJoCo/MuJoCo-Warp 3.11.0

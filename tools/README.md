@@ -12,7 +12,7 @@ uv run csv-to-npz --input-file src/lloco/assets/motions/g1/dance1_subject2.csv \
 ```
 
 产物放机器人包 `motions/<name>.npz`（自描述 schema：fps/dof_names/body_names/...，
-dof_names 必须与 contract.json 的 actuated_joints 一致——见 docs/robot-package-conventions.md）。
+dof_names 必须与 contract.json 的 actuated_joints 一致——见 docs/ROBOT_PACKAGE.md）。
 
 ## 地形生成（rough 场景可再生产物）
 
