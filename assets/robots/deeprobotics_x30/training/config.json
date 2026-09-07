@@ -1,0 +1,9 @@
+{
+  "robot_id": "deeprobotics_x30",
+  "contract_path": "assets/robots/deeprobotics_x30/contract.json",
+  "profile_id": "x30-velocity",
+  "task_name": "velocity",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 20.0
+}

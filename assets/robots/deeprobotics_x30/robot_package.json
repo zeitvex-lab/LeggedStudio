@@ -1,0 +1,20 @@
+{
+  "schema_version": "robot-package-1.0",
+  "package_id": "deeprobotics_x30",
+  "capabilities": [
+    "generic_mjlab",
+    "mjlab_source_profiles",
+    "mujoco_sim"
+  ],
+  "model": {
+    "format": "mjcf",
+    "path": "model/robot.xml",
+    "assets_path": "model/assets"
+  },
+  "simulation_config_path": "simulation/config.json",
+  "training_config_path": "training/config.json",
+  "contract_path": "contract.json",
+  "source_project": "package-local task source",
+  "display_name": "Deeprobotics X30",
+  "notes": "模型取自官方 deep_robotics_model X30_mjcf（BSD-3）；策略待训练后回填。"
+}

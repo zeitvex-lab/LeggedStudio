@@ -1,0 +1,20 @@
+{
+  "schema_version": "robot-package-1.0",
+  "package_id": "deeprobotics_m20",
+  "capabilities": [
+    "generic_mjlab",
+    "mjlab_source_profiles",
+    "mujoco_sim"
+  ],
+  "model": {
+    "format": "mjcf",
+    "path": "model/robot.xml",
+    "assets_path": "model/assets"
+  },
+  "simulation_config_path": "simulation/config.json",
+  "training_config_path": "training/config.json",
+  "contract_path": "contract.json",
+  "source_project": "package-local task source",
+  "display_name": "Deeprobotics M20",
+  "notes": "模型取自官方 deep_robotics_model（MJCF，BSD-3，场景元素已剥离）；部署基准策略为官方导出 m20_new_policy.onnx（元数据内嵌）。"
+}

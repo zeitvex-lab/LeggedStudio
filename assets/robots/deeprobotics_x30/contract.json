@@ -1,0 +1,89 @@
+{
+  "schema_version": "robot-contract-2.0",
+  "contract_id": "deeprobotics_x30_v1",
+  "robot_id": "deeprobotics_x30",
+  "family": "Deeprobotics X30",
+  "size_class": "L",
+  "locomotion_type": "P",
+  "urdf": {
+    "path": "assets/robots/deeprobotics_x30/model/robot.xml",
+    "hash": "",
+    "total_mass_kg": 55.8,
+    "mass_source": "mj_model"
+  },
+  "joints": {
+    "actuated_joints": [
+      "FL_HipX_joint",
+      "FL_HipY_joint",
+      "FL_Knee_joint",
+      "FR_HipX_joint",
+      "FR_HipY_joint",
+      "FR_Knee_joint",
+      "HL_HipX_joint",
+      "HL_HipY_joint",
+      "HL_Knee_joint",
+      "HR_HipX_joint",
+      "HR_HipY_joint",
+      "HR_Knee_joint"
+    ],
+    "passive_joints": [],
+    "default_pose": [
+      -0.1,
+      -0.8,
+      1.5,
+      0.1,
+      -0.8,
+      1.5,
+      -0.1,
+      -0.8,
+      1.5,
+      0.1,
+      -0.8,
+      1.5
+    ]
+  },
+  "observation": {
+    "dimension": 45,
+    "components": [
+      "base_ang_vel",
+      "projected_gravity",
+      "commands",
+      "joint_pos",
+      "joint_vel",
+      "last_action"
+    ]
+  },
+  "action": {
+    "dimension": 12,
+    "joint_order": [
+      "FL_HipX_joint",
+      "FL_HipY_joint",
+      "FL_Knee_joint",
+      "FR_HipX_joint",
+      "FR_HipY_joint",
+      "FR_Knee_joint",
+      "HL_HipX_joint",
+      "HL_HipY_joint",
+      "HL_Knee_joint",
+      "HR_HipX_joint",
+      "HR_HipY_joint",
+      "HR_Knee_joint"
+    ],
+    "action_scale": 0.25
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 200,
+    "decimation": 4
+  },
+  "description": "Deeprobotics X30 新一代四足（55.8kg）。模型为包内 MJCF（官方 deep_robotics_model，碰撞 primitive 化），统一 mjlab 1.6 运行时。训练策略待训后回填。",
+  "tags": [
+    "quadruped",
+    "mjcf",
+    "imported",
+    "package",
+    "deeprobotics_x30"
+  ],
+  "source": "m20_rl_isaacsim/deep_robotics_model",
+  "python_version": "3.12"
+}

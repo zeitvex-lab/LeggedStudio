@@ -77,9 +77,21 @@ class DreamWaQPPO(PPO):
       target_velocity = batch.observations["velocity"]
       target_frame = batch.observations["critic"][:, -45:]
       _, estimated_velocity, decoded, mean_latent, logvar_latent = self.actor.vae(history, sample=True)  # type: ignore[attr-defined]
-      velocity_cost = torch.nn.functional.mse_loss(estimated_velocity, target_velocity)
-      reconstruction_cost = torch.nn.functional.mse_loss(decoded, target_frame)
-      kl_cost = -.5 * torch.mean(torch.sum(1 + logvar_latent - mean_latent.square() - logvar_latent.exp(), dim=-1))
+      # Source DreamWaQ masks VAE losses with live_batch = 1 - dones: history
+      # frames that span a reset boundary carry stale pre-reset context and
+      # would poison the latent estimator.
+      if getattr(batch, "dones", None) is not None:
+        live_batch = 1.0 - batch.dones.float()
+        if live_batch.sum() == 0:
+          continue
+        weight = live_batch / live_batch.sum()
+        velocity_cost = (torch.nn.functional.mse_loss(estimated_velocity, target_velocity, reduction="none").mean(dim=-1) * live_batch.squeeze(-1)).sum() / live_batch.sum()
+        reconstruction_cost = (torch.nn.functional.mse_loss(decoded, target_frame, reduction="none").mean(dim=-1) * live_batch.squeeze(-1)).sum() / live_batch.sum()
+        kl_cost = -.5 * torch.mean(torch.sum(1 + logvar_latent - mean_latent.square() - logvar_latent.exp(), dim=-1))
+      else:
+        velocity_cost = torch.nn.functional.mse_loss(estimated_velocity, target_velocity)
+        reconstruction_cost = torch.nn.functional.mse_loss(decoded, target_frame)
+        kl_cost = -.5 * torch.mean(torch.sum(1 + logvar_latent - mean_latent.square() - logvar_latent.exp(), dim=-1))
       loss = velocity_cost + reconstruction_cost + self.vae_kl_weight * kl_cost
       self.vae_optimizer.zero_grad()
       loss.backward()
