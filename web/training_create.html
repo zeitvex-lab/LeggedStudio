@@ -1072,6 +1072,7 @@
       preview: null,   // GET /api/training/config-preview
       recipe: null,    // POST /api/training/resolve-recipe
       rewardDefaults: {},
+      rewardTermLayers: {},
       schema: null,         // GET /api/training/profile-schema -> {environment, runner, entrypoints}
       groupsCache: null,    // 同响应的 groups：{simulator|environment|...: [{title,node,params}]}
       params: [],           // descriptor 目录（用于给分组行补充 unit / hint）
@@ -1220,7 +1221,11 @@
       renderHardwareBadges(hardware);
 
       state.rewardDefaults = {};
-      Object.entries(optionsData.reward_terms || {}).forEach(([id, term]) => { state.rewardDefaults[id] = Number(term.default); });
+      state.rewardTermLayers = {};
+      Object.entries(optionsData.reward_terms || {}).forEach(([id, term]) => {
+        state.rewardDefaults[id] = Number(term.default);
+        state.rewardTermLayers[id] = term.layer || null;
+      });
     }
 
     function renderHardwareBadges(hardware) {
@@ -1270,7 +1275,14 @@
       { id: 'safety', tag: 'SAFETY', name: '接触安全', desc: '红线惩罚', hint: '接触 / 打滑 / 清空高度 / 碰撞类项' },
     ];
 
-    function rewardLayer(name) {
+    function rewardLayer(name, declaredLayer) {
+      // T2.1：优先消费后端四层注册表（reward_terms[].layer / schema term.layer），
+      // 缺失时退回正则启发；Contact 映射到接触安全组。
+      const declared = String(declaredLayer || '').toLowerCase();
+      if (declared === 'tracking') return 'tracking';
+      if (declared === 'regularization') return 'regularization';
+      if (declared === 'contact') return 'safety';
+      if (declared === 'style') return 'style';
       const n = String(name).toLowerCase();
       if (/track|command/.test(n)) return 'tracking';
       if (/action_rate|torque|power|energy|accel|effort|dof_|limit|work|smooth/.test(n)) return 'regularization';
@@ -1358,7 +1370,7 @@
         rewardMaxAbs = terms.reduce((max, term) => Math.max(max, Math.abs(rewardWeightValue(`${term.path}.weight`, term.cfg?.weight))), 0);
         const byLayer = {};
         REWARD_LAYERS.forEach((layer) => { byLayer[layer.id] = []; });
-        terms.forEach((term) => byLayer[rewardLayer(term.name)].push(term));
+        terms.forEach((term) => byLayer[rewardLayer(term.name, state.rewardTermLayers?.[term.name])].push(term));
         let html = '';
         for (const layer of REWARD_LAYERS) {
           const items = byLayer[layer.id];
@@ -1407,7 +1419,7 @@
       rewardMaxAbs = entries.reduce((max, [, term]) => Math.max(max, Math.abs(Number(term.default) || 0)), 0);
       const byLayer = {};
       REWARD_LAYERS.forEach((layer) => { byLayer[layer.id] = []; });
-      entries.forEach(([id, term]) => byLayer[rewardLayer(id)].push([id, term]));
+      entries.forEach(([id, term]) => byLayer[rewardLayer(id, term && term.layer)].push([id, term]));
       let html = '';
       for (const layer of REWARD_LAYERS) {
         const items = byLayer[layer.id];

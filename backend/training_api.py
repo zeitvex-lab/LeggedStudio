@@ -787,6 +787,53 @@ async def get_training_metrics(task_id: str):
     return {"success": True, "task_id": task_id, "metrics": rows}
 
 
+@router.get("/{task_id}/terms")
+async def get_training_term_series(task_id: str):
+    """分项奖励/指标曲线（T2.2）：解析任务目录 TB events，按四层分组着色。
+
+    total 上涨可能只是 penalty 在降——分项曲线按 Tracking/Regularization/
+    Style/Contact 着色是 reward hacking 可见性的唯一解（报告 1 §4）。
+    """
+    task = get_training_manager().get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    from adapters.mjlab.reward_layers import get_reward_layer
+    from backend.tb_events import parse_events_file
+
+    series: dict[str, list] = {}
+    for path in sorted(task.task_dir.glob("events.out.tfevents*")):
+        try:
+            for tag, points in parse_events_file(path).items():
+                series.setdefault(tag, []).extend(points)
+        except OSError:
+            continue
+    for tag in series:
+        series[tag].sort(key=lambda item: item[0])
+    layers = {tag: get_reward_layer(tag.rsplit("/", 1)[-1].removeprefix("rew_")) for tag in series}
+    return {"success": True, "task_id": task_id, "terms": series, "layers": layers}
+
+
+@router.get("/{task_id}/health")
+async def get_training_health(task_id: str):
+    """五大健康仪表盘 + 中文症状路由卡（T2.2，知识库 Ch25 蓝本）。"""
+    task = get_training_manager().get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    from backend.health_cards import build_health_report
+
+    rows = []
+    metrics_file = task.task_dir / "metrics.jsonl"
+    if metrics_file.exists():
+        for line in metrics_file.read_text(encoding="utf-8").splitlines():
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return {"success": True, "task_id": task_id, **build_health_report(rows)}
+
+
 @router.get("/{task_id}/checkpoints")
 async def get_training_checkpoints(task_id: str):
     """List checkpoint files and exported artifacts produced by the training worker.

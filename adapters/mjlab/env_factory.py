@@ -231,7 +231,24 @@ def get_reward_preset(task_name: str) -> Dict[str, float]:
 
 
 def get_reward_terms() -> Dict[str, dict]:
-    return REWARD_TERMS.copy()
+    """奖励项目录（带四层分组 layer，T2.1 消费：前端折叠组 + 分项曲线着色）。"""
+
+    from adapters.mjlab.reward_layers import get_reward_layer
+
+    enriched: Dict[str, dict] = {}
+    for name, meta in REWARD_TERMS.items():
+        item = dict(meta)
+        item["layer"] = get_reward_layer(name)
+        enriched[name] = item
+    return enriched
+
+
+def get_reward_layer(term_name: str) -> str:
+    """单个奖励项的四层归属（Tracking/Regularization/Style/Contact/Other）。"""
+
+    from adapters.mjlab.reward_layers import get_reward_layer as _layer
+
+    return _layer(term_name)
 
 
 if __name__ == "__main__":
