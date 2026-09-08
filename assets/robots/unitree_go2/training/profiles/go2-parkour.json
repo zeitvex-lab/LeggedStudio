@@ -1,0 +1,58 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "go2-parkour",
+  "display_name": "Go2 PIE Depth Parkour (Stairs)",
+  "source": "package-local PIE task (depth-camera stair locomotion)",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "local_tasks.robots.unitree.go2.tasks.parkour.config.go2.env_cfgs:unitree_go2_pie_env_cfg",
+    "runner": "local_tasks.robots.unitree.go2.tasks.parkour.config.go2.rl_cfg:unitree_go2_pie_ppo_runner_cfg",
+    "runner_class": "local_tasks.robots.unitree.go2.tasks.parkour.rl:PIEOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "parkour",
+  "terrain_type": "stairs",
+  "algorithm": "PPO",
+  "num_envs": 2048,
+  "episode_length_s": 20.0,
+  "history_length": 10,
+  "runner": {
+    "hidden_dims": [512, 256, 128],
+    "learning_rate": 0.001,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_param": 0.2,
+    "entropy_coef": 0.01,
+    "num_learning_epochs": 5,
+    "num_mini_batches": 4,
+    "schedule": "adaptive",
+    "desired_kl": 0.01,
+    "max_grad_norm": 1.0,
+    "num_steps_per_env": 24,
+    "max_iterations": 20000,
+    "save_interval": 1000,
+    "obs_groups": {
+      "actor": ["actor", "proprio_history", "camera"],
+      "critic": ["critic"]
+    },
+    "depth": {
+      "shape": [2, 60, 86],
+      "cutoff_distance": 3.0,
+      "update_period_steps": 5
+    },
+    "auxiliary_losses": {
+      "auxiliary_loss_coef": 1.0,
+      "velocity_loss_coef": 1.0,
+      "foot_clearance_loss_coef": 1.0,
+      "height_reconstruction_loss_coef": 1.0,
+      "successor_loss_coef": 1.0,
+      "kl_loss_coef": 4.0
+    }
+  },
+  "command_ranges": {
+    "lin_vel_x": [0.0, 1.5],
+    "lin_vel_y": [0.0, 0.0],
+    "ang_vel_z": [-1.2, 1.2]
+  },
+  "notes": "PIE-style perceptive stair locomotion with a 106x60 front depth camera (87 deg HFOV, 10-column crop), 45-dim proprioception, terrain-aware yaw-mode command sampling, and VAE/memory auxiliary losses. Terrain: flat 10% + pyramid stairs up/down 45% each with curriculum."
+}
