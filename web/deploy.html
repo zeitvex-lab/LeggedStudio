@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>部署向导 · Legged Studio</title>
+  <link rel="stylesheet" href="workbench.css">
+  <style>
+    body { background: #eef3f7; color: #1d2935; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; margin: 0; }
+    .wizard-shell { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+    .wizard-title h1 { font-size: 20px; margin: 0 0 4px; }
+    .wizard-title p { margin: 0 0 18px; color: #5a6672; font-size: 13px; }
+    .steps { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .step-chip { flex: 1; min-width: 200px; border: 1px solid #e8eff4; border-radius: 8px; background: #fff; padding: 10px 12px; font-size: 13px; }
+    .step-chip .no { font-family: Consolas, monospace; font-weight: 700; margin-right: 6px; color: #3b82d6; }
+    .step-chip.locked { opacity: 0.55; }
+    .step-chip.done { border-left: 3px solid #2e9e5b; }
+    .panel { border: 1px solid #e8eff4; border-radius: 8px; background: #fff; padding: 14px; margin-bottom: 14px; }
+    .panel h2 { font-size: 15px; margin: 0 0 10px; }
+    select, button.primary { font-size: 14px; padding: 8px 12px; border-radius: 6px; border: 1px solid #e8eff4; }
+    button.primary { background: #2f6fed; color: #fff; border: none; cursor: pointer; }
+    button.primary:disabled { background: #9db4e8; cursor: not-allowed; }
+    button.ghost { background: #fff; border: 1px solid #e8eff4; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+    .gate-list { list-style: none; padding: 0; margin: 8px 0 0; font-family: Consolas, monospace; font-size: 13px; }
+    .gate-list li { padding: 4px 0; }
+    .gate-ok { color: #2e9e5b; } .gate-bad { color: #d64545; } .gate-warn { color: #d88922; }
+    .result { margin-top: 10px; font-size: 13px; }
+    .result a { color: #2f6fed; }
+    .degraded-row { margin-top: 10px; font-size: 13px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wizard-shell">
+    <div class="wizard-title">
+      <h1>部署向导</h1>
+      <p>唯一用向导的区——gate 必须按序过。一键生成 ≠ 一键上机。</p>
+    </div>
+
+    <div class="steps">
+      <div class="step-chip" id="chip1"><span class="no">1</span>选择目标平台与机器人</div>
+      <div class="step-chip locked" id="chip2"><span class="no">2</span>双 gate 校验（DENYLIST）</div>
+      <div class="step-chip locked" id="chip3"><span class="no">3</span>生成部署包</div>
+    </div>
+
+    <div class="panel">
+      <h2>步骤 1：目标平台与机器人</h2>
+      <select id="robotSelect" aria-label="选择机器人">
+        <option value="">加载机器人列表…</option>
+      </select>
+      <span style="margin-left:12px; font-size:13px; color:#5a6672">目标平台：</span>
+      <select id="platformSelect" aria-label="目标平台">
+        <option value="unitree_sdk2">Unitree SDK2</option>
+        <option value="ros2">ROS2 模板</option>
+        <option value="other" disabled>其他（蓝图）</option>
+      </select>
+      <button class="primary" id="toGate" style="margin-left:12px" disabled>下一步：双 gate 校验</button>
+    </div>
+
+    <div class="panel hidden" id="gatePanel">
+      <h2>步骤 2：双 gate 校验</h2>
+      <p style="font-size:13px; color:#5a6672; margin:0 0 6px">
+        ① dummy forward 维度检查　② 固定输入数值回放（&lt;1e-5）——
+        DENYLIST：obs_groups / action_scale / joint_order / control_hz / armature 不一致 = 拒绝
+      </p>
+      <button class="ghost" id="runGate">运行 gate 校验</button>
+      <ul class="gate-list" id="gateList"></ul>
+      <div class="result hidden" id="gatePass">
+        <button class="primary" id="toPack">下一步：生成部署包</button>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="packPanel">
+      <h2>步骤 3：生成部署包</h2>
+      <div class="degraded-row">
+        <label><input type="checkbox" id="degradedToggle"> 劣化参数加固档（力矩 ×0.8，摩擦 −20% 建议——跑稳再上真机）</label>
+      </div>
+      <p style="font-size:13px; color:#5a6672">包内容：deployment-contract.yaml ＋ FSM 安全状态机 ＋ 动作解码层（含单关节正弦波自检）＋ 人工确认清单.md</p>
+      <button class="primary" id="genPack">生成部署包 zip</button>
+      <div class="result" id="packResult"></div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let currentRobot = '';
+
+    async function loadRobots() {
+      try {
+        const data = await fetch('/api/robots/presets').then((r) => r.json());
+        const presets = Array.isArray(data) ? data : data.presets || [];
+        const select = $('robotSelect');
+        select.innerHTML = '<option value="">选择机器人…</option>' + presets
+          .filter((item) => item.robot_package?.model?.path)
+          .map((item) => `<option value="${item.robot_id}">${item.family || item.robot_id}</option>`)
+          .join('');
+      } catch (error) {
+        $('robotSelect').innerHTML = '<option value="">后端未启动</option>';
+      }
+    }
+
+    $('robotSelect').addEventListener('change', (event) => {
+      currentRobot = event.target.value;
+      $('toGate').disabled = !currentRobot;
+    });
+
+    $('toGate').addEventListener('click', () => {
+      $('gatePanel').classList.remove('hidden');
+      $('chip2').classList.remove('locked');
+      $('chip1').classList.add('done');
+      $('gatePass').classList.add('hidden');
+      $('gateList').innerHTML = '';
+      $('packPanel').classList.add('hidden');
+      $('chip3').classList.add('locked');
+    });
+
+    $('runGate').addEventListener('click', async () => {
+      $('runGate').disabled = true;
+      $('runGate').textContent = '校验中…';
+      try {
+        // gate A：契约一致性（服务端 v3 vs v2 层间快检；导出侧另有训练快照强校验）
+        const report = await fetch(`/api/deploy/gate/${encodeURIComponent(currentRobot)}`).then((r) => r.json());
+        const rows = [];
+        (report.blockers || []).forEach((item) => rows.push(`<li class="gate-bad">✗ ${item}</li>`));
+        (report.warnings || []).forEach((item) => rows.push(`<li class="gate-warn">⚠ ${item}</li>`));
+        if (report.ok) {
+          rows.unshift('<li class="gate-ok">✅ DENYLIST 契约一致性通过（obs_groups / action_scale / joint_order / control_hz / armature）</li>');
+          rows.push('<li class="gate-ok">✅ dummy forward / 数值回放在导出侧强制执行（<1e-5），不过不出包</li>');
+        }
+        $('gateList').innerHTML = rows.join('');
+        if (report.ok) {
+          $('gatePass').classList.remove('hidden');
+          $('chip2').classList.add('done');
+        }
+      } catch (error) {
+        $('gateList').innerHTML = `<li class="gate-bad">✗ 校验失败：${error.message}——确认后端已启动</li>`;
+      } finally {
+        $('runGate').disabled = false;
+        $('runGate').textContent = '运行 gate 校验';
+      }
+    });
+
+    $('toPack').addEventListener('click', () => {
+      $('packPanel').classList.remove('hidden');
+      $('chip3').classList.remove('locked');
+    });
+
+    $('genPack').addEventListener('click', async () => {
+      $('genPack').disabled = true;
+      $('genPack').textContent = '生成中…';
+      try {
+        const report = await fetch('/api/deploy/package', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ robot_id: currentRobot, degraded: $('degradedToggle').checked }),
+        }).then((r) => r.json());
+        if (!report.success) throw new Error(report.detail || '生成失败');
+        $('packResult').innerHTML = `
+          ✅ 部署包已生成：<a href="${report.download_url}">下载 ${report.robot_id} 部署包</a>
+          <span style="color:#5a6672">（${report.files.join(' · ')}）</span>
+          <p style="color:#d88922; margin:8px 0 0">⚠ 一键生成 ≠ 一键上机——先过人工确认清单，增益先降 50%。</p>`;
+        $('chip3').classList.add('done');
+      } catch (error) {
+        $('packResult').innerHTML = `<span style="color:#d64545">✗ ${error.message}</span>`;
+      } finally {
+        $('genPack').disabled = false;
+        $('genPack').textContent = '生成部署包 zip';
+      }
+    });
+
+    loadRobots();
+  </script>
+</body>
+</html>
