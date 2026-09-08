@@ -246,6 +246,7 @@ def migrate_contract_dict(
 
     if generic_defaults and not any(config.get(k) for k in ("stiffness", "damping", "torque_limits")):
         by_role = {role: dict(GENERIC_ACTUATOR) for role in pattern + extras}
+        by_joint: dict[str, dict] = {}
         note = "generic-actuator-defaults（导入默认值，训练前请校准）"
     else:
         by_role, by_joint, _ = build_actuator_profile(config, joints)
