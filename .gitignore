@@ -44,3 +44,4 @@ MUJOCO_LOG.TXT
 # Debug scratch files (never commit)
 .tmp-*
 native_worker_output/
+00_Survey/
