@@ -12,8 +12,7 @@
   robot_package.json         # 包清单（schema robot-package-1.0）
   model/
     robot.xml                # MJCF 最终产物（visual/collision 双 class 分层；碰撞用原始体）
-    assets/                  # 网格（记录精简结论：如 "9 boxes + 4 spheres + 4 wheel cylinders"）
-  simulation/
+    assets/                  # 网格（记录精简结论：如 "9 boxes + 4 spheres + 4 wheel cylinders"）  simulation/
     config.json              # schema simulation-config-1.0（增益/decimation/策略条目）
     scene.xml                # 平地场景（include 机器人；桌面端 include+meshdir 有已知坑，见 §6）
     flat.xml / *.xml         # 浏览器可选场景
@@ -44,6 +43,20 @@
 
 新增能力时：robot_package.json 声明 → `backend/robot_packages.py` 枚举透传（已支持）→ 消费端按需门控。
 
+## 2.5 MJCF 标准化与碰撞体约定
+
+机器人 `model/robot.xml` 应遵循统一标准（历史包逐步对齐中，已完成 lite3/a1/TRON1/d1/go2）：
+
+- **视觉/碰撞分离**：视觉 mesh 用 `class="visual"`（`contype=0 conaffinity=0 group=2`），碰撞体用 `class="collision"`（`contype=1` 激活）。视觉 mesh 只渲染不参与物理；碰撞体用**原始体或精简 mesh**。
+- **根体与自由关节**：根体命名 `base_link`（或官方名），带 `freejoint`；IMU site 命名 `imu` 并挂 `imu_lin_vel`/`imu_ang_vel` 命名传感器（velocity base 观测依赖）。
+- **足端约定**：足端必须有**独立碰撞体**（`{LR}_foot_collision` 球/圆柱，contype=1）与 `{LR}` 足端 site（高度扫描观测用）。`class="foot"` 的嵌套继承在 02 界面 urdf-viewer 解析不可靠，**足端球必须显式给 size/group/contype**。
+- **碰撞体来源**：优先参考官方 URDF/MJCF（如 `rl_sar_zoo/*_description`、`LeggedGym-Ex/resources/robots/limx_dynamics`）的标准 primitive 碰撞，而不是 mesh 外壳。
+- **旋转表示**：碰撞体姿态用 `quat`（MuJoCo wxyz）而非 `euler`——urdf-viewer 的 euler+rotateX 顺序有歧义（TRON1 PF 曾因此碰撞朝向错）。
+- **margin 与 MULTICCD**：geom `margin=0.001` 会触发 mjlab/warp 的 MULTICCD 报错，置 `margin=0`。
+- **匿名 sensor**：MJCF 里 `<accelerometer/>`/`<gyro/>` 必须显式 `name`，否则 mjlab builtin_sensor 初始化拿到空名崩溃。
+- **浏览器 scene.xml**：`<include file="../model/robot.xml"/>` + `<compiler meshdir="../model/assets"/>`（相对 simulation/ 正确指到 model/assets）；`meshdir="assets"` 是相对 robot.xml 自身目录，浏览器前端不再重写它。
+- **验证**：`mujoco.MjModel.from_xml_path('model/robot.xml')` 可编译；`tools/validate_training_smoke.py` 全量 rollout 通过；02 界面开"碰撞"开关能看到碰撞体从视觉外壳透出。
+
 ## 3. 训练 profile（training-profile-1.0）
 
 所有带源码的训练 profile 使用同一套机器人中立字段——Web UI 与 native worker 永远不按机器人 id 分支：
@@ -66,10 +79,22 @@ Go2 的本地任务库实现使用所有机器人共享的包扩展契约：`ext
 
 ### 包内本地任务库（training/source）
 
-机器人包可以携带自包含的训练任务实现，放在 `training/source/` 下，由训练 profile 的 `source_root` 指向。Go2 携带完整的本地任务库 `local_tasks/`（velocity、技能任务、核心框架、workflows）；A2、H1_2 各携带精简的本地 velocity 任务（`a2_velocity/`、`h1_2_velocity/`）。这些任务完全由包内代码定义（机器人常量、env_cfg、runner），不 import 任何外部训练源仓库。
+机器人包可以携带自包含的训练任务实现，放在 `training/source/` 下，由训练 profile 的 `source_root` 指向。Go2 携带完整的本地任务库 `local_tasks/`（velocity、技能任务、深度 parkour、核心框架、workflows）；A2、H1_2 各携带精简的本地 velocity 任务（`a2_velocity/`、`h1_2_velocity/`）。这些任务完全由包内代码定义（机器人常量、env_cfg、runner），不 import 任何外部训练源仓库。
 
-- profile：`training/profiles/go2-velocity-flat.json`、`a2-velocity-flat.json`、`h1_2-velocity-flat.json` 等（entrypoints 指向包内本地任务模块）
-- 冒烟已验证：A2/H1_2/Go2 的 env 构建、观测/动作/奖励/终止完整
+已内化的主要训练任务（截至 0.9.0）：
+
+| 包 | 任务 | 说明 |
+|---|---|---|
+| unitree_go2 | velocity/skills | 12 profiles：velocity、jump、backflip、handstand、spring-jump、trot、dreamwaq、walk-these-ways、amp-dreamwaq |
+| unitree_go2 | **parkour** | PIE 深度感知楼梯运动：106×60 深度相机（87° HFOV + 裁边）、地形感知 yaw 指令、VAE/记忆辅助损失（PIEActorModel/PIEPPO） |
+| unitree_g1 | g1-amp / g1-tracking | AMP 运动模仿 + **DeepMimic 动作跟踪**：60 clips 动作库（198s），xyzw→wxyz 四元数、clip 时间轴拼接、per-env clip 采样 |
+| unitree_g1 | g1-velocity | 官方 velocity 任务 |
+| deeprobotics_m20 | m20-velocity / m20-dreamwaq | 官方 21 项奖励配方 + **DreamWaQ**（DreamActor/Critic、live_batch masking、VAE 辅助头） |
+| deeprobotics_lite3 | lite3-velocity | 官方 24 项奖励：Bezier 摆动轨迹、trot 步态同步、gait_level 课程 |
+| microduck | 18 profiles | velocity/roller/sitstand/standup/spin/ground-pick/roulade/ball-kick/swizzle 等技能 |
+| limx_tron1_pf/sf | velocity | 点足/球足双机型 |
+
+- 冒烟已验证：全量 55 profiles 通过 `tools/validate_training_smoke.py`（128 envs × 30 步 rollout）
 - **注意**：运行时读取的是 `workspace/packages/<id>/` 副本——`refresh` 会把源树新增/更新的 profiles、`training/source` 和 manifest 声明单向同步过去，源树删除的文件也会从副本清除，改包后需 `POST /api/robots/packages/refresh`
 - 扩展：给包加新任务 = 在 `training/source/` 下加模块 + 加一个 profile 指向它
 

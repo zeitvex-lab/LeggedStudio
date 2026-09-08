@@ -33,6 +33,14 @@
 - **跨域隔离头**：`/web/sim2sim` 响应自动带 COOP/COEP/CORP 头以启用 SharedArrayBuffer（pthread 版 MuJoCo WASM 必需）。
 - **缓存策略**：Web 资源 ETag 协商缓存（`Cache-Control: no-cache`），改动即失效、未改动 304，兼顾开发刷新与大资源体积。
 
+## 02 验证页的 3D 模型查看器（urdf-viewer）
+
+`web/urdf-viewer.js` 提供验证页的 Three.js 模型预览（外观/碰撞/惯性/质心/关节轴分层开关）：
+
+- **碰撞体可视化**：开"碰撞"开关时，视觉 mesh 自动降为 ~28% 透明，让内部碰撞体（通常是嵌在实心外壳里的小圆柱/球）透出；关掉恢复完整不透明度。这对 TRON1 这类实心外壳机器人是必须的——否则碰撞体被完全不透明外壳完全遮挡，看起来"没有碰撞体"。
+- **MJCF 解析注意**：`class="collision"` 的碰撞体被正确识别；但**嵌套 default class 的继承**（如 go2 的 `class="foot"` 嵌在 collision 内）在 urdf-viewer 里解析不可靠，因此足端球必须在模型里显式给 `size/group/contype`；碰撞姿态用 `quat`（MuJoCo wxyz）而非 `euler`。
+- **碰撞体来源**：优先官方 URDF/MJCF 的标准 primitive（rl_sar_zoo、LeggedGym-Ex），已对齐 lite3/a1/TRON1/d1/go2。
+
 ## 后端 API 概览
 
 控制面入口 `backend/api_complete.py`（FastAPI），关键端点：

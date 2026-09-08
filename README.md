@@ -2,7 +2,9 @@
 
 Legged Studio 是一个面向足式机器人强化学习的本地桌面/Web 工作台：机器人资产验证、MJLab 训练配置与监控、MuJoCo 交互仿真、浏览器 sim2sim 策略回放，全部通过版本化 JSON 契约（Robot / Scenario / Policy）串成可追溯链路。
 
-Version `0.9.0` 发布八个机器人包（Unitree Go2、ZEX-W、MicroDuck、Unitree G1、Unitree Go2-W、Unitree A2、Wuji Hand、Unitree H1_2），浏览器 sim2sim 按实机部署合同对齐；Go2/A2/G1/H1_2 的训练任务已完全内化为包内本地任务库（`training/source/`），契约化的逐关节 armature/frictionloss 贯穿验收、浏览器与配置链路，并新增桌面工具链可复用的 MjSpec 场景构建器与浏览器↔桌面 replay 控制步对齐工具。
+Version `0.9.0` 发布 **16 个机器人包 / 55 个训练 profile**：Unitree Go2（12 profiles，含技能任务与深度 parkour）、Go2-W、G1（5 profiles，含 AMP 与 DeepMimic 动作跟踪）、A1、A2、B2、B2-W、H1-2、ZEX-W、MicroDuck（18 profiles）、Wuji Hand、Agibot D1、Deeprobotics Lite3、Deeprobotics M20（含 DreamWaQ）、LimX TRON1 Point/Sole-Foot。
+
+已内化的训练体系：Go2 技能任务（jump/backflip/handstand/spring-jump/trot/dreamwaq/walk-these-ways）与 G1 舞蹈权重包、DeepMimic 跟踪任务（60 clips 动作库）、M20 DreamWaQ、Lite3/M20 官方奖励配方、PIE 深度感知 parkour（106×60 深度相机楼梯运动）。外部训练源（LLoco/AMP/Instinct/wuji-mjlab/unitree_rl_mjlab 等）已全部内化为包内本地任务库，无外部依赖。
 
 **文档**：产品愿景与路线见 [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)；桌面程序见 [docs/DESKTOP_APP.md](docs/DESKTOP_APP.md)；Web 工作台见 [docs/WEB_APP.md](docs/WEB_APP.md)；机器人包建包/训练/验收的完整工程约定见 [docs/ROBOT_PACKAGE.md](docs/ROBOT_PACKAGE.md)。
 
@@ -38,7 +40,7 @@ Linux AppImage 需在 Linux 主机/CI 上 `npm run build:linux`。产物写入 `
 | `web/` | Web 工作台与浏览器 sim2sim（含 `vendor/` 离线三方库） | 源码，勿删 |
 | `electron/` | 桌面启动器 | 源码，勿删 |
 | `scripts/` | 发布检查、打包、运行时配置、CLI、生成器 | 源码，勿删 |
-| `tools/` | 外部工具链包装（验证器/评估器/sim2sim 校验） | 源码，勿删 |
+| `tools/` | 外部工具链包装：全量训练验证器（`validate_training_smoke.py` + `_smoke_one.py`，128 envs × 30 步批量校验 55 profiles）、URDF→MJCF 转换、动作库转换 | 源码，勿删 |
 | `packaging/` | electron-builder 嵌入式/Online 两个配置 | 源码，勿删 |
 | `docs/` | 产品愿景 + 桌面/Web 程序说明 + 工程约定 | 源码，勿删 |
 | `contracts/fixtures/` | 契约测试样本 | 源码，勿删 |
@@ -82,7 +84,7 @@ adapter 侧测试在 `adapters/mjlab/test_*.py`（其 venv 内运行）。
 
 ## 能力边界（诚实声明）
 
-- 已验证：控制面单测、MJLab adapter 测试、Go2/ZEX-W/MicroDuck/G1/Go2-W 的浏览器 sim2sim 实机合同对齐、键盘遥控、CUDA 选择（RTX 4060 验证环境）。
+- 已验证：控制面单测、MJLab adapter 测试、16 机器人浏览器 sim2sim 全量编译通过（55/55 训练 profile 冒烟验证）、键盘遥控、CUDA 选择（RTX 4060 验证环境）、02 界面碰撞体可视化（视觉降透明让内部碰撞透出）。
 - 未闭环：GPU 长训练验收、ONNX 数值一致性 replay、复杂导航规划、实机控制与安全门禁（L4）。
 - Online 包不内置 Torch/MJLab：仅携带 uv、CPython 引导文件与固定源码快照，用户点 Configure Runtime 后才安装。国内默认清华 PyPI + 上海交大 cu128 镜像；NVIDIA 驱动用户自备。
 

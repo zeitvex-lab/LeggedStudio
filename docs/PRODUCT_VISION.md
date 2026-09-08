@@ -20,9 +20,20 @@ Legged Studio 是面向足式机器人强化学习的本地桌面/Web 工作台�
 
 ## 当前发布状态（0.9.0）
 
-0.9.0 发布八个机器人包：Unitree Go2、ZEX-W、MicroDuck、Unitree G1、Unitree Go2-W、Unitree A2、Wuji Hand、Unitree H1_2。训练使用隔离的 native MJLab worker（唯一可运行算法为 PPO）；浏览器 sim2sim 已按实机部署合同对齐已发布机器人（关节布局、默认姿态、PD/低通参数、ONNX 输入输出顺序一一对应）。控制面本身不导入 Torch、Warp 或 MuJoCo-Warp，页面加载不触发训练探针。
+0.9.0 发布 **16 个机器人包 / 55 个训练 profile**：Unitree Go2（含 6 个技能任务与深度 parkour）、Go2-W、G1（含 AMP 与 DeepMimic 动作跟踪）、A1、A2、B2、B2-W、H1-2、ZEX-W、MicroDuck、Wuji Hand、Agibot D1、Deeprobotics Lite3、Deeprobotics M20（含 DreamWaQ）、LimX TRON1 Point/Sole-Foot。训练使用隔离的 native MJLab worker（唯一可运行算法为 PPO）；浏览器 sim2sim 已按实机部署合同对齐（关节布局、默认姿态、PD/低通参数、ONNX 输入输出顺序一一对应），16 机器人全量编译通过。控制面本身不导入 Torch、Warp 或 MuJoCo-Warp。
 
-0.9.0 同时落地：Go2 的技能任务（rear-stand、jump、handstand）与 A2/G1/H1_2 的 velocity 任务全部内化为包内本地任务库（`training/source/`，无外部训练源依赖）、逐关节 armature/frictionloss 的契约化（贯穿验收、浏览器与配置链路）、桌面工具链可复用的 MjSpec 场景构建器（`adapters/mjlab/scene_builder.py`），以及浏览器与桌面 replay 的控制步对齐工具（`adapters/mjlab/replay_diff.py`）。H1_2 的 velocity 训练 profile 已就绪，出策略后其姿态保持即从当前预期的趴地行为恢复为主动平衡站立。
+0.9.0 发布 **16 个机器人包 / 55 个训练 profile**：Unitree Go2（含 6 个技能任务与深度 parkour）、Go2-W、G1（含 AMP 与 DeepMimic 动作跟踪）、A1、A2、B2、B2-W、H1-2、ZEX-W、MicroDuck、Wuji Hand、Agibot D1、Deeprobotics Lite3、Deeprobotics M20（含 DreamWaQ）、LimX TRON1 Point/Sole-Foot。训练使用隔离的 native MJLab worker（唯一可运行算法为 PPO）；浏览器 sim2sim 已按实机部署合同对齐（关节布局、默认姿态、PD/低通参数、ONNX 输入输出顺序一一对应），16 机器人全量编译通过。控制面本身不导入 Torch、Warp 或 MuJoCo-Warp。
+
+0.9.0 同时落地：
+
+- **训练体系完全内化**：Go2 技能任务（jump/backflip/handstand/spring-jump/trot/dreamwaq/walk-these-ways）、G1 舞蹈权重包 + DeepMimic 跟踪任务（60 clips 动作库，xyzw→wxyz 四元数、clip 时间轴拼接）、M20 DreamWaQ（DreamActor/Critic + VAE 辅助损失）、Lite3/M20 官方奖励配方、PIE 深度感知 parkour（106×60 深度相机 + 地形感知指令 + 辅助损失）。外部训练源（LLoco/AMP/Instinct/wuji-mjlab/unitree_rl_mjlab）全部内化，无外部依赖。
+- **全量训练验证器**（`tools/validate_training_smoke.py`）：128 并行环境 × 30 步 rollout 批量校验全部 profile，子进程隔离防 sys.path 污染；配合每日 4:00 定时任务自动验证 + 修复失败项。
+- **MJCF 标准化**：lite3/a1 用官方 mesh 重建（视觉/碰撞分离），TRON1 按 limx_dynamics 校准碰撞体，d1/go2 补齐足端碰撞球；02 界面碰撞体可视化（开碰撞时视觉降透明，内部碰撞透出）。
+- **仿真修复**：16 机器人浏览器场景路径/meshdir 一致性修复，全部可正常渲染；microduck/zex-w 补 `mujoco_sim` 能力门控恢复可见。
+- **CaT 约束机制与奖励技巧集**（`adapters/mjlab/cat_constraints.py`、`shared_rewards.py`）：Polyak 运行极值约束、foot_flat/feet_distance/no_fly/landing_vel 等共享奖励项。
+- **契约化与桌面工具链**：逐关节 armature/frictionloss、训练 profile 入口（env/runner/runner_class）、策略元数据盖章贯穿验收与浏览器链路；MjSpec 场景构建器（`adapters/mjlab/scene_builder.py`）、浏览器与桌面 replay 控制步对齐工具（`adapters/mjlab/replay_diff.py`）。
+
+H1_2 的 velocity 训练 profile 已就绪，出策略后其姿态保持即从当前预期的趴地行为恢复为主动平衡站立。
 
 ## 产品边界
 
