@@ -669,6 +669,50 @@ async def resolve_training_recipe(config: dict):
     return {"valid": True, "recipe": recipe.model_dump(mode="json")}
 
 
+@router.get("/resource-packs")
+async def resource_packs():
+    """模块化资源包目录（T2.5）：把 55+ 预设组织为三线资源包卡片。
+
+    - 盲走包：DreamWaQ / wtw / blind 类（本体感知 + 历史帧 + 隐式姿态编码）
+    - 模仿学习三线：DeepMimic 显式跟踪 / AMP 对抗风格 / teacher→student 蒸馏
+      （对标两家均无的独有优势，报告 1 §7）
+    - 感知观测项：parkour / depth / stair 类（接触 → 高度场 → 深度相机）
+    分组按 profile_id 关键词匹配（数据驱动，无 per-robot 分支）。
+    """
+    from backend.robot_packages import list_robot_packages
+
+    pack_rules = [
+        ("blind_walking", "盲走资源包", "DreamWaQ 全家：本体感知观测库 + 历史帧堆叠 + 隐式姿态编码 + 地形课程 + 域随机化",
+         ("dreamwaq", "wtw", "walk-these-ways", "blind")),
+        ("imitation", "模仿学习三线", "DeepMimic 60 clips 显式跟踪 / AMP 对抗风格 / teacher→student 蒸馏（课程与对称性可选）",
+         ("amp", "tracking", "deepmimic", "motion", "distill")),
+        ("perception", "感知观测项", "足端接触 → 高度场 → 深度相机（PIE 106×60 楼梯 parkour 内置参考）",
+         ("parkour", "depth", "stair", "rough")),
+    ]
+    packs = []
+    for pack_id, name, description, keywords in pack_rules:
+        profiles = []
+        for record in list_robot_packages():
+            for profile in record.get("training_profiles", []):
+                pid = str(profile.get("profile_id", "")).lower()
+                if any(keyword in pid for keyword in keywords):
+                    profiles.append({
+                        "robot_id": record["robot_id"],
+                        "profile_id": profile.get("profile_id"),
+                        "algorithm": profile.get("algorithm", "PPO"),
+                        "num_envs": profile.get("num_envs"),
+                        "max_iterations": profile.get("max_iterations"),
+                    })
+        packs.append({
+            "id": pack_id,
+            "name": name,
+            "description": description,
+            "profile_count": len(profiles),
+            "profiles": profiles,
+        })
+    return {"success": True, "packs": packs}
+
+
 @router.get("/list")
 async def list_trainings():
     """列出所有训练任务"""

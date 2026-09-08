@@ -299,6 +299,15 @@
     </header>
   <main class="content">
   <div class="list-container">
+    <!-- T2.5：模块化资源包（模仿学习三线为对标两家均无的独有优势） -->
+    <section class="pack-strip" id="packStrip" aria-label="模块化资源包"></section>
+    <style>
+      .pack-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin: 12px 0; }
+      .pack-card { border: 1px solid var(--line-soft, #e8eff4); border-radius: 8px; background: #fff; padding: 10px 12px; }
+      .pack-card strong { display: block; margin-bottom: 4px; color: #1d2935; }
+      .pack-card .pack-desc { font-size: 12px; color: #5a6672; }
+      .pack-card .pack-count { display: inline-block; margin-top: 6px; font-family: Consolas, monospace; font-size: 12px; color: #2e9e5b; }
+    </style>
     <!-- 页面头部 -->
     <header class="page-header">
       <div>
@@ -373,6 +382,22 @@
       return rateTrackers.get(taskId);
     }
 
+    async function loadResourcePacks() {
+      const wrap = document.getElementById('packStrip');
+      if (!wrap) return;
+      try {
+        const data = await fetchJson('/api/training/resource-packs');
+        wrap.innerHTML = (data.packs || []).map((pack) => `
+          <div class="pack-card">
+            <strong>${pack.name}</strong>
+            <span class="pack-desc">${pack.description}</span>
+            <span class="pack-count">${pack.profile_count} 个预设 · 训练配置页可选</span>
+          </div>`).join('');
+      } catch (error) {
+        wrap.innerHTML = '<div class="pack-card"><span class="pack-desc">资源包目录不可用（后端未启动）</span></div>';
+      }
+    }
+
     async function loadTrainingList() {
       try {
         const data = await fetchJson('/api/training/list');
@@ -422,6 +447,7 @@
 
     function refreshList() {
       loadTrainingList();
+      loadResourcePacks();
     }
 
     function progressMeta(task) {
@@ -589,6 +615,7 @@
 
     // 初始加载 + 定时刷新（页面隐藏时暂停，回到前台立即刷新一次）
     loadTrainingList();
+    loadResourcePacks();
     const refreshTimer = setInterval(() => {
       if (!document.hidden) loadTrainingList();
     }, 5000);
