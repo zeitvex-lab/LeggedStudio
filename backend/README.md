@@ -22,9 +22,11 @@ Useful endpoints:
 | Validate model/report | `POST /api/models/validate` |
 | Render model preview | `POST /api/models/preview` |
 | Browser-native sim2sim manifest | `GET /api/simulation/browser-config/{robot_id}` |
+| Policy acceptance (headless) | `POST /api/simulation/policies/acceptance` |
 | Export/import project package | `POST /api/project/export`, `POST /api/project/import` |
 | Training options | `GET /api/training/options` |
 | Training tasks | `GET /api/training/list` |
+| Training config introspection | `GET /api/training/config-preview`, `GET /api/training/profile-schema` |
 | Scenario validation | `POST /api/scenarios/validate` |
 | API documentation | `GET /docs` |
 
@@ -52,9 +54,16 @@ same generic MJLab task builder. Historical source code may be retained in the
 package for reference, but it is never an execution requirement.
 Mature robot projects can additionally ship `training/profiles/*.json` and
 `training/source/`. Each profile declares `source_root` plus
-`entrypoints.env` and `entrypoints.runner`; the isolated MJLab worker loads
-those factories and registers the resulting task through the same API. When
-no profile is selected, the generic Contract builder remains the fallback.
+`entrypoints.env` and `entrypoints.runner` (optionally
+`entrypoints.runner_class`); the isolated MJLab worker loads those factories
+and registers the resulting task through the same API. When no profile is
+selected, the generic Contract builder remains the fallback.
+
+All 16 shipped packages carry profiles (55 in total, all passing the
+`tools/validate_training_smoke.py` rollout smoke). Implementation styles span
+generic-contract builds (A1/B2/B2W/D1/TRON1), slim local velocity sources
+(A2/H1_2/Go2W/ZEX-W/Lite3/B2), and full local task frameworks (Go2
+`local_tasks`, G1 amp/tracking, microduck, wuji_hand, M20).
 
 The same importer accepts a ZIP of the ZEX-W source project (or any other robot
 project). After extraction it persists one package directory containing the
