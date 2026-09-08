@@ -27,7 +27,7 @@
         <geom type="mesh" contype="0" conaffinity="0" group="2"/>
       </default>
       <default class="collision">
-        <geom group="3"  contype="1" conaffinity="2"/>
+        <geom group="3"  contype="1" conaffinity="2" rgba="1 0.55 0.1 0.6"/>
         <default class="foot">
           <geom size="0.022" pos="-0.002 0 -0.213" priority="1" condim="6"
             friction="0.4 0.02 0.01"/>
@@ -97,7 +97,7 @@
             <geom name="FL_calf_geom1" size="0.012 0.06" pos="0.008 0 -0.06" quat="0.994493 0 -0.104807 0" type="cylinder" class="collision"/>
             <geom name="FL_calf_geom2" size="0.011 0.0325" pos="0.02 0 -0.148" quat="0.999688 0 0.0249974 0" type="cylinder" class="collision"/>
             <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black"/>
-            <geom name="FL" class="foot"/>
+            <geom name="FL" class="foot" type="sphere" size="0.022" pos="0 0 -0.213" group="3" contype="1" conaffinity="2" priority="1" condim="6" friction="0.4 0.02 0.01" rgba="1 0.55 0.1 0.6"/>
           </body>
         </body>
       </body>
@@ -124,7 +124,7 @@
             <geom name="FR_calf_geom1" size="0.013 0.06" pos="0.01 0 -0.06" quat="0.995004 0 -0.0998334 0" type="cylinder" class="collision"/>
             <geom name="FR_calf_geom2" size="0.011 0.0325" pos="0.02 0 -0.148" quat="0.999688 0 0.0249974 0" type="cylinder" class="collision"/>
             <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black"/>
-            <geom name="FR" class="foot"/>
+            <geom name="FR" class="foot" type="sphere" size="0.022" pos="0 0 -0.213" group="3" contype="1" conaffinity="2" priority="1" condim="6" friction="0.4 0.02 0.01" rgba="1 0.55 0.1 0.6"/>
           </body>
         </body>
       </body>
@@ -151,7 +151,7 @@
             <geom name="RL_calf_geom1" size="0.013 0.06" pos="0.01 0 -0.06" quat="0.995004 0 -0.0998334 0" type="cylinder" class="collision"/>
             <geom name="RL_calf_geom2" size="0.011 0.0325" pos="0.02 0 -0.148" quat="0.999688 0 0.0249974 0" type="cylinder" class="collision"/>
             <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black"/>
-            <geom name="RL" class="foot"/>
+            <geom name="RL" class="foot" type="sphere" size="0.022" pos="0 0 -0.213" group="3" contype="1" conaffinity="2" priority="1" condim="6" friction="0.4 0.02 0.01" rgba="1 0.55 0.1 0.6"/>
           </body>
         </body>
       </body>
@@ -178,7 +178,7 @@
             <geom name="RR_calf_geom1" size="0.013 0.06" pos="0.01 0 -0.06" quat="0.995004 0 -0.0998334 0" type="cylinder" class="collision"/>
             <geom name="RR_calf_geom2" size="0.011 0.0325" pos="0.02 0 -0.148" quat="0.999688 0 0.0249974 0" type="cylinder" class="collision"/>
             <geom pos="0 0 -0.213" mesh="foot" class="visual" material="black"/>
-            <geom name="RR" class="foot"/>
+            <geom name="RR" class="foot" type="sphere" size="0.022" pos="0 0 -0.213" group="3" contype="1" conaffinity="2" priority="1" condim="6" friction="0.4 0.02 0.01" rgba="1 0.55 0.1 0.6"/>
           </body>
         </body>
       </body>

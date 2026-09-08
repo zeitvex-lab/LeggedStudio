@@ -90,7 +90,9 @@
             <geom mesh="FL_FOOT_LINK" material="gray" class="visual" pos="0 0 -0.21366" />
             <geom name="FL" class="foot" />
             <site name="FL" pos="0 0 -0.21366" type="sphere" size="0.01" group="5"/>
-            <body name="FL_FOOT" pos="0 0 -0.21366" />
+            <body name="FL_FOOT" pos="0 0 -0.21366">
+        <geom name="FL_foot_collision" type="sphere" size="0.03" contype="1" conaffinity="1" friction="0.8 0.02 0.01"/>
+      </body>
           </body>
         </body>
       </body>
@@ -120,7 +122,9 @@
             <geom mesh="FR_FOOT_LINK" material="gray" class="visual" pos="0 0 -0.21366" />
             <geom name="FR" class="foot" />
             <site name="FR" pos="0 0 -0.21366" type="sphere" size="0.01" group="5"/>
-            <body name="FR_FOOT" pos="0 0 -0.21366" />
+            <body name="FR_FOOT" pos="0 0 -0.21366">
+        <geom name="FR_foot_collision" type="sphere" size="0.03" contype="1" conaffinity="1" friction="0.8 0.02 0.01"/>
+      </body>
           </body>
         </body>
       </body>
@@ -150,7 +154,9 @@
             <geom mesh="RL_FOOT_LINK" material="gray" class="visual" pos="0 0 -0.21366" />
             <geom name="RL" class="foot" />
             <site name="RL" pos="0 0 -0.21366" type="sphere" size="0.01" group="5"/>
-            <body name="RL_FOOT" pos="0 0 -0.21366" />
+            <body name="RL_FOOT" pos="0 0 -0.21366">
+        <geom name="RL_foot_collision" type="sphere" size="0.03" contype="1" conaffinity="1" friction="0.8 0.02 0.01"/>
+      </body>
           </body>
         </body>
       </body>
@@ -180,7 +186,9 @@
             <geom mesh="RR_FOOT_LINK" material="gray" class="visual" pos="0 0 -0.21366" />
             <geom name="RR" class="foot" />
             <site name="RR" pos="0 0 -0.21366" type="sphere" size="0.01" group="5"/>
-            <body name="RR_FOOT" pos="0 0 -0.21366" />
+            <body name="RR_FOOT" pos="0 0 -0.21366">
+        <geom name="RR_foot_collision" type="sphere" size="0.03" contype="1" conaffinity="1" friction="0.8 0.02 0.01"/>
+      </body>
           </body>
         </body>
       </body>
