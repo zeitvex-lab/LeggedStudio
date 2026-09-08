@@ -51,6 +51,7 @@ except ImportError as exc:  # optional export stack (torch/ONNX)
     export_router = None
     EXPORT_IMPORT_ERROR = str(exc)
 from backend.deploy_api import router as deploy_router
+from backend.terrain_api import router as terrain_router
 from backend.pretrained_api import router as pretrained_router
 from backend.inventory import InventoryError, dict_records, filter_records, load_inventory
 from backend.robot_presets import list_robot_presets, get_robot_preset as load_robot_preset
@@ -120,6 +121,7 @@ if evaluation_router is not None:
 if navigation_router is not None:
     app.include_router(navigation_router)
 app.include_router(deploy_router)
+app.include_router(terrain_router)
 app.include_router(model_router)
 app.include_router(project_router)
 if simulation_router is not None:
