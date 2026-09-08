@@ -1,0 +1,116 @@
+{
+  "schema_version": "robot-contract-3.0",
+  "robot_id": "limx_tron1_pf",
+  "morphology": {
+    "id": "biped",
+    "legs": 2,
+    "leg_pattern": [
+      "abad",
+      "hip",
+      "knee"
+    ],
+    "leg_naming": "{role}_{LR}_joint",
+    "leg_ids": [
+      "L",
+      "R"
+    ],
+    "actuated_via": "leg_pattern×legs"
+  },
+  "joints": {
+    "actuated": [
+      {
+        "name": "abad_L_Joint",
+        "leg": "L",
+        "role": "abad"
+      },
+      {
+        "name": "hip_L_Joint",
+        "leg": "L",
+        "role": "hip"
+      },
+      {
+        "name": "knee_L_Joint",
+        "leg": "L",
+        "role": "knee"
+      },
+      {
+        "name": "abad_R_Joint",
+        "leg": "R",
+        "role": "abad"
+      },
+      {
+        "name": "hip_R_Joint",
+        "leg": "R",
+        "role": "hip"
+      },
+      {
+        "name": "knee_R_Joint",
+        "leg": "R",
+        "role": "knee"
+      }
+    ],
+    "default_pose": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "actuator_profile": {
+    "by_role": {
+      "abad": {
+        "stiffness": 42.0,
+        "damping": 2.5,
+        "effort": 80.0,
+        "armature": 0.01
+      },
+      "hip": {
+        "stiffness": 42.0,
+        "damping": 2.5,
+        "effort": 80.0,
+        "armature": 0.01
+      },
+      "knee": {
+        "stiffness": 42.0,
+        "damping": 2.5,
+        "effort": 80.0,
+        "armature": 0.01
+      }
+    }
+  },
+  "action": {
+    "joint_order": [
+      "abad_L_Joint",
+      "hip_L_Joint",
+      "knee_L_Joint",
+      "abad_R_Joint",
+      "hip_R_Joint",
+      "knee_R_Joint"
+    ],
+    "action_scale": 0.25
+  },
+  "observation": {
+    "components": [],
+    "dimension": 135
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 200,
+    "decimation": 4
+  },
+  "contract_id": "limx_tron1_pf_v3",
+  "family": "LimX Dynamics TRON1 Point-Foot",
+  "size_class": "M",
+  "locomotion_type": "B",
+  "description": "LimX Dynamics TRON1 点足双足（PF，6-DoF：髋侧摆/髋前摆/膝 ×2，踝部为被动点足球）。模型为包内 MJCF（LeggedGym-Ex BSD-3 资产），PD Kp42/Kd2.5，力矩限幅 80 N·m，obs 27×5 历史栈，统一 mjlab 1.6 运行时。",
+  "tags": [
+    "biped",
+    "point-foot",
+    "mjcf",
+    "package",
+    "limx_tron1"
+  ],
+  "source": "legged_gym_ex_import"
+}

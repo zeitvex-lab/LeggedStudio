@@ -1,0 +1,188 @@
+{
+  "schema_version": "robot-contract-3.0",
+  "robot_id": "deeprobotics_lite3",
+  "morphology": {
+    "id": "quadruped_12dof",
+    "legs": 4,
+    "leg_pattern": [
+      "hipx",
+      "hipy",
+      "knee"
+    ],
+    "leg_naming": "{LR}_{role}_joint",
+    "leg_ids": [
+      "FL",
+      "FR",
+      "HL",
+      "HR"
+    ],
+    "actuated_via": "leg_pattern×legs"
+  },
+  "joints": {
+    "actuated": [
+      {
+        "name": "FL_HipX_joint",
+        "leg": "FL",
+        "role": "hipx"
+      },
+      {
+        "name": "FL_HipY_joint",
+        "leg": "FL",
+        "role": "hipy"
+      },
+      {
+        "name": "FL_Knee_joint",
+        "leg": "FL",
+        "role": "knee"
+      },
+      {
+        "name": "FR_HipX_joint",
+        "leg": "FR",
+        "role": "hipx"
+      },
+      {
+        "name": "FR_HipY_joint",
+        "leg": "FR",
+        "role": "hipy"
+      },
+      {
+        "name": "FR_Knee_joint",
+        "leg": "FR",
+        "role": "knee"
+      },
+      {
+        "name": "HL_HipX_joint",
+        "leg": "HL",
+        "role": "hipx"
+      },
+      {
+        "name": "HL_HipY_joint",
+        "leg": "HL",
+        "role": "hipy"
+      },
+      {
+        "name": "HL_Knee_joint",
+        "leg": "HL",
+        "role": "knee"
+      },
+      {
+        "name": "HR_HipX_joint",
+        "leg": "HR",
+        "role": "hipx"
+      },
+      {
+        "name": "HR_HipY_joint",
+        "leg": "HR",
+        "role": "hipy"
+      },
+      {
+        "name": "HR_Knee_joint",
+        "leg": "HR",
+        "role": "knee"
+      }
+    ],
+    "default_pose": [
+      -0.1,
+      -0.8,
+      1.5,
+      0.1,
+      -0.8,
+      1.5,
+      -0.1,
+      -0.8,
+      1.5,
+      0.1,
+      -0.8,
+      1.5
+    ]
+  },
+  "actuator_profile": {
+    "by_role": {
+      "hipx": {
+        "stiffness": 40.0,
+        "damping": 1.0,
+        "effort": 24.0
+      },
+      "hipy": {
+        "stiffness": 40.0,
+        "damping": 1.0,
+        "effort": 24.0
+      },
+      "knee": {
+        "stiffness": 40.0,
+        "damping": 1.0,
+        "effort": 36.0
+      }
+    }
+  },
+  "action": {
+    "joint_order": [
+      "FL_HipX_joint",
+      "FL_HipY_joint",
+      "FL_Knee_joint",
+      "FR_HipX_joint",
+      "FR_HipY_joint",
+      "FR_Knee_joint",
+      "HL_HipX_joint",
+      "HL_HipY_joint",
+      "HL_Knee_joint",
+      "HR_HipX_joint",
+      "HR_HipY_joint",
+      "HR_Knee_joint"
+    ],
+    "action_scale": 0.125
+  },
+  "observation": {
+    "components": [
+      {
+        "name": "base_ang_vel",
+        "width": 3,
+        "source": "imu"
+      },
+      {
+        "name": "projected_gravity",
+        "width": 3,
+        "source": "imu"
+      },
+      {
+        "name": "commands",
+        "width": 3,
+        "source": "cmd"
+      },
+      {
+        "name": "joint_pos",
+        "width": 12,
+        "source": "actuated"
+      },
+      {
+        "name": "joint_vel",
+        "width": 12,
+        "source": "actuated"
+      },
+      {
+        "name": "last_action",
+        "width": 12,
+        "source": "action"
+      }
+    ],
+    "dimension": 45
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 200,
+    "decimation": 4
+  },
+  "contract_id": "deeprobotics_lite3_v3",
+  "family": "Deeprobotics Lite3",
+  "size_class": "L",
+  "locomotion_type": "P",
+  "description": "Deeprobotics Lite3。模型为包内 MJCF（rl_sar_zoo 资产），统一 mjlab 1.6 运行时。",
+  "tags": [
+    "quadruped",
+    "mjcf",
+    "imported",
+    "package",
+    "deeprobotics_lite3"
+  ],
+  "source": "rl_sar_zoo_import"
+}

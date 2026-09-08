@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "legged-studio/robot-package-1.1",
+  "title": "Robot Package v1.1",
+  "description": "机器人包 manifest（T0.1 兄弟 schema 之一）。相对 robot-package-1.0 的升级为纯加法：新增 version/license/integrity/runtime_requirements 可选字段，全部旧字段语义不变（T6.1 插件协议在此文件上演进为 ls_plugin manifest）。",
+  "type": "object",
+  "required": ["schema_version", "package_id", "model", "contract_path", "simulation_config_path"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "enum": ["robot-package-1.0", "robot-package-1.1"],
+      "description": "1.1 = 声明本 schema 的可选扩展字段"
+    },
+    "package_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "如 generic_mjlab / mjlab_source_profiles / package_extension / mujoco_sim"
+    },
+    "model": {
+      "type": "object",
+      "required": ["format", "path"],
+      "properties": {
+        "format": {
+          "enum": ["mjcf", "urdf"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "assets_path": {
+          "type": "string"
+        }
+      }
+    },
+    "contract_path": {
+      "type": "string"
+    },
+    "contract_v3_path": {
+      "type": "string",
+      "description": "1.1 新增：契约 v3 sidecar 相对路径（T0.2 迁移产物，如 'contract_v3.json'）"
+    },
+    "simulation_config_path": {
+      "type": "string"
+    },
+    "training_config_path": {
+      "type": "string"
+    },
+    "training_source_path": {
+      "type": "string"
+    },
+    "extension_entrypoint": {
+      "type": "string"
+    },
+    "extension_root": {
+      "type": "string"
+    },
+    "source_project": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "description": "1.1 新增：包语义版本"
+    },
+    "license": {
+      "type": "object",
+      "description": "1.1 新增：{spdx, source, redistribution} 许可链（T6.3 许可门消费）"
+    },
+    "integrity": {
+      "type": "object",
+      "description": "1.1 新增：{model_sha256, contract_sha256, assets_manifest}（T6.3 分发 hash 门消费）"
+    },
+    "runtime_requirements": {
+      "type": "object",
+      "description": "1.1 新增：{python, mjlab, mujoco} 版本约束"
+    }
+  }
+}

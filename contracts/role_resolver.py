@@ -54,7 +54,11 @@ def validate_robot_id(value: str) -> None:
 
 
 def naming_pattern(leg_naming: str) -> re.Pattern[str]:
-    """把 '{LR}_{role}_joint' 这类模板编译为带 leg/role 命名分组的正则。"""
+    """把 '{LR}_{role}_joint' 这类模板编译为带 leg/role 命名分组的正则。
+
+    大小写不敏感：现存 16 包同一模板有 '{LR}_{role}_joint' / '{LR}_{role}_JOINT' /
+    '{role}_{LR}_Joint' 等大小写变体（agibot_d1/limx_tron1）；role 解析后统一小写。
+    """
 
     if "{LR}" not in leg_naming or "{role}" not in leg_naming:
         raise RoleResolverError(
@@ -65,10 +69,10 @@ def naming_pattern(leg_naming: str) -> re.Pattern[str]:
         if token == "{LR}":
             pieces.append(r"(?P<leg>[A-Za-z0-9]+)")
         elif token == "{role}":
-            pieces.append(r"(?P<role>[a-z][a-z0-9_]*)")
+            pieces.append(r"(?P<role>[A-Za-z][A-Za-z0-9_]*)")
         elif token:
             pieces.append(re.escape(token))
-    return re.compile("^" + "".join(pieces) + "$")
+    return re.compile("^" + "".join(pieces) + "$", re.IGNORECASE)
 
 
 def _merge_params(*layers: dict[str, Any] | None) -> dict[str, Any]:
@@ -135,22 +139,25 @@ class RoleResolver:
         return expanded
 
     def expand_observation(self) -> dict[str, Any]:
-        """返回校验过宽度自洽的观测声明 {kind, components, dimension}。"""
+        """返回校验过宽度自洽的观测声明 {kind, components, dimension}。
+
+        components 为空表示宽度声明待补全（v2 迁移的 history/视觉类观测），
+        此时只透传 dimension 不做 Σwidth 校验。
+        """
 
         observation = self.contract.get("observation") or {}
         components = observation.get("components") or []
         total = sum(int(component["width"]) for component in components)
         declared = observation.get("dimension")
-        expanded = {
-            "kind": observation.get("kind"),
-            "components": components,
-            "dimension": total,
-        }
-        if declared is not None and declared != total:
+        if components and declared is not None and declared != total:
             raise RoleResolverError(
                 f"observation.dimension={declared} 与 Σcomponents.width={total} 不一致"
             )
-        return expanded
+        return {
+            "kind": observation.get("kind"),
+            "components": components,
+            "dimension": declared if declared is not None else total,
+        }
 
     def expand_action(self) -> dict[str, Any]:
         """返回动作声明；reindex_from_model 非恒等时校验其为合法置换。"""
@@ -233,15 +240,20 @@ class RoleResolver:
         return errors
 
     def _template_matches(self) -> tuple[list[str], list[tuple[str, str]]]:
+        """只对 leg 归属关节做模板匹配；leg=null 的 extra_roles 关节不受 leg_naming 约束。"""
+
         regex = naming_pattern(self.morphology["leg_naming"])
         bad: list[str] = []
         parsed: list[tuple[str, str]] = []
         for entry in self.actuated:
+            if entry.get("leg") is None:
+                continue
             match = regex.fullmatch(entry["name"])
             if match is None:
                 bad.append(entry["name"])
                 continue
-            parsed.append((match.group("leg"), match.group("role")))
+            # role 统一小写（模板大小写不敏感：AGIBOT 的 ABAD 与 unitree 的 hip 同层）
+            parsed.append((match.group("leg"), match.group("role").lower()))
         return bad, parsed
 
     def _validate_joints(self) -> list[str]:
@@ -264,6 +276,14 @@ class RoleResolver:
                 f"关节名 {name!r} 不匹配 leg_naming 模板 {self.morphology['leg_naming']!r}"
             )
 
+        # leg=null 的 extra 关节：role 必须在 extra_roles 中声明，且不受 leg_naming 约束
+        extra_declared = set(extra_roles)
+        for entry in actuated:
+            if entry.get("leg") is None and entry["role"] not in extra_declared:
+                errors.append(
+                    f"extra 关节 {entry['name']} 的角色 {entry['role']!r} 未在 morphology.extra_roles 声明"
+                )
+
         if legs > 0 and pattern and not bad:
             expected: set[tuple[str, str]] = set()
             leg_ids = self.morphology.get("leg_ids") or sorted(
@@ -272,7 +292,8 @@ class RoleResolver:
             for leg in leg_ids:
                 for role in pattern:
                     expected.add((leg, role))
-            for entry, (leg, role) in zip(actuated, parsed):
+            legful = [entry for entry in actuated if entry.get("leg") is not None]
+            for entry, (leg, role) in zip(legful, parsed):
                 declared = (entry.get("leg"), entry["role"])
                 if declared != (leg, role):
                     errors.append(
@@ -286,12 +307,12 @@ class RoleResolver:
                     f"腿模式覆盖不完整，缺少 {sorted(missing)}（legs×leg_pattern 自洽）"
                 )
             surplus_roles = {role for _, role in parsed} - set(pattern)
-            undeclared = surplus_roles - set(extra_roles)
+            undeclared = surplus_roles - extra_declared
             if undeclared:
                 errors.append(
                     f"角色 {sorted(undeclared)} 不在 leg_pattern/extra_roles 中声明"
                 )
-            if entry_legs := {entry.get("leg") for entry in actuated} - {None}:
+            if entry_legs := {entry.get("leg") for entry in legful}:
                 if legs and len(entry_legs) != legs:
                     errors.append(
                         f"实际腿数({len(entry_legs)})与 morphology.legs({legs}) 不一致"
@@ -418,20 +439,28 @@ def build_v3_contract(
     observation_dimension: int | None = None,
     control: dict[str, Any] | None = None,
     default_pose: list[float] | None = None,
+    actuated_entries: list[dict[str, Any]] | None = None,
     **metadata: Any,
 ) -> dict[str, Any]:
-    """从紧凑输入组装契约 v3 dict（驱动关节由 leg_ids×leg_pattern×模板展开）。"""
+    """从紧凑输入组装契约 v3 dict。
+
+    默认驱动关节由 leg_ids×leg_pattern×模板展开（合成场景）；迁移/对接真实模型时传
+    ``actuated_entries=[{name, leg, role}, ...]``（name 必须与模型 1:1，大小写保留）。
+    """
 
     leg_ids = list(leg_ids)
     leg_pattern = list(leg_pattern)
-    actuated: list[dict[str, Any]] = []
-    for leg in leg_ids:
-        for role in leg_pattern:
-            actuated.append(
-                {"name": leg_naming.replace("{LR}", leg).replace("{role}", role),
-                 "leg": leg,
-                 "role": role}
-            )
+    if actuated_entries is not None:
+        actuated = [dict(entry) for entry in actuated_entries]
+    else:
+        actuated = []
+        for leg in leg_ids:
+            for role in leg_pattern:
+                actuated.append(
+                    {"name": leg_naming.replace("{LR}", leg).replace("{role}", role),
+                     "leg": leg,
+                     "role": role}
+                )
     if joint_order is None:
         joint_order = [entry["name"] for entry in actuated]
     action: dict[str, Any] = {"joint_order": list(joint_order)}

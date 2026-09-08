@@ -87,15 +87,16 @@ class ActionSpecV3(_V3Model):
 class ObservationComponentV3(_V3Model):
     name: str = Field(min_length=1)
     width: int = Field(ge=1)
-    scale: float
+    scale: Optional[float] = None
     source: Literal["imu", "cmd", "actuated", "action", "world", "external"]
     wrap: Optional[bool] = None
 
 
 class ObservationSpecV3(_V3Model):
     kind: Optional[str] = Field(default=None, pattern=r"^[a-z][a-z0-9_]*$")
-    components: list[ObservationComponentV3] = Field(min_length=1)
-    dimension: int = Field(ge=1)
+    # components 为空 = 宽度声明待补全（v2 迁移的 history/视觉类观测）
+    components: list[ObservationComponentV3] = Field(default_factory=list)
+    dimension: int = Field(ge=0)
     normalizer: Optional[dict[str, Any]] = None
 
 
@@ -128,7 +129,7 @@ class RobotContractV3(_V3Model):
     control: Optional[ControlSpecV3] = None
     default_pose: Optional[list[float]] = None
     size_class: Optional[Literal["S", "M", "L"]] = None
-    locomotion_type: Optional[Literal["P", "W"]] = None
+    locomotion_type: Optional[Literal["P", "W", "B", "H"]] = None
     urdf: Optional[dict[str, Any]] = None
     deployment: Optional[dict[str, Any]] = None
     description: str = ""

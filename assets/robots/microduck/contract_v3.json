@@ -1,0 +1,197 @@
+{
+  "schema_version": "robot-contract-3.0",
+  "robot_id": "microduck",
+  "morphology": {
+    "id": "biped",
+    "legs": 2,
+    "leg_pattern": [
+      "hip_yaw",
+      "hip_roll",
+      "hip_pitch",
+      "knee",
+      "ankle"
+    ],
+    "leg_naming": "{LR}_{role}",
+    "leg_ids": [
+      "left",
+      "right"
+    ],
+    "actuated_via": "leg_pattern×legs",
+    "extra_roles": [
+      "neck_pitch",
+      "head_pitch",
+      "head_yaw",
+      "head_roll"
+    ]
+  },
+  "joints": {
+    "actuated": [
+      {
+        "name": "left_hip_yaw",
+        "leg": "left",
+        "role": "hip_yaw"
+      },
+      {
+        "name": "left_hip_roll",
+        "leg": "left",
+        "role": "hip_roll"
+      },
+      {
+        "name": "left_hip_pitch",
+        "leg": "left",
+        "role": "hip_pitch"
+      },
+      {
+        "name": "left_knee",
+        "leg": "left",
+        "role": "knee"
+      },
+      {
+        "name": "left_ankle",
+        "leg": "left",
+        "role": "ankle"
+      },
+      {
+        "name": "neck_pitch",
+        "leg": null,
+        "role": "neck_pitch"
+      },
+      {
+        "name": "head_pitch",
+        "leg": null,
+        "role": "head_pitch"
+      },
+      {
+        "name": "head_yaw",
+        "leg": null,
+        "role": "head_yaw"
+      },
+      {
+        "name": "head_roll",
+        "leg": null,
+        "role": "head_roll"
+      },
+      {
+        "name": "right_hip_yaw",
+        "leg": "right",
+        "role": "hip_yaw"
+      },
+      {
+        "name": "right_hip_roll",
+        "leg": "right",
+        "role": "hip_roll"
+      },
+      {
+        "name": "right_hip_pitch",
+        "leg": "right",
+        "role": "hip_pitch"
+      },
+      {
+        "name": "right_knee",
+        "leg": "right",
+        "role": "knee"
+      },
+      {
+        "name": "right_ankle",
+        "leg": "right",
+        "role": "ankle"
+      }
+    ],
+    "default_pose": [
+      0,
+      -0.0873,
+      -0.4579,
+      -0.0049,
+      0.453,
+      0.3491,
+      0.3491,
+      0,
+      0,
+      0,
+      0.0873,
+      0.4579,
+      0.0049,
+      -0.453
+    ]
+  },
+  "actuator_profile": {
+    "by_role": {
+      "hip_yaw": {
+        "stiffness": 10,
+        "damping": 0.1
+      },
+      "hip_roll": {
+        "stiffness": 10,
+        "damping": 0.1
+      },
+      "hip_pitch": {
+        "stiffness": 10,
+        "damping": 0.1
+      },
+      "knee": {
+        "stiffness": 10,
+        "damping": 0.1
+      },
+      "ankle": {
+        "stiffness": 10,
+        "damping": 0.1
+      },
+      "neck_pitch": {
+        "stiffness": 10,
+        "damping": 0.1
+      },
+      "head_pitch": {
+        "stiffness": 10,
+        "damping": 0.1
+      },
+      "head_yaw": {
+        "stiffness": 10,
+        "damping": 0.1
+      },
+      "head_roll": {
+        "stiffness": 10,
+        "damping": 0.1
+      }
+    }
+  },
+  "action": {
+    "joint_order": [
+      "left_hip_yaw",
+      "left_hip_roll",
+      "left_hip_pitch",
+      "left_knee",
+      "left_ankle",
+      "neck_pitch",
+      "head_pitch",
+      "head_yaw",
+      "head_roll",
+      "right_hip_yaw",
+      "right_hip_roll",
+      "right_hip_pitch",
+      "right_knee",
+      "right_ankle"
+    ],
+    "action_scale": 1.0
+  },
+  "observation": {
+    "components": [],
+    "dimension": 61
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 200,
+    "decimation": 4
+  },
+  "contract_id": "microduck_v3",
+  "family": "MicroDuck",
+  "size_class": "S",
+  "locomotion_type": "P",
+  "description": "MicroDuck biped package imported from microduck_rl and microduck-simulator.",
+  "tags": [
+    "microduck",
+    "mjlab",
+    "bam",
+    "biped"
+  ],
+  "source": "microduck_rl"
+}

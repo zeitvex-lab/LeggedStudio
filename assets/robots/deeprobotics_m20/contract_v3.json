@@ -1,0 +1,240 @@
+{
+  "schema_version": "robot-contract-3.0",
+  "robot_id": "deeprobotics_m20",
+  "morphology": {
+    "id": "wheel_leg_16dof",
+    "legs": 4,
+    "leg_pattern": [
+      "hipx",
+      "hipy",
+      "knee",
+      "wheel"
+    ],
+    "leg_naming": "{LR}_{role}_joint",
+    "leg_ids": [
+      "fl",
+      "fr",
+      "hl",
+      "hr"
+    ],
+    "actuated_via": "leg_pattern×legs（含 wheel 角色）"
+  },
+  "joints": {
+    "actuated": [
+      {
+        "name": "fl_hipx_joint",
+        "leg": "fl",
+        "role": "hipx"
+      },
+      {
+        "name": "fl_hipy_joint",
+        "leg": "fl",
+        "role": "hipy"
+      },
+      {
+        "name": "fl_knee_joint",
+        "leg": "fl",
+        "role": "knee"
+      },
+      {
+        "name": "fr_hipx_joint",
+        "leg": "fr",
+        "role": "hipx"
+      },
+      {
+        "name": "fr_hipy_joint",
+        "leg": "fr",
+        "role": "hipy"
+      },
+      {
+        "name": "fr_knee_joint",
+        "leg": "fr",
+        "role": "knee"
+      },
+      {
+        "name": "hl_hipx_joint",
+        "leg": "hl",
+        "role": "hipx"
+      },
+      {
+        "name": "hl_hipy_joint",
+        "leg": "hl",
+        "role": "hipy"
+      },
+      {
+        "name": "hl_knee_joint",
+        "leg": "hl",
+        "role": "knee"
+      },
+      {
+        "name": "hr_hipx_joint",
+        "leg": "hr",
+        "role": "hipx"
+      },
+      {
+        "name": "hr_hipy_joint",
+        "leg": "hr",
+        "role": "hipy"
+      },
+      {
+        "name": "hr_knee_joint",
+        "leg": "hr",
+        "role": "knee"
+      },
+      {
+        "name": "fl_wheel_joint",
+        "leg": "fl",
+        "role": "wheel"
+      },
+      {
+        "name": "fr_wheel_joint",
+        "leg": "fr",
+        "role": "wheel"
+      },
+      {
+        "name": "hl_wheel_joint",
+        "leg": "hl",
+        "role": "wheel"
+      },
+      {
+        "name": "hr_wheel_joint",
+        "leg": "hr",
+        "role": "wheel"
+      }
+    ],
+    "default_pose": [
+      0.0,
+      -0.6,
+      1.0,
+      0.0,
+      -0.6,
+      1.0,
+      0.0,
+      0.6,
+      -1.0,
+      0.0,
+      0.6,
+      -1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "actuator_profile": {
+    "by_role": {
+      "hipx": {
+        "stiffness": 80.0,
+        "damping": 2.0,
+        "effort": 76.4
+      },
+      "hipy": {
+        "stiffness": 80.0,
+        "damping": 2.0,
+        "effort": 76.4
+      },
+      "knee": {
+        "stiffness": 80.0,
+        "damping": 2.0,
+        "effort": 76.4
+      },
+      "wheel": {
+        "stiffness": 0.0,
+        "damping": 0.6,
+        "effort": 21.6
+      }
+    }
+  },
+  "action": {
+    "joint_order": [
+      "fl_hipx_joint",
+      "fl_hipy_joint",
+      "fl_knee_joint",
+      "fr_hipx_joint",
+      "fr_hipy_joint",
+      "fr_knee_joint",
+      "hl_hipx_joint",
+      "hl_hipy_joint",
+      "hl_knee_joint",
+      "hr_hipx_joint",
+      "hr_hipy_joint",
+      "hr_knee_joint",
+      "fl_wheel_joint",
+      "fr_wheel_joint",
+      "hl_wheel_joint",
+      "hr_wheel_joint"
+    ],
+    "reindex_from_model": [
+      0,
+      1,
+      2,
+      4,
+      5,
+      6,
+      8,
+      9,
+      10,
+      12,
+      13,
+      14,
+      3,
+      7,
+      11,
+      15
+    ],
+    "action_scale": 0.25
+  },
+  "observation": {
+    "components": [
+      {
+        "name": "base_ang_vel",
+        "width": 3,
+        "source": "imu"
+      },
+      {
+        "name": "projected_gravity",
+        "width": 3,
+        "source": "imu"
+      },
+      {
+        "name": "commands",
+        "width": 3,
+        "source": "cmd"
+      },
+      {
+        "name": "joint_pos",
+        "width": 16,
+        "source": "actuated"
+      },
+      {
+        "name": "joint_vel",
+        "width": 16,
+        "source": "actuated"
+      },
+      {
+        "name": "last_action",
+        "width": 16,
+        "source": "action"
+      }
+    ],
+    "dimension": 57
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 200,
+    "decimation": 4
+  },
+  "contract_id": "deeprobotics_m20_v3",
+  "family": "Deeprobotics M20",
+  "size_class": "M",
+  "locomotion_type": "W",
+  "description": "Deeprobotics M20 轮足（Lynx 产品线，12 腿 + 4 轮，34.5kg）。模型为包内 MJCF（官方 deep_robotics_model），统一 mjlab 1.6 运行时。",
+  "tags": [
+    "wheel_leg",
+    "mjcf",
+    "imported",
+    "package",
+    "deeprobotics_m20"
+  ],
+  "source": "m20_rl_isaacsim/deep_robotics_model"
+}

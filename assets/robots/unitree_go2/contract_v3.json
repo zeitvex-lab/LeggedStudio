@@ -1,0 +1,159 @@
+{
+  "schema_version": "robot-contract-3.0",
+  "robot_id": "unitree_go2",
+  "morphology": {
+    "id": "quadruped_12dof",
+    "legs": 4,
+    "leg_pattern": [
+      "hip",
+      "thigh",
+      "calf"
+    ],
+    "leg_naming": "{LR}_{role}_joint",
+    "leg_ids": [
+      "FL",
+      "FR",
+      "RL",
+      "RR"
+    ],
+    "actuated_via": "leg_pattern×legs"
+  },
+  "joints": {
+    "actuated": [
+      {
+        "name": "FL_hip_joint",
+        "leg": "FL",
+        "role": "hip"
+      },
+      {
+        "name": "FL_thigh_joint",
+        "leg": "FL",
+        "role": "thigh"
+      },
+      {
+        "name": "FL_calf_joint",
+        "leg": "FL",
+        "role": "calf"
+      },
+      {
+        "name": "FR_hip_joint",
+        "leg": "FR",
+        "role": "hip"
+      },
+      {
+        "name": "FR_thigh_joint",
+        "leg": "FR",
+        "role": "thigh"
+      },
+      {
+        "name": "FR_calf_joint",
+        "leg": "FR",
+        "role": "calf"
+      },
+      {
+        "name": "RL_hip_joint",
+        "leg": "RL",
+        "role": "hip"
+      },
+      {
+        "name": "RL_thigh_joint",
+        "leg": "RL",
+        "role": "thigh"
+      },
+      {
+        "name": "RL_calf_joint",
+        "leg": "RL",
+        "role": "calf"
+      },
+      {
+        "name": "RR_hip_joint",
+        "leg": "RR",
+        "role": "hip"
+      },
+      {
+        "name": "RR_thigh_joint",
+        "leg": "RR",
+        "role": "thigh"
+      },
+      {
+        "name": "RR_calf_joint",
+        "leg": "RR",
+        "role": "calf"
+      }
+    ],
+    "default_pose": [
+      0.1,
+      0.8,
+      -1.5,
+      -0.1,
+      0.8,
+      -1.5,
+      0.1,
+      1.0,
+      -1.5,
+      -0.1,
+      1.0,
+      -1.5
+    ]
+  },
+  "actuator_profile": {
+    "by_role": {
+      "hip": {
+        "stiffness": 20.0,
+        "damping": 0.5,
+        "effort": 23.7,
+        "armature": 0.01
+      },
+      "thigh": {
+        "stiffness": 20.0,
+        "damping": 0.5,
+        "effort": 23.7,
+        "armature": 0.01
+      },
+      "calf": {
+        "stiffness": 20.0,
+        "damping": 0.5,
+        "effort": 35.55,
+        "armature": 0.02
+      }
+    }
+  },
+  "action": {
+    "joint_order": [
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint"
+    ],
+    "action_scale": 0.25
+  },
+  "observation": {
+    "components": [],
+    "dimension": 48
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 500,
+    "decimation": 10
+  },
+  "contract_id": "unitree_go2_v3",
+  "family": "Unitree Go2",
+  "size_class": "M",
+  "locomotion_type": "P",
+  "description": "Canonical Unitree Go2 MJCF preset sourced from the local UniLab asset snapshot.",
+  "tags": [
+    "mvp",
+    "mjcf",
+    "P",
+    "python-3.12"
+  ],
+  "source": "unilab_new/UniLab"
+}

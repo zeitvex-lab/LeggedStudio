@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "legged-studio/scenario-contract-1.1",
+  "title": "Scenario Contract v1.1",
+  "description": "场景契约（contracts/scenario_contract.py 的 schema 化，T0.1 兄弟 schema 之一）。相对 scenario-contract-1.0 纯加法：新增 terrain/termination/assessment/perception 可选字段（批次 4 场景库消费；ArenaX JSON 元数据直接映射，报告 9 §1.3）。",
+  "type": "object",
+  "required": ["schema_version", "scenario_id"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "enum": ["scenario-contract-1.0", "scenario-contract-1.1"]
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "map_id": {
+      "type": "string",
+      "description": "场景/地图 ID（'flat' 或场景库条目）"
+    },
+    "mode": {
+      "enum": ["basic", "navigation"],
+      "description": "basic=Sim2Sim 基础回放（本体+本体感知）；navigation=外部感知验证——两者分开（报告 10 §④）"
+    },
+    "seed": {
+      "type": "integer",
+      "description": "确定性回放种子（?replay=&seed= 消费）"
+    },
+    "episode_length_s": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "waypoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "tolerance": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    },
+    "command_limits": {
+      "type": "object",
+      "description": "{vx, vy, wz, ...} 正数上限"
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "terrain": {
+      "type": "object",
+      "description": "1.1 新增（T4.1/T4.2 消费）：{kind: flat|slope|stairs|noise|obstacle_mix, elements: [{type: platform|trench|stairs|hollow_stairs|ramp|stepping_stones|triangle|tire_ring|slalom_poles|sandpit|high_wall, params}], heightmap_png, xml_path, generator_params}——ArenaX terrain_generator 三件套的直接映射"
+    },
+    "termination": {
+      "type": "object",
+      "description": "1.1 新增：终止条件 {fall_pitch, timeout, collision_count, out_of_bounds}"
+    },
+    "assessment": {
+      "type": "object",
+      "description": "1.1 新增：评估口径 {route_completion_min, tracking_error_max, stability}——导航报告写回策略档案的判据"
+    },
+    "perception": {
+      "type": "object",
+      "description": "1.1 新增：感知观测项 {heightfield: bool, depth_camera: {width: 106, height: 60}（PIE 参考）, foot_contact: bool}"
+    }
+  }
+}

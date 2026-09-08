@@ -1,0 +1,336 @@
+{
+  "schema_version": "robot-contract-3.0",
+  "robot_id": "unitree_h1_2",
+  "morphology": {
+    "id": "humanoid",
+    "legs": 2,
+    "leg_pattern": [
+      "hip_yaw",
+      "hip_pitch",
+      "hip_roll",
+      "knee",
+      "ankle_pitch",
+      "ankle_roll",
+      "shoulder_pitch",
+      "shoulder_roll",
+      "shoulder_yaw",
+      "elbow",
+      "wrist_roll",
+      "wrist_pitch",
+      "wrist_yaw"
+    ],
+    "leg_naming": "{LR}_{role}_joint",
+    "leg_ids": [
+      "left",
+      "right"
+    ],
+    "actuated_via": "leg_pattern×legs",
+    "extra_roles": [
+      "torso"
+    ]
+  },
+  "joints": {
+    "actuated": [
+      {
+        "name": "left_hip_yaw_joint",
+        "leg": "left",
+        "role": "hip_yaw"
+      },
+      {
+        "name": "left_hip_pitch_joint",
+        "leg": "left",
+        "role": "hip_pitch"
+      },
+      {
+        "name": "left_hip_roll_joint",
+        "leg": "left",
+        "role": "hip_roll"
+      },
+      {
+        "name": "left_knee_joint",
+        "leg": "left",
+        "role": "knee"
+      },
+      {
+        "name": "left_ankle_pitch_joint",
+        "leg": "left",
+        "role": "ankle_pitch"
+      },
+      {
+        "name": "left_ankle_roll_joint",
+        "leg": "left",
+        "role": "ankle_roll"
+      },
+      {
+        "name": "right_hip_yaw_joint",
+        "leg": "right",
+        "role": "hip_yaw"
+      },
+      {
+        "name": "right_hip_pitch_joint",
+        "leg": "right",
+        "role": "hip_pitch"
+      },
+      {
+        "name": "right_hip_roll_joint",
+        "leg": "right",
+        "role": "hip_roll"
+      },
+      {
+        "name": "right_knee_joint",
+        "leg": "right",
+        "role": "knee"
+      },
+      {
+        "name": "right_ankle_pitch_joint",
+        "leg": "right",
+        "role": "ankle_pitch"
+      },
+      {
+        "name": "right_ankle_roll_joint",
+        "leg": "right",
+        "role": "ankle_roll"
+      },
+      {
+        "name": "torso_joint",
+        "leg": null,
+        "role": "torso"
+      },
+      {
+        "name": "left_shoulder_pitch_joint",
+        "leg": "left",
+        "role": "shoulder_pitch"
+      },
+      {
+        "name": "left_shoulder_roll_joint",
+        "leg": "left",
+        "role": "shoulder_roll"
+      },
+      {
+        "name": "left_shoulder_yaw_joint",
+        "leg": "left",
+        "role": "shoulder_yaw"
+      },
+      {
+        "name": "left_elbow_joint",
+        "leg": "left",
+        "role": "elbow"
+      },
+      {
+        "name": "left_wrist_roll_joint",
+        "leg": "left",
+        "role": "wrist_roll"
+      },
+      {
+        "name": "left_wrist_pitch_joint",
+        "leg": "left",
+        "role": "wrist_pitch"
+      },
+      {
+        "name": "left_wrist_yaw_joint",
+        "leg": "left",
+        "role": "wrist_yaw"
+      },
+      {
+        "name": "right_shoulder_pitch_joint",
+        "leg": "right",
+        "role": "shoulder_pitch"
+      },
+      {
+        "name": "right_shoulder_roll_joint",
+        "leg": "right",
+        "role": "shoulder_roll"
+      },
+      {
+        "name": "right_shoulder_yaw_joint",
+        "leg": "right",
+        "role": "shoulder_yaw"
+      },
+      {
+        "name": "right_elbow_joint",
+        "leg": "right",
+        "role": "elbow"
+      },
+      {
+        "name": "right_wrist_roll_joint",
+        "leg": "right",
+        "role": "wrist_roll"
+      },
+      {
+        "name": "right_wrist_pitch_joint",
+        "leg": "right",
+        "role": "wrist_pitch"
+      },
+      {
+        "name": "right_wrist_yaw_joint",
+        "leg": "right",
+        "role": "wrist_yaw"
+      }
+    ],
+    "default_pose": [
+      0.0,
+      -0.2,
+      0.0,
+      0.5,
+      -0.3,
+      0.0,
+      0.0,
+      -0.2,
+      0.0,
+      0.5,
+      -0.3,
+      0.0,
+      0.0,
+      0.28,
+      0.0,
+      0.0,
+      0.52,
+      0.0,
+      0.0,
+      0.0,
+      0.28,
+      0.0,
+      0.0,
+      0.52,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "actuator_profile": {
+    "by_role": {
+      "hip_yaw": {
+        "stiffness": 98.7,
+        "damping": 6.3,
+        "effort": 200.0,
+        "armature": 0.025
+      },
+      "hip_pitch": {
+        "stiffness": 98.7,
+        "damping": 6.3,
+        "effort": 200.0,
+        "armature": 0.025
+      },
+      "hip_roll": {
+        "stiffness": 98.7,
+        "damping": 6.3,
+        "effort": 200.0,
+        "armature": 0.025
+      },
+      "knee": {
+        "stiffness": 157.7,
+        "damping": 10.1,
+        "effort": 300.0,
+        "armature": 0.04
+      },
+      "ankle_pitch": {
+        "stiffness": 19.7,
+        "damping": 1.3,
+        "effort": 40.0,
+        "armature": 0.005
+      },
+      "ankle_roll": {
+        "stiffness": 19.7,
+        "damping": 1.3,
+        "effort": 40.0,
+        "armature": 0.005
+      },
+      "torso": {
+        "stiffness": 98.7,
+        "damping": 6.3,
+        "effort": 200.0,
+        "armature": 0.025
+      },
+      "shoulder_pitch": {
+        "stiffness": 19.7,
+        "damping": 1.3,
+        "effort": 40.0,
+        "armature": 0.005
+      },
+      "shoulder_roll": {
+        "stiffness": 19.7,
+        "damping": 1.3,
+        "effort": 40.0,
+        "armature": 0.005
+      },
+      "shoulder_yaw": {
+        "stiffness": 7.9,
+        "damping": 0.5,
+        "effort": 18.0,
+        "armature": 0.002
+      },
+      "elbow": {
+        "stiffness": 7.9,
+        "damping": 0.5,
+        "effort": 18.0,
+        "armature": 0.002
+      },
+      "wrist_roll": {
+        "stiffness": 7.9,
+        "damping": 0.5,
+        "effort": 18.0,
+        "armature": 0.002
+      },
+      "wrist_pitch": {
+        "stiffness": 7.9,
+        "damping": 0.5,
+        "effort": 18.0,
+        "armature": 0.002
+      },
+      "wrist_yaw": {
+        "stiffness": 7.9,
+        "damping": 0.5,
+        "effort": 18.0,
+        "armature": 0.002
+      }
+    }
+  },
+  "action": {
+    "joint_order": [
+      "left_hip_yaw_joint",
+      "left_hip_pitch_joint",
+      "left_hip_roll_joint",
+      "left_knee_joint",
+      "left_ankle_pitch_joint",
+      "left_ankle_roll_joint",
+      "right_hip_yaw_joint",
+      "right_hip_pitch_joint",
+      "right_hip_roll_joint",
+      "right_knee_joint",
+      "right_ankle_pitch_joint",
+      "right_ankle_roll_joint",
+      "torso_joint",
+      "left_shoulder_pitch_joint",
+      "left_shoulder_roll_joint",
+      "left_shoulder_yaw_joint",
+      "left_elbow_joint",
+      "left_wrist_roll_joint",
+      "left_wrist_pitch_joint",
+      "left_wrist_yaw_joint",
+      "right_shoulder_pitch_joint",
+      "right_shoulder_roll_joint",
+      "right_shoulder_yaw_joint",
+      "right_elbow_joint",
+      "right_wrist_roll_joint",
+      "right_wrist_pitch_joint",
+      "right_wrist_yaw_joint"
+    ],
+    "action_scale": 0.5
+  },
+  "observation": {
+    "components": [],
+    "dimension": 87
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 200,
+    "decimation": 4
+  },
+  "contract_id": "unitree_h1_2_v3",
+  "family": "Unitree H1-2",
+  "size_class": "L",
+  "locomotion_type": "B",
+  "description": "",
+  "tags": [],
+  "source": ""
+}

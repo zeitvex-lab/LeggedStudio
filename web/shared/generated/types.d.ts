@@ -77,7 +77,8 @@ export interface ActionSpecV3 {
 export interface ObservationComponentV3 {
   name: string;
   width: number; // >=1
-  scale: number;
+  /** 观测缩放；缺省 = 1.0（由训练配置校准） */
+  scale?: number;
   source: "imu" | "cmd" | "actuated" | "action" | "world" | "external";
   /** 角度量是否 wrap（轮关节必须 false——替代双处同步的 mask 特判） */
   wrap?: boolean;
@@ -86,8 +87,10 @@ export interface ObservationComponentV3 {
 export interface ObservationSpecV3 {
   /** 观测模板 ID（如 legged_base_v1） */
   kind?: string;
+  /** 空数组 = 宽度声明待补全（v2 迁移的 history/视觉类观测） */
   components: ObservationComponentV3[];
-  dimension: number; // == Σ components.width
+  /** 0 = 未声明；components 非空时必须 == Σ width */
+  dimension: number;
   normalizer?: { mean?: number[]; std?: number[] };
 }
 
@@ -119,7 +122,7 @@ export interface RobotContractV3 {
   control?: ControlSpecV3;
   default_pose?: number[];
   size_class?: "S" | "M" | "L";
-  locomotion_type?: "P" | "W";
+  locomotion_type?: "P" | "W" | "B" | "H"; // 点足/轮足/双足/人形（现存数据实况）
   urdf?: Record<string, unknown>;
   deployment?: Record<string, unknown>;
   description?: string;

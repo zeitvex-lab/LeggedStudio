@@ -60,8 +60,8 @@
       "description": "v2 兼容：按质量分档（S<15, M<35, L>=35 kg）"
     },
     "locomotion_type": {
-      "enum": ["P", "W"],
-      "description": "v2 兼容：Point-foot / Wheel 拓扑标记"
+      "enum": ["P", "W", "B", "H"],
+      "description": "v2 兼容：P=点足 / W=轮足 / B=双足 / H=人形（现存 16 包实际取值 P×7 W×4 B×4 H×1，v2 声明的 P|W 早已被现实扩展）"
     },
     "urdf": {
       "type": "object",
@@ -369,10 +369,9 @@
         },
         "components": {
           "type": "array",
-          "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["name", "width", "scale", "source"],
+            "required": ["name", "width", "source"],
             "additionalProperties": false,
             "properties": {
               "name": {
@@ -384,7 +383,8 @@
                 "minimum": 1
               },
               "scale": {
-                "type": "number"
+                "type": "number",
+                "description": "观测缩放；缺省 = 1.0（由训练配置校准，T2 消费）"
               },
               "source": {
                 "enum": ["imu", "cmd", "actuated", "action", "world", "external"],
@@ -396,12 +396,12 @@
               }
             }
           },
-          "description": "每项观测带宽度+scale+来源（StackForce 观测组件库的证据形态，报告 6 §2）；浏览器 obs 构建器由'每机器人一个函数'变为'一个模板引擎+16 份声明'"
+          "description": "每项观测带宽度+来源（StackForce 观测组件库的证据形态，报告 6 §2）；空数组 = 宽度声明待补全（v2 迁移的 history/视觉类观测无法机械定宽）；浏览器 obs 构建器由'每机器人一个函数'变为'一个模板引擎+声明'"
         },
         "dimension": {
           "type": "integer",
-          "minimum": 1,
-          "description": "== Σcomponents.width，自洽校验见 role_resolver"
+          "minimum": 0,
+          "description": "策略输入维度；0 = 未声明（v2 遗留，如 wuji_hand）；components 非空时必须 == Σwidth（role_resolver 强制）"
         },
         "normalizer": {
           "type": "object",

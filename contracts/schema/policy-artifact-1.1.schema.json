@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "legged-studio/policy-artifact-1.1",
+  "title": "Policy Artifact v1.1",
+  "description": "策略产物 manifest（contracts/policy_artifact.py 的 schema 化，T0.1 兄弟 schema 之一）。相对 artifact_version 1.0 纯加法：新增 contract_snapshot/lineage/verification 可选字段（UniLab 语义，报告 7 §3；microduck layout revision，REF §7.2）。",
+  "type": "object",
+  "required": ["artifact_id", "robot_id", "observation", "action"],
+  "additionalProperties": true,
+  "properties": {
+    "artifact_version": {
+      "enum": ["1.0", "1.1"],
+      "description": "1.1 = 声明本 schema 的可选扩展字段"
+    },
+    "artifact_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "robot_id": {
+      "$ref": "legged-studio/robot-contract-3.0#/$defs/robotId"
+    },
+    "robot_contract_hash": {
+      "type": "string",
+      "description": "训练所用契约哈希（v1.0 已有语义）"
+    },
+    "contract_snapshot": {
+      "type": "object",
+      "description": "1.1 新增：训练时契约 v3 快照（UniLab contract_snapshot 语义，T0.5 写入 run_config）"
+    },
+    "observation": {
+      "type": "object",
+      "description": "固化观测规范 {dimension, components, normalizer}；v3 起为 components[{name,width,scale,source}]"
+    },
+    "action": {
+      "type": "object",
+      "description": "固化动作规范 {dimension, joint_order, action_scale, reindex_from_model, action_clip}"
+    },
+    "layout_revision": {
+      "type": "string",
+      "description": "1.1 新增：观测/动作布局修订号（microduck 教训：不能只用 robot_id 推断输入维度）"
+    },
+    "onnx": {
+      "type": "object",
+      "description": "ONNX 导出与验证 {exported, onnx_path, max_numerical_diff, opset_version, input_shape, output_shape, metadata}"
+    },
+    "training_metrics": {
+      "type": "object",
+      "description": "训练指标 {iterations, episodes, success_rate, avg_reward, final_reward, ...}"
+    },
+    "sim2sim": {
+      "type": "object",
+      "description": "Sim2Sim 结果 {source_env, target_env, source_success_rate, target_success_rate, performance_drop}"
+    },
+    "lineage": {
+      "type": "object",
+      "description": "1.1 新增：{run_id, seed, resolved_config, environment_lock, input_hashes, parent_artifact}（方案三 R1 复现性消费）"
+    },
+    "verification": {
+      "type": "object",
+      "description": "1.1 新增：导出双 gate 结果 {dummy_forward, replay_max_diff, denylist, warnings}（T0.4 消费）"
+    },
+    "deployments": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "1.1 新增：历史部署记录 [{target, deployed_at, package_hash}]"
+    }
+  }
+}

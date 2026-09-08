@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "legged-studio/training-profile-1.1",
+  "title": "Training Profile v1.1",
+  "description": "训练 profile（training/config.json 条目形态，T0.1 兄弟 schema 之一）。相对现行无版本字段的 profile 升级为纯加法：新增 schema_version/reward_layers/observation_template 可选字段；LLoco 'profile 即数据' 范式（报告 7 §2）。",
+  "type": "object",
+  "required": ["robot_id", "profile_id", "task_name", "algorithm", "num_envs", "max_iterations"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "enum": ["training-profile-1.1"],
+      "description": "1.1 = 声明本 schema 的可选扩展字段；缺省视为 1.0（无版本旧 profile）"
+    },
+    "robot_id": {
+      "$ref": "legged-studio/robot-contract-3.0#/$defs/robotId"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "组合坐标命名：框架-任务-地形-机器人（报告 4 §1 范式 C）"
+    },
+    "contract_path": {
+      "type": "string"
+    },
+    "task_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "algorithm": {
+      "type": "string",
+      "description": "PPO 为唯一注册可运行算法；AMP/DreamWaQ/DeepMimic 跟踪以任务+自定义 runner 实现"
+    },
+    "runner_class": {
+      "type": "string",
+      "description": "自定义 runner（如 AMP/PIE），entrypoints 延迟加载"
+    },
+    "num_envs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_iterations": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "episode_length_s": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "learning_rate": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "save_interval": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "terrain": {
+      "type": "object",
+      "description": "地形配置（terrain_type 等）"
+    },
+    "command_ranges": {
+      "type": "object",
+      "description": "命令范围 {lin_vel_x, lin_vel_y, ang_vel_z: [min, max]}"
+    },
+    "reward_scales": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      },
+      "description": "奖励项权重表（负值=正则项）；四层分组见 reward_layers（T2.1）"
+    },
+    "reward_layers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "1.1 新增（T2.1 消费）：{reward_term: Tracking|Regularization|Style|Contact}"
+    },
+    "entrypoints": {
+      "type": "object",
+      "description": "env/runner/runner_class 延迟加载入口（三种实现来源共用同一入口）"
+    },
+    "smoke_preset": {
+      "type": "object",
+      "description": "1.1 新增（T2.3 消费）：冒烟档覆盖，如 {num_envs: 64, max_iterations: 5}"
+    },
+    "observation_template": {
+      "type": "string",
+      "description": "1.1 新增：消费的观测模板 ID（对应契约 v3 observation.kind）"
+    },
+    "requires_morphology": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "1.1 新增（$ref robot-contract-3.0 #/$defs/taskRequirements）：三谓词匹配输入，T6.1 启用"
+    },
+    "requires_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
