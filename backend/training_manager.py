@@ -13,6 +13,25 @@ from adapters.mjlab.launcher import TrainingLauncher
 from contracts.robot_contract_v2 import RobotContractV2
 
 
+def _package_contract_snapshot(robot_id: str) -> Optional[dict]:
+    """读取包当前契约作为训练快照：优先 contract_v3.json，回落 contract.json。"""
+
+    from backend.robot_presets import get_robot_preset
+
+    preset = get_robot_preset(robot_id)
+    root = Path(str(((preset or {}).get("robot_package") or {}).get("package_root", ""))) if preset else None
+    if root is None:
+        return None
+    for name in ("contract_v3.json", "contract.json"):
+        path = root / name
+        if path.exists():
+            try:
+                return json.loads(path.read_text(encoding="utf-8-sig"))
+            except (OSError, json.JSONDecodeError):
+                continue
+    return None
+
+
 class TrainingTask:
     """训练任务"""
 
@@ -141,6 +160,16 @@ class TrainingManager:
         # 保存 Contract
         contract_path = task_dir / "contract.json"
         contract.to_json_file(str(contract_path))
+
+        # 固化契约快照（UniLab contract_snapshot 语义，报告 7 §3）：训练时刻的
+        # 包契约 v3（缺则 v2 导出）。导出 DENYLIST gate 以此为训练侧真值，
+        # 契约漂移在导出时被 fail-closed 拦截。
+        snapshot = _package_contract_snapshot(str(contract.robot_id))
+        if snapshot is not None:
+            (task_dir / "contract_snapshot.json").write_text(
+                json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
 
         # 创建任务对象
         task = TrainingTask(

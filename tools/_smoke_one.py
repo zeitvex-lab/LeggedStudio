@@ -73,6 +73,16 @@ try:
             runner_cfg.max_iterations = iters
             runner_cfg.save_interval = 10_000
             wrapped = RslRlVecEnvWrapper(env)
+            # timeout bootstrap 不变量（报告 1 §8，Ch07）：wrapper 必须透传
+            # time_outs，否则 GAE 把 episode 超时当终止清零 value → critic
+            # 系统性低估长 episode（最高频的静默 bug）。冒烟阶段即拦截。
+            time_outs = getattr(wrapped, "time_outs", None)
+            if time_outs is None:
+                raise ValueError(
+                    "RslRlVecEnvWrapper 未暴露 time_outs —— timeout bootstrap 失效，"
+                    "critic 会系统性低估长 episode"
+                )
+            result["time_outs_wired"] = True
             runner = OnPolicyRunner(wrapped, runner_cfg.to_dict() if hasattr(runner_cfg, "to_dict") else vars(runner_cfg))
             runner.learn(num_learning_iterations=iters)
             result["status"] = "ok"

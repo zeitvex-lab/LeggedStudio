@@ -126,8 +126,15 @@ async def download_onnx(task_id: str):
 
 
 def _training_snapshot_from_task(task) -> dict:
-    """task 训练时契约（v1 形态）→ v3 形态快照（gate 统一比较路径）。"""
+    """训练侧契约快照：优先 create_task 固化的 contract_snapshot.json（v3 全量，
+    DENYLIST 强校验）；缺省退化为 v1 契约字段映射（部分字段降级为 warning）。"""
 
+    snapshot_path = task.task_dir / "contract_snapshot.json"
+    if snapshot_path.exists():
+        try:
+            return json.loads(snapshot_path.read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError):
+            pass
     contract = task.contract
     joints = getattr(contract, "joints", None)
     observation = getattr(contract, "observation", None)
