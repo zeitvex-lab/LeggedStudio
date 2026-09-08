@@ -10,6 +10,7 @@ from pathlib import Path
 import json
 
 from adapters.mjlab.onnx_exporter import export_policy_to_onnx
+from backend.export_gate import check_export_result, compare_contracts
 
 
 router = APIRouter(prefix="/api/export", tags=["export"])
@@ -124,9 +125,54 @@ async def download_onnx(task_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _training_snapshot_from_task(task) -> dict:
+    """task 训练时契约（v1 形态）→ v3 形态快照（gate 统一比较路径）。"""
+
+    contract = task.contract
+    joints = getattr(contract, "joints", None)
+    observation = getattr(contract, "observation", None)
+    dimension = getattr(observation, "dimension", None) if observation is not None else None
+    return {
+        "action": {
+            "joint_order": list(getattr(joints, "canonical_order", []) or []),
+            "action_scale": getattr(contract, "action_scale", None),
+        },
+        "observation": {"dimension": dimension},
+        "control": {
+            "control_hz": getattr(contract, "control_hz", None),
+            "physics_hz": getattr(contract, "physics_hz", None),
+        },
+    }
+
+
+def _current_contract_for(robot_id: str) -> dict:
+    """包当前契约：优先 contract_v3.json，回落 contract.json。"""
+
+    from backend.robot_presets import get_robot_preset
+
+    preset = get_robot_preset(robot_id)
+    root = Path(str(((preset or {}).get("robot_package") or {}).get("package_root", ""))) if preset else None
+    if root is None:
+        return {}
+    for name in ("contract_v3.json", "contract.json"):
+        path = root / name
+        if path.exists():
+            try:
+                return json.loads(path.read_text(encoding="utf-8-sig"))
+            except (OSError, json.JSONDecodeError):
+                continue
+    return {}
+
+
+@router.post("/gate-check")
+async def gate_check(training_snapshot: dict, current_contract: dict):
+    """DENYLIST 契约一致性检查（M4 部署向导步骤 2 的数据源）。"""
+    return compare_contracts(training_snapshot, current_contract)
+
+
 @router.post("/{task_id}/export-onnx")
 async def export_task_to_onnx(task_id: str):
-    """导出训练任务的模型为 ONNX"""
+    """导出训练任务的模型为 ONNX（双 gate：契约 DENYLIST + 形状/数值）"""
     try:
         from backend.training_manager import get_training_manager
         from contracts.policy_artifact import PolicyArtifact
@@ -147,6 +193,15 @@ async def export_task_to_onnx(task_id: str):
 
         artifact = PolicyArtifact.from_json_file(str(artifact_file))
 
+        # gate A：契约 DENYLIST（训练快照 vs 当前包契约，不一致即拒绝）
+        snapshot = _training_snapshot_from_task(task)
+        gate_report = compare_contracts(snapshot, _current_contract_for(str(getattr(task.contract, "robot_id", ""))))
+        if not gate_report["ok"]:
+            raise HTTPException(
+                status_code=422,
+                detail={"message": "导出被 DENYLIST gate 拒绝", "gate": gate_report},
+            )
+
         # 导出 ONNX
         onnx_path = task.task_dir / "model_final.onnx"
 
@@ -166,6 +221,17 @@ async def export_task_to_onnx(task_id: str):
                 detail=f"Export failed: {result.error_message}"
             )
 
+        # gate B：dummy forward 形状 + 数值回放（<1e-5），不过即删除产物（fail-closed）
+        shape_gate = check_export_result(
+            result, task.contract.observation.dimension, task.contract.action.dimension
+        )
+        if not shape_gate["ok"]:
+            Path(onnx_path).unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=422,
+                detail={"message": "导出被形状/数值 gate 拒绝（产物已删除）", "gate": shape_gate},
+            )
+
         # 更新 Artifact
         import hashlib
         with open(onnx_path, 'rb') as f:
@@ -180,7 +246,8 @@ async def export_task_to_onnx(task_id: str):
             "opset_version": result.opset_version,
             "input_shape": result.input_shape,
             "output_shape": result.output_shape,
-            "inference_time_ms": result.inference_time_ms
+            "inference_time_ms": result.inference_time_ms,
+            "gate": {"contract": gate_report, "shape_numeric": shape_gate},
         }
 
         # 保存更新的 Artifact
