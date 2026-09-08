@@ -270,5 +270,67 @@
         "autoplay": false
       }
     }
+  ],
+  "browser_actuator_rebuild": true,
+  "terrains": [
+    {
+      "id": "flat",
+      "label": "Flat",
+      "path": "web/sim2sim/assets/go2/flat.xml",
+      "browser_scene": true,
+      "repo_path": true,
+      "robot_include": "go2.xml"
+    },
+    {
+      "id": "stairs",
+      "label": "Stairs",
+      "path": "web/sim2sim/assets/go2/stairs.xml",
+      "browser_scene": true,
+      "repo_path": true,
+      "robot_include": "go2.xml"
+    },
+    {
+      "id": "cross_stairs",
+      "label": "Cross Stairs",
+      "path": "web/sim2sim/assets/go2/cross_stairs.xml",
+      "browser_scene": true,
+      "repo_path": true,
+      "robot_include": "go2.xml"
+    },
+    {
+      "id": "high_platforms",
+      "label": "High Platforms",
+      "path": "web/sim2sim/assets/go2/high_platforms.xml",
+      "browser_scene": true,
+      "repo_path": true,
+      "robot_include": "go2.xml"
+    },
+    {
+      "id": "cross_slope",
+      "label": "Cross Slope",
+      "path": "web/sim2sim/assets/go2/cross_slope.xml",
+      "browser_scene": true,
+      "repo_path": true,
+      "robot_include": "go2.xml"
+    },
+    {
+      "id": "race_track",
+      "label": "Race Track",
+      "path": "web/sim2sim/assets/go2/race_track.xml",
+      "browser_scene": true,
+      "repo_path": true,
+      "robot_include": "go2.xml"
+    }
+  ],
+  "demo_policies": [
+    {
+      "id": "go2-baseline-164k",
+      "label": "Go2 baseline 164k",
+      "url": "/web/sim2sim/models/go2_moe_cts_high_slope_164k.onnx",
+      "path": "models/go2_moe_cts_high_slope_164k.onnx",
+      "checkpoint_iteration": 164000,
+      "obs_dim": 45,
+      "history_len": 5
+    }
   ]
 }

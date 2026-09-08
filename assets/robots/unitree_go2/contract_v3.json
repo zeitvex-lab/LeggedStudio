@@ -102,19 +102,22 @@
         "stiffness": 20.0,
         "damping": 0.5,
         "effort": 23.7,
-        "armature": 0.01
+        "armature": 0.01,
+        "mode": "torque"
       },
       "thigh": {
         "stiffness": 20.0,
         "damping": 0.5,
         "effort": 23.7,
-        "armature": 0.01
+        "armature": 0.01,
+        "mode": "torque"
       },
       "calf": {
         "stiffness": 20.0,
         "damping": 0.5,
         "effort": 35.55,
-        "armature": 0.02
+        "armature": 0.02,
+        "mode": "torque"
       }
     }
   },

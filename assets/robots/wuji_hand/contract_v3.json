@@ -162,83 +162,103 @@
     "by_role": {
       "finger1_joint1": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger1_joint2": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger1_joint3": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger1_joint4": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger2_joint1": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger2_joint2": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger2_joint3": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger2_joint4": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger3_joint1": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger3_joint2": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger3_joint3": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger3_joint4": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger4_joint1": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger4_joint2": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger4_joint3": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger4_joint4": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger5_joint1": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger5_joint2": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger5_joint3": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       },
       "finger5_joint4": {
         "stiffness": 0.323,
-        "damping": 0.0148
+        "damping": 0.0148,
+        "mode": "position"
       }
     }
   },

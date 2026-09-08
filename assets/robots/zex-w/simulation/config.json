@@ -140,5 +140,7 @@
       "label": "斜坡",
       "path": "simulation/slope.xml"
     }
-  ]
+  ],
+  "browser_actuator_rebuild": true,
+  "viewer_camera_scale": 0.95
 }

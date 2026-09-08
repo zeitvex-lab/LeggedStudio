@@ -125,19 +125,27 @@
     "by_role": {
       "hip_abduction": {
         "stiffness": 50.0,
-        "damping": 1.5
+        "damping": 1.5,
+        "mode": "position",
+        "effort": 17.0
       },
       "hip_pitch": {
         "stiffness": 50.0,
-        "damping": 1.5
+        "damping": 1.5,
+        "mode": "position",
+        "effort": 17.0
       },
       "knee": {
         "stiffness": 50.0,
-        "damping": 1.5
+        "damping": 1.5,
+        "mode": "position",
+        "effort": 17.0
       },
       "wheel": {
         "stiffness": 50.0,
-        "damping": 1.0
+        "damping": 1.0,
+        "mode": "velocity",
+        "effort": 17.0
       }
     }
   },

@@ -177,5 +177,6 @@
     }
   },
   "policies": [],
-  "settle_steps": 200
+  "settle_steps": 200,
+  "browser_actuator_rebuild": true
 }

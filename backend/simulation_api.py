@@ -34,6 +34,7 @@ from pydantic import BaseModel, Field
 from adapters.mjlab.mujoco_env import ContractMujocoEnv
 from backend.robot_presets import get_robot_preset
 from backend.scenario_maps import MAPS
+from contracts.role_resolver import RoleResolver
 from contracts.scenario_contract import ScenarioContract
 
 
@@ -185,15 +186,7 @@ SESSION_TTL_SECONDS = 30 * 60
 BROWSER_MESH_LIMIT_BYTES = 40 * 1024 * 1024
 BROWSER_MESH_SUFFIXES = {".obj", ".stl", ".dae", ".ply", ".msh"}
 BROWSER_INITIAL_KEYFRAME = "__browser_init__"
-GO2_BROWSER_SCENES = (
-    "flat.xml",
-    "stairs.xml",
-    "cross_stairs.xml",
-    "high_platforms.xml",
-    "cross_slope.xml",
-    "race_track.xml",
-)
-GO2_TERRAIN_ROOT = Path(__file__).resolve().parents[1] / "web" / "sim2sim" / "assets" / "go2"
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _cleanup_sessions() -> None:
@@ -513,19 +506,34 @@ def _find_package_root_quiet(preset: dict[str, Any]) -> Path | None:
         return None
 
 
+def _read_contract_v3(root: Path | None) -> dict[str, Any] | None:
+    if root is None:
+        return None
+    path = root / "contract_v3.json"
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
 def _configure_browser_actuators(document: ET.Element, preset: dict[str, Any]) -> None:
     """Normalize actuator semantics for the browser runtime.
 
-    Package MJCFs come from different simulators.  The browser controller uses
-    the same contracts as the reference projects: Go2 receives external PD
-    torque through ``motor`` actuators, while ZEX-W receives position targets
-    for its legs and velocity targets for its wheels.  MicroDuck already ships
-    the position actuators used by ``microduck-simulator`` and is left intact.
+    机器人差异走数据不走特判（docs/ARCHITECTURE §核心约束）：是否重建执行器由包配置
+    ``browser_actuator_rebuild`` 声明（go2/a2/h1_2/zex-w 为 true，其余保留包内原生
+    执行器）；执行器类型/增益/力矩限全部来自契约 v3 角色表三级展开——
+    ``mode: torque → motor``、``position → position(kp,kv)``、``velocity → velocity(kv)``，
+    forcerange 取角色 effort。同一构型共享一份角色表，没有 per-robot 分支。
     """
-    robot_id = str(preset.get("robot_id") or "").lower().replace("_", "-")
-    if robot_id not in {"unitree-go2", "zex-w", "unitree-a2", "unitree-h1-2"}:
+    root = _find_package_root_quiet(preset)
+    simulation_config = _read_simulation_config(root) if root else {}
+    if not simulation_config.get("browser_actuator_rebuild"):
         return
-    simulation_config = _read_simulation_config(root) if (root := _find_package_root_quiet(preset)) else {}
+    contract_v3 = _read_contract_v3(root)
+    if contract_v3 is None:
+        return
     contract = preset.get("contract") or {}
     order = list(
         contract.get("action", {}).get("joint_order")
@@ -534,89 +542,43 @@ def _configure_browser_actuators(document: ET.Element, preset: dict[str, Any]) -
     )
     if not order:
         return
+    try:
+        expanded = RoleResolver(contract_v3).expand_actuator_profile()
+    except Exception:
+        return
     actuator = document.find("actuator")
     if actuator is None:
         actuator = ET.SubElement(document, "actuator")
     for child in list(actuator):
         actuator.remove(child)
 
-    if robot_id == "unitree-go2":
-        limits = {"hip": 23.7, "thigh": 23.7, "calf": 35.55}
-        for joint_name in order:
-            group = "calf" if "calf" in str(joint_name).lower() else ("hip" if "hip" in str(joint_name).lower() else "thigh")
-            limit = limits[group]
+    for joint_name in order:
+        name = str(joint_name)
+        params = expanded.get(name) or {}
+        effort = float(params.get("effort") or 40.0)
+        mode = str(params.get("mode") or "position")
+        if mode == "torque":
             ET.SubElement(
                 actuator,
                 "motor",
                 {
-                    "name": str(joint_name).removesuffix("_joint"),
-                    "joint": str(joint_name),
+                    "name": name.removesuffix("_joint"),
+                    "joint": name,
                     "gear": "1",
                     "forcelimited": "true",
-                    "forcerange": f"{-limit:g} {limit:g}",
+                    "forcerange": f"{-effort:g} {effort:g}",
                 },
             )
-        return
-
-    # A2 (Unitree A2 quadruped)：12 关节 position 执行器，增益取自包契约
-    # （hip/thigh 100/4，calf 150/6，effort 120/120/180——与 mjlab A2 任务一致）。
-    if robot_id == "unitree-a2":
-        sim_cfg = simulation_config or {}
-        stiffness = sim_cfg.get("stiffness") or {}
-        damping = sim_cfg.get("damping") or {}
-        torque_limits = sim_cfg.get("torque_limits") or {}
-        lowered_kp = {k.lower(): float(v) for k, v in stiffness.items()}
-        lowered_kd = {k.lower(): float(v) for k, v in damping.items()}
-        lowered_tau = {k.lower(): float(v) for k, v in torque_limits.items()}
-        for joint_name in order:
-            name = str(joint_name)
-            key = name.lower()
-            kp = lowered_kp.get(key, 100.0)
-            kv = lowered_kd.get(key, 4.0)
-            tau = lowered_tau.get(key, 120.0)
-            ET.SubElement(
-                actuator,
-                "position",
-                {"name": name, "joint": name, "kp": f"{kp:g}", "kv": f"{kv:g}",
-                 "forcelimited": "true", "forcerange": f"{-tau:g} {tau:g}"},
-            )
-        return
-
-    # H1-2 (Unitree 人形)：27 关节 position 执行器，4 组电机增益取自包契约。
-    if robot_id == "unitree-h1-2":
-        sim_cfg = simulation_config or {}
-        lowered_kp = {k.lower(): float(v) for k, v in (sim_cfg.get("stiffness") or {}).items()}
-        lowered_kd = {k.lower(): float(v) for k, v in (sim_cfg.get("damping") or {}).items()}
-        lowered_tau = {k.lower(): float(v) for k, v in (sim_cfg.get("torque_limits") or {}).items()}
-        for joint_name in order:
-            name = str(joint_name)
-            key = name.lower()
-            kp = lowered_kp.get(key, 20.0)
-            kv = lowered_kd.get(key, 1.0)
-            tau = lowered_tau.get(key, 40.0)
-            ET.SubElement(
-                actuator,
-                "position",
-                {"name": name, "joint": name, "kp": f"{kp:g}", "kv": f"{kv:g}",
-                 "forcelimited": "true", "forcerange": f"{-tau:g} {tau:g}"},
-            )
-        return
-
-    # ZEX-W's source XML uses general actuators with an embedded PD loop.  The
-    # policy, however, emits target positions/velocities and the reference
-    # sim2sim rebuilds these as native MuJoCo position/velocity actuators.
-    for joint_name in order:
-        name = str(joint_name)
-        if "wheel" in name.lower():
+        elif mode == "velocity":
             ET.SubElement(
                 actuator,
                 "velocity",
                 {
                     "name": name,
                     "joint": name,
-                    "kv": "1",
+                    "kv": f"{float(params.get('damping') or 1.0):g}",
                     "forcelimited": "true",
-                    "forcerange": "-17 17",
+                    "forcerange": f"{-effort:g} {effort:g}",
                 },
             )
         else:
@@ -626,20 +588,27 @@ def _configure_browser_actuators(document: ET.Element, preset: dict[str, Any]) -
                 {
                     "name": name,
                     "joint": name,
-                    "kp": "50",
-                    "kv": "1.5",
+                    "kp": f"{float(params.get('stiffness') or 20.0):g}",
+                    "kv": f"{float(params.get('damping') or 1.0):g}",
                     "forcelimited": "true",
-                    "forcerange": "-17 17",
+                    "forcerange": f"{-effort:g} {effort:g}",
                 },
             )
 
 
-def _go2_browser_scene(scene_name: str) -> str:
-    """Build a self-contained primitive terrain scene for the package model."""
-    source_path = GO2_TERRAIN_ROOT / scene_name
-    document = ET.fromstring(source_path.read_text(encoding="utf-8-sig"))
+def _browser_scene_file(root: Path, entry: dict[str, Any]) -> str:
+    """Build a self-contained primitive terrain scene from a config-registered entry.
+
+    场景注册在包配置 ``terrains``（``browser_scene: true``）；include 的机器人引用
+    由 ``robot_include``（或包模型同名文件）统一改写为 ``model/robot.xml``，纹理改为
+    程序化 checker——与旧 go2 专用路径行为一致，但按数据驱动、包无关。
+    """
+
+    path = REPO_ROOT / entry["path"] if entry.get("repo_path") else root / entry["path"]
+    document = ET.fromstring(path.read_text(encoding="utf-8-sig"))
+    model_include = {str(entry.get("robot_include") or ""), "robot.xml"}
     for include in document.findall("include"):
-        if include.get("file") == "go2.xml":
+        if Path(include.get("file", "")).name in model_include:
             include.set("file", "model/robot.xml")
     for texture in document.findall(".//texture[@file]"):
         texture.attrib.pop("file", None)
@@ -649,6 +618,28 @@ def _go2_browser_scene(scene_name: str) -> str:
         texture.set("width", "64")
         texture.set("height", "64")
     return ET.tostring(document, encoding="unicode")
+
+
+def _terrain_entries(simulation_config: dict[str, Any]) -> list[dict[str, Any]]:
+    """包配置 terrains/scenes → 统一 entry 列表（id/label/path/browser_scene）。"""
+
+    configured = simulation_config.get("terrains") or simulation_config.get("scenes") or []
+    entries: list[dict[str, Any]] = []
+    for item in configured:
+        if isinstance(item, str):
+            path = item.replace("\\", "/")
+            entries.append({"id": Path(path).stem, "path": path})
+        elif isinstance(item, dict) and item.get("path"):
+            path = str(item["path"]).replace("\\", "/")
+            entries.append({
+                "id": str(item.get("id") or Path(path).stem),
+                "label": item.get("label"),
+                "path": path,
+                "browser_scene": bool(item.get("browser_scene")),
+                "repo_path": bool(item.get("repo_path")),
+                "robot_include": item.get("robot_include"),
+            })
+    return entries
 
 
 @router.get("/browser-config/{robot_id}")
@@ -677,41 +668,30 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     browser_assets, omitted_meshes, browser_asset_bytes = _browser_asset_files(root)
     lightweight_preview = bool(omitted_meshes)
     preview_mode = "hybrid_visual_meshes" if lightweight_preview else "visual_meshes"
-    if canonical_robot_id == "unitree_go2":
-        scenes = list(GO2_BROWSER_SCENES)
+    terrain_entries = _terrain_entries(simulation_config)
+    terrain_options = []
+    for entry in terrain_entries:
+        label_source = entry.get("label") or entry.get("id") or Path(entry["path"]).stem
+        terrain_options.append({
+            "id": entry["id"],
+            "label": str(label_source) if entry.get("label") else str(label_source).replace("_", " ").title(),
+            "path": entry["path"],
+        })
+    if not terrain_options:
+        scene_files = sorted((root / "simulation").glob("scene*.xml"))
         terrain_options = [
-            {"id": Path(path).stem, "label": Path(path).stem.replace("_", " ").title(), "path": path}
-            for path in scenes
+            {
+                "id": path.stem,
+                "label": "Default scene" if path.name == "scene.xml" else path.stem.removeprefix("scene_").replace("_", " ").title(),
+                # Always package-root-relative: the browser writes files
+                # under /working/platform/<rel> and loads them from there.
+                "path": str(path.relative_to(root)).replace("\\", "/"),
+            }
+            for path in scene_files
         ]
-    else:
-        configured_scenes = simulation_config.get("terrains") or simulation_config.get("scenes") or []
-        terrain_options = []
-        for item in configured_scenes:
-            if isinstance(item, str):
-                path = item.replace("\\", "/")
-                terrain_options.append({"id": Path(path).stem, "label": Path(path).stem.replace("_", " ").title(), "path": path})
-            elif isinstance(item, dict) and item.get("path"):
-                path = str(item["path"]).replace("\\", "/")
-                terrain_options.append({
-                    "id": str(item.get("id") or Path(path).stem),
-                    "label": str(item.get("label") or item.get("id") or Path(path).stem.replace("_", " ").title()),
-                    "path": path,
-                })
-        if not terrain_options:
-            scene_files = sorted((root / "simulation").glob("scene*.xml"))
-            terrain_options = [
-                {
-                    "id": path.stem,
-                    "label": "Default scene" if path.name == "scene.xml" else path.stem.removeprefix("scene_").replace("_", " ").title(),
-                    # Always package-root-relative: the browser writes files
-                    # under /working/platform/<rel> and loads them from there.
-                    "path": str(path.relative_to(root)).replace("\\", "/"),
-                }
-                for path in scene_files
-            ]
-        if not terrain_options:
-            terrain_options = [{"id": "default", "label": "Default scene", "path": "simulation/scene.xml"}]
-        scenes = [item["path"] for item in terrain_options]
+    if not terrain_options:
+        terrain_options = [{"id": "default", "label": "Default scene", "path": "simulation/scene.xml"}]
+    scenes = [item["path"] for item in terrain_options]
     package = preset.get("robot_package") or {}
     model_info = package.get("model") if isinstance(package.get("model"), dict) else {}
     model_rel = str(model_info.get("path") or "model/robot.xml").replace("\\", "/")
@@ -739,12 +719,11 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     # filesystem. Keeping them out of this list makes the robot visible before
     # a potentially large policy download starts.
     files = list(dict.fromkeys([*scenes, model_rel, *(item["path"] for item in public_models)]))
-    if canonical_robot_id != "unitree_go2":
-        files.extend(
-            str(item.relative_to(root)).replace("\\", "/")
-            for item in sorted((root / "simulation").glob("*.xml"))
-            if item.is_file() and item.name != "scene.xml"
-        )
+    files.extend(
+        str(item.relative_to(root)).replace("\\", "/")
+        for item in sorted((root / "simulation").glob("*.xml"))
+        if item.is_file() and item.name != "scene.xml"
+    )
     files.extend(browser_assets)
     package_policies = simulation_config.get("policies") if isinstance(simulation_config.get("policies"), list) else []
     default_policy_contract = simulation_config.get("policy_contract") if isinstance(simulation_config.get("policy_contract"), dict) else {}
@@ -798,33 +777,37 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                     "action_scale": float(contract.get("action", {}).get("action_scale", 0.25)),
                 },
             }
-    if canonical_robot_id == "unitree_go2":
-        go2_policy_url = "/web/sim2sim/models/go2_moe_cts_high_slope_164k.onnx"
+    # 演示策略（demo 卡素材）由包配置 demo_policies 声明——URL/维度/迭代数全部是数据
+    for demo in simulation_config.get("demo_policies") or []:
+        if not isinstance(demo, dict) or not demo.get("url"):
+            continue
+        demo_contract = {
+            "obs_dim": int(demo.get("obs_dim") or 0),
+            "action_dim": int(demo.get("action_dim") or len(order)),
+            "history_len": int(demo.get("history_len") or 1),
+            "action_scale": float(contract.get("action", {}).get("action_scale", 0.25)),
+            "autoplay": False,
+            "default_joint_angles": {name: float(value) for name, value in zip(order, default_pose)},
+        }
         policy = {
-            "id": "go2-baseline-164k",
+            "id": str(demo.get("id") or Path(str(demo["url"])).stem),
             "disabled": False,
-            "onnx_url": go2_policy_url,
-            "checkpoint_iteration": 164000,
-            "health": {"status": "pass", "checks": [{"id": "bundled", "ok": True, "message": "Bundled Go2 baseline"}]},
-            "contract": {
-                "obs_dim": 45,
-                "action_dim": len(order),
-                "history_len": 5,
-                "action_scale": float(contract.get("action", {}).get("action_scale", 0.25)),
-                "autoplay": False,
-                "default_joint_angles": {name: float(value) for name, value in zip(order, default_pose)},
-            },
+            "onnx_url": str(demo["url"]),
+            "checkpoint_iteration": demo.get("checkpoint_iteration"),
+            "health": {"status": "pass", "checks": [{"id": "bundled", "ok": True, "message": "Bundled demo policy"}]},
+            "contract": demo_contract,
         }
         public_policies = [{
-            "id": "go2-baseline-164k",
-            "label": "Go2 baseline 164k",
-            "url": go2_policy_url,
-            "path": "models/go2_moe_cts_high_slope_164k.onnx",
-            "obs_dim": 45,
-            "action_dim": len(order),
-            "history_len": 5,
-            "contract": policy["contract"],
+            "id": policy["id"],
+            "label": str(demo.get("label") or policy["id"]),
+            "url": str(demo["url"]),
+            "path": str(demo.get("path") or demo["url"]),
+            "obs_dim": demo_contract["obs_dim"],
+            "action_dim": demo_contract["action_dim"],
+            "history_len": demo_contract["history_len"],
+            "contract": demo_contract,
         }]
+        break
     simulation_control = simulation_config.get("control") if isinstance(simulation_config.get("control"), dict) else {}
     action_scale = float(
         simulation_config.get("action_scale", contract.get("action", {}).get("action_scale", 0.25))
@@ -891,6 +874,12 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
         "sim": {
             "robot": canonical_robot_id,
             "custom_robot_mjcf_supported": True,
+            # 取景参数由包配置声明（viewer_camera_scale / viewer_camera_max_distance），
+            # 缺省为通用默认——消灭前端按机器人 ID 的三元式
+            "viewer": {
+                "camera_scale": float(simulation_config.get("viewer_camera_scale", 1.0)),
+                "camera_max_distance": float(simulation_config.get("viewer_camera_max_distance", 22.0)),
+            },
             "asset_package": {
                 "base_url": f"/api/simulation/browser-package/{canonical_robot_id}/",
                 "files": files,
@@ -916,10 +905,15 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
 async def browser_simulation_asset(robot_id: str, asset_path: str):
     """Serve allowlisted package files to the browser MuJoCo virtual FS."""
     root, preset = _browser_package(robot_id)
-    canonical_robot_id = str(preset.get("robot_id") or robot_id)
     normalized = asset_path.replace("\\", "/").lstrip("/")
-    if canonical_robot_id == "unitree_go2" and normalized in GO2_BROWSER_SCENES:
-        return PlainTextResponse(_go2_browser_scene(normalized), media_type="application/xml")
+    simulation_config = _read_simulation_config(root)
+    for entry in _terrain_entries(simulation_config):
+        if not entry.get("browser_scene"):
+            continue
+        if normalized == str(entry["path"]).lstrip("/"):
+            return PlainTextResponse(
+                _browser_scene_file(root, entry), media_type="application/xml"
+            )
     if normalized == "scene.xml":
         scene = root / "simulation" / "scene.xml"
         if not scene.exists():

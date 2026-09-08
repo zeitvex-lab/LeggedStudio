@@ -101,17 +101,20 @@
       "hipx": {
         "stiffness": 40.0,
         "damping": 1.0,
-        "effort": 24.0
+        "effort": 24.0,
+        "mode": "position"
       },
       "hipy": {
         "stiffness": 40.0,
         "damping": 1.0,
-        "effort": 24.0
+        "effort": 24.0,
+        "mode": "position"
       },
       "knee": {
         "stiffness": 40.0,
         "damping": 1.0,
-        "effort": 36.0
+        "effort": 36.0,
+        "mode": "position"
       }
     }
   },

@@ -19,5 +19,6 @@
   "extension_root": "training/source",
   "source_project": "package-local task source",
   "contract_path": "contract.json",
-  "display_name": "unitree_go2"
+  "display_name": "unitree_go2",
+  "browser_default": true
 }

@@ -247,9 +247,21 @@ class CompleteApiContractTests(unittest.TestCase):
         client = TestClient(app)
         payload = client.get("/api/simulation/browser-config/unitree_go2").json()
         package = payload["sim"]["asset_package"]
+        # 场景注册在包配置 terrains（browser_scene 条目，repo 相对路径）——T0.3 数据驱动
         self.assertEqual(
             package["scenes"],
-            ["flat.xml", "stairs.xml", "cross_stairs.xml", "high_platforms.xml", "cross_slope.xml", "race_track.xml"],
+            [
+                "web/sim2sim/assets/go2/flat.xml",
+                "web/sim2sim/assets/go2/stairs.xml",
+                "web/sim2sim/assets/go2/cross_stairs.xml",
+                "web/sim2sim/assets/go2/high_platforms.xml",
+                "web/sim2sim/assets/go2/cross_slope.xml",
+                "web/sim2sim/assets/go2/race_track.xml",
+            ],
+        )
+        self.assertEqual(
+            [item["id"] for item in package["terrains"]],
+            ["flat", "stairs", "cross_stairs", "high_platforms", "cross_slope", "race_track"],
         )
         self.assertFalse(payload["policy"]["disabled"])
         self.assertEqual(payload["policy"]["contract"]["obs_dim"], 45)
@@ -261,7 +273,9 @@ class CompleteApiContractTests(unittest.TestCase):
         # The 7.8 MB base_4.obj stays under the 12 MiB transfer limit.
         self.assertIn("model/assets/base_4.obj", package["files"])
 
-        scene = client.get("/api/simulation/browser-package/unitree_go2/flat.xml")
+        scene = client.get(
+            "/api/simulation/browser-package/unitree_go2/web/sim2sim/assets/go2/flat.xml"
+        )
         self.assertEqual(scene.status_code, 200)
         self.assertIn('file="model/robot.xml"', scene.text)
         self.assertNotIn('file="go2.xml"', scene.text)

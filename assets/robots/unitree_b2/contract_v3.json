@@ -101,17 +101,20 @@
       "hip": {
         "stiffness": 160.0,
         "damping": 5.0,
-        "effort": 200.0
+        "effort": 200.0,
+        "mode": "position"
       },
       "thigh": {
         "stiffness": 160.0,
         "damping": 5.0,
-        "effort": 200.0
+        "effort": 200.0,
+        "mode": "position"
       },
       "calf": {
         "stiffness": 160.0,
         "damping": 5.0,
-        "effort": 320.0
+        "effort": 320.0,
+        "mode": "position"
       }
     }
   },

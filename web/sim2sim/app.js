@@ -74,7 +74,6 @@ const CONFIG = {
   commandAxes: [],
   commandRanges: null,
 };
-const DEMO_MODEL_URL = "./models/go2_moe_cts_high_slope_164k.onnx";
 const ASSET_FETCH_CONCURRENCY = 4;
 const LOW_FRICTION_TERRAINS = new Set(["stairs.xml", "cross_stairs.xml"]);
 const STAIR_SURFACE_FRICTION = 0.7;
@@ -419,8 +418,9 @@ async function init() {
       // URL_ROBOT is a normalized key ("go2", "zex_w") that may not equal any
       // option value ("unitree_go2", "zex-w"); match the way loadRobotOptions
       // does, otherwise the dropdown renders blank for Go2 and ZEX-W.
-      const requested = URL_ROBOT || sim.platformConfig?.sim?.robot || "unitree_go2";
-      const match = Array.from(elements.robotSelect.options).find(
+      // 无 URL/平台指定时不预设机器人——默认项由包 manifest 的 browser_default 决定。
+      const requested = URL_ROBOT || sim.platformConfig?.sim?.robot || "";
+      const match = requested && Array.from(elements.robotSelect.options).find(
         (option) => option.value === requested || normalizeRobotParam(option.value) === normalizeRobotParam(requested),
       );
       if (match) elements.robotSelect.value = match.value;
@@ -504,6 +504,7 @@ async function loadRobotOptions() {
       option.value = String(preset.robot_id || "");
       option.textContent = String(preset.family || preset.robot_id || "Robot");
       option.disabled = !preset.robot_package?.model?.path;
+      option.dataset.browserDefault = preset.robot_package?.browser_default ? "true" : "false";
       elements.robotSelect.append(option);
     }
     const match = requested && Array.from(elements.robotSelect.options).find(
@@ -511,8 +512,9 @@ async function loadRobotOptions() {
     );
     if (match) elements.robotSelect.value = match.value;
     else {
+      // 默认机器人由包 manifest 声明（browser_default），不再按机器人 ID 硬编码
       const defaultOption = Array.from(elements.robotSelect.options).find(
-        (option) => normalizeRobotParam(option.value) === "go2",
+        (option) => option.dataset.browserDefault === "true",
       );
       if (defaultOption) elements.robotSelect.value = defaultOption.value;
       else if (elements.robotSelect.options.length) elements.robotSelect.selectedIndex = 0;
@@ -1330,10 +1332,8 @@ function applyRuntimeConfig(config) {
   }
 
   const control = robot.control || {};
-  CONFIG.actuatorInterface = String(
-    control.actuator_interface
-      || (activeRobotKey() === "microduck" || activeRobotKey() === "zex-w" ? "position_target" : "torque"),
-  ).toLowerCase();
+  // 16 包 config 均声明 actuator_interface（payload 必带）；通用回退 = torque
+  CONFIG.actuatorInterface = String(control.actuator_interface || "torque").toLowerCase();
   applyJointMotorLimits(robot.joint_limits, order);
   applyActuatorContract(contract, control, order);
   const stiffness = control.stiffness || {};
@@ -2064,10 +2064,16 @@ function normalizeRobotParam(value) {
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
   if (!key) return "";
-  if (key.includes("fsdog")) return "fsdog1";
-  // go2w 必须先于 go2 判断（unitree_go2w 包含 unitree_go2 子串）
-  if (key === "go2w" || key.includes("go2w")) return "go2w";
-  if (key === "go2" || key.includes("unitree_go2")) return "go2";
+  // 机器人 ID 别名表（数据）：供 URL 短键（?robot=go2）等场景归一化
+  const aliases = [
+    { match: "fsdog", key: "fsdog1" },
+    // go2w 必须先于 go2 判断（unitree_go2w 包含 unitree_go2 子串）
+    { match: "go2w", key: "go2w" },
+    { match: "go2", key: "go2" },
+  ];
+  for (const alias of aliases) {
+    if (key === alias.match || key.includes(alias.match)) return alias.key;
+  }
   return key;
 }
 
@@ -2404,12 +2410,13 @@ function bindUi() {
 
 function fitViewerCamera() {
   if (!view.camera || !view.controls) return;
-  const robot = activeRobotKey();
-  const height = finiteNumber(CONFIG.baseHeightTarget, robot === "microduck" ? 0.12 : robot === "zex-w" ? 0.6 : 0.45);
-  const scale = robot === "microduck" ? 0.36 : robot === "zex-w" ? 0.95 : 1.0;
+  // 取景参数来自包配置（sim.viewer），缺省为通用值——无机器人特判
+  const viewer = sim.platformConfig?.sim?.viewer || {};
+  const scale = finiteNumber(viewer.camera_scale, 1.0);
+  const height = finiteNumber(CONFIG.baseHeightTarget, 0.45);
   view.controls.target.set(0, 0, height);
   view.controls.minDistance = Math.max(0.08, 0.35 * scale);
-  view.controls.maxDistance = robot === "microduck" ? 8 : 22;
+  view.controls.maxDistance = finiteNumber(viewer.camera_max_distance, 22);
   view.camera.position.set(1.35 * scale, -1.55 * scale, Math.max(height + 0.28 * scale, height + 0.12));
   view.camera.lookAt(view.controls.target);
   view.controls.update();

@@ -34,6 +34,22 @@ from contracts.role_resolver import (  # noqa: E402
 ROBOTS_DIR = ROOT / "assets" / "robots"
 LEG_VOCAB = {"fl", "fr", "rl", "rr", "hl", "hr", "left", "right", "l", "r"}
 
+# 人工校对 hint（报告 6 §4.5 异构包）：数字来自原 backend 特判/部署参考，落为数据。
+# zex-w 浏览器部署参考把轮重建为速度执行器、全关节 ±17 N·m；"*" = 全角色兜底。
+ROLE_HINTS = {
+    "zex-w": {
+        "*": {"effort": 17.0},
+        "wheel": {"mode": "velocity", "effort": 17.0},
+    },
+}
+
+# actuator_interface → 契约 v3 执行器模式
+INTERFACE_MODE = {
+    "torque": "torque",
+    "position_target": "position",
+    "velocity": "velocity",
+}
+
 # 已知 3 宽度观测名（机械定宽白名单）；关节类宽度 = len(actuated)；其余 → 放弃定宽
 WIDTH_3 = {
     "base_lin_vel", "base_ang_vel", "projected_gravity", "commands", "command",
@@ -229,6 +245,15 @@ def migrate_package(package_dir: Path) -> dict:
     by_role, by_joint, _ = build_actuator_profile(config, joints)
     if not by_role:
         raise SystemExit(f"{package_dir.name}: 无法从 config 抽取执行器参数")
+    package_id = package_dir.name
+    interface_mode = INTERFACE_MODE.get(
+        str(config.get("actuator_interface") or "").lower(), "position"
+    )
+    hints = ROLE_HINTS.get(package_id, {})
+    for role, params in by_role.items():
+        params.setdefault("mode", interface_mode)
+        for key, value in (hints.get(role) or hints.get("*") or {}).items():
+            params[key] = value  # 人工校对值覆盖机械推导
     dof = len(joints)
     contract = build_v3_contract(
         robot_id=v2["robot_id"],

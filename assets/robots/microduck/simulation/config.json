@@ -85,5 +85,7 @@
       "label": "公寓",
       "path": "simulation/scene_apartment.xml"
     }
-  ]
+  ],
+  "viewer_camera_scale": 0.36,
+  "viewer_camera_max_distance": 8.0
 }

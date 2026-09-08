@@ -203,85 +203,99 @@
         "stiffness": 98.7,
         "damping": 6.3,
         "effort": 200.0,
-        "armature": 0.025
+        "armature": 0.025,
+        "mode": "position"
       },
       "hip_pitch": {
         "stiffness": 98.7,
         "damping": 6.3,
         "effort": 200.0,
-        "armature": 0.025
+        "armature": 0.025,
+        "mode": "position"
       },
       "hip_roll": {
         "stiffness": 98.7,
         "damping": 6.3,
         "effort": 200.0,
-        "armature": 0.025
+        "armature": 0.025,
+        "mode": "position"
       },
       "knee": {
         "stiffness": 157.7,
         "damping": 10.1,
         "effort": 300.0,
-        "armature": 0.04
+        "armature": 0.04,
+        "mode": "position"
       },
       "ankle_pitch": {
         "stiffness": 19.7,
         "damping": 1.3,
         "effort": 40.0,
-        "armature": 0.005
+        "armature": 0.005,
+        "mode": "position"
       },
       "ankle_roll": {
         "stiffness": 19.7,
         "damping": 1.3,
         "effort": 40.0,
-        "armature": 0.005
+        "armature": 0.005,
+        "mode": "position"
       },
       "torso": {
         "stiffness": 98.7,
         "damping": 6.3,
         "effort": 200.0,
-        "armature": 0.025
+        "armature": 0.025,
+        "mode": "position"
       },
       "shoulder_pitch": {
         "stiffness": 19.7,
         "damping": 1.3,
         "effort": 40.0,
-        "armature": 0.005
+        "armature": 0.005,
+        "mode": "position"
       },
       "shoulder_roll": {
         "stiffness": 19.7,
         "damping": 1.3,
         "effort": 40.0,
-        "armature": 0.005
+        "armature": 0.005,
+        "mode": "position"
       },
       "shoulder_yaw": {
         "stiffness": 7.9,
         "damping": 0.5,
         "effort": 18.0,
-        "armature": 0.002
+        "armature": 0.002,
+        "mode": "position"
       },
       "elbow": {
         "stiffness": 7.9,
         "damping": 0.5,
         "effort": 18.0,
-        "armature": 0.002
+        "armature": 0.002,
+        "mode": "position"
       },
       "wrist_roll": {
         "stiffness": 7.9,
         "damping": 0.5,
         "effort": 18.0,
-        "armature": 0.002
+        "armature": 0.002,
+        "mode": "position"
       },
       "wrist_pitch": {
         "stiffness": 7.9,
         "damping": 0.5,
         "effort": 18.0,
-        "armature": 0.002
+        "armature": 0.002,
+        "mode": "position"
       },
       "wrist_yaw": {
         "stiffness": 7.9,
         "damping": 0.5,
         "effort": 18.0,
-        "armature": 0.002
+        "armature": 0.002,
+        "mode": "position"
       }
     }
   },

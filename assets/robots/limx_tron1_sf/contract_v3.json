@@ -77,25 +77,29 @@
         "stiffness": 45.0,
         "damping": 1.5,
         "effort": 80.0,
-        "armature": 0.01
+        "armature": 0.01,
+        "mode": "position"
       },
       "hip": {
         "stiffness": 45.0,
         "damping": 1.5,
         "effort": 80.0,
-        "armature": 0.01
+        "armature": 0.01,
+        "mode": "position"
       },
       "knee": {
         "stiffness": 45.0,
         "damping": 1.5,
         "effort": 80.0,
-        "armature": 0.01
+        "armature": 0.01,
+        "mode": "position"
       },
       "ankle": {
         "stiffness": 45.0,
         "damping": 0.8,
         "effort": 20.0,
-        "armature": 0.01
+        "armature": 0.01,
+        "mode": "position"
       }
     }
   },

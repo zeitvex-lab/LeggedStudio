@@ -126,24 +126,28 @@
       "hip": {
         "stiffness": 20.0,
         "damping": 1.0,
-        "effort": 23.5
+        "effort": 23.5,
+        "mode": "position"
       },
       "thigh": {
         "stiffness": 20.0,
         "damping": 1.0,
-        "effort": 23.5
+        "effort": 23.5,
+        "mode": "position"
       },
       "calf": {
         "stiffness": 40.0,
         "damping": 2.0,
         "effort": 45.0,
-        "armature": 0.02
+        "armature": 0.02,
+        "mode": "position"
       },
       "wheel": {
         "stiffness": 20.0,
         "damping": 2.0,
         "effort": 45.0,
-        "armature": 0.02
+        "armature": 0.02,
+        "mode": "position"
       }
     }
   },

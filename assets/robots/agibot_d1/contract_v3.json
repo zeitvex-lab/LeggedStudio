@@ -101,17 +101,20 @@
       "abad": {
         "stiffness": 20.0,
         "damping": 0.8,
-        "effort": 33.5
+        "effort": 33.5,
+        "mode": "position"
       },
       "hip": {
         "stiffness": 20.0,
         "damping": 0.8,
-        "effort": 33.5
+        "effort": 33.5,
+        "mode": "position"
       },
       "knee": {
         "stiffness": 20.0,
         "damping": 0.8,
-        "effort": 45.43
+        "effort": 45.43,
+        "mode": "position"
       }
     }
   },
