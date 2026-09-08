@@ -908,6 +908,21 @@
     if (options.collision === true && Array.isArray(state.deferredCollision) && state.deferredCollision.length) {
       state.deferredCollision.splice(0).forEach((task) => { task(); });
     }
+    // When the collision shell is shown, dim the opaque visual body so the
+    // (usually smaller, internal) collision primitives read through it. Restore
+    // full opacity when the shell is hidden. Grid stays untouched.
+    if (typeof options.collision === 'boolean') {
+      const shellVisible = options.collision;
+      state.roles.visual.forEach((object) => {
+        if (!object.material || object.userData._baseOpacity == null) {
+          object.userData._baseOpacity = object.material?.opacity ?? 1;
+        }
+        const base = object.userData._baseOpacity;
+        object.material.opacity = shellVisible ? Math.min(base, 0.28) : base;
+        object.material.transparent = shellVisible || base < 0.999;
+        object.material.depthWrite = !shellVisible;
+      });
+    }
     if (typeof options.grid === 'boolean') {
       state.visibility.grid = options.grid;
       state.grid.visible = options.grid;
