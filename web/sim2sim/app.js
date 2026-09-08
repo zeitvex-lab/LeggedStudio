@@ -695,8 +695,6 @@ async function loadPolicyFromConfig(config, initial = false) {
   sim.policyLoading = true;
   let session;
   let modelBytes;
-  let session;
-  let modelBytes;
   if (contract.motion_params?.motion_csv) {
     try {
       const csvUrl = `/api/simulation/browser-package/${config.robot_id || ""}/${contract.motion_params.motion_csv}`;
