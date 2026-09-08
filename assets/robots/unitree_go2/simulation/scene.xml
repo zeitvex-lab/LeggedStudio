@@ -1,6 +1,7 @@
 <mujoco model="unitree_go2_scene">
   <include file="../model/robot.xml"/>
-  <compiler meshdir=""/>
+  <compiler meshdir="../model/assets"/>
+  
 
   <option gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" impratio="100"/>
 

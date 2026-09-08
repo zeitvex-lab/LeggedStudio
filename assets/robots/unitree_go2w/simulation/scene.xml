@@ -1,6 +1,7 @@
 <mujoco model="go2w_scene">
   <include file="../model/robot.xml"/>
-  <compiler meshdir="model/assets"/>
+  <compiler meshdir="../model/assets"/>
+  
 
   <option timestep="0.005" gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" impratio="100"/>
 

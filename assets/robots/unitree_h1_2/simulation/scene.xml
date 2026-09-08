@@ -1,6 +1,7 @@
 <mujoco model="unitree_h1_2_scene">
   <include file="../model/robot.xml"/>
-  <compiler meshdir="model/assets"/>
+  <compiler meshdir="../model/assets"/>
+  
   <option gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" impratio="100"/>
   <visual>
     <headlight diffuse="0.82 0.86 0.9" ambient="0.42 0.48 0.54" specular="0.15 0.15 0.18"/>

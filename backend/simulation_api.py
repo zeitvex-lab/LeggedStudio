@@ -179,9 +179,10 @@ sessions: dict[str, SimulationSession] = {}
 sessions_lock = threading.Lock()
 SESSION_TTL_SECONDS = 30 * 60
 # Go2's bundled path already streams a 7.8 MB OBJ to the same browser runtime,
-# so individual meshes up to ~12 MB compile fine. The limit only guards against
-# pathological single files; meshes above it fall back to primitive proxies.
-BROWSER_MESH_LIMIT_BYTES = 12 * 1024 * 1024
+# and several packages carry body meshes (b2/b2w base_link 17 MB) that are
+# required for a non-blank render. Raise the cap so real robots stay intact;
+# only pathological single files still fall back to primitive proxies.
+BROWSER_MESH_LIMIT_BYTES = 40 * 1024 * 1024
 BROWSER_MESH_SUFFIXES = {".obj", ".stl", ".dae", ".ply", ".msh"}
 BROWSER_INITIAL_KEYFRAME = "__browser_init__"
 GO2_BROWSER_SCENES = (
@@ -702,12 +703,14 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                 {
                     "id": path.stem,
                     "label": "Default scene" if path.name == "scene.xml" else path.stem.removeprefix("scene_").replace("_", " ").title(),
-                    "path": "scene.xml" if path.name == "scene.xml" else str(path.relative_to(root)).replace("\\", "/"),
+                    # Always package-root-relative: the browser writes files
+                    # under /working/platform/<rel> and loads them from there.
+                    "path": str(path.relative_to(root)).replace("\\", "/"),
                 }
                 for path in scene_files
             ]
         if not terrain_options:
-            terrain_options = [{"id": "default", "label": "Default scene", "path": "scene.xml"}]
+            terrain_options = [{"id": "default", "label": "Default scene", "path": "simulation/scene.xml"}]
         scenes = [item["path"] for item in terrain_options]
     package = preset.get("robot_package") or {}
     model_info = package.get("model") if isinstance(package.get("model"), dict) else {}

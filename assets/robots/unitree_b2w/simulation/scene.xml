@@ -1,8 +1,9 @@
 <mujoco model="b2w_scene">
   <include file="../model/robot.xml"/>
+  <compiler meshdir="../model/assets"/>
   <!-- Override the included model's meshdir (relative to this scene file) so
        the scene compiles standalone; the browser loads robot.xml separately. -->
-  <compiler meshdir="../model/assets"/>
+  
   <statistic center="0 0 0.1" extent="1.0"/>
   <option timestep="0.005" gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" impratio="100"/>
   <visual>

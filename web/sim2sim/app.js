@@ -2687,11 +2687,11 @@ async function loadAssetEntries(entries, { start, span, loadingLabel }) {
       const data = new Uint8Array(await response.arrayBuffer());
       if (entry.dest.toLowerCase().endsWith(".xml")) {
         let rawXml = new TextDecoder().decode(data);
-        if (entry.dest.endsWith("/model/robot.xml")) {
-          // A trailing slash makes MuJoCo silently drop the whole meshdir
-          // (observed on wasm and desktop), so keep it slash-free.
-          rawXml = rawXml.replace(/meshdir\s*=\s*["']assets\/?["']/gi, 'meshdir="model/assets"');
-        }
+        // MuJoCo resolves an included model's meshdir relative to that model's
+        // OWN directory (model/), not the including scene's. The package
+        // robot.xml already carries meshdir="assets" (relative to model/), so
+        // no rewrite here: rewriting it to "model/assets" broke every meshed
+        // package (opening 'model/assets/...' from within model/).
         sim.mujoco.FS.writeFile(entry.dest, rawXml);
       } else {
         sim.mujoco.FS.writeFile(entry.dest, data);

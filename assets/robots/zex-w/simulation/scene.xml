@@ -1,6 +1,7 @@
 <mujoco model="wheelleg_scene">
   <include file="../model/robot.xml"/>
   <compiler meshdir="../model/assets"/>
+  
 
   <option timestep="0.002" gravity="0 0 -9.81" integrator="implicitfast"/>
 
