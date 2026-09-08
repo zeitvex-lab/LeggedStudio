@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Tray, nativeImage } = require('electron');
 const { spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -15,6 +15,80 @@ let launcherWindow = null;
 let pythonProcess = null;
 let runtimeProvisionProcess = null;
 let activeBackendPort = null;
+let tray = null;
+let trainingPollTimer = null;
+let runningTasksCache = [];
+
+// ---- T5.3：托盘 + Windows 任务栏进度 + 退出确认（报告 10 桌面壳约定） ----
+const TRAY_ICON_PNG = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKklEQVR4nGNgYGD4z8DAwMDIhEGEgYGBgYGBgYGBgQEYhv//MzAwMDBAwWIAAJ3oB4TF14UxAAAAAElFTkSuQmCC';
+
+function fetchTrainingTasks() {
+    return requestJson('/api/training/list').catch(() => null);
+}
+
+function updateTrainingIndicators() {
+    fetchTrainingTasks().then((payload) => {
+        if (!payload || !Array.isArray(payload.tasks)) return;
+        runningTasksCache = payload.tasks.filter((task) => {
+            const status = String(task.status || '').toLowerCase();
+            return status === 'running' || status === 'pending' || status === 'starting';
+        });
+        const fractions = runningTasksCache
+            .map((task) => {
+                const current = Number(task.current_iteration) || 0;
+                const max = Number(task.max_iterations) || 0;
+                return max > 0 ? Math.min(1, current / max) : 0;
+            });
+        const progress = fractions.length
+            ? fractions.reduce((sum, value) => sum + value, 0) / fractions.length
+            : -1;
+        if (launcherWindow && !launcherWindow.isDestroyed()) {
+            launcherWindow.setProgressBar(progress);
+        }
+        if (tray && !tray.isDestroyed()) {
+            tray.setToolTip(fractions.length
+                ? `Legged Studio · 训练中 ${runningTasksCache.length} 项（${Math.round(progress * 100)}%）`
+                : 'Legged Studio · 后端运行中，无训练任务');
+        }
+    });
+}
+
+function startTrainingPolling() {
+    if (trainingPollTimer) return;
+    trainingPollTimer = setInterval(updateTrainingIndicators, 5000);
+    updateTrainingIndicators();
+}
+
+function createTray() {
+    if (tray || process.platform !== 'win32') return;
+    tray = new Tray(nativeImage.createFromDataURL(`data:image/png;base64,${TRAY_ICON_PNG}`));
+    tray.setToolTip('Legged Studio');
+    tray.on('click', () => {
+        if (launcherWindow && !launcherWindow.isDestroyed()) {
+            launcherWindow.show();
+            launcherWindow.focus();
+        }
+    });
+}
+
+async function confirmExitWithRunningTasks(event) {
+    if (!runningTasksCache.length) return true;
+    const detail = runningTasksCache.map((task) => {
+        const current = Number(task.current_iteration) || 0;
+        const max = Number(task.max_iterations) || 0;
+        return `退出将终止 ${task.task_id}（${current}/${max}）——确认？`;
+    }).join([String.fromCharCode(10)].join(''));
+    const { response } = await dialog.showMessageBox({
+        type: 'warning',
+        message: '有训练任务正在运行',
+        detail,
+        buttons: ['取消', '终止并退出'],
+        defaultId: 0,
+        cancelId: 0,
+    });
+    if (response === 1) { runningTasksCache = []; return true; }
+    return false;
+}
 
 function firstExisting(candidates) {
     const valid = candidates.filter(Boolean);
@@ -461,6 +535,12 @@ function createLauncherWindow() {
     launcherWindow.loadFile(path.join(__dirname, 'index.html'));
     launcherWindow.once('ready-to-show', () => launcherWindow.show());
     launcherWindow.on('closed', () => { launcherWindow = null; });
+    launcherWindow.on('close', async (event) => {
+        if (runningTasksCache.length) {
+            const proceed = await confirmExitWithRunningTasks(event);
+            if (!proceed) event.preventDefault();
+        }
+    });
 }
 
 async function startBackend() {
@@ -527,6 +607,8 @@ async function startBackend() {
     const health = await waitForBackend(port);
     activeBackendPort = port;
     emit('backend-status', true);
+    createTray();
+    startTrainingPolling();
     return health;
 }
 
