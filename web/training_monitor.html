@@ -121,6 +121,28 @@
         </aside>
 
         <main class="metrics-main chart-panel">
+          <!-- T2.2：五大健康仪表盘 + 中文症状路由卡 -->
+          <section class="health-strip" id="healthStrip">
+            <div class="health-head">
+              <h3 class="metrics-title">健康仪表盘</h3>
+              <span class="panel-note" id="healthRuleNote"></span>
+            </div>
+            <div class="health-gauges" id="healthGauges">
+              <div class="ov-empty">等待健康数据…</div>
+            </div>
+            <div class="health-cards" id="healthCards"></div>
+          </section>
+
+          <!-- T2.2：奖励分项曲线（四层着色，reward hacking 可见性） -->
+          <section class="terms-strip" id="termsStrip">
+            <div class="health-head">
+              <h3 class="metrics-title">奖励分项 <span class="panel-note">四层着色：total 上涨可能只是惩罚在降</span></h3>
+            </div>
+            <div class="terms-grid" id="termsGrid">
+              <div class="ov-empty">等待 TensorBoard 分项数据…</div>
+            </div>
+          </section>
+
           <div class="metrics-toolbar">
             <h3 class="metrics-title">指标 <span class="panel-note" id="metricCountNote"></span></h3>
             <input type="text" class="metrics-filter" id="metricFilter" placeholder="按名称筛选指标..." spellcheck="false" title="按指标名称过滤下方小图">
@@ -537,8 +559,86 @@
         if (!data.success) return;
         state.metricsRows = Array.isArray(data.metrics) ? data.metrics : [];
         ingestMetrics();
+        loadHealthReport(taskId);
+        loadTermSeries(taskId);
       } catch (error) {
         console.error('Failed to load metrics:', error);
+      }
+    }
+
+    // ===== T2.2：健康仪表盘 + 奖励分项（四层着色） =====
+    const LAYER_COLORS = { Tracking: '#2e9e5b', Regularization: '#d64545', Style: '#3b82d6', Contact: '#d88922', Other: '#8a94a0' };
+    const LAYER_ORDER = ['Tracking', 'Regularization', 'Style', 'Contact', 'Other'];
+    const LAYER_LABELS = { Tracking: '跟踪', Regularization: '正则化', Style: '风格', Contact: '接触安全', Other: '其他' };
+    const GAUGE_BADGES = { pass: '✅', warn: '⚠', fail: '❌' };
+
+    async function loadHealthReport(taskId) {
+      const wrap = $('healthGauges');
+      if (!wrap) return;
+      try {
+        const report = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/health`);
+        const gauges = Object.entries(report.gauges || {});
+        wrap.innerHTML = gauges.map(([key, gauge]) => `
+          <div class="gauge-card status-${gauge.status}">
+            <span class="gauge-badge">${GAUGE_BADGES[gauge.status] || '·'}</span>
+            <div class="gauge-body">
+              <strong>${escapeHtml(key)}</strong>
+              <span class="gauge-value">${gauge.value != null ? escapeHtml(String(gauge.value)) : '—'}</span>
+              <span class="gauge-summary">${escapeHtml(gauge.summary)}</span>
+            </div>
+          </div>`).join('');
+        const cards = report.cards || [];
+        $('healthCards').innerHTML = cards.map((card) => `
+          <details class="symptom-card status-warn">
+            <summary>⚠ ${escapeHtml(card.symptom)}</summary>
+            <p class="symptom-why">为什么：${escapeHtml(card.why)}</p>
+            <ol class="symptom-steps">${(card.steps || []).map((step) => `<li>${escapeHtml(step.check)} <span class="symptom-jump" title="${escapeHtml(step.jump)}">→ 跳转：${escapeHtml(step.jump)}</span></li>`).join('')}</ol>
+          </details>`).join('');
+        if (report.rule) $('healthRuleNote').textContent = report.rule;
+      } catch (error) {
+        wrap.innerHTML = '<div class="ov-empty">健康数据不可用（后端未启动或任务不存在）</div>';
+      }
+    }
+
+    function termSparkline(points, color) {
+      const tail = points.slice(-100);
+      if (tail.length < 2) return '<svg class="term-spark" viewBox="0 0 100 24"></svg>';
+      const ys = tail.map((p) => p[1]);
+      const min = Math.min(...ys), max = Math.max(...ys), span = (max - min) || 1;
+      const path = tail.map((p, i) => `${i ? 'L' : 'M'}${(i / (tail.length - 1) * 100).toFixed(2)},${(22 - (p[1] - min) / span * 20).toFixed(2)}`).join('');
+      return `<svg class="term-spark" viewBox="0 0 100 24" preserveAspectRatio="none"><path d="${path}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+    }
+
+    async function loadTermSeries(taskId) {
+      const grid = $('termsGrid');
+      if (!grid) return;
+      try {
+        const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/terms`);
+        const terms = Object.entries(data.terms || {});
+        if (!terms.length) {
+          grid.innerHTML = '<div class="ov-empty">暂无 TensorBoard 分项数据（训练启动后生成 events 文件）</div>';
+          return;
+        }
+        const layers = data.layers || {};
+        const byLayer = {};
+        terms.forEach(([tag, points]) => {
+          const layer = layers[tag] || 'Other';
+          (byLayer[layer] = byLayer[layer] || []).push([tag, points]);
+        });
+        grid.innerHTML = LAYER_ORDER.filter((layer) => byLayer[layer] && byLayer[layer].length).map((layer) => `
+          <div class="term-layer" data-layer="${layer}">
+            <div class="term-layer-head"><span class="term-layer-dot" style="background:${LAYER_COLORS[layer]}"></span>${LAYER_LABELS[layer] || layer} <span class="panel-note">${byLayer[layer].length} 项</span></div>
+            <div class="term-rows">${byLayer[layer].map(([tag, points]) => {
+              const last = points[points.length - 1];
+              return `<div class="term-row" title="${escapeHtml(tag)}">
+                ${termSparkline(points, LAYER_COLORS[layer])}
+                <span class="term-name">${escapeHtml(tag.split('/').pop())}</span>
+                <span class="term-last">${escapeHtml(String(last ? last[1] : ''))}</span>
+              </div>`;
+            }).join('')}</div>
+          </div>`).join('');
+      } catch (error) {
+        grid.innerHTML = '<div class="ov-empty">分项数据不可用（TB events 解析失败或后端未启动）</div>';
       }
     }
 

@@ -498,3 +498,30 @@
   .bs-right { display: none; }
   .progress-note { display: none; }
 }
+
+/* ===== T2.2：健康仪表盘 + 奖励分项（浅色基线） ===== */
+.health-strip, .terms-strip { margin-bottom: 16px; padding: 10px 12px; border: 1px solid #e8eff4; border-radius: 8px; background: #fff; }
+.health-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.health-gauges { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.gauge-card { display: flex; gap: 8px; align-items: flex-start; border: 1px solid #e8eff4; border-radius: 6px; padding: 8px; background: #f7fafc; }
+.gauge-card.status-pass { border-left: 3px solid #2e9e5b; }
+.gauge-card.status-warn { border-left: 3px solid #d99a2b; }
+.gauge-card.status-fail { border-left: 3px solid #d64545; }
+.gauge-body { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #1d2935; }
+.gauge-value { font-family: Consolas, monospace; }
+.gauge-summary { color: #5a6672; }
+.health-cards { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.symptom-card { border: 1px solid #f0d9ad; background: #fdf6e7; border-radius: 6px; padding: 6px 10px; font-size: 12px; }
+.symptom-card summary { cursor: pointer; font-weight: 600; }
+.symptom-why { margin: 6px 0; color: #1d2935; }
+.symptom-steps { margin: 4px 0 0 18px; color: #1d2935; }
+.symptom-jump { color: #3b82d6; font-size: 11px; }
+.terms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.term-layer { border: 1px solid #e8eff4; border-radius: 6px; padding: 8px; background: #f7fafc; }
+.term-layer-head { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; margin-bottom: 6px; color: #1d2935; }
+.term-layer-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.term-rows { display: flex; flex-direction: column; gap: 4px; }
+.term-row { display: grid; grid-template-columns: 100px 1fr auto; align-items: center; gap: 8px; font-size: 12px; }
+.term-spark { width: 100px; height: 24px; background: #fff; border: 1px solid #e8eff4; border-radius: 4px; }
+.term-name { font-family: Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.term-last { font-family: Consolas, monospace; color: #5a6672; }
