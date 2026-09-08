@@ -54,6 +54,7 @@ function buildRobotWorkspace() {
           <button class="robot-tab" data-robot-tab="mapping" type="button">动作映射</button>
           <button class="robot-tab" data-robot-tab="motor" type="button">电机参数</button>
           <button class="robot-tab" data-robot-tab="inertia" type="button">质量与惯量</button>
+          <button class="robot-tab" data-robot-tab="inspection" type="button">体检</button>
         </div>
         <div class="robot-pane active-pane" data-robot-pane="joints">
           <div class="joint-toolbar"><button type="button" class="button ghost small" id="resetRobotPose" disabled>默认姿态</button><button type="button" class="button ghost small" id="zeroRobotPose" disabled>零姿态</button><button type="button" class="text-button" id="captureRobotPose" disabled>设为默认</button></div>
@@ -66,6 +67,11 @@ function buildRobotWorkspace() {
           <div id="controlGainsGrid" class="control-gains-grid"></div>
         </div>
         <div class="robot-pane" data-robot-pane="inertia"><div class="pane-note">来自模型 inertial 定义；勾选“惯性”可在 3D 视图查看等效惯量盒与质心。</div><div id="inertialTable" class="inertial-table"><div class="empty-state">未选择机器人包</div></div></div>
+        <div class="robot-pane" data-robot-pane="inspection">
+          <div class="pane-note">体检五卡：质量三来源 / 碰撞 / 惯量 / 电机参数（角色分组 + 官方 diff）/ 关节。三色徽章：✅ 通过 · ⚠ 警告 · ❌ 失败。</div>
+          <div class="joint-toolbar"><button type="button" class="button primary small" id="runInspection">运行体检</button></div>
+          <div id="inspectionCards" class="inspection-cards"><div class="empty-state">未运行体检——选择包后点「运行体检」</div></div>
+        </div>
         <textarea id="contractJson" hidden></textarea><select id="preset" hidden></select><span id="presetMeta" hidden></span><span id="stageRobotName" hidden></span><button id="copyContract" hidden></button><input id="modelPath" type="hidden"><select id="format" hidden><option value="auto">auto</option><option value="urdf">urdf</option><option value="mjcf">mjcf</option></select><button id="validateBtn" hidden></button><pre id="validationLog" hidden></pre><span id="modelBadge" hidden></span>
         <div class="robot-actions"><button id="deleteRobotPackage" class="button ghost" disabled>删除包</button><button id="saveRobotPackage" class="button primary" disabled>保存配置</button></div>
       </section>
@@ -101,6 +107,36 @@ function observationDimensionV3(contract) {
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+}
+
+const INSPECTION_BADGES = { pass: '✅', warn: '⚠', fail: '❌' };
+const INSPECTION_TITLES = { mass: '质量', collision: '碰撞', inertia: '惯量', motor: '电机参数', joints: '关节' };
+
+function renderInspectionDiffDetails(card) {
+  if (!Array.isArray(card.diffs) || !card.diffs.length) return '';
+  const rows = card.diffs.map((item) => `<tr><td>${escapeHtml(item.role)}</td><td>${escapeHtml(item.param)}</td><td>${escapeHtml(item.package)}</td><td>${escapeHtml(item.official)}</td><td>${(item.delta_pct * 100).toFixed(1)}%</td></tr>`).join('');
+  return `<table class="inspection-diff-table"><thead><tr><th>角色</th><th>参数</th><th>包内值</th><th>官方值</th><th>偏差</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function runPackageInspection() {
+  const container = $('inspectionCards');
+  if (!container) return;
+  if (!selectedPreset?.robot_id) {
+    container.innerHTML = '<div class="empty-state">先在左侧选择一个机器人包</div>';
+    return;
+  }
+  container.innerHTML = '<div class="empty-state">体检运行中…</div>';
+  try {
+    const report = await jsonFetch(`/api/models/packages/${encodeURIComponent(selectedPreset.robot_id)}/inspection`);
+    const cards = Object.entries(report.cards || {}).map(([key, card]) => `
+      <div class="inspection-card status-${escapeHtml(card.status)}">
+        <div class="inspection-card-head"><span class="inspection-badge">${INSPECTION_BADGES[card.status] || '·'}</span><strong>${INSPECTION_TITLES[key] || escapeHtml(key)}</strong><span class="inspection-summary">${escapeHtml(card.summary)}</span></div>
+        ${renderInspectionDiffDetails(card)}
+      </div>`).join('');
+    container.innerHTML = `<div class="inspection-overall status-${escapeHtml(report.overall)}">整体：${INSPECTION_BADGES[report.overall] || '·'} ${escapeHtml(report.overall)}</div>${cards}`;
+  } catch (error) {
+    container.innerHTML = `<div class="empty-state">体检失败：${escapeHtml(error.message)}——确认后端已启动后重试</div>`;
+  }
 }
 
 function renderRobotEditor(preset) {
@@ -690,6 +726,7 @@ function bindEvents() {
     } catch (error) { $('stageStatus').textContent = `本地渲染失败：${error.message}`; }
   });
   document.querySelectorAll('[data-robot-tab]').forEach((tab) => tab.addEventListener('click', () => { document.querySelectorAll('.robot-tab').forEach((x) => x.classList.toggle('active', x === tab)); document.querySelectorAll('[data-robot-pane]').forEach((pane) => pane.classList.toggle('active-pane', pane.dataset.robotPane === tab.dataset.robotTab)); }));
+  $('runInspection')?.addEventListener('click', runPackageInspection);
   $('saveRobotPackage')?.addEventListener('click', saveRobotPackage); $('refreshRobotPackages')?.addEventListener('click', () => loadPresets(selectedPreset?.robot_id)); $('deleteRobotPackage')?.addEventListener('click', async () => { if (!selectedPreset || selectedPreset.source !== 'workspace') return; if (!confirm('删除当前机器人包？')) return; await jsonFetch('/api/project/packages/' + encodeURIComponent(selectedPreset.robot_id), { method: 'DELETE' }); selectedPreset = null; await loadPresets(); });
   $('validateBtn').addEventListener('click', validateModel); $('startSimulation')?.addEventListener('click', startSimulation); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
   window.addEventListener('resize', () => { drawChart(); });

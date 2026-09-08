@@ -1,0 +1,8 @@
+{
+  "source": "官方 sdk_deploy 部署档案（docs/DEEPROBOTICS_PORTING.md，DEEPROBOTICS 移植记录 2026-09-08；力矩限 40/40/65、部署 PD 30/1、速度限 30/30/20）",
+  "by_role": {
+    "hipx": {"effort": 40.0, "stiffness": 30.0, "damping": 1.0, "velocity_limit": 30.0},
+    "hipy": {"effort": 40.0, "stiffness": 30.0, "damping": 1.0, "velocity_limit": 30.0},
+    "knee": {"effort": 65.0, "stiffness": 30.0, "damping": 1.0, "velocity_limit": 20.0}
+  }
+}

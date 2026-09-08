@@ -100,3 +100,17 @@ body{background:#101214;color:#e7eef0}.app-shell{background:#101214}.topbar{heig
 body.embedded .topbar { display: none; }
 body.embedded .app-shell { min-height: 100vh; background: #f4f6f8; }
 body.embedded .content { padding-top: 16px; }
+
+/* ===== 体检五卡（T1.2）——浅色基线：白卡片、灰边框、三态徽章 ===== */
+.inspection-cards { display: flex; flex-direction: column; gap: 10px; overflow: auto; }
+.inspection-card, .inspection-overall { border: 1px solid #e8eff4; border-radius: 8px; background: #fff; padding: 10px 12px; }
+.inspection-overall { font-weight: 600; }
+.inspection-card-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.inspection-badge { font-weight: 700; }
+.inspection-summary { color: #1d2935; font-size: 13px; }
+.inspection-card.status-pass, .inspection-overall.status-pass { border-left: 3px solid #2e9e5b; }
+.inspection-card.status-warn, .inspection-overall.status-warn { border-left: 3px solid #d99a2b; }
+.inspection-card.status-fail, .inspection-overall.status-fail { border-left: 3px solid #d64545; }
+.inspection-diff-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+.inspection-diff-table th, .inspection-diff-table td { border: 1px solid #e8eff4; padding: 4px 6px; text-align: left; font-family: var(--font-mono, monospace); }
+.inspection-diff-table th { background: #f7fafc; }

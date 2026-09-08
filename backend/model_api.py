@@ -520,15 +520,30 @@ async def import_model(request: ModelImportRequest) -> dict[str, Any]:
             if not package_root.exists():
                 (staging / "contract.json").write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
                 write_package_manifest(staging, package_id=package_id, task_kind="generic")
-                descriptor_path = staging / "robot_package.json"
-                descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+                descriptor = json.loads((staging / "robot_package.json").read_text(encoding="utf-8"))
                 descriptor.update({
                     "model": {"format": model_format, "path": model_relative.as_posix(), "assets_path": str(model_relative.parent).replace("\\", "/")},
                     "contract_path": "contract.json",
                     "content_sha256": content_hash,
                 })
+                descriptor_path = staging / "robot_package.json"
                 descriptor_path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
                 staging.rename(package_root)
+
+            # T1.3 导入闭环：导入即生成契约 v3 sidecar（外部裸模型无仿真配置 →
+            # 通用执行器默认值并在 description 标注"待校准"；失败不阻断导入）
+            contract_v3_note = None
+            if package_root.exists() and not (package_root / "contract_v3.json").exists():
+                try:
+                    from backend.contract_migration import migrate_contract_dict
+
+                    draft_v3 = migrate_contract_dict(contract, None, generic_defaults=True)
+                    (package_root / "contract_v3.json").write_text(
+                        json.dumps(draft_v3, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+                    )
+                    contract_v3_note = "generated（通用执行器默认值，训练前请校准）"
+                except Exception as exc:
+                    contract_v3_note = f"skipped: {exc}"
 
             from backend.robot_packages import upsert_package
             upsert_package(package_root, source="workspace")
@@ -540,6 +555,7 @@ async def import_model(request: ModelImportRequest) -> dict[str, Any]:
                 "package_root": _api_path(package_root),
                 "model_path": final_model_value,
                 "contract_draft": contract,
+                "contract_v3": {"generated": contract_v3_note is not None and contract_v3_note.startswith("generated"), "note": contract_v3_note},
             })
             return validation
     except Exception as exc:
@@ -549,3 +565,21 @@ async def import_model(request: ModelImportRequest) -> dict[str, Any]:
 @router.get("/formats")
 async def model_formats() -> dict[str, Any]:
     return {"formats": [{"id": "urdf", "label": "URDF"}, {"id": "mjcf", "label": "MJCF"}]}
+
+
+# ========== 资产体检五卡（T1.1，批次 1 / M2） ==========
+
+@router.get("/packages/{robot_id}/inspection")
+async def inspect_robot_package(robot_id: str) -> dict[str, Any]:
+    """体检五卡：质量/碰撞/惯量/电机参数（角色分组+官方 diff）/关节。"""
+    from backend.asset_inspection import inspect_package
+    from backend.robot_presets import get_robot_preset
+
+    preset = get_robot_preset(robot_id)
+    root_value = str(((preset or {}).get("robot_package") or {}).get("package_root", ""))
+    root = Path(root_value) if root_value else PROJECT_ROOT / "assets" / "robots" / robot_id
+    if not root.exists():
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail=f"robot package not found: {robot_id}")
+    return inspect_package(root)

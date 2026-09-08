@@ -1,0 +1,9 @@
+{
+  "source": "官方 M20.xml ctrlrange（deep_robotics_model/M20_mjcf，经 docs/DEEPROBOTICS_PORTING.md 记录：腿 ±200/±300、轮 ±20）",
+  "by_role": {
+    "hipx": {"effort": 200.0},
+    "hipy": {"effort": 200.0},
+    "knee": {"effort": 300.0},
+    "wheel": {"effort": 20.0}
+  }
+}
