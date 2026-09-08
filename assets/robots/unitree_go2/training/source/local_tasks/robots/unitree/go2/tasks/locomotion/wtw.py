@@ -19,16 +19,17 @@ from mjlab.managers import EventTermCfg
 from mjlab.managers.observation_manager import ObservationTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
-from mjlab.sensor import ContactMatch, ContactSensorCfg
+from mjlab.sensor import ContactMatch, ContactSensorCfg, ObjRef
 from mjlab.tasks.velocity import mdp as velocity_mdp
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
 from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
 from mjlab.utils.noise import UniformNoiseCfg as Unoise
 
-from local_tasks.robots.unitree.go2.tasks.locomotion import wtw_mdp
 from local_tasks.mjlab_extension import register as _register_go2_assets
 
 _register_go2_assets()
+
+from local_tasks.robots.unitree.go2.tasks.locomotion import wtw_mdp
 
 
 def go2_wtw_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
@@ -38,8 +39,46 @@ def go2_wtw_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg.sim.contact_sensor_maxmatch = 500
     cfg.scene.entities = {"robot": _registered_go2_robot_cfg()}
 
-    foot_cfg = SceneEntityCfg("robot", body_names=[f"{lr}_FOOT" for lr in ("FL", "FR", "RL", "RR")])
-    trunk_cfg = SceneEntityCfg("robot", body_names=[".*_trunk.*", "TORSO", "trunk"])
+    # Raycast frames: base scan on the trunk, per-foot scans on the FR/FL/RR/RL sites.
+    for sensor in cfg.scene.sensors or ():
+        if sensor.name == "terrain_scan":
+            sensor.frame.name = "base_link"
+        elif sensor.name == "foot_height_scan":
+            sensor.frame = tuple(
+                ObjRef(type="site", name=s, entity="robot") for s in ("FR", "FL", "RR", "RL")
+            )
+
+    # The base env_cfg's air-time / contact terms reference this sensor; the
+    # official go1/g1 configs add it in their own builders.
+    cfg.scene.sensors = tuple(cfg.scene.sensors or ()) + (
+        ContactSensorCfg(
+            name="feet_ground_contact",
+            primary=ContactMatch(
+                mode="geom",
+                pattern=tuple(f"{n}_foot_collision" for n in ("FR", "FL", "RR", "RL")),
+                entity="robot",
+            ),
+            secondary=ContactMatch(mode="body", pattern="terrain"),
+            fields=("found", "force"),
+            reduce="netforce",
+            num_slots=1,
+            track_air_time=True,
+        ),
+        ContactSensorCfg(
+            name="nonfoot_ground_touch",
+            primary=ContactMatch(mode="body", pattern=r"^(?!.*_calf).*", entity="robot"),
+            secondary=ContactMatch(mode="body", pattern="terrain"),
+            fields=("force",),
+            reduce="netforce",
+            num_slots=1,
+        ),
+    )
+    feet_sensor = wtw_mdp.ContactSensorRef("feet_ground_contact", (0, 1, 2, 3))
+    nonfoot_sensor = wtw_mdp.ContactSensorRef("nonfoot_ground_touch", None)
+
+    # The Go2 MJCF has no dedicated foot links; the calf tip is the foot.
+    foot_cfg = SceneEntityCfg("robot", body_names=[f"{lr}_calf" for lr in ("FL", "FR", "RL", "RR")])
+    trunk_cfg = SceneEntityCfg("robot", body_names=["base_link"])
     all_joint_cfg = SceneEntityCfg("robot")
 
     ##
@@ -97,12 +136,12 @@ def go2_wtw_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "tracking_foot_clearance": RewardTermCfg(
             func=wtw_mdp.tracking_foot_clearance,
             weight=0.9,
-            params={"sensor_cfg": foot_cfg, "asset_cfg": foot_cfg},
+            params={"sensor_cfg": feet_sensor, "asset_cfg": foot_cfg},
         ),
         "quad_periodic_gait": RewardTermCfg(
             func=wtw_mdp.quad_periodic_gait,
             weight=1.5,
-            params={"sensor_cfg": foot_cfg, "asset_cfg": foot_cfg, "a_swing": 0.0, "b_swing": 0.5},
+            params={"sensor_cfg": feet_sensor, "asset_cfg": foot_cfg, "a_swing": 0.0, "b_swing": 0.5},
         ),
         "lin_vel_z": RewardTermCfg(func=wtw_mdp.lin_vel_z_l2, weight=-0.5),
         "ang_vel_xy": RewardTermCfg(func=wtw_mdp.ang_vel_xy_l2, weight=-0.05),
@@ -112,7 +151,7 @@ def go2_wtw_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "action_smoothness": RewardTermCfg(func=wtw_mdp.action_smoothness, weight=-0.01),
         "torques": RewardTermCfg(func=envs_mdp.joint_torques_l2, weight=-2e-4),
         "foot_landing_vel": RewardTermCfg(
-            func=wtw_mdp.foot_landing_vel, weight=-0.1, params={"sensor_cfg": foot_cfg, "asset_cfg": foot_cfg}
+            func=wtw_mdp.foot_landing_vel, weight=-0.1, params={"sensor_cfg": feet_sensor, "asset_cfg": foot_cfg}
         ),
         "hip_pos": RewardTermCfg(func=wtw_mdp.hip_pos, weight=-1.0),
         "dof_pos_limits": RewardTermCfg(
@@ -121,7 +160,7 @@ def go2_wtw_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "collision": RewardTermCfg(
             func=wtw_mdp.undesired_contacts,
             weight=-1.0,
-            params={"sensor_cfg": trunk_cfg, "threshold": 1.0},
+            params={"sensor_cfg": nonfoot_sensor, "threshold": 1.0},
         ),
     }
 

@@ -13,6 +13,8 @@ terms stay stateless functions per the mjlab reward-term contract.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import torch
 from typing import TYPE_CHECKING
 
@@ -36,6 +38,20 @@ _THETA_LISTS = {
     "rl": [0.5, 0.0, 0.5, 0.5],
     "rr": [0.0, 0.0, 0.0, 0.5],
 }
+
+
+
+@dataclass(frozen=True)
+class ContactSensorRef:
+    """Reference to a scene contact sensor: name plus sensor-data columns."""
+
+    name: str
+    body_ids: tuple | None = None
+
+
+def _cols(sensor_cfg: ContactSensorRef):
+    return slice(None) if sensor_cfg.body_ids is None else sensor_cfg.body_ids
+
 
 
 def _state(env: ManagerBasedRlEnv):
@@ -70,7 +86,7 @@ def resample_behavior_params(
     num_gaits = max(1, min(state["num_gaits"], len(lists[0])))
     idx = torch.randint(0, num_gaits, (len(env_ids),))
     for i, leg in enumerate(("fl", "fr", "rl", "rr")):
-        values = torch.tensor([lists[leg][k] for k in idx.tolist()], device=env.device)
+        values = torch.tensor([lists[i][k] for k in idx.tolist()], device=env.device)
         state["theta"][env_ids, i] = values
     state["gait_period"][env_ids] = torch.empty(len(env_ids), 1, device=env.device).uniform_(*gait_period_range)
     state["foot_clearance_target"][env_ids] = torch.empty(len(env_ids), 1, device=env.device).uniform_(*foot_clearance_range)
@@ -143,9 +159,9 @@ def theta_observation(env: ManagerBasedRlEnv) -> torch.Tensor:
 def _feet_state(env: ManagerBasedRlEnv, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg):
     asset: Entity = env.scene[asset_cfg.name]
     sensor = env.scene.sensors[sensor_cfg.name]
-    force = sensor.data.force[:, sensor_cfg.body_ids, :]
+    force = sensor.data.force[:, _cols(sensor_cfg), :]
     feet_force_norm = torch.norm(force, dim=-1)
-    feet_vel = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :]
+    feet_vel = asset.data.body_link_lin_vel_w[:, asset_cfg.body_ids, :]
     feet_vel_norm = torch.norm(feet_vel, dim=-1)
     return feet_force_norm, feet_vel_norm
 
@@ -219,13 +235,13 @@ def tracking_foot_clearance(
     foot_height_offset: float = 0.022,
 ) -> torch.Tensor:
     """Swing-phase foot height tracking with horizontal-velocity weighting."""
+    del sensor_cfg
     state = _state(env)
     asset: Entity = env.scene[asset_cfg.name]
-    sensor = env.scene.sensors[sensor_cfg.name]
-    foot_vel_xy = torch.norm(asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :2], dim=-1)
+    foot_vel_xy = torch.norm(asset.data.body_link_lin_vel_w[:, asset_cfg.body_ids, :2], dim=-1)
     clearance_error = torch.sum(
         foot_vel_xy
-        * torch.square(asset.data.body_pos_w[:, asset_cfg.body_ids, 2] - state["foot_clearance_target"] - foot_height_offset),
+        * torch.square(asset.data.body_link_pos_w[:, asset_cfg.body_ids, 2] - state["foot_clearance_target"] - foot_height_offset),
         dim=-1,
     )
     return torch.exp(-clearance_error / sigma)
@@ -281,9 +297,9 @@ def foot_landing_vel(
     """Penalize vertical foot velocity while about to land (low height, descending, no contact)."""
     asset: Entity = env.scene[asset_cfg.name]
     sensor = env.scene.sensors[sensor_cfg.name]
-    force = sensor.data.force[:, sensor_cfg.body_ids, :]
+    force = sensor.data.force[:, _cols(sensor_cfg), :]
     in_contact = force.norm(dim=-1) > 1.0
-    foot_vel_z = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, 2]
+    foot_vel_z = asset.data.body_link_lin_vel_w[:, asset_cfg.body_ids, 2]
     descending = foot_vel_z < vel_threshold
     return torch.sum(torch.square(foot_vel_z) * (~in_contact) * descending, dim=1)
 
@@ -293,7 +309,7 @@ def undesired_contacts(
 ) -> torch.Tensor:
     """Penalize contact on non-foot bodies above a force threshold."""
     sensor = env.scene.sensors[sensor_cfg.name]
-    force = sensor.data.force[:, sensor_cfg.body_ids, :]
+    force = sensor.data.force[:, _cols(sensor_cfg), :]
     return torch.sum(
         torch.max(torch.norm(force, dim=-1) - threshold, torch.tensor(0.0, device=env.device)),
         dim=1,

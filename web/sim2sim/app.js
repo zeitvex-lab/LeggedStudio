@@ -45,6 +45,11 @@ const CONFIG = {
   commandDims: 3,
   dofReindex: null,
   actionReindex: null,
+  // Motion-tracking contracts (LeggedSkillDeploy protocol)：策略槽位 → CSV/机器人
+  // 关节列的排列、腰关节槽位（策略序）与观测裁剪界。
+  motionJointMapping: null,
+  waistJointIndices: null,
+  clipObs: null,
   torqueLimits: new Float32Array(12),
   motorVelocityLimits: new Float32Array(12),
   dynamicTorqueLimits: new Float32Array(12),
@@ -1514,6 +1519,19 @@ function applyPolicyContract(contract, order = []) {
     && Number(gaitGate[1]) > Number(gaitGate[0])
     ? [Number(gaitGate[0]), Number(gaitGate[1])]
     : [0.05, 0.15];
+  // 动作跟踪契约（LeggedSkillDeploy 协议）：motion_joint_mapping = 策略槽位 →
+  // CSV/模型关节列；waist_joint_indices = 策略序腰(yaw/roll/pitch)槽位；
+  // clip_obs = 整条观测裁剪界（上游 ±100）。
+  const motionMapping = contract?.motion_joint_mapping;
+  CONFIG.motionJointMapping = Array.isArray(motionMapping) && motionMapping.length === CONFIG.numActions
+    ? motionMapping.map(Number)
+    : null;
+  const waistIndices = contract?.waist_joint_indices;
+  CONFIG.waistJointIndices = Array.isArray(waistIndices) && waistIndices.length === 3
+    ? waistIndices.map(Number)
+    : null;
+  const clipObs = Number(contract?.clip_obs);
+  CONFIG.clipObs = Number.isFinite(clipObs) && clipObs > 0 ? clipObs : null;
   CONFIG.gaitYawCommandRadius = Math.max(
     0,
     finiteNumber(contract?.gait_yaw_command_radius, 0.25),
@@ -3522,6 +3540,10 @@ function buildObservation() {
     buildGo2MotionObservation();
     return;
   }
+  if (CONFIG.observationKind === "g1_motion_154") {
+    buildG1Motion154Observation();
+    return;
+  }
   if (CONFIG.observationKind === "g1_mjlab_velocity_98") {
     buildG1MjlabVelocityObservation();
     return;
@@ -3859,6 +3881,57 @@ function buildGo2MotionObservation() {
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQpos(i) - CONFIG.defaultAngles[i];
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i);
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
+// G1 动作跟踪策略（LeggedSkillDeploy 协议，154 维，29 自由度含腰三关节）：
+// motion_command(58) = [ref_dof_pos(29), ref_dof_vel(29)]——CSV 机器人关节列按
+//   motion_joint_mapping 重排到策略槽位序（该序为左右成对序，腰 yaw/roll/pitch 在槽 2/5/8）；
+// motion_anchor_ori_b(6) = conj(init_quat*ref_torso)*real_torso 旋转矩阵前两列展平。
+//   torso 四元数 = root 四元数 ∘ 腰 yaw(z) ∘ roll(x) ∘ pitch(y)——29 自由度腰部补偿；
+//   ref 侧腰角取 CSV 第 12/13/14 列（机器人关节序的腰三轴），real 侧取机器人当前腰角。
+// ang_vel(3) + (dof_pos−default)(29) + dof_vel(29) + actions(29)，全部按策略槽位序；
+// 整条观测按 contract.clip_obs（上游 ±100）裁剪。
+function buildG1Motion154Observation() {
+  if (CONFIG.numObs !== 154 || CONFIG.numActions !== 29) {
+    throw new Error(`g1_motion_154 requires 154 observations and 29 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const loader = sim.motionLoader;
+  sim.obs.fill(0);
+  if (!loader) return;
+  motionTime += CONFIG.simulationDt * CONFIG.controlDecimation;
+  if (motionTime > loader.duration) motionTime = motionTime % loader.duration;
+  loader.update(motionTime);
+
+  const imu = readImuSample();
+  let offset = 0;
+
+  // motion_command(58): reference joint pos/vel mapped into policy slot order
+  const refPos = loader.jointPos();
+  const refVel = loader.jointVel();
+  const mapping = CONFIG.motionJointMapping || refPos.map((_, i) => i);
+  for (let i = 0; i < mapping.length; i += 1) sim.obs[offset++] = refPos[mapping[i]];
+  for (let i = 0; i < mapping.length; i += 1) sim.obs[offset++] = refVel[mapping[i]];
+
+  // motion_anchor_ori_b(6): waist-compensated torso relative orientation
+  const baseQuat = Array.from(sim.qpos.subarray(3, 7));
+  const waistSlots = CONFIG.waistJointIndices || [2, 5, 8];
+  const waistReal = waistSlots.map((slot) => jointQpos(mapping[slot]));
+  const realQuat = loader.torsoQuatW(baseQuat, waistReal);
+  const refQuat = loader.anchorQuatW();
+  sim.obs.set(loader.motionAnchorOriB(realQuat, refQuat), offset);
+  offset += 6;
+
+  // ang_vel + dof_pos_rel + dof_vel + actions（策略槽位序）
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = (jointQpos(mapping[i]) - CONFIG.defaultAngles[mapping[i]]) * CONFIG.dofPosScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(mapping[i]) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+
+  if (CONFIG.clipObs !== null) {
+    for (let i = 0; i < CONFIG.numObs; i += 1) {
+      sim.obs[i] = clamp(sim.obs[i], -CONFIG.clipObs, CONFIG.clipObs);
+    }
+  }
 }
 
 // G1 AMP（parkour_mjlab sim2sim 契约，96 维）：

@@ -1,0 +1,91 @@
+{
+  "schema_version": "simulation-config-1.0",
+  "backend": "mujoco",
+  "default_map": "flat",
+  "scene_path": "simulation/scene.xml",
+  "initial_base_height": 0.85,
+  "actuator_interface": "position_target",
+  "action_scale": 0.25,
+  "control_hz": 50,
+  "physics_hz": 200,
+  "decimation": 4,
+  "stiffness": {
+    "abad_L_Joint": 45.0,
+    "hip_L_Joint": 45.0,
+    "knee_L_Joint": 45.0,
+    "ankle_L_Joint": 45.0,
+    "abad_R_Joint": 45.0,
+    "hip_R_Joint": 45.0,
+    "knee_R_Joint": 45.0,
+    "ankle_R_Joint": 45.0
+  },
+  "damping": {
+    "abad_L_Joint": 1.5,
+    "hip_L_Joint": 1.5,
+    "knee_L_Joint": 1.5,
+    "ankle_L_Joint": 0.8,
+    "abad_R_Joint": 1.5,
+    "hip_R_Joint": 1.5,
+    "knee_R_Joint": 1.5,
+    "ankle_R_Joint": 0.8
+  },
+  "torque_limit": 80.0,
+  "torque_limits": {
+    "abad_L_Joint": 80.0,
+    "hip_L_Joint": 80.0,
+    "knee_L_Joint": 80.0,
+    "ankle_L_Joint": 20.0,
+    "abad_R_Joint": 80.0,
+    "hip_R_Joint": 80.0,
+    "knee_R_Joint": 80.0,
+    "ankle_R_Joint": 20.0
+  },
+  "armature": {
+    "abad_L_Joint": 0.01,
+    "hip_L_Joint": 0.01,
+    "knee_L_Joint": 0.01,
+    "ankle_L_Joint": 0.01,
+    "abad_R_Joint": 0.01,
+    "hip_R_Joint": 0.01,
+    "knee_R_Joint": 0.01,
+    "ankle_R_Joint": 0.01
+  },
+  "frictionloss": {
+    "ankle_L_Joint": 0.01,
+    "ankle_R_Joint": 0.01
+  },
+  "action_scale_by_joint": {
+    "abad_L_Joint": 0.25,
+    "hip_L_Joint": 0.25,
+    "knee_L_Joint": 0.25,
+    "ankle_L_Joint": 0.25,
+    "abad_R_Joint": 0.25,
+    "hip_R_Joint": 0.25,
+    "knee_R_Joint": 0.25,
+    "ankle_R_Joint": 0.25
+  },
+  "control_modes": {
+    "leg": "position"
+  },
+  "initial_keyframe": "home",
+  "policy_contract": {
+    "observation_kind": "tron1_himloco_33x10",
+    "obs_dim": 330,
+    "single_obs_dim": 33,
+    "action_dim": 8,
+    "history_len": 10,
+    "command_dims": 3,
+    "scales": {
+      "ang_vel": 0.25,
+      "dof_pos": 1.0,
+      "dof_vel": 0.05,
+      "command": [
+        1.0,
+        1.0,
+        0.25
+      ]
+    }
+  },
+  "policies": [],
+  "settle_steps": 200
+}

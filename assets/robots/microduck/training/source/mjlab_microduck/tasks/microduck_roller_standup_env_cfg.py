@@ -106,7 +106,8 @@ def _resolve_play_face_up():
 # _WHEEL_JOINTS servent à la documentation et au test d'indices : le cou est
 # résolu par NOM (neck_joint_pos_l2 appelle find_joints(r".*(neck|head).*") à
 # chaque pas) et les roues par la regex ^passive_.*.
-_LEG_JOINTS   = [0, 1, 2, 3, 4, 11, 12, 13, 14, 15]
+# Servo-view indices (passive_* wheels removed): left leg 0-4, right leg 9-13.
+_LEG_JOINTS   = [0, 1, 2, 3, 4, 9, 10, 11, 12, 13]
 _NECK_JOINTS  = [7, 8, 9, 10]
 _WHEEL_JOINTS = [5, 6, 16, 17]
 
@@ -344,6 +345,13 @@ def make_microduck_roller_standup_env_cfg(play: bool = False) -> ManagerBasedRlE
     # restait à +7.72 sur 8 alors que le robot était allongé (jambes à HOME en
     # position couchée → récompense encaissée quasi gratuitement). C'est
     # height_stand_l1 (poids +30) qui doit rendre « rester au sol » net négatif.
+
+    # BAM writes per-env dof_frictionloss/dof_damping; register those model
+    # fields for per-world expansion.
+    cfg.events["expand_bam_friction_fields"] = EventTermCfg(
+        func=microduck_mdp.expand_bam_friction_fields,
+        mode="startup",
+    )
 
     # ── Départ AU SOL : à plat ventre / à plat dos / déjà debout ─────────────
     # Ajouté en DERNIER dans cfg.events : l'ordre d'exécution suit l'ordre

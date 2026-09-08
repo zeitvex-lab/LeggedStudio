@@ -1,0 +1,19 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "pf-velocity",
+  "display_name": "LimX TRON1 PF Velocity Flat",
+  "source": "package-local velocity task",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "pf_velocity.env_cfg:pf_flat_env_cfg",
+    "runner": "pf_velocity.env_cfg:pf_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "velocity",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "sort_order": 10
+}

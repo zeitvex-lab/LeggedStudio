@@ -1,0 +1,9 @@
+{
+  "robot_id": "limx_tron1_pf",
+  "contract_path": "assets/robots/limx_tron1_pf/contract.json",
+  "profile_id": "limx_tron1_pf-velocity",
+  "task_name": "velocity",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 20.0
+}

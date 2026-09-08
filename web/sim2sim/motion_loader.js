@@ -171,8 +171,38 @@ export class MotionLoader {
   }
 
   motionAnchorOriB(realQuatW, refQuatW) {
-    const rotQuat = quatMultiply(quatMultiply(quatConjugate(this.initQuat), refQuatW), realQuatW);
+    // 上游协议（LeggedSkillDeploy motion_loader.py）：rot = conj(init*ref) * real，
+    // 返回旋转矩阵前两列展平（6 维）。
+    const rotQuat = quatMultiply(
+      quatConjugate(quatMultiply(this.initQuat, refQuatW)),
+      realQuatW,
+    );
     const rot = quatToRotationMatrix(rotQuat);
     return [rot[0], rot[3], rot[1], rot[4], rot[2], rot[5]];
+  }
+
+  /**
+   * Torso (waist-compensated) world quaternion: root quat composed with the
+   * waist joint rotations applied about the torso frame axes (yaw about z,
+   * roll about x, pitch about y), matching upstream torso_quat_w.
+   * @param {number[]} rootQuat wxyz world quaternion
+   * @param {number[]} waistAngles [yaw, roll, pitch] in radians
+   */
+  torsoQuatW(rootQuat, waistAngles) {
+    const [yaw, roll, pitch] = waistAngles;
+    let q = quatMultiply(rootQuat, quatFromAxisAngle([0, 0, 1], yaw));
+    q = quatMultiply(q, quatFromAxisAngle([1, 0, 0], roll));
+    q = quatMultiply(q, quatFromAxisAngle([0, 1, 0], pitch));
+    return quatNormalize(q);
+  }
+
+  /**
+   * Reference-side torso quaternion: root quaternion of the reference motion
+   * composed with the reference waist angles (raw CSV joint columns 12/13/14
+   * = waist yaw/roll/pitch in the robot joint order).
+   */
+  anchorQuatW() {
+    const jointPos = this.jointPos();
+    return this.torsoQuatW(this.rootQuaternion(), [jointPos[12], jointPos[13], jointPos[14]]);
   }
 }

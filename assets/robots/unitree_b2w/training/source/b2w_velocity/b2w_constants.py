@@ -16,7 +16,7 @@ from mjlab.utils.spec_config import CollisionCfg
 ##
 
 GO2W_XML: Path = (
-  _PACKAGE_DIR / "xmls" / "go2w.xml"
+  _PACKAGE_DIR.parents[2] / "model" / "robot.xml"
 )
 
 # Requested action/joint order (matches Unitree SDK command order).

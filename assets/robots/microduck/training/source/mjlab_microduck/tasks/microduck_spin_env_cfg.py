@@ -225,6 +225,12 @@ def make_microduck_spin_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     )
 
     # === EVENTS ===
+    # BAM writes per-env dof_frictionloss/dof_damping; register those model
+    # fields for per-world expansion (see microduck_velocity_rollers_env_cfg).
+    cfg.events["expand_bam_friction_fields"] = EventTermCfg(
+        func=microduck_mdp.expand_bam_friction_fields,
+        mode="startup",
+    )
     cfg.events["reset_action_history"] = EventTermCfg(
         func=microduck_mdp.reset_action_history, mode="reset",
     )

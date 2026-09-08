@@ -40,6 +40,7 @@ from .base import (
     m20_wheel_ground_contact_cfg,
 )
 from .mdp.m20_rewards import (
+    ContactSensorRef,
     UniformThresholdVelocityCommandM20,
     ang_vel_xy_l2,
     base_height_l2,
@@ -62,13 +63,12 @@ from .rl_cfg import (
   m20_rough_finetune_ppo_runner_cfg,
 )
 
-_ALL_JOINTS = tuple(
-    [f"{lr}_{seg}_joint" for lr in ("fl", "fr", "hl", "hr") for seg in ("hipx", "hipy", "knee")]
-    + [f"{lr}_wheel_joint" for lr in ("fl", "fr", "hl", "hr")]
+_LEG_JOINTS = tuple(
+    f"{lr}_{seg}_joint" for lr in ("FL", "FR", "RL", "RR") for seg in ("hip", "thigh", "calf")
 )
+_ALL_JOINTS = _LEG_JOINTS + tuple(f"{lr}_wheel_joint" for lr in ("FL", "FR", "RL", "RR"))
 
-_ACTION_SCALES = {**{j: (0.125 if "hipx" in j else 0.25) for j in _ALL_JOINTS[:12]},
-                  **{j: 5.0 for j in _ALL_JOINTS[12:]}}
+_ACTION_SCALES = {j: (0.125 if "hip" in j else 0.25) for j in _LEG_JOINTS}
 
 
 def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
@@ -82,7 +82,7 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     leg_joint_cfg = m20_leg_joint_cfg()
     wheel_joint_cfg = m20_wheel_joint_cfg()
     non_wheel_body_cfg = SceneEntityCfg("robot", body_names=[r"^(?!.*_wheel).*"])
-    wheel_body_cfg = SceneEntityCfg("robot", body_names=[r".*_wheel"])
+    wheel_body_cfg = SceneEntityCfg("robot", body_names=[r".*_wheel_link"])
 
     ##
     # Actions: legs position + wheels velocity
@@ -109,8 +109,8 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     wheel_ground_cfg = m20_wheel_ground_contact_cfg()
     wheel_contact_forces = ContactSensorCfg(
         name="wheel_contact_forces",
-        primary=ContactMatch(mode="body", pattern=r".*_wheel", entity="robot"),
-        secondary=ContactMatch(mode="body", pattern="terrain", entity="robot"),
+        primary=ContactMatch(mode="body", pattern=r".*_wheel_link", entity="robot"),
+        secondary=ContactMatch(mode="body", pattern="terrain"),
         fields=("force",),
         reduce="netforce",
         num_slots=1,
@@ -118,7 +118,7 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     non_wheel_contact = ContactSensorCfg(
         name="non_wheel_contact",
         primary=ContactMatch(mode="body", pattern=r"^(?!.*_wheel).*", entity="robot"),
-        secondary=ContactMatch(mode="body", pattern="terrain", entity="robot"),
+        secondary=ContactMatch(mode="body", pattern="terrain"),
         fields=("force",),
         reduce="netforce",
         num_slots=1,
@@ -193,14 +193,14 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "joint_power": RewardTermCfg(
             func=joint_power, weight=-2e-05, params={"asset_cfg": leg_joint_cfg}
         ),
-        "hipx_joint_pos_penalty": RewardTermCfg(
+        "hip_joint_pos_penalty": RewardTermCfg(
             func=joint_pos_penalty,
             weight=-0.4,
             params={
                 "command_name": "twist",
                 "asset_cfg": SceneEntityCfg(
                     "robot",
-                    joint_names=["fl_hipx_joint", "fr_hipx_joint", "hl_hipx_joint", "hr_hipx_joint"],
+                    joint_names=["FL_hip_joint", "FR_hip_joint", "RL_hip_joint", "RR_hip_joint"],
                     preserve_order=True,
                 ),
                 "stand_still_scale": 5.0,
@@ -208,14 +208,14 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 "command_threshold": 0.1,
             },
         ),
-        "hipy_joint_pos_penalty": RewardTermCfg(
+        "thigh_joint_pos_penalty": RewardTermCfg(
             func=joint_pos_penalty,
             weight=-0.1,
             params={
                 "command_name": "twist",
                 "asset_cfg": SceneEntityCfg(
                     "robot",
-                    joint_names=["fl_hipy_joint", "fr_hipy_joint", "hl_hipy_joint", "hr_hipy_joint"],
+                    joint_names=["FL_thigh_joint", "FR_thigh_joint", "RL_thigh_joint", "RR_thigh_joint"],
                     preserve_order=True,
                 ),
                 "stand_still_scale": 5.0,
@@ -230,7 +230,7 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 "command_name": "twist",
                 "asset_cfg": SceneEntityCfg(
                     "robot",
-                    joint_names=["fl_knee_joint", "fr_knee_joint", "hl_knee_joint", "hr_knee_joint"],
+                    joint_names=["FL_calf_joint", "FR_calf_joint", "RL_calf_joint", "RR_calf_joint"],
                     preserve_order=True,
                 ),
                 "stand_still_scale": 5.0,
@@ -244,8 +244,8 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             params={
                 "asset_cfg": all_joint_cfg,
                 "mirror_joints": [
-                    ["fl_(hipx|hipy|knee).*", "hr_(hipx|hipy|knee).*"],
-                    ["fr_(hipx|hipy|knee).*", "hl_(hipx|hipy|knee).*"],
+                    ["FL_(hip|thigh|calf).*", "RR_(hip|thigh|calf).*"],
+                    ["FR_(hip|thigh|calf).*", "RL_(hip|thigh|calf).*"],
                 ],
             },
         ),
@@ -253,12 +253,12 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "undesired_contacts": RewardTermCfg(
             func=undesired_contacts,
             weight=-1.0,
-            params={"sensor_cfg": non_wheel_body_cfg, "threshold": 1.0},
+            params={"sensor_cfg": ContactSensorRef("non_wheel_contact", None), "threshold": 1.0},
         ),
         "contact_forces": RewardTermCfg(
             func=contact_forces,
             weight=-0.00015,
-            params={"sensor_cfg": wheel_body_cfg, "threshold": 100.0},
+            params={"sensor_cfg": ContactSensorRef("wheel_contact_forces", None), "threshold": 100.0},
         ),
         "track_lin_vel_xy_exp": RewardTermCfg(
             func=velocity_mdp.track_linear_velocity,
@@ -273,7 +273,7 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "feet_contact_without_cmd": RewardTermCfg(
             func=feet_contact_without_cmd,
             weight=0.1,
-            params={"command_name": "twist", "sensor_cfg": wheel_body_cfg},
+            params={"command_name": "twist", "sensor_cfg": ContactSensorRef("wheel_contact_forces", None)},
         ),
         "stand_still": RewardTermCfg(
             func=stand_still_joint_deviation_l1,

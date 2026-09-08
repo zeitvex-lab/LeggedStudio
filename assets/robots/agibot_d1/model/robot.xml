@@ -5,7 +5,7 @@
 
   <default>
     <default class="d1">
-      <geom friction="0.4" margin="0.001" condim="3" contype="1" conaffinity="0"/>
+      <geom friction="0.4" margin="0" condim="3" contype="1" conaffinity="0"/>
       <joint axis="0 1 0" damping="0.1" armature="0.01" frictionloss="0.2"/>
       <motor ctrlrange="-33.5 33.5"/>
       <default class="abad">
@@ -62,7 +62,7 @@
         diaginertia="0.0274 0.085 0.0992" />
       <freejoint />
       <geom mesh="BASE_LINK" material="gray" class="visual" />
-      <geom size="0.2 0.08 0.05" type="box" class="collision" />
+      <geom size="0.2 0.08 0.05" type="box" name="base_link_collision" class="collision" />
       <site name="imu" pos="0 0 0" />
 
       <!-- Front Left Leg -->
@@ -71,24 +71,25 @@
           diaginertia="0.000251 0.000487 0.000541" />
         <joint name="FL_ABAD_JOINT" class="abad" />
         <geom mesh="FL_ABAD_LINK" material="gray" class="visual" />
-        <geom size="0.04 0.03" pos="-0.02 -0.04 0" type="cylinder" quat="1 1 0 0" class="collision" />
+        <geom size="0.04 0.03" pos="-0.02 -0.04 0" type="cylinder" quat="1 1 0 0" name="FL_ABAD_collision" class="collision" />
 
         <body name="FL_HIP" pos="0 0.097412 0">
           <inertial pos="-0.003 -0.043 -0.022" mass="1.502"
             diaginertia="0.00695 0.00476 0.00326" />
           <joint name="FL_HIP_JOINT" class="hip" />
           <geom mesh="FL_HIP_LINK" material="gray" class="visual" />
-          <geom size="0.1 0.015 0.02" pos="0 0 -0.1" type="box" quat="0.707 0 0.707 0" class="collision" />
+          <geom size="0.1 0.015 0.02" pos="0 0 -0.1" type="box" quat="0.707 0 0.707 0" name="FL_HIP_collision" class="collision" />
 
           <body name="FL_KNEE" pos="0 0 -0.2">
             <inertial pos="0.0077 0 -0.092" mass="0.207"
               diaginertia="0.00159 0.00162 0.00005" />
             <joint name="FL_KNEE_JOINT" class="knee" />
             <geom mesh="FL_KNEE_LINK" material="gray" class="visual" />
-            <geom size="0.012 0.06" pos="0.008 0 -0.06" type="cylinder" class="collision" />
-            <geom size="0.011 0.04" pos="0.01 0 -0.14" type="cylinder" class="collision" />
+            <geom size="0.012 0.06" pos="0.008 0 -0.06" type="cylinder" name="FL_KNEE_collision" class="collision" />
+            <geom size="0.011 0.04" pos="0.01 0 -0.14" type="cylinder" name="FL_KNEE_collision_2" class="collision" />
             <geom mesh="FL_FOOT_LINK" material="gray" class="visual" pos="0 0 -0.21366" />
             <geom name="FL" class="foot" />
+            <site name="FL" pos="0 0 -0.21366" type="sphere" size="0.01" group="5"/>
             <body name="FL_FOOT" pos="0 0 -0.21366" />
           </body>
         </body>
@@ -100,24 +101,25 @@
           diaginertia="0.000251 0.000487 0.000541" />
         <joint name="FR_ABAD_JOINT" class="abad" />
         <geom mesh="FR_ABAD_LINK" material="gray" class="visual" />
-        <geom size="0.04 0.03" pos="-0.02 0.04 0" type="cylinder" quat="1 1 0 0" class="collision" />
+        <geom size="0.04 0.03" pos="-0.02 0.04 0" type="cylinder" quat="1 1 0 0" name="FR_ABAD_collision" class="collision" />
 
         <body name="FR_HIP" pos="0 -0.097399 0">
           <inertial pos="-0.003 0.043 -0.022" mass="1.508"
             diaginertia="0.00715 0.00496 0.00327" />
           <joint name="FR_HIP_JOINT" class="hip" />
           <geom mesh="FR_HIP_LINK" material="gray" class="visual" />
-          <geom size="0.1 0.015 0.02" pos="0 0 -0.1" type="box" quat="0.707 0 0.707 0" class="collision" />
+          <geom size="0.1 0.015 0.02" pos="0 0 -0.1" type="box" quat="0.707 0 0.707 0" name="FR_HIP_collision" class="collision" />
 
           <body name="FR_KNEE" pos="0 0 -0.2">
             <inertial pos="0.0077 0 -0.092" mass="0.207"
               diaginertia="0.00159 0.00162 0.00005" />
             <joint name="FR_KNEE_JOINT" class="knee" />
             <geom mesh="FR_KNEE_LINK" material="gray" class="visual" />
-            <geom size="0.012 0.06" pos="0.008 0 -0.06" type="cylinder" class="collision" />
-            <geom size="0.011 0.04" pos="0.01 0 -0.14" type="cylinder" class="collision" />
+            <geom size="0.012 0.06" pos="0.008 0 -0.06" type="cylinder" name="FR_KNEE_collision" class="collision" />
+            <geom size="0.011 0.04" pos="0.01 0 -0.14" type="cylinder" name="FR_KNEE_collision_2" class="collision" />
             <geom mesh="FR_FOOT_LINK" material="gray" class="visual" pos="0 0 -0.21366" />
             <geom name="FR" class="foot" />
+            <site name="FR" pos="0 0 -0.21366" type="sphere" size="0.01" group="5"/>
             <body name="FR_FOOT" pos="0 0 -0.21366" />
           </body>
         </body>
@@ -129,24 +131,25 @@
           diaginertia="0.000251 0.000487 0.000541" />
         <joint name="RL_ABAD_JOINT" class="abad" />
         <geom mesh="RL_ABAD_LINK" material="gray" class="visual" />
-        <geom size="0.04 0.03" pos="0.02 -0.04 0" type="cylinder" quat="1 1 0 0" class="collision" />
+        <geom size="0.04 0.03" pos="0.02 -0.04 0" type="cylinder" quat="1 1 0 0" name="RL_ABAD_collision" class="collision" />
 
         <body name="RL_HIP" pos="0 0.097412 0">
           <inertial pos="-0.003 -0.043 -0.022" mass="1.502"
             diaginertia="0.00695 0.00476 0.00326" />
           <joint name="RL_HIP_JOINT" class="hip" />
           <geom mesh="RL_HIP_LINK" material="gray" class="visual" />
-          <geom size="0.1 0.015 0.02" pos="0 0 -0.1" type="box" quat="0.707 0 0.707 0" class="collision" />
+          <geom size="0.1 0.015 0.02" pos="0 0 -0.1" type="box" quat="0.707 0 0.707 0" name="RL_HIP_collision" class="collision" />
 
           <body name="RL_KNEE" pos="0 0 -0.2">
             <inertial pos="0.0077 0 -0.092" mass="0.207"
               diaginertia="0.00159 0.00162 0.00005" />
             <joint name="RL_KNEE_JOINT" class="knee" />
             <geom mesh="RL_KNEE_LINK" material="gray" class="visual" />
-            <geom size="0.012 0.06" pos="0.008 0 -0.06" type="cylinder" class="collision" />
-            <geom size="0.011 0.04" pos="0.01 0 -0.14" type="cylinder" class="collision" />
+            <geom size="0.012 0.06" pos="0.008 0 -0.06" type="cylinder" name="RL_KNEE_collision" class="collision" />
+            <geom size="0.011 0.04" pos="0.01 0 -0.14" type="cylinder" name="RL_KNEE_collision_2" class="collision" />
             <geom mesh="RL_FOOT_LINK" material="gray" class="visual" pos="0 0 -0.21366" />
             <geom name="RL" class="foot" />
+            <site name="RL" pos="0 0 -0.21366" type="sphere" size="0.01" group="5"/>
             <body name="RL_FOOT" pos="0 0 -0.21366" />
           </body>
         </body>
@@ -158,24 +161,25 @@
           diaginertia="0.000251 0.000487 0.000541" />
         <joint name="RR_ABAD_JOINT" class="abad" />
         <geom mesh="RR_ABAD_LINK" material="gray" class="visual" />
-        <geom size="0.04 0.03" pos="0.02 0.04 0" type="cylinder" quat="1 1 0 0" class="collision" />
+        <geom size="0.04 0.03" pos="0.02 0.04 0" type="cylinder" quat="1 1 0 0" name="RR_ABAD_collision" class="collision" />
 
         <body name="RR_HIP" pos="0 -0.0974 0">
           <inertial pos="-0.003 0.043 -0.022" mass="1.508"
             diaginertia="0.00715 0.00496 0.00327" />
           <joint name="RR_HIP_JOINT" class="hip" />
           <geom mesh="RR_HIP_LINK" material="gray" class="visual" />
-          <geom size="0.1 0.015 0.02" pos="0 0 -0.1" type="box" quat="0.707 0 0.707 0" class="collision" />
+          <geom size="0.1 0.015 0.02" pos="0 0 -0.1" type="box" quat="0.707 0 0.707 0" name="RR_HIP_collision" class="collision" />
 
           <body name="RR_KNEE" pos="0 0 -0.2">
             <inertial pos="0.0077 0 -0.092" mass="0.207"
               diaginertia="0.00159 0.00162 0.00005" />
             <joint name="RR_KNEE_JOINT" class="knee" />
             <geom mesh="RR_KNEE_LINK" material="gray" class="visual" />
-            <geom size="0.012 0.06" pos="0.008 0 -0.06" type="cylinder" class="collision" />
-            <geom size="0.011 0.04" pos="0.01 0 -0.14" type="cylinder" class="collision" />
+            <geom size="0.012 0.06" pos="0.008 0 -0.06" type="cylinder" name="RR_KNEE_collision" class="collision" />
+            <geom size="0.011 0.04" pos="0.01 0 -0.14" type="cylinder" name="RR_KNEE_collision_2" class="collision" />
             <geom mesh="RR_FOOT_LINK" material="gray" class="visual" pos="0 0 -0.21366" />
             <geom name="RR" class="foot" />
+            <site name="RR" pos="0 0 -0.21366" type="sphere" size="0.01" group="5"/>
             <body name="RR_FOOT" pos="0 0 -0.21366" />
           </body>
         </body>
@@ -199,6 +203,8 @@
   </actuator>
 
   <sensor>
+    <velocimeter name="imu_lin_vel" site="imu"/>
+    <gyro name="imu_ang_vel" site="imu"/>
     <jointpos name="FR_abad_pos" joint="FR_ABAD_JOINT" />
     <jointpos name="FR_hip_pos" joint="FR_HIP_JOINT" />
     <jointpos name="FR_knee_pos" joint="FR_KNEE_JOINT" />

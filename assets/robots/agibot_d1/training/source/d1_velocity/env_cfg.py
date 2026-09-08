@@ -30,7 +30,8 @@ from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
 from .robot_constants import D1_ACTION_SCALE, get_d1_robot_cfg
 
 _QUAD_FEET = ("FR", "FL", "RR", "RL")
-_QUAD_GEOMS = tuple(f"{name}_foot_collision" for name in _QUAD_FEET)
+# D1 foot spheres are the four named geoms FL/FR/RL/RR in the MJCF.
+_QUAD_GEOMS = tuple(_QUAD_FEET)
 _ROOT_BODY = "base_link"
 
 
@@ -74,12 +75,12 @@ def _contact_sensors() -> tuple[ContactSensorCfg, ContactSensorCfg]:
 
 def _configure_posture(cfg: ManagerBasedRlEnvCfg) -> None:
     cfg.rewards["pose"].params["std_standing"] = {
-        r".*_(hip|thigh)_joint.*": 0.05,
-        r".*_calf_joint.*": 0.1,
+        r".*_(ABAD|HIP)_JOINT.*": 0.05,
+        r".*_KNEE_JOINT.*": 0.1,
     }
     moving = {
-        r".*_(hip|thigh)_joint.*": 0.3,
-        r".*_calf_joint.*": 0.6,
+        r".*_(ABAD|HIP)_JOINT.*": 0.3,
+        r".*_KNEE_JOINT.*": 0.6,
     }
     cfg.rewards["pose"].params["std_walking"] = moving
     cfg.rewards["pose"].params["std_running"] = moving
@@ -111,7 +112,7 @@ def make_d1_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     assert isinstance(command, UniformVelocityCommandCfg)
     command.viz.z_offset = 0.5
 
-    cfg.events["foot_friction"].params["asset_cfg"].geom_names = _QUAD_GEOMS
+    cfg.events["foot_friction"].params["asset_cfg"].geom_names = ["FL", "FR", "RL", "RR"]
     cfg.events["base_com"].params["asset_cfg"].body_names = (_ROOT_BODY,)
     _configure_posture(cfg)
     cfg.rewards["upright"].params["asset_cfg"].body_names = (_ROOT_BODY,)

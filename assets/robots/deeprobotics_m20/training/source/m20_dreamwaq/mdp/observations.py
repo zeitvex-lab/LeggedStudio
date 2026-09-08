@@ -141,6 +141,9 @@ class DreamCritic:
   privileged observation, so the critic frame stays noise-free.
   """
 
+  def __init__(self, cfg: ObservationTermCfg, env) -> None:
+    del cfg, env
+
   def __call__(self, env, command_name: str, sensor_name: str) -> torch.Tensor:
     robot: Entity = env.scene["robot"]
     scan = env.scene[sensor_name].data

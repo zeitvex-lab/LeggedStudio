@@ -5,8 +5,8 @@
   "source": "package-local velocity task",
   "source_root": "training/source",
   "entrypoints": {
-    "env": "m20_velocity.env_cfg:m20_flat_env_cfg",
-    "runner": "m20_velocity.env_cfg:m20_runner_cfg",
+    "env": "m20_velocity.env_cfgs:m20_flat_env_cfg",
+    "runner": "m20_velocity.env_cfgs:m20_ppo_runner_cfg",
     "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
   },
   "backend": "native_mjlab",

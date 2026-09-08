@@ -1,0 +1,20 @@
+{
+  "schema_version": "robot-package-1.0",
+  "package_id": "limx_tron1_sf",
+  "capabilities": [
+    "generic_mjlab",
+    "mjlab_source_profiles",
+    "mujoco_sim"
+  ],
+  "model": {
+    "format": "mjcf",
+    "path": "model/robot.xml",
+    "assets_path": "model/assets"
+  },
+  "simulation_config_path": "simulation/config.json",
+  "training_config_path": "training/config.json",
+  "contract_path": "contract.json",
+  "source_project": "package-local task source",
+  "display_name": "LimX TRON1 Sole-Foot",
+  "notes": "LimX TRON1 球足双足（8-DoF：abad/hip/knee/ankle ×2）；模型来自 LeggedGym-Ex（BSD-3）；训练任务基于 mjlab 速度模板 + TRON1SF 源配置（PD Kp45/Kd1.5（踝 0.8），obs 33×10 历史，base_height 0.85 m，踝力矩限幅 20 N·m）。"
+}

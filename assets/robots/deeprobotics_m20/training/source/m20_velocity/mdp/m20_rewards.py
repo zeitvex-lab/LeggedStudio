@@ -11,6 +11,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Sequence
 
+from dataclasses import dataclass
+from typing import Sequence
+
 import torch
 
 from mjlab.entity import Entity
@@ -26,6 +29,21 @@ if TYPE_CHECKING:
 ##
 # Observations
 ##
+
+
+@dataclass(frozen=True)
+class ContactSensorRef:
+    """Reference to a scene contact sensor: ``name`` plus sensor-data column
+    indices the reward functions should look at (``None`` = all columns)."""
+
+    name: str
+    body_ids: Sequence[int] | None = None
+
+
+def _cols(sensor_cfg: ContactSensorRef):
+    return slice(None) if sensor_cfg.body_ids is None else sensor_cfg.body_ids
+
+
 
 def joint_pos_rel_zero_wheel(env, all_cfg, wheel_cfg):
     """16-joint position relative to default, wheel slots forced to zero.
@@ -71,7 +89,7 @@ def joint_power(
     """Penalize |joint_vel * applied_torque| (electrical power proxy)."""
     asset: Entity = env.scene[asset_cfg.name]
     return torch.sum(
-        torch.abs(asset.data.joint_vel[:, asset_cfg.joint_ids] * asset.data.applied_torque[:, asset_cfg.joint_ids]),
+        torch.abs(asset.data.joint_vel[:, asset_cfg.joint_ids] * asset.data.qfrc_actuator[:, asset_cfg.joint_ids]),
         dim=1,
     )
 
@@ -131,8 +149,8 @@ def feet_contact_without_cmd(
 ) -> torch.Tensor:
     """Reward wheel ground contact while the velocity command is small."""
     contact_sensor = env.scene.sensors[sensor_cfg.name]
-    contact = contact_sensor.compute_first_contact(env.step_dt)[:, sensor_cfg.body_ids]
-    reward = torch.sum(contact, dim=-1).float()
+    in_contact = contact_sensor.data.force[:, _cols(sensor_cfg), :].norm(dim=-1) > 1.0
+    reward = in_contact.float().sum(dim=-1)
     reward *= torch.linalg.vector_norm(env.command_manager.get_command(command_name), dim=1) < 0.5
     return reward
 
@@ -204,7 +222,7 @@ def undesired_contacts(
 ) -> torch.Tensor:
     """Penalize contact on the given sensor bodies above a force threshold."""
     contact_sensor = env.scene.sensors[sensor_cfg.name]
-    contact = contact_sensor.data.net_forces_w_history[:, 0, :, :][:, sensor_cfg.body_ids, :]
+    contact = contact_sensor.data.force[:, _cols(sensor_cfg), :]
     return torch.sum(
         torch.max(torch.norm(contact, dim=-1) - threshold, torch.tensor(0.0, device=env.device)),
         dim=1,
@@ -216,6 +234,6 @@ def contact_forces(
 ) -> torch.Tensor:
     """Penalize contact forces above the threshold (L2 norm of the excess)."""
     contact_sensor = env.scene.sensors[sensor_cfg.name]
-    contact = contact_sensor.data.net_forces_w_history[:, 0, :, :][:, sensor_cfg.body_ids, :]
+    contact = contact_sensor.data.force[:, _cols(sensor_cfg), :]
     norm = torch.linalg.vector_norm(contact, dim=-1)
     return torch.sum(torch.square(torch.clamp(norm - threshold, min=0.0)), dim=1)

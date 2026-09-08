@@ -4993,7 +4993,7 @@ class GroundPickPhaseCommand(UniformVelocityCommand):
     def command(self) -> torch.Tensor:
         return self.vel_command_b
 
-    def compute(self, dt: float) -> None:
+    def compute(self, dt: float, env_ids=None) -> None:
         self._gp_phase = (self._gp_phase + dt / self._period) % 1.0
         self.vel_command_b[:, 0] = torch.cos(2 * torch.pi * self._gp_phase)
         self.vel_command_b[:, 1] = torch.sin(2 * torch.pi * self._gp_phase)
@@ -6294,8 +6294,8 @@ class SitStandCommand(UniformVelocityCommand):
             (self._stand_z - z) / max(self._stand_z - self._sit_z, 1e-6), 0.0, 1.0
         )
 
-    def compute(self, dt: float) -> None:
-        super().compute(dt)
+    def compute(self, dt: float, env_ids=None) -> None:
+        super().compute(dt, env_ids)
         # Episode-start re-init of the blend from the ACTUAL trunk height.
         # Done here (not in reset()) because the command manager resets BEFORE
         # the set_ground_state event teleports the robot, so reset() would read

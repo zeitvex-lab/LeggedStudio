@@ -23,7 +23,14 @@ from mjlab.managers import TerminationTermCfg
 from mjlab.managers.observation_manager import ObservationTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
-from mjlab.sensor import ContactMatch, ContactSensorCfg
+from mjlab.sensor import (
+    ContactMatch,
+    ContactSensorCfg,
+    ObjRef,
+    RayCastSensorCfg,
+    RingPatternCfg,
+    TerrainHeightSensorCfg,
+)
 from mjlab.tasks.velocity import mdp as velocity_mdp
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
 from mjlab.utils.noise import UniformNoiseCfg as Unoise
@@ -32,6 +39,7 @@ from . import lite3_rewards as lite3_mdp
 from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
 from .robot_constants import get_lite3_robot_cfg
 
+_ROOT_BODY = "base_link"
 FOOT_PATTERN = r".*_SHANK"
 FOOT_BODIES = [f"{lr}_SHANK" for lr in ("FL", "FR", "HL", "HR")]
 NON_FOOT_PATTERN = r"^(?!.*_SHANK).*"
@@ -44,18 +52,38 @@ JOINT_GROUPS = {
 ALL_JOINTS = JOINT_GROUPS["hipx"] + JOINT_GROUPS["hipy"] + JOINT_GROUPS["knee"]
 
 
+
+def _configure_height_sensors(cfg: ManagerBasedRlEnvCfg) -> None:
+    for sensor in cfg.scene.sensors or ():
+        if sensor.name == "terrain_scan":
+            assert isinstance(sensor, RayCastSensorCfg)
+            assert isinstance(sensor.frame, ObjRef)
+            sensor.frame.name = _ROOT_BODY
+        elif sensor.name == "foot_height_scan":
+            assert isinstance(sensor, TerrainHeightSensorCfg)
+            sensor.frame = tuple(
+                ObjRef(type="site", name=lr, entity="robot")
+                for lr in ("FL", "FR", "HL", "HR")
+            )
+            sensor.pattern = RingPatternCfg.single_ring(radius=0.04, num_samples=4)
+
 def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Lite3 rough-terrain configuration (official reward recipe)."""
     cfg = make_velocity_env_cfg()
     cfg.sim.mujoco.ccd_iterations = 500
     cfg.sim.contact_sensor_maxmatch = 500
+    cfg.sim.nconmax = None  # full-body contact sensors need headroom
     cfg.scene.entities = {"robot": get_lite3_robot_cfg()}
+    _configure_height_sensors(cfg)
 
     all_joint_cfg = SceneEntityCfg("robot", joint_names=list(ALL_JOINTS), preserve_order=True)
     hipx_cfg = SceneEntityCfg("robot", joint_names=list(JOINT_GROUPS["hipx"]), preserve_order=True)
     hipy_cfg = SceneEntityCfg("robot", joint_names=list(JOINT_GROUPS["hipy"]), preserve_order=True)
     knee_cfg = SceneEntityCfg("robot", joint_names=list(JOINT_GROUPS["knee"]), preserve_order=True)
     foot_cfg = SceneEntityCfg("robot", body_names=FOOT_BODIES)
+    # Reward functions look up contact sensors through ContactSensorRef.
+    feet_sensor = lite3_mdp.ContactSensorRef("foot_contact", (0, 1, 2, 3))
+    non_foot_sensor = lite3_mdp.ContactSensorRef("full_contact", None)
     non_foot_cfg = SceneEntityCfg("robot", body_names=[NON_FOOT_PATTERN])
 
     ##
@@ -82,7 +110,7 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     foot_contact = ContactSensorCfg(
         name="foot_contact",
         primary=ContactMatch(mode="body", pattern=FOOT_PATTERN, entity="robot"),
-        secondary=ContactMatch(mode="body", pattern="terrain", entity="robot"),
+        secondary=ContactMatch(mode="body", pattern="terrain"),
         fields=("force",),
         reduce="netforce",
         num_slots=1,
@@ -91,7 +119,7 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     full_contact = ContactSensorCfg(
         name="full_contact",
         primary=ContactMatch(mode="body", pattern=r".*", entity="robot"),
-        secondary=ContactMatch(mode="body", pattern="terrain", entity="robot"),
+        secondary=ContactMatch(mode="body", pattern="terrain"),
         fields=("force",),
         reduce="netforce",
         num_slots=1,
@@ -175,12 +203,12 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "feet_air_time_lin_xy": RewardTermCfg(
             func=lite3_mdp.feet_air_time_lin_xy_cmd,
             weight=5.0,
-            params={"command_name": "twist", "threshold": 0.5, "sensor_cfg": foot_cfg},
+            params={"command_name": "twist", "threshold": 0.5, "sensor_cfg": feet_sensor},
         ),
         "feet_air_time_ang_z": RewardTermCfg(
             func=lite3_mdp.feet_air_time_ang_z_cmd_lite3,
             weight=5.0,
-            params={"command_name": "twist", "threshold": 0.5, "sensor_cfg": foot_cfg},
+            params={"command_name": "twist", "threshold": 0.5, "sensor_cfg": feet_sensor},
         ),
         "feet_gait": RewardTermCfg(
             func=lite3_mdp.feet_gait,
@@ -191,8 +219,8 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 "max_err": 0.5,
                 "velocity_threshold": 0.5,
                 "command_threshold": 0.1,
-                "sensor_cfg": foot_cfg,
-                "synced_feet_pair_names": [["FL_FOOT", "HR_FOOT"], ["FR_FOOT", "HL_FOOT"]],
+                "sensor_cfg": feet_sensor,
+                "synced_feet_pair_names": [["FL_SHANK", "HR_SHANK"], ["FR_SHANK", "HL_SHANK"]],
             },
         ),
         "phase_foot_trajectory_exp": RewardTermCfg(
@@ -206,12 +234,12 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             },
         ),
         "feet_slide": RewardTermCfg(
-            func=lite3_mdp.feet_slide, weight=-0.05, params={"sensor_cfg": foot_cfg, "asset_cfg": foot_cfg}
+            func=lite3_mdp.feet_slide, weight=-0.05, params={"sensor_cfg": feet_sensor, "asset_cfg": foot_cfg}
         ),
         "foot_impact_velocity": RewardTermCfg(
             func=lite3_mdp.foot_impact_velocity,
             weight=-2.0,
-            params={"sensor_cfg": foot_cfg, "asset_cfg": foot_cfg},
+            params={"sensor_cfg": feet_sensor, "asset_cfg": foot_cfg},
         ),
         "stand_still": RewardTermCfg(
             func=lite3_mdp.stand_still_joint_deviation_l1,
@@ -221,10 +249,10 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "feet_contact_without_cmd": RewardTermCfg(
             func=lite3_mdp.feet_contact_without_cmd,
             weight=0.1,
-            params={"command_name": "twist", "sensor_cfg": foot_cfg},
+            params={"command_name": "twist", "sensor_cfg": feet_sensor},
         ),
         "contact_forces": RewardTermCfg(
-            func=lite3_mdp.contact_forces, weight=-0.1, params={"sensor_cfg": foot_cfg, "threshold": 100.0}
+            func=lite3_mdp.contact_forces, weight=-0.1, params={"sensor_cfg": feet_sensor, "threshold": 100.0}
         ),
         "lin_vel_z_l2": RewardTermCfg(func=lite3_mdp.lin_vel_z_l2, weight=-20.0),
         "ang_vel_xy_l2": RewardTermCfg(func=lite3_mdp.ang_vel_xy_l2, weight=-0.25),
@@ -235,7 +263,7 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "undesired_contacts": RewardTermCfg(
             func=lite3_mdp.undesired_contacts,
             weight=-0.5,
-            params={"sensor_cfg": non_foot_cfg, "threshold": 1.0},
+            params={"sensor_cfg": non_foot_sensor, "threshold": 1.0},
         ),
         "joint_torques_l2": RewardTermCfg(
             func=envs_mdp.joint_torques_l2, weight=-2.5e-4, params={"asset_cfg": all_joint_cfg}
@@ -324,6 +352,7 @@ def lite3_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg.sim.njmax = 300
     cfg.sim.mujoco.ccd_iterations = 50
     cfg.sim.contact_sensor_maxmatch = 64
+    cfg.sim.nconmax = None
     assert cfg.scene.terrain is not None
     cfg.scene.terrain.terrain_type = "plane"
     cfg.scene.terrain.terrain_generator = None

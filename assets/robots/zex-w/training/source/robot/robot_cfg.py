@@ -72,7 +72,7 @@ COLLISION_CFG = CollisionCfg(
     contype=0,
     conaffinity=1,
     condim={".*_wheel_Link.*": 6, ".*": 1},
-    priority={".*_wheel_Link.*": 1},
+    priority={".*_wheel_Link.*": 1, ".*": 0},
     friction={".*_wheel_Link.*": (0.8, 0.05, 0.01)},
 )
 

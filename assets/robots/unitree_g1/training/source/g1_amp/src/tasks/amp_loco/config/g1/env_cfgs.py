@@ -23,7 +23,7 @@ def g1_amp_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   # Keep CCD high enough for stability but avoid Warp OOM from excessive EPA buffers.
   cfg.sim.mujoco.ccd_iterations = 500
   cfg.sim.contact_sensor_maxmatch = 500
-  cfg.sim.nconmax = 48
+  cfg.sim.nconmax = 128  # rough terrain + full contacts overflow the old 48
 
   cfg.scene.entities = {"robot": get_g1_robot_cfg()}
 

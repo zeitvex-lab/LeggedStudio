@@ -3,10 +3,7 @@
 import math
 from typing import Literal
 
-from mjlab.asset_zoo.robots.unitree_go2 import (
-  GO2_ACTION_SCALE,
-  get_go2_robot_cfg,
-)
+from local_tasks.mjlab_extension import GO2_ACTION_SCALE, get_go2_robot_cfg
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as envs_mdp
 from mjlab.envs.mdp.actions import JointPositionActionCfg

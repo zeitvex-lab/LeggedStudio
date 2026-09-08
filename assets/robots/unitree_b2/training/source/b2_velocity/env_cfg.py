@@ -104,6 +104,10 @@ def make_b2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     assert isinstance(action, JointPositionActionCfg)
     action.scale = B2_ACTION_SCALE
 
+    # The base foot_friction event references geom names that do not exist
+    # on this robot (its MJCF geoms are unnamed); drop it.
+    cfg.events.pop("foot_friction", None)
+
     cfg.viewer.body_name = _ROOT_BODY
     cfg.viewer.distance = 1.5
     cfg.viewer.elevation = -10.0
@@ -111,7 +115,6 @@ def make_b2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     assert isinstance(command, UniformVelocityCommandCfg)
     command.viz.z_offset = 0.5
 
-    cfg.events["foot_friction"].params["asset_cfg"].geom_names = _QUAD_GEOMS
     cfg.events["base_com"].params["asset_cfg"].body_names = (_ROOT_BODY,)
     _configure_posture(cfg)
     cfg.rewards["upright"].params["asset_cfg"].body_names = (_ROOT_BODY,)

@@ -147,7 +147,7 @@ class InHandReorientCommand(CommandTerm):
   def _min_goal_steps(self) -> int:
     return max(int(self.cfg.min_goal_interval / self._env.step_dt), 0)
 
-  def _update_command(self) -> None:
+  def _update_command(self, env_ids=None) -> None:
     goal_timer = self.goal_timer + 1
     ori_err = quat_error_magnitude(self.object.data.root_link_quat_w, self.goal_quat_w)
     within_threshold = ori_err < self.cfg.success_threshold

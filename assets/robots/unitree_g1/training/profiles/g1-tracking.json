@@ -1,0 +1,19 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "g1-tracking",
+  "display_name": "G1 Motion Tracking (DeepMimic-style, flat)",
+  "source": "package-local DeepMimic tracking task (rewards + pkl motions ported from LeggedGym-Ex, BSD-3-Clause)",
+  "source_root": "training/source/g1_tracking",
+  "entrypoints": {
+    "env": "src.tasks.tracking.config.g1.env_cfgs:g1_tracking_flat_env_cfg",
+    "runner": "src.tasks.tracking.config.g1.rl_cfg:g1_tracking_ppo_runner_cfg",
+    "runner_class": "mjlab.rl:MjlabOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "Unitree-G1-Tracking-Flat",
+  "terrain_type": "flat",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 10.0,
+  "sort_order": 20
+}

@@ -16,7 +16,8 @@ on the shared mjlab 1.6 runtime:
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Literal
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal, Sequence
 
 import torch
 
@@ -34,6 +35,14 @@ if TYPE_CHECKING:
 ##
 
 gait_level: float = 0.0
+
+@dataclass(frozen=True)
+class ContactSensorRef:
+    """Reference to a scene contact sensor: ``name`` plus the sensor-data
+    column indices the reward functions should look at (``None`` = all)."""
+
+    name: str
+    body_ids: Sequence[int] | None = None
 
 
 def get_gait_level_tensor(env: ManagerBasedRlEnv) -> torch.Tensor:
@@ -111,7 +120,8 @@ def _resolve_foot_ids(env: ManagerBasedRlEnv, sensor_name: str, body_names: Sequ
     cache = getattr(env, key, None)
     if cache is None:
         sensor = env.scene.sensors[sensor_name]
-        cache = [sensor.find_bodies([name])[0][0] for name in body_names]
+        primary = [n.split("/")[-1] for n in sensor.primary_names]
+        cache = [primary.index(name) for name in body_names]
         setattr(env, key, cache)
     return cache
 
@@ -224,10 +234,10 @@ def phase_foot_trajectory_exp(
         raise ValueError("phase_offsets length must match tracked feet.")
 
     if (not hasattr(env, "phase_foot_ref_body")) or (env.phase_foot_ref_body.shape[1] != num_feet):
-        rel_foot_pos_w = asset.data.body_pos_w[:, body_ids, :] - asset.data.root_pos_w[:, :].unsqueeze(1)
+        rel_foot_pos_w = asset.data.body_link_pos_w[:, body_ids, :] - asset.data.root_link_pos_w[:, :].unsqueeze(1)
         foot_pos_b = torch.zeros(env.num_envs, num_feet, 3, device=env.device)
         for i in range(num_feet):
-            foot_pos_b[:, i, :] = quat_apply_inverse(asset.data.root_quat_w, rel_foot_pos_w[:, i, :])
+            foot_pos_b[:, i, :] = quat_apply_inverse(asset.data.root_link_quat_w, rel_foot_pos_w[:, i, :])
         ref = foot_pos_b[0].detach().clone()
         ref[:, 2] += stand_ref_z_offset
         env.phase_foot_ref_body = ref.unsqueeze(0)
@@ -285,13 +295,13 @@ def phase_foot_trajectory_exp(
     ref_pos_b = stand_ref_body + torch.stack([q + float(x_offset), torch.zeros_like(q), z], dim=-1)
     ref_vel_b = torch.stack([dq_dt, torch.zeros_like(dq_dt), dz_dt], dim=-1)
 
-    rel_foot_pos_w = asset.data.body_pos_w[:, body_ids, :] - asset.data.root_pos_w[:, :].unsqueeze(1)
-    rel_foot_vel_w = asset.data.body_lin_vel_w[:, body_ids, :] - asset.data.root_lin_vel_w[:, :].unsqueeze(1)
+    rel_foot_pos_w = asset.data.body_link_pos_w[:, body_ids, :] - asset.data.root_link_pos_w[:, :].unsqueeze(1)
+    rel_foot_vel_w = asset.data.body_link_lin_vel_w[:, body_ids, :] - asset.data.root_link_lin_vel_w[:, :].unsqueeze(1)
     foot_pos_b = torch.zeros(env.num_envs, num_feet, 3, device=env.device)
     foot_vel_b = torch.zeros(env.num_envs, num_feet, 3, device=env.device)
     for i in range(num_feet):
-        foot_pos_b[:, i, :] = quat_apply_inverse(asset.data.root_quat_w, rel_foot_pos_w[:, i, :])
-        foot_vel_b[:, i, :] = quat_apply_inverse(asset.data.root_quat_w, rel_foot_vel_w[:, i, :])
+        foot_pos_b[:, i, :] = quat_apply_inverse(asset.data.root_link_quat_w, rel_foot_pos_w[:, i, :])
+        foot_vel_b[:, i, :] = quat_apply_inverse(asset.data.root_link_quat_w, rel_foot_vel_w[:, i, :])
 
     pos_offset = foot_pos_b - ref_pos_b
     vel_offset = foot_vel_b - ref_vel_b
@@ -313,7 +323,7 @@ def phase_foot_trajectory_exp(
 def joint_power(env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     asset: Entity = env.scene[asset_cfg.name]
     return torch.sum(
-        torch.abs(asset.data.joint_vel[:, asset_cfg.joint_ids] * asset.data.applied_torque[:, asset_cfg.joint_ids]),
+        torch.abs(asset.data.joint_vel[:, asset_cfg.joint_ids] * asset.data.qfrc_actuator[:, asset_cfg.joint_ids]),
         dim=1,
     )
 
@@ -359,13 +369,17 @@ def joint_pos_penalty(
     )
 
 
+
+def _cols(sensor_cfg: ContactSensorRef):
+    return slice(None) if sensor_cfg.body_ids is None else sensor_cfg.body_ids
+
 def feet_contact_without_cmd(
     env: ManagerBasedRlEnv,
     command_name: str,
     sensor_cfg: SceneEntityCfg,
 ) -> torch.Tensor:
     contact_sensor = env.scene.sensors[sensor_cfg.name]
-    contact = contact_sensor.compute_first_contact(env.step_dt)[:, sensor_cfg.body_ids]
+    contact = contact_sensor.compute_first_contact(env.step_dt)[:, _cols(sensor_cfg)]
     reward = torch.sum(contact, dim=-1).float()
     reward *= torch.linalg.vector_norm(env.command_manager.get_command(command_name), dim=1) < 0.5
     return reward
@@ -375,9 +389,9 @@ def feet_slide(
     env: ManagerBasedRlEnv, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     contact_sensor = env.scene.sensors[sensor_cfg.name]
-    contacts = contact_sensor.data.force[:, sensor_cfg.body_ids, :].norm(dim=-1) > 1.0
+    contacts = contact_sensor.data.force[:, _cols(sensor_cfg), :].norm(dim=-1) > 1.0
     asset: Entity = env.scene[asset_cfg.name]
-    feet_vel = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :2]
+    feet_vel = asset.data.body_link_lin_vel_w[:, asset_cfg.body_ids, :2]
     return torch.sum(torch.norm(feet_vel, dim=-1) * contacts, dim=1)
 
 
@@ -389,8 +403,8 @@ def foot_impact_velocity(
 ) -> torch.Tensor:
     contact_sensor = env.scene.sensors[sensor_cfg.name]
     asset: Entity = env.scene[asset_cfg.name]
-    first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, sensor_cfg.body_ids].float()
-    foot_lin_vel = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :]
+    first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, _cols(sensor_cfg)].float()
+    foot_lin_vel = asset.data.body_link_lin_vel_w[:, asset_cfg.body_ids, :]
     downward_speed = torch.clamp(-foot_lin_vel[:, :, 2], min=0.0)
     downward_speed = torch.clamp(downward_speed - speed_threshold, min=0.0)
     return torch.sum(first_contact * torch.square(downward_speed), dim=1) * get_gait_level_tensor(env)
@@ -404,8 +418,8 @@ def feet_air_time_lin_xy_cmd(
     cmd_threshold: float = 0.1,
 ) -> torch.Tensor:
     contact_sensor = env.scene.sensors[sensor_cfg.name]
-    first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, sensor_cfg.body_ids]
-    last_air_time = contact_sensor.data.last_air_time[:, sensor_cfg.body_ids]
+    first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, _cols(sensor_cfg)]
+    last_air_time = contact_sensor.data.last_air_time[:, _cols(sensor_cfg)]
     reward = torch.sum((last_air_time - threshold) * first_contact, dim=1)
     cmd_lin_xy = torch.norm(env.command_manager.get_command(command_name)[:, :2], dim=1)
     reward *= cmd_lin_xy > cmd_threshold
@@ -420,8 +434,8 @@ def feet_air_time_ang_z_cmd_lite3(
     cmd_threshold: float = 0.1,
 ) -> torch.Tensor:
     contact_sensor = env.scene.sensors[sensor_cfg.name]
-    first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, sensor_cfg.body_ids]
-    last_air_time = contact_sensor.data.last_air_time[:, sensor_cfg.body_ids]
+    first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, _cols(sensor_cfg)]
+    last_air_time = contact_sensor.data.last_air_time[:, _cols(sensor_cfg)]
     reward = torch.sum((last_air_time - threshold) * first_contact, dim=1)
     cmd_ang_z = torch.abs(env.command_manager.get_command(command_name)[:, 2])
     reward *= cmd_ang_z > cmd_threshold
@@ -473,7 +487,7 @@ def undesired_contacts(
     env: ManagerBasedRlEnv, threshold: float, sensor_cfg: SceneEntityCfg
 ) -> torch.Tensor:
     contact_sensor = env.scene.sensors[sensor_cfg.name]
-    contact = contact_sensor.data.force[:, sensor_cfg.body_ids, :]
+    contact = contact_sensor.data.force[:, _cols(sensor_cfg), :]
     return torch.sum(
         torch.max(torch.norm(contact, dim=-1) - threshold, torch.tensor(0.0, device=env.device)),
         dim=1,
@@ -484,7 +498,7 @@ def contact_forces(
     env: ManagerBasedRlEnv, threshold: float, sensor_cfg: SceneEntityCfg
 ) -> torch.Tensor:
     contact_sensor = env.scene.sensors[sensor_cfg.name]
-    contact = contact_sensor.data.force[:, sensor_cfg.body_ids, :]
+    contact = contact_sensor.data.force[:, _cols(sensor_cfg), :]
     norm = torch.linalg.vector_norm(contact, dim=-1)
     return torch.sum(torch.square(torch.clamp(norm - threshold, min=0.0)), dim=1)
 

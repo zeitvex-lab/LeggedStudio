@@ -60,7 +60,7 @@ def base_height(env, target_height: float, sensor_name: str) -> torch.Tensor:
 
 def torques(env) -> torch.Tensor:
   robot: Entity = env.scene["robot"]
-  return torch.square(robot.data.applied_torque).sum(1)
+  return torch.square(robot.data.qfrc_actuator).sum(1)
 
 
 def dof_vel_wheel_masked(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:

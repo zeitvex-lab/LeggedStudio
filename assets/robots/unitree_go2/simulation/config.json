@@ -156,6 +156,119 @@
         },
         "autoplay": false
       }
+    },
+    {
+      "id": "go2-jump-69",
+      "path": "simulation/policies/jump_69.onnx",
+      "label": "Jump 69D (imitation, motion-csv)",
+      "obs_dim": 69,
+      "action_dim": 12,
+      "history_len": 1,
+      "source": "LeggedSkillDeploy go2_jump（第三方，无 LICENSE；仅内部研究）",
+      "contract": {
+        "observation_kind": "go2_motion_69",
+        "obs_dim": 69,
+        "action_dim": 12,
+        "history_len": 1,
+        "command_dims": 3,
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ],
+        "joint_mapping": [
+          3,
+          0,
+          9,
+          6,
+          4,
+          1,
+          10,
+          7,
+          5,
+          2,
+          11,
+          8
+        ],
+        "default_joint_angles": {
+          "FR_hip_joint": 0.1,
+          "FR_thigh_joint": -0.1,
+          "FR_calf_joint": 0.1,
+          "FL_hip_joint": -0.1,
+          "FL_thigh_joint": 0.8,
+          "FL_calf_joint": 0.8,
+          "RR_hip_joint": 1.0,
+          "RR_thigh_joint": 1.0,
+          "RR_calf_joint": -1.5,
+          "RL_hip_joint": -1.5,
+          "RL_thigh_joint": -1.5,
+          "RL_calf_joint": -1.5
+        },
+        "action_scale": 0.25,
+        "scales": {
+          "ang_vel": 1.0,
+          "dof_pos": 1.0,
+          "dof_vel": 1.0,
+          "command": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "control": {
+          "stiffness": {
+            "FR_hip_joint": 20.0,
+            "FR_thigh_joint": 20.0,
+            "FR_calf_joint": 20.0,
+            "FL_hip_joint": 20.0,
+            "FL_thigh_joint": 20.0,
+            "FL_calf_joint": 20.0,
+            "RR_hip_joint": 20.0,
+            "RR_thigh_joint": 20.0,
+            "RR_calf_joint": 20.0,
+            "RL_hip_joint": 20.0,
+            "RL_thigh_joint": 20.0,
+            "RL_calf_joint": 20.0
+          },
+          "damping": {
+            "FR_hip_joint": 0.5,
+            "FR_thigh_joint": 0.5,
+            "FR_calf_joint": 0.5,
+            "FL_hip_joint": 0.5,
+            "FL_thigh_joint": 0.5,
+            "FL_calf_joint": 0.5,
+            "RR_hip_joint": 0.5,
+            "RR_thigh_joint": 0.5,
+            "RR_calf_joint": 0.5,
+            "RL_hip_joint": 0.5,
+            "RL_thigh_joint": 0.5,
+            "RL_calf_joint": 0.5
+          }
+        },
+        "motion_params": {
+          "motion_csv": "simulation/policies/jump_motion.csv",
+          "fps": 50.0,
+          "time_start": 0.5,
+          "time_end": 2.6,
+          "csv_layout": "root_pos3,quat_xyzw4,dof_pos12",
+          "ref_axis": "z_up"
+        },
+        "autoplay": false
+      }
     }
   ]
 }

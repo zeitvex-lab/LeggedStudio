@@ -74,7 +74,7 @@ def _sensors() -> tuple[RayCastSensorCfg | ContactSensorCfg, ...]:
   wheel_contact = ContactSensorCfg(
     name="wheel_contact",
     primary=ContactMatch(mode="body", pattern=r".*_wheel", entity="robot"),
-    secondary=ContactMatch(mode="body", pattern="terrain", entity="robot"),
+    secondary=ContactMatch(mode="body", pattern="terrain"),
     fields=("force",),
     reduce="netforce",
     num_slots=1,
@@ -82,7 +82,7 @@ def _sensors() -> tuple[RayCastSensorCfg | ContactSensorCfg, ...]:
   non_wheel_contact = ContactSensorCfg(
     name="non_wheel_contact",
     primary=ContactMatch(mode="body", pattern=r"^(?!.*_wheel).*", entity="robot"),
-    secondary=ContactMatch(mode="body", pattern="terrain", entity="robot"),
+    secondary=ContactMatch(mode="body", pattern="terrain"),
     fields=("force",),
     reduce="netforce",
     num_slots=1,
@@ -125,6 +125,8 @@ def _observations(cfg: ManagerBasedRlEnvCfg) -> None:
 
 def _events(cfg: ManagerBasedRlEnvCfg) -> None:
   all_actuators = SceneEntityCfg("robot", actuator_names=(".*",))
+  # Position-mode actuator group for dr.* events that reject velocity actuators.
+  legs_actuators = SceneEntityCfg("robot", actuator_names=M20_LEG_JOINT_NAMES)
   all_geoms = SceneEntityCfg("robot", geom_names=(".*",))
   non_base_bodies = SceneEntityCfg("robot", body_names=(r"^(?!base_link$).*",))
   cfg.events = {
@@ -203,24 +205,17 @@ def _events(cfg: ManagerBasedRlEnvCfg) -> None:
     ),
     # Source: kp/kd multipliers U(0.85, 1.15).
     "pd_gains": EventTermCfg(
-      func=dr.pd_gains,
+      func=mdp.events.scale_leg_pd_gains,
       mode="startup",
-      params={
-        "asset_cfg": all_actuators,
-        "kp_range": (0.85, 1.15),
-        "kd_range": (0.85, 1.15),
-        "operation": "scale",
-      },
+      params={"kp_range": (0.85, 1.15), "kd_range": (0.85, 1.15)},
     ),
     # Source torque multiplier U(0.85, 1.15) is approximated by scaling the
     # per-environment effort limits (mjlab has no direct torque scaler).
     "effort_limits": EventTermCfg(
-      func=dr.effort_limits,
+      func=mdp.events.scale_leg_effort_limits,
       mode="startup",
       params={
-        "asset_cfg": all_actuators,
         "effort_limit_range": (0.85, 1.15),
-        "operation": "scale",
       },
     ),
   }
