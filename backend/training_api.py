@@ -73,6 +73,7 @@ class CreateTrainingRequest(BaseModel):
     profile_id: str | None = None
     terrain_type: str = "plane"
     device: str = Field(default="auto", pattern=r"^(auto|cpu|cuda(?::\d+)?)$")
+    smoke: bool = False  # 冒烟档：64 envs × 5 iters（microduck-studio smoke_argv 模式，报告 4 §4）
     reward_scales: dict[str, float] = Field(default_factory=dict)
     reward_overrides: bool = False
     reward_params: dict[str, dict] = Field(default_factory=dict)
@@ -149,11 +150,19 @@ async def create_training(request: CreateTrainingRequest):
                 detail=f"Invalid contract: {', '.join(errors)}"
             )
 
+        # 冒烟档（T2.3）：先 64 envs × 5 iters 验证链路，冒烟绿再放行长训练
+        num_envs = request.num_envs
+        max_iterations = request.max_iterations
+        if request.smoke:
+            num_envs = min(num_envs, 64)
+            max_iterations = min(max_iterations, 5)
+
         # 准备配置
         config = {
             "algorithm": algorithm,
-            "num_envs": request.num_envs,
-            "max_iterations": request.max_iterations,
+            "smoke_preset": request.smoke,
+            "num_envs": num_envs,
+            "max_iterations": max_iterations,
             "learning_rate": request.learning_rate,
             "save_interval": request.save_interval,
             "episode_length_s": request.episode_length_s,
@@ -969,3 +978,58 @@ async def get_training_artifact(task_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== T2.4：SSE 实时事件流（日志 + 状态统一推送） ==========
+
+@router.get("/{task_id}/events")
+async def training_event_stream(task_id: str, interval: float = 1.0):
+    """SSE：实时推送训练日志增量与状态（前端 EventSource + 断线重连）。
+
+    事件格式：
+      event: log    data: {"lines": [...]}        （training.log 新增行）
+      event: status data: {"status": ..., ...}     （status.json 变化）
+      event: ping   data: {}                       （保活）
+    终止条件：任务到达终态（completed/failed/stopped）后再推送一次状态即关闭。
+    """
+    import asyncio
+
+    from fastapi.responses import StreamingResponse
+
+    task = get_training_manager().get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    async def stream():
+        log_offset = 0
+        last_status = None
+        terminal = {"completed", "failed", "stopped", "error"}
+        while True:
+            payload_lines = []
+            log_file = task.task_dir / "training.log"
+            if log_file.exists():
+                try:
+                    with log_file.open("r", encoding="utf-8", errors="replace") as handle:
+                        handle.seek(log_offset)
+                        chunk = handle.read()
+                        log_offset = handle.tell()
+                    if chunk:
+                        payload_lines = chunk.splitlines()[-200:]
+                except OSError:
+                    pass
+            status_payload = None
+            try:
+                status_payload = task.get_status_info()
+            except Exception:
+                status_payload = None
+            if payload_lines:
+                yield f"event: log\ndata: {json.dumps({'lines': payload_lines}, ensure_ascii=False)}\n\n"
+            if status_payload and status_payload != last_status:
+                last_status = status_payload
+                yield f"event: status\ndata: {json.dumps(status_payload, ensure_ascii=False, default=str)}\n\n"
+            if status_payload and str(status_payload.get("status", "")).lower() in terminal:
+                break
+            yield "event: ping\ndata: {}\n\n"
+            await asyncio.sleep(max(0.2, interval))
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
