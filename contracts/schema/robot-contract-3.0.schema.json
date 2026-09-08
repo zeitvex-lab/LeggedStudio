@@ -1,0 +1,469 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "legged-studio/robot-contract-3.0",
+  "title": "Robot Contract v3",
+  "description": "Legged Studio 机器人契约 v3：在 v2 的'关节名字层'之上增加 构型(morphology)/角色(role)/关节(joint) 三层。数据模型依据 1000framesai.com 的 morphology+control_defaults-by-role+reindex 证据（00_Survey 报告 6 §1）与 robot_mujoco(MATRiX) 的 MJCF default-class-per-role 写法（报告 9 §2.2）。本 schema 是唯一真值源：Python 模型（contracts/generated/robot_contract_v3.py）与 TypeScript 类型（web/shared/generated/types.d.ts）由 tools/generate_contract_models.py 从本文件生成；跨字段自洽校验（legs×leg_pattern、Σwidth==dimension、reindex 置换、leg_naming 模板匹配）由 contracts/role_resolver.py 执行。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "robot_id",
+    "morphology",
+    "joints",
+    "actuator_profile",
+    "action",
+    "observation"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "const": "robot-contract-3.0"
+    },
+    "contract_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$",
+      "description": "契约实例 ID，如 unitree_go2_mvp_v1"
+    },
+    "robot_id": {
+      "$ref": "#/$defs/robotId"
+    },
+    "family": {
+      "type": "string",
+      "description": "人类可读名称，如 'Unitree Go2'"
+    },
+    "morphology": {
+      "$ref": "#/$defs/morphology"
+    },
+    "joints": {
+      "$ref": "#/$defs/joints"
+    },
+    "actuator_profile": {
+      "$ref": "#/$defs/actuatorProfile"
+    },
+    "action": {
+      "$ref": "#/$defs/action"
+    },
+    "observation": {
+      "$ref": "#/$defs/observation"
+    },
+    "control": {
+      "$ref": "#/$defs/control"
+    },
+    "default_pose": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "description": "默认站姿，与 joints.actuated 等长（v2 兼容字段）"
+    },
+    "size_class": {
+      "enum": ["S", "M", "L"],
+      "description": "v2 兼容：按质量分档（S<15, M<35, L>=35 kg）"
+    },
+    "locomotion_type": {
+      "enum": ["P", "W"],
+      "description": "v2 兼容：Point-foot / Wheel 拓扑标记"
+    },
+    "urdf": {
+      "type": "object",
+      "description": "v2 兼容：模型文件引用 {path, hash, total_mass_kg, mass_source, mesh_files}"
+    },
+    "deployment": {
+      "type": "object",
+      "description": "v2 兼容：部署映射 {can_bus_mapping, motor_direction, zero_offset}"
+    },
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "v1 兼容：支撑契约字段的本地证据（source_id/path/sha256/supports）"
+    }
+  },
+  "$defs": {
+    "robotId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$",
+      "description": "机器人 ID。现存 16 包同时使用 snake_case(unitree_go2) 与连字符(zex-w)，故两者都合法；禁止空格与大写"
+    },
+    "roleName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "关节角色名：hip/thigh/calf/wheel/ankle/shoulder/elbow/gripper..."
+    },
+    "legId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9]+$",
+      "description": "腿/肢 ID：FL/FR/RL/RR、L0/L1..."
+    },
+    "morphology": {
+      "type": "object",
+      "required": ["id", "legs", "leg_pattern", "leg_naming"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "构型 ID。已知值：quadruped_12dof / wheel_leg_16dof / biped / humanoid / hand。代码只允许按本字段分支（1000frames 用 2 个 ID 覆盖 11 机器人）"
+        },
+        "legs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8,
+          "description": "腿/肢数量；0 表示非腿式（如灵巧手）"
+        },
+        "leg_pattern": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/roleName"
+          },
+          "uniqueItems": true,
+          "description": "每腿角色序列，如 [hip, thigh, calf] 或 [hip, thigh, calf, wheel]"
+        },
+        "leg_naming": {
+          "type": "string",
+          "minLength": 1,
+          "description": "关节命名模板，支持 {LR}（腿 ID）与 {role}（角色）占位符，如 '{LR}_{role}_joint'。role_resolver 用它做模板匹配与展开"
+        },
+        "leg_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/legId"
+          },
+          "uniqueItems": true,
+          "description": "腿 ID 清单（如 [FL, FR, RL, RR]）；缺省时由 joints.actuated 的 leg 值推导"
+        },
+        "actuated_via": {
+          "type": "string",
+          "description": "自由度推导说明，如 'leg_pattern×legs'；自洽校验见 role_resolver"
+        },
+        "extra_roles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/roleName"
+          },
+          "description": "腿模式之外的驱动角色（如腰部 waist），对应 joints.actuated 中 leg=null 的条目"
+        }
+      }
+    },
+    "joints": {
+      "type": "object",
+      "required": ["actuated"],
+      "additionalProperties": false,
+      "properties": {
+        "actuated": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "role"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "leg": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/legId"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "所属腿 ID；extra_roles 驱动的关节为 null"
+              },
+              "role": {
+                "$ref": "#/$defs/roleName"
+              }
+            }
+          },
+          "description": "Layer 3：只存 名字+归属+角色，数值下沉到 actuator_profile（消灭逐关节重复数据）"
+        },
+        "passive": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "role": {
+                "$ref": "#/$defs/roleName"
+              },
+              "note": {
+                "type": "string",
+                "description": "闭链/软足等被动链说明（StackForce 教训：物理描述不可强统一，明示降级）"
+              }
+            }
+          }
+        },
+        "default_pose": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "默认站姿，与 actuated 等长"
+        },
+        "joint_limits": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "lower": {
+                "type": "number"
+              },
+              "upper": {
+                "type": "number"
+              },
+              "effort": {
+                "type": "number"
+              },
+              "velocity": {
+                "type": "number"
+              }
+            }
+          },
+          "description": "v2 兼容：{joint_name: {lower, upper, effort, velocity}}；effort/velocity 的角色化声明走 actuator_profile"
+        }
+      }
+    },
+    "actuatorParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stiffness": {
+          "type": "number",
+          "minimum": 0
+        },
+        "damping": {
+          "type": "number",
+          "minimum": 0
+        },
+        "effort": {
+          "type": "number",
+          "minimum": 0,
+          "description": "力矩限幅（torque limit）"
+        },
+        "velocity_limit": {
+          "type": "number",
+          "minimum": 0
+        },
+        "armature": {
+          "type": "number",
+          "minimum": 0
+        },
+        "friction_loss": {
+          "type": "number",
+          "minimum": 0
+        },
+        "mode": {
+          "enum": ["position", "velocity", "torque"],
+          "description": "执行器控制模式；wheel 角色常用 velocity（报告 6 §4.3：一步消灭 12 腿+4 轮混排特判）"
+        },
+        "action_scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "角色级动作缩放覆盖（1000frames 的 action_scale_by_role）"
+        }
+      }
+    },
+    "actuatorProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "$ref": "#/$defs/actuatorParams"
+        },
+        "by_role": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/actuatorParams"
+          },
+          "description": "★★ 按角色声明（同构机器人共享一份；Go2 hip=20/calf=20、A2 hip=100/calf=150、B2=160 都是角色级常量）"
+        },
+        "by_joint": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/actuatorParams"
+          },
+          "description": "异例逐关节覆盖，最好永远为空；展开优先级 default < by_role < by_joint"
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": ["joint_order"],
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "== len(joint_order)，自洽校验见 role_resolver"
+        },
+        "joint_order": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "策略动作槽序（策略输出第 i 维 → 本数组第 i 个关节）"
+        },
+        "reindex_from_model": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "★ 一等字段：模型序→本契约序的置换数组（null=恒等）。M20 joint_ids_map 的制度化（报告 6 §1 关键设计 3）"
+        },
+        "action_scale": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "action_clip": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[min, max]"
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "required": ["components", "dimension"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "观测模板 ID（如 legged_base_v1），跨机器人实验可比性的锚点（报告 6 §4.2）"
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "width", "scale", "source"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "scale": {
+                "type": "number"
+              },
+              "source": {
+                "enum": ["imu", "cmd", "actuated", "action", "world", "external"],
+                "description": "取值来源：imu/cmd/驱动关节/上一动作/世界状态/外部传感器(深度/高度场)"
+              },
+              "wrap": {
+                "type": "boolean",
+                "description": "角度量是否 wrap（轮关节必须 false——替代原 app.js/policy_acceptance 双处同步的 mask 特判）"
+              }
+            }
+          },
+          "description": "每项观测带宽度+scale+来源（StackForce 观测组件库的证据形态，报告 6 §2）；浏览器 obs 构建器由'每机器人一个函数'变为'一个模板引擎+16 份声明'"
+        },
+        "dimension": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "== Σcomponents.width，自洽校验见 role_resolver"
+        },
+        "normalizer": {
+          "type": "object",
+          "description": "v2 兼容：{mean: [...], std: [...]}"
+        }
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "control_hz": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 1000
+        },
+        "physics_hz": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 10000
+        },
+        "decimation": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "taskRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "★ 预埋（报告 6 §4.6）：任务/算法包对机器人侧的对称需求声明。机器人契约不携带本对象；training-profile / task-pack schema（T0.1 后续 / T6.1）通过 $ref 引用本定义。匹配逻辑（三谓词数据交集）在 T6.1 实现，此处只定字段。",
+      "properties": {
+        "requires_morphology": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "支持的构型 ID 列表；空/缺省 = 通用"
+        },
+        "requires_roles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/roleName"
+          },
+          "description": "必须存在的角色，如 [hip, thigh, calf]"
+        },
+        "observation_template": {
+          "type": "string",
+          "description": "消费的观测模板 ID，对应 observation.kind"
+        },
+        "action_role_order": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/roleName"
+          },
+          "description": "动作槽按角色排列，如 [hip, thigh, calf]（配合 leg_pattern 展开）"
+        },
+        "min_obs_dimension": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

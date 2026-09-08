@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from legged_studio.contracts import load_robot_contract
+from contracts import load_robot_contract
 
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "go2.v1.json"

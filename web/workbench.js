@@ -85,6 +85,20 @@ function renderRobotPackageList() {
   list.querySelectorAll('[data-robot-id]').forEach((button) => button.addEventListener('click', () => selectRobotPackage(button.dataset.robotId)));
 }
 
+/** @typedef {import("./shared/generated/types").RobotContractV3} RobotContractV3 */
+
+/**
+ * v3 契约的观测维度自洽值（Σcomponents.width）；v2 契约无 components 时返回 null。
+ * 类型来自 schema 真值源生成的 web/shared/generated/types.d.ts。
+ * @param {Partial<RobotContractV3>} contract
+ * @returns {number|null}
+ */
+function observationDimensionV3(contract) {
+  const components = contract?.observation?.components;
+  if (!Array.isArray(components) || !components.length) return null;
+  return components.reduce((sum, component) => sum + (Number(component.width) || 0), 0);
+}
+
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 }
@@ -97,7 +111,10 @@ function renderRobotEditor(preset) {
   const controlledJoints = availableJoints.length ? availableJoints : mappedJoints;
   const control = contract.control || {};
   if ($('robotEditorTitle')) $('robotEditorTitle').textContent = preset ? (preset.family || preset.robot_id) : '机器人参数';
-  if ($('robotEditorMeta')) $('robotEditorMeta').textContent = preset ? `${controlledJoints.length || mappedJoints.length} joints · ${contract.contract_id || 'Contract'}` : '未加载';
+  if ($('robotEditorMeta')) {
+    const obsDimension = observationDimensionV3(contract);
+    $('robotEditorMeta').textContent = preset ? `${controlledJoints.length || mappedJoints.length} joints · ${contract.contract_id || 'Contract'}${obsDimension != null ? ` · obs ${obsDimension}D` : ''}` : '未加载';
+  }
   if ($('robotJointEditor')) {
     const options = availableJoints.length ? availableJoints : mappedJoints;
     $('robotJointEditor').innerHTML = mappedJoints.length ? mappedJoints.map((name, index) => `<label class="robot-joint-row"><span>${index + 1}</span><select data-joint-index="${index}" aria-label="动作 ${index + 1} 对应关节">${[...new Set([name, ...options])].map((candidate) => `<option value="${escapeHtml(candidate)}" ${candidate === name ? 'selected' : ''}>${escapeHtml(candidate)}</option>`).join('')}</select></label>`).join('') : '<div class="empty-state">Contract 未声明动作关节</div>';
