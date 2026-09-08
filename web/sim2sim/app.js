@@ -258,6 +258,7 @@ const elements = {
   velCmdVyVal: document.querySelector("#velCmdVyVal"),
   velCmdYawVal: document.querySelector("#velCmdYawVal"),
   velCmdZero: document.querySelector("#velCmdZero"),
+  velCmdPush: document.querySelector("#velCmdPush"),
   keys: {
     KeyW: document.querySelector("#keyW"),
     KeyS: document.querySelector("#keyS"),
@@ -5204,6 +5205,23 @@ function bindVelocityCommandControls() {
     input.velocityCmdTouched = true;
     input.manualCmdActive = Boolean(elements.velCmdEnable?.checked);
     updateVelocityCommandControls();
+  });
+  // "推一下"扰动（报告 10 §④）：0.6 秒前进脉冲后恢复原命令——
+  // 验收协议的外部扰动入口，与确定性回放共用 manualCmd 通路。
+  elements.velCmdPush?.addEventListener("click", () => {
+    if (elements.velCmdPush.disabled) return;
+    elements.velCmdPush.disabled = true;
+    const original = [...input.manualCmd];
+    const originalActive = input.manualCmdActive;
+    input.manualCmd[0] = (Number(input.manualCmd[0]) || 0) + 0.8;
+    input.manualCmdActive = true;
+    input.velocityCmdTouched = true;
+    setTimeout(() => {
+      input.manualCmd[0] = original[0];
+      input.manualCmdActive = originalActive;
+      updateVelocityCommandControls();
+      elements.velCmdPush.disabled = false;
+    }, 600);
   });
 }
 
