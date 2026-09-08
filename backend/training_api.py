@@ -819,6 +819,23 @@ async def get_training_logs(task_id: str, lines: int = 100):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/{task_id}/artifact")
+async def get_policy_artifact(task_id: str):
+    """策略档案（T3.1）：训练元数据/观测-动作规范/lineage/双 gate 报告。"""
+    task = get_training_manager().get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    artifact_file = task.task_dir / "artifact.json"
+    if not artifact_file.exists():
+        return {"success": True, "task_id": task_id, "available": False,
+                "note": "训练完成后生成 PolicyArtifact；含 lineage 与双 gate 报告"}
+    try:
+        artifact = json.loads(artifact_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail=f"artifact.json 解析失败: {exc}") from exc
+    return {"success": True, "task_id": task_id, "available": True, "artifact": artifact}
+
+
 @router.get("/{task_id}/metrics")
 async def get_training_metrics(task_id: str):
     """Return the append-only metric series for plotting and comparisons."""
