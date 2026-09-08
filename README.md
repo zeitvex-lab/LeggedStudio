@@ -2,7 +2,7 @@
 
 Legged Studio 是一个面向足式机器人强化学习的本地桌面/Web 工作台：机器人资产验证、MJLab 训练配置与监控、MuJoCo 交互仿真、浏览器 sim2sim 策略回放，全部通过版本化 JSON 契约（Robot / Scenario / Policy）串成可追溯链路。
 
-Version `0.9.0` 发布 **16 个机器人包 / 55 个训练 profile**：Unitree Go2（12 profiles，含技能任务与深度 parkour）、Go2-W、G1（5 profiles，含 AMP 与 DeepMimic 动作跟踪）、A1、A2、B2、B2-W、H1-2、ZEX-W、MicroDuck（18 profiles）、Wuji Hand、Agibot D1、Deeprobotics Lite3、Deeprobotics M20（含 DreamWaQ）、LimX TRON1 Point/Sole-Foot。
+Version `0.10.0` 发布 **16 个机器人包 / 55 个训练 profile**：Unitree Go2（12 profiles，含技能任务与深度 parkour）、Go2-W、G1（5 profiles，含 AMP 与 DeepMimic 动作跟踪）、A1、A2、B2、B2-W、H1-2、ZEX-W、MicroDuck（18 profiles）、Wuji Hand、Agibot D1、Deeprobotics Lite3、Deeprobotics M20（含 DreamWaQ）、LimX TRON1 Point/Sole-Foot。
 
 已内化的训练体系：Go2 技能任务（jump/backflip/handstand/spring-jump/trot/dreamwaq/walk-these-ways）与 G1 舞蹈权重包、DeepMimic 跟踪任务（60 clips 动作库）、M20 DreamWaQ、Lite3/M20 官方奖励配方、PIE 深度感知 parkour（106×60 深度相机楼梯运动）。外部训练源（LLoco/AMP/Instinct/wuji-mjlab/unitree_rl_mjlab 等）已全部内化为包内本地任务库，无外部依赖。
 
@@ -27,7 +27,7 @@ npm run build:portable        # Windows 便携 EXE
 npm run build:portable:embedded  # 嵌入式 CUDA 大包（数 GB）
 ```
 
-Linux AppImage 需在 Linux 主机/CI 上 `npm run build:linux`。产物写入 `dist/`；Online 包目录名为 `Legged-Studio-0.9.0-Windows-Online`。嵌入式运行时暂存于 `build/embedded-runtime`（Git 忽略）；CUDA 载荷超过 NSIS 上限，故刻意不用单 EXE。
+Linux AppImage 需在 Linux 主机/CI 上 `npm run build:linux`。产物写入 `dist/`；Online 包目录名为 `Legged-Studio-0.10.0-Windows-Online`。嵌入式运行时暂存于 `build/embedded-runtime`（Git 忽略）；CUDA 载荷超过 NSIS 上限，故刻意不用单 EXE。
 
 ## 目录职责（哪些能删、哪些不能）
 
@@ -90,6 +90,6 @@ adapter 侧测试在 `adapters/mjlab/test_*.py`（其 venv 内运行）。
 - Online 包不内置 Torch/MJLab：仅携带 uv、CPython 引导文件与固定源码快照，用户点 Configure Runtime 后才安装。国内默认清华 PyPI + 上海交大 cu128 镜像；NVIDIA 驱动用户自备。
 - 完整能力分级（已验证 / 已内化 / 规划中）与已知技术债清单见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §8 与 §7。
 
-## 运行时版本（0.9.0）
+## 运行时版本（0.10.0）
 
 Python 3.12.13 · uv 0.11.8 · Torch 2.11.0+cu128（GPU）/ +cpu · MJLab 1.6.0（快照 b517e0c）· Unitree 扩展 1425b15 · MuJoCo/MuJoCo-Warp 3.11.0
