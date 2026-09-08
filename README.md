@@ -6,7 +6,7 @@ Version `0.9.0` 发布 **16 个机器人包 / 55 个训练 profile**：Unitree G
 
 已内化的训练体系：Go2 技能任务（jump/backflip/handstand/spring-jump/trot/dreamwaq/walk-these-ways）与 G1 舞蹈权重包、DeepMimic 跟踪任务（60 clips 动作库）、M20 DreamWaQ、Lite3/M20 官方奖励配方、PIE 深度感知 parkour（106×60 深度相机楼梯运动）。外部训练源（LLoco/AMP/Instinct/wuji-mjlab/unitree_rl_mjlab 等）已全部内化为包内本地任务库，无外部依赖。
 
-**文档**：文档导航见 [docs/README.md](docs/README.md)。产品愿景见 [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)；系统架构与真实能力边界见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)；现状盘点与发展路线见 [docs/ROADMAP.md](docs/ROADMAP.md)；桌面程序见 [docs/DESKTOP_APP.md](docs/DESKTOP_APP.md)；Web 工作台见 [docs/WEB_APP.md](docs/WEB_APP.md)；机器人包建包/训练/验收的完整工程约定见 [docs/ROBOT_PACKAGE.md](docs/ROBOT_PACKAGE.md)。
+**文档**：文档导航见 [docs/README.md](docs/README.md)。产品愿景见 [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md)；系统架构与真实能力边界见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)；桌面程序见 [docs/DESKTOP_APP.md](docs/DESKTOP_APP.md)；Web 工作台见 [docs/WEB_APP.md](docs/WEB_APP.md)；机器人包建包/训练/验收的完整工程约定见 [docs/ROBOT_PACKAGE.md](docs/ROBOT_PACKAGE.md)。
 
 ## 快速开始
 

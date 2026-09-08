@@ -102,7 +102,7 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
 | **ONNX metadata_props 盖章** | `native_worker.py::export_runner_policy_onnx` | joint_names/kp/kd/default_pos/observation_names/action_scale/clip_actions | 已验证，浏览器加载时校验（`validatePolicyMetadata`） |
 | Scenario / PolicyArtifact / policy-acceptance / simulation-config / training-profile | contracts/ 与包内 schema | 场景、训练产物、验收报告、仿真配置、训练档案 | 已验证 |
 
-**已知债**：契约真值源是 Pydantic 手写模型，无 JSON Schema canonical，前端 TS 类型靠手写字段名对齐（无自动生成）；RobotContractV2 与 PolicyContract 不互通。两套契约的统一是 [ROADMAP.md](ROADMAP.md) 的共同起点。
+**已知债**：契约真值源是 Pydantic 手写模型，无 JSON Schema canonical，前端 TS 类型靠手写字段名对齐（无自动生成）；RobotContractV2 与 PolicyContract 不互通。两套契约的统一是后续契约 v3 工作的起点。
 
 ---
 

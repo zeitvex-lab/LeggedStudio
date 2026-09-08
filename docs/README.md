@@ -1,14 +1,12 @@
 # 文档索引
 
-Legged Studio 文档分四层：**产品层**（愿景/定位/路线）、**架构层**（系统结构与数据流）、**子系统层**（桌面/Web/机器人包/适配器/后端）、**附录**（专项记录与工具说明）。
+Legged Studio 文档分三层：**产品层**（愿景）、**架构层**（系统结构与数据流）、**子系统层**（桌面/Web/机器人包/适配器/后端）。规划与任务类文档不在版本库内（见文末说明）。
 
 ## 产品层
 
 | 文档 | 内容 | 读者 |
 |---|---|---|
 | [PRODUCT_VISION.md](PRODUCT_VISION.md) | 产品愿景、闭环工作流、当前发布状态、产品边界、验收标准 | 所有人 |
-| [ROADMAP.md](ROADMAP.md) | 现状盘点（基于代码核实）、缺口清单、三条发展路线（入门工具/生态平台/研究台架）与共同地基任务 | 维护者 |
-| [ECOSYSTEM_PLAN.md](ECOSYSTEM_PLAN.md) | 生态平台路线（路线 B）的展开：插件协议 v1、tasks-core 平台化、分发、第二后端的分阶段实施 | 维护者 |
 
 ## 架构层
 
@@ -34,6 +32,12 @@ Legged Studio 文档分四层：**产品层**（愿景/定位/路线）、**架�
 |---|---|
 | [../web/sim2sim/optimizations.md](../web/sim2sim/optimizations.md) | sim2sim 查看器优化实施记录（mjswan 借鉴清单） |
 | [../scripts/g1_parity_note.md](../scripts/g1_parity_note.md) | G1 浏览器/桌面 sim2sim 数值一致性（parity）验证方案（脚手架，未实现） |
+
+## 规划与调研的去向
+
+- **调研报告库**：`00_Survey/`（git 忽略，本地工作区）——含方法论/对标/架构范式/资产抽象/生态思想等 10 份报告，其中 [10_final_vision.md](../../00_Survey/10_final_vision.md) 是定稿的产品形态描述（含两层 UI 线框与浅色+蓝视觉基线）。
+- **规划/任务文档**：ECOSYSTEM_PLAN、ROADMAP、EXECUTION_PLAN、TASK_BACKLOG 等已从版本库移除（2026-09-08），避免与执行节奏脱节的计划文档入库；后续规划按需在本地维护。
+- 历史/过期分析文档已删除，不再保留归档。
 
 ## 文档维护约定
 

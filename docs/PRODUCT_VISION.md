@@ -2,7 +2,7 @@
 
 Legged Studio 是面向足式机器人强化学习的本地桌面/Web 工作台。它把模型资产验证、Robot Contract、训练配置、训练监控和 MuJoCo 交互仿真放到同一条可追溯链路中，目标是从一个 URDF/MJCF 文件开始，得到可复现的训练与验证结果，并为后续 CLI、评估和部署适配保留稳定的 JSON 契约（Robot / Scenario / Policy）。
 
-文档导航见 [README.md](README.md)；系统架构与真实能力边界见 [ARCHITECTURE.md](ARCHITECTURE.md)；现状盘点与发展路线见 [ROADMAP.md](ROADMAP.md)。
+文档导航见 [README.md](README.md)；系统架构与真实能力边界见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 ## 用户入口
 
@@ -69,7 +69,7 @@ Online 包不内置完整 Torch/MJLab 安装，仅携带 uv、CPython 基础文�
 
 ## 后续路线
 
-现状盘点、缺口清单与三条候选发展路线（入门工具 / 生态平台 / 研究台架）见 [ROADMAP.md](ROADMAP.md)；共同地基任务（契约 id 统一、硬编码下沉、Schema 化、导出双 gate 等）也在该文档 §3。优先完成 GPU 短 smoke 与长训练验收、ONNX 数值一致性 gate，再扩展导航任务、URDF-Studio 3D 工作区、UniLab/RoboLab adapter 与人工确认的实机部署包。每项扩展都必须先通过同一 Robot/Scenario/Policy 契约和可复现测试。
+优先完成 GPU 短 smoke 与长训练验收、ONNX 数值一致性 gate（DENYLIST fail-closed 语义），再扩展导航任务、感知观测项抽象、UniLab/RoboLab adapter 与人工确认的实机部署包。每项扩展都必须先通过同一 Robot/Scenario/Policy 契约和可复现测试。
 
 ## 验收标准
 
