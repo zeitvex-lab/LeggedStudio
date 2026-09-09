@@ -17,7 +17,8 @@
     "build:win": "electron-builder --win portable",
     "build:linux": "electron-builder --linux AppImage",
     "build:dir": "electron-builder --dir",
-    "test": "uv run --no-sync python -m unittest discover -s backend -p \"test_*.py\" -v"
+    "test": "uv run --no-sync python -m unittest discover -s backend -p \"test_*.py\" -v",
+    "test:obs": "node web/sim2sim/obs/observation_builders.test.mjs"
   },
   "keywords": [
     "robotics",
