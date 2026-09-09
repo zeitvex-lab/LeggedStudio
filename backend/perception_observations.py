@@ -32,6 +32,19 @@ class PerceptionObservationItem:
     description: str
     sample_dot_path: str = ""         # config dot-path to attach/enable the item
     meta: dict[str, Any] = field(default_factory=dict)
+    obs_source: str = ""              # estimator | proxy | history ("" = not applicable)
+
+
+# Canonical obs-source decision options for proprio items (Feature 11).
+# base_lin_vel can be measured from an estimator, proxied from joint velocities,
+# or reconstructed from a history buffer of past states. The Web mapping board
+# renders this as a three-way wizard; the chosen value is written into the
+# config as the item's obs_source.
+OBS_SOURCE_CHOICES: tuple[dict[str, str], ...] = (
+    {"value": "estimator", "label": "状态估计器", "hint": "由 IMU/里程计融合估计，最常规，推荐用于平地/低速"},
+    {"value": "proxy", "label": "关节速度代理", "hint": "由关节速度映射近似，省去估计器，适合舵机直驱构型"},
+    {"value": "history", "label": "历史帧还原", "hint": "用过去若干帧的观测序列还原当前状态，训练时需叠历史帧"},
+)
 
 
 # Canonical catalog of generic perception observation items. Robot packages can
@@ -73,8 +86,10 @@ PERCEPTION_ITEMS: dict[str, PerceptionObservationItem] = {
         sensor="proprio",
         width=3,
         scale=2.0,
-        description="机身坐标系下的 (x,y,z) 线速度。",
+        description="机身坐标系下的 (x,y,z) 线速度。观测来源可在 估计器/代理/历史 三选一。",
         sample_dot_path="environment.observations.actor.terms.base_lin_vel",
+        obs_source="estimator",
+        meta={"observable": "estimator|proxy|history"},
     ),
     "base_ang_vel": PerceptionObservationItem(
         id="base_ang_vel",
@@ -126,6 +141,7 @@ def list_perception_items() -> list[dict[str, Any]]:
             "description": item.description,
             "sample_dot_path": item.sample_dot_path,
             "meta": item.meta,
+            "obs_source": item.obs_source,
         }
         for item in PERCEPTION_ITEMS.values()
     ]
@@ -135,6 +151,12 @@ def list_perception_items() -> list[dict[str, Any]]:
 async def perception_items():
     """Return the generic perception observation catalog."""
     return {"success": True, "count": len(PERCEPTION_ITEMS), "items": list_perception_items()}
+
+
+@router.get("/obs-sources")
+async def obs_source_choices():
+    """Return the canonical obs_source decision options (Feature 11)."""
+    return {"success": True, "choices": list(OBS_SOURCE_CHOICES)}
 
 
 @router.get("/items/{item_id}")
@@ -148,4 +170,5 @@ async def perception_item(item_id: str):
         "id": item.id, "label": item.label, "sensor": item.sensor,
         "width": item.width, "scale": item.scale, "description": item.description,
         "sample_dot_path": item.sample_dot_path, "meta": item.meta,
+        "obs_source": item.obs_source,
     }}

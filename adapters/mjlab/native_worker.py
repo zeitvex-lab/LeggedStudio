@@ -718,8 +718,36 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
 
             runner_type = wrap_runner_with_checkpoint_export(runner_type, _checkpoint_metadata)
             runner = runner_type(wrapped, asdict(rl_cfg), str(output), device)
-            runner.learn(num_learning_iterations=rl_cfg.max_iterations, init_at_random_ep_len=True)
+
+            # Resume-from-checkpoint (Feature 13): when the config carries a
+            # resume_from path, load the weights (and optimizer) from that .pt
+            # so training continues instead of starting from scratch. The
+            # starting iteration is inferred from the filename model_<iter>.pt
+            # so the remaining budget is honoured.
+            resume_from = config.get("resume_from")
+            resume_iteration = 0
+            if resume_from:
+                resume_path = Path(str(resume_from)).resolve()
+                if not resume_path.exists():
+                    raise FileNotFoundError(f"resume checkpoint not found: {resume_path}")
+                try:
+                    runner.load(str(resume_path), load_cfg={"actor": True, "optimizer": True}, strict=True, map_location=device)
+                    report["resume_from"] = str(resume_path)
+                except Exception as exc:
+                    raise RuntimeError(f"resume checkpoint load failed: {exc}") from exc
+                import re as _re
+                m = _re.search(r"model_(\d+)\.pt$", resume_path.name)
+                if m:
+                    resume_iteration = int(m.group(1))
+                    report["resume_iteration"] = resume_iteration
+
+            target_iters = max(1, int(config.get("max_iterations", 1)))
+            remaining = max(1, target_iters - resume_iteration)
+            rl_cfg.max_iterations = remaining
+            runner.learn(num_learning_iterations=remaining, init_at_random_ep_len=True)
             report["status"] = "train_completed"
+            report["resumed"] = bool(resume_from)
+            report["total_iterations_effective"] = resume_iteration + remaining
             # 课程阶段快照（⑰）：训练结束时的 per-term 课程状态
             try:
                 report["curriculum_final"] = collect_curriculum_snapshot(env)

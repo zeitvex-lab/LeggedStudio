@@ -120,7 +120,13 @@ class TrainingManager:
 
         self.launcher = TrainingLauncher(workspace_dir=str(self.workspace_dir))
         self.tasks: Dict[str, TrainingTask] = {}
+        # Idempotency-Key -> task_id mapping, persisted so a control-plane
+        # restart does not let a duplicate POST /api/training/create spawn a
+        # second training run (Feature 13: idempotent training creation).
+        self._idem_path = self.workspace_dir / "_idempotency.json"
+        self._idempotency: Dict[str, str] = {}
         self._load_existing_tasks()
+        self._load_idempotency()
 
     def _load_existing_tasks(self) -> None:
         """Recover task metadata after a control-plane restart."""
@@ -138,10 +144,49 @@ class TrainingManager:
             except Exception as exc:
                 print(f"[Manager] Failed to recover {task_dir.name}: {exc}")
 
+    def _load_idempotency(self) -> None:
+        """Load the persisted Idempotency-Key -> task_id map (Feature 13)."""
+        try:
+            if self._idem_path.exists():
+                data = json.loads(self._idem_path.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    # Drop entries whose task_dir no longer exists so a stale
+                    # key never guards a deleted task.
+                    self._idempotency = {
+                        k: v for k, v in data.items()
+                        if (self.workspace_dir / v).exists()
+                    }
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"[Manager] Failed to load idempotency map: {exc}")
+
+    def _save_idempotency(self) -> None:
+        """Persist the Idempotency-Key -> task_id map (Feature 13)."""
+        try:
+            self._idem_path.write_text(
+                json.dumps(self._idempotency, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            print(f"[Manager] Failed to save idempotency map: {exc}")
+
+    def resolve_idempotency(self, key: str) -> Optional[str]:
+        """Return an existing task_id for an Idempotency-Key, if any (Feature 13)."""
+        if not key:
+            return None
+        return self._idempotency.get(key)
+
+    def register_idempotency(self, key: str, task_id: str) -> None:
+        """Bind an Idempotency-Key to a created task_id (Feature 13)."""
+        if not key:
+            return
+        self._idempotency[key] = task_id
+        self._save_idempotency()
+
     def create_task(
         self,
         contract: RobotContractV2,
-        config: dict
+        config: dict,
+        idempotency_key: str | None = None,
     ) -> str:
         """
         创建训练任务
@@ -155,6 +200,14 @@ class TrainingManager:
         """
         if str(config.get("backend", "native_mjlab")) != "native_mjlab":
             raise ValueError("TrainingManager only supports the native_mjlab backend")
+
+        # Idempotency-Key guard (Feature 13): replaying the same creation request
+        # returns the existing task instead of spawning a duplicate worker.
+        if idempotency_key:
+            existing = self.resolve_idempotency(idempotency_key)
+            if existing and self.get_task(existing):
+                print(f"[Manager] Idempotent replay of key {idempotency_key!r} -> task {existing}")
+                return existing
 
         # 生成任务 ID
         task_id = self._generate_task_id(contract.contract_id)
@@ -200,6 +253,9 @@ class TrainingManager:
         )
 
         task.status = "running"
+
+        if idempotency_key:
+            self.register_idempotency(idempotency_key, task_id)
 
         print(f"[Manager] Task created: {task_id}")
 
