@@ -14,21 +14,27 @@ from contracts.robot_contract_v2 import RobotContractV2
 
 
 def _package_contract_snapshot(robot_id: str) -> Optional[dict]:
-    """读取包当前契约作为训练快照：优先 contract_v3.json，回落 contract.json。"""
+    """读取包当前契约作为训练快照：v3 语义优先合并，v2 数据补全。"""
 
     from backend.robot_presets import get_robot_preset
+    from contracts.contract_loader import load_contract_v3, load_contract_v2, merge_v3_over_v2
 
     preset = get_robot_preset(robot_id)
     root = Path(str(((preset or {}).get("robot_package") or {}).get("package_root", ""))) if preset else None
     if root is None:
         return None
-    for name in ("contract_v3.json", "contract.json"):
-        path = root / name
-        if path.exists():
-            try:
-                return json.loads(path.read_text(encoding="utf-8-sig"))
-            except (OSError, json.JSONDecodeError):
-                continue
+    try:
+        return merge_v3_over_v2(load_contract_v3(root), load_contract_v2(root))
+    except Exception:
+        # Fall back to the raw v3/v2 record when semantic merge fails so the
+        # snapshot still lands (the DENYLIST gate treats drift as a warning).
+        for name in ("contract_v3.json", "contract.json"):
+            path = root / name
+            if path.exists():
+                try:
+                    return json.loads(path.read_text(encoding="utf-8-sig"))
+                except (OSError, json.JSONDecodeError):
+                    continue
     return None
 
 
