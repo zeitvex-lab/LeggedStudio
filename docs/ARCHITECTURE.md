@@ -1,6 +1,6 @@
 # 系统架构（Architecture）
 
-**口径**：本文描述 0.9.0 的**真实**架构，所有数字可在代码中核查。能力声明分三级：**已验证**（有测试/冒烟证据）、**已内化**（代码存在且冒烟通过）、**规划中**（有接口或文档，未实现）。
+**口径**：本文描述 0.17.0 的**真实**架构，所有数字可在代码中核查。能力声明分三级：**已验证**（有测试/冒烟证据）、**已内化**（代码存在且冒烟通过）、**规划中**（有接口或文档，未实现）。
 
 ---
 
@@ -20,7 +20,7 @@ Electron launcher（薄壳：生命周期/端口/运行时配置，不含业务�
 
 **核心约束（已验证）**：控制面 venv 不装 Torch/Warp；训练一律由 adapter 子进程执行，控制面只通过版本化 JSON 任务状态与 artifact 清单与其通信。
 
-**已知边界渗漏（技术债，见 §7）**：`backend/export_api.py` 顶层 import `adapters.mjlab.onnx_exporter`（其顶层 import torch），靠 `api_complete.py` 的 try/except 兜底；`backend/simulation_api.py` import 不依赖 torch 的 `ContractMujocoEnv`。"控制面不 import 训练栈"目前靠**依赖不安装**保障，不是代码边界。
+**控制面边界**：`export_api` 对 torch 触发的 import（`adapters.mjlab.onnx_exporter`）已懒加载化（函数内 import），`backend/requirements.txt`、`pyproject.toml` 均无 torch 依赖。"控制面不 import 训练栈"由**依赖不安装 + import 下沉到函数内部**共同保障（详见 §7）。
 
 ---
 
@@ -102,7 +102,8 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
 | **ONNX metadata_props 盖章** | `native_worker.py::export_runner_policy_onnx` | joint_names/kp/kd/default_pos/observation_names/action_scale/clip_actions | 已验证，浏览器加载时校验（`validatePolicyMetadata`） |
 | Scenario / PolicyArtifact / policy-acceptance / simulation-config / training-profile | contracts/ 与包内 schema | 场景、训练产物、验收报告、仿真配置、训练档案 | 已验证 |
 
-**已知债**：契约真值源是 Pydantic 手写模型，无 JSON Schema canonical，前端 TS 类型靠手写字段名对齐（无自动生成）；RobotContractV2 与 PolicyContract 不互通。两套契约的统一是后续契约 v3 工作的起点。
+**契约 v2/v3 收敛（已验证）**：`contracts/contract_loader.py` 提供 unified loader——v3（`contract_v3.json`，基于 `contracts/schema/robot-contract-3.0.schema.json` 真值源）在关节序/控制时序/动作维度/尺寸类/机运动/默认姿态/观测维度上优先，v2（`contract.json`）补齐数据完备字段（URDF 路径、限位、观测组件名），合并为单一记录供训练链路消费。`contracts/role_resolver.py` 解析构型+角色语义，`contracts/role_resolver.py:4` 明写 schema 是唯一真值源。
+**注意中间态**：`tools/generate_contract_models.py` 注释自述"当前为按 schema 手工种子的等价实现"，即签入的 Python 模型与前端 TS 类型（`web/shared/generated/types.d.ts`）是手工对齐、非工具实际跑出（生成器需联网拉工具、仅开发时手动执行）。`local_tasks/core/policy_contract.py`（Go2/G1 的观测字段级表述）尚未合并进 v3 schema，属"已内化、未平台化"。
 
 ---
 
@@ -120,7 +121,7 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
       （adapter venv，mujoco+onnxruntime，逐指令模式 → *.acceptance.json）
   → 试玩：浏览器 sim2sim（browser-config 下发 MJCF+网格+策略+健康检查；
       WASM 虚拟 FS 本地跑物理与 ORT 推理；元数据校验 + 确定性回放 ?replay=）
-  → 导出：部署配置 + ONNX（数值一致性 replay 为 replay_diff.py 工具，未接入强制 gate——规划中）
+  → 导出：部署配置 + ONNX（**数值一致性强制 gate**：`export_gate.py::check_export_result()` 维度 + 数值回放 <1e-5，`export_api` gate B 失败即删产物 fail-closed，并写 `artifact.onnx_validation`）
 ```
 
 ---
@@ -128,7 +129,7 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
 ## 6. 前端形态
 
 - **无构建原生 JS/HTML/CSS 多页**（版本查询参数缓存失效，全离线 vendored：three.js 25MB、MuJoCo WASM、onnxruntime-web）。
-- 两种界面形态并存（刻意保留）：主工作台壳（`workbench.html` 五步导航 + 内嵌视图）与传统多页控制台（`dashboard.html` 等，供直达链接）。
+- 两种界面形态并存（刻意保留）：主工作台壳（`workbench.html` **左侧六功能区 + 顶部工作流进度条** + 内嵌视图）与传统多页控制台（`dashboard.html` 等，供直达链接）。
 - 浏览器 sim2sim 为项目最重的单文件（`app.js` ~5800 行，观测构造器 × 机器人布局 + 物理循环 + UI），优化记录见 [../web/sim2sim/optimizations.md](../web/sim2sim/optimizations.md)。
 - `web/urdf-viewer/`（React/R3F 子项目）是**原型**，主工作台使用的是 `web/urdf-viewer.js`（原生版），两者不可混淆。
 
@@ -136,21 +137,28 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
 
 ## 7. 已知技术债清单（按影响排序）
 
+已修复（截至 0.17.0，由近期 auto-PR 收敛）：
+- **契约无单一真值源** → 已建 `contracts/schema/robot-contract-3.0.schema.json` 真值源 + `generate_contract_models.py` 生成前后端类型 + `contract_loader.py` v2/v3 统一加载（§4）。
+- **控制面边界靠依赖不安装** → `export_api` 顶层 import torch 链已懒加载化（函数内 import），控制面顶层无训练栈依赖。
+- **仓库不自包含** → `QUADRUPED_ASSET_INVENTORY.json` 已纳入 repo；`inventory.py` 缺文件时降级为目录扫描，不硬失败。
+- **浏览器 per-robot 特判硬编码** → 机身高度等走 `simulation/config.json` 的 `initial_base_height`，`app.js` 读 `control.base_height_target`；id 双轨靠 `normalizeRobotParam()` 别名表收敛（仅覆盖 go2/go2w，其余正则兜底）。
+
+仍待处理（按影响排序）：
+
 | # | 债 | 证据 | 影响 |
 |---|---|---|---|
-| 1 | 机器人 id 命名双轨（包 id 下划线 `unitree_go2`，浏览器特判连字符 `unitree-go2`） | `simulation_api.py:526`、`app.js:419-422` | 新机器人接入要踩两次坑 |
-| 2 | 浏览器特例硬编码（Go2 地形根、per-robot 机身高度三元式） | `simulation_api.py:188-196`、`app.js:77,2408` | 违反"契约驱动禁特判"自定约束 |
-| 3 | god file（simulation_api 1050 / training_api 924 / api_complete 40 个散装端点 / app.js 5832） | 各文件 | 修改成本高、回归面大 |
-| 4 | 控制面边界靠依赖不安装而非代码边界（export_api 顶层 import torch 链） | `export_api.py:12` | venv 配置错误时静默降级 |
-| 5 | sys.path.insert 遍布 worker/工具（靠 `_smoke_one.py` 子进程隔离补救） | 10+ 处 | 模块名冲突风险 |
-| 6 | 契约无单一真值源（Pydantic 手写 ↔ 前端手写，无 Schema 生成） | contracts/ | 前后端漂移靠人肉纪律 |
-| 7 | electron-builder 配置三处分裂 + 构建引用仓库外 `../QUADRUPED_ASSET_INVENTORY.json` | package.json:96-102 | 仓库不自包含 |
-| 8 | 杂项：`httpx2` 拼写、requirements.txt 与 pyproject 双份、workspace/imports 99 个 hex 残留、sim2sim models 重复 ONNX、__pycache__ 入打包 filter | 各处 | 机械性，易修 |
+| 1 | god file（simulation_api ~1050 / training_api ~924 / app.js ~5800） | 各文件 | 修改成本高、回归面大 |
+| 2 | 观测构造 `observationKind` 分支（本已注册表化 `OBSERVATION_BUILDERS`，但多个 builder 仍同置 app.js 单文件，未拆独立模块） | `app.js:3531` 注册表分发 | 新增一种策略契约仍要改 app.js |
+| 3 | 机器人 id 命名双轨（包下划线 ↔ 浏览器连字符） | `normalizeRobotParam()` 别名表未覆盖全 16 种 | 新机器人接入易踩坑 |
+| 4 | sys.path.insert 遍布 worker/工具 | 10+ 处 | 模块名冲突风险 |
+| 5 | 生成契约模型为手工种子而非工具实际输出 | `generate_contract_models.py` docstring | 需联网工具；签入产物非确定性 |
+| 6 | `local_tasks/core/policy_contract.py`（Go2/G1 观测字段级）未合并进 v3 schema | policies 仅 Go2/G1 用 | 高质量抽象未平台化 |
+| 7 | 杂项：`httpx2` 拼写、requirements.txt 与 pyproject 双份、sim2sim models 重复 ONNX、__pycache__ 入打包 filter | 各处 | 机械性，易修 |
 
 ---
 
 ## 8. 能力边界（诚实声明，与根 README 同口径）
 
-- **已验证**：55/55 profile 冒烟（128 envs × 30 步）、16 机器人浏览器 sim2sim 编译、键盘遥控、CUDA 选择（RTX 4060 验证环境）、02 界面碰撞体可视化、控制面单测、adapter 测试。
-- **已内化未达 L4**：GPU 长训练验收、ONNX 数值一致性强制 gate、实机控制与安全门禁、复杂导航规划闭环（当前导航为已训 checkpoint 的航点回放；交互式地图编辑器已提供画障碍/设航点 → A*/Dijkstra 自动求路，见 `backend/map_editor_api.py` 与 `web/navigation_editor.html`）。
-- **规划中**：UniLab/RoboLab adapter（框架选择 UI 已有 planned 占位）、SAC/TD3（注册占位）、sim2real 实机 SDK（Go2 deploy/fsm.py 已有硬件无关状态机骨架）。感知观测项已抽象为通用编目（`backend/perception_observations.py`：足端接触 → 高度场 → 深度相机），供配置编辑器按 id 接入策略输入，而非包内特例。
+- **已验证**：55/55 profile 冒烟（128 envs × 30 步）、16 机器人浏览器 sim2sim 编译、键盘遥控、CUDA 选择（RTX 4060 验证环境）、02 界面碰撞体可视化、控制面单测、adapter 测试、**ONNX 导出数值一致性强制 gate**（`export_gate.py` 维度 + 数值回放 <1e-5，失败即删产物 fail-closed）、契约 v2/v3 收敛 loader（`contract_loader.py`）、感知观测项抽象编目（`perception_observations.py`）、观测/动作映射板、导航地图编辑器 A*/Dijkstra 求路、导航评估写回 PolicyArtifact。
+- **已内化未达 L4**：GPU 长训练验收、实机控制与安全门禁、复杂导航自动规划闭环（当前地图编辑器已能 A*/Dijkstra 求路，但**导航执行仍为已训 checkpoint 的航点回放**，尚未接入感知-决策闭环在线运行，见 `navigation_api.py`）。
+- **规划中**：UniLab/RoboLab adapter（框架选择 UI 已有 planned 占位）、SAC/TD3（注册占位）、sim2real 实机 SDK（Go2 deploy/fsm.py 已有硬件无关状态机骨架，SDK 传输/授权/安全门禁仍属 L4 待办）。

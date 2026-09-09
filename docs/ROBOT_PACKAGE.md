@@ -81,7 +81,7 @@ Go2 的本地任务库实现使用所有机器人共享的包扩展契约：`ext
 
 机器人包可以携带自包含的训练任务实现，放在 `training/source/` 下，由训练 profile 的 `source_root` 指向。Go2 携带完整的本地任务库 `local_tasks/`（velocity、技能任务、深度 parkour、核心框架、workflows）；A2、H1_2 各携带精简的本地 velocity 任务（`a2_velocity/`、`h1_2_velocity/`）。这些任务完全由包内代码定义（机器人常量、env_cfg、runner），不 import 任何外部训练源仓库。
 
-已内化的主要训练任务（截至 0.9.0）：
+已内化的主要训练任务（截至 0.17.0）：
 
 | 包 | 任务 | 说明 |
 |---|---|---|
