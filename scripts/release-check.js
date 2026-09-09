@@ -43,6 +43,36 @@ if (!Array.isArray(packageConfig.extraResources) || !packageConfig.extraResource
   process.exit(1);
 }
 
+// Workspace 副本完整性：运行时优先伺服 workspace/packages，config 引用的
+// 包内文件必须存在（夜班同步 config 漏带 policies 导致 404 的教训）。
+const workspacePackages = path.join(root, 'workspace', 'packages');
+if (fs.existsSync(workspacePackages)) {
+  const problems = [];
+  for (const entry of fs.readdirSync(workspacePackages, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const configPath = path.join(workspacePackages, entry.name, 'simulation', 'config.json');
+    if (!fs.existsSync(configPath)) continue;
+    let config;
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf8').replace(/^﻿/, ''));
+    } catch {
+      problems.push(`${entry.name}: simulation/config.json 不可解析`);
+      continue;
+    }
+    for (const policy of config.policies || []) {
+      const rel = policy && policy.path;
+      if (rel && !path.isAbsolute(rel) && !fs.existsSync(path.join(workspacePackages, entry.name, rel))) {
+        problems.push(`${entry.name}: ${rel}`);
+      }
+    }
+  }
+  if (problems.length) {
+    console.error('Release check failed. Workspace package copies reference missing files:');
+    problems.forEach((item) => console.error(`- ${item}`));
+    process.exit(1);
+  }
+}
+
 const embeddedRuntime = path.join(root, 'build', 'embedded-runtime');
 if (fs.existsSync(embeddedRuntime)) {
   const manifestPath = path.join(embeddedRuntime, 'runtime-manifest.json');
