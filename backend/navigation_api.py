@@ -24,10 +24,29 @@ class NavigationRequest(BaseModel):
         default_factory=lambda: [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]],
         min_length=2,
     )
+    # 地图感知自动规划（Feature 3 在线闭环增量）：提供 obstacles 时，
+    # 由后端用 A*/Dijkstra 规划出绕障路径作为实际跟踪路线，替代仅手填航点。
+    obstacles: list[list[float]] = Field(
+        default_factory=list,
+        description="地图障碍，格式 [cx, cy, half_w, half_h]（world 米，轴对齐矩形）",
+    )
+    algorithm: str = Field(default="astar", pattern="^(astar|dijkstra)$")
+    use_planner: bool = Field(default=True, description="是否用 A*/Dijkstra 对 obstacles 自动规划绕障路径")
+    diagonal: bool = True
     episodes: int = Field(default=1, ge=1, le=20)
     max_steps: int | None = Field(default=None, ge=1, le=10000)
     waypoint_tolerance: float = Field(default=0.35, gt=0.0, le=5.0)
     manual_commands: list[dict[str, float]] = Field(default_factory=list)
+
+    @field_validator("obstacles")
+    @classmethod
+    def validate_obstacles(cls, value: list[list[float]]) -> list[list[float]]:
+        for obstacle in value:
+            if len(obstacle) != 4:
+                raise ValueError("each obstacle must be [cx, cy, half_w, half_h]")
+            if any(not np.isfinite(c) for c in obstacle):
+                raise ValueError("obstacles must contain finite coordinates")
+        return value
 
     @field_validator("waypoints")
     @classmethod
@@ -59,6 +78,27 @@ async def run_navigation(request: NavigationRequest):
     return await _run_native_navigation(task, request)
 
 
+async def _plan_obstacle_route(request: NavigationRequest) -> list[list[float]]:
+    """通过地图障碍数据用 A*/Dijkstra 规划绕障路径（Feature 3 在线闭环）。
+
+    复用 backend.map_editor_api 的栅格化 / 分步规划逻辑，返回世界坐标折线路径；
+    若地图不存在或障碍使起终点落在障碍内则抛 HTTPException。
+    """
+    from backend.map_editor_api import plan_map_route, PlanRequest
+
+    if len(request.waypoints) < 2:
+        raise HTTPException(status_code=400, detail="At least two waypoints required for planning")
+    plan_req = PlanRequest(
+        map_id=request.map_id,
+        obstacles=request.obstacles,
+        waypoints=request.waypoints,
+        algorithm=request.algorithm,
+        diagonal=request.diagonal,
+    )
+    result = await plan_map_route(plan_req)
+    return result.get("combined_path") or list(request.waypoints)
+
+
 async def _run_native_navigation(task, request: NavigationRequest):
     """Run waypoint following with a native MJLab/RSL-RL checkpoint."""
     from adapters.mjlab.launcher import TrainingLauncher
@@ -68,8 +108,21 @@ async def _run_native_navigation(task, request: NavigationRequest):
     checkpoints = sorted(task.task_dir.glob("model_*.pt"))
     if not artifact_path.exists() or not checkpoints:
         raise HTTPException(status_code=400, detail="Native artifact or checkpoint is not ready")
+    # Feature 3 在线闭环：提供 obstacles 且开启 use_planner 时，用 A*/Dijkstra 自动规划
+    # 绕障路径作为实际跟踪路线，替代仅手填航点的回放。规划失败则回退到手填 waypoints。
+    route = list(request.waypoints)
+    if request.use_planner and request.obstacles:
+        try:
+            planned = await _plan_obstacle_route(request)
+            if planned:
+                route = planned
+        except HTTPException:
+            raise
+        except Exception:
+            # 规划失败不阻断导航，回退手填航点，交由 worker 的容错处理。
+            route = list(request.waypoints)
     config = dict(task.config)
-    config.update({"mode": "navigation", "episodes": request.episodes, "max_steps": request.max_steps or 500, "waypoints": request.waypoints, "waypoint_tolerance": request.waypoint_tolerance, "checkpoint": str(checkpoints[-1].resolve()), "generic_task": True})
+    config.update({"mode": "navigation", "episodes": request.episodes, "max_steps": request.max_steps or 500, "waypoints": route, "waypoint_tolerance": request.waypoint_tolerance, "checkpoint": str(checkpoints[-1].resolve()), "generic_task": True})
     config_path = task.task_dir / "native_navigation_config.json"
     config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     launcher = TrainingLauncher(workspace_dir=str(task.task_dir.parent))
