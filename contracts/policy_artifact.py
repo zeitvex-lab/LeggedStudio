@@ -46,6 +46,19 @@ class Sim2SimResult(BaseModel):
     tested_at: datetime
 
 
+class NavigationEvaluation(BaseModel):
+    """导航与任务仿真评估结果（感知-决策闭环验证）"""
+    map_id: str
+    waypoints: List[List[float]]
+    episodes: int
+    route_completion: float = Field(ge=0.0, le=1.0)  # 路径完成率
+    mean_tracking_error: float = Field(ge=0.0)        # 平均跟踪误差（到目标航点距离）
+    collision_count: int = Field(ge=0)                # 碰撞次数
+    stability_score: float = Field(ge=0.0, le=1.0)    # 稳定性得分（走完全程/未跌倒）
+    evaluated_env: str = "native_mjlab_navigation"
+    evaluated_at: datetime = Field(default_factory=datetime.now)
+
+
 class PolicyArtifact(BaseModel):
     """
     Policy Artifact - 训练产物的完整记录
@@ -90,6 +103,9 @@ class PolicyArtifact(BaseModel):
     # ========== 验证报告 ==========
     onnx_validation: Optional[ONNXValidation] = None
     sim2sim_result: Optional[Sim2SimResult] = None
+
+    # ========== 导航评估 ==========
+    navigation_evaluation: Optional[NavigationEvaluation] = None
 
     # ========== 部署信息 ==========
     deployment_ready: bool = False
