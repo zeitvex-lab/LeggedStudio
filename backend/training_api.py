@@ -26,6 +26,13 @@ from backend.robot_presets import get_robot_preset
 
 router = APIRouter(prefix="/api/training", tags=["training"])
 
+# Configuration introspection helpers extracted from the former god file.
+from backend.training_config_helpers import (  # noqa: E402
+    _terrain_mixes, _observation_summary, _terminations_summary,
+    _domain_randomization, _schema_workspace, _schema_cache_path,
+    _schema_interpreter, _read_profile_mtime, _dump_schema_via_worker,
+)
+
 
 @router.get("/hardware")
 async def training_hardware():
@@ -286,49 +293,12 @@ EDITABLE_CREATE_KEYS = [
 ]
 
 
-def _terrain_mixes(terrain: Any) -> Optional[List[dict]]:
-    """Normalize a profile terrain block into a flat sub-terrain mix list."""
-    if not isinstance(terrain, dict):
-        return None
-    subs = terrain.get("sub_terrains")
-    if isinstance(subs, dict):
-        return [{"name": str(name), "proportion": value} for name, value in subs.items()]
-    if isinstance(subs, list):
-        return [{"name": str(name), "proportion": None} for name in subs]
-    return None
 
 
-def _observation_summary(contract: dict, profile: dict) -> Optional[str]:
-    observation = contract.get("observation") if isinstance(contract.get("observation"), dict) else {}
-    parts: List[str] = []
-    if observation.get("dimension") is not None:
-        parts.append(f"{observation['dimension']} 维")
-    components = observation.get("components")
-    if isinstance(components, list) and components:
-        parts.append(" + ".join(str(item) for item in components))
-    if profile.get("history_length"):
-        parts.append(f"历史 {profile['history_length']} 步堆叠")
-    return "；".join(parts) if parts else None
 
 
-def _terminations_summary(profile: dict) -> Optional[str]:
-    terminations = profile.get("terminations")
-    if isinstance(terminations, dict) and terminations:
-        return "、".join(str(name) for name in terminations)
-    if isinstance(terminations, list) and terminations:
-        return "、".join(str(item) for item in terminations)
-    reward_terms = profile.get("reward_terms")
-    if isinstance(reward_terms, list) and any("terminat" in str(term) for term in reward_terms):
-        return "配方内置失败终止（is_terminated 计入奖励惩罚）；完整终止项由配方源码决定"
-    return None
 
 
-def _domain_randomization(profile: dict) -> Optional[dict]:
-    for key in ("domain_randomization", "domain_rand", "randomization", "noise"):
-        value = profile.get(key)
-        if isinstance(value, dict) and value:
-            return {"source_key": key, **value}
-    return None
 
 
 @router.get("/config-preview")
@@ -435,149 +405,14 @@ _SCHEMA_TIMEOUT_S = 180
 _ROOT = Path(__file__).resolve().parents[1]
 
 
-def _schema_workspace() -> Path:
-    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE")
-    return Path(configured).expanduser().resolve() if configured else _ROOT / "workspace"
 
 
-def _schema_cache_path(profile_id: str) -> Path:
-    safe = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in str(profile_id)) or "profile"
-    return _schema_workspace() / "schema_cache" / f"{safe}.json"
 
 
-def _schema_interpreter() -> Optional[Path]:
-    """Pick an interpreter able to import the profile's source dependencies.
-
-    The schema dump imports the profile entrypoints, which depend on packages
-    installed in the adapter venv (mjlab, bam, ...). The desktop runtime
-    python (LEGGED_STUDIO_MJLAB_PYTHON) launches training workers but does
-    not carry those deps, so it is only a last-resort candidate.
-    """
-    from adapters.mjlab.native_adapter import _venv_python
-
-    candidates = []
-    candidates.append(_venv_python(_ROOT / "adapters" / "mjlab" / ".venv"))
-    explicit = os.environ.get("LEGGED_STUDIO_MJLAB_PYTHON")
-    if explicit:
-        candidates.append(Path(explicit))
-    candidates.append(Path(sys.executable))
-    for candidate in candidates:
-        if not candidate.exists():
-            continue
-        # Cheap capability probe: the dump imports heavy deps lazily inside
-        # the worker, but the entrypoint import itself needs the framework.
-        try:
-            probe = subprocess.run(
-                [str(candidate), "-c", "import mjlab"],
-                capture_output=True,
-                timeout=30,
-            )
-            if probe.returncode == 0:
-                return candidate
-        except (OSError, subprocess.SubprocessError):
-            continue
-    # All probes failed (or mjlab missing everywhere): fall back to the first
-    # existing candidate so the 502 carries the real import error instead of
-    # a bare 501 "interpreter not found".
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return None
 
 
-def _read_profile_mtime(profile: dict) -> Optional[float]:
-    raw_path = profile.get("path")
-    if not raw_path:
-        return None
-    profile_path = Path(str(raw_path))
-    if not profile_path.is_absolute():
-        profile_path = _ROOT / profile_path
-    try:
-        return profile_path.stat().st_mtime
-    except OSError:
-        return None
 
 
-def _dump_schema_via_worker(robot_id: str, profile_id: str, profile: dict, package_root: str) -> dict:
-    """Spawn the adapter interpreter in --dump-schema mode and parse its JSON."""
-    interpreter = _schema_interpreter()
-    if interpreter is None:
-        raise HTTPException(
-            status_code=501,
-            detail={"message": "需要先配置运行时：未找到 MJLab 适配器 Python 解释器（adapters/mjlab/.venv）", "robot_id": robot_id, "profile_id": profile_id},
-        )
-    source_root = str(profile.get("source_root", "training/source"))
-    dump_config = {
-        "profile_id": profile_id,
-        "package_root": package_root,
-        "source_root": source_root,
-        "entrypoints": profile.get("entrypoints") or {},
-    }
-    tmp = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
-    schema_out = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
-    try:
-        json.dump(dump_config, tmp, ensure_ascii=False)
-        tmp.close()
-        schema_out.close()
-        source_abs = Path(source_root)
-        if not source_abs.is_absolute():
-            source_abs = Path(package_root) / source_abs
-        env = os.environ.copy()
-        env["PYTHONPATH"] = os.pathsep.join([str(source_abs), env.get("PYTHONPATH", "")]).strip(os.pathsep)
-        env["PYTHONIOENCODING"] = "utf-8"
-        try:
-            completed = subprocess.run(
-                [
-                    str(interpreter),
-                    "-m", "adapters.mjlab.native_worker",
-                    "--dump-schema",
-                    "--config", tmp.name,
-                    "--schema-output", schema_out.name,
-                ],
-                cwd=str(_ROOT),
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=_SCHEMA_TIMEOUT_S,
-            )
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise HTTPException(status_code=502, detail={"message": f"schema dump worker failed to launch: {exc}", "interpreter": str(interpreter)}) from exc
-        # The worker writes the tree to --schema-output; stdout pipes on
-        # Windows truncated large dumps (Errno 22), so the file is the
-        # reliable transport and stdout is only a legacy fallback.
-        schema = None
-        schema_file = Path(schema_out.name)
-        if schema_file.exists() and schema_file.stat().st_size > 0:
-            try:
-                schema = json.loads(schema_file.read_text(encoding="utf-8-sig"))
-            except json.JSONDecodeError:
-                schema = None
-        if schema is None:
-            stdout = completed.stdout or ""
-            start = stdout.find("{")
-            if start >= 0:
-                try:
-                    schema, _end = json.JSONDecoder().raw_decode(stdout[start:])
-                except json.JSONDecodeError:
-                    schema = None
-        if completed.returncode != 0 or not isinstance(schema, dict) or not schema:
-            raise HTTPException(
-                status_code=502,
-                detail={
-                    "message": "schema dump worker did not return a config tree",
-                    "interpreter": str(interpreter),
-                    "returncode": completed.returncode,
-                    "stderr": (completed.stderr or "")[-800:],
-                    "stdout_head": (completed.stdout or "")[:300],
-                },
-            )
-        return schema
-    finally:
-        for handle in (tmp, schema_out):
-            try:
-                os.unlink(handle.name)
-            except OSError:
-                pass
 
 
 @router.get("/profile-schema")
@@ -680,6 +515,7 @@ async def resource_packs():
     分组按 profile_id 关键词匹配（数据驱动，无 per-robot 分支）。
     """
     from backend.robot_packages import list_robot_packages
+    from backend.perception_observations import list_perception_items
 
     pack_rules = [
         ("blind_walking", "盲走资源包", "DreamWaQ 全家：本体感知观测库 + 历史帧堆叠 + 隐式姿态编码 + 地形课程 + 域随机化",
@@ -689,6 +525,7 @@ async def resource_packs():
         ("perception", "感知观测项", "足端接触 → 高度场 → 深度相机（PIE 106×60 楼梯 parkour 内置参考）",
          ("parkour", "depth", "stair", "rough")),
     ]
+    perception_items = list_perception_items()
     packs = []
     for pack_id, name, description, keywords in pack_rules:
         profiles = []
@@ -710,6 +547,9 @@ async def resource_packs():
             "profile_count": len(profiles),
             "profiles": profiles,
         })
+    for pack in packs:
+        if pack["id"] == "perception":
+            pack["perception_items"] = perception_items
     return {"success": True, "packs": packs}
 
 

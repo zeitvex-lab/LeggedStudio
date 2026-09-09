@@ -80,6 +80,10 @@ def build_parser() -> argparse.ArgumentParser:
     navigation.add_argument("--map", default="warehouse", dest="map_id")
     navigation.add_argument("--mode", choices=["auto", "manual"], default="auto", dest="control_mode")
     navigation.add_argument("--waypoints", default="0,0;2,0;4,0", help="x,y; x,y; ...")
+    navigation.add_argument("--obstacles", default="", help="cx,cy,hw,hh; cx,cy,hw,hh; ... (optional map obstacles)")
+    navigation.add_argument("--planner", default="astar", choices=["astar", "dijkstra"], dest="algorithm")
+    navigation.add_argument("--use-planner", action="store_true", default=False, dest="use_planner")
+    navigation.add_argument("--no-avoidance", action="store_true", default=False, dest="no_avoidance")
 
     return parser
 
@@ -110,7 +114,15 @@ def main(argv: list[str] | None = None) -> int:
         result = _request(base, "POST", "/api/evaluation/run", {"task_id": args.task_id, "episodes": args.episodes})
     else:
         waypoints = [[float(value) for value in point.split(",")] for point in args.waypoints.split(";")]
-        result = _request(base, "POST", "/api/navigation/run", {"task_id": args.task_id, "map_id": args.map_id, "control_mode": args.control_mode, "waypoints": waypoints})
+        obstacles = []
+        for item in args.obstacles.split(";") if args.obstacles else []:
+            if item.strip():
+                obstacles.append([float(value) for value in item.split(",")])
+        result = _request(base, "POST", "/api/navigation/run", {
+            "task_id": args.task_id, "map_id": args.map_id, "control_mode": args.control_mode,
+            "waypoints": waypoints, "obstacles": obstacles, "algorithm": args.algorithm,
+            "use_planner": args.use_planner, "use_avoidance": not args.no_avoidance,
+        })
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 

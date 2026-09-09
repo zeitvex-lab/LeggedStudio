@@ -29,8 +29,13 @@
     .degraded-row { margin-top: 10px; font-size: 13px; }
     .hidden { display: none; }
   </style>
+<style>
+    body.embedded{padding:0}
+    body.embedded .wizard-shell{padding:16px 20px 40px}
+  </style>
 </head>
 <body>
+  <script>if(new URLSearchParams(location.search).get("embedded")==="1"){document.body.classList.add("embedded");}</script>
   <div class="wizard-shell">
     <div class="wizard-title">
       <h1>部署向导</h1>
@@ -152,7 +157,7 @@
         const report = await fetch('/api/deploy/package', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ robot_id: currentRobot, degraded: $('degradedToggle').checked }),
+          body: JSON.stringify({ robot_id: currentRobot, degraded: $('degradedToggle').checked, target_platform: $('platformSelect').value }),
         }).then((r) => r.json());
         if (!report.success) throw new Error(report.detail || '生成失败');
         $('packResult').innerHTML = `

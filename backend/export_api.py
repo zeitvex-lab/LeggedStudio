@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from pathlib import Path
 import json
 
-from adapters.mjlab.onnx_exporter import export_policy_to_onnx
 from backend.export_gate import check_export_result, compare_contracts
 
 
@@ -46,7 +45,8 @@ async def export_to_onnx(request: ExportONNXRequest):
                 detail=f"Model file not found: {request.model_path}"
             )
 
-        # 准备 normalizer
+        # 准备 normalizer（懒加载：控制面不导入训练栈，torch 链仅在导出时引入）
+        from adapters.mjlab.onnx_exporter import export_policy_to_onnx
         import numpy as np
         obs_mean = np.array(request.obs_mean) if request.obs_mean else None
         obs_std = np.array(request.obs_std) if request.obs_std else None
@@ -209,9 +209,10 @@ async def export_task_to_onnx(task_id: str):
                 detail={"message": "导出被 DENYLIST gate 拒绝", "gate": gate_report},
             )
 
-        # 导出 ONNX
+        # 导出 ONNX（懒加载：控制面不导入训练栈，torch 链仅在导出时引入）
         onnx_path = task.task_dir / "model_final.onnx"
 
+        from adapters.mjlab.onnx_exporter import export_policy_to_onnx
         import numpy as np
         result = export_policy_to_onnx(
             model_path=artifact.pytorch_model_path,

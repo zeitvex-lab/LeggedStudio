@@ -11,9 +11,13 @@ let robotPackageRequest = 0;
 const loadedViews = new Set();
 
 function buildRobotWorkspace() {
-  const section = $('validate');
+  const section = $('robot') || $('validate');
   if (!section) return;
-  const nav = document.querySelector('.nav-item[data-step="validate"]');
+  // The 工作台形态重构 ships the robot workspace as static markup inside
+  // #robot; rebuild only for the legacy path (#validate) so we don't wipe
+  // the hand-authored static layout.
+  if (section.id === 'robot' && section.querySelector('.robot-workspace')) return;
+  const nav = document.querySelector('[data-step="robot"]') || document.querySelector('.nav-item[data-step="validate"]');
   if (nav) nav.childNodes[nav.childNodes.length - 1].textContent = '机器人';
   section.innerHTML = `
     <div class="view-heading compact robot-heading">
@@ -398,20 +402,37 @@ async function jsonFetch(path, options = {}) {
   return payload;
 }
 function setView(name) {
-  // 03 训练配置 / 04 训练 live on dedicated pages, embedded in-frame so the
-  // shell (topbar/nav) stays identical to the other views.
+  // Inline pages hosted inside frames so the sidebar/workflow shell stays
+  // identical across the six functional areas.
+  const framePages = {
+    navmap: ['navMapFrame', 'navigation_editor.html?v=0.17.0&embedded=1'],
+    settings: ['settingsFrame', 'settings.html?v=0.17.0&embedded=1'],
+    assets: ['assetsFrame', 'assets.html?v=0.17.0&embedded=1'],
+    monitor: ['monitorFrame', 'training_list.html?v=0.17.0&embedded=1'],
+    deploy: ['deployFrame', 'deploy.html?v=0.17.0&embedded=1'],
+    artifacts: ['artifactsFrame', 'artifacts.html?v=0.17.0&embedded=1'],
+  };
+  if (name in framePages) {
+    const [frameId, page] = framePages[name];
+    const frame = $(frameId);
+    if (!frame) return;
+    const expected = new URL(page, window.location.href).toString();
+    if (frame.getAttribute('src') !== expected) frame.src = expected;
+  }
   if (name === 'config' || name === 'training') {
     const frame = $(name === 'config' ? 'configFrame' : 'trainingFrame');
     if (!frame) return;
     const robot = selectedPreset?.robot_id || 'unitree_go2';
     const page = name === 'config'
-      ? `training_create.html?v=0.7.0&embedded=1&robot=${encodeURIComponent(robot)}`
-      : `training_list.html?v=0.7.0&embedded=1`;
+      ? `training_create.html?v=0.17.0&embedded=1&robot=${encodeURIComponent(robot)}`
+      : `training_list.html?v=0.17.0&embedded=1`;
     const expected = new URL(page, window.location.href).toString();
     if (frame.getAttribute('src') !== expected) frame.src = expected;
   }
-    document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active-view', view.id === name));
-  document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
+  document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active-view', view.id === name));
+  // Sidebar + workflow progress both carry data-step targets.
+  document.querySelectorAll('.side-item').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
+  document.querySelectorAll('.workflow-step-w').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
   history.replaceState(null, '', `#${name}`);
   if (name === 'simulation') {
     const frame = $('simBrowserFrame');
@@ -441,7 +462,7 @@ async function loadViewData(name) {
   if (loadedViews.has(name)) return;
   loadedViews.add(name);
   try {
-    if (name === 'home') await Promise.all([loadCapabilities(), loadRuns()]);
+    if (name === 'home') await Promise.all([loadCapabilities(), loadRuns(), loadDemos()]);
   } catch (error) {
     loadedViews.delete(name);
     console.error(`Failed to load ${name} data`, error);
@@ -605,6 +626,27 @@ async function loadTrainingOptions() {
   $('runtimeDetails').textContent = JSON.stringify(payload.hardware || {}, null, 2);
   renderRewards();
 }
+function renderNextStep(adapters, cuda) {
+  const body = $('homeNextStepBody');
+  if (!body) return;
+  const steps = [];
+  if (!adapters.native_mjlab) {
+    steps.push({ btn: 'settings', label: '配置运行环境', detail: 'MJLab 训练栈未就绪——先去设置区配置运行时与 PyTorch 镜像。' });
+  }
+  if (!adapters.mujoco_simulation) {
+    steps.push({ btn: 'simulation', label: '检查仿真依赖', detail: 'MuJoCo 仿真依赖缺失——修复后再做 Sim2Sim 回放。' });
+  }
+  if (!cuda) {
+    steps.push({ btn: 'settings', label: '检查 CUDA', detail: '未检测到 CUDA——GPU 训练不可用，可切换 CPU 或用 GPU profile 重装。' });
+  }
+  if (steps.length) {
+    body.innerHTML = steps.map((item) => `<div class="next-step-item"><div><strong>${item.label}</strong><span>${item.detail}</span></div><button class="button small" data-step="${item.btn}">去处理</button></div>`).join('');
+    body.querySelectorAll('[data-step]').forEach((btn) => btn.addEventListener('click', () => setView(btn.dataset.step)));
+    return;
+  }
+  body.innerHTML = `<div class="next-step-item ok"><div><strong>开始训练</strong><span>运行时、仿真与 CUDA 均已就绪——选择机器人资产，进入训练配置，或直接试玩一个内置预训练 demo。</span></div><button class="button primary small" data-step="config">配置训练</button><button class="button ghost small" data-step="simulation">试玩 Demo</button></div>`;
+  body.querySelectorAll('[data-step]').forEach((btn) => btn.addEventListener('click', () => setView(btn.dataset.step)));
+}
 async function loadCapabilities() {
   try {
     const [cap, status] = await Promise.all([jsonFetch('/api/system/capabilities'), jsonFetch('/api/adapters/status')]);
@@ -612,7 +654,35 @@ async function loadCapabilities() {
     const adapters = cap.adapters || {};
     const cuda = status.native_mjlab?.runtime?.interpreters?.some((item) => item.cuda_available);
     $('homeCapabilities').innerHTML = [['Control plane', true, 'online'], ['MJLab training', adapters.native_mjlab, adapters.native_mjlab ? 'ready' : 'configure runtime'], ['MuJoCo simulation', adapters.mujoco_simulation, adapters.mujoco_simulation ? 'ready' : 'missing dependency'], ['CUDA', cuda, cuda ? 'detected' : 'not detected']].map(([label, ok, value]) => `<div class="system-row"><span>${label}</span><strong class="${ok ? 'ok' : 'warn'}">${value}</strong></div>`).join('');
+    renderNextStep(adapters, cuda);
   } catch (error) { setStatus($('backendState'), 'Control plane offline', 'error'); $('homeCapabilities').innerHTML = `<div class="empty-state">${error.message}</div>`; }
+}
+async function loadDemos() {
+  // 内置 demo 卡：29 个预训练策略免训练即玩。点击跳转到 Sim2Sim 载入对应机器人。
+  const host = $('homeDemos');
+  if (!host) return;
+  try {
+    const payload = await jsonFetch('/api/pretrained/list');
+    const models = payload.models || [];
+    if (!models.length) {
+      host.innerHTML = '<div class="empty-state">暂无预训练模型——运行生成脚本后即可免训练试玩。</div>';
+      return;
+    }
+    host.innerHTML = models.slice(0, 8).map((model) => {
+      const robot = String(model.robot || model.robot_id || 'unitree_go2');
+      const rate = Number(model.success_rate ?? 0) * 100;
+      const name = String(model.name || model.id || robot);
+      return `<button class="demo-card" data-robot="${encodeURIComponent(robot)}" data-demo="${encodeURIComponent(model.id || '')}"><span class="demo-ico">🤖</span><strong>${escapeHtml(name)}</strong><span class="demo-robot">${escapeHtml(robot)}</span><span class="demo-metric">成功率 ${rate.toFixed(0)}%</span></button>`;
+    }).join('');
+    host.querySelectorAll('[data-robot]').forEach((card) => card.addEventListener('click', () => {
+      const robot = decodeURIComponent(card.dataset.robot);
+      setView('simulation');
+      const frame = $('simBrowserFrame');
+      if (frame) frame.src = `/web/sim2sim/index.html?embedded=1&robot=${encodeURIComponent(robot)}&view=workbench`;
+    }));
+  } catch (error) {
+    host.innerHTML = `<div class="empty-state">预训练模型读取失败：${escapeHtml(error.message)}</div>`;
+  }
 }
 async function loadRuns() {
   try { const payload = await jsonFetch('/api/training/list'); const tasks = payload.tasks || []; $('homeRuns').innerHTML = tasks.length ? tasks.slice(0, 8).map((item) => `<div class="run-row"><div><strong>${item.robot || '-'}</strong><small>${item.task_id}</small></div><span class="run-metric">${item.algorithm || 'PPO'}</span><span class="run-metric">${item.status}</span><span class="run-metric">${(Number(item.progress || 0) * 100).toFixed(1)}%</span></div>`).join('') : '<div class="empty-state">No training runs</div>'; } catch (error) { $('homeRuns').innerHTML = `<div class="empty-state">${error.message}</div>`; }
@@ -731,4 +801,4 @@ function bindEvents() {
   $('validateBtn').addEventListener('click', validateModel); $('startSimulation')?.addEventListener('click', startSimulation); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
   window.addEventListener('resize', () => { drawChart(); });
 }
-document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home', 'validate', 'config', 'training', 'simulation'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });
+document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home','assets','robot','config','training','monitor','simulation','navmap','deploy','artifacts','settings'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });

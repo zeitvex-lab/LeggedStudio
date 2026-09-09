@@ -4,68 +4,190 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Legged Studio</title>
-  <link rel="stylesheet" href="workbench.css?v=0.7.0">
-  <link rel="stylesheet" href="play-overrides.css?v=0.7.0">
-  <link rel="stylesheet" href="urdf-viewer.css?v=0.7.0">
+  <link rel="stylesheet" href="workbench.css?v=0.17.0">
+  <link rel="stylesheet" href="play-overrides.css?v=0.17.0">
+  <link rel="stylesheet" href="urdf-viewer.css?v=0.17.0">
   <!-- Warm the 1.3 MB three.js module during API calls so the first robot
        preview does not wait for a post-render download. -->
   <link rel="modulepreload" href="/web/sim2sim/vendor/three/build/three.module.js">
 </head>
 <body>
   <div class="app-shell">
-    <header class="topbar">
+    <aside class="sidebar" aria-label="功能区">
       <a class="brand" href="#home" data-step="home" aria-label="Legged Studio 首页">
         <span class="brand-mark">LS</span>
         <span><strong>Legged Studio</strong><small>MJLab Robotics Workbench</small></span>
       </a>
-      <nav class="main-nav" aria-label="主功能">
-        <button class="nav-item active" data-step="home"><span class="nav-index">01</span>首页</button>
-        <button class="nav-item" data-step="validate"><span class="nav-index">02</span>验证</button>
-        <button class="nav-item" data-step="config"><span class="nav-index">03</span>训练配置</button>
-        <button class="nav-item" data-step="training"><span class="nav-index">04</span>训练</button>
-        <button class="nav-item" data-step="simulation"><span class="nav-index">05</span>仿真</button>
+
+      <nav class="side-nav" aria-label="主功能区">
+        <span class="side-group">工作台</span>
+        <button class="side-item" data-step="home"><span class="side-ico">🏠</span><span>首页</span></button>
+
+        <span class="side-group">机器人</span>
+        <button class="side-item" data-step="assets"><span class="side-ico">🗂️</span><span>资产库</span></button>
+        <button class="side-item" data-step="robot"><span class="side-ico">🤖</span><span>机器人工作台</span></button>
+
+        <span class="side-group">训练</span>
+        <button class="side-item" data-step="config"><span class="side-ico">⚙️</span><span>训练配置</span></button>
+        <button class="side-item" data-step="training"><span class="side-ico">📋</span><span>训练任务</span></button>
+        <button class="side-item" data-step="monitor"><span class="side-ico">📈</span><span>监控</span></button>
+
+        <span class="side-group">仿真</span>
+        <button class="side-item" data-step="simulation"><span class="side-ico">🎮</span><span>Sim2Sim 回放</span></button>
+        <button class="side-item" data-step="navmap"><span class="side-ico">🗺️</span><span>导航与地图</span></button>
+
+        <span class="side-group">产物</span>
+        <button class="side-item" data-step="deploy"><span class="side-ico">📦</span><span>部署</span></button>
+        <button class="side-item" data-step="artifacts"><span class="side-ico">🏷️</span><span>策略档案</span></button>
+
+        <span class="side-group">系统</span>
+        <button class="side-item" data-step="settings"><span class="side-ico">🛠️</span><span>设置</span></button>
       </nav>
-      <div class="top-status"><span id="backendState" class="status-dot pending"><i></i>后端检查中</span><button class="icon-button" id="refreshApp" title="刷新数据">↻</button></div>
-    </header>
 
-    <main class="content">
-      <section id="home" class="view active-view">
-        <div class="view-heading"><div><span class="eyebrow">WORKSPACE / OVERVIEW</span><h1>统一的足式机器人实验工作台</h1><p>从模型 Contract 到 MJLab GPU 训练，再到 MuJoCo 交互仿真，所有状态在同一条工作流中可追踪。</p></div><div class="heading-actions"><button class="button primary" data-step="validate">开始一次实验</button></div></div>
-        <div class="hero-grid">
-          <div class="hero-panel"><div class="hero-label"><span class="pulse"></span> NATIVE MJLAB PIPELINE</div><h2>让每次实验都可复现</h2><p>固定源代码、隔离 Torch 与 Warp 环境，Go2 / Go2W 使用统一 Contract 和训练接口。</p><div class="hero-actions"><button class="button primary" data-step="config">配置训练</button><button class="button ghost" data-step="simulation">打开仿真</button></div></div>
-          <div class="system-panel"><div class="panel-title"><span>系统状态</span><button class="text-button" id="homeRefresh">刷新</button></div><div id="homeCapabilities" class="system-list"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+      <div class="sidebar-footer">
+        <div class="top-status"><span id="backendState" class="status-dot pending"><i></i>后端检查中</span><button class="icon-button" id="refreshApp" title="刷新数据">↻</button></div>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar-slim">
+        <div class="workflow-track" id="workflowTrack">
+          <span class="workflow-label">工作流</span>
+          <span class="workflow-step-w" data-step="assets">1 资产</span>
+          <span class="workflow-arrow">→</span>
+          <span class="workflow-step-w" data-step="config">2 训练配置</span>
+          <span class="workflow-arrow">→</span>
+          <span class="workflow-step-w" data-step="training">3 训练</span>
+          <span class="workflow-arrow">→</span>
+          <span class="workflow-step-w" data-step="monitor">4 监控</span>
+          <span class="workflow-arrow">→</span>
+          <span class="workflow-step-w" data-step="simulation">5 仿真</span>
+          <span class="workflow-arrow">→</span>
+          <span class="workflow-step-w" data-step="deploy">6 部署</span>
         </div>
-        <div class="section-title"><div><span class="eyebrow">RECENT RUNS</span><h2>最近实验</h2></div><div class="heading-actions"><a class="text-button" href="assets.html">包管理</a><button class="text-button" data-step="training">查看训练监控</button></div></div>
-        <div id="homeRuns" class="run-list"><div class="empty-state">正在读取训练任务...</div></div>
-      </section>
+      </header>
 
-      <section id="validate" class="view">
-        <div class="view-heading compact"><div><span class="eyebrow">02 / MODEL VALIDATION</span><h1>验证</h1><p>参考 URDF-Studio 的编辑器布局，先确认模型资源与 Robot Contract，再进入训练。</p></div><span id="modelBadge" class="badge pending">未验证</span></div>
-        <div class="validation-layout">
-          <div class="viewer-panel"><div class="viewer-toolbar"><span class="toolbar-title">MODEL VIEWER</span><span id="viewerFormat" class="toolbar-meta">等待资产</span><button class="icon-button" id="fitModel" title="适配视图">⌗</button></div><div class="model-stage"><div class="stage-grid"></div><img id="modelPreview" class="model-preview" alt="机器人模型预览" hidden><div id="urdfPreview" class="urdf-preview" hidden></div><div id="modelPreviewEmpty" class="preview-empty">请选择本地资产文件夹</div><div class="axis axis-x">X</div><div class="axis axis-y">Y</div><div class="axis axis-z">Z</div></div><div class="viewer-footer"><span id="stageStatus">等待本地 URDF/MJCF 资产</span><span>导入后自动解析、验证并生成真实预览</span></div></div>
-          <div class="form-panel"><div class="panel-title"><div><span class="eyebrow">ROBOT CONTRACT</span><h2>模型与接口</h2></div><button class="text-button" id="copyContract">复制 JSON</button></div><label class="field-label" hidden>机器人 preset<select id="preset"><option value="">请选择本地资产文件夹</option></select></label><div id="presetMeta" class="meta-box">请选择包含 URDF/MJCF 和网格资源的本地文件夹。</div><div class="field-row"><label class="field-label">模型格式<select id="format"><option value="urdf">URDF</option><option value="mjcf">MJCF</option><option value="auto">自动识别</option></select></label><label class="field-label wide">模型路径<input id="modelPath" placeholder="导入后自动生成"></label></div><label class="file-picker"><span>本地资产文件夹</span><input id="modelFile" type="file" webkitdirectory directory multiple><small id="modelFileName">选择包含 URDF/MJCF 和网格资源的文件夹</small></label><label class="field-label">Contract JSON<textarea id="contractJson" spellcheck="false"></textarea></label><button id="validateBtn" class="button primary full">运行验证</button><pre id="validationLog" class="console">等待验证...</pre></div>
-        </div>
-        <section class="validation-report panel" id="validationReport" hidden><div class="panel-title"><div><span class="eyebrow">INSPECTION REPORT</span><h2>结构与资源检查</h2></div><span id="validationSummary" class="panel-meta">等待验证</span></div><div id="validationStats" class="validation-stats"></div><div class="validation-columns"><div><h3>诊断</h3><ul id="validationDiagnostics" class="diagnostic-list"></ul></div><div><h3>关节与执行器</h3><div id="validationJoints" class="joint-list"></div></div></div></section>
-        <div class="view-footer"><span class="muted">验证通过后，配置页会自动使用当前机器人和 Contract。</span><button class="button primary" data-step="config">继续配置训练 →</button></div>
-      </section>
+      <div class="content">
+        <section id="home" class="view active-view">
+          <div class="view-heading"><div><span class="eyebrow">WORKSPACE / OVERVIEW</span><h1>统一的足式机器人实验工作台</h1><p>从模型 Contract 到 MJLab GPU 训练，再到 MuJoCo 交互仿真，所有状态在同一条工作流中可追踪。</p></div><div class="heading-actions"><button class="button primary" data-step="robot">开始一次实验</button></div></div>
 
+          <div class="home-sections">
+            <div class="hero-panel"><div class="hero-label"><span class="pulse"></span> NATIVE MJLAB PIPELINE</div><h2>让每次实验都可复现</h2><p>固定源代码、隔离 Torch 与 Warp 环境，Go2 / Go2W 使用统一 Contract 和训练接口。</p><div class="hero-actions"><button class="button primary" data-step="config">配置训练</button><button class="button ghost" data-step="simulation">打开仿真</button></div></div>
+            <div class="system-panel"><div class="panel-title"><span>系统状态</span><button class="text-button" id="homeRefresh">刷新</button></div><div id="homeCapabilities" class="system-list"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+          </div>
 
+          <div class="next-step panel" id="homeNextStep">
+            <div class="panel-title"><div><span class="eyebrow">RECOMMENDED NEXT</span><h2>下一步建议</h2></div></div>
+            <div id="homeNextStepBody" class="next-step-body"><div class="skeleton-line"></div></div>
+          </div>
 
-      <section id="config" class="view frame-view">
-        <iframe id="configFrame" class="page-frame" title="训练配置"></iframe>
-      </section>
+          <div class="section-title"><div><span class="eyebrow">BUILT-IN DEMOS</span><h2>预训练策略 · 免训练即玩</h2></div><div class="heading-actions"><a class="text-button" data-step="simulation">打开仿真试玩</a></div></div>
+          <div id="homeDemos" class="demo-card-grid"><div class="empty-state">正在读取预训练模型...</div></div>
 
-      <section id="training" class="view frame-view">
-        <iframe id="trainingFrame" class="page-frame" title="训练"></iframe>
-      </section>
+          <div class="section-title"><div><span class="eyebrow">RECENT RUNS</span><h2>最近实验</h2></div><div class="heading-actions"><a class="text-button" href="assets.html">包管理</a><button class="text-button" data-step="monitor">查看训练监控</button></div></div>
+          <div id="homeRuns" class="run-list"><div class="empty-state">正在读取训练任务...</div></div>
+        </section>
 
-      <section id="simulation" class="view simulation-view">
-        <iframe id="simBrowserFrame" class="sim-browser-frame" title="Legged Studio MuJoCo simulation" loading="eager"></iframe>
-      </section>
+        <section id="assets" class="view frame-view">
+          <iframe id="assetsFrame" class="page-frame" title="资产库"></iframe>
+        </section>
+
+        <section id="robot" class="view">
+          <div class="view-heading compact"><div><span class="eyebrow">02 / ROBOT WORKBENCH</span><h1>机器人</h1><p>检查模型、关节和控制接口。</p></div><span id="robotState" class="badge pending">未选择</span></div>
+          <div class="robot-workspace">
+            <aside class="robot-packages panel">
+              <div class="panel-title"><div><span class="eyebrow">PACKAGE LIBRARY</span><h2>机器人包</h2></div><button class="text-button" id="refreshRobotPackages">刷新</button></div>
+              <div id="robotPackageList" class="robot-package-list"><div class="empty-state">正在读取本地包...</div></div>
+              <label class="file-picker compact robot-import"><span>导入文件夹</span><input id="modelFile" type="file" webkitdirectory directory multiple><small id="modelFileName">URDF / MJCF + meshes</small></label>
+              <div class="robot-package-help">本地导入会保存到 workspace/packages。</div>
+            </aside>
+            <section class="robot-viewport panel">
+              <div class="viewer-toolbar">
+                <div class="viewer-identity"><span class="toolbar-title">THREE.JS VIEWER</span><span id="viewerFormat" class="toolbar-meta">等待包</span></div>
+                <div class="viewer-tools" role="toolbar" aria-label="模型显示工具">
+                  <button class="viewer-toggle active" id="toggleVisual" type="button" aria-pressed="true" title="显示外观模型">外观</button>
+                  <button class="viewer-toggle" id="toggleCollision" type="button" aria-pressed="false" title="显示碰撞模型">碰撞</button>
+                  <button class="viewer-toggle" id="toggleInertial" type="button" aria-pressed="false" title="显示惯性张量范围">惯性</button>
+                  <button class="viewer-toggle" id="toggleCenterOfMass" type="button" aria-pressed="false" title="显示各连杆质心">质心</button>
+                  <button class="viewer-toggle active" id="toggleGrid" type="button" aria-pressed="true" title="显示地面网格">网格</button>
+                  <button class="viewer-toggle active" id="toggleAxes" type="button" aria-pressed="true" title="显示世界坐标轴">坐标轴</button>
+                  <button class="viewer-toggle" id="toggleJointAxes" type="button" aria-pressed="false" title="显示可动关节轴">关节轴</button>
+                  <button class="icon-button" id="fitModel" type="button" title="适配视图" aria-label="适配视图">⌖</button>
+                </div>
+              </div>
+              <div class="model-stage robot-model-stage">
+                <div id="modelPreviewEmpty" class="preview-empty">从左侧选择机器人包</div>
+                <div class="viewer-gesture-hint">左键旋转 · 右键平移 · 滚轮缩放</div>
+              </div>
+              <div class="viewer-footer"><span id="stageStatus">选择包后加载模型</span><span id="robotDiagnostics">Three.js URDF / MJCF</span></div>
+            </section>
+            <section class="robot-editor panel">
+              <div class="panel-title"><div><span class="eyebrow">INSPECTOR</span><h2 id="robotEditorTitle">机器人参数</h2></div><span id="robotEditorMeta" class="panel-meta">未加载</span></div>
+              <div class="robot-editor-tabs" role="tablist">
+                <button class="robot-tab active" data-robot-tab="joints" type="button">关节控制</button>
+                <button class="robot-tab" data-robot-tab="mapping" type="button">动作映射</button>
+                <button class="robot-tab" data-robot-tab="motor" type="button">电机参数</button>
+                <button class="robot-tab" data-robot-tab="inertia" type="button">质量与惯量</button>
+                <button class="robot-tab" data-robot-tab="inspection" type="button">体检</button>
+              </div>
+              <div class="robot-pane active-pane" data-robot-pane="joints">
+                <div class="joint-toolbar"><button type="button" class="button ghost small" id="resetRobotPose" disabled>默认姿态</button><button type="button" class="button ghost small" id="zeroRobotPose" disabled>零姿态</button><button type="button" class="text-button" id="captureRobotPose" disabled>设为默认</button></div>
+                <div class="joint-column-head"><span>关节</span><span>角度 / 位移</span></div>
+                <div id="robotPoseEditor" class="robot-pose-editor"><div class="empty-state">未加载可动关节</div></div>
+              </div>
+              <div class="robot-pane" data-robot-pane="mapping"><div class="pane-note">动作索引必须与训练和策略输出顺序一致。</div><div id="robotJointEditor" class="robot-joint-editor"><div class="empty-state">未选择机器人包</div></div></div>
+              <div class="robot-pane" data-robot-pane="motor">
+                <div class="pane-note">Kp / Kd / 力矩限幅 / 速度限幅按关节组生效，保存后写入机器人包并同步到浏览器仿真配置。</div>
+                <div id="controlGainsGrid" class="control-gains-grid"></div>
+              </div>
+              <div class="robot-pane" data-robot-pane="inertia"><div class="pane-note">来自模型 inertial 定义；勾选“惯性”可在 3D 视图查看等效惯量盒与质心。</div><div id="inertialTable" class="inertial-table"><div class="empty-state">未选择机器人包</div></div></div>
+              <div class="robot-pane" data-robot-pane="inspection">
+                <div class="pane-note">体检五卡：质量三来源 / 碰撞 / 惯量 / 电机参数（角色分组 + 官方 diff）/ 关节。三色徽章：✅ 通过 · ⚠ 警告 · ❌ 失败。</div>
+                <div class="joint-toolbar"><button type="button" class="button primary small" id="runInspection">运行体检</button></div>
+                <div id="inspectionCards" class="inspection-cards"><div class="empty-state">未运行体检——选择包后点「运行体检」</div></div>
+              </div>
+              <textarea id="contractJson" hidden></textarea><select id="preset" hidden></select><span id="presetMeta" hidden></span><span id="stageRobotName" hidden></span><button id="copyContract" hidden></button><input id="modelPath" type="hidden"><select id="format" hidden><option value="auto">auto</option><option value="urdf">urdf</option><option value="mjcf">mjcf</option></select><button id="validateBtn" hidden></button><pre id="validationLog" hidden></pre><span id="modelBadge" hidden></span>
+              <div class="robot-actions"><button id="deleteRobotPackage" class="button ghost" disabled>删除包</button><button id="saveRobotPackage" class="button primary" disabled>保存配置</button></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="config" class="view frame-view">
+          <iframe id="configFrame" class="page-frame" title="训练配置"></iframe>
+        </section>
+
+        <section id="training" class="view frame-view">
+          <iframe id="trainingFrame" class="page-frame" title="训练"></iframe>
+        </section>
+
+        <section id="monitor" class="view frame-view">
+          <iframe id="monitorFrame" class="page-frame" title="训练监控"></iframe>
+        </section>
+
+        <section id="simulation" class="view simulation-view">
+          <iframe id="simBrowserFrame" class="sim-browser-frame" title="Legged Studio MuJoCo simulation" loading="eager"></iframe>
+        </section>
+
+        <section id="navmap" class="view frame-view">
+          <iframe id="navMapFrame" class="page-frame" title="导航地图编辑器"></iframe>
+        </section>
+
+        <section id="deploy" class="view frame-view">
+          <iframe id="deployFrame" class="page-frame" title="部署"></iframe>
+        </section>
+
+        <section id="artifacts" class="view frame-view">
+          <iframe id="artifactsFrame" class="page-frame" title="策略档案"></iframe>
+        </section>
+
+        <section id="settings" class="view frame-view">
+          <iframe id="settingsFrame" class="page-frame" title="设置"></iframe>
+        </section>
+      </div>
     </main>
   </div>
-  <script src="workbench.js?v=0.7.0"></script>
-  <script src="urdf-viewer.js?v=0.7.0"></script>
-  <script src="validation-enhancements.js?v=0.7.0"></script>
+  <script src="workbench.js?v=0.17.0"></script>
+  <script src="urdf-viewer.js?v=0.17.0"></script>
+  <script src="validation-enhancements.js?v=0.17.0"></script>
 </body>
 </html>

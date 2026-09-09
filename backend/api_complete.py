@@ -37,7 +37,11 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # Make the repository root importable when started as a plain script.
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# 统一自举：见 contracts/path_bootstrap.py。
+if str(Path(__file__).resolve().parents[1]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from contracts.path_bootstrap import ensure_project_root_on_path
+ensure_project_root_on_path()
 
 # Optional stacks: keep the control plane importable without them.
 try:
@@ -75,6 +79,9 @@ from contracts.scenario_contract import ScenarioContract
 from adapters.mjlab.native_adapter import preflight as native_mjlab_preflight
 from backend.version import APP_VERSION
 from backend.project_api import router as project_router
+from backend.settings_api import router as settings_router
+from backend.map_editor_api import router as map_editor_router
+from backend.perception_observations import router as perception_router
 
 app = FastAPI(
     title="Legged Studio API",
@@ -126,6 +133,9 @@ app.include_router(terrain_router)
 app.include_router(health_router)
 app.include_router(model_router)
 app.include_router(project_router)
+app.include_router(settings_router)
+app.include_router(map_editor_router)
+app.include_router(perception_router)
 if simulation_router is not None:
     app.include_router(simulation_router)
 
