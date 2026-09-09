@@ -2,6 +2,15 @@
 
 本文件记录 Legged Studio 各版本的重大变更。遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 格式，版本号以 `VERSION` 文件为准。
 
+
+## [Unreleased]
+
+### 变更
+
+- **设计语言统一**：桌面启动器与 Web 工作台统一为浅色 + 蓝（回归 MJLab Play 轻浅工作区视觉基线），清除残留的深色/青绿色 token（`electron/launcher/styles.css`、`web/dashboard.css`）。
+- **设置迁入桌面端**：移除 Web 端设置页（`web/settings.html`）及工作台设置 iframe，运行环境与工作区配置（GPU/CPU profile、端口、Python 覆盖、包镜像源、工作区清理）统一迁入桌面启动器「系统设置」页。
+
+
 ## [0.17.0] - 2026-09-09
 
 ### 新增功能
