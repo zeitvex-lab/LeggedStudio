@@ -60,7 +60,7 @@
           const profileChips=profiles.length?`<div class="profile-chips">${profiles.map(p=>`<span class="badge ${p.valid===false?'warn':'ok'}" title="${esc(p.validation_errors&&p.validation_errors.length?p.validation_errors.join('; '):'校验通过')}">${esc(p.profile_id||'?')}${p.valid===false?'（校验失败）':''}</span>`).join('')}</div>`:'<p>无训练档案</p>';
           const actions=`<div class="package-actions">
             <a class="btn" href="/api/robots/packages/${esc(item.robot_id)}/export">导出 zip</a>
-            <a class="btn" href="training_create.html?robot=${esc(item.robot_id)}">配置训练</a>
+            <a class="btn" href="training_create.html?robot=${esc(item.robot_id)}${document.body.classList.contains('embedded')?'&embedded=1':''}">配置训练</a>
             ${isWorkspace?`<button class="btn danger" data-delete="${esc(item.robot_id)}">删除</button>`:'<span class="badge readonly">内置 · 只读</span>'}
           </div>`;
           return `<article class="package-card" data-robot="${esc(item.robot_id)}">
