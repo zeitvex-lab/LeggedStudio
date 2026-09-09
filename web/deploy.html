@@ -29,8 +29,13 @@
     .degraded-row { margin-top: 10px; font-size: 13px; }
     .hidden { display: none; }
   </style>
+<style>
+    body.embedded{padding:0}
+    body.embedded .wizard-shell{padding:16px 20px 40px}
+  </style>
 </head>
 <body>
+  <script>if(new URLSearchParams(location.search).get("embedded")==="1"){document.body.classList.add("embedded");}</script>
   <div class="wizard-shell">
     <div class="wizard-title">
       <h1>部署向导</h1>

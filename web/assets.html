@@ -26,9 +26,13 @@
     .profile-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
     .profile-chips .badge{font-size:10px}
     .toolbar-note{margin-top:10px;color:var(--muted);font-size:11px}
+  
+    body.embedded{padding:0}
+    body.embedded .packages-shell{padding:18px 20px 40px}
+    body.embedded .page-actions a[href^="workbench"]{display:none}
   </style>
 </head>
-<body>
+<script>if(new URLSearchParams(location.search).get("embedded")==="1"){document.body.classList.add("embedded");}</script>
   <main class="packages-shell">
     <header class="page-header">
       <div><span class="page-kicker">Package Manager</span><h1>包管理</h1><p>统一管理机器人包：内置包与工作区包自动合并展示，新增/修改会自动同步到训练配置与仿真页。支持从本地路径导入、导出与删除。</p></div>
