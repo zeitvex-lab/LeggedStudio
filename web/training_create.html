@@ -449,7 +449,111 @@
     .joint-chip small { color: var(--faint); margin-right: 4px; }
 
     /* 命令范围行 */
-    .cmd-grid { display: grid; gap: 8px; }
+    .obs-map-board {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    @media (max-width: 920px) { .obs-map-board { grid-template-columns: 1fr; } }
+    .obs-map-library, .obs-map-slots {
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: var(--surface-raised);
+      padding: 10px;
+    }
+    .obs-map-head {
+      font: 600 11px Consolas, monospace;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .obs-map-head small { color: var(--faint); font-weight: 400; font-size: 10px; }
+    .obs-library-list, .obs-slots-list { display: flex; flex-direction: column; gap: 6px; }
+    .obs-lib-item {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 7px 9px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: var(--surface-raised);
+    }
+    .obs-lib-item .name { font: 600 12px Consolas, monospace; color: var(--text); }
+    .obs-lib-item .name small { display: block; color: var(--faint); font-weight: 400; font-size: 10px; }
+    .obs-lib-item .dim { color: var(--faint); font-size: 11px; font-family: Consolas, monospace; }
+    .obs-lib-item button {
+      border: 1px solid var(--line);
+      background: var(--surface-input);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .obs-lib-item button:hover { border-color: var(--cyan); color: var(--cyan); }
+    .obs-slot-group { margin-bottom: 8px; }
+    .obs-slot-group-title {
+      font: 600 11px Consolas, monospace;
+      color: var(--faint);
+      margin: 4px 0;
+    }
+    .obs-slot-item {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 9px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: var(--surface-raised);
+      margin-bottom: 4px;
+      cursor: move;
+    }
+    .obs-slot-item .name { font: 600 12px Consolas, monospace; color: var(--text); }
+    .obs-slot-item .path { display: block; color: var(--faint); font-size: 10px; font-family: Consolas, monospace; }
+    .obs-slot-item .dim { color: var(--faint); font-size: 11px; font-family: Consolas, monospace; }
+    .obs-slot-item button {
+      border: 1px solid rgba(248,81,73,.35);
+      background: transparent;
+      color: #f85149;
+      border-radius: 6px;
+      padding: 3px 7px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .obs-dim-check { margin-top: 10px; font: 12px Consolas, monospace; }
+    .obs-dim-check .ok { color: #2ea043; }
+    .obs-dim-check .warn { color: #d29922; }
+    .obs-dim-check .bad { color: #f85149; }
+    .obs-expert-toggle {
+      grid-column: 1 / -1;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--faint);
+      margin-top: 8px;
+      cursor: pointer;
+    }
+    .obs-dotpath-input {
+      grid-column: 1 / -1;
+      width: 100%;
+      margin-top: 6px;
+      font-family: Consolas, monospace;
+      font-size: 11px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface-input);
+      color: var(--text);
+      padding: 6px 9px;
+    }
+        .cmd-grid { display: grid; gap: 8px; }
     .cmd-row {
       display: grid;
       grid-template-columns: minmax(90px, 130px) 1fr 1fr;
@@ -688,8 +792,8 @@
       <nav class="main-nav" aria-label="主功能">
         <a class="nav-item" href="dashboard.html"><span class="nav-index">01</span>首页</a>
         <a class="nav-item" href="workbench.html#validate"><span class="nav-index">02</span>验证</a>
-        <a class="nav-item active" href="training_create.html?v=0.7.0"><span class="nav-index">03</span>训练配置</a>
-        <a class="nav-item" href="training_list.html?v=0.16.0"><span class="nav-index">04</span>训练</a>
+        <a class="nav-item active" href="training_create.html?v=0.17.0"><span class="nav-index">03</span>训练配置</a>
+        <a class="nav-item" href="training_list.html?v=0.17.0"><span class="nav-index">04</span>训练</a>
         <a class="nav-item" href="workbench.html#simulation"><span class="nav-index">05</span>仿真</a>
       </nav>
       <div class="top-status"><span id="backendState" class="status-dot pending"><i></i>Control plane…</span></div>
@@ -705,7 +809,7 @@
         <div class="heading-actions">
           <button class="button" id="importBtn" type="button" title="从 JSON 文件导入此前导出的训练配置">导入配置</button>
           <button class="button" id="exportBtn" type="button" title="将当前表单导出为 JSON，便于对比与复现">保存配置 JSON</button>
-          <a class="button" href="training_list.html?v=0.16.0">任务列表</a>
+          <a class="button" href="training_list.html?v=0.17.0">任务列表</a>
         </div>
       </div>
 
@@ -874,6 +978,19 @@
                   </span>
                 </div>
               </div>
+              <div class="sub-block-title editable">观测 / 动作映射板</div>
+              <p class="section-hint">左边是标准观测库（内置观测项 + 宽度/scale），右侧是策略输入槽位；把库项接入槽位即可改动观测组合，维度自动校验。高级模式下可用点路径（dot-path）直接改写。</p>
+              <div id="obsMapBoard" class="obs-map-board">
+                <div class="obs-map-library">
+                  <div class="obs-map-head">标准观测库<small>宽度 · scale</small></div>
+                  <div id="obsLibrary" class="obs-library-list"><div class="ro-note">选择训练档案后列出可用的标准观测项。</div></div>
+                </div>
+                <div class="obs-map-slots">
+                  <div class="obs-map-head">策略输入槽位<small>观测组 → 观测项</small></div>
+                  <div id="obsSlots" class="obs-slots-list"><div class="ro-note">选择训练档案后列出观测组与成员。</div></div>
+                  <div id="obsDimCheck" class="obs-dim-check"></div>
+                </div>
+              </div>
               <div class="spec-groups" data-chapter-groups="iface"><div class="ro-note">选择训练档案后，此处列出观测 / 动作 / 命令的配方参数（含动作缩放、噪声、历史帧等）。</div></div>
             </section>
 
@@ -1005,7 +1122,7 @@
               <div class="heading-actions">
                 <span class="valid-chip" id="overrideChip" hidden title="点路径覆盖将写入训练配置 overrides，启动训练时由 worker 应用到配方对象">覆盖 0 项</span>
                 <button type="button" class="button small" id="clearOverrides" hidden title="清除全部覆盖，恢复配方默认">清除覆盖</button>
-                <a class="button" href="training_list.html?v=0.16.0">取消</a>
+                <a class="button" href="training_list.html?v=0.17.0">取消</a>
                 <button type="submit" class="button primary" id="submitBtn">启动训练</button>
               </div>
             </div>
@@ -1218,7 +1335,7 @@
       $('deviceMirror').innerHTML = device.innerHTML;
       $('deviceMirror').value = device.value;
 
-      renderHardwareBadges(hardware);
+      renderHardwareBadges(hardware, optionsData.frameworks || []);
 
       state.rewardDefaults = {};
       state.rewardTermLayers = {};
@@ -1228,7 +1345,7 @@
       });
     }
 
-    function renderHardwareBadges(hardware) {
+    function renderHardwareBadges(hardware, frameworks = []) {
       const torch = hardware.torch || {};
       const badges = [];
       badges.push(`<span class="hw-badge ${torch.cuda_available ? 'ok' : 'warn'}"><span class="dot"></span>${torch.cuda_available ? `CUDA 可用${torch.version ? ' · ' + escapeHtml(torch.version) : ''}` : 'CUDA 不可用（将以 CPU 训练）'}</span>`);
@@ -1237,6 +1354,19 @@
         badges.push('<span class="hw-badge ok" title="GET /api/training/hardware 探测结果"><span class="dot"></span>MJLab 运行时就绪</span>');
       } else {
         badges.push('<span class="hw-badge warn"><span class="dot"></span>MJLab 运行时不可用</span>');
+      }
+      // 框架能力边界声明：明确区分「可用」与「规划中」，避免把未接入的框架误当可用。
+      const fwOkay = frameworks.filter((f) => f.available);
+      const fwPlanned = frameworks.filter((f) => !f.available && f.planned);
+      const fwIdle = frameworks.filter((f) => !f.available && !f.planned);
+      if (fwOkay.length) {
+        badges.push(`<span class="hw-badge ok" title="训练后端边界声明"><span class="dot"></span>训练框架：${escapeHtml(fwOkay.map((f) => f.label || f.id).join(' / '))}（可用）</span>`);
+      }
+      if (fwPlanned.length) {
+        badges.push(`<span class="hw-badge warn" title="规划中，未接入训练，选择即报 501"><span class="dot"></span>规划中：${escapeHtml(fwPlanned.map((f) => f.label || f.id).join(' / '))}（未接入）</span>`);
+      }
+      if (fwIdle.length) {
+        badges.push(`<span class="hw-badge warn"><span class="dot"></span>其它框架：${escapeHtml(fwIdle.map((f) => f.label || f.id).join(' / '))}</span>`);
       }
       $('hwBadges').innerHTML = badges.join('');
     }
@@ -1983,8 +2113,190 @@
       rebuildParamMap();
       CHAPTERS.forEach((chapter) => renderChapterGroups(chapter.id));
       renderRewardBoard();
+      renderObsMappingBoard();
     }
 
+    // ---------- 观测 / 动作映射板（Feature 3） ----------
+    // 左侧标准观测库（内置观测项 + 宽度/scale），右侧策略输入槽位（观测组→成员）。
+    // 维度自动校验；专家模式可用点路径改写。所有写入都落到 state.overrides 的点路径。
+    const OBS_LIBRARY = [
+      { name: 'base_lin_vel', width: 3, scale: 2.0, desc: '机身线速度 (x,y,z)', path: 'environment.observations.actor.terms.base_lin_vel' },
+      { name: 'base_ang_vel', width: 3, scale: 0.25, desc: '机身角速度 (x,y,z)', path: 'environment.observations.actor.terms.base_ang_vel' },
+      { name: 'projected_gravity', width: 3, scale: 1.0, desc: '投影重力向量', path: 'environment.observations.actor.terms.projected_gravity' },
+      { name: 'joint_pos', width: 12, scale: 1.0, desc: '关节位置', path: 'environment.observations.actor.terms.joint_pos' },
+      { name: 'joint_vel', width: 12, scale: 0.05, desc: '关节速度', path: 'environment.observations.actor.terms.joint_vel' },
+      { name: 'last_actions', width: 12, scale: 1.0, desc: '上一步动作', path: 'environment.observations.actor.terms.last_actions' },
+      { name: 'commands', width: 3, scale: 1.0, desc: '速度指令 (vx,vy,wz)', path: 'environment.observations.actor.terms.commands' },
+      { name: 'depth_scan', width: 6360, scale: 1.0, desc: 'PIE 深度相机 106×60', path: 'environment.observations.actor.terms.depth_scan' },
+      { name: 'heightmap', width: 180, scale: 1.0, desc: '地形高度场', path: 'environment.observations.actor.terms.heightmap' },
+      { name: 'foot_contact', width: 4, scale: 1.0, desc: '足端接触 (4足)', path: 'environment.observations.actor.terms.foot_contact' },
+    ];
+    let obsExpertMode = false;
+    async function enrichObsLibraryFromPerception() {
+      try {
+        const data = await fetchJson('/api/perception/items');
+        const items = data.items || [];
+        items.forEach((item) => {
+          const existing = OBS_LIBRARY.find((lib) => lib.name === item.id || lib.name === item.label);
+          if (!existing) {
+            OBS_LIBRARY.push({
+              name: item.id,
+              width: item.width,
+              scale: item.scale,
+              desc: item.description,
+              path: item.sample_dot_path || ('environment.observations.actor.terms.' + item.id),
+            });
+          }
+        });
+        renderObsMappingBoard();
+      } catch (e) {
+        // No perception catalog available; fall back to built-in library.
+      }
+    }
+    function collectObsGroupMembers() {
+      // 从参数树提取「观测组 → 观测项名称」映射（路径形如 environment.observations.<group>.terms.<name>...）
+      const groups = {};
+      const prefixRe = /^environment\.observations\.([^.]+)\.terms\.([^.]+)(\..*)?$/;
+      (state.params || []).forEach((param) => {
+        const m = String(param.path || '').match(prefixRe);
+        if (!m) return;
+        const group = m[1], term = m[2];
+        if (['actor', 'critic', 'history'].includes(group) && !/^__type__$/.test(term)) {
+          groups[group] = groups[group] || [];
+          if (!groups[group].includes(term)) groups[group].push(term);
+        }
+      });
+      return groups;
+    }
+    function obsTermWidth(param, name) {
+      // 尝试从参数值推断观测项宽度（优先约定字段，其次凑数）。
+      const node = state.schema && state.schema.environment && state.schema.environment.observations;
+      let termNode = node;
+      for (const part of (name || '').split('.')) {
+        if (termNode && typeof termNode === 'object') termNode = termNode[part];
+      }
+      if (termNode && typeof termNode === 'object') {
+        const w = termNode.width ?? termNode.dim ?? termNode.size ?? null;
+        if (Number.isFinite(Number(w))) return Number(w);
+      }
+      const lib = OBS_LIBRARY.find((item) => item.name === name);
+      return lib ? lib.width : 1;
+    }
+    function renderObsMappingBoard() {
+      const board = document.getElementById('obsMapBoard');
+      if (!board) return;
+      const libEl = document.getElementById('obsLibrary');
+      const slotsEl = document.getElementById('obsSlots');
+      const dimEl = document.getElementById('obsDimCheck');
+      if (!libEl || !slotsEl || !dimEl) return;
+      if (state.schemaStatus !== 'ready') {
+        libEl.innerHTML = '<div class="ro-note">选择训练档案后列出可用的标准观测项。</div>';
+        slotsEl.innerHTML = '<div class="ro-note">选择训练档案后列出观测组与成员。</div>';
+        dimEl.innerHTML = '';
+        return;
+      }
+      const groups = collectObsGroupMembers();
+      const groupKeys = Object.keys(groups);
+      // 左侧：标准观测库（内置 + 当前已接入项标记）
+      libEl.innerHTML = OBS_LIBRARY.map((item) => {
+        const inUse = groupKeys.some((g) => (groups[g] || []).includes(item.name));
+        return `<div class="obs-lib-item" data-lib="${escapeHtml(item.name)}">
+          <span class="name">${escapeHtml(item.name)}<small>${escapeHtml(item.desc)}</small></span>
+          <span class="dim">${item.width}D · ×${item.scale}</span>
+          <span class="dim">${inUse ? '<span style="color:#2ea043">接入</span>' : '未接入'}</span>
+          <button data-add-obs="${escapeHtml(item.name)}" ${inUse ? 'disabled' : ''}>接入</button>
+        </div>`;
+      }).join('');
+      // 右侧：策略输入槽位（观测组 → 成员）
+      if (!groupKeys.length) {
+        slotsEl.innerHTML = '<div class="ro-note">当前档案的观测组内没有可识别的观测项术语。</div>';
+      } else {
+        slotsEl.innerHTML = groupKeys.map((group) => `
+          <div class="obs-slot-group">
+            <div class="obs-slot-group-title">${escapeHtml(group)} 组 · ${groups[group].length} 项 · ${groups[group].reduce((acc, n) => acc + obsTermWidth(null, n), 0)}D</div>
+            ${groups[group].map((term) => {
+              const w = obsTermWidth(null, term);
+              return `<div class="obs-slot-item" data-slot-group="${escapeHtml(group)}" data-term="${escapeHtml(term)}">
+                <span class="name">${escapeHtml(term)}<span class="path">${escapeHtml('environment.observations.' + group + '.terms.' + term)}</span></span>
+                <span class="dim">${w}D</span>
+                <button data-remove-obs="${escapeHtml(group)}" data-term="${escapeHtml(term)}">移除</button>
+              </div>`;
+            }).join('')}
+          </div>`).join('');
+      }
+      // 维度自动校验：actor 观测总量与当前契约/网络一致性的软检查
+      const actorTerms = groups.actor || [];
+      const actorDim = actorTerms.reduce((acc, n) => acc + obsTermWidth(null, n), 0);
+      const criticTerms = groups.critic || [];
+      const criticDim = criticTerms.reduce((acc, n) => acc + obsTermWidth(null, n), 0);
+      const checks = [];
+      if (actorTerms.length) checks.push(`<span class="ok">actor ${actorTerms.length} 项 · ${actorDim}D</span>`);
+      if (criticTerms.length) checks.push(`<span class="ok">critic ${criticTerms.length} 项 · ${criticDim}D</span>`);
+      const refDim = Number(schemaScalar(['runner.algorithm.actor_obs_dim', 'runner.actor_obs_dim']));
+      if (Number.isFinite(refDim)) {
+        checks.push(refDim === actorDim
+          ? `<span class="ok">与网络标注一致 ${actorDim}D</span>`
+          : `<span class="warn">与网络标注 ${refDim}D 不一致（实际 ${actorDim}D）</span>`);
+      } else {
+        checks.push('<span class="ok">维度以配方内省为准</span>');
+      }
+      dimEl.innerHTML = checks.join(' · ');
+      // 专家模式：点路径改写
+      if (!document.getElementById('obsExpertToggle')) {
+        board.insertAdjacentHTML('beforeend', `<label class="obs-expert-toggle"><input type="checkbox" id="obsExpertToggle"><span>专家模式（点路径改写）</span></label>
+          <textarea id="obsDotPathInput" class="obs-dotpath-input" placeholder="点路径 / 值（例如 environment.observations.actor.terms.commands.scale 0.5）" style="display:none"></textarea>`);
+        const toggle = document.getElementById('obsExpertToggle');
+        toggle.addEventListener('change', () => {
+          obsExpertMode = toggle.checked;
+          document.getElementById('obsDotPathInput').style.display = obsExpertMode ? 'block' : 'none';
+        });
+        document.getElementById('obsDotPathInput').addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const raw = e.target.value.trim();
+          if (!raw) return;
+          const [path, ...rest] = raw.split(/\s+/);
+          const value = rest.join(' ');
+          if (value === '' || path === '') { showToast('点路径改写格式：路径 值'); return; }
+          const num = Number(value);
+          state.overrides[path] = Number.isFinite(num) ? num : value;
+          updateOverrideUI(); renderObsMappingBoard();
+          showToast('已写入覆盖：' + path);
+        });
+      }
+    }
+    document.addEventListener('click', (e) => {
+      const addBtn = e.target.closest('[data-add-obs]');
+      if (addBtn && !addBtn.disabled) {
+        const name = addBtn.dataset.addObs;
+        const item = OBS_LIBRARY.find((it) => it.name === name);
+        if (!item) return;
+        // 写入一个通用的 actor 观测项覆盖（点路径），基类演算用配方自身策略处理。
+        const input = document.getElementById('obsDotPathInput');
+        if (input && obsExpertMode) {
+          input.value = item.path + ' ';
+          input.focus();
+          showToast('已填入库项点路径：' + name + '（在值位置键入后回车写入覆盖）');
+        } else {
+          const toggle = document.getElementById('obsExpertToggle');
+          if (toggle) toggle.checked = true; obsExpertMode = true;
+          input.style.display = 'block';
+          input.value = item.path + ' ';
+          input.focus();
+          showToast('已开启专家模式并填入库项点路径：' + name);
+        }
+        return;
+      }
+      const removeBtn = e.target.closest('[data-remove-obs]');
+      if (removeBtn) {
+        const group = removeBtn.dataset.removeObs;
+        const term = removeBtn.dataset.term;
+        const path = `environment.observations.${group}.terms.${term}`;
+        delete state.overrides[path];
+        showToast('已移除观测项：' + term);
+        renderObsMappingBoard();
+      }
+    });
     // ---------- 覆盖编辑：事件委托（一次性绑定，重渲染不重复） ----------
     function applyListPairInput(input) {
       const path = input.dataset.ovrList;
@@ -2556,6 +2868,7 @@
       updateAll();
       try {
         await Promise.all([loadOptions(), loadPresets()]);
+        enrichObsLibraryFromPerception();
         syncHeaderOffset();
         if (panelObserver) {
           document.querySelectorAll('.cat-panel, .preview-drawer').forEach((panel) => panelObserver.observe(panel));

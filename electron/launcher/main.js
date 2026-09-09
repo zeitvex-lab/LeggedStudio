@@ -134,7 +134,7 @@ function resolvePaths() {
     ]);
     const inventory = firstExisting([
         path.join(root, 'QUADRUPED_ASSET_INVENTORY.json'),
-        path.join(projectRoot, '..', 'QUADRUPED_ASSET_INVENTORY.json'),
+        path.join(projectRoot, 'QUADRUPED_ASSET_INVENTORY.json'),
         path.join(resourceRoot, 'app', 'QUADRUPED_ASSET_INVENTORY.json'),
     ]);
     const mjlabSource = firstExisting([

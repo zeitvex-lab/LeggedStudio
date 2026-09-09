@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 import traceback
@@ -25,6 +26,18 @@ from pathlib import Path
 def _write(path: Path, value: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _ensure_on_path(path) -> None:
+    """Idempotently prepend *path* to ``sys.path`` if not already present.
+
+    Centralises the scattered ``if ... not in sys.path: sys.path.insert(0, ...)``
+    boilerplate in this worker.  *path* may be a ``str`` or ``Path``; it is
+    resolved and deduplicated before insertion.
+    """
+    normalized = str(Path(path).resolve())
+    if normalized not in sys.path:
+        sys.path.insert(0, normalized)
 
 
 def build_deploy_metadata(env, rl_cfg, joint_names: list[str]) -> dict:
@@ -401,8 +414,7 @@ def _load_profile_bundle(profile: dict, package: dict, config: dict):
     source_root = package_root / str(profile.get("source_root", "training/source"))
     if not source_root.exists():
         raise FileNotFoundError(f"profile source root not found: {source_root}")
-    if str(source_root) not in sys.path:
-        sys.path.insert(0, str(source_root))
+    _ensure_on_path(source_root)
     entrypoints = profile.get("entrypoints") or {}
     env_entrypoint = entrypoints.get("env")
     runner_entrypoint = entrypoints.get("runner")
@@ -454,12 +466,11 @@ def _load_package_extension(package: dict) -> dict:
         root = Path(str(extension_root))
         if not root.is_absolute():
             root = package_root / root
-        if root.exists() and str(root) not in sys.path:
-            sys.path.insert(0, str(root))
+        if root.exists():
+            _ensure_on_path(root)
     # Package source is always available for its extension module, even when
     # the selected profile has a different source_root.
-    if str(package_root) not in sys.path:
-        sys.path.insert(0, str(package_root))
+    _ensure_on_path(package_root)
     register = _import_entrypoint(str(entrypoint))
     result = _call_factory(register)
     return result if isinstance(result, dict) else {"result": result}
@@ -520,10 +531,9 @@ def _dump_profile_schema(config: dict) -> dict:
 def run(config: dict, source: Path, output: Path, extension_root: Path | None = None) -> int:
     _write(output / "status.json", {"status": "running", "backend": "native_mjlab"})
     project_root = Path(__file__).resolve().parents[2]
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
+    _ensure_on_path(project_root)
     from adapters.mjlab.runtime_compat import evaluate_package_runtime
-    sys.path.insert(0, str(source / "src"))
+    _ensure_on_path(source / "src")
     package = config.get("robot_package") or {}
     generic_bundle = None
     profile = None
@@ -599,7 +609,7 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         package_root = Path(str(package.get("package_root", ""))) if package else None
         if package_root and (package_root / "model" / "robot.xml").is_file():
             import mujoco
-            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            _ensure_on_path(Path(__file__).resolve().parent)
             from policy_acceptance import ObsBuilder, PackageContract, load_package_model, run_probe
 
             package_contract = PackageContract(package_root, (config.get("policy") or {}))
@@ -811,12 +821,33 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             route = config.get("waypoints") or [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]]
             tolerance = float(config.get("waypoint_tolerance", 0.35))
             max_steps = max(1, int(config.get("max_steps", 500)))
+            obstacles = config.get("obstacles") or []
+            # 感知-决策闭环（Feature 1）：当提供了地图障碍时，启用反应式避障控制器，
+            # 在 A* 规划路径的航点跟踪之上叠加势场斥力，使机器人实时对世界障碍做出反应，
+            # 而不是开环地沿预设航点指令行走。控制器为纯 Python 实现，不含 torch/mjlab。
+            use_avoidance = bool(obstacles) and bool(config.get("use_avoidance", True))
+            if use_avoidance:
+                from adapters.mjlab.nav_avoidance import AvoidanceConfig, compute_avoidance_command
+            avoidance_cfg = AvoidanceConfig(**{
+                key: value for key, value in (config.get("avoidance_config") or {}).items()
+                if key in AvoidanceConfig.__annotations__
+            }) if use_avoidance else None
             term = env.command_manager.get_term("twist")
             completions = []
+            tracking_errors = []
+            stability_flags = []
+            collision_flags = []
+            avoidance_active_flags = []
+            nearest_distances = []
             with torch.no_grad():
                 for _ in range(max(1, int(config.get("episodes", 1)))):
                     obs, _ = wrapped.reset()
                     waypoint_index = 0
+                    episode_track_error = 0.0
+                    episode_steps = 0
+                    early_stop = False
+                    episode_avoid_active = False
+                    episode_min_nearest = float("inf")
                     for _step_index in range(max_steps):
                         position = env.scene["robot"].data.root_link_pos_w[0, :2]
                         while waypoint_index < len(route):
@@ -828,16 +859,58 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                             break
                         target = torch.as_tensor(route[min(waypoint_index, len(route) - 1)], device=device, dtype=position.dtype)
                         delta = target - position
-                        term.command[:] = torch.stack((torch.clamp(delta[0], -1.0, 1.0), torch.clamp(delta[1], -1.0, 1.0), torch.tensor(0.0, device=device)))
+                        episode_track_error += float(torch.linalg.norm(position - target).item())
+                        episode_steps += 1
+                        if use_avoidance:
+                            avoidance = compute_avoidance_command(
+                                (float(position[0]), float(position[1])),
+                                (float(target[0]), float(target[1])),
+                                [tuple(o[:4]) for o in obstacles],
+                                avoidance_cfg,
+                            )
+                            cmd = avoidance["command"]
+                            if avoidance["avoidance_active"]:
+                                episode_avoid_active = True
+                            nearest = avoidance["nearest_obstacle_distance"]
+                            if nearest is not None and nearest < episode_min_nearest:
+                                episode_min_nearest = nearest
+                            move_x, move_y = cmd[0], cmd[1]
+                        else:
+                            move_x = float(torch.clamp(delta[0], -1.0, 1.0))
+                            move_y = float(torch.clamp(delta[1], -1.0, 1.0))
+                        term.command[:] = torch.tensor((move_x, move_y, 0.0), device=device)
                         action = policy(obs)
                         obs, _reward, dones, _extras = wrapped.step(action)
                         position = env.scene["robot"].data.root_link_pos_w[0, :2]
                         if waypoint_index < len(route) and float(torch.linalg.norm(position - target).item()) <= tolerance:
                             waypoint_index += 1
-                        if bool(dones.any().item()) or waypoint_index >= len(route):
+                        if bool(dones.any().item()):
+                            early_stop = True
+                            break
+                        if waypoint_index >= len(route):
                             break
                     completions.append(waypoint_index / len(route))
-            report.update({"status": "navigation_completed", "route_completion": sum(completions) / len(completions), "waypoints": route, "evaluated_env": "native_mjlab_navigation"})
+                    tracking_errors.append(episode_track_error / max(1, episode_steps))
+                    stability_flags.append(1.0 if (waypoint_index >= len(route) and not early_stop) else 0.0)
+                    collision_flags.append(1.0 if early_stop else 0.0)
+                    avoidance_active_flags.append(1.0 if episode_avoid_active else 0.0)
+                    if math.isfinite(episode_min_nearest):
+                        nearest_distances.append(episode_min_nearest)
+            report.update({
+                "status": "navigation_completed",
+                "route_completion": sum(completions) / len(completions),
+                "mean_tracking_error": sum(tracking_errors) / len(tracking_errors),
+                "stability_score": sum(stability_flags) / len(stability_flags),
+                "collision_count": sum(collision_flags),
+                "waypoints": route,
+                "obstacles": obstacles,
+                "use_avoidance": use_avoidance,
+                "evaluated_env": "native_mjlab_navigation",
+            })
+            if use_avoidance:
+                report["avoidance_engagement"] = round(sum(avoidance_active_flags) / len(avoidance_active_flags), 4)
+                report["min_obstacle_distance_m"] = round(min(nearest_distances), 4) if nearest_distances else None
+                report["avoidance_config"] = avoidance_cfg.as_dict() if avoidance_cfg else None
             _write(output / "navigation.json", report)
         _write(output / "native_preflight.json", report)
         _write(output / "status.json", {"status": "completed", **report})

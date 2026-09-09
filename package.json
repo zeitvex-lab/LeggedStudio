@@ -1,6 +1,6 @@
 {
   "name": "legged-studio",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "Legged Robot RL Studio - Desktop Launcher",
   "main": "electron/launcher/main.js",
   "scripts": {
@@ -17,7 +17,8 @@
     "build:win": "electron-builder --win portable",
     "build:linux": "electron-builder --linux AppImage",
     "build:dir": "electron-builder --dir",
-    "test": "uv run --no-sync python -m unittest discover -s backend -p \"test_*.py\" -v"
+    "test": "uv run --no-sync python -m unittest discover -s backend -p \"test_*.py\" -v",
+    "test:obs": "node web/sim2sim/obs/observation_builders.test.mjs"
   },
   "keywords": [
     "robotics",
@@ -93,12 +94,8 @@
         "to": "app/VERSION"
       },
       {
-        "from": "../QUADRUPED_ASSET_INVENTORY.json",
+        "from": "QUADRUPED_ASSET_INVENTORY.json",
         "to": "app/QUADRUPED_ASSET_INVENTORY.json"
-      },
-      {
-        "from": "../QUADRUPED_ASSET_INVENTORY.md",
-        "to": "app/QUADRUPED_ASSET_INVENTORY.md"
       }
     ],
     "win": {

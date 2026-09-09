@@ -81,7 +81,7 @@ Go2 的本地任务库实现使用所有机器人共享的包扩展契约：`ext
 
 机器人包可以携带自包含的训练任务实现，放在 `training/source/` 下，由训练 profile 的 `source_root` 指向。Go2 携带完整的本地任务库 `local_tasks/`（velocity、技能任务、深度 parkour、核心框架、workflows）；A2、H1_2 各携带精简的本地 velocity 任务（`a2_velocity/`、`h1_2_velocity/`）。这些任务完全由包内代码定义（机器人常量、env_cfg、runner），不 import 任何外部训练源仓库。
 
-已内化的主要训练任务（截至 0.9.0）：
+已内化的主要训练任务（截至 0.17.0）：
 
 | 包 | 任务 | 说明 |
 |---|---|---|
@@ -119,7 +119,7 @@ Go2 的本地任务库实现使用所有机器人共享的包扩展契约：`ext
 - `clip_actions`：数字 / 逐关节 CSV。训练 vec-env wrapper 与浏览器推理端在同一位置（scale/offset 之前的原始动作）施加同一界。缺省 = 仅保留 ±100 安全界。
 - `action_joint_order`：策略动作槽序。缺省回退 `contract.json → action.joint_order`。**跨槽位序的事故（SDK 序 vs isaaclab 序 vs mjlab 实体序）由此字段 + 元数据校验双重兜底。**
 - `gait_period_s`：步态相位钟周期（mjlab velocity 系策略），缺省 0.6s。
-- 轮关节观测掩码：连续关节位置观测需 wrap ±π（见 `buildGo2wMjlabLegsObservation`），新增带轮布局时两处同步：`web/sim2sim/app.js` 构建器 + `adapters/mjlab/policy_acceptance.py` 构建器。
+- 轮关节观测掩码：连续关节位置观测需 wrap ±π（见 `buildGo2wMjlabLegsObservation`），新增带轮布局时两处同步：`web/sim2sim/obs/observation_builders.js` 构建器 + `adapters/mjlab/policy_acceptance.py` 构建器。
 
 ## 5. 验收（acceptance）
 
@@ -133,7 +133,7 @@ Go2 的本地任务库实现使用所有机器人共享的包扩展契约：`ext
 
 ### 新增观测布局 checklist
 
-1. `web/sim2sim/app.js`：新增 `build<Xxx>Observation()` + `buildObservation()` 分发
+1. `web/sim2sim/obs/observation_builders.js`：在 `OBSERVATION_BUILDERS` 注册表新增一个 `build<Xxx>Observation()` 并登记 kind（无需改 `app.js`，见该模块 Node 单测）
 2. `adapters/mjlab/policy_acceptance.py`：`ObsBuilder.build` 增加同名分支（两处逐项一致）
 3. 机器人包 `simulation/config.json`：策略条目 contract 声明 `observation_kind` / `obs_dim` / `action_joint_order` / `default_joint_angles` / `action_scale_by_joint` / `clip_actions`
 4. 用验收器跑一遍 + 浏览器加载看元数据校验输出

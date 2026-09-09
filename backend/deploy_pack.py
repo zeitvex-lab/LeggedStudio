@@ -315,7 +315,7 @@ def _strip_none(value: Any) -> Any:
     return value
 
 
-def generate_deploy_package(robot_id: str, *, degraded: bool = False) -> dict:
+def generate_deploy_package(robot_id: str, *, degraded: bool = False, target_platform: str = "unitree_sdk2") -> dict:
     """生成部署包 zip。返回 {path, files}。"""
 
     from backend.robot_presets import get_robot_preset
@@ -375,9 +375,171 @@ def generate_deploy_package(robot_id: str, *, degraded: bool = False) -> dict:
         "deployment_contract.py": dc_py,
         "fsm_safety_template.py": fsm_template(contract_v3),
         "action_decoder_template.py": decoder_template(contract_v3),
+        "platform_adapter.py": platform_adapter(target_platform),
         "人工确认清单.md": CHECKLIST_TEMPLATE.format(ts=ts, robot_id=contract_v3.get("robot_id")),
     }
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, content in files.items():
             zf.writestr(name, content)
-    return {"robot_id": robot_id, "path": str(zip_path), "files": list(files)}
+    return {"robot_id": robot_id, "path": str(zip_path), "files": list(files), "target_platform": target_platform}
+
+
+# ===== 目标平台模板实例化（T5.x 部署模板） =====
+#
+# 部署包四件套里的 FSM 与解码层此前只带"接 Unitree SDK2 / ROS2 / 其他"的占位注释，
+# 不产出真实实现。这里按所选平台实例化一个 platform_adapter，把 SDK 状态读取、
+# 急停信号、电机命令发送这些"接入点"落成可运行的骨架代码。
+# 安全边界不变：只生成物料与骨架，不直接发电机命令（一键生成 ≠ 一键上机）。
+
+PLATFORM_LABELS = {
+    "unitree_sdk2": "Unitree SDK2（DDS LowCmd/LowState）",
+    "ros2": "ROS2（rclpy 话题：JointState 状态发布 / Float64MultiArray 命令订阅）",
+}
+
+UNITTREE_SDK2_ADAPTER = '''
+"""Unitree SDK2 平台适配层（Legged Studio 生成骨架）。
+
+通过 unitree_sdk2py 的 DDS 接口收发 LowCmd / LowState。
+- send_motor_commands(): 把 ROBOT SAFETY FSM 产出的命令包发布到 rt/lowcmd。
+- read_states(): 从 rt/lowstate 读取关节角度、电机状态与 IMU。
+- read_remote_stop(): 从遥控/上位机急停信号（unitree 手柄或看门狗）读急停。
+
+上线前必须核对：关节序（reindex）、力矩限幅、SDK 版本与电机 id 映射。
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+
+try:
+    import numpy as np
+    from unitree_sdk2py.core.channel import ChannelFactoryInitialize, ChannelSubscriber, ChannelPublisher
+    from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowCmd_, LowState_
+except Exception as _exc:  # pragma: no cover - 目标机上才有 SDK
+    np = None
+    ChannelFactoryInitialize = ChannelSubscriber = ChannelPublisher = None
+    LowCmd_ = LowState_ = None
+
+
+class UnitreeSDK2Adapter:
+    """将 FSM/解码层的通用命令包映射到 Unitree SDK2 LowCmd。"""
+
+    def __init__(self, n_motors: int, dt: float = 0.02) -> None:
+        self.n_motors = int(n_motors)
+        self.dt = dt
+        self._pub = None
+        self._state_sub = None
+        self._last_state: Optional["LowState_"] = None
+        if ChannelFactoryInitialize is not None:
+            ChannelFactoryInitialize(0, "lo")
+            self._pub = ChannelPublisher("rt/lowcmd", LowCmd_)
+            self._state_sub = ChannelSubscriber("rt/lowstate", LowState_)
+            self._state_sub.Init(lambda msg: setattr(self, "_last_state", msg))
+
+    def send_motor_commands(self, commands: dict) -> None:
+        """commands: {joint_name: {mode, target, effort_limit, kp, kd}}。"""
+        if self._pub is None or LowCmd_ is None:
+            return
+        cmd = LowCmd_()
+        cmd.mode_pr = [0] * self.n_motors
+        cmd.mode_mx = [0] * self.n_motors
+        for name, spec in commands.items():
+            index = int(spec.get("joint_index", 0))
+            mode = str(spec.get("mode") or "position")
+            if mode == "velocity":
+                cmd.mode_mx[index] = 1  # 速度模式
+                cmd.tau_mx[index] = float(spec.get("effort_limit") or 0.0)
+                cmd.qd_mx[index] = float(spec.get("target") or 0.0)
+            elif mode == "estop":
+                # 急停：零速 + 零力矩，保持软限位（真实急停需硬件断开）
+                cmd.mode_mx[index] = 0
+                cmd.tau_mx[index] = 0.0
+                cmd.qd_mx[index] = 0.0
+            else:  # position / policy 位置指令
+                cmd.mode_pr[index] = 1
+                cmd.q_pr[index] = float(spec.get("target") or 0.0)
+                cmd.kp_pr[index] = float(spec.get("kp") or 40.0)
+                cmd.kd_pr[index] = float(spec.get("kd") or 2.0)
+                cmd.tau_pr[index] = float(spec.get("effort_limit") or 40.0)
+        self._pub.write(cmd)
+
+    def read_states(self):
+        """返回 {joint_name: {q, dq, tau}}（按部署契约关节序）。"""
+        if self._last_state is None or LowState_ is None:
+            return {}
+        state = self._last_state
+        names = getattr(state, "name", None) or []
+
+    def read_remote_stop(self) -> bool:
+        """急停优先：这里返回 False（未接遥控急停）；上线前必须接真信号。"""
+        return False
+
+
+__all__ = ["UnitreeSDK2Adapter"]
+'''
+
+ROS2_ADAPTER = '''
+"""ROS2 平台适配层（Legged Studio 生成骨架）。
+
+用 rclpy 话题接入：
+- 订阅 sensor_msgs/JointState：读关节角度/速度（状态）。
+- 发布 std_msgs/Float64MultiArray 到 /legged_studio/joint_commands：发电机命令。
+急停可订阅 std_msgs/Bool 到 /legged_studio/estop。
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+
+try:
+    import rclpy
+    from rclpy.node import Node
+    from sensor_msgs.msg import JointState
+    from std_msgs.msg import Float64MultiArray, MultiArrayDimension, Bool
+except Exception as _exc:  # pragma: no cover - 目标机才有 ROS2
+    rclpy = None
+    Node = JointState = Float64MultiArray = MultiArrayDimension = Bool = None
+
+
+class ROS2Adapter(Node):
+    def __init__(self, joint_names: list[str]) -> None:
+        if rclpy is None:
+            raise RuntimeError("ROS2（rclpy）未安装——目标平台需先 source 环境")
+        super().__init__("legged_studio_deploy")
+        self.joint_names = list(joint_names)
+        self._cmd_pub = self.create_publisher(Float64MultiArray, "/legged_studio/joint_commands", 10)
+        self._estop_sub = self.create_subscription(Bool, "/legged_studio/estop", self._on_estop, 10)
+        self._estop = False
+
+    def _on_estop(self, msg) -> None:
+        self._estop = bool(msg.data)
+
+    def send_motor_commands(self, commands: dict) -> None:
+        msg = Float64MultiArray()
+        msg.layout.dim.append(MultiArrayDimension(label="joint", size=len(self.joint_names), stride=1))
+        # 按 joint_order 输出 target（模式字段在部署契约/解码层已归一）
+        msg.data = [float(commands.get(name, {}).get("target", 0.0)) for name in self.joint_names]
+        self._cmd_pub.publish(msg)
+
+    def read_remote_stop(self) -> bool:
+        return self._estop
+
+
+__all__ = ["ROS2Adapter"]
+'''
+
+
+PLATFORM_ADAPTERS = {
+    "unitree_sdk2": UNITTREE_SDK2_ADAPTER,
+    "ros2": ROS2_ADAPTER,
+}
+
+
+def platform_adapter(platform: str) -> str:
+    """返回所选平台的适配层骨架代码；未知平台回退到通用注释。"""
+    label = PLATFORM_LABELS.get(platform, platform)
+    header = GENERATED_HEADER.format(ts=datetime.now().isoformat(timespec="seconds"))
+    body = PLATFORM_ADAPTERS.get(platform)
+    if body is None:
+        body = f'"""通用平台适配层（{label}）。\n\n请按目标平台的电机接口实现 send_motor_commands / read_states / read_remote_stop。\n"""\n'
+    return header + body

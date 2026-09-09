@@ -48,15 +48,15 @@ electron/launcher/
 | 目标 | 命令 | 产物 |
 | --- | --- | --- |
 | Windows 便携版 | `npm run build:portable` | `dist/` 下的 portable EXE |
-| Windows Online 7z（推荐分发形态） | `npm run build:online:win` | `dist/Legged-Studio-0.9.0-Windows-Online.7z`（目录同名，非 win-unpacked） |
-| Windows 嵌入式 CUDA 版 | `npm run build:portable:embedded` | `dist/embedded-win/win-unpacked` + `dist/Legged-Studio-0.9.0-Windows-CUDA.7z` |
+| Windows Online 7z（推荐分发形态） | `npm run build:online:win` | `dist/Legged-Studio-0.17.0-Windows-Online.7z`（目录同名，非 win-unpacked） |
+| Windows 嵌入式 CUDA 版 | `npm run build:portable:embedded` | `dist/embedded-win/win-unpacked` + `dist/Legged-Studio-0.17.0-Windows-CUDA.7z` |
 | Linux AppImage | 在 Linux 主机/CI 上 `npm run build:linux` | AppImage + 目录包 |
 
 嵌入式版本先经 `stage:runtime:win` 把独立 CPython 3.12、CUDA Torch（cu128）、MJLab 1.6.0、Unitree 扩展暂存到 `build/embedded-runtime`（Git 忽略）。不做单 EXE：CUDA/MJLab 载荷超过 NSIS 内存映射输入上限，这是刻意的。运行时配置完成后程序目录保持小体积，可替换升级而不删已下载环境。
 
 打包内容边界（`package.json` extraResources）：backend、contracts、`assets/robots`、docs、web、adapters（排除 .venv/缓存）、tools、scripts、VERSION、资产清单。**不打包** `node_modules`、`.venv`、workspace、var、任何训练运行时——Torch/MJLab 一律按需安装（嵌入式目标除外）。
 
-## 运行时版本（0.9.0）
+## 运行时版本（0.17.0）
 
 | 组件 | 版本 |
 | --- | --- |

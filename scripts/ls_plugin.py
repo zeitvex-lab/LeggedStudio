@@ -13,8 +13,12 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+# 统一自举：见 contracts/path_bootstrap.py。
+if str(Path(__file__).resolve().parents[1]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from contracts.path_bootstrap import bootstrap_root
+
+ROOT = bootstrap_root()
 
 from backend.plugin_protocol import generate_catalog, match_profiles, scaffold_package, validate_package  # noqa: E402
 
