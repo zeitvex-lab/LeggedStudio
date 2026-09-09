@@ -28,6 +28,9 @@ Useful endpoints:
 | Training tasks | `GET /api/training/list` |
 | Training config introspection | `GET /api/training/config-preview`, `GET /api/training/profile-schema` |
 | Scenario validation | `POST /api/scenarios/validate` |
+| Workbench settings | `GET/PUT /api/settings`, `POST /api/settings/gpu-profile/switch`, `POST /api/settings/gpu-profile/reinstall`, `POST /api/settings/workspace/cleanup` |
+| Navigation map editor | `GET /api/navigation/maps`, `GET/PUT /api/navigation/maps/{map_id}`, `POST /api/navigation/maps/plan` |
+| Perception observation catalog | `GET /api/perception/items`, `GET /api/perception/items/{item_id}` |
 | API documentation | `GET /docs` |
 
 The health response includes `app_id=legged-studio`, `api_schema=legged-studio-api-1`,
