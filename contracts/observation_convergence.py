@@ -52,6 +52,10 @@ class ObservationConvergence:
     history_order: str = "oldest_to_newest"
     history_reset: str = "zero"
     normalizer: dict[str, Any] | None = None
+    # PolicyContract.conditional_fields 收敛：条件观测字段（AMP/模仿类）
+    conditional_fields: tuple[FieldSpec, ...] = ()
+    # PolicyContract.recurrent_state 收敛：循环策略状态形状（与 conditional 互斥）
+    recurrent_state: dict[str, int] | None = None
 
     @property
     def summary_width(self) -> int:
@@ -65,33 +69,9 @@ def normalize_source(source: str | None) -> str:
     return "external"
 
 
-def align_observation_fields(
-    fields: list[FieldSpec] | list[dict[str, Any]],
-    *,
-    dimension: int | None = None,
-    history_length: int = 1,
-    history_order: str = "oldest_to_newest",
-    history_reset: str = "zero",
-    normalizer: dict[str, Any] | None = None,
-) -> ObservationConvergence:
-    """把字段级观测表述收敛为 ObservationConvergence，并校验维度自洽。
 
-    Args:
-        fields: 有序观测字段（每项至少含 name/width，可含 source/scale/wrap）。
-        dimension: 期望的策略输入维度；None = 由 Σwidth 推断。
-        history_length: 观测历史帧数（1 = 无历史）。
-        history_order / history_reset: 历史帧元数据（对齐 PolicyContract）。
-
-    Raises:
-        ObservationConvergenceError: 名称重复 / 维度不匹配 / 历史元数据非法。
-    """
-    if history_length < 0:
-        raise ObservationConvergenceError("history_length cannot be negative")
-    if history_order not in _HISTORY_ORDER_ENUM:
-        raise ObservationConvergenceError(f"invalid history_order: {history_order!r}")
-    if history_reset not in _HISTORY_RESET_ENUM:
-        raise ObservationConvergenceError(f"invalid history_reset: {history_reset!r}")
-
+def _align_field_list(fields: list[FieldSpec] | list[dict[str, Any]]) -> list[FieldSpec]:
+    """把一组字段级表述规范化为 FieldSpec，校验名称/宽度/来源自洽。"""
     comps: list[FieldSpec] = []
     names: set[str] = set()
     for item in fields:
@@ -116,13 +96,63 @@ def align_observation_fields(
             raise ObservationConvergenceError(f"duplicate observation field: {name!r}")
         names.add(name)
         comps.append(FieldSpec(name=name, width=width, source=source, scale=scale, wrap=wrap))
+    return comps
 
+
+def align_observation_fields(
+    fields: list[FieldSpec] | list[dict[str, Any]],
+    *,
+    dimension: int | None = None,
+    history_length: int = 1,
+    history_order: str = "oldest_to_newest",
+    history_reset: str = "zero",
+    normalizer: dict[str, Any] | None = None,
+    conditional_fields: list[FieldSpec] | list[dict[str, Any]] | None = None,
+    recurrent_state: dict[str, int] | None = None,
+) -> ObservationConvergence:
+    """把字段级观测表述收敛为 ObservationConvergence，并校验维度自洽。
+
+    Args:
+        fields: 有序观测字段（每项至少含 name/width，可含 source/scale/wrap）。
+        dimension: 期望的策略输入维度；None = 由 Σwidth 推断。
+        history_length: 观测历史帧数（1 = 无历史）。
+        history_order / history_reset: 历史帧元数据（对齐 PolicyContract）。
+
+    Raises:
+        ObservationConvergenceError: 名称重复 / 维度不匹配 / 历史元数据非法。
+    """
+    if history_length < 0:
+        raise ObservationConvergenceError("history_length cannot be negative")
+    if history_order not in _HISTORY_ORDER_ENUM:
+        raise ObservationConvergenceError(f"invalid history_order: {history_order!r}")
+    if history_reset not in _HISTORY_RESET_ENUM:
+        raise ObservationConvergenceError(f"invalid history_reset: {history_reset!r}")
+
+    comps: list[FieldSpec] = _align_field_list(fields)
     total = sum(comp.width for comp in comps)
     resolved_dim = dimension if dimension is not None else total
     if dimension is not None and dimension != total:
         raise ObservationConvergenceError(
             f"observation.dimension={dimension} != Σcomponents.width={total}"
         )
+
+    # 收敛条件字段（PolicyContract.conditional_fields）——复用同一套名称/宽度校验。
+    cond_comps: list[FieldSpec] = []
+    if conditional_fields:
+        if recurrent_state is not None:
+            raise ObservationConvergenceError(
+                "recurrent contracts cannot also declare conditional fields"
+            )
+        cond_comps = _align_field_list(conditional_fields)
+
+    # 收敛循环状态（PolicyContract.recurrent_state）。
+    if recurrent_state is not None:
+        if recurrent_state.get("layers", 0) <= 0 or recurrent_state.get("hidden_width", 0) <= 0:
+            raise ObservationConvergenceError("recurrent state dimensions must be positive")
+        if conditional_fields:
+            raise ObservationConvergenceError(
+                "recurrent contracts cannot also declare conditional fields"
+            )
 
     return ObservationConvergence(
         components=tuple(comps),
@@ -131,6 +161,8 @@ def align_observation_fields(
         history_order=history_order,
         history_reset=history_reset,
         normalizer=normalizer,
+        conditional_fields=tuple(cond_comps),
+        recurrent_state=recurrent_state,
     )
 
 
@@ -171,5 +203,25 @@ def validate_v3_observation(observation: dict[str, Any]) -> list[str]:
         value = observation.get(key)
         if value is not None and value not in enum_vals:
             errors.append(f"observation.{key}={value!r} 非法（允许 {enum_vals}）")
+
+    # 条件观测字段（PolicyContract.conditional_fields）：复用 components 校验。
+    conditional = observation.get("conditional_fields") or []
+    cond_names = [comp.get("name") for comp in conditional]
+    if len(set(cond_names)) != len(cond_names):
+        errors.append("observation.conditional_fields 名称重复")
+    for comp in conditional:
+        width = comp.get("width")
+        if not isinstance(width, int) or width <= 0:
+            errors.append(f"observation.conditional_fields[{comp.get('name')!r}] width 非法")
+
+    # 循环状态（PolicyContract.recurrent_state）与条件字段互斥。
+    recurrent = observation.get("recurrent_state")
+    if recurrent is not None:
+        if conditional:
+            errors.append("recurrent contracts cannot also declare conditional fields")
+        for key in ("layers", "hidden_width"):
+            value = recurrent.get(key)
+            if not isinstance(value, int) or value <= 0:
+                errors.append(f"observation.recurrent_state.{key} 非法")
 
     return errors

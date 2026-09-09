@@ -468,6 +468,67 @@
             "repeat"
           ],
           "description": "无历史帧时重置方式"
+        },
+        "conditional_fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "width",
+              "source"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "scale": {
+                "type": "number",
+                "description": "观测缩放；缺省 = 1.0（由训练配置校准，T2 消费）"
+              },
+              "source": {
+                "enum": [
+                  "imu",
+                  "cmd",
+                  "actuated",
+                  "action",
+                  "world",
+                  "external"
+                ],
+                "description": "取值来源：imu/cmd/驱动关节/上一动作/世界状态/外部传感器(深度/高度场)"
+              },
+              "wrap": {
+                "type": "boolean",
+                "description": "角度量是否 wrap（轮关节必须 false——替代原 app.js/policy_acceptance 双处同步的 mask 特判）"
+              }
+            }
+          },
+          "description": "PolicyContract.conditional_fields 收敛：条件观测字段（仅特定任务/技能存在时的附加观测，如 AMP/模仿类）。元素结构与 components 一致（name+width+source）。"
+        },
+        "recurrent_state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "layers",
+            "hidden_width"
+          ],
+          "properties": {
+            "layers": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "hidden_width": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "description": "PolicyContract.recurrent_state 收敛：循环策略状态形状（不含 batch 维）。声明时观测契约不可同时声明 conditional_fields（与 PolicyContract 校验一致）。"
         }
       }
     },
