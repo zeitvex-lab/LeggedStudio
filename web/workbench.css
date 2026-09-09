@@ -152,7 +152,10 @@ body.embedded .content { padding-top: 16px; }
   color: var(--muted); font-size: 11px; cursor: pointer; white-space: nowrap;
 }
 .workflow-step-w:hover { color: var(--text); background: rgba(255,255,255,.04); }
-.workflow-step-w.active { border-color: rgba(55,214,198,.25); background: var(--cyan-dim); color: var(--cyan); }
+.workflow-step-w.active { border-color: rgba(37,136,223,.25); background: var(--cyan-dim); color: var(--cyan); }
+.workflow-step-w.locked { opacity: .45; cursor: not-allowed; }
+.workflow-step-w.locked:hover { color: var(--muted); background: transparent; }
+.workflow-step-w.locked::after { content: "🔒"; margin-left: 3px; font-size: 9px; }
 .workflow-arrow { color: var(--faint); font-size: 11px; }
 
 .main-area .content { width: 100%; max-width: none; padding: 26px 28px 60px; }

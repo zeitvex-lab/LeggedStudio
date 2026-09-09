@@ -401,6 +401,32 @@ async function jsonFetch(path, options = {}) {
   if (!response.ok) throw new Error(payload.detail?.message || payload.detail || payload.error?.message || `HTTP ${response.status}`);
   return payload;
 }
+// #5 门控工作流条（StackForce 式）：根据前置状态给工作流步骤加上锁与原因 tooltip。
+// 不强求按序（产品定位），但未满足前置条件时以弱化 + tooltip 引导，避免误点。
+let workflowGateState = { hasPreset: false, cudaReady: false, trainingReady: false, simulationReady: false };
+function updateWorkflowGates() {
+  const gates = {
+    assets: { locked: false, why: '' },
+    config: { locked: !workflowGateState.hasPreset, why: '请先在资产库选择或导入一个机器人资产' },
+    training: { locked: !workflowGateState.hasPreset, why: '请先选择机器人资产再创建训练' },
+    monitor: { locked: false, why: '' },
+    simulation: { locked: !workflowGateState.simulationReady, why: '仿真依赖缺失，请先配置运行环境' },
+    deploy: { locked: !(workflowGateState.hasPreset && workflowGateState.trainingReady), why: '需先选择资产且训练栈就绪' },
+  };
+  document.querySelectorAll('.workflow-step-w').forEach((step) => {
+    const gate = gates[step.dataset.step];
+    if (!gate) return;
+    step.classList.toggle('locked', gate.locked);
+    if (gate.locked) {
+      step.setAttribute('data-locked', 'true');
+      step.setAttribute('title', `🔒 ${gate.why}`);
+      step.removeAttribute('data-ok');
+    } else {
+      step.removeAttribute('data-locked');
+      step.setAttribute('title', gate.why || '');
+    }
+  });
+}
 function setView(name) {
   // Inline pages hosted inside frames so the sidebar/workflow shell stays
   // identical across the six functional areas.
@@ -432,6 +458,7 @@ function setView(name) {
   // Sidebar + workflow progress both carry data-step targets.
   document.querySelectorAll('.side-item').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
   document.querySelectorAll('.workflow-step-w').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
+  updateWorkflowGates();
   history.replaceState(null, '', `#${name}`);
   if (name === 'simulation') {
     const frame = $('simBrowserFrame');
@@ -607,6 +634,8 @@ async function loadPresets(preferredId = null) {
   presets = payload.presets || [];
   if ($('preset')) $('preset').innerHTML = '<option value="">请选择本地资产文件夹</option>';
   renderRobotPackageList();
+  workflowGateState.hasPreset = presets.length > 0;
+  updateWorkflowGates();
   if (preferredId && presets.some((item) => item.robot_id === preferredId)) await selectRobotPackage(preferredId);
 }
 function renderRewards() {
@@ -653,6 +682,10 @@ async function loadCapabilities() {
     const adapters = cap.adapters || {};
     const cuda = status.native_mjlab?.runtime?.interpreters?.some((item) => item.cuda_available);
     $('homeCapabilities').innerHTML = [['Control plane', true, 'online'], ['MJLab training', adapters.native_mjlab, adapters.native_mjlab ? 'ready' : 'configure runtime'], ['MuJoCo simulation', adapters.mujoco_simulation, adapters.mujoco_simulation ? 'ready' : 'missing dependency'], ['CUDA', cuda, cuda ? 'detected' : 'not detected']].map(([label, ok, value]) => `<div class="system-row"><span>${label}</span><strong class="${ok ? 'ok' : 'warn'}">${value}</strong></div>`).join('');
+    workflowGateState.trainingReady = Boolean(adapters.native_mjlab);
+    workflowGateState.simulationReady = Boolean(adapters.mujoco_simulation);
+    workflowGateState.cudaReady = Boolean(cuda);
+    updateWorkflowGates();
     renderNextStep(adapters, cuda);
   } catch (error) { setStatus($('backendState'), 'Control plane offline', 'error'); $('homeCapabilities').innerHTML = `<div class="empty-state">${error.message}</div>`; }
 }
