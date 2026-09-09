@@ -512,3 +512,13 @@ api.onRuntimeProgress((progress) => {
     log(`[launcher] python: ${paths.python}\n`);
     await refreshState();
 })();
+
+// 版本号跟随仓库根 VERSION（release:check / 后端 version.py 同一真值源）
+(async () => {
+  try {
+    const version = await api.launcherVersion();
+    const el = document.getElementById('launcher-version');
+    if (el && version) el.textContent = `v${version} · Python 3.12`;
+    if (version) document.title = `Legged Studio v${version}`;
+  } catch { /* 占位文本兜底 */ }
+})();

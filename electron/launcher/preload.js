@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('leggedStudio', {
     stopBackend: () => ipcRenderer.invoke('backend:stop'),
     checkBackend: () => ipcRenderer.invoke('backend:check'),
     backendUrl: () => ipcRenderer.invoke('backend:url'),
+    launcherVersion: () => ipcRenderer.invoke('launcher:version'),
     getPaths: () => ipcRenderer.invoke('launcher:paths'),
     getSettings: () => ipcRenderer.invoke('settings:get'),
     updateSettings: (value) => ipcRenderer.invoke('settings:update', value),

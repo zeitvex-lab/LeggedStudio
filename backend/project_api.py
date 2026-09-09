@@ -16,6 +16,7 @@ from typing import Any
 from fastapi import APIRouter
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from backend.version import get_version
 from backend.robot_packages import package_for_contract
 from backend.model_api import _validate, ModelValidationRequest, _contract_draft
 
@@ -127,7 +128,7 @@ def _safe_zip_path(name: str) -> Path:
 
 @router.post("/export")
 async def export_project(request: ProjectExportRequest) -> Response:
-    manifest = {"schema_version": "legged-studio-project-1.0", "product_version": "0.6.1", "imports": [], "files": ["training/config.json", "scenarios/active.json"]}
+    manifest = {"schema_version": "legged-studio-project-1.0", "product_version": get_version(), "imports": [], "files": ["training/config.json", "scenarios/active.json"]}
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         exported_roots: set[str] = set()

@@ -654,6 +654,14 @@ ipcMain.handle('backend:check', async () => {
 });
 ipcMain.handle('backend:url', () => `http://127.0.0.1:${activeBackendPort || configuredBackendPort()}`);
 ipcMain.handle('launcher:paths', () => ({ ...PATHS, backend: PATHS.backend, python: PATHS.python }));
+ipcMain.handle('launcher:version', () => {
+    // 版本唯一真值源是仓库根 VERSION（与 release-check / 后端 version.py 同源）
+    try {
+        return fs.readFileSync(path.join(app.getAppPath(), 'VERSION'), 'utf8').trim();
+    } catch {
+        return 'unknown';
+    }
+});
 ipcMain.handle('settings:get', () => readSettings());
 ipcMain.handle('settings:update', (_event, value) => writeSettings(value));
 ipcMain.handle('environment:probe', async (_event, executable) => probePython(executable || readSettings().pythonPath || PATHS.python));
