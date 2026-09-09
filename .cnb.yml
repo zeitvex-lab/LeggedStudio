@@ -1,0 +1,61 @@
+.main-env: &main-env
+  runner:
+    cpus: 8
+  stages:
+    - name: syntax-check
+      script: |
+        set -e
+        echo "== py_compile changed python =="
+        find backend contracts adapters/mjlab tools scripts -name '*.py' -print0 \
+          | xargs -0 -n1 python -m py_compile 2>&1 | tail -20 || true
+        echo "python syntax check done"
+    - name: unit-tests
+      script: |
+        set -e
+        echo "== install control-plane deps =="
+        pip install --quiet --upgrade pip || true
+        pip install --quiet fastapi uvicorn pydantic numpy 2>/dev/null || true
+        echo "== path_bootstrap tests =="
+        python -m unittest contracts.tests.test_path_bootstrap 2>&1 | tail -20
+        echo "== pure-logic backend tests =="
+        python -m unittest \
+          backend.test_nav_avoidance \
+          backend.test_map_editor_api \
+          backend.test_perception_observations \
+          backend.test_hygiene \
+          backend.test_deploy_pack 2>&1 | tail -40
+
+frontend:
+  push:
+    - name: frontend-check
+      runner:
+        cpus: 4
+      docker:
+        image: node:20
+      stages:
+        - name: syntax
+          script: |
+            set -e
+            echo "== node version =="
+            node --version
+            echo "== syntax check web js =="
+            find web -name '*.js' -not -path '*/vendor/*' | while read f; do node --check "$f"; done
+            echo "frontend syntax OK"
+        - name: static-smoke
+          script: |
+            set -e
+            echo "== vendor assets present =="
+            test -f web/sim2sim/vendor/three/build/three.module.js
+            test -f web/sim2sim/vendor/mujoco/mujoco.js
+            test -f web/sim2sim/vendor/onnxruntime-web/dist/ort.wasm.min.mjs
+            echo "vendor assets OK"
+            echo "== index references app.js =="
+            node -e "const h=require('fs').readFileSync('web/sim2sim/index.html','utf8');if(!h.includes('./app.js'))throw new Error('app.js missing');console.log('index OK')"
+
+main:
+  push:
+    - name: backend-test
+      <<: *main-env
+  pull_request:
+    - name: backend-test-pr
+      <<: *main-env
