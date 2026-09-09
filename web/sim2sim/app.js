@@ -394,6 +394,30 @@ if (debugStateNode) {
   document.body.append(debugStateNode);
 }
 
+// Observation builder registry -- extracted to obs/observation_builders.js so
+// adding a new policy observation contract no longer grows this god file.
+const OBSERVATION = createObservationSystems({
+  CONFIG,
+  sim,
+  input,
+  elements,
+  readImuSample,
+  jointQpos,
+  jointQvel,
+  clamp,
+  finiteNumber,
+  jointGroup,
+  enumValue,
+  isJumpCommandActive,
+  heightCommandIndex,
+  bucketHeightCommand,
+  observationLayout,
+  publishDebugState,
+  WHEEL_LEG_GAIT_OBSERVATION,
+  WHEEL_LEG_GAIT_PERIOD_S,
+  WHEEL_LEG_JUMP_OBSERVATION,
+  WHEEL_LEG_JUMP_PERIOD_S,
+});
 init();
 
 // Embedded Workbench pages can be laid out after this document starts. Accept
@@ -3507,30 +3531,6 @@ function readImuSample() {
     || captureImuSample();
 }
 
-// Observation builder registry -- extracted to obs/observation_builders.js so
-// adding a new policy observation contract no longer grows this god file.
-const OBSERVATION = createObservationSystems({
-  CONFIG,
-  sim,
-  input,
-  elements,
-  readImuSample,
-  jointQpos,
-  jointQvel,
-  clamp,
-  finiteNumber,
-  jointGroup,
-  enumValue,
-  isJumpCommandActive,
-  heightCommandIndex,
-  bucketHeightCommand,
-  observationLayout,
-  publishDebugState,
-  WHEEL_LEG_GAIT_OBSERVATION,
-  WHEEL_LEG_GAIT_PERIOD_S,
-  WHEEL_LEG_JUMP_OBSERVATION,
-  WHEEL_LEG_JUMP_PERIOD_S,
-});
 
 function buildPolicyObs(size) {
   if (!size || size === CONFIG.numObs) return new Float32Array(sim.obs);
