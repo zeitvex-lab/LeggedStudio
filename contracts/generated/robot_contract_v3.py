@@ -98,6 +98,10 @@ class ObservationSpecV3(_V3Model):
     components: list[ObservationComponentV3] = Field(default_factory=list)
     dimension: int = Field(ge=0)
     normalizer: Optional[dict[str, Any]] = None
+    # PolicyContract 字段级表述收敛：观测历史帧元数据
+    history_length: Optional[int] = Field(default=None, ge=0)
+    history_order: Optional[Literal["oldest_to_newest", "newest_to_oldest"]] = None
+    history_reset: Optional[Literal["zero", "repeat"]] = None
 
 
 class ControlSpecV3(_V3Model):
