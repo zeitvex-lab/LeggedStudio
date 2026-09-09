@@ -6,7 +6,7 @@
 
 工作台有两套连通的界面：
 
-1. **主工作台壳**（`web/workbench.html` + `workbench.js`，默认入口 `/`）：七步导航条（home / validate / config / training / simulation / settings / navmap），内嵌视图承载训练配置页与监控页，首页显示服务、运行时、适配器、资产状态和最近实验。
+1. **主工作台壳**（`web/workbench.html` + `workbench.js`，默认入口 `/`）：左侧六功能区（资产库 / 训练 / 监控 / 仿真 / 部署 / 设置）+ 顶部工作流进度条（只显示当前项目进度，不强求按序），内嵌视图承载各功能区页面，首页显示服务/运行时/适配器/资产状态、最近实验、内置 demo 卡与下一步建议。
 2. **传统多页控制台**（`dashboard.html` 及其链接的各页）：刻意保留的后备入口，供桌面启动器和外部浏览器链接直达（如 `training_create.html?embedded=1`）。两套界面共享同一套后端 API 与静态资源。
 
 主入口路由：`/` → workbench.html；`/sim2sim/` → 浏览器仿真页（StaticFiles html 模式）。
@@ -65,7 +65,7 @@
 
 ## 约定
 
-- 前端为无构建步骤的原生 JS/HTML/CSS（版本号查询参数做缓存失效，如 `workbench.js?v=0.7.0`），完全离线可用。
+- 前端为无构建步骤的原生 JS/HTML/CSS（版本号查询参数做缓存失效，如 `workbench.js?v=0.17.0`），完全离线可用。
 - 视觉基线为 MJLab Play/Viser 风格的浅色工作区（白色/浅灰场景、蓝色主操作、灰色边框）。
 - 所有页面与后端通信走同一套 HTTP 路由——CLI（`scripts/legged_studio_cli.py`）与前端共用，保证语义一致。
 - 浏览器仿真中每一步观测/动作的语义必须与桌面验收器（`adapters/mjlab/policy_acceptance.py`）逐项一致；两侧观测构建器的差异是已知高危区，修改任一侧时同步另一侧。

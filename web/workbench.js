@@ -405,12 +405,12 @@ function setView(name) {
   // Inline pages hosted inside frames so the sidebar/workflow shell stays
   // identical across the six functional areas.
   const framePages = {
-    navmap: ['navMapFrame', 'navigation_editor.html?v=0.7.0&embedded=1'],
-    settings: ['settingsFrame', 'settings.html?v=0.7.0&embedded=1'],
-    assets: ['assetsFrame', 'assets.html?v=0.7.0&embedded=1'],
-    monitor: ['monitorFrame', 'training_list.html?v=0.7.0&embedded=1'],
-    deploy: ['deployFrame', 'deploy.html?v=0.7.0&embedded=1'],
-    artifacts: ['artifactsFrame', 'artifacts.html?v=0.7.0&embedded=1'],
+    navmap: ['navMapFrame', 'navigation_editor.html?v=0.17.0&embedded=1'],
+    settings: ['settingsFrame', 'settings.html?v=0.17.0&embedded=1'],
+    assets: ['assetsFrame', 'assets.html?v=0.17.0&embedded=1'],
+    monitor: ['monitorFrame', 'training_list.html?v=0.17.0&embedded=1'],
+    deploy: ['deployFrame', 'deploy.html?v=0.17.0&embedded=1'],
+    artifacts: ['artifactsFrame', 'artifacts.html?v=0.17.0&embedded=1'],
   };
   if (name in framePages) {
     const [frameId, page] = framePages[name];
@@ -424,8 +424,8 @@ function setView(name) {
     if (!frame) return;
     const robot = selectedPreset?.robot_id || 'unitree_go2';
     const page = name === 'config'
-      ? `training_create.html?v=0.7.0&embedded=1&robot=${encodeURIComponent(robot)}`
-      : `training_list.html?v=0.7.0&embedded=1`;
+      ? `training_create.html?v=0.17.0&embedded=1&robot=${encodeURIComponent(robot)}`
+      : `training_list.html?v=0.17.0&embedded=1`;
     const expected = new URL(page, window.location.href).toString();
     if (frame.getAttribute('src') !== expected) frame.src = expected;
   }
