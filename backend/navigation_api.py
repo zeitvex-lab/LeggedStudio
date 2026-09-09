@@ -33,6 +33,7 @@ class NavigationRequest(BaseModel):
     algorithm: str = Field(default="astar", pattern="^(astar|dijkstra)$")
     use_planner: bool = Field(default=True, description="是否用 A*/Dijkstra 对 obstacles 自动规划绕障路径")
     diagonal: bool = True
+    use_avoidance: bool = Field(default=True, description="是否启用反应式避障闭环（叠加势场斥力）")
     episodes: int = Field(default=1, ge=1, le=20)
     max_steps: int | None = Field(default=None, ge=1, le=10000)
     waypoint_tolerance: float = Field(default=0.35, gt=0.0, le=5.0)
@@ -122,7 +123,7 @@ async def _run_native_navigation(task, request: NavigationRequest):
             # 规划失败不阻断导航，回退手填航点，交由 worker 的容错处理。
             route = list(request.waypoints)
     config = dict(task.config)
-    config.update({"mode": "navigation", "episodes": request.episodes, "max_steps": request.max_steps or 500, "waypoints": route, "waypoint_tolerance": request.waypoint_tolerance, "checkpoint": str(checkpoints[-1].resolve()), "generic_task": True})
+    config.update({"mode": "navigation", "episodes": request.episodes, "max_steps": request.max_steps or 500, "waypoints": route, "waypoint_tolerance": request.waypoint_tolerance, "checkpoint": str(checkpoints[-1].resolve()), "generic_task": True, "obstacles": [list(o[:4]) for o in (request.obstacles or [])], "use_avoidance": getattr(request, "use_avoidance", True)})
     config_path = task.task_dir / "native_navigation_config.json"
     config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     launcher = TrainingLauncher(workspace_dir=str(task.task_dir.parent))
@@ -163,6 +164,9 @@ def _record_navigation_evaluation(task, nav_result: dict, request: NavigationReq
             collision_count=int(nav_result.get("collision_count", 0)),
             stability_score=float(nav_result.get("stability_score", 0.0)),
             evaluated_env=str(nav_result.get("evaluated_env", "native_mjlab_navigation")),
+            use_avoidance=bool(nav_result.get("use_avoidance", False)),
+            avoidance_engagement=nav_result.get("avoidance_engagement"),
+            min_obstacle_distance_m=nav_result.get("min_obstacle_distance_m"),
         )
         artifact.to_json_file(str(artifact_path))
     except Exception:  # pragma: no cover - best-effort writeback
