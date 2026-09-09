@@ -10,6 +10,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import loadMujoco from "./vendor/mujoco/mujoco.js";
 import { createObservationSystems } from "./obs/observation_builders.js";
 import { MotionLoader } from "./motion_loader.js";
+import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
 // Loaded on demand only for an explicitly selected policy.
 let ort = null;
 const ORT_DIST_URL = new URL("./vendor/onnxruntime-web/dist/", import.meta.url);
@@ -4508,10 +4509,6 @@ function updateVelocityCommandControls() {
 }
 
 /** 速度指令值带符号显示（+0.50 / -0.30 / 0.00）。 */
-function formatSigned(value) {
-  const n = Number(value) || 0;
-  return `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
-}
 
 function setVelocityCommandValue(index, value) {
   const max = velocityCommandMax(index);
@@ -4905,60 +4902,10 @@ function togglePause() {
   elements.playButton.textContent = sim.paused ? "继续" : "暂停";
 }
 
-function getGravityOrientation(quaternion) {
-  const qw = quaternion[0];
-  const qx = quaternion[1];
-  const qy = quaternion[2];
-  const qz = quaternion[3];
-  return [
-    2 * (-qz * qx + qw * qy),
-    -2 * (qz * qy + qw * qx),
-    1 - 2 * (qw * qw + qz * qz),
-  ];
-}
 
 // 世界系线速度 → 机体系（v_body = R^T · v_world，与 getGravityOrientation 同一约定）
-function getLinearVelocityBody(quaternion, vx, vy, vz) {
-  const qw = quaternion[0];
-  const qx = quaternion[1];
-  const qy = quaternion[2];
-  const qz = quaternion[3];
-  return [
-    (1 - 2 * (qy * qy + qz * qz)) * vx + 2 * (qx * qy + qw * qz) * vy + 2 * (qx * qz - qw * qy) * vz,
-    2 * (qx * qy - qw * qz) * vx + (1 - 2 * (qx * qx + qz * qz)) * vy + 2 * (qy * qz + qw * qx) * vz,
-    2 * (qx * qz + qw * qy) * vx + 2 * (qy * qz - qw * qx) * vy + (1 - 2 * (qx * qx + qy * qy)) * vz,
-  ];
-}
 
-function quatToRpy(q) {
-  const x = q[0], y = q[1], z = q[2], w = q[3];
-  const sinrCosp = 2 * (w * x + y * z);
-  const cosrCosp = 1 - 2 * (x * x + y * y);
-  const roll = Math.atan2(sinrCosp, cosrCosp);
-  const sinp = 2 * (w * y - z * x);
-  const pitch = Math.abs(sinp) >= 1 ? Math.sign(sinp) * Math.PI / 2 : Math.asin(sinp);
-  const sinyCosp = 2 * (w * z + x * y);
-  const cosyCosp = 1 - 2 * (y * y + z * z);
-  const yaw = Math.atan2(sinyCosp, cosyCosp);
-  return [roll, pitch, yaw];
-}
 
-function quatRotateInverse(q, v) {
-  const qw = q[0];
-  const qv = [q[1], q[2], q[3]];
-  const dot = qv[0] * v[0] + qv[1] * v[1] + qv[2] * v[2];
-  const cross = [
-    qv[1] * v[2] - qv[2] * v[1],
-    qv[2] * v[0] - qv[0] * v[2],
-    qv[0] * v[1] - qv[1] * v[0],
-  ];
-  const factor = 2 * qw * qw - 1;
-  return [
-    v[0] * factor - cross[0] * qw * 2 + qv[0] * dot * 2,
-    v[1] * factor - cross[1] * qw * 2 + qv[1] * dot * 2,
-    v[2] * factor - cross[2] * qw * 2 + qv[2] * dot * 2,
-  ];
-}
 
 function makeGeomTypes(mujoco) {
   return {
@@ -4972,11 +4919,6 @@ function makeGeomTypes(mujoco) {
   };
 }
 
-function enumValue(value) {
-  if (typeof value === "number") return value;
-  if (value && typeof value.value === "number") return value.value;
-  return Number(value);
-}
 
 function ensureDir(path) {
   try {
@@ -5110,13 +5052,6 @@ function toggleControlPanel(force) {
   syncViewerStateToUrl();
 }
 
-function isEditableElement(target) {
-  if (!(target instanceof Element)) return false;
-  return target instanceof HTMLInputElement
-    || target instanceof HTMLTextAreaElement
-    || target instanceof HTMLSelectElement
-    || target.isContentEditable;
-}
 
 // ---------------------------------------------------------------------------
 // WASM OOM 友好报错（借鉴 mjswan runtime.ts 的 isWasmOom 思路）
@@ -5200,16 +5135,5 @@ function disposeRenderable(renderable) {
   view.materials.delete(renderable.material);
 }
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
 
-function escapeAttr(value) {
-  return String(value).replace(/[^a-zA-Z0-9_-]/g, "");
-}
 
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (char) => (
-    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]
-  ));
-}
