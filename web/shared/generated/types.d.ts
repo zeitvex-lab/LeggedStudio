@@ -92,6 +92,12 @@ export interface ObservationSpecV3 {
   /** 0 = 未声明；components 非空时必须 == Σ width */
   dimension: number;
   normalizer?: { mean?: number[]; std?: number[] };
+  /** PolicyContract 字段级表述收敛：观测历史帧数（1=无历史） */
+  history_length?: number;
+  /** 历史帧排布顺序 */
+  history_order?: "oldest_to_newest" | "newest_to_oldest";
+  /** 无历史帧时重置方式 */
+  history_reset?: "zero" | "repeat";
 }
 
 export interface ControlSpecV3 {
