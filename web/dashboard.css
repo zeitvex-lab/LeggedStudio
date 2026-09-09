@@ -4,22 +4,22 @@
  */
 
 :root {
-  color-scheme: dark;
-  --bg: #0a0d10;
-  --bg-soft: #0f1419;
-  --surface: #121820;
-  --surface-raised: #151d26;
-  --surface-soft: #0d1319;
-  --border: #26313d;
-  --border-soft: #1b252f;
-  --text: #eef4f8;
-  --muted: #9aa8b7;
-  --faint: #667789;
-  --accent: #2dd4bf;
-  --accent-strong: #14b8a6;
-  --danger: #f87171;
-  --success: #5eead4;
-  --shadow: 0 22px 70px rgba(0, 0, 0, .34);
+  color-scheme: light;
+  --bg: #f4f6f8;
+  --bg-soft: #eef3f7;
+  --surface: #ffffff;
+  --surface-raised: #f8fafc;
+  --surface-soft: #eef3f7;
+  --border: #d9e0e7;
+  --border-soft: #e8edf2;
+  --text: #1f2933;
+  --muted: #687582;
+  --faint: #8b98a5;
+  --accent: #2588df;
+  --accent-strong: #1e73be;
+  --danger: #c94343;
+  --success: #32a36c;
+  --shadow: 0 10px 30px rgba(65, 82, 99, .10);
   --radius: 8px;
 }
 
@@ -36,7 +36,7 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  background: linear-gradient(180deg, rgba(13, 18, 23, .96), rgba(10, 13, 16, 1) 46%, rgba(12, 15, 18, 1));
+  background: #f4f6f8;
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: 14px;
@@ -95,8 +95,8 @@ body {
   padding: 0 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: #111922;
-  color: #c2ceda;
+  background: #ffffff;
+  color: #334155;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -105,13 +105,13 @@ body {
 }
 
 .btn:hover {
-  background: #1a2430;
-  border-color: #354555;
+  background: #f3f7fb;
+  border-color: #79b5e6;
 }
 
 .btn.primary {
   background: var(--accent);
-  color: #0a0d10;
+  color: #ffffff;
   border-color: var(--accent);
 }
 
@@ -248,7 +248,7 @@ body {
 }
 
 .system-status.success {
-  background: rgba(94, 234, 212, 0.12);
+  background: rgba(50, 163, 108, 0.12);
   color: var(--success);
 }
 
@@ -260,7 +260,7 @@ body {
 }
 
 .status-badge.running {
-  background: rgba(45, 212, 191, 0.12);
+  background: rgba(37, 136, 223, 0.12);
   color: var(--accent);
 }
 
@@ -328,7 +328,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(45, 212, 191, 0.12);
+  background: rgba(37, 136, 223, 0.12);
   color: var(--accent);
   border-radius: 50%;
   font-size: 14px;

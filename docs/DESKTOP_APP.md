@@ -9,7 +9,7 @@ electron/launcher/
   main.js        # 主进程：路径解析、Python 探测、运行时配置、后端启动/停止、健康校验
   preload.js     # contextBridge 暴露受控 IPC API（settings/runtime/backend 通道）
   renderer.js    # 启动器 UI 逻辑
-  index.html     # 启动器窗口（端口/GPU/CPU 设置、Configure Runtime、Start）
+  index.html     # 启动器窗口（端口/GPU/CPU/镜像源、工作区清理、Configure Runtime、Start）
   styles.css
 ```
 
@@ -36,10 +36,22 @@ electron/launcher/
 
 端口被其他服务占用会被拒绝；无关服务不会因端口匹配被误认成本程序（有身份校验兜底）。桌面退出时后端进程随之终止，不残留失控子进程。
 
-## 端口与 Python 设置
+## 桌面设置（原 Web 设置区已迁入）
 
-- **端口**：默认 `8765`，接受 1024–65535 的整数，启动前在设置里改。
+桌面启动器的「系统设置」页统一承载运行环境与工作区配置：
+
+- **控制平面地址**：本机回环地址，不对外暴露。
+- **Python 运行时**：探测绑定 Python 版本与依赖完整性。
+- **Windows 运行环境**：一键下载配置（GPU/CPU Torch + MJLab），经运行时管线安装到用户数据目录。
+- **计算设备**：GPU（cu128）/ CPU（+cpu）profile 切换，保存后重装运行时生效。
+- **包镜像源**：清华 PyPI + 上海交大 cu128（默认）/ 上海交大 / 官方源；保存后重装运行时生效。
+- **服务端口**：默认 `8765`，接受 1024–65535 的整数，启动前在设置里改。
 - **Python 路径覆盖**（可选）：文件选择器指定；留空则始终用项目捆绑的便携 Python。不支持的版本会在 pip 运行前被拒绝。
+- **工作区目录**：初始化日志、输出与文档目录。
+- **工作区清理**：删除可再生成的暂存/导入缓存（导入暂存、导出暂存、缓存目录）；训练历史与已导入的 packages/ 不受影响。
+- **项目路径**：打开项目根目录。
+
+上述镜像源、工作区清理等通过后端 settings API（`backend/settings_api.py`）持久化。
 
 ## 打包与发布
 
