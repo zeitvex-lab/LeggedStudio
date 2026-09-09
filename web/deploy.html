@@ -80,6 +80,9 @@
       <div class="degraded-row">
         <label><input type="checkbox" id="degradedToggle"> 劣化参数加固档（力矩 ×0.8，摩擦 −20% 建议——跑稳再上真机）</label>
       </div>
+      <div class="degraded-row">
+        <label><input type="checkbox" id="benchToggle"> 台架模式（D2：空载逐关节正弦扫频 + 温升/堵转保护，额外生成 d2_bench_test.py）</label>
+      </div>
       <p style="font-size:13px; color:#5a6672">包内容：deployment-contract.yaml ＋ FSM 安全状态机 ＋ 动作解码层（含单关节正弦波自检）＋ 人工确认清单.md</p>
       <button class="primary" id="genPack">生成部署包 zip</button>
       <div class="result" id="packResult"></div>
@@ -157,7 +160,7 @@
         const report = await fetch('/api/deploy/package', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ robot_id: currentRobot, degraded: $('degradedToggle').checked, target_platform: $('platformSelect').value }),
+          body: JSON.stringify({ robot_id: currentRobot, degraded: $('degradedToggle').checked, target_platform: $('platformSelect').value, bench_mode: $('benchToggle').checked }),
         }).then((r) => r.json());
         if (!report.success) throw new Error(report.detail || '生成失败');
         $('packResult').innerHTML = `
