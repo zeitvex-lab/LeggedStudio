@@ -307,6 +307,11 @@
       .pack-card strong { display: block; margin-bottom: 4px; color: #1d2935; }
       .pack-card .pack-desc { font-size: 12px; color: #5a6672; }
       .pack-card .pack-count { display: inline-block; margin-top: 6px; font-family: Consolas, monospace; font-size: 12px; color: #2e9e5b; }
+      .pack-card .pack-manifest { list-style: none; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px dashed var(--line-soft, #e8eff4); }
+      .pack-card .pack-manifest li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 0; font-size: 11px; color: #5a6672; }
+      .pack-card .pack-manifest code { color: #2478c5; font-size: 11px; }
+      .pack-card .pack-manifest em { color: #d88922; font-style: normal; }
+      .pack-card .pack-manifest b { margin-left: auto; color: #687582; font-family: Consolas, monospace; font-size: 10px; font-weight: 500; }
     </style>
     <!-- 页面头部 -->
     <header class="page-header">
@@ -383,16 +388,25 @@
     }
 
     async function loadResourcePacks() {
+      const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
       const wrap = document.getElementById('packStrip');
       if (!wrap) return;
       try {
         const data = await fetchJson('/api/training/resource-packs');
-        wrap.innerHTML = (data.packs || []).map((pack) => `
-          <div class="pack-card">
-            <strong>${pack.name}</strong>
-            <span class="pack-desc">${pack.description}</span>
+        // #7 算法/资源包 manifest 卡片化：把资源包升级为"算法市场"卡片
+        //（列出代表 task 的关键维度 + 演示入口），把家底变成可感知价值。
+        wrap.innerHTML = (data.packs || []).map((pack) => {
+          const reps = (pack.profiles || []).slice(0, 3).map((pf) =>
+            `<li><code>${escapeHtml(pf.robot_id || '')}/${escapeHtml(pf.profile_id || '')}</code>
+              <em>${escapeHtml(pf.algorithm || 'PPO')}</em>
+              <b>${pf.num_envs || '-'}envs · ${pf.max_iterations || '-'}iters</b></li>`).join('');
+          return `<div class="pack-card card-manifest">
+            <strong>${escapeHtml(pack.name)}</strong>
+            <span class="pack-desc">${escapeHtml(pack.description)}</span>
+            <ul class="pack-manifest">${reps || '<li class="pack-count">暂无预设</li>'}</ul>
             <span class="pack-count">${pack.profile_count} 个预设 · 训练配置页可选</span>
-          </div>`).join('');
+          </div>`;
+        }).join('');
       } catch (error) {
         wrap.innerHTML = '<div class="pack-card"><span class="pack-desc">资源包目录不可用（后端未启动）</span></div>';
       }
