@@ -1,6 +1,6 @@
 /* Final Viser Play surface alignment. The Viser play reference uses a
    light scene, white control surfaces, blue actions and neutral gray text. */
-:root { --bg: #f4f6f8; --surface: #ffffff; --surface-raised: #f8fafc; --surface-input: #ffffff; --line: #d9e0e7; --line-soft: #e8edf2; --text: #1f2933; --muted: #687582; --faint: #8b98a5; --cyan: #2588df; --cyan-dim: rgba(37, 136, 223, .10); --blue: #2478c5; --green: #32a36c; --amber: #d88922; --red: #d84b4b; }
+:root { color-scheme: light; --bg: #f4f6f8; --surface: #ffffff; --surface-raised: #f8fafc; --surface-input: #ffffff; --line: #d9e0e7; --line-soft: #e8edf2; --text: #1f2933; --muted: #687582; --faint: #8b98a5; --cyan: #2588df; --cyan-dim: rgba(37, 136, 223, .10); --blue: #2478c5; --green: #32a36c; --amber: #d88922; --red: #d84b4b; }
 body { background: #f4f6f8; color: #1f2933; }
 .app-shell { background: #f4f6f8; }
 .topbar { height: 54px; padding: 0 20px; background: rgba(255, 255, 255, .92); border-bottom-color: #d9e0e7; }

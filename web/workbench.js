@@ -406,7 +406,6 @@ function setView(name) {
   // identical across the six functional areas.
   const framePages = {
     navmap: ['navMapFrame', 'navigation_editor.html?v=0.17.0&embedded=1'],
-    settings: ['settingsFrame', 'settings.html?v=0.17.0&embedded=1'],
     assets: ['assetsFrame', 'assets.html?v=0.17.0&embedded=1'],
     monitor: ['monitorFrame', 'training_list.html?v=0.17.0&embedded=1'],
     deploy: ['deployFrame', 'deploy.html?v=0.17.0&embedded=1'],
@@ -631,16 +630,16 @@ function renderNextStep(adapters, cuda) {
   if (!body) return;
   const steps = [];
   if (!adapters.native_mjlab) {
-    steps.push({ btn: 'settings', label: '配置运行环境', detail: 'MJLab 训练栈未就绪——先去设置区配置运行时与 PyTorch 镜像。' });
+    steps.push({ label: '配置运行环境', detail: 'MJLab 训练栈未就绪——请在桌面端「系统设置」中配置运行时与 PyTorch 镜像。' });
   }
   if (!adapters.mujoco_simulation) {
     steps.push({ btn: 'simulation', label: '检查仿真依赖', detail: 'MuJoCo 仿真依赖缺失——修复后再做 Sim2Sim 回放。' });
   }
   if (!cuda) {
-    steps.push({ btn: 'settings', label: '检查 CUDA', detail: '未检测到 CUDA——GPU 训练不可用，可切换 CPU 或用 GPU profile 重装。' });
+    steps.push({ label: '检查 CUDA', detail: '未检测到 CUDA——GPU 训练不可用，可在桌面端「系统设置」切换 CPU 或用 GPU profile 重装。' });
   }
   if (steps.length) {
-    body.innerHTML = steps.map((item) => `<div class="next-step-item"><div><strong>${item.label}</strong><span>${item.detail}</span></div><button class="button small" data-step="${item.btn}">去处理</button></div>`).join('');
+    body.innerHTML = steps.map((item) => `<div class="next-step-item"><div><strong>${item.label}</strong><span>${item.detail}</span></div>${item.btn ? `<button class="button small" data-step="${item.btn}">去处理</button>` : ''}</div>`).join('');
     body.querySelectorAll('[data-step]').forEach((btn) => btn.addEventListener('click', () => setView(btn.dataset.step)));
     return;
   }
@@ -801,4 +800,4 @@ function bindEvents() {
   $('validateBtn').addEventListener('click', validateModel); $('startSimulation')?.addEventListener('click', startSimulation); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
   window.addEventListener('resize', () => { drawChart(); });
 }
-document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home','assets','robot','config','training','monitor','simulation','navmap','deploy','artifacts','settings'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });
+document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home','assets','robot','config','training','monitor','simulation','navmap','deploy','artifacts'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });

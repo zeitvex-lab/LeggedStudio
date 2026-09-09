@@ -31,7 +31,7 @@ Legged Studio 是面向足式机器人强化学习的本地桌面/Web 工作台�
 - **CaT 约束机制与奖励技巧集**（`adapters/mjlab/cat_constraints.py`、`shared_rewards.py`）：Polyak 运行极值约束、foot_flat/feet_distance/no_fly/landing_vel 等共享奖励项。
 - **契约化与桌面工具链**：逐关节 armature/frictionloss、训练 profile 入口（env/runner/runner_class）、策略元数据盖章贯穿验收与浏览器链路；MjSpec 场景构建器（`adapters/mjlab/scene_builder.py`）、浏览器与桌面 replay 控制步对齐工具（`adapters/mjlab/replay_diff.py`）。
 - **工作台形态重构**：左侧六功能区（资产库/训练/监控/仿真/部署/设置）+ 顶部工作流进度条（只显示当前项目进度，不强求按序），首页 Dashboard 内置 demo 卡（29 个预训练策略免训练即玩）与下一步建议（`web/workbench.html` + `workbench.js`）。
-- **设置区**：后端 settings API + 设置页，支持 GPU/CPU profile 切换与重装、后端端口、Python 覆盖、包镜像源（清华/交大/官方）、工作区清理（`backend/settings_api.py` + `web/settings.html`）。
+- **设置区**：菜单设置已迁入桌面启动器「系统设置」（`electron/launcher`），由后端 settings API（`backend/settings_api.py`）支撑 GPU/CPU profile 切换与重装、后端端口、Python 覆盖、包镜像源（清华/交大/官方）、工作区清理。
 - **训练观测/动作映射板**：标准观测库（带宽度+scale）→ 策略输入槽位，维度自动校验，专家模式 dot-path 改写（`training_create.html`，观测库自动拉取 `/api/perception/items` 富化）。
 - **交互式导航地图编辑器**：画障碍/设航点 → A*/Dijkstra 自动求路，与场景/地图库打通、可保存（`backend/map_editor_api.py` + `web/navigation_editor.html`）。
 - **感知观测项通用抽象**：足端接触 → 高度场 → 深度相机（PIE 106×60）抽象为通用感知观测插件项（`backend/perception_observations.py`），可在配置编辑器加进策略输入，而非包内特例。
