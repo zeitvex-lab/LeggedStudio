@@ -56,11 +56,20 @@
       "description": "默认站姿，与 joints.actuated 等长（v2 兼容字段）"
     },
     "size_class": {
-      "enum": ["S", "M", "L"],
+      "enum": [
+        "S",
+        "M",
+        "L"
+      ],
       "description": "v2 兼容：按质量分档（S<15, M<35, L>=35 kg）"
     },
     "locomotion_type": {
-      "enum": ["P", "W", "B", "H"],
+      "enum": [
+        "P",
+        "W",
+        "B",
+        "H"
+      ],
       "description": "v2 兼容：P=点足 / W=轮足 / B=双足 / H=人形（现存 16 包实际取值 P×7 W×4 B×4 H×1，v2 声明的 P|W 早已被现实扩展）"
     },
     "urdf": {
@@ -112,7 +121,12 @@
     },
     "morphology": {
       "type": "object",
-      "required": ["id", "legs", "leg_pattern", "leg_naming"],
+      "required": [
+        "id",
+        "legs",
+        "leg_pattern",
+        "leg_naming"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -162,7 +176,9 @@
     },
     "joints": {
       "type": "object",
-      "required": ["actuated"],
+      "required": [
+        "actuated"
+      ],
       "additionalProperties": false,
       "properties": {
         "actuated": {
@@ -170,7 +186,10 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["name", "role"],
+            "required": [
+              "name",
+              "role"
+            ],
             "additionalProperties": false,
             "properties": {
               "name": {
@@ -199,7 +218,9 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["name"],
+            "required": [
+              "name"
+            ],
             "additionalProperties": false,
             "properties": {
               "name": {
@@ -276,7 +297,11 @@
           "minimum": 0
         },
         "mode": {
-          "enum": ["position", "velocity", "torque"],
+          "enum": [
+            "position",
+            "velocity",
+            "torque"
+          ],
           "description": "执行器控制模式；wheel 角色常用 velocity（报告 6 §4.3：一步消灭 12 腿+4 轮混排特判）"
         },
         "action_scale": {
@@ -311,7 +336,9 @@
     },
     "action": {
       "type": "object",
-      "required": ["joint_order"],
+      "required": [
+        "joint_order"
+      ],
       "additionalProperties": false,
       "properties": {
         "dimension": {
@@ -359,7 +386,10 @@
     },
     "observation": {
       "type": "object",
-      "required": ["components", "dimension"],
+      "required": [
+        "components",
+        "dimension"
+      ],
       "additionalProperties": false,
       "properties": {
         "kind": {
@@ -371,7 +401,11 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["name", "width", "source"],
+            "required": [
+              "name",
+              "width",
+              "source"
+            ],
             "additionalProperties": false,
             "properties": {
               "name": {
@@ -387,7 +421,14 @@
                 "description": "观测缩放；缺省 = 1.0（由训练配置校准，T2 消费）"
               },
               "source": {
-                "enum": ["imu", "cmd", "actuated", "action", "world", "external"],
+                "enum": [
+                  "imu",
+                  "cmd",
+                  "actuated",
+                  "action",
+                  "world",
+                  "external"
+                ],
                 "description": "取值来源：imu/cmd/驱动关节/上一动作/世界状态/外部传感器(深度/高度场)"
               },
               "wrap": {
@@ -406,6 +447,88 @@
         "normalizer": {
           "type": "object",
           "description": "v2 兼容：{mean: [...], std: [...]}"
+        },
+        "history_length": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "观测历史帧数（PolicyContract 字段级表述收敛；1=无历史）"
+        },
+        "history_order": {
+          "type": "string",
+          "enum": [
+            "oldest_to_newest",
+            "newest_to_oldest"
+          ],
+          "description": "历史帧排布顺序"
+        },
+        "history_reset": {
+          "type": "string",
+          "enum": [
+            "zero",
+            "repeat"
+          ],
+          "description": "无历史帧时重置方式"
+        },
+        "conditional_fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "width",
+              "source"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "scale": {
+                "type": "number",
+                "description": "观测缩放；缺省 = 1.0（由训练配置校准，T2 消费）"
+              },
+              "source": {
+                "enum": [
+                  "imu",
+                  "cmd",
+                  "actuated",
+                  "action",
+                  "world",
+                  "external"
+                ],
+                "description": "取值来源：imu/cmd/驱动关节/上一动作/世界状态/外部传感器(深度/高度场)"
+              },
+              "wrap": {
+                "type": "boolean",
+                "description": "角度量是否 wrap（轮关节必须 false——替代原 app.js/policy_acceptance 双处同步的 mask 特判）"
+              }
+            }
+          },
+          "description": "PolicyContract.conditional_fields 收敛：条件观测字段（仅特定任务/技能存在时的附加观测，如 AMP/模仿类）。元素结构与 components 一致（name+width+source）。"
+        },
+        "recurrent_state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "layers",
+            "hidden_width"
+          ],
+          "properties": {
+            "layers": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "hidden_width": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "description": "PolicyContract.recurrent_state 收敛：循环策略状态形状（不含 batch 维）。声明时观测契约不可同时声明 conditional_fields（与 PolicyContract 校验一致）。"
         }
       }
     },

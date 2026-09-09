@@ -92,12 +92,28 @@ class ObservationComponentV3(_V3Model):
     wrap: Optional[bool] = None
 
 
+
+class RecurrentStateV3(_V3Model):
+    """$defs/observation.recurrent_state：循环策略状态形状（不含 batch 维）。"""
+
+    layers: int = Field(ge=1)
+    hidden_width: int = Field(ge=1)
+
+
 class ObservationSpecV3(_V3Model):
     kind: Optional[str] = Field(default=None, pattern=r"^[a-z][a-z0-9_]*$")
     # components 为空 = 宽度声明待补全（v2 迁移的 history/视觉类观测）
     components: list[ObservationComponentV3] = Field(default_factory=list)
     dimension: int = Field(ge=0)
     normalizer: Optional[dict[str, Any]] = None
+    # PolicyContract 字段级表述收敛：观测历史帧元数据
+    history_length: Optional[int] = Field(default=None, ge=0)
+    history_order: Optional[Literal["oldest_to_newest", "newest_to_oldest"]] = None
+    history_reset: Optional[Literal["zero", "repeat"]] = None
+    # PolicyContract 字段级表述收敛：条件观测字段（AMP/模仿类附加观测）
+    conditional_fields: list[ObservationComponentV3] = Field(default_factory=list)
+    # PolicyContract 字段级表述收敛：循环策略状态形状（与 conditional_fields 互斥）
+    recurrent_state: Optional[RecurrentStateV3] = None
 
 
 class ControlSpecV3(_V3Model):

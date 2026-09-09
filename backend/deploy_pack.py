@@ -75,7 +75,7 @@ def deployment_contract_json(contract_v3: dict) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
 
 
-FSM_TEMPLATE = '''"""通用安全状态机模板（Legged Studio 生成）。
+FSM_TEMPLATE = '''通用安全状态机模板（Legged Studio 生成）。
 
 PASSIVE → STAND → POLICY → RECOVER → ESTOP
 安全链路独立于策略：action clip ≠ 急停；急停为最高优先级。
@@ -193,7 +193,7 @@ def fsm_template(contract_v3: dict) -> str:
     return header + FSM_TEMPLATE
 
 
-DECODER_TEMPLATE = '''"""动作解码层模板（Legged Studio 生成）。
+DECODER_TEMPLATE = '''动作解码层模板（Legged Studio 生成）。
 
 策略 12/16/29 维关节动作 → 真实 SDK 电机命令：
   motor_cmd = decode(policy_output, obs_stamp)
@@ -315,7 +315,52 @@ def _strip_none(value: Any) -> Any:
     return value
 
 
-def generate_deploy_package(robot_id: str, *, degraded: bool = False, target_platform: str = "unitree_sdk2") -> dict:
+D2_BENCH_TEMPLATE = '''# D2 台架测试（空载执行器正弦扫频 + 温升/堵转保护）
+# 对应优化清单 #12：部署页"台架模式"导出档。悬空（不落地）验证每个执行器
+# 只动该动的那一个、方向正确、无异常温升/堵转，是 Sim2Real 的 D2 级检查。
+#
+# 运行：接入目标平台适配层后单关节扫频，或直接本文件作为独立测试脚本。
+#     from deployment_contract import CONTRACT
+#     from d2_bench_test import run_bench_scan
+#     run_bench_scan(CONTRACT, duration_s=3.0, freq_hz=1.0)
+
+import math
+import time
+
+
+def run_bench_scan(contract, duration_s: float = 3.0, freq_hz: float = 1.0, send=None):
+    """逐关节正弦扫频。
+
+    send(joint_index, target) 由目标平台适配层提供（None 时仅打印）。
+    观察点：
+      - 每个电机只动该动的那一个（关节序/方向核对，最高频 bug）；
+      - 长时间扫频后温升正常、无堵转；
+      - 遇到异常立即调用 estop。
+    """
+    action = contract.get(\"action\") or {}
+    joint_order = action.get(\"joint_order\") or []
+    default_pose = contract.get(\"default_pose\") or [0.0] * len(joint_order)
+    scale = action.get(\"action_scale\") or 0.25
+    control = contract.get(\"control\") or {}
+    control_hz = control.get(\"control_hz\") or 50
+    steps = int(duration_s * control_hz)
+
+    print(f\"[bench] D2 台架扫频 over {len(joint_order)} joints, {duration_s}s @ {freq_hz}Hz\")
+    for joint_idx in range(len(joint_order)):
+        base = default_pose[joint_idx] if joint_idx < len(default_pose) else 0.0
+        for k in range(steps):
+            phase = 2 * math.pi * freq_hz * k / steps
+            target = base + scale * math.sin(phase)
+            if send is None:
+                print(f\"[bench] {joint_order[joint_idx]} -> {target:.4f}\")
+            else:
+                send(joint_idx, target)
+            time.sleep(1.0 / control_hz)
+        print(f\"[bench] joint {joint_order[joint_idx]} 扫频完成——核对方向/无堵转\")
+    print(\"[bench] D2 台架扫频完成——温升正常则视为通过（D2 级）\")
+'''
+
+def generate_deploy_package(robot_id: str, *, degraded: bool = False, target_platform: str = "unitree_sdk2", bench_mode: bool = False) -> dict:
     """生成部署包 zip。返回 {path, files}。"""
 
     from backend.robot_presets import get_robot_preset
@@ -378,10 +423,12 @@ def generate_deploy_package(robot_id: str, *, degraded: bool = False, target_pla
         "platform_adapter.py": platform_adapter(target_platform),
         "人工确认清单.md": CHECKLIST_TEMPLATE.format(ts=ts, robot_id=contract_v3.get("robot_id")),
     }
+    if bench_mode:
+        files["d2_bench_test.py"] = D2_BENCH_TEMPLATE
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, content in files.items():
             zf.writestr(name, content)
-    return {"robot_id": robot_id, "path": str(zip_path), "files": list(files), "target_platform": target_platform}
+    return {"robot_id": robot_id, "path": str(zip_path), "files": list(files), "target_platform": target_platform, "bench_mode": bench_mode}
 
 
 # ===== 目标平台模板实例化（T5.x 部署模板） =====

@@ -9,6 +9,8 @@
         find backend contracts adapters/mjlab tools scripts -name '*.py' -print0 \
           | xargs -0 -n1 python -m py_compile 2>&1 | tail -20 || true
         echo "python syntax check done"
+        echo "== contract artifact drift check =="
+        python tools/generate_contract_models.py 2>&1 | tail -20
     - name: unit-tests
       script: |
         set -e

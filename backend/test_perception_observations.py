@@ -50,3 +50,27 @@ class PerceptionCatalogTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ObsSourceChoicesTest(unittest.TestCase):
+    """Feature 11：观测来源三选一向导的编目与端点测试。"""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_base_lin_vel_declares_obs_source(self):
+        items = {item["id"]: item for item in list_perception_items()}
+        blv = items["base_lin_vel"]
+        self.assertEqual(blv["obs_source"], "estimator")
+        self.assertIn("proxy", blv["meta"].get("observable", ""))
+
+    def test_obs_sources_endpoint(self):
+        payload = self.client.get("/api/perception/obs-sources").json()
+        self.assertTrue(payload["success"])
+        values = [c["value"] for c in payload["choices"]]
+        self.assertEqual(values, ["estimator", "proxy", "history"])
+
+    def test_items_endpoint_carries_obs_source(self):
+        payload = self.client.get("/api/perception/items").json()
+        blv = [i for i in payload["items"] if i["id"] == "base_lin_vel"][0]
+        self.assertIn("obs_source", blv)

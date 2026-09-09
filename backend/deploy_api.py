@@ -24,12 +24,13 @@ class DeployPackageRequest(BaseModel):
     policy_onnx_path: str | None = None  # 可选：随包携带策略 ONNX
     degraded: bool = False  # T3.4 劣化参数档：力矩 ×0.8（跑稳再上真机）
     target_platform: str = "unitree_sdk2"  # 目标平台模板：unitree_sdk2 / ros2
+    bench_mode: bool = False  # D2 台架模式：额外生成 d2_bench_test.py（对应清单 #12）
 
 
 @router.post("/package")
 async def create_deploy_package(request: DeployPackageRequest):
     try:
-        report = generate_deploy_package(request.robot_id, degraded=request.degraded, target_platform=request.target_platform)
+        report = generate_deploy_package(request.robot_id, degraded=request.degraded, target_platform=request.target_platform, bench_mode=request.bench_mode)
         if request.policy_onnx_path:
             from pathlib import Path as _P
             import zipfile

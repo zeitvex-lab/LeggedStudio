@@ -531,6 +531,25 @@
     .obs-dim-check .ok { color: #2ea043; }
     .obs-dim-check .warn { color: #d29922; }
     .obs-dim-check .bad { color: #f85149; }
+    .obs-src-wizard {
+      grid-column: 1 / -1;
+      margin-top: 6px;
+      padding: 6px 8px;
+      border: 1px solid var(--border, #d8dee6);
+      border-radius: 6px;
+      background: var(--panel-2, #f4f7fa);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .obs-src-label { font: 600 10px sans-serif; color: var(--faint); text-transform: uppercase; letter-spacing: 0.03em; }
+    .obs-src-opts { display: flex; gap: 6px; flex-wrap: wrap; }
+    .obs-src-opt {
+      font: 600 11px sans-serif; color: var(--text); background: var(--panel, #fff);
+      border: 1px solid var(--border, #d8dee6); border-radius: 4px; padding: 2px 8px; cursor: pointer;
+    }
+    .obs-src-opt.sel { border-color: var(--cyan, #2588df); color: var(--cyan, #2588df); background: rgba(37,136,223,0.08); }
+    .obs-src-hint { font: 10px sans-serif; color: var(--faint); }
     .obs-expert-toggle {
       grid-column: 1 / -1;
       display: inline-flex;
@@ -905,7 +924,7 @@
                   <label for="numEnvs">并行环境数量</label>
                   <input type="number" id="numEnvs" value="4096" min="64" max="8192" step="64"
                          title="并行仿真环境数。越大采样越快但显存占用越高；GPU 训练推荐 4096，CPU 调试建议 64-256">
-                  <small class="field-hint">64 - 8192 · 推荐 4096 · 调试 256</small>
+                  <small class="field-hint" id="numEnvsHint">64 - 8192 · 推荐 4096 · 调试 256</small>
                 </div>
                 <div class="field-label">
                   <label for="seed">随机种子</label>
@@ -2138,16 +2157,29 @@
         const items = data.items || [];
         items.forEach((item) => {
           const existing = OBS_LIBRARY.find((lib) => lib.name === item.id || lib.name === item.label);
-          if (!existing) {
+          const meta = item.meta || {};
+          // Attach obs_source (Feature 11) to both pre-seeded and newly added items.
+          const obsSrc = item.obs_source || '';
+          if (existing) {
+            existing.obs_source = obsSrc;
+            existing.obs_source_path = (item.sample_dot_path || existing.path) + '.obs_source';
+          } else {
             OBS_LIBRARY.push({
               name: item.id,
               width: item.width,
               scale: item.scale,
               desc: item.description,
               path: item.sample_dot_path || ('environment.observations.actor.terms.' + item.id),
+              obs_source: obsSrc,
+              obs_source_path: (item.sample_dot_path || ('environment.observations.actor.terms.' + item.id)) + '.obs_source',
             });
           }
         });
+        // Preload the obs-source decision options for the three-way wizard.
+        try {
+          const srcRes = await fetchJson('/api/perception/obs-sources');
+          window.__OBS_SOURCE_CHOICES = (srcRes.choices || []);
+        } catch (e) { window.__OBS_SOURCE_CHOICES = []; }
         renderObsMappingBoard();
       } catch (e) {
         // No perception catalog available; fall back to built-in library.
@@ -2200,11 +2232,27 @@
       // 左侧：标准观测库（内置 + 当前已接入项标记）
       libEl.innerHTML = OBS_LIBRARY.map((item) => {
         const inUse = groupKeys.some((g) => (groups[g] || []).includes(item.name));
+        // Feature 11: three-way obs_source wizard for items that declare one.
+        let obsSrcHtml = '';
+        if (item.obs_source) {
+          const choices = (window.__OBS_SOURCE_CHOICES || []);
+          const current = (state.overrides[item.obs_source_path] || item.obs_source);
+          obsSrcHtml = `<div class="obs-src-wizard" data-obs-src="${escapeHtml(item.name)}">
+            <span class="obs-src-label">观测来源</span>
+            <span class="obs-src-opts">${choices.map((c) => `
+              <button type="button" class="obs-src-opt ${String(c.value) === String(current) ? 'sel' : ''}"
+                data-src-opt="${escapeHtml(item.name)}" data-src-val="${escapeHtml(c.value)}"
+                title="${escapeHtml(c.hint)}">${escapeHtml(c.label)}</button>`).join('')}
+            </span>
+            <small class="obs-src-hint">${choices.find((c) => String(c.value) === String(current))?.hint || ''}</small>
+          </div>`;
+        }
         return `<div class="obs-lib-item" data-lib="${escapeHtml(item.name)}">
           <span class="name">${escapeHtml(item.name)}<small>${escapeHtml(item.desc)}</small></span>
           <span class="dim">${item.width}D · ×${item.scale}</span>
           <span class="dim">${inUse ? '<span style="color:#2ea043">接入</span>' : '未接入'}</span>
           <button data-add-obs="${escapeHtml(item.name)}" ${inUse ? 'disabled' : ''}>接入</button>
+          ${obsSrcHtml}
         </div>`;
       }).join('');
       // 右侧：策略输入槽位（观测组 → 成员）
@@ -2295,6 +2343,21 @@
         delete state.overrides[path];
         showToast('已移除观测项：' + term);
         renderObsMappingBoard();
+        return;
+      }
+      // Feature 11: obs_source three-way wizard — write the chosen source into
+      // the config overrides at the item's obs_source dot-path.
+      const srcOpt = e.target.closest('[data-src-opt]');
+      if (srcOpt) {
+        const name = srcOpt.dataset.srcOpt;
+        const val = srcOpt.dataset.srcVal;
+        const item = OBS_LIBRARY.find((it) => it.name === name);
+        if (!item || !item.obs_source_path) return;
+        state.overrides[item.obs_source_path] = val;
+        updateOverrideUI();
+        renderObsMappingBoard();
+        showToast(`${name} 观测来源 → ${val}`);
+        return;
       }
     });
     // ---------- 覆盖编辑：事件委托（一次性绑定，重渲染不重复） ----------
@@ -2745,8 +2808,22 @@
       $('submitBtn').textContent = invalid ? '完善配置后启动' : '启动训练';
     }
 
+    // #8 训练页 envs-显存-吞吐预估（报告 1 §10）：给新手一个"大概要多少显存"的参考，
+    // 降低配置超出显存导致的 OOM 概率。粗略线性模型，随构型/任务/观测宽度浮动。
+    function updateMemEstimate() {
+      const hint = document.getElementById('numEnvsHint');
+      if (!hint) return;
+      const envs = intValue('numEnvs') || 0;
+      if (envs < 64) { hint.textContent = '64 - 8192 · 推荐 4096 · 调试 256'; return; }
+      // 参考：单环境大致显存（MB）随观测/帧/隐藏层浮动，这里给一个保守量级区间。
+      const gb = (envs / 4096) * 8; // 以 4096 envs≈8GB 为粗基准
+      const mode = (document.getElementById('device')?.value || 'auto');
+      const gpu = mode === 'cpu' ? 'CPU' : 'GPU';
+      hint.textContent = `${envs} envs · 约 ${gb.toFixed(1)}GB(粗估) · ${gpu} 档`;
+    }
     function updateAll() {
       syncHeaderOffset();
+      updateMemEstimate();
       updateRewardSummary();
       updateNavDots();
       updateTocBadges();
@@ -2802,11 +2879,21 @@
         // 仅在用户填写了覆盖时携带，保持默认请求体与既有行为一致
         if (Object.keys(state.overrides).length) requestData.overrides = { ...state.overrides };
 
+        // Idempotency-Key (Feature 13): a stable hash of the request body so a
+        // repeated submit (e.g. double-click / network retry) short-circuits to
+        // the existing task instead of spawning a duplicate training run.
+        const idemKey = (TrainingUI.hashString(JSON.stringify(requestData)) + '-' + requestData.seed);
         const data = await fetchJson('/api/training/create', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idemKey },
           body: JSON.stringify(requestData),
         });
+
+        if (data.idempotent_replay) {
+          showToast(`复用已有训练任务：${data.task_id}`);
+          setTimeout(() => { window.location.href = `training_monitor.html?task_id=${encodeURIComponent(data.task_id)}`; }, 500);
+          return;
+        }
 
         if (!data.success) throw new Error(data.detail || '创建失败');
 
