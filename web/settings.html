@@ -42,9 +42,14 @@
     .toast{position:fixed;bottom:18px;right:18px;padding:12px 16px;border-radius:var(--radius);background:var(--surface-raised);border:1px solid var(--border);color:var(--text);font-size:12px;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.4)}
     .cleanup-output{margin-top:10px;font-size:12px;color:var(--muted);white-space:pre-wrap}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:var(--muted);word-break:break-all}
-  </style>
+  
+  body.embedded{padding:0}
+  body.embedded .settings-shell{padding:16px 20px 40px}
+  body.embedded .page-actions a[href^="workbench"]{display:none}
+</style>
 </head>
 <body>
+  <script>if(new URLSearchParams(location.search).get("embedded")==="1"){document.body.classList.add("embedded");}</script>
   <main class="settings-shell">
     <header class="page-header">
       <div><span class="page-kicker">Settings</span><h1>设置</h1><p>运行环境与工作区配置：GPU profile、端口、Python 覆盖、包镜像源、工作区清理。</p></div>

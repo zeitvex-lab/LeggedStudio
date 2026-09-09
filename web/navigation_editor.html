@@ -37,9 +37,14 @@
     .swatch.route{background:#d29922}
     .swatch.start{background:#2ea043}
     .toast{position:fixed;bottom:18px;right:18px;padding:12px 16px;border-radius:var(--radius);background:var(--surface-raised);border:1px solid var(--border);color:var(--text);font-size:12px;z-index:50}
-  </style>
+  
+  body.embedded{padding:0}
+  body.embedded .editor-shell{padding:16px 20px 40px}
+  body.embedded .page-actions a[href^="workbench"]{display:none}
+</style>
 </head>
 <body>
+  <script>if(new URLSearchParams(location.search).get("embedded")==="1"){document.body.classList.add("embedded");}</script>
   <main class="editor-shell">
     <header class="page-header">
       <div><span class="page-kicker">Navigation Map Editor</span><h1>导航地图编辑器</h1><p>绘制障碍与航点，A*/Dijkstra 自动求路；与场景/地图库打通，可保存编辑。</p></div>
