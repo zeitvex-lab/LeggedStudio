@@ -15,8 +15,14 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+# 统一自举：见 contracts/path_bootstrap.py。裸脚本须先把仓库根放上
+# sys.path 才能 import 顶层包；此处集中这一不可避免的自举，其余路径引导
+# 全部收敛到 path_bootstrap 的幂等语义。
+if str(Path(__file__).resolve().parents[1]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from contracts.path_bootstrap import bootstrap_root
+
+ROOT = bootstrap_root()
 
 from backend.contract_migration import apply_role_hints, migrate_contract_dict  # noqa: E402
 

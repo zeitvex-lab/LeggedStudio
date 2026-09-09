@@ -37,7 +37,11 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # Make the repository root importable when started as a plain script.
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# 统一自举：见 contracts/path_bootstrap.py。
+if str(Path(__file__).resolve().parents[1]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from contracts.path_bootstrap import ensure_project_root_on_path
+ensure_project_root_on_path()
 
 # Optional stacks: keep the control plane importable without them.
 try:
