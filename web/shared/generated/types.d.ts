@@ -98,6 +98,13 @@ export interface ObservationSpecV3 {
   history_order?: "oldest_to_newest" | "newest_to_oldest";
   /** 无历史帧时重置方式 */
   history_reset?: "zero" | "repeat";
+  /** PolicyContract 字段级表述收敛：条件观测字段（AMP/模仿类附加观测） */
+  conditional_fields?: ObservationComponentV3[];
+  /** PolicyContract 字段级表述收敛：循环策略状态形状（与 conditional_fields 互斥） */
+  recurrent_state?: {
+    layers: number;
+    hidden_width: number;
+  };
 }
 
 export interface ControlSpecV3 {
