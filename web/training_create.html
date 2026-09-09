@@ -905,7 +905,7 @@
                   <label for="numEnvs">并行环境数量</label>
                   <input type="number" id="numEnvs" value="4096" min="64" max="8192" step="64"
                          title="并行仿真环境数。越大采样越快但显存占用越高；GPU 训练推荐 4096，CPU 调试建议 64-256">
-                  <small class="field-hint">64 - 8192 · 推荐 4096 · 调试 256</small>
+                  <small class="field-hint" id="numEnvsHint">64 - 8192 · 推荐 4096 · 调试 256</small>
                 </div>
                 <div class="field-label">
                   <label for="seed">随机种子</label>
@@ -2745,8 +2745,22 @@
       $('submitBtn').textContent = invalid ? '完善配置后启动' : '启动训练';
     }
 
+    // #8 训练页 envs-显存-吞吐预估（报告 1 §10）：给新手一个"大概要多少显存"的参考，
+    // 降低配置超出显存导致的 OOM 概率。粗略线性模型，随构型/任务/观测宽度浮动。
+    function updateMemEstimate() {
+      const hint = document.getElementById('numEnvsHint');
+      if (!hint) return;
+      const envs = intValue('numEnvs') || 0;
+      if (envs < 64) { hint.textContent = '64 - 8192 · 推荐 4096 · 调试 256'; return; }
+      // 参考：单环境大致显存（MB）随观测/帧/隐藏层浮动，这里给一个保守量级区间。
+      const gb = (envs / 4096) * 8; // 以 4096 envs≈8GB 为粗基准
+      const mode = (document.getElementById('device')?.value || 'auto');
+      const gpu = mode === 'cpu' ? 'CPU' : 'GPU';
+      hint.textContent = `${envs} envs · 约 ${gb.toFixed(1)}GB(粗估) · ${gpu} 档`;
+    }
     function updateAll() {
       syncHeaderOffset();
+      updateMemEstimate();
       updateRewardSummary();
       updateNavDots();
       updateTocBadges();

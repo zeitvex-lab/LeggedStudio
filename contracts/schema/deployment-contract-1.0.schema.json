@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cnb.cool/zeitvex/LeggedStudio/schema/deployment-contract-1.0.schema.json",
+  "title": "DeploymentContractV1",
+  "description": "部署契约真值源（对应优化清单 #9）。部署包内的 deployment-contract.yaml/json 由此定义；关节映射/控制频率/PD/armature/限位全部来自机器人契约 v3，修改请回训练区。",
+  "type": "object",
+  "required": ["schema_version", "robot_id", "control", "action"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "const": "deployment-contract-1.0"
+    },
+    "generated_by": { "type": "string" },
+    "robot_id": { "type": "string", "minLength": 1 },
+    "notes": { "type": "string" },
+    "control": {
+      "type": "object",
+      "properties": {
+        "control_hz": { "type": "integer", "minimum": 10, "maximum": 1000 },
+        "physics_hz": { "type": "integer", "minimum": 100, "maximum": 10000 },
+        "decimation": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "joint_order": { "type": "array", "items": { "type": "string" } },
+        "reindex_from_model": {
+          "anyOf": [
+            { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+            { "type": "null" }
+          ]
+        },
+        "action_scale": { "type": "number" },
+        "dimension": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "actuator_profile": { "type": "object" },
+    "default_pose": {
+      "anyOf": [
+        { "type": "array", "items": { "type": "number" } },
+        { "type": "null" }
+      ]
+    }
+  }
+}
