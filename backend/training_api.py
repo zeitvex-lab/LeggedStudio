@@ -3,7 +3,7 @@ Training API
 训练任务管理的 REST API
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 from typing import Any, List, Optional, Literal
@@ -104,6 +104,10 @@ class CreateTrainingRequest(BaseModel):
     policy_delay: int = Field(default=2, ge=1, le=16)
     exploration_noise: float = Field(default=0.1, ge=0.0, le=2.0)
     seed: int = Field(default=0, ge=0, le=2_147_483_647)
+    # Resume-from-checkpoint (Feature 13): an absolute path to a native model_*.pt
+    # (or model_final.pt). When present, the worker loads it and continues the
+    # learning loop from that checkpoint's iteration instead of starting fresh.
+    resume_from: str | None = Field(default=None, description="Absolute path to a native .pt checkpoint to resume from")
     # Generic dot-path overrides over the profile's full config tree (e.g.
     # "environment.sim.mujoco.timestep": 0.002). Applied by the worker after
     # the recipe so user edits always win; unknown paths are skipped there.
@@ -132,13 +136,31 @@ class CompareTrainingRequest(CreateTrainingRequest):
 # ========== API 端点 ==========
 
 @router.post("/create")
-async def create_training(request: CreateTrainingRequest):
+async def create_training(
+    request: CreateTrainingRequest,
+    x_idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
     """
     创建新的训练任务
 
     启动独立进程进行训练
+
+    Idempotency-Key 头（可选）：重复提交同一 key 时返回已创建的任务而非重复启动；
+    resume_from 字段提供 checkpoint 路径时从该检查点继续训练（Feature 13）。
     """
     try:
+        # Idempotency guard (Feature 13): replay of the same creation key short-circuits.
+        if x_idempotency_key:
+            manager = get_training_manager()
+            replayed = manager.resolve_idempotency(x_idempotency_key)
+            if replayed and manager.get_task(replayed):
+                return {
+                    "success": True,
+                    "task_id": replayed,
+                    "idempotent_replay": True,
+                    "message": "Idempotent replay: returning existing task",
+                }
+
         algorithm = request.algorithm.upper()
         available = {item["id"] for item in list_algorithms() if item.get("available")}
         if algorithm not in available:
@@ -200,6 +222,7 @@ async def create_training(request: CreateTrainingRequest):
             "seed": request.seed,
             "overrides": request.overrides,
             "backend": request.backend,
+            "resume_from": request.resume_from,
         }
         try:
             resolved_recipe = resolve_recipe(config)
@@ -232,7 +255,8 @@ async def create_training(request: CreateTrainingRequest):
         manager = get_training_manager()
         task_id = manager.create_task(
             contract=contract,
-            config=config
+            config=config,
+            idempotency_key=x_idempotency_key,
         )
 
         return {
