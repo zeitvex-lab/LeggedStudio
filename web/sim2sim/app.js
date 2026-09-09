@@ -2083,6 +2083,46 @@ function activeRobotKey() {
   return normalizeRobotParam(sim.platformConfig?.sim?.robot || URL_ROBOT || sim.platformConfig?.robot?.name || "");
 }
 
+// 机器人 ID 别名表（数据）：覆盖全部 16 个内置包的「完整包 id」与「URL 短键」，
+// 统一归一化到短键，消除「包下划线（unitree_go2）↔ 浏览器连字符/短键（go2）」命名双轨。
+// 匹配顺序按 match 长度降序，避免 go2w / go2、b2w / b2 之类的前缀包含误匹配。
+const ROBOT_ID_ALIASES = [
+  // 完整包 id → 短键（精确匹配优先）
+  { match: "unitree_h1_2", key: "h1_2" },
+  { match: "unitree_go2w", key: "go2w" },
+  { match: "unitree_go2", key: "go2" },
+  { match: "deeprobotics_lite3", key: "lite3" },
+  { match: "deeprobotics_m20", key: "m20" },
+  { match: "limx_tron1_pf", key: "tron1_pf" },
+  { match: "limx_tron1_sf", key: "tron1_sf" },
+  { match: "agibot_d1", key: "d1" },
+  { match: "unitree_b2w", key: "b2w" },
+  { match: "unitree_a1", key: "a1" },
+  { match: "unitree_a2", key: "a2" },
+  { match: "unitree_b2", key: "b2" },
+  { match: "unitree_g1", key: "g1" },
+  // URL 短键 → 短键（含历史自定义短键）
+  { match: "h1_2", key: "h1_2" },
+  { match: "go2w", key: "go2w" },
+  { match: "go2", key: "go2" },
+  { match: "lite3", key: "lite3" },
+  { match: "m20", key: "m20" },
+  { match: "tron1_pf", key: "tron1_pf" },
+  { match: "tron1_sf", key: "tron1_sf" },
+  { match: "d1", key: "d1" },
+  { match: "b2w", key: "b2w" },
+  { match: "a1", key: "a1" },
+  { match: "a2", key: "a2" },
+  { match: "b2", key: "b2" },
+  { match: "g1", key: "g1" },
+  { match: "zex_w", key: "zex_w" },
+  { match: "zex", key: "zex_w" },
+  { match: "microduck", key: "microduck" },
+  { match: "wuji_hand", key: "wuji_hand" },
+  { match: "fsdog1", key: "fsdog1" },
+  { match: "fsdog", key: "fsdog1" },
+];
+
 function normalizeRobotParam(value) {
   const key = String(value || "")
     .trim()
@@ -2091,15 +2131,13 @@ function normalizeRobotParam(value) {
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
   if (!key) return "";
-  // 机器人 ID 别名表（数据）：供 URL 短键（?robot=go2）等场景归一化
-  const aliases = [
-    { match: "fsdog", key: "fsdog1" },
-    // go2w 必须先于 go2 判断（unitree_go2w 包含 unitree_go2 子串）
-    { match: "go2w", key: "go2w" },
-    { match: "go2", key: "go2" },
-  ];
-  for (const alias of aliases) {
-    if (key === alias.match || key.includes(alias.match)) return alias.key;
+  // 先精确匹配（覆盖全部 16 种完整包 id 与短键），消除 double-track。
+  for (const alias of ROBOT_ID_ALIASES) {
+    if (key === alias.match) return alias.key;
+  }
+  // includes 兜底：兼容历史模糊键入（如 ?robot=fsdog 含 fsdog 子串）。
+  for (const alias of ROBOT_ID_ALIASES) {
+    if (key.includes(alias.match)) return alias.key;
   }
   return key;
 }

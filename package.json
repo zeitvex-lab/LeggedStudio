@@ -57,14 +57,6 @@
         ]
       },
       {
-        "from": "docs",
-        "to": "app/docs",
-        "filter": [
-          "!**/__pycache__{,/**/*}",
-          "!**/*.pyc"
-        ]
-      },
-      {
         "from": "web",
         "to": "app/web"
       },
