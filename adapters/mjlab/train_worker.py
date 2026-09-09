@@ -9,8 +9,11 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
-# 添加项目路径
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# 统一自举：见 contracts/path_bootstrap.py。定位仓库根并幂等放上 sys.path。
+if str(Path(__file__).resolve().parents[2]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from contracts.path_bootstrap import ensure_project_root_on_path
+ensure_project_root_on_path()
 
 from contracts.robot_contract_v2 import RobotContractV2
 from adapters.mjlab.training_adapter import TrainingConfig, MJLabTrainingAdapter
