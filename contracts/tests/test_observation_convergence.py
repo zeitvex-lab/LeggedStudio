@@ -110,3 +110,69 @@ class ValidateV3ObservationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ConditionalRecurrentTest(unittest.TestCase):
+    def test_conditional_fields(self) -> None:
+        conv = align_observation_fields(
+            [FieldSpec("actor", 45, source="actuated"), FieldSpec("cmd", 3, source="cmd")],
+            dimension=48,
+            conditional_fields=[FieldSpec("motion_clip", 24, source="external")],
+        )
+        self.assertEqual(len(conv.conditional_fields), 1)
+        self.assertEqual(conv.conditional_fields[0].width, 24)
+        self.assertEqual(conv.summary_width, 48)
+
+    def test_recurrent_state(self) -> None:
+        conv = align_observation_fields(
+            [FieldSpec("actor", 45, source="actuated")],
+            dimension=45,
+            recurrent_state={"layers": 2, "hidden_width": 256},
+        )
+        self.assertEqual(conv.recurrent_state, {"layers": 2, "hidden_width": 256})
+
+    def test_recurrent_and_conditional_mutually_exclusive(self) -> None:
+        with self.assertRaises(ObservationConvergenceError):
+            align_observation_fields(
+                [FieldSpec("a", 1)],
+                conditional_fields=[FieldSpec("b", 1)],
+                recurrent_state={"layers": 1, "hidden_width": 8},
+            )
+
+    def test_bad_recurrent_state_raises(self) -> None:
+        with self.assertRaises(ObservationConvergenceError):
+            align_observation_fields(
+                [FieldSpec("a", 1)],
+                recurrent_state={"layers": 0, "hidden_width": 8},
+            )
+
+
+class ValidateV3ConditionalRecurrentTest(unittest.TestCase):
+    def test_valid_conditional(self) -> None:
+        obs = {
+            "dimension": 48,
+            "components": [{"name": "a", "width": 48, "source": "actuated"}],
+            "conditional_fields": [{"name": "motion", "width": 24, "source": "external"}],
+        }
+        self.assertEqual(validate_v3_observation(obs), [])
+
+    def test_recurrent_with_conditional_is_error(self) -> None:
+        obs = {
+            "dimension": 48,
+            "components": [{"name": "a", "width": 48, "source": "actuated"}],
+            "conditional_fields": [{"name": "motion", "width": 24, "source": "external"}],
+            "recurrent_state": {"layers": 2, "hidden_width": 256},
+        }
+        self.assertTrue(any("recurrent" in e for e in validate_v3_observation(obs)))
+
+    def test_bad_recurrent_dim(self) -> None:
+        obs = {
+            "dimension": 48,
+            "components": [{"name": "a", "width": 48, "source": "actuated"}],
+            "recurrent_state": {"layers": 0, "hidden_width": 256},
+        }
+        self.assertTrue(any("layers" in e for e in validate_v3_observation(obs)))
+
+
+if __name__ == "__main__":
+    unittest.main()

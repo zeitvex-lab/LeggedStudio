@@ -98,12 +98,12 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
 | 契约 | 位置 | 覆盖 | 状态 |
 |---|---|---|---|
 | **RobotContractV2**（robot-contract-2.0） | `contracts/robot_contract_v2.py` | 尺寸/质量、关节（actuated/passive）、观测/动作布局、控制频率、joint_ids_map 桥接 | 已验证（validator + fixture + 测试） |
-| **PolicyContract**（local_tasks） | `local_tasks/core/policy_contract.py` | 观测字段级（name+width）、历史帧长度/顺序/重置、归一化、action_scale、关节序 | 已内化（带维度一致性校验），仅 Go2/G1 用 |
+| **PolicyContract**（local_tasks） | `local_tasks/core/policy_contract.py` | 观测字段级（name+width）、历史帧长度/顺序/重置、归一化、action_scale、条件字段、循环状态、关节序 | 已平台化（字段级表述已并入 v3 schema，见 §4 收敛进展） |
 | **ONNX metadata_props 盖章** | `native_worker.py::export_runner_policy_onnx` | joint_names/kp/kd/default_pos/observation_names/action_scale/clip_actions | 已验证，浏览器加载时校验（`validatePolicyMetadata`） |
 | Scenario / PolicyArtifact / policy-acceptance / simulation-config / training-profile | contracts/ 与包内 schema | 场景、训练产物、验收报告、仿真配置、训练档案 | 已验证 |
 
 **契约 v2/v3 收敛（已验证）**：`contracts/contract_loader.py` 提供 unified loader——v3（`contract_v3.json`，基于 `contracts/schema/robot-contract-3.0.schema.json` 真值源）在关节序/控制时序/动作维度/尺寸类/机运动/默认姿态/观测维度上优先，v2（`contract.json`）补齐数据完备字段（URDF 路径、限位、观测组件名），合并为单一记录供训练链路消费。`contracts/role_resolver.py` 解析构型+角色语义，`contracts/role_resolver.py:4` 明写 schema 是唯一真值源。
-**注意中间态**：`tools/generate_contract_models.py` 注释自述"当前为按 schema 手工种子的等价实现"，即签入的 Python 模型与前端 TS 类型（`web/shared/generated/types.d.ts`）是手工对齐、非工具实际跑出（生成器需联网拉工具、仅开发时手动执行）。`local_tasks/core/policy_contract.py`（Go2/G1 的观测字段级表述）尚未合并进 v3 schema，属"已内化、未平台化"。
+**收敛进展**：`generate_contract_models.py` 的 `--check` 现已同步守护**顶层字段 + 关键嵌套字段**（`$defs/observation` 的 components/normalizer/history_*/conditional_fields/recurrent_state 与 `$defs/action`），并已在可联网环境用 `--write`（npx json-schema-to-typescript）机械生成核对，签入语义化产物字段与工具输出一致（机械格式与签入的语义对齐版存在差异，故不直接覆盖签入产物）。`local_tasks/core/policy_contract.py`（Go2/G1 观测字段级）的「观测字段级 + 历史帧 + 归一化 + 条件字段 + 循环状态」已合并进 v3 schema（`observation.conditional_fields` / `recurrent_state`），并经 `contracts/observation_convergence.py` + `contract_loader.merge_v3_over_v2` 接入统一加载，供其它 14 包复用（§7）。
 
 ---
 
@@ -146,17 +146,18 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
   - **sys.path 散落插入** → 新建 `contracts/path_bootstrap.py` 统一入口（控制面/CLI 已切入），`native_worker.py` 收敛至模块内 `_ensure_on_path` helper；仅训练栈隔离环境中的少量 path 注入保留（依赖隔离，不宜强收敛）。
   - **导航开环回放** → 已升级为感知-决策闭环：地图障碍 A*/Dijkstra 自动规划 + 反应式避障势场（`adapters/mjlab/nav_avoidance.py`），导航评估写回 PolicyArtifact。
   - **GPU 长训验收缺失** → `validate_training_smoke.py` 新增 `--mode longtrain` 长训回归档（默认 iters=2000）与 `--profile/--robot` 聚焦，支持 `--baseline` 对比逐 profile 退化判定。
+  - **training_api god file（~960 行）** → 已按「创建/监控/产物/健康/schema」拆至 `backend/training/` 多模块，`backend/training_api.py` 仅作聚合入口（`router` + 公共模型 re-export），路由路径与响应不变。
+  - **机器人 id 命名双轨** → `app.js` 的 `normalizeRobotParam()` 别名表已补全覆盖全部 16 种机器人（完整包 id ↔ URL 短键），按 match 长度降序避免 go2w/go2、b2w/b2 前缀误匹配，消除「包下划线 ↔ 浏览器连字符」双轨。
+  - **PolicyContract 未平台化** → 观测字段级表述（含条件字段/循环状态）已并入 v3 schema，经 `observation_convergence` + `contract_loader` 接入统一加载。
+  - **生成契约手工种子** → `generate_contract_models.py --check` 已增强为守护顶层+嵌套字段，并在联网环境用 `--write` 工具核对同步。
 
 仍待处理（按影响排序）：
 
 | # | 债 | 证据 | 影响 |
 |---|---|---|---|
-| 1 | god file（simulation_api ~690（已拆 sim2sim browser helper）/ training_api ~936 / app.js ~5140） | 各文件 | 修改成本高、回归面大 |
+| 1 | god file（simulation_api ~690（已拆 sim2sim browser helper）/ app.js ~5140；training_api 已拆至 `backend/training/`） | 各文件 | 修改成本高、回归面大 |
 | 2 | 观测构造 `observationKind` 分支（已注册表化 `OBSERVATION_BUILDERS`，并已拆至 `web/sim2sim/obs/observation_builders.js` 独立模块，含 Node 单测） | `web/sim2sim/obs/observation_builders.js` | 新增一种策略契约只需在该模块注册一个 builder，无需改 app.js |
-| 3 | 机器人 id 命名双轨（包下划线 ↔ 浏览器连字符） | `normalizeRobotParam()` 别名表未覆盖全 16 种 | 新机器人接入易踩坑 |
 | 4 | sys.path.insert 遍布 worker/工具（已收敛控制面/CLI，训练栈隔离环境保留） | `contracts/path_bootstrap.py` + `native_worker._ensure_on_path` 已覆盖主入口 | 模块名冲突风险（剩余项在 mjlab 隔离环境） |
-| 5 | 生成契约模型为手工种子而非工具实际输出 | `generate_contract_models.py` docstring | 需联网工具；签入产物非确定性 |
-| 6 | `local_tasks/core/policy_contract.py`（Go2/G1 观测字段级）未合并进 v3 schema | policies 仅 Go2/G1 用 | 高质量抽象未平台化 |
 | 7 | 杂项：`httpx2` 拼写、requirements.txt 与 pyproject 双份、sim2sim models 重复 ONNX、__pycache__ 入打包 filter | 各处 | 机械性，易修 |
 
 ---

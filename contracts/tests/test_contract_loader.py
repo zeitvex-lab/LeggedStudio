@@ -100,3 +100,98 @@ class ContractLoaderTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FieldLevelObservationMergeTest(unittest.TestCase):
+    def test_v3_field_level_observation_merged(self):
+        """v3 的观测字段级表述（components/history/conditional/recurrent）应 merge 进最终契约。"""
+        v3 = {
+            "schema_version": "robot-contract-3.0",
+            "robot_id": "test_robot",
+            "family": "Test Robot",
+            "size_class": "M",
+            "locomotion_type": "P",
+            "morphology": {
+                "id": "quadruped_12dof", "legs": 4,
+                "leg_pattern": ["hip", "thigh", "calf"],
+                "leg_naming": "{LR}_{role}_joint", "leg_ids": ["FL", "FR", "RL", "RR"],
+            },
+            "joints": {
+                "actuated": [{"name": "FL_hip_joint", "role": "hip"}],
+                "passive": [],
+            },
+            "action": {"dimension": 1, "joint_order": ["FL_hip_joint"], "action_scale": 0.25},
+            "observation": {
+                "components": [
+                    {"name": "base_ang_vel", "width": 3, "source": "imu"},
+                    {"name": "cmd", "width": 3, "source": "cmd"},
+                ],
+                "dimension": 6,
+                "history_length": 10,
+                "history_order": "oldest_to_newest",
+                "history_reset": "zero",
+                "normalizer": {"mean": [0.0], "std": [1.0]},
+                "conditional_fields": [{"name": "motion", "width": 24, "source": "external"}],
+            },
+            "control": {"control_hz": 50, "physics_hz": 500, "decimation": 10},
+            "actuator_profile": {"default": {"stiffness": 20.0}},
+            "contract_id": "test_robot_v3",
+        }
+        v2 = {
+            "schema_version": "robot-contract-2.0",
+            "robot_id": "test_robot",
+            "contract_id": "test_robot_v2",
+            "joints": {"actuated_joints": ["FL_hip_joint"], "default_pose": [0.0]},
+            "observation": {"dimension": 48, "components": ["base_lin_vel"]},
+            "action": {"dimension": 1, "joint_order": ["FL_hip_joint"]},
+            "control": {"control_hz": 100},
+        }
+
+        merged = merge_v3_over_v2(v3, v2)
+        obs = merged["observation"]
+        # v3 字段级表述 wins（components 非空）。
+        self.assertEqual(obs["dimension"], 6)
+        self.assertEqual(len(obs["components"]), 2)
+        self.assertEqual(obs["history_length"], 10)
+        self.assertEqual(obs["history_order"], "oldest_to_newest")
+        self.assertEqual(obs["history_reset"], "zero")
+        self.assertEqual(obs["normalizer"], {"mean": [0.0], "std": [1.0]})
+        self.assertEqual(len(obs["conditional_fields"]), 1)
+
+    def test_v2_kept_when_v3_components_empty(self):
+        """v3 components 为空（宽度待补全）时保留 v2 组件名，但透传 v3 字段级元数据。"""
+        v3 = {
+            "schema_version": "robot-contract-3.0",
+            "robot_id": "test_robot",
+            "family": "Test",
+            "size_class": "M",
+            "locomotion_type": "P",
+            "morphology": {
+                "id": "quadruped", "legs": 4,
+                "leg_pattern": ["hip"], "leg_naming": "{LR}_{role}",
+                "leg_ids": ["FL", "FR", "RL", "RR"],
+            },
+            "joints": {"actuated": [{"name": "FL_hip_joint", "role": "hip"}], "passive": []},
+            "action": {"dimension": 1, "joint_order": ["FL_hip_joint"]},
+            "observation": {"components": [], "dimension": 48, "history_length": 5},
+            "control": {"control_hz": 50},
+            "actuator_profile": {"default": {"stiffness": 20.0}},
+            "contract_id": "test_robot_v3",
+        }
+        v2 = {
+            "schema_version": "robot-contract-2.0",
+            "robot_id": "test_robot",
+            "contract_id": "test_robot_v2",
+            "joints": {"actuated_joints": ["FL_hip_joint"]},
+            "observation": {"dimension": 48, "components": ["base_lin_vel"]},
+            "action": {"dimension": 1, "joint_order": ["FL_hip_joint"]},
+        }
+        merged = merge_v3_over_v2(v3, v2)
+        obs = merged["observation"]
+        self.assertEqual(len(obs["components"]), 1)  # 保留 v2 组件名
+        self.assertEqual(obs["history_length"], 5)   # 透传 v3 历史帧
+        self.assertEqual(obs["dimension"], 48)
+
+
+if __name__ == "__main__":
+    unittest.main()
