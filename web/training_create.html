@@ -1335,7 +1335,7 @@
       $('deviceMirror').innerHTML = device.innerHTML;
       $('deviceMirror').value = device.value;
 
-      renderHardwareBadges(hardware);
+      renderHardwareBadges(hardware, optionsData.frameworks || []);
 
       state.rewardDefaults = {};
       state.rewardTermLayers = {};
@@ -1345,7 +1345,7 @@
       });
     }
 
-    function renderHardwareBadges(hardware) {
+    function renderHardwareBadges(hardware, frameworks = []) {
       const torch = hardware.torch || {};
       const badges = [];
       badges.push(`<span class="hw-badge ${torch.cuda_available ? 'ok' : 'warn'}"><span class="dot"></span>${torch.cuda_available ? `CUDA 可用${torch.version ? ' · ' + escapeHtml(torch.version) : ''}` : 'CUDA 不可用（将以 CPU 训练）'}</span>`);
@@ -1354,6 +1354,19 @@
         badges.push('<span class="hw-badge ok" title="GET /api/training/hardware 探测结果"><span class="dot"></span>MJLab 运行时就绪</span>');
       } else {
         badges.push('<span class="hw-badge warn"><span class="dot"></span>MJLab 运行时不可用</span>');
+      }
+      // 框架能力边界声明：明确区分「可用」与「规划中」，避免把未接入的框架误当可用。
+      const fwOkay = frameworks.filter((f) => f.available);
+      const fwPlanned = frameworks.filter((f) => !f.available && f.planned);
+      const fwIdle = frameworks.filter((f) => !f.available && !f.planned);
+      if (fwOkay.length) {
+        badges.push(`<span class="hw-badge ok" title="训练后端边界声明"><span class="dot"></span>训练框架：${escapeHtml(fwOkay.map((f) => f.label || f.id).join(' / '))}（可用）</span>`);
+      }
+      if (fwPlanned.length) {
+        badges.push(`<span class="hw-badge warn" title="规划中，未接入训练，选择即报 501"><span class="dot"></span>规划中：${escapeHtml(fwPlanned.map((f) => f.label || f.id).join(' / '))}（未接入）</span>`);
+      }
+      if (fwIdle.length) {
+        badges.push(`<span class="hw-badge warn"><span class="dot"></span>其它框架：${escapeHtml(fwIdle.map((f) => f.label || f.id).join(' / '))}</span>`);
       }
       $('hwBadges').innerHTML = badges.join('');
     }
