@@ -47,7 +47,7 @@ H1_2 的 velocity 训练 profile 已就绪，出策略后其姿态保持即从�
 - Robot Contract、PolicyArtifact 和 Scenario Contract 是跨模块的事实来源，禁止在 UI、训练器和部署脚本中重复维护关节顺序或观测布局。
 - 能力声明必须区分候选、已验证、已闭环；SAC、TD3 在注册表保留扩展字段但当前不可运行。
 - MuJoCo 仅作为交互仿真引擎，永远不是训练后端。
-- ONNX 导出数值一致性 replay gate 已在导出链路闭环（DENYLIST fail-closed），但 GPU 长训练验收、复杂导航自动规划闭环、实机控制和安全门禁尚未达到完整 L4 验收。
+- ONNX 导出数值一致性 replay gate 已在导出链路闭环（DENYLIST fail-closed），GPU 长训练基线工具与导航感知-决策避障闭环已实现；但 GPU 长训练**实际验收跑通**、实机控制和安全门禁尚未达到完整 L4 验收。
 - UniLab、RoboLab、RC_WheelLeg 仅作为后续 adapter、契约和部署参考。
 
 ## 架构约束
@@ -79,7 +79,7 @@ Online 包不内置完整 Torch/MJLab 安装，仅携带 uv、CPython 基础文�
 
 0.17.0 已闭环：ONNX 数值一致性导出 gate（DENYLIST fail-closed 语义）、感知观测项通用抽象、交互式导航地图编辑器（A*/Dijkstra）、观测/动作映射板、设置区、工作台六区重构、导航评估写回策略档案。
 
-仍待推进（按风险从高到低）：**GPU 短 smoke 与长训练验收**（真未闭环）、**复杂导航自动规划闭环**（当前地图编辑器已能求路，但导航执行仍为已训 checkpoint 的航点回放，尚未接入感知-决策闭环在线运行）、**UniLab/RoboLab adapter**（框架选择 UI 已有 planned 占位）、**人工确认的实机部署包**（Go2 deploy/fsm.py 已有硬件无关状态机骨架，SDK 传输/安全门禁仍属 L4 待办）。每项扩展都必须先通过同一 Robot/Scenario/Policy 契约和可复现测试。
+仍待推进（按风险从高到低）：**GPU 长训练实际验收跑通**（`validate_training_smoke.py --mode longtrain` 基线工具已就绪，等待长训实跑验证）、**复杂导航在线实跑**（已实现地图障碍感知避障闭环 `nav_avoidance.py`，但真实「深度相机感知-实时决策」端到端仍需带训练栈环境验证）、**UniLab/RoboLab adapter**（框架选择 UI 已有 planned 占位）、**人工确认的实机部署包**（Go2 deploy/fsm.py 已有硬件无关状态机骨架，SDK 传输/安全门禁仍属 L4 待办）。每项扩展都必须先通过同一 Robot/Scenario/Policy 契约和可复现测试。
 
 ## 验收标准
 
