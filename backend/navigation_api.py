@@ -83,4 +83,34 @@ async def _run_native_navigation(task, request: NavigationRequest):
     if result.returncode != 0 or not navigation_file.exists():
         detail = result.stderr.strip()[-2000:] or result.stdout.strip()[-2000:] or f"native navigation exited with code {result.returncode}"
         raise HTTPException(status_code=500, detail=detail)
-    return {"success": True, "result": json.loads(navigation_file.read_text(encoding="utf-8"))}
+    nav_result = json.loads(navigation_file.read_text(encoding="utf-8"))
+    _record_navigation_evaluation(task, nav_result, request)
+    return {"success": True, "result": nav_result}
+
+
+def _record_navigation_evaluation(task, nav_result: dict, request: NavigationRequest) -> None:
+    """将结构化的导航评估（路径完成率/跟踪误差/碰撞/稳定性）回写 PolicyArtifact。
+
+    让策略档案真正可追溯：基础回放验证策略正确性，此处补充感知-决策闭环落档。
+    若任务尚无 artifact 或字段缺失，则静默跳过，不阻断导航主流程。
+    """
+    from contracts.policy_artifact import NavigationEvaluation, PolicyArtifact
+
+    artifact_path = task.task_dir / "artifact.json"
+    if not artifact_path.exists():
+        return
+    try:
+        artifact = PolicyArtifact.from_json_file(str(artifact_path))
+        artifact.navigation_evaluation = NavigationEvaluation(
+            map_id=request.map_id,
+            waypoints=request.waypoints,
+            episodes=request.episodes,
+            route_completion=float(nav_result.get("route_completion", 0.0)),
+            mean_tracking_error=float(nav_result.get("mean_tracking_error", 0.0)),
+            collision_count=int(nav_result.get("collision_count", 0)),
+            stability_score=float(nav_result.get("stability_score", 0.0)),
+            evaluated_env=str(nav_result.get("evaluated_env", "native_mjlab_navigation")),
+        )
+        artifact.to_json_file(str(artifact_path))
+    except Exception:  # pragma: no cover - best-effort writeback
+        return
