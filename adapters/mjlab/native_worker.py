@@ -813,10 +813,16 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             max_steps = max(1, int(config.get("max_steps", 500)))
             term = env.command_manager.get_term("twist")
             completions = []
+            tracking_errors = []
+            stability_flags = []
+            collision_flags = []
             with torch.no_grad():
                 for _ in range(max(1, int(config.get("episodes", 1)))):
                     obs, _ = wrapped.reset()
                     waypoint_index = 0
+                    episode_track_error = 0.0
+                    episode_steps = 0
+                    early_stop = False
                     for _step_index in range(max_steps):
                         position = env.scene["robot"].data.root_link_pos_w[0, :2]
                         while waypoint_index < len(route):
@@ -828,16 +834,32 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                             break
                         target = torch.as_tensor(route[min(waypoint_index, len(route) - 1)], device=device, dtype=position.dtype)
                         delta = target - position
+                        episode_track_error += float(torch.linalg.norm(position - target).item())
+                        episode_steps += 1
                         term.command[:] = torch.stack((torch.clamp(delta[0], -1.0, 1.0), torch.clamp(delta[1], -1.0, 1.0), torch.tensor(0.0, device=device)))
                         action = policy(obs)
                         obs, _reward, dones, _extras = wrapped.step(action)
                         position = env.scene["robot"].data.root_link_pos_w[0, :2]
                         if waypoint_index < len(route) and float(torch.linalg.norm(position - target).item()) <= tolerance:
                             waypoint_index += 1
-                        if bool(dones.any().item()) or waypoint_index >= len(route):
+                        if bool(dones.any().item()):
+                            early_stop = True
+                            break
+                        if waypoint_index >= len(route):
                             break
                     completions.append(waypoint_index / len(route))
-            report.update({"status": "navigation_completed", "route_completion": sum(completions) / len(completions), "waypoints": route, "evaluated_env": "native_mjlab_navigation"})
+                    tracking_errors.append(episode_track_error / max(1, episode_steps))
+                    stability_flags.append(1.0 if (waypoint_index >= len(route) and not early_stop) else 0.0)
+                    collision_flags.append(1.0 if early_stop else 0.0)
+            report.update({
+                "status": "navigation_completed",
+                "route_completion": sum(completions) / len(completions),
+                "mean_tracking_error": sum(tracking_errors) / len(tracking_errors),
+                "stability_score": sum(stability_flags) / len(stability_flags),
+                "collision_count": sum(collision_flags),
+                "waypoints": route,
+                "evaluated_env": "native_mjlab_navigation",
+            })
             _write(output / "navigation.json", report)
         _write(output / "native_preflight.json", report)
         _write(output / "status.json", {"status": "completed", **report})
