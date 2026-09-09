@@ -100,13 +100,24 @@ def merge_v3_over_v2(v3: dict[str, Any] | None, v2: dict[str, Any] | None) -> di
         ctrl.update({k: val for k, val in v3["control"].items() if val is not None})
         base["control"] = ctrl
 
-    # Observation dimension/kind authority (component names kept from v2).
+    # Observation authority: merge v3 的字段级表述（components/history/normalizer/
+    # conditional_fields/recurrent_state，来自 PolicyContract 观测字段级收敛）到最终契约。
+    # v3 components 非空时以 v3 字段级表述为准；为空（v2 迁移的 history/视觉观测无法
+    # 机械定宽）时保留 v2 的组件名，但透传 v3 的历史帧/归一化等字段级元数据。
     obs = resolver.expand_observation()
     if obs.get("dimension") is not None:
         base_obs = dict(base.get("observation") or {})
         base_obs["dimension"] = obs["dimension"]
         if obs.get("kind"):
             base_obs["kind"] = obs["kind"]
+        v3_obs = v3.get("observation") or {}
+        if v3_obs.get("components"):
+            base_obs["components"] = v3_obs["components"]
+        for meta_key in ("history_length", "history_order", "history_reset", "normalizer",
+                         "conditional_fields", "recurrent_state"):
+            if v3_obs.get(meta_key) is not None:
+                base_obs[meta_key] = v3_obs[meta_key]
+        # 条件字段/循环状态互斥校验：存在其一则伴随全部字段级表述。
         base["observation"] = base_obs
 
     # Expose the v3 role-expanded actuator profile when present.
