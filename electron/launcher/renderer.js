@@ -177,11 +177,15 @@ function renderHealth(health) {
     log(`[health] backend v${health?.version || 'unknown'} · ${features.length} features\n`);
 }
 
-async function fetchJson(route) {
+async function fetchJson(route, options = {}) {
     if (!state.backendRunning) throw new Error('Control plane is not running');
     const base = await api.backendUrl();
-    const response = await fetch(`${base}${route}`);
-    if (!response.ok) throw new Error(`${route}: HTTP ${response.status}`);
+    const response = await fetch(`${base}${route}`, options);
+    if (!response.ok) {
+        let detail = `${route}: HTTP ${response.status}`;
+        try { const d = await response.json(); detail = d?.detail || d?.error || detail; } catch {}
+        throw new Error(detail);
+    }
     return response.json();
 }
 
@@ -330,6 +334,64 @@ async function saveSettings() {
     toast('设置已保存', 'success');
 }
 
+// --- Backend settings surfaced in the desktop launcher (set workspace/mirror) ---
+async function loadMirrorSetting() {
+    if (!state.backendRunning) return;
+    try {
+        const data = await fetchJson('/api/settings');
+        const mirror = data?.settings?.mirror || 'tsinghua';
+        const select = $('#mirror-select');
+        if (select) select.value = mirror;
+        const label = data?.catalog?.mirrors?.[mirror]?.label || mirror;
+        const el = $('#mirror-status');
+        if (el) el.textContent = `当前镜像源：${label}（保存后在下次重装运行时生效）`;
+    } catch (e) {
+        const el = $('#mirror-status');
+        if (el) el.textContent = `读取镜像源失败：${e.message}`;
+    }
+}
+
+function dataCatalogLabel(mirror) {
+    const map = {
+        tsinghua: '清华 PyPI + 上海交大 cu128',
+        sjtu: '上海交大（PyPI + cu128）',
+        official: '官方源（PyPI + PyTorch cu128）',
+    };
+    return map[mirror] || null;
+}
+
+async function saveMirror() {
+    if (!requireBackend()) return;
+    const mirror = $('#mirror-select')?.value || 'tsinghua';
+    try {
+        const r = await fetchJson('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mirror }),
+        });
+        const sel = $('#mirror-select');
+        const label = sel?.selectedOptions?.[0]?.textContent || mirror;
+        const catalogLabel = r?.settings?.mirror ? (dataCatalogLabel(r?.settings?.mirror) || label) : label;
+        $('#mirror-status').textContent = `镜像源已保存：${catalogLabel}（重装运行时后生效）`;
+        toast('镜像源已保存', 'success');
+    } catch (e) {
+        toast(`保存镜像源失败：${e.message}`, 'error');
+    }
+}
+
+async function cleanupWorkspace() {
+    if (!requireBackend()) return;
+    const confirmed = confirm('确认清理工作区暂存/缓存？训练历史与已导入的 packages/ 不受影响。');
+    if (!confirmed) return;
+    try {
+        const d = await fetchJson('/api/settings/workspace/cleanup', { method: 'POST' });
+        $('#cleanup-detail').textContent = `已清理 ${d.removed?.length ?? 0} 项 · 释放 ${d.freed_bytes ?? 0} 字节`;
+        toast('工作区清理完成', 'success');
+    } catch (e) {
+        toast(`清理失败：${e.message}`, 'error');
+    }
+}
+
 async function prepareEnvironment() {
     const result = await api.prepareEnvironment();
     $('#workspace-detail').textContent = result.ok ? result.directories.join(' · ') : `初始化失败：${result.error}`;
@@ -425,6 +487,7 @@ function activatePage(page) {
     $$('.page').forEach((view) => view.classList.toggle('active', view.dataset.view === page));
     if (page === 'assets' && state.backendRunning && !state.assets) refreshState();
     if (page === 'training' && state.backendRunning) fetchJson('/api/training/list').then(renderTraining).catch(() => {});
+    if (page === 'settings' && state.backendRunning) loadMirrorSetting();
 }
 
 $('#navigation').addEventListener('click', (event) => {
@@ -452,6 +515,8 @@ $('#configure-runtime').addEventListener('click', configureRuntime);
 $('#configure-runtime-settings').addEventListener('click', configureRuntime);
 $('#save-settings').addEventListener('click', saveSettings);
 $('#prepare-environment').addEventListener('click', prepareEnvironment);
+$('#save-mirror').addEventListener('click', saveMirror);
+$('#cleanup-workspace').addEventListener('click', cleanupWorkspace);
 $$('input[name="torch-device"]').forEach((radio) => radio.addEventListener('change', syncDeviceDisplay));
 $$('[data-open-path]').forEach((button) => button.addEventListener('click', () => api.openPath(button.dataset.openPath)));
 $('#minimize').addEventListener('click', () => api.minimize());
