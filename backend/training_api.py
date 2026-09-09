@@ -20,6 +20,7 @@ from contracts.robot_contract_v2 import RobotContractV2
 from adapters.mjlab.env_factory import get_reward_terms
 from adapters.mjlab.algorithms.registry import list_algorithms
 from adapters.mjlab.recipe_registry import list_tasks, resolve_recipe
+from adapters.backend_adapter import list_backend_descriptors
 from backend.robot_packages import package_for_contract
 from backend.robot_presets import get_robot_preset
 
@@ -267,13 +268,12 @@ async def training_options():
         "reward_terms": get_reward_terms(),
         "tasks": list_tasks(),
         "hardware": await training_hardware(),
-        # 框架选择：native_mjlab 可用；unilab 为已规划、尚未接入的框架。
+        # 框架选择：由 BackendAdapter 注册表（adapters/backend_adapter.py）单一事实源输出。
         "frameworks": [
-            {"id": "native_mjlab", "label": "MJLab", "available": True,
-             "note": "当前唯一接入的框架，训练走隔离 adapter 环境"},
-            {"id": "unilab", "label": "UniLab", "available": False,
-             "planned": True,
-             "note": "Hydra/OmegaConf 配置体系已调研，适配后开放"},
+            {"id": desc.id, "label": desc.label, "available": desc.available,
+             "planned": not desc.available,
+             "note": desc.note or f"{desc.label}（{desc.python_env}）"}
+            for desc in list_backend_descriptors()
         ],
     }
 
