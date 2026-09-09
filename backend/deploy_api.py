@@ -23,12 +23,13 @@ class DeployPackageRequest(BaseModel):
     robot_id: str
     policy_onnx_path: str | None = None  # 可选：随包携带策略 ONNX
     degraded: bool = False  # T3.4 劣化参数档：力矩 ×0.8（跑稳再上真机）
+    target_platform: str = "unitree_sdk2"  # 目标平台模板：unitree_sdk2 / ros2
 
 
 @router.post("/package")
 async def create_deploy_package(request: DeployPackageRequest):
     try:
-        report = generate_deploy_package(request.robot_id, degraded=request.degraded)
+        report = generate_deploy_package(request.robot_id, degraded=request.degraded, target_platform=request.target_platform)
         if request.policy_onnx_path:
             from pathlib import Path as _P
             import zipfile
