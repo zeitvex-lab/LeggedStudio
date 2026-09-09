@@ -27,6 +27,18 @@ def _write(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def _ensure_on_path(path) -> None:
+    """Idempotently prepend *path* to ``sys.path`` if not already present.
+
+    Centralises the scattered ``if ... not in sys.path: sys.path.insert(0, ...)``
+    boilerplate in this worker.  *path* may be a ``str`` or ``Path``; it is
+    resolved and deduplicated before insertion.
+    """
+    normalized = str(Path(path).resolve())
+    if normalized not in sys.path:
+        sys.path.insert(0, normalized)
+
+
 def build_deploy_metadata(env, rl_cfg, joint_names: list[str]) -> dict:
     """从 mjlab env 提取部署契约元数据（键与 onnx_exporter/浏览器校验对齐）。"""
     import mujoco
@@ -401,8 +413,7 @@ def _load_profile_bundle(profile: dict, package: dict, config: dict):
     source_root = package_root / str(profile.get("source_root", "training/source"))
     if not source_root.exists():
         raise FileNotFoundError(f"profile source root not found: {source_root}")
-    if str(source_root) not in sys.path:
-        sys.path.insert(0, str(source_root))
+    _ensure_on_path(source_root)
     entrypoints = profile.get("entrypoints") or {}
     env_entrypoint = entrypoints.get("env")
     runner_entrypoint = entrypoints.get("runner")
@@ -454,12 +465,11 @@ def _load_package_extension(package: dict) -> dict:
         root = Path(str(extension_root))
         if not root.is_absolute():
             root = package_root / root
-        if root.exists() and str(root) not in sys.path:
-            sys.path.insert(0, str(root))
+        if root.exists():
+            _ensure_on_path(root)
     # Package source is always available for its extension module, even when
     # the selected profile has a different source_root.
-    if str(package_root) not in sys.path:
-        sys.path.insert(0, str(package_root))
+    _ensure_on_path(package_root)
     register = _import_entrypoint(str(entrypoint))
     result = _call_factory(register)
     return result if isinstance(result, dict) else {"result": result}
@@ -520,10 +530,9 @@ def _dump_profile_schema(config: dict) -> dict:
 def run(config: dict, source: Path, output: Path, extension_root: Path | None = None) -> int:
     _write(output / "status.json", {"status": "running", "backend": "native_mjlab"})
     project_root = Path(__file__).resolve().parents[2]
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
+    _ensure_on_path(project_root)
     from adapters.mjlab.runtime_compat import evaluate_package_runtime
-    sys.path.insert(0, str(source / "src"))
+    _ensure_on_path(source / "src")
     package = config.get("robot_package") or {}
     generic_bundle = None
     profile = None
@@ -599,7 +608,7 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         package_root = Path(str(package.get("package_root", ""))) if package else None
         if package_root and (package_root / "model" / "robot.xml").is_file():
             import mujoco
-            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            _ensure_on_path(Path(__file__).resolve().parent)
             from policy_acceptance import ObsBuilder, PackageContract, load_package_model, run_probe
 
             package_contract = PackageContract(package_root, (config.get("policy") or {}))
