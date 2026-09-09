@@ -3505,69 +3505,37 @@ function readImuSample() {
     || captureImuSample();
 }
 
+// Registry-driven observation dispatch.  Adding a new policy observation
+// contract only requires registering a builder here instead of adding another
+// if-branch to buildObservation().  All builders live in the same module so
+// they freely share CONFIG/sim/input helpers.
+const OBSERVATION_BUILDERS = {
+  microduck_61: buildMicroDuckObservation,
+  zexw_53: buildZexWObservation,
+  quadrupedal_agility_ll: buildAgilityLowLevelObservation,
+  s07_amp_cts: buildS07AmpCtsObservation,
+  g1_amp_96: buildG1AmpObservation,
+  go2w_53: buildGo2wLegsObservation,
+  go2w_mjlab_legs_53: buildGo2wMjlabLegsObservation,
+  go2w_rl_sdk_57: buildGo2wRlSdkObservation,
+  go2_rl_sdk_45: buildGo2RlSdkObservation,
+  go2_motion_69: buildGo2MotionObservation,
+  g1_motion_154: buildG1Motion154Observation,
+  g1_mjlab_velocity_98: buildG1MjlabVelocityObservation,
+  g1_mjswan_locomotion: buildG1MjswanLocomotionObservation,
+  g1_mjswan_balance: buildG1MjswanBalanceObservation,
+  [WHEEL_LEG_GAIT_OBSERVATION]: buildWheelLegGaitObservation,
+  [WHEEL_LEG_JUMP_OBSERVATION]: buildWheelLegJumpObservation,
+};
+
 function buildObservation() {
-  if (CONFIG.observationKind === "microduck_61") {
-    buildMicroDuckObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "zexw_53") {
-    buildZexWObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "quadrupedal_agility_ll") {
-    buildAgilityLowLevelObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "s07_amp_cts") {
-    buildS07AmpCtsObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "g1_amp_96") {
-    buildG1AmpObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "go2w_53") {
-    buildGo2wLegsObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "go2w_mjlab_legs_53") {
-    buildGo2wMjlabLegsObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "go2w_rl_sdk_57") {
-    buildGo2wRlSdkObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "go2_rl_sdk_45") {
-    buildGo2RlSdkObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "go2_motion_69") {
-    buildGo2MotionObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "g1_motion_154") {
-    buildG1Motion154Observation();
-    return;
-  }
-  if (CONFIG.observationKind === "g1_mjlab_velocity_98") {
-    buildG1MjlabVelocityObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "g1_mjswan_locomotion") {
-    buildG1MjswanLocomotionObservation();
-    return;
-  }
-  if (CONFIG.observationKind === "g1_mjswan_balance") {
-    buildG1MjswanBalanceObservation();
-    return;
-  }
-  if (CONFIG.observationKind === WHEEL_LEG_GAIT_OBSERVATION) {
-    buildWheelLegGaitObservation();
-    return;
-  }
-  if (CONFIG.observationKind === WHEEL_LEG_JUMP_OBSERVATION) {
-    buildWheelLegJumpObservation();
+  // Wait for the registered builders to be attached (they are hoisted function
+  // declarations, so OBSERVATION_BUILDERS already references them at module
+  // top level).  Dispatch via registry; fall back to the generic locomotion
+  // builder when the observation kind is unregistered.
+  const builder = OBSERVATION_BUILDERS[CONFIG.observationKind];
+  if (builder) {
+    builder();
     return;
   }
   buildLocomotionObservation();
