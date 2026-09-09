@@ -14,9 +14,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+# 统一自举：见 contracts/path_bootstrap.py。支持被裸脚本导入时自举到仓库根。
+if str(Path(__file__).resolve().parents[1]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from contracts.path_bootstrap import bootstrap_root  # noqa: E402
+
+ROOT = bootstrap_root()
 
 from contracts.role_resolver import RoleResolver, build_v3_contract  # noqa: E402
 

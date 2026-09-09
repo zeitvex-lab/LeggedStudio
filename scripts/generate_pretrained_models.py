@@ -5,7 +5,13 @@ Pretrained Model Generator
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+# 统一自举：见 contracts/path_bootstrap.py。原代码误用 parent.parent.parent 会
+# 把 ``/`` 而非仓库根放进 sys.path，这里收敛为 path_bootstrap 的单一真值源。
+if str(Path(__file__).resolve().parents[1]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from contracts.path_bootstrap import ensure_project_root_on_path
+ensure_project_root_on_path()
 
 from contracts.robot_contract_v2 import create_go2_contract
 from adapters.mjlab.complete_trainer import CompleteTrainer
