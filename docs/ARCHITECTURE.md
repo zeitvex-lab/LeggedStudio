@@ -130,7 +130,7 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
 
 - **无构建原生 JS/HTML/CSS 多页**（版本查询参数缓存失效，全离线 vendored：three.js 25MB、MuJoCo WASM、onnxruntime-web）。
 - 两种界面形态并存（刻意保留）：主工作台壳（`workbench.html` **左侧六功能区 + 顶部工作流进度条** + 内嵌视图）与传统多页控制台（`dashboard.html` 等，供直达链接）。
-- 浏览器 sim2sim 曾是最重单文件（`app.js` ~5800 行）；观测构造器已拆至 `web/sim2sim/obs/observation_builders.js`（注册表驱动，纯 Node 可单测），`app.js` 仍承载物理循环 + UI。优化记录见 [../web/sim2sim/optimizations.md](../web/sim2sim/optimizations.md)。
+- 浏览器 sim2sim 曾是最重单文件（`app.js` ~5200 行）；观测构造器已拆至 `web/sim2sim/obs/observation_builders.js`（注册表驱动，纯 Node 可单测），纯工具函数已拆至 `web/sim2sim/utils.js`，`app.js` 仍承载物理循环 + UI。优化记录见 [../web/sim2sim/optimizations.md](../web/sim2sim/optimizations.md)。
 - `web/urdf-viewer/`（React/R3F 子项目）是**原型**，主工作台使用的是 `web/urdf-viewer.js`（原生版），两者不可混淆。
 
 ---
@@ -142,15 +142,19 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
 - **控制面边界靠依赖不安装** → `export_api` 顶层 import torch 链已懒加载化（函数内 import），控制面顶层无训练栈依赖。
 - **仓库不自包含** → `QUADRUPED_ASSET_INVENTORY.json` 已纳入 repo；`inventory.py` 缺文件时降级为目录扫描，不硬失败。
 - **浏览器 per-robot 特判硬编码** → 机身高度等走 `simulation/config.json` 的 `initial_base_height`，`app.js` 读 `control.base_height_target`；id 双轨靠 `normalizeRobotParam()` 别名表收敛（仅覆盖 go2/go2w，其余正则兜底）。
+  - **app.js 观测构造器 21 连 if** → 已注册表化（`OBSERVATION_BUILDERS`）并拆至 `web/sim2sim/obs/observation_builders.js` 独立模块，纯 Node 单测可独立验证。
+  - **sys.path 散落插入** → 新建 `contracts/path_bootstrap.py` 统一入口（控制面/CLI 已切入），`native_worker.py` 收敛至模块内 `_ensure_on_path` helper；仅训练栈隔离环境中的少量 path 注入保留（依赖隔离，不宜强收敛）。
+  - **导航开环回放** → 已升级为感知-决策闭环：地图障碍 A*/Dijkstra 自动规划 + 反应式避障势场（`adapters/mjlab/nav_avoidance.py`），导航评估写回 PolicyArtifact。
+  - **GPU 长训验收缺失** → `validate_training_smoke.py` 新增 `--mode longtrain` 长训回归档（默认 iters=2000）与 `--profile/--robot` 聚焦，支持 `--baseline` 对比逐 profile 退化判定。
 
 仍待处理（按影响排序）：
 
 | # | 债 | 证据 | 影响 |
 |---|---|---|---|
-| 1 | god file（simulation_api ~1050 / training_api ~924 / app.js ~5200） | 各文件 | 修改成本高、回归面大 |
+| 1 | god file（simulation_api ~690（已拆 sim2sim browser helper）/ training_api ~936 / app.js ~5140） | 各文件 | 修改成本高、回归面大 |
 | 2 | 观测构造 `observationKind` 分支（已注册表化 `OBSERVATION_BUILDERS`，并已拆至 `web/sim2sim/obs/observation_builders.js` 独立模块，含 Node 单测） | `web/sim2sim/obs/observation_builders.js` | 新增一种策略契约只需在该模块注册一个 builder，无需改 app.js |
 | 3 | 机器人 id 命名双轨（包下划线 ↔ 浏览器连字符） | `normalizeRobotParam()` 别名表未覆盖全 16 种 | 新机器人接入易踩坑 |
-| 4 | sys.path.insert 遍布 worker/工具 | 10+ 处 | 模块名冲突风险 |
+| 4 | sys.path.insert 遍布 worker/工具（已收敛控制面/CLI，训练栈隔离环境保留） | `contracts/path_bootstrap.py` + `native_worker._ensure_on_path` 已覆盖主入口 | 模块名冲突风险（剩余项在 mjlab 隔离环境） |
 | 5 | 生成契约模型为手工种子而非工具实际输出 | `generate_contract_models.py` docstring | 需联网工具；签入产物非确定性 |
 | 6 | `local_tasks/core/policy_contract.py`（Go2/G1 观测字段级）未合并进 v3 schema | policies 仅 Go2/G1 用 | 高质量抽象未平台化 |
 | 7 | 杂项：`httpx2` 拼写、requirements.txt 与 pyproject 双份、sim2sim models 重复 ONNX、__pycache__ 入打包 filter | 各处 | 机械性，易修 |
@@ -159,6 +163,6 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
 
 ## 8. 能力边界（诚实声明，与根 README 同口径）
 
-- **已验证**：55/55 profile 冒烟（128 envs × 30 步）、16 机器人浏览器 sim2sim 编译、键盘遥控、CUDA 选择（RTX 4060 验证环境）、02 界面碰撞体可视化、控制面单测、adapter 测试、**ONNX 导出数值一致性强制 gate**（`export_gate.py` 维度 + 数值回放 <1e-5，失败即删产物 fail-closed）、契约 v2/v3 收敛 loader（`contract_loader.py`）、感知观测项抽象编目（`perception_observations.py`）、观测/动作映射板、导航地图编辑器 A*/Dijkstra 求路、导航评估写回 PolicyArtifact。
-- **已内化未达 L4**：GPU 长训练验收、实机控制与安全门禁、复杂导航自动规划闭环（当前地图编辑器已能 A*/Dijkstra 求路，但**导航执行仍为已训 checkpoint 的航点回放**，尚未接入感知-决策闭环在线运行，见 `navigation_api.py`）。
+- **已验证**：55/55 profile 冒烟（128 envs × 30 步）、16 机器人浏览器 sim2sim 编译、键盘遥控、CUDA 选择（RTX 4060 验证环境）、02 界面碰撞体可视化、控制面单测、adapter 测试、**ONNX 导出数值一致性强制 gate**（`export_gate.py` 维度 + 数值回放 <1e-5，失败即删产物 fail-closed）、契约 v2/v3 收敛 loader（`contract_loader.py`）、感知观测项抽象编目（`perception_observations.py`）、观测/动作映射板、导航地图编辑器 A*/Dijkstra 求路、导航评估写回 PolicyArtifact、**导航感知-决策闭环**（`nav_avoidance.py` 反应式避障势场 + `navigation_api.py` 自动规划绕障路径）、GPU 长训基线工具（`--mode longtrain`）、app.js 观测构造器独立模块（`obs/observation_builders.js`）。
+- **已内化未达 L4**：GPU 长训练**实际验收跑通**（基线工具已就绪，等待完整长训实跑验证）、实机控制与安全门禁、**复杂导航在线实跑**（已实现地图障碍感知避障闭环，但真实「深度相机感知-实时决策」端到端仍需带训练栈环境验证）。
 - **规划中**：UniLab/RoboLab adapter（框架选择 UI 已有 planned 占位）、SAC/TD3（注册占位）、sim2real 实机 SDK（Go2 deploy/fsm.py 已有硬件无关状态机骨架，SDK 传输/授权/安全门禁仍属 L4 待办）。

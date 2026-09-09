@@ -86,8 +86,8 @@ adapter 侧测试在 `adapters/mjlab/test_*.py`（其 venv 内运行）。
 ## 能力边界（诚实声明）
 
 - 已验证：控制面单测、MJLab adapter 测试、16 机器人浏览器 sim2sim 全量编译通过（55/55 训练 profile 冒烟验证）、键盘遥控、CUDA 选择（RTX 4060 验证环境）、02 界面碰撞体可视化（视觉降透明让内部碰撞透出）、ONNX 导出数值一致性强制 gate（维度 + 数值回放 <1e-5，失败即删产物，`backend/export_gate.py`）、契约 v3 构型/角色/armature（`contracts/schema/robot-contract-3.0` + `role_resolver`）。
-- 近期落地：左侧六功能区 + 顶部工作流进度条的工作台（`web/workbench.html`）、设置区（`backend/settings_api.py` + `web/settings.html`：GPU profile 切换/重装、端口、Python 覆盖、镜像源、工作区清理）、训练观测/动作映射板（`training_create.html`：标准观测库→策略输入槽位，维度自动校验，专家模式 dot-path）、交互式导航地图编辑器（`web/navigation_editor.html`：画障碍/设航点→A*/Dijkstra 自动求路）、感知观测项通用抽象（`backend/perception_observations.py`：足端接触→高度场→深度相机 PIE 106×60）、导航评估写回策略档案（`navigation_api.py::_record_navigation_evaluation`）。
-- 未闭环：GPU 长训练验收、复杂导航自动规划闭环（当前地图编辑器已提供 A*/Dijkstra 求路，但导航执行仍为已训 checkpoint 的航点回放，尚未接入感知-决策闭环在线运行）、实机控制与安全门禁（L4）。
+- 近期落地：左侧六功能区 + 顶部工作流进度条的工作台（`web/workbench.html`）、设置区（`backend/settings_api.py` + `web/settings.html`：GPU profile 切换/重装、端口、Python 覆盖、镜像源、工作区清理）、训练观测/动作映射板（`training_create.html`：标准观测库→策略输入槽位，维度自动校验，专家模式 dot-path）、交互式导航地图编辑器（`web/navigation_editor.html`：画障碍/设航点→A*/Dijkstra 自动求路）、感知观测项通用抽象（`backend/perception_observations.py`：足端接触→高度场→深度相机 PIE 106×60）、导航评估写回策略档案（`navigation_api.py::_record_navigation_evaluation`）、导航感知-决策闭环（`adapters/mjlab/nav_avoidance.py` 反应式避障势场）、GPU 长训回归基线（`validate_training_smoke.py --mode longtrain`）、契约 v2/v3 收敛 loader（`contracts/contract_loader.py`）、sys.path 统一收敛（`contracts/path_bootstrap.py`）、app.js 观测构造器独立模块（`web/sim2sim/obs/observation_builders.js`）、export_api torch 懒加载、仓库自包含修复。
+- 未闭环（L4）：GPU 长训练**实际验收跑通**（ 基线工具已就绪）、复杂导航**在线实跑**（已实现地图障碍感知避障闭环，深度相机实时决策端到端仍需训练栈环境验证）、实机控制与安全门禁。
 - Online 包不内置 Torch/MJLab：仅携带 uv、CPython 引导文件与固定源码快照，用户点 Configure Runtime 后才安装。国内默认清华 PyPI + 上海交大 cu128 镜像；NVIDIA 驱动用户自备。
 - 完整能力分级（已验证 / 已内化 / 规划中）与已知技术债清单见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §8 与 §7。
 
