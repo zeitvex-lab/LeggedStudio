@@ -130,7 +130,7 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
 
 - **无构建原生 JS/HTML/CSS 多页**（版本查询参数缓存失效，全离线 vendored：three.js 25MB、MuJoCo WASM、onnxruntime-web）。
 - 两种界面形态并存（刻意保留）：主工作台壳（`workbench.html` **左侧六功能区 + 顶部工作流进度条** + 内嵌视图）与传统多页控制台（`dashboard.html` 等，供直达链接）。
-- 浏览器 sim2sim 为项目最重的单文件（`app.js` ~5800 行，观测构造器 × 机器人布局 + 物理循环 + UI），优化记录见 [../web/sim2sim/optimizations.md](../web/sim2sim/optimizations.md)。
+- 浏览器 sim2sim 曾是最重单文件（`app.js` ~5800 行）；观测构造器已拆至 `web/sim2sim/obs/observation_builders.js`（注册表驱动，纯 Node 可单测），`app.js` 仍承载物理循环 + UI。优化记录见 [../web/sim2sim/optimizations.md](../web/sim2sim/optimizations.md)。
 - `web/urdf-viewer/`（React/R3F 子项目）是**原型**，主工作台使用的是 `web/urdf-viewer.js`（原生版），两者不可混淆。
 
 ---
@@ -147,8 +147,8 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
 
 | # | 债 | 证据 | 影响 |
 |---|---|---|---|
-| 1 | god file（simulation_api ~1050 / training_api ~924 / app.js ~5800） | 各文件 | 修改成本高、回归面大 |
-| 2 | 观测构造 `observationKind` 分支（本已注册表化 `OBSERVATION_BUILDERS`，但多个 builder 仍同置 app.js 单文件，未拆独立模块） | `app.js:3531` 注册表分发 | 新增一种策略契约仍要改 app.js |
+| 1 | god file（simulation_api ~1050 / training_api ~924 / app.js ~5200） | 各文件 | 修改成本高、回归面大 |
+| 2 | 观测构造 `observationKind` 分支（已注册表化 `OBSERVATION_BUILDERS`，并已拆至 `web/sim2sim/obs/observation_builders.js` 独立模块，含 Node 单测） | `web/sim2sim/obs/observation_builders.js` | 新增一种策略契约只需在该模块注册一个 builder，无需改 app.js |
 | 3 | 机器人 id 命名双轨（包下划线 ↔ 浏览器连字符） | `normalizeRobotParam()` 别名表未覆盖全 16 种 | 新机器人接入易踩坑 |
 | 4 | sys.path.insert 遍布 worker/工具 | 10+ 处 | 模块名冲突风险 |
 | 5 | 生成契约模型为手工种子而非工具实际输出 | `generate_contract_models.py` docstring | 需联网工具；签入产物非确定性 |
