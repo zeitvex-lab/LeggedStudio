@@ -28,13 +28,16 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys_path = str(ROOT)
-if sys_path not in __import__("sys").path:
-    __import__("sys").path.insert(0, sys_path)
+# 统一自举：见 contracts/path_bootstrap.py。
+if str(Path(__file__).resolve().parents[1]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from contracts.path_bootstrap import bootstrap_root  # noqa: E402
+
+ROOT = bootstrap_root()
 
 from backend.robot_packages import list_robot_packages  # noqa: E402
 
