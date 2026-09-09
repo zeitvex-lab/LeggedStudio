@@ -56,6 +56,10 @@ class NavigationEvaluation(BaseModel):
     collision_count: int = Field(ge=0)                # 碰撞次数
     stability_score: float = Field(ge=0.0, le=1.0)    # 稳定性得分（走完全程/未跌倒）
     evaluated_env: str = "native_mjlab_navigation"
+    # 感知-决策闭环指标（Feature 1）：当导航启用了反应式避障时记录其介入程度。
+    use_avoidance: bool = False
+    avoidance_engagement: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    min_obstacle_distance_m: Optional[float] = Field(default=None, ge=0.0)
     evaluated_at: datetime = Field(default_factory=datetime.now)
 
 

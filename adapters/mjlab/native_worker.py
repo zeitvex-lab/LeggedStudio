@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 import traceback
@@ -811,11 +812,24 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             route = config.get("waypoints") or [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]]
             tolerance = float(config.get("waypoint_tolerance", 0.35))
             max_steps = max(1, int(config.get("max_steps", 500)))
+            obstacles = config.get("obstacles") or []
+            # 感知-决策闭环（Feature 1）：当提供了地图障碍时，启用反应式避障控制器，
+            # 在 A* 规划路径的航点跟踪之上叠加势场斥力，使机器人实时对世界障碍做出反应，
+            # 而不是开环地沿预设航点指令行走。控制器为纯 Python 实现，不含 torch/mjlab。
+            use_avoidance = bool(obstacles) and bool(config.get("use_avoidance", True))
+            if use_avoidance:
+                from adapters.mjlab.nav_avoidance import AvoidanceConfig, compute_avoidance_command
+            avoidance_cfg = AvoidanceConfig(**{
+                key: value for key, value in (config.get("avoidance_config") or {}).items()
+                if key in AvoidanceConfig.__annotations__
+            }) if use_avoidance else None
             term = env.command_manager.get_term("twist")
             completions = []
             tracking_errors = []
             stability_flags = []
             collision_flags = []
+            avoidance_active_flags = []
+            nearest_distances = []
             with torch.no_grad():
                 for _ in range(max(1, int(config.get("episodes", 1)))):
                     obs, _ = wrapped.reset()
@@ -823,6 +837,8 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                     episode_track_error = 0.0
                     episode_steps = 0
                     early_stop = False
+                    episode_avoid_active = False
+                    episode_min_nearest = float("inf")
                     for _step_index in range(max_steps):
                         position = env.scene["robot"].data.root_link_pos_w[0, :2]
                         while waypoint_index < len(route):
@@ -836,7 +852,24 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                         delta = target - position
                         episode_track_error += float(torch.linalg.norm(position - target).item())
                         episode_steps += 1
-                        term.command[:] = torch.stack((torch.clamp(delta[0], -1.0, 1.0), torch.clamp(delta[1], -1.0, 1.0), torch.tensor(0.0, device=device)))
+                        if use_avoidance:
+                            avoidance = compute_avoidance_command(
+                                (float(position[0]), float(position[1])),
+                                (float(target[0]), float(target[1])),
+                                [tuple(o[:4]) for o in obstacles],
+                                avoidance_cfg,
+                            )
+                            cmd = avoidance["command"]
+                            if avoidance["avoidance_active"]:
+                                episode_avoid_active = True
+                            nearest = avoidance["nearest_obstacle_distance"]
+                            if nearest is not None and nearest < episode_min_nearest:
+                                episode_min_nearest = nearest
+                            move_x, move_y = cmd[0], cmd[1]
+                        else:
+                            move_x = float(torch.clamp(delta[0], -1.0, 1.0))
+                            move_y = float(torch.clamp(delta[1], -1.0, 1.0))
+                        term.command[:] = torch.tensor((move_x, move_y, 0.0), device=device)
                         action = policy(obs)
                         obs, _reward, dones, _extras = wrapped.step(action)
                         position = env.scene["robot"].data.root_link_pos_w[0, :2]
@@ -851,6 +884,9 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                     tracking_errors.append(episode_track_error / max(1, episode_steps))
                     stability_flags.append(1.0 if (waypoint_index >= len(route) and not early_stop) else 0.0)
                     collision_flags.append(1.0 if early_stop else 0.0)
+                    avoidance_active_flags.append(1.0 if episode_avoid_active else 0.0)
+                    if math.isfinite(episode_min_nearest):
+                        nearest_distances.append(episode_min_nearest)
             report.update({
                 "status": "navigation_completed",
                 "route_completion": sum(completions) / len(completions),
@@ -858,8 +894,14 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                 "stability_score": sum(stability_flags) / len(stability_flags),
                 "collision_count": sum(collision_flags),
                 "waypoints": route,
+                "obstacles": obstacles,
+                "use_avoidance": use_avoidance,
                 "evaluated_env": "native_mjlab_navigation",
             })
+            if use_avoidance:
+                report["avoidance_engagement"] = round(sum(avoidance_active_flags) / len(avoidance_active_flags), 4)
+                report["min_obstacle_distance_m"] = round(min(nearest_distances), 4) if nearest_distances else None
+                report["avoidance_config"] = avoidance_cfg.as_dict() if avoidance_cfg else None
             _write(output / "navigation.json", report)
         _write(output / "native_preflight.json", report)
         _write(output / "status.json", {"status": "completed", **report})
