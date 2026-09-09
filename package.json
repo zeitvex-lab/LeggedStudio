@@ -93,12 +93,8 @@
         "to": "app/VERSION"
       },
       {
-        "from": "../QUADRUPED_ASSET_INVENTORY.json",
+        "from": "QUADRUPED_ASSET_INVENTORY.json",
         "to": "app/QUADRUPED_ASSET_INVENTORY.json"
-      },
-      {
-        "from": "../QUADRUPED_ASSET_INVENTORY.md",
-        "to": "app/QUADRUPED_ASSET_INVENTORY.md"
       }
     ],
     "win": {
