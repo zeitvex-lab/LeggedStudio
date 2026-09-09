@@ -680,6 +680,7 @@ async def resource_packs():
     分组按 profile_id 关键词匹配（数据驱动，无 per-robot 分支）。
     """
     from backend.robot_packages import list_robot_packages
+    from backend.perception_observations import list_perception_items
 
     pack_rules = [
         ("blind_walking", "盲走资源包", "DreamWaQ 全家：本体感知观测库 + 历史帧堆叠 + 隐式姿态编码 + 地形课程 + 域随机化",
@@ -689,6 +690,7 @@ async def resource_packs():
         ("perception", "感知观测项", "足端接触 → 高度场 → 深度相机（PIE 106×60 楼梯 parkour 内置参考）",
          ("parkour", "depth", "stair", "rough")),
     ]
+    perception_items = list_perception_items()
     packs = []
     for pack_id, name, description, keywords in pack_rules:
         profiles = []
@@ -710,6 +712,9 @@ async def resource_packs():
             "profile_count": len(profiles),
             "profiles": profiles,
         })
+    for pack in packs:
+        if pack["id"] == "perception":
+            pack["perception_items"] = perception_items
     return {"success": True, "packs": packs}
 
 

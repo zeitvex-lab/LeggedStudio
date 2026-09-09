@@ -152,5 +152,5 @@ Go2 任务 catalog（`robots/unitree/go2/tasks/catalog.py`）：velocity-flat / 
 ## 8. 能力边界（诚实声明，与根 README 同口径）
 
 - **已验证**：55/55 profile 冒烟（128 envs × 30 步）、16 机器人浏览器 sim2sim 编译、键盘遥控、CUDA 选择（RTX 4060 验证环境）、02 界面碰撞体可视化、控制面单测、adapter 测试。
-- **已内化未达 L4**：GPU 长训练验收、ONNX 数值一致性强制 gate、实机控制与安全门禁、复杂导航规划（当前 navigation_api 为已训 checkpoint 的航点回放，无 A*/地图编辑）。
-- **规划中**：UniLab/RoboLab adapter（框架选择 UI 已有 planned 占位）、SAC/TD3（注册占位）、感知观测项抽象（heightfield/lidar；parkour 的 PIE 深度已内化于 Go2 包但未抽象为通用感知项）、sim2real 实机 SDK（Go2 deploy/fsm.py 已有硬件无关状态机骨架）。
+- **已内化未达 L4**：GPU 长训练验收、ONNX 数值一致性强制 gate、实机控制与安全门禁、复杂导航规划闭环（当前导航为已训 checkpoint 的航点回放；交互式地图编辑器已提供画障碍/设航点 → A*/Dijkstra 自动求路，见 `backend/map_editor_api.py` 与 `web/navigation_editor.html`）。
+- **规划中**：UniLab/RoboLab adapter（框架选择 UI 已有 planned 占位）、SAC/TD3（注册占位）、sim2real 实机 SDK（Go2 deploy/fsm.py 已有硬件无关状态机骨架）。感知观测项已抽象为通用编目（`backend/perception_observations.py`：足端接触 → 高度场 → 深度相机），供配置编辑器按 id 接入策略输入，而非包内特例。

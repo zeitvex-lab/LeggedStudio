@@ -400,6 +400,20 @@ async function jsonFetch(path, options = {}) {
 function setView(name) {
   // 03 训练配置 / 04 训练 live on dedicated pages, embedded in-frame so the
   // shell (topbar/nav) stays identical to the other views.
+  if (name === 'navmap') {
+    const frame = $('navMapFrame');
+    if (!frame) return;
+    const page = 'navigation_editor.html?v=0.7.0&embedded=1';
+    const expected = new URL(page, window.location.href).toString();
+    if (frame.getAttribute('src') !== expected) frame.src = expected;
+  }
+  if (name === 'settings') {
+    const frame = $('settingsFrame');
+    if (!frame) return;
+    const page = 'settings.html?v=0.7.0&embedded=1';
+    const expected = new URL(page, window.location.href).toString();
+    if (frame.getAttribute('src') !== expected) frame.src = expected;
+  }
   if (name === 'config' || name === 'training') {
     const frame = $(name === 'config' ? 'configFrame' : 'trainingFrame');
     if (!frame) return;

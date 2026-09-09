@@ -24,6 +24,8 @@
         <button class="nav-item" data-step="config"><span class="nav-index">03</span>训练配置</button>
         <button class="nav-item" data-step="training"><span class="nav-index">04</span>训练</button>
         <button class="nav-item" data-step="simulation"><span class="nav-index">05</span>仿真</button>
+        <button class="nav-item" data-step="settings"><span class="nav-index">06</span>设置</button>
+        <button class="nav-item" data-step="navmap"><span class="nav-index">07</span>地图</button>
       </nav>
       <div class="top-status"><span id="backendState" class="status-dot pending"><i></i>后端检查中</span><button class="icon-button" id="refreshApp" title="刷新数据">↻</button></div>
     </header>
@@ -61,6 +63,14 @@
 
       <section id="simulation" class="view simulation-view">
         <iframe id="simBrowserFrame" class="sim-browser-frame" title="Legged Studio MuJoCo simulation" loading="eager"></iframe>
+      </section>
+
+      <section id="settings" class="view frame-view">
+        <iframe id="settingsFrame" class="page-frame" title="设置"></iframe>
+      </section>
+
+      <section id="navmap" class="view frame-view">
+        <iframe id="navMapFrame" class="page-frame" title="导航地图编辑器"></iframe>
       </section>
     </main>
   </div>

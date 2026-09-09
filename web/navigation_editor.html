@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>导航地图编辑器 - Legged Studio</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <style>
+    .editor-shell{max-width:1240px;margin:0 auto;padding:28px 24px}
+    .page-header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+    .page-kicker{color:var(--accent);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+    .editor-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;margin-top:20px}
+    .canvas-panel{padding:16px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)}
+    .canvas-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    .canvas-holder{position:relative;height:560px;border:1px solid var(--border-soft);border-radius:var(--radius);overflow:hidden;background:var(--surface-soft)}
+    canvas#mapCanvas{width:100%;height:100%;cursor:crosshair}
+    .side-panel{padding:16px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);display:flex;flex-direction:column;gap:14px}
+    .side-panel h3{margin:0 0 10px;font-size:13px}
+    .tool{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-raised);color:var(--text);cursor:pointer;font-size:12px}
+    .btn.primary{background:var(--accent);color:#04121a;border-color:var(--accent)}
+    .btn.active{border-color:var(--accent);color:var(--accent)}
+    .btn.small{padding:6px 10px;font-size:11px}
+    .btn.danger{color:#f85149;border-color:rgba(248,81,73,.4)}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field label{color:var(--muted);font-size:11px}
+    .field select,.field input{padding:8px 10px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-soft);color:var(--text);font-size:12px}
+    .route-output{margin-top:6px;font-size:12px;color:var(--muted);white-space:pre-wrap;word-break:break-all}
+    .status-line{font-size:12px;color:var(--muted)}
+    .map-select{width:100%}
+    .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:11px;color:var(--muted)}
+    .legend span{display:inline-flex;align-items:center;gap:5px}
+    .swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
+    .swatch.obs{background:#f85149}
+    .swatch.wp{background:#2dd4bf}
+    .swatch.route{background:#d29922}
+    .swatch.start{background:#2ea043}
+    .toast{position:fixed;bottom:18px;right:18px;padding:12px 16px;border-radius:var(--radius);background:var(--surface-raised);border:1px solid var(--border);color:var(--text);font-size:12px;z-index:50}
+  </style>
+</head>
+<body>
+  <main class="editor-shell">
+    <header class="page-header">
+      <div><span class="page-kicker">Navigation Map Editor</span><h1>导航地图编辑器</h1><p>绘制障碍与航点，A*/Dijkstra 自动求路；与场景/地图库打通，可保存编辑。</p></div>
+      <div class="page-actions"><a class="btn" href="workbench.html#simulation">返回仿真</a><a class="btn" href="workbench.html#home">返回工作台</a></div>
+    </header>
+
+    <div class="editor-grid">
+      <div class="canvas-panel">
+        <div class="canvas-toolbar">
+          <select id="mapSelect" class="map-select"></select>
+          <button class="btn" id="btnObstacle">✚ 画障碍</button>
+          <button class="btn" id="btnWaypoint">◆ 设航点</button>
+          <button class="btn" id="btnMove">↔ 移动</button>
+          <button class="btn" id="btnErase">✖ 删除</button>
+          <button class="btn danger" id="btnClear">清空</button>
+        </div>
+        <div class="canvas-holder"><canvas id="mapCanvas"></canvas></div>
+        <div class="legend">
+          <span><i class="swatch obs"></i>障碍</span>
+          <span><i class="swatch wu"></i><i class="swatch wp"></i>航点</span>
+          <span><i class="swatch start"></i>起点</span>
+          <span><i class="swatch route"></i>规划路径</span>
+        </div>
+      </div>
+
+      <aside class="side-panel">
+        <div class="field">
+          <label for="algorithm">规划算法</label>
+          <select id="algorithm"><option value="astar">A*</option><option value="dijkstra">Dijkstra</option></select>
+        </div>
+        <div class="tool">
+          <button class="btn small" id="btnPlan">自动求路</button>
+          <button class="btn small" id="btnSave">保存地图</button>
+        </div>
+        <div class="status-line" id="status">选择一张地图开始编辑。</div>
+        <div class="route-output" id="routeOutput"></div>
+      </aside>
+    </div>
+  </main>
+  <div class="toast" id="toast" hidden></div>
+  <script>
+    const API = window.location.origin, $ = s => document.querySelector(s);
+    let maps = [], currentMap = null, bounds = [-5,5,-5,5];
+    let obstacles = [], waypoints = [];
+    let tool = 'obstacle', route = [], planMeta = null;
+    let canvas, ctx, scaleX, scaleY, offsetX, offsetY;
+
+    function toast(msg, type='success'){ const t=$('#toast'); t.textContent=msg; t.hidden=false; t.style.borderColor=type==='danger'?'rgba(248,81,73,.5)':'var(--border)'; clearTimeout(t._timer); t._timer=setTimeout(()=>t.hidden=true,2600); }
+    async function api(path, opts){ const r=await fetch(API+path, opts); const d=await r.json().catch(()=>({})); if(!r.ok){ throw new Error(d.detail||d.error||r.status); } return d; }
+
+    function computeTransform(){
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width, h = rect.height;
+      const pad = 30;
+      const bw = bounds[1]-bounds[0], bh = bounds[3]-bounds[2];
+      const s = Math.min((w-2*pad)/bw, (h-2*pad)/bh);
+      scaleX = s; scaleY = s;
+      offsetX = (w - bw*s)/2 - bounds[0]*s;
+      offsetY = (h - bh*s)/2 - bounds[2]*s;
+      canvas.width = w; canvas.height = h;
+    }
+    function toWorld(px, py){
+      return [(px - offsetX)/scaleX, (py - offsetY)/scaleY];
+    }
+    function toScreen(wx, wy){
+      return [wx*scaleX + offsetX, wy*scaleY + offsetY];
+    }
+    function draw(){
+      if(!ctx) return;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      // grid background
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+      for(let gx=bounds[0]; gx<=bounds[1]; gx+=1){ const [sx]=toScreen(gx,bounds[2]); ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx,canvas.height); ctx.stroke(); }
+      for(let gy=bounds[2]; gy<=bounds[3]; gy+=1){ const [,sy]=toScreen(bounds[0],gy); ctx.beginPath(); ctx.moveTo(0,sy); ctx.lineTo(canvas.width,sy); ctx.stroke(); }
+      // obstacles
+      obstacles.forEach(o=>{
+        const [cx,cy,hw,hh]=o;
+        const [sx,sy]=toScreen(cx,cy);
+        const w = hw*2*scaleX, h = hh*2*scaleY;
+        ctx.fillStyle = 'rgba(248,81,73,0.7)'; ctx.strokeStyle='#f85149'; ctx.lineWidth=1;
+        ctx.fillRect(sx-w/2, sy-h/2, w, h); ctx.strokeRect(sx-w/2, sy-h/2, w, h);
+      });
+      // route
+      if(route.length>1){
+        ctx.strokeStyle = '#d29922'; ctx.lineWidth=2.5; ctx.setLineDash([]);
+        ctx.beginPath();
+        route.forEach((p,i)=>{ const [sx,sy]=toScreen(p[0],p[1]); i===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy); });
+        ctx.stroke();
+      }
+      // waypoints
+      waypoints.forEach((wp,i)=>{
+        const [sx,sy]=toScreen(wp[0],wp[1]);
+        ctx.fillStyle = i===0 ? '#2ea043' : '#2dd4bf';
+        ctx.strokeStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(sx,sy,6,0,Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.font='10px sans-serif'; ctx.fillStyle='#fff'; ctx.fillText(String(i), sx+9, sy+4);
+      });
+      // tool cursor hint
+      ctx.strokeStyle='rgba(255,255,255,0.2)';
+    }
+
+    function handleClick(e){
+      const rect = canvas.getBoundingClientRect();
+      const [wx,wy] = toWorld(e.clientX-rect.left, e.clientY-rect.top);
+      if(tool==='obstacle'){ obstacles.push([wx,wy,0.5,0.5]); }
+      else if(tool==='waypoint'){ waypoints.push([wx,wy]); }
+      else if(tool==='move'){
+        // move nearest obstacle/waypoint
+        let best=null, bestIdx=-1;
+        obstacles.forEach((o,i)=>{ const d=Math.hypot(o[0]-wx,o[1]-wy); if(d<0.6 && (best===null||d<best.d)) best={kind:'obs',idx:i,d}; });
+        waypoints.forEach((w,i)=>{ const d=Math.hypot(w[0]-wx,w[1]-wy); if(d<0.6 && (best===null||d<best.d)) best={kind:'wp',idx:i,d}; });
+        if(best){ if(best.kind==='obs') obstacles[best.idx]=[wx,wy,obstacles[best.idx][2],obstacles[best.idx][3]]; else waypoints[best.idx]=[wx,wy]; }
+      }
+      else if(tool==='erase'){
+        obstacles = obstacles.filter(o=>Math.hypot(o[0]-wx,o[1]-wy)>0.6);
+        waypoints = waypoints.filter(w=>Math.hypot(w[0]-wx,w[1]-wy)>0.6);
+      }
+      draw();
+    }
+
+    async function loadMaps(){
+      const data = await api('/api/navigation/maps');
+      maps = data.maps;
+      $('#mapSelect').innerHTML = maps.map(m=>`<option value="${m.id}">${m.label}</option>`).join('');
+      if(maps.length){ await selectMap(maps[0].id); }
+    }
+
+    async function selectMap(id){
+      const data = await api('/api/navigation/maps/'+encodeURIComponent(id));
+      const m = data.map;
+      currentMap = m; bounds = m.bounds; obstacles = (m.obstacles||[]).map(o=>Array.isArray(o)?[...o]:[o[0],o[1],o[2],o[3]]);
+      waypoints = (m.waypoints||[]).map(w=>[...w]);
+      route = []; planMeta = null; $('#routeOutput').textContent='';
+      computeTransform(); draw();
+      $('#status').textContent = '地图：'+m.label+' · 障碍 '+obstacles.length+' · 航点 '+waypoints.length;
+    }
+
+    async function plan(){
+      if(waypoints.length<2){ toast('至少设置两个航点','danger'); return; }
+      try{
+        const data = await api('/api/navigation/maps/plan',{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ map_id:currentMap.id, obstacles, waypoints, algorithm:$('#algorithm').value })
+        });
+        route = data.combined_path; planMeta = data;
+        draw();
+        const seg = data.segments;
+        $('#routeOutput').textContent = data.algorithm.toUpperCase()+' · 总长 '+data.total_cost_m+' m\n'+seg.map(s=>'  段'+s.from_index+'→'+s.to_index+': '+s.cost_m+' m（扩展 '+s.expanded+' 节点）').join('\n');
+        $('#status').textContent = '规划完成 · '+seg.length+' 段 · '+data.total_cost_m+' m';
+      }catch(e){ toast('规划失败：'+e.message,'danger'); $('#routeOutput').textContent=''; }
+    }
+
+    async function saveMap(){
+      try{
+        await api('/api/navigation/maps/'+encodeURIComponent(currentMap.id),{
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ map_id:currentMap.id, obstacles, waypoints })
+        });
+        toast('地图已保存');
+      }catch(e){ toast('保存失败：'+e.message,'danger'); }
+    }
+
+    window.addEventListener('resize', ()=>{ computeTransform(); draw(); });
+
+    $('#mapSelect').onchange = ()=>selectMap($('#mapSelect').value);
+    $('#btnObstacle').onclick=()=>{ tool='obstacle'; setActive('#btnObstacle'); };
+    $('#btnWaypoint').onclick=()=>{ tool='waypoint'; setActive('#btnWaypoint'); };
+    $('#btnMove').onclick=()=>{ tool='move'; setActive('#btnMove'); };
+    $('#btnErase').onclick=()=>{ tool='erase'; setActive('#btnErase'); };
+    $('#btnClear').onclick=()=>{ obstacles=[]; waypoints=[]; route=[]; draw(); toast('已清空'); };
+    $('#btnPlan').onclick=plan;
+    $('#btnSave').onclick=saveMap;
+    $('#algorithm').onchange=()=>{ if(waypoints.length>=2) plan(); };
+
+    function setActive(sel){
+      [['obstacle','#btnObstacle'],['waypoint','#btnWaypoint'],['move','#btnMove'],['erase','#btnErase']].forEach(([t,s])=>{
+        $(s).classList.toggle('active', tool===t);
+      });
+    }
+
+    async function init(){
+      canvas = $('#mapCanvas');
+      ctx = canvas.getContext('2d');
+      canvas.addEventListener('click', handleClick);
+      setActive('#btnObstacle');
+      await loadMaps();
+      // resize after load since map select informs bounds
+      requestAnimationFrame(()=>{ computeTransform(); draw(); });
+    }
+    init();
+  </script>
+</body>
+</html>
