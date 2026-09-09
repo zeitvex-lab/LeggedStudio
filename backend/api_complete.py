@@ -75,6 +75,9 @@ from contracts.scenario_contract import ScenarioContract
 from adapters.mjlab.native_adapter import preflight as native_mjlab_preflight
 from backend.version import APP_VERSION
 from backend.project_api import router as project_router
+from backend.settings_api import router as settings_router
+from backend.map_editor_api import router as map_editor_router
+from backend.perception_observations import router as perception_router
 
 app = FastAPI(
     title="Legged Studio API",
@@ -126,6 +129,9 @@ app.include_router(terrain_router)
 app.include_router(health_router)
 app.include_router(model_router)
 app.include_router(project_router)
+app.include_router(settings_router)
+app.include_router(map_editor_router)
+app.include_router(perception_router)
 if simulation_router is not None:
     app.include_router(simulation_router)
 
