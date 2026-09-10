@@ -173,8 +173,13 @@ def _package_signature() -> str:
     manifest / profiles dir.  Any add / edit / delete flips the signature so
     the persisted index can be auto-refreshed (fixes "stale index" bugs where
     newly added robots never showed up in the desktop app).
+
+    ``sync_rev`` is a code-owned revision of the content-sync rules: bump it
+    whenever the sync itself gains a new duty so existing installs re-run the
+    sync once even though nothing on disk changed (C6: base-file backfill).
     """
-    parts: list[str] = []
+    _SYNC_REVISION = "2"  # v0.42.0: simulation/ 基础文件补齐 + config.json 增量合并
+    parts: list[str] = [f"sync_rev:{_SYNC_REVISION}"]
     for root in _package_roots():
         if not root.exists():
             parts.append(f"{root}:missing")
@@ -445,6 +450,9 @@ def list_robot_packages() -> list[dict[str, Any]]:
         records = _scan_package_records()
         if records or not _read_index():
             _write_index(records)
+        # 扫描中的内容同步可能已改动受签名覆盖的文件（profiles 目录等），
+        # 以扫描后的磁盘状态写入 meta，避免下一次读取立刻再重建一遍。
+        signature = _package_signature()
         _write_index_meta(signature)
     with _INDEX_CACHE_LOCK:
         _INDEX_CACHE = (workspace_key, [dict(item) for item in records])
@@ -500,6 +508,14 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
     capabilities 丢失、新 profile 不可见两类事故。这里把源树新增/更新的**内容文件**
     （profiles、bridge、schema 配置）单向复制过去；workspace 独有的运行产物
     （logs、模型、checkpoint）永不触碰。返回同步的文件数。
+
+    C6 补齐（v0.42.0）：workspace 副本缺基础文件时从源树补——
+    - ``simulation/`` 下缺失的文件（scene.xml、策略 onnx 等）按缺复制；
+      workspace 独有文件（训练导出的策略等）不清理；
+    - ``simulation/config.json`` 只做**增量合并**：源树新增的键（如后加的
+      policies/demo_policies 声明段）并入副本，副本已有的键一律不动——
+      用户在工作台改过的增益等以 workspace 为权威。曾因副本缺 policies
+      声明导致 lite3 演示策略从首页消失。
     """
     import shutil
 
@@ -544,6 +560,47 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
                         synced += 1
                 except OSError:
                     continue
+        # C6：simulation/ 基础文件补齐——只补缺，不覆盖、不清理。
+        src_sim = shipped / "simulation"
+        if src_sim.is_dir():
+            for src_file in sorted(src_sim.rglob("*")):
+                if not src_file.is_file() or "__pycache__" in src_file.parts:
+                    continue
+                relative = src_file.relative_to(src_sim)
+                dst_file = target / "simulation" / relative
+                if relative.as_posix() == "config.json":
+                    if not dst_file.exists():
+                        # 整文件缺失：无用户编辑可保留，整份复制
+                        dst_file.parent.mkdir(parents=True, exist_ok=True)
+                        try:
+                            shutil.copy2(src_file, dst_file)
+                            synced += 1
+                        except OSError:
+                            pass
+                        continue
+                    # 文件存在：增量合并——副本已有的键不动（用户编辑权威），
+                    # 源树新增的键并入（声明段如 policies/demo_policies 可达）
+                    src_cfg = _read_json(src_file)
+                    dst_cfg = _read_json(dst_file)
+                    added = {key: value for key, value in src_cfg.items() if key not in dst_cfg}
+                    if added:
+                        dst_cfg.update(added)
+                        try:
+                            dst_file.write_text(
+                                json.dumps(dst_cfg, ensure_ascii=False, indent=2) + chr(10),
+                                encoding="utf-8",
+                            )
+                            synced += 1
+                        except (OSError, ValueError):
+                            pass
+                    continue
+                if not dst_file.exists():
+                    dst_file.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        shutil.copy2(src_file, dst_file)
+                        synced += 1
+                    except OSError:
+                        continue
         # 顶层 JSON 声明以源树为准：新增/变更字段覆盖过去，源树已删除的
         # 字段（如移除的 extension_entrypoint）也从副本里清除，避免 stale
         # workspace 副本用旧的扩展入口遮蔽源树更新。
