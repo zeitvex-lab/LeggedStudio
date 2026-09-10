@@ -122,6 +122,33 @@ class ContractMujocoEnv:
             observations[index, :min(self.obs_dim, len(values))] = values[:self.obs_dim]
         return observations
 
+    def _action_scales(self) -> np.ndarray:
+        """B5/2：逐关节动作缩放（契约角色展开），按动作顺序对齐并缓存。
+
+        此前这里用的是 `contract.action.action_scale` **标量**——轮足机型上会把轮关节
+        也按腿的档位缩放（go2w 腿 0.5 / 轮 35.0 相差 70 倍）。
+        """
+
+        cached = self.__dict__.get("_action_scale_cache")
+        if cached is not None:
+            return cached
+        from contracts.role_resolver import action_scale_for_contract
+
+        try:
+            resolved = action_scale_for_contract(self.contract)
+        except Exception:
+            resolved = self.contract.action.action_scale
+        if isinstance(resolved, dict):
+            order = list(self.contract.action.joint_order)
+            values = [float(resolved.get(name, 0.25)) for name in order]
+        else:
+            values = [float(resolved)] * self.action_dim
+        if len(values) != self.action_dim:
+            values = [float(resolved) if not isinstance(resolved, dict) else 0.25] * self.action_dim
+        cache = np.asarray(values, dtype=np.float32)
+        self._action_scale_cache = cache
+        return cache
+
     def step(self, actions: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
         actions = np.asarray(actions, dtype=np.float32).reshape(self.num_envs, self.action_dim)
         actions = np.clip(actions, -1.0, 1.0)
@@ -129,7 +156,7 @@ class ContractMujocoEnv:
             for action_index, actuator_id in enumerate(self.actuator_ids):
                 actuator_type = self.actuator_types[action_index]
                 if actuator_type == mujoco.mjtTrn.mjTRN_JOINT and self.model.actuator_gainprm[actuator_id, 0] > 0:
-                    item.ctrl[actuator_id] = self.default_pose[action_index] + actions[index, action_index] * self.contract.action.action_scale
+                    item.ctrl[actuator_id] = self.default_pose[action_index] + actions[index, action_index] * float(self._action_scales()[action_index])
                 else:
                     low, high = self.model.actuator_ctrlrange[actuator_id]
                     item.ctrl[actuator_id] = actions[index, action_index] * max(abs(float(low)), abs(float(high)))

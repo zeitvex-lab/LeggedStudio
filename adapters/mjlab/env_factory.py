@@ -62,7 +62,7 @@ class EnvFactory:
             "default_joint_angles": contract.joints.default_pose,
 
             # 动作缩放
-            "action_scale": contract.action.action_scale,
+            "action_scale": _action_scale_value(contract),
 
             # 任务配置
             "reward_scales": task_config.get("reward_scales", {
@@ -171,12 +171,28 @@ class EnvFactory:
             "scene": {"robot": contract.robot_id, "asset_path": str(resolve_asset_path(contract.urdf.path)), "terrain": environment.get("terrain_type", "plane")},
             "commands": {"base_velocity": {"ranges": {"lin_vel_x": [-1.0, 1.0], "lin_vel_y": [-1.0, 1.0], "ang_vel_z": [-1.0, 1.0]} }},
             "observations": {"policy": {"components": contract.observation.components, "dimension": contract.observation.dimension}},
-            "actions": {"joint_position": {"joint_names": contract.action.joint_order, "scale": contract.action.action_scale}},
+            "actions": {"joint_position": {"joint_names": contract.action.joint_order, "scale": _action_scale_value(contract)}},
             "rewards": recipe.get("reward_scales", {}),
             "terminations": {"time_out": True, "fallen": True},
             "curriculum": {},
             "metrics": ["episode_reward", "episode_length", "tracking_error"],
         }
+
+
+def _action_scale_value(contract: Any) -> Any:
+    """B5/2：动作缩放取**角色展开**结果（角色内一致 → float，分化 → dict）。
+
+    `action.action_scale` 只是标量缺省；角色级声明（契约
+    ``actuator_profile.by_role[].action_scale``）才是权威视图。此前这里直接读标量，
+    导致"改了角色档位，装配出来的环境却没变"。
+    """
+
+    from contracts.role_resolver import action_scale_for_contract
+
+    try:
+        return action_scale_for_contract(contract)
+    except Exception:
+        return contract.action.action_scale
 
 
 # ========== 奖励配置预设 ==========

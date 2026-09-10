@@ -457,13 +457,37 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     simulation_control = simulation_config.get("control") if isinstance(simulation_config.get("control"), dict) else {}
     # B3/2：物理事实改由契约 v3 单一真值供给（contracts/physics_binding.py）。
     # simulation/config.json 仅作未迁移包的兼容回落，不再参与物理取值。
-    from contracts.physics_binding import payload_physics_view, physics_facts
+    from contracts.physics_binding import (
+        action_scale_facts,
+        payload_action_scale_view,
+        payload_physics_view,
+        physics_facts,
+    )
 
     physics = physics_facts(root)
     payload_physics = payload_physics_view(physics)
-    action_scale = float(
-        simulation_config.get("action_scale", contract.get("action", {}).get("action_scale", 0.25))
-    )
+    # B5/2：action_scale（标量 / 按角色 / 按关节）改由契约 v3 单一真值供给。
+    # 不再读 simulation/config.json——轮足机型的轮档位在训练侧本就随任务变化
+    # （go2w 实测：UniLab 类默认 10.0 / rough 任务 5.0 / 官方部署 yaml 35.0），
+    # config 只是其中一个快照，继续读它必然与契约漂移。
+    contract_v3_file = root / "contract_v3.json"
+    if contract_v3_file.exists():
+        action_payload = payload_action_scale_view(
+            action_scale_facts(json.loads(contract_v3_file.read_text(encoding="utf-8-sig")))
+        )
+    else:
+        legacy_scale = float(
+            simulation_config.get("action_scale", contract.get("action", {}).get("action_scale", 0.25))
+        )
+        legacy_by_role = simulation_config.get("action_scale_by_role")
+        action_payload = {
+            "action_scale": legacy_scale,
+            "action_scale_by_role": (
+                legacy_by_role if isinstance(legacy_by_role, dict) else {"joint": legacy_scale}
+            ),
+            "action_scale_by_joint": simulation_config.get("action_scale_by_joint") or {},
+        }
+    action_scale = float(action_payload["action_scale"])
     decimation = int(
         physics["decimation"]
         or simulation_control.get("decimation")
@@ -476,9 +500,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
         or contract.get("control", {}).get("physics_hz")
         or 1000
     )
-    action_scale_by_role = simulation_config.get("action_scale_by_role")
-    if not isinstance(action_scale_by_role, dict):
-        action_scale_by_role = {"leg": action_scale, "wheel": 5.0}
+    action_scale_by_role = action_payload["action_scale_by_role"]
     control_modes = simulation_config.get("control_modes")
     if not isinstance(control_modes, dict):
         control_modes = {"wheel": "velocity"}
@@ -505,7 +527,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                 "damping": payload_physics["damping"] or {"hip": 1.5, "thigh": 1.5, "calf": 1.5, "wheel": 1.0, "joint": 1.5},
                 "torque_limits": payload_physics["torque_limits"] or None,
                 "action_scale_by_role": action_scale_by_role,
-                "action_scale_by_joint": simulation_config.get("action_scale_by_joint") or {},
+                "action_scale_by_joint": action_payload["action_scale_by_joint"],
                 "velocity_scale": float(simulation_config.get("velocity_scale", 5.0)),
                 "control_modes": control_modes,
                 # Deployment sim2sim extras: per-role action low-pass cutoffs

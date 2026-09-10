@@ -56,14 +56,37 @@ def check_obs_group_width(config: dict, contract: dict) -> InvariantCheck:
 
 
 def check_action_scale(config: dict, contract: dict) -> InvariantCheck:
-    """action_scale 存在且为正（与关节序配对）。"""
+    """action_scale 存在且为正（与关节序配对）。
+
+    B5：`action.action_scale` 只是缺省标量，角色级（``by_role``）与逐关节
+    （``by_joint``）声明同样必须是**正数**——否则"某角色缩放为 0/负数"或"轮被腿的
+    档位顶掉"这类错误会一路带到训练与部署，只在真机上暴露。
+    """
+
     action = contract.get("action") or {}
     scale = action.get("action_scale")
     ok = (isinstance(scale, (int, float)) and scale > 0)
-    return InvariantCheck(
-        "action_scale_symmetric", ok,
-        f"action_scale={scale!r} {'正数合法' if ok else '非法（须为正数）'}"
-    )
+
+    profile = contract.get("actuator_profile") or {}
+    offenders: list[str] = []
+    for layer in ("default", "by_role", "by_joint"):
+        entries = profile.get(layer)
+        if not isinstance(entries, dict):
+            continue
+        candidates = [("", entries)] if layer == "default" else list(entries.items())
+        for name, params in candidates:
+            value = params.get("action_scale") if isinstance(params, dict) else None
+            if value is None:
+                continue
+            if not isinstance(value, (int, float)) or value <= 0:
+                offenders.append(f"{layer}.{name}" if name else layer)
+    if offenders:
+        ok = False
+
+    detail = f"action_scale={scale!r} {'正数合法' if ok else '非法（须为正数）'}"
+    if offenders:
+        detail += f"；非法角色级声明 {offenders}"
+    return InvariantCheck("action_scale_symmetric", ok, detail)
 
 
 def check_timeout_bootstrap(config: dict) -> InvariantCheck:

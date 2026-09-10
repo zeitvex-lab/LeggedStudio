@@ -71,3 +71,57 @@
 | `go2w` 的 **5.0 vs 35.0 冲突** | `config.action_scale_by_role` 说 wheel=5.0，而官方 yaml 与 v2 契约均为 35.0。本次采 **35.0**（2 比 1 且官方 yaml 权威），**config 侧的 5.0 应视为过期值**，建议在 B2（契约单轨）里正式 reconcile |
 | `g1` v2 备注失准 | v2 `action_scale_note` 写"腿 0.35 / 髋偏航 0.55 / 臂 0.44 / 腕 0.29"，但官方数组显示 **髋俯仰=0.55**（非 0.35）、**腕=0.07**（非 0.29）。v2 备注不可作为依据 |
 | `tron1_wf` 的轮档位 | 现为 0.25（= config `action_scale_by_joint`）。但参考 `params.yaml` 只有 `action_scale_pos: 0.25` 且 `jointpos_idxs: [0,1,2,4,5,6]` **不含轮**，说明轮的档位另有来源、尚未找到。**待补证据** |
+
+---
+
+## 7. B5/2：三端接线（仿真 / 训练 / 部署统一读契约）
+
+### 7.1 发现：仿真与训练本来读的是两份数据
+
+浏览器载荷（`backend/simulation_api.py`）**早就有比标量更细的两条查找路径**
+（`action_scale_by_role` + `action_scale_by_joint`），但它读的是
+`simulation/config.json`，而不是契约——即 B5 刚收敛掉的双真值在这里仍然活着，
+且硬编码了 `wheel: 5.0` 兜底。
+
+按"保留功能更多的一方"，**保留该机制（按角色 + 按关节）、把来源换成契约**。
+
+### 7.2 落地
+
+| 位置 | 改动 |
+|---|---|
+| `contracts/physics_binding.py` | 新增 `action_scale_facts()` 与 `payload_action_scale_view()`：从契约产出 `{scalar, by_role, by_joint}`，并在"非轮角色同值"时补 `leg` 组键、全同值时补 `joint` 兜底 |
+| `backend/simulation_api.py` | `action_scale` / `by_role` / `by_joint` 三件套改由契约供给；删除硬编码 `wheel: 5.0` 兜底 |
+| `adapters/mjlab/env_factory.py` | 两处 `action_scale` 改走 `action_scale_for_contract` |
+| `adapters/mjlab/mujoco_env.py` | 步进由**标量**改为**逐关节**缩放（此前轮关节会按腿的档位缩放） |
+| `contracts/training_invariants.py` | `action_scale` 不变量扩展到角色级/逐关节声明（防 0/负值漏到训练部署） |
+
+### 7.3 为什么前端换源不会"静默回退"
+
+前端按 **精确关节名 → 角色 → 分组 → `joint` 兜底** 多路查找，任一失配就静默用默认值
+（表现为策略抽搐而非报错）。因此视图刻意同时提供角色键与逐关节键，使每条路径命中
+同一数值。测试 `ActionScalePayloadViewB52Test` 守护该性质，并确认：
+
+* `unitree_go2w`：`leg=0.5` / `wheel=35.0`，未被标量拍平；
+* `zex-w`：腿内分化（横摆 0.125 / 其余 0.25）⇒ **不伪造 `leg` 组键**；
+* `g1` / `go2` / `wuji_hand`：不声明 `wheel`，不误导前端。
+
+### 7.4 go2w 轮档位：**它是任务相关参数，不是机器人常量**
+
+| 来源 | 腿 | 轮 |
+|---|---|---|
+| `ppo/quadruped_joystick_rough/go2w.yaml`（UniLab） | 0.25（髋 0.125） | **5.0** |
+| `sac/go2w_joystick_flat/base.yaml`（UniLab） | 0.5 | **10.0** |
+| `Go2WMixedActionCfg`（UniLab 类默认，**被上游测试 `pytest.approx(10.0)` 守护**） | 0.25 | **10.0** |
+| 官方 `unitree_rl_mjlab` 部署 yaml | 0.5 | **35.0** |
+| 我们 `simulation/config.json` | 0.5 | **5.0** |
+
+结论与处置：
+
+1. **动作空间的真值归训练契约**（策略的动作空间由训练定义），仿真与部署必须服从，
+   而不是各自为政——这也是 7.2 把仿真改读契约的理由；
+2. **轮档位属任务/策略级**，机器人契约只给默认值，必须允许策略覆盖
+   （`policies[].contract.action_scale` / `action_scale_by_joint` 已具备该能力）；
+3. 本仓库当前默认采 **35.0**（我们的训练适配器是 mjlab，参考同为 `unitree_rl_mjlab`；
+   且 v2 契约 `wheel_velocity_scale` 亦为 35.0）。**10.0 / 5.0 属 UniLab 栈的任务变体，
+   已记录在此，供选任务时覆盖**——不建议再把某个任务值写成机器人常量。
+

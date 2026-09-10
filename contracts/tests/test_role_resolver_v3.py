@@ -15,6 +15,7 @@ import unittest
 from pathlib import Path
 
 from contracts.generated import RobotContractV3, dump_v3, parse_v3
+from contracts.physics_binding import action_scale_facts, payload_action_scale_view
 from contracts.role_resolver import (
     RoleResolver,
     RoleResolverError,
@@ -549,6 +550,67 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
                     )
                 else:
                     self.assertIsInstance(resolved, float)
+
+
+class ActionScalePayloadViewB52Test(unittest.TestCase):
+    """B5/2：三端（训练/仿真/部署）读取的 action_scale 载荷视图。
+
+    前端（``web/sim2sim/app.js``）按"精确关节名 → 角色 → 分组 → joint 兜底"多路查找。
+    契约换源后必须让**每条路径都命中同一数值**，否则会静默回退到默认值（表现为策略
+    抽搐而非报错）。本类守护该性质，并确认轮档位不再被标量拍平。
+    """
+
+    ROBOTS = WORKSPACE / "assets" / "robots"
+
+    def _contract(self, package: str) -> dict:
+        return json.loads(
+            (self.ROBOTS / package / "contract_v3.json").read_text(encoding="utf-8-sig")
+        )
+
+    def _view(self, package: str) -> dict:
+        return payload_action_scale_view(action_scale_facts(self._contract(package)))
+
+    def _packages(self) -> list[str]:
+        return sorted(
+            p.name for p in self.ROBOTS.iterdir() if (p / "contract_v3.json").exists()
+        )
+
+    def test_role_view_covers_every_joint(self) -> None:
+        for package in self._packages():
+            contract = self._contract(package)
+            view = self._view(package)
+            for name in contract["action"]["joint_order"]:
+                with self.subTest(package=package, joint=name):
+                    self.assertIn(name, view["action_scale_by_joint"])
+                    self.assertIn(name, view["action_scale_by_role"])
+
+    def test_uniform_robots_expose_joint_fallback(self) -> None:
+        view = self._view("unitree_go2")
+        self.assertEqual(view["action_scale"], 0.25)
+        self.assertEqual(view["action_scale_by_role"]["joint"], 0.25)
+
+    def test_wheel_scale_not_flattened_by_scalar(self) -> None:
+        """轮足机型：轮的档位必须与腿不同且不被标量顶掉。"""
+
+        view = self._view("unitree_go2w")
+        self.assertTrue(view["wheel_scale_declared"])
+        self.assertEqual(view["action_scale_by_role"]["leg"], 0.5)
+        self.assertEqual(view["action_scale_by_role"]["wheel"], 35.0)
+        self.assertNotEqual(view["action_scale"], view["action_scale_by_role"]["wheel"])
+
+    def test_leg_group_absent_when_leg_roles_differ(self) -> None:
+        """zex-w 腿内分化（横摆 0.125 / 其余 0.25）⇒ 不可伪造 leg 组键。"""
+
+        view = self._view("zex-w")
+        self.assertNotIn("leg", view["action_scale_by_role"])
+        self.assertEqual(view["action_scale_by_role"]["wheel"], 5.0)
+
+    def test_non_wheel_robots_do_not_claim_wheel(self) -> None:
+        for package in ("unitree_g1", "unitree_go2", "wuji_hand"):
+            with self.subTest(package=package):
+                view = self._view(package)
+                self.assertFalse(view["wheel_scale_declared"])
+                self.assertNotIn("wheel", view["action_scale_by_role"])
 
 
 if __name__ == "__main__":

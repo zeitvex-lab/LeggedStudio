@@ -37,11 +37,20 @@ __all__ = [
     "CONTROL_KEYS",
     "PAYLOAD_MAP_KEYS",
     "PAYLOAD_CONST_KEYS",
+    "LEG_GROUP_ROLES",
     "facts_from_contract",
     "facts_from_legacy_config",
     "physics_facts",
     "payload_physics_view",
+    "action_scale_facts",
+    "payload_action_scale_view",
 ]
+
+# 非轮角色在浏览器载荷里的**分组键**：旧 simulation/config.json 用的是
+# {"leg": 0.5, "wheel": 5.0} 这种"腿/轮"两分组，而不是契约的角色名。前端可能按
+# 该分组键查找，故载荷视图在"所有非轮角色同值"时补一个 leg 组键（同 joint 兜底思路）。
+LEG_GROUP_ROLES = ("leg",)
+WHEEL_ROLE = "wheel"
 
 # 物理事实的规范字段：契约侧参数名 -> 对外统一名
 PARAM_KEYS = (
@@ -188,6 +197,69 @@ def payload_physics_view(facts: dict[str, Any]) -> dict[str, dict[str, Any]]:
         view[payload_key] = merged
 
     return view
+
+
+def action_scale_facts(contract_v3: dict[str, Any]) -> dict[str, Any]:
+    """action_scale 的事实（B5/2）：``{scalar, by_role, by_joint}``。
+
+    真值归**契约**：`action.action_scale` 是标量缺省，`actuator_profile.by_role[]`
+    是角色级权威，`by_joint` 是三级展开后的逐关节结果。
+
+    为什么消费方不该再读 ``simulation/config.json``：轮足类机型的轮档位在训练契约
+    内部就是**任务相关**的（实测 go2w：UniLab 类默认 10.0、rough 任务 5.0、官方部署
+    yaml 35.0），仿真侧那份 config 只是其中一个快照，再读它就会与契约漂移。
+    """
+
+    profile = contract_v3.get("actuator_profile") or {}
+    by_role = {
+        role: params["action_scale"]
+        for role, params in (profile.get("by_role") or {}).items()
+        if isinstance(params, dict) and params.get("action_scale") is not None
+    }
+    return {
+        "source": "contract_v3",
+        "scalar": (contract_v3.get("action") or {}).get("action_scale"),
+        "by_role": by_role,
+        "by_joint": RoleResolver(contract_v3).action_scale_by_joint(),
+    }
+
+
+def payload_action_scale_view(facts: dict[str, Any]) -> dict[str, Any]:
+    """浏览器 control 载荷的 action_scale 视图（B5/2）。
+
+    前端已有**比标量更细**的两条查找路径（按角色 / 按关节），这比单一标量功能更多，
+    因此保留该形态，只把来源换成契约。视图刻意同时提供：
+
+      * ``action_scale_by_role``：角色键控；非轮角色同值时补 ``leg`` 组键，
+        并在全部同值时补 ``joint`` 兜底（延续旧 config 的查找语义）；
+      * ``action_scale_by_joint``：逐关节（优先级最高）；
+      * ``action_scale``：标量缺省。
+
+    这样"键形态改变"不会让前端**静默回退到默认值**（表现为策略抽搐而非报错）。
+    """
+
+    by_role = dict(facts.get("by_role") or {})
+    by_joint = {name: float(value) for name, value in (facts.get("by_joint") or {}).items()}
+
+    role_view = dict(by_role)
+    wheel_values = {value for role, value in by_role.items() if role == WHEEL_ROLE}
+    leg_values = {value for role, value in by_role.items() if role != WHEEL_ROLE}
+    if leg_values and len(leg_values) == 1:
+        for group in LEG_GROUP_ROLES:
+            role_view.setdefault(group, next(iter(leg_values)))
+    merged = {**role_view, **by_joint}
+    if merged and len(set(merged.values())) == 1:
+        merged["joint"] = next(iter(merged.values()))
+
+    scalar = facts.get("scalar")
+    if scalar is None:
+        scalar = merged.get("joint") if merged else None
+    return {
+        "action_scale": float(scalar) if scalar is not None else 0.25,
+        "action_scale_by_role": merged or {"joint": 0.25},
+        "action_scale_by_joint": by_joint,
+        "wheel_scale_declared": bool(wheel_values),
+    }
 
 
 def physics_facts(package_dir: str | Path) -> dict[str, Any]:
