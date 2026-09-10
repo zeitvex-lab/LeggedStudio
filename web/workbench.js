@@ -143,6 +143,30 @@ async function runPackageInspection() {
   }
 }
 
+// D2：reindex_from_model 可见可比对——契约 v3 里"模型关节序 → 动作序"的重排
+// 数组与当前动作映射并排展示；长度不一致或非排列时给出红字提示。
+function renderReindexCompare(preset, mappedJoints) {
+  const host = $('reindexCompare');
+  if (!host) return;
+  if (!preset?.robot_id) { host.hidden = true; return; }
+  jsonFetch(`/api/robots/packages/${encodeURIComponent(preset.robot_id)}/contract-v3`).then((payload) => {
+    const reindex = payload?.contract_v3?.action?.reindex_from_model;
+    if (!Array.isArray(reindex) || !reindex.length) {
+      host.innerHTML = '契约 v3 未声明 <code>reindex_from_model</code>——动作序与模型关节序一致，无需重排。';
+      host.hidden = false;
+      return;
+    }
+    const isPermutation = reindex.length === new Set(reindex).size
+      && reindex.every((v) => Number.isInteger(v) && v >= 0 && v < reindex.length);
+    const lengthNote = mappedJoints.length === reindex.length
+      ? `与当前动作数 ${mappedJoints.length} 一致`
+      : `<b class="text-danger">长度不一致（动作 ${mappedJoints.length} vs reindex ${reindex.length}）——改完映射记得保存</b>`;
+    const permNote = isPermutation ? '是有效排列' : '<b class="text-danger">不是有效排列（索引越界或重复）</b>';
+    host.innerHTML = `<b>reindex_from_model</b>（模型关节序 → 动作序）：${reindex.map((v, i) => `${i}→${v}`).join(' · ')}<br>${lengthNote} · ${permNote}`;
+    host.hidden = false;
+  }).catch(() => { host.hidden = true; });
+}
+
 function renderRobotEditor(preset) {
   const contract = preset?.contract || {};
   const mappedJoints = contract.joints?.actuated_joints || [];
@@ -158,6 +182,7 @@ function renderRobotEditor(preset) {
   if ($('robotJointEditor')) {
     const options = availableJoints.length ? availableJoints : mappedJoints;
     $('robotJointEditor').innerHTML = mappedJoints.length ? mappedJoints.map((name, index) => `<label class="robot-joint-row"><span>${index + 1}</span><select data-joint-index="${index}" aria-label="动作 ${index + 1} 对应关节">${[...new Set([name, ...options])].map((candidate) => `<option value="${escapeHtml(candidate)}" ${candidate === name ? 'selected' : ''}>${escapeHtml(candidate)}</option>`).join('')}</select></label>`).join('') : '<div class="empty-state">Contract 未声明动作关节</div>';
+    renderReindexCompare(preset, mappedJoints);
   }
   if ($('robotPoseEditor')) {
     $('robotPoseEditor').innerHTML = controlledJoints.length ? `<div class="pose-unit-row"><span>${controlledJoints.length} 个可动关节</span><select id="jointDisplayUnit" aria-label="关节显示单位"><option value="rad" ${jointDisplayUnit === 'rad' ? 'selected' : ''}>rad / m</option><option value="deg" ${jointDisplayUnit === 'deg' ? 'selected' : ''}>deg / mm</option></select></div>${controlledJoints.map((name, index) => {
@@ -406,9 +431,9 @@ function setView(name, options = {}) {
   // identical across the functional areas. 资产库已原生并入首页
   // （#assetLibraryGrid），不再有独立 assets 视图。
   const framePages = {
-    navmap: ['navMapFrame', 'navigation_editor.html?v=0.39.0&embedded=1'],
-    deploy: ['deployFrame', 'deploy.html?v=0.39.0&embedded=1'],
-    artifacts: ['artifactsFrame', 'artifacts.html?v=0.39.0&embedded=1'],
+    navmap: ['navMapFrame', 'navigation_editor.html?v=0.40.0&embedded=1'],
+    deploy: ['deployFrame', 'deploy.html?v=0.40.0&embedded=1'],
+    artifacts: ['artifactsFrame', 'artifacts.html?v=0.40.0&embedded=1'],
   };
   if (name in framePages) {
     const [frameId, page] = framePages[name];
@@ -423,10 +448,10 @@ function setView(name, options = {}) {
     const robot = options.robot || selectedPreset?.robot_id || 'unitree_go2';
     // C2：带 task_id 时直接打开该 Run 的档案页（training_monitor）。
     const page = name === 'config'
-      ? `training_create.html?v=0.39.0&embedded=1&robot=${encodeURIComponent(robot)}`
+      ? `training_create.html?v=0.40.0&embedded=1&robot=${encodeURIComponent(robot)}`
       : options.task_id
-        ? `training_monitor.html?v=0.39.0&embedded=1&task_id=${encodeURIComponent(options.task_id)}`
-        : `training_list.html?v=0.39.0&embedded=1`;
+        ? `training_monitor.html?v=0.40.0&embedded=1&task_id=${encodeURIComponent(options.task_id)}`
+        : `training_list.html?v=0.40.0&embedded=1`;
     const expected = new URL(page, window.location.href).toString();
     if (frame.getAttribute('src') !== expected) frame.src = expected;
   }
