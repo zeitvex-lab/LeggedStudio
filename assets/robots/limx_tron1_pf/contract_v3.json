@@ -65,7 +65,7 @@
   "actuator_profile": {
     "by_role": {
       "abad": {
-        "stiffness": 42.0,
+        "stiffness": 40.0,
         "damping": 2.5,
         "effort": 80.0,
         "armature": 0.01,
@@ -73,7 +73,7 @@
         "action_scale": 0.25
       },
       "hip": {
-        "stiffness": 42.0,
+        "stiffness": 40.0,
         "damping": 2.5,
         "effort": 80.0,
         "armature": 0.01,
@@ -81,7 +81,7 @@
         "action_scale": 0.25
       },
       "knee": {
-        "stiffness": 42.0,
+        "stiffness": 40.0,
         "damping": 2.5,
         "effort": 80.0,
         "armature": 0.01,

@@ -45,8 +45,9 @@ class FiveCardInspectionTest(unittest.TestCase):
         self.assertIn(("hipx", "effort"), flagged)
         self.assertIn(("hipy", "effort"), flagged)
         self.assertIn(("knee", "effort"), flagged)
-        # 训练 PD 40 vs 部署 PD 30：刚度漂移同样红标
-        self.assertIn(("hipx", "stiffness"), flagged)
+        # 刚度已与官方一致（30.0 = isaac 资产 ∩ sdk_deploy ∩ ONNX，见
+        # 00_know/全部机型_参数来源对照与标准.md §2.1），不得再红标
+        self.assertNotIn(("hipx", "stiffness"), flagged)
 
     def test_m20_motor_card_flags_official_drift(self) -> None:
         report = inspect_package(ROBOTS / "deeprobotics_m20")

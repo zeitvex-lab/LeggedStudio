@@ -103,25 +103,25 @@
   "actuator_profile": {
     "by_role": {
       "hipx": {
-        "stiffness": 40.0,
+        "stiffness": 30.0,
         "damping": 1.0,
         "effort": 24.0,
         "mode": "position",
         "action_scale": 0.125
       },
       "hipy": {
-        "stiffness": 40.0,
+        "stiffness": 30.0,
         "damping": 1.0,
         "effort": 24.0,
         "mode": "position",
-        "action_scale": 0.125
+        "action_scale": 0.25
       },
       "knee": {
-        "stiffness": 40.0,
+        "stiffness": 30.0,
         "damping": 1.0,
         "effort": 36.0,
         "mode": "position",
-        "action_scale": 0.125
+        "action_scale": 0.25
       }
     },
     "default": {

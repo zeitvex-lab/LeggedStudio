@@ -10,12 +10,12 @@
   "physics_hz": 200,
   "decimation": 4,
   "stiffness": {
-    "abad_L_Joint": 42.0,
-    "hip_L_Joint": 42.0,
-    "knee_L_Joint": 42.0,
-    "abad_R_Joint": 42.0,
-    "hip_R_Joint": 42.0,
-    "knee_R_Joint": 42.0
+    "abad_L_Joint": 40.0,
+    "hip_L_Joint": 40.0,
+    "knee_L_Joint": 40.0,
+    "abad_R_Joint": 40.0,
+    "hip_R_Joint": 40.0,
+    "knee_R_Joint": 40.0
   },
   "damping": {
     "abad_L_Joint": 2.5,

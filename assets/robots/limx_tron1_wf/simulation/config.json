@@ -10,24 +10,24 @@
   "physics_hz": 200,
   "decimation": 4,
   "stiffness": {
-    "abad_L_Joint": 42.0,
-    "hip_L_Joint": 42.0,
-    "knee_L_Joint": 42.0,
+    "abad_L_Joint": 40.0,
+    "hip_L_Joint": 40.0,
+    "knee_L_Joint": 40.0,
     "wheel_L_Joint": 0.0,
-    "abad_R_Joint": 42.0,
-    "hip_R_Joint": 42.0,
-    "knee_R_Joint": 42.0,
+    "abad_R_Joint": 40.0,
+    "hip_R_Joint": 40.0,
+    "knee_R_Joint": 40.0,
     "wheel_R_Joint": 0.0
   },
   "damping": {
     "abad_L_Joint": 2.5,
     "hip_L_Joint": 2.5,
     "knee_L_Joint": 2.5,
-    "wheel_L_Joint": 0.5,
+    "wheel_L_Joint": 0.8,
     "abad_R_Joint": 2.5,
     "hip_R_Joint": 2.5,
     "knee_R_Joint": 2.5,
-    "wheel_R_Joint": 0.5
+    "wheel_R_Joint": 0.8
   },
   "torque_limit": 80.0,
   "torque_limits": {
