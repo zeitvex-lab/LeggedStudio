@@ -22,6 +22,14 @@ export interface MorphologySpec {
   leg_ids?: LegId[];
   actuated_via?: string;
   extra_roles?: RoleName[];
+  /** B4 构型级执行器范式；角色级细则见 actuator_profile.by_role[].mode */
+  actuator_type?: "position" | "velocity" | "hybrid" | "bam";
+  /** B4 足端形态；非腿式（morphology.id=hand）不声明 */
+  foot_type?: "point" | "sole" | "wheel";
+  /** B4 action.joint_order 中轮关节下标；无轮为 []，含 wheel 角色时必填非空 */
+  wheel_indices?: number[];
+  /** B4 质量/惯量来源口径（与 urdf.total_mass_kg 对账用） */
+  mass_source?: "mjcf_compiled" | "urdf_inertial";
 }
 
 /** Layer 3 条目：名字 + 归属 + 角色，不携带数值。 */
