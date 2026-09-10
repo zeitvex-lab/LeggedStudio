@@ -439,7 +439,14 @@
     mesh.visible = false;
     const generation = context.generation;
     context.deferredCollision.push(async () => {
-      const real = await loader();
+      let real = await loader();
+      // 延迟任务执行时 progressive 模式仍然生效：loadMesh 返回的是占位小盒，
+      // 真实几何挂在 userData.replacement 的共享 promise 上，必须等它完成，
+      // 否则 mesh 型碰撞体（如 tron1_sf 的足端）会永远停在占位盒上。
+      if (real?.userData?.replacement) {
+        const settled = await real.userData.replacement.catch(() => null);
+        real = settled ? settled.clone() : null;
+      }
       if (!state || state.generation !== generation || !mesh.parent || !real) return;
       mesh.geometry.dispose();
       mesh.geometry = real;
@@ -551,9 +558,12 @@
 
   function mjcfRole(attributes) {
     const className = String(attributes.class || '').toLowerCase();
+    // 与 robot_viewer 对齐：显式 class/group 优先，网格 geom 名含 collision
+    // （如 ankle_collision）作为兜底判为碰撞体。
     if (className.includes('visual') || Number(attributes.group) === 2) return 'visual';
     if (className.includes('collision') || Number(attributes.group) === 3) return 'collision';
     if (attributes.mesh && Number(attributes.contype || 0) === 0 && Number(attributes.conaffinity || 0) === 0) return 'visual';
+    if (String(attributes.name || '').toLowerCase().includes('collision')) return 'collision';
     return attributes.mesh ? 'visual' : 'collision';
   }
 
@@ -988,4 +998,5 @@
   window.getRobotViewerJoints = jointList;
   window.fitRobotViewer = fitView;
   window.setRobotViewerVisibility = setVisibility;
+  window.__debugViewerState = () => state;
 }());

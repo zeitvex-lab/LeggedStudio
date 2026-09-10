@@ -401,39 +401,12 @@ async function jsonFetch(path, options = {}) {
   if (!response.ok) throw new Error(payload.detail?.message || payload.detail || payload.error?.message || `HTTP ${response.status}`);
   return payload;
 }
-// #5 门控工作流条（StackForce 式）：根据前置状态给工作流步骤加上锁与原因 tooltip。
-// 不强求按序（产品定位），但未满足前置条件时以弱化 + tooltip 引导，避免误点。
-let workflowGateState = { hasPreset: false, cudaReady: false, trainingReady: false, simulationReady: false };
-function updateWorkflowGates() {
-  const gates = {
-    assets: { locked: false, why: '' },
-    config: { locked: !workflowGateState.hasPreset, why: '请先在资产库选择或导入一个机器人资产' },
-    training: { locked: !workflowGateState.hasPreset, why: '请先选择机器人资产再创建训练' },
-    monitor: { locked: false, why: '' },
-    simulation: { locked: !workflowGateState.simulationReady, why: '仿真依赖缺失，请先配置运行环境' },
-    deploy: { locked: !(workflowGateState.hasPreset && workflowGateState.trainingReady), why: '需先选择资产且训练栈就绪' },
-  };
-  document.querySelectorAll('.workflow-step-w').forEach((step) => {
-    const gate = gates[step.dataset.step];
-    if (!gate) return;
-    step.classList.toggle('locked', gate.locked);
-    if (gate.locked) {
-      step.setAttribute('data-locked', 'true');
-      step.setAttribute('title', `🔒 ${gate.why}`);
-      step.removeAttribute('data-ok');
-    } else {
-      step.removeAttribute('data-locked');
-      step.setAttribute('title', gate.why || '');
-    }
-  });
-}
-function setView(name) {
+function setView(name, options = {}) {
   // Inline pages hosted inside frames so the sidebar/workflow shell stays
-  // identical across the six functional areas.
+  // identical across the functional areas. 资产库已原生并入首页
+  // （#assetLibraryGrid），不再有独立 assets 视图。
   const framePages = {
     navmap: ['navMapFrame', 'navigation_editor.html?v=0.17.0&embedded=1'],
-    assets: ['assetsFrame', 'assets.html?v=0.17.0&embedded=1'],
-    monitor: ['monitorFrame', 'training_list.html?v=0.17.0&embedded=1'],
     deploy: ['deployFrame', 'deploy.html?v=0.17.0&embedded=1'],
     artifacts: ['artifactsFrame', 'artifacts.html?v=0.17.0&embedded=1'],
   };
@@ -447,7 +420,7 @@ function setView(name) {
   if (name === 'config' || name === 'training') {
     const frame = $(name === 'config' ? 'configFrame' : 'trainingFrame');
     if (!frame) return;
-    const robot = selectedPreset?.robot_id || 'unitree_go2';
+    const robot = options.robot || selectedPreset?.robot_id || 'unitree_go2';
     const page = name === 'config'
       ? `training_create.html?v=0.17.0&embedded=1&robot=${encodeURIComponent(robot)}`
       : `training_list.html?v=0.17.0&embedded=1`;
@@ -455,10 +428,12 @@ function setView(name) {
     if (frame.getAttribute('src') !== expected) frame.src = expected;
   }
   document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active-view', view.id === name));
+  // 全出血视图（iframe 内嵌页与 Sim2Sim）不带 content 内边距，精确填满
+  // main-area 剩余高度；首页/机器人工作台保留常规卡片留白。
+  const fullBleed = ['config', 'training', 'simulation', 'navmap', 'deploy', 'artifacts'].includes(name);
+  document.querySelector('.content')?.classList.toggle('content-fullbleed', fullBleed);
   // Sidebar + workflow progress both carry data-step targets.
   document.querySelectorAll('.side-item').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
-  document.querySelectorAll('.workflow-step-w').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
-  updateWorkflowGates();
   history.replaceState(null, '', `#${name}`);
   if (name === 'simulation') {
     const frame = $('simBrowserFrame');
@@ -529,7 +504,7 @@ async function applyPreset(preset) {
   let cachedXmlText = null;
   if (packageId && modelPath) {
     try {
-      const resp = await fetch(`/api/robots/presets/${encodeURIComponent(packageId)}/files/${modelPath}`, { cache: 'force-cache' });
+      const resp = await fetch(`/api/robots/presets/${encodeURIComponent(packageId)}/files/${modelPath}`, { cache: 'no-cache' });
       if (resp.ok) cachedXmlText = await resp.text();
     } catch (_) {}
   }
@@ -566,7 +541,7 @@ async function loadJointMetadata(preset, cachedXmlText) {
   try {
     let xmlText = cachedXmlText;
     if (!xmlText) {
-      const response = await fetch(`/api/robots/presets/${encodeURIComponent(packageId)}/files/${modelPath}`, { cache: 'force-cache' });
+      const response = await fetch(`/api/robots/presets/${encodeURIComponent(packageId)}/files/${modelPath}`, { cache: 'no-cache' });
       if (!response.ok) return;
       xmlText = await response.text();
     }
@@ -619,7 +594,7 @@ async function loadPresetModelSource(preset, modelFormat, cachedXmlText) {
   const baseUrl = `/api/robots/presets/${encodeURIComponent(packageId)}/files`;
   let content = cachedXmlText;
   if (!content) {
-    const response = await fetch(`/api/robots/presets/${encodeURIComponent(packageId)}/files/${modelPath}`, { cache: 'force-cache' });
+    const response = await fetch(`/api/robots/presets/${encodeURIComponent(packageId)}/files/${modelPath}`, { cache: 'no-cache' });
     if (!response.ok) throw new Error(`模型文件读取失败 (HTTP ${response.status})`);
     content = await response.text();
   }
@@ -630,13 +605,90 @@ async function loadPresetModelSource(preset, modelFormat, cachedXmlText) {
 }
 
 async function loadPresets(preferredId = null) {
-  const payload = await jsonFetch('/api/robots/presets?summary=true');
+  const payload = await jsonFetch('/api/robots/presets');
   presets = payload.presets || [];
   if ($('preset')) $('preset').innerHTML = '<option value="">请选择本地资产文件夹</option>';
   renderRobotPackageList();
-  workflowGateState.hasPreset = presets.length > 0;
-  updateWorkflowGates();
+  renderAssetLibrary();
   if (preferredId && presets.some((item) => item.robot_id === preferredId)) await selectRobotPackage(preferredId);
+}
+
+/* ===== 首页资产库：机器人包卡片 + 路径导入 + 索引刷新 ===== */
+function setAssetStatus(text) {
+  const el = $('assetLibraryStatus');
+  if (el) el.textContent = text;
+}
+
+function renderAssetLibrary() {
+  const grid = $('assetLibraryGrid');
+  if (!grid) return;
+  if (!presets.length) {
+    grid.innerHTML = '<div class="empty-state">暂无机器人包——可在上方输入路径导入，或将包放入工作区 packages/ 目录。</div>';
+    return;
+  }
+  grid.innerHTML = presets.map((item) => {
+    const id = String(item.robot_id || '');
+    const family = String(item.family || id || '未命名包');
+    const workspace = item.source === 'workspace';
+    const profiles = Array.isArray(item.training_profiles) ? item.training_profiles : [];
+    const visible = profiles.slice(0, 3);
+    const chips = profiles.length
+      ? `<div class="asset-chips">${visible.map((p) => `<span class="asset-chip${p.valid === false ? ' warn' : ''}" title="${escapeHtml(p.validation_errors?.length ? p.validation_errors.join('; ') : '校验通过')}">${escapeHtml(p.profile_id || '?')}${p.valid === false ? '（校验失败）' : ''}</span>`).join('')}${profiles.length > visible.length ? `<span class="asset-chip" title="其余 ${profiles.length - visible.length} 个训练档案">+${profiles.length - visible.length}</span>` : ''}</div>`
+      : '<span class="asset-meta">无训练档案</span>';
+    return `<article class="asset-card" data-robot="${escapeHtml(id)}">
+      <div class="asset-card-head"><strong title="${escapeHtml(family)}">${escapeHtml(family)}</strong><span class="badge ${workspace ? 'ok' : ''}">${workspace ? '工作区' : '内置'}</span></div>
+      <span class="asset-meta">${Number(item.dof || 0)} 自由度 · ${Number(item.mass_kg || 0).toFixed(2)} kg · ${escapeHtml(item.size_class || '-')} / ${escapeHtml(item.locomotion_type || '-')}</span>
+      ${chips}
+      <code title="${escapeHtml(item.asset_path || '')}">${escapeHtml(item.asset_path || '-')}</code>
+      <div class="asset-actions">
+        <button class="button primary" type="button" data-asset-action="config" data-robot="${escapeHtml(id)}">配置训练</button>
+        <button class="button" type="button" data-asset-action="workbench" data-robot="${escapeHtml(id)}">去工作台</button>
+        <a class="button" href="/api/robots/packages/${encodeURIComponent(id)}/export">导出 zip</a>
+        ${workspace ? `<button class="button danger" type="button" data-asset-action="delete" data-robot="${escapeHtml(id)}">删除</button>` : ''}
+      </div>
+    </article>`;
+  }).join('');
+}
+
+async function refreshAssetLibrary() {
+  setAssetStatus('正在重建索引...');
+  try {
+    await jsonFetch('/api/robots/packages/refresh', { method: 'POST' });
+    await loadPresets();
+    setAssetStatus(`已同步 ${presets.length} 个机器人包`);
+  } catch (error) {
+    setAssetStatus(`刷新失败：${error.message}`);
+  }
+}
+
+async function importAssetPackage() {
+  const input = $('assetImportPath');
+  const path = input?.value.trim() || '';
+  if (!path) {
+    setAssetStatus('请先输入机器人包目录的绝对路径');
+    return;
+  }
+  setAssetStatus('正在导入...');
+  try {
+    const result = await jsonFetch('/api/robots/packages/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) });
+    if (input) input.value = '';
+    await loadPresets();
+    const profiles = result.record_summary?.profiles || [];
+    setAssetStatus(`已导入 ${result.robot_id}${profiles.length ? ` · 档案：${profiles.join(', ')}` : ''}`);
+  } catch (error) {
+    setAssetStatus(`导入失败：${error.message}`);
+  }
+}
+
+async function deleteAssetPackage(robotId) {
+  if (!robotId || !confirm(`确认删除工作区包 ${robotId}？（内置包不受影响）`)) return;
+  try {
+    await jsonFetch(`/api/robots/packages/${encodeURIComponent(robotId)}`, { method: 'DELETE' });
+    await loadPresets();
+    setAssetStatus(`已删除 ${robotId}`);
+  } catch (error) {
+    setAssetStatus(`删除失败：${error.message}`);
+  }
 }
 function renderRewards() {
   const entries = Object.entries(rewardDefaults);
@@ -662,7 +714,7 @@ function renderNextStep(adapters, cuda) {
     steps.push({ label: '配置运行环境', detail: 'MJLab 训练栈未就绪——请在桌面端「系统设置」中配置运行时与 PyTorch 镜像。' });
   }
   if (!adapters.mujoco_simulation) {
-    steps.push({ btn: 'simulation', label: '检查仿真依赖', detail: 'MuJoCo 仿真依赖缺失——修复后再做 Sim2Sim 回放。' });
+    steps.push({ btn: 'simulation', label: '检查仿真依赖', detail: 'MuJoCo 仿真依赖缺失——修复后再做基础仿真。' });
   }
   if (!cuda) {
     steps.push({ label: '检查 CUDA', detail: '未检测到 CUDA——GPU 训练不可用，可在桌面端「系统设置」切换 CPU 或用 GPU profile 重装。' });
@@ -682,10 +734,6 @@ async function loadCapabilities() {
     const adapters = cap.adapters || {};
     const cuda = status.native_mjlab?.runtime?.interpreters?.some((item) => item.cuda_available);
     $('homeCapabilities').innerHTML = [['Control plane', true, 'online'], ['MJLab training', adapters.native_mjlab, adapters.native_mjlab ? 'ready' : 'configure runtime'], ['MuJoCo simulation', adapters.mujoco_simulation, adapters.mujoco_simulation ? 'ready' : 'missing dependency'], ['CUDA', cuda, cuda ? 'detected' : 'not detected']].map(([label, ok, value]) => `<div class="system-row"><span>${label}</span><strong class="${ok ? 'ok' : 'warn'}">${value}</strong></div>`).join('');
-    workflowGateState.trainingReady = Boolean(adapters.native_mjlab);
-    workflowGateState.simulationReady = Boolean(adapters.mujoco_simulation);
-    workflowGateState.cudaReady = Boolean(cuda);
-    updateWorkflowGates();
     renderNextStep(adapters, cuda);
   } catch (error) { setStatus($('backendState'), 'Control plane offline', 'error'); $('homeCapabilities').innerHTML = `<div class="empty-state">${error.message}</div>`; }
 }
@@ -800,6 +848,18 @@ function bindEvents() {
     $('stageStatus').textContent = detail.complete ? 'Three.js 视觉模型已加载' : `视觉网格后台加载 ${detail.loaded || 0}/${detail.total}`;
   });
   document.querySelectorAll('[data-step]').forEach((item) => item.addEventListener('click', () => setView(item.dataset.step)));
+  // 首页资产库交互：导入 / 刷新 / 卡片动作（配置训练、去工作台、删除）。
+  $('refreshAssetLibrary')?.addEventListener('click', refreshAssetLibrary);
+  $('importAssetPackage')?.addEventListener('click', importAssetPackage);
+  $('assetImportPath')?.addEventListener('keydown', (event) => { if (event.key === 'Enter') importAssetPackage(); });
+  $('assetLibraryGrid')?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-asset-action]');
+    if (!button) return;
+    const robot = button.dataset.robot;
+    if (button.dataset.assetAction === 'config') setView('config', { robot });
+    else if (button.dataset.assetAction === 'workbench') { setView('robot'); selectRobotPackage(robot); }
+    else if (button.dataset.assetAction === 'delete') deleteAssetPackage(robot);
+  });
   $('preset').addEventListener('change', (event) => applyPreset(presets.find((item) => item.robot_id === event.target.value)));
   $('fitModel')?.addEventListener('click', () => window.fitRobotViewer?.());
   [['toggleVisual', 'visual'], ['toggleCollision', 'collision'], ['toggleInertial', 'inertial'], ['toggleCenterOfMass', 'centerOfMass'], ['toggleGrid', 'grid'], ['toggleAxes', 'axes'], ['toggleJointAxes', 'jointAxes']].forEach(([id, key]) => $(id)?.addEventListener('click', (event) => {
@@ -833,4 +893,4 @@ function bindEvents() {
   $('validateBtn').addEventListener('click', validateModel); $('startSimulation')?.addEventListener('click', startSimulation); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
   window.addEventListener('resize', () => { drawChart(); });
 }
-document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home','assets','robot','config','training','monitor','simulation','navmap','deploy','artifacts'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });
+document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home','robot','config','training','simulation','navmap','deploy','artifacts'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });
