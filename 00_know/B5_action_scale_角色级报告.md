@@ -74,6 +74,72 @@
 
 ---
 
+## 8. 补遗（§6 遗留项的取证结论）：轮足机型的"轮档位"是**独立的速度档位**
+
+§6 里悬空的 `tron1_wf` 轮档位，在 `00_open` 下的三个 tron1 仓库里找到了；顺着这条线
+做了一次系统性排查，发现**我们此前把腿的位置档位套到了轮上**——这是本报告最重要的一处修正。
+
+### 8.1 统一模式：腿走位置、轮走独立速度档位
+
+| 机型 | 腿（位置档位） | 轮（速度档位） | 来源（上游动作空间定义侧） |
+|---|---|---|---|
+| `limx_tron1_wf` | abad/hip/knee = 0.25 | **1.0** | tron1-rl-isaaclab `cfg/WF/limx_base_env_cfg.py`：`JointVelocityActionCfg(joint_names=["wheel_L_Joint","wheel_R_Joint"], scale=1.0, # 10)` |
+| `deeprobotics_m20` | hipx **0.125** / hipy·knee 0.25 | **5.0** | `export_onnx_fast.py`：`_M20_ACTION_SCALE = [0.125,0.25,0.25]*4 + [5.0]*4`；`terrain_scene/.../m20.py`：腿用 `action_scale`、轮用 `vel_scale` |
+| `unitree_b2w` | hip **0.125** / thigh·calf **0.25** | **5.0** | robot_lab `rough_env_cfg.py`：`joint_pos.scale={".*_hip_joint":0.125, "^(?!.*_hip_joint).*":0.25}`、`joint_vel.scale=5.0` |
+| `zex-w` | abad **0.125** / hip_pitch·knee 0.25 | **5.0** | `LEG_POS_SCALE=0.25` / `WHEEL_VEL_SCALE=5.0`（与本仓库原值一致 ✓） |
+| `unitree_go2w` | 0.5 | 35.0 | 已见 §7.4（任务相关） |
+
+三处旁证互相印证：`tron1_wf` 的 `params.yaml` 里 `jointpos_idxs: [0,1,2,4,5,6]`
+**恰好排除 3/7 号轮关节**；部署代码 `velocity_des = actions[i] * wheel_joint_damping`
+走"力矩夹紧 + 速度给定"；`m20.py` 明文分两路（`position_target_offset[wheel_indices]=0`
+与 `wheel_velocity_target = action * vel_scale`）。
+
+这同时**独立确认了 B4 的两项判断**：`tron1_wf` 的 `wheel_indices=[3,7]`，
+以及它 `morphology.actuator_type = "hybrid"`（训练侧确实同时使用
+`JointPositionAction`（腿）+ `JointVelocityAction`（轮））。
+
+### 8.2 修正
+
+| 机型 | 角色 | 原值 | 修正为 |
+|---|---|---|---|
+| `limx_tron1_wf` | wheel | 0.25 | **1.0** |
+| `deeprobotics_m20` | hipx | 0.25 | **0.125** |
+| `deeprobotics_m20` | wheel | 0.25 | **5.0** |
+| `unitree_b2w` | thigh / calf | 0.125 | **0.25** |
+| `unitree_b2w` | wheel | 0.125 | **5.0** |
+
+`zex-w` 无需改动（原值即正确）。变更集合随之从 `{g1, go2w, zex-w}` 扩为
+`{m20, tron1_wf, b2w, g1, go2w, zex-w}`，测试表已同步。
+
+### 8.3 独立交叉验证：mjlab 的档位是**推导出来的**
+
+mjlab 的 asset_zoo 不硬编码档位，而是：
+
+```python
+GO1_ACTION_SCALE[n] = 0.25 * effort_limit / stiffness
+```
+
+用它反查本仓库各机型（只对 mode 为位置类且具备 effort/stiffness 的角色适用）：
+**唯一吻合的是 `unitree_g1`**——声明值与推导值相差 ≤0.005（0.5475↔0.55、0.4386↔0.44、
+0.0745↔0.07），差值恰为官方部署 yaml 的舍入精度。这等于用**两条完全独立的来源**
+（官方 g1 部署 yaml × 本契约的 effort/stiffness）互证，已固化为
+`ActionScaleRoleLevelB5Test.test_g1_declared_scale_matches_mjlab_derivation`。
+
+其余机型不适用该式：`lite3`/`m20` 用 deeprobotics 自有约定、`tron1` 用固定
+`action_scale_pos`、`b2`/`b2w` 用 robot_lab 的 `{hip:0.125, 其余:0.25}` 字面值、
+`go2w` 为任务相关（§7.4）。**因此该式只能做 g1 的交叉验证，不能当通用不变量。**
+
+### 8.4 仍未解
+
+| 项 | 说明 |
+|---|---|
+| `unitree_b2`（无轮四足） | 本仓库为 0.125 均匀值；b2w 的腿档位是 `{hip:0.125, thigh/calf:0.25}`，b2 很可能同构，但**未找到 b2 侧的独立证据**，故未改 |
+| `unitree_go1` | 本仓库 0.25 均匀值；mjlab 的 `GO1_ACTION_SCALE` 由该机型的 `GO1_ARTICULATION` 推导，与本契约的 effort/stiffness 不同源，推导值 0.2963 与声明值不可直接比较——**需要 go1 的 GO1_ARTICULATION 参数才能定论** |
+| `mode` 字段口径 | 交叉校验显示 g1 的 `by_role.mode = "torque"`、`go2` 亦为 `"torque"`，而二者的动作项是位置控制。`mode` 到底表示"动作类型"还是"驱动器类型"需要确认；若为前者，g1/go2 的值存疑（本轮未动） |
+
+
+---
+
 ## 7. B5/2：三端接线（仿真 / 训练 / 部署统一读契约）
 
 ### 7.1 发现：仿真与训练本来读的是两份数据
