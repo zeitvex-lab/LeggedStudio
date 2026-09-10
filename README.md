@@ -12,7 +12,7 @@
 
 | 环节 | 能力 |
 |---|---|
-| 资产管理 | 内置 15 个标准化机器人包（宇树 Go1/Go2/Go2W/B2/G1、云深处 Lite3/M20/X30、逐际 TRON1 三形态、自研 ZEX-W 轮足、Wuji 五指灵巧手等），统一契约描述 |
+| 资产管理 | 内置 14 个标准化机器人包（宇树 Go1/Go2/Go2W/B2/G1、云深处 Lite3/M20、逐际 TRON1 三形态、自研 ZEX-W 轮足、Wuji 五指灵巧手等），统一契约描述 |
 | 模型检查 | URDF/MJCF 校验、3D 可视化检查器、契约合规校验 |
 | RL 训练 | 通过隔离子进程调用 MJLab（MuJoCo Warp + PyTorch）训练后端，PPO / off-policy 算法，训练任务创建、监控、事件流 |
 | 策略导出 | 导出 ONNX 部署策略，导出门禁（export gate）校验 |

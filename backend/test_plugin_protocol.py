@@ -73,8 +73,8 @@ class ThreePredicateMatchTest(unittest.TestCase):
 class CatalogTest(unittest.TestCase):
     def test_catalog_covers_packages_with_hashes(self) -> None:
         catalog = generate_catalog(sorted(p for p in ROBOTS.iterdir() if (p / "contract.json").exists()))
-        # agibot_d1 / unitree_h1_2 已下线删除，内置包从 16 降为 15。
-        self.assertGreaterEqual(len(catalog["packages"]), 15)
+        # agibot_d1 / unitree_h1_2 已下线删除、deeprobotics_x30 已移出，内置包 16 → 14。
+        self.assertGreaterEqual(len(catalog["packages"]), 14)
         for entry in catalog["packages"]:
             self.assertTrue(entry["valid"], f"{entry['package_id']}: invalid")
             self.assertTrue(entry["model_sha256"])
