@@ -70,15 +70,43 @@ def merge_v3_over_v2(v3: dict[str, Any] | None, v2: dict[str, Any] | None) -> di
         return base
 
     resolver = RoleResolver(v3)
-    for key in ("robot_id", "family", "size_class"):
+    for key in ("robot_id", "family"):
         if v3.get(key):
             base[key] = v3[key]
-    # B2 契约单轨：locomotion_type 是 v3 morphology 的**派生视图**（v2 的四值枚举表达不了
-    # "双足 + 足底 + 踝"这类组合，实测 microduck 因此漂移成 "P"）。此处不再采信任何一侧
-    # 的存量值，避免"两边都写错就一直错"。未迁移契约（无 morphology）自动沿用存量值。
+
+    # ---- 参数单一家（B2/2）：以下各项的"家"在 v3，v2 侧只做投影 ----
+    # 判据同 B2：谁表达能力强谁当真值，另一份退化为派生视图，结构上消除漂移。
+
+    # 1) morphology：v3 的构型层（含 B4 的 foot_type / wheel_indices / actuator_type 与
+    #    mass_source）。此前本函数**整个丢弃**它，导致这些字段到不了任何消费者。
+    morphology = dict(v3.get("morphology") or {})
+    if morphology:
+        base["morphology"] = morphology
+
+    # 2) locomotion_type：v3 的四值枚举表达不了"双足 + 足底 + 踝"这类组合，
+    #    实测 microduck 因此两侧都漂移成 "P"。由 morphology 派生，不采信存量值。
     derived_loco = locomotion_type_from_contract(v3)
     if derived_loco:
         base["locomotion_type"] = derived_loco
+
+    # 3) size_class：真值是"质量桶"，由 urdf.total_mass_kg 经 size_class_for_mass 派生
+    #    （契约 models 的规范实现，AssetRecord 亦强制声明值等于派生值）。存量声明值会漂移
+    #    ——实测 lite3 声明 L 而质量仅 6.25kg（应为 S）、g1 声明 L 而 33.3kg（应为 M）。
+    #    局部导入以避免与 contracts.models 的循环引用。
+    from contracts.models import size_class_for_mass
+
+    urdf = dict(base.get("urdf") or {})
+    derived_size = size_class_for_mass(urdf.get("total_mass_kg"))
+    if derived_size is not None:
+        base["size_class"] = derived_size.value
+
+    # 4) mass_source：真值是 morphology.mass_source（类型化枚举 mjcf_compiled|urdf_inertial）；
+    #    v2 的 urdf.mass_source 是自由文本（manual/estimated/mj_model/mjcf-sum/
+    #    mjcf_inertial_sum），保留为**投影**供 v2 消费方读取，使其与真值不再可能分歧。
+    if morphology.get("mass_source"):
+        urdf["mass_source"] = morphology["mass_source"]
+    if urdf:
+        base["urdf"] = urdf
 
     # Joint order + default pose from v3.
     actuated_names = resolver.actuated_names

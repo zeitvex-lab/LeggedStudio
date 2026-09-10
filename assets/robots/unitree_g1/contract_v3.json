@@ -426,7 +426,7 @@
   },
   "contract_id": "unitree_g1_v3",
   "family": "Unitree G1",
-  "size_class": "L",
+  "size_class": "M",
   "locomotion_type": "B",
   "description": "Unitree G1 29-DOF humanoid（球面手变体）。模型来自 mjswan sim2sim 部署包。",
   "tags": [

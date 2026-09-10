@@ -133,8 +133,8 @@ GO1_ACTION_SCALE[n] = 0.25 * effort_limit / stiffness
 
 | 项 | 说明 |
 |---|---|
-| `unitree_b2`（无轮四足） | 本仓库为 0.125 均匀值；b2w 的腿档位是 `{hip:0.125, thigh/calf:0.25}`，b2 很可能同构，但**未找到 b2 侧的独立证据**，故未改 |
-| `unitree_go1` | 本仓库 0.25 均匀值；mjlab 的 `GO1_ACTION_SCALE` 由该机型的 `GO1_ARTICULATION` 推导，与本契约的 effort/stiffness 不同源，推导值 0.2963 与声明值不可直接比较——**需要 go1 的 GO1_ARTICULATION 参数才能定论** |
+| ~~`unitree_b2`（无轮四足）~~ | **已解决**：robot_lab b2 的 `rough_env_cfg.py` 写着 `joint_pos.scale = {".*_hip_joint": 0.125, "^(?!.*_hip_joint).*": 0.25}`，与 b2w 的**腿**部分逐字同源 ⇒ `hip 0.125 / thigh·calf 0.25`（我们已经修正，原先三个角色都写成了 0.125） |
+| `unitree_go1` | 已取到 mjlab 的精确值：`ROTOR_INERTIA=0.000111842`、`HIP_GEAR_RATIO=6`（knee ×1.5=9）、`STIFFNESS = reflected_inertia×(20π)²`、`hip effort=23.7` / `knee effort=35.55`，代入 `0.25*e/s` 得 **hip/thigh≈0.3727、calf≈0.2485**（我们现为均匀 0.25）。但要对齐它必须**连同 `effort`/`stiffness` 一起改**——我们契约写 calf 33.5 N·m 而 mjlab 是 35.55，属更深一层的物理参数收敛。**待先定物理参数的真值源** |
 | `mode` 字段口径 | 交叉校验显示 g1 的 `by_role.mode = "torque"`、`go2` 亦为 `"torque"`，而二者的动作项是位置控制。`mode` 到底表示"动作类型"还是"驱动器类型"需要确认；若为前者，g1/go2 的值存疑（本轮未动） |
 
 
