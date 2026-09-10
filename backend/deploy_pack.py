@@ -75,7 +75,7 @@ def deployment_contract_json(contract_v3: dict) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
 
 
-FSM_TEMPLATE = '''通用安全状态机模板（Legged Studio 生成）。
+FSM_TEMPLATE = '''"""通用安全状态机模板（Legged Studio 生成）。
 
 PASSIVE → STAND → POLICY → RECOVER → ESTOP
 安全链路独立于策略：action clip ≠ 急停；急停为最高优先级。
@@ -193,7 +193,7 @@ def fsm_template(contract_v3: dict) -> str:
     return header + FSM_TEMPLATE
 
 
-DECODER_TEMPLATE = '''动作解码层模板（Legged Studio 生成）。
+DECODER_TEMPLATE = '''"""动作解码层模板（Legged Studio 生成）。
 
 策略 12/16/29 维关节动作 → 真实 SDK 电机命令：
   motor_cmd = decode(policy_output, obs_stamp)
