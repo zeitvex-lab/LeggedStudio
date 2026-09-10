@@ -1,0 +1,17 @@
+{
+  "schema_version": "skill-recipe-2.0",
+  "recipe_id": "velocity_base",
+  "display_name": "Velocity locomotion (base)",
+  "description": "通用速度控制技能底座：任务变体表 + 默认算法/运行参数。机器人包通过 patch（extends: velocity_base）覆盖机型特有值——新增技能只写 JSON，不改代码。",
+  "backend": "native_mjlab",
+  "algorithm": "PPO",
+  "episode_length_s": 20.0,
+  "decimation": 4,
+  "num_envs": 4096,
+  "tasks": {
+    "forward_walk": {"label": "Forward walk", "terrain": "plane", "control": "velocity"},
+    "trot": {"label": "Trot", "terrain": "plane", "control": "velocity"},
+    "rough_terrain": {"label": "Rough terrain", "terrain": "rough", "control": "velocity"},
+    "stairs": {"label": "Stairs", "terrain": "stairs", "control": "velocity"}
+  }
+}

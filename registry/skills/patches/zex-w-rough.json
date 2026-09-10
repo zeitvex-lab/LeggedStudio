@@ -1,0 +1,15 @@
+{
+  "schema_version": "skill-recipe-2.0",
+  "recipe_id": "zex-w-rough",
+  "display_name": "ZEX-W rough / obstacle curriculum",
+  "description": "zex-w 粗糙地形技能补丁：extends velocity_base，覆盖地形课程 / 命令范围 / runner。对拍基准 = assets/robots/zex-w/training/profiles/rough.json。",
+  "extends": "velocity_base",
+  "task_name": "rough_terrain",
+  "terrain_type": "rough",
+  "num_envs": 2048,
+  "seed": 42,
+  "command_ranges": {"lin_vel_x": [-1.0, 1.0], "lin_vel_y": [-1.0, 1.0], "ang_vel_z": [-1.0, 1.0]},
+  "terrain": {"type": "generator", "curriculum": true, "tile_size": [8.0, 8.0], "num_rows": 10, "num_cols": 20, "max_init_terrain_level": 5, "sub_terrains": {"flat": 0.15, "pyramid_stairs": 0.05, "pyramid_stairs_inv": 0.35, "random_grid": 0.27, "random_rough": 0.01, "perlin_noise": 0.01, "rc_wall": 0.15, "sloped_terrain": 0.01}},
+  "curriculum": {"terrain_levels": "terrain_levels_obstacle_release", "initial_terrains": ["flat", "random_rough", "perlin_noise", "sloped_terrain", "pyramid_stairs"], "terrain_release_env_steps": [[4800, ["random_grid"]], [12000, ["pyramid_stairs_inv"]], [16800, ["rc_wall"]]], "adaptive_command_ranges": true, "command_initial_range": [-0.5, 0.5], "command_delta": 0.05, "command_target_ratio": 0.8},
+  "runner": {"hidden_dims": [512, 256, 128], "activation": "elu", "learning_rate": 0.0008, "entropy_coef": 0.003, "gamma": 0.99, "gae_lambda": 0.95, "clip_param": 0.2, "num_learning_epochs": 5, "num_mini_batches": 4, "num_steps_per_env": 24, "save_interval": 100, "max_iterations": 20000}
+}
