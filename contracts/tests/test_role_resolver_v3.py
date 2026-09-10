@@ -121,13 +121,14 @@ def build_contract(package_id: str, config: dict, observation_components=None) -
 
 
 class QuadrupedSharedMorphologyTest(unittest.TestCase):
-    def test_go2_a2_b2_share_one_morphology_template(self) -> None:
+    def test_go2_b2_share_one_morphology_template(self) -> None:
+        # unitree_a1 / unitree_a2 已下线删除。
         contracts = {
             pkg: build_contract(pkg, load_sim_config(pkg))
-            for pkg in ("unitree_go2", "unitree_a2", "unitree_b2")
+            for pkg in ("unitree_go2", "unitree_b2")
         }
         templates = {json.dumps(c["morphology"], sort_keys=True) for c in contracts.values()}
-        self.assertEqual(len(templates), 1, "三个 quadruped_12dof 必须共用同一份 morphology 模板")
+        self.assertEqual(len(templates), 1, "quadruped_12dof 必须共用同一份 morphology 模板")
 
     def test_actuated_sets_equal_naming_expansion(self) -> None:
         contract = build_contract("unitree_go2", load_sim_config("unitree_go2"))
@@ -161,8 +162,8 @@ class ActuatorExpansionMatchesCurrentConfigTest(unittest.TestCase):
             expected = 0.02 if "_calf_" in joint else 0.01
             self.assertEqual(params["armature"], expected, f"go2 armature/{joint}")
 
-    def test_a2_and_b2_per_joint_config_roundtrip(self) -> None:
-        for package_id in ("unitree_a2", "unitree_b2"):
+    def test_b2_per_joint_config_roundtrip(self) -> None:
+        for package_id in ("unitree_b2",):
             config = load_sim_config(package_id)
             contract = build_contract(package_id, config)
             expanded = RoleResolver(contract).expand_actuator_profile()

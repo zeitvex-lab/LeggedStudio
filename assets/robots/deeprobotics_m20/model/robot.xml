@@ -162,7 +162,7 @@
                         <joint name="hl_knee_joint" pos="0 0 0" axis="0 -1 0" range="-2.792 2.809"
                                actuatorfrcrange="-76.4 76.4"/>
                         <geom type="mesh" mesh="hl_knee" class="visual"/>
-                        <geom size="0.03 0.0125 0.125" pos="-0.015 0.015 -0.125" type="box" name="hl_knee_collision" class="collision"/>
+                        <geom size="0.03 0.0125 0.125" pos="-0.015 -0.015 -0.125" type="box" name="hl_knee_collision" class="collision"/>
                         <geom size="0.04 0.05" pos="0 0.02 -0.25" quat="0.707107 0.707107 0 0" type="cylinder"
                               name="hl_knee_collision_2" class="collision"/>
                         <body name="hl_wheel" pos="0 0.059676 -0.25">

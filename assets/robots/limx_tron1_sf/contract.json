@@ -2,7 +2,7 @@
   "schema_version": "robot-contract-2.0",
   "contract_id": "limx_tron1_sf_v1",
   "robot_id": "limx_tron1_sf",
-  "family": "LimX Dynamics TRON1 Sole-Foot",
+  "family": "LimX Tron1 SF",
   "size_class": "M",
   "locomotion_type": "B",
   "urdf": {

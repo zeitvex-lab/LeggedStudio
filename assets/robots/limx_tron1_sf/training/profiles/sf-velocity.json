@@ -1,7 +1,7 @@
 {
   "schema_version": "training-profile-1.0",
   "profile_id": "sf-velocity",
-  "display_name": "LimX TRON1 SF Velocity Flat",
+  "display_name": "LimX Tron1 SF Velocity Flat",
   "source": "package-local velocity task",
   "source_root": "training/source",
   "entrypoints": {

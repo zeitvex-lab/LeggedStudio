@@ -1,7 +1,0 @@
-{
-  "robot_id": "unitree_h1_2",
-  "task_name": "velocity-flat",
-  "backend": "native_mjlab",
-  "terrain_type": "plane",
-  "algorithm": "PPO"
-}

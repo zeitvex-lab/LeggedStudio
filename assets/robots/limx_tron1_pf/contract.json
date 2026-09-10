@@ -2,7 +2,7 @@
   "schema_version": "robot-contract-2.0",
   "contract_id": "limx_tron1_pf_v1",
   "robot_id": "limx_tron1_pf",
-  "family": "LimX Dynamics TRON1 Point-Foot",
+  "family": "LimX Tron1 PF",
   "size_class": "M",
   "locomotion_type": "B",
   "urdf": {
