@@ -374,6 +374,22 @@ async def export_robot_package(robot_id: str):
                         background=BackgroundTask(os.remove, zip_path))
 
 
+@app.get("/api/robots/packages/{robot_id}/contract-v3")
+async def get_robot_contract_v3(robot_id: str) -> dict[str, Any]:
+    """D2：读包内契约 v3——动作映射页的 reindex_from_model 可见可比对。"""
+    preset = load_robot_preset(robot_id)
+    if preset is None:
+        raise HTTPException(status_code=404, detail=f"Unknown robot package: {robot_id}")
+    root = Path(str((preset.get("robot_package") or {}).get("package_root", "")))
+    v3_path = root / "contract_v3.json"
+    if not v3_path.exists():
+        return {"success": True, "contract_v3": None}
+    try:
+        return {"success": True, "contract_v3": json.loads(v3_path.read_text(encoding="utf-8-sig"))}
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.put("/api/robots/packages/{robot_id}")
 async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Persist a generic robot package configuration with copy-on-write."""
@@ -403,7 +419,7 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
         else:
             raise ValueError("package is outside writable package roots")
         contract_path = target / "contract.json"
-        contract_path.write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+        contract_path.write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         simulation = payload.get("simulation") if isinstance(payload.get("simulation"), dict) else {}
         simulation_path = target / "simulation" / "config.json"
         previous = {}
@@ -414,14 +430,78 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
                 previous = {}
         simulation_path.parent.mkdir(parents=True, exist_ok=True)
         merged_simulation = {**previous, **simulation}
-        simulation_path.write_text(json.dumps(merged_simulation, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+        simulation_path.write_text(json.dumps(merged_simulation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        # D4：同步 contract_v3.json——v3 是训练/浏览器仿真的单一真值（B2/B5），
+        # 只写 v2 会让"工作台保存"对训练与仿真静默失效（无两处不一致的验收）。
+        # 不重新迁移（会丢人工校准的 by_role/role_hints），而是外科手术式地把
+        # 本次编辑的字段同步进 v3：joint_order / default_pose / control / 增益。
+        v3_note = "absent"
+        v3_path = target / "contract_v3.json"
+        if v3_path.exists():
+            try:
+                from contracts.generated import dump_v3, parse_v3
+
+                v3 = json.loads(v3_path.read_text(encoding="utf-8-sig"))
+                new_order = contract.get("action", {}).get("joint_order") or \
+                    contract.get("joints", {}).get("actuated_joints") or []
+                if new_order:
+                    v3.setdefault("action", {})["joint_order"] = list(new_order)
+                    # actuated 数组按新动作序重排（改名/新增的关节不动 v3 角色信息）
+                    entries = {e.get("name"): e for e in v3.get("joints", {}).get("actuated", [])}
+                    known = [entries[name] for name in new_order if name in entries]
+                    v3["joints"]["actuated"] = known + \
+                        [e for n, e in entries.items() if n not in new_order]
+                payload_pose = contract.get("joints", {}).get("default_pose")
+                if isinstance(payload_pose, list) and payload_pose:
+                    v3.setdefault("joints", {})["default_pose"] = payload_pose
+                v3.setdefault("control", {})
+                for key in ("control_hz", "physics_hz", "decimation"):
+                    if merged_simulation.get(key) is not None:
+                        v3["control"][key] = merged_simulation[key]
+                # 增益：逐关节值按"角色内全同 → by_role，否则 by_joint"归层
+                # （与 role_resolver 的 default < by_role < by_joint 合并序一致）。
+                profile = v3.setdefault("actuator_profile", {})
+                by_role = profile.setdefault("by_role", {})
+                by_joint_layer = profile.setdefault("by_joint", {})
+                roles_of = {e.get("name"): e.get("role") for e in v3["joints"]["actuated"]}
+                gain_to_v3 = {"stiffness": "stiffness", "damping": "damping",
+                              "torque_limits": "effort"}
+                role_groups: dict[str, list[str]] = {}
+                for joint_name, role in roles_of.items():
+                    if role:
+                        role_groups.setdefault(role, []).append(joint_name)
+                for gain_key, v3_key in gain_to_v3.items():
+                    per_joint = contract.get("control", {}).get(gain_key)
+                    if not isinstance(per_joint, dict):
+                        continue
+                    for role, names in role_groups.items():
+                        values = [per_joint.get(n) for n in names if per_joint.get(n) is not None]
+                        if not values:
+                            continue
+                        if len(values) == len(names) and len(set(map(float, values))) == 1:
+                            by_role.setdefault(role, {})[v3_key] = values[0]
+                            for n in names:
+                                if n in by_joint_layer:
+                                    by_joint_layer[n].pop(v3_key, None)
+                        else:
+                            for n in names:
+                                if per_joint.get(n) is not None:
+                                    by_joint_layer.setdefault(n, {})[v3_key] = per_joint[n]
+                v3_model = parse_v3(v3)  # 校验；失败则不写，保留原 v3
+                v3_path.write_text(
+                    json.dumps(dump_v3(v3_model), ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+                v3_note = "synced"
+            except Exception as exc:  # noqa: BLE001  v3 同步失败不阻塞 v2 保存
+                v3_note = f"failed: {exc}"
         descriptor_path = target / "robot_package.json"
         if descriptor_path.exists():
             descriptor = json.loads(descriptor_path.read_text(encoding="utf-8-sig"))
             descriptor["content_sha256"] = __import__("hashlib").sha256(contract_path.read_bytes()).hexdigest()
-            descriptor_path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+            descriptor_path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         upsert_package(target)
-        return {"success": True, "robot_id": robot_id, "package_root": str(target), "contract": contract, "simulation": merged_simulation, "diagnostics": {"valid": True, "writable_root": str(target)}}
+        return {"success": True, "robot_id": robot_id, "package_root": str(target), "contract": contract, "simulation": merged_simulation, "diagnostics": {"valid": True, "writable_root": str(target), "v3_sync": v3_note}}
     except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
