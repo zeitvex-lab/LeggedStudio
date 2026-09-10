@@ -16,25 +16,48 @@ PRETRAINED_DIR = Path("pretrained_models")
 
 @router.get("/list")
 async def list_pretrained_models():
-    """列出所有预训练模型"""
+    """列出预训练模型。
+
+    首选 ``pretrained_models/index.json``（训练脚本产物）；**缺失时回落到各包
+    ``simulation/config.json`` 的 policies/demo_policies 扫描**——与
+    ``/api/health/demo-cards`` 同源、数据驱动，避免"索引文件不存在 => 首页 demo
+    卡为空"这种静默失败。
+    """
     try:
         index_file = PRETRAINED_DIR / "index.json"
 
-        if not index_file.exists():
+        if index_file.exists():
+            with open(index_file, 'r') as f:
+                models = json.load(f)
             return {
                 "success": True,
-                "models": [],
-                "count": 0,
-                "message": "No pretrained models found. Run generate_pretrained_models.py first."
+                "models": models,
+                "count": len(models),
+                "source": "index",
             }
 
-        with open(index_file, 'r') as f:
-            models = json.load(f)
+        from backend.health_api import demo_cards
 
+        cards = (await demo_cards()).get("cards", [])
+        models = [
+            {
+                "id": f"{card.get('robot_id')}--{card.get('id')}",
+                "name": card.get("label") or card.get("id"),
+                "robot": card.get("robot_id"),
+                "family": card.get("family"),
+                "algorithm": "pretrained",
+                "path": card.get("url"),
+                "play_url": card.get("play_url"),
+                "obs_dim": card.get("obs_dim"),
+                "action_dim": card.get("action_dim"),
+            }
+            for card in cards
+        ]
         return {
             "success": True,
             "models": models,
-            "count": len(models)
+            "count": len(models),
+            "source": "package-scan",
         }
 
     except Exception as e:
