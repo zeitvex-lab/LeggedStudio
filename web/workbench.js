@@ -406,9 +406,9 @@ function setView(name, options = {}) {
   // identical across the functional areas. 资产库已原生并入首页
   // （#assetLibraryGrid），不再有独立 assets 视图。
   const framePages = {
-    navmap: ['navMapFrame', 'navigation_editor.html?v=0.32.0&embedded=1'],
-    deploy: ['deployFrame', 'deploy.html?v=0.32.0&embedded=1'],
-    artifacts: ['artifactsFrame', 'artifacts.html?v=0.32.0&embedded=1'],
+    navmap: ['navMapFrame', 'navigation_editor.html?v=0.33.0&embedded=1'],
+    deploy: ['deployFrame', 'deploy.html?v=0.33.0&embedded=1'],
+    artifacts: ['artifactsFrame', 'artifacts.html?v=0.33.0&embedded=1'],
   };
   if (name in framePages) {
     const [frameId, page] = framePages[name];
@@ -422,8 +422,8 @@ function setView(name, options = {}) {
     if (!frame) return;
     const robot = options.robot || selectedPreset?.robot_id || 'unitree_go2';
     const page = name === 'config'
-      ? `training_create.html?v=0.32.0&embedded=1&robot=${encodeURIComponent(robot)}`
-      : `training_list.html?v=0.32.0&embedded=1`;
+      ? `training_create.html?v=0.33.0&embedded=1&robot=${encodeURIComponent(robot)}`
+      : `training_list.html?v=0.33.0&embedded=1`;
     const expected = new URL(page, window.location.href).toString();
     if (frame.getAttribute('src') !== expected) frame.src = expected;
   }
@@ -706,10 +706,15 @@ async function loadTrainingOptions() {
   $('runtimeDetails').textContent = JSON.stringify(payload.hardware || {}, null, 2);
   renderRewards();
 }
-function renderNextStep(adapters, cuda) {
+function renderNextStep(adapters, cuda, layers) {
   const body = $('homeNextStepBody');
   if (!body) return;
   const steps = [];
+  // C3：与 L0–L6 体检同源——第一个失败层直接给出"哪一层、怎么办"
+  const failing = (layers?.layers || []).find((layer) => layer.status === 'fail');
+  if (failing) {
+    steps.push({ label: `修复体检 ${failing.id}（${failing.name}）`, detail: failing.action });
+  }
   if (!adapters.native_mjlab) {
     steps.push({ label: '配置运行环境', detail: 'MJLab 训练栈未就绪——请在桌面端「系统设置」中配置运行时与 PyTorch 镜像。' });
   }
@@ -729,12 +734,24 @@ function renderNextStep(adapters, cuda) {
 }
 async function loadCapabilities() {
   try {
-    const [cap, status] = await Promise.all([jsonFetch('/api/system/capabilities'), jsonFetch('/api/adapters/status')]);
+    // C3：体检数据与 L0–L6 六层体检同源（/api/health/layers）；失败时静默降级，
+    // 不影响原有四行系统状态。
+    const [cap, status, layers] = await Promise.all([
+      jsonFetch('/api/system/capabilities'),
+      jsonFetch('/api/adapters/status'),
+      jsonFetch('/api/health/layers').catch(() => null),
+    ]);
     setStatus($('backendState'), 'Control plane online', 'ok');
     const adapters = cap.adapters || {};
     const cuda = status.native_mjlab?.runtime?.interpreters?.some((item) => item.cuda_available);
-    $('homeCapabilities').innerHTML = [['Control plane', true, 'online'], ['MJLab training', adapters.native_mjlab, adapters.native_mjlab ? 'ready' : 'configure runtime'], ['MuJoCo simulation', adapters.mujoco_simulation, adapters.mujoco_simulation ? 'ready' : 'missing dependency'], ['CUDA', cuda, cuda ? 'detected' : 'not detected']].map(([label, ok, value]) => `<div class="system-row"><span>${label}</span><strong class="${ok ? 'ok' : 'warn'}">${value}</strong></div>`).join('');
-    renderNextStep(adapters, cuda);
+    const systemRows = [['Control plane', true, 'online'], ['MJLab training', adapters.native_mjlab, adapters.native_mjlab ? 'ready' : 'configure runtime'], ['MuJoCo simulation', adapters.mujoco_simulation, adapters.mujoco_simulation ? 'ready' : 'missing dependency'], ['CUDA', cuda, cuda ? 'detected' : 'not detected']].map(([label, ok, value]) => `<div class="system-row"><span>${label}</span><strong class="${ok ? 'ok' : 'warn'}">${value}</strong></div>`).join('');
+    const layerRows = (layers?.layers || []).map((layer) => {
+      const cls = layer.status === 'pass' ? 'ok' : layer.status === 'fail' ? 'error' : 'warn';
+      const label = layer.status === 'pass' ? '通过' : layer.status === 'fail' ? '异常' : layer.status === 'blocked' ? '受阻' : '未执行';
+      return `<div class="system-row" title="${escapeHtml(layer.reason)}"><span>${layer.id} ${layer.name}</span><strong class="${cls}">${label}</strong></div>`;
+    }).join('');
+    $('homeCapabilities').innerHTML = systemRows + layerRows;
+    renderNextStep(adapters, cuda, layers);
   } catch (error) { setStatus($('backendState'), 'Control plane offline', 'error'); $('homeCapabilities').innerHTML = `<div class="empty-state">${error.message}</div>`; }
 }
 async function loadDemos() {

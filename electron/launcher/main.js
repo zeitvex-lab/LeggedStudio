@@ -445,10 +445,10 @@ function requestJson(route, port = activeBackendPort || configuredBackendPort())
 async function backendHealth(port = activeBackendPort || configuredBackendPort(), requireCurrentInstance = false) {
     const health = await requestJson('/health', port);
     if (health?.app_id !== 'legged-studio' || health?.api_schema !== EXPECTED_API_SCHEMA) {
-        throw new Error(`Port ${port} is occupied by another or incompatible service`);
+        throw new Error(`端口 ${port} 已被其它或不兼容的服务占用，请更换端口或结束该进程后重试`);
     }
     if (requireCurrentInstance && health?.instance_id !== INSTANCE_ID) {
-        throw new Error(`Port ${port} is served by a stale Legged Studio backend`);
+        throw new Error(`端口 ${port} 上是另一个 Legged Studio 后端实例（非本次启动），已拒绝连接；请结束旧进程后重试`);
     }
     return health;
 }
