@@ -110,7 +110,7 @@
         "effort": 40.0,
         "armature": 0.01,
         "mode": "velocity",
-        "action_scale": 0.25
+        "action_scale": 1.0
       }
     },
     "default": {

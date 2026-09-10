@@ -460,7 +460,14 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
 
     ROBOTS = WORKSPACE / "assets" / "robots"
 
-    EXPECTED_DELTA_ROBOTS = {"unitree_g1", "unitree_go2w", "zex-w"}
+    EXPECTED_DELTA_ROBOTS = {
+        "deeprobotics_m20",
+        "limx_tron1_wf",
+        "unitree_b2w",
+        "unitree_g1",
+        "unitree_go2w",
+        "zex-w",
+    }
 
     EXPECTED_ROLE_SCALE = {
         "unitree_g1": {
@@ -472,6 +479,14 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
         },
         "unitree_go2w": {"hip": 0.5, "thigh": 0.5, "calf": 0.5, "wheel": 35.0},
         "zex-w": {"hip_abduction": 0.125, "hip_pitch": 0.25, "knee": 0.25, "wheel": 5.0},
+        # tron1_wf 的轮是**独立的 JointVelocityActionCfg(scale=1.0)**（见 tron1-rl-isaaclab
+        # cfg/WF/limx_base_env_cfg.py），与腿的 action_scale_pos=0.25 分属两套通路。
+        "limx_tron1_wf": {"abad": 0.25, "hip": 0.25, "knee": 0.25, "wheel": 1.0},
+        # m20 / b2w 同构：腿=位置档位（髋 0.125、其余 0.25），轮=速度档位 5.0。
+        # 见 export_onnx_fast.py 的 _M20_ACTION_SCALE 与 robot_lab b2w 的
+        # joint_pos.scale / joint_vel.scale。
+        "deeprobotics_m20": {"hipx": 0.125, "hipy": 0.25, "knee": 0.25, "wheel": 5.0},
+        "unitree_b2w": {"hip": 0.125, "thigh": 0.25, "calf": 0.25, "wheel": 5.0},
     }
 
     def _contracts(self) -> dict[str, dict]:
@@ -535,6 +550,26 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
             changed, self.EXPECTED_DELTA_ROBOTS,
             "有效 action_scale 的变更集合发生变化——新增变更必须先在证据表里列明",
         )
+
+    def test_g1_declared_scale_matches_mjlab_derivation(self) -> None:
+        """g1 的档位须与 mjlab 推导式 ``0.25*effort/stiffness`` 一致（容差 0.01）。
+
+        mjlab 的 asset_zoo 不是硬编码档位，而是用该式生成
+        （见 resources/.../mjlab/asset_zoo/robots/unitree_go1/go1_constants.py：
+        ``GO1_ACTION_SCALE[n] = 0.25 * e / s``）。g1 是我们唯一同时具备
+        "角色级 effort/stiffness"与"外部权威逐关节档位（官方部署 yaml）"的机型，
+        因此用它把**两条独立来源**钉在一起——任一侧被改动都会在这里显形。
+        """
+
+        g1 = self._contracts()["unitree_g1"]
+        by_role = g1["actuator_profile"]["by_role"]
+        for role, params in by_role.items():
+            with self.subTest(role=role):
+                derived = 0.25 * float(params["effort"]) / float(params["stiffness"])
+                self.assertAlmostEqual(
+                    float(params["action_scale"]), derived, delta=0.01,
+                    msg=f"{role}: 声明 {params['action_scale']} vs 推导 {derived:.4f}",
+                )
 
     def test_contract_helper_returns_scalar_when_uniform(self) -> None:
         """角色内一致 ⇒ 返回 float（与旧行为逐值等价）；分化 ⇒ 返回 dict。"""
