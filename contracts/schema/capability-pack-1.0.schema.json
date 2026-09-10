@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "legged-studio/capability-pack-1.0",
+  "title": "Capability Pack v1.0",
+  "description": "Legged Studio 一等资源的**纯引用组合**（重构方案 §2.1 的 M1 锚点）：morphology_ref × skill_ref [× scenario_ref] [× policy_ref] + 四阶段质量门 bindings。Pack 不拷贝任何资源内容，只做引用与门禁声明；被引用资源各自由 robot-contract-3.0 / skill-recipe-2.0 / scenario-contract-1.1 / policy-artifact-1.1 定义。引用路径一律为包内相对路径 + sha256，保证 Pack 可跨机复现。",
+  "type": "object",
+  "required": ["schema_version", "pack_id", "morphology_ref", "skill_ref"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "const": "capability-pack-1.0"
+    },
+    "pack_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$",
+      "description": "如 unitree_go2-velocity"
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "morphology_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "形态资源引用（必填）：通常是本机型的 contract_v3.json"
+    },
+    "skill_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "技能资源引用（必填）：SkillSpec 或 SkillRecipe。M1 阶段默认 core/velocity@2.0"
+    },
+    "scenario_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "场景资源引用（可选）"
+    },
+    "policy_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "策略产物引用（可选）：训练/导出后回挂"
+    },
+    "bindings": {
+      "$ref": "#/$defs/bindings"
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "资源 ID，如 unitree_go2 / core/velocity@2.0"
+        },
+        "version": {
+          "type": "string",
+          "description": "语义版本（被引用资源自带版本时填）"
+        },
+        "path": {
+          "type": "string",
+          "description": "**包内相对路径**（禁止绝对路径与 .. 越界，保证可移植）"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "被引用文件内容哈希，供加载即校验"
+        }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "四阶段质量门（verify / train / simulate / deploy）声明；缺省字段表示该门未配置，由控制面按默认值补齐。",
+      "properties": {
+        "verify": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "require_contract_valid": {
+              "type": "boolean",
+              "default": true
+            },
+            "require_refs_resolved": {
+              "type": "boolean",
+              "default": true
+            },
+            "require_physics_consistent": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        },
+        "train": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "recipe_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "pipeline_topology": {
+              "enum": [
+                "direct",
+                "asymmetric_ac",
+                "rma",
+                "latent",
+                "distill_2stage",
+                "distill_3stage"
+              ],
+              "description": "与重构方案 §5.1 的 pipeline.topology 同枚举"
+            },
+            "runner_ref": {
+              "$ref": "#/$defs/ref",
+              "description": "算法实现（属 adapter 的 runner，资源不放代码，只引用）"
+            },
+            "smoke": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "num_envs": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "max_iterations": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "description": "冒烟档（默认 64 envs × 5 iters），未过冒烟不得长训"
+            }
+          }
+        },
+        "simulate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "executors": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "wasm",
+                  "server_mujoco"
+                ]
+              },
+              "description": "同一 Scenario 的可用执行器"
+            },
+            "require_deterministic_replay": {
+              "type": "boolean",
+              "default": true
+            },
+            "require_onnx_metadata_check": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        },
+        "deploy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "denylist": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "不一致即拒绝的对账项（观测组/action scale/关节序/控制频率/armature）"
+            },
+            "require_human_confirm": {
+              "type": "boolean",
+              "default": true
+            },
+            "target_platform": {
+              "enum": [
+                "unitree_sdk2",
+                "ros2"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
