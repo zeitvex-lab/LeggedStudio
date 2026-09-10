@@ -106,7 +106,9 @@
         "mode": "position"
       }
     },
-    "default": {},
+    "default": {
+      "friction_loss": 0.0
+    },
     "by_joint": {
       "ankle_L_Joint": {
         "friction_loss": 0.01

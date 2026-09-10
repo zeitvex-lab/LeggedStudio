@@ -109,7 +109,9 @@
         "mode": "velocity"
       }
     },
-    "default": {},
+    "default": {
+      "friction_loss": 0.0
+    },
     "by_joint": {
       "wheel_L_Joint": {
         "friction_loss": 0.01
