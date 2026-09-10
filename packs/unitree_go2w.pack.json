@@ -1,0 +1,54 @@
+{
+  "schema_version": "capability-pack-1.0",
+  "pack_id": "unitree_go2w-velocity",
+  "display_name": "Unitree Go2-W · velocity",
+  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与 core/velocity@2.0。",
+  "tags": [
+    "generated",
+    "default",
+    "wheel_leg_16dof"
+  ],
+  "morphology_ref": {
+    "id": "unitree_go2w",
+    "path": "assets/robots/unitree_go2w/contract_v3.json",
+    "sha256": "f1715abfa21e2125cc8a673befecfc3060773ff8386864881afe7824c391c503"
+  },
+  "skill_ref": {
+    "id": "core/velocity@2.0",
+    "version": "2.0"
+  },
+  "scenario_ref": null,
+  "policy_ref": null,
+  "bindings": {
+    "verify": {
+      "require_contract_valid": true,
+      "require_refs_resolved": true,
+      "require_physics_consistent": false
+    },
+    "train": {
+      "pipeline_topology": "asymmetric_ac",
+      "smoke": {
+        "num_envs": 64,
+        "max_iterations": 5
+      }
+    },
+    "simulate": {
+      "executors": [
+        "wasm",
+        "server_mujoco"
+      ],
+      "require_deterministic_replay": true,
+      "require_onnx_metadata_check": true
+    },
+    "deploy": {
+      "denylist": [
+        "observation_groups",
+        "action_scale",
+        "joint_order",
+        "control_hz",
+        "armature"
+      ],
+      "require_human_confirm": true
+    }
+  }
+}
