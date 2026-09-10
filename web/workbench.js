@@ -738,30 +738,34 @@ async function loadCapabilities() {
   } catch (error) { setStatus($('backendState'), 'Control plane offline', 'error'); $('homeCapabilities').innerHTML = `<div class="empty-state">${error.message}</div>`; }
 }
 async function loadDemos() {
-  // 内置 demo 卡：29 个预训练策略免训练即玩。点击跳转到 Sim2Sim 载入对应机器人。
+  // 内置 demo 卡：预训练策略免训练即玩。数据源 = /api/health/demo-cards
+  // （扫各包 simulation/config.json 的 policies + demo_policies，无 per-robot 分支），
+  // 卡片携带 play_url，点击直接带 policy 进基础仿真。
   const host = $('homeDemos');
   if (!host) return;
   try {
-    const payload = await jsonFetch('/api/pretrained/list');
-    const models = payload.models || [];
-    if (!models.length) {
-      host.innerHTML = '<div class="empty-state">暂无预训练模型——运行生成脚本后即可免训练试玩。</div>';
+    const payload = await jsonFetch('/api/health/demo-cards');
+    const cards = payload.cards || [];
+    if (!cards.length) {
+      host.innerHTML = '<div class="empty-state">暂无内置策略——导入机器人包或导出策略后即可免训练试玩。</div>';
       return;
     }
-    host.innerHTML = models.slice(0, 8).map((model) => {
-      const robot = String(model.robot || model.robot_id || 'unitree_go2');
-      const rate = Number(model.success_rate ?? 0) * 100;
-      const name = String(model.name || model.id || robot);
-      return `<button class="demo-card" data-robot="${encodeURIComponent(robot)}" data-demo="${encodeURIComponent(model.id || '')}"><span class="demo-ico">🤖</span><strong>${escapeHtml(name)}</strong><span class="demo-robot">${escapeHtml(robot)}</span><span class="demo-metric">成功率 ${rate.toFixed(0)}%</span></button>`;
+    host.innerHTML = cards.slice(0, 8).map((card) => {
+      const robot = String(card.robot_id || 'unitree_go2');
+      const name = String(card.label || card.id || robot);
+      const dims = card.obs_dim ? `obs ${card.obs_dim} · act ${card.action_dim ?? '-'}` : '内置策略';
+      const playUrl = String(card.play_url || `/web/sim2sim/index.html?robot=${encodeURIComponent(robot)}`);
+      return `<button class="demo-card" data-play="${encodeURIComponent(playUrl)}"><span class="demo-ico">🤖</span><strong>${escapeHtml(name)}</strong><span class="demo-robot">${escapeHtml(robot)}</span><span class="demo-metric">${escapeHtml(dims)}</span></button>`;
     }).join('');
-    host.querySelectorAll('[data-robot]').forEach((card) => card.addEventListener('click', () => {
-      const robot = decodeURIComponent(card.dataset.robot);
+    host.querySelectorAll('[data-play]').forEach((card) => card.addEventListener('click', () => {
+      const playUrl = decodeURIComponent(card.dataset.play);
       setView('simulation');
       const frame = $('simBrowserFrame');
-      if (frame) frame.src = `/web/sim2sim/index.html?embedded=1&robot=${encodeURIComponent(robot)}&view=workbench`;
+      const separator = playUrl.includes('?') ? '&' : '?';
+      if (frame) frame.src = `${playUrl}${separator}embedded=1&view=workbench`;
     }));
   } catch (error) {
-    host.innerHTML = `<div class="empty-state">预训练模型读取失败：${escapeHtml(error.message)}</div>`;
+    host.innerHTML = `<div class="empty-state">内置策略读取失败：${escapeHtml(error.message)}</div>`;
   }
 }
 async function loadRuns() {
