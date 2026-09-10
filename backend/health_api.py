@@ -24,6 +24,19 @@ ROOT = Path(__file__).resolve().parents[1]
 ADAPTER_PY = ROOT / "adapters" / "mjlab" / ".venv" / "Scripts" / "python.exe"
 
 
+@router.get("/layers")
+async def health_layers(deep: bool = False) -> dict:
+    """A3：L0–L6 六层体检（GPU→框架→任务注册→场景→zero/random agent→最小训练）。
+
+    fail-fast：第一个失败层之后的层标记 blocked；每层附中文原因与处置。
+    ``deep=true`` 时执行 L6 最小训练冒烟（64 envs × 5 iters，代价大）。
+    """
+
+    from backend.health_layers import build_layer_report
+
+    return build_layer_report(deep=deep)
+
+
 def _layer(layer_id: str, name: str, status: str, summary: str, **extra: Any) -> dict:
     return {"layer": layer_id, "name": name, "status": status, "summary": summary, **extra}
 
