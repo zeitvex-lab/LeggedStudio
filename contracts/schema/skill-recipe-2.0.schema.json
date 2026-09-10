@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "skill-recipe-2.0",
+  "title": "Skill Recipe 2.0",
+  "description": "技能配方：任务变体 + 环境/奖励/runner 参数。base 通过 extends 被 patch 覆盖（深合并：dict 递归、标量与列表替换）。新增技能只写 JSON，不改代码。",
+  "type": "object",
+  "required": ["schema_version", "recipe_id", "display_name"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {"const": "skill-recipe-2.0"},
+    "recipe_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "display_name": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "extends": {
+      "description": "基座配方 id（如 velocity_base）；解析时深合并 base → 本文件。",
+      "type": "string"
+    },
+    "backend": {"type": "string", "const": "native_mjlab"},
+    "task_name": {"type": "string"},
+    "terrain_type": {"type": "string"},
+    "algorithm": {"enum": ["PPO", "SAC", "TD3"]},
+    "num_envs": {"type": "integer", "minimum": 1},
+    "episode_length_s": {"type": "number", "exclusiveMinimum": 0},
+    "decimation": {"type": "integer", "minimum": 1},
+    "seed": {"type": "integer"},
+    "command_ranges": {"type": "object"},
+    "terrain": {"type": "object"},
+    "curriculum": {"type": "object"},
+    "rewards": {
+      "description": "奖励项 → 权重（项名须在 registry/rewards/reward_terms.json 目录内）。",
+      "type": "object",
+      "additionalProperties": {"type": "number"}
+    },
+    "runner": {"type": "object"},
+    "tasks": {
+      "description": "仅基座声明：任务变体表（task_name → {label, terrain, control}）。",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["label", "terrain", "control"],
+        "properties": {
+          "label": {"type": "string"},
+          "terrain": {"type": "string"},
+          "control": {"type": "string"}
+        }
+      }
+    }
+  }
+}

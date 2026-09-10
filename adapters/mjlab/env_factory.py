@@ -195,64 +195,29 @@ def _action_scale_value(contract: Any) -> Any:
         return contract.action.action_scale
 
 
-# ========== 奖励配置预设 ==========
-
-REWARD_PRESETS = {
-    "forward_walk": {
-        "track_linear_velocity": 1.5,
-        "track_angular_velocity": 0.5,
-        "body_orientation_l2": -2.0,
-        "joint_torques_l2": -0.0002,
-        "action_rate_l2": -0.01
-    },
-
-    "trot": {
-        "track_linear_velocity": 2.0,
-        "air_time": 1.5,
-        "body_orientation_l2": -1.5,
-        "joint_torques_l2": -0.0001,
-        "action_rate_l2": -0.02
-    },
-
-    "rough_terrain": {
-        "track_linear_velocity": 1.0,
-        "body_orientation_l2": -3.0,
-        "joint_pos_limits": -2.0,
-        "action_rate_l2": -0.05,
-        "joint_torques_l2": -0.0003
-    }
-}
-
-# 能力矩阵（清单 ⑬）：每个奖励项声明支持的后端与实现状态。
-# supported: 本平台 mjlab 通用任务已实现的项；planned: 声明了但尚未实现（前端置灰，
-# 训练启动时 resolve 侧报精确错误，而不是训练几轮后静默不生效）。
-REWARD_TERMS = {
-    "tracking_lin_vel": {"label": "线速度跟踪", "default": 1.5, "description": "鼓励沿 X 轴稳定前进", "supported": True},
-    "tracking_ang_vel": {"label": "角速度稳定", "default": 0.5, "description": "抑制偏航角速度误差", "supported": True},
-    "orientation": {"label": "姿态稳定", "default": -2.0, "description": "惩罚机身倾倒", "supported": True},
-    "upright": {"label": "机身直立", "default": 0.1, "description": "惩罚跌倒和过低机身高度", "supported": True},
-    "base_height": {"label": "目标高度", "default": -1.0, "description": "保持机身在站立高度附近", "supported": True},
-    "torques": {"label": "执行器能耗", "default": -0.0002, "description": "降低控制输出平方和", "supported": True},
-    "action_rate": {"label": "动作平滑", "default": -0.01, "description": "抑制相邻动作突变", "supported": True},
-    "feet_air_time": {"label": "摆腿节律", "default": 0.5, "description": "鼓励双腿交替摆动时相", "supported": False,
-                       "reason": "需要接触传感器按足部分组，通用任务尚未接入"},
-    "energy": {"label": "机械功率", "default": -0.001, "description": "惩罚瞬时机械功率", "supported": False,
-               "reason": "依赖 qfrc_actuator 读数通路，待接入"},
-}
+# ========== 奖励配置（B7：数据真值 = registry/rewards/*.json） ==========
 
 
 def get_reward_preset(task_name: str) -> Dict[str, float]:
-    """获取奖励配置预设"""
-    return REWARD_PRESETS.get(task_name, REWARD_PRESETS["forward_walk"])
+    """获取奖励配置预设（B7：数据真值 = registry/rewards/presets.json）。"""
+
+    from backend.skill_registry import reward_presets
+
+    presets = reward_presets()
+    return dict(presets.get(task_name) or presets["forward_walk"])
 
 
 def get_reward_terms() -> Dict[str, dict]:
-    """奖励项目录（带四层分组 layer，T2.1 消费：前端折叠组 + 分项曲线着色）。"""
+    """奖励项目录（B7：数据真值 = registry/rewards/reward_terms.json）。
+
+    layer 由代码侧富化（四层分组是渲染/聚合语义，不是数据）。
+    """
 
     from adapters.mjlab.reward_layers import get_reward_layer
+    from backend.skill_registry import reward_terms as registry_terms
 
     enriched: Dict[str, dict] = {}
-    for name, meta in REWARD_TERMS.items():
+    for name, meta in registry_terms().items():
         item = dict(meta)
         item["layer"] = get_reward_layer(name)
         enriched[name] = item

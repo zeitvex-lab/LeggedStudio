@@ -1,4 +1,9 @@
-"""Task/recipe registry inspired by RoboLab TaskSpec and MJLab managers."""
+"""Task/recipe registry inspired by RoboLab TaskSpec and MJLab managers.
+
+B7：任务变体表的数据真值 = ``registry/skills/velocity_base.json`` 的
+``tasks`` 键（backend/skill_registry.task_variants()）——新增技能/任务只写
+JSON，不改代码。
+"""
 
 from __future__ import annotations
 
@@ -6,14 +11,17 @@ from typing import Any
 
 from contracts.scenario_contract import TrainingRecipe
 from adapters.mjlab.env_factory import get_reward_preset, get_reward_terms
+from backend.skill_registry import SkillRegistryError, task_variants
 
 
-TASKS: dict[str, dict[str, Any]] = {
-    "forward_walk": {"label": "Forward walk", "terrain": "plane", "control": "velocity"},
-    "trot": {"label": "Trot", "terrain": "plane", "control": "velocity"},
-    "rough_terrain": {"label": "Rough terrain", "terrain": "rough", "control": "velocity"},
-    "stairs": {"label": "Stairs", "terrain": "stairs", "control": "velocity"},
-}
+def _tasks() -> dict[str, dict[str, Any]]:
+    try:
+        return task_variants()
+    except SkillRegistryError as exc:
+        raise RuntimeError(f"技能注册表不可用：{exc}") from exc
+
+
+TASKS: dict[str, dict[str, Any]] = _tasks()
 
 REWARD_ALIASES = {
     "tracking_lin_vel": "track_linear_velocity",
