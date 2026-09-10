@@ -431,9 +431,9 @@ function setView(name, options = {}) {
   // identical across the functional areas. 资产库已原生并入首页
   // （#assetLibraryGrid），不再有独立 assets 视图。
   const framePages = {
-    navmap: ['navMapFrame', 'navigation_editor.html?v=0.40.0&embedded=1'],
-    deploy: ['deployFrame', 'deploy.html?v=0.40.0&embedded=1'],
-    artifacts: ['artifactsFrame', 'artifacts.html?v=0.40.0&embedded=1'],
+    navmap: ['navMapFrame', 'navigation_editor.html?v=0.41.0&embedded=1'],
+    deploy: ['deployFrame', 'deploy.html?v=0.41.0&embedded=1'],
+    artifacts: ['artifactsFrame', 'artifacts.html?v=0.41.0&embedded=1'],
   };
   if (name in framePages) {
     const [frameId, page] = framePages[name];
@@ -448,10 +448,10 @@ function setView(name, options = {}) {
     const robot = options.robot || selectedPreset?.robot_id || 'unitree_go2';
     // C2：带 task_id 时直接打开该 Run 的档案页（training_monitor）。
     const page = name === 'config'
-      ? `training_create.html?v=0.40.0&embedded=1&robot=${encodeURIComponent(robot)}`
+      ? `training_create.html?v=0.41.0&embedded=1&robot=${encodeURIComponent(robot)}`
       : options.task_id
-        ? `training_monitor.html?v=0.40.0&embedded=1&task_id=${encodeURIComponent(options.task_id)}`
-        : `training_list.html?v=0.40.0&embedded=1`;
+        ? `training_monitor.html?v=0.41.0&embedded=1&task_id=${encodeURIComponent(options.task_id)}`
+        : `training_list.html?v=0.41.0&embedded=1`;
     const expected = new URL(page, window.location.href).toString();
     if (frame.getAttribute('src') !== expected) frame.src = expected;
   }
