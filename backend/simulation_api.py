@@ -455,20 +455,26 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
         }]
         break
     simulation_control = simulation_config.get("control") if isinstance(simulation_config.get("control"), dict) else {}
+    # B3/2：物理事实改由契约 v3 单一真值供给（contracts/physics_binding.py）。
+    # simulation/config.json 仅作未迁移包的兼容回落，不再参与物理取值。
+    from contracts.physics_binding import payload_physics_view, physics_facts
+
+    physics = physics_facts(root)
+    payload_physics = payload_physics_view(physics)
     action_scale = float(
         simulation_config.get("action_scale", contract.get("action", {}).get("action_scale", 0.25))
     )
     decimation = int(
-        simulation_config.get(
-            "decimation",
-            simulation_control.get("decimation", contract.get("control", {}).get("decimation", 4)),
-        )
+        physics["decimation"]
+        or simulation_control.get("decimation")
+        or contract.get("control", {}).get("decimation")
+        or 4
     )
     physics_hz = float(
-        simulation_config.get(
-            "physics_hz",
-            simulation_control.get("physics_hz", contract.get("control", {}).get("physics_hz", 1000)),
-        )
+        physics["physics_hz"]
+        or simulation_control.get("physics_hz")
+        or contract.get("control", {}).get("physics_hz")
+        or 1000
     )
     action_scale_by_role = simulation_config.get("action_scale_by_role")
     if not isinstance(action_scale_by_role, dict):
@@ -495,9 +501,9 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                 "actuator_interface": str(simulation_config.get("actuator_interface") or "").lower(),
                 "base_height_target": simulation_config.get("initial_base_height"),
                 "initial_keyframe": str(simulation_config.get("initial_keyframe") or BROWSER_INITIAL_KEYFRAME),
-                "stiffness": simulation_config.get("stiffness") or {"hip": 50.0, "thigh": 50.0, "calf": 50.0, "joint": 50.0},
-                "damping": simulation_config.get("damping") or {"hip": 1.5, "thigh": 1.5, "calf": 1.5, "wheel": 1.0, "joint": 1.5},
-                "torque_limits": simulation_config.get("torque_limits"),
+                "stiffness": payload_physics["stiffness"] or {"hip": 50.0, "thigh": 50.0, "calf": 50.0, "joint": 50.0},
+                "damping": payload_physics["damping"] or {"hip": 1.5, "thigh": 1.5, "calf": 1.5, "wheel": 1.0, "joint": 1.5},
+                "torque_limits": payload_physics["torque_limits"] or None,
                 "action_scale_by_role": action_scale_by_role,
                 "action_scale_by_joint": simulation_config.get("action_scale_by_joint") or {},
                 "velocity_scale": float(simulation_config.get("velocity_scale", 5.0)),
@@ -512,8 +518,8 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                 "settle_steps": simulation_config.get("settle_steps", simulation_control.get("settle_steps", 0)),
                 # 物理常量契约（armature/frictionloss 增量真值，覆盖 XML default）：
                 # 训练 worker / 验收器 / 浏览器三方消费同一份数字，封死物理漂移。
-                "armature": simulation_config.get("armature") or {},
-                "frictionloss": simulation_config.get("frictionloss") or {},
+                "armature": payload_physics["armature"] or {},
+                "frictionloss": payload_physics["frictionloss"] or {},
             },
         },
         "policy": policy,
