@@ -60,6 +60,41 @@
       "label": "Roulade",
       "obs_dim": 61,
       "action_dim": 14
+    },
+    {
+      "id": "roller",
+      "path": "simulation/policies/BEST_roller.onnx",
+      "label": "Roller",
+      "obs_dim": 61,
+      "action_dim": 14
+    },
+    {
+      "id": "roller-crouch",
+      "path": "simulation/policies/BEST_roller_crouch.onnx",
+      "label": "Roller Crouch",
+      "obs_dim": 61,
+      "action_dim": 14
+    },
+    {
+      "id": "ground-pick",
+      "path": "simulation/policies/alpha_ground_pick.onnx",
+      "label": "Ground Pick",
+      "obs_dim": 61,
+      "action_dim": 14
+    },
+    {
+      "id": "ball-kick-left",
+      "path": "simulation/policies/ball_kick_left.onnx",
+      "label": "Ball Kick Left",
+      "obs_dim": 61,
+      "action_dim": 14
+    },
+    {
+      "id": "ball-kick-right",
+      "path": "simulation/policies/ball_kick_right.onnx",
+      "label": "Ball Kick Right",
+      "obs_dim": 61,
+      "action_dim": 14
     }
   ],
   "initial_base_height": 0.12,
