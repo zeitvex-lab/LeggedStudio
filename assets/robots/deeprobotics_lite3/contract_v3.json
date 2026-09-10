@@ -187,7 +187,7 @@
   },
   "contract_id": "deeprobotics_lite3_v3",
   "family": "Deeprobotics Lite3",
-  "size_class": "L",
+  "size_class": "S",
   "locomotion_type": "P",
   "description": "Deeprobotics Lite3。模型为包内 MJCF（rl_sar_zoo 资产），统一 mjlab 1.6 运行时。",
   "tags": [

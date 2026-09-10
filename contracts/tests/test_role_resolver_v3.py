@@ -463,6 +463,7 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
     EXPECTED_DELTA_ROBOTS = {
         "deeprobotics_m20",
         "limx_tron1_wf",
+        "unitree_b2",
         "unitree_b2w",
         "unitree_g1",
         "unitree_go2w",
@@ -487,6 +488,9 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
         # joint_pos.scale / joint_vel.scale。
         "deeprobotics_m20": {"hipx": 0.125, "hipy": 0.25, "knee": 0.25, "wheel": 5.0},
         "unitree_b2w": {"hip": 0.125, "thigh": 0.25, "calf": 0.25, "wheel": 5.0},
+        # b2（无轮四足）与 b2w 的**腿**部分逐字同源：
+        # robot_lab b2 rough_env_cfg.py → joint_pos.scale = {".*_hip_joint": 0.125, 其余: 0.25}
+        "unitree_b2": {"hip": 0.125, "thigh": 0.25, "calf": 0.25},
     }
 
     def _contracts(self) -> dict[str, dict]:

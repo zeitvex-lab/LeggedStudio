@@ -3,7 +3,7 @@
   "contract_id": "deeprobotics_lite3_v1",
   "robot_id": "deeprobotics_lite3",
   "family": "Deeprobotics Lite3",
-  "size_class": "L",
+  "size_class": "S",
   "locomotion_type": "P",
   "urdf": {
     "path": "assets/robots/deeprobotics_lite3/model/robot.xml",
