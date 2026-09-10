@@ -142,14 +142,16 @@ class FrictionLossMigratedTest(unittest.TestCase):
                 for joint, value in named.items():
                     self.assertEqual(facts["by_joint"]["friction_loss"].get(joint), value, joint)
 
-    def test_packages_without_frictionloss_declare_none(self) -> None:
+    def test_packages_without_config_frictionloss_now_declared_in_contract(self) -> None:
+        """config 未声明摩擦的包，其摩擦已由契约显式补上（原断言"契约也没有"已过时）。"""
+
         for package in packages():
             config = load(package / "simulation" / "config.json")
             if config.get("frictionloss"):
                 continue
             with self.subTest(package=package.name):
                 facts = physics_facts(package)
-                self.assertEqual(facts["by_joint"]["friction_loss"], {})
+                self.assertNotEqual(facts["by_joint"]["friction_loss"], {})
 
 
 class ContractCoverageVsLegacyConfigTest(unittest.TestCase):
@@ -223,6 +225,87 @@ class ContractCoverageVsLegacyConfigTest(unittest.TestCase):
             "契约覆盖缺口发生变化——新增缺口会令适配器翻转静默丢数据，"
             "必须先补全契约（B3/pre），见 00_know/B3_物理事实收敛_适配器差异报告.md",
         )
+
+
+class FrictionLossPopulatedTest(unittest.TestCase):
+    """B3-friction：14 包的关节摩擦必须**全部显式声明**。
+
+    取值分三类（来源与依据见 00_know/B3_friction_loss_补齐报告.md）：
+
+    * **A 组**：活跃模型编译即带该值 → 写入幂等，不改变仿真物理
+    * **B 组**：活跃模型为 0，但 resources 参考项目声明非零 → 写入**改变仿真物理**
+    * **C 组**：模型与参考均未声明 → 真值为 0，写入仅作显式化（幂等）
+
+    这里把三类值全部锁定，避免今后被静默改动；B 组的行为变更是有意为之。
+    """
+
+    # 走 actuator_profile.default 的 12 个包
+    EXPECTED_DEFAULT = {
+        "unitree_go2": 0.2,             # 既有（B3/1 迁入 config 的 __default__）
+        "unitree_go2w": 0.2,            # 既有
+        "deeprobotics_lite3": 0.2,      # B
+        "unitree_g1": 0.2,             # B
+        "unitree_go1": 0.2,            # A
+        "zex-w": 0.01,                 # A
+        "microduck": 0.0048,           # A
+        "deeprobotics_m20": 0.0,       # C（参考 M20_Piper.xml 显式 frictionloss="0"）
+        "limx_tron1_pf": 0.0,          # C
+        "unitree_b2": 0.0,             # C
+        "unitree_b2w": 0.0,            # C
+        "wuji_hand": 0.0,              # C
+    }
+    # 走 by_joint 具名逐关节的 2 个包（B3/1 迁入）
+    EXPECTED_BY_JOINT = {"limx_tron1_sf": 0.01, "limx_tron1_wf": 0.01}
+
+    def test_every_package_declares_friction_loss(self) -> None:
+        contracts = {
+            package.name: load(package / "contract_v3.json") for package in packages()
+        }
+        for name, contract in contracts.items():
+            with self.subTest(package=name):
+                profile = contract.get("actuator_profile") or {}
+                default = profile.get("default") or {}
+                by_joint = profile.get("by_joint") or {}
+                declared = "friction_loss" in default or any(
+                    isinstance(params, dict) and "friction_loss" in params
+                    for params in by_joint.values()
+                )
+                self.assertTrue(declared, f"{name} 未声明关节摩擦")
+                # 消费者侧保证：by_joint 展开后每个驱动关节都有值
+                facts = physics_facts(ROBOTS / name)
+                for entry in contract["joints"]["actuated"]:
+                    self.assertIn(
+                        entry["name"], facts["by_joint"]["friction_loss"],
+                        f"{name} 关节 {entry['name']} 摩擦未落到 by_joint",
+                    )
+
+    def test_default_values_locked(self) -> None:
+        for name, expected in self.EXPECTED_DEFAULT.items():
+            with self.subTest(package=name):
+                contract = load(ROBOTS / name / "contract_v3.json")
+                default = (contract.get("actuator_profile") or {}).get("default") or {}
+                self.assertEqual(default.get("friction_loss"), expected)
+
+    def test_named_values_locked(self) -> None:
+        for name, expected in self.EXPECTED_BY_JOINT.items():
+            with self.subTest(package=name):
+                contract = load(ROBOTS / name / "contract_v3.json")
+                by_joint = (contract.get("actuator_profile") or {}).get("by_joint") or {}
+                values = {
+                    params["friction_loss"]
+                    for params in by_joint.values()
+                    if isinstance(params, dict) and "friction_loss" in params
+                }
+                self.assertEqual(values, {expected})
+
+    def test_intended_behaviour_change_set_is_only_lite3_and_g1(self) -> None:
+        """B 组是唯一会改变仿真物理的一档——把集合锁死，防止扩大。"""
+
+        changed = {
+            name for name in ("deeprobotics_lite3", "unitree_g1")
+            if self.EXPECTED_DEFAULT[name] > 0
+        }
+        self.assertEqual(changed, {"deeprobotics_lite3", "unitree_g1"})
 
 
 class LegacyFallbackTest(unittest.TestCase):

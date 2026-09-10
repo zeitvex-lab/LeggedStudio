@@ -165,6 +165,9 @@
         "damping": 0.1,
         "mode": "position"
       }
+    },
+    "default": {
+      "friction_loss": 0.0048
     }
   },
   "action": {

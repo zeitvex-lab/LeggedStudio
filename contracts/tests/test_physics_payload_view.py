@@ -172,9 +172,19 @@ class FrictionLossDefaultPreservedTest(unittest.TestCase):
         view = payload_physics_view(physics_facts(ROBOTS / "unitree_go2"))
         self.assertEqual(view["frictionloss"].get("__default__"), 0.2)
 
-    def test_no_fabricated_default_when_absent(self) -> None:
-        view = payload_physics_view(physics_facts(ROBOTS / "deeprobotics_lite3"))
-        self.assertNotIn("__default__", view["frictionloss"])
+    def test_default_key_matches_contract_declaration(self) -> None:
+        """载荷的 __default__ 必须等于契约 default.friction_loss——不凭空造值。"""
+
+        for name in ("unitree_go2", "deeprobotics_lite3", "microduck", "zex-w"):
+            with self.subTest(package=name):
+                contract = json.loads(
+                    (ROBOTS / name / "contract_v3.json").read_text(encoding="utf-8-sig")
+                )
+                declared = (
+                    (contract.get("actuator_profile") or {}).get("default") or {}
+                ).get("friction_loss")
+                view = payload_physics_view(physics_facts(ROBOTS / name))
+                self.assertEqual(view["frictionloss"].get("__default__"), declared)
 
 
 if __name__ == "__main__":

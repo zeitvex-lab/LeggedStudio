@@ -13,7 +13,12 @@
     "leg_naming": "{LR}_{role}_joint",
     "actuator_type": "hybrid",
     "foot_type": "wheel",
-    "wheel_indices": [12, 13, 14, 15],
+    "wheel_indices": [
+      12,
+      13,
+      14,
+      15
+    ],
     "mass_source": "mjcf_compiled",
     "leg_ids": [
       "FR",
@@ -151,6 +156,9 @@
         "effort": 20.0,
         "mode": "position"
       }
+    },
+    "default": {
+      "friction_loss": 0.0
     }
   },
   "action": {

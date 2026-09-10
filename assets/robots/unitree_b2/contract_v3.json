@@ -120,6 +120,9 @@
         "effort": 320.0,
         "mode": "position"
       }
+    },
+    "default": {
+      "friction_loss": 0.0
     }
   },
   "action": {
