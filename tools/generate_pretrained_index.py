@@ -29,10 +29,15 @@ def main() -> None:
 
     models: dict[str, dict] = {}
     for card in cards:
-        models[str(card["id"])] = {
-            "id": str(card["id"]),
+        # 复合 id 与 /api/pretrained/list 的 package-scan 回落路径同约定
+        # （pretrained_api: f"{robot_id}--{id}"）。裸 policy id 会跨机型撞名
+        # ——曾致 b2/b2w 的 robotlab-velocity-57 互相覆盖、b2w 静默消失。
+        model_id = f"{card['robot_id']}--{card['id']}"
+        models[model_id] = {
+            "id": model_id,
             "name": str(card.get("label") or card["id"]),
             "robot": str(card.get("robot_id")),
+            "family": card.get("family"),
             "algorithm": "PPO",
             # 内置策略不带训练指标：置 null，前端须判空（勿伪造成功率）
             "success_rate": None,
