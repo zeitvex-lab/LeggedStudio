@@ -64,10 +64,10 @@
   ],
   "initial_base_height": 0.12,
   "stiffness": {
-    "joint": 10
+    "joint": 0.55
   },
   "damping": {
-    "joint": 0.1
+    "joint": 0.0
   },
   "terrains": [
     {

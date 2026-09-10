@@ -142,7 +142,7 @@ class PayloadResolutionEquivalenceTest(unittest.TestCase):
 class IntendedBehaviourDeltaTest(unittest.TestCase):
     """换源后**唯一**的有意变更必须被显式锁定，其余一律不得漂移。"""
 
-    def test_only_delta_is_zex_w_torque_limits(self) -> None:
+    def test_intended_behaviour_delta_set_is_locked(self) -> None:
         deltas: dict[str, list[str]] = {}
         for package in packages():
             config = load(package / "simulation" / "config.json")
@@ -151,8 +151,16 @@ class IntendedBehaviourDeltaTest(unittest.TestCase):
                 if bool(config.get(CONFIG_KEY[param])) != bool(view[param]):
                     deltas.setdefault(package.name, []).append(param)
         self.assertEqual(
-            deltas, {"zex-w": ["torque_limits"]},
-            "除 zex-w 的力矩限幅外，不应出现任何行为漂移",
+            deltas,
+            {
+                "zex-w": ["torque_limits"],
+                "microduck": ["torque_limits"],
+                "wuji_hand": ["torque_limits"],
+            },
+            "有意变更集合（00_know/全部机型_参数来源对照与标准.md §2.6）："
+            "zex-w 原本就由契约供给力矩限幅；microduck / wuji_hand 的 effort 原缺失，"
+            "现按打包模型补齐（R2 模型层），浏览器由此新增力矩限幅。"
+            "除此之外不得出现任何行为漂移",
         )
 
     def test_zex_w_gains_torque_limits_from_contract(self) -> None:
