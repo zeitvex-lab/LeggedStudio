@@ -27,6 +27,9 @@
       "finger5_joint4"
     ],
     "leg_naming": "{LR}_{role}",
+    "actuator_type": "position",
+    "wheel_indices": [],
+    "mass_source": "mjcf_compiled",
     "leg_ids": [
       "right"
     ],

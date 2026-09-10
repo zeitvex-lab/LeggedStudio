@@ -28,6 +28,15 @@ ROBOT_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 ROLE_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 LEG_ID_PATTERN = re.compile(r"^[A-Za-z0-9]+$")
 
+# ---- B4（§2.1.1 rev.2）Morphology 内核字段的取值域与 fail-closed 口径 ----
+# 这些字段缺一不可：缺了就会让"同一 role、不同执行器/足型"的机型（TRON1 PF/SF/WF、
+# M20/Go2W/ZEX-W 轮组、MicroDuck 腿/轮双形态）在训练与部署两侧被静默按同一种方式处理。
+ACTUATOR_TYPES = ("position", "velocity", "hybrid", "bam")
+FOOT_TYPES = ("point", "sole", "wheel")
+MASS_SOURCES = ("mjcf_compiled", "urdf_inertial")
+# 非腿式构型（灵巧手）：不声明 foot_type。
+NON_LEGGED_MORPHOLOGY_IDS = ("hand",)
+
 _ACTUATOR_PARAM_KEYS = (
     "stiffness",
     "damping",
@@ -196,6 +205,7 @@ class RoleResolver:
             errors.append(str(exc))
 
         errors.extend(self._validate_morphology())
+        errors.extend(self._validate_morphology_kernel())
         errors.extend(self._validate_joints())
         errors.extend(self._validate_actuator_profile())
         errors.extend(self._validate_observation())
@@ -237,6 +247,85 @@ class RoleResolver:
                 errors.append(
                     f"morphology.leg_ids 数量({len(declared_ids)})与 legs({legs}) 不一致"
                 )
+        return errors
+
+    def _validate_morphology_kernel(self) -> list[str]:
+        """B4 fail-closed：actuator_type / foot_type / wheel_indices / mass_source。
+
+        依据 §2.1.1 rev.2（字段定义）与 §5.8.4（"缺字段在 verify 阶段显式报错，
+        不静默降级"）。wheel_indices 还要与 action.joint_order × joints.role 对账，
+        避免"声明了轮组却指到腿关节"这类只在真机上炸的错。
+        """
+
+        errors: list[str] = []
+        morphology = self.morphology
+        morphology_id = morphology.get("id")
+
+        actuator_type = morphology.get("actuator_type")
+        if actuator_type not in ACTUATOR_TYPES:
+            errors.append(
+                f"morphology.actuator_type 缺失或非法（{actuator_type!r}）：需为 {ACTUATOR_TYPES} 之一"
+            )
+
+        legs = int(morphology.get("legs") or 0)
+        is_legged = legs > 0 and morphology_id not in NON_LEGGED_MORPHOLOGY_IDS
+        foot_type = morphology.get("foot_type")
+        if is_legged:
+            if foot_type not in FOOT_TYPES:
+                errors.append(
+                    f"morphology.foot_type 缺失或非法（{foot_type!r}）：腿式构型需为 {FOOT_TYPES} 之一"
+                )
+        elif foot_type is not None:
+            errors.append(f"morphology.foot_type 不适用于非腿式构型 {morphology_id!r}")
+
+        mass_source = morphology.get("mass_source")
+        if mass_source not in MASS_SOURCES:
+            errors.append(
+                f"morphology.mass_source 缺失或非法（{mass_source!r}）：需为 {MASS_SOURCES} 之一"
+            )
+
+        pattern = morphology.get("leg_pattern") or []
+        raw_indices = morphology.get("wheel_indices")
+        if "wheel" in pattern:
+            if not isinstance(raw_indices, list) or not raw_indices:
+                errors.append(
+                    "morphology.wheel_indices 缺失或为空：leg_pattern 含 wheel 时必须声明轮关节槽位"
+                )
+            else:
+                if any(not isinstance(index, int) or index < 0 for index in raw_indices):
+                    errors.append("morphology.wheel_indices 必须是非负整数下标")
+                elif len(set(raw_indices)) != len(raw_indices):
+                    errors.append("morphology.wheel_indices 存在重复下标")
+                elif legs and len(raw_indices) != legs:
+                    errors.append(
+                        f"morphology.wheel_indices 数量({len(raw_indices)})与 legs({legs}) 不一致"
+                    )
+                else:
+                    order = (self.contract.get("action") or {}).get("joint_order") or []
+                    if order:
+                        if any(index >= len(order) for index in raw_indices):
+                            errors.append(
+                                f"morphology.wheel_indices 超出 action.joint_order 范围(0..{len(order) - 1})"
+                            )
+                        else:
+                            roles = {
+                                entry["name"]: entry.get("role")
+                                for entry in self.actuated
+                                if entry.get("name")
+                            }
+                            wheel_slots = sorted(
+                                index
+                                for index, name in enumerate(order)
+                                if roles.get(name) == "wheel"
+                            )
+                            if sorted(raw_indices) != wheel_slots:
+                                errors.append(
+                                    f"morphology.wheel_indices {sorted(raw_indices)} 与 wheel 角色实际槽位 "
+                                    f"{wheel_slots} 不一致"
+                                )
+        elif raw_indices:
+            errors.append("morphology.wheel_indices 非空但 leg_pattern 不含 wheel 角色")
+
         return errors
 
     def _template_matches(self) -> tuple[list[str], list[tuple[str, str]]]:
@@ -421,6 +510,56 @@ def role_values_from_per_joint(
     return table
 
 
+def _derive_actuator_type(leg_pattern: list[str]) -> str:
+    """B4 推导：含 wheel 角色即 hybrid（轮足腿 position + 轮 velocity），否则 position。"""
+
+    return "hybrid" if "wheel" in leg_pattern else "position"
+
+
+def _derive_foot_type(morphology_id: str | None, leg_pattern: list[str]) -> str | None:
+    """B4 推导：非腿式返回 None；wheel 角色→wheel；含 ankle* 角色→sole；其余→point。"""
+
+    if morphology_id in NON_LEGGED_MORPHOLOGY_IDS:
+        return None
+    if "wheel" in leg_pattern:
+        return "wheel"
+    if any(str(role).startswith("ankle") for role in leg_pattern):
+        return "sole"
+    return "point"
+
+
+def _morphology_kernel(
+    *,
+    morphology_id: str | None,
+    leg_pattern: list[str],
+    actuated: list[dict[str, Any]],
+    joint_order: list[str],
+    actuator_type: str | None,
+    foot_type: str | None,
+    wheel_indices: list[int] | None,
+    mass_source: str | None,
+) -> dict[str, Any]:
+    """B4 内核字段：显式入参优先，缺省按构型推导（迁移/合成契约路径）。
+
+    ``wheel_indices`` 的推导口径是"角色来源"而非硬编码槽位：在 joint_order 中找
+    role == wheel 的位置，因此对 fl/fr/hl/hr、FR/FL/RR/RL 等任意关节序都成立。
+    """
+
+    roles = {entry["name"]: entry.get("role") for entry in actuated}
+    derived_indices = [
+        index for index, name in enumerate(joint_order) if roles.get(name) == "wheel"
+    ]
+    kernel: dict[str, Any] = {
+        "actuator_type": actuator_type or _derive_actuator_type(leg_pattern),
+        "wheel_indices": list(wheel_indices) if wheel_indices is not None else derived_indices,
+        "mass_source": mass_source or "mjcf_compiled",
+    }
+    resolved_foot = foot_type if foot_type is not None else _derive_foot_type(morphology_id, leg_pattern)
+    if resolved_foot is not None:
+        kernel["foot_type"] = resolved_foot
+    return kernel
+
+
 def build_v3_contract(
     *,
     robot_id: str,
@@ -440,6 +579,10 @@ def build_v3_contract(
     control: dict[str, Any] | None = None,
     default_pose: list[float] | None = None,
     actuated_entries: list[dict[str, Any]] | None = None,
+    actuator_type: str | None = None,
+    foot_type: str | None = None,
+    wheel_indices: list[int] | None = None,
+    mass_source: str | None = None,
     **metadata: Any,
 ) -> dict[str, Any]:
     """从紧凑输入组装契约 v3 dict。
@@ -486,6 +629,16 @@ def build_v3_contract(
             "leg_naming": leg_naming,
             "leg_ids": leg_ids,
             "actuated_via": "leg_pattern×legs" if leg_pattern else "extra_roles",
+            **_morphology_kernel(
+                morphology_id=morphology_id,
+                leg_pattern=leg_pattern,
+                actuated=actuated,
+                joint_order=list(joint_order),
+                actuator_type=actuator_type,
+                foot_type=foot_type,
+                wheel_indices=wheel_indices,
+                mass_source=mass_source,
+            ),
         },
         "joints": {"actuated": actuated},
         "actuator_profile": {
