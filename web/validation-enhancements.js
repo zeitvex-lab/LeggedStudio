@@ -99,29 +99,6 @@
     Object.entries(payload.reward_scales || recipe.reward_scales || {}).forEach(([id, weightValue]) => { const checkbox = document.querySelector(`[data-reward="${id}"]`); const weight = document.querySelector(`[data-weight="${id}"]`); if (checkbox) checkbox.checked = Number(weightValue) !== 0; if (weight) weight.value = weightValue; });
   }
   function exportConfig() { const blob = new Blob([JSON.stringify(configPayload(), null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `legged-studio-training-${Date.now()}.json`; link.click(); URL.revokeObjectURL(link.href); }
-  async function exportProject() {
-    const response = await fetch(`${window.location.origin}/api/project/export`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ training_config: configPayload(), scenario: { map_id: $('simMap')?.value || 'flat', mode: 'basic' } }) });
-    if (!response.ok) throw new Error(`项目包导出失败：HTTP ${response.status}`);
-    const blob = await response.blob(); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'legged-studio-project.lsproj.zip'; link.click(); URL.revokeObjectURL(link.href);
-  }
-  async function importProject(file) {
-    const bytes = new Uint8Array(await file.arrayBuffer()); let binary = '';
-    for (let index = 0; index < bytes.length; index += 0x8000) binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
-    const payload = await jsonPost('/api/project/import', { archive_base64: btoa(binary) });
-    if (!payload.success) throw new Error(payload.error || '项目包导入失败');
-    if (payload.training_config && Object.keys(payload.training_config).length) setConfig(payload.training_config);
-    (payload.robots || []).forEach((robot) => { const select = $('simRobot'); if (!select || !robot.robot_id || select.querySelector(`option[value="${robot.robot_id}"]`)) return; const option = document.createElement('option'); option.value = robot.robot_id; option.textContent = `${robot.family || robot.robot_id} (项目包)`; select.appendChild(option); });
-    const imports = payload.manifest?.imports || [];
-    if ($('projectPackageStatus')) $('projectPackageStatus').textContent = `已导入项目包：${imports.length} 个资产包`;
-  }
-  function mountProjectControls() {
-    const home = $('home'); if (!home || $('projectPackageTools')) return;
-    const section = document.createElement('section'); section.id = 'projectPackageTools'; section.className = 'panel project-package-tools'; section.innerHTML = '<div class="panel-title"><div><span class="eyebrow">PACKAGE MANAGER</span><h2>包管理与实验包</h2></div><span id="projectPackageStatus" class="panel-meta">管理本地包及其模型、训练配置和场景</span></div><div class="project-package-actions"><button id="openPackageManager" class="button secondary">打开包管理</button><button id="exportProjectPackage" class="button ghost">导出项目包</button><label class="button ghost">导入项目包<input id="importProjectPackage" type="file" accept=".zip,.lsproj.zip" hidden></label></div>';
-    home.insertBefore(section, $('homeRuns')?.previousElementSibling || home.lastElementChild);
-    $('exportProjectPackage').addEventListener('click', () => exportProject().catch((error) => { $('projectPackageStatus').textContent = error.message; }));
-    $('openPackageManager').addEventListener('click', () => { window.location.href = 'assets.html'; });
-    $('importProjectPackage').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file) importProject(file).catch((error) => { $('projectPackageStatus').textContent = error.message; }); });
-  }
   function patchTrainingPayload() {
     if (typeof window.trainingPayload !== 'function' || window.__leggedStudioTrainingPatched) return;
     const original = window.trainingPayload;
@@ -181,7 +158,7 @@
   }
 
   function mountControls() {
-    mountProjectControls(); patchTrainingPayload(); mountDragDrop();
+    patchTrainingPayload(); mountDragDrop();
     const picker = $('modelFile');
     if (picker) picker.multiple = true;
     const form = picker?.closest('.form-panel');

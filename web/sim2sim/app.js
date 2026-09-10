@@ -165,6 +165,45 @@ const URL_AUTOPLAY = PAGE_PARAMS.has("autoplay")
   : null;
 const URL_TERRAIN = PAGE_PARAMS.get("terrain") || "";
 const DEFAULT_TERRAIN = "wave";
+// 机器人 ID 别名表（数据）：覆盖全部内置包的「完整包 id」与「URL 短键」，
+// 统一归一化到短键，消除「包下划线（unitree_go2）↔ 浏览器连字符/短键（go2）」命名双轨。
+// 匹配顺序按 match 长度降序，避免 go2w / go2、b2w / b2 之类的前缀包含误匹配。
+// 必须在首个 normalizeRobotParam 调用（下方 URL_ROBOT）之前初始化，否则模块顶层
+// 执行会命中 const TDZ，整个 app.js 直接失败、页面卡在"加载 MuJoCo WASM..."。
+const ROBOT_ID_ALIASES = [
+  // 完整包 id → 短键（精确匹配优先）
+  { match: "unitree_go2w", key: "go2w" },
+  { match: "unitree_go1", key: "go1" },
+  { match: "unitree_go2", key: "go2" },
+  { match: "deeprobotics_lite3", key: "lite3" },
+  { match: "deeprobotics_m20", key: "m20" },
+  { match: "deeprobotics_x30", key: "x30" },
+  { match: "limx_tron1_pf", key: "tron1_pf" },
+  { match: "limx_tron1_sf", key: "tron1_sf" },
+  { match: "limx_tron1_wf", key: "tron1_wf" },
+  { match: "unitree_b2w", key: "b2w" },
+  { match: "unitree_b2", key: "b2" },
+  { match: "unitree_g1", key: "g1" },
+  // URL 短键 → 短键（含历史自定义短键）
+  { match: "go2w", key: "go2w" },
+  { match: "go1", key: "go1" },
+  { match: "go2", key: "go2" },
+  { match: "lite3", key: "lite3" },
+  { match: "m20", key: "m20" },
+  { match: "x30", key: "x30" },
+  { match: "tron1_pf", key: "tron1_pf" },
+  { match: "tron1_sf", key: "tron1_sf" },
+  { match: "tron1_wf", key: "tron1_wf" },
+  { match: "b2w", key: "b2w" },
+  { match: "b2", key: "b2" },
+  { match: "g1", key: "g1" },
+  { match: "zex_w", key: "zex_w" },
+  { match: "zex", key: "zex_w" },
+  { match: "microduck", key: "microduck" },
+  { match: "wuji_hand", key: "wuji_hand" },
+  { match: "fsdog1", key: "fsdog1" },
+  { match: "fsdog", key: "fsdog1" },
+];
 const URL_ROBOT = normalizeRobotParam(PAGE_PARAMS.get("robot") || "");
 const DEBUG_ENABLED = PAGE_PARAMS.get("debug") === "1" || PAGE_PARAMS.has("qa");
 if (PAGE_PARAMS.get("embedded") === "1") document.body.classList.add("embedded");
@@ -260,7 +299,6 @@ const elements = {
   velCmdVyVal: document.querySelector("#velCmdVyVal"),
   velCmdYawVal: document.querySelector("#velCmdYawVal"),
   velCmdZero: document.querySelector("#velCmdZero"),
-  velCmdPush: document.querySelector("#velCmdPush"),
   keys: {
     KeyW: document.querySelector("#keyW"),
     KeyS: document.querySelector("#keyS"),
@@ -2083,46 +2121,6 @@ function activeRobotKey() {
   return normalizeRobotParam(sim.platformConfig?.sim?.robot || URL_ROBOT || sim.platformConfig?.robot?.name || "");
 }
 
-// 机器人 ID 别名表（数据）：覆盖全部 16 个内置包的「完整包 id」与「URL 短键」，
-// 统一归一化到短键，消除「包下划线（unitree_go2）↔ 浏览器连字符/短键（go2）」命名双轨。
-// 匹配顺序按 match 长度降序，避免 go2w / go2、b2w / b2 之类的前缀包含误匹配。
-const ROBOT_ID_ALIASES = [
-  // 完整包 id → 短键（精确匹配优先）
-  { match: "unitree_h1_2", key: "h1_2" },
-  { match: "unitree_go2w", key: "go2w" },
-  { match: "unitree_go2", key: "go2" },
-  { match: "deeprobotics_lite3", key: "lite3" },
-  { match: "deeprobotics_m20", key: "m20" },
-  { match: "limx_tron1_pf", key: "tron1_pf" },
-  { match: "limx_tron1_sf", key: "tron1_sf" },
-  { match: "agibot_d1", key: "d1" },
-  { match: "unitree_b2w", key: "b2w" },
-  { match: "unitree_a1", key: "a1" },
-  { match: "unitree_a2", key: "a2" },
-  { match: "unitree_b2", key: "b2" },
-  { match: "unitree_g1", key: "g1" },
-  // URL 短键 → 短键（含历史自定义短键）
-  { match: "h1_2", key: "h1_2" },
-  { match: "go2w", key: "go2w" },
-  { match: "go2", key: "go2" },
-  { match: "lite3", key: "lite3" },
-  { match: "m20", key: "m20" },
-  { match: "tron1_pf", key: "tron1_pf" },
-  { match: "tron1_sf", key: "tron1_sf" },
-  { match: "d1", key: "d1" },
-  { match: "b2w", key: "b2w" },
-  { match: "a1", key: "a1" },
-  { match: "a2", key: "a2" },
-  { match: "b2", key: "b2" },
-  { match: "g1", key: "g1" },
-  { match: "zex_w", key: "zex_w" },
-  { match: "zex", key: "zex_w" },
-  { match: "microduck", key: "microduck" },
-  { match: "wuji_hand", key: "wuji_hand" },
-  { match: "fsdog1", key: "fsdog1" },
-  { match: "fsdog", key: "fsdog1" },
-];
-
 function normalizeRobotParam(value) {
   const key = String(value || "")
     .trim()
@@ -2811,7 +2809,15 @@ async function loadTerrain(xmlName) {
   try {
     await setLoadingPainted(0.72, `④a 编译 ${terrainLabel(xmlName)} 场景...`);
     const tXml = performance.now();
-    nextModel = loadMjModel(`${sim.assetRoot}/${xmlName}`);
+    // 场景名可能来自平台 manifest 的 HTTP 相对路径（web/sim2sim/assets/...），
+    // 而内置 go2 资源写在 /working/<basename>。精确路径不存在时回退到
+    // basename，避免 ParseXML "Error opening file" 导致视口空白。
+    let scenePath = `${sim.assetRoot}/${xmlName}`;
+    if (!sim.mujoco.FS.analyzePath(scenePath).exists) {
+      const fallbackPath = `${sim.assetRoot}/${sceneBasename(xmlName)}`;
+      if (sim.mujoco.FS.analyzePath(fallbackPath).exists) scenePath = fallbackPath;
+    }
+    nextModel = loadMjModel(scenePath);
     console.log(`[sim2sim] ✔ loadMjModel(${xmlName}) ${(performance.now() - tXml).toFixed(0)}ms`);
     nextModel.opt.timestep = CONFIG.simulationDt;
     nextData = new sim.mujoco.MjData(nextModel);
@@ -4598,23 +4604,6 @@ function bindVelocityCommandControls() {
     input.velocityCmdTouched = true;
     input.manualCmdActive = Boolean(elements.velCmdEnable?.checked);
     updateVelocityCommandControls();
-  });
-  // "推一下"扰动（报告 10 §④）：0.6 秒前进脉冲后恢复原命令——
-  // 验收协议的外部扰动入口，与确定性回放共用 manualCmd 通路。
-  elements.velCmdPush?.addEventListener("click", () => {
-    if (elements.velCmdPush.disabled) return;
-    elements.velCmdPush.disabled = true;
-    const original = [...input.manualCmd];
-    const originalActive = input.manualCmdActive;
-    input.manualCmd[0] = (Number(input.manualCmd[0]) || 0) + 0.8;
-    input.manualCmdActive = true;
-    input.velocityCmdTouched = true;
-    setTimeout(() => {
-      input.manualCmd[0] = original[0];
-      input.manualCmdActive = originalActive;
-      updateVelocityCommandControls();
-      elements.velCmdPush.disabled = false;
-    }, 600);
   });
 }
 

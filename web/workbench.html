@@ -24,17 +24,15 @@
         <button class="side-item" data-step="home"><span class="side-ico">🏠</span><span>首页</span></button>
 
         <span class="side-group">机器人</span>
-        <button class="side-item" data-step="assets"><span class="side-ico">🗂️</span><span>资产库</span></button>
         <button class="side-item" data-step="robot"><span class="side-ico">🤖</span><span>机器人工作台</span></button>
 
         <span class="side-group">训练</span>
         <button class="side-item" data-step="config"><span class="side-ico">⚙️</span><span>训练配置</span></button>
         <button class="side-item" data-step="training"><span class="side-ico">📋</span><span>训练任务</span></button>
-        <button class="side-item" data-step="monitor"><span class="side-ico">📈</span><span>监控</span></button>
 
         <span class="side-group">仿真</span>
-        <button class="side-item" data-step="simulation"><span class="side-ico">🎮</span><span>Sim2Sim 回放</span></button>
-        <button class="side-item" data-step="navmap"><span class="side-ico">🗺️</span><span>导航与地图</span></button>
+        <button class="side-item" data-step="simulation"><span class="side-ico">🎮</span><span>基础仿真</span></button>
+        <button class="side-item" data-step="navmap"><span class="side-ico">🧭</span><span>高级仿真</span></button>
 
         <span class="side-group">产物</span>
         <button class="side-item" data-step="deploy"><span class="side-ico">📦</span><span>部署</span></button>
@@ -47,23 +45,6 @@
     </aside>
 
     <main class="main-area">
-      <header class="topbar-slim">
-        <div class="workflow-track" id="workflowTrack">
-          <span class="workflow-label">工作流</span>
-          <span class="workflow-step-w" data-step="assets">1 资产</span>
-          <span class="workflow-arrow">→</span>
-          <span class="workflow-step-w" data-step="config">2 训练配置</span>
-          <span class="workflow-arrow">→</span>
-          <span class="workflow-step-w" data-step="training">3 训练</span>
-          <span class="workflow-arrow">→</span>
-          <span class="workflow-step-w" data-step="monitor">4 监控</span>
-          <span class="workflow-arrow">→</span>
-          <span class="workflow-step-w" data-step="simulation">5 仿真</span>
-          <span class="workflow-arrow">→</span>
-          <span class="workflow-step-w" data-step="deploy">6 部署</span>
-        </div>
-      </header>
-
       <div class="content">
         <section id="home" class="view active-view">
           <div class="view-heading"><div><span class="eyebrow">WORKSPACE / OVERVIEW</span><h1>统一的足式机器人实验工作台</h1><p>从模型 Contract 到 MJLab GPU 训练，再到 MuJoCo 交互仿真，所有状态在同一条工作流中可追踪。</p></div><div class="heading-actions"><button class="button primary" data-step="robot">开始一次实验</button></div></div>
@@ -78,15 +59,18 @@
             <div id="homeNextStepBody" class="next-step-body"><div class="skeleton-line"></div></div>
           </div>
 
+          <div class="section-title"><div><span class="eyebrow">PACKAGE LIBRARY</span><h2>资产库</h2></div><div class="heading-actions"><span id="assetLibraryStatus" class="muted">内置包与工作区包统一管理，修改自动同步训练与仿真</span><button class="text-button" id="refreshAssetLibrary">刷新索引</button></div></div>
+          <div class="asset-import-row">
+            <input id="assetImportPath" type="text" placeholder="输入机器人包绝对路径（目录需含 contract.json 与 robot_package.json），回车或点「导入包」" spellcheck="false">
+            <button class="button" id="importAssetPackage">导入包</button>
+          </div>
+          <div id="assetLibraryGrid" class="asset-card-grid"><div class="empty-state">正在读取机器人包...</div></div>
+
           <div class="section-title"><div><span class="eyebrow">BUILT-IN DEMOS</span><h2>预训练策略 · 免训练即玩</h2></div><div class="heading-actions"><a class="text-button" data-step="simulation">打开仿真试玩</a></div></div>
           <div id="homeDemos" class="demo-card-grid"><div class="empty-state">正在读取预训练模型...</div></div>
 
-          <div class="section-title"><div><span class="eyebrow">RECENT RUNS</span><h2>最近实验</h2></div><div class="heading-actions"><a class="text-button" href="assets.html">包管理</a><button class="text-button" data-step="monitor">查看训练监控</button></div></div>
+          <div class="section-title"><div><span class="eyebrow">RECENT RUNS</span><h2>最近实验</h2></div></div>
           <div id="homeRuns" class="run-list"><div class="empty-state">正在读取训练任务...</div></div>
-        </section>
-
-        <section id="assets" class="view frame-view">
-          <iframe id="assetsFrame" class="page-frame" title="资产库"></iframe>
         </section>
 
         <section id="robot" class="view">
@@ -155,10 +139,6 @@
 
         <section id="training" class="view frame-view">
           <iframe id="trainingFrame" class="page-frame" title="训练"></iframe>
-        </section>
-
-        <section id="monitor" class="view frame-view">
-          <iframe id="monitorFrame" class="page-frame" title="训练监控"></iframe>
         </section>
 
         <section id="simulation" class="view simulation-view">
