@@ -13,7 +13,10 @@
     "leg_naming": "{role}_{LR}_joint",
     "actuator_type": "hybrid",
     "foot_type": "wheel",
-    "wheel_indices": [3, 7],
+    "wheel_indices": [
+      3,
+      7
+    ],
     "mass_source": "mjcf_compiled",
     "leg_ids": [
       "L",
@@ -104,6 +107,15 @@
         "effort": 40.0,
         "armature": 0.01,
         "mode": "velocity"
+      }
+    },
+    "default": {},
+    "by_joint": {
+      "wheel_L_Joint": {
+        "friction_loss": 0.01
+      },
+      "wheel_R_Joint": {
+        "friction_loss": 0.01
       }
     }
   },
