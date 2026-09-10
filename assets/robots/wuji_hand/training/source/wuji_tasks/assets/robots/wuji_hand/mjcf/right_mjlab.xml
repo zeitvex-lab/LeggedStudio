@@ -1,5 +1,5 @@
 <mujoco model="wujihand-right-mjlab">
-  <compiler angle="radian" meshdir="../meshes/right" />
+  <compiler angle="radian" meshdir="../../../../../../../model/assets" />
 
   <option timestep="0.01" integrator="Euler" iterations="5" ls_iterations="8">
     <flag eulerdamp="disable"/>
