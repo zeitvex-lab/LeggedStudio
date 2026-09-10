@@ -1,4 +1,4 @@
-"""Unitree Go2-W quadruped-wheeled robot."""
+"""DeepRobotics M20 wheel-legged robot."""
 
 
 from .env_cfgs import (  # noqa: F401

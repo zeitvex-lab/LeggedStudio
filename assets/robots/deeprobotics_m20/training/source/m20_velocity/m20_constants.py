@@ -1,12 +1,22 @@
-"""Deeprobotics M20 constants."""
+"""Deeprobotics M20 constants.
+
+Evidence chain (all three agree):
+  * joint names / kinematics: official ``deep_robotics_model/M20/mjcf/M20.xml``
+    (fl/fr/hl/hr x hipx/hipy/knee/wheel) == contract_v3.json ``joints.actuated``;
+  * PD gains / effort: contract ``actuator_profile.by_role`` ==
+    DreamWaQ ``deploy_mujoco/configs/m20.yaml`` (kps 80/80/80, wheel kd 0.6)
+    with effort limits from the official MJCF ``actuatorfrcrange``
+    (legs 76.4, wheels 21.6);
+  * initial pose: DreamWaQ ``m20.yaml`` ``default_angles`` (front legs hipy -0.6 /
+    knee 1.0, rear legs mirrored; order fl,fr,hl,hr per its MJCF);
+  * meshes: package ``model/assets`` (single copy, byte-identical to official
+    ``M20/meshes`` STLs — verified by sha256).
+"""
 
 from pathlib import Path
 
 import mujoco
 
-from pathlib import Path
-
-_PACKAGE_DIR = Path(__file__).resolve().parent
 from mjlab.actuator import BuiltinPositionActuatorCfg, BuiltinVelocityActuatorCfg
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.utils.spec_config import CollisionCfg
@@ -15,121 +25,119 @@ from mjlab.utils.spec_config import CollisionCfg
 # MJCF and assets.
 ##
 
-M20_XML: Path = (
-  _PACKAGE_DIR / "xmls" / "go2w.xml"
-)
+M20_XML: Path = Path(__file__).resolve().parent / "xmls" / "M20.xml"
 
-# Requested action/joint order (matches Unitree SDK command order).
+# Requested action/joint order (matches the DeepRobotics SDK command order:
+# FR, FL, HR, HL leg groups).
 M20_LEG_JOINT_NAMES: tuple[str, ...] = (
-  "FR_hip_joint",
-  "FR_thigh_joint",
-  "FR_calf_joint",
-  "FL_hip_joint",
-  "FL_thigh_joint",
-  "FL_calf_joint",
-  "RR_hip_joint",
-  "RR_thigh_joint",
-  "RR_calf_joint",
-  "RL_hip_joint",
-  "RL_thigh_joint",
-  "RL_calf_joint",
+  "fr_hipx_joint",
+  "fr_hipy_joint",
+  "fr_knee_joint",
+  "fl_hipx_joint",
+  "fl_hipy_joint",
+  "fl_knee_joint",
+  "hr_hipx_joint",
+  "hr_hipy_joint",
+  "hr_knee_joint",
+  "hl_hipx_joint",
+  "hl_hipy_joint",
+  "hl_knee_joint",
 )
 M20_WHEEL_JOINT_NAMES: tuple[str, ...] = (
-  r"FR_(foot|wheel)_joint",
-  r"FL_(foot|wheel)_joint",
-  r"RR_(foot|wheel)_joint",
-  r"RL_(foot|wheel)_joint",
+  "fr_wheel_joint",
+  "fl_wheel_joint",
+  "hr_wheel_joint",
+  "hl_wheel_joint",
 )
-GO2W_ALL_JOINT_NAMES: tuple[str, ...] = M20_LEG_JOINT_NAMES + M20_WHEEL_JOINT_NAMES
+M20_ALL_JOINT_NAMES: tuple[str, ...] = M20_LEG_JOINT_NAMES + M20_WHEEL_JOINT_NAMES
 
-M20_HIP_JOINT_NAMES: tuple[str, ...] = (
-  "FR_hip_joint",
-  "FL_hip_joint",
-  "RR_hip_joint",
-  "RL_hip_joint",
+M20_HIPX_JOINT_NAMES: tuple[str, ...] = (
+  "fr_hipx_joint",
+  "fl_hipx_joint",
+  "hr_hipx_joint",
+  "hl_hipx_joint",
 )
-M20_THIGH_JOINT_NAMES: tuple[str, ...] = (
-  "FR_thigh_joint",
-  "FL_thigh_joint",
-  "RR_thigh_joint",
-  "RL_thigh_joint",
+M20_HIPY_JOINT_NAMES: tuple[str, ...] = (
+  "fr_hipy_joint",
+  "fl_hipy_joint",
+  "hr_hipy_joint",
+  "hl_hipy_joint",
 )
-M20_CALF_JOINT_NAMES: tuple[str, ...] = (
-  "FR_calf_joint",
-  "FL_calf_joint",
-  "RR_calf_joint",
-  "RL_calf_joint",
+M20_KNEE_JOINT_NAMES: tuple[str, ...] = (
+  "fr_knee_joint",
+  "fl_knee_joint",
+  "hr_knee_joint",
+  "hl_knee_joint",
 )
 
-M20_LEG_JOINT_REGEX: str = r"^(FR|FL|RR|RL)_(hip|thigh|calf)_joint$"
-M20_WHEEL_JOINT_REGEX: str = r"^(FR|FL|RR|RL)_(foot|wheel)_joint$"
+M20_LEG_JOINT_REGEX: str = r"^(fr|fl|hr|hl)_(hipx|hipy|knee)_joint$"
+M20_WHEEL_JOINT_REGEX: str = r"^(fr|fl|hr|hl)_wheel_joint$"
 
 
 def get_spec() -> mujoco.MjSpec:
   if not M20_XML.exists():
     raise FileNotFoundError(
-      f"Go2-W MJCF not found at {M20_XML}. "
-      "Place your converted go2w.xml and meshes under this package."
+      f"M20 MJCF not found at {M20_XML}."
     )
   return mujoco.MjSpec.from_file(str(M20_XML))
 
 
 ##
-# Actuator config.
+# Actuator config (contract actuator_profile.by_role / DreamWaQ m20.yaml).
 ##
 
-M20_ACTUATOR_HIP = BuiltinPositionActuatorCfg(
-  target_names_expr=M20_HIP_JOINT_NAMES,
-  stiffness=20.0,
-  damping=1.0,
-  effort_limit=23.5,
-  armature=0.01,
-)
-M20_ACTUATOR_THIGH = BuiltinPositionActuatorCfg(
-  target_names_expr=M20_THIGH_JOINT_NAMES,
-  stiffness=20.0,
-  damping=1.0,
-  effort_limit=23.5,
-  armature=0.01,
-)
-M20_ACTUATOR_CALF = BuiltinPositionActuatorCfg(
-  target_names_expr=M20_CALF_JOINT_NAMES,
-  stiffness=40.0,
+M20_ACTUATOR_HIPX = BuiltinPositionActuatorCfg(
+  target_names_expr=M20_HIPX_JOINT_NAMES,
+  stiffness=80.0,
   damping=2.0,
-  effort_limit=45.0,
-  armature=0.02,
+  effort_limit=76.4,
+  armature=0.01,
+)
+M20_ACTUATOR_HIPY = BuiltinPositionActuatorCfg(
+  target_names_expr=M20_HIPY_JOINT_NAMES,
+  stiffness=80.0,
+  damping=2.0,
+  effort_limit=76.4,
+  armature=0.01,
+)
+M20_ACTUATOR_KNEE = BuiltinPositionActuatorCfg(
+  target_names_expr=M20_KNEE_JOINT_NAMES,
+  stiffness=80.0,
+  damping=2.0,
+  effort_limit=76.4,
+  armature=0.01,
 )
 M20_ACTUATOR_WHEEL = BuiltinVelocityActuatorCfg(
   target_names_expr=M20_WHEEL_JOINT_NAMES,
-  damping=2.0,
-  effort_limit=45.0,
-  armature=0.02,
+  damping=0.6,
+  effort_limit=21.6,
+  armature=0.01,
 )
 
 ##
-# Keyframes.
+# Keyframes (DreamWaQ m20.yaml default_angles; joint order fl,fr,hl,hr:
+# front legs hipy -0.6 / knee 1.0, rear legs mirrored).
 ##
-
 
 INIT_STATE = EntityCfg.InitialStateCfg(
   pos=(0.0, 0.0, 0.4),
   joint_pos={
-    "FR_hip_joint": 0.1,
-    "FR_thigh_joint": 0.9,
-    "FR_calf_joint": -1.8,
-    "FL_hip_joint": -0.1,
-    "FL_thigh_joint": 0.9,
-    "FL_calf_joint": -1.8,
-    "RR_hip_joint": 0.1,
-    "RR_thigh_joint": 0.9,
-    "RR_calf_joint": -1.8,
-    "RL_hip_joint": -0.1,
-    "RL_thigh_joint": 0.9,
-    "RL_calf_joint": -1.8,
-    r"FR_(foot|wheel)_joint": 0.0,
-    r"FL_(foot|wheel)_joint": 0.0,
-    r"RR_(foot|wheel)_joint": 0.0,
-    r"RL_(foot|wheel)_joint": 0.0,
+    "fl_hipx_joint": 0.0,
+    "fl_hipy_joint": -0.6,
+    "fl_knee_joint": 1.0,
+    "fr_hipx_joint": 0.0,
+    "fr_hipy_joint": -0.6,
+    "fr_knee_joint": 1.0,
+    "hl_hipx_joint": 0.0,
+    "hl_hipy_joint": 0.6,
+    "hl_knee_joint": -1.0,
+    "hr_hipx_joint": 0.0,
+    "hr_hipy_joint": 0.6,
+    "hr_knee_joint": -1.0,
+    "fl_wheel_joint": 0.0,
+    "fr_wheel_joint": 0.0,
+    "hl_wheel_joint": 0.0,
+    "hr_wheel_joint": 0.0,
   },
   joint_vel={".*": 0.0},
 )
@@ -142,9 +150,9 @@ FULL_COLLISION = CollisionCfg(
   geom_names_expr=(".*_collision",),
   contype=1,
   conaffinity=0,
-  condim={r".*(wheel|foot)_collision$": 3, ".*_collision": 1},
-  priority={r".*(wheel|foot)_collision$": 1, ".*": 0},
-  friction={r".*(wheel|foot)_collision$": (0.6,)},
+  condim={r".*wheel_collision$": 3, ".*_collision": 1},
+  priority={r".*wheel_collision$": 1, ".*": 0},
+  friction={r".*wheel_collision$": (0.6,)},
 )
 
 ##
@@ -153,9 +161,9 @@ FULL_COLLISION = CollisionCfg(
 
 M20_ARTICULATION = EntityArticulationInfoCfg(
   actuators=(
-    M20_ACTUATOR_HIP,
-    M20_ACTUATOR_THIGH,
-    M20_ACTUATOR_CALF,
+    M20_ACTUATOR_HIPX,
+    M20_ACTUATOR_HIPY,
+    M20_ACTUATOR_KNEE,
     M20_ACTUATOR_WHEEL,
   ),
   soft_joint_pos_limit_factor=0.9,
@@ -163,7 +171,7 @@ M20_ARTICULATION = EntityArticulationInfoCfg(
 
 
 def get_m20_robot_cfg() -> EntityCfg:
-  """Get a fresh Go2-W robot configuration instance."""
+  """Get a fresh DeepRobotics M20 robot configuration instance."""
   return EntityCfg(
     init_state=INIT_STATE,
     collisions=(FULL_COLLISION,),

@@ -1,7 +1,8 @@
-"""Shared Go2-W task helpers.
+"""Shared DeepRobotics M20 task helpers.
 
 Robot-specific joint naming, contact patterns, and asset selection live here
-so the active Go2-W task builders stay easy to read without mutating Go2 code.
+so the active M20 task builders stay easy to read without mutating other
+robots' code.
 """
 
 from __future__ import annotations
@@ -18,12 +19,12 @@ from mjlab.sensor import ContactMatch, ContactSensorCfg
 
 
 def get_m20_scene_robot_cfg():
-  """Return the vendored Go2-W robot asset config."""
+  """Return the vendored M20 robot asset config."""
   return get_m20_robot_cfg()
 
 
 def m20_leg_joint_cfg() -> SceneEntityCfg:
-  """Leg joints in the canonical Go2-W order."""
+  """Leg joints in the canonical M20 order."""
   return SceneEntityCfg(
     "robot",
     joint_names=M20_LEG_JOINT_NAMES,
@@ -32,7 +33,7 @@ def m20_leg_joint_cfg() -> SceneEntityCfg:
 
 
 def m20_wheel_joint_cfg() -> SceneEntityCfg:
-  """Wheel joints in the canonical Go2-W order."""
+  """Wheel joints in the canonical M20 order."""
   return SceneEntityCfg(
     "robot",
     joint_names=M20_WHEEL_JOINT_NAMES,
@@ -43,13 +44,13 @@ def m20_wheel_joint_cfg() -> SceneEntityCfg:
 def m20_wheel_ground_contact_cfg(
   *,
   name: str = "wheel_ground_contact",
-  pattern: str = r".*(FR|FL|RR|RL)_(wheel|foot).*",
+  pattern: str = r".*(fr|fl|hr|hl)_wheel.*",
   fields: Sequence[str] = ("found", "force"),
   reduce: str = "none",
   num_slots: int = 1,
   track_air_time: bool = False,
 ) -> ContactSensorCfg:
-  """Wheel-foot terrain contact sensor used by Go2-W locomotion tasks."""
+  """Wheel terrain contact sensor used by M20 locomotion tasks."""
   return ContactSensorCfg(
     name=name,
     primary=ContactMatch(
