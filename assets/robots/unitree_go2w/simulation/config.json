@@ -11,7 +11,8 @@
     "hip": 20.0,
     "thigh": 20.0,
     "calf": 40.0,
-    "joint": 20.0
+    "joint": 20.0,
+    "wheel": 0.0
   },
   "damping": {
     "hip": 1.0,

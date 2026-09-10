@@ -157,7 +157,7 @@
         "action_scale": 0.5
       },
       "wheel": {
-        "stiffness": 20.0,
+        "stiffness": 0.0,
         "damping": 2.0,
         "effort": 45.0,
         "armature": 0.02,

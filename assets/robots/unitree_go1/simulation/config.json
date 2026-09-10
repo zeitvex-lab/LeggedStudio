@@ -41,16 +41,16 @@
   "torque_limits": {
     "FL_hip_joint": 23.7,
     "FL_thigh_joint": 23.7,
-    "FL_calf_joint": 33.5,
+    "FL_calf_joint": 35.55,
     "FR_hip_joint": 23.7,
     "FR_thigh_joint": 23.7,
-    "FR_calf_joint": 33.5,
+    "FR_calf_joint": 35.55,
     "RL_hip_joint": 23.7,
     "RL_thigh_joint": 23.7,
-    "RL_calf_joint": 33.5,
+    "RL_calf_joint": 35.55,
     "RR_hip_joint": 23.7,
     "RR_thigh_joint": 23.7,
-    "RR_calf_joint": 33.5
+    "RR_calf_joint": 35.55
   },
   "armature": {
     "FL_hip_joint": 0.01,
