@@ -171,6 +171,39 @@
             "$ref": "#/$defs/roleName"
           },
           "description": "腿模式之外的驱动角色（如腰部 waist），对应 joints.actuated 中 leg=null 的条目"
+        },
+        "actuator_type": {
+          "enum": [
+            "position",
+            "velocity",
+            "hybrid",
+            "bam"
+          ],
+          "description": "★ 构型级执行器范式（§2.1.1 rev.2）：position=全关节位置控制；velocity=全速度控制；hybrid=混合（轮足=腿 position + 轮 velocity，如 m20/b2w/go2w/zex-w/tron1_wf）；bam=BAM 执行器。角色级细则由 actuator_profile.by_role[].mode 承载——此处只声明范式，**不重复逐关节数值**（v3 '消灭逐关节重复数据' 不变量）。verify 阶段缺失即报错，不静默降级（§5.8.4）"
+        },
+        "foot_type": {
+          "enum": [
+            "point",
+            "sole",
+            "wheel"
+          ],
+          "description": "★ 足端形态：point=点足（lite3/b2/go1/go2/tron1_pf）/ sole=足底·踝足（tron1_sf/microduck/g1）/ wheel=轮（m20/b2w/go2w/zex-w/tron1_wf）。非腿式构型（morphology.id=hand，如 wuji_hand）不声明本字段"
+        },
+        "wheel_indices": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uniqueItems": true,
+          "description": "★ 动作槽序（action.joint_order）中轮关节的下标——16dof 轮足的一等声明（M20 joint_ids_map 的槽位侧制度）。实测：m20/b2w/go2w/zex-w=[12,13,14,15]、tron1_wf=[3,7]；无轮构型为空数组。leg_pattern 含 wheel 时必填且非空，role_resolver fail-closed 校验其与 wheel 角色槽位一致"
+        },
+        "mass_source": {
+          "enum": [
+            "mjcf_compiled",
+            "urdf_inertial"
+          ],
+          "description": "★ 质量/惯量来源口径：mjcf_compiled=取编译后 MJCF 的 inertial 块（本仓库 14 包全部为此）；urdf_inertial=取 URDF 的 inertial。用途是让 '总质量从哪来' 可追溯，避免与 urdf.total_mass_kg 口径打架"
         }
       }
     },

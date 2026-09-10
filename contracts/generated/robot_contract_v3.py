@@ -47,6 +47,12 @@ class MorphologySpec(_V3Model):
     leg_ids: Optional[list[str]] = None
     actuated_via: Optional[str] = None
     extra_roles: Optional[list[str]] = None
+    # B4（§2.1.1）Morphology 内核字段：执行器范式 / 足端形态 / 轮组槽位 / 质量来源。
+    # 角色级数值仍在 actuator_profile，不在此重复。
+    actuator_type: Optional[Literal["position", "velocity", "hybrid", "bam"]] = None
+    foot_type: Optional[Literal["point", "sole", "wheel"]] = None
+    wheel_indices: Optional[list[int]] = None
+    mass_source: Optional[Literal["mjcf_compiled", "urdf_inertial"]] = None
 
 
 class JointEntryV3(_V3Model):

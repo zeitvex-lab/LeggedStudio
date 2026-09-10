@@ -12,6 +12,10 @@
       "ankle"
     ],
     "leg_naming": "{LR}_{role}",
+    "actuator_type": "position",
+    "foot_type": "sole",
+    "wheel_indices": [],
+    "mass_source": "mjcf_compiled",
     "leg_ids": [
       "left",
       "right"

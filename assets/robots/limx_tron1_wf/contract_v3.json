@@ -11,6 +11,10 @@
       "wheel"
     ],
     "leg_naming": "{role}_{LR}_joint",
+    "actuator_type": "hybrid",
+    "foot_type": "wheel",
+    "wheel_indices": [3, 7],
+    "mass_source": "mjcf_compiled",
     "leg_ids": [
       "L",
       "R"
