@@ -105,6 +105,15 @@
         "armature": 0.01,
         "mode": "position"
       }
+    },
+    "default": {},
+    "by_joint": {
+      "ankle_L_Joint": {
+        "friction_loss": 0.01
+      },
+      "ankle_R_Joint": {
+        "friction_loss": 0.01
+      }
     }
   },
   "action": {
