@@ -12,7 +12,7 @@
       "ankle"
     ],
     "leg_naming": "{LR}_{role}",
-    "actuator_type": "position",
+    "actuator_type": "bam",
     "foot_type": "sole",
     "wheel_indices": [],
     "mass_source": "mjcf_compiled",
@@ -121,58 +121,76 @@
   "actuator_profile": {
     "by_role": {
       "hip_yaw": {
-        "stiffness": 10,
-        "damping": 0.1,
+        "stiffness": 0.55,
+        "damping": 0.0,
         "mode": "position",
-        "action_scale": 1.0
+        "action_scale": 1.0,
+        "effort": 0.96,
+        "armature": 0.0018
       },
       "hip_roll": {
-        "stiffness": 10,
-        "damping": 0.1,
+        "stiffness": 0.55,
+        "damping": 0.0,
         "mode": "position",
-        "action_scale": 1.0
+        "action_scale": 1.0,
+        "effort": 0.96,
+        "armature": 0.0018
       },
       "hip_pitch": {
-        "stiffness": 10,
-        "damping": 0.1,
+        "stiffness": 0.55,
+        "damping": 0.0,
         "mode": "position",
-        "action_scale": 1.0
+        "action_scale": 1.0,
+        "effort": 0.96,
+        "armature": 0.0018
       },
       "knee": {
-        "stiffness": 10,
-        "damping": 0.1,
+        "stiffness": 0.55,
+        "damping": 0.0,
         "mode": "position",
-        "action_scale": 1.0
+        "action_scale": 1.0,
+        "effort": 0.96,
+        "armature": 0.0018
       },
       "ankle": {
-        "stiffness": 10,
-        "damping": 0.1,
+        "stiffness": 0.55,
+        "damping": 0.0,
         "mode": "position",
-        "action_scale": 1.0
+        "action_scale": 1.0,
+        "effort": 0.96,
+        "armature": 0.0018
       },
       "neck_pitch": {
-        "stiffness": 10,
-        "damping": 0.1,
+        "stiffness": 0.55,
+        "damping": 0.0,
         "mode": "position",
-        "action_scale": 1.0
+        "action_scale": 1.0,
+        "effort": 0.96,
+        "armature": 0.0018
       },
       "head_pitch": {
-        "stiffness": 10,
-        "damping": 0.1,
+        "stiffness": 0.55,
+        "damping": 0.0,
         "mode": "position",
-        "action_scale": 1.0
+        "action_scale": 1.0,
+        "effort": 0.96,
+        "armature": 0.0018
       },
       "head_yaw": {
-        "stiffness": 10,
-        "damping": 0.1,
+        "stiffness": 0.55,
+        "damping": 0.0,
         "mode": "position",
-        "action_scale": 1.0
+        "action_scale": 1.0,
+        "effort": 0.96,
+        "armature": 0.0018
       },
       "head_roll": {
-        "stiffness": 10,
-        "damping": 0.1,
+        "stiffness": 0.55,
+        "damping": 0.0,
         "mode": "position",
-        "action_scale": 1.0
+        "action_scale": 1.0,
+        "effort": 0.96,
+        "armature": 0.0018
       }
     },
     "default": {

@@ -388,10 +388,18 @@ class MorphologyKernelFieldsB4Test(unittest.TestCase):
                 self.assertEqual(contracts[name]["morphology"]["wheel_indices"], expected)
 
     def test_actuator_type_follows_wheel_presence(self) -> None:
+        # microduck 的真实执行器是 BAM（固件 PD + 直流电机 + Stribeck 摩擦，已用真实
+        # 台架数据验证，见 microduck_rl/scripts/validate_bam_testbench.py）；其打包模型
+        # 的 chosen_actuator kp=0.55 正是 BAM 200 增益的 MuJoCo 等效值（注释 `<!-- 200 kp -->`）。
+        # 故如实声明 "bam"（B4 枚举本为此设计），其余机型按轮组推导。
+        expected_by_package = {"microduck": "bam"}
         for name, contract in self._all_contracts().items():
             with self.subTest(package=name):
                 morphology = contract["morphology"]
-                expected = "hybrid" if "wheel" in morphology["leg_pattern"] else "position"
+                if name in expected_by_package:
+                    expected = expected_by_package[name]
+                else:
+                    expected = "hybrid" if "wheel" in morphology["leg_pattern"] else "position"
                 self.assertEqual(morphology["actuator_type"], expected)
 
     def test_missing_kernel_fields_fail_closed(self) -> None:
