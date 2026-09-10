@@ -1,4 +1,4 @@
-"""T0.2 DoD：16 包 contract_v3.json 全量守护测试。
+"""T0.2 DoD：内置包 contract_v3.json 全量守护测试。
 
 每包断言：
   1. RoleResolver 自洽校验通过、Pydantic v3 模型可解析；
@@ -61,9 +61,9 @@ class MigratedContractV3Test(unittest.TestCase):
     def _packages(self) -> list[Path]:
         return sorted(p for p in ROBOTS.iterdir() if (p / "contract_v3.json").exists())
 
-    def test_all_15_packages_migrated(self) -> None:
-        # agibot_d1 已下线删除，内置包从 16 降为 15。
-        self.assertGreaterEqual(len(self._packages()), 15)
+    def test_all_14_packages_migrated(self) -> None:
+        # agibot_d1 已下线删除、deeprobotics_x30 已按决策移出，内置包 16 → 14。
+        self.assertGreaterEqual(len(self._packages()), 14)
 
     def test_every_v3_contract_valid_and_expansion_matches_config(self) -> None:
         for package_dir in self._packages():
