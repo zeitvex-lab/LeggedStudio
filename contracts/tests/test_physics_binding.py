@@ -152,6 +152,79 @@ class FrictionLossMigratedTest(unittest.TestCase):
                 self.assertEqual(facts["by_joint"]["friction_loss"], {})
 
 
+class ContractCoverageVsLegacyConfigTest(unittest.TestCase):
+    """B3/2b 的前置条件：**契约必须 ⊇ config**，否则适配器翻转会丢数据。
+
+    背景（详见 00_know/B3_物理事实收敛_适配器差异报告.md）：`adapters/mjlab` 的
+    `torque_limits` 查找「无任何兜底」，`armature`/`frictionloss` 只做「小写后精确匹配」。
+    若契约缺某个 config 已有的物理量，翻转即表现为**静默丢失限幅/臂量**（不是报错）。
+
+    本测试锁定**已知缺口**：缺口集合一旦变化即失败。
+    B3/pre 补全契约后，期望值应收紧为空字典。
+    """
+
+    # 已知缺口：契约 actuator_profile 尚未收全的项（B3/pre 的补全清单）
+    KNOWN_CONTRACT_GAPS = {"unitree_go2w": ["armature"]}
+
+    @staticmethod
+    def _loader_lookup(table: dict | None, joint: str):
+        """复刻 scene_builder / load_package_model：小写精确匹配 → __default__ → 不应用。"""
+
+        if not table:
+            return None
+        lowered = joint.lower()
+        if lowered in table:
+            return float(table[lowered])
+        if "__default__" in table:
+            return float(table["__default__"])
+        return None
+
+    @staticmethod
+    def _strict_lookup(table: dict | None, joint: str):
+        """复刻 c.torque_limits.get(name.lower())：无兜底。"""
+
+        if not table:
+            return None
+        value = table.get(joint.lower())
+        return float(value) if value is not None else None
+
+    def test_contract_covers_config_physics_except_known_gaps(self) -> None:
+        adapter_params = (
+            ("armature", "armature", self._loader_lookup),
+            ("friction_loss", "frictionloss", self._loader_lookup),
+            ("torque_limits", "torque_limits", self._strict_lookup),
+        )
+        gaps: dict[str, list[str]] = {}
+        for package in packages():
+            config = load(package / "simulation" / "config.json")
+            contract_v3 = load(package / "contract_v3.json")
+            facts = facts_from_contract(contract_v3)
+            default = facts.get("default") or {}
+            for fact_key, config_key, lookup in adapter_params:
+                old_table = config.get(config_key) or {}
+                new_table = dict(facts["by_joint"].get(fact_key) or {})
+                if fact_key in default:
+                    new_table["__default__"] = default[fact_key]
+                if not old_table:
+                    continue
+                for entry in contract_v3["joints"]["actuated"]:
+                    joint = entry["name"]
+                    if lookup(old_table, joint) is None:
+                        continue
+                    if lookup(new_table, joint) is None:
+                        gaps.setdefault(package.name, [])
+                        if fact_key not in gaps[package.name]:
+                            gaps[package.name].append(fact_key)
+
+        for value in gaps.values():
+            value.sort()
+        self.assertEqual(
+            gaps, self.KNOWN_CONTRACT_GAPS,
+            "契约覆盖缺口发生变化——新增缺口会令适配器翻转静默丢数据，"
+            "必须先补全契约（B3/pre），见 00_know/B3_物理事实收敛_适配器差异报告.md",
+        )
+
+
 class LegacyFallbackTest(unittest.TestCase):
     """未迁移包仍可从 config 读取，但必须显式标记，不制造静默双真值。"""
 
