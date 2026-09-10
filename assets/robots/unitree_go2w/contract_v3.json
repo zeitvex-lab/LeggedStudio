@@ -137,14 +137,16 @@
         "damping": 1.0,
         "effort": 23.5,
         "mode": "position",
-        "action_scale": 0.5
+        "action_scale": 0.5,
+        "armature": 0.01
       },
       "thigh": {
         "stiffness": 20.0,
         "damping": 1.0,
         "effort": 23.5,
         "mode": "position",
-        "action_scale": 0.5
+        "action_scale": 0.5,
+        "armature": 0.01
       },
       "calf": {
         "stiffness": 40.0,

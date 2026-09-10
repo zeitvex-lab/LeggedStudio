@@ -54,7 +54,7 @@
   "torque_limits": {
     "hip": 200.0,
     "thigh": 200.0,
-    "calf": 300.0,
+    "calf": 320.0,
     "wheel": 20.0,
     "joint": 200.0
   },
