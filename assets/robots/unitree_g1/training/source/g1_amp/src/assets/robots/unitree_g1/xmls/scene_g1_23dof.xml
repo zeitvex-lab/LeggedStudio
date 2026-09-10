@@ -1,5 +1,5 @@
 <mujoco model="scene_g1_23dof">
-  <compiler angle="radian" meshdir="assets"/>
+  <compiler angle="radian" meshdir="../../../../../../../../model/assets"/>
   <default>
     <joint damping="0.05" armature="0.01" frictionloss="0.2"/>
   </default>

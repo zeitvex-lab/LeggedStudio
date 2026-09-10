@@ -22,9 +22,9 @@
     <mesh name="unitree_ladar" file="unitree_ladar.obj" />
     <mesh name="f_dc_link" file="f_dc_link.obj" />
     <mesh name="r_dc_link" file="r_dc_link.obj" />
-    <mesh name="fake_imu_link" file="fake_imu_link.STL" />
+    <mesh name="fake_imu_link" file="fake_head_Link.STL" />
     <mesh name="fake_head_Link" file="fake_head_Link.STL" />
-    <mesh name="fake_tail_link" file="fake_tail_link.STL" />
+    <mesh name="fake_tail_link" file="fake_head_Link.STL" />
     <mesh name="FL_hip" file="FL_hip.obj" />
     <mesh name="FL_thigh" file="FL_thigh.obj" />
     <mesh name="FL_thigh_protect" file="FL_thigh_protect.obj" />
@@ -34,17 +34,17 @@
     <mesh name="FR_thigh" file="FR_thigh.obj" />
     <mesh name="FR_thigh_protect" file="FR_thigh_protect.obj" />
     <mesh name="FR_calf" file="FR_calf.STL" />
-    <mesh name="FR_foot" file="FR_foot.obj" />
+    <mesh name="FR_foot" file="FL_foot.obj" />
     <mesh name="RL_hip" file="RL_hip.obj" />
-    <mesh name="RL_thigh" file="RL_thigh.obj" />
-    <mesh name="RL_thigh_protect" file="RL_thigh_protect.obj" />
+    <mesh name="RL_thigh" file="FL_thigh.obj" />
+    <mesh name="RL_thigh_protect" file="FL_thigh_protect.obj" />
     <mesh name="RL_calf" file="RL_calf.STL" />
-    <mesh name="RL_foot" file="RL_foot.obj" />
+    <mesh name="RL_foot" file="FL_foot.obj" />
     <mesh name="RR_hip" file="RR_hip.obj" />
-    <mesh name="RR_thigh" file="RR_thigh.obj" />
-    <mesh name="RR_thigh_protect" file="RR_thigh_protect.obj" />
+    <mesh name="RR_thigh" file="FR_thigh.obj" />
+    <mesh name="RR_thigh_protect" file="FR_thigh_protect.obj" />
     <mesh name="RR_calf" file="RR_calf.STL" />
-    <mesh name="RR_foot" file="RR_foot.obj" />
+    <mesh name="RR_foot" file="FL_foot.obj" />
 
     <mesh name="FR_wheel" file="FR_wheel.STL" />
     <mesh name="FL_wheel" file="FL_wheel.STL" />
