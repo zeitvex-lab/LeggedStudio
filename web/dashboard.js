@@ -125,26 +125,18 @@ async function quickDemo() {
     const data = await response.json();
 
     if (!data.success || !data.models || data.models.length === 0) {
-      alert('暂无预训练模型\n\n请先运行:\npython scripts/generate_pretrained_models.py');
+      alert('暂无预训练模型\n\n请在机器人包的 simulation/config.json 中配置 policies，或运行 tools/generate_pretrained_index.py 重建索引');
       return;
     }
 
-    const model = data.models[0];
+    const model = data.models.find((m) => m.play_url) || data.models[0];
+    const rate = model.success_rate != null ? `\n成功率: ${(model.success_rate * 100).toFixed(1)}%` : '';
 
-    if (confirm(`运行快速演示？\n\n模型: ${model.name}\n机器人: ${model.robot}\n成功率: ${(model.success_rate * 100).toFixed(1)}%`)) {
-      alert('正在加载演示...');
-
-      const demoResponse = await fetch(`${API_BASE}/api/pretrained/${model.id}/demo`, {
-        method: 'POST'
-      });
-
-      const demoData = await demoResponse.json();
-
-      if (demoData.success) {
-        alert(`✅ 演示完成！\n\n平均奖励: ${demoData.demo_results.avg_reward.toFixed(2)}\n成功率: ${(demoData.demo_results.success_rate * 100).toFixed(1)}%`);
-      }
+    if (confirm(`打开基础仿真试玩？\n\n模型: ${model.name}\n机器人: ${model.robot}${rate}`)) {
+      // C1：免训练即玩，直达浏览器基础仿真（不经训练配置、不跑服务端回合）。
+      const playUrl = model.play_url || `/web/sim2sim/index.html?robot=${encodeURIComponent(model.robot)}`;
+      window.open(playUrl, '_blank');
     }
-
   } catch (error) {
     console.error('[Dashboard] Demo failed:', error);
     alert('演示失败: ' + error.message);

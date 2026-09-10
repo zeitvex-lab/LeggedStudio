@@ -27,8 +27,7 @@ async def list_pretrained_models():
         index_file = PRETRAINED_DIR / "index.json"
 
         if index_file.exists():
-            with open(index_file, 'r') as f:
-                models = json.load(f)
+            models = json.loads(index_file.read_text(encoding="utf-8-sig"))
             return {
                 "success": True,
                 "models": models,
@@ -74,8 +73,7 @@ async def get_pretrained_model(model_id: str):
         if not index_file.exists():
             raise HTTPException(status_code=404, detail="No pretrained models found")
 
-        with open(index_file, 'r') as f:
-            models = json.load(f)
+        models = json.loads(index_file.read_text(encoding="utf-8-sig"))
 
         model = next((m for m in models if m['id'] == model_id), None)
 
@@ -113,8 +111,7 @@ async def download_pretrained_model(model_id: str, format: str = "pytorch"):
         if not index_file.exists():
             raise HTTPException(status_code=404, detail="No pretrained models found")
 
-        with open(index_file, 'r') as f:
-            models = json.load(f)
+        models = json.loads(index_file.read_text(encoding="utf-8-sig"))
 
         model = next((m for m in models if m['id'] == model_id), None)
 
@@ -159,8 +156,7 @@ async def run_pretrained_demo(model_id: str, num_episodes: int = 5):
         if not index_file.exists():
             raise HTTPException(status_code=404, detail="No pretrained models found")
 
-        with open(index_file, 'r') as f:
-            models = json.load(f)
+        models = json.loads(index_file.read_text(encoding="utf-8-sig"))
 
         model = next((m for m in models if m['id'] == model_id), None)
 
