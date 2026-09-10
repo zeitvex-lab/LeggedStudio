@@ -61,8 +61,9 @@ class MigratedContractV3Test(unittest.TestCase):
     def _packages(self) -> list[Path]:
         return sorted(p for p in ROBOTS.iterdir() if (p / "contract_v3.json").exists())
 
-    def test_all_16_packages_migrated(self) -> None:
-        self.assertGreaterEqual(len(self._packages()), 16)
+    def test_all_15_packages_migrated(self) -> None:
+        # agibot_d1 已下线删除，内置包从 16 降为 15。
+        self.assertGreaterEqual(len(self._packages()), 15)
 
     def test_every_v3_contract_valid_and_expansion_matches_config(self) -> None:
         for package_dir in self._packages():

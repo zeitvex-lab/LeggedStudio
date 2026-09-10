@@ -1,0 +1,19 @@
+{
+  "schema_version": "robot-package-1.0",
+  "package_id": "unitree_go1",
+  "capabilities": [
+    "generic_mjlab",
+    "mujoco_sim"
+  ],
+  "model": {
+    "format": "mjcf",
+    "path": "model/robot.xml",
+    "assets_path": "model/assets"
+  },
+  "simulation_config_path": "simulation/config.json",
+  "training_config_path": "training/config.json",
+  "contract_path": "contract.json",
+  "source_project": "package-local task source",
+  "display_name": "Unitree Go1",
+  "notes": "Unitree Go1 中型四足（12-DoF：hip/thigh/calf ×4）；模型来自 LeggedSkillDeploy go1 资产，碰撞已按 go1_description.urdf 补全（trunk 全尺寸盒、hip 圆柱、thigh/calf 盒、足端球）；hip/thigh 力矩限幅 23.7 N·m、calf 33.5 N·m。训练任务源与策略待发布（能力不含 mjlab_source_profiles）。"
+}

@@ -1,9 +1,0 @@
-{
-  "robot_id": "agibot_d1",
-  "contract_path": "assets/robots/agibot_d1/contract.json",
-  "profile_id": "d1-velocity",
-  "task_name": "velocity",
-  "algorithm": "PPO",
-  "num_envs": 4096,
-  "episode_length_s": 20.0
-}

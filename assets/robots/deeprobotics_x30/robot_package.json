@@ -1,9 +1,8 @@
 {
   "schema_version": "robot-package-1.0",
-  "package_id": "limx_tron1_pf",
+  "package_id": "deeprobotics_x30",
   "capabilities": [
     "generic_mjlab",
-    "mjlab_source_profiles",
     "mujoco_sim"
   ],
   "model": {
@@ -15,6 +14,6 @@
   "training_config_path": "training/config.json",
   "contract_path": "contract.json",
   "source_project": "package-local task source",
-  "display_name": "LimX Tron1 PF",
-  "notes": "LimX TRON1 点足双足（6-DoF：abad/hip/knee ×2）；模型来自 LeggedGym-Ex（BSD-3）；训练任务基于 mjlab 速度模板 + TRON1PF 源配置（PD Kp42/Kd2.5，obs 27×5 历史，base_height 0.82 m，力矩限幅 80 N·m）。"
+  "display_name": "Deeprobotics X30",
+  "notes": "Deeprobotics X30 大型四足（12-DoF：HipX/HipY/Knee ×4）；模型来自厂商 mjcf（deep_robotics_model），碰撞已 primitive 化，镜像网格经 scale 复用；髋关节力矩限幅 84 N·m、膝关节 150 N·m。训练任务源与策略待发布（能力不含 mjlab_source_profiles）。"
 }

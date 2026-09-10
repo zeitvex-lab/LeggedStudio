@@ -56,8 +56,8 @@ def validate_robot_id(value: str) -> None:
 def naming_pattern(leg_naming: str) -> re.Pattern[str]:
     """把 '{LR}_{role}_joint' 这类模板编译为带 leg/role 命名分组的正则。
 
-    大小写不敏感：现存 16 包同一模板有 '{LR}_{role}_joint' / '{LR}_{role}_JOINT' /
-    '{role}_{LR}_Joint' 等大小写变体（agibot_d1/limx_tron1）；role 解析后统一小写。
+    大小写不敏感：现存包同一模板有 '{LR}_{role}_joint' / '{LR}_{role}_JOINT' /
+    '{role}_{LR}_Joint' 等大小写变体（如 limx_tron1）；role 解析后统一小写。
     """
 
     if "{LR}" not in leg_naming or "{role}" not in leg_naming:

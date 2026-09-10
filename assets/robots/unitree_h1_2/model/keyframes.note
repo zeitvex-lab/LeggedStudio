@@ -1,2 +1,0 @@
-home keyframe qpos (39 values, add <keyframe><key name="home" qpos="..."> to robot.xml if missing):
-0 0 1.02 1 0 0 0 0.0 -0.2 0.0 0.5 -0.3 0.0 0.0 -0.2 0.0 0.5 -0.3 0.0 0.0 0.28 0.0 0.0 0.52 0.0 0.0 0.0 0.28 0.0 0.0 0.52 0.0 0.0 0.0
