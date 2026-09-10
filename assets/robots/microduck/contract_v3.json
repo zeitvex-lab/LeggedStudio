@@ -210,7 +210,7 @@
   "contract_id": "microduck_v3",
   "family": "MicroDuck",
   "size_class": "S",
-  "locomotion_type": "P",
+  "locomotion_type": "B",
   "description": "MicroDuck biped package imported from microduck_rl and microduck-simulator.",
   "tags": [
     "microduck",

@@ -22,6 +22,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from contracts.locomotion_view import locomotion_type_from_contract
 from contracts.role_resolver import RoleResolver
 
 
@@ -69,9 +70,15 @@ def merge_v3_over_v2(v3: dict[str, Any] | None, v2: dict[str, Any] | None) -> di
         return base
 
     resolver = RoleResolver(v3)
-    for key in ("robot_id", "family", "size_class", "locomotion_type"):
+    for key in ("robot_id", "family", "size_class"):
         if v3.get(key):
             base[key] = v3[key]
+    # B2 契约单轨：locomotion_type 是 v3 morphology 的**派生视图**（v2 的四值枚举表达不了
+    # "双足 + 足底 + 踝"这类组合，实测 microduck 因此漂移成 "P"）。此处不再采信任何一侧
+    # 的存量值，避免"两边都写错就一直错"。未迁移契约（无 morphology）自动沿用存量值。
+    derived_loco = locomotion_type_from_contract(v3)
+    if derived_loco:
+        base["locomotion_type"] = derived_loco
 
     # Joint order + default pose from v3.
     actuated_names = resolver.actuated_names
