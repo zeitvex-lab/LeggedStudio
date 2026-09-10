@@ -35,9 +35,12 @@ from contracts.role_resolver import RoleResolver
 __all__ = [
     "PARAM_KEYS",
     "CONTROL_KEYS",
+    "PAYLOAD_MAP_KEYS",
+    "PAYLOAD_CONST_KEYS",
     "facts_from_contract",
     "facts_from_legacy_config",
     "physics_facts",
+    "payload_physics_view",
 ]
 
 # 物理事实的规范字段：契约侧参数名 -> 对外统一名
@@ -49,6 +52,10 @@ PARAM_KEYS = (
     ("friction_loss", "friction_loss"),
 )
 CONTROL_KEYS = ("control_hz", "physics_hz", "decimation")
+
+# 浏览器载荷里的角色/关节键控映射与常量表（键名沿用前端既有命名）
+PAYLOAD_MAP_KEYS = ("stiffness", "damping", "torque_limits")
+PAYLOAD_CONST_KEYS = (("armature", "armature"), ("friction_loss", "frictionloss"))
 
 
 def _expand(contract_v3: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -141,6 +148,46 @@ def facts_from_legacy_config(sim_cfg: dict[str, Any]) -> dict[str, Any]:
     for key in CONTROL_KEYS:
         facts[key] = sim_cfg.get(key)
     return facts
+
+
+def payload_physics_view(facts: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """浏览器 control 载荷视图（B3/2）。
+
+    前端解析顺序（``web/sim2sim/app.js`` 的 ``controlValue``）：
+        精确关节名 → jointSegment(名)（去腿前缀与 joint 后缀）→ 分组/角色 → ``joint`` 兜底
+
+    历史 ``simulation/config.json`` 的键风格跨包不同（lite3/m20 逐关节、go2/zex-w
+    角色键控 + ``joint`` 兜底、wuji_hand 仅 ``joint``），因此换源时若只给角色键，
+    "精确关节名"这条路会失配并**静默回退到默认值**（表现为浏览器里策略抽搐，而非报错）。
+
+    本视图刻意同时提供：
+      * **角色键**（覆盖 分组/角色 查找路径）
+      * **逐关节键**（覆盖 精确关节名 查找路径，取契约 by_joint 展开，优先级最高）
+      * 角色内取值一致时补 ``joint``（延续旧 config 的兜底语义）
+
+    这样两条查找路径命中同一数值，从而在**键形态改变**的同时保证**逐关节解析结果不变**。
+    ``armature`` / ``frictionloss`` 额外保留 ``__default__``（模型 default 层兜底，
+    覆盖非驱动 dof）。
+    """
+
+    view: dict[str, dict[str, Any]] = {}
+    for name in PAYLOAD_MAP_KEYS:
+        merged: dict[str, Any] = {}
+        merged.update(facts["by_role"].get(name) or {})
+        # by_joint 优先级最高（契约三级展开优先级 default < by_role < by_joint）
+        merged.update(facts["by_joint"].get(name) or {})
+        if merged and len(set(merged.values())) == 1:
+            merged["joint"] = next(iter(merged.values()))
+        view[name] = merged
+
+    for fact_key, payload_key in PAYLOAD_CONST_KEYS:
+        merged = dict(facts["by_joint"].get(fact_key) or {})
+        default = (facts.get("default") or {}).get(fact_key)
+        if default is not None:
+            merged["__default__"] = default
+        view[payload_key] = merged
+
+    return view
 
 
 def physics_facts(package_dir: str | Path) -> dict[str, Any]:
