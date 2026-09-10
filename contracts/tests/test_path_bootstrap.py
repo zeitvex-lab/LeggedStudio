@@ -43,8 +43,9 @@ class PathBootstrapTest(unittest.TestCase):
     def test_ensure_on_path_prefixes(self):
         before = self._snapshot()
         try:
+            expected = str(Path("/tmp").resolve())
             self.pb.ensure_on_path("/tmp")
-            self.assertEqual(sys.path[0], "/tmp")
+            self.assertEqual(sys.path[0], expected)
         finally:
             sys.path[:] = before
 
@@ -52,19 +53,28 @@ class PathBootstrapTest(unittest.TestCase):
         before = self._snapshot()
         try:
             p = str(_REPO_ROOT)
+            normalized = str(Path(p).resolve())
+            # sys.path 可能已由上游（discovery/其它模块）带有重复项，故只断言
+            # "ensure_on_path 不再新增重复"，不假设全局唯一。
+            baseline = sys.path.count(normalized)
             self.pb.ensure_on_path(p)
             self.pb.ensure_on_path(p)
-            self.assertLessEqual(sys.path.count(p), 1)
+            self.pb.ensure_on_path(p)
+            self.assertLessEqual(
+                sys.path.count(normalized), max(baseline, 1),
+                "ensure_on_path 非幂等：重复调用增加了重复条目",
+            )
         finally:
             sys.path[:] = before
 
     def test_ensure_many_preserves_order(self):
         before = self._snapshot()
         try:
+            expected = [str(Path("/aaa").resolve()), str(Path("/bbb").resolve())]
             ensured = self.pb.ensure_many_on_path(["/aaa", "/bbb"])
-            self.assertEqual(ensured, ["/aaa", "/bbb"])
-            self.assertIn("/aaa", sys.path)
-            self.assertIn("/bbb", sys.path)
+            self.assertEqual(ensured, expected)
+            self.assertIn(expected[0], sys.path)
+            self.assertIn(expected[1], sys.path)
         finally:
             sys.path[:] = before
 
