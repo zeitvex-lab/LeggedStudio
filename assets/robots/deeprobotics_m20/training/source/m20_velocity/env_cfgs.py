@@ -64,11 +64,11 @@ from .rl_cfg import (
 )
 
 _LEG_JOINTS = tuple(
-    f"{lr}_{seg}_joint" for lr in ("FL", "FR", "RL", "RR") for seg in ("hip", "thigh", "calf")
+    f"{lr}_{seg}_joint" for lr in ("fl", "fr", "hl", "hr") for seg in ("hipx", "hipy", "knee")
 )
-_ALL_JOINTS = _LEG_JOINTS + tuple(f"{lr}_wheel_joint" for lr in ("FL", "FR", "RL", "RR"))
+_ALL_JOINTS = _LEG_JOINTS + tuple(f"{lr}_wheel_joint" for lr in ("fl", "fr", "hl", "hr"))
 
-_ACTION_SCALES = {j: (0.125 if "hip" in j else 0.25) for j in _LEG_JOINTS}
+_ACTION_SCALES = {j: (0.125 if "hipx" in j else 0.25) for j in _LEG_JOINTS}
 
 
 def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
@@ -81,8 +81,8 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     all_joint_cfg = SceneEntityCfg("robot", joint_names=list(_ALL_JOINTS), preserve_order=True)
     leg_joint_cfg = m20_leg_joint_cfg()
     wheel_joint_cfg = m20_wheel_joint_cfg()
-    non_wheel_body_cfg = SceneEntityCfg("robot", body_names=[r"^(?!.*_wheel).*"])
-    wheel_body_cfg = SceneEntityCfg("robot", body_names=[r".*_wheel_link"])
+    non_wheel_body_cfg = SceneEntityCfg("robot", body_names=[r"^(?!.*wheel).*"])
+    wheel_body_cfg = SceneEntityCfg("robot", body_names=[r".*_wheel"])
 
     ##
     # Actions: legs position + wheels velocity
@@ -109,7 +109,7 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     wheel_ground_cfg = m20_wheel_ground_contact_cfg()
     wheel_contact_forces = ContactSensorCfg(
         name="wheel_contact_forces",
-        primary=ContactMatch(mode="body", pattern=r".*_wheel_link", entity="robot"),
+        primary=ContactMatch(mode="body", pattern=r".*_wheel", entity="robot"),
         secondary=ContactMatch(mode="body", pattern="terrain"),
         fields=("force",),
         reduce="netforce",
@@ -117,7 +117,7 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     )
     non_wheel_contact = ContactSensorCfg(
         name="non_wheel_contact",
-        primary=ContactMatch(mode="body", pattern=r"^(?!.*_wheel).*", entity="robot"),
+        primary=ContactMatch(mode="body", pattern=r"^(?!.*wheel).*", entity="robot"),
         secondary=ContactMatch(mode="body", pattern="terrain"),
         fields=("force",),
         reduce="netforce",
@@ -200,7 +200,7 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 "command_name": "twist",
                 "asset_cfg": SceneEntityCfg(
                     "robot",
-                    joint_names=["FL_hip_joint", "FR_hip_joint", "RL_hip_joint", "RR_hip_joint"],
+                    joint_names=["fl_hipx_joint", "fr_hipx_joint", "hl_hipx_joint", "hr_hipx_joint"],
                     preserve_order=True,
                 ),
                 "stand_still_scale": 5.0,
@@ -215,7 +215,7 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 "command_name": "twist",
                 "asset_cfg": SceneEntityCfg(
                     "robot",
-                    joint_names=["FL_thigh_joint", "FR_thigh_joint", "RL_thigh_joint", "RR_thigh_joint"],
+                    joint_names=["fl_hipy_joint", "fr_hipy_joint", "hl_hipy_joint", "hr_hipy_joint"],
                     preserve_order=True,
                 ),
                 "stand_still_scale": 5.0,
@@ -230,7 +230,7 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
                 "command_name": "twist",
                 "asset_cfg": SceneEntityCfg(
                     "robot",
-                    joint_names=["FL_calf_joint", "FR_calf_joint", "RL_calf_joint", "RR_calf_joint"],
+                    joint_names=["fl_knee_joint", "fr_knee_joint", "hl_knee_joint", "hr_knee_joint"],
                     preserve_order=True,
                 ),
                 "stand_still_scale": 5.0,
@@ -244,8 +244,8 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             params={
                 "asset_cfg": all_joint_cfg,
                 "mirror_joints": [
-                    ["FL_(hip|thigh|calf).*", "RR_(hip|thigh|calf).*"],
-                    ["FR_(hip|thigh|calf).*", "RL_(hip|thigh|calf).*"],
+                    ["fl_(hipx|hipy|knee).*", "hr_(hipx|hipy|knee).*"],
+                    ["fr_(hipx|hipy|knee).*", "hl_(hipx|hipy|knee).*"],
                 ],
             },
         ),
