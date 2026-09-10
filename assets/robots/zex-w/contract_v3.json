@@ -136,25 +136,29 @@
         "stiffness": 50.0,
         "damping": 1.5,
         "mode": "position",
-        "effort": 17.0
+        "effort": 17.0,
+        "action_scale": 0.125
       },
       "hip_pitch": {
         "stiffness": 50.0,
         "damping": 1.5,
         "mode": "position",
-        "effort": 17.0
+        "effort": 17.0,
+        "action_scale": 0.25
       },
       "knee": {
         "stiffness": 50.0,
         "damping": 1.5,
         "mode": "position",
-        "effort": 17.0
+        "effort": 17.0,
+        "action_scale": 0.25
       },
       "wheel": {
         "stiffness": 50.0,
         "damping": 1.0,
         "mode": "velocity",
-        "effort": 17.0
+        "effort": 17.0,
+        "action_scale": 5.0
       }
     },
     "default": {

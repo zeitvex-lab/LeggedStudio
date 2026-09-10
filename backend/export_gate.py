@@ -84,7 +84,8 @@ def _actuator_fingerprint(contract: dict[str, Any]) -> dict[str, Any] | None:
     def pick(params: dict[str, Any]) -> dict[str, Any]:
         return {
             key: params.get(key)
-            for key in ("mode", "effort", "armature", "stiffness", "damping")
+            # B5：action_scale 并入指纹——否则"改了角色级档位"会绕过导出闸门
+            for key in ("mode", "effort", "armature", "stiffness", "damping", "action_scale")
             if params.get(key) is not None
         }
 

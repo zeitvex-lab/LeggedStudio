@@ -106,19 +106,22 @@
         "stiffness": 40.0,
         "damping": 1.0,
         "effort": 24.0,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.125
       },
       "hipy": {
         "stiffness": 40.0,
         "damping": 1.0,
         "effort": 24.0,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.125
       },
       "knee": {
         "stiffness": 40.0,
         "damping": 1.0,
         "effort": 36.0,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.125
       }
     },
     "default": {
