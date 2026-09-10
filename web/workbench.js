@@ -406,9 +406,9 @@ function setView(name, options = {}) {
   // identical across the functional areas. 资产库已原生并入首页
   // （#assetLibraryGrid），不再有独立 assets 视图。
   const framePages = {
-    navmap: ['navMapFrame', 'navigation_editor.html?v=0.38.0&embedded=1'],
-    deploy: ['deployFrame', 'deploy.html?v=0.38.0&embedded=1'],
-    artifacts: ['artifactsFrame', 'artifacts.html?v=0.38.0&embedded=1'],
+    navmap: ['navMapFrame', 'navigation_editor.html?v=0.39.0&embedded=1'],
+    deploy: ['deployFrame', 'deploy.html?v=0.39.0&embedded=1'],
+    artifacts: ['artifactsFrame', 'artifacts.html?v=0.39.0&embedded=1'],
   };
   if (name in framePages) {
     const [frameId, page] = framePages[name];
@@ -421,9 +421,12 @@ function setView(name, options = {}) {
     const frame = $(name === 'config' ? 'configFrame' : 'trainingFrame');
     if (!frame) return;
     const robot = options.robot || selectedPreset?.robot_id || 'unitree_go2';
+    // C2：带 task_id 时直接打开该 Run 的档案页（training_monitor）。
     const page = name === 'config'
-      ? `training_create.html?v=0.38.0&embedded=1&robot=${encodeURIComponent(robot)}`
-      : `training_list.html?v=0.38.0&embedded=1`;
+      ? `training_create.html?v=0.39.0&embedded=1&robot=${encodeURIComponent(robot)}`
+      : options.task_id
+        ? `training_monitor.html?v=0.39.0&embedded=1&task_id=${encodeURIComponent(options.task_id)}`
+        : `training_list.html?v=0.39.0&embedded=1`;
     const expected = new URL(page, window.location.href).toString();
     if (frame.getAttribute('src') !== expected) frame.src = expected;
   }
@@ -706,9 +709,13 @@ async function loadTrainingOptions() {
   $('runtimeDetails').textContent = JSON.stringify(payload.hardware || {}, null, 2);
   renderRewards();
 }
-function renderNextStep(adapters, cuda, layers) {
+// C4：下一步建议的输入状态（体检层 + 项目状态），由 loadCapabilities / loadRuns
+// 各自更新后统一渲染——建议随状态变化，而不是罗列功能。
+const nextStepState = { adapters: {}, cuda: false, layers: null, runs: [] };
+function renderNextStep() {
   const body = $('homeNextStepBody');
   if (!body) return;
+  const { adapters, cuda, layers, runs } = nextStepState;
   const steps = [];
   // C3：与 L0–L6 体检同源——第一个失败层直接给出"哪一层、怎么办"
   const failing = (layers?.layers || []).find((layer) => layer.status === 'fail');
@@ -729,7 +736,18 @@ function renderNextStep(adapters, cuda, layers) {
     body.querySelectorAll('[data-step]').forEach((btn) => btn.addEventListener('click', () => setView(btn.dataset.step)));
     return;
   }
-  body.innerHTML = `<div class="next-step-item ok"><div><strong>开始训练</strong><span>运行时、仿真与 CUDA 均已就绪——选择机器人资产，进入训练配置，或直接试玩一个内置预训练 demo。</span></div><button class="button primary small" data-step="config">配置训练</button><button class="button ghost small" data-step="simulation">试玩 Demo</button></div>`;
+  // C4：环境就绪后按**项目状态**给下一步（有无训练记录 / 运行中 / 最近失败）。
+  const isRunning = (item) => /run|pend|sched/i.test(String(item.status || ''));
+  const isFailed = (item) => /fail|error|crash|cancel/i.test(String(item.status || ''));
+  if (!runs.length) {
+    body.innerHTML = `<div class="next-step-item ok"><div><strong>第一次训练</strong><span>运行时与仿真均已就绪——选一个机器人资产进入训练配置（会先跑 64 envs 冒烟门），或先试玩内置 demo。</span></div><button class="button primary small" data-step="config">配置训练</button><button class="button ghost small" data-step="simulation">试玩 Demo</button></div>`;
+  } else if (runs.some(isRunning)) {
+    body.innerHTML = `<div class="next-step-item ok"><div><strong>训练进行中</strong><span>有 ${runs.filter(isRunning).length} 个任务在跑——打开 Run 档案看实时指标与日志。</span></div><button class="button primary small" data-step="training">查看 Run 档案</button></div>`;
+  } else if (isFailed(runs[0])) {
+    body.innerHTML = `<div class="next-step-item"><div><strong>最近一次训练异常</strong><span>「${escapeHtml(runs[0].robot || '')} ${escapeHtml(runs[0].task_id || '')}」状态 ${escapeHtml(runs[0].status)}——打开 Run 档案看失败原因与日志。</span></div><button class="button primary small" data-step="training">排查 Run 档案</button></div>`;
+  } else {
+    body.innerHTML = `<div class="next-step-item ok"><div><strong>从产物到部署</strong><span>最近的训练已正常结束——在策略档案里查看/导出产物，或继续发起下一次训练。</span></div><button class="button primary small" data-step="artifacts">策略档案</button><button class="button ghost small" data-step="config">再训一次</button></div>`;
+  }
   body.querySelectorAll('[data-step]').forEach((btn) => btn.addEventListener('click', () => setView(btn.dataset.step)));
 }
 async function loadCapabilities() {
@@ -751,7 +769,8 @@ async function loadCapabilities() {
       return `<div class="system-row" title="${escapeHtml(layer.reason)}"><span>${layer.id} ${layer.name}</span><strong class="${cls}">${label}</strong></div>`;
     }).join('');
     $('homeCapabilities').innerHTML = systemRows + layerRows;
-    renderNextStep(adapters, cuda, layers);
+    Object.assign(nextStepState, { adapters, cuda, layers });
+    renderNextStep();
   } catch (error) { setStatus($('backendState'), 'Control plane offline', 'error'); $('homeCapabilities').innerHTML = `<div class="empty-state">${error.message}</div>`; }
 }
 async function loadDemos() {
@@ -786,7 +805,19 @@ async function loadDemos() {
   }
 }
 async function loadRuns() {
-  try { const payload = await jsonFetch('/api/training/list'); const tasks = payload.tasks || []; $('homeRuns').innerHTML = tasks.length ? tasks.slice(0, 8).map((item) => `<div class="run-row"><div><strong>${item.robot || '-'}</strong><small>${item.task_id}</small></div><span class="run-metric">${item.algorithm || 'PPO'}</span><span class="run-metric">${item.status}</span><span class="run-metric">${(Number(item.progress || 0) * 100).toFixed(1)}%</span></div>`).join('') : '<div class="empty-state">No training runs</div>'; } catch (error) { $('homeRuns').innerHTML = `<div class="empty-state">${error.message}</div>`; }
+  try {
+    const payload = await jsonFetch('/api/training/list');
+    const tasks = payload.tasks || [];
+    // C4：runs 也是下一步建议的输入。
+    Object.assign(nextStepState, { runs: tasks });
+    renderNextStep();
+    // C2：每行可点——一键跳到该 Run 的档案页（training_monitor）。
+    $('homeRuns').innerHTML = tasks.length ? tasks.slice(0, 8).map((item) => `<button class="run-row" type="button" data-run-id="${escapeHtml(item.task_id || '')}" title="打开 Run 档案"><div><strong>${escapeHtml(item.robot || '-')}</strong><small>${escapeHtml(item.task_id || '')}</small></div><span class="run-metric">${escapeHtml(item.algorithm || 'PPO')}</span><span class="run-metric">${escapeHtml(item.status)}</span><span class="run-metric">${(Number(item.progress || 0) * 100).toFixed(1)}%</span></button>`).join('') : '<div class="empty-state">No training runs</div>';
+    $('homeRuns').querySelectorAll('[data-run-id]').forEach((row) => row.addEventListener('click', () => {
+      if (!row.dataset.runId) return;
+      setView('training', { task_id: row.dataset.runId });
+    }));
+  } catch (error) { $('homeRuns').innerHTML = `<div class="empty-state">${error.message}</div>`; }
 }
 async function refreshModelPreview(source, format, valid) {
   const empty = $('modelPreviewEmpty');
