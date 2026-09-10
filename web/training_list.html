@@ -291,8 +291,8 @@
       <nav class="main-nav" aria-label="主功能">
         <a class="nav-item" href="dashboard.html"><span class="nav-index">01</span>首页</a>
         <a class="nav-item" href="workbench.html#validate"><span class="nav-index">02</span>验证</a>
-        <a class="nav-item" href="training_create.html?v=0.17.0"><span class="nav-index">03</span>训练配置</a>
-        <a class="nav-item active" href="training_list.html?v=0.17.0"><span class="nav-index">04</span>训练</a>
+        <a class="nav-item" href="training_create.html?v=0.18.0"><span class="nav-index">03</span>训练配置</a>
+        <a class="nav-item active" href="training_list.html?v=0.18.0"><span class="nav-index">04</span>训练</a>
         <a class="nav-item" href="workbench.html#simulation"><span class="nav-index">05</span>仿真</a>
       </nav>
       <div class="top-status"><span class="status-dot" id="planeDot"><i></i>Control plane</span></div>
@@ -321,7 +321,7 @@
         <p id="subtitle">管理所有训练任务</p>
       </div>
       <div class="page-actions">
-        <a class="button primary" href="training_create.html?v=0.17.0">新建训练</a>
+        <a class="button primary" href="training_create.html?v=0.18.0">新建训练</a>
         <button class="button" onclick="refreshList()">刷新</button>
         <a class="button" href="dashboard.html">返回</a>
       </div>
@@ -534,7 +534,7 @@
         tableBody.innerHTML = `
           <div class="empty-state">
             <p>暂无训练任务</p>
-            <a class="button primary" href="training_create.html?v=0.17.0">创建第一个训练</a>
+            <a class="button primary" href="training_create.html?v=0.18.0">创建第一个训练</a>
           </div>`;
         return;
       }
