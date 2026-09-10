@@ -136,25 +136,29 @@
         "stiffness": 80.0,
         "damping": 2.0,
         "effort": 76.4,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.25
       },
       "hipy": {
         "stiffness": 80.0,
         "damping": 2.0,
         "effort": 76.4,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.25
       },
       "knee": {
         "stiffness": 80.0,
         "damping": 2.0,
         "effort": 76.4,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.25
       },
       "wheel": {
         "stiffness": 0.0,
         "damping": 0.6,
         "effort": 21.6,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.25
       }
     },
     "default": {

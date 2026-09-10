@@ -107,21 +107,24 @@
         "damping": 0.5,
         "effort": 23.7,
         "armature": 0.01,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.25
       },
       "thigh": {
         "stiffness": 20.0,
         "damping": 0.5,
         "effort": 23.7,
         "armature": 0.01,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.25
       },
       "calf": {
         "stiffness": 20.0,
         "damping": 0.5,
         "effort": 35.55,
         "armature": 0.02,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.25
       }
     },
     "default": {

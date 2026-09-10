@@ -85,28 +85,32 @@
         "damping": 2.5,
         "effort": 80.0,
         "armature": 0.01,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.25
       },
       "hip": {
         "stiffness": 42.0,
         "damping": 2.5,
         "effort": 80.0,
         "armature": 0.01,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.25
       },
       "knee": {
         "stiffness": 42.0,
         "damping": 2.5,
         "effort": 80.0,
         "armature": 0.01,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.25
       },
       "wheel": {
         "stiffness": 0.0,
         "damping": 0.5,
         "effort": 40.0,
         "armature": 0.01,
-        "mode": "velocity"
+        "mode": "velocity",
+        "action_scale": 0.25
       }
     },
     "default": {

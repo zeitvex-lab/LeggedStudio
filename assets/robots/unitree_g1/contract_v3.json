@@ -222,112 +222,128 @@
         "damping": 2.5579,
         "effort": 88,
         "armature": 0.010183,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.55
       },
       "hip_roll": {
         "stiffness": 99.098,
         "damping": 6.3088,
         "effort": 139,
         "armature": 0.025101,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.35
       },
       "hip_yaw": {
         "stiffness": 40.179,
         "damping": 2.5579,
         "effort": 88,
         "armature": 0.010183,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.55
       },
       "knee": {
         "stiffness": 99.098,
         "damping": 6.3088,
         "effort": 139,
         "armature": 0.025101,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.35
       },
       "ankle_pitch": {
         "stiffness": 28.501,
         "damping": 1.8144,
         "effort": 50,
         "armature": 0.007219,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.44
       },
       "ankle_roll": {
         "stiffness": 28.501,
         "damping": 1.8144,
         "effort": 50,
         "armature": 0.007219,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.44
       },
       "waist_yaw": {
         "stiffness": 40.179,
         "damping": 2.5579,
         "effort": 88,
         "armature": 0.010183,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.55
       },
       "waist_roll": {
         "stiffness": 28.501,
         "damping": 1.8144,
         "effort": 50,
         "armature": 0.007219,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.44
       },
       "waist_pitch": {
         "stiffness": 28.501,
         "damping": 1.8144,
         "effort": 50,
         "armature": 0.007219,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.44
       },
       "shoulder_pitch": {
         "stiffness": 14.251,
         "damping": 0.9072,
         "effort": 25,
         "armature": 0.003623,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.44
       },
       "shoulder_roll": {
         "stiffness": 14.251,
         "damping": 0.9072,
         "effort": 25,
         "armature": 0.003623,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.44
       },
       "shoulder_yaw": {
         "stiffness": 14.251,
         "damping": 0.9072,
         "effort": 25,
         "armature": 0.003623,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.44
       },
       "elbow": {
         "stiffness": 14.251,
         "damping": 0.9072,
         "effort": 25,
         "armature": 0.003623,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.44
       },
       "wrist_roll": {
         "stiffness": 14.251,
         "damping": 0.9072,
         "effort": 25,
         "armature": 0.003623,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.44
       },
       "wrist_pitch": {
         "stiffness": 16.778,
         "damping": 1.0681,
         "effort": 5,
         "armature": 0.004256,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.07
       },
       "wrist_yaw": {
         "stiffness": 16.778,
         "damping": 1.0681,
         "effort": 5,
         "armature": 0.004256,
-        "mode": "torque"
+        "mode": "torque",
+        "action_scale": 0.07
       }
     },
     "default": {

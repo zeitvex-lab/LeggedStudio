@@ -41,6 +41,22 @@ def _contract_value(contract: Any, path: str, default: Any = None) -> Any:
     return current
 
 
+def _action_scale_for(contract: Any) -> Any:
+    """B5：动作缩放走**角色展开视图**（`role_resolver.action_scale_for_contract`）。
+
+    `action.action_scale` 只是标量缺省，角色间真实档位不同（G1 髋俯仰 0.55 vs 腕俯仰
+    0.07；轮足 leg 0.5 vs wheel 35.0）。读同一份契约数据，才能让"工作台改了 ⇒ 训练也改"。
+    角色内一致时该函数返回 float，与旧行为逐值等价。
+    """
+
+    try:
+        from contracts.role_resolver import action_scale_for_contract
+
+        return action_scale_for_contract(contract)
+    except Exception:
+        return float(_contract_value(contract, "action.action_scale", 0.25))
+
+
 def _asset_path(contract: Any, asset_root: str | Path | None = None) -> Path:
     raw = Path(str(_contract_value(contract, "urdf.path", "")))
     if raw.is_absolute():
@@ -324,7 +340,7 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
         # MJLab action selectors are transmission targets (joint names), not
         # MuJoCo actuator element names. This remains stable for XML and
         # generated actuator groups alike.
-        actions={"joint_pos": __import__("mjlab.envs.mdp.actions", fromlist=["JointPositionActionCfg"]).JointPositionActionCfg(entity_name="robot", actuator_names=tuple(joint_order), scale=float(_contract_value(contract, "action.action_scale", 0.25)), use_default_offset=True)},
+        actions={"joint_pos": __import__("mjlab.envs.mdp.actions", fromlist=["JointPositionActionCfg"]).JointPositionActionCfg(entity_name="robot", actuator_names=tuple(joint_order), scale=_action_scale_for(contract), use_default_offset=True)},
         events={"reset_scene_to_default": EventTermCfg(func=mdp.reset_scene_to_default, mode="reset")},
         rewards=rewards,
         terminations={"time_out": TerminationTermCfg(func=mdp.time_out, time_out=True)},

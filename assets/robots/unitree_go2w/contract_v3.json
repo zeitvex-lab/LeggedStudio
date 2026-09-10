@@ -136,27 +136,31 @@
         "stiffness": 20.0,
         "damping": 1.0,
         "effort": 23.5,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.5
       },
       "thigh": {
         "stiffness": 20.0,
         "damping": 1.0,
         "effort": 23.5,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.5
       },
       "calf": {
         "stiffness": 40.0,
         "damping": 2.0,
         "effort": 45.0,
         "armature": 0.02,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 0.5
       },
       "wheel": {
         "stiffness": 20.0,
         "damping": 2.0,
         "effort": 45.0,
         "armature": 0.02,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 35.0
       }
     },
     "default": {

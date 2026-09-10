@@ -18,6 +18,7 @@ from contracts.generated import RobotContractV3, dump_v3, parse_v3
 from contracts.role_resolver import (
     RoleResolver,
     RoleResolverError,
+    action_scale_for_contract,
     build_v3_contract,
     load_schema,
     naming_pattern,
@@ -437,6 +438,117 @@ class MorphologyKernelFieldsB4Test(unittest.TestCase):
             any("foot_type" in error for error in RoleResolver(contract).validate()),
             "hand 构型声明 foot_type 必须报错",
         )
+
+
+class ActionScaleRoleLevelB5Test(unittest.TestCase):
+    """B5：action_scale 角色级声明的 DoD。
+
+    背景：`action.action_scale` 只是标量缺省，而角色间真实档位不同——
+    轮足 leg 0.5 / wheel 35.0（差 70 倍）、G1 髋俯仰 0.55 / 腕俯仰 0.07。
+    标量表达不了，只能靠 `actuator_profile.by_role[].action_scale`。
+
+    守护四件事：
+      1. 每个驱动角色都声明了 action_scale（数据完整、形状统一）；
+      2. 含 wheel 角色的机型必须声明 wheel 的档位（否则轮子被腿档位顶掉）；
+      3. 展开视图与证据表一致（g1 来自官方 unitree_rl_mjlab deploy.yaml 的
+         JointPositionAction.scale；go2w 来自官方 JointVelocityAction.scale=35.0；
+         zex-w 来自自家 v3 deployment_contract.yaml 的 scale 数组）；
+      4. **有效 scale 相对旧标量的变更集合恰为 {g1, go2w, zex-w}**——其余机型必须
+         逐值等价，防止"补数据"顺手改了别的机器人的训练行为。
+    """
+
+    ROBOTS = WORKSPACE / "assets" / "robots"
+
+    EXPECTED_DELTA_ROBOTS = {"unitree_g1", "unitree_go2w", "zex-w"}
+
+    EXPECTED_ROLE_SCALE = {
+        "unitree_g1": {
+            "hip_pitch": 0.55, "hip_roll": 0.35, "hip_yaw": 0.55, "knee": 0.35,
+            "ankle_pitch": 0.44, "ankle_roll": 0.44,
+            "shoulder_pitch": 0.44, "shoulder_roll": 0.44, "shoulder_yaw": 0.44,
+            "elbow": 0.44, "wrist_roll": 0.44, "wrist_pitch": 0.07, "wrist_yaw": 0.07,
+            "waist_yaw": 0.55, "waist_roll": 0.44, "waist_pitch": 0.44,
+        },
+        "unitree_go2w": {"hip": 0.5, "thigh": 0.5, "calf": 0.5, "wheel": 35.0},
+        "zex-w": {"hip_abduction": 0.125, "hip_pitch": 0.25, "knee": 0.25, "wheel": 5.0},
+    }
+
+    def _contracts(self) -> dict[str, dict]:
+        return {
+            package.name: json.loads((package / "contract_v3.json").read_text(encoding="utf-8-sig"))
+            for package in sorted(p for p in self.ROBOTS.iterdir() if p.is_dir())
+            if (package / "contract_v3.json").exists()
+        }
+
+    def test_every_actuated_joint_resolves_a_scale(self) -> None:
+        contracts = self._contracts()
+        self.assertGreaterEqual(len(contracts), 14)
+        for name, contract in contracts.items():
+            with self.subTest(package=name):
+                resolver = RoleResolver(contract)
+                self.assertEqual(resolver.validate(), [])
+                per_joint = resolver.action_scale_by_joint()
+                self.assertEqual(set(per_joint), set(resolver.actuated_names))
+                self.assertTrue(all(value > 0 for value in per_joint.values()))
+
+    def test_wheel_robots_declare_role_level_wheel_scale(self) -> None:
+        contracts = self._contracts()
+        checked = 0
+        for name, contract in contracts.items():
+            pattern = (contract.get("morphology") or {}).get("leg_pattern") or []
+            if "wheel" not in pattern:
+                continue
+            with self.subTest(package=name):
+                by_role = (contract.get("actuator_profile") or {}).get("by_role") or {}
+                self.assertIn("wheel", by_role, f"{name} 未声明 wheel 角色")
+                self.assertIsNotNone(
+                    by_role["wheel"].get("action_scale"),
+                    f"{name} 的 wheel 角色缺 action_scale——轮子会被腿的档位顶掉",
+                )
+            checked += 1
+        self.assertEqual(checked, 5, "含轮机型应为 5 个（m20/b2w/go2w/zex-w/tron1_wf）")
+
+    def test_role_scale_matches_evidence(self) -> None:
+        contracts = self._contracts()
+        for name, expected_roles in self.EXPECTED_ROLE_SCALE.items():
+            contract = contracts[name]
+            resolver = RoleResolver(contract)
+            per_joint = resolver.action_scale_by_joint()
+            for entry in contract["joints"]["actuated"]:
+                role = entry.get("role")
+                if role not in expected_roles:
+                    continue
+                with self.subTest(package=name, role=role, joint=entry["name"]):
+                    self.assertEqual(per_joint[entry["name"]], expected_roles[role])
+
+    def test_effective_scale_delta_set_is_locked(self) -> None:
+        """变更集合必须恰为 {g1, go2w, zex-w}：其余机型逐值等价于旧标量。"""
+
+        changed: set[str] = set()
+        for name, contract in self._contracts().items():
+            scalar = (contract.get("action") or {}).get("action_scale")
+            per_joint = RoleResolver(contract).action_scale_by_joint()
+            if any(abs(value - float(scalar)) > 1e-12 for value in per_joint.values()):
+                changed.add(name)
+        self.assertEqual(
+            changed, self.EXPECTED_DELTA_ROBOTS,
+            "有效 action_scale 的变更集合发生变化——新增变更必须先在证据表里列明",
+        )
+
+    def test_contract_helper_returns_scalar_when_uniform(self) -> None:
+        """角色内一致 ⇒ 返回 float（与旧行为逐值等价）；分化 ⇒ 返回 dict。"""
+
+        contracts = self._contracts()
+        for name, contract in contracts.items():
+            with self.subTest(package=name):
+                resolved = action_scale_for_contract(contract)
+                if name in self.EXPECTED_DELTA_ROBOTS:
+                    self.assertIsInstance(resolved, dict)
+                    self.assertEqual(
+                        resolved, RoleResolver(contract).action_scale_by_joint()
+                    )
+                else:
+                    self.assertIsInstance(resolved, float)
 
 
 if __name__ == "__main__":

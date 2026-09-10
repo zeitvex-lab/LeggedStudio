@@ -123,47 +123,56 @@
       "hip_yaw": {
         "stiffness": 10,
         "damping": 0.1,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 1.0
       },
       "hip_roll": {
         "stiffness": 10,
         "damping": 0.1,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 1.0
       },
       "hip_pitch": {
         "stiffness": 10,
         "damping": 0.1,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 1.0
       },
       "knee": {
         "stiffness": 10,
         "damping": 0.1,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 1.0
       },
       "ankle": {
         "stiffness": 10,
         "damping": 0.1,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 1.0
       },
       "neck_pitch": {
         "stiffness": 10,
         "damping": 0.1,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 1.0
       },
       "head_pitch": {
         "stiffness": 10,
         "damping": 0.1,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 1.0
       },
       "head_yaw": {
         "stiffness": 10,
         "damping": 0.1,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 1.0
       },
       "head_roll": {
         "stiffness": 10,
         "damping": 0.1,
-        "mode": "position"
+        "mode": "position",
+        "action_scale": 1.0
       }
     },
     "default": {

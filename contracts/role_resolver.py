@@ -133,6 +133,26 @@ class RoleResolver:
 
     # ---------- 展开 ----------
 
+    def action_scale_by_joint(self) -> dict[str, float]:
+        """B5：action_scale 的角色展开视图 ``{joint_name: scale}``。
+
+        `action.action_scale` 只是**标量缺省**（"这台机器人的标准动作档位"），而角色间
+        的真实档位并不相同——unitree_g1 髋俯仰 0.55 / 腕俯仰 0.07；轮足类 leg 0.5 /
+        wheel 35.0。标量表达不了这些差异，所以角色级声明（
+        ``actuator_profile.by_role[].action_scale``）才是权威视图。
+
+        未声明该角色的关节回落到 ``action.action_scale``，再回落到 0.25。
+        """
+
+        declared = {
+            joint: float(params["action_scale"])
+            for joint, params in self.expand_actuator_profile().items()
+            if params.get("action_scale") is not None
+        }
+        fallback = (self.contract.get("action") or {}).get("action_scale")
+        fallback = float(fallback) if fallback is not None else 0.25
+        return {name: declared.get(name, fallback) for name in self.actuated_names}
+
     def expand_actuator_profile(self) -> dict[str, dict[str, Any]]:
         """default < by_role < by_joint 三级合并，返回 {joint_name: params}。"""
 
@@ -508,6 +528,27 @@ def role_values_from_per_joint(
             return None
         table[role] = next(iter(values))
     return table
+
+
+def action_scale_for_contract(contract: Any) -> float | dict[str, float]:
+    """B5：消费方取 action_scale 的唯一入口。
+
+    角色内取值一致时退回 ``float``（与旧标量行为**逐值等价**，不改变既有训练）；
+    角色间分化时返回 ``{joint_name: scale}``——mjlab 的
+    ``BaseActionCfg.scale: float | dict[str, float]`` 接受 dict。
+
+    这样"工作台改契约 ⇒ 训练用同一份数"，不再出现"改了没生效"。
+    """
+
+    data: Any = contract
+    if not isinstance(data, dict):
+        dumper = getattr(data, "model_dump", None)
+        data = dumper() if callable(dumper) else dict(getattr(data, "__dict__", {}))
+    per_joint = RoleResolver(data).action_scale_by_joint()
+    if not per_joint:
+        return 0.25
+    values = set(per_joint.values())
+    return next(iter(values)) if len(values) == 1 else per_joint
 
 
 def _derive_actuator_type(leg_pattern: list[str]) -> str:
