@@ -14,8 +14,8 @@ def get_version() -> str:
     try:
         value = version_file.read_text(encoding="utf-8").strip()
     except OSError:
-        value = "0.41.0"
-    return value or "0.41.0"
+        value = "0.42.0"
+    return value or "0.42.0"
 
 
 APP_VERSION = get_version()
