@@ -8,6 +8,7 @@ simulation surface consumes from that release.
 
 from __future__ import annotations
 
+import math
 import struct
 import tempfile
 import unittest
@@ -324,3 +325,140 @@ class HeightScanAlignmentTests(unittest.TestCase):
         self.assertAlmostEqual(mean[93], 1.0 - (1.0 + 0.5 + 0.8) / 3.0)
         emptied = build_height_scan_from_points([], base_xy, base_z, fill=-1.0)
         self.assertTrue(all(value == -1.0 for value in emptied))
+
+
+class CameraProjectionTests(unittest.TestCase):
+    """相机几何：内参解析、点/框投影、深度反投影、目标判定（高级仿真感知链路）。"""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_intrinsics_from_fov_and_calibration(self):
+        from backend.camera_projection import resolve_intrinsics
+
+        derived = resolve_intrinsics(640, 480, fov_deg=120.0)
+        self.assertEqual(derived["source"], "derived_from_fov")
+        self.assertAlmostEqual(derived["hfov_deg"], 120.0, places=6)
+        self.assertAlmostEqual(derived["cx"], (640 - 1) / 2)
+        self.assertAlmostEqual(derived["cy"], (480 - 1) / 2)
+        calibrated = resolve_intrinsics(640, 480, fx=500.0, fy=480.0, cx=320.0, cy=240.0)
+        self.assertEqual(calibrated["source"], "calibrated")
+        self.assertEqual(calibrated["fx"], 500.0)
+        self.assertEqual(calibrated["cy"], 240.0)
+
+    def test_optical_axis_projects_to_principal_point(self):
+        from backend.camera_projection import mount_rotation, project_base_points, resolve_intrinsics
+
+        intrinsics = resolve_intrinsics(1920, 1080, fov_deg=90.0)
+        for yaw in (0.0, 90.0, -45.0):
+            sensor = {"position": {"x": 0.1, "y": 0.2, "z": 0.3}, "rotation": {"yaw": yaw}}
+            rotation = mount_rotation(0.0, 0.0, yaw)
+            distance = 4.0
+            point = (
+                0.1 + rotation[0][0] * distance,
+                0.2 + rotation[1][0] * distance,
+                0.3 + rotation[2][0] * distance,
+            )
+            projected = project_base_points([point], sensor, intrinsics)[0]
+            self.assertTrue(projected["valid"], yaw)
+            self.assertAlmostEqual(projected["u"], intrinsics["cx"], places=6)
+            self.assertAlmostEqual(projected["v"], intrinsics["cy"], places=6)
+            self.assertAlmostEqual(projected["depth"], distance, places=6)
+
+    def test_behind_camera_rejected_and_hfov_edges(self):
+        from backend.camera_projection import project_base_points, resolve_intrinsics
+
+        intrinsics = resolve_intrinsics(640, 480, fov_deg=120.0)
+        sensor = {"position": {"x": 0.0, "y": 0.0, "z": 0.0}, "rotation": {}}
+        behind = project_base_points([(-2.0, 0.0, 0.0)], sensor, intrinsics)[0]
+        self.assertFalse(behind["valid"])
+        self.assertIsNone(behind["u"])
+        half = 3.0 * math.tan(math.radians(intrinsics["hfov_deg"]) / 2.0)
+        left_edge = project_base_points([(3.0, half, 0.0)], sensor, intrinsics)[0]
+        right_edge = project_base_points([(3.0, -half, 0.0)], sensor, intrinsics)[0]
+        self.assertAlmostEqual(left_edge["u"], 0.0, places=6)
+        self.assertAlmostEqual(right_edge["u"], intrinsics["width"] - 1, places=6)
+
+    def test_box_projection_and_depth_roundtrip(self):
+        from backend.camera_projection import (
+            depth_image_to_points,
+            project_box,
+            project_optical_points,
+            resolve_intrinsics,
+        )
+
+        intrinsics = resolve_intrinsics(640, 480, fov_deg=90.0)
+        sensor = {"position": {"x": 0.0, "y": 0.0, "z": 0.0}, "rotation": {}}
+        box = project_box((2.0, 0.0, 0.0), (0.3, 0.3, 0.3), sensor, intrinsics)
+        self.assertTrue(box["any_visible"])
+        self.assertEqual(box["corners_visible"], 8)
+        u0, v0, u1, v1 = box["bbox"]
+        self.assertLess(u0, u1)
+        self.assertLess(v0, v1)
+        self.assertAlmostEqual((u0 + u1) / 2, intrinsics["cx"], delta=2.0)
+
+        depth = [[2.5] * 8 for _ in range(6)]
+        cloud = depth_image_to_points(depth, intrinsics)
+        self.assertEqual(cloud["total"], 48)
+        self.assertEqual(cloud["valid"], 48)
+        back = project_optical_points(cloud["points"], intrinsics)
+        self.assertTrue(all(item["valid"] for item in back))
+        self.assertTrue(all(abs(item["depth"] - 2.5) < 1e-9 for item in back))
+
+    def test_target_arrival_and_visibility(self):
+        from backend.camera_projection import arrival_verdict, resolve_intrinsics, target_visibility
+
+        self.assertTrue(arrival_verdict((0.0, 0.0), (0.1, 0.1), tolerance_m=0.3)["arrived"])
+        self.assertFalse(arrival_verdict((0.0, 0.0), (0.5, 0.0), tolerance_m=0.3)["arrived"])
+        intrinsics = resolve_intrinsics(640, 480, fov_deg=120.0)
+        sensor = {"position": {"x": 0.0, "y": 0.0, "z": 0.0}, "rotation": {}}
+        zone = [(2.0 + dx, dy, 0.0) for dx in (-0.4, 0.0, 0.4) for dy in (-0.3, 0.0, 0.3)]
+        visible = target_visibility(zone, sensor, intrinsics)
+        self.assertEqual(visible["verdict"], "visible")
+        self.assertGreater(visible["visible_ratio"], 0.9)
+        self.assertAlmostEqual(visible["nearest_depth_m"], 1.6, places=6)
+        behind = target_visibility([(-2.0, 0.0, 0.0)], sensor, intrinsics)
+        self.assertEqual(behind["verdict"], "not_visible")
+
+    def test_projection_endpoints(self):
+        sensors = self.client.get("/api/perception/projection/sensors").json()
+        ids = [item["id"] for item in sensors["sensors"]]
+        self.assertIn("camera", ids)
+        self.assertIn("depth_sensor", ids)
+        selftest = self.client.get("/api/perception/projection/selftest").json()
+        self.assertEqual(selftest["verdict"], "pass")
+        self.assertEqual(selftest["failures"], [])
+        self.assertGreaterEqual(len(selftest["cases"]), 6)
+
+        ok = self.client.post(
+            "/api/perception/projection/project",
+            json={"sensor_id": "camera", "points": [[3.0, 0.0, 0.0]]},
+        ).json()
+        self.assertEqual(ok["count"], 1)
+        self.assertEqual(ok["sensor_id"], "camera")
+        self.assertEqual(
+            self.client.post(
+                "/api/perception/projection/project", json={"sensor_id": "nope", "points": [[1.0, 0.0, 0.0]]}
+            ).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.post(
+                "/api/perception/projection/project", json={"sensor_id": "IMU", "points": [[1.0, 0.0, 0.0]]}
+            ).status_code,
+            400,
+        )
+        self.assertEqual(
+            self.client.post(
+                "/api/perception/projection/project", json={"sensor_id": "camera", "points": []}
+            ).status_code,
+            400,
+        )
+
+    def test_odom_and_gps_observation_items(self):
+        items = {item["id"]: item for item in list_perception_items()}
+        self.assertEqual(items["base_pos_odom"]["sensor"], "odom")
+        self.assertEqual(items["base_pos_odom"]["width"], 3)
+        self.assertEqual(items["base_pos_odom"]["meta"]["topic"], "/odom")
+        self.assertEqual(items["gps_position"]["sensor"], "gps")
+        self.assertEqual(items["gps_position"]["meta"]["frequency_hz"], 100)
