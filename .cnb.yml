@@ -1,22 +1,27 @@
 .main-env: &main-env
   runner:
     cpus: 8
+  # 后端任务必须显式声明带解释器的镜像；默认 runner 环境没有 python/pip，
+  # 否则命令直接 127（command not found）。与 frontend 的 node:20 同理。
+  docker:
+    image: python:3.12
   stages:
     - name: syntax-check
       script: |
-        set -e
+        set -eo pipefail
         echo "== py_compile changed python =="
         find backend contracts adapters/mjlab tools scripts -name '*.py' -print0 \
-          | xargs -0 -n1 python -m py_compile 2>&1 | tail -20 || true
+          | xargs -0 -n1 python -m py_compile 2>&1 | tail -20
         echo "python syntax check done"
         echo "== contract artifact drift check =="
         python tools/generate_contract_models.py 2>&1 | tail -20
     - name: unit-tests
       script: |
-        set -e
+        set -eo pipefail
         echo "== install control-plane deps =="
         pip install --quiet --upgrade pip || true
-        pip install --quiet fastapi uvicorn pydantic numpy 2>/dev/null || true
+        # 与 backend/requirements.txt 保持一致；httpx 是 starlette TestClient 依赖。
+        pip install --quiet -r backend/requirements.txt httpx
         echo "== path_bootstrap tests =="
         python -m unittest contracts.tests.test_path_bootstrap 2>&1 | tail -20
         echo "== pure-logic backend tests =="
