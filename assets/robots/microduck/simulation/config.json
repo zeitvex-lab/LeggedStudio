@@ -107,7 +107,10 @@
       "path": "simulation/policies/roulade.onnx",
       "label": "Roulade",
       "obs_dim": 61,
-      "action_dim": 14
+      "action_dim": 14,
+      "contract": {
+        "task_type": "acrobatics"
+      }
     },
     {
       "id": "roller",
@@ -121,7 +124,10 @@
       "path": "simulation/policies/BEST_roller_crouch.onnx",
       "label": "Roller Crouch",
       "obs_dim": 61,
-      "action_dim": 14
+      "action_dim": 14,
+      "contract": {
+        "task_type": "acrobatics"
+      }
     },
     {
       "id": "ground-pick",
