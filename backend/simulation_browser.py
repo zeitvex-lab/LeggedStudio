@@ -368,7 +368,14 @@ def browser_scene_file(root: Path, entry: dict[str, Any]) -> str:
     document = ET.fromstring(path.read_text(encoding="utf-8-sig"))
     model_include = {str(entry.get("robot_include") or ""), "robot.xml"}
     for include in document.findall("include"):
-        if Path(include.get("file", "")).name in model_include:
+        include_file = str(include.get("file", "")).replace("\\", "/")
+        # Any package-local model XML (robot / extra bodies / cube …) must be
+        # addressed relative to the browser virtual FS root, where package
+        # files live at their package-relative path (``model/...``). Scenes sit
+        # under ``simulation/``, so their ``../model/X`` includes are rewritten.
+        if include_file.startswith("../model/"):
+            include.set("file", include_file[len("../") :])
+        elif Path(include_file).name in model_include:
             include.set("file", "model/robot.xml")
     for texture in document.findall(".//texture[@file]"):
         texture.attrib.pop("file", None)
