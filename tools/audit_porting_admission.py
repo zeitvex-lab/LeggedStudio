@@ -206,7 +206,14 @@ def package_inventory(package_root: Path) -> dict[str, Any]:
             policies = list(sim.get("policies") or [])
         except (OSError, json.JSONDecodeError):
             policies = []
-    onnx = sorted(p.relative_to(package_root).as_posix() for p in package_root.rglob("*.onnx"))
+    # X 规则只覆盖**浏览器仿真策略**（simulation/ 下的 onnx）。包内 deploy/ 目录
+    # 携带的是部署产物（如 wuji 手持重定向的 policy.onnx/model.pt），不参与仿真准入。
+    sim_root = package_root / "simulation"
+    onnx = (
+        sorted(p.relative_to(package_root).as_posix() for p in sim_root.rglob("*.onnx"))
+        if sim_root.is_dir()
+        else []
+    )
     # 一致性：策略声明 ↔ 实际 onnx 文件必须一一对应
     declared = {str(p.get("path") or "") for p in policies if p.get("path")}
     # 双模型部署（encoder + policy，如 TRON1）：encoder.onnx 也算已声明。

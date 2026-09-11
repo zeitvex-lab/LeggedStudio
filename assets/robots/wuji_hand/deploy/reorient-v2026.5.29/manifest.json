@@ -1,0 +1,30 @@
+{
+  "version": "0.1.0",
+  "source_repo": "https://github.com/wuji-technology/wuji-mjlab",
+  "license": "Apache-2.0",
+  "training": {
+    "task_id": "WujiHand_Reorient",
+    "framework": "rsl_rl",
+    "iterations": 5000,
+    "checkpoint": "model.pt",
+    "robot": "WUJI Hand1.0"
+  },
+  "evaluation": {
+    "success_rate_100trials_sim": 1.0,
+    "avg_min_orientation_error_deg": 4.1,
+    "trial_timeout_s": 14.0,
+    "success_angle_threshold_rad": 0.2,
+    "success_hold_steps": 5,
+    "success_rate_20trials_real": 0.85,
+    "benchmarks": {
+      "sim2sim": "benchmarks/sim2sim.json",
+      "sim2real": "benchmarks/sim2real.json"
+    }
+  },
+  "hardware": {
+    "cube_edge_mm": 54,
+    "wrist_tag": "AprilTag36h11 ID 0, 48 mm",
+    "jig_tilt_deg": 10,
+    "jig_height_mm": 147
+  }
+}

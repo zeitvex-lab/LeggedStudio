@@ -1,0 +1,147 @@
+{
+  "success_rate": 0.85,
+  "num_trials": 20,
+  "num_completed": 20,
+  "trials": [
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.10918272489035762,
+      "final_ori_error_rad": 0.1195353170648866,
+      "duration_sec": 8.946700416970998
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.04483992360835085,
+      "final_ori_error_rad": 0.07524697578794212,
+      "duration_sec": 8.314232058997732
+    },
+    {
+      "success": false,
+      "outcome": "timeout",
+      "min_ori_error_rad": 1.3904147851451494,
+      "final_ori_error_rad": 1.4420722313280583,
+      "duration_sec": 14.027300807996653
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.19635677875712648,
+      "final_ori_error_rad": 0.22457420665111952,
+      "duration_sec": 6.514556745009031
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.10583744976935991,
+      "final_ori_error_rad": 0.11165524142457348,
+      "duration_sec": 7.806648680998478
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.07768695250283726,
+      "final_ori_error_rad": 0.0991357533668581,
+      "duration_sec": 6.316362534998916
+    },
+    {
+      "success": false,
+      "outcome": "timeout",
+      "min_ori_error_rad": 0.2008322994316363,
+      "final_ori_error_rad": 2.1788691776813325,
+      "duration_sec": 14.022966457996517
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.05826310086770688,
+      "final_ori_error_rad": 0.12561717220322133,
+      "duration_sec": 10.173780746990815
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.09624343795739297,
+      "final_ori_error_rad": 0.09624343795739297,
+      "duration_sec": 6.065644958987832
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.18419585801724425,
+      "final_ori_error_rad": 0.18971626898586752,
+      "duration_sec": 7.990022417972796
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.06431745919320672,
+      "final_ori_error_rad": 0.07329288886761551,
+      "duration_sec": 7.820556749007665
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.029552381769097764,
+      "final_ori_error_rad": 0.08438005184330741,
+      "duration_sec": 5.283425528963562
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.08619892996498904,
+      "final_ori_error_rad": 0.10185804725056469,
+      "duration_sec": 4.24563251103973
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.04447701614818724,
+      "final_ori_error_rad": 0.062488255654748394,
+      "duration_sec": 7.470986389031168
+    },
+    {
+      "success": false,
+      "outcome": "timeout",
+      "min_ori_error_rad": 0.37392384038069204,
+      "final_ori_error_rad": 0.656271913704664,
+      "duration_sec": 14.023625764995813
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.027589755900079754,
+      "final_ori_error_rad": 0.11419421506751247,
+      "duration_sec": 10.375038164958823
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.11657320718676906,
+      "final_ori_error_rad": 0.12887778417348578,
+      "duration_sec": 8.51905187201919
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.04540054127818219,
+      "final_ori_error_rad": 0.08602160993093869,
+      "duration_sec": 6.669279999041464
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.20321602312243722,
+      "final_ori_error_rad": 0.21146670238197438,
+      "duration_sec": 3.5607697140076198
+    },
+    {
+      "success": true,
+      "outcome": "success",
+      "min_ori_error_rad": 0.06819824304903774,
+      "final_ori_error_rad": 0.10708983442033064,
+      "duration_sec": 4.167016719991807
+    }
+  ]
+}
