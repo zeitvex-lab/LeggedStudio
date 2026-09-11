@@ -2,7 +2,7 @@
   "schema_version": "training-profile-1.0",
   "profile_id": "go2-parkour",
   "display_name": "Go2 PIE Depth Parkour (Stairs)",
-  "source": "package-local PIE task (depth-camera stair locomotion)",
+  "source": "00_resources/parkour_mjlab src/tasks/pie（Go2 PIE 深度相机跑酷，已逐行移植进包内）",
   "source_root": "training/source",
   "entrypoints": {
     "env": "local_tasks.robots.unitree.go2.tasks.parkour.config.go2.env_cfgs:unitree_go2_pie_env_cfg",
