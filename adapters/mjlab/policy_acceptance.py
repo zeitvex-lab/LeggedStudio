@@ -616,6 +616,28 @@ def _frame_go2w_rl_sdk_57(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     return out
 
 
+def _frame_go2w_himloco_57(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """go2w HIMLoco 57：cmd·s, ang·s, gravity, (轮位清零)dof_pos, dq·s, action(16)。
+
+    参考 `00_resources/LeggedSkillDeploy/.../go2w_himloco/config.yaml` 的
+    `observations` 列表序（commands 在最前）+ 逐项缩放；wheel_indices=[3,7,11,15]
+    的 dof_pos_rel 清零，轮为速度控制（action_scale 5.0）。
+    """
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = list(cmd * np.asarray(c.cmd_scale))
+    out += list(ang_b * c.ang_vel_scale)
+    out += list(projected_gravity(q))
+    for n in order:
+        rel = (obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale
+        out.append(0.0 if c.is_velocity_joint(n) else rel)
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in order]
+    out += list(obs.last_action)
+    return out
+
+
 def _frame_zexw_53(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     """zex-w 53：ang·s, gravity, cmd·s, 非轮 pos_rel, 非轮 dq·s, 轮 dq·s, action(16)。"""
     c = obs.contract
@@ -645,6 +667,7 @@ FRAME_BUILDERS = {
     "go2w_53": _frame_go2w_53,
     "go2w_mjlab_legs_53": _frame_go2w_mjlab_legs_53,
     "go2w_rl_sdk_57": _frame_go2w_rl_sdk_57,
+    "go2w_himloco_57": _frame_go2w_himloco_57,
     "zexw_53": _frame_zexw_53,
     "himloco_45_hist6": _frame_himloco_45,
     "microduck_61": _frame_microduck_61,

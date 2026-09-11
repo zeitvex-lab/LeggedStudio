@@ -285,6 +285,29 @@ function buildGo2wRlSdkObservation() {
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
 }
 
+// Go2-W HIMLoco（LeggedSkillDeploy go2w_himloco，57 维，16 动作 = 12 腿位置 + 4 轮速度）：
+// 单帧按部署 yaml `observations` 列表序：commands(3)·[2,2,0.25], ang_vel(3)·0.25(body),
+//   projected_gravity(3), (dof_pos-default)(16)·1.0【wheel 位置清零】, dof_vel(16)·0.05,
+//   原始 action(16)。onnx 输入 [1,342] = 57×6 帧 history，frame_major_v1（最新帧在前）。
+// 输出端：腿 PD 目标 = a×0.25+default（kp20/kd0.5）；轮 = a×5.0 纯速度目标（kp=0）。
+function buildGo2wHimlocoObservation() {
+  if (CONFIG.numObs !== 57 || CONFIG.numActions !== 16) {
+    throw new Error(`go2w_himloco_57 requires 57 observations and 16 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) {
+    const rel = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
+    sim.obs[offset++] = CONFIG.controlModes[i] === "velocity" ? 0 : rel;
+  }
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
 // Go1（mujoco_playground Joystick 官方导出，play_go1_joystick.py 逐行取证）：
 // local_linvel(3), gyro(3), projected_gravity(3), joint_pos_rel(12),
 // joint_vel(12), last_action(12), command(3) —— 全部裸值无缩放；
@@ -751,6 +774,7 @@ function geomBodyName(geomId) {
     go2w_53: buildGo2wLegsObservation,
     go2w_mjlab_legs_53: buildGo2wMjlabLegsObservation,
     go2w_rl_sdk_57: buildGo2wRlSdkObservation,
+    go2w_himloco_57: buildGo2wHimlocoObservation,
     go2_rl_sdk_45: buildGo2RlSdkObservation,
     go2_motion_69: buildGo2MotionObservation,
     g1_motion_154: buildG1Motion154Observation,

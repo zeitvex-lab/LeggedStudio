@@ -127,10 +127,16 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         "go2-jump-69": "包内 local_tasks/robots/unitree/go2/tasks/aerial（jump）",
         "go2-moe-cts": "go2_rl_robotlab/source/robot_lab/.../tasks/go2/env_cfg.py（MoE-CTS, hist10）",
         "go2-arenax-velocity": "lain_job/LLoco/src/lloco/tasks/go2_skills/amp_dreamwaq（ArenaX README：go2_amp_dreamwaq 检查点）",
+        "go2-rlsar-robotlab": "rl_sar/policy/go2/robot_lab（robot_lab Go2 velocity 训练工程）",
+        "go2-rlsar-himloco": "rl_sar/policy/go2/himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
     },
     "unitree_go2w": {
         "unitree-velocity-legs": "unitree_rl_mjlab_go2w（velocity_legs_only）",
         "robotlab-velocity-57": "robot_lab/.../velocity/config/wheeled/unitree_go2w",
+        "go2w-himloco-loco": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
+        "go2w-himloco-stand-front": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
+        "go2w-himloco-handstand": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
+        "go2w-himloco-leggedstand": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
     },
     "zex-w": {
         "model-6800": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
