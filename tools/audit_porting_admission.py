@@ -129,6 +129,7 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         "go2-arenax-velocity": "lain_job/LLoco/src/lloco/tasks/go2_skills/amp_dreamwaq（ArenaX README：go2_amp_dreamwaq 检查点）",
         "go2-rlsar-robotlab": "rl_sar/policy/go2/robot_lab（robot_lab Go2 velocity 训练工程）",
         "go2-rlsar-himloco": "rl_sar/policy/go2/himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
+        "go2-pie-parkour": "parkour_mjlab logs/rsl_rl/go2_pie（Unitree-Go2-PIE 深度跑酷训练任务）",
     },
     "unitree_go2w": {
         "unitree-velocity-legs": "unitree_rl_mjlab_go2w（velocity_legs_only）",

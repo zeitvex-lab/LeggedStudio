@@ -1090,6 +1090,239 @@ def actuate(contract: PackageContract, model, data, obs: ObsBuilder, raw: np.nda
             data.ctrl[aid] = torque
 
 
+# ---------- PIE 深度跑酷（多输入 + GRU memory + 深度相机） ----------
+#
+# 上游 00_resources/parkour_mjlab deploy/pie/sim2sim（Unitree-Go2-PIE）：
+#   proprio(45) + proprio_history(10×45, term-major 旧→新) + depth_history(2×60×86)
+#   + memory_h(1×128 GRU 状态) → actions(12) + memory_h_out。
+# 深度：60×106 相机（fovy 由 HFOV 87° 反解），光学 Z → 裁剪 10px/侧 → 3×3 高斯 →
+# 裁剪[0.05,3]→/3。本机无 GL，改用 raycast 合成光学 Z（与 renderer 口径一致）。
+
+_PIE_DEFAULT_JOINT_POS = np.array([-0.1, 0.9, -1.8] * 4, dtype=np.float64)
+_PIE_ACTION_SCALE = 0.25
+_PIE_TERM_DIMS = (3, 3, 3, 12, 12, 12)
+_PIE_PROPRIO_DIM = 45
+_PIE_HISTORY_LEN = 10
+_PIE_DEPTH_RAW_W = 106
+_PIE_DEPTH_H = 60
+_PIE_DEPTH_CROP = 10
+_PIE_DEPTH_W = _PIE_DEPTH_RAW_W - 2 * _PIE_DEPTH_CROP
+_PIE_DEPTH_HISTORY = 2
+_PIE_DEPTH_MIN = 0.05
+_PIE_DEPTH_MAX = 3.0
+_PIE_DEPTH_UPDATE_STEPS = 5
+_PIE_CONTROL_DT = 0.02
+_PIE_PHYSICS_STEPS = 4
+_PIE_CAM_POS = np.array((0.345, 0.0, 0.07), dtype=np.float64)
+_PIE_CAM_QUAT = np.array((0.5792280, 0.4055798, -0.4055798, -0.5792280), dtype=np.float64)
+_PIE_DEPTH_FOVY_DEG = math.degrees(2.0 * math.atan(
+    math.tan(math.radians(87.0) * 0.5) * _PIE_DEPTH_H / _PIE_DEPTH_RAW_W))
+_PIE_GAUSSIAN = np.array((
+    (0.07511361, 0.12384140, 0.07511361),
+    (0.12384140, 0.20417996, 0.12384140),
+    (0.07511361, 0.12384140, 0.07511361),
+), dtype=np.float32)
+_PIE_GAUSSIAN /= _PIE_GAUSSIAN.sum()
+
+
+def _pie_ray_dirs():
+    """相机坐标系下的逐像素射线方向（单位向量）与 z→ray 缩放。"""
+    focal = 0.5 * _PIE_DEPTH_H / math.tan(0.5 * math.radians(_PIE_DEPTH_FOVY_DEG))
+    px = (np.arange(_PIE_DEPTH_RAW_W, dtype=np.float64) + 0.5 - 0.5 * _PIE_DEPTH_RAW_W) / focal
+    py = (np.arange(_PIE_DEPTH_H, dtype=np.float64) + 0.5 - 0.5 * _PIE_DEPTH_H) / focal
+    scale = np.sqrt(1.0 + py[:, None] ** 2 + px[None, :] ** 2)
+    dirs = np.stack((-px[None, :].repeat(_PIE_DEPTH_H, 0),
+                     -py[:, None].repeat(_PIE_DEPTH_RAW_W, 1),
+                     -np.ones((_PIE_DEPTH_H, _PIE_DEPTH_RAW_W))), axis=-1)
+    dirs /= np.linalg.norm(dirs, axis=-1, keepdims=True)
+    return dirs, scale
+
+
+_PIE_RAY_DIRS, _PIE_Z_TO_RAY = _pie_ray_dirs()
+
+
+def _pie_preprocess_depth_z(depth_z: np.ndarray) -> np.ndarray:
+    """原生光学-Z 图像 → 单帧 PIE 深度（裁剪/高斯/裁剪/归一化）。"""
+    depth = np.asarray(depth_z, dtype=np.float32)
+    invalid = ~np.isfinite(depth) | (depth <= 0.0)
+    ray_depth = depth * _PIE_Z_TO_RAY
+    ray_depth[invalid] = _PIE_DEPTH_MAX
+    ray_depth = ray_depth[:, _PIE_DEPTH_CROP:_PIE_DEPTH_RAW_W - _PIE_DEPTH_CROP]
+    padded = np.pad(ray_depth, ((1, 1), (1, 1)), mode="reflect")
+    windows = np.lib.stride_tricks.sliding_window_view(padded, (3, 3))
+    blurred = np.einsum("ijxy,xy->ij", windows, _PIE_GAUSSIAN, optimize=True)
+    normalized = np.clip(blurred, _PIE_DEPTH_MIN, _PIE_DEPTH_MAX) / _PIE_DEPTH_MAX
+    return np.ascontiguousarray(normalized[None, :, :], dtype=np.float32)
+
+
+def _pie_capture_depth_z(model, data, base_id: int) -> np.ndarray:
+    """raycast 合成相机光学-Z（60×106）。无 GL 环境下替代 mujoco.Renderer 深度。"""
+    import mujoco
+
+    base_pos = np.asarray(data.xpos[base_id], dtype=np.float64)
+    base_quat = _q_normalize(np.asarray(data.xquat[base_id], dtype=np.float64))
+    rot = _q_to_matrix(base_quat).reshape(3, 3)
+    cam_pos = base_pos + rot @ _PIE_CAM_POS
+    cam_rot = rot @ _q_to_matrix(_q_normalize(_q_multiply(base_quat, _PIE_CAM_QUAT))).reshape(3, 3)
+    world_dirs = _PIE_RAY_DIRS @ cam_rot.T  # (H,W,3) 行向量右乘 R^T
+    depth = np.full((_PIE_DEPTH_H, _PIE_DEPTH_RAW_W), _PIE_DEPTH_MAX, dtype=np.float64)
+    gid = np.array([-1], dtype=np.int32)
+    ray = mujoco.mj_ray
+    for v in range(_PIE_DEPTH_H):
+        for u in range(_PIE_DEPTH_RAW_W):
+            gid[0] = -1
+            dist = ray(model, data, cam_pos, world_dirs[v, u], None, 1, -1, gid)
+            if dist > 0.0 and dist <= _PIE_DEPTH_MAX * 1.5:
+                depth[v, u] = dist / _PIE_Z_TO_RAY[v, u]
+    return depth
+
+
+def _pie_proprio(obs: "ObsBuilder", cmd: np.ndarray) -> np.ndarray:
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = obs.contract.action_joint_order
+    out = list(ang_b) + list(projected_gravity(q)) + list(np.asarray(cmd, dtype=np.float64)[:3])
+    out += [obs.data.qpos[obs.jadr[n][0]] - _PIE_DEFAULT_JOINT_POS[i] for i, n in enumerate(order)]
+    out += [obs.data.qvel[obs.jadr[n][1]] for n in order]
+    out += list(obs.last_action)
+    return np.asarray(out, dtype=np.float32)
+
+
+class _PieProprioHistory:
+    """term-major、旧→新的 10 帧 45 维本体历史（对齐 mjlab CircularBuffer 拼接）。"""
+
+    def __init__(self) -> None:
+        self.frames: list[np.ndarray] = []
+
+    def reset(self) -> None:
+        self.frames = []
+
+    def append(self, frame: np.ndarray) -> None:
+        f = np.asarray(frame, dtype=np.float32).reshape(_PIE_PROPRIO_DIM)
+        if not self.frames:
+            self.frames = [f.copy() for _ in range(_PIE_HISTORY_LEN)]
+        else:
+            self.frames.append(f.copy())
+            if len(self.frames) > _PIE_HISTORY_LEN:
+                self.frames = self.frames[-_PIE_HISTORY_LEN:]
+
+    @property
+    def array(self) -> np.ndarray:
+        stack = np.stack(self.frames, axis=0)
+        chunks, start = [], 0
+        for dim in _PIE_TERM_DIMS:
+            chunks.append(stack[:, start:start + dim].reshape(-1))
+            start += dim
+        return np.ascontiguousarray(np.concatenate(chunks).astype(np.float32))
+
+
+class _PieDepthHistory:
+    def __init__(self) -> None:
+        self.frames: list[np.ndarray] = []
+
+    def reset(self) -> None:
+        self.frames = []
+
+    def append(self, frame: np.ndarray) -> None:
+        f = np.asarray(frame, dtype=np.float32).reshape(1, _PIE_DEPTH_H, _PIE_DEPTH_W)
+        if not self.frames:
+            self.frames = [f.copy() for _ in range(_PIE_DEPTH_HISTORY)]
+        else:
+            self.frames.append(f.copy())
+            if len(self.frames) > _PIE_DEPTH_HISTORY:
+                self.frames = self.frames[-_PIE_DEPTH_HISTORY:]
+
+    @property
+    def array(self) -> np.ndarray:
+        return np.ascontiguousarray(np.concatenate(self.frames, axis=0).astype(np.float32))
+
+
+def _pie_body_id(model, name: str) -> int:
+    import mujoco
+
+    bid = int(mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name))
+    if bid < 0:
+        for b in range(model.nbody):
+            if mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, b) == name:
+                return b
+    return bid
+
+
+def run_pie_policy(sess, contract: PackageContract, model, data, obs: "ObsBuilder",
+                   cmd: list[float], seconds: float, seed: int,
+                   base_body: str = "base") -> dict[str, Any]:
+    """PIE 控制回路：50Hz 控制 / 4 物理步；深度每 5 控制步更新；GRU memory 逐步回灌。"""
+    import mujoco
+
+    spawn_default(contract, model, data, obs)
+    # 关节初始姿态对齐 PIE 默认角
+    for i, name in enumerate(contract.action_joint_order):
+        data.qpos[obs.jadr[name][0]] = _PIE_DEFAULT_JOINT_POS[i]
+    mujoco.mj_forward(model, data)
+
+    base_id = _pie_body_id(model, base_body)
+    cmd_arr = np.asarray(cmd, dtype=np.float32)[:3]
+    history = _PieProprioHistory()
+    depths = _PieDepthHistory()
+    obs.last_action = np.zeros(contract.action_dim, dtype=np.float32)
+    memory = np.zeros((1, 1, 128), dtype=np.float32)
+    in_names = [i.name for i in sess.get_inputs()]
+
+    control_steps = int(seconds / _PIE_CONTROL_DT)
+    start_xy = np.asarray(data.xpos[base_id], dtype=np.float64)[:2].copy()
+    fell_at = None
+    tilt_max = 0.0
+    forward_max = 0.0
+    height_min = float("inf")
+    depth_frames = 0
+
+    for step in range(control_steps):
+        if step % _PIE_DEPTH_UPDATE_STEPS == 0:
+            depths.append(_pie_preprocess_depth_z(_pie_capture_depth_z(model, data, base_id)))
+            depth_frames += 1
+        proprio = _pie_proprio(obs, cmd_arr)
+        history.append(proprio)
+        feeds = {
+            "proprio": proprio.reshape(1, -1),
+            "proprio_history": history.array.reshape(1, -1),
+            "depth_history": depths.array.reshape(1, _PIE_DEPTH_HISTORY, _PIE_DEPTH_H, _PIE_DEPTH_W),
+            "memory_h_in": memory,
+        }
+        feeds = {k: v for k, v in feeds.items() if k in in_names}
+        outs = sess.run(None, feeds)
+        action = np.asarray(outs[0], dtype=np.float32).reshape(-1)
+        obs.last_action = action.copy()
+        memory = np.asarray(outs[1], dtype=np.float32) if len(outs) > 1 else memory
+        # 复用通用 actuate：位置目标 = default + action_scale*action；torque 接口按 kp/kd 求力矩
+        actuate(contract, model, data, obs, action)
+        for _ in range(_PIE_PHYSICS_STEPS):
+            mujoco.mj_step(model, data)
+
+        q = data.qpos[3:7]
+        g = projected_gravity(q)
+        roll = math.degrees(math.atan2(g[1], -g[2])) if -g[2] > 1e-6 else math.copysign(90.0, g[1])
+        pitch = math.degrees(math.asin(clamp(g[0], -1.0, 1.0)))
+        tilt_max = max(tilt_max, abs(roll), abs(pitch))
+        height_min = min(height_min, float(data.qpos[2]))
+        forward = float(np.asarray(data.xpos[base_id], dtype=np.float64)[0] - start_xy[0])
+        forward_max = max(forward_max, forward)
+        if fell_at is None and (data.qpos[2] < 0.5 * contract.initial_height or max(abs(roll), abs(pitch)) > 75.0):
+            fell_at = step * _PIE_CONTROL_DT
+            break
+
+    survived = (fell_at / _PIE_CONTROL_DT) if fell_at is not None else control_steps
+    return {
+        "command": [float(x) for x in cmd_arr],
+        "fell": fell_at is not None,
+        "fell_at_s": round(fell_at, 3) if fell_at is not None else None,
+        "survival_ratio": round(survived / control_steps, 3),
+        "tilt_max_deg": round(tilt_max, 1),
+        "forward_max_m": round(forward_max, 3),
+        "height_min": round(height_min, 3),
+        "depth_frames": depth_frames,
+    }
+
+
 # ---------- 主入口 ----------
 
 def default_modes(ranges) -> list[list[float]]:
@@ -1198,12 +1431,12 @@ def load_package_model(package_dir: Path, sim_cfg: dict[str, Any],
         scene = package_dir / scene_rel
         if not scene.is_file():
             raise SystemExit(f"包内缺少场景: {scene}")
-        return mujoco.MjSpec.from_file(str(scene)).compile()
-
-    model_xml = package_dir / "model" / "robot.xml"
-    if not model_xml.is_file():
-        raise SystemExit(f"包内缺少模型: {model_xml}")
-    spec = mujoco.MjSpec.from_file(str(model_xml))
+        spec = mujoco.MjSpec.from_file(str(scene))
+    else:
+        model_xml = package_dir / "model" / "robot.xml"
+        if not model_xml.is_file():
+            raise SystemExit(f"包内缺少模型: {model_xml}")
+        spec = mujoco.MjSpec.from_file(str(model_xml))
     apply_actuator_rebuild(spec, package_dir, sim_cfg, effort_override)
 
     armature = sim_cfg.get("armature") or {}
@@ -1224,11 +1457,12 @@ def load_package_model(package_dir: Path, sim_cfg: dict[str, Any],
         elif default_fric is not None:
             joint.frictionloss = float(default_fric)
 
-    spec.worldbody.add_geom(
-        type=mujoco.mjtGeom.mjGEOM_PLANE,
-        name="acceptance_floor",
-        size=[10.0, 10.0, 0.05],
-    )
+    if not scene_rel:
+        spec.worldbody.add_geom(
+            type=mujoco.mjtGeom.mjGEOM_PLANE,
+            name="acceptance_floor",
+            size=[10.0, 10.0, 0.05],
+        )
     return spec.compile()
 
 

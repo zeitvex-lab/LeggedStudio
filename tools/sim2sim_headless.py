@@ -162,6 +162,42 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
             "verdict": "pass" if rate >= criteria["success_rate_min"] else "fail",
         }
 
+    # Go2 PIE 深度跑酷：多输入（proprio/proprio_history/depth_history/memory）+ GRU
+    # memory + 深度相机，走专用回路（深度用 raycast 合成）。判据 = 存活 + 前进 + 姿态。
+    if contract.observation_kind == "go2_pie_depth":
+        scene_rel = contract.contract.get("scene_path")
+        model = engine.load_package_model(package_dir, sim_cfg, None, scene_rel=scene_rel)
+        model.opt.timestep = engine._PIE_CONTROL_DT / engine._PIE_PHYSICS_STEPS
+        data = mujoco.MjData(model)
+        sess = ort.InferenceSession(str(policy_path), providers=["CPUExecutionProvider"])
+        criteria = {"survival_min": 0.9, "tilt_max_deg": 75.0, "forward_min_m": 0.3}
+        criteria.update(criteria_all.get("parkour") or {})
+        modes = [[0.6, 0.0, 0.0], [1.0, 0.0, 0.0]]
+        mode_reports = []
+        for idx, cmd in enumerate(modes):
+            metrics = engine.run_pie_policy(
+                sess, contract, model, data, engine.ObsBuilder(contract, model, data),
+                cmd, max(float(seconds), 10.0), seed + idx,
+            )
+            ok = (
+                (not metrics["fell"])
+                and metrics["survival_ratio"] >= criteria["survival_min"]
+                and metrics["tilt_max_deg"] <= criteria["tilt_max_deg"]
+                and metrics["forward_max_m"] >= criteria["forward_min_m"]
+            )
+            mode_reports.append({"command": cmd, "metrics": metrics, "verdict": {"ok": ok}})
+        passed = sum(1 for m in mode_reports if m["verdict"]["ok"])
+        return {
+            "status": "ok",
+            "task_family": "parkour",
+            "observation_kind": contract.observation_kind,
+            "criteria": criteria,
+            "modes": mode_reports,
+            "passed": passed,
+            "total": len(mode_reports),
+            "verdict": "pass" if passed == len(mode_reports) else "fail",
+        }
+
     motion = contract.observation_kind in ("go2_motion_69", "g1_motion_154")
     family = "imitation" if motion else (family or task_family(entry, contract))
 

@@ -707,6 +707,120 @@
           }
         }
       }
+    },
+    {
+      "id": "go2-pie-parkour",
+      "label": "Go2 PIE 深度跑酷 (parkour_mjlab)",
+      "path": "simulation/policies/go2_pie_policy.onnx",
+      "obs_dim": 45,
+      "action_dim": 12,
+      "history_len": 1,
+      "sim_surface": "advanced",
+      "source": "parkour_mjlab logs/rsl_rl/go2_pie/policy.onnx（Unitree-Go2-PIE，Apache-2.0）",
+      "contract": {
+        "observation_kind": "go2_pie_depth",
+        "obs_dim": 45,
+        "action_dim": 12,
+        "history_len": 1,
+        "task_type": "parkour",
+        "command_dims": 3,
+        "default_command": [
+          0.6,
+          0.0,
+          0.0
+        ],
+        "action_joint_order": [
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint"
+        ],
+        "default_joint_angles": {
+          "FL_hip_joint": -0.1,
+          "FL_thigh_joint": 0.9,
+          "FL_calf_joint": -1.8,
+          "FR_hip_joint": 0.1,
+          "FR_thigh_joint": 0.9,
+          "FR_calf_joint": -1.8,
+          "RL_hip_joint": -0.1,
+          "RL_thigh_joint": 0.9,
+          "RL_calf_joint": -1.8,
+          "RR_hip_joint": 0.1,
+          "RR_thigh_joint": 0.9,
+          "RR_calf_joint": -1.8
+        },
+        "action_scale": 0.25,
+        "control": {
+          "stiffness": {
+            "FL_hip_joint": 20,
+            "FL_thigh_joint": 20,
+            "FL_calf_joint": 40,
+            "FR_hip_joint": 20,
+            "FR_thigh_joint": 20,
+            "FR_calf_joint": 40,
+            "RL_hip_joint": 20,
+            "RL_thigh_joint": 20,
+            "RL_calf_joint": 40,
+            "RR_hip_joint": 20,
+            "RR_thigh_joint": 20,
+            "RR_calf_joint": 40
+          },
+          "damping": {
+            "FL_hip_joint": 1,
+            "FL_thigh_joint": 1,
+            "FL_calf_joint": 2,
+            "FR_hip_joint": 1,
+            "FR_thigh_joint": 1,
+            "FR_calf_joint": 2,
+            "RL_hip_joint": 1,
+            "RL_thigh_joint": 1,
+            "RL_calf_joint": 2,
+            "RR_hip_joint": 1,
+            "RR_thigh_joint": 1,
+            "RR_calf_joint": 2
+          }
+        },
+        "multi_input": true,
+        "memory_state": {
+          "output": "memory_h_out",
+          "input": "memory_h_in",
+          "shape": [
+            1,
+            1,
+            128
+          ]
+        },
+        "depth_camera": {
+          "height": 60,
+          "raw_width": 106,
+          "crop": 10,
+          "history": 2,
+          "update_steps": 5,
+          "min_m": 0.05,
+          "max_m": 3.0,
+          "fovy_deg": 56.485,
+          "pos": [
+            0.345,
+            0.0,
+            0.07
+          ],
+          "quat": [
+            0.579228,
+            0.4055798,
+            -0.4055798,
+            -0.579228
+          ]
+        },
+        "scene_path": "simulation/scene_pie_stairs.xml"
+      }
     }
   ],
   "browser_actuator_rebuild": true,
