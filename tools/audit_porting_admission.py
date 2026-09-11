@@ -130,6 +130,10 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         "go2-rlsar-robotlab": "rl_sar/policy/go2/robot_lab（robot_lab Go2 velocity 训练工程）",
         "go2-rlsar-himloco": "rl_sar/policy/go2/himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
         "go2-pie-parkour": "parkour_mjlab logs/rsl_rl/go2_pie（Unitree-Go2-PIE 深度跑酷训练任务）",
+        "go2-kaiwu-cts-max2": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）",
+        "go2-kaiwu-moe-cts-124k": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）",
+        "go2-kaiwu-moe-cts-137k": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）",
+        "go2-kaiwu-moe-cts-8exp": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）",
     },
     "unitree_go2w": {
         "unitree-velocity-legs": "unitree_rl_mjlab_go2w（velocity_legs_only）",

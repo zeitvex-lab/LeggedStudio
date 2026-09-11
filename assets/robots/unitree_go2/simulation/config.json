@@ -832,6 +832,410 @@
         },
         "clip_actions": null
       }
+    },
+    {
+      "id": "go2-kaiwu-cts-max2",
+      "label": "Go2 CTS-max2 (kaiwu_rl)",
+      "path": "simulation/policies/go2_kaiwu_cts_max2.onnx",
+      "obs_dim": 45,
+      "action_dim": 12,
+      "history_len": 5,
+      "source": "kaiwu_rl RoboGauge 发布策略（训练源 go2_rl_gym legged_gym go2）",
+      "contract": {
+        "observation_kind": "go2_rl_sdk_45",
+        "obs_dim": 45,
+        "action_dim": 12,
+        "history_len": 5,
+        "command_dims": 3,
+        "task_type": "velocity",
+        "action_joint_order": [
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint"
+        ],
+        "default_joint_angles": {
+          "FL_hip_joint": 0.1,
+          "FL_thigh_joint": 0.8,
+          "FL_calf_joint": -1.5,
+          "FR_hip_joint": -0.1,
+          "FR_thigh_joint": 0.8,
+          "FR_calf_joint": -1.5,
+          "RL_hip_joint": 0.1,
+          "RL_thigh_joint": 1.0,
+          "RL_calf_joint": -1.5,
+          "RR_hip_joint": -0.1,
+          "RR_thigh_joint": 1.0,
+          "RR_calf_joint": -1.5
+        },
+        "action_scale": 0.25,
+        "scales": {
+          "ang_vel": 0.25,
+          "dof_pos": 1.0,
+          "dof_vel": 0.05,
+          "command": [
+            2.0,
+            2.0,
+            0.25
+          ]
+        },
+        "command_ranges": {
+          "lin_vel_x": [
+            -1.0,
+            1.5
+          ],
+          "lin_vel_y": [
+            -0.5,
+            0.5
+          ],
+          "ang_vel_z": [
+            -0.7,
+            0.7
+          ]
+        },
+        "control": {
+          "stiffness": {
+            "FL_hip_joint": 20.0,
+            "FL_thigh_joint": 20.0,
+            "FL_calf_joint": 20.0,
+            "FR_hip_joint": 20.0,
+            "FR_thigh_joint": 20.0,
+            "FR_calf_joint": 20.0,
+            "RL_hip_joint": 20.0,
+            "RL_thigh_joint": 20.0,
+            "RL_calf_joint": 20.0,
+            "RR_hip_joint": 20.0,
+            "RR_thigh_joint": 20.0,
+            "RR_calf_joint": 20.0
+          },
+          "damping": {
+            "FL_hip_joint": 0.5,
+            "FL_thigh_joint": 0.5,
+            "FL_calf_joint": 0.5,
+            "FR_hip_joint": 0.5,
+            "FR_thigh_joint": 0.5,
+            "FR_calf_joint": 0.5,
+            "RL_hip_joint": 0.5,
+            "RL_thigh_joint": 0.5,
+            "RL_calf_joint": 0.5,
+            "RR_hip_joint": 0.5,
+            "RR_thigh_joint": 0.5,
+            "RR_calf_joint": 0.5
+          }
+        },
+        "history_layout": ""
+      }
+    },
+    {
+      "id": "go2-kaiwu-moe-cts-124k",
+      "label": "Go2 MoE-CTS 124k (kaiwu_rl)",
+      "path": "simulation/policies/go2_kaiwu_moe_cts_124k.onnx",
+      "obs_dim": 45,
+      "action_dim": 12,
+      "history_len": 5,
+      "source": "kaiwu_rl RoboGauge 发布策略（训练源 go2_rl_gym legged_gym go2）",
+      "contract": {
+        "observation_kind": "go2_rl_sdk_45",
+        "obs_dim": 45,
+        "action_dim": 12,
+        "history_len": 5,
+        "command_dims": 3,
+        "task_type": "velocity",
+        "action_joint_order": [
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint"
+        ],
+        "default_joint_angles": {
+          "FL_hip_joint": 0.1,
+          "FL_thigh_joint": 0.8,
+          "FL_calf_joint": -1.5,
+          "FR_hip_joint": -0.1,
+          "FR_thigh_joint": 0.8,
+          "FR_calf_joint": -1.5,
+          "RL_hip_joint": 0.1,
+          "RL_thigh_joint": 1.0,
+          "RL_calf_joint": -1.5,
+          "RR_hip_joint": -0.1,
+          "RR_thigh_joint": 1.0,
+          "RR_calf_joint": -1.5
+        },
+        "action_scale": 0.25,
+        "scales": {
+          "ang_vel": 0.25,
+          "dof_pos": 1.0,
+          "dof_vel": 0.05,
+          "command": [
+            2.0,
+            2.0,
+            0.25
+          ]
+        },
+        "command_ranges": {
+          "lin_vel_x": [
+            -1.0,
+            1.5
+          ],
+          "lin_vel_y": [
+            -0.5,
+            0.5
+          ],
+          "ang_vel_z": [
+            -0.7,
+            0.7
+          ]
+        },
+        "control": {
+          "stiffness": {
+            "FL_hip_joint": 20.0,
+            "FL_thigh_joint": 20.0,
+            "FL_calf_joint": 20.0,
+            "FR_hip_joint": 20.0,
+            "FR_thigh_joint": 20.0,
+            "FR_calf_joint": 20.0,
+            "RL_hip_joint": 20.0,
+            "RL_thigh_joint": 20.0,
+            "RL_calf_joint": 20.0,
+            "RR_hip_joint": 20.0,
+            "RR_thigh_joint": 20.0,
+            "RR_calf_joint": 20.0
+          },
+          "damping": {
+            "FL_hip_joint": 0.5,
+            "FL_thigh_joint": 0.5,
+            "FL_calf_joint": 0.5,
+            "FR_hip_joint": 0.5,
+            "FR_thigh_joint": 0.5,
+            "FR_calf_joint": 0.5,
+            "RL_hip_joint": 0.5,
+            "RL_thigh_joint": 0.5,
+            "RL_calf_joint": 0.5,
+            "RR_hip_joint": 0.5,
+            "RR_thigh_joint": 0.5,
+            "RR_calf_joint": 0.5
+          }
+        },
+        "history_layout": ""
+      }
+    },
+    {
+      "id": "go2-kaiwu-moe-cts-137k",
+      "label": "Go2 MoE-CTS 137k (kaiwu_rl)",
+      "path": "simulation/policies/go2_kaiwu_moe_cts_137k.onnx",
+      "obs_dim": 45,
+      "action_dim": 12,
+      "history_len": 5,
+      "source": "kaiwu_rl RoboGauge 发布策略（训练源 go2_rl_gym legged_gym go2）",
+      "contract": {
+        "observation_kind": "go2_rl_sdk_45",
+        "obs_dim": 45,
+        "action_dim": 12,
+        "history_len": 5,
+        "command_dims": 3,
+        "task_type": "velocity",
+        "action_joint_order": [
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint"
+        ],
+        "default_joint_angles": {
+          "FL_hip_joint": 0.1,
+          "FL_thigh_joint": 0.8,
+          "FL_calf_joint": -1.5,
+          "FR_hip_joint": -0.1,
+          "FR_thigh_joint": 0.8,
+          "FR_calf_joint": -1.5,
+          "RL_hip_joint": 0.1,
+          "RL_thigh_joint": 1.0,
+          "RL_calf_joint": -1.5,
+          "RR_hip_joint": -0.1,
+          "RR_thigh_joint": 1.0,
+          "RR_calf_joint": -1.5
+        },
+        "action_scale": 0.25,
+        "scales": {
+          "ang_vel": 0.25,
+          "dof_pos": 1.0,
+          "dof_vel": 0.05,
+          "command": [
+            2.0,
+            2.0,
+            0.25
+          ]
+        },
+        "command_ranges": {
+          "lin_vel_x": [
+            -1.0,
+            1.5
+          ],
+          "lin_vel_y": [
+            -0.5,
+            0.5
+          ],
+          "ang_vel_z": [
+            -0.7,
+            0.7
+          ]
+        },
+        "control": {
+          "stiffness": {
+            "FL_hip_joint": 20.0,
+            "FL_thigh_joint": 20.0,
+            "FL_calf_joint": 20.0,
+            "FR_hip_joint": 20.0,
+            "FR_thigh_joint": 20.0,
+            "FR_calf_joint": 20.0,
+            "RL_hip_joint": 20.0,
+            "RL_thigh_joint": 20.0,
+            "RL_calf_joint": 20.0,
+            "RR_hip_joint": 20.0,
+            "RR_thigh_joint": 20.0,
+            "RR_calf_joint": 20.0
+          },
+          "damping": {
+            "FL_hip_joint": 0.5,
+            "FL_thigh_joint": 0.5,
+            "FL_calf_joint": 0.5,
+            "FR_hip_joint": 0.5,
+            "FR_thigh_joint": 0.5,
+            "FR_calf_joint": 0.5,
+            "RL_hip_joint": 0.5,
+            "RL_thigh_joint": 0.5,
+            "RL_calf_joint": 0.5,
+            "RR_hip_joint": 0.5,
+            "RR_thigh_joint": 0.5,
+            "RR_calf_joint": 0.5
+          }
+        },
+        "history_layout": ""
+      }
+    },
+    {
+      "id": "go2-kaiwu-moe-cts-8exp",
+      "label": "Go2 MoE-CTS 8-experts (kaiwu_rl)",
+      "path": "simulation/policies/go2_kaiwu_moe_cts_8exp.onnx",
+      "obs_dim": 45,
+      "action_dim": 12,
+      "history_len": 5,
+      "source": "kaiwu_rl RoboGauge 发布策略（训练源 go2_rl_gym legged_gym go2）",
+      "contract": {
+        "observation_kind": "go2_rl_sdk_45",
+        "obs_dim": 45,
+        "action_dim": 12,
+        "history_len": 5,
+        "command_dims": 3,
+        "task_type": "velocity",
+        "action_joint_order": [
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint"
+        ],
+        "default_joint_angles": {
+          "FL_hip_joint": 0.1,
+          "FL_thigh_joint": 0.8,
+          "FL_calf_joint": -1.5,
+          "FR_hip_joint": -0.1,
+          "FR_thigh_joint": 0.8,
+          "FR_calf_joint": -1.5,
+          "RL_hip_joint": 0.1,
+          "RL_thigh_joint": 1.0,
+          "RL_calf_joint": -1.5,
+          "RR_hip_joint": -0.1,
+          "RR_thigh_joint": 1.0,
+          "RR_calf_joint": -1.5
+        },
+        "action_scale": 0.25,
+        "scales": {
+          "ang_vel": 0.25,
+          "dof_pos": 1.0,
+          "dof_vel": 0.05,
+          "command": [
+            2.0,
+            2.0,
+            0.25
+          ]
+        },
+        "command_ranges": {
+          "lin_vel_x": [
+            -1.0,
+            1.5
+          ],
+          "lin_vel_y": [
+            -0.5,
+            0.5
+          ],
+          "ang_vel_z": [
+            -0.7,
+            0.7
+          ]
+        },
+        "control": {
+          "stiffness": {
+            "FL_hip_joint": 20.0,
+            "FL_thigh_joint": 20.0,
+            "FL_calf_joint": 20.0,
+            "FR_hip_joint": 20.0,
+            "FR_thigh_joint": 20.0,
+            "FR_calf_joint": 20.0,
+            "RL_hip_joint": 20.0,
+            "RL_thigh_joint": 20.0,
+            "RL_calf_joint": 20.0,
+            "RR_hip_joint": 20.0,
+            "RR_thigh_joint": 20.0,
+            "RR_calf_joint": 20.0
+          },
+          "damping": {
+            "FL_hip_joint": 0.5,
+            "FL_thigh_joint": 0.5,
+            "FL_calf_joint": 0.5,
+            "FR_hip_joint": 0.5,
+            "FR_thigh_joint": 0.5,
+            "FR_calf_joint": 0.5,
+            "RL_hip_joint": 0.5,
+            "RL_thigh_joint": 0.5,
+            "RL_calf_joint": 0.5,
+            "RR_hip_joint": 0.5,
+            "RR_thigh_joint": 0.5,
+            "RR_calf_joint": 0.5
+          }
+        },
+        "history_layout": ""
+      }
     }
   ],
   "browser_actuator_rebuild": true,
