@@ -75,7 +75,7 @@ legged_studio/
 ├── web/                   # 纯静态前端（无构建），由 FastAPI 挂载到 /web
 │   └── sim2sim/           # 浏览器内 sim2sim（MuJoCo WASM + ONNX Runtime Web）
 ├── scripts/               # 启动器、CLI、Windows 运行时下载与打包脚本
-├── tools/                 # 离线工具链（URDF 校验/转 MJCF、策略转换、契约代码生成）
+├── tools/                 # 离线工具链（URDF 校验/转 MJCF、策略转换、契约代码生成、移植准入审计）
 ├── packaging/             # electron-builder 两种发行变体配置
 ├── docs/                  # 产品文档（桌面程序 / Web 程序）
 ├── 00_know/               # 知识库与决策文档（盘点 / 标准 / 方案 / 专题报告）→ 00_know/README.md
@@ -96,8 +96,9 @@ legged_studio/
 | 训练后端（隔离） | MJLab 1.6.0（MuJoCo Warp）+ PyTorch（cu128/cpu）+ BAM 执行器模型 |
 | Web 前端 | 纯 HTML/CSS/ES Module JS，无构建步骤；Three.js 本地 vendor |
 | 浏览器 sim2sim | MuJoCo WASM（pthread）+ ONNX Runtime Web 1.23.2 + Three.js，全部离线 vendor |
-| 数据契约 | JSON Schema ×6 + 生成的 Pydantic 模型 |
-| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测、前端 vendor 冒烟 |
+| 数据契约 | JSON Schema ×8 + 生成的 Pydantic 模型 |
+| 资产准入 | 移植准入审计（训练/仿真须有 00_resources 上游训练源码佐证，包自包含与策略↔onnx 一致性检查），见 `tools/audit_porting_admission.py` |
+| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测、移植准入审计、前端 vendor 冒烟 |
 
 ---
 
@@ -171,9 +172,10 @@ npm run build:linux               # Linux AppImage
 
 **知识库与决策文档**（面向维护者，索引见 [`00_know/README.md`](00_know/README.md)）：
 
-- [知识库索引](00_know/README.md) —— 愿景与路线 / 资产调研 / 参数标准 / 契约收敛专题四组文档的导航
+- [知识库索引](00_know/README.md) —— 愿景与路线 / 资产调研 / 参数标准 / B 组专题四组文档的导航
 - [参考资源库](00_resources/README.md) —— 按来源项目组织的参考资源、项目 × 机型矩阵与省略登记
 - [资源模型重构方案](00_know/重构方案_RobotAsset资源模型与实施路线.md) —— RobotAsset 5 资源模型与 M0–M5 落地路线
+- [B8 移植准入报告](00_know/B8_移植准入报告.md) —— 训练/仿真的移植准入规则（须有上游训练源码佐证）+ 14 机型审计矩阵
 
 ---
 
