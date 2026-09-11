@@ -54,5 +54,19 @@
     "right_finger5_joint4": 0.009017295241756363
   },
   "policies": [],
-  "notes": "灵巧手固定基座；20 关节滑条可直接驱动。episode 50s，timestep 0.01（Euler，eulerdamp 关闭）。"
+  "notes": "灵巧手固定基座；20 关节滑条可直接驱动。episode 50s，timestep 0.01（Euler，eulerdamp 关闭）。",
+  "terrains": [
+    {
+      "id": "flat",
+      "label": "Hand (fixed base)",
+      "path": "simulation/scene.xml",
+      "browser_scene": true
+    },
+    {
+      "id": "reorient",
+      "label": "Reorient (palm-up + cube)",
+      "path": "simulation/scene_reorient.xml",
+      "browser_scene": true
+    }
+  ]
 }
