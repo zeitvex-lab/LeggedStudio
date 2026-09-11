@@ -561,6 +561,69 @@ function buildLocomotionObservation() {
   }
 }
 
+// TRON1（LimX）encoder+policy 部署：单帧 obs 与 tron1-rl-deploy-python 的
+// controllers 对齐。isaaclab 模式关节段按 swap 表重排；点足/足底末尾拼
+// gait_clock(2)+gait(4)；轮足 joint_pos 排除轮（jointPosIdx）。编码器输入为
+// 该单帧的历史缓冲（oldest→newest），由 app.js 的 encoder 链负责打包。
+function swapByMapping(arr, mapping) {
+  const out = new Array(mapping.length).fill(0);
+  for (let i = 0; i < mapping.length; i += 1) out[i] = arr[mapping[i]];
+  return out;
+}
+
+function buildTron1Observation(gait) {
+  const imu = readImuSample();
+  const n = CONFIG.numActions;
+  const mapping = CONFIG.tron1Swap || Array.from({ length: n }, (_, i) => i);
+  sim.obs.fill(0);
+  const q = [];
+  const dq = [];
+  const act = [];
+  for (let i = 0; i < n; i += 1) {
+    q.push(jointQpos(i));
+    dq.push(jointQvel(i));
+    act.push(sim.action[i]);
+  }
+  let jp = q.map((v, i) => (v - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale);
+  if (CONFIG.tron1JointPosIdx && CONFIG.tron1JointPosIdx.length) {
+    jp = CONFIG.tron1JointPosIdx.map((idx) => jp[idx]);
+    jp = swapByMapping(jp, CONFIG.tron1SwapPos || mapping);
+  } else {
+    jp = swapByMapping(jp, mapping);
+  }
+  const dqs = swapByMapping(dq.map((v) => v * CONFIG.dofVelScale), mapping);
+  const acts = swapByMapping(act, mapping);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (const v of jp) sim.obs[offset++] = v;
+  for (const v of dqs) sim.obs[offset++] = v;
+  for (const v of acts) sim.obs[offset++] = v;
+  if (gait) {
+    const freq = CONFIG.tron1GaitFreq || 1.3;
+    const swing = CONFIG.tron1GaitSwing || 0.12;
+    sim.tron1GaitIndex = ((sim.tron1GaitIndex || 0) + 0.02 * freq) % 1;
+    sim.obs[offset++] = Math.sin(sim.tron1GaitIndex * 2 * Math.PI);
+    sim.obs[offset++] = Math.cos(sim.tron1GaitIndex * 2 * Math.PI);
+    for (const v of [freq, 0.5, 0.5, swing]) sim.obs[offset++] = v;
+  }
+}
+
+function buildTron1PfObservation() {
+  if (CONFIG.numObs !== 30 || CONFIG.numActions !== 6) throw new Error(`tron1_pf_30 requires 30/6; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  buildTron1Observation(true);
+}
+
+function buildTron1SfObservation() {
+  if (CONFIG.numObs !== 36 || CONFIG.numActions !== 8) throw new Error(`tron1_sf_36 requires 36/8; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  buildTron1Observation(true);
+}
+
+function buildTron1WfObservation() {
+  if (CONFIG.numObs !== 28 || CONFIG.numActions !== 8) throw new Error(`tron1_wf_28 requires 28/8; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  buildTron1Observation(false);
+}
+
 function buildAgilityLowLevelObservation() {
   const imu = readImuSample();
   const rpy = imu.rpy;
@@ -696,6 +759,9 @@ function geomBodyName(geomId) {
     g1_mjswan_balance: buildG1MjswanBalanceObservation,
     [WHEEL_LEG_GAIT_OBSERVATION]: buildWheelLegGaitObservation,
     [WHEEL_LEG_JUMP_OBSERVATION]: buildWheelLegJumpObservation,
+    tron1_pf_30: buildTron1PfObservation,
+    tron1_sf_36: buildTron1SfObservation,
+    tron1_wf_28: buildTron1WfObservation,
   };
 
   function buildObservation() {

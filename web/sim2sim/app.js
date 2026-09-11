@@ -615,6 +615,7 @@ async function loadPlatformConfig() {
         id: selectedPolicy.id || config.policy?.id,
         disabled: false,
         onnx_url: selectedPolicy.url || config.policy?.onnx_url || "",
+        encoder_url: selectedPolicy.encoder_url || config.policy?.encoder_url || null,
         contract: { ...(config.policy?.contract || {}), ...selectedPolicy.contract },
       };
     }
@@ -805,6 +806,16 @@ async function loadPolicyFromConfig(config, initial = false) {
   const previousPolicy = sim.policy;
   sim.policy = session;
   sim.policyInfo = inspectPolicy(session, contract);
+  // encoder+policy 双模型（TRON1 等）：额外加载 encoder 会话。
+  try { await sim.encoderSession?.release?.(); } catch (error) { console.warn("encoder release failed", error); }
+  sim.encoderSession = null;
+  if (policy.encoder_url) {
+    const encBytes = await fetchPolicyModelBytes(cacheBustedUrl(policy.encoder_url, `${revision}-enc-${Date.now()}`));
+    sim.encoderSession = await ort.InferenceSession.create(encBytes, {
+      executionProviders: ["wasm"],
+      graphOptimizationLevel: "basic",
+    });
+  }
   resetPolicyState();
   // The MoE expert panel only makes sense for policies that emit per-expert
   // weights. NP3O (and other plain actors) don't, so hide it for them.
@@ -816,6 +827,10 @@ async function loadPolicyFromConfig(config, initial = false) {
     sim.policyInfo.baseObsSize || CONFIG.numObs,
     sim.policyInfo.historyFrames || contract.history_len || 5,
   );
+  // encoder 历史缓冲：TRON1 的 encoder 输入是单帧 obs 的 oldest→newest 历史。
+  sim.encoderFrames = sim.encoderSession ? Math.max(1, Math.round(Number(contract?.tron1?.history) || 10)) : 0;
+  sim.encoderHistory = sim.encoderFrames ? new Float32Array(sim.encoderFrames * CONFIG.numObs) : null;
+  CONFIG.encoderChain = !!sim.encoderSession;
   const metaProblem = validatePolicyMetadata(modelBytes);
   applyPlatformLabels(config);
   setStatus(
@@ -983,6 +998,7 @@ async function switchPolicy(policyId) {
           id: selected.id || policyId,
           disabled: false,
           onnx_url: selected.url,
+          encoder_url: selected.encoder_url || null,
           health: { status: "pass", checks: [{ id: "package", ok: true, message: "Package policy manifest" }] },
           contract: { ...(previousConfig.policy?.contract || {}), ...(selected.contract || {}) },
         },
@@ -1219,6 +1235,8 @@ function resetPolicyState() {
   for (const state of sim.policyInfo?.recurrentStates || []) {
     sim.recurrentState[state.inputName] = allocateTensorData(state.type, state.size);
   }
+  if (sim.encoderHistory) sim.encoderHistory.fill(0);
+  sim.tron1GaitIndex = 0;
 }
 
 function updateRecurrentStates(output, info) {
@@ -1665,6 +1683,19 @@ function applyPolicyContract(contract, order = []) {
   if (Number.isFinite(actionDim) && actionDim > 0 && actionDim !== CONFIG.numActions) {
     console.warn(`[sim2sim] policy action_dim=${actionDim} differs from viewer action_dim=${CONFIG.numActions}`);
   }
+  // TRON1 型 encoder+policy 部署：观测/动作的 isaaclab 关节序 swap、gait 参数、命令缩放。
+  const tron1 = contract?.tron1 || null;
+  CONFIG.tron1Swap = Array.isArray(tron1?.swap) ? tron1.swap.map(Number) : null;
+  CONFIG.tron1SwapPos = Array.isArray(tron1?.swap_pos) ? tron1.swap_pos.map(Number) : null;
+  CONFIG.tron1JointPosIdx = Array.isArray(tron1?.joint_pos_idx) ? tron1.joint_pos_idx.map(Number) : null;
+  CONFIG.tron1GaitFreq = finiteNumber(tron1?.gait_freq, 1.3);
+  CONFIG.tron1GaitSwing = finiteNumber(tron1?.gait_swing, 0.12);
+  CONFIG.tron1CmdScale = Array.isArray(tron1?.cmd_scale) ? tron1.cmd_scale.map(Number) : [1, 1, 1];
+  if (!CONFIG.tron1Swap) {
+    CONFIG.tron1SwapPos = null;
+    CONFIG.tron1JointPosIdx = null;
+  }
+  sim.tron1GaitIndex = 0;
   updateCommandLabel();
   OBSERVATION.updateGaitControl();
   updateVelocityCommandControls();
@@ -3366,8 +3397,31 @@ async function runPolicy() {
   }
   const info = sim.policyInfo;
   const policyStateEpoch = sim.policyStateEpoch;
+  // encoder+policy 链（TRON1）：encoder 吃单帧 obs 的 oldest→newest 历史 → latent，
+  // policy 输入 = [latent, obs, 缩放命令]（1D）。
+  let encoderOutput = null;
+  if (sim.encoderSession && sim.encoderHistory) {
+    const frames = sim.encoderFrames;
+    sim.encoderHistory.copyWithin(0, CONFIG.numObs);
+    sim.encoderHistory.set(sim.obs, (frames - 1) * CONFIG.numObs);
+    const encName = sim.encoderSession.inputNames[0];
+    const encOut = await queueOrtRun(() => sim.encoderSession.run({
+      [encName]: new ort.Tensor("float32", new Float32Array(sim.encoderHistory), [sim.encoderHistory.length]),
+    }));
+    encoderOutput = encOut[sim.encoderSession.outputNames[0]].data;
+  }
   const feeds = {};
-  if (info.historyName) {
+  if (encoderOutput) {
+    const scale = CONFIG.tron1CmdScale || [1, 1, 1];
+    const scaled = new Float32Array(3);
+    for (let i = 0; i < 3; i += 1) scaled[i] = (sim.cmd[i] || 0) * (scale[i] || 1);
+    const total = encoderOutput.length + CONFIG.numObs + 3;
+    const buf = new Float32Array(total);
+    buf.set(encoderOutput.subarray ? encoderOutput.subarray(0, encoderOutput.length) : encoderOutput, 0);
+    buf.set(sim.obs, encoderOutput.length);
+    buf.set(scaled, encoderOutput.length + CONFIG.numObs);
+    feeds[info.obsName] = new ort.Tensor("float32", buf, [total]);
+  } else if (info.historyName) {
     const frames = info.historyFrames || Math.floor(sim.history.length / CONFIG.numObs) || 5;
     feeds[info.obsName] = new ort.Tensor("float32", new Float32Array(sim.obs), [1, CONFIG.numObs]);
     feeds[info.historyName] = new ort.Tensor("float32", new Float32Array(sim.history), [1, frames, CONFIG.numObs]);
@@ -3381,12 +3435,19 @@ async function runPolicy() {
   }
   const output = await queueOrtRun(() => sim.policy.run(feeds));
   if (policyStateEpoch !== sim.policyStateEpoch) return;
-  const action = output[info.actionName]?.data || output.action?.data || output.actions?.data;
+  let action = output[info.actionName]?.data || output.action?.data || output.actions?.data;
   const weights = info.weightsName ? output[info.weightsName]?.data : null;
   const estimatedVel = info.estimatedVelName ? output[info.estimatedVelName]?.data : null;
   const latent = info.latentName ? output[info.latentName]?.data : null;
   const nextHistory = info.nextHistoryName ? output[info.nextHistoryName]?.data : null;
   if (!action) throw new Error(`策略输出缺少动作张量；输出=${info.outputNames.join(",")}`);
+  // TRON1：policy 输出为 isaaclab 关节序，反解回 SDK 序供 actuate 使用。
+  if (encoderOutput && Array.isArray(CONFIG.tron1Swap)) {
+    const map = CONFIG.tron1Swap;
+    const sdk = new Float32Array(action.length);
+    for (let i = 0; i < map.length && i < action.length; i += 1) sdk[map[i]] = action[i];
+    action = sdk;
+  }
   updateRecurrentStates(output, info);
 
   // 训练端 clip_actions 在 scale/offset 前逐关节裁剪原始动作（部署一致）。
