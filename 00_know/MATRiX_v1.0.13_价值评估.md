@@ -190,7 +190,7 @@ slam/src/config/config.yaml: lid_topic=/front_lidar, imu_topic=/front_lidar/imu
 | 类别 | 内容 | 数量/体量 |
 |---|---|---|
 | 机器人模型 | go2、go2w、xgb、xg2、xgw、xgw2、zgws、zgwsarm、zgwt | 9 族，485M |
-| 传感器声明 | `config/config.json` + `config/sensors/*.json` | 9 套预设 |
+| 传感器声明 | `config/config.json` + `config/sensors/*.json`（上游 9 个预设文件） | 本项目收录 **4 套 / 13 条** |
 | 传感器语料 | Airy / Mid360 录制帧 | 2 份，76M |
 | 传感器预设参数 | `config/jszr_params/lidar_process_params.yaml` 等 | — |
 | 地图机制 | `Content/model/MapDataTable.json`（空表）+ `Saved/DLCs/*.pak` + UPDATE LIST 目录 | 基础包为空目录 |
@@ -259,7 +259,7 @@ slam/src/config/config.yaml: lid_topic=/front_lidar, imu_topic=/front_lidar/imu
 
 | 文件 | 改动 | 作用 |
 |---|---|---|
-| `backend/sensor_suite.py`（新增） | 8 套预设 / 17 条传感器声明 + `/api/sensors/kinds`、`/api/sensors/presets`、`/api/sensors/presets/{name}` | 把 MATRiX 的传感器声明变成控制面契约；每 kind 标注 `proprioceptive` / `exteroceptive` |
+| `backend/sensor_suite.py`（新增） | **4 套预设 / 13 条传感器声明**（default / lidar_dual / mid360_slam / zg）+ `/api/sensors/kinds`、`/api/sensors/presets`、`/api/sensors/presets/{name}` | 把 MATRiX 的传感器声明变成控制面契约；每 kind 标注 `proprioceptive` / `exteroceptive`。**已剔除 4 个平台成像变体**（`fisheye` / `infrared` / `panorama` / `ptzrgb`）：非 RL 观测口径且无策略消费，平台侧要投影/可视化直接读上游 `sensors/*.json`；据此 kinds 收敛为 imu/odom/gps/rgb/depth/lidar 六类 |
 | `backend/api_complete.py` | 注册 `sensor_suite_router` | 端点生效 |
 | `backend/perception_observations.py` | 新增 `lidar_height_scan`（width=180，`align_with=heightfield`）；`sensor` 注释补 `lidar` | 雷达点云→高度扫描的观测入口，网格与内置 heightfield 同规格，便于逐格对齐回归 |
 | `tools/matrix_sensor_corpus.py`（新增） | 容器探测（魔数/版本/帧大小/正体偏移/帧数/时长）+ `--selftest` + `--json`，退出码 0/1/2 | 语料可验证、缺失可降级；不写猜测性载荷解析 |
