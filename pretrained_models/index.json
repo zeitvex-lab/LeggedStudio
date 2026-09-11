@@ -368,6 +368,22 @@
     "source": "builtin-package"
   },
   {
+    "id": "unitree_go2--go2-arenax-velocity",
+    "name": "Go2 ArenaX velocity",
+    "robot": "unitree_go2",
+    "family": "Unitree Go2",
+    "algorithm": "PPO",
+    "success_rate": null,
+    "avg_reward": null,
+    "path": "/api/simulation/browser-package/unitree_go2/simulation/policies/go2_arenax_45x6.onnx",
+    "url": "/api/simulation/browser-package/unitree_go2/simulation/policies/go2_arenax_45x6.onnx",
+    "play_url": "/web/sim2sim/index.html?robot=unitree_go2&policy=go2-arenax-velocity",
+    "obs_dim": 45,
+    "action_dim": 12,
+    "task_type": "velocity",
+    "source": "builtin-package"
+  },
+  {
     "id": "unitree_go2--go2-backflip-69",
     "name": "Backflip 69D (imitation, motion-csv)",
     "robot": "unitree_go2",
@@ -413,6 +429,22 @@
     "obs_dim": 69,
     "action_dim": 12,
     "task_type": "imitation",
+    "source": "builtin-package"
+  },
+  {
+    "id": "unitree_go2--go2-moe-cts",
+    "name": "Go2 MoE-CTS (robot_lab)",
+    "robot": "unitree_go2",
+    "family": "Unitree Go2",
+    "algorithm": "PPO",
+    "success_rate": null,
+    "avg_reward": null,
+    "path": "/api/simulation/browser-package/unitree_go2/simulation/policies/go2_moe_cts.onnx",
+    "url": "/api/simulation/browser-package/unitree_go2/simulation/policies/go2_moe_cts.onnx",
+    "play_url": "/web/sim2sim/index.html?robot=unitree_go2&policy=go2-moe-cts",
+    "obs_dim": 45,
+    "action_dim": 12,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {

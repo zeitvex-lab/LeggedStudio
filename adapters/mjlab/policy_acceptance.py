@@ -220,7 +220,9 @@ class PackageContract:
         self.step_dt = 1.0 / self.physics_hz * self.decimation
         self.actuator_interface = str(self.sim.get("actuator_interface") or "torque").lower()
         self.initial_height = float(self.sim.get("initial_base_height") or 0.4)
-        self.torque_limits = {k.lower(): float(v) for k, v in (self.sim.get("torque_limits") or {}).items()}
+        # 力矩限幅：策略契约可覆盖包级（不同训练工程限幅不同，如 ArenaX 用 45）。
+        torque_limits = self.contract.get("torque_limits") or self.sim.get("torque_limits") or {}
+        self.torque_limits = {k.lower(): float(v) for k, v in torque_limits.items()}
 
         scales = self.contract.get("scales") or {}
         self.ang_vel_scale = float(scales.get("ang_vel", 1.0))
@@ -269,8 +271,11 @@ class PackageContract:
         self.motion_loader = None
 
         control = self.sim.get("control") or {}
-        self.stiffness = control.get("stiffness") or self.sim.get("stiffness") or {}
-        self.damping = control.get("damping") or self.sim.get("damping") or {}
+        ctrl = self.contract.get("control") or {}
+        self.stiffness = (ctrl.get("stiffness") or self.contract.get("stiffness")
+                          or control.get("stiffness") or self.sim.get("stiffness") or {})
+        self.damping = (ctrl.get("damping") or self.contract.get("damping")
+                        or control.get("damping") or self.sim.get("damping") or {})
 
         ranges = (self.contract.get("command_ranges") or {})
         self.cmd_ranges = (
@@ -661,6 +666,8 @@ def pack_history(obs: "ObsBuilder", frames: list[np.ndarray]) -> np.ndarray:
     c = obs.contract
     if c.history_layout == "frame_major_v1":
         return np.concatenate(list(reversed(frames)))  # 最新帧在前
+    if c.history_layout == "frame_major":
+        return np.concatenate(frames)  # 整帧依时序拼接，最老帧在前（DreamWaQ 系）
     if c.observation_kind == "zexw_53":
         terms = [(0, 3), (3, 3), (6, 3), (9, 12), (21, 12), (33, 4), (37, 16)]
         return np.concatenate([f[o:o + l] for o, l in terms for f in frames])
@@ -835,7 +842,7 @@ def actuate(contract: PackageContract, model, data, obs: ObsBuilder, raw: np.nda
         kp = c.gain_for(c.stiffness, name)
         kd = c.gain_for(c.damping, name)
         torque = (target - q) * kp - dq * kd
-        limit = c.torque_limits.get(name.lower())
+        limit = c.gain_for(c.torque_limits, name)
         if limit:
             torque = clamp(torque, -limit, limit)
         aid = actuator_for_joint(model, name)
@@ -860,7 +867,8 @@ def default_modes(ranges) -> list[list[float]]:
     return modes
 
 
-def apply_actuator_rebuild(spec, package_dir: Path, sim_cfg: dict[str, Any]) -> bool:
+def apply_actuator_rebuild(spec, package_dir: Path, sim_cfg: dict[str, Any],
+                           effort_override: dict[str, float] | None = None) -> bool:
     """镜像后端的浏览器执行器重建（`configure_browser_actuators`），在 MjSpec 上原地改。
 
     包 XML 常是 `motor`（力矩）执行器，而契约 `actuator_interface=position_target`
@@ -902,7 +910,9 @@ def apply_actuator_rebuild(spec, package_dir: Path, sim_cfg: dict[str, Any]) -> 
     for joint_name in order:
         name = str(joint_name)
         params = expanded.get(name) or {}
-        effort = float(params.get("effort") or 40.0)
+        # 逐策略 effort 覆盖：不同训练工程的力矩限幅不同（如 ArenaX 用 45）。
+        override = (effort_override or {}).get(name.lower())
+        effort = float(override) if override else float(params.get("effort") or 40.0)
         # control_modes 优先：轮子应建成 velocity 执行器，否则位置执行器会吃掉速度目标。
         mode = "velocity" if _is_velocity_joint(name) else str(params.get("mode") or "position")
         act = spec.add_actuator()
@@ -931,7 +941,8 @@ def apply_actuator_rebuild(spec, package_dir: Path, sim_cfg: dict[str, Any]) -> 
     return True
 
 
-def load_package_model(package_dir: Path, sim_cfg: dict[str, Any]):
+def load_package_model(package_dir: Path, sim_cfg: dict[str, Any],
+                       effort_override: dict[str, float] | None = None):
     """直接编译 model/robot.xml（meshdir 相对自身目录可解析），并补一块验收平地。
 
     编译前应用契约的 armature/frictionloss（增量真值，覆盖 XML default），并按需重建
@@ -943,7 +954,7 @@ def load_package_model(package_dir: Path, sim_cfg: dict[str, Any]):
     if not model_xml.is_file():
         raise SystemExit(f"包内缺少模型: {model_xml}")
     spec = mujoco.MjSpec.from_file(str(model_xml))
-    apply_actuator_rebuild(spec, package_dir, sim_cfg)
+    apply_actuator_rebuild(spec, package_dir, sim_cfg, effort_override)
 
     armature = sim_cfg.get("armature") or {}
     frictionloss = sim_cfg.get("frictionloss") or {}

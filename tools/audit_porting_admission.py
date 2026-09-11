@@ -125,6 +125,8 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
     "unitree_go2": {
         "go2-backflip-69": "包内 local_tasks/robots/unitree/go2/tasks/aerial（backflip）",
         "go2-jump-69": "包内 local_tasks/robots/unitree/go2/tasks/aerial（jump）",
+        "go2-moe-cts": "go2_rl_robotlab/source/robot_lab/.../tasks/go2/env_cfg.py（MoE-CTS, hist10）",
+        "go2-arenax-velocity": "lain_job/LLoco/src/lloco/tasks/go2_skills/amp_dreamwaq（ArenaX README：go2_amp_dreamwaq 检查点）",
     },
     "unitree_go2w": {
         "unitree-velocity-legs": "unitree_rl_mjlab_go2w（velocity_legs_only）",
