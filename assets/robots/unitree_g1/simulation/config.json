@@ -226,7 +226,8 @@
           "joint_pos_rel": 1,
           "joint_vel_rel": 1,
           "last_action": 1
-        }
+        },
+        "task_type": "velocity"
       }
     },
     {
@@ -799,7 +800,8 @@
             1.0
           ]
         },
-        "autoplay": false
+        "autoplay": false,
+        "task_type": "velocity"
       }
     }
   ],

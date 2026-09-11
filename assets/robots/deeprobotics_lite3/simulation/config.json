@@ -169,7 +169,8 @@
             "HR_Knee_joint": 1.0
           }
         },
-        "autoplay": false
+        "autoplay": false,
+        "task_type": "velocity"
       }
     },
     {
@@ -328,7 +329,8 @@
           ],
           "note": "官方 sdk_deploy 部署参数（PostureUnsafeCheck 官方注释禁用，实机移植须重新启用）"
         },
-        "autoplay": false
+        "autoplay": false,
+        "task_type": "velocity"
       }
     }
   ]

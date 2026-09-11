@@ -147,7 +147,8 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
         return {"status": "skipped", "reason": f"{family} 技能需参考动作/任务专属判据，静态站立判据不适用"}
 
     criteria = {**DEFAULT_CRITERIA[family], **(criteria_all.get(family) or {})}
-    single_mode = family in ("stand", "balance", "imitation", "acrobatics", "parkour")
+    # 复合命令（command_dims != 3）一律单指令评估，即使 task_type 标为 velocity。
+    single_mode = (contract.command_dims != 3) or family in ("stand", "balance", "imitation", "acrobatics", "parkour")
     modes = [[0.0, 0.0, 0.0]] if single_mode else engine.default_modes(contract.cmd_ranges)
     mode_reports = []
     for idx, cmd in enumerate(modes):
