@@ -258,6 +258,19 @@ def main() -> int:
                 report = {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
             record = {"robot": pkg.name, "policy": entry.get("id") or Path(rel).name, "onnx": rel, **report}
             results.append(record)
+            if args.write_acceptance and report.get("status") == "ok":
+                policy_file = pkg / rel
+                if policy_file.is_file():
+                    sidecar = {
+                        "schema": "policy-acceptance-1.0",
+                        "generated_at": datetime.now().isoformat(timespec="seconds"),
+                        "seconds_per_mode": (report.get("criteria") or {}).get("trial_timeout_s", args.seconds),
+                        "seed": args.seed,
+                        **report,
+                    }
+                    policy_file.with_name(policy_file.stem + ".acceptance.json").write_text(
+                        json.dumps(sidecar, ensure_ascii=False, indent=2), encoding="utf-8"
+                    )
             flag = {"pass": "OK ", "fail": "!! ", "skipped": "SK ", "ok": "?? "}.get(report.get("verdict") or report.get("status"), "..")
             print(f"[{flag}] {pkg.name}/{record['policy']} -> {report.get('verdict') or report.get('status')}")
 
