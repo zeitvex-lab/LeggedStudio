@@ -207,6 +207,9 @@ slam/src/config/config.yaml: lid_topic=/front_lidar, imu_topic=/front_lidar/imu
 
 现状（改动前）：`web/advanced_sim.html` 用**文案**描述「外部传感器（深度相机 / 雷达 / 点云）」，机读词汇只有 `backend/perception_observations.py` 的 4 个派生源（`proprio / foot_contact / heightfield / depth_camera`）、策略侧靠 `sim_surface=advanced` 过滤。**缺：传感器清单契约、多传感器语料、点云→观测的对齐基准。**
 
+> **该缺口已闭合**：传感器清单契约 = `backend/sensor_suite.py` + `/api/sensors/*`；多传感器语料 = `tools/matrix_sensor_corpus.py`；点云 → 观测对齐 = 187 格 height scan 契约（`backend/height_scan.py`）。
+> 另：**「感知两条路径」分层**（A 类感知入观测 / B 类感知在策略外、盲狗 RL 同样合格）见 [`任务清单.md`](./任务清单.md) H 节与 [`最终愿景.md`](./最终愿景.md) §高级仿真——`sim_surface=advanced` 的判定依据是「这条策略被怎么用」，不是「策略是否吃传感器」。
+
 | # | MATRiX 资产 | 对高级仿真的价值 | 落地 |
 |---|---|---|---|
 | 1 | `config.json` + `sensors/*.json` | 声明式传感器 schema（类型/挂载体/外参/频率/话题/内参）→ 把「外部传感器」从文案变成契约 | **本次已落地**（`backend/sensor_suite.py` + `/api/sensors/*` + 高级仿真页面板） |

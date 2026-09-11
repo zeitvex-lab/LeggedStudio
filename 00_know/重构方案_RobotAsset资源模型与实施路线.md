@@ -248,12 +248,12 @@ Policy（策略产物）      ← 强制携带出身证明 {spec_ref, recipe_ref
 ```
 Scenario = World(表征+地形) × Mode(sampling|replay|interactive|headless_eval)
          × Sensors(特权 height_scan/segmentation | 可部署 depth/RGB/IMU，含 DR/延迟预算)
-         × CommandSource(teleop|script|planner|dataset)
+         × CommandSource(teleop|script|planner|dataset|perception)
          × Checks(L0-L6 探针 | sim2sim 对照 | DR 网格 | D0-D1 验收 | AGILE 质量指标)
          × Recorders(指标 + 行为回放)
 ```
 
-导航 = `CommandSource: planner`（规划器输出 cmd_vel → 复用同一 velocity 策略，**无需重训**）；感知策略 = 深度图走 `Sensors → obs_component`（student 策略）而非导航栈。两条路径同一框架。
+导航 = `CommandSource: planner`（规划器输出 cmd_vel → 复用同一 velocity 策略，**无需重训**）；感知策略 = 深度图走 `Sensors → obs_component`（student 策略）而非导航栈；**外挂感知** = 传感器/感知模块出决策与指令，载体 `CommandSource: perception|script`，此时 RL 只负责运动、**可以是盲狗**（用户裁决 2026-09-12）。三条路径同一框架——判 `sim_surface=advanced` 看的是「这条策略被怎么用」，而不是「策略是否吃传感器」。
 
 ### 5.3 SkillSpec 考卷设计（借鉴 RoboGauge）
 
@@ -347,8 +347,8 @@ ONNX 侧双重元数据（借鉴 mjlab `exporter_utils.attach_metadata_to_onnx`�
 - 策略归 **Policy 注册表**：`simulation/policies/*.onnx` 与各包散落的 26 个 onnx 集中为 `policies/<artifact-id>/{policy.onnx, deploy.yaml, policy-artifact.json}`。
 - 执行器可替换：`simulation_api` 降级为 Scenario 的一个 executor；WASM 与服务端 MuJoCo 是同一 Scenario 的两个 executor，不是两个概念。
 
-#### (4) 高级仿真 = Scenario(planner|dataset) + 导航栈作为 executor
-- 统一进 Scenario 扩展轴：`CommandSource ∈ {planner, dataset}` + `Sensors` + `Checks`。**导航 = planner 输出 cmd_vel 复用同一 velocity 策略，无需重训**（§5.2）。
+#### (4) 高级仿真 = Scenario(planner|perception|dataset) + 导航栈作为接口 executor
+- 统一进 Scenario 扩展轴：`CommandSource ∈ {planner, perception, dataset}` + `Sensors` + `Checks`。**导航 = planner 输出 cmd_vel 复用同一 velocity 策略，无需重训**（§5.2）；**外挂感知 = perception**（传感器/感知模块做目标判定与决策，RL 只负责运动、可为盲狗）。两条都**不需要**策略吃传感器。
 - 新契约 `NavigationScenario`（scenario-contract 的 profile）：地图/代价地图、规划器（A*/Dijkstra/Hybrid A*）、航点/语义目标、避障、传感器（LiDAR/深度/RGB/IMU）与频率、指标（成功率/路径长/碰撞数/耗时）。
 - 上层栈**外挂**：ROS2 / Nav2 / RTAB-Map / OctoMap / VLM 作为 `adapters/nav_ros2` executor，用 D2–D6 telemetry 接口对接（§5.5），不进核心。
 - 复用证据：`00_resources/{unitree-go2-slam-nav2, Odin-Nav-Stack, LightNav-0}` 已含 RTAB-Map+Nav2、Odin1+NeuPAN、LightNav(Qwen3-VL) 三条导航参考；`backend/terrain_gen`（ArenaX 移植）与 `map_editor_api` / `route_planner` 产出的地图与路线即 Scenario 资产。
@@ -359,7 +359,7 @@ ONNX 侧双重元数据（借鉴 mjlab `exporter_utils.attach_metadata_to_onnx`�
 | 训练配置 | `training/config.json` + `profiles/` | 物理→Morphology 内核；任务→SkillRecipe；运行→Run | 三层拆分；`registry/skills` + 包内 patch |
 | 训练 | `training/source/local_tasks` | adapter（投影函数）+ `runs/` | 框架上移 `tasks/`；包内零代码 |
 | 低级仿真 | `simulation/config.json` + `simulation_api` + `web/sim2sim` | Scenario(replay/interactive) × 表征 × Policy | 物理参数上移；地形入 Scenario；策略入 `policies/`；executor 可换 |
-| 高级仿真 | `navigation/map_editor/terrain/route` API | Scenario(planner/dataset) + nav executor | 建 `NavigationScenario`；nav 栈外挂；cmd_vel 解耦 |
+| 高级仿真 | `navigation/map_editor/terrain/route` API | Scenario(planner/perception/dataset) + nav 接口 executor | 建 `NavigationScenario`；nav 栈只做接口；cmd_vel 解耦 |
 
 > 落地节奏建议：§(1) 随 M2/M3 一起做；§(2) = M4；§(3) 折入 M5 的 sim2sim 升格；§(4) 作为 Phase 2/3，先在 `scenario-contract` 下加 `NavigationScenario` profile，不改核心。
 
