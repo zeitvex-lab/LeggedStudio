@@ -47,8 +47,13 @@ matrix-v1.0.13/
 matrix-robot-mc-*/
 
 # 外部参考源码仓（只读克隆，不入库）
-genisom-roamerx-open/
-amithyst-matrix/
+# 注意：必须锚定到仓库根（前导 /），否则会连带忽略 00_resources/ 下的资源副本
+/genisom-roamerx-open/
+/amithyst-matrix/
+/go2_unitree_ros2/
+/taggy/
+/unitree_go2_edu_movement/
+/26Raicom/
 
 # Portable runtime (generated)
 runtime/
