@@ -113,6 +113,15 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         # LeggedSkillDeploy 仅提供 moe_best.pt + config.yaml（推理产物），无训练源码
         "go1-moe-loco": "",
     },
+    "limx_tron1_pf": {
+        "pf-tron1b-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_pointfoot_env_cfg.py",
+    },
+    "limx_tron1_sf": {
+        "sf-tron1b-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_solefoot_env_cfg.py",
+    },
+    "limx_tron1_wf": {
+        "wf-tron1b-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_wheelfoot_env_cfg.py",
+    },
     "unitree_go2": {
         "go2-backflip-69": "包内 local_tasks/robots/unitree/go2/tasks/aerial（backflip）",
         "go2-jump-69": "包内 local_tasks/robots/unitree/go2/tasks/aerial（jump）",
@@ -200,6 +209,8 @@ def package_inventory(package_root: Path) -> dict[str, Any]:
     onnx = sorted(p.relative_to(package_root).as_posix() for p in package_root.rglob("*.onnx"))
     # 一致性：策略声明 ↔ 实际 onnx 文件必须一一对应
     declared = {str(p.get("path") or "") for p in policies if p.get("path")}
+    # 双模型部署（encoder + policy，如 TRON1）：encoder.onnx 也算已声明。
+    declared |= {str(p.get("encoder") or "") for p in policies if p.get("encoder")}
     dangling = sorted(p for p in declared if not (package_root / p).is_file())
     orphan = sorted(f for f in onnx if f not in declared)
     return {

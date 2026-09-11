@@ -115,9 +115,16 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
     model.opt.timestep = 1.0 / contract.physics_hz
     data = mujoco.MjData(model)
     sess = ort.InferenceSession(str(policy_path), providers=["CPUExecutionProvider"])
-    in_dim = sess.get_inputs()[0].shape[-1]
-    if contract.total_obs_dim and in_dim != contract.total_obs_dim:
-        return {"status": "dim_mismatch", "error": f"ONNX 输入 {in_dim} vs 契约 {contract.total_obs_dim}"}
+    sess_enc = None
+    if contract.encoder_rel:
+        enc_path = Path(contract.encoder_rel)
+        if not enc_path.is_absolute():
+            enc_path = package_dir / enc_path
+        sess_enc = ort.InferenceSession(str(enc_path), providers=["CPUExecutionProvider"])
+    else:
+        in_dim = sess.get_inputs()[0].shape[-1]
+        if contract.total_obs_dim and in_dim != contract.total_obs_dim:
+            return {"status": "dim_mismatch", "error": f"ONNX 输入 {in_dim} vs 契约 {contract.total_obs_dim}"}
 
     if family in ("imitation", "acrobatics", "parkour") or contract.observation_kind in engine._DEFERRED_KINDS:
         return {"status": "skipped", "reason": f"{family}/{contract.observation_kind} 需 MotionLoader/复合命令，走 Node 桥（obs_bridge.mjs）"}
@@ -127,7 +134,10 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
     mode_reports = []
     for idx, cmd in enumerate(modes):
         obs = engine.ObsBuilder(contract, model, data)
-        metrics = engine.run_mode(sess, contract, model, data, obs, cmd, seconds, seed + idx)
+        if sess_enc is not None:
+            metrics = engine.run_encoder_mode(sess_enc, sess, contract, model, data, obs, cmd, seconds, seed + idx)
+        else:
+            metrics = engine.run_mode(sess, contract, model, data, obs, cmd, seconds, seed + idx)
         verdict = evaluate_mode(metrics, family, contract, criteria, gate_tracking)
         mode_reports.append({"command": cmd, "metrics": metrics, "verdict": verdict})
     passed = sum(1 for m in mode_reports if m["verdict"]["ok"])
