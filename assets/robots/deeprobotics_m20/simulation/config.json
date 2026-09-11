@@ -45,7 +45,6 @@
     "hl_wheel_joint": 0.6,
     "hr_wheel_joint": 0.6
   },
-  "velocity_scale": 5.0,
   "control_modes": {
     "fl_wheel_joint": "velocity",
     "fr_wheel_joint": "velocity",
@@ -244,7 +243,8 @@
             "hr_wheel_joint": 0.6
           }
         },
-        "autoplay": false
+        "autoplay": false,
+        "task_type": "velocity"
       }
     }
   ]

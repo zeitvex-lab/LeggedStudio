@@ -86,21 +86,30 @@
       "path": "simulation/policies/BEST_alpha_walking.onnx",
       "label": "Walking",
       "obs_dim": 61,
-      "action_dim": 14
+      "action_dim": 14,
+      "contract": {
+        "task_type": "velocity"
+      }
     },
     {
       "id": "stand",
       "path": "simulation/policies/BEST_alpha_stand.onnx",
       "label": "Stand",
       "obs_dim": 61,
-      "action_dim": 14
+      "action_dim": 14,
+      "contract": {
+        "task_type": "stand"
+      }
     },
     {
       "id": "sitstand",
       "path": "simulation/policies/BEST_alpha_sitstand.onnx",
       "label": "Sit / Stand",
       "obs_dim": 61,
-      "action_dim": 14
+      "action_dim": 14,
+      "contract": {
+        "task_type": "stand"
+      }
     },
     {
       "id": "roulade",
@@ -117,7 +126,10 @@
       "path": "simulation/policies/BEST_roller.onnx",
       "label": "Roller",
       "obs_dim": 61,
-      "action_dim": 14
+      "action_dim": 14,
+      "contract": {
+        "task_type": "acrobatics"
+      }
     },
     {
       "id": "roller-crouch",
@@ -134,21 +146,30 @@
       "path": "simulation/policies/alpha_ground_pick.onnx",
       "label": "Ground Pick",
       "obs_dim": 61,
-      "action_dim": 14
+      "action_dim": 14,
+      "contract": {
+        "task_type": "acrobatics"
+      }
     },
     {
       "id": "ball-kick-left",
       "path": "simulation/policies/ball_kick_left.onnx",
       "label": "Ball Kick Left",
       "obs_dim": 61,
-      "action_dim": 14
+      "action_dim": 14,
+      "contract": {
+        "task_type": "acrobatics"
+      }
     },
     {
       "id": "ball-kick-right",
       "path": "simulation/policies/ball_kick_right.onnx",
       "label": "Ball Kick Right",
       "obs_dim": 61,
-      "action_dim": 14
+      "action_dim": 14,
+      "contract": {
+        "task_type": "acrobatics"
+      }
     }
   ],
   "initial_base_height": 0.12,

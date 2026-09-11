@@ -47,6 +47,7 @@ def main() -> None:
             "play_url": str(card.get("play_url") or ""),
             "obs_dim": card.get("obs_dim"),
             "action_dim": card.get("action_dim"),
+            "task_type": card.get("task_type"),
             "source": "builtin-package",
         }
 

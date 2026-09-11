@@ -12,6 +12,7 @@
     "play_url": "/web/sim2sim/index.html?robot=deeprobotics_lite3&policy=deeprobotics_lite3-velocity-benchmark",
     "obs_dim": 270,
     "action_dim": 12,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -27,6 +28,7 @@
     "play_url": "/web/sim2sim/index.html?robot=deeprobotics_lite3&policy=lite3-official-sdk-45",
     "obs_dim": 270,
     "action_dim": 12,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -42,6 +44,7 @@
     "play_url": "/web/sim2sim/index.html?robot=deeprobotics_m20&policy=m20-velocity-57",
     "obs_dim": 57,
     "action_dim": 16,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -57,6 +60,7 @@
     "play_url": "/web/sim2sim/index.html?robot=limx_tron1_pf&policy=pf-tron1b-velocity",
     "obs_dim": 30,
     "action_dim": 6,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -72,6 +76,7 @@
     "play_url": "/web/sim2sim/index.html?robot=limx_tron1_sf&policy=sf-tron1b-velocity",
     "obs_dim": 36,
     "action_dim": 8,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -87,6 +92,7 @@
     "play_url": "/web/sim2sim/index.html?robot=limx_tron1_wf&policy=wf-tron1b-velocity",
     "obs_dim": 28,
     "action_dim": 8,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -102,6 +108,7 @@
     "play_url": "/web/sim2sim/index.html?robot=microduck&policy=ball-kick-left",
     "obs_dim": 61,
     "action_dim": 14,
+    "task_type": "acrobatics",
     "source": "builtin-package"
   },
   {
@@ -117,6 +124,7 @@
     "play_url": "/web/sim2sim/index.html?robot=microduck&policy=ball-kick-right",
     "obs_dim": 61,
     "action_dim": 14,
+    "task_type": "acrobatics",
     "source": "builtin-package"
   },
   {
@@ -132,6 +140,7 @@
     "play_url": "/web/sim2sim/index.html?robot=microduck&policy=ground-pick",
     "obs_dim": 61,
     "action_dim": 14,
+    "task_type": "acrobatics",
     "source": "builtin-package"
   },
   {
@@ -147,6 +156,7 @@
     "play_url": "/web/sim2sim/index.html?robot=microduck&policy=roller",
     "obs_dim": 61,
     "action_dim": 14,
+    "task_type": "acrobatics",
     "source": "builtin-package"
   },
   {
@@ -162,6 +172,7 @@
     "play_url": "/web/sim2sim/index.html?robot=microduck&policy=roller-crouch",
     "obs_dim": 61,
     "action_dim": 14,
+    "task_type": "acrobatics",
     "source": "builtin-package"
   },
   {
@@ -177,6 +188,7 @@
     "play_url": "/web/sim2sim/index.html?robot=microduck&policy=roulade",
     "obs_dim": 61,
     "action_dim": 14,
+    "task_type": "acrobatics",
     "source": "builtin-package"
   },
   {
@@ -192,6 +204,7 @@
     "play_url": "/web/sim2sim/index.html?robot=microduck&policy=sitstand",
     "obs_dim": 61,
     "action_dim": 14,
+    "task_type": "stand",
     "source": "builtin-package"
   },
   {
@@ -207,6 +220,7 @@
     "play_url": "/web/sim2sim/index.html?robot=microduck&policy=stand",
     "obs_dim": 61,
     "action_dim": 14,
+    "task_type": "stand",
     "source": "builtin-package"
   },
   {
@@ -222,6 +236,7 @@
     "play_url": "/web/sim2sim/index.html?robot=microduck&policy=walking",
     "obs_dim": 61,
     "action_dim": 14,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -237,6 +252,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_b2&policy=unitree_b2-velocity-benchmark",
     "obs_dim": 45,
     "action_dim": 12,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -252,6 +268,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_b2w&policy=robotlab-velocity-57",
     "obs_dim": 57,
     "action_dim": 16,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -267,6 +284,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_g1&policy=dance-102",
     "obs_dim": 154,
     "action_dim": 29,
+    "task_type": "imitation",
     "source": "builtin-package"
   },
   {
@@ -282,6 +300,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_g1&policy=dance-gangnam-style",
     "obs_dim": 154,
     "action_dim": 29,
+    "task_type": "imitation",
     "source": "builtin-package"
   },
   {
@@ -297,6 +316,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_g1&policy=dance-subject2",
     "obs_dim": 154,
     "action_dim": 29,
+    "task_type": "imitation",
     "source": "builtin-package"
   },
   {
@@ -312,6 +332,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_g1&policy=locomotion",
     "obs_dim": 99,
     "action_dim": 29,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -327,6 +348,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_g1&policy=unitree-velocity",
     "obs_dim": 98,
     "action_dim": 29,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -342,6 +364,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_go1&policy=go1-playground-joystick",
     "obs_dim": 48,
     "action_dim": 12,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -357,6 +380,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_go2&policy=go2-backflip-69",
     "obs_dim": 69,
     "action_dim": 12,
+    "task_type": "imitation",
     "source": "builtin-package"
   },
   {
@@ -372,6 +396,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_go2&policy=go2-baseline-164k",
     "obs_dim": 45,
     "action_dim": null,
+    "task_type": null,
     "source": "builtin-package"
   },
   {
@@ -387,6 +412,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_go2&policy=go2-jump-69",
     "obs_dim": 69,
     "action_dim": 12,
+    "task_type": "imitation",
     "source": "builtin-package"
   },
   {
@@ -402,6 +428,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_go2w&policy=robotlab-velocity-57",
     "obs_dim": 57,
     "action_dim": 16,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -417,6 +444,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_go2w&policy=unitree-velocity-legs",
     "obs_dim": 53,
     "action_dim": 12,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -432,6 +460,7 @@
     "play_url": "/web/sim2sim/index.html?robot=unitree_go2w&policy=velocity",
     "obs_dim": 53,
     "action_dim": 16,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -447,6 +476,7 @@
     "play_url": "/web/sim2sim/index.html?robot=zex-w&policy=model-6800",
     "obs_dim": 53,
     "action_dim": 16,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -462,6 +492,7 @@
     "play_url": "/web/sim2sim/index.html?robot=zex-w&policy=model-84",
     "obs_dim": 53,
     "action_dim": 16,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -477,6 +508,7 @@
     "play_url": "/web/sim2sim/index.html?robot=zex-w&policy=model-9600",
     "obs_dim": 53,
     "action_dim": 16,
+    "task_type": "velocity",
     "source": "builtin-package"
   },
   {
@@ -492,6 +524,7 @@
     "play_url": "/web/sim2sim/index.html?robot=zex-w&policy=model-rough",
     "obs_dim": 53,
     "action_dim": 16,
+    "task_type": "velocity",
     "source": "builtin-package"
   }
 ]

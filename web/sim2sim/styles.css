@@ -1520,3 +1520,24 @@ body.panel-hidden .panel-left { display: none !important; }
 .vel-cmd-actions button { min-height: 26px; padding: 0 10px; font-size: 11px; }
 
 
+
+/* 任务类型面板（按 contract.task_type 适配） */
+.task-panel {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.task-panel-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+.task-panel-row strong { color: var(--accent, #7fd1ff); }
+.task-panel-note {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}

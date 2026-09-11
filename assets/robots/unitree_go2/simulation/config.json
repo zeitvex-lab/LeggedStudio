@@ -155,7 +155,8 @@
           "ref_axis": "y_up",
           "loop": false
         },
-        "autoplay": false
+        "autoplay": false,
+        "task_type": "imitation"
       }
     },
     {
@@ -269,7 +270,8 @@
           "ref_axis": "z_up",
           "loop": true
         },
-        "autoplay": false
+        "autoplay": false,
+        "task_type": "imitation"
       }
     }
   ],
