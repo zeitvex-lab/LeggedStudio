@@ -57,8 +57,9 @@ def task_family(entry: dict, contract) -> str:
     explicit = contract.task_type or (entry.get("contract") or {}).get("task_type")
     if explicit:
         return str(explicit)
-    # 速度命令 >=3 维 → velocity；否则视为站立/平衡。
-    return "velocity" if (contract.command_dims or 0) >= 3 else "stand"
+    # 只有纯 3 维速度命令才算 velocity；复合命令（如 microduck 13 维）按站立/任务
+    # 固定指令评估，避免用速度扫描去测技能/站姿策略。
+    return "velocity" if (contract.command_dims or 0) == 3 else "stand"
 
 
 def evaluate_mode(metrics: dict, family: str, contract, criteria: dict,
