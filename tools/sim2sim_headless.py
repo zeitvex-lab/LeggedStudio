@@ -143,6 +143,8 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
         return {"status": "skipped", "reason": f"{contract.observation_kind} 布局待实现（Node 桥）"}
     if motion and contract.motion_loader is None:
         return {"status": "skipped", "reason": "缺少 motion_csv 参考动作"}
+    if family in ("acrobatics", "parkour") and not motion:
+        return {"status": "skipped", "reason": f"{family} 技能需参考动作/任务专属判据，静态站立判据不适用"}
 
     criteria = {**DEFAULT_CRITERIA[family], **(criteria_all.get(family) or {})}
     single_mode = family in ("stand", "balance", "imitation", "acrobatics", "parkour")
