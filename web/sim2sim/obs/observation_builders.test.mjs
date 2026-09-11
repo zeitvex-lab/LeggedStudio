@@ -164,4 +164,50 @@ console.log(`\nPASS=${passed} FAIL=${failed}`);
 test('go2w_rl_sdk_57', makeCtx({ kind:'go2w_rl_sdk_57', numObs:57, numActions:16 }));
 // s07_amp_cts
 test('s07_amp_cts', makeCtx({ kind:'s07_amp_cts', numObs:45, numActions:12 }));
+// 参考时钟到达 duration 后【默认钳制保持末帧】（上游 rl_sdk
+// `motion_time = min(rl_time, duration)`）。回绕会让 backflip 在落地阶段被重置
+// 回起始蹲跳段，机器人背部着地。
+{
+  const c = makeCtx({ kind:'go2_motion_69', numObs:69, numActions:12 });
+  c.CONFIG.motionJointMapping = Array.from({length:12},(_,i)=>i);
+  const seen = [];
+  const loader = makeMotionLoader(12);
+  loader.update = (t) => { seen.push(t); };
+  c.sim.motionLoader = loader;
+  const obs = createObservationSystems(c);
+  obs.resetMotionTime();
+  for (let i = 0; i < 620; i += 1) obs.buildObservation(); // 620 * 0.02s = 12.4s > duration 10s
+  const maxSeen = Math.max(...seen);
+  const wrapped = seen.some((t, i) => i > 0 && t < seen[i - 1]);
+  if (Math.abs(maxSeen - loader.duration) > 1e-9 || wrapped) {
+    failed++;
+    console.log('FAIL go2_motion_69 clamps clock at duration --', maxSeen, 'wrapped=', wrapped);
+  } else {
+    passed++;
+    console.log('OK go2_motion_69 clamps clock at duration');
+  }
+}
+// 契约声明 motion_params.loop=true 时改为循环重放（go2-jump-69 用）：时钟回绕到
+// [0, duration) 并持续循环，且绝不越过 duration。
+{
+  const c = makeCtx({ kind:'go2_motion_69', numObs:69, numActions:12 });
+  c.CONFIG.motionJointMapping = Array.from({length:12},(_,i)=>i);
+  c.CONFIG.motionLoop = true;
+  const seen = [];
+  const loader = makeMotionLoader(12);
+  loader.update = (t) => { seen.push(t); };
+  c.sim.motionLoader = loader;
+  const obs = createObservationSystems(c);
+  obs.resetMotionTime();
+  for (let i = 0; i < 620; i += 1) obs.buildObservation();
+  const wrapped = seen.some((t, i) => i > 0 && t < seen[i - 1]);
+  const inRange = seen.every((t) => t >= 0 && t <= loader.duration);
+  if (!wrapped || !inRange) {
+    failed++;
+    console.log('FAIL go2_motion_69 loops clock when motionLoop=true -- wrapped=', wrapped, 'inRange=', inRange);
+  } else {
+    passed++;
+    console.log('OK go2_motion_69 loops clock when motionLoop=true');
+  }
+}
 console.log(`\nFINAL PASS=${passed} FAIL=${failed}`);
