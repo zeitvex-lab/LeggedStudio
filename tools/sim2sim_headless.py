@@ -62,8 +62,11 @@ def task_family(entry: dict, contract) -> str:
 
 
 def evaluate_mode(metrics: dict, family: str, contract, criteria: dict,
-                  gate_tracking: bool = False) -> dict:
-    """硬门 = 存活/未摔 + 稳态姿态；跟踪精度为质量指标，按 gate_tracking 决定是否卡门。"""
+                  gate_tracking: bool = False, ref_height: float | None = None) -> dict:
+    """硬门 = 存活/未摔 + 稳态姿态；跟踪精度为质量指标，按 gate_tracking 决定是否卡门。
+
+    高度基准优先用「默认姿静立参考高度」ref_height（多策略共享包级初高时更稳健）。
+    """
     hard: list[dict] = []
     survival = float(metrics.get("survival_ratio") or 0.0)
     hard.append({"name": "survival", "ok": survival >= criteria["survival_min"],
@@ -71,11 +74,14 @@ def evaluate_mode(metrics: dict, family: str, contract, criteria: dict,
     if metrics.get("fell"):
         hard.append({"name": "not_fallen", "ok": False, "value": metrics.get("fell_at_s")})
     if family in ("stand", "balance", "velocity"):
-        h_ratio = metrics.get("height_steady_ratio")
+        base = ref_height if (ref_height and ref_height > 1e-6) else contract.initial_height
+        h_steady = metrics.get("height_steady")
+        h_ratio = (float(h_steady) / max(base, 1e-6)) if h_steady is not None else metrics.get("height_steady_ratio")
         if h_ratio is None:
-            h_ratio = (metrics.get("height_min") or 0.0) / max(contract.initial_height, 1e-6)
+            h_ratio = (metrics.get("height_min") or 0.0) / max(base, 1e-6)
         hard.append({"name": "height_ratio_steady", "ok": h_ratio >= criteria["height_ratio_min"],
-                     "value": round(float(h_ratio), 3), "min": criteria["height_ratio_min"]})
+                     "value": round(float(h_ratio), 3), "min": criteria["height_ratio_min"],
+                     "ref_height": round(float(base), 3)})
         roll_s = metrics.get("roll_steady_max_deg")
         pitch_s = metrics.get("pitch_steady_max_deg")
         tilt = max(roll_s if roll_s is not None else (metrics.get("roll_max_deg") or 0.0),
@@ -114,6 +120,10 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
     model = engine.load_package_model(package_dir, sim_cfg)
     model.opt.timestep = 1.0 / contract.physics_hz
     data = mujoco.MjData(model)
+    try:
+        ref_height = engine.static_stand_height(contract, model, data, engine.ObsBuilder(contract, model, data))
+    except Exception:  # noqa: BLE001
+        ref_height = None
     sess = ort.InferenceSession(str(policy_path), providers=["CPUExecutionProvider"])
     sess_enc = None
     if contract.encoder_rel:
@@ -138,7 +148,7 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
             metrics = engine.run_encoder_mode(sess_enc, sess, contract, model, data, obs, cmd, seconds, seed + idx)
         else:
             metrics = engine.run_mode(sess, contract, model, data, obs, cmd, seconds, seed + idx)
-        verdict = evaluate_mode(metrics, family, contract, criteria, gate_tracking)
+        verdict = evaluate_mode(metrics, family, contract, criteria, gate_tracking, ref_height)
         mode_reports.append({"command": cmd, "metrics": metrics, "verdict": verdict})
     passed = sum(1 for m in mode_reports if m["verdict"]["ok"])
     return {

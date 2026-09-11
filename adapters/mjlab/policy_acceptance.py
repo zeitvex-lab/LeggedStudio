@@ -840,6 +840,26 @@ def _tron1_obs(obs: "ObsBuilder", cmd: np.ndarray) -> tuple[np.ndarray, np.ndarr
     return frame, scaled_cmd
 
 
+def static_stand_height(contract: PackageContract, model, data, obs: ObsBuilder, seconds: float = 1.5) -> float:
+    """零动作下用策略默认姿静立得到的参考高度。
+
+    多个策略共享一个包级 `initial_base_height`，但各自默认站姿不同（深蹲/直腿），
+    拿包级初高当基准会误杀。以「默认姿静立高度」为基准更稳健。
+    """
+    import mujoco
+
+    spawn_default(contract, model, data, obs)
+    total = int(seconds / contract.step_dt)
+    zero = np.zeros(contract.action_dim, dtype=np.float32)
+    heights: list[float] = []
+    for step in range(total):
+        actuate(contract, model, data, obs, zero)
+        mujoco.mj_step(model, data)
+        if step > total * 0.6:
+            heights.append(float(data.qpos[2]))
+    return float(np.mean(heights)) if heights else contract.initial_height
+
+
 def run_encoder_mode(sess_enc, sess_pol, contract: PackageContract, model, data,
                      obs: ObsBuilder, cmd: list[float], seconds: float, seed: int) -> dict[str, Any]:
     """encoder+policy 双会话滚出（TRON1 等）。"""
