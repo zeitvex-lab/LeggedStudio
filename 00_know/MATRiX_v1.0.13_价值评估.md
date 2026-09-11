@@ -1,9 +1,16 @@
-# MATRiX v1.0.13 价值评估与提取记录
+# MATRiX 生态价值评估与提取记录（v1.0.13 运行时 + MC v0.6.4 + RoamerX Open）
 
-> **来源**：GitHub `zsibot/matrix` release `v1.0.13`（Linux 运行时发行包，三分卷 4,251,475,324 B）
-> **许可**：文档/源码仓 `00_resources/zsi_rl/matrix` 为 BSD-3-Clause (ZsiBot)；**发行包内二进制、模型、地图 DLC 与第三方组件许可另行声明，再分发前必须逐项核实**
-> **本地位置**：`matrix-v1.0.13/`（已加入 `.gitignore`，不入库）
-> **核对日期**：2026-09-12　**核对方式**：解压实物 + MuJoCo 加载实测 + 容器分帧实测
+> **本篇是 MATRiX 生态的单一归档文档**（按约定不另开新文档），覆盖三份外部发行物：
+>
+> | # | 发行物 | 来源 | 体量 | 本地位置（均已 `.gitignore`） |
+> |---|---|---|---|---|
+> | A | MATRiX v1.0.13 Linux 运行时 | GitHub `zsibot/matrix` release `v1.0.13`（三分卷） | 4,251,475,324 B | `matrix-v1.0.13/` |
+> | B | MATRiX Robot MC v0.6.4 | GitHub `GENISOM-AI/MATRiX_Robot_MC` release `v0.6.4` | 900,690,534 B（sha256 校验通过） | `matrix-robot-mc-v0.6.4/` |
+> | C | GENISOM RoamerX Open | GitHub `zsibot/genisom_roamerx_open`（`main`，`--depth 1`） | 131 MB | `genisom-roamerx-open/` |
+>
+> **许可**：A 的文档/源码仓 BSD-3-Clause (ZsiBot)；**A、B 内的二进制、模型、地图 DLC 与第三方组件许可另行声明，再分发前必须逐项核实**；C 为 BSD-3-Clause (ZsiBot)，可复用但须保留版权。
+> **核对日期**：2026-09-12　**核对方式**：解压实物 + MuJoCo 加载实测 + 容器分帧实测 + sha256 校验 + 只读静态分析
+> **明确不做**：不绕过 B 的模型加密（理由与替代路径见 §6.1）
 
 ---
 
@@ -26,6 +33,21 @@ MATRiX_v1.0.13/
 ```
 
 默认配置（`UeSim/Content/model/config/config.json`）：`mujoco_model=model/xgb/xgb.xml`、`inside_mc=true`（内置运控）、`network_mode=standalone`、`zenoh_router=tcp/0.0.0.0:7447`、`state_port=mujoco/state`、`cmd_port=mujoco/cmd`、`main_body=base_link`。
+
+### 1.1 三份发行物的关系（生态闭环）
+
+```text
+A  MATRiX/UeSim ── 仿真 + 传感器 + 渲染
+     ├─ 传感器：Zenoh `rt/**` @ :7447（/front_lidar、/front_lidar/imu、/odom/mujoco_odom…）
+     └─ 运控接口：共享内存 ABI / UDP / LCM
+                       │
+B  MC v0.6.4 ── 机器人运控（加密策略 + 导出规格 + 依赖 deb）
+     └─ 依赖：deps/robot-forward_0.2.9、mujoco_3.3.0、onnx_1.51.0、ecal、lcm、robots_dog_msgs
+                       │  RMW_IMPLEMENTATION=rmw_zenoh_cpp、ROS_DOMAIN_ID=89
+C  RoamerX Open ── SLAM / 定位 / 代价地图 / 规划 / 控制（ROS2 Humble）
+```
+
+三者是**配套**的：C 的中文文档要求的 `robot-forward` 恰好是 B 里的 `deps/robot-forward_0.2.9_amd64.deb`；C 要求修改的 `sdk_config.yaml` 就是 B 的 `config/sdk_config.yaml`（`target_ip/target_port: 43988`）。
 
 ## 2. 实测结论
 
@@ -87,6 +109,82 @@ tuoluo  skwalk  snow  dsb  hload  slim  moonwalk  mimic        （policy_* / odo
 - 分帧自洽：`body_offset + frames × frame_size == file_size`（352+37×1720320=63652192；348+48×264936=12717276）。
 - **载荷未解码**：把正体按 float32 列统计，两文件均以非有限/非规格化值为主（Airy 仅 77.8% 有限、Mid360 97.1%），说明记录内**整型与浮点字段混排**，而发行包未给出布局文档 → 不写猜测性解析器，只固化可验证的容器事实。
 
+### 2.5 MC v0.6.4：可校验、结构清楚、规格含金量高
+
+```text
+$ sha256sum -c  ← 5ac4d58793045936f4e1fe78e311473af7cd5f99aed8b9b1779d944dc5ded72b  → 成功
+$ tar -tzf | grep -E "^/|\.\./"   → 无绝对路径/上跳条目
+$ tar -xzf …                       → 3.9s，865M，225 条目
+```
+
+| 目录 | 内容 | 体量 |
+|---|---|---|
+| `deps/` | 7 个 .deb：`robot-forward_0.2.9`、`mujoco_3.3.0`、`onnx_1.51.0`、`ecal_5.13.3`、`lcm_1.5.1`、`zsibot_common_0.6.3`、`robots_dog_msgs_0.9.2_humble` | 52M |
+| `build/export/mc/bin/` | `librobot.so`、`libbiomimetics.so`、`libdynacore_*.so` 等运行时 | 10 个 .so |
+| `build/export/config/` | **39 个 yaml**：每机型 `*-rl_onnx_config` / `-rl_rknn_config` / `-motion_config` / `-mimic_config` / `-dance_config` / `-user-parameters` | — |
+| `build/export/onnx_model_crypto/` | 165 个加密模型（目录名自带 `crypto`，与 §2.3 结论一致） | — |
+| `build/export/robot_urdf/` | `zgwsarm` URDF | — |
+| `config/sdk_config.yaml` | `target_ip` / `target_port: 43988`（即 C 的文档要求修改的文件） | — |
+
+**两类 yaml 的真实内容（已逐字核对，修正了我的初始预期）**：
+
+1. `*-rl_onnx_config.yaml` **不是** obs/action 规格，而是**行为名 → 模型路径的注册表**。以 `xg` 为例，它暴露了完整行为清单：
+   ```text
+   backflip  jump  upright  gait  mix_walk  gait_walk  flipover  mix_backflip
+   frontflip  sideflip  balancestand  tracking  walkpos  ik  crawl  moonwalk  measured
+   ```
+   并且能看到两条结构线索：`policy_*` 与 `odom_*` **成对**（策略与估计器分离）；`policy_him_hs1_encoder_path` + `policy_him_hs1_actor_path` 是 **HIM 非对称 encoder/actor 拆分**（与本项目 go1 所用的 HIMLoco 同族）。
+2. `*-user-parameters.yaml` 是**参数真值**（以 `xg` 为例）：
+
+   | 类别 | 关键值 |
+   |---|---|
+   | 关节 Kp/Kd | `Kp_joint [3,4,3]` / `Kd_joint [1,1,1]`；摆动相同 |
+   | WBC 增益 | `Kp_body [100,100,200]`、`Kp_foot [800,100,100]`、`Kp_ori [500,500,500]` |
+   | MPC / CM-PC | `horizon 14`、`fmax 120`、`Q_rpy/Q_xyz/Q_*d` 权重、`preview_time 0.5` |
+   | 指令上限 | `cmpc_x_vel 3.0`、`cmpc_y_vel 1.0`、`cmpc_yaw_vel 3.0` |
+   | 形态 | `body_height 0.32`、`leg_height 0.1`、`body_half_length 0.175`、`drop_height -0.13` |
+   | **关节限位** | `JPos_limit_low [-0.48,-1.15,-2.7]` / `JPos_limit_high [0.48,2.97,-0.65]`、`jointVelocityLimit 24.0` |
+   | 零位/符号 | `*_side_sign`（abad/hip/knee/wheel）、`abad/hip/knee_offset`、`*_stand_pos` / `*_liedown_pos` / `*_default_pos` |
+   | 步态 | `gait_type 4`、`gait_period_time 0.2`、`gait_switching_phase 0.5`、`gait_max/min_stance_time 0.25/0.1` |
+   | 爬行 | `min/max_crawl_x_vel ±1.0`、`±1.0`、`±3.0` |
+
+   **交叉验证（两份独立发行物互证）**：`JPos_limit_low/high = [-0.48,-1.15,-2.7] / [0.48,2.97,-0.65]` 与 A 的 `xgb.xml` 关节 `range="-0.48 0.48"`、`"-1.15 2.97"`、`"-2.7 -0.65"` **逐项一致**；MJCF 侧另有 `actuatorfrcrange="±28"`、`frictionloss="0.2"`。三者合起来就是一套完整的 actuator/限位参数集。
+
+### 2.6 RoamerX Open：生产级 ROS2 导航栈（只能静态分析）
+
+| 子树 | 内容 | 体量 |
+|---|---|---|
+| `src/navigation/src/` | 15 个 `navigo_*` 包 + `robot_navigo` 集成层 | — |
+| `src/localization/` | `fast_gicp`、`ndt_omp`、`localization`（IMU+Lidar UKF 融合） | — |
+| `src/slam/src/` | `robot_slam`（FAST-LIO 类：`ikd_tree`、`mtk_iekf`）+ `pcd2grid` | — |
+| `src/interface/robots_dog_msgs/` | **55 msg + 14 srv + 10 action** | — |
+| `map/` | `map.pgm`(419K) + `map.yaml` + `map.txt` | 420K |
+| `script/` | `start_navigation.sh` / `stop_navigation.sh` / `cleanup_backend.sh` + 依赖安装（ros2/gazebo/手柄/fishros） | 36K |
+
+**Nav2 全量分叉**（包名与插件名同步改写）：`navigo_core←nav2_core`、`navigo_util←nav2_util`、`navigo_costmap_2d←nav2_costmap_2d`、`navigo_map_server←nav2_map_server`、`navigo_bt_navigator/behavior_tree/behaviors←nav2_*`、`navigo_path_planner←nav2_planner`、`navigo_navfn_planner←nav2_navfn_planner`、`navigo_path_controller←nav2_controller`、`navigo_mppi_controller←nav2_mppi_controller(1.1.18)`、`navigo_waypoint_follower`、`navigo_velocity_optimizer←nav2_velocity_smoother`、`navigo_collision_monitor←nav2_collision_monitor`、`robot_navigo←nav2_bringup`（另加 udp/lcm/自定义节点）。
+
+**对外接口**（对项目参考价值最高的一块）：
+
+- 输入：`/front_lidar`、`/front_lidar/imu`、`/odom/mujoco_odom`、`/scan`；输出 `cmd_vel`（内部 `cmd_vel_nav`）
+- Action：`/navigate_to_pose`、`/navigate_through_poses`、`FollowPath`、`FollowWaypoints`、`ComputePathThroughPoses`、`ComputePathsToPoses`、`ExploreThroughPoses`、`BackUp`
+- Service：`/map_server/load_map`、`/load_map_service`（`LoadMap`，PCD 路径）
+- 自定义消息（地图/障碍/规划的序列化参考）：`ElectronicMap`、`ElectronicObstacle`、`ObstacleInstance2D`、`ObstacleScan`、`PlannerDebugInfo`、`PredictedPath(Array)`、`UniBestNav`、`Trajectory(Point)`、`SlamState`、`Relocalization`、`Localization`
+- 双协议控制：UDP（`robot_navigo/udp/*`、`vel_cmd_udp_publisher.cpp`）与 LCM（`lcm-types/{cpp,java}`、`vel_cmd_lcm_publisher.cpp`）
+
+**与 A 的适配配方**（`README_matrix和zsibot_roamerx_lite适配.md`）：
+
+```text
+export RMW_IMPLEMENTATION=rmw_zenoh_cpp ; export ROS_DOMAIN_ID=89 ; export SDK_CLIENT_IP=127.0.0.1
+ros2 run rmw_zenoh_cpp rmw_zenohd                       # 中枢
+sudo /opt/robot/robot-forward/install/robot_forward     # 需 root
+slam/src/config/config.yaml: lid_topic=/front_lidar, imu_topic=/front_lidar/imu
+```
+这套话题正好对上 A 的 `sensors/mid360_slam.json`（`/front_lidar` + `/front_lidar/imu` + `/odom`）。
+
+**两处必须注意的错配**：① C 的中文文档面向**旧版 MATRiX 源码树布局**（`matrix/run_sim.sh`、`./open_sim_launcher`、`matrix/src/robot_mc/...`），而 A 的 v1.0.13 文档明确声明这些路径**已不存在**；② 文档里仍是旧仓名 `zsibot_roamerx_lite`，实际仓已是 `genisom_roamerx_open`。
+
+**可跑性**：❌ 本容器 `Debian 13 (trixie)`、无 `/opt/ros`、无 `ros2`；ROS2 Humble 属 Ubuntu 22.04，构建还需 colcon + PCL/OpenCV/OMPL/BehaviorTree.CPP/Gazebo → **只能静态分析**。
+
 ## 3. 资产清单（可评估项）
 
 | 类别 | 内容 | 数量/体量 |
@@ -100,6 +198,8 @@ tuoluo  skwalk  snow  dsb  hload  slim  moonwalk  mimic        （policy_* / odo
 | 文档 | USAGE / MOTION_CONTROL / LidarCameraProjection / MAP_DLC / ZenohBBox2D / RoamerX_Lite 集成 / PixelStreaming | 15 篇，116KB |
 | 传输与远端渲染 | Zenoh router(7447) + Pixel Streaming 2 WebServer 脚本 | — |
 | 运控 | 内置 MC（加密模型 + `libonnxruntime.so.1`）+ `matrix_mc_udp_test.py` + 云台 JSON 协议(44KB) | 952M（加密） |
+| **B** 运控发行包 | `deps/`(7 deb) + `build/export/mc/bin`(10 so) + `build/export/config`(**39 yaml**) + `onnx_model_crypto`(165 加密) + `robot_urdf` + `sdk_config.yaml` | 865M |
+| **C** 导航栈 | 15 `navigo_*` + `robot_navigo` + `fast_gicp/ndt_omp/localization` + `robot_slam` + `robots_dog_msgs`(55/14/10) + `map/` | 131M |
 
 ## 4. 对项目的价值映射
 
@@ -117,6 +217,11 @@ tuoluo  skwalk  snow  dsb  hload  slim  moonwalk  mimic        （policy_* / odo
 | 6 | 动作库命名（stair/climb/flipover/handstand/mimic…）与 `policy_*`/`odom_*` 分离 | 目标驱动任务分类法与「估计器网络独立于策略」的路线参照（与 HIMLoco 一致） | 参考（不导入加密模型） |
 | 7 | `MapDataTable.json` + DLC pak 增量分发 | 大场景按需下载、不进仓的清单式分发思路 | 参考（对照 `backend/scenario_maps.py`） |
 | 8 | Pixel Streaming 2 | 远端渲染补位：浏览器 WASM 跑不动的高保真场景可放服务器推流 | 远期 |
+| 9 | **B** `*-rl_onnx_config.yaml` 行为清单 | 目标驱动任务分类法（`backflip / frontflip / sideflip / flipover / moonwalk / tracking / walkpos / ik / crawl / balancestand`）+ `policy_*`/`odom_*` 成对 + HIM `encoder`/`actor` 拆分 → 高级仿真 `task_type` / 特技触发与「估计器」设计的参照 | 参考（不入库） |
+| 10 | **B** `*-user-parameters.yaml` | 关节限位 / 零位 / 符号 / Kp-Kd / 最大速度指令 / 步态调度的**参数真值** → 传感器驱动任务的动作空间与安全边界 | **建议做三方对照**（§4.3 T1） |
+| 11 | **C** costmap / BT / MPPI / velocity_smoother / collision_monitor | 目标驱动导航任务的成熟结构与参数（避障、多点巡航、速度平滑） | 参考设计 |
+| 12 | **C** `ElectronicMap`/`ElectronicObstacle`/`ObstacleInstance2D` + `map.pgm|yaml` + `pcd2grid` | 地图与障碍的**序列化格式**、PCD→2D 栅格流程 → 对照 `scenario_maps.py` / `route_planner.py` | 参考 |
+| 13 | **C** SLAM（FAST-LIO + NDT/GICP）+ UKF 定位 | 高级仿真「外部传感器 → 状态估计」链路参照，且可作学习型估计器的**几何基线** | 需 ROS2，不进 CI |
 
 ### 4.2 高级仿真之外
 
@@ -125,6 +230,30 @@ tuoluo  skwalk  snow  dsb  hload  slim  moonwalk  mimic        （policy_* / odo
 | 9 族 MJCF | `go2`/`go2w` 交叉校验；`xgb/xg2/xgw/xgw2/zgws/zgwsarm/zgwt` 为新机型候选；`scene_terrain_moon_dynamic.xml` 为低重力地形素材 | 新机型须过规则 T（有训练源）才可入库 |
 | M20 之外的轮足/机械臂形态 | `zgwsarm`（4 足 + 6 轴臂）与项目现有形态互补 | 同上 |
 | 内置运控 UDP 协议 + 云台 JSON 协议 | 真机/外部运控接口参考 | 许可需核实 |
+
+### 4.3 对训练的价值
+
+先对齐项目训练侧的判据（计划 §P0–P9 与规则 T/S/C/X）：**新增可训练任务必须有训练源码**（`assets/robots/<id>/training/source/<task>/` 的 env_cfg / mdp / runner），否则只能落 profile、不能登记部署。
+
+**结论：A/B/C 三份发行物都不含训练源码 → 不能新增任何可训练任务；但它们能补上训练侧最缺的三类输入：参数真值、行为规格、任务判据。**
+
+| # | 训练侧输入 | 来源 | 具体用途 | 合规 |
+|---|---|---|---|---|
+| T1 | **actuator / 限位 / 零位真值** | B `*-user-parameters.yaml`：Kp/Kd（关节/WBC/FSM）、`JPos_limit_low/high`、`jointVelocityLimit`、`*_side_sign`、`*_offset`、`stand/liedown/default` 姿态、`body_height`、步态周期 | 与 A 的 MJCF（`range` / `axis` / `pos` / `actuatorfrcrange` / `frictionloss`）和项目 `contracts/` + `00_know/机器人参数单一真值表.md` 做**三方对照**；不一致即暴露真值表缺陷。纯离线、可单测 | ✅ 只读参数 |
+| T2 | **观测/动作口径旁证** | B `*-rl_onnx_config.yaml` + A 的 IC 文档（内外参、FLU 坐标、传感器频率） | 推 `obs_dim`/`action_dim` 量级与归一化惯例（如 `cmpc_x_vel 3.0` 对应命令上限、`ang_vel` 缩放）→ 用于 P5/P6 契约自查 | ⚠️ 仅旁证，不可当规格来源 |
+| T3 | **任务分类与触发枚举** | B 行为清单 + A 动作库命名 | 细化 `task_type`（velocity/stand/balance/imitation/acrobatics/parkour…）与 `trick_triggers`（backflip/frontflip/sideflip/flipover/jump/moonwalk）取值域，避免自造类别 | ✅ |
+| T4 | **估计器路线与基线** | B 的 `policy_*`/`odom_*` 成对 + `encoder`/`actor` 拆分；C 的 FAST-LIO / NDT / GICP + UKF | 对应 `perception_observations.py` 的 `obs_source: estimator/proxy/history`：B 给「学习型估计器与策略分离」的工程范式（与项目 go1 的 HIMLoco **同族**），C 给**几何/滤波基线**——学习型估计器的对照基准 | ✅ |
+| T5 | **任务判据与课程** | C 的 costmap / BT / collision_monitor / waypoint_follower + 障碍消息 + `map/` 场景 | 为目标驱动任务写成功判据（到达 / 避障 / 超时）与课程（静态→动态障碍、单点→多点巡航），与计划 §3 无头验收判据对齐 | ✅ 设计参考 |
+| T6 | **模型与物理素材** | A 的 9 族 MJCF（含月面低重力地形、轮足/机械臂形态） | 新机型候选与地形课程素材 | ⚠️ 新机型须过规则 T（有训练源）才可入库 |
+| T7 | **不可用于训练** | B 的 165 个加密策略、A 的 UeSim 运行时、C 的 ROS2 运行时 | 不能当教师/目标策略（规则 S）；不能进 CI 与自动验收（GPU / ROS2 依赖） | ❌ |
+
+**训练侧可立即做的三件事**（都不引依赖、不违反规则）：
+
+1. **T1 三方对照校验器**：把 B 的 `JPos_limit_*`、`*_side_sign`、`*_default_pos`、`*_offset` 与 A 的 MJCF `range`/`axis`/`pos` 及项目 `contracts/` 对齐，做成只读校验（`tools/` 校验器 + 测试）→ 直接产出「参数单一真值表」的证据链。
+2. **T3 枚举收敛**：用 B 的行为清单补齐 `task_type` / `trick_triggers` 的取值域，替代拍脑袋发明分类。
+3. **T4 基线登记**：在无头验收器里为估计器类观测（`base_lin_vel` 的 estimator/proxy/history）登记基线口径，把 C 的几何滤波量级作为参照。
+
+**不能做**：用 B 的加密策略当训练目标/教师（§6.1）；把 A/C 拉进 CI；用 B 的导出配置替代训练源码去登记部署策略（违反规则 T/S）。
 
 ## 5. 本次落地的提取（代码改动）
 
@@ -136,7 +265,7 @@ tuoluo  skwalk  snow  dsb  hload  slim  moonwalk  mimic        （policy_* / odo
 | `tools/matrix_sensor_corpus.py`（新增） | 容器探测（魔数/版本/帧大小/正体偏移/帧数/时长）+ `--selftest` + `--json`，退出码 0/1/2 | 语料可验证、缺失可降级；不写猜测性载荷解析 |
 | `web/advanced_sim.html` | 新增「外部传感器套件」面板，读 `/api/sensors/presets(+/default)` | 高级仿真页从文案升级为数据驱动 |
 | `backend/test_perception_observations.py` | 新增 `MatrixSensorSuiteTests` / `MatrixSensorCorpusTests` / `SensorKindCoverageTests`（模块共 19 例） | 该测试模块已在 `.cnb.yml` 的 unit-tests 清单中，改动即被 CI 覆盖 |
-| `.gitignore` | 新增 `matrix-v1.0.13/` | 9.5G 下载物永不入库 |
+| `.gitignore` | 新增 `matrix-v1.0.13/`、`matrix-robot-mc-*/`、`genisom-roamerx-open/` | 三份外部发行物（合计 10.7G）永不入库 |
 
 ## 6. 未提取 / 不建议
 
@@ -144,6 +273,16 @@ tuoluo  skwalk  snow  dsb  hload  slim  moonwalk  mimic        （policy_* / odo
 2. **不随项目分发 `UeSim` 二进制、`Engine/`、`Content/Paks/`**——许可未核实且体量 4.7G。
 3. **不写点云载荷解析器**——载荷布局无文档且实测为非纯 float 排布（见 2.4），猜测实现会污染 obs 契约。
 4. **不把 UeSim 纳入自动验收**——需 GPU + 非 root，容器与 CI 均不满足（见 2.2）。
+5. **不绕过 B 的模型加密（明确拒绝，非「暂缓」）**：`onnx_model_crypto/` 是厂商有意设置的加密保护，破解属规避技术保护措施并违反其发布条款，本项目不参与（含分析加密算法、寻密钥、内存转储等间接手段）。替代路径见下表。
+6. **不把 C 的 ROS2 运行时引入项目依赖**——Humble/Ubuntu 22.04 专属，且与项目「控制面不 import 训练栈、CI 无 GPU」的约束冲突；只取设计与参数参考。
+
+### 6.1 关于「解密模型」的替代路径
+
+| 需求 | 合规做法 |
+|---|---|
+| 知道模型吃什么 / 吐什么 | 用 B 的 **明文导出规格** `build/export/config/<机型>/*-rl_onnx_config.yaml`（行为→模型注册表）与 `*-user-parameters.yaml`（限位/增益/指令上限），配合 A 的传感器与坐标文档做契约对照 |
+| 需要权重本身 | 向 ZsiBot / GENISOM 申请授权或索取明文 ONNX 版本（其 README 指向独立发布渠道 `GENISOM-AI/MATRiX_Robot_MC`） |
+| 需要可入库、可验收的策略 | 在项目自己的训练流水线（`assets/robots/*/training/source`）重训等价策略——符合规则 S，产物可审计、可复现、可登记 |
 
 ## 7. 复现命令
 
@@ -174,6 +313,25 @@ curl -s localhost:8765/api/sensors/presets | head -c 400
 python -m unittest backend.test_perception_observations
 ```
 
+```bash
+# 6) B：下载 + 校验 + 解压（sha256 由 GitHub API 的 asset digest 给出）
+cd matrix-robot-mc-v0.6.4
+echo "5ac4d58793045936f4e1fe78e311473af7cd5f99aed8b9b1779d944dc5ded72b  MATRiX_Robot_MC-v0.6.4-linux-x86_64.tar.gz" | sha256sum -c -
+tar -xzf MATRiX_Robot_MC-v0.6.4-linux-x86_64.tar.gz
+cat MATRiX_Robot_MC-v0.6.4-linux-x86_64/build/export/config/xg/xg-user-parameters.yaml
+
+# 7) C：只读克隆 + 静态核对（本机无 ROS2，不能构建）
+git clone --depth 1 --single-branch https://github.com/zsibot/genisom_roamerx_open.git genisom-roamerx-open
+grep -n "RMW_IMPLEMENTATION\|ROS_DOMAIN_ID" genisom-roamerx-open/README_matrix和zsibot_roamerx_lite适配.md | head
+grep -rn "lid_topic\|imu_topic" genisom-roamerx-open/src/slam/src/config/config.yaml
+```
+
 ## 8. 结论
 
-MATRiX v1.0.13 对项目的**可迁移价值是「声明与语料」，不是「运行时」**：传感器 schema 与语料容器事实已抽取落地，模型可作交叉校验与新机型来源，而 UE5 运行时、加密策略、点云载荷三块不可复用或不该复用。高级仿真的下一步是把 §4.1 的 #3/#4（投影与 bbox）接进页面，并用 §4.1 #2 的语料做 `lidar_height_scan ↔ heightfield` 的逐格对齐回归。
+MATRiX 生态（A 运行时 / B 运控 / C 导航栈）对项目的**可迁移价值是「声明、规格与语料」，不是「运行时」**：
+
+- **对高级仿真**：A 的传感器 schema 与语料容器事实**已落地**（`backend/sensor_suite.py` + `/api/sensors/*` + 高级仿真页面板 + `tools/matrix_sensor_corpus.py`）；C 的 costmap/BT/MPPI/障碍消息与 SLAM 链路、A 的投影与 bbox 工具是下一步的参照与接入对象；`lidar_height_scan ↔ heightfield` 的逐格对齐回归已具备入口与语料。
+- **对训练**：三份发行物**都不含训练源码**，因此不能新增可训练任务或登记部署策略（规则 T/S）；它们的价值在于三类输入——B 的 `user-parameters`（限位/零位/增益真值，可与 A 的 MJCF 与项目契约三方对照）、B 的行为清单（`task_type` / `trick_triggers` 枚举）、C 的导航与 SLAM 栈（任务判据、课程、估计器基线）。
+- **不可复用或不该复用**：UE5/ROS2 运行时（GPU / Ubuntu 22.04 门槛，进不了 CI）、B 的加密策略（明确不解密）、点云载荷（无公开布局）。
+
+下一步优先级：① T1 参数三方对照校验器（离线、可单测，直接产出真值表证据）；② 把 A 的投影与 bbox 工具接进高级仿真页；③ 用 A 的语料做 `lidar_height_scan ↔ heightfield` 对齐回归。
