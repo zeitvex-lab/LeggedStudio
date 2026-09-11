@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-09-12T00:18:11",
+ "generated_at": "2026-09-12T01:59:56",
  "spec": "_SPEC.md",
  "policy": {
   "keep": "源码/配置/文档/数据/URDF·MJCF/推理策略文件",
@@ -1269,6 +1269,39 @@
     ".sh": 1
    },
    "readme": "m20_rl_isaacsim/README.md"
+  },
+  "matrix_zsibot": {
+   "source": "00_open/matrix_zsibot",
+   "robots": [
+    "unitree_go2",
+    "unitree_go2w",
+    "unitree_g1"
+   ],
+   "desc": "ZsiBot MATRiX 仿真平台源码快照的实现类子集（UE5 + MuJoCo + CARLA）：传感器声明、自定义/拼接场景、多机器人端口、相机与渲染协议、实景扫描 3DGS→PLY→MuJoCo proxy 流水线、G1 材质桥",
+   "kept": 46,
+   "kept_bytes": 788812,
+   "omitted": 0,
+   "omitted_bytes": 0,
+   "policy_files": 0,
+   "per_category": {
+    "model": 8,
+    "contract": 0,
+    "training": 6,
+    "deploy": 1,
+    "terrain_scene": 0,
+    "motion": 0,
+    "evaluation": 8,
+    "misc": 23
+   },
+   "ext_top": {
+    ".py": 20,
+    ".json": 12,
+    ".md": 9,
+    ".sh": 3,
+    ".rviz": 1,
+    ".c": 1
+   },
+   "readme": "matrix_zsibot/README.md"
   },
   "microduck-simulator": {
    "source": "00_open/microduck-simulator",
@@ -2723,7 +2756,8 @@
     "fan_rlsar",
     "robot_mujoco",
     "robot-descriptions-quadruped",
-    "him_dog"
+    "him_dog",
+    "matrix_zsibot"
    ]
   },
   "unitree_go2w": {
@@ -2741,7 +2775,8 @@
     "rl_sar",
     "rl_sar_zoo",
     "fan_rlsar",
-    "robot_mujoco"
+    "robot_mujoco",
+    "matrix_zsibot"
    ]
   },
   "unitree_b2": {
@@ -2803,7 +2838,8 @@
     "g1-mujoco-ros2-nav-sim-G1-MuJoCo-ROS2-",
     "g1_spinkick_example",
     "wbc-mjlab",
-    "rc_old"
+    "rc_old",
+    "matrix_zsibot"
    ]
   },
   "deeprobotics_lite3": {

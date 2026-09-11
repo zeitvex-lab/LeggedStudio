@@ -244,6 +244,14 @@ PROJECTS: dict[str, dict] = {
     "wandb": {"src": "auto_web/wandb", "robots": [],
               "desc": "Weights & Biases 客户端（Go core + Python SDK）：训练任务跟踪与可视化参考",
               "kind": "训练任务跟踪平台参考"},
+    # MATRiX 运行时/运控/导航栈的配套源码快照（v0.1.2 线）。只收「实现类」子集：
+    # 场景组合、传感器声明、多机器人端口、相机/渲染协议、实景扫描→MuJoCo proxy
+    # 流水线与 G1 材质桥；发布/部署/内部运维（含内网地址与私有仓引用）一律不收。
+    "matrix_zsibot": {"robots": ["unitree_go2", "unitree_go2w", "unitree_g1"],
+                      "desc": "ZsiBot MATRiX 仿真平台源码快照的实现类子集（UE5 + MuJoCo + CARLA）："
+                              "传感器声明、自定义/拼接场景、多机器人端口、相机与渲染协议、"
+                              "实景扫描 3DGS→PLY→MuJoCo proxy 流水线、G1 材质桥",
+                      "kind": "仿真平台参考（场景 / 感知 / 资产流水线）"},
 }
 
 # 非机型知识库：单独放在 00_resources/knowledge_base/<名称>/
