@@ -130,12 +130,12 @@ tuoluo  skwalk  snow  dsb  hload  slim  moonwalk  mimic        （policy_* / odo
 
 | 文件 | 改动 | 作用 |
 |---|---|---|
-| `backend/sensor_suite.py`（新增） | 8 套预设 / 79 条传感器声明 + `/api/sensors/kinds`、`/api/sensors/presets`、`/api/sensors/presets/{name}` | 把 MATRiX 的传感器声明变成控制面契约；每 kind 标注 `proprioceptive` / `exteroceptive` |
+| `backend/sensor_suite.py`（新增） | 8 套预设 / 17 条传感器声明 + `/api/sensors/kinds`、`/api/sensors/presets`、`/api/sensors/presets/{name}` | 把 MATRiX 的传感器声明变成控制面契约；每 kind 标注 `proprioceptive` / `exteroceptive` |
 | `backend/api_complete.py` | 注册 `sensor_suite_router` | 端点生效 |
 | `backend/perception_observations.py` | 新增 `lidar_height_scan`（width=180，`align_with=heightfield`）；`sensor` 注释补 `lidar` | 雷达点云→高度扫描的观测入口，网格与内置 heightfield 同规格，便于逐格对齐回归 |
 | `tools/matrix_sensor_corpus.py`（新增） | 容器探测（魔数/版本/帧大小/正体偏移/帧数/时长）+ `--selftest` + `--json`，退出码 0/1/2 | 语料可验证、缺失可降级；不写猜测性载荷解析 |
 | `web/advanced_sim.html` | 新增「外部传感器套件」面板，读 `/api/sensors/presets(+/default)` | 高级仿真页从文案升级为数据驱动 |
-| `backend/test_perception_observations.py` | 新增 `MatrixSensorSuiteTests` / `MatrixSensorCorpusTests` / `SensorKindCoverageTests`（18 例） | 该测试模块已在 `.cnb.yml` 的 unit-tests 清单中，改动即被 CI 覆盖 |
+| `backend/test_perception_observations.py` | 新增 `MatrixSensorSuiteTests` / `MatrixSensorCorpusTests` / `SensorKindCoverageTests`（模块共 19 例） | 该测试模块已在 `.cnb.yml` 的 unit-tests 清单中，改动即被 CI 覆盖 |
 | `.gitignore` | 新增 `matrix-v1.0.13/` | 9.5G 下载物永不入库 |
 
 ## 6. 未提取 / 不建议
