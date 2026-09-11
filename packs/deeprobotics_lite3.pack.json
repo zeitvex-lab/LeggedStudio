@@ -11,7 +11,7 @@
   "morphology_ref": {
     "id": "deeprobotics_lite3",
     "path": "assets/robots/deeprobotics_lite3/contract_v3.json",
-    "sha256": "35caf2dc737203fe19b24e1fc9264bc89f22607f9ed5e3279f09e59d37b74396"
+    "sha256": "fabff0926193a6e4d4dd3ea8166f485c89a86bcf51b34b34adbdc99482acdcad"
   },
   "skill_ref": {
     "id": "core/velocity@2.0",
