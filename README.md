@@ -109,6 +109,7 @@ legged_studio/
 - Node.js（Electron 28）
 - Python 3.12 + [uv](https://docs.astral.sh/uv/)
 - Windows 10/11（主开发平台）或 Linux
+- **正式训练建议 NVIDIA GPU**（MJLab 上游要求 GPU）；无独显时可用 **CPU profile** 完成仿真与最小训练冒烟——训练栈的 `device: auto` 会自动回退 CPU，但 CPU 吞吐低约一个量级。启动器「配置环境 · 计算设备」可在 GPU/CPU profile 间切换，**CPU 配置长期保留**
 
 ### 开发模式
 

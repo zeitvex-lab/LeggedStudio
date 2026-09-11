@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from backend.health_layers import LAYER_NAMES, build_layer_report
 
@@ -30,13 +31,23 @@ def ok_scene(robot_id: str) -> tuple[bool, str]:
     return True, f"{robot_id} 模型与场景资源齐备"
 
 
+def venv_with_frameworks(root: Path) -> Path:
+    """构造含 mjlab/torch/mujoco/warp 目录的假适配器 venv，隔离真实安装环境。"""
+    site = root / "lib" / "python3.12" / "site-packages"
+    for module in ("mjlab", "torch", "mujoco", "warp"):
+        (site / module).mkdir(parents=True, exist_ok=True)
+    return root
+
+
 class HealthLayersTest(unittest.TestCase):
     """基线：全绿时 ready 且无 first_failure，L4–L6 默认 skip。"""
 
     def test_all_pass_baseline(self) -> None:
-        report = build_layer_report(
-            gpu_probe=ok_gpu, list_tasks=ok_tasks, scene_check=ok_scene,
-        )
+        with TemporaryDirectory() as directory:
+            report = build_layer_report(
+                gpu_probe=ok_gpu, list_tasks=ok_tasks, scene_check=ok_scene,
+                venv=venv_with_frameworks(Path(directory) / "venv"),
+            )
         self.assertTrue(report["ready"])
         self.assertIsNone(report["first_failure"])
         statuses = {layer["id"]: layer["status"] for layer in report["layers"]}
@@ -54,20 +65,27 @@ class HealthLayersTest(unittest.TestCase):
         self.assertEqual(set(LAYER_NAMES), {f"L{i}" for i in range(7)})
 
 
-class BrokenGpuLocatesL0Test(unittest.TestCase):
-    """断 CUDA → 必须定位到 L0，且后续层 blocked（fail-fast）。"""
+class NoGpuFallsBackToCpuTest(unittest.TestCase):
+    """无 GPU → L0 告警但**不阻断**：CPU 可继续做仿真与冒烟验证。
 
-    def test_missing_gpu_stops_at_l0(self) -> None:
-        report = build_layer_report(
-            gpu_probe=no_gpu, list_tasks=ok_tasks, scene_check=ok_scene,
-        )
-        self.assertFalse(report["ready"])
-        self.assertEqual(report["first_failure"], "L0")
+    正式训练建议使用 GPU，但 CPU 回退不应让体检在 L0 就停摆。
+    """
+
+    def test_missing_gpu_warns_but_proceeds(self) -> None:
+        with TemporaryDirectory() as directory:
+            venv = venv_with_frameworks(Path(directory) / "venv")
+            report = build_layer_report(
+                gpu_probe=no_gpu, list_tasks=ok_tasks, scene_check=ok_scene, venv=venv,
+            )
+        self.assertTrue(report["ready"], "无 GPU 不应阻断 CPU 验证路径")
+        self.assertIsNone(report["first_failure"])
         statuses = {layer["id"]: layer["status"] for layer in report["layers"]}
-        self.assertEqual(statuses["L0"], "fail")
-        self.assertEqual(statuses["L1"], "blocked", "fail-fast：L1 不应在 L0 失败后照常执行")
-        self.assertIn("GPU", statuses and report["layers"][0]["reason"])
-        self.assertIn("驱动", report["layers"][0]["action"], "处置必须是中文且可执行")
+        self.assertEqual(statuses["L0"], "warn")
+        self.assertNotEqual(statuses["L1"], "blocked", "无 GPU 不应把框架检查标为受阻")
+        self.assertEqual(statuses["L1"], "pass")
+        self.assertIn("CPU", report["layers"][0]["reason"])
+        self.assertIn("GPU", report["layers"][0]["action"], "处置必须点明训练建议用 GPU")
+        self.assertIn("CPU", report["layers"][0]["action"], "处置必须说明 CPU 可验证")
 
 
 class MissingFrameworkLocatesL1Test(unittest.TestCase):
@@ -89,9 +107,11 @@ class EmptyRegistryLocatesL2Test(unittest.TestCase):
     """空注册表 → 必须定位到 L2（任务注册层）。"""
 
     def test_empty_tasks_stop_at_l2(self) -> None:
-        report = build_layer_report(
-            gpu_probe=ok_gpu, list_tasks=lambda: [], scene_check=ok_scene,
-        )
+        with TemporaryDirectory() as directory:
+            report = build_layer_report(
+                gpu_probe=ok_gpu, list_tasks=lambda: [], scene_check=ok_scene,
+                venv=venv_with_frameworks(Path(directory) / "venv"),
+            )
         self.assertEqual(report["first_failure"], "L2")
         layer = report["layers"][2]
         self.assertEqual(layer["status"], "fail")
@@ -103,10 +123,12 @@ class MissingSceneLocatesL3Test(unittest.TestCase):
     """场景资源缺失 → 必须定位到 L3。"""
 
     def test_missing_scene_stops_at_l3(self) -> None:
-        report = build_layer_report(
-            gpu_probe=ok_gpu, list_tasks=ok_tasks,
-            scene_check=lambda robot_id: (False, f"缺少机型模型 assets/robots/{robot_id}/model/robot.xml"),
-        )
+        with TemporaryDirectory() as directory:
+            report = build_layer_report(
+                gpu_probe=ok_gpu, list_tasks=ok_tasks,
+                scene_check=lambda robot_id: (False, f"缺少机型模型 assets/robots/{robot_id}/model/robot.xml"),
+                venv=venv_with_frameworks(Path(directory) / "venv"),
+            )
         self.assertEqual(report["first_failure"], "L3")
         layer = report["layers"][3]
         self.assertEqual(layer["status"], "fail")

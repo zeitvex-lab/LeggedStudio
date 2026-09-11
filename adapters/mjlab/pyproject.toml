@@ -9,6 +9,10 @@ description = "Isolated MJLab worker environment for Legged Studio"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "mjlab==1.6.0",
+  # Pin the Warp runtime that MJLab 1.6 is validated against. The version
+  # constraint lives here (not in [tool.uv.sources]) because newer uv rejects a
+  # `version` field on source entries; [tool.uv.sources] only selects the index.
+  "warp-lang==1.17.0",
   # MicroDuck and other packages may declare BAM actuator models in their
   # package-owned extension. Install the MJLab-1.6-compatible main branch in
   # this isolated worker environment; the control plane remains lightweight.
@@ -41,7 +45,7 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [tool.uv.sources]
-warp-lang = { version = "==1.17.0", index = "nvidia", marker = "sys_platform != 'darwin'" }
+warp-lang = { index = "nvidia", marker = "sys_platform != 'darwin'" }
 better-actuator-models = { git = "https://github.com/Rhoban/bam.git", branch = "main" }
 torch = [
   { index = "pytorch-cu128", extra = "cu128", marker = "sys_platform != 'darwin'" },

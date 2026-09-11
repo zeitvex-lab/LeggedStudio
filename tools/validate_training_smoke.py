@@ -41,7 +41,18 @@ ROOT = bootstrap_root()
 
 from backend.robot_packages import list_robot_packages  # noqa: E402
 
-PY_EXE = str(ROOT / "adapters" / "mjlab" / ".venv" / "Scripts" / "python.exe")
+
+def _adapter_python() -> Path:
+    """定位适配器 venv 的 python：Windows 用 Scripts/python.exe，其余用 bin/python。"""
+    venv = ROOT / "adapters" / "mjlab" / ".venv"
+    for relative in (Path("Scripts") / "python.exe", Path("bin") / "python"):
+        candidate = venv / relative
+        if candidate.is_file():
+            return candidate
+    return venv / "Scripts" / "python.exe"  # 未安装时保留原默认，报错信息更直观
+
+
+PY_EXE = str(_adapter_python())
 SMOKE_ONE = ROOT / "tools" / "_smoke_one.py"
 
 

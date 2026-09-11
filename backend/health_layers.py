@@ -8,7 +8,7 @@
 ====  ==========  =====================================================
 层    名称        判定
 ====  ==========  =====================================================
-L0    GPU/CUDA    nvidia-smi 可用且能列出设备
+L0    GPU/CUDA    nvidia-smi 可用且能列出设备；无 GPU 时告警但**不阻断**（回退 CPU）
 L1    框架        适配器 venv 里 mjlab / torch / mujoco / warp 可导入形态存在
 L2    任务注册    ``recipe_registry.list_tasks()`` 非空
 L3    场景        默认机型的模型与场景资源存在（可构建 Scene）
@@ -142,6 +142,8 @@ def build_layer_report(
     layers: list[dict[str, Any]] = []
 
     # ---- L0 GPU / CUDA ----
+    # 无 GPU 不再是硬失败：CPU 可完成仿真与冒烟验证（见 tools/_smoke_one.py、
+    # native_worker 的 device=auto→cpu 回退），仅正式训练建议使用 GPU。
     devices = gpu.get("devices") or []
     if gpu.get("available") and devices:
         layers.append(_layer(
@@ -151,16 +153,19 @@ def build_layer_report(
         ))
     else:
         layers.append(_layer(
-            "L0", "fail",
-            f"未检测到可用 GPU/CUDA（{gpu.get('reason') or 'nvidia-smi 未返回设备'}）",
-            "① 确认本机为 NVIDIA 显卡并安装最新驱动；② 若确无独显，训练将回退 CPU"
-            "（速度慢几个量级，仅建议冒烟）；③ 桌面端可在启动器『配置环境』中重装"
-            " CUDA 运行时",
+            "L0", "warn",
+            f"未检测到可用 GPU/CUDA（{gpu.get('reason') or 'nvidia-smi 未返回设备'}）"
+            "——将回退 CPU 运行",
+            "CPU 可以跑通仿真与最小训练冒烟（L4–L6），但正式训练建议使用 NVIDIA GPU"
+            "（CPU 吞吐低约一个量级）。如需 GPU：① 确认本机为 NVIDIA 显卡并安装最新驱动；"
+            "② 在启动器『配置环境』中按 GPU profile 重装 CUDA 运行时。CPU profile 会一直保留。",
         ))
 
+    failed = layers[-1]["status"] == "fail"
+
     # ---- L1 框架 ----
-    if layers[-1]["status"] != "pass":
-        layers.append(_layer("L1", "blocked", "上层（GPU/CUDA）未通过，框架检查失去意义", "先解决 L0"))
+    if failed:
+        layers.append(_layer("L1", "blocked", "上层未通过，框架检查失去意义", "先解决上层"))
     else:
         missing = [m for m in _FRAMEWORK_MODULES if not _module_installed(venv, m)]
         if missing:
@@ -170,6 +175,7 @@ def build_layer_report(
                 "`uv sync`（adapters/mjlab）后重试",
                 venv=str(venv),
             ))
+            failed = True
         else:
             layers.append(_layer(
                 "L1", "pass",
@@ -177,7 +183,7 @@ def build_layer_report(
             ))
 
     # ---- L2 任务注册 ----
-    if layers[-1]["status"] != "pass":
+    if failed:
         layers.append(_layer("L2", "blocked", "上层未通过，任务注册检查失去意义", "先解决上层"))
     elif not tasks:
         layers.append(_layer(
@@ -185,6 +191,7 @@ def build_layer_report(
             "检查 adapters/mjlab/recipe_registry.py 的任务定义是否被清空/导入失败；"
             "恢复注册或重新安装适配器",
         ))
+        failed = True
     else:
         def _task_label(item: Any) -> str:
             if isinstance(item, dict):
@@ -199,7 +206,7 @@ def build_layer_report(
         ))
 
     # ---- L3 场景 ----
-    if layers[-1]["status"] != "pass":
+    if failed:
         layers.append(_layer("L3", "blocked", "上层未通过，场景检查失去意义", "先解决上层"))
     elif not scene[0]:
         layers.append(_layer(
@@ -207,6 +214,7 @@ def build_layer_report(
             f"重新导入 {DEFAULT_ROBOT} 包（工作台 → 资产库 → 导入），或从内置包恢复 "
             "assets/robots 下的 model/ 与 simulation/ 目录",
         ))
+        failed = True
     else:
         layers.append(_layer("L3", "pass", scene[1], "无需处置"))
 
@@ -216,7 +224,7 @@ def build_layer_report(
         ("L5", "random agent", "随机动作前向一步"),
         ("L6", "最小训练", "64 envs × 5 iters 冒烟"),
     )
-    blocked = layers[-1]["status"] != "pass"
+    blocked = failed
     smoke: dict[str, Any] | None = None
     for layer_id, name, what in agent_layers:
         if blocked:
