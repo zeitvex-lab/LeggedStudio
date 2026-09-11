@@ -20,6 +20,11 @@ the recorded point-cloud payloads, whose encoding is not part of the release.
 See ``tools/matrix_sensor_corpus.py`` for the container-level facts that *are*
 verified.
 
+MATRiX 的 4 个相机变体预设（``fisheye`` / ``infrared`` / ``panorama`` /
+``ptzrgb``）**不收录**：它们属平台成像设备（鱼眼 210°/ 红外 / 全景 / 云台），
+不是 RL 观测口径，当前也没有任何策略消费；平台侧需要投影或可视化时，直接读
+MATRiX 原始 ``UeSim/Content/model/config/sensors/*.json`` 即可。
+
 Provenance: MATRiX v1.0.13, ``UeSim/Content/model/config/`` (BSD-3-Clause,
 ZsiBot). Values below are copied verbatim from those files; nothing is bundled
 or executed.
@@ -46,10 +51,6 @@ SENSOR_KIND_CLASSES: dict[str, str] = {
     "gps": "proprioceptive",
     "rgb": "exteroceptive",
     "depth": "exteroceptive",
-    "infrared": "exteroceptive",
-    "fisheye": "exteroceptive",
-    "panorama": "exteroceptive",
-    "ptzrgb": "exteroceptive",
     "lidar": "exteroceptive",
 }
 
@@ -202,66 +203,6 @@ _PRESETS: dict[str, tuple[str, list[SensorSpec]]] = {
                 position={"x": 0.36614999999999998, "y": 0.0, "z": 0.2},
                 rotation={"roll": 0.0, "pitch": -90.0, "yaw": 0.0},
             ),
-        ],
-    ),
-    "fisheye": (
-        "sensors/config_fisheyecamera.json",
-        [
-            SensorSpec(
-                "fisheye",
-                "fisheye",
-                "fisheye",
-                "/fisheye/front_left/compressed",
-                10.0,
-                position={"x": 0.27, "y": 0.0, "z": 0.5},
-                intrinsics=_camera_intrinsics(width=1920, height=1080, fov_deg=210.0),
-                meta={"CubeFaceSize": 512, "distortion": {"K1": 0.0, "K2": 0.0, "K3": 0.0, "K4": 0.0}},
-            )
-        ],
-    ),
-    "infrared": (
-        "sensors/config_infrared.json",
-        [
-            SensorSpec(
-                "depth_sensor",
-                "infrared",
-                "infrared",
-                "/front_infrared/image/compressed",
-                10.0,
-                position={"x": 0.0, "y": 0.0, "z": 0.3},
-                intrinsics=_camera_intrinsics(width=640, height=480, fov_deg=90.0),
-                meta={"cloudmode": False},
-            )
-        ],
-    ),
-    "panorama": (
-        "sensors/config_panorama.json",
-        [
-            SensorSpec(
-                "panoramargb",
-                "panorama",
-                "panoramargb",
-                "/panoramargb/front_camera/compressed",
-                10.0,
-                position={"x": 0.0, "y": 0.0, "z": 0.3},
-                intrinsics=_camera_intrinsics(width=1920, height=1080, fov_deg=None),
-                meta={"CubeFaceSize": 512},
-            )
-        ],
-    ),
-    "ptzrgb": (
-        "sensors/config_ptzrgb.json",
-        [
-            SensorSpec(
-                "camera",
-                "ptzrgb",
-                "ptzrgb",
-                "/front_camera/image/compressed",
-                10.0,
-                position={"x": 0.0, "y": 0.0, "z": 0.15},
-                intrinsics=_camera_intrinsics(width=1920, height=1080, fov_deg=120.0),
-                meta={"control_port": 8870, "state_port": 8871, "stablization": True},
-            )
         ],
     ),
 }

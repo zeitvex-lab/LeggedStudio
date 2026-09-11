@@ -116,11 +116,15 @@ class MatrixSensorSuiteTests(unittest.TestCase):
         payload = self.client.get("/api/sensors/presets").json()
         self.assertTrue(payload["success"])
         names = [preset["name"] for preset in payload["presets"]]
-        for required in ("default", "lidar_dual", "mid360_slam", "fisheye", "infrared", "panorama", "ptzrgb", "zg"):
+        for required in ("default", "lidar_dual", "mid360_slam", "zg"):
             self.assertIn(required, names)
+        # 平台成像变体已按 RL 口径剔除，不再出现在契约里
+        for dropped in ("fisheye", "infrared", "panorama", "ptzrgb"):
+            self.assertNotIn(dropped, names)
         default = [p for p in payload["presets"] if p["name"] == "default"][0]
         self.assertEqual(default["sensor_count"], 6)
         self.assertEqual(default["exteroceptive_count"], 3)  # rgb + depth + lidar
+        self.assertEqual(len(names), 4)
 
     def test_single_preset_endpoint_and_unknown_404(self):
         payload = self.client.get("/api/sensors/presets/mid360_slam").json()
@@ -136,7 +140,10 @@ class MatrixSensorSuiteTests(unittest.TestCase):
         self.assertEqual(classes["odom"], "proprioceptive")
         self.assertEqual(classes["lidar"], "exteroceptive")
         self.assertEqual(classes["depth"], "exteroceptive")
-        self.assertEqual(classes["ptzrgb"], "exteroceptive")
+        # RL 口径的 6 类：imu / odom / gps / rgb / depth / lidar
+        self.assertEqual(
+            set(classes), {"imu", "odom", "gps", "rgb", "depth", "lidar"}
+        )
 
     def test_lidar_height_scan_reuses_heightfield_grid(self):
         items = {item["id"]: item for item in list_perception_items()}
