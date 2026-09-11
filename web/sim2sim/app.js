@@ -8,7 +8,7 @@ console.error = (...args) => {
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import loadMujoco from "./vendor/mujoco/mujoco.js";
-import { createObservationSystems } from "./obs/observation_builders.js?v=0.43.0";
+import { createObservationSystems } from "./obs/observation_builders.js?v=0.44.0";
 import { MotionLoader } from "./motion_loader.js";
 import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
 // Loaded on demand only for an explicitly selected policy.

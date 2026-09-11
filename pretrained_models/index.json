@@ -285,36 +285,6 @@
     "source": "builtin-package"
   },
   {
-    "id": "unitree_go1--go1-himloco",
-    "name": "Go1 HIM loco 45×6 hist (LeggedSkillDeploy 官方导出)",
-    "robot": "unitree_go1",
-    "family": "Unitree Go1",
-    "algorithm": "PPO",
-    "success_rate": null,
-    "avg_reward": null,
-    "path": "/api/simulation/browser-package/unitree_go1/simulation/policies/go1_himloco.onnx",
-    "url": "/api/simulation/browser-package/unitree_go1/simulation/policies/go1_himloco.onnx",
-    "play_url": "/web/sim2sim/index.html?robot=unitree_go1&policy=go1-himloco",
-    "obs_dim": 45,
-    "action_dim": 12,
-    "source": "builtin-package"
-  },
-  {
-    "id": "unitree_go1--go1-playground-joystick",
-    "name": "Go1 Joystick 48D (mujoco_playground 官方导出)",
-    "robot": "unitree_go1",
-    "family": "Unitree Go1",
-    "algorithm": "PPO",
-    "success_rate": null,
-    "avg_reward": null,
-    "path": "/api/simulation/browser-package/unitree_go1/simulation/policies/go1_playground_joystick.onnx",
-    "url": "/api/simulation/browser-package/unitree_go1/simulation/policies/go1_playground_joystick.onnx",
-    "play_url": "/web/sim2sim/index.html?robot=unitree_go1&policy=go1-playground-joystick",
-    "obs_dim": 48,
-    "action_dim": 12,
-    "source": "builtin-package"
-  },
-  {
     "id": "unitree_go2--go2-backflip-69",
     "name": "Backflip 69D (imitation, motion-csv)",
     "robot": "unitree_go2",

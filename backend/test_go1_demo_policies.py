@@ -1,31 +1,23 @@
-"""go1 演示策略导入锁（待办 #2，v0.43.0）。
+"""go1 演示策略准入锁（用户裁决 v0.44.0：演示策略必须有包内移植好的对应训练代码）。
 
-取证来源（resources/unitree_go1）：
-- go1_playground_joystick.onnx：mujoco_playground experimental/sim2sim 官方导出，
-  play_go1_joystick.py（同目录同源）逐行取证——obs 48 = [linvel,gyro,gravity,
-  pos_rel,vel,last_act,cmd] 全裸值，action_scale=0.5，onnx 实测 [1,48]→[1,12]。
-  Playwright 实测：站立 z≈0.33 稳定、vx 指令起步响应 ✓。
-- contract default_pose 修正：原数组按官方模型序书写但按 actuated_joints
-  字母序消费，四条 hip 符号全反（右 +0.1 / 左 -0.1 三方证据一致）。
-- 模型 robot.xml 补 <actuator> 段（此前 ctrl 无人消费 -> 无力瘫倒）；
-  keyframe home 后两腿 hip 符号同步修正。
+现状：unitree_go1 无训练树（B14 待补）⇒ 演示策略准入为空。
 
-himloco 恢复记录（v0.43.0，取证闭环后复活）：
-- 弃用 mjswan 裸 onnx（无出生证明），改用 LeggedSkillDeploy 官方
-  himloco_best.pt（resources 内置）经官方 convert_policy.py 导出（对拍 7e-06）；
-- 布局 ground truth = 官方 src/scripts/observation_buffer.py
-  ObservationBuffer.get_obs_vec：对 yaml 倒序表 [5,4,3,2,1,0] 做 reversed
-  遍历后 torch.cat —— 整帧拼接且最新帧在前（frame_major_v1），此前四组合
-  全失败即因浏览器用 term-major + 最老在前；
-- 段序按部署 yaml `observations` 列表序（commands 在前）；
-  关节序 = legged_gym URDF 字母序（joint_mapping [3,4,5,...] 在该序下自洽）；
-  PD = rl_kp 40 / rl_kd 1（per-policy 写入模型执行器）。
-  浏览器终验（Playwright 站立/追踪）待跑。
+撤下记录（v0.43.0 导入 → v0.44.0 依裁决撤下）：
+- go1-playground-joystick（mujoco_playground 官方导出，Playwright 实测站立
+  z≈0.33 / vx 追踪 92% 达标）与 go1-himloco（LeggedSkillDeploy 官方
+  himloco_best.pt 官方工具重导，对拍 7e-06）均因"包内无移植训练代码"撤下；
+- 完整契约与取证链归档于 git tag v0.43.0（git show v0.43.0:.../config.json）；
+  onnx 原件在 resources/unitree_go1/deploy；训练任务移植（B14）后原样恢复；
+- 附带修复随本轮保留：model/robot.xml 补 <actuator> 段（nu=12 锁）、
+  keyframe hip 符号修正、contract default_pose 左右符号修正、
+  frame_major_v1 历史布局（ObservationBuffer.get_obs_vec 语义，app.js 通路）。
 """
 
 import json
 import unittest
 from pathlib import Path
+
+import mujoco
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 GO1 = PROJECT_ROOT / "assets" / "robots" / "unitree_go1"
@@ -35,91 +27,31 @@ def _read(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
-class Go1DemoPolicyTests(unittest.TestCase):
-    def test_declared_policies_with_onnx_present(self):
+class Go1DemoPolicyAdmissionTests(unittest.TestCase):
+    def test_no_demo_policies_without_ported_training_code(self):
+        """准入裁决锁：训练树就位前，policies 必须为空。"""
         config = _read(GO1 / "simulation" / "config.json")
-        policies = {p["id"]: p for p in config.get("policies") or []}
         self.assertEqual(
-            set(policies),
-            {"go1-playground-joystick", "go1-himloco"},
-            "go1 演示策略声明漂移：himloco 以官方 pt 重导恢复（取证闭环），不得擅自增删",
+            config.get("policies") or [],
+            [],
+            "go1 无包内移植训练代码（B14）——演示策略不得导入；"
+            "恢复路径：git show v0.43.0:assets/robots/unitree_go1/simulation/config.json",
         )
-        for policy in policies.values():
-            self.assertTrue((GO1 / policy["path"]).exists(), f"{policy['id']} onnx 缺失")
-
-    def test_himloco_contract_matches_official_deploy_chain(self):
-        """himloco 契约锁：全部字段对照官方 config.yaml + observation_buffer.py。"""
-        policy = next(
-            p for p in _read(GO1 / "simulation" / "config.json")["policies"]
-            if p["id"] == "go1-himloco"
-        )
-        contract = policy["contract"]
-        self.assertEqual((policy["obs_dim"], policy["action_dim"], policy["history_len"]), (45, 12, 6))
-        self.assertEqual(contract["observation_kind"], "himloco_45_hist6")
-        self.assertEqual(contract["history_layout"], "frame_major_v1")
-        self.assertEqual(contract["action_scale"], 0.25)
-        self.assertEqual(
-            contract["scales"],
-            {"ang_vel": 0.25, "dof_pos": 1.0, "dof_vel": 0.05, "command": [2.0, 2.0, 0.25]},
-        )
-        # 官方 yaml 的 default_dof_pos / joint_controller_names 逐值对拍
-        self.assertEqual(
-            contract["default_joint_angles"],
-            {
-                "FR_hip_joint": 0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5,
-                "FL_hip_joint": -0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5,
-                "RR_hip_joint": 0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5,
-                "RL_hip_joint": -0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5,
-            },
-        )
-        self.assertEqual(
-            set(contract["action_joint_order"]),
-            set(contract["default_joint_angles"]),
-        )
-        self.assertEqual(
-            set(contract["control"]["stiffness"].values()), {40.0}, "rl_kp=40"
-        )
-        self.assertEqual(
-            set(contract["control"]["damping"].values()), {1.0}, "rl_kd=1"
-        )
+        self.assertFalse((GO1 / "simulation" / "policies" / "go1_playground_joystick.onnx").exists())
+        self.assertFalse((GO1 / "simulation" / "policies" / "go1_himloco.onnx").exists())
 
     def test_no_stale_top_level_policy_contract(self):
-        """himloco_45x1 兜底已删：包级 policy_contract 不得再与 per-policy 矛盾。"""
-        config = _read(GO1 / "simulation" / "config.json")
-        self.assertIsNone(config.get("policy_contract"))
+        """himloco_45x1 兜底已删：包级 policy_contract 不得与 per-policy 矛盾。"""
+        self.assertIsNone(_read(GO1 / "simulation" / "config.json").get("policy_contract"))
 
-    def test_playground_contract_matches_official_export(self):
-        policy = next(
-            p for p in _read(GO1 / "simulation" / "config.json")["policies"]
-            if p["id"] == "go1-playground-joystick"
-        )
-        contract = policy["contract"]
-        self.assertEqual((policy["obs_dim"], policy["action_dim"]), (48, 12))
-        self.assertEqual(contract["observation_kind"], "go1_playground_48")
-        self.assertEqual(contract["action_scale"], 0.5)
-        self.assertEqual(
-            contract["scales"],
-            {"ang_vel": 1.0, "dof_pos": 1.0, "dof_vel": 1.0, "command": [1.0, 1.0, 1.0]},
-            "playground 观测为全裸值，缩放必须全 1",
-        )
 
-    def test_action_joint_order_is_permutation_of_model_joints(self):
-        contract = _read(GO1 / "contract.json")
-        model_joints = set(contract["joints"]["actuated_joints"])
-        config = _read(GO1 / "simulation" / "config.json")
-        for policy in config["policies"]:
-            order = policy["contract"]["action_joint_order"]
-            self.assertEqual(len(order), 12)
-            self.assertEqual(
-                set(order), model_joints,
-                f"{policy['id']}: action_joint_order 不是模型关节集合的重排",
-            )
-            defaults = policy["contract"]["default_joint_angles"]
-            self.assertEqual(set(defaults), model_joints)
-            if policy["id"] == "go1-playground-joystick":
-                # playground 训练序 [FR,FL,RR,RL]：与模型字母序不同，重排必须非恒等；
-                # himloco 训练序即 URDF 字母序（恒等合法，yaml joint_mapping 自洽）。
-                self.assertNotEqual(order, contract["joints"]["actuated_joints"])
+class Go1ModelFixTests(unittest.TestCase):
+    """随撤下保留的模型修复锁（训练任务移植后同样需要）。"""
+
+    def test_model_has_actuator_section(self):
+        """v0.43 修复锁：模型必须有原生 position 执行器（此前 ctrl 无人消费 → 瘫倒）。"""
+        model = mujoco.MjModel.from_xml_path(str(GO1 / "model" / "robot.xml"))
+        self.assertEqual(model.nu, 12)
 
     def test_default_pose_hip_signs_follow_left_right_convention(self):
         """修正锁：按消费序（actuated_joints 字母序）解读，右 hip=+0.1、左 hip=-0.1。"""
