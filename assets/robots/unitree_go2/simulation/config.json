@@ -819,7 +819,18 @@
             -0.579228
           ]
         },
-        "scene_path": "simulation/scene_pie_stairs.xml"
+        "scene_path": "simulation/scene_pie_stairs.xml",
+        "scales": {
+          "ang_vel": 1.0,
+          "dof_pos": 1.0,
+          "dof_vel": 1.0,
+          "command": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "clip_actions": null
       }
     }
   ],
@@ -872,6 +883,12 @@
       "browser_scene": true,
       "repo_path": true,
       "robot_include": "go2.xml"
+    },
+    {
+      "id": "pie_stairs",
+      "label": "PIE Stairs",
+      "path": "simulation/scene_pie_stairs.xml",
+      "browser_scene": true
     }
   ],
   "demo_policies": [

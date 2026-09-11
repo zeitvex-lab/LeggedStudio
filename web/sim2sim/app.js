@@ -9,6 +9,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import loadMujoco from "./vendor/mujoco/mujoco.js";
 import { createObservationSystems } from "./obs/observation_builders.js?v=0.44.0";
+import { createPieDepth } from "./pie_depth.js?v=0.46.0";
 import { MotionLoader } from "./motion_loader.js";
 import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
 // Loaded on demand only for an explicitly selected policy.
@@ -808,6 +809,10 @@ async function loadPolicyFromConfig(config, initial = false) {
   const previousPolicy = sim.policy;
   sim.policy = session;
   sim.policyInfo = inspectPolicy(session, contract);
+  // 深度策略（PIE）：浏览器端 raycast 渲染深度历史。
+  sim.pieDepth = sim.policyInfo.depthName ? createPieDepth({ sim, contract }) : null;
+  sim.depthHistory = sim.pieDepth ? [] : null;
+  sim.depthCounter = 0;
   // encoder+policy 双模型（TRON1 等）：额外加载 encoder 会话。
   try { await sim.encoderSession?.release?.(); } catch (error) { console.warn("encoder release failed", error); }
   sim.encoderSession = null;
@@ -1049,12 +1054,14 @@ function platformPolicyRevision(config, url) {
 function inspectPolicy(session, contract = {}) {
   const inputNames = session.inputNames || tensorMetadataNames(session.inputMetadata);
   const outputNames = session.outputNames || tensorMetadataNames(session.outputMetadata);
-  const HISTORY_INPUT_NAMES = ["history", "hist", "obs_hist"];
+  const HISTORY_INPUT_NAMES = ["history", "hist", "obs_hist", "proprio_history"];
   const historyName = inputNames.find((n) => HISTORY_INPUT_NAMES.includes(n)) || "";
   const hasHistory = Boolean(historyName);
+  // 深度输入（PIE 等）：独立的 depth_history 张量，由浏览器 raycast 渲染。
+  const depthName = inputNames.find((n) => /depth/i.test(n)) || "";
   const obsName = inputNames.includes("obs")
     ? "obs"
-    : inputNames.find((n) => n !== historyName) || inputNames[0];
+    : inputNames.find((n) => n !== historyName && n !== depthName) || inputNames[0];
   const actionName = outputNames.includes("act")
     ? "act"
     : outputNames.includes("action")
@@ -1093,8 +1100,12 @@ function inspectPolicy(session, contract = {}) {
     ? Math.round(obsSize / baseObsSize)
     : 0;
   // History frame count: read from model metadata if available, else fall back
-  // to the policy contract, then by input name.
-  const historyDimFromModel = Number(historyDims[1]);
+  // to the policy contract, then by input name.  2D history（如 PIE
+  // proprio_history [1,450]）没有帧维，帧数 = 展平长度 / 单帧维度。
+  const flatHistoryInput = hasHistory && historyDims.length === 2;
+  const historyDimFromModel = flatHistoryInput
+    ? (baseObsSize > 0 ? Math.round(Number(historyDims[1]) / baseObsSize) : 0)
+    : Number(historyDims[1]);
   const historyDimFromContract = Number(contract?.history_len);
   const historyFrames = hasHistory
     ? (Number.isFinite(historyDimFromModel) && historyDimFromModel > 0
@@ -1103,8 +1114,9 @@ function inspectPolicy(session, contract = {}) {
             ? Math.round(historyDimFromContract)
             : (historyName === "history" ? 5 : 10)))
     : stackedFrames;
+  const historyFlatSize = flatHistoryInput ? Number(historyDims[1]) : 0;
   const mode = recurrentStates.length
-    ? (hasHistory ? "recurrent-history" : "recurrent")
+    ? (depthName ? "recurrent-depth" : hasHistory ? "recurrent-history" : "recurrent")
     : hasHistory
       ? (weightsName ? "moe-history" : (nextHistoryName ? "fused-history" : "history"))
       : (stackedFrames ? "stacked-history" : "single-obs");
@@ -1118,6 +1130,8 @@ function inspectPolicy(session, contract = {}) {
     obsName,
     historyName,
     historyFrames,
+    depthName,
+    historyFlatSize,
     stackedFrames,
     actionName,
     weightsName,
@@ -1201,6 +1215,8 @@ function recurrentOutputName(inputName, outputNames, usedOutputs) {
     `${inputName}_out`,
     `next_${inputName}`,
     `${inputName}_next`,
+    // PIE 等：输入/输出成对命名 memory_h_in / memory_h_out
+    ...(inputName.endsWith("_in") ? [`${inputName.slice(0, -3)}_out`] : []),
     ...(legacyAliases[inputName] || []),
     inputName,
   ];
@@ -1239,6 +1255,7 @@ function resetPolicyState() {
   }
   if (sim.encoderHistory) sim.encoderHistory.fill(0);
   sim.tron1GaitIndex = 0;
+  if (sim.pieDepth) { sim.depthHistory = []; sim.depthCounter = 0; }
   OBSERVATION?.resetWujiGoal?.();
 }
 
@@ -3458,6 +3475,31 @@ async function runPolicy() {
     buf.set(sim.obs, encoderOutput.length);
     buf.set(scaled, encoderOutput.length + CONFIG.numObs);
     feeds[info.obsName] = new ort.Tensor("float32", buf, [total]);
+  } else if (info.depthName) {
+    // 多输入 + 深度（PIE）：proprio 单帧 + 展平本体历史 + 深度历史（浏览器 raycast）。
+    feeds[info.obsName] = new ort.Tensor("float32", new Float32Array(sim.obs), [1, CONFIG.numObs]);
+    if (info.historyName && info.historyFlatSize) {
+      const packed = buildPolicyObs(info.historyFlatSize);
+      feeds[info.historyName] = new ort.Tensor("float32", packed, [1, packed.length]);
+    }
+    if (sim.pieDepth) {
+      if (sim.depthCounter % sim.pieDepth.updateSteps === 0) {
+        const frame = sim.pieDepth.captureFrame();
+        if (!sim.depthHistory || sim.depthHistory.length === 0) {
+          sim.depthHistory = [frame.slice(), frame.slice()];
+        } else {
+          sim.depthHistory.push(frame);
+          while (sim.depthHistory.length > 2) sim.depthHistory.shift();
+        }
+      }
+      sim.depthCounter += 1;
+      const h = sim.pieDepth.frameShape[1];
+      const w = sim.pieDepth.frameShape[2];
+      const buf = new Float32Array(2 * h * w);
+      buf.set(sim.depthHistory[0], 0);
+      buf.set(sim.depthHistory[1], h * w);
+      feeds[info.depthName] = new ort.Tensor("float32", buf, [1, 2, h, w]);
+    }
   } else if (info.historyName) {
     const frames = info.historyFrames || Math.floor(sim.history.length / CONFIG.numObs) || 5;
     feeds[info.obsName] = new ort.Tensor("float32", new Float32Array(sim.obs), [1, CONFIG.numObs]);
