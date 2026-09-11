@@ -1,0 +1,267 @@
+package leet
+
+import (
+	"regexp"
+	"strings"
+	"unicode/utf8"
+
+	tea "charm.land/bubbletea/v2"
+)
+
+// FilterMatchMode selects the string-matching engine for metric titles.
+type FilterMatchMode int
+
+const (
+	FilterModeUndefined FilterMatchMode = iota
+	FilterModeRegex
+	FilterModeGlob
+)
+
+func (m FilterMatchMode) String() string {
+	switch m {
+	case FilterModeGlob:
+		return "glob"
+	default:
+		return "regex"
+	}
+}
+
+// Filter tracks the filter state.
+//
+// Used for filtering run overview items and metric charts.
+type Filter struct {
+	inputActive bool            // filter input mode
+	draft       string          // what the user is typing (preview)
+	applied     string          // committed pattern
+	mode        FilterMatchMode // current match mode
+}
+
+func NewFilter() *Filter {
+	return &Filter{mode: FilterModeRegex}
+}
+
+// Activate enters input mode, initializing the draft with the current applied pattern.
+func (f *Filter) Activate() {
+	f.inputActive = true
+	f.draft = f.applied
+}
+
+// Commit applies the current draft and exits input mode.
+func (f *Filter) Commit() {
+	f.applied = f.draft
+	f.draft = ""
+	f.inputActive = false
+}
+
+// Cancel discards the draft and exits input mode without changing the applied pattern.
+func (f *Filter) Cancel() {
+	f.draft = ""
+	f.inputActive = false
+}
+
+// Clear removes any applied filter and exits input mode.
+func (f *Filter) Clear() {
+	f.applied = ""
+	f.draft = ""
+	f.inputActive = false
+}
+
+func (f *Filter) ToggleMode() {
+	if f.mode == FilterModeRegex {
+		f.mode = FilterModeGlob
+	} else {
+		f.mode = FilterModeRegex
+	}
+}
+
+// UpdateDraft updates the in-progress filter text based on provided input.
+func (f *Filter) UpdateDraft(msg tea.KeyPressMsg) {
+	switch msg.Code {
+	case tea.KeyBackspace:
+		f.draft = trimLastRune(f.draft)
+	case tea.KeySpace:
+		f.draft += " "
+	default:
+		if msg.Text != "" {
+			f.draft += msg.Text
+		}
+	}
+}
+
+func trimLastRune(s string) string {
+	if s == "" {
+		return s
+	}
+	_, size := utf8.DecodeLastRuneInString(s)
+	if size <= 0 {
+		return s[:len(s)-1]
+	}
+	return s[:len(s)-size]
+}
+
+// HandleKey processes a filter-mode key event, mutating filter state accordingly.
+//
+// Returns true if the filter state changed (i.e. the caller should reapply).
+func (f *Filter) HandleKey(msg tea.KeyPressMsg) bool {
+	switch msg.Code {
+	case tea.KeyEsc:
+		if !f.inputActive {
+			return false
+		}
+		f.Cancel()
+		return true
+	case tea.KeyEnter:
+		if !f.inputActive {
+			return false
+		}
+		f.Commit()
+		return true
+	case tea.KeyTab:
+		f.ToggleMode()
+		return true
+	case tea.KeyBackspace, tea.KeySpace:
+		if msg.Code == tea.KeyBackspace && f.draft == "" {
+			return false
+		}
+		f.UpdateDraft(msg)
+		return true
+	default:
+		if msg.Text == "" {
+			return false
+		}
+		f.UpdateDraft(msg)
+		return true
+	}
+}
+
+// Query returns the current filter pattern (draft if active, applied otherwise).
+func (f *Filter) Query() string {
+	if f.inputActive {
+		return f.draft
+	}
+	return f.applied
+}
+
+// Mode returns the current matching mode.
+func (f *Filter) Mode() FilterMatchMode {
+	return f.mode
+}
+
+// IsActive reports whether the filter is in input mode.
+func (f *Filter) IsActive() bool {
+	return f.inputActive
+}
+
+// Matcher returns a case-insensitive, unanchored matcher according to mode.
+//
+// In regex mode falls back to substring if there are no regex metachars
+// or if compile fails.
+func (f *Filter) Matcher() func(string) bool {
+	return compileTextMatcher(f.Query(), f.mode)
+}
+
+// compileTextMatcher returns a case-insensitive matcher according to mode.
+//
+// It is shared by the generic [Filter] type and higher-level query parsers
+// (for example the workspace runs filter) so all text filtering in LEET uses
+// the same glob/regex semantics.
+func compileTextMatcher(query string, mode FilterMatchMode) func(string) bool {
+	if query == "" {
+		return func(string) bool { return true }
+	}
+
+	switch mode {
+	case FilterModeGlob:
+		return func(s string) bool {
+			return globMatchUnanchoredCaseInsensitive(query, s)
+		}
+	case FilterModeRegex:
+		if !hasRegexMeta(query) {
+			lq := strings.ToLower(query)
+			return func(s string) bool {
+				return strings.Contains(strings.ToLower(s), lq)
+			}
+		}
+		// Compile once; if it fails, fall back to substring.
+		re, err := regexp.Compile("(?i)" + query)
+		if err != nil {
+			lq := strings.ToLower(query)
+			return func(s string) bool {
+				return strings.Contains(strings.ToLower(s), lq)
+			}
+		}
+		return func(s string) bool { return re.FindStringIndex(s) != nil }
+	default:
+		return func(string) bool { return true }
+	}
+}
+
+// globMatchUnanchoredCaseInsensitive reports whether s matches pattern using
+// case-insensitive, unanchored glob semantics.
+//
+// Supported meta: '*' (any sequence), '?' (any single char).
+// '/' is treated as a normal character (not a separator).
+func globMatchUnanchoredCaseInsensitive(pattern, s string) bool {
+	p := strings.ToLower(pattern)
+	t := strings.ToLower(s)
+
+	// Empty or single '*' matches everything.
+	if p == "" || p == "*" {
+		return true
+	}
+
+	// No wildcards -> substring match.
+	if !strings.ContainsAny(p, "*?") {
+		return strings.Contains(t, p)
+	}
+
+	// Unanchored by default: allow leading/trailing text.
+	if !strings.HasPrefix(p, "*") {
+		p = "*" + p
+	}
+	if !strings.HasSuffix(p, "*") {
+		p += "*"
+	}
+
+	return wildcardMatch(p, t)
+}
+
+// wildcardMatch is a classic '*'/'?' matcher with backtracking.
+// Assumes inputs are already lowercased.
+func wildcardMatch(p, t string) bool {
+	pi, si := 0, 0
+	star, match := -1, 0
+
+	for si < len(t) {
+		switch {
+		case pi < len(p) && (p[pi] == '?' || p[pi] == t[si]):
+			pi++
+			si++
+		case pi < len(p) && p[pi] == '*':
+			star = pi
+			match = si
+			pi++
+		case star != -1:
+			pi = star + 1
+			match++
+			si = match
+		default:
+			return false
+		}
+	}
+	for pi < len(p) && p[pi] == '*' {
+		pi++
+	}
+	return pi == len(p)
+}
+
+// hasRegexMeta reports whether s contains any Go regexp metacharacters.
+func hasRegexMeta(s string) bool {
+	for _, r := range s {
+		switch r {
+		case '.', '^', '$', '*', '+', '?', '(', ')', '[', ']', '{', '}', '|', '\\':
+			return true
+		}
+	}
+	return false
+}

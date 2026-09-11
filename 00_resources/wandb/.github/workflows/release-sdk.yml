@@ -1,0 +1,585 @@
+name: Build and Release W&B SDK
+run-name: "SDK ${{ inputs.version }} — ${{ inputs.mode }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        description: "Version to assign to the release"
+        required: true
+      mode:
+        type: choice
+        description: >-
+          Release mode:
+          1) test-release — TestPyPI only.
+          2) pre-release — PyPI + TestPyPI, no notes.
+          3) release — PyPI + TestPyPI, notes + PR + Slack.
+        required: true
+        default: test-release
+        options:
+          - test-release
+          - pre-release
+          - release
+
+env:
+  # Pinned for reproducible release artifacts. Keep at or above the largest
+  # rust-version in the locked Cargo graphs (xpu/Cargo.lock requires 1.88).
+  RUST_TOOLCHAIN: "1.88.0"
+
+jobs:
+  prepare-release:
+    name: Prepare release (${{ inputs.version }})
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.10"
+
+      # Use the GHA bot credentials: https://api.github.com/users/github-actions%5Bbot%5D
+      - name: Setup git config
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git remote set-url origin https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+
+      - name: Install Python Dependencies and uv
+        run: |
+          pip install bump2version click
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Create and Switch to Release Branch
+        run: |
+          git switch -c release-${{ github.event.inputs.version }}
+
+      - name: Bump Version
+        run: |
+          bump2version patch --no-tag --no-commit --config-file .bumpversion.cfg --new-version ${{ github.event.inputs.version }}
+
+      - name: Update CHANGELOG.md
+        if: ${{ inputs.mode == 'release' }}
+        run: |
+          python tools/changelog.py \
+            --version ${{ github.event.inputs.version }}
+
+      - name: Lint changes
+        run: |
+          # if there are linting errors, this will fix them and proceed
+          sh -c 'uvx prek run trailing-whitespace --all-files --hook-stage pre-push' || exit 0
+
+      - name: Commit and push changes
+        run: |
+          git commit --no-verify -am "Bump version and update CHANGELOG for release ${{ github.event.inputs.version }}"
+          git push --no-verify -f origin release-${{ github.event.inputs.version }}
+
+  build-linux-wheels:
+    name: Build ${{ matrix.libc }} Linux wheel for ${{ matrix.arch }}
+    needs: prepare-release
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            libc: manylinux
+            runner: linux-arm64-ubuntu24.04-4core
+            go_arch: linux-arm64
+            before_all_extra: "true"
+          - arch: aarch64
+            libc: musllinux
+            runner: linux-arm64-ubuntu24.04-4core
+            go_arch: linux-arm64
+            before_all_extra: "apk add binutils patchelf gcc musl-dev"
+          - arch: x86_64
+            libc: manylinux
+            runner: ubuntu-latest-16-cores
+            go_arch: linux-amd64
+            before_all_extra: "true"
+          - arch: x86_64
+            libc: musllinux
+            runner: ubuntu-latest-16-cores
+            go_arch: linux-amd64
+            before_all_extra: "apk add binutils patchelf gcc musl-dev"
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: release-${{ github.event.inputs.version }}
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074 # v4.2
+        with:
+          package-dir: .
+          output-dir: dist
+        env:
+          CIBW_ARCHS_LINUX: ${{ matrix.arch }}
+          # The build hook emits a Python-ABI-independent py3-none-* wheel, so
+          # one CPython selector is sufficient for each platform target. Keep
+          # it in sync with requires-python in pyproject.toml, and revisit if
+          # wheels ever include CPython extension modules again.
+          CIBW_BUILD: "cp310-${{ matrix.libc }}_${{ matrix.arch }}"
+          CIBW_BEFORE_ALL_LINUX: >
+            ${{ matrix.before_all_extra }} &&
+            export DOWNLOAD_GOVERSION=$( grep '^go' core/go.mod | cut -d' ' -f2 ) &&
+            curl -L https://golang.org/dl/go$DOWNLOAD_GOVERSION.${{ matrix.go_arch }}.tar.gz > go.tar.gz &&
+            tar -C /usr/local/ -xzf go.tar.gz &&
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
+              sh -s -- -y --profile minimal --default-toolchain ${{ env.RUST_TOOLCHAIN }}
+          # NOTE: the Linux build environment lives in [tool.cibuildwheel.linux]
+          # in pyproject.toml. Do not set CIBW_ENVIRONMENT_LINUX here: it would
+          # replace that table, including the musllinux override that must
+          # enable CGO.
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: wandb-sdk-distribution-linux-${{ matrix.arch }}-${{ matrix.libc }}
+          path: ./dist
+
+  build-platform-wheels:
+    name: Build ${{ matrix.arch }} wheel on ${{ matrix.os }}
+    needs: prepare-release
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # The cp310 build identifiers must stay in sync with requires-python
+        # in pyproject.toml; see the note on CIBW_BUILD in build-linux-wheels.
+        include:
+          - os: windows-2022
+            arch: AMD64
+            build: cp310-win_amd64
+            rust_target: x86_64-pc-windows-msvc
+          - os: windows-11-arm
+            arch: ARM64
+            build: cp310-win_arm64
+            rust_target: aarch64-pc-windows-msvc
+          - os: macos-latest-xlarge
+            arch: x86_64
+            build: cp310-macosx_x86_64
+            rust_target: x86_64-apple-darwin
+          - os: macos-latest-xlarge
+            arch: arm64
+            build: cp310-macosx_arm64
+            rust_target: aarch64-apple-darwin
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: release-${{ github.event.inputs.version }}
+
+      ##################################################
+      # Install Go
+      ##################################################
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+
+      - name: Set up Rust
+        shell: bash
+        run: |
+          # Keep release artifacts reproducible across runner image updates.
+          rustup toolchain install ${{ env.RUST_TOOLCHAIN }} \
+            --profile minimal \
+            --target ${{ matrix.rust_target }}
+          rustup default ${{ env.RUST_TOOLCHAIN }}
+
+      ##################################################
+      # All platforms: create wheels
+      ##################################################
+      - name: Build wheels
+        uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074 # v4.2
+        with:
+          package-dir: .
+          output-dir: dist
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_BUILD: ${{ matrix.build }}
+          # cibuildwheel 4 defaults to delvewheel on Windows; keep the previous
+          # no-op repair behavior for wandb-core's custom DLL lookup.
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: ""
+
+          # Work around https://github.com/matthew-brett/delocate/issues/204
+          # by adding `--ignore-missing-dependencies` to cibuildwheel's default
+          # repair wheel command.
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            delocate-listdeps --all --depending {wheel} &&
+            delocate-wheel \
+              --require-archs {delocate_archs} \
+              --ignore-missing-dependencies \
+              -w {dest_dir} \
+              -v {wheel}
+          # Sets the minimum macOS version for the wheels. Must be at least
+          # the minimum supported by the Go toolchain (go1.27 stamps a
+          # minimum of macOS 13 into wandb-core), or delocate fails the
+          # wheel repair step.
+          CIBW_ENVIRONMENT_MACOS: >
+            MACOSX_DEPLOYMENT_TARGET=13.0
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: wandb-sdk-distribution-${{ matrix.os }}-${{ matrix.arch }}
+          path: ./dist
+
+  build-sdist:
+    name: Create source distribution
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: release-${{ github.event.inputs.version }}
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.10"
+
+      - name: Install Hatch
+        run: pip install hatch~=1.16
+
+      - name: Create sdist
+        run: hatch build -t sdist
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: wandb-sdk-distribution-sdist
+          path: ./dist
+
+  verify-sdist:
+    name: Build and smoke-test source distribution
+    needs: build-sdist
+    runs-on: ubuntu-latest-8-cores
+    # Cold release-mode builds of both Rust workspaces plus wandb-core; give
+    # them headroom since a timeout here blocks publishing.
+    timeout-minutes: 20
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+
+      # Only used by setup-go below; the sdist carries everything it needs.
+      - name: Checkout Go version and module checksums
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: release-${{ github.event.inputs.version }}
+          sparse-checkout: |
+            core/go.mod
+            core/go.sum
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+
+      - name: Set up Rust
+        run: |
+          rustup toolchain install ${{ env.RUST_TOOLCHAIN }} --profile minimal
+          rustup default ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Download source distribution
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: wandb-sdk-distribution-sdist
+          path: artifacts
+
+      - name: Build and install from source distribution
+        run: python -m pip install --no-binary wandb artifacts/wandb-*.tar.gz
+
+      - name: Smoke-test source distribution
+        run: |
+          WANDB_MODE=offline \
+          python -c "import wandb; run = wandb.init(); run.finish()"
+
+  test-pypi-publish:
+    name: Publish to TestPyPI
+    needs:
+      - build-platform-wheels
+      - build-linux-wheels
+      - verify-sdist
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+      url: https://test.pypi.org/p/wandb
+    permissions:
+      id-token: write # trusted publishing
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.10"
+
+      - name: Download distribution
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: artifacts/
+          pattern: wandb-sdk-distribution-*
+
+      - name: Merge distributions
+        run: |
+          mkdir -p dist/
+          cp -r artifacts/*/* dist/
+          ls -la dist/
+
+      - name: List distribution
+        run: ls dist/
+
+      - name: Publish distribution to TestPyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          verify-metadata: true
+          verbose: true
+          skip-existing: true
+
+      # Unfortunately, there's no reliable way to do this.
+      #
+      # Looping until a `pip install --dry-run` succeeds isn't sufficient
+      # because you can still see failures after a success; TestPyPI doesn't
+      # seem to guarantee consistency.
+      - name: Wait for package to appear in TestPyPI
+        shell: bash
+        run: sleep 60
+
+  verify-test-pypi:
+    needs: test-pypi-publish
+    name: Smoke-test on ${{ matrix.os }} ${{ matrix.python-arch }}
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            python-arch: x64
+          - os: windows-2022
+            python-arch: x64
+          - os: macos-14
+            python-arch: arm64
+          # Native Intel runner, exercising the macosx x86_64 wheel. The
+          # darwin-x64 CPython builds from actions/python-versions target
+          # macOS 15 and link Homebrew's /usr/local gettext, so they no
+          # longer run under Rosetta on the arm64 macos-14 image.
+          - os: macos-15-intel
+            python-arch: x64
+
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.10"
+          architecture: ${{ matrix.python-arch }}
+
+      - name: Install wandb from TestPyPI
+        shell: bash
+        run: |
+          python -m pip install \
+            --extra-index-url https://test.pypi.org/simple/ \
+            wandb==${{ github.event.inputs.version }}
+
+      - name: Smoke-test wandb
+        shell: bash
+        run: |
+          WANDB_MODE=offline \
+          python -c "import wandb; run = wandb.init(); run.finish()"
+
+  pypi-publish:
+    if: ${{ inputs.mode != 'test-release' }}
+    name: Publish to PyPI
+    needs: [verify-test-pypi]
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+      url: https://pypi.org/p/wandb
+    steps:
+      - name: Download distribution
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: artifacts/
+          pattern: wandb-sdk-distribution-*
+
+      - name: Merge distributions
+        run: |
+          mkdir -p dist/
+          cp -r artifacts/*/* dist/
+          ls -la dist/
+
+      - name: List distribution
+        run: ls dist/
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
+
+  create-dev-branch:
+    name: Create dev branch and PR
+    needs: pypi-publish
+    runs-on: ubuntu-latest
+    if: ${{ inputs.mode == 'release' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: release-${{ github.event.inputs.version }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.10"
+
+      - name: Install bump2version
+        run: pip install bump2version
+
+      - name: Setup git config
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+      - name: Create and switch to dev branch
+        run: |
+          IFS='.' read -r major minor patch <<< "${{ github.event.inputs.version }}"
+          new_version="${major}.${minor}.$((patch + 1)).dev1"
+          git checkout -b bump-${new_version}
+          bump2version patch --no-tag --no-commit --config-file .bumpversion.cfg --new-version ${new_version}
+          git commit -am "chore(sdk): bump version to ${new_version}"
+          # Force push so re-runs of the release workflow succeed even when the
+          # dev-bump branch was already created by an earlier run.
+          git push -u -f origin bump-${new_version}
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IFS='.' read -r major minor patch <<< "${{ github.event.inputs.version }}"
+          new_version="${major}.${minor}.$((patch + 1)).dev1"
+          if gh pr view "bump-${new_version}" --json number >/dev/null 2>&1; then
+            echo "PR already open for bump-${new_version}; force push updated it."
+          else
+            gh pr create --base main --head bump-${new_version} --title "chore(sdk): bump version to ${new_version}" --body "This PR bumps the version to the next dev version after the release of ${{ github.event.inputs.version }}."
+          fi
+
+  publish-release-notes:
+    name: Publish Release Notes
+    needs: pypi-publish
+    runs-on: ubuntu-latest
+    if: ${{ inputs.mode == 'release' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: release-${{ github.event.inputs.version }}
+      - name: Create Source Archives
+        run: |
+          git archive --format=zip --output=wandb-${{ github.event.inputs.version }}.zip HEAD
+          git archive --format=tar.gz --output=wandb-${{ github.event.inputs.version }}.tar.gz HEAD
+      - name: Extract release notes and set output
+        id: release_notes
+        run: |
+          echo "## What's Changed" > release_notes.md
+          awk '/## \[${{ github.event.inputs.version }}\]/{flag=1;next}/## \[/{flag=0}flag' CHANGELOG.md >> release_notes.md
+      - name: Create Release Notes
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        with:
+          name: v${{ github.event.inputs.version }}
+          tag_name: v${{ github.event.inputs.version }}
+          target_commitish: release-${{ github.event.inputs.version }}
+          body_path: release_notes.md
+          files: |
+            wandb-${{ github.event.inputs.version }}.zip
+            wandb-${{ github.event.inputs.version }}.tar.gz
+          draft: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  slack:
+    if: ${{ inputs.mode == 'release' }}
+    name: Post to Slack
+    needs: publish-release-notes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        channel: [C0108SLEP6K, C01KQ5KTDC3, C080Q7GLKRR]
+    steps:
+      - name: Post to Slack
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          errors: true
+          payload: |
+            channel: ${{ matrix.channel }}
+            text: "W&B SDK ${{ github.event.inputs.version }} released :tada::\n- PyPI: https://pypi.org/project/wandb/${{ github.event.inputs.version }}/\n- Release notes: https://github.com/${{ github.repository }}/releases/tag/v${{ github.event.inputs.version }}"
+
+  # This job exists so that there's some traceability between SDK releases and
+  # potential issues in wandb/core. core contains references to this released
+  # artifact, so we want to update those as close to the release as possible.
+  # In the event of a failure building wandb/core, the actor that ran this
+  # release will be notified.
+  notify-core:
+    if: ${{ inputs.mode != 'test-release' }}
+    name: notify wandb/core of release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [pypi-publish]
+
+    steps:
+      - name: Wait for release to become visible on PyPI
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          max_attempts=20
+          for attempt in $(seq 1 "${max_attempts}"); do
+            if curl --fail --silent --show-error \
+              --max-time 10 \
+              --output /dev/null \
+              "https://pypi.org/pypi/wandb/${VERSION}/json"; then
+              echo "wandb ${VERSION} is visible on PyPI"
+              exit 0
+            fi
+
+            if [[ "${attempt}" == "${max_attempts}" ]]; then
+              echo "wandb ${VERSION} was not visible on PyPI after ${max_attempts} attempts" >&2
+              exit 1
+            fi
+
+            echo "wandb ${VERSION} is not visible on PyPI yet; retrying in 15 seconds"
+            sleep 15
+          done
+
+      - name: Create GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ vars.WANDBOT_3000_APP_ID }}
+          private-key: ${{ secrets.WANDBOT_3000_PRIVATE_KEY }}
+          owner: wandb
+          repositories: |
+            core
+
+      - name: Repository dispatch
+        uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697 # v4
+        with:
+          token: "${{ steps.app-token.outputs.token }}"
+          repository: wandb/core
+          event-type: wandb-sdk-released
+          client-payload: |-
+            {
+              "version": "${{ inputs.version }}",
+              "actor": "${{ github.actor }}",
+              "actor_id": "${{ github.actor_id }}",
+              "repository": "${{ github.repository }}",
+              "workflow_ref": "${{ github.workflow_ref }}",
+              "run_id": "${{ github.run_id }}",
+              "mode": "${{ inputs.mode }}"
+            }

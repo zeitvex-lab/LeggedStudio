@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+
+<robot name="x30" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:include filename="$(find x30_description)/xacro/imu_link.xacro"/>
+  <xacro:include filename="$(find x30_description)/xacro/const.xacro"/>
+  <xacro:include filename="$(find x30_description)/xacro/leg.xacro"/>
+
+  <link name="base">
+    <visual>
+      <geometry>
+        <box size="0.001 0.001 0.001"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="floating_base" type="fixed">
+    <parent link="base"/>
+    <child link="TORSO"/>
+  </joint>
+
+  <link name="TORSO">
+    <inertial>
+      <origin xyz="-0.0029257 7.5034e-06 0.020095"/>
+      <mass value="30.7"/>
+      <inertia ixx="0.364306" ixy="0.00018421" ixz="0.00027469" iyy="0.597627" iyz="0.00026784" izz="0.757267"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="file://$(find x30_description)/meshes/torso.obj"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.44 0.26 0.15"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 使用leg宏定义四条腿 -->
+  <xacro:leg name="FL" mirror="1" front_hind="1"/>
+  <xacro:leg name="FR" mirror="-1" front_hind="1"/>
+  <xacro:leg name="HL" mirror="1" front_hind="-1"/>
+  <xacro:leg name="HR" mirror="-1" front_hind="-1"/>
+
+</robot>

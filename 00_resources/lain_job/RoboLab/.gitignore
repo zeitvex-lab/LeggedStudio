@@ -1,0 +1,19 @@
+# Training framework sources belong in backends/. Isaac Gym SDKs stay outside
+# this repository and are selected with ROBO_ISAACGYM_SDK_PATH.
+/isaacgym-workspace/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+logs/
+MUJOCO_LOG.TXT
+checkpoints/
+artifacts/
+dist/
+*.egg-info/
+webui/projects/
+webui/uploads/
+webui/derived/

@@ -1,0 +1,730 @@
+<!doctype html>
+<!-- saved-from: https://1000framesai.com/algorithms/ at 2026-09-08, logged-in render -->
+<html lang="zh-CN"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>算法 · Locomotion Platform</title>
+  <link rel="stylesheet" href="/shared/nav.css?v=home-nav-1">
+  <link rel="stylesheet" href="/shared/styles.css?v=no-tailwind-1">
+  <link rel="stylesheet" href="./styles.css?v=amp-pretrained-1">
+</head>
+<body style="padding-top: 56px;"><nav id="platform-nav">
+    <a class="pnav-brand" href="/">
+      <span class="pnav-logo">LP</span>
+      <span class="pnav-title">Locomotion</span>
+    </a>
+    <ol class="pnav-steps">
+    <li class="pnav-step pnav-home-step ">
+      <a href="/">
+        <span class="pnav-home-icon" aria-hidden="true">⌂</span>
+        <span>首页</span>
+      </a>
+    </li>
+  
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/robots/">
+          <span class="pnav-num">1</span>
+          <span>机器人配置</span>
+        </a>
+      </li>
+      <li class="pnav-step active">
+        <span class="pnav-arrow">›</span>
+        <a href="/algorithms/">
+          <span class="pnav-num">2</span>
+          <span>算法</span>
+        </a>
+      </li>
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/train/">
+          <span class="pnav-num">3</span>
+          <span>训练</span>
+        </a>
+      </li>
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/sim2sim/">
+          <span class="pnav-num">4</span>
+          <span>仿真验证</span>
+        </a>
+      </li></ol>
+    <span class="pnav-user" id="pnav-user"><a href="/wallet/" class="pnav-balance" title="点击充值">¥0.00</a><span class="pnav-username" title="已登录">eatzio02@gmail.com</span><a href="#" class="pnav-logout">退出</a></span>
+  </nav>
+  <main class="page-shell">
+    <header class="page-header">
+      <div>
+        <h1>算法</h1>
+        <p>选择已开放的内置训练算法，查看任务能力、预训练权重和可直接体验的 Sim2Sim 策略。</p>
+      </div>
+      <div class="page-actions">
+        <button id="refreshButton" type="button" class="btn">刷新</button>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="panel-title">
+        <div>
+          <h2 class="text-sm font-bold text-slate-100">内置算法</h2>
+          <p class="text-xs text-slate-500 mt-0.5">多套算法已支持训练与 ONNX 导出，能力和策略效果持续优化。</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="algoCount" class="text-xs text-slate-500 tabular-nums">13</span>
+        </div>
+      </div>
+      <div id="algoCards" class="algo-card-grid p-4"><article class="algo-card ready" style="--accent: #5eead4;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(20,184,166,.16);color:#5eead4">PPO</div>
+      <div class="algo-title">
+        <h3>Go2 RL Gym</h3>
+        <p>v0.1.2 / alg_builtin_go2_rl_gym</p>
+      </div>
+      <span class="status-badge ready">已验证</span>
+    </div>
+    
+      <div class="algo-preview has-media terrain-flat" aria-label="algorithm locomotion preview">
+        <video class="preview-video" muted="" loop="" playsinline="" preload="metadata" poster="./media/go2_rl_gym.webp"><source src="./media/go2_rl_gym.webm" type="video/webm"></video>
+        <div class="preview-vignette"></div>
+        <div class="preview-hint">sim2sim / cross slope</div>
+      </div>
+    <p class="algo-desc">Built-in legged_gym / rsl_rl PPO backend for Go2 velocity tracking.</p>
+    <div class="algo-tags"><span class="algo-tag">PPO</span><span class="algo-tag">legged_gym</span><span class="algo-tag">ONNX</span></div>
+    <div class="capability-strip"><span class="capability-pill miss">训练</span><span class="capability-pill miss">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill ok">权重</span><span class="capability-pill miss">预览</span></div>
+    
+      <div class="weight-source ready">
+        <span>权重来源</span>
+        <strong>官方预训练：go2_moe_cts_high_slope_thre_164k_0.6715_20260419</strong>
+      </div>
+    
+      <div class="algo-play-card empty">
+        <span>最新 ONNX</span>
+        <strong>暂无可播放权重</strong>
+        <small>训练导出后会自动出现在这里</small>
+      </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>2</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>5</strong></div>
+      <div class="algo-metric"><span>act</span><strong>12</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>Go2 Official MoE-CTS Baseline</strong>
+      <span>Published Go2 MoE-CTS checkpoint, integrity-verified and exported to the browser history ONNX contract without retraining.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <button class="primary" type="button" disabled="">暂未开放</button>
+    </div>
+    <div class="task-card">
+      <strong>Go2 速度跟踪</strong>
+      <span>Go2 mixture-of-experts velocity tracking task on slopes and rough terrain.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <a class="primary " href="/train/?algorithm=alg_builtin_go2_rl_gym&amp;task=go2_moe_cts">训练并导出 ONNX</a>
+    </div></div>
+    </article><article class="algo-card partial" style="--accent: #0ea5e9;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(245,158,11,.15);color:#fbbf24">MOE</div>
+      <div class="algo-title">
+        <h3>Wheel-Leg MoE-CTS</h3>
+        <p>v0.5.6 / alg_builtin_wheel_leg_rl_gym</p>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+    </div>
+    
+    <div class="algo-preview terrain-flat" aria-label="algorithm locomotion preview">
+      <div class="preview-sky"></div>
+      <div class="preview-hint">wheel_leg</div>
+      
+    <div class="dog" style="animation-duration:1.36s">
+      <div class="dog-body"></div>
+      <div class="dog-head"></div>
+      <div class="dog-leg l1"></div>
+      <div class="dog-leg l2"></div>
+      <div class="dog-leg l3"></div>
+      <div class="dog-leg l4"></div>
+    </div>
+      <div class="preview-terrain"></div>
+    </div>
+    <p class="algo-desc">MoE-CTS training for standardized 16-DoF wheel-leg robots, with W1W retained as the validated built-in baseline.</p>
+    <div class="algo-tags"><span class="algo-tag">MoE-CTS</span><span class="algo-tag">16-DoF</span><span class="algo-tag">wheel-leg</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill ok">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill ok">权重</span><span class="capability-pill miss">预览</span></div>
+    
+      <div class="weight-source ready">
+        <span>权重来源</span>
+        <strong>官方预训练权重可用</strong>
+      </div>
+    
+        <div class="algo-play-card">
+          <span>内置 ONNX</span>
+          <strong>W1W pretrained policy</strong>
+          <small>随算法发布 · 无需先训练</small>
+          <a class="play-link" href="/sim2sim/?demo=w1w&amp;terrain=flat&amp;autoplay=1">直接仿真</a>
+        </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>robots</span><strong>1</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>4</strong></div>
+      <div class="algo-metric"><span>act</span><strong>16</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>16 关节轮足训练</strong>
+      <span>使用 W1W MoE-CTS 训练底座，并注入每台机器人的标准化 URDF、关节顺序、控制增益和电机约束。</span>
+      <small class="task-note ready">W1W 直接仿真 · 用户轮足从零训练</small>
+      <a class="primary" href="/train/?algorithm=alg_builtin_wheel_leg_rl_gym&amp;task=w1w_moe_cts">开始轮足训练</a>
+    </div></div>
+    </article><article class="algo-card partial" style="--accent: #0ea5e9;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(16,185,129,.15);color:#34d399">GAIT</div>
+      <div class="algo-title">
+        <h3>Wheel-Leg Gait MoE-CTS</h3>
+        <p>v0.2.11 / alg_builtin_wheel_leg_gait_rl_gym</p>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+    </div>
+    
+    <div class="algo-preview terrain-flat" aria-label="algorithm locomotion preview">
+      <div class="preview-sky"></div>
+      <div class="preview-hint">wheel_leg</div>
+      
+    <div class="dog" style="animation-duration:1.36s">
+      <div class="dog-body"></div>
+      <div class="dog-head"></div>
+      <div class="dog-leg l1"></div>
+      <div class="dog-leg l2"></div>
+      <div class="dog-leg l3"></div>
+      <div class="dog-leg l4"></div>
+    </div>
+      <div class="preview-terrain"></div>
+    </div>
+    <p class="algo-desc">Gait-switch MoE-CTS with a 0.7 s phase clock, enabled on 25% of training episodes with a lighter Barrier influence.</p>
+    <div class="algo-tags"><span class="algo-tag">MoE-CTS</span><span class="algo-tag">gait</span><span class="algo-tag">10-frame history</span><span class="algo-tag">wheel-leg</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill ok">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill miss">权重</span><span class="capability-pill miss">预览</span></div>
+    
+    <div class="weight-source pending">
+      <span>权重来源</span>
+      <strong>未发现官方预训练权重，需先训练导出</strong>
+    </div>
+    
+      <div class="algo-play-card empty">
+        <span>最新 ONNX</span>
+        <strong>暂无可播放权重</strong>
+        <small>训练导出后会自动出现在这里</small>
+      </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>1</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>10</strong></div>
+      <div class="algo-metric"><span>act</span><strong>16</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>Wheel-Leg Gait MoE-CTS</strong>
+      <span>Ten-frame MoE-CTS velocity tracking with a 0.7-second light-unload gait curriculum that reaches 25% of episodes.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <a class="primary " href="/train/?algorithm=alg_builtin_wheel_leg_gait_rl_gym&amp;task=wheel_leg_gait_moe_cts">训练并导出 ONNX</a>
+    </div></div>
+    </article><article class="algo-card partial" style="--accent: #f97316;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(249,115,22,.16);color:#fb923c">JUMP</div>
+      <div class="algo-title">
+        <h3>Wheel-Leg Jump MoE-CTS</h3>
+        <p>v0.5.0 / alg_builtin_wheel_leg_jump_rl_gym</p>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+    </div>
+    
+    <div class="algo-preview terrain-flat" aria-label="algorithm locomotion preview">
+      <div class="preview-sky"></div>
+      <div class="preview-hint">jump</div>
+      
+    <div class="dog" style="animation-duration:1.36s">
+      <div class="dog-body"></div>
+      <div class="dog-head"></div>
+      <div class="dog-leg l1"></div>
+      <div class="dog-leg l2"></div>
+      <div class="dog-leg l3"></div>
+      <div class="dog-leg l4"></div>
+    </div>
+      <div class="preview-terrain"></div>
+    </div>
+    <p class="algo-desc">Normal wheel-leg walking with an explicit Space/button jump command, trained on flat terrain first.</p>
+    <div class="algo-tags"><span class="algo-tag">MoE-CTS</span><span class="algo-tag">jump</span><span class="algo-tag">16-DoF</span><span class="algo-tag">flat</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill ok">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill miss">权重</span><span class="capability-pill miss">预览</span></div>
+    
+    <div class="weight-source pending">
+      <span>权重来源</span>
+      <strong>未发现官方预训练权重，需先训练导出</strong>
+    </div>
+    
+      <div class="algo-play-card empty">
+        <span>最新 ONNX</span>
+        <strong>暂无可播放权重</strong>
+        <small>训练导出后会自动出现在这里</small>
+      </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>1</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>10</strong></div>
+      <div class="algo-metric"><span>act</span><strong>16</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>Wheel-Leg Jump MoE-CTS</strong>
+      <span>Normal wheel-leg velocity tracking plus an explicit one-shot jump command on flat terrain.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <a class="primary " href="/train/?algorithm=alg_builtin_wheel_leg_jump_rl_gym&amp;task=wheel_leg_jump_moe_cts">训练并导出 ONNX</a>
+    </div></div>
+    </article><article class="algo-card partial" style="--accent: #ef4444;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(239,68,68,.14);color:#f87171">FAST</div>
+      <div class="algo-title">
+        <h3>Wheel-Leg High-Speed</h3>
+        <p>v0.5.1 / alg_builtin_wheel_leg_high_speed</p>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+    </div>
+    
+    <div class="algo-preview terrain-flat" aria-label="algorithm locomotion preview">
+      <div class="preview-sky"></div>
+      <div class="preview-hint">wheel_drive_no_gait</div>
+      
+    <div class="dog" style="animation-duration:0.09s">
+      <div class="dog-body"></div>
+      <div class="dog-head"></div>
+      <div class="dog-leg l1"></div>
+      <div class="dog-leg l2"></div>
+      <div class="dog-leg l3"></div>
+      <div class="dog-leg l4"></div>
+    </div>
+      <div class="preview-terrain"></div>
+    </div>
+    <p class="algo-desc">High-speed wheel-leg curriculum that raises or lowers the speed range from measured tracking quality on flat and simple sloped terrain.</p>
+    <div class="algo-tags"><span class="algo-tag">MoE-CTS</span><span class="algo-tag">8 m/s</span><span class="algo-tag">curriculum</span><span class="algo-tag">wheel-leg</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill ok">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill miss">权重</span><span class="capability-pill miss">预览</span></div>
+    
+    <div class="weight-source pending">
+      <span>权重来源</span>
+      <strong>未发现官方预训练权重，需先训练导出</strong>
+    </div>
+    
+      <div class="algo-play-card empty">
+        <span>最新 ONNX</span>
+        <strong>暂无可播放权重</strong>
+        <small>训练导出后会自动出现在这里</small>
+      </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>1</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>4</strong></div>
+      <div class="algo-metric"><span>act</span><strong>16</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>Wheel-Leg High-Speed MoE-CTS</strong>
+      <span>Performance-driven no-gait wheel velocity tracking on flat, smooth-slope, and rough-slope terrain for standardized 16-DoF wheel-leg robots.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <a class="primary " href="/train/?algorithm=alg_builtin_wheel_leg_high_speed&amp;task=w1w_moe_cts">训练并导出 ONNX</a>
+    </div></div>
+    </article><article class="algo-card partial" style="--accent: #0ea5e9;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(14,165,233,.15);color:#38bdf8">GAIT+</div>
+      <div class="algo-title">
+        <h3>Wheel-Leg Gait Full-Torque MoE-CTS</h3>
+        <p>v0.1.22 / alg_builtin_wheel_leg_gait_hip_degradation</p>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+    </div>
+    
+    <div class="algo-preview terrain-flat" aria-label="algorithm locomotion preview">
+      <div class="preview-sky"></div>
+      <div class="preview-hint">wheel_leg_gait_hip_degradation</div>
+      
+    <div class="dog" style="animation-duration:1.36s">
+      <div class="dog-body"></div>
+      <div class="dog-head"></div>
+      <div class="dog-leg l1"></div>
+      <div class="dog-leg l2"></div>
+      <div class="dog-leg l3"></div>
+      <div class="dog-leg l4"></div>
+    </div>
+      <div class="preview-terrain"></div>
+    </div>
+    <p class="algo-desc">Sin/cos gait phase input with a 0.7 s diagonal clock and 25% gait episodes, while retaining the full dynamic Hip torque envelope.</p>
+    <div class="algo-tags"><span class="algo-tag">MoE-CTS</span><span class="algo-tag">sin/cos phase</span><span class="algo-tag">full torque</span><span class="algo-tag">wheel-leg</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill ok">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill miss">权重</span><span class="capability-pill miss">预览</span></div>
+    
+    <div class="weight-source pending">
+      <span>权重来源</span>
+      <strong>未发现官方预训练权重，需先训练导出</strong>
+    </div>
+    
+      <div class="algo-play-card empty">
+        <span>最新 ONNX</span>
+        <strong>暂无可播放权重</strong>
+        <small>训练导出后会自动出现在这里</small>
+      </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>1</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>10</strong></div>
+      <div class="algo-metric"><span>act</span><strong>16</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>Wheel-Leg Gait Full-Torque MoE-CTS</strong>
+      <span>Ten-frame MoE-CTS with a 0.7-second diagonal gait clock and a reset-safe 1.4-second cumulative yaw-drift check; gait shaping is limited to continuous terrain so stairs retain unconstrained foothold selection without changing the policy ABI.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <a class="primary " href="/train/?algorithm=alg_builtin_wheel_leg_gait_hip_degradation&amp;task=wheel_leg_gait_hip_degradation_moe_cts">训练并导出 ONNX</a>
+    </div></div>
+    </article><article class="algo-card partial" style="--accent: #0ea5e9;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(22,163,74,.16);color:#4ade80">AMP</div>
+      <div class="algo-title">
+        <h3>W1W AMP MoE-CTS</h3>
+        <p>v0.2.5 / alg_builtin_amp_cts</p>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+    </div>
+    
+    <div class="algo-preview terrain-flat" aria-label="algorithm locomotion preview">
+      <div class="preview-sky"></div>
+      <div class="preview-hint">wheel_leg</div>
+      
+    <div class="dog" style="animation-duration:1.36s">
+      <div class="dog-body"></div>
+      <div class="dog-head"></div>
+      <div class="dog-leg l1"></div>
+      <div class="dog-leg l2"></div>
+      <div class="dog-leg l3"></div>
+      <div class="dog-leg l4"></div>
+    </div>
+      <div class="preview-terrain"></div>
+    </div>
+    <p class="algo-desc">W1W-only AMP motion-prior training layered on the production MoE-CTS rewards and controls.</p>
+    <div class="algo-tags"><span class="algo-tag">AMP</span><span class="algo-tag">MoE-CTS</span><span class="algo-tag">W1W</span><span class="algo-tag">54D motion prior</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill ok">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill miss">权重</span><span class="capability-pill miss">预览</span></div>
+    
+    <div class="weight-source pending">
+      <span>权重来源</span>
+      <strong>未发现官方预训练权重，需先训练导出</strong>
+    </div>
+    
+      <div class="algo-play-card empty">
+        <span>最新 ONNX</span>
+        <strong>暂无可播放权重</strong>
+        <small>训练导出后会自动出现在这里</small>
+      </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>1</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>4</strong></div>
+      <div class="algo-metric"><span>act</span><strong>16</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>W1W AMP MoE-CTS</strong>
+      <span>W1W-only AMP motion-prior training using the production MoE-CTS rewards and controls.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <a class="primary " href="/train/?algorithm=alg_builtin_amp_cts&amp;task=w1w_amp_moe_cts">训练并导出 ONNX</a>
+    </div></div>
+    </article><article class="algo-card partial" style="--accent: #93c5fd;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(96,165,250,.16);color:#93c5fd">P3O</div>
+      <div class="algo-title">
+        <h3>NP3O</h3>
+        <p>v0.1.0 / alg_builtin_np3o</p>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+    </div>
+    
+      <div class="algo-preview has-media terrain-rough" aria-label="algorithm locomotion preview">
+        <video class="preview-video" muted="" loop="" playsinline="" preload="metadata" poster="./media/np3o.webp"><source src="./media/np3o.webm" type="video/webm"></video>
+        <div class="preview-vignette"></div>
+        <div class="preview-hint">sim2sim / stairs</div>
+      </div>
+    <p class="algo-desc">Constraint-aware NP3O backend with estimated velocity and history observations.</p>
+    <div class="algo-tags"><span class="algo-tag">NP3O</span><span class="algo-tag">history</span><span class="algo-tag">ONNX</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill ok">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill miss">权重</span><span class="capability-pill ok">预览</span></div>
+    
+    <div class="weight-source pending">
+      <span>权重来源</span>
+      <strong>未发现官方预训练权重，需先训练导出</strong>
+    </div>
+    
+      <div class="algo-play-card empty">
+        <span>最新 ONNX</span>
+        <strong>暂无可播放权重</strong>
+        <small>训练导出后会自动出现在这里</small>
+      </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>1</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>10</strong></div>
+      <div class="algo-metric"><span>act</span><strong>12</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>NP3O 速度跟踪</strong>
+      <span>Constraint-aware quadruped velocity tracking with estimated base velocity and history observations.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <a class="primary " href="/train/?algorithm=alg_builtin_np3o&amp;task=go2_np3o_velocity">训练并导出 ONNX</a>
+    </div></div>
+    </article><article class="algo-card partial" style="--accent: #f59e0b;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(245,158,11,.15);color:#fbbf24">TSC</div>
+      <div class="algo-title">
+        <h3>Quadrupedal Agility</h3>
+        <p>v0.1.0 / alg_builtin_quadrupedal_agility</p>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+    </div>
+    
+      <div class="algo-preview has-media terrain-obstacles" aria-label="algorithm locomotion preview">
+        <video class="preview-video" muted="" loop="" playsinline="" preload="metadata" poster="./media/quadrupedal_agility.webp"><source src="./media/quadrupedal_agility.webm" type="video/webm"></video>
+        <div class="preview-vignette"></div>
+        <div class="preview-hint">sim2sim / cross stairs</div>
+      </div>
+    <p class="algo-desc">TSC Go2 agility task with the upstream deploy checkpoint and fused low-level ONNX Sim2Sim path wired for validation.</p>
+    <div class="algo-tags"><span class="algo-tag">TSC</span><span class="algo-tag">Go2</span><span class="algo-tag">agility</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill miss">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill ok">权重</span><span class="capability-pill ok">预览</span></div>
+    
+      <div class="weight-source ready">
+        <span>权重来源</span>
+        <strong>官方预训练：model.pt</strong>
+      </div>
+    
+      <div class="algo-play-card empty">
+        <span>最新 ONNX</span>
+        <strong>暂无可播放权重</strong>
+        <small>训练导出后会自动出现在这里</small>
+      </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>1</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>10</strong></div>
+      <div class="algo-metric"><span>act</span><strong>12</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>Go2 TSC agility</strong>
+      <span>Quadrupedal Agility TSC Go2 task; trains against the upstream IsaacGym environment.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <a class="primary " href="/train/?algorithm=alg_builtin_quadrupedal_agility&amp;task=go2_tsc_agility">训练并导出 ONNX</a>
+    </div></div>
+    </article><article class="algo-card partial" style="--accent: #34d399;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(52,211,153,.15);color:#86efac">PKR</div>
+      <div class="algo-title">
+        <h3>Robot Parkour</h3>
+        <p>v0.1.0 / alg_builtin_parkour</p>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+    </div>
+    
+      <div class="algo-preview has-media terrain-parkour" aria-label="algorithm locomotion preview">
+        <video class="preview-video" muted="" loop="" playsinline="" preload="metadata" poster="./media/parkour.webp"><source src="./media/parkour.webm" type="video/webm"></video>
+        <div class="preview-vignette"></div>
+        <div class="preview-hint">sim2sim / race track</div>
+      </div>
+    <p class="algo-desc">Robot Parkour Learning Go2 rough-terrain task. Training is wired first; visual field/distill tasks are staged next.</p>
+    <div class="algo-tags"><span class="algo-tag">parkour</span><span class="algo-tag">Go2</span><span class="algo-tag">rough</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill miss">续训</span><span class="capability-pill miss">导出</span><span class="capability-pill miss">仿真</span><span class="capability-pill miss">权重</span><span class="capability-pill ok">预览</span></div>
+    
+    <div class="weight-source pending">
+      <span>权重来源</span>
+      <strong>未发现官方预训练权重，需先训练导出</strong>
+    </div>
+    
+      <div class="algo-play-card empty">
+        <span>最新 ONNX</span>
+        <strong>暂无可播放权重</strong>
+        <small>训练导出后会自动出现在这里</small>
+      </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>1</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>1</strong></div>
+      <div class="algo-metric"><span>act</span><strong>12</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.5</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>Go2 rough parkour</strong>
+      <span>Robot Parkour Learning Go2 rough-terrain smoke task using the upstream IsaacGym environment.</span>
+      <small class="task-note partial">支持训练 · Sim2Sim 持续适配</small>
+      <a class="primary secondary" href="/train/?algorithm=alg_builtin_parkour&amp;task=go2_rough_parkour">训练冒烟</a>
+    </div></div>
+    </article><article class="algo-card partial" style="--accent: #22c55e;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(251,113,133,.15);color:#fb7185">JMP</div>
+      <div class="algo-title">
+        <h3>Omni-Jump</h3>
+        <p>v0.1.0 / alg_builtin_omni_jump</p>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+    </div>
+    
+      <div class="algo-preview has-poster terrain-jump" aria-label="algorithm locomotion preview">
+        <img class="preview-poster" src="./media/omni_jump.png" alt="" loading="lazy">
+        <div class="preview-vignette"></div>
+        <div class="preview-hint">sim2sim / jump terrain</div>
+        
+    <div class="dog" style="animation-duration:0.61s">
+      <div class="dog-body"></div>
+      <div class="dog-head"></div>
+      <div class="dog-leg l1"></div>
+      <div class="dog-leg l2"></div>
+      <div class="dog-leg l3"></div>
+      <div class="dog-leg l4"></div>
+    </div>
+        <div class="preview-terrain"></div>
+      </div>
+    <p class="algo-desc">ARCLab HKU Omni-Jump / OmniNet GenHis adapter for height-aware Go1/Go2 jumping. GenHis history export is wired as one fused browser ONNX graph.</p>
+    <div class="algo-tags"><span class="algo-tag">GenHis</span><span class="algo-tag">height</span><span class="algo-tag">Go1/Go2</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill miss">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill miss">权重</span><span class="capability-pill ok">预览</span></div>
+    
+    <div class="weight-source pending">
+      <span>权重来源</span>
+      <strong>未发现官方预训练权重，需先训练导出</strong>
+    </div>
+    
+      <div class="algo-play-card empty">
+        <span>最新 ONNX</span>
+        <strong>暂无可播放权重</strong>
+        <small>训练导出后会自动出现在这里</small>
+      </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>2</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>5</strong></div>
+      <div class="algo-metric"><span>act</span><strong>12</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>Go2 Omni-Jump</strong>
+      <span>Height-aware omnidirectional jumping with the upstream GenHis Go2 task.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <a class="primary " href="/train/?algorithm=alg_builtin_omni_jump&amp;task=go2_omni_jump">训练并导出 ONNX</a>
+    </div>
+    <div class="task-card">
+      <strong>Go1 Omni-Jump</strong>
+      <span>Height-aware omnidirectional jumping with the upstream GenHis Go1 task.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <a class="primary " href="/train/?algorithm=alg_builtin_omni_jump&amp;task=go1_omni_jump">训练并导出 ONNX</a>
+    </div></div>
+    </article><article class="algo-card ready" style="--accent: #14b8a6;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(148,163,184,.14);color:#cbd5e1">ALG</div>
+      <div class="algo-title">
+        <h3>point_foot_rl_gym</h3>
+        <p>v0.2.2 / alg_builtin_point_foot_rl_gym</p>
+      </div>
+      <span class="status-badge ready">可训练 · 已验证</span>
+    </div>
+    
+    <div class="algo-preview terrain-rough" aria-label="algorithm locomotion preview">
+      <div class="preview-sky"></div>
+      <div class="preview-hint">trot</div>
+      
+    <div class="dog" style="animation-duration:1.36s">
+      <div class="dog-body"></div>
+      <div class="dog-head"></div>
+      <div class="dog-leg l1"></div>
+      <div class="dog-leg l2"></div>
+      <div class="dog-leg l3"></div>
+      <div class="dog-leg l4"></div>
+    </div>
+      <div class="preview-terrain"></div>
+    </div>
+    <p class="algo-desc">Generic Point-Foot MoE-CTS training for 12-actuator quadrupeds. It keeps the established Go2 observation and policy contract while injecting each robot's URDF, controls, general locomotion rewards, and physical motor torque-speed envelope into the GPU runtime.
+</p>
+    <div class="algo-tags"><span class="algo-tag">builtin</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill ok">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill miss">权重</span><span class="capability-pill miss">预览</span></div>
+    
+    <div class="weight-source pending">
+      <span>权重来源</span>
+      <strong>未发现官方预训练权重，需先训练导出</strong>
+    </div>
+    
+      <div class="algo-play-card empty">
+        <span>最新 ONNX</span>
+        <strong>暂无可播放权重</strong>
+        <small>训练导出后会自动出现在这里</small>
+      </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>1</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>5</strong></div>
+      <div class="algo-metric"><span>act</span><strong>12</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>Point-Foot MoE-CTS</strong>
+      <span>Generic MoE-CTS velocity tracking for built-in and uploaded 12-DoF point-foot quadrupeds.</span>
+      <small class="task-note ready">支持 ONNX 导出与 Sim2Sim 体验</small>
+      <a class="primary " href="/train/?algorithm=alg_builtin_point_foot_rl_gym&amp;task=point_foot_moe_cts">训练并导出 ONNX</a>
+    </div></div>
+    </article><article class="algo-card partial" style="--accent: #0ea5e9;">
+    <div class="algo-card-head">
+      <div class="algo-mark" style="background:rgba(148,163,184,.14);color:#cbd5e1">ALG</div>
+      <div class="algo-title">
+        <h3>wheel_leg_hip_degradation</h3>
+        <p>v0.1.15 / alg_builtin_wheel_leg_hip_degradation</p>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+    </div>
+    
+    <div class="algo-preview terrain-flat" aria-label="algorithm locomotion preview">
+      <div class="preview-sky"></div>
+      <div class="preview-hint">wheel_leg</div>
+      
+    <div class="dog" style="animation-duration:1.36s">
+      <div class="dog-body"></div>
+      <div class="dog-head"></div>
+      <div class="dog-leg l1"></div>
+      <div class="dog-leg l2"></div>
+      <div class="dog-leg l3"></div>
+      <div class="dog-leg l4"></div>
+    </div>
+      <div class="preview-terrain"></div>
+    </div>
+    <p class="algo-desc">Hip-degradation robust MoE-CTS training for standardized 16-actuator wheel-leg robots. Half of episodes simulate one or more independently weakened hip motors without exposing the fault state to the policy.
+</p>
+    <div class="algo-tags"><span class="algo-tag">builtin</span></div>
+    <div class="capability-strip"><span class="capability-pill ok">训练</span><span class="capability-pill ok">续训</span><span class="capability-pill ok">导出</span><span class="capability-pill ok">仿真</span><span class="capability-pill miss">权重</span><span class="capability-pill miss">预览</span></div>
+    
+    <div class="weight-source pending">
+      <span>权重来源</span>
+      <strong>未发现官方预训练权重，需先训练导出</strong>
+    </div>
+    
+        <div class="algo-play-card">
+          <span>内置 ONNX</span>
+          <strong>W1W pretrained policy</strong>
+          <small>随算法发布 · 无需先训练</small>
+          <a class="play-link" href="/sim2sim/?demo=w1w&amp;terrain=flat&amp;autoplay=1">直接仿真</a>
+        </div>
+    <div class="algo-meta">
+      <div class="algo-metric"><span>tasks</span><strong>1</strong></div>
+      <div class="algo-metric"><span>hist</span><strong>4</strong></div>
+      <div class="algo-metric"><span>act</span><strong>16</strong></div>
+      <div class="algo-metric"><span>scale</span><strong>0.25</strong></div>
+    </div>
+    <div class="task-list">
+    <div class="task-card">
+      <strong>Wheel-Leg Hip Degradation MoE-CTS</strong>
+      <span>Four-frame MoE-CTS velocity tracking with hidden, episode-level random hip motor degradation.</span>
+      <small class="task-note ready">内置预训练权重 · 支持 Sim2Sim</small>
+      <div class="task-actions">
+            <a class="primary" href="/sim2sim/?demo=w1w&amp;terrain=flat&amp;autoplay=1">直接仿真</a>
+            <a class="primary secondary" href="/train/?algorithm=alg_builtin_wheel_leg_hip_degradation&amp;task=w1w_moe_cts">训练 / 续训</a>
+          </div>
+    </div></div>
+    </article></div>
+    </section>
+  </main>
+
+  <script type="module">import { mountNav, requireAuth } from '/shared/nav.js?v=home-nav-1'; requireAuth(); mountNav('algorithms');</script>
+  <script type="module" src="./app.js?v=wheel-leg-jump-1"></script>
+
+
+</body></html>

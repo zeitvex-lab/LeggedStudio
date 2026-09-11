@@ -1,0 +1,12 @@
+node_modules
+dist
+tmp
+.tmp
+output
+.playwright-mcp
+.worktrees
+log
+public/usd/bindings
+test/usd-viewer
+src/features/urdf-viewer/runtime
+packages/react-robot-canvas/dist

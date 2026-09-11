@@ -1,0 +1,380 @@
+package stream
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/Khan/genqlient/graphql"
+
+	"github.com/wandb/wandb/core/internal/analytics"
+	"github.com/wandb/wandb/core/internal/featurechecker"
+	"github.com/wandb/wandb/core/internal/observability"
+	"github.com/wandb/wandb/core/internal/pfxout"
+	"github.com/wandb/wandb/core/internal/runhandle"
+	"github.com/wandb/wandb/core/internal/runsyncstate"
+	"github.com/wandb/wandb/core/internal/runwork"
+	"github.com/wandb/wandb/core/internal/settings"
+	"github.com/wandb/wandb/core/internal/sharedmode"
+	"github.com/wandb/wandb/core/internal/tensorboard"
+	"github.com/wandb/wandb/core/internal/transactionlog"
+	"github.com/wandb/wandb/core/internal/wboperation"
+
+	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
+)
+
+const (
+	BufferSize = 32
+
+	// printerBufferSize is the maximum number of messages (warnings, errors)
+	// to buffer before discarding new ones. The client is expected to read
+	// messages frequently, so this does not need to be large.
+	printerBufferSize = 128
+)
+
+// Stream processes incoming records for a single run.
+//
+// wandb consists of a service process (this code) to which one or more
+// user processes connect (e.g. using the Python wandb library). The user
+// processes send "records" to the service process that log to and modify
+// the run, which the service process consumes asynchronously.
+type Stream struct {
+	// runWork is a channel of records to process.
+	runWork runwork.RunWork
+
+	// runHandle is run info initialized after the first RunRecord.
+	runHandle *runhandle.RunHandle
+
+	// operations tracks the status of asynchronous work.
+	operations *wboperation.WandbOperations
+
+	// featureProvider checks server capabilities.
+	featureProvider *featurechecker.FeatureProvider
+
+	// graphqlClientOrNil is used for GraphQL operations to the W&B backend.
+	//
+	// It is nil for offline runs.
+	graphqlClientOrNil graphql.Client
+
+	// logger writes debug logs for the run.
+	logger *observability.CoreLogger
+
+	// loggerFile is the file (if any) to which the logger writes.
+	loggerFile *os.File
+
+	// otelProxy records open telemetry analytics for the run.
+	otelProxy *analytics.OpenTelemetryProxy
+
+	// wg is the WaitGroup for the stream
+	wg sync.WaitGroup
+
+	// settings is the settings for the stream
+	settings *settings.Settings
+
+	// RecordParser turns Records into Work.
+	recordParser RecordParser
+
+	// handler is the handler for the stream
+	handler *Handler
+
+	// writerFactory is used to create the Writer component
+	writerFactory *WriterFactory
+
+	// flowControlFactory is used to create the FlowControl component
+	flowControlFactory *FlowControlFactory
+
+	// sender is the sender for the stream
+	sender *Sender
+
+	// clientID is a unique ID for the stream
+	clientID sharedmode.ClientID
+}
+
+// DebugCorePath is the absolute path to the debug-core.log file.
+type DebugCorePath string
+
+// NewStream creates a new stream.
+func NewStream(
+	clientID sharedmode.ClientID,
+	debugCorePath DebugCorePath,
+	featureProvider *featurechecker.FeatureProvider,
+	flowControlFactory *FlowControlFactory,
+	graphqlClientOrNil graphql.Client,
+	handlerFactory *HandlerFactory,
+	loggerFile streamLoggerFile,
+	logger *observability.CoreLogger,
+	otelProxy *analytics.OpenTelemetryProxy,
+	operations *wboperation.WandbOperations,
+	recordParserFactory *RecordParserFactory,
+	senderFactory *SenderFactory,
+	s *settings.Settings,
+	runHandle *runhandle.RunHandle,
+	tbHandlerFactory *tensorboard.TBHandlerFactory,
+	writerFactory *WriterFactory,
+) *Stream {
+	symlinkDebugCore(s, string(debugCorePath))
+
+	runWork := runwork.New(BufferSize, logger)
+	tbHandler := tbHandlerFactory.New(
+		runWork,
+		/*fileReadDelay=*/ 5*time.Second,
+	)
+	syncStateStore := runsyncstate.InMemory()
+	if !s.IsSkipTransactionLog() {
+		syncStateStore = runsyncstate.File(s.GetTransactionLogPath())
+	}
+	recordParser := recordParserFactory.New(
+		runWork.BeforeEndCtx(),
+		tbHandler,
+		syncStateStore,
+	)
+
+	stream := &Stream{
+		runWork:            runWork,
+		runHandle:          runHandle,
+		operations:         operations,
+		featureProvider:    featureProvider,
+		graphqlClientOrNil: graphqlClientOrNil,
+		logger:             logger,
+		loggerFile:         loggerFile,
+		otelProxy:          otelProxy,
+		settings:           s,
+		recordParser:       recordParser,
+		handler:            handlerFactory.New(runWork),
+		writerFactory:      writerFactory,
+		flowControlFactory: flowControlFactory,
+		sender:             senderFactory.New(runWork),
+		clientID:           clientID,
+	}
+
+	logger.Info("stream: created new stream", "id", stream.settings.GetRunID())
+	return stream
+}
+
+// GetSettings returns the stream's settings.
+func (s *Stream) GetSettings() *settings.Settings {
+	return s.settings
+}
+
+// Start begins processing the stream's input records and producing outputs.
+func (s *Stream) Start() {
+	s.wg.Add(1)
+	go func() {
+		s.handler.Do(s.runWork.Chan())
+		s.wg.Done()
+	}()
+
+	maybeSavedWork := s.maybeSavingToTransactionLog(s.handler.OutChan())
+
+	s.wg.Add(1)
+	go func() {
+		s.sender.Do(maybeSavedWork)
+		s.wg.Done()
+	}()
+
+	s.logger.Info("stream: started")
+}
+
+// maybeSavingToTransactionLog saves work from the channel into a transaction
+// log if allowed by settings.
+//
+// The output is work that has been saved.
+func (s *Stream) maybeSavingToTransactionLog(
+	work <-chan runwork.Work,
+) <-chan runwork.Work {
+	if s.settings.IsSkipTransactionLog() {
+		s.logger.Info("stream: skipping transaction log due to settings")
+		return work
+	}
+
+	w, err := transactionlog.OpenWriter(s.settings.GetTransactionLogPath())
+	if err != nil {
+		s.logger.Error(fmt.Sprintf(
+			"stream: error opening transaction log for writing: %v", err))
+		return work
+	}
+
+	r, err := transactionlog.OpenReader(
+		s.settings.GetTransactionLogPath(),
+		s.logger,
+	)
+	if err != nil {
+		// Capture the error because if we can open for writing,
+		// why can't we open for reading?
+		s.logger.CaptureError(
+			"stream",
+			fmt.Errorf(
+				"stream: error opening transaction log for reading: %v",
+				err,
+			),
+		)
+		return work
+	}
+
+	writer := s.writerFactory.New(w)
+	flowControl := s.flowControlFactory.New(
+		r, writer.Flush, s.recordParser,
+		FlowControlParams{
+			InMemorySize: 32,   // Max records before off-loading.
+			Limit:        1024, // Max unsaved records before blocking.
+		},
+	)
+
+	s.wg.Add(1)
+	go func() {
+		writer.Do(work)
+		s.wg.Done()
+	}()
+
+	s.wg.Add(1)
+	go func() {
+		flowControl.Do(writer.Chan())
+		s.wg.Done()
+	}()
+
+	return flowControl.Chan()
+}
+
+// HandleRecord ingests a record from the client.
+func (s *Stream) HandleRecord(record *spb.Record, request *runwork.Request) {
+	s.logger.Debug("handling record", "record", record.GetRecordType())
+
+	work := runwork.Work{
+		WorkImpl: s.recordParser.Parse(record),
+		Request:  request,
+	}
+
+	work.Schedule(&sync.WaitGroup{}, func() { s.runWork.AddWork(work) })
+}
+
+// Close closes the stream and blocks until all its work is processed.
+//
+// Any incoming requests after this will immediately error out.
+//
+// This assumes that an exit record has been or will be pushed,
+// or else this blocks indefinitely.
+func (s *Stream) Close() {
+	s.logger.Info("stream: finishing up")
+	s.runWork.Close()
+	s.wg.Wait()
+	s.logger.Info("stream: all finished")
+
+	// All of the stream's goroutines have finished, so no more analytics
+	// will be recorded; flush what's pending.
+	shutdownCtx, cancel := context.WithTimeout(
+		context.Background(),
+		2*time.Second,
+	)
+	defer cancel()
+	if s.otelProxy != nil {
+		err := s.otelProxy.Shutdown(shutdownCtx)
+		if err != nil {
+			s.logger.Error(
+				"stream: failed to shut down analytics",
+				"error", err,
+			)
+		}
+	}
+
+	if s.loggerFile != nil {
+		// Sync the file instead of closing it, in case we keep writing to it.
+		_ = s.loggerFile.Sync()
+	}
+}
+
+// FinishAndClose emits an exit record, closes the stream and prints a footer.
+//
+// In contrast to Close, this assumes that an exit record has not and will
+// not be pushed by any other source. If there has already been an exit record,
+// this may shut down the run abruptly.
+//
+// This is used to shut down the stream if the client didn't do it explicitly.
+func (s *Stream) FinishAndClose(exitCode int32) {
+	// Use a synthetic exit request to detect when uploads finish.
+	exitCtx, cancelExit := context.WithCancel(context.Background())
+	exitResponse := make(chan *spb.ServerResponse, 1)
+	exitRequest := runwork.NewRequest(
+		"",
+		exitCtx,
+		cancelExit,
+		exitResponse,
+	)
+
+	s.HandleRecord(&spb.Record{
+		RecordType: &spb.Record_Exit{
+			Exit: &spb.RunExitRecord{
+				ExitCode: exitCode,
+			}},
+		Control: &spb.Control{AlwaysSend: true},
+	}, exitRequest)
+
+	// Wait until all uploads complete (or, if this is a duplicate exit,
+	// until it is rejected by the Sender).
+	<-exitCtx.Done()
+	s.Close()
+
+	s.printFooter()
+}
+
+func (s *Stream) printFooter() {
+	// Silent mode disables any footer output
+	if s.settings.IsSilent() {
+		return
+	}
+
+	formatter := pfxout.New(
+		pfxout.WithColor("wandb", pfxout.BrightBlue),
+	)
+
+	formatter.Println("")
+	if s.settings.IsOffline() {
+		formatter.Println("You can sync this run to the cloud by running:")
+		formatter.Println(
+			pfxout.WithStyle(
+				fmt.Sprintf("wandb sync %v", s.settings.GetSyncDir()),
+				pfxout.Bold,
+			),
+		)
+	} else if runURL, err := s.runURL(); err != nil {
+		s.logger.CaptureError(
+			"stream",
+			fmt.Errorf("stream: runURL: %v", err),
+		)
+	} else {
+		formatter.Println(
+			fmt.Sprintf(
+				"🚀 View run %v at: %v",
+				pfxout.WithColor(s.settings.GetDisplayName(), pfxout.Yellow),
+				pfxout.WithColor(runURL, pfxout.Blue),
+			),
+		)
+	}
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	relLogDir, err := filepath.Rel(currentDir, s.settings.GetLogDir())
+	if err != nil {
+		return
+	}
+	formatter.Println(
+		fmt.Sprintf(
+			"Find logs at: %v",
+			pfxout.WithColor(relLogDir, pfxout.BrightMagenta),
+		),
+	)
+}
+
+// runURL returns the URL for the run if available, or else an error.
+func (s *Stream) runURL() (string, error) {
+	upserter, err := s.runHandle.Upserter()
+	if err != nil {
+		return "", err
+	}
+
+	return upserter.RunPath().URL(s.settings.GetAppURL())
+}

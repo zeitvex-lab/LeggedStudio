@@ -1,0 +1,113 @@
+:root {
+  --boot-accent: #2563eb;
+  --boot-bg: #f5f7fb;
+  --boot-track: rgba(100, 116, 139, 0.22);
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --boot-accent: #60a5fa;
+    --boot-bg: #0f172a;
+    --boot-track: rgba(148, 163, 184, 0.22);
+  }
+}
+
+html,
+body,
+#root {
+  background: var(--boot-bg);
+  margin: 0;
+  min-height: 100%;
+}
+
+.boot-loading {
+  background: var(--boot-bg);
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+}
+
+.boot-spinner {
+  animation: boot-spin 800ms linear infinite;
+  border: 3px solid var(--boot-track);
+  border-radius: 50%;
+  border-top-color: var(--boot-accent);
+  height: 32px;
+  width: 32px;
+}
+
+@keyframes boot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Hidden pre-render copy for crawlers; the interactive app replaces it on mount. */
+.boot-seo {
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.boot-logo {
+  height: 72px;
+  width: 72px;
+}
+
+.boot-title {
+  color: #0f172a;
+  font: 600 28px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  margin: 4px 0 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .boot-title {
+    color: #e2e8f0;
+  }
+}
+
+.boot-tagline {
+  font: 500 15px/1.45 system-ui, sans-serif;
+  margin: 0;
+  max-width: 36rem;
+}
+
+.boot-sub {
+  font: 400 13px/1.6 system-ui, sans-serif;
+  margin: 0;
+  max-width: 40rem;
+}
+
+.boot-formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+}
+
+.boot-formats li {
+  border: 1px solid var(--boot-track);
+  border-radius: 999px;
+  font: 500 12px/1 system-ui, sans-serif;
+  padding: 6px 12px;
+}
+
+.boot-noscript {
+  align-items: center;
+  box-sizing: border-box;
+  color: #64748b;
+  display: flex;
+  font: 400 13px/1.5 system-ui, sans-serif;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 32px 24px;
+  text-align: center;
+}

@@ -1,0 +1,19 @@
+[Unit]
+Description=Microduck PWA static server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Multi-threaded stdlib server with gzip support. Single-threaded
+# `python3 -m http.server` couldn't handle the PWA's first-load fan-out
+# (30+ parallel mesh fetches) and made phones time out. See serve.py.
+ExecStart=/usr/bin/python3 /var/www/microduck/_serve.py --directory /var/www/microduck --port 8080
+Restart=on-failure
+RestartSec=3
+# Run unprivileged. Port 8080 doesn't need CAP_NET_BIND_SERVICE.
+User=nobody
+Group=nogroup
+
+[Install]
+WantedBy=multi-user.target

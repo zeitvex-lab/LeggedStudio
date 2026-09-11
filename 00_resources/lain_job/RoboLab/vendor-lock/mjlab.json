@@ -1,0 +1,15 @@
+{
+  "name": "MJLab",
+  "source": "https://github.com/mujocolab/mjlab",
+  "version": "1.6.0",
+  "revision": null,
+  "license": "Apache-2.0",
+  "local_path": "backends/mjlab/mjlab",
+  "target_path": "backends/mjlab/mjlab",
+  "patches": [
+    "backends/mjlab/patches/README.md",
+    "backends/mjlab/mjlab/src/mjlab/entity/entity.py",
+    "backends/mjlab/mjlab/src/mjlab/envs/mdp/actions/actions.py"
+  ],
+  "note": "RoboLab-managed MJLab bundle copied from the local 1.6.0 checkout. Revision remains unverified, so this is a source record rather than a reproducibly locked P2 baseline."
+}

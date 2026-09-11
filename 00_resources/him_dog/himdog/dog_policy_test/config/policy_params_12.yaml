@@ -1,0 +1,115 @@
+# ======================================================================================
+# ⚠️  注意：本文件仅供 dog_policy_test_12 使用！
+#   - 不要用 policy_params.yaml 跑 test_12（那个文件没有 model_names/paths/dims 数组，
+#     会导致 test_12 启动时报 "参数为空" 然后直接退出）。
+#   - 反过来也不要用本文件跑 test_11（test_11 读的是 model_path 单数）。
+#
+# ⚠️  启动后机器人默认是 "等待" 状态（RL 未激活），必须先启动 RL 才会动：
+#   - control_mode=0 (键盘): 在节点终端按 y 键启动 RL
+#   - control_mode=1 (joy) : 按手柄 Y 按钮(button index 3)启动 RL
+#   - 不启动 RL 时 /joint_states 不会发布，机器人保持默认站姿
+# ======================================================================================
+# dog_policy_test_12 参数配置 — 基于 test_11 + 内置模型热切换
+# 修改后只需重新 run，不需要 colcon build
+#
+# ★ test_12 新增功能：
+#   - 模型列表（model_names / model_paths / model_obs_dims）
+#   - 运行时键盘 [ / ] 循环切换模型
+#   - 导航模式 nav_cmd.model_path 自动匹配模型列表
+#
+# 运行命令：
+# ros2 run dog_policy_test dog_policy_test_12 --ros-args --params-file ./src/dog_policy_test/config/policy_params_12.yaml
+
+dog_policy_test_node:
+  ros__parameters:
+    # ==========================
+    # ★ 模型列表（test_12 核心功能）
+    # 运行时按 [ / ] 键循环切换模型，无需重启
+    # model_names / model_paths / model_obs_dims 三个数组长度必须一致
+    # model_obs_dims: 45 = 不含 height command, 46 = 含 height command
+    # ==========================
+    model_names:
+      - "good_1500"
+      - "dun"
+      - "good_3400"
+    model_paths:
+      - "/home/uwvwko/himdog/src/dog_policy_test/policy/good/model_1500.onnx"
+      - "/home/uwvwko/himdog/src/dog_policy_test/policy/good/model_1500_dun.onnx"
+      - "/home/uwvwko/himdog/src/dog_policy_test/policy/good/model_3400.onnx"
+    model_obs_dims:
+      - 46
+      - 46
+      - 46
+
+    # 默认启动使用的模型索引 (0-based)
+    default_model_index: 0
+
+    # ========== 控制模式 ==========
+    # control_mode:
+    #   0 → 键盘控制（默认，适合调试）
+    #   1 → joy 手柄控制（订阅 /joy，需要 joy_node）
+    #   2 → 导航控制（订阅 /nav_cmd DogNavCommand，由 dog_nav 路径规划控制）
+    control_mode: 1
+
+    # ========== 键盘控制速度参数 ==========
+    kb_forward_speed: 0.6
+    kb_backward_speed: -0.6
+    kb_left_speed: 0.5
+    kb_right_speed: -0.5
+    kb_turn_left_speed: -0.8
+    kb_turn_right_speed: 0.8
+
+    # ========== 导航控制参数（control_mode=2 时生效）==========
+    nav_vx_max: 0.6
+    nav_vy_max: 0.5
+    nav_wz_max: 0.8
+    nav_height_min: 0.18
+    nav_height_max: 0.32
+
+    # ========== Joy 手柄控制参数（control_mode=1 时生效）==========
+    # ★ 按模型分组：数组顺序与 model_paths 一一对应，切换模型时自动套用对应这组
+    #   第一列 = model_1500，第二列 = model_3500
+    #   要区分模型只需改对应列（比如把第二列 vx 改小让 3500 走得慢）
+    joy_vx_max_arr:   [0.6, 0.6]      # [model_1500, model_3500]
+    joy_vy_max_arr:   [0.5, 0.5]
+    joy_wz_max_arr:   [0.8, 0.8]
+    joy_deadband_arr: [0.1, 0.1]
+    joy_axis_vx_arr:  [1, 1]          # 左摇杆 Y → 前后
+    joy_axis_vy_arr:  [0, 0]          # 左摇杆 X → 左右
+    joy_axis_wz_arr:  [3, 3]          # 右摇杆 X → 转向
+    # （下面的单值版仅作旧配置 fallback，配了上面的 _arr 就以 _arr 为准）
+    joy_vx_max: 0.6
+    joy_vy_max: 0.5
+    joy_wz_max: 0.8
+    joy_deadband: 0.1
+    joy_axis_vx: 1
+    joy_axis_vy: 0
+    joy_axis_wz: 3
+
+    # ========== Action 参数 ==========
+    action_scale: 0.25
+
+    # ========== 输入滤波参数 ==========
+    imu_gyro_lpf_alpha: 1.0
+    imu_gyro_bias_alpha: 0.001
+    motor_pos_lpf_alpha: 1.0
+    motor_pos_bias_alpha: 0.001
+    motor_vel_lpf_alpha: 1.0
+    motor_vel_bias_alpha: 0.001
+
+    # ========== 倾倒保护参数 ==========
+    tipover_threshold: -0.7
+
+    # ========== 输出平滑 / Action 限制参数 ==========
+    output_low_pass_alpha: 1.0
+    publish_low_pass_alpha: 1.0
+    action_delta_max: 100.0
+    standstill_threshold: 0.0
+
+    # ========== 系统监控参数 ==========
+    monitor_cpu_warn: 85.0
+    monitor_mem_warn: 85.0
+    monitor_temp_warn: 75.0
+    monitor_inference_dt_warn: 15.0
+    monitor_inference_dt_overrun: 25.0
+    monitor_interval_ms: 1000

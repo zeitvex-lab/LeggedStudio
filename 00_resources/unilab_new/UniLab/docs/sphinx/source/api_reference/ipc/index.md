@@ -1,0 +1,32 @@
+# `unilab.ipc` — Shared-Memory Runtime
+
+The bridge between CPU simulation workers and the GPU learner. Everything
+here is a building block of the **async runner** that powers APPO / FastSAC
+/ FastTD3 / FlashSAC.
+
+| Submodule | Role |
+|---|---|
+| `async_runner` | The high-level orchestration loop |
+| `shared_buffer` | NumPy-backed shared-memory ring/buffer |
+| `rollout_ring_buffer` | Rollout window used by on-policy collectors |
+| `replay_buffer` | Bounded shared ingress for off-policy transitions |
+| `replay_pipelines.*` | Authoritative CUDA/MPS replay ring, device gather, and native H2D |
+| `inference_slot` | Fixed shared observation/action slot for learner-owned off-policy inference |
+| `weight_sync` | Push learner weights to on-policy collector workers |
+
+```{eval-rst}
+.. autosummary::
+   :toctree: _autosummary
+   :template: autosummary/module.rst
+   :recursive:
+
+   unilab.ipc
+```
+
+## Async runner
+
+```{eval-rst}
+.. automodule:: unilab.ipc.async_runner
+   :members:
+   :show-inheritance:
+```

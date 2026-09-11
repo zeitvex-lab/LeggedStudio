@@ -1,0 +1,18 @@
+[method]
+id = "dreamwaq"
+name = "DreamWaQ"
+paper = "https://arxiv.org/abs/2210.17002"
+framework = "isaacgym"
+status = "implemented"
+
+[source]
+reference_project = "/home/lxy/LeggedGym-Ex"
+reference_paths = ["rsl_rl/modules/actor_critic_dreamwaq.py", "rsl_rl/algorithms/ppo_dreamwaq.py", "rsl_rl/storage/rollout_storage_dreamwaq.py", "rsl_rl/runners/dreamwaq_runner.py"]
+license = "BSD-3-Clause"
+
+[extension_points]
+algorithm = "PPO_DreamWaQ"
+policy = "ActorCriticDreamWaQ"
+runner = "DreamWaQRunner"
+storage = "RolloutStorageDreamWaQ"
+task = "A1DreamWaQ"

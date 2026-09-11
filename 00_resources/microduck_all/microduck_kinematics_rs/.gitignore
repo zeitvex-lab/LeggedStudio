@@ -1,0 +1,17 @@
+# Rust
+target/
+
+# Python (uv-managed fixture generator)
+scripts/.venv/
+**/__pycache__/
+*.py[cod]
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Claude Code per-machine settings
+.claude/settings.local.json

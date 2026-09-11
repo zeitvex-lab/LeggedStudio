@@ -1,0 +1,24 @@
+[method]
+id = "ppo_ee"
+name = "PPO with Explicit Estimator"
+paper = "https://arxiv.org/abs/2202.05481"
+framework = "isaacgym"
+status = "implemented-and-validated"
+
+[source]
+reference_project = "/home/lxy/LeggedGym-Ex"
+reference_paths = [
+  "rsl_rl/algorithms/ppo_ee.py",
+  "rsl_rl/modules/actor_critic_ee.py",
+  "rsl_rl/runners/ee_runner.py",
+  "rsl_rl/storage/rollout_storage_ee.py",
+  "legged_gym/envs/base/legged_robot_ee.py",
+]
+license = "BSD-3-Clause"
+
+[extension_points]
+algorithm = "PPO_EE"
+policy = "ActorCriticEE"
+runner = "EERunner"
+storage = "RolloutStorageEE"
+task = "A1ExplicitEstimator"

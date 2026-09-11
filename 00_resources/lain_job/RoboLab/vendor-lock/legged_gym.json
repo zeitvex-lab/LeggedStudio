@@ -1,0 +1,11 @@
+{
+  "name": "legged_gym",
+  "source": "https://github.com/leggedrobotics/legged_gym",
+  "version": "1.0.0",
+  "revision": null,
+  "license": "BSD-3-Clause",
+  "local_path": "backends/isaacgym/legged_gym",
+  "target_path": "backends/isaacgym/legged_gym",
+  "patches": [],
+  "note": "RoboLab-managed Isaac Gym bundle. The initial local source is preserved; its upstream revision remains unverified, so it is a source record rather than a reproducibly locked baseline. A1, ANYmal B, ANYmal C, and Cassie assets are canonicalized under resources/robots/; the ANYmal C actuator network is under resources/actuator_nets/."
+}

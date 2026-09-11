@@ -1,0 +1,1 @@
+{"enabled":true,"amounts_cents":[100,1000,5000,10000],"min_amount_cents":100,"max_amount_cents":5000000,"order_ttl_seconds":900}

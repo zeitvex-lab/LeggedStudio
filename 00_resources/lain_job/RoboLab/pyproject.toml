@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robolab"
+version = "0.1.0.dev0"
+description = "Isaac Gym-first robot learning, paper reproduction, and reusable skills."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.8"]
+
+[project.scripts]
+robolab = "robolab.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "integration: requires a configured simulation backend and GPU",
+]
+
+[tool.ruff]
+line-length = 88
+src = ["src"]
+

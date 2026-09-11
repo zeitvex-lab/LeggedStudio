@@ -1,0 +1,12 @@
+{
+  "name": "Isaac Gym",
+  "source": "https://developer.nvidia.com/isaac-gym",
+  "version": "Preview 4",
+  "revision": null,
+  "license": "NVIDIA Isaac Gym SDK license",
+  "local_path": "/home/lxy/SDK/isaacgym/python",
+  "target_path": "/home/lxy/SDK/isaacgym/python",
+  "patches": [],
+  "redistribution": "not included in RoboLab repository",
+  "note": "The SDK is externally installed and must not be redistributed under RoboLab's license. RoboLab has no repository-root SDK fallback."
+}

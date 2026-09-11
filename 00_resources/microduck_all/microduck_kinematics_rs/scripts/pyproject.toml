@@ -1,0 +1,9 @@
+[project]
+name = "microduck_kinematics_fixtures"
+version = "0.0.0"
+description = "MuJoCo-based fixture generator for microduck_kinematics tests."
+requires-python = ">=3.10"
+dependencies = [
+  "mujoco>=3.2",
+  "numpy>=1.26",
+]

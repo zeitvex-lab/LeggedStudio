@@ -1,0 +1,653 @@
+use strict
+mb-1 block text-xs text-black
+geometry mesh
+Add collision for stable training.
+Set axis xyz (e.g., 0 1 0).
+none found
+Actuated joints detected:
+CAD Importer
+Origin is not allowed for the SimReady import bridge.
+Import bridge message must be an object.
+Import bridge message source must be cad-importer.
+ZIP exceeds the 200MB SimReady import limit.
+ZIP payload must be an ArrayBuffer.
+ZIP byteLength does not match the payload size.
+Import bridge payload must be a .zip file.
+终止惩罚
+Applies the weight on non-timeout termination. Set to 0 to disable it.
+奖励机器人跟踪指令中的平面线速度。
+Rewards tracking the commanded planar linear velocity.
+角速度跟踪
+Angular velocity tracking
+奖励机器人跟踪指令中的偏航角速度。
+垂直速度惩罚
+Vertical velocity
+抑制机身沿竖直方向的速度。
+Penalizes vertical base velocity.
+横滚/俯仰角速度
+Roll/pitch angular velocity
+抑制机身横滚和俯仰方向的角速度。
+Penalizes base roll and pitch angular velocity.
+Joint torques
+抑制过大的关节驱动力矩。
+Penalizes excessive joint actuator torque.
+关节速度惩罚
+Joint velocity
+Penalizes excessive joint velocity.
+关节加速度惩罚
+Joint acceleration
+抑制过大的关节加速度。
+Penalizes excessive joint acceleration.
+机身高度
+Base height
+根据目标高度约束机身高度，作用方向由权重正负决定。
+Constrains base height around its target; the weight sign controls its effect.
+足端腾空时间
+奖励足端合理的腾空时间以形成步态。
+Rewards useful foot air time for gait formation.
+碰撞惩罚
+惩罚指定机身部位发生不期望的碰撞。
+Penalizes undesired contacts on configured body parts.
+足端绊倒惩罚
+Feet stumble
+Action rate
+惩罚相邻控制步之间的动作突变。
+Penalizes abrupt action changes between control steps.
+静止姿态约束
+Stand still
+Constrains the robot toward its default joint pose at low command speeds.
+标称姿态约束
+Nominal state
+约束机器人接近预设的标称关节状态。
+Action smoothness
+抑制控制动作的高频抖动。
+Penalizes high-frequency action oscillation.
+关节限位惩罚
+Joint position limits
+惩罚关节接近或超过位置极限。
+自定义奖励
+Custom reward
+为导出工程中的自定义奖励函数预留权重。
+Reserves a weight for a custom reward function in the exported project.
+默认
+joint-inline-editor-field joint-inline-editor-field-wide
+角度
+URDF preview failed
+Loading 3D model
+已保留结构标注，可继续操作或重新选择实例。
+Structure labels remain available. You can keep working or select the model again.
+Policy mapping is ready while detailed model assets finish loading.
+h-full w-full
+Unsupported USD preview format
+Failed to load USD preview
+flex h-full w-full items-center justify-center
+rounded-lg border border-black/40 bg-white px-8 py-6 text-center shadow-2xl shadow-black/10
+mt-3 text-2xl font-semibold text-slate-950
+mt-3 text-sm text-slate-600
+USD preview failed:
+Loading USD preview...
+pointer-events-none absolute left-8 top-24 max-w-xl rounded-lg border border-black/35 bg-white/88 p-5 shadow-2xl shadow-black/10
+mt-2 text-2xl font-semibold text-slate-950
+mt-3 text-xs text-slate-600
+meshes /
+full-surface preview triangles
+基座线速度
+机身坐标系下的基座线速度
+重力投影
+由基座姿态计算的重力投影
+速度指令
+关节位置误差
+观测维度已对齐
+设置特殊观测
+可添加
+遥控器
+相位时钟
+脚底接触
+OBS dimensions aligned
+Action dim
+OBS input structure
+Runtime Adapter
+Policy Action History
+Normalization / Scale
+Failed to load
+宇树A1
+RoboTamer Qmini
+逐际带脚底板双足
+逐际点足
+逐际轮足
+DeepRobotics X30
+12自由度菠萝狗
+8自由度菠萝狗
+菠萝狗
+SF双足带脚底板
+SF双足点足
+SF大轮足
+SF小轮足
+SF舵机四轮足
+人形
+逐际
+StackForce机器人
+StackForce Robots
+ANYmal SoftFoot-Q USD
+ANYmal SoftFoot-Q
+Forum attachment license is not explicit; verify upstream terms before redistribution.
+The export controls the 12 ANYmal hip/knee joints and leaves the soft-foot chain in the USD articulation.
+Simplified Quadruped Five-Bar USD
+Simplified Quadruped Five-Bar
+The export uses the 12 driven hip/five-bar joints found in the USD.
+灯哥开源强化学习交流Q群
+5群
+4群
+3群
+2群
+1群
+StackForce机器人技术交流Q群
+Include the referenced mesh file in the uploaded ZIP or folder.
+Imported from the unified URDF/MJCF/USD upload path.
+Uploaded USD:
+user-uploaded USD package
+Set the actuated joint names in the Mapping card before exporting a trainable Isaac Lab project.
+Failed to load mesh asset
+Export failed with
+MJCF conversion failed with
+MJCF conversion response is incomplete.
+Environment script download failed:
+：缺少惯性参数
+请补充质量和惯性矩阵。
+：缺少碰撞体
+：缺少运动轴
+导入机器人
+导出训练工程
+本地配置
+当前框架
+下载环境配置脚本
+使用云训练环境，免配置直接开干：
+使用云训练
+查看使用说明
+安装说明
+关闭环境安装说明
+环境各组件版本
+云训练使用说明
+关闭云训练使用说明
+使用流程
+打开算力自由镜像页面，创建并启动自己的运行实例。
+登录实例的远程桌面环境。
+环境支持
+StackForce SimReady
+关节分组
+未选中
+全部
+角度滑条和完整关节表在右侧“高级设置”中编辑。
+辅助设置
+关节高级设置
+关闭关节高级设置
+个关节
+恢复角度
+当前关节
+弹簧阻尼系数
+关闭导出详情
+强化学习工程文件树预览
+生成框架
+导出框架
+Isaac Gym
+Isaac Lab
+经典关节机器人
+人形机器人
+轮足机器人
+Sim2Sim / MuJoCo
+调节奖励权重
+浏览器阻止了新窗口，请允许弹窗后再试。
+环境
+命令
+已复制
+复制训练命令
+查看训练步骤
+缺失
+未导入机器人
+未下载训练工程
+训练准备
+训练步骤
+关闭训练步骤
+启动训练指令
+训练后查看
+强化学习训练
+强化学习配置
+关闭奖励权重设置
+项奖励权重
+诊断
+已导入
+云训练
+请先选择并载入一个机器人实例或本地工程。
+Choose Workflow Step
+Policy Mapping
+Export Training Project
+Launch Sim2Sim
+Generate a trainable project, then prepare the local environment and launch commands.
+Local Setup
+Current Framework
+Training Environment
+Download Setup Script
+Installation Guide
+Use Cloud Training Environment, no local setup needed:
+Use the GPUFree platform for one-click deployment. The environment is already prepared, so exported RL projects can be unzipped and run directly:
+Use Cloud Training
+Configure Training Environment
+After downloading the setup script, run these commands to install the environment automatically
+MJLab uses a uv-managed environment and does not need conda activate. The script syncs dependencies, discovers the task, and runs the CPU smoke test.
+Environment Component Versions
+Cloud Training Guide
+Close cloud training guide
+The GPUFree image already includes Isaac Gym and Isaac Lab environments, so it can run RL projects exported from StackForce SimReady directly.
+Open the GPUFree image page, then create and start your own instance.
+Log in to the instance remote desktop.
+Export and download the training project into the current instance.
+Unzip the project and read the README inside the project folder.
+Environment Support
+Isaac Gym projects can run directly in the image by following the README.
+Isaac Lab projects can also run directly in the image by following the README.
+Use the README inside the exported project as the source of truth for exact commands.
+Quick Links
+GPUFree Image
+Joint Groups
+Current Joints
+Front Left FL
+Front Right FR
+Left L
+Right R
+Helper Settings
+Joint Advanced Settings
+Reset P/D
+Current Joint
+Spring Damping Coefficients
+Close export details
+Close import notification
+Generation Framework
+Export Framework
+Isaac Gym Frameworks
+Isaac Lab / Isaac Sim Frameworks
+Humanoid robots
+Wheel-legged robots
+Direct Isaac Lab export
+Humanoid Lab project
+MuJoCo-Warp / RSL-RL velocity task
+MJLab / MuJoCo-Warp Framework
+MJLab (Beta)
+Sim2Sim / MuJoCo Online
+Upload the matching policy.onnx
+Send the current robot 3D assets, joints, observation layout, and action config directly to Sim2Sim. After it opens, only upload the trained ONNX.
+Packaging Sim2Sim data...
+Bundle ready, waiting for Sim2Sim...
+Sent to Sim2Sim. Upload ONNX after the page opens.
+Sim2Sim received the model and config. Upload ONNX to validate.
+The browser blocked the new window. Allow popups and try again.
+Sim2Sim verification currently supports URDF/MJCF robots. Use Isaac Lab for closed-chain USD projects.
+Failed to send to Sim2Sim. Go back and launch it again.
+Once in Sim2Sim, only upload policy.onnx.
+Robot: Not Imported
+Training Project: Downloaded
+Training Project: Not Downloaded
+Copy Training Command
+View Training Steps
+Robot not imported
+Joints not configured
+Training Prep
+Training Steps
+Close training steps
+Training Launch Commands
+After Training
+RL Training
+RL Config
+Reward Weights
+reward weights
+Import URDF/MJCF/USD Project
+No robot? Create one
+Create Robot
+Not Imported
+URDF Import Complete
+URDF Import Failed
+观测维度
+已分配连接
+已启用
+来源
+必需
+可选
+关节参数表
+初始位置
+应用到全部关节
+收起
+打开高级参数
+限制
+方向
+模式
+机身状态
+关节状态
+运行时状态
+Observation Mapping
+Motor Mapping
+Actions aligned to actuators
+Trained policy.onnx contract
+Policy input
+Policy output
+Observation dim
+Adapter / MuJoCo optional OBS
+Assigned connections
+Import a URDF/MJCF/USD project first. SimReady will generate OBS and Action mappings automatically.
+Actuator / joint targets
+Joint parameter table
+Control semantics
+Apply To All Joints
+Click an action row to highlight the linked 3D joint.
+Open Advanced Params
+Default pose
+Current joint
+OBS Component Library
+Policy OBS bus
+Joint state
+Runtime state
+base linear velocity
+base linear velocity in base frame
+base angular velocity
+base angular velocity / gyro
+projected gravity
+projected gravity from base orientation
+velocity command
+joint position error
+joint velocity
+qvel in SimReady action order
+previous action
+previous ONNX action
+SimReady actuated joint
+SimReady Sim2Sim
+Generated by StackForce SimReady from
+MJCF source is bundled directly. Preserve joint and actuator names when editing the model.
+ONNX policy path is not attached yet. Upload policy.onnx in sim2sim after import.
+Closed-chain USD actuated joint
+Generated by StackForce SimReady from a closed-chain USD example and its actuated joint order.
+ONNX policy path is not attached yet. Train the exported Isaac Lab task, then export policy.onnx.
+floating-panel-header cursor-move select-none
+导入完成
+Failed to send SimReady import bridge status.
+正在接收模型包
+Failed to import CAD Importer ZIP from postMessage.
+Failed to import CAD Importer ZIP.
+Failed to import local CAD ZIP.
+URDF payload is empty.
+URDF payload is larger than 10MB.
+URDF Builder
+Failed to send URDF Builder import status.
+Failed to send SimReady import bridge ready.
+Failed to import URDF Builder payload.
+Failed to load example
+Failed to export training project.
+MJLab / MuJoCo-Warp
+py -m uv
+run train
+python scripts/train.py --task
+StackForce Sim2Sim / MuJoCo Online
+ONNX policy upload
+URDF/MJCF model bundle
+Isaac Sim
+conda activate
+Missing robot source text for Sim2Sim handoff.
+Failed to post Sim2Sim bundle
+Failed to open Sim2Sim validation
+sim2sim-map-board sim2sim-observation-board
+target obs
+sim2sim-map-pane sim2sim-right-panel sim2sim-observation-assignment-card
+sim2sim-obs-assignment-header sim2sim-obs-connection-header
+ONNX OBS
+Adapter / MuJoCo
+sim2sim-map-board sim2sim-action-board
+A --
+action scale
+action limit
+sim2sim-joint-param-row sim2sim-joint-param-head
+sim2sim-map-pane sim2sim-right-panel sim2sim-action-map-panel
+border-emerald-300/30 bg-emerald-950/30 text-emerald-100
+border-cyan-300/30 bg-cyan-950/30 text-cyan-100
+mt-1 opacity-80
+正在生成脚本骨架...
+Converting meshes and packaging ZIP locally...
+正在接收脚本骨架...
+正在浏览器本地合并缓存资源，
+Merging cached assets locally,
+ZIP ready,
+Merging assets and saving ZIP,
+workflow-mini-btn export-download-button start-primary-button
+workflow-mini-btn inline-flex items-center justify-center no-underline
+workflow-mini-btn start-primary-button
+workflow-mini-btn environment-cloud-button
+text-xs font-semibold leading-5
+mt-1 text-xs opacity-75
+workflow-ribbon-tool-group workflow-ribbon-detail-group export-training-card export-training-combined-card
+export-training-column export-training-column-right
+absolute inset-0
+mt-3 text-sm leading-6 text-slate-300
+mt-5 grid gap-2 text-left text-xs text-slate-300 sm:grid-cols-2
+Import label view
+关节
+flex items-start justify-between gap-4 border-b-2 border-black bg-black px-5 py-4 text-white
+text-sm font-medium leading-6 text-neutral-800
+mt-3 flex items-center justify-between gap-4 text-xs font-semibold text-neutral-600
+border-red-300/35 bg-red-950/90 text-red-50 shadow-red-950/30
+border-slate-300/35 bg-slate-950/90 text-slate-50 shadow-slate-950/30
+border-emerald-300/35 bg-emerald-950/90 text-emerald-50 shadow-emerald-950/30
+flex items-start justify-between gap-3
+mt-1 break-words text-xs leading-5 opacity-85
+pointer-events-none absolute inset-0 z-10
+floating-toolbar pointer-events-auto
+truncate text-sm font-semibold
+workflow-create-robot-button workflow-online-modeling-button
+没有机器人模型？在线建模机器人
+Build Robot Online
+workflow-ribbon-tool-group workflow-ribbon-example-group
+加载机器人
+Load Robot
+workflow-ribbon-tool-group workflow-ribbon-detail-group
+rounded-xl border border-white/10 bg-slate-950/40 p-3
+grid grid-cols-2 gap-2
+joint-advanced-panel pointer-events-auto
+truncate text-base font-semibold
+joint-angle-slider mt-3 w-full
+mt-3 grid grid-cols-2 gap-2
+joint-advanced-row joint-advanced-row-head
+truncate text-left font-medium
+export-details-panel pointer-events-auto
+export-details-header cursor-move select-none
+text-xs text-slate-500
+Set-ExecutionPolicy -Scope Process Bypass
+environment-details-panel pointer-events-auto
+sync --extra cpu
+run tensorboard --logdir logs
+python scripts/play.py --task
+tensorboard --logdir logs
+training-advanced-panel pointer-events-auto
+block truncate font-semibold
+StackForce SimReady  MJLab Beta
+2026年8月5日
+关闭更新公告
+关闭
+训练框架扩展
+本次更新验证信息
+MJLab 1.5.3
+MuJoCo 3.10
+RSL-RL 5.4
+下次不再提示
+simready-release-footer-button is-primary
+开始体验
+按首页卡片顺序讲解
+关闭使用教程
+照着首页卡片，从左到右走一遍
+策略映射
+选择框架并导出
+选择示例
+simready-onboarding-fake-button is-primary
+载入示例
+第一次使用建议先选示例。示例会按同一套入口载入，方便你学习完整流程。
+创建机器人
+如果手里没有工程，可以先去创建机器人，再回到这里导入生成的项目。
+obs 0
+obs 1
+电机映射
+导出训练工程，并查看环境配置和启动命令。
+如果还没导入机器人，点击这里也会提示先选择实例。
+第一次推荐路径
+simready-onboarding-footer-button is-primary
+flex items-center justify-between gap-3 border-b-2 border-black bg-black px-4 py-3 text-white
+需要帮助？加入灯哥强化学习社区
+关闭人工帮助
+mt-1 text-xs font-medium leading-5 text-neutral-600
+重新查看导入、策略映射、导出训练工程的卡片流程。
+查看教程
+查看最新更新公告
+text-sm font-semibold text-black
+text-xs font-medium text-neutral-700
+mt-1 text-xs font-semibold text-black
+人工帮助
+Linear velocity tracking
+跟踪指令中的平面线速度。
+Tracks the commanded planar linear velocity.
+Tracks the commanded yaw angular velocity.
+机身直立
+奖励基座保持竖直。
+关节姿态
+Joint pose
+根据运动速度约束关节偏离默认姿态。
+机身角速度惩罚
+Body angular velocity
+抑制机身不需要的角速度。
+Penalizes unwanted body angular velocity.
+Angular momentum
+抑制整机角动量。
+Penalizes whole-body angular momentum.
+惩罚关节接近位置极限。
+Penalizes joints approaching their position limits.
+动作变化率惩罚
+动作平滑惩罚
+未导入机器人时点击这里，只会提示先选择实例。
+Diagnostics and File Tree
+关节传感
+选择操作步骤
+workflow-ribbon-tool-group workflow-ribbon-detail-group export-training-card export-training-prep-card
+Close joint advanced settings
+ZIP byteLength must be a non-negative number.
+策略映射已就绪，详细模型资源仍在载入。
+角动量惩罚
+toolbar-brand min-w-0
+Base state
+Closed Chain USD Robot
+text-sm font-semibold
+Imported from URDF Builder
+training-ribbon-field training-ribbon-task
+默认角
+导出并下载训练工程到当前实例中。
+Penalizes joints approaching or exceeding position limits.
+Isaac Lab / Legged Gym-EX
+sim2sim-map-pane sim2sim-left-panel sim2sim-observation-library-pane
+python scripts/train.py
+workflow-mini-btn start-primary-button workflow-load-robot-button
+Isaac Lab / Isaac Sim
+Tune Reward Weights
+首页卡片顺序
+workflow-mini-btn environment-download-button
+Robot: Imported
+View Diagnostics and File Tree
+下载配置脚本后，按如下指令自动化安装环境
+模型包已下载，正在准备解压...
+Failed to import URDF Builder window payload.
+策略输出
+Reset Angles
+Close environment installation guide
+mt-2 text-xl font-semibold text-white
+Import bridge message type or protocol is invalid.
+关节力矩惩罚
+Choose and load a robot example or local project first.
+Add inertial mass/inertia.
+导入页标签视图
+抑制过大的关节速度。
+机身姿态惩罚
+Closed-Chain USD Policy Map
+未接入
+Constrains the robot toward its configured nominal joint state.
+Human Support
+Phase Clock
+Constrains joint deviation from the default pose based on command speed.
+关闭导入提示
+Close reward weight settings
+Receiving project scaffold...
+environment-details-list environment-guide-list
+生成可训练工程，并完成本地环境配置与启动命令。
+Upright posture
+Foot Contact
+Preview mesh failed to render.
+快速入口
+奖励权重
+Penalizes excessive horizontal contact force at the feet.
+诊断与文件树
+在低速指令下约束机器人保持默认关节姿态。
+Classic joint robots
+请补充碰撞几何体，以提高训练稳定性。
+传感器
+查看诊断与文件树
+基座角速度
+RL Project File Tree Preview
+mt-3 text-sm leading-6 text-slate-600
+Open Sim2Sim / MuJoCo Online and import the downloaded .sim2sim
+Initial pose
+Fourier GR1
+panel-action-button shrink-0
+Could not recognize data sent by URDF Builder.
+Rewards tracking the commanded yaw angular velocity.
+Cloud Training
+关节速度
+Failed to download environment script
+export-training-column export-training-column-left
+观测映射
+workflow-mini-btn environment-guide-link
+sim2sim-action-panel-stack sim2sim-left-panel
+Import bridge message version is not supported.
+Generating project scaffold...
+跟踪指令中的偏航角速度。
+Training project not downloaded
+preview-surface relative h-full w-full overflow-hidden bg-slate-100
+rounded-xl border p-3 text-xs leading-5
+px-5 py-5
+workflow-ribbon-tool-group workflow-ribbon-load-group
+Rewards keeping the base upright.
+Rear Right RR
+The exported Isaac Lab task keeps USD-authored passive closed-chain joints in the articulation.
+训练环境
+惩罚足端受到过大的水平碰撞力。
+Usage Guide
+preview-surface absolute inset-0 h-screen w-screen bg-slate-100
+未导入
+Rear Left RL
+配置训练环境
+URDF payload is missing urdfText.
+URDF preview load failed.
+线速度跟踪
+选择文件夹
+Review observation/action wiring, then start the Sim2Sim policy
+Open StackForce SimReady in the instance browser and configure the robot and training project.
+start-details-panel pointer-events-auto
+未配置关节
+控制语义
+惩罚机身偏离期望直立姿态。
+run play
+Penalizes deviation from the desired upright orientation.
+DeepRobotics Lite3
+没有机器人？创建一个
+策略输入
+Foot links by name heuristic:
+mt-4 grid gap-2 text-left text-xs text-slate-300 sm:grid-cols-2
+Import a URDF/MJCF and finish joint configuration first.
+Base link inferred from root candidate:
+可以使用“算力自由”平台实现一键部署，上面有我已经配好的环境，强化学习工程解压即用：
+w-full rounded-xl border-white/10 bg-slate-900/80 px-3 py-2 text-sm
+ONNX Action output
+Feet air time
+action is target angle offset, tracked by Kp/Kd
+StackForce Sim Ready
+首页使用教程
+mt-3 text-2xl font-semibold text-white
+查看安装说明

@@ -1,0 +1,2 @@
+# This fork vendors the sandbox assets as regular Git blobs so a clone
+# runs without Git LFS. Upstream (the Hugging Face Space) still uses LFS.

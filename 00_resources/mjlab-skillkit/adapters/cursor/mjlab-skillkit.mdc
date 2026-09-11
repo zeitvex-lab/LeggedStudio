@@ -1,0 +1,34 @@
+---
+description: mjlab-skillkit guardrails
+globs:
+  - "**/*.py"
+alwaysApply: false
+---
+
+# mjlab-skillkit Guardrails
+
+- This skillkit contains two core capabilities:
+  - **IsaacLab Migration Skill** for porting source projects into mjlab-native code
+  - **mjlab Native Skill** for writing new mjlab-native code directly
+
+- Use `mujocolab/anymal_c_velocity` as the migration pattern.
+- This skill can also author new mjlab-native code directly.
+- Resolve references in this order: target repo -> local `mjlab/` checkout if present -> bundled skill references -> online docs only if still blocked.
+- Do not block authoring just because the workspace has no `mjlab/` directory.
+- Do not modify `mujocolab/mjlab` source.
+- In migration mode, keep behavior equivalent for rewards/obs/actions/commands/reset/termination/curriculum.
+- Final implementation must be mjlab-native.
+- No compat layer, adapter shim, or bridge wrapper.
+- In migration mode, no new fallback logic unless source task has it.
+- In migration mode, no new `raise`/`assert` unless source task has it.
+- In migration mode, keep source comments/TODO semantics.
+- Manager config must be dict-based (`dict[str, XxxTermCfg]`), no manager `@configclass`.
+- Remove IsaacLab API remnants after migration.
+- Ask user to choose `preserve-layout` or `mjlab-layout` only for migration tasks if not specified.
+- Prefer official mjlab modules directly:
+  - `mjlab.envs` for env shell
+  - `mjlab.scene` for scene composition
+  - `mjlab.managers` for manager term configs
+  - `mjlab.envs.mdp` for built-in action/obs/reward/event/metric/termination helpers
+  - `mjlab.sensor` / `mjlab.sim` / `mjlab.terrains` / `mjlab.rl` / `mjlab.tasks.registry` for domain-specific replacements
+  - nearest target-repo or local task example for new mjlab authoring

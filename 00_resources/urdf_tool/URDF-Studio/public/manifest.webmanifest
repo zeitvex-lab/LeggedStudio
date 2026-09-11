@@ -1,0 +1,19 @@
+{
+  "name": "URDF Studio",
+  "short_name": "URDF Studio",
+  "description": "Free in-browser editor and viewer for robot models: URDF, MJCF, USD, SDF and Xacro.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/logos/logo.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

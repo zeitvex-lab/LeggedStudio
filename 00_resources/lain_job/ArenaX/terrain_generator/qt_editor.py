@@ -1,0 +1,905 @@
+"""Blue-white PyQt editor with a live top-down arena preview."""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+from datetime import datetime
+from pathlib import Path
+
+import PyQt5
+from PyQt5.QtCore import QPointF, QRectF, Qt
+from PyQt5.QtGui import QColor, QFont, QPainter, QPen, QBrush, QPolygonF
+from PyQt5.QtWidgets import (
+    QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox,
+    QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
+    QMessageBox, QPushButton, QSpinBox, QSplitter, QStackedWidget, QStatusBar, QVBoxLayout,
+    QWidget,
+)
+
+from .terrain.models import ArenaScene, TerrainConfig, TerrainElement, SUPPORTED_ELEMENT_TYPES
+from .simulation.embedded import EmbeddedSimulationPage
+from .terrain.presets import playground_scene
+from .terrain.scene import export_scene, load_scene
+from .terrain.library import TerrainLibrary, compose_robot_scene
+from .i18n import normalize_language, tr
+
+
+ELEMENT_LABELS = {
+    "platform": "高台",
+    "trench": "鸿沟",
+    "stairs": "台阶",
+    "hollow_stairs": "镂空台阶",
+    "ramp": "斜坡",
+    "stepping_stones": "梅花桩",
+    "triangle": "三角障碍",
+    "tire_ring": "轮胎圈",
+    "slalom_poles": "绕杆",
+    "sandpit": "沙坑",
+    "high_wall": "高墙",
+}
+
+DEFAULT_PARAMS = {
+    "platform": {"length": 2.0, "width": 2.0, "height": 0.8},
+    "trench": {"length": 2.4, "width": 2.4, "gap": 0.3, "height": 0.3,
+               "top_width": 0.3, "bottom_width": 1.05},
+    "stairs": {"length": 3.0, "width": 2.0, "height": 0.8, "steps": 8},
+    "hollow_stairs": {"length": 3.2, "width": 2.4, "height": 0.8, "steps": 8, "thickness": 0.05},
+    "ramp": {"length": 3.0, "width": 2.0, "height": 0.8, "thickness": 0.16},
+    "stepping_stones": {"rows": 4, "cols": 6, "spacing_x": 0.45, "spacing_y": 0.6, "size": 0.2, "height": 0.3},
+    "triangle": {"count": 4, "length": 0.9, "width": 1.0, "height": 0.8, "angle": 30.0, "gap": 0.28, "stagger": 0.8, "pair_yaw": 90.0, "group_spacing": 1.3, "pair_spacing": 1.18},
+    "tire_ring": {"count": 3, "spacing": 0.85, "major_radius": 0.27, "minor_radius": 0.10, "upright": False},
+    "slalom_poles": {"count": 6, "spacing": 0.8, "radius": 0.07, "height": 1.2, "zigzag": 0.32},
+    "sandpit": {"length": 2.4, "width": 2.0, "depth": 0.06, "surface_height": 0.06,
+                "roughness": 0.018, "surface_grid": 13, "potholes": 7,
+                "gravel_count": 18, "gravel_size": 0.035, "border": 0.12},
+    "high_wall": {"length": 2.4, "thickness": 0.22, "height": 0.3},
+}
+
+PARAM_SCHEMA = {
+    "platform": [("length", "长度", "m", "float"), ("width", "宽度", "m", "float"), ("height", "高度", "m", "float")],
+    "trench": [("length", "总长度", "m", "float"), ("width", "宽度", "m", "float"), ("gap", "中间间隙", "m", "float"), ("height", "高度", "m", "float"), ("top_width", "上底", "m", "float"), ("bottom_width", "下底", "m", "float")],
+    "stairs": [("length", "总长度", "m", "float"), ("width", "宽度", "m", "float"), ("height", "总高度", "m", "float"), ("steps", "级数", "级", "int")],
+    "hollow_stairs": [("length", "总长度", "m", "float"), ("width", "宽度", "m", "float"), ("height", "总高度", "m", "float"), ("steps", "级数", "级", "int"), ("thickness", "踏板厚度", "m", "float")],
+    "ramp": [("length", "长度", "m", "float"), ("width", "宽度", "m", "float"), ("height", "高度", "m", "float")],
+    "stepping_stones": [("rows", "行数", "行", "int"), ("cols", "列数", "列", "int"), ("spacing_x", "横向间距", "m", "float"), ("spacing_y", "纵向间距", "m", "float"), ("size", "方柱边长", "m", "float"), ("height", "方柱高度", "m", "float")],
+    "triangle": [("count", "数量", "个", "int"), ("length", "单个长度", "m", "float"), ("width", "宽度", "m", "float"), ("height", "高度", "m", "float"), ("angle", "顶角", "deg", "float"), ("gap", "间隙", "m", "float"), ("stagger", "左右错位", "m", "float"), ("pair_yaw", "每组旋转", "deg", "float"), ("group_spacing", "组间距", "m", "float"), ("pair_spacing", "组内间距", "m", "float")],
+    "tire_ring": [("count", "数量", "个", "int"), ("spacing", "间距", "m", "float"), ("major_radius", "轮胎主半径", "m", "float"), ("minor_radius", "轮胎厚度", "m", "float"), ("upright", "竖放", "", "bool")],
+    "slalom_poles": [("count", "杆数", "根", "int"), ("spacing", "杆间距", "m", "float"), ("radius", "杆半径", "m", "float"), ("height", "杆高", "m", "float"), ("zigzag", "交错距离", "m", "float")],
+    "sandpit": [("length", "长度", "m", "float"), ("width", "宽度", "m", "float"),
+                ("depth", "沙层厚度", "m", "float"), ("surface_height", "表面高度", "m", "float"),
+                ("roughness", "起伏幅度", "m", "float"), ("surface_grid", "曲面网格", "格", "int"),
+                ("potholes", "坑洼数量", "个", "int"), ("gravel_count", "碎石数量", "个", "int"),
+                ("gravel_size", "碎石半径", "m", "float"), ("border", "边框宽度", "m", "float")],
+    "high_wall": [("length", "墙长", "m", "float"), ("thickness", "墙厚", "m", "float"), ("height", "墙高", "m", "float")],
+}
+
+COLORS = {
+    "platform": "#2374c6", "trench": "#8b5a2b", "stairs": "#3d8ed0", "hollow_stairs": "#5b9fda",
+    "ramp": "#2a9d8f", "stepping_stones": "#6b7c93", "triangle": "#e76f51",
+    "tire_ring": "#263238", "slalom_poles": "#d1493f", "sandpit": "#c89b5a", "high_wall": "#315f9c",
+}
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+BUNDLED_M20_SCENE = Path("assets/m20/mjcf/scene.xml")
+BUNDLED_M20_POLICY = Path("policies/m20/policy.onnx")
+BUNDLED_GO2_SCENE = Path("assets/go2/mjcf/scene.xml")
+BUNDLED_GO2_POLICY = Path("policies/go2/policy.onnx")
+BUNDLED_GO2_CONFIG = Path("configs/go2.yaml")
+DEFAULT_TERRAIN_LIBRARY = PROJECT_ROOT / "terrain_library"
+
+
+def rotate_xy(x: float, y: float, yaw: float) -> tuple[float, float]:
+    import math
+
+    angle = math.radians(yaw)
+    return x * math.cos(angle) - y * math.sin(angle), x * math.sin(angle) + y * math.cos(angle)
+
+
+class PreviewWidget(QWidget):
+    """Paint a live, lightweight top-down representation of the arena."""
+
+    element_added = None
+
+    def __init__(self, scene: ArenaScene, parent: QWidget | None = None,
+                 language: str = "zh") -> None:
+        super().__init__(parent)
+        self.arena = scene
+        self.language = normalize_language(language)
+        self.selected_index: int | None = None
+        self.setMinimumSize(700, 520)
+        self.setMouseTracking(True)
+        self.hover_world: tuple[float, float] | None = None
+        self.element_action = None
+        self.element_moved = None
+        self.drag_index: int | None = None
+        self.edit_mode = False
+
+    def set_scene(self, scene: ArenaScene) -> None:
+        self.arena = scene
+        self.update()
+
+    def world_to_view(self, x: float, y: float) -> QPointF:
+        margin = 35.0
+        config = self.arena.terrain
+        scale = min((self.width() - margin * 2) / config.length,
+                    (self.height() - margin * 2) / config.width)
+        return QPointF(self.width() / 2 + x * scale, self.height() / 2 - y * scale)
+
+    def view_to_world(self, x: float, y: float) -> tuple[float, float]:
+        margin = 35.0
+        config = self.arena.terrain
+        scale = min((self.width() - margin * 2) / config.length,
+                    (self.height() - margin * 2) / config.width)
+        return (x - self.width() / 2) / scale, (self.height() / 2 - y) / scale
+
+    def hit_test(self, x: float, y: float) -> int | None:
+        """Return the topmost approximate element under a world-space point."""
+
+        for index in range(len(self.arena.elements) - 1, -1, -1):
+            element = self.arena.elements[index]
+            dx, dy = rotate_xy(x - element.x, y - element.y, -element.yaw)
+            params = element.params
+            if element.kind in ("platform", "trench", "stairs", "hollow_stairs", "ramp", "sandpit", "high_wall"):
+                length = float(params.get("length", 2.4))
+                width = float(params.get("width", params.get("thickness", 1.0)))
+                if abs(dx) <= length / 2 + 0.25 and abs(dy) <= width / 2 + 0.25:
+                    return index
+            elif element.kind == "stepping_stones":
+                rows, cols = max(1, int(params.get("rows", 1))), max(1, int(params.get("cols", 9)))
+                spacing_x = float(params.get("spacing_x", params.get("spacing", .45)))
+                spacing_y = float(params.get("spacing_y", params.get("spacing", .6)))
+                if abs(dx) <= cols * spacing_x / 2 + .3 and abs(dy) <= rows * spacing_y / 2 + .3:
+                    return index
+            elif element.kind in ("triangle", "tire_ring", "slalom_poles"):
+                reach = max(float(params.get("length", 1.0)), float(params.get("spacing", .8)) * 2, 1.0)
+                if dx * dx + dy * dy <= reach * reach:
+                    return index
+        return None
+
+    def polygon(self, element: TerrainElement, points: list[tuple[float, float]]) -> QPolygonF:
+        return QPolygonF([self.world_to_view(element.x + rotate_xy(x, y, element.yaw)[0],
+                                              element.y + rotate_xy(x, y, element.yaw)[1]) for x, y in points])
+
+    def rect_points(self, element: TerrainElement, length: float, width: float) -> list[tuple[float, float]]:
+        return [(-length / 2, -width / 2), (length / 2, -width / 2),
+                (length / 2, width / 2), (-length / 2, width / 2)]
+
+    def draw_element(self, painter: QPainter, element: TerrainElement, selected: bool) -> None:
+        import math
+
+        p = element.params
+        color = QColor("#f04f4f" if selected else COLORS[element.kind])
+        painter.setPen(QPen(QColor("#ffffff"), 2 if selected else 1))
+        painter.setBrush(QBrush(color))
+        if element.kind == "platform":
+            shape = self.polygon(element, self.rect_points(element, float(p.get("length", 2)), float(p.get("width", 2))))
+            painter.drawPolygon(shape)
+        elif element.kind == "trench":
+            length = float(p.get("length", 2.4))
+            width = float(p.get("width", 2.4))
+            gap = min(max(float(p.get("gap", 0.3)), 0.0), length)
+            side = (length - gap) / 2
+            for cx in (-(gap + side) / 2, (gap + side) / 2):
+                painter.drawPolygon(self.polygon(element, [
+                    (cx - side / 2, -width / 2), (cx + side / 2, -width / 2),
+                    (cx + side / 2, width / 2), (cx - side / 2, width / 2),
+                ]))
+            painter.setBrush(QBrush(QColor("#3a2515")))
+            painter.drawPolygon(self.polygon(element, [
+                (-gap / 2, -width / 2), (gap / 2, -width / 2),
+                (gap / 2, width / 2), (-gap / 2, width / 2),
+            ]))
+        elif element.kind in ("stairs", "hollow_stairs"):
+            length, width = float(p.get("length", 3)), float(p.get("width", 2))
+            steps = max(1, int(p.get("steps", 8)))
+            for i in range(steps):
+                x = -length / 2 + length * (i + 0.5) / steps
+                step = length / steps
+                points = [(x - step / 2, -width / 2), (x + step / 2, -width / 2),
+                          (x + step / 2, width / 2), (x - step / 2, width / 2)]
+                painter.setBrush(QBrush(QColor(color).lighter(100 + i * 5)))
+                painter.drawPolygon(self.polygon(element, points))
+                if element.kind == "hollow_stairs":
+                    painter.setPen(QPen(QColor("#ffffff"), 1))
+                    inner = self.polygon(element, [(x - step * .35, -width * .35), (x + step * .35, -width * .35),
+                                                   (x + step * .35, width * .35), (x - step * .35, width * .35)])
+                    painter.drawPolygon(inner)
+        elif element.kind == "ramp":
+            shape = self.polygon(element, self.rect_points(element, float(p.get("length", 3)), float(p.get("width", 2))))
+            painter.drawPolygon(shape)
+            center = self.world_to_view(element.x, element.y)
+            painter.setPen(QPen(QColor("#d8fff7"), 3))
+            painter.drawLine(center, self.world_to_view(element.x + rotate_xy(float(p.get("length", 3)) / 2, 0, element.yaw)[0],
+                                                               element.y + rotate_xy(float(p.get("length", 3)) / 2, 0, element.yaw)[1]))
+        elif element.kind == "stepping_stones":
+            rows = max(1, int(p.get("rows", 1)))
+            cols = max(1, int(p.get("cols", p.get("count", 9))))
+            spacing_x = float(p.get("spacing_x", p.get("spacing", .45)))
+            spacing_y = float(p.get("spacing_y", p.get("spacing", .6)))
+            side = float(p.get("size", float(p.get("radius", .15)) * 2))
+            for row in range(rows):
+                row_offset = spacing_x / 2 if row % 2 else 0.0
+                for col in range(cols):
+                    x = (col - (cols - 1) / 2) * spacing_x + row_offset
+                    y = (row - (rows - 1) / 2) * spacing_y
+                    points = [(px + x, py + y) for px, py in self.rect_points(element, side, side)]
+                    painter.drawPolygon(self.polygon(element, points))
+        elif element.kind == "slalom_poles":
+            count, spacing = max(1, int(p.get("count", 6))), float(p.get("spacing", .8))
+            zigzag, radius = float(p.get("zigzag", .32)), float(p.get("radius", .07))
+            for i in range(count):
+                x, y = (i - (count - 1) / 2) * spacing, zigzag if i % 2 else -zigzag
+                center = self.world_to_view(element.x + rotate_xy(x, y, element.yaw)[0], element.y + rotate_xy(x, y, element.yaw)[1])
+                r = max(4, radius * min(self.width() / self.arena.terrain.length, self.height() / self.arena.terrain.width))
+                painter.drawEllipse(center, r, r)
+        elif element.kind == "sandpit":
+            length, width = float(p.get("length", 2.4)), float(p.get("width", 2.0))
+            painter.setBrush(QBrush(QColor("#d5b276")))
+            painter.drawPolygon(self.polygon(element, self.rect_points(element, length, width)))
+            painter.setBrush(Qt.NoBrush)
+            painter.setPen(QPen(QColor("#9a743e"), 3))
+            painter.drawPolygon(self.polygon(element, self.rect_points(element, length, width)))
+        elif element.kind == "high_wall":
+            length, thickness = float(p.get("length", 2.4)), float(p.get("thickness", .22))
+            painter.drawPolygon(self.polygon(element, self.rect_points(element, length, thickness)))
+        elif element.kind == "tire_ring":
+            count, spacing, major = max(1, int(p.get("count", 3))), float(p.get("spacing", .85)), float(p.get("major_radius", .27))
+            for i in range(count):
+                x = (i - (count - 1) / 2) * spacing
+                wx, wy = rotate_xy(x, 0, element.yaw)
+                center = self.world_to_view(element.x + wx, element.y + wy)
+                r = major * min(self.width() / self.arena.terrain.length, self.height() / self.arena.terrain.width)
+                painter.setBrush(Qt.NoBrush)
+                painter.setPen(QPen(color, max(4, int(float(p.get("minor_radius", .10)) * 2 * r))))
+                painter.drawEllipse(center, r, r)
+        elif element.kind == "triangle":
+            count = max(1, int(p.get("count", 4)))
+            length, width = float(p.get("length", .9)), float(p.get("width", 1.8))
+            group_spacing = float(p.get("group_spacing", width + float(p.get("gap", .28))))
+            pair_spacing = float(p.get("pair_spacing", length + float(p.get("gap", .28))))
+            for i in range(count):
+                pair_slot, group_index = i % 2, i // 2
+                groups = (count + 1) // 2
+                x = (group_index - (groups - 1) / 2) * group_spacing
+                x += -float(p.get("stagger", 0.8)) / 2 if pair_slot == 0 else float(p.get("stagger", 0.8)) / 2
+                y = -pair_spacing / 2 if pair_slot == 0 else pair_spacing / 2
+                pair_angle = float(p.get("pair_yaw", 90.0))
+                points_rotation = pair_angle
+                if i % 2 == 0:
+                    points = [(length / 2, -width / 2), (-length / 2, 0), (length / 2, width / 2)]
+                else:
+                    points = [(-length / 2, -width / 2), (length / 2, 0), (-length / 2, width / 2)]
+                points = [(rotate_xy(px, py, points_rotation)[0] + x,
+                           rotate_xy(px, py, points_rotation)[1] + y) for px, py in points]
+                painter.drawPolygon(self.polygon(element, points))
+
+    def paintEvent(self, _event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.fillRect(self.rect(), QColor("#f5f9fd"))
+        config = self.arena.terrain
+        top_left = self.world_to_view(-config.length / 2, config.width / 2)
+        bottom_right = self.world_to_view(config.length / 2, -config.width / 2)
+        painter.setPen(QPen(QColor("#9bb8d2"), 2))
+        painter.setBrush(QBrush(QColor("#e8f2fb")))
+        painter.drawRect(QRectF(top_left, bottom_right))
+        painter.setPen(QPen(QColor("#c7dbea"), 1, Qt.DashLine))
+        for x in range(-int(config.length / 2), int(config.length / 2) + 1):
+            a, b = self.world_to_view(x, -config.width / 2), self.world_to_view(x, config.width / 2)
+            painter.drawLine(a, b)
+        for y in range(-int(config.width / 2), int(config.width / 2) + 1):
+            a, b = self.world_to_view(-config.length / 2, y), self.world_to_view(config.length / 2, y)
+            painter.drawLine(a, b)
+        # The bundled M20 free joint starts at the arena origin.  Mark a
+        # small keep-clear footprint so obstacles are not accidentally placed
+        # on top of the robot before the simulation page is opened.
+        spawn = self.world_to_view(0.0, 0.0)
+        scale = min(self.width() / config.length, self.height() / config.width)
+        footprint = max(10.0, 0.42 * scale)
+        painter.setPen(QPen(QColor("#d1493f"), 2, Qt.DashLine))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawEllipse(spawn, footprint, footprint)
+        painter.drawLine(spawn + QPointF(-footprint, 0), spawn + QPointF(footprint, 0))
+        painter.drawLine(spawn + QPointF(0, -footprint), spawn + QPointF(0, footprint))
+        painter.setPen(QPen(QColor("#b33a32"), 1))
+        painter.setFont(QFont("Arial", 8, QFont.Bold))
+        painter.drawText(spawn + QPointF(6, -6), tr(self.language, "M20 初始点 (0,0)"))
+        for index, element in enumerate(self.arena.elements):
+            self.draw_element(painter, element, index == self.selected_index)
+            center = self.world_to_view(element.x, element.y)
+            painter.setPen(QPen(QColor("#17324d"), 1))
+            painter.setFont(QFont("Arial", 8))
+            painter.drawText(center + QPointF(4, -4), str(index + 1))
+        if self.hover_world:
+            x, y = self.hover_world
+            painter.setPen(QPen(QColor("#2374c6"), 1, Qt.DotLine))
+            painter.drawLine(self.world_to_view(x, -config.width / 2), self.world_to_view(x, config.width / 2))
+            painter.drawLine(self.world_to_view(-config.length / 2, y), self.world_to_view(config.length / 2, y))
+        painter.end()
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton and self.element_action:
+            x, y = self.view_to_world(event.x(), event.y())
+            ctrl = bool(event.modifiers() & Qt.ControlModifier)
+            hit = self.hit_test(x, y)
+            if hit is not None:
+                self.drag_index = hit
+                self.edit_mode = ctrl
+            else:
+                self.drag_index = None
+                self.edit_mode = False
+            self.element_action(x, y, ctrl)
+
+    def mouseReleaseEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton:
+            self.drag_index = None
+
+    def mouseMoveEvent(self, event) -> None:
+        self.hover_world = self.view_to_world(event.x(), event.y())
+        if self.drag_index is not None and self.edit_mode and self.drag_index < len(self.arena.elements):
+            element = self.arena.elements[self.drag_index]
+            element.x, element.y = self.hover_world
+            if self.element_moved:
+                self.element_moved(self.drag_index, *self.hover_world)
+        self.update()
+
+
+class QtArenaEditor(QMainWindow):
+    def __init__(self, output_dir: str | Path, base_scene: str | Path | None = None,
+                 language: str = "zh") -> None:
+        super().__init__()
+        self.language = normalize_language(language)
+        self.output_dir = Path(output_dir)
+        self.scene = ArenaScene(
+            name="edited_arena",
+            terrain=TerrainConfig(kind="flat", rows=192, cols=320, length=20.0, width=12.0, height=0.05),
+            base_scene=str(base_scene) if base_scene else None,
+        )
+        self.selected_index: int | None = None
+        self.latest_xml: Path | None = None
+        self.latest_policy: Path | None = None
+        self.param_labels: dict[str, QLabel] = {}
+        self.setWindowTitle(tr(self.language, "MuJoCo 机器人 Play 测试场地编辑器"))
+        self.resize(1440, 820)
+        self.setMinimumSize(1280, 820 if self.language == "en" else 1000)
+        self.build_ui()
+        self.simulation_page = EmbeddedSimulationPage(self, language=self.language)
+        self.simulation_page.back_requested.connect(self.show_editor_page)
+        self.simulation_page.language_changed.connect(self.set_language)
+        self.page_stack.addWidget(self.simulation_page)
+        self.apply_style()
+        self.refresh()
+        # Discover the repository's default terrain_library/ directory on
+        # startup so XML assets are immediately available in the combo box.
+        self.refresh_library()
+
+    def build_ui(self) -> None:
+        self.page_stack = QStackedWidget()
+        self.setCentralWidget(self.page_stack)
+        editor_page = QWidget()
+        self.page_stack.addWidget(editor_page)
+        main_layout = QHBoxLayout(editor_page)
+        splitter = QSplitter(Qt.Horizontal)
+        main_layout.addWidget(splitter)
+
+        left = QWidget()
+        left_layout = QVBoxLayout(left)
+        self.title_label = QLabel(tr(self.language, "PLAYGROUND\n场地组件"))
+        self.title_label.setObjectName("title")
+        left_layout.addWidget(self.title_label)
+        self.language_button = QPushButton()
+        self.language_button.clicked.connect(self.toggle_language)
+        left_layout.addWidget(self.language_button)
+        self.tool_combo = QComboBox()
+        for kind in SUPPORTED_ELEMENT_TYPES:
+            self.tool_combo.addItem(tr(self.language, ELEMENT_LABELS[kind]), kind)
+        self.tool_combo.currentIndexChanged.connect(self.tool_changed)
+        self.obstacle_type_label = QLabel(tr(self.language, "放置障碍类型"))
+        left_layout.addWidget(self.obstacle_type_label)
+        left_layout.addWidget(self.tool_combo)
+        self.instructions_label = QLabel(tr(self.language, "点击空白处添加；点击障碍选中。Ctrl+点击进入拖动编辑"))
+        self.instructions_label.setWordWrap(True)
+        left_layout.addWidget(self.instructions_label)
+        self.element_list = QListWidget()
+        self.element_list.setSelectionMode(QListWidget.SingleSelection)
+        self.element_list.currentRowChanged.connect(self.select_element)
+        left_layout.addWidget(self.element_list, 1)
+        self.preset_button = QPushButton(tr(self.language, "载入标准测试场地"))
+        self.preset_button.clicked.connect(self.load_preset)
+        left_layout.addWidget(self.preset_button)
+        self.delete_button = QPushButton(tr(self.language, "删除选中障碍"))
+        self.delete_button.clicked.connect(self.delete_selected)
+        left_layout.addWidget(self.delete_button)
+        self.clear_button = QPushButton(tr(self.language, "清空场地"))
+        self.clear_button.clicked.connect(self.clear)
+        left_layout.addWidget(self.clear_button)
+        splitter.addWidget(left)
+
+        self.preview = PreviewWidget(self.scene, language=self.language)
+        self.preview.element_action = self.handle_preview_click
+        self.preview.element_moved = self.handle_element_moved
+        splitter.addWidget(self.preview)
+
+        right = QWidget()
+        right_layout = QVBoxLayout(right)
+        self.obstacle_editor_label = QLabel(tr(self.language, "障碍编辑"))
+        right_layout.addWidget(self.obstacle_editor_label)
+        self.params_box = QGroupBox(tr(self.language, "障碍参数（填写后实时预览）"))
+        self.params_form = QFormLayout(self.params_box)
+        self.param_widgets: dict[str, QWidget] = {}
+        right_layout.addWidget(self.params_box)
+        action_row = QHBoxLayout()
+        self.delete_action = QPushButton(tr(self.language, "✕ 删除"))
+        self.delete_action.setObjectName("deleteAction")
+        self.delete_action.clicked.connect(self.delete_selected)
+        self.confirm_action = QPushButton(tr(self.language, "✓ 保存障碍"))
+        self.confirm_action.setObjectName("confirmAction")
+        self.confirm_action.clicked.connect(self.confirm_selected)
+        action_row.addWidget(self.delete_action)
+        action_row.addWidget(self.confirm_action)
+        right_layout.addLayout(action_row)
+        self.rotate_box = QGroupBox(tr(self.language, "快速旋转（吸附到 90°）"))
+        rotate_layout = QHBoxLayout(self.rotate_box)
+        for text, angle in (("90°", 90), ("180°", 180), ("270°", 270)):
+            button = QPushButton(text)
+            button.clicked.connect(lambda _checked=False, value=angle: self.rotate_selected(value))
+            rotate_layout.addWidget(button)
+        right_layout.addWidget(self.rotate_box)
+        self.error_label = QLabel("")
+        self.error_label.setObjectName("error")
+        right_layout.addWidget(self.error_label)
+        self.scene_box = QGroupBox(tr(self.language, "导出设置"))
+        scene_form = QFormLayout(self.scene_box)
+        self.scene_form = scene_form
+        self.output_edit = QLineEdit(str(self.output_dir))
+        self.base_scene_edit = QLineEdit(self.scene.base_scene or "")
+        scene_form.addRow(tr(self.language, "输出目录"), self.output_edit)
+        scene_form.addRow(tr(self.language, "自定义机器人 XML（可选）"), self.base_scene_edit)
+        right_layout.addWidget(self.scene_box)
+        self.library_box = QGroupBox(tr(self.language, "地形库（可选 XML 目录）"))
+        library_form = QFormLayout(self.library_box)
+        self.library_form = library_form
+        library_row = QHBoxLayout()
+        self.library_edit = QLineEdit(str(DEFAULT_TERRAIN_LIBRARY))
+        self.library_edit.setPlaceholderText(tr(self.language, "放入独立 .xml 地形文件的文件夹"))
+        self.browse_library_button = QPushButton(tr(self.language, "浏览"))
+        self.browse_library_button.clicked.connect(self.browse_library)
+        self.refresh_library_button = QPushButton(tr(self.language, "刷新"))
+        self.refresh_library_button.clicked.connect(self.refresh_library)
+        library_row.addWidget(self.library_edit, 1)
+        library_row.addWidget(self.browse_library_button)
+        library_row.addWidget(self.refresh_library_button)
+        library_form.addRow(tr(self.language, "目录"), library_row)
+        self.library_combo = QComboBox()
+        self.library_combo.setPlaceholderText(tr(self.language, "选择 XML 场景"))
+        library_form.addRow(tr(self.language, "场景"), self.library_combo)
+        self.library_open_button = QPushButton(tr(self.language, "加载选中的地形库场景"))
+        self.library_open_button.clicked.connect(self.open_library_scene)
+        library_form.addRow(self.library_open_button)
+        right_layout.addWidget(self.library_box)
+        self.robot_label = QLabel(tr(self.language, "机器人策略"))
+        self.robot_combo = QComboBox()
+        self.robot_combo.addItem(tr(self.language, "不加载机器人"), None)
+        self.robot_combo.addItem("M20", "m20")
+        self.robot_combo.addItem("Go2", "go2")
+        self.robot_combo.setToolTip(tr(self.language, "选择机器人及其对应策略；默认不加载机器人"))
+        right_layout.addWidget(self.robot_label)
+        right_layout.addWidget(self.robot_combo)
+        self.spawn_hint = QLabel(tr(
+            self.language,
+            "⚠ M20 默认初始位置：场地中心 (x=0, y=0)，基座高度约 1.0 m。\n请避开红色标记区域放置障碍；使用自定义机器人 XML 时请以其 freejoint 位姿为准。",
+        ))
+        self.spawn_hint.setWordWrap(True)
+        self.spawn_hint.setStyleSheet(
+            "color: #a53a32; background: #fff1ef; border: 1px solid #efb7b0; "
+            "border-radius: 5px; padding: 7px;"
+        )
+        right_layout.addWidget(self.spawn_hint)
+        self.view_button = QPushButton(tr(self.language, "导出并在 MuJoCo 查看"))
+        self.view_button.clicked.connect(self.export_and_view)
+        right_layout.addWidget(self.view_button)
+        self.next_button = QPushButton("→")
+        self.next_button.setToolTip(tr(self.language, "进入 MuJoCo 仿真页面"))
+        self.next_button.setMinimumHeight(44)
+        self.next_button.setVisible(False)
+        self.next_button.clicked.connect(self.open_simulation_page)
+        right_layout.addWidget(self.next_button)
+        right_layout.addStretch(1)
+        splitter.addWidget(right)
+        splitter.setSizes([250, 850, 330])
+        self.setStatusBar(QStatusBar())
+        self.statusBar().showMessage(tr(self.language, "点击空白处新增障碍，点击障碍选中；Ctrl+点击可拖动编辑"))
+        self.rebuild_param_form(self.current_kind(), DEFAULT_PARAMS[self.current_kind()])
+        self.retranslate_ui()
+
+    @staticmethod
+    def make_spin(minimum: float = -100, maximum: float = 100, step: float = 0.1) -> QDoubleSpinBox:
+        spin = QDoubleSpinBox()
+        spin.setRange(minimum, maximum)
+        spin.setSingleStep(step)
+        spin.setDecimals(3)
+        return spin
+
+    def apply_style(self) -> None:
+        self.setStyleSheet("""
+            QMainWindow, QWidget { background: #f5f9fd; color: #17324d; font-family: "Noto Sans CJK SC"; font-size: 14px; }
+            #title { color: #125a9e; font-size: 24px; font-weight: 700; padding: 10px 2px; }
+            QGroupBox { border: 1px solid #bed3e6; border-radius: 8px; margin-top: 12px; padding: 10px; }
+            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; color: #2374c6; }
+            QComboBox, QLineEdit, QPlainTextEdit, QDoubleSpinBox, QListWidget { background: white; border: 1px solid #b7cde1; border-radius: 5px; padding: 5px; }
+            QListWidget::item:selected { background: #d9ecff; color: #125a9e; }
+            QPushButton { background: #2374c6; color: white; border: 0; border-radius: 5px; padding: 9px; font-weight: 600; }
+            QPushButton:hover { background: #155d9f; }
+            QPushButton:pressed { background: #0d477c; }
+            #deleteAction { background: #d94b55; }
+            #deleteAction:hover { background: #b62f3a; }
+            #confirmAction { background: #2f9d67; }
+            #confirmAction:hover { background: #22794e; }
+            #error { color: #d64545; }
+        """)
+
+    def _set_form_label(self, form: QFormLayout, row: int, text: str) -> None:
+        item = form.itemAt(row, QFormLayout.LabelRole)
+        if item is not None and item.widget() is not None:
+            item.widget().setText(text)
+
+    def retranslate_ui(self) -> None:
+        """Update all editor widgets after the language button is clicked."""
+
+        self.setWindowTitle(tr(self.language, "MuJoCo 机器人 Play 测试场地编辑器"))
+        self.language_button.setText(tr(self.language, "English") if self.language == "zh" else tr(self.language, "中文"))
+        self.language_button.setToolTip(
+            tr(self.language, "切换到英文") if self.language == "zh" else tr(self.language, "切换到中文")
+        )
+        self.title_label.setText(tr(self.language, "PLAYGROUND\n场地组件"))
+        self.obstacle_type_label.setText(tr(self.language, "放置障碍类型"))
+        self.instructions_label.setText(tr(self.language, "点击空白处添加；点击障碍选中。Ctrl+点击进入拖动编辑"))
+        for index, kind in enumerate(SUPPORTED_ELEMENT_TYPES):
+            self.tool_combo.setItemText(index, tr(self.language, ELEMENT_LABELS[kind]))
+        self.preset_button.setText(tr(self.language, "载入标准测试场地"))
+        self.delete_button.setText(tr(self.language, "删除选中障碍"))
+        self.clear_button.setText(tr(self.language, "清空场地"))
+        self.obstacle_editor_label.setText(tr(self.language, "障碍编辑"))
+        self.params_box.setTitle(tr(self.language, "障碍参数（填写后实时预览）"))
+        self.delete_action.setText(tr(self.language, "✕ 删除"))
+        self.confirm_action.setText(tr(self.language, "✓ 保存障碍"))
+        self.rotate_box.setTitle(tr(self.language, "快速旋转（吸附到 90°）"))
+        self.scene_box.setTitle(tr(self.language, "导出设置"))
+        self._set_form_label(self.scene_form, 0, tr(self.language, "输出目录"))
+        self._set_form_label(self.scene_form, 1, tr(self.language, "自定义机器人 XML（可选）"))
+        self.library_box.setTitle(tr(self.language, "地形库（可选 XML 目录）"))
+        self.library_edit.setPlaceholderText(tr(self.language, "放入独立 .xml 地形文件的文件夹"))
+        self.browse_library_button.setText(tr(self.language, "浏览"))
+        self.refresh_library_button.setText(tr(self.language, "刷新"))
+        self._set_form_label(self.library_form, 0, tr(self.language, "目录"))
+        self.library_combo.setPlaceholderText(tr(self.language, "选择 XML 场景"))
+        self._set_form_label(self.library_form, 1, tr(self.language, "场景"))
+        self.library_open_button.setText(tr(self.language, "加载选中的地形库场景"))
+        self.robot_label.setText(tr(self.language, "机器人策略"))
+        self.robot_combo.setItemText(0, tr(self.language, "不加载机器人"))
+        self.robot_combo.setToolTip(tr(self.language, "选择机器人及其对应策略；默认不加载机器人"))
+        self.spawn_hint.setText(tr(
+            self.language,
+            "⚠ M20 默认初始位置：场地中心 (x=0, y=0)，基座高度约 1.0 m。\n请避开红色标记区域放置障碍；使用自定义机器人 XML 时请以其 freejoint 位姿为准。",
+        ))
+        self.view_button.setText(tr(self.language, "导出并在 MuJoCo 查看"))
+        self.next_button.setToolTip(tr(self.language, "进入 MuJoCo 仿真页面"))
+        schema = {key: (label, unit) for key, label, unit, _type in PARAM_SCHEMA[self.current_kind()]}
+        for key, label_widget in self.param_labels.items():
+            label, unit = schema[key]
+            display_unit = f" ({tr(self.language, unit)})" if unit else ""
+            label_widget.setText(f"{tr(self.language, label)}{display_unit}")
+        self.statusBar().showMessage(tr(self.language, "点击空白处新增障碍，点击障碍选中；Ctrl+点击可拖动编辑"))
+
+    def toggle_language(self) -> None:
+        self.set_language("en" if self.language == "zh" else "zh")
+
+    def set_language(self, language: str) -> None:
+        self.language = normalize_language(language)
+        self.preview.language = self.language
+        self.retranslate_ui()
+        self.simulation_page.set_language(self.language)
+
+    def current_kind(self) -> str:
+        return str(self.tool_combo.currentData())
+
+    def handle_preview_click(self, x: float, y: float, ctrl: bool) -> None:
+        index = self.preview.hit_test(x, y)
+        if index is None:
+            self.add_element_at(x, y)
+            return
+        self.element_list.clearSelection()
+        self.element_list.setCurrentRow(index)
+        self.element_list.item(index).setSelected(True)
+        self.preview.edit_mode = ctrl
+        self.statusBar().showMessage(
+            tr(self.language, "单障碍编辑：拖动障碍调整位置；使用右侧旋转按钮，确认后保存或删除")
+            if ctrl else tr(self.language, "已选中障碍（Ctrl+点击可进入拖动编辑）")
+        )
+
+    def handle_element_moved(self, index: int, x: float, y: float) -> None:
+        if 0 <= index < len(self.scene.elements):
+            self.scene.elements[index].x = x
+            self.scene.elements[index].y = y
+            self.selected_index = index
+            self.preview.selected_index = index
+            self.element_list.setCurrentRow(index)
+            self.preview.update()
+
+    def tool_changed(self, _index: int) -> None:
+        self.rebuild_param_form(self.current_kind(), DEFAULT_PARAMS[self.current_kind()])
+
+    def rebuild_param_form(self, kind: str, values: dict) -> None:
+        while self.params_form.rowCount():
+            self.params_form.removeRow(0)
+        self.param_widgets.clear()
+        self.param_labels.clear()
+        for key, label, unit, value_type in PARAM_SCHEMA[kind]:
+            if value_type == "int":
+                widget = QSpinBox()
+                widget.setRange(1, 1000)
+                widget.setValue(int(values.get(key, DEFAULT_PARAMS[kind].get(key, 1))))
+                widget.valueChanged.connect(self.update_selected)
+            elif value_type == "bool":
+                widget = QCheckBox(tr(self.language, "是"))
+                widget.setChecked(bool(values.get(key, DEFAULT_PARAMS[kind].get(key, False))))
+                widget.stateChanged.connect(self.update_selected)
+            else:
+                widget = self.make_spin(0.001, 100.0, 0.05)
+                widget.setValue(float(values.get(key, DEFAULT_PARAMS[kind].get(key, 0.1))))
+                widget.valueChanged.connect(self.update_selected)
+            self.param_widgets[key] = widget
+            display_unit = tr(self.language, unit) if unit else ""
+            self.params_form.addRow(f"{tr(self.language, label)}{f' ({display_unit})' if display_unit else ''}", widget)
+            label_item = self.params_form.itemAt(self.params_form.rowCount() - 1, QFormLayout.LabelRole)
+            if label_item is not None and label_item.widget() is not None:
+                self.param_labels[key] = label_item.widget()
+
+    def read_params(self) -> dict:
+        values = {}
+        kind = self.current_kind()
+        for key, _label, _unit, value_type in PARAM_SCHEMA[kind]:
+            widget = self.param_widgets[key]
+            if value_type == "int":
+                values[key] = int(widget.value())
+            elif value_type == "bool":
+                values[key] = bool(widget.isChecked())
+            else:
+                values[key] = float(widget.value())
+        return values
+
+    def write_params(self, kind: str, values: dict) -> None:
+        self.rebuild_param_form(kind, values)
+
+    def add_element_at(self, x: float, y: float) -> None:
+        kind = self.current_kind()
+        index = len(self.scene.elements)
+        element = TerrainElement(kind, x=x, y=y, name=f"{kind}_{index:02d}", params=dict(DEFAULT_PARAMS[kind]))
+        self.scene.elements.append(element)
+        self.selected_index = index
+        self.refresh(select=index)
+        if x * x + y * y < 0.8 * 0.8:
+            self.statusBar().showMessage(
+                tr(self.language, "警告：障碍位于 M20 初始点附近，运行策略前请确认不会与机器人干涉")
+            )
+
+    def selected_indices(self) -> list[int]:
+        return sorted({self.element_list.row(item) for item in self.element_list.selectedItems()})
+
+    def select_element(self, index: int) -> None:
+        self.selected_index = index if index >= 0 else None
+        self.preview.selected_index = self.selected_index
+        if self.selected_index is not None:
+            element = self.scene.elements[self.selected_index]
+            self.tool_combo.blockSignals(True)
+            self.tool_combo.setCurrentIndex(self.tool_combo.findData(element.kind))
+            self.tool_combo.blockSignals(False)
+            self.write_params(element.kind, element.params)
+        self.preview.update()
+
+    def update_selected(self) -> None:
+        if self.selected_index is None or self.selected_index >= len(self.scene.elements):
+            return
+        element = self.scene.elements[self.selected_index]
+        element.params = self.read_params()
+        self.error_label.setText("")
+        self.preview.update()
+
+    def confirm_selected(self) -> None:
+        self.update_selected()
+        self.statusBar().showMessage(tr(self.language, "已确认当前障碍参数"))
+
+    def rotate_selected(self, angle: float) -> None:
+        indices = self.selected_indices()
+        if not indices and self.selected_index is not None:
+            indices = [self.selected_index]
+        for index in indices:
+            element = self.scene.elements[index]
+            element.yaw = (round((element.yaw + angle) / 90.0) * 90.0) % 360.0
+        self.refresh(select=self.selected_index)
+        if self.language == "en":
+            self.statusBar().showMessage(f"Rotated and snapped {len(indices)} obstacle(s) to 90°")
+        else:
+            self.statusBar().showMessage(f"已将 {len(indices)} 个障碍旋转并吸附到 90°")
+
+    def refresh(self, select: int | None = None) -> None:
+        self.preview.set_scene(self.scene)
+        self.preview.selected_index = self.selected_index
+        self.element_list.blockSignals(True)
+        self.element_list.clear()
+        for index, element in enumerate(self.scene.elements):
+            item = QListWidgetItem(f"{index + 1:02d}  {tr(self.language, ELEMENT_LABELS[element.kind])}")
+            self.element_list.addItem(item)
+        self.element_list.blockSignals(False)
+        if select is not None and 0 <= select < self.element_list.count():
+            self.element_list.setCurrentRow(select)
+            self.select_element(select)
+        else:
+            self.preview.update()
+
+    def delete_selected(self) -> None:
+        indices = self.selected_indices()
+        if not indices and self.selected_index is not None:
+            indices = [self.selected_index]
+        for index in reversed(indices):
+            self.scene.elements.pop(index)
+        self.selected_index = None
+        self.refresh()
+
+    def clear(self) -> None:
+        self.scene.elements.clear()
+        self.selected_index = None
+        self.refresh()
+
+    def load_preset(self) -> None:
+        base_scene = self.scene.base_scene
+        self.scene = playground_scene()
+        self.scene.base_scene = base_scene
+        self.selected_index = None
+        self.refresh()
+
+    def prepare_scene(self, base_scene_override: Path | None = None) -> None:
+        self.scene.base_scene = str(base_scene_override) if base_scene_override else self.base_scene_edit.text().strip() or None
+        output_root = Path(self.output_edit.text().strip() or "generated/editor").expanduser().resolve()
+        timestamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
+        output_root.mkdir(parents=True, exist_ok=True)
+        candidate = output_root / f"output_{timestamp}"
+        suffix = 1
+        while candidate.exists():
+            candidate = output_root / f"output_{timestamp}_{suffix:02d}"
+            suffix += 1
+        self.output_dir = candidate
+
+    def export(self, base_scene_override: Path | None = None,
+               include_test_ball: bool = False) -> dict[str, Path] | None:
+        self.prepare_scene(base_scene_override)
+        try:
+            paths = export_scene(self.scene, self.output_dir, include_test_ball=include_test_ball)
+            self.statusBar().showMessage(f"{tr(self.language, '已导出：')}{paths['xml']}")
+            return paths
+        except Exception as exc:
+            QMessageBox.critical(self, tr(self.language, "导出失败"), str(exc))
+            return None
+
+    def export_and_view(self) -> None:
+        robot = self.robot_combo.currentData()
+        robot_enabled = robot is not None
+        scene_ref = BUNDLED_M20_SCENE if robot == "m20" else BUNDLED_GO2_SCENE
+        policy_ref = BUNDLED_M20_POLICY if robot == "m20" else BUNDLED_GO2_POLICY
+        bundled_scene = PROJECT_ROOT / scene_ref if robot_enabled else None
+        if robot_enabled:
+            bundled_policy = PROJECT_ROOT / policy_ref
+            if not bundled_scene.is_file() or not bundled_policy.is_file():
+                QMessageBox.critical(
+                    self, f"{robot}{tr(self.language, '资源缺失')}",
+                    f"{tr(self.language, '找不到内置 M20 场景或策略：')}{bundled_scene}\n{bundled_policy}",
+                )
+                return
+
+        paths = self.export(base_scene_override=bundled_scene)
+        if not paths:
+            return
+        self.latest_xml = paths["xml"]
+        self.latest_policy = PROJECT_ROOT / policy_ref if robot_enabled else None
+        self.next_button.setVisible(True)
+        self.next_button.setEnabled(True)
+        mode = f"{robot} {tr(self.language, '策略场景')}" if robot_enabled else tr(self.language, "普通场景")
+        if self.language == "en":
+            self.statusBar().showMessage(f"Exported {mode}: {tr(self.language, '点击 → 进入 MuJoCo')}")
+        else:
+            self.statusBar().showMessage(f"已导出 {mode}：点击右侧 → 进入内嵌 MuJoCo 页面")
+
+    def browse_library(self) -> None:
+        directory = QFileDialog.getExistingDirectory(self, tr(self.language, "选择地形库目录"))
+        if directory:
+            self.library_edit.setText(directory)
+            self.refresh_library()
+
+    def refresh_library(self) -> None:
+        self.library_combo.clear()
+        directory = self.library_edit.text().strip()
+        if not directory:
+            return
+        for asset in TerrainLibrary(directory).assets():
+            self.library_combo.addItem(asset.name, str(asset.path))
+        self.statusBar().showMessage(
+            f"{tr(self.language, '地形库已发现')} {self.library_combo.count()}{tr(self.language, '个 XML 场景')}"
+        )
+
+    def open_library_scene(self) -> None:
+        path_text = self.library_combo.currentData()
+        if not path_text:
+            QMessageBox.information(self, tr(self.language, "地形库"), tr(self.language, "请先选择一个 XML 场景"))
+            return
+        path = Path(str(path_text)).expanduser().resolve()
+        if not path.is_file():
+            QMessageBox.warning(self, tr(self.language, "地形库"), f"{tr(self.language, '文件不存在：')}{path}")
+            self.refresh_library()
+            return
+        answer = QMessageBox.question(
+            self,
+            tr(self.language, "导入地形库场景"),
+            tr(self.language, "导入该 XML 将覆盖当前地形生成场景的仿真入口。\n当前尚未导出的地形编辑内容不会自动保留，是否继续？"),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer != QMessageBox.Yes:
+            return
+        self.latest_xml = path
+        robot = self.robot_combo.currentData()
+        if robot is not None:
+            robot_scene = BUNDLED_M20_SCENE if robot == "m20" else BUNDLED_GO2_SCENE
+            robot_policy = BUNDLED_M20_POLICY if robot == "m20" else BUNDLED_GO2_POLICY
+            try:
+                imported_dir = self.output_dir.expanduser().resolve() / "library_import"
+                self.latest_xml = compose_robot_scene(
+                    path, PROJECT_ROOT / robot_scene,
+                    imported_dir / f"{path.stem}_{robot}.xml",
+                )
+            except Exception as exc:
+                QMessageBox.critical(
+                    self, tr(self.language, "导入失败"),
+                    f"{tr(self.language, '无法将 M20 加载到地形库场景：\n')}{exc}",
+                )
+                return
+            self.latest_policy = PROJECT_ROOT / robot_policy
+        else:
+            self.latest_policy = None
+        self.next_button.setVisible(True)
+        self.next_button.setEnabled(True)
+        if self.language == "en":
+            mode = f"{robot} robot loaded" if self.latest_policy else tr(self.language, "未加载机器人")
+            self.statusBar().showMessage(
+                f"{tr(self.language, '已加载地形库场景：')}{path.name} ({mode}); {tr(self.language, '点击 → 进入 MuJoCo')}"
+            )
+        else:
+            mode = f"已加载 {robot} 机器人" if self.latest_policy else "未加载机器人"
+            self.statusBar().showMessage(f"已加载地形库场景：{path.name}（{mode}）；点击 → 进入 MuJoCo")
+
+    def open_simulation_page(self) -> None:
+        if self.latest_xml is None:
+            return
+        robot = self.robot_combo.currentData()
+        config = None
+        if self.latest_policy:
+            config = PROJECT_ROOT / ("configs/m20.yaml" if robot == "m20" else "configs/go2.yaml")
+        self.simulation_page.start(self.latest_xml, self.latest_policy, config)
+        self.page_stack.setCurrentWidget(self.simulation_page)
+
+    def show_editor_page(self) -> None:
+        self.page_stack.setCurrentIndex(0)
+
+
+def launch_qt_editor(output_dir: str | Path = "generated/editor",
+                     base_scene: str | Path | None = None,
+                     language: str = "zh") -> None:
+    platform_plugins = Path(PyQt5.__file__).resolve().parent / "Qt5" / "plugins" / "platforms"
+    os.environ.setdefault("QT_QPA_PLATFORM_PLUGIN_PATH", str(platform_plugins))
+    app = QApplication.instance() or QApplication(sys.argv)
+    language = normalize_language(language)
+    app.setFont(QFont("Noto Sans", 11) if language == "en" else QFont("Noto Sans CJK SC", 11))
+    window = QtArenaEditor(output_dir, base_scene, language)
+    window.show()
+    app.exec_()

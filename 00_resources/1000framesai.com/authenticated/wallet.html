@@ -1,0 +1,183 @@
+<!doctype html>
+<!-- saved-from: https://1000framesai.com/wallet/ at 2026-09-08, logged-in render -->
+<html lang="zh-CN"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>账户充值 · Locomotion Platform</title>
+  <link rel="stylesheet" href="/shared/nav.css?v=home-nav-1">
+  <link rel="stylesheet" href="/shared/styles.css?v=no-tailwind-1">
+  <link rel="stylesheet" href="./styles.css?v=live-billing-1">
+</head>
+<body style="padding-top: 56px;"><nav id="platform-nav">
+    <a class="pnav-brand" href="/">
+      <span class="pnav-logo">LP</span>
+      <span class="pnav-title">Locomotion</span>
+    </a>
+    <ol class="pnav-steps">
+    <li class="pnav-step pnav-home-step active">
+      <a href="/">
+        <span class="pnav-home-icon" aria-hidden="true">⌂</span>
+        <span>首页</span>
+      </a>
+    </li>
+  
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/robots/">
+          <span class="pnav-num">1</span>
+          <span>机器人配置</span>
+        </a>
+      </li>
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/algorithms/">
+          <span class="pnav-num">2</span>
+          <span>算法</span>
+        </a>
+      </li>
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/train/">
+          <span class="pnav-num">3</span>
+          <span>训练</span>
+        </a>
+      </li>
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/sim2sim/">
+          <span class="pnav-num">4</span>
+          <span>仿真验证</span>
+        </a>
+      </li></ol>
+    <span class="pnav-user" id="pnav-user"><a href="/wallet/" class="pnav-balance" title="点击充值">¥0.00</a><span class="pnav-username" title="已登录">eatzio02@gmail.com</span><a href="#" class="pnav-logout">退出</a></span>
+  </nav>
+  <main class="page-shell wallet-shell">
+    <header class="page-header">
+      <div>
+        <h1>GPU 训练余额充值</h1>
+        <p>账户余额用于支付您发起的云 GPU 训练任务。</p>
+      </div>
+    </header>
+
+    <div class="wallet-purpose" aria-label="余额用途与扣费说明">
+      <div>
+        <strong>训练前</strong>
+        <span>只保留启动和停机所需的短暂缓冲，余额不足不会启动。</span>
+      </div>
+      <div>
+        <strong>训练中</strong>
+        <span>按实际 GPU 时间持续扣费；余额不足时自动停止训练并释放 GPU。</span>
+      </div>
+      <div>
+        <strong>其他功能</strong>
+        <span>机器人配置、算法浏览和 Sim2Sim Demo 不从余额扣费。</span>
+      </div>
+    </div>
+
+    <div class="wallet-grid">
+      <section class="panel wallet-panel" aria-labelledby="accountTitle">
+        <div class="wallet-panel-head">
+          <div>
+            <span class="wallet-label">当前余额</span>
+            <strong id="balance" class="wallet-balance">¥0.00</strong>
+          </div>
+          <div class="wallet-account">
+            <span class="wallet-label">充值账户</span>
+            <strong id="username">eatzio02@gmail.com</strong>
+          </div>
+        </div>
+
+        <div class="wallet-payment-form">
+          <div class="wallet-section-title">
+            <div>
+              <h2 id="accountTitle">选择充值金额</h2>
+              <p>充值不会立即消费，仅在您发起训练任务时使用。</p>
+            </div>
+            <span class="wallet-test-note">¥1 小额测试</span>
+          </div>
+
+          <div id="amountOptions" class="wallet-amounts" role="radiogroup" aria-label="充值金额"><button type="button" class="wallet-amount selected" data-amount-cents="100" role="radio" aria-checked="true">¥1.00<small>小额测试</small></button><button type="button" class="wallet-amount" data-amount-cents="1000" role="radio" aria-checked="false">¥10.00</button><button type="button" class="wallet-amount" data-amount-cents="5000" role="radio" aria-checked="false">¥50.00</button><button type="button" class="wallet-amount" data-amount-cents="10000" role="radio" aria-checked="false">¥100.00</button></div>
+
+          <label class="wallet-custom-amount" for="customAmount">
+            <span>自定义金额</span>
+            <span class="wallet-custom-input">
+              <span aria-hidden="true">¥</span>
+              <input id="customAmount" type="text" inputmode="decimal" autocomplete="off" placeholder="请输入金额">
+            </span>
+          </label>
+          <p id="customAmountHint" class="wallet-custom-hint">¥1.00 - ¥50000.00，最多两位小数</p>
+
+          <button id="createPaymentBtn" class="primary wallet-submit" type="button">充值并生成微信支付二维码</button>
+          <p id="paymentMessage" class="wallet-message" role="status" aria-live="polite">付款完成后，本页会自动确认到账。</p>
+        </div>
+      </section>
+
+      <section class="panel wallet-panel wallet-payment" aria-labelledby="paymentTitle">
+        <div class="wallet-section-title wallet-payment-title">
+          <div>
+            <h2 id="paymentTitle">微信支付</h2>
+            <p>订单支付结果由微信支付服务端确认。</p>
+          </div>
+          <span id="paymentStatus" class="wallet-status ready">可充值</span>
+        </div>
+
+        <div id="paymentEmpty" class="wallet-payment-empty">
+          <strong id="paymentEmptyTitle">选择金额并生成二维码</strong>
+          <span id="paymentEmptyDetail">每个二维码仅对应当前充值订单</span>
+        </div>
+
+        <div id="paymentOrder" class="wallet-order" hidden="">
+          <div id="paymentQrFrame" class="wallet-qr-frame">
+            <img id="paymentQr" alt="微信支付二维码">
+          </div>
+          <div id="paymentResult" class="wallet-payment-result" hidden="">
+            <strong id="paymentResultTitle"></strong>
+            <span id="paymentResultDetail"></span>
+          </div>
+
+          <dl class="wallet-order-meta">
+            <div>
+              <dt>支付金额</dt>
+              <dd id="paymentAmount">—</dd>
+            </div>
+            <div>
+              <dt>二维码有效期</dt>
+              <dd id="paymentCountdown">—</dd>
+            </div>
+            <div>
+              <dt>订单号</dt>
+              <dd id="paymentOrderId">—</dd>
+            </div>
+          </dl>
+          <button id="retryPaymentBtn" class="btn wallet-retry" type="button" hidden="">重新生成二维码</button>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel wallet-ledger" aria-labelledby="ledgerTitle">
+      <div class="wallet-ledger-head">
+        <h2 id="ledgerTitle">交易记录</h2>
+        <button id="refreshBtn" type="button" class="btn">刷新</button>
+      </div>
+      <div class="wallet-table-wrap">
+        <table class="wallet-table">
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>类型</th>
+              <th>金额</th>
+              <th>余额</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody id="txnBody"></tbody>
+        </table>
+      </div>
+      <div id="txnEmpty" class="wallet-empty-ledger">暂无交易记录</div>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js?v=live-billing-2"></script>
+
+
+</body></html>

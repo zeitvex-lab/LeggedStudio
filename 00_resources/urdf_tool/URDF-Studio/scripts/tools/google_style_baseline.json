@@ -1,0 +1,73 @@
+{
+  "generatedAt": "2026-08-11",
+  "rules": {
+    "file-name-snake-case": {
+      "max": 1534,
+      "retired": true,
+      "note": "DEAD RULE — count equals every PascalCase component + camelCase module in src/** (the project's real convention), so it grows with the codebase. Retired in Phase 5 in favor of @typescript-eslint/naming-convention; the audit runner reports it as informational only. NEVER rename a file to satisfy it. Count synchronized to the 2026-07-16 post-merge workspace snapshot for accurate reporting."
+    },
+    "file-too-long": {
+      "max": 32,
+      "note": "src/** files over 800 code lines (blank/comment lines skipped). Exact count synchronized on 2026-08-11 after merging dev into scene-gen; --check rejects both increases and stale headroom. Avoid splitting cohesive parsers/solvers only to satisfy the counter."
+    },
+    "function-too-long": {
+      "max": 112,
+      "note": "Function bodies over 200 code lines in src/**. Exact count tightened on 2026-08-09 after dialog and workflow splits; ratchet down when a function has a clean ownership split."
+    },
+    "function-too-complex": {
+      "max": 174,
+      "note": "Cyclomatic complexity over 20 in src/**. Exact count tightened on 2026-08-09 after viewer adapter simplification; ratchet down only."
+    },
+    "too-many-params": {
+      "max": 123,
+      "note": "Functions with more than 4 params in src/**. Exact count synchronized on 2026-08-09 after export and viewer lifecycle ports moved to options objects. Prefer an options object; ratchet down only."
+    },
+    "too-deep": {
+      "max": 7,
+      "note": "Block nesting deeper than 4 in src/**. Exact count tightened on 2026-08-09 after workflow extraction; ratchet down only."
+    },
+    "nullable-undefined-type-alias": {
+      "max": 5,
+      "note": "Historical top-level type aliases with null or undefined unions."
+    },
+    "const-enum": {
+      "max": 0
+    },
+    "debugger-production": {
+      "max": 0
+    },
+    "dynamic-code-execution": {
+      "max": 5,
+      "note": "Historical browser test helper callbacks using new Function; exact count synchronized on 2026-08-11 after merging dev into scene-gen."
+    },
+    "html-inline-style": {
+      "max": 0
+    },
+    "html-void-element-slash": {
+      "max": 0
+    },
+    "html-id-hyphen": {
+      "max": 0
+    },
+    "html-class-name": {
+      "max": 0
+    },
+    "css-class-name": {
+      "max": 0
+    },
+    "css-id-selector": {
+      "max": 0
+    },
+    "css-zero-unit": {
+      "max": 0
+    },
+    "css-important": {
+      "max": 44,
+      "note": "Historical Tailwind utility font-size overrides and scrollbar styling, plus the six semantic typography tokens (.text-ui-micro/caption/label/control/body/title) added on 2026-07-25 and mirrored in src/styles/index.css and src/lib/styles.css. SCOPE: only the --font-effective-scale override block in those two files. REASON: components stack a semantic token on top of a Tailwind size on the same element (e.g. Select.tsx ships text-sm and PanelSelect appends text-ui-caption); without !important the Tailwind rule wins and the control renders at the wrong size. OWNER: design-token layer (docs/style-guide.md). EXIT: generate the scale from the Tailwind 4 @theme layer so the override block disappears entirely, then tighten this count toward 0. Do NOT raise this further for ad-hoc !important outside that block."
+    },
+    "css-declaration-order": {
+      "max": 0,
+      "note": "CSS declaration ordering was cleaned up on 2026-07-05; keep at zero."
+    }
+  }
+}

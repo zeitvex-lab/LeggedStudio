@@ -1,0 +1,65 @@
+[package]
+name = "microduck_runtime"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "microduck_runtime"
+path = "src/lib.rs"
+
+[[bin]]
+name = "microduck_runtime"
+path = "src/main.rs"
+
+[[bin]]
+name = "test_imu"
+path = "src/bin/test_imu.rs"
+
+[[bin]]
+name = "test_i2c_raw"
+path = "src/bin/test_i2c_raw.rs"
+
+[[bin]]
+name = "calibrate_imu"
+path = "src/bin/calibrate_imu.rs"
+
+[[bin]]
+name = "test_controller"
+path = "src/bin/test_controller.rs"
+
+[[bin]]
+name = "init"
+path = "src/bin/init.rs"
+
+[[bin]]
+name = "em"
+path = "src/bin/em.rs"
+
+[[bin]]
+name = "check_voltage"
+path = "src/bin/check_voltage.rs"
+
+[[bin]]
+name = "microduck_help"
+path = "src/bin/microduck_help.rs"
+
+[[bin]]
+name = "debug_bno08x"
+path = "src/bin/debug_bno08x.rs"
+
+[dependencies]
+rustypot = "1.4.2"
+ort = { version = "2.0.0-rc.11", features = ["load-dynamic"], default-features = false }
+anyhow = "1.0"
+ctrlc = "3.4"
+serialport = "4.8"
+clap = { version = "4.5", features = ["derive"] }
+libc = "0.2"
+ndarray = "0.15"
+bno055 = "0.4"
+linux-embedded-hal = "0.4"
+embedded-hal = "1"
+tokio = { version = "1", features = ["rt", "time", "macros"] }
+serde = { version = "1.0", features = ["derive"] }
+serde-pickle = "1.1"
+gilrs = "0.10"

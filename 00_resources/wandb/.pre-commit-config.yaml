@@ -1,0 +1,126 @@
+# Exclude:
+#   * vendored code
+#   * generated protobuf files
+exclude: '^core/vendor/|\.pb\.go$|_pb2\.pyi?$'
+
+default_stages:
+  - pre-push
+default_install_hook_types: [pre-push, pre-commit]
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "v0.16.5"
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    rev: "v0.0.78"
+    hooks:
+      # Type-check with ty on every commit.
+      # ty's coverage and rule config live in [tool.ty] in pyproject.toml.
+      - id: ty
+        args: ["--isolated", "--no-install-project"] # --isolated stops `uv check` from writing a uv.lock.
+        stages: [pre-commit, pre-push]
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v22.1.8
+    hooks:
+      - id: clang-format
+        types_or: [proto]
+  - repo: builtin
+    hooks:
+      - id: check-merge-conflict
+      - id: trailing-whitespace
+        exclude: ^(wandb/|tests/|src/|.bumpversion.*.cfg)
+      - id: end-of-file-fixer
+        exclude: ^(wandb/|tests/|src/|.*_durations)
+      - id: check-added-large-files
+      - id: check-executables-have-shebangs
+        exclude: ^(wandb/|tests/)
+      - id: check-symlinks
+      - id: check-yaml
+        exclude: ^(wandb/|tests/)
+      - id: check-toml
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: debug-statements
+        exclude: ^(wandb/__init__.py|tools/graphql_codegen/plugin\.py)$
+      - id: forbid-submodules
+      - id: check-shebang-scripts-are-executable
+        exclude: ^(wandb/|tests/)
+
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.13.1
+    hooks:
+      - id: golangci-lint
+        entry: bash -c 'cd core && golangci-lint run'
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: generate-stubs
+        name: generate-stubs
+        entry: python3 tools/generate_stubs.py
+        language: python
+        pass_filenames: false
+        always_run: true
+        additional_dependencies: ["ruff"]
+        description: "Generates stubs for wandb module"
+
+      - id: go-generate-proto
+        name: go-generate-proto
+        entry: core/scripts/pre-commit-hooks/run-go-generate.sh
+        files: '\.proto$'
+        args:
+          - ./api/proto
+        pass_filenames: false
+        language: script
+        description: "Runs `go generate`, requires golang"
+
+      - id: go-generate-graphql
+        name: go-generate-graphql
+        entry: core/scripts/pre-commit-hooks/run-go-generate.sh
+        files: '\.graphql$'
+        args:
+          - ./api/graphql
+        pass_filenames: false
+        language: script
+        description: "Runs `go generate`, requires golang"
+
+      - id: go-wire
+        name: go-wire
+        description: Regenerates https://github.com/google/wire files.
+        entry: core/scripts/pre-commit-hooks/run-go-wire.sh
+        files: '\.go$'
+        pass_filenames: false
+        language: script
+
+      - id: go-mod-tidy
+        name: go-mod-tidy
+        entry: core/scripts/pre-commit-hooks/run-go-mod-tidy.sh
+        pass_filenames: false
+        language: script
+        description: "Runs `go mod tidy -v`, requires golang"
+
+      - id: go-unit-tests
+        name: go-unit-tests
+        entry: core/scripts/pre-commit-hooks/run-go-unit-tests.sh
+        files: '\.go$'
+        language: script
+        description: "Runs `go test`"
+        require_serial: true
+
+      - id: rust-unit-tests
+        name: rust-unit-tests
+        entry: core/scripts/pre-commit-hooks/run-rust-unit-tests.sh
+        files: 'parquet-rust-wrapper/.*\.rs$'
+        language: script
+        description: "Runs `cargo test`"
+        require_serial: true
+
+      - id: go-build
+        name: go-build
+        entry: core/scripts/pre-commit-hooks/run-go-build.sh
+        files: '\.go$'
+        language: script
+        description: "Runs `go build`, requires golang"

@@ -1,0 +1,105 @@
+# dog_policy_test 参数配置
+# 修改后只需重新 run，不需要 colcon build
+#
+# ★ 透明管道原则：
+#   部署侧尽量不做训练时没有的后处理（滤波/限幅/衰减），
+#   靠训练侧的 domain randomization + noise injection 保证鲁棒性。
+#   和 rl_sar / 密室 的做法一致。
+
+dog_policy_test_node:
+  ros__parameters:
+    # ONNX 模型路径（支持绝对路径和包内相对路径）
+    model_path: "/home/zhy/himdog/src/dog_policy_test/policy/good/model_1500.onnx"
+
+    # 单步观测维度：45 或 46
+    #   45 = 不含 height command
+    #   46 = 含 height command
+    one_obs_dim: 46
+
+    # ========== 控制模式 ==========
+    # control_mode:
+    #   0 → 键盘控制（默认，适合调试）
+    #   1 → joy 手柄控制（订阅 /joy，需要 joy_node）
+    #   2 → 导航控制（订阅 /nav_cmd DogNavCommand，由 dog_nav 路径规划控制）
+    control_mode: 0
+
+    # ========== 键盘控制速度参数 ==========
+    kb_forward_speed: 0.6
+    kb_backward_speed: -0.6
+    kb_left_speed: 0.5
+    kb_right_speed: -0.5
+    kb_turn_left_speed: -0.8
+    kb_turn_right_speed: 0.8
+
+    # ========== 导航控制参数（control_mode=2 时生效）==========
+    # 导航速度限幅（nav_cmd 不可能超过这些值）
+    nav_vx_max: 0.6
+    nav_vy_max: 0.5
+    nav_wz_max: 0.8
+    # 导航体高限幅
+    nav_height_min: 0.18
+    nav_height_max: 0.32
+
+    # ========== Joy 手柄控制参数（control_mode=1 时生效）==========
+    # 最大速度
+    joy_vx_max: 0.6
+    joy_vy_max: 0.5
+    joy_wz_max: 0.8
+    # 死区（摇杆偏移小于此值时忽略）
+    joy_deadband: 0.1
+    # 摇杆轴映射（Xbox 标准手柄）
+    #   左摇杆 Y=1, 左摇杆 X=0, 右摇杆 Y=4, 右摇杆 X=3
+    joy_axis_vx: 1    # 左摇杆 Y → 前后
+    joy_axis_vy: 0    # 左摇杆 X → 左右
+    joy_axis_wz: 3    # 右摇杆 X → 转向
+
+    # ========== Action 参数 ==========
+    # action_scale: 和训练一致 (legged_robot.py action_scale = 0.25)
+    action_scale: 0.25
+
+    # ========== 输入滤波参数 ==========
+    # ★ 全部 alpha=1.0 = 直通（不做滤波）
+    #   训练时 noise_level=1.3 已覆盖真实传感器噪声
+    #   输入端 LPF 会引入相位滞后 → 削弱策略的隐式阻尼 → 加剧振荡
+    imu_gyro_lpf_alpha: 1.0
+    imu_gyro_bias_alpha: 0.001
+    motor_pos_lpf_alpha: 1.0
+    motor_pos_bias_alpha: 0.001
+    motor_vel_lpf_alpha: 1.0
+    motor_vel_bias_alpha: 0.001
+
+    # ========== 倾倒保护参数 ==========
+    # projected_gravity[2] > threshold 时触发倾倒保护
+    # 触发后立即发送 /emergency_stop → dog_control 失能所有电机并退出
+    # -0.9 = ~25° 触发（极度保守）；-0.7 = ~45°（推荐）；-0.5 = ~60°（偏松）；-0.3 = ~73°（太松）
+    tipover_threshold: -0.7
+
+    # ========== 输出平滑 / Action 限制参数 ==========
+    # ★ 透明管道原则：默认全部设为直通/不限制
+    #   靠训练侧 domain randomization + noise injection 保证鲁棒性
+
+    # 输出端低通（作用于 js_pos，50Hz 推理输出端）
+    # 1.0 = 直通，越小越平滑但引入相位滞后
+    output_low_pass_alpha: 1.0
+
+    # 200Hz 发布端二次低通（publish_timer 内）
+    # 1.0 = 直通
+    publish_low_pass_alpha: 1.0
+
+    # Action 步间变化率限制
+    # 100.0 = 不限制
+    action_delta_max: 100.0
+
+    # 静止衰减：速度指令接近零时 action 朝零衰减
+    standstill_threshold: 0.0    # 0.0 = 永远不触发
+    # standstill_decay: 1.0
+
+    # ========== 系统监控参数 ==========
+    # Monitor 线程独立运行（nice=19 最低优先级），不影响推理
+    # 只在超阈值时打印警告，正常运行时每 5 秒输出一行状态
+    monitor_cpu_warn: 85.0            # CPU 占用告警阈值 (%)
+    monitor_mem_warn: 85.0            # 内存占用告警阈值 (%)
+    monitor_temp_warn: 75.0           # CPU 温度告警阈值 (°C)，RK3588 超过约 80°C 会降频
+    monitor_inference_dt_warn: 15.0   # 推理耗时告警阈值 (ms)，50Hz 周期=20ms
+    monitor_inference_dt_overrun: 25.0  # 推理周期超时阈值 (ms)，超过视为 overrun
+    monitor_interval_ms: 1000         # 监控采样间隔 (ms)，1Hz 够用

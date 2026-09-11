@@ -1,0 +1,51 @@
+<mujoco model="go2 scene">
+  <include file="go2.xml" />
+  <!-- Stepping stones. stone_size=0.39 gap=0.12 diff=0.3 -->
+  <statistic center="3 0 0.3" extent="1.2" />
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
+    <rgba haze="0.15 0.25 0.35 1" />
+    <global azimuth="-130" elevation="-20" />
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.0" />
+    <material name="terrain" rgba="0.55 0.58 0.62 1" reflectance="0.05" />
+  </asset>
+  <worldbody>
+    <light pos="3 0 3.0" dir="0 0 -1" directional="true" />
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+    <!-- start pad -->
+    <geom type="box" pos="0.50000 0.00000 0.06000" size="0.50000 0.90000 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <!-- stepping stones -->
+    <geom type="box" pos="1.39687 -0.70312 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="1.39687 -0.18938 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="1.39687 0.32437 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="1.91062 -0.70312 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="1.91062 -0.18938 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="1.91062 0.32437 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="2.42437 -0.70312 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="2.42437 -0.18938 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="2.42437 0.32437 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="2.93812 -0.70312 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="2.93812 -0.18938 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="2.93812 0.32437 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="3.45187 -0.70312 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="3.45187 -0.18938 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="3.45187 0.32437 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="3.96562 -0.70312 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="3.96562 -0.18938 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="3.96562 0.32437 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="4.47938 -0.70312 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="4.47938 -0.18938 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="4.47938 0.32437 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="4.99313 -0.70312 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="4.99313 -0.18938 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="4.99313 0.32437 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="5.50687 -0.70312 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="5.50687 -0.18938 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="5.50687 0.32437 0.06000" size="0.19687 0.19687 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+    <geom type="box" pos="6.32375 0.00000 0.06000" size="0.50000 0.90000 0.06000" quat="1.000000 0.000000 0.000000 0.000000" material="terrain" />
+  </worldbody>
+</mujoco>

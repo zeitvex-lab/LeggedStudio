@@ -1,0 +1,2 @@
+# Keep structured point-cloud assets byte-identical across platforms.
+*.pcd -text

@@ -1,0 +1,15 @@
+# Debug
+mytest*
+debug*
+
+# Python
+*.egg-info
+__pycache__/
+uv.lock
+
+# Logger
+logs/
+logs*/
+.aim/
+*.bkp
+.vscode/

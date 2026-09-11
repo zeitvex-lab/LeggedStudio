@@ -1,0 +1,173 @@
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13"]
+build-backend = "uv_build"
+
+[project]
+name = "unilab"
+version = "0.1.0"
+description = "Universal Lab for Robot Learning"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "UniLab Authors" }]
+keywords = ["robot-learning", "reinforcement-learning", "mujoco", "simulation"]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "numpy",
+    "torch==2.11.0",
+    "triton-rocm==3.6.0 ; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "gymnasium",
+    "imageio",
+    "etils",
+    "hydra-core>=1.3",
+    "tensordict",
+    "rsl-rl-lib>=5.0.0",
+    "packaging",
+    "mediapy",
+    "tensorboard",
+    "setuptools<70",
+    "rich",
+    "tqdm",
+    "typing-extensions",
+    "lark>=1.3.1",
+    "wandb",
+    "onnxruntime<1.20 ; python_version < '3.11'",
+    "onnxruntime>=1.20 ; python_version >= '3.11'",
+    "huggingface_hub>=0.25",
+    "ninja ; sys_platform == 'linux'",
+    "imageio-ffmpeg>=0.6.0",
+]
+
+[project.scripts]
+train = "unilab.cli:train_main"
+eval = "unilab.cli:eval_main"
+demo = "unilab.cli:demo_main"
+unilab-complete = "unilab.cli_completion:main"
+unilab-viz-nan = "unilab.utils.nan_viz:main"
+unilab-export-scene = "unilab.base.backend.mujoco.export_scene:main"
+unilab-render-teaser = "unilab.visualization.teaser:main"
+unilab-pull-assets = "unilab.assets.pull:main"
+
+[project.optional-dependencies]
+mujoco = [
+    "mujoco>=3.5",
+    # Bound stays loose; uv.rocm.lock pins the default solver version. The
+    # tested window is >=3.5,<3.11 — switch via `make mujoco MJ=<version>`.
+    "mujoco-uni-runtime==0.4.0",
+    # pybind11/wheel are build requirements of mujoco-uni-runtime, which is
+    # compiled in this environment (see no-build-isolation-package below).
+    "pybind11>=2.12",
+    "wheel",
+]
+motrix = ["motrixsim-core==0.8.2"]
+viser = ["viser>=1.0.26", "trimesh>=3.21.7"]
+
+[dependency-groups]
+dev = ["pytest", "pytest-cov", "ruff", "mypy", "pyright>=1.1.408"]
+
+# ========== ROCm 索引配置 ==========
+[[tool.uv.index]]
+name = "pytorch-rocm72"
+url = "https://download.pytorch.org/whl/rocm7.2"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-rocm72", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+]
+triton-rocm = [
+    { index = "pytorch-rocm72", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+]
+
+[tool.uv]
+exclude-dependencies = [
+    "torchvision",
+    "nvidia-cublas-cu12",
+    "nvidia-cuda-runtime-cu12",
+    "nvidia-cudnn-cu12",
+]
+# Build mujoco-uni-runtime against the mujoco version locked in this project
+# environment instead of an isolated build env (its native extension records
+# the build-time mujoco version and refuses to load on mismatch). Prebuilt
+# wheels on the index are bound to one specific mujoco build, so always
+# compile from the sdist here. After changing the mujoco version, run
+# `uv cache clean mujoco-uni-runtime && uv sync --extra mujoco
+# --reinstall-package mujoco-uni-runtime` to force a fresh in-env build
+# (uv's build cache cannot see that the extension depends on mujoco).
+no-build-isolation-package = ["mujoco-uni-runtime"]
+no-binary-package = ["mujoco-uni-runtime"]
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src"]
+extend-exclude = [".history"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = [
+    "E501",
+    "N806",
+    "E402",
+    "F401",
+    "N801",
+    "F821",
+    "E741",
+    "N802",
+    "N803",
+    "N812",
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+no_site_packages = true
+exclude = [
+    "src/unilab/algos/rsl_rl/",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: long-running training or script smoke tests, or cumulatively expensive backend matrices",
+]
+addopts = "--tb=short -m 'not slow'"
+
+[tool.coverage.run]
+source = ["unilab"]
+omit = ["*/rsl_rl/*"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+venvPath = "."
+venv = ".venv"
+include = ["src/unilab"]
+exclude = [
+    "src/unilab/algos/rsl_rl/",
+    "src/unilab/algos/common/ane_*",
+    "src/unilab/base/backend/",
+    "src/unilab/envs/",
+    "src/unilab/terrains/",
+    "src/unilab/utils/monitoring.py",
+    "src/unilab/visualization/",
+]
+reportMissingImports = "warning"
+reportMissingModuleSource = "none"

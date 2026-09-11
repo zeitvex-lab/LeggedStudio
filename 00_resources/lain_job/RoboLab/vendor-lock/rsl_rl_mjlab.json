@@ -1,0 +1,11 @@
+{
+  "name": "rsl-rl-lib",
+  "source": "https://github.com/leggedrobotics/rsl_rl",
+  "version": "5.4.2",
+  "revision": null,
+  "license": "BSD-3-Clause",
+  "local_path": "backends/mjlab/rsl_rl",
+  "target_path": "backends/mjlab/rsl_rl",
+  "patches": [],
+  "note": "Copied from the package installed in the validated robolab-mjlab16 environment. The package revision is not independently verified, so P2 remains unstarted."
+}

@@ -1,0 +1,61 @@
+# Shared/generic GraphQL fragments
+
+fragment PageInfoFragment on PageInfo {
+  __typename
+  endCursor
+  hasNextPage
+}
+
+fragment ApiKeyFragment on ApiKey {
+  id
+  name
+  description
+}
+
+fragment UserFragment on User {
+  id
+  name
+  username
+  email
+  admin
+  flags
+  entity
+  deletedAt
+  apiKeys {
+    edges {
+      node {
+        ...ApiKeyFragment
+      }
+    }
+  }
+  teams {
+    edges {
+      node {
+        name
+      }
+    }
+  }
+}
+
+# TODO: migrate runs.py to use this fragment
+fragment LightweightRunFragment on Run {
+  id
+  tags
+  name
+  displayName
+  sweepName
+  state
+  group
+  jobType
+  commit
+  readOnly
+  createdAt
+  heartbeatAt
+  description
+  notes
+  historyLineCount
+  user {
+    name
+    username
+  }
+}

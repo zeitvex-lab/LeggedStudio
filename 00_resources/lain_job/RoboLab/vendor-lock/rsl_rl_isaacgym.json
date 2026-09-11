@@ -1,0 +1,12 @@
+{
+  "name": "rsl_rl",
+  "source": "https://github.com/leggedrobotics/rsl_rl/releases/tag/v1.0.2",
+  "version": "1.0.2",
+  "revision": "v1.0.2",
+  "archive_sha256": "cbb34fdd29d5e48ee07462c672fb422b8a3ab17ec05566e649df782e8c3acdf6",
+  "license": "BSD-3-Clause",
+  "local_path": "backends/isaacgym/rsl_rl",
+  "target_path": "backends/isaacgym/rsl_rl",
+  "patches": [],
+  "note": "This baseline was reconstructed from the installed package used by the P0/P1 short PPO smoke. The pip direct URL and archive hash identify the public v1.0.2 source archive."
+}

@@ -1,0 +1,401 @@
+<!doctype html>
+<!-- saved-from: https://1000framesai.com/robots/ at 2026-09-08, logged-in render -->
+<html lang="zh-CN"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>机器人配置 · Locomotion Platform</title>
+  <link rel="stylesheet" href="/shared/nav.css?v=home-nav-1">
+  <link rel="stylesheet" href="/shared/styles.css?v=no-tailwind-1">
+  <link rel="stylesheet" href="./styles.css?v=robot-manage-2">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/sim2sim/vendor/three/build/three.module.js",
+        "three/addons/": "/sim2sim/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body style="padding-top: 56px;"><nav id="platform-nav">
+    <a class="pnav-brand" href="/">
+      <span class="pnav-logo">LP</span>
+      <span class="pnav-title">Locomotion</span>
+    </a>
+    <ol class="pnav-steps">
+    <li class="pnav-step pnav-home-step ">
+      <a href="/">
+        <span class="pnav-home-icon" aria-hidden="true">⌂</span>
+        <span>首页</span>
+      </a>
+    </li>
+  
+      <li class="pnav-step active">
+        <span class="pnav-arrow">›</span>
+        <a href="/robots/">
+          <span class="pnav-num">1</span>
+          <span>机器人配置</span>
+        </a>
+      </li>
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/algorithms/">
+          <span class="pnav-num">2</span>
+          <span>算法</span>
+        </a>
+      </li>
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/train/">
+          <span class="pnav-num">3</span>
+          <span>训练</span>
+        </a>
+      </li>
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/sim2sim/">
+          <span class="pnav-num">4</span>
+          <span>仿真验证</span>
+        </a>
+      </li></ol>
+    <span class="pnav-user" id="pnav-user"><a href="/wallet/" class="pnav-balance" title="点击充值">¥0.00</a><span class="pnav-username" title="已登录">eatzio02@gmail.com</span><a href="#" class="pnav-logout">退出</a></span>
+  </nav>
+  <main class="page-shell">
+    <header class="page-header">
+      <div>
+        <h1>机器人配置</h1>
+        <p>管理 URDF、关节映射、默认站姿和控制参数。上传 URDF 后，把关节调到站立位并保存，这组角度会同时用于训练和 sim2sim。</p>
+      </div>
+      <div class="page-actions">
+        <span class="status-badge ready">Robot contract</span>
+      </div>
+    </header>
+
+    <section class="panel mb-4" id="urdfUploadPanel">
+      <div class="panel-title">
+        <div>
+          <h2 class="text-sm font-bold text-slate-100">上传 URDF</h2>
+          <p class="text-xs text-slate-500 mt-0.5">拖入 URDF 文件夹（含 urdf/ 和 meshes/），或选择单个 .urdf / .zip；按所选构型识别 12 或 16 个关节。</p>
+        </div>
+        <span id="urdfUploadStatus" class="text-xs text-slate-500">ready</span>
+      </div>
+
+      <form id="urdfUploadForm" class="step-form">
+        <div class="step-grid compact">
+          <!-- Drop zone — accepts folder drag-drop and file picker -->
+          <div id="urdfDropZone" class="step-upload urdf-drop-zone" tabindex="0" role="button" aria-label="拖入 URDF 文件夹或点击选择文件">
+            <span class="upload-title" id="urdfDropTitle">拖入 URDF 文件夹</span>
+            <span id="urdfUploadFileName" class="upload-sub">或点击选择 .urdf / .zip 文件</span>
+            <!-- Hidden inputs: folder mode and file mode -->
+            <input id="urdfFolderInput" type="file" webkitdirectory="" style="display:none">
+            <input id="urdfUploadFile" type="file" accept=".urdf,.zip" style="display:none">
+          </div>
+
+          <div class="step-fields compact">
+            <label class="grid gap-1.5"><span class="text-xs text-slate-400">机器人名称</span><input id="urdfRobotName" class="field" placeholder="留空则读取 URDF name"></label>
+            <label class="grid gap-1.5"><span class="text-xs text-slate-400">厂商 vendor</span><input id="urdfVendor" class="field" placeholder="custom"></label>
+            <label class="grid gap-1.5">
+              <span class="text-xs text-slate-400">机器人构型</span>
+              <select id="urdfMorphology" class="field">
+                <option value="quadruped_12dof">四足 12DoF</option>
+                <option value="wheel_leg_16dof_v1">轮足 16DoF</option>
+              </select>
+            </label>
+            <label class="step-check upload-check"><input id="urdfCreateRobot" type="checkbox" checked=""> 自动加入机器人列表</label>
+            <label class="step-check upload-check" title="关闭后保留原始网格，不做三角面简化">
+              <input id="urdfSimplifyMeshes" type="checkbox" checked=""> 简化网格（推荐）
+            </label>
+            <button id="urdfUploadButton" type="submit" class="primary">上传 URDF</button>
+          </div>
+        </div>
+
+        <div id="urdfUploadError" class="inline-error"></div>
+        <div id="urdfUploadResult" class="step-result"></div>
+      </form>
+    </section>
+
+    <div class="robot-workbench">
+      <aside class="panel self-start">
+        <div class="panel-title">
+          <h2 class="text-sm font-bold text-slate-100">机器人</h2>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button id="deduplicateRobots" class="btn" type="button" title="删除同名重复，保留最新一个">清理重复</button>
+            <span id="robotCount" class="text-xs text-slate-500 tabular-nums">11</span>
+          </div>
+        </div>
+        <ul id="robotList" class="robot-list"><li class="robot-item active">
+      <span class="r-mark">UN</span>
+      <span class="r-body">
+        <span class="r-title">Unitree Go2</span>
+        <span class="r-sub">内置模板 · Unitree</span>
+      </span>
+      </li><li class="robot-item">
+      <span class="r-mark">UN</span>
+      <span class="r-body">
+        <span class="r-title">Unitree Go1</span>
+        <span class="r-sub">内置模板 · Unitree</span>
+      </span>
+      </li><li class="robot-item">
+      <span class="r-mark">UN</span>
+      <span class="r-body">
+        <span class="r-title">Unitree A1</span>
+        <span class="r-sub">内置模板 · Unitree</span>
+      </span>
+      </li><li class="robot-item">
+      <span class="r-mark">UN</span>
+      <span class="r-body">
+        <span class="r-title">Unitree Aliengo</span>
+        <span class="r-sub">内置模板 · Unitree</span>
+      </span>
+      </li><li class="robot-item">
+      <span class="r-mark">UN</span>
+      <span class="r-body">
+        <span class="r-title">Unitree B1</span>
+        <span class="r-sub">内置模板 · Unitree</span>
+      </span>
+      </li><li class="robot-item">
+      <span class="r-mark">UN</span>
+      <span class="r-body">
+        <span class="r-title">Unitree B2</span>
+        <span class="r-sub">内置模板 · Unitree</span>
+      </span>
+      </li><li class="robot-item">
+      <span class="r-mark">FS</span>
+      <span class="r-body">
+        <span class="r-title">FSDog1</span>
+        <span class="r-sub">内置模板 · Demo</span>
+      </span>
+      </li><li class="robot-item">
+      <span class="r-mark">Y2</span>
+      <span class="r-body">
+        <span class="r-title">Y2 Wheel-Leg</span>
+        <span class="r-sub">内置模板 · Custom</span>
+      </span>
+      </li><li class="robot-item">
+      <span class="r-mark">W1</span>
+      <span class="r-body">
+        <span class="r-title">W1W Wheel-Leg</span>
+        <span class="r-sub">内置模板 · Custom</span>
+      </span>
+      </li><li class="robot-item">
+      <span class="r-mark">P1</span>
+      <span class="r-body">
+        <span class="r-title">P1</span>
+        <span class="r-sub">内置模板 · Custom</span>
+      </span>
+      </li><li class="robot-item">
+      <span class="r-mark">Y1</span>
+      <span class="r-body">
+        <span class="r-title">Y1 Wheel-Leg</span>
+        <span class="r-sub">内置模板 · Custom</span>
+      </span>
+      </li></ul>
+      </aside>
+
+      <section class="panel" id="editorPanel">
+        <div class="panel-title">
+          <div>
+            <h2 class="text-sm font-bold text-slate-100" id="editorTitle">Unitree Go2</h2>
+            <p class="text-xs text-slate-500 mt-0.5" id="editorSub">内置模板 / quadruped_12dof</p>
+          </div>
+          <span id="editorStatus" class="text-xs text-slate-500">已加载保存配置</span>
+        </div>
+
+        <form id="robotForm" class="p-4 flex flex-col gap-4" style="display: flex;">
+          <div class="grid grid-cols-2 gap-3">
+            <label class="grid gap-1.5"><span class="text-xs text-slate-400">名称</span><input id="fName" class="field" required=""></label>
+            <label class="grid gap-1.5"><span class="text-xs text-slate-400">厂商 vendor</span><input id="fVendor" class="field"></label>
+          </div>
+
+          <details class="form-section" open="">
+            <summary class="text-xs font-bold text-slate-200 cursor-pointer select-none">关节映射 (joint_order)</summary>
+            <div class="joint-order-head">
+              <p class="text-[11px] text-slate-500">左侧是算法固定使用的 canonical slot，右侧选择 URDF 里真实的 joint。映射错了，Sim2Sim 很容易站不稳或走偏。</p>
+              <div class="joint-order-actions">
+                <button id="autoMapJoints" type="button" class="btn">按名称自动匹配</button>
+                <button id="orderMapJoints" type="button" class="btn">按当前顺序填入</button>
+                <button id="clearMapJoints" type="button" class="btn">清空重选</button>
+              </div>
+            </div>
+            <div id="jointOrderTable" class="joint-order-table mt-2"><div class="jo-head">canonical slot</div><div class="jo-head">URDF joint</div>
+      <label class="jo-canonical" for="map_fl_hip_joint">fl_hip_joint</label>
+      <select id="map_fl_hip_joint" class="field jo-select" data-slot="fl_hip_joint"><option value="">未选择</option><option value="FL_hip_joint" selected="">FL_hip_joint</option><option value="FL_thigh_joint">FL_thigh_joint</option><option value="FL_calf_joint">FL_calf_joint</option><option value="FR_hip_joint">FR_hip_joint</option><option value="FR_thigh_joint">FR_thigh_joint</option><option value="FR_calf_joint">FR_calf_joint</option><option value="RL_hip_joint">RL_hip_joint</option><option value="RL_thigh_joint">RL_thigh_joint</option><option value="RL_calf_joint">RL_calf_joint</option><option value="RR_hip_joint">RR_hip_joint</option><option value="RR_thigh_joint">RR_thigh_joint</option><option value="RR_calf_joint">RR_calf_joint</option></select>
+      <label class="jo-canonical" for="map_fl_thigh_joint">fl_thigh_joint</label>
+      <select id="map_fl_thigh_joint" class="field jo-select" data-slot="fl_thigh_joint"><option value="">未选择</option><option value="FL_hip_joint">FL_hip_joint</option><option value="FL_thigh_joint" selected="">FL_thigh_joint</option><option value="FL_calf_joint">FL_calf_joint</option><option value="FR_hip_joint">FR_hip_joint</option><option value="FR_thigh_joint">FR_thigh_joint</option><option value="FR_calf_joint">FR_calf_joint</option><option value="RL_hip_joint">RL_hip_joint</option><option value="RL_thigh_joint">RL_thigh_joint</option><option value="RL_calf_joint">RL_calf_joint</option><option value="RR_hip_joint">RR_hip_joint</option><option value="RR_thigh_joint">RR_thigh_joint</option><option value="RR_calf_joint">RR_calf_joint</option></select>
+      <label class="jo-canonical" for="map_fl_calf_joint">fl_calf_joint</label>
+      <select id="map_fl_calf_joint" class="field jo-select" data-slot="fl_calf_joint"><option value="">未选择</option><option value="FL_hip_joint">FL_hip_joint</option><option value="FL_thigh_joint">FL_thigh_joint</option><option value="FL_calf_joint" selected="">FL_calf_joint</option><option value="FR_hip_joint">FR_hip_joint</option><option value="FR_thigh_joint">FR_thigh_joint</option><option value="FR_calf_joint">FR_calf_joint</option><option value="RL_hip_joint">RL_hip_joint</option><option value="RL_thigh_joint">RL_thigh_joint</option><option value="RL_calf_joint">RL_calf_joint</option><option value="RR_hip_joint">RR_hip_joint</option><option value="RR_thigh_joint">RR_thigh_joint</option><option value="RR_calf_joint">RR_calf_joint</option></select>
+      <label class="jo-canonical" for="map_fr_hip_joint">fr_hip_joint</label>
+      <select id="map_fr_hip_joint" class="field jo-select" data-slot="fr_hip_joint"><option value="">未选择</option><option value="FL_hip_joint">FL_hip_joint</option><option value="FL_thigh_joint">FL_thigh_joint</option><option value="FL_calf_joint">FL_calf_joint</option><option value="FR_hip_joint" selected="">FR_hip_joint</option><option value="FR_thigh_joint">FR_thigh_joint</option><option value="FR_calf_joint">FR_calf_joint</option><option value="RL_hip_joint">RL_hip_joint</option><option value="RL_thigh_joint">RL_thigh_joint</option><option value="RL_calf_joint">RL_calf_joint</option><option value="RR_hip_joint">RR_hip_joint</option><option value="RR_thigh_joint">RR_thigh_joint</option><option value="RR_calf_joint">RR_calf_joint</option></select>
+      <label class="jo-canonical" for="map_fr_thigh_joint">fr_thigh_joint</label>
+      <select id="map_fr_thigh_joint" class="field jo-select" data-slot="fr_thigh_joint"><option value="">未选择</option><option value="FL_hip_joint">FL_hip_joint</option><option value="FL_thigh_joint">FL_thigh_joint</option><option value="FL_calf_joint">FL_calf_joint</option><option value="FR_hip_joint">FR_hip_joint</option><option value="FR_thigh_joint" selected="">FR_thigh_joint</option><option value="FR_calf_joint">FR_calf_joint</option><option value="RL_hip_joint">RL_hip_joint</option><option value="RL_thigh_joint">RL_thigh_joint</option><option value="RL_calf_joint">RL_calf_joint</option><option value="RR_hip_joint">RR_hip_joint</option><option value="RR_thigh_joint">RR_thigh_joint</option><option value="RR_calf_joint">RR_calf_joint</option></select>
+      <label class="jo-canonical" for="map_fr_calf_joint">fr_calf_joint</label>
+      <select id="map_fr_calf_joint" class="field jo-select" data-slot="fr_calf_joint"><option value="">未选择</option><option value="FL_hip_joint">FL_hip_joint</option><option value="FL_thigh_joint">FL_thigh_joint</option><option value="FL_calf_joint">FL_calf_joint</option><option value="FR_hip_joint">FR_hip_joint</option><option value="FR_thigh_joint">FR_thigh_joint</option><option value="FR_calf_joint" selected="">FR_calf_joint</option><option value="RL_hip_joint">RL_hip_joint</option><option value="RL_thigh_joint">RL_thigh_joint</option><option value="RL_calf_joint">RL_calf_joint</option><option value="RR_hip_joint">RR_hip_joint</option><option value="RR_thigh_joint">RR_thigh_joint</option><option value="RR_calf_joint">RR_calf_joint</option></select>
+      <label class="jo-canonical" for="map_rl_hip_joint">rl_hip_joint</label>
+      <select id="map_rl_hip_joint" class="field jo-select" data-slot="rl_hip_joint"><option value="">未选择</option><option value="FL_hip_joint">FL_hip_joint</option><option value="FL_thigh_joint">FL_thigh_joint</option><option value="FL_calf_joint">FL_calf_joint</option><option value="FR_hip_joint">FR_hip_joint</option><option value="FR_thigh_joint">FR_thigh_joint</option><option value="FR_calf_joint">FR_calf_joint</option><option value="RL_hip_joint" selected="">RL_hip_joint</option><option value="RL_thigh_joint">RL_thigh_joint</option><option value="RL_calf_joint">RL_calf_joint</option><option value="RR_hip_joint">RR_hip_joint</option><option value="RR_thigh_joint">RR_thigh_joint</option><option value="RR_calf_joint">RR_calf_joint</option></select>
+      <label class="jo-canonical" for="map_rl_thigh_joint">rl_thigh_joint</label>
+      <select id="map_rl_thigh_joint" class="field jo-select" data-slot="rl_thigh_joint"><option value="">未选择</option><option value="FL_hip_joint">FL_hip_joint</option><option value="FL_thigh_joint">FL_thigh_joint</option><option value="FL_calf_joint">FL_calf_joint</option><option value="FR_hip_joint">FR_hip_joint</option><option value="FR_thigh_joint">FR_thigh_joint</option><option value="FR_calf_joint">FR_calf_joint</option><option value="RL_hip_joint">RL_hip_joint</option><option value="RL_thigh_joint" selected="">RL_thigh_joint</option><option value="RL_calf_joint">RL_calf_joint</option><option value="RR_hip_joint">RR_hip_joint</option><option value="RR_thigh_joint">RR_thigh_joint</option><option value="RR_calf_joint">RR_calf_joint</option></select>
+      <label class="jo-canonical" for="map_rl_calf_joint">rl_calf_joint</label>
+      <select id="map_rl_calf_joint" class="field jo-select" data-slot="rl_calf_joint"><option value="">未选择</option><option value="FL_hip_joint">FL_hip_joint</option><option value="FL_thigh_joint">FL_thigh_joint</option><option value="FL_calf_joint">FL_calf_joint</option><option value="FR_hip_joint">FR_hip_joint</option><option value="FR_thigh_joint">FR_thigh_joint</option><option value="FR_calf_joint">FR_calf_joint</option><option value="RL_hip_joint">RL_hip_joint</option><option value="RL_thigh_joint">RL_thigh_joint</option><option value="RL_calf_joint" selected="">RL_calf_joint</option><option value="RR_hip_joint">RR_hip_joint</option><option value="RR_thigh_joint">RR_thigh_joint</option><option value="RR_calf_joint">RR_calf_joint</option></select>
+      <label class="jo-canonical" for="map_rr_hip_joint">rr_hip_joint</label>
+      <select id="map_rr_hip_joint" class="field jo-select" data-slot="rr_hip_joint"><option value="">未选择</option><option value="FL_hip_joint">FL_hip_joint</option><option value="FL_thigh_joint">FL_thigh_joint</option><option value="FL_calf_joint">FL_calf_joint</option><option value="FR_hip_joint">FR_hip_joint</option><option value="FR_thigh_joint">FR_thigh_joint</option><option value="FR_calf_joint">FR_calf_joint</option><option value="RL_hip_joint">RL_hip_joint</option><option value="RL_thigh_joint">RL_thigh_joint</option><option value="RL_calf_joint">RL_calf_joint</option><option value="RR_hip_joint" selected="">RR_hip_joint</option><option value="RR_thigh_joint">RR_thigh_joint</option><option value="RR_calf_joint">RR_calf_joint</option></select>
+      <label class="jo-canonical" for="map_rr_thigh_joint">rr_thigh_joint</label>
+      <select id="map_rr_thigh_joint" class="field jo-select" data-slot="rr_thigh_joint"><option value="">未选择</option><option value="FL_hip_joint">FL_hip_joint</option><option value="FL_thigh_joint">FL_thigh_joint</option><option value="FL_calf_joint">FL_calf_joint</option><option value="FR_hip_joint">FR_hip_joint</option><option value="FR_thigh_joint">FR_thigh_joint</option><option value="FR_calf_joint">FR_calf_joint</option><option value="RL_hip_joint">RL_hip_joint</option><option value="RL_thigh_joint">RL_thigh_joint</option><option value="RL_calf_joint">RL_calf_joint</option><option value="RR_hip_joint">RR_hip_joint</option><option value="RR_thigh_joint" selected="">RR_thigh_joint</option><option value="RR_calf_joint">RR_calf_joint</option></select>
+      <label class="jo-canonical" for="map_rr_calf_joint">rr_calf_joint</label>
+      <select id="map_rr_calf_joint" class="field jo-select" data-slot="rr_calf_joint"><option value="">未选择</option><option value="FL_hip_joint">FL_hip_joint</option><option value="FL_thigh_joint">FL_thigh_joint</option><option value="FL_calf_joint">FL_calf_joint</option><option value="FR_hip_joint">FR_hip_joint</option><option value="FR_thigh_joint">FR_thigh_joint</option><option value="FR_calf_joint">FR_calf_joint</option><option value="RL_hip_joint">RL_hip_joint</option><option value="RL_thigh_joint">RL_thigh_joint</option><option value="RL_calf_joint">RL_calf_joint</option><option value="RR_hip_joint">RR_hip_joint</option><option value="RR_thigh_joint">RR_thigh_joint</option><option value="RR_calf_joint" selected="">RR_calf_joint</option></select></div>
+            <div id="jointOrderStatus" class="joint-order-status mt-2 ok">映射完整：12/12</div>
+          </details>
+
+          <section class="form-section">
+            <div class="flex items-baseline justify-between gap-2 mb-2.5">
+              <span class="text-xs font-bold text-slate-200">默认站立位 / default stance (rad)</span>
+              <div class="flex items-center gap-2">
+                <span id="urdfMeshStatus" class="text-xs text-slate-500">URDF mesh: 17 个</span>
+                <button id="expandUrdfViewer" type="button" class="btn" style="">展开预览</button>
+                <button id="resetStandingPose" type="button" class="btn">恢复站立位</button>
+              </div>
+            </div>
+            <div class="stance-layout">
+              <div id="jointAngles" class="joint-editor"><div class="leg-group"><h3>前左 FL</h3><div class="joint-control">
+        <span>hip</span>
+        <input type="range" min="-1.0472" max="1.0472" step="0.01" value="0.1" data-slot="fl_hip_joint" data-role="range">
+        <input type="number" min="-1.0472" max="1.0472" step="any" inputmode="decimal" value="0.1" data-slot="fl_hip_joint" data-role="num"></div><div class="joint-control">
+        <span>thigh</span>
+        <input type="range" min="-1.5708" max="3.4907" step="0.01" value="0.8" data-slot="fl_thigh_joint" data-role="range">
+        <input type="number" min="-1.5708" max="3.4907" step="any" inputmode="decimal" value="0.8" data-slot="fl_thigh_joint" data-role="num"></div><div class="joint-control">
+        <span>calf</span>
+        <input type="range" min="-2.7227" max="-0.83776" step="0.01" value="-1.5" data-slot="fl_calf_joint" data-role="range">
+        <input type="number" min="-2.7227" max="-0.83776" step="any" inputmode="decimal" value="-1.5" data-slot="fl_calf_joint" data-role="num"></div></div><div class="leg-group"><h3>前右 FR</h3><div class="joint-control">
+        <span>hip</span>
+        <input type="range" min="-1.0472" max="1.0472" step="0.01" value="-0.1" data-slot="fr_hip_joint" data-role="range">
+        <input type="number" min="-1.0472" max="1.0472" step="any" inputmode="decimal" value="-0.1" data-slot="fr_hip_joint" data-role="num"></div><div class="joint-control">
+        <span>thigh</span>
+        <input type="range" min="-1.5708" max="3.4907" step="0.01" value="0.8" data-slot="fr_thigh_joint" data-role="range">
+        <input type="number" min="-1.5708" max="3.4907" step="any" inputmode="decimal" value="0.8" data-slot="fr_thigh_joint" data-role="num"></div><div class="joint-control">
+        <span>calf</span>
+        <input type="range" min="-2.7227" max="-0.83776" step="0.01" value="-1.5" data-slot="fr_calf_joint" data-role="range">
+        <input type="number" min="-2.7227" max="-0.83776" step="any" inputmode="decimal" value="-1.5" data-slot="fr_calf_joint" data-role="num"></div></div><div class="leg-group"><h3>后左 RL</h3><div class="joint-control">
+        <span>hip</span>
+        <input type="range" min="-1.0472" max="1.0472" step="0.01" value="0.1" data-slot="rl_hip_joint" data-role="range">
+        <input type="number" min="-1.0472" max="1.0472" step="any" inputmode="decimal" value="0.1" data-slot="rl_hip_joint" data-role="num"></div><div class="joint-control">
+        <span>thigh</span>
+        <input type="range" min="-0.5236" max="4.5379" step="0.01" value="1" data-slot="rl_thigh_joint" data-role="range">
+        <input type="number" min="-0.5236" max="4.5379" step="any" inputmode="decimal" value="1" data-slot="rl_thigh_joint" data-role="num"></div><div class="joint-control">
+        <span>calf</span>
+        <input type="range" min="-2.7227" max="-0.83776" step="0.01" value="-1.5" data-slot="rl_calf_joint" data-role="range">
+        <input type="number" min="-2.7227" max="-0.83776" step="any" inputmode="decimal" value="-1.5" data-slot="rl_calf_joint" data-role="num"></div></div><div class="leg-group"><h3>后右 RR</h3><div class="joint-control">
+        <span>hip</span>
+        <input type="range" min="-1.0472" max="1.0472" step="0.01" value="-0.1" data-slot="rr_hip_joint" data-role="range">
+        <input type="number" min="-1.0472" max="1.0472" step="any" inputmode="decimal" value="-0.1" data-slot="rr_hip_joint" data-role="num"></div><div class="joint-control">
+        <span>thigh</span>
+        <input type="range" min="-0.5236" max="4.5379" step="0.01" value="1" data-slot="rr_thigh_joint" data-role="range">
+        <input type="number" min="-0.5236" max="4.5379" step="any" inputmode="decimal" value="1" data-slot="rr_thigh_joint" data-role="num"></div><div class="joint-control">
+        <span>calf</span>
+        <input type="range" min="-2.7227" max="-0.83776" step="0.01" value="-1.5" data-slot="rr_calf_joint" data-role="range">
+        <input type="number" min="-2.7227" max="-0.83776" step="any" inputmode="decimal" value="-1.5" data-slot="rr_calf_joint" data-role="num"></div></div></div>
+              <div id="stancePoseViewer" class="stance-viewer"><canvas data-engine="three.js r160" width="418" height="388" style="display: block; touch-action: none;"></canvas>
+                <span class="stance-viewer-hint">拖拽旋转 · 滚轮缩放</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="form-section" aria-labelledby="jointLimitsTitle">
+            <div id="jointLimitsTitle" class="text-xs font-bold text-slate-200">关节限位 joint_limits</div>
+            <p class="text-xs text-slate-500 mt-2">关节限位自动从 URDF 读取，无需重复填写。</p>
+          </section>
+
+          <section class="form-section">
+            <div class="flex items-baseline justify-between mb-2.5">
+              <span class="text-xs font-bold text-slate-200">控制增益 control_defaults</span>
+            </div>
+            <div id="controlGainGrid" class="grid gap-2" style="grid-template-columns:46px repeat(3,minmax(0,1fr))">
+              <span></span>
+              <span class="text-xs text-slate-500 text-center">hip</span>
+              <span class="text-xs text-slate-500 text-center">thigh</span>
+              <span class="text-xs text-slate-500 text-center">calf</span>
+              <span class="text-xs text-slate-500 text-center" data-wheel-control="" hidden="">wheel</span>
+              <span class="text-xs text-slate-400 self-center">Kp</span>
+              <input id="kpHip" type="number" step="0.1" class="field">
+              <input id="kpThigh" type="number" step="0.1" class="field">
+              <input id="kpCalf" type="number" step="0.1" class="field">
+              <input id="kpWheel" type="number" step="0.1" class="field" data-wheel-control="" hidden="" disabled="">
+              <span class="text-xs text-slate-400 self-center">Kd</span>
+              <input id="kdHip" type="number" step="0.01" class="field">
+              <input id="kdThigh" type="number" step="0.01" class="field">
+              <input id="kdCalf" type="number" step="0.01" class="field">
+              <input id="kdWheel" type="number" step="0.01" class="field" data-wheel-control="" hidden="" disabled="">
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <label class="grid gap-1.5"><span class="text-xs text-slate-400">action_scale</span><input id="actionScale" type="number" step="0.01" class="field"></label>
+              <label class="grid gap-1.5"><span class="text-xs text-slate-400">decimation</span><input id="decimation" type="number" min="1" step="1" class="field"></label>
+              <label class="grid gap-1.5" style="grid-column:1/-1" data-wheel-control="" hidden="">
+                <span class="text-xs text-slate-400">目标机身高度 (m)</span>
+                <input id="baseHeightTarget" type="number" min="0.1" max="1.5" step="0.01" inputmode="decimal" class="field" disabled="">
+              </label>
+            </div>
+            <div class="grid gap-2 mt-3 pt-3 border-t border-slate-700/70" data-motor-envelope="">
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="text-xs font-bold text-slate-200">电机包络曲线</span>
+                <span class="text-xs text-slate-500">rpm:Nm</span>
+              </div>
+              <div class="grid gap-2" style="grid-template-columns:52px minmax(0,1fr)">
+                <label class="text-xs text-slate-400 self-center" for="envelopeHip">hip</label>
+                <input id="envelopeHip" type="text" class="field" spellcheck="false" placeholder="0:60, 120:60, 188:0">
+                <label class="text-xs text-slate-400 self-center" for="envelopeThigh">thigh</label>
+                <input id="envelopeThigh" type="text" class="field" spellcheck="false" placeholder="0:60, 120:60, 188:0">
+                <label class="text-xs text-slate-400 self-center" for="envelopeCalf">calf</label>
+                <input id="envelopeCalf" type="text" class="field" spellcheck="false" placeholder="0:120, 95:120, 192:0">
+                <label class="text-xs text-slate-400 self-center" for="envelopeWheel" data-wheel-control="" hidden="">foot</label>
+                <input id="envelopeWheel" type="text" class="field" spellcheck="false" placeholder="0:17, 210:17, 407:0" data-wheel-control="" hidden="" disabled="">
+              </div>
+            </div>
+          </section>
+
+          <div id="formError" class="inline-error"></div>
+          <div class="flex gap-2.5 items-center">
+            <button id="saveButton" type="submit" class="primary" style="width:auto;padding:0 24px">保存到我的机器人</button>
+            <button id="reloadButton" type="button" class="btn">重新加载</button>
+            <span id="saveHint" class="text-xs text-slate-500">修改会保存为您的私有副本，不影响其他用户。</span>
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <script type="module">import { mountNav, requireAuth } from '/shared/nav.js?v=home-nav-1'; requireAuth(); mountNav('robots');</script>
+  <script type="module" src="./app.js?v=point-foot-motor-envelope-1"></script>
+
+  <!-- ── 全屏 URDF 3D 预览模态层 ────────────────────────────────────────── -->
+  <div id="urdfModal" class="urdf-modal" style="display:none" role="dialog" aria-modal="true" aria-label="URDF 3D 预览">
+    <div class="urdf-modal-inner">
+
+      <!-- 左侧大画布 -->
+      <div id="urdfModalCanvas" class="urdf-modal-canvas">
+        <span class="stance-viewer-hint">拖拽旋转 · 滚轮缩放</span>
+      </div>
+
+      <!-- 右侧控制面板 -->
+      <aside class="urdf-modal-panel">
+        <div class="urdf-modal-header">
+          <div>
+            <strong id="urdfModalTitle" class="urdf-modal-robot-name">机器人预览</strong>
+            <span id="urdfModalMeshStatus" class="text-xs text-slate-500"></span>
+          </div>
+          <button id="urdfModalClose" class="btn" type="button" title="关闭 (Esc)">✕</button>
+        </div>
+
+        <div class="urdf-modal-body">
+          <p class="text-xs text-slate-500 mb-2">拖动滑块调整默认站立姿态，满意后点「保存站姿」。</p>
+
+          <!-- 关节滑块区 -->
+          <div id="urdfModalJoints" class="urdf-modal-joints"></div>
+        </div>
+
+        <div class="urdf-modal-footer">
+          <button id="urdfModalSave" class="primary" type="button">保存默认站姿</button>
+          <button id="urdfModalReset" class="btn" type="button">恢复默认</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+
+</body></html>

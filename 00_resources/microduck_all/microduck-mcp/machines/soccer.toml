@@ -1,0 +1,120 @@
+# soccer.toml — find the ball, line it up, kick it honestly, celebrate.
+#
+# The shipped example machine. Guards read ONLY the sensed digest
+# (ball_seen.* from the head camera, proprioception, machine time) — never
+# ground-truth ball position. Load + arm it:
+#
+#     duck machine load machines/soccer.toml
+#     duck machine arm
+#
+# Edit this file while it runs and `duck machine reload` hot-swaps it.
+
+[machine]
+name = "soccer"
+initial = "search"
+
+# Checked before any node's own transitions, every tick: the escape hatch.
+# There is no stand-up policy, so a fallen duck parks in `down` and waits
+# for the mind (or a human) to reset. `celebrate` is exempt — a roulade
+# passes through upright=false mid-roll by design.
+[[machine.transition]]
+when = "not upright and elapsed_s > 0.5 and node != 'celebrate'"
+to = "down"
+
+[[node]]
+name = "search"
+behavior = "search_ball"        # full-rate point turn; wz < 1.2 is a dead zone
+[node.params]
+wz = 1.5
+[[node.transition]]
+when = "ball_seen.visible and ball_seen.age_s < 0.4"
+to = "approach"
+
+[[node]]
+name = "approach"
+behavior = "approach_ball"      # the session-tested controller, 50 Hz
+[[node.transition]]
+# Ball lost for real (not just one stale tick between detections).
+when = "not ball_seen.visible and elapsed_s > 1.0"
+to = "search"
+[[node.transition]]
+# No kick within 6 s means the duck is parked in the dead band — too close
+# to rebuild momentum (commanded creep from standstill moves millimeters),
+# too far for the guard. Back out and take another run at it.
+when = "elapsed_s > 6.0"
+to = "backoff"
+[[node.transition]]
+# The kick pocket, in sensed TRUNK-frame estimates (camera ray + the robot's
+# own kinematics). Calibrated to fire MID-STRIDE: the camera reads ~3.5 cm
+# long while walking (gait pitch), so sensed 0.10-0.125 during a real walk
+# is true ~0.07-0.09 — exactly the measured connect band — and the stop's
+# forward slide plus settle back-drift are already priced into that band
+# (the sweep connects from placed-at-stop 0.06-0.09 including drift). A
+# STATIONARY duck reads ~true, so a too-far static stance (true >= 0.10)
+# lands above the 0.125 ceiling and cannot enter: momentum is part of the
+# guard. Left is forgiving (-0.02 to -0.08 true all connect).
+#
+# speed_mps < 0.25: don't kick a BALL that is rolling — a hard toe-poke
+# sends it through the pocket at 0.3+ and kicking where it was is a certain
+# whiff (5 s of settle + abort + backoff wasted). Generous ceiling on
+# purpose: a parked ball reads <= ~0.04 mid-walk but a just-nudged one
+# drifting at ~0.1-0.15 still gets kicked cleanly, so only clear rolling is
+# rejected. (Null speed — ball visible < 0.45 s — also blocks, correctly.)
+when = "ball_seen.visible and ball_seen.age_s < 0.4 and ball_seen.est_forward_m > 0.100 and ball_seen.est_forward_m < 0.125 and ball_seen.est_left_m > -0.082 and ball_seen.est_left_m < -0.020 and ball_seen.speed_mps < 0.25 and elapsed_s > 2.0"
+to = "kick"
+
+[[node]]
+name = "kick"
+behavior = "kick"               # stop, settle, one honest kick_right
+[node.params]
+foot = "right"
+stage_ball = false
+settle_s = 0.8
+[[node.transition]]
+# Post-settle sanity check: only reject CLEARLY bad stances — a poked,
+# still-rolling ball or a stop that slid way past. The settle back-drift
+# (~2-3 cm, the standing policy re-centering) is normal and the swing
+# tolerates it, so the ceiling here is generous; the tight decision was
+# made by the entry guard, at speed.
+# speed_mps > 0.08: the duck is stopped here, the camera static (noise
+# floor <= 0.03), so this is the one place a rolling ball reads clean —
+# a ball still escaping the pocket aborts even while its position is
+# momentarily inside the bounds.
+when = "elapsed_s > 0.6 and elapsed_s < 0.75 and ball_seen.visible and (ball_seen.est_forward_m > 0.135 or ball_seen.est_forward_m < 0.050 or ball_seen.est_left_m > -0.012 or ball_seen.est_left_m < -0.10 or ball_seen.speed_mps > 0.08)"
+to = "backoff"
+[[node.transition]]
+# The swing is done (settle 0.8 s + 3 s trick) and the ball is STILL at the
+# feet: a whiff. The ball leaves the tilted camera's frame during the kick
+# choreography but is back in view right after, so this is a sensed check —
+# no celebrating a miss. Back off to rebuild momentum, then line up again.
+when = "elapsed_s > 3.9 and ball_seen.visible and ball_seen.age_s < 0.4 and ball_seen.est_forward_m < 0.3"
+to = "backoff"
+[[node.transition]]
+when = "elapsed_s > 4.4"
+to = "celebrate"
+
+[[node]]
+name = "backoff"
+behavior = "drive"              # walk backward: the gait needs distance to
+[node.params]                   # rebuild momentum — creep from a standstill
+vx = -0.3                       # moves millimeters, and the pocket guard
+[[node.transition]]             # only accepts a duck arriving at speed.
+when = "elapsed_s > 4.0"        # 4 s: backward walking pays the same
+to = "approach"                 # spin-up tax — 2 s barely moved the duck
+
+[[node]]
+name = "celebrate"
+behavior = "celebrate"          # the headstand (a roulade, honestly)
+[node.params]
+trick = "roulade"
+[[node.transition]]
+when = "elapsed_s > 3.5 and upright"
+to = "search"                   # stuck the landing: go again
+[[node.transition]]
+when = "elapsed_s > 3.5 and not upright"
+to = "down"                     # flubbed it: comedy, then wait for help
+
+[[node]]
+name = "down"
+behavior = "idle"
+# Terminal until the mind intervenes: no stand-up policy exists yet.

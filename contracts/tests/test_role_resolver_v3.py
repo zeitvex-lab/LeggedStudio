@@ -571,7 +571,8 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
         """g1 的档位须与 mjlab 推导式 ``0.25*effort/stiffness`` 一致（容差 0.01）。
 
         mjlab 的 asset_zoo 不是硬编码档位，而是用该式生成
-        （见 resources/.../mjlab/asset_zoo/robots/unitree_go1/go1_constants.py：
+        （见 00_resources/lain_job/RoboLab/backends/mjlab/mjlab/src/mjlab/asset_zoo/
+        robots/unitree_go1/go1_constants.py：
         ``GO1_ACTION_SCALE[n] = 0.25 * e / s``）。g1 是我们唯一同时具备
         "角色级 effort/stiffness"与"外部权威逐关节档位（官方部署 yaml）"的机型，
         因此用它把**两条独立来源**钉在一起——任一侧被改动都会在这里显形。

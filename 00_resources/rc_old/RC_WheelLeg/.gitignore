@@ -1,0 +1,55 @@
+# Local reference material
+/00_reference/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.uv-cache/
+
+# Build outputs
+build/
+install/
+devel/
+log/
+*.o
+*.so
+*.a
+*.elf
+*.hex
+*.bin
+*.axf
+
+# Required vendored Odin runtime libraries in the early Sim2Real release
+!05_software/real/sim2real/vendored/odin1_imu/build/
+!05_software/real/sim2real/vendored/odin1_imu/build/libodin1_imu_bridge.so
+!05_software/real/sim2real/vendored/odin1_imu/lib/*.a
+!05_software/real/sim2real_v2/vendored/odin1_imu/lib/*.a
+!05_software/real/sim2real_ros2_v2/src/odin_ros_driver/lib/*.a
+!05_software/real/sim2real_ros2_v3/src/odin_ros_driver/lib/*.a
+
+# Training outputs
+logs/
+checkpoints/
+wandb/
+sim2sim_log_*.txt
+**/sim2sim_temp.xml
+**/route_check_runs/
+**/route_experiments/suite_*/
+**/tools/nav_tools/points/auto_candidates/
+
+# IDE and operating system files
+.idea/
+.vscode/
+.trae/
+.DS_Store
+Thumbs.db
+
+# Temporary and backup files
+*.Bak
+~$*

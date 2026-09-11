@@ -1,0 +1,14 @@
+digraph G {
+"base_link" -> "front_camera"[label=" Broadcaster: default_authority\nAverage rate: 50.806\nBuffer length: 1.24\nMost recent transform: 81.669998\nOldest transform: 80.429998\n"];
+"odom" -> "base_link"[label=" Broadcaster: default_authority\nAverage rate: 50.806\nBuffer length: 1.24\nMost recent transform: 81.669998\nOldest transform: 80.429998\n"];
+"base_link" -> "front_lidar_mount"[label=" Broadcaster: default_authority\nAverage rate: 50.806\nBuffer length: 1.24\nMost recent transform: 81.669998\nOldest transform: 80.429998\n"];
+"base_link" -> "front_lidar"[label=" Broadcaster: default_authority\nAverage rate: 50.806\nBuffer length: 1.24\nMost recent transform: 81.669998\nOldest transform: 80.429998\n"];
+"base_link" -> "rear_lidar_mount"[label=" Broadcaster: default_authority\nAverage rate: 50.806\nBuffer length: 1.24\nMost recent transform: 81.669998\nOldest transform: 80.429998\n"];
+"base_link" -> "rear_lidar"[label=" Broadcaster: default_authority\nAverage rate: 50.806\nBuffer length: 1.24\nMost recent transform: 81.669998\nOldest transform: 80.429998\n"];
+"base_link" -> "body_imu_mount"[label=" Broadcaster: default_authority\nAverage rate: 50.806\nBuffer length: 1.24\nMost recent transform: 81.669998\nOldest transform: 80.429998\n"];
+"base_link" -> "imu_sensor"[label=" Broadcaster: default_authority\nAverage rate: 50.806\nBuffer length: 1.24\nMost recent transform: 81.669998\nOldest transform: 80.429998\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1776845246.3557467"[ shape=plaintext ] ;
+}->"odom";
+}

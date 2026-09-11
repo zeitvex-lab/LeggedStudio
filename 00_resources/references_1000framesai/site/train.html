@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>训练 · Locomotion Platform</title>
+  <link rel="stylesheet" href="/shared/nav.css?v=home-nav-1" />
+  <link rel="stylesheet" href="/shared/styles.css?v=no-tailwind-1" />
+</head>
+<body>
+  <main class="page-shell page-shell-wide">
+    <header class="page-header">
+      <div>
+        <h1>训练</h1>
+        <p>选择机器人、算法任务和超参，创建训练会话并实时查看奖励曲线、事件日志与 ONNX 产物。</p>
+      </div>
+      <div class="page-actions">
+        <span class="status-badge running">Remote runner</span>
+      </div>
+    </header>
+
+    <div class="train-workbench">
+      <aside class="panel self-start">
+        <div class="panel-title"><h2 class="text-sm font-bold text-slate-100">新建训练</h2></div>
+        <div id="runContextNotice" class="run-context-notice hidden"></div>
+        <form id="createForm" class="p-4 flex flex-col gap-3.5">
+          <label id="robotRow" class="grid gap-1.5">
+            <span class="text-xs text-slate-400">机器人</span>
+            <select id="robotSelect" class="field" required></select>
+          </label>
+          <label class="grid gap-1.5">
+            <span class="text-xs text-slate-400">算法 <span class="text-slate-600">（可训练）</span></span>
+            <select id="algoSelect" class="field" required></select>
+          </label>
+          <div id="algorithmMeta" class="algorithm-meta" aria-live="polite"></div>
+          <label id="taskRow" class="grid gap-1.5">
+            <span class="text-xs text-slate-400">Task</span>
+            <select id="taskSelect" class="field" required></select>
+          </label>
+          <div id="cloudGpuRow" class="grid gap-1.5" style="display:none">
+            <span class="text-xs text-slate-400">云端 GPU <span id="cloudGpuHint" class="text-slate-600"></span></span>
+            <select id="cloudGpuSelect" class="field">
+              <option value="">最便宜（自动）</option>
+            </select>
+          </div>
+          <label id="gpuCountRow" class="grid gap-1.5" hidden>
+            <span class="text-xs text-slate-400">GPU 卡数 <span id="gpuCountHint" class="text-slate-600">（同一台服务器）</span></span>
+            <select id="gpuCountSelect" class="field">
+              <option value="1">1 卡</option>
+            </select>
+          </label>
+          <details id="paramDrawer" class="param-drawer">
+            <summary class="param-summary">
+              <span class="param-title">
+                <span class="param-chevron">▾</span>
+                <span>训练参数</span>
+              </span>
+              <span id="paramSummary" class="param-compact">64 envs · 1000 iter · seed 1</span>
+            </summary>
+            <div class="param-body">
+              <div class="param-grid">
+                <label class="grid gap-1.5"><span class="text-xs text-slate-400">num_envs</span><input id="numEnvs" type="number" min="1" max="16384" value="64" class="field" /></label>
+                <label class="grid gap-1.5"><span class="text-xs text-slate-400">max_iter</span><input id="maxIterations" type="number" min="1" max="200000" value="1000" class="field" /></label>
+                <label class="grid gap-1.5"><span class="text-xs text-slate-400">seed</span><input id="seed" type="number" min="0" max="2147483647" value="1" class="field" /></label>
+                <label id="baseHeightTargetRow" class="grid gap-1.5 wheel-height-field" hidden><span class="text-xs text-slate-400">目标机身高度 (m)</span><input id="baseHeightTarget" type="number" min="0.1" max="1.5" step="0.01" value="0.45" inputmode="decimal" class="field" /></label>
+                <label id="jointVelocityLimitRow" class="grid gap-1.5" hidden><span class="text-xs text-slate-400">腿部关节速度上限 (rad/s)</span><input id="jointVelocityLimit" type="number" min="0.1" max="100" step="0.1" value="8" inputmode="decimal" class="field" /></label>
+                <label id="addedMassMinRow" class="grid gap-1.5" hidden><span class="text-xs text-slate-400">随机附加重量下限 (kg)</span><input id="addedMassMin" type="number" min="-100" max="100" step="0.1" value="-1" inputmode="decimal" class="field" /></label>
+                <label id="addedMassMaxRow" class="grid gap-1.5" hidden><span class="text-xs text-slate-400">随机附加重量上限 (kg)</span><input id="addedMassMax" type="number" min="-100" max="100" step="0.1" value="1" inputmode="decimal" class="field" /></label>
+                <label class="grid gap-1.5"><span class="text-xs text-slate-400">Self-collision</span><select id="selfCollisions" class="field"><option value="1" selected>Disabled</option><option value="0">Enabled</option></select></label>
+              </div>
+              <div class="param-subhead">
+                <span>奖励函数</span>
+                <span id="rewardSummary">11 scales</span>
+              </div>
+              <div id="rewardGrid" class="reward-grid"></div>
+              <div id="ampParamGrid" class="amp-param-grid" hidden></div>
+            </div>
+          </details>
+          <div id="priceQuote" class="train-price-quote" hidden>
+            <span>GPU 费用</span>
+            <strong id="priceQuoteAmount">-</strong>
+            <small id="priceQuoteDetail">按实际 GPU 时间持续扣费，余额不足自动停止</small>
+          </div>
+          <div id="createError" class="inline-error"></div>
+          <button id="createButton" type="submit" class="primary">创建并开始训练</button>
+        </form>
+
+        <div class="panel-title border-t border-[#1a2636]">
+          <h2 class="text-sm font-bold text-slate-100">训练会话</h2>
+          <div class="run-list-actions">
+            <span id="runListSummary" class="run-list-summary">正在刷新</span>
+            <button id="refreshRuns" type="button" class="btn">刷新</button>
+          </div>
+        </div>
+        <ul id="runList" class="session-list"></ul>
+        <button id="loadOlderRuns" type="button" class="run-list-more" hidden>加载更早</button>
+      </aside>
+
+      <section class="panel" id="detailPanel">
+        <div class="panel-title">
+          <div>
+            <h2 class="text-sm font-bold text-slate-100" id="runTitle">未选择训练</h2>
+            <p class="text-xs text-slate-500 mt-0.5" id="runMeta">创建一次训练或从左侧选择历史记录</p>
+          </div>
+          <span id="runStatus" class="status-badge">idle</span>
+        </div>
+
+        <div id="runBody" style="display:none">
+          <div class="p-4 flex flex-col gap-3">
+            <div class="h-2 rounded-full bg-slate-800 overflow-hidden">
+              <span id="progressBar" class="block h-full rounded-full" style="background:linear-gradient(90deg,#14b8a6,#60a5fa);transition:width .18s ease;width:0"></span>
+            </div>
+            <p id="progressText" class="text-sm text-slate-400">-</p>
+            <div id="runHealthGrid" class="run-health-grid" aria-live="polite"></div>
+            <div class="flex gap-2.5 flex-wrap items-center">
+              <button id="cancelButton" type="button" class="btn-danger" disabled>停止训练</button>
+              <button id="resumeButton" type="button" class="btn-ghost" disabled>继续训练</button>
+              <a id="playLink" class="download disabled" href="#">→ Sim2Sim 播放</a>
+              <a id="deploymentDownload" class="download disabled" href="#" download aria-disabled="true">下载部署包（仅管理员）</a>
+              <span id="errorText" class="inline-error"></span>
+            </div>
+          </div>
+          <div class="panel-title border-t border-[#1a2636] curve-title">
+            <div>
+              <h2 class="text-sm font-bold text-slate-100">训练指标</h2>
+              <p class="text-xs text-slate-500 mt-0.5" id="curveStatus">等待指标</p>
+            </div>
+            <div class="metric-view-controls">
+              <select id="curveSelect" class="field curve-select" aria-label="曲线指标"></select>
+              <select id="metricWindowSelect" class="field metric-small-select" aria-label="曲线范围">
+                <option value="100">最近 100 轮</option>
+                <option value="300" selected>最近 300 轮</option>
+                <option value="0">全部</option>
+              </select>
+              <select id="metricSmoothSelect" class="field metric-small-select" aria-label="曲线平滑">
+                <option value="1">原始</option>
+                <option value="5" selected>平滑 5</option>
+                <option value="15">平滑 15</option>
+              </select>
+            </div>
+          </div>
+          <div id="metricGroupTabs" class="metric-tabs" role="tablist" aria-label="指标分类">
+            <button type="button" class="active" data-metric-group="overview">概览</button>
+            <button type="button" data-metric-group="reward">奖励</button>
+            <button type="button" data-metric-group="loss">损失</button>
+            <button type="button" data-metric-group="performance">性能</button>
+            <button type="button" data-metric-group="terrain">地形</button>
+            <button type="button" data-metric-group="all">全部</button>
+          </div>
+          <div class="curve-panel">
+            <svg id="rewardCurve" class="reward-curve" viewBox="0 0 360 170" role="img" aria-label="训练指标曲线"></svg>
+            <div id="curveEmpty" class="curve-empty">暂无曲线数据</div>
+          </div>
+          <div class="panel-title metric-latest-title">
+            <h2 class="text-sm font-bold text-slate-100">当前数值</h2>
+            <span id="metricTagCount" class="text-xs font-bold text-slate-400 tabular-nums">0 项</span>
+          </div>
+          <div id="metricLatestGrid" class="metric-latest-grid" aria-live="polite"></div>
+          <div class="panel-title border-t border-[#1a2636]">
+            <h2 class="text-sm font-bold text-slate-100">事件日志</h2>
+            <span id="eventCount" class="text-xs font-bold text-slate-400 tabular-nums">0</span>
+          </div>
+          <div id="eventLog" class="log"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="resumeDialog" class="resume-dialog">
+    <form id="resumeForm" class="resume-form">
+      <div class="resume-head">
+        <h2>继续训练</h2>
+        <button id="resumeCloseButton" type="button" class="dialog-close" aria-label="关闭" title="关闭">×</button>
+      </div>
+      <dl class="resume-summary">
+        <div><dt>来源</dt><dd id="resumeSource">-</dd></div>
+        <div><dt>Checkpoint</dt><dd id="resumeCheckpoint">-</dd></div>
+        <div><dt>来源 GPU</dt><dd id="resumeSourceGpu">-</dd></div>
+      </dl>
+      <label class="grid gap-1.5">
+        <span class="text-xs text-slate-400">续训 GPU <span id="resumeGpuHint" class="text-slate-600">（可更换规格）</span></span>
+        <select id="resumeGpuSelect" class="field" required></select>
+      </label>
+      <label id="resumeGpuCountRow" class="grid gap-1.5" hidden>
+        <span class="text-xs text-slate-400">续训 GPU 卡数 <span class="text-slate-600">（同一台服务器）</span></span>
+        <select id="resumeGpuCountSelect" class="field">
+          <option value="1">1 卡</option>
+        </select>
+      </label>
+      <label class="grid gap-1.5">
+        <span id="resumeIterationsLabel" class="text-xs text-slate-400">目标总迭代</span>
+        <input id="resumeIterations" type="number" min="1" max="200000" step="1" class="field" required />
+      </label>
+      <div class="resume-param-grid">
+        <label class="grid gap-1.5">
+          <span class="text-xs text-slate-400">并行环境数</span>
+          <input id="resumeNumEnvs" type="number" min="1" max="16384" step="1" class="field" required />
+        </label>
+        <label class="grid gap-1.5">
+          <span class="text-xs text-slate-400">随机种子</span>
+          <input id="resumeSeed" type="number" min="0" max="2147483647" step="1" class="field" required />
+        </label>
+        <label id="resumeBaseHeightTargetRow" class="grid gap-1.5" hidden>
+          <span class="text-xs text-slate-400">目标机身高度 (m)</span>
+          <input id="resumeBaseHeightTarget" type="number" min="0.1" max="1.5" step="0.01" class="field" />
+        </label>
+        <label id="resumeJointVelocityLimitRow" class="grid gap-1.5" hidden>
+          <span class="text-xs text-slate-400">腿部关节速度上限 (rad/s)</span>
+          <input id="resumeJointVelocityLimit" type="number" min="0.1" max="100" step="0.1" class="field" />
+        </label>
+        <label id="resumeAddedMassMinRow" class="grid gap-1.5" hidden>
+          <span class="text-xs text-slate-400">随机附加重量下限 (kg)</span>
+          <input id="resumeAddedMassMin" type="number" min="-100" max="100" step="0.1" class="field" />
+        </label>
+        <label id="resumeAddedMassMaxRow" class="grid gap-1.5" hidden>
+          <span class="text-xs text-slate-400">随机附加重量上限 (kg)</span>
+          <input id="resumeAddedMassMax" type="number" min="-100" max="100" step="0.1" class="field" />
+        </label>
+        <label class="grid gap-1.5">
+          <span class="text-xs text-slate-400">Self-collision</span>
+          <select id="resumeSelfCollisions" class="field">
+            <option value="1" selected>Disabled</option>
+            <option value="0">Enabled</option>
+          </select>
+        </label>
+      </div>
+      <div class="resume-rewards">
+        <div id="resumeAmpParamGrid" class="amp-param-grid" hidden></div>
+        <div class="param-subhead"><span>奖励权重</span><span>基于来源任务</span></div>
+        <div id="resumeRewardGrid" class="reward-grid"></div>
+      </div>
+      <div id="resumePriceQuote" class="train-price-quote" hidden>
+        <span>GPU 费用</span>
+        <strong id="resumePriceQuoteAmount">-</strong>
+        <small id="resumePriceQuoteDetail">按实际 GPU 时间持续扣费，余额不足自动停止</small>
+      </div>
+      <div id="resumeError" class="inline-error"></div>
+      <div class="resume-actions">
+        <button id="resumeCancelButton" type="button" class="btn-ghost">取消</button>
+        <button id="resumeConfirmButton" type="submit" class="primary">创建续训任务</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">import { mountNav, requireAuth } from '/shared/nav.js?v=home-nav-1'; requireAuth(); mountNav('train');</script>
+  <script type="module" src="./app.js?v=resume-dialog-fix-1"></script>
+  <style>
+    .train-workbench { display: grid; gap: 16px; grid-template-columns: minmax(330px, 410px) minmax(0,1fr); align-items: start; }
+    .session-list { list-style: none; margin: 0; padding: 10px; display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; }
+    .session-list:empty::after { content: "暂无训练记录"; display: block; padding: 20px 8px; text-align: center; font-size: 12px; color: #64748b; }
+    .run-list-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; min-width: 0; }
+    .run-list-summary { max-width: 190px; overflow: hidden; color: #64748b; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .run-list-more { align-self: center; min-height: 28px; margin: 0 auto 10px; padding: 0 10px; border: 1px solid #26313d; border-radius: 7px; background: #0c151e; color: #94a3b8; font-size: 11px; font-weight: 800; }
+    .run-list-more:hover:not(:disabled) { border-color: #475569; color: #e2e8f0; }
+    .run-list-more:disabled { opacity: .5; cursor: wait; }
+    .run-list-more[hidden] { display: none; }
+    .session-item { display: flex; align-items: center; gap: 10px; padding: 10px 11px; border-radius: 8px; border: 1px solid #1b252f; background: #0d151d; cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
+    .session-item:hover { border-color: #354555; background: #101c25; transform: translateX(2px); }
+    .session-item.active { border-color: rgba(45,212,191,.48); background: rgba(20,184,166,.09); }
+    .session-item .s-body { min-width: 0; flex: 1; display: grid; }
+    .session-item .s-title, .session-item .s-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .session-item .s-title { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+    .session-item .s-sub { font-size: 11px; color: #64748b; font-family: ui-monospace, monospace; }
+    .run-context-notice { margin: 0 16px 0; padding: 10px 12px; border-radius: 8px; border: 1px solid #26313d; background: #081018; display: grid; gap: 3px; }
+    .run-context-notice.hidden { display: none; }
+    .run-context-notice strong { color: #e2e8f0; font-size: 11px; font-weight: 900; }
+    .run-context-notice span { color: #7b8da0; font-size: 11px; line-height: 1.45; }
+    .run-context-notice.detached { border-color: rgba(251,191,36,.28); background: rgba(180,83,9,.1); }
+    .run-context-notice.detached strong { color: #fde68a; }
+    .btn-ghost { min-height: 36px; padding: 0 13px; border-radius: 8px; border: 1px solid #26313d; background: #111922; color: #cbd5e1; font-size: 12px; font-weight: 800; }
+    .btn-ghost:not(:disabled):hover { border-color: #2dd4bf; color: #ecfeff; background: #132128; }
+    .btn-ghost:disabled { opacity: .42; cursor: not-allowed; }
+    .status-badge.canceling { border-color: rgba(251,191,36,.28); background: rgba(180,83,9,.16); color: #fde68a; }
+    .algorithm-meta { display: none; border: 1px solid #1b252f; border-radius: 8px; padding: 10px; background: #081018; gap: 8px; }
+    .algorithm-meta.visible { display: grid; }
+    .algorithm-meta-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+    .algorithm-meta-title { min-width: 0; color: #e2e8f0; font-size: 12px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .algorithm-meta-badge { flex-shrink: 0; border: 1px solid #26313d; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .02em; color: #94a3b8; background: #0b141c; }
+    .algorithm-meta-badge.ready { border-color: rgba(45,212,191,.28); color: #99f6e4; background: rgba(20,184,166,.11); }
+    .algorithm-meta-badge.partial { border-color: rgba(251,191,36,.3); color: #fde68a; background: rgba(180,83,9,.14); }
+    .algorithm-meta-badge.experimental { border-color: rgba(148,163,184,.3); color: #cbd5e1; background: rgba(51,65,85,.18); }
+    .algorithm-meta-text { color: #7b8da0; font-size: 11px; line-height: 1.45; }
+    .algorithm-meta-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+    .algorithm-meta-pill { border: 1px solid #26313d; border-radius: 7px; padding: 3px 6px; background: #07111a; color: #94a3b8; font-size: 10px; font-weight: 800; }
+    .algorithm-meta-pill.ok { border-color: rgba(45,212,191,.22); color: #7cf7df; background: rgba(20,184,166,.09); }
+    .algorithm-meta-pill.warn { border-color: rgba(251,191,36,.26); color: #fde68a; background: rgba(180,83,9,.12); }
+    .param-drawer { border: 1px solid #1b252f; border-radius: 8px; background: #0a1117; overflow: hidden; }
+    .param-drawer[open] { border-color: rgba(45,212,191,.38); box-shadow: 0 0 0 1px rgba(45,212,191,.08); }
+    .param-summary { list-style: none; min-height: 46px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; user-select: none; }
+    .param-summary::-webkit-details-marker { display: none; }
+    .param-title { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; font-weight: 800; color: #e2e8f0; }
+    .param-chevron { width: 22px; height: 22px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #26313d; background: #111922; color: #5eead4; transition: transform .16s ease; }
+    .param-drawer:not([open]) .param-chevron { transform: rotate(-90deg); }
+    .param-compact { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 700; color: #94a3b8; }
+    .param-body { border-top: 1px solid #1b252f; padding: 12px; background: #070d14; }
+    .param-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+    #robotRow[hidden], #taskRow[hidden], .wheel-height-field[hidden] { display: none !important; }
+    .wheel-height-field { grid-column: 1 / -1; }
+    .param-subhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0 8px; font-size: 12px; font-weight: 800; color: #e2e8f0; }
+    .param-subhead span:last-child { color: #64748b; font-size: 11px; font-weight: 700; }
+    .reward-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+    .reward-field { border: 1px solid #1b252f; border-radius: 8px; padding: 8px; background: #08111a; display: grid; gap: 6px; min-width: 0; }
+    .reward-field span { font-size: 11px; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .reward-field input { min-height: 32px; font-size: 12px; }
+    .amp-param-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #1b252f; }
+    .amp-param-grid[hidden] { display: none; }
+    .amp-field { min-width: 0; display: grid; gap: 6px; border: 1px solid #1b252f; border-radius: 8px; padding: 8px; background: #08111a; }
+    .amp-field span { overflow: hidden; color: #94a3b8; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .amp-toggle { grid-template-columns: 1fr auto; align-items: center; }
+    .amp-toggle input { width: 18px; height: 18px; accent-color: #2dd4bf; }
+    .curve-title { align-items: center; }
+    .metric-view-controls { display: flex; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
+    .curve-select { width: min(260px, 34vw); min-height: 34px; }
+    .metric-small-select { width: 124px; min-height: 34px; }
+    .metric-tabs { display: flex; gap: 6px; padding: 10px 16px 0; overflow-x: auto; background: #070d14; }
+    .metric-tabs button { flex: 0 0 auto; min-height: 32px; padding: 0 11px; border: 1px solid #26313d; border-radius: 7px; background: #0c151e; color: #7b8da0; font-size: 11px; font-weight: 800; }
+    .metric-tabs button:hover { border-color: #475569; color: #cbd5e1; }
+    .metric-tabs button.active { border-color: rgba(45,212,191,.5); background: rgba(20,184,166,.11); color: #99f6e4; }
+    .curve-panel { position: relative; min-height: 230px; padding: 14px 16px 18px; background: #070d14; }
+    .reward-curve { width: 100%; height: 190px; display: block; border: 1px solid #1b252f; border-radius: 8px; background: #050810; }
+    .curve-empty { position: absolute; inset: 12px 16px 16px; display: flex; align-items: center; justify-content: center; pointer-events: none; color: #475569; font-size: 12px; }
+    .curve-empty.hidden { display: none; }
+    .metric-latest-title { border-top: 1px solid #1a2636; border-bottom: 1px solid #1a2636; }
+    .metric-latest-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; padding: 12px 16px 16px; background: #070d14; }
+    .metric-latest-item { min-width: 0; min-height: 78px; padding: 9px 10px; border: 1px solid #1b252f; border-radius: 8px; background: #08111a; display: grid; align-content: center; gap: 4px; }
+    .metric-latest-item span { overflow: hidden; color: #7b8da0; font-size: 10px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+    .metric-latest-item strong { overflow: hidden; color: #dbeafe; font-size: 16px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+    .metric-latest-item small { overflow: hidden; color: #526579; font-size: 10px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+    .metric-latest-empty { grid-column: 1 / -1; min-height: 72px; display: grid; place-items: center; color: #475569; font-size: 12px; }
+    .run-health-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+    .run-health-item { min-width: 0; min-height: 58px; border: 1px solid #1b252f; border-radius: 8px; background: #08111a; padding: 9px; display: grid; align-content: center; gap: 5px; }
+    .run-health-item span { min-width: 0; overflow: hidden; color: #64748b; font-size: 10px; font-weight: 900; letter-spacing: .02em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+    .run-health-item strong { min-width: 0; overflow: hidden; color: #dbeafe; font-size: 13px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+    .run-health-item.ok { border-color: rgba(45,212,191,.22); background: rgba(20,184,166,.07); }
+    .run-health-item.ok strong { color: #ccfbf1; }
+    .run-health-item.warn { border-color: rgba(251,191,36,.34); background: rgba(180,83,9,.12); }
+    .run-health-item.warn strong { color: #fde68a; }
+    .run-health-item.fail { border-color: rgba(248,113,113,.34); background: rgba(127,29,29,.16); }
+    .run-health-item.fail strong { color: #fecaca; }
+    #progressBar { box-shadow: 0 0 20px rgba(45,212,191,.22); }
+    .resume-dialog { width: min(560px, calc(100vw - 28px)); max-width: none; max-height: calc(100vh - 28px); padding: 0; border: 1px solid #2a3948; border-radius: 8px; background: #0b1219; color: #e2e8f0; box-shadow: 0 24px 80px rgba(0,0,0,.58); overflow-y: auto; }
+    .resume-dialog::backdrop { background: rgba(2,6,12,.76); }
+    .resume-form { display: grid; gap: 16px; padding: 18px; }
+    .resume-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .resume-head h2 { margin: 0; font-size: 16px; }
+    .dialog-close { width: 34px; height: 34px; border: 1px solid #26313d; border-radius: 8px; background: #111922; color: #94a3b8; font-size: 22px; line-height: 1; }
+    .dialog-close:hover { border-color: #475569; color: #f8fafc; }
+    .resume-summary { display: grid; gap: 8px; margin: 0; }
+    .resume-summary div { display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 12px; align-items: baseline; }
+    .resume-summary dt { color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .resume-summary dd { min-width: 0; margin: 0; overflow: hidden; color: #cbd5e1; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .resume-param-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+    .resume-rewards .param-subhead { margin-top: 0; }
+    .resume-actions { display: flex; justify-content: flex-end; gap: 9px; }
+    .resume-actions .primary { width: auto; min-width: 138px; }
+    .train-price-quote { min-height: 44px; display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; align-items: baseline; padding: 9px 11px; border-top: 1px solid #24313e; border-bottom: 1px solid #24313e; }
+    .train-price-quote[hidden] { display: none; }
+    .train-price-quote span, .train-price-quote small { color: #7b8da0; font-size: 11px; }
+    .train-price-quote strong { color: #ccfbf1; font-size: 15px; font-variant-numeric: tabular-nums; }
+    .train-price-quote small { grid-column: 1 / -1; }
+    @media (max-width: 520px) {
+      .param-grid, .reward-grid, .amp-param-grid, .run-health-grid, .resume-param-grid { grid-template-columns: 1fr; }
+      .param-summary { align-items: flex-start; flex-direction: column; padding: 10px 12px; }
+      .curve-title { align-items: flex-start; flex-direction: column; }
+      .metric-view-controls { width: 100%; justify-content: stretch; }
+      .curve-select { width: 100%; }
+      .metric-small-select { flex: 1; width: auto; }
+      .metric-latest-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    }
+    @media (max-width: 980px) {
+      .train-workbench { grid-template-columns: 1fr; }
+    }
+  </style>
+</body>
+</html>

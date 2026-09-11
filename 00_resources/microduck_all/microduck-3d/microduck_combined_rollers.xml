@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<!--
+  Rigid preview of microduck_combined_rollers.stl.
+
+  assemble.py produced the STL by evaluating robot_allcollisions_rollers.xml at
+  zero joint angles, applying every body and visual-geom transform, and
+  concatenating the transformed meshes. The resulting vertices are already in
+  the source model's world frame, so no source transform is repeated here.
+
+  Use robot_allcollisions_rollers.xml for articulated dynamics and independently
+  rotating wheels. This combined mesh is visual-only because one convex collision
+  hull cannot represent the four wheel contacts or the gaps between the legs.
+-->
+<mujoco model="microduck_combined_rollers_preview">
+  <compiler angle="radian" meshdir="."/>
+  <option timestep="0.005" gravity="0 0 0"/>
+
+  <statistic center="0.0100 0 0.1342" extent="0.20"/>
+
+  <visual>
+    <headlight ambient="0.35 0.35 0.35" diffuse="0.65 0.65 0.65" specular="0.2 0.2 0.2"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="135" elevation="-18"/>
+  </visual>
+
+  <asset>
+    <mesh name="microduck_combined_rollers_mesh" file="microduck_combined_rollers.stl"/>
+    <material name="microduck_material" rgba="0.92 0.74 0.16 1" specular="0.15" shininess="0.25"/>
+  </asset>
+
+  <worldbody>
+    <light name="key" pos="-1 -1 2" dir="0.4 0.4 -1" directional="true"/>
+    <body name="microduck_combined_rollers" pos="0 0 0">
+      <freejoint name="root"/>
+      <!-- Aggregate of all source-body inertias at the baked zero-angle pose. -->
+      <inertial
+        pos="0.00180823707873 -0.0000219325640361 0.145780646453"
+        mass="0.73682962"
+        fullinertia="0.00494427884215 0.00513067138448 0.00170213426828 -0.00000731083559448 -0.00140998340068 -0.000000217552627821"/>
+      <geom
+        name="visual"
+        type="mesh"
+        mesh="microduck_combined_rollers_mesh"
+        material="microduck_material"
+        group="2"
+        contype="0"
+        conaffinity="0"/>
+    </body>
+  </worldbody>
+
+  <keyframe>
+    <key name="baked_pose" qpos="0 0 0 1 0 0 0"/>
+  </keyframe>
+</mujoco>

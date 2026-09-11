@@ -1,0 +1,14 @@
+*.egg-info
+__pycache__/
+*.py[cod]
+.idea
+outputs
+logs
+wandb
+MUJOCO_LOG.TXT
+.warp_cache/
+deploy/robots/go2/build
+deploy/robots/go2w/build
+deploy/robots/g1/build
+deploy/robots/g1_23dof/build
+deploy/robots/h1_2/build

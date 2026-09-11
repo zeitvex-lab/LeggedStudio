@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+
+<robot name="go1" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="GAZEBO" default="false"/>
+
+  <xacro:include filename="$(find unitree_go1_description)/xacro/robot.xacro"/>
+
+  <xacro:if value="$(arg GAZEBO)">
+    <xacro:include filename="gazebo.xacro"/>
+  </xacro:if>
+  <xacro:unless value="$(arg GAZEBO)">
+    <xacro:include filename="ros2_control.xacro"/>
+  </xacro:unless>
+</robot>

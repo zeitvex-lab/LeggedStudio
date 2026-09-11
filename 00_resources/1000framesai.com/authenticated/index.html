@@ -1,0 +1,456 @@
+<!doctype html>
+<!-- saved-from: https://1000framesai.com/ at 2026-09-08, logged-in render -->
+<html lang="zh-CN"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Locomotion Platform</title>
+  <link rel="stylesheet" href="/shared/nav.css?v=home-nav-1">
+  <link rel="stylesheet" href="/shared/styles.css?v=home-dashboard-11">
+</head>
+<body style="padding-top: 56px;"><nav id="platform-nav">
+    <a class="pnav-brand" href="/">
+      <span class="pnav-logo">LP</span>
+      <span class="pnav-title">Locomotion</span>
+    </a>
+    <ol class="pnav-steps">
+    <li class="pnav-step pnav-home-step active">
+      <a href="/">
+        <span class="pnav-home-icon" aria-hidden="true">⌂</span>
+        <span>首页</span>
+      </a>
+    </li>
+  
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/robots/">
+          <span class="pnav-num">1</span>
+          <span>机器人配置</span>
+        </a>
+      </li>
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/algorithms/">
+          <span class="pnav-num">2</span>
+          <span>算法</span>
+        </a>
+      </li>
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/train/">
+          <span class="pnav-num">3</span>
+          <span>训练</span>
+        </a>
+      </li>
+      <li class="pnav-step ">
+        <span class="pnav-arrow">›</span>
+        <a href="/sim2sim/">
+          <span class="pnav-num">4</span>
+          <span>仿真验证</span>
+        </a>
+      </li></ol>
+    <span class="pnav-user" id="pnav-user"><a href="/wallet/" class="pnav-balance" title="点击充值">¥0.00</a><span class="pnav-username" title="已登录">eatzio02@gmail.com</span><a href="#" class="pnav-logout">退出</a></span>
+  </nav>
+  <main class="home-shell home-dashboard">
+    <header class="home-header">
+      <div>
+        <span class="home-kicker">Locomotion Platform</span>
+        <h1>控制台</h1>
+        <p id="homeSubtitle">没有运行中的训练任务，可以从训练页新建或继续已有任务。</p>
+      </div>
+      <div class="home-actions">
+        <a class="primary" href="/train/" aria-label="打开训练页">训练</a>
+        <a class="btn" href="/sim2sim/" aria-label="打开仿真页">仿真</a>
+        <button id="homeRefresh" class="btn" type="button">刷新</button>
+      </div>
+    </header>
+
+    <section class="home-status-grid" aria-label="platform status">
+      <article class="home-quick-panel panel">
+        <div class="panel-title">
+          <div>
+            <h2>快速体验</h2>
+            <p id="quickHint">4 个 Demo / 策略可直接播放，默认加载 Unitree Go2 / 第 164000 轮。</p>
+          </div>
+          <a id="quickPrimaryLink" class="primary" href="/sim2sim/?demo=go2&amp;terrain=flat&amp;autoplay=1" data-testid="quick-primary">立即体验</a>
+        </div>
+        <div id="quickExperienceList" class="home-quick-list">
+    <a class="home-quick-card featured" href="/sim2sim/?demo=go2&amp;terrain=flat&amp;autoplay=1" data-testid="quick-card">
+      <div>
+        <strong>Go2 RL Gym</strong>
+        <span>Unitree Go2 / Go2 官方速度跟踪</span>
+        <small>公开演示 / 第 164000 轮</small>
+        
+      </div>
+      <div class="home-quick-meta">
+        <span class="status-badge ready">Demo</span>
+        <strong>第 164000 轮</strong>
+      </div>
+    </a>
+  
+    <a class="home-quick-card " href="/sim2sim/?demo=amp_cts&amp;terrain=flat&amp;autoplay=1" data-testid="quick-card">
+      <div>
+        <strong>P1 · AMP-CTS</strong>
+        <span>P1 / P1 · AMP-CTS（MPC）</span>
+        <small>公开演示 / 内置权重</small>
+        
+      </div>
+      <div class="home-quick-meta">
+        <span class="status-badge ready">Demo</span>
+        <strong>内置检查点</strong>
+      </div>
+    </a>
+  
+    <a class="home-quick-card " href="/sim2sim/?demo=y1&amp;terrain=flat&amp;autoplay=1" data-testid="quick-card">
+      <div>
+        <strong>Wheel-Leg MoE-CTS</strong>
+        <span>Y1 Wheel-Leg / Y1 轮足速度跟踪</span>
+        <small>公开演示 / 第 13500 轮</small>
+        
+      </div>
+      <div class="home-quick-meta">
+        <span class="status-badge ready">Demo</span>
+        <strong>第 13500 轮</strong>
+      </div>
+    </a>
+  
+    <a class="home-quick-card " href="/sim2sim/?demo=w1w&amp;terrain=flat&amp;autoplay=1" data-testid="quick-card">
+      <div>
+        <strong>Wheel-Leg MoE-CTS</strong>
+        <span>W1W Wheel-Leg / W1W 轮足速度跟踪</span>
+        <small>公开演示 / 第 1500 轮</small>
+        
+      </div>
+      <div class="home-quick-meta">
+        <span class="status-badge ready">Demo</span>
+        <strong>第 1500 轮</strong>
+      </div>
+    </a>
+  </div>
+      </article>
+
+      <article class="home-run-panel panel">
+        <div class="panel-title">
+          <div>
+            <h2 id="activeRunHeading">当前训练</h2>
+            <p id="activeRunHint">当前没有非终态 run</p>
+          </div>
+          <span id="activeRunBadge" class="status-badge queued">idle</span>
+        </div>
+        <div class="home-run-body">
+          <div>
+            <strong id="activeRunTitle">等待新训练</strong>
+            <span id="activeRunMeta">可以从训练页选择算法和机器人开始。</span>
+          </div>
+          <div class="home-progress" aria-label="training progress">
+            <span id="activeRunProgressBar" style="width: 0%;"></span>
+          </div>
+          <div id="activeRunMetrics" class="home-metric-grid"><div class="home-metric"><span>进度</span><strong>-</strong></div><div class="home-metric"><span>ONNX</span><strong>-</strong></div><div class="home-metric"><span>地形等级</span><strong>-</strong></div><div class="home-metric"><span>checkpoint</span><strong>-</strong></div></div>
+          <div class="home-inline-actions">
+            <a id="activeRunTrainLink" class="btn" href="/train/" aria-label="查看当前训练日志">查看日志</a>
+            <a id="activeRunPlayLink" class="btn" href="/sim2sim/" aria-label="播放当前 ONNX">播放 ONNX</a>
+          </div>
+        </div>
+      </article>
+
+      <aside class="home-side-stack">
+        <section class="panel home-support-panel">
+          <div class="panel-title">
+            <div>
+              <h2>售后支持</h2>
+              <p>训练配置、充值和使用问题</p>
+            </div>
+          </div>
+          <div class="home-support-body">
+            <a class="home-support-qr-link" href="/support-qq-group.jpg" target="_blank" rel="noopener" title="打开售后QQ群二维码大图">
+              <img class="home-support-qr" src="/support-qq-group.jpg" alt="训练平台售后QQ群二维码">
+            </a>
+            <div class="home-support-copy">
+              <strong>加入售后QQ群</strong>
+              <span>扫码进群，获取训练与平台使用支持。</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel home-system-panel">
+          <div class="panel-title">
+            <div>
+              <h2>系统状态</h2>
+              <p id="systemHint">后端 health 正常</p>
+            </div>
+            <span id="systemBadge" class="status-badge partial">embedded</span>
+          </div>
+          <div id="systemRows" class="home-system-rows"><div class="home-system-row"><span>环境</span><strong>-</strong></div><div class="home-system-row"><span>登录</span><strong>dev open</strong></div><div class="home-system-row"><span>Worker</span><strong>web 内嵌</strong></div><div class="home-system-row"><span>孤儿恢复</span><strong>-</strong></div></div>
+        </section>
+
+        <section class="panel home-counts-panel">
+          <div id="homeCounts" class="home-count-grid"><div class="home-count"><span>机器人</span><strong>11</strong></div><div class="home-count"><span>内置算法</span><strong>13</strong></div><div class="home-count"><span>可训练算法</span><strong>12</strong></div><div class="home-count"><span>训练中</span><strong>0</strong></div><div class="home-count"><span>可播放策略</span><strong>0</strong></div></div>
+        </section>
+
+      </aside>
+    </section>
+
+    <section class="home-main-grid">
+      <div class="panel">
+        <div class="panel-title">
+          <div>
+            <h2>下一步入口</h2>
+            <p>常用操作放在第一屏，少绕路。</p>
+          </div>
+        </div>
+        <div class="home-action-grid">
+          <a href="/robots/" class="home-action-row">
+            <span class="pipeline-num">1</span>
+            <span><strong>机器人配置</strong><small>URDF / STEP / 关节映射 / 默认站姿</small></span>
+          </a>
+          <a href="/algorithms/" class="home-action-row">
+            <span class="pipeline-num">2</span>
+            <span><strong>算法适配</strong><small>Go2 RL Gym / NP3O / Parkour / Agility / Omni-Jump</small></span>
+          </a>
+          <a href="/train/" class="home-action-row">
+            <span class="pipeline-num">3</span>
+            <span><strong>训练任务</strong><small>参数、奖励函数、resume、ONNX 产物</small></span>
+          </a>
+          <a id="adminOpsLink" href="/ops/" class="home-action-row" hidden="">
+            <span class="pipeline-num">4</span>
+            <span><strong>上线检查</strong><small>worker、远程 GPU、磁盘、产物盘点</small></span>
+          </a>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <div>
+            <h2>算法能力</h2>
+            <p id="adapterHint">内置算法已开放训练，能力持续更新</p>
+          </div>
+          <a class="btn" href="/algorithms/">打开</a>
+        </div>
+        <div id="adapterList" class="home-adapter-list">
+    <article class="home-adapter-row ready">
+      <div>
+        <strong>go2_rl_gym</strong>
+        <span>0.1.2 / Go2 Official MoE-CTS Baseline</span>
+      </div>
+      <span class="status-badge ready">已验证</span>
+      <div class="home-cap-list">
+        <span class="home-cap miss">训练</span>
+        <span class="home-cap miss">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap miss">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row partial">
+      <div>
+        <strong>np3o</strong>
+        <span>0.1.0 / NP3O 速度跟踪</span>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap ok">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap ok">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row partial">
+      <div>
+        <strong>quadrupedal_agility</strong>
+        <span>0.1.0 / Go2 TSC agility</span>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap miss">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap ok">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row partial">
+      <div>
+        <strong>parkour</strong>
+        <span>0.1.0 / Go2 rough parkour</span>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap miss">继续</span>
+        <span class="home-cap miss">导出</span>
+        <span class="home-cap miss">仿真</span>
+        <span class="home-cap ok">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row partial">
+      <div>
+        <strong>omni_jump</strong>
+        <span>0.1.0 / Go2 Omni-Jump</span>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap miss">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap ok">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row partial">
+      <div>
+        <strong>wheel_leg_rl_gym</strong>
+        <span>0.5.6 / Wheel-Leg MoE-CTS</span>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap ok">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap miss">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row partial">
+      <div>
+        <strong>amp_cts</strong>
+        <span>0.2.5 / W1W AMP MoE-CTS</span>
+      </div>
+      <span class="status-badge partial">开发中</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap ok">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap miss">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row ready">
+      <div>
+        <strong>point_foot_rl_gym</strong>
+        <span>0.2.2 / Point-Foot MoE-CTS</span>
+      </div>
+      <span class="status-badge ready">可训练 · 已验证</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap ok">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap miss">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row partial">
+      <div>
+        <strong>wheel_leg_high_speed</strong>
+        <span>0.5.1 / Wheel-Leg High-Speed MoE-CTS</span>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap ok">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap miss">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row partial">
+      <div>
+        <strong>wheel_leg_gait_rl_gym</strong>
+        <span>0.2.11 / Wheel-Leg Gait MoE-CTS</span>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap ok">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap miss">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row partial">
+      <div>
+        <strong>wheel_leg_jump_rl_gym</strong>
+        <span>0.5.0 / Wheel-Leg Jump MoE-CTS</span>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap ok">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap miss">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row partial">
+      <div>
+        <strong>wheel_leg_hip_degradation</strong>
+        <span>0.1.15 / Wheel-Leg Hip Degradation MoE-CTS</span>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap ok">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap miss">预览</span>
+      </div>
+      
+    </article>
+  
+    <article class="home-adapter-row partial">
+      <div>
+        <strong>wheel_leg_gait_hip_degradation</strong>
+        <span>0.1.22 / Wheel-Leg Gait Full-Torque MoE-CTS</span>
+      </div>
+      <span class="status-badge partial">可训练 · 持续优化</span>
+      <div class="home-cap-list">
+        <span class="home-cap ok">训练</span>
+        <span class="home-cap ok">继续</span>
+        <span class="home-cap ok">导出</span>
+        <span class="home-cap ok">仿真</span>
+        <span class="home-cap miss">预览</span>
+      </div>
+      
+    </article>
+  </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <div>
+          <h2>最近任务</h2>
+          <p>按更新时间排序，最新策略可直接进入 sim2sim。</p>
+        </div>
+        <a class="btn" href="/train/">全部训练</a>
+      </div>
+      <div id="recentRuns" class="home-run-list"><div class="home-empty">暂无训练任务。</div></div>
+    </section>
+  </main>
+
+  <script type="module">import { mountNav } from '/shared/nav.js?v=home-nav-1'; mountNav('');</script>
+  <script type="module" src="/app.js?v=wheel-leg-jump-1"></script>
+
+
+</body></html>

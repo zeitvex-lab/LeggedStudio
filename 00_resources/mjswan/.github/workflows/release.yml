@@ -1,0 +1,141 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version: X.Y.Z (stable, main only) or X.Y.Z-beta.N (prerelease, any branch)"
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      is_prerelease: ${{ steps.type.outputs.is_prerelease }}
+      npm_tag: ${{ steps.type.outputs.npm_tag }}
+
+    steps:
+      # Checks out the dispatched ref: main for a stable release; the feature
+      # branch for a prerelease (prereleases may ship before the PR merges).
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Determine release type
+        id: type
+        run: |
+          v="${{ inputs.version }}"
+          if echo "$v" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "npm_tag=latest" >> "$GITHUB_OUTPUT"
+          elif echo "$v" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.]+$'; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "npm_tag=beta" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Invalid version '$v'. Expected X.Y.Z or X.Y.Z-beta.N"
+            exit 1
+          fi
+
+      - name: Ensure stable releases run from main
+        run: |
+          if [ "${{ steps.type.outputs.is_prerelease }}" != "true" ] && [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "::error::Stable releases must run from main. Current ref: ${{ github.ref }}"
+            exit 1
+          fi
+
+      - name: Check release does not already exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "v${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "::error::Release v${{ inputs.version }} already exists"
+            exit 1
+          fi
+
+      - name: Update version in __init__.py
+        run: |
+          sed -i "s/^__version__ = \".*\"/__version__ = \"${{ inputs.version }}\"/" src/mjswan/__init__.py
+
+      - name: Update version in package.json
+        run: |
+          cd src/mjswan/template
+          jq --arg v "${{ inputs.version }}" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
+
+      # Stable releases bump the version on main. Prereleases do NOT commit — the
+      # publish jobs set the version from the `version` input, so the branch/PR
+      # stays clean and no throwaway bump lands in history.
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit version bump (stable only)
+        if: steps.type.outputs.is_prerelease != 'true'
+        run: |
+          git add src/mjswan/__init__.py src/mjswan/template/package.json
+          if git diff --cached --quiet; then
+            echo "Version already at ${{ inputs.version }}, skipping commit"
+          else
+            git commit -m "Bump version to ${{ inputs.version }}"
+            git push
+          fi
+
+      - name: Create and push tag
+        run: |
+          if git ls-remote --tags origin "refs/tags/v${{ inputs.version }}" | grep -q .; then
+            echo "Tag v${{ inputs.version }} already exists, skipping"
+          else
+            git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
+            git push origin "v${{ inputs.version }}"
+          fi
+
+  publish-pypi:
+    needs: release
+    uses: ./.github/workflows/publish-pypi.yml
+    with:
+      ref: v${{ inputs.version }}
+      version: ${{ inputs.version }}
+    permissions:
+      id-token: write
+      contents: read
+
+  publish-npm:
+    needs: release
+    uses: ./.github/workflows/publish-npm.yml
+    with:
+      ref: v${{ inputs.version }}
+      version: ${{ inputs.version }}
+      tag: ${{ needs.release.outputs.npm_tag }}
+    permissions:
+      id-token: write
+      contents: read
+
+  create-release:
+    needs:
+      - release
+      - publish-pypi
+      - publish-npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PRERELEASE_FLAG: ${{ needs.release.outputs.is_prerelease == 'true' && '--prerelease' || '' }}
+        run: |
+          for i in 1 2 3; do
+            gh release create "v${{ inputs.version }}" \
+              --repo "${GH_REPO}" \
+              --title "v${{ inputs.version }}" \
+              --generate-notes \
+              ${PRERELEASE_FLAG} && exit 0
+            echo "Attempt $i failed, retrying in 15s..."
+            [ $i -lt 3 ] && sleep 15
+          done
+          exit 1

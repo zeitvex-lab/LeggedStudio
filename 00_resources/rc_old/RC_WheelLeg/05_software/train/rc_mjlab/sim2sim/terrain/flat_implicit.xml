@@ -1,0 +1,7 @@
+<mujoco model="flat_implicit">
+  <include file="go2w.xml"/>
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="implicitfast"/>
+  <worldbody>
+    <geom name="floor" size="0 0 0.05" type="plane" friction="0.8 0.05 0.01"/>
+  </worldbody>
+</mujoco>

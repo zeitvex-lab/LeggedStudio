@@ -1,0 +1,18 @@
+[method]
+id = "teacher_student"
+name = "Teacher-Student"
+paper = "https://agility.csail.mit.edu/"
+framework = "isaacgym"
+status = "implemented"
+
+[source]
+reference_project = "/home/lxy/LeggedGym-Ex"
+reference_paths = ["rsl_rl/modules/actor_critic_ts.py", "rsl_rl/algorithms/ppo_ts.py", "rsl_rl/storage/rollout_storage_ts.py", "rsl_rl/runners/ts_runner.py"]
+license = "BSD-3-Clause"
+
+[extension_points]
+algorithm = "PPO_TS"
+policy = "ActorCriticTS"
+runner = "TeacherStudentRunner"
+storage = "RolloutStorageTS"
+task = "A1TeacherStudent"

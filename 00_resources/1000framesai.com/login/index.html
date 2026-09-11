@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>登录 · Locomotion Platform</title>
+  <link rel="stylesheet" href="/shared/styles.css?v=email-auth-1" />
+</head>
+<body class="auth-page">
+  <main class="auth-shell">
+    <a href="/" class="auth-brand">
+      <span class="mark-logo">LP</span>
+      <span class="text-lg font-extrabold tracking-tight">Locomotion Platform</span>
+    </a>
+
+    <section class="auth-card">
+      <div id="auth-tabs" class="auth-tabs" role="tablist" aria-label="登录方式">
+        <button id="tab-login" class="auth-tab active" type="button" role="tab" aria-selected="true">登录</button>
+        <button id="tab-register" class="auth-tab" type="button" role="tab" aria-selected="false">注册</button>
+      </div>
+
+      <form id="auth-form" class="space-y-4">
+        <label class="grid gap-1.5">
+          <span id="identifier-label" class="text-xs font-semibold">邮箱或用户名</span>
+          <input id="identifier" autocomplete="username" maxlength="254" required class="field" placeholder="邮箱或用户名" />
+        </label>
+        <label class="grid gap-1.5">
+          <span class="text-xs font-semibold">密码</span>
+          <input id="password" type="password" autocomplete="current-password" minlength="8" maxlength="256" required class="field" placeholder="至少 8 位" />
+        </label>
+        <label id="confirm-field" class="grid gap-1.5 hidden">
+          <span class="text-xs font-semibold">确认密码</span>
+          <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" maxlength="256" class="field" placeholder="再次输入密码" />
+        </label>
+        <div id="error" class="inline-error" role="alert" aria-live="polite"></div>
+        <button id="submit" type="submit" class="primary">登录</button>
+      </form>
+
+      <p id="reg-note" class="auth-footnote hidden">注册功能已关闭，请联系管理员开通账号。</p>
+
+      <section id="sent-state" class="auth-state hidden" aria-live="polite">
+        <h1>检查你的邮箱</h1>
+        <p>验证邮件已发送至 <strong id="sent-email"></strong>。点击邮件中的链接完成注册。</p>
+        <button id="resend" type="button" class="btn auth-action">重新发送</button>
+        <p id="resend-status" class="auth-status" role="status"></p>
+        <button id="back-to-login" type="button" class="auth-text-action">返回登录</button>
+      </section>
+
+      <section id="verify-state" class="auth-state hidden" aria-live="polite">
+        <h1 id="verify-title">正在验证邮箱</h1>
+        <p id="verify-status">请稍候。</p>
+        <button id="verify-login" type="button" class="auth-text-action hidden">返回登录</button>
+      </section>
+    </section>
+    <p class="auth-footnote">四足机器人运动控制全流程训练平台</p>
+  </main>
+
+  <script type="module" src="./app.js?v=email-auth-2"></script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+package leet
+
+import (
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+
+	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
+)
+
+type MetricData struct {
+	X []float64
+	Y []float64
+
+	// XAxisMetric is the metric whose values X holds, or "" for _step.
+	XAxisMetric string
+}
+
+// HistoryMsg contains metrics data from a wandb history record.
+type HistoryMsg struct {
+	RunPath string
+	Metrics map[string]MetricData
+	Media   map[string][]MediaPoint
+}
+
+// RunMsg contains data from the wandb run record.
+type RunMsg struct {
+	RunPath     string
+	ID          string
+	Entity      string
+	Project     string
+	DisplayName string
+	Notes       string
+	Tags        []string
+	Config      *spb.ConfigRecord
+	StartTime   time.Time
+	Telemetry   *spb.TelemetryRecord
+}
+
+// SummaryMsg contains summary data from the wandb run.
+type SummaryMsg struct {
+	RunPath string
+	Summary []*spb.SummaryRecord
+}
+
+// SystemInfoMsg contains system/environment information.
+type SystemInfoMsg struct {
+	RunPath string
+	Record  *spb.EnvironmentRecord
+}
+
+// FileChangedMsg indicates that the watched file has changed.
+type FileChangedMsg struct{}
+
+// FileCompleteMsg indicates that the file has been completely read.
+type FileCompleteMsg struct {
+	ExitCode int32
+}
+
+// StatsMsg contains system metrics data from a wandb stats record.
+type StatsMsg struct {
+	RunPath   string
+	Timestamp int64              // Unix timestamp in seconds
+	Metrics   map[string]float64 // metric name -> value
+}
+
+// ConsoleLogMsg carries a raw console output record to be assembled
+// by [RunConsoleLogs]. Produced by the reader from output_raw records.
+type ConsoleLogMsg struct {
+	RunPath  string
+	Text     string
+	IsStderr bool
+	Time     time.Time
+}
+
+// ErrorMsg wraps an error.
+type ErrorMsg struct {
+	Err error
+}
+
+// InitMsg contains the initialized history source.
+type InitMsg struct {
+	Source HistorySource
+}
+
+// BatchedRecordsMsg contains all messages read during a batch read.
+type BatchedRecordsMsg struct {
+	Msgs []tea.Msg
+}
+
+// ChunkedBatchMsg contains a chunk of messages with progress info.
+type ChunkedBatchMsg struct {
+	Msgs []tea.Msg
+	// Indicates if there are more chunks to read
+	HasMore bool
+	// Number of records in this chunk
+	Progress int
+}
+
+// HeartbeatMsg is sent periodically for live runs to ensure we don't miss data.
+type HeartbeatMsg struct{}
+
+// RunLivePulseMsg drives the single-run view's breathing live indicator.
+type RunLivePulseMsg struct{}
+
+// WorkspaceLivePulseMsg drives the workspace's breathing live indicators.
+type WorkspaceLivePulseMsg struct{}
+
+// LeftSidebarAnimationMsg is sent during left sidebar animations.
+type LeftSidebarAnimationMsg struct{}
+
+// RightSidebarAnimationMsg is sent during right sidebar animations.
+type RightSidebarAnimationMsg struct{}
+
+// WorkspaceRunsAnimationMsg drives animation for the workspace left sidebar.
+type WorkspaceRunsAnimationMsg struct{}
+
+// WorkspaceOverviewAnimationMsg drives animation for the workspace right sidebar.
+type WorkspaceRunOverviewAnimationMsg struct{}
+
+// WorkspaceRunInitMsg is emitted when a workspace run reader has been initialized.
+type WorkspaceRunInitMsg struct {
+	RunKey  string
+	RunPath string
+	Reader  HistorySource
+}
+
+// WorkspaceChunkedBatchMsg wraps a ChunkedBatchMsg with the originating run key.
+type WorkspaceChunkedBatchMsg struct {
+	RunKey string
+	Batch  ChunkedBatchMsg
+}
+
+// WorkspaceBatchedRecordsMsg wraps a BatchedRecordsMsg with the originating run key.
+type WorkspaceBatchedRecordsMsg struct {
+	RunKey string
+	Batch  BatchedRecordsMsg
+}
+
+// WorkspaceRunReadErrMsg reports a failed read of a workspace run's
+// transaction log.
+type WorkspaceRunReadErrMsg struct {
+	RunKey string
+	Err    error
+}
+
+// WorkspaceFileChangedMsg is emitted when a watched workspace run's .wandb
+// file changes on disk.
+//
+// It carries the run key so the workspace can refresh just that run.
+type WorkspaceFileChangedMsg struct {
+	RunKey string
+}
+
+// WorkspaceRunDirsMsg is emitted after polling the wandb directory.
+//
+// RunKeys contains the set of run directory names (e.g. "run-..." / "offline-run-...").
+// If Err is non-nil, RunKeys may be nil and callers should treat the snapshot
+// as unusable.
+type WorkspaceRunDirsMsg struct {
+	RunKeys []string
+	Err     error
+}
+
+// WorkspaceRunOverviewPreloadedMsg is emitted when the workspace finishes
+// preloading the Run record for a run (used to populate the overview sidebar
+// for runs that haven't been selected/streamed yet).
+type WorkspaceRunOverviewPreloadedMsg struct {
+	RunKey string
+	Run    *RunMsg
+	Err    error
+}
+
+// WorkspaceInitErrMsg is emitted when a workspace run reader failed to initialize.
+// This keeps errors keyed to the specific run so the workspace can recover cleanly.
+type WorkspaceInitErrMsg struct {
+	RunKey  string
+	RunPath string
+	Err     error
+}
+
+// ConsoleLogsPaneAnimationMsg drives animation for the run view console logs pane.
+type ConsoleLogsPaneAnimationMsg struct{}
+
+// WorkspaceConsoleLogsPaneAnimationMsg drives animation for the workspace console logs pane.
+type WorkspaceConsoleLogsPaneAnimationMsg struct{}
+
+// WorkspaceSystemMetricsPaneAnimationMsg drives animation for the workspace system metrics pane.
+type WorkspaceSystemMetricsPaneAnimationMsg struct{}
+
+// MetricsGridAnimationMsg drives animation for the run view metrics grid collapse/expand.
+type MetricsGridAnimationMsg struct{}
+
+// WorkspaceMetricsGridAnimationMsg drives animation for the workspace metrics grid.
+type WorkspaceMetricsGridAnimationMsg struct{}
+
+// MediaPaneAnimationMsg drives animation for the run view media pane.
+type MediaPaneAnimationMsg struct{}
+
+// WorkspaceMediaPaneAnimationMsg drives animation for the workspace media pane.
+type WorkspaceMediaPaneAnimationMsg struct{}

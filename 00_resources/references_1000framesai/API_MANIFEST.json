@@ -1,0 +1,29 @@
+﻿{
+    "schema_version":  "1000framesai-api-sample-manifest-1.0",
+    "source":  "https://1000framesai.com",
+    "captured_at":  "2026-08-31T12:03:32.5565438Z",
+    "resource_root":  "legged_studio/references/1000framesai/api_samples",
+    "file_count":  4,
+    "files":  [
+                  {
+                      "local_path":  "auth_me_anonymous.json",
+                      "bytes":  66,
+                      "sha256":  "7041e9cce605e46ff01aa05c3921876c2232c5a89d4212b0b1738088109c755c"
+                  },
+                  {
+                      "local_path":  "billing_pricing.json",
+                      "bytes":  482,
+                      "sha256":  "eb4af28af4c23e020fde45942d607b78f5aa21a3dbbb17d8c0f2fc68af62f19c"
+                  },
+                  {
+                      "local_path":  "health.json",
+                      "bytes":  15,
+                      "sha256":  "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288"
+                  },
+                  {
+                      "local_path":  "play_demos.json",
+                      "bytes":  924,
+                      "sha256":  "3c2d7a9ed1f3c3d2dae92744da7a18a8b564b7a04e64d2f778d1a6c81e1ecb80"
+                  }
+              ]
+}

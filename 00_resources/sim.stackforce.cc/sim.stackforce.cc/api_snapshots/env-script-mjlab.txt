@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run this script from the root or scripts/ folder of a StackForce MJLab export.
+# CPU mode supports task discovery, MuJoCo-Warp simulation and short training smoke tests.
+# Use Linux plus an NVIDIA CUDA GPU for practical high-throughput training.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/pyproject.toml" ]; then
+  PROJECT_ROOT="$SCRIPT_DIR"
+elif [ -f "$SCRIPT_DIR/../pyproject.toml" ]; then
+  PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+else
+  echo "pyproject.toml was not found. Put this script in the exported project root or scripts/ folder." >&2
+  exit 2
+fi
+cd "$PROJECT_ROOT"
+
+if ! command -v uv >/dev/null 2>&1; then
+  PYTHON_BIN="$(command -v python3 || command -v python || true)"
+  if [ -z "$PYTHON_BIN" ]; then
+    echo "Python was not found. Install Python 3.12 or uv first, then rerun this script." >&2
+    exit 3
+  fi
+  "$PYTHON_BIN" -m pip install --user "uv==0.8.19"
+  UV=("$PYTHON_BIN" -m uv)
+else
+  UV=(uv)
+fi
+
+"${UV[@]}" python install 3.12
+MJLAB_EXTRA="${1:-${MJLAB_EXTRA:-auto}}"
+if [ "$MJLAB_EXTRA" = "auto" ]; then
+  if command -v nvidia-smi >/dev/null 2>&1; then MJLAB_EXTRA=cu128; else MJLAB_EXTRA=cpu; fi
+fi
+if [ "$MJLAB_EXTRA" != "cpu" ] && [ "$MJLAB_EXTRA" != "cu128" ]; then
+  echo "Backend must be auto, cpu or cu128." >&2
+  exit 4
+fi
+"${UV[@]}" sync --extra "$MJLAB_EXTRA"
+"${UV[@]}" run python -m compileall -q src
+TASKS="$("${UV[@]}" run list-envs || true)"
+echo "$TASKS" | grep Mjlab-Velocity-Flat-
+if [ "$MJLAB_EXTRA" = "cpu" ] && [ -f scripts/cpu_smoke.py ]; then
+  "${UV[@]}" run python scripts/cpu_smoke.py
+fi
+
+echo "StackForce MJLab setup completed with extra: $MJLAB_EXTRA"
+echo "CPU can run smoke tests; use Linux + NVIDIA CUDA for high-throughput training."

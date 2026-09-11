@@ -1,0 +1,1052 @@
+package leet_test
+
+import (
+	"errors"
+	"path/filepath"
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/wandb/wandb/core/internal/leet"
+	"github.com/wandb/wandb/core/internal/observability"
+	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
+)
+
+func keyRune(r rune) tea.KeyPressMsg {
+	return tea.KeyPressMsg{Code: r, Text: string(r)}
+}
+
+func typeWorkspaceFilter(t *testing.T, w *leet.Workspace, query string) {
+	t.Helper()
+	for _, r := range query {
+		msg := tea.KeyPressMsg{Code: r, Text: string(r)}
+		if r == ' ' {
+			msg = tea.KeyPressMsg{Code: tea.KeySpace}
+		}
+		require.Nil(t, w.Update(msg))
+	}
+}
+
+func TestWorkspace_KeyHandling_FilterModeConsumesQuit(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Enter metrics filter input mode ("/").
+	require.Nil(t, w.Update(keyRune('/')))
+	require.True(t, w.IsFiltering(), "expected IsFiltering true in metrics filter input mode")
+
+	// While filter input mode is active, 'q' should be consumed by the filter editor,
+	// not treated as a global quit.
+	require.Nil(t, w.Update(keyRune('q')))
+
+	// Exit filter input mode.
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEsc}))
+	require.False(t, w.IsFiltering(), "expected filter mode to be inactive after Esc")
+
+	// Now 'q' should quit.
+	cmd := w.Update(keyRune('q'))
+	require.NotNil(t, cmd)
+	require.IsType(t, tea.QuitMsg{}, cmd())
+}
+
+func TestWorkspace_KeyHandling_GridConfigCaptureHasPriority(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	// Start from a known value.
+	require.NoError(t, cfg.SetWorkspaceMetricsCols(1))
+	require.NoError(t, cfg.SetWorkspaceMetricsRows(1))
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 140, Height: 45})
+
+	// Begin grid config capture (metrics cols).
+	require.Nil(t, w.Update(keyRune('c')))
+	require.True(t, cfg.IsAwaitingGridConfig(), "expected config capture active after 'c'")
+
+	// While awaiting grid config, keys should be interpreted as config input first.
+	// 'q' should NOT quit; it should just end capture (no-op apply).
+	require.Nil(t, w.Update(keyRune('q')))
+	require.False(t, cfg.IsAwaitingGridConfig(), "expected capture cleared after non-numeric key")
+
+	_, cols := cfg.WorkspaceMetricsGrid()
+	require.Equal(t, 1, cols, "non-numeric key should not change metrics cols")
+
+	// Start capture again and apply a numeric value.
+	require.Nil(t, w.Update(keyRune('c')))
+	require.True(t, cfg.IsAwaitingGridConfig())
+
+	require.Nil(t, w.Update(keyRune('2')))
+	require.False(t, cfg.IsAwaitingGridConfig())
+
+	_, cols = cfg.WorkspaceMetricsGrid()
+	require.Equal(t, 2, cols, "expected metrics cols updated by captured numeric key")
+}
+
+func TestWorkspace_HandleWorkspaceInitErr_DropsSelectionAndPinned(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	wandbDir := t.TempDir()
+	w := leet.NewWorkspace(wandbDir, cfg, logger)
+
+	// Seed a single run. Workspace auto-selects + pins latest on first load.
+	runKey := "run-20260209_010101-abcdefg"
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: []string{runKey}})
+
+	require.Equal(t, 1, w.TestSelectedRunCount(), "expected autoselect on initial run list")
+	require.True(t, w.TestPinnedRun() == runKey, "expected autopin of selected run")
+
+	// Simulate reader init failure; selection/pin should be reverted.
+	_ = w.Update(leet.WorkspaceInitErrMsg{
+		RunKey:  runKey,
+		RunPath: filepath.Join(wandbDir, runKey, "run-abcdefg.wandb"),
+		Err:     errors.New("boom"),
+	})
+
+	require.Equal(t, 0, w.TestSelectedRunCount(), "expected selection reverted on init error")
+	require.False(t, w.TestPinnedRun() == runKey, "expected pin cleared on init error")
+}
+
+// ---- Focus region constants (mirrors FocusTarget enum from focusmanager.go) ----
+
+const (
+	testFocusRuns     = 1 // FocusTargetRunsList
+	testFocusOverview = 2 // FocusTargetOverview
+	// testFocusMetricsGrid   = 3 // FocusTargetMetricsGrid
+	// testFocusSystemMetrics = 4 // FocusTargetSystemMetrics
+	// testFocusMedia         = 5 // FocusTargetMedia
+	testFocusLogs = 6 // FocusTargetConsoleLogs
+)
+
+// newWorkspaceWithPanels creates a Workspace with all panels expanded and a
+// single run seeded with overview data so overview sections are focusable.
+func newWorkspaceWithPanels(t *testing.T) *leet.Workspace {
+	t.Helper()
+
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	wandbDir := t.TempDir()
+	w := leet.NewWorkspace(wandbDir, cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	// Seed a run so overview sections become focusable.
+	runKey := "run-20260209_010101-abcdefg"
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: []string{runKey}})
+
+	// Force all panels expanded.
+	w.TestForceExpandRunsSidebar()
+	w.TestForceExpandOverviewSidebar()
+	w.TestForceExpandConsoleLogsPane(10)
+
+	// Populate overview sections with data so the sidebar is actually
+	// focusable (focusableSectionBounds needs non-empty sections with
+	// computed heights).
+	w.TestSeedRunOverview(runKey)
+
+	// Give the console logs pane content so it is focusable.
+	w.TestSeedConsoleLogs(runKey, "hello from the run")
+
+	return w
+}
+
+// ---- handleToggleConsoleLogsPane ----
+
+func TestWorkspace_ToggleConsoleLogsPane_FocusClears(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Focus logs via Tab until bottom bar is active.
+	for !w.TestConsoleLogsPaneActive() {
+		_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	require.Equal(t, testFocusLogs, w.TestCurrentFocusRegion())
+
+	// Collapse bottom bar — the focused pane disappeared, so focus clears
+	// rather than jumping to another pane.
+	_ = w.Update(keyRune('4'))
+	require.False(t, w.TestConsoleLogsPaneActive(),
+		"bottom bar should not be active after collapse")
+	require.Equal(t, int(leet.FocusTargetNone), w.TestCurrentFocusRegion(),
+		"focus should clear when the focused pane is closed")
+}
+
+func TestWorkspace_ToggleConsoleLogsPane_FocusStaysOnRuns(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Focus should start on runs.
+	require.True(t, w.TestRunsActive())
+	require.Equal(t, testFocusRuns, w.TestCurrentFocusRegion())
+
+	// Collapse bottom bar while runs are focused — runs should stay focused.
+	_ = w.Update(keyRune('4'))
+	require.True(t, w.TestRunsActive(),
+		"runs focus should be preserved when collapsing bottom bar from runs")
+}
+
+// ---- Esc: home to runs, or clear focus when runs can't take it ----
+
+func TestWorkspace_EscReturnsFocusToRuns(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Focus logs, then Esc home.
+	for w.TestCurrentFocusRegion() != testFocusLogs {
+		_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	_ = w.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+
+	require.Equal(t, testFocusRuns, w.TestCurrentFocusRegion(),
+		"Esc should return focus to the runs list")
+	require.True(t, w.TestRunsActive())
+}
+
+func TestWorkspace_EscClearsFocusWhenRunsHidden(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Focus logs, hide the runs sidebar, then Esc.
+	for w.TestCurrentFocusRegion() != testFocusLogs {
+		_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	_ = w.Update(keyRune('['))
+	require.Equal(t, testFocusLogs, w.TestCurrentFocusRegion())
+
+	_ = w.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+
+	require.Equal(t, int(leet.FocusTargetNone), w.TestCurrentFocusRegion(),
+		"Esc should clear focus when the runs list cannot take it")
+}
+
+// ---- Empty panes are skipped by Tab ----
+
+func TestWorkspace_TabSkipsEmptyLogsPane(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	runKey := "run-20260209_010101-abcdefg"
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: []string{runKey}})
+	w.TestForceExpandRunsSidebar()
+	w.TestForceExpandConsoleLogsPane(10)
+
+	// The logs pane is open but empty: a full Tab cycle must never land on it.
+	for range 6 {
+		_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+		require.NotEqual(t, testFocusLogs, w.TestCurrentFocusRegion(),
+			"an empty logs pane must not receive focus")
+	}
+}
+
+// ---- Mouse drag-resize of the runs sidebar ----
+
+func TestWorkspace_DragResizesRunsSidebarAndPersists(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+	w.TestForceExpandRunsSidebar()
+	w.TestForceExpandOverviewSidebar()
+
+	left0, _ := w.TestLayoutWidths()
+	require.Positive(t, left0)
+
+	// Press on the sidebar's border column, drag 10 columns right, release.
+	_ = w.Update(tea.MouseClickMsg{X: left0 - 1, Y: 5, Button: tea.MouseLeft})
+	_ = w.Update(tea.MouseMotionMsg{X: left0 + 9, Y: 5, Button: tea.MouseLeft})
+	_ = w.Update(tea.MouseReleaseMsg{X: left0 + 9, Y: 5, Button: tea.MouseLeft})
+
+	left1, _ := w.TestLayoutWidths()
+	require.Equal(t, left0+10, left1, "drag should widen the runs sidebar")
+	require.InDelta(t, float64(left0+10)/200.0, cfg.WorkspaceLayout().LeftSidebar, 1e-9,
+		"released drag should persist the width as a fraction of the terminal")
+
+	// "0" resets the proportions and the persisted overrides.
+	_ = w.Update(keyRune('0'))
+	require.Equal(t, leet.LayoutOverrides{}, cfg.WorkspaceLayout())
+	left2, _ := w.TestLayoutWidths()
+	require.Equal(t, left0, left2, "reset should restore the default width")
+}
+
+func TestWorkspace_DragSeparatorResizesBothFixedNeighbors(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+	_ = cfg.SetWorkspaceSystemMetricsVisible(true)
+	_ = cfg.SetWorkspaceMediaVisible(true)
+	_ = cfg.SetWorkspaceConsoleLogsVisible(true)
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	// Tall terminal so all panes sit above their minimum heights.
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 100})
+
+	metrics0, system0, media0, logs0 := w.TestStackHeights()
+	require.Positive(t, system0)
+	require.Positive(t, media0)
+
+	// The separator above media sits between two fixed panes (system above,
+	// media below). Drag it up 2 rows: system shrinks, media grows, the flex
+	// metrics grid and logs stay put.
+	left0, _ := w.TestLayoutWidths()
+	x := left0 + 5
+	sepY := metrics0 + 1 + system0 + 1 - 1 // gap row above media
+	_ = w.Update(tea.MouseClickMsg{X: x, Y: sepY, Button: tea.MouseLeft})
+	_ = w.Update(tea.MouseMotionMsg{X: x, Y: sepY - 2, Button: tea.MouseLeft})
+	_ = w.Update(tea.MouseReleaseMsg{X: x, Y: sepY - 2, Button: tea.MouseLeft})
+
+	metrics1, system1, media1, logs1 := w.TestStackHeights()
+	require.Equal(t, system0-2, system1, "pane above the separator should shrink")
+	require.Equal(t, media0+2, media1, "pane below the separator should grow")
+	require.Equal(t, metrics0, metrics1, "flex metrics grid should be untouched")
+	require.Equal(t, logs0, logs1, "logs pane should be untouched")
+
+	// Both fractions persist on release.
+	o := cfg.WorkspaceLayout()
+	require.InDelta(t, float64(system1)/100.0, o.System, 1e-9)
+	require.InDelta(t, float64(media1)/100.0, o.Media, 1e-9)
+	require.Zero(t, o.Logs, "untouched panes must not gain overrides")
+}
+
+func TestWorkspace_ClickWithoutMotionDoesNotPersist(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+	w.TestForceExpandRunsSidebar()
+
+	left0, _ := w.TestLayoutWidths()
+	_ = w.Update(tea.MouseClickMsg{X: left0 - 1, Y: 5, Button: tea.MouseLeft})
+	_ = w.Update(tea.MouseReleaseMsg{X: left0 - 1, Y: 5, Button: tea.MouseLeft})
+
+	require.Equal(t, leet.LayoutOverrides{}, cfg.WorkspaceLayout(),
+		"a click without motion must not write an override")
+}
+
+// Regression (#12289 review): after dragging the overview sidebar until the
+// main column hits its minimum width, the border must stay grabbable — and
+// a one-column near-miss must latch too, since terminals quantize mouse
+// coordinates to cells and a one-column target is luck-based.
+func TestWorkspace_MaxedSidebarStaysDraggable(t *testing.T) {
+	const width = 170
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: width, Height: 60})
+	w.TestForceExpandRunsSidebar()
+	w.TestForceExpandOverviewSidebar()
+
+	// Drag the overview border all the way left: it stops where the main
+	// column hits its minimum width (24 cols).
+	_, right0 := w.TestLayoutWidths()
+	_ = w.Update(tea.MouseClickMsg{X: width - right0, Y: 20, Button: tea.MouseLeft})
+	_ = w.Update(tea.MouseMotionMsg{X: 0, Y: 20, Button: tea.MouseLeft})
+	_ = w.Update(tea.MouseReleaseMsg{X: 0, Y: 20, Button: tea.MouseLeft})
+
+	left1, right1 := w.TestLayoutWidths()
+	require.Equal(t, width-left1-24, right1,
+		"the sidebar should stop where the main column hits its minimum")
+
+	// Re-grab one column off the border (a typical near-miss) and shrink.
+	borderX := width - right1
+	_ = w.Update(tea.MouseClickMsg{X: borderX + 1, Y: 20, Button: tea.MouseLeft})
+	_ = w.Update(tea.MouseMotionMsg{X: borderX + 10, Y: 20, Button: tea.MouseLeft})
+	_ = w.Update(tea.MouseReleaseMsg{X: borderX + 10, Y: 20, Button: tea.MouseLeft})
+
+	_, right2 := w.TestLayoutWidths()
+	require.Equal(t, right1-10, right2, "a maxed sidebar must stay draggable")
+}
+
+// ---- Focus bug: collapsing overview with logs focused ----
+
+func TestWorkspace_CollapseOverview_FocusStaysOnLogs(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Focus logs.
+	for w.TestCurrentFocusRegion() != testFocusLogs {
+		_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	require.True(t, w.TestConsoleLogsPaneActive())
+
+	// Collapse overview sidebar — focus should stay on logs, NOT jump to runs.
+	_ = w.Update(keyRune(']'))
+	require.True(t, w.TestConsoleLogsPaneActive(),
+		"logs should remain focused after collapsing overview")
+	require.False(t, w.TestRunsActive(),
+		"runs should NOT get focus when collapsing overview while logs focused")
+	require.Equal(t, testFocusLogs, w.TestCurrentFocusRegion())
+}
+
+func TestWorkspace_CollapseRuns_FocusStaysOnLogs(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Focus logs.
+	for w.TestCurrentFocusRegion() != testFocusLogs {
+		_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+
+	// Collapse runs sidebar — focus should stay on logs.
+	_ = w.Update(keyRune('['))
+	require.True(t, w.TestConsoleLogsPaneActive(),
+		"logs should remain focused after collapsing runs sidebar")
+	require.Equal(t, testFocusLogs, w.TestCurrentFocusRegion())
+}
+
+// ---- handleRunsVerticalNav with different focus targets ----
+
+func TestWorkspace_RunsVerticalNav_ConsoleLogsPaneConsoleLogsPaneActive(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Focus logs.
+	for w.TestCurrentFocusRegion() != testFocusLogs {
+		_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	require.True(t, w.TestConsoleLogsPaneActive())
+
+	// Up/Down should route to bottom bar, not runs list.
+	_ = w.Update(secondaryNavMsg(t, leet.NavIntentUp))
+	_ = w.Update(secondaryNavMsg(t, leet.NavIntentDown))
+	require.True(t, w.TestConsoleLogsPaneActive(),
+		"bottom bar should still be active after vertical nav")
+}
+
+func TestWorkspace_RunsVerticalNav_OverviewActive(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Focus overview.
+	for w.TestCurrentFocusRegion() != testFocusOverview {
+		_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	require.False(t, w.TestRunsActive())
+	require.False(t, w.TestConsoleLogsPaneActive())
+
+	// Up/Down should route to overview sidebar, not runs list.
+	_ = w.Update(secondaryNavMsg(t, leet.NavIntentUp))
+	_ = w.Update(secondaryNavMsg(t, leet.NavIntentDown))
+	require.False(t, w.TestRunsActive(),
+		"runs should not become active from overview vertical nav")
+}
+
+// ---- Unified navigation: wasd/arrows/Home/End ----
+
+// newWorkspaceWithMultipleRuns seeds a workspace with N runs so list
+// navigation (up/down/page/home/end) is meaningful.
+func newWorkspaceWithMultipleRuns(t *testing.T, n int) (*leet.Workspace, []string) {
+	t.Helper()
+
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	keys := make([]string, n)
+	for i := range n {
+		keys[i] = "run-20260209_010101-" + string(rune('a'+i))
+	}
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: keys})
+	w.TestForceExpandRunsSidebar()
+
+	return w, keys
+}
+
+func TestWorkspace_UnifiedNav_RunsListDirectionalAliases(t *testing.T) {
+	w, _ := newWorkspaceWithMultipleRuns(t, 5)
+	require.True(t, w.TestRunsActive(), "runs list should start focused")
+
+	start := w.TestCurrentRunKey()
+	_ = w.Update(primaryNavMsg(t, leet.NavIntentDown))
+	afterPrimaryDown := w.TestCurrentRunKey()
+	require.NotEqual(t, start, afterPrimaryDown,
+		"the primary down binding should advance the runs cursor")
+
+	_ = w.Update(primaryNavMsg(t, leet.NavIntentUp))
+	require.Equal(t, start, w.TestCurrentRunKey(),
+		"the primary up binding should undo the down move")
+
+	_ = w.Update(secondaryNavMsg(t, leet.NavIntentDown))
+	require.Equal(t, afterPrimaryDown, w.TestCurrentRunKey(),
+		"the secondary down binding should match the primary binding")
+	_ = w.Update(secondaryNavMsg(t, leet.NavIntentUp))
+	require.Equal(t, start, w.TestCurrentRunKey(),
+		"the secondary up binding should match the primary binding")
+}
+
+func TestWorkspace_UnifiedNav_RunsListPagingAndBoundaries(t *testing.T) {
+	w, keys := newWorkspaceWithMultipleRuns(t, 12)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 10})
+
+	before := w.TestCurrentRunKey()
+	_ = w.Update(primaryNavMsg(t, leet.NavIntentPageDown))
+	afterPrimaryPageDown := w.TestCurrentRunKey()
+	require.NotEqual(t, before, afterPrimaryPageDown,
+		"the primary page-down binding should advance the runs page")
+
+	_ = w.Update(secondaryNavMsg(t, leet.NavIntentPageUp))
+	require.Equal(t, before, w.TestCurrentRunKey(),
+		"the secondary page-up binding should undo the primary page-down move")
+
+	_ = w.Update(secondaryNavMsg(t, leet.NavIntentPageDown))
+	require.Equal(t, afterPrimaryPageDown, w.TestCurrentRunKey(),
+		"the secondary page-down binding should match the primary binding")
+
+	_ = w.Update(primaryNavMsg(t, leet.NavIntentHome))
+	require.Equal(t, keys[0], w.TestCurrentRunKey(),
+		"Home should jump to the first visible run")
+
+	_ = w.Update(primaryNavMsg(t, leet.NavIntentEnd))
+	require.Equal(t, keys[len(keys)-1], w.TestCurrentRunKey(),
+		"End should jump to the last visible run")
+}
+
+// ---- Console log message handling ----
+
+func TestWorkspace_ConsoleLogMsg_CreatesLogs(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	wandbDir := t.TempDir()
+	w := leet.NewWorkspace(wandbDir, cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	runKey := "run-20260209_010101-abc123"
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: []string{runKey}})
+
+	// Before any console logs, the map should be empty for this key.
+	logs := w.TestConsoleLogs()
+	require.Nil(t, logs[runKey], "no logs should exist before ConsoleLogMsg")
+
+	// Simulate the workspace processing a ConsoleLogMsg via the record handler.
+	// In normal operation this is triggered by handleWorkspaceRecord, which is
+	// called from handleWorkspaceBatchedRecords. We test the public path.
+	require.NotPanics(t, func() {
+		// The getOrCreateConsoleLogs path is exercised when handleWorkspaceRecord
+		// receives a ConsoleLogMsg. We can verify the map gets populated.
+		// Since we can't easily inject records without a reader, we verify
+		// the map creation helper works.
+		_ = w.TestConsoleLogs()
+	})
+}
+
+// ---- cycleOverviewSection and setFocusRegion ----
+
+func TestWorkspace_CycleOverviewSection_StaysInOverview(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Focus overview.
+	for w.TestCurrentFocusRegion() != testFocusOverview {
+		_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+	require.Equal(t, testFocusOverview, w.TestCurrentFocusRegion())
+
+	// Tab while in overview should cycle sections before leaving.
+	_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	// We may still be in overview (cycling sections) or have moved on.
+	// The key guarantee: the state is consistent.
+	region := w.TestCurrentFocusRegion()
+	switch region {
+	case testFocusOverview:
+		require.True(t, w.TestRunOverviewSidebarHasActiveSection())
+	case testFocusRuns:
+		require.True(t, w.TestRunsActive())
+	case testFocusLogs:
+		require.True(t, w.TestConsoleLogsPaneActive())
+	}
+}
+
+func TestWorkspace_SetFocusRegion_ClearsOtherRegions(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Start at runs.
+	require.True(t, w.TestRunsActive())
+
+	// Tab to logs.
+	for w.TestCurrentFocusRegion() != testFocusLogs {
+		_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+
+	// Exactly one region should have focus.
+	require.True(t, w.TestConsoleLogsPaneActive(), "logs should be active")
+	require.False(t, w.TestRunsActive(), "runs should be inactive")
+	require.False(t, w.TestRunOverviewSidebarHasActiveSection(),
+		"overview should be inactive")
+}
+
+func TestWorkspace_SetFocusRegion_NoAvailableRegion_DefaultsToRuns(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	// Collapse everything.
+	w.TestForceCollapseRunsSidebar()
+	w.TestForceCollapseOverviewSidebar()
+	// Bottom bar is collapsed by default.
+
+	// Focus should fall back to runs (even though it's collapsed).
+	// This tests the fallback path in resolveFocusAfterVisibilityChange.
+	require.Equal(t, testFocusRuns, w.TestCurrentFocusRegion())
+}
+
+// TestWorkspace_Enter_RequiresRunSelectorActive verifies that Enter
+// only triggers the mode switch when the run list sidebar is focused.
+func TestWorkspace_Enter_RequiresRunSelectorActive(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	wandbDir := t.TempDir()
+	w := leet.NewWorkspace(wandbDir, cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	// Seed a run.
+	runKey := "run-20260209_010101-abcdefg"
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: []string{runKey}})
+
+	// RunSelectorActive should be true when runs list is focused.
+	require.True(t, w.RunSelectorActive(),
+		"run selector should be active with runs focused and items present")
+
+	// Focus logs by expanding and populating the bottom bar, then tabbing.
+	w.TestForceExpandConsoleLogsPane(10)
+	w.TestSeedConsoleLogs(runKey, "hello")
+	for !w.TestConsoleLogsPaneActive() {
+		_ = w.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	}
+
+	// RunSelectorActive should be false when logs are focused.
+	require.False(t, w.RunSelectorActive(),
+		"run selector should NOT be active when logs are focused")
+}
+
+// TestWorkspace_Enter_NoOpWhenLogsFocused verifies that pressing Enter
+// while logs are focused does NOT switch to single-run view.
+// This is an integration test using the top-level Model.
+func TestWorkspace_Enter_NoOpWhenLogsFocused(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	m := leet.NewModel(leet.ModelParams{
+		WandbDir: t.TempDir(),
+		Config:   cfg,
+		Logger:   logger,
+	})
+
+	// Prime the model with a window size.
+	m.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	// The model starts in workspace mode. Pressing Enter without a run
+	// selector being active should be a no-op (should not panic or switch mode).
+	_, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	// We expect nil or a benign command, not a mode switch.
+	// If enterRunView were called with no selected file, it returns nil anyway.
+	// The key assertion: the model should still be in workspace mode.
+	// We can verify by checking the view output still renders workspace content.
+	view := m.View().Content
+	require.NotContains(t, view, "Loading data...",
+		"should NOT have switched to run view")
+	_ = cmd
+}
+
+// TestWorkspace_Enter_WorksWhenRunsFocused verifies that pressing Enter
+// while the run list is focused triggers the mode switch (returns a non-nil command).
+func TestWorkspace_Enter_WorksWhenRunsFocused(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	wandbDir := t.TempDir()
+
+	// Write a real .wandb file so enterRunView can resolve it.
+	runKey := "run-20260209_010101-abcdefg"
+	writeWorkspaceRunWandbFile(t, wandbDir, runKey, "abcdefg", 1.0)
+
+	m := leet.NewModel(leet.ModelParams{
+		WandbDir: wandbDir,
+		Config:   cfg,
+		Logger:   logger,
+	})
+
+	m.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	// Wait for the workspace to discover runs (simulate the dir poll).
+	// We need to feed the model a WorkspaceRunDirsMsg through the workspace.
+	// Since Model doesn't expose the workspace directly, we send the msg
+	// through Model.Update which forwards non-user-input to workspace.
+	m.Update(leet.WorkspaceRunDirsMsg{RunKeys: []string{runKey}})
+
+	// Now Enter should trigger mode switch (returns a non-nil batch cmd).
+	_, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	require.NotNil(t, cmd,
+		"Enter with run selector active should trigger enterRunView")
+}
+
+// ---- Overview filter mode ----
+
+func TestWorkspace_OverviewFilterMode_ConsumesQuit(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Enter overview filter input mode ("o").
+	require.Nil(t, w.Update(keyRune('o')))
+	require.True(t, w.TestOverviewFilterMode(),
+		"expected overview filter mode active after 'o'")
+	require.True(t, w.IsFiltering(),
+		"expected IsFiltering true during overview filter input")
+
+	// While overview filter is active, 'q' should be consumed (not quit).
+	require.Nil(t, w.Update(keyRune('q')))
+	require.True(t, w.TestOverviewFilterMode(),
+		"overview filter should still be active after 'q'")
+
+	// Escape cancels filter mode.
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEsc}))
+	require.False(t, w.TestOverviewFilterMode(),
+		"overview filter should be inactive after Esc")
+	require.False(t, w.IsFiltering(),
+		"IsFiltering should be false after cancelling overview filter")
+}
+
+func TestWorkspace_OverviewFilter_ApplyAndClear(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Enter filter, type "lr", and apply.
+	require.Nil(t, w.Update(keyRune('o')))
+	for _, r := range "lr" {
+		require.Nil(t, w.Update(tea.KeyPressMsg{Code: r, Text: string(r)}))
+	}
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
+
+	require.False(t, w.TestOverviewFilterMode(),
+		"filter input mode should end after Enter")
+	require.True(t, w.TestOverviewFiltering(),
+		"applied filter should be active")
+	require.Equal(t, "lr", w.TestOverviewFilterQuery())
+	require.NotEmpty(t, w.TestOverviewFilterInfo(),
+		"filter info should show match summary")
+
+	// Clear the filter with ctrl+k.
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: 'o', Mod: tea.ModCtrl}))
+	require.False(t, w.TestOverviewFiltering(),
+		"filter should be cleared after ctrl+o")
+	require.Empty(t, w.TestOverviewFilterInfo())
+}
+
+func TestWorkspace_OverviewFilter_EscCancelsDraft(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Enter filter, type something, then Esc to cancel.
+	require.Nil(t, w.Update(keyRune('o')))
+	for _, r := range "xyz" {
+		require.Nil(t, w.Update(tea.KeyPressMsg{Code: r, Text: string(r)}))
+	}
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEsc}))
+
+	require.False(t, w.TestOverviewFilterMode())
+	require.False(t, w.TestOverviewFiltering(),
+		"cancelled draft should not persist as applied filter")
+}
+
+func TestWorkspace_OverviewFilter_ToggleMode(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Enter filter mode and toggle regex -> glob via Tab.
+	require.Nil(t, w.Update(keyRune('o')))
+	require.True(t, w.TestOverviewFilterMode())
+
+	// Tab toggles match mode (regex -> glob).
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyTab}))
+
+	// Apply and verify it took effect (mode persists after apply).
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
+	require.False(t, w.TestOverviewFilterMode())
+}
+
+func TestWorkspace_OverviewFilter_StatusBarShowsFilter(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Apply a filter so it shows in the idle status bar.
+	require.Nil(t, w.Update(keyRune('o')))
+	for _, r := range "loss" {
+		require.Nil(t, w.Update(tea.KeyPressMsg{Code: r, Text: string(r)}))
+	}
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
+
+	// The full View includes the status bar at the bottom.
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+	view := w.View().Content
+	require.Contains(t, view, "Overview:")
+	require.Contains(t, view, "loss")
+}
+
+func TestWorkspace_OverviewFilter_LivePreviewDuringInput(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// During filter input, the status bar should show the live prompt.
+	require.Nil(t, w.Update(keyRune('o')))
+	for _, r := range "ep" {
+		require.Nil(t, w.Update(tea.KeyPressMsg{Code: r, Text: string(r)}))
+	}
+
+	// While still in filter mode, check the view.
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+	view := w.View().Content
+	require.Contains(t, view, "Overview filter")
+	require.Contains(t, view, "ep")
+
+	// Cancel to clean up.
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEsc}))
+}
+
+func TestWorkspace_OverviewFilter_PriorityOverMetricsFilter(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	// Enter overview filter mode.
+	require.Nil(t, w.Update(keyRune('o')))
+	require.True(t, w.TestOverviewFilterMode())
+
+	// '/' should be consumed by overview filter (as a typed character),
+	// NOT enter metrics filter mode.
+	require.Nil(t, w.Update(keyRune('/')))
+	require.True(t, w.TestOverviewFilterMode(),
+		"overview filter should still be active")
+	require.Equal(t, "/", w.TestOverviewFilterQuery(),
+		"'/' should appear as typed text in the overview filter draft")
+
+	// Escape out.
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEsc}))
+}
+
+func TestWorkspace_RunsFilterMode_ConsumesQuit(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	require.Nil(t, w.Update(keyRune('f')))
+	require.True(t, w.TestRunsFilterMode(),
+		"expected runs filter mode active after 'f'")
+	require.True(t, w.IsFiltering(),
+		"expected IsFiltering true during runs filter input")
+
+	// While runs filter is active, 'q' should be consumed as filter text.
+	require.Nil(t, w.Update(keyRune('q')))
+	require.True(t, w.TestRunsFilterMode(),
+		"runs filter should still be active after 'q'")
+	require.Equal(t, "q", w.TestRunsFilterQuery())
+
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEsc}))
+	require.False(t, w.TestRunsFilterMode(),
+		"runs filter should be inactive after Esc")
+}
+
+func TestWorkspace_RunsFilter_ProjectAndConfig(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	wandbDir := t.TempDir()
+	w := leet.NewWorkspace(wandbDir, cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	run1 := "run-20260209_010101-vision01"
+	run2 := "run-20260209_010102-nlp0002"
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: []string{run1, run2}})
+
+	_ = w.Update(leet.WorkspaceRunOverviewPreloadedMsg{
+		RunKey: run1,
+		Run: &leet.RunMsg{
+			ID:          "vision01",
+			DisplayName: "resnet50",
+			Project:     "vision",
+			Config: &spb.ConfigRecord{Update: []*spb.ConfigItem{
+				{NestedKey: []string{"lr"}, ValueJson: "0.001"},
+				{NestedKey: []string{"optimizer"}, ValueJson: `"adamw"`},
+			}},
+		},
+	})
+	_ = w.Update(leet.WorkspaceRunOverviewPreloadedMsg{
+		RunKey: run2,
+		Run: &leet.RunMsg{
+			ID:          "nlp0002",
+			DisplayName: "bert-debug",
+			Project:     "nlp",
+			Config: &spb.ConfigRecord{Update: []*spb.ConfigItem{
+				{NestedKey: []string{"lr"}, ValueJson: "0.01"},
+				{NestedKey: []string{"optimizer"}, ValueJson: `"sgd"`},
+			}},
+		},
+	})
+
+	require.Nil(t, w.Update(keyRune('f')))
+	typeWorkspaceFilter(t, w, "project:vision cfg.lr>=1e-3 cfg.optimizer=adamw")
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
+
+	require.True(t, w.TestRunsFiltering())
+	require.Equal(t, "project:vision cfg.lr>=1e-3 cfg.optimizer=adamw", w.TestRunsFilterQuery())
+	require.Equal(t, []string{run1}, w.TestFilteredRunKeys())
+
+	view := w.View().Content
+	require.Contains(t, view, "filtered from 2 total")
+	require.Contains(t, view, "Runs (")
+}
+
+func TestWorkspace_RunsFilter_UpdatesWhenMetadataPreloadsArrive(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 160, Height: 50})
+
+	runKey := "run-20260209_010101-vision01"
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: []string{runKey}})
+
+	require.Nil(t, w.Update(keyRune('f')))
+	typeWorkspaceFilter(t, w, "project:vision")
+	require.Empty(t, w.TestFilteredRunKeys(),
+		"project filter should not match before metadata is preloaded")
+
+	_ = w.Update(leet.WorkspaceRunOverviewPreloadedMsg{
+		RunKey: runKey,
+		Run:    &leet.RunMsg{ID: "vision01", Project: "vision", DisplayName: "baseline"},
+	})
+
+	require.Equal(t, []string{runKey}, w.TestFilteredRunKeys(),
+		"preloaded metadata should immediately update the visible runs")
+}
+
+func TestWorkspace_RunsFilter_PriorityOverMetricsFilter(t *testing.T) {
+	w := newWorkspaceWithPanels(t)
+
+	require.Nil(t, w.Update(keyRune('f')))
+	require.True(t, w.TestRunsFilterMode())
+
+	// '/' should be consumed as typed text, not enter metrics filter mode.
+	require.Nil(t, w.Update(keyRune('/')))
+	require.True(t, w.TestRunsFilterMode())
+	require.Equal(t, "/", w.TestRunsFilterQuery())
+
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEsc}))
+}
+
+func TestWorkspace_RunsFilter_Clear(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 160, Height: 50})
+
+	run1 := "run-20260209_010101-vision01"
+	run2 := "run-20260209_010102-nlp0002"
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: []string{run1, run2}})
+	_ = w.Update(leet.WorkspaceRunOverviewPreloadedMsg{
+		RunKey: run1,
+		Run:    &leet.RunMsg{ID: "vision01", Project: "vision"},
+	})
+	_ = w.Update(leet.WorkspaceRunOverviewPreloadedMsg{
+		RunKey: run2,
+		Run:    &leet.RunMsg{ID: "nlp0002", Project: "nlp"},
+	})
+
+	require.Nil(t, w.Update(keyRune('f')))
+	typeWorkspaceFilter(t, w, "project:vision")
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
+	require.Equal(t, []string{run1}, w.TestFilteredRunKeys())
+
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}))
+	require.False(t, w.TestRunsFiltering())
+	require.Equal(t, []string{run1, run2}, w.TestFilteredRunKeys())
+}
+
+func TestWorkspace_RunsFilter_TagsAndNotes(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+
+	run1 := "run-20260209_010101-vision01"
+	run2 := "run-20260209_010102-nlp0002"
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: []string{run1, run2}})
+
+	_ = w.Update(leet.WorkspaceRunOverviewPreloadedMsg{
+		RunKey: run1,
+		Run: &leet.RunMsg{
+			ID:          "vision01",
+			DisplayName: "resnet50",
+			Project:     "vision",
+			Tags:        []string{"baseline", "release"},
+			Notes:       "Warm start from ImageNet checkpoint",
+		},
+	})
+	// A later partial run record should not clobber notes/tags that were already indexed.
+	_ = w.Update(leet.WorkspaceRunOverviewPreloadedMsg{
+		RunKey: run1,
+		Run: &leet.RunMsg{
+			ID:      "vision01",
+			Project: "vision",
+		},
+	})
+	_ = w.Update(leet.WorkspaceRunOverviewPreloadedMsg{
+		RunKey: run2,
+		Run: &leet.RunMsg{
+			ID:          "nlp0002",
+			DisplayName: "bert-debug",
+			Project:     "nlp",
+			Tags:        []string{"debug"},
+			Notes:       "Tokenizer ablation run",
+		},
+	})
+
+	require.Nil(t, w.Update(keyRune('f')))
+	typeWorkspaceFilter(t, w, "tag:baseline note:imagenet")
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
+	require.Equal(t, []string{run1}, w.TestFilteredRunKeys())
+
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}))
+	require.Nil(t, w.Update(keyRune('f')))
+	typeWorkspaceFilter(t, w, "ablation")
+	require.Nil(t, w.Update(tea.KeyPressMsg{Code: tea.KeyEnter}))
+	require.Equal(t, []string{run2}, w.TestFilteredRunKeys())
+}
+
+// Regression: with no runs yet, toggling an unrelated pane used to clear the
+// seeded runs-list focus for good (the runs list was "unavailable" while
+// empty and nothing ever re-seeded it), leaving keyboard navigation dead
+// once runs appeared.
+func TestWorkspace_ToggleWithEmptyRunsListKeepsFocus(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+	require.Equal(t, int(leet.FocusTargetRunsList), w.TestCurrentFocusRegion(),
+		"runs list starts focused")
+
+	// Toggle the media pane while the runs list is still empty.
+	_ = w.Update(keyRune('3'))
+
+	require.Equal(t, int(leet.FocusTargetRunsList), w.TestCurrentFocusRegion(),
+		"toggling an unrelated pane must not clear runs-list focus")
+}
+
+// Regression: when an externally deleted run dir empties the focused data
+// pane, the run-key snapshot must clear focus from it — and availability
+// must be evaluated against the freshly synced pane state, not the dropped
+// run's leftovers (panes are normally re-pointed only during View).
+func TestWorkspace_DroppedRunClearsFocusFromEmptiedPane(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+	_ = cfg.SetWorkspaceConsoleLogsVisible(true)
+
+	w := leet.NewWorkspace(t.TempDir(), cfg, logger)
+	_ = w.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: []string{"run-a"}})
+	w.TestSeedConsoleLogs("run-a", "hello")
+	w.TestSetFocusTarget(int(leet.FocusTargetConsoleLogs))
+	require.Equal(t, int(leet.FocusTargetConsoleLogs), w.TestCurrentFocusRegion())
+
+	// The run's directory disappears; the pane it fed is now empty.
+	_ = w.Update(leet.WorkspaceRunDirsMsg{RunKeys: nil})
+	require.Equal(t, int(leet.FocusTargetNone), w.TestCurrentFocusRegion(),
+		"focus must not stay on a pane emptied by a dropped run")
+}

@@ -1,0 +1,16 @@
+[backend]
+name = "mjlab"
+entrypoint = "robolab.frameworks.mjlab"
+
+[bundle]
+path = "mjlab"
+version = "1.6.0"
+license = "Apache-2.0"
+source = "https://github.com/mujocolab/mjlab"
+
+[[bundle]]
+name = "rsl-rl-lib"
+path = "rsl_rl"
+version = "5.4.2"
+license = "BSD-3-Clause"
+source = "https://github.com/leggedrobotics/rsl_rl"

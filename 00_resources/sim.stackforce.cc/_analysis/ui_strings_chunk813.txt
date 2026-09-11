@@ -1,0 +1,8 @@
+use strict
+Isaac Gym
+MJLab export requires a mapped base link.
+Isaac Lab
+MJLab export requires at least one actuated joint.
+Requested terrain:
+Preview 4 / 1.0rc4
+Isaac Sim

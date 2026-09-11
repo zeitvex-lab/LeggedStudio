@@ -1,0 +1,14 @@
+# Auto-generated binary asset rules.
+# The repo sets core.autocrlf=true on Windows, which would otherwise corrupt
+# pre-built WASM / emscripten preloaded-data packages by converting embedded
+# LF bytes to CRLF. These files MUST stay byte-for-byte identical to their
+# committed blobs, so force them to binary (no text/EOL normalization).
+
+# OpenUSD WASM runtime (emscripten .data preloaded package + wasm + worker).
+public/usd/bindings/**/*.data binary
+public/usd/bindings/**/*.wasm binary
+public/usd/bindings/**/*.worker.js binary
+
+# Shared mesh parser WASM runtimes.
+public/wasm/**/*.wasm binary
+public/wasm/**/*.data binary

@@ -1,0 +1,790 @@
+from __future__ import annotations
+
+import os
+import platform
+import random
+import string
+from collections.abc import Callable
+from contextlib import nullcontext
+from itertools import islice
+from pathlib import Path
+
+import wandb
+from pytest import MonkeyPatch, fixture, mark, raises, skip
+from wandb import Api
+from wandb._strutils import b64encode_ascii, nameof
+from wandb.errors import CommError, UnsupportedError
+from wandb.proto import wandb_api_pb2
+from wandb.proto import wandb_internal_pb2 as pb
+from wandb.sdk.artifacts._generated import (
+    ArtifactFragment,
+    ArtifactMembershipByName,
+    ArtifactMembershipFragment,
+    FetchOrgInfoFromEntity,
+)
+from wandb.sdk.artifacts._gqlutils import server_supports
+from wandb.sdk.artifacts.exceptions import ArtifactFinalizedError
+from wandb.sdk.lib.paths import StrPath
+from wandb.sdk.lib.service.service_connection import WandbApiFailedError
+
+
+@fixture
+def project_gql_id() -> str:
+    return b64encode_ascii("Project:1")
+
+
+@fixture
+def project_internal_gql_id() -> str:
+    return b64encode_ascii("ProjectInternalId:1")
+
+
+@fixture
+def sample_data(user: str) -> None:
+    """Generate some sample artifacts for tests in this module."""
+    # NOTE: Requesting the `user` fixture is important as it sets auth
+    # environment variables for the duration of the test.
+    _ = user
+
+    with wandb.init(id="first_run", settings={"silent": True}) as run:
+        artifact = wandb.Artifact("mnist", type="dataset")
+        with artifact.new_file("digits.h5") as f:
+            f.write("v0")
+        run.log_artifact(artifact, aliases=["my_alias"])
+
+        artifact = wandb.Artifact("mnist", type="dataset")
+        table = wandb.Table(
+            columns=["c1", "c2"],
+            data=[
+                ("r1c1", "r1c2"),
+                ("r2c1", "r2c2"),
+            ],
+        )
+        artifact.add(table, name="t")
+        run.log_artifact(artifact)
+
+    with wandb.init(id="second_run", settings={"silent": True}) as run:
+        run.use_artifact("mnist:v0")
+        run.use_artifact("mnist:v1")
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_versions(api: Api):
+    versions = api.artifact_versions("dataset", "mnist")
+    assert len(versions) == 2
+    assert {version.name for version in versions} == {"mnist:v0", "mnist:v1"}
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_versions_start(api: Api):
+    collection = api.artifact_collection("dataset", "mnist")
+    all_names = [art.name for art in collection.artifacts(per_page=1)]
+
+    artifacts = collection.artifacts(per_page=1)
+    first_name = next(artifacts).name
+
+    saved_cursor = artifacts.cursor
+
+    assert saved_cursor is not None
+
+    remaining_names_via_collection = [
+        art.name for art in collection.artifacts(per_page=1, start=saved_cursor)
+    ]
+    remaining_names_via_api = [
+        art.name
+        for art in api.artifacts("dataset", "mnist", per_page=1, start=saved_cursor)
+    ]
+
+    assert remaining_names_via_collection == remaining_names_via_api
+    assert all_names == [first_name, *remaining_names_via_api]
+
+
+@mark.usefixtures("sample_data")
+@mark.parametrize(
+    ("order", "expected_names"),
+    (
+        (
+            # ascending (implicit default)
+            "version_index",
+            ["mnist:v0", "mnist:v1"],
+        ),
+        (
+            # ascending
+            "+version_index",
+            ["mnist:v0", "mnist:v1"],
+        ),
+        (
+            # descending
+            "-version_index",
+            ["mnist:v1", "mnist:v0"],
+        ),
+    ),
+)
+def test_artifacts_order(api: Api, order: str, expected_names: list[str]):
+    names = [a.name for a in api.artifacts("dataset", "mnist", order=order)]
+    assert names == expected_names
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_type(api: Api):
+    atype = api.artifact_type("dataset")
+    assert atype.name == "dataset"
+    col = atype.collection("mnist")
+    assert col.name == "mnist"
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_type_collections(api: Api):
+    atype = api.artifact_type("dataset")
+
+    # creating a new artifact
+    artifact_name = "another-collection"
+    artifact = wandb.Artifact(name=artifact_name, type="dataset")
+    with artifact.new_file("file.txt") as f:
+        f.write("test")
+    artifact.save()
+    artifact.wait()
+    proj_path = f"{artifact.entity}/{artifact.project}"
+
+    cols = atype.collections()
+    assert len(cols) == 2
+    names = {c.name for c in cols}
+    assert names == {"mnist", "another-collection"}
+
+    all_collection_names = [coll.name for coll in atype.collections(per_page=1)]
+    collections = atype.collections(per_page=1)
+    first_name = next(collections).name
+    saved_cursor = collections.cursor
+
+    assert saved_cursor is not None
+
+    remaining_names_via_collection = [
+        coll.name for coll in atype.collections(per_page=1, start=saved_cursor)
+    ]
+    remaining_names_via_api = [
+        coll.name
+        for coll in api.artifact_collections(
+            proj_path,
+            atype.name,
+            per_page=1,
+            start=saved_cursor,
+        )
+    ]
+
+    assert remaining_names_via_collection == remaining_names_via_api
+    assert all_collection_names == [first_name, *remaining_names_via_api]
+
+    if server_supports(api._service_api, pb.ARTIFACT_COLLECTIONS_FILTERING_SORTING):
+        filtered_collections = atype.collections(filters={"name": "mnist"})
+        assert len(filtered_collections) == 1
+        assert [c.name for c in filtered_collections] == ["mnist"]
+
+        ordered_collections = atype.collections(order="name")
+        assert len(ordered_collections) == 2
+        assert [c.name for c in ordered_collections] == ["another-collection", "mnist"]
+
+        # The same ordering is reachable through the top-level Api method.
+        api_collections = api.artifact_collections(proj_path, atype.name, order="name")
+        assert [c.name for c in api_collections] == ["another-collection", "mnist"]
+    else:
+        err_msg = "Filtering and ordering of artifact collections is not supported on this wandb server version."
+
+        with raises(UnsupportedError, match=err_msg):
+            atype.collections(filters={"name": "mnist"})
+
+        with raises(UnsupportedError, match=err_msg):
+            atype.collections(order="name")
+
+        with raises(UnsupportedError, match=err_msg):
+            api.artifact_collections(proj_path, atype.name, order="name")
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_types(api: Api):
+    atypes = api.artifact_types()
+    assert {atype.name for atype in atypes} == {"dataset"}
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_types_start(api: Api):
+    from wandb.apis.public.artifacts import ArtifactTypes
+
+    artifact = wandb.Artifact(name="another-artifact", type="different-type")
+    with artifact.new_file("file.txt") as f:
+        f.write("test")
+    artifact.save()
+    artifact.wait()
+
+    project_path = f"{artifact.entity}/{artifact.project}"
+    all_type_names = [atype.name for atype in api.artifact_types(project_path)]
+
+    types = ArtifactTypes(
+        api._service_api,
+        artifact.entity,
+        artifact.project,
+        per_page=1,
+    )
+    first_name = next(types).name
+    saved_cursor = types.cursor
+
+    assert saved_cursor is not None
+    assert set(all_type_names) == {"dataset", "different-type"}
+
+    remaining_names = [
+        atype.name for atype in api.artifact_types(project_path, start=saved_cursor)
+    ]
+
+    assert all_type_names == [first_name, *remaining_names]
+
+
+@mark.usefixtures("sample_data")
+def test_project_collections(api: Api):
+    # creating a new artifact
+    artifact_name = "another-collection"
+    artifact = wandb.Artifact(name=artifact_name, type="different-type")
+    with artifact.new_file("file.txt") as f:
+        f.write("test")
+    artifact.save()
+    artifact.wait()
+
+    project_name = artifact.project
+    project = api.project(project_name)
+
+    if server_supports(api._service_api, pb.ARTIFACT_COLLECTIONS_FILTERING_SORTING):
+        # fetching all collections in the project
+        cols = project.collections()
+        assert len(cols) == 2
+        names = {c.name for c in cols}
+        assert names == {"mnist", artifact_name}
+
+        # fetching collections with filters/ordering
+        cols = project.collections(filters={"name": "mnist"})
+        assert len(cols) == 1 and cols[0].name == "mnist"
+        cols = project.collections(order="name")
+        assert len(cols) == 2
+        assert cols[0].name == "another-collection" and cols[1].name == "mnist"
+    else:
+        # fetching all collections in the project should work, but length will be None
+        cols = project.collections()
+        names = {c.name for c in cols}
+        assert names == {"mnist", artifact_name}
+        with raises(NotImplementedError):
+            len(cols)
+
+        # fetching collections with filters/ordering should raise an error
+        with raises(
+            UnsupportedError,
+            match="Filtering and ordering of artifact collections is not supported on this wandb server version.",
+        ):
+            project.collections(filters={"name": "mnist"})
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_get_path(api: Api):
+    art = api.artifact("mnist:v0", type="dataset")
+    assert art.type == "dataset"
+    assert art.name == "mnist:v0"
+    actual_path = art.get_entry("digits.h5").download()
+    part = art.name
+    if platform.system() == "Windows":
+        part = "mnist-v0"
+    expected_path = os.path.join(".", "artifacts", part, "digits.h5")
+    assert actual_path == os.path.abspath(expected_path)
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_get_path_download(api: Api):
+    art = api.artifact("mnist:v0", type="dataset")
+    path = art.get_entry("digits.h5").download(os.getcwd())
+    assert os.path.exists("./digits.h5")
+    assert path == os.path.join(os.getcwd(), "digits.h5")
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_file(api: Api):
+    art = api.artifact("mnist:v0", type="dataset")
+    path = art.file()
+    expected_subpath = "mnist-v0" if (platform.system() == "Windows") else "mnist:v0"
+    assert path == os.path.join(".", "artifacts", expected_subpath, "digits.h5")
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_files(api: Api):
+    art = api.artifact("mnist:v0", type="dataset")
+    if server_supports(api._service_api, pb.TOTAL_COUNT_IN_FILE_CONNECTION):
+        assert (
+            str(art.files())
+            == f"<ArtifactFiles {art.entity}/uncategorized/mnist:v0 (1)>"
+        )
+    else:
+        assert (
+            str(art.files()) == f"<ArtifactFiles {art.entity}/uncategorized/mnist:v0>"
+        )
+    paths = [f.storage_path for f in art.files()]
+    assert paths[0].startswith("wandb_artifacts/")
+
+
+@mark.usefixtures("sample_data")
+def test_artifacts_files_filtered_length(api: Api):
+    if not server_supports(api._service_api, pb.TOTAL_COUNT_IN_FILE_CONNECTION):
+        skip("Server doesn't support FileConnection.totalCount")
+
+    # creating a new artifact with files
+    artifact_name = "".join(
+        random.choice(string.ascii_letters + string.digits) for _ in range(10)
+    )
+    artifact = wandb.Artifact(name=artifact_name, type="text")
+    number_of_files = 10
+    for i in range(number_of_files):
+        with artifact.new_file(f"file{i}.txt") as f:
+            f.write(str(i))
+    artifact.save()
+    artifact.wait()
+
+    assert_artifact = api.artifact(artifact.qualified_name)
+    assert len(assert_artifact.files()) == number_of_files
+    assert len(assert_artifact.files(names=["file0.txt"])) == 1
+    assert len(assert_artifact.files(names=["file0.txt", "file1.txt"])) == 2
+
+    all_names = [file.name for file in assert_artifact.files(per_page=3)]
+    files = assert_artifact.files(per_page=3)
+    first_names = [f.name for f in islice(files, 3)]
+    saved_cursor = files.cursor
+
+    assert saved_cursor is not None
+
+    remaining_names = [
+        file.name for file in assert_artifact.files(per_page=3, start=saved_cursor)
+    ]
+
+    assert all_names == [*first_names, *remaining_names]
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_download(api: Api):
+    art = api.artifact("mnist:v0", type="dataset")
+    path = art.download()
+    if platform.system() == "Windows":
+        part = "mnist-v0"
+    else:
+        part = "mnist:v0"
+    assert path == os.path.abspath(os.path.join(".", "artifacts", part))
+    assert os.listdir(path) == ["digits.h5"]
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_exists(api: Api):
+    assert api.artifact_exists("mnist:v0") is True
+    assert api.artifact_exists("mnist:v2") is False
+    assert api.artifact_exists("mnist-fake:v0") is False
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_collection_exists(api: Api):
+    assert api.artifact_collection_exists("mnist", "dataset") is True
+    assert api.artifact_collection_exists("mnist-fake", "dataset") is False
+
+
+def test_artifact_exists_raises_on_service_api_failure(mocker, api: Api):
+    error = WandbApiFailedError(
+        "context deadline exceeded",
+        wandb_api_pb2.ApiErrorResponse(
+            message="context deadline exceeded",
+            http_status=0,
+        ),
+    )
+    mocker.patch.object(api, "_artifact", side_effect=CommError(str(error), error))
+
+    with raises(CommError) as exc_info:
+        api.artifact_exists("mnist:v0")
+    assert exc_info.value.exc is error
+
+
+def test_artifact_collection_exists_raises_on_service_api_failure(mocker, api: Api):
+    error = WandbApiFailedError(
+        "context deadline exceeded",
+        wandb_api_pb2.ApiErrorResponse(
+            message="context deadline exceeded",
+            http_status=0,
+        ),
+    )
+    mocker.patch.object(
+        api,
+        "artifact_collection",
+        side_effect=CommError(str(error), error),
+    )
+
+    with raises(CommError) as exc_info:
+        api.artifact_collection_exists("mnist", "dataset")
+    assert exc_info.value.exc is error
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_delete(api: Api):
+    art = api.artifact("mnist:v0", type="dataset")
+    # The artifact has aliases, so fail unless delete_aliases is set.
+    with raises(CommError):
+        art.delete()
+    art.delete(delete_aliases=True)
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_delete_on_linked_artifact(api: Api):
+    portfolio = "portfolio_name"
+
+    source_art = api.artifact("mnist:v0", type="dataset")
+    source_path = source_art.qualified_name  # Set this now in case state changes
+
+    # Link the artifact
+    source_art.link(portfolio)
+    linked_path = f"{source_art.entity}/{source_art.project}/{portfolio}:v0"
+    linked_art = api.artifact(linked_path)
+
+    # Sanity check
+    assert source_path != linked_art.qualified_name
+    assert source_path == linked_art.source_qualified_name
+
+    # Deleting the linked instance should remove the link, not the underlying source artifact
+    linked_art.delete()
+
+    assert api.artifact_exists(source_path) is True
+    assert api.artifact_exists(linked_path) is False
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_checkout(api: Api):
+    # Create a file that should be removed as part of checkout
+    os.makedirs(os.path.join(".", "artifacts", "mnist"))
+    with open(os.path.join(".", "artifacts", "mnist", "bogus"), "w") as f:
+        f.write("delete me, i'm a bogus file")
+
+    art = api.artifact("mnist:v0", type="dataset")
+    path = art.checkout()
+    assert path == os.path.abspath(os.path.join(".", "artifacts", "mnist"))
+    assert os.listdir(path) == ["digits.h5"]
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_run_used(api: Api):
+    run = api.run("uncategorized/second_run")
+    arts = run.used_artifacts()
+    assert len(arts) == 2
+    assert {art.name for art in arts} == {"mnist:v0", "mnist:v1"}
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_run_logged(api: Api):
+    run = api.run("uncategorized/first_run")
+    arts = run.logged_artifacts()
+    assert len(arts) == 2
+    assert {art.name for art in arts} == {"mnist:v0", "mnist:v1"}
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_run_logged_cursor(api: Api):
+    artifacts = api.run("uncategorized/first_run").logged_artifacts()
+    len_artifacts = len(artifacts)
+    count = sum(1 for _ in artifacts)
+    assert len_artifacts == count
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_manual_use(api: Api):
+    run = api.run("uncategorized/second_run")
+    art = api.artifact("mnist:v0", type="dataset")
+    run.use_artifact(art)
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_bracket_accessor(api: Api):
+    art = api.artifact("mnist:v1", type="dataset")
+    assert art["t"].__class__ == wandb.Table
+    assert art["s"] is None
+    with raises(ArtifactFinalizedError):
+        art["s"] = wandb.Table(data=[], columns=[])
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_manual_link(api: Api):
+    art = api.artifact("mnist:v0", type="dataset")
+    art.link("portfolio_name")
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_manual_error(api: Api):
+    run = api.run("uncategorized/first_run")
+    art = wandb.Artifact("test", type="dataset")
+    with raises(CommError):
+        run.log_artifact(art)
+    with raises(CommError):
+        run.use_artifact(art)
+    with raises(CommError):
+        run.use_artifact("mnist:v0")
+    with raises(CommError):
+        run.log_artifact("mnist:v0")
+
+
+@mark.usefixtures("sample_data")
+def test_artifact_verify(api: Api):
+    art = api.artifact("mnist:v0", type="dataset")
+    art.download()
+    art.verify()
+
+
+def test_artifact_save_norun(
+    user: str,
+    test_settings: Callable[[], wandb.Settings],
+    assets_path: Callable[[StrPath], Path],
+):
+    im_path = str(assets_path("2x2.png"))
+    artifact = wandb.Artifact(type="dataset", name="my-arty")
+    wb_image = wandb.Image(im_path, classes=[{"id": 0, "name": "person"}])
+    artifact.add(wb_image, "my-image")
+    artifact.save(settings=test_settings())
+
+
+def test_artifact_save_run(
+    user: str,
+    test_settings: Callable[[], wandb.Settings],
+    assets_path: Callable[[StrPath], Path],
+):
+    im_path = str(assets_path("2x2.png"))
+    artifact = wandb.Artifact(type="dataset", name="my-arty")
+    wb_image = wandb.Image(im_path, classes=[{"id": 0, "name": "person"}])
+    artifact.add(wb_image, "my-image")
+    with wandb.init(settings=test_settings()) as _:
+        artifact.save()
+
+
+def test_artifact_save_norun_nosettings(
+    user: str,
+    assets_path: Callable[[StrPath], Path],
+):
+    im_path = str(assets_path("2x2.png"))
+    artifact = wandb.Artifact(type="dataset", name="my-arty")
+    wb_image = wandb.Image(im_path, classes=[{"id": 0, "name": "person"}])
+    artifact.add(wb_image, "my-image")
+    artifact.save()
+
+
+def test_parse_artifact_path(user: str, api: Api):
+    path = "entity/project/artifact:alias/with/slashes"
+    entity, project, name = api._parse_artifact_path(path)
+    assert entity == "entity"
+    assert project == "project"
+    assert name == "artifact:alias/with/slashes"
+
+    path = "entity/project/artifact:alias:with:colons"
+    entity, project, name = api._parse_artifact_path(path)
+    assert entity == "entity"
+    assert project == "project"
+    assert name == "artifact:alias:with:colons"
+
+    path = "entity/project/artifact:alias:with:colons/and/slashes"
+    entity, project, name = api._parse_artifact_path(path)
+    assert entity == "entity"
+    assert project == "project"
+    assert name == "artifact:alias:with:colons/and/slashes"
+
+    path = "artifact:alias/with:colons:and/slashes"
+    entity, project, name = api._parse_artifact_path(path)
+    assert entity == api.default_entity
+    assert project == "uncategorized"
+    assert name == "artifact:alias/with:colons:and/slashes"
+
+    path = "entity/project/artifact"
+    entity, project, name = api._parse_artifact_path(path)
+    assert entity == "entity"
+    assert project == "project"
+    assert name == "artifact"
+
+
+@mark.parametrize(
+    (
+        "artifact_path",
+        "resolve_org_entity_name",
+        "is_registry_project",
+        "expected_artifact_fetched",
+    ),
+    (
+        (
+            "org-name/wandb-registry-model/test-collection:v0",
+            "org-entity-name",
+            True,
+            True,
+        ),
+        (
+            "org-entity-name/wandb-registry-model/test-collection:v0",
+            "org-entity-name",
+            True,
+            True,
+        ),
+        (
+            "wandb-registry-model/test-collection:v0",
+            "org-entity-name",
+            True,
+            True,
+        ),
+        (
+            "potato/wandb-registry-model/test-collection:v0",
+            "",
+            True,
+            False,
+        ),
+        (
+            "potato/not-a-registry-model/test-collection:v0",
+            "",
+            False,
+            True,
+        ),
+    ),
+)
+def test_fetch_registry_artifact(
+    user,
+    wandb_backend_spy,
+    api,
+    mocker,
+    project_gql_id,
+    project_internal_gql_id,
+    artifact_path,
+    resolve_org_entity_name,
+    is_registry_project,
+    expected_artifact_fetched,
+):
+    from tests.fixtures.wandb_backend_spy.gql_match import Constant, Matcher
+
+    mocker.patch("wandb.sdk.artifacts.artifact.Artifact._from_attrs")
+
+    # Stub the query for orgEntity name(s)
+    mock_org_entity_info_responder = Constant(
+        content={
+            "data": {
+                "entity": {
+                    "organization": {
+                        "name": "org-name",
+                        "orgEntity": {"name": resolve_org_entity_name},
+                    },
+                    "user": None,
+                },
+            }
+        }
+    )
+    op_matcher = Matcher(operation=nameof(FetchOrgInfoFromEntity))
+    wandb_backend_spy.stub_gql(match=op_matcher, respond=mock_org_entity_info_responder)
+
+    mock_artifact_fragment_data = ArtifactFragment(
+        name="test-collection",  # NOTE: relevant
+        version_index=0,  # NOTE: relevant
+        # ------------------------------------------------------------------------------
+        # NOTE: Remaining artifact fields are placeholders and not as relevant to the test
+        artifact_type={"name": "model"},
+        artifact_sequence={
+            "name": "test-collection",
+            "project": {
+                "id": project_gql_id,
+                "internalId": project_internal_gql_id,
+                "name": "orig-project",
+                "entity": {"name": "test-team"},
+            },
+        },
+        id="PLACEHOLDER",
+        description="PLACEHOLDER",
+        tags=[],
+        ttl_duration_seconds=-2,
+        ttl_is_inherited=False,
+        metadata="{}",
+        state="COMMITTED",
+        size=0,
+        digest="FAKE_DIGEST",
+        file_count=0,
+        commit_hash="PLACEHOLDER",
+        created_at="PLACEHOLDER",
+        updated_at=None,
+        history_step=None,
+        # ------------------------------------------------------------------------------
+    ).model_dump()
+
+    mock_membership_fragment_data = ArtifactMembershipFragment(
+        id="PLACEHOLDER",
+        artifact=mock_artifact_fragment_data,
+        artifact_collection={
+            "__typename": "ArtifactPortfolio",
+            "name": "test-collection",
+            "project": {
+                "id": project_gql_id,
+                "internalId": project_internal_gql_id,
+                "name": "wandb-registry-model",  # NOTE: relevant
+                "entity": {"name": "org-entity-name"},  # NOTE: relevant
+            },
+        },
+        version_index=1,
+        aliases=[{"id": "PLACEHOLDER", "alias": "my-alias"}],
+        created_at="PLACEHOLDER",
+    ).model_dump()
+
+    mock_empty_rsp_data = {"data": {"project": {}}}
+
+    mock_rsp = {
+        "data": {
+            "project": {
+                "artifact": mock_artifact_fragment_data,
+                "artifactCollectionMembership": mock_membership_fragment_data,
+            }
+        }
+    }
+
+    op_name = nameof(ArtifactMembershipByName)
+
+    # If we aren't simulating a successfully-fetched artifact, override the mock response with an empty one
+    if not expected_artifact_fetched:
+        mock_rsp = mock_empty_rsp_data
+
+    # Now stub the actual GQL request/response we expect to make
+    op_matcher = Matcher(operation=op_name)
+    mock_responder = Constant(content=mock_rsp)
+    wandb_backend_spy.stub_gql(match=op_matcher, respond=mock_responder)
+
+    expectation = nullcontext() if expected_artifact_fetched else raises(CommError)
+    with expectation:
+        api.artifact(artifact_path)
+
+    if is_registry_project:
+        # Calls may be cached, so we expect at most one call
+        assert mock_org_entity_info_responder.total_calls <= 1
+    else:
+        assert mock_org_entity_info_responder.total_calls == 0
+
+    # Ensure at least one of the artifact queries was exercised
+    if expected_artifact_fetched:
+        assert mock_responder.total_calls == 1
+    else:
+        assert mock_responder.total_calls == 0
+
+
+def test_log_artifact_ignores_wandb_project_env_var(
+    user: str,
+    api: Api,
+    monkeypatch: MonkeyPatch,
+):
+    """Verify run.log_artifact() uses the run's project, not WANDB_PROJECT.
+
+    Regression test for WB-29463: log_artifact should use the run's actual
+    entity/project, not environment variables.
+    """
+    # Create a run and log an artifact
+    with wandb.init(settings={"silent": True}) as run:
+        artifact = wandb.Artifact("test-artifact", type="dataset")
+        with artifact.new_file("test.txt") as f:
+            f.write("test content")
+        run.log_artifact(artifact)
+
+    run_path = f"{run.entity}/{run.project}/{run.id}"
+
+    # Set WANDB_PROJECT to a DIFFERENT project (this should be ignored)
+    monkeypatch.setenv("WANDB_PROJECT", "nonexistent-project")
+
+    # Retrieve the run via API and try to log the same artifact
+    api_run = api.run(run_path)
+    art = api.artifact(f"{run.entity}/{run.project}/test-artifact:v0")
+
+    # This should succeed using the run's project, not WANDB_PROJECT
+    api_run.log_artifact(art)

@@ -1,0 +1,18 @@
+[method]
+id = "cts"
+name = "Concurrent Teacher-Student Reinforcement Learning"
+paper = "https://clearlab-sustech.github.io/concurrentTS/"
+framework = "isaacgym"
+status = "implemented-engineering-port"
+
+[source]
+reference_project = "/home/lxy/LeggedGym-Ex"
+reference_paths = ["rsl_rl/modules/actor_critic_cts.py", "rsl_rl/algorithms/ppo_cts.py", "rsl_rl/storage/rollout_storage_cts.py", "rsl_rl/runners/cts_runner.py"]
+license = "BSD-3-Clause"
+
+[extension_points]
+algorithm = "PPO_CTS"
+policy = "ActorCriticCTS"
+runner = "CTSRunner"
+storage = "RolloutStorageCTS"
+task = "A1CTS"

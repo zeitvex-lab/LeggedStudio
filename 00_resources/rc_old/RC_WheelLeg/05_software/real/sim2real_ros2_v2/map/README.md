@@ -1,0 +1,11 @@
+# `v0.12.0` 里程计导航点云
+
+本阶段使用三份 ASCII PCD 进行路线和里程计导航联调。原始文件均使用训练工程中的 [`downsample_ascii_pcd.py`](../../../train/rc_mjlab/tools/nav_tools/downsample_ascii_pcd.py) 确定性等步长抽样，抽样文件仅用于可视化、路线编辑和软件回归，不等价于原始高密度地图。
+
+| 文件 | 原始点数 | 步长 | 抽样点数 | 抽样大小 | 原始 SHA-256 | 抽样 SHA-256 |
+| --- | ---: | ---: | ---: | ---: | --- | --- |
+| `map_b.pcd` | 1,080,047 | 4 | 270,012 | 8,680,283 B | `F17FC7E188C772D48E8D3FE20E3A934AFCDF59357C27BCCDCAC3C7E9AD1D1CB7` | `F3052431F217DE8FFFE87726F8E547A59C65048B0285F02AF4803C5F4E4C1B42` |
+| `A_min.pcd` | 683,908 | 3 | 227,969 | 7,300,173 B | `77C884B17D78C4D157F84093BFEA0729FA25382C70E706C4BA12913A3C90ED20` | `CC4556D472BE6E5B232B9BFEE43F5F337D710F88E88D9B90994368C580327DC1` |
+| `C.pcd` | 3,186,653 | 11 | 289,696 | 9,040,786 B | `C5C7E60B06A0FFEA15E55C14B8CFAFBC8525371C8C3AC9C72821AB736AED8A6C` | `1FC4124642D934460811DBF62EBE9C5C9CF30668BC42E4782B18F3C002ED1A25` |
+
+大小和 SHA-256 均按 Git 中保存的 LF 字节计算；根目录 `.gitattributes` 禁止对 `*.pcd` 做跨平台换行转换。若 Windows 工作区在该规则加入前已经检出，磁盘文件可能仍保留 CRLF，需重新检出 PCD 后再与表中哈希比较。

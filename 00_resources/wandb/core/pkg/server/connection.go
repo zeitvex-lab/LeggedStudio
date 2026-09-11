@@ -1,0 +1,831 @@
+package server
+
+import (
+	"bufio"
+	"context"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net"
+	"net/url"
+	"sync"
+	"time"
+
+	"github.com/Khan/genqlient/graphql"
+
+	"github.com/wandb/wandb/core/internal/analytics"
+	"github.com/wandb/wandb/core/internal/api"
+	"github.com/wandb/wandb/core/internal/clients"
+	"github.com/wandb/wandb/core/internal/gql"
+	"github.com/wandb/wandb/core/internal/monitor"
+	"github.com/wandb/wandb/core/internal/observability"
+	"github.com/wandb/wandb/core/internal/runsync"
+	"github.com/wandb/wandb/core/internal/runwork"
+	"github.com/wandb/wandb/core/internal/settings"
+	"github.com/wandb/wandb/core/internal/stream"
+	"github.com/wandb/wandb/core/internal/wbapi"
+
+	"google.golang.org/protobuf/proto"
+
+	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
+)
+
+const (
+	messageSize    = 1024 * 1024            // 1MB message size
+	maxMessageSize = 2 * 1024 * 1024 * 1024 // 2GB max message size
+)
+
+type ConnectionParams struct {
+	StreamMux          *stream.StreamMux
+	RunSyncManager     *runsync.RunSyncManager
+	XPUResourceManager *monitor.XPUResourceManager
+
+	ID string
+
+	Conn       net.Conn
+	Commit     string
+	LoggerPath string
+	LogLevel   slog.Level
+}
+
+// Connection represents a client-server connection in the context of a streaming session.
+//
+// It acts as a wrapper around the underlying network connection and handles the flow of
+// messages between the client and the server. This includes managing incoming requests
+// and outgoing responses, maintaining the state of the connection, and providing
+// error reporting mechanisms.
+type Connection struct {
+	// connLifetimeCtx is alive for as long as responses should be sent.
+	//
+	// Once it is cancelled, the connection should shut down.
+	connLifetimeCtx context.Context
+
+	// stopConnection cancels connLifetimeCtx.
+	stopConnection context.CancelFunc
+
+	// requestCanceller manages cancellable requests.
+	requestCanceller *RequestCanceller
+
+	// stopServer signals the server to shut down, which also closes all
+	// connections.
+	stopServer context.CancelFunc
+
+	// The underlying network connection. This represents the raw TCP connection
+	// layer that facilitates communication between the client and the server.
+	conn net.Conn
+
+	// A map that associates stream IDs with active streams (or runs). This helps
+	// track the streams associated with this connection.
+	streamMux *stream.StreamMux
+
+	// runSyncManager implements `wandb sync` operations.
+	runSyncManager *runsync.RunSyncManager
+
+	// xpuResourceManager is used by streams for system accelerator metrics.
+	xpuResourceManager *monitor.XPUResourceManager
+
+	// id is the unique id for the connection
+	id string
+
+	// inChan is the channel for incoming messages
+	inChan chan *spb.ServerRequest
+
+	// outChan is the channel for outgoing messages.
+	//
+	// Messages are processed until connLifetimeCtx ends, after which further
+	// writes will deadlock. The channel is never closed. All writes should be
+	// guarded by a fallback case that runs if connLifetimeCtx is done.
+	outChan chan *spb.ServerResponse
+
+	// The current W&B Git commit hash, identifying the specific version of the binary.
+	commit string
+
+	// loggerPath is the path to the logger
+	loggerPath string
+
+	// logLevel is the log level
+	logLevel slog.Level
+
+	// apiManager processes API requests.
+	apiManager *wbapi.WandbAPIManager
+}
+
+func NewConnection(
+	serverLifetimeCtx context.Context,
+	stopServer context.CancelFunc,
+	params ConnectionParams,
+) *Connection {
+	connLifetimeCtx, stopConnection := context.WithCancel(serverLifetimeCtx)
+
+	return &Connection{
+		connLifetimeCtx:    connLifetimeCtx,
+		stopConnection:     stopConnection,
+		requestCanceller:   NewRequestCanceller(connLifetimeCtx, slog.Default()),
+		stopServer:         stopServer,
+		streamMux:          params.StreamMux,
+		runSyncManager:     params.RunSyncManager,
+		xpuResourceManager: params.XPUResourceManager,
+		conn:               params.Conn,
+		commit:             params.Commit,
+		id:                 params.ID,
+		inChan:             make(chan *spb.ServerRequest, BufferSize),
+		outChan:            make(chan *spb.ServerResponse, BufferSize),
+		loggerPath:         params.LoggerPath,
+		logLevel:           params.LogLevel,
+		apiManager:         wbapi.NewManager(),
+	}
+}
+
+// ManageConnectionData processes the connection until the server shuts down,
+// the peer closes the connection, or an error is encountered.
+//
+// After this exits, any messages that were received without error have been
+// processed and the underlying connection has been closed.
+func (nc *Connection) ManageConnectionData() {
+	slog.Info("connection: ManageConnectionData: new connection created", "id", nc.id)
+
+	var wg sync.WaitGroup
+
+	wg.Go(nc.processIncomingData)
+	wg.Go(nc.handleIncomingRequests)
+	wg.Go(nc.processOutgoingData)
+
+	<-nc.connLifetimeCtx.Done()
+
+	// Close the underlying connection, which allows the above goroutines
+	// to eventually exit if the connection was not already closed.
+	//
+	// From this point, the peer will receive errors when trying to write
+	// to or read from the connection.
+	nc.Close()
+
+	wg.Wait()
+
+	// Flush telemetry buffered by API instances that were not explicitly
+	// cleaned up, such as when the client process exits abruptly. This
+	// runs after all request handlers have finished so that no telemetry
+	// is recorded after the flush.
+	shutdownCtx, cancel := context.WithTimeout(
+		context.Background(),
+		2*time.Second,
+	)
+	defer cancel()
+	nc.apiManager.Shutdown(shutdownCtx)
+
+	slog.Info("connection: ManageConnectionData: connection closed", "id", nc.id)
+}
+
+// processOutgoingData processes outChan until connLifetimeCtx ends
+// or an error occurs.
+func (nc *Connection) processOutgoingData() {
+	// Shut down the connection once we're done sending responses.
+	//
+	// This only happens on error, since the loop already runs until the
+	// context is cancelled.
+	defer nc.stopConnection()
+
+	slog.Debug("processOutgoingData: started", "id", nc.id)
+
+	for {
+		var msg *spb.ServerResponse
+
+		select {
+		case <-nc.connLifetimeCtx.Done():
+			slog.Info("processOutgoingData: finished", "id", nc.id)
+			return
+
+		case msg = <-nc.outChan:
+		}
+
+		// Marshal the message to protobuf format
+		out, err := proto.Marshal(msg)
+		if err != nil {
+			slog.Error("processOutgoingData: marshalling error", "error", err, "id", nc.id)
+			return
+		}
+
+		writer := bufio.NewWriter(nc.conn)
+		// Write header with message length
+		header := Header{
+			Magic:      byte('W'),
+			DataLength: uint32(len(out)),
+		}
+		if err = binary.Write(writer, binary.LittleEndian, &header); err != nil {
+			slog.Error("processOutgoingData: header writing error", "error", err, "id", nc.id)
+			return
+		}
+
+		// Write the message body
+		if _, err = writer.Write(out); err != nil {
+			slog.Error("processOutgoingData: message writing error", "error", err, "id", nc.id)
+			return
+		}
+
+		// Flush the writer buffer to ensure data is sent
+		if err = writer.Flush(); err != nil {
+			slog.Error("processOutgoingData: flush error", "error", err, "id", nc.id)
+			return
+		}
+	}
+}
+
+// processIncomingData reads and processes messages from a network connection.
+//
+// This function listens for incoming data on the network connection, parses it
+// into protobuf messages, and sends those messages to the `inChan` channel for
+// further handling. When the connection closes, the `inChan` channel is also
+// closed to signal that no more data will be received.
+//
+// If an error occurs during message parsing or reading from the connection,
+// it will be logged with relevant details. Expected failure scenarios, such as
+// client disconnections or process terminations, are handled gracefully.
+//
+// The function ensures that data is processed as efficiently as possible and
+// provides error logging for unexpected situations that may arise during
+// communication.
+func (nc *Connection) processIncomingData() {
+
+	scanner := bufio.NewScanner(nc.conn)
+	// TODO: on 32-bit systems, we need to use a smaller buffer size
+	scanner.Buffer(make([]byte, messageSize), maxMessageSize)
+	scanner.Split(ScanWBRecords)
+
+	for scanner.Scan() {
+		msg := &spb.ServerRequest{}
+		if err := proto.Unmarshal(scanner.Bytes(), msg); err != nil {
+			dataLen := len(scanner.Bytes())
+			dataTrunc := scanner.Bytes()
+			if len(dataTrunc) > 1<<10 {
+				dataTrunc = dataTrunc[:1<<10]
+			}
+
+			slog.Error(
+				"connection: unmarshalling error, breaking connection",
+				"error", err,
+				"id", nc.id,
+				"token_len", dataLen,
+				"token_1kb", dataTrunc,
+			)
+
+			// Stop the server because a client is misbehaving, and it is no
+			// longer guaranteed that the server will receive a teardown
+			// request.
+			//
+			// The failsafe mechanism that shuts down the server if the parent
+			// process exits is not reliable here, as the client may be waiting
+			// for the server to shut down before exiting.
+			nc.stopServer()
+			break
+		} else {
+			nc.inChan <- msg
+		}
+	}
+
+	close(nc.inChan)
+
+	if scanner.Err() != nil {
+		switch {
+		case errors.Is(scanner.Err(), net.ErrClosed):
+			// All good! The connection closed normally.
+
+		default:
+			// This can happen if:
+			//
+			// A) The client process dies
+			// B) The input is corrupted
+			// C) The client process exits before finishing socket operations
+			//
+			// Case (A) is an expected failure mode. Case (B) should be
+			// extremely rare or the result of a bug.
+			//
+			// Case (C) is subtle and is unavoidable by design. Unfortunately,
+			// data may be lost. This happens when a child process started
+			// using Python's multiprocessing exits without any completion
+			// signal (e.g. run.finish()). `atexit` hooks do not run in
+			// multiprocessing, so there's no way to wait for sockets to
+			// flush.
+
+			slog.Error(
+				"connection: fatal error reading connection",
+				"error", scanner.Err(),
+				"id", nc.id,
+			)
+		}
+	}
+}
+
+// handleIncomingRequests parses and responds to incoming requests (inChan)
+// until the channel is closed or an error occurs.
+//
+// Shuts down the connection after responding to all requests or encountering an
+// error. Does not wait for requests handled by Streams to complete, relying
+// instead on the Finish request to synchronize those.
+func (nc *Connection) handleIncomingRequests() {
+	// Shut down the connection once we're done accepting requests.
+	defer nc.stopConnection()
+
+	slog.Debug("handleIncomingRequests: started", "id", nc.id)
+
+	// Before exiting, wait for async operations to complete so that they
+	// can send responses.
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+
+	for msg := range nc.inChan {
+		slog.Debug("handleIncomingRequests: processing message", "msg", msg, "id", nc.id)
+
+		switch x := msg.ServerRequestType.(type) {
+		case *spb.ServerRequest_Cancel:
+			nc.handleCancel(x.Cancel)
+		case *spb.ServerRequest_Authenticate:
+			nc.handleAuthenticate(msg.RequestId, x.Authenticate)
+		case *spb.ServerRequest_InformInit:
+			nc.handleInformInit(msg.RequestId, x.InformInit)
+		case *spb.ServerRequest_InformAttach:
+			nc.handleInformAttach(msg.RequestId, x.InformAttach)
+		case *spb.ServerRequest_RecordPublish:
+			nc.handleInformRecord(msg.RequestId, x.RecordPublish)
+		case *spb.ServerRequest_RecordCommunicate: // TODO: remove this dupe
+			nc.handleInformRecord(msg.RequestId, x.RecordCommunicate)
+		case *spb.ServerRequest_InformFinish:
+			nc.handleInformFinish(x.InformFinish)
+		case *spb.ServerRequest_InformTeardown:
+			nc.handleInformTeardown(x.InformTeardown)
+		case *spb.ServerRequest_InitSync:
+			nc.handleInitSync(msg.RequestId, x.InitSync)
+		case *spb.ServerRequest_Sync:
+			nc.handleSync(wg, msg.RequestId, x.Sync)
+		case *spb.ServerRequest_SyncStatus:
+			nc.handleSyncStatus(msg.RequestId, x.SyncStatus)
+		case *spb.ServerRequest_ApiInitRequest:
+			nc.handleApiInit(msg.RequestId, x.ApiInitRequest)
+		case *spb.ServerRequest_ApiCleanupRequest:
+			nc.handleApiCleanup(wg, x.ApiCleanupRequest)
+		case *spb.ServerRequest_ApiRequest:
+			nc.handleApi(wg, msg.RequestId, x.ApiRequest)
+		case nil:
+			slog.Error(
+				"handleIncomingRequests: ServerRequestType is nil",
+				"id", nc.id,
+			)
+			return
+		default:
+			slog.Error(
+				"handleIncomingRequests: unknown ServerRequestType",
+				"type", x,
+				"id", nc.id,
+			)
+			return
+		}
+	}
+
+	slog.Debug("handleIncomingRequests: finishing", "id", nc.id)
+}
+
+// handleCancel cancels the work of a previous server request.
+func (nc *Connection) handleCancel(msg *spb.ServerCancelRequest) {
+	slog.Info("connection: cancelling request",
+		"id", nc.id,
+		"requestId", msg.RequestId)
+	nc.requestCanceller.Cancel(msg.RequestId)
+}
+
+// handleInformInit handles the initialization of a new stream by the client.
+//
+// This function is invoked when the server receives an `InformInit` message
+// from the client. It creates a new stream, associates it with the connection.
+// Also starts the stream and adds the connection as a responder to the stream.
+func (nc *Connection) handleInformInit(
+	requestID string,
+	msg *spb.ServerInformInitRequest,
+) {
+	s := settings.From(msg.GetSettings())
+
+	streamId := msg.GetXInfo().GetStreamId()
+	slog.Info("handleInformInit: received", "streamId", streamId, "id", nc.id)
+
+	strm := stream.InjectStream(
+		stream.GitCommitHash(nc.commit),
+		nc.xpuResourceManager,
+		stream.DebugCorePath(nc.loggerPath),
+		nc.logLevel,
+		s,
+	)
+
+	if err := nc.streamMux.AddStream(streamId, strm); err != nil {
+		slog.Error(
+			"handleInformInit: error adding stream",
+			"err", err,
+			"streamId", streamId,
+			"id", nc.id,
+		)
+
+		nc.Respond(&spb.ServerResponse{
+			RequestId: requestID,
+			ServerResponseType: &spb.ServerResponse_ErrorResponse{
+				ErrorResponse: &spb.ServerErrorResponse{
+					Message: err.Error(),
+				},
+			},
+		})
+	} else {
+		strm.Start()
+		slog.Info(
+			"handleInformInit: stream started",
+			"streamId", streamId,
+			"id", nc.id,
+		)
+		nc.Respond(&spb.ServerResponse{RequestId: requestID})
+	}
+}
+
+// handleInformAttach handles the new connection attaching to an existing stream.
+//
+// This function is invoked when the server receives an `InformAttach` message
+// from the client. It attaches a new client connection to an existing stream
+// and sends an update to the client with the stream settings. The client can
+// then use these settings to update its local state.
+func (nc *Connection) handleInformAttach(
+	requestID string,
+	msg *spb.ServerInformAttachRequest,
+) {
+	streamId := msg.GetXInfo().GetStreamId()
+	slog.Debug("handle record received", "streamId", streamId, "id", nc.id)
+	strm, err := nc.streamMux.GetStream(streamId)
+	if err != nil {
+		slog.Error(
+			"handleInformAttach: error getting stream",
+			"err", err, "id", nc.id)
+	} else {
+		// TODO: we should redo this attach logic, so that the stream handles
+		//       the attach logic
+		resp := &spb.ServerResponse{
+			RequestId: requestID,
+			ServerResponseType: &spb.ServerResponse_InformAttachResponse{
+				InformAttachResponse: &spb.ServerInformAttachResponse{
+					XInfo:    msg.XInfo,
+					Settings: strm.GetSettings().Proto,
+				},
+			},
+		}
+		nc.Respond(resp)
+	}
+}
+
+// handleAuthenticate processes client authentication messages.
+//
+// It validates client credentials and responds with the default entity
+// associated with the provided API key. This lightweight authentication
+// method avoids the overhead of starting a new stream while still
+// leveraging wandb-core's features.
+//
+// An alternative approach would be implementing a GraphQL Viewer query
+// on the client side for each supported language.
+//
+// Note: This function will be deprecated once the Public API workflow
+// in wandb-core is implemented.
+func (nc *Connection) handleAuthenticate(
+	id string,
+	msg *spb.ServerAuthenticateRequest,
+) {
+	slog.Debug("handleAuthenticate: received", "id", nc.id)
+
+	ctx, cancel := nc.requestCanceller.Context(id)
+	defer cancel()
+
+	response := nc.handleAuthenticateImpl(ctx, msg)
+	response.XInfo = msg.XInfo
+
+	nc.Respond(&spb.ServerResponse{
+		ServerResponseType: &spb.ServerResponse_AuthenticateResponse{
+			AuthenticateResponse: response,
+		},
+	})
+}
+
+func (nc *Connection) handleAuthenticateImpl(
+	ctx context.Context,
+	msg *spb.ServerAuthenticateRequest,
+) *spb.ServerAuthenticateResponse {
+	baseURL, err := url.Parse(msg.BaseUrl)
+	if err != nil {
+		return &spb.ServerAuthenticateResponse{
+			ErrorStatus: fmt.Sprintf("Invalid URL: %v", err),
+		}
+	}
+
+	logger := observability.NewNoOpLogger() // TODO: use a real logger
+	credentialProvider := api.NewAPIKeyCredentialProvider(msg.ApiKey)
+
+	apiClient := api.NewClient(api.ClientOptions{
+		RetryPolicy: clients.CheckRetry,
+
+		RetryMax:        api.DefaultRetryMax,
+		RetryWaitMin:    api.DefaultRetryWaitMin,
+		RetryWaitMax:    api.DefaultRetryWaitMax,
+		NonRetryTimeout: api.DefaultNonRetryTimeout,
+
+		Logger: logger.Logger,
+
+		PreRetryLayers: credentialProvider,
+	})
+
+	graphqlClient := graphql.NewClient(
+		baseURL.JoinPath("graphql").String(),
+		api.AsStandardClient(apiClient),
+	)
+
+	data, err := gql.Viewer(ctx, graphqlClient)
+
+	// Field-level GraphQL errors (like a failing resolver for one of the
+	// requested fields) do not invalidate the credentials, so partial data
+	// is accepted as long as the viewer and its entity were resolved.
+	if data == nil || data.GetViewer() == nil || data.GetViewer().GetEntity() == nil {
+		if err != nil {
+			slog.Debug("handleAuthenticate: viewer query failed", "error", err)
+		}
+		return &spb.ServerAuthenticateResponse{
+			ErrorStatus: "Invalid credentials",
+		}
+	}
+
+	return &spb.ServerAuthenticateResponse{
+		DefaultEntity: *data.GetViewer().GetEntity(),
+	}
+}
+
+// handleInformRecord processes a regular record message from the client.
+//
+// This function is called when the client sends a record message as part of the
+// ongoing communication for a specific stream. Record messages are distinct from
+// control messages like Inform* messages and are part of the normal data exchange
+// between the client and server.
+//
+// The function ensures that the message is sent to the correct stream for processing.
+// It also adds the connection ID to the control message so that the stream can send
+// a response back to the correct connection.
+func (nc *Connection) handleInformRecord(requestID string, msg *spb.Record) {
+	streamId := msg.GetXInfo().GetStreamId()
+
+	slog.Debug("handleInformRecord: record received", "streamId", streamId, "id", nc.id)
+
+	strm, err := nc.streamMux.GetStream(streamId)
+	if err != nil {
+		slog.Error(
+			"handleInformRecord: error getting stream",
+			"err", err, "id", nc.id)
+		return
+	}
+
+	// Only create a Request if a response is required, which is indicated
+	// by the presence of a request ID.
+	var request *runwork.Request
+	if requestID != "" {
+		// NOTE: The request is cancelled when connLifetimeCtx ends,
+		// so it will not deadlock trying to write to outChan.
+		ctx, cancelCtx := nc.requestCanceller.Context(requestID)
+		request = runwork.NewRequest(requestID, ctx, cancelCtx, nc.outChan)
+	}
+
+	// Delegate the handling of the record to the stream
+	strm.HandleRecord(msg, request)
+}
+
+// handleInformFinish processes a finish message from the client.
+//
+// This function is called when the client sends a finish message, indicating the
+// intent to close a specific stream. It removes the stream associated with the
+// given stream ID from the stream multiplexer and safely closes the stream.
+func (nc *Connection) handleInformFinish(msg *spb.ServerInformFinishRequest) {
+	streamId := msg.XInfo.StreamId
+	slog.Info("handleInformFinish: finish message received", "streamId", streamId, "id", nc.id)
+
+	// Attempt to remove the stream from the stream multiplexer
+	strm, err := nc.streamMux.RemoveStream(streamId)
+	if err != nil {
+		slog.Error(
+			"handleInformFinish: error removing stream",
+			"err", err,
+			"streamId", streamId,
+			"id", nc.id,
+		)
+		return
+	}
+
+	// Safely close the stream
+	strm.Close()
+	slog.Info("handleInformFinish: stream closed", "streamId", streamId, "id", nc.id)
+}
+
+// handleInformTeardown processes a request from the client to shut down the server.
+//
+// This function is called when the client sends a teardown message, signaling the server
+// to stop all operations. It cancels the server's context, causing all ongoing connections
+// and streams to gracefully shut down. The function then waits for all active streams to
+// complete and close with the provided exit code.
+func (nc *Connection) handleInformTeardown(teardown *spb.ServerInformTeardownRequest) {
+	slog.Info("handleInformTeardown: server teardown initiated", "id", nc.id)
+	nc.stopServer()
+
+	// Close all streams and wait for completion, passing the provided exit code.
+	nc.streamMux.FinishAndCloseAllStreams(teardown.ExitCode)
+
+	slog.Info("handleInformTeardown: server shutdown complete", "id", nc.id)
+}
+
+// handleInitSync responds to a ServerInitSyncRequest.
+func (nc *Connection) handleInitSync(
+	id string,
+	request *spb.ServerInitSyncRequest,
+) {
+	response := nc.runSyncManager.InitSync(request)
+	nc.Respond(&spb.ServerResponse{
+		RequestId: id,
+		ServerResponseType: &spb.ServerResponse_InitSyncResponse{
+			InitSyncResponse: response,
+		},
+	})
+}
+
+// handleSync asynchronously responds to a ServerSyncRequest.
+func (nc *Connection) handleSync(
+	wg *sync.WaitGroup,
+	id string,
+	request *spb.ServerSyncRequest,
+) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		ctx, cancel := nc.requestCanceller.Context(id)
+		defer cancel()
+
+		response := nc.runSyncManager.DoSync(ctx, request)
+		nc.Respond(&spb.ServerResponse{
+			RequestId: id,
+			ServerResponseType: &spb.ServerResponse_SyncResponse{
+				SyncResponse: response,
+			},
+		})
+	}()
+}
+
+// handleSyncStatus responds to a ServerSyncStatusRequest.
+func (nc *Connection) handleSyncStatus(
+	id string,
+	request *spb.ServerSyncStatusRequest,
+) {
+	response := nc.runSyncManager.SyncStatus(request)
+	nc.Respond(&spb.ServerResponse{
+		RequestId: id,
+		ServerResponseType: &spb.ServerResponse_SyncStatusResponse{
+			SyncStatusResponse: response,
+		},
+	})
+}
+
+// handleApiInit sets up a new wandbAPI instance.
+func (nc *Connection) handleApiInit(id string, request *spb.ServerApiInitRequest) {
+	s := settings.From(request.GetSettings())
+
+	telemetryProxy := analytics.NewOpenTelemetryProxy(
+		context.Background(),
+		s,
+		"wandb-core",
+	)
+	go func() {
+		<-nc.connLifetimeCtx.Done()
+		if telemetryProxy != nil {
+			shutdownCtx, cancel := context.WithTimeout(
+				context.Background(),
+				2*time.Second,
+			)
+			defer cancel()
+
+			err := telemetryProxy.Shutdown(shutdownCtx)
+			if err != nil {
+				slog.Error(
+					"connection: failed to shut down telemetry proxy",
+					"error",
+					err,
+				)
+			}
+		}
+	}()
+
+	logger := observability.NewCoreLogger(
+		slog.Default(),
+		analytics.NewTelemetryRecorder(
+			telemetryProxy,
+			analytics.NewTelemetryContext(),
+		),
+	)
+	wbapiInstance, err := wbapi.New(s, request.GetServiceName(), logger)
+	if err != nil {
+		nc.Respond(&spb.ServerResponse{
+			RequestId: id,
+			ServerResponseType: &spb.ServerResponse_ErrorResponse{
+				ErrorResponse: &spb.ServerErrorResponse{
+					Message: err.Error(),
+				},
+			},
+		})
+
+		return
+	}
+
+	wbApiId := nc.apiManager.AddWandbAPI(wbapiInstance)
+
+	nc.Respond(&spb.ServerResponse{
+		RequestId: id,
+		ServerResponseType: &spb.ServerResponse_ApiInitResponse{
+			ApiInitResponse: &spb.ServerApiInitResponse{
+				ApiId: wbApiId,
+			},
+		},
+	})
+}
+
+// handleApiCleanup cleans up a wandbAPI instance related to the provided id.
+func (nc *Connection) handleApiCleanup(
+	wg *sync.WaitGroup,
+	request *spb.ServerApiCleanupRequest,
+) {
+	wbapiInstance := nc.apiManager.RemoveWandbAPI(request.GetApiId())
+	if wbapiInstance == nil {
+		return
+	}
+
+	wg.Go(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		wbapiInstance.Shutdown(ctx)
+	})
+}
+
+func (nc *Connection) handleApi(
+	wg *sync.WaitGroup,
+	id string,
+	request *spb.ApiRequest,
+) {
+	wbapiInstance, err := nc.apiManager.GetWandbAPI(request.GetApiId())
+	if err != nil {
+		nc.Respond(&spb.ServerResponse{
+			RequestId: id,
+			ServerResponseType: &spb.ServerResponse_ApiResponse{
+				ApiResponse: &spb.ApiResponse{
+					Response: &spb.ApiResponse_ApiErrorResponse{
+						ApiErrorResponse: &spb.ApiErrorResponse{
+							Message: "WandbAPI is not initialized",
+						},
+					},
+				},
+			},
+		})
+		return
+	}
+
+	wg.Go(func() {
+		ctx, cancelCtx := nc.requestCanceller.Context(id)
+		defer cancelCtx()
+
+		response := wbapiInstance.HandleRequest(ctx, id, request)
+
+		if response != nil {
+			nc.Respond(&spb.ServerResponse{
+				RequestId: id,
+				ServerResponseType: &spb.ServerResponse_ApiResponse{
+					ApiResponse: response,
+				},
+			})
+		}
+	})
+}
+
+// Close closes the underlying TCP connection.
+//
+// Any blocked reads or writes will return an error.
+func (nc *Connection) Close() {
+	slog.Info("connection: closing", "id", nc.id)
+
+	if err := nc.conn.Close(); err != nil {
+		slog.Error("connection: error closing", "error", err, "id", nc.id)
+	} else {
+		slog.Info("connection: closed successfully", "id", nc.id)
+	}
+}
+
+// Respond implements the Responder interface to send a response to the client.
+//
+// If the connection is closed or becomes closed, the response is ignored
+// and a warning is logged.
+func (nc *Connection) Respond(resp *spb.ServerResponse) {
+	select {
+	case nc.outChan <- resp:
+	case <-nc.connLifetimeCtx.Done():
+		slog.Warn(
+			"connection: tried to respond on closed connection",
+			"id", nc.id)
+	}
+}

@@ -1,0 +1,15 @@
+[package]
+name = "microduck_kinematics"
+version = "0.1.0"
+edition = "2021"
+description = "Forward kinematics for the microduck robot, loaded from MJCF."
+license = "MIT"
+
+[dependencies]
+nalgebra = "0.33"
+roxmltree = "0.20"
+thiserror = "1"
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

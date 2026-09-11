@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<robot name="cyber_dog" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+	<xacro:arg name="GAZEBO" default="false"/>
+
+	<xacro:if value="$(arg GAZEBO)">
+		<xacro:include filename="gazebo.xacro"/>
+	</xacro:if>
+	<xacro:unless value="$(arg GAZEBO)">
+		<xacro:include filename="ros2_control.xacro"/>
+	</xacro:unless>
+
+	<xacro:include filename="$(find cyberdog_description)/xacro/robot.xacro"/>
+
+</robot>

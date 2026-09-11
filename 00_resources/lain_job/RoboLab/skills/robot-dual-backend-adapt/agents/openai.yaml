@@ -1,0 +1,4 @@
+interface:
+  display_name: "Robot Dual-Backend Adaptation"
+  short_description: "Adapt RoboLab robot assets to Isaac Gym and MJLab"
+  default_prompt: "Use $robot-dual-backend-adapt to adapt a robot asset to both Isaac Gym and MJLab."

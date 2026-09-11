@@ -1,0 +1,307 @@
+package filestream
+
+import (
+	"bytes"
+	"compress/gzip"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"sync"
+
+	"github.com/hashicorp/go-retryablehttp"
+
+	"github.com/wandb/wandb/core/internal/wboperation"
+	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
+)
+
+// startProcessingUpdates asynchronously ingests updates.
+//
+// This returns a channel of requests to send.
+func (fs *fileStream) startProcessingUpdates(
+	updates <-chan Update,
+) <-chan *FileStreamRequest {
+	requests := make(chan *FileStreamRequest)
+
+	go func() {
+		defer close(requests)
+
+		fs.logger.Debug("filestream: open", "path", fs.path)
+
+		for update := range updates {
+			err := update.Apply(UpdateContext{
+				MakeRequest: func(req *FileStreamRequest) {
+					requests <- req
+				},
+
+				Settings: fs.settings,
+
+				Logger:  fs.logger,
+				Printer: fs.printer,
+			})
+
+			if err != nil {
+				fs.logFatalAndStopWorking(err)
+				break
+			}
+		}
+
+		// Flush input channel if we exited early.
+		for range updates {
+		}
+	}()
+
+	return requests
+}
+
+// startTransmitting makes requests to the filestream API.
+//
+// It ingests a channel of requests and outputs a channel of API responses.
+//
+// Requests are batched to reduce the total number of HTTP requests.
+// An empty "heartbeat" request is sent when there are no updates for too long,
+// guaranteeing that a request is sent at least once every period specified
+// by `heartbeatStopwatch`.
+func (fs *fileStream) startTransmitting(
+	requests <-chan *FileStreamRequest,
+	initialOffsets FileStreamOffsetMap,
+) <-chan map[string]any {
+	state := &FileStreamState{
+		MaxRequestSizeBytes: max(
+			int(fs.settings.GetFileStreamMaxBytes()),
+			defaultMaxRequestSizeBytes,
+		),
+		MaxFileLineSize: max(
+			int(fs.settings.GetFileStreamMaxLineBytes()),
+			defaultMaxFileLineBytes,
+		),
+	}
+
+	if initialOffsets != nil {
+		state.HistoryLineNum = initialOffsets[HistoryChunk]
+		state.EventsLineNum = initialOffsets[EventsChunk]
+		state.SummaryLineNum = initialOffsets[SummaryChunk]
+		state.ConsoleLineOffset = initialOffsets[OutputChunk]
+	}
+
+	transmissions := CollectLoop{
+		Logger:            fs.logger,
+		Printer:           fs.printer,
+		TransmitRateLimit: fs.transmitRateLimit,
+	}.Start(state, requests)
+
+	feedback := TransmitLoop{
+		HeartbeatPeriod:        fs.heartbeatPeriod,
+		Send:                   fs.send,
+		LogFatalAndStopWorking: fs.logFatalAndStopWorking,
+	}.Start(transmissions)
+
+	return feedback
+}
+
+// startProcessingFeedback processes feedback from the filestream API.
+//
+// This increments the wait group and decrements it after completing
+// all work.
+func (fs *fileStream) startProcessingFeedback(
+	feedback <-chan map[string]any,
+	wg *sync.WaitGroup,
+) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		for res := range feedback {
+			if v, ok := res["stopped"]; ok {
+				if stopped, ok := v.(bool); ok && stopped {
+					fs.stopState.Store(true)
+				}
+			}
+		}
+	}()
+}
+
+func (fs *fileStream) send(
+	data *FileStreamRequestJSON,
+	feedbackChan chan<- map[string]any,
+) error {
+	// Stop working after death to avoid data corruption.
+	if fs.isDead() {
+		return fmt.Errorf("filestream: can't send because I am dead")
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("filestream: json marshal error in send(): %v", err)
+	}
+	fs.logger.Debug("filestream: post request", "request", string(jsonData))
+
+	useGzip := fs.settings.IsFileStreamGzipEnabled() &&
+		fs.featureProvider.Enabled(
+			fs.beforeRunEndCtx,
+			spb.ServerFeature_FILESTREAM_GZIP,
+		)
+
+	requestBody := jsonData
+	if useGzip {
+		var compressed bytes.Buffer
+		gzipWriter := gzip.NewWriter(&compressed)
+		if _, err := gzipWriter.Write(jsonData); err != nil {
+			return fmt.Errorf("filestream: gzip write error in send(): %v", err)
+		}
+		if err := gzipWriter.Close(); err != nil {
+			return fmt.Errorf("filestream: gzip close error in send(): %v", err)
+		}
+		requestBody = compressed.Bytes()
+	}
+
+	op := fs.trackUploadOperation(data)
+	defer op.Finish()
+
+	req, err := retryablehttp.NewRequestWithContext(
+		op.Context(fs.beforeRunEndCtx),
+		http.MethodPost,
+		fs.baseURL.JoinPath(fs.path).String(),
+		bytes.NewReader(requestBody),
+	)
+	if err != nil {
+		return fmt.Errorf("filestream: error constructing request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if useGzip {
+		req.Header.Set("Content-Encoding", "gzip")
+	}
+
+	shouldLogStartAndEnd := !data.IsHeartbeat()
+	if shouldLogStartAndEnd {
+		fs.logRequestSummary(data)
+	}
+
+	resp, err := fs.apiClient.Do(req)
+
+	switch {
+	case err != nil:
+		return fmt.Errorf(
+			"filestream: error making HTTP request: %v. got response: %v",
+			err,
+			resp,
+		)
+	case resp.StatusCode < 200 || resp.StatusCode > 300:
+		// If we reach here, that means all retries were exhausted. This could
+		// mean, for instance, that the user's internet connection broke.
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<10))
+		_ = resp.Body.Close()
+
+		return fmt.Errorf(
+			"filestream: failed to upload: %v url=%v: %s",
+			resp.Status,
+			req.URL,
+			string(body),
+		)
+
+	default:
+		if shouldLogStartAndEnd {
+			// Log after sending to record that the backend responded and should
+			// have the data in the request.
+			fs.logger.Info("filestream: request sent", "status", resp.Status)
+		}
+	}
+
+	defer func(Body io.ReadCloser) {
+		if err = Body.Close(); err != nil {
+			fs.logger.CaptureError(
+				"filestream",
+				fmt.Errorf("filestream: error closing response body: %v", err),
+			)
+		}
+	}(resp.Body)
+
+	var res map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&res)
+	if err != nil {
+		fs.logger.CaptureError(
+			"filestream",
+			fmt.Errorf("filestream: json decode error: %v", err),
+		)
+	}
+	feedbackChan <- res
+	fs.logger.Debug("filestream: post response", "response", res)
+	return nil
+}
+
+// trackUploadOperation returns a WandbOperation for tracking
+// a filestream upload.
+func (fs *fileStream) trackUploadOperation(
+	data *FileStreamRequestJSON,
+) *wboperation.WandbOperation {
+	parts := make([]string, 0, 3)
+
+	if history, ok := data.Files[HistoryFileName]; ok && len(history.Content) > 0 {
+		parts = append(parts,
+			fmt.Sprintf("history steps %d-%d",
+				history.Offset,
+				history.Offset+len(history.Content)-1))
+	}
+
+	if summary, ok := data.Files[SummaryFileName]; ok && len(summary.Content) > 0 {
+		parts = append(parts, "summary")
+	}
+
+	if console, ok := data.Files[OutputFileName]; ok && len(console.Content) > 0 {
+		parts = append(parts,
+			fmt.Sprintf("console lines %d-%d",
+				console.Offset,
+				console.Offset+len(console.Content)-1))
+	}
+
+	if len(parts) == 0 {
+		// Shouldn't happen, but guard against future bugs.
+		return fs.operations.New("uploading data")
+	} else {
+		return fs.operations.New("uploading " + strings.Join(parts, ", "))
+	}
+}
+
+// logRequestSummary logs a little information about a request at INFO level.
+//
+// When metrics don't show up in the UI, this helps determine whether they were
+// even sent.
+func (fs *fileStream) logRequestSummary(data *FileStreamRequestJSON) {
+	// 11 = number of attribute pairs logged below
+	attrs := make([]any, 0, 11*2)
+
+	attrs = append(attrs, "total_files", len(data.Files))
+
+	if history, ok := data.Files[HistoryFileName]; ok {
+		attrs = append(attrs,
+			"history_offset", history.Offset,
+			"history_lines", len(history.Content))
+	}
+	if events, ok := data.Files[EventsFileName]; ok {
+		attrs = append(attrs,
+			"events_offset", events.Offset,
+			"events_lines", len(events.Content))
+	}
+	if console, ok := data.Files[OutputFileName]; ok {
+		attrs = append(attrs,
+			"console_offset", console.Offset,
+			"console_lines", len(console.Content))
+	}
+
+	if len(data.Uploaded) > 0 {
+		attrs = append(attrs, "uploaded_len", len(data.Uploaded))
+	}
+
+	if data.Preempting != nil {
+		attrs = append(attrs, "preempting", *data.Preempting)
+	}
+	if data.Complete != nil {
+		attrs = append(attrs, "complete", *data.Complete)
+	}
+	if data.ExitCode != nil {
+		attrs = append(attrs, "exit_code", *data.ExitCode)
+	}
+
+	fs.logger.Info("filestream: sending request", attrs...)
+}

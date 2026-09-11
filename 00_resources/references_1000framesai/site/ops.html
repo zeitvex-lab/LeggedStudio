@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>上线检查 · Locomotion Platform</title>
+  <link rel="stylesheet" href="/shared/nav.css?v=home-nav-1" />
+  <link rel="stylesheet" href="/shared/styles.css?v=no-tailwind-1" />
+  <link rel="stylesheet" href="./styles.css?v=ops-quick-play-1" />
+</head>
+<body>
+  <main class="page-shell page-shell-wide ops-shell">
+    <header class="page-header">
+      <div>
+        <h1>上线检查</h1>
+        <p>上线前快速检查本地配置、数据库、存储、远程算力服务器、GPU、磁盘和训练任务状态。</p>
+      </div>
+      <div class="page-actions">
+        <span id="lastChecked" class="ops-muted">-</span>
+        <button id="markOrphansButton" type="button" class="btn-danger" title="仅处理 15 分钟以上无心跳的活动任务">修复孤儿任务</button>
+        <button id="refreshButton" type="button" class="btn">刷新检查</button>
+      </div>
+    </header>
+
+    <section id="summaryPanel" class="ops-summary panel">
+      <div>
+        <span id="summaryBadge" class="ops-state warn">checking</span>
+        <h2 id="summaryTitle">正在检查</h2>
+        <p id="summaryText">正在读取平台和远程服务器状态。</p>
+      </div>
+      <div id="countGrid" class="ops-count-grid"></div>
+    </section>
+
+    <div id="opsNotice" class="ops-notice" hidden></div>
+
+    <section class="ops-layout">
+      <div class="panel">
+        <div class="panel-title">
+          <div>
+            <h2 class="text-sm font-bold text-slate-100">Preflight</h2>
+            <p class="text-xs text-slate-500 mt-0.5">fail 必须处理，warn 是上线风险或当前开发态提醒。</p>
+          </div>
+        </div>
+        <div id="checkList" class="ops-check-list"></div>
+      </div>
+
+      <aside class="ops-side">
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2 class="text-sm font-bold text-slate-100">上线优先级</h2>
+              <p class="text-xs text-slate-500 mt-0.5">当前平台到正式部署的剩余工作。</p>
+            </div>
+          </div>
+          <div class="ops-roadmap">
+            <div><strong>1</strong><span>生产环境变量、HTTPS、关闭注册、替换默认密钥。</span></div>
+            <div><strong>2</strong><span>训练 worker 独立进程化，支持远程训练心跳、取消和恢复。</span></div>
+            <div><strong>3</strong><span>SQLite 切到 Postgres，补 Alembic 迁移和备份策略。</span></div>
+            <div><strong>4</strong><span>算法适配流水线标准化：训练、导出、sim2sim、预览视频都走 manifest。</span></div>
+            <div><strong>5</strong><span>CAD/URDF 的材料、体积、质量、惯量计算做成可复查报告。</span></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2 class="text-sm font-bold text-slate-100">生产配置向导</h2>
+              <p class="text-xs text-slate-500 mt-0.5">根据当前 preflight 生成上线 env 模板，不包含真实密钥。</p>
+            </div>
+            <button id="copyEnvButton" type="button" class="btn">复制 env</button>
+          </div>
+          <div id="productionGuide" class="ops-production-guide">等待检查...</div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2 class="text-sm font-bold text-slate-100">远程资源</h2>
+              <p class="text-xs text-slate-500 mt-0.5">来自 SSH 只读探针。</p>
+            </div>
+          </div>
+          <pre id="remoteDetail" class="ops-detail">等待检查...</pre>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2 class="text-sm font-bold text-slate-100">队列 / Worker</h2>
+              <p class="text-xs text-slate-500 mt-0.5">当前排队、运行、最近结束任务和远程训练进程。</p>
+            </div>
+            <button id="queueRefreshButton" type="button" class="btn">刷新</button>
+          </div>
+          <div id="queuePanel" class="ops-queue">等待检查...</div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2 class="text-sm font-bold text-slate-100">产物占用</h2>
+              <p class="text-xs text-slate-500 mt-0.5">本地 ONNX / 日志 / 远程 checkpoint 只读盘点。</p>
+            </div>
+            <button id="artifactRefreshButton" type="button" class="btn">刷新</button>
+          </div>
+          <div id="artifactPanel" class="ops-artifacts">等待检查...</div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2 class="text-sm font-bold text-slate-100">算法适配</h2>
+              <p class="text-xs text-slate-500 mt-0.5">训练、导出、sim2sim、预览视频的 manifest 能力清单。</p>
+            </div>
+            <button id="algorithmRefreshButton" type="button" class="btn">刷新</button>
+          </div>
+          <div id="algorithmPanel" class="ops-algorithms">等待检查...</div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script type="module">
+    import { mountNav, requireAdmin } from "/shared/nav.js?v=home-nav-1";
+    mountNav("ops");
+    const user = await requireAdmin();
+    if (user) await import("./app.js?v=ops-quick-play-1");
+  </script>
+</body>
+</html>

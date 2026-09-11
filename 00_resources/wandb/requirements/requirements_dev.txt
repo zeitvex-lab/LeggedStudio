@@ -1,0 +1,60 @@
+-r requirements_test.txt
+
+# https://github.com/pallets/click/issues/3572 breaks tests
+click!=8.4.0,!=8.4.1,!=8.4.2
+
+cloudpickle
+filelock
+
+Pillow
+polars
+# Version 2.0.0 removes moviepy.editor, used by TensorBoard in some tests
+# to log videos.
+moviepy~=1.0
+imageio[ffmpeg]
+matplotlib
+soundfile
+rdkit
+plotly
+bokeh
+
+tqdm
+tenacity
+
+ipython
+jupyter
+ipykernel
+nbclient
+
+tensorboard
+tensorboardx
+tensorflow~=2.20; sys_platform != 'darwin'
+numpy<2.4.0  # tensorflow==2.20.0 uses deprecated args removed in numpy==2.4.0
+
+scikit-learn
+torch==2.11.0        # Newer versions have a segfault
+torchvision==0.26.0  # Same
+jax[cpu]
+lightning
+
+pyarrow
+kfp
+metaflow
+xgboost
+lightgbm
+urllib3
+docker
+catboost
+openai
+gymnasium
+stable_baselines3
+dspy
+
+responses
+
+# `ariadne-codegen` is a dev-only dependency used for GraphQL codegen.
+ariadne-codegen
+
+.[launch]
+.[sweeps] ; sys_platform != 'darwin' or (sys_platform == 'darwin' and platform.machine != 'arm64')
+.[sandbox]

@@ -1,0 +1,109 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build for Raspberry Pi
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Install cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build for Raspberry Pi Zero 2W (ARM64)
+        env:
+          CARGO_HOME: /tmp/cargo
+          RUST_BACKTRACE: 1
+          PKG_CONFIG_ALLOW_CROSS: 1
+        run: cross build --release --target aarch64-unknown-linux-gnu --verbose
+
+      - name: Download ONNX Runtime for ARM64
+        run: |
+          # Retry up to 3 times with delay to handle transient GitHub issues
+          for i in 1 2 3; do
+            echo "Attempt $i: Downloading ONNX Runtime..."
+            if curl -L --fail --retry 3 --retry-delay 5 \
+              https://github.com/microsoft/onnxruntime/releases/download/v1.23.0/onnxruntime-linux-aarch64-1.23.0.tgz \
+              -o /tmp/ort.tgz; then
+              echo "Download successful, extracting..."
+              tar xzf /tmp/ort.tgz -C /tmp && break
+            else
+              echo "Download attempt $i failed"
+              [ $i -lt 3 ] && sleep 10
+            fi
+          done
+          # Verify extraction succeeded
+          ls -lh /tmp/onnxruntime-linux-aarch64-1.23.0/lib/libonnxruntime.so*
+
+      - name: Prepare binaries
+        run: |
+          mkdir -p dist
+          cp target/aarch64-unknown-linux-gnu/release/microduck_runtime dist/
+          cp target/aarch64-unknown-linux-gnu/release/test_imu dist/
+          cp target/aarch64-unknown-linux-gnu/release/test_i2c_raw dist/
+          cp target/aarch64-unknown-linux-gnu/release/calibrate_imu dist/
+          cp target/aarch64-unknown-linux-gnu/release/test_controller dist/
+          cp target/aarch64-unknown-linux-gnu/release/init dist/
+          cp target/aarch64-unknown-linux-gnu/release/em dist/
+          cp target/aarch64-unknown-linux-gnu/release/check_voltage dist/
+          cp target/aarch64-unknown-linux-gnu/release/microduck_help dist/
+          cp target/aarch64-unknown-linux-gnu/release/debug_bno08x dist/
+          # Copy policies
+          cp -r policies dist/
+          # Copy systemd service file
+          cp rpi_setup/microduck_runtime.service dist/
+          # Copy ONNX Runtime library (preserving symlinks)
+          cp -a /tmp/onnxruntime-linux-aarch64-1.23.0/lib/libonnxruntime.so* dist/
+          cd dist
+          tar czf microduck_runtime-aarch64-linux.tar.gz microduck_runtime test_imu test_i2c_raw calibrate_imu test_controller init em check_voltage microduck_help debug_bno08x policies microduck_runtime.service libonnxruntime.so*
+          cd ..
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/microduck_runtime-aarch64-linux.tar.gz
+          body: |
+            ## Microduck Runtime ${{ github.ref_name }}
+
+            Cross-compiled binaries for Raspberry Pi Zero 2W (ARM64).
+
+            ### Installation
+
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash
+            ```
+
+            ### Included
+
+            - **microduck_runtime**: Main robot control runtime
+            - **calibrate_imu**: IMU calibration tool
+            - **test_imu**: BNO055 IMU test
+            - **test_i2c_raw**: Raw I2C diagnostic tool
+            - **test_controller**: Xbox controller input test
+            - **init**: Enable torque and move all motors to default pose
+            - **em**: Emergency stop — disable motor torque
+            - **check_voltage**: Read present input voltage for all motors
+            - **microduck_help**: List all available commands
+            - **debug_bno08x**: BNO08X SHTP raw packet debugger
+            - **policies/**: Bundled ONNX policy models
+            - **libonnxruntime.so**: ONNX Runtime library
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

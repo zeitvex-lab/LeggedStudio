@@ -1,0 +1,411 @@
+{"url": "https://sim.stackforce.cc/_next/static/chunks/726.4e3ad189194e715e.js", "status": 200, "size": 31066, "ctype": "application/javascript"}
+{"url": "https://sim.stackforce.cc/_next/static/chunks/595.37abfba7757430ff.js", "status": 200, "size": 69426, "ctype": "application/javascript"}
+{"url": "https://sim.stackforce.cc/_next/static/chunks/813.a483af6207812705.js", "status": 200, "size": 45384, "ctype": "application/javascript"}
+{"url": "https://sim.stackforce.cc/announcements/simready-mjlab-update-hero-v3.png", "status": 200, "size": 1331025, "ctype": "image/png"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/urdf/a1.urdf", "status": 200, "size": 18828, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/trunk.dae", "status": 200, "size": 4246463, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/trunk_A1_png", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/trunk_A1.png", "status": 200, "size": 71835, "ctype": "image/png"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/hip.dae", "status": 200, "size": 669164, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/thigh_mirror.dae", "status": 200, "size": 1187812, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/calf.dae", "status": 200, "size": 1759564, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/thigh.dae", "status": 200, "size": 1151826, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/calf.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/thigh_mirror.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/calf.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/thigh.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/%E5%AE%87%E6%A0%91A1/meshes/calf.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/urdf/go2_description.urdf", "status": 200, "size": 25821, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/base.dae", "status": null, "size": 0, "ctype": "IncompleteRead(2211477 bytes read, 8516138 more expected)"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/hip.dae", "status": 200, "size": 4666550, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/thigh.dae", "status": 200, "size": 3884265, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/calf.dae", "status": 200, "size": 1125646, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/foot.dae", "status": 200, "size": 507076, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/thigh_mirror.dae", "status": null, "size": 0, "ctype": "<urlopen error EOF occurred in violation of protocol (_ssl.c:1122)>"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/calf_mirror.dae", "status": 200, "size": 1125586, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/foot.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/thigh.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/calf.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/foot.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/thigh_mirror.dae", "status": 200, "size": 3896704, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/calf_mirror.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go2_description/dae/foot.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/urdf/go1.urdf", "status": 200, "size": 63873, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/trunk.dae", "status": 200, "size": 64275124, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/hip.dae", "status": 200, "size": 2436932, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/thigh_mirror.dae", "status": 200, "size": 1539759, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/calf.dae", "status": 200, "size": 2344683, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/thigh.dae", "status": 200, "size": 1251477, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/calf.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/thigh_mirror.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/calf.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/thigh.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/calf.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/depthCamera.dae", "status": 200, "size": 78972, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/depthCamera.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/depthCamera.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/depthCamera.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/depthCamera.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/ultraSound.dae", "status": 200, "size": 282209, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/ultraSound.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/go1_description/meshes/ultraSound.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/urdf/aliengo.urdf", "status": 200, "size": 41385, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/trunk.dae", "status": 200, "size": 3434621, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/trunk_uv_base_final_png", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/trunk_uv_base_final.png", "status": 200, "size": 132768, "ctype": "image/png"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/trunk.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/trunk_uv_base_final_png", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/trunk_uv_base_final.png", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/hip.dae", "status": 200, "size": 380230, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/thigh_mirror.dae", "status": 200, "size": 740701, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/calf.dae", "status": 200, "size": 854744, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/thigh.dae", "status": 200, "size": 741761, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/calf.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/thigh_mirror.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/calf.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/hip.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/thigh.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/aliengo_description/meshes/calf.dae", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/urdf/b2_description.urdf", "status": 200, "size": 29682, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/base_link.dae", "status": 200, "size": 7409409, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/FL_hip.dae", "status": 200, "size": 247529, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/FL_thigh.dae", "status": 200, "size": 776884, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/FL_calf.dae", "status": 200, "size": 2254632, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/FR_hip.dae", "status": 200, "size": 247640, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/FR_thigh.dae", "status": 200, "size": 776928, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/FR_calf.dae", "status": 200, "size": 2254632, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/RL_hip.dae", "status": 200, "size": 244024, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/RL_thigh.dae", "status": 200, "size": 776297, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/RL_calf.dae", "status": 200, "size": 2254632, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/RR_hip.dae", "status": 200, "size": 245203, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/RR_thigh.dae", "status": 200, "size": 776569, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/b2_description/meshes/RR_calf.dae", "status": 200, "size": 2254632, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/g1_29dof.urdf", "status": 200, "size": 35180, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/pelvis.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/pelvis_contour_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/pelvis_contour_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_hip_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_hip_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_hip_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_hip_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_hip_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_hip_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_knee_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_knee_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_ankle_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_ankle_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_ankle_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_hip_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_hip_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_hip_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_hip_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_hip_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_hip_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_knee_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_knee_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_ankle_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_ankle_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_ankle_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/waist_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/waist_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/torso_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/torso_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/logo_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/logo_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/head_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/head_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/waist_support_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/waist_support_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_shoulder_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_shoulder_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_shoulder_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_shoulder_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_elbow_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_elbow_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_wrist_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_wrist_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_wrist_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_wrist_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_wrist_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_wrist_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/left_rubber_hand.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_shoulder_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_shoulder_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_shoulder_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_shoulder_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_elbow_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_elbow_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_wrist_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_wrist_roll_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_wrist_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_wrist_pitch_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_wrist_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_wrist_yaw_link.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/g1_description/urdf/meshes/right_rubber_hand.STL", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/urdf/XBot-L.urdf", "status": 200, "size": 115376, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/base_link.STL", "status": 200, "size": 153484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/base_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/neck_base_link.STL", "status": 200, "size": 13184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/neck_base_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/neck_yaw_link.STL", "status": 200, "size": 521084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/neck_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/neck_pitch_link.STL", "status": 200, "size": 1189084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/neck_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/realsense_link.STL", "status": 200, "size": 182784, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/realsense_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_arm_base_link.STL", "status": 200, "size": 49884, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_arm_base_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_shoulder_pitch_link.STL", "status": 200, "size": 266284, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_shoulder_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_shoulder_roll_link.STL", "status": 200, "size": 321484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_shoulder_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_arm_yaw_link.STL", "status": 200, "size": 230684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_arm_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_elbow_pitch_link.STL", "status": 200, "size": 198584, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_elbow_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_elbow_yaw_link.STL", "status": 200, "size": 198184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_elbow_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_wrist_roll_link.STL", "status": 200, "size": 213784, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_wrist_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_wrist_yaw_link.STL", "status": 200, "size": 105984, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_wrist_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_arm_base_link.STL", "status": 200, "size": 49884, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_arm_base_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_shoulder_pitch_link.STL", "status": 200, "size": 264584, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_shoulder_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_shoulder_roll_link.STL", "status": 200, "size": 321484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_shoulder_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_arm_yaw_link.STL", "status": 200, "size": 230284, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_arm_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_elbow_pitch_link.STL", "status": 200, "size": 198584, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_elbow_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_elbow_yaw_link.STL", "status": 200, "size": 198184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_elbow_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_wrist_roll_link.STL", "status": 200, "size": 213784, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_wrist_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_wrist_yaw_link.STL", "status": 200, "size": 105984, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_wrist_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/waist_yaw_link.STL", "status": 200, "size": 150684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/waist_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/waist_roll_link.STL", "status": 200, "size": 58684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/waist_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_leg_roll_link.STL", "status": 200, "size": 47684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_leg_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_leg_yaw_link.STL", "status": 200, "size": 44484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_leg_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_leg_pitch_link.STL", "status": 200, "size": 785784, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_leg_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_knee_link.STL", "status": 200, "size": 1014584, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_knee_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_pitch_link.STL", "status": 200, "size": 88484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_roll_link.STL", "status": 200, "size": 806684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_foot_ee_link.STL", "status": 200, "size": 684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_foot_ee_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_pitch_motor1_link.STL", "status": 200, "size": 78984, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_pitch_motor1_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_pitch_linkage1_link.STL", "status": 200, "size": 10284, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_pitch_linkage1_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_pitch_motor2_link.STL", "status": 200, "size": 78984, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_pitch_motor2_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_pitch_linkage2_link.STL", "status": 200, "size": 10684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_ankle_pitch_linkage2_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_knee_motor_link.STL", "status": 200, "size": 25084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_knee_motor_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_knee_linkage_link.STL", "status": 200, "size": 13484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_knee_linkage_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_leg_roll_link.STL", "status": 200, "size": 47684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_leg_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_leg_yaw_link.STL", "status": 200, "size": 44384, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_leg_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_leg_pitch_link.STL", "status": 200, "size": 786484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_leg_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_knee_link.STL", "status": 200, "size": 1012984, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_knee_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_pitch_link.STL", "status": 200, "size": 5684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_roll_link.STL", "status": 200, "size": 806384, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_foot_ee_link.STL", "status": 200, "size": 684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_foot_ee_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_pitch_motor1_link.STL", "status": 200, "size": 78984, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_pitch_motor1_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_pitch_linkage1_link.STL", "status": 200, "size": 10284, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_pitch_linkage1_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_pitch_motor2_link.STL", "status": 200, "size": 78984, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_pitch_motor2_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_pitch_linkage2_link.STL", "status": 200, "size": 10684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_ankle_pitch_linkage2_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_knee_motor_link.STL", "status": 200, "size": 25084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_knee_motor_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_knee_linkage_link.STL", "status": 200, "size": 13484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_knee_linkage_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_link.STL", "status": 200, "size": 80184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_thumb_bend_link.STL", "status": 200, "size": 20384, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_thumb_bend_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_thumb_rota_link1.STL", "status": 200, "size": 65284, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_thumb_rota_link1.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_thumb_rota_link2.STL", "status": 200, "size": 133684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_thumb_rota_link2.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_thumb_tip.STL", "status": 200, "size": 2484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_thumb_tip.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_index_rota_link1.STL", "status": 200, "size": 60684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_index_rota_link1.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_index_rota_link2.STL", "status": 200, "size": 176184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_index_rota_link2.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_index_tip.STL", "status": 200, "size": 2484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_index_tip.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_mid_link1.STL", "status": 200, "size": 60684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_mid_link1.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_mid_link2.STL", "status": 200, "size": 176184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_mid_link2.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_mid_tip.STL", "status": 200, "size": 2484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_mid_tip.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_ring_link1.STL", "status": 200, "size": 60684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_ring_link1.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_ring_link2.STL", "status": 200, "size": 176184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_ring_link2.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_ring_tip.STL", "status": 200, "size": 2484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_ring_tip.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_pinky_link1.STL", "status": 200, "size": 60684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_pinky_link1.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_pinky_link2.STL", "status": 200, "size": 176184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_pinky_link2.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_pinky_tip.STL", "status": 200, "size": 2484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_pinky_tip.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_ee_link.STL", "status": 200, "size": 684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/left_hand_ee_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_link.STL", "status": 200, "size": 80184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_thumb_bend_link.STL", "status": 200, "size": 20384, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_thumb_bend_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_thumb_rota_link1.STL", "status": 200, "size": 65284, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_thumb_rota_link1.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_thumb_rota_link2.STL", "status": 200, "size": 133684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_thumb_rota_link2.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_thumb_rota_tip.STL", "status": 200, "size": 2484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_thumb_rota_tip.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_mid_link1.STL", "status": 200, "size": 60684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_mid_link1.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_mid_link2.STL", "status": 200, "size": 176184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_mid_link2.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_mid_tip.STL", "status": 200, "size": 2484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_mid_tip.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_ring_link1.STL", "status": 200, "size": 60684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_ring_link1.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_ring_link2.STL", "status": 200, "size": 176184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_ring_link2.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_ring_tip.STL", "status": 200, "size": 2484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_ring_tip.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_pinky_link1.STL", "status": 200, "size": 60684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_pinky_link1.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_pinky_link2.STL", "status": 200, "size": 176184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_pinky_link2.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_pinky_tip.STL", "status": 200, "size": 2484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_pinky_tip.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_ee_link.STL", "status": 200, "size": 684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_ee_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_index_rota_link1.STL", "status": 200, "size": 60684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_index_rota_link1.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_index_rota_link2.STL", "status": 200, "size": 176184, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_index_rota_link2.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_index_tip.STL", "status": 200, "size": 2484, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/xbot_l/meshes/right_hand_index_tip.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/urdf/q1.urdf", "status": 200, "size": 13463, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/base_link.STL", "status": 200, "size": 7872984, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_yaw_l.STL", "status": 200, "size": 1724084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_yaw_l.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_roll_l.STL", "status": 200, "size": 326784, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_roll_l.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_pitch_l.STL", "status": 200, "size": 3429284, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_pitch_l.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/knee_pitch_l.STL", "status": 200, "size": 1515084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/knee_pitch_l.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/ankle_pitch_l.STL", "status": 200, "size": 809984, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/ankle_pitch_l.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_yaw_r.STL", "status": 200, "size": 1727684, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_yaw_r.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_roll_r.STL", "status": 200, "size": 327784, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_roll_r.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_pitch_r.STL", "status": 200, "size": 3435384, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/hip_pitch_r.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/knee_pitch_r.STL", "status": 200, "size": 1517584, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/knee_pitch_r.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/ankle_pitch_r.STL", "status": 200, "size": 809884, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/robotamer_qmini/meshes/ankle_pitch_r.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/urdf/gr1t1.urdf", "status": 200, "size": 39822, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/base_link.STL", "status": 200, "size": 750084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_thigh_roll_link.STL", "status": 200, "size": 750084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_thigh_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_thigh_yaw_link.STL", "status": 200, "size": 750084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_thigh_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_thigh_pitch_link.STL", "status": 200, "size": 750084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_shank_pitch_link.STL", "status": 200, "size": 750034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_foot_pitch_link.STL", "status": 200, "size": 237284, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_foot_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_foot_roll_link.STL", "status": 200, "size": 375084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_thigh_roll_link.STL", "status": 200, "size": 600034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_thigh_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_thigh_yaw_link.STL", "status": 200, "size": 600034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_thigh_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_thigh_pitch_link.STL", "status": 200, "size": 750084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_shank_pitch_link.STL", "status": 200, "size": 750034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_foot_pitch_link.STL", "status": 200, "size": 237284, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_foot_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_foot_roll_link.STL", "status": 200, "size": 375034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/waist_yaw_link.STL", "status": 200, "size": 500084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/waist_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/waist_pitch_link.STL", "status": 200, "size": 600084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/waist_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/waist_roll_link.STL", "status": 200, "size": 500084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/waist_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/torso_link.STL", "status": 200, "size": 800034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_upper_arm_pitch_link.STL", "status": 200, "size": 600034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_upper_arm_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_upper_arm_roll_link.STL", "status": 200, "size": 500084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_upper_arm_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_upper_arm_yaw_link.STL", "status": 200, "size": 600084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_lower_arm_pitch_link.STL", "status": 200, "size": 499934, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_lower_arm_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_hand_yaw_link.STL", "status": 200, "size": 600034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_hand_roll_link.STL", "status": 200, "size": 140584, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_hand_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_hand_pitch_link.STL", "status": 200, "size": 318084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/left_hand_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_upper_arm_pitch_link.STL", "status": 200, "size": 600034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_upper_arm_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_upper_arm_roll_link.STL", "status": 200, "size": 500034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_upper_arm_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_upper_arm_yaw_link.STL", "status": 200, "size": 600084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_lower_arm_pitch_link.STL", "status": 200, "size": 500084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_lower_arm_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_hand_yaw_link.STL", "status": 200, "size": 599984, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_hand_roll_link.STL", "status": 200, "size": 140584, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_hand_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_hand_pitch_link.STL", "status": 200, "size": 318084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/right_hand_pitch_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/head_yaw_link.STL", "status": 200, "size": 600034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/head_yaw_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/head_roll_link.STL", "status": 200, "size": 500034, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/head_roll_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/head_pitch_link.STL", "status": 200, "size": 600084, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/IMU_link.STL", "status": 200, "size": 122384, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/gr1/meshes/gr1t1/IMU_link.STL", "status": "cached"}
+{"url": "https://sim.stackforce.cc/examples/robots/anymal_b/urdf/anymal_b.urdf", "status": 200, "size": 24913, "ctype": "application/octet-stream"}
+{"url": "https://sim.stackforce.cc/examples/robots/anymal_b/meshes/anymal_base.dae", "status": 200, "size": 9239348, "ctype": "model/vnd.collada+xml"}
+{"url": "https://sim.stackforce.cc/examples/robots/anymal_b/meshes/base_uv_texture.jpg", "status": 200, "size": 663631, "ctype": "image/jpeg"}
+{"url": "https://sim.stackforce.cc/examples/robots/anymal_b/meshes/base_uv_texture_jpg", "status": 404, "size": 0, "ctype": ""}
+{"url": "https://sim.stackforce.cc/examples/robots/anymal_b/meshes/anymal_hip_l.dae", "status": 200, "size": 2483270, "ctype": "model/vnd.collada+xml"}

@@ -1,0 +1,118 @@
+{
+  "_comment_camera_type": "摄像头类型: realsense=Intel RealSense D435i, webcam=普通USB摄像头",
+  "camera_type": "realsense",
+  "_comment_camera_id": "摄像头设备编号（仅 webcam 模式使用）",
+  "camera_id": 1,
+  "_comment_camera_width": "摄像头分辨率宽度",
+  "camera_width": 1920,
+  "_comment_camera_height": "摄像头分辨率高度",
+  "camera_height": 1080,
+
+  "_comment_input_size": "模型输入图像尺寸",
+  "input_size": 640,
+
+  "_comment_conf_threshold": "置信度阈值",
+  "conf_threshold": 0.35,
+
+  "_comment_iou_threshold": "NMS IoU 阈值",
+  "iou_threshold": 0.45,
+
+  "_comment_warmup_frames": "预热帧数",
+  "warmup_frames": 10,
+
+  "_comment_confirm_frames": "投票帧数",
+  "confirm_frames": 5,
+
+  "_comment_confirm_frame_interval": "帧间隔",
+  "confirm_frame_interval": 1,
+
+  "_comment_class_id_base": "类别ID偏移",
+  "class_id_base": 1,
+
+  "_comment_classes": "物资箱类型: 1=食物(绿), 2=工具(灰), 3=仪器(蓝), 4=药品(红)",
+  "classes": {
+    "1": "food",
+    "2": "tool",
+    "3": "instrument",
+    "4": "medicine"
+  },
+
+  "_comment_type_colors": "类型对应显示颜色 (BGR)",
+  "type_colors": {
+    "food":       [0, 200, 0],
+    "tool":       [160, 160, 160],
+    "instrument": [200, 100, 0],
+    "medicine":   [0, 0, 200]
+  },
+
+  "_comment_debug_image": "调试图像输出",
+  "debug_image": "box_detector_debug.jpg",
+
+  "_comment_zone_map": "箱子类型 → 归位区编号映射",
+  "type_zone_map": {
+    "food": 1,
+    "tool": 2,
+    "instrument": 3,
+    "medicine": 4
+  },
+
+  "_comment_scan_phases": "两步扫描: 点0远看8箱, 点1近看中间4箱(06,07,10,11)",
+  "scan_depth_config": {
+    "_comment_phase0": "点0远距离扫描（看到全部8箱）",
+    "phase0": {
+      "first_row_dist": 2.0,
+      "first_row_tol": 0.8,
+      "second_row_dist": 3.0,
+      "second_row_tol": 0.8,
+      "layout": {
+        "first_row":  [9, 10, 11, 12],
+        "second_row": [5,  6,  7,  8]
+      }
+    },
+    "_comment_phase1": "点1近距离扫描（只看到中间4箱）",
+    "phase1": {
+      "first_row_dist": 0.5,
+      "first_row_tol": 0.4,
+      "second_row_dist": 1.5,
+      "second_row_tol": 0.6,
+      "visible_boxes": [10, 11, 6, 7],
+      "_comment_visible": "从左到右: 箱10, 11(第一排中间), 箱06, 07(第二排中间)",
+      "layout": {
+        "first_row":  [10, 11],
+        "second_row": [6,  7]
+      }
+    },
+    "merge_iou_threshold": 0.3
+  },
+
+  "_comment_scan_regions_legacy": "旧版扫描区域（备用）",
+  "scan_regions": [
+    {"x_min": 0.000, "x_max": 0.125, "point": 9},
+    {"x_min": 0.125, "x_max": 0.250, "point": 10},
+    {"x_min": 0.250, "x_max": 0.375, "point": 11},
+    {"x_min": 0.375, "x_max": 0.500, "point": 12},
+    {"x_min": 0.500, "x_max": 0.625, "point": 5},
+    {"x_min": 0.625, "x_max": 0.750, "point": 6},
+    {"x_min": 0.750, "x_max": 0.875, "point": 7},
+    {"x_min": 0.875, "x_max": 1.000, "point": 8}
+  ],
+
+  "_comment_pickup_map": "取货站位 → 左右箱子编号",
+  "pickup_map": {
+    "2": {"left": 9,  "right": 10},
+    "3": {"left": 11, "right": 12},
+    "4": {"left": 5,  "right": 6},
+    "5": {"left": 7,  "right": 8}
+  },
+
+  "_comment_place_map": "放货站位 → 归位区编号",
+  "place_map": {
+    "6": 1,
+    "7": 2,
+    "8": 3,
+    "9": 4
+  },
+
+  "_comment_model_dir": "模型目录",
+  "model_dir": "model"
+}

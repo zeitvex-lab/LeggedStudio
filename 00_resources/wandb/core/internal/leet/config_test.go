@@ -1,0 +1,210 @@
+package leet_test
+
+import (
+	"math"
+	"os"
+	"path/filepath"
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/stretchr/testify/require"
+
+	"github.com/wandb/wandb/core/internal/leet"
+	"github.com/wandb/wandb/core/internal/observability"
+)
+
+func TestConfigHotkeys_UpdateGridDimensions(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	runParams := &leet.RunParams{
+		RunFile: "dummy",
+	}
+	run := leet.NewRun(runParams, cfg, logger)
+	var m tea.Model = run
+	// Ensure model is sized so internal recomputations run.
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// metrics rows: 'r' then '5' (default focus = metrics grid)
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'r'})
+	m, _ = m.Update(tea.KeyPressMsg{Code: '5'})
+	gridRows, _ := cfg.MetricsGrid()
+	require.Equal(t, gridRows, 5)
+
+	// metrics cols: 'c' then '4'
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'c'})
+	m, _ = m.Update(tea.KeyPressMsg{Code: '4'})
+	_, gridCols := cfg.MetricsGrid()
+	require.Equal(t, gridCols, 4)
+
+	// Focus system metrics, then use universal 'r'/'c' to configure system grid.
+	run.TestSetFocusTarget(int(leet.FocusTargetSystemMetrics))
+
+	// system rows: 'r' then '2'
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'r'})
+	m, _ = m.Update(tea.KeyPressMsg{Code: '2'})
+	gridRows, _ = cfg.SystemGrid()
+	require.Equal(t, gridRows, 2)
+
+	// system cols: 'c' then '3'
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'c'})
+	_, _ = m.Update(tea.KeyPressMsg{Code: '3'})
+	_, gridCols = cfg.SystemGrid()
+	require.Equal(t, gridCols, 3)
+}
+
+func TestConfig_SetLeftSidebarVisible_TogglesAndPersists(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	// Toggle on
+	err := cfg.SetLeftSidebarVisible(true)
+	require.NoError(t, err)
+	require.True(t, cfg.LeftSidebarVisible())
+
+	// Toggle off
+	err = cfg.SetLeftSidebarVisible(false)
+	require.NoError(t, err)
+	require.False(t, cfg.LeftSidebarVisible())
+}
+
+func TestConfig_SetLeftSidebarVisible_AffectsModelOnStartup(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+	err := cfg.SetLeftSidebarVisible(true)
+	require.NoError(t, err)
+
+	runParams := &leet.RunParams{
+		RunFile: "dummy",
+	}
+	m := leet.NewRun(runParams, cfg, logger)
+	var tm tea.Model = m
+	tm, _ = tm.Update(tea.WindowSizeMsg{Width: 160, Height: 60})
+
+	model := tm.(*leet.Run)
+	require.True(t, model.TestLeftSidebarVisible())
+}
+
+func TestConfig_SetRunLayout_PersistsAndReloads(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	path := filepath.Join(t.TempDir(), "config.json")
+	cfg := leet.NewConfigManager(path, logger)
+
+	want := leet.LayoutOverrides{LeftSidebar: 0.3, Media: 0.25}
+	require.NoError(t, cfg.SetRunLayout(want))
+	require.Equal(t, want, cfg.RunLayout())
+
+	// A fresh manager reads the same overrides back from disk.
+	reloaded := leet.NewConfigManager(path, logger)
+	require.Equal(t, want, reloaded.RunLayout())
+	require.Equal(t, leet.LayoutOverrides{}, reloaded.WorkspaceLayout())
+}
+
+func TestConfig_SetWorkspaceLayout_ClampsFractions(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	cfg := leet.NewConfigManager(filepath.Join(t.TempDir(), "config.json"), logger)
+
+	require.NoError(t, cfg.SetWorkspaceLayout(leet.LayoutOverrides{
+		LeftSidebar: 0.001, // below the minimum
+		Logs:        1.5,   // above the maximum
+		OverviewEnv: 2.0,   // overview section shares clamp to the unit range
+	}))
+
+	got := cfg.WorkspaceLayout()
+	require.Equal(t, leet.MinLayoutFrac, got.LeftSidebar)
+	require.Equal(t, leet.MaxLayoutFrac, got.Logs)
+	require.Equal(t, 1.0, got.OverviewEnv)
+	// Unset fractions stay zero ("use default") rather than being clamped.
+	require.Zero(t, got.Media)
+	require.Zero(t, got.OverviewSummary)
+}
+
+func TestConfig_SetTagColorScheme_Persists(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	path := filepath.Join(t.TempDir(), "config.json")
+	cfg := leet.NewConfigManager(path, logger)
+
+	require.Equal(t, leet.DefaultTagColorScheme, cfg.Snapshot().TagColorScheme)
+
+	err := cfg.SetTagColorScheme("bootstrap-vibe")
+	require.NoError(t, err)
+	require.Equal(t, "bootstrap-vibe", cfg.TagColorScheme())
+
+	cfg2 := leet.NewConfigManager(path, logger)
+	require.Equal(t, "bootstrap-vibe", cfg2.Snapshot().TagColorScheme)
+}
+
+func TestConfig_SetSymonGrid_Persists(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	path := filepath.Join(t.TempDir(), "config.json")
+	cfg := leet.NewConfigManager(path, logger)
+
+	require.Equal(t, leet.DefaultSymonGridRows, cfg.Snapshot().SymonGrid.Rows)
+	require.Equal(t, leet.DefaultSymonGridCols, cfg.Snapshot().SymonGrid.Cols)
+
+	require.NoError(t, cfg.SetSymonRows(4))
+	require.NoError(t, cfg.SetSymonCols(2))
+
+	cfg2 := leet.NewConfigManager(path, logger)
+	rows, cols := cfg2.SymonGrid()
+	require.Equal(t, 4, rows)
+	require.Equal(t, 2, cols)
+}
+
+func TestConfig_SetFrenchFriesColorScheme_Persists(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	path := filepath.Join(t.TempDir(), "config.json")
+	cfg := leet.NewConfigManager(path, logger)
+
+	require.Equal(
+		t, leet.DefaultFrenchFriesColorScheme, cfg.Snapshot().FrenchFriesColorScheme)
+
+	err := cfg.SetFrenchFriesColorScheme("cividis")
+	require.NoError(t, err)
+	require.Equal(t, "cividis", cfg.FrenchFriesColorScheme())
+
+	cfg2 := leet.NewConfigManager(path, logger)
+	require.Equal(t, "cividis", cfg2.Snapshot().FrenchFriesColorScheme)
+}
+
+func TestConfig_SetChartGuides_Persists(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	path := filepath.Join(t.TempDir(), "config.json")
+	cfg := leet.NewConfigManager(path, logger)
+
+	require.Equal(t, leet.DefaultChartGuides, cfg.ChartGuides())
+	require.NoError(t, cfg.SetChartGuides(leet.ChartGuidesHorizontal))
+	require.Equal(t, leet.ChartGuidesHorizontal, cfg.ChartGuides())
+	require.Error(t, cfg.SetChartGuides("diagonal"))
+
+	cfg2 := leet.NewConfigManager(path, logger)
+	require.Equal(t, leet.ChartGuidesHorizontal, cfg2.ChartGuides())
+}
+
+// Regression: a config file where one unrelated field fails to decode used to
+// skip normalization entirely, letting out-of-range override fractions
+// through unclamped.
+func TestConfig_PartialDecodeStillClampsOverrides(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	path := filepath.Join(t.TempDir(), "config.json")
+	require.NoError(t, os.WriteFile(path, []byte(
+		`{"run_layout":{"media":5.0},"color_scheme":123}`), 0o644))
+
+	cfg := leet.NewConfigManager(path, logger)
+	require.LessOrEqual(t, cfg.RunLayout().Media, leet.MaxLayoutFrac,
+		"fractions must be clamped even when another field fails to decode")
+}
+
+// NaN would defeat the clamp and poison every subsequent save (encoding/json
+// rejects NaN); it resets to the default instead.
+func TestConfig_SetRunLayoutRejectsNaN(t *testing.T) {
+	logger := observability.NewNoOpLogger()
+	path := filepath.Join(t.TempDir(), "config.json")
+	cfg := leet.NewConfigManager(path, logger)
+
+	require.NoError(t, cfg.SetRunLayout(leet.LayoutOverrides{Media: math.NaN()}))
+	require.Zero(t, cfg.RunLayout().Media)
+
+	// Later unrelated saves keep working.
+	require.NoError(t, cfg.SetLeftSidebarVisible(false))
+}

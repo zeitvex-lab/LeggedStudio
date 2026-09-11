@@ -1,0 +1,114 @@
+# ======================================================================================
+# ★ 任务赛专用配置 — dog_policy_test_13
+# ======================================================================================
+# 本文件专供 dog_policy_test_13（任务赛节点）使用，与 navigation_dog 配合：
+#
+#   正常导航：control_mode=2，navigation_dog 通过 /nav_cmd (DogNavCommand) 下发
+#            vx/vy/wz/height，policy 跑 RL 让狗按导航指令行走。
+#
+#   取箱/放箱：navigation_dog 发 /policy_mode=true → policy 停止发布 /joint_states，
+#            交出控制权；nav 自己发蹲下/站立姿态 + 驱动吸盘取放。
+#            完成后发 /policy_mode=false → policy 重新接管 /joint_states。
+#            （超时保护：3s 未收到 /policy_mode 自动解除，防 nav 崩溃后 policy 卡死）
+#
+# ⚠️ 启动后机器人默认 RL 未激活（保持默认站姿），需手动启动 RL：
+#   - control_mode=0 (键盘): 节点终端按 y 启动
+#   - control_mode=1 (joy) : 手柄 Y 按钮(button 3)启动
+#   - 任务赛正常跑时 control_mode=2，但启动 RL 仍需键盘 y 或手柄 Y
+#
+# ⚠️ 不要用 policy_params_12.yaml 跑任务赛：
+#   - 12.yaml 的模型指向 policy/good/（通用步态），本文件指向 policy/dog_t/（任务赛专用）
+#   - 12.yaml control_mode=1 (手柄)，本文件 control_mode=2 (导航)
+#   - 12.yaml 有几个参数名拼错（output_low_pass_alpha 等）被 test13 忽略，本文件已修正
+#
+# 运行命令：
+# ros2 run dog_policy_test dog_policy_test_13 --ros-args --params-file ./src/dog_policy_test/config/policy_params_13.yaml
+# ======================================================================================
+
+dog_policy_test_node:
+  ros__parameters:
+    # ==========================
+    # ★ 模型列表（任务赛专用 dog_t/）
+    # model_names / model_paths / model_obs_dims 三个数组长度必须一致
+    # model_obs_dims: 45 = 不含 height command, 46 = 含 height command
+    # 导航下发 model_path="" 不切模型，实际跑哪个由 default_model_index 决定
+    # ==========================
+    model_names:
+      - "dog_t_2000"
+      - "dog_t_3700"
+    model_paths:
+      - "/home/zhy/himdog/src/dog_policy_test/policy/dog_t/model_2000.onnx"
+      - "/home/zhy/himdog/src/dog_policy_test/policy/dog_t/model_3700.onnx"
+    model_obs_dims:
+      - 46
+      - 46
+
+    # 默认启动使用的模型索引 (0-based)
+    # 切换: 键盘 N/M 或 手柄 Back/B（切换时自动关 RL，需重新按 y 启动）
+    default_model_index: 0
+
+    # ========== 控制模式 ==========
+    # control_mode:
+    #   0 → 键盘控制（调试用）
+    #   1 → joy 手柄控制（订阅 /joy，需要 joy_node）
+    #   2 → 导航控制（订阅 /nav_cmd，任务赛用这个）
+    control_mode: 2
+
+    # ========== 键盘控制速度参数（control_mode=0 时生效，调试用）==========
+    kb_forward_speed: 0.6
+    kb_backward_speed: -0.6
+    kb_left_speed: 0.5
+    kb_right_speed: -0.5
+    kb_turn_left_speed: -0.8
+    kb_turn_right_speed: 0.8
+
+    # ========== 导航控制参数（control_mode=2 时生效，任务赛核心）==========
+    # navigation_dog 下发的 /nav_cmd 会被这些值限幅
+    nav_vx_max: 0.6
+    nav_vy_max: 0.5
+    nav_wz_max: 0.8
+    nav_height_min: 0.18
+    nav_height_max: 0.32
+
+    # ========== Joy 手柄控制参数（control_mode=1 时生效，备用）==========
+    joy_vx_max: 0.3
+    joy_vy_max: 0.5
+    joy_wz_max: 0.8
+    joy_deadband: 0.1
+    joy_axis_vx: 1    # 左摇杆 Y → 前后
+    joy_axis_vy: 0    # 左摇杆 X → 左右
+    joy_axis_wz: 3    # 右摇杆 X → 转向
+
+    # ========== 命令渐变 ==========
+    # 指令变化最大速率（单位/s），防突变；1.0 = 1s 内最多变 1.0
+    command_ramp_rate: 1.0
+
+    # ========== Action 参数 ==========
+    action_scale: 0.25
+
+    # ========== 输入滤波参数 ==========
+    # ★ 全部 alpha=1.0 = 直通（训练 noise 已覆盖真实传感器噪声）
+    imu_gyro_lpf_alpha: 1.0
+    imu_gyro_bias_alpha: 0.001
+    motor_pos_lpf_alpha: 1.0
+    motor_vel_lpf_alpha: 1.0
+    motor_vel_bias_alpha: 0.001
+
+    # ========== 倾倒保护参数 ==========
+    # projected_gravity[2] > threshold 触发 → 发 /emergency_stop 失能所有电机
+    # 任务赛建议保守: -0.7 ≈ 45° 触发（太松会摔，太紧会误触发）
+    tipover_threshold: -0.7
+
+    # ========== 输出平滑 / Action 限制参数 ==========
+    # 输出端低通（作用于 js_pos），1.0 = 直通
+    output_lpf_alpha: 1.0
+    # Action 步间变化率限制，100.0 = 不限制
+    action_delta_max: 100.0
+
+    # ========== 系统监控参数 ==========
+    monitor_cpu_warn: 85.0
+    monitor_mem_warn: 85.0
+    monitor_temp_warn: 75.0
+    monitor_inference_dt_warn: 15.0
+    monitor_inference_dt_overrun: 25.0
+    monitor_interval_ms: 1000

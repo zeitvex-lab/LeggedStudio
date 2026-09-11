@@ -1,0 +1,601 @@
+// Package monitor provides system resource monitoring capabilities.
+package monitor
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os/exec"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/Khan/genqlient/graphql"
+	"github.com/google/wire"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/wandb/simplejsonext"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/wandb/wandb/core/internal/observability"
+	"github.com/wandb/wandb/core/internal/runhandle"
+	"github.com/wandb/wandb/core/internal/runwork"
+	"github.com/wandb/wandb/core/internal/settings"
+	"github.com/wandb/wandb/core/internal/sharedmode"
+
+	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
+)
+
+const (
+	defaultSamplingInterval = 15.0 * time.Second
+)
+
+// State definitions for the SystemMonitor.
+const (
+	StateStopped int32 = iota
+	StateRunning
+	StatePaused
+)
+
+// SystemMonitorProviders binds SystemMonitorFactory.
+var SystemMonitorProviders = wire.NewSet(
+	wire.Struct(new(SystemMonitorFactory), "*"),
+)
+
+// Resource defines the interface for system resources to be monitored.
+type Resource interface {
+	Sample() (*spb.StatsRecord, error)
+	Probe(ctx context.Context) *spb.EnvironmentRecord
+}
+
+// monitoredResource is a Resource whose mutex is held while it is being
+// sampled, so that a slow sample is skipped rather than overlapped.
+type monitoredResource struct {
+	Resource
+	sync.Mutex
+}
+
+// SystemMonitor is responsible for monitoring system metrics across various resources.
+type SystemMonitor struct {
+	// The context for the system monitor.
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	// The wait group for the system monitor.
+	wg sync.WaitGroup
+
+	// The state of the system monitor: stopped, running, or paused.
+	state atomic.Int32
+
+	// wakeCh is a buffered channel used to force sampling of the monitored resources
+	// at startup and upon monitoring resumption.
+	wakeCh chan struct{}
+
+	// The list of resources to monitor.
+	resources []*monitoredResource
+
+	// extraWork accepts outgoing messages for the run.
+	extraWork runwork.ExtraWork
+
+	// The in-memory metrics buffer for the system monitor.
+	buffer *Buffer
+
+	// runHandle is a handle to the eventually-initialized run.
+	runHandle *runhandle.RunHandle
+
+	// settings is the settings for the system monitor.
+	settings *settings.Settings
+
+	// The interval at which metrics are sampled.
+	samplingInterval time.Duration
+
+	// A logger for internal debug logging.
+	logger *observability.CoreLogger
+
+	// graphqlClient is the graphql client.
+	graphqlClient graphql.Client
+
+	// Unique identifier of the writer to the run.
+	writerID sharedmode.ClientID
+
+	// Information about the Git repository, if applicable.
+	git *spb.GitRepoRecord
+}
+
+// SystemMonitorFactory constructs a SystemMonitor.
+type SystemMonitorFactory struct {
+	// A logger for internal debug logging.
+	Logger *observability.CoreLogger
+
+	// RunHandle is a handle to the eventually-initialized run.
+	RunHandle *runhandle.RunHandle
+
+	// Stream settings.
+	Settings *settings.Settings
+
+	// XPUResourceManager manages the sidecar for GPU/TPU metrics.
+	XPUResourceManager *XPUResourceManager
+
+	// graphqlClient is the GraphQL client to communicate with the W&B backend.
+	GraphqlClient graphql.Client
+
+	// Unique identifier of the writer to the run.
+	WriterID sharedmode.ClientID
+}
+
+// New initializes and returns a new SystemMonitor instance.
+//
+// It sets up resources based on provided settings and configures the metrics buffer.
+func (f *SystemMonitorFactory) New(extraWork runwork.ExtraWork) *SystemMonitor {
+	ctx, cancel := context.WithCancel(extraWork.BeforeEndCtx())
+	sm := &SystemMonitor{
+		ctx:              ctx,
+		cancel:           cancel,
+		wg:               sync.WaitGroup{},
+		wakeCh:           make(chan struct{}, 1),
+		runHandle:        f.RunHandle,
+		settings:         f.Settings,
+		logger:           f.Logger,
+		extraWork:        extraWork,
+		samplingInterval: defaultSamplingInterval,
+		graphqlClient:    f.GraphqlClient,
+		writerID:         f.WriterID,
+	}
+
+	if sm.settings.IsDisableStats() {
+		sm.logger.Debug("monitor: disabled")
+		return sm
+	}
+
+	bufferSize := sm.settings.GetStatsBufferSize()
+	// Initialize the buffer if a buffer size is provided.
+	// A positive buffer size N indicates that only the last N samples will be kept in memory.
+	// A value of -1 indicates that all sampled metrics will be kept in memory.
+	if bufferSize != 0 {
+		sm.buffer = NewBuffer(bufferSize)
+	}
+
+	if si := sm.settings.GetStatsSamplingInterval(); si != 0 {
+		sm.samplingInterval = time.Duration(si * float64(time.Second))
+	}
+	sm.logger.Debug(fmt.Sprintf("monitor: sampling interval: %v", sm.samplingInterval))
+
+	sm.initializeResources(f.XPUResourceManager)
+
+	return sm
+}
+
+// addResource registers a resource to monitor.
+func (sm *SystemMonitor) addResource(r Resource) {
+	sm.resources = append(sm.resources, &monitoredResource{Resource: r})
+}
+
+// initializeResources sets up the resources to be monitored based on the provided settings.
+func (sm *SystemMonitor) initializeResources(xpuResourceManager *XPUResourceManager) {
+	pid := sm.settings.GetStatsPid()
+	samplingInterval := sm.settings.GetStatsSamplingInterval()
+	neuronMonitorConfigPath := sm.settings.GetStatsNeuronMonitorConfigPath()
+	gpuDeviceIds := sm.settings.GetStatsGpuDeviceIds()
+
+	if system := NewSystem(
+		SystemParams{
+			Pid:                         pid,
+			TrackProcessTree:            sm.settings.GetStatsTrackProcessTree(),
+			DisableCgroupResourceLimits: sm.settings.GetStatsNoCgroup(),
+			DiskPaths:                   sm.settings.GetStatsDiskPaths(),
+		},
+	); system != nil {
+		sm.addResource(system)
+	}
+
+	sm.addResource(NewXPU(sm.ctx, xpuResourceManager, pid, gpuDeviceIds))
+
+	if trainium := NewTrainium(
+		sm.logger,
+		pid,
+		samplingInterval,
+		neuronMonitorConfigPath,
+	); trainium != nil {
+		sm.addResource(trainium)
+	}
+
+	// CoreWeave compute environment metadata.
+	if cwm, err := NewCoreWeaveMetadata(
+		CoreWeaveMetadataParams{
+			GraphqlClient: sm.graphqlClient,
+			Logger:        sm.logger,
+			RunHandle:     sm.runHandle,
+			Settings:      sm.settings,
+		},
+	); cwm != nil {
+		sm.addResource(cwm)
+	} else if err != nil {
+		sm.logger.CaptureError(
+			"monitor",
+			fmt.Errorf(
+				"monitor: failed to initialize CoreWeave metadata resource: %v",
+				err,
+			),
+		)
+	}
+
+	// DCGM Exporter.
+	if url := sm.settings.GetStatsDcgmExporter(); url != "" {
+		params := DCGMExporterParams{
+			URL:     url,
+			Headers: sm.settings.GetStatsOpenMetricsHeaders(),
+			Logger:  sm.logger,
+		}
+		if de := NewDCGMExporter(params); de != nil {
+			sm.addResource(de)
+		}
+	}
+
+	// OpenMetrics endpoints to monitor.
+	if endpoints := sm.settings.GetStatsOpenMetricsEndpoints(); endpoints != nil {
+		for name, url := range endpoints {
+			filters := sm.settings.GetStatsOpenMetricsFilters()
+			headers := sm.settings.GetStatsOpenMetricsHeaders()
+			if om := NewOpenMetrics(sm.logger, name, url, filters, headers, nil); om != nil {
+				sm.addResource(om)
+			}
+		}
+	}
+}
+
+// marshal constructs a StatsRecord protobuf message from the provided stats map and timestamp.
+func marshal(
+	stats map[string]any,
+	timeStamp *timestamppb.Timestamp,
+) *spb.StatsRecord {
+	statsItems := make([]*spb.StatsItem, 0, len(stats))
+	for k, v := range stats {
+		jsonData, err := simplejsonext.Marshal(v)
+		if err != nil {
+			continue
+		}
+		key := k
+		statsItems = append(statsItems, &spb.StatsItem{
+			Key:       key,
+			ValueJson: string(jsonData),
+		})
+	}
+
+	return &spb.StatsRecord{
+		StatsType: spb.StatsRecord_SYSTEM,
+		Timestamp: timeStamp,
+		Item:      statsItems,
+	}
+}
+
+// GetState returns the current state of the SystemMonitor.
+func (sm *SystemMonitor) GetState() int32 {
+	return sm.state.Load()
+}
+
+// probeExecutionContext collects information about the compute environment.
+func (sm *SystemMonitor) probeExecutionContext() *spb.Record {
+	sm.logger.Debug("monitor: probing execution environment")
+
+	return &spb.Record{RecordType: &spb.Record_Environment{Environment: &spb.EnvironmentRecord{
+		Os:            sm.settings.GetOS(),
+		Python:        sm.settings.GetPython(),
+		Host:          sm.settings.GetHostProcessorName(),
+		Program:       sm.settings.GetProgram(),
+		CodePath:      sm.settings.GetProgramRelativePath(),
+		CodePathLocal: sm.settings.GetProgramRelativePathFromCwd(),
+		Email:         sm.settings.GetEmail(),
+		Root:          sm.settings.GetRootDir(),
+		Username:      sm.settings.GetUserName(),
+		Docker:        sm.settings.GetDockerImageName(),
+		Executable:    sm.settings.GetExecutable(),
+		Args:          sm.settings.GetArgs(),
+		Colab:         sm.settings.GetColabURL(),
+		StartedAt:     timestamppb.New(sm.settings.GetStartTime()),
+		Git:           sm.git,
+
+		WriterId: string(sm.writerID),
+	}}}
+}
+
+// probeResources gathers system information from all resources and merges their metadata.
+func (sm *SystemMonitor) probeResources() *spb.Record {
+	sm.logger.Debug("monitor: probing resources")
+
+	e := &spb.EnvironmentRecord{WriterId: string(sm.writerID)}
+
+	g, gctx := errgroup.WithContext(sm.ctx)
+	var mu sync.Mutex
+
+	for _, resource := range sm.resources {
+		g.Go(func() error {
+			defer func() {
+				if err := recover(); err != nil {
+					sm.logger.CaptureError(
+						"monitor",
+						fmt.Errorf("monitor: panic probing resource: %v", err),
+					)
+				}
+			}()
+
+			if gctx.Err() != nil {
+				return nil
+			}
+
+			if rec := resource.Probe(gctx); rec != nil {
+				mu.Lock()
+				proto.Merge(e, rec)
+				mu.Unlock()
+			}
+			return nil
+		})
+	}
+
+	_ = g.Wait()
+
+	// Overwrite auto-detected metadata with user-provided values.
+	// TODO: move this to the relevant resources instead.
+	if sm.settings.GetStatsCpuCount() > 0 {
+		e.CpuCount = uint32(sm.settings.GetStatsCpuCount())
+	}
+	if sm.settings.GetStatsCpuLogicalCount() > 0 {
+		e.CpuCountLogical = uint32(sm.settings.GetStatsCpuLogicalCount())
+	}
+	if sm.settings.GetStatsGpuCount() > 0 {
+		e.GpuCount = uint32(sm.settings.GetStatsGpuCount())
+	}
+	if sm.settings.GetStatsGpuType() != "" {
+		e.GpuType = sm.settings.GetStatsGpuType()
+	}
+
+	return &spb.Record{RecordType: &spb.Record_Environment{Environment: e}}
+}
+
+// Start begins resource monitoring.
+//
+// It is safe to call Start multiple times; only a stopped monitor will initiate.
+func (sm *SystemMonitor) Start(git *spb.GitRepoRecord) {
+	if sm == nil {
+		return
+	}
+
+	if !sm.state.CompareAndSwap(StateStopped, StateRunning) {
+		return // Already started or paused
+	}
+
+	sm.git = git
+
+	if sm.settings.IsDisableStats() || sm.settings.IsDisableMachineInfo() {
+		return
+	}
+
+	sm.logger.Debug("monitor: starting")
+	sm.wg.Go(func() {
+		sm.loop()
+	})
+	sm.wake()
+}
+
+// wake forces the system monitor to sample resources immediately.
+func (sm *SystemMonitor) wake() {
+	select {
+	case sm.wakeCh <- struct{}{}:
+	default: // a wake is already pending; coalesce
+	}
+}
+
+// Probe collects environment and resource information.
+//
+// This operation may take some time, so we perform it on a best-effort basis.
+func (sm *SystemMonitor) Probe() {
+	if !sm.settings.IsDisableMeta() && !sm.settings.IsDisableMachineInfo() &&
+		sm.settings.IsPrimary() {
+		go func() {
+			sm.logger.Debug("monitor: collecting the environment and resource information")
+
+			sm.extraWork.AddWorkOrCancel(
+				sm.ctx.Done(),
+				runwork.NoRequest(
+					runwork.WorkFromRecord(sm.probeExecutionContext()),
+				),
+			)
+
+			sm.extraWork.AddWorkOrCancel(
+				sm.ctx.Done(),
+				runwork.NoRequest(
+					runwork.WorkFromRecord(sm.probeResources()),
+				),
+			)
+		}()
+	}
+}
+
+// Pause temporarily stops the monitoring process.
+//
+// Monitoring can be resumed later with the Resume method.
+//
+// Pause and Resume are used in notebook environments to ensure that
+// metrics are only collected when a cell is running. We do it this way
+// to prevent the overhead of starting and stopping the monitor for each cell.
+func (sm *SystemMonitor) Pause() {
+	if sm.state.CompareAndSwap(StateRunning, StatePaused) {
+		sm.logger.Debug("monitor: pausing")
+	}
+}
+
+// Resume restarts the monitoring process after it has been paused.
+func (sm *SystemMonitor) Resume() {
+	if sm.state.CompareAndSwap(StatePaused, StateRunning) {
+		sm.logger.Debug("monitor: resuming")
+		sm.wake()
+	}
+}
+
+// loop handles the resource monitoring loop.
+func (sm *SystemMonitor) loop() {
+	ticker := time.NewTicker(sm.samplingInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-sm.ctx.Done():
+			return
+		case <-sm.wakeCh:
+			ticker.Reset(sm.samplingInterval) // realign cadence to "now"
+		case <-ticker.C:
+		}
+
+		if sm.state.Load() != StateRunning {
+			continue
+		}
+
+		sm.sample()
+	}
+}
+
+// sample collects and publishes stats for all monitored resources.
+//
+// A resource whose previous sample has not returned yet is skipped.
+func (sm *SystemMonitor) sample() {
+	for _, r := range sm.resources {
+		if !r.TryLock() {
+			continue
+		}
+		sm.wg.Go(func() {
+			defer r.Unlock()
+			defer func() {
+				if err := recover(); err != nil {
+					sm.logger.CaptureError("monitor",
+						fmt.Errorf("monitor: panic sampling: %v", err))
+				}
+			}()
+			metrics, err := r.Sample()
+			if err != nil {
+				if ShouldCaptureSamplingError(err) {
+					sm.logger.CaptureError(
+						"monitor",
+						fmt.Errorf("monitor: error sampling metrics: %v", err),
+					)
+				} else {
+					sm.logger.Debug(fmt.Sprintf("monitor: benign sampling error: %v", err))
+				}
+			}
+
+			if metrics == nil || len(metrics.Item) == 0 {
+				return // nothing to do
+			}
+
+			// Push metrics to the in-memory buffer when enabled.
+			if sm.buffer != nil {
+				sm.buffer.Push(metrics)
+			}
+
+			// Label for custom grouping of stats, e.g. per node in a multi-node run.
+			if label := sm.settings.GetLabel(); label != "" {
+				for _, item := range metrics.Item {
+					item.Key = fmt.Sprintf("%s/l:%s", item.Key, label)
+				}
+			}
+
+			// Publish metrics.
+			record := &spb.Record{
+				RecordType: &spb.Record_Stats{
+					Stats: metrics,
+				},
+				Control: &spb.Control{AlwaysSend: true},
+			}
+			sm.extraWork.AddWorkOrCancel(
+				sm.ctx.Done(),
+				runwork.NoRequest(runwork.WorkFromRecord(record)),
+			)
+		})
+	}
+}
+
+// ShouldCaptureSamplingError checks if a resource sampling error should be captured as a telemetry error.
+//
+// Use to filter out expected/transient failures. Keep this intentionally small and specific.
+func ShouldCaptureSamplingError(err error) bool {
+	// The caller went away, e.g. the run finished mid-sample.
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+
+	// Transient gRPC connectivity to the wandb-xpu sidecar, or a request
+	// canceled by the caller.
+	if s, ok := status.FromError(err); ok &&
+		(s.Code() == codes.Unavailable || s.Code() == codes.Canceled) {
+		return false
+	}
+
+	msg := err.Error()
+	switch {
+	// Error connecting to a Prometheus server.
+	case strings.Contains(msg, "connection refused"):
+		return false
+
+	// Platforms without netstat (gopsutil may shell out on some OSes).
+	case errors.Is(err, exec.ErrNotFound):
+		return false
+	case strings.Contains(msg, "executable file not found") && strings.Contains(msg, "netstat"):
+		return false
+
+	// Container/lean Linux builds without /proc/diskstats.
+	case strings.Contains(msg, "/proc/diskstats") &&
+		(strings.Contains(msg, "no such file") ||
+			strings.Contains(msg, "no such file or directory")):
+		return false
+
+	// Windows sporadic low-level API failure wording.
+	case strings.Contains(msg, "Incorrect function."):
+		return false
+
+	// Some gopsutil APIs report "not implemented yet" for certain platforms.
+	case strings.Contains(msg, "not implemented yet"):
+		return false
+
+	default:
+		return true
+	}
+}
+
+// GetBuffer returns the current buffer of collected metrics.
+//
+// The buffer is a map of metric names to a slice of measurements - a list of
+// (timestamp, value) pairs.
+func (sm *SystemMonitor) GetBuffer() map[string][]Measurement {
+	if sm == nil || sm.buffer == nil {
+		return nil
+	}
+	return sm.buffer.GetMeasurements()
+}
+
+// Finish stops the monitoring process and performs necessary cleanup.
+//
+// NOTE: resource.Close is a potentially expensive operation.
+func (sm *SystemMonitor) Finish() {
+	if sm == nil || sm.cancel == nil {
+		return
+	}
+	if sm.state.Swap(StateStopped) == StateStopped {
+		return // Already stopped
+	}
+
+	sm.logger.Debug("monitor: stopping")
+
+	// signal to stop monitoring the resources
+	sm.cancel()
+	// wait for all resources to stop monitoring
+	sm.wg.Wait()
+	// close the resources, if they require any cleanup
+	for _, resource := range sm.resources {
+		if closer, ok := resource.Resource.(interface{ Close() }); ok {
+			closer.Close()
+		}
+	}
+	sm.logger.Debug("monitor: stopped")
+}

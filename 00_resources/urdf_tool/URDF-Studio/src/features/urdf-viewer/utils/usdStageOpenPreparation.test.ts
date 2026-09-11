@@ -1,0 +1,898 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { clearPreparedUsdStageOpenCache } from './preparedUsdStageOpenCache.ts';
+import {
+  prepareUsdStageOpenDataCore,
+  resolveUsdStageOpenPreparationConcurrency,
+} from '@/lib/robot-parser/usd/usdStageOpenPreparationCore';
+
+test.afterEach(() => {
+  clearPreparedUsdStageOpenCache();
+});
+
+test('resolveUsdStageOpenPreparationConcurrency caps worker preload fan-out at 10', () => {
+  assert.equal(resolveUsdStageOpenPreparationConcurrency(64), 10);
+  assert.equal(resolveUsdStageOpenPreparationConcurrency(1), 2);
+});
+
+test('prepareUsdStageOpenDataCore emits bytes for inline USDA stage layers', async () => {
+  const rootLayerSource = '#usda 1.0\n(\n  subLayers = [@./configuration/demo_base.usda@]\n)\n';
+  const baseLayerSource = `#usda 1.0
+def Xform "demo"
+{
+    def Xform "base_link"
+    {
+    }
+}
+`;
+
+  const result = await prepareUsdStageOpenDataCore(
+    {
+      name: 'robots/demo/root.usda',
+      content: rootLayerSource,
+      blobUrl: undefined,
+    },
+    [
+      {
+        name: 'robots/demo/root.usda',
+        content: rootLayerSource,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+      {
+        name: 'robots/demo/configuration/demo_base.usda',
+        content: baseLayerSource,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+    ],
+    {},
+  );
+
+  assert.deepEqual(
+    result.preloadFiles.map((entry) => ({
+      path: entry.path,
+      hasBlob: Boolean(entry.blob),
+      hasBytes: entry.bytes instanceof Uint8Array,
+      transferBytes: entry.transferBytes === true,
+    })),
+    [
+      {
+        path: '/robots/demo/configuration/demo_base.usda',
+        hasBlob: false,
+        hasBytes: true,
+        transferBytes: false,
+      },
+      {
+        path: '/robots/demo/root.usda',
+        hasBlob: false,
+        hasBytes: true,
+        transferBytes: false,
+      },
+    ],
+  );
+
+  const encodedRootLayer = new TextEncoder().encode(rootLayerSource);
+  const encodedBaseLayer = new TextEncoder().encode(baseLayerSource);
+  assert.equal(result.metrics?.blobByteCount, 0);
+  assert.equal(
+    result.metrics?.bytesByteCount,
+    encodedRootLayer.byteLength + encodedBaseLayer.byteLength,
+  );
+  assert.equal(result.metrics?.transferableByteCount, 0);
+  assert.equal(result.metrics?.normalizedTextFileCount, 0);
+});
+
+test('prepareUsdStageOpenDataCore materializes preload blobs and keeps optional failures soft', async () => {
+  const originalFetch = globalThis.fetch;
+  const fetchCalls: string[] = [];
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    fetchCalls.push(url);
+
+    if (url === 'blob:go2-root') {
+      return new Response(new Blob(['root-binary'], { type: 'application/octet-stream' }), {
+        status: 200,
+      });
+    }
+
+    if (url === 'blob:go2-base') {
+      return new Response(new Blob(['base-binary'], { type: 'application/octet-stream' }), {
+        status: 200,
+      });
+    }
+
+    return new Response('missing', { status: 404 });
+  }) as typeof fetch;
+
+  try {
+    const result = await prepareUsdStageOpenDataCore(
+      {
+        name: 'Go2/usd/go2.usd',
+        content:
+          '#usda 1.0\n(\n  subLayers = [@./configuration/go2_description_base.usd@, @./configuration/go2_description_sensor.usd@]\n)\n',
+        blobUrl: undefined,
+      },
+      [
+        {
+          name: 'Go2/usd/go2.usd',
+          content:
+            '#usda 1.0\n(\n  subLayers = [@./configuration/go2_description_base.usd@, @./configuration/go2_description_sensor.usd@]\n)\n',
+          blobUrl: undefined,
+          format: 'usd',
+        },
+        {
+          name: 'Go2/usd/configuration/go2_description_base.usd',
+          content: '',
+          blobUrl: undefined,
+          format: 'usd',
+        },
+      ],
+      {
+        'Go2/usd/configuration/go2_description_base.usd': 'blob:go2-base',
+        'Go2/usd/configuration/go2_description_sensor.usd': 'blob:missing-texture',
+        'Go2/textures/body.png': 'blob:go2-texture',
+      },
+    );
+
+    assert.equal(result.stageSourcePath, '/Go2/usd/go2.usd');
+    assert.deepEqual(result.criticalDependencyPaths, [
+      '/Go2/usd/configuration/go2_description_base.usd',
+      '/Go2/usd/configuration/go2_description_sensor.usd',
+    ]);
+    assert.deepEqual(
+      result.preloadFiles.map((entry) => ({
+        path: entry.path,
+        hasBlob: !!entry.blob,
+        hasError: !!entry.error,
+      })),
+      [
+        // Bundle textures are preloaded alongside layers because layer text
+        // never names them; this one 404s and must stay a soft failure.
+        { path: '/Go2/textures/body.png', hasBlob: false, hasError: true },
+        { path: '/Go2/usd/configuration/go2_description_base.usd', hasBlob: true, hasError: false },
+        {
+          path: '/Go2/usd/configuration/go2_description_sensor.usd',
+          hasBlob: false,
+          hasError: true,
+        },
+        { path: '/Go2/usd/go2.usd', hasBlob: true, hasError: false },
+      ],
+    );
+    assert.deepEqual(fetchCalls.sort(), [
+      'blob:go2-base',
+      'blob:go2-texture',
+      'blob:missing-texture',
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('prepareUsdStageOpenDataCore preloads bundle USD layers when binary root references are opaque', async () => {
+  const originalFetch = globalThis.fetch;
+  const fetchCalls: string[] = [];
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    fetchCalls.push(url);
+
+    return new Response(new Blob([url], { type: 'application/octet-stream' }), {
+      status: 200,
+    });
+  }) as typeof fetch;
+
+  try {
+    const result = await prepareUsdStageOpenDataCore(
+      {
+        name: 'FrankaEmika/panda_instanceable.usd',
+        content: '',
+        blobUrl: 'blob:panda-root',
+      },
+      [
+        {
+          name: 'FrankaEmika/panda_instanceable.usd',
+          content: '',
+          blobUrl: 'blob:panda-root',
+          format: 'usd',
+        },
+        {
+          name: 'FrankaEmika/Props/panda_link0.usd',
+          content: '',
+          blobUrl: 'blob:panda-link0',
+          format: 'usd',
+        },
+        {
+          name: 'FrankaEmika/Props/instanceable_collision_meshes.usd',
+          content: '',
+          blobUrl: 'blob:panda-collisions',
+          format: 'usd',
+        },
+        {
+          name: 'OtherRobot/Props/not-a-dependency.usd',
+          content: '',
+          blobUrl: 'blob:other-layer',
+          format: 'usd',
+        },
+      ],
+      {},
+    );
+
+    assert.deepEqual(
+      result.preloadFiles.map((entry) => entry.path),
+      [
+        '/FrankaEmika/Props/instanceable_collision_meshes.usd',
+        '/FrankaEmika/Props/panda_link0.usd',
+        '/FrankaEmika/panda_instanceable.usd',
+      ],
+    );
+    assert.deepEqual(fetchCalls.sort(), [
+      'blob:panda-collisions',
+      'blob:panda-link0',
+      'blob:panda-root',
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('prepareUsdStageOpenDataCore does not invent critical configuration layers for generic binary USD bundles', async () => {
+  const binaryLayerContent = 'PXR-USDC\u0000opaque-binary-layer';
+  const result = await prepareUsdStageOpenDataCore(
+    {
+      name: 'model_door.usd',
+      content: binaryLayerContent,
+      blobUrl: undefined,
+    },
+    [
+      {
+        name: 'model_door.usd',
+        content: binaryLayerContent,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+      {
+        name: 'resource/material.usd',
+        content: binaryLayerContent,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+      {
+        name: 'resource/v_0/link_0.usd',
+        content: binaryLayerContent,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+    ],
+    {},
+  );
+
+  assert.deepEqual(result.criticalDependencyPaths, []);
+  assert.deepEqual(
+    result.preloadFiles.map((entry) => entry.path),
+    ['/resource/material.usd', '/resource/v_0/link_0.usd', '/model_door.usd'],
+  );
+});
+
+test('prepareUsdStageOpenDataCore does not invent critical sidecars for standalone USDZ packages', async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    assert.equal(String(input), 'blob:standalone-usdz');
+    return new Response(new Blob(['opaque-usdz-package'], { type: 'model/vnd.usdz+zip' }), {
+      status: 200,
+    });
+  }) as typeof fetch;
+
+  try {
+    const result = await prepareUsdStageOpenDataCore(
+      {
+        name: '0006(1).usdz',
+        content: '',
+        blobUrl: 'blob:standalone-usdz',
+      },
+      [
+        {
+          name: '0006(1).usdz',
+          content: '',
+          blobUrl: 'blob:standalone-usdz',
+          format: 'usd',
+        },
+      ],
+      {},
+    );
+
+    assert.deepEqual(result.criticalDependencyPaths, []);
+    assert.deepEqual(
+      result.preloadFiles.map(({ path, blob, error }) => ({
+        path,
+        blobSize: blob?.size ?? null,
+        error,
+      })),
+      [{ path: '/0006(1).usdz', blobSize: 19, error: null }],
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('prepareUsdStageOpenDataCore does not infer sibling dependencies from binary config files', async () => {
+  const binaryLayerContent = 'PXR-USDC\u0000opaque-binary-layer';
+  const result = await prepareUsdStageOpenDataCore(
+    {
+      name: 'vendor/demo.usd',
+      content: binaryLayerContent,
+      blobUrl: undefined,
+    },
+    [
+      {
+        name: 'vendor/demo.usd',
+        content: binaryLayerContent,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+      {
+        name: 'vendor/configuration/demo_base.usd',
+        content: binaryLayerContent,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+    ],
+    {},
+  );
+
+  assert.deepEqual(result.criticalDependencyPaths, []);
+});
+
+test('prepareUsdStageOpenDataCore does not infer dependencies from a mapped root filename', async () => {
+  const binaryLayerContent = 'PXR-USDC\u0000opaque-binary-layer';
+  const result = await prepareUsdStageOpenDataCore(
+    {
+      name: 'robots/go2.usd',
+      content: binaryLayerContent,
+      blobUrl: undefined,
+    },
+    [
+      {
+        name: 'robots/go2.usd',
+        content: binaryLayerContent,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+    ],
+    {},
+  );
+
+  assert.deepEqual(result.criticalDependencyPaths, []);
+  assert.deepEqual(result.preloadFiles.map((entry) => entry.path), ['/robots/go2.usd']);
+});
+
+test('prepareUsdStageOpenDataCore keeps explicitly referenced missing configuration layers critical', async () => {
+  const result = await prepareUsdStageOpenDataCore(
+    {
+      name: 'vendor/demo.usd',
+      content: '#usda 1.0\n(\n  subLayers = [@./configuration/demo_base.usd@]\n)\n',
+      blobUrl: undefined,
+    },
+    [
+      {
+        name: 'vendor/demo.usd',
+        content: '#usda 1.0\n(\n  subLayers = [@./configuration/demo_base.usd@]\n)\n',
+        blobUrl: undefined,
+        format: 'usd',
+      },
+    ],
+    {},
+  );
+
+  assert.deepEqual(result.criticalDependencyPaths, ['/vendor/configuration/demo_base.usd']);
+});
+
+test('prepareUsdStageOpenDataCore keeps authored USDA sidecars as critical dependencies', async () => {
+  const rootContent = `#usda 1.0
+(
+  subLayers = [
+    @configuration/go2_description_base.usda@,
+    @configuration/go2_description_physics.usda@,
+    @configuration/go2_description_sensor.usda@,
+    @configuration/go2_description_robot.usda@
+  ]
+)
+`;
+  const result = await prepareUsdStageOpenDataCore(
+    {
+      name: 'test/unitree_ros_usda/go2_description/urdf/go2_description.usda',
+      content: rootContent,
+      blobUrl: undefined,
+    },
+    [
+      {
+        name: 'test/unitree_ros_usda/go2_description/urdf/go2_description.usda',
+        content: rootContent,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+      {
+        name: 'test/unitree_ros_usda/go2_description/urdf/configuration/go2_description_base.usda',
+        content: '#usda 1.0\n',
+        blobUrl: undefined,
+        format: 'usd',
+      },
+      {
+        name: 'test/unitree_ros_usda/go2_description/urdf/configuration/go2_description_physics.usda',
+        content: '#usda 1.0\n',
+        blobUrl: undefined,
+        format: 'usd',
+      },
+      {
+        name: 'test/unitree_ros_usda/go2_description/urdf/configuration/go2_description_sensor.usda',
+        content: '#usda 1.0\n',
+        blobUrl: undefined,
+        format: 'usd',
+      },
+      {
+        name: 'test/unitree_ros_usda/go2_description/urdf/configuration/go2_description_robot.usda',
+        content: '#usda 1.0\n',
+        blobUrl: undefined,
+        format: 'usd',
+      },
+    ],
+    {},
+  );
+
+  assert.equal(
+    result.stageSourcePath,
+    '/test/unitree_ros_usda/go2_description/urdf/go2_description.usda',
+  );
+  assert.deepEqual(result.criticalDependencyPaths, [
+    '/test/unitree_ros_usda/go2_description/urdf/configuration/go2_description_base.usda',
+    '/test/unitree_ros_usda/go2_description/urdf/configuration/go2_description_physics.usda',
+    '/test/unitree_ros_usda/go2_description/urdf/configuration/go2_description_sensor.usda',
+    '/test/unitree_ros_usda/go2_description/urdf/configuration/go2_description_robot.usda',
+  ]);
+});
+
+test('prepareUsdStageOpenDataCore normalizes invisible top-level visuals scopes for instanceable USDA references', async () => {
+  const rootLayerSource =
+    '#usda 1.0\n(\n  subLayers = [@configuration/b2_description_base.usda@]\n)\n';
+  const baseLayerSource = `#usda 1.0
+def Xform "b2_description"
+{
+    def Xform "base_link"
+    {
+        def Xform "visuals" (
+            instanceable = true
+            prepend references = </visuals/base_link>
+        )
+        {
+        }
+    }
+}
+
+def Scope "visuals"
+{
+    token visibility = "invisible"
+
+    def Xform "base_link"
+    {
+        def Xform "mesh_0"
+        {
+            uniform token purpose = "guide"
+        }
+    }
+}
+`;
+
+  const result = await prepareUsdStageOpenDataCore(
+    {
+      name: 'test/unitree_ros_usda/b2_description_mujoco/xml/b2_description.usda',
+      content: rootLayerSource,
+      blobUrl: undefined,
+    },
+    [
+      {
+        name: 'test/unitree_ros_usda/b2_description_mujoco/xml/b2_description.usda',
+        content: rootLayerSource,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+      {
+        name: 'test/unitree_ros_usda/b2_description_mujoco/xml/configuration/b2_description_base.usda',
+        content: baseLayerSource,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+    ],
+    {},
+  );
+
+  const baseLayerEntry = result.preloadFiles.find(
+    (entry) =>
+      entry.path ===
+      '/test/unitree_ros_usda/b2_description_mujoco/xml/configuration/b2_description_base.usda',
+  );
+
+  assert.ok(baseLayerEntry?.bytes instanceof Uint8Array);
+
+  const normalizedSource = new TextDecoder().decode(baseLayerEntry!.bytes!);
+  assert.match(normalizedSource, /token visibility = "inherited"/);
+  assert.match(normalizedSource, /uniform token purpose = "render"/);
+  assert.doesNotMatch(normalizedSource, /token visibility = "invisible"/);
+  assert.doesNotMatch(normalizedSource, /token purpose = "guide"/);
+});
+
+test('prepareUsdStageOpenDataCore normalizes textual .usd sidecars with USDA content', async () => {
+  const baseLayerSource = `#usda 1.0
+def Xform "demo"
+{
+    def Xform "base_link"
+    {
+        def Xform "visuals" (
+            instanceable = true
+            prepend references = </visuals/base_link>
+        )
+        {
+        }
+    }
+}
+
+def Scope "visuals"
+{
+    token visibility = "invisible"
+
+    def Xform "base_link"
+    {
+        def Xform "mesh_0"
+        {
+            uniform token purpose = "guide"
+        }
+    }
+}
+`;
+
+  const result = await prepareUsdStageOpenDataCore(
+    {
+      name: 'robots/demo/usd/demo.usd',
+      content: '#usda 1.0\n(\n  subLayers = [@./configuration/demo_base.usd@]\n)\n',
+      blobUrl: undefined,
+    },
+    [
+      {
+        name: 'robots/demo/usd/demo.usd',
+        content: '#usda 1.0\n(\n  subLayers = [@./configuration/demo_base.usd@]\n)\n',
+        blobUrl: undefined,
+        format: 'usd',
+      },
+      {
+        name: 'robots/demo/usd/configuration/demo_base.usd',
+        content: baseLayerSource,
+        blobUrl: undefined,
+        format: 'usd',
+      },
+    ],
+    {},
+  );
+
+  const baseLayerEntry = result.preloadFiles.find(
+    (entry) => entry.path === '/robots/demo/usd/configuration/demo_base.usd',
+  );
+
+  assert.ok(baseLayerEntry?.bytes instanceof Uint8Array);
+
+  const normalizedSource = new TextDecoder().decode(baseLayerEntry!.bytes!);
+  assert.match(normalizedSource, /token visibility = "inherited"/);
+  assert.match(normalizedSource, /uniform token purpose = "render"/);
+  assert.doesNotMatch(normalizedSource, /token visibility = "invisible"/);
+  assert.doesNotMatch(normalizedSource, /token purpose = "guide"/);
+});
+
+test('prepareUsdStageOpenDataCore skips full USDA text decoding when normalization triggers are absent', async () => {
+  const originalBlobText = Blob.prototype.text;
+  let textDecodeCount = 0;
+
+  Blob.prototype.text = async function patchedBlobText(this: Blob): Promise<string> {
+    textDecodeCount += 1;
+    return await originalBlobText.call(this);
+  };
+
+  try {
+    const result = await prepareUsdStageOpenDataCore(
+      {
+        name: 'robots/demo/usd/root.usd',
+        content: '#usda 1.0\n(\n  subLayers = [@./configuration/demo_base.usda@]\n)\n',
+        blobUrl: undefined,
+      },
+      [
+        {
+          name: 'robots/demo/usd/root.usd',
+          content: '#usda 1.0\n(\n  subLayers = [@./configuration/demo_base.usda@]\n)\n',
+          blobUrl: undefined,
+          format: 'usd',
+        },
+        {
+          name: 'robots/demo/usd/configuration/demo_base.usda',
+          content: `#usda 1.0
+def Scope "visuals"
+{
+    token visibility = "invisible"
+}
+`,
+          blobUrl: undefined,
+          format: 'usd',
+        },
+      ],
+      {},
+    );
+
+    const baseLayerEntry = result.preloadFiles.find(
+      (entry) => entry.path === '/robots/demo/usd/configuration/demo_base.usda',
+    );
+
+    assert.ok(baseLayerEntry?.bytes instanceof Uint8Array);
+    assert.equal(textDecodeCount, 0);
+  } finally {
+    Blob.prototype.text = originalBlobText;
+  }
+});
+
+test('prepareUsdStageOpenDataCore avoids response.text for blob-backed USDA without normalization triggers', async () => {
+  const originalFetch = globalThis.fetch;
+  let arrayBufferReadCount = 0;
+  let textReadCount = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url !== 'blob:large-usda-base') {
+      return new Response('missing', { status: 404 });
+    }
+
+    const bytes = new TextEncoder().encode(`#usda 1.0
+def Xform "demo"
+{
+    def Xform "base_link"
+    {
+    }
+}
+`);
+
+    return {
+      ok: true,
+      headers: {
+        get: () => 'text/plain;charset=utf-8',
+      },
+      arrayBuffer: async () => {
+        arrayBufferReadCount += 1;
+        return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      },
+      text: async () => {
+        textReadCount += 1;
+        return new TextDecoder().decode(bytes);
+      },
+    } as unknown as Response;
+  }) as typeof fetch;
+
+  try {
+    const result = await prepareUsdStageOpenDataCore(
+      {
+        name: 'robots/demo/root.usda',
+        content: '#usda 1.0\n(\n  subLayers = [@./configuration/demo_base.usda@]\n)\n',
+        blobUrl: undefined,
+      },
+      [
+        {
+          name: 'robots/demo/root.usda',
+          content: '#usda 1.0\n(\n  subLayers = [@./configuration/demo_base.usda@]\n)\n',
+          blobUrl: undefined,
+          format: 'usd',
+        },
+        {
+          name: 'robots/demo/configuration/demo_base.usda',
+          content: '',
+          blobUrl: 'blob:large-usda-base',
+          format: 'usd',
+        },
+      ],
+      {},
+    );
+
+    const baseLayerEntry = result.preloadFiles.find(
+      (entry) => entry.path === '/robots/demo/configuration/demo_base.usda',
+    );
+
+    assert.ok(baseLayerEntry?.bytes instanceof Uint8Array);
+    assert.equal(textReadCount, 0);
+    assert.equal(arrayBufferReadCount, 1);
+    assert.equal(result.metrics?.normalizedTextFileCount, 0);
+    assert.equal(result.metrics?.preloadFileCount, result.preloadFiles.length);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('prepareUsdStageOpenDataCore prefers full blob payload over large USDA text samples', async () => {
+  const originalFetch = globalThis.fetch;
+  const sampledContent = `#usda 1.0\n${'sample-only\n'.repeat(96 * 1024)}`;
+  const fullLayerSource = `#usda 1.0
+def Xform "full_blob_payload"
+{
+    def Xform "base_link"
+    {
+    }
+}
+`;
+  let fetchCount = 0;
+  let textReadCount = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url !== 'blob:sampled-large-usda') {
+      return new Response('missing', { status: 404 });
+    }
+
+    const bytes = new TextEncoder().encode(fullLayerSource);
+    return {
+      ok: true,
+      headers: {
+        get: () => 'text/plain;charset=utf-8',
+      },
+      arrayBuffer: async () => {
+        fetchCount += 1;
+        return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      },
+      text: async () => {
+        textReadCount += 1;
+        return fullLayerSource;
+      },
+    } as unknown as Response;
+  }) as typeof fetch;
+
+  try {
+    const result = await prepareUsdStageOpenDataCore(
+      {
+        name: 'robots/demo/root.usda',
+        content: '#usda 1.0\n(\n  subLayers = [@./configuration/demo_base.usda@]\n)\n',
+        blobUrl: undefined,
+      },
+      [
+        {
+          name: 'robots/demo/root.usda',
+          content: '#usda 1.0\n(\n  subLayers = [@./configuration/demo_base.usda@]\n)\n',
+          blobUrl: undefined,
+          format: 'usd',
+        },
+        {
+          name: 'robots/demo/configuration/demo_base.usda',
+          content: sampledContent,
+          blobUrl: 'blob:sampled-large-usda',
+          format: 'usd',
+        },
+      ],
+      {},
+    );
+
+    const baseLayerEntry = result.preloadFiles.find(
+      (entry) => entry.path === '/robots/demo/configuration/demo_base.usda',
+    );
+    assert.ok(baseLayerEntry?.bytes instanceof Uint8Array);
+    assert.match(new TextDecoder().decode(baseLayerEntry!.bytes!), /full_blob_payload/);
+    assert.doesNotMatch(new TextDecoder().decode(baseLayerEntry!.bytes!), /sample-only/);
+    assert.equal(fetchCount, 1);
+    assert.equal(textReadCount, 0);
+    assert.equal(result.metrics?.blobBackedTextProbeCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('prepareUsdStageOpenDataCore reuses normalized USDA sidecars across different root stages', async () => {
+  const originalFetch = globalThis.fetch;
+  let baseFetchCount = 0;
+  const sharedBaseLayerSource = `#usda 1.0
+def Xform "Robot"
+{
+    def Xform "base_link"
+    {
+        def Xform "visuals" (
+            instanceable = true
+            prepend references = </visuals/base_link>
+        )
+        {
+        }
+    }
+}
+
+def Scope "visuals"
+{
+    token visibility = "invisible"
+
+    def Xform "base_link"
+    {
+        def Xform "mesh_0"
+        {
+            uniform token purpose = "guide"
+        }
+    }
+}
+`;
+
+  try {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === 'blob:shared-base-layer') {
+        baseFetchCount += 1;
+        return new Response(sharedBaseLayerSource, { status: 200 });
+      }
+      return new Response('missing', { status: 404 });
+    }) as typeof fetch;
+
+    const firstResult = await prepareUsdStageOpenDataCore(
+      {
+        name: 'robots/demo/usd/root_a.usd',
+        content: '#usda 1.0\n(\n  subLayers = [@./configuration/shared_base.usda@]\n)\n',
+        blobUrl: undefined,
+      },
+      [
+        {
+          name: 'robots/demo/usd/root_a.usd',
+          content: '#usda 1.0\n(\n  subLayers = [@./configuration/shared_base.usda@]\n)\n',
+          blobUrl: undefined,
+          format: 'usd',
+        },
+        {
+          name: 'robots/demo/usd/configuration/shared_base.usda',
+          content: '',
+          blobUrl: undefined,
+          format: 'usd',
+        },
+      ],
+      {
+        'robots/demo/usd/configuration/shared_base.usda': 'blob:shared-base-layer',
+      },
+    );
+
+    const secondResult = await prepareUsdStageOpenDataCore(
+      {
+        name: 'robots/demo/usd/root_b.usd',
+        content: '#usda 1.0\n(\n  subLayers = [@./configuration/shared_base.usda@]\n)\n',
+        blobUrl: undefined,
+      },
+      [
+        {
+          name: 'robots/demo/usd/root_b.usd',
+          content: '#usda 1.0\n(\n  subLayers = [@./configuration/shared_base.usda@]\n)\n',
+          blobUrl: undefined,
+          format: 'usd',
+        },
+        {
+          name: 'robots/demo/usd/configuration/shared_base.usda',
+          content: '',
+          blobUrl: undefined,
+          format: 'usd',
+        },
+      ],
+      {
+        'robots/demo/usd/configuration/shared_base.usda': 'blob:shared-base-layer',
+      },
+    );
+
+    assert.ok(
+      firstResult.preloadFiles.some(
+        (entry) =>
+          entry.path === '/robots/demo/usd/configuration/shared_base.usda' &&
+          entry.bytes instanceof Uint8Array,
+      ),
+    );
+    assert.ok(
+      secondResult.preloadFiles.some(
+        (entry) =>
+          entry.path === '/robots/demo/usd/configuration/shared_base.usda' &&
+          entry.bytes instanceof Uint8Array,
+      ),
+    );
+    assert.equal(baseFetchCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

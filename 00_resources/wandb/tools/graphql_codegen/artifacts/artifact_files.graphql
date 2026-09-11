@@ -1,0 +1,73 @@
+fragment FileFragment on File {
+  __typename
+  id
+  name: displayName
+  url
+  sizeBytes
+  storagePath
+  mimetype
+  updatedAt
+  digest
+  md5
+  directUrl
+}
+
+fragment FileWithUrlFragment on File {
+  __typename
+  name
+  directUrl
+}
+
+query ArtifactMembershipFiles(
+  $entity: String!
+  $project: String!
+  $collection: String!
+  $alias: String!
+  $fileNames: [String!]
+  $cursor: String
+  $perPage: Int = 50
+) {
+  project(name: $project, entityName: $entity) {
+    artifactCollection(name: $collection) {
+      artifactMembership(aliasName: $alias) {
+        files(names: $fileNames, after: $cursor, first: $perPage) {
+          totalCount @include(if: true) # Workaround: ensures generated pydantic field defaults to `None`
+          pageInfo {
+            ...PageInfoFragment
+          }
+          edges {
+            node {
+              ...FileFragment
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+query GetArtifactMembershipFileUrls(
+  $entity: String!
+  $project: String!
+  $collection: String!
+  $alias: String!
+  $cursor: String
+  $perPage: Int
+) {
+  project(name: $project, entityName: $entity) {
+    artifactCollection(name: $collection) {
+      artifactMembership(aliasName: $alias) {
+        files(after: $cursor, first: $perPage) {
+          pageInfo {
+            ...PageInfoFragment
+          }
+          edges {
+            node {
+              ...FileWithUrlFragment
+            }
+          }
+        }
+      }
+    }
+  }
+}

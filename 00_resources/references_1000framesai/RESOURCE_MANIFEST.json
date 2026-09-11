@@ -1,0 +1,379 @@
+﻿{
+    "schema_version":  "1000framesai-resource-manifest-1.0",
+    "source":  "https://1000framesai.com",
+    "captured_at":  "2026-08-31T11:59:36.1818417Z",
+    "resource_root":  "legged_studio/references/1000framesai/site",
+    "file_count":  74,
+    "files":  [
+                  {
+                      "local_path":  "algorithms.html",
+                      "bytes":  1552,
+                      "sha256":  "63ffe691c945f04afa08c0eb49a0773e3e0d759634551c97497d6d217e31b298"
+                  },
+                  {
+                      "local_path":  "algorithms_app.js",
+                      "bytes":  27873,
+                      "sha256":  "d6e5684c72bf124bc9484a31e17a8ec5e7eda6fe1afdb4bb236a38a04802369d"
+                  },
+                  {
+                      "local_path":  "algorithms_styles.css",
+                      "bytes":  12945,
+                      "sha256":  "5fa547bcbefa35f28b07d29cf1ba1d16d86124985372b47acdc382cada1c6bd3"
+                  },
+                  {
+                      "local_path":  "app.js",
+                      "bytes":  36503,
+                      "sha256":  "206a7a845b4f60f0eb32d52559d3b8b9a7e46d9d108a918b4dc3bb543599ddf6"
+                  },
+                  {
+                      "local_path":  "assets_fsdog1_fsdog1.xml",
+                      "bytes":  6558,
+                      "sha256":  "250e96defb2485b1d47f919d600c3e9cb3d518e732558e0061668d3573018836"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_base_0.obj",
+                      "bytes":  1330465,
+                      "sha256":  "8cdc53719002a5ee737d867904e534a6d6fa930b616bdcc1b3131e577d4e46c0"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_base_1.obj",
+                      "bytes":  811791,
+                      "sha256":  "39d2f4724ff64dd5a0640c308fd98902a2946660a8d033ec8dbf368fd5af0dd6"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_base_2.obj",
+                      "bytes":  294090,
+                      "sha256":  "29cae463f95d678e4ede863c36c9b19b0d356b8340412add10670d70bdcc3095"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_base_3.obj",
+                      "bytes":  379093,
+                      "sha256":  "f51ba43bf300e68957a0c1aa83eaf3e4926f4ac7e64a0d6c33ae5d21fcbcf5f6"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_base_4.obj",
+                      "bytes":  7776234,
+                      "sha256":  "49ddec0129546e5dd2075d5beacf7f207baa2860aeff7626818e64d2efbf3821"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_calf_0.obj",
+                      "bytes":  877174,
+                      "sha256":  "4a818cd563c5b7e2a271504442d05fd777d38cbaa028d4a10ad29c9f87bb355e"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_calf_1.obj",
+                      "bytes":  326865,
+                      "sha256":  "51950c3a153ae3208592df86ea11c9d6756f8f645ebca5caf6910c61aeb03817"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_calf_mirror_0.obj",
+                      "bytes":  876538,
+                      "sha256":  "6dc0406207a1c08a5953fd5962aca1a270fd06593d30d100205e05c1b32d4af2"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_calf_mirror_1.obj",
+                      "bytes":  327261,
+                      "sha256":  "f84f5af90b914633165beb3a5493ee499169144c5797dcf04c6eb5842f74b31a"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_foot.obj",
+                      "bytes":  1144729,
+                      "sha256":  "df9e78a7c0110d02557439010f2a5f11f0ec4fd907b32704145dbd6aa7affc0b"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_height_field.png",
+                      "bytes":  3258,
+                      "sha256":  "07008d95a54dc2f602c88482342544eddf1da88fb5097b7ceb3c4a73f75d79f0"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_hip_0.obj",
+                      "bytes":  2863864,
+                      "sha256":  "cc29932ab4d251ce3f72389ec4c1f757e44eee138b87e772b648c2bc76b506cd"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_hip_1.obj",
+                      "bytes":  2767918,
+                      "sha256":  "3fd5bd9b2ef6abe622c0739d3c67eaa1679b19b47132951972c4892a779ea7cf"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_thigh_0.obj",
+                      "bytes":  2841868,
+                      "sha256":  "bb3edfe6a7b04f4f4dff1ce7b05d426ddce941e276cc6372fb542055893c71ec"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_thigh_1.obj",
+                      "bytes":  1491320,
+                      "sha256":  "3a631822f9f7d2114b1b79dcdff5abf95103630abb7d91d1f3b8b18117132ed2"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_thigh_mirror_0.obj",
+                      "bytes":  2817674,
+                      "sha256":  "07abaedce761f1dd48647384ac14ba1959276bc78d5a2a62051e8f1c6093933b"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_thigh_mirror_1.obj",
+                      "bytes":  1482261,
+                      "sha256":  "db984a3e983eabbc9b38183427cca9ab0bb3bdb049f9eab030e06edda36579d6"
+                  },
+                  {
+                      "local_path":  "assets_go2_assets_wood.png",
+                      "bytes":  941355,
+                      "sha256":  "5462a14bf51dba188dbb07404ab7a4448dc70d7abbf7bf8c462d507baa392d44"
+                  },
+                  {
+                      "local_path":  "assets_go2_cross_slope.xml",
+                      "bytes":  5103,
+                      "sha256":  "f3b2f330897f219df6b243a8226ff6b4f2e9f9fee8f8d140c7b24dbdc7d4b941"
+                  },
+                  {
+                      "local_path":  "assets_go2_cross_stairs.xml",
+                      "bytes":  11803,
+                      "sha256":  "1215c8a3013f175472d2b7c08357d4958fe79bdfdc09de4d1923d7c8050477fd"
+                  },
+                  {
+                      "local_path":  "assets_go2_flat.xml",
+                      "bytes":  855,
+                      "sha256":  "0ad2696c6c53701dbba34f1a9a2158e1c1e4f491eb114263b0f86ecadc9e40ac"
+                  },
+                  {
+                      "local_path":  "assets_go2_gap.xml",
+                      "bytes":  1533,
+                      "sha256":  "6d5c2207c9e642e715d61612cedb95e5f9941e610897f0b34a087101a3659da0"
+                  },
+                  {
+                      "local_path":  "assets_go2_go2.xml",
+                      "bytes":  11583,
+                      "sha256":  "5fdad40d9c43af44ebfed70551aa345b3391dea36e4ea2c77227609bf01e5353"
+                  },
+                  {
+                      "local_path":  "assets_go2_high_platforms.xml",
+                      "bytes":  2887,
+                      "sha256":  "04c28e71369c6b52f2b0ca2b6f079b926b095966630b00a32af2791c776261ac"
+                  },
+                  {
+                      "local_path":  "assets_go2_imgs_label_1.png",
+                      "bytes":  2201,
+                      "sha256":  "5b70b5cbd2191730ab9e33580c9ff6ce5518f19b5c71ee4a0d5a7a0cdd69b140"
+                  },
+                  {
+                      "local_path":  "assets_go2_imgs_label_10.png",
+                      "bytes":  2655,
+                      "sha256":  "74c4ef761389886f034b2752806ab9acadacb7768c1c263c71a9cff50f017527"
+                  },
+                  {
+                      "local_path":  "assets_go2_imgs_label_4.png",
+                      "bytes":  2423,
+                      "sha256":  "5969c2ea50a92b6ce595f7be33061b4ca412c036f1ba898dc67e6e6d16f7784d"
+                  },
+                  {
+                      "local_path":  "assets_go2_imgs_label_7.png",
+                      "bytes":  2272,
+                      "sha256":  "fbd2c8e991414371f4eb719667d34986e7b203dcb614bd59e0879258a916079d"
+                  },
+                  {
+                      "local_path":  "assets_go2_obstacles.xml",
+                      "bytes":  2968,
+                      "sha256":  "1c9589fab96594d4ff2608933f3c3cd9167b89fc78d3cf55f91334092e3e5b2d"
+                  },
+                  {
+                      "local_path":  "assets_go2_race_track.xml",
+                      "bytes":  48500,
+                      "sha256":  "b5f5d9995429f71e38b7b37e98588c7ac8eb035a87ea1a62931fa91d0e5cc79c"
+                  },
+                  {
+                      "local_path":  "assets_go2_slope.xml",
+                      "bytes":  1834,
+                      "sha256":  "123d5569f83159937033fab0396ea261950dd7753e6cb748f66fcb7e3d2e4428"
+                  },
+                  {
+                      "local_path":  "assets_go2_stairs.xml",
+                      "bytes":  20193,
+                      "sha256":  "6c0a2eacdba03446e752a28ddd17615aef9e1484cbe419ad5da393a31257fe62"
+                  },
+                  {
+                      "local_path":  "assets_go2_stepping_stones.xml",
+                      "bytes":  5332,
+                      "sha256":  "cd7f66ce9dba7737b8e44b9113e4508a279f513488242b768a29ea8f33a06916"
+                  },
+                  {
+                      "local_path":  "assets_go2_wave.xml",
+                      "bytes":  9919,
+                      "sha256":  "60d38a3d28d21e58110cf051cf76a8001c008f416a8e5800b8dd6e45ae7daf3b"
+                  },
+                  {
+                      "local_path":  "index.html",
+                      "bytes":  6026,
+                      "sha256":  "19b5ccecb2c3769eb7acb192db5fdea1ca3decd2d8503a3be400278a67c110a2"
+                  },
+                  {
+                      "local_path":  "login.html",
+                      "bytes":  3040,
+                      "sha256":  "ac08e5519acc2d589405a1fe83c5c5eb15d4d95d25bed0c6a5b02dd44adfa5ee"
+                  },
+                  {
+                      "local_path":  "login_app.js",
+                      "bytes":  7462,
+                      "sha256":  "79374b7f533a47507a466da0f84f8fb0309fabb585d8d174fb002d65ce4919c8"
+                  },
+                  {
+                      "local_path":  "models_go2_moe_cts_high_slope_164k.onnx",
+                      "bytes":  5186135,
+                      "sha256":  "9530b2e14bf4b5efe2ea7c1e472f507648c46ddcee4a67fbfa7b492ec03903b3"
+                  },
+                  {
+                      "local_path":  "ops.html",
+                      "bytes":  5641,
+                      "sha256":  "3c117aa0155b8963d0059be2ee5e7f9bbf08ee9a9567bf4ab17b00e721780a64"
+                  },
+                  {
+                      "local_path":  "ops_styles.css",
+                      "bytes":  19753,
+                      "sha256":  "b1ee283a30f8c7defed073992e049709fa9481f979c759669ce6f5baffcd5d36"
+                  },
+                  {
+                      "local_path":  "robots.html",
+                      "bytes":  13224,
+                      "sha256":  "e489c311e5590c3575b5cb6c0373bdde6836e9f6dc613dec8dbff5ff91ca0cff"
+                  },
+                  {
+                      "local_path":  "robots_app.js",
+                      "bytes":  140059,
+                      "sha256":  "2668e6fe05a49dddd572b695229bc5de0d2be116dd8f782928d07dd28a6542dc"
+                  },
+                  {
+                      "local_path":  "robots_styles.css",
+                      "bytes":  19012,
+                      "sha256":  "b23d74ac269f2f84dfaaed782a64e3e49e553e3f2da798733bab53580a1f0b2c"
+                  },
+                  {
+                      "local_path":  "shared_api.js",
+                      "bytes":  5683,
+                      "sha256":  "ec3f47347edf36baa3881e53ad83f421af50a71d43db6891e6a961f20e08d5e1"
+                  },
+                  {
+                      "local_path":  "shared_nav.css",
+                      "bytes":  3503,
+                      "sha256":  "2eb91dca1a22ba6e2e7f96208e2cc480c7cb1e80538bf2e04836a3dbe630407b"
+                  },
+                  {
+                      "local_path":  "shared_nav.js",
+                      "bytes":  4589,
+                      "sha256":  "a693aaa70a598959afac0a3c421208f298160eec1145c1009a0d02aea2fa0f6c"
+                  },
+                  {
+                      "local_path":  "shared_styles.css",
+                      "bytes":  23005,
+                      "sha256":  "cc0ddbf4d2edb14008e3a2b0741ede32055b73dcac1cf15e56fe379735442c98"
+                  },
+                  {
+                      "local_path":  "sim2sim.html",
+                      "bytes":  12854,
+                      "sha256":  "35d33fa4d80879311c19032fb6e347fe1247901d4a61590bd0a49c82823272c3"
+                  },
+                  {
+                      "local_path":  "sim2sim_app.js",
+                      "bytes":  133721,
+                      "sha256":  "6c2b7f41bd059e0a766658acd18e60dd1b64f35f0c75d64902e7d2e94b11f5a3"
+                  },
+                  {
+                      "local_path":  "sim2sim_styles.css",
+                      "bytes":  21836,
+                      "sha256":  "5ca50fa1eed883c7a984e78121e0a0f753a2ba0db175355baf5b1e709027ec5d"
+                  },
+                  {
+                      "local_path":  "support-qq-group.jpg",
+                      "bytes":  586006,
+                      "sha256":  "eb49195399d665e2c83a10273dbd39ac4d9ede5e2a50d6311248ff2092fc91be"
+                  },
+                  {
+                      "local_path":  "train.html",
+                      "bytes":  28181,
+                      "sha256":  "bd2dabaacc05cbb0ebed084bb0d3435b0c5b2f4652614983d0399d8bf0cb0d60"
+                  },
+                  {
+                      "local_path":  "train_app.js",
+                      "bytes":  85497,
+                      "sha256":  "537ced344634deb7d4ef8e1412f65a2e2a851b9ac9bc38509c4903bc0dbe1930"
+                  },
+                  {
+                      "local_path":  "vendor_mujoco_mujoco.js",
+                      "bytes":  294661,
+                      "sha256":  "e583772f6b17400becf9d48622245fd06c29e52ec0135df7ba4db31646720c2e"
+                  },
+                  {
+                      "local_path":  "vendor_mujoco_mujoco.wasm",
+                      "bytes":  8607662,
+                      "sha256":  "ca22a3c3338c13bcfdbf8d9d19ebe698ac9bcab51af7cbab3d9cf57636998ea1"
+                  },
+                  {
+                      "local_path":  "vendor_onnxruntime-web_dist_ort-wasm-simd-threaded.wasm",
+                      "bytes":  11905541,
+                      "sha256":  "45eaee27761ad883742a8d4b8fce1538d60ce43b51adf1726fafccc59b8c1a15"
+                  },
+                  {
+                      "local_path":  "vendor_onnxruntime-web_dist_ort.wasm.min.mjs",
+                      "bytes":  49856,
+                      "sha256":  "69751720f611e37d1ce2fa3c6ebaa80f949014752636c5f8887a63d40feadcc7"
+                  },
+                  {
+                      "local_path":  "vendor_three_build_three.module.js",
+                      "bytes":  1272972,
+                      "sha256":  "76dea8151bc9352aef3528b4262e249b2604f62543828328db978d060d61a495"
+                  },
+                  {
+                      "local_path":  "vendor_three_examples_jsm_controls_OrbitControls.js",
+                      "bytes":  29868,
+                      "sha256":  "5a44a9e86a2a0fb11933eed69bc2cd33c76a496854c1aed6ed776efa87d7b064"
+                  },
+                  {
+                      "local_path":  "vendor_three_examples_jsm_controls_TransformControls.js",
+                      "bytes":  40573,
+                      "sha256":  "487861c18e017a6c69cc302827c6f506993f05dafce220da0bad095d6fe5808d"
+                  },
+                  {
+                      "local_path":  "algorithms_media/go2_rl_gym.webm",
+                      "bytes":  89542,
+                      "sha256":  "4062160afd4927bf0c93032fd4c2133a820483cee44407280aee072677022d9f"
+                  },
+                  {
+                      "local_path":  "algorithms_media/go2_rl_gym.webp",
+                      "bytes":  11938,
+                      "sha256":  "0c304edd4c64dde3725438d57975108d2964120dcac43d4eadecd2d4592d5ab7"
+                  },
+                  {
+                      "local_path":  "algorithms_media/np3o.webm",
+                      "bytes":  68260,
+                      "sha256":  "dee0ba1479f055d0d685f771954e56f3e79ec534a2a1462864963191179d88ed"
+                  },
+                  {
+                      "local_path":  "algorithms_media/np3o.webp",
+                      "bytes":  7482,
+                      "sha256":  "d90e005f0b66e6efa84dd031d215621e88baf6426dde51200a6fed25c003b5eb"
+                  },
+                  {
+                      "local_path":  "algorithms_media/omni_jump.png",
+                      "bytes":  45027,
+                      "sha256":  "202f4e2667355f3cf9db4f6e4038d708d9f87591713b200d75050fb978d36125"
+                  },
+                  {
+                      "local_path":  "algorithms_media/parkour.webm",
+                      "bytes":  39266,
+                      "sha256":  "7bb1eb931d15e70cc31cbd5b49974d69cac5c6446517e5442fe1639a29903e25"
+                  },
+                  {
+                      "local_path":  "algorithms_media/parkour.webp",
+                      "bytes":  8368,
+                      "sha256":  "2b6106b10ef131ab2c3a2197528dc389c358bed2e248e46ef5de503770179440"
+                  },
+                  {
+                      "local_path":  "algorithms_media/quadrupedal_agility.webm",
+                      "bytes":  60083,
+                      "sha256":  "20511204f5147aa1dd368a1c687f356911af97a2877e1c8daf11e97222553d09"
+                  },
+                  {
+                      "local_path":  "algorithms_media/quadrupedal_agility.webp",
+                      "bytes":  12174,
+                      "sha256":  "3bd4b7ae8dd4e8e0bd306b74b684c58e9dbb45e80745eea22615ea686121286a"
+                  }
+              ]
+}

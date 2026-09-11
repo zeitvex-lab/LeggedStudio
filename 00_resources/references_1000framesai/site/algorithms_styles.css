@@ -1,0 +1,572 @@
+.algo-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 14px;
+}
+
+.algo-card {
+  --accent: #5eead4;
+  border: 1px solid #1b252f;
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(16, 24, 32, .98), rgba(9, 15, 21, .98));
+  padding: 15px;
+  display: grid;
+  gap: 12px;
+  min-height: 380px;
+  transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+
+.algo-card.ready { border-color: color-mix(in srgb, var(--accent) 45%, #1a2636); }
+.algo-card.partial { border-color: rgba(251, 191, 36, .4); }
+.algo-card.invalid { border-color: rgba(239, 68, 68, .45); }
+.algo-card:hover, .algo-card:focus-within {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 80px rgba(0,0,0,.28);
+}
+
+.algo-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.algo-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.algo-title { min-width: 0; flex: 1; }
+.algo-title h3 { margin: 0; font-size: 17px; font-weight: 800; color: #f8fafc; }
+.algo-title p { margin-top: 3px; font-size: 12px; color: #7b8da0; }
+.algo-desc { color: #cbd5e1; font-size: 13px; line-height: 1.55; min-height: 40px; }
+
+.algo-preview {
+  position: relative;
+  height: 170px;
+  border: 1px solid #1b252f;
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(14, 24, 34, .78), rgba(4, 9, 14, .98)),
+    radial-gradient(circle at 20% 25%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 32%);
+}
+
+.algo-preview.has-media {
+  background: #020711;
+}
+
+.algo-preview.has-poster {
+  background: #020711;
+}
+
+.preview-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transform: scale(1.01);
+  filter: saturate(1.04) contrast(1.03);
+  transition: transform .24s ease, filter .24s ease;
+}
+
+.preview-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transform: scale(1.01);
+  filter: saturate(1.05) contrast(1.04);
+  transition: transform .24s ease, filter .24s ease;
+}
+
+.preview-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, .38), transparent 42%, rgba(2, 6, 23, .42)),
+    linear-gradient(90deg, rgba(2, 6, 23, .2), transparent 34%, rgba(2, 6, 23, .16));
+}
+
+.algo-card:hover .preview-video,
+.algo-card:focus-within .preview-video,
+.algo-card.preview-playing .preview-video {
+  transform: scale(1.055);
+  filter: saturate(1.12) contrast(1.05);
+}
+
+.algo-card:hover .preview-poster,
+.algo-card:focus-within .preview-poster,
+.algo-card.preview-playing .preview-poster {
+  transform: scale(1.05);
+  filter: saturate(1.14) contrast(1.07);
+}
+
+.preview-sky {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(96, 165, 250, .12), transparent 48%),
+    repeating-linear-gradient(90deg, transparent 0 34px, rgba(148, 163, 184, .04) 35px 36px);
+}
+
+.preview-terrain {
+  position: absolute;
+  left: -8%;
+  right: -8%;
+  bottom: 0;
+  height: 54px;
+  background:
+    linear-gradient(160deg, rgba(20, 184, 166, .18), rgba(15, 23, 42, .9)),
+    repeating-linear-gradient(135deg, rgba(148, 163, 184, .18) 0 12px, rgba(15, 23, 42, .16) 12px 24px);
+  clip-path: polygon(0 58%, 10% 44%, 21% 55%, 31% 35%, 43% 52%, 55% 30%, 66% 48%, 77% 38%, 90% 58%, 100% 45%, 100% 100%, 0 100%);
+}
+
+.terrain-slope .preview-terrain {
+  clip-path: polygon(0 70%, 18% 59%, 34% 50%, 51% 43%, 69% 34%, 86% 28%, 100% 24%, 100% 100%, 0 100%);
+}
+
+.terrain-parkour .preview-terrain {
+  clip-path: polygon(0 70%, 15% 70%, 15% 42%, 28% 42%, 28% 70%, 46% 70%, 46% 34%, 60% 34%, 60% 70%, 78% 70%, 78% 48%, 91% 48%, 91% 70%, 100% 70%, 100% 100%, 0 100%);
+}
+
+.terrain-obstacles .preview-terrain {
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--accent) 24%, rgba(15, 23, 42, .92)), rgba(15, 23, 42, .92)),
+    repeating-linear-gradient(90deg, rgba(245, 158, 11, .2) 0 20px, rgba(15, 23, 42, .22) 20px 38px);
+  clip-path: polygon(0 72%, 12% 72%, 12% 48%, 24% 48%, 24% 72%, 38% 72%, 44% 36%, 52% 72%, 66% 72%, 66% 52%, 78% 52%, 78% 72%, 100% 72%, 100% 100%, 0 100%);
+}
+
+.terrain-jump .preview-terrain {
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--accent) 25%, rgba(15, 23, 42, .92)), rgba(15, 23, 42, .92)),
+    repeating-linear-gradient(90deg, rgba(251, 113, 133, .22) 0 18px, rgba(15, 23, 42, .2) 18px 34px);
+  clip-path: polygon(0 74%, 16% 74%, 24% 34%, 38% 34%, 46% 74%, 64% 74%, 72% 48%, 84% 48%, 91% 74%, 100% 74%, 100% 100%, 0 100%);
+}
+
+.terrain-jump .dog {
+  bottom: 78px;
+}
+
+.algo-card:hover .terrain-jump .dog,
+.algo-card:focus-within .terrain-jump .dog,
+.algo-card.preview-playing .terrain-jump .dog {
+  animation: dog-jump .82s ease-in-out infinite;
+}
+
+.algo-card:hover .terrain-jump .dog-body,
+.algo-card:focus-within .terrain-jump .dog-body,
+.algo-card.preview-playing .terrain-jump .dog-body {
+  animation: body-jump-pitch .82s ease-in-out infinite;
+}
+
+.dog {
+  position: absolute;
+  left: 50%;
+  bottom: 46px;
+  width: 122px;
+  height: 62px;
+  transform: translateX(-50%);
+  transition: transform .18s ease;
+  z-index: 2;
+}
+
+.dog-body {
+  position: absolute;
+  left: 22px;
+  top: 20px;
+  width: 68px;
+  height: 24px;
+  border: 2px solid var(--accent);
+  border-radius: 7px;
+  background: rgba(15, 23, 42, .86);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.dog-head {
+  position: absolute;
+  left: 86px;
+  top: 18px;
+  width: 24px;
+  height: 18px;
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, .9);
+}
+
+.dog-leg {
+  position: absolute;
+  top: 39px;
+  width: 5px;
+  height: 25px;
+  border-radius: 999px;
+  background: var(--accent);
+  transform-origin: 50% 0;
+  opacity: .92;
+}
+
+.l1 { left: 28px; }
+.l2 { left: 48px; }
+.l3 { left: 70px; }
+.l4 { left: 88px; }
+
+.algo-card:hover .dog,
+.algo-card:focus-within .dog,
+.algo-card.preview-playing .dog {
+  animation: dog-bob .56s ease-in-out infinite;
+}
+
+.algo-card:hover .dog-body,
+.algo-card:focus-within .dog-body,
+.algo-card.preview-playing .dog-body {
+  animation: body-pitch .56s ease-in-out infinite;
+}
+
+.algo-card:hover .l1,
+.algo-card:hover .l3,
+.algo-card:focus-within .l1,
+.algo-card:focus-within .l3,
+.algo-card.preview-playing .l1,
+.algo-card.preview-playing .l3 {
+  animation: leg-a .56s ease-in-out infinite;
+}
+
+.algo-card:hover .l2,
+.algo-card:hover .l4,
+.algo-card:focus-within .l2,
+.algo-card:focus-within .l4,
+.algo-card.preview-playing .l2,
+.algo-card.preview-playing .l4 {
+  animation: leg-b .56s ease-in-out infinite;
+}
+
+.algo-card:hover .preview-terrain,
+.algo-card:focus-within .preview-terrain,
+.algo-card.preview-playing .preview-terrain {
+  animation: terrain-slide 1.8s linear infinite;
+}
+
+.preview-hint {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  color: #d2dbe5;
+  font-size: 11px;
+  font-weight: 700;
+  z-index: 2;
+  text-shadow: 0 1px 8px rgba(2, 6, 23, .82);
+}
+
+.algo-tags,
+.capability-strip,
+.task-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.algo-tag {
+  border: 1px solid #26313d;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: #a8b6c5;
+  background: #0c151d;
+}
+
+.capability-pill {
+  border: 1px solid #26313d;
+  border-radius: 8px;
+  padding: 4px 7px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  background: #060a0f;
+}
+
+.capability-pill.ok {
+  border-color: rgba(94, 234, 212, .2);
+  color: #7cf7df;
+  background: rgba(20, 184, 166, .1);
+}
+
+.weight-source {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #1b252f;
+  border-radius: 8px;
+  background: #070d13;
+  padding: 9px 10px;
+}
+
+.weight-source span {
+  color: #7b8da0;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.weight-source strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #dbeafe;
+  font-size: 12px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weight-source.ready {
+  border-color: rgba(94, 234, 212, .22);
+  background: rgba(20, 184, 166, .08);
+}
+
+.weight-source.training {
+  border-color: color-mix(in srgb, var(--accent) 28%, #26313d);
+  background: color-mix(in srgb, var(--accent) 8%, #070d13);
+}
+
+.weight-source.pending {
+  border-color: rgba(251, 191, 36, .24);
+  background: rgba(180, 83, 9, .1);
+}
+
+.algo-play-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, #26313d);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 13%, #081018), #070d13);
+  padding: 10px;
+}
+
+.algo-play-card span,
+.algo-play-card small {
+  min-width: 0;
+  overflow: hidden;
+  color: #8fa3b8;
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.algo-play-card span {
+  color: color-mix(in srgb, var(--accent) 70%, #dbeafe);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.algo-play-card strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #f8fafc;
+  font-size: 13px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.algo-play-card small {
+  grid-column: 1;
+}
+
+.algo-play-card.live {
+  border-color: rgba(94, 234, 212, .36);
+  box-shadow: inset 3px 0 0 rgba(94, 234, 212, .72);
+}
+
+.algo-play-card.empty {
+  border-color: #1b252f;
+  background: #080e14;
+}
+
+.algo-play-card.empty strong {
+  color: #94a3b8;
+}
+
+.play-link {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, #26313d);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 13%, #0b1117);
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0 11px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.play-link:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, #26313d);
+}
+
+.algo-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.algo-metric {
+  border: 1px solid #1b252f;
+  border-radius: 8px;
+  padding: 8px;
+  background: #080e14;
+  min-width: 0;
+}
+
+.algo-metric span { display: block; font-size: 10px; color: #7b8da0; }
+.algo-metric strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-card {
+  display: grid;
+  gap: 5px;
+  min-width: min(100%, 190px);
+  flex: 1;
+  border: 1px solid #26313d;
+  border-radius: 8px;
+  padding: 9px;
+  background: #080e14;
+}
+
+.task-card strong {
+  color: #e2e8f0;
+  font-size: 12px;
+}
+
+.task-card span {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.task-note {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 7px;
+  padding: 4px 7px;
+  border: 1px solid #26313d;
+  background: #0c141d;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.task-note.ready {
+  border-color: rgba(94, 234, 212, .22);
+  color: #99f6e4;
+}
+
+.task-note.partial {
+  border-color: rgba(251, 191, 36, .28);
+  color: #facc15;
+}
+
+.task-card .primary {
+  width: 100%;
+  min-height: 32px;
+  border-radius: 8px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  margin-top: 4px;
+}
+
+.task-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.task-actions .primary {
+  min-width: 0;
+  margin-top: 4px;
+  padding-inline: 6px;
+  white-space: normal;
+  text-align: center;
+}
+
+.task-card .primary.secondary {
+  border-color: rgba(251, 191, 36, .28);
+  background: rgba(180, 83, 9, .16);
+  color: #fde68a;
+}
+
+.algo-error { min-height: 18px; }
+
+@keyframes dog-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-5px); }
+}
+
+@keyframes body-pitch {
+  0%, 100% { transform: rotate(-1deg); }
+  50% { transform: rotate(2deg); }
+}
+
+@keyframes dog-jump {
+  0%, 100% { transform: translateX(-50%) translateY(24px); }
+  45% { transform: translateX(-50%) translateY(-36px); }
+  70% { transform: translateX(-50%) translateY(-10px); }
+}
+
+@keyframes body-jump-pitch {
+  0%, 100% { transform: rotate(1deg); }
+  45% { transform: rotate(-8deg); }
+  70% { transform: rotate(6deg); }
+}
+
+@keyframes leg-a {
+  0%, 100% { transform: rotate(19deg); }
+  50% { transform: rotate(-22deg); }
+}
+
+@keyframes leg-b {
+  0%, 100% { transform: rotate(-20deg); }
+  50% { transform: rotate(18deg); }
+}
+
+@keyframes terrain-slide {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 0, -68px 0; }
+}
+
+@media (max-width: 860px) {
+  .algo-card-grid { grid-template-columns: 1fr; }
+}

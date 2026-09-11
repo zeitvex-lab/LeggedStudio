@@ -1,0 +1,52 @@
+# NOTE: We use Hatch to build wandb, and it respects the *first* .gitignore
+# file it sees. It doesn't consider .gitignore files in subdirectories.
+
+# Mac file system metadata.
+.DS_Store
+
+# Byte-compiled / optimized / DLL files.
+__pycache__/
+*.py[cod]
+
+# Distribution / packaging.
+dist/
+build/
+*.egg
+
+# Conventional location for Python virtual environments.
+.venv/*
+
+# Written by uv when the ty prek hook runs.
+uv.lock
+
+# Configuration files.
+.python-version
+.idea/
+# .vscode/
+
+# nox cache.
+.nox/
+.nox-wandb/
+
+# Unit test / coverage reports / linting.
+test-results/
+.pytest_cache/
+.hypothesis/
+
+.coverage*
+coverage.xml
+coverage.txt
+cover-results/
+
+# Build output in xpu.
+xpu/target/
+
+# Outputs of tools/local_wandb_server.py.
+tools/local_wandb_server.state.lock
+tools/local_wandb_server.state
+
+# Cached protoc binaries downloaded by wandb/proto/generate-proto.sh.
+.protoc/
+
+# Ignore arrow-rs-wrapper build artifacts
+parquet-rust-wrapper/target/

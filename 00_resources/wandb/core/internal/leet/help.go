@@ -1,0 +1,240 @@
+package leet
+
+import (
+	"strings"
+
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+
+	"github.com/wandb/wandb/core/internal/version"
+)
+
+// HelpEntry represents a single entry in the help screen.
+type HelpEntry struct {
+	Key         string
+	Description string
+}
+
+var blankLine = HelpEntry{}
+
+// HelpModel represents the help screen.
+type HelpModel struct {
+	viewport viewport.Model
+	active   bool
+	width    int
+	height   int
+
+	mode viewMode
+}
+
+func NewHelp() *HelpModel {
+	vp := viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
+	return &HelpModel{
+		viewport: vp,
+		active:   false,
+		mode:     viewModeWorkspace,
+	}
+}
+
+func (h *HelpModel) SetMode(mode viewMode) {
+	h.mode = mode
+	if h.active {
+		h.viewport.SetContent(h.generateHelpContent())
+	}
+}
+
+// generateHelpContent generates the help screen content.
+func (h *HelpModel) generateHelpContent() string {
+	artStyle := lipgloss.NewStyle().
+		Foreground(colorHeading).
+		Bold(true)
+
+	artSection := artStyle.Render(
+		lipgloss.JoinHorizontal(lipgloss.Top, wandbArt, "    ", leetArt),
+	) + "\n\n"
+
+	entries := h.entriesForMode()
+
+	helpSection := ""
+	for _, entry := range entries {
+		switch {
+		case entry.Key == "":
+			helpSection += "\n"
+		case entry.Description == "":
+			helpSection += helpSectionStyle.Render(entry.Key) + "\n"
+		default:
+			key := helpKeyStyle.Render(entry.Key)
+			desc := helpDescStyle.Render(entry.Description)
+			helpSection += lipgloss.JoinHorizontal(lipgloss.Top, key, desc) + "\n"
+		}
+	}
+
+	return artSection + helpSection
+}
+
+func (h *HelpModel) entriesForMode() []HelpEntry {
+	entries := []HelpEntry{
+		{Key: "── W&B LEET: Lightweight Experiment Exploration Tool ──", Description: ""},
+		{Key: "version", Description: version.Version},
+		{Key: "view", Description: h.modeLabel()},
+		blankLine,
+	}
+
+	switch h.mode {
+	case viewModeWorkspace:
+		entries = append(entries, helpEntriesFromCategories(WorkspaceKeyBindings())...)
+		entries = append(entries, tipsEntries()...)
+	case viewModeRun:
+		entries = append(entries, helpEntriesFromCategories(RunKeyBindings())...)
+		entries = append(entries, tipsEntries()...)
+	case viewModeSymon:
+		entries = append(entries, helpEntriesFromCategories(SymonKeyBindings())...)
+		entries = append(entries, symonTipsEntries()...)
+	case viewModeInspect:
+		entries = append(entries, helpEntriesFromCategories(InspectorKeyBindings())...)
+		entries = append(entries, inspectorTipsEntries()...)
+	default:
+		entries = append(entries, helpEntriesFromCategories(WorkspaceKeyBindings())...)
+		entries = append(entries, tipsEntries()...)
+	}
+
+	return entries
+}
+
+// tipsEntries returns informational entries shown after the key bindings.
+func tipsEntries() []HelpEntry {
+	return []HelpEntry{
+		{Key: "Tips", Description: ""},
+		{Key: "wandb leet config", Description: "Open the interactive config editor"},
+		{Key: "Runs filter", Description: "Bare terms search run key/name/id/project/tags/notes. " +
+			"Qualifiers: project:, name:, id:, tag:, note:, config:, cfg.<path>:, has:. " +
+			"Boolean: space/AND, OR or |, -/!/NOT."},
+		{Key: "Runs filter example",
+			Description: "project:vision tag:baseline cfg.lr>=1e-3 -note:debug | project:nlp"},
+		blankLine,
+	}
+}
+
+func symonTipsEntries() []HelpEntry {
+	return []HelpEntry{
+		{Key: "Tips", Description: ""},
+		{Key: "wandb leet config", Description: "Open the interactive config editor"},
+		{Key: "SYMON", Description: "Live system monitor"},
+		blankLine,
+	}
+}
+
+func inspectorTipsEntries() []HelpEntry {
+	return []HelpEntry{
+		{Key: "Tips", Description: ""},
+		{Key: "Printing", Description: "Pipe or redirect to print records as text, " +
+			"e.g. wandb leet inspect | less"},
+		blankLine,
+	}
+}
+
+func (h *HelpModel) modeLabel() string {
+	switch h.mode {
+	case viewModeWorkspace:
+		return "workspace"
+	case viewModeRun:
+		return "single run"
+	case viewModeSymon:
+		return "symon"
+	case viewModeInspect:
+		return "record inspector"
+	default:
+		return "unknown"
+	}
+}
+
+func helpEntriesFromCategories[T any](categories []BindingCategory[T]) []HelpEntry {
+	var entries []HelpEntry
+	for _, category := range categories {
+		entries = append(entries, HelpEntry{Key: category.Name, Description: ""})
+		for _, binding := range category.Bindings {
+			entries = append(entries, HelpEntry{
+				Key:         strings.Join(binding.Keys, ", "),
+				Description: binding.Description,
+			})
+		}
+		entries = append(entries, blankLine)
+	}
+	return entries
+}
+
+// SetSize updates the size of the help screen.
+func (h *HelpModel) SetSize(width, height int) {
+	h.width = width
+	h.height = height - StatusBarHeight
+	h.viewport.SetWidth(width)
+	// Leave room for helpContentStyle's margins: without this the rendered
+	// help view exceeds h.height and the status bar below it is pushed off
+	// screen (bubbletea v2's altscreen renderer clips the bottom).
+	h.viewport.SetHeight(max(h.height-helpContentStyle.GetVerticalFrameSize(), 0))
+
+	if h.active {
+		h.viewport.SetContent(h.generateHelpContent())
+	}
+}
+
+// Toggle toggles the help screen visibility.
+func (h *HelpModel) Toggle() {
+	h.active = !h.active
+	if h.active {
+		h.viewport.GotoTop()
+		h.viewport.SetContent(h.generateHelpContent())
+	}
+}
+
+// IsActive returns whether the help screen is active.
+func (h *HelpModel) IsActive() bool {
+	return h.active
+}
+
+// Update handles messages for the help screen.
+func (h *HelpModel) Update(msg tea.Msg) (*HelpModel, tea.Cmd) {
+	if !h.active {
+		return h, nil
+	}
+
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "h", "?", "esc":
+			h.Toggle()
+			return h, nil
+		case "q", "ctrl+c":
+			// Allow quitting from help screen
+			return h, tea.Quit
+		default:
+			// Let viewport handle other keys
+			h.viewport, cmd = h.viewport.Update(msg)
+		}
+	case tea.MouseMsg:
+		// Let viewport handle mouse events
+		h.viewport, cmd = h.viewport.Update(msg)
+	}
+
+	return h, cmd
+}
+
+// View renders the help screen.
+func (h *HelpModel) View() tea.View {
+	if !h.active {
+		return tea.NewView("")
+	}
+
+	content := helpContentStyle.Render(h.viewport.View())
+
+	return tea.NewView(lipgloss.Place(
+		h.width,
+		h.height,
+		lipgloss.Left,
+		lipgloss.Top,
+		content,
+	))
+}

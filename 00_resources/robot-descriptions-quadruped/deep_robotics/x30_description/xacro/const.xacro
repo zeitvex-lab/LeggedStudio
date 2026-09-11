@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- 腿部偏移参数 -->
+  <xacro:property name="leg_offset_x" value="0.291"/>
+  <xacro:property name="leg_offset_y" value="0.08"/>
+
+  <!-- 大腿偏移参数 -->
+  <xacro:property name="thigh_offset" value="0.11675"/>
+
+  <!-- 髋关节参数 -->
+  <xacro:property name="hip_mass" value="1.43"/>
+  <xacro:property name="hip_com_x" value="-0.0018591"/>
+  <xacro:property name="hip_com_y" value="-0.011377"/>
+  <xacro:property name="hip_com_z" value="0.00027039"/>
+  <xacro:property name="hip_ixx" value="0.0014068"/>
+  <xacro:property name="hip_ixy" value="-1.8545e-05"/>
+  <xacro:property name="hip_ixz" value="2.7664e-06"/>
+  <xacro:property name="hip_iyy" value="0.0026782"/>
+  <xacro:property name="hip_iyz" value="2.1221e-06"/>
+  <xacro:property name="hip_izz" value="0.0015918"/>
+
+  <!-- 大腿参数 -->
+  <xacro:property name="thigh_mass" value="4.0809"/>
+  <xacro:property name="thigh_com_x" value="-0.0087581"/>
+  <xacro:property name="thigh_com_y" value="-0.023554"/>
+  <xacro:property name="thigh_com_z" value="-0.055162"/>
+  <xacro:property name="thigh_ixx" value="0.012604"/>
+  <xacro:property name="thigh_ixy" value="0.00020291"/>
+  <xacro:property name="thigh_ixz" value="-0.00030875"/>
+  <xacro:property name="thigh_iyy" value="0.0164"/>
+  <xacro:property name="thigh_iyz" value="0.00036593"/>
+  <xacro:property name="thigh_izz" value="0.0061084"/>
+
+  <!-- 小腿参数 -->
+  <xacro:property name="shank_mass" value="0.71386"/>
+  <xacro:property name="shank_com_x" value="0.014851"/>
+  <xacro:property name="shank_com_y" value="2.0685e-05"/>
+  <xacro:property name="shank_com_z" value="-0.12283"/>
+  <xacro:property name="shank_ixx" value="0.0093039"/>
+  <xacro:property name="shank_ixy" value="1.7693e-07"/>
+  <xacro:property name="shank_ixz" value="0.00034843"/>
+  <xacro:property name="shank_iyy" value="0.0096272"/>
+  <xacro:property name="shank_iyz" value="-3.7717e-06"/>
+  <xacro:property name="shank_izz" value="0.00041542"/>
+
+  <!-- 脚部参数 -->
+  <xacro:property name="foot_mass" value="0.06"/>
+  <xacro:property name="foot_radius" value="0.03"/>
+
+  <!-- 关节限制参数 - 调整为更安全的范围 -->
+  <xacro:property name="hip_x_limit_lower" value="-0.3"/>
+  <xacro:property name="hip_x_limit_upper" value="0.3"/>
+  <xacro:property name="hip_x_effort" value="84"/>
+  <xacro:property name="hip_x_velocity" value="17.5"/>
+
+  <xacro:property name="hip_y_limit_lower" value="-0.2"/>
+  <xacro:property name="hip_y_limit_upper" value="2.8"/>
+  <xacro:property name="hip_y_effort" value="84"/>
+  <xacro:property name="hip_y_velocity" value="17.5"/>
+
+  <xacro:property name="knee_limit_lower" value="-2.4"/>
+  <xacro:property name="knee_limit_upper" value="-0.4"/>
+  <xacro:property name="knee_effort" value="160"/>
+  <xacro:property name="knee_velocity" value="16.1"/>
+
+</robot>

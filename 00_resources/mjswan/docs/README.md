@@ -1,0 +1,44 @@
+# mjswan Documentation
+
+Source for the mjswan documentation site, hosted on
+[Read the Docs](https://mjswan.readthedocs.io/).
+
+Built with [zensical](https://zensical.org) (the MkDocs Material successor). Configuration
+lives in [`zensical.toml`](zensical.toml); pages live under [`docs/`](docs/).
+
+## Commands
+
+From the repository root:
+
+```bash
+make docs-serve    # live-reloading server on http://localhost:8000
+make docs-build    # one-off build into docs/site/
+```
+
+Or directly, e.g. to pick a different port:
+
+```bash
+uv run --with-requirements requirements.txt --directory docs zensical serve -a localhost:8123
+```
+
+The build validates internal links and reports broken ones as warnings — treat them as
+errors.
+
+## Layout
+
+```
+docs/
+├── zensical.toml          site config: nav, theme, markdown extensions
+├── requirements.txt       docs build dependencies (zensical)
+├── .readthedocs.yaml      Read the Docs build definition
+├── adr/                   architecture decision records (not part of the site)
+└── docs/
+    ├── index.md
+    ├── getting-started/   installation, quickstart, core concepts, examples, CLI
+    ├── guides/            mjlab, MDP terms, build internals, deployment, cloud, embedding
+    ├── api/               Python and TypeScript API reference
+    └── resources.md
+```
+
+`adr/` is deliberately outside the site: ADRs are design records for contributors, and the
+guides link into them on GitHub where that context belongs.

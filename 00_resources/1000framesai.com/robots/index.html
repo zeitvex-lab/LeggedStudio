@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>机器人配置 · Locomotion Platform</title>
+  <link rel="stylesheet" href="/shared/nav.css?v=home-nav-1" />
+  <link rel="stylesheet" href="/shared/styles.css?v=no-tailwind-1" />
+  <link rel="stylesheet" href="./styles.css?v=robot-manage-2" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/sim2sim/vendor/three/build/three.module.js",
+        "three/addons/": "/sim2sim/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="page-shell">
+    <header class="page-header">
+      <div>
+        <h1>机器人配置</h1>
+        <p>管理 URDF、关节映射、默认站姿和控制参数。上传 URDF 后，把关节调到站立位并保存，这组角度会同时用于训练和 sim2sim。</p>
+      </div>
+      <div class="page-actions">
+        <span class="status-badge ready">Robot contract</span>
+      </div>
+    </header>
+
+    <section class="panel mb-4" id="urdfUploadPanel">
+      <div class="panel-title">
+        <div>
+          <h2 class="text-sm font-bold text-slate-100">上传 URDF</h2>
+          <p class="text-xs text-slate-500 mt-0.5">拖入 URDF 文件夹（含 urdf/ 和 meshes/），或选择单个 .urdf / .zip；按所选构型识别 12 或 16 个关节。</p>
+        </div>
+        <span id="urdfUploadStatus" class="text-xs text-slate-500">ready</span>
+      </div>
+
+      <form id="urdfUploadForm" class="step-form">
+        <div class="step-grid compact">
+          <!-- Drop zone — accepts folder drag-drop and file picker -->
+          <div id="urdfDropZone" class="step-upload urdf-drop-zone" tabindex="0" role="button" aria-label="拖入 URDF 文件夹或点击选择文件">
+            <span class="upload-title" id="urdfDropTitle">拖入 URDF 文件夹</span>
+            <span id="urdfUploadFileName" class="upload-sub">或点击选择 .urdf / .zip 文件</span>
+            <!-- Hidden inputs: folder mode and file mode -->
+            <input id="urdfFolderInput" type="file" webkitdirectory style="display:none" />
+            <input id="urdfUploadFile" type="file" accept=".urdf,.zip" style="display:none" />
+          </div>
+
+          <div class="step-fields compact">
+            <label class="grid gap-1.5"><span class="text-xs text-slate-400">机器人名称</span><input id="urdfRobotName" class="field" placeholder="留空则读取 URDF name" /></label>
+            <label class="grid gap-1.5"><span class="text-xs text-slate-400">厂商 vendor</span><input id="urdfVendor" class="field" placeholder="custom" /></label>
+            <label class="grid gap-1.5">
+              <span class="text-xs text-slate-400">机器人构型</span>
+              <select id="urdfMorphology" class="field">
+                <option value="quadruped_12dof">四足 12DoF</option>
+                <option value="wheel_leg_16dof_v1">轮足 16DoF</option>
+              </select>
+            </label>
+            <label class="step-check upload-check"><input id="urdfCreateRobot" type="checkbox" checked /> 自动加入机器人列表</label>
+            <label class="step-check upload-check" title="关闭后保留原始网格，不做三角面简化">
+              <input id="urdfSimplifyMeshes" type="checkbox" checked /> 简化网格（推荐）
+            </label>
+            <button id="urdfUploadButton" type="submit" class="primary">上传 URDF</button>
+          </div>
+        </div>
+
+        <div id="urdfUploadError" class="inline-error"></div>
+        <div id="urdfUploadResult" class="step-result"></div>
+      </form>
+    </section>
+
+    <div class="robot-workbench">
+      <aside class="panel self-start">
+        <div class="panel-title">
+          <h2 class="text-sm font-bold text-slate-100">机器人</h2>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button id="deduplicateRobots" class="btn" type="button" title="删除同名重复，保留最新一个">清理重复</button>
+            <span id="robotCount" class="text-xs text-slate-500 tabular-nums">-</span>
+          </div>
+        </div>
+        <ul id="robotList" class="robot-list"></ul>
+      </aside>
+
+      <section class="panel" id="editorPanel">
+        <div class="panel-title">
+          <div>
+            <h2 class="text-sm font-bold text-slate-100" id="editorTitle">未选择机器人</h2>
+            <p class="text-xs text-slate-500 mt-0.5" id="editorSub">从左侧选择一个机器人开始编辑</p>
+          </div>
+          <span id="editorStatus" class="text-xs text-slate-500">-</span>
+        </div>
+
+        <form id="robotForm" class="p-4 flex flex-col gap-4" style="display:none">
+          <div class="grid grid-cols-2 gap-3">
+            <label class="grid gap-1.5"><span class="text-xs text-slate-400">名称</span><input id="fName" class="field" required /></label>
+            <label class="grid gap-1.5"><span class="text-xs text-slate-400">厂商 vendor</span><input id="fVendor" class="field" /></label>
+          </div>
+
+          <details class="form-section" open>
+            <summary class="text-xs font-bold text-slate-200 cursor-pointer select-none">关节映射 (joint_order)</summary>
+            <div class="joint-order-head">
+              <p class="text-[11px] text-slate-500">左侧是算法固定使用的 canonical slot，右侧选择 URDF 里真实的 joint。映射错了，Sim2Sim 很容易站不稳或走偏。</p>
+              <div class="joint-order-actions">
+                <button id="autoMapJoints" type="button" class="btn">按名称自动匹配</button>
+                <button id="orderMapJoints" type="button" class="btn">按当前顺序填入</button>
+                <button id="clearMapJoints" type="button" class="btn">清空重选</button>
+              </div>
+            </div>
+            <div id="jointOrderTable" class="joint-order-table mt-2"></div>
+            <div id="jointOrderStatus" class="joint-order-status mt-2"></div>
+          </details>
+
+          <section class="form-section">
+            <div class="flex items-baseline justify-between gap-2 mb-2.5">
+              <span class="text-xs font-bold text-slate-200">默认站立位 / default stance (rad)</span>
+              <div class="flex items-center gap-2">
+                <span id="urdfMeshStatus" class="text-xs text-slate-500"></span>
+                <button id="expandUrdfViewer" type="button" class="btn" style="display:none">展开预览</button>
+                <button id="resetStandingPose" type="button" class="btn">恢复站立位</button>
+              </div>
+            </div>
+            <div class="stance-layout">
+              <div id="jointAngles" class="joint-editor"></div>
+              <div id="stancePoseViewer" class="stance-viewer">
+                <span class="stance-viewer-hint">拖拽旋转 · 滚轮缩放</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="form-section" aria-labelledby="jointLimitsTitle">
+            <div id="jointLimitsTitle" class="text-xs font-bold text-slate-200">关节限位 joint_limits</div>
+            <p class="text-xs text-slate-500 mt-2">关节限位自动从 URDF 读取，无需重复填写。</p>
+          </section>
+
+          <section class="form-section">
+            <div class="flex items-baseline justify-between mb-2.5">
+              <span class="text-xs font-bold text-slate-200">控制增益 control_defaults</span>
+            </div>
+            <div id="controlGainGrid" class="grid gap-2" style="grid-template-columns:46px repeat(3,minmax(0,1fr))">
+              <span></span>
+              <span class="text-xs text-slate-500 text-center">hip</span>
+              <span class="text-xs text-slate-500 text-center">thigh</span>
+              <span class="text-xs text-slate-500 text-center">calf</span>
+              <span class="text-xs text-slate-500 text-center" data-wheel-control hidden>wheel</span>
+              <span class="text-xs text-slate-400 self-center">Kp</span>
+              <input id="kpHip" type="number" step="0.1" class="field" />
+              <input id="kpThigh" type="number" step="0.1" class="field" />
+              <input id="kpCalf" type="number" step="0.1" class="field" />
+              <input id="kpWheel" type="number" step="0.1" class="field" data-wheel-control hidden />
+              <span class="text-xs text-slate-400 self-center">Kd</span>
+              <input id="kdHip" type="number" step="0.01" class="field" />
+              <input id="kdThigh" type="number" step="0.01" class="field" />
+              <input id="kdCalf" type="number" step="0.01" class="field" />
+              <input id="kdWheel" type="number" step="0.01" class="field" data-wheel-control hidden />
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <label class="grid gap-1.5"><span class="text-xs text-slate-400">action_scale</span><input id="actionScale" type="number" step="0.01" class="field" /></label>
+              <label class="grid gap-1.5"><span class="text-xs text-slate-400">decimation</span><input id="decimation" type="number" min="1" step="1" class="field" /></label>
+              <label class="grid gap-1.5" style="grid-column:1/-1" data-wheel-control hidden>
+                <span class="text-xs text-slate-400">目标机身高度 (m)</span>
+                <input id="baseHeightTarget" type="number" min="0.1" max="1.5" step="0.01" inputmode="decimal" class="field" />
+              </label>
+            </div>
+            <div class="grid gap-2 mt-3 pt-3 border-t border-slate-700/70" data-motor-envelope>
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="text-xs font-bold text-slate-200">电机包络曲线</span>
+                <span class="text-xs text-slate-500">rpm:Nm</span>
+              </div>
+              <div class="grid gap-2" style="grid-template-columns:52px minmax(0,1fr)">
+                <label class="text-xs text-slate-400 self-center" for="envelopeHip">hip</label>
+                <input id="envelopeHip" type="text" class="field" spellcheck="false" placeholder="0:60, 120:60, 188:0" />
+                <label class="text-xs text-slate-400 self-center" for="envelopeThigh">thigh</label>
+                <input id="envelopeThigh" type="text" class="field" spellcheck="false" placeholder="0:60, 120:60, 188:0" />
+                <label class="text-xs text-slate-400 self-center" for="envelopeCalf">calf</label>
+                <input id="envelopeCalf" type="text" class="field" spellcheck="false" placeholder="0:120, 95:120, 192:0" />
+                <label class="text-xs text-slate-400 self-center" for="envelopeWheel" data-wheel-control hidden>foot</label>
+                <input id="envelopeWheel" type="text" class="field" spellcheck="false" placeholder="0:17, 210:17, 407:0" data-wheel-control hidden />
+              </div>
+            </div>
+          </section>
+
+          <div id="formError" class="inline-error"></div>
+          <div class="flex gap-2.5 items-center">
+            <button id="saveButton" type="submit" class="primary" style="width:auto;padding:0 24px">保存配置</button>
+            <button id="reloadButton" type="button" class="btn">重新加载</button>
+            <span id="saveHint" class="text-xs text-slate-500"></span>
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <script type="module">import { mountNav, requireAuth } from '/shared/nav.js?v=home-nav-1'; requireAuth(); mountNav('robots');</script>
+  <script type="module" src="./app.js?v=point-foot-motor-envelope-1"></script>
+
+  <!-- ── 全屏 URDF 3D 预览模态层 ────────────────────────────────────────── -->
+  <div id="urdfModal" class="urdf-modal" style="display:none" role="dialog" aria-modal="true" aria-label="URDF 3D 预览">
+    <div class="urdf-modal-inner">
+
+      <!-- 左侧大画布 -->
+      <div id="urdfModalCanvas" class="urdf-modal-canvas">
+        <span class="stance-viewer-hint">拖拽旋转 · 滚轮缩放</span>
+      </div>
+
+      <!-- 右侧控制面板 -->
+      <aside class="urdf-modal-panel">
+        <div class="urdf-modal-header">
+          <div>
+            <strong id="urdfModalTitle" class="urdf-modal-robot-name">机器人预览</strong>
+            <span id="urdfModalMeshStatus" class="text-xs text-slate-500"></span>
+          </div>
+          <button id="urdfModalClose" class="btn" type="button" title="关闭 (Esc)">✕</button>
+        </div>
+
+        <div class="urdf-modal-body">
+          <p class="text-xs text-slate-500 mb-2">拖动滑块调整默认站立姿态，满意后点「保存站姿」。</p>
+
+          <!-- 关节滑块区 -->
+          <div id="urdfModalJoints" class="urdf-modal-joints"></div>
+        </div>
+
+        <div class="urdf-modal-footer">
+          <button id="urdfModalSave" class="primary" type="button">保存默认站姿</button>
+          <button id="urdfModalReset" class="btn" type="button">恢复默认</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,125 @@
+fragment SweepFragment on Sweep {
+  __typename
+  id
+  name
+  displayName
+  method
+  state
+  description
+  bestLoss
+  config
+  createdAt
+  updatedAt
+  runCount
+  runCountExpected
+}
+
+fragment AgentFragment on Agent {
+  id
+  name
+  host
+  state
+  totalRuns
+  createdAt
+  heartbeatAt
+}
+
+# Legacy fragment for servers that don't support displayName/runCountExpected.
+fragment LegacySweepFragment on Sweep {
+  __typename
+  id
+  name
+  state
+  bestLoss
+  config
+}
+
+# Paginated query for fetching sweeps in a project.
+# Note: totalSweeps is at the project level, not on the connection.
+query GetSweeps($project: String!, $entity: String!, $filters: JSONString!, $cursor: String, $perPage: Int = 50) {
+  project(name: $project, entityName: $entity) {
+    totalSweeps
+    sweeps(after: $cursor, first: $perPage, filters: $filters) {
+      pageInfo {
+        ...PageInfoFragment
+      }
+      edges {
+        node {
+          ...SweepFragment
+        }
+      }
+    }
+  }
+}
+
+# Query for fetching a single sweep by name.
+query GetSweep($name: String!, $project: String, $entity: String) {
+  project(name: $project, entityName: $entity) {
+    sweep(sweepName: $name) {
+      ...SweepFragment
+    }
+  }
+}
+
+# Legacy query for servers that don't support displayName/runCountExpected.
+query GetSweepLegacy($name: String!, $project: String, $entity: String) {
+  project(name: $project, entityName: $entity) {
+    sweep(sweepName: $name) {
+      ...LegacySweepFragment
+    }
+  }
+}
+
+query GetSweepAgent($agentID: String!, $sweep: String!, $entity: String, $project: String) {
+  project(name: $project, entityName: $entity) {
+    sweep(sweepName: $sweep) {
+      agent(agentName: $agentID) {
+        ...AgentFragment
+      }
+    }
+  }
+}
+
+query GetSweepAgents($sweep: String!, $entity: String, $project: String) {
+  project(name: $project, entityName: $entity) {
+    sweep(sweepName: $sweep) {
+      agents {
+        edges {
+          node {
+            ...AgentFragment
+          }
+        }
+      }
+    }
+  }
+}
+
+query GetAgentRuns(
+  $agentID: String!
+  $sweep: String!
+  $entity: String
+  $project: String
+  $after: String
+  $before: String
+  $first: Int
+  $last: Int
+  $order: String
+) {
+  project(name: $project, entityName: $entity) {
+    sweep(sweepName: $sweep) {
+      agent(agentName: $agentID) {
+        runs(after: $after, before: $before, first: $first, last: $last, order: $order) {
+          pageInfo {
+            ...PageInfoFragment
+          }
+          edges {
+            cursor
+            node {
+              ...LightweightRunFragment
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+[backend]
+name = "isaacgym"
+entrypoint = "robolab.frameworks.isaacgym"
+python = "3.8"
+
+[runtime]
+sdk_environment_variable = "ROBO_ISAACGYM_SDK_PATH"
+sdk_default_path = "/home/lxy/SDK/isaacgym/python"
+python_environment_variable = "ROBO_ISAACGYM_PYTHON"
+
+[[bundle]]
+name = "legged_gym"
+path = "legged_gym"
+version = "1.0.0"
+license = "BSD-3-Clause"
+
+[[bundle]]
+name = "rsl_rl"
+path = "rsl_rl"
+version = "1.0.2"
+license = "BSD-3-Clause"
+source = "https://github.com/leggedrobotics/rsl_rl/releases/tag/v1.0.2"
+archive_sha256 = "cbb34fdd29d5e48ee07462c672fb422b8a3ab17ec05566e649df782e8c3acdf6"

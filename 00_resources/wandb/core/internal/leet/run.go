@@ -1,0 +1,878 @@
+package leet
+
+import (
+	"context"
+	"fmt"
+	"runtime/debug"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/NimbleMarkets/ntcharts/v2/picture"
+
+	"github.com/wandb/wandb/core/internal/observability"
+)
+
+// RunParams identifies the run LEET displays.
+//
+// Exactly one of RunFile or Remote is set.
+type RunParams struct {
+	// RunFile is the path to a local .wandb transaction log.
+	RunFile string
+
+	// Remote identifies a run stored on a W&B server.
+	Remote *RemoteRunParams
+}
+
+// RemoteRunParams identifies a run stored on a W&B server.
+type RemoteRunParams struct {
+	// BaseURL is the W&B API base URL (e.g. https://api.wandb.ai).
+	BaseURL string
+
+	Entity  string
+	Project string
+	RunID   string
+}
+
+// Run holds data/state related to a single W&B run.
+//
+// Implements tea.Model.
+// It coordinates the main metrics grid, sidebars, help screen, and data loading.
+type Run struct {
+	// Serialize access to Update / broad model state.
+	stateMu sync.RWMutex
+
+	// Configuration and key bindings.
+	config *ConfigManager
+	keyMap map[string]func(*Run, tea.KeyPressMsg) tea.Cmd
+
+	// Terminal dimensions.
+	width, height int
+
+	// runParams contains the information about the run.
+	runParams *RunParams
+
+	// Run state tracking.
+	runState RunState
+
+	// isLoading controls whether the loading screen is displayed.
+	//
+	// Defaults to true and is set to false once a RunRecord is
+	// successfully loaded from the transaction log.
+	isLoading bool
+
+	// liveRunning caches whether the run is in RunStateRunning.
+	//
+	// Written on the main goroutine; read from the HeartbeatManager timer goroutine.
+	liveRunning atomic.Bool
+
+	// lastUpdateAt tracks when the transaction log last produced a record.
+	// A live run that stays silent past RunCrashTimeout is presumed crashed.
+	lastUpdateAt time.Time
+
+	// pulseTicking reports whether the live-indicator redraw loop is armed.
+	pulseTicking bool
+
+	// Data reader.
+	historySource HistorySource
+	initCancel    context.CancelFunc
+
+	// Transaction log (.wandb file) watch and heartbeat management.
+	watcherMgr   *WatcherManager
+	heartbeatMgr *HeartbeatManager
+
+	// Focus management.
+	focusMgr *FocusManager
+	focus    *Focus
+
+	// focusSeeded is set once initial focus lands on the first pane that
+	// receives data. After that, focus only ever changes on user action.
+	focusSeeded bool
+
+	// drag owns in-progress pane-boundary resizing (mouse drag).
+	drag paneDragger
+
+	// UI components.
+	metricsGridAnimState *AnimatedValue
+	metricsGrid          *MetricsGrid
+	runOverview          *RunOverview
+	leftSidebar          *RunOverviewSidebar
+	rightSidebar         *RightSidebar
+	consoleLogs          *RunConsoleLogs
+	consoleLogsPane      *ConsoleLogsPane
+	mediaStore           *MediaStore
+	mediaPane            *MediaPane
+
+	// Sidebar animation synchronization.
+	animationMu sync.Mutex
+	animating   bool
+
+	// Loading progress.
+	recordsLoaded int
+	loadStartTime time.Time
+	lastError     string
+
+	// Coalesce expensive redraws during batch processing.
+	suppressDraw bool
+
+	// Logger.
+	logger *observability.CoreLogger
+}
+
+func NewRun(
+	runParams *RunParams,
+	cfg *ConfigManager,
+	logger *observability.CoreLogger,
+) *Run {
+	if cfg == nil {
+		cfg = NewConfigManager(leetConfigPath(), logger)
+	}
+
+	heartbeatInterval := cfg.HeartbeatInterval()
+	logger.Info(fmt.Sprintf("run: heartbeat interval set to %v", heartbeatInterval))
+
+	focus := NewFocus()
+	ch := make(chan tea.Msg, 4096)
+
+	ro := NewRunOverview()
+	runOverviewAnimState := NewAnimatedValue(cfg.LeftSidebarVisible(), SidebarMinWidth)
+
+	// The metrics grid AnimatedValue tracks a "maximum height" that the grid is allowed.
+	// When collapsed (target=0), the grid renders nothing and bottom panes take all space.
+	metricsGridAnimState := NewAnimatedValue(cfg.MetricsGridVisible(), 1)
+
+	consoleLogsPaneAnimState := NewAnimatedValue(
+		cfg.ConsoleLogsVisible(), ConsoleLogsPaneMinHeight)
+	mediaPaneAnimState := NewAnimatedValue(
+		cfg.MediaVisible(), mediaPaneMinHeight)
+
+	metricsGrid := NewMetricsGrid(cfg, cfg.MetricsGrid, focus, logger)
+	metricsGrid.SetSingleSeriesColorMode(cfg.SingleRunColorMode())
+
+	mediaStore := NewMediaStore()
+
+	run := &Run{
+		config:               cfg,
+		keyMap:               buildKeyMap(RunKeyBindings()),
+		focus:                focus,
+		isLoading:            true,
+		runParams:            runParams,
+		metricsGridAnimState: metricsGridAnimState,
+		metricsGrid:          metricsGrid,
+		runOverview:          ro,
+		leftSidebar:          NewRunOverviewSidebar(cfg, runOverviewAnimState, ro, SidebarSideLeft),
+		rightSidebar:         NewRightSidebar(cfg, focus, logger),
+		consoleLogs:          NewRunConsoleLogs(),
+		consoleLogsPane:      NewConsoleLogsPane(consoleLogsPaneAnimState),
+		mediaStore:           mediaStore,
+		mediaPane:            NewMediaPane(mediaPaneAnimState, cfg.MediaGrid),
+		watcherMgr:           NewWatcherManager(ch, logger),
+		heartbeatMgr:         NewHeartbeatManager(heartbeatInterval, ch, logger),
+		logger:               logger,
+	}
+	run.focusMgr = run.buildRunFocusManager()
+	run.drag = paneDragger{
+		saved:    cfg.RunLayout,
+		persist:  cfg.SetRunLayout,
+		relayout: run.applyLayoutConfig,
+		logger:   logger,
+	}
+	run.leftSidebar.overridesSource = run.layoutOverrides
+	return run
+}
+
+// SetMediaStore replaces the run's media store (e.g., to share with workspace).
+func (r *Run) SetMediaStore(store *MediaStore) {
+	r.mediaStore = store
+	r.mediaPane.SetStore(store)
+}
+
+// Init initializes the model and returns the initial command.
+//
+// The watcher/heartbeat message pump is not started here: it starts
+// together with the watcher once the boot load completes for a live run.
+//
+// Implements tea.Model.Init.
+func (r *Run) Init() tea.Cmd {
+	r.logger.Debug("run: Init called")
+	var source tea.Cmd
+
+	if r.IsRemote() {
+		ctx, cancel := context.WithCancel(context.Background())
+		r.initCancel = cancel
+		source = InitializeParquetHistorySource(ctx, r.runParams.Remote, r.logger)
+	} else {
+		source = InitializeLevelDBHistorySource(r.runParams.RunFile, r.logger)
+	}
+
+	return tea.Batch(
+		source,
+		r.mediaPane.Init(),
+	)
+}
+
+// Update handles incoming events and updates the model accordingly.
+//
+// Implements tea.Model.Update.
+func (r *Run) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	defer r.logPanic("Update")
+	defer timeit(r.logger, "Model.Update")()
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
+
+	var cmds []tea.Cmd
+
+	// Forward UI messages to children if not in filter mode.
+	if isUIMsg(msg) && !r.metricsGrid.IsFilterMode() && !r.leftSidebar.IsFilterMode() {
+		if _, ok := msg.(tea.KeyPressMsg); !ok {
+			if _, cmd := r.leftSidebar.Update(msg); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			if _, cmd := r.rightSidebar.Update(msg); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+	}
+
+	if picture.IsPictureMsg(msg) {
+		cmds = append(cmds, r.mediaPane.handlePictureMsg(msg))
+		return r, tea.Batch(cmds...)
+	}
+
+	// Route message to appropriate handler.
+	switch t := msg.(type) {
+	case mediaPanePrepareMsg:
+		if t.pane != r.mediaPane {
+			return r, nil
+		}
+		return r, r.mediaPane.handlePrepareMsg()
+
+	case tea.KeyPressMsg:
+		if c := r.handleKeyPressMsg(t); c != nil {
+			cmds = append(cmds, c)
+		}
+		return r, tea.Batch(cmds...)
+
+	case tea.MouseMsg:
+		if c := r.handleMouseMsg(t); c != nil {
+			cmds = append(cmds, c)
+		}
+		return r, tea.Batch(cmds...)
+
+	case tea.WindowSizeMsg:
+		r.handleWindowResize(t)
+		return r, tea.Batch(cmds...)
+
+	default:
+		cmds = append(cmds, r.dispatch(msg)...)
+		return r, tea.Batch(cmds...)
+	}
+}
+
+// handleWindowResize handles window resize messages.
+func (r *Run) handleWindowResize(msg tea.WindowSizeMsg) {
+	r.width, r.height = msg.Width, msg.Height
+	r.applyLayoutConfig()
+	r.focusMgr.Resolve()
+}
+
+// applyLayoutConfig re-derives all pane extents from the terminal size and
+// any saved layout overrides.
+func (r *Run) applyLayoutConfig() {
+	r.updateSidebarDimensions(
+		r.leftSidebar.animState.TargetVisible(),
+		r.rightSidebar.animState.TargetVisible(),
+	)
+	r.updateBottomPaneHeights(
+		r.mediaPane.animState.TargetVisible(), r.consoleLogsPane.animState.TargetVisible())
+
+	layout := r.computeViewports()
+	r.metricsGrid.UpdateDimensions(layout.mainContentAreaWidth, layout.height)
+}
+
+// layoutOverrides returns the live pane proportions: the in-progress drag's
+// pending values, or the persisted config.
+func (r *Run) layoutOverrides() LayoutOverrides {
+	return r.drag.overrides()
+}
+
+// updateSidebarDimensions re-derives both sidebars' expanded widths from the
+// terminal width, the given post-toggle visibility of each side, and the
+// layout overrides.
+func (r *Run) updateSidebarDimensions(leftVisible, rightVisible bool) {
+	o := r.layoutOverrides()
+	left, right := fitSidebarFractions(
+		r.width, leftVisible, rightVisible, o.LeftSidebar, o.RightSidebar)
+	r.leftSidebar.UpdateDimensions(r.width, rightVisible, left)
+	r.rightSidebar.UpdateDimensions(r.width, leftVisible, right)
+}
+
+// isUIMsg returns true for messages that should flow to child view models.
+func isUIMsg(msg tea.Msg) bool {
+	switch msg.(type) {
+	case tea.KeyPressMsg, tea.MouseMsg, tea.WindowSizeMsg,
+		LeftSidebarAnimationMsg, RightSidebarAnimationMsg,
+		ConsoleLogsPaneAnimationMsg, MediaPaneAnimationMsg,
+		MetricsGridAnimationMsg:
+		return true
+	default:
+		return false
+	}
+}
+
+// dispatch routes message types to appropriate handlers.
+func (r *Run) dispatch(msg tea.Msg) []tea.Cmd {
+	switch t := msg.(type) {
+	case InitMsg:
+		return r.handleInit(t)
+	case ChunkedBatchMsg:
+		return r.handleChunkedBatch(t)
+	case BatchedRecordsMsg:
+		return r.handleBatched(t)
+	case HeartbeatMsg:
+		return r.handleHeartbeat()
+	case FileChangedMsg:
+		return r.handleFileChange()
+	case RunLivePulseMsg:
+		return r.handleLivePulse()
+	case tea.WindowSizeMsg:
+		r.handleWindowResize(t)
+	case LeftSidebarAnimationMsg, RightSidebarAnimationMsg:
+		return r.handleSidebarAnimation(msg)
+	case ConsoleLogsPaneAnimationMsg:
+		return r.handleConsoleLogsPaneAnimation()
+	case MediaPaneAnimationMsg:
+		return r.handleMediaPaneAnimation()
+	case MetricsGridAnimationMsg:
+		return r.handleMetricsGridAnimation()
+	default:
+		// History/Run/Summary/Stats/SystemInfo/FileComplete/Error
+		if cmd := r.handleRecordMsg(msg); cmd != nil {
+			return []tea.Cmd{cmd}
+		}
+	}
+	return nil
+}
+
+// FocusedTitle returns the title of the currently focused chart.
+func (r *Run) FocusedTitle() string {
+	if r.focus.Type != FocusNone {
+		return r.focus.Title
+	}
+	return ""
+}
+
+// View renders the UI based on the data in the model.
+//
+// Implements tea.Model.View.
+func (r *Run) View() tea.View {
+	defer r.logPanic("View")
+
+	r.stateMu.RLock()
+	defer r.stateMu.RUnlock()
+
+	if r.width == 0 || r.height == 0 {
+		return tea.NewView("Loading...")
+	}
+
+	if r.isLoading {
+		return tea.NewView(r.renderLoadingScreen())
+	}
+
+	return tea.NewView(r.renderMainView())
+}
+
+// renderMainView renders the main application view.
+func (r *Run) renderMainView() string {
+	layout := r.computeViewports()
+
+	w := layout.mainContentAreaWidth
+	centralColumn := ""
+	if r.mediaPane.IsFullscreen() {
+		centralColumn = r.mediaPane.View(w, layout.totalContentAreaHeight, "", "")
+	} else {
+		var sections []string
+
+		if r.metricsGridAnimState.IsVisible() && layout.height > 0 {
+			if r.metricsGrid.ChartCount() == 0 {
+				sections = append(sections,
+					renderMetricsEmptyState(w, layout.height, "No scalar metrics logged."))
+			} else {
+				dims := r.metricsGrid.CalculateChartDimensions(w, layout.height)
+				// Pad the grid (header + rows*cellHeight lines, short of
+				// layout.height by the integer-division remainder) to its
+				// reserved height so the sections below sit exactly at the
+				// rows computeVerticalStackLayout reserves for them. Mouse
+				// hit-testing maps screen rows to sections via that layout.
+				sections = append(sections,
+					placeMainColumn(w, layout.height, r.metricsGrid.View(dims)))
+			}
+		}
+
+		if layout.mediaHeight > 0 {
+			sections = append(sections, r.mediaPane.View(w, layout.mediaHeight, "", ""))
+		} else {
+			r.mediaPane.Park()
+		}
+		if layout.consoleLogsHeight > 0 {
+			r.consoleLogsPane.SetConsoleLogs(r.consoleLogs.Items())
+			sections = append(sections, r.consoleLogsPane.View(w, "", ""))
+		}
+
+		sections = filterNonEmptySections(sections)
+		if len(sections) == 0 {
+			centralColumn = renderLogoArt(w, layout.totalContentAreaHeight)
+		} else {
+			centralColumn = joinWithSeparators(sections, w,
+				highlightedStackSeparator(r.drag.cue(), layout, len(sections)))
+		}
+	}
+	centralColumn = placeMainColumn(w, layout.totalContentAreaHeight, centralColumn)
+
+	mainView := r.buildMainViewWithSidebars(
+		centralColumn,
+		layout.totalContentAreaHeight,
+		layout.leftSidebarWidth,
+		layout.rightSidebarWidth,
+	)
+	statusBar := r.renderStatusBar()
+
+	fullView := lipgloss.JoinVertical(lipgloss.Left, mainView, statusBar)
+	return lipgloss.Place(r.width, r.height, lipgloss.Left, lipgloss.Top, fullView)
+}
+
+// buildMainViewWithSidebars builds the main view with sidebars.
+func (r *Run) buildMainViewWithSidebars(
+	gridView string,
+	contentHeight int,
+	leftWidth, rightWidth int,
+) string {
+	if leftWidth == 0 && rightWidth == 0 {
+		return gridView
+	}
+
+	var parts []string
+	cue := r.drag.cue()
+
+	if leftWidth > 0 {
+		r.leftSidebar.SetDragCue(cue)
+		leftView := r.leftSidebar.View(contentHeight).Content
+		parts = append(parts, leftView)
+	}
+
+	parts = append(parts, gridView)
+
+	if rightWidth > 0 {
+		rightView := r.rightSidebar.View(contentHeight,
+			cue.boundary == dragBoundaryRightSidebar)
+		parts = append(parts, rightView)
+	}
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, parts...)
+}
+
+// logPanic logs panics to the logger before re-panicking.
+func (m *Run) logPanic(ctx string) {
+	if r := recover(); r != nil {
+		stackTrace := string(debug.Stack())
+		m.logger.CaptureError(
+			"leet",
+			fmt.Errorf("PANIC in %s: %v\nStack trace:\n%s", ctx, r, stackTrace),
+		)
+		panic(r)
+	}
+}
+
+// isRunning reports whether the run is live.
+//
+// Safe to call from any goroutine (reads an atomic.Bool).
+func (r *Run) isRunning() bool {
+	return r.liveRunning.Load()
+}
+
+// shouldResetLiveHeartbeat reports whether incremental data should re-arm the
+// live heartbeat safety net.
+//
+// During boot load we may already know the run is live, but we intentionally
+// avoid arming heartbeats until live streaming has fully started. Watcher and
+// heartbeat startup happen together after the initial history drain completes.
+func (r *Run) shouldResetLiveHeartbeat() bool {
+	return r.runState == RunStateRunning &&
+		r.watcherMgr != nil &&
+		r.watcherMgr.IsStarted()
+}
+
+// syncLiveRunning updates the atomic liveness flag from the authoritative state.
+func (r *Run) syncLiveRunning() {
+	r.liveRunning.Store(r.runState == RunStateRunning)
+}
+
+// renderLoadingScreen shows the wandb leet ASCII art centered on screen.
+func (r *Run) renderLoadingScreen() string {
+	centeredLogo := renderLogoArt(r.width, r.height-StatusBarHeight)
+
+	statusBar := r.renderStatusBar()
+	return lipgloss.JoinVertical(lipgloss.Left, centeredLogo, statusBar)
+}
+
+// renderStatusBar creates the status bar.
+func (r *Run) renderStatusBar() string {
+	// The indicator is styled separately from the bar so its color codes
+	// don't reset the bar's own styling mid-line.
+	indicator := renderStateIndicator(r.runState)
+	barWidth := max(r.width-lipgloss.Width(indicator), 0)
+
+	statusText := r.buildStatusText()
+	helpText := r.buildHelpText()
+
+	innerWidth := max(barWidth-2*StatusBarPadding, 0)
+	spaceForHelp := max(innerWidth-lipgloss.Width(statusText), 0)
+	rightAligned := lipgloss.PlaceHorizontal(spaceForHelp, lipgloss.Right, helpText)
+
+	fullStatus := statusText + rightAligned
+
+	return indicator + statusBarStyle.
+		Width(barWidth).
+		MaxWidth(barWidth).
+		Render(fullStatus)
+}
+
+// buildStatusText builds the main status text.
+func (r *Run) buildStatusText() string {
+	if r.leftSidebar.IsFilterMode() {
+		return r.buildOverviewFilterStatus()
+	}
+	if r.metricsGrid.IsFilterMode() {
+		return r.buildMetricsFilterStatus()
+	}
+	if r.rightSidebar.IsFilterMode() {
+		return r.buildSystemMetricsFilterStatus()
+	}
+	if r.config.IsAwaitingGridConfig() {
+		return r.config.GridConfigStatus()
+	}
+	if r.lastError != "" {
+		return "Error: " + r.lastError
+	}
+	if r.isLoading {
+		return r.buildLoadingStatus()
+	}
+	return r.buildActiveStatus()
+}
+
+// buildOverviewFilterStatus builds status for overview filter mode.
+func (r *Run) buildOverviewFilterStatus() string {
+	filterInfo := r.leftSidebar.FilterInfo()
+	if filterInfo == "" {
+		filterInfo = "no matches"
+	}
+	return fmt.Sprintf(
+		"Overview filter (%s): %s%s [%s] (Enter to apply • Tab to toggle mode)",
+		r.leftSidebar.FilterMode().String(),
+		r.leftSidebar.FilterQuery(),
+		string(mediumShadeBlock),
+		filterInfo,
+	)
+}
+
+// buildMetricsFilterStatus builds status for metrics filter mode.
+//
+// Should be guarded by the caller's check that filter input is active.
+func (r *Run) buildMetricsFilterStatus() string {
+	return fmt.Sprintf(
+		"Filter (%s): %s%s [%d/%d] (Enter to apply • Tab to toggle mode)",
+		r.metricsGrid.FilterMode().String(),
+		r.metricsGrid.FilterQuery(),
+		string(mediumShadeBlock),
+		r.metricsGrid.FilteredChartCount(), r.metricsGrid.ChartCount())
+}
+
+func (r *Run) buildSystemMetricsFilterStatus() string {
+	if r.rightSidebar == nil || r.rightSidebar.metricsGrid == nil {
+		return ""
+	}
+	grid := r.rightSidebar.metricsGrid
+	return fmt.Sprintf(
+		"System filter (%s): %s%s [%d/%d] (Enter to apply • Tab to toggle mode)",
+		grid.FilterMode().String(),
+		grid.FilterQuery(),
+		string(mediumShadeBlock),
+		grid.FilteredChartCount(),
+		grid.ChartCount(),
+	)
+}
+
+// buildLoadingStatus builds status for loading mode.
+func (r *Run) buildLoadingStatus() string {
+	if r.recordsLoaded > 0 {
+		return fmt.Sprintf("Loading data... [%d records, %d metrics]",
+			r.recordsLoaded, r.metricsGrid.ChartCount())
+	}
+	return "Loading data..."
+}
+
+// buildActiveStatus builds status for active (non-loading, non-filter) mode.
+func (r *Run) buildActiveStatus() string {
+	var parts []string
+
+	// Add filter info if active.
+	if r.metricsGrid.IsFiltering() {
+		parts = append(parts, fmt.Sprintf(
+			"Filter (%s): %q [%d/%d] (/ to change, Ctrl+L to clear)",
+			r.metricsGrid.FilterMode().String(),
+			r.metricsGrid.FilterQuery(),
+			r.metricsGrid.FilteredChartCount(), r.metricsGrid.ChartCount()))
+	}
+
+	// Add overview filter info if active.
+	if r.leftSidebar.IsFiltering() {
+		parts = append(parts, fmt.Sprintf("Overview: %q [%s] (o to change, Ctrl+K to clear)",
+			r.leftSidebar.FilterQuery(),
+			r.leftSidebar.FilterInfo(),
+		))
+	}
+
+	if r.rightSidebar.IsFiltering() {
+		grid := r.rightSidebar.metricsGrid
+		parts = append(parts, fmt.Sprintf(
+			"System filter (%s): %q [%d/%d] (\\ to change, Ctrl+\\ to clear)",
+			grid.FilterMode().String(),
+			grid.FilterQuery(),
+			grid.FilteredChartCount(),
+			grid.ChartCount(),
+		))
+	}
+
+	// Add selected overview item if sidebar is visible.
+	if r.leftSidebar.IsVisible() {
+		key, value := r.leftSidebar.SelectedItem()
+		if key != "" {
+			parts = append(parts, fmt.Sprintf("%s: %s", key, value))
+		}
+	}
+
+	if r.mediaPane.Active() {
+		if label := r.mediaPane.StatusLabel(); label != "" {
+			parts = append(parts, label)
+		}
+	}
+
+	// Add focused chart name if a chart is focused.
+	focusedTitle := r.FocusedTitle()
+	if focusedTitle != "" {
+		parts = append(parts, focusedTitle)
+		switch r.focus.Type {
+		case FocusMainChart:
+			parts[len(parts)-1] += r.metricsGrid.focusedChartLabels()
+		case FocusSystemChart:
+			if detail := r.rightSidebar.metricsGrid.FocusedChartTitleDetail(); detail != "" {
+				parts = append(parts, detail)
+			}
+			if viewMode := r.rightSidebar.FocusedChartViewModeLabel(); viewMode != "" {
+				parts = append(parts, viewMode)
+			}
+			if scaleLabel := r.rightSidebar.metricsGrid.FocusedChartScaleLabel(); scaleLabel != "" {
+				parts = append(parts, scaleLabel)
+			}
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	return strings.Join(parts, " • ")
+}
+
+// buildHelpText builds the help text for the status bar.
+func (r *Run) buildHelpText() string {
+	if r.metricsGrid.IsFilterMode() ||
+		r.leftSidebar.IsFilterMode() ||
+		r.rightSidebar.IsFilterMode() {
+		return ""
+	}
+	return "h: help"
+}
+
+func (r *Run) IsFiltering() bool {
+	return r.metricsGrid.IsFilterMode() ||
+		r.leftSidebar.IsFilterMode() ||
+		r.rightSidebar.IsFilterMode()
+}
+
+func (r *Run) MediaFullscreen() bool {
+	r.stateMu.RLock()
+	defer r.stateMu.RUnlock()
+	return r.mediaPane != nil && r.mediaPane.IsFullscreen()
+}
+
+func (r *Run) updateBottomPaneHeights(mediaVisible, logsVisible bool) {
+	metricsVisible := r.metricsGridAnimState.TargetVisible()
+
+	// Compute separator count from the visibility state we're configuring toward.
+	sectionCount := 0
+	if metricsVisible {
+		sectionCount++
+	}
+	if mediaVisible {
+		sectionCount++
+	}
+	if logsVisible {
+		sectionCount++
+	}
+	sepLines := max(sectionCount-1, 0)
+
+	maxH := max(r.height-StatusBarHeight-sepLines, 0)
+	lowerCount := 0
+	if mediaVisible {
+		lowerCount++
+	}
+	if logsVisible {
+		lowerCount++
+	}
+	if lowerCount == 0 {
+		return
+	}
+
+	var lowerTierH int
+	if metricsVisible {
+		lowerTierH = int(float64(maxH) * LowerTierRatio)
+	} else {
+		lowerTierH = maxH
+	}
+
+	o := r.layoutOverrides()
+	each := lowerTierH / lowerCount
+	heights := []int{
+		paneHeightFor(o.Media, r.height, each),
+		paneHeightFor(o.Logs, r.height, each),
+	}
+	budget := maxH
+	if metricsVisible {
+		budget = maxH - minFlexMetricsHeight
+	}
+	if !mediaVisible {
+		heights[0] = 0
+	}
+	if !logsVisible {
+		heights[1] = 0
+	}
+	fitStackHeights(heights,
+		[]int{mediaPaneMinHeight, ConsoleLogsPaneMinHeight}, budget)
+	if mediaVisible {
+		r.mediaPane.SetExpandedHeight(heights[0])
+	}
+	if logsVisible {
+		r.consoleLogsPane.SetExpandedHeight(heights[1])
+	}
+}
+
+func (r *Run) IsRemote() bool {
+	return r.runParams != nil && r.runParams.Remote != nil
+}
+
+// RunFile returns the path of the run's local .wandb transaction log,
+// or "" for remote runs.
+func (r *Run) RunFile() string {
+	if r.runParams == nil {
+		return ""
+	}
+	return r.runParams.RunFile
+}
+
+// Layout represents the computed layout dimensions for the main UI.
+type Layout struct {
+	leftSidebarWidth       int
+	mainContentAreaWidth   int
+	rightSidebarWidth      int
+	totalContentAreaHeight int
+	height                 int
+	systemMetricsY         int
+	systemMetricsHeight    int
+	mediaY                 int
+	mediaHeight            int
+	consoleLogsY           int
+	consoleLogsHeight      int
+}
+
+// effectiveSidebarWidths returns the widths that can actually be rendered
+// without starving the main content area.
+//
+// The visibility preferences remain unchanged: this method only clamps the
+// current render/layout pass and does not mutate animation state.
+func (r *Run) effectiveSidebarWidths() (leftW, rightW int) {
+	const minRunMainContentWidth = 10
+
+	leftW = r.leftSidebar.Width()
+	rightW = r.rightSidebar.Width()
+
+	if leftW+rightW < r.width-minRunMainContentWidth {
+		return leftW, rightW
+	}
+	if rightW > 0 {
+		rightW = 0
+	}
+	if leftW+rightW < r.width-minRunMainContentWidth {
+		return leftW, rightW
+	}
+	if leftW > 0 {
+		leftW = 0
+	}
+	return leftW, rightW
+}
+
+// computeViewports returns (leftW, contentW, rightW, contentH).
+func (r *Run) computeViewports() Layout {
+	leftW, rightW := r.effectiveSidebarWidths()
+	contentW := max(r.width-leftW-rightW, 1)
+	totalH := max(r.height-StatusBarHeight, 0)
+
+	stack := computeVerticalStackLayout(
+		totalH,
+		stackSectionSpec{
+			ID:      stackSectionMetrics,
+			Visible: r.metricsGridAnimState.IsVisible(),
+			Flex:    true},
+		stackSectionSpec{
+			ID:      stackSectionMedia,
+			Visible: r.mediaPane.IsVisible(),
+			Height:  r.mediaPane.Height()},
+		stackSectionSpec{
+			ID:      stackSectionConsoleLogs,
+			Visible: r.consoleLogsPane.IsVisible(),
+			Height:  r.consoleLogsPane.Height()},
+	)
+
+	return Layout{
+		leftSidebarWidth:       leftW,
+		mainContentAreaWidth:   contentW,
+		rightSidebarWidth:      rightW,
+		totalContentAreaHeight: totalH,
+		height:                 stack.Height(stackSectionMetrics),
+		mediaY:                 stack.Y(stackSectionMedia),
+		mediaHeight:            stack.Height(stackSectionMedia),
+		consoleLogsY:           stack.Y(stackSectionConsoleLogs),
+		consoleLogsHeight:      stack.Height(stackSectionConsoleLogs),
+	}
+}
+
+// Cleanup releases resources held by the RunModel.
+//
+// Called when switching to workspace view.
+func (r *Run) Cleanup() {
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
+
+	r.cleanup()
+}
+
+// timeit logs a debug timing line on exit for the given scope.
+func timeit(logger *observability.CoreLogger, scope string) func() {
+	start := time.Now()
+	return func() {
+		logger.Debug(fmt.Sprintf("perf: %s took %s", scope, time.Since(start)))
+	}
+}

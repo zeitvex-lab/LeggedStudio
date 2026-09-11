@@ -1,0 +1,180 @@
+THREE.TGALoader: No data.
+is outside of buffer bounds
+WARNING: OrbitControls.js encountered an unknown camera type - zoom to cursor disabled.
+Unknown encoding:
+not found in provided package list.
+R3F.createRoot should only be called once!
+targetStart out of bounds
+URDFLoader: Failed to load url '
+unknown compression method
+THREE.TGALoader: Invalid type
+THREE.GLTFLoader: setMeshoptDecoder must be called before loading compressed files
+THREE.GLTFLoader: No DRACOLoader instance provided.
+invalid code lengths set
+Could not load
+is not supported by this method
+Buffer size must be a multiple of 16-bits
+THREE.GLTFLoader: Ignoring primitive type .extras,
+process.chdir is not supported
+THREE.GLTFLoader: Couldn't load texture
+is missing URI and bufferView
+THREE.STLLoader: Something isn't right with the normal of face number
+THREE.TGALoader: Format not supported.
+does not exist.
+utf-8 encode
+forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported
+THREE.ColladaLoader: Unknown joint type:
+THREE.GLTFLoader: Unsupported normalized accessor component type.
+THREE.GLTFLoader: Primitive mode unsupported:
+Buffer size must be a multiple of 32-bits
+need dictionary
+incorrect header check
+utf-8 decode
+invalid code -- missing end-of-block
+THREE.GLTFLoader: Unexpected light type:
+stream error
+Corrupted zip: can't find end of central directory
+insufficient memory
+R3F: the args prop must be an array!
+invalid stored block lengths
+use strict
+WARNING: OrbitControls.js encountered an unknown camera type - pan disabled.
+WARNING: OrbitControls.js encountered an unknown camera type - dolly/zoom disabled.
+px,0);transform-origin:0 0;
+px,0) scale(
+R3F: Hooks can only be used within the Canvas component!
+R3F: Primitives without 'object' are invalid!
+R3F: The args prop must be an array!
+Invalid string. Length must be a multiple of 4
+The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object. Received type
+Attempt to allocate Buffer larger than maximum size: 0x7fffffff bytes
+val must be string, number or Buffer
+offset is not uint
+Trying to access beyond buffer length
+Index out of range
+Buffer size must be a multiple of 64-bits
+Argument must be a Buffer
+out of range index
+Attempt to write outside buffer bounds
+argument should be a Buffer
+sourceEnd out of bounds
+encoding must be a string
+Out of range index
+an integer
+Attempt to access memory outside buffer bounds
+It must be
+Invalid code point
+BigInt not supported
+Cannot find module '
+Invalid base64 input, it looks like a data url.
+Invalid base64 input, bad content length.
+Bug : uncompressed data size mismatch
+STORE compression
+STORE decompression
+is not a valid compression method !
+The constructor with parameters has been removed in JSZip 3.0, please check the upgrade guide.
+JSZip can't accept a stream when loading a zip file.
+the loaded zip file
+Corrupted zip : CRC32 mismatch
+Nodejs stream input adapter for
+This method has been removed in JSZip 3.0, please check the upgrade guide.
+No output type specified.
+ConvertWorker to
+DataLengthProbe for
+The stream '
+concat : unsupported type '
+Bug : can't construct the Blob.
+is not supported by this platform
+Can't read the data of '
+Corrupted zip or bug: unexpected signature (
+Multi-volumes zip are not supported
+Corrupted zip or bug: expected
+records in central dir, got
+Corrupted zip: can't find the ZIP64 end of central directory locator
+Corrupted zip: can't find the ZIP64 end of central directory
+Corrupted zip: missing
+Corrupted zip : compression
+unknown (inner file :
+Encrypted zip are not supported
+resolver must be a function
+Cannot resolve promise with itself
+must be an array
+must be non-object
+pako deflate (from Nodeca project)
+invalid literal/length code
+invalid distance code
+invalid distance too far back
+invalid window size
+unknown header flags set
+header crc mismatch
+invalid block type
+too many length or distance symbols
+invalid bit length repeat
+invalid literal/lengths set
+invalid distances set
+incorrect data check
+incorrect length check
+pako inflate (from Nodeca project)
+stream end
+file error
+data error
+buffer error
+incompatible version
+m9 12 2 2 4-4
+M3 5V19A9 3 0 0 0 21 19V5
+M3 12A9 3 0 0 0 21 12
+An object should only be passed to the image component src parameter if it comes from a static image import. It must include src. Received
+xMidYMid slice
+script-src 'none'; frame-src 'none'; sandbox;
+for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+at new
+Error generating stack:
+findAllNodes was able to match part of the selector:
+No matching component was found for:
+setTimeout has not been defined
+clearTimeout has not been defined
+process.binding is not supported
+THREE.TGALoader: Not enough data to contain header.
+THREE.TGALoader: Invalid type colormap data for indexed type.
+THREE.TGALoader: Invalid type colormap data for colormap type.
+THREE.TGALoader: Invalid image size.
+THREE.TGALoader: Invalid pixel size
+THREE.ColladaLoader: Couldn't find image with ID:
+THREE.ColladaLoader: Couldn't create texture with ID:
+THREE.ColladaLoader: Unknow primitive type:
+THREE.ColladaLoader: Couldn't find camera with ID:
+THREE.ColladaLoader: Unable to find root bone of skeleton with ID:
+THREE.ColladaLoader: Couldn't find light with ID:
+THREE.ColladaLoader: Failed to parse collada file.
+THREE.ColladaLoader: File version
+THREE.ColladaLoader: Morph target animation not supported yet.
+THREE.ColladaLoader: Unsupported primitive type:
+THREE.ColladaLoader: Joint
+doesn't exist.
+outside of limits (min:
+is static.
+THREE.ColladaLoader: Please access animations over scene.animations now.
+THREE.BufferGeometryUtils.toTrianglesDrawMode(): Geometry already defined as triangles.
+THREE.BufferGeometryUtils.toTrianglesDrawMode(): Unknown draw mode:
+THREE.BufferGeometryUtils.toTrianglesDrawMode(): Undefined position attribute. Processing not possible.
+THREE.BufferGeometryUtils.toTrianglesDrawMode(): Unable to generate correct amount of triangles.
+THREE.GLTFLoader: Invalid plugin found: missing name
+THREE.GLTFLoader: setKTX2Loader must be called before loading KTX2 textures
+THREE.GLTFLoader: WebP required by asset but unsupported.
+THREE.GLTFLoader: AVIF required by asset but unsupported.
+THREE.GLTFLoader: Unsupported glTF-Binary header.
+THREE.GLTFLoader: Legacy binary file detected.
+THREE.GLTFLoader: JSON content not found.
+Unknown type:
+buffer type is not supported.
+THREE.GLTFLoader: Unsupported itemSize in sparse BufferAttribute.
+THREE.GLTFLoader: Image
+THREE.GLTFLoader: Invalid extras.targetNames length. Ignoring names.
+THREE.GLTFLoader: Missing camera parameters.
+THREE.GLTFLoader: Missing min/max properties for accessor POSITION.
+THREE.STLLoader: Something isn't right with the vertices of face number
+URDFLoader: Error loading file.
+URDFLoader :
+URDFLoader: Error loading mesh.
+URDFLoader: Detected an infinite loop of mimic joints.
+URDFLoader: Could not load model at

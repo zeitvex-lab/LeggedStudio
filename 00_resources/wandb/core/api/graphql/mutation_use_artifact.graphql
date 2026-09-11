@@ -1,0 +1,12 @@
+# artifactEntityName and artifactProjectName are in a later server version
+# @genqlient(for: "UseArtifactInput.artifactEntityName", omitempty: true)
+# @genqlient(for: "UseArtifactInput.artifactProjectName", omitempty: true)
+mutation UseArtifact(
+    $input: UseArtifactInput!
+) {
+    useArtifact(input: $input) {
+        artifact {
+            id
+        }
+    }
+}

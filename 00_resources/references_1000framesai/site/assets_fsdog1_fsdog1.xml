@@ -1,0 +1,116 @@
+<mujoco model="fsdog1_simplified">
+  <compiler angle="radian" usethread="false"/>
+
+  <statistic meansize="0.13" extent="1.05" center="0 0 -0.18"/>
+  <default>
+    <joint damping="0.001" armature="0.01" frictionloss="0.06"/>
+    <geom friction="1.1 0.02 0.001" condim="3"/>
+    <default class="visual">
+      <geom contype="0" conaffinity="0" group="2"/>
+    </default>
+  </default>
+
+  <asset>
+    <material name="fsdog_body" rgba="0.70 0.78 0.86 1"/>
+    <material name="fsdog_dark" rgba="0.05 0.07 0.08 1"/>
+    <material name="fsdog_joint" rgba="0.22 0.27 0.30 1"/>
+    <material name="fsdog_link" rgba="0.86 0.90 0.94 1"/>
+  </asset>
+
+  <worldbody>
+    <body name="base" pos="0 0 0.38">
+      <freejoint name="root"/>
+      <inertial pos="0 0 0" mass="5.53" diaginertia="0.02656 0.13113 0.14083"/>
+      <geom name="base_box" type="box" size="0.245 0.055 0.045" material="fsdog_body"/>
+      <geom name="base_top" type="box" size="0.205 0.050 0.015" pos="0 0 0.055" material="fsdog_link" class="visual"/>
+      <geom name="base_nose" type="box" size="0.055 0.048 0.035" pos="0.285 0 0.005" material="fsdog_dark"/>
+
+      <body name="fl_hip" pos="0.249 0.055 0">
+        <inertial pos="0 0 0" mass="0.57" diaginertia="0.00054 0.00074 0.00059"/>
+        <joint name="fl_hip_joint" axis="1 0 0" range="-0.55 0.55" actuatorfrcrange="-17 17"/>
+        <geom type="sphere" size="0.036" material="fsdog_joint"/>
+        <geom type="capsule" fromto="0 0 0 0 0.0805 0" size="0.025" material="fsdog_joint"/>
+        <body name="fl_thigh" pos="0 0.0805 0">
+          <inertial pos="0 0 -0.09" mass="1.07" diaginertia="0.00859 0.00888 0.00093"/>
+          <joint name="fl_thigh_joint" axis="0 1 0" range="-2.4 2.4" actuatorfrcrange="-17 17"/>
+          <geom type="capsule" fromto="0 0 0 0 0 -0.20" size="0.023" material="fsdog_link"/>
+          <body name="fl_calf" pos="0 0 -0.20">
+            <inertial pos="0 0 -0.10" mass="0.34" diaginertia="0.00191 0.00215 0.00026"/>
+            <joint name="fl_calf_joint" axis="0 -1 0" range="-0.2 5.3" actuatorfrcrange="-17 17"/>
+            <geom type="capsule" fromto="0 0 0 0 0 -0.205" size="0.018" material="fsdog_dark"/>
+            <geom name="fl_foot" type="sphere" pos="0 0 -0.205" size="0.026" material="fsdog_dark"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="fr_hip" pos="0.249 -0.055 0">
+        <inertial pos="0 0 0" mass="0.57" diaginertia="0.00054 0.00074 0.00059"/>
+        <joint name="fr_hip_joint" axis="1 0 0" range="-0.55 0.55" actuatorfrcrange="-17 17"/>
+        <geom type="sphere" size="0.036" material="fsdog_joint"/>
+        <geom type="capsule" fromto="0 0 0 0 -0.0805 0" size="0.025" material="fsdog_joint"/>
+        <body name="fr_thigh" pos="0 -0.0805 0">
+          <inertial pos="0 0 -0.09" mass="1.07" diaginertia="0.00859 0.00888 0.00093"/>
+          <joint name="fr_thigh_joint" axis="0 1 0" range="-2.4 2.4" actuatorfrcrange="-17 17"/>
+          <geom type="capsule" fromto="0 0 0 0 0 -0.20" size="0.023" material="fsdog_link"/>
+          <body name="fr_calf" pos="0 0 -0.20">
+            <inertial pos="0 0 -0.10" mass="0.34" diaginertia="0.00191 0.00215 0.00026"/>
+            <joint name="fr_calf_joint" axis="0 -1 0" range="-0.2 5.3" actuatorfrcrange="-17 17"/>
+            <geom type="capsule" fromto="0 0 0 0 0 -0.205" size="0.018" material="fsdog_dark"/>
+            <geom name="fr_foot" type="sphere" pos="0 0 -0.205" size="0.026" material="fsdog_dark"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="rl_hip" pos="-0.251 0.055 0">
+        <inertial pos="0 0 0" mass="0.57" diaginertia="0.00054 0.00074 0.00059"/>
+        <joint name="rl_hip_joint" axis="1 0 0" range="-0.55 0.55" actuatorfrcrange="-17 17"/>
+        <geom type="sphere" size="0.036" material="fsdog_joint"/>
+        <geom type="capsule" fromto="0 0 0 0 0.0805 0" size="0.025" material="fsdog_joint"/>
+        <body name="rl_thigh" pos="0 0.0805 0">
+          <inertial pos="0 0 -0.09" mass="1.07" diaginertia="0.00859 0.00888 0.00093"/>
+          <joint name="rl_thigh_joint" axis="0 1 0" range="-2.4 2.4" actuatorfrcrange="-17 17"/>
+          <geom type="capsule" fromto="0 0 0 0 0 -0.20" size="0.023" material="fsdog_link"/>
+          <body name="rl_calf" pos="0 0 -0.20">
+            <inertial pos="0 0 -0.10" mass="0.34" diaginertia="0.00191 0.00215 0.00026"/>
+            <joint name="rl_calf_joint" axis="0 -1 0" range="-0.2 5.3" actuatorfrcrange="-17 17"/>
+            <geom type="capsule" fromto="0 0 0 0 0 -0.205" size="0.018" material="fsdog_dark"/>
+            <geom name="rl_foot" type="sphere" pos="0 0 -0.205" size="0.026" material="fsdog_dark"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="rr_hip" pos="-0.251 -0.055 0">
+        <inertial pos="0 0 0" mass="0.57" diaginertia="0.00054 0.00074 0.00059"/>
+        <joint name="rr_hip_joint" axis="1 0 0" range="-0.55 0.55" actuatorfrcrange="-17 17"/>
+        <geom type="sphere" size="0.036" material="fsdog_joint"/>
+        <geom type="capsule" fromto="0 0 0 0 -0.0805 0" size="0.025" material="fsdog_joint"/>
+        <body name="rr_thigh" pos="0 -0.0805 0">
+          <inertial pos="0 0 -0.09" mass="1.07" diaginertia="0.00859 0.00888 0.00093"/>
+          <joint name="rr_thigh_joint" axis="0 1 0" range="-2.4 2.4" actuatorfrcrange="-17 17"/>
+          <geom type="capsule" fromto="0 0 0 0 0 -0.20" size="0.023" material="fsdog_link"/>
+          <body name="rr_calf" pos="0 0 -0.20">
+            <inertial pos="0 0 -0.10" mass="0.34" diaginertia="0.00191 0.00215 0.00026"/>
+            <joint name="rr_calf_joint" axis="0 -1 0" range="-0.2 5.3" actuatorfrcrange="-17 17"/>
+            <geom type="capsule" fromto="0 0 0 0 0 -0.205" size="0.018" material="fsdog_dark"/>
+            <geom name="rr_foot" type="sphere" pos="0 0 -0.205" size="0.026" material="fsdog_dark"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <motor name="fl_hip" joint="fl_hip_joint"/>
+    <motor name="fl_thigh" joint="fl_thigh_joint"/>
+    <motor name="fl_calf" joint="fl_calf_joint"/>
+    <motor name="fr_hip" joint="fr_hip_joint"/>
+    <motor name="fr_thigh" joint="fr_thigh_joint"/>
+    <motor name="fr_calf" joint="fr_calf_joint"/>
+    <motor name="rl_hip" joint="rl_hip_joint"/>
+    <motor name="rl_thigh" joint="rl_thigh_joint"/>
+    <motor name="rl_calf" joint="rl_calf_joint"/>
+    <motor name="rr_hip" joint="rr_hip_joint"/>
+    <motor name="rr_thigh" joint="rr_thigh_joint"/>
+    <motor name="rr_calf" joint="rr_calf_joint"/>
+  </actuator>
+</mujoco>

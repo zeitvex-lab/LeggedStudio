@@ -1,0 +1,10 @@
+use strict
+Segment names may not start with erroneous periods ('
+Invalid href '
+failed to decode param
+Catch-all must be the last part of the URL.
+Segment names may not start or end with extra brackets ('
+You cannot use different slug names for the same dynamic path ('
+Cannot find module for page:
+Failed to load static file for page:
+Cannot find the middleware module

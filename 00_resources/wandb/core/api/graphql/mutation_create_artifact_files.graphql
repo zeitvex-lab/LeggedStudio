@@ -1,0 +1,27 @@
+# @genqlient(for: "CreateArtifactFilesInput.digestAlgorithm", omitempty: true)
+# @genqlient(for: "CreateArtifactFileSpecInput.digest", omitempty: true)
+mutation CreateArtifactFiles(
+  $input: CreateArtifactFilesInput!
+) {
+  createArtifactFiles(input: $input) {
+    files {
+      edges {
+        node {
+          storagePath
+          uploadUrl
+          uploadHeaders
+          uploadMultipartUrls {
+            uploadID
+            uploadUrlParts {
+              partNumber
+              uploadUrl
+            }
+          }
+          artifact {
+            id
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,125 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="microduck">
+  <compiler angle="radian" autolimits="true" />
+  <worldbody>
+    
+    <body name="trunk_base" pos="0 0 0.12" quat="1 0 0 0">
+      <freejoint name="trunk_base_freejoint" />
+      <inertial pos="-0.0239221 2.65202e-06 -0.00534283" mass="0.171688" fullinertia="0.000118388 0.000137268 8.43853e-05 1.1716e-08 -3.30212e-05 -2.5294e-08" />
+      
+      <site group="3" name="torso_camera" pos="0.017 0 0.0005" quat="1 0 0 0" />
+      <site group="3" name="imu" pos="-0.0339928 0.0156227 0.03095" quat="1 -0 0 -0" />
+      
+      <body name="seeed_bearing__configuration__22x16x4" pos="0.006 0.0175 -0.002" quat="0 -0.707107 -0.707107 -0">
+        
+        <joint axis="0 0 1" name="left_hip_yaw" type="hinge" range="-0.2617993877991494 0.5235987755982988" />
+        <inertial pos="-7.7e-11 0.000956788 0.0188951" mass="0.0229727" fullinertia="4.16063e-06 3.38857e-06 2.30634e-06 0 -0 -5.9927e-08" />
+        
+        <body name="seeed_bearing__configuration__22x16x4_2" pos="-0 0.0145 0.01445" quat="0.707107 -0.707107 0 -0">
+          
+          <joint axis="0 0 1" name="left_hip_roll" type="hinge" range="-0.5235987755982988 0.5235987755982988" />
+          <inertial pos="0.014815 1.6482e-08 -0.00634992" mass="0.00618934" fullinertia="8.60626e-07 1.15753e-06 6.51588e-07 1e-12 3.89882e-07 -1e-12" />
+          
+          <body name="upper_leg_rigidity_plate" pos="0.02295 0 -0.01655" quat="0.5 0.5 0.5 0.5">
+            
+            <joint axis="0 0 1" name="left_hip_pitch" type="hinge" range="-1.5707963267948966 1.5707963267948966" />
+            <inertial pos="-0.00738703 -0.0224272 0.0144118" mass="0.042576" fullinertia="1.45046e-05 8.55632e-06 1.71806e-05 -4.29566e-06 -2.5193e-07 -3.37284e-07" />
+            
+            <body name="leg" pos="-0.022 -0.0357771 0" quat="0 0.707107 0.707107 -0">
+              
+              <joint axis="0 0 1" name="left_knee" type="hinge" range="-1.5707963267948983 1.5707963267948948" />
+              <inertial pos="1.52e-10 -0.0318937 -0.00758505" mass="0.0215844" fullinertia="5.25054e-06 2.15507e-06 4.33924e-06 -1e-12 -0 -7.64996e-07" />
+              
+              <body name="seeed_bearing__configuration_default" pos="-0 -0.042 -0.02405" quat="0 -0 -1 0">
+                
+                <joint axis="0 0 1" name="left_ankle" type="hinge" range="-1.5707963267948992 1.570796326794894" />
+                <inertial pos="-0.0065951 -0.0141236 -0.0159352" mass="0.01797" fullinertia="3.51758e-06 6.77701e-06 4.98978e-06 -2.25925e-07 9.1481e-08 1.30351e-07" />
+                
+                <site group="3" name="left_foot" pos="-0.007 -0.0238706 -0.013797" quat="0 -0 0.737277 0.67559" />
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      
+      <body name="neck" pos="0.026 0.0145 0.0335" quat="0 -0 -0.707107 0.707107">
+        
+        <joint axis="0 0 1" name="neck_pitch" type="hinge" range="-1.5707963267948974 1.5707963267948957" />
+        <inertial pos="0 -0.0275 0.0141702" mass="0.0372622" fullinertia="2.08599e-05 3.20691e-06 1.98862e-05 0 0 0" />
+        
+        <body name="pitch_to_yaw" pos="0 -0.055 0.0291" quat="0 -0 -0 1">
+          
+          <joint axis="0 0 1" name="head_pitch" type="hinge" range="-1.5707963267949197 1.5707963267948735" />
+          <inertial pos="-0 0.0117206 -0.0146" mass="0.00471657" fullinertia="1.09464e-06 9.49827e-07 4.21502e-07 -0 -0 0" />
+          
+          <body name="yaw_roll" pos="-0 0.0205 -0.0146" quat="0.707107 -0.707107 0 0">
+            
+            <joint axis="0 0 1" name="head_yaw" type="hinge" range="-1.5707963267948983 1.5707963267948948" />
+            <inertial pos="-0.000643036 -0.00659657 0.0160446" mass="0.0224354" fullinertia="3.70188e-06 2.32489e-06 3.15707e-06 9.632e-08 -3.647e-09 9.642e-09" />
+            
+            <body name="head_plate" pos="-0.013 -0 0.012" quat="0.707107 0 -0.707107 -0">
+              
+              <joint axis="0 0 1" name="head_roll" type="hinge" range="-0.34906585039886945 0.34906585039886234" />
+              <inertial pos="0.0109046 -0.000463796 -0.0225512" mass="0.163005" fullinertia="0.000303073 0.000275154 0.00012816 -9.12482e-07 -1.43445e-05 4.10995e-06" />
+              
+              <site group="3" name="closing_1_2" pos="-0.0065 0.0325 -0.0293963" quat="0.5 -0.5 0.5 0.5" />
+              
+              <site group="3" name="closing_1_2_z" pos="-0.0065 0.1325 -0.0293963" quat="0.5 -0.5 0.5 0.5" />
+              
+              <site group="3" name="head_camera" pos="0.01 -0 -0.0843963" quat="0.707107 -0 0.707107 0" />
+              <body name="rod" pos="0.0249805 0.0195 0.00773033" quat="0.499017 0.499017 0.500981 -0.500981">
+                
+                <joint axis="0 0 1" name="passive_1" type="hinge" />
+                <inertial pos="0.0152115 -0.00358242 -0.00578504" mass="0.00121392" fullinertia="1.7689e-08 1.2768e-07 1.33047e-07 2.7425e-08 2.2445e-08 -5.286e-09" />
+                
+                <body name="jaw" pos="0.0306561 -0.00721968 -0.00575" quat="0 0.999997 0.00255606 -0">
+                  
+                  <joint axis="0 0 1" name="passive_2" type="hinge" />
+                  <inertial pos="0.0282835 0.0292403 -0.0239713" mass="0.02333" fullinertia="1.17193e-05 1.8345e-05 7.88061e-06 -1.07536e-06 7.57817e-07 5.52768e-07" />
+                  
+                  <site group="3" name="closing_1_1" pos="0.00647048 0.0241481 0.00725" quat="1 -0 0 -0" />
+                  
+                  <site group="3" name="closing_1_1_z" pos="0.00647048 0.0241481 0.10725" quat="1 -0 0 -0" />
+                  
+                  <site group="3" name="mouth_tip" pos="0.061364 0.0287114 -0.02525" quat="0.706969 0.706969 0.013973 0.013973" />
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      
+      <body name="xl330" pos="0.006 -0.0175 -0.002" quat="0 -0.707107 -0.707107 -0">
+        
+        <joint axis="0 0 1" name="right_hip_yaw" type="hinge" range="-0.5235987755982988 0.2617993877991494" />
+        <inertial pos="-7.7e-11 0.000956788 0.0188951" mass="0.0229727" fullinertia="4.16063e-06 3.38857e-06 2.30634e-06 0 -0 -5.9927e-08" />
+        
+        <body name="hip_l" pos="-0 0.0145 0.01445" quat="0 0 -0.707107 -0.707107">
+          
+          <joint axis="0 0 1" name="right_hip_roll" type="hinge" range="-0.5235987755982997 0.5235987755982979" />
+          <inertial pos="0.014815 1.5909e-08 -0.00634992" mass="0.00618934" fullinertia="8.60626e-07 1.15753e-06 6.51588e-07 1e-12 3.89882e-07 -1e-12" />
+          
+          <body name="xl330_2" pos="0.02295 -0 -0.01655" quat="0.5 0.5 0.5 0.5">
+            
+            <joint axis="0 0 1" name="right_hip_pitch" type="hinge" range="-1.5707963267949951 1.570796326794798" />
+            <inertial pos="0.00738703 -0.0224272 0.0148887" mass="0.042576" fullinertia="1.44588e-05 8.51046e-06 1.71806e-05 4.29566e-06 3.14398e-07 -2.40723e-07" />
+            
+            <body name="leg_2" pos="0.022 -0.0357771 0" quat="0 -0.707107 -0.707107 -0">
+              
+              <joint axis="0 0 1" name="right_knee" type="hinge" range="-1.5707963267947882 1.570796326795005" />
+              <inertial pos="-1.52e-10 0.0318937 -0.00758505" mass="0.0215844" fullinertia="5.25054e-06 2.15507e-06 4.33924e-06 -1e-12 0 7.64996e-07" />
+              
+              <body name="right_foot_2" pos="-0 0.042 -0.02405" quat="0 0 1 0">
+                
+                <joint axis="0 0 1" name="right_ankle" type="hinge" range="-1.5707963267949028 1.5707963267948903" />
+                <inertial pos="-0.00659487 0.0141235 -0.0159349" mass="0.01797" fullinertia="3.51766e-06 6.77706e-06 4.98968e-06 2.25916e-07 9.1383e-08 -1.30356e-07" />
+                
+                <site group="3" name="right_foot" pos="-0.007 0.0238706 -0.013797" quat="0 0 -0.737277 0.67559" />
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  </mujoco>

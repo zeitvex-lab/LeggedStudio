@@ -1,0 +1,7 @@
+/target
+/data/normal/*.wav
+/data/petting/*.wav
+__pycache__/
+*.pyc
+.venv/
+old_data/*

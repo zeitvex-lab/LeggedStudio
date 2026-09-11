@@ -1,0 +1,11 @@
+# Style for the hand-written C-ABI emscripten mesh-parser sources
+# (src/core/loaders/wasm/collada_mesh_parser.cpp, obj_parser.cpp).
+# Apply with:  clang-format -i src/core/loaders/wasm/*.cpp
+# These files are single translation units by design and are exempt from the
+# JS/TS line/size budgets — see docs/architecture.md §11 and docs/wasm-build.md.
+---
+Language: Cpp
+BasedOnStyle: Google
+Standard: c++17
+IndentWidth: 2
+ColumnLimit: 100

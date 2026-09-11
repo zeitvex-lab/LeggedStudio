@@ -1,0 +1,32 @@
+# Builds a universal Micropal.app and attaches Micropal.dmg + Micropal.zip
+# to a GitHub release whenever a v* tag is pushed:
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build universal app
+        run: Scripts/build-app.sh --universal
+
+      - name: Package DMG and zip
+        run: Scripts/make-dmg.sh
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/Micropal.dmg dist/Micropal.zip \
+            --title "Micropal $GITHUB_REF_NAME" \
+            --generate-notes

@@ -1,0 +1,835 @@
+@import 'tailwindcss' source(none);
+
+@source '../**/*.{ts,tsx}';
+@source not '../**/*.{test,spec}.{ts,tsx}';
+@source '../../index.html';
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url('/fonts/FiraCode-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url('/fonts/FiraCode-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-code) !important;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* URDF Studio style semantic tokens */
+:root {
+  --font-scale: 1;
+  --font-language-scale: 1;
+  --font-effective-scale: calc(var(--font-scale) * var(--font-language-scale));
+  --font-ui:
+    system-ui, -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, 'Helvetica Neue', arial,
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-code:
+    'JetBrains Mono', 'Fira Code', ui-monospace, sfmono-regular, menlo, monaco, consolas,
+    'Liberation Mono', 'Courier New', monospace;
+
+  /* Semantic UI type scale. Keep micro text for technical metadata only. */
+  --text-ui-micro: 10px;
+  --text-ui-caption: 11px;
+  --text-ui-label: 12px;
+  --text-ui-control: 13px;
+  --text-ui-body: 14px;
+  --text-ui-title: 16px;
+
+  /* Surfaces (light) */
+  --ui-bg: #f8f9fa;
+  --ui-panel-bg: #fbfcfe;
+  --ui-surface: #f8f9fa;
+  --ui-surface-elevated: #fdfdff;
+  --ui-element-hover: #f1f5f9;
+  --ui-element-active: #e2e8f0;
+  --ui-input-bg: #f9fbfd;
+
+  /* Borders (light) */
+  --ui-border: #e2e8f0;
+  --ui-border-strong: #cbd5e1;
+
+  /* Text (light) */
+  --ui-text-primary: #0f172a;
+  --ui-text-secondary: #334155;
+  --ui-text-tertiary: #64748b;
+
+  /* Accent (light) */
+  --ui-accent: #007aff;
+  --ui-accent-solid: #007aff;
+  --ui-accent-solid-hover: #006ee6;
+  --ui-accent-solid-active: #005fd1;
+  --ui-on-accent-hover: rgba(0, 122, 255, 0.18);
+  --ui-danger: #dc2626;
+  --ui-danger-hover: #b91c1c;
+  --ui-danger-active: #991b1b;
+  --ui-danger-soft: #fef2f2;
+  --ui-danger-border: #fecaca;
+  --ui-warning: #b45309;
+  --ui-warning-hover: #92400e;
+  --ui-warning-active: #78350f;
+  --ui-warning-soft: #fffbeb;
+  --ui-warning-border: #fde68a;
+  --ui-success: #16a34a;
+  --ui-success-hover: #15803d;
+  --ui-success-active: #166534;
+  --ui-success-soft: #f0fdf4;
+  --ui-success-border: #bbf7d0;
+
+  /* Segmented controls */
+  --ui-segmented-bg: #f1f5f9;
+  --ui-segmented-active: #ffffff;
+  --ui-switch-off: #cbd5e1;
+  --ui-switch-thumb: #ffffff;
+  --ui-slider-accent: #007aff;
+  --ui-slider-track: #d7dde6;
+  --ui-slider-thumb-bg: #ffffff;
+  --ui-slider-thumb-border: rgba(15, 23, 42, 0.12);
+  --ui-slider-thumb-shadow: 0 1px 2px rgba(15, 23, 42, 0.1), 0 4px 10px rgba(15, 23, 42, 0.1);
+  --ui-slider-thumb-shadow-hover:
+    0 2px 4px rgba(15, 23, 42, 0.12), 0 6px 14px rgba(15, 23, 42, 0.14);
+  --ui-slider-thumb-shadow-active:
+    0 3px 8px rgba(15, 23, 42, 0.14), 0 8px 18px rgba(15, 23, 42, 0.16);
+
+  /* Settings modal surfaces */
+  --ui-settings-shell: #f3f4f6;
+  --ui-settings-card: #f9fafb;
+  --ui-settings-muted: #eef2f7;
+  --ui-settings-accent: #007aff;
+  --ui-settings-accent-soft: rgba(0, 122, 255, 0.12);
+
+  /* IDE preview colors */
+  --ui-code-tag: #2563eb;
+  --ui-code-attr: #7c3aed;
+  --ui-code-value: #ea580c;
+
+  /* 3D and interaction colors */
+  --ui-3d-mesh-primary: #6b9bd2;
+  --ui-3d-paint-primary: #ff6c0a;
+  --ui-3d-selection: #007aff;
+
+  /* Scrollbar */
+  --ui-scrollbar-thumb: #94a3b8;
+  --ui-scrollbar-thumb-hover: #64748b;
+
+  color-scheme: light;
+}
+
+html:lang(en),
+html[data-lang='en'] {
+  /* Keep Latin text visually closer to adjacent CJK copy in the UI. */
+  --font-language-scale: 0.95;
+}
+
+html:lang(zh),
+html[data-lang='zh'] {
+  --font-language-scale: 1;
+}
+
+.dark {
+  /* Surfaces (dark) */
+  --ui-bg: #111214;
+  --ui-panel-bg: #1b1d21;
+  --ui-surface: #272a30;
+  --ui-surface-elevated: #32363d;
+  --ui-element-hover: #343942;
+  --ui-element-active: #414750;
+  --ui-input-bg: #1b1d21;
+
+  /* Borders (dark) */
+  --ui-border: #3a3a3c;
+  --ui-border-strong: #48484a;
+
+  /* Text (dark) */
+  --ui-text-primary: #f2f2f7;
+  --ui-text-secondary: #d1d1d6;
+  --ui-text-tertiary: #98989d;
+
+  /* Accent (dark) */
+  --ui-accent: #0a84ff;
+  --ui-accent-solid: #0a84ff;
+  --ui-accent-solid-hover: #3697ff;
+  --ui-accent-solid-active: #0074eb;
+  --ui-on-accent-hover: rgba(10, 132, 255, 0.22);
+  --ui-danger: #f87171;
+  --ui-danger-hover: #ef4444;
+  --ui-danger-active: #dc2626;
+  --ui-danger-soft: rgba(127, 29, 29, 0.28);
+  --ui-danger-border: rgba(248, 113, 113, 0.32);
+  --ui-warning: #facc15;
+  --ui-warning-hover: #fbbf24;
+  --ui-warning-active: #f59e0b;
+  --ui-warning-soft: rgba(113, 63, 18, 0.32);
+  --ui-warning-border: rgba(250, 204, 21, 0.32);
+  --ui-success: #4ade80;
+  --ui-success-hover: #22c55e;
+  --ui-success-active: #16a34a;
+  --ui-success-soft: rgba(20, 83, 45, 0.32);
+  --ui-success-border: rgba(74, 222, 128, 0.32);
+
+  /* Segmented controls */
+  --ui-segmented-bg: #151518;
+  --ui-segmented-active: #3a3a3c;
+  --ui-switch-off: #3a3a3c;
+  --ui-switch-thumb: #ffffff;
+  --ui-slider-accent: #0a84ff;
+  --ui-slider-track: #48484a;
+  --ui-slider-thumb-bg: #f2f2f7;
+  --ui-slider-thumb-border: rgba(255, 255, 255, 0.08);
+  --ui-slider-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.36), 0 4px 10px rgba(0, 0, 0, 0.42);
+  --ui-slider-thumb-shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.42), 0 6px 14px rgba(0, 0, 0, 0.5);
+  --ui-slider-thumb-shadow-active: 0 3px 8px rgba(0, 0, 0, 0.48), 0 8px 18px rgba(0, 0, 0, 0.56);
+
+  /* Settings modal surfaces */
+  --ui-settings-shell: #151518;
+  --ui-settings-card: #1c1c1e;
+  --ui-settings-muted: #2c2c2e;
+  --ui-settings-accent: #0a84ff;
+  --ui-settings-accent-soft: rgba(10, 132, 255, 0.14);
+
+  /* IDE preview colors */
+  --ui-code-tag: #93c5fd;
+  --ui-code-attr: #c4b5fd;
+  --ui-code-value: #fdba74;
+
+  /* 3D and interaction colors */
+  --ui-3d-mesh-primary: #5c8ab8;
+  --ui-3d-paint-primary: #ff8833;
+  --ui-3d-selection: #0a84ff;
+
+  /* Scrollbar */
+  --ui-scrollbar-thumb: #475569;
+  --ui-scrollbar-thumb-hover: #64748b;
+
+  color-scheme: dark;
+}
+
+/* High-contrast adaptation */
+@media (prefers-contrast: more) {
+  :root {
+    --ui-border: #8e8e93;
+    --ui-border-strong: #636366;
+    --ui-element-hover: #e2e8f0;
+    --ui-element-active: #cbd5e1;
+    --ui-text-secondary: #1c1c1e;
+    --ui-text-tertiary: #3a3a3c;
+    --ui-accent-solid: #0050a8;
+    --ui-accent-solid-hover: #00458f;
+    --ui-accent-solid-active: #003a78;
+    --ui-on-accent-hover: rgba(15, 23, 42, 0.24);
+    --ui-danger: #b91c1c;
+    --ui-danger-hover: #991b1b;
+    --ui-danger-active: #7f1d1d;
+    --ui-danger-soft: #fee2e2;
+    --ui-danger-border: #fca5a5;
+    --ui-warning: #92400e;
+    --ui-warning-hover: #78350f;
+    --ui-warning-active: #451a03;
+    --ui-warning-soft: #fef3c7;
+    --ui-warning-border: #f59e0b;
+    --ui-success: #15803d;
+    --ui-success-hover: #166534;
+    --ui-success-active: #14532d;
+    --ui-success-soft: #dcfce7;
+    --ui-success-border: #86efac;
+    --ui-slider-accent: #0050a8;
+    --ui-slider-track: #7d8896;
+    --ui-slider-thumb-border: rgba(15, 23, 42, 0.2);
+    --ui-slider-thumb-shadow: 0 1px 2px rgba(15, 23, 42, 0.14), 0 4px 10px rgba(15, 23, 42, 0.16);
+    --ui-slider-thumb-shadow-hover:
+      0 2px 4px rgba(15, 23, 42, 0.18), 0 6px 14px rgba(15, 23, 42, 0.2);
+    --ui-slider-thumb-shadow-active:
+      0 3px 8px rgba(15, 23, 42, 0.2), 0 8px 18px rgba(15, 23, 42, 0.22);
+  }
+
+  .dark {
+    --ui-border: #8e8e93;
+    --ui-border-strong: #aeaeb2;
+    --ui-element-hover: #48484a;
+    --ui-element-active: #636366;
+    --ui-text-secondary: #f2f2f7;
+    --ui-text-tertiary: #d1d1d6;
+    --ui-accent-solid: #0068d1;
+    --ui-accent-solid-hover: #005bb8;
+    --ui-accent-solid-active: #004c99;
+    --ui-on-accent-hover: rgba(255, 255, 255, 0.28);
+    --ui-danger: #fca5a5;
+    --ui-danger-hover: #f87171;
+    --ui-danger-active: #ef4444;
+    --ui-danger-soft: rgba(127, 29, 29, 0.36);
+    --ui-danger-border: rgba(252, 165, 165, 0.4);
+    --ui-warning: #fde68a;
+    --ui-warning-hover: #facc15;
+    --ui-warning-active: #fbbf24;
+    --ui-warning-soft: rgba(113, 63, 18, 0.46);
+    --ui-warning-border: rgba(253, 230, 138, 0.48);
+    --ui-success: #86efac;
+    --ui-success-hover: #4ade80;
+    --ui-success-active: #22c55e;
+    --ui-success-soft: rgba(20, 83, 45, 0.42);
+    --ui-success-border: rgba(134, 239, 172, 0.42);
+    --ui-segmented-bg: #0f0f11;
+    --ui-slider-accent: #0068d1;
+    --ui-slider-track: #6a6a6c;
+    --ui-slider-thumb-border: rgba(255, 255, 255, 0.12);
+    --ui-slider-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.46), 0 5px 12px rgba(0, 0, 0, 0.5);
+    --ui-slider-thumb-shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.5), 0 8px 16px rgba(0, 0, 0, 0.56);
+    --ui-slider-thumb-shadow-active: 0 3px 8px rgba(0, 0, 0, 0.56), 0 10px 20px rgba(0, 0, 0, 0.6);
+  }
+}
+
+@keyframes inspection-running-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-80%);
+  }
+
+  28% {
+    opacity: 0.58;
+  }
+
+  64% {
+    opacity: 0.2;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(260%);
+  }
+}
+
+@keyframes inspection-running-ring {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 0.86;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes inspection-running-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.inspection-running-console::before {
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--ui-accent-solid) 9%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--ui-accent-solid) 7%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 32px 32px;
+  content: '';
+  inset: 0;
+  opacity: 0.32;
+  pointer-events: none;
+  position: absolute;
+}
+
+.inspection-running-sweep {
+  animation: inspection-running-sweep 3.6s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--ui-accent-solid) 16%, transparent),
+    transparent
+  );
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+
+.inspection-running-orbit::before {
+  animation: inspection-running-orbit 5.6s linear infinite;
+  background: conic-gradient(
+    from 0deg,
+    transparent,
+    color-mix(in srgb, var(--ui-accent-solid) 42%, transparent),
+    transparent 34%
+  );
+  border-radius: inherit;
+  content: '';
+  inset: -1px;
+  mask: radial-gradient(circle, transparent 62%, black 64%);
+  position: absolute;
+  will-change: transform;
+}
+
+.inspection-running-ring {
+  animation: inspection-running-ring 2.8s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+.inspection-running-ring-delayed {
+  animation-delay: 0.7s;
+}
+
+.inspection-running-carousel {
+  transition: height 180ms ease;
+}
+
+.inspection-running-carousel-slide {
+  inset: 0;
+  opacity: 0;
+  padding: 0.75rem 1rem;
+  pointer-events: none;
+  position: absolute;
+  transform: translateY(6px);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+  will-change: opacity, transform;
+}
+
+.inspection-running-carousel-slide[data-inspection-running-carousel-slide-active='true'] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inspection-running-sweep,
+  .inspection-running-orbit::before,
+  .inspection-running-ring {
+    animation: none;
+  }
+
+  .inspection-running-carousel-slide {
+    transition: none;
+  }
+}
+
+@theme {
+  --color-app-bg: var(--ui-bg);
+  --color-panel-bg: var(--ui-panel-bg);
+  --color-element-bg: var(--ui-surface);
+  --color-element-hover: var(--ui-element-hover);
+  --color-element-active: var(--ui-element-active);
+  --color-input-bg: var(--ui-input-bg);
+  --color-system-blue: var(--ui-accent);
+  --color-system-blue-solid: var(--ui-accent-solid);
+  --color-system-blue-hover: var(--ui-accent-solid-hover);
+  --color-system-blue-active: var(--ui-accent-solid-active);
+  --color-on-accent-hover: var(--ui-on-accent-hover);
+  --color-danger: var(--ui-danger);
+  --color-danger-hover: var(--ui-danger-hover);
+  --color-danger-active: var(--ui-danger-active);
+  --color-danger-soft: var(--ui-danger-soft);
+  --color-danger-border: var(--ui-danger-border);
+  --color-warning: var(--ui-warning);
+  --color-warning-hover: var(--ui-warning-hover);
+  --color-warning-active: var(--ui-warning-active);
+  --color-warning-soft: var(--ui-warning-soft);
+  --color-warning-border: var(--ui-warning-border);
+  --color-success: var(--ui-success);
+  --color-success-hover: var(--ui-success-hover);
+  --color-success-active: var(--ui-success-active);
+  --color-success-soft: var(--ui-success-soft);
+  --color-success-border: var(--ui-success-border);
+  --color-segmented-active: var(--ui-segmented-active);
+  --color-border-black: var(--ui-border);
+  --color-border-strong: var(--ui-border-strong);
+  --color-text-primary: var(--ui-text-primary);
+  --color-text-secondary: var(--ui-text-secondary);
+  --color-text-tertiary: var(--ui-text-tertiary);
+  --color-segmented-bg: var(--ui-segmented-bg);
+  --color-switch-off: var(--ui-switch-off);
+  --color-switch-thumb: var(--ui-switch-thumb);
+  --color-slider-accent: var(--ui-slider-accent);
+  --color-slider-track: var(--ui-slider-track);
+  --color-settings-shell: var(--ui-settings-shell);
+  --color-settings-card: var(--ui-settings-card);
+  --color-settings-muted: var(--ui-settings-muted);
+  --color-settings-accent: var(--ui-settings-accent);
+  --color-settings-accent-soft: var(--ui-settings-accent-soft);
+  --color-code-tag: var(--ui-code-tag);
+  --color-code-attr: var(--ui-code-attr);
+  --color-code-value: var(--ui-code-value);
+
+  --color-3d-mesh-primary: var(--ui-3d-mesh-primary);
+  --color-3d-paint-primary: var(--ui-3d-paint-primary);
+  --color-3d-selection: var(--ui-3d-selection);
+
+  --color-google-dark-bg: var(--color-panel-bg);
+  --color-google-dark-surface: var(--color-element-bg);
+  --color-google-dark-border: var(--color-border-black);
+  --color-google-blue: var(--color-system-blue);
+  --color-google-light-bg: var(--color-app-bg);
+  --color-google-light-surface: var(--color-panel-bg);
+}
+
+.source-code-editor-window {
+  --source-code-editor-opacity-percent: 60%;
+
+  background-color: color-mix(
+    in srgb,
+    var(--color-panel-bg) var(--source-code-editor-opacity-percent),
+    transparent
+  );
+}
+
+.source-code-editor-chrome {
+  background-color: color-mix(
+    in srgb,
+    var(--color-element-bg) var(--source-code-editor-opacity-percent),
+    transparent
+  );
+}
+
+.source-code-editor-panel {
+  background-color: color-mix(
+    in srgb,
+    var(--color-panel-bg) var(--source-code-editor-opacity-percent),
+    transparent
+  );
+}
+
+.source-code-editor-overlay {
+  background-color: color-mix(in srgb, var(--color-panel-bg) 90%, transparent);
+}
+
+/*
+ * Edge/Chrome translate a horizontal trackpad two-finger swipe into a wheel
+ * event with dominant deltaX. When that wheel has no scroll target the
+ * document element overscrolls, which the browser turns into back/forward
+ * navigation — hijacking viewer zoom/pan/rotate mid-gesture. `overflow: hidden`
+ * on body does not prevent this; only an explicit `overscroll-behavior: none`
+ * on the scroll root stops the navigation.
+ */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: var(--font-ui);
+  @apply bg-google-light-bg text-text-primary;
+  overflow: hidden;
+}
+
+button,
+button *,
+label,
+.ui-static-copy-guard,
+.ui-static-copy-guard * {
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.ui-static-copy-guard input,
+.ui-static-copy-guard textarea,
+.ui-static-copy-guard pre,
+.ui-static-copy-guard code,
+.ui-static-copy-guard [contenteditable='true'],
+.allow-text-selection {
+  -webkit-user-drag: auto;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Unified focus ring for keyboard navigation */
+:where(button, input, select, textarea):focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-accent) 30%, transparent);
+  outline: none;
+}
+
+.resize-edge-left {
+  left: -1px;
+}
+
+.resize-edge-right {
+  right: -1px;
+}
+
+.resize-edge-bottom {
+  bottom: -1px;
+}
+
+.resize-edge-line-right {
+  right: -1px;
+}
+
+.resize-edge-line-bottom {
+  bottom: -1px;
+}
+
+.resize-edge-visual-left::after {
+  left: -1px;
+}
+
+.resize-edge-visual-right::after {
+  right: -1px;
+}
+
+.resize-edge-visual-bottom::after {
+  bottom: -1px;
+}
+
+/* Apply font scale to body base size */
+body {
+  font-size: calc(1rem * var(--font-effective-scale));
+}
+
+/* Override Tailwind text utilities to scale */
+.text-xs {
+  font-size: calc(0.75rem * var(--font-effective-scale)) !important;
+}
+
+.text-sm {
+  font-size: calc(0.875rem * var(--font-effective-scale)) !important;
+}
+
+.text-base {
+  font-size: calc(1rem * var(--font-effective-scale)) !important;
+}
+
+.text-lg {
+  font-size: calc(1.125rem * var(--font-effective-scale)) !important;
+}
+
+.text-xl {
+  font-size: calc(1.25rem * var(--font-effective-scale)) !important;
+}
+
+.text-2xl {
+  font-size: calc(1.5rem * var(--font-effective-scale)) !important;
+}
+
+.text-3xl {
+  font-size: calc(1.875rem * var(--font-effective-scale)) !important;
+}
+
+.text-4xl {
+  font-size: calc(2.25rem * var(--font-effective-scale)) !important;
+}
+
+/* Override arbitrary pixel font sizes commonly used in the app */
+.text-ui-micro {
+  font-size: calc(var(--text-ui-micro) * var(--font-effective-scale)) !important;
+  line-height: 1.35;
+}
+
+.text-ui-caption {
+  font-size: calc(var(--text-ui-caption) * var(--font-effective-scale)) !important;
+  line-height: 1.4;
+}
+
+.text-ui-label {
+  font-size: calc(var(--text-ui-label) * var(--font-effective-scale)) !important;
+  line-height: 1.4;
+}
+
+.text-ui-control {
+  font-size: calc(var(--text-ui-control) * var(--font-effective-scale)) !important;
+  line-height: 1.4;
+}
+
+.text-ui-body {
+  font-size: calc(var(--text-ui-body) * var(--font-effective-scale)) !important;
+  line-height: 1.5;
+}
+
+.text-ui-title {
+  font-size: calc(var(--text-ui-title) * var(--font-effective-scale)) !important;
+  line-height: 1.4;
+}
+
+.text-\[8px\] {
+  font-size: calc(8px * var(--font-effective-scale)) !important;
+}
+
+.text-\[9px\] {
+  font-size: calc(9px * var(--font-effective-scale)) !important;
+}
+
+.text-\[10px\] {
+  font-size: calc(10px * var(--font-effective-scale)) !important;
+}
+
+.text-\[11px\] {
+  font-size: calc(11px * var(--font-effective-scale)) !important;
+}
+
+.text-\[12px\] {
+  font-size: calc(12px * var(--font-effective-scale)) !important;
+}
+
+.text-\[13px\] {
+  font-size: calc(13px * var(--font-effective-scale)) !important;
+}
+
+.text-\[14px\] {
+  font-size: calc(14px * var(--font-effective-scale)) !important;
+}
+
+/* Custom scrollbar for panels */
+.custom-scrollbar {
+  scrollbar-color: var(--ui-scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ui-scrollbar-thumb);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 56px;
+}
+
+.urdf-toolbar-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.urdf-toolbar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.dark .custom-scrollbar {
+  scrollbar-color: var(--ui-scrollbar-thumb) transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--ui-scrollbar-thumb);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ui-scrollbar-thumb-hover);
+}
+
+/* Hide number input spinners */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/*
+ * AI button halo effect.
+ * On hover, the button gains a soft, slowly rotating conic-gradient ring in
+ * the signature AI purple→pink→blue palette, plus a matching outer glow.
+ * The halo sits behind the button content (z-index: -1) so it never covers
+ * the icon or label. Disabled when the user prefers reduced motion.
+ */
+.ai-glow-button {
+  isolation: isolate;
+  position: relative;
+}
+
+.ai-glow-button::before {
+  background: conic-gradient(
+    from var(--ai-glow-angle, 0deg),
+    #c4b5fd,
+    #f0abfc,
+    #93c5fd,
+    #c4b5fd
+  );
+  border-radius: inherit;
+  content: '';
+  inset: -2px;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  padding: 2px;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 220ms ease;
+  z-index: -1;
+}
+
+.ai-glow-button:hover::before {
+  opacity: 0.6;
+}
+
+.ai-glow-button:hover {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #c4b5fd 22%, transparent),
+    0 0 6px 1px color-mix(in srgb, #c4b5fd 16%, transparent),
+    0 0 12px 2px color-mix(in srgb, #f0abfc 10%, transparent);
+}
+
+@property --ai-glow-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.ai-glow-button:hover::before {
+  animation: ai-glow-rotate 5s linear infinite;
+}
+
+@keyframes ai-glow-rotate {
+  to {
+    --ai-glow-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-glow-button::before {
+    animation: none;
+  }
+}

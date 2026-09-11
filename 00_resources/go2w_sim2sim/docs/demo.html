@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Go2W Lab2mj Demo</title>
+  <meta name="description" content="Browser Go2W lab2mj MuJoCo and ONNX demo.">
+  <link rel="stylesheet" href="assets/css/site.css?v=visual-sru-1">
+</head>
+<body class="demo-body">
+  <canvas id="go2w-canvas"></canvas>
+
+  <aside class="demo-panel" aria-label="Go2W controls">
+    <div class="panel-head">
+      <a class="back-link" href="index.html">Go2W Sim2Sim</a>
+      <span id="status-pill" class="status-pill">Loading</span>
+    </div>
+
+    <section class="control-group">
+      <h2>Command</h2>
+      <label>
+        <span>Forward</span>
+        <input id="cmd-x" type="range" min="-1.0" max="1.2" step="0.05" value="0">
+        <output id="cmd-x-out">0.00</output>
+      </label>
+      <label>
+        <span>Lateral</span>
+        <input id="cmd-y" type="range" min="-0.8" max="0.8" step="0.05" value="0">
+        <output id="cmd-y-out">0.00</output>
+      </label>
+      <label>
+        <span>Yaw</span>
+        <input id="cmd-yaw" type="range" min="-1.5" max="1.5" step="0.05" value="0">
+        <output id="cmd-yaw-out">0.00</output>
+      </label>
+    </section>
+
+    <section class="control-group">
+      <h2>Policy Slot</h2>
+      <div class="policy-grid" id="policy-grid">
+        <button type="button" data-policy="0" class="active">motion_mlp</button>
+        <button type="button" data-policy="1">vtm</button>
+        <button type="button" data-policy="2">vtm_lstm_sru</button>
+        <button type="button" data-policy="3">vtm_gru_sru</button>
+      </div>
+    </section>
+
+    <section class="control-group compact-actions">
+      <button id="zero-command" type="button">Zero</button>
+      <button id="reset-sim" type="button">Reset Sim</button>
+      <button id="reset-policy" type="button">Reset Net</button>
+      <button id="follow-camera" type="button" class="active">Snap Cam</button>
+    </section>
+
+    <section class="control-group">
+      <h2>Realtime</h2>
+      <label>
+        <span>Factor</span>
+        <input id="realtime" type="range" min="0.05" max="1.0" step="0.05" value="1.0">
+        <output id="realtime-out">1.00</output>
+      </label>
+    </section>
+
+    <div class="hud-line">
+      <span id="policy-readout">policy 0: motion_mlp</span>
+      <span>MuJoCo WASM + ONNX Runtime Web</span>
+    </div>
+    <p id="error-readout" class="error-readout" hidden></p>
+  </aside>
+
+  <aside class="demo-bottom-bar" aria-label="Go2W keyboard hints and ray camera">
+    <div class="hint-strip">
+      <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span>
+      <span><kbd>Q</kbd><kbd>E</kbd> yaw</span>
+      <span><kbd>Space</kbd> zero</span>
+      <span><kbd>R</kbd> reset sim</span>
+      <span><kbd>N</kbd> reset net</span>
+      <span>Camera follows base</span>
+    </div>
+    <div class="ray-panel">
+      <div>
+        <strong>RayCasterCamera</strong>
+        <span id="ray-readout">32 x 18 depth</span>
+      </div>
+      <canvas id="ray-canvas" width="32" height="18"></canvas>
+    </div>
+  </aside>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./assets/vendor/three/three.module.js"
+      }
+    }
+  </script>
+  <script>
+    (() => {
+      if (!('serviceWorker' in navigator) || !window.isSecureContext || window.crossOriginIsolated) return;
+      const reloadKey = 'go2w-coi-reloaded';
+      const reloadOnce = () => {
+        if (sessionStorage.getItem(reloadKey) === '1') return;
+        sessionStorage.setItem(reloadKey, '1');
+        window.location.reload();
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', reloadOnce);
+      navigator.serviceWorker.register('./coi-serviceworker.js?v=preload-ray-15', { scope: './' })
+        .then(() => {
+          if (navigator.serviceWorker.controller) reloadOnce();
+        })
+        .catch((error) => {
+          console.warn('COOP/COEP service worker registration failed', error);
+        });
+    })();
+    (() => {
+      const NativeWorker = window.Worker;
+      window.Worker = function go2wWorker(url, options) {
+        const workerUrl = String(url);
+        if (workerUrl.includes('policy-worker.js?v=visual-sru-1')) {
+          return new NativeWorker('assets/js/policy-worker.js?v=preload-ray-15', options);
+        }
+        if (workerUrl.includes('policy-worker.js?v=preload-ray-1')) {
+          return new NativeWorker('assets/js/policy-worker.js?v=preload-ray-15', options);
+        }
+        return new NativeWorker(url, options);
+      };
+      window.Worker.prototype = NativeWorker.prototype;
+    })();
+  </script>
+  <script type="module" src="assets/js/go2w-demo.js?v=preload-ray-15"></script>
+  <script src="assets/js/go2w-demo-optimizer-v13.js?v=preload-ray-15"></script>
+  <script src="assets/js/raycaster-runtime-patch.js?v=preload-ray-15"></script>
+</body>
+</html>

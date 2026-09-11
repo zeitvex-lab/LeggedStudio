@@ -1,7 +1,7 @@
 # 关节摩擦：引擎/训练侧对照（源码级）
 
 > **日期**：2026-09-10 ｜ **目的**：回答"大部分模型没摩擦，训练是怎么做的"
-> **证据**：MuJoCo **3.11.0**（`adapters/mjlab/.venv`）+ 已安装 mjlab 源码 + `resources/` 参考项目
+> **证据**：MuJoCo **3.11.0**（`adapters/mjlab/.venv`）+ 已安装 mjlab 源码 + `00_resources/` 参考项目
 
 ## 0. 结论先说
 

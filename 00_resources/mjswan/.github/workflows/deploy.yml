@@ -1,0 +1,47 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/demo/main.py'
+      - 'src/mjswan/**'
+      - 'pyproject.toml'
+      - '.github/workflows/deploy.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        python-version: '3.12'
+
+    - name: Install Python dependencies
+      run: uv sync --extra examples
+
+    - name: Build demo application
+      run: |
+        MJSWAN_BASE_PATH="/mjswan/" MJSWAN_NO_LAUNCH=1 uv run python examples/demo/main.py
+        echo "=== Dist size ==="
+        du -h -d 1 examples/demo/dist 2>/dev/null | sort -rh | head -20
+
+    - name: Deploy to gh-pages branch
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./examples/demo/dist
+        force_orphan: true

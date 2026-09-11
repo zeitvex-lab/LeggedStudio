@@ -1,0 +1,41 @@
+use strict
+Cannot convert undefined or null to object
+Invariant: missing action dispatcher.
+position:absolute;border:0;height:1px;margin:-1px;padding:0;width:1px;clip:rect(0 0 0 0);overflow:hidden;white-space:nowrap;word-wrap:normal
+Cannot prefetch '
+fastRefresh can only be used in development mode. Please use refresh instead.
+Application error: a
+server logs
+browser console
+Dynamic server usage:
+invariant expected layout router to be mounted
+invariant expected app router to be mounted
+Not a redirect error
+Failed to fetch RSC payload for
+REFRESH FAILED
+SERVER ACTION APPLY FAILED
+needs to bail out of prerendering at this point because it used
+Dynamic API Usage Debug -
+Invalid interception route:
+Invariant: unexpected marker
+Bail out to client-side rendering:
+Invariant: Router state not initialized
+Invariant: AsyncLocalStorage accessed in runtime where it is not available
+Only plain objects, and a few built-ins, can be passed to Server Actions. Classes or null prototypes are not supported.
+Only global symbols received from Symbol.for(...) can be passed to Server Functions. The symbol Symbol.for(
+Objects are not valid as a React child (found:
+React.Children.only expected to receive a single React element child.
+act(...) is not supported in production builds of React.
+The argument must be a React element, but you passed
+attempted to use private field on non-instance
+is not supported as an argument to a Server Function.
+invariant global layout router not mounted
+Client Functions cannot be passed directly to Server Functions. Only Functions passed from the Server can be passed back again.
+couldn't be rendered statically because it used
+Invariant: Missing ActionQueueContext
+for more information).
+Unknown action
+takes an object of state variables to update or a function which returns an object of state variables.
+Connection closed.
+Unexpected server data: missing bootstrap script.
+forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported

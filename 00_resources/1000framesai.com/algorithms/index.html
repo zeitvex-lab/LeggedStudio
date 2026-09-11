@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>算法 · Locomotion Platform</title>
+  <link rel="stylesheet" href="/shared/nav.css?v=home-nav-1" />
+  <link rel="stylesheet" href="/shared/styles.css?v=no-tailwind-1" />
+  <link rel="stylesheet" href="./styles.css?v=amp-pretrained-1" />
+</head>
+<body>
+  <main class="page-shell">
+    <header class="page-header">
+      <div>
+        <h1>算法</h1>
+        <p>选择已开放的内置训练算法，查看任务能力、预训练权重和可直接体验的 Sim2Sim 策略。</p>
+      </div>
+      <div class="page-actions">
+        <button id="refreshButton" type="button" class="btn">刷新</button>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="panel-title">
+        <div>
+          <h2 class="text-sm font-bold text-slate-100">内置算法</h2>
+          <p class="text-xs text-slate-500 mt-0.5">多套算法已支持训练与 ONNX 导出，能力和策略效果持续优化。</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="algoCount" class="text-xs text-slate-500 tabular-nums">-</span>
+        </div>
+      </div>
+      <div id="algoCards" class="algo-card-grid p-4"></div>
+    </section>
+  </main>
+
+  <script type="module">import { mountNav, requireAuth } from '/shared/nav.js?v=home-nav-1'; requireAuth(); mountNav('algorithms');</script>
+  <script type="module" src="./app.js?v=wheel-leg-jump-1"></script>
+</body>
+</html>

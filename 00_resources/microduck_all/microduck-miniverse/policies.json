@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "upstream": {
+    "repository": "https://huggingface.co/spaces/pollen-robotics/microduck-simulator",
+    "revision": "10c600e54ea52f239887308387cb8fc458ecb3e4",
+    "path": "app/public/policies"
+  },
+  "embodimentSource": {
+    "repository": "https://github.com/pollen-robotics/microduck_rl",
+    "revision": "d424a0c899f6b33cbd3daeb279913134349c0b63"
+  },
+  "policies": [
+    {
+      "id": "microduck-walking-v1",
+      "name": "Microduck walking",
+      "checkpoint": "BEST_alpha_walking.onnx",
+      "embodiment": "microduck.mjcf.zip",
+      "mode": "walking",
+      "description": "Velocity-tracking walking with forward-speed and yaw-rate commands.",
+      "sceneContractHash": "e437e69476f12c7ded3f55ba156ba1381a4d4b7ef754ba46d94193c289185f66"
+    },
+    {
+      "id": "microduck-sitstand-v1",
+      "name": "Microduck sit and stand",
+      "checkpoint": "BEST_alpha_sitstand.onnx",
+      "embodiment": "microduck.mjcf.zip",
+      "mode": "sitstand",
+      "description": "Commanded transitions between the standing and seated poses.",
+      "sceneContractHash": "d9ff3a47bfdd783169bc83ad5a4bb99748fc761aea6dc944d6ca8abac8f025cb"
+    },
+    {
+      "id": "microduck-getup-v1",
+      "name": "Microduck get-up",
+      "checkpoint": "BEST_alpha_stand.onnx",
+      "embodiment": "microduck.mjcf.zip",
+      "mode": "stand",
+      "description": "Recovery and standing policy with zero-padded commands.",
+      "sceneContractHash": "4c32c8b7d3d49c07c91f9ba0e5b4cad07df6eeed4081d74ad6bd5d738cd8e1ca"
+    },
+    {
+      "id": "microduck-ground-pick-v1",
+      "name": "Microduck ground pick",
+      "checkpoint": "alpha_ground_pick.onnx",
+      "embodiment": "microduck.mjcf.zip",
+      "mode": "ground-pick",
+      "phasePeriodSeconds": 4,
+      "phaseEnd": 0.7,
+      "description": "One-shot ground-pick motion driven by the published phase command.",
+      "sceneContractHash": "69ad648b4b7bb3ca8ac2fc2fdb8beebbf7408da93adf0db7a81f3e0584345830"
+    },
+    {
+      "id": "microduck-kick-left-v1",
+      "name": "Microduck left kick",
+      "checkpoint": "ball_kick_left.onnx",
+      "embodiment": "microduck.mjcf.zip",
+      "mode": "kick",
+      "runSeconds": 0.5,
+      "description": "One-shot blind left-foot kick with zero-padded commands.",
+      "sceneContractHash": "5459681dcba678788463d0d6b35fc623f1c20788ad18273e032332a88e9cf589"
+    },
+    {
+      "id": "microduck-kick-right-v1",
+      "name": "Microduck right kick",
+      "checkpoint": "ball_kick_right.onnx",
+      "embodiment": "microduck.mjcf.zip",
+      "mode": "kick",
+      "runSeconds": 0.5,
+      "description": "One-shot blind right-foot kick with zero-padded commands.",
+      "sceneContractHash": "9bffb1831b45bad89e639ee7f370f588a791786abb9de24bd11ce5274b2dfb4d"
+    },
+    {
+      "id": "microduck-roulade-v1",
+      "name": "Microduck roulade",
+      "checkpoint": "roulade.onnx",
+      "embodiment": "microduck.mjcf.zip",
+      "mode": "roulade",
+      "runSeconds": 3,
+      "description": "One-shot forward roll with a bounded three-second policy window.",
+      "sceneContractHash": "5227902cd04e4cc8dc8778acb43c4b44defc1c017dc2435d1468594a6da17cfd"
+    },
+    {
+      "id": "microduck-roller-v1",
+      "name": "Microduck roller drive",
+      "checkpoint": "BEST_roller.onnx",
+      "embodiment": "microduck-rollers.mjcf.zip",
+      "mode": "roller",
+      "description": "Velocity-tracking locomotion on the four passive wheels.",
+      "sceneContractHash": "438a130c9aa204f39e46da88ef4e4cf293c49cccfbbb10fe001ca71307f77eae"
+    },
+    {
+      "id": "microduck-roller-crouch-v1",
+      "name": "Microduck roller crouch",
+      "checkpoint": "BEST_roller_crouch.onnx",
+      "embodiment": "microduck-rollers.mjcf.zip",
+      "mode": "roller-crouch",
+      "phasePeriodSeconds": 5,
+      "phaseEnd": 0.7,
+      "description": "One-shot crouch and glide motion on the roller embodiment.",
+      "sceneContractHash": "01a596bb88abc0a7daca8a4a94e4cb08afd9b21624f0f0bfeae8b3c4f26f3e80"
+    }
+  ]
+}

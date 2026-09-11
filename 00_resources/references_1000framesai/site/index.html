@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Locomotion Platform</title>
+  <link rel="stylesheet" href="/shared/nav.css?v=home-nav-1" />
+  <link rel="stylesheet" href="/shared/styles.css?v=home-dashboard-11" />
+</head>
+<body>
+  <main class="home-shell home-dashboard">
+    <header class="home-header">
+      <div>
+        <span class="home-kicker">Locomotion Platform</span>
+        <h1>控制台</h1>
+        <p id="homeSubtitle">读取训练、算法和远程资源状态中。</p>
+      </div>
+      <div class="home-actions">
+        <a class="primary" href="/train/" aria-label="打开训练页">训练</a>
+        <a class="btn" href="/sim2sim/" aria-label="打开仿真页">仿真</a>
+        <button id="homeRefresh" class="btn" type="button">刷新</button>
+      </div>
+    </header>
+
+    <section class="home-status-grid" aria-label="platform status">
+      <article class="home-quick-panel panel">
+        <div class="panel-title">
+          <div>
+            <h2>快速体验</h2>
+            <p id="quickHint">直接加载已训练 ONNX 权重进入 sim2sim，不用先等训练。</p>
+          </div>
+          <a id="quickPrimaryLink" class="primary" href="/sim2sim/" data-testid="quick-primary">立即体验</a>
+        </div>
+        <div id="quickExperienceList" class="home-quick-list"></div>
+      </article>
+
+      <article class="home-run-panel panel">
+        <div class="panel-title">
+          <div>
+            <h2 id="activeRunHeading">当前训练</h2>
+            <p id="activeRunHint">等待运行数据...</p>
+          </div>
+          <span id="activeRunBadge" class="status-badge queued">loading</span>
+        </div>
+        <div class="home-run-body">
+          <div>
+            <strong id="activeRunTitle">-</strong>
+            <span id="activeRunMeta">-</span>
+          </div>
+          <div class="home-progress" aria-label="training progress">
+            <span id="activeRunProgressBar"></span>
+          </div>
+          <div id="activeRunMetrics" class="home-metric-grid"></div>
+          <div class="home-inline-actions">
+            <a id="activeRunTrainLink" class="btn" href="/train/" aria-label="查看当前训练日志">查看日志</a>
+            <a id="activeRunPlayLink" class="btn" href="/sim2sim/" aria-label="播放当前 ONNX">播放 ONNX</a>
+          </div>
+        </div>
+      </article>
+
+      <aside class="home-side-stack">
+        <section class="panel home-support-panel">
+          <div class="panel-title">
+            <div>
+              <h2>售后支持</h2>
+              <p>训练配置、充值和使用问题</p>
+            </div>
+          </div>
+          <div class="home-support-body">
+            <a class="home-support-qr-link" href="/support-qq-group.jpg" target="_blank" rel="noopener" title="打开售后QQ群二维码大图">
+              <img class="home-support-qr" src="/support-qq-group.jpg" alt="训练平台售后QQ群二维码" />
+            </a>
+            <div class="home-support-copy">
+              <strong>加入售后QQ群</strong>
+              <span>扫码进群，获取训练与平台使用支持。</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel home-system-panel">
+          <div class="panel-title">
+            <div>
+              <h2>系统状态</h2>
+              <p id="systemHint">读取 health...</p>
+            </div>
+            <span id="systemBadge" class="status-badge queued">checking</span>
+          </div>
+          <div id="systemRows" class="home-system-rows"></div>
+        </section>
+
+        <section class="panel home-counts-panel">
+          <div id="homeCounts" class="home-count-grid"></div>
+        </section>
+
+      </aside>
+    </section>
+
+    <section class="home-main-grid">
+      <div class="panel">
+        <div class="panel-title">
+          <div>
+            <h2>下一步入口</h2>
+            <p>常用操作放在第一屏，少绕路。</p>
+          </div>
+        </div>
+        <div class="home-action-grid">
+          <a href="/robots/" class="home-action-row">
+            <span class="pipeline-num">1</span>
+            <span><strong>机器人配置</strong><small>URDF / STEP / 关节映射 / 默认站姿</small></span>
+          </a>
+          <a href="/algorithms/" class="home-action-row">
+            <span class="pipeline-num">2</span>
+            <span><strong>算法适配</strong><small>Go2 RL Gym / NP3O / Parkour / Agility / Omni-Jump</small></span>
+          </a>
+          <a href="/train/" class="home-action-row">
+            <span class="pipeline-num">3</span>
+            <span><strong>训练任务</strong><small>参数、奖励函数、resume、ONNX 产物</small></span>
+          </a>
+          <a id="adminOpsLink" href="/ops/" class="home-action-row" hidden>
+            <span class="pipeline-num">4</span>
+            <span><strong>上线检查</strong><small>worker、远程 GPU、磁盘、产物盘点</small></span>
+          </a>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <div>
+            <h2>算法能力</h2>
+            <p id="adapterHint">已开放训练与仿真能力，适配范围持续更新。</p>
+          </div>
+          <a class="btn" href="/algorithms/">打开</a>
+        </div>
+        <div id="adapterList" class="home-adapter-list"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">
+        <div>
+          <h2>最近任务</h2>
+          <p>按更新时间排序，最新策略可直接进入 sim2sim。</p>
+        </div>
+        <a class="btn" href="/train/">全部训练</a>
+      </div>
+      <div id="recentRuns" class="home-run-list"></div>
+    </section>
+  </main>
+
+  <script type="module">import { mountNav } from '/shared/nav.js?v=home-nav-1'; mountNav('');</script>
+  <script type="module" src="/app.js?v=wheel-leg-jump-1"></script>
+</body>
+</html>

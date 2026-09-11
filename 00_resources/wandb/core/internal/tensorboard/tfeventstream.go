@@ -1,0 +1,127 @@
+package tensorboard
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/wandb/wandb/core/internal/observability"
+	"github.com/wandb/wandb/core/internal/tensorboard/tbproto"
+)
+
+// tfEventStream creates a stream of TFEvent protos from a TensorBoard
+// log directory.
+//
+// It has two output channels that must be consumed: `Events` and `Files`.
+type tfEventStream struct {
+	// readDelay is how long to wait before checking for a new event.
+	readDelay time.Duration
+	logger    *observability.CoreLogger
+	ctx       context.Context
+
+	reader *TFEventReader
+	events chan *tbproto.TFEvent
+	files  chan *LocalOrCloudPath
+
+	done chan struct{}
+	wg   sync.WaitGroup
+}
+
+func NewTFEventStream(
+	ctx context.Context,
+	logDir *LocalOrCloudPath,
+	readDelay time.Duration,
+	fileFilter TFEventsFileFilter,
+	logger *observability.CoreLogger,
+) *tfEventStream {
+	return &tfEventStream{
+		readDelay: readDelay,
+		logger:    logger,
+		ctx:       ctx,
+
+		reader: NewTFEventReader(logDir, fileFilter, logger, time.Now),
+
+		events: make(chan *tbproto.TFEvent),
+		files:  make(chan *LocalOrCloudPath),
+
+		done: make(chan struct{}),
+	}
+}
+
+// Events returns the channel of TFEvents.
+func (s *tfEventStream) Events() <-chan *tbproto.TFEvent {
+	return s.events
+}
+
+// Files returns the channel of tfevents file paths.
+//
+// The emitted paths are always absolute.
+func (s *tfEventStream) Files() <-chan *LocalOrCloudPath {
+	return s.files
+}
+
+func (s *tfEventStream) emitFilePath(path *LocalOrCloudPath) {
+	s.files <- path
+}
+
+// Stop reads all remaining events and stops after reaching EOF.
+func (s *tfEventStream) Stop() {
+	close(s.done)
+	s.wg.Wait()
+
+	close(s.files)
+	close(s.events)
+}
+
+// Start begins reading files and pushing to the output channel.
+//
+// A no-op if called after Stop.
+func (s *tfEventStream) Start() {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.loop()
+	}()
+}
+
+func (s *tfEventStream) loop() {
+	defer s.reader.Close()
+
+	// Whether we're in the final stage where we read all remaining events.
+	//
+	// Stop() may be invoked while we're asleep, during which time more events
+	// may have been written. As soon as Stop() is invoked, we wake up and
+	// flush all remaining events before exiting the loop.
+	isFinishing := false
+
+	for {
+		event, err := s.reader.NextEvent(s.ctx, s.emitFilePath /*onNewFile*/)
+		if err != nil {
+			s.logger.CaptureError(
+				"tensorboard",
+				fmt.Errorf(
+					"tensorboard: failed reading next event: %v",
+					err,
+				),
+			)
+			return
+		}
+
+		if event == nil {
+			if isFinishing {
+				return
+			}
+
+			select {
+			case <-time.After(s.readDelay):
+				continue
+			case <-s.done:
+				isFinishing = true
+				continue
+			}
+		}
+
+		s.events <- event
+	}
+}

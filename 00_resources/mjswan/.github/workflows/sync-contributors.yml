@@ -1,0 +1,56 @@
+name: sync-contributors
+
+on:
+  pull_request_target:
+    types: [closed]
+
+jobs:
+  sync:
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.user.login != 'ttktjmt'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Sync contributors
+        run: uv run scripts/sync_contributors.py
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="auto/sync-contributors"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git restore uv.lock
+          git add src/mjswan/template/src/Version.ts
+          git commit -m "Update contributors list"
+          git push -f origin "$BRANCH"
+          # Create PR only if one doesn't already exist
+          if ! gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' | grep -q .; then
+            gh pr create \
+              --title "Update contributors list" \
+              --body "Automatically synced from GitHub contributors API." \
+              --head "$BRANCH" \
+              --base main
+          fi
