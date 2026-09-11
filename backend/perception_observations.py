@@ -125,6 +125,50 @@ PERCEPTION_ITEMS: dict[str, PerceptionObservationItem] = {
         sample_dot_path="environment.observations.actor.terms.base_pos_odom",
         meta={"kind": "pose", "topic": "/odom", "frequency_hz": 100},
     ),
+    "joint_torque": PerceptionObservationItem(
+        id="joint_torque",
+        label="关节力矩 (Joint Torque)",
+        sensor="proprio",
+        width=12,
+        scale=1.0,
+        description=(
+            "各执行关节的力矩/电机电流量级；sim2real 必备项（仓内训练源出现频率最高）。"
+            "仿真侧可直接取 MuJoCo 原生 jointactuatorfrc。"
+        ),
+        sample_dot_path="environment.observations.actor.terms.joint_torque",
+        meta={"kind": "joint", "engine_sensor": "jointactuatorfrc", "unit": "N·m"},
+    ),
+    "contact_force": PerceptionObservationItem(
+        id="contact_force",
+        label="足端接触力 (Contact Force)",
+        sensor="foot_contact",
+        width=4,
+        scale=1.0,
+        description=(
+            "四足足端合力（沿接触法向的 netforce）；是 foot_contact（0/1 布尔）的连续版本。"
+            "接触传感器已带 force 字段，仿真侧无需额外造数据。"
+        ),
+        sample_dot_path="environment.observations.actor.terms.contact_force",
+        meta={"kind": "contact", "reduce": "netforce", "fields": ["found", "force"], "unit": "N"},
+    ),
+    "wheel_vel": PerceptionObservationItem(
+        id="wheel_vel",
+        label="轮速 (Wheel Velocity)",
+        sensor="proprio",
+        width=4,
+        scale=1.0,
+        description=(
+            "四轮足的轮关节角速度；纯足式机型不适用。轮足的速度跟踪与打滑判定依赖它，"
+            "通常也从 joint_vel 中单独取出以便设定不同缩放。"
+        ),
+        sample_dot_path="environment.observations.actor.terms.wheel_vel",
+        meta={
+            "kind": "joint",
+            "joint_pattern": ".*_wheel_joint",
+            "unit": "rad/s",
+            "applies_to": ["unitree_go2w", "unitree_b2w", "deeprobotics_m20", "limx_tron1_wf", "zex-w"],
+        },
+    ),
     "base_lin_vel": PerceptionObservationItem(
         id="base_lin_vel",
         label="机身线速度 (Base Lin Vel)",

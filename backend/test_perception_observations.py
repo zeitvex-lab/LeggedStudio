@@ -25,6 +25,13 @@ except ImportError:  # pragma: no cover
     probe_container = None  # type: ignore[assignment]
     probe_corpus = None  # type: ignore[assignment]
 
+try:  # MuJoCo 交叉校验用例需要引擎；缺失时跳过（CI 侧 requirements 已含 mujoco==3.11.0）
+    import mujoco  # noqa: F401
+
+    _MUJOCO_OK = True
+except ImportError:  # pragma: no cover
+    _MUJOCO_OK = False
+
 
 class PerceptionCatalogTests(unittest.TestCase):
     def setUp(self):
@@ -215,6 +222,83 @@ class SensorKindCoverageTests(unittest.TestCase):
         from backend.sensor_suite import SENSOR_KIND_CLASSES
 
         self.assertFalse(set(self.DERIVED_SOURCES) & set(SENSOR_KIND_CLASSES))
+
+
+class ActuatorObservationsTests(unittest.TestCase):
+    """补齐训练侧高频但原先缺项的三个观测：joint_torque / contact_force / wheel_vel。"""
+
+    def test_joint_torque_mirrors_joint_width(self):
+        items = {item["id"]: item for item in list_perception_items()}
+        torque = items["joint_torque"]
+        self.assertEqual(torque["sensor"], "proprio")
+        self.assertEqual(torque["width"], items["joint_pos"]["width"])
+        self.assertEqual(torque["meta"]["engine_sensor"], "jointactuatorfrc")
+        self.assertTrue(torque["sample_dot_path"])
+
+    def test_contact_force_pairs_with_foot_contact(self):
+        items = {item["id"]: item for item in list_perception_items()}
+        force = items["contact_force"]
+        self.assertEqual(force["sensor"], "foot_contact")
+        self.assertEqual(force["width"], items["foot_contact"]["width"])
+        self.assertEqual(force["meta"]["reduce"], "netforce")
+        self.assertIn("force", force["meta"]["fields"])
+
+    def test_wheel_vel_is_wheeled_only(self):
+        items = {item["id"]: item for item in list_perception_items()}
+        wheel = items["wheel_vel"]
+        self.assertEqual(wheel["width"], 4)
+        self.assertEqual(wheel["meta"]["joint_pattern"], ".*_wheel_joint")
+        for robot in ("unitree_go2w", "unitree_b2w", "deeprobotics_m20", "limx_tron1_wf", "zex-w"):
+            self.assertIn(robot, wheel["meta"]["applies_to"])
+
+
+@unittest.skipUnless(_MUJOCO_OK, "mujoco 不可导入")
+class CameraProjectionMujocoTests(unittest.TestCase):
+    """用 MuJoCo 原生 <camprojection> 交叉校验针孔投影（引擎独立实现，非自洽性测试）。"""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_default_mount_matches_mujoco(self):
+        from backend.camera_projection import mujoco_camprojection_check
+
+        report = mujoco_camprojection_check()
+        self.assertTrue(report["available"])
+        self.assertEqual(report["verdict"], "pass", report["rows"])
+        self.assertGreaterEqual(report["compared"], 6)
+        self.assertLessEqual(report["max_abs_du"], report["tolerance_px"])
+        self.assertLessEqual(report["max_abs_dv"], report["tolerance_px"])
+        # 被剔除的「相机后方」点必须显式记录
+        self.assertTrue(any(row.get("skipped") for row in report["rows"]))
+
+    def test_rotated_mount_matches_mujoco(self):
+        from backend.camera_projection import mujoco_camprojection_check
+
+        sensor = {"position": {"x": 0.1, "y": 0.0, "z": 0.2}, "rotation": {"yaw": 90.0}, "mount": "base_link"}
+        points = ((2.0, 0.0, 0.2), (0.0, 2.0, 0.2), (0.0, 2.0, 0.6), (1.5, 0.2, 0.2))
+        report = mujoco_camprojection_check(sensor=sensor, points=points)
+        self.assertEqual(report["verdict"], "pass", report["rows"])
+        # yaw=90 时相机朝机身 +y 看：(2,0,0.2) 与视线垂直 → 落在相机后方/侧面被剔除
+        self.assertEqual(report["compared"], 3)
+        self.assertEqual(sum(1 for row in report["rows"] if row.get("skipped")), 1)
+
+    def test_camera_pose_mapping_is_documented_transform(self):
+        from backend.camera_projection import mujoco_camera_pose
+
+        pose = mujoco_camera_pose({"position": {}, "rotation": {}, "mount": "base_link"})
+        # 单位安装：相机三轴在安装系下 X=(0,-1,0) Y=(0,0,1) Z=(-1,0,0)
+        self.assertEqual(
+            [[round(value, 9) for value in row] for row in pose["axis_matrix"]],
+            [[0.0, 0.0, -1.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        )
+        norm = sum(value * value for value in pose["quat"]) ** 0.5
+        self.assertAlmostEqual(norm, 1.0, places=12)
+
+    def test_mujoco_check_endpoint(self):
+        payload = self.client.get("/api/perception/projection/mujoco-check").json()
+        if payload.get("available") is False:
+            self.skipTest(payload.get("reason"))
+        self.assertEqual(payload["verdict"], "pass")
 
 
 class HeightScanAlignmentTests(unittest.TestCase):

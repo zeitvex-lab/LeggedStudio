@@ -269,8 +269,8 @@ slam/src/config/config.yaml: lid_topic=/front_lidar, imu_topic=/front_lidar/imu
 | `backend/height_scan.py`（新增） | 上游 **187 点**高度扫描网格契约（17×11 / 0.1 m / x 主序，机身系）+ 点云与射线两条取数路径 + `align_height_scans` + `/api/perception/height-scan/{grid,selftest,selftest-map}` | 把「外部雷达 ↔ 内置 heightfield」的逐格对齐回归变成可跑代码；`selftest-map` 直接用 `backend/terrain_gen` 的 5 种地形 |
 | `backend/perception_observations.py` | `heightfield` / `lidar_height_scan` 宽度 **180 → 187**，补网格 meta（shape/order/spacing/来源） | 修正目录与真实网格不一致：仓内训练源多处声明 `terrain_dim = 187`（go2 `contract.py:22`、m20 `constants.py:159`） |
 | `web/advanced_sim.html` | 新增「高度扫描对齐」「相机投影与目标判定」两个面板 | 高级仿真页可直接看到自检结论 |
-| `backend/camera_projection.py`（新增） | 内参解析（MATRiX 惯例：fov 为水平视场、fx=0/cx<0 表示未标定 → 按针孔与像素质心推导）、FLU→光学系外参、点云/目标框投影、深度反投影、到达与可见性判定 + `/api/perception/projection/{sensors,selftest,project}` | 把 §4.1 #3（LiDAR→相机投影）与 #4（目标判定/bbox）落成可离线单测的几何层 |
-| `backend/perception_observations.py` | 新增观测项 `base_pos_odom`（odom，3 维）；`gps_position` 与硬件 `gps` 声明随后按同一口径剔除 | 回答「odom 能否接入」：以观测项形式与 `sensor_suite` 的话题/频率绑定；GPS 因无消费方 + 室内任务族不需要而剔除（恢复成本约 1 行） |
+| `backend/camera_projection.py`（新增） | 内参解析（MATRiX 惯例：fov 为水平视场、fx=0/cx<0 表示未标定 → 按针孔与像素质心推导）、FLU→光学系外参、点云/目标框投影、深度反投影、到达与可见性判定 + `/api/perception/projection/{sensors,selftest,project}`；另含 **MuJoCo 原生 `<camprojection>` 交叉校验**（`mujoco_camera_pose` + `/mujoco-check`） | 把 §4.1 #3（LiDAR→相机投影）与 #4（目标判定/bbox）落成可离线单测的几何层；投影数学经**引擎独立实现**验证：默认挂载 7 点 max 1.5e-5 px、yaw=90 挂载 3 点 max 1.9e-4 px（阈值取 MuJoCo sensordata 的 float32 ULP），并报告主点约定差异（MuJoCo `res/2` vs 本模块 `(W−1)/2`） |
+| `backend/perception_observations.py` | 新增观测项 `base_pos_odom`（odom，3 维）；补训练侧高频缺口 **`joint_torque`(12，`jointactuatorfrc`)、`contact_force`(4，netforce)、`wheel_vel`(4，`.*_wheel_joint`，轮足专属)**；`gps_position` 与硬件 `gps` 声明按同一口径剔除 | 回答「odom 能否接入」并补齐观测目录与训练源的差距（观测项 10 → 13，其中 3 项是「引擎/训练源已有、仅缺登记」） |
 
 ## 6. 未提取 / 不建议
 
