@@ -1,0 +1,28 @@
+python3 arm_sr-control.py eth0 -i 
+
+python3 arm_ik_control.py eth0 --xyz 0 0 0
+python3 arm_ik_control1.py eth0 --xyz 0 -7 -2
+
+python3 color_object_detector.py --color green
+阈值：
+72,98
+64,255
+66,255
+
+
+python3 pick_and_place.py eth0 --color green
+
+python3 pick_and_place.py eth0
+python3 pick_and_place1.py eth0
+
+机械臂平着
+python3 arm_sr-control.py eth0 --angles -6.9 -87 89.7 -0.3 3.8 0.3 12   
+0点
+python3 arm_sr-control.py eth0 --angles -10 0 0 -2 0 1  60
+零点：ang -10 0 0 -2 0 1  60
+ang -85 0 0 -2 2 1  60
+
+python3 arm_sr-control.py eth0 --angles -90  -75  87  -8  9.8  1.8  60  
+    
+
+
