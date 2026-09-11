@@ -116,7 +116,9 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
     policy_path = package_dir / policy_rel
     entry = next((p for p in policies if str(p.get("path", "")).endswith(policy_path.name)), {})
     contract = engine.PackageContract(package_dir, entry)
-    family = family or task_family(entry, contract)
+    contract.motion_loader = engine.load_motion_loader(contract, package_dir)
+    motion = contract.observation_kind in ("go2_motion_69", "g1_motion_154")
+    family = "imitation" if motion else (family or task_family(entry, contract))
 
     model = engine.load_package_model(package_dir, sim_cfg)
     model.opt.timestep = 1.0 / contract.physics_hz
@@ -137,11 +139,14 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
         if contract.total_obs_dim and in_dim != contract.total_obs_dim:
             return {"status": "dim_mismatch", "error": f"ONNX 输入 {in_dim} vs 契约 {contract.total_obs_dim}"}
 
-    if family in ("imitation", "acrobatics", "parkour") or contract.observation_kind in engine._DEFERRED_KINDS:
-        return {"status": "skipped", "reason": f"{family}/{contract.observation_kind} 需 MotionLoader/复合命令，走 Node 桥（obs_bridge.mjs）"}
+    if contract.observation_kind in engine._DEFERRED_KINDS:
+        return {"status": "skipped", "reason": f"{contract.observation_kind} 布局待实现（Node 桥）"}
+    if motion and contract.motion_loader is None:
+        return {"status": "skipped", "reason": "缺少 motion_csv 参考动作"}
 
     criteria = {**DEFAULT_CRITERIA[family], **(criteria_all.get(family) or {})}
-    modes = [[0.0, 0.0, 0.0]] if family in ("stand", "balance") else engine.default_modes(contract.cmd_ranges)
+    single_mode = family in ("stand", "balance", "imitation", "acrobatics", "parkour")
+    modes = [[0.0, 0.0, 0.0]] if single_mode else engine.default_modes(contract.cmd_ranges)
     mode_reports = []
     for idx, cmd in enumerate(modes):
         obs = engine.ObsBuilder(contract, model, data)
