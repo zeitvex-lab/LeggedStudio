@@ -43,6 +43,7 @@
 | [`B3_friction_训练侧对照.md`](./B3_friction_训练侧对照.md) | 源码级对照：引擎/训练侧到底怎么处理关节摩擦 |
 | [`B3_friction_loss_补齐报告.md`](./B3_friction_loss_补齐报告.md) | 14 包 `friction_loss` 按三类来源补齐（每个值都有出处，不猜） |
 | [`B5_action_scale_角色级报告.md`](./B5_action_scale_角色级报告.md) | `action_scale` 从标量升级为角色级（`by_role[]`）的语义与落点 |
+| [`B8_移植准入报告.md`](./B8_移植准入报告.md) | 训练去包化的移植准入规则（T 训练须有上游训练源码 / S 仿真须有对应训练代码 / C 包自包含 / X 一致性）+ 14 机型审计矩阵与执行记录 |
 
 ---
 

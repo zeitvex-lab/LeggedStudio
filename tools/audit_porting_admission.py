@@ -1,0 +1,337 @@
+#!/usr/bin/env python3
+"""B8 移植准入审计：按 00_resources 的上游证据筛选可移植的训练与仿真。
+
+两条准入规则（用户裁决）：
+  T. 训练准入 —— 机器人包可携带「训练」资产，当且仅当 00_resources 中存在该机型的
+     训练任务源码（任务/env cfg/奖励/runner，且属训练框架
+     mjlab|isaaclab|isaacgym|legged_gym|rsl_rl）。否则不移植。
+  S. 仿真准入 —— 机器人包可携带「仿真策略」资产，当且仅当该策略能对应到具体的
+     训练任务源码（上游或包内已准入的训练代码）。否则不移植。
+
+用法：
+  python tools/audit_porting_admission.py --refresh   # 重扫 00_resources，刷新证据清单
+  python tools/audit_porting_admission.py             # 按清单审计资产包（CI 用）
+  python tools/audit_porting_admission.py --json out.json
+
+退出码：0 全部准入；1 存在不达标项（CI 门禁）。
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+RESOURCES_ROOT = PROJECT_ROOT / "00_resources"
+ASSETS_ROOT = PROJECT_ROOT / "assets" / "robots"
+EVIDENCE_PATH = PROJECT_ROOT / "registry" / "porting_evidence.json"
+
+ROBOTS = [
+    "unitree_go2", "unitree_go2w", "unitree_go1", "unitree_b2", "unitree_b2w",
+    "unitree_g1", "deeprobotics_lite3", "deeprobotics_m20",
+    "limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf", "microduck",
+    "wuji_hand", "zex-w",
+]
+
+# 机型 token：用于在上游路径中定位「机型专属」训练任务
+ROBOT_TOKENS: dict[str, list[str]] = {
+    "unitree_go2": [r"unitree_go2", r"/go2", r"go2_"],
+    "unitree_go2w": [r"unitree_go2w", r"go2w"],
+    "unitree_go1": [r"unitree_go1", r"/go1", r"go1_"],
+    "unitree_b2": [r"unitree_b2", r"/b2\b", r"b2_"],
+    "unitree_b2w": [r"unitree_b2w", r"b2w"],
+    "unitree_g1": [r"unitree_g1", r"/g1\b", r"g1_2[39]dof", r"g1_"],
+    "deeprobotics_lite3": [r"lite3"],
+    "deeprobotics_m20": [r"deeprobotics_m20", r"/m20\b", r"m20_"],
+    "limx_tron1_pf": [r"pointfoot", r"tron1_pf", r"/PF\b", r"/pf\b"],
+    "limx_tron1_sf": [r"solefoot", r"tron1_sf", r"/SF\b", r"/sf\b"],
+    "limx_tron1_wf": [r"wheelfoot", r"tron1_wf", r"/WF\b", r"/wf\b"],
+    "microduck": [r"microduck", r"micro_duck"],
+    "wuji_hand": [r"wuji"],
+    "zex-w": [r"wheelleg", r"rc_mjlab/src/robot", r"zex"],
+}
+
+TASK_DIR = re.compile(r"(tasks?/|envs?/|config/|mdp/|agents/|learning/)", re.IGNORECASE)
+TASK_FILE = re.compile(
+    r"(env_cfg|env_cfgs|rl_cfg|rsl_rl_ppo|ppo_cfg|robot_cfg|task|reward|runner|"
+    r"velocity|locomotion|tracking|constants|assets/config)",
+    re.IGNORECASE,
+)
+FRAMEWORK = re.compile(
+    r"(mjlab|isaaclab|isaacgym|legged_gym|rsl_rl|rsl-rl|mjx|dm_control)", re.IGNORECASE
+)
+
+SCAN_SKIP_PROJECTS = {"knowledge_base", "wandb", "urdf_tool", "sdk_deploy"}
+SCAN_SKIP_PARTS = {
+    "build", "dist", "outputs", "logs", "node_modules", "__pycache__", ".git",
+    "site-packages", "docs",
+}
+
+# ---------------------------------------------------------------------------
+# 仿真准入裁定表（规则 S）：逐条策略给出「对应的训练源码」证据。
+# 值为空串 = 不达标 = 不移植。人工裁定，但每条都必须给出可核对的上游路径。
+# ---------------------------------------------------------------------------
+POLICY_ADMISSION: dict[str, dict[str, str]] = {
+    "deeprobotics_lite3": {
+        "deeprobotics_lite3-velocity-benchmark": "robot_lab/.../velocity/config/quadruped/deeprobotics_lite3",
+        "lite3-official-sdk-45": "deep_rl + rl_training（云深处官方 RL 训练工程）",
+    },
+    "deeprobotics_m20": {
+        "m20-velocity-57": "m20_rl_isaacsim + Dreamwaq/legged_gym/envs/M20",
+    },
+    "microduck": {
+        "walking": "microduck_rl/.../microduck_velocity_env_cfg.py",
+        "stand": "microduck_rl/.../microduck_standup_env_cfg.py",
+        "sitstand": "microduck_rl/.../microduck_sitstand_env_cfg.py",
+        "roulade": "microduck_rl/.../microduck_roulade_env_cfg.py",
+        "roller": "microduck_rl/.../microduck_velocity_rollers_env_cfg.py",
+        "roller-crouch": "microduck_rl/.../microduck_roller_crouch_env_cfg.py",
+        "ground-pick": "microduck_rl/.../microduck_ground_pick_env_cfg.py",
+        "ball-kick-left": "microduck_rl/.../microduck_ball_kick_env_cfg.py",
+        "ball-kick-right": "microduck_rl/.../microduck_ball_kick_env_cfg.py",
+    },
+    "unitree_b2": {
+        "unitree_b2-velocity-benchmark": "robot_lab/.../velocity/config/quadruped/unitree_b2",
+    },
+    "unitree_b2w": {
+        "robotlab-velocity-57": "robot_lab/.../velocity/config/wheeled/unitree_b2w",
+    },
+    "unitree_g1": {
+        "unitree-velocity": "unitree_rl_mjlab（官方 velocity 任务）",
+        "dance-102": "uni_rl/unitree_rl_lab/.../tasks/mimic/robots/g1_29dof/dance_102",
+        "dance-gangnam-style": "uni_rl/unitree_rl_lab/.../tasks/mimic（motion-tracking）",
+        "dance-subject2": "uni_rl/unitree_rl_lab/.../tasks/mimic（motion-tracking）",
+        "locomotion": "unitree_rl_mjlab（G1 velocity 任务，mjswan 为导出方）",
+    },
+    "unitree_go1": {
+        "go1-playground-joystick": "mujoco_playground/.../locomotion/go1/joystick.py",
+        # LeggedSkillDeploy 仅提供 moe_best.pt + config.yaml（推理产物），无训练源码
+        "go1-moe-loco": "",
+    },
+    "unitree_go2": {
+        "go2-backflip-69": "包内 local_tasks/robots/unitree/go2/tasks/aerial（backflip）",
+        "go2-jump-69": "包内 local_tasks/robots/unitree/go2/tasks/aerial（jump）",
+    },
+    "unitree_go2w": {
+        "unitree-velocity-legs": "unitree_rl_mjlab_go2w（velocity_legs_only）",
+        "velocity": "go2w_sim2sim（Go2W 轮足 mjlab 训练工程）",
+        "robotlab-velocity-57": "robot_lab/.../velocity/config/wheeled/unitree_go2w",
+    },
+    "zex-w": {
+        "model-6800": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
+        "model-84": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
+        "model-9600": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
+        "model-rough": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
+    },
+}
+
+# 包自包含约束：包内不得出现「其他机型」的训练任务目录
+FOREIGN_TASK_PATTERNS = {
+    "unitree_g1": re.compile(r"(^|/)local_tasks/robots/unitree/g1/"),
+    "unitree_go2": re.compile(r"(^|/)local_tasks/robots/unitree/go2/"),
+}
+
+
+def scan_training_evidence() -> dict[str, Any]:
+    """扫描 00_resources，产出机型 → 训练任务源码证据。"""
+    evidence: dict[str, list[str]] = {robot: [] for robot in ROBOTS}
+    if not RESOURCES_ROOT.is_dir():
+        return {"available": False, "robots": evidence}
+    projects = [
+        p for p in sorted(RESOURCES_ROOT.iterdir())
+        if p.is_dir() and p.name not in SCAN_SKIP_PROJECTS
+    ]
+    for project in projects:
+        for path in project.rglob("*.py"):
+            if any(part in SCAN_SKIP_PARTS for part in path.parts):
+                continue
+            rel = path.relative_to(project).as_posix()
+            if not (TASK_DIR.search(rel) and TASK_FILE.search(rel)):
+                continue
+            try:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            if not FRAMEWORK.search(text):
+                continue
+            for robot, tokens in ROBOT_TOKENS.items():
+                if any(re.search(token, rel) for token in tokens):
+                    evidence[robot].append(f"{project.name}/{rel}")
+    return {
+        "generated_from": str(RESOURCES_ROOT),
+        "available": True,
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "robots": {robot: sorted(set(files)) for robot, files in evidence.items()},
+    }
+
+
+def load_evidence(refresh: bool) -> dict[str, Any]:
+    if refresh or not EVIDENCE_PATH.exists():
+        manifest = scan_training_evidence()
+        EVIDENCE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        EVIDENCE_PATH.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+        )
+        return manifest
+    return json.loads(EVIDENCE_PATH.read_text(encoding="utf-8"))
+
+
+def package_inventory(package_root: Path) -> dict[str, Any]:
+    source_root = package_root / "training" / "source"
+    profiles_dir = package_root / "training" / "profiles"
+    profiles = sorted(p.name for p in profiles_dir.glob("*.json")) if profiles_dir.is_dir() else []
+    py_files = (
+        sorted(p.relative_to(package_root).as_posix() for p in source_root.rglob("*.py"))
+        if source_root.is_dir() else []
+    )
+    sim_path = package_root / "simulation" / "config.json"
+    policies: list[dict[str, Any]] = []
+    if sim_path.is_file():
+        try:
+            sim = json.loads(sim_path.read_text(encoding="utf-8-sig"))
+            policies = list(sim.get("policies") or [])
+        except (OSError, json.JSONDecodeError):
+            policies = []
+    onnx = sorted(p.relative_to(package_root).as_posix() for p in package_root.rglob("*.onnx"))
+    # 一致性：策略声明 ↔ 实际 onnx 文件必须一一对应
+    declared = {str(p.get("path") or "") for p in policies if p.get("path")}
+    dangling = sorted(p for p in declared if not (package_root / p).is_file())
+    orphan = sorted(f for f in onnx if f not in declared)
+    return {
+        "package_root": str(package_root),
+        "training_profiles": profiles,
+        "training_py_files": py_files,
+        "policies": policies,
+        "onnx": onnx,
+        "dangling_policy_paths": dangling,
+        "orphan_onnx": orphan,
+    }
+
+
+def audit(evidence: dict[str, Any]) -> dict[str, Any]:
+    available = bool(evidence.get("available"))
+    evidence_robots: dict[str, list[str]] = evidence.get("robots", {})
+    report: dict[str, Any] = {
+        "rules": {
+            "training": "机型须在 00_resources 有训练任务源码，否则不移植",
+            "simulation": "仿真策略须对应具体训练任务源码，否则不移植",
+        },
+        "evidence_available": available,
+        "robots": {},
+        "violations": [],
+    }
+    for robot in ROBOTS:
+        package_root = ASSETS_ROOT / robot
+        if not package_root.is_dir():
+            continue
+        evidence_files = evidence_robots.get(robot, [])
+        training_admitted = bool(evidence_files) or not available
+        inv = package_inventory(package_root)
+
+        admitted, rejected = [], []
+        table = POLICY_ADMISSION.get(robot, {})
+        for policy in inv["policies"]:
+            policy_id = str(policy.get("id") or "")
+            reason = table.get(policy_id, "")
+            if reason:
+                admitted.append({"id": policy_id, "evidence": reason})
+            else:
+                rejected.append({
+                    "id": policy_id,
+                    "reason": "准入表未登记" if policy_id not in table else "无对应训练任务源码",
+                })
+
+        foreign: list[str] = []
+        for other_robot, pattern in FOREIGN_TASK_PATTERNS.items():
+            if other_robot == robot:
+                continue
+            foreign += [f for f in inv["training_py_files"] if pattern.search(f)]
+
+        report["robots"][robot] = {
+            "training_evidence_projects": sorted({f.split("/")[0] for f in evidence_files}),
+            "training_evidence_files": len(evidence_files),
+            "training_admitted": training_admitted,
+            "training_migrated": bool(inv["training_py_files"]),
+            "training_profiles": len(inv["training_profiles"]),
+            "training_py_files": len(inv["training_py_files"]),
+            "policies_admitted": admitted,
+            "policies_rejected": rejected,
+            "onnx_files": inv["onnx"],
+            "foreign_task_files": sorted(foreign),
+            "dangling_policy_paths": inv["dangling_policy_paths"],
+            "orphan_onnx": inv["orphan_onnx"],
+        }
+        if not training_admitted:
+            report["violations"].append({"robot": robot, "type": "training_no_upstream_source"})
+        for item in rejected:
+            report["violations"].append({
+                "robot": robot, "type": "simulation_no_training_code", "policy": item["id"],
+            })
+        if foreign:
+            report["violations"].append({
+                "robot": robot, "type": "foreign_task_residue", "files": len(foreign),
+            })
+        if inv["dangling_policy_paths"]:
+            report["violations"].append({
+                "robot": robot, "type": "dangling_policy_path",
+                "files": inv["dangling_policy_paths"],
+            })
+        if inv["orphan_onnx"]:
+            report["violations"].append({
+                "robot": robot, "type": "orphan_onnx", "files": inv["orphan_onnx"],
+            })
+    return report
+
+
+def print_summary(report: dict[str, Any]) -> None:
+    print("=" * 78)
+    print("B8 移植准入审计")
+    print("=" * 78)
+    if not report["evidence_available"]:
+        print("!! 00_resources 不可用：仅做结构审计，训练准入跳过\n")
+    print(f"{'机型':<22}{'训练证据':>8}{'已移植':>7}{'profiles':>9}{'策略准入':>9}{'策略不达标':>11}")
+    print("-" * 78)
+    for robot, entry in report["robots"].items():
+        print(
+            f"{robot:<22}{entry['training_evidence_files']:>8}"
+            f"{'是' if entry['training_migrated'] else '否':>7}"
+            f"{entry['training_profiles']:>9}"
+            f"{len(entry['policies_admitted']):>9}"
+            f"{len(entry['policies_rejected']):>11}"
+        )
+    print("-" * 78)
+    if report["violations"]:
+        print(f"\n不达标项 {len(report['violations'])} 条：")
+        for item in report["violations"]:
+            detail = item.get("policy") or item.get("files", "")
+            if isinstance(detail, list):
+                detail = ", ".join(str(x) for x in detail[:3]) + ("..." if len(detail) > 3 else "")
+            print(f"  [{item['type']}] {item['robot']} {detail}")
+    else:
+        print("\n全部准入。")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="B8 移植准入审计")
+    parser.add_argument("--refresh", action="store_true", help="重扫 00_resources 刷新证据清单")
+    parser.add_argument("--json", help="把完整报告写入该文件")
+    args = parser.parse_args(argv)
+
+    evidence = load_evidence(args.refresh)
+    report = audit(evidence)
+    print_summary(report)
+    if args.json:
+        Path(args.json).write_text(
+            json.dumps(report, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+        )
+        print(f"\n报告已写入 {args.json}")
+    return 1 if report["violations"] else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

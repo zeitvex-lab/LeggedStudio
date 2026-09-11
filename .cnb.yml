@@ -26,6 +26,8 @@
           backend.test_perception_observations \
           backend.test_hygiene \
           backend.test_deploy_pack 2>&1 | tail -40
+        echo "== B8 porting admission (rules T/S/C/X) =="
+        python tools/audit_porting_admission.py
 
 frontend:
   push:
