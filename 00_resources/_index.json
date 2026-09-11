@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-09-11T23:47:13",
+ "generated_at": "2026-09-12T00:18:11",
  "spec": "_SPEC.md",
  "policy": {
   "keep": "源码/配置/文档/数据/URDF·MJCF/推理策略文件",
@@ -2550,6 +2550,44 @@
    },
    "readme": "wandb/README.md"
   },
+  "wbc-mjlab": {
+   "source": "00_open/wbc-mjlab",
+   "robots": [
+    "unitree_g1"
+   ],
+   "desc": "WBC-Mjlab：mjlab 全身运动跟踪（WBC）共享 MDP，一策略多技能；含 G1 任务/动作库/导出",
+   "kept": 156,
+   "kept_bytes": 62456384,
+   "omitted": 42,
+   "omitted_bytes": 42886758,
+   "policy_files": 1,
+   "per_category": {
+    "model": 5,
+    "contract": 0,
+    "training": 24,
+    "deploy": 3,
+    "terrain_scene": 0,
+    "motion": 25,
+    "evaluation": 6,
+    "misc": 93
+   },
+   "ext_top": {
+    ".py": 72,
+    ".rst": 45,
+    ".csv": 12,
+    ".md": 8,
+    "(无扩展名)": 6,
+    ".xml": 4,
+    ".ipynb": 2,
+    ".yml": 2,
+    ".cff": 1,
+    ".toml": 1,
+    ".pt": 1,
+    ".bib": 1,
+    ".css": 1
+   },
+   "readme": "wbc-mjlab/README.md"
+  },
   "wuji-mjlab": {
    "source": "00_open/wuji-mjlab",
    "robots": [
@@ -2764,6 +2802,7 @@
     "UFO",
     "g1-mujoco-ros2-nav-sim-G1-MuJoCo-ROS2-",
     "g1_spinkick_example",
+    "wbc-mjlab",
     "rc_old"
    ]
   },
