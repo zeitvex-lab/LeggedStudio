@@ -1237,6 +1237,7 @@ function resetPolicyState() {
   }
   if (sim.encoderHistory) sim.encoderHistory.fill(0);
   sim.tron1GaitIndex = 0;
+  OBSERVATION?.resetWujiGoal?.();
 }
 
 function updateRecurrentStates(output, info) {
@@ -1594,6 +1595,8 @@ function applyPolicyContract(contract, order = []) {
   CONFIG.observationKind = contract?.observation_kind
     || (CONFIG.numObs === 99 ? "quadrupedal_agility_ll" : "default");
   CONFIG.historyLayout = String(contract?.history_layout || "");
+  // 显式 history 分段（Wuji reorient）：[[offset,len], ...]，每段 旧→新 逐帧拼接。
+  CONFIG.historyTerms = Array.isArray(contract?.history_terms) ? contract.history_terms : null;
   // Isaac 元素主序交错 history（pushHistory 按 CONFIG.historyInterleaved 分派）
   CONFIG.historyInterleaved = Boolean(contract?.history_interleaved);
   CONFIG.gaitCommandGated = Boolean(contract?.gait_command_gated);
@@ -3756,6 +3759,20 @@ function packObsHistoryByTerm(frames) {
     for (let i = frames.length - 1; i >= 0; i -= 1) {
       packed.set(frames[i], cursor);
       cursor += CONFIG.numObs;
+    }
+    return packed;
+  }
+  // Wuji reorient：显式分段，每段按 旧→新 逐帧拼接（段内 history 连续，term-major）。
+  if (CONFIG.historyLayout === "wuji_term_major" && CONFIG.historyTerms) {
+    const packed = new Float32Array(frames.length * CONFIG.numObs);
+    let cursor = 0;
+    for (const [rawOffset, rawLength] of CONFIG.historyTerms) {
+      const offset = Number(rawOffset);
+      const length = Number(rawLength);
+      for (const obs of frames) {
+        packed.set(obs.subarray(offset, offset + length), cursor);
+        cursor += length;
+      }
     }
     return packed;
   }
