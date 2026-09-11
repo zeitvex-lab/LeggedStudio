@@ -762,9 +762,19 @@ async function loadPolicyFromConfig(config, initial = false) {
   let modelBytes;
   if (contract.motion_params?.motion_csv) {
     try {
-      const csvUrl = `/api/simulation/browser-package/${config.robot_id || ""}/${contract.motion_params.motion_csv}`;
-      const csvText = await (await fetch(csvUrl, { cache: "no-store" })).text();
-      sim.motionLoader = new MotionLoader(csvText, contract.motion_params);
+      // 包内相对路径必须相对 asset_package.base_url 解析：base_url 由后端用
+      // canonical robot id（unitree_go2）拼好。禁止读 config.robot_id —— 后端
+      // browser-config 不下发该字段，曾退化成 ".../browser-package//simulation/
+      // policies/xxx_motion.csv"（robot 段为空）→ 404 → 404 响应体被当 CSV 解析
+      // → dofPositions 为空 → 每帧 jointPos 崩溃、仿真 time 永久停在 0。
+      const packageBase = new URL(config?.sim?.asset_package?.base_url || "./", window.location.href);
+      const csvUrl = new URL(
+        String(contract.motion_params.motion_csv).replace(/^\/+/, ""),
+        packageBase,
+      ).toString();
+      const response = await fetch(cacheBustedUrl(csvUrl, revision), { cache: "no-store" });
+      if (!response.ok) throw new Error(`motion csv HTTP ${response.status}: ${csvUrl}`);
+      sim.motionLoader = new MotionLoader(await response.text(), contract.motion_params);
       OBSERVATION.resetMotionTime();
     } catch (err) {
       console.warn("[sim2sim] motion csv load failed:", err);

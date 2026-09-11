@@ -28,16 +28,25 @@ def _read(path: Path) -> dict:
 
 
 class Go1DemoPolicyAdmissionTests(unittest.TestCase):
-    def test_no_demo_policies_without_ported_training_code(self):
-        """准入裁决锁：训练树就位前，policies 必须为空。"""
+    def test_admitted_policies_match_locked_set(self):
+        """准入集合锁（v0.43.x 用户指令更新：官方取证闭环即可准入）。
+
+        用户最新指令（覆盖 v0.44.0 的"包内移植训练代码"准入标准）：官方 yaml /
+        官方消费代码 / 官方 pt 导出的取证闭环即可准入——joystick（mujoco_playground
+        官方 onnx+play_go1_joystick.py 同源取证，实测 z≈0.334 / vx 追踪 92%）与
+        moe（官方 moe_best.pt 官方工具导出对拍 6e-06 + moe config.yaml 布局，
+        实测 z≈0.33 / vx 追踪 115%）。B14 训练树移植后可再收紧为训练代码对应。
+        """
         config = _read(GO1 / "simulation" / "config.json")
+        policies = {p["id"]: p for p in config.get("policies") or []}
         self.assertEqual(
-            config.get("policies") or [],
-            [],
-            "go1 无包内移植训练代码（B14）——演示策略不得导入；"
-            "恢复路径：git show v0.43.0:assets/robots/unitree_go1/simulation/config.json",
+            set(policies),
+            {"go1-playground-joystick", "go1-moe-loco"},
+            "go1 演示策略集合漂移；himloco 撤下（mjswan main.py 官方注释自证 runtime "
+            "不支持其交错 history、demo 从未跑通；训练工程不在本地资源），不得未经取证恢复",
         )
-        self.assertFalse((GO1 / "simulation" / "policies" / "go1_playground_joystick.onnx").exists())
+        for policy in policies.values():
+            self.assertTrue((GO1 / policy["path"]).exists(), f"{policy['id']} onnx 缺失")
         self.assertFalse((GO1 / "simulation" / "policies" / "go1_himloco.onnx").exists())
 
     def test_no_stale_top_level_policy_contract(self):
