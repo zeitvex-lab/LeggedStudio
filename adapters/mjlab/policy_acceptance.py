@@ -588,7 +588,8 @@ def _frame_go2w_53(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     out = list(ang_b * 0.25) + list(projected_gravity(q)) + list(cmd * np.asarray(c.cmd_scale))
     out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in legs]
     out += [obs.data.qvel[obs.jadr[n][1]] * 0.05 for n in legs]
-    for n in ("FL_wheel_joint", "FR_wheel_joint", "RL_wheel_joint", "RR_wheel_joint"):
+    # 轮速段序 = 参考 joint_names 的轮顺序（FR,FL,RR,RL）
+    for n in ("FR_wheel_joint", "FL_wheel_joint", "RR_wheel_joint", "RL_wheel_joint"):
         a = obs.jadr.get(n)
         out.append(obs.data.qvel[a[1]] * 0.05 if a else 0.0)
     out += list(obs.last_action)
