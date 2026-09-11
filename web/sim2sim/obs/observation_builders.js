@@ -308,6 +308,122 @@ function buildGo2wHimlocoObservation() {
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
 }
 
+// Wuji Hand in-hand 立方体重定向（69 维，20 动作）：归一化关节角(20) + 关节目标
+// 误差(20) + tag 系立方体位置(3) + 目标 6D 朝向误差(6) + 上一动作(20)，history 3。
+// 参考 00_resources/wuji-mjlab tasks/reorient（observations.py / reorient_terms.py）。
+// tag 系：palm 世界位姿 ∘ 恒定 tag-in-palm 刚体变换；目标按 SO(3) 均匀采样于 tag 系。
+const WUJI_TAG_POS = [0.0262, 0.0, -0.0563];
+const WUJI_TAG_QUAT = [Math.SQRT1_2, 0.0, Math.SQRT1_2, 0.0]; // R_y(+90°), wxyz
+
+function wujiQuatMul(a, b) {
+  return [
+    a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+    a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+    a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+    a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0],
+  ];
+}
+function wujiQuatConj(q) { return [q[0], -q[1], -q[2], -q[3]]; }
+function wujiRotate(q, v) {
+  const [w, x, y, z] = q;
+  const t = [2 * (y * v[2] - z * v[1]), 2 * (z * v[0] - x * v[2]), 2 * (x * v[1] - y * v[0])];
+  return [
+    v[0] + w * t[0] + (y * t[2] - z * t[1]),
+    v[1] + w * t[1] + (z * t[0] - x * t[2]),
+    v[2] + w * t[2] + (x * t[1] - y * t[0]),
+  ];
+}
+function wujiMatrixFromQuat(q) {
+  const [w, x, y, z] = q;
+  return [
+    1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y),
+    2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x),
+    2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y),
+  ];
+}
+function wujiSampleGoal(tagQuat) {
+  const u1 = Math.random(), u2 = Math.random(), u3 = Math.random();
+  const rel = [
+    Math.sqrt(1 - u1) * Math.sin(2 * Math.PI * u2),
+    Math.sqrt(1 - u1) * Math.cos(2 * Math.PI * u2),
+    Math.sqrt(u1) * Math.sin(2 * Math.PI * u3),
+    Math.sqrt(u1) * Math.cos(2 * Math.PI * u3),
+  ];
+  return wujiQuatMul(tagQuat, rel);
+}
+function wujiSoftLimit(model, jid) {
+  // center ± 0.9·half（mjlab soft_joint_pos_limit_factor=0.9）
+  const lo = Number(model.jnt_range[2 * jid]);
+  const hi = Number(model.jnt_range[2 * jid + 1]);
+  return [0.5 * (lo + hi), 0.5 * (hi - lo) * 0.9];
+}
+function buildWujiReorientObservation() {
+  if (CONFIG.numObs !== 69 || CONFIG.numActions !== 20) {
+    throw new Error(`wuji_reorient_69 requires 69 observations and 20 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const model = sim.model;
+  const data = sim.data;
+  const mj = sim.mujoco;
+  const jntObj = mj.mjtObj.mjOBJ_JOINT;
+  const bodyObj = mj.mjtObj.mjOBJ_BODY;
+  const order = CONFIG.actionJointOrder || [];
+  const bodyId = (name) => Number(mj.mj_name2id(model, bodyObj, String(name)));
+
+  sim.obs.fill(0);
+  let offset = 0;
+  const normJoint = new Float64Array(CONFIG.numActions);
+  for (let i = 0; i < CONFIG.numActions; i += 1) {
+    const jid = Number(mj.mj_name2id(model, jntObj, String(order[i])));
+    let normalized = 0;
+    if (jid >= 0) {
+      const [center, half] = wujiSoftLimit(model, jid);
+      normalized = clamp((jointQpos(i) - center) / (half + 1e-6), -1, 1);
+    }
+    normJoint[i] = normalized;
+    sim.obs[offset++] = normalized;
+  }
+  // qpos_error：当前归一化关节角 - 上一步处理后的动作目标（与 mjlab 同序）
+  for (let i = 0; i < CONFIG.numActions; i += 1) {
+    const jid = Number(mj.mj_name2id(model, jntObj, String(order[i])));
+    let target = 0;
+    if (jid >= 0) {
+      const [center, half] = wujiSoftLimit(model, jid);
+      target = clamp((sim.targetDofPos[i] - center) / (half + 1e-6), -1, 1);
+    }
+    sim.obs[offset++] = normJoint[i] - target;
+  }
+  // tag 系立方体位置 + 目标 6D 朝向误差
+  const palmId = bodyId("right_palm_link");
+  const cubeId = bodyId("cube");
+  const palmPos = [data.xpos[3 * palmId], data.xpos[3 * palmId + 1], data.xpos[3 * palmId + 2]];
+  const palmQuat = [data.xquat[4 * palmId], data.xquat[4 * palmId + 1], data.xquat[4 * palmId + 2], data.xquat[4 * palmId + 3]];
+  const tagOffset = wujiRotate(palmQuat, WUJI_TAG_POS);
+  const tagPos = [palmPos[0] + tagOffset[0], palmPos[1] + tagOffset[1], palmPos[2] + tagOffset[2]];
+  const tagQuat = wujiQuatMul(palmQuat, WUJI_TAG_QUAT);
+  const cubePos = [data.xpos[3 * cubeId], data.xpos[3 * cubeId + 1], data.xpos[3 * cubeId + 2]];
+  const cubeQuat = [data.xquat[4 * cubeId], data.xquat[4 * cubeId + 1], data.xquat[4 * cubeId + 2], data.xquat[4 * cubeId + 3]];
+  const cubePosTag = wujiRotate(wujiQuatConj(tagQuat), [cubePos[0] - tagPos[0], cubePos[1] - tagPos[1], cubePos[2] - tagPos[2]]);
+  sim.obs[offset++] = cubePosTag[0];
+  sim.obs[offset++] = cubePosTag[1];
+  sim.obs[offset++] = cubePosTag[2];
+
+  // 目标状态机：未设/达成后重采样（朝向误差 < 0.2 连续 5 步算达成）
+  if (!sim.wujiGoalQuat) { sim.wujiGoalQuat = wujiSampleGoal(tagQuat); sim.wujiHold = 0; }
+  const tagInv = wujiQuatConj(tagQuat);
+  const qErr = wujiQuatMul(wujiQuatMul(tagInv, cubeQuat), wujiQuatConj(wujiQuatMul(tagInv, sim.wujiGoalQuat)));
+  const mat = wujiMatrixFromQuat(qErr);
+  for (let i = 3; i < 9; i += 1) sim.obs[offset++] = mat[i];
+  const dot = Math.abs(
+    cubeQuat[0] * sim.wujiGoalQuat[0] + cubeQuat[1] * sim.wujiGoalQuat[1]
+    + cubeQuat[2] * sim.wujiGoalQuat[2] + cubeQuat[3] * sim.wujiGoalQuat[3],
+  );
+  const oriErr = 2 * Math.acos(clamp(Math.min(1, dot), -1, 1));
+  sim.wujiHold = oriErr < 0.2 ? (sim.wujiHold || 0) + 1 : 0;
+  if (sim.wujiHold >= 5) { sim.wujiGoalQuat = wujiSampleGoal(tagQuat); sim.wujiHold = 0; }
+
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
 // Go1（mujoco_playground Joystick 官方导出，play_go1_joystick.py 逐行取证）：
 // local_linvel(3), gyro(3), projected_gravity(3), joint_pos_rel(12),
 // joint_vel(12), last_action(12), command(3) —— 全部裸值无缩放；
@@ -786,6 +902,7 @@ function geomBodyName(geomId) {
     tron1_pf_30: buildTron1PfObservation,
     tron1_sf_36: buildTron1SfObservation,
     tron1_wf_28: buildTron1WfObservation,
+    wuji_reorient_69: buildWujiReorientObservation,
   };
 
   function buildObservation() {
@@ -808,5 +925,7 @@ function geomBodyName(geomId) {
     updateGaitControl,
     isWheelLegGaitPolicy,
     resetMotionTime() { motionTime = 0; },
+    // Wuji reorient：清空 tag 系目标，下一次构建时重新采样（复位/换场景调用）。
+    resetWujiGoal() { sim.wujiGoalQuat = null; sim.wujiHold = 0; },
   };
 }

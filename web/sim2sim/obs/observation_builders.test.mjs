@@ -28,8 +28,16 @@ function makeCtx(overrides = {}) {
     cmd: new Float32Array([0,0,0]),
     qpos: new Float32Array(7+numActions).fill(0.1),
     qvel: new Float32Array(6+numActions),
-    model: { njnt: numActions, geom_bodyid: null, jnt_qposadr: null, jnt_bodyid: null },
-    data: { time: 0, ncon: 0, contact: null },
+    model: {
+      njnt: numActions, geom_bodyid: null, jnt_bodyid: null,
+      jnt_qposadr: Array.from({length:numActions},(_,i)=>7+i),
+      jnt_range: new Float32Array(2*numActions).fill(0.5),
+    },
+    data: {
+      time: 0, ncon: 0, contact: null,
+      xpos: new Float32Array(3*32),
+      xquat: (() => { const q = new Float32Array(4*32); for (let b=0;b<32;b+=1) q[4*b]=1; return q; })(),
+    },
     gaitElapsedS: 0, gaitActive: false, g1PhaseS: 0,
     history: new Float32Array(200), jumpStartedAt: 0, jumpActive: false,
     mujoco: { mj_name2id: () => -1, mjtObj: {} },
@@ -181,6 +189,8 @@ console.log(`\nPASS=${passed} FAIL=${failed}`);
 test('go2w_rl_sdk_57', makeCtx({ kind:'go2w_rl_sdk_57', numObs:57, numActions:16 }));
 // go2w_himloco_57（LeggedSkillDeploy go2w_himloco：commands 在前的 57 维）
 test('go2w_himloco_57', makeCtx({ kind:'go2w_himloco_57', numObs:57, numActions:16 }));
+// wuji_reorient_69（Wuji Hand 掌内立方体重定向：69 维 + history 3）
+test('wuji_reorient_69', makeCtx({ kind:'wuji_reorient_69', numObs:69, numActions:20 }));
 // s07_amp_cts
 test('s07_amp_cts', makeCtx({ kind:'s07_amp_cts', numObs:45, numActions:12 }));
 // 参考时钟到达 duration 后【默认钳制保持末帧】（上游 rl_sdk
