@@ -617,12 +617,17 @@ def actuate(contract: PackageContract, model, data, obs: ObsBuilder, raw: np.nda
 # ---------- 主入口 ----------
 
 def default_modes(ranges) -> list[list[float]]:
+    """中速验收扫描：站立 + 前进（0.5/0.8×上限）+ 侧移/转向（0.5×上限）。
+
+    用范围上限（如 go1 joystick wz=2π）属边缘工况，不能代表"完成任务"的常态；
+    中速扫描更贴合部署指令范围，上限工况作为诊断保留在报告里。
+    """
     (vx_lo, vx_hi), (_vy_lo, vy_hi), (_wz_lo, wz_hi) = ranges
-    modes = [[0.0, 0.0, 0.0], [float(vx_hi) * 0.5, 0.0, 0.0], [float(vx_hi), 0.0, 0.0]]
+    modes = [[0.0, 0.0, 0.0], [float(vx_hi) * 0.5, 0.0, 0.0], [float(vx_hi) * 0.8, 0.0, 0.0]]
     if abs(vy_hi) > 0.01:
-        modes.append([0.0, float(vy_hi), 0.0])
+        modes.append([0.0, float(vy_hi) * 0.5, 0.0])
     if abs(wz_hi) > 0.01:
-        modes.append([0.0, 0.0, float(wz_hi)])
+        modes.append([0.0, 0.0, float(wz_hi) * 0.5])
     return modes
 
 
