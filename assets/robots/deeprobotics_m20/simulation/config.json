@@ -243,7 +243,8 @@
             "hr_wheel_joint": 0.6
           }
         },
-        "autoplay": false
+        "autoplay": false,
+        "task_type": "velocity"
       }
     }
   ]

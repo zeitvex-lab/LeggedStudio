@@ -171,7 +171,8 @@
           "wheel_joint_pos_rel": 1,
           "wheel_joint_vel_rel": 1,
           "last_action": 1
-        }
+        },
+        "task_type": "velocity"
       }
     },
     {
@@ -291,7 +292,8 @@
           "RR_wheel_joint": 0.0,
           "RL_wheel_joint": 0.0
         },
-        "velocity_scale": 5.0
+        "velocity_scale": 5.0,
+        "task_type": "velocity"
       },
       "source": "go2w_sim2sim policy/history_1/model.onnx（16 维混合策略，SDK 序）"
     },
@@ -409,7 +411,8 @@
             "wheel": 0.5,
             "joint": 0.5
           }
-        }
+        },
+        "task_type": "velocity"
       }
     }
   ],
