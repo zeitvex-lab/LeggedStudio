@@ -4,6 +4,8 @@
   "scene_path": "simulation/scene.xml",
   "initial_base_height": 0.52,
   "actuator_interface": "position_target",
+  "browser_actuator_rebuild": true,
+  "velocity_scale": 5.0,
   "physics_hz": 200,
   "control_hz": 50,
   "decimation": 4,
@@ -199,9 +201,9 @@
           "dof_pos": 1.0,
           "dof_vel": 0.05,
           "command": [
-            1.0,
-            1.0,
-            1.0
+            2.0,
+            2.0,
+            0.25
           ]
         },
         "control": {
