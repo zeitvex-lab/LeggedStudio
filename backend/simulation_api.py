@@ -443,7 +443,9 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
             "health": {"status": "pass", "checks": [{"id": "bundled", "ok": True, "message": "Bundled demo policy"}]},
             "contract": demo_contract,
         }
-        public_policies = [{
+        # demo 策略作为默认选择追加进列表——不得整体替换 public_policies
+        # （曾把 go2 的 backflip/jump 从下拉里抹掉，URL 指定策略被静默回落）。
+        public_policies.append({
             "id": policy["id"],
             "label": str(demo.get("label") or policy["id"]),
             "url": str(demo["url"]),
@@ -452,7 +454,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
             "action_dim": demo_contract["action_dim"],
             "history_len": demo_contract["history_len"],
             "contract": demo_contract,
-        }]
+        })
         break
     simulation_control = simulation_config.get("control") if isinstance(simulation_config.get("control"), dict) else {}
     # B3/2：物理事实改由契约 v3 单一真值供给（contracts/physics_binding.py）。

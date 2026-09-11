@@ -111,6 +111,12 @@ export class MotionLoader {
     const startFrame = Math.round(this.timeStart * fps);
     const endFrame = Math.min(rows.length, Math.round(this.timeEnd * fps) || rows.length);
     const clipped = rows.slice(startFrame, Math.max(endFrame, startFrame + 1));
+    // Fail fast: 非 CSV 内容（如 404/错误页）或裁剪窗口越界都会得到零帧，
+    // 若放行则会产出「真值但空」的 loader，让 jointPos()/rootPosition() 每帧
+    // 抛 TypeError 并冻住整个仿真。构造期抛错可让调用方回落到 motionLoader=null。
+    if (!clipped.length) {
+      throw new Error(`motion csv has no frames in [${this.timeStart}, ${this.timeEnd}]s (rows=${rows.length})`);
+    }
     for (const row of clipped) {
       this.rootPositions.push([row[0], row[1], row[2]]);
       this.rootQuaternions.push([row[6], row[3], row[4], row[5]]);
