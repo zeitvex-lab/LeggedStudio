@@ -501,14 +501,15 @@ def _frame_g1_motion_154(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     out += [ref_vel[mapping[i]] for i in range(len(mapping))]
     order = c.action_joint_order
     base_quat = list(obs.data.qpos[3:7])
-    waist_real = [obs.data.qpos[obs.jadr[order[mapping[slot]]][0]] for slot in c.waist_joint_indices]
+    # ``action_joint_order`` 已是策略槽位序（interleaved）；waist_joint_indices 为策略槽。
+    waist_real = [obs.data.qpos[obs.jadr[order[slot]][0]] for slot in c.waist_joint_indices]
     real_quat = loader.torso_quat_w(base_quat, waist_real)
     out += list(loader.motion_anchor_ori_b(real_quat, loader.anchor_quat_w()))
     _, ang_b, _ = obs.base_state()
     out += list(ang_b * c.ang_vel_scale)
-    out += [(obs.data.qpos[obs.jadr[order[mapping[i]]][0]] - c.default_for(order[mapping[i]])) * c.dof_pos_scale
+    out += [(obs.data.qpos[obs.jadr[order[i]][0]] - c.default_for(order[i])) * c.dof_pos_scale
             for i in range(c.action_dim)]
-    out += [obs.data.qvel[obs.jadr[order[mapping[i]]][1]] * c.dof_vel_scale for i in range(c.action_dim)]
+    out += [obs.data.qvel[obs.jadr[order[i]][1]] * c.dof_vel_scale for i in range(c.action_dim)]
     out += list(obs.last_action)
     if c.clip_obs is not None:
         out = [max(-c.clip_obs, min(c.clip_obs, v)) for v in out]

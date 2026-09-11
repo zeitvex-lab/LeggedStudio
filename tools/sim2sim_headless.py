@@ -35,6 +35,8 @@ DEFAULT_CRITERIA = {
     "imitation": {"survival_min": 0.95},
     "acrobatics": {"survival_min": 0.9},
     "parkour": {"survival_min": 0.95},
+    # 操作类（抓取/搬运等）：站姿高度/倾角不是判据（任务本身就要求下蹲/伸出），只看存活。
+    "manipulation": {"survival_min": 0.999},
     # Wuji Hand in-hand 重定向：成功 = 朝向误差 < 阈值保持 hold_steps 步（试次间聚合成功率）
     "reorient": {"success_rate_min": 0.8, "trials": 10, "trial_timeout_s": 14.0, "success_threshold_rad": 0.2, "success_hold_steps": 5},
 }
