@@ -480,22 +480,6 @@
     "source": "builtin-package"
   },
   {
-    "id": "unitree_go2w--velocity",
-    "name": "Velocity (go2w_sim2sim)",
-    "robot": "unitree_go2w",
-    "family": "Unitree Go2-W",
-    "algorithm": "PPO",
-    "success_rate": null,
-    "avg_reward": null,
-    "path": "/api/simulation/browser-package/unitree_go2w/simulation/policies/policy.onnx",
-    "url": "/api/simulation/browser-package/unitree_go2w/simulation/policies/policy.onnx",
-    "play_url": "/web/sim2sim/index.html?robot=unitree_go2w&policy=velocity",
-    "obs_dim": 53,
-    "action_dim": 16,
-    "task_type": "velocity",
-    "source": "builtin-package"
-  },
-  {
     "id": "zex-w--model-6800",
     "name": "rough 6800 (v3 比赛)",
     "robot": "zex-w",

@@ -130,7 +130,6 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
     },
     "unitree_go2w": {
         "unitree-velocity-legs": "unitree_rl_mjlab_go2w（velocity_legs_only）",
-        "velocity": "go2w_sim2sim（Go2W 轮足 mjlab 训练工程）",
         "robotlab-velocity-57": "robot_lab/.../velocity/config/wheeled/unitree_go2w",
     },
     "zex-w": {
