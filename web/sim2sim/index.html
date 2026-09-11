@@ -280,6 +280,15 @@
               <button type="button" data-jump-height="0.85">0.85</button>
             </div>
           </div>
+          <div id="taskPanel" class="task-panel" hidden>
+            <div class="task-panel-row">
+              <span>任务类型</span>
+              <strong id="taskPanelTitle">—</strong>
+            </div>
+            <div id="mimicStatus" class="task-panel-note" hidden>动作模仿 · 参考轨迹 <output id="mimicTime">0.00s</output></div>
+            <div id="trickStatus" class="task-panel-note" hidden>特技 · 按跳跃键/预设触发</div>
+            <div id="parkourStatus" class="task-panel-note" hidden>跑酷 · 在选定地形上到达目标</div>
+          </div>
           <div class="key-grid" aria-label="键盘指令状态">
             <kbd id="keyW">W</kbd>
             <kbd id="keyS">S</kbd>

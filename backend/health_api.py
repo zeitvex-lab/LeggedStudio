@@ -203,6 +203,7 @@ async def demo_cards():
                 "url": url,
                 "obs_dim": item.get("obs_dim"),
                 "action_dim": item.get("action_dim"),
+                "task_type": (item.get("contract") or {}).get("task_type"),
                 "play_url": f"/web/sim2sim/index.html?robot={robot_id}&policy={item.get('id', '')}",
             })
     cards.sort(key=lambda item: (item["robot_id"], item["id"]))

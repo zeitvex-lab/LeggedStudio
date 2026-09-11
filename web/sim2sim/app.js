@@ -1696,9 +1696,36 @@ function applyPolicyContract(contract, order = []) {
     CONFIG.tron1JointPosIdx = null;
   }
   sim.tron1GaitIndex = 0;
+  CONFIG.taskType = String(contract?.task_type || "");
   updateCommandLabel();
+  updateTaskPanels();
   OBSERVATION.updateGaitControl();
   updateVelocityCommandControls();
+}
+
+// 任务类型面板：按 contract.task_type 适配 UI（速度/站立/模仿/特技/跑酷/操作）。
+const TASK_LABELS = {
+  velocity: "速度跟踪", stand: "站立 / 平衡", balance: "站立 / 平衡",
+  imitation: "动作模仿 / 舞蹈", acrobatics: "特技", parkour: "跑酷 / 地形",
+  manipulation: "操作 / 灵巧手",
+};
+function updateTaskPanels() {
+  const panel = document.getElementById("taskPanel");
+  if (!panel) return;
+  const task = CONFIG.taskType || "";
+  if (!task) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  const title = document.getElementById("taskPanelTitle");
+  if (title) title.textContent = TASK_LABELS[task] || task;
+  const mimic = document.getElementById("mimicStatus");
+  if (mimic) mimic.hidden = task !== "imitation";
+  const trick = document.getElementById("trickStatus");
+  if (trick) trick.hidden = task !== "acrobatics";
+  const parkour = document.getElementById("parkourStatus");
+  if (parkour) parkour.hidden = task !== "parkour";
 }
 
 function resizeCommandBuffers(commandDim) {

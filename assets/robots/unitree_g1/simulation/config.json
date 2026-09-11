@@ -226,7 +226,8 @@
           "joint_pos_rel": 1,
           "joint_vel_rel": 1,
           "last_action": 1
-        }
+        },
+        "task_type": "velocity"
       }
     },
     {
@@ -243,7 +244,11 @@
         "action_dim": 29,
         "history_len": 1,
         "command_dims": 3,
-        "default_command": [0.0, 0.0, 0.0],
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
         "motion_params": {
           "motion_csv": "simulation/policies/dance_102_motion.csv",
           "fps": 60.0,
@@ -251,9 +256,73 @@
           "time_end": 27.0
         },
         "clip_obs": 100.0,
-        "waist_joint_indices": [2, 5, 8],
-        "motion_joint_mapping": [0, 6, 12, 1, 7, 13, 2, 8, 14, 3, 9, 15, 22, 4, 10, 16, 23, 5, 11, 17, 24, 18, 25, 19, 26, 20, 27, 21, 28],
-        "reindex": [0, 3, 6, 9, 13, 17, 1, 4, 7, 10, 14, 18, 2, 5, 8, 11, 15, 19, 21, 23, 25, 27, 12, 16, 20, 22, 24, 26, 28],
+        "waist_joint_indices": [
+          2,
+          5,
+          8
+        ],
+        "motion_joint_mapping": [
+          0,
+          6,
+          12,
+          1,
+          7,
+          13,
+          2,
+          8,
+          14,
+          3,
+          9,
+          15,
+          22,
+          4,
+          10,
+          16,
+          23,
+          5,
+          11,
+          17,
+          24,
+          18,
+          25,
+          19,
+          26,
+          20,
+          27,
+          21,
+          28
+        ],
+        "reindex": [
+          0,
+          3,
+          6,
+          9,
+          13,
+          17,
+          1,
+          4,
+          7,
+          10,
+          14,
+          18,
+          2,
+          5,
+          8,
+          11,
+          15,
+          19,
+          21,
+          23,
+          25,
+          27,
+          12,
+          16,
+          20,
+          22,
+          24,
+          26,
+          28
+        ],
         "default_joint_angles": {
           "left_hip_pitch_joint": -0.312,
           "left_hip_roll_joint": 0.0,
@@ -322,7 +391,8 @@
           "dof_pos": 1.0,
           "dof_vel": 1.0
         },
-        "autoplay": true
+        "autoplay": true,
+        "task_type": "imitation"
       }
     },
     {
@@ -339,7 +409,11 @@
         "action_dim": 29,
         "history_len": 1,
         "command_dims": 3,
-        "default_command": [0.0, 0.0, 0.0],
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
         "motion_params": {
           "motion_csv": "simulation/policies/gangnam_style_motion.csv",
           "fps": 60.0,
@@ -347,9 +421,73 @@
           "time_end": 30.0
         },
         "clip_obs": 100.0,
-        "waist_joint_indices": [2, 5, 8],
-        "motion_joint_mapping": [0, 6, 12, 1, 7, 13, 2, 8, 14, 3, 9, 15, 22, 4, 10, 16, 23, 5, 11, 17, 24, 18, 25, 19, 26, 20, 27, 21, 28],
-        "reindex": [0, 3, 6, 9, 13, 17, 1, 4, 7, 10, 14, 18, 2, 5, 8, 11, 15, 19, 21, 23, 25, 27, 12, 16, 20, 22, 24, 26, 28],
+        "waist_joint_indices": [
+          2,
+          5,
+          8
+        ],
+        "motion_joint_mapping": [
+          0,
+          6,
+          12,
+          1,
+          7,
+          13,
+          2,
+          8,
+          14,
+          3,
+          9,
+          15,
+          22,
+          4,
+          10,
+          16,
+          23,
+          5,
+          11,
+          17,
+          24,
+          18,
+          25,
+          19,
+          26,
+          20,
+          27,
+          21,
+          28
+        ],
+        "reindex": [
+          0,
+          3,
+          6,
+          9,
+          13,
+          17,
+          1,
+          4,
+          7,
+          10,
+          14,
+          18,
+          2,
+          5,
+          8,
+          11,
+          15,
+          19,
+          21,
+          23,
+          25,
+          27,
+          12,
+          16,
+          20,
+          22,
+          24,
+          26,
+          28
+        ],
         "default_joint_angles": {
           "left_hip_pitch_joint": -0.312,
           "left_hip_roll_joint": 0.0,
@@ -418,7 +556,8 @@
           "dof_pos": 1.0,
           "dof_vel": 1.0
         },
-        "autoplay": true
+        "autoplay": true,
+        "task_type": "imitation"
       }
     },
     {
@@ -435,7 +574,11 @@
         "action_dim": 29,
         "history_len": 1,
         "command_dims": 3,
-        "default_command": [0.0, 0.0, 0.0],
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
         "motion_params": {
           "motion_csv": "simulation/policies/dance1_subject2_motion.csv",
           "fps": 30.0,
@@ -443,9 +586,73 @@
           "time_end": 132.0
         },
         "clip_obs": 100.0,
-        "waist_joint_indices": [2, 5, 8],
-        "motion_joint_mapping": [0, 6, 12, 1, 7, 13, 2, 8, 14, 3, 9, 15, 22, 4, 10, 16, 23, 5, 11, 17, 24, 18, 25, 19, 26, 20, 27, 21, 28],
-        "reindex": [0, 3, 6, 9, 13, 17, 1, 4, 7, 10, 14, 18, 2, 5, 8, 11, 15, 19, 21, 23, 25, 27, 12, 16, 20, 22, 24, 26, 28],
+        "waist_joint_indices": [
+          2,
+          5,
+          8
+        ],
+        "motion_joint_mapping": [
+          0,
+          6,
+          12,
+          1,
+          7,
+          13,
+          2,
+          8,
+          14,
+          3,
+          9,
+          15,
+          22,
+          4,
+          10,
+          16,
+          23,
+          5,
+          11,
+          17,
+          24,
+          18,
+          25,
+          19,
+          26,
+          20,
+          27,
+          21,
+          28
+        ],
+        "reindex": [
+          0,
+          3,
+          6,
+          9,
+          13,
+          17,
+          1,
+          4,
+          7,
+          10,
+          14,
+          18,
+          2,
+          5,
+          8,
+          11,
+          15,
+          19,
+          21,
+          23,
+          25,
+          27,
+          12,
+          16,
+          20,
+          22,
+          24,
+          26,
+          28
+        ],
         "default_joint_angles": {
           "left_hip_pitch_joint": -0.312,
           "left_hip_roll_joint": 0.0,
@@ -514,7 +721,8 @@
           "dof_pos": 1.0,
           "dof_vel": 1.0
         },
-        "autoplay": true
+        "autoplay": true,
+        "task_type": "imitation"
       }
     },
     {
@@ -592,7 +800,8 @@
             1.0
           ]
         },
-        "autoplay": false
+        "autoplay": false,
+        "task_type": "velocity"
       }
     }
   ],

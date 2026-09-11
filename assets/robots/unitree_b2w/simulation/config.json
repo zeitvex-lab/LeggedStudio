@@ -198,7 +198,8 @@
             "RL_wheel_joint": 1.0
           }
         },
-        "autoplay": false
+        "autoplay": false,
+        "task_type": "velocity"
       }
     }
   ]
