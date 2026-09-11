@@ -204,6 +204,8 @@ PROJECTS: dict[str, dict] = {
                                                "desc": "G1 MuJoCo + ROS2 导航仿真"},
     "g1_spinkick_example": {"robots": ["unitree_g1"], "desc": "G1 回旋踢示例（mjlab）"},
     "wuji-mjlab": {"robots": ["wuji_hand"], "desc": "无极灵巧手 mjlab 训练工程"},
+    "wbc-mjlab": {"robots": ["unitree_g1"],
+                  "desc": "WBC-Mjlab：mjlab 全身运动跟踪（WBC）共享 MDP，一策略多技能；含 G1 任务/动作库/导出"},
     # ---------------- 云深处 ----------------
     "sdk_deploy": {"robots": ["deeprobotics_lite3", "deeprobotics_m20"],
                    "desc": "云深处 SDK 与部署代码"},
