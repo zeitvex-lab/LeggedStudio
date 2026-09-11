@@ -257,6 +257,13 @@ class PackageContract:
         self.history_len = max(1, int(self.contract.get("history_len") or policy_entry.get("history_len") or 1))
         self.total_obs_dim = self.obs_dim * self.history_len
         self.history_layout = str(self.contract.get("history_layout") or "")
+        # 显式 history 分段（Wuji reorient 这类非标准布局）：[[offset,len], ...]，
+        # 每段按 旧→新 逐帧拼接（对齐 mjlab concatenate_terms 的逐 term history）。
+        self.history_terms = self.contract.get("history_terms") or None
+        # 绝对位置 + EMA + warmup 控制（Wuji Hand）：target = default + clamp(a,-1,1)*scale
+        self.action_clamp = self.contract.get("action_clamp")
+        self.action_ema_alpha = self.contract.get("action_ema_alpha")
+        self.action_warmup_s = float(self.contract.get("action_warmup_s") or 0.0)
         mask = self.contract.get("observation_mask") or {}
         self.wrap_pi_joints = [str(n) for n in (mask.get("wrap_pi") or [])]
         self.command_dims = int(self.contract.get("command_dims") or 3)
@@ -336,6 +343,9 @@ class ObsBuilder:
         self.history: list[np.ndarray] = []
         self.motion_loader = contract.motion_loader
         self.motion_time = 0.0
+        # Wuji reorient（固定基座灵巧手）：归一化动作目标 + tag 系目标朝向
+        self.wuji_target = np.zeros(contract.action_dim, dtype=np.float64)
+        self.wuji_goal_quat = np.array((1.0, 0.0, 0.0, 0.0), dtype=np.float64)
 
     def base_state(self):
         q = self.data.qpos[3:7].copy()
@@ -655,6 +665,71 @@ def _frame_zexw_53(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     return out
 
 
+# ---------- Wuji Hand in-hand reorientation ----------
+#
+# 固定基座灵巧手 + 自由立方体；策略 69 维单帧 / history 3 → 207。观测 = 归一化关节角(20)
+# + 关节目标误差(20) + 立方体 tag 系位置(3) + 目标 6D 朝向误差(6) + 上一动作(20)。
+# 参考 00_resources/wuji-mjlab tasks/reorient（observations.py / reorient_terms.py）。
+
+_WUJI_TAG_IN_PALM_POS = np.array((0.0262, 0.0, -0.0563), dtype=np.float64)
+_WUJI_TAG_IN_PALM_QUAT = np.array((math.cos(math.radians(45.0)), 0.0, math.sin(math.radians(45.0)), 0.0), dtype=np.float64)
+
+
+def _wuji_body_id(model, name: str) -> int:
+    import mujoco
+
+    return int(mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name))
+
+
+def _wuji_quat_apply(q: np.ndarray, v: np.ndarray) -> np.ndarray:
+    return _q_to_matrix(q).reshape(3, 3) @ np.asarray(v, dtype=np.float64)
+
+
+def _wuji_normalized_joints(obs: "ObsBuilder") -> np.ndarray:
+    """按软限位把当前 20 关节角归一化到 [-1, 1]（mjlab soft_joint_pos_limits）。"""
+    import mujoco
+
+    model = obs.model
+    out = np.zeros(len(obs.contract.action_joint_order), dtype=np.float64)
+    for i, name in enumerate(obs.contract.action_joint_order):
+        jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+        lo, hi = float(model.jnt_range[jid, 0]), float(model.jnt_range[jid, 1])
+        center, half = 0.5 * (lo + hi), 0.5 * (hi - lo) * 0.9
+        q = obs.data.qpos[obs.jadr[name][0]]
+        out[i] = clamp((q - center) / (half + 1e-6), -1.0, 1.0)
+    return out
+
+
+def _frame_wuji_reorient_69(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """单帧 69：joint(20) + qpos_error(20) + cube_pos_tag(3) + ori_err6d(6) + action(20)。"""
+    c = obs.contract
+    model, data = obs.model, obs.data
+
+    norm_joint = _wuji_normalized_joints(obs)
+    target = np.asarray(obs.wuji_target, dtype=np.float64)
+    qpos_error = norm_joint - target
+
+    palm_id = _wuji_body_id(model, "right_palm_link")
+    cube_id = _wuji_body_id(model, "cube")
+    palm_pos_w = np.asarray(data.xpos[palm_id], dtype=np.float64)
+    palm_quat_w = _q_normalize(np.asarray(data.xquat[palm_id], dtype=np.float64))
+    tag_pos_w = palm_pos_w + _wuji_quat_apply(palm_quat_w, _WUJI_TAG_IN_PALM_POS)
+    tag_quat_w = _q_normalize(_q_multiply(palm_quat_w, _WUJI_TAG_IN_PALM_QUAT))
+
+    cube_pos_w = np.asarray(data.xpos[cube_id], dtype=np.float64)
+    cube_quat_w = _q_normalize(np.asarray(data.xquat[cube_id], dtype=np.float64))
+    cube_pos_tag = _wuji_quat_apply(_q_conjugate(tag_quat_w), cube_pos_w - tag_pos_w)
+
+    tag_inv = _q_conjugate(tag_quat_w)
+    cube_in_tag = _q_multiply(tag_inv, cube_quat_w)
+    goal_in_tag = _q_multiply(tag_inv, np.asarray(obs.wuji_goal_quat, dtype=np.float64))
+    q_err = _q_multiply(cube_in_tag, _q_conjugate(goal_in_tag))
+    rot = _q_to_matrix(q_err).reshape(-1)[3:9]
+
+    out = list(norm_joint) + list(qpos_error) + list(cube_pos_tag) + list(rot) + list(obs.last_action)
+    return [float(x) for x in out]
+
+
 FRAME_BUILDERS = {
     "go2_rl_sdk_45": _std_frame,
     "lite3_rl_sdk_hist6": _std_frame,
@@ -674,6 +749,7 @@ FRAME_BUILDERS = {
     "go2_motion_69": _frame_go2_motion_69,
     "g1_motion_154": _frame_g1_motion_154,
     "dreamwaq_57": _frame_dreamwaq_57,
+    "wuji_reorient_69": _frame_wuji_reorient_69,
     # lite3 的 rl_sar HIMLoco 部署与 go1 同源（observations 列表 commands 在前）；
     # 包内 kind 标注曾误用通用 locomotion 序，这里按同一布局处理。
     "lite3_rl_sdk_hist6": _frame_himloco_45,
@@ -691,6 +767,13 @@ def pack_history(obs: "ObsBuilder", frames: list[np.ndarray]) -> np.ndarray:
         return np.concatenate(list(reversed(frames)))  # 最新帧在前
     if c.history_layout == "frame_major":
         return np.concatenate(frames)  # 整帧依时序拼接，最老帧在前（DreamWaQ 系）
+    if c.history_layout == "wuji_term_major" and c.history_terms:
+        # 每个显式分段按 旧→新 逐帧拼接（term-major / 段内 history 连续）
+        return np.concatenate([
+            f[int(off):int(off) + int(length)]
+            for off, length in c.history_terms
+            for f in frames
+        ])
     if c.observation_kind == "zexw_53":
         terms = [(0, 3), (3, 3), (6, 3), (9, 12), (21, 12), (33, 4), (37, 16)]
         return np.concatenate([f[o:o + l] for o, l in terms for f in frames])
@@ -820,6 +903,139 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
     }
     metrics["pass"] = (not metrics["fell"]) and metrics["survival_ratio"] >= 0.999
     return metrics
+
+
+def _wuji_normalize_positions(model, order, values: np.ndarray) -> np.ndarray:
+    """按软限位把给定关节角归一化到 [-1, 1]（center ± 0.9·half）。"""
+    import mujoco
+
+    out = np.zeros(len(order), dtype=np.float64)
+    for i, name in enumerate(order):
+        jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+        lo, hi = float(model.jnt_range[jid, 0]), float(model.jnt_range[jid, 1])
+        center, half = 0.5 * (lo + hi), 0.5 * (hi - lo) * 0.9
+        out[i] = clamp((values[i] - center) / (half + 1e-6), -1.0, 1.0)
+    return out
+
+
+def _wuji_clamp_to_limits(model, order, values: np.ndarray) -> np.ndarray:
+    """把关节目标夹到软限位内。"""
+    import mujoco
+
+    out = np.array(values, dtype=np.float64)
+    for i, name in enumerate(order):
+        jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
+        lo, hi = float(model.jnt_range[jid, 0]), float(model.jnt_range[jid, 1])
+        center, half = 0.5 * (lo + hi), 0.5 * (hi - lo) * 0.9
+        out[i] = clamp(out[i], center - half, center + half)
+    return out
+
+
+def _wuji_random_quats(rng: np.random.Generator, n: int) -> np.ndarray:
+    """均匀采样 SO(3)，wxyz（Shoemake / mjlab random_quat_uniform 等价）。"""
+    u1, u2, u3 = rng.random(n), rng.random(n), rng.random(n)
+    return np.stack((
+        np.sqrt(1 - u1) * np.sin(2 * np.pi * u2),
+        np.sqrt(1 - u1) * np.cos(2 * np.pi * u2),
+        np.sqrt(u1) * np.sin(2 * np.pi * u3),
+        np.sqrt(u1) * np.cos(2 * np.pi * u3),
+    ), axis=-1)
+
+
+def _wuji_ori_error(q_a: np.ndarray, q_b: np.ndarray) -> float:
+    dot = abs(float(np.dot(_q_normalize(q_a), _q_normalize(q_b))))
+    return 2.0 * math.acos(clamp(dot, -1.0, 1.0))
+
+
+def run_wuji_reorient(sess, contract: PackageContract, model, data, obs: "ObsBuilder",
+                      seconds: float, seed: int, success_threshold: float = 0.2,
+                      hold_steps: int = 5, warmup_s: float = 0.4,
+                      action_clamp: float = 1.0, ema_alpha: float = 0.5) -> dict[str, Any]:
+    """Wuji Hand in-hand 立方体重定向验收：固定基座手 + 自由立方体。
+
+    成功判据（上游 manifest/sim2sim）：朝向误差 < success_threshold 连续 hold_steps 步。
+    动作：target = default + clamp(a,-1,1)*scale，EMA(alpha)，warmup 期保持 default。
+    掉落判据：立方体相对掌心下落超过 15 cm。
+    """
+    import mujoco
+
+    rng = np.random.default_rng(seed)
+    mujoco.mj_resetDataKeyframe(model, data, 0)
+    mujoco.mj_forward(model, data)
+
+    # default 关节角 = 场景 keyframe 的 20 个手关节角
+    default = np.zeros(contract.action_dim, dtype=np.float64)
+    for i, name in enumerate(contract.action_joint_order):
+        default[i] = data.qpos[obs.jadr[name][0]]
+    obs.wuji_target = np.zeros(contract.action_dim, dtype=np.float64)
+    obs.last_action[:] = 0
+    obs.history = []
+
+    palm_id = _wuji_body_id(model, "right_palm_link")
+    cube_id = _wuji_body_id(model, "cube")
+    palm_quat_w = _q_normalize(np.asarray(data.xquat[palm_id], dtype=np.float64))
+    tag_quat_w = _q_normalize(_q_multiply(palm_quat_w, _WUJI_TAG_IN_PALM_QUAT))
+    goal_quat_w = _q_normalize(_q_multiply(tag_quat_w, _wuji_random_quats(rng, 1)[0]))
+    obs.wuji_goal_quat = goal_quat_w
+
+    cube_h0 = float(data.xpos[cube_id][2])
+    palm_h0 = float(data.xpos[palm_id][2])
+
+    total = int(seconds / contract.step_dt)
+    prev_target = default.copy()
+    hold = 0
+    min_err = float("inf")
+    success_at = None
+    dropped_at = None
+    cube_min_h = cube_h0
+
+    for step in range(total):
+        if step % contract.decimation == 0:
+            o = obs.build(np.zeros(3, dtype=np.float32))
+            raw = sess.run(None, {sess.get_inputs()[0].name: o})[0][0]
+            raw = np.asarray(raw, dtype=np.float32)[: contract.action_dim]
+            obs.last_action = raw.copy()
+            # 绝对位置目标 + clamp + EMA + warmup
+            scaled = default + np.clip(raw, -action_clamp, action_clamp) * contract.action_scales
+            scaled = _wuji_clamp_to_limits(model, contract.action_joint_order, scaled)
+            smoothed = ema_alpha * scaled + (1.0 - ema_alpha) * prev_target
+            if step * contract.step_dt < warmup_s:
+                processed = default.copy()
+            else:
+                processed = smoothed
+            prev_target = processed.copy()
+            obs.wuji_target = _wuji_normalize_positions(
+                model, contract.action_joint_order, processed
+            )
+            for i, name in enumerate(contract.action_joint_order):
+                aid = actuator_for_joint(model, name)
+                if aid >= 0:
+                    data.ctrl[aid] = processed[i]
+
+        mujoco.mj_step(model, data)
+
+        cube_pos_w = np.asarray(data.xpos[cube_id], dtype=np.float64)
+        cube_quat_w = _q_normalize(np.asarray(data.xquat[cube_id], dtype=np.float64))
+        err = _wuji_ori_error(cube_quat_w, goal_quat_w)
+        min_err = min(min_err, err)
+        cube_min_h = min(cube_min_h, float(cube_pos_w[2]))
+        hold = hold + 1 if err < success_threshold else 0
+        if success_at is None and hold >= hold_steps:
+            success_at = step * contract.step_dt
+        if dropped_at is None and (cube_min_h < palm_h0 - 0.15):
+            dropped_at = step * contract.step_dt
+
+    return {
+        "trial": "wuji_reorient",
+        "success": success_at is not None,
+        "time_to_success_s": round(success_at, 3) if success_at is not None else None,
+        "min_ori_error_rad": round(min_err, 4),
+        "final_ori_error_rad": round(_wuji_ori_error(
+            _q_normalize(np.asarray(data.xquat[cube_id], dtype=np.float64)), goal_quat_w), 4),
+        "dropped": dropped_at is not None,
+        "dropped_at_s": round(dropped_at, 3) if dropped_at is not None else None,
+        "cube_min_height": round(cube_min_h, 3),
+    }
 
 
 def actuator_for_joint(model, joint_name: str) -> int:
@@ -965,13 +1181,23 @@ def apply_actuator_rebuild(spec, package_dir: Path, sim_cfg: dict[str, Any],
 
 
 def load_package_model(package_dir: Path, sim_cfg: dict[str, Any],
-                       effort_override: dict[str, float] | None = None):
+                       effort_override: dict[str, float] | None = None,
+                       scene_rel: str | None = None):
     """直接编译 model/robot.xml（meshdir 相对自身目录可解析），并补一块验收平地。
 
     编译前应用契约的 armature/frictionloss（增量真值，覆盖 XML default），并按需重建
     执行器——训练/验收/浏览器三方消费同一份物理常量。
+
+    ``scene_rel``：改为编译包内某个自包含场景（如 Wuji 的
+    simulation/scene_reorient.xml：手 + 立方体 + 地面），不再补验收平地。
     """
     import mujoco
+
+    if scene_rel:
+        scene = package_dir / scene_rel
+        if not scene.is_file():
+            raise SystemExit(f"包内缺少场景: {scene}")
+        return mujoco.MjSpec.from_file(str(scene)).compile()
 
     model_xml = package_dir / "model" / "robot.xml"
     if not model_xml.is_file():

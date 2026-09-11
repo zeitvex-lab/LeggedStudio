@@ -138,6 +138,9 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         "go2w-himloco-handstand": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
         "go2w-himloco-leggedstand": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
     },
+    "wuji_hand": {
+        "wuji-reorient": "wuji-mjlab src/wuji_mjlab/tasks/reorient（WujiHand_Reorient 训练任务）",
+    },
     "zex-w": {
         "model-6800": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
         "model-84": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
