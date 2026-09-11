@@ -102,6 +102,8 @@ test('unknown -> locomotion', makeCtx({ kind:'unknown_xyz', numObs:45, numAction
 test('g1_mjlab_velocity_98', makeCtx({ kind:'g1_mjlab_velocity_98', numObs:98, numActions:29 }));
 test('g1_mjswan_balance', makeCtx({ kind:'g1_mjswan_balance', numObs:93, numActions:29 }));
 test('g1_mjswan_locomotion', makeCtx({ kind:'g1_mjswan_locomotion', numObs:99, numActions:29 }));
+test('go1_playground_48', makeCtx({ kind:'go1_playground_48', numObs:48, numActions:12 }));
+test('himloco_45_hist6', makeCtx({ kind:'himloco_45_hist6', numObs:45, numActions:12 }));
 test('g1_amp_96', makeCtx({ kind:'g1_amp_96', numObs:96, numActions:29 }));
 {
   const c = makeCtx({ kind:'g1_motion_154', numObs:154, numActions:29 });

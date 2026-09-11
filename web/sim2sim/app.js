@@ -8,7 +8,7 @@ console.error = (...args) => {
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import loadMujoco from "./vendor/mujoco/mujoco.js";
-import { createObservationSystems } from "./obs/observation_builders.js";
+import { createObservationSystems } from "./obs/observation_builders.js?v=0.43.0";
 import { MotionLoader } from "./motion_loader.js";
 import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
 // Loaded on demand only for an explicitly selected policy.
@@ -1423,6 +1423,32 @@ function applyRuntimeConfig(config) {
         CONFIG.kds[i] = controlValue(policyKds, name, group, CONFIG.kds[i]);
       }
     }
+    // position_target：PD 增益由模型原生执行器消费（ctrl=目标角），策略级声明
+    // （rl_kp/rl_kd 类契约）必须写进 gainprm/biasprm 才真正生效——等价部署端
+    // fixed_kp/kd。否而策略训练增益与模型增益不一致（HIM 40/1 vs 模型 35/无 kv）
+    // 时闭环失稳（go1 himloco 实测教训）。
+    if (CONFIG.actuatorInterface === "position_target") {
+      for (let i = 0; i < CONFIG.numActions; i += 1) {
+        const actuatorId = sim.actuatorIds[i] ?? i;
+        if (actuatorId < 0 || actuatorId >= (sim.ctrl?.length ?? 0)) continue;
+        const name = String(order[i] || CONFIG.jointOrder[i] || "").toLowerCase();
+        const group = jointGroup(name);
+        const slot = 3 * actuatorId;
+        if (policyKps.size) {
+          const kp = controlValue(policyKps, name, group, CONFIG.kps[i]);
+          if (Number.isFinite(sim.model?.actuator_gainprm?.[slot])) {
+            sim.model.actuator_gainprm[slot] = kp;
+            sim.model.actuator_biasprm[slot + 1] = -kp;
+          }
+        }
+        if (policyKds.size) {
+          const kd = controlValue(policyKds, name, group, CONFIG.kds[i]);
+          if (Number.isFinite(sim.model?.actuator_biasprm?.[slot + 2])) {
+            sim.model.actuator_biasprm[slot + 2] = -kd;
+          }
+        }
+      }
+    }
   }
   CONFIG.actionScale = finiteNumber(control.action_scale, CONFIG.actionScale);
   CONFIG.hipScaleReduction = finiteNumber(control.hip_scale_reduction, CONFIG.hipScaleReduction);
@@ -1545,6 +1571,8 @@ function applyPolicyContract(contract, order = []) {
   CONFIG.observationKind = contract?.observation_kind
     || (CONFIG.numObs === 99 ? "quadrupedal_agility_ll" : "default");
   CONFIG.historyLayout = String(contract?.history_layout || "");
+  // Isaac 元素主序交错 history（pushHistory 按 CONFIG.historyInterleaved 分派）
+  CONFIG.historyInterleaved = Boolean(contract?.history_interleaved);
   CONFIG.gaitCommandGated = Boolean(contract?.gait_command_gated);
   // observation_mask（清单 ②）：{wrap_pi: [关节名], zero: [关节名]}，按关节名声明，
   // 构建器据此对连续关节位置观测做 wrap/清零——新增布局不再硬编码约定。
@@ -3504,6 +3532,39 @@ if (DEBUG_ENABLED) {
       record.push({ t: Number(sim.data.time.toFixed(3)), z: Number(sim.qpos[2].toFixed(4)), qvel: Array.from(sim.qvel.subarray(3, 6)).map((v) => Number(v.toFixed(4))) });
       return record;
     },
+    // QA/评测采样器（?debug=1）：单帧物理与策略状态快照，供 Playwright
+    // 批量验收（站立高度 / 姿态 / 指令追踪）读取，不触碰运行时行为。
+    sample() {
+      const q = sim.qpos;
+      const imu = sim.imuSamples[sim.imuSamples.length - 1] || null;
+      const round4 = (v) => Number(Number(v).toFixed(4));
+      return {
+        time: Number((sim.data?.time ?? 0).toFixed(3)),
+        baseZ: q ? round4(q[2]) : null,
+        quat: q ? Array.from(q.subarray(3, 7), round4) : null,
+        bodyLinearVel: imu ? Array.from(imu.linear, round4) : null,
+        bodyAngularVel: imu ? Array.from(imu.angular, round4) : null,
+        cmd: Array.from(sim.cmd, round4),
+        targetCmd: Array.from(sim.targetCmd, round4),
+        action: Array.from(sim.action, round4),
+        policyEnabled: sim.policyEnabled,
+        paused: sim.paused,
+      };
+    },
+    // 同步快进（?debug=1）：暂停渲染循环，按物理步长推进完整仿真链
+    // （updateCommand → runPolicy → mj_step），用于批量验收在合理墙钟内
+    // 跑够仿真时长（浏览器实时步进仅 ~0.3-0.5x，墙钟等待测不满追踪过程）。
+    async fastForward(seconds) {
+      const wasPaused = sim.paused;
+      sim.paused = true;
+      const dt = CONFIG.simulationDt || 0.005;
+      const steps = Math.ceil(Number(seconds) / dt);
+      for (let i = 0; i < steps; i += 1) {
+        await stepSimulation();
+      }
+      sim.paused = wasPaused;
+      return this.sample();
+    },
   };
 }
 
@@ -3584,12 +3645,27 @@ function buildPolicyObs(size) {
   }
   sourceFrames.push(sim.obs);
   const selected = sourceFrames.slice(-frames);
-  while (selected.length < frames) selected.unshift(new Float32Array(CONFIG.numObs));
+  // 预热填充用最新帧重复（ObservationBuffer.reset 的官方语义），零帧会让
+  // 历史型策略在开局拿到断裂输入。
+  while (selected.length < frames) selected.unshift(selected[0] || new Float32Array(CONFIG.numObs));
   const packed = packObsHistoryByTerm(selected);
   return size === packed.length ? packed : packed.slice(0, size);
 }
 
 function packObsHistoryByTerm(frames) {
+  // frame_major_v1（LeggedSkillDeploy go1/himloco）：部署端 ObservationBuffer
+  // .get_obs_vec 对 yaml 倒序表 [5,4,3,2,1,0] 做 reversed 遍历后 torch.cat ——
+  // 语义 = 整帧依时序拼接且最新帧在前（[obs_t, obs_{t-1}, …, obs_{t-5}]），
+  // 不做任何 term 重排。_frames 参数为 oldest→newest，故反向遍历。
+  if (CONFIG.historyLayout === "frame_major_v1") {
+    const packed = new Float32Array(frames.length * CONFIG.numObs);
+    let cursor = 0;
+    for (let i = frames.length - 1; i >= 0; i -= 1) {
+      packed.set(frames[i], cursor);
+      cursor += CONFIG.numObs;
+    }
+    return packed;
+  }
   // go2_rl_gym's ONNX exporter expects stacked observations grouped by term:
   // ang_vel history, gravity history, command history, q, dq, action, then
   // task-specific suffixes when the contract opts into the corrected layout.
@@ -3637,6 +3713,18 @@ function packObsHistoryByTerm(frames) {
 }
 
 function pushHistory(obs) {
+  // Isaac 风格元素主序交错（contract.history_interleaved）：每个观测元素的
+  // 历史窗相邻 —— [a0_{t-n+1}..a0_t, a1_{t-n+1}..]，与 mjswan
+  // HistoryObservation.writeInterleavedFrame 同布局；最老帧仍在窗首。
+  if (CONFIG.historyInterleaved) {
+    const frames = sim.history.length / CONFIG.numObs;
+    for (let j = 0; j < CONFIG.numObs; j += 1) {
+      const base = j * frames;
+      sim.history.copyWithin(base + 1, base, base + frames - 1);
+      sim.history[base] = obs[j];
+    }
+    return;
+  }
   sim.history.copyWithin(0, CONFIG.numObs);
   sim.history.set(obs, sim.history.length - CONFIG.numObs);
 }
@@ -4857,9 +4945,16 @@ function debugGeoms() {
   const geoms = [];
   for (let id = 0; id < sim.model.ngeom; id += 1) {
     const offset = id * 3;
+    // mjtObj.mjOBJ_BODY === 1：geom -> body 名称（原 geomBodyName 未定义，
+    // debug 模式一进 reset 就 ReferenceError，v0.43 修复）
+    let bodyName = null;
+    try {
+      const bodyId = Number(sim.model.geom_bodyid[id]);
+      bodyName = sim.mujoco.mj_id2name(sim.model, 1, bodyId) || `body${bodyId}`;
+    } catch (_) { /* 保留 null */ }
     geoms.push({
       id,
-      body: geomBodyName(id),
+      body: bodyName,
       kind: classifyGeom({ objtype: sim.objGeom, objid: id }),
       type: sim.model.geom_type[id],
       size: Array.from(sim.model.geom_size.subarray(offset, offset + 3)),
