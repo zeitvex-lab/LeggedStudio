@@ -903,6 +903,9 @@ function geomBodyName(geomId) {
     tron1_sf_36: buildTron1SfObservation,
     tron1_wf_28: buildTron1WfObservation,
     wuji_reorient_69: buildWujiReorientObservation,
+    // PIE 深度跑酷：单帧本体 45 与 go2_rl_sdk_45 同序同缩放（合约按 1.0），
+    // 另由 app.js 喂 proprio_history / depth_history / GRU memory。
+    go2_pie_depth: buildGo2RlSdkObservation,
   };
 
   function buildObservation() {
