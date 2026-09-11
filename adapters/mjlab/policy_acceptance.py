@@ -51,6 +51,140 @@ def clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
 
+def _q_normalize(q):
+    n = float(np.linalg.norm(q)) or 1.0
+    return np.asarray(q, dtype=np.float64) / n
+
+
+def _q_conjugate(q):
+    return np.array([q[0], -q[1], -q[2], -q[3]], dtype=np.float64)
+
+
+def _q_multiply(a, b):
+    aw, ax, ay, az = a
+    bw, bx, by, bz = b
+    return np.array([
+        aw * bw - ax * bx - ay * by - az * bz,
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by - ax * bz + ay * bw + az * bx,
+        aw * bz + ax * by - ay * bx + az * bw,
+    ], dtype=np.float64)
+
+
+def _q_yaw_only(q):
+    yaw = math.atan2(2 * (q[0] * q[3] + q[1] * q[2]), 1 - 2 * (q[2] * q[2] + q[3] * q[3]))
+    return np.array([math.cos(yaw / 2), 0.0, 0.0, math.sin(yaw / 2)], dtype=np.float64)
+
+
+def _q_slerp(a, b, t):
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+    dot = float(np.dot(a, b))
+    if dot < 0:
+        b = -b
+        dot = -dot
+    if dot > 0.9995:
+        return _q_normalize(a + t * (b - a))
+    theta0 = math.acos(max(-1.0, min(1.0, dot)))
+    theta = theta0 * t
+    s0 = math.sin((1 - t) * theta0) / math.sin(theta0)
+    s1 = math.sin(t * theta0) / math.sin(theta0)
+    return _q_normalize(a * s0 + b * s1)
+
+
+def _q_to_matrix(q):
+    w, x, y, z = _q_normalize(q)
+    return np.array([
+        1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y),
+        2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x),
+        2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y),
+    ], dtype=np.float64)
+
+
+def _q_from_axis_angle(axis, angle):
+    n = float(np.linalg.norm(axis)) or 1.0
+    s = math.sin(angle / 2)
+    return np.array([math.cos(angle / 2), axis[0] / n * s, axis[1] / n * s, axis[2] / n * s], dtype=np.float64)
+
+
+class MotionLoader:
+    """参考动作 CSV 加载器（对照 web/sim2sim/motion_loader.js 移植）。
+
+    CSV 列 = [root_pos(3), root_quat_xyzw(4), dof_pos(N)]；按 [time_start,time_end]
+    裁剪，提供时间插值的关节位置/速度/根四元数与 anchor/torso 辅助。
+    """
+
+    def __init__(self, csv_text: str, motion_params: dict):
+        self.fps = float(motion_params.get("fps", 50.0) or 50.0)
+        self.dt = 1.0 / self.fps
+        self.time_start = float(motion_params.get("time_start", 0.0) or 0.0)
+        self.time_end = float(motion_params.get("time_end", 0.0) or 0.0)
+        lines = [ln for ln in csv_text.strip().replace("\r", "").split("\n") if ln]
+        if not lines:
+            raise ValueError("motion csv empty")
+        rows = [[float(v) if v not in ("", "nan") else 0.0 for v in ln.split(",")] for ln in lines]
+        self.num_joints = len(rows[0]) - 7
+        start = round(self.time_start * self.fps)
+        end = min(len(rows), round(self.time_end * self.fps) or len(rows))
+        clipped = rows[start:max(end, start + 1)]
+        if not clipped:
+            raise ValueError("motion csv has no frames in window")
+        self.root_positions = [[r[0], r[1], r[2]] for r in clipped]
+        self.root_quaternions = [[r[6], r[3], r[4], r[5]] for r in clipped]  # -> wxyz
+        self.dof_positions = [r[7:] for r in clipped]
+        self.dof_velocities = []
+        for f in range(len(self.dof_positions)):
+            nxt = self.dof_positions[min(f + 1, len(self.dof_positions) - 1)]
+            cur = self.dof_positions[f]
+            self.dof_velocities.append([(nxt[i] - cur[i]) / self.dt for i in range(len(cur))])
+        self.num_frames = len(self.dof_positions)
+        self.duration = self.num_frames * self.dt
+        self.index0 = self.index1 = 0
+        self.blend = 0.0
+        self.init_quat = np.array([1.0, 0, 0, 0])
+        self.time = 0.0
+
+    def update(self, time_s: float) -> None:
+        phase = min(max(time_s / max(self.duration, 1e-8), 0.0), 1.0)
+        frame_float = phase * max(self.num_frames - 1, 0)
+        self.index0 = int(math.floor(frame_float))
+        self.index1 = min(self.index0 + 1, self.num_frames - 1)
+        self.blend = frame_float - self.index0
+
+    def reset(self, robot_quat, time_s: float = 0.0) -> None:
+        self.update(time_s)
+        self.init_quat = _q_multiply(_q_yaw_only(robot_quat), _q_conjugate(_q_yaw_only(self.root_quaternion())))
+
+    def _lerp(self, arr, idx0, idx1):
+        a, b = arr[idx0], arr[idx1]
+        return [a[i] * (1 - self.blend) + b[i] * self.blend for i in range(len(a))]
+
+    def joint_pos(self):
+        return self._lerp(self.dof_positions, self.index0, self.index1)
+
+    def joint_vel(self):
+        return self._lerp(self.dof_velocities, self.index0, self.index1)
+
+    def root_quaternion(self):
+        return _q_slerp(self.root_quaternions[self.index0], self.root_quaternions[self.index1], self.blend)
+
+    def motion_anchor_ori_b(self, real_quat, ref_quat):
+        rot_quat = _q_multiply(_q_conjugate(_q_multiply(self.init_quat, ref_quat)), real_quat)
+        rot = _q_to_matrix(rot_quat)
+        return [rot[0], rot[3], rot[1], rot[4], rot[2], rot[5]]
+
+    def torso_quat_w(self, root_quat, waist_angles):
+        yaw, roll, pitch = waist_angles
+        q = _q_multiply(root_quat, _q_from_axis_angle([0, 0, 1], yaw))
+        q = _q_multiply(q, _q_from_axis_angle([1, 0, 0], roll))
+        q = _q_multiply(q, _q_from_axis_angle([0, 1, 0], pitch))
+        return _q_normalize(q)
+
+    def anchor_quat_w(self):
+        jp = self.joint_pos()
+        return self.torso_quat_w(self.root_quaternion(), [jp[12], jp[13], jp[14]])
+
+
 def deep_merge(base: dict, overlay: dict) -> dict:
     """递归合并：dict 逐键合并，标量/列表由 overlay 覆盖（与后端契约合并同语义）。"""
     out = dict(base)
@@ -126,6 +260,13 @@ class PackageContract:
         self.command_dims = int(self.contract.get("command_dims") or 3)
         self.task_type = str(self.contract.get("task_type") or "")
         self.default_command = [float(x) for x in (self.contract.get("default_command") or [])]
+        # 动作模仿/跟踪：参考动作 CSV 与映射
+        self.motion_params = self.contract.get("motion_params") or {}
+        self.motion_joint_mapping = self.contract.get("motion_joint_mapping")
+        self.waist_joint_indices = self.contract.get("waist_joint_indices") or [2, 5, 8]
+        self.clip_obs = self.contract.get("clip_obs")
+        self.motion_loop = bool(self.motion_params.get("loop") or self.motion_params.get("motion_loop"))
+        self.motion_loader = None
 
         control = self.sim.get("control") or {}
         self.stiffness = control.get("stiffness") or self.sim.get("stiffness") or {}
@@ -188,6 +329,8 @@ class ObsBuilder:
                 if jid >= 0:
                     self.jadr[name] = (int(model.jnt_qposadr[jid]), int(model.jnt_dofadr[jid]))
         self.history: list[np.ndarray] = []
+        self.motion_loader = contract.motion_loader
+        self.motion_time = 0.0
 
     def base_state(self):
         q = self.data.qpos[3:7].copy()
@@ -298,6 +441,62 @@ def _frame_go1_playground_48(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     out += [obs.data.qvel[obs.jadr[n][1]] for n in order]
     out += list(obs.last_action)
     out += list(cmd)
+    return out
+
+
+def _frame_go2_motion_69(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """Go2 模仿/特技 69：motion_command(24)+anchor_ori_b(6)+ang_vel(3)+q(12)+dq(12)+action(12)。"""
+    c = obs.contract
+    loader = obs.motion_loader
+    if loader is None:
+        raise ValueError("go2_motion_69 需要 motion_loader（motion_csv）")
+    obs.motion_time += 0.02  # 与 JS 一致：每控制步 +0.02s
+    if obs.motion_time > loader.duration:
+        obs.motion_time = (obs.motion_time % loader.duration) if c.motion_loop else loader.duration
+    loader.update(obs.motion_time)
+    ref_pos = loader.joint_pos()
+    ref_vel = loader.joint_vel()
+    mapping = c.motion_joint_mapping or list(range(len(ref_pos)))
+    out = [ref_pos[mapping[i]] for i in range(len(mapping))]
+    out += [ref_vel[mapping[i]] for i in range(len(mapping))]
+    out += list(loader.motion_anchor_ori_b(list(obs.data.qpos[3:7]), loader.root_quaternion()))
+    _, ang_b, _ = obs.base_state()
+    out += list(ang_b * c.ang_vel_scale)
+    order = c.action_joint_order
+    out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] for n in order]
+    out += list(obs.last_action)
+    return out
+
+
+def _frame_g1_motion_154(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """G1 动作跟踪 154：motion_command(58)+anchor(6)+ang_vel(3)+q(29)+dq(29)+action(29)，含腰补偿。"""
+    c = obs.contract
+    loader = obs.motion_loader
+    if loader is None:
+        raise ValueError("g1_motion_154 需要 motion_loader（motion_csv）")
+    obs.motion_time += c.step_dt
+    if obs.motion_time > loader.duration:
+        obs.motion_time = obs.motion_time % loader.duration
+    loader.update(obs.motion_time)
+    ref_pos = loader.joint_pos()
+    ref_vel = loader.joint_vel()
+    mapping = c.motion_joint_mapping or list(range(len(ref_pos)))
+    out = [ref_pos[mapping[i]] for i in range(len(mapping))]
+    out += [ref_vel[mapping[i]] for i in range(len(mapping))]
+    order = c.action_joint_order
+    base_quat = list(obs.data.qpos[3:7])
+    waist_real = [obs.data.qpos[obs.jadr[order[mapping[slot]]][0]] for slot in c.waist_joint_indices]
+    real_quat = loader.torso_quat_w(base_quat, waist_real)
+    out += list(loader.motion_anchor_ori_b(real_quat, loader.anchor_quat_w()))
+    _, ang_b, _ = obs.base_state()
+    out += list(ang_b * c.ang_vel_scale)
+    out += [(obs.data.qpos[obs.jadr[order[mapping[i]]][0]] - c.default_for(order[mapping[i]])) * c.dof_pos_scale
+            for i in range(c.action_dim)]
+    out += [obs.data.qvel[obs.jadr[order[mapping[i]]][1]] * c.dof_vel_scale for i in range(c.action_dim)]
+    out += list(obs.last_action)
+    if c.clip_obs is not None:
+        out = [max(-c.clip_obs, min(c.clip_obs, v)) for v in out]
     return out
 
 
@@ -443,6 +642,8 @@ FRAME_BUILDERS = {
     "zexw_53": _frame_zexw_53,
     "himloco_45_hist6": _frame_himloco_45,
     "microduck_61": _frame_microduck_61,
+    "go2_motion_69": _frame_go2_motion_69,
+    "g1_motion_154": _frame_g1_motion_154,
     "dreamwaq_57": _frame_dreamwaq_57,
     # lite3 的 rl_sar HIMLoco 部署与 go1 同源（observations 列表 commands 在前）；
     # 包内 kind 标注曾误用通用 locomotion 序，这里按同一布局处理。
@@ -451,8 +652,7 @@ FRAME_BUILDERS = {
 
 # 需要 MotionLoader（参考动作 CSV）/13 维复合命令的布局：本轮交由 Node 桥（复用
 # web 侧同一真值）覆盖，Python 侧显式报错而不是给出错误观测。
-_DEFERRED_KINDS = {"go2_motion_69", "g1_motion_154", "quadrupedal_agility_ll",
-                   "wheel_leg_gait_moe_cts", "wheel_leg_jump_moe_cts"}
+_DEFERRED_KINDS = {"quadrupedal_agility_ll", "wheel_leg_gait_moe_cts", "wheel_leg_jump_moe_cts"}
 
 
 def pack_history(obs: "ObsBuilder", frames: list[np.ndarray]) -> np.ndarray:
@@ -520,6 +720,10 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
     obs_builder.phase_s = 0.0
     obs_builder.last_action[:] = 0
     obs_builder.history = []
+    if contract.motion_loader is not None and contract.observation_kind in ("go2_motion_69", "g1_motion_154"):
+        contract.motion_loader.reset(list(data.qpos[3:7]))
+        obs_builder.motion_loader = contract.motion_loader
+        obs_builder.motion_time = 0.0
     cmd_arr = np.asarray(cmd, dtype=np.float32)
 
     total = int(seconds / contract.step_dt)
@@ -867,6 +1071,22 @@ def _tron1_obs(obs: "ObsBuilder", cmd: np.ndarray) -> tuple[np.ndarray, np.ndarr
     cmd_scale = np.asarray(spec.get("cmd_scale") or [1.0, 1.0, 1.0], dtype=np.float32)
     scaled_cmd = (np.asarray(cmd, dtype=np.float32) * cmd_scale)[: int(spec.get("cmd_size") or 3)]
     return frame, scaled_cmd
+
+
+def load_motion_loader(contract: PackageContract, package_dir: Path):
+    """按契约的 motion_params.motion_csv 加载参考动作（相对包目录）。"""
+    rel = str(contract.motion_params.get("motion_csv") or "")
+    if not rel:
+        return None
+    path = Path(rel)
+    if not path.is_absolute():
+        path = package_dir / path
+    if not path.is_file():
+        return None
+    try:
+        return MotionLoader(path.read_text(encoding="utf-8"), contract.motion_params)
+    except Exception:
+        return None
 
 
 def static_stand_height(contract: PackageContract, model, data, obs: ObsBuilder, seconds: float = 1.5) -> float:
