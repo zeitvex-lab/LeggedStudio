@@ -268,7 +268,9 @@ slam/src/config/config.yaml: lid_topic=/front_lidar, imu_topic=/front_lidar/imu
 | `.gitignore` | 新增 `matrix-v1.0.13/`、`matrix-robot-mc-*/`、`genisom-roamerx-open/`、`amithyst-matrix/` | 外部发行物与参考仓永不入库 |
 | `backend/height_scan.py`（新增） | 上游 **187 点**高度扫描网格契约（17×11 / 0.1 m / x 主序，机身系）+ 点云与射线两条取数路径 + `align_height_scans` + `/api/perception/height-scan/{grid,selftest,selftest-map}` | 把「外部雷达 ↔ 内置 heightfield」的逐格对齐回归变成可跑代码；`selftest-map` 直接用 `backend/terrain_gen` 的 5 种地形 |
 | `backend/perception_observations.py` | `heightfield` / `lidar_height_scan` 宽度 **180 → 187**，补网格 meta（shape/order/spacing/来源） | 修正目录与真实网格不一致：仓内训练源多处声明 `terrain_dim = 187`（go2 `contract.py:22`、m20 `constants.py:159`） |
-| `web/advanced_sim.html` | 新增「高度扫描对齐」面板（网格规格 + 合成 4 例 + 项目地形 noise 自检结论） | 高级仿真页可直接看到对齐结论 |
+| `web/advanced_sim.html` | 新增「高度扫描对齐」「相机投影与目标判定」两个面板 | 高级仿真页可直接看到自检结论 |
+| `backend/camera_projection.py`（新增） | 内参解析（MATRiX 惯例：fov 为水平视场、fx=0/cx<0 表示未标定 → 按针孔与像素质心推导）、FLU→光学系外参、点云/目标框投影、深度反投影、到达与可见性判定 + `/api/perception/projection/{sensors,selftest,project}` | 把 §4.1 #3（LiDAR→相机投影）与 #4（目标判定/bbox）落成可离线单测的几何层 |
+| `backend/perception_observations.py` | 新增观测项 `base_pos_odom`（odom，3 维）、`gps_position`（gps，3 维） | 回答「odom / GPS 能否接入」：以观测项形式与 `sensor_suite` 的话题/频率绑定 |
 
 ## 6. 未提取 / 不建议
 
@@ -337,4 +339,8 @@ MATRiX 生态（A 运行时 / B 运控 / C 导航栈）对项目的**可迁移�
 - **对训练**：三份发行物**都不含训练源码**，因此不能新增可训练任务或登记部署策略（规则 T/S）；它们的价值在于三类输入——B 的 `user-parameters`（限位/零位/增益真值，可与 A 的 MJCF 与项目契约三方对照）、B 的行为清单（`task_type` / `trick_triggers` 枚举）、C 的导航与 SLAM 栈（任务判据、课程、估计器基线）。
 - **不可复用或不该复用**：UE5/ROS2 运行时（GPU / Ubuntu 22.04 门槛，进不了 CI）、B 的加密策略（明确不解密）、点云载荷（无公开布局）。
 
-下一步优先级：① T1 参数三方对照校验器（离线、可单测，直接产出真值表证据）；② 把 A 的投影（LiDAR→相机）与 bbox 工具接进高级仿真页（§4.1 #3/#4）；③ ~~用 A 的语料做 `lidar_height_scan ↔ heightfield` 对齐回归~~ —— **已落地**（`backend/height_scan.py`，网格修正为 187，合成 4 例 + 项目地形 5 种全部在坡度推导上界内；语料载荷未解码前，点云侧先用合成/地形采样点验证链路）。
+已完成与下一步：
+
+- ① ~~把 A 的投影（LiDAR→相机）与 bbox 工具接进高级仿真（§4.1 #3/#4）~~ —— **已落地**（`backend/camera_projection.py` + 页面面板，6 例几何自检；内参推导 / 光轴→主点 / 视场边缘 / 遮挡剔除 / 框投影 / 深度往返 / 到达与可见性）。
+- ② ~~用 A 的语料做 `lidar_height_scan ↔ heightfield` 对齐回归~~ —— **已落地**（`backend/height_scan.py`，网格修正为 187，合成 4 例 + 项目地形 5 种全部在坡度推导上界内；语料载荷未解码前，点云侧先用合成/地形采样点验证链路）。
+- ③ **待做**：T1 参数三方对照校验器（B 的 `user-parameters` ↔ A 的 MJCF ↔ 项目 `contracts/` + 真值表，离线可单测）。

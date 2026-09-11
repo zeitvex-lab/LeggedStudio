@@ -50,6 +50,12 @@
         <div id="advSensorDefault"></div>
       </section>
       <section class="adv-panel">
+        <h3>相机投影与目标判定</h3>
+        <p>由传感器声明的内外参解析针孔内参，支持点云投影、目标框投影、深度反投影与
+           到达/可见性判定（全部离线可测）。</p>
+        <div id="advProjection"><span class="adv-tag">加载中…</span></div>
+      </section>
+      <section class="adv-panel">
         <h3>高度扫描对齐</h3>
         <p>机身周围 187 个测量点（17×11，0.1 m 步长）是外部雷达与内置射线 heightfield
            共用的网格；页面显示两者的逐格对齐自检结果。</p>
@@ -162,9 +168,27 @@
         box.innerHTML = '<span class="adv-tag">高度扫描契约加载失败</span>';
       }
     }
+    async function loadProjection() {
+      const box = document.getElementById("advProjection");
+      try {
+        const sensors = await fetchJson("/api/perception/projection/sensors");
+        const selftest = await fetchJson("/api/perception/projection/selftest");
+        const tags = (sensors.sensors || []).map((sensor) => {
+          const optics = sensor.intrinsics || {};
+          return `<span class="adv-tag">${sensor.id} ${optics.width}×${optics.height} · hfov ${Number(optics.hfov_deg).toFixed(1)}° · fx ${Number(optics.fx).toFixed(0)}</span>`;
+        });
+        tags.push(
+          `<span class="adv-tag">几何自检 ${selftest.verdict === "pass" ? "通过" : "未通过"}（${(selftest.cases || []).length} 例）</span>`
+        );
+        box.innerHTML = tags.join("");
+      } catch (err) {
+        box.innerHTML = '<span class="adv-tag">相机投影契约加载失败</span>';
+      }
+    }
     void loadAdvancedTasks();
     void loadSensorSuite();
     void loadHeightScanContract();
+    void loadProjection();
   </script>
 </body>
 </html>
