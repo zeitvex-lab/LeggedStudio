@@ -95,8 +95,9 @@ class PackageContract:
         self.cmd_scale = [float(x) for x in (scales.get("command") or [1.0, 1.0, 1.0])]
 
         self.observation_kind = str(self.contract.get("observation_kind") or "")
-        self.obs_dim = int(self.contract.get("obs_dim") or 0)
-        self.action_dim = int(self.contract.get("action_dim") or 0)
+        # 回退策略条目顶层：部分包的策略 contract 为空，维度只在条目顶层声明。
+        self.obs_dim = int(self.contract.get("obs_dim") or policy_entry.get("obs_dim") or 0)
+        self.action_dim = int(self.contract.get("action_dim") or policy_entry.get("action_dim") or 0)
         self.clip_actions = self.contract.get("clip_actions") or None
 
         self.default_joint_angles = {k.lower(): float(v) for k, v in (self.contract.get("default_joint_angles") or {}).items()}
@@ -124,6 +125,7 @@ class PackageContract:
         self.wrap_pi_joints = [str(n) for n in (mask.get("wrap_pi") or [])]
         self.command_dims = int(self.contract.get("command_dims") or 3)
         self.task_type = str(self.contract.get("task_type") or "")
+        self.default_command = [float(x) for x in (self.contract.get("default_command") or [])]
 
         control = self.sim.get("control") or {}
         self.stiffness = control.get("stiffness") or self.sim.get("stiffness") or {}
@@ -299,6 +301,25 @@ def _frame_go1_playground_48(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     return out
 
 
+def _frame_microduck_61(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """microduck_61：ang_vel, gravity, q_rel(14), dq(14), action(14), cmd(13)。"""
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = list(ang_b * c.ang_vel_scale)
+    out += list(projected_gravity(q))
+    out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in order]
+    out += list(obs.last_action)
+    # 13 维复合命令：默认取自契约，前 3 维用速度指令覆盖（raw，与 JS 一致）。
+    cmd13 = list(c.default_command[:13]) + [0.0] * max(0, 13 - len(c.default_command))
+    for i in range(min(3, len(cmd))):
+        cmd13[i] = float(cmd[i])
+    out += cmd13[:13]
+    return out
+
+
 def _frame_dreamwaq_57(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     """DreamWaQ 轮足单帧 57：cmd, ang_vel, gravity, dof_pos_rel(轮清零), dof_vel, action。
 
@@ -421,6 +442,7 @@ FRAME_BUILDERS = {
     "go2w_rl_sdk_57": _frame_go2w_rl_sdk_57,
     "zexw_53": _frame_zexw_53,
     "himloco_45_hist6": _frame_himloco_45,
+    "microduck_61": _frame_microduck_61,
     "dreamwaq_57": _frame_dreamwaq_57,
     # lite3 的 rl_sar HIMLoco 部署与 go1 同源（observations 列表 commands 在前）；
     # 包内 kind 标注曾误用通用 locomotion 序，这里按同一布局处理。
@@ -429,7 +451,7 @@ FRAME_BUILDERS = {
 
 # 需要 MotionLoader（参考动作 CSV）/13 维复合命令的布局：本轮交由 Node 桥（复用
 # web 侧同一真值）覆盖，Python 侧显式报错而不是给出错误观测。
-_DEFERRED_KINDS = {"go2_motion_69", "g1_motion_154", "microduck_61", "quadrupedal_agility_ll",
+_DEFERRED_KINDS = {"go2_motion_69", "g1_motion_154", "quadrupedal_agility_ll",
                    "wheel_leg_gait_moe_cts", "wheel_leg_jump_moe_cts"}
 
 
@@ -465,6 +487,8 @@ def _obs_build(self: "ObsBuilder", cmd: np.ndarray) -> np.ndarray:
     frame = np.asarray(builder(self, cmd), dtype=np.float32)
     if c.obs_dim and frame.shape[0] != c.obs_dim:
         raise ValueError(f"单帧观测维度不符: 构建 {frame.shape[0]} vs 契约 obs_dim={c.obs_dim}")
+    if c.history_len <= 1:
+        return frame[None, :].astype(np.float32)  # 单帧不做 term-major 重排
     self.history.append(frame)
     if len(self.history) > c.history_len:
         self.history = self.history[-c.history_len:]
