@@ -431,7 +431,7 @@ function setView(name, options = {}) {
   // identical across the functional areas. 资产库已原生并入首页
   // （#assetLibraryGrid），不再有独立 assets 视图。
   const framePages = {
-    navmap: ['navMapFrame', 'navigation_editor.html?v=0.44.0&embedded=1'],
+    navmap: ['navMapFrame', 'advanced_sim.html?v=0.46.0&embedded=1'],
     deploy: ['deployFrame', 'deploy.html?v=0.44.0&embedded=1'],
     artifacts: ['artifactsFrame', 'artifacts.html?v=0.44.0&embedded=1'],
   };

@@ -164,6 +164,8 @@ const URL_AUTOPLAY = PAGE_PARAMS.has("autoplay")
   ? PAGE_PARAMS.get("autoplay") === "1"
   : null;
 const URL_TERRAIN = PAGE_PARAMS.get("terrain") || "";
+// 仿真分层过滤：surface=advanced 只列外部传感器/目标驱动任务；surface=basic 排除它们。
+const URL_SURFACE = PAGE_PARAMS.get("surface") || "";
 const DEFAULT_TERRAIN = "wave";
 // 机器人 ID 别名表（数据）：覆盖全部内置包的「完整包 id」与「URL 短键」，
 // 统一归一化到短键，消除「包下划线（unitree_go2）↔ 浏览器连字符/短键（go2）」命名双轨。
@@ -1316,7 +1318,12 @@ function applyPlatformLabels(config) {
     const current = policy.disabled || !policy.onnx_url ? "off" : (policy.id || policy.onnx_url);
     elements.policySelect.innerHTML = `<option value="off">无策略（姿态保持）</option>`;
     const packagePolicies = packageInfo.policies || [];
-    const candidates = packagePolicies.length ? packagePolicies : (policy.onnx_url ? [{ id: policy.id || policy.onnx_url, url: policy.onnx_url, label: checkpointLabel }] : []);
+    const allCandidates = packagePolicies.length ? packagePolicies : (policy.onnx_url ? [{ id: policy.id || policy.onnx_url, url: policy.onnx_url, label: checkpointLabel }] : []);
+    const candidates = allCandidates.filter((item) => {
+      if (!URL_SURFACE) return true;
+      const surface = String(item.sim_surface || "basic");
+      return URL_SURFACE === "advanced" ? surface === "advanced" : surface !== "advanced";
+    });
     candidates.forEach((item) => {
       const option = document.createElement("option");
       option.value = item.id || item.url || item.path;
