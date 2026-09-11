@@ -102,10 +102,9 @@ class MatrixSensorSuiteTests(unittest.TestCase):
         from backend.sensor_suite import default_sensor_suite
 
         suite = {sensor["kind"]: sensor for sensor in default_sensor_suite()}
-        self.assertEqual(set(suite), {"imu", "odom", "gps", "rgb", "depth", "lidar"})
+        self.assertEqual(set(suite), {"imu", "odom", "rgb", "depth", "lidar"})
         self.assertEqual(suite["imu"]["frequency_hz"], 500)
         self.assertEqual(suite["odom"]["frequency_hz"], 100)
-        self.assertEqual(suite["gps"]["frequency_hz"], 100)
         self.assertEqual(suite["lidar"]["frequency_hz"], 10)
         self.assertEqual(suite["lidar"]["sensor_type"], "airy")
         self.assertEqual(suite["rgb"]["intrinsics"]["width"], 1920)
@@ -122,7 +121,7 @@ class MatrixSensorSuiteTests(unittest.TestCase):
         for dropped in ("fisheye", "infrared", "panorama", "ptzrgb"):
             self.assertNotIn(dropped, names)
         default = [p for p in payload["presets"] if p["name"] == "default"][0]
-        self.assertEqual(default["sensor_count"], 6)
+        self.assertEqual(default["sensor_count"], 5)  # imu + odom + rgb + depth + lidar
         self.assertEqual(default["exteroceptive_count"], 3)  # rgb + depth + lidar
         self.assertEqual(len(names), 4)
 
@@ -140,10 +139,9 @@ class MatrixSensorSuiteTests(unittest.TestCase):
         self.assertEqual(classes["odom"], "proprioceptive")
         self.assertEqual(classes["lidar"], "exteroceptive")
         self.assertEqual(classes["depth"], "exteroceptive")
-        # RL 口径的 6 类：imu / odom / gps / rgb / depth / lidar
-        self.assertEqual(
-            set(classes), {"imu", "odom", "gps", "rgb", "depth", "lidar"}
-        )
+        # RL 口径的 5 类：imu / odom / rgb / depth / lidar（gps 已按同一口径剔除）
+        self.assertEqual(set(classes), {"imu", "odom", "rgb", "depth", "lidar"})
+        self.assertNotIn("gps", classes)
 
     def test_lidar_height_scan_reuses_heightfield_grid(self):
         items = {item["id"]: item for item in list_perception_items()}
@@ -462,10 +460,14 @@ class CameraProjectionTests(unittest.TestCase):
             400,
         )
 
-    def test_odom_and_gps_observation_items(self):
+    def test_odom_observation_item(self):
         items = {item["id"]: item for item in list_perception_items()}
         self.assertEqual(items["base_pos_odom"]["sensor"], "odom")
         self.assertEqual(items["base_pos_odom"]["width"], 3)
         self.assertEqual(items["base_pos_odom"]["meta"]["topic"], "/odom")
-        self.assertEqual(items["gps_position"]["sensor"], "gps")
-        self.assertEqual(items["gps_position"]["meta"]["frequency_hz"], 100)
+        self.assertEqual(items["base_pos_odom"]["meta"]["frequency_hz"], 100)
+        # gps 已剔除：既不在观测目录，也不在硬件 kind 登记里
+        self.assertNotIn("gps_position", items)
+        from backend.sensor_suite import SENSOR_KIND_CLASSES
+
+        self.assertNotIn("gps", SENSOR_KIND_CLASSES)

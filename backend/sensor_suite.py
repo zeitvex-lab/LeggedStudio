@@ -25,6 +25,11 @@ MATRiX 的 4 个相机变体预设（``fisheye`` / ``infrared`` / ``panorama`` /
 不是 RL 观测口径，当前也没有任何策略消费；平台侧需要投影或可视化时，直接读
 MATRiX 原始 ``UeSim/Content/model/config/sensors/*.json`` 即可。
 
+``gps`` 同样**不收录**（因此 ``default`` 预设是「上游 default 去掉 GPS」）：
+它只服务室外全局定位，本项目的任务族（室内步态 / 粗糙地形 / 跑酷 / 操纵 /
+特技）不消费它，全仓也没有任何策略或验收判据用到；若将来做室外或园区巡检，
+按上游 ``config_default.json`` 的字段补一条 3 维声明即可（恢复成本约 1 行）。
+
 Provenance: MATRiX v1.0.13, ``UeSim/Content/model/config/`` (BSD-3-Clause,
 ZsiBot). Values below are copied verbatim from those files; nothing is bundled
 or executed.
@@ -48,7 +53,6 @@ SOURCE = "MATRiX v1.0.13 UeSim/Content/model/config/{config.json,sensors/*.json}
 SENSOR_KIND_CLASSES: dict[str, str] = {
     "imu": "proprioceptive",
     "odom": "proprioceptive",
-    "gps": "proprioceptive",
     "rgb": "exteroceptive",
     "depth": "exteroceptive",
     "lidar": "exteroceptive",
@@ -103,7 +107,6 @@ _PRESETS: dict[str, tuple[str, list[SensorSpec]]] = {
         [
             SensorSpec("IMU", "imu", "imu", "/imu", 500.0, position={"x": 0.0, "y": 0.0, "z": 0.0}),
             SensorSpec("Odom", "odom", "odom", "/odom", 100.0, position={"x": 0.0, "y": 0.0, "z": 0.0}),
-            SensorSpec("GPS", "gps", "gps", "/gps", 100.0, position={"x": 0.0, "y": 0.0, "z": 0.0}),
             SensorSpec(
                 "camera",
                 "rgb",
