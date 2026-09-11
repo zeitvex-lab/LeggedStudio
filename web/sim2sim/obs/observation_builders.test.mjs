@@ -179,6 +179,8 @@ console.log(`\nPASS=${passed} FAIL=${failed}`);
 }
 // go2w_rl_sdk_57
 test('go2w_rl_sdk_57', makeCtx({ kind:'go2w_rl_sdk_57', numObs:57, numActions:16 }));
+// go2w_himloco_57（LeggedSkillDeploy go2w_himloco：commands 在前的 57 维）
+test('go2w_himloco_57', makeCtx({ kind:'go2w_himloco_57', numObs:57, numActions:16 }));
 // s07_amp_cts
 test('s07_amp_cts', makeCtx({ kind:'s07_amp_cts', numObs:45, numActions:12 }));
 // 参考时钟到达 duration 后【默认钳制保持末帧】（上游 rl_sdk
