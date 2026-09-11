@@ -108,6 +108,10 @@ class PackageContract:
         self.gait_period = float(self.contract.get("gait_period_s") or 0.6)
 
         self.velocity_scale = float(self.contract.get("velocity_scale") or self.sim.get("velocity_scale") or 1.0)
+        # 双模型（encoder + policy）部署，如 LimX TRON1：encoder(proprio history) → latent
+        # → policy([latent, obs, cmd])。字段在当前策略契约里声明。
+        self.encoder_rel = str(policy_entry.get("encoder") or self.contract.get("encoder") or "")
+        self.tron1 = self.contract.get("tron1") or {}
         raw_modes = self.contract.get("control_modes") or self.sim.get("control_modes") or {}
         if isinstance(raw_modes, dict):
             self.control_modes = {str(k).lower(): str(v).lower() for k, v in raw_modes.items()}
@@ -786,6 +790,132 @@ def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
     }
 
 
+def _swap(arr: np.ndarray, mapping: list[int], reverse: bool = False) -> np.ndarray:
+    out = np.zeros_like(arr)
+    for i, src in enumerate(mapping):
+        if reverse:
+            out[src] = arr[i]
+        else:
+            out[i] = arr[src]
+    return out
+
+
+def _tron1_obs(obs: "ObsBuilder", cmd: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """TRON1 单帧观测 + 缩放命令（参考 tron1-rl-deploy-python controllers）。
+
+    obs = ang_vel*0.25, projected_gravity, joint_pos_rel(isaaclab 序), joint_vel*0.05,
+          last_action；点足/足底再拼 gait_clock(2) + gait(4)；轮足 joint_pos 排除轮。
+    policy_in = [encoder_out(3), obs, scaled_cmd]。
+    """
+    c = obs.contract
+    spec = c.tron1
+    names = c.action_joint_order
+    n = len(names)
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    q_all = np.array([obs.data.qpos[obs.jadr[x][0]] for x in names], dtype=np.float64)
+    dq_all = np.array([obs.data.qvel[obs.jadr[x][1]] for x in names], dtype=np.float64)
+    default = np.array([c.default_for(x) for x in names], dtype=np.float64)
+    mapping = [int(i) for i in (spec.get("swap") or list(range(n)))]
+
+    jp = (q_all - default) * 1.0
+    pos_idx = spec.get("joint_pos_idx")
+    if pos_idx:
+        jp = jp[[int(i) for i in pos_idx]]
+        jp = _swap(jp, [int(i) for i in (spec.get("swap_pos") or mapping)])
+    else:
+        jp = _swap(jp, mapping)
+    dq = _swap(dq_all, mapping) * 0.05
+    act = _swap(obs.last_action.astype(np.float64), mapping)
+    parts = [ang_b * 0.25, projected_gravity(q), jp, dq, act]
+    if spec.get("gait"):
+        freq = float(spec.get("gait_freq") or 1.3)
+        swing = float(spec.get("gait_swing") or 0.12)
+        obs.phase_s = (obs.phase_s + 0.02 * freq) % 1.0
+        parts.append(np.array([math.sin(obs.phase_s * 2 * math.pi), math.cos(obs.phase_s * 2 * math.pi)]))
+        parts.append(np.array([freq, 0.5, 0.5, swing]))
+    frame = np.concatenate(parts).astype(np.float32)
+    cmd_scale = np.asarray(spec.get("cmd_scale") or [1.0, 1.0, 1.0], dtype=np.float32)
+    scaled_cmd = (np.asarray(cmd, dtype=np.float32) * cmd_scale)[: int(spec.get("cmd_size") or 3)]
+    return frame, scaled_cmd
+
+
+def run_encoder_mode(sess_enc, sess_pol, contract: PackageContract, model, data,
+                     obs: ObsBuilder, cmd: list[float], seconds: float, seed: int) -> dict[str, Any]:
+    """encoder+policy 双会话滚出（TRON1 等）。"""
+    import mujoco
+
+    spawn_default(contract, model, data, obs)
+    obs.phase_s = 0.0
+    obs.last_action[:] = 0
+    spec = contract.tron1
+    hist = max(1, int(spec.get("history") or 1))
+    mapping = [int(i) for i in (spec.get("swap") or list(range(len(contract.action_joint_order))))]
+    frame, scaled_cmd = _tron1_obs(obs, cmd)
+    buf = np.tile(frame, hist).astype(np.float32)
+    enc_in = sess_enc.get_inputs()[0].name
+    pol_in = sess_pol.get_inputs()[0].name
+    cmd_arr = np.asarray(cmd, dtype=np.float32)
+
+    total = int(seconds / contract.step_dt)
+    fell_at = None
+    height_min = float("inf")
+    roll_max = pitch_max = 0.0
+    vel_errs: list[float] = []
+    steady_height: list[float] = []
+    steady_roll: list[float] = []
+    steady_pitch: list[float] = []
+    raw = np.zeros(contract.action_dim, dtype=np.float32)
+
+    for step in range(total):
+        if step % contract.decimation == 0:
+            frame, scaled_cmd = _tron1_obs(obs, cmd)
+            buf = np.concatenate([buf[frame.shape[0]:], frame])
+            # tron1 的 onnx 输入是 1D [N]（非 [1,N]）
+            enc_out = np.asarray(sess_enc.run(None, {enc_in: buf.astype(np.float32)})[0]).reshape(-1)
+            pol_input = np.concatenate([enc_out, frame, scaled_cmd]).astype(np.float32)
+            raw_lab = np.asarray(sess_pol.run(None, {pol_in: pol_input})[0]).reshape(-1)[: contract.action_dim]
+            raw = _swap(raw_lab, mapping, reverse=True).astype(np.float32)  # lab → SDK 序
+            obs.last_action = raw.copy()
+        actuate(contract, model, data, obs, raw)
+        mujoco.mj_step(model, data)
+
+        q = data.qpos[3:7]
+        g = projected_gravity(q)
+        roll = math.degrees(math.atan2(g[1], -g[2])) if -g[2] > 1e-6 else math.copysign(90.0, g[1])
+        pitch = math.degrees(math.asin(clamp(g[0], -1.0, 1.0)))
+        roll_max = max(roll_max, abs(roll))
+        pitch_max = max(pitch_max, abs(pitch))
+        height_min = min(height_min, float(data.qpos[2]))
+        if fell_at is None and (data.qpos[2] < 0.45 * contract.initial_height or abs(roll) > 60.0 or abs(pitch) > 60.0):
+            fell_at = step * contract.step_dt
+            break
+        if step > total * 0.7:
+            _, ang_b, lin_b = obs.base_state()
+            vel_errs.append(float(np.linalg.norm(lin_b[:2] - cmd_arr[:2]) + 0.3 * abs(ang_b[2] - cmd_arr[2])))
+            steady_height.append(float(data.qpos[2]))
+            steady_roll.append(abs(roll))
+            steady_pitch.append(abs(pitch))
+
+    survived = (fell_at / contract.step_dt) if fell_at is not None else total
+    metrics = {
+        "command": [float(x) for x in cmd],
+        "fell": fell_at is not None,
+        "fell_at_s": round(fell_at, 3) if fell_at is not None else None,
+        "survival_ratio": round(survived / total, 3),
+        "vel_track_err": round(float(np.mean(vel_errs)), 3) if vel_errs else None,
+        "height_min": round(height_min, 3),
+        "height_steady": round(float(np.mean(steady_height)), 3) if steady_height else None,
+        "height_steady_ratio": round(float(np.mean(steady_height)) / max(contract.initial_height, 1e-6), 3) if steady_height else None,
+        "roll_max_deg": round(roll_max, 1),
+        "pitch_max_deg": round(pitch_max, 1),
+        "roll_steady_max_deg": round(max(steady_roll), 1) if steady_roll else None,
+        "pitch_steady_max_deg": round(max(steady_pitch), 1) if steady_pitch else None,
+    }
+    metrics["pass"] = (not metrics["fell"]) and metrics["survival_ratio"] >= 0.999
+    return metrics
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="ONNX 策略验收评估器")
     parser.add_argument("--package", required=True, help="机器人包目录")
@@ -828,19 +958,29 @@ def main() -> None:
         return
 
     sess = ort.InferenceSession(str(policy_path), providers=["CPUExecutionProvider"])
-    in_shape = sess.get_inputs()[0].shape
-    if contract.total_obs_dim and in_shape[-1] != contract.total_obs_dim:
-        raise SystemExit(
-            f"ONNX 输入维度 {in_shape} 与契约 {contract.total_obs_dim}"
-            f"（obs_dim {contract.obs_dim} × history {contract.history_len}）不符"
-        )
+    sess_enc = None
+    if contract.encoder_rel:
+        enc_path = Path(contract.encoder_rel)
+        if not enc_path.is_absolute():
+            enc_path = package_dir / enc_path
+        sess_enc = ort.InferenceSession(str(enc_path), providers=["CPUExecutionProvider"])
+    else:
+        in_shape = sess.get_inputs()[0].shape
+        if contract.total_obs_dim and in_shape[-1] != contract.total_obs_dim:
+            raise SystemExit(
+                f"ONNX 输入维度 {in_shape} 与契约 {contract.total_obs_dim}"
+                f"（obs_dim {contract.obs_dim} × history {contract.history_len}）不符"
+            )
 
     modes = [[float(x) for x in m.split(",")] for m in args.modes] if args.modes else default_modes(contract.cmd_ranges)
 
     model_results = []
     for idx, cmd in enumerate(modes):
         obs = ObsBuilder(contract, model, data)
-        metrics = run_mode(sess, contract, model, data, obs, cmd, args.seconds, args.seed + idx)
+        if sess_enc is not None:
+            metrics = run_encoder_mode(sess_enc, sess, contract, model, data, obs, cmd, args.seconds, args.seed + idx)
+        else:
+            metrics = run_mode(sess, contract, model, data, obs, cmd, args.seconds, args.seed + idx)
         model_results.append(metrics)
         print(f"[acceptance] cmd={cmd} pass={metrics['pass']} "
               f"survival={metrics['survival_ratio']} vel_err={metrics['vel_track_err']}")
