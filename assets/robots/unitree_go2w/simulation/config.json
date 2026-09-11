@@ -292,7 +292,8 @@
           "RR_wheel_joint": 0.0,
           "RL_wheel_joint": 0.0
         },
-        "task_type": "velocity"
+        "task_type": "velocity",
+        "velocity_scale": 5.0
       },
       "source": "go2w_sim2sim policy/history_1/model.onnx（16 维混合策略，SDK 序）"
     },
