@@ -1,0 +1,20 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "go2-ts-student",
+  "display_name": "Go2 TS 学生 (LSTM 历史蒸馏)",
+  "source": "00_resources/LeggedGym-Ex go2 CTS/TS（并发教师-学生 / 教师-学生框架）",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "local_tasks.robots.unitree.go2.tasks.locomotion.variants:unitree_go2_ts_student_env_cfg",
+    "runner": "local_tasks.robots.unitree.go2.training.config:go2_ts_student_runner_cfg",
+    "runner_class": "local_tasks.robots.unitree.go2.training.runner:VelocityDistillationRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "Mjlab-TS-Student-Rough-Unitree-Go2",
+  "terrain_type": "rough",
+  "algorithm": "TS",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "history_length": 5,
+  "sort_order": 104
+}

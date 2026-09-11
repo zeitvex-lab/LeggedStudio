@@ -144,3 +144,25 @@ def unitree_go2_custom_runner_cfg(kind: str) -> RslRlOnPolicyRunnerCfg:
     ) * 4
   cfg.experiment_name = f"go2_{kind}"
   return cfg
+
+
+# Zero-argument runner factories so each migrated custom task can be surfaced as
+# a training profile (profile entrypoints must be importable no-arg callables).
+def go2_cts_runner_cfg() -> RslRlOnPolicyRunnerCfg:
+  return unitree_go2_custom_runner_cfg("cts")
+
+
+def go2_amp_cts_runner_cfg() -> RslRlOnPolicyRunnerCfg:
+  return unitree_go2_custom_runner_cfg("amp_cts")
+
+
+def go2_ts_runner_cfg() -> RslRlOnPolicyRunnerCfg:
+  return unitree_go2_custom_runner_cfg("ts")
+
+
+def go2_amp_ts_runner_cfg() -> RslRlOnPolicyRunnerCfg:
+  return unitree_go2_custom_runner_cfg("amp_ts")
+
+
+def go2_ts_student_runner_cfg() -> RslRlOnPolicyRunnerCfg:
+  return unitree_go2_custom_runner_cfg("ts_student")
