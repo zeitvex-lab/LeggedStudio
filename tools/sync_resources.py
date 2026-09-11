@@ -184,6 +184,10 @@ PROJECTS: dict[str, dict] = {
                                      "desc": "四足机型描述汇总（URDF/xacro/MJCF）"},
     "him_dog": {"robots": ["unitree_go1", "unitree_go2"],
                 "desc": "him_dog 四足工程"},
+    "HIMLoco": {"robots": ["unitree_go1"],
+                "desc": "InternRobotics HIMLoco：四足高动态运动/越障 RL 训练工程（legged_gym + rsl_rl）"},
+    "walk-these-ways": {"robots": ["unitree_go1"],
+                        "desc": "Improbable AI walk-these-ways：Go1 快速步态 RL 训练与部署（go1_gym / go1_gym_deploy）"},
     # ---------------- G1 人形 / 灵巧手 ----------------
     "robo_re": {"robots": ["unitree_g1"], "desc": "G1 人形 RL 工程"},
     "InstinctMJ": {"robots": ["unitree_g1"], "desc": "InstinctMJ：G1 人形 mjlab 工程"},
