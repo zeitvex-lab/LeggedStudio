@@ -2506,6 +2506,30 @@
     "(无扩展名)": 3
    },
    "readme": "zsi_rl/README.md"
+  },
+  "HIMLoco": {
+   "source": "00_open/HIMLoco",
+   "robots": [
+    "unitree_go1"
+   ],
+   "desc": "InternRobotics HIMLoco：四足高动态运动/越障 RL 训练工程（legged_gym + rsl_rl）",
+   "kept": 74,
+   "kept_bytes": 11702029,
+   "omitted": 92,
+   "policy_files": 0,
+   "readme": "HIMLoco/README.md"
+  },
+  "walk-these-ways": {
+   "source": "00_open/walk-these-ways",
+   "robots": [
+    "unitree_go1"
+   ],
+   "desc": "Improbable AI walk-these-ways：Go1 快速步态 RL 训练与部署（go1_gym / go1_gym_deploy）",
+   "kept": 103,
+   "kept_bytes": 36771579,
+   "omitted": 28,
+   "policy_files": 4,
+   "readme": "walk-these-ways/README.md"
   }
  },
  "knowledge_base": {
@@ -2537,7 +2561,9 @@
     "robot_mujoco",
     "robot-descriptions-quadruped",
     "him_dog",
-    "rc_old"
+    "rc_old",
+    "HIMLoco",
+    "walk-these-ways"
    ]
   },
   "unitree_go2": {
