@@ -7,7 +7,8 @@
   z≈0.33 / vx 追踪 92% 达标）与 go1-himloco（LeggedSkillDeploy 官方
   himloco_best.pt 官方工具重导，对拍 7e-06）均因"包内无移植训练代码"撤下；
 - 完整契约与取证链归档于 git tag v0.43.0（git show v0.43.0:.../config.json）；
-  onnx 原件在 resources/unitree_go1/deploy；训练任务移植（B14）后原样恢复；
+  onnx 原件在 00_resources/LeggedSkillDeploy/policy/issacgym/go1（00_resources/ v3 起按项目组织）；
+  训练任务移植（B14）后原样恢复；
 - 附带修复随本轮保留：model/robot.xml 补 <actuator> 段（nu=12 锁）、
   keyframe hip 符号修正、contract default_pose 左右符号修正、
   frame_major_v1 历史布局（ObservationBuffer.get_obs_vec 语义，app.js 通路）。

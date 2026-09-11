@@ -14,7 +14,7 @@ MuJoCo 对未声明的 `<joint>` 取 `frictionloss = 0`，但"0"有两种含义�
 这两者物理含义完全不同，所以补值必须区分来源，不能一律填 0 或一律填参考值。
 
 取值方法：用 **MuJoCo 编译 `model/robot.xml` 读 `dof_frictionloss`**（会自动解析
-MJCF 的 `default class` 继承，正则做不到），再对照 `resources/` 里的参考项目。
+MJCF 的 `default class` 继承，正则做不到），再对照 `00_resources/` 里的参考项目。
 （注：`adapter/mjlab/.venv` 才有 mujoco；主 venv 没有。）
 
 ## 2. 逐包结果
@@ -75,5 +75,5 @@ MJCF 的 `default class` 继承，正则做不到），再对照 `resources/` �
 扫描脚本已删除，结论固化于上表。复现要点：用含 mujoco 的解释器
 （`adapters/mjlab/.venv/Scripts/python.exe`）编译各包 `model/robot.xml`，
 读 `model.dof_frictionloss[dof]`（关节名经 `model.dof_jntid` + `mj_id2name` 映射）。
-参考值检索：在 `resources/<robot>/` 下搜 `frictionloss=`（注意 `[1-9]` 这种正则会在
+参考值检索：在 `00_resources/<robot>/` 下搜 `frictionloss=`（注意 `[1-9]` 这种正则会在
 `0.2` 上假阴性，要用 `frictionloss` 全量搜再筛值）。

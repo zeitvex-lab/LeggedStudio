@@ -2,8 +2,10 @@
 
 > 目的：回答"这几款机器人到底该用哪一套参数"。要求是**确定一套、不叠加、成为标准**。
 >
-> 日期：2026-09-10 ｜ 覆盖范围：`resources/unitree_go1`、`unitree_go2`、`unitree_g1`
-> 下 **contract/（契约）**、**deploy/（含 `.pt` 的部署包）**、**training/（gym / lab / mjlab / unilab / playground）** 三层
+> 日期：2026-09-10 ｜ 路径已于 2026-09-11 随 `00_resources/` v3 改为「**按项目组织**」（`00_resources/<project>/…`）
+> 覆盖范围：`00_resources/` 中与 go1/go2/g1 相关的项目（`lain_job`、`LeggedSkillDeploy`、`mujoco_playground`、
+> `unilab_new`、`unitree_rl_mjlab`、`rl_sar`、`kaiwu_rl` 等）中的**契约（constants / config）**、
+> **部署（含 `.pt` 的部署包）**、**训练（gym / lab / mjlab / unilab / playground）** 三类证据
 
 ---
 
@@ -154,6 +156,6 @@ GO1_ACTION_SCALE[n] = 0.25 * effort_limit / stiffness
 
 | 机型 | 关键文件 |
 |---|---|
-| go1 | `resources/unitree_go1/contract/lain_job/RoboLab/backends/mjlab/mjlab/src/mjlab/asset_zoo/robots/unitree_go1/go1_constants.py`（mjlab 推导）；`resources/unitree_go1/deploy/LeggedSkillDeploy/policy/issacgym/go1/{go1,himloco,moe,np3o}/config.yaml`（带 `.pt` 的部署包）；`resources/unitree_go1/training/{mujoco_playground,unilab_new}`（其它栈） |
-| go2 | `resources/unitree_go2/contract/unitree_rl_mjlab/src/assets/robots/unitree_go2/go2_constants.py`；`resources/unitree_go2/deploy/rl_sar/policy/go2/*/config.yaml`；`resources/unitree_go2/deploy/unitree_rl_mjlab/deploy/robots/go2/config/policy/velocity/v0/params/deploy.yaml`；`resources/unitree_go2/training/lain_job/LLoco/src/lloco/tasks/go2_skills/shared/robot.py` |
-| g1 | `resources/unitree_g1/contract/unitree_rl_mjlab/src/assets/robots/unitree_g1/g1_constants.py`；`resources/unitree_g1/contract/kaiwu_rl/unitree_cpp_deploy/logs/g1/velocity/g1_moe_cts_v0.0.5.1/params/deploy.yaml`；`resources/unitree_g1/contract/kaiwu_rl/.../beyondmimic/dailylife_back_2_3/param/deploy.yaml`；`resources/unitree_g1/deploy/LeggedSkillDeploy/policy/unitree_rl_lab/g1/*/config.yaml` |
+| go1 | `00_resources/lain_job/RoboLab/backends/mjlab/mjlab/src/mjlab/asset_zoo/robots/unitree_go1/go1_constants.py`（mjlab 推导）；`00_resources/LeggedSkillDeploy/policy/issacgym/go1/{go1,himloco,moe,np3o}/config.yaml`（带 `.pt` 的部署包）；`00_resources/{mujoco_playground,unilab_new}`（其它栈） |
+| go2 | `00_resources/unitree_rl_mjlab/src/assets/robots/unitree_go2/go2_constants.py`；`00_resources/rl_sar/policy/go2/*/config.yaml`；`00_resources/unitree_rl_mjlab/deploy/robots/go2/config/policy/velocity/v0/params/deploy.yaml`；`00_resources/lain_job/LLoco/src/lloco/tasks/go2_skills/shared/robot.py` |
+| g1 | `00_resources/unitree_rl_mjlab/src/assets/robots/unitree_g1/g1_constants.py`；`00_open/kaiwu_rl/unitree_cpp_deploy/logs/g1/velocity/g1_moe_cts_v0.0.5.1/params/deploy.yaml`（`logs/` 未纳入 `00_resources/`）；`00_open/kaiwu_rl/unitree_cpp_deploy/.../beyondmimic/dailylife_back_2_3/param/deploy.yaml`（同上）；`00_resources/LeggedSkillDeploy/policy/unitree_rl_lab/g1/*/config.yaml` |

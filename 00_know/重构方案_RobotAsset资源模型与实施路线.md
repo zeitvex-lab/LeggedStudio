@@ -1,7 +1,7 @@
 # Legged Studio 重构建议与实施方案：RobotAsset 资源模型
 
 > **日期**：2026-09-10（rev.2 优化） ｜ **状态**：定稿 + 证据扩展
-> **依据**：本目录三份调研（52 目录资产总盘点 / 技术维度盘点 / 28 章 RL 知识地图）+ 原书 28 章（`robo_know/Robotics_Tutorial/06_具身智能/RL运控/`）选择性精读 + 5 个参考项目实地分析（LLoco、1000framesai.com、unitree_rl_mjlab、kaiwu_rl、TRON1 三仓）+ **14 机型文件级资源库 [`resources/`](../../resources/README.md)**（8 类 × 14 机型，含契约/训练/部署/策略/动作素材）
+> **依据**：本目录三份调研（52 目录资产总盘点 / 技术维度盘点 / 28 章 RL 知识地图）+ 原书 28 章（`robo_know/Robotics_Tutorial/06_具身智能/RL运控/`）选择性精读 + 5 个参考项目实地分析（LLoco、1000framesai.com、unitree_rl_mjlab、kaiwu_rl、TRON1 三仓）+ **14 机型文件级资源库 [`00_resources/`](../00_resources/README.md)**（8 类 × 14 机型，含契约/训练/部署/策略/动作素材；v0.45.0 起随本仓库分发）
 > **rev.2 变更**：① 一等资源由 4 份扩为 **5 份**（新增 Motion 参考动作，见 §2.1.1）② 新增「资源库映射」§2.5 与「14 机型 × 能力档位」§5.6 ③ 参考项目对照扩至 12 家（§4）④ 补 `runner_ref` 落位、6 类 SkillSpec 目录（§3）与 4 条新风险（§8）⑤ 新增 §5.7：训练配置 / 训练 / 低级仿真 / 高级仿真的"去包化"改造 ⑥ 新增 §5.8：新机器人导入流程与 CLI 契约 ⑦ 新增 §5.9：导入/导出粒度、保存语义与可复现契约
 > **读者**：本项目维护者。目标是回答一个问题——**验证、训练、仿真、部署的通用资源如何抽象，以及如何分阶段落地。**
 
@@ -11,7 +11,7 @@
 
 > **通用资源 = 5 份一等资源（Morphology 形态 / Skill 技能 / Motion 参考动作 / Scenario 场景 / Policy 策略）+ 1 个纯引用组合层（Capability Pack）+ 挂在四个阶段上的质量门。**
 > 资源各有一份 schema 独立演进；组合靠引用不靠拷贝；差异全部下沉为数据；事实只在内核出现一次。
-> **为何 Motion 升为一等资源**：知识地图 Ch15/Ch16 把"大规模动作模仿"列为独立任务类；`resources/` 实测 14 机型中 `unitree_g1` 单机型就有 **152 份动作/参考文件**（AMP npz + LAFAN1/AMASS 重定向 csv）、`unitree_go2` 有 wtw/mimic 参考。参考动作是**带许可与重定向血缘的数据**，既非 Scenario 的地形、也非 Policy，须独立成资源（§2.1.1 / §2.5）。
+> **为何 Motion 升为一等资源**：知识地图 Ch15/Ch16 把"大规模动作模仿"列为独立任务类；`00_resources/` 实测 14 机型中 `unitree_g1` 单机型就有 **152 份动作/参考文件**（AMP npz + LAFAN1/AMASS 重定向 csv）、`unitree_go2` 有 wtw/mimic 参考。参考动作是**带许可与重定向血缘的数据**，既非 Scenario 的地形、也非 Policy，须独立成资源（§2.1.1 / §2.5）。
 
 ---
 
@@ -85,7 +85,7 @@
 
 - **⑤ Motion 参考动作资源（`motion-asset-1.0`，新增）**
   `{ id, fps, coordinate_frame, dof_layout, files[{npz|csv|pkl, hash}], retarget_chain[{source_mocap, tool, params}], license, quality_flags }`
-  被 `mimic_tracking` 类 Skill 以 `motion_ref` 引用；数据本体可"只登记不复制"（与 `resources/` 的 `motion/` 类一致）。
+  被 `mimic_tracking` 类 Skill 以 `motion_ref` 引用；数据本体可"只登记不复制"（与 `00_resources/` 的 `motion/` 类一致）。
 - **Morphology 内核字段补强**（驱动 `role_resolver` 与部署 D0 对账）：
   `actuator[{joint, type: position|velocity|hybrid|bam, kp, kd, torque_limit}]`、
   `foot_type: point|sole|wheel`、`wheel_indices: [...]`（16dof 轮足）、`mass_source: mjcf_compiled|urdf_inertial`。
@@ -120,11 +120,16 @@ Deploy (内核, DeployProfile, Policy) → 部署包（D0 核对后放行）
 
 ---
 
-### 2.5 资源库映射：`resources/` 8 类 ↔ RobotAsset 5 资源
+### 2.5 资源库映射：`00_resources/` 8 类 ↔ RobotAsset 5 资源
 
-`resources/`（14 机型 × 8 类，文件级证据库）是本方案的**外部证据底座**；下表锁定两者对齐关系，避免各资源重新发明字段：
+`00_resources/`（覆盖 14 机型的文件级证据库，规范见 [`_SPEC.md`](../00_resources/_SPEC.md)）是本方案的**外部证据底座**；下表锁定两者对齐关系，避免各资源重新发明字段：
 
-| `resources/<robot>/` | 归入 RobotAsset | 在四投影中的角色 |
+> **组织方式（v3 起）**：资源库**以来源项目为单位**组织（一个来源项目 = `00_resources/<project>/`，原样保留该项目的
+> 目录结构与组织思想），不再按「机型 × 类别」切成物理目录。下表左列的 8 类是脚本对每个项目内文件所做的
+> **功能归类统计**（`tools/sync_resources.py` 的 `CATEGORIES`），用来回答「某个项目里的哪类文件归入哪个
+> RobotAsset 资源」，**不是物理路径**。
+
+| 资源类别（按功能归类，非物理路径） | 归入 RobotAsset | 在四投影中的角色 |
 |---|---|---|
 | `model/`（URDF/xacro/MJCF/scene） | Morphology 表征 | Verify 装配检查 / Sim 表征 |
 | `contract/`（关节序/limits/PD/action_scale/wheel_indices/obs-act 维度） | Morphology 内核 | Train 装配 / Deploy D0 对账 |
@@ -292,11 +297,11 @@ ONNX 侧双重元数据（借鉴 mjlab `exporter_utils.attach_metadata_to_onnx`�
 
 ---
 
-### 5.6 15 机型 × 能力档位（依据 `resources/` 覆盖）
+### 5.6 14 机型 × 能力档位（依据 `00_resources/` 覆盖）
 
 > 档位按 `(机型 × adapter × 技能)` 评估；此处给"当前已具备素材的最高档"与主要缺口，"无素材"不等于"不支持"。
 
-| 机型 | 形态 | 素材现状（`resources/`） | 最高档 | 主要缺口 |
+| 机型 | 形态 | 素材现状（`00_resources/`） | 最高档 | 主要缺口 |
 |---|---|---|---|---|
 | unitree_go2 | M-P 12dof | model/contract/training/deploy 齐（17 onnx） | deployable | —（MVP 主线） |
 | unitree_go2w | M-W 16dof | 288 deploy（含 tricks / legs_only onnx） | deployable | tricks 评测口径待统一 |
@@ -346,7 +351,7 @@ ONNX 侧双重元数据（借鉴 mjlab `exporter_utils.attach_metadata_to_onnx`�
 - 统一进 Scenario 扩展轴：`CommandSource ∈ {planner, dataset}` + `Sensors` + `Checks`。**导航 = planner 输出 cmd_vel 复用同一 velocity 策略，无需重训**（§5.2）。
 - 新契约 `NavigationScenario`（scenario-contract 的 profile）：地图/代价地图、规划器（A*/Dijkstra/Hybrid A*）、航点/语义目标、避障、传感器（LiDAR/深度/RGB/IMU）与频率、指标（成功率/路径长/碰撞数/耗时）。
 - 上层栈**外挂**：ROS2 / Nav2 / RTAB-Map / OctoMap / VLM 作为 `adapters/nav_ros2` executor，用 D2–D6 telemetry 接口对接（§5.5），不进核心。
-- 复用证据：`resources/unitree_go2/deploy` 已含 RTAB-Map+Nav2、Odin1+NeuPAN、LightNav(Qwen3-VL) 三条导航参考；`backend/terrain_gen`（ArenaX 移植）与 `map_editor_api` / `route_planner` 产出的地图与路线即 Scenario 资产。
+- 复用证据：`00_resources/{unitree-go2-slam-nav2, Odin-Nav-Stack, LightNav-0}` 已含 RTAB-Map+Nav2、Odin1+NeuPAN、LightNav(Qwen3-VL) 三条导航参考；`backend/terrain_gen`（ArenaX 移植）与 `map_editor_api` / `route_planner` 产出的地图与路线即 Scenario 资产。
 
 #### 归属总表
 | 关注点 | 现状（包内） | 目标归属 | 搬迁动作 |
@@ -518,7 +523,7 @@ ls {pack,run,artifact} list
 | 能力档位依赖 adapter | B2/B2W 等训练素材仅在 IsaacLab，本地无 mjlab 任务 | 能力声明按 `(机型×adapter×技能)` 评估；缺 adapter 显式报错，不静默降级 |
 | 足型/轮组拓扑未建模 | TRON1 PF/SF/WF、M20/Go2W/ZEX-W(16dof)、MicroDuck 双形态 | Morphology 内核增 `foot_type` / `wheel_indices` / 执行器类型（§2.1.1） |
 | 参考动作许可与血缘 | LAFAN1/AMASS/ACCAD 与厂商数据许可不一 | Motion 资源强制 `license` + `retarget_chain`；未标注不入 `core` 注册表 |
-| 动作数据体积 | npz/pkl 偏大（G1 单文件 >10 MB） | 数据本体只登记不复制（与 `resources/` 一致），按血缘回上游取 |
+| 动作数据体积 | npz/pkl 偏大（G1 单文件 >10 MB） | 数据本体只登记不复制（与 `00_resources/` 一致），按血缘回上游取 |
 
 ---
 
@@ -530,4 +535,4 @@ ls {pack,run,artifact} list
 
 *本方案经多轮收敛定稿：LLoco 证明了源码层的 profile 抽象，1000frames 证明了平台层的四资源+契约关联，unitree_rl_mjlab 证明了共享工厂+占位覆写与部署契约，kaiwu_rl 证明了评测考卷与两文件产物契约，TRON1 证明了一份契约驱动多变体——本方案取五家之并集，落于本项目已有的 contract v3 + role_resolver + generic_task_builder + 双 MuJoCo 后端之上。*
 
-*rev.2 优化再以 `resources/`（15 机型 × 8 类文件级证据）与三份盘点 / 28 章知识地图交叉校准：新增 Motion 一等资源（§2.1.1）、Morphology 执行器/足型内核字段、资源库映射（§2.5）、6 类 SkillSpec 目录与方法层落点（§3）、15 机型能力档位矩阵（§5.6）、参考项目扩至 12 家（§4）与 4 条新风险（§8）。*
+*rev.2 优化再以 `00_resources/`（14 机型 × 8 类文件级证据）与三份盘点 / 28 章知识地图交叉校准：新增 Motion 一等资源（§2.1.1）、Morphology 执行器/足型内核字段、资源库映射（§2.5）、6 类 SkillSpec 目录与方法层落点（§3）、14 机型能力档位矩阵（§5.6）、参考项目扩至 12 家（§4）与 4 条新风险（§8）。*

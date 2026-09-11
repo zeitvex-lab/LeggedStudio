@@ -2,7 +2,7 @@
 
 **腿足机器人强化学习工作室** —— 覆盖「资产盘点 → 模型检查 → RL 训练 → 策略导出 → sim2sim 验证 → 部署打包」全流程的全栈工具。
 
-- 版本：`0.44.0`（见 `VERSION`）
+- 版本：`0.45.0`（见 `VERSION`）
 - 许可：MIT
 - 作者：zeitvex
 
@@ -12,7 +12,7 @@
 
 | 环节 | 能力 |
 |---|---|
-| 资产管理 | 内置 14 个标准化机器人包（宇树 Go1/Go2/Go2W/B2/G1、云深处 Lite3/M20、逐际 TRON1 三形态、自研 ZEX-W 轮足、Wuji 五指灵巧手等），统一契约描述 |
+| 资产管理 | 内置 14 个标准化机器人包（宇树 Go1/Go2/Go2W/B2/G1、云深处 Lite3/M20、逐际 TRON1 三形态、自研 ZEX-W 轮足、Wuji 五指灵巧手等），统一契约描述；随仓附带 14 机型参考资源库 [`00_resources/`](00_resources/README.md) |
 | 模型检查 | URDF/MJCF 校验、3D 可视化检查器、契约合规校验 |
 | RL 训练 | 通过隔离子进程调用 MJLab（MuJoCo Warp + PyTorch）训练后端，PPO / off-policy 算法，训练任务创建、监控、事件流 |
 | 策略导出 | 导出 ONNX 部署策略，导出门禁（export gate）校验 |
@@ -71,14 +71,19 @@ legged_studio/
 ├── contracts/             # 稳定数据契约（JSON Schema + Pydantic 模型，零仿真依赖）
 ├── adapters/              # 训练后端插件层
 │   └── mjlab/             # 当前唯一实现：MJLab 训练后端（隔离 venv）
-├── assets/robots/         # 15 个标准化机器人包（契约 + MJCF/URDF + 训练配置）
+├── assets/robots/         # 14 个标准化机器人包（契约 + MJCF/URDF + 训练配置）
 ├── web/                   # 纯静态前端（无构建），由 FastAPI 挂载到 /web
 │   └── sim2sim/           # 浏览器内 sim2sim（MuJoCo WASM + ONNX Runtime Web）
 ├── scripts/               # 启动器、CLI、Windows 运行时下载与打包脚本
 ├── tools/                 # 离线工具链（URDF 校验/转 MJCF、策略转换、契约代码生成）
 ├── packaging/             # electron-builder 两种发行变体配置
-└── 00_know/               # 知识库：机器人资产盘点、RL 训练分类知识地图
+├── docs/                  # 产品文档（桌面程序 / Web 程序）
+├── 00_know/               # 知识库与决策文档（盘点 / 标准 / 方案 / 专题报告）→ 00_know/README.md
+└── 00_resources/          # 参考资源库（按来源项目组织的只读底座）→ 00_resources/README.md
 ```
+
+> `00_` 前缀 = **资料类目录**（非运行时加载）：`00_know/` 是"为什么这么做"，
+> `00_resources/` 是"依据在哪"，两者都不参与打包，也不被 `backend/` 直接 import。
 
 ---
 
@@ -137,10 +142,38 @@ npm run build:linux               # Linux AppImage
 
 ---
 
+## 参考资源库（`00_resources/`）
+
+以**来源项目为单位**的原始资源取证库，作为 `assets/robots/` 归一化资产包的上游证据底座
+（一个来源项目 = 一个目录 `00_resources/<project>/`，原样保留该项目的目录结构与组织思想）：
+
+| 处置 | 内容 |
+|---|---|
+| 保留 | 源码 / 配置 / 文档 / 数据 / URDF·xacro·MJCF / **推理策略文件（.onnx·.pt·.pth·.engine·.ckpt·.safetensors）** |
+| 省略 | 3D 网格与 CAD、点云与 ROS 录包、归档、可执行库与二进制、图像/音视频/字体、日志、>20MB 大文件 |
+| 占位 | 被省略文件在**原目录**留 `_OMITTED.md`（文件名 / 体积 / 类型 / 源路径），需要时按源路径回 `00_open/` 取用 |
+| 索引 | 根 `README.md`（项目清单 · 项目×机型矩阵 · 机型反查）＋ 各项目 `README.md`（有什么 · 能帮什么 · 关联机型）＋ `_index.json` |
+
+- 定位：**只读参考底座**，`00_resources/<project>/<rel>` 与 `00_open/<project>/<rel>` 逐级对应（不做适配）；
+  `assets/robots/<id>/` 才是按 contract v3 收敛后的可执行版本，两者机型 ID 一一对应但不可混用。
+- 机型归属通过索引表达（项目 README + 机型反查表），**不再按机型复制多份**。
+- 同步脚本：[`tools/sync_resources.py`](tools/sync_resources.py)（`--clean` / `--only <project>` / `--dry-run` / `--kb-only`）。
+- 规范与索引：[`00_resources/README.md`](00_resources/README.md) ｜ [`00_resources/_SPEC.md`](00_resources/_SPEC.md)
+
+---
+
 ## 详细文档
+
+**产品文档**（面向使用者）：
 
 - [桌面程序（Electron 启动器）](docs/desktop-app.md) —— 桌面壳架构、后端生命周期管理、IPC 接口、运行时供应、打包发行
 - [Web 程序（工作台 + sim2sim）](docs/web-app.md) —— FastAPI 路由结构、工作台页面、浏览器内 sim2sim 验证器、API 一览
+
+**知识库与决策文档**（面向维护者，索引见 [`00_know/README.md`](00_know/README.md)）：
+
+- [知识库索引](00_know/README.md) —— 愿景与路线 / 资产调研 / 参数标准 / 契约收敛专题四组文档的导航
+- [参考资源库](00_resources/README.md) —— 按来源项目组织的参考资源、项目 × 机型矩阵与省略登记
+- [资源模型重构方案](00_know/重构方案_RobotAsset资源模型与实施路线.md) —— RobotAsset 5 资源模型与 M0–M5 落地路线
 
 ---
 
