@@ -67,9 +67,15 @@ def browser_asset_bytes(root: Path) -> int:
 
 
 def acceptance_report_path(root: Path, policy_rel_path: str) -> Path:
-    """Acceptance convention: ``<onnx stem>.acceptance.json`` beside the policy."""
-    policy_file = Path(policy_rel_path.replace("\\", "/")).name
-    return root / "simulation" / "policies" / f"{Path(policy_file).stem}.acceptance.json"
+    """Acceptance convention: ``<onnx stem>.acceptance.json`` beside the policy.
+
+    Policies normally live in ``simulation/policies/`` (so this is the historical
+    location), but deploy-bundle policies live elsewhere (e.g. Wuji's
+    ``deploy/<version>/policy.onnx``); resolving relative to the policy keeps
+    both layouts working.
+    """
+    policy = Path(policy_rel_path.replace("\\", "/"))
+    return root / policy.with_name(f"{policy.stem}.acceptance.json")
 
 
 def load_acceptance_report(root: Path, policy_rel_path: str) -> dict[str, Any] | None:
