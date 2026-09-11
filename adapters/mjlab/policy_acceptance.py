@@ -18,10 +18,15 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+_ROOT = Path(__file__).resolve().parents[2]  # repo root
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 
 # ---------- 四元数/向量工具（约定与 app.js 一致：quat = [w, x, y, z]） ----------
@@ -46,19 +51,33 @@ def clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
 
+def deep_merge(base: dict, overlay: dict) -> dict:
+    """递归合并：dict 逐键合并，标量/列表由 overlay 覆盖（与后端契约合并同语义）。"""
+    out = dict(base)
+    for key, value in (overlay or {}).items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = deep_merge(out[key], value)
+        else:
+            out[key] = value
+    return out
+
+
 # ---------- 包契约读取 ----------
 
 class PackageContract:
     def __init__(self, package_dir: Path, policy_entry: dict[str, Any]):
         self.root = package_dir
-        self.sim = json.loads((package_dir / "simulation" / "config.json").read_text(encoding="utf-8"))
+        self.sim = json.loads((package_dir / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
         self.entry = policy_entry
-        self.contract = dict(policy_entry.get("contract") or {})
+        # 包级 policy_contract 是每个策略契约的默认值（后端 browser-config 会深合并，
+        # 验收器必须同语义，否则 microduck/zex-w/go2w 这类包级默认 kind 会丢失）。
+        package_default = self.sim.get("policy_contract") or self.sim.get("default_policy_contract") or {}
+        self.contract = deep_merge(package_default, policy_entry.get("contract") or {})
         # 策略未声明动作序时回退到机器人级 contract.json 的 action.joint_order
         robot_contract_path = package_dir / "contract.json"
         robot_order: list[str] = []
         if robot_contract_path.is_file():
-            rc = json.loads(robot_contract_path.read_text(encoding="utf-8"))
+            rc = json.loads(robot_contract_path.read_text(encoding="utf-8-sig"))
             action = rc.get("action") or {}
             robot_order = [str(n) for n in (action.get("joint_order") or rc.get("joints", {}).get("actuated_joints") or [])]
         self.action_joint_order = [str(n) for n in (self.contract.get("action_joint_order") or [])] or robot_order
@@ -88,6 +107,20 @@ class PackageContract:
         ]
         self.gait_period = float(self.contract.get("gait_period_s") or 0.6)
 
+        self.velocity_scale = float(self.contract.get("velocity_scale") or self.sim.get("velocity_scale") or 1.0)
+        raw_modes = self.contract.get("control_modes") or self.sim.get("control_modes") or {}
+        if isinstance(raw_modes, dict):
+            self.control_modes = {str(k).lower(): str(v).lower() for k, v in raw_modes.items()}
+        else:
+            self.control_modes = {}
+        self.history_len = max(1, int(self.contract.get("history_len") or policy_entry.get("history_len") or 1))
+        self.total_obs_dim = self.obs_dim * self.history_len
+        self.history_layout = str(self.contract.get("history_layout") or "")
+        mask = self.contract.get("observation_mask") or {}
+        self.wrap_pi_joints = [str(n) for n in (mask.get("wrap_pi") or [])]
+        self.command_dims = int(self.contract.get("command_dims") or 3)
+        self.task_type = str(self.contract.get("task_type") or "")
+
         control = self.sim.get("control") or {}
         self.stiffness = control.get("stiffness") or self.sim.get("stiffness") or {}
         self.damping = control.get("damping") or self.sim.get("damping") or {}
@@ -101,6 +134,13 @@ class PackageContract:
 
     def default_for(self, joint: str) -> float:
         return self.default_joint_angles.get(joint.lower(), 0.0)
+
+    def is_velocity_joint(self, name: str) -> bool:
+        """control_modes 为 {关节名: position|velocity} 映射（含 role 级 'wheel'）。"""
+        lowered = name.lower()
+        if self.control_modes.get(lowered) == "velocity":
+            return True
+        return "wheel" in lowered and self.control_modes.get("wheel") == "velocity"
 
     def gain_for(self, table: dict, joint: str) -> float:
         v = table.get(joint.lower())
@@ -141,6 +181,7 @@ class ObsBuilder:
                 jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
                 if jid >= 0:
                     self.jadr[name] = (int(model.jnt_qposadr[jid]), int(model.jnt_dofadr[jid]))
+        self.history: list[np.ndarray] = []
 
     def base_state(self):
         q = self.data.qpos[3:7].copy()
@@ -168,61 +209,274 @@ def spawn_default(contract: PackageContract, model, data, obs: "ObsBuilder") -> 
     mujoco.mj_forward(model, data)
 
 
-class ObsBuilderContinuation:
-    """占位：build 方法在下方以模块级函数补挂回 ObsBuilder（历史编辑事故的修复）。"""
+# ---------- 单帧观测规格（与 web/sim2sim/obs/observation_builders.js 逐项对齐） ----------
+#
+# 每个 observation_kind 的单帧由 _frame_* 函数产出；history（history_len>1）由
+# pack_history 统一按 app.js packObsHistoryByTerm 同布局打包。新增布局 = 加一个
+# _frame_* + 注册进 FRAME_BUILDERS，不再散落 if-else。
+
+# 浏览器端 IMU 采样与 mjlab/契约同号（直立 projected_gravity=(0,0,-1)），
+# 故 Python 侧直接用 qpos/qvel 推导，不再做符号翻转。
+
+_STANDARD_KINDS = {"go2_rl_sdk_45", "lite3_rl_sdk_hist6", "s07_amp_cts"}
 
 
-def _restore_obsbuilder_build():
-    def build(self: "ObsBuilder", cmd: np.ndarray) -> np.ndarray:
-        kind = self.contract.observation_kind
-        q, ang_b, lin_b = self.base_state()
-        c = self.contract
-        obs: list[float] = []
-        if kind == "go2w_mjlab_legs_53":
-            obs += list(ang_b * 1.0)
-            obs += list(projected_gravity(q))
-            obs += list(cmd * np.asarray(c.cmd_scale))
-            legs = c.action_joint_order[:12]
-            obs += [self.data.qpos[self.jadr[n][0]] - c.default_for(n) for n in legs]
-            obs += [self.data.qvel[self.jadr[n][1]] * c.dof_vel_scale for n in legs]
-            for n in ("FR_wheel_joint", "FL_wheel_joint", "RR_wheel_joint", "RL_wheel_joint"):
-                a = self.jadr.get(n)
-                obs.append(wrap_pi(self.data.qpos[a[0]]) if a else 0.0)
-            for n in ("FR_wheel_joint", "FL_wheel_joint", "RR_wheel_joint", "RL_wheel_joint"):
-                a = self.jadr.get(n)
-                obs.append(self.data.qvel[a[1]] * c.dof_vel_scale if a else 0.0)
-            obs += list(self.last_action)
-        elif kind == "g1_mjlab_velocity_98":
-            # 帧序与浏览器一致：当前相位进观测，随后推进（下一帧相位 = 帧号 × step_dt / period）
-            phase = (self.phase_s % c.gait_period) / c.gait_period
-            moving = float(np.linalg.norm(cmd)) >= 0.1
-            obs += list(ang_b * c.ang_vel_scale)
-            obs += list(projected_gravity(q))
-            obs += list(cmd * np.asarray(c.cmd_scale))
-            obs += [math.sin(phase * 2 * math.pi) if moving else 0.0]
-            obs += [math.cos(phase * 2 * math.pi) if moving else 0.0]
-            self.phase_s += c.step_dt
-            obs += [(self.data.qpos[self.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale for n in c.action_joint_order]
-            obs += [self.data.qvel[self.jadr[n][1]] * c.dof_vel_scale for n in c.action_joint_order]
-            obs += list(self.last_action)
-        elif kind == "g1_mjswan_locomotion":
-            obs += list(lin_b)
-            obs += list(ang_b * c.ang_vel_scale)
-            obs += list(projected_gravity(q))
-            obs += [(self.data.qpos[self.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale for n in c.action_joint_order]
-            obs += [self.data.qvel[self.jadr[n][1]] * c.dof_vel_scale for n in c.action_joint_order]
-            obs += list(self.last_action)
-            obs += list(cmd * np.asarray(c.cmd_scale))
-        else:
-            raise ValueError(f"验收器暂不支持观测布局: {kind!r}")
-        arr = np.asarray(obs, dtype=np.float32)
-        if c.obs_dim and arr.shape[0] != c.obs_dim:
-            raise ValueError(f"观测维度不符: 构建 {arr.shape[0]} vs 契约 {c.obs_dim}")
-        return arr[None, :]
-    return build
+def _std_frame(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """ang_vel·s, gravity, cmd·s, (q-default)·s, dq·s, action（四足/人形通用 45/98 基座）。"""
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = list(ang_b * c.ang_vel_scale)
+    out += list(projected_gravity(q))
+    out += list(cmd * np.asarray(c.cmd_scale))
+    out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in order]
+    out += list(obs.last_action)
+    return out
 
 
-ObsBuilder.build = _restore_obsbuilder_build()
+def _frame_g1_mjlab_velocity_98(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    phase = (obs.phase_s % c.gait_period) / c.gait_period
+    moving = float(np.linalg.norm(cmd)) >= 0.1
+    out = list(ang_b * c.ang_vel_scale) + list(projected_gravity(q)) + list(cmd * np.asarray(c.cmd_scale))
+    out += [math.sin(phase * 2 * math.pi) if moving else 0.0]
+    out += [math.cos(phase * 2 * math.pi) if moving else 0.0]
+    obs.phase_s += c.step_dt
+    out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in order]
+    out += list(obs.last_action)
+    return out
+
+
+def _frame_g1_amp_96(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    return _std_frame(obs, cmd)
+
+
+def _frame_g1_mjswan_balance(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = list(ang_b * c.ang_vel_scale) + list(projected_gravity(q))
+    out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in order]
+    out += list(obs.last_action)
+    return out
+
+
+def _frame_g1_mjswan_locomotion(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    c = obs.contract
+    _, ang_b, lin_b = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = list(lin_b) + list(ang_b * c.ang_vel_scale) + list(projected_gravity(q))
+    out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in order]
+    out += list(obs.last_action)
+    out += list(cmd * np.asarray(c.cmd_scale))
+    return out
+
+
+def _frame_go1_playground_48(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    c = obs.contract
+    _, ang_b, lin_b = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = list(lin_b) + list(ang_b) + list(projected_gravity(q))  # 裸值无缩放
+    out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] for n in order]
+    out += list(obs.last_action)
+    out += list(cmd)
+    return out
+
+
+def _frame_dreamwaq_57(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """DreamWaQ 轮足单帧 57：cmd, ang_vel, gravity, dof_pos_rel(轮清零), dof_vel, action。
+
+    参考 `00_resources/Dreamwaq/deploy/deploy_mujoco/deploy_mujoco.py:compute_observation`
+    （m20）：`obs[0:3]=cmd*[2,2,0.25]`、`obs[3:6]=ang_vel*0.25`、`obs[6:9]=gravity`、
+    dof_error 的轮子索引清零、dof_vel*0.05、action。
+    """
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = list(cmd * np.asarray(c.cmd_scale))
+    out += list(ang_b * c.ang_vel_scale)
+    out += list(projected_gravity(q))
+    out += [0.0 if c.is_velocity_joint(n) else (obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale
+            for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in order]
+    out += list(obs.last_action)
+    return out
+
+
+def _frame_himloco_45(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """HIMLoco 单帧 45：commands, ang_vel, gravity, dof_pos_rel, dof_vel, actions。
+
+    参考 `00_resources/rl_sar/policy/lite3/himloco/config.yaml` 的 observations 列表序
+    （commands 在最前）+ `rl_sdk.cpp:ComputeObservation` 的逐项缩放；history 由
+    observations_history_priority="time" 决定为 frame_major 最新帧在前。
+    """
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = list(cmd * np.asarray(c.cmd_scale))
+    out += list(ang_b * c.ang_vel_scale)
+    out += list(projected_gravity(q))
+    out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in order]
+    out += list(obs.last_action)
+    return out
+
+
+def _frame_go2w_mjlab_legs_53(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    legs = c.action_joint_order[:12]
+    wheels = c.wrap_pi_joints or ["FR_wheel_joint", "FL_wheel_joint", "RR_wheel_joint", "RL_wheel_joint"]
+    out = list(ang_b * c.ang_vel_scale) + list(projected_gravity(q)) + list(cmd * np.asarray(c.cmd_scale))
+    out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in legs]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in legs]
+    for n in wheels:
+        a = obs.jadr.get(n)
+        out.append(wrap_pi(obs.data.qpos[a[0]]) if a else 0.0)
+    for n in wheels:
+        a = obs.jadr.get(n)
+        out.append(obs.data.qvel[a[1]] * c.dof_vel_scale if a else 0.0)
+    out += list(obs.last_action)
+    return out
+
+
+def _frame_go2w_53(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """go2w_sim2sim 混合：ang·0.25, gravity, cmd, 12 腿 pos_rel, 12 腿 dq·0.05, 4 轮 dq·0.05, 16 action。"""
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    legs = c.action_joint_order[:12]
+    out = list(ang_b * 0.25) + list(projected_gravity(q)) + list(cmd * np.asarray(c.cmd_scale))
+    out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in legs]
+    out += [obs.data.qvel[obs.jadr[n][1]] * 0.05 for n in legs]
+    for n in ("FL_wheel_joint", "FR_wheel_joint", "RL_wheel_joint", "RR_wheel_joint"):
+        a = obs.jadr.get(n)
+        out.append(obs.data.qvel[a[1]] * 0.05 if a else 0.0)
+    out += list(obs.last_action)
+    return out
+
+
+def _frame_go2w_rl_sdk_57(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """rl_sar/robot_lab 57：ang·s, gravity, cmd, (轮位置清零), dq·s(16), action(16)。"""
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = list(ang_b * c.ang_vel_scale) + list(projected_gravity(q)) + list(cmd * np.asarray(c.cmd_scale))
+    for n in order:
+        rel = (obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale
+        out.append(0.0 if c.is_velocity_joint(n) else rel)
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in order]
+    out += list(obs.last_action)
+    return out
+
+
+def _frame_zexw_53(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """zex-w 53：ang·s, gravity, cmd·s, 非轮 pos_rel, 非轮 dq·s, 轮 dq·s, action(16)。"""
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = list(ang_b * c.ang_vel_scale) + list(projected_gravity(q)) + list(cmd * np.asarray(c.cmd_scale))
+    out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale
+            for n in order if not c.is_velocity_joint(n)]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale
+            for n in order if not c.is_velocity_joint(n)]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale
+            for n in order if c.is_velocity_joint(n)]
+    out += list(obs.last_action)
+    return out
+
+
+FRAME_BUILDERS = {
+    "go2_rl_sdk_45": _std_frame,
+    "lite3_rl_sdk_hist6": _std_frame,
+    "s07_amp_cts": _std_frame,
+    "g1_amp_96": _frame_g1_amp_96,
+    "g1_mjlab_velocity_98": _frame_g1_mjlab_velocity_98,
+    "g1_mjswan_locomotion": _frame_g1_mjswan_locomotion,
+    "g1_mjswan_balance": _frame_g1_mjswan_balance,
+    "go1_playground_48": _frame_go1_playground_48,
+    "go2w_53": _frame_go2w_53,
+    "go2w_mjlab_legs_53": _frame_go2w_mjlab_legs_53,
+    "go2w_rl_sdk_57": _frame_go2w_rl_sdk_57,
+    "zexw_53": _frame_zexw_53,
+    "himloco_45_hist6": _frame_himloco_45,
+    "dreamwaq_57": _frame_dreamwaq_57,
+    # lite3 的 rl_sar HIMLoco 部署与 go1 同源（observations 列表 commands 在前）；
+    # 包内 kind 标注曾误用通用 locomotion 序，这里按同一布局处理。
+    "lite3_rl_sdk_hist6": _frame_himloco_45,
+}
+
+# 需要 MotionLoader（参考动作 CSV）/13 维复合命令的布局：本轮交由 Node 桥（复用
+# web 侧同一真值）覆盖，Python 侧显式报错而不是给出错误观测。
+_DEFERRED_KINDS = {"go2_motion_69", "g1_motion_154", "microduck_61", "quadrupedal_agility_ll",
+                   "wheel_leg_gait_moe_cts", "wheel_leg_jump_moe_cts"}
+
+
+def pack_history(obs: "ObsBuilder", frames: list[np.ndarray]) -> np.ndarray:
+    """按 app.js packObsHistoryByTerm 同布局打包 history（frames 为 oldest→newest）。"""
+    c = obs.contract
+    if c.history_layout == "frame_major_v1":
+        return np.concatenate(list(reversed(frames)))  # 最新帧在前
+    if c.observation_kind == "zexw_53":
+        terms = [(0, 3), (3, 3), (6, 3), (9, 12), (21, 12), (33, 4), (37, 16)]
+        return np.concatenate([f[o:o + l] for o, l in terms for f in frames])
+    n = len(c.action_joint_order)
+    joint_offset, vel_offset, act_offset = 9, 9 + n, 9 + 2 * n
+    extra_offset = act_offset + n
+    extra_len = max(0, (c.obs_dim or extra_offset) - extra_offset)
+    base = [(0, 3), (3, 3), (6, c.command_dims)]
+    action_terms = [(joint_offset, n), (vel_offset, n), (act_offset, n)]
+    if c.history_layout == "term_major_suffix_extra_v1":
+        terms = base + action_terms + ([(extra_offset, extra_len)] if extra_len > 0 else [])
+    else:
+        terms = base + ([(extra_offset, extra_len)] if extra_len > 0 else []) + action_terms
+    return np.concatenate([f[o:o + l] for o, l in terms for f in frames])
+
+
+def _obs_build(self: "ObsBuilder", cmd: np.ndarray) -> np.ndarray:
+    c = self.contract
+    kind = c.observation_kind
+    if kind in _DEFERRED_KINDS:
+        raise ValueError(f"观测布局 {kind!r} 需 MotionLoader/复合命令，请用 Node 桥验收（obs_bridge.mjs）")
+    builder = FRAME_BUILDERS.get(kind)
+    if builder is None:
+        raise ValueError(f"验收器暂不支持观测布局: {kind!r}")
+    frame = np.asarray(builder(self, cmd), dtype=np.float32)
+    if c.obs_dim and frame.shape[0] != c.obs_dim:
+        raise ValueError(f"单帧观测维度不符: 构建 {frame.shape[0]} vs 契约 obs_dim={c.obs_dim}")
+    self.history.append(frame)
+    if len(self.history) > c.history_len:
+        self.history = self.history[-c.history_len:]
+    frames = list(self.history)
+    while len(frames) < c.history_len:
+        frames.insert(0, frames[0])
+    packed = pack_history(self, frames)
+    if c.total_obs_dim and packed.shape[0] != c.total_obs_dim:
+        raise ValueError(
+            f"观测维度不符: 打包 {packed.shape[0]} vs 契约 {c.total_obs_dim}"
+            f"（obs_dim {c.obs_dim} × history {c.history_len}）"
+        )
+    return packed[None, :].astype(np.float32)
+
+
+ObsBuilder.build = _obs_build
 
 
 # ---------- 单模式滚出 ----------
@@ -237,6 +491,7 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
     obs_builder = obs
     obs_builder.phase_s = 0.0
     obs_builder.last_action[:] = 0
+    obs_builder.history = []
     cmd_arr = np.asarray(cmd, dtype=np.float32)
 
     total = int(seconds / contract.step_dt)
@@ -245,6 +500,9 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
     roll_max = pitch_max = 0.0
     vel_errs: list[float] = []
     tracked = 0
+    steady_height: list[float] = []
+    steady_roll: list[float] = []
+    steady_pitch: list[float] = []
 
     for step in range(total):
         if step % contract.decimation == 0:
@@ -276,6 +534,10 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
             w_err = ang_b[2] - cmd_arr[2]
             vel_errs.append(float(np.linalg.norm(lin_b[:2] - cmd_arr[:2]) + 0.3 * abs(w_err)))
             tracked += 1
+            # 稳态度量：末 30% 窗口，避免启动瞬态（起摆/落地）主导判据。
+            steady_height.append(float(data.qpos[2]))
+            steady_roll.append(abs(roll))
+            steady_pitch.append(abs(pitch))
 
     survived_steps = (fell_at / contract.step_dt) if fell_at is not None else total
     metrics = {
@@ -287,9 +549,32 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
         "height_min": round(height_min, 3),
         "roll_max_deg": round(roll_max, 1),
         "pitch_max_deg": round(pitch_max, 1),
+        # 稳态（末 30%）：站立/平衡判据应以稳态为准，全局极值仅作诊断。
+        "height_steady": round(float(np.mean(steady_height)), 3) if steady_height else None,
+        "height_steady_ratio": round(float(np.mean(steady_height)) / max(contract.initial_height, 1e-6), 3) if steady_height else None,
+        "roll_steady_max_deg": round(max(steady_roll), 1) if steady_roll else None,
+        "pitch_steady_max_deg": round(max(steady_pitch), 1) if steady_pitch else None,
     }
     metrics["pass"] = (not metrics["fell"]) and metrics["survival_ratio"] >= 0.999
     return metrics
+
+
+def actuator_for_joint(model, joint_name: str) -> int:
+    """按 transmission 关节解析执行器 id。
+
+    机器人包的执行器名常与关节名不同（如 b2 `FR_hip` ↔ 关节 `FR_hip_joint`，
+    lite3 `FL_HipX_joint_ctrl` ↔ `FL_HipX_joint`），按名字查会漏配 → ctrl 从不
+    写入 → 机器人自由落体。按 `actuator_trnid` 反查与浏览器重建逻辑同源。
+    """
+    import mujoco
+
+    jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
+    if jid < 0:
+        return -1
+    for aid in range(model.nu):
+        if int(model.actuator_trntype[aid]) == int(mujoco.mjtTrn.mjTRN_JOINT) and int(model.actuator_trnid[aid, 0]) == jid:
+            return aid
+    return -1
 
 
 def actuate(contract: PackageContract, model, data, obs: ObsBuilder, raw: np.ndarray) -> None:
@@ -298,11 +583,14 @@ def actuate(contract: PackageContract, model, data, obs: ObsBuilder, raw: np.nda
     c = contract
     if c.actuator_interface == "position_target":
         for i, name in enumerate(c.action_joint_order):
-            aid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
+            aid = actuator_for_joint(model, name)
             if aid < 0:
                 continue
-            target = raw[i] * c.action_scales[i] + c.default_for(name)
-            data.ctrl[aid] = target
+            if c.is_velocity_joint(name):
+                # 轮子速度控制（DreamWaQ/rc_mjlab 等）：ctrl = 期望速度 = action × velocity_scale
+                data.ctrl[aid] = raw[i] * c.velocity_scale
+            else:
+                data.ctrl[aid] = raw[i] * c.action_scales[i] + c.default_for(name)
         # legs-only 契约里轮子无动作槽：ctrl 保持 0（速度执行器 = 阻尼被动）
         return
     # torque 接口：JS/训练端同款 PD（增益按关节名查表），再按 torque_limits 限幅
@@ -317,7 +605,7 @@ def actuate(contract: PackageContract, model, data, obs: ObsBuilder, raw: np.nda
         limit = c.torque_limits.get(name.lower())
         if limit:
             torque = clamp(torque, -limit, limit)
-        aid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
+        aid = actuator_for_joint(model, name)
         if aid >= 0:
             data.ctrl[aid] = torque
 
@@ -334,11 +622,82 @@ def default_modes(ranges) -> list[list[float]]:
     return modes
 
 
+def apply_actuator_rebuild(spec, package_dir: Path, sim_cfg: dict[str, Any]) -> bool:
+    """镜像后端的浏览器执行器重建（`configure_browser_actuators`），在 MjSpec 上原地改。
+
+    包 XML 常是 `motor`（力矩）执行器，而契约 `actuator_interface=position_target`
+    或含 velocity 轮：浏览器按 contract_v3 的 actuator_profile 重建为
+    position/velocity/motor 才能动。用 MjSpec 原生 API（保留 meshdir），
+    自包含不 import backend/fastapi。无 `browser_actuator_rebuild` 时不动。
+    """
+    if not sim_cfg.get("browser_actuator_rebuild"):
+        return False
+    v3_path = package_dir / "contract_v3.json"
+    robot_contract_path = package_dir / "contract.json"
+    if not v3_path.is_file() or not robot_contract_path.is_file():
+        return False
+    robot_contract = json.loads(robot_contract_path.read_text(encoding="utf-8-sig"))
+    action = robot_contract.get("action") or {}
+    order = list(action.get("joint_order") or (robot_contract.get("joints") or {}).get("actuated_joints") or [])
+    if not order:
+        return False
+    try:
+        from contracts.role_resolver import RoleResolver
+
+        expanded = RoleResolver(json.loads(v3_path.read_text(encoding="utf-8-sig"))).expand_actuator_profile()
+    except Exception:
+        return False
+
+    import mujoco
+
+    raw_modes = sim_cfg.get("control_modes") or {}
+    control_modes = {str(k).lower(): str(v).lower() for k, v in raw_modes.items()} if isinstance(raw_modes, dict) else {}
+
+    def _is_velocity_joint(name: str) -> bool:
+        lowered = name.lower()
+        if control_modes.get(lowered) == "velocity":
+            return True
+        return "wheel" in lowered and control_modes.get("wheel") == "velocity"
+
+    for act in list(spec.actuators):
+        spec.delete(act)
+    for joint_name in order:
+        name = str(joint_name)
+        params = expanded.get(name) or {}
+        effort = float(params.get("effort") or 40.0)
+        # control_modes 优先：轮子应建成 velocity 执行器，否则位置执行器会吃掉速度目标。
+        mode = "velocity" if _is_velocity_joint(name) else str(params.get("mode") or "position")
+        act = spec.add_actuator()
+        act.name = name if mode != "torque" else name.removesuffix("_joint")
+        act.trntype = mujoco.mjtTrn.mjTRN_JOINT
+        act.target = name
+        act.gear[0] = 1.0
+        act.forcelimited = True
+        act.forcerange[0], act.forcerange[1] = -effort, effort
+        act.gaintype = mujoco.mjtGain.mjGAIN_FIXED
+        if mode == "torque":
+            act.biastype = mujoco.mjtBias.mjBIAS_NONE
+            act.gainprm[0] = 1.0
+        elif mode == "velocity":
+            kv = float(params.get("damping") or 1.0)
+            act.biastype = mujoco.mjtBias.mjBIAS_AFFINE
+            act.gainprm[0] = kv
+            act.biasprm[2] = -kv
+        else:
+            kp = float(params.get("stiffness") or 20.0)
+            kv = float(params.get("damping") or 1.0)
+            act.biastype = mujoco.mjtBias.mjBIAS_AFFINE
+            act.gainprm[0] = kp
+            act.biasprm[1] = -kp
+            act.biasprm[2] = -kv
+    return True
+
+
 def load_package_model(package_dir: Path, sim_cfg: dict[str, Any]):
     """直接编译 model/robot.xml（meshdir 相对自身目录可解析），并补一块验收平地。
 
-    编译前应用契约的 armature/frictionloss（增量真值，覆盖 XML default）——
-    训练/验收/浏览器三方消费同一份物理常量。
+    编译前应用契约的 armature/frictionloss（增量真值，覆盖 XML default），并按需重建
+    执行器——训练/验收/浏览器三方消费同一份物理常量。
     """
     import mujoco
 
@@ -346,6 +705,7 @@ def load_package_model(package_dir: Path, sim_cfg: dict[str, Any]):
     if not model_xml.is_file():
         raise SystemExit(f"包内缺少模型: {model_xml}")
     spec = mujoco.MjSpec.from_file(str(model_xml))
+    apply_actuator_rebuild(spec, package_dir, sim_cfg)
 
     armature = sim_cfg.get("armature") or {}
     frictionloss = sim_cfg.get("frictionloss") or {}
@@ -445,7 +805,7 @@ def main() -> None:
     if not policy_path.is_absolute():
         policy_path = package_dir / policy_path
 
-    sim_cfg = json.loads((package_dir / "simulation" / "config.json").read_text(encoding="utf-8"))
+    sim_cfg = json.loads((package_dir / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
     policies = sim_cfg.get("policies") or []
     policy_entry = next(
         (p for p in policies if str(p.get("path", "")).endswith(policy_path.name) or p.get("id") == policy_path.stem),
@@ -469,8 +829,11 @@ def main() -> None:
 
     sess = ort.InferenceSession(str(policy_path), providers=["CPUExecutionProvider"])
     in_shape = sess.get_inputs()[0].shape
-    if contract.obs_dim and in_shape[-1] != contract.obs_dim:
-        raise SystemExit(f"ONNX 输入维度 {in_shape} 与契约 obs_dim={contract.obs_dim} 不符")
+    if contract.total_obs_dim and in_shape[-1] != contract.total_obs_dim:
+        raise SystemExit(
+            f"ONNX 输入维度 {in_shape} 与契约 {contract.total_obs_dim}"
+            f"（obs_dim {contract.obs_dim} × history {contract.history_len}）不符"
+        )
 
     modes = [[float(x) for x in m.split(",")] for m in args.modes] if args.modes else default_modes(contract.cmd_ranges)
 
