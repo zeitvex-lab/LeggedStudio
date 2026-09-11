@@ -28,10 +28,13 @@
       <section class="adv-panel">
         <span class="adv-kicker">Advanced Simulation</span>
         <h3>高级仿真</h3>
-        <p>承载需要<b>外部传感器</b>（深度相机 / 雷达 / 点云）或<b>目标驱动的自动任务</b>的策略；
-           盲狗这类无外部传感器、手动遥控的任务请用「基础仿真」。</p>
+        <p>承载需要<b>外部传感器</b>（深度相机 / 雷达 / 点云）或<b>目标驱动的自动任务</b>的策略。
+           感知有两条路径且都算合格：<b>A 类</b>感知进观测（深度 / 高度场进 student 策略）、
+           <b>B 类</b>感知在策略外（RL 只负责运动、<b>可以是盲狗</b>，由外挂传感器与感知模块做目标判定与规划决策）。
+           既无外部传感器、也无自动任务，只做手动遥控的策略请用「基础仿真」。</p>
         <div>
-          <span class="adv-tag">外部传感器</span>
+          <span class="adv-tag">策略内感知（A 类）</span>
+          <span class="adv-tag">盲狗 + 外挂感知（B 类）</span>
           <span class="adv-tag">自动任务</span>
           <span class="adv-tag">目标判定</span>
         </div>
@@ -63,14 +66,17 @@
       </section>
       <section class="adv-panel">
         <h3>工具</h3>
-        <p>导航地图编辑器用于绘制障碍 / 航点并自动求路，服务导航与感知任务。</p>
+        <p>导航地图编辑器用于绘制障碍 / 航点并自动求路，服务<b>外挂感知与导航决策（B 类）</b>：
+           规划器输出 <code>cmd_vel</code>，复用同一份 velocity 策略，无需重训。</p>
         <a class="adv-btn" id="advNavMapLink" href="navigation_editor.html?v=0.46.0&embedded=1" target="_blank" rel="noopener">打开导航地图编辑器</a>
       </section>
       <section class="adv-panel">
         <h3>说明</h3>
         <p>仿真内核直接复用基础仿真（MuJoCo WASM + ONNX Runtime + 观测构建器），
-           仅按 <code>sim_surface=advanced</code> 过滤策略清单；策略的观测/动作/成功判定
-           与无头 CPU 验收器共用同一份契约。</p>
+           仅按 <code>sim_surface=advanced</code> 过滤策略清单。感知有两条路径且都算合格：
+           <b>A 类</b>感知入观测（深度 / 高度场进 student 策略）、<b>B 类</b>感知在策略外
+           （RL 只负责运动、可以是盲狗，外挂传感器与感知模块负责目标判定与规划决策）。
+           策略的观测 / 动作 / 成功判定与无头 CPU 验收器共用同一份契约。</p>
       </section>
     </aside>
     <div class="adv-frame-wrap">
