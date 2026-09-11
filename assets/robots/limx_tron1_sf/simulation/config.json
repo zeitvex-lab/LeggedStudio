@@ -154,8 +154,7 @@
           ],
           "gait_freq": 1.3,
           "gait_swing": 0.12
-        },
-        "task_type": "velocity"
+        }
       }
     }
   ],
