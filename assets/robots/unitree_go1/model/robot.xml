@@ -154,7 +154,32 @@
     <framepos name="base_pos" objtype="site" objname="imu"/>
   </sensor>
 
+  <!-- 原生 position 执行器：浏览器仿真 actuator_interface=position_target 直接写
+       ctrl 目标角，模型级 PD（kp=35，mujoco_playground 训练配置）消费；
+       力矩限幅沿用各 joint 的 actuatorfrcrange（hip/thigh ±23.7、calf ±33.5）。
+       此前模型无 actuator 段，ctrl 无人消费 -> 机器人无力瘫倒（v0.43 修复）。
+       段序/name 对齐策略槽位（action_joint_order = FR,FL,RR,RL + 关节全名）：
+       运行时按关节名解析执行器，解析失败时按槽位直写 ctrl——两路都必须与
+       策略槽序一致，否则 RR/RL 执行器交叉（v0.43 实测教训）。 -->
+  <actuator>
+    <position name="FR_hip_joint" joint="FR_hip_joint" kp="35"/>
+    <position name="FR_thigh_joint" joint="FR_thigh_joint" kp="35"/>
+    <position name="FR_calf_joint" joint="FR_calf_joint" kp="35"/>
+    <position name="FL_hip_joint" joint="FL_hip_joint" kp="35"/>
+    <position name="FL_thigh_joint" joint="FL_thigh_joint" kp="35"/>
+    <position name="FL_calf_joint" joint="FL_calf_joint" kp="35"/>
+    <position name="RR_hip_joint" joint="RR_hip_joint" kp="35"/>
+    <position name="RR_thigh_joint" joint="RR_thigh_joint" kp="35"/>
+    <position name="RR_calf_joint" joint="RR_calf_joint" kp="35"/>
+    <position name="RL_hip_joint" joint="RL_hip_joint" kp="35"/>
+    <position name="RL_thigh_joint" joint="RL_thigh_joint" kp="35"/>
+    <position name="RL_calf_joint" joint="RL_calf_joint" kp="35"/>
+  </actuator>
+
   <keyframe>
-    <key name="home" qpos="0 0 0.35 1 0 0 0 0.1 0.8 -1.5 -0.1 0.8 -1.5 0.1 0.8 -1.5 -0.1 0.8 -1.5"/>
+    <!-- 关节段按模型序 FR,FL,RL,RR；右 hip=+0.1、左 hip=-0.1（外展对称，
+         himloco yaml/mjlab constants/menagerie 三方一致）。原 keyframe 后两腿
+         hip 符号反写（RL=+0.1/RR=-0.1），初始姿态歪斜，v0.43 修正。 -->
+    <key name="home" qpos="0 0 0.35 1 0 0 0 0.1 0.8 -1.5 -0.1 0.8 -1.5 -0.1 0.8 -1.5 0.1 0.8 -1.5"/>
   </keyframe>
 </mujoco>

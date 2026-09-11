@@ -285,6 +285,52 @@ function buildGo2wRlSdkObservation() {
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
 }
 
+// Go1（mujoco_playground Joystick 官方导出，play_go1_joystick.py 逐行取证）：
+// local_linvel(3), gyro(3), projected_gravity(3), joint_pos_rel(12),
+// joint_vel(12), last_action(12), command(3) —— 全部裸值无缩放；
+// 动作 = position target：action * 0.5 + default（action_scale=0.5，50Hz）。
+function buildGo1PlaygroundObservation() {
+  if (CONFIG.numObs !== 48 || CONFIG.numActions !== 12) {
+    throw new Error(`go1_playground_48 requires 48 observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = (imu.linear ? imu.linear[i] : 0);
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQpos(i) - CONFIG.defaultAngles[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i);
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i];
+}
+
+// Go1 HIM（HIMLoco 系；LeggedSkillDeploy go1/himloco config.yaml + 官方
+// src/scripts/{rl_sdk.py,observation_buffer.py} 源码取证）：
+// 单帧 45 按部署 yaml `observations` 列表序拼接（rl_sdk 按列表序逐项取值）：
+//   commands(3)·[2,2,0.25], ang_vel(3)·0.25【body 系】, projected_gravity(3),
+//   joint_pos_rel(12)·1.0, joint_vel(12)·0.05, last_action(12)。
+// onnx 输入 [1,270] = 45×6 帧 history，布局 frame_major_v1（新）：
+//   ObservationBuffer.get_obs_vec 对 yaml 倒序表 [5,4,3,2,1,0] 做 reversed
+//   遍历后 torch.cat —— 语义 = 整帧拼接且最新帧在前（[obs_t, obs_{t-1}, …]）。
+//   旧注释"块主序、最老帧在前"是误读，已被官方代码证伪。mjswan himloco.json
+//   的 interleaved/world_frame 声明同样不采信。动作 = position target
+//   （rl_kp=40/rl_kd=1，per-policy PD 写入模型执行器，见包内 robot.xml）。
+function buildGo1HimlocoObservation() {
+  if (CONFIG.numObs !== 45 || CONFIG.numActions !== 12) {
+    throw new Error(`himloco_45_hist6 requires 45 single-frame observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
 // Go2/B2 四足 rl_sar/robot_lab 部署契约（45 维，12 位置动作）：
 // ang_vel×0.25(body), gravity, cmd×1.0, (dof_pos-default)×1.0, dof_vel×0.05, 原始 action。
 function buildGo2RlSdkObservation() {
@@ -628,6 +674,8 @@ function geomBodyName(geomId) {
   const OBSERVATION_BUILDERS = {
     microduck_61: buildMicroDuckObservation,
     zexw_53: buildZexWObservation,
+    go1_playground_48: buildGo1PlaygroundObservation,
+    himloco_45_hist6: buildGo1HimlocoObservation,
     quadrupedal_agility_ll: buildAgilityLowLevelObservation,
     s07_amp_cts: buildS07AmpCtsObservation,
     g1_amp_96: buildG1AmpObservation,
