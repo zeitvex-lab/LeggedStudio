@@ -1,0 +1,19 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "go1-velocity-rough",
+  "display_name": "Unitree Go1 Velocity Rough (HIMLoco)",
+  "source": "00_resources/HIMLoco legged_gym/envs/go1（Go1RoughCfg）",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "go1_velocity.env_cfg:make_go1_rough_env_cfg",
+    "runner": "go1_velocity.env_cfg:go1_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "velocity_rough",
+  "terrain_type": "rough",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "sort_order": 20
+}

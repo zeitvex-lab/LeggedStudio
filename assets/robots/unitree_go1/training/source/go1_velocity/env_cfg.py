@@ -104,24 +104,35 @@ def _configure_rewards(cfg: ManagerBasedRlEnvCfg) -> None:
     cfg.rewards["pose"].params["std_running"] = moving
 
 
-def make_go1_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """Flat-ground Go1 velocity configuration."""
+def make_go1_env_cfg(play: bool = False, *, rough: bool = False) -> ManagerBasedRlEnvCfg:
+    """Go1 velocity configuration (flat or rough).
+
+    ``rough`` keeps mjlab's rough terrain generator, the root-body terrain scan
+    sensor and the height-scan termination/observation (source HIMLoco
+    ``Go1RoughCfg``, ``terrain.measure_heights = True``); ``flat`` drops them
+    (source walk-these-ways / flat evaluation).
+    """
     cfg = make_velocity_env_cfg()
-    cfg.sim.mujoco.ccd_iterations = 50
-    cfg.sim.contact_sensor_maxmatch = 64
+    cfg.sim.mujoco.ccd_iterations = 500 if rough else 50
+    cfg.sim.contact_sensor_maxmatch = 500 if rough else 64
     cfg.sim.nconmax = None
+    if rough and cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
+        cfg.scene.terrain.terrain_generator.curriculum = True
     cfg.scene.entities = {"robot": get_go1_robot_cfg()}
 
     feet_sensor, other_sensor = _contact_sensors()
     cfg.scene.sensors = (cfg.scene.sensors or ()) + (feet_sensor, other_sensor)
 
     assert cfg.scene.terrain is not None
-    cfg.scene.terrain.terrain_type = "plane"
-    cfg.scene.terrain.terrain_generator = None
-    # go1 has no dedicated foot sites, so the site-based raycast sensors are dropped.
+    if not rough:
+        cfg.scene.terrain.terrain_type = "plane"
+        cfg.scene.terrain.terrain_generator = None
+    # go1 has no dedicated foot sites, so the site-based foot height scan is
+    # always dropped; the root-body terrain scan is kept for rough only.
+    drop_sensors = ("foot_height_scan",) if rough else ("terrain_scan", "foot_height_scan")
     cfg.scene.sensors = tuple(
         sensor for sensor in (cfg.scene.sensors or ())
-        if sensor.name not in ("terrain_scan", "foot_height_scan")
+        if sensor.name not in drop_sensors
     )
 
     action = cfg.actions["joint_pos"]
@@ -159,15 +170,18 @@ def make_go1_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg.rewards["body_ang_vel"].params["asset_cfg"].body_names = (_ROOT_BODY,)
 
     _restructure_actor_obs(cfg)
-    cfg.observations["critic"].terms.pop("height_scan", None)
+    if not rough:
+        cfg.observations["critic"].terms.pop("height_scan", None)
 
-    cfg.terminations.pop("out_of_terrain_bounds", None)
+    if not rough:
+        cfg.terminations.pop("out_of_terrain_bounds", None)
     cfg.terminations["illegal_contact"] = TerminationTermCfg(
         func=mdp.illegal_contact,
         params={"sensor_name": other_sensor.name, "force_threshold": 10.0},
     )
 
-    cfg.curriculum.pop("terrain_levels", None)
+    if not rough:
+        cfg.curriculum.pop("terrain_levels", None)
     cfg.curriculum.pop("command_vel", None)
 
     if play:
@@ -180,8 +194,22 @@ def make_go1_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     return cfg
 
 
+def make_go1_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Flat-ground Go1 velocity configuration."""
+    return make_go1_env_cfg(play, rough=False)
+
+
+def make_go1_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Rough-terrain Go1 velocity configuration (source HIMLoco Go1RoughCfg)."""
+    return make_go1_env_cfg(play, rough=True)
+
+
 def go1_flat_env_cfg(*, play: bool = False):
     return make_go1_flat_env_cfg(play=play)
+
+
+def go1_rough_env_cfg(*, play: bool = False):
+    return make_go1_rough_env_cfg(play=play)
 
 
 def go1_runner_cfg():
