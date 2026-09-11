@@ -120,7 +120,8 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
     motion = contract.observation_kind in ("go2_motion_69", "g1_motion_154")
     family = "imitation" if motion else (family or task_family(entry, contract))
 
-    model = engine.load_package_model(package_dir, sim_cfg)
+    effort_override = {str(k).lower(): float(v) for k, v in (contract.contract.get("torque_limits") or {}).items()}
+    model = engine.load_package_model(package_dir, sim_cfg, effort_override or None)
     model.opt.timestep = 1.0 / contract.physics_hz
     data = mujoco.MjData(model)
     try:
