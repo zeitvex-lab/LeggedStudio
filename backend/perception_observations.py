@@ -64,11 +64,21 @@ PERCEPTION_ITEMS: dict[str, PerceptionObservationItem] = {
         id="heightfield",
         label="地形高度场 (Heightfield)",
         sensor="heightfield",
-        width=180,
+        width=187,
         scale=1.0,
-        description="机身周围采样地形高度网格（egomotion 局部窗）；支撑粗糙地形与上楼决策。",
+        description=(
+            "机身周围 17×11（0.1 m 步长，1.6 m × 1.0 m）地形高度网格，x 主序；"
+            "支撑粗糙地形与上楼决策。网格契约与构造器见 backend/height_scan.py。"
+        ),
         sample_dot_path="environment.observations.actor.terms.heightmap",
-        meta={"kind": "terrain", "sample": "radial_grid"},
+        meta={
+            "kind": "terrain",
+            "sample": "measured_points_grid",
+            "shape": [17, 11],
+            "spacing_m": 0.1,
+            "order": "x_major",
+            "source": "legged_gym measured_points（HIMLoco / m20_dreamwaq）",
+        },
     ),
     "depth_camera": PerceptionObservationItem(
         id="depth_camera",
@@ -84,21 +94,25 @@ PERCEPTION_ITEMS: dict[str, PerceptionObservationItem] = {
         id="lidar_height_scan",
         label="雷达高度扫描 (LiDAR Height Scan)",
         sensor="lidar",
-        width=180,
+        width=187,
         scale=1.0,
         description=(
-            "把 3D 点云投影到机身周围径向网格得到的高度扫描；网格规格与 heightfield 一致（180），"
-            "便于外部雷达链路与内置射线 heightfield 做逐格对齐回归。标定与内外参约定见 "
-            "sensor_suite 的 lidar 声明。"
+            "把 3D 点云按机身周围 187 个测量点（17×11，0.1 m 步长）聚合 min-z 得到的高度扫描；"
+            "网格与 heightfield 完全一致，用于外部雷达链路与内置射线 heightfield 的逐格对齐回归。"
+            "构造器与对齐用例见 backend/height_scan.py；标定与内外参约定见 sensor_suite 的 lidar 声明。"
         ),
         sample_dot_path="environment.observations.actor.terms.lidar_height_scan",
         meta={
             "kind": "terrain",
-            "grid": "radial",
+            "grid": "measured_points_grid",
+            "grid_shape": [17, 11],
+            "grid_size": 187,
+            "spacing_m": 0.1,
+            "order": "x_major",
             "source_sensor": "lidar",
             "align_with": "heightfield",
-            "grid_size": 180,
             "projection": "min_z_per_cell",
+            "value": "base_z - point_z (m)",
         },
     ),
     "base_lin_vel": PerceptionObservationItem(

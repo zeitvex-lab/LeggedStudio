@@ -209,3 +209,118 @@ class SensorKindCoverageTests(unittest.TestCase):
         from backend.sensor_suite import SENSOR_KIND_CLASSES
 
         self.assertFalse(set(self.DERIVED_SOURCES) & set(SENSOR_KIND_CLASSES))
+
+
+class HeightScanAlignmentTests(unittest.TestCase):
+    """机身高度扫描网格契约（187 点）与「点云 vs 射线」逐格对齐回归。"""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_grid_matches_upstream_measured_points(self):
+        from backend.height_scan import GRID_POINTS, MEASURED_POINTS_X, MEASURED_POINTS_Y, grid_spec
+
+        spec = grid_spec()
+        self.assertEqual(spec["points"], 187)
+        self.assertEqual(spec["points"], GRID_POINTS)
+        self.assertEqual(spec["shape"], [17, 11])
+        self.assertEqual(spec["order"], "x_major")
+        self.assertEqual(spec["spacing_m"], 0.1)
+        self.assertEqual(len(MEASURED_POINTS_X), 17)
+        self.assertEqual(len(MEASURED_POINTS_Y), 11)
+        self.assertAlmostEqual(MEASURED_POINTS_X[0], -0.8)
+        self.assertAlmostEqual(MEASURED_POINTS_X[-1], 0.8)
+        self.assertAlmostEqual(MEASURED_POINTS_Y[0], -0.5)
+        self.assertAlmostEqual(MEASURED_POINTS_Y[-1], 0.5)
+
+    def test_catalog_items_share_one_grid(self):
+        from backend.height_scan import GRID_POINTS
+
+        items = {item["id"]: item for item in list_perception_items()}
+        self.assertEqual(items["heightfield"]["width"], GRID_POINTS)
+        self.assertEqual(items["lidar_height_scan"]["width"], GRID_POINTS)
+        self.assertEqual(items["heightfield"]["meta"]["shape"], [17, 11])
+        self.assertEqual(items["lidar_height_scan"]["meta"]["grid_shape"], [17, 11])
+
+    def test_lattice_cloud_reproduces_raycast_exactly(self):
+        """点云恰好落在 187 个测量点上时，两条链路必须逐格完全一致（同网格保证）。"""
+        from backend.height_scan import (
+            align_height_scans,
+            build_height_scan_from_points,
+            build_height_scan_from_terrain,
+            world_grid_points,
+        )
+
+        def terrain(x: float, y: float) -> float:
+            return 0.05 * x - 0.2 * y + 0.01 * x * y
+
+        base_xy, base_z, yaw = (0.4, -0.3), 0.5, 0.3
+        reference = build_height_scan_from_terrain(terrain, base_xy, base_z, yaw)
+        cloud = [(wx, wy, terrain(wx, wy)) for wx, wy in world_grid_points(base_xy, yaw)]
+        candidate = build_height_scan_from_points(cloud, base_xy, base_z, yaw)
+        report = align_height_scans(reference, candidate, tolerance=0.0)
+        self.assertEqual(len(reference), 187)
+        self.assertEqual(report["max_abs_diff"], 0.0)
+        self.assertTrue(report["within_tolerance"])
+
+    def test_selftest_reports_expected_bounds(self):
+        from backend.height_scan import alignment_selftest
+
+        report = alignment_selftest()
+        self.assertEqual(report["verdict"], "pass")
+        self.assertEqual(report["failures"], [])
+        cases = {case["name"]: case for case in report["cases"]}
+        self.assertEqual(set(cases), {"flat", "slope_10pct", "step_0.2", "yaw_45deg"})
+        self.assertEqual(cases["flat"]["max_abs_diff"], 0.0)
+        self.assertEqual(cases["yaw_45deg"]["max_abs_diff"], 0.0)
+        # 台阶边界切在单元内部 → 恰好暴露一个台阶高的离散化差异
+        self.assertAlmostEqual(cases["step_0.2"]["max_abs_diff"], 0.2, places=6)
+        slope = cases["slope_10pct"]
+        self.assertLessEqual(slope["max_abs_diff"], slope["bound"] + 1e-12)
+
+    def test_height_scan_endpoints(self):
+        grid = self.client.get("/api/perception/height-scan/grid").json()
+        self.assertTrue(grid["success"])
+        self.assertEqual(grid["grid"]["points"], 187)
+        selftest = self.client.get("/api/perception/height-scan/selftest?step=0.02").json()
+        self.assertEqual(selftest["verdict"], "pass")
+        self.assertEqual(len(selftest["cases"]), 4)
+        self.assertEqual(
+            self.client.get("/api/perception/height-scan/selftest?step=1").status_code, 400
+        )
+
+    def test_project_terrain_alignment(self):
+        """用项目自己的地形生成器（5 种地形）跑对齐，全部落在坡度推导的上界内。"""
+        from backend.height_scan import map_alignment_selftest
+
+        for kind in ("flat", "slope", "stairs", "noise", "obstacle_mix"):
+            report = map_alignment_selftest(kind=kind, seed=3)
+            self.assertEqual(report["verdict"], "pass", f"{kind}: {report['case']}")
+            case = report["case"]
+            self.assertLessEqual(case["max_abs_diff"], case["bound"] + 1e-12, kind)
+        flat = map_alignment_selftest(kind="flat")["case"]
+        self.assertEqual(flat["max_abs_diff"], 0.0)
+
+    def test_selftest_map_endpoint(self):
+        payload = self.client.get("/api/perception/height-scan/selftest-map?kind=noise").json()
+        self.assertEqual(payload["verdict"], "pass")
+        self.assertEqual(payload["case"]["terrain"]["kind"], "noise")
+        self.assertEqual(
+            self.client.get("/api/perception/height-scan/selftest-map?kind=nope").status_code, 400
+        )
+
+    def test_point_cloud_aggregation_and_fill(self):
+        from backend.height_scan import build_height_scan_from_points
+
+        # 三个点都落在中心单元（x=0.0, y=0.0 → index = 8 * 11 + 5 = 93）
+        cloud = [(0.0, 0.0, 1.0), (0.0, 0.0, 0.5), (0.02, 0.01, 0.8)]
+        base_xy, base_z = (0.0, 0.0), 1.0
+        minimum = build_height_scan_from_points(cloud, base_xy, base_z, aggregate="min")
+        maximum = build_height_scan_from_points(cloud, base_xy, base_z, aggregate="max")
+        mean = build_height_scan_from_points(cloud, base_xy, base_z, aggregate="mean")
+        self.assertEqual(minimum[0], 0.0)  # 空单元 → fill
+        self.assertAlmostEqual(minimum[93], 0.5)  # base_z - min z
+        self.assertAlmostEqual(maximum[93], 0.0)  # base_z - max z
+        self.assertAlmostEqual(mean[93], 1.0 - (1.0 + 0.5 + 0.8) / 3.0)
+        emptied = build_height_scan_from_points([], base_xy, base_z, fill=-1.0)
+        self.assertTrue(all(value == -1.0 for value in emptied))

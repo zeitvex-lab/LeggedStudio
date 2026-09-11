@@ -265,7 +265,10 @@ slam/src/config/config.yaml: lid_topic=/front_lidar, imu_topic=/front_lidar/imu
 | `tools/matrix_sensor_corpus.py`（新增） | 容器探测（魔数/版本/帧大小/正体偏移/帧数/时长）+ `--selftest` + `--json`，退出码 0/1/2 | 语料可验证、缺失可降级；不写猜测性载荷解析 |
 | `web/advanced_sim.html` | 新增「外部传感器套件」面板，读 `/api/sensors/presets(+/default)` | 高级仿真页从文案升级为数据驱动 |
 | `backend/test_perception_observations.py` | 新增 `MatrixSensorSuiteTests` / `MatrixSensorCorpusTests` / `SensorKindCoverageTests`（模块共 19 例） | 该测试模块已在 `.cnb.yml` 的 unit-tests 清单中，改动即被 CI 覆盖 |
-| `.gitignore` | 新增 `matrix-v1.0.13/`、`matrix-robot-mc-*/`、`genisom-roamerx-open/` | 三份外部发行物（合计 10.7G）永不入库 |
+| `.gitignore` | 新增 `matrix-v1.0.13/`、`matrix-robot-mc-*/`、`genisom-roamerx-open/`、`amithyst-matrix/` | 外部发行物与参考仓永不入库 |
+| `backend/height_scan.py`（新增） | 上游 **187 点**高度扫描网格契约（17×11 / 0.1 m / x 主序，机身系）+ 点云与射线两条取数路径 + `align_height_scans` + `/api/perception/height-scan/{grid,selftest,selftest-map}` | 把「外部雷达 ↔ 内置 heightfield」的逐格对齐回归变成可跑代码；`selftest-map` 直接用 `backend/terrain_gen` 的 5 种地形 |
+| `backend/perception_observations.py` | `heightfield` / `lidar_height_scan` 宽度 **180 → 187**，补网格 meta（shape/order/spacing/来源） | 修正目录与真实网格不一致：仓内训练源多处声明 `terrain_dim = 187`（go2 `contract.py:22`、m20 `constants.py:159`） |
+| `web/advanced_sim.html` | 新增「高度扫描对齐」面板（网格规格 + 合成 4 例 + 项目地形 noise 自检结论） | 高级仿真页可直接看到对齐结论 |
 
 ## 6. 未提取 / 不建议
 
@@ -334,4 +337,4 @@ MATRiX 生态（A 运行时 / B 运控 / C 导航栈）对项目的**可迁移�
 - **对训练**：三份发行物**都不含训练源码**，因此不能新增可训练任务或登记部署策略（规则 T/S）；它们的价值在于三类输入——B 的 `user-parameters`（限位/零位/增益真值，可与 A 的 MJCF 与项目契约三方对照）、B 的行为清单（`task_type` / `trick_triggers` 枚举）、C 的导航与 SLAM 栈（任务判据、课程、估计器基线）。
 - **不可复用或不该复用**：UE5/ROS2 运行时（GPU / Ubuntu 22.04 门槛，进不了 CI）、B 的加密策略（明确不解密）、点云载荷（无公开布局）。
 
-下一步优先级：① T1 参数三方对照校验器（离线、可单测，直接产出真值表证据）；② 把 A 的投影与 bbox 工具接进高级仿真页；③ 用 A 的语料做 `lidar_height_scan ↔ heightfield` 对齐回归。
+下一步优先级：① T1 参数三方对照校验器（离线、可单测，直接产出真值表证据）；② 把 A 的投影（LiDAR→相机）与 bbox 工具接进高级仿真页（§4.1 #3/#4）；③ ~~用 A 的语料做 `lidar_height_scan ↔ heightfield` 对齐回归~~ —— **已落地**（`backend/height_scan.py`，网格修正为 187，合成 4 例 + 项目地形 5 种全部在坡度推导上界内；语料载荷未解码前，点云侧先用合成/地形采样点验证链路）。
