@@ -381,10 +381,12 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
             acceptance_check = _acceptance_health_check(root, policy_path)
             if acceptance_check:
                 entry_checks.append(acceptance_check)
+            encoder_path = str(item.get("encoder") or "").replace("\\", "/")
             public_policies.append({
                 "id": str(item.get("id") or Path(policy_path).stem),
                 "label": str(item.get("label") or item.get("id") or Path(policy_path).stem),
                 "url": f"/api/simulation/browser-package/{canonical_robot_id}/{policy_path}",
+                "encoder_url": (f"/api/simulation/browser-package/{canonical_robot_id}/{encoder_path}" if encoder_path else None),
                 "path": policy_path,
                 "obs_dim": int(item.get("obs_dim") or contract.get("observation", {}).get("dimension") or 0),
                 "action_dim": int(item.get("action_dim") or len(order)),
@@ -408,10 +410,12 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
             if selected_acceptance:
                 selected_checks.append(selected_acceptance)
                 selected_ok = bool(selected_acceptance["ok"])
+            sel_encoder = str(selected_policy.get("encoder") or "").replace("\\", "/")
             policy = {
                 "id": str(selected_policy.get("id") or Path(policy_path).stem),
                 "disabled": False,
                 "onnx_url": f"/api/simulation/browser-package/{canonical_robot_id}/{policy_path}",
+                "encoder_url": (f"/api/simulation/browser-package/{canonical_robot_id}/{sel_encoder}" if sel_encoder else None),
                 "checkpoint_iteration": selected_policy.get("checkpoint_iteration"),
                 "health": {"status": "pass" if selected_ok else "warn", "checks": selected_checks},
                 "contract": {

@@ -130,6 +130,23 @@ test('g1_amp_96', makeCtx({ kind:'g1_amp_96', numObs:96, numActions:29 }));
   test('quadrupedal_agility_ll', c);
 }
 {
+  const c = makeCtx({ kind:'tron1_pf_30', numObs:30, numActions:6 });
+  c.CONFIG.tron1Swap = [0, 3, 1, 4, 2, 5];
+  test('tron1_pf_30', c);
+}
+{
+  const c = makeCtx({ kind:'tron1_sf_36', numObs:36, numActions:8 });
+  c.CONFIG.tron1Swap = [0, 4, 1, 5, 2, 6, 3, 7];
+  test('tron1_sf_36', c);
+}
+{
+  const c = makeCtx({ kind:'tron1_wf_28', numObs:28, numActions:8 });
+  c.CONFIG.tron1Swap = [0, 4, 1, 5, 2, 6, 3, 7];
+  c.CONFIG.tron1JointPosIdx = [0, 1, 2, 4, 5, 6];
+  c.CONFIG.tron1SwapPos = [0, 3, 1, 4, 2, 5];
+  test('tron1_wf_28', c);
+}
+{
   const c = makeCtx({ kind:'wheel_leg_gait_moe_cts', numObs:60, numActions:16 });
   const obs = createObservationSystems(c);
   obs.updateGaitControl();
