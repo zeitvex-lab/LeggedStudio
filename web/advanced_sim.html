@@ -180,6 +180,19 @@
         tags.push(
           `<span class="adv-tag">几何自检 ${selftest.verdict === "pass" ? "通过" : "未通过"}（${(selftest.cases || []).length} 例）</span>`
         );
+        try {
+          const cross = await fetchJson("/api/perception/projection/mujoco-check");
+          if (cross.available === false) {
+            tags.push('<span class="adv-tag">MuJoCo 交叉校验 不可用</span>');
+          } else {
+            const worst = Math.max(cross.max_abs_du || 0, cross.max_abs_dv || 0);
+            tags.push(
+              `<span class="adv-tag">MuJoCo 交叉校验 ${cross.verdict === "pass" ? "通过" : "未通过"}（${cross.compared} 点 · 最大 ${worst.toExponential(1)} px）</span>`
+            );
+          }
+        } catch (_) {
+          tags.push('<span class="adv-tag">MuJoCo 交叉校验 不可用</span>');
+        }
         box.innerHTML = tags.join("");
       } catch (err) {
         box.innerHTML = '<span class="adv-tag">相机投影契约加载失败</span>';

@@ -446,6 +446,196 @@ def camera_projection_selftest() -> dict[str, Any]:
     }
 
 
+def _quat_from_matrix(matrix: list[list[float]]) -> tuple[float, float, float, float]:
+    """旋转矩阵 → 四元数 (w, x, y, z)（Shepperd 分支法，纯 Python）。"""
+    m = matrix
+    trace = m[0][0] + m[1][1] + m[2][2]
+    if trace > 0.0:
+        s = math.sqrt(trace + 1.0) * 2.0
+        w = 0.25 * s
+        x = (m[2][1] - m[1][2]) / s
+        y = (m[0][2] - m[2][0]) / s
+        z = (m[1][0] - m[0][1]) / s
+    elif m[0][0] > m[1][1] and m[0][0] > m[2][2]:
+        s = math.sqrt(1.0 + m[0][0] - m[1][1] - m[2][2]) * 2.0
+        w = (m[2][1] - m[1][2]) / s
+        x = 0.25 * s
+        y = (m[0][1] + m[1][0]) / s
+        z = (m[0][2] + m[2][0]) / s
+    elif m[1][1] > m[2][2]:
+        s = math.sqrt(1.0 + m[1][1] - m[0][0] - m[2][2]) * 2.0
+        w = (m[0][2] - m[2][0]) / s
+        x = (m[0][1] + m[1][0]) / s
+        y = 0.25 * s
+        z = (m[1][2] + m[2][1]) / s
+    else:
+        s = math.sqrt(1.0 + m[2][2] - m[0][0] - m[1][1]) * 2.0
+        w = (m[1][0] - m[0][1]) / s
+        x = (m[0][2] + m[2][0]) / s
+        y = (m[1][2] + m[2][1]) / s
+        z = 0.25 * s
+    norm = math.sqrt(w * w + x * x + y * y + z * z)
+    return (w / norm, x / norm, y / norm, z / norm)
+
+
+def mujoco_camera_pose(sensor: dict[str, Any]) -> dict[str, Any]:
+    """把 FLU 安装（``position``/``rotation``）换算成 MuJoCo ``<camera>`` 位姿。
+
+    MuJoCo 相机约定：本地 **x 右、y 上、z 后**，视线沿本地 **−z**（OpenGL 风格）。
+    与安装系 FLU（x 前 y 左 z 上）的关系（安装系坐标下的相机三轴）：
+
+        X_mj = (0, −1, 0)   Y_mj = (0, 0, 1)   Z_mj = (−1, 0, 0)
+
+    再左乘安装旋转 ``R_mount`` 得到世界（机身）系下的姿态。
+    """
+    frame = camera_frame_from_sensor(sensor)
+    rot = frame["rotation"]  # 安装旋转：安装系轴 → 机身系
+    columns = [
+        _mat_vec(rot, (0.0, -1.0, 0.0)),
+        _mat_vec(rot, (0.0, 0.0, 1.0)),
+        _mat_vec(rot, (-1.0, 0.0, 0.0)),
+    ]
+    axis_matrix = [[columns[c][r] for c in range(3)] for r in range(3)]
+    return {
+        "pos": list(frame["translate"]),
+        "quat": list(_quat_from_matrix(axis_matrix)),
+        "axis_matrix": axis_matrix,
+    }
+
+
+#: 交叉校验用的采样点（机身系，米）：中心 / 左右 / 上下 / 远近 / 一个后方点
+MUJOCO_CHECK_POINTS: tuple[tuple[float, float, float], ...] = (
+    (2.0, 0.0, 0.0),
+    (2.0, 0.5, 0.0),
+    (2.0, -0.5, 0.0),
+    (2.0, 0.0, 0.4),
+    (2.0, 0.0, -0.4),
+    (0.8, 0.15, 0.05),
+    (3.5, -0.3, 0.2),
+    (-1.0, 0.0, 0.0),
+)
+
+
+def mujoco_camprojection_check(
+    *,
+    sensor: dict[str, Any] | None = None,
+    focal_m: float = 0.05,
+    sensor_size_m: tuple[float, float] = (0.036, 0.024),
+    resolution: tuple[int, int] = (640, 480),
+    points: Sequence[Point3] | None = None,
+) -> dict[str, Any]:
+    """用 MuJoCo 原生 ``<camprojection>`` 交叉校验本模块的针孔投影。
+
+    做法：把 ``sensor_suite`` 的相机安装换算成 MuJoCo 相机位姿（:func:`mujoco_camera_pose`），
+    在 MJCF 里建同一位姿的 ``<camera>`` 与若干目标 site，取其 ``<camprojection>`` 输出，
+    与本模块 :func:`project_base_points` 的结果逐点比较。
+
+    口径差异说明：MuJoCo 内参为 ``fx = focal/sensorsize_x·res_x``、
+    ``fy = focal/sensorsize_y·res_y``、主点 ``(res_x/2, res_y/2)``；本模块默认主点为
+    ``((W−1)/2, (H−1)/2)``。交叉校验时**显式传入 MuJoCo 的主点**，因此比较的是投影数学本身，
+    半像素差被隔离在 ``principal_point_convention`` 字段里单独报告。
+    """
+    try:
+        import mujoco  # noqa: PLC0415
+    except ImportError as exc:  # pragma: no cover - 依赖缺失时降级
+        return {"available": False, "reason": f"mujoco 不可导入: {exc}"}
+
+    if sensor is None:
+        from backend.sensor_suite import preset_sensors
+
+        sensor = next(item.to_dict() for item in preset_sensors("default") if item.kind == "rgb")
+    probes = tuple(points) if points is not None else MUJOCO_CHECK_POINTS
+
+    pose = mujoco_camera_pose(sensor)
+    res_x, res_y = resolution
+    intrinsics = resolve_intrinsics(
+        res_x,
+        res_y,
+        fx=focal_m / sensor_size_m[0] * res_x,
+        fy=focal_m / sensor_size_m[1] * res_y,
+        cx=res_x / 2.0,
+        cy=res_y / 2.0,
+    )
+
+    target_bodies = "\n".join(
+        f'    <body name="t{i}" pos="{p[0]} {p[1]} {p[2]}"><site name="s{i}" size="0.001"/><geom size="0.001"/></body>'
+        for i, p in enumerate(probes)
+    )
+    sensors = "\n".join(
+        f'    <camprojection name="uv{i}" site="s{i}" camera="cam"/>' for i in range(len(probes))
+    )
+    xml = f"""
+<mujoco model="projection-crosscheck">
+  <worldbody>
+    <body name="cam_body" pos="{pose['pos'][0]} {pose['pos'][1]} {pose['pos'][2]}"
+          quat="{pose['quat'][0]} {pose['quat'][1]} {pose['quat'][2]} {pose['quat'][3]}">
+      <camera name="cam" pos="0 0 0" focal="{focal_m} {focal_m}"
+              sensorsize="{sensor_size_m[0]} {sensor_size_m[1]}"
+              resolution="{res_x} {res_y}"/>
+    </body>
+{target_bodies}
+  </worldbody>
+  <sensor>
+{sensors}
+  </sensor>
+</mujoco>
+"""
+    model = mujoco.MjModel.from_xml_string(xml)
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+
+    mine = project_base_points(probes, sensor, intrinsics)
+    rows: list[dict[str, Any]] = []
+    max_du = max_dv = 0.0
+    for i, point in enumerate(probes):
+        reference = data.sensordata[i * 2 : i * 2 + 2]
+        expected = mine[i]
+        if not expected["valid"]:
+            rows.append({"point": list(point), "mujoco": None, "mine": None, "skipped": "相机后方"})
+            continue
+        du = abs(float(reference[0]) - expected["u"])
+        dv = abs(float(reference[1]) - expected["v"])
+        max_du, max_dv = max(max_du, du), max(max_dv, dv)
+        rows.append(
+            {
+                "point": list(point),
+                "mujoco": [float(reference[0]), float(reference[1])],
+                "mine": [round(expected["u"], 9), round(expected["v"], 9)],
+                "abs_du": du,
+                "abs_dv": dv,
+            }
+        )
+
+    compare = [row for row in rows if "mujoco" in row and row["mujoco"] is not None]
+    # MuJoCo 的 sensordata 以 float32 存储：像素量级 ~500 时 ULP ≈ 6e-5 px，
+    # 因此判定阈值取 2 × ULP（数学一致性远优于该量级，见 rows 里的 abs_du/abs_dv）。
+    max_coord = max((abs(value) for row in compare for value in row["mujoco"]), default=0.0)
+    tolerance = max(1e-6, 2.0 * max_coord * 2.0 ** -23)
+    return {
+        "available": True,
+        "success": True,
+        "camera_pose": pose,
+        "intrinsics": intrinsics,
+        "resolution": [res_x, res_y],
+        "principal_point_convention": {
+            "mujoco": [res_x / 2.0, res_y / 2.0],
+            "camera_projection_default": [(res_x - 1) / 2.0, (res_y - 1) / 2.0],
+        },
+        "compared": len(compare),
+        "max_abs_du": max_du,
+        "max_abs_dv": max_dv,
+        "tolerance_px": tolerance,
+        "rows": rows,
+        "verdict": "pass" if compare and max(max_du, max_dv) <= tolerance else "fail",
+    }
+
+
+@router.get("/mujoco-check")
+async def projection_mujoco_check():
+    """用 MuJoCo 原生 camprojection 交叉校验本模块的针孔投影（需安装 mujoco）。"""
+    return mujoco_camprojection_check()
+
+
 @router.get("/sensors")
 async def projection_sensors():
     """默认传感器套件中带内参的传感器及其解析后的针孔内参。"""
