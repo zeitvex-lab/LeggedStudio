@@ -12,6 +12,7 @@
   "backend": "native_mjlab",
   "task_name": "parkour",
   "terrain_type": "stairs",
+  "sim_surface": "advanced",
   "algorithm": "PPO",
   "num_envs": 2048,
   "episode_length_s": 20.0,
