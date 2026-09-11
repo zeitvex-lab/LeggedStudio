@@ -15,7 +15,6 @@ from mjlab.tasks.registry import (
 )
 
 _EXPERIMENT_MODULES = {
-  "local_tasks.robots.unitree.g1.experiments": "G1_EXPERIMENTS",
   "local_tasks.robots.unitree.go2.experiments": "GO2_EXPERIMENTS",
 }
 _REGISTERING = False

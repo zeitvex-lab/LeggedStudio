@@ -7,7 +7,6 @@ from typing import cast
 
 import mujoco
 import torch
-from mjlab.asset_zoo.robots.unitree_g1.g1_constants import get_spec as get_g1_spec
 from mjlab.asset_zoo.robots.unitree_go2.go2_constants import get_spec as get_go2_spec
 from mjlab.envs import ManagerBasedRlEnv
 from mjlab.envs.mdp.actions import JointPositionAction
@@ -42,12 +41,6 @@ GO2_SOURCE_CONTRACTS = (
   ObservationExpectation("Mjlab-TS-Student-Rough-Unitree-Go2", 45, 309),
 )
 
-G1_SOURCE_CONTRACTS = (
-  ObservationExpectation("Mjlab-Velocity-Flat-Unitree-G1", 99, 111),
-  ObservationExpectation("Mjlab-Velocity-Rough-Unitree-G1", 286, 298),
-)
-
-
 def validate_asset(
   task_id: str | None = None,
   device: str = "cpu",
@@ -55,16 +48,10 @@ def validate_asset(
 ) -> None:
   """Validate MJCF dimensions, actuators, and policy-facing names."""
   robot = resolve_robot(robot_id)
-  if robot.robot_id == "unitree/go2":
-    label = "Go2"
-    asset_model = get_go2_spec().compile()
-    asset_expected = {"nq": 19, "nv": 18, "nbody": 14, "ngeom": 56}
-    selected_task = task_id or "Mjlab-Velocity-Flat-Unitree-Go2"
-  else:
-    label = "G1"
-    asset_model = get_g1_spec().compile()
-    asset_expected = {"nq": 36, "nv": 35, "nbody": 31, "ngeom": 68}
-    selected_task = task_id or "Mjlab-Velocity-Flat-Unitree-G1"
+  label = "Go2"
+  asset_model = get_go2_spec().compile()
+  asset_expected = {"nq": 19, "nv": 18, "nbody": 14, "ngeom": 56}
+  selected_task = task_id or "Mjlab-Velocity-Flat-Unitree-Go2"
   asset_actual = {name: int(getattr(asset_model, name)) for name in asset_expected}
   if asset_actual != asset_expected:
     raise RuntimeError(
@@ -150,9 +137,7 @@ def _name_suffixes(model: mujoco.MjModel, kind: mujoco.mjtObj, count: int) -> se
 def validate_contracts(device: str = "cpu", robot_id: str = "go2") -> None:
   """Reset, step, and verify every source task for one robot."""
   robot = resolve_robot(robot_id)
-  expectations = (
-    GO2_SOURCE_CONTRACTS if robot.robot_id == "unitree/go2" else G1_SOURCE_CONTRACTS
-  )
+  expectations = GO2_SOURCE_CONTRACTS
   for expected in expectations:
     cfg = load_env_cfg(expected.task_id, play=True)
     cfg.scene.num_envs = 1

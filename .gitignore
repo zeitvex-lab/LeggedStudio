@@ -45,4 +45,5 @@ MUJOCO_LOG.TXT
 .tmp-*
 _tmp_*
 native_worker_output/
+.Trash-*/
 
