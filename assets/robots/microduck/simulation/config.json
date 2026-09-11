@@ -149,7 +149,8 @@
       "action_dim": 14,
       "contract": {
         "task_type": "manipulation"
-      }
+      },
+      "sim_surface": "advanced"
     },
     {
       "id": "ball-kick-left",
@@ -159,7 +160,8 @@
       "action_dim": 14,
       "contract": {
         "task_type": "stand"
-      }
+      },
+      "sim_surface": "advanced"
     },
     {
       "id": "ball-kick-right",
@@ -169,7 +171,8 @@
       "action_dim": 14,
       "contract": {
         "task_type": "stand"
-      }
+      },
+      "sim_surface": "advanced"
     }
   ],
   "initial_base_height": 0.12,

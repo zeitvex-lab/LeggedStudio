@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>高级仿真 - Legged Studio</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <style>
+    .adv-shell{display:grid;grid-template-columns:288px minmax(0,1fr);gap:14px;height:100%;min-height:0;box-sizing:border-box;padding:14px}
+    .adv-side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto}
+    .adv-panel{padding:14px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)}
+    .adv-panel h3{margin:0 0 8px;font-size:13px}
+    .adv-panel p{margin:0 0 10px;font-size:12px;line-height:1.55;color:var(--muted)}
+    .adv-kicker{color:var(--accent);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+    .adv-tag{display:inline-block;margin:0 6px 6px 0;padding:3px 8px;border-radius:999px;border:1px solid var(--border-soft);font-size:11px;color:var(--muted)}
+    .adv-frame-wrap{position:relative;min-height:0;border:1px solid var(--border-soft);border-radius:var(--radius);overflow:hidden;background:var(--surface-soft)}
+    iframe#advSimFrame{width:100%;height:100%;border:0;display:block}
+    .adv-list{margin:0;padding-left:16px;font-size:12px;color:var(--muted);line-height:1.7}
+    .adv-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-raised);color:var(--text);font-size:12px;text-decoration:none;cursor:pointer}
+    .adv-btn.primary{background:var(--accent);color:#04121a;border-color:var(--accent)}
+    body.embedded{padding:0} body.embedded .adv-shell{padding:10px}
+  </style>
+</head>
+<body>
+  <script>if(new URLSearchParams(location.search).get("embedded")==="1"){document.body.classList.add("embedded");}</script>
+  <div class="adv-shell">
+    <aside class="adv-side">
+      <section class="adv-panel">
+        <span class="adv-kicker">Advanced Simulation</span>
+        <h3>高级仿真</h3>
+        <p>承载需要<b>外部传感器</b>（深度相机 / 雷达 / 点云）或<b>目标驱动的自动任务</b>的策略；
+           盲狗这类无外部传感器、手动遥控的任务请用「基础仿真」。</p>
+        <div>
+          <span class="adv-tag">外部传感器</span>
+          <span class="adv-tag">自动任务</span>
+          <span class="adv-tag">目标判定</span>
+        </div>
+      </section>
+      <section class="adv-panel">
+        <h3>已入库高级任务</h3>
+        <ul class="adv-list" id="advTaskList">
+          <li>加载中…</li>
+        </ul>
+      </section>
+      <section class="adv-panel">
+        <h3>工具</h3>
+        <p>导航地图编辑器用于绘制障碍 / 航点并自动求路，服务导航与感知任务。</p>
+        <a class="adv-btn" id="advNavMapLink" href="navigation_editor.html?v=0.46.0&embedded=1" target="_blank" rel="noopener">打开导航地图编辑器</a>
+      </section>
+      <section class="adv-panel">
+        <h3>说明</h3>
+        <p>仿真内核直接复用基础仿真（MuJoCo WASM + ONNX Runtime + 观测构建器），
+           仅按 <code>sim_surface=advanced</code> 过滤策略清单；策略的观测/动作/成功判定
+           与无头 CPU 验收器共用同一份契约。</p>
+      </section>
+    </aside>
+    <div class="adv-frame-wrap">
+      <iframe id="advSimFrame" title="高级仿真" src="sim2sim/index.html?embedded=1&surface=advanced&view=advanced"></iframe>
+    </div>
+  </div>
+  <script type="module">
+    const API = "";
+    async function fetchJson(path) {
+      const res = await fetch(`${API}${path}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+    async function loadAdvancedTasks() {
+      const list = document.getElementById("advTaskList");
+      try {
+        const presets = await fetchJson("/api/robots/presets");
+        const robots = (presets.presets || presets.robots || presets || [])
+          .map((item) => item.robot_id || item.id || item.name)
+          .filter(Boolean);
+        const rows = [];
+        for (const robot of robots) {
+          let cfg;
+          try {
+            cfg = await fetchJson(`/api/simulation/browser-config/${encodeURIComponent(robot)}`);
+          } catch (_) { continue; }
+          for (const pol of ((cfg.sim && cfg.sim.asset_package && cfg.sim.asset_package.policies) || [])) {
+            if (String(pol.sim_surface || "basic") !== "advanced") continue;
+            rows.push(`${robot} · ${pol.label || pol.id}`);
+          }
+        }
+        list.innerHTML = rows.length
+          ? rows.map((r) => `<li>${r}</li>`).join("")
+          : "<li>暂无高级仿真策略（标记 sim_surface=advanced 后出现）</li>";
+      } catch (err) {
+        list.innerHTML = "<li>策略清单加载失败：可在右侧直接选择策略</li>";
+      }
+    }
+    void loadAdvancedTasks();
+  </script>
+</body>
+</html>

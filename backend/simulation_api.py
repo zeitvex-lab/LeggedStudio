@@ -388,6 +388,8 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                 "url": f"/api/simulation/browser-package/{canonical_robot_id}/{policy_path}",
                 "encoder_url": (f"/api/simulation/browser-package/{canonical_robot_id}/{encoder_path}" if encoder_path else None),
                 "path": policy_path,
+                # 仿真分层：advanced = 需要外部传感器或目标驱动的自动任务；basic = 盲狗/手动遥控。
+                "sim_surface": str(item.get("sim_surface") or "basic"),
                 "obs_dim": int(item.get("obs_dim") or contract.get("observation", {}).get("dimension") or 0),
                 "action_dim": int(item.get("action_dim") or len(order)),
                 "history_len": int(item.get("history_len") or 1),
