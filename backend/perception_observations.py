@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/perception", tags=["perception"])
 class PerceptionObservationItem:
     id: str
     label: str
-    sensor: str                       # proprio | foot_contact | heightfield | depth_camera
+    sensor: str                       # proprio | foot_contact | heightfield | depth_camera | lidar
     width: int                        # flat dimension (e.g. 106*60 for PIE depth)
     scale: float
     description: str
@@ -79,6 +79,27 @@ PERCEPTION_ITEMS: dict[str, PerceptionObservationItem] = {
         description="PIE 风格 106×60 前向深度相机（87° HFOV，10 列裁剪）；用于楼梯 parkour 等感知任务。",
         sample_dot_path="environment.observations.actor.terms.depth_scan",
         meta={"width_px": 106, "height_px": 60, "hfov_deg": 87.0, "kind": "vision"},
+    ),
+    "lidar_height_scan": PerceptionObservationItem(
+        id="lidar_height_scan",
+        label="雷达高度扫描 (LiDAR Height Scan)",
+        sensor="lidar",
+        width=180,
+        scale=1.0,
+        description=(
+            "把 3D 点云投影到机身周围径向网格得到的高度扫描；网格规格与 heightfield 一致（180），"
+            "便于外部雷达链路与内置射线 heightfield 做逐格对齐回归。标定与内外参约定见 "
+            "sensor_suite 的 lidar 声明。"
+        ),
+        sample_dot_path="environment.observations.actor.terms.lidar_height_scan",
+        meta={
+            "kind": "terrain",
+            "grid": "radial",
+            "source_sensor": "lidar",
+            "align_with": "heightfield",
+            "grid_size": 180,
+            "projection": "min_z_per_cell",
+        },
     ),
     "base_lin_vel": PerceptionObservationItem(
         id="base_lin_vel",

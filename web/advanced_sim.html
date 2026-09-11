@@ -43,6 +43,13 @@
         </ul>
       </section>
       <section class="adv-panel">
+        <h3>外部传感器套件</h3>
+        <p>传感器声明抽取自 MATRiX v1.0.13（类型 / 挂载体 / 频率 / 内参 / 话题），
+           作为高级仿真的传感器契约；引用外感受传感器的策略即归入本页。</p>
+        <div id="advSensorPresets"><span class="adv-tag">加载中…</span></div>
+        <div id="advSensorDefault"></div>
+      </section>
+      <section class="adv-panel">
         <h3>工具</h3>
         <p>导航地图编辑器用于绘制障碍 / 航点并自动求路，服务导航与感知任务。</p>
         <a class="adv-btn" id="advNavMapLink" href="navigation_editor.html?v=0.46.0&embedded=1" target="_blank" rel="noopener">打开导航地图编辑器</a>
@@ -101,7 +108,34 @@
         list.innerHTML = "<li>策略清单加载失败：可在右侧直接选择策略</li>";
       }
     }
+    async function loadSensorSuite() {
+      const presetBox = document.getElementById("advSensorPresets");
+      const detailBox = document.getElementById("advSensorDefault");
+      try {
+        const payload = await fetchJson("/api/sensors/presets");
+        const presets = payload.presets || [];
+        presetBox.innerHTML = presets.length
+          ? presets.map((item) => `<span class="adv-tag">${item.name} ×${item.sensor_count}</span>`).join("")
+          : '<span class="adv-tag">暂无传感器套件</span>';
+        const detail = await fetchJson("/api/sensors/presets/default");
+        const sensors = detail.sensors || [];
+        detailBox.innerHTML = sensors.length
+          ? `<p>默认套件 ${sensors.length} 项：</p>` + sensors
+              .map((sensor) => {
+                const optics = sensor.intrinsics && sensor.intrinsics.width
+                  ? ` · ${sensor.intrinsics.width}×${sensor.intrinsics.height}`
+                  : "";
+                return `<span class="adv-tag">${sensor.kind} · ${sensor.frequency_hz}Hz${optics}</span>`;
+              })
+              .join("")
+          : "";
+      } catch (err) {
+        presetBox.innerHTML = '<span class="adv-tag">传感器套件加载失败</span>';
+        detailBox.innerHTML = "";
+      }
+    }
     void loadAdvancedTasks();
+    void loadSensorSuite();
   </script>
 </body>
 </html>

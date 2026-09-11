@@ -82,6 +82,7 @@ from backend.project_api import router as project_router
 from backend.settings_api import router as settings_router
 from backend.map_editor_api import router as map_editor_router
 from backend.perception_observations import router as perception_router
+from backend.sensor_suite import router as sensor_suite_router
 
 app = FastAPI(
     title="Legged Studio API",
@@ -136,6 +137,7 @@ app.include_router(project_router)
 app.include_router(settings_router)
 app.include_router(map_editor_router)
 app.include_router(perception_router)
+app.include_router(sensor_suite_router)
 if simulation_router is not None:
     app.include_router(simulation_router)
 
