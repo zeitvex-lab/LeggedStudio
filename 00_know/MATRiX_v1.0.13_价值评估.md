@@ -259,7 +259,7 @@ slam/src/config/config.yaml: lid_topic=/front_lidar, imu_topic=/front_lidar/imu
 
 | 文件 | 改动 | 作用 |
 |---|---|---|
-| `backend/sensor_suite.py`（新增） | **4 套预设 / 13 条传感器声明**（default / lidar_dual / mid360_slam / zg）+ `/api/sensors/kinds`、`/api/sensors/presets`、`/api/sensors/presets/{name}` | 把 MATRiX 的传感器声明变成控制面契约；每 kind 标注 `proprioceptive` / `exteroceptive`。**已剔除 4 个平台成像变体**（`fisheye` / `infrared` / `panorama` / `ptzrgb`）：非 RL 观测口径且无策略消费，平台侧要投影/可视化直接读上游 `sensors/*.json`；据此 kinds 收敛为 imu/odom/gps/rgb/depth/lidar 六类 |
+| `backend/sensor_suite.py`（新增） | **4 套预设 / 12 条传感器声明**（default / lidar_dual / mid360_slam / zg）+ `/api/sensors/kinds`、`/api/sensors/presets`、`/api/sensors/presets/{name}` | 把 MATRiX 的传感器声明变成控制面契约；每 kind 标注 `proprioceptive` / `exteroceptive`。**已剔除 5 项非 RL 口径声明**：4 个平台成像变体（`fisheye` / `infrared` / `panorama` / `ptzrgb`，鱼眼 210°/红外/全景/云台）与 `gps`（只服务室外全局定位，无消费方）；平台侧要投影/可视化直接读上游 `sensors/*.json`，kinds 收敛为 **imu / odom / rgb / depth / lidar 五类** |
 | `backend/api_complete.py` | 注册 `sensor_suite_router` | 端点生效 |
 | `backend/perception_observations.py` | 新增 `lidar_height_scan`（width=180，`align_with=heightfield`）；`sensor` 注释补 `lidar` | 雷达点云→高度扫描的观测入口，网格与内置 heightfield 同规格，便于逐格对齐回归 |
 | `tools/matrix_sensor_corpus.py`（新增） | 容器探测（魔数/版本/帧大小/正体偏移/帧数/时长）+ `--selftest` + `--json`，退出码 0/1/2 | 语料可验证、缺失可降级；不写猜测性载荷解析 |
@@ -270,7 +270,7 @@ slam/src/config/config.yaml: lid_topic=/front_lidar, imu_topic=/front_lidar/imu
 | `backend/perception_observations.py` | `heightfield` / `lidar_height_scan` 宽度 **180 → 187**，补网格 meta（shape/order/spacing/来源） | 修正目录与真实网格不一致：仓内训练源多处声明 `terrain_dim = 187`（go2 `contract.py:22`、m20 `constants.py:159`） |
 | `web/advanced_sim.html` | 新增「高度扫描对齐」「相机投影与目标判定」两个面板 | 高级仿真页可直接看到自检结论 |
 | `backend/camera_projection.py`（新增） | 内参解析（MATRiX 惯例：fov 为水平视场、fx=0/cx<0 表示未标定 → 按针孔与像素质心推导）、FLU→光学系外参、点云/目标框投影、深度反投影、到达与可见性判定 + `/api/perception/projection/{sensors,selftest,project}` | 把 §4.1 #3（LiDAR→相机投影）与 #4（目标判定/bbox）落成可离线单测的几何层 |
-| `backend/perception_observations.py` | 新增观测项 `base_pos_odom`（odom，3 维）、`gps_position`（gps，3 维） | 回答「odom / GPS 能否接入」：以观测项形式与 `sensor_suite` 的话题/频率绑定 |
+| `backend/perception_observations.py` | 新增观测项 `base_pos_odom`（odom，3 维）；`gps_position` 与硬件 `gps` 声明随后按同一口径剔除 | 回答「odom 能否接入」：以观测项形式与 `sensor_suite` 的话题/频率绑定；GPS 因无消费方 + 室内任务族不需要而剔除（恢复成本约 1 行） |
 
 ## 6. 未提取 / 不建议
 
