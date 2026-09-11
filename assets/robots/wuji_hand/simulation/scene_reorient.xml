@@ -6,7 +6,7 @@
   <include file="../model/cube.xml"/>
   <compiler meshdir="../model/assets"/>
   <statistic center="0 0 0.55" extent="0.6"/>
-  <option timestep="0.01" gravity="0 0 -9.81" integrator="Euler" cone="elliptic" impratio="100">
+  <option timestep="0.01" gravity="0 0 -9.81" integrator="Euler" iterations="10" ls_iterations="20">
     <flag eulerdamp="disable"/>
   </option>
   <visual>

@@ -35,6 +35,8 @@ DEFAULT_CRITERIA = {
     "imitation": {"survival_min": 0.95},
     "acrobatics": {"survival_min": 0.9},
     "parkour": {"survival_min": 0.95},
+    # Wuji Hand in-hand 重定向：成功 = 朝向误差 < 阈值保持 hold_steps 步（试次间聚合成功率）
+    "reorient": {"success_rate_min": 0.8, "trials": 10, "trial_timeout_s": 14.0, "success_threshold_rad": 0.2, "success_hold_steps": 5},
 }
 
 
@@ -117,6 +119,47 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
     entry = next((p for p in policies if str(p.get("path", "")).endswith(policy_path.name)), {})
     contract = engine.PackageContract(package_dir, entry)
     contract.motion_loader = engine.load_motion_loader(contract, package_dir)
+
+    # Wuji Hand in-hand 立方体重定向：固定基座灵巧手，站立/速度判据不适用，
+    # 走专用场景 + 成功判据（朝向误差 < 阈值保持 hold_steps 步）。
+    if contract.observation_kind == "wuji_reorient_69":
+        scene_rel = str(contract.contract.get("scene_path") or "simulation/scene_reorient.xml")
+        model = engine.load_package_model(package_dir, sim_cfg, None, scene_rel=scene_rel)
+        model.opt.timestep = 1.0 / contract.physics_hz
+        data = mujoco.MjData(model)
+        sess = ort.InferenceSession(str(policy_path), providers=["CPUExecutionProvider"])
+        criteria = {"success_rate_min": 0.8, "trials": 10, "trial_timeout_s": 14.0,
+                    "success_threshold_rad": 0.2, "success_hold_steps": 5}
+        criteria.update(criteria_all.get("reorient") or {})
+        trials = int(criteria["trials"])
+        trial_seconds = max(float(seconds), float(criteria["trial_timeout_s"]))
+        mode_reports = []
+        for idx in range(trials):
+            metrics = engine.run_wuji_reorient(
+                sess, contract, model, data, engine.ObsBuilder(contract, model, data),
+                trial_seconds, seed + idx,
+                success_threshold=criteria["success_threshold_rad"],
+                hold_steps=criteria["success_hold_steps"],
+            )
+            mode_reports.append({
+                "command": [0.0, 0.0, 0.0],
+                "metrics": metrics,
+                "verdict": {"ok": metrics["success"] and not metrics["dropped"]},
+            })
+        passed = sum(1 for m in mode_reports if m["verdict"]["ok"])
+        rate = passed / max(trials, 1)
+        return {
+            "status": "ok",
+            "task_family": "reorient",
+            "observation_kind": contract.observation_kind,
+            "criteria": criteria,
+            "modes": mode_reports,
+            "passed": passed,
+            "total": trials,
+            "success_rate": round(rate, 3),
+            "verdict": "pass" if rate >= criteria["success_rate_min"] else "fail",
+        }
+
     motion = contract.observation_kind in ("go2_motion_69", "g1_motion_154")
     family = "imitation" if motion else (family or task_family(entry, contract))
 
