@@ -104,8 +104,7 @@
         "observation_kind": "zexw_53",
         "obs_dim": 53,
         "action_dim": 16,
-        "history_len": 1,
-        "task_type": "velocity"
+        "history_len": 1
       }
     },
     {
@@ -119,8 +118,7 @@
         "observation_kind": "zexw_53",
         "obs_dim": 53,
         "action_dim": 16,
-        "history_len": 1,
-        "task_type": "velocity"
+        "history_len": 1
       }
     },
     {
@@ -134,8 +132,7 @@
         "observation_kind": "zexw_53",
         "obs_dim": 53,
         "action_dim": 16,
-        "history_len": 1,
-        "task_type": "velocity"
+        "history_len": 1
       }
     },
     {
@@ -149,8 +146,7 @@
         "observation_kind": "zexw_53",
         "obs_dim": 53,
         "action_dim": 16,
-        "history_len": 1,
-        "task_type": "velocity"
+        "history_len": 1
       }
     }
   ],

@@ -187,8 +187,7 @@
             "RL_thigh_joint": 0.5,
             "RL_calf_joint": 0.5
           }
-        },
-        "task_type": "velocity"
+        }
       }
     }
   ],

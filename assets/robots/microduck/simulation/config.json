@@ -87,9 +87,7 @@
       "label": "Walking",
       "obs_dim": 61,
       "action_dim": 14,
-      "contract": {
-        "task_type": "velocity"
-      }
+      "contract": {}
     },
     {
       "id": "stand",
@@ -97,9 +95,7 @@
       "label": "Stand",
       "obs_dim": 61,
       "action_dim": 14,
-      "contract": {
-        "task_type": "stand"
-      }
+      "contract": {}
     },
     {
       "id": "sitstand",
@@ -107,9 +103,7 @@
       "label": "Sit / Stand",
       "obs_dim": 61,
       "action_dim": 14,
-      "contract": {
-        "task_type": "stand"
-      }
+      "contract": {}
     },
     {
       "id": "roulade",
@@ -127,9 +121,7 @@
       "label": "Roller",
       "obs_dim": 61,
       "action_dim": 14,
-      "contract": {
-        "task_type": "acrobatics"
-      }
+      "contract": {}
     },
     {
       "id": "roller-crouch",
@@ -147,9 +139,7 @@
       "label": "Ground Pick",
       "obs_dim": 61,
       "action_dim": 14,
-      "contract": {
-        "task_type": "acrobatics"
-      }
+      "contract": {}
     },
     {
       "id": "ball-kick-left",
@@ -157,9 +147,7 @@
       "label": "Ball Kick Left",
       "obs_dim": 61,
       "action_dim": 14,
-      "contract": {
-        "task_type": "acrobatics"
-      }
+      "contract": {}
     },
     {
       "id": "ball-kick-right",
@@ -167,9 +155,7 @@
       "label": "Ball Kick Right",
       "obs_dim": 61,
       "action_dim": 14,
-      "contract": {
-        "task_type": "acrobatics"
-      }
+      "contract": {}
     }
   ],
   "initial_base_height": 0.12,

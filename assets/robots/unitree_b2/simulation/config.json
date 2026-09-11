@@ -168,8 +168,7 @@
             "RL_calf_joint": 5.0
           }
         },
-        "autoplay": false,
-        "task_type": "velocity"
+        "autoplay": false
       }
     }
   ]
