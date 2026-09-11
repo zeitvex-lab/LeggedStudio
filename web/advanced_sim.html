@@ -50,6 +50,12 @@
         <div id="advSensorDefault"></div>
       </section>
       <section class="adv-panel">
+        <h3>高度扫描对齐</h3>
+        <p>机身周围 187 个测量点（17×11，0.1 m 步长）是外部雷达与内置射线 heightfield
+           共用的网格；页面显示两者的逐格对齐自检结果。</p>
+        <div id="advHeightScan"><span class="adv-tag">加载中…</span></div>
+      </section>
+      <section class="adv-panel">
         <h3>工具</h3>
         <p>导航地图编辑器用于绘制障碍 / 航点并自动求路，服务导航与感知任务。</p>
         <a class="adv-btn" id="advNavMapLink" href="navigation_editor.html?v=0.46.0&embedded=1" target="_blank" rel="noopener">打开导航地图编辑器</a>
@@ -134,8 +140,31 @@
         detailBox.innerHTML = "";
       }
     }
+    async function loadHeightScanContract() {
+      const box = document.getElementById("advHeightScan");
+      try {
+        const grid = await fetchJson("/api/perception/height-scan/grid");
+        const spec = grid.grid || {};
+        const shape = Array.isArray(spec.shape) ? spec.shape.join("×") : "?";
+        const selftest = await fetchJson("/api/perception/height-scan/selftest");
+        const cases = selftest.cases || [];
+        const worst = cases.reduce(
+          (acc, item) => (item.max_abs_diff > (acc.max_abs_diff ?? -1) ? item : acc),
+          {}
+        );
+        const project = await fetchJson("/api/perception/height-scan/selftest-map?kind=noise");
+        const projectCase = project.case || {};
+        box.innerHTML =
+          `<span class="adv-tag">网格 ${spec.points} 格 · ${shape} · ${spec.spacing_m}m</span>` +
+          `<span class="adv-tag">合成地形自检 ${selftest.verdict === "pass" ? "通过" : "未通过"}（${cases.length} 例，最大 ${Number(worst.max_abs_diff || 0).toFixed(3)} m）</span>` +
+          `<span class="adv-tag">项目地形 noise ${project.verdict === "pass" ? "通过" : "未通过"}（${Number(projectCase.max_abs_diff || 0).toFixed(3)} / 上界 ${Number(projectCase.bound || 0).toFixed(3)} m）</span>`;
+      } catch (err) {
+        box.innerHTML = '<span class="adv-tag">高度扫描契约加载失败</span>';
+      }
+    }
     void loadAdvancedTasks();
     void loadSensorSuite();
+    void loadHeightScanContract();
   </script>
 </body>
 </html>
