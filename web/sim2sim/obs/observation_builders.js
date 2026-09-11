@@ -361,7 +361,13 @@ function buildGo2MotionObservation() {
   sim.obs.fill(0);
   if (!loader) return;
   motionTime += 0.02;
-  if (motionTime > loader.duration) motionTime = motionTime % loader.duration;
+  // 上游 rl_sdk.py:203 `motion_time = min(self.rl_time, duration)`：默认【钳制保持
+  // 末帧】。曾无条件取模回绕，backflip 落地阶段参考被重置回起始蹲跳段，策略被要求
+  // 重新起跳 → 机器人背部着地。契约声明 motion_params.loop=true 时才循环重放
+  // （需要连续演示的可重放技能），此时要求参考首末帧姿态连续。
+  if (motionTime > loader.duration) {
+    motionTime = CONFIG.motionLoop === true ? motionTime % loader.duration : loader.duration;
+  }
   loader.update(motionTime);
 
   const imu = readImuSample();

@@ -64,20 +64,20 @@
           0.0
         ],
         "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
           "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
+          "FR_hip_joint",
           "RL_hip_joint",
+          "RR_hip_joint",
+          "FL_thigh_joint",
+          "FR_thigh_joint",
           "RL_thigh_joint",
-          "RL_calf_joint"
+          "RR_thigh_joint",
+          "FL_calf_joint",
+          "FR_calf_joint",
+          "RL_calf_joint",
+          "RR_calf_joint"
         ],
-        "joint_mapping": [
+        "motion_joint_mapping": [
           3,
           0,
           9,
@@ -92,18 +92,18 @@
           8
         ],
         "default_joint_angles": {
+          "FL_hip_joint": 0.0,
           "FR_hip_joint": 0.0,
-          "FR_thigh_joint": 0.0,
-          "FR_calf_joint": 0.0,
-          "FL_hip_joint": -0.0,
+          "RL_hip_joint": 0.0,
+          "RR_hip_joint": -0.0,
           "FL_thigh_joint": 0.9,
-          "FL_calf_joint": 0.9,
-          "RR_hip_joint": 0.9,
+          "FR_thigh_joint": 0.9,
+          "RL_thigh_joint": 0.9,
           "RR_thigh_joint": 0.9,
-          "RR_calf_joint": -1.8,
-          "RL_hip_joint": -1.8,
-          "RL_thigh_joint": -1.8,
-          "RL_calf_joint": -1.8
+          "FL_calf_joint": -1.8,
+          "FR_calf_joint": -1.8,
+          "RL_calf_joint": -1.8,
+          "RR_calf_joint": -1.8
         },
         "action_scale": 0.25,
         "scales": {
@@ -150,9 +150,10 @@
           "motion_csv": "simulation/policies/backflip_motion.csv",
           "fps": 50.0,
           "time_start": 0.0,
-          "time_end": 1.6,
+          "time_end": 2.2,
           "csv_layout": "root_pos3,quat_xyzw4,dof_pos12",
-          "ref_axis": "y_up"
+          "ref_axis": "y_up",
+          "loop": false
         },
         "autoplay": false
       }
@@ -177,20 +178,20 @@
           0.0
         ],
         "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
           "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
+          "FR_hip_joint",
           "RL_hip_joint",
+          "RR_hip_joint",
+          "FL_thigh_joint",
+          "FR_thigh_joint",
           "RL_thigh_joint",
-          "RL_calf_joint"
+          "RR_thigh_joint",
+          "FL_calf_joint",
+          "FR_calf_joint",
+          "RL_calf_joint",
+          "RR_calf_joint"
         ],
-        "joint_mapping": [
+        "motion_joint_mapping": [
           3,
           0,
           9,
@@ -205,18 +206,18 @@
           8
         ],
         "default_joint_angles": {
-          "FR_hip_joint": 0.1,
-          "FR_thigh_joint": -0.1,
-          "FR_calf_joint": 0.1,
-          "FL_hip_joint": -0.1,
+          "FL_hip_joint": 0.1,
+          "FR_hip_joint": -0.1,
+          "RL_hip_joint": 0.1,
+          "RR_hip_joint": -0.1,
           "FL_thigh_joint": 0.8,
-          "FL_calf_joint": 0.8,
-          "RR_hip_joint": 1.0,
+          "FR_thigh_joint": 0.8,
+          "RL_thigh_joint": 1.0,
           "RR_thigh_joint": 1.0,
-          "RR_calf_joint": -1.5,
-          "RL_hip_joint": -1.5,
-          "RL_thigh_joint": -1.5,
-          "RL_calf_joint": -1.5
+          "FL_calf_joint": -1.5,
+          "FR_calf_joint": -1.5,
+          "RL_calf_joint": -1.5,
+          "RR_calf_joint": -1.5
         },
         "action_scale": 0.25,
         "scales": {
@@ -265,7 +266,8 @@
           "time_start": 0.5,
           "time_end": 2.6,
           "csv_layout": "root_pos3,quat_xyzw4,dof_pos12",
-          "ref_axis": "z_up"
+          "ref_axis": "z_up",
+          "loop": true
         },
         "autoplay": false
       }

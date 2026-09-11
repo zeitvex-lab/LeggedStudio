@@ -775,13 +775,20 @@ async function loadPolicyFromConfig(config, initial = false) {
       const response = await fetch(cacheBustedUrl(csvUrl, revision), { cache: "no-store" });
       if (!response.ok) throw new Error(`motion csv HTTP ${response.status}: ${csvUrl}`);
       sim.motionLoader = new MotionLoader(await response.text(), contract.motion_params);
+      // 参考运动走完后的行为：默认【钳制保持末帧】（上游 rl_sdk
+      // `motion_time = min(rl_time, duration)`）；motion_params.loop=true 时循环
+      // 重放，用于需要连续演示的周期/可重放技能。
+      CONFIG.motionLoop = contract.motion_params.loop === true
+        || contract.motion_params.motion_loop === true;
       OBSERVATION.resetMotionTime();
     } catch (err) {
       console.warn("[sim2sim] motion csv load failed:", err);
       sim.motionLoader = null;
+      CONFIG.motionLoop = false;
     }
   } else {
     sim.motionLoader = null;
+    CONFIG.motionLoop = false;
   }
   try {
     // 手动 fetch(cache:"no-store") 拿字节再交给 ort：彻底绕开 HTTP 缓存里
@@ -1422,41 +1429,29 @@ function applyRuntimeConfig(config) {
   // rl_kp/rl_kd, which can differ from the package-wide gains).
   const policyKps = normalizedNameMap(contract?.control?.stiffness);
   const policyKds = normalizedNameMap(contract?.control?.damping);
-  if (policyKps.size || policyKds.size) {
+  // normalizedNameMap 返回普通对象（非 Map），读 .size 恒为 undefined——曾因此
+  // 静默跳过整个 per-policy PD 覆盖。
+  //
+  // 覆盖【只对 torque 接口生效】，两条理由都由实测得出：
+  //  - torque：CONFIG.kps/kds 就是应用每步下发的 PD 律，必须与训练一致。
+  //    go2-backflip-69 训练 40/1，沿用包级 20/0.5 起跳发力不足，后空翻只翻到
+  //    ~180° 就背部着地。全量扫描里 torque 接口仅此一个策略与包级不同。
+  //  - position_target：PD 属于模型，后端按 contract_v3.actuator_profile 重建原生
+  //    执行器（go1 = kp20/kv0.5）。运行时再改写 gainprm/biasprm 会破坏这一已验证
+  //    配置——实测 go1-playground-joystick(35) 与 go1-moe-loco【PD 数值与包级完全
+  //    相同】都会倒地。回退到"不覆盖"后两者均恢复稳定站立。
+  const policyPdApplies = CONFIG.actuatorInterface === "torque";
+  const hasPolicyKps = policyPdApplies && Object.keys(policyKps).length > 0;
+  const hasPolicyKds = policyPdApplies && Object.keys(policyKds).length > 0;
+  if (hasPolicyKps || hasPolicyKds) {
     for (let i = 0; i < CONFIG.numActions; i += 1) {
       const name = String(order[i] || CONFIG.jointOrder[i] || "").toLowerCase();
       const group = jointGroup(name);
-      if (policyKps.size) {
+      if (hasPolicyKps) {
         CONFIG.kps[i] = controlValue(policyKps, name, group, CONFIG.kps[i]);
       }
-      if (policyKds.size) {
+      if (hasPolicyKds) {
         CONFIG.kds[i] = controlValue(policyKds, name, group, CONFIG.kds[i]);
-      }
-    }
-    // position_target：PD 增益由模型原生执行器消费（ctrl=目标角），策略级声明
-    // （rl_kp/rl_kd 类契约）必须写进 gainprm/biasprm 才真正生效——等价部署端
-    // fixed_kp/kd。否而策略训练增益与模型增益不一致（HIM 40/1 vs 模型 35/无 kv）
-    // 时闭环失稳（go1 himloco 实测教训）。
-    if (CONFIG.actuatorInterface === "position_target") {
-      for (let i = 0; i < CONFIG.numActions; i += 1) {
-        const actuatorId = sim.actuatorIds[i] ?? i;
-        if (actuatorId < 0 || actuatorId >= (sim.ctrl?.length ?? 0)) continue;
-        const name = String(order[i] || CONFIG.jointOrder[i] || "").toLowerCase();
-        const group = jointGroup(name);
-        const slot = 3 * actuatorId;
-        if (policyKps.size) {
-          const kp = controlValue(policyKps, name, group, CONFIG.kps[i]);
-          if (Number.isFinite(sim.model?.actuator_gainprm?.[slot])) {
-            sim.model.actuator_gainprm[slot] = kp;
-            sim.model.actuator_biasprm[slot + 1] = -kp;
-          }
-        }
-        if (policyKds.size) {
-          const kd = controlValue(policyKds, name, group, CONFIG.kds[i]);
-          if (Number.isFinite(sim.model?.actuator_biasprm?.[slot + 2])) {
-            sim.model.actuator_biasprm[slot + 2] = -kd;
-          }
-        }
       }
     }
   }
@@ -4906,6 +4901,8 @@ function buildDebugState() {
     controlDecimation: CONFIG.controlDecimation,
     kps: Array.from(CONFIG.kps),
     kds: Array.from(CONFIG.kds),
+    motionLoop: CONFIG.motionLoop === true,
+    motionDuration: sim.motionLoader?.duration ?? null,
     actuatorRoles: CONFIG.actuatorRoles,
     controlModes: CONFIG.controlModes,
     payloadMassKg: input.payloadMassKg,
