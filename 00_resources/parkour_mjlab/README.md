@@ -2,15 +2,15 @@
 
 > **来源**：`00_open/parkour_mjlab/`　｜　**类型**：参考项目
 > **关联机型**：unitree_go2（宇树 Go2 四足）、unitree_g1（宇树 G1 人形）
-> **定位**：Go2/G1 的 parkour 任务（mjlab）
-> **收录**：62 个文件 / 13.0 MB（其中推理策略/模型文件 2 个）
-> **已省略**：88 个文件 / 77.8 MB（登记在各目录 `_OMITTED.md`）
+> **定位**：Go2/G1 的 parkour 任务（mjlab）：Go2 PIE 深度跑酷训练 + sim2sim + 发布策略
+> **收录**：65 个文件 / 32.6 MB（其中推理策略/模型文件 5 个）
+> **已省略**：88 个文件 / 77.0 MB（登记在各目录 `_OMITTED.md`）
 
 ## 能帮什么
 
 - **本体与场景描述**（7 个）：机型/场景描述（URDF·xacro·MJCF）：本体几何、关节树、碰撞与场景搭建
 - **RL 训练工程**（12 个）：RL 训练工程：环境配置、奖励、指令、课程、域随机化、任务注册与训练脚本
-- **部署与推理**（22 个）：部署与推理：策略文件（onnx/pt/engine）、FSM、控制频率、SDK 桥、sim2sim
+- **部署与推理**（25 个）：部署与推理：策略文件（onnx/pt/engine）、FSM、控制频率、SDK 桥、sim2sim
 - **地形与场景**（10 个）：地形与场景资产：高度场、台阶、崎岖地形与场景构建
 - **文档与其它**（11 个）：文档、说明、许可与零散脚本
 
@@ -23,6 +23,8 @@ deploy/  （31 个文件）
     parkour/
     pie/
     stair/
+logs/  （3 个文件）
+    rsl_rl/
 scripts/  （3 个文件）
     (直接文件)/
 src/  （25 个文件）
@@ -37,9 +39,10 @@ src/  （25 个文件）
 |---|---:|
 | `.py` | 46 |
 | `.xml` | 7 |
+| `.onnx` | 4 |
 | `(无扩展名)` | 3 |
 | `.md` | 3 |
-| `.onnx` | 2 |
+| `.pt` | 1 |
 | `.txt` | 1 |
 
 ## 文件索引（项目内相对路径）
@@ -78,6 +81,9 @@ deploy/stair/sim2sim/g1_stair_unitree_mujoco.py
 deploy/stair/sim2sim/policy_runtime.py
 deploy/stair/sim2sim/sdk2_depth_codec.py
 deploy/stair/sim2sim/unitree_mujoco_stair_server.py
+logs/rsl_rl/g1_stair/stair_test/policy.onnx
+logs/rsl_rl/go2_pie/model_8000.pt
+logs/rsl_rl/go2_pie/policy.onnx
 scripts/list_envs.py
 scripts/play.py
 scripts/train.py
@@ -113,10 +119,10 @@ src/tasks/pie/terrains.py
 
 | 目录 | 省略文件数 | 体积 | 登记文件 |
 |---|---:|---:|---|
-| `deploy/parkour/sim2sim/assets/terrains/climb_15/box_models` | 1 | 452 B | [`deploy/parkour/sim2sim/assets/terrains/climb_15/box_models/_OMITTED.md`](./deploy/parkour/sim2sim/assets/terrains/climb_15/box_models/_OMITTED.md) |
+| `deploy/parkour/sim2sim/assets/terrains/climb_15/box_models` | 1 | 431 B | [`deploy/parkour/sim2sim/assets/terrains/climb_15/box_models/_OMITTED.md`](./deploy/parkour/sim2sim/assets/terrains/climb_15/box_models/_OMITTED.md) |
 | `deploy/parkour/sim2sim/assets/unitree_g1/assets` | 34 | 18.2 MB | [`deploy/parkour/sim2sim/assets/unitree_g1/assets/_OMITTED.md`](./deploy/parkour/sim2sim/assets/unitree_g1/assets/_OMITTED.md) |
 | `deploy/stair/sim2sim/assets/unitree_g1/meshes` | 36 | 17.7 MB | [`deploy/stair/sim2sim/assets/unitree_g1/meshes/_OMITTED.md`](./deploy/stair/sim2sim/assets/unitree_g1/meshes/_OMITTED.md) |
 | `docs` | 1 | 14.1 MB | [`docs/_OMITTED.md`](./docs/_OMITTED.md) |
-| `src/assets/robots/unitree_go2/xmls/assets` | 16 | 27.8 MB | [`src/assets/robots/unitree_go2/xmls/assets/_OMITTED.md`](./src/assets/robots/unitree_go2/xmls/assets/_OMITTED.md) |
+| `src/assets/robots/unitree_go2/xmls/assets` | 16 | 27.1 MB | [`src/assets/robots/unitree_go2/xmls/assets/_OMITTED.md`](./src/assets/robots/unitree_go2/xmls/assets/_OMITTED.md) |
 
 > 以上文件未拷贝；需要时按登记的源路径回到 `00_open/` 取用。

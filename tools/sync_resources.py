@@ -40,7 +40,9 @@ from pathlib import Path
 # --------------------------------------------------------------------------
 TOOLS_DIR = Path(__file__).resolve().parent
 LS_ROOT = TOOLS_DIR.parent                  # legged_studio/
-WORKSPACE = LS_ROOT.parent                  # 工作区根（00_open/）
+# 源根目录：默认取仓库上级（历史布局 ../../00_open/<project>）；可用环境变量
+# LEGGED_SYNC_WORKSPACE 覆盖，便于在任意位置放 00_open/ 源树做增量同步。
+WORKSPACE = Path(os.environ.get("LEGGED_SYNC_WORKSPACE") or LS_ROOT.parent)
 RES_ROOT = LS_ROOT / "00_resources"
 
 CATEGORIES = [
@@ -152,7 +154,9 @@ PROJECTS: dict[str, dict] = {
     "mujoco_playground": {"robots": ["unitree_go1", "unitree_g1"],
                           "desc": "DeepMind MuJoCo Playground：Go1/G1 环境与策略"},
     "parkour_mjlab": {"robots": ["unitree_go2", "unitree_g1"],
-                      "desc": "Go2/G1 的 parkour 任务（mjlab）"},
+                      "desc": "Go2/G1 的 parkour 任务（mjlab）：Go2 PIE 深度跑酷训练 + sim2sim + 发布策略"},
+    "MGDP": {"robots": ["unitree_go1", "unitree_go2", "deeprobotics_lite3"],
+             "desc": "MGDP：通用深度感知四足运动控制（IsaacGym + Warp 深度传感器，跨机型迁移）"},
     "Dreamwaq": {"robots": ["unitree_go2", "deeprobotics_m20"],
                  "desc": "DreamWaQ 盲式运动控制实现"},
     "LeggedSkillDeploy": {"robots": ["unitree_go2", "unitree_go2w", "unitree_go1",
@@ -458,9 +462,11 @@ def sync_project(name: str, src_rel: str, out_root: Path, dry: bool,
 
     for rel, src, size in iter_files(src_dir):
         parts = rel.split("/")
-        if any(p in BUILD_DIR_PARTS for p in parts[:-1]):
-            continue
         ext = src.suffix.lower()
+        # build/ dist/ outputs/ logs/ 整目录跳过（构建产物/日志），但推理策略文件
+        # 例外：上游常把发布策略放在 logs/rsl_rl/<task>/policy.onnx，删掉就丢了。
+        if any(p in BUILD_DIR_PARTS for p in parts[:-1]) and ext not in KEEP_ALWAYS_EXTS:
+            continue
         ok, reason = decide(ext, size)
         if ok:
             st.kept.append(rel)
@@ -575,6 +581,91 @@ def write_project_readme(st: ProjectStat, dst_root: Path, dry: bool,
     if not dry:
         dst_root.mkdir(parents=True, exist_ok=True)
         (dst_root / "README.md").write_text("\n".join(lines), encoding="utf-8")
+
+
+def _parse_size(text: str) -> int:
+    """把 fmt_size 产生的 `12.3 MB` / `528 KB` / `452 B` 还原为字节数。"""
+    m = re.match(r"\s*([\d.]+)\s*(B|KB|MB|GB)\s*$", text.strip())
+    if not m:
+        return 0
+    value = float(m.group(1))
+    return int(value * {"B": 1, "KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3}[m.group(2)])
+
+
+def _omitted_from_readme(dst_root: Path) -> tuple[int, int] | None:
+    """从项目 README 的「已省略」行还原 (文件数, 字节数)。"""
+    readme = dst_root / "README.md"
+    if not readme.is_file():
+        return None
+    try:
+        text = readme.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = re.search(r"已省略\**：(\d+)\s*个文件\s*/\s*([\d.]+\s*(?:B|KB|MB|GB))", text)
+    if not m:
+        return None
+    return int(m.group(1)), _parse_size(m.group(2))
+
+
+def build_stat_from_dir(name: str, src_rel: str, out_root: Path,
+                        old_entry: dict | None) -> ProjectStat | None:
+    """从已存在的 ``00_resources/<name>/`` 目录重建统计（供 --reindex）。
+
+    源树可能不在本机（历史同步后已删除），此时无法重新拷贝；但索引/README 仍应
+    与新目录一致。kept 统计按目录实际文件重算；omitted 统计优先取项目 README 的
+    「已省略」行，退回旧索引值。
+    """
+    dst_root = out_root / name
+    if not dst_root.is_dir():
+        return None
+    st = ProjectStat(name, src_rel)
+    for rel, src, size in iter_files(dst_root):
+        # 跳过本工具生成的索引文件（项目 README 与各目录 _OMITTED.md 占位）
+        if rel == "README.md" or src.name == OMITTED_MANIFEST:
+            continue
+        ext = src.suffix.lower()
+        ok, _reason = decide(ext, size)
+        st.kept.append(rel)
+        st.kept_bytes += size
+        st.per_cat[classify(rel, ext)] += 1
+        st.ext_top[ext or "(无扩展名)"] += 1
+        if ext in KEEP_ALWAYS_EXTS:
+            st.policy_n += 1
+    omitted = _omitted_from_readme(dst_root)
+    if omitted:
+        st.omitted_n, st.omitted_bytes = omitted
+    elif old_entry:
+        st.omitted_n = int(old_entry.get("omitted") or 0)
+        st.omitted_bytes = int(old_entry.get("omitted_bytes") or 0)
+    return st
+
+
+def reindex_existing(dry: bool) -> int:
+    """仅按现有 00_resources 目录重建顶层 README.md 与 _index.json。"""
+    index_path = RES_ROOT / "_index.json"
+    old = {}
+    if index_path.exists():
+        try:
+            old = json.loads(index_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            old = {}
+    old_projects = old.get("projects") or {}
+    old_kb = old.get("knowledge_base") or {}
+
+    stats: dict[str, ProjectStat] = {}
+    for name, meta in PROJECTS.items():
+        st = build_stat_from_dir(name, meta.get("src", name), RES_ROOT, old_projects.get(name))
+        if st:
+            stats[name] = st
+    kb_stats: dict[str, ProjectStat] = {}
+    for name, meta in KNOWLEDGE_BASES.items():
+        st = build_stat_from_dir(name, meta["src"], RES_ROOT / KB_ROOT_NAME, old_kb.get(name))
+        if st:
+            kb_stats[name] = st
+    write_top_readme(stats, kb_stats, {}, dry)
+    write_index_json(stats, kb_stats, dry)
+    print(f"reindex: {len(stats)} 项目 / {len(kb_stats)} 知识库 → README.md + _index.json")
+    return 0
 
 
 # --------------------------------------------------------------------------
@@ -761,8 +852,13 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="只统计不落盘")
     ap.add_argument("--only", default="", help="只处理指定项目（逗号分隔）")
     ap.add_argument("--kb-only", action="store_true", help="只同步通用知识库")
+    ap.add_argument("--reindex", action="store_true",
+                    help="只按现有 00_resources 目录重建顶层 README.md 与 _index.json")
     args = ap.parse_args()
     dry = args.dry_run
+
+    if args.reindex:
+        return reindex_existing(dry)
 
     only = {p for p in args.only.split(",") if p}
     RES_ROOT.mkdir(parents=True, exist_ok=True)

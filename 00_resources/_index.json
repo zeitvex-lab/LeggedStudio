@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-09-11T15:44:45",
+ "generated_at": "2026-09-11T23:47:13",
  "spec": "_SPEC.md",
  "policy": {
   "keep": "源码/配置/文档/数据/URDF·MJCF/推理策略文件",
@@ -184,9 +184,9 @@
    ],
    "desc": "1000frames.ai 站点镜像资源",
    "kept": 66,
-   "kept_bytes": 6884298,
+   "kept_bytes": 6881061,
    "omitted": 40,
-   "omitted_bytes": 64831610,
+   "omitted_bytes": 64801996,
    "policy_files": 1,
    "per_category": {
     "model": 4,
@@ -216,29 +216,29 @@
     "unitree_g1"
    ],
    "desc": "AMP 动作先验训练（mjlab，G1）",
-   "kept": 142,
-   "kept_bytes": 24633169,
+   "kept": 134,
+   "kept_bytes": 24590478,
    "omitted": 39,
-   "omitted_bytes": 34599011,
+   "omitted_bytes": 34603008,
    "policy_files": 0,
    "per_category": {
     "model": 11,
     "contract": 0,
-    "training": 15,
+    "training": 13,
     "deploy": 0,
     "terrain_scene": 2,
     "motion": 57,
     "evaluation": 0,
-    "misc": 57
+    "misc": 51
    },
    "ext_top": {
-    ".py": 80,
+    ".py": 78,
     ".npz": 18,
     ".csv": 17,
-    ".txt": 15,
-    "(无扩展名)": 4,
+    ".txt": 11,
     ".xml": 4,
-    ".md": 2,
+    "(无扩展名)": 3,
+    ".md": 1,
     ".toml": 1,
     ".yaml": 1
    },
@@ -251,29 +251,61 @@
     "deeprobotics_m20"
    ],
    "desc": "DreamWaQ 盲式运动控制实现",
-   "kept": 51,
-   "kept_bytes": 564145,
+   "kept": 48,
+   "kept_bytes": 546961,
    "omitted": 64,
-   "omitted_bytes": 107122750,
+   "omitted_bytes": 107164467,
    "policy_files": 0,
    "per_category": {
     "model": 4,
     "contract": 0,
-    "training": 14,
+    "training": 12,
     "deploy": 6,
     "terrain_scene": 3,
     "motion": 0,
     "evaluation": 0,
-    "misc": 24
+    "misc": 23
    },
    "ext_top": {
-    ".py": 40,
+    ".py": 38,
     ".xml": 6,
     ".yaml": 2,
-    ".urdf": 2,
-    ".md": 1
+    ".urdf": 2
    },
    "readme": "Dreamwaq/README.md"
+  },
+  "HIMLoco": {
+   "source": "00_open/HIMLoco",
+   "robots": [
+    "unitree_go1"
+   ],
+   "desc": "InternRobotics HIMLoco：四足高动态运动/越障 RL 训练工程（legged_gym + rsl_rl）",
+   "kept": 73,
+   "kept_bytes": 11698590,
+   "omitted": 92,
+   "omitted_bytes": 65955430,
+   "policy_files": 0,
+   "per_category": {
+    "model": 16,
+    "contract": 0,
+    "training": 11,
+    "deploy": 0,
+    "terrain_scene": 1,
+    "motion": 1,
+    "evaluation": 1,
+    "misc": 43
+   },
+   "ext_top": {
+    ".py": 39,
+    ".txt": 12,
+    "(无扩展名)": 6,
+    ".urdf": 6,
+    ".pdf": 4,
+    ".md": 4,
+    ".origin": 1,
+    ".xml": 1
+   },
+   "readme": "HIMLoco/README.md"
   },
   "InstinctMJ": {
    "source": "00_open/InstinctMJ",
@@ -281,10 +313,10 @@
     "unitree_g1"
    ],
    "desc": "InstinctMJ：G1 人形 mjlab 工程",
-   "kept": 221,
-   "kept_bytes": 1996964,
+   "kept": 220,
+   "kept_bytes": 1941431,
    "omitted": 85,
-   "omitted_bytes": 43234387,
+   "omitted_bytes": 43201331,
    "policy_files": 0,
    "per_category": {
     "model": 10,
@@ -294,11 +326,11 @@
     "terrain_scene": 21,
     "motion": 38,
     "evaluation": 0,
-    "misc": 69
+    "misc": 68
    },
    "ext_top": {
     ".py": 203,
-    ".md": 6,
+    ".md": 5,
     ".urdf": 4,
     "(无扩展名)": 3,
     ".xml": 3,
@@ -317,28 +349,28 @@
     "limx_tron1_sf"
    ],
    "desc": "legged_gym 扩展版：多机型训练环境与任务",
-   "kept": 306,
-   "kept_bytes": 17032778,
+   "kept": 303,
+   "kept_bytes": 16957605,
    "omitted": 148,
-   "omitted_bytes": 121721168,
+   "omitted_bytes": 121739673,
    "policy_files": 0,
    "per_category": {
     "model": 35,
     "contract": 0,
-    "training": 63,
+    "training": 61,
     "deploy": 0,
     "terrain_scene": 2,
     "motion": 126,
     "evaluation": 5,
-    "misc": 75
+    "misc": 74
    },
    "ext_top": {
-    ".py": 137,
+    ".py": 135,
     ".pkl": 114,
     ".urdf": 18,
     ".xml": 15,
-    ".md": 7,
     "(无扩展名)": 6,
+    ".md": 6,
     ".sh": 2,
     ".genesis": 1,
     ".isaacgym": 1,
@@ -360,10 +392,10 @@
     "deeprobotics_m20"
    ],
    "desc": "多机型技能部署包（策略 + 部署配置）",
-   "kept": 159,
-   "kept_bytes": 45690110,
+   "kept": 158,
+   "kept_bytes": 45657126,
    "omitted": 232,
-   "omitted_bytes": 356289553,
+   "omitted_bytes": 356306124,
    "policy_files": 31,
    "per_category": {
     "model": 55,
@@ -373,7 +405,7 @@
     "terrain_scene": 4,
     "motion": 7,
     "evaluation": 0,
-    "misc": 19
+    "misc": 18
    },
    "ext_top": {
     ".py": 46,
@@ -387,7 +419,6 @@
     ".onnx": 5,
     ".sh": 2,
     "(无扩展名)": 1,
-    ".md": 1,
     ".bat": 1,
     ".rviz": 1,
     ".world": 1
@@ -400,10 +431,10 @@
     "unitree_go2"
    ],
    "desc": "LightNav 视觉导航（Qwen3-VL 系）",
-   "kept": 183,
-   "kept_bytes": 1430401,
+   "kept": 182,
+   "kept_bytes": 1379116,
    "omitted": 9,
-   "omitted_bytes": 39940260,
+   "omitted_bytes": 39950745,
    "policy_files": 0,
    "per_category": {
     "model": 1,
@@ -413,11 +444,11 @@
     "terrain_scene": 0,
     "motion": 2,
     "evaluation": 35,
-    "misc": 67
+    "misc": 66
    },
    "ext_top": {
     ".py": 121,
-    ".md": 19,
+    ".md": 18,
     "(无扩展名)": 11,
     ".sh": 7,
     ".yaml": 6,
@@ -433,43 +464,90 @@
    },
    "readme": "LightNav-0/README.md"
   },
+  "MGDP": {
+   "source": "00_open/MGDP",
+   "robots": [
+    "unitree_go1",
+    "unitree_go2",
+    "deeprobotics_lite3"
+   ],
+   "desc": "MGDP：通用深度感知四足运动控制（IsaacGym + Warp 深度传感器，跨机型迁移）",
+   "kept": 589,
+   "kept_bytes": 123228985,
+   "omitted": 794,
+   "omitted_bytes": 1211000422,
+   "policy_files": 8,
+   "per_category": {
+    "model": 177,
+    "contract": 3,
+    "training": 25,
+    "deploy": 8,
+    "terrain_scene": 8,
+    "motion": 0,
+    "evaluation": 9,
+    "misc": 359
+   },
+   "ext_top": {
+    ".py": 174,
+    ".txt": 78,
+    ".mtl": 68,
+    ".urdf": 58,
+    ".glslfx": 42,
+    ".json": 30,
+    ".html": 29,
+    ".xml": 25,
+    ".js": 20,
+    "(无扩展名)": 11,
+    ".css": 11,
+    ".pt": 8,
+    ".map": 7,
+    ".cpp": 5,
+    ".h": 4,
+    ".md": 3,
+    ".sh": 3,
+    ".yaml": 2,
+    ".launch": 2,
+    ".bat": 2
+   },
+   "readme": "MGDP/README.md"
+  },
   "Odin-Nav-Stack": {
    "source": "00_open/Odin-Nav-Stack",
    "robots": [
     "unitree_go2"
    ],
    "desc": "Odin1 深度相机 + NeuPAN 局部规划的导航栈",
-   "kept": 104,
-   "kept_bytes": 15394259,
+   "kept": 99,
+   "kept_bytes": 15358561,
    "omitted": 3,
-   "omitted_bytes": 69849559,
+   "omitted_bytes": 69835161,
    "policy_files": 1,
    "per_category": {
     "model": 0,
     "contract": 0,
     "training": 0,
-    "deploy": 85,
+    "deploy": 81,
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 0,
-    "misc": 19
+    "misc": 18
    },
    "ext_top": {
     ".cpp": 15,
     ".txt": 11,
-    ".yaml": 11,
     ".xml": 10,
     ".launch": 10,
+    ".yaml": 10,
     "(无扩展名)": 9,
-    ".h": 9,
     ".py": 9,
-    ".md": 8,
+    ".h": 9,
     ".sh": 4,
+    ".md": 4,
     ".srv": 2,
     ".rviz": 2,
-    ".yml": 1,
     ".cn": 1,
     ".global": 1,
+    ".yml": 1,
     ".pt": 1
    },
    "readme": "Odin-Nav-Stack/README.md"
@@ -480,25 +558,25 @@
     "unitree_g1"
    ],
    "desc": "UFO：G1 人形工程",
-   "kept": 155,
-   "kept_bytes": 1238490,
+   "kept": 151,
+   "kept_bytes": 1196545,
    "omitted": 39,
-   "omitted_bytes": 71399185,
+   "omitted_bytes": 71408025,
    "policy_files": 0,
    "per_category": {
     "model": 9,
     "contract": 0,
-    "training": 44,
+    "training": 42,
     "deploy": 6,
     "terrain_scene": 2,
-    "motion": 24,
+    "motion": 23,
     "evaluation": 15,
-    "misc": 55
+    "misc": 54
    },
    "ext_top": {
     ".py": 113,
-    ".yaml": 24,
-    ".md": 7,
+    ".yaml": 21,
+    ".md": 6,
     "(无扩展名)": 3,
     ".sh": 3,
     ".html": 1,
@@ -517,9 +595,9 @@
    ],
    "desc": "云深处 RL 训练工程",
    "kept": 133,
-   "kept_bytes": 41607374,
+   "kept_bytes": 39924637,
    "omitted": 3,
-   "omitted_bytes": 487922,
+   "omitted_bytes": 487424,
    "policy_files": 0,
    "per_category": {
     "model": 0,
@@ -547,10 +625,10 @@
     "deeprobotics_m20"
    ],
    "desc": "云深处机型模型与描述文件",
-   "kept": 19,
-   "kept_bytes": 357035,
+   "kept": 18,
+   "kept_bytes": 346935,
    "omitted": 299,
-   "omitted_bytes": 395088482,
+   "omitted_bytes": 395103436,
    "policy_files": 0,
    "per_category": {
     "model": 15,
@@ -560,13 +638,13 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 0,
-    "misc": 4
+    "misc": 3
    },
    "ext_top": {
     ".urdf": 8,
     ".xml": 7,
-    ".md": 2,
     "(无扩展名)": 1,
+    ".md": 1,
     ".txt": 1
    },
    "readme": "deep_robotics_model/README.md"
@@ -583,7 +661,7 @@
    ],
    "desc": "RL-SAR 的个人分支（多机型实验）",
    "kept": 165,
-   "kept_bytes": 23083499,
+   "kept_bytes": 23052936,
    "omitted": 0,
    "omitted_bytes": 0,
    "policy_files": 16,
@@ -613,8 +691,8 @@
     ".cc": 4,
     ".yml": 3,
     ".csv": 2,
-    ".mm": 2,
     ".world": 2,
+    ".mm": 2,
     ".launch": 1
    },
    "readme": "fan_rlsar/README.md"
@@ -632,10 +710,10 @@
     "deeprobotics_m20"
    ],
    "desc": "robot_lab 的个人分支（多机型实验）",
-   "kept": 308,
-   "kept_bytes": 3548958,
+   "kept": 306,
+   "kept_bytes": 3189351,
    "omitted": 539,
-   "omitted_bytes": 481742450,
+   "omitted_bytes": 481715814,
    "policy_files": 0,
    "per_category": {
     "model": 72,
@@ -643,12 +721,12 @@
     "training": 24,
     "deploy": 0,
     "terrain_scene": 25,
-    "motion": 156,
+    "motion": 154,
     "evaluation": 0,
     "misc": 31
    },
    "ext_top": {
-    ".py": 226,
+    ".py": 225,
     ".urdf": 31,
     ".mtl": 27,
     "(无扩展名)": 6,
@@ -658,8 +736,7 @@
     ".yml": 2,
     ".csv": 2,
     ".txt": 1,
-    ".base": 1,
-    ".npz": 1
+    ".base": 1
    },
    "readme": "fan_robotlab/README.md"
   },
@@ -669,10 +746,10 @@
     "unitree_g1"
    ],
    "desc": "G1 操作挑战赛工程",
-   "kept": 14,
-   "kept_bytes": 3790136,
+   "kept": 13,
+   "kept_bytes": 3780452,
    "omitted": 49,
-   "omitted_bytes": 146501675,
+   "omitted_bytes": 146486067,
    "policy_files": 4,
    "per_category": {
     "model": 1,
@@ -682,7 +759,7 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 0,
-    "misc": 8
+    "misc": 7
    },
    "ext_top": {
     ".onnx": 4,
@@ -690,7 +767,6 @@
     ".xml": 2,
     "(无扩展名)": 1,
     ".json": 1,
-    ".md": 1,
     ".py": 1
    },
    "readme": "g1-manipulation-challenge/README.md"
@@ -701,23 +777,23 @@
     "unitree_g1"
    ],
    "desc": "G1 MuJoCo + ROS2 导航仿真",
-   "kept": 2201,
-   "kept_bytes": 74575132,
+   "kept": 2197,
+   "kept_bytes": 73171285,
    "omitted": 966,
-   "omitted_bytes": 830945649,
+   "omitted_bytes": 830996480,
    "policy_files": 3,
    "per_category": {
     "model": 23,
     "contract": 1,
     "training": 267,
-    "deploy": 1617,
+    "deploy": 1614,
     "terrain_scene": 10,
     "motion": 102,
     "evaluation": 2,
-    "misc": 179
+    "misc": 178
    },
    "ext_top": {
-    ".hpp": 671,
+    ".hpp": 668,
     ".h": 486,
     ".cpp": 189,
     ".py": 182,
@@ -725,7 +801,7 @@
     ".yaml": 99,
     ".json": 77,
     "(无扩展名)": 66,
-    ".md": 56,
+    ".md": 55,
     ".txt": 52,
     ".msg": 46,
     ".identifier": 34,
@@ -746,10 +822,10 @@
     "unitree_g1"
    ],
    "desc": "G1 回旋踢示例（mjlab）",
-   "kept": 9,
-   "kept_bytes": 1249087,
+   "kept": 8,
+   "kept_bytes": 1243837,
    "omitted": 3,
-   "omitted_bytes": 2361393,
+   "omitted_bytes": 2411724,
    "policy_files": 1,
    "per_category": {
     "model": 0,
@@ -759,13 +835,12 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 0,
-    "misc": 7
+    "misc": 6
    },
    "ext_top": {
     "(无扩展名)": 3,
     ".py": 3,
     ".toml": 1,
-    ".md": 1,
     ".onnx": 1
    },
    "readme": "g1_spinkick_example/README.md"
@@ -776,27 +851,26 @@
     "unitree_go2"
    ],
    "desc": "Go2 的 legged_gym + rsl_rl 训练/回放工程（IsaacGym 系）",
-   "kept": 87,
-   "kept_bytes": 12948522,
+   "kept": 81,
+   "kept_bytes": 640194,
    "omitted": 29,
-   "omitted_bytes": 56055438,
-   "policy_files": 3,
+   "omitted_bytes": 56098816,
+   "policy_files": 0,
    "per_category": {
     "model": 4,
     "contract": 0,
-    "training": 13,
-    "deploy": 12,
+    "training": 11,
+    "deploy": 9,
     "terrain_scene": 4,
     "motion": 0,
     "evaluation": 0,
-    "misc": 54
+    "misc": 53
    },
    "ext_top": {
-    ".py": 61,
-    ".md": 7,
+    ".py": 59,
+    ".md": 6,
     ".xml": 6,
     "(无扩展名)": 5,
-    ".pt": 3,
     ".yaml": 2,
     ".txt": 2,
     ".urdf": 1
@@ -809,29 +883,29 @@
     "unitree_go2"
    ],
    "desc": "基于 robot_lab 的 Go2 训练工程（IsaacLab）",
-   "kept": 104,
-   "kept_bytes": 13453099,
+   "kept": 100,
+   "kept_bytes": 13418012,
    "omitted": 27,
-   "omitted_bytes": 59000056,
+   "omitted_bytes": 59034828,
    "policy_files": 2,
    "per_category": {
     "model": 6,
     "contract": 0,
-    "training": 16,
+    "training": 13,
     "deploy": 5,
     "terrain_scene": 3,
     "motion": 0,
     "evaluation": 3,
-    "misc": 71
+    "misc": 70
    },
    "ext_top": {
-    ".py": 70,
+    ".py": 67,
     ".txt": 10,
     "(无扩展名)": 5,
     ".xml": 5,
     ".toml": 4,
-    ".md": 3,
     ".yaml": 3,
+    ".md": 2,
     ".onnx": 1,
     ".pt": 1,
     ".urdf": 1,
@@ -845,20 +919,20 @@
     "unitree_go2w"
    ],
    "desc": "Go2W 轮足 sim2sim 部署工程（MuJoCo）",
-   "kept": 149,
-   "kept_bytes": 115797525,
+   "kept": 134,
+   "kept_bytes": 108002558,
    "omitted": 95,
-   "omitted_bytes": 241910594,
+   "omitted_bytes": 241906483,
    "policy_files": 35,
    "per_category": {
     "model": 28,
     "contract": 0,
-    "training": 2,
+    "training": 1,
     "deploy": 56,
     "terrain_scene": 0,
     "motion": 0,
-    "evaluation": 3,
-    "misc": 60
+    "evaluation": 2,
+    "misc": 47
    },
    "ext_top": {
     ".onnx": 21,
@@ -867,20 +941,20 @@
     ".js": 13,
     ".xml": 11,
     ".json": 10,
-    ".md": 9,
     ".h": 9,
-    "(无扩展名)": 7,
+    ".md": 8,
     ".mjs": 5,
-    ".cmake": 5,
     ".hpp": 5,
-    ".txt": 4,
     ".py": 4,
     ".yml": 3,
     ".sh": 3,
+    "(无扩展名)": 2,
     ".html": 2,
-    ".css": 1,
+    ".txt": 2,
+    ".bash": 1,
     ".ts": 1,
-    ".ini": 1
+    ".css": 1,
+    ".urdf": 1
    },
    "readme": "go2w_sim2sim/README.md"
   },
@@ -894,15 +968,15 @@
     "limx_tron1_sf"
    ],
    "desc": "legged_gym 系实验工程（多机型）",
-   "kept": 306,
-   "kept_bytes": 17032778,
+   "kept": 304,
+   "kept_bytes": 16964591,
    "omitted": 148,
-   "omitted_bytes": 121721168,
+   "omitted_bytes": 121739673,
    "policy_files": 0,
    "per_category": {
     "model": 35,
     "contract": 0,
-    "training": 63,
+    "training": 61,
     "deploy": 0,
     "terrain_scene": 2,
     "motion": 126,
@@ -910,7 +984,7 @@
     "misc": 75
    },
    "ext_top": {
-    ".py": 137,
+    ".py": 135,
     ".pkl": 114,
     ".urdf": 18,
     ".xml": 15,
@@ -934,10 +1008,10 @@
     "unitree_go2"
    ],
    "desc": "him_dog 四足工程",
-   "kept": 212,
-   "kept_bytes": 29448746,
+   "kept": 209,
+   "kept_bytes": 29413243,
    "omitted": 161,
-   "omitted_bytes": 162569837,
+   "omitted_bytes": 162529280,
    "policy_files": 15,
    "per_category": {
     "model": 28,
@@ -947,7 +1021,7 @@
     "terrain_scene": 9,
     "motion": 12,
     "evaluation": 30,
-    "misc": 84
+    "misc": 81
    },
    "ext_top": {
     ".py": 69,
@@ -956,7 +1030,7 @@
     ".urdf": 16,
     ".yaml": 13,
     ".onnx": 13,
-    ".txt": 11,
+    ".txt": 8,
     ".h": 8,
     "(无扩展名)": 6,
     ".hpp": 6,
@@ -979,10 +1053,10 @@
     "unitree_g1"
    ],
    "desc": "人形运动规划算法",
-   "kept": 50,
-   "kept_bytes": 470895,
+   "kept": 48,
+   "kept_bytes": 451783,
    "omitted": 48,
-   "omitted_bytes": 28818513,
+   "omitted_bytes": 28835840,
    "policy_files": 0,
    "per_category": {
     "model": 1,
@@ -992,13 +1066,12 @@
     "terrain_scene": 0,
     "motion": 16,
     "evaluation": 1,
-    "misc": 30
+    "misc": 28
    },
    "ext_top": {
     ".py": 44,
-    ".md": 3,
+    ".md": 2,
     "(无扩展名)": 1,
-    ".txt": 1,
     ".json": 1
    },
    "readme": "humanoid-motion-planning/README.md"
@@ -1007,10 +1080,10 @@
    "source": "00_open/jie_3d_nav",
    "robots": [],
    "desc": "JIE 3D 导航栈（jie_octomap + octo_planner）：感知与规划参考",
-   "kept": 69,
-   "kept_bytes": 2138630,
+   "kept": 68,
+   "kept_bytes": 2050484,
    "omitted": 5,
-   "omitted_bytes": 1631231,
+   "omitted_bytes": 1677721,
    "policy_files": 0,
    "per_category": {
     "model": 0,
@@ -1020,7 +1093,7 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 5,
-    "misc": 59
+    "misc": 58
    },
    "ext_top": {
     ".py": 24,
@@ -1031,9 +1104,9 @@
     ".js": 4,
     ".txt": 3,
     ".xml": 3,
-    ".md": 2,
     ".rviz": 2,
     ".world": 2,
+    ".md": 1,
     ".sh": 1,
     ".rules": 1,
     ".html": 1,
@@ -1048,34 +1121,34 @@
     "unitree_g1"
    ],
    "desc": "开悟 RL 工程（Go2/G1）",
-   "kept": 284,
-   "kept_bytes": 29623343,
+   "kept": 279,
+   "kept_bytes": 17278236,
    "omitted": 49,
-   "omitted_bytes": 85509932,
-   "policy_files": 7,
+   "omitted_bytes": 85458944,
+   "policy_files": 4,
    "per_category": {
     "model": 9,
     "contract": 0,
-    "training": 80,
-    "deploy": 76,
+    "training": 78,
+    "deploy": 73,
     "terrain_scene": 55,
     "motion": 2,
     "evaluation": 9,
     "misc": 53
    },
    "ext_top": {
-    ".py": 130,
+    ".py": 128,
     ".xml": 51,
     ".h": 30,
     ".md": 21,
     "(无扩展名)": 11,
     ".cpp": 9,
-    ".pt": 7,
     ".txt": 7,
     ".sh": 6,
     ".yaml": 5,
-    ".urdf": 2,
+    ".pt": 4,
     ".drawio": 2,
+    ".urdf": 2,
     ".hpp": 2,
     ".toml": 1
    },
@@ -1090,27 +1163,27 @@
     "deeprobotics_m20"
    ],
    "desc": "LLoco 技能式 RL 任务与部署（多机型）",
-   "kept": 962,
-   "kept_bytes": 50061773,
+   "kept": 957,
+   "kept_bytes": 49847373,
    "omitted": 626,
-   "omitted_bytes": 508934678,
+   "omitted_bytes": 508978790,
    "policy_files": 4,
    "per_category": {
     "model": 84,
     "contract": 1,
-    "training": 178,
+    "training": 174,
     "deploy": 7,
     "terrain_scene": 40,
     "motion": 46,
     "evaluation": 120,
-    "misc": 486
+    "misc": 485
    },
    "ext_top": {
-    ".py": 624,
+    ".py": 620,
     ".md": 58,
     ".rst": 50,
     ".xml": 41,
-    ".txt": 40,
+    ".txt": 39,
     "(无扩展名)": 27,
     ".urdf": 12,
     ".yaml": 11,
@@ -1136,9 +1209,9 @@
    ],
    "desc": "G1 仿真环境与场景",
    "kept": 38,
-   "kept_bytes": 108111,
+   "kept_bytes": 105199,
    "omitted": 9,
-   "omitted_bytes": 74208729,
+   "omitted_bytes": 74239180,
    "policy_files": 0,
    "per_category": {
     "model": 7,
@@ -1166,30 +1239,30 @@
     "deeprobotics_lite3"
    ],
    "desc": "M20 轮足 IsaacSim RL 工程",
-   "kept": 87,
-   "kept_bytes": 3852525,
+   "kept": 80,
+   "kept_bytes": 3826409,
    "omitted": 76,
-   "omitted_bytes": 70274260,
+   "omitted_bytes": 70254592,
    "policy_files": 4,
    "per_category": {
     "model": 10,
     "contract": 0,
-    "training": 25,
+    "training": 19,
     "deploy": 7,
     "terrain_scene": 4,
     "motion": 23,
     "evaluation": 0,
-    "misc": 18
+    "misc": 17
    },
    "ext_top": {
     ".py": 50,
-    ".md": 7,
-    "(无扩展名)": 6,
-    ".txt": 6,
+    ".md": 6,
+    "(无扩展名)": 4,
     ".onnx": 4,
     ".toml": 3,
     ".xml": 3,
     ".urdf": 3,
+    ".txt": 2,
     ".yaml": 2,
     ".gv": 1,
     ".pdf": 1,
@@ -1203,10 +1276,10 @@
     "microduck"
    ],
    "desc": "MicroDuck 仿真器",
-   "kept": 58,
-   "kept_bytes": 7772609,
+   "kept": 57,
+   "kept_bytes": 7748998,
    "omitted": 147,
-   "omitted_bytes": 11453668,
+   "omitted_bytes": 11429478,
    "policy_files": 9,
    "per_category": {
     "model": 3,
@@ -1216,7 +1289,7 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 0,
-    "misc": 42
+    "misc": 41
    },
    "ext_top": {
     ".js": 23,
@@ -1225,8 +1298,7 @@
     "(无扩展名)": 4,
     ".json": 4,
     ".html": 3,
-    ".xml": 2,
-    ".md": 1
+    ".xml": 2
    },
    "readme": "microduck-simulator/README.md"
   },
@@ -1236,10 +1308,10 @@
     "microduck"
    ],
    "desc": "MicroDuck Studio（编辑/可视化）",
-   "kept": 27,
-   "kept_bytes": 89084,
+   "kept": 26,
+   "kept_bytes": 72996,
    "omitted": 2,
-   "omitted_bytes": 1906872,
+   "omitted_bytes": 1887436,
    "policy_files": 0,
    "per_category": {
     "model": 0,
@@ -1249,12 +1321,12 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 3,
-    "misc": 23
+    "misc": 22
    },
    "ext_top": {
     ".py": 9,
     "(无扩展名)": 6,
-    ".md": 4,
+    ".md": 3,
     ".sh": 2,
     ".example": 1,
     ".yaml": 1,
@@ -1271,10 +1343,10 @@
     "microduck"
    ],
    "desc": "MicroDuck 综合工程",
-   "kept": 982,
-   "kept_bytes": 67709580,
+   "kept": 980,
+   "kept_bytes": 66794291,
    "omitted": 832,
-   "omitted_bytes": 325303134,
+   "omitted_bytes": 325268275,
    "policy_files": 55,
    "per_category": {
     "model": 188,
@@ -1283,8 +1355,8 @@
     "deploy": 85,
     "terrain_scene": 9,
     "motion": 4,
-    "evaluation": 55,
-    "misc": 532
+    "evaluation": 54,
+    "misc": 531
    },
    "ext_top": {
     ".rs": 179,
@@ -1294,7 +1366,7 @@
     ".js": 66,
     ".onnx": 54,
     ".xml": 50,
-    "(无扩展名)": 41,
+    "(无扩展名)": 40,
     ".toml": 39,
     ".json": 37,
     ".jsx": 33,
@@ -1316,10 +1388,10 @@
     "microduck"
    ],
    "desc": "MicroDuck RL 训练",
-   "kept": 176,
-   "kept_bytes": 1874813,
+   "kept": 175,
+   "kept_bytes": 1822417,
    "omitted": 55,
-   "omitted_bytes": 24599433,
+   "omitted_bytes": 24641536,
    "policy_files": 0,
    "per_category": {
     "model": 62,
@@ -1329,13 +1401,13 @@
     "terrain_scene": 6,
     "motion": 1,
     "evaluation": 33,
-    "misc": 48
+    "misc": 47
    },
    "ext_top": {
     ".py": 67,
     ".part": 54,
     ".xml": 24,
-    ".md": 20,
+    ".md": 19,
     ".json": 8,
     "(无扩展名)": 2,
     ".toml": 1
@@ -1346,8 +1418,8 @@
    "source": "00_open/mjlab-skillkit",
    "robots": [],
    "desc": "mjlab 技能包（adapters / agents / shared）：Isaac Lab → mjlab 移植参考",
-   "kept": 38,
-   "kept_bytes": 175093,
+   "kept": 37,
+   "kept_bytes": 164948,
    "omitted": 0,
    "omitted_bytes": 0,
    "policy_files": 0,
@@ -1359,14 +1431,14 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 0,
-    "misc": 38
+    "misc": 37
    },
    "ext_top": {
-    ".md": 32,
+    ".md": 31,
     "(无扩展名)": 2,
     ".sh": 2,
-    ".mdc": 1,
-    ".yaml": 1
+    ".yaml": 1,
+    ".mdc": 1
    },
    "readme": "mjlab-skillkit/README.md"
   },
@@ -1380,9 +1452,9 @@
    ],
    "desc": "mjlab 新版：机型资产 + MuJoCo RL 任务",
    "kept": 407,
-   "kept_bytes": 4121455,
+   "kept_bytes": 4005635,
    "omitted": 106,
-   "omitted_bytes": 58164852,
+   "omitted_bytes": 58195968,
    "policy_files": 0,
    "per_category": {
     "model": 10,
@@ -1408,9 +1480,9 @@
     ".cff": 1,
     ".toml": 1,
     ".json": 1,
+    ".html": 1,
     ".bib": 1,
     ".css": 1,
-    ".html": 1,
     ".service": 1,
     ".timer": 1,
     ".typed": 1
@@ -1425,10 +1497,10 @@
     "unitree_g1"
    ],
    "desc": "mjlab 可视化/仿真套件",
-   "kept": 380,
-   "kept_bytes": 23821695,
+   "kept": 379,
+   "kept_bytes": 23723360,
    "omitted": 91,
-   "omitted_bytes": 108029325,
+   "omitted_bytes": 108003328,
    "policy_files": 11,
    "per_category": {
     "model": 25,
@@ -1438,12 +1510,12 @@
     "terrain_scene": 0,
     "motion": 7,
     "evaluation": 70,
-    "misc": 242
+    "misc": 241
    },
    "ext_top": {
     ".ts": 124,
     ".py": 106,
-    ".md": 40,
+    ".md": 39,
     ".json": 18,
     "(无扩展名)": 14,
     ".pyi": 14,
@@ -1459,8 +1531,8 @@
     ".html": 2,
     ".css": 2,
     ".cff": 1,
-    ".spz": 1,
-    ".typed": 1
+    ".sh": 1,
+    ".spz": 1
    },
    "readme": "mjswan/README.md"
   },
@@ -1471,10 +1543,10 @@
     "unitree_g1"
    ],
    "desc": "DeepMind MuJoCo Playground：Go1/G1 环境与策略",
-   "kept": 244,
-   "kept_bytes": 7070559,
+   "kept": 243,
+   "kept_bytes": 7018981,
    "omitted": 53,
-   "omitted_bytes": 12419434,
+   "omitted_bytes": 12373196,
    "policy_files": 6,
    "per_category": {
     "model": 10,
@@ -1484,13 +1556,13 @@
     "terrain_scene": 14,
     "motion": 80,
     "evaluation": 10,
-    "misc": 86
+    "misc": 85
    },
    "ext_top": {
     ".py": 116,
     ".xml": 71,
     ".ipynb": 22,
-    ".md": 14,
+    ".md": 13,
     ".onnx": 6,
     ".csv": 5,
     "(无扩展名)": 3,
@@ -1509,29 +1581,30 @@
     "unitree_go2",
     "unitree_g1"
    ],
-   "desc": "Go2/G1 的 parkour 任务（mjlab）",
-   "kept": 62,
-   "kept_bytes": 13627878,
+   "desc": "Go2/G1 的 parkour 任务（mjlab）：Go2 PIE 深度跑酷训练 + sim2sim + 发布策略",
+   "kept": 64,
+   "kept_bytes": 34147401,
    "omitted": 88,
-   "omitted_bytes": 81545351,
-   "policy_files": 2,
+   "omitted_bytes": 80740352,
+   "policy_files": 5,
    "per_category": {
     "model": 7,
     "contract": 0,
     "training": 12,
-    "deploy": 22,
+    "deploy": 25,
     "terrain_scene": 10,
     "motion": 0,
     "evaluation": 0,
-    "misc": 11
+    "misc": 10
    },
    "ext_top": {
     ".py": 46,
     ".xml": 7,
+    ".onnx": 4,
     "(无扩展名)": 3,
-    ".md": 3,
-    ".onnx": 2,
-    ".txt": 1
+    ".md": 2,
+    ".txt": 1,
+    ".pt": 1
    },
    "readme": "parkour_mjlab/README.md"
   },
@@ -1543,26 +1616,26 @@
     "unitree_g1"
    ],
    "desc": "ZEX-W 轮足旧版工程（含 Go1/G1 分支）",
-   "kept": 954,
-   "kept_bytes": 42454471,
+   "kept": 950,
+   "kept_bytes": 42122621,
    "omitted": 223,
-   "omitted_bytes": 397761879,
+   "omitted_bytes": 397724876,
    "policy_files": 18,
    "per_category": {
     "model": 9,
     "contract": 0,
-    "training": 376,
-    "deploy": 343,
+    "training": 374,
+    "deploy": 341,
     "terrain_scene": 23,
     "motion": 2,
     "evaluation": 95,
     "misc": 106
    },
    "ext_top": {
-    ".py": 445,
+    ".py": 443,
     ".md": 77,
-    ".xml": 51,
     ".rst": 50,
+    ".xml": 49,
     ".hpp": 43,
     ".cpp": 37,
     ".yaml": 32,
@@ -1589,9 +1662,9 @@
    ],
    "desc": "1000frames.ai 参考素材（机型描述/示例）",
    "kept": 58,
-   "kept_bytes": 7783400,
+   "kept_bytes": 7779754,
    "omitted": 34,
-   "omitted_bytes": 50804658,
+   "omitted_bytes": 50855936,
    "policy_files": 1,
    "per_category": {
     "model": 9,
@@ -1627,8 +1700,8 @@
     "deeprobotics_lite3"
    ],
    "desc": "RL-SAR：仿真到实机部署框架（多机型、含策略与 C++ 部署）",
-   "kept": 171,
-   "kept_bytes": 31725946,
+   "kept": 170,
+   "kept_bytes": 31674143,
    "omitted": 0,
    "omitted_bytes": 0,
    "policy_files": 22,
@@ -1640,7 +1713,7 @@
     "terrain_scene": 0,
     "motion": 5,
     "evaluation": 2,
-    "misc": 37
+    "misc": 36
    },
    "ext_top": {
     ".hpp": 33,
@@ -1654,13 +1727,13 @@
     ".onnx": 6,
     ".py": 5,
     ".msg": 5,
-    ".md": 4,
     ".txt": 4,
     ".cc": 4,
+    ".md": 3,
     ".yml": 3,
     ".csv": 2,
-    ".mm": 2,
     ".world": 2,
+    ".mm": 2,
     ".launch": 1
    },
    "readme": "rl_sar/README.md"
@@ -1676,10 +1749,10 @@
     "deeprobotics_lite3"
    ],
    "desc": "RL-SAR 机型 zoo：URDF/MJCF 与策略集合",
-   "kept": 171,
-   "kept_bytes": 1623251,
+   "kept": 170,
+   "kept_bytes": 1580792,
    "omitted": 416,
-   "omitted_bytes": 490531546,
+   "omitted_bytes": 490523852,
    "policy_files": 0,
    "per_category": {
     "model": 119,
@@ -1689,7 +1762,7 @@
     "terrain_scene": 4,
     "motion": 0,
     "evaluation": 0,
-    "misc": 3
+    "misc": 2
    },
    "ext_top": {
     ".xml": 44,
@@ -1699,7 +1772,7 @@
     ".launch": 21,
     ".txt": 12,
     ".rviz": 9,
-    ".md": 5,
+    ".md": 4,
     ".py": 3,
     "(无扩展名)": 2
    },
@@ -1712,10 +1785,10 @@
     "deeprobotics_m20"
    ],
    "desc": "云深处 RL 训练任务与配置",
-   "kept": 133,
-   "kept_bytes": 41607374,
+   "kept": 132,
+   "kept_bytes": 39914719,
    "omitted": 3,
-   "omitted_bytes": 487922,
+   "omitted_bytes": 487424,
    "policy_files": 0,
    "per_category": {
     "model": 0,
@@ -1725,14 +1798,14 @@
     "terrain_scene": 2,
     "motion": 90,
     "evaluation": 0,
-    "misc": 13
+    "misc": 12
    },
    "ext_top": {
     ".py": 75,
     ".txt": 47,
     "(无扩展名)": 6,
     ".toml": 3,
-    ".md": 2
+    ".md": 1
    },
    "readme": "rl_training/README.md"
   },
@@ -1743,9 +1816,9 @@
    ],
    "desc": "G1 人形 RL 工程",
    "kept": 154,
-   "kept_bytes": 105041877,
+   "kept_bytes": 104710214,
    "omitted": 1393,
-   "omitted_bytes": 1726276489,
+   "omitted_bytes": 1726270668,
    "policy_files": 0,
    "per_category": {
     "model": 26,
@@ -1783,10 +1856,10 @@
     "deeprobotics_m20"
    ],
    "desc": "四足机型描述汇总（URDF/xacro/MJCF）",
-   "kept": 181,
-   "kept_bytes": 12373580,
+   "kept": 180,
+   "kept_bytes": 12345795,
    "omitted": 65,
-   "omitted_bytes": 348080587,
+   "omitted_bytes": 348127232,
    "policy_files": 8,
    "per_category": {
     "model": 123,
@@ -1796,15 +1869,15 @@
     "terrain_scene": 0,
     "motion": 8,
     "evaluation": 0,
-    "misc": 1
+    "misc": 0
    },
    "ext_top": {
     ".xacro": 57,
     ".yaml": 25,
     ".info": 24,
     ".mtl": 17,
-    ".md": 11,
     ".txt": 10,
+    ".md": 10,
     ".xml": 10,
     ".urdf": 10,
     "(无扩展名)": 9,
@@ -1825,10 +1898,10 @@
     "deeprobotics_m20"
    ],
    "desc": "robot_lab：IsaacLab 版多机型训练框架",
-   "kept": 370,
-   "kept_bytes": 3708808,
+   "kept": 367,
+   "kept_bytes": 3321956,
    "omitted": 539,
-   "omitted_bytes": 481742450,
+   "omitted_bytes": 481715814,
    "policy_files": 0,
    "per_category": {
     "model": 77,
@@ -1836,24 +1909,23 @@
     "training": 36,
     "deploy": 0,
     "terrain_scene": 25,
-    "motion": 156,
+    "motion": 154,
     "evaluation": 7,
-    "misc": 69
+    "misc": 68
    },
    "ext_top": {
-    ".py": 286,
+    ".py": 285,
     ".urdf": 31,
     ".mtl": 27,
     "(无扩展名)": 6,
-    ".md": 5,
     ".yaml": 4,
+    ".md": 4,
     ".toml": 3,
     ".yml": 2,
     ".csv": 2,
     ".sh": 1,
     ".txt": 1,
-    ".base": 1,
-    ".npz": 1
+    ".base": 1
    },
    "readme": "robot_lab/README.md"
   },
@@ -1869,10 +1941,10 @@
     "deeprobotics_lite3"
    ],
    "desc": "多机型 MuJoCo 资产与场景",
-   "kept": 80,
-   "kept_bytes": 1968156,
+   "kept": 79,
+   "kept_bytes": 1961014,
    "omitted": 368,
-   "omitted_bytes": 534044259,
+   "omitted_bytes": 534039756,
    "policy_files": 0,
    "per_category": {
     "model": 28,
@@ -1882,12 +1954,12 @@
     "terrain_scene": 49,
     "motion": 0,
     "evaluation": 0,
-    "misc": 2
+    "misc": 1
    },
    "ext_top": {
     ".xml": 70,
     ".urdf": 7,
-    "(无扩展名)": 2,
+    "(无扩展名)": 1,
     ".yaml": 1
    },
    "readme": "robot_mujoco/README.md"
@@ -1899,10 +1971,10 @@
     "deeprobotics_m20"
    ],
    "desc": "云深处 SDK 与部署代码",
-   "kept": 8007,
-   "kept_bytes": 79557966,
+   "kept": 8006,
+   "kept_bytes": 77658702,
    "omitted": 4460,
-   "omitted_bytes": 336795923,
+   "omitted_bytes": 336802611,
    "policy_files": 2,
    "per_category": {
     "model": 3,
@@ -1912,7 +1984,7 @@
     "terrain_scene": 4,
     "motion": 1408,
     "evaluation": 43,
-    "misc": 2051
+    "misc": 2050
    },
    "ext_top": {
     ".cpp": 3092,
@@ -1927,7 +1999,7 @@
     ".cc": 147,
     ".sh": 69,
     ".in": 67,
-    ".md": 64,
+    ".md": 63,
     ".c": 58,
     ".inc": 54,
     ".cu": 51,
@@ -1945,9 +2017,9 @@
    ],
    "desc": "stackforce 仿真站点参考资源",
    "kept": 64,
-   "kept_bytes": 4149234,
+   "kept_bytes": 4135489,
    "omitted": 168,
-   "omitted_bytes": 182427551,
+   "omitted_bytes": 182452224,
    "policy_files": 0,
    "per_category": {
     "model": 10,
@@ -1979,10 +2051,10 @@
     "limx_tron1_wf"
    ],
    "desc": "TRON1 Python 部署与策略文件",
-   "kept": 76,
-   "kept_bytes": 32953022,
+   "kept": 75,
+   "kept_bytes": 32947290,
    "omitted": 1,
-   "omitted_bytes": 4905826,
+   "omitted_bytes": 4928307,
    "policy_files": 54,
    "per_category": {
     "model": 0,
@@ -1992,14 +2064,14 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 0,
-    "misc": 8
+    "misc": 7
    },
    "ext_top": {
     ".onnx": 54,
     ".yaml": 10,
     ".py": 5,
     "(无扩展名)": 4,
-    ".md": 3
+    ".md": 2
    },
    "readme": "tron1-rl-deploy-python/README.md"
   },
@@ -2011,28 +2083,28 @@
     "limx_tron1_wf"
    ],
    "desc": "TRON1 IsaacLab RL 训练工程",
-   "kept": 80,
-   "kept_bytes": 317707,
+   "kept": 77,
+   "kept_bytes": 304370,
    "omitted": 12,
-   "omitted_bytes": 82839606,
+   "omitted_bytes": 82837504,
    "policy_files": 0,
    "per_category": {
     "model": 0,
     "contract": 0,
-    "training": 3,
+    "training": 1,
     "deploy": 0,
     "terrain_scene": 3,
     "motion": 42,
     "evaluation": 0,
-    "misc": 32
+    "misc": 31
    },
    "ext_top": {
-    ".py": 53,
+    ".py": 51,
     ".txt": 11,
     "(无扩展名)": 7,
     ".toml": 3,
     ".yaml": 3,
-    ".md": 2,
+    ".md": 1,
     ".rst": 1
    },
    "readme": "tron1-rl-isaaclab/README.md"
@@ -2045,10 +2117,10 @@
     "limx_tron1_wf"
    ],
    "desc": "TRON1 机型描述（URDF/xacro）",
-   "kept": 99,
-   "kept_bytes": 747410,
+   "kept": 98,
+   "kept_bytes": 727123,
    "omitted": 127,
-   "omitted_bytes": 291537973,
+   "omitted_bytes": 291504128,
    "policy_files": 0,
    "per_category": {
     "model": 92,
@@ -2058,16 +2130,16 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 0,
-    "misc": 7
+    "misc": 6
    },
    "ext_top": {
     ".xacro": 70,
     ".urdf": 12,
     ".xml": 11,
-    ".md": 2,
     ".srdf": 2,
     ".txt": 1,
-    "(无扩展名)": 1
+    "(无扩展名)": 1,
+    ".md": 1
    },
    "readme": "tron1-robot-description/README.md"
   },
@@ -2083,9 +2155,9 @@
    ],
    "desc": "多机型统一 RL 训练框架（宇树全系）",
    "kept": 781,
-   "kept_bytes": 33715593,
+   "kept_bytes": 33487911,
    "omitted": 1573,
-   "omitted_bytes": 1762787384,
+   "omitted_bytes": 1762761113,
    "policy_files": 5,
    "per_category": {
     "model": 201,
@@ -2133,10 +2205,10 @@
     "deeprobotics_lite3"
    ],
    "desc": "统一多机型 RL 实验框架（训练/评估/部署）",
-   "kept": 1131,
-   "kept_bytes": 8508372,
+   "kept": 1123,
+   "kept_bytes": 8118218,
    "omitted": 21,
-   "omitted_bytes": 14902407,
+   "omitted_bytes": 14889779,
    "policy_files": 0,
    "per_category": {
     "model": 58,
@@ -2145,11 +2217,11 @@
     "deploy": 59,
     "terrain_scene": 13,
     "motion": 117,
-    "evaluation": 252,
+    "evaluation": 244,
     "misc": 382
    },
    "ext_top": {
-    ".py": 593,
+    ".py": 585,
     ".md": 256,
     ".yaml": 191,
     ".xml": 51,
@@ -2174,8 +2246,8 @@
     "unitree_go2"
    ],
    "desc": "Go2 的 SLAM + Nav2 导航栈（ROS2）",
-   "kept": 53,
-   "kept_bytes": 147790,
+   "kept": 49,
+   "kept_bytes": 121595,
    "omitted": 0,
    "omitted_bytes": 0,
    "policy_files": 0,
@@ -2187,16 +2259,15 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 12,
-    "misc": 34
+    "misc": 30
    },
    "ext_top": {
     ".py": 30,
-    "(无扩展名)": 7,
     ".xml": 7,
     ".cfg": 4,
+    "(无扩展名)": 4,
     ".rviz": 2,
     ".repo": 1,
-    ".md": 1,
     ".yaml": 1
    },
    "readme": "unitree-go2-slam-nav2/README.md"
@@ -2207,10 +2278,10 @@
     "unitree_go2"
    ],
    "desc": "Go2 导航相关脚本与配置",
-   "kept": 38,
-   "kept_bytes": 186628,
+   "kept": 37,
+   "kept_bytes": 178517,
    "omitted": 17,
-   "omitted_bytes": 52678092,
+   "omitted_bytes": 52638515,
    "policy_files": 0,
    "per_category": {
     "model": 15,
@@ -2220,7 +2291,7 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 0,
-    "misc": 16
+    "misc": 15
    },
    "ext_top": {
     ".xacro": 6,
@@ -2230,10 +2301,10 @@
     ".py": 4,
     ".txt": 3,
     ".rviz": 3,
-    ".md": 2,
     ".launch": 2,
     ".cpp": 2,
     ".dot": 1,
+    ".md": 1,
     ".urdf": 1,
     ".msg": 1
    },
@@ -2247,10 +2318,10 @@
     "unitree_g1"
    ],
    "desc": "宇树官方 MuJoCo 仿真器与机型 XML（Go1/Go2/G1）",
-   "kept": 11,
-   "kept_bytes": 151317,
+   "kept": 10,
+   "kept_bytes": 143841,
    "omitted": 20,
-   "omitted_bytes": 23056030,
+   "omitted_bytes": 23068672,
    "policy_files": 0,
    "per_category": {
     "model": 4,
@@ -2260,14 +2331,13 @@
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 1,
-    "misc": 6
+    "misc": 5
    },
    "ext_top": {
     ".urdf": 4,
     ".xml": 4,
     "(无扩展名)": 1,
-    ".py": 1,
-    ".md": 1
+    ".py": 1
    },
    "readme": "unitree_mujoco/README.md"
   },
@@ -2279,10 +2349,10 @@
     "unitree_g1"
    ],
    "desc": "宇树官方 mjlab 版 RL 工程：训练任务 + MuJoCo 部署（Go2/Go2W/G1）",
-   "kept": 403,
-   "kept_bytes": 23458609,
+   "kept": 402,
+   "kept_bytes": 23336552,
    "omitted": 393,
-   "omitted_bytes": 366051304,
+   "omitted_bytes": 366057881,
    "policy_files": 2,
    "per_category": {
     "model": 105,
@@ -2292,7 +2362,7 @@
     "terrain_scene": 2,
     "motion": 6,
     "evaluation": 4,
-    "misc": 104
+    "misc": 103
    },
    "ext_top": {
     ".py": 103,
@@ -2300,7 +2370,7 @@
     ".xml": 81,
     "(无扩展名)": 22,
     ".cmake": 22,
-    ".md": 18,
+    ".md": 17,
     ".cpp": 17,
     ".yaml": 15,
     ".cc": 12,
@@ -2323,28 +2393,28 @@
     "unitree_g1"
    ],
    "desc": "Go2W 专用 mjlab RL 工程（含 Go2/G1 资产）",
-   "kept": 384,
-   "kept_bytes": 19441588,
+   "kept": 381,
+   "kept_bytes": 19333805,
    "omitted": 180,
-   "omitted_bytes": 227576313,
+   "omitted_bytes": 227540992,
    "policy_files": 3,
    "per_category": {
     "model": 12,
     "contract": 0,
-    "training": 89,
+    "training": 87,
     "deploy": 119,
     "terrain_scene": 7,
     "motion": 3,
     "evaluation": 11,
-    "misc": 143
+    "misc": 142
    },
    "ext_top": {
-    ".py": 248,
+    ".py": 246,
     ".h": 49,
     "(无扩展名)": 17,
     ".cpp": 13,
-    ".md": 12,
     ".yaml": 12,
+    ".md": 11,
     ".txt": 8,
     ".cmake": 8,
     ".xml": 6,
@@ -2361,16 +2431,16 @@
    "source": "00_open/urdf_tool",
    "robots": [],
    "desc": "URDF 资产查看与验证工具集（robot_viewer / URDF-Studio）",
-   "kept": 9115,
-   "kept_bytes": 126115479,
+   "kept": 8999,
+   "kept_bytes": 121945609,
    "omitted": 2581,
-   "omitted_bytes": 192291047,
+   "omitted_bytes": 192308838,
    "policy_files": 0,
    "per_category": {
-    "model": 8511,
-    "contract": 172,
-    "training": 73,
-    "deploy": 102,
+    "model": 8401,
+    "contract": 171,
+    "training": 72,
+    "deploy": 98,
     "terrain_scene": 0,
     "motion": 60,
     "evaluation": 151,
@@ -2379,19 +2449,19 @@
    "ext_top": {
     ".cpp": 2377,
     ".h": 1921,
-    ".ts": 1648,
+    ".ts": 1612,
     ".sdf": 785,
     ".py": 577,
     ".txt": 407,
-    ".tsx": 315,
-    ".js": 155,
+    ".tsx": 310,
     ".json": 146,
     ".mjs": 95,
     ".glslfx": 87,
     ".dox": 83,
+    ".js": 81,
     ".rst": 63,
     ".mtlx": 51,
-    ".md": 50,
+    ".md": 49,
     ".c": 43,
     ".out": 36,
     ".cmake": 33,
@@ -2400,34 +2470,71 @@
    },
    "readme": "urdf_tool/README.md"
   },
+  "walk-these-ways": {
+   "source": "00_open/walk-these-ways",
+   "robots": [
+    "unitree_go1"
+   ],
+   "desc": "Improbable AI walk-these-ways：Go1 快速步态 RL 训练与部署（go1_gym / go1_gym_deploy）",
+   "kept": 102,
+   "kept_bytes": 36759771,
+   "omitted": 28,
+   "omitted_bytes": 68681728,
+   "policy_files": 4,
+   "per_category": {
+    "model": 5,
+    "contract": 0,
+    "training": 15,
+    "deploy": 42,
+    "terrain_scene": 1,
+    "motion": 4,
+    "evaluation": 6,
+    "misc": 29
+   },
+   "ext_top": {
+    ".py": 65,
+    "(无扩展名)": 7,
+    ".sh": 7,
+    ".meta": 5,
+    ".lcm": 4,
+    ".urdf": 4,
+    ".pkl": 3,
+    ".pt": 2,
+    ".jit": 2,
+    ".cpp": 1,
+    ".xml": 1,
+    ".yml": 1
+   },
+   "readme": "walk-these-ways/README.md"
+  },
   "wandb": {
    "source": "00_open/auto_web/wandb",
    "robots": [],
    "desc": "Weights & Biases 客户端（Go core + Python SDK）：训练任务跟踪与可视化参考",
-   "kept": 7474,
-   "kept_bytes": 95298414,
+   "kept": 7425,
+   "kept_bytes": 92952536,
    "omitted": 20,
-   "omitted_bytes": 66368388,
+   "omitted_bytes": 66374860,
    "policy_files": 0,
    "per_category": {
     "model": 46,
     "contract": 37,
     "training": 337,
-    "deploy": 1209,
+    "deploy": 1182,
     "terrain_scene": 0,
     "motion": 26,
     "evaluation": 689,
-    "misc": 5130
+    "misc": 5108
    },
    "ext_top": {
-    ".go": 5417,
+    ".go": 5370,
     ".py": 940,
     "(无扩展名)": 293,
-    ".md": 257,
+    ".md": 256,
     ".s": 130,
     ".yml": 65,
-    ".graphql": 51,
     ".txt": 51,
+    ".graphql": 51,
     ".sh": 41,
     ".json": 29,
     ".rs": 28,
@@ -2449,25 +2556,25 @@
     "wuji_hand"
    ],
    "desc": "无极灵巧手 mjlab 训练工程",
-   "kept": 187,
-   "kept_bytes": 1153309,
+   "kept": 184,
+   "kept_bytes": 1115904,
    "omitted": 61,
-   "omitted_bytes": 35977017,
+   "omitted_bytes": 35966156,
    "policy_files": 0,
    "per_category": {
     "model": 12,
     "contract": 0,
-    "training": 69,
+    "training": 67,
     "deploy": 34,
     "terrain_scene": 0,
     "motion": 1,
     "evaluation": 16,
-    "misc": 55
+    "misc": 54
    },
    "ext_top": {
-    ".py": 136,
+    ".py": 134,
     ".mdx": 12,
-    ".md": 10,
+    ".md": 9,
     ".sh": 6,
     ".yaml": 5,
     ".yml": 5,
@@ -2486,9 +2593,9 @@
    ],
    "desc": "Go2 的 RL 示例工程",
    "kept": 28,
-   "kept_bytes": 90767,
+   "kept_bytes": 88601,
    "omitted": 38,
-   "omitted_bytes": 114829442,
+   "omitted_bytes": 114819072,
    "policy_files": 0,
    "per_category": {
     "model": 0,
@@ -2506,38 +2613,14 @@
     "(无扩展名)": 3
    },
    "readme": "zsi_rl/README.md"
-  },
-  "HIMLoco": {
-   "source": "00_open/HIMLoco",
-   "robots": [
-    "unitree_go1"
-   ],
-   "desc": "InternRobotics HIMLoco：四足高动态运动/越障 RL 训练工程（legged_gym + rsl_rl）",
-   "kept": 74,
-   "kept_bytes": 11702029,
-   "omitted": 92,
-   "policy_files": 0,
-   "readme": "HIMLoco/README.md"
-  },
-  "walk-these-ways": {
-   "source": "00_open/walk-these-ways",
-   "robots": [
-    "unitree_go1"
-   ],
-   "desc": "Improbable AI walk-these-ways：Go1 快速步态 RL 训练与部署（go1_gym / go1_gym_deploy）",
-   "kept": 103,
-   "kept_bytes": 36771579,
-   "omitted": 28,
-   "policy_files": 4,
-   "readme": "walk-these-ways/README.md"
   }
  },
  "knowledge_base": {
   "Robotics_Tutorial": {
    "source": "00_open/robo_know/Robotics_Tutorial",
    "desc": "达妙科技（Pengfei Guo）《Robotics Tutorial》：数学基础 / C++ 工程 / SLAM / 移动机器人规控 / 运动控制 / 具身智能 六大方向的系统化教学文档",
-   "kept": 437,
-   "kept_bytes": 49280356,
+   "kept": 436,
+   "kept_bytes": 48524024,
    "omitted": 1,
    "readme": "knowledge_base/Robotics_Tutorial/README.md"
   }
@@ -2555,15 +2638,16 @@
     "lain_job",
     "mjswan",
     "mujoco_playground",
+    "MGDP",
     "LeggedSkillDeploy",
     "robot_lab",
     "fan_robotlab",
     "robot_mujoco",
     "robot-descriptions-quadruped",
     "him_dog",
-    "rc_old",
     "HIMLoco",
-    "walk-these-ways"
+    "walk-these-ways",
+    "rc_old"
    ]
   },
   "unitree_go2": {
@@ -2591,6 +2675,7 @@
     "kaiwu_rl",
     "mjswan",
     "parkour_mjlab",
+    "MGDP",
     "Dreamwaq",
     "LeggedSkillDeploy",
     "robot_lab",
@@ -2686,6 +2771,7 @@
    "label": "云深处 Lite3 四足",
    "projects": [
     "unilab_new",
+    "MGDP",
     "robot_lab",
     "fan_robotlab",
     "rl_sar",

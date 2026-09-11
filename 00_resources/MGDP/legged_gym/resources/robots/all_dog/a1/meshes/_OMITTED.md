@@ -1,0 +1,17 @@
+# 已省略文件登记 — MGDP/legged_gym/resources/robots/all_dog/a1/meshes
+
+> 本目录下以下文件按 `00_resources/_SPEC.md` 规则**未拷贝**（网格 / CAD / 二进制 / 媒体 / 归档 / 大文件）。
+> 此处保留占位登记以便按需回溯；需要时直接从源工程取用：
+> 源工程目录：`00_open/MGDP/legged_gym/resources/robots/all_dog/a1/meshes/`
+
+共 **7** 个文件 / **9.2 MB**。
+
+| 文件 | 体积 | 类型 | 源路径 |
+|---|---:|---|---|
+| `trunk.dae` | 4.0 MB | 3D 网格 | `00_open/MGDP/legged_gym/resources/robots/all_dog/a1/meshes/trunk.dae` |
+| `calf.dae` | 1.7 MB | 3D 网格 | `00_open/MGDP/legged_gym/resources/robots/all_dog/a1/meshes/calf.dae` |
+| `thigh_mirror.dae` | 1.1 MB | 3D 网格 | `00_open/MGDP/legged_gym/resources/robots/all_dog/a1/meshes/thigh_mirror.dae` |
+| `thigh.dae` | 1.1 MB | 3D 网格 | `00_open/MGDP/legged_gym/resources/robots/all_dog/a1/meshes/thigh.dae` |
+| `hip.dae` | 653 KB | 3D 网格 | `00_open/MGDP/legged_gym/resources/robots/all_dog/a1/meshes/hip.dae` |
+| `d435.stl` | 505 KB | 3D 网格 | `00_open/MGDP/legged_gym/resources/robots/all_dog/a1/meshes/d435.stl` |
+| `trunk_A1.png` | 70 KB | 图像/纹理 | `00_open/MGDP/legged_gym/resources/robots/all_dog/a1/meshes/trunk_A1.png` |

@@ -28,6 +28,14 @@ Thumbs.db
 *.log
 logs/
 
+# 参考资源库：上游把发布策略放在 logs/rsl_rl/<task>/（如 parkour_mjlab 的 go2_pie
+# policy.onnx），按「策略文件必留」规则需入库——显式重新包含该子树（先目录后内容）。
+!00_resources/**/logs/
+!00_resources/**/logs/**
+# 资源库内的 env/ 是源码目录（如 MGDP/legged_gym/rl/env），不是 Python 虚拟环境。
+!00_resources/**/env/
+!00_resources/**/env/**
+
 # Workspace & output (generated, not source)
 workspace/
 pipeline_output/
