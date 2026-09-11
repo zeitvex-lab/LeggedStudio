@@ -42,6 +42,9 @@ pipeline_output/
 output/
 .playwright-cli/
 
+# 外部参考发行包（大体积下载物，不入库；仅本地解压分析）
+matrix-v1.0.13/
+
 # Portable runtime (generated)
 runtime/
 
