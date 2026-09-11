@@ -46,6 +46,9 @@ output/
 matrix-v1.0.13/
 matrix-robot-mc-*/
 
+# 外部参考源码仓（只读克隆，不入库）
+genisom-roamerx-open/
+
 # Portable runtime (generated)
 runtime/
 
