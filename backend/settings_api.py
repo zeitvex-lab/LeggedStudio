@@ -166,7 +166,16 @@ async def gpu_profiles():
         "installed": bool(_adapter_venv_exists()),
         "adapter_python": str(_adapter_python()),
     }
-    return {"success": True, "current": profile, "profiles": [{"device": "gpu"}, {"device": "cpu"}]}
+    profiles = [
+        {"device": "gpu", "note": "推荐：正式训练（需 NVIDIA GPU）"},
+        {"device": "cpu", "note": "验证用：可跑仿真与最小训练冒烟，速度慢约一个量级；配置长期保留"},
+    ]
+    return {
+        "success": True,
+        "current": profile,
+        "recommended_device": "gpu",
+        "profiles": profiles,
+    }
 
 
 def _adapter_venv() -> Path:

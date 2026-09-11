@@ -82,14 +82,19 @@ def build_report(mjlab_path: Path = DEFAULT_MJLAB_PATH) -> dict[str, Any]:
         "uv_available": shutil.which("uv") is not None,
         "mjlab_source_available": source["exists"] and bool(source.get("version")),
     }
+    gpu_available = bool(gpu.get("available"))
+    # GPU 不再是 ready 的硬条件：CPU 可以托管仿真与最小训练冒烟，只是吞吐低。
+    # GPU 只决定“正式训练”的推荐程度，故单列 gpu_recommended 而不卡 ready。
     runtime_checks = {
         "adapter_packages_installed": all(packages[name] for name in ("mjlab", "torch", "warp-lang", "mujoco", "mujoco-warp")),
-        "gpu_available": bool(gpu.get("available")),
     }
     return {
         "schema_version": "mjlab-preflight-1.0",
         "ready": all(checks.values()) and all(runtime_checks.values()),
         "baseline_ready": all(checks.values()),
+        "gpu_required": False,
+        "gpu_recommended": True,
+        "gpu_available": gpu_available,
         "checks": checks,
         "runtime_checks": runtime_checks,
         "python": {
@@ -105,6 +110,7 @@ def build_report(mjlab_path: Path = DEFAULT_MJLAB_PATH) -> dict[str, Any]:
         "notes": [
             "MJLab runs in an isolated adapter process; these packages are not control-plane dependencies.",
             "Upstream MJLab may default to Python 3.13, while the current product baseline remains 3.12.",
+            "CPU-only hosts are supported for simulation and smoke validation; formal training is recommended on an NVIDIA GPU (CPU throughput is roughly an order of magnitude lower). MJLab requires an NVIDIA GPU for training upstream.",
         ],
     }
 

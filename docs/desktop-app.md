@@ -67,7 +67,7 @@ electron/launcher/
 - MJLab 源码及隔离 venv
 - unitree_rl_mjlab 扩展
 
-支持 GPU/CPU 设备选择，内置 GPU 检测。下载进度通过 `runtime-progress` 事件实时推送。
+支持 GPU/CPU 设备选择，内置 GPU 检测。**正式训练建议选择 GPU**；CPU profile 可用于仿真与最小训练冒烟验证（速度慢约一个量级），且长期保留、可随时切回。下载进度通过 `runtime-progress` 事件实时推送。
 
 ### 3. 系统托盘与进度条
 

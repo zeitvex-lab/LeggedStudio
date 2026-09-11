@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import traceback
 from pathlib import Path
 
@@ -67,23 +68,33 @@ try:
             result["status"] = "skipped_custom_runner"
             result["error"] = f"algorithm {algo_class} requires its custom runner"
         else:
-            from mjlab.rl import RslRlVecEnvWrapper
-            from rsl_rl.runners import OnPolicyRunner
+            from dataclasses import asdict
+
+            from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
 
             runner_cfg.max_iterations = iters
             runner_cfg.save_interval = 10_000
-            wrapped = RslRlVecEnvWrapper(env)
-            # timeout bootstrap 不变量（报告 1 §8，Ch07）：wrapper 必须透传
-            # time_outs，否则 GAE 把 episode 超时当终止清零 value → critic
-            # 系统性低估长 episode（最高频的静默 bug）。冒烟阶段即拦截。
-            time_outs = getattr(wrapped, "time_outs", None)
-            if time_outs is None:
+            # 离线冒烟默认走 TensorBoard，避免 wandb 在无网/未登录时中断
+            # （与 native_worker 的默认 logger 一致）。
+            runner_cfg.logger = "tensorboard"
+            wrapped = RslRlVecEnvWrapper(env, clip_actions=getattr(runner_cfg, "clip_actions", None))
+            # timeout bootstrap 不变量（报告 1 §8，Ch07）：rsl_rl 从 step 的
+            # extras["time_outs"] 读取超时 bootstrap；wrapper 不透传会让 GAE 把
+            # episode 超时当终止清零 value → critic 系统性低估长 episode（最高频
+            # 的静默 bug）。mjlab 的 wrapper 在 !is_finite_horizon 时注入该键，
+            # 因此用一次真实 step 验证而非查属性（属性名随版本漂移）。
+            probe_action = torch.zeros((wrapped.num_envs, wrapped.num_actions), device=device)
+            _, _, _, probe_extras = wrapped.step(probe_action)
+            if not wrapped.cfg.is_finite_horizon and "time_outs" not in probe_extras:
                 raise ValueError(
-                    "RslRlVecEnvWrapper 未暴露 time_outs —— timeout bootstrap 失效，"
-                    "critic 会系统性低估长 episode"
+                    "RslRlVecEnvWrapper 未在 step 的 extras 中暴露 time_outs —— timeout "
+                    "bootstrap 失效，critic 会系统性低估长 episode"
                 )
             result["time_outs_wired"] = True
-            runner = OnPolicyRunner(wrapped, runner_cfg.to_dict() if hasattr(runner_cfg, "to_dict") else vars(runner_cfg))
+            # 与生产训练路径（native_worker）保持一致：MjlabOnPolicyRunner +
+            # asdict 展开配置 + 显式 output 目录。
+            output = tempfile.mkdtemp(prefix="legged_smoke_")
+            runner = MjlabOnPolicyRunner(wrapped, asdict(runner_cfg), output, device)
             runner.learn(num_learning_iterations=iters)
             result["status"] = "ok"
             result["iters"] = iters

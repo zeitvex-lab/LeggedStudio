@@ -21,7 +21,19 @@ from adapters.mjlab.preflight import gpu_probe
 router = APIRouter(prefix="/api/health", tags=["health"])
 
 ROOT = Path(__file__).resolve().parents[1]
-ADAPTER_PY = ROOT / "adapters" / "mjlab" / ".venv" / "Scripts" / "python.exe"
+
+
+def _adapter_python() -> Path:
+    """适配器 venv 的 python：Windows 为 Scripts/python.exe，POSIX 为 bin/python。"""
+    venv = ROOT / "adapters" / "mjlab" / ".venv"
+    for relative in (Path("Scripts") / "python.exe", Path("bin") / "python"):
+        candidate = venv / relative
+        if candidate.is_file():
+            return candidate
+    return venv / "Scripts" / "python.exe"
+
+
+ADAPTER_PY = _adapter_python()
 
 
 @router.get("/layers")
@@ -43,7 +55,7 @@ def _layer(layer_id: str, name: str, status: str, summary: str, **extra: Any) ->
 
 def _fix_advice(layer_id: str) -> str:
     advice = {
-        "L0": "启动器「配置运行环境」后重试；确认 NVIDIA 驱动已安装（不需要 CUDA Toolkit）",
+        "L0": "如需 GPU 训练：确认 NVIDIA 驱动已安装（不需要 CUDA Toolkit），在启动器「配置运行环境」按 GPU profile 重装；纯 CPU 可先跑仿真与冒烟验证",
         "L1": "训练适配器环境损坏——删除 adapters/mjlab/.venv 后重新配置运行环境",
         "L2": "机器人包索引缺失——重启后端重建 package index",
         "L3": "模型文件损坏——重新导入或恢复出厂包",
@@ -58,14 +70,23 @@ async def preflight(depth: str = "fast"):
     started = time.time()
     layers: list[dict] = []
 
-    # L0 硬件/GPU
+    # L0 硬件/GPU：无 GPU 只告警，不阻断（CPU 可做仿真与冒烟验证）
     try:
         gpu = gpu_probe()
-        layers.append(_layer(
-            "L0", "GPU 与驱动", "pass",
-            f"torch.cuda.available={gpu.get('cuda_available')}; device={gpu.get('device_name') or 'CPU'}",
-            detail=gpu,
-        ))
+        devices = gpu.get("devices") or []
+        if gpu.get("available") and devices:
+            layers.append(_layer(
+                "L0", "GPU 与驱动", "pass",
+                f"检测到 {len(devices)} 块 GPU：{devices[0].get('name', '?')}",
+                detail=gpu,
+            ))
+        else:
+            layers.append(_layer(
+                "L0", "GPU 与驱动", "warn",
+                f"未检测到 GPU/CUDA（{gpu.get('reason') or '无设备'}）——回退 CPU："
+                "可做仿真与最小训练冒烟，正式训练建议使用 NVIDIA GPU",
+                detail=gpu,
+            ))
     except Exception as exc:  # noqa: BLE001
         layers.append(_layer("L0", "GPU 与驱动", "fail", f"GPU 探测失败: {exc}", fix=_fix_advice("L0")))
 
