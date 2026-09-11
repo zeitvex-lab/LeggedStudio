@@ -700,3 +700,68 @@ def go2_source_ts_critic_observation(
   return torch.cat(
     (asset.data.root_link_lin_vel_b, actor, domain, contact, terrain), dim=-1
   )
+
+
+class Go2SourceStandActor:
+  """45-D actor frame, cached so the history group reuses the identical sample.
+
+  mjlab's current ``ObservationTermCfg`` has no ``history_source`` hook, so the
+  source ``obs_hist_buf`` (which repeats the *processed* actor frame including
+  its policy-noise sample) is reproduced here: the actor term samples noise
+  internally and stores the result for :class:`Go2SourceStandHistory`.
+  """
+
+  def __init__(self, cfg, env) -> None:
+    params = getattr(cfg, "params", {}) or {}
+    self._command_name = str(params.get("command_name", "twist"))
+    self._command_first = bool(params.get("command_first", False))
+    self._add_noise = bool(params.get("add_noise", True))
+    self._noise = params.get("noise")
+    self._frame = torch.zeros((env.num_envs, 45), device=env.device)
+    env._go2_source_actor_term = self
+
+  def __call__(self, env, **_kwargs) -> torch.Tensor:
+    frame = go2_source_stand_observation(
+      env, self._command_name, command_first=self._command_first
+    )
+    if self._add_noise and self._noise is not None:
+      low = torch.as_tensor(self._noise.n_min, device=env.device, dtype=frame.dtype)
+      high = torch.as_tensor(self._noise.n_max, device=env.device, dtype=frame.dtype)
+      frame = frame + low + (high - low) * torch.rand_like(frame)
+    self._frame.copy_(frame)
+    return self._frame
+
+  def reset(self, env_ids=None) -> None:
+    if env_ids is None:
+      self._frame.zero_()
+    else:
+      self._frame[env_ids] = 0.0
+
+
+class Go2SourceStandHistory:
+  """Frame-major (oldest→newest) actor history ending at the current frame.
+
+  ``length`` should be the source frame count plus one (mjlab history includes
+  the current frame); the conditional models drop the newest 45-D block to
+  recover the source's preceding-frame window.
+  """
+
+  def __init__(self, cfg, env) -> None:
+    params = getattr(cfg, "params", {}) or {}
+    self._length = max(1, int(params.get("length", 1)))
+    self._buf = torch.zeros((env.num_envs, self._length, 45), device=env.device)
+    env._go2_source_history_term = self
+
+  def __call__(self, env, **_kwargs) -> torch.Tensor:
+    out = self._buf.reshape(env.num_envs, -1).clone()
+    actor = getattr(env, "_go2_source_actor_term", None)
+    self._buf = torch.roll(self._buf, shifts=-1, dims=1)
+    if actor is not None:
+      self._buf[:, -1] = actor._frame
+    return out
+
+  def reset(self, env_ids=None) -> None:
+    if env_ids is None:
+      self._buf.zero_()
+    else:
+      self._buf[env_ids] = 0.0

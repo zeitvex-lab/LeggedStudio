@@ -1,0 +1,20 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "go2-amp-cts",
+  "display_name": "Go2 AMP-CTS (动作先验 + 并发教师-学生)",
+  "source": "00_resources/LeggedGym-Ex go2 CTS/TS（并发教师-学生 / 教师-学生框架）",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "local_tasks.robots.unitree.go2.tasks.locomotion.variants:unitree_go2_amp_cts_env_cfg",
+    "runner": "local_tasks.robots.unitree.go2.training.config:go2_amp_cts_runner_cfg",
+    "runner_class": "local_tasks.robots.unitree.go2.training.runner:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "Mjlab-AMP-CTS-Rough-Unitree-Go2",
+  "terrain_type": "rough",
+  "algorithm": "CTS/TS",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "history_length": 5,
+  "sort_order": 101
+}

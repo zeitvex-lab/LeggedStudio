@@ -399,9 +399,17 @@ def _go2_custom_algorithm_env_cfg(
   cfg.observations["actor"] = ObservationGroupCfg(
     terms={
       "source_stand": ObservationTermCfg(
-        func=mdp.go2_source_stand_observation,
-        params={"command_name": "twist", "command_first": True},
-        noise=custom_noise,
+        # Class term: caches the processed (noisy) actor frame so the history
+        # group can repeat the identical sample the way the source
+        # ``obs_hist_buf`` does.  mjlab's ObservationTermCfg no longer exposes
+        # a cross-term ``history_source`` hook.
+        func=mdp.Go2SourceStandActor,
+        params={
+          "command_name": "twist",
+          "command_first": True,
+          "noise": custom_noise,
+          "add_noise": not play,
+        },
         history_length=1,
         flatten_history_dim=True,
       )
@@ -412,19 +420,18 @@ def _go2_custom_algorithm_env_cfg(
   cfg.observations["history"] = ObservationGroupCfg(
     terms={
       "source_history": ObservationTermCfg(
-        func=mdp.go2_source_stand_observation,
-        params={"command_name": "twist", "command_first": True},
-        # Reuse the processed actor frame so the history contains the exact
-        # policy noise sample, as in the source ``obs_hist_buf``.
-        history_source=("actor", "source_stand"),
         # CTS and DreamWaQ feed the five observations immediately preceding
         # the current actor frame to their history encoders.  mjlab history
         # includes the current frame, so retain six here and drop the newest
         # frame in the matching models.  TS students keep recurrent state in
         # their dedicated runner and do not consume this compatibility group.
-        history_length=(
-          6 if kind in ("cts", "amp_cts", "dreamwaq", "amp_dreamwaq") else 5
-        ),
+        func=mdp.Go2SourceStandHistory,
+        params={
+          "length": (
+            6 if kind in ("cts", "amp_cts", "dreamwaq", "amp_dreamwaq") else 5
+          )
+        },
+        history_length=1,
         flatten_history_dim=True,
       )
     },
