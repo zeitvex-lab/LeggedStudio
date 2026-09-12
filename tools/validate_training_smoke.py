@@ -43,13 +43,13 @@ from backend.robot_packages import list_robot_packages  # noqa: E402
 
 
 def _adapter_python() -> Path:
-    """定位适配器 venv 的 python：Windows 用 Scripts/python.exe，其余用 bin/python。"""
-    venv = ROOT / "adapters" / "mjlab" / ".venv"
-    for relative in (Path("Scripts") / "python.exe", Path("bin") / "python"):
-        candidate = venv / relative
-        if candidate.is_file():
-            return candidate
-    return venv / "Scripts" / "python.exe"  # 未安装时保留原默认，报错信息更直观
+    """定位适配器 venv 的 python（落点由 path_bootstrap 统一解析）。
+
+    未安装时不回退到别的解释器：错误信息直接暴露"训练栈未供应"，比静默跑错栈好。
+    """
+    from contracts.path_bootstrap import adapter_python
+
+    return adapter_python(default=ROOT / "adapters" / "mjlab" / ".venv")
 
 
 PY_EXE = str(_adapter_python())
@@ -207,3 +207,7 @@ def _compare_baseline(results: list[dict], baseline_path: Path) -> dict:
     return {"baseline_file": str(baseline_path), "per_profile": per_profile}
 
 
+if __name__ == "__main__":
+    # 作为 CLI 运行（`python tools/validate_training_smoke.py ...`）时必须有这个
+    # 入口：缺失会让整条命令静默退出 0，CI 门禁看起来"绿"但什么都没跑。
+    main()

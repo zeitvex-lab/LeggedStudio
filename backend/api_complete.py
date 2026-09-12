@@ -738,8 +738,12 @@ async def get_environment_status():
     project_root = Path(__file__).parent.parent
     embedded_python_value = os.environ.get("LEGGED_STUDIO_RUNTIME_PYTHON", "").strip()
     embedded_python = Path(embedded_python_value) if embedded_python_value else None
+    # 适配器 venv 落点统一由 contracts.path_bootstrap 解析（支持
+    # LEGGED_STUDIO_MJLAB_VENV 覆盖与显式解释器环境变量）。
+    from contracts.path_bootstrap import adapter_venv_dir
+
     adapter_paths = {
-        "mjlab": project_root / "adapters" / "mjlab" / ".venv",
+        "mjlab": adapter_venv_dir(default=project_root / "adapters" / "mjlab" / ".venv"),
     }
     adapters = {}
     for adapter_id, venv_path in adapter_paths.items():

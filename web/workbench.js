@@ -753,8 +753,15 @@ function renderNextStep() {
   if (!adapters.mujoco_simulation) {
     steps.push({ btn: 'simulation', label: '检查仿真依赖', detail: 'MuJoCo 仿真依赖缺失——修复后再做基础仿真。' });
   }
+  // L0 三态（cuda / cpu-only / unavailable）：处置措辞来自体检层自身，避免前端
+  // 再复述一遍设备策略导致两边漂移。
+  const l0 = (layers?.layers || []).find((layer) => layer.id === 'L0');
   if (!cuda) {
-    steps.push({ label: '未检测到 GPU（可用 CPU 验证）', detail: 'CPU 可以跑通仿真与最小训练冒烟，适合验证流程；正式训练建议使用 NVIDIA GPU（吞吐高约一个量级）。可在桌面端「系统设置 · 计算设备」切换 CPU/GPU profile。' });
+    const cpuOnly = l0?.mode === 'cpu-only';
+    steps.push({
+      label: cpuOnly ? '无 GPU（CPU 训练链路就绪）' : '无 GPU 且训练栈未供应',
+      detail: l0?.action || 'CPU 可以跑通仿真与最小训练冒烟，适合验证流程；正式训练建议使用 NVIDIA GPU（吞吐高约一个量级）。可在桌面端「系统设置 · 计算设备」切换 CPU/GPU profile。',
+    });
   }
   if (steps.length) {
     body.innerHTML = steps.map((item) => `<div class="next-step-item"><div><strong>${item.label}</strong><span>${item.detail}</span></div>${item.btn ? `<button class="button small" data-step="${item.btn}">去处理</button>` : ''}</div>`).join('');
