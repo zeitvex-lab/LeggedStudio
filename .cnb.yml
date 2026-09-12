@@ -10,7 +10,10 @@
       script: |
         set -eo pipefail
         echo "== py_compile changed python =="
-        find backend contracts adapters/mjlab tools scripts -name '*.py' -print0 \
+        # 排除 .venv / node_modules：训练 venv 里是第三方轮子（可能是 3.12+ 语法），
+        # 不该由本仓库的语法检查负责。
+        find backend contracts adapters/mjlab tools scripts -name '*.py' \
+          -not -path '*/.venv/*' -not -path '*/node_modules/*' -print0 \
           | xargs -0 -n1 python -m py_compile 2>&1 | tail -20
         echo "python syntax check done"
         echo "== contract artifact drift check =="
@@ -40,6 +43,22 @@
         python tools/audit_porting_admission.py
         echo "== capability packs (B1: 14 packs validate + refs sha256) =="
         python tools/validate_packs.py
+
+# CPU 训练冒烟门禁的环境：与云原生开发共用 .ide/Dockerfile，镜像里已固化
+# mjlab 的 cpu extra（LEGGED_STUDIO_MJLAB_VENV 指向镜像内 venv），因此门禁
+# 不需要每次重装 torch——进容器即可跑真训练。
+.cpu-training-env: &cpu-training-env
+  runner:
+    cpus: 8
+  docker:
+    build: .ide/Dockerfile
+  env:
+    # 镜像层的 CPU venv 落点（仓库外，不被 bind mount 覆盖）。
+    LEGGED_STUDIO_MJLAB_VENV: /opt/legged-studio/mjlab-cpu/.venv
+    # 冒烟档固定 CPU：显式而非依赖"碰巧没 GPU"，避免门禁语义随 runner 漂移。
+    LEGGED_STUDIO_TRAIN_DEVICE: cpu
+    # 限制线程数，避免 8 核 runner 上 torch/warp 线程超订导致抖动。
+    OMP_NUM_THREADS: "4"
 
 .sim2sim-env: &sim2sim-env
   runner:
@@ -90,13 +109,31 @@ main:
   push:
     - name: backend-test
       <<: *main-env
+    - name: cpu-training-smoke
+      <<: *cpu-training-env
+      stages:
+        - name: cpu-training-gate
+          script: |
+            set -eo pipefail
+            echo "== CPU 训练冒烟门禁 =="
+            # 逻辑集中在 scripts/cpu_training_smoke_gate.sh：CI 与本地同一条命令，
+            # 避免"CI 里跑的口径"和"人本地复现的口径"漂移。
+            bash scripts/cpu_training_smoke_gate.sh
+
   pull_request:
     - name: backend-test-pr
       <<: *main-env
+    - name: cpu-training-smoke-pr
+      <<: *cpu-training-env
+      stages:
+        - name: cpu-training-gate
+          script: |
+            set -eo pipefail
+            bash scripts/cpu_training_smoke_gate.sh
 
 # 云原生开发：点「云原生开发」按钮即建环境。
-# 环境本身固化在 .ide/Dockerfile（依赖 + Chromium 全在镜像层），
-# stages 只负责把后端拉起来并打印预览地址，不做重复安装。
+# 环境本身固化在 .ide/Dockerfile（控制面依赖 + Chromium + mjlab cpu extra 全在
+# 镜像层），stages 只负责把后端拉起来并打印预览地址，不做重复安装。
 $:
   vscode:
     - name: legged-studio-dev
@@ -107,6 +144,10 @@ $:
       services:
         - vscode
         - docker
+      env:
+        # 镜像内已固化 CPU 训练 venv：进环境即可训练，无需重装。
+        LEGGED_STUDIO_MJLAB_VENV: /opt/legged-studio/mjlab-cpu/.venv
+        MUJOCO_GL: disabled
       docker.volumes:
         # 节点级缓存：同级路径，避免"路径包含关系"约束。
         - /root/.cache/pip
@@ -130,6 +171,12 @@ $:
             # 用 sed 做替换（不依赖 bash 的 ${var/pat/rep}，兼容 sh）。
             PREVIEW=$(printf '%s' "$CNB_VSCODE_PROXY_URI" | sed 's/{{port}}/8765/g')
             echo ""
+            if [ -x "$LEGGED_STUDIO_MJLAB_VENV/bin/python" ]; then
+              echo "CPU 训练: 就绪（$LEGGED_STUDIO_MJLAB_VENV）"
+              echo "           冒烟: bash scripts/cpu_training_smoke_gate.sh"
+            else
+              echo "CPU 训练: 未供应（跑 scripts/provision_cpu_training.sh）"
+            fi
             echo "工作台:   $PREVIEW/web/workbench.html"
             echo "sim2sim:  $PREVIEW/web/sim2sim/index.html"
             echo "API 文档: $PREVIEW/docs"

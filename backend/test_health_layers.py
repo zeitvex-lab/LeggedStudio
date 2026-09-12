@@ -16,11 +16,26 @@ WORKSPACE = Path(__file__).resolve().parents[1]
 
 
 def ok_gpu() -> dict:
-    return {"available": True, "devices": [{"name": "RTX 4090", "memory_mib": "24564", "driver": "566"}]}
+    return cuda_gpu()
 
 
 def no_gpu() -> dict:
-    return {"available": False, "reason": "nvidia-smi not found"}
+    """无 GPU：三态探测默认落到 unavailable（未注入训练栈可用性）。"""
+    return {"available": False, "mode": "unavailable", "cpu_ready": False,
+            "reason": "nvidia-smi not found",
+            "action": "先跑 scripts/provision_cpu_training.sh 供应 CPU 训练环境"}
+
+
+def cpu_only_gpu() -> dict:
+    """无 GPU 但训练栈可用：CPU 训练链路就绪。"""
+    return {"available": False, "mode": "cpu-only", "cpu_ready": True,
+            "reason": "nvidia-smi not found",
+            "action": "CPU 训练链路可用：可跑仿真与最小训练冒烟；正式训练建议使用 NVIDIA GPU"}
+
+
+def cuda_gpu() -> dict:
+    return {"available": True, "mode": "cuda", "cpu_ready": True,
+            "devices": [{"name": "RTX 4090", "memory_mib": "24564", "driver": "566"}]}
 
 
 def ok_tasks() -> list[str]:
@@ -66,7 +81,7 @@ class HealthLayersTest(unittest.TestCase):
 
 
 class NoGpuFallsBackToCpuTest(unittest.TestCase):
-    """无 GPU → L0 告警但**不阻断**：CPU 可继续做仿真与冒烟验证。
+    """无 GPU 但训练栈可用（cpu-only）→ L0 告警但**不阻断**：CPU 可继续做仿真与冒烟验证。
 
     正式训练建议使用 GPU，但 CPU 回退不应让体检在 L0 就停摆。
     """
@@ -75,7 +90,7 @@ class NoGpuFallsBackToCpuTest(unittest.TestCase):
         with TemporaryDirectory() as directory:
             venv = venv_with_frameworks(Path(directory) / "venv")
             report = build_layer_report(
-                gpu_probe=no_gpu, list_tasks=ok_tasks, scene_check=ok_scene, venv=venv,
+                gpu_probe=cpu_only_gpu, list_tasks=ok_tasks, scene_check=ok_scene, venv=venv,
             )
         self.assertTrue(report["ready"], "无 GPU 不应阻断 CPU 验证路径")
         self.assertIsNone(report["first_failure"])
@@ -86,6 +101,40 @@ class NoGpuFallsBackToCpuTest(unittest.TestCase):
         self.assertIn("CPU", report["layers"][0]["reason"])
         self.assertIn("GPU", report["layers"][0]["action"], "处置必须点明训练建议用 GPU")
         self.assertIn("CPU", report["layers"][0]["action"], "处置必须说明 CPU 可验证")
+
+
+class CpuOnlyVsUnavailableTest(unittest.TestCase):
+    """L0 三态：无 GPU + 训练栈可用(cpu-only) 与 无 GPU + 栈没装(unavailable) 的处置必须不同。
+
+    这是本轮新增的关键区分：以前两者都只报"回退 CPU"，用户分不清"能跑"还是
+    "压根没装训练栈"。
+    """
+
+    def _report(self, probe):
+        with TemporaryDirectory() as directory:
+            return build_layer_report(
+                gpu_probe=probe, list_tasks=ok_tasks, scene_check=ok_scene,
+                venv=venv_with_frameworks(Path(directory) / "venv"),
+            )
+
+    def test_cpu_only_points_to_cpu_capability(self):
+        layer = self._report(cpu_only_gpu)["layers"][0]
+        self.assertEqual(layer["status"], "warn")
+        self.assertEqual(layer["mode"], "cpu-only")
+        self.assertIn("CPU", layer["reason"])
+        self.assertIn("GPU", layer["action"])
+
+    def test_unavailable_points_to_provisioning(self):
+        layer = self._report(no_gpu)["layers"][0]
+        self.assertEqual(layer["status"], "warn")
+        self.assertEqual(layer["mode"], "unavailable")
+        self.assertIn("供应", layer["action"])
+
+    def test_cuda_passes_with_device_listed(self):
+        layer = self._report(ok_gpu)["layers"][0]
+        self.assertEqual(layer["status"], "pass")
+        self.assertEqual(layer["mode"], "cuda")
+        self.assertEqual(layer["devices"][0]["name"], "RTX 4090")
 
 
 class MissingFrameworkLocatesL1Test(unittest.TestCase):

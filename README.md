@@ -99,7 +99,7 @@ legged_studio/
 | 数据契约 | JSON Schema ×8 + 生成的 Pydantic 模型 |
 | 资产准入 | 移植准入审计（训练/仿真须有 00_resources 上游训练源码佐证，包自包含与策略↔onnx 一致性检查），见 `tools/audit_porting_admission.py` |
 | CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、前端 vendor 冒烟 |
-| 云原生开发 | `.ide/Dockerfile` + `.cnb.yml` 的 `vscode` 事件，一键起环境（依赖与 Chromium 固化，浏览器 sim2sim 开箱可用）→ `docs/cloud-dev.md` |
+| 云原生开发 | `.ide/Dockerfile` + `.cnb.yml` 的 `vscode` 事件，一键起环境（控制面依赖 + Chromium + **mjlab CPU 训练栈**全固化，浏览器 sim2sim 开箱可用）→ `docs/cloud-dev.md` |
 
 ---
 
@@ -129,9 +129,25 @@ start.bat
 
 ### 云原生开发（免配置在线环境）
 
-仓库页面点 **「Legged Studio 开发」** 即进入在线环境，依赖与 Chromium 已固化在镜像里，
-后端自动在 `0.0.0.0:8765` 起来，浏览器 sim2sim 可直接看、可直接截图调试。
+仓库页面点 **「Legged Studio 开发」** 即进入在线环境，依赖、Chromium 与 **CPU 训练栈**
+已固化在镜像里，后端自动在 `0.0.0.0:8765` 起来，浏览器 sim2sim 可直接看、可直接截图调试。
 详见 [`docs/cloud-dev.md`](docs/cloud-dev.md)。
+
+### CPU 训练链路（无 GPU 也能跑真训练）
+
+mjlab 官方支持 CPU（`cpu` extra），本仓库把它接成完整链路：容器/本地进环境即可训练，
+不需要 GPU 额度。
+
+```bash
+# 训练栈自检 + 64 envs × 20 iters 真实 PPO + 报告断言
+bash scripts/cpu_training_smoke_gate.sh
+
+# 需要重新供应训练 venv 时（幂等）
+bash scripts/provision_cpu_training.sh
+```
+
+训练栈落点集中在 `contracts/path_bootstrap.py`（`LEGGED_STUDIO_MJLAB_VENV` 可覆盖），
+体检 L0 给出三态：`cuda`（正式训练）/ `cpu-only`（仿真与冒烟）/ `unavailable`（先供应环境）。
 
 ### 测试
 
@@ -153,6 +169,12 @@ pytest tests/e2e -v
 ```bash
 python tools/sim2sim_headless.py --seconds 3 \
   --baseline tools/baselines/sim2sim_headless_baseline.json
+```
+
+CPU 训练冒烟门禁（64 envs × 20 iters 真实 PPO，需已供应训练栈）：
+
+```bash
+bash scripts/cpu_training_smoke_gate.sh
 ```
 
 ### 打包发行

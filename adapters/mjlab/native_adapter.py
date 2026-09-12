@@ -39,7 +39,9 @@ DEFAULT_EXTENSION = Path(os.environ["LEGGED_STUDIO_MJLAB_EXTENSION"]) if os.envi
 
 def _venv_python(venv: Path) -> Path:
     """Resolve the interpreter layout on Windows and POSIX hosts."""
-    return venv / ("Scripts" if os.name == "nt" else "bin") / ("python.exe" if os.name == "nt" else "python")
+    from contracts.path_bootstrap import venv_python
+
+    return venv_python(venv)
 
 
 def _probe_runtime(source: Path) -> dict[str, Any]:
@@ -48,7 +50,11 @@ def _probe_runtime(source: Path) -> dict[str, Any]:
     explicit = os.environ.get("LEGGED_STUDIO_MJLAB_PYTHON")
     if explicit:
         candidates.append(Path(explicit))
-    adapter_venv = Path(__file__).parent.parent / "mjlab" / ".venv"
+    # 适配器 venv 落点可由 LEGGED_STUDIO_MJLAB_VENV 覆盖（云原生开发镜像把 CPU 训练
+    # venv 装在仓库外，避免被 bind mount 覆盖）。
+    from contracts.path_bootstrap import adapter_venv_dir
+
+    adapter_venv = adapter_venv_dir(default=Path(__file__).parent / ".venv")
     candidates.append(_venv_python(adapter_venv))
     candidates.append(Path(sys.executable))
     modules = "import importlib.metadata as md; import tyro, warp, mujoco_warp, rsl_rl, mjlab; import torch; print('ok|torch=' + torch.__version__ + '|cuda=' + str(int(torch.cuda.is_available())) + '|count=' + str(torch.cuda.device_count()) + '|mjlab=' + str(getattr(mjlab, '__version__', md.version('mjlab'))) + '|python=' + __import__('sys').version.split()[0])"

@@ -84,13 +84,12 @@ def schema_cache_path(profile_id: str) -> Path:
 
 def schema_interpreter() -> Optional[Path]:
     """Pick an interpreter able to import the profile's source dependencies."""
-    from adapters.mjlab.native_adapter import _venv_python
+    from contracts.path_bootstrap import adapter_python
 
     candidates = []
-    candidates.append(_venv_python(_ROOT / "adapters" / "mjlab" / ".venv"))
-    explicit = os.environ.get("LEGGED_STUDIO_MJLAB_PYTHON")
-    if explicit:
-        candidates.append(Path(explicit))
+    # 显式解释器（LEGGED_STUDIO_MJLAB_PYTHON / TRAIN / RUNTIME）与适配器 venv
+    # 落点统一由 path_bootstrap 解析；最后兜底当前解释器。
+    candidates.append(adapter_python(default=_ROOT / "adapters" / "mjlab" / ".venv"))
     candidates.append(Path(sys.executable))
     for candidate in candidates:
         if not candidate.exists():
