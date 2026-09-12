@@ -3,6 +3,12 @@
 # 单一环境事实源：云原生开发（.cnb.yml 的 vscode 事件）与 CI 共用同一镜像，
 # 保证「本地开发看到的」和「CI 跑的」是同一套依赖，杜绝环境漂移。
 #
+# 消费方（.cnb.yml 的 `docker.build`）必须与本文件配套声明 `by` 清单：
+# CNB 只把 Dockerfile 与 `by` 列出的文件放进构建上下文，未列出的文件在
+# COPY 时会报 "not found"（本次 CI 失败的根因）。`by` 路径相对仓库根，
+# 因此本文件放在仓库根、`by` 写 backend/... 等仓库内路径最直观。
+# 清单见 .cnb.yml 的 `.docker-dev-image` 锚点（云原生开发/CI 三处共用）。
+#
 # 设计要点：
 #   - 必须 Python 3.12：pyproject.toml 钉的是 >=3.12,<3.13，且 /api/system/environment
 #     会校验 python_target_match，3.11 会让体检页报红（见 backend/api_complete.py）。

@@ -99,7 +99,7 @@ legged_studio/
 | 数据契约 | JSON Schema ×8 + 生成的 Pydantic 模型 |
 | 资产准入 | 移植准入审计（训练/仿真须有 00_resources 上游训练源码佐证，包自包含与策略↔onnx 一致性检查），见 `tools/audit_porting_admission.py` |
 | CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、前端 vendor 冒烟 |
-| 云原生开发 | `.ide/Dockerfile` + `.cnb.yml` 的 `vscode` 事件，一键起环境（控制面依赖 + Chromium + **mjlab CPU 训练栈**全固化，浏览器 sim2sim 开箱可用）→ `docs/cloud-dev.md` |
+| 云原生开发 | 根 `Dockerfile` + `.cnb.yml` 的 `vscode` 事件，一键起环境（控制面依赖 + Chromium + **mjlab CPU 训练栈**全固化，浏览器 sim2sim 开箱可用）→ `docs/cloud-dev.md` |
 
 ---
 
