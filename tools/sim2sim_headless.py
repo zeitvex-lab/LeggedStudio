@@ -10,7 +10,14 @@
       [--seconds 6] [--seed 0] [--criteria-json thresholds.json]
       [--output-dir workspace/validation] [--write-acceptance]
 
-退出码：0 全过 / 1 有 fail / 2 环境缺失（缺 mujoco/onnxruntime）。
+回归门禁（CI 用）：
+  --baseline <baseline.json>  读取历史基线，仅当出现"新增失败/退化"时退出码非 0；
+                              已记录的既存失败（如 go2 特技类）不阻塞 CI。
+  --write-baseline <path>     把本次全量结果写成基线（本地定期刷新用）。
+
+  退出码：无 --baseline 时 0 全过 / 1 有 fail；
+          有 --baseline 时 0 无新增退化 / 1 有新增退化或基线不可读。
+环境缺失（缺 mujoco/onnxruntime）退出码 2。
 """
 
 from __future__ import annotations
@@ -267,6 +274,10 @@ def main() -> int:
                         help="同时写 <stem>.acceptance.json 到策略目录（供 browser-config 健康检查）")
     parser.add_argument("--gate-tracking", action="store_true",
                         help="把速度跟踪误差纳入硬门（默认只作质量指标，不卡站立/存活门）")
+    parser.add_argument("--baseline", type=Path, default=None,
+                        help="历史基线 JSON；存在时只对'新增失败/退化'判非 0，已记录的既存失败放行")
+    parser.add_argument("--write-baseline", type=Path, default=None,
+                        help="把本次结果写成基线文件后退出（与 --baseline 互斥）")
     args = parser.parse_args()
 
     engine = load_engine()
@@ -329,7 +340,80 @@ def main() -> int:
     print(f"\nreport: {out}")
     print(f"summary: {report['passed']} pass / {report['total']} total, "
           f"{len(report['skipped'])} skipped, {len(report['failed'])} failed")
+
+    if args.write_baseline:
+        baseline_doc = {"schema": "sim2sim-headless-baseline-1.0", "results": _baseline_rows(results)}
+        args.write_baseline.parent.mkdir(parents=True, exist_ok=True)
+        args.write_baseline.write_text(json.dumps(baseline_doc, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"baseline written: {args.write_baseline}")
+        return 0
+
+    if args.baseline is not None:
+        if not args.baseline.is_file():
+            print(f"::error::baseline not found: {args.baseline}")
+            return 1
+        comparison = _compare_baseline(results, args.baseline)
+        report["baseline_compare"] = comparison
+        out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        regressions = comparison["regressions"]
+        print(f"baseline: {comparison['compared']} compared, "
+              f"{len(comparison['new_policies'])} new, {len(regressions)} regressed")
+        for item in regressions:
+            print(f"  REGRESSED {item['robot']}/{item['policy']}: {item['reason']}")
+        return 1 if regressions else 0
+
     return 1 if report["failed"] else 0
+
+
+def _baseline_rows(results: list[dict]) -> list[dict]:
+    """基线只保留稳定判定所需的字段，避免机器相关指标（耗时/绝对阈值）污染对比。"""
+    rows = []
+    for item in results:
+        rows.append({
+            "robot": item.get("robot"),
+            "policy": item.get("policy"),
+            "verdict": item.get("verdict") or item.get("status"),
+            "family": item.get("family"),
+        })
+    return rows
+
+
+def _compare_baseline(results: list[dict], baseline_path: Path) -> dict:
+    """将本次结果与历史基线逐 policy 对比，只把'新增失败/由 pass 变 fail'算作退化。
+
+    设计意图：仓库里存在少量既存失败（go2 特技类量化判据未过），它们已记录在
+    基线里；CI 应在这批失败之外守住"不许新增失败"，而不是一开始就全绿。
+    """
+    try:
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"cannot parse baseline {baseline_path}: {exc}",
+                "compared": 0, "new_policies": [], "regressions": []}
+    base_map = {}
+    for row in baseline.get("results") or []:
+        key = (row.get("robot"), row.get("policy"))
+        verdict = row.get("verdict")
+        base_map[key] = "fail" if verdict in ("fail", "error") else ("pass" if verdict == "pass" else verdict)
+
+    regressions = []
+    new_policies = []
+    for item in results:
+        key = (item.get("robot"), item.get("policy"))
+        current = item.get("verdict") or item.get("status")
+        current = "fail" if current in ("fail", "error") else ("pass" if current == "pass" else current)
+        base = base_map.get(key)
+        if base is None:
+            # 新增 policy：只要不是明确 fail 就只报不卡（首次收录允许观察）
+            new_policies.append({"robot": key[0], "policy": key[1], "verdict": current})
+            if current == "fail":
+                regressions.append({"robot": key[0], "policy": key[1],
+                                    "reason": f"new policy failing (baseline has no entry): {current}"})
+            continue
+        if base == "pass" and current == "fail":
+            regressions.append({"robot": key[0], "policy": key[1],
+                                "reason": f"{base} -> {current}"})
+    return {"baseline_file": str(baseline_path), "compared": len(base_map),
+            "new_policies": new_policies, "regressions": regressions}
 
 
 if __name__ == "__main__":
