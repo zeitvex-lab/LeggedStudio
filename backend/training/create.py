@@ -17,6 +17,9 @@ import subprocess
 import sys
 import tempfile
 
+from backend.training.models import (  # noqa: F401
+    CreateTrainingRequest, CompareTrainingRequest,
+)
 from backend.training_config_helpers import (  # noqa: F401
     _terrain_mixes, _observation_summary, _terminations_summary,
     _domain_randomization, _schema_workspace, _schema_cache_path,

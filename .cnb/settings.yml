@@ -1,0 +1,9 @@
+# 云原生开发入口按钮配置（schema 见 docs.cnb.cool/zh/repo/settings-workspace.md）。
+# 点「Legged Studio 开发」→ 建环境 → 自动打开 WebIDE，后端已在 8765 监听。
+workspace:
+  launch:
+    button:
+      name: Legged Studio 开发
+      description: 一键进入在线编码环境，控制面与浏览器 sim2sim 开箱即用
+    cpus: 8
+    autoOpenWebIDE: true
