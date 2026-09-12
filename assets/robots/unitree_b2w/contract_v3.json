@@ -160,7 +160,7 @@
         "stiffness": 0.0,
         "damping": 1.0,
         "effort": 20.0,
-        "mode": "position",
+        "mode": "velocity",
         "action_scale": 5.0,
         "armature": 0.1
       }

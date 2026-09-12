@@ -1,15 +1,21 @@
-"""go1 演示策略准入锁（用户裁决 v0.44.0：演示策略必须有包内移植好的对应训练代码）。
+"""go1 演示策略准入锁（用户裁决链：v0.43.x 官方取证闭环准入 → v0.44.0 收紧 → B8 规则 S 固化）。
 
-现状：unitree_go1 无训练树（B14 待补）⇒ 演示策略准入为空。
+现状（2026-09-12 同步）：unitree_go1 演示策略 = {go1-playground-joystick}。
 
-撤下记录（v0.43.0 导入 → v0.44.0 依裁决撤下）：
-- go1-playground-joystick（mujoco_playground 官方导出，Playwright 实测站立
-  z≈0.33 / vx 追踪 92% 达标）与 go1-himloco（LeggedSkillDeploy 官方
-  himloco_best.pt 官方工具重导，对拍 7e-06）均因"包内无移植训练代码"撤下；
-- 完整契约与取证链归档于 git tag v0.43.0（git show v0.43.0:.../config.json）；
-  onnx 原件在 00_resources/LeggedSkillDeploy/policy/issacgym/go1（00_resources/ v3 起按项目组织）；
-  训练任务移植（B14）后原样恢复；
-- 附带修复随本轮保留：model/robot.xml 补 <actuator> 段（nu=12 锁）、
+演进记录：
+- v0.43.0 导入 joystick / himloco / moe 三条；
+- v0.44.0 依「演示策略必须有包内移植好的对应训练代码」裁决撤下全部（当时包内无训练树）；
+- v0.44 后 joystick 经「官方 yaml / 官方消费代码 / 官方导出取证闭环」裁决恢复
+  （mujoco_playground 官方 onnx + play_go1_joystick.py，实测 z≈0.334 / vx 追踪 92%）；
+  moe（官方 moe_best.pt 导出对拍 6e-06）与 himloco（mjswan main.py 官方注释自证
+  runtime 不支持其交错 history、demo 从未跑通）因 B8 规则 S（须有上游训练源码佐证）
+  保持撤下——moe 上游只有推理产物（moe_best.pt + config.yaml），无训练源码；
+  恢复路径 = 在 tools/audit_porting_admission.py::POLICY_ADMISSION 给出可核对的
+  上游训练源码路径后同步 config.json 与本锁；
+- B8 准入审计（tools/audit_porting_admission.py）现裁定 go1 策略准入 1 条，与本锁一致；
+- 35fc4d58 起包内有 go1_velocity 训练树 + 2 个 profile（B14 大部分完成），
+  B14 训练任务冒烟全绿后可再收紧为「训练代码在包内且可跑」的标准；
+- 附带修复随撤下保留：model/robot.xml 补 <actuator> 段（nu=12 锁）、
   keyframe hip 符号修正、contract default_pose 左右符号修正、
   frame_major_v1 历史布局（ObservationBuffer.get_obs_vec 语义，app.js 通路）。
 """
@@ -30,21 +36,14 @@ def _read(path: Path) -> dict:
 
 class Go1DemoPolicyAdmissionTests(unittest.TestCase):
     def test_admitted_policies_match_locked_set(self):
-        """准入集合锁（v0.43.x 用户指令更新：官方取证闭环即可准入）。
-
-        用户最新指令（覆盖 v0.44.0 的"包内移植训练代码"准入标准）：官方 yaml /
-        官方消费代码 / 官方 pt 导出的取证闭环即可准入——joystick（mujoco_playground
-        官方 onnx+play_go1_joystick.py 同源取证，实测 z≈0.334 / vx 追踪 92%）与
-        moe（官方 moe_best.pt 官方工具导出对拍 6e-06 + moe config.yaml 布局，
-        实测 z≈0.33 / vx 追踪 115%）。B14 训练树移植后可再收紧为训练代码对应。
-        """
+        """准入集合锁（B8 规则 S 固化：策略须有上游训练源码佐证，见 POLICY_ADMISSION）。"""
         config = _read(GO1 / "simulation" / "config.json")
         policies = {p["id"]: p for p in config.get("policies") or []}
         self.assertEqual(
             set(policies),
-            {"go1-playground-joystick", "go1-moe-loco"},
-            "go1 演示策略集合漂移；himloco 撤下（mjswan main.py 官方注释自证 runtime "
-            "不支持其交错 history、demo 从未跑通；训练工程不在本地资源），不得未经取证恢复",
+            {"go1-playground-joystick"},
+            "go1 演示策略集合漂移；moe（上游仅推理产物，无训练源码）与 himloco（runtime "
+            "不支持其交错 history、demo 从未跑通）已按 B8 规则 S 撤下，不得未经取证恢复",
         )
         for policy in policies.values():
             self.assertTrue((GO1 / policy["path"]).exists(), f"{policy['id']} onnx 缺失")

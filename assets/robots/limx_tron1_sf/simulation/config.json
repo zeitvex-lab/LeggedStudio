@@ -88,7 +88,7 @@
   },
   "policies": [
     {
-      "id": "sf-tron1b-velocity",
+      "id": "sf-velocity",
       "label": "TRON1 SF velocity (TRON1B)",
       "path": "simulation/policies/tron1_sf_tron1b_policy.onnx",
       "encoder": "simulation/policies/tron1_sf_tron1b_encoder.onnx",
@@ -113,11 +113,11 @@
         ],
         "default_joint_angles": {
           "abad_L_Joint": 0.0,
-          "hip_L_Joint": 0.13,
+          "hip_L_Joint": 0.0,
           "knee_L_Joint": 0.0,
           "ankle_L_Joint": 0.0,
           "abad_R_Joint": 0.0,
-          "hip_R_Joint": -0.13,
+          "hip_R_Joint": 0.0,
           "knee_R_Joint": 0.0,
           "ankle_R_Joint": 0.0
         },
@@ -156,9 +156,14 @@
           "gait_swing": 0.12
         },
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "sf-velocity",
+        "match": "family",
+        "upstream": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_solefoot_env_cfg.py"
       }
     }
   ],
-  "settle_steps": 200,
+  "settle_steps": 0,
   "browser_actuator_rebuild": true
 }

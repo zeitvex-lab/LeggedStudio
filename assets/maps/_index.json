@@ -1,0 +1,85 @@
+{
+  "schema_version": "map-library-1.0",
+  "maps": [
+    {
+      "id": "flat",
+      "label": "平地",
+      "path": "flat.xml",
+      "kind": "env-only",
+      "description": "无限平面 + 棋盘地面，所有机型的默认检查环境",
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+    },
+    {
+      "id": "stairs",
+      "label": "楼梯",
+      "path": "stairs.xml",
+      "kind": "env-only",
+      "description": "上行楼梯，踏步高度阶梯递增",
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+    },
+    {
+      "id": "cross_stairs",
+      "label": "交叉楼梯",
+      "path": "cross_stairs.xml",
+      "kind": "env-only",
+      "description": "双向交叉楼梯，上下行交替",
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+    },
+    {
+      "id": "high_platforms",
+      "label": "高台（30-100 cm）",
+      "path": "high_platforms.xml",
+      "kind": "env-only",
+      "description": "30-100 cm 高台群，考验越障与落点",
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+    },
+    {
+      "id": "cross_slope",
+      "label": "横坡",
+      "path": "cross_slope.xml",
+      "kind": "env-only",
+      "description": "横向斜坡，考验侧向平衡",
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+    },
+    {
+      "id": "race_track",
+      "label": "赛道",
+      "path": "race_track.xml",
+      "kind": "env-only",
+      "description": "环形赛道，适合速度跟踪计时",
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+    },
+    {
+      "id": "rough",
+      "label": "粗糙地形",
+      "path": "rough.xml",
+      "kind": "env-only",
+      "description": "散布矮障碍块的粗糙地面（沿自 ZEX-W 比赛场地）",
+      "source": "assets/robots/zex-w（rc_old 比赛场地）"
+    },
+    {
+      "id": "slope",
+      "label": "斜坡",
+      "path": "slope.xml",
+      "kind": "env-only",
+      "description": "纵向斜坡",
+      "source": "assets/robots/zex-w（rc_old）"
+    },
+    {
+      "id": "relief",
+      "label": "起伏围场",
+      "path": "relief.xml",
+      "kind": "env-only",
+      "description": "3×3 m 围场 + 三个固定圆柱凸台（沿自 microduck-simulator）",
+      "source": "assets/robots/microduck（microduck-simulator）"
+    },
+    {
+      "id": "apartment",
+      "label": "公寓",
+      "path": "apartment.xml",
+      "kind": "env-only",
+      "description": "室内公寓场景（墙体与家具轮廓，原始几何）",
+      "source": "assets/robots/microduck（上游场景）"
+    }
+  ]
+}

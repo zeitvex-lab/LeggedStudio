@@ -1,7 +1,7 @@
 """G1 浏览器回放 vs 桌面验收 obs 逐维 diff 定位工具。
 
 用法：
-  1. 浏览器打开 ?robot=unitree_g1&policy=unitree-velocity&replay=0.4,0,0&seed=7&debug=1
+  1. 浏览器打开 ?robot=unitree_g1&policy=g1-velocity&replay=0.4,0,0&seed=7&debug=1
   2. 控制台执行 __sim2simDebug.startFrameLog()，跑 2-3 秒后 stopFrameLog() 复制 JSON
   3. 存为 framelog.json，运行本脚本：
      python replay_diff.py --package assets/robots/unitree_g1 --framelog framelog.json
@@ -63,7 +63,7 @@ def main() -> None:
 
     sim_cfg = json.loads((package_dir / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
     contract = PackageContract(package_dir, next(
-        (p for p in sim_cfg.get("policies", []) if p.get("id") == "unitree-velocity"), sim_cfg["policies"][0]))
+        (p for p in sim_cfg.get("policies", []) if p.get("id") == "g1-velocity"), sim_cfg["policies"][0]))
     model = load_package_model(package_dir, sim_cfg)
     model.opt.timestep = 1.0 / contract.physics_hz
     data = mujoco.MjData(model)

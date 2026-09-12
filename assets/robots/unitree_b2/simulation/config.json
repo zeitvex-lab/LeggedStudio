@@ -53,7 +53,7 @@
   },
   "policies": [
     {
-      "id": "unitree_b2-velocity-benchmark",
+      "id": "b2-velocity-benchmark",
       "path": "simulation/policies/robotlab_velocity_57.onnx",
       "label": "Unitree B2 Velocity Benchmark (rl_sar)",
       "obs_dim": 45,
@@ -170,6 +170,11 @@
         },
         "autoplay": false,
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "b2-velocity",
+        "match": "family",
+        "upstream": "robot_lab/.../velocity/config/quadruped/unitree_b2"
       }
     }
   ]

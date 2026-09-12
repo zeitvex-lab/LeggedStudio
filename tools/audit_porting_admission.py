@@ -78,35 +78,37 @@ SCAN_SKIP_PARTS = {
 # ---------------------------------------------------------------------------
 POLICY_ADMISSION: dict[str, dict[str, str]] = {
     "deeprobotics_lite3": {
-        "deeprobotics_lite3-velocity-benchmark": "robot_lab/.../velocity/config/quadruped/deeprobotics_lite3",
-        "lite3-official-sdk-45": "deep_rl + rl_training（云深处官方 RL 训练工程）",
+        "lite3-velocity-benchmark": "robot_lab/.../velocity/config/quadruped/deeprobotics_lite3",
+        "lite3-velocity-sdk45": "deep_rl + rl_training（云深处官方 RL 训练工程）",
+        "lite3-official-sdk": "sdk_deploy/src/Lite3_sdk_deploy/policy/policy.onnx（官方部署包）+ deep_rl（官方训练工程）",
     },
     "deeprobotics_m20": {
         "m20-velocity-57": "m20_rl_isaacsim + Dreamwaq/legged_gym/envs/M20",
+        "m20-official-sdk": "sdk_deploy/src/M20_sdk_deploy/policy/policy.onnx（官方部署包）+ deep_rl wheeled/deeprobotics_m20（官方训练工程）",
     },
     "microduck": {
-        "walking": "microduck_rl/.../microduck_velocity_env_cfg.py",
-        "stand": "microduck_rl/.../microduck_standup_env_cfg.py",
-        "sitstand": "microduck_rl/.../microduck_sitstand_env_cfg.py",
-        "roulade": "microduck_rl/.../microduck_roulade_env_cfg.py",
-        "roller": "microduck_rl/.../microduck_velocity_rollers_env_cfg.py",
-        "roller-crouch": "microduck_rl/.../microduck_roller_crouch_env_cfg.py",
-        "ground-pick": "microduck_rl/.../microduck_ground_pick_env_cfg.py",
-        "ball-kick-left": "microduck_rl/.../microduck_ball_kick_env_cfg.py",
-        "ball-kick-right": "microduck_rl/.../microduck_ball_kick_env_cfg.py",
+        "microduck-walking": "microduck_rl/.../microduck_velocity_env_cfg.py",
+        "microduck-stand": "microduck_rl/.../microduck_standup_env_cfg.py",
+        "microduck-sitstand": "microduck_rl/.../microduck_sitstand_env_cfg.py",
+        "microduck-roulade": "microduck_rl/.../microduck_roulade_env_cfg.py",
+        "microduck-roller": "microduck_rl/.../microduck_velocity_rollers_env_cfg.py",
+        "microduck-roller-crouch": "microduck_rl/.../microduck_roller_crouch_env_cfg.py",
+        "microduck-ground-pick": "microduck_rl/.../microduck_ground_pick_env_cfg.py",
+        "microduck-ball-kick-left": "microduck_rl/.../microduck_ball_kick_env_cfg.py",
+        "microduck-ball-kick-right": "microduck_rl/.../microduck_ball_kick_env_cfg.py",
     },
     "unitree_b2": {
-        "unitree_b2-velocity-benchmark": "robot_lab/.../velocity/config/quadruped/unitree_b2",
+        "b2-velocity-benchmark": "robot_lab/.../velocity/config/quadruped/unitree_b2",
     },
     "unitree_b2w": {
-        "robotlab-velocity-57": "robot_lab/.../velocity/config/wheeled/unitree_b2w",
+        "b2w-velocity-robotlab": "robot_lab/.../velocity/config/wheeled/unitree_b2w",
     },
     "unitree_g1": {
-        "unitree-velocity": "unitree_rl_mjlab（官方 velocity 任务）",
-        "dance-102": "uni_rl/unitree_rl_lab/.../tasks/mimic/robots/g1_29dof/dance_102",
-        "dance-gangnam-style": "uni_rl/unitree_rl_lab/.../tasks/mimic（motion-tracking）",
-        "dance-subject2": "uni_rl/unitree_rl_lab/.../tasks/mimic（motion-tracking）",
-        "locomotion": "unitree_rl_mjlab（G1 velocity 任务，mjswan 为导出方）",
+        "g1-velocity": "unitree_rl_mjlab（官方 velocity 任务）",
+        "g1-dance-102": "uni_rl/unitree_rl_lab/.../tasks/mimic/robots/g1_29dof/dance_102",
+        "g1-dance-gangnam-style": "uni_rl/unitree_rl_lab/.../tasks/mimic（motion-tracking）",
+        "g1-dance-subject2": "uni_rl/unitree_rl_lab/.../tasks/mimic（motion-tracking）",
+        "g1-velocity-mjswan": "unitree_rl_mjlab（G1 velocity 任务，mjswan 为导出方）",
     },
     "unitree_go1": {
         "go1-playground-joystick": "mujoco_playground/.../locomotion/go1/joystick.py",
@@ -114,13 +116,13 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         "go1-moe-loco": "",
     },
     "limx_tron1_pf": {
-        "pf-tron1b-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_pointfoot_env_cfg.py",
+        "pf-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_pointfoot_env_cfg.py",
     },
     "limx_tron1_sf": {
-        "sf-tron1b-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_solefoot_env_cfg.py",
+        "sf-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_solefoot_env_cfg.py",
     },
     "limx_tron1_wf": {
-        "wf-tron1b-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_wheelfoot_env_cfg.py",
+        "wf-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_wheelfoot_env_cfg.py",
     },
     "unitree_go2": {
         "go2-backflip-69": "包内 local_tasks/robots/unitree/go2/tasks/aerial（backflip）",
@@ -136,8 +138,8 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         "go2-kaiwu-moe-cts-8exp": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）",
     },
     "unitree_go2w": {
-        "unitree-velocity-legs": "unitree_rl_mjlab_go2w（velocity_legs_only）",
-        "robotlab-velocity-57": "robot_lab/.../velocity/config/wheeled/unitree_go2w",
+        "go2w-velocity-legs": "unitree_rl_mjlab_go2w（velocity_legs_only）",
+        "go2w-velocity-robotlab": "robot_lab/.../velocity/config/wheeled/unitree_go2w",
         "go2w-himloco-loco": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
         "go2w-himloco-stand-front": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
         "go2w-himloco-handstand": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
@@ -147,10 +149,10 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         "wuji-reorient": "wuji-mjlab src/wuji_mjlab/tasks/reorient（WujiHand_Reorient 训练任务）",
     },
     "zex-w": {
-        "model-6800": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
-        "model-84": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
-        "model-9600": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
-        "model-rough": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
+        "zex-w-rough-6800": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
+        "zex-w-wall-84": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
+        "zex-w-rough-9600": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
+        "zex-w-rough-baseline": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
     },
 }
 

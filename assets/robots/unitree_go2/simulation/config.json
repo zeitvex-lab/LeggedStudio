@@ -157,6 +157,11 @@
         },
         "autoplay": false,
         "task_type": "imitation"
+      },
+      "training_ref": {
+        "profile": "go2-backflip",
+        "match": "ported",
+        "upstream": "包内 local_tasks/robots/unitree/go2/tasks/aerial（backflip）"
       }
     },
     {
@@ -272,6 +277,11 @@
         },
         "autoplay": false,
         "task_type": "imitation"
+      },
+      "training_ref": {
+        "profile": "go2-jump",
+        "match": "ported",
+        "upstream": "包内 local_tasks/robots/unitree/go2/tasks/aerial（jump）"
       }
     },
     {
@@ -341,6 +351,11 @@
             0.7
           ]
         }
+      },
+      "training_ref": {
+        "profile": "go2-cts",
+        "match": "family",
+        "upstream": "go2_rl_robotlab/source/robot_lab/.../tasks/go2/env_cfg.py（MoE-CTS, hist10）"
       }
     },
     {
@@ -455,6 +470,11 @@
           "RR_calf_joint": 45.0
         },
         "history_layout": "frame_major"
+      },
+      "training_ref": {
+        "profile": "go2-amp-dreamwaq",
+        "match": "family",
+        "upstream": "lain_job/LLoco/src/lloco/tasks/go2_skills/amp_dreamwaq（ArenaX README：go2_amp_dreamwaq 检查点）"
       }
     },
     {
@@ -580,6 +600,11 @@
             "RR_calf_joint": 0.5
           }
         }
+      },
+      "training_ref": {
+        "profile": "go2-velocity-flat",
+        "match": "family",
+        "upstream": "rl_sar/policy/go2/robot_lab（robot_lab Go2 velocity 训练工程）"
       }
     },
     {
@@ -706,6 +731,11 @@
             "RR_calf_joint": 1.0
           }
         }
+      },
+      "training_ref": {
+        "profile": "go2-velocity-flat",
+        "match": "family",
+        "upstream": "rl_sar/policy/go2/himloco + 00_resources/HIMLoco（HIMLoco 训练工程）"
       }
     },
     {
@@ -831,6 +861,11 @@
           ]
         },
         "clip_actions": null
+      },
+      "training_ref": {
+        "profile": "go2-parkour",
+        "match": "ported",
+        "upstream": "parkour_mjlab logs/rsl_rl/go2_pie（Unitree-Go2-PIE 深度跑酷训练任务）"
       }
     },
     {
@@ -932,6 +967,11 @@
           }
         },
         "history_layout": ""
+      },
+      "training_ref": {
+        "profile": "go2-cts",
+        "match": "family",
+        "upstream": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）"
       }
     },
     {
@@ -1033,6 +1073,11 @@
           }
         },
         "history_layout": ""
+      },
+      "training_ref": {
+        "profile": "go2-cts",
+        "match": "family",
+        "upstream": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）"
       }
     },
     {
@@ -1134,6 +1179,11 @@
           }
         },
         "history_layout": ""
+      },
+      "training_ref": {
+        "profile": "go2-cts",
+        "match": "family",
+        "upstream": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）"
       }
     },
     {
@@ -1235,59 +1285,16 @@
           }
         },
         "history_layout": ""
+      },
+      "training_ref": {
+        "profile": "go2-cts",
+        "match": "family",
+        "upstream": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）"
       }
     }
   ],
   "browser_actuator_rebuild": true,
   "terrains": [
-    {
-      "id": "flat",
-      "label": "Flat",
-      "path": "web/sim2sim/assets/go2/flat.xml",
-      "browser_scene": true,
-      "repo_path": true,
-      "robot_include": "go2.xml"
-    },
-    {
-      "id": "stairs",
-      "label": "Stairs",
-      "path": "web/sim2sim/assets/go2/stairs.xml",
-      "browser_scene": true,
-      "repo_path": true,
-      "robot_include": "go2.xml"
-    },
-    {
-      "id": "cross_stairs",
-      "label": "Cross Stairs",
-      "path": "web/sim2sim/assets/go2/cross_stairs.xml",
-      "browser_scene": true,
-      "repo_path": true,
-      "robot_include": "go2.xml"
-    },
-    {
-      "id": "high_platforms",
-      "label": "High Platforms",
-      "path": "web/sim2sim/assets/go2/high_platforms.xml",
-      "browser_scene": true,
-      "repo_path": true,
-      "robot_include": "go2.xml"
-    },
-    {
-      "id": "cross_slope",
-      "label": "Cross Slope",
-      "path": "web/sim2sim/assets/go2/cross_slope.xml",
-      "browser_scene": true,
-      "repo_path": true,
-      "robot_include": "go2.xml"
-    },
-    {
-      "id": "race_track",
-      "label": "Race Track",
-      "path": "web/sim2sim/assets/go2/race_track.xml",
-      "browser_scene": true,
-      "repo_path": true,
-      "robot_include": "go2.xml"
-    },
     {
       "id": "pie_stairs",
       "label": "PIE Stairs",

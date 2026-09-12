@@ -10,13 +10,13 @@
   "physics_hz": 200,
   "decimation": 4,
   "stiffness": {
-    "abad_L_Joint": 40.0,
-    "hip_L_Joint": 40.0,
-    "knee_L_Joint": 40.0,
+    "abad_L_Joint": 42.0,
+    "hip_L_Joint": 42.0,
+    "knee_L_Joint": 42.0,
     "wheel_L_Joint": 0.0,
-    "abad_R_Joint": 40.0,
-    "hip_R_Joint": 40.0,
-    "knee_R_Joint": 40.0,
+    "abad_R_Joint": 42.0,
+    "hip_R_Joint": 42.0,
+    "knee_R_Joint": 42.0,
     "wheel_R_Joint": 0.0
   },
   "damping": {
@@ -91,7 +91,7 @@
   },
   "policies": [
     {
-      "id": "wf-tron1b-velocity",
+      "id": "wf-velocity",
       "label": "TRON1 WF velocity (TRON1B)",
       "path": "simulation/policies/tron1_wf_tron1b_policy.onnx",
       "encoder": "simulation/policies/tron1_wf_tron1b_encoder.onnx",
@@ -173,9 +173,14 @@
           ]
         },
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "wf-velocity",
+        "match": "family",
+        "upstream": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_wheelfoot_env_cfg.py"
       }
     }
   ],
-  "settle_steps": 200,
+  "settle_steps": 0,
   "browser_actuator_rebuild": true
 }

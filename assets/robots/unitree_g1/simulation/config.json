@@ -90,7 +90,7 @@
   },
   "policies": [
     {
-      "id": "unitree-velocity",
+      "id": "g1-velocity",
       "path": "simulation/policies/unitree_velocity.onnx",
       "label": "Velocity (Unitree mjlab)",
       "obs_dim": 98,
@@ -228,10 +228,15 @@
           "last_action": 1
         },
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "g1-velocity-flat",
+        "match": "family",
+        "upstream": "unitree_rl_mjlab（官方 velocity 任务）"
       }
     },
     {
-      "id": "dance-102",
+      "id": "g1-dance-102",
       "path": "simulation/policies/dance_102.onnx",
       "label": "Dance 102 (motion tracking)",
       "obs_dim": 154,
@@ -455,10 +460,15 @@
           "left_wrist_yaw_joint": 5.0,
           "right_wrist_yaw_joint": 5.0
         }
+      },
+      "training_ref": {
+        "profile": "g1-tracking",
+        "match": "family",
+        "upstream": "uni_rl/unitree_rl_lab/.../tasks/mimic/robots/g1_29dof/dance_102"
       }
     },
     {
-      "id": "dance-gangnam-style",
+      "id": "g1-dance-gangnam-style",
       "path": "simulation/policies/gangnam_style.onnx",
       "label": "Dance Gangnam Style (motion tracking)",
       "obs_dim": 154,
@@ -682,10 +692,15 @@
           "left_wrist_yaw_joint": 5.0,
           "right_wrist_yaw_joint": 5.0
         }
+      },
+      "training_ref": {
+        "profile": "g1-tracking",
+        "match": "family",
+        "upstream": "uni_rl/unitree_rl_lab/.../tasks/mimic（motion-tracking）"
       }
     },
     {
-      "id": "dance-subject2",
+      "id": "g1-dance-subject2",
       "path": "simulation/policies/dance1_subject2.onnx",
       "label": "Dance Subject2 (motion tracking)",
       "obs_dim": 154,
@@ -909,10 +924,15 @@
           "left_wrist_yaw_joint": 5.0,
           "right_wrist_yaw_joint": 5.0
         }
+      },
+      "training_ref": {
+        "profile": "g1-tracking",
+        "match": "family",
+        "upstream": "uni_rl/unitree_rl_lab/.../tasks/mimic（motion-tracking）"
       }
     },
     {
-      "id": "locomotion",
+      "id": "g1-velocity-mjswan",
       "path": "simulation/policies/locomotion.onnx",
       "label": "Locomotion (mjswan)",
       "obs_dim": 99,
@@ -1083,6 +1103,11 @@
             "right_wrist_yaw_joint": 1.068142
           }
         }
+      },
+      "training_ref": {
+        "profile": "g1-velocity-rough",
+        "match": "family",
+        "upstream": "unitree_rl_mjlab（G1 velocity 任务，mjswan 为导出方）"
       }
     }
   ],

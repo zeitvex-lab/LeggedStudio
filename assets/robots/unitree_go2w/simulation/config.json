@@ -50,7 +50,7 @@
   },
   "policies": [
     {
-      "id": "unitree-velocity-legs",
+      "id": "go2w-velocity-legs",
       "path": "simulation/policies/unitree_velocity_legs.onnx",
       "label": "Velocity Legs-Only (mjlab)",
       "obs_dim": 53,
@@ -173,10 +173,15 @@
           "last_action": 1
         },
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "go2w-flat",
+        "match": "family",
+        "upstream": "unitree_rl_mjlab_go2w（velocity_legs_only）"
       }
     },
     {
-      "id": "robotlab-velocity-57",
+      "id": "go2w-velocity-robotlab",
       "path": "simulation/policies/robotlab_velocity_57.onnx",
       "label": "Velocity 57D (rl_sar robot_lab)",
       "obs_dim": 57,
@@ -291,6 +296,11 @@
           }
         },
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "go2w-flat",
+        "match": "family",
+        "upstream": "robot_lab/.../velocity/config/wheeled/unitree_go2w"
       }
     },
     {
@@ -450,6 +460,11 @@
           }
         },
         "clip_obs": 100.0
+      },
+      "training_ref": {
+        "profile": "go2w-flat",
+        "match": "family",
+        "upstream": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）"
       }
     },
     {
@@ -609,6 +624,11 @@
           }
         },
         "clip_obs": 100.0
+      },
+      "training_ref": {
+        "profile": "go2w-flat",
+        "match": "family",
+        "upstream": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）"
       }
     },
     {
@@ -768,6 +788,11 @@
           }
         },
         "clip_obs": 100.0
+      },
+      "training_ref": {
+        "profile": "go2w-flat",
+        "match": "family",
+        "upstream": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）"
       }
     },
     {
@@ -927,6 +952,11 @@
           }
         },
         "clip_obs": 100.0
+      },
+      "training_ref": {
+        "profile": "go2w-flat",
+        "match": "family",
+        "upstream": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）"
       }
     }
   ],
@@ -936,13 +966,7 @@
     "leg": 5.0,
     "wheel": 15.0
   },
-  "terrains": [
-    {
-      "id": "flat",
-      "label": "平地",
-      "path": "simulation/flat.xml"
-    }
-  ],
+  "terrains": [],
   "armature": {
     "FL_calf_joint": 0.02,
     "FL_wheel_joint": 0.02,

@@ -72,7 +72,10 @@ class BuiltinPacksTest(unittest.TestCase):
 
 class ValidatePackTest(unittest.TestCase):
     def test_absolute_path_rejected(self) -> None:
-        report = validate_pack(_base_pack(morphology_ref={"id": "go2", "path": "/etc/passwd"}))
+        import os
+        # 平台相关：Windows 上 Path("/etc/passwd").is_absolute() 为 False，须用盘符样例
+        abs_path = "C:/etc/passwd" if os.name == "nt" else "/etc/passwd"
+        report = validate_pack(_base_pack(morphology_ref={"id": "go2", "path": abs_path}))
         self.assertFalse(report["ok"])
         self.assertTrue(any("相对路径" in e for e in report["errors"]))
 

@@ -185,7 +185,14 @@
 
   function rgbaMaterial(rgba, role = 'visual') {
     const color = rgba?.length >= 3 ? new THREE.Color(rgba[0], rgba[1], rgba[2]) : new THREE.Color(role === 'collision' ? 0xf2a65a : 0xb8c4cc);
-    const opacity = role === 'collision' ? Math.min(Number(rgba?.[3] ?? 0.32), 0.45) : Number(rgba?.[3] ?? 1);
+    // 资产用 rgba 的 alpha=0 表示「只参与物理、不渲染」（MuJoCo 语义）。官方 TRON1
+    // 系列 MJCF 的碰撞体全部写成 rgba="0 0 1 0"，若照抄这个 alpha，整层碰撞体都会是
+    // 全透明——点了「碰撞」也看不到。碰撞层是 viewer 的诊断叠加层，不透明度必须由
+    // viewer 兜底（默认 0.32，上限 0.45），只沿用资产给的 rgb。
+    const alpha = Number(rgba?.[3]);
+    const opacity = role === 'collision'
+      ? Math.min(alpha > 0 ? alpha : 0.32, 0.45)
+      : (Number.isFinite(alpha) ? alpha : 1);
     return new THREE.MeshStandardMaterial({
       color,
       opacity,

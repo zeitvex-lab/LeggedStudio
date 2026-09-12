@@ -1529,15 +1529,51 @@ body.panel-hidden .panel-left { display: none !important; }
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.task-panel-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-}
-.task-panel-row strong { color: var(--accent, #7fd1ff); }
 .task-panel-note {
   margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+/* 任务子面板（模仿时间轴 / 特技触发），位于控制面板顶部任务卡内 */
+.task-subpanel {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mimic-timeline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+}
+.mimic-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.mimic-track i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--accent, #7fd1ff);
+  transition: width 0.12s linear;
+}
+.task-panel button {
+  align-self: flex-start;
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+.task-panel button:hover { background: rgba(255, 255, 255, 0.12); }
+.task-panel-note-inline {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.6);
 }

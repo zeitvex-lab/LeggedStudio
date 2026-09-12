@@ -161,7 +161,7 @@
         "damping": 2.0,
         "effort": 45.0,
         "armature": 0.02,
-        "mode": "position",
+        "mode": "velocity",
         "action_scale": 35.0
       }
     },

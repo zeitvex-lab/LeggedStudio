@@ -200,9 +200,9 @@
           "dof_pos": 1.0,
           "dof_vel": 0.05,
           "command": [
-            2.0,
-            2.0,
-            0.25
+            1.0,
+            1.0,
+            1.0
           ]
         },
         "control": {
@@ -245,6 +245,117 @@
         },
         "autoplay": false,
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "m20-velocity",
+        "match": "family",
+        "upstream": "m20_rl_isaacsim + Dreamwaq/legged_gym/envs/M20"
+      }
+    },
+    {
+      "id": "m20-official-sdk",
+      "path": "simulation/policies/m20_official_sdk.onnx",
+      "label": "M20 Velocity 57D（云深处官方 SDK 部署策略，轮速度动作）",
+      "obs_dim": 57,
+      "action_dim": 16,
+      "history_len": 1,
+      "source": "00_resources/sdk_deploy/src/M20_sdk_deploy/policy/policy.onnx（云深处官方部署包）；官方 run_policy/m20_policy_runner.hpp 为部署协议权威（轮位 obs 清零 policy 序 [12..15]、轮=速度动作 ×5）",
+      "training_ref": {
+        "profile": "m20-velocity",
+        "match": "ported",
+        "upstream": "00_resources/deep_rl rl_training wheeled/deeprobotics_m20（官方训练工程）+ 00_resources/sdk_deploy/src/M20_sdk_deploy（官方部署）"
+      },
+      "contract": {
+        "observation_kind": "go2w_rl_sdk_57",
+        "obs_dim": 57,
+        "action_dim": 16,
+        "history_len": 1,
+        "command_dims": 3,
+        "task_type": "velocity",
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "command_ranges": {
+          "lin_vel_x": [
+            -2.0,
+            2.0
+          ],
+          "lin_vel_y": [
+            -1.0,
+            1.0
+          ],
+          "ang_vel_z": [
+            -1.0,
+            1.0
+          ]
+        },
+        "action_joint_order": [
+          "fl_hipx_joint",
+          "fl_hipy_joint",
+          "fl_knee_joint",
+          "fr_hipx_joint",
+          "fr_hipy_joint",
+          "fr_knee_joint",
+          "hl_hipx_joint",
+          "hl_hipy_joint",
+          "hl_knee_joint",
+          "hr_hipx_joint",
+          "hr_hipy_joint",
+          "hr_knee_joint",
+          "fl_wheel_joint",
+          "fr_wheel_joint",
+          "hl_wheel_joint",
+          "hr_wheel_joint"
+        ],
+        "default_joint_angles": {
+          "fl_hipx_joint": 0.0,
+          "fl_hipy_joint": -0.3,
+          "fl_knee_joint": 0.6,
+          "fr_hipx_joint": 0.0,
+          "fr_hipy_joint": -0.3,
+          "fr_knee_joint": 0.6,
+          "hl_hipx_joint": 0.0,
+          "hl_hipy_joint": 0.3,
+          "hl_knee_joint": -0.6,
+          "hr_hipx_joint": 0.0,
+          "hr_hipy_joint": 0.3,
+          "hr_knee_joint": -0.6,
+          "fl_wheel_joint": 0.0,
+          "fr_wheel_joint": 0.0,
+          "hl_wheel_joint": 0.0,
+          "hr_wheel_joint": 0.0
+        },
+        "action_scale": 0.25,
+        "action_scale_by_joint": {
+          "fl_hipx_joint": 0.125,
+          "fl_hipy_joint": 0.25,
+          "fl_knee_joint": 0.25,
+          "fr_hipx_joint": 0.125,
+          "fr_hipy_joint": 0.25,
+          "fr_knee_joint": 0.25,
+          "hl_hipx_joint": 0.125,
+          "hl_hipy_joint": 0.25,
+          "hl_knee_joint": 0.25,
+          "hr_hipx_joint": 0.125,
+          "hr_hipy_joint": 0.25,
+          "hr_knee_joint": 0.25,
+          "fl_wheel_joint": 5.0,
+          "fr_wheel_joint": 5.0,
+          "hl_wheel_joint": 5.0,
+          "hr_wheel_joint": 5.0
+        },
+        "scales": {
+          "ang_vel": 0.25,
+          "dof_pos": 1.0,
+          "dof_vel": 0.05,
+          "command": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
       }
     }
   ]
