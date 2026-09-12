@@ -44,14 +44,28 @@
         echo "== capability packs (B1: 14 packs validate + refs sha256) =="
         python tools/validate_packs.py
 
-# CPU 训练冒烟门禁的环境：与云原生开发共用 .ide/Dockerfile，镜像里已固化
+# 云原生开发 / CI 共用的环境镜像（根 Dockerfile）。
+#
+# 为什么必须写 `by`：CNB 的 `docker.build` **只把 Dockerfile 与 `by` 列出的文件**
+# 放进构建上下文（官方文档：未出现在 by 列表中的文件不会被 COPY 进镜像）。
+# 只写 `build: Dockerfile` 会得到空上下文，Dockerfile 里所有 COPY 都报
+# "not found"（本次 CI 失败的根因）。by 的路径相对仓库根，按原相对路径进上下文。
+.docker-dev-image: &docker-dev-image
+  dockerfile: Dockerfile
+  by:
+    - backend/requirements.txt
+    - adapters/mjlab/pyproject.toml
+    - adapters/mjlab/uv.lock
+    - scripts/provision_cpu_training.sh
+
+# CPU 训练冒烟门禁的环境：与云原生开发共用根 Dockerfile，镜像里已固化
 # mjlab 的 cpu extra（LEGGED_STUDIO_MJLAB_VENV 指向镜像内 venv），因此门禁
 # 不需要每次重装 torch——进容器即可跑真训练。
 .cpu-training-env: &cpu-training-env
   runner:
     cpus: 8
   docker:
-    build: .ide/Dockerfile
+    build: *docker-dev-image
   env:
     # 镜像层的 CPU venv 落点（仓库外，不被 bind mount 覆盖）。
     LEGGED_STUDIO_MJLAB_VENV: /opt/legged-studio/mjlab-cpu/.venv
@@ -64,9 +78,9 @@
   runner:
     cpus: 8
   # 无头 CPU sim2sim 验收器需要 mujoco（纯 CPU wheel）+ onnxruntime。
-  # 与云原生开发环境共用 .ide/Dockerfile，保证 CI 与开发环境同一套依赖。
+  # 与云原生开发环境共用根 Dockerfile，保证 CI 与开发环境同一套依赖。
   docker:
-    build: .ide/Dockerfile
+    build: *docker-dev-image
   stages:
     - name: headless-sim2sim-gate
       script: |
@@ -132,7 +146,7 @@ main:
             bash scripts/cpu_training_smoke_gate.sh
 
 # 云原生开发：点「云原生开发」按钮即建环境。
-# 环境本身固化在 .ide/Dockerfile（控制面依赖 + Chromium + mjlab cpu extra 全在
+# 环境本身固化在根 Dockerfile（控制面依赖 + Chromium + mjlab cpu extra 全在
 # 镜像层），stages 只负责把后端拉起来并打印预览地址，不做重复安装。
 $:
   vscode:
@@ -140,7 +154,7 @@ $:
       runner:
         cpus: 8
       docker:
-        build: .ide/Dockerfile
+        build: *docker-dev-image
       services:
         - vscode
         - docker

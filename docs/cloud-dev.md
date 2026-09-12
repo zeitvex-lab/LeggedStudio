@@ -25,14 +25,26 @@
 ## 环境结构
 
 ```
-.ide/Dockerfile                  # 唯一环境事实源：云原生开发与 CI 共用同一镜像
+Dockerfile                       # 唯一环境事实源：云原生开发与 CI 共用同一镜像
 .cnb.yml  $: vscode              # 启动流程：起后端 + 打印预览地址（不做重复安装）
+.cnb.yml  .docker-dev-image      # 上述镜像的 docker.build 配置（含 by 文件清单）
 .cnb/settings.yml                # 入口按钮名称 / CPU 核数 / 自动打开 WebIDE
 scripts/provision_cpu_training.sh  # CPU 训练 venv 供应（镜像构建与本地同一脚本）
 scripts/cpu_training_smoke_gate.sh # CPU 训练冒烟门禁（CI 与本地同一命令）
 ```
 
 依赖与浏览器都在镜像层，`stages` 里**不放安装命令**，所以进入环境是秒级的。
+
+### 改 Dockerfile 时别忘 `by` 清单
+
+CNB 的 `docker.build` **只把 Dockerfile 与 `by` 列出的文件放进构建上下文**
+（官方文档：未出现在 `by` 列表中的文件不会被 COPY 进镜像）。所以：
+
+- Dockerfile 里每加一条 `COPY <repo 内文件>`，都必须把该文件加进
+  `.cnb.yml` 的 `.docker-dev-image.by`，否则构建报 `"<path>": not found`；
+- `by` 路径相对**仓库根**（不是 Dockerfile 所在目录）。
+
+漏加 `by` 的表现是 `Prepare` 阶段直接失败（空上下文），而不是进容器后才报错。
 
 ## 浏览器验证（浏览器是刚需）
 
@@ -119,7 +131,7 @@ bash scripts/provision_cpu_training.sh
 
 ## 与 CI 的关系
 
-云原生开发与云原生构建底层是同一套引擎，这里共用 `.ide/Dockerfile`，
+云原生开发与云原生构建底层是同一套引擎，这里共用根 `Dockerfile`，
 所以「开发环境里能跑通的」和「CI 里跑的」是同一套依赖，不会出现环境漂移。
 
 | CI 任务 | 内容 |
