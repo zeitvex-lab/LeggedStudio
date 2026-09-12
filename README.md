@@ -98,7 +98,8 @@ legged_studio/
 | 浏览器 sim2sim | MuJoCo WASM（pthread）+ ONNX Runtime Web 1.23.2 + Three.js，全部离线 vendor |
 | 数据契约 | JSON Schema ×8 + 生成的 Pydantic 模型 |
 | 资产准入 | 移植准入审计（训练/仿真须有 00_resources 上游训练源码佐证，包自包含与策略↔onnx 一致性检查），见 `tools/audit_porting_admission.py` |
-| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测、移植准入审计、前端 vendor 冒烟 |
+| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、前端 vendor 冒烟 |
+| 云原生开发 | `.ide/Dockerfile` + `.cnb.yml` 的 `vscode` 事件，一键起环境（依赖与 Chromium 固化，浏览器 sim2sim 开箱可用）→ `docs/cloud-dev.md` |
 
 ---
 
@@ -126,11 +127,32 @@ start.bat
 
 启动后自动打开桌面启动器，后端就绪后进入工作台 `http://127.0.0.1:8765/web/workbench.html`。
 
+### 云原生开发（免配置在线环境）
+
+仓库页面点 **「Legged Studio 开发」** 即进入在线环境，依赖与 Chromium 已固化在镜像里，
+后端自动在 `0.0.0.0:8765` 起来，浏览器 sim2sim 可直接看、可直接截图调试。
+详见 [`docs/cloud-dev.md`](docs/cloud-dev.md)。
+
 ### 测试
 
 ```powershell
 npm test           # 后端 unittest（控制面纯逻辑测试）
 npm run test:obs   # 浏览器观测构建器的 node 单测
+```
+
+浏览器 E2E（确定性回放 + 截图，需要 Playwright）：
+
+```bash
+pip install -r backend/requirements.txt -r requirements-dev.txt
+playwright install chromium
+pytest tests/e2e -v
+```
+
+无头 CPU sim2sim 验收（47 条策略，对照基线只拦新增退化）：
+
+```bash
+python tools/sim2sim_headless.py --seconds 3 \
+  --baseline tools/baselines/sim2sim_headless_baseline.json
 ```
 
 ### 打包发行
