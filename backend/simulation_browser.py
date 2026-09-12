@@ -24,6 +24,9 @@ BROWSER_MESH_LIMIT_BYTES = 40 * 1024 * 1024
 BROWSER_MESH_SUFFIXES = {".obj", ".stl", ".dae", ".ply", ".msh"}
 BROWSER_INITIAL_KEYFRAME = "__browser_init__"
 REPO_ROOT = Path(__file__).resolve().parents[1]
+# 公共地图库（assets/maps/README.md）：环境专用 XML，不含机器人 include。
+MAPS_ROOT = REPO_ROOT / "assets" / "maps"
+MAP_INDEX = MAPS_ROOT / "_index.json"
 
 
 def browser_package(robot_id: str) -> tuple[Path, dict[str, Any]]:
@@ -390,6 +393,56 @@ def browser_scene_file(root: Path, entry: dict[str, Any]) -> str:
         texture.set("rgb2", "0.34 0.38 0.42")
         texture.set("width", "64")
         texture.set("height", "64")
+    return ET.tostring(document, encoding="unicode")
+
+
+def common_map_entries() -> list[dict[str, Any]]:
+    """公共地图库清单 → 统一 terrain entry（path 以 ``maps/`` 前缀下发）。"""
+    try:
+        index = json.loads(MAP_INDEX.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    entries: list[dict[str, Any]] = []
+    for item in index.get("maps") or []:
+        if not isinstance(item, dict) or not item.get("id"):
+            continue
+        map_id = str(item["id"])
+        entries.append({
+            "id": map_id,
+            "label": str(item.get("label") or map_id),
+            "path": f"maps/{map_id}.xml",
+            "browser_scene": True,
+            "repo_path": False,
+            "source": "common-map-library",
+        })
+    return entries
+
+
+def map_scene_xml(map_id: str, robot_include: str = "../model/robot.xml") -> str:
+    """公共地图 → 按机型注入机器人 include 的自包含场景 XML。
+
+    地图文件是纯环境（assets/maps/README.md）；机器人由服务端按当前机型注入，
+    include 路径相对浏览器 FS 中地图所在目录（``maps/``）——平台布局为
+    ``/platform/maps`` 机器人位于 ``/platform/model``，go2 内置布局由前端在
+    ``/working/model/robot.xml`` 落一份副本保证同一 include 也能解析。
+    """
+    path = MAPS_ROOT / f"{map_id}.xml"
+    if not path.is_file() or MAPS_ROOT.resolve() not in path.resolve().parents:
+        raise HTTPException(status_code=404, detail=f"common map not found: {map_id}")
+    document = ET.fromstring(path.read_text(encoding="utf-8-sig"))
+    if document.find("include") is None:
+        include = ET.Element("include", {"file": robot_include})
+        document.insert(0, include)
+    # meshdir 相对主文件（地图）所在目录解析；主文件不带 compiler 时，被包含
+    # robot.xml 的 meshdir 无法把 mesh 指回 model/assets（实测 stairs 场景
+    # 报 model/base_link.STL 缺失）。与包内可用场景（simulation/*.xml 均带
+    # compiler meshdir="../model/assets"）保持同一模式：缺就补。
+    if document.find("compiler") is None or not document.find("compiler").get("meshdir"):
+        compiler = document.find("compiler")
+        if compiler is None:
+            compiler = ET.Element("compiler")
+            document.insert(1, compiler)
+        compiler.set("meshdir", "../model/assets")
     return ET.tostring(document, encoding="unicode")
 
 

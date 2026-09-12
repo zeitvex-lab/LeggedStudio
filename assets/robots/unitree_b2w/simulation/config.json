@@ -63,7 +63,7 @@
   "settle_steps": 20,
   "policies": [
     {
-      "id": "robotlab-velocity-57",
+      "id": "b2w-velocity-robotlab",
       "path": "simulation/policies/robotlab_velocity_57.onnx",
       "label": "Velocity 57D (rl_sar robot_lab)",
       "obs_dim": 57,
@@ -200,6 +200,11 @@
         },
         "autoplay": false,
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "b2w-velocity",
+        "match": "family",
+        "upstream": "robot_lab/.../velocity/config/wheeled/unitree_b2w"
       }
     }
   ]

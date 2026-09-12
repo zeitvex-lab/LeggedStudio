@@ -56,9 +56,19 @@ TARGET_PLATFORMS = {"unitree_sdk2", "ros2"}
 router = APIRouter(prefix="/api/packs", tags=["packs"])
 
 
+def _content_sha256(data: bytes) -> str:
+    """规范化内容哈希：CRLF → LF 后再哈希。
+
+    对原始字节做 sha256 会随 git ``core.autocrlf`` 漂移（Windows 检出 CRLF、
+    CI 检出 LF，同一文件两个哈希），Pack 对账就失去跨机复现意义。生成器
+    ``tools/generate_packs.py`` 用同一口径，两侧必须同步修改。
+    """
+    return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
+
+
 def _sha256_file(path: Path) -> str | None:
     try:
-        return hashlib.sha256(path.read_bytes()).hexdigest()
+        return _content_sha256(path.read_bytes())
     except OSError:
         return None
 

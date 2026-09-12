@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -293,6 +294,23 @@ class PackageContract:
 
     def default_for(self, joint: str) -> float:
         return self.default_joint_angles.get(joint.lower(), 0.0)
+
+    def effective_command(self, cmd) -> np.ndarray:
+        """策略**实际收到**的速度指令（obs 构建器内部会乘的那一层缩放）。
+
+        观测构建器把 ``cmd`` 乘上命令缩放后再喂给网络：TRON1 走
+        ``tron1.cmd_scale``（部署 user_cmd_scales），其余机型走 ``scales.command``。
+        跟踪误差必须与这个值比较，否则指令缩放 ≠ 1 的机型会被判成「跟踪不合格」，
+        且缺口恰好等于缩放倍率（TRON1 的 1.5 倍就是这么来的）。
+        """
+        spec = self.tron1 or {}
+        if not spec:
+            # 其余机型 scales.command 是「观测归一化」而非单位换算，用户指令即 m/s。
+            return np.asarray(cmd, dtype=np.float32)
+        scale = spec.get("cmd_scale") or [1.0, 1.0, 1.0]
+        dims = int(spec.get("cmd_size") or 3)
+        arr = np.asarray(cmd, dtype=np.float32) * np.asarray(scale, dtype=np.float32)
+        return arr[:dims]
 
     def is_velocity_joint(self, name: str) -> bool:
         """control_modes 为 {关节名: position|velocity} 映射（含 role 级 'wheel'）。"""
@@ -841,7 +859,7 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
         obs_builder.motion_time = 0.0
     cmd_arr = np.asarray(cmd, dtype=np.float32)
 
-    total = int(seconds / contract.step_dt)
+    total = int(seconds * contract.physics_hz)
     fell_at = None
     height_min = float("inf")
     roll_max = pitch_max = 0.0
@@ -860,7 +878,7 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
                 clip = np.asarray(contract.clip_actions, dtype=np.float32)
                 raw = np.clip(raw, -clip, clip)
             obs_builder.last_action = raw.copy()
-        # PD/位置目标按物理步频重算（与浏览器端一致：ctrl 每步刷新，动作按 decimation 保持）
+        # 迭代 = 一个物理步；策略每 decimation 步刷新一次（与浏览器/训练同频）。
         actuate(contract, model, data, obs, raw)
         mujoco.mj_step(model, data)
 
@@ -873,7 +891,7 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
         height_min = min(height_min, float(data.qpos[2]))
         tilted = abs(roll) > 60.0 or abs(pitch) > 60.0
         if fell_at is None and (data.qpos[2] < 0.45 * contract.initial_height or tilted):
-            fell_at = step * contract.step_dt
+            fell_at = step / contract.physics_hz
             break
         # 速度跟踪：只统计后半段（前段含起摆/收敛）
         if step > total * 0.7:
@@ -886,7 +904,7 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
             steady_roll.append(abs(roll))
             steady_pitch.append(abs(pitch))
 
-    survived_steps = (fell_at / contract.step_dt) if fell_at is not None else total
+    survived_steps = (fell_at * contract.physics_hz) if fell_at is not None else total
     metrics = {
         "command": [float(x) for x in cmd],
         "fell": fell_at is not None,
@@ -982,7 +1000,7 @@ def run_wuji_reorient(sess, contract: PackageContract, model, data, obs: "ObsBui
     cube_h0 = float(data.xpos[cube_id][2])
     palm_h0 = float(data.xpos[palm_id][2])
 
-    total = int(seconds / contract.step_dt)
+    total = int(seconds * contract.physics_hz)
     prev_target = default.copy()
     hold = 0
     min_err = float("inf")
@@ -1000,7 +1018,7 @@ def run_wuji_reorient(sess, contract: PackageContract, model, data, obs: "ObsBui
             scaled = default + np.clip(raw, -action_clamp, action_clamp) * contract.action_scales
             scaled = _wuji_clamp_to_limits(model, contract.action_joint_order, scaled)
             smoothed = ema_alpha * scaled + (1.0 - ema_alpha) * prev_target
-            if step * contract.step_dt < warmup_s:
+            if step / contract.physics_hz < warmup_s:
                 processed = default.copy()
             else:
                 processed = smoothed
@@ -1020,11 +1038,13 @@ def run_wuji_reorient(sess, contract: PackageContract, model, data, obs: "ObsBui
         err = _wuji_ori_error(cube_quat_w, goal_quat_w)
         min_err = min(min_err, err)
         cube_min_h = min(cube_min_h, float(cube_pos_w[2]))
-        hold = hold + 1 if err < success_threshold else 0
+        # hold_steps 以控制步计（与策略频率一致），迭代本身是物理步。
+        if step % contract.decimation == 0:
+            hold = hold + 1 if err < success_threshold else 0
         if success_at is None and hold >= hold_steps:
-            success_at = step * contract.step_dt
+            success_at = step / contract.physics_hz
         if dropped_at is None and (cube_min_h < palm_h0 - 0.15):
-            dropped_at = step * contract.step_dt
+            dropped_at = step / contract.physics_hz
 
     return {
         "trial": "wuji_reorient",
@@ -1414,6 +1434,82 @@ def apply_actuator_rebuild(spec, package_dir: Path, sim_cfg: dict[str, Any],
     return True
 
 
+_OPTION_ATTR_RE = re.compile(r"<option\b([^>]*?)/?>")
+_XML_ATTR_RE = re.compile(r'([A-Za-z_][\w]*)\s*=\s*"([^"]*)"')
+_FLOOR_GEOM_RE = re.compile(r'<geom\b([^>]*?)/?>')
+_INTEGRATOR_NAMES = {"euler": 0, "rk4": 1, "implicit": 2, "implicitfast": 3}
+_CONE_NAMES = {"pyramidal": 0, "elliptic": 1}
+_SOLVER_NAMES = {"pgs": 0, "cg": 1, "newton": 2}
+_JACOBIAN_NAMES = {"dense": 0, "sparse": 1, "auto": 2}
+
+
+def scene_physics_overrides(package_dir: Path, sim_cfg: dict[str, Any]):
+    """从包内 ``simulation/scene.xml`` 提取 ``<option>`` 与地板摩擦。
+
+    浏览器（wasm 执行器）加载的是 ``simulation/scene.xml``，而验收器只编译
+    ``model/robot.xml`` 再自建一块平地。若不把 scene 的 ``<option>`` 与地板摩擦
+    一并搬过来，两个执行器会跑出不同的物理——TRON1 实测差异为
+    Euler/pyramidal/impratio=1/地面 0.6 vs implicitfast/elliptic/impratio=100/地面 0.8，
+    违反 Pack 的 ``simulate.require_deterministic_replay``。
+
+    返回 ``(option_attrs, floor_friction)``；缺 scene 时返回空。
+    """
+    rel = str(sim_cfg.get("scene_path") or "")
+    if not rel:
+        return {}, None
+    scene = package_dir / rel
+    if not scene.is_file():
+        return {}, None
+    try:
+        text = scene.read_text(encoding="utf-8-sig")
+    except OSError:
+        return {}, None
+    option_attrs: dict[str, str] = {}
+    m = _OPTION_ATTR_RE.search(text)
+    if m:
+        option_attrs = {k: v for k, v in _XML_ATTR_RE.findall(m.group(1))}
+    floor_friction = None
+    for gm in _FLOOR_GEOM_RE.finditer(text):
+        attrs = {k: v for k, v in _XML_ATTR_RE.findall(gm.group(1))}
+        if attrs.get("type") == "plane" and attrs.get("friction"):
+            try:
+                floor_friction = [float(x) for x in attrs["friction"].split()]
+            except ValueError:
+                floor_friction = None
+            break
+    return option_attrs, floor_friction
+
+
+def apply_scene_option_overrides(model, option_attrs: dict[str, str]) -> None:
+    """把 scene ``<option>`` 属性写进已编译模型的 ``model.opt``（认不出的键忽略）。"""
+    import mujoco
+
+    for key, raw in (option_attrs or {}).items():
+        if key == "timestep":
+            continue  # 由契约 physics_hz 决定（唯一真值）
+        if not hasattr(model.opt, key):
+            continue
+        value = raw.strip()
+        try:
+            if key in _INTEGRATOR_NAMES:
+                setattr(model.opt, key, _INTEGRATOR_NAMES[value])
+            elif key in _CONE_NAMES:
+                setattr(model.opt, key, _CONE_NAMES[value])
+            elif key in _SOLVER_NAMES:
+                setattr(model.opt, key, _SOLVER_NAMES[value])
+            elif key in _JACOBIAN_NAMES:
+                setattr(model.opt, key, _JACOBIAN_NAMES[value])
+            elif key == "gravity":
+                model.opt.gravity[:] = [float(x) for x in value.split()]
+            else:
+                current = getattr(model.opt, key)
+                if isinstance(current, (int, float)):
+                    setattr(model.opt, key, type(current)(float(value)))
+        except (TypeError, ValueError, KeyError):
+            continue
+    _ = mujoco  # 保持 mujoco 已导入的显式依赖（枚举映射走字面量，无需引用）
+
+
 def load_package_model(package_dir: Path, sim_cfg: dict[str, Any],
                        effort_override: dict[str, float] | None = None,
                        scene_rel: str | None = None):
@@ -1463,7 +1559,22 @@ def load_package_model(package_dir: Path, sim_cfg: dict[str, Any],
             name="acceptance_floor",
             size=[10.0, 10.0, 0.05],
         )
-    return spec.compile()
+    model = spec.compile()
+    if not scene_rel:
+        # 自建场景必须复刻包内 scene.xml 的物理设置，否则 wasm 与 server_mujoco
+        # 两个执行器会给出不同结论（Pack 声明 require_deterministic_replay）。
+        option_attrs, floor_friction = scene_physics_overrides(package_dir, sim_cfg)
+        apply_scene_option_overrides(model, option_attrs)
+        if floor_friction is not None:
+            gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "acceptance_floor")
+            if gid >= 0:
+                model.geom_friction[gid] = floor_friction
+    # 契约 physics_hz 是步长唯一真值：包内 robot.xml 常自带 timestep="0.001"，
+    # 调用方漏改就会以 5 倍速跑（策略按 decimation 计频，频率直接错位）。
+    # 默认值与 PackageContract.physics_hz 保持一致，避免两处口径不同。
+    physics_hz = float(sim_cfg.get("physics_hz") or 200)
+    model.opt.timestep = 1.0 / physics_hz
+    return model
 
 
 def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
@@ -1480,7 +1591,7 @@ def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
     for magnitude in (0.0, 0.25, -0.25, 0.5, -0.5, 0.75, -0.75, 1.0, -1.0):
         spawn_default(contract, model, data, obs)
         raw = np.full(contract.action_dim, magnitude, dtype=np.float32)
-        total = int(seconds / contract.step_dt)
+        total = int(seconds * contract.physics_hz)
         height_min = float("inf")
         tilt_max = 0.0
         qvel_max = 0.0
@@ -1594,7 +1705,7 @@ def static_stand_height(contract: PackageContract, model, data, obs: ObsBuilder,
     import mujoco
 
     spawn_default(contract, model, data, obs)
-    total = int(seconds / contract.step_dt)
+    total = int(seconds * contract.physics_hz)
     zero = np.zeros(contract.action_dim, dtype=np.float32)
     heights: list[float] = []
     for step in range(total):
@@ -1621,8 +1732,10 @@ def run_encoder_mode(sess_enc, sess_pol, contract: PackageContract, model, data,
     enc_in = sess_enc.get_inputs()[0].name
     pol_in = sess_pol.get_inputs()[0].name
     cmd_arr = np.asarray(cmd, dtype=np.float32)
+    # 跟踪误差比较的是策略真正收到的指令（含命令缩放），不是用户侧旋钮值。
+    cmd_eff = contract.effective_command(cmd_arr)
 
-    total = int(seconds / contract.step_dt)
+    total = int(seconds * contract.physics_hz)
     fell_at = None
     height_min = float("inf")
     roll_max = pitch_max = 0.0
@@ -1642,6 +1755,7 @@ def run_encoder_mode(sess_enc, sess_pol, contract: PackageContract, model, data,
             raw_lab = np.asarray(sess_pol.run(None, {pol_in: pol_input})[0]).reshape(-1)[: contract.action_dim]
             raw = _swap(raw_lab, mapping, reverse=True).astype(np.float32)  # lab → SDK 序
             obs.last_action = raw.copy()
+        # 迭代 = 一个物理步；策略每 decimation 步刷新一次（与浏览器/训练同频）。
         actuate(contract, model, data, obs, raw)
         mujoco.mj_step(model, data)
 
@@ -1653,18 +1767,19 @@ def run_encoder_mode(sess_enc, sess_pol, contract: PackageContract, model, data,
         pitch_max = max(pitch_max, abs(pitch))
         height_min = min(height_min, float(data.qpos[2]))
         if fell_at is None and (data.qpos[2] < 0.45 * contract.initial_height or abs(roll) > 60.0 or abs(pitch) > 60.0):
-            fell_at = step * contract.step_dt
+            fell_at = step / contract.physics_hz
             break
         if step > total * 0.7:
             _, ang_b, lin_b = obs.base_state()
-            vel_errs.append(float(np.linalg.norm(lin_b[:2] - cmd_arr[:2]) + 0.3 * abs(ang_b[2] - cmd_arr[2])))
+            vel_errs.append(float(np.linalg.norm(lin_b[:2] - cmd_eff[:2]) + 0.3 * abs(ang_b[2] - cmd_eff[2])))
             steady_height.append(float(data.qpos[2]))
             steady_roll.append(abs(roll))
             steady_pitch.append(abs(pitch))
 
-    survived = (fell_at / contract.step_dt) if fell_at is not None else total
+    survived = (fell_at * contract.physics_hz) if fell_at is not None else total
     metrics = {
         "command": [float(x) for x in cmd],
+        "command_effective": [float(x) for x in cmd_eff],
         "fell": fell_at is not None,
         "fell_at_s": round(fell_at, 3) if fell_at is not None else None,
         "survival_ratio": round(survived / total, 3),

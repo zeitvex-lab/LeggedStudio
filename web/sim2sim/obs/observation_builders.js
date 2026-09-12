@@ -928,6 +928,7 @@ function geomBodyName(geomId) {
     updateGaitControl,
     isWheelLegGaitPolicy,
     resetMotionTime() { motionTime = 0; },
+    getMotionTime() { return motionTime; },
     // Wuji reorient：清空 tag 系目标，下一次构建时重新采样（复位/换场景调用）。
     resetWujiGoal() { sim.wujiGoalQuat = null; sim.wujiHold = 0; },
   };

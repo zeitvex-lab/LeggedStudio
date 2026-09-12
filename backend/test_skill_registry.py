@@ -3,7 +3,7 @@
 
 * B6：skill-recipe-2.0 schema + registry/skills + registry/rewards +
   base/override 合并解析器。对拍 = merge(velocity_base, zex-w-rough patch)
-  与 zex-w 现任务配置（training/profiles/rough.json）在共享键上逐值相等。
+  与 zex-w 现任务配置（training/profiles/zex-w-rough.json）在共享键上逐值相等。
 * B7：recipe_registry.TASKS 与 env_factory 奖励表由数据驱动——新增技能
   只写 Recipe JSON，不改代码。
 """
@@ -79,7 +79,7 @@ class SkillRegistryB6Test(unittest.TestCase):
 
 
 class VelocityBaseZexwMergeParityTest(unittest.TestCase):
-    """B6 验收：base + patch 合并 == zex-w 现任务配置（对拍 profiles/rough.json）。"""
+    """B6 验收：base + patch 合并 == zex-w 现任务配置（对拍 profiles/zex-w-rough.json）。"""
 
     PARITY_KEYS = (
         "task_name", "terrain_type", "algorithm", "num_envs", "episode_length_s",
@@ -89,7 +89,7 @@ class VelocityBaseZexwMergeParityTest(unittest.TestCase):
     def setUp(self) -> None:
         self.merged = resolve_skill("zex-w-rough")
         self.profile = json.loads(
-            (WORKSPACE / "assets/robots/zex-w/training/profiles/rough.json")
+            (WORKSPACE / "assets/robots/zex-w/training/profiles/zex-w-rough.json")
             .read_text(encoding="utf-8-sig")
         )
 

@@ -45,7 +45,7 @@ from backend.simulation_browser import (  # noqa: E402
     _acceptance_health_check, _browser_asset_files, _initial_key_qpos,
     _mesh_aabb, _proxy_geom, _browser_model_xml, _find_package_root_quiet,
     _read_contract_v3, _configure_browser_actuators, _browser_scene_file,
-    _terrain_entries,
+    _terrain_entries, common_map_entries, map_scene_xml, MAPS_ROOT,
 )
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
 
@@ -337,6 +337,11 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
         ]
     if not terrain_options:
         terrain_options = [{"id": "default", "label": "Default scene", "path": "simulation/scene.xml"}]
+    # 公共地图库（assets/maps/）：所有机型共用，id 冲突时包声明（任务场景）优先。
+    package_ids = {item["id"] for item in terrain_options}
+    for common in common_map_entries():
+        if common["id"] not in package_ids:
+            terrain_options.append({"id": common["id"], "label": common["label"], "path": common["path"]})
     scenes = [item["path"] for item in terrain_options]
     package = preset.get("robot_package") or {}
     model_info = package.get("model") if isinstance(package.get("model"), dict) else {}
@@ -517,6 +522,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     # react to any served XML change (scenes included), not just the manifest.
     revision_sources = [root / "robot_package.json", root / "model" / "robot.xml"]
     revision_sources.extend(sorted((root / "simulation").glob("*.xml")))
+    revision_sources.extend(sorted(MAPS_ROOT.glob("*.xml")))
     revision_ts = max((p.stat().st_mtime_ns for p in revision_sources if p.is_file()), default=0)
     return {
         "run_id": None,
@@ -588,6 +594,11 @@ async def browser_simulation_asset(robot_id: str, asset_path: str):
     """Serve allowlisted package files to the browser MuJoCo virtual FS."""
     root, preset = _browser_package(robot_id)
     normalized = asset_path.replace("\\", "/").lstrip("/")
+    if normalized.startswith("maps/") and normalized.endswith(".xml"):
+        return PlainTextResponse(
+            map_scene_xml(normalized[len("maps/"):-len(".xml")]),
+            media_type="application/xml",
+        )
     simulation_config = _read_simulation_config(root)
     for entry in _terrain_entries(simulation_config):
         if not entry.get("browser_scene"):

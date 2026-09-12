@@ -1349,7 +1349,8 @@ function applyPlatformLabels(config) {
     });
     elements.policySelect.value = candidates.some((item) => (item.id || item.url || item.path) === current) ? current : "off";
   }
-  elements.jobLabel.textContent = config?.run_id || "-";
+  // 任务卡「任务」：有训练 Run 显示 run_id，否则显示当前策略的任务类型（速度跟踪/模仿/特技…）。
+  elements.jobLabel.textContent = config?.run_id || TASK_LABELS[contract?.task_type || ""] || "-";
   elements.robotLabel.textContent = robot.name || robot.robot_name || "机器人";
   elements.modelLabel.textContent = packageModels.find((item) => (item.id || item.path) === elements.modelSelect?.value)?.label
     || packageModels[0]?.label
@@ -1730,29 +1731,33 @@ function applyPolicyContract(contract, order = []) {
   updateVelocityCommandControls();
 }
 
-// 任务类型面板：按 contract.task_type 适配 UI（速度/站立/模仿/特技/跑酷/操作）。
+// 任务类型面板（控制面板顶部第一卡）：按 contract.task_type 适配 UI——
+// 速度跟踪用通用速度指令组（velocityCommandControl），模仿 / 特技 / 跑酷各用专属子面板。
 const TASK_LABELS = {
   velocity: "速度跟踪", stand: "站立 / 平衡", balance: "站立 / 平衡",
   imitation: "动作模仿 / 舞蹈", acrobatics: "特技", parkour: "跑酷 / 地形",
   manipulation: "操作 / 灵巧手",
 };
+// 只有这些任务需要专属子面板（模仿时间轴 / 特技重播 / 跑酷目标提示）；
+// 其余任务（速度跟踪 / 站立 / 操作）的任务名已由下方「任务」卡显示，
+// 这里不再重复一行「任务类型」标题，避免与「任务」卡撞车。
+const TASK_SUBPANEL_TASKS = new Set(["imitation", "acrobatics", "parkour"]);
 function updateTaskPanels() {
   const panel = document.getElementById("taskPanel");
   if (!panel) return;
   const task = CONFIG.taskType || "";
-  if (!task) {
-    panel.hidden = true;
-    return;
-  }
-  panel.hidden = false;
-  const title = document.getElementById("taskPanelTitle");
-  if (title) title.textContent = TASK_LABELS[task] || task;
-  const mimic = document.getElementById("mimicStatus");
-  if (mimic) mimic.hidden = task !== "imitation";
-  const trick = document.getElementById("trickStatus");
+  panel.hidden = !TASK_SUBPANEL_TASKS.has(task);
+  if (panel.hidden) return;
+  const imitation = document.getElementById("imitationPanel");
+  if (imitation) imitation.hidden = task !== "imitation";
+  const trick = document.getElementById("trickPanel");
   if (trick) trick.hidden = task !== "acrobatics";
   const parkour = document.getElementById("parkourStatus");
   if (parkour) parkour.hidden = task !== "parkour";
+  if (task === "imitation") {
+    const duration = document.getElementById("mimicDuration");
+    if (duration && sim.motionLoader?.duration) duration.textContent = `${Number(sim.motionLoader.duration).toFixed(2)}s`;
+  }
 }
 
 function resizeCommandBuffers(commandDim) {
@@ -2509,6 +2514,12 @@ function bindUi() {
     });
   }
   elements.resetButton.addEventListener("click", resetSimulation);
+  // 任务子面板：模仿 = 重播参考动作（相位清零 + 重置仿真）；特技 = 重置演示。
+  document.getElementById("mimicReplay")?.addEventListener("click", () => {
+    OBSERVATION.resetMotionTime();
+    resetSimulation();
+  });
+  document.getElementById("trickReplay")?.addEventListener("click", resetSimulation);
   elements.mobileControlsToggle?.addEventListener("click", () => {
     const panel = elements.mobileControlsToggle.closest(".panel-left");
     if (!panel) return;
@@ -2850,6 +2861,34 @@ async function loadBundledGo2Assets() {
     ...MESH_FILES.map((name) => ({ src: `./assets/go2/assets/${name}`, dest: `/working/assets/${name}` })),
     ...IMAGE_FILES.map((name) => ({ src: `./assets/go2/imgs/${name}`, dest: `/working/imgs/${name}` })),
   ], { start: 0.28, span: 0.18, loadingLabel: "加载 Go2 资源" });
+  // 公共地图库（assets/maps/）：内置链路的 FS 是 /working 平铺布局，地图在
+  // /working/maps/ 下执行，服务端注入的 include "../model/robot.xml" 需要
+  // /working/model/robot.xml 存在——用 go2.xml 落一份副本即可满足。
+  try {
+    const packageInfo = sim.platformConfig?.sim?.asset_package;
+    const mapFiles = (packageInfo?.files || []).filter((f) => String(f).startsWith("maps/"));
+    if (mapFiles.length && packageInfo?.base_url) {
+      const robotCopy = sim.mujoco.FS.analyzePath("/working/go2.xml");
+      if (robotCopy.exists) {
+        ensureParentDirs("/working/model/robot.xml");
+        sim.mujoco.FS.writeFile("/working/model/robot.xml", sim.mujoco.FS.readFile("/working/go2.xml"));
+      }
+      await loadAssetEntries(
+        mapFiles.map((rel) => ({
+          label: rel,
+          src: cacheBustedUrl(new URL(String(rel).replace(/^\/+/, ""), new URL(packageInfo.base_url, window.location.href)).toString(), packageInfo.revision || Date.now()),
+          dest: `/working/${String(rel).replace(/^\/+/, "")}`,
+          credentials: "include",
+          // go2 内置 FS 是平铺布局（mesh 在 /working/assets），平台布局的
+          // "../model/assets" 在此解析不到 mesh，落盘前改写。
+          rewriteXml: (xml) => xml.replace('meshdir="../model/assets"', 'meshdir="../assets"'),
+        })),
+        { start: 0.46, span: 0.1, loadingLabel: "加载公共地图" },
+      );
+    }
+  } catch (error) {
+    console.warn("[sim2sim] 公共地图加载失败（内置地形仍可用）:", error);
+  }
 }
 
 async function loadAssetEntries(entries, { start, span, loadingLabel }) {
@@ -2873,6 +2912,7 @@ async function loadAssetEntries(entries, { start, span, loadingLabel }) {
       const data = new Uint8Array(await response.arrayBuffer());
       if (entry.dest.toLowerCase().endsWith(".xml")) {
         let rawXml = new TextDecoder().decode(data);
+        if (typeof entry.rewriteXml === "function") rawXml = entry.rewriteXml(rawXml);
         // MuJoCo resolves an included model's meshdir relative to that model's
         // OWN directory (model/), not the including scene's. The package
         // robot.xml already carries meshdir="assets" (relative to model/), so
@@ -4772,8 +4812,12 @@ function velocityCommandMaxDefault(index) {
 function updateVelocityCommandControls() {
   const control = elements.velocityCommandControl;
   if (!control) return;
-  // 无命令观测的策略（如 g1_mjswan_balance）不显示。
-  const available = CONFIG.commandDims >= 3 && CONFIG.observationKind !== "g1_mjswan_balance";
+  // 无命令观测的策略（如 g1_mjswan_balance）不显示；模仿 / 特技 / 跑酷任务
+  // 由任务子面板接管（时间轴 / 触发按钮），不与速度指令滑条混排。
+  const taskDriven = ["imitation", "acrobatics", "parkour"].includes(CONFIG.taskType);
+  const available = CONFIG.commandDims >= 3
+    && CONFIG.observationKind !== "g1_mjswan_balance"
+    && !taskDriven;
   control.hidden = !available;
   if (!available) return;
   const sliders = velocityCommandSliders();
@@ -4891,6 +4935,14 @@ function updateHud(force) {
   elements.velYaw.textContent = localAngVel[2].toFixed(2);
   elements.baseHeight.textContent = sim.qpos[2].toFixed(2);
   elements.contacts.textContent = String(sim.data.ncon || 0);
+  // 模仿任务：参考轨迹时间轴（任务面板顶部子面板）。
+  if (CONFIG.taskType === "imitation" && sim.motionLoader?.duration) {
+    const motionTime = Number(OBSERVATION.getMotionTime?.() || 0);
+    const progress = document.getElementById("mimicProgressBar");
+    const timeOut = document.getElementById("mimicTime");
+    if (progress) progress.style.width = `${clamp((motionTime / sim.motionLoader.duration) * 100, 0, 100).toFixed(1)}%`;
+    if (timeOut) timeOut.textContent = `${motionTime.toFixed(2)}s`;
+  }
   if (elements.rollBar && elements.pitchBar) {
     const quaternion = sim.qpos.subarray(3, 7);
     const roll = Math.atan2(2 * (quaternion[0] * quaternion[1] + quaternion[2] * quaternion[3]), 1 - 2 * (quaternion[1] ** 2 + quaternion[2] ** 2));

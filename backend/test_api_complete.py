@@ -204,10 +204,10 @@ class CompleteApiContractTests(unittest.TestCase):
         response = client.get("/api/simulation/browser-config/zex-w")
         self.assertEqual(response.status_code, 200)
         manifest = response.json()["sim"]["asset_package"]
-        self.assertEqual(
-            manifest["scenes"],
-            ["simulation/flat.xml", "simulation/rough.xml", "simulation/stairs.xml", "simulation/slope.xml"],
-        )
+        # 包只声明调优 flat；楼梯/粗糙等由公共地图库（assets/maps/）统一供给
+        self.assertEqual(manifest["scenes"][0], "simulation/flat.xml")
+        self.assertIn("maps/stairs.xml", manifest["scenes"])
+        self.assertIn("maps/rough.xml", manifest["scenes"])
         asset = client.get("/api/simulation/browser-package/zex-w/scene.xml")
         self.assertEqual(asset.status_code, 200)
         self.assertIn("model/robot.xml", asset.text)
@@ -247,22 +247,15 @@ class CompleteApiContractTests(unittest.TestCase):
         client = TestClient(app)
         payload = client.get("/api/simulation/browser-config/unitree_go2").json()
         package = payload["sim"]["asset_package"]
-        # 场景注册在包配置 terrains（browser_scene 条目，repo 相对路径）——T0.3 数据驱动
-        self.assertEqual(
-            package["scenes"],
-            [
-                "web/sim2sim/assets/go2/flat.xml",
-                "web/sim2sim/assets/go2/stairs.xml",
-                "web/sim2sim/assets/go2/cross_stairs.xml",
-                "web/sim2sim/assets/go2/high_platforms.xml",
-                "web/sim2sim/assets/go2/cross_slope.xml",
-                "web/sim2sim/assets/go2/race_track.xml",
-            ],
-        )
-        self.assertEqual(
-            [item["id"] for item in package["terrains"]],
-            ["flat", "stairs", "cross_stairs", "high_platforms", "cross_slope", "race_track"],
-        )
+        # 通用地形来自公共地图库（assets/maps/，maps/*.xml）；包内只保留任务场景
+        self.assertIn("maps/flat.xml", package["scenes"])
+        self.assertIn("maps/stairs.xml", package["scenes"])
+        self.assertIn("maps/race_track.xml", package["scenes"])
+        terrain_ids = [item["id"] for item in package["terrains"]]
+        for common_id in ("flat", "stairs", "cross_stairs", "high_platforms", "cross_slope", "race_track", "rough"):
+            self.assertIn(common_id, terrain_ids)
+        # go2 专属任务场景保留在包内（workspace 副本经 scene*.xml 回落，id 带 scene_ 前缀）
+        self.assertTrue("pie_stairs" in terrain_ids or "scene_pie_stairs" in terrain_ids)
         self.assertFalse(payload["policy"]["disabled"])
         self.assertEqual(payload["policy"]["contract"]["obs_dim"], 45)
         self.assertEqual(payload["policy"]["contract"]["action_dim"], 12)
@@ -273,12 +266,11 @@ class CompleteApiContractTests(unittest.TestCase):
         # The 7.8 MB base_4.obj stays under the 12 MiB transfer limit.
         self.assertIn("model/assets/base_4.obj", package["files"])
 
-        scene = client.get(
-            "/api/simulation/browser-package/unitree_go2/web/sim2sim/assets/go2/flat.xml"
-        )
+        # 公共地图按机型注入机器人 include（go2 平铺 FS 由前端落 /working/model 副本兜底）
+        scene = client.get("/api/simulation/browser-package/unitree_go2/maps/flat.xml")
         self.assertEqual(scene.status_code, 200)
-        self.assertIn('file="model/robot.xml"', scene.text)
-        self.assertNotIn('file="go2.xml"', scene.text)
+        self.assertIn('file="../model/robot.xml"', scene.text)
+        self.assertIn('meshdir="../model/assets"', scene.text)
 
 
 if __name__ == "__main__":

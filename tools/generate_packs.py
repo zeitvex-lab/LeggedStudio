@@ -58,9 +58,10 @@ DEFAULT_BINDINGS = {
 
 
 def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    digest.update(path.read_bytes())
-    return digest.hexdigest()
+    # 规范化内容哈希（CRLF → LF），与 backend/pack_catalog._content_sha256 同口径；
+    # 对原始字节哈希会随 git core.autocrlf 漂移，跨机对账失效。两侧须同步修改。
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def _load_json(path: Path) -> dict:

@@ -224,6 +224,13 @@ PROJECTS: dict[str, dict] = {
                           "desc": "TRON1 IsaacLab RL 训练工程"},
     "tron1-rl-deploy-python": {"robots": ["limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf"],
                                "desc": "TRON1 Python 部署与策略文件"},
+
+    "tron1-rl-deploy-ros2": {"robots": ["limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf"],
+                  "desc": "limxdynamics TRON1 RL 部署（ROS2 controller + hw，含 gazebo sim 与 gym/lab 双关节序参数表）"},
+    "limxsdk-lowlevel": {"robots": ["limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf"],
+                  "desc": "limxdynamics 官方低层 SDK（limxsdk：硬件接口/消息定义）"},
+    "robot-joystick": {"robots": ["limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf"],
+                  "desc": "limxdynamics 官方摇杆上位机（预编译，命令源参考）"},
     # ---------------- MicroDuck / ZEX-W ----------------
     "microduck_all": {"robots": ["microduck"], "desc": "MicroDuck 综合工程"},
     "microduck_rl": {"robots": ["microduck"], "desc": "MicroDuck RL 训练"},

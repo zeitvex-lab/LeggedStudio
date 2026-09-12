@@ -189,6 +189,11 @@
           }
         },
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "go1-velocity",
+        "match": "family",
+        "upstream": "mujoco_playground/.../locomotion/go1/joystick.py"
       }
     }
   ],

@@ -94,7 +94,7 @@
   },
   "policies": [
     {
-      "id": "model-6800",
+      "id": "zex-w-rough-6800",
       "path": "simulation/policies/model_6800.onnx",
       "label": "rough 6800 (v3 比赛)",
       "obs_dim": 53,
@@ -106,10 +106,15 @@
         "action_dim": 16,
         "history_len": 1,
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "zex-w-rough",
+        "match": "family",
+        "upstream": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot"
       }
     },
     {
-      "id": "model-84",
+      "id": "zex-w-wall-84",
       "path": "simulation/policies/model_84.onnx",
       "label": "wall 84 (v3)",
       "obs_dim": 53,
@@ -121,10 +126,15 @@
         "action_dim": 16,
         "history_len": 1,
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "zex-w-rough",
+        "match": "family",
+        "upstream": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot"
       }
     },
     {
-      "id": "model-9600",
+      "id": "zex-w-rough-9600",
       "path": "simulation/policies/model_9600.onnx",
       "label": "rough 9600 (v2 里程计)",
       "obs_dim": 53,
@@ -136,10 +146,15 @@
         "action_dim": 16,
         "history_len": 1,
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "zex-w-rough",
+        "match": "family",
+        "upstream": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot"
       }
     },
     {
-      "id": "model-rough",
+      "id": "zex-w-rough-baseline",
       "path": "simulation/policies/model_rough.onnx",
       "label": "rough 基线 (v2 契约参考)",
       "obs_dim": 53,
@@ -151,6 +166,11 @@
         "action_dim": 16,
         "history_len": 1,
         "task_type": "velocity"
+      },
+      "training_ref": {
+        "profile": "zex-w-rough",
+        "match": "family",
+        "upstream": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot"
       }
     }
   ],
@@ -165,21 +185,6 @@
       "id": "flat",
       "label": "平地",
       "path": "simulation/flat.xml"
-    },
-    {
-      "id": "rough",
-      "label": "粗糙地形",
-      "path": "simulation/rough.xml"
-    },
-    {
-      "id": "stairs",
-      "label": "楼梯",
-      "path": "simulation/stairs.xml"
-    },
-    {
-      "id": "slope",
-      "label": "斜坡",
-      "path": "simulation/slope.xml"
     }
   ],
   "browser_actuator_rebuild": true,

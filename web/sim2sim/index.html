@@ -92,6 +92,21 @@
           <span id="policyStatus" class="dot-label"><i></i>策略</span>
         </div>
 
+        <div id="taskPanel" class="task-panel" hidden>
+          <div id="imitationPanel" class="task-subpanel" hidden>
+            <div class="mimic-timeline">
+              <div class="mimic-track" aria-hidden="true"><i id="mimicProgressBar"></i></div>
+              <span class="mimic-time"><output id="mimicTime">0.00s</output> / <span id="mimicDuration">--</span></span>
+            </div>
+            <button id="mimicReplay" type="button" title="回到参考动作起点并重置仿真">重播参考动作</button>
+          </div>
+          <div id="trickPanel" class="task-subpanel" hidden>
+            <button id="trickReplay" type="button" title="重置仿真从头演示技能">重置演示</button>
+            <span class="task-panel-note-inline">开环技能 · 重置即从头演示</span>
+          </div>
+          <div id="parkourStatus" class="task-panel-note" hidden>跑酷 · 在选定地形上到达目标</div>
+        </div>
+
         <div class="model-card">
           <small>任务</small>
           <strong id="jobLabel">-</strong>
@@ -279,15 +294,6 @@
               <button type="button" data-jump-height="0.68">0.68</button>
               <button type="button" data-jump-height="0.85">0.85</button>
             </div>
-          </div>
-          <div id="taskPanel" class="task-panel" hidden>
-            <div class="task-panel-row">
-              <span>任务类型</span>
-              <strong id="taskPanelTitle">—</strong>
-            </div>
-            <div id="mimicStatus" class="task-panel-note" hidden>动作模仿 · 参考轨迹 <output id="mimicTime">0.00s</output></div>
-            <div id="trickStatus" class="task-panel-note" hidden>特技 · 按跳跃键/预设触发</div>
-            <div id="parkourStatus" class="task-panel-note" hidden>跑酷 · 在选定地形上到达目标</div>
           </div>
           <div class="key-grid" aria-label="键盘指令状态">
             <kbd id="keyW">W</kbd>
