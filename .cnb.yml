@@ -32,10 +32,32 @@
           backend.test_hygiene \
           backend.test_pack_catalog \
           backend.test_deploy_pack 2>&1 | tail -40
+        echo "== API contract smoke (openapi must generate) =="
+        # 守住"路由签名里的模型必须已导入"：ForwardRef 未解析时模块仍可 import、
+        # 但 /openapi.json 500，且 /api/training/create 字段解析失败——CI 盲区。
+        python -m unittest backend.test_api_complete 2>&1 | tail -20
         echo "== B8 porting admission (rules T/S/C/X) =="
         python tools/audit_porting_admission.py
         echo "== capability packs (B1: 14 packs validate + refs sha256) =="
         python tools/validate_packs.py
+
+.sim2sim-env: &sim2sim-env
+  runner:
+    cpus: 8
+  # 无头 CPU sim2sim 验收器需要 mujoco（纯 CPU wheel）+ onnxruntime。
+  # 与云原生开发环境共用 .ide/Dockerfile，保证 CI 与开发环境同一套依赖。
+  docker:
+    build: .ide/Dockerfile
+  stages:
+    - name: headless-sim2sim-gate
+      script: |
+        set -eo pipefail
+        echo "== CPU headless sim2sim acceptance (47 policies) =="
+        # 既有 3 条特技/跑酷判据未过（go2 backflip/jump/pie-parkour）已记录在基线里；
+        # 门禁只守"不许新增失败/退化"，全量基线刷新用 --write-baseline。
+        python tools/sim2sim_headless.py --seconds 3 \
+          --baseline tools/baselines/sim2sim_headless_baseline.json \
+          --output-dir workspace/validation
 
 frontend:
   push:
@@ -71,3 +93,44 @@ main:
   pull_request:
     - name: backend-test-pr
       <<: *main-env
+
+# 云原生开发：点「云原生开发」按钮即建环境。
+# 环境本身固化在 .ide/Dockerfile（依赖 + Chromium 全在镜像层），
+# stages 只负责把后端拉起来并打印预览地址，不做重复安装。
+$:
+  vscode:
+    - name: legged-studio-dev
+      runner:
+        cpus: 8
+      docker:
+        build: .ide/Dockerfile
+      services:
+        - vscode
+        - docker
+      docker.volumes:
+        # 节点级缓存：同级路径，避免"路径包含关系"约束。
+        - /root/.cache/pip
+        - /root/.cache/ms-playwright
+      stages:
+        - name: start-control-plane
+          script: |
+            set -e
+            echo "== Legged Studio 控制面启动 =="
+            # 必须监听 0.0.0.0，否则 WebIDE 端口预览打不开
+            python -m uvicorn backend.api_complete:app --host 0.0.0.0 --port 8765 --log-level warning &
+            echo "backend pid=$!"
+            for i in $(seq 1 30); do
+              if curl -sf http://127.0.0.1:8765/health >/dev/null; then
+                echo "backend ready"
+                break
+              fi
+              sleep 1
+            done
+            # 端口预览地址：CNB_VSCODE_PROXY_URI 形如 https://xxx-{{port}}.cnb.run
+            # 用 sed 做替换（不依赖 bash 的 ${var/pat/rep}，兼容 sh）。
+            PREVIEW=$(printf '%s' "$CNB_VSCODE_PROXY_URI" | sed 's/{{port}}/8765/g')
+            echo ""
+            echo "工作台:   $PREVIEW/web/workbench.html"
+            echo "sim2sim:  $PREVIEW/web/sim2sim/index.html"
+            echo "API 文档: $PREVIEW/docs"
+            echo "（也可在 WebIDE 的 PORTS 面板手动映射 8765）"

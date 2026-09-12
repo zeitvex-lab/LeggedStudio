@@ -1,0 +1,287 @@
+{
+  "schema": "sim2sim-headless-baseline-1.0",
+  "results": [
+    {
+      "robot": "deeprobotics_lite3",
+      "policy": "lite3-velocity-benchmark",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "deeprobotics_lite3",
+      "policy": "lite3-velocity-sdk45",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "deeprobotics_lite3",
+      "policy": "lite3-official-sdk",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "deeprobotics_m20",
+      "policy": "m20-velocity-57",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "deeprobotics_m20",
+      "policy": "m20-official-sdk",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "limx_tron1_pf",
+      "policy": "pf-velocity",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "limx_tron1_sf",
+      "policy": "sf-velocity",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "limx_tron1_wf",
+      "policy": "wf-velocity",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "microduck",
+      "policy": "microduck-walking",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "microduck",
+      "policy": "microduck-stand",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "microduck",
+      "policy": "microduck-sitstand",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "microduck",
+      "policy": "microduck-roulade",
+      "verdict": "skipped",
+      "family": null
+    },
+    {
+      "robot": "microduck",
+      "policy": "microduck-roller",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "microduck",
+      "policy": "microduck-roller-crouch",
+      "verdict": "skipped",
+      "family": null
+    },
+    {
+      "robot": "microduck",
+      "policy": "microduck-ground-pick",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "microduck",
+      "policy": "microduck-ball-kick-left",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "microduck",
+      "policy": "microduck-ball-kick-right",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_b2",
+      "policy": "b2-velocity-benchmark",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_b2w",
+      "policy": "b2w-velocity-robotlab",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_g1",
+      "policy": "g1-velocity",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_g1",
+      "policy": "g1-dance-102",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_g1",
+      "policy": "g1-dance-gangnam-style",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_g1",
+      "policy": "g1-dance-subject2",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_g1",
+      "policy": "g1-velocity-mjswan",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go1",
+      "policy": "go1-playground-joystick",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-backflip-69",
+      "verdict": "fail",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-jump-69",
+      "verdict": "fail",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-moe-cts",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-arenax-velocity",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-rlsar-robotlab",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-rlsar-himloco",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-pie-parkour",
+      "verdict": "fail",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-kaiwu-cts-max2",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-kaiwu-moe-cts-124k",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-kaiwu-moe-cts-137k",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-kaiwu-moe-cts-8exp",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2w",
+      "policy": "go2w-velocity-legs",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2w",
+      "policy": "go2w-velocity-robotlab",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2w",
+      "policy": "go2w-himloco-loco",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2w",
+      "policy": "go2w-himloco-stand-front",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2w",
+      "policy": "go2w-himloco-handstand",
+      "verdict": "skipped",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2w",
+      "policy": "go2w-himloco-leggedstand",
+      "verdict": "skipped",
+      "family": null
+    },
+    {
+      "robot": "wuji_hand",
+      "policy": "wuji-reorient",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "zex-w",
+      "policy": "zex-w-rough-6800",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "zex-w",
+      "policy": "zex-w-wall-84",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "zex-w",
+      "policy": "zex-w-rough-9600",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "zex-w",
+      "policy": "zex-w-rough-baseline",
+      "verdict": "pass",
+      "family": null
+    }
+  ]
+}

@@ -18,6 +18,16 @@ class CompleteApiContractTests(unittest.TestCase):
         self.assertTrue(all("contract" not in item for item in payload["presets"]))
         self.assertTrue(all("training_profiles" not in item for item in payload["presets"]))
 
+    def test_openapi_schema_generates(self):
+        # Guards the API contract itself: a request model referenced only from a
+        # route signature but never imported stays an unresolved ForwardRef, so
+        # /openapi.json 500s while every other import-based test still passes.
+        response = TestClient(app).get("/openapi.json")
+        self.assertEqual(response.status_code, 200)
+        paths = response.json()["paths"]
+        for expected in ("/api/training/create", "/api/training/compare"):
+            self.assertIn(expected, paths)
+
     def test_health_identifies_compatible_backend(self):
         payload = TestClient(app).get("/health").json()
         self.assertEqual(payload["app_id"], "legged-studio")
