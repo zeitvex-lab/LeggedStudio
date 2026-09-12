@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-09-12T18:56:18",
+ "generated_at": "2026-09-12T21:34:48",
  "spec": "_SPEC.md",
  "policy": {
   "keep": "源码/配置/文档/数据/URDF·MJCF/推理策略文件",
@@ -310,6 +310,57 @@
     ".urdf": 2
    },
    "readme": "Dreamwaq/README.md"
+  },
+  "Gymnasium": {
+   "source": "00_open/Gymnasium",
+   "robots": [
+    "unitree_go1",
+    "unitree_go2",
+    "unitree_go2w",
+    "unitree_b2",
+    "unitree_b2w",
+    "unitree_g1",
+    "deeprobotics_lite3",
+    "deeprobotics_m20",
+    "limx_tron1_pf",
+    "limx_tron1_sf",
+    "limx_tron1_wf",
+    "microduck",
+    "wuji_hand",
+    "zex-w"
+   ],
+   "desc": "Farama RL 环境标准 API（Env/Space/Wrapper/Vector）——训练适配器协议与环境接口设计参考",
+   "kept": 457,
+   "kept_bytes": 2955357,
+   "omitted": 255,
+   "omitted_bytes": 127297126,
+   "policy_files": 0,
+   "per_category": {
+    "model": 1,
+    "contract": 1,
+    "training": 90,
+    "deploy": 0,
+    "terrain_scene": 0,
+    "motion": 2,
+    "evaluation": 100,
+    "misc": 263
+   },
+   "ext_top": {
+    ".py": 262,
+    ".md": 143,
+    ".xml": 15,
+    ".yml": 14,
+    "(无扩展名)": 11,
+    ".rst": 4,
+    ".dockerfile": 2,
+    ".yaml": 1,
+    ".cff": 1,
+    ".toml": 1,
+    ".bat": 1,
+    ".txt": 1,
+    ".typed": 1
+   },
+   "readme": "Gymnasium/README.md"
   },
   "HIMLoco": {
    "source": "00_open/HIMLoco",
@@ -1069,6 +1120,54 @@
     ".csv": 1
    },
    "readme": "gym_ex/README.md"
+  },
+  "habitat-sim": {
+   "source": "00_open/habitat-sim",
+   "robots": [
+    "unitree_go2",
+    "limx_tron1_pf",
+    "limx_tron1_sf",
+    "limx_tron1_wf"
+   ],
+   "desc": "Meta habitat-sim 具身 AI 仿真引擎（C++：nav PathFinder/相机+鱼眼传感器栈/场景元数据）——H 组高级仿真、导航与传感器参考",
+   "kept": 746,
+   "kept_bytes": 40304180,
+   "omitted": 167,
+   "omitted_bytes": 49912217,
+   "policy_files": 0,
+   "per_category": {
+    "model": 44,
+    "contract": 1,
+    "training": 23,
+    "deploy": 0,
+    "terrain_scene": 0,
+    "motion": 21,
+    "evaluation": 99,
+    "misc": 558
+   },
+   "ext_top": {
+    ".h": 196,
+    ".cpp": 191,
+    ".py": 124,
+    ".json": 47,
+    ".npy": 18,
+    ".frag": 16,
+    "(无扩展名)": 15,
+    ".md": 13,
+    ".txt": 12,
+    ".rst": 12,
+    ".cmake": 12,
+    ".sh": 11,
+    ".inc": 10,
+    ".urdf": 8,
+    ".ipynb": 8,
+    ".yml": 6,
+    ".yaml": 6,
+    ".glsl": 6,
+    ".vert": 5,
+    ".tag": 4
+   },
+   "readme": "habitat-sim/README.md"
   },
   "him_dog": {
    "source": "00_open/him_dog",
@@ -1983,6 +2082,52 @@
    },
    "readme": "robo_re/README.md"
   },
+  "robosuite_new": {
+   "source": "00_open/robosuite_new",
+   "robots": [
+    "wuji_hand",
+    "unitree_g1"
+   ],
+   "desc": "robosuite：MuJoCo 操作仿真框架（arenas/robots/objects/tasks 模块化 MJCF 组合 + OSC 控制器 + 遥操作）——wuji 灵巧手操作任务与资源组合模型参考",
+   "kept": 535,
+   "kept_bytes": 10787569,
+   "omitted": 806,
+   "omitted_bytes": 654416281,
+   "policy_files": 0,
+   "per_category": {
+    "model": 299,
+    "contract": 1,
+    "training": 6,
+    "deploy": 62,
+    "terrain_scene": 0,
+    "motion": 1,
+    "evaluation": 17,
+    "misc": 149
+   },
+   "ext_top": {
+    ".py": 233,
+    ".mtl": 107,
+    ".xml": 59,
+    ".rst": 44,
+    ".json": 27,
+    ".md": 20,
+    ".msh": 8,
+    ".yaml": 7,
+    "(无扩展名)": 5,
+    ".urdf": 5,
+    ".xacro": 5,
+    ".txt": 4,
+    ".yml": 2,
+    ".css": 2,
+    ".in": 1,
+    ".toml": 1,
+    ".pptx": 1,
+    ".js": 1,
+    ".dox": 1,
+    ".rviz": 1
+   },
+   "readme": "robosuite_new/README.md"
+  },
   "robot-descriptions-quadruped": {
    "source": "00_open/robot-descriptions-quadruped",
    "robots": [
@@ -2254,6 +2399,40 @@
     ".cuh": 1
    },
    "readme": "taggy/README.md"
+  },
+  "tdt-nav-kit": {
+   "source": "00_open/tdt-nav-kit",
+   "robots": [
+    "unitree_go2",
+    "limx_tron1_pf",
+    "limx_tron1_sf",
+    "limx_tron1_wf"
+   ],
+   "desc": "TDT 二维栅格导航算法组件（A*/Kinodynamic A* 前端 + Minimum-Snap/OSQP 轨迹后端，C++）——H 组导航规划参考",
+   "kept": 18,
+   "kept_bytes": 257978,
+   "omitted": 6,
+   "omitted_bytes": 266240,
+   "policy_files": 0,
+   "per_category": {
+    "model": 0,
+    "contract": 0,
+    "training": 0,
+    "deploy": 0,
+    "terrain_scene": 0,
+    "motion": 0,
+    "evaluation": 0,
+    "misc": 18
+   },
+   "ext_top": {
+    ".cpp": 5,
+    "(无扩展名)": 4,
+    ".hpp": 4,
+    ".md": 3,
+    ".txt": 1,
+    ".sh": 1
+   },
+   "readme": "tdt-nav-kit/README.md"
   },
   "tron1-rl-deploy-python": {
    "source": "00_open/tron1-rl-deploy-python",
@@ -2959,6 +3138,7 @@
     "him_dog",
     "HIMLoco",
     "walk-these-ways",
+    "Gymnasium",
     "rc_old"
    ]
   },
@@ -2998,6 +3178,9 @@
     "robot_mujoco",
     "robot-descriptions-quadruped",
     "him_dog",
+    "tdt-nav-kit",
+    "Gymnasium",
+    "habitat-sim",
     "26Raicom",
     "go2_unitree_ros2",
     "taggy",
@@ -3021,6 +3204,7 @@
     "rl_sar_zoo",
     "fan_rlsar",
     "robot_mujoco",
+    "Gymnasium",
     "matrix_zsibot"
    ]
   },
@@ -3034,7 +3218,8 @@
     "rl_sar_zoo",
     "fan_rlsar",
     "robot_mujoco",
-    "robot-descriptions-quadruped"
+    "robot-descriptions-quadruped",
+    "Gymnasium"
    ]
   },
   "unitree_b2w": {
@@ -3047,7 +3232,8 @@
     "rl_sar_zoo",
     "fan_rlsar",
     "robot_mujoco",
-    "robot-descriptions-quadruped"
+    "robot-descriptions-quadruped",
+    "Gymnasium"
    ]
   },
   "unitree_g1": {
@@ -3083,6 +3269,8 @@
     "g1-mujoco-ros2-nav-sim-G1-MuJoCo-ROS2-",
     "g1_spinkick_example",
     "wbc-mjlab",
+    "Gymnasium",
+    "robosuite_new",
     "rc_old",
     "matrix_zsibot"
    ]
@@ -3103,7 +3291,8 @@
     "deep_robotics_model",
     "deep_rl",
     "rl_training",
-    "m20_rl_isaacsim"
+    "m20_rl_isaacsim",
+    "Gymnasium"
    ]
   },
   "deeprobotics_m20": {
@@ -3120,7 +3309,8 @@
     "deep_robotics_model",
     "deep_rl",
     "rl_training",
-    "m20_rl_isaacsim"
+    "m20_rl_isaacsim",
+    "Gymnasium"
    ]
   },
   "limx_tron1_pf": {
@@ -3133,7 +3323,10 @@
     "tron1-rl-deploy-python",
     "tron1-rl-deploy-ros2",
     "limxsdk-lowlevel",
-    "robot-joystick"
+    "robot-joystick",
+    "tdt-nav-kit",
+    "Gymnasium",
+    "habitat-sim"
    ]
   },
   "limx_tron1_sf": {
@@ -3146,7 +3339,10 @@
     "tron1-rl-deploy-python",
     "tron1-rl-deploy-ros2",
     "limxsdk-lowlevel",
-    "robot-joystick"
+    "robot-joystick",
+    "tdt-nav-kit",
+    "Gymnasium",
+    "habitat-sim"
    ]
   },
   "limx_tron1_wf": {
@@ -3157,13 +3353,17 @@
     "tron1-rl-deploy-python",
     "tron1-rl-deploy-ros2",
     "limxsdk-lowlevel",
-    "robot-joystick"
+    "robot-joystick",
+    "tdt-nav-kit",
+    "Gymnasium",
+    "habitat-sim"
    ]
   },
   "microduck": {
    "label": "MicroDuck 双足",
    "projects": [
     "unilab_new",
+    "Gymnasium",
     "microduck_all",
     "microduck_rl",
     "microduck-simulator",
@@ -3173,12 +3373,15 @@
   "wuji_hand": {
    "label": "无极灵巧手",
    "projects": [
-    "wuji-mjlab"
+    "wuji-mjlab",
+    "Gymnasium",
+    "robosuite_new"
    ]
   },
   "zex-w": {
    "label": "ZEX-W 轮足",
    "projects": [
+    "Gymnasium",
     "rc_old"
    ]
   }

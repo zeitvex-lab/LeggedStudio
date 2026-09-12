@@ -231,6 +231,18 @@ PROJECTS: dict[str, dict] = {
                   "desc": "limxdynamics 官方低层 SDK（limxsdk：硬件接口/消息定义）"},
     "robot-joystick": {"robots": ["limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf"],
                   "desc": "limxdynamics 官方摇杆上位机（预编译，命令源参考）"},
+    # ---------------- 跨机型方法学参考（导航 / RL API / 操作仿真 / 具身引擎） ----------------
+    "tdt-nav-kit": {"robots": ["unitree_go2", "limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf"],
+                  "desc": "TDT 二维栅格导航算法组件（A*/Kinodynamic A* 前端 + Minimum-Snap/OSQP 轨迹后端，C++）——H 组导航规划参考"},
+    "Gymnasium": {"robots": ["unitree_go1", "unitree_go2", "unitree_go2w", "unitree_b2",
+                             "unitree_b2w", "unitree_g1", "deeprobotics_lite3",
+                             "deeprobotics_m20", "limx_tron1_pf", "limx_tron1_sf",
+                             "limx_tron1_wf", "microduck", "wuji_hand", "zex-w"],
+                  "desc": "Farama RL 环境标准 API（Env/Space/Wrapper/Vector）——训练适配器协议与环境接口设计参考"},
+    "robosuite_new": {"src": "robosuite_new", "robots": ["wuji_hand", "unitree_g1"],
+                  "desc": "robosuite：MuJoCo 操作仿真框架（arenas/robots/objects/tasks 模块化 MJCF 组合 + OSC 控制器 + 遥操作）——wuji 灵巧手操作任务与资源组合模型参考"},
+    "habitat-sim": {"robots": ["unitree_go2", "limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf"],
+                  "desc": "Meta habitat-sim 具身 AI 仿真引擎（C++：nav PathFinder/相机+鱼眼传感器栈/场景元数据）——H 组高级仿真、导航与传感器参考"},
     # ---------------- MicroDuck / ZEX-W ----------------
     "microduck_all": {"robots": ["microduck"], "desc": "MicroDuck 综合工程"},
     "microduck_rl": {"robots": ["microduck"], "desc": "MicroDuck RL 训练"},

@@ -1,0 +1,114 @@
+# 已省略文件登记 — Gymnasium/docs/_static/videos/atari
+
+> 本目录下以下文件按 `00_resources/_SPEC.md` 规则**未拷贝**（网格 / CAD / 二进制 / 媒体 / 归档 / 大文件）。
+> 此处保留占位登记以便按需回溯；需要时直接从源工程取用：
+> 源工程目录：`00_open/Gymnasium/docs/_static/videos/atari/`
+
+共 **104** 个文件 / **13.4 MB**。
+
+| 文件 | 体积 | 类型 | 源路径 |
+|---|---:|---|---|
+| `yars_revenge.gif` | 548 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/yars_revenge.gif` |
+| `turmoil.gif` | 413 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/turmoil.gif` |
+| `fishing_derby.gif` | 397 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/fishing_derby.gif` |
+| `battle_zone.gif` | 396 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/battle_zone.gif` |
+| `journey_escape.gif` | 290 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/journey_escape.gif` |
+| `frogger.gif` | 281 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/frogger.gif` |
+| `ms_pacman.gif` | 281 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/ms_pacman.gif` |
+| `superman.gif` | 271 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/superman.gif` |
+| `freeway.gif` | 267 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/freeway.gif` |
+| `video_cube.gif` | 257 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/video_cube.gif` |
+| `bank_heist.gif` | 251 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/bank_heist.gif` |
+| `up_n_down.gif` | 247 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/up_n_down.gif` |
+| `jamesbond.gif` | 233 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/jamesbond.gif` |
+| `riverraid.gif` | 232 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/riverraid.gif` |
+| `chopper_command.gif` | 227 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/chopper_command.gif` |
+| `robotank.gif` | 227 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/robotank.gif` |
+| `pacman.gif` | 227 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/pacman.gif` |
+| `air_raid.gif` | 214 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/air_raid.gif` |
+| `enduro.gif` | 214 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/enduro.gif` |
+| `atlantis.gif` | 203 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/atlantis.gif` |
+| `name_this_game.gif` | 202 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/name_this_game.gif` |
+| `lost_luggage.gif` | 200 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/lost_luggage.gif` |
+| `laser_gates.gif` | 194 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/laser_gates.gif` |
+| `tutankham.gif` | 191 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/tutankham.gif` |
+| `video_pinball.gif` | 186 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/video_pinball.gif` |
+| `atlantis2.gif` | 183 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/atlantis2.gif` |
+| `haunted_house.gif` | 180 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/haunted_house.gif` |
+| `solaris.gif` | 175 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/solaris.gif` |
+| `miniature_golf.gif` | 171 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/miniature_golf.gif` |
+| `assault.gif` | 171 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/assault.gif` |
+| `defender.gif` | 170 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/defender.gif` |
+| `carnival.gif` | 168 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/carnival.gif` |
+| `wizard_of_wor.gif` | 164 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/wizard_of_wor.gif` |
+| `zaxxon.gif` | 163 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/zaxxon.gif` |
+| `galaxian.gif` | 159 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/galaxian.gif` |
+| `keystone_kapers.gif` | 153 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/keystone_kapers.gif` |
+| `beam_rider.gif` | 151 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/beam_rider.gif` |
+| `donkey_kong.gif` | 150 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/donkey_kong.gif` |
+| `koolaid.gif` | 150 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/koolaid.gif` |
+| `skiing.gif` | 144 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/skiing.gif` |
+| `double_dunk.gif` | 143 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/double_dunk.gif` |
+| `alien.gif` | 141 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/alien.gif` |
+| `berzerk.gif` | 140 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/berzerk.gif` |
+| `gopher.gif` | 136 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/gopher.gif` |
+| `kung_fu_master.gif` | 136 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/kung_fu_master.gif` |
+| `amidar.gif` | 134 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/amidar.gif` |
+| `seaquest.gif` | 134 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/seaquest.gif` |
+| `private_eye.gif` | 134 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/private_eye.gif` |
+| `star_gunner.gif` | 133 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/star_gunner.gif` |
+| `darkchambers.gif` | 132 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/darkchambers.gif` |
+| `kaboom.gif` | 130 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/kaboom.gif` |
+| `qbert.gif` | 127 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/qbert.gif` |
+| `sir_lancelot.gif` | 126 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/sir_lancelot.gif` |
+| `demon_attack.gif` | 121 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/demon_attack.gif` |
+| `venture.gif` | 117 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/venture.gif` |
+| `asterix.gif` | 115 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/asterix.gif` |
+| `pooyan.gif` | 111 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/pooyan.gif` |
+| `king_kong.gif` | 107 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/king_kong.gif` |
+| `word_zapper.gif` | 105 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/word_zapper.gif` |
+| `krull.gif` | 96 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/krull.gif` |
+| `frostbite.gif` | 95 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/frostbite.gif` |
+| `boxing.gif` | 95 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/boxing.gif` |
+| `gravitar.gif` | 94 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/gravitar.gif` |
+| `phoenix.gif` | 91 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/phoenix.gif` |
+| `road_runner.gif` | 89 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/road_runner.gif` |
+| `mario_bros.gif` | 87 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/mario_bros.gif` |
+| `time_pilot.gif` | 86 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/time_pilot.gif` |
+| `montezuma_revenge.gif` | 85 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/montezuma_revenge.gif` |
+| `centipede.gif` | 83 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/centipede.gif` |
+| `hero.gif` | 76 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/hero.gif` |
+| `entombed.gif` | 75 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/entombed.gif` |
+| `ice_hockey.gif` | 67 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/ice_hockey.gif` |
+| `trondead.gif` | 66 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/trondead.gif` |
+| `pong.gif` | 64 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/pong.gif` |
+| `et.gif` | 62 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/et.gif` |
+| `tennis.gif` | 58 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/tennis.gif` |
+| `elevator_action.gif` | 57 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/elevator_action.gif` |
+| `pitfall.gif` | 56 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/pitfall.gif` |
+| `pitfall2.gif` | 54 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/pitfall2.gif` |
+| `space_invaders.gif` | 51 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/space_invaders.gif` |
+| `klax.gif` | 49 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/klax.gif` |
+| `mr_do.gif` | 48 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/mr_do.gif` |
+| `kangaroo.gif` | 47 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/kangaroo.gif` |
+| `earthworld.gif` | 44 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/earthworld.gif` |
+| `crossbow.gif` | 40 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/crossbow.gif` |
+| `tic_tac_toe_3d.gif` | 38 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/tic_tac_toe_3d.gif` |
+| `crazy_climber.gif` | 38 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/crazy_climber.gif` |
+| `space_war.gif` | 37 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/space_war.gif` |
+| `breakout.gif` | 34 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/breakout.gif` |
+| `backgammon.gif` | 31 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/backgammon.gif` |
+| `video_checkers.gif` | 29 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/video_checkers.gif` |
+| `surround.gif` | 29 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/surround.gif` |
+| `tetris.gif` | 29 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/tetris.gif` |
+| `bowling.gif` | 22 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/bowling.gif` |
+| `adventure.gif` | 19 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/adventure.gif` |
+| `flag_capture.gif` | 16 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/flag_capture.gif` |
+| `human_cannonball.gif` | 12 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/human_cannonball.gif` |
+| `hangman.gif` | 10 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/hangman.gif` |
+| `othello.gif` | 9 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/othello.gif` |
+| `asteroids.gif` | 9 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/asteroids.gif` |
+| `casino.gif` | 6 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/casino.gif` |
+| `video_chess.gif` | 6 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/video_chess.gif` |
+| `blackjack.gif` | 5 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/blackjack.gif` |
+| `basic_math.gif` | 4 KB | 视频/动图 | `00_open/Gymnasium/docs/_static/videos/atari/basic_math.gif` |

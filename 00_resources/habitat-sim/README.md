@@ -1,0 +1,868 @@
+# habitat-sim — 参考资源
+
+> **来源**：`00_open/habitat-sim/`　｜　**类型**：参考项目
+> **关联机型**：unitree_go2（宇树 Go2 四足）、limx_tron1_pf（逐际动力 TRON1-PF）、limx_tron1_sf（逐际动力 TRON1-SF）、limx_tron1_wf（逐际动力 TRON1-WF）
+> **定位**：Meta habitat-sim 具身 AI 仿真引擎（C++：nav PathFinder/相机+鱼眼传感器栈/场景元数据）——H 组高级仿真、导航与传感器参考
+> **收录**：747 个文件 / 38.5 MB（其中推理策略/模型文件 0 个）
+> **已省略**：167 个文件 / 47.6 MB（登记在各目录 `_OMITTED.md`）
+
+## 能帮什么
+
+- **本体与场景描述**（44 个）：机型/场景描述（URDF·xacro·MJCF）：本体几何、关节树、碰撞与场景搭建
+- **关节与接口契约**（1 个）：关节与接口契约：关节序、limits、PD、action_scale、default pose、观测/动作维度
+- **RL 训练工程**（23 个）：RL 训练工程：环境配置、奖励、指令、课程、域随机化、任务注册与训练脚本
+- **动作与运动数据**（21 个）：动作与运动数据：重定向配置、参考动作、步态数据
+- **评测与测试**（99 个）：评测与测试：指标脚本、基准与回归用例
+- **文档与其它**（559 个）：文档、说明、许可与零散脚本
+
+## 目录构成
+
+```text
+(根目录)/  （25 个文件）
+.github/  （8 个文件）
+    (直接文件)/
+    ISSUE_TEMPLATE/
+    actions/
+    workflows/
+conda-build/  （16 个文件）
+    (直接文件)/
+    common/
+    habitat-sim/
+    habitat-sim-mutex/
+    headless/
+    withbullet/
+data/  （66 个文件）
+    (直接文件)/
+    fonts/
+    hm3d_semantics/
+    matterport_semantics/
+    pbr/
+    test_assets/
+docs/  （35 个文件）
+    (直接文件)/
+    pages/
+    snippets/
+examples/  （37 个文件）
+    (直接文件)/
+    instance_segmentation/
+    tutorials/
+src/  （454 个文件）
+    (直接文件)/
+    cmake/
+    deps/
+    esp/
+    shaders/
+    tests/
+    utils/
+src_python/  （56 个文件）
+    habitat_sim/
+tests/  （45 个文件）
+    (直接文件)/
+    gt_data/
+    helpers/
+tools/  （5 个文件）
+    (直接文件)/
+```
+
+## 文件类型分布（Top 15）
+
+| 扩展名 | 数量 |
+|---|---:|
+| `.h` | 196 |
+| `.cpp` | 191 |
+| `.py` | 124 |
+| `.json` | 47 |
+| `.npy` | 18 |
+| `.frag` | 16 |
+| `(无扩展名)` | 15 |
+| `.md` | 14 |
+| `.txt` | 12 |
+| `.rst` | 12 |
+| `.cmake` | 12 |
+| `.sh` | 11 |
+| `.inc` | 10 |
+| `.urdf` | 8 |
+| `.ipynb` | 8 |
+
+## 文件索引（项目内相对路径）
+
+```text
+.clang-format
+.clang-tidy
+.cmake-format.py
+.coveragerc
+.editorconfig
+.github/ISSUE_TEMPLATE/bug-report.md
+.github/ISSUE_TEMPLATE/feature-request.md
+.github/ISSUE_TEMPLATE/questions-help-support.md
+.github/PULL_REQUEST_TEMPLATE.md
+.github/actions/download_test_data/action.yml
+.github/actions/install_ubuntu_deps/action.yml
+.github/actions/install_ubuntu_gpu_deps/action.yml
+.github/workflows/install_and_test.yml
+.gitignore
+.gitmodules
+.lgtm.yml
+.pre-commit-config.yaml
+BUILD_FROM_SOURCE.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+DATASETS.md
+DETAILS.md
+LICENSE
+MANIFEST.in
+README.md
+build.sh
+codecov.yml
+conda-build/.gitignore
+conda-build/Dockerfile
+conda-build/README.md
+conda-build/common/delete_old_night_packages.py
+conda-build/common/install_conda.sh
+conda-build/common/install_cuda.sh
+conda-build/common/install_magma.sh
+conda-build/common/install_mkl.sh
+conda-build/common/install_patchelf.sh
+conda-build/habitat-sim-mutex/conda_build_config.yaml
+conda-build/habitat-sim-mutex/meta.yaml
+conda-build/habitat-sim/build.sh
+conda-build/habitat-sim/meta.yaml
+conda-build/headless/meta.yaml
+conda-build/matrix_builder.py
+conda-build/withbullet/meta.yaml
+data/default.pbr_config.json
+data/default.physics_config.json
+data/fonts/README.txt
+data/hm3d_semantics/hm3dsem_category_mappings.tsv
+data/matterport_semantics/matterport_category_mappings.tsv
+data/pbr/PbrImages.conf
+data/pbr/anniversary_lounge.pbr_config.json
+data/pbr/autoshop_01.pbr_config.json
+data/pbr/blue_photo_studio.pbr_config.json
+data/pbr/brown_photostudio.pbr_config.json
+data/pbr/license.txt
+data/pbr/lythwood_room.pbr_config.json
+data/test_assets/17DRP5sb8fy_topdown_binary.npy
+data/test_assets/17DRP5sb8fy_topdown_islands.npy
+data/test_assets/dataset_tests/GibsonSceneTest/GibsonTestScene.scn
+data/test_assets/dataset_tests/dataset_0/lights/dataset_test_lights.lighting_config.json
+data/test_assets/dataset_tests/dataset_0/objects/dataset_test_object0.object_config.json
+data/test_assets/dataset_tests/dataset_0/objects/dataset_test_object1.object_config.json
+data/test_assets/dataset_tests/dataset_0/objects/dataset_test_object2.object_config.json
+data/test_assets/dataset_tests/dataset_0/objects/dataset_test_object3.object_config.json
+data/test_assets/dataset_tests/dataset_0/scenes/dataset_test_scene.scene_instance.json
+data/test_assets/dataset_tests/dataset_0/semantics/dataset_test_scene.semantic_config.json
+data/test_assets/dataset_tests/dataset_0/semantics/test_semantic_descriptor_path1.semantic_config.json
+data/test_assets/dataset_tests/dataset_0/semantics/test_semantic_descriptor_path2.semantic_config.json
+data/test_assets/dataset_tests/dataset_0/stages/dataset_test_stage.stage_config.json
+data/test_assets/dataset_tests/dataset_0/test_dataset_0.scene_dataset_config.json
+data/test_assets/dataset_tests/dataset_1/lights/lights_0/dataset_test_lights_0.lighting_config.json
+data/test_assets/dataset_tests/dataset_1/lights/lights_1/dataset_test_lights_1.lighting_config.json
+data/test_assets/dataset_tests/dataset_1/objects/object_0/dataset_test_object0_0.object_config.json
+data/test_assets/dataset_tests/dataset_1/objects/object_0/dataset_test_object1_0.object_config.json
+data/test_assets/dataset_tests/dataset_1/objects/object_1/dataset_test_object2_1.object_config.json
+data/test_assets/dataset_tests/dataset_1/objects/object_1/dataset_test_object3_1.object_config.json
+data/test_assets/dataset_tests/dataset_1/scenes/scene_0/dataset_test_scene_0.scene_instance.json
+data/test_assets/dataset_tests/dataset_1/scenes/scene_1/dataset_test_scene_1.scene_instance.json
+data/test_assets/dataset_tests/dataset_1/stages/stage_0/dataset_test_stage_0.stage_config.json
+data/test_assets/dataset_tests/dataset_1/stages/stage_1/dataset_test_stage_1.stage_config.json
+data/test_assets/dataset_tests/dataset_1/test_dataset_1.scene_dataset_config.json
+data/test_assets/lights/test_lights.lighting_config.json
+data/test_assets/objects/chair.object_config.json
+data/test_assets/objects/donut.object_config.json
+data/test_assets/objects/nested_box.object_config.json
+data/test_assets/objects/sphere.object_config.json
+data/test_assets/pbr/example.pbr_config.json
+data/test_assets/scenes/.gitattributes
+data/test_assets/scenes/README.md
+data/test_assets/scenes/batch-four-squares.4x.dxt.ktx2
+data/test_assets/scenes/batch-square-circle-triangle.0.2x.dxt.ktx2
+data/test_assets/scenes/simple_room.stage_config.json
+data/test_assets/scenes/stage_floor1.stage_config.json
+data/test_assets/semantic/test_regions.semantic_config.json
+data/test_assets/skokloster-castle_topdown_binary.npy
+data/test_assets/skokloster-castle_topdown_islands.npy
+data/test_assets/test_navmeshsettings.json
+data/test_assets/testing.pbr_config.json
+data/test_assets/testing.physics_config.json
+data/test_assets/urdf/amass_male.urdf
+data/test_assets/urdf/fixed_base_test.urdf
+data/test_assets/urdf/fridge/fridge.urdf
+data/test_assets/urdf/fridge/fridge_scaled.urdf
+data/test_assets/urdf/fridge/fridge_static.urdf
+data/test_assets/urdf/kuka_iiwa/model_free_base.urdf
+data/test_assets/urdf/prim_chain.urdf
+data/test_assets/urdf/skinned_prism.ao_config.json
+data/test_assets/urdf/skinned_prism.urdf
+data/test_assets/van-gogh-room_topdown_binary.npy
+data/test_assets/van-gogh-room_topdown_islands.npy
+docs/.gitignore
+docs/AUDIO.md
+docs/Doxyfile
+docs/Doxyfile-mcss
+docs/Doxyfile-public
+docs/README.md
+docs/build-public.sh
+docs/build.sh
+docs/bullet.tag
+docs/conf-public.py
+docs/conf.py
+docs/corrade.tag
+docs/docs.rst
+docs/gfx.rst
+docs/magnum-bindings.inv
+docs/magnum.tag
+docs/namespaces.dox
+docs/noise_models.rst
+docs/numpy.inv
+docs/pages/asset-viewer-tutorial.rst
+docs/pages/attributesJSON.rst
+docs/pages/coordinate-frame-tutorial.rst
+docs/pages/index.rst
+docs/pages/lighting-setups.rst
+docs/pages/logging.rst
+docs/pages/managed-rigid-object-tutorial.rst
+docs/pages/new-actions.rst
+docs/pages/stereo-agent.rst
+docs/pygments-pastie.css
+docs/python.inv
+docs/quaternion.inv
+docs/snippets/gfx-batch-info-scenes.ansi
+docs/snippets/gfx-batch-info-textures.ansi
+docs/stl.tag
+docs/theme.css
+examples/__init__.py
+examples/ab_test.py
+examples/benchmark.py
+examples/demo_runner.py
+examples/example.py
+examples/fairmotion_interface.py
+examples/fairmotion_interface_utils.py
+examples/instance_segmentation/common.py
+examples/instance_segmentation/engine.py
+examples/marker_viewer.py
+examples/mod_viewer.py
+examples/motion_viewer.py
+examples/settings.py
+examples/spot_viewer.py
+examples/tutorials/async_rendering.py
+examples/tutorials/audio_agent.py
+examples/tutorials/lighting_tutorial.py
+examples/tutorials/nb_python/ECCV_2020_Advanced_Features.py
+examples/tutorials/nb_python/ECCV_2020_Interactivity.py
+examples/tutorials/nb_python/ECCV_2020_Navigation.py
+examples/tutorials/nb_python/ReplicaCAD_quickstart.py
+examples/tutorials/nb_python/asset_viewer.py
+examples/tutorials/nb_python/coordinate_frame_tutorial.py
+examples/tutorials/nb_python/managed_rigid_object_tutorial.py
+examples/tutorials/nb_python/replay_tutorial.py
+examples/tutorials/new_actions.py
+examples/tutorials/notebooks/ECCV_2020_Advanced_Features.ipynb
+examples/tutorials/notebooks/ECCV_2020_Interactivity.ipynb
+examples/tutorials/notebooks/ECCV_2020_Navigation.ipynb
+examples/tutorials/notebooks/ReplicaCAD_quickstart.ipynb
+examples/tutorials/notebooks/asset_viewer.ipynb
+examples/tutorials/notebooks/coordinate_frame_tutorial.ipynb
+examples/tutorials/notebooks/managed_rigid_object_tutorial.ipynb
+examples/tutorials/notebooks/replay_tutorial.ipynb
+examples/tutorials/semantic_id_tutorial.py
+examples/tutorials/stereo_agent.py
+examples/viewer.py
+install_deps.sh
+mypy.ini
+pyproject.toml
+requirements.txt
+setup.cfg
+setup.py
+src/CMakeLists.txt
+src/cmake/FindBullet.cmake
+src/cmake/FindCorrade.cmake
+src/cmake/FindMagnum.cmake
+src/cmake/FindMagnumBindings.cmake
+src/cmake/FindMagnumIntegration.cmake
+src/cmake/FindMagnumPlugins.cmake
+src/cmake/dependencies.cmake
+src/deps/atomic_wait/atomic_wait.cpp
+src/deps/atomic_wait/atomic_wait.h
+src/deps/basis-universal/.gitattributes
+src/deps/basis-universal/encoder/apg_bmp.c
+src/deps/basis-universal/encoder/apg_bmp.h
+src/deps/basis-universal/encoder/basisu_astc_decomp.cpp
+src/deps/basis-universal/encoder/basisu_astc_decomp.h
+src/deps/basis-universal/encoder/basisu_backend.cpp
+src/deps/basis-universal/encoder/basisu_backend.h
+src/deps/basis-universal/encoder/basisu_basis_file.cpp
+src/deps/basis-universal/encoder/basisu_basis_file.h
+src/deps/basis-universal/encoder/basisu_bc7enc.cpp
+src/deps/basis-universal/encoder/basisu_bc7enc.h
+src/deps/basis-universal/encoder/basisu_comp.cpp
+src/deps/basis-universal/encoder/basisu_comp.h
+src/deps/basis-universal/encoder/basisu_enc.cpp
+src/deps/basis-universal/encoder/basisu_enc.h
+src/deps/basis-universal/encoder/basisu_etc.cpp
+src/deps/basis-universal/encoder/basisu_etc.h
+src/deps/basis-universal/encoder/basisu_frontend.cpp
+src/deps/basis-universal/encoder/basisu_frontend.h
+src/deps/basis-universal/encoder/basisu_global_selector_palette_helpers.cpp
+src/deps/basis-universal/encoder/basisu_global_selector_palette_helpers.h
+src/deps/basis-universal/encoder/basisu_gpu_texture.cpp
+src/deps/basis-universal/encoder/basisu_gpu_texture.h
+src/deps/basis-universal/encoder/basisu_kernels_sse.cpp
+src/deps/basis-universal/encoder/basisu_miniz.h
+src/deps/basis-universal/encoder/basisu_pvrtc1_4.cpp
+src/deps/basis-universal/encoder/basisu_pvrtc1_4.h
+src/deps/basis-universal/encoder/basisu_resample_filters.cpp
+src/deps/basis-universal/encoder/basisu_resampler.cpp
+src/deps/basis-universal/encoder/basisu_resampler.h
+src/deps/basis-universal/encoder/basisu_resampler_filters.h
+src/deps/basis-universal/encoder/basisu_ssim.cpp
+src/deps/basis-universal/encoder/basisu_ssim.h
+src/deps/basis-universal/encoder/basisu_uastc_enc.cpp
+src/deps/basis-universal/encoder/basisu_uastc_enc.h
+src/deps/basis-universal/encoder/jpgd.cpp
+src/deps/basis-universal/encoder/jpgd.h
+src/deps/basis-universal/encoder/lodepng.cpp
+src/deps/basis-universal/encoder/lodepng.h
+src/deps/basis-universal/transcoder/basisu.h
+src/deps/basis-universal/transcoder/basisu_containers.h
+src/deps/basis-universal/transcoder/basisu_containers_impl.h
+src/deps/basis-universal/transcoder/basisu_file_headers.h
+src/deps/basis-universal/transcoder/basisu_global_selector_cb.h
+src/deps/basis-universal/transcoder/basisu_global_selector_palette.h
+src/deps/basis-universal/transcoder/basisu_transcoder.cpp
+src/deps/basis-universal/transcoder/basisu_transcoder.h
+src/deps/basis-universal/transcoder/basisu_transcoder_internal.h
+src/deps/basis-universal/transcoder/basisu_transcoder_tables_astc.inc
+src/deps/basis-universal/transcoder/basisu_transcoder_tables_astc_0_255.inc
+src/deps/basis-universal/transcoder/basisu_transcoder_tables_atc_55.inc
+src/deps/basis-universal/transcoder/basisu_transcoder_tables_atc_56.inc
+src/deps/basis-universal/transcoder/basisu_transcoder_tables_bc7_m5_alpha.inc
+src/deps/basis-universal/transcoder/basisu_transcoder_tables_bc7_m5_color.inc
+src/deps/basis-universal/transcoder/basisu_transcoder_tables_dxt1_5.inc
+src/deps/basis-universal/transcoder/basisu_transcoder_tables_dxt1_6.inc
+src/deps/basis-universal/transcoder/basisu_transcoder_tables_pvrtc2_45.inc
+src/deps/basis-universal/transcoder/basisu_transcoder_tables_pvrtc2_alpha_33.inc
+src/deps/basis-universal/transcoder/basisu_transcoder_uastc.h
+src/deps/tinyxml2/CMakeLists.txt
+src/deps/tinyxml2/tinyxml2.cpp
+src/deps/tinyxml2/tinyxml2.h
+src/esp/CMakeLists.txt
+src/esp/assets/Asset.cpp
+src/esp/assets/Asset.h
+src/esp/assets/BaseMesh.cpp
+src/esp/assets/BaseMesh.h
+src/esp/assets/CollisionMeshData.h
+src/esp/assets/GenericMeshData.cpp
+src/esp/assets/GenericMeshData.h
+src/esp/assets/GenericSemanticMeshData.cpp
+src/esp/assets/GenericSemanticMeshData.h
+src/esp/assets/MeshData.h
+src/esp/assets/MeshMetaData.h
+src/esp/assets/RenderAssetInstanceCreationInfo.cpp
+src/esp/assets/RenderAssetInstanceCreationInfo.h
+src/esp/assets/ResourceManager.cpp
+src/esp/assets/ResourceManager.h
+src/esp/assets/RigManager.cpp
+src/esp/assets/RigManager.h
+src/esp/bindings/AttributesBindings.cpp
+src/esp/bindings/AttributesManagersBindings.cpp
+src/esp/bindings/Bindings.cpp
+src/esp/bindings/Bindings.h
+src/esp/bindings/CMakeLists.txt
+src/esp/bindings/ConfigBindings.cpp
+src/esp/bindings/CoreBindings.cpp
+src/esp/bindings/EnumOperators.h
+src/esp/bindings/GeoBindings.cpp
+src/esp/bindings/GfxBindings.cpp
+src/esp/bindings/GfxReplayBindings.cpp
+src/esp/bindings/MetadataMediatorBindings.cpp
+src/esp/bindings/OpaqueTypes.h
+src/esp/bindings/PhysicsBindings.cpp
+src/esp/bindings/PhysicsObjectBindings.cpp
+src/esp/bindings/PhysicsWrapperManagerBindings.cpp
+src/esp/bindings/SceneBindings.cpp
+src/esp/bindings/SensorBindings.cpp
+src/esp/bindings/ShortestPathBindings.cpp
+src/esp/bindings/SimBindings.cpp
+src/esp/core/Buffer.cpp
+src/esp/core/Buffer.h
+src/esp/core/Check.cpp
+src/esp/core/Check.h
+src/esp/core/Configuration.cpp
+src/esp/core/Configuration.h
+src/esp/core/Esp.cpp
+src/esp/core/Esp.h
+src/esp/core/Grid2D.h
+src/esp/core/Logging.cpp
+src/esp/core/Logging.h
+src/esp/core/Random.h
+src/esp/core/RigidState.h
+src/esp/core/Spimpl.h
+src/esp/core/Utility.h
+src/esp/core/configure.h.cmake
+src/esp/core/managedContainers/AbstractFileBasedManagedObject.h
+src/esp/core/managedContainers/AbstractManagedObject.h
+src/esp/core/managedContainers/ManagedContainer.h
+src/esp/core/managedContainers/ManagedContainerBase.cpp
+src/esp/core/managedContainers/ManagedContainerBase.h
+src/esp/core/managedContainers/ManagedFileBasedContainer.h
+src/esp/geo/CoordinateFrame.cpp
+src/esp/geo/CoordinateFrame.h
+src/esp/geo/Geo.cpp
+src/esp/geo/Geo.h
+src/esp/geo/OBB.cpp
+src/esp/geo/OBB.h
+src/esp/gfx/BackgroundRenderer.cpp
+src/esp/gfx/BackgroundRenderer.h
+src/esp/gfx/CubeMap.cpp
+src/esp/gfx/CubeMap.h
+src/esp/gfx/CubeMapCamera.cpp
+src/esp/gfx/CubeMapCamera.h
+src/esp/gfx/CubeMapShaderBase.cpp
+src/esp/gfx/CubeMapShaderBase.h
+src/esp/gfx/DebugLineRender.cpp
+src/esp/gfx/DebugLineRender.h
+src/esp/gfx/DoubleSphereCameraShader.cpp
+src/esp/gfx/DoubleSphereCameraShader.h
+src/esp/gfx/Drawable.cpp
+src/esp/gfx/Drawable.h
+src/esp/gfx/DrawableConfiguration.cpp
+src/esp/gfx/DrawableConfiguration.h
+src/esp/gfx/DrawableGroup.cpp
+src/esp/gfx/DrawableGroup.h
+src/esp/gfx/EquirectangularShader.cpp
+src/esp/gfx/EquirectangularShader.h
+src/esp/gfx/GaussianFilterShader.cpp
+src/esp/gfx/GaussianFilterShader.h
+src/esp/gfx/GenericDrawable.cpp
+src/esp/gfx/GenericDrawable.h
+src/esp/gfx/LightSetup.cpp
+src/esp/gfx/LightSetup.h
+src/esp/gfx/MeshVisualizerDrawable.cpp
+src/esp/gfx/MeshVisualizerDrawable.h
+src/esp/gfx/PbrDrawable.cpp
+src/esp/gfx/PbrDrawable.h
+src/esp/gfx/PbrEquiRectangularToCubeMapShader.cpp
+src/esp/gfx/PbrEquiRectangularToCubeMapShader.h
+src/esp/gfx/PbrIBLHelper.cpp
+src/esp/gfx/PbrIBLHelper.h
+src/esp/gfx/PbrPrecomputedMapShader.cpp
+src/esp/gfx/PbrPrecomputedMapShader.h
+src/esp/gfx/PbrShader.cpp
+src/esp/gfx/PbrShader.h
+src/esp/gfx/PbrTextureUnit.h
+src/esp/gfx/RenderCamera.cpp
+src/esp/gfx/RenderCamera.h
+src/esp/gfx/RenderTarget.cpp
+src/esp/gfx/RenderTarget.h
+src/esp/gfx/Renderer.cpp
+src/esp/gfx/Renderer.h
+src/esp/gfx/ShaderManager.cpp
+src/esp/gfx/ShaderManager.h
+src/esp/gfx/SkinData.h
+src/esp/gfx/TextureVisualizerShader.cpp
+src/esp/gfx/TextureVisualizerShader.h
+src/esp/gfx/WindowlessContext.cpp
+src/esp/gfx/WindowlessContext.h
+src/esp/gfx/configure.h.cmake
+src/esp/gfx/magnum.h
+src/esp/gfx/replay/Keyframe.h
+src/esp/gfx/replay/Player.cpp
+src/esp/gfx/replay/Player.h
+src/esp/gfx/replay/Recorder.cpp
+src/esp/gfx/replay/Recorder.h
+src/esp/gfx/replay/ReplayManager.cpp
+src/esp/gfx/replay/ReplayManager.h
+src/esp/gfx_batch/CMakeLists.txt
+src/esp/gfx_batch/DepthUnprojection.cpp
+src/esp/gfx_batch/DepthUnprojection.h
+src/esp/gfx_batch/Hbao.cpp
+src/esp/gfx_batch/Hbao.h
+src/esp/gfx_batch/Renderer.cpp
+src/esp/gfx_batch/Renderer.h
+src/esp/gfx_batch/RendererStandalone.cpp
+src/esp/gfx_batch/RendererStandalone.h
+src/esp/gfx_batch/cuda_helpers/HelperCuda.h
+src/esp/gfx_batch/cuda_helpers/HelperString.h
+src/esp/io/Io.cpp
+src/esp/io/Io.h
+src/esp/io/Json.cpp
+src/esp/io/Json.h
+src/esp/io/JsonAllTypes.h
+src/esp/io/JsonBuiltinTypes.h
+src/esp/io/JsonEspTypes.cpp
+src/esp/io/JsonEspTypes.h
+src/esp/io/JsonMagnumTypes.cpp
+src/esp/io/JsonMagnumTypes.h
+src/esp/io/JsonStlTypes.cpp
+src/esp/io/JsonStlTypes.h
+src/esp/io/JsonUtils.h
+src/esp/metadata/MetadataMediator.cpp
+src/esp/metadata/MetadataMediator.h
+src/esp/metadata/URDFParser.cpp
+src/esp/metadata/URDFParser.h
+src/esp/metadata/attributes/AbstractAttributes.cpp
+src/esp/metadata/attributes/AbstractAttributes.h
+src/esp/metadata/attributes/AbstractObjectAttributes.cpp
+src/esp/metadata/attributes/AbstractObjectAttributes.h
+src/esp/metadata/attributes/AbstractSensorAttributes.cpp
+src/esp/metadata/attributes/AbstractSensorAttributes.h
+src/esp/metadata/attributes/AbstractVisualSensorAttributes.cpp
+src/esp/metadata/attributes/AbstractVisualSensorAttributes.h
+src/esp/metadata/attributes/ArticulatedObjectAttributes.cpp
+src/esp/metadata/attributes/ArticulatedObjectAttributes.h
+src/esp/metadata/attributes/AttributesEnumMaps.cpp
+src/esp/metadata/attributes/AttributesEnumMaps.h
+src/esp/metadata/attributes/AudioSensorAttributes.cpp
+src/esp/metadata/attributes/AudioSensorAttributes.h
+src/esp/metadata/attributes/CameraSensorAttributes.cpp
+src/esp/metadata/attributes/CameraSensorAttributes.h
+src/esp/metadata/attributes/CubeMapSensorAttributes.cpp
+src/esp/metadata/attributes/CubeMapSensorAttributes.h
+src/esp/metadata/attributes/CustomSensorAttributes.cpp
+src/esp/metadata/attributes/CustomSensorAttributes.h
+src/esp/metadata/attributes/LightLayoutAttributes.cpp
+src/esp/metadata/attributes/LightLayoutAttributes.h
+src/esp/metadata/attributes/MarkerSets.h
+src/esp/metadata/attributes/ObjectAttributes.cpp
+src/esp/metadata/attributes/ObjectAttributes.h
+src/esp/metadata/attributes/PbrShaderAttributes.cpp
+src/esp/metadata/attributes/PbrShaderAttributes.h
+src/esp/metadata/attributes/PhysicsManagerAttributes.cpp
+src/esp/metadata/attributes/PhysicsManagerAttributes.h
+src/esp/metadata/attributes/PrimitiveAssetAttributes.cpp
+src/esp/metadata/attributes/PrimitiveAssetAttributes.h
+src/esp/metadata/attributes/SceneDatasetAttributes.cpp
+src/esp/metadata/attributes/SceneDatasetAttributes.h
+src/esp/metadata/attributes/SceneInstanceAttributes.cpp
+src/esp/metadata/attributes/SceneInstanceAttributes.h
+src/esp/metadata/attributes/SemanticAttributes.cpp
+src/esp/metadata/attributes/SemanticAttributes.h
+src/esp/metadata/attributes/StageAttributes.cpp
+src/esp/metadata/attributes/StageAttributes.h
+src/esp/metadata/managers/AOAttributesManager.cpp
+src/esp/metadata/managers/AOAttributesManager.h
+src/esp/metadata/managers/AbstractAttributesManager.h
+src/esp/metadata/managers/AbstractObjectAttributesManager.h
+src/esp/metadata/managers/AssetAttributesManager.cpp
+src/esp/metadata/managers/AssetAttributesManager.h
+src/esp/metadata/managers/LightLayoutAttributesManager.cpp
+src/esp/metadata/managers/LightLayoutAttributesManager.h
+src/esp/metadata/managers/ObjectAttributesManager.cpp
+src/esp/metadata/managers/ObjectAttributesManager.h
+src/esp/metadata/managers/PbrShaderAttributesManager.cpp
+src/esp/metadata/managers/PbrShaderAttributesManager.h
+src/esp/metadata/managers/PhysicsAttributesManager.cpp
+src/esp/metadata/managers/PhysicsAttributesManager.h
+src/esp/metadata/managers/SceneDatasetAttributesManager.cpp
+src/esp/metadata/managers/SceneDatasetAttributesManager.h
+src/esp/metadata/managers/SceneInstanceAttributesManager.cpp
+src/esp/metadata/managers/SceneInstanceAttributesManager.h
+src/esp/metadata/managers/SemanticAttributesManager.cpp
+src/esp/metadata/managers/SemanticAttributesManager.h
+src/esp/metadata/managers/SensorAttributesManager.cpp
+src/esp/metadata/managers/SensorAttributesManager.h
+src/esp/metadata/managers/StageAttributesManager.cpp
+src/esp/metadata/managers/StageAttributesManager.h
+src/esp/nav/GreedyFollower.cpp
+src/esp/nav/GreedyFollower.h
+src/esp/nav/PathFinder.cpp
+src/esp/nav/PathFinder.h
+src/esp/physics/ArticulatedLink.h
+src/esp/physics/ArticulatedObject.h
+src/esp/physics/CollisionGroupHelper.cpp
+src/esp/physics/CollisionGroupHelper.h
+src/esp/physics/PhysicsManager.cpp
+src/esp/physics/PhysicsManager.h
+src/esp/physics/PhysicsObjectBase.h
+src/esp/physics/RigidBase.h
+src/esp/physics/RigidObject.cpp
+src/esp/physics/RigidObject.h
+src/esp/physics/RigidStage.cpp
+src/esp/physics/RigidStage.h
+src/esp/physics/URDFImporter.cpp
+src/esp/physics/URDFImporter.h
+src/esp/physics/bullet/BulletArticulatedLink.h
+src/esp/physics/bullet/BulletArticulatedObject.cpp
+src/esp/physics/bullet/BulletArticulatedObject.h
+src/esp/physics/bullet/BulletBase.cpp
+src/esp/physics/bullet/BulletBase.h
+src/esp/physics/bullet/BulletCollisionHelper.cpp
+src/esp/physics/bullet/BulletCollisionHelper.h
+src/esp/physics/bullet/BulletPhysicsManager.cpp
+src/esp/physics/bullet/BulletPhysicsManager.h
+src/esp/physics/bullet/BulletRigidObject.cpp
+src/esp/physics/bullet/BulletRigidObject.h
+src/esp/physics/bullet/BulletRigidStage.cpp
+src/esp/physics/bullet/BulletRigidStage.h
+src/esp/physics/bullet/BulletURDFImporter.cpp
+src/esp/physics/bullet/BulletURDFImporter.h
+src/esp/physics/bullet/objectWrappers/ManagedBulletArticulatedObject.h
+src/esp/physics/bullet/objectWrappers/ManagedBulletRigidObject.h
+src/esp/physics/configure.h.cmake
+src/esp/physics/objectManagers/ArticulatedObjectManager.cpp
+src/esp/physics/objectManagers/ArticulatedObjectManager.h
+src/esp/physics/objectManagers/PhysicsObjectBaseManager.h
+src/esp/physics/objectManagers/RigidObjectManager.cpp
+src/esp/physics/objectManagers/RigidObjectManager.h
+src/esp/physics/objectWrappers/ManagedArticulatedObject.h
+src/esp/physics/objectWrappers/ManagedPhysicsObjectBase.h
+src/esp/physics/objectWrappers/ManagedRigidBase.h
+src/esp/physics/objectWrappers/ManagedRigidObject.h
+src/esp/scene/GibsonSemanticScene.cpp
+src/esp/scene/GibsonSemanticScene.h
+src/esp/scene/HM3DSemanticScene.cpp
+src/esp/scene/HM3DSemanticScene.h
+src/esp/scene/Mp3dSemanticScene.cpp
+src/esp/scene/Mp3dSemanticScene.h
+src/esp/scene/ReplicaSemanticScene.cpp
+src/esp/scene/ReplicaSemanticScene.h
+src/esp/scene/SceneGraph.cpp
+src/esp/scene/SceneGraph.h
+src/esp/scene/SceneManager.cpp
+src/esp/scene/SceneManager.h
+src/esp/scene/SceneNode.cpp
+src/esp/scene/SceneNode.h
+src/esp/scene/SemanticScene.cpp
+src/esp/scene/SemanticScene.h
+src/esp/sensor/AudioSensor.cpp
+src/esp/sensor/AudioSensor.h
+src/esp/sensor/AudioSensorStubs.h
+src/esp/sensor/CameraSensor.cpp
+src/esp/sensor/CameraSensor.h
+src/esp/sensor/CubeMapSensorBase.cpp
+src/esp/sensor/CubeMapSensorBase.h
+src/esp/sensor/EquirectangularSensor.cpp
+src/esp/sensor/EquirectangularSensor.h
+src/esp/sensor/FisheyeSensor.cpp
+src/esp/sensor/FisheyeSensor.h
+src/esp/sensor/RedwoodNoiseModel.cpp
+src/esp/sensor/RedwoodNoiseModel.cu
+src/esp/sensor/RedwoodNoiseModel.cuh
+src/esp/sensor/RedwoodNoiseModel.h
+src/esp/sensor/Sensor.cpp
+src/esp/sensor/Sensor.h
+src/esp/sensor/SensorFactory.cpp
+src/esp/sensor/SensorFactory.h
+src/esp/sensor/VisualSensor.cpp
+src/esp/sensor/VisualSensor.h
+src/esp/sensor/configure.h.cmake
+src/esp/sim/AbstractReplayRenderer.cpp
+src/esp/sim/AbstractReplayRenderer.h
+src/esp/sim/BatchPlayerImplementation.cpp
+src/esp/sim/BatchPlayerImplementation.h
+src/esp/sim/BatchReplayRenderer.cpp
+src/esp/sim/BatchReplayRenderer.h
+src/esp/sim/ClassicReplayRenderer.cpp
+src/esp/sim/ClassicReplayRenderer.h
+src/esp/sim/RenderInstanceHelper.cpp
+src/esp/sim/RenderInstanceHelper.h
+src/esp/sim/Simulator.cpp
+src/esp/sim/Simulator.h
+src/esp/sim/SimulatorConfiguration.cpp
+src/esp/sim/SimulatorConfiguration.h
+src/shaders/gfx/Shaders.conf
+src/shaders/gfx/bigTriangle.vert
+src/shaders/gfx/doubleSphereCamera.frag
+src/shaders/gfx/equirectangular.frag
+src/shaders/gfx/equirectangularToCubeMap.frag
+src/shaders/gfx/gaussianFilter.frag
+src/shaders/gfx/pbr.frag
+src/shaders/gfx/pbr.vert
+src/shaders/gfx/pbrBSDF.glsl
+src/shaders/gfx/pbrCommon.glsl
+src/shaders/gfx/pbrIrradianceMap.frag
+src/shaders/gfx/pbrLighting.glsl
+src/shaders/gfx/pbrMaterials.glsl
+src/shaders/gfx/pbrPrecomputedMap.vert
+src/shaders/gfx/pbrPrefilteredMap.frag
+src/shaders/gfx/pbrStructs.glsl
+src/shaders/gfx/pbrUniforms.glsl
+src/shaders/gfx/textureVisualizer.frag
+src/shaders/gfx_batch/Shaders.conf
+src/shaders/gfx_batch/depth.frag
+src/shaders/gfx_batch/depth.vert
+src/shaders/gfx_batch/hbao/bilateralblur.frag
+src/shaders/gfx_batch/hbao/depthlinearize.frag
+src/shaders/gfx_batch/hbao/fullscreenquad.geom
+src/shaders/gfx_batch/hbao/fullscreenquad.vert
+src/shaders/gfx_batch/hbao/hbao.frag
+src/shaders/gfx_batch/hbao/hbao_blur.frag
+src/shaders/gfx_batch/hbao/hbao_deinterleave.frag
+src/shaders/gfx_batch/hbao/hbao_reinterleave.frag
+src/shaders/gfx_batch/hbao/viewnormal.frag
+src/tests/AttributesConfigsTest.cpp
+src/tests/AttributesManagersTest.cpp
+src/tests/BatchReplayRendererTest.cpp
+src/tests/CMakeLists.txt
+src/tests/ConfigurationTest.cpp
+src/tests/CullingTest.cpp
+src/tests/DepthUnprojectionTest.cpp
+src/tests/DrawableTest.cpp
+src/tests/GeoTest.cpp
+src/tests/GfxBatchHbaoTest.cpp
+src/tests/GfxBatchRendererTest.cpp
+src/tests/GfxReplayTest.cpp
+src/tests/GibsonSceneTest.cpp
+src/tests/HM3DSceneTest.cpp
+src/tests/IOTest.cpp
+src/tests/LoggingTest.cpp
+src/tests/MetadataMediatorTest.cpp
+src/tests/Mp3dTest.cpp
+src/tests/NavTest.cpp
+src/tests/PathFinderTest.cpp
+src/tests/PhysicsTest.cpp
+src/tests/ReplicaSceneTest.cpp
+src/tests/ResourceManagerTest.cpp
+src/tests/SceneGraphTest.cpp
+src/tests/SemanticTest.cpp
+src/tests/SensorTest.cpp
+src/tests/SimTest.cpp
+src/tests/configure.h.cmake
+src/utils/imageconverter/CMakeLists.txt
+src/utils/replayer/CMakeLists.txt
+src/utils/replayer/replayer.cpp
+src/utils/viewer/CMakeLists.txt
+src/utils/viewer/ObjectPickingHelper.cpp
+src/utils/viewer/ObjectPickingHelper.h
+src/utils/viewer/default_light_override.lighting_config.json
+src/utils/viewer/resources.conf
+src/utils/viewer/viewer.cpp
+src_python/habitat_sim/__init__.py
+src_python/habitat_sim/_ext/__init__.py
+src_python/habitat_sim/agent/__init__.py
+src_python/habitat_sim/agent/agent.py
+src_python/habitat_sim/agent/controls/__init__.py
+src_python/habitat_sim/agent/controls/controls.py
+src_python/habitat_sim/agent/controls/default_controls.py
+src_python/habitat_sim/agent/controls/object_controls.py
+src_python/habitat_sim/agent/controls/pyrobot_noisy_controls.py
+src_python/habitat_sim/attributes.py
+src_python/habitat_sim/attributes_managers.py
+src_python/habitat_sim/bindings/__init__.py
+src_python/habitat_sim/errors.py
+src_python/habitat_sim/geo.py
+src_python/habitat_sim/gfx.py
+src_python/habitat_sim/logging.py
+src_python/habitat_sim/metadata.py
+src_python/habitat_sim/nav/__init__.py
+src_python/habitat_sim/nav/greedy_geodesic_follower.py
+src_python/habitat_sim/physics.py
+src_python/habitat_sim/registry.py
+src_python/habitat_sim/scene.py
+src_python/habitat_sim/sensor.py
+src_python/habitat_sim/sensors/__init__.py
+src_python/habitat_sim/sensors/noise_models/__init__.py
+src_python/habitat_sim/sensors/noise_models/data/redwood-depth-dist-model.npy
+src_python/habitat_sim/sensors/noise_models/gaussian_noise_model.py
+src_python/habitat_sim/sensors/noise_models/no_noise_model.py
+src_python/habitat_sim/sensors/noise_models/poisson_noise_model.py
+src_python/habitat_sim/sensors/noise_models/redwood_depth_noise_model.py
+src_python/habitat_sim/sensors/noise_models/salt_and_pepper_noise_model.py
+src_python/habitat_sim/sensors/noise_models/sensor_noise_model.py
+src_python/habitat_sim/sensors/noise_models/speckle_noise_model.py
+src_python/habitat_sim/sensors/sensor_suite.py
+src_python/habitat_sim/sensors/sensor_wrapper.py
+src_python/habitat_sim/sim.py
+src_python/habitat_sim/simulator.py
+src_python/habitat_sim/utils/__init__.py
+src_python/habitat_sim/utils/classes/__init__.py
+src_python/habitat_sim/utils/classes/markersets_editor.py
+src_python/habitat_sim/utils/classes/object_editor.py
+src_python/habitat_sim/utils/classes/semantic_display.py
+src_python/habitat_sim/utils/collect_env.py
+src_python/habitat_sim/utils/common/__init__.py
+src_python/habitat_sim/utils/common/common.py
+src_python/habitat_sim/utils/common/quaternion_utils.py
+src_python/habitat_sim/utils/compare_profiles.py
+src_python/habitat_sim/utils/datasets_download.py
+src_python/habitat_sim/utils/gfx_replay_utils.py
+src_python/habitat_sim/utils/manager_utils.py
+src_python/habitat_sim/utils/namespace/__init__.py
+src_python/habitat_sim/utils/namespace/hsim_physics.py
+src_python/habitat_sim/utils/profiling_utils.py
+src_python/habitat_sim/utils/settings.py
+src_python/habitat_sim/utils/validators.py
+src_python/habitat_sim/utils/viz_utils.py
+tests/__init__.py
+tests/conftest.py
+tests/gt_data/17DRP5sb8fy-color_sensor.npy
+tests/gt_data/17DRP5sb8fy-depth_sensor.npy
+tests/gt_data/17DRP5sb8fy-semantic_sensor.npy
+tests/gt_data/17DRP5sb8fy-state.json
+tests/gt_data/1LXtFkjw3qL-color_sensor.npy
+tests/gt_data/1LXtFkjw3qL-depth_sensor.npy
+tests/gt_data/1LXtFkjw3qL-semantic_sensor.npy
+tests/gt_data/1LXtFkjw3qL-state.json
+tests/gt_data/skokloster-castle-color_sensor.npy
+tests/gt_data/skokloster-castle-depth_sensor.npy
+tests/gt_data/skokloster-castle-state.json
+tests/gt_data/skokloster-castle-topdown-view.npy
+tests/gt_data/van-gogh-room-color_sensor.npy
+tests/gt_data/van-gogh-room-depth_sensor.npy
+tests/gt_data/van-gogh-room-state.json
+tests/helpers/utils.py
+tests/test_agent.py
+tests/test_attributes_managers.py
+tests/test_common_utils.py
+tests/test_compare_profiles.py
+tests/test_configs.py
+tests/test_controls.py
+tests/test_examples.py
+tests/test_gfx.py
+tests/test_greedy_follower.py
+tests/test_light_setup.py
+tests/test_manager_utils.py
+tests/test_nav.py
+tests/test_noise_models.py
+tests/test_physics.py
+tests/test_physics_benchmarking.py
+tests/test_profiling_utils.py
+tests/test_pyrobot_noisy_controls.py
+tests/test_quaternion_utils.py
+tests/test_random_seed.py
+tests/test_registry_unit.py
+tests/test_semantic_scene.py
+tests/test_sensors.py
+tests/test_simulator.py
+tests/test_snap_point.py
+tests/test_utils.py
+tests/test_validators_unit.py
+tests/test_viz_utils.py
+tools/create_basis_compressed_glbs.py
+tools/npz2ids.py
+tools/npz2scn.py
+tools/run-clang-tidy.py
+tools/sync_notebooks.sh
+```
+
+## 省略登记索引
+
+| 目录 | 省略文件数 | 体积 | 登记文件 |
+|---|---:|---:|---|
+| `data/fonts` | 1 | 40 KB | [`data/fonts/_OMITTED.md`](./data/fonts/_OMITTED.md) |
+| `data/pbr/bluts` | 1 | 90 KB | [`data/pbr/bluts/_OMITTED.md`](./data/pbr/bluts/_OMITTED.md) |
+| `data/pbr/env_maps` | 5 | 7.5 MB | [`data/pbr/env_maps/_OMITTED.md`](./data/pbr/env_maps/_OMITTED.md) |
+| `data/test_assets/dataset_tests/dataset_0/objects` | 4 | 358 KB | [`data/test_assets/dataset_tests/dataset_0/objects/_OMITTED.md`](./data/test_assets/dataset_tests/dataset_0/objects/_OMITTED.md) |
+| `data/test_assets/dataset_tests/dataset_0/stages` | 1 | 48 KB | [`data/test_assets/dataset_tests/dataset_0/stages/_OMITTED.md`](./data/test_assets/dataset_tests/dataset_0/stages/_OMITTED.md) |
+| `data/test_assets/dataset_tests/dataset_0/stages/stage_test_glbs` | 3 | 143 KB | [`data/test_assets/dataset_tests/dataset_0/stages/stage_test_glbs/_OMITTED.md`](./data/test_assets/dataset_tests/dataset_0/stages/stage_test_glbs/_OMITTED.md) |
+| `data/test_assets/dataset_tests/dataset_1/objects/object_0` | 2 | 256 KB | [`data/test_assets/dataset_tests/dataset_1/objects/object_0/_OMITTED.md`](./data/test_assets/dataset_tests/dataset_1/objects/object_0/_OMITTED.md) |
+| `data/test_assets/dataset_tests/dataset_1/objects/object_1` | 2 | 102 KB | [`data/test_assets/dataset_tests/dataset_1/objects/object_1/_OMITTED.md`](./data/test_assets/dataset_tests/dataset_1/objects/object_1/_OMITTED.md) |
+| `data/test_assets/dataset_tests/dataset_1/stages/stage_0` | 1 | 48 KB | [`data/test_assets/dataset_tests/dataset_1/stages/stage_0/_OMITTED.md`](./data/test_assets/dataset_tests/dataset_1/stages/stage_0/_OMITTED.md) |
+| `data/test_assets/dataset_tests/dataset_1/stages/stage_1` | 1 | 48 KB | [`data/test_assets/dataset_tests/dataset_1/stages/stage_1/_OMITTED.md`](./data/test_assets/dataset_tests/dataset_1/stages/stage_1/_OMITTED.md) |
+| `data/test_assets/hbao_tests` | 26 | 1.3 MB | [`data/test_assets/hbao_tests/_OMITTED.md`](./data/test_assets/hbao_tests/_OMITTED.md) |
+| `data/test_assets/objects` | 8 | 408 KB | [`data/test_assets/objects/_OMITTED.md`](./data/test_assets/objects/_OMITTED.md) |
+| `data/test_assets/scenes` | 22 | 164 KB | [`data/test_assets/scenes/_OMITTED.md`](./data/test_assets/scenes/_OMITTED.md) |
+| `data/test_assets/screenshots` | 32 | 3.1 MB | [`data/test_assets/screenshots/_OMITTED.md`](./data/test_assets/screenshots/_OMITTED.md) |
+| `data/test_assets/urdf/fridge` | 3 | 1.5 MB | [`data/test_assets/urdf/fridge/_OMITTED.md`](./data/test_assets/urdf/fridge/_OMITTED.md) |
+| `data/test_assets/urdf/kuka_iiwa/meshes` | 12 | 755 KB | [`data/test_assets/urdf/kuka_iiwa/meshes/_OMITTED.md`](./data/test_assets/urdf/kuka_iiwa/meshes/_OMITTED.md) |
+| `docs` | 2 | 39 KB | [`docs/_OMITTED.md`](./docs/_OMITTED.md) |
+| `docs/images` | 9 | 17.3 MB | [`docs/images/_OMITTED.md`](./docs/images/_OMITTED.md) |
+| `docs/logos` | 1 | 117 KB | [`docs/logos/_OMITTED.md`](./docs/logos/_OMITTED.md) |
+| `docs/pages/images` | 1 | 1.4 MB | [`docs/pages/images/_OMITTED.md`](./docs/pages/images/_OMITTED.md) |
+| `docs/pages/images/asset-viewer-images` | 5 | 3.7 MB | [`docs/pages/images/asset-viewer-images/_OMITTED.md`](./docs/pages/images/asset-viewer-images/_OMITTED.md) |
+| `docs/pages/images/coordinate-frame-tutorial-images` | 7 | 2.3 MB | [`docs/pages/images/coordinate-frame-tutorial-images/_OMITTED.md`](./docs/pages/images/coordinate-frame-tutorial-images/_OMITTED.md) |
+| `docs/pages/images/lighting-setups-images` | 9 | 653 KB | [`docs/pages/images/lighting-setups-images/_OMITTED.md`](./docs/pages/images/lighting-setups-images/_OMITTED.md) |
+| `docs/pages/images/managed-rigid-object-tutorial-images` | 9 | 6.4 MB | [`docs/pages/images/managed-rigid-object-tutorial-images/_OMITTED.md`](./docs/pages/images/managed-rigid-object-tutorial-images/_OMITTED.md) |
+
+> 以上文件未拷贝；需要时按登记的源路径回到 `00_open/` 取用。
