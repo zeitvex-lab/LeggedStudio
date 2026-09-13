@@ -1,0 +1,57 @@
+{
+  "schema": "perception-provider-index-1.0",
+  "generated_at": "2026-09-13",
+  "note": "感知 provider 显式清单（K4 口径：清单是权威）。此前「Sensors」只是契约里的声明位（scenario_contract 的 perception.mount）与观测项目录（perception_observations），**没有任何运行时模块**：没有「传感器数据 → 结构化输出」的接口、没有注册表、也没有人校验声明与实现是否对得上。本清单是那件事的权威：provider_id → module:Class（抄 InstinctMJ tasks/registry.py 的 entry_point 范式）+ 生命周期 init/update/on_reset（抄 mujoco_ros2_control 插件基类的钩子形状，只借形状，不引 C++/ROS）。路由口径：本清单内全部为 route=external（B 类：感知在策略之外），A 类仍由 perception_binding 校验策略 profile 是否真声明了观测项。",
+  "lifecycle": ["init(params)", "update(reading, time_s)", "on_reset()"],
+  "providers": [
+    {
+      "provider_id": "terrain_classifier",
+      "display_name": "地形/台阶分类（高度扫描）",
+      "entry_point": "backend.perception_providers.terrain_classifier:TerrainClassifier",
+      "sensor": "heightfield",
+      "route": "external",
+      "inputs": {
+        "height_scan": "187 维高度扫描（x 主序 ix*11+iy，机身系，x 前 y 左，value = base_z - terrain_z，米，未缩放）",
+        "source": "backend/height_scan.py（内置射线 heightfield 与外部雷达点云两条链路已逐格对齐回归）"
+      },
+      "outputs": {
+        "terrain_class": "flat | slope_up | slope_down | stair_up | stair_down | rough | obstacle",
+        "confidence": "0..1（到判定边界的相对距离，见 params.confidence_*）",
+        "metrics": "max_step_m / slope_deg / roughness_m / forward_gradient",
+        "action": "切换动作描述（见 params.actions）",
+        "stable": "去抖后的判定为真；抖动期内 stable=false 且保留上一次类别"
+      },
+      "params": {
+        "forward_min_m": 0.15,
+        "forward_max_m": 1.2,
+        "half_width_m": 0.35,
+        "step_min_m": 0.06,
+        "step_max_m": 0.25,
+        "slope_min_deg": 12.0,
+        "slope_max_deg": 35.0,
+        "rough_std_m": 0.03,
+        "stable_readings": 3,
+        "confidence_margin_m": 0.03,
+        "confidence_margin_deg": 6.0,
+        "actions": {
+          "flat": { "kind": "limits", "vx_scale": 1.0, "note": "无需切换" },
+          "slope_up": { "kind": "limits", "vx_scale": 0.7, "note": "上坡降速" },
+          "slope_down": { "kind": "limits", "vx_scale": 0.6, "note": "下坡更保守" },
+          "stair_up": { "kind": "policy_hint", "policy_hint": "perceptive", "vx_scale": 0.5, "note": "台阶建议切感知策略；不可用时降级为限速（不静默当成功）" },
+          "stair_down": { "kind": "policy_hint", "policy_hint": "perceptive", "vx_scale": 0.5, "note": "同上" },
+          "rough": { "kind": "limits", "vx_scale": 0.5, "note": "粗糙地形降速" },
+          "obstacle": { "kind": "stop", "note": "判定为不可通行：安全停机" }
+        },
+        "evidence": {
+          "sources": [
+            "backend/height_scan.py（网格契约与两条链路对齐回归）",
+            "00_resources/lain_job/RoboLab/backends/mjlab/mjlab/src/mjlab/sensor/terrain_height_sensor.py（reduction=min/max/mean 的净空原语）",
+            "00_resources/m20_rl_isaacsim/.../m20_perception_env_cfg.py（height_scan 观测装配）"
+          ],
+          "note": "阈值（step_min/max、slope_min/max、rough_std）是**初值**：按 187 格 0.1 m 网格的离散化能力与四足常见台阶尺度（0.10~0.20 m 立板）取，标注 calibration=pending——必须用真实地形回归标定后才可当验收判据用。"
+        }
+      },
+      "calibration": "pending"
+    }
+  ]
+}
