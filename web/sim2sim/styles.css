@@ -1479,17 +1479,74 @@ input[type="range"] {
 /* 观测面板：深度图 / 2D 轨迹平面 / odom+IMU 读数。
    这些数据此前**早已在浏览器内算好**（深度帧只喂给策略、轨迹只画在 3D 场景里），
    缺的只是"显示出来"这一步。 */
-.sensor-panels { display: grid; gap: 8px; margin-top: 8px; }
-.sensor-panel { border: 1px solid rgba(148, 178, 188, 0.22); border-radius: 8px; padding: 8px; background: rgba(15, 23, 32, 0.28); }
-.sensor-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
-.sensor-title span { color: var(--muted, #8ea1ae); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
-.sensor-title output { color: var(--cyan, #2588df); font: 11px Consolas, monospace; text-align: right; }
-.sensor-panel canvas { display: block; width: 100%; height: auto; border-radius: 6px; background: #0b1319; }
-/* 深度图是 86×60 的低分辨率栅格：放大时保持像素块，别被插值糊成一团。 */
-#depthCanvas { image-rendering: pixelated; }
-.sensor-readout { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.sensor-readout div { min-height: 46px; }
-.sensor-readout strong { font-size: 14px; }
+/* 传感器视图悬浮窗（左上角）：**单一视图 + 来源切换 + 外挂传感器开关**。
+   原先三块并排面板（深度图 / 2D 轨迹 / odom·IMU）已收进这里 —— 并排占位置且来源固定，
+   要看别的就得改 HTML；现在"看什么"是下拉里的一次选择，传感器是勾选出来的。
+   整个 dock 只属于高级仿真（data-surface="advanced"，显隐由 app.js 按 URL 的 surface 决定）。 */
+#viewer { position: relative; } /* 悬浮窗的定位基准 */
+.sensor-dock {
+  position: absolute; left: 12px; top: 12px; z-index: 6;
+  width: 268px; max-width: calc(100% - 24px);
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; border-radius: 10px;
+  border: 1px solid rgba(148, 178, 188, 0.28);
+  background: rgba(10, 18, 25, 0.84);
+  backdrop-filter: blur(6px);
+  font-size: 11px;
+}
+/* 显式写一条：UA 的 [hidden] 优先级低于任何类选择器，将来给 .sensor-dock 加 display 会把它盖掉。 */
+.sensor-dock[hidden] { display: none; }
+.sensor-dock.collapsed .dock-body,
+.sensor-dock.collapsed .dock-plugins { display: none; }
+.dock-head { display: flex; align-items: center; gap: 6px; }
+.dock-head select {
+  flex: 1; min-width: 0; padding: 3px 6px;
+  border: 1px solid rgba(148, 178, 188, 0.28); border-radius: 6px;
+  background: rgba(15, 23, 32, 0.9); color: inherit; font-size: 11px;
+}
+.dock-head output { color: var(--cyan, #2588df); font: 10px Consolas, monospace; white-space: nowrap; }
+.dock-head button {
+  width: 20px; height: 20px; padding: 0; line-height: 1;
+  border: 1px solid rgba(148, 178, 188, 0.28); border-radius: 6px;
+  background: rgba(15, 23, 32, 0.9); color: inherit; cursor: pointer;
+}
+.dock-body { display: flex; flex-direction: column; gap: 6px; }
+/* 这几张图都是**低分辨率栅格**（深度帧 60×86、高度场 24×24、极坐标/点云 240×240）：
+   靠 CSS 放大，所以必须 pixelated —— 否则 24×24 的高度场会被双线性插值糊成一团渐变，
+   地形起伏全看不出来（图还在，信息没了）。 */
+.dock-body canvas { display: block; width: 100%; height: auto; border-radius: 6px; background: #0b1319; image-rendering: pixelated; }
+/* 读数表：odom / IMU 这类没有图只有数的来源用它。 */
+.dock-readout { display: grid; gap: 4px; }
+.dock-readout div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.dock-readout small { color: var(--muted, #8ea1ae); white-space: nowrap; }
+.dock-readout strong { font: 11px Consolas, monospace; text-align: right; }
+.dock-readout:empty { display: none; }
+.dock-plugins summary { cursor: pointer; color: var(--muted, #8ea1ae); font-size: 11px; }
+.dock-plugin-list { display: grid; gap: 2px; margin-top: 4px; }
+.dock-plugin-list label { display: flex; align-items: baseline; gap: 6px; padding: 1px 0; cursor: pointer; }
+.dock-plugin-list label span { color: var(--muted, #8ea1ae); font-size: 10px; }
+/* 装配编辑器：每个启用的传感器一组六格（位置 xyz / 姿态 rpy）。 */
+.dock-mounts summary { cursor: pointer; color: var(--muted, #8ea1ae); font-size: 11px; }
+.dock-mount-list { display: grid; gap: 6px; margin-top: 4px; max-height: 40vh; overflow: auto; }
+.dock-mount-group { border: 1px solid rgba(148, 178, 188, 0.18); border-radius: 6px; padding: 5px 6px; }
+.dock-mount-group > header { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
+.dock-mount-group > header strong { font-size: 11px; }
+.dock-mount-group > header button {
+  padding: 1px 6px; border: 1px solid rgba(148, 178, 188, 0.28); border-radius: 4px;
+  background: transparent; color: var(--muted, #8ea1ae); font-size: 10px; cursor: pointer;
+}
+.dock-mount-group > header button:hover { color: inherit; border-color: var(--cyan, #2588df); }
+.dock-mount-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 6px; }
+.dock-mount-rows label { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted, #8ea1ae); }
+.dock-mount-rows input {
+  width: 100%; min-width: 0; padding: 1px 4px;
+  border: 1px solid rgba(148, 178, 188, 0.24); border-radius: 4px;
+  background: rgba(15, 23, 32, 0.9); color: inherit; font: 10px Consolas, monospace;
+}
+/* 被改过装配的传感器标出来（`applyMountEdit` 会在改回默认值时把覆盖整条删掉）。 */
+.dock-mount-group.overridden > header strong { color: var(--cyan, #2588df); }
+.dock-mount-hint { margin: 4px 0 0; color: var(--muted, #8ea1ae); font-size: 10px; }
+
 
 .attitude-gauge { display: grid; gap: 6px; margin-top: 4px; padding: 8px 0; border-top: 1px dashed rgba(148, 178, 188, 0.25); }
 .att-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) 48px; align-items: center; gap: 8px; }
