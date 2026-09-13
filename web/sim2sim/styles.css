@@ -1476,6 +1476,21 @@ input[type="range"] {
 
 
 /* 机身姿态仪表（借鉴 viser 状态面板） */
+/* 观测面板：深度图 / 2D 轨迹平面 / odom+IMU 读数。
+   这些数据此前**早已在浏览器内算好**（深度帧只喂给策略、轨迹只画在 3D 场景里），
+   缺的只是"显示出来"这一步。 */
+.sensor-panels { display: grid; gap: 8px; margin-top: 8px; }
+.sensor-panel { border: 1px solid rgba(148, 178, 188, 0.22); border-radius: 8px; padding: 8px; background: rgba(15, 23, 32, 0.28); }
+.sensor-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.sensor-title span { color: var(--muted, #8ea1ae); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.sensor-title output { color: var(--cyan, #2588df); font: 11px Consolas, monospace; text-align: right; }
+.sensor-panel canvas { display: block; width: 100%; height: auto; border-radius: 6px; background: #0b1319; }
+/* 深度图是 86×60 的低分辨率栅格：放大时保持像素块，别被插值糊成一团。 */
+#depthCanvas { image-rendering: pixelated; }
+.sensor-readout { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.sensor-readout div { min-height: 46px; }
+.sensor-readout strong { font-size: 14px; }
+
 .attitude-gauge { display: grid; gap: 6px; margin-top: 4px; padding: 8px 0; border-top: 1px dashed rgba(148, 178, 188, 0.25); }
 .att-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) 48px; align-items: center; gap: 8px; }
 .att-row small { color: var(--muted, #8ea1ae); font: 10px Consolas, monospace; }

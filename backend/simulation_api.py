@@ -24,9 +24,11 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
+import mimetypes
+
 import numpy as np
 import mujoco
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
@@ -45,6 +47,7 @@ from backend.simulation_browser import (  # noqa: E402
     _mesh_aabb, _proxy_geom, _browser_model_xml, _find_package_root_quiet,
     _read_contract_v3, _browser_scene_file,
     _terrain_entries, common_map_entries, map_scene_xml, MAPS_ROOT,
+    common_map_asset_files, read_common_map_asset,
 )
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
 
@@ -378,6 +381,9 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
         if item.is_file() and item.name != "scene.xml"
     )
     files.extend(browser_assets)
+    # 公共地图库的**非 XML 资产**（贴图）也要下发：地图 XML 引用 ``./imgs/label_*.png``，
+    # 只给 xml 会让浏览器虚拟文件系统里编译失败（后端上一次就是这么踩的）。
+    files.extend(f"maps/{name}" for name in common_map_asset_files())
     package_policies = simulation_config.get("policies") if isinstance(simulation_config.get("policies"), list) else []
     default_policy_contract = simulation_config.get("policy_contract") if isinstance(simulation_config.get("policy_contract"), dict) else {}
     public_policies: list[dict[str, Any]] = []
@@ -530,7 +536,9 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     # react to any served XML change (scenes included), not just the manifest.
     revision_sources = [root / "robot_package.json", root / "model" / "robot.xml"]
     revision_sources.extend(sorted((root / "simulation").glob("*.xml")))
-    revision_sources.extend(sorted(MAPS_ROOT.glob("*.xml")))
+    # 用 rglob：地图库的**贴图**变了也要换 revision（否则浏览器拿旧缓存里的贴图，
+    # 改了图却看不到变化——这种"改了没生效"最难查）。
+    revision_sources.extend(sorted(MAPS_ROOT.rglob("*")))
     revision_ts = max((p.stat().st_mtime_ns for p in revision_sources if p.is_file()), default=0)
     return {
         "run_id": None,
@@ -607,11 +615,16 @@ async def browser_simulation_asset(robot_id: str, asset_path: str):
     """Serve allowlisted package files to the browser MuJoCo virtual FS."""
     root, preset = _browser_package(robot_id)
     normalized = asset_path.replace("\\", "/").lstrip("/")
-    if normalized.startswith("maps/") and normalized.endswith(".xml"):
-        return PlainTextResponse(
-            map_scene_xml(normalized[len("maps/"):-len(".xml")]),
-            media_type="application/xml",
-        )
+    if normalized.startswith("maps/"):
+        rel = normalized[len("maps/"):]
+        if rel.endswith(".xml"):
+            return PlainTextResponse(map_scene_xml(rel[: -len(".xml")]), media_type="application/xml")
+        # 地图贴图等静态资产：原样回传（不是 XML，不能走 map_scene_xml 的注入逻辑）
+        payload = read_common_map_asset(rel)
+        if payload is None:
+            raise HTTPException(status_code=404, detail="common map asset not found")
+        media_type = mimetypes.guess_type(rel)[0] or "application/octet-stream"
+        return Response(content=payload, media_type=media_type)
     simulation_config = _read_simulation_config(root)
     for entry in _terrain_entries(simulation_config):
         if not entry.get("browser_scene"):

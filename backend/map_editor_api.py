@@ -188,6 +188,12 @@ async def plan_map_route(request: PlanRequest):
             combined.extend(segment_path[1:])
         else:
             combined = segment_path
+    # H13 规划后处理：简化 → 转角混合 → **净空四级**（判据/参数出处见 backend/route_postprocess.py）。
+    # 评审里的 path 是处理后的路径，segments 逐段带 status，summary.blocked 表示必须拒绝下发。
+    from backend.route_postprocess import postprocess_route
+
+    route_review = postprocess_route(combined, request.obstacles)
+
     return {
         "success": True,
         "map_id": request.map_id,
@@ -197,6 +203,7 @@ async def plan_map_route(request: PlanRequest):
         "raster": raster,
         "segments": segments,
         "combined_path": combined,
+        "route_review": route_review,
         "total_cost_m": round(sum(seg["cost_m"] for seg in segments), 3),
     }
 

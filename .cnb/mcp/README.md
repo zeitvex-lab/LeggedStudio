@@ -18,7 +18,7 @@
 | MCP | 解决什么 | 本仓落点 |
 |---|---|---|
 | `filesystem` | 工作区文件读写 | `backend/settings_api.py` 的工作区解析；`assets/robots/*` 契约与模型批量核对 |
-| `git` | diff / log / blame | 云原生开发里全靠手敲；PR 与 `00_know/50_方案与清单/进度流水.md` 需要真实提交证据 |
+| `git` | diff / log / blame | 云原生开发里全靠手敲；PR 与 `00_know/01_任务清单.md` 需要真实提交证据 |
 | `github` | 上游项目检索 | `tools/sync_resources.py::PROJECTS` 的 77 个项目溯源；`registry/porting_evidence.json` |
 | `fetch` | 抓上游文档 | 官方部署协议/README 真值核对（进度流水里反复出现的「以官方仓为权威」） |
 | `playwright` | **本仓最刚需** | `web/sim2sim` 的全部结论都是浏览器实测（lite3 yaw −0.25°、m20 前进 3.9 m）；镜像已预装 Chromium |

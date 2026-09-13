@@ -22,6 +22,9 @@ from contracts.role_resolver import RoleResolver
 # Browser transfer limits and consts (moved from simulation_api.py)
 BROWSER_MESH_LIMIT_BYTES = 40 * 1024 * 1024
 BROWSER_MESH_SUFFIXES = {".obj", ".stl", ".dae", ".ply", ".msh"}
+#: 会被 MuJoCo 引用、需要下发给浏览器的地图资产后缀（贴图 + 网格）。
+#: 刻意用**白名单**而不是"排除 .xml"：后者会把 README.md / _index.json 也带下去。
+BROWSER_MAP_ASSET_SUFFIXES = BROWSER_MESH_SUFFIXES | {".png", ".jpg", ".jpeg", ".bmp", ".tga"}
 BROWSER_INITIAL_KEYFRAME = "__browser_init__"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 # 公共地图库（assets/maps/README.md）：环境专用 XML，不含机器人 include。
@@ -326,6 +329,39 @@ def browser_scene_file(root: Path, entry: dict[str, Any]) -> str:
         texture.set("width", "64")
         texture.set("height", "64")
     return ET.tostring(document, encoding="unicode")
+
+
+def common_map_asset_files() -> list[str]:
+    """公共地图库里的**非 XML 资产**（贴图等），返回相对 ``maps/`` 的路径。
+
+    **为什么必须一并下发**：地图 XML 会引用 ``./imgs/label_*.png``（斜坡编号贴图）。
+    若只下发 ``maps/<id>.xml``，浏览器侧编译这些地图就会报
+    ``Error opening file 'imgs/label_1.png'`` —— 与后端曾经踩过的坑**一模一样**
+    （``assets/maps/imgs/`` 当初没跟着 xml 一起拷过来），只是这次发生在**浏览器的
+    虚拟文件系统**里：同样静默、同样难查。
+
+    只挑**资产后缀**（贴图/网格）：``README.md`` / ``_index.json`` 是文档与后端索引，
+    不该进下发清单（它们不被 MuJoCo 引用，白占带宽）。
+    """
+    if not MAPS_ROOT.exists():
+        return []
+    return sorted(
+        str(item.relative_to(MAPS_ROOT)).replace("\\", "/")
+        for item in MAPS_ROOT.rglob("*")
+        if item.is_file() and item.suffix.lower() in BROWSER_MAP_ASSET_SUFFIXES
+    )
+
+
+def read_common_map_asset(asset_rel: str) -> bytes | None:
+    """读公共地图库里的静态资产（``asset_rel`` 是 ``maps/`` 之后的部分）。
+
+    返回 ``None`` 表示不存在或**越界** —— 路径穿越防护：解析后必须**落在 MAPS_ROOT 之内**。
+    """
+    root = MAPS_ROOT.resolve()
+    candidate = (root / asset_rel).resolve()
+    if root not in candidate.parents or not candidate.is_file():
+        return None
+    return candidate.read_bytes()
 
 
 def common_map_entries() -> list[dict[str, Any]]:

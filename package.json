@@ -20,9 +20,10 @@
     "test": "uv run --no-sync python -m unittest discover -s backend -p \"test_*.py\" -v",
     "test:obs": "node web/sim2sim/obs/observation_builders.test.mjs",
     "test:nav": "node web/sim2sim/navigation.test.mjs",
+    "test:fan": "node web/sim2sim/dwa_fan.test.mjs",
     "check:docs": "uv run --no-sync python tools/doc_reality_check.py",
     "test:contracts": "uv run --no-sync python -m unittest discover -s contracts/tests -p \"test_*.py\" -v",
-    "test:all": "npm run test && npm run test:contracts && npm run test:obs && npm run test:nav && npm run check:docs"
+    "test:all": "npm run test && npm run test:contracts && npm run test:obs && npm run test:nav && npm run test:fan && npm run check:docs"
   },
   "keywords": [
     "robotics",

@@ -1,0 +1,441 @@
+{
+  "clearance": {
+    "post_blocked_routes": 0,
+    "post_intersect_segments": 0,
+    "post_violation_segments": 0,
+    "raw_blocked_routes": 2,
+    "raw_intersect_segments": 0,
+    "raw_violation_segments": 22
+  },
+  "controllers": [
+    "follow",
+    "geometric",
+    "potential",
+    "dwa"
+  ],
+  "dt": 0.05,
+  "footprint_radius_m": 0.21,
+  "map_id": "warehouse",
+  "max_steps": 1200,
+  "per_controller": {
+    "dwa": {
+      "collision_steps": 0,
+      "mean_time_s": 11.967,
+      "min_clearance_m": 0.196,
+      "pass_rate": 0.6,
+      "reached": 3,
+      "routes_below_footprint": 1,
+      "runs": 5,
+      "timeouts": 2
+    },
+    "follow": {
+      "collision_steps": 30,
+      "mean_time_s": 13.925,
+      "min_clearance_m": -0.0828,
+      "pass_rate": 0.8,
+      "reached": 4,
+      "routes_below_footprint": 2,
+      "runs": 5,
+      "timeouts": 0
+    },
+    "geometric": {
+      "collision_steps": 0,
+      "mean_time_s": 11.62,
+      "min_clearance_m": 0.1699,
+      "pass_rate": 1.0,
+      "reached": 5,
+      "routes_below_footprint": 2,
+      "runs": 5,
+      "timeouts": 0
+    },
+    "potential": {
+      "collision_steps": 0,
+      "mean_time_s": 4.25,
+      "min_clearance_m": 0.2688,
+      "pass_rate": 0.6,
+      "reached": 3,
+      "routes_below_footprint": 0,
+      "runs": 5,
+      "timeouts": 2
+    }
+  },
+  "route_count": 5,
+  "routes": [
+    {
+      "clearance": {
+        "post": {
+          "INTERSECT": 0,
+          "OK": 49,
+          "TIGHT": 18,
+          "VIOLATION": 0
+        },
+        "post_blocked": false,
+        "post_points": 68,
+        "post_worst": "TIGHT",
+        "raw": {
+          "INTERSECT": 0,
+          "OK": 21,
+          "TIGHT": 12,
+          "VIOLATION": 11
+        },
+        "raw_blocked": true,
+        "raw_points": 45,
+        "raw_worst": "VIOLATION"
+      },
+      "controllers": {
+        "dwa": {
+          "collision_steps": 0,
+          "final_distance_m": 4.9541,
+          "min_clearance_m": 0.213,
+          "reached": false,
+          "time_s": 60.0,
+          "timed_out": true,
+          "wall_time_s": 9.543
+        },
+        "follow": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1995,
+          "min_clearance_m": 0.0854,
+          "reached": true,
+          "time_s": 28.35,
+          "timed_out": false,
+          "wall_time_s": 0.006
+        },
+        "geometric": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1987,
+          "min_clearance_m": 0.1699,
+          "reached": true,
+          "time_s": 23.55,
+          "timed_out": false,
+          "wall_time_s": 0.002
+        },
+        "potential": {
+          "collision_steps": 0,
+          "final_distance_m": 2.5689,
+          "min_clearance_m": 0.2688,
+          "reached": false,
+          "time_s": 60.0,
+          "timed_out": true,
+          "wall_time_s": 0.008
+        }
+      },
+      "kind": "map_default",
+      "name": "full",
+      "reference_points": 45,
+      "waypoints": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          1.5,
+          2.2
+        ],
+        [
+          3.2,
+          2.2
+        ],
+        [
+          6.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "clearance": {
+        "post": {
+          "INTERSECT": 0,
+          "OK": 19,
+          "TIGHT": 0,
+          "VIOLATION": 0
+        },
+        "post_blocked": false,
+        "post_points": 20,
+        "post_worst": "OK",
+        "raw": {
+          "INTERSECT": 0,
+          "OK": 10,
+          "TIGHT": 0,
+          "VIOLATION": 0
+        },
+        "raw_blocked": false,
+        "raw_points": 11,
+        "raw_worst": "OK"
+      },
+      "controllers": {
+        "dwa": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1998,
+          "min_clearance_m": 0.196,
+          "reached": true,
+          "time_s": 22.45,
+          "timed_out": false,
+          "wall_time_s": 4.546
+        },
+        "follow": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1965,
+          "min_clearance_m": 0.6977,
+          "reached": true,
+          "time_s": 8.1,
+          "timed_out": false,
+          "wall_time_s": 0.001
+        },
+        "geometric": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1886,
+          "min_clearance_m": 0.6941,
+          "reached": true,
+          "time_s": 6.3,
+          "timed_out": false,
+          "wall_time_s": 0.001
+        },
+        "potential": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1988,
+          "min_clearance_m": 0.607,
+          "reached": true,
+          "time_s": 5.25,
+          "timed_out": false,
+          "wall_time_s": 0.001
+        }
+      },
+      "kind": "map_leg",
+      "name": "leg_0_1",
+      "reference_points": 11,
+      "waypoints": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          1.5,
+          2.2
+        ]
+      ]
+    },
+    {
+      "clearance": {
+        "post": {
+          "INTERSECT": 0,
+          "OK": 1,
+          "TIGHT": 0,
+          "VIOLATION": 0
+        },
+        "post_blocked": false,
+        "post_points": 2,
+        "post_worst": "OK",
+        "raw": {
+          "INTERSECT": 0,
+          "OK": 8,
+          "TIGHT": 0,
+          "VIOLATION": 0
+        },
+        "raw_blocked": false,
+        "raw_points": 9,
+        "raw_worst": "OK"
+      },
+      "controllers": {
+        "dwa": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1964,
+          "min_clearance_m": 0.6962,
+          "reached": true,
+          "time_s": 5.05,
+          "timed_out": false,
+          "wall_time_s": 2.781
+        },
+        "follow": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1924,
+          "min_clearance_m": 0.6923,
+          "reached": true,
+          "time_s": 4.55,
+          "timed_out": false,
+          "wall_time_s": 0.001
+        },
+        "geometric": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1882,
+          "min_clearance_m": 0.6879,
+          "reached": true,
+          "time_s": 3.4,
+          "timed_out": false,
+          "wall_time_s": 0.0
+        },
+        "potential": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1895,
+          "min_clearance_m": 0.6895,
+          "reached": true,
+          "time_s": 1.95,
+          "timed_out": false,
+          "wall_time_s": 0.0
+        }
+      },
+      "kind": "map_leg",
+      "name": "leg_1_2",
+      "reference_points": 9,
+      "waypoints": [
+        [
+          1.5,
+          2.2
+        ],
+        [
+          3.2,
+          2.2
+        ]
+      ]
+    },
+    {
+      "clearance": {
+        "post": {
+          "INTERSECT": 0,
+          "OK": 13,
+          "TIGHT": 18,
+          "VIOLATION": 0
+        },
+        "post_blocked": false,
+        "post_points": 32,
+        "post_worst": "TIGHT",
+        "raw": {
+          "INTERSECT": 0,
+          "OK": 3,
+          "TIGHT": 12,
+          "VIOLATION": 11
+        },
+        "raw_blocked": true,
+        "raw_points": 27,
+        "raw_worst": "VIOLATION"
+      },
+      "controllers": {
+        "dwa": {
+          "collision_steps": 0,
+          "final_distance_m": 3.5369,
+          "min_clearance_m": 0.5,
+          "reached": false,
+          "time_s": 60.0,
+          "timed_out": true,
+          "wall_time_s": 22.272
+        },
+        "follow": {
+          "collision_steps": 30,
+          "final_distance_m": 3.4598,
+          "min_clearance_m": -0.0828,
+          "reached": false,
+          "time_s": 7.7,
+          "timed_out": false,
+          "wall_time_s": 0.001
+        },
+        "geometric": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1987,
+          "min_clearance_m": 0.1807,
+          "reached": true,
+          "time_s": 13.45,
+          "timed_out": false,
+          "wall_time_s": 0.001
+        },
+        "potential": {
+          "collision_steps": 0,
+          "final_distance_m": 2.5688,
+          "min_clearance_m": 0.2688,
+          "reached": false,
+          "time_s": 60.0,
+          "timed_out": true,
+          "wall_time_s": 0.008
+        }
+      },
+      "kind": "map_leg",
+      "name": "leg_2_3",
+      "reference_points": 27,
+      "waypoints": [
+        [
+          3.2,
+          2.2
+        ],
+        [
+          6.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "clearance": {
+        "post": {
+          "INTERSECT": 0,
+          "OK": 31,
+          "TIGHT": 0,
+          "VIOLATION": 0
+        },
+        "post_blocked": false,
+        "post_points": 32,
+        "post_worst": "OK",
+        "raw": {
+          "INTERSECT": 0,
+          "OK": 22,
+          "TIGHT": 0,
+          "VIOLATION": 0
+        },
+        "raw_blocked": false,
+        "raw_points": 23,
+        "raw_worst": "OK"
+      },
+      "controllers": {
+        "dwa": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1996,
+          "min_clearance_m": 0.8582,
+          "reached": true,
+          "time_s": 8.4,
+          "timed_out": false,
+          "wall_time_s": 6.656
+        },
+        "follow": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1942,
+          "min_clearance_m": 1.2471,
+          "reached": true,
+          "time_s": 14.7,
+          "timed_out": false,
+          "wall_time_s": 0.001
+        },
+        "geometric": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1975,
+          "min_clearance_m": 1.2948,
+          "reached": true,
+          "time_s": 11.4,
+          "timed_out": false,
+          "wall_time_s": 0.001
+        },
+        "potential": {
+          "collision_steps": 0,
+          "final_distance_m": 0.1543,
+          "min_clearance_m": 1.1083,
+          "reached": true,
+          "time_s": 5.55,
+          "timed_out": false,
+          "wall_time_s": 0.001
+        }
+      },
+      "kind": "random",
+      "name": "random_1",
+      "reference_points": 23,
+      "waypoints": [
+        [
+          -0.56,
+          2.745
+        ],
+        [
+          0.27,
+          -1.817
+        ]
+      ]
+    }
+  ],
+  "seed": 20260913,
+  "tolerance_m": 0.2,
+  "wall_time_s": 46.7
+}
