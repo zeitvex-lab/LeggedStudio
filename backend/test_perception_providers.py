@@ -22,7 +22,11 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from fastapi.testclient import TestClient
+
+from backend.api_complete import app
 from backend.height_scan import build_height_scan_from_terrain
+from backend.perception_scene import SceneTerrainError, height_scan_at
 from backend.perception_providers import (
     MANIFEST_PATH,
     PerceptionProviderError,
@@ -55,7 +59,10 @@ TERRAIN_CASES = [
     ("slope_up", lambda x, y: 0.25 * (x - 0.5), "slope_up"),
     ("slope_down", lambda x, y: -0.25 * (x - 0.5), "slope_down"),
     ("wall", lambda x, y: 0.45 if x > 1.0 else 0.0, "obstacle"),
-    ("undulating", lambda x, y: 0.05 * math.sin(8.0 * x), "rough"),
+    # 起伏：0.1 m 交替方波（窗口 0.2 m 内升高为 0 ⇒ 不算台阶，残差 std 0.035 > rough_std 0.03 ⇒ rough）
+    ("undulating", lambda x, y: 0.07 * (round(x / 0.1) % 2), "rough"),
+    # 陡坡：35% 坡度在 0.2 m 窗口内升高 0.07 m，但由坡度解释得掉 ⇒ 不许判成台阶
+    ("slope_steep_up", lambda x, y: 0.35 * (x - 0.5), "slope_up"),
 ]
 
 
@@ -253,6 +260,119 @@ class SkillSwitchTests(unittest.TestCase):
 
     def test_switch_selftest(self):
         self.assertEqual(switch_selftest()["verdict"], "pass")
+
+
+class SceneTerrainTests(unittest.TestCase):
+    """同源地形路线：场景 → 高度场（用真实生成器，不是合成函数）。"""
+
+    def _make_scene(self, tmp: Path, name: str, kind: str, *, rows: int = 128, obstacle_count=None):
+        (tmp / name).mkdir(parents=True, exist_ok=True)
+        manifest = {"scene_id": name, "terrain_kind": kind, "seed": 0, "rows": rows, "cols": rows}
+        if obstacle_count is not None:
+            manifest["obstacle_count"] = obstacle_count
+        (tmp / name / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    def test_builtin_flat_scene(self):
+        scan, meta = height_scan_at("flat", [0.0, 0.0], base_z=0.45)
+        self.assertEqual(len(scan), 187)
+        self.assertEqual(meta["kind"], "flat")
+        self.assertEqual(meta["reproducible"], "full")
+
+    def test_generated_stairs_scene_detects_stairs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scenes = Path(tmp)
+            self._make_scene(scenes, "stairs_probe", "stairs", obstacle_count=0)
+            provider = resolve_provider("terrain_classifier")
+            classes = set()
+            for y in (-1.4, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.4):
+                scan, meta = height_scan_at("stairs_probe", [0.0, y], base_z=0.45,
+                                            base_yaw=math.pi / 2, scenes_dir=scenes)
+                self.assertEqual(len(scan), 187)
+                self.assertEqual(meta["reproducible"], "full")
+                classes.add(provider.update(scan, 0.0)["raw_class"])
+            self.assertIn("stair_up", classes, f"真实楼梯场景必须能识别出台阶（得到 {sorted(classes)}）")
+            self.assertNotIn("obstacle", classes, "0.114 m 立板不该被判成不可通行")
+
+    def test_manifest_without_obstacle_count_is_marked_partial(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scenes = Path(tmp)
+            self._make_scene(scenes, "stairs_noparam", "stairs")
+            _, meta = height_scan_at("stairs_noparam", [0.0, 0.0], base_z=0.45, scenes_dir=scenes)
+            self.assertEqual(meta["reproducible"], "partial")
+            self.assertIn("obstacle_count", meta["note"])
+
+    def test_unknown_scene_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(SceneTerrainError) as ctx:
+                height_scan_at("no_such_scene", [0.0, 0.0], base_z=0.45, scenes_dir=Path(tmp))
+            self.assertIn("平", str(ctx.exception), "错误信息必须说明不按平地处理")
+
+    def test_manifest_missing_keys_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scenes = Path(tmp)
+            (scenes / "broken").mkdir()
+            (scenes / "broken" / "manifest.json").write_text(json.dumps({"scene_id": "broken"}), encoding="utf-8")
+            with self.assertRaises(SceneTerrainError) as ctx:
+                height_scan_at("broken", [0.0, 0.0], base_z=0.45, scenes_dir=scenes)
+            self.assertIn("terrain_kind", str(ctx.exception))
+
+
+class PerceptionApiTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_providers_endpoint(self):
+        response = self.client.get("/api/perception/providers")
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertGreaterEqual(payload["count"], 1)
+        self.assertIn("terrain_classifier", [item["provider_id"] for item in payload["providers"]])
+        self.assertEqual(payload["selftest"]["verdict"], "pass")
+
+    def test_flat_scene_needs_no_switch(self):
+        response = self.client.post("/api/perception/terrain/evaluate", json={"scene_id": "flat"})
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["reading"]["raw_class"], "flat")
+        self.assertEqual(payload["switch"]["kind"], "limits")
+        self.assertFalse(payload["switch"]["changed"], "平地不该改上限")
+        self.assertEqual(payload["height_scan_points"], 187)
+        self.assertIn("不是机载", payload["note"])
+
+    def test_unknown_scene_returns_400(self):
+        response = self.client.post("/api/perception/terrain/evaluate", json={"scene_id": "nope"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("平", response.json()["detail"])
+
+    def test_stairs_scene_switches_policy_when_available(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scenes = Path(tmp)
+            (scenes / "stairs_api").mkdir()
+            (scenes / "stairs_api" / "manifest.json").write_text(json.dumps(
+                {"scene_id": "stairs_api", "terrain_kind": "stairs", "seed": 0, "rows": 128,
+                 "cols": 128, "obstacle_count": 0}), encoding="utf-8")
+            with mock.patch("backend.perception_scene.DEFAULT_SCENES_DIR", scenes):
+                with_policy = self.client.post("/api/perception/terrain/evaluate", json={
+                    "scene_id": "stairs_api", "base_xy": [0.0, -1.4], "base_yaw": math.pi / 2,
+                    "base_limits": {"vx": 1.0, "vy": 0.5, "wz": 0.8},
+                    "available_policies": ["perceptive"],
+                })
+                without = self.client.post("/api/perception/terrain/evaluate", json={
+                    "scene_id": "stairs_api", "base_xy": [0.0, -1.4], "base_yaw": math.pi / 2,
+                    "base_limits": {"vx": 1.0, "vy": 0.5, "wz": 0.8},
+                    "available_policies": ["velocity"],
+                })
+        self.assertEqual(with_policy.status_code, 200, with_policy.text)
+        self.assertEqual(with_policy.json()["reading"]["raw_class"], "stair_up")
+        self.assertEqual(with_policy.json()["switch"]["kind"], "policy")
+        self.assertEqual(with_policy.json()["switch"]["new_limits"]["vx"], 0.5)
+        self.assertEqual(without.json()["switch"]["kind"], "limits")
+        self.assertEqual(without.json()["switch"]["degraded_from"], "policy_hint")
+
+    def test_unknown_provider_returns_400(self):
+        response = self.client.post("/api/perception/terrain/evaluate",
+                                    json={"scene_id": "flat", "provider_id": "nope"})
+        self.assertEqual(response.status_code, 400)
 
 
 if __name__ == "__main__":

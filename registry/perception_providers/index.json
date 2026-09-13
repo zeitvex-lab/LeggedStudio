@@ -25,6 +25,8 @@
         "forward_min_m": 0.15,
         "forward_max_m": 1.2,
         "half_width_m": 0.35,
+        "step_window_m": 0.2,
+        "step_over_slope_ratio": 1.8,
         "step_min_m": 0.06,
         "step_max_m": 0.25,
         "slope_min_deg": 12.0,
@@ -48,7 +50,7 @@
             "00_resources/lain_job/RoboLab/backends/mjlab/mjlab/src/mjlab/sensor/terrain_height_sensor.py（reduction=min/max/mean 的净空原语）",
             "00_resources/m20_rl_isaacsim/.../m20_perception_env_cfg.py（height_scan 观测装配）"
           ],
-          "note": "阈值（step_min/max、slope_min/max、rough_std）是**初值**：按 187 格 0.1 m 网格的离散化能力与四足常见台阶尺度（0.10~0.20 m 立板）取，标注 calibration=pending——必须用真实地形回归标定后才可当验收判据用。"
+          "note": "step_window_m 是**判据本身的修正**：立板宽度可能窄于 0.1 m 扫描间距，按相邻格差会把一个台阶的高度劈成两半（实测 0.114 m 立板只读到 0.057），故台阶判定用 step_window_m（0.2 m）窗口内的最大升高；再乘 step_over_slope_ratio（1.8）扣掉「局部坡度能解释的升高」（陡坡不该被判成台阶）。其余阈值（step_min/max、slope_min/max、rough_std）是**初值**：按 187 格 0.1 m 网格的离散化能力与四足常见台阶尺度（0.10~0.20 m 立板）取，标注 calibration=pending——必须用真实地形回归标定后才可当验收判据用。"
         }
       },
       "calibration": "pending"
