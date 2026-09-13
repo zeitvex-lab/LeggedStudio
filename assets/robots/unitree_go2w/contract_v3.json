@@ -134,7 +134,7 @@
     "by_role": {
       "hip": {
         "stiffness": 20.0,
-        "damping": 1.0,
+        "damping": 0.5,
         "effort": 23.5,
         "mode": "position",
         "action_scale": 0.5,
@@ -143,7 +143,7 @@
       },
       "thigh": {
         "stiffness": 20.0,
-        "damping": 1.0,
+        "damping": 0.5,
         "effort": 23.5,
         "mode": "position",
         "action_scale": 0.5,
@@ -151,9 +151,9 @@
         "velocity_limit": 30.1
       },
       "calf": {
-        "stiffness": 40.0,
-        "damping": 2.0,
-        "effort": 45.0,
+        "stiffness": 20.0,
+        "damping": 0.5,
+        "effort": 35.5,
         "armature": 0.02,
         "mode": "position",
         "action_scale": 0.5,
@@ -161,9 +161,9 @@
       },
       "wheel": {
         "stiffness": 0.0,
-        "damping": 2.0,
-        "effort": 45.0,
-        "armature": 0.02,
+        "damping": 0.5,
+        "effort": 23.5,
+        "armature": 0.01,
         "mode": "velocity",
         "action_scale": 35.0
       }

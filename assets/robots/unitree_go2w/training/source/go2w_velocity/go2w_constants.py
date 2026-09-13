@@ -81,29 +81,29 @@ def get_spec() -> mujoco.MjSpec:
 GO2W_ACTUATOR_HIP = BuiltinPositionActuatorCfg(
   target_names_expr=GO2W_HIP_JOINT_NAMES,
   stiffness=20.0,
-  damping=1.0,
+  damping=0.5,
   effort_limit=23.5,
   armature=0.01,
 )
 GO2W_ACTUATOR_THIGH = BuiltinPositionActuatorCfg(
   target_names_expr=GO2W_THIGH_JOINT_NAMES,
   stiffness=20.0,
-  damping=1.0,
+  damping=0.5,
   effort_limit=23.5,
   armature=0.01,
 )
 GO2W_ACTUATOR_CALF = BuiltinPositionActuatorCfg(
   target_names_expr=GO2W_CALF_JOINT_NAMES,
-  stiffness=40.0,
-  damping=2.0,
-  effort_limit=45.0,
+  stiffness=20.0,
+  damping=0.5,
+  effort_limit=35.5,
   armature=0.02,
 )
 GO2W_ACTUATOR_WHEEL = BuiltinVelocityActuatorCfg(
   target_names_expr=GO2W_WHEEL_JOINT_NAMES,
-  damping=2.0,
-  effort_limit=45.0,
-  armature=0.02,
+  damping=0.5,
+  effort_limit=23.5,
+  armature=0.01,
 )
 
 ##
