@@ -34,10 +34,15 @@ from typing import Iterable
 
 __all__ = [
     "PROJECT_ROOT",
+    "ADAPTER_VENV_ENV",
+    "ADAPTER_PYTHON_ENVS",
     "bootstrap_root",
     "ensure_on_path",
     "ensure_project_root_on_path",
     "ensure_many_on_path",
+    "adapter_venv_dir",
+    "adapter_python",
+    "venv_python",
 ]
 
 
@@ -88,3 +93,85 @@ def ensure_many_on_path(paths: Iterable[str | Path], *, front: bool = True) -> l
     for p in paths:
         ensured.append(ensure_on_path(p, front=front))
     return ensured
+
+
+# ---------------------------------------------------------------------------
+# 训练栈解释器解析（控制面永不 import torch/mjlab，只负责找到跑它们的解释器）
+# ---------------------------------------------------------------------------
+
+#: 环境变量：直接指定训练适配器 venv 目录（云原生开发镜像用它在仓库外固化 venv，
+#: 从而不受 bind mount 覆盖影响）。见 scripts/provision_cpu_training.sh。
+ADAPTER_VENV_ENV = "LEGGED_STUDIO_MJLAB_VENV"
+
+#: 环境变量：直接指定训练链路的 Python 解释器（可执行文件，优先级最高）。
+#: 与桌面启动器/PowerShell 供应脚本既有约定一致（见 electron/launcher/main.js）。
+ADAPTER_PYTHON_ENVS = (
+    "LEGGED_STUDIO_MJLAB_PYTHON",
+    "LEGGED_STUDIO_TRAIN_PYTHON",
+    "LEGGED_STUDIO_RUNTIME_PYTHON",
+)
+
+#: 仓库内的默认适配器 venv（本地开发 / 桌面版的常规落点）。
+DEFAULT_ADAPTER_VENV = PROJECT_ROOT / "adapters" / "mjlab" / ".venv"
+
+
+def venv_python(venv: str | Path, *, platform: str | None = None) -> Path:
+    """Return the interpreter path inside *venv* for the current (or given) OS.
+
+    Windows virtualenvs put the interpreter under ``Scripts/python.exe``,
+    POSIX ones under ``bin/python``. Centralised so the layout assumption is
+    written down once instead of in ten call sites.
+    """
+    import sys as _sys
+
+    os_name = platform if platform is not None else _sys.platform
+    if os_name == "win32":
+        return Path(venv) / "Scripts" / "python.exe"
+    return Path(venv) / "bin" / "python"
+
+
+def adapter_venv_dir(*, default: str | Path | None = None) -> Path:
+    """Resolve the training adapter venv directory.
+
+    Priority:
+      1. ``$LEGGED_STUDIO_MJLAB_VENV`` — explicit venv directory (container image
+         installs the CPU training venv outside the bind-mounted repo).
+      2. A directory implied by an explicit interpreter from
+         ``ADAPTER_PYTHON_ENVS`` (its parent-of-parent, i.e. the venv root).
+      3. *default* (or :data:`DEFAULT_ADAPTER_VENV`).
+
+    Returns a ``Path`` even when it does not exist; callers decide how to react
+    so the "not installed" message stays actionable.
+    """
+    import os as _os
+
+    configured = (_os.environ.get(ADAPTER_VENV_ENV) or "").strip()
+    if configured:
+        return Path(configured).expanduser()
+
+    for name in ADAPTER_PYTHON_ENVS:
+        explicit = (_os.environ.get(name) or "").strip()
+        if not explicit:
+            continue
+        interpreter = Path(explicit).expanduser()
+        # <venv>/bin/python or <venv>/Scripts/python.exe -> <venv>
+        if interpreter.parent.name in {"bin", "Scripts"}:
+            return interpreter.parent.parent
+        return interpreter.parent
+
+    return Path(default) if default is not None else DEFAULT_ADAPTER_VENV
+
+
+def adapter_python(*, default: str | Path | None = None) -> Path:
+    """Resolve the interpreter that hosts the training stack (torch/mjlab).
+
+    Prefers ``ADAPTER_PYTHON_ENVS`` (explicit executable) and otherwise derives
+    the interpreter from :func:`adapter_venv_dir`.
+    """
+    import os as _os
+
+    for name in ADAPTER_PYTHON_ENVS:
+        explicit = (_os.environ.get(name) or "").strip()
+        if explicit:
+            return Path(explicit).expanduser()
+    return venv_python(adapter_venv_dir(default=default))

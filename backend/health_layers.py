@@ -39,6 +39,13 @@ DEFAULT_ROBOT = "unitree_go2"
 ADAPTER_VENV = ROOT / "adapters" / "mjlab" / ".venv"
 SMOKE_TOOL = ROOT / "tools" / "validate_training_smoke.py"
 
+
+def _adapter_venv() -> Path:
+    """适配器 venv 落点（支持 LEGGED_STUDIO_MJLAB_VENV 覆盖，见 path_bootstrap）。"""
+    from contracts.path_bootstrap import adapter_venv_dir
+
+    return adapter_venv_dir(default=ADAPTER_VENV)
+
 __all__ = ["build_layer_report", "LAYER_NAMES"]
 
 LAYER_NAMES = {
@@ -106,7 +113,9 @@ def _scene_ready(robot_id: str = DEFAULT_ROBOT) -> tuple[bool, str]:
 def _run_smoke() -> dict[str, Any]:
     """L6 的 deep 执行：委托 E8 的冒烟工具（64 envs × 5 iters）。"""
 
-    python = ADAPTER_VENV / "Scripts" / "python.exe"
+    from contracts.path_bootstrap import adapter_python
+
+    python = adapter_python(default=ADAPTER_VENV)
     executable = python if python.is_file() else Path(sys.executable)
     try:
         result = subprocess.run(
@@ -136,29 +145,47 @@ def build_layer_report(
 
     gpu = (gpu_probe or _default_gpu_probe)()
     tasks = (list_tasks or _default_tasks)()
-    venv = venv or ADAPTER_VENV
+    venv = venv or _adapter_venv()
     scene = (scene_check or _scene_ready)(DEFAULT_ROBOT)
 
     layers: list[dict[str, Any]] = []
 
     # ---- L0 GPU / CUDA ----
-    # 无 GPU 不再是硬失败：CPU 可完成仿真与冒烟验证（见 tools/_smoke_one.py、
-    # native_worker 的 device=auto→cpu 回退），仅正式训练建议使用 GPU。
+    # 三态（cuda / cpu-only / unavailable），不是一个布尔：
+    #   cuda        → pass，正式训练路径
+    #   cpu-only    → warn，显式 CPU 链路可用（仿真 + 最小训练冒烟），仅"不推荐正式训练"
+    #   unavailable → warn，但原因不同：无 GPU **且** 训练栈没装，处置指向环境供应
+    # 无 GPU 从来不是硬失败（见 tools/_smoke_one.py、native_worker 的 device=auto→cpu）。
     devices = gpu.get("devices") or []
-    if gpu.get("available") and devices:
+    mode = gpu.get("mode") or ("cuda" if devices else ("cpu-only" if gpu.get("cpu_ready") else "unavailable"))
+    if mode == "cuda" and devices:
         layers.append(_layer(
             "L0", "pass", f"检测到 {len(devices)} 块 GPU：{devices[0].get('name', '?')}",
             "无需处置",
-            devices=devices,
+            mode=mode, devices=devices,
+        ))
+    elif mode == "cpu-only":
+        layers.append(_layer(
+            "L0", "warn",
+            f"未检测到可用 GPU/CUDA（{gpu.get('reason') or 'nvidia-smi 未返回设备'}）"
+            "——CPU 训练链路已就绪，device=auto 将落 cpu",
+            gpu.get("action") or (
+                "CPU 可以跑通仿真与最小训练冒烟（L4–L6），但正式训练建议使用 NVIDIA GPU"
+                "（CPU 吞吐低约一个量级）。如需 GPU：① 确认本机为 NVIDIA 显卡并安装最新驱动；"
+                "② 在启动器『配置环境』中按 GPU profile 重装 CUDA 运行时。CPU profile 会一直保留。"
+            ),
+            mode=mode,
         ))
     else:
         layers.append(_layer(
             "L0", "warn",
-            f"未检测到可用 GPU/CUDA（{gpu.get('reason') or 'nvidia-smi 未返回设备'}）"
-            "——将回退 CPU 运行",
-            "CPU 可以跑通仿真与最小训练冒烟（L4–L6），但正式训练建议使用 NVIDIA GPU"
-            "（CPU 吞吐低约一个量级）。如需 GPU：① 确认本机为 NVIDIA 显卡并安装最新驱动；"
-            "② 在启动器『配置环境』中按 GPU profile 重装 CUDA 运行时。CPU profile 会一直保留。",
+            "既无 NVIDIA GPU，训练栈也未供应"
+            f"（{gpu.get('reason') or 'nvidia-smi 未返回设备'}）——L1 之后的层会因此受阻",
+            gpu.get("action") or (
+                "先供应训练环境（scripts/provision_cpu_training.sh；云原生开发镜像已内置 "
+                "CPU extra），再回来复检；否则训练/冒烟会在拉起 worker 时失败。"
+            ),
+            mode=mode,
         ))
 
     failed = layers[-1]["status"] == "fail"
@@ -171,8 +198,9 @@ def build_layer_report(
         if missing:
             layers.append(_layer(
                 "L1", "fail", f"适配器运行时缺少框架包：{'、'.join(missing)}",
-                "在启动器点击『配置环境』重新供应运行时；或手动执行 "
-                "`uv sync`（adapters/mjlab）后重试",
+                "在启动器点击『配置环境』重新供应运行时；或跑 "
+                "`bash scripts/provision_cpu_training.sh`（CPU）/"
+                "`uv sync --extra cu128`（GPU）后重试",
                 venv=str(venv),
             ))
             failed = True

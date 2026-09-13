@@ -1,5 +1,5 @@
 # 开发/验证环境的额外依赖（控制面依赖见 backend/requirements.txt）。
-# 云原生开发环境（.ide/Dockerfile）已内置这些；本地开发按需安装：
+# 云原生开发环境（根 Dockerfile）已内置这些；本地开发按需安装：
 #   pip install -r backend/requirements.txt -r requirements-dev.txt
 #   playwright install chromium
 #
