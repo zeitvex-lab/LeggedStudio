@@ -2,7 +2,11 @@
   "schema": "perception-provider-index-1.0",
   "generated_at": "2026-09-13",
   "note": "感知 provider 显式清单（K4 口径：清单是权威）。此前「Sensors」只是契约里的声明位（scenario_contract 的 perception.mount）与观测项目录（perception_observations），**没有任何运行时模块**：没有「传感器数据 → 结构化输出」的接口、没有注册表、也没有人校验声明与实现是否对得上。本清单是那件事的权威：provider_id → module:Class（抄 InstinctMJ tasks/registry.py 的 entry_point 范式）+ 生命周期 init/update/on_reset（抄 mujoco_ros2_control 插件基类的钩子形状，只借形状，不引 C++/ROS）。路由口径：本清单内全部为 route=external（B 类：感知在策略之外），A 类仍由 perception_binding 校验策略 profile 是否真声明了观测项。",
-  "lifecycle": ["init(params)", "update(reading, time_s)", "on_reset()"],
+  "lifecycle": [
+    "init(params)",
+    "update(reading, time_s)",
+    "on_reset()"
+  ],
   "providers": [
     {
       "provider_id": "terrain_classifier",
@@ -36,13 +40,42 @@
         "confidence_margin_m": 0.03,
         "confidence_margin_deg": 6.0,
         "actions": {
-          "flat": { "kind": "limits", "vx_scale": 1.0, "note": "无需切换" },
-          "slope_up": { "kind": "limits", "vx_scale": 0.7, "note": "上坡降速" },
-          "slope_down": { "kind": "limits", "vx_scale": 0.6, "note": "下坡更保守" },
-          "stair_up": { "kind": "policy_hint", "policy_hint": "perceptive", "vx_scale": 0.5, "note": "台阶建议切感知策略；不可用时降级为限速（不静默当成功）" },
-          "stair_down": { "kind": "policy_hint", "policy_hint": "perceptive", "vx_scale": 0.5, "note": "同上" },
-          "rough": { "kind": "limits", "vx_scale": 0.5, "note": "粗糙地形降速" },
-          "obstacle": { "kind": "stop", "note": "判定为不可通行：安全停机" }
+          "flat": {
+            "kind": "limits",
+            "vx_scale": 1.0,
+            "note": "无需切换"
+          },
+          "slope_up": {
+            "kind": "limits",
+            "vx_scale": 0.7,
+            "note": "上坡降速"
+          },
+          "slope_down": {
+            "kind": "limits",
+            "vx_scale": 0.6,
+            "note": "下坡更保守"
+          },
+          "stair_up": {
+            "kind": "policy_hint",
+            "policy_hint": "perceptive",
+            "vx_scale": 0.5,
+            "note": "台阶建议切感知策略；不可用时降级为限速（不静默当成功）"
+          },
+          "stair_down": {
+            "kind": "policy_hint",
+            "policy_hint": "perceptive",
+            "vx_scale": 0.5,
+            "note": "同上"
+          },
+          "rough": {
+            "kind": "limits",
+            "vx_scale": 0.5,
+            "note": "粗糙地形降速"
+          },
+          "obstacle": {
+            "kind": "stop",
+            "note": "判定为不可通行：安全停机"
+          }
         },
         "evidence": {
           "sources": [
@@ -53,6 +86,76 @@
           "note": "step_window_m 是**判据本身的修正**：立板宽度可能窄于 0.1 m 扫描间距，按相邻格差会把一个台阶的高度劈成两半（实测 0.114 m 立板只读到 0.057），故台阶判定用 step_window_m（0.2 m）窗口内的最大升高；再乘 step_over_slope_ratio（1.8）扣掉「局部坡度能解释的升高」（陡坡不该被判成台阶）。其余阈值（step_min/max、slope_min/max、rough_std）是**初值**：按 187 格 0.1 m 网格的离散化能力与四足常见台阶尺度（0.10~0.20 m 立板）取，标注 calibration=pending——必须用真实地形回归标定后才可当验收判据用。"
         }
       },
+      "calibration": "pending"
+    },
+    {
+      "provider_id": "tag_detector",
+      "display_name": "视觉基准标签（tag）位姿与停靠",
+      "entry_point": "backend.perception_providers.tag_detector:TagDetector",
+      "sensor": "rgb",
+      "route": "external",
+      "inputs": {
+        "corners_px": "标签 4 角点像素 [[u,v]×4]，顺序 tl,tr,br,bl（任意外部检测器 ArUco/AprilTag 的输出）",
+        "tag_id": "标签 id（可选，原样回传）",
+        "undistorted": "角点是否已去畸变（默认 false；档位带畸变时不置 true 会明确报错）",
+        "image": "原始图像 —— **不支持**：需可选依赖，传入即明确报错（不伪造检测结果）"
+      },
+      "outputs": {
+        "detected": "本帧是否检测到标签",
+        "position_base": "标签在机身系 FLU 的位置（x 前 y 左 z 上）",
+        "distance_m": "平面距离（米）",
+        "bearing_rad": "方位角（= 对准所需转过的角度，左正）",
+        "pose": "相机光学系位姿 + 重投影误差 px（质量指标，正向投影复用 camera_projection）",
+        "dock": "H10 视觉停靠判定（3 cm / 3 cm / 2.5°，丢帧 0.7 s / 确认 2.5 s）",
+        "servo_cmd": "停靠伺服指令 [vx,vy,wz]（停靠到位或丢失时为全零）",
+        "action": "动作描述（detected / docked / lost）"
+      },
+      "params": {
+        "camera_profile_id": "ideal-pinhole-1920x1080",
+        "sensor_id": "camera",
+        "sensor_preset": "default",
+        "tag_size_m": 0.16,
+        "standoff_m": 0.6,
+        "kp_dist": 0.8,
+        "kp_yaw": 1.8,
+        "max_vx": 0.6,
+        "max_back_mps": 0.25,
+        "max_wz": 0.8,
+        "yaw_gate_deg": 45.0,
+        "corner_order": [
+          "tl",
+          "tr",
+          "br",
+          "bl"
+        ],
+        "actions": {
+          "detected": {
+            "kind": "visual_servo",
+            "note": "对准后前进/后退到 standoff_m"
+          },
+          "docked": {
+            "kind": "stop",
+            "note": "停靠到位（H10 视觉停靠容差），指令归零"
+          },
+          "lost": {
+            "kind": "stop",
+            "note": "本帧未看到标签：指令归零并累计丢帧（超时按 H10 判失败）"
+          }
+        },
+        "evidence": {
+          "sources": [
+            "registry/arrival_criteria.json#visual_dock（3 cm/3 cm/2.5°、丢帧 0.7/2.5 s，来自 unitree_go2_edu_movement 真机参数）",
+            "backend/camera_projection.py（内参/安装外参/正投影/可见性：逆解的正向对照）",
+            "backend/sensor_suite.py（相机安装外参）",
+            "info: AprilTag 与 ArUco 是两套互不识别（family 不同）的码，检测器要与场景标签一致"
+          ],
+          "note": "tag_size_m 0.16 m 与 standoff_m 0.6 m 是初值（calibration=pending）；停靠容差与丢帧阈值**不在此处**——走 H10 的 registry/arrival_criteria.json，避免同一件事两套口径。"
+        }
+      },
+      "requires_optional_dependency": [
+        "opencv-contrib-python",
+        "apriltag"
+      ],
       "calibration": "pending"
     }
   ]
