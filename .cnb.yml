@@ -27,6 +27,11 @@
         pip install --quiet --upgrade pip || true
         # 与 backend/requirements.txt 保持一致；httpx 是 starlette TestClient 依赖。
         pip install --quiet -r backend/requirements.txt httpx
+        echo "== offscreen GL backend (best-effort, never fatal) =="
+        # 无显示环境下离屏渲染需要**软件 GL**（libOSMesa）。这里尽力装：
+        # 装不上也不判红——backend/gl_env.offscreen_render_status() 是**实测探针**
+        # （真建 Renderer 渲一帧），不可用时对应用例自我 skip，不会把环境问题报成失败。
+        (apt-get update -qq && apt-get install -y -qq libosmesa6) || echo "libosmesa6 安装失败：渲染用例将 skip"
         echo "== path_bootstrap tests =="
         python -m unittest contracts.tests.test_path_bootstrap 2>&1 | tail -20
         echo "== pure-logic backend tests =="
