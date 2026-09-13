@@ -18,8 +18,12 @@
 #   LEGGED_STUDIO_MJLAB_VENV   训练 venv 落点（默认 adapters/mjlab/.venv）
 #   SMOKE_PROFILE              聚焦 profile（默认 go2-velocity-flat）
 #   SMOKE_ROBOT                聚焦 robot（默认 unitree_go2）
-#   SMOKE_NUM_ENVS             并行环境数（默认 64）
-#   SMOKE_ITERS                PPO 轮数（默认 20）
+#   SMOKE_NUM_ENVS             并行环境数（默认 16）
+#   SMOKE_ITERS                PPO 轮数（默认 5）
+#
+# 规模默认值取"判据强度不变、墙钟最短"档：门禁只守回路通不通（可导入 /
+# reward 有限 / 权重在动 / time_outs 已接线），这三件事在 16x5 上就能验到。
+# 需要更长冒烟时本地覆盖：SMOKE_NUM_ENVS=64 SMOKE_ITERS=20 bash <此脚本>
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -29,8 +33,8 @@ VENV_DIR="${LEGGED_STUDIO_MJLAB_VENV:-$ROOT/adapters/mjlab/.venv}"
 PY="$VENV_DIR/bin/python"
 ROBOT="${SMOKE_ROBOT:-unitree_go2}"
 PROFILE="${SMOKE_PROFILE:-go2-velocity-flat}"
-NUM_ENVS="${SMOKE_NUM_ENVS:-64}"
-ITERS="${SMOKE_ITERS:-20}"
+NUM_ENVS="${SMOKE_NUM_ENVS:-16}"
+ITERS="${SMOKE_ITERS:-5}"
 REPORT="${SMOKE_REPORT:-workspace/validation/cpu-training-smoke.json}"
 
 # 无显示环境下 MuJoCo 不需要 GL 上下文：显式关掉，避免容器缺 EGL/OSMesa 时报错。

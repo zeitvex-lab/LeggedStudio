@@ -75,6 +75,43 @@
     LEGGED_STUDIO_TRAIN_DEVICE: cpu
     # 限制线程数，避免 8 核 runner 上 torch/warp 线程超订导致抖动。
     OMP_NUM_THREADS: "4"
+    # 冒烟规模：门禁守的是"回路通不通"（栈可导入 / reward 有限 / 权重在动 /
+    # time_outs 已接线），不是"训得好不好"——判据强度不随规模线性增长，
+    # 而墙钟时间近似线性。64x20 折半再折半到 16x5，判据强度不变、时间砍掉大半。
+    # 需要更长冒烟时本地显式覆盖即可（脚本默认值与这里保持一致）。
+    SMOKE_NUM_ENVS: "16"
+    SMOKE_ITERS: "5"
+
+# CPU 训练冒烟门禁的"相关变更面"。
+#
+# 为什么要有它：`docker.build` 的上下文失效面覆盖 Dockerfile + by 清单，而镜像里
+# 固化了 torch/warp/mujoco_warp 整个 cpu venv —— 只要训练相关路径一提交，镜像整体
+# 重建（实测 5~7 min，见 issue #31 的耗时对照），而门禁本身只跑分钟级冒烟。
+# 用 ifModify 把"重建镜像"与"变更面"对齐：非训练改动不再付这笔钱。
+#
+# 清单口径 = 能改变"训练链路结论"的最小路径集：
+#   - 训练栈本体（adapters/mjlab、venv 供应脚本）
+#   - 门禁自身与其消费的启动路径（scripts / tools 的冒烟工具）
+#   - 训练控制面（backend 的 training* 与 health 深度体检）
+#   - 契约与资产（contracts 校验/训练不变量；assets 里被训练消费的机器人契约）
+#   - 镜像定义（Dockerfile 与流水线配置本身）
+.cpu-training-paths: &cpu-training-paths
+  - Dockerfile
+  - .cnb.yml
+  - adapters/mjlab/**
+  - backend/training/**
+  - backend/training_api.py
+  - backend/training_manager.py
+  - backend/training_config_helpers.py
+  - backend/health_api.py
+  - backend/health_layers.py
+  - backend/health_cards.py
+  - contracts/**
+  - assets/robots/**
+  - scripts/provision_cpu_training.sh
+  - scripts/cpu_training_smoke_gate.sh
+  - tools/validate_training_smoke.py
+  - tools/_smoke_one.py
 
 .sim2sim-env: &sim2sim-env
   runner:
@@ -130,6 +167,9 @@ main:
       <<: *main-env
     - name: cpu-training-smoke
       <<: *cpu-training-env
+      # 仅训练相关路径变更才触发（见 .cpu-training-paths 注释）：
+      # 无关改动（docs/web 等）不再触发 torch 镜像重建。
+      ifModify: *cpu-training-paths
       stages:
         - name: cpu-training-gate
           # 用 bash 执行：CNB 的 stage.script 默认由 sh 解释，Debian/dash 下
@@ -146,6 +186,8 @@ main:
       <<: *main-env
     - name: cpu-training-smoke-pr
       <<: *cpu-training-env
+      # 同 push 侧：PR 只在训练相关路径变更时才付镜像重建的代价。
+      ifModify: *cpu-training-paths
       stages:
         - name: cpu-training-gate
           # 同 push 侧：stage.script 由 sh 解释，不能用 `set -o pipefail`。
