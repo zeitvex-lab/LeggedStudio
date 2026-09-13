@@ -10,8 +10,10 @@
 # 清单见 .cnb.yml 的 `.docker-dev-image` 锚点（云原生开发/CI 三处共用）。
 #
 # 设计要点：
-#   - 必须 Python 3.12：pyproject.toml 钉的是 >=3.12,<3.13，且 /api/system/environment
-#     会校验 python_target_match，3.11 会让体检页报红（见 backend/api_complete.py）。
+#   - 基础镜像 = **Ubuntu 24.04 LTS**（noble）。此前是 python:3.12-bookworm
+#     （Debian 12），Ubuntu 24.04 的 python3 官方源就是 **3.12**，因此
+#     apt 直装即可满足 pyproject.toml 的 >=3.12,<3.13 与
+#     /api/system/environment 的 python_target_match，无需 PPA / 源码编译。
 #   - 控制面依赖（backend/requirements.txt）与 CI 完全一致；onnxruntime 是
 #     tools/sim2sim_headless.py CPU 验收器的运行时依赖，一并固化。
 #   - Playwright + Chromium 预装进入镜像层：浏览器是刚需（看 sim2sim / 截图调试），
@@ -21,31 +23,47 @@
 #     N 轮 PPO」。与 GPU 机器共用同一份 uv.lock，只换 torch 轮子来源
 #     （pytorch-cpu index），因此 device=auto 会稳定落 cpu。
 #     体积约 2 GB；只要控制面时用 --build-arg INSTALL_CPU_TRAINING=0。
-FROM python:3.12-bookworm
+FROM ubuntu:24.04
 
+# APT 包名迁移说明（bookworm → noble）。**已对 noble 的 apt 索引逐项核对**
+# （dists/noble{-updates}/{main,universe}/binary-amd64/Packages），改了三处：
+#   - libgl1-mesa-glx  → 24.04 已**删除**（两个源都查不到），改为 libgl1 + libglx-mesa0；
+#   - libglib2.0-0     → 24.04 因 time_t 64 位过渡**改名 libglib2.0-0t64**（旧名查不到，
+#                        不换包会在 apt 阶段直接 configure 失败，而不是运行期才出错）；
+#   - libglew2.2 / libosmesa6 → 名字不变，但只在 universe，故 keep 现状。
+# python3 在 noble 是 3.12.3（`python3.12` 包版本 3.12.3-1），符合 >=3.12,<3.13。
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_BREAK_SYSTEM_PACKAGES=1 \
     PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright \
     # 无显示环境：MuJoCo 不需要 GL 上下文，避免容器缺 EGL/OSMesa 时报错。
     MUJOCO_GL=disabled \
     # CPU 训练 venv 落点（仓库外）：避免被 bind mount 覆盖，仓库代码只消费它。
     LEGGED_STUDIO_MJLAB_VENV=/opt/legged-studio/mjlab-cpu/.venv
 
-# 系统层：git/ssh（WebIDE 需要）、中文字体（截图里会渲染中文页面）、
-# 图形/媒体库（MuJoCo + Chromium 无头运行所需）。
+# 系统层：python3（24.04 官方源即 3.12）+ venv + pip、git/ssh（WebIDE 需要）、
+# 中文字体（截图里会渲染中文页面）、图形/媒体库（MuJoCo + Chromium 无头运行所需）。
+#
+# 注意用的是 `python3` 而非 PATH 里的 `python`：Ubuntu 不提供 `python` 别名，
+# 而 backend 与 tools 的调用口径是 `python -m ...`（CI 与本镜像同一口径），
+# 因此显式建 /usr/local/bin/python → python3 软链，避免两套解释器命令漂移。
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 python3-venv python3-dev python3-pip \
         git openssh-server curl wget unzip ca-certificates \
         build-essential pkg-config \
-        libgl1 libegl1 libglib2.0-0 libglew2.2 libosmesa6 \
+        libgl1 libglx-mesa0 libegl1 libglib2.0-0t64 libglew2.2 libosmesa6 \
         fonts-noto-cjk fonts-dejavu-core \
+    && ln -sf /usr/bin/python3 /usr/local/bin/python \
+    && python --version \
     && rm -rf /var/lib/apt/lists/*
 
 # 控制面依赖先装（单独一层，backend/requirements.txt 不变则不失效）
 COPY backend/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt \
-    && pip install --no-cache-dir onnxruntime httpx playwright pytest pytest-playwright
+RUN pip install --no-cache-dir --break-system-packages -r /tmp/requirements.txt \
+    && pip install --no-cache-dir --break-system-packages \
+         onnxruntime httpx playwright pytest pytest-playwright
 
 # 浏览器固化进镜像（含系统依赖），开发环境与 E2E 秒起
 RUN playwright install --with-deps chromium
@@ -55,6 +73,18 @@ ARG UV_VERSION=0.11.8
 RUN curl -fsSL "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh \
     && install -m 0755 /root/.local/bin/uv /usr/local/bin/uv \
     && uv --version
+
+# ---------------------------------------------------------------------------
+# 开发期 MCP 工具链（`.cnb/mcp/servers.json` 的 11 条，见 .cnb/mcp/README.md）
+# ---------------------------------------------------------------------------
+# 只装 runner（node/npx 与 uvx），**不预装各 server 本体**：MCP server 是
+# 开发期按需拉取的工具，固化进镜像会让「控制面镜像」与「工具链」两个关注点
+# 耦合，还会拖慢每次进环境。这里只提供能跑 npx/uvx 的底座。
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/* \
+    && node --version && npm --version \
+    && npx -y @modelcontextprotocol/server-filesystem --help >/dev/null 2>&1 || true
 
 # ---------------------------------------------------------------------------
 # CPU 训练链路（默认装；--build-arg INSTALL_CPU_TRAINING=0 可跳过）

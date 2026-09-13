@@ -43,6 +43,10 @@
         python tools/audit_porting_admission.py
         echo "== capability packs (B1: 14 packs validate + refs sha256) =="
         python tools/validate_packs.py
+        echo "== MCP 工具链自检（servers.json 声明 + 自研 server 可导入）=="
+        # 4 个 tools/mcp/*_server.py 只依赖 mujoco / onnxruntime（本阶段已装），
+        # 因此无需额外依赖即可自检；防止"加了 server 忘了登记"或改坏导入。
+        python -m unittest backend.test_mcp_servers
 
 # 云原生开发 / CI 共用的环境镜像（根 Dockerfile）。
 #
@@ -196,6 +200,13 @@ $:
               echo "           冒烟: bash scripts/cpu_training_smoke_gate.sh"
             else
               echo "CPU 训练: 未供应（跑 scripts/provision_cpu_training.sh）"
+            fi
+            # MCP 工具链（开发期，不进镜像）：打印配置路径 + 自检自研 server。
+            if [ -f .cnb/mcp/servers.json ]; then
+              echo "MCP:      $(pwd)/.cnb/mcp/servers.json （$(python -c 'import json;print(len(json.load(open(".cnb/mcp/servers.json"))["mcpServers"]))') 条 server，见 .cnb/mcp/README.md）"
+              python -m unittest backend.test_mcp_servers >/dev/null 2>&1 \
+                && echo "         自研 server 自检: OK" \
+                || echo "         自研 server 自检: 失败（python -m unittest backend.test_mcp_servers -v）"
             fi
             echo "工作台:   $PREVIEW/web/workbench.html"
             echo "sim2sim:  $PREVIEW/web/sim2sim/index.html"

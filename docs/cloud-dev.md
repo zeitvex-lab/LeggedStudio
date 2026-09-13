@@ -2,6 +2,7 @@
 
 点仓库页面的 **「Legged Studio 开发」** 按钮，即可获得一个开箱即用的在线开发环境：
 
+- 基础镜像 = **Ubuntu 24.04 LTS**（noble），Python 3.12 来自 Ubuntu 官方源（不是 PPA）；
 - 依赖（`backend/requirements.txt` + `onnxruntime`）已固化在镜像里，**每次进入都不用重新配环境**；
 - Chromium + Playwright 预装，浏览器 sim2sim 可直接看、可直接截图；
 - **CPU 训练链路已就绪**：mjlab 的 `cpu` extra 装在镜像内的隔离 venv
@@ -26,11 +27,47 @@
 
 ```
 Dockerfile                       # 唯一环境事实源：云原生开发与 CI 共用同一镜像
-.cnb.yml  $: vscode              # 启动流程：起后端 + 打印预览地址（不做重复安装）
+.cnb.yml  $: vscode              # 启动流程：起后端 + 打印 MCP/预览地址（不做重复安装）
 .cnb.yml  .docker-dev-image      # 上述镜像的 docker.build 配置（含 by 文件清单）
 .cnb/settings.yml                # 入口按钮名称 / CPU 核数 / 自动打开 WebIDE
+.cnb/mcp/servers.json            # 开发期 MCP 工具链（11 条，见 .cnb/mcp/README.md）
+tools/mcp/                       # 4 个自研 MCP server（契约 / MuJoCo / onnx / 资源库）
 scripts/provision_cpu_training.sh  # CPU 训练 venv 供应（镜像构建与本地同一脚本）
 scripts/cpu_training_smoke_gate.sh # CPU 训练冒烟门禁（CI 与本地同一命令）
+```
+
+### 基础镜像与 Python 来源
+
+`FROM ubuntu:24.04`，Python 3.12 **apt 直装**（`python3` 在 noble 官方源就是 3.12）：
+
+- 满足 `pyproject.toml` 的 `>=3.12,<3.13` 与 `/api/system/environment` 的
+  `python_target_match`（3.11 会让体检页报红）；
+- 不引 deadsnakes PPA —— 避免把外部信任源引进"唯一环境事实源"，代价是多一次
+  `apt-get install python3 python3-venv python3-dev python3-pip`（约 30 秒）；
+- Ubuntu 不提供 `python` 别名，镜像里显式建了 `/usr/local/bin/python → python3`，
+  与 CI（`python -m ...`）保持同一调用口径。
+
+> 由 `python:3.12-bookworm`（Debian 12）迁到 `ubuntu:24.04` 时，apt 包名要跟着改：
+> `libgl1-mesa-glx` 在 noble 已删除，改为 `libgl1` + `libglx-mesa0`。
+
+### MCP 工具链（开发期，不进镜像）
+
+镜像只装 `npx` / `uvx` 两个 runner，**不预装各 MCP server 本体**（它们是按需拉取的
+开发期工具，写进镜像会让"控制面镜像"和"工具链"两个关注点耦合）。清单与选型理由见
+[`../.cnb/mcp/README.md`](../.cnb/mcp/README.md)，共 11 条：
+
+- 通用系 6：`filesystem` / `git` / `github` / `fetch` / `playwright` / `sqlite`
+  （其中 `playwright` 最刚需——本仓所有 sim2sim 结论都是浏览器实测得出的）；
+- 机器人专用系 5：`tensorboard` + 4 个**自研** server
+  （`mujoco` / `onnx` / `resources` / `contracts`，实现在 `tools/mcp/`）。
+
+自研 server 只用 `mujoco` / `onnxruntime` / 标准库，**不增依赖**，因此
+`backend/requirements.txt` 与 `.docker-dev-image.by` 清单都不用改。自检：
+
+```bash
+python -m unittest backend.test_mcp_servers -v          # 声明 + 4 个 server 自检 + 真调用
+python -m tools.mcp.contracts_server --selftest         # 单条 server 的工具表
+python -m tools.mcp.contracts_server                    # stdio 起服务（JSON-RPC）
 ```
 
 依赖与浏览器都在镜像层，`stages` 里**不放安装命令**，所以进入环境是秒级的。
