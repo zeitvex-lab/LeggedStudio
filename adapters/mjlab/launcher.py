@@ -194,14 +194,18 @@ class TrainingLauncher:
         return f"train_{timestamp}"
 
     def _find_mjlab_venv(self) -> Optional[Path]:
-        """查找 MJLab 虚拟环境"""
-        mjlab_venv = Path(__file__).parent / ".venv"
+        """查找 MJLab 虚拟环境（支持 LEGGED_STUDIO_MJLAB_VENV 覆盖，见 path_bootstrap）"""
+        from contracts.path_bootstrap import adapter_venv_dir
+
+        mjlab_venv = adapter_venv_dir(default=Path(__file__).parent / ".venv")
         return mjlab_venv if mjlab_venv.exists() else None
 
     @staticmethod
     def _venv_python(venv: Path) -> Path:
         """Resolve the interpreter layout on Windows and POSIX hosts."""
-        return venv / ("Scripts" if os.name == "nt" else "bin") / ("python.exe" if os.name == "nt" else "python")
+        from contracts.path_bootstrap import venv_python
+
+        return venv_python(venv)
 
     @staticmethod
     def _python_has_cuda(python_exe: Path) -> bool:

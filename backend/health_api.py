@@ -24,13 +24,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _adapter_python() -> Path:
-    """适配器 venv 的 python：Windows 为 Scripts/python.exe，POSIX 为 bin/python。"""
-    venv = ROOT / "adapters" / "mjlab" / ".venv"
-    for relative in (Path("Scripts") / "python.exe", Path("bin") / "python"):
-        candidate = venv / relative
-        if candidate.is_file():
-            return candidate
-    return venv / "Scripts" / "python.exe"
+    """适配器 venv 的 python（落点由 path_bootstrap 统一解析）。
+
+    返回路径可能不存在——调用方按存在性判断"运行时未配置"，从而给出可执行的
+    中文处置，而不是在这里静默回退到一个错误的解释器。
+    """
+    from contracts.path_bootstrap import adapter_python
+
+    return adapter_python(default=ROOT / "adapters" / "mjlab" / ".venv")
 
 
 ADAPTER_PY = _adapter_python()
@@ -70,22 +71,29 @@ async def preflight(depth: str = "fast"):
     started = time.time()
     layers: list[dict] = []
 
-    # L0 硬件/GPU：无 GPU 只告警，不阻断（CPU 可做仿真与冒烟验证）
+    # L0 硬件/GPU：三态（cuda / cpu-only / unavailable），无 GPU 只告警不阻断。
     try:
         gpu = gpu_probe()
         devices = gpu.get("devices") or []
-        if gpu.get("available") and devices:
+        mode = gpu.get("mode") or ("cuda" if devices else "unavailable")
+        if mode == "cuda" and devices:
             layers.append(_layer(
                 "L0", "GPU 与驱动", "pass",
                 f"检测到 {len(devices)} 块 GPU：{devices[0].get('name', '?')}",
-                detail=gpu,
+                detail=gpu, mode=mode,
+            ))
+        elif mode == "cpu-only":
+            layers.append(_layer(
+                "L0", "GPU 与驱动", "warn",
+                f"未检测到 GPU/CUDA（{gpu.get('reason') or '无设备'}）——CPU 训练链路已就绪："
+                "可做仿真与最小训练冒烟，正式训练建议使用 NVIDIA GPU",
+                fix=gpu.get("action"), detail=gpu, mode=mode,
             ))
         else:
             layers.append(_layer(
                 "L0", "GPU 与驱动", "warn",
-                f"未检测到 GPU/CUDA（{gpu.get('reason') or '无设备'}）——回退 CPU："
-                "可做仿真与最小训练冒烟，正式训练建议使用 NVIDIA GPU",
-                detail=gpu,
+                "既无 GPU，训练栈也未供应——L1 会因缺少 torch/mjlab 报红",
+                fix=gpu.get("action") or _fix_advice("L0"), detail=gpu, mode=mode,
             ))
     except Exception as exc:  # noqa: BLE001
         layers.append(_layer("L0", "GPU 与驱动", "fail", f"GPU 探测失败: {exc}", fix=_fix_advice("L0")))

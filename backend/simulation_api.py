@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import json
 import math
-import os
 import struct
 import subprocess
 import sys
@@ -246,9 +245,12 @@ async def run_policy_acceptance(payload: dict[str, Any]) -> dict[str, Any]:
     output = _acceptance_report_path(root, policy_rel)
 
     script = Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / "policy_acceptance.py"
-    venv_dir = Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / ".venv"
-    venv_python = venv_dir / ("Scripts" if os.name == "nt" else "bin") / ("python.exe" if os.name == "nt" else "python")
-    python_exe = str(venv_python) if venv_python.exists() else sys.executable
+    from contracts.path_bootstrap import adapter_python
+
+    # 适配器 venv 落点由 path_bootstrap 统一解析；缺失时退回当前解释器
+    # （验收脚本只用 mujoco/onnxruntime，不依赖训练栈）。
+    adapter_interpreter = adapter_python(default=Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / ".venv")
+    python_exe = str(adapter_interpreter) if adapter_interpreter.exists() else sys.executable
     command = [python_exe, str(script), "--package", str(root), "--policy", str(policy_path), "--output", str(output)]
     try:
         completed = await asyncio.wait_for(

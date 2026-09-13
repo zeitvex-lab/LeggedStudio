@@ -96,5 +96,74 @@ class PathBootstrapTest(unittest.TestCase):
             sys.path[:] = before
 
 
+class AdapterInterpreterResolutionTest(unittest.TestCase):
+    """训练适配器解释器解析：单一事实源，支持三组覆盖环境变量。
+
+    这些测试保护"训练栈落点只有一处定义"这条纪律——曾经它被硬编码在 10 个
+    调用点，导致镜像里的 CPU 训练 venv（仓库外）无法被发现。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.pb = _load_path_bootstrap()
+
+    def setUp(self):
+        import os
+
+        self._saved = {name: os.environ.get(name) for name in
+                       (self.pb.ADAPTER_VENV_ENV, *self.pb.ADAPTER_PYTHON_ENVS)}
+        for name in self._saved:
+            os.environ.pop(name, None)
+
+    def tearDown(self):
+        import os
+
+        for name, value in self._saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+    def test_default_venv_layout_is_posix(self):
+        self.assertEqual(
+            self.pb.venv_python("/x/y", platform="linux"),
+            Path("/x/y/bin/python"),
+        )
+
+    def test_default_venv_layout_is_windows(self):
+        self.assertEqual(
+            self.pb.venv_python("/x/y", platform="win32"),
+            Path("/x/y/Scripts/python.exe"),
+        )
+
+    def test_venv_env_overrides_default(self):
+        import os
+
+        os.environ[self.pb.ADAPTER_VENV_ENV] = "/opt/legged-studio/mjlab-cpu/.venv"
+        self.assertEqual(
+            self.pb.adapter_venv_dir(),
+            Path("/opt/legged-studio/mjlab-cpu/.venv"),
+        )
+        self.assertEqual(
+            self.pb.adapter_python(),
+            Path("/opt/legged-studio/mjlab-cpu/.venv/bin/python"),
+        )
+
+    def test_explicit_interpreter_env_wins_over_venv_dir(self):
+        import os
+
+        os.environ[self.pb.ADAPTER_VENV_ENV] = "/opt/legged-studio/mjlab-cpu/.venv"
+        for name in self.pb.ADAPTER_PYTHON_ENVS:
+            os.environ[name] = f"/custom/{name}/python"
+        # 显式解释器优先级最高（桌面启动器 / 精简运行时的既有约定）
+        self.assertEqual(self.pb.adapter_python(), Path("/custom/LEGGED_STUDIO_MJLAB_PYTHON/python"))
+
+    def test_venv_dir_falls_back_to_default(self):
+        self.assertEqual(
+            self.pb.adapter_venv_dir(default="/fallback/venv"),
+            Path("/fallback/venv"),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

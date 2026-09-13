@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "legged-studio"
-version = "0.50.0"
+version = "0.51.0"
 description = "Legged Robot RL Studio - Full-stack tool for training, evaluation, and deployment"
 readme = "README.md"
 license = "MIT"
@@ -40,7 +40,7 @@ Repository = "https://github.com/zeitvex/legged-studio"
 packages = ["backend", "contracts"]
 
 # Playwright E2E 默认不随单元测试跑（需要浏览器 + 真实后端）。
-# 跑法：pytest tests/e2e -v  （依赖 .ide/Dockerfile 或 requirements-dev.txt）
+# 跑法：pytest tests/e2e -v  （依赖根 Dockerfile 或 requirements-dev.txt）
 [tool.pytest.ini_options]
 testpaths = ["tests/e2e"]
 markers = ["e2e: 浏览器端到端测试（需 playwright install chromium）"]

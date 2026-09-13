@@ -179,13 +179,16 @@ async def gpu_profiles():
 
 
 def _adapter_venv() -> Path:
-    return Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / ".venv"
+    """适配器 venv 落点（支持 LEGGED_STUDIO_MJLAB_VENV 覆盖，见 path_bootstrap）。"""
+    from contracts.path_bootstrap import adapter_venv_dir
+
+    return adapter_venv_dir(default=Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / ".venv")
 
 
 def _adapter_python() -> Path:
-    scripts = "Scripts" if sys.platform == "win32" else "bin"
-    exe = "python.exe" if sys.platform == "win32" else "python"
-    return _adapter_venv() / scripts / exe
+    from contracts.path_bootstrap import venv_python
+
+    return venv_python(_adapter_venv())
 
 
 def _adapter_venv_exists() -> bool:
