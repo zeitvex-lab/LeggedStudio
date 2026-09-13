@@ -83,14 +83,17 @@
     build: *docker-dev-image
   stages:
     - name: headless-sim2sim-gate
+      # 与 cpu-training-gate 同理：`docker.build` 出来的镜像里 /bin/sh 是 dash，
+      # stage.script 由 sh 解释时 `set -o pipefail` 直接报 Illegal option，
+      # 门禁会在开局就退出（判据压根没跑）。用 bash 显式执行规避。
       script: |
-        set -eo pipefail
         echo "== CPU headless sim2sim acceptance (47 policies) =="
         # 既有 3 条特技/跑酷判据未过（go2 backflip/jump/pie-parkour）已记录在基线里；
         # 门禁只守"不许新增失败/退化"，全量基线刷新用 --write-baseline。
-        python tools/sim2sim_headless.py --seconds 3 \
-          --baseline tools/baselines/sim2sim_headless_baseline.json \
-          --output-dir workspace/validation
+        exec bash -o pipefail -c '
+        set -e
+        python tools/sim2sim_headless.py --seconds 3 --baseline tools/baselines/sim2sim_headless_baseline.json --output-dir workspace/validation
+        '
 
 frontend:
   push:
@@ -127,12 +130,14 @@ main:
       <<: *cpu-training-env
       stages:
         - name: cpu-training-gate
+          # 用 bash 执行：CNB 的 stage.script 默认由 sh 解释，Debian/dash 下
+          # `set -o pipefail` 会直接报 "Illegal option"（本门禁曾因此在 167ms 内失败，
+          # 判据压根没跑）。这里显式交给 bash，门禁脚本自带 set -euo pipefail。
           script: |
-            set -eo pipefail
             echo "== CPU 训练冒烟门禁 =="
             # 逻辑集中在 scripts/cpu_training_smoke_gate.sh：CI 与本地同一条命令，
             # 避免"CI 里跑的口径"和"人本地复现的口径"漂移。
-            bash scripts/cpu_training_smoke_gate.sh
+            exec bash scripts/cpu_training_smoke_gate.sh
 
   pull_request:
     - name: backend-test-pr
@@ -141,9 +146,10 @@ main:
       <<: *cpu-training-env
       stages:
         - name: cpu-training-gate
+          # 同 push 侧：stage.script 由 sh 解释，不能用 `set -o pipefail`。
+          # 显式 exec bash 让门禁脚本自己的 set -euo pipefail 生效。
           script: |
-            set -eo pipefail
-            bash scripts/cpu_training_smoke_gate.sh
+            exec bash scripts/cpu_training_smoke_gate.sh
 
 # 云原生开发：点「云原生开发」按钮即建环境。
 # 环境本身固化在根 Dockerfile（控制面依赖 + Chromium + mjlab cpu extra 全在
