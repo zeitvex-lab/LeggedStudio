@@ -47,26 +47,64 @@ def ensure_headless_gl() -> str | None:
     return None
 
 
-def offscreen_render_status() -> tuple[bool, str]:
+#: 探针结果的进程级缓存（同进程后端不会变；``refresh=True`` 可强制重测）
+_PROBE_CACHE: tuple[bool, str] | None = None
+
+#: 探针用的最小可渲染场景：只要"能建上下文并出帧"，不关心画了什么
+_PROBE_SCENE = """
+<mujoco>
+  <worldbody><body name="probe"><geom type="sphere" size="0.1"/></body></worldbody>
+</mujoco>
+"""
+
+
+def _probe_offscreen_render(backend: str) -> tuple[bool, str]:
+    """真的建一次 ``mujoco.Renderer`` 并渲染一帧；失败即环境结论。"""
+    try:
+        import mujoco
+    except Exception as exc:  # pragma: no cover - 导入失败本身即结论
+        return False, f"无法导入 mujoco：{exc}"
+    try:
+        model = mujoco.MjModel.from_xml_string(_PROBE_SCENE)
+        data = mujoco.MjData(model)
+        mujoco.mj_forward(model, data)
+        renderer = mujoco.Renderer(model, height=16, width=16)
+        try:
+            renderer.update_scene(data)
+            renderer.render()
+        finally:
+            renderer.close()
+    except BaseException as exc:  # GL 失败类型五花八门（RuntimeError / OSError / 平台库缺失）
+        return False, f"离屏后端 {backend!r} 实测不可用（{type(exc).__name__}: {exc}）"
+    return True, backend
+
+
+def offscreen_render_status(refresh: bool = False) -> tuple[bool, str]:
     """当前进程是否真的能做离屏渲染，附一句可读的原因。
 
     给「要渲染」的调用方（单测、健康检查、预览端点）一个**显式前置判定**，
-    避免把"环境不允许渲染"误报成"代码有 bug"。判定顺序与 MuJoCo 自身一致：
-    ``MUJOCO_GL=disabled`` 是显式关闭；否则看后端能否提供 ``GLContext``。
+    避免把"环境不允许渲染"误报成"代码有 bug"。
+
+    **为什么必须实测而不是看属性**（2026-09-13 CI 实测教训）：旧版只检查
+    ``mujoco.rendering.classic.gl_context`` 有没有 ``GLContext`` 属性——在没有
+    libEGL / libOSMesa 的容器（CI 的 ``python:3.12`` 镜像）里，该模块**能导入、
+    属性也在**，于是判定"可用"，直到真正 ``mjr_makeContext`` 才抛
+    ``an OpenGL platform library has not been loaded into this process``。
+    结果：单测的 skip 守卫失效 → 把环境问题报成代码失败。现在改为**建一次真实
+    渲染上下文并渲染一帧**（16×16 的小模型），拿到的是同一件事的**实测结论**。
 
     Returns:
         ``(可用?, 原因或后端名)``
     """
+    global _PROBE_CACHE
+    if _PROBE_CACHE is not None and not refresh:
+        return _PROBE_CACHE
     backend = ensure_headless_gl() or os.environ.get("MUJOCO_GL") or "unset"
     if backend == "disabled":
-        return False, "MUJOCO_GL=disabled：当前环境显式关闭了离屏渲染"
-    try:
-        from mujoco.rendering.classic import gl_context
-    except Exception as exc:  # pragma: no cover - 导入失败本身即结论
-        return False, f"无法导入 MuJoCo GL 后端：{exc}"
-    if not hasattr(gl_context, "GLContext"):
-        return False, f"离屏后端 {backend!r} 不可用（MuJoCo 未提供 GLContext）"
-    return True, backend
+        _PROBE_CACHE = (False, "MUJOCO_GL=disabled：当前环境显式关闭了离屏渲染")
+        return _PROBE_CACHE
+    _PROBE_CACHE = _probe_offscreen_render(backend)
+    return _PROBE_CACHE
 
 
 def render_error_hint(exc: BaseException) -> str:
