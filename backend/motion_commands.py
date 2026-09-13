@@ -230,6 +230,49 @@ def follow_controller_spec() -> dict[str, Any]:
     return dict(spec)
 
 
+def geometric_tracker_spec() -> dict[str, Any]:
+    """H14 几何路径跟踪控制器参数（唯一真值在 ``registry/motion_commands.json#geometric_tracker``）。
+
+    与 :func:`local_planner_spec` / :func:`follow_controller_spec` 同源同理：数字是数据，
+    缺块即报错、不回退默认值。
+    """
+    spec = load_registry("motion_commands").get("geometric_tracker")
+    if not isinstance(spec, dict) or not spec:
+        raise ValueError(
+            "registry/motion_commands.json 缺 geometric_tracker 块；"
+            "跟踪参数只有这一处真值，缺失即报错（不回退到代码默认值）"
+        )
+    return dict(spec)
+
+
+def route_postprocess_spec() -> dict[str, Any]:
+    """H13 规划后处理参数（唯一真值在 ``registry/motion_commands.json#route_postprocess``）。
+
+    与 :func:`local_planner_spec` 同源同理：数字是数据，缺块即报错、不回退默认值。
+    """
+    spec = load_registry("motion_commands").get("route_postprocess")
+    if not isinstance(spec, dict) or not spec:
+        raise ValueError(
+            "registry/motion_commands.json 缺 route_postprocess 块；"
+            "后处理参数只有这一处真值，缺失即报错（不回退到代码默认值）"
+        )
+    return dict(spec)
+
+
+def local_planner_spec() -> dict[str, Any]:
+    """H11 局部采样规划器（DWA）参数（唯一真值在 ``registry/motion_commands.json#local_planner``）。
+
+    与 :func:`follow_controller_spec` 同源同理：数字是数据，缺块即报错、不回退默认值。
+    """
+    spec = load_registry("motion_commands").get("local_planner")
+    if not isinstance(spec, dict) or not spec:
+        raise ValueError(
+            "registry/motion_commands.json 缺 local_planner 块；"
+            "局部规划参数只有这一处真值，缺失即报错（不回退到代码默认值）"
+        )
+    return dict(spec)
+
+
 def motion_command_selftest() -> dict[str, Any]:
     """离线自检：限幅裁剪、死区、非有限值拒绝、限速方向正确性、档位差异。"""
     cases: list[dict[str, Any]] = []

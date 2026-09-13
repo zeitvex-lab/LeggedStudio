@@ -66,7 +66,10 @@
           <span><i class="swatch obs"></i>障碍</span>
           <span><i class="swatch wu"></i><i class="swatch wp"></i>航点</span>
           <span><i class="swatch start"></i>起点</span>
-          <span><i class="swatch route"></i>规划路径</span>
+          <span><i class="swatch" style="background:#3fb950"></i>净空 OK</span>
+          <span><i class="swatch" style="background:#d29922"></i>TIGHT</span>
+          <span><i class="swatch" style="background:#f85149"></i>VIOLATION</span>
+          <span><i class="swatch" style="background:#a371f7"></i>INTERSECT</span>
         </div>
       </div>
 
@@ -89,7 +92,7 @@
     const API = window.location.origin, $ = s => document.querySelector(s);
     let maps = [], currentMap = null, bounds = [-5,5,-5,5];
     let obstacles = [], waypoints = [];
-    let tool = 'obstacle', route = [], planMeta = null;
+    let tool = 'obstacle', route = [], planMeta = null, review = null;
     let canvas, ctx, scaleX, scaleY, offsetX, offsetY;
 
     function toast(msg, type='success'){ const t=$('#toast'); t.textContent=msg; t.hidden=false; t.style.borderColor=type==='danger'?'rgba(248,81,73,.5)':'var(--border)'; clearTimeout(t._timer); t._timer=setTimeout(()=>t.hidden=true,2600); }
@@ -127,12 +130,25 @@
         ctx.fillStyle = 'rgba(248,81,73,0.7)'; ctx.strokeStyle='#f85149'; ctx.lineWidth=1;
         ctx.fillRect(sx-w/2, sy-h/2, w, h); ctx.strokeRect(sx-w/2, sy-h/2, w, h);
       });
-      // route
+      // route（H13：按净空等级**分段着色** —— TIGHT 标黄、VIOLATION 红/INTERSECT 紫）
       if(route.length>1){
-        ctx.strokeStyle = '#d29922'; ctx.lineWidth=2.5; ctx.setLineDash([]);
-        ctx.beginPath();
-        route.forEach((p,i)=>{ const [sx,sy]=toScreen(p[0],p[1]); i===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy); });
-        ctx.stroke();
+        const colorOf = s => s==='INTERSECT' ? '#a371f7' : s==='VIOLATION' ? '#f85149' : s==='TIGHT' ? '#d29922' : '#3fb950';
+        const segs = review && Array.isArray(review.segments) ? review.segments : [];
+        if(segs.length === route.length-1){
+          ctx.setLineDash([]);
+          segs.forEach((seg,i)=>{
+            const [ax,ay]=toScreen(route[i][0],route[i][1]);
+            const [bx,by]=toScreen(route[i+1][0],route[i+1][1]);
+            ctx.strokeStyle = colorOf(seg.status);
+            ctx.lineWidth = seg.status==='OK' ? 2 : 3;
+            ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+          });
+        }else{
+          ctx.strokeStyle = '#d29922'; ctx.lineWidth=2.5; ctx.setLineDash([]);
+          ctx.beginPath();
+          route.forEach((p,i)=>{ const [sx,sy]=toScreen(p[0],p[1]); i===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy); });
+          ctx.stroke();
+        }
       }
       // waypoints
       waypoints.forEach((wp,i)=>{
@@ -177,7 +193,7 @@
       const m = data.map;
       currentMap = m; bounds = m.bounds; obstacles = (m.obstacles||[]).map(o=>Array.isArray(o)?[...o]:[o[0],o[1],o[2],o[3]]);
       waypoints = (m.waypoints||[]).map(w=>[...w]);
-      route = []; planMeta = null; $('#routeOutput').textContent='';
+      route = []; planMeta = null; review = null; $('#routeOutput').textContent='';
       computeTransform(); draw();
       $('#status').textContent = '地图：'+m.label+' · 障碍 '+obstacles.length+' · 航点 '+waypoints.length;
     }
@@ -189,11 +205,22 @@
           method:'POST', headers:{'Content-Type':'application/json'},
           body:JSON.stringify({ map_id:currentMap.id, obstacles, waypoints, algorithm:$('#algorithm').value })
         });
-        route = data.combined_path; planMeta = data;
+        route = (data.route_review && data.route_review.path) || data.combined_path; planMeta = data;
+        review = data.route_review || null;
         draw();
         const seg = data.segments;
-        $('#routeOutput').textContent = data.algorithm.toUpperCase()+' · 总长 '+data.total_cost_m+' m\n'+seg.map(s=>'  段'+s.from_index+'→'+s.to_index+': '+s.cost_m+' m（扩展 '+s.expanded+' 节点）').join('\n');
-        $('#status').textContent = '规划完成 · '+seg.length+' 段 · '+data.total_cost_m+' m';
+        const lines = [];
+        const s = review && review.summary;
+        if(s){
+          lines.push(`净空评审（足迹 ${review.footprint_radius_m} m + 余量 → 需 ${review.required_clearance_m} m）`);
+          lines.push(`  OK ${s.OK} · TIGHT ${s.TIGHT} · VIOLATION ${s.VIOLATION} · INTERSECT ${s.INTERSECT} · 最差 ${s.worst_status}`);
+          if(s.blocked) lines.push('  ⚠ 含 VIOLATION/INTERSECT —— **拒绝下发**');
+        }
+        lines.push(seg.map(t=>'  段'+t.from_index+'→'+t.to_index+': '+t.cost_m+' m（扩展 '+t.expanded+' 节点）').join('\n'));
+        $('#routeOutput').textContent = lines.join('\n');
+        $('#status').textContent = '规划完成 · '+seg.length+' 段 · '+data.total_cost_m+' m'
+          + (s ? ' · 净空最差 '+s.worst_status + (s.blocked ? '（拒绝下发）' : '') : '');
+        if(s && s.blocked) toast('路径净空违规，已拒绝下发','danger');
       }catch(e){ toast('规划失败：'+e.message,'danger'); $('#routeOutput').textContent=''; }
     }
 

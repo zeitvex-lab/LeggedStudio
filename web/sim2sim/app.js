@@ -10,9 +10,17 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import loadMujoco from "./vendor/mujoco/mujoco.js";
 import { createObservationSystems } from "./obs/observation_builders.js?v=0.44.0";
 import { createPieDepth } from "./pie_depth.js?v=0.46.0";
+// 观测面板绘制器（深度图 / 2D 轨迹平面 / odom+IMU 读数）。纯函数 + 注入 ctx：
+// 能画什么由参数决定，模块不读 sim / DOM，所以 Node 单测（sensor_panels.test.mjs）能覆盖。
+import {
+  drawDepthFrame,
+  drawTrail,
+  observationReadout,
+} from "./sensor_panels.js";
 import { MotionLoader } from "./motion_loader.js";
 import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
 import { applyTerrainSwitch, createNavigationRunner, poseFromQpos, NAVIGATION_VERSION } from "./navigation.js?v=0.53.0";
+import { fanSegments, fanLineSegments } from "./dwa_fan.js?v=0.53.0";
 // Loaded on demand only for an explicitly selected policy.
 let ort = null;
 const ORT_DIST_URL = new URL("./vendor/onnxruntime-web/dist/", import.meta.url);
@@ -272,6 +280,15 @@ const elements = {
   jumpHeightButtons: Array.from(document.querySelectorAll("[data-jump-height]")),
   cruiseButtons: Array.from(document.querySelectorAll("[data-cruise-speed]")),
   expertBars: document.querySelector("#expertBars"),
+  depthCanvas: document.querySelector("#depthCanvas"),
+  trailCanvas: document.querySelector("#trailCanvas"),
+  depthPanelNote: document.querySelector("#depthPanelNote"),
+  trailPanelNote: document.querySelector("#trailPanelNote"),
+  readoutNote: document.querySelector("#readoutNote"),
+  odomPosition: document.querySelector("#odomPosition"),
+  odomYaw: document.querySelector("#odomYaw"),
+  imuAngular: document.querySelector("#imuAngular"),
+  odomBaseHeight: document.querySelector("#odomBaseHeight"),
   rollBar: document.querySelector("#rollBar"),
   pitchBar: document.querySelector("#pitchBar"),
   rollVal: document.querySelector("#rollVal"),
@@ -359,6 +376,8 @@ const sim = {
   ready: false,
   // 感知导航（H3）：URL ?nav=<map_id> 时由服务端 /api/navigation/plan 装配，浏览器只跟随
   navigation: null,
+  // H11 候选扇形：候选由服务端算（/api/navigation/local-plan），浏览器只成形与上色（?fan=0 可关）
+  dvaFan: null,
   loadingTerrain: false,
   pendingTerrain: "",
   currentTerrain: "",
@@ -4968,8 +4987,81 @@ function updateHud(force) {
     if (elements.pitchVal) elements.pitchVal.textContent = `${((pitch * 180) / Math.PI).toFixed(1)}°`;
   }
   elements.simClock.textContent = `时间 ${sim.data.time.toFixed(2)}`;
+  updateSensorPanels();
   updateExpertBars();
   publishDebugState();
+}
+
+// ---------------------------------------------------------------------------
+// 观测面板：深度图 / 2D 轨迹平面 / odom+IMU 读数
+// ---------------------------------------------------------------------------
+const sensorContexts = { depth: null, trail: null };
+
+/** 懒取 canvas 2D ctx（面板可被 URL/断点隐藏，取不到就安静跳过）。 */
+function sensorContext(key) {
+  if (sensorContexts[key]) return sensorContexts[key];
+  const canvas = key === "depth" ? elements.depthCanvas : elements.trailCanvas;
+  if (!canvas || typeof canvas.getContext !== "function") return null;
+  sensorContexts[key] = canvas.getContext("2d");
+  return sensorContexts[key];
+}
+
+/** 机身偏航（与 updateHud 的 roll/pitch 用同一套四元数，避免两处各算一套）。 */
+function baseYaw() {
+  const q = sim.qpos.subarray(3, 7);
+  return Math.atan2(2 * (q[0] * q[3] + q[1] * q[2]), 1 - 2 * (q[2] ** 2 + q[3] ** 2));
+}
+
+function updateSensorPanels() {
+  if (!sim.qpos) return;
+  const pose = { x: sim.qpos[0], y: sim.qpos[1], yaw: baseYaw() };
+  const angular = sim.qvel && sim.qvel.length >= 6 ? Array.from(sim.qvel.subarray(3, 6)) : null;
+
+  // ① odom / IMU 读数（缺值显示「—」，不是 0.00——那会看起来像真读数）
+  const readout = observationReadout({ pose, angular, baseHeight: sim.qpos[2] });
+  if (elements.odomPosition) elements.odomPosition.textContent = readout.position;
+  if (elements.odomYaw) elements.odomYaw.textContent = readout.yaw;
+  if (elements.imuAngular) elements.imuAngular.textContent = readout.angular;
+  if (elements.odomBaseHeight) elements.odomBaseHeight.textContent = readout.baseHeight;
+
+  // ② 深度图：帧本来就在算（pie_depth.js），此前只喂策略、没人画
+  const depthCtx = sensorContext("depth");
+  const shape = sim.pieDepth && sim.pieDepth.frameShape;
+  const frames = sim.depthHistory;
+  if (depthCtx && shape && Array.isArray(frames) && frames.length) {
+    const frame = frames[frames.length - 1];
+    if (elements.depthCanvas.width !== shape[2] || elements.depthCanvas.height !== shape[1]) {
+      elements.depthCanvas.width = shape[2];
+      elements.depthCanvas.height = shape[1];
+    }
+    const drawn = drawDepthFrame(depthCtx, frame, shape[1], shape[2]);
+    if (elements.depthPanelNote) {
+      elements.depthPanelNote.textContent = drawn ? `${shape[1]}×${shape[2]} 近亮远暗` : "绘制失败";
+    }
+  } else if (elements.depthPanelNote) {
+    elements.depthPanelNote.textContent = "当前策略无深度输入";
+  }
+
+  // ③ 2D 轨迹平面：复用 3D 场景里的根轨迹顶点（world x/y），不另记一份
+  const trailCtx = sensorContext("trail");
+  const trail = view.trail;
+  if (trailCtx && trail && trail.count >= 2) {
+    const points = [];
+    for (let i = 0; i < trail.count; i += 1) {
+      points.push([trail.positions[i * 3], trail.positions[i * 3 + 1]]);
+    }
+    drawTrail(trailCtx, {
+      trail: points,
+      pose,
+      width: elements.trailCanvas.width,
+      height: elements.trailCanvas.height,
+    });
+    if (elements.trailPanelNote) {
+      elements.trailPanelNote.textContent = `${points.length} 点 · x,y 等比`;
+    }
+  } else if (elements.trailPanelNote && !trail?.count) {
+    elements.trailPanelNote.textContent = "开启「轨迹」后显示";
+  }
 }
 
 function updateCommandLabel() {
@@ -5371,6 +5463,111 @@ function applyDeterministicReplayFromUrl() {
 const NAV_HUD_ID = "navigationHud";
 //: 感知轮询频率：每 N 个控制步评一次地形（10 ⇒ 50 Hz 控制下 5 Hz）
 const TERRAIN_POLL_CONTROL_STEPS = 10;
+//: H11 候选扇形轮询频率与容量（35 候选 × 20 点 ≈ 1330 顶点，6000 顶点足够）
+const DWA_FAN_POLL_CONTROL_STEPS = 10;
+const DWA_FAN_MAX_VERTICES = 6000;
+const DWA_FAN_COLORS = { best: 0x2ecc71, valid: 0x3b82f6, rejected: 0x8b98a5 };
+
+/** 懒创建扇形线段对象（与 trail 同构：固定容量顶点 + 动态 DrawRange）。 */
+function ensureDwaFan() {
+  if (view.dwaFan) return view.dwaFan;
+  const positions = new Float32Array(DWA_FAN_MAX_VERTICES * 3);
+  const colors = new Float32Array(DWA_FAN_MAX_VERTICES * 3);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  geometry.setDrawRange(0, 0);
+  const lines = new THREE.LineSegments(
+    geometry,
+    new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.6, depthWrite: false }),
+  );
+  lines.frustumCulled = false;
+  lines.visible = false;
+  view.scene.add(lines);
+  view.dwaFan = { lines, geometry, positions, colors, maxVertices: DWA_FAN_MAX_VERTICES, segments: 0 };
+  return view.dwaFan;
+}
+
+function resetDwaFan() {
+  if (!view.dwaFan) return;
+  view.dwaFan.geometry.setDrawRange(0, 0);
+  view.dwaFan.lines.visible = false;
+  view.dwaFan.segments = 0;
+}
+
+/**
+ * H11：把候选扇形画进场景（被拒灰 → 可行蓝 → 最优绿，后画的覆盖先画的）。
+ * 数据来自服务端 `POST /api/navigation/local-plan`，浏览器只做成形与上色——
+ * 分组/展开规则在 `dwa_fan.js`（纯函数，有 node 单测），这里只负责写进 BufferGeometry。
+ */
+function paintDwaFan(candidates, baseZ) {
+  const target = ensureDwaFan();
+  const groups = fanSegments(candidates);
+  const stacks = [
+    [groups.rejected, DWA_FAN_COLORS.rejected],
+    [groups.valid, DWA_FAN_COLORS.valid],
+    [groups.best, DWA_FAN_COLORS.best],
+  ];
+  const color = new THREE.Color();
+  let vertex = 0;
+  for (const [polylines, hex] of stacks) {
+    if (!polylines.length) continue;
+    const flat = fanLineSegments(polylines);
+    color.setHex(hex);
+    for (let i = 0; i + 2 < flat.length && vertex < target.maxVertices; i += 3) {
+      target.positions[vertex * 3] = flat[i];
+      target.positions[vertex * 3 + 1] = flat[i + 1];
+      // 轨迹是平面 2D（[x, y]），按机器人当前 base 高度贴地绘制
+      target.positions[vertex * 3 + 2] = baseZ;
+      target.colors[vertex * 3] = color.r;
+      target.colors[vertex * 3 + 1] = color.g;
+      target.colors[vertex * 3 + 2] = color.b;
+      vertex += 1;
+    }
+  }
+  target.geometry.setDrawRange(0, vertex);
+  target.geometry.attributes.position.needsUpdate = true;
+  target.geometry.attributes.color.needsUpdate = true;
+  target.segments = Math.floor(vertex / 2);
+  target.lines.visible = vertex >= 2 && Boolean(sim.dwaFan?.enabled && !sim.navigation?.status?.finished);
+}
+
+/** 每 N 控制步取一次候选扇形；失败即关闭并只提示一次（与感知闭环同口径，不刷屏）。 */
+async function pollDwaFan(pose, controlStep) {
+  const state = sim.dwaFan;
+  if (!state?.enabled || state.inFlight || state.lastControlStep === controlStep) return;
+  if (!sim.navigation?.payload) return;
+  state.lastControlStep = controlStep;
+  state.inFlight = true;
+  try {
+    const waypoints = (sim.navigation.payload.waypoints || []).map((w) => [Number(w.x), Number(w.y)]);
+    const response = await fetch("/api/navigation/local-plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        map_id: sim.navigation.mapId,
+        pose: [pose.x, pose.y, pose.yaw],
+        velocity: [Number(sim.targetCmd?.[0] || 0), 0, Number(sim.targetCmd?.[2] || 0)],
+        waypoints,
+        include_fan: true,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload?.success) {
+      throw new Error(payload?.detail || `HTTP ${response.status}`);
+    }
+    paintDwaFan(payload.candidates, Number(sim.qpos?.[2] ?? 0.45));
+    state.reason = payload.reason;
+    state.polls = (state.polls || 0) + 1;
+  } catch (error) {
+    state.errors = (state.errors || 0) + 1;
+    if (state.errors === 1) console.warn("[sim2sim] DWA 扇形已关闭：", error.message);
+    state.enabled = false;
+    resetDwaFan();
+  } finally {
+    state.inFlight = false;
+  }
+}
 
 /**
  * 感知闭环：上传位姿 → 服务端按**同源地形**判定并给切换决定 → 下一拍施加。
@@ -5466,6 +5663,15 @@ async function initNavigationFromUrl() {
       polls: 0,
       errors: 0,
     };
+    // H11 候选扇形：默认随导航开启，?fan=0 可关（候选/评分由服务端算，浏览器只画）
+    sim.dwaFan = {
+      enabled: PAGE_PARAMS.get("fan") !== "0",
+      inFlight: false,
+      lastControlStep: -1,
+      polls: 0,
+      errors: 0,
+      reason: "",
+    };
     renderNavigationHud(`导航已就绪 · ${mapId} · ${payload.waypoints.length} 个航点 · 判据 ${payload.arrival.source}`);
     console.info(`[sim2sim] navigation ${NAVIGATION_VERSION}`, payload);
   } catch (error) {
@@ -5493,7 +5699,10 @@ function applyNavigationCommand() {
     sim.navigation.lastControlStep = controlStep;
     sim.navigation.status = sim.navigation.runner.tick(pose);
     renderNavigationHud();
-    if (controlStep % TERRAIN_POLL_CONTROL_STEPS === 0) pollTerrainPerception(pose, controlStep);
+    if (controlStep % TERRAIN_POLL_CONTROL_STEPS === 0) {
+      pollTerrainPerception(pose, controlStep);
+      pollDwaFan(pose, controlStep);
+    }
   }
 }
 

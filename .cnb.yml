@@ -75,6 +75,28 @@
         # v3 自洽（physics_hz == control_hz × decimation）是**硬门禁**；
         # v2 / 训练 profile 的差异是"已登记的报告项"，不判红——但必须可见。
         python tools/check_control_consistency.py
+        echo "== route regression (H19: 通过率 / 最小净空 / 本体侵入) =="
+        # 只守退化：与 tools/baselines/route_regression_baseline.json 对比，通过率下降 /
+        # 最小净空下降 / 新增超时或碰撞 / 本体侵入路线增加 / H13 后处理不再消掉 VIOLATION
+        # ——任一发生即 exit 2。基线刷新是**显式动作**（--write-baseline），避免顺手改绿。
+        # 含 dwa（采样式规划器约 9 s/条）：这是 H11「DWA 未到达」结论的唯一自动守卫点，
+        # 慢值得。CI 用 --routes 1 控制规模，本地可用 --routes 6 做更重的回归。
+        python tools/route_regression.py --with-dwa --routes 1
+        echo "== map visuals consistency (地图视觉基调：skybox / groundplane / light) =="
+        # 10 张图的视觉基调原本各写各的：apartment 连 <visual>/<light> 都没有，flat 用纯黑
+        # skybox、stairs 用 gradient，groundplane 的 reflectance 在 0.0/0.2 之间来回。
+        # 这里只**检查**是否仍与 mjlab 官方口径一致（exit 2 = 有漂移）；
+        # 刷新用 `python tools/unify_map_visuals.py --apply`。
+        # 同时守住「外部贴图必须存在」——cross_slope / cross_stairs 曾因 `imgs/` 没跟着 xml
+        # 一起拷过来而**长期编译不过**（引用了不存在的 label_*.png）。
+        python tools/unify_map_visuals.py
+        echo "== map dual-link audit (assets/maps vs web/sim2sim/assets/go2) =="
+        # 两套地图是**设计上并存**的：新链路=公共地图库（纯环境，服务端按机型注入机器人），
+        # 旧链路=内置 bundled flow（自带 go2 include，且与 Go2 策略的 reference MJCF 耦合）。
+        # 但地形几何同源、靠手工同步，已经出过「贴图没跟着拷 ⇒ cross_slope/cross_stairs
+        # 长期编译不过」的事故。这步守**资源完整性**（硬门禁）；地形几何差异只报告不判红
+        # ——差异可能是有意的（如 slope 的 friction）。
+        python tools/audit_map_duplication.py
 
 # 云原生开发 / CI 共用的环境镜像（根 Dockerfile）。
 #
@@ -199,6 +221,12 @@ frontend:
             # 只表现为策略抽搐）。这份测试早已存在（package.json 的 test:obs），
             # 但一直没进 CI —— 本地能跑、CI 看不见等于没有。
             node web/sim2sim/obs/observation_builders.test.mjs
+            echo "== DWA candidate fan (H11：候选轨迹 → 页面折线) =="
+            node web/sim2sim/dwa_fan.test.mjs
+            echo "== sensor panels (深度图 / 2D 轨迹 / odom+IMU 读数) =="
+            # 这几个绘制器此前不存在（深度只喂策略、高度图只展示契约、2D 平面只有地图编辑器）。
+            # 用假 ctx 断言"画了什么、画在哪"，不需要浏览器。
+            node web/sim2sim/sensor_panels.test.mjs
 
 main:
   push:

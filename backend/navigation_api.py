@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, HTTPException
@@ -20,6 +21,81 @@ router = APIRouter(prefix="/api/navigation", tags=["navigation"])
 #: 此前这里自持 0.35、相机投影侧自持 0.3，同一件事两套口径；现在统一取注册表。
 #: 注册表缺失时**直接报错**（不做静默兜底）——静默回退正是口径漂移的成因。
 WAYPOINT_TOLERANCE_M = float(waypoint_spec()["tolerance_m"])
+
+#: 控制器目录（**声明**部分：角色 / 实现 / 参数真值）。**实测**（通过率、最小净空）不写在这里，
+#: 而是从 H19 回归基线 ``tools/baselines/route_regression_baseline.json`` 读 —— "声称"与
+#: "实测"分开，才不会出现"文档说推荐、数据说它到不了"。
+#:
+#: ``role`` 的取值含义：
+#: * ``product_default``——产品链路实际跑的那个（浏览器 ``navigation.js`` 跟 ``plan.combined_path``）；
+#: * ``recommended``——H19 回归里唯一通过率 1.00 且零碰撞的候选；
+#: * ``alternative``/``negative_control``——可选与对照（保留是为了可解释性与反例）。
+#:
+#: 2026-09-13 的定位结论（回答「为什么一定要用 DWA」）：四个参考项目没有一个以 DWA 为主线——
+#: tdt-nav-kit 没有局部控制器（A*/Kinodynamic A* + Minimum-Snap/OSQP 直接出轨迹）；
+#: Odin-Nav-Stack 主线是 NeuPAN（DWA 只在其 `model_planner` / `navigation_planner` 两个次要包）；
+#: jie_3d_nav 用 `d1_controller` 几何跟踪；rc_old 比赛栈用自研势场。DWA 只是 H11 任务书指定的
+#: 落地项，应按「可选对照项」对待。
+CONTROLLER_CATALOG: tuple[dict[str, str], ...] = (
+    {
+        "name": "follow",
+        "label": "跟随状态机",
+        "role": "product_default",
+        "implementation": "backend/follow_controller.py",
+        "params_source": "registry/motion_commands.json#follow_controller",
+        "evidence": "H12；浏览器 navigation.js#targetPoint 跟 plan.combined_path，本项是产品实际默认执行器",
+    },
+    {
+        "name": "geometric",
+        "label": "几何跟踪（d1_controller）",
+        "role": "recommended",
+        "implementation": "backend/geometric_tracker.py",
+        "params_source": "registry/motion_commands.json#geometric_tracker",
+        "evidence": "控制律逐项取自 00_resources/jie_3d_nav/octo_planner/src/d1_controller.cpp",
+    },
+    {
+        "name": "potential",
+        "label": "势场（吸引 + 斥力）",
+        "role": "alternative",
+        "implementation": "adapters/mjlab/nav_avoidance.py",
+        "params_source": "registry/motion_commands.json#follow_controller（转向增益同源）",
+        "evidence": "反应式控制器；H19 回归里多条路线卡死超时",
+    },
+    {
+        "name": "dwa",
+        "label": "DWA（采样择优）",
+        "role": "negative_control",
+        "implementation": "backend/dwa_planner.py",
+        "params_source": "registry/motion_commands.json#local_planner",
+        "evidence": "四个参考项目均未以其为主线；保留理由是净空硬约束 + 候选扇形可视化，以及作为回归里的负面对照",
+    },
+)
+
+#: H19 回归基线（实测来源）。文件缺失时**如实标 missing**，不编造数字。
+REGRESSION_BASELINE_PATH = Path(__file__).resolve().parents[1] / "tools/baselines/route_regression_baseline.json"
+
+
+def controller_measurements() -> dict[str, Any]:
+    """读 H19 基线的 ``per_controller``（实测通过率 / 最小净空 / 超时 / 本体侵入）。"""
+    if not REGRESSION_BASELINE_PATH.exists():
+        return {"source": str(REGRESSION_BASELINE_PATH), "available": False, "per_controller": {}}
+    try:
+        payload = json.loads(REGRESSION_BASELINE_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:  # 基线损坏不能把端点带崩
+        return {
+            "source": str(REGRESSION_BASELINE_PATH),
+            "available": False,
+            "error": str(exc),
+            "per_controller": {},
+        }
+    return {
+        "source": str(REGRESSION_BASELINE_PATH),
+        "available": True,
+        "map_id": payload.get("map_id"),
+        "route_count": payload.get("route_count"),
+        "controllers": payload.get("controllers"),
+        "per_controller": payload.get("per_controller") or {},
+    }
 
 
 class NavigationRequest(BaseModel):
@@ -220,3 +296,118 @@ async def plan_navigation(request: NavigationPlanRequest):
         obstacles=request.obstacles,
     )
     return {"success": True, **payload}
+
+
+class LocalPlanRequest(BaseModel):
+    """H11：单拍 DWA 局部规划请求。"""
+
+    map_id: str = "warehouse"
+    pose: list[float] = Field(..., min_length=3, max_length=3, description="[x, y, yaw]（world 米 / rad）")
+    velocity: list[float] = Field(default_factory=lambda: [0.0, 0.0, 0.0], description="[vx, vy, wz]")
+    waypoints: list[list[float]] = Field(default_factory=list, min_length=2)
+    obstacles: list[list[float]] | None = Field(
+        default=None, description="省略时取地图自带障碍（MAPS[map_id].obstacles）"
+    )
+    algorithm: str = Field(default="astar", pattern="^(astar|dijkstra)$")
+    diagonal: bool = True
+    include_fan: bool = Field(default=True, description="是否返回候选轨迹扇形（页面绘制用）")
+
+    @field_validator("waypoints")
+    @classmethod
+    def validate_local_waypoints(cls, value: list[list[float]]) -> list[list[float]]:
+        if any(len(point) != 2 for point in value):
+            raise ValueError("each waypoint must be [x, y]")
+        if any(not all(np.isfinite(coordinate) for coordinate in point) for point in value):
+            raise ValueError("waypoints must contain finite coordinates")
+        return value
+
+    @field_validator("pose", "velocity")
+    @classmethod
+    def validate_finite(cls, value: list[float]) -> list[float]:
+        if any(not np.isfinite(v) for v in value):
+            raise ValueError("pose/velocity must contain finite values")
+        return value
+
+
+@router.get("/controllers")
+async def list_controllers():
+    """控制器目录 + H19 实测（回答「该用哪个控制器」）。
+
+    **声明与实测分开**：角色 / 实现 / 参数真值来自 :data:`CONTROLLER_CATALOG`（代码里的声明），
+    通过率与净空来自 H19 回归基线（``tools/route_regression.py`` 的实测产物）。基线缺失时
+    照实返回 ``available=false``，不拿声明冒充实测。
+    """
+    measured = controller_measurements()
+    per_controller = measured.get("per_controller") or {}
+    controllers = []
+    for entry in CONTROLLER_CATALOG:
+        item: dict[str, Any] = dict(entry)
+        stats = per_controller.get(entry["name"])
+        item["measured"] = stats if stats else None
+        if stats is None and measured.get("available"):
+            item["measured_note"] = "基线里没有该控制器的记录（需先跑 tools/route_regression.py --write-baseline）"
+        controllers.append(item)
+    recommended = next(
+        (item["name"] for item in controllers if item["role"] == "recommended"), None
+    )
+    return {
+        "success": True,
+        "controllers": controllers,
+        "recommended": recommended,
+        "product_default": next(
+            (item["name"] for item in controllers if item["role"] == "product_default"), None
+        ),
+        "measurement_source": {
+            "path": measured.get("source"),
+            "available": measured.get("available", False),
+            "map_id": measured.get("map_id"),
+            "route_count": measured.get("route_count"),
+            "producer": "tools/route_regression.py --write-baseline",
+        },
+    }
+
+
+@router.post("/local-plan")
+async def local_plan(request: LocalPlanRequest):
+    """H11：单拍局部采样规划（DWA）——返回指令 + 最优轨迹 + 候选扇形。
+
+    参考路径复用 ``map_editor_api.plan_map_route``（与全局规划同一实现），
+    DWA 参数取 ``registry/motion_commands.json#local_planner``（唯一真值）。
+    浏览器可以用它画扇形；多拍"跑完全程"的 A/B 在 ``tools/dwa_ab_check.py``。
+    """
+    from backend.dwa_planner import candidate_fan, plan_local
+    from backend.map_editor_api import PlanRequest, plan_map_route
+
+    if request.map_id not in MAPS:
+        raise HTTPException(status_code=404, detail=f"Unknown simulation map: {request.map_id}")
+    obstacles = list(
+        request.obstacles
+        if request.obstacles is not None
+        else (MAPS[request.map_id].get("obstacles") or [])
+    )
+    plan = await plan_map_route(
+        PlanRequest(
+            map_id=request.map_id,
+            obstacles=obstacles,
+            waypoints=request.waypoints,
+            algorithm=request.algorithm,
+            diagonal=request.diagonal,
+        )
+    )
+    path = plan.get("combined_path") or []
+    if len(path) < 2:
+        raise HTTPException(status_code=400, detail="规划结果为空：无可达路径")
+
+    result = (
+        candidate_fan(request.pose, request.velocity, path, obstacles)
+        if request.include_fan
+        else plan_local(request.pose, request.velocity, path, obstacles).as_dict()
+    )
+    return {
+        "success": True,
+        "map_id": request.map_id,
+        "obstacles": obstacles,
+        "reference_path": path,
+        "resolution": plan.get("resolution"),
+        **result,
+    }

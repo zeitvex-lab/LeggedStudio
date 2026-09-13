@@ -66,9 +66,93 @@
     "evidence": {
       "sources": [
         "00_resources/rc_old/RC_WheelLeg/05_software/train/rc_mjlab/sim2sim/nav_route_sim2sim_check.py::SimConfig",
-        "00_know/50_方案与清单/任务清单.md#H12"
+        "00_know/01_任务清单.md#H12"
       ],
       "note": "对照 SimConfig 逐字段取值；到达容差改走 H10（参考默认 0.15 不采用，我们航点 0.20 + 稳定 2 拍）"
+    }
+  },
+  "local_planner": {
+    "note": "H11 局部采样规划器（DWA）的**唯一参数真值**。与 H12 的 follow_controller 同放此文件（运行时限值契约仍是三份注册表，不新开第四份）。评分结构对齐 **Nav2 DWB 的 critics 体系**（rc_old v3 与 unitree-go2-slam-nav2 的 nav2_params.yaml：PathDist 32 / GoalDist 24 / PathAlign 32 + ObstacleFootprint 0.2）；动态窗口与 unicycle 轨迹采样对齐 Odin-Nav-Stack `dwa_planner.cpp`；取值对齐 Odin-Nav-Stack `model_planner/config/local_planner.yaml` 的 dwa 段（本项目自己的配置层）。**关键比值**：障碍代价权重 0.2 远小于路径/目标 32/24——障碍已由硬碰撞否决 + 膨胀处理，评分里只是软引导；把 clearance 与 path 设成同量级会诱导机器人停在障碍前（本模块首版实测踩过）。**2026-09-13 诊断（结论：保持原样——改精致了反而更差）**：参照 Nav2 `controller_server` 的 `prunePlan`（喂给 DWB 前把全局路径截断到局部代价地图范围、`GoalDist` 参照截断段末端）与 Nav2 progress_checker 的**位移半径**语义，试过三项改动——参考路径截断到局部窗口（2.0 / 3.0 / 5.0 m）、卡住判据改用位移半径 + 独立角速度阈值、恢复动作改朝参考路径走向——**实测均无收益或退化**（H19 回归 warehouse 5 条路线：原样 3/5 → 三项全改 **1/5**；仅截断 3.0 / 5.0 m 与原样持平、2.0 m 更差）。根因是**架构性**的：窄处（机器人 x=3.46、障碍 x≥3.7）采样窗口内所有前进方向被硬碰撞一并否决（400 个候选仅 68 个可行、可行者 v ≤ 0.14），而**单拍无状态**规划器没有「先转向对齐、再前进」的序列能力（2 s 预测窗口内转向会累积过冲，评分反而偏好不转）；Nav2 靠**行为树层**的 recovery behaviors（spin/backup，由 progress_checker 跨拍触发）解决——那正是本单拍实现缺的一层。详见 backend/dwa_planner.py 卡住判据处的同段注释与 H11「停止盲调」。缺块即报错。",
+    "sim_time_s": 2.0,
+    "sim_dt_s": 0.1,
+    "v_samples": 20,
+    "w_samples": 20,
+    "path_weight": 32.0,
+    "goal_weight": 24.0,
+    "align_weight": 32.0,
+    "clearance_weight": 0.2,
+    "speed_weight": 0.5,
+    "robot_radius_m": 0.2,
+    "inflation_m": 0.3,
+    "max_vx": 0.9,
+    "max_wz": 0.85,
+    "ax_max": 10.0,
+    "alpha_max": 10.0,
+    "allow_backward": false,
+    "rotate_recovery": true,
+    "rotate_recovery_factor": 0.6,
+    "recovery_vx_mps": -0.1,
+    "min_progress_v_mps": 0.05,
+    "heading_align_threshold_rad": 0.5,
+    "heading_boost": 2.0,
+    "evidence": {
+      "sources": [
+        "00_resources/rc_old/RC_WheelLeg/05_software/real/sim2real_ros2_v3/src/sim2real_nav2/config/nav2_params.yaml",
+        "00_resources/unitree-go2-slam-nav2/go2_slam_nav/config/nav2_params.yaml",
+        "00_resources/Odin-Nav-Stack/ros_ws/src/navigation_planner/config/dwa_local_planner_params.yaml",
+        "00_resources/Odin-Nav-Stack/ros_ws/src/model_planner/config/local_planner.yaml",
+        "00_resources/Odin-Nav-Stack/ros_ws/src/model_planner/include/model_planner/dwa_planner.h",
+        "00_resources/rc_old/.../real/sim2real_ros2_v3/src/sim2real_runtime/src/simple_nav_node.py",
+        "00_resources/tdt-nav-kit/src/YAstar/yastar.hpp"
+      ],
+      "note": "障碍代价改用**连续代价场**（参考 tdt-nav-kit `YAstar::setCostField` 的 0.5/(0.1+x)：原先的 (safety−clearance)/safety 在 clearance ≥ safety 后恒为 0、梯度丢失）。评分结构取 Nav2 DWB critics（rc_old v3：ObstacleFootprint 0.2 / PathAlign 32 / GoalAlign 24 / PathDist 32 / GoalDist 24；unitree-go2-slam-nav2 同构）→ 本仓映射为 clearance 0.2 / path 32 / goal 24 / align 32，speed 0.5 取 dwa_planner.h 的 w_velocity；sim_time 2.0 / sim_dt 0.1 / robot_radius 0.2 / inflation 0.3 / allow_backward=false / heading_align 0.5 rad / boost 2.0 / max_acc 10.0 取 local_planner.yaml 的 dwa 段（其覆盖 dwa_planner.h 的代码默认 true、0.7、1.5、0.5）；**采样数不取该 yaml 的 6/11**（嵌入式实时妥协，实测分辨率不足会让转向候选步长过大、与\"静止\"互相争抢而抖动），改建 Nav2 DWB / ROS DWA 的 20/20（DWB vx/vtheta_samples 20；ROS DWA 20/40）；max_vx 0.9 / max_wz 0.85 与 nav 档一致（三处取更严）；min_progress_v_mps 0.05 与恢复动作（倒退 vx −0.10 + 转向）为本仓补强：参考用 Nav2 progress_checker（required_movement_radius 0.5 / movement_time_allowance 10 s）判卡 + behavior_server 的 spin/backup 恢复，单拍无状态下本仓以\"最优解速度≈0\"近似 progress_checker、以\"倒退+转向\"实现 spin+backup。**2026-09-13 诊断（不改，理由见上）**：卡住判据确实把角速度阈值错用了 `min_progress_v_mps`（0.05，量纲不对），也确实该按 progress_checker 的位移半径语义写；但实测修正后 H19 回归从 3/5 掉到 1/5（还新增 random_1 超时），故**保持原样**，根因记在 backend/dwa_planner.py 的注释里"
+    }
+  },
+  "geometric_tracker": {
+    "note": "H14 几何路径跟踪控制器（controller: geometric）的**唯一参数真值**，**逐项取自** 00_resources/jie_3d_nav/octo_planner/src/d1_controller.cpp 的默认参数（基座系误差 × 增益 + 死区整形）。它与 local_planner 是「局部控制器」的两个选项：引用式跟踪点控制（本块）在狭窄/高障碍角落更鲁棒，采样式 DWA 在开阔场景有效——见 tools/dwa_ab_check.py 三方对照。",
+    "lookahead_tolerance_m": 0.2,
+    "linear_gain": 1.5,
+    "lateral_gain": 1.5,
+    "heading_gain": 2.5,
+    "cross_track_angular_gain": 1.0,
+    "max_linear_speed": 0.6,
+    "max_lateral_speed": 0.6,
+    "max_angular_speed": 1.5,
+    "deadband": 0.05,
+    "enable_lateral_motion": true,
+    "evidence": {
+      "sources": [
+        "00_resources/jie_3d_nav/octo_planner/src/d1_controller.cpp",
+        "00_resources/LightNav-0/robot_deploy/src/robot_adapters/go2_adapter/",
+        "00_resources/tdt-nav-kit/src/YAstar/kinodynamicAstar.hpp"
+      ],
+      "note": "全部字段 = d1_controller.cpp 同名 declare_parameter 的默认值（tracking_point_reached_xy_tolerance 0.20 / linear_gain 1.5 / lateral_gain 1.5 / heading_gain 2.5 / cross_track_angular_gain 1.0 / max_linear_speed 0.60 / max_lateral_speed 0.60 / max_angular_speed 1.50 / deadband 0.05）；LightNav-0 的 go2_adapter 提供安全与超时口径（见 H20）、tdt-nav-kit 的 kinodynamicAstar 提供 maxVel/maxAcc 的动力学约束口径（供将来评估，本模块暂用差速积分）"
+    }
+  },
+  "route_postprocess": {
+    "note": "H13 规划后处理（净空四级 + 路径简化 + 转角混合）的**唯一参数真值**。判据与足迹半径取自 00_resources/rc_old/.../nav_tools/route_safety_check.py（`required_clearance = footprint_radius + avoid_margin`，`margin < 0 → VIOLATION`、`margin < warn_margin → TIGHT`）；简化容差取自 00_resources/tdt-nav-kit/src/YAstar/yastar.hpp 的 `simplifyPath(path, 0.1f)`；转角混合与段长上限取自 00_resources/rc_old/.../nav_tools/route_candidate_optimizer.py（`--max-segment-length 0.65`、`--min-speed 0.22`）。",
+    "footprint_radius_m": 0.21,
+    "avoid_margin_m": 0.05,
+    "warn_margin_m": 0.05,
+    "simplify_tolerance_m": 0.1,
+    "corner_blend_m": 0.2,
+    "corner_blend_samples": 4,
+    "relax_iterations": 240,
+    "relax_step_scale": 0.45,
+    "relax_max_move_per_iter_m": 0.08,
+    "relax_max_total_move_m": 0.55,
+    "relax_smooth_weight": 0.12,
+    "relax_buffer_m": 0.05,
+    "relax_lock_ends": true,
+    "max_segment_length_m": 0.65,
+    "min_speed_mps": 0.22,
+    "evidence": {
+      "sources": [
+        "00_resources/rc_old/RC_WheelLeg/05_software/train/rc_mjlab/tools/nav_tools/route_safety_check.py",
+        "00_resources/rc_old/RC_WheelLeg/05_software/train/rc_mjlab/tools/nav_tools/route_candidate_optimizer.py",
+        "00_resources/tdt-nav-kit/src/YAstar/yastar.hpp"
+      ],
+      "note": "footprint_radius 0.21 = route_safety_check 的 default_lateral_footprint_radius()（max(PCD_ROBOT_RADIUS 0.18, 半宽 0.1175, 轮子侧向) + ROBOT_FOOTPRINT_PADDING 0.03）；avoid_margin 0.05 / warn_margin 0.05 取该脚本默认；simplify_tolerance 0.10 与 corner_blend 0.20（H13 任务书）分别来自 tdt 的 simplifyPath 与 rc_old 的转角口径；relax_* 取 route_candidate_optimizer 的 --iterations 240 / --step-scale 0.45 / --max-move-per-iter 0.08 / --max-total-move 0.55 / --smooth-weight 0.12 / --lock-ends true（本仓 '航点外推微调' 即该脚本的逐点推离 + 平滑迭代）；relax_buffer_m 0.05 为本仓补强——推离按**点**净空驱动，而段的净空还要看'角点到线段'距离（段可能从障碍角点旁掠过、比两端点都更贴），不留缓冲时会把点推到 0.260 恰好卡在 required 边界、段仍判 VIOLATION；max_segment_length 0.65 / min_speed 0.22 同取该脚本默认（稠密化/限速尚未实现，仅声明）"
     }
   },
   "timeout_policy": {

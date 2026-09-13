@@ -59,11 +59,11 @@
     },
     {
       "id": "slope",
-      "label": "斜坡",
+      "label": "斜坡（15°）",
       "path": "slope.xml",
       "kind": "env-only",
-      "description": "纵向斜坡",
-      "source": "assets/robots/zex-w（rc_old）"
+      "description": "15° 上下坡走廊：前平台 → 上坡 → 顶台（0.814 m）→ 下坡 → 后平台，宽 3.0 m",
+      "source": "布局取自 assets/robots/zex-w（rc_old 比赛场地）；坡道几何改用薄板倾斜——zex-w 原版用 size_z=1.5327 的厚板旋转，射线实测会露出悬空斜板并遮住顶台（x≈2.0 处出现 61°~78° 的墙）不可通行——坡度定为 15°"
     },
     {
       "id": "relief",

@@ -218,6 +218,40 @@ class CompleteApiContractTests(unittest.TestCase):
         self.assertEqual(manifest["scenes"][0], "simulation/flat.xml")
         self.assertIn("maps/stairs.xml", manifest["scenes"])
         self.assertIn("maps/rough.xml", manifest["scenes"])
+
+    def test_common_map_textures_are_listed_for_download(self):
+        """公共地图库的**贴图**必须一并下发。
+
+        地图 XML 引用 ``./imgs/label_*.png``；只下发 ``maps/<id>.xml`` 会让浏览器在
+        虚拟文件系统里编译失败 —— 与后端当年「imgs 没跟着 xml 一起拷」是同一个坑。
+        """
+        client = TestClient(app)
+        files = client.get("/api/simulation/browser-config/unitree_go2").json()["sim"]["asset_package"]["files"]
+        assert "maps/imgs/label_1.png" in files
+        assert "maps/imgs/label_7.png" in files
+        # 文档与后端索引不该进下发清单（不被 MuJoCo 引用，白占带宽）
+        assert "maps/README.md" not in files
+        assert "maps/_index.json" not in files
+
+    def test_common_map_texture_is_served_as_png(self):
+        client = TestClient(app)
+        response = client.get("/api/simulation/browser-package/unitree_go2/maps/imgs/label_1.png")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        assert response.content.startswith(b"\x89PNG")
+
+    def test_map_asset_endpoint_rejects_path_traversal(self):
+        client = TestClient(app)
+        for probe in ("maps/../_index.json", "maps/imgs/../../../../etc/passwd", "maps/./../README.md"):
+            response = client.get(f"/api/simulation/browser-package/unitree_go2/{probe}")
+            assert response.status_code == 404, probe
+
+    def test_map_scene_xml_still_injects_robot_include(self):
+        """回归锁：加了「贴图分支」不能把 XML 分支的机器人注入弄丢。"""
+        client = TestClient(app)
+        response = client.get("/api/simulation/browser-package/unitree_go2/maps/cross_slope.xml")
+        assert response.status_code == 200
+        assert "model/robot.xml" in response.text
         asset = client.get("/api/simulation/browser-package/zex-w/scene.xml")
         self.assertEqual(asset.status_code, 200)
         self.assertIn("model/robot.xml", asset.text)

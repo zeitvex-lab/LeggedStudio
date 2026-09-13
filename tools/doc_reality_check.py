@@ -43,6 +43,16 @@ def _read_json(path: Path):
         return None
 
 
+def _openapi_paths():
+    """控制面 OpenAPI 路径数（B15）。缺依赖导致导入失败时返回 None，对账跳过该项。"""
+    try:
+        sys.path.insert(0, str(ROOT))
+        from backend.api_complete import app  # noqa: F401
+        return len(app.openapi().get("paths") or {})
+    except Exception:
+        return None
+
+
 def collect_facts() -> dict:
     facts: dict[str, object] = {}
 
@@ -67,10 +77,20 @@ def collect_facts() -> dict:
     facts["onnx_files"] = len(onnx_files)
 
     declared = 0
+    plain_policies = 0
+    demo_policies = 0
     for cfg in sorted(robots_dir.glob("*/simulation/config.json")):
         data = _read_json(cfg) or {}
-        declared += len(data.get("policies") or []) + len(data.get("demo_policies") or [])
+        n_plain = len(data.get("policies") or [])
+        n_demo = len(data.get("demo_policies") or [])
+        plain_policies += n_plain
+        demo_policies += n_demo
+        declared += n_plain + n_demo
     facts["policy_declarations"] = declared
+    facts["policies"] = plain_policies
+    facts["demo_policies"] = demo_policies
+    facts["profiles_json"] = len(list(robots_dir.glob("*/training/profiles/*.json")))
+    facts["robot_files"] = len([p for p in robots_dir.rglob("*") if p.is_file()])
 
     baseline = _read_json(ROOT / "tools" / "baselines" / "sim2sim_headless_baseline.json") or {}
     facts["executable_policies"] = len(baseline.get("results") or [])
@@ -91,46 +111,95 @@ def collect_facts() -> dict:
     res_index = _read_json(ROOT / "00_resources" / "_index.json") or {}
     facts["resources_projects"] = len(res_index.get("projects") or {})
 
-    # --- 测试模块（CI 覆盖口径的基数） ---
-    facts["backend_test_modules"] = len(list((ROOT / "backend").glob("test_*.py")))
+    # --- 后端规模 / 测试口径（B16/B17 门禁基数；均为静态可数） ---
+    backend_dir = ROOT / "backend"
+    facts["backend_test_modules"] = len(list(backend_dir.glob("test_*.py")))
+    facts["backend_py_files"] = len(list(backend_dir.rglob("*.py")))
+    facts["backend_test_count"] = sum(
+        len(re.findall(r"^\s*def test_",
+                       p.read_text(encoding="utf-8", errors="ignore"), re.MULTILINE))
+        for p in backend_dir.glob("test_*.py")
+    )
+    facts["routers_files"] = sum(
+        1 for p in backend_dir.rglob("*.py")
+        if "APIRouter(" in p.read_text(encoding="utf-8", errors="ignore")
+    )
+    facts["openapi_paths"] = _openapi_paths()
 
     return facts
 
 
 # ---------------------------------------------------------------------------
-# 文档对账规则：(文件, 正则, 事实键, 说明)
-# 正则第 1 个捕获组必须是数字/版本串。
+# 文档对账规则：(文件, 正则, [(捕获组序号, 事实键), ...], 说明)
+# 一个正则可带多个捕获组，按序号与事实键一一对应（同一行里的多处数字一起守）。
 # ---------------------------------------------------------------------------
-CHECKS: list[tuple[str, str, str, str]] = [
-    ("README.md", r"^- 版本：`([^`]+)`", "version", "README 版本号"),
-    ("README.md", r"内置\s*(\d+)\s*个标准化机器人包", "robot_packages", "README「内置 N 个标准化机器人包」"),
-    ("README.md", r"^\│ .*?\│  \│ (\d+) 机器人包", "robot_packages", "README 架构图「N 机器人包」"),
-    ("README.md", r"assets/robots/\s*#\s*(\d+)\s*个标准化机器人包", "robot_packages", "README 目录树「assets/robots N 个」"),
-    ("README.md", r"当前\s*(\d+)\s*条可执行", "executable_policies", "README 无头 sim2sim 验收条数"),
-    ("docs/cloud-dev.md", r"当前\s*(\d+)\s*条可执行", "executable_policies", "cloud-dev 门禁条数"),
-    ("00_know/README.md", r"更多参考项目（(\d+)\s*个）", "resources_projects", "00_know README 参考项目数"),
+CHECKS: list[tuple[str, str, list[tuple[int, str]], str]] = [
+    ("README.md", r"^- 版本：`([^`]+)`", [(1, "version")], "README 版本号"),
+    ("README.md", r"内置\s*(\d+)\s*个标准化机器人包", [(1, "robot_packages")], "README「内置 N 个标准化机器人包」"),
+    ("README.md", r"^\│ .*?\│  \│ (\d+) 机器人包", [(1, "robot_packages")], "README 架构图「N 机器人包」"),
+    ("README.md", r"assets/robots/\s*#\s*(\d+)\s*个标准化机器人包", [(1, "robot_packages")], "README 目录树「assets/robots N 个」"),
+    ("README.md", r"当前\s*(\d+)\s*条可执行", [(1, "executable_policies")], "README 无头 sim2sim 验收条数"),
+    ("docs/cloud-dev.md", r"当前\s*(\d+)\s*条可执行", [(1, "executable_policies")], "cloud-dev 门禁条数"),
+    ("00_know/README.md", r"更多参考项目（(\d+)\s*个）", [(1, "resources_projects")], "00_know README 参考项目数"),
+    # --- 任务清单「0. 现状锚点」（2026-09-13 起纳入：此前只守 README/索引，
+    #     任务清单的锚点是"实测"声明却无人守，microduck 纠正后即漂移无人知） ---
+    ("00_know/01_任务清单.md",
+     r"robot_packages (\d+)\s+profiles_json (\d+)\s+sim_policies_onnx (\d+) 文件",
+     [(1, "robot_packages"), (2, "profiles_json"), (3, "onnx_files")],
+     "任务清单·包/profile/onnx"),
+    ("00_know/01_任务清单.md",
+     r"策略声明 (\d+) 条 = policies (\d+) \+ demo_policies (\d+)",
+     [(1, "policy_declarations"), (2, "policies"), (3, "demo_policies")],
+     "任务清单·策略声明拆分"),
+    ("00_know/01_任务清单.md",
+     r"pretrained_models/index\.json (\d+) 条 / 覆盖 (\d+) 机型",
+     [(1, "pretrained_index"), (2, "pretrained_index_robots")],
+     "任务清单·预训练索引"),
+    ("00_know/01_任务清单.md",
+     r"backend (\d+) py（含子目录）/ (\d+) 个 APIRouter",
+     [(1, "backend_py_files"), (2, "routers_files")],
+     "任务清单·后端规模/路由"),
+    ("00_know/01_任务清单.md",
+     r"app\.openapi\(\) 实测生成 (\d+) 条路径",
+     [(1, "openapi_paths")],
+     "任务清单·openapi 路径数"),
+    ("00_know/01_任务清单.md",
+     r"assets/robots: (\d+) 文件 / ([\d.]+) MB",
+     [(1, "robot_files"), (2, "assets_robots_mb")],
+     "任务清单·资产文件数/体积"),
+    ("00_know/01_任务清单.md",
+     r"测试基线：backend (\d+) 项",
+     [(1, "backend_test_count")],
+     "任务清单·backend 测试条数"),
+    ("00_know/01_任务清单.md",
+     r"backend (\d+) 个 test_\*\.py 全量 discover",
+     [(1, "backend_test_modules")],
+     "任务清单·测试模块数"),
 ]
 
 
 def run_checks(facts: dict) -> list[dict]:
     problems: list[dict] = []
-    for rel_path, pattern, key, label in CHECKS:
+    for rel_path, pattern, groups, label in CHECKS:
         path = ROOT / rel_path
         if not path.is_file():
             problems.append({"file": rel_path, "label": label, "doc": "<文件缺失>",
-                             "actual": facts.get(key), "status": "missing_file"})
+                             "actual": None, "status": "missing_file"})
             continue
         text = path.read_text(encoding="utf-8")
         found = re.search(pattern, text, re.MULTILINE)
         if not found:
             problems.append({"file": rel_path, "label": label, "doc": "<未匹配到>",
-                             "actual": facts.get(key), "status": "pattern_missing"})
+                             "actual": None, "status": "pattern_missing"})
             continue
-        doc_value = found.group(1)
-        expected = str(facts.get(key))
-        if doc_value != expected:
-            problems.append({"file": rel_path, "label": label, "doc": doc_value,
-                             "actual": expected, "status": "mismatch"})
+        for idx, key in groups:
+            expected = facts.get(key)
+            if expected is None:  # 事实取不到（如缺依赖）→ 跳过，不误报
+                continue
+            doc_value = found.group(idx)
+            if doc_value != str(expected):
+                problems.append({"file": rel_path, "label": f"{label}[{key}]", "doc": doc_value,
+                                 "actual": str(expected), "status": "mismatch"})
     return problems
 
 
@@ -164,16 +233,24 @@ def main() -> int:
         print(f"  可执行策略        {facts['executable_policies']}（无头门禁基线）")
         print(f"  包内 onnx 文件    {facts['onnx_files']}")
         print(f"  预训练索引        {facts['pretrained_index']} 条 / {facts['pretrained_index_robots']} 机型")
-        print(f"  assets/robots     {facts['assets_robots_mb']} MB")
+        print(f"  profiles_json     {facts['profiles_json']}")
+        print(f"  policies + demo   {facts['policies']} + {facts['demo_policies']} = {facts['policy_declarations']}")
+        print(f"  assets/robots     {facts['robot_files']} 文件 / {facts['assets_robots_mb']} MB")
         print(f"  packs / schemas   {facts['packs']} / {facts['schemas']}")
         print(f"  资源库项目        {facts['resources_projects']}")
-        print(f"  backend 测试模块  {facts['backend_test_modules']}")
+        print(f"  backend py / 路由 {facts['backend_py_files']} / {facts['routers_files']}")
+        print(f"  backend 测试      {facts['backend_test_count']} 项 / {facts['backend_test_modules']} 模块")
+        print(f"  openapi 路径      {facts['openapi_paths']}")
         print("=" * 68)
         print("文档对账")
         print("-" * 68)
-        for rel_path, _pattern, key, label in CHECKS:
-            mark = "OK  " if not any(p["file"] == rel_path and p["label"] == label for p in problems) else "FAIL"
-            print(f"  [{mark}] {label:<44} 期望 {facts.get(key)}")
+        for rel_path, _pattern, groups, label in CHECKS:
+            failed = any(
+                p["file"] == rel_path and (p["label"] == label or p["label"].startswith(label + "["))
+                for p in problems
+            )
+            mark = "FAIL" if failed else "OK  "
+            print(f"  [{mark}] {label:<44} 期望 {facts.get(groups[0][1])}")
 
     if not version_consistent:
         print("✗ 版本号三处源文件不一致：", facts["version_sources"])

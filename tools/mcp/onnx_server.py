@@ -4,7 +4,7 @@
 （45 条仿真策略）、``adapters/mjlab/onnx_exporter.py``。
 
 为什么值得做成 MCP：本仓刚做过一次"浏览器 ↔ Python 推理链 100% 对拍"
-（见 00_know/50_方案与清单/进度流水.md 续六），这类对拍每次都要重写脚本；
+（见 00_know/90_归档/流水_进度流水.md 续六），这类对拍每次都要重写脚本；
 把"查输入输出维 / 读 metadata_props / 单帧推理"固化下来，对拍只需一次调用。
 """
 from __future__ import annotations

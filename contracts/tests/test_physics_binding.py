@@ -197,7 +197,7 @@ class FrictionLossMigratedTest(unittest.TestCase):
 class ContractCoverageVsLegacyConfigTest(unittest.TestCase):
     """B3/2b 的前置条件：**契约必须 ⊇ config**，否则适配器翻转会丢数据。
 
-    背景（详见 00_know/40_专题报告/B3_物理事实收敛_适配器差异报告.md）：`adapters/mjlab` 的
+    背景（详见 00_know/90_归档/专题_B3_物理事实收敛_适配器差异报告.md）：`adapters/mjlab` 的
     `torque_limits` 查找「无任何兜底」，`armature`/`frictionloss` 只做「小写后精确匹配」。
     若契约缺某个 config 已有的物理量，翻转即表现为**静默丢失限幅/臂量**（不是报错）。
 
@@ -267,7 +267,7 @@ class ContractCoverageVsLegacyConfigTest(unittest.TestCase):
 class FrictionLossPopulatedTest(unittest.TestCase):
     """B3-friction：14 包的关节摩擦必须**全部显式声明**。
 
-    取值分三类（来源与依据见 00_know/40_专题报告/B3_friction_loss_补齐报告.md）：
+    取值分三类（来源与依据见 00_know/90_归档/专题_B3_friction_loss_补齐报告.md）：
 
     * **A 组**：活跃模型编译即带该值 → 写入幂等，不改变仿真物理
     * **B 组**：活跃模型为 0，但 00_resources/ 参考项目声明非零 → 写入**改变仿真物理**
