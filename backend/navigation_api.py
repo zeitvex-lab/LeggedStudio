@@ -178,3 +178,45 @@ def _record_navigation_evaluation(task, nav_result: dict, request: NavigationReq
         artifact.to_json_file(str(artifact_path))
     except Exception:  # pragma: no cover - best-effort writeback
         return
+
+
+class NavigationPlanRequest(BaseModel):
+    """H3：planner 命令来源的计划请求（浏览器 sim2sim 用）。"""
+
+    map_id: str = "warehouse"
+    waypoints: list[list[float]] = Field(default_factory=list)
+    obstacles: list[list[float]] | None = Field(
+        default=None,
+        description="省略时取地图自带障碍（MAPS[map_id].obstacles）",
+    )
+    algorithm: str = Field(default="astar", pattern="^(astar|dijkstra)$")
+    diagonal: bool = True
+
+    @field_validator("waypoints")
+    @classmethod
+    def validate_plan_waypoints(cls, value: list[list[float]]) -> list[list[float]]:
+        if any(len(point) != 2 for point in value):
+            raise ValueError("each waypoint must be [x, y]")
+        if any(not all(np.isfinite(coordinate) for coordinate in point) for point in value):
+            raise ValueError("waypoints must contain finite coordinates")
+        return value
+
+
+@router.post("/plan")
+async def plan_navigation(request: NavigationPlanRequest):
+    """装配导航计划（规划 + 到达判据）。
+
+    **单一实现**：与 ``POST /api/simulation/sessions``（服务端会话）共用
+    ``backend.navigation_plan.build_navigation_payload``——浏览器与服务端因此跑的是
+    同一份路径与同一份容差，不会各算一套。
+    """
+    from backend.navigation_plan import build_navigation_payload
+
+    payload = await build_navigation_payload(
+        request.map_id,
+        request.waypoints,
+        algorithm=request.algorithm,
+        diagonal=request.diagonal,
+        obstacles=request.obstacles,
+    )
+    return {"success": True, **payload}

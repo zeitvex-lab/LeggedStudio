@@ -1,6 +1,6 @@
 # Legged Studio
 
-**腿足机器人强化学习工作室** —— 覆盖「资产盘点 → 模型检查 → RL 训练 → 策略导出 → sim2sim 验证 → 部署打包」全流程的全栈工具。
+**腿足机器人强化学习工作室** —— 覆盖「资产盘点 → 工作台（模型检查与调整 + 契约校准）→ RL 训练 → 策略导出 → 仿真验证（浏览器 sim2sim + 验收基准）→ 部署打包」全流程的全栈工具；并在仿真内提供**感知导航**：传感器可外挂，感知可入观测（A 类）或置于策略之外（B 类），在场景任务中自动完成「目标判定 → 规划 → 到达」闭环（**导航闭环进行中**，见任务清单 H2/H3）。
 
 - 版本：`0.52.0`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
 - 许可：MIT
@@ -16,7 +16,9 @@
 | 模型检查 | URDF/MJCF 校验、3D 可视化检查器、契约合规校验 |
 | RL 训练 | 通过隔离子进程调用 MJLab（MuJoCo Warp + PyTorch）训练后端，PPO / off-policy 算法，训练任务创建、监控、事件流 |
 | 策略导出 | 导出 ONNX 部署策略，导出门禁（export gate）校验 |
-| sim2sim 验证 | 浏览器内直接跑 MuJoCo WASM + ONNX Runtime Web，完全离线验证策略 |
+| 仿真验证 | 浏览器内直接跑 MuJoCo WASM + ONNX Runtime Web（完全离线）；另有服务端无头基准/验收口径（`tools/sim2sim_headless.py` + baseline 门禁）。**确定性回放判据仍未落地**（见任务清单 L1/G2） |
+| 感知导航 | 传感器可外挂（`perception.mount`）；感知分层 A 类（`route=obs`，策略吃传感器）/ B 类（`route=external`，RL 只负责运动、外挂感知与规划决策）；地图与航点 + 服务端 A*/Dijkstra 规划 + 到达判据单一真值（`registry/arrival_criteria.json`）；浏览器与服务端跑**同一份** Scenario 计划。**导航闭环（局部规划/跟随状态机）进行中**（H2） |
+| 物理真值 / 契约校准 | 14 包 MJCF 由契约固化（`tools/bake_mjcf_physics.py`）+ 校验器守门（`tools/validate_mjcf_contract.py`）；训练/验收/浏览器三方物理口径同源，"不许训一套跑另一套" |
 | 部署 | 部署契约校验 + 部署包打包，衔接真机 sim2real |
 
 ---
@@ -55,7 +57,7 @@
                         ──► deploy_pack 部署包 ──► 真机
 ```
 
-**数据流主线**：机器人包（`assets/robots` + contract v3）→ 工作台 3D 检查 → 训练创建（training API → training_manager → mjlab launcher → 隔离 worker）→ ONNX 导出（export gate 校验）→ 浏览器 sim2sim 验证 → 部署包打包。
+**数据流主线**：机器人包（`assets/robots` + contract v3）→ 工作台检查与参数校准（电机参数卡 / 契约固化与校验）→ 训练创建（training API → training_manager → mjlab launcher → 隔离 worker）→ ONNX 导出（export gate 校验）→ 仿真验证（浏览器 sim2sim + 无头基准/验收）→ **感知导航**（Scenario：地图/航点 + `CommandSource: planner\|perception` + 到达判据，`/api/navigation/plan` 装配、浏览器跟随）→ 部署包打包。
 
 ---
 
