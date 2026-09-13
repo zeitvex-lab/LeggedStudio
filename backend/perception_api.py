@@ -52,6 +52,51 @@ async def perception_providers() -> dict[str, Any]:
     return {"success": True, "count": len(specs), "providers": specs, "selftest": provider_selftest()}
 
 
+class TagEvaluateRequest(BaseModel):
+    """按**检测器输出的角点**求标签位姿与停靠伺服（图像检测需可选依赖，本入口不收图像）。"""
+
+    corners_px: list[list[float]] = Field(min_length=4, max_length=4)
+    tag_id: str | None = None
+    undistorted: bool = False
+    camera_profile_id: str | None = Field(default=None, description="覆盖注册表默认档位（标定口径）")
+    tag_size_m: float | None = Field(default=None, gt=0.0)
+    provider_id: str = "tag_detector"
+
+
+@router.post("/tag/evaluate")
+async def evaluate_tag_endpoint(request: TagEvaluateRequest) -> dict[str, Any]:
+    """标签位姿 + 停靠判定 + 伺服指令（几何与判据都复用唯一实现）。"""
+    from backend.perception_providers import resolve_provider, provider_spec
+
+    try:
+        spec = provider_spec(request.provider_id)
+    except PerceptionProviderError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    params = dict(spec.params)
+    if request.camera_profile_id:
+        params["camera_profile_id"] = request.camera_profile_id
+    if request.tag_size_m is not None:
+        params["tag_size_m"] = float(request.tag_size_m)
+    try:
+        provider = resolve_provider(request.provider_id)
+        provider.init(params)
+        provider.on_reset()
+        reading = provider.update(
+            {"tag_id": request.tag_id, "corners_px": request.corners_px, "undistorted": request.undistorted},
+            0.0,
+        )
+    except (PerceptionProviderError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "success": True,
+        "reading": reading,
+        "note": (
+            "输入是**检测器输出的角点**（不是图像）：本次环境未装图像检测依赖，"
+            "该 provider 只做「角点 → 位姿 → 停靠判定 → 伺服指令」；停靠容差取 H10 视觉停靠真值。"
+        ),
+    }
+
+
 @router.post("/terrain/evaluate")
 async def evaluate_terrain_endpoint(request: TerrainEvaluateRequest) -> dict[str, Any]:
     """地形判定 + 切换决定（服务端唯一实现：provider + skill_switch）。"""
