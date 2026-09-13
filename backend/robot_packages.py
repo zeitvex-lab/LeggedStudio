@@ -316,6 +316,14 @@ def _build_record(
         "asset_path": asset_value,
         "training_config": _read_json(training_path) if training_path.exists() else {},
         "simulation_config": _read_json(simulation_path) if simulation_path.exists() else {},
+        # D8：电机面板的物理事实改由契约 v3 单一真值供给（与浏览器载荷同源同形状）。
+        # 此前工作台读 simulation_config.stiffness/damping/...，而 B3 已把这组键从
+        # sim config 移除——不切源，网格会变空（且 armature 从来读不到）。
+        "physics": _physics_view(package_root),
+        # D10：「动作缩放」卡片（标量 + 逐部位/逐关节）
+        "action_scale": _action_scale_view(package_root),
+        # P1：T-N 曲线（电机参数页签「高级参数」区，声明≠生效）
+        "t_n_curve": _t_n_curve_view(package_root),
         "training_profiles": profiles,
         "runtime_requirements": descriptor.get("runtime_requirements", {}),
         "source_runtime": descriptor.get("source_runtime", {}),
@@ -323,6 +331,84 @@ def _build_record(
         "robot_package": {**descriptor, "capabilities": capabilities, "package_root": str(package_root), "contract_path": descriptor.get("contract_path", "contract.json"), "model": descriptor_model or {"format": "mjcf", "path": "model/robot.xml", "assets_path": "model/assets"}, "training_config_path": descriptor.get("training_config_path", "training/config.json"), "simulation_config_path": descriptor.get("simulation_config_path", "simulation/config.json")},
     }
 
+
+
+def _physics_view(package_root: Path) -> dict[str, Any]:
+    """D8：契约 v3 派生的物理事实视图（与浏览器 payload 同源、同形状）。
+
+    键：``stiffness`` / ``damping`` / ``torque_limits`` / ``armature`` / ``frictionloss``
+    （每项都是 角色键 + 逐关节键 + ``joint`` 兜底）。
+
+    契约缺失时返回 ``source="missing"`` 的**显式空视图**（面板据此提示"未声明"，
+    而不是悄悄显示 0）；仅当读取过程本身出错才返回 ``{}``——单包契约问题不该让整个
+    包索引构建失败。
+    """
+    try:
+        from contracts.physics_binding import payload_physics_view, physics_facts
+
+        facts = physics_facts(package_root)
+        view = dict(payload_physics_view(facts))
+        view["source"] = facts.get("source")
+        view["needs_migration"] = bool(facts.get("needs_migration"))
+        return view
+    except Exception:
+        return {}
+
+
+def _action_scale_view(package_root: Path) -> dict[str, Any]:
+    """D10：「动作缩放」卡片的数据源（契约 v3 单一真值）。
+
+    复用 :func:`contracts.physics_binding.payload_action_scale_view` —— 与浏览器
+    载荷**同一实现**，避免 UI 与仿真出现两套展开口径（B5/2 起 action_scale 的
+    唯一真值在契约：标量 ``action.action_scale`` + ``actuator_profile`` 分层）。
+
+    契约缺失返回 ``{}``（面板显式提示"仅显示标量缺省"，不静默用 0.25 冒充已声明）。
+    """
+    try:
+        from contracts.physics_binding import action_scale_facts, payload_action_scale_view
+
+        v3_path = package_root / "contract_v3.json"
+        if not v3_path.exists():
+            return {}
+        v3 = json.loads(v3_path.read_text(encoding="utf-8-sig"))
+        view = dict(payload_action_scale_view(action_scale_facts(v3)))
+        view["source"] = "contract_v3"
+        return view
+    except Exception:
+        return {}
+
+
+def _t_n_curve_view(package_root: Path) -> dict[str, Any]:
+    """P1：T-N 曲线（高级参数）面板的数据源（契约 v3 单一真值）。
+
+    * ``actuator_model``：``ideal_pd``（缺省，**T-N 曲线一律不生效**）/ ``dc_motor``；
+    * ``by_role`` / ``by_joint``：折线点列；``text_by_*``：面板紧凑文本（``rpm:扭矩``）；
+    * ``derived``：折算出的 DC 标量（saturation_effort / velocity_limit_rad_s）——面板
+      显示"填了这条曲线会得到什么"，避免用户只看曲线不知后果。
+
+    曲线非法（非单调等）时返回 ``{"error": ...}`` 而不是空字典：**坏数据要看得见**。
+    """
+    try:
+        from contracts.physics_binding import t_n_curve_facts, format_tn_curve_text
+
+        facts = t_n_curve_facts(package_root)
+        view = dict(facts)
+        view["text_by_role"] = {
+            role: format_tn_curve_text(points) for role, points in (facts.get("by_role") or {}).items()
+        }
+        view["text_by_joint"] = {
+            joint: format_tn_curve_text(points) for joint, points in (facts.get("by_joint") or {}).items()
+        }
+        return view
+    except Exception as exc:  # noqa: BLE001  坏 T-N 曲线不该让整条记录构建失败，但要显式暴露
+        return {
+            "error": str(exc),
+            "actuator_model": "ideal_pd",
+            "declared": False,
+            "by_role": {},
+            "by_joint": {},
+            "derived": {},
+        }
 
 
 _MJCF_MASS_CACHE: dict[str, tuple[float, float]] = {}

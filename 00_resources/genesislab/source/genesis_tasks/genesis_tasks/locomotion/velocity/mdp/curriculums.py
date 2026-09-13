@@ -1,0 +1,1 @@
+from genesis_tasks.locomotion.velocity.mdp.curriculums import *

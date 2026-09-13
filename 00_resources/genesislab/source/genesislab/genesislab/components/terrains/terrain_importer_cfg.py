@@ -1,0 +1,105 @@
+# Copyright (c) 2022-2026, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+from __future__ import annotations
+
+from dataclasses import MISSING
+from typing import TYPE_CHECKING, Any, Literal
+
+import genesislab.engine.sim as sim_utils
+from genesislab.utils.configclass import configclass
+
+from .terrain_importer import TerrainImporter
+
+if TYPE_CHECKING:
+    from .terrain_generator_cfg import TerrainGeneratorCfg
+
+
+@configclass
+class TerrainImporterCfg:
+    """Configuration for the terrain manager."""
+
+    class_type: type = TerrainImporter
+    """The class to use for the terrain importer."""
+
+    collision_group: int = -1
+    """The collision group of the terrain. Defaults to -1."""
+
+    prim_path: str = MISSING
+    """The absolute path of the USD terrain prim.
+
+    All sub-terrains are imported relative to this prim path.
+    """
+
+    num_envs: int = 1
+    """The number of environment origins to consider. Defaults to 1."""
+
+    terrain_type: Literal["generator", "plane", "usd"] = "generator"
+    """The type of terrain to generate. Defaults to "generator".
+
+    Available options are "plane", "usd", and "generator".
+    """
+
+    terrain_generator: TerrainGeneratorCfg = None
+    """The terrain generator configuration.
+
+    Only used if ``terrain_type`` is set to "generator".
+    """
+
+    usd_path: str = None
+    """The path to the USD file containing the terrain.
+
+    Only used if ``terrain_type`` is set to "usd".
+    """
+
+    env_spacing: float = None
+    """The spacing between environment origins when defined in a grid. Defaults to None.
+
+    Note:
+      This parameter is used only when the ``terrain_type`` is "plane" or "usd" or if
+      :attr:`use_terrain_origins` is False.
+    """
+
+    use_terrain_origins: bool = True
+    """Whether to set the environment origins based on the terrain origins or in a grid
+    according to :attr:`env_spacing`. Defaults to True.
+
+    Note:
+      This parameter is used only when the :attr:`terrain type` is "generator".
+    """
+
+    visual_material: Any = None
+    """The visual material of the terrain. Defaults to a dark gray color material.
+
+    This parameter is used for both the "generator" and "plane" terrains.
+
+    - If the ``terrain_type`` is "generator", then the material is created at the path
+      ``{prim_path}/visualMaterial`` and applied to all the sub-terrains.
+    - If the ``terrain_type`` is "plane", then the diffuse color of the material is set to
+      to the grid color of the imported ground plane.
+    """
+
+    physics_material: Any = None
+    """The physics material of the terrain. Defaults to a default physics material.
+
+    The material is created at the path: ``{prim_path}/physicsMaterial``.
+
+    .. note::
+        This parameter is used only when the ``terrain_type`` is "generator" or "plane".
+    """
+
+    max_init_terrain_level: int = None
+    """The maximum initial terrain level for defining environment origins. Defaults to None.
+
+    The terrain levels are specified by the number of rows in the grid arrangement of
+    sub-terrains. If None, then the initial terrain level is set to the maximum
+    terrain level available (``num_rows - 1``).
+
+    Note:
+      This parameter is used only when sub-terrain origins are defined.
+    """
+
+    debug_vis: bool = False
+    """Whether to enable visualization of terrain origins for the terrain. Defaults to False."""

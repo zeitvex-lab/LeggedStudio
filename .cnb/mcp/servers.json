@@ -79,7 +79,7 @@
         "-m",
         "tools.mcp.mujoco_server"
       ],
-      "description": "本地 MCP：加载 MJCF、查关节序/执行器、跑 N 秒无头稳定性测试。落点：tools/sim2sim_headless.py、tools/probe_motrixsim.py 的能力复用。"
+      "description": "本地 MCP：加载 MJCF、查关节序/执行器、跑 N 秒无头稳定性测试。落点：tools/sim2sim_headless.py、adapters/mjlab/scene_builder.py 的能力复用。"
     },
     "onnx": {
       "command": "python",

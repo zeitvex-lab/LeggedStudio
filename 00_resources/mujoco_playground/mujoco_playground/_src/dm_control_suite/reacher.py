@@ -78,7 +78,9 @@ class Reacher(mjx_env.MjxEnv):
     self._model_assets = common.get_assets()
     self._mj_model = _make_model(_XML_PATH, target_size, self._model_assets)
     self._mj_model.opt.timestep = self.sim_dt
-    self._mjx_model = mjx.put_model(self._mj_model, impl=self._config.impl)
+    self._mjx_model = mjx_env.put_model(
+        self._mj_model, impl=self._config.impl
+    )
     self._post_init()
 
   def _post_init(self) -> None:

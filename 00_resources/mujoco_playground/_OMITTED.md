@@ -4,8 +4,8 @@
 > 此处保留占位登记以便按需回溯；需要时直接从源工程取用：
 > 源工程目录：`00_open/mujoco_playground/`
 
-共 **1** 个文件 / **749 KB**。
+共 **1** 个文件 / **745 KB**。
 
 | 文件 | 体积 | 类型 | 源路径 |
 |---|---:|---|---|
-| `uv.lock` | 749 KB | 日志/缓存 | `00_open/mujoco_playground/uv.lock` |
+| `uv.lock` | 745 KB | 日志/缓存 | `00_open/mujoco_playground/uv.lock` |

@@ -1,171 +1,71 @@
-"""导出双 gate（T0.4）——DENYLIST fail-closed 语义，照抄 UniLab sim2sim 契约思想。
+"""导出闸门（T0.4 / K3）——DENYLIST fail-closed 语义。
 
-参考：unilab_new/UniLab ``utils/sim2sim.py`` 的 DENYLIST/WARNING_LIST
-（00_Survey 报告 7 §3/§5——"sim2sim 需要哪些字段一致"从口头约定变成机器可校验
-manifest，不一致即拒绝，不用发明）；go2w_sim2sim 启动时 dummy 前向维度检查
-（报告 2 §5）；microduck publish 形状冒烟门（报告 4 §3）。
+参考：``00_resources/unilab_new/UniLab/utils/sim2sim.py`` 的 DENYLIST/WARNING_LIST
+（"sim2sim 需要哪些字段一致"从口头约定变成机器可校验的 manifest，不一致即拒绝）；
+go2w_sim2sim 启动时 dummy 前向维度检查；microduck publish 形状冒烟门。
 
 两个 gate：
-  gate ① 形状：dummy forward 维度检查（导出器结果 input/output shape vs 契约维度）
-  gate ② 数值：固定输入数值回放（导出器 max_numerical_diff < 1e-5）
 
-DENYLIST（不一致 = 拒绝导出）：
-    action.joint_order / action.action_scale / action.reindex_from_model /
-    observation.components（obs_groups：名称+宽度有序表）/ observation.dimension /
-    control.control_hz / actuator_profile（角色展开后的逐关节 armature/effort/mode）
-WARNING（不一致 = 仅警告）：
-    reward_scales / control.decimation·physics_hz（ctrl_dt）
+* **gate ① 形状**：dummy forward 维度检查（导出器结果 input/output shape vs 契约维度）
+* **gate ② 数值**：固定输入数值回放（导出器 ``max_numerical_diff < 1e-5``）
+* （gate ③ 字段）**契约一致性**：由 :mod:`backend.contract_adjudicator` 统一裁决
 
-快照缺字段时降级为 warning（"无法强校验"）——T0.5 起 run_config 写入
-contract_snapshot 后自动收紧为强校验。
+**K3 起本模块不再自己实现字段比较**：导出闸门与跨引擎 sim2sim 守卫共用
+``backend/contract_adjudicator.adjudicate`` 一处实现，差异只有 ``context`` 标签
+（``export`` / ``sim2sim``）。这样"改了导出判据忘了改 sim2sim 判据"这类漂移在结构上
+就不可能发生。此处 ``compare_contracts`` 保留原有返回形状（``ok`` / ``blockers`` /
+``warnings``）以免打断既有调用方，另附 ``disposition`` / ``entries`` 明细。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from backend.contract_adjudicator import (  # noqa: F401  (re-export，兼容既有引用)
+    ALLOW,
+    DENY,
+    DENY_FIELDS,
+    WARN,
+    WARN_FIELDS,
+    adjudicate,
+    adjudicate_sim2sim,
+    extract_field,
+    format_report,
+)
+
+#: 旧名保留：调用方/测试曾直接引用这两个常量名
+DENYLIST_FIELDS = DENY_FIELDS
+WARNING_FIELDS = WARN_FIELDS
+
 REPLAY_DIFF_THRESHOLD = 1e-5
-
-# DENYLIST 字段 → 比较键提取器（None = 两边都无法提取，跳过并记 warning）
-DENYLIST_FIELDS = (
-    "action.joint_order",
-    "action.action_scale",
-    "action.reindex_from_model",
-    "observation.components",
-    "observation.dimension",
-    "control.control_hz",
-    "actuator_profile",
-)
-WARNING_FIELDS = (
-    "reward_scales",
-    "control.decimation",
-    "control.physics_hz",
-)
-
-
-def _nested(data: dict[str, Any], path: str) -> Any:
-    node: Any = data
-    for part in path.split("."):
-        if not isinstance(node, dict) or part not in node:
-            return None
-        node = node[part]
-    return node
-
-
-def _obs_components(contract: dict[str, Any]) -> list[tuple[str, int]] | None:
-    """obs_groups 有序表：v3 components[name,width]；v2 退化为 [dimension]。"""
-
-    observation = contract.get("observation") or {}
-    components = observation.get("components")
-    if isinstance(components, list) and components:
-        pairs: list[tuple[str, int]] = []
-        for component in components:
-            if not isinstance(component, dict) or "name" not in component or "width" not in component:
-                return None
-            pairs.append((str(component["name"]), int(component["width"])))
-        return pairs
-    dimension = observation.get("dimension")
-    if isinstance(dimension, int) and dimension > 0:
-        return [("(dimension)", dimension)]
-    return None
-
-
-def _actuator_fingerprint(contract: dict[str, Any]) -> dict[str, Any] | None:
-    """执行器指纹（armature/effort/mode 优先——DENYLIST 关注物理）。
-
-    契约带 joints.actuated 时按角色展开到逐关节；快照缺关节表（早期训练快照）
-    时退化为角色表指纹，仍可发现漂移。
-    """
-
-    profile = contract.get("actuator_profile")
-    if not isinstance(profile, dict) or not profile:
-        return None
-
-    def pick(params: dict[str, Any]) -> dict[str, Any]:
-        return {
-            key: params.get(key)
-            # B5：action_scale 并入指纹——否则"改了角色级档位"会绕过导出闸门
-            for key in ("mode", "effort", "armature", "stiffness", "damping", "action_scale")
-            if params.get(key) is not None
-        }
-
-    joints = (contract.get("joints") or {}).get("actuated") or []
-    if joints:
-        try:
-            from contracts.role_resolver import RoleResolver
-
-            expanded = RoleResolver(contract).expand_actuator_profile()
-        except Exception:
-            return None
-        fingerprint: dict[str, Any] = {joint: pick(params) for joint, params in expanded.items()}
-    else:
-        fingerprint = {
-            "(by_role)": {role: pick(params) for role, params in (profile.get("by_role") or {}).items()}
-        }
-    return fingerprint
-
-
-def _extract(contract: dict[str, Any], field: str) -> Any:
-    if field == "observation.components":
-        return _obs_components(contract)
-    if field == "actuator_profile":
-        return _actuator_fingerprint(contract)
-    value = _nested(contract, field)
-    if value is None:
-        return None
-    if field == "action.joint_order" and isinstance(value, list):
-        return [str(item) for item in value]
-    return value
-
-
-def _diff(training: Any, current: Any) -> str | None:
-    """返回不一致的可读描述；一致返回 None。"""
-
-    if training is None or current is None:
-        return None
-    if training != current:
-        return f"训练 {training!r} vs 当前 {current!r}"
-    return None
 
 
 def compare_contracts(
-    training_snapshot: dict[str, Any], current_contract: dict[str, Any]
+    training_snapshot: dict[str, Any],
+    current_contract: dict[str, Any],
 ) -> dict[str, Any]:
-    """DENYLIST/WARNING 比较。返回 {ok, blockers, warnings}。
+    """训练契约快照 vs 当前契约的字段裁决（导出链路 context=``export``）。
 
-    blocker 条目为中文三段式原因：发生什么 → 为什么 → 下一步。
+    返回 ``{ok, blockers, warnings, disposition, entries, context}``。
+    ``blockers`` 条目为中文三段式原因：发生什么 → 为什么 → 下一步。
     """
+    report = adjudicate(training_snapshot, current_contract, context="export")
+    return {
+        "ok": report["ok"],
+        "blockers": report["blockers"],
+        "warnings": report["warnings"],
+        "disposition": report["disposition"],
+        "entries": report["entries"],
+        "context": report["context"],
+    }
 
-    blockers: list[str] = []
-    warnings: list[str] = []
-    unverifiable: list[str] = []
 
-    for field in DENYLIST_FIELDS:
-        training = _extract(training_snapshot, field)
-        current = _extract(current_contract, field)
-        if training is None or current is None:
-            unverifiable.append(field)
-            continue
-        difference = _diff(training, current)
-        if difference:
-            blockers.append(
-                f"{field} 不一致（{difference}）——策略与当前机器人契约已漂移，"
-                f"按 DENYLIST 语义拒绝导出；请回训练区用当前契约重训，或恢复契约后重试"
-            )
-    for field in WARNING_FIELDS:
-        training = _extract(training_snapshot, field)
-        current = _extract(current_contract, field)
-        if training is None or current is None:
-            continue
-        difference = _diff(training, current)
-        if difference:
-            warnings.append(f"{field} 不一致（{difference}）——不影响导出，但请注意 sim2real 表现")
-    for field in unverifiable:
-        warnings.append(
-            f"{field} 无法强校验（训练快照或当前契约缺少该字段）——"
-            f"T0.5 起 run_config 将固化 contract_snapshot"
-        )
-    return {"ok": not blockers, "blockers": blockers, "warnings": warnings}
+def sim2sim_contract_guard(
+    training_snapshot: dict[str, Any],
+    target_engine_contract: dict[str, Any],
+) -> dict[str, Any]:
+    """跨引擎守卫（训练 → 另一引擎）：与导出闸门同一实现，仅 context 不同。"""
+    return adjudicate_sim2sim(training_snapshot, target_engine_contract)
 
 
 def check_export_result(

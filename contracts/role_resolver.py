@@ -46,6 +46,8 @@ _ACTUATOR_PARAM_KEYS = (
     "friction_loss",
     "mode",
     "action_scale",
+    # P1：T-N 曲线折线（非标量，但同样遵循 default < by_role < by_joint 三级合并）
+    "t_n_curve",
 )
 
 

@@ -95,6 +95,10 @@ def wrap_for_brax_training(
 ) -> Wrapper:
   """Common wrapper pattern for all brax training agents.
 
+  Environments that implement `defer_rendering()` and `render_state(state)`
+  render after episode bookkeeping and autoreset, so cached reset state does
+  not contain pixel observations.
+
   Args:
     env: environment to be wrapped
     episode_length: length of episode
@@ -110,6 +114,11 @@ def wrap_for_brax_training(
     environment did not already have batch dimensions, it is additional Vmap
     wrapped.
   """
+  defer_rendering = hasattr(env, 'defer_rendering') and (
+      hasattr(env, 'render_state') or hasattr(env, 'render_observation')
+  )
+  if defer_rendering:
+    env.defer_rendering()  # pyrefly: ignore[missing-attribute]
   if randomization_fn is None:
     env = brax_training.VmapWrapper(env)  # pytype: disable=wrong-arg-types
   else:
@@ -118,7 +127,35 @@ def wrap_for_brax_training(
       env, episode_length, action_repeat  # pyrefly: ignore[bad-argument-type]
   )  # pyrefly: ignore[bad-argument-type, bad-assignment]
   env = BraxAutoResetWrapper(env, full_reset=full_reset)
+  if defer_rendering:
+    env = DeferredVisionWrapper(env)
   return env
+
+
+class DeferredVisionWrapper(Wrapper):
+  """Renders observations after episode bookkeeping and autoreset."""
+
+  _OBS_KEY = 'DeferredVisionWrapper_obs'
+
+  def reset(self, rng: jax.Array) -> mjx_env.State:
+    return self._render(self.env.reset(rng))
+
+  def step(self, state: mjx_env.State, action: jax.Array) -> mjx_env.State:
+    info = dict(state.info)
+    obs = info.pop(self._OBS_KEY)
+    state = self.env.step(
+        state.replace(obs=obs, info=info), action  # pyrefly: ignore[missing-attribute]
+    )
+    return self._render(state)
+
+  def _render(self, state: mjx_env.State) -> mjx_env.State:
+    info = dict(state.info)
+    info[self._OBS_KEY] = state.obs
+    state = state.replace(info=info)  # pyrefly: ignore[missing-attribute]
+    if hasattr(self.unwrapped, 'render_state'):
+      return self.unwrapped.render_state(state)
+    obs = self.unwrapped.render_observation(state.data, state.obs)
+    return state.replace(obs=obs)  # pyrefly: ignore[missing-attribute]
 
 
 class BraxAutoResetWrapper(Wrapper):

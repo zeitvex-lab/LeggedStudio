@@ -28,9 +28,7 @@ ACTION_LEN = 14
 ROBOT: dict[str, Any] = {"model": "microduck", "hw_rev": 1, "servos": "xl330", "control_hz": 50}
 
 # The one `.onnx` a repo carries. The daemon takes the sole `.onnx` in a repo and refuses several.
-POLICY_FILE = "policy.onnx"
 
-Kind = Literal["episodic", "perpetual"]
 KINDS: tuple[str, ...] = ("episodic", "perpetual")
 
 ZERO_TWIST: tuple[float, float, float] = (0.0, 0.0, 0.0)
@@ -63,123 +61,6 @@ class Provenance:
 
 def _now_utc() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def git_provenance(repo_root: Path | None = None) -> dict[str, Any]:
-    """`commit`, `branch`, `dirty` of the checkout the export ran from, or `{}` outside git."""
-    root = str(repo_root or Path(__file__).resolve().parents[3])
-
-    def git(*args: str) -> str | None:
-        try:
-            out = subprocess.run(
-                ["git", "-C", root, *args], capture_output=True, text=True, check=True, timeout=10
-            )
-        except (OSError, subprocess.SubprocessError):
-            return None
-        return out.stdout.strip()
-
-    commit = git("rev-parse", "--short=9", "HEAD")
-    if commit is None:
-        return {}
-    branch = git("rev-parse", "--abbrev-ref", "HEAD")
-    status = git("status", "--porcelain", "--untracked-files=no")
-    return {"commit": commit, "branch": branch, "dirty": bool(status)}
-
-
-def build_manifest(
-    *,
-    name: str,
-    kind: str,
-    description: str,
-    duration_s: float | None = None,
-    chain: bool = False,
-    unwind_s: float | None = None,
-    idle: tuple[float, float, float] = ZERO_TWIST,
-    action_scale: float | None = None,
-    entry_pose: str = "standing",
-    slot: str | None = None,
-    command_help: dict[str, Any] | None = None,
-    training: dict[str, Any] | None = None,
-    eval: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """A single-policy manifest the daemon loads without surprises.
-
-    Only the constant-command family is publishable from here — a skill's network is fed a fixed
-    twist. Phase and posture-flag encodings are the official set's own arms and are not something
-    a community policy can be.
-    """
-    if kind not in KINDS:
-        raise ManifestError(f"kind must be one of {KINDS}, not {kind!r}")
-    if not name or "/" in name or name != name.strip():
-        raise ManifestError(f"name must be a bare word a client can ask for, not {name!r}")
-    if kind == "episodic":
-        if duration_s is None or duration_s <= 0:
-            raise ManifestError(
-                "an episodic policy ends itself: say how long it runs with duration_s > 0"
-            )
-        if unwind_s:
-            raise ManifestError(
-                "an episodic policy is already back when duration_s is up; unwind_s is for perpetual"
-            )
-    else:
-        # Two things are perpetual: a gait, which lives in a slot (`policy load walk <repo>`) and
-        # needs nothing here, and a held pose like the flamingo, which the owner runs as a
-        # one-shot with `policy add --hold` and which then needs `unwind_s` so the robot is not
-        # let go of on one foot. `unwind_s` is what says which.
-        if duration_s is not None:
-            raise ManifestError(
-                "a perpetual policy has no length of its own; leave duration_s unset "
-                "(a gait runs until told otherwise; a held pose gets --hold when added as a skill)"
-            )
-        if unwind_s is not None and unwind_s <= 0:
-            raise ManifestError("unwind_s must be > 0 when given")
-        if chain:
-            raise ManifestError("chain is for episodic one-shots a held button repeats")
-    if slot is not None and slot not in SLOTS:
-        raise ManifestError(f"slot must be one of {SLOTS}, not {slot!r}")
-    if action_scale is not None and not 0 < action_scale <= 2.0:
-        raise ManifestError(f"action_scale {action_scale} is outside (0, 2]")
-    if len(idle) != 3:
-        raise ManifestError("idle is a 3-vector twist")
-
-    command: dict[str, Any] = {
-        "encoding": "constant",
-        "idle": [float(v) for v in idle],
-        "twist": "unused (zeros)",
-        "head": "unused (zeros)",
-        "body": "unused (zeros)",
-    }
-    if command_help:
-        command.update(command_help)
-
-    manifest: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
-        "model_api": MODEL_API,
-        "obs_len": OBS_LEN,
-        "action_len": ACTION_LEN,
-        "robot": dict(ROBOT),
-        "name": name,
-        "kind": kind,
-        "entry_pose": entry_pose,
-        "description": description,
-        "command": command,
-    }
-    if kind == "episodic":
-        manifest["duration_s"] = float(duration_s)  # type: ignore[arg-type]
-        manifest["chain"] = bool(chain)
-    else:
-        manifest["duration_s"] = None
-        if unwind_s is not None:
-            manifest["unwind_s"] = float(unwind_s)
-    if slot is not None:
-        manifest["slot"] = slot
-    if action_scale is not None:
-        manifest["action_scale"] = float(action_scale)
-    if training:
-        manifest["training"] = training
-    if eval:
-        manifest["eval"] = eval
-    return manifest
 
 
 def validate_manifest(manifest: dict[str, Any]) -> None:
@@ -261,50 +142,6 @@ def inspect_onnx(path: Path) -> OnnxShape:
     )
 
 
-def check_onnx(path: Path) -> OnnxShape:
-    """Refuse a file the daemon would refuse at load: wrong widths, or one that is not 61 -> 14."""
-    if not path.exists():
-        raise ManifestError(f"{path}: no such file")
-    shape = inspect_onnx(path)
-    if shape.obs_len != OBS_LEN:
-        raise ManifestError(
-            f"{path.name}: observation width is {shape.obs_len}, the robot builds {OBS_LEN} "
-            "(a 51-D policy is the legacy 3-value-command family, which the daemon refuses)"
-        )
-    if shape.action_len != ACTION_LEN:
-        raise ManifestError(f"{path.name}: {shape.action_len} actions, the robot has {ACTION_LEN}")
-    return shape
-
-
-def smoke_run_onnx(path: Path, steps: int = 50, seed: int = 0) -> None:
-    """Run the network on plausible inputs and refuse a NaN/inf or a saturated output.
-
-    Not a physics rehearsal — `scripts/infer_policy.py` is that — but it catches a broken export
-    (an un-baked normalizer producing NaNs on raw observations, a graph that will not execute)
-    before anything is uploaded.
-    """
-    import numpy as np
-    import onnxruntime as ort
-
-    shape = inspect_onnx(path)
-    session = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
-    rng = np.random.default_rng(seed)
-    obs = np.zeros((1, shape.obs_len), dtype=np.float32)
-    outputs = []
-    for _ in range(steps):
-        (out,) = session.run([shape.output_name], {shape.input_name: obs})
-        if not np.all(np.isfinite(out)):
-            raise ManifestError(f"{path.name}: the network produced a non-finite action")
-        outputs.append(out)
-        # Feed the action back into the last-action slots and jitter the rest, the way an
-        # observation evolves on the robot; enough to leave the zero point.
-        obs = rng.normal(0.0, 0.05, size=obs.shape).astype(np.float32)
-        obs[0, -ACTION_LEN - 13 : -13] = np.clip(out[0], -1, 1)
-    spread = float(np.std(np.stack(outputs)))
-    if spread == 0.0:
-        raise ManifestError(f"{path.name}: the network's output never changes; is it a real policy?")
-
-
 # ---------------------------------------------------------------------------------------------
 # What else goes in the repo.
 
@@ -324,63 +161,3 @@ def install_commands(manifest: dict[str, Any], repo_id: str) -> str:
     return f"sudo robotctl policy load {slot} {repo_id}"
 
 
-def render_readme(manifest: dict[str, Any], repo_id: str) -> str:
-    """A model card that says how to run the policy on a robot, generated so it cannot go stale."""
-    kind = manifest["kind"]
-    name = manifest["name"]
-    description = manifest.get("description", "")
-    training = manifest.get("training", {})
-    run = install_commands(manifest, repo_id)
-    if kind == "episodic":
-        timing = f"Runs {manifest['duration_s']} s and returns itself to a standing pose."
-        if manifest.get("chain"):
-            timing += " Holding the button chains another run."
-    elif manifest.get("unwind_s") is not None:
-        timing = (
-            f"Holds until told otherwise; the daemon drives `command.idle` for "
-            f"{manifest['unwind_s']} s before handing back to the gait."
-        )
-    else:
-        slot = manifest.get("slot")
-        timing = "Runs until told otherwise" + (
-            f" — a gait for the `{slot}` slot." if slot else " — a gait, loaded into a policy slot."
-        )
-    lines = [
-        "---",
-        "tags:",
-        "- microduck",
-        "- robotics",
-        "- reinforcement-learning",
-        "- onnx",
-        "library_name: onnx",
-        "---",
-        "",
-        f"# {name}",
-        "",
-        description,
-        "",
-        f"A **{kind}** policy for the [microduck](https://github.com/pollen-robotics/microduck) "
-        f"({OBS_LEN}-D observation, {ACTION_LEN} actions, {ROBOT['control_hz']} Hz). {timing}",
-        "",
-        "## Run it on a robot",
-        "",
-        "```bash",
-        run,
-        "```",
-        "",
-        "The observation normalizer is baked into `policy.onnx`; feed raw observations.",
-        "`manifest.json` follows schema 2 of the microduck policy manifest "
-        "(`docs/policy-manifest.md` in the daemon repo).",
-    ]
-    if training:
-        lines += ["", "## Training", ""]
-        for key in ("task_id", "repo", "branch", "commit", "run", "checkpoint", "exported"):
-            if key in training:
-                lines.append(f"- **{key}**: `{training[key]}`")
-        if training.get("dirty"):
-            lines.append("- exported from a checkout with uncommitted changes")
-    return "\n".join(lines) + "\n"
-
-
-def dump_manifest(manifest: dict[str, Any]) -> str:
-    return json.dumps(manifest, indent=2) + "\n"

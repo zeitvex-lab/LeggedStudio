@@ -43,7 +43,7 @@ from backend.simulation_browser import (  # noqa: E402
     _read_simulation_config, _acceptance_report_path, _load_acceptance_report,
     _acceptance_health_check, _browser_asset_files, _initial_key_qpos,
     _mesh_aabb, _proxy_geom, _browser_model_xml, _find_package_root_quiet,
-    _read_contract_v3, _configure_browser_actuators, _browser_scene_file,
+    _read_contract_v3, _browser_scene_file,
     _terrain_entries, common_map_entries, map_scene_xml, MAPS_ROOT,
 )
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
@@ -476,11 +476,17 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
         action_scale_facts,
         payload_action_scale_view,
         payload_physics_view,
+        payload_t_n_curve_view,
         physics_facts,
+        t_n_curve_facts,
     )
 
     physics = physics_facts(root)
     payload_physics = payload_physics_view(physics)
+    # D9/P1：速度限幅与 T-N 曲线一并交给浏览器——浏览器早就实现了 applyVelocityLimits /
+    # applyMotorEnvelopes，但 `robot.control` 是**显式白名单**，这两个键此前不在其中 →
+    # 契约里有值也到不了仿真。默认（无包声明）两者为空，浏览器各自早退，行为与现在一致。
+    payload_t_n_curve = payload_t_n_curve_view(t_n_curve_facts(root))
     # B5/2：action_scale（标量 / 按角色 / 按关节）改由契约 v3 单一真值供给。
     # 不再读 simulation/config.json——轮足机型的轮档位在训练侧本就随任务变化
     # （go2w 实测：UniLab 类默认 10.0 / rough 任务 5.0 / 官方部署 yaml 35.0），
@@ -558,6 +564,11 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                 # 训练 worker / 验收器 / 浏览器三方消费同一份数字，封死物理漂移。
                 "armature": payload_physics["armature"] or {},
                 "frictionloss": payload_physics["frictionloss"] or {},
+                # 速度限幅（D9）：浏览器 applyVelocityLimits 读的就是这个键
+                "velocity_limits": payload_physics.get("velocity_limits") or None,
+                # T-N 曲线（P1）：浏览器 applyMotorEnvelopes 读的就是这个键；
+                # 未声明任何曲线时为空 → 浏览器早退，行为不变。
+                "motor_envelopes": payload_t_n_curve or None,
             },
         },
         "policy": policy,

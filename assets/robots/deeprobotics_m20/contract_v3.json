@@ -137,33 +137,42 @@
         "damping": 2.0,
         "effort": 76.4,
         "mode": "position",
-        "action_scale": 0.125
+        "action_scale": 0.125,
+        "armature": 0.01,
+        "velocity_limit": 22.4
       },
       "hipy": {
         "stiffness": 80.0,
         "damping": 2.0,
         "effort": 76.4,
         "mode": "position",
-        "action_scale": 0.25
+        "action_scale": 0.25,
+        "armature": 0.01,
+        "velocity_limit": 22.4
       },
       "knee": {
         "stiffness": 80.0,
         "damping": 2.0,
         "effort": 76.4,
         "mode": "position",
-        "action_scale": 0.25
+        "action_scale": 0.25,
+        "armature": 0.01,
+        "velocity_limit": 22.4
       },
       "wheel": {
         "stiffness": 0.0,
         "damping": 0.6,
         "effort": 21.6,
         "mode": "velocity",
-        "action_scale": 5.0
+        "action_scale": 5.0,
+        "armature": 0.01,
+        "velocity_limit": 79.3
       }
     },
     "default": {
       "friction_loss": 0.0
-    }
+    },
+    "by_joint": {}
   },
   "action": {
     "joint_order": [

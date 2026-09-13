@@ -30,6 +30,7 @@ except (ImportError, AttributeError):
 
 # pylint: disable=g-importing-member
 from mujoco_playground._src.mjx_env import MjxEnv
+from mujoco_playground._src.mjx_env import put_model
 from mujoco_playground._src.mjx_env import render_array
 from mujoco_playground._src.mjx_env import State
 from mujoco_playground._src.mjx_env import step
@@ -41,6 +42,7 @@ __all__ = [
     "locomotion",
     "manipulation",
     "MjxEnv",
+    "put_model",
     "registry",
     "render_array",
     "State",

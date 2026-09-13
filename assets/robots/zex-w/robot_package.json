@@ -6,7 +6,7 @@
     "generic_mjlab",
     "mujoco_sim"
   ],
-  "model_path": "workspace/packages/zex-w/mjcf/wheelleg.xml",
+  "model_path": "model/robot.xml",
   "source_project": "C:\\Users\\31560\\Documents\\00_open\\rc_old\\RC_WheelLeg\\05_software\\train\\rc_mjlab",
   "display_name": "ZEX-W",
   "model": {

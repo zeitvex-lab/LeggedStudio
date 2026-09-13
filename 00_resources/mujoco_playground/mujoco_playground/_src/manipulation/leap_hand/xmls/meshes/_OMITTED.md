@@ -4,9 +4,9 @@
 > 此处保留占位登记以便按需回溯；需要时直接从源工程取用：
 > 源工程目录：`00_open/mujoco_playground/mujoco_playground/_src/manipulation/leap_hand/xmls/meshes/`
 
-共 **2** 个文件 / **62 KB**。
+共 **2** 个文件 / **59 KB**。
 
 | 文件 | 体积 | 类型 | 源路径 |
 |---|---:|---|---|
-| `leap_mount.obj` | 61 KB | 3D 网格 | `00_open/mujoco_playground/mujoco_playground/_src/manipulation/leap_hand/xmls/meshes/leap_mount.obj` |
+| `leap_mount.obj` | 58 KB | 3D 网格 | `00_open/mujoco_playground/mujoco_playground/_src/manipulation/leap_hand/xmls/meshes/leap_mount.obj` |
 | `dex_cube.obj` | 1 KB | 3D 网格 | `00_open/mujoco_playground/mujoco_playground/_src/manipulation/leap_hand/xmls/meshes/dex_cube.obj` |

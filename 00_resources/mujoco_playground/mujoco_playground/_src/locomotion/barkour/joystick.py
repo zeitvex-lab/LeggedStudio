@@ -149,8 +149,9 @@ class Joystick(mjx_env.MjxEnv):
     mj_model.actuator_biasprm[:, 1] = -35.0
 
     self._mj_model = mj_model
-    self._mj_model.opt.timestep = config.sim_dt
-    self._mjx_model = mjx.put_model(self._mj_model, impl=self._config.impl)
+    self._mjx_model = mjx_env.put_model(
+        self._mj_model, impl=self._config.impl
+    )
     self._post_init()
 
   def _post_init(self) -> None:

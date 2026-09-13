@@ -1,0 +1,20 @@
+name: build
+on: [pull_request, push]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+           docker build -f .github/docker/py.Dockerfile \
+             --build-arg PYTHON_VERSION=${{ matrix.python-version }} \
+             --tag gymnasium-robotics-docker .
+      - name: Run tests
+        run: docker run gymnasium-robotics-docker pytest

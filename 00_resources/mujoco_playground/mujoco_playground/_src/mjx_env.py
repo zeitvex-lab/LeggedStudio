@@ -17,7 +17,7 @@
 import abc
 import subprocess
 import sys
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union, cast
 import warnings
 
 from etils import epath
@@ -126,6 +126,31 @@ def update_assets(
       assets[f.name] = f.read_bytes()
     elif f.is_dir() and recursive:
       update_assets(assets, f, glob, recursive)
+
+def put_model(
+    model: mujoco.MjModel,
+    device: Optional[jax.Device] = None,
+    impl: Optional[Union[str, mjx.Impl]] = None,
+    **kwargs: Any,
+) -> mjx.Model:
+  """Puts a MuJoCo model onto device, filtering overflow warnings for Warp."""
+  mjx_model = mjx.put_model(model, device=device, impl=impl, **kwargs)
+  if impl in (mjx.Impl.WARP, "warp"):
+    warn_overflow = getattr(mjx_model.opt._impl, "warn_overflow", None)
+    if isinstance(warn_overflow, int):
+      import mujoco_warp as mjw  # pylint: disable=g-import-not-at-top
+
+      # Disable solver and linesearch iteration overflow warnings, as MJX
+      # environments intentionally set them low for historical reasons
+      # related to performance optimization.
+      # OverflowType was introduced in mujoco_warp v3.12.0.
+      overflow_type = getattr(mjw, "OverflowType", None)
+      if overflow_type is not None:
+        mask = ~(overflow_type.ITERATIONS | overflow_type.LS_ITERATIONS)
+        mjx_model = mjx_model.tree_replace(
+            {"opt._impl.warn_overflow": warn_overflow & mask}
+        )
+  return cast(mjx.Model, mjx_model)
 
 
 def make_data(

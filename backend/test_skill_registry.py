@@ -20,13 +20,16 @@ if str(WORKSPACE) not in sys.path:
     sys.path.insert(0, str(WORKSPACE))
 
 from backend.skill_registry import (  # noqa: E402
+    SKILL_INDEX_PATH,
     SkillRegistryError,
     deep_merge,
     list_skills,
     resolve_skill,
     reward_presets,
     reward_terms,
+    skill_manifest,
     task_variants,
+    unregistered_skill_files,
 )
 
 
@@ -97,6 +100,85 @@ class VelocityBaseZexwMergeParityTest(unittest.TestCase):
         for key in self.PARITY_KEYS:
             with self.subTest(key=key):
                 self.assertEqual(self.merged.get(key), self.profile.get(key))
+
+
+class SkillManifestK4Test(unittest.TestCase):
+    """K4：技能注册由显式清单决定，不再由目录布局隐式决定。"""
+
+    def test_manifest_exists_and_declares_schema(self) -> None:
+        self.assertTrue(SKILL_INDEX_PATH.is_file())
+        manifest = skill_manifest()
+        self.assertEqual(manifest["schema"], "skill-index-1.0")
+        ids = [item["recipe_id"] for item in manifest["skills"]]
+        self.assertEqual(len(ids), len(set(ids)), "清单内 recipe_id 必须唯一")
+        self.assertIn("velocity_base", ids)
+
+    def test_registered_skills_are_exactly_the_manifest(self) -> None:
+        registered = {skill["recipe_id"] for skill in list_skills()}
+        declared = {item["recipe_id"] for item in skill_manifest()["skills"]}
+        self.assertEqual(registered, declared)
+
+    def test_no_skill_file_left_unregistered(self) -> None:
+        """诊断项：skills/ 下的 .json 都必须登记（防止"放进去就算注册"回潮）。"""
+        self.assertEqual(unregistered_skill_files(), [])
+
+    def test_manifest_lies_are_rejected(self) -> None:
+        """清单不能谎报：声明不存在的文件 / 与文件里 recipe_id 不一致都要报错。"""
+        from backend import skill_registry
+
+        original = skill_registry.SKILLS_DIR
+        with self.subTest(case="missing file"):
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                skills_dir = Path(tmp) / "skills"
+                skills_dir.mkdir()
+                (skills_dir / "index.json").write_text(
+                    json.dumps({"schema": "skill-index-1.0", "skills": [
+                        {"recipe_id": "ghost", "path": "ghost.json"}]}),
+                    encoding="utf-8",
+                )
+                skill_registry.SKILLS_DIR = skills_dir
+                skill_registry.skill_manifest.cache_clear()
+                try:
+                    with self.assertRaises(SkillRegistryError) as ctx:
+                        skill_registry.skill_manifest()
+                    self.assertIn("不存在", str(ctx.exception))
+                finally:
+                    skill_registry.SKILLS_DIR = original
+                    skill_registry.skill_manifest.cache_clear()
+
+    def test_new_skill_requires_a_manifest_line(self) -> None:
+        """新增技能 = 登记一行 + 放文件；只放文件不登记 → 不在注册表内。"""
+        import tempfile
+
+        from backend import skill_registry
+
+        original = skill_registry.SKILLS_DIR
+        with tempfile.TemporaryDirectory() as tmp:
+            skills_dir = Path(tmp) / "skills"
+            skills_dir.mkdir()
+            (skills_dir / "index.json").write_text(
+                json.dumps({"schema": "skill-index-1.0", "skills": [
+                    {"recipe_id": "listed", "path": "listed.json"}]}),
+                encoding="utf-8",
+            )
+            (skills_dir / "listed.json").write_text(
+                json.dumps({"schema_version": "skill-recipe-2.0", "recipe_id": "listed",
+                            "display_name": "listed"}), encoding="utf-8")
+            (skills_dir / "orphan.json").write_text(
+                json.dumps({"schema_version": "skill-recipe-2.0", "recipe_id": "orphan",
+                            "display_name": "orphan"}), encoding="utf-8")
+            skill_registry.SKILLS_DIR = skills_dir
+            skill_registry.skill_manifest.cache_clear()
+            skill_registry._skill_files.cache_clear()
+            try:
+                self.assertEqual(set(skill_registry._skill_files()), {"listed"})
+                self.assertEqual(skill_registry.unregistered_skill_files(), ["orphan.json"])
+            finally:
+                skill_registry.SKILLS_DIR = original
+                skill_registry.skill_manifest.cache_clear()
+                skill_registry._skill_files.cache_clear()
 
 
 if __name__ == "__main__":

@@ -198,7 +198,7 @@ bash scripts/provision_cpu_training.sh
 | CI 任务 | 内容 |
 |---|---|
 | `backend-test` | 语法、契约漂移、单测、**openapi 契约冒烟**、移植准入、Pack 校验 |
-| `headless-sim2sim-gate` | 47 条策略的 CPU 无头验收，对照基线只拦**新增退化** |
+| `headless-sim2sim-gate` | 包内声明策略全量的 CPU 无头验收（当前 47 条可执行），对照基线只拦**新增退化** |
 | `cpu-training-smoke` | CPU 训练冒烟门禁：默认 16 envs × 5 iters 真实 PPO + 报告断言；**仅训练相关路径变更才触发**（`ifModify`，见 `.cnb.yml` 的 `.cpu-training-paths`） |
 | `frontend-check` | web JS 语法 + vendor 资产冒烟 |
 

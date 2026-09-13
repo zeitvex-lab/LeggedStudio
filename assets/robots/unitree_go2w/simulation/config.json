@@ -4,23 +4,6 @@
   "scene_path": "simulation/scene.xml",
   "initial_base_height": 0.4,
   "actuator_interface": "position_target",
-  "control_hz": 50,
-  "physics_hz": 200,
-  "decimation": 4,
-  "stiffness": {
-    "hip": 20.0,
-    "thigh": 20.0,
-    "calf": 40.0,
-    "joint": 20.0,
-    "wheel": 0.0
-  },
-  "damping": {
-    "hip": 1.0,
-    "thigh": 1.0,
-    "calf": 2.0,
-    "wheel": 2.0,
-    "joint": 1.0
-  },
   "action_scale_by_role": {
     "leg": 0.5,
     "wheel": 5.0
@@ -34,13 +17,6 @@
     "RL_wheel_joint": "velocity"
   },
   "torque_limit": 45.0,
-  "torque_limits": {
-    "hip": 23.5,
-    "thigh": 23.5,
-    "calf": 45.0,
-    "wheel": 45.0,
-    "joint": 23.5
-  },
   "policy_contract": {
     "observation_kind": "go2w_53",
     "obs_dim": 53,
@@ -966,19 +942,5 @@
     "leg": 5.0,
     "wheel": 15.0
   },
-  "terrains": [],
-  "armature": {
-    "FL_calf_joint": 0.02,
-    "FL_wheel_joint": 0.02,
-    "FR_calf_joint": 0.02,
-    "FR_wheel_joint": 0.02,
-    "RL_calf_joint": 0.02,
-    "RL_wheel_joint": 0.02,
-    "RR_calf_joint": 0.02,
-    "RR_wheel_joint": 0.02,
-    "__default__": 0.01
-  },
-  "frictionloss": {
-    "__default__": 0.2
-  }
+  "terrains": []
 }

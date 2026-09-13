@@ -75,7 +75,9 @@ class PandaOpenCabinet(panda.PandaBase):
 
     # Enable hand base collision to shape learning
     self.mj_model.geom("hand_capsule").conaffinity = 3
-    self._mjx_model = mjx.put_model(self.mj_model, impl=self._config.impl)
+    self._mjx_model = mjx_env.put_model(
+        self.mj_model, impl=self._config.impl
+    )
 
     self._post_init(obj_name="handle", keyframe="upright")
     self._barrier_geom = self._mj_model.geom("barrier").id

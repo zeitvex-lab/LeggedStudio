@@ -79,7 +79,7 @@ class PandaBase(mjx_env.MjxEnv):
     mj_model.opt.timestep = self.sim_dt
 
     self._mj_model = mj_model
-    self._mjx_model = mjx.put_model(mj_model, impl=self._config.impl)
+    self._mjx_model = mjx_env.put_model(mj_model, impl=self._config.impl)
     self._action_scale = config.action_scale
 
   def _post_init(self, obj_name: str, keyframe: str):

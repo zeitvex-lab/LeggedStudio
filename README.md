@@ -2,7 +2,7 @@
 
 **腿足机器人强化学习工作室** —— 覆盖「资产盘点 → 模型检查 → RL 训练 → 策略导出 → sim2sim 验证 → 部署打包」全流程的全栈工具。
 
-- 版本：`0.45.0`（见 `VERSION`）
+- 版本：`0.52.0`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
 - 许可：MIT
 - 作者：zeitvex
 
@@ -46,7 +46,7 @@
 ┌────▼─────────┐  ┌─────▼───────┐   ┌───────▼───────────────────┐
 │ contracts/   │  │ assets/     │   │ adapters/mjlab/ worker     │
 │ 数据契约      │  │ robots/     │   │ MJLab + torch(cu128/cpu)   │
-│ Schema/校验/ │  │ 15 机器人包  │   │ PPO / off-policy           │
+│ Schema/校验/ │  │ 14 机器人包  │   │ PPO / off-policy           │
 │ 角色解析      │  │ + 资产清单   │   │ ──► ONNX 导出              │
 │ （零依赖）    │  └─────────────┘   └───────┬───────────────────┘
 └──────────────┘                            │ policy.onnx + 部署元数据
@@ -98,7 +98,7 @@ legged_studio/
 | 浏览器 sim2sim | MuJoCo WASM（pthread）+ ONNX Runtime Web 1.23.2 + Three.js，全部离线 vendor |
 | 数据契约 | JSON Schema ×8 + 生成的 Pydantic 模型 |
 | 资产准入 | 移植准入审计（训练/仿真须有 00_resources 上游训练源码佐证，包自包含与策略↔onnx 一致性检查），见 `tools/audit_porting_admission.py` |
-| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、前端 vendor 冒烟 |
+| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测（backend 全量 24 模块）、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、Capability Pack 校验、**文档数字对账**、前端 vendor 冒烟 |
 | 云原生开发 | 根 `Dockerfile`（**Ubuntu 24.04 LTS** + Python 3.12）+ `.cnb.yml` 的 `vscode` 事件，一键起环境（控制面依赖 + Chromium + **mjlab CPU 训练栈**全固化，浏览器 sim2sim 开箱可用）→ `docs/cloud-dev.md` |
 | 开发期 MCP | `.cnb/mcp/servers.json` 11 条（通用 6 + 机器人专用 5）+ `tools/mcp/` 4 个自研 server（契约 / MuJoCo / onnx / 资源库，零新增依赖）→ `.cnb/mcp/README.md` |
 
@@ -155,8 +155,9 @@ bash scripts/provision_cpu_training.sh
 ### 测试
 
 ```powershell
-npm test           # 后端 unittest（控制面纯逻辑测试）
+npm test           # 后端 unittest（控制面纯逻辑测试，全量 24 个 test_*.py）
 npm run test:obs   # 浏览器观测构建器的 node 单测
+npm run check:docs # 文档数字 vs 仓库实测对账（版本号/包数/策略数/资源库项目数）
 ```
 
 浏览器 E2E（确定性回放 + 截图，需要 Playwright）：
@@ -167,7 +168,7 @@ playwright install chromium
 pytest tests/e2e -v
 ```
 
-无头 CPU sim2sim 验收（47 条策略，对照基线只拦新增退化）：
+无头 CPU sim2sim 验收（包内声明的策略全量，当前 47 条可执行，对照基线只拦新增退化）：
 
 ```bash
 python tools/sim2sim_headless.py --seconds 3 \
@@ -225,7 +226,7 @@ npm run build:linux               # Linux AppImage
 - [参考资源库](00_resources/README.md) —— 按来源项目组织的参考资源、项目 × 机型矩阵与省略登记
 - [资源模型重构方案](00_know/50_方案与清单/重构方案_RobotAsset资源模型与实施路线.md) —— RobotAsset 5 资源模型与 M0–M5 落地路线
 - [任务清单](00_know/50_方案与清单/任务清单.md) —— 可执行任务清单（P0–P3 + 排期依赖 + DoD）
-- [UniLab 深度分析与 motrixsim 移植评估](00_know/10_参考项目分析/UniLab_深度分析与motrixsim移植评估.md) —— 多后端能力契约 / 跨后端 sim2sim 守卫 / 「保留 mjlab + 移植 motrixsim」可行性
+- [UniLab 深度分析与 motrixsim 移植评估](00_know/10_参考项目分析/UniLab_深度分析与motrixsim移植评估.md) —— 多后端能力契约 / 跨后端 sim2sim 守卫的方法论来源（**第二后端移植规划已于 2026-09-13 搁置**，路线改为先把 mjlab+MuJoCo 做精；文中的能力契约与守卫设计已被 K2/K3 采纳）
 - [B8 移植准入报告](00_know/40_专题报告/B8_移植准入报告.md) —— 训练/仿真的移植准入规则（须有上游训练源码佐证）+ 14 机型审计矩阵
 
 ---

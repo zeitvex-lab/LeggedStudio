@@ -37,6 +37,27 @@ class TestSuite(parameterized.TestCase):
     self.assertEqual(state.obs.shape[0], env.observation_size)
     self.assertFalse(jp.isnan(state.data.qpos).any())
 
+  def test_warn_overflow_filtered_warp(self) -> None:
+    import mujoco_warp as mjw  # pylint: disable=g-import-not-at-top
+
+    env = dm_control_suite.load(
+        "CartpoleBalance", config_overrides={"impl": "warp"}
+    )
+    warn_overflow = int(env.mjx_model.opt._impl.warn_overflow)
+    self.assertEqual(warn_overflow & int(mjw.OverflowType.ITERATIONS), 0)
+    self.assertEqual(warn_overflow & int(mjw.OverflowType.LS_ITERATIONS), 0)
+
+  def test_put_model_warn_overflow_filtered_warp(self) -> None:
+    import mujoco  # pylint: disable=g-import-not-at-top
+    import mujoco_warp as mjw  # pylint: disable=g-import-not-at-top
+    from mujoco_playground._src import mjx_env  # pylint: disable=g-import-not-at-top
+
+    mj_model = mujoco.MjModel.from_xml_string("<mujoco><worldbody/></mujoco>")
+    mjx_model = mjx_env.put_model(mj_model, impl="warp")
+    warn_overflow = int(mjx_model.opt._impl.warn_overflow)
+    self.assertEqual(warn_overflow & int(mjw.OverflowType.ITERATIONS), 0)
+    self.assertEqual(warn_overflow & int(mjw.OverflowType.LS_ITERATIONS), 0)
+
 
 if __name__ == "__main__":
   absltest.main()

@@ -21,6 +21,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from contracts.asset_paths import resolve_asset_path
+from backend.gl_env import ensure_headless_gl, render_error_hint
 from backend.robot_packages import write_package_manifest
 
 
@@ -428,6 +429,9 @@ async def preview_model(request: ModelPreviewRequest) -> dict[str, Any]:
         model_format = root.tag.lower() == "robot" and "urdf" or "mjcf"
         if model_format == "urdf":
             return {"success": True, "format": "urdf", "svg": _urdf_preview_svg(root)}
+        # 幂等兜底：正常由 backend/__init__ 更早设定；这里再确认一次，避免本模块被
+        # 单独导入（脚本 / 单测）时错过「必须在 import mujoco 前确定后端」的窗口。
+        ensure_headless_gl()
         import mujoco
         import numpy as np
         model = mujoco.MjModel.from_xml_path(str(path))
@@ -464,7 +468,7 @@ async def preview_model(request: ModelPreviewRequest) -> dict[str, Any]:
             png_bytes = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw_rows)) + chunk(b"IEND", b"")
         return {"success": True, "format": "mjcf", "image_base64": base64.b64encode(png_bytes).decode("ascii"), "width": width, "height": height}
     except Exception as exc:
-        return {"success": False, "format": request.format, "error": str(exc)}
+        return {"success": False, "format": request.format, "error": render_error_hint(exc)}
     finally:
         if temporary:
             path.unlink(missing_ok=True)

@@ -1,0 +1,530 @@
+from typing import TYPE_CHECKING
+
+import torch
+
+from genesislab.utils.math import quat_apply_inverse
+
+if TYPE_CHECKING:
+    from genesislab.envs.manager_based_genesis_env import ManagerBasedGenesisEnv
+    from .lab_entity import LabEntity
+
+
+# Number of base DOFs for a floating-base articulation in Genesis:
+# indices 0:3 = world position (x, y, z), indices 3:6 = base Euler XYZ (roll, pitch, yaw).
+_FLOATING_BASE_DOFS = 6
+
+
+class LabEntityData:
+    """Data container for an entity in the simulation.
+
+    This class provides lazy-loaded access to entity state data, similar to
+    IsaacLab's ArticulationData. All data is fetched on-demand from the
+    underlying scene layer.
+
+    Quaternion convention
+    ---------------------
+    Every ``*_quat_*`` tensor in this class uses the **wxyz** (scalar-first) order,
+    matching Genesis ``get_quat()`` / ``get_links_quat()`` and MuJoCo ``qpos`` layout:
+    ``q[..., 0]`` = ``w``, ``q[..., 1:4]`` = ``(x, y, z)``. Do **not** pass xyzw
+    quaternions into any helper here.
+
+    The data includes:
+    - Joint state: positions and velocities
+    - Root state: position, quaternion, linear and angular velocities
+    - Link positions: world frame positions of all links/bodies
+    """
+
+    def __init__(self, env: "ManagerBasedGenesisEnv", entity: "LabEntity"):
+        """Initialize the entity data view.
+
+        Args:
+            env: The environment instance.
+            entity: LabEntity wrapper for the underlying Genesis entity.
+        """
+        self._env = env
+        self._scene = env.scene
+        self._lab_entity = entity
+        self._entity_name = entity.name
+        self._raw_entity = entity.raw_entity
+        # Track previous joint velocity for acceleration computation
+        self._prev_joint_vel: torch.Tensor = None
+        # Track last step when acceleration was computed (to avoid multiple updates per step)
+        self._last_acc_step: int = -1
+        # Cached gravity vector (0, 0, -1) expanded to (num_envs, 3). Lazily built.
+        self._gravity_vec_w: torch.Tensor = None
+
+    _default_joint_pos: torch.Tensor = None
+    _default_joint_vel: torch.Tensor = None
+    _default_root_pos: torch.Tensor = None
+    _default_root_quat: torch.Tensor = None
+    _default_root_lin_vel: torch.Tensor = None
+    _default_root_ang_vel: torch.Tensor = None
+    _soft_joint_pos_limits: torch.Tensor = None
+
+    # ------------------------------------------------------------------
+    # Name accessors
+    # ------------------------------------------------------------------
+
+    @property
+    def joint_names(self) -> list[str]:
+        """Normalized actuated joint names (floating base excluded)."""
+        return self._lab_entity.joint_names
+
+    @property
+    def link_names(self) -> list[str]:
+        """Link/body names (all)."""
+        return self._lab_entity.link_names
+
+    @property
+    def raw_link_names(self) -> list[str]:
+        """Raw link/body names (all)."""
+        return self._lab_entity.raw_link_names
+
+    @property
+    def GRAVITY_VEC_W(self) -> torch.Tensor:
+        """World-frame unit gravity direction ``(0, 0, -1)``, shape ``(num_envs, 3)``.
+
+        Cached on first access to avoid rebuilding a tensor on every RL step; the
+        returned view is read-only (do not mutate in place — every caller shares it).
+        """
+        if self._gravity_vec_w is None:
+            self._gravity_vec_w = torch.tensor(
+                [0.0, 0.0, -1.0], device=self._env.device, dtype=torch.float32
+            ).unsqueeze(0).expand(self._env.num_envs, 3)
+        return self._gravity_vec_w
+
+    @property
+    def default_joint_pos(self) -> torch.Tensor:
+        """Default joint positions. Shape: (num_envs, num_dofs).
+
+        This quantity is configured through the robot configuration's `default_joint_pos` parameter.
+        If not configured, returns zeros.
+        """
+        if self._default_joint_pos is None:
+            # Initialize default joint positions
+            # Get current joint positions to infer full DOF shape, then drop base DOFs
+            joint_pos_full = self._raw_entity.get_dofs_position()
+            num_envs, num_dofs_full = joint_pos_full.shape
+            base_offset = 6 if num_dofs_full > 6 else 0
+            num_joints = num_dofs_full - base_offset
+
+            # Initialize with zeros for joint DOFs only (exclude base)
+            self._default_joint_pos = torch.zeros(num_envs, num_joints, device=self._env.device)
+            
+            robot_cfg = self._env.scene.cfg.robots.get(self._entity_name)
+            if robot_cfg is not None and hasattr(robot_cfg, "default_joint_pos") and robot_cfg.default_joint_pos is not None:
+                # Get Robot asset from Entity (required)
+                entity = self._env.entities[self._entity_name]
+                robot_asset = entity.robot_asset
+                if robot_asset is None:
+                    raise RuntimeError(
+                        f"Robot asset for entity '{self._entity_name}' is None. "
+                        f"This indicates that the robot was not properly initialized with GenesisArticulationRobot."
+                    )
+                
+                # Use Robot's name resolution to resolve joint values and DOF indices
+                joint_values = robot_asset.resolve_joint_values(robot_cfg.default_joint_pos)
+                joint_dof_indices = robot_asset.get_all_joint_dof_indices()
+                
+                # Set default joint positions for matched joints (map global DOF -> joint-subspace index)
+                for joint_name, value in joint_values.items():
+                    if joint_name in joint_dof_indices:
+                        dof_indices_full = joint_dof_indices[joint_name]
+                        for dof_idx_full in dof_indices_full:
+                            if base_offset <= dof_idx_full < num_dofs_full:
+                                dof_idx_joint = dof_idx_full - base_offset
+                                if dof_idx_joint < num_joints:
+                                    self._default_joint_pos[:, dof_idx_joint] = value
+
+        return self._default_joint_pos
+
+    @property
+    def default_joint_vel(self) -> torch.Tensor:
+        """Default joint velocities. Shape: (num_envs, num_dofs).
+
+        This quantity is configured through the robot configuration's `default_joint_vel` parameter.
+        If not configured, returns zeros (default velocity is zero).
+        """
+        if self._default_joint_vel is None:
+            # Initialize default joint velocities
+            # Get current joint velocities to infer full DOF shape, then drop base DOFs
+            joint_vel_full = self._raw_entity.get_dofs_velocity()
+            num_envs, num_dofs_full = joint_vel_full.shape
+            base_offset = 6 if num_dofs_full > 6 else 0
+            num_joints = num_dofs_full - base_offset
+
+            # Initialize with zeros (default velocity is zero) for joint DOFs only
+            self._default_joint_vel = torch.zeros(num_envs, num_joints, device=self._env.device)
+            
+            robot_cfg = self._env.scene.cfg.robots.get(self._entity_name)
+            if robot_cfg is not None and hasattr(robot_cfg, "default_joint_vel") and robot_cfg.default_joint_vel is not None:
+                # Get Robot asset from Entity (required)
+                entity = self._env.entities[self._entity_name]
+                robot_asset = entity.robot_asset
+                if robot_asset is None:
+                    raise RuntimeError(
+                        f"Robot asset for entity '{self._entity_name}' is None. "
+                        f"This indicates that the robot was not properly initialized with GenesisArticulationRobot."
+                    )
+                
+                # Use Robot's name resolution to resolve joint values and DOF indices
+                joint_values = robot_asset.resolve_joint_values(robot_cfg.default_joint_vel)
+                joint_dof_indices = robot_asset.get_all_joint_dof_indices()
+                
+                # Set default joint velocities for matched joints (map global DOF -> joint-subspace index)
+                for joint_name, value in joint_values.items():
+                    if joint_name in joint_dof_indices:
+                        dof_indices_full = joint_dof_indices[joint_name]
+                        for dof_idx_full in dof_indices_full:
+                            if base_offset <= dof_idx_full < num_dofs_full:
+                                dof_idx_joint = dof_idx_full - base_offset
+                                if dof_idx_joint < num_joints:
+                                    self._default_joint_vel[:, dof_idx_joint] = value
+
+        return self._default_joint_vel
+
+    @property
+    def joint_pos(self) -> torch.Tensor:
+        """Joint positions. Shape: (num_envs, num_dofs)."""
+        pos_full = self._raw_entity.get_dofs_position()
+        base_offset = 6
+        return pos_full[:, base_offset:]
+
+    @property
+    def joint_vel(self) -> torch.Tensor:
+        """Joint velocities. Shape: (num_envs, num_dofs)."""
+        vel_full = self._raw_entity.get_dofs_velocity()
+        base_offset = 6
+        return vel_full[:, base_offset:]
+
+    @property
+    def joint_acc(self) -> torch.Tensor:
+        """Joint accelerations. Shape: (num_envs, num_dofs).
+        
+        This property computes joint accelerations by numerical differentiation
+        of joint velocities. The acceleration is computed as:
+        acc = (vel_current - vel_previous) / dt
+        
+        On the first call or after reset, returns zeros (no previous velocity available).
+        The previous velocity is updated once per environment step to ensure consistency.
+        """
+        # Get current joint velocity (joint DOFs only, exclude base)
+        vel_full = self._raw_entity.get_dofs_velocity()
+        num_envs, num_dofs_full = vel_full.shape
+        base_offset = 6
+        vel_current = vel_full[:, base_offset:]
+        num_dofs = vel_current.shape[-1]
+        
+        # Get current step count to track when to update
+        current_step = getattr(self._env, "common_step_counter", 0)
+        
+        # Initialize previous velocity buffer if needed
+        if self._prev_joint_vel is None:
+            self._prev_joint_vel = vel_current.clone()
+            self._last_acc_step = current_step
+            # Return zeros on first call (no previous velocity to differentiate)
+            return torch.zeros(num_envs, num_dofs, device=self._env.device)
+        
+        # Check if shape changed (e.g., after reset)
+        if self._prev_joint_vel.shape != vel_current.shape:
+            self._prev_joint_vel = vel_current.clone()
+            self._last_acc_step = current_step
+            return torch.zeros(num_envs, num_dofs, device=self._env.device)
+        
+        # Compute acceleration: (vel_current - vel_previous) / dt
+        # Use physics_dt for differentiation
+        dt = self._env.physics_dt
+        joint_acc = (vel_current - self._prev_joint_vel) / dt
+        
+        # Update previous velocity only once per step (if step changed)
+        if current_step != self._last_acc_step:
+            self._prev_joint_vel = vel_current.clone()
+            self._last_acc_step = current_step
+        
+        return joint_acc
+
+    @property
+    def soft_joint_pos_limits(self) -> torch.Tensor:
+        """Soft joint position limits. Shape: (num_envs, num_dofs, 2).
+
+        Limits are taken directly from Genesis DOF limits (per-DOF lower/upper)
+        and mapped into the joint subspace (excluding base DOFs).
+        """
+        if self._soft_joint_pos_limits is None:
+            # Genesis returns a tuple (lower, upper), each of shape (n_dofs,)
+            lower, upper = self._raw_entity.get_dofs_limit()
+            # Move to env device if needed
+            lower = lower.to(self._env.device)
+            upper = upper.to(self._env.device)
+
+            n_dofs_full = lower.shape[0]
+            base_offset = 6 if n_dofs_full > 6 else 0
+            # Joint DOFs only (exclude base)
+            lower_joint = lower[base_offset:]
+            upper_joint = upper[base_offset:]
+
+            # Stack into (num_joints, 2) as [min, max]
+            limits_joint = torch.stack([lower_joint, upper_joint], dim=-1)  # (num_joints, 2)
+            num_envs = self._env.num_envs
+
+            # Expand to (num_envs, num_joints, 2)
+            self._soft_joint_pos_limits = limits_joint.unsqueeze(0).expand(num_envs, -1, -1)
+
+        return self._soft_joint_pos_limits
+
+    @property
+    def applied_torque(self) -> torch.Tensor:
+        """Applied joint torques/efforts. Shape: (num_envs, num_dofs).
+        
+        This property collects applied efforts from all actuators configured for this entity.
+        If no actuators are configured, returns zeros.
+        """
+        # Get joint state to infer shape (joint DOFs only, exclude base)
+        joint_pos_full = self._raw_entity.get_dofs_position()
+        num_envs, num_dofs_full = joint_pos_full.shape
+        base_offset = 6 if num_dofs_full > 6 else 0
+        num_dofs = num_dofs_full - base_offset
+        
+        # Initialize with zeros
+        applied_torques = torch.zeros(num_envs, num_dofs, device=self._env.device)
+        
+        entity = self._env.entities[self._entity_name]
+        entity_actuators = entity.actuators
+        if not entity_actuators: raise ValueError("The actuators not specified.")
+        
+        # Collect applied efforts from all actuators
+        # Each actuator has applied_effort and joint_ids that map to DOF indices
+        for actuator_name, actuator in entity_actuators.items():
+            if not hasattr(actuator, "applied_effort"):
+                continue
+            
+            applied_effort = actuator.applied_effort  # (num_envs, num_actuator_dofs)
+            
+            # Get joint_ids for this actuator (these are DOF indices)
+            if not hasattr(actuator, "joint_ids"):
+                continue
+            
+            joint_ids = actuator.joint_ids
+            
+            # Handle different joint_ids types
+            if isinstance(joint_ids, slice):
+                # Convert slice to indices
+                if joint_ids == slice(None):
+                    # All DOFs
+                    dof_indices = torch.arange(num_dofs, device=self._env.device)
+                else:
+                    start = joint_ids.start if joint_ids.start is not None else 0
+                    stop = joint_ids.stop if joint_ids.stop is not None else num_dofs
+                    step = joint_ids.step if joint_ids.step is not None else 1
+                    dof_indices = torch.arange(start, stop, step, device=self._env.device)
+            elif isinstance(joint_ids, (list, tuple)):
+                dof_indices = torch.tensor(joint_ids, dtype=torch.long, device=self._env.device)
+            elif isinstance(joint_ids, torch.Tensor):
+                dof_indices = joint_ids.to(device=self._env.device)
+            else:
+                continue
+            
+            # Ensure dof_indices are within bounds
+            dof_indices = dof_indices[dof_indices < num_dofs]
+            if len(dof_indices) == 0:
+                continue
+            
+            # Map applied_effort to the correct DOF indices
+            num_actuator_dofs = applied_effort.shape[1]
+            num_mapped_dofs = min(len(dof_indices), num_actuator_dofs)
+            applied_torques[:, dof_indices[:num_mapped_dofs]] = applied_effort[:, :num_mapped_dofs]
+        
+        return applied_torques
+
+    @property
+    def root_pos_w(self) -> torch.Tensor:
+        """Root position in world frame. Shape: (num_envs, 3)."""
+        return self._raw_entity.get_pos()
+
+    @property
+    def link_pos_w(self) -> torch.Tensor:
+        """All link positions in world frame. Shape: (num_envs, num_links, 3).
+        
+        Returns the translation (position) of all links/bodies in the entity.
+        """
+        return self._raw_entity.get_links_pos()
+
+    # IsaacLab-style body accessors used by imitation/tracking MDP
+    @property
+    def body_pos_w(self) -> torch.Tensor:
+        """Alias for link positions in world frame. Shape: (num_envs, num_links, 3)."""
+        return self.link_pos_w
+
+    @property
+    def body_quat_w(self) -> torch.Tensor:
+        """All link orientations in world frame. Shape: (num_envs, num_links, 4).
+
+        Requires that the underlying Genesis entity exposes per-link quaternions.
+        """
+        if not hasattr(self._raw_entity, "get_links_quat"):
+            raise RuntimeError(
+                f"Raw entity for '{self._entity_name}' does not expose 'get_links_quat'. "
+                "Per-link orientations are required for imitation/tracking MDP."
+            )
+        return self._raw_entity.get_links_quat()  # type: ignore[attr-defined]
+
+    @property
+    def root_euler_xyz_w(self) -> torch.Tensor:
+        """Base (root) orientation as XYZ Euler angles in world frame. Shape ``(num_envs, 3)``.
+
+        These are the Genesis base DOFs ``get_dofs_position()[:, 3:6]`` — radians,
+        ``(roll, pitch, yaw)``. Use :attr:`root_quat_w` / :attr:`body_quat_w` for
+        quaternion-valued orientation; this accessor is primarily for imitation
+        tracking where NPZ motion files store base orientation as Euler XYZ.
+        """
+        dofs = self._raw_entity.get_dofs_position()  # type: ignore[attr-defined]
+        if dofs.shape[-1] < _FLOATING_BASE_DOFS:
+            raise RuntimeError(
+                f"Entity '{self._entity_name}' has only {dofs.shape[-1]} DOFs, "
+                f"which is fewer than the {_FLOATING_BASE_DOFS} floating-base DOFs required "
+                "to read a base Euler XYZ orientation. Is this a fixed-base asset?"
+            )
+        return dofs[:, 3:_FLOATING_BASE_DOFS]
+
+    @property
+    def body_rot_w(self) -> torch.Tensor:
+        """Alias of :attr:`root_euler_xyz_w`. Shape ``(num_envs, 3)``, base Euler XYZ in radians.
+
+        .. note::
+            **This is not a quaternion and not per-link.** Despite its name, this
+            property returns only the **root/base** orientation as Euler XYZ, to
+            mirror the ``body_rot_w`` key stored in NPZ motion files (see
+            ``genesis_tasks.imitation.tracking.mdp.commands.MotionLoader``).
+
+            For per-link quaternions use :attr:`body_quat_w`; for root quaternion
+            use :attr:`root_quat_w`. wxyz throughout.
+        """
+        return self.root_euler_xyz_w
+
+    @property
+    def body_lin_vel_w(self) -> torch.Tensor:
+        """All link linear velocities in world frame. Shape: (num_envs, num_links, 3).
+
+        Requires that the underlying Genesis entity exposes per-link linear velocities.
+        """
+        if not hasattr(self._raw_entity, "get_links_vel"):
+            raise RuntimeError(
+                f"Raw entity for '{self._entity_name}' does not expose 'get_links_vel'. "
+                "Per-link linear velocities are required for imitation/tracking MDP."
+            )
+        return self._raw_entity.get_links_vel()  # type: ignore[attr-defined]
+
+    @property
+    def body_ang_vel_w(self) -> torch.Tensor:
+        """All link angular velocities in world frame. Shape: (num_envs, num_links, 3).
+
+        Requires that the underlying Genesis entity exposes per-link angular velocities.
+        """
+        if not hasattr(self._raw_entity, "get_links_ang"):
+            raise RuntimeError(
+                f"Raw entity for '{self._entity_name}' does not expose 'get_links_ang'. "
+                "Per-link angular velocities are required for imitation/tracking MDP."
+            )
+        return self._raw_entity.get_links_ang()  # type: ignore[attr-defined]
+
+    @property
+    def root_quat_w(self) -> torch.Tensor:
+        """Root quaternion in world frame. Shape: (num_envs, 4)."""
+        return self._raw_entity.get_quat()
+
+    @property
+    def root_lin_vel_w(self) -> torch.Tensor:
+        """Root linear velocity in world frame. Shape: (num_envs, 3)."""
+        return self._raw_entity.get_vel()
+
+    @property
+    def root_ang_vel_w(self) -> torch.Tensor:
+        """Root angular velocity in world frame. Shape: (num_envs, 3)."""
+        return self._raw_entity.get_ang()
+
+    # ------------------------------------------------------------------
+    # Default root state (capture once, used as reset reference)
+    # ------------------------------------------------------------------
+
+    @property
+    def default_root_pos_w(self) -> torch.Tensor:
+        """Default root position used for resets. Shape: (num_envs, 3).
+
+        This quantity is configured through the robot configuration's `initial_pose.pos` parameter.
+        If not configured, returns [0, 0, 0].
+        """
+        if self._default_root_pos is None:
+            num_envs = self._env.num_envs
+            robot_cfg = self._env.scene.cfg.robots.get(self._entity_name)
+
+            # Default to origin
+            pos = [0.0, 0.0, 0.0]
+            if robot_cfg is not None and hasattr(robot_cfg, "initial_pose") and robot_cfg.initial_pose is not None:
+                if hasattr(robot_cfg.initial_pose, "pos") and robot_cfg.initial_pose.pos is not None:
+                    pos = robot_cfg.initial_pose.pos
+
+            self._default_root_pos = torch.tensor(pos, device=self._env.device, dtype=torch.float32).unsqueeze(0).expand(num_envs, 3).clone()
+        return self._default_root_pos
+
+    @property
+    def default_root_quat_w(self) -> torch.Tensor:
+        """Default root orientation used for resets. Shape: (num_envs, 4).
+
+        Returns quaternion in wxyz format [w, x, y, z] matching Genesis API.
+        """
+        if self._default_root_quat is None:
+            num_envs = self._env.num_envs
+            robot_cfg = self._env.scene.cfg.robots.get(self._entity_name)
+            # Default to identity quaternion in wxyz format
+            quat_wxyz = [1.0, 0.0, 0.0, 0.0]
+            if robot_cfg is not None and hasattr(robot_cfg, "initial_pose") and robot_cfg.initial_pose is not None:
+                if hasattr(robot_cfg.initial_pose, "quat") and robot_cfg.initial_pose.quat is not None:
+                    quat_wxyz = robot_cfg.initial_pose.quat
+
+            self._default_root_quat = torch.tensor(quat_wxyz, device=self._env.device, dtype=torch.float32).unsqueeze(0).expand(num_envs, 4).clone()
+        return self._default_root_quat
+
+    @property
+    def default_root_lin_vel_w(self) -> torch.Tensor:
+        """Default root linear velocity used for resets. Shape: (num_envs, 3).
+
+        Defaults to zero velocity [0, 0, 0].
+        """
+        if self._default_root_lin_vel is None:
+            num_envs = self._env.num_envs
+            self._default_root_lin_vel = torch.zeros(num_envs, 3, device=self._env.device, dtype=torch.float32)
+        return self._default_root_lin_vel
+
+    @property
+    def default_root_ang_vel_w(self) -> torch.Tensor:
+        """Default root angular velocity used for resets. Shape: (num_envs, 3).
+
+        Defaults to zero velocity [0, 0, 0].
+        """
+        if self._default_root_ang_vel is None:
+            num_envs = self._env.num_envs
+            self._default_root_ang_vel = torch.zeros(num_envs, 3, device=self._env.device, dtype=torch.float32)
+        return self._default_root_ang_vel
+
+    @property
+    def root_lin_vel_b(self) -> torch.Tensor:
+        """Root linear velocity in body frame. Shape: (num_envs, 3).
+
+        ``root_quat_w`` is [w,x,y,z] (wxyz) from Genesis; maps body → world. Velocity
+        tracking rewards expect commands in the base frame, so we rotate world → body.
+        """
+        return quat_apply_inverse(self.root_quat_w, self.root_lin_vel_w)
+
+    @property
+    def root_ang_vel_b(self) -> torch.Tensor:
+        """Root angular velocity expressed in body frame. Shape: (num_envs, 3)."""
+        return quat_apply_inverse(self.root_quat_w, self.root_ang_vel_w)
+
+    @property
+    def projected_gravity_b(self) -> torch.Tensor:
+        """Unit gravity direction expressed in the body frame. Shape ``(num_envs, 3)``.
+
+        Reuses the cached :attr:`GRAVITY_VEC_W` (avoids re-allocating every step) and
+        rotates world → body via the wxyz root quaternion.
+        """
+        return quat_apply_inverse(self.root_quat_w, self.GRAVITY_VEC_W)

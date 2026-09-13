@@ -12,6 +12,13 @@ from contracts import load_robot_contract
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "go2.v1.json"
 WORKSPACE = Path(__file__).resolve().parents[3]
 
+#: v1 契约的证据全部来自**仓库之外的上游快照**（当初与这些目录并列开发）。
+#: 它们不在本仓库里，哈希无法在此复算——**登记**它们，而不是把测试删掉：
+#: ① 出现未登记的根 → 失败（防止"证据来源被悄悄换掉"）；
+#: ② 在仓库内的证据 → 必须存在且哈希逐字节一致。
+EXTERNAL_EVIDENCE_ROOTS = ("lain_job/", "kaiwu_rl/", "uni_rl/")
+EXTERNAL_EVIDENCE_COUNT = 6
+
 
 class Go2ContractTest(unittest.TestCase):
     def test_load_go2_contract_fixture(self) -> None:
@@ -31,12 +38,32 @@ class Go2ContractTest(unittest.TestCase):
         self.assertEqual(contract.control_hz, 50)
 
     def test_go2_evidence_files_match_hashes(self) -> None:
-        contract = load_robot_contract(FIXTURE)
+        """证据要么在仓库内且哈希一致，要么属于**已登记的外部快照根**（缺失数固定）。"""
 
+        contract = load_robot_contract(FIXTURE)
+        external = 0
         for evidence in contract.evidence:
+            normalized = str(evidence.path).replace("\\", "/")
             source = WORKSPACE / evidence.path
-            self.assertTrue(source.is_file(), evidence.path)
-            self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(), evidence.sha256)
+            if source.is_file():
+                self.assertEqual(
+                    hashlib.sha256(source.read_bytes()).hexdigest(),
+                    evidence.sha256,
+                    f"仓库内证据 {evidence.path} 与登记的 sha256 不一致",
+                )
+                continue
+            with self.subTest(path=evidence.path):
+                self.assertTrue(
+                    normalized.startswith(EXTERNAL_EVIDENCE_ROOTS),
+                    f"{evidence.path} 既不在仓库内，也不属于已登记的外部快照根——"
+                    f"证据来源不许悄悄改变（登记表见 EXTERNAL_EVIDENCE_ROOTS）",
+                )
+            external += 1
+        self.assertEqual(
+            external,
+            EXTERNAL_EVIDENCE_COUNT,
+            "外部队列数量与登记不符：上游快照被换掉、或证据补进仓库时，请同步更新本断言",
+        )
 
     def test_invalid_go2_contract_fails(self) -> None:
         cases = [

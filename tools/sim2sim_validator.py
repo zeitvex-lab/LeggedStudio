@@ -1,15 +1,53 @@
 """
 Sim2Sim Validator
 跨仿真器验证工具（参考 RoboGauge 和 RC_WheelLeg）
+
+K3 起本文件的**字段一致性守卫**不再自成一套：与导出闸门共用
+``backend.contract_adjudicator``（``backend.export_gate.sim2sim_contract_guard``），
+因此"训练 → 部署"和"训练 → 另一引擎"两条链路对同一份契约差异给出**同一处置**。
+
+注意：``Sim2SimValidator._test_in_env`` 目前仍是占位实现（返回模拟数值），
+跨引擎的真实 episode 运行属 K6；本文件当前**可用于**的是契约守卫
+（:func:`guard_contract_consistency`）与结果落档（``create_sim2sim_result``）。
 """
 
-from typing import Dict, Any, Optional
-from dataclasses import dataclass
+from typing import Any, Dict, Optional
+from dataclasses import dataclass, field
 from datetime import datetime
 import numpy as np
 
 from contracts.robot_contract_v2 import RobotContractV2
 from contracts.policy_artifact import PolicyArtifact, Sim2SimResult
+
+
+def _as_dict(contract: Any) -> Dict[str, Any]:
+    """把契约对象转成可裁决的 dict（兼容 pydantic 模型 / 自定义 to_dict / 原始 dict）。"""
+    if isinstance(contract, dict):
+        return contract
+    for attribute in ("model_dump", "to_dict", "dict"):
+        method = getattr(contract, attribute, None)
+        if callable(method):
+            try:
+                value = method()
+            except Exception:  # pragma: no cover - 转换失败即视为不可裁决
+                continue
+            if isinstance(value, dict):
+                return value
+    raise TypeError(f"无法把 {type(contract).__name__} 转成 dict 用于契约裁决")
+
+
+def guard_contract_consistency(
+    source_snapshot: Dict[str, Any], target_contract: Any
+) -> Dict[str, Any]:
+    """跨引擎字段守卫（K3）：与导出闸门同一实现，仅 ``context`` 为 ``sim2sim``。
+
+    Returns:
+        裁决报告 ``{ok, disposition, entries, blockers, warnings, context, counts}``；
+        每条目含 **字段 / 源值 / 目标值 / 处置 / 依据**。
+    """
+    from backend.export_gate import sim2sim_contract_guard
+
+    return sim2sim_contract_guard(_as_dict(source_snapshot), _as_dict(target_contract))
 
 
 @dataclass
@@ -37,7 +75,10 @@ class Sim2SimTestResult:
     passed: bool
     threshold: float = 0.15  # 15% 性能下降阈值
 
-    tested_at: datetime
+    # 修复（2026-09-13）：原本 `tested_at: datetime` 跟在默认参数之后，dataclass 会在
+    # **导入模块时**直接抛 TypeError（non-default argument follows default argument），
+    # 也就是本文件此前根本 import 不了——给了默认值即修复，同时保留"不传就是此刻"。
+    tested_at: datetime = field(default_factory=datetime.now)
 
 
 class Sim2SimValidator:
@@ -59,12 +100,21 @@ class Sim2SimValidator:
         self.contract = contract
         self.performance_threshold = performance_threshold
 
+    def contract_guard(self, source_snapshot: Dict[str, Any]) -> Dict[str, Any]:
+        """跨引擎字段守卫（K3）：训练快照 vs 本验证器持有的目标契约。
+
+        与导出闸门共用 ``backend.contract_adjudicator``，所以同一份契约差异在两条
+        链路上得到同一个处置（deny / warn / allow）。
+        """
+        return guard_contract_consistency(source_snapshot, self.contract)
+
     def validate(
         self,
         artifact: PolicyArtifact,
         source_env: str = "mjlab",
         target_env: str = "mujoco",
-        num_episodes: int = 50
+        num_episodes: int = 50,
+        contract_snapshot: Optional[Dict[str, Any]] = None
     ) -> Sim2SimTestResult:
         """
         执行 Sim2Sim 验证
@@ -74,10 +124,19 @@ class Sim2SimValidator:
             source_env: 源环境（训练环境）
             target_env: 目标环境（迁移环境）
             num_episodes: 测试 episode 数
+            contract_snapshot: 训练时的契约快照；提供时先跑跨引擎字段守卫（K3），
+                裁决为 deny 直接拒绝——字段都对不上就谈不上"跨引擎性能"。
 
         Returns:
             Sim2SimTestResult
         """
+        if contract_snapshot is not None:
+            guard = self.contract_guard(contract_snapshot)
+            if not guard["ok"]:
+                raise ValueError(
+                    "跨引擎契约守卫拒绝（K3，fail-closed）：\n" + "\n".join(guard["blockers"])
+                )
+            print(f"[Sim2Sim] Contract guard passed ({guard['counts']})")
         print(f"[Sim2Sim] Validating: {artifact.artifact_id}")
         print(f"[Sim2Sim] Source: {source_env} → Target: {target_env}")
         print(f"[Sim2Sim] Running {num_episodes} episodes in each environment...")

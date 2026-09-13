@@ -300,6 +300,25 @@
         }
       }
     },
+    "tnCurvePoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "T-N 曲线的一个采样点：转速 → 该转速下可输出的峰值扭矩（均取**关节输出侧**，不折算减速比）。",
+      "required": [
+        "rpm",
+        "torque_nm"
+      ],
+      "properties": {
+        "rpm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "torque_nm": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
     "actuatorParams": {
       "type": "object",
       "additionalProperties": false,
@@ -341,6 +360,14 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "角色级动作缩放覆盖（1000frames 的 action_scale_by_role）"
+        },
+        "t_n_curve": {
+          "type": "array",
+          "minItems": 2,
+          "description": "T-N 曲线（转矩-转速曲线）（折线点列，rpm 升序、扭矩非增；末点 torque_nm=0 即空载转速）。**声明后才可能生效**：仅在 control.actuator_model=dc_motor 时被消费，缺省 ideal_pd 下一律忽略（不声明 = 现役行为不变）。采样点取关节输出侧。",
+          "items": {
+            "$ref": "#/$defs/tnCurvePoint"
+          }
         }
       }
     },
@@ -582,6 +609,13 @@
         "decimation": {
           "type": "integer",
           "minimum": 1
+        },
+        "actuator_model": {
+          "enum": [
+            "ideal_pd",
+            "dc_motor"
+          ],
+          "description": "P1 执行器模型开关。缺省 ideal_pd = 现役行为**不变**；dc_motor 启用 DC 电机模型（转矩-转速 T-N 曲线），要求相关角色声明 t_n_curve，否则消费侧报错——不静默回退。"
         }
       }
     },

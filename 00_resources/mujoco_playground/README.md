@@ -304,7 +304,7 @@ pyproject.toml
 
 | 目录 | 省略文件数 | 体积 | 登记文件 |
 |---|---:|---:|---|
-| `.` | 1 | 749 KB | [`_OMITTED.md`](./_OMITTED.md) |
+| `.` | 1 | 745 KB | [`_OMITTED.md`](./_OMITTED.md) |
 | `assets` | 1 | 124 KB | [`assets/_OMITTED.md`](./assets/_OMITTED.md) |
 | `mujoco_playground/_src/locomotion/berkeley_humanoid/xmls/assets` | 2 | 1.7 MB | [`mujoco_playground/_src/locomotion/berkeley_humanoid/xmls/assets/_OMITTED.md`](./mujoco_playground/_src/locomotion/berkeley_humanoid/xmls/assets/_OMITTED.md) |
 | `mujoco_playground/_src/locomotion/g1/xmls/assets` | 2 | 1.7 MB | [`mujoco_playground/_src/locomotion/g1/xmls/assets/_OMITTED.md`](./mujoco_playground/_src/locomotion/g1/xmls/assets/_OMITTED.md) |
@@ -314,7 +314,7 @@ pyproject.toml
 | `mujoco_playground/_src/manipulation/aero_hand/xmls/reorientation_cube_textures` | 1 | 49 KB | [`mujoco_playground/_src/manipulation/aero_hand/xmls/reorientation_cube_textures/_OMITTED.md`](./mujoco_playground/_src/manipulation/aero_hand/xmls/reorientation_cube_textures/_OMITTED.md) |
 | `mujoco_playground/_src/manipulation/aloha/xmls/assets` | 2 | 1 KB | [`mujoco_playground/_src/manipulation/aloha/xmls/assets/_OMITTED.md`](./mujoco_playground/_src/manipulation/aloha/xmls/assets/_OMITTED.md) |
 | `mujoco_playground/_src/manipulation/franka_emika_panda_robotiq/assets` | 12 | 9 KB | [`mujoco_playground/_src/manipulation/franka_emika_panda_robotiq/assets/_OMITTED.md`](./mujoco_playground/_src/manipulation/franka_emika_panda_robotiq/assets/_OMITTED.md) |
-| `mujoco_playground/_src/manipulation/leap_hand/xmls/meshes` | 2 | 62 KB | [`mujoco_playground/_src/manipulation/leap_hand/xmls/meshes/_OMITTED.md`](./mujoco_playground/_src/manipulation/leap_hand/xmls/meshes/_OMITTED.md) |
+| `mujoco_playground/_src/manipulation/leap_hand/xmls/meshes` | 2 | 59 KB | [`mujoco_playground/_src/manipulation/leap_hand/xmls/meshes/_OMITTED.md`](./mujoco_playground/_src/manipulation/leap_hand/xmls/meshes/_OMITTED.md) |
 | `mujoco_playground/_src/manipulation/leap_hand/xmls/reorientation_cube_textures` | 13 | 75 KB | [`mujoco_playground/_src/manipulation/leap_hand/xmls/reorientation_cube_textures/_OMITTED.md`](./mujoco_playground/_src/manipulation/leap_hand/xmls/reorientation_cube_textures/_OMITTED.md) |
 | `mujoco_playground/experimental/madrona_benchmarking/figures` | 7 | 3.6 MB | [`mujoco_playground/experimental/madrona_benchmarking/figures/_OMITTED.md`](./mujoco_playground/experimental/madrona_benchmarking/figures/_OMITTED.md) |
 | `mujoco_playground/experimental/sim2sim/assets` | 1 | 56 KB | [`mujoco_playground/experimental/sim2sim/assets/_OMITTED.md`](./mujoco_playground/experimental/sim2sim/assets/_OMITTED.md) |

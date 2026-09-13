@@ -52,6 +52,13 @@ export interface JointsSpecV3 {
   joint_limits?: Record<string, { lower?: number; upper?: number; effort?: number; velocity?: number }>;
 }
 
+/** $defs/tnCurvePoint：T-N 曲线折线采样点（关节输出侧，不折算减速比）。 */
+export interface TnCurvePointV3 {
+  rpm: number;
+  /** 该转速下可输出的峰值扭矩（Nm） */
+  torque_nm: number;
+}
+
 /** $defs/actuatorParams：执行器参数（default < by_role < by_joint 三级合并）。 */
 export interface ActuatorParamsV3 {
   stiffness?: number;
@@ -63,6 +70,8 @@ export interface ActuatorParamsV3 {
   /** wheel 角色常用 velocity（报告 6 §4.3） */
   mode?: "position" | "velocity" | "torque";
   action_scale?: number;
+  /** T-N 曲线（转矩-转速曲线）折线（rpm 升序、扭矩非增）。声明 ≠ 生效：仅 control.actuator_model="dc_motor" 时消费 */
+  t_n_curve?: TnCurvePointV3[];
 }
 
 export interface ActuatorProfileV3 {
@@ -119,6 +128,8 @@ export interface ControlSpecV3 {
   control_hz?: number; // 10..1000
   physics_hz?: number; // 100..10000
   decimation?: number;
+  /** P1 开关：缺省 = ideal_pd（现役行为不变）；dc_motor 才消费 actuator_profile[].t_n_curve */
+  actuator_model?: "ideal_pd" | "dc_motor";
 }
 
 /** $defs/taskRequirements：任务/算法包的对称需求声明（预埋，T6.1 启用三谓词匹配）。 */

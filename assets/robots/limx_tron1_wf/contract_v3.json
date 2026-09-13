@@ -86,7 +86,8 @@
         "effort": 80.0,
         "armature": 0.01,
         "mode": "position",
-        "action_scale": 0.25
+        "action_scale": 0.25,
+        "velocity_limit": 15.0
       },
       "hip": {
         "stiffness": 42.0,
@@ -94,7 +95,8 @@
         "effort": 80.0,
         "armature": 0.01,
         "mode": "position",
-        "action_scale": 0.25
+        "action_scale": 0.25,
+        "velocity_limit": 15.0
       },
       "knee": {
         "stiffness": 42.0,
@@ -102,7 +104,8 @@
         "effort": 80.0,
         "armature": 0.01,
         "mode": "position",
-        "action_scale": 0.25
+        "action_scale": 0.25,
+        "velocity_limit": 15.0
       },
       "wheel": {
         "stiffness": 0.0,
@@ -110,7 +113,8 @@
         "effort": 40.0,
         "armature": 0.01,
         "mode": "velocity",
-        "action_scale": 1.0
+        "action_scale": 1.0,
+        "velocity_limit": 40.0
       }
     },
     "default": {

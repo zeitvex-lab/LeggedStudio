@@ -1,0 +1,32 @@
+"""Configuration for SMPLX humanoid robot."""
+
+from __future__ import annotations
+
+from genesislab.components.actuators import ImplicitActuatorCfg
+from genesislab.engine.assets.robot import InitialPoseCfg, RobotCfg
+
+# Import asset paths from genesis_assets
+from genesis_assets import GENESIS_ASSETS_USD_DIR
+
+##
+# Configuration
+##
+
+SMPLX_HUMANOID_CFG = RobotCfg(
+    morph_type="USD",
+    morph_path=f"{GENESIS_ASSETS_USD_DIR}/smplx/smplx_humanoid.usda",
+    initial_pose=InitialPoseCfg(
+        pos=[0.0, 0.0, 0.95],
+        quat=[1.0, 0.0, 0.0, 0.0]  # wxyz: identity,
+    ),
+    fixed_base=False,
+    control_dofs=None,
+    actuators={
+        "body": ImplicitActuatorCfg(
+            joint_names_expr=[".*"],
+            stiffness=None,  # Use default from USD
+            damping=None,  # Use default from USD
+        ),
+    },
+    morph_options={},
+)

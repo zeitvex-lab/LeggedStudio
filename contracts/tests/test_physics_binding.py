@@ -14,6 +14,7 @@ import json
 import unittest
 from pathlib import Path
 
+from contracts.role_resolver import RoleResolver
 from contracts.physics_binding import (
     CONTROL_KEYS,
     PARAM_KEYS,
@@ -88,22 +89,51 @@ class PhysicsFactsFromContractTest(unittest.TestCase):
                         continue
                     self.assertEqual(facts[key], config[key], f"{package.name} {key}")
 
-    def test_by_joint_expansion_matches_config_values(self) -> None:
-        """DoD 核心：契约 v3 展开 == config 现行逐关节数值（含 armature/frictionloss）。"""
+    def test_by_joint_expansion_matches_role_layer_truth(self) -> None:
+        """DoD 核心（**真值源已换**）：只用 ``by_role``（+ ``default``）层重建的 v3，展开后必须与
+        shipped v3 的逐关节展开**逐项相等**——即「角色层足以还原每个关节的数值」。
+
+        原实现把 ``simulation/config.json`` 当"现行真值"；B3 收尾后该文件的物理键已移除，
+        对拍的一边恒为空（继续跑会变成**假通过**）。故真值改为 **shipped v3 自身的展开**：
+        测的仍是同一个不变量，且顺带证明"没有藏在角色层之外的数值"。
+
+        唯一允许的例外是**显式登记的逐关节特例**（``by_joint``）——它们是"角色层之外的有意覆盖"，
+        数量被下面锁死；出现新特例即失败（那是"角色表漏了某类关节"的信号）。
+        """
+
+        overrides = {
+            package.name: sorted(
+                ((load(package / "contract_v3.json").get("actuator_profile") or {}).get("by_joint") or {})
+            )
+            for package in packages()
+        }
+        overrides = {name: joints for name, joints in overrides.items() if joints}
+        self.assertEqual(
+            overrides,
+            {
+                "limx_tron1_sf": ["ankle_L_Joint", "ankle_R_Joint"],
+                "limx_tron1_wf": ["wheel_L_Joint", "wheel_R_Joint"],
+            },
+            "逐关节特例集合发生变化：新增特例意味着角色表没覆盖到那类关节（或迁移顺序被改动）",
+        )
 
         checked = 0
         for package in packages():
-            config = load(package / "simulation" / "config.json")
+            if package.name in overrides:
+                continue
             contract_v3 = load(package / "contract_v3.json")
-            joints = contract_v3["joints"]["actuated"]
-            facts = facts_from_contract(contract_v3)
-            for contract_key, name in PARAM_KEYS:
-                truth = config_truth_per_joint(config, CONFIG_KEY[name], joints)
-                if truth is None:
-                    continue
-                for joint, value in truth.items():
-                    with self.subTest(package=package.name, param=name, joint=joint):
-                        self.assertEqual(facts["by_joint"][name].get(joint), value)
+            profile = contract_v3.get("actuator_profile") or {}
+            rebuilt = {key: value for key, value in contract_v3.items() if key != "actuator_profile"}
+            rebuilt["actuator_profile"] = {
+                "default": profile.get("default") or {},
+                "by_role": profile.get("by_role") or {},
+            }
+            shipped = RoleResolver(load(package / "contract_v3.json")).expand_actuator_profile()
+            rebuilt_expanded = RoleResolver(rebuilt).expand_actuator_profile()
+            for joint, params in shipped.items():
+                for param, value in params.items():
+                    with self.subTest(package=package.name, joint=joint, param=param):
+                        self.assertEqual(rebuilt_expanded[joint].get(param), value)
                     checked += 1
         self.assertGreater(checked, 100, "对拍样本过少，测试可能失效")
 
@@ -131,14 +161,24 @@ class FrictionLossMigratedTest(unittest.TestCase):
                 self.assertEqual(default.get("friction_loss"), expected)
 
     def test_named_friction_loss_migrated(self) -> None:
+        """具名摩擦已迁进契约（原读 config，B3 后 config 侧键已移除）。
+
+        tron1_sf/wf 是唯二用**逐关节特例**声明摩擦的包（其余包是角色级/默认级），
+        且这两个包的 MJCF 里 ``frictionloss="0.01"``——契约值必须与之一致（取证）。
+        """
+
         for package_id in ("limx_tron1_sf", "limx_tron1_wf"):
             with self.subTest(package=package_id):
-                package = ROBOTS / package_id
-                config = load(package / "simulation" / "config.json")
-                raw = config.get("frictionloss") or {}
-                named = {k: v for k, v in raw.items() if k != "__default__"}
-                self.assertTrue(named, f"{package_id} 应有具名 frictionloss")
-                facts = physics_facts(package)
+                facts = physics_facts(ROBOTS / package_id)
+                # 特例层（by_joint override）：这两个包的具名摩擦就落在这里
+                named = dict(facts["by_joint_override"]["friction_loss"] or {})
+                self.assertTrue(named, f"{package_id} 应有具名 friction_loss（契约 by_joint 特例）")
+                self.assertEqual(
+                    {round(float(value), 9) for value in named.values()},
+                    {0.01},
+                    f"{package_id} 的具名摩擦应等于 MJCF 取证值 0.01",
+                )
+                # 展开层必须把特例值带到对应关节上（否则消费者仍拿不到）
                 for joint, value in named.items():
                     self.assertEqual(facts["by_joint"]["friction_loss"].get(joint), value, joint)
 
@@ -190,40 +230,37 @@ class ContractCoverageVsLegacyConfigTest(unittest.TestCase):
         value = table.get(joint.lower())
         return float(value) if value is not None else None
 
-    def test_contract_covers_config_physics_except_known_gaps(self) -> None:
-        adapter_params = (
-            ("armature", "armature", self._loader_lookup),
-            ("friction_loss", "frictionloss", self._loader_lookup),
-            ("torque_limits", "torque_limits", self._strict_lookup),
-        )
+    def test_contract_covers_every_actuated_joint(self) -> None:
+        """B3 之后的等价不变量：**armature / effort / friction_loss 覆盖每一个驱动关节**。
+
+        原实现是「契约 vs config 的缺口对照」（``KNOWN_CONTRACT_GAPS`` 里那个
+        ``unitree_go2w: ['armature']`` 就是当时的已知缺口）。B3 收尾把 config 侧物理键移除、
+        并补齐了全部缺口后，该对照已无对象（一边恒空 → 空跑）。换成同一保护的**正面表述**：
+        这三个量不允许出现"某关节查不到"的情况——那会让训练侧静默落到模型 default，
+        而"静默落 default" 正是 armature 长期失效的机制。
+        """
+
         gaps: dict[str, list[str]] = {}
         for package in packages():
-            config = load(package / "simulation" / "config.json")
             contract_v3 = load(package / "contract_v3.json")
             facts = facts_from_contract(contract_v3)
-            default = facts.get("default") or {}
-            for fact_key, config_key, lookup in adapter_params:
-                old_table = config.get(config_key) or {}
-                new_table = dict(facts["by_joint"].get(fact_key) or {})
-                if fact_key in default:
-                    new_table["__default__"] = default[fact_key]
-                if not old_table:
-                    continue
+            for param in ("armature", "torque_limits", "friction_loss"):
+                table = facts["by_joint"].get(param) or {}
                 for entry in contract_v3["joints"]["actuated"]:
                     joint = entry["name"]
-                    if lookup(old_table, joint) is None:
-                        continue
-                    if lookup(new_table, joint) is None:
+                    if table.get(joint) is None:
                         gaps.setdefault(package.name, [])
-                        if fact_key not in gaps[package.name]:
-                            gaps[package.name].append(fact_key)
+                        label = f"{param}:{joint}"
+                        if label not in gaps[package.name]:
+                            gaps[package.name].append(label)
 
         for value in gaps.values():
             value.sort()
         self.assertEqual(
-            gaps, self.KNOWN_CONTRACT_GAPS,
-            "契约覆盖缺口发生变化——新增缺口会令适配器翻转静默丢数据，"
-            "必须先补全契约（B3/pre），见 00_know/40_专题报告/B3_物理事实收敛_适配器差异报告.md",
+            gaps, {},
+            "契约对驱动关节的覆盖出现缺口——训练/浏览器/验收会**静默落到模型 default**"
+            "（armature 当年就是这样长期失效的）。补全契约，或把该缺口按来源存疑登记进"
+            "任务清单「待决」并在此显式列出。",
         )
 
 
@@ -312,13 +349,30 @@ class LegacyFallbackTest(unittest.TestCase):
     """未迁移包仍可从 config 读取，但必须显式标记，不制造静默双真值。"""
 
     def test_legacy_config_is_marked_needs_migration(self) -> None:
-        sample = load(ROBOTS / "unitree_go2" / "simulation" / "config.json")
+        """兼容回落**代码路径**仍必须可用（未迁移的老包 = config 里带物理键）。
+
+        真值源换成契约 v3 后，仓库里的 config 已不再带物理键，所以这里用一份**合成样本**
+        ——测的是 ``facts_from_legacy_config`` 这条路径本身，而不是某个包的数据现状。
+        （原实现直接读 go2 的 config 取 ``sample["control_hz"]``，B3 后该键已不存在。）
+        """
         from contracts.physics_binding import facts_from_legacy_config
 
+        sample = {
+            "control_hz": 50,
+            "physics_hz": 500,
+            "decimation": 10,
+            "stiffness": {"FL_hip_joint": 20.0},
+            "armature": {"FL_hip_joint": 0.01},
+            "frictionloss": {"FL_hip_joint": 0.2},
+        }
         facts = facts_from_legacy_config(sample)
         self.assertEqual(facts["source"], "legacy_config")
-        self.assertTrue(facts["needs_migration"])
-        self.assertEqual(facts["control_hz"], sample["control_hz"])
+        self.assertTrue(facts["needs_migration"], "兼容回落必须自报需要迁移，否则迁移进度不可观测")
+        self.assertEqual(facts["control_hz"], 50)
+        self.assertEqual(facts["physics_hz"], 500)
+        self.assertEqual(facts["decimation"], 10)
+        self.assertEqual(facts["by_joint"]["armature"]["FL_hip_joint"], 0.01)
+        self.assertEqual(facts["by_joint"]["friction_loss"]["FL_hip_joint"], 0.2)
 
 
 if __name__ == "__main__":

@@ -46,20 +46,6 @@ from tensordict import TensorDict
 from mjlab.rl import RslRlPpoAlgorithmCfg
 
 
-@dataclass
-class PpoWithSymmetryCfg(RslRlPpoAlgorithmCfg):
-    """PPO algorithm config extended with an optional symmetry_cfg field."""
-
-    symmetry_cfg: dict | None = None
-
-
-SYMMETRY_CFG = {
-    "use_data_augmentation": False,
-    "use_mirror_loss": True,
-    "mirror_loss_coeff": 0.5,
-    "data_augmentation_func": "mjlab_microduck.tasks.symmetry.microduck_vel_symmetry",
-}
-
 # ---------------------------------------------------------------------------
 # Permutation and sign tables
 # ---------------------------------------------------------------------------

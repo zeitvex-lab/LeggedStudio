@@ -1,0 +1,280 @@
+"""Command manager for generating and updating commands."""
+
+from __future__ import annotations
+
+import abc
+from collections.abc import Callable
+from dataclasses import MISSING
+from typing import TYPE_CHECKING, Any, Sequence
+
+import torch
+from prettytable import PrettyTable
+
+from genesislab.managers.manager_base import ManagerBase, ManagerTermBase
+from genesislab.managers.manager_term_cfg import CommandTermCfg
+
+if TYPE_CHECKING:
+	# import viser
+
+	from genesislab.envs.manager_based_rl_env import ManagerBasedRlEnv
+
+
+class CommandTerm(ManagerTermBase):
+	"""Base class for command terms."""
+
+	def __init__(self, cfg: CommandTermCfg, env: "ManagerBasedRlEnv"):
+		self.cfg = cfg
+		super().__init__(cfg=cfg, env=env)
+		self.metrics = dict()
+		self.time_left = torch.zeros(self.num_envs, device=self.device)
+		self.command_counter = torch.zeros(
+			self.num_envs, device=self.device, dtype=torch.long
+		)
+		self._debug_vis_enabled: bool = True
+
+	def debug_vis(self, visualizer: Any) -> None:
+		if self.cfg.debug_vis and self._debug_vis_enabled:
+			self._debug_vis_impl(visualizer)
+
+	def _debug_vis_impl(self, visualizer: Any) -> None:
+		pass
+
+	def create_gui(
+		self,
+		name: str,
+		server: Any,
+		get_env_idx: Callable[[], int],
+	) -> None:
+		"""Create interactive GUI controls for this command term.
+
+		Override in subclasses to add task-specific controls (e.g., velocity
+		sliders) to the Viser viewer. Called once during viewer setup.
+
+		The *name* argument is the term's key in the command manager config
+		(e.g., ``"twist"``).
+		"""
+
+	@property
+	@abc.abstractmethod
+	def command(self):
+		raise NotImplementedError
+
+	def reset(self, env_ids: torch.Tensor | slice) -> dict[str, float]:
+		assert isinstance(env_ids, torch.Tensor)
+		extras = {}
+		for metric_name, metric_value in self.metrics.items():
+			extras[metric_name] = torch.mean(metric_value[env_ids]).item()
+			metric_value[env_ids] = 0.0
+		self.command_counter[env_ids] = 0
+		# Resample commands for the reset environments and immediately update the
+		# internal command state so that subsequent terminations/rewards see a
+		# consistent command/robot pair on the very next step.
+		self._resample(env_ids)
+		self._update_command()
+		return extras
+
+	def compute(self, dt: float) -> None:
+		self._update_metrics()
+		self.time_left -= dt
+		resample_env_ids = (self.time_left <= 0.0).nonzero().flatten()
+		if len(resample_env_ids) > 0:
+			self._resample(resample_env_ids)
+		self._update_command()
+
+	def _resample(self, env_ids: torch.Tensor) -> None:
+		if len(env_ids) != 0:
+			self.time_left[env_ids] = self.time_left[env_ids].uniform_(
+				*self.cfg.resampling_time_range
+			)
+			self._resample_command(env_ids)
+			self.command_counter[env_ids] += 1
+
+	@abc.abstractmethod
+	def _update_metrics(self) -> None:
+		"""Update the metrics based on the current state."""
+		raise NotImplementedError
+
+	@abc.abstractmethod
+	def _resample_command(self, env_ids: torch.Tensor) -> None:
+		"""Resample the command for the specified environments."""
+		raise NotImplementedError
+
+	@abc.abstractmethod
+	def _update_command(self) -> None:
+		"""Update the command based on the current state."""
+		raise NotImplementedError
+
+
+class CommandManager(ManagerBase):
+	"""Manages command generation for the environment.
+
+	The command manager generates and updates goal commands for the agent (e.g.,
+	target velocity, target position). Commands are resampled at configurable
+	intervals and can track metrics for logging.
+	"""
+
+	_env: ManagerBasedRlEnv
+
+	def __init__(self, cfg: dict[str, CommandTermCfg], env: "ManagerBasedRlEnv"):
+		self._terms: dict[str, CommandTerm] = dict()
+
+		self.cfg = cfg
+		super().__init__(cfg=cfg, env=env)
+		self._commands = dict()
+
+	def __str__(self) -> str:
+		msg = f"<CommandManager> contains {len(self._terms.values())} active terms.\n"
+		table = PrettyTable()
+		table.title = "Active Command Terms"
+		table.field_names = ["Index", "Name", "Type"]
+		table.align["Name"] = "l"
+		for index, (name, term) in enumerate(self._terms.items()):
+			table.add_row([index, name, term.__class__.__name__])
+		msg += table.get_string()
+		msg += "\n"
+		return msg
+
+	def debug_vis(self, visualizer: Any) -> None:
+		for term in self._terms.values():
+			term.debug_vis(visualizer)
+
+	def create_gui(
+		self,
+		server: Any,
+		get_env_idx: Callable[[], int],
+	) -> None:
+		"""Let each command term create its GUI controls."""
+		for name, term in self._terms.items():
+			term.create_gui(name, server, get_env_idx)
+
+	# server: "viser.ViserServer"
+	def create_debug_vis_gui(self, server) -> None:
+		"""Add per-term debug visualization checkboxes."""
+		vis_terms = {name: term for name, term in self._terms.items() if term.cfg.debug_vis}
+		if not vis_terms:
+			return
+		for name, term in vis_terms.items():
+			cb = server.gui.add_checkbox(
+				name.capitalize(),
+				initial_value=term._debug_vis_enabled,
+			)
+
+			def _on_update(_ev, _term: CommandTerm = term, _cb=cb) -> None:
+				_term._debug_vis_enabled = _cb.value
+
+			cb.on_update(_on_update)
+
+	# Properties.
+
+	@property
+	def active_terms(self) -> list[str]:
+		return list(self._terms.keys())
+
+	def get_active_iterable_terms(
+		self, env_idx: int
+	) -> Sequence[tuple[str, Sequence[float]]]:
+		terms = []
+		idx = 0
+		for name, term in self._terms.items():
+			terms.append((name, term.command[env_idx].cpu().tolist()))
+			idx += term.command.shape[1]
+		return terms
+
+	def reset(self, env_ids: torch.Tensor) -> dict[str, torch.Tensor]:
+		extras = {}
+		for name, term in self._terms.items():
+			metrics = term.reset(env_ids=env_ids)
+			for metric_name, metric_value in metrics.items():
+				extras[f"Metrics/{name}/{metric_name}"] = metric_value
+		return extras
+
+	def compute(self, dt: float):
+		for term in self._terms.values():
+			term.compute(dt)
+
+	def get_command(self, name: str) -> torch.Tensor:
+		return self._terms[name].command
+
+	def get_term(self, name: str) -> CommandTerm:
+		return self._terms[name]
+
+	def get_term_cfg(self, name: str) -> CommandTermCfg:
+		return self.cfg[name]
+
+	def _prepare_terms(self):
+		# Extract terms from configclass __dict__ or dict items
+		if isinstance(self.cfg, dict):
+			term_cfg_items = self.cfg.items()
+		else:
+			term_cfg_items = self.cfg.__dict__.items()
+
+		for term_name, term_cfg in term_cfg_items:
+			# Skip private fields
+			if term_name.startswith("_"):
+				continue
+			term_cfg: CommandTermCfg
+			if term_cfg is None or term_cfg is MISSING:
+				print(f"term: {term_name} set to None/MISSING, skipping...")
+				continue
+			if not isinstance(term_cfg, CommandTermCfg):
+				raise TypeError(
+					f"Configuration for the term '{term_name}' is not of type 'CommandTermCfg'."
+					f" Received: '{type(term_cfg)}'."
+				)
+			# Create the command term using class_type
+			term = term_cfg.class_type(term_cfg, self._env)
+			# Sanity check if term is valid type
+			if not isinstance(term, CommandTerm):
+				raise TypeError(
+					f"Returned object for the term '{term_name}' is not of type 'CommandTerm'."
+					f" Received: '{type(term)}'."
+				)
+			self._terms[term_name] = term
+
+
+class NullCommandManager:
+	"""Placeholder for absent command manager that safely no-ops all operations."""
+
+	def __init__(self):
+		self.active_terms: list[str] = []
+		self._terms: dict[str, Any] = {}
+		self.cfg = None
+
+	def __str__(self) -> str:
+		return "<NullCommandManager> (inactive)"
+
+	def __repr__(self) -> str:
+		return "NullCommandManager()"
+
+	def debug_vis(self, visualizer: Any) -> None:
+		pass
+
+	def create_gui(
+		self,
+		server: Any,
+		get_env_idx: Callable[[], int],
+	) -> None:
+		pass
+
+	def create_debug_vis_gui(self, server: Any) -> None:
+		pass
+
+	def get_active_iterable_terms(
+		self, env_idx: int
+	) -> Sequence[tuple[str, Sequence[float]]]:
+		return []
+
+	def reset(self, env_ids: torch.Tensor = None) -> dict[str, torch.Tensor]:
+		return {}
+
+	def compute(self, dt: float) -> None:
+		pass
+
+	def get_command(self, name: str) -> None:
+		return None
+
+	def get_term(self, name: str) -> None:
+		return None
+
+	def get_term_cfg(self, name: str) -> None:
+		return None

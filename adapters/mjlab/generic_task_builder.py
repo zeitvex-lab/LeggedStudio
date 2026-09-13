@@ -145,6 +145,23 @@ def _build_entity(contract: Any, xml_path: Path):
     xml_names = tuple(item for item in joint_order if item in xml_targets and item not in unsupported_targets)
     generated_names = tuple(item for item in joint_order if item not in xml_targets or item in unsupported_targets)
     actuators = []
+    # P1：`control.actuator_model=dc_motor` 时，对该批关节改用 mjlab 的 DC 电机执行器
+    # （转矩-转速 T-N 曲线，dc_actuator.py）。缺省（ideal_pd / 未声明）时 dc_settings 为空元组，
+    # **下面一行都不会改**——这就是"不修改不起作用"。任一关节缺 t_n_curve 会在
+    # dc_actuator_settings 里抛错（不静默退回理想 PD）。
+    # ⚠️ 本分支在无 mjlab 的环境无法验证（本机 mjlab 未安装）：首次在 adapter venv 里
+    #    跑 dc_motor 前，请先用 ideal_pd 跑通同一任务做对照。
+    from contracts.physics_binding import dc_actuator_settings
+
+    dc_settings = dc_actuator_settings(xml_path.parent.parent)
+    if dc_settings:
+        from mjlab.actuator import DcMotorActuatorCfg
+
+        dc_joints = set(dc_settings)
+        xml_names = tuple(name for name in xml_names if name not in dc_joints)
+        generated_names = tuple(name for name in generated_names if name not in dc_joints)
+        for joint, settings in dc_settings.items():
+            actuators.append(DcMotorActuatorCfg(target_names_expr=(joint,), **settings))
     if xml_names:
         actuators.append(XmlActuatorCfg(target_names_expr=xml_names))
     if generated_names:

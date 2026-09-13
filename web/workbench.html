@@ -108,6 +108,7 @@
                 <button class="robot-tab active" data-robot-tab="joints" type="button">关节控制</button>
                 <button class="robot-tab" data-robot-tab="mapping" type="button">动作映射</button>
                 <button class="robot-tab" data-robot-tab="motor" type="button">电机参数</button>
+                <button class="robot-tab" data-robot-tab="scaling" type="button">动作缩放</button>
                 <button class="robot-tab" data-robot-tab="inertia" type="button">质量与惯量</button>
                 <button class="robot-tab" data-robot-tab="inspection" type="button">体检</button>
               </div>
@@ -118,8 +119,29 @@
               </div>
               <div class="robot-pane" data-robot-pane="mapping"><div class="pane-note">动作索引必须与训练和策略输出顺序一致。改动后点「保存配置」写回包。</div><div id="robotJointEditor" class="robot-joint-editor"><div class="empty-state">未选择机器人包</div></div><div id="reindexCompare" class="pane-note" hidden></div></div>
               <div class="robot-pane" data-robot-pane="motor">
-                <div class="pane-note">Kp / Kd / 力矩限幅 / 速度限幅按关节组生效，保存后写入机器人包并同步到浏览器仿真配置。</div>
+                <div class="pane-note">按关节组编辑，全部写入契约 v3（训练、浏览器仿真与工作台同源）：Kp / Kd / 力矩限幅 / 速度限幅 / 转子惯量 / 摩擦损耗。「未声明」= 契约未给该关节值，留空即不覆盖。</div>
                 <div id="controlGainsGrid" class="control-gains-grid"></div>
+                <details class="advanced-params" id="motorAdvanced">
+                  <summary>高级参数<span class="advanced-hint">T-N 曲线 / 执行器模型</span></summary>
+                  <div class="advanced-body">
+                    <div class="advanced-head"><span>T-N 曲线</span><span class="advanced-unit">rpm:Nm</span></div>
+                    <div class="pane-note">每部位一行，格式 <code>转速:扭矩</code>、逗号分隔（例 <code>0:60, 120:60, 188:0</code>：0 与 120 rpm 输出 60 Nm，188 rpm 空载）。**留空 = 不声明**；未修改即不写入。转速须升序、扭矩须非增。</div>
+                    <div id="tnCurveGrid" class="control-gains-grid"></div>
+                    <div class="advanced-foot">
+                      <label for="actuatorModel">执行器模型</label>
+                      <select id="actuatorModel">
+                        <option value="ideal_pd">ideal_pd（现役；T-N 曲线不生效）</option>
+                        <option value="dc_motor">dc_motor（按 T-N 曲线削顶）</option>
+                      </select>
+                      <span id="tnCurveMeta" class="pane-meta"></span>
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <div class="robot-pane" data-robot-pane="scaling">
+                <div class="pane-note">动作缩放 = 策略输出（−1..1）× 该值 → 关节指令。标量是缺省，逐部位值覆盖它（契约 v3 展开序 default &lt; 角色 &lt; 关节）。轮足机型的轮档位常与腿不同，改完点「保存配置」。</div>
+                <div class="action-scale-toolbar"><label for="actionScaleScalar">标量缺省</label><input id="actionScaleScalar" type="number" min="0" step="0.01"><span id="actionScaleMeta" class="pane-meta"></span></div>
+                <div id="actionScaleGrid" class="control-gains-grid"></div>
               </div>
               <div class="robot-pane" data-robot-pane="inertia"><div class="pane-note">来自模型 inertial 定义；勾选“惯性”可在 3D 视图查看等效惯量盒与质心。</div><div id="inertialTable" class="inertial-table"><div class="empty-state">未选择机器人包</div></div></div>
               <div class="robot-pane" data-robot-pane="inspection">

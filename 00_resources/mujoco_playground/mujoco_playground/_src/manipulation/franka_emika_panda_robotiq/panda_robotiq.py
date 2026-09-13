@@ -79,7 +79,7 @@ class PandaRobotiqBase(mjx_env.MjxEnv):
     mj_model.opt.ccd_iterations = 10
 
     self._mj_model = mj_model
-    self._mjx_model = mjx.put_model(mj_model, impl=self._config.impl)
+    self._mjx_model = mjx_env.put_model(mj_model, impl=self._config.impl)
 
   def _post_init(self, obj_name: str, keyframe: str):
     all_joints = ARM_JOINTS + FINGER_JOINTS

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
-import py_compile
+
 import sys
 import tempfile
 import unittest

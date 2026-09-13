@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 SCHEMA_VERSION = "robot-contract-3.0"
 SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schema" / "robot-contract-3.0.schema.json"
@@ -22,6 +22,13 @@ class _V3Model(BaseModel):
     """schema 顶层 additionalProperties=true → extra=allow（前向兼容）。"""
 
     model_config = ConfigDict(extra="allow")
+
+
+class TnCurvePointV3(_V3Model):
+    """$defs/tnCurvePoint：T-N 曲线折线的一个采样点（关节输出侧，不折算减速比）。"""
+
+    rpm: float = Field(ge=0)
+    torque_nm: float = Field(ge=0)
 
 
 class ActuatorParamsV3(_V3Model):
@@ -35,6 +42,30 @@ class ActuatorParamsV3(_V3Model):
     friction_loss: Optional[float] = Field(default=None, ge=0)
     mode: Optional[Literal["position", "velocity", "torque"]] = None
     action_scale: Optional[float] = Field(default=None, gt=0)
+    t_n_curve: Optional[list[TnCurvePointV3]] = None
+    """P1：T-N 曲线（转矩-转速曲线）折线（rpm 升序、扭矩非增）。**声明 ≠ 生效**——只有
+    ``control.actuator_model="dc_motor"`` 时才被消费，缺省 ``ideal_pd`` 一律忽略。"""
+
+    @field_validator("t_n_curve")
+    @classmethod
+    def _validate_t_n_curve(cls, points: list[TnCurvePointV3] | None) -> list[TnCurvePointV3] | None:
+        """折线必须单调可解析：rpm 严格升序、扭矩非增（fail-closed，不猜）。"""
+        if points is None:
+            return None
+        if len(points) < 2:
+            raise ValueError("t_n_curve 至少需要 2 个采样点（否则无法定义斜率）")
+        last_rpm = -1.0
+        last_torque = float("inf")
+        for point in points:
+            if point.rpm <= last_rpm:
+                raise ValueError(f"t_n_curve 的 rpm 必须严格升序：{point.rpm} 未大于 {last_rpm}")
+            if point.torque_nm > last_torque:
+                raise ValueError(
+                    f"t_n_curve 的扭矩必须非增（转速越高扭矩不可能更大）："
+                    f"rpm={point.rpm} 处 {point.torque_nm} 大于前一点 {last_torque}"
+                )
+            last_rpm, last_torque = point.rpm, point.torque_nm
+        return points
 
 
 class MorphologySpec(_V3Model):
@@ -126,6 +157,9 @@ class ControlSpecV3(_V3Model):
     control_hz: Optional[int] = Field(default=None, ge=10, le=1000)
     physics_hz: Optional[int] = Field(default=None, ge=100, le=10000)
     decimation: Optional[int] = Field(default=None, ge=1)
+    actuator_model: Optional[Literal["ideal_pd", "dc_motor"]] = None
+    """P1 开关：缺省（None）等价 ``ideal_pd`` = 现役行为不变；``dc_motor`` 才消费
+    ``actuator_profile[].t_n_curve``，缺 t_n_curve 时由消费侧报错，不静默回退。"""
 
 
 class TaskRequirements(_V3Model):

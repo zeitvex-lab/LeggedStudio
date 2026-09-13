@@ -1,0 +1,44 @@
+{
+  "schema": "motion-command-profile-1.0",
+  "generated_at": "2026-09-13",
+  "note": "运动指令档位单一真值（H9）：限速 / 频率 / 超时 / 死区 / 加减速全部来自本文件，代码只做纯函数整形，不再硬编码。单位：m/s、rad/s、Hz、s。",
+  "default_profile": "teleop",
+  "profiles": {
+    "teleop": {
+      "label": "遥操作（键盘 / 手柄 / Web 遥控）",
+      "limits": { "vx": 1.0, "vy": 1.0, "yaw_rate": 1.0 },
+      "command_hz": 50.0,
+      "timeout_s": 0.5,
+      "deadzone": { "min_effective": 0.22 },
+      "slew": { "accel": 1.0, "decel": 2.0 },
+      "evidence": {
+        "sources": [
+          "00_resources/taggy/go2_interfaces/scripts/go2_velocity_controller.py",
+          "00_resources/rc_old/.../real/sim2real_ros2_v3/src/sim2real_runtime/src/cmd_mux_node.py",
+          "00_resources/rc_old/.../real/sim2real_ros2_v3/src/sim2real_runtime/src/deadzone_velocity_limiter.py"
+        ],
+        "note": "限速 ±1.0 m/s / ±1.0 rad/s、50 Hz、指令超时 0.5 s、死区 min_effective 0.22、加减速 1.0 / 2.0"
+      }
+    },
+    "nav": {
+      "label": "导航（规划器下发 cmd_vel）",
+      "limits": { "vx": 0.9, "vy": 0.5, "yaw_rate": 0.85 },
+      "command_hz": 50.0,
+      "timeout_s": 0.5,
+      "deadzone": { "min_effective": 0.22 },
+      "slew": { "accel": 1.0, "decel": 2.0 },
+      "evidence": {
+        "sources": [
+          "00_resources/rc_old/.../real/sim2real_ros2_v3/src/sim2real_runtime/src/cmd_mux_node.py",
+          "00_resources/unitree-go2-slam-nav2/go2_slam_nav/config/nav2_params.yaml"
+        ],
+        "note": "导航档 max_vx 0.9 / vy 0.5 / yaw 0.85"
+      }
+    }
+  },
+  "timeout_policy": {
+    "note": "H20 的指令仲裁超时阶梯（250/300/500 ms）与急停 latch 属控制器实现，档位在此只声明「无指令多久视为失效」。",
+    "on_timeout": "stop",
+    "on_non_finite": "reject"
+  }
+}
