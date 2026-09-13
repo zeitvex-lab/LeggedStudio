@@ -58,6 +58,24 @@
         "type": "string"
       }
     },
+    "command_source": {
+      "enum": ["policy", "planner", "perception", "script", "teleop"],
+      "description": "H3：命令来源。planner = 外部规划输出 cmd_vel 复用 velocity 策略（不重训即可走完全程）；perception = 感知模块直接给目标/分段（B 类）"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "H1：判定项（arrival / route_completion / no_collision / attitude / timeout）——到达判据取自 registry/arrival_criteria.json（H10 单一真值）"
+    },
+    "recorders": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "H1：记录项（frames / trajectory / metrics / contacts）——确定性回放的输入"
+    },
     "terrain": {
       "type": "object",
       "description": "1.1 新增（T4.1/T4.2 消费）：{kind: flat|slope|stairs|noise|obstacle_mix, elements: [{type: platform|trench|stairs|hollow_stairs|ramp|stepping_stones|triangle|tire_ring|slalom_poles|sandpit|high_wall, params}], heightmap_png, xml_path, generator_params}——ArenaX terrain_generator 三件套的直接映射"
@@ -72,7 +90,27 @@
     },
     "perception": {
       "type": "object",
-      "description": "1.1 新增：感知观测项 {heightfield: bool, depth_camera: {width: 106, height: 60}（PIE 参考）, foot_contact: bool}"
+      "description": "1.1 新增：感知观测项 {heightfield: bool, depth_camera: {width: 106, height: 60}（PIE 参考）, foot_contact: bool, route: obs|external（H24 感知分层：obs=A 类感知入观测，要求 command_source=policy；external=B 类感知在策略外）, mount: 挂载点标识（传感器可外挂：base/head/scene:<id>）}",
+      "properties": {
+        "heightfield": {
+          "type": "boolean"
+        },
+        "depth_camera": {
+          "type": "object"
+        },
+        "foot_contact": {
+          "type": "boolean"
+        },
+        "route": {
+          "enum": ["obs", "external"],
+          "description": "H24 感知分层：obs（A 类，训练时即吃感知）/ external（B 类，RL 只负责运动，外挂传感器与规划模块决策）"
+        },
+        "mount": {
+          "type": "string",
+          "minLength": 1,
+          "description": "传感器挂载点：base / head / scene:<id>（挂在场景里而非机器人上）"
+        }
+      }
     }
   }
 }
