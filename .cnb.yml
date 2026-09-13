@@ -57,6 +57,7 @@
     - adapters/mjlab/pyproject.toml
     - adapters/mjlab/uv.lock
     - scripts/provision_cpu_training.sh
+    - scripts/provision_code_server.sh
 
 # CPU 训练冒烟门禁的环境：与云原生开发共用根 Dockerfile，镜像里已固化
 # mjlab 的 cpu extra（LEGGED_STUDIO_MJLAB_VENV 指向镜像内 venv），因此门禁
@@ -173,6 +174,26 @@ $:
         - /root/.cache/pip
         - /root/.cache/ms-playwright
       stages:
+        - name: assert-single-container
+          # 回归哨兵：镜像里没有可执行的 code-server 时，云原生开发会退回双容器
+          # 模式，WebIDE 连的是 code-server 容器，终端停在「连接到 CNB 容器中...」
+          # （详见 Dockerfile 的 WebIDE 段）。这条 stage 让"又被改回双容器模式"
+          # 在环境启动时就显式失败，而不是让人对着卡住的终端猜。
+          script: |
+            set -e
+            echo "== 单容器模式自检（code-server 必须已装进镜像） =="
+            if ! command -v code-server >/dev/null 2>&1; then
+              echo "[FAIL] 镜像内无 code-server -> 云原生开发会走双容器模式"
+              echo "       修复：确认 Dockerfile 的 code-server 层未被删除，且 .cnb.yml"
+              echo "       的 .docker-dev-image.by 含 scripts/provision_code_server.sh"
+              exit 1
+            fi
+            code-server --version
+            if command -v codebuddy >/dev/null 2>&1; then
+              echo "CodeBuddy Web: 入口可用"
+            else
+              echo "CodeBuddy Web: 未安装（不影响 WebIDE）"
+            fi
         - name: start-control-plane
           script: |
             set -e
