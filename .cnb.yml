@@ -237,6 +237,17 @@ $:
             else
               echo "CodeBuddy Web: 未安装（不影响 WebIDE）"
             fi
+            echo "== WebIDE AI 助手插件自检（CodeBuddy IDE 插件） =="
+            # 默认镜像 cnbcool/default-dev-env 预装了 CodeBuddy 插件，自定义镜像不会
+            # 自动注入 -> 不预装就表现为「插件没了、右键没有 AI 助手」。这里只告警
+            # 不失败：插件缺失不影响控制面与训练链路，不该拦住进环境。
+            if code-server --list-extensions 2>/dev/null | grep -qi 'coding-copilot'; then
+              echo "CodeBuddy 插件: 已装（WebIDE 右键可见 AI 助手）"
+            else
+              echo "[WARN] 未预装 CodeBuddy 插件 -> WebIDE 无 AI 助手入口"
+              echo "       修复：确认 Dockerfile 的 code-server --install-extension 层未被删除；"
+              echo "       临时可用: code-server --install-extension Tencent-Cloud.coding-copilot"
+            fi
         - name: start-control-plane
           script: |
             set -e

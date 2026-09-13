@@ -72,6 +72,29 @@ python -m tools.mcp.contracts_server                    # stdio 起服务（JSON
 
 依赖与浏览器都在镜像层，`stages` 里**不放安装命令**，所以进入环境是秒级的。
 
+### WebIDE 里的 CodeBuddy（AI 助手）从哪来
+
+WebIDE 内的 CodeBuddy 插件（`Tencent-Cloud.coding-copilot`）**不会自动注入**：
+
+- 默认镜像 `cnbcool/default-dev-env` 预装了它，所以「不写 Dockerfile」时右键有 AI 助手；
+- 本项目用自定义镜像（根 `Dockerfile`）换掉了默认镜像，这份预装随之消失——
+  于是出现「云原生开发里 CodeBuddy 插件没了、右键没有 AI 助手」。
+
+因此本镜像显式执行 `code-server --install-extension Tencent-Cloud.coding-copilot`
+（见 `Dockerfile` 的「CodeBuddy IDE 插件」段），装进根用户扩展目录
+`/root/.local/share/code-server/extensions`，对 WebIDE 与 VSCode Remote-SSH 同时生效。
+扩展源是 open-vsx（非微软官方源），ID 见
+<https://open-vsx.org/extension/Tencent-Cloud/coding-copilot>。
+
+两种 CodeBuddy 入口别混淆：
+
+| 入口 | 依赖 | 表现 |
+|---|---|---|
+| CodeBuddy Web | 镜像内有 `codebuddy` 命令且 >= 2.137.0 | 云开发入口页多一个浏览器入口 |
+| CodeBuddy IDE 插件 | 镜像内预装 open-vsx 扩展 | WebIDE 编辑器内可用，有右键 AI 助手 |
+
+启动期自检（`.cnb.yml` 的 `vscode` 段）会打印两者状态：插件缺失只告警不失败。
+
 ### 改 Dockerfile 时别忘 `by` 清单
 
 CNB 的 `docker.build` **只把 Dockerfile 与 `by` 列出的文件放进构建上下文**
