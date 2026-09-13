@@ -3,7 +3,15 @@
 > **日期**：2026-09-13 ｜ **产品版本**：0.51.0 ｜ **对应 Issue**：#31（重构）
 > **取证底座**：[`00_resources/unilab_new/UniLab/`](../../00_resources/unilab_new/UniLab/)（1131 文件 / 8.1 MB，Apache-2.0，上游 `github.com/unilabsim/UniLab`）
 > **分析范围**：源码（`src/unilab` 285 py / 78063 行）+ 配置（187 yaml）+ 文档（248 md，含 6 篇 ADR）+ 测试（215 py / 63219 行）
-> **结论先行**：**「保留 mjlab 技术栈 + 移植 UniLab 的 motrixsim 部分」可行，且是本仓库当前性价比最高的后端扩展路径**——但要移植的**不是** `src/unilab`，而是**「MotrixSim 后端适配层 + 后端能力契约 + sim2sim 契约守卫」这三块**。见 §5。
+> **结论先行**：**「保留 mjlab 技术栈 + 只移植 UniLab 的 motrixsim 部分（不移植 Unilab 本体）」可行，且是本仓库当前性价比最高的后端扩展路径**——要移植的**不是** `src/unilab`，而是**「后端能力契约 + sim2sim 契约守卫 + MotrixBackend 适配层」三块**。见 §5。
+>
+> ⚠️ **2026-09-13 实测修订（推翻本文初稿的三条阻塞性判断）**：初稿假定 `motrixsim-core` 不可安装、Windows 不支持、无法实跑，因此把 T4 判为「被外部依赖阻塞」。**实测全部不成立**：
+> 1. **可安装**：PyPI 有 `motrixsim-core`（0.8.0 / 0.8.1 / 0.8.2 / 0.9.0 / 0.10.0），本机 cp311 manylinux 轮子 52 MB，`pip install` 成功、`import motrixsim` 成功。
+> 2. **三平台轮子齐备**：`win_amd64`（40.4 MB）、`macosx_11_0_arm64`（47.1 MB）、`manylinux_2_17/2014 x86_64` 均在 PyPI；METADATA 显式 `Classifier: Operating System :: Microsoft Windows`——**R2「Windows 支持未确认」作废**。
+> 3. **MJCF 兼容性实证通过**：本仓库 **14/14 包** `model/robot.xml` 在 motrixsim 下 `load_model` + 5 步 `step` 全部成功（`tools/probe_motrixsim.py`，可复现）。R3 的「需逐模型验证」已一次性验证完。
+> 4. **许可已澄清**：轮子内 `LICENSE` 与 METADATA 均为 **Apache-2.0**（`License: Apache-2.0`），非「闭源不可分发」——**R6 降级**。
+>
+> 结论变化：**T4 不再被阻塞，M2 可提前**；风险表 R1/R2/R3/R6 全部下调，新增的真实风险改为「闭源二进制不可静态审计 + 版本锁 + 资产体积」。
 
 ---
 
@@ -145,9 +153,10 @@ __unilab_registry_modules__ = (
 | 来源 | Motphys 团队，`https://motrixsim.readthedocs.io/` |
 | 定位 | 机器人 / 具身智能物理仿真引擎 |
 | 引入方式 | `uv sync --extra motrix` / `make setup-motrix`（**可选 extra，不装即不可用**） |
-| 上游性质 | 商业团队发行的**闭源二进制**（我们 `00_resources` 里**没有**它的源码或内核） |
+| 上游性质 | Motphys 商业团队发行；**运行时是 Rust 编译的闭源二进制**（无源码可审计），但**许可为 Apache-2.0**、PyPI 公开发布 |
+| 平台 | 三平台轮子齐备：`manylinux_2_17/2014 x86_64`、`win_amd64`、`macosx_11_0_arm64`（cp311） |
 
-**对我们是硬约束**：CNB 构建机无 `motrixsim-core` 包，且它是 Linux/macOS 二进制（含 `mxpython` 特殊路由）——**本次无法实跑验证**，只能做源码级移植方案与接口对齐论证。
+**本次实测结论（2026-09-13）**：`pip install motrixsim-core==0.8.2` 成功、`import motrixsim` 成功、**本仓库 14/14 包 MJCF 加载 + step 全部通过**（`tools/probe_motrixsim.py --all`）。唯一真实的硬约束是**运行时不可静态审计**（无源码），而非「装不上 / 平台不支持」。
 
 ### 3.2 适配层构成（要移植的真实对象）
 
@@ -231,12 +240,14 @@ DENYLIST      = ["algo.obs_groups", "env.control_config.action_scale", "env.obse
 
 | 项 | 事实 | 影响 |
 |---|---|---|
-| 无源码 | 只有 `motrixsim-core==0.8.2` 二进制；`00_resources` 无内核 | **无法静态审计**，只能靠上游文档 + 接口行为 |
-| 渲染闭环语义 | 自定义 `RenderClosedError` → 在接口边界（`render`/`capture_video_frame`）翻译为 UniLab 的 `RenderClosedError` | 说明**渲染窗口关闭是常态**，play loop 必须按类型捕获而非错误名匹配 |
-| 平台路由 | macOS 上走 `mxpython` 才能开原生 renderer；headless 用 `--render-mode record` | **Windows 支持待确认**（对我们最相关！） |
-| `<keyframe>` 校验 | Motrix 的 `msd.from_file` 会校验 keyframe qpos，而 fragment XML 只带 sensor/contact | UniLab 写了 `_materialize_robot_with_fragment_keyframes()` 做临时注入 |
-| MJCF 子集 | 走 `motrixsim.msd`（自有 msd 层）而非 MuJoCo 解析器 | **MJCF 兼容性 ≠ MuJoCo**，需逐模型验证（我们 14 包的 MJCF 要重新过一遍） |
-| 地形 | 有 `TerrainScanner` + `GeomHField`，与 MuJoCo hfield 语义需对齐 | 我们的 `terrain_gen`（ArenaX 移植）产出 MJCF hfield，需验证可被 motrix 消费 |
+| 无源码（**唯一真·硬约束**） | Rust 编译的 `.so` 二进制；`00_resources` 无内核 | **无法静态审计**，只能靠上游文档 + 接口行为；升级需回归 |
+| 版本迭代快 | PyPI 已有 0.8.0→0.10.0 五个版本 | 必须**锁版本**（`==0.8.2`，与 UniLab 对齐）；API 面每年可能变 |
+| 渲染闭环语义 | 自定义 `RenderClosedError` → 在接口边界翻译为 UniLab 的 `RenderClosedError`（已核实 `motrixsim.render.RenderClosedError` 存在） | 渲染窗口关闭是常态，play loop 必须按类型捕获而非错误名匹配 |
+| `<keyframe>` 校验 | Motrix 的 `msd.from_file` 会校验 keyframe qpos，而 fragment XML 只带 sensor/contact | UniLab 写了 `_materialize_robot_with_fragment_keyframes()` 做临时注入；**我方 14 包实测均无此问题** |
+| MJCF 子集 | 走 `motrixsim.msd`（自有 msd 层）而非 MuJoCo 解析器 | **MJCF 兼容性 ≠ MuJoCo 语义**（能加载 ≠ 动力学一致）；**加载兼容已 14/14 验证**，动力学一致性仍需 sim2sim 对照 |
+| 地形 | 有 `TerrainScanner` + `GeomHField`（均已核实存在），与 MuJoCo hfield 语义需对齐 | `terrain_gen`（ArenaX 移植）产出 MJCF hfield，需验证可被消费 |
+
+**实测 API 面（与 UniLab 用量逐项比对，全部命中）**：`SceneModel / SceneData / Link / Body / Geom / GeomHField / PositionActuator / TerrainScanner / msd / step / load_model / render.{RenderApp,RenderSettings,RenderClosedError}`。UniLab `backend.py` 实际只用到 `mtx.Link/Body/Geom/GeomHField/PositionActuator/SceneData/SceneModel/TerrainScanner` 八类——**印证 §3.2「不是移植引擎，是对接约 10 个类」**。
 
 ---
 
@@ -262,13 +273,21 @@ DENYLIST      = ["algo.obs_groups", "env.control_config.action_scale", "env.obse
 
 ## 5. 移植方案：保留 mjlab，移植 motrixsim 部分
 
-### 5.0 先回答「可以吗」
+### 5.0 先回答「直接移植 motrixsim，还是移植 Unilab 本体」
 
-**可以。** 三条理由：
+> **决策（ADR 式，依价值观 V10 留存否决理由）**
+>
+> **选：只移植 motrixsim 部分（第二物理引擎），不移植 Unilab 本体。**
+>
+> **Context**：我方已有 mjlab 作训练主栈、JSON Schema 契约系统、双 MuJoCo 执行器（WASM/服务端）。缺的是「第二个**真正不同**的物理引擎」——用于跨引擎 sim2sim 与无 GPU 冒烟。
 
-1. **技术上正交**：UniLab 的后端抽象（`SimBackend` + 能力声明 + `create_backend` 工厂）与 mjlab 的适配器（`adapters/mjlab/`）**不在同一层**——前者是「物理引擎抽象」，后者是「训练框架适配」。我们完全可以 **mjlab 继续做训练主栈**，同时**把 MotrixSim 作为第二个物理执行器接入**（用于 sim2sim 交叉验证、跨引擎门禁、无 GPU 环境）。
-2. **收益明确**：我们现在的 sim2sim 是**同引擎两形态**（浏览器 WASM vs 服务端 MuJoCo），只能验证「导出正确性」，**验证不了「物理引擎依赖」**。引入第二个真引擎，可以像 UniLab 那样把「跨后端可迁移性」变成一条 CI 门禁——这是 `D1+ 跨后端` 的实处（重构方案 §5.5 已列为「零成本新增」，其实需要一个真第二引擎才成立）。
-3. **成本可控**：待移植的适配层 ~2380 行，依赖面 ~10 个 API 类；且**不侵入**现有 mujoco 路径（纯增量 + capability 缺省降级）。
+| 方案 | 内容 | 结论 |
+|---|---|---|
+| **A · 移植 Unilab 本体** | 整棵 `src/unilab`（78k 行）+ Hydra 配置 + IPC 共享内存 + 7 后端 + 9 算法族 | ❌ **否决**。① 与我方「隔离子进程 + JSON」哲学冲突（IPC 零拷贝是另一条路）；② 我方 JSON Schema 契约**比它的两层 obs/critic 更严格**（有五元组 encoder/history/deploy 维度）；③ 整体替换运行时的迁移成本 ≫ 收益，且会丢掉已有 CI 门禁体系 |
+| **B · 移植 motrixsim 适配层** | `base/backend/motrix/*` ~2380 行 + `SimBackend` 能力声明 + sim2sim 守卫 | ✅ **采纳**。① 正交：mjlab 是「训练框架适配」，motrixsim 是「物理引擎」，不同层可并存；② 补上唯一缺口——**第二个真引擎**（现有 sim2sim 是同引擎两形态，只能验导出正确性，验不了引擎依赖）；③ 成本 ~2380 行、依赖面 ~10 个类、纯增量不侵入；④ **前置已实测清零**（见顶部修订块） |
+| **C · 什么都不做** | 维持同引擎双执行器 | ❌ 否决。`D1+ 跨后端` 验收会一直落空——没有第二引擎，「零成本新增」是空话 |
+
+> **移植对象仍是「三块」，不是「一个引擎」**：① 后端能力契约（T1，不依赖 motrixsim 就能落地）② sim2sim 契约快照 + 三档守卫（T2）③ `MotrixBackend` 适配层（T4，前置已清零）。**先做①②、后接③**（价值观 V4「契约优先于实现」）。
 
 ### 5.1 移植边界（三块，按「抄什么」排序）
 
@@ -295,9 +314,11 @@ M1（无外部依赖，可立刻开工）
   │     ALLOW/WARN/DENY 三档比对 → 与 export_gate 合并为统一「契约裁决器」
   └─ T3 注册显式化：把 registry/skills 的目录扫描改为显式清单（借鉴 ADR-0004）
 
-M2（依赖 motrixsim-core 可安装 + 平台确认）
+M2（无阻塞，可提前 — 2026-09-13 实测解禁）
   ├─ T4 MotrixBackend 适配层移植（~2380 行）→ adapters/motrix/
-  ├─ T5 MJCF 兼容性回归：14 包 model/*.xml 逐个过 motrixsim 加载（对照 UniLab §3.5 的 keyframe/hfield 坑）
+  │     前置已消：安装 ✓ / Windows 轮子 ✓ / 14/14 MJCF 加载 ✓
+  ├─ T5 ~~MJCF 兼容性回归~~ ✅ 已完成：tools/probe_motrixsim.py 14/14 通过；
+  │     剩余为「动力学一致性」样本（挪入 T7）
   ├─ T6 浏览器/服务端之外的第三执行器：sim2sim 三引擎对照（WASM / 服务端 MuJoCo / MotrixSim）
   └─ T7 D1+ 跨引擎验收：差异 <10% 不处理、>20% 查 obs 构建（对齐重构方案 §5.5）
 
@@ -305,6 +326,8 @@ M3（可选，按需）
   ├─ T8 无 GPU 训练路径评估：MotrixSim 跑 CPU 仿真 + 学习器仍在 GPU 的异构形态
   └─ T9 能力矩阵公开化：仿 UniLab 的 support matrix（Registered/Configured/Tested/Benchmarked）
 ```
+
+**为什么「只移植 motrixsim 部分」而不是「移植 Unilab 本体」**（决策要点，对应价值观 V10）：UniLab 本体的价值集中在**契约与守卫（T1/T2/T3）**，那部分我方**已经用 JSON Schema 表达得更严格**（观测五元组 vs UniLab 两层 obs/critic）；而它的体积（78k 行源码 + Hydra 配置 + IPC 共享内存）与本项目的「隔离子进程 + JSON 协议」哲学冲突。motrixsim 则是**唯一我方没有的能力**——第二个真物理引擎。**所以移植的是「能补上缺口的那个部件」，不是「框架本体」。**
 
 ### 5.3 关键设计决策
 
@@ -337,14 +360,15 @@ UniLab：`SimBackend` 的可选方法在基类抛 `NotImplementedError`；能力
 
 ### 5.4 风险与对策
 
-| # | 风险 | 等级 | 对策 |
-|---|---|---|---|
-| R1 | `motrixsim-core` **闭源二进制**，无源码可审计 | 高 | ① 只作为**可选 extra**，不进默认依赖；② 单独锁版本；③ 不进核心训练路径 |
-| R2 | **Windows 支持未确认**（我方主开发平台是 Win10/11） | 高 | T4 前置：先做「安装 + 最小加载 smoke」验证；不支持则 T4 缓行，T1/T2 不受影响 |
-| R3 | MJCF 兼容性 ≠ MuJoCo（`motrixsim.msd` 自有解析层） | 中 | T5 逐包加载回归，产出兼容性矩阵；不通过的包标记「motrix 不可用」而非改 MJCF |
-| R4 | 平台二进制体积（我方已有 700MB+ 资产包袱） | 中 | 不打包二进制；运行时按需供应（复用现有 provision 机制） |
-| R5 | 引入第二后端后「验收标准」模糊 | 中 | **直接采用 ADR-0002 的结论**：按能力验收，不要求 feature parity |
-| R6 | 许可合规 | 低 | UniLab 侧 Apache-2.0 保留版权头；motrixsim 二进制再分发条款需单独核实（**默认不分发**） |
+| # | 风险 | 等级 | 变化 | 对策 |
+|---|---|---|---|---|
+| R1 | 运行时**闭源二进制**，无源码可审计 | 中 | 🟡 原「高」下调 | 只作为**可选 extra**、单独锁版本、不进核心训练路径；升级前跑 `probe_motrixsim.py` + sim2sim 对照 |
+| R2 | ~~Windows 支持未确认~~ | — | ✅ **作废** | 已实证 `win_amd64` 轮子在 PyPI，METADATA 声明支持 Windows |
+| R3 | MJCF **语义**兼容性 ≠ MuJoCo（能加载 ≠ 动力学一致） | 中 | 🟡 收窄 | 加载兼容已 14/14 通过；剩余「动力学一致性」交给 T7 的 sim2sim 对照（差异 <10% 不处理、>20% 查 obs 构建） |
+| R4 | 轮子体积（52/40/63 MB × 版本）与我方 373 MB 资产叠加 | 中 | 🔴 提升为要处理项 | 不进安装包；运行时按需供应（复用现有 provision 机制），或仅 CI/开发者侧安装 |
+| R5 | 引入第二后端后「验收标准」模糊 | 中 | — | **采用 ADR-0002 结论**：按能力验收，不要求 feature parity |
+| R6 | 许可合规 | 低 | 🟢 原「低」维持 | motrixsim **Apache-2.0**（已核实），可再分发；UniLab 侧保留版权头；**仍建议默认不分发二进制**（体积） |
+| R7（新） | 版本漂移：PyPI 已到 0.10.0，UniLab 锁 0.8.2 | 中 | 🆕 | 锁 `==0.8.2` 与 UniLab 对齐；升级单独评估（API 面可能变） |
 
 ### 5.5 与「保留 mjlab」的关系（一句话）
 
@@ -374,15 +398,18 @@ UniLab：`SimBackend` 的可选方法在基类抛 `NotImplementedError`；能力
 | # | 结论 | 依赖 |
 |---|---|---|
 | 1 | T1「后端能力契约」+ T2「跨执行器 sim2sim 守卫」**无外部依赖，可立刻开工**，且是任何第二后端的公共前置 | 无 |
-| 2 | T4「MotrixBackend 适配层」**被 `motrixsim-core` 的平台支持阻塞**（Windows 未确认），应先做安装+加载 smoke 验证再谈移植 | 外部 |
+| 2 | ~~T4 被平台支持阻塞~~ → **T4 已解禁**：安装 ✓、Windows 轮子 ✓、14/14 MJCF 加载 ✓（本次实测） | 无（仅需 `motrixsim-core==0.8.2` 可选依赖） |
 | 3 | 我方 `export_gate` 与 UniLab `sim2sim 守卫` **应合并为统一契约裁决器**，三档 deny/warn/allow + **不对称出现 fail-closed** | 无 |
 | 4 | 我方 `registry/skills` 的目录扫描**与 ADR-0004 结论相反**，应改显式清单 | 无 |
-| 5 | 我方**缺 ADR 制**（尤其「被否决的替代方案」），建议以本次「价值观沉淀」为起点补位 | 无 |
+| 5 | 我方**缺 ADR 制**（尤其「被否决的替代方案」），建议以「价值观 V10」为起点补位（已沉淀） | 无 |
 | 6 | 上游 `9-sim2sim_contract_status.md` 那种**「判定结果即文档」**的做法值得照抄，可直接进 `00_know` | 无 |
+| 7（新） | **direct port motrixsim 优于 port Unilab**：要的是第二引擎，不是第二框架；UniLab 的契约部分我方 schema 已更强 | 无 |
 
 **问题三：下一步最小可行动作**
 
-> 立 T1/T2 两个无依赖任务（后端能力契约 + 契约裁决器合并），并把 T4 的**前置验证**（`motrixsim-core` 在本机/CI 能否安装并加载一个 MJCF）单独列为一个 spike，结论出来再决定 T4 排期。
+> ① 立 **T4-motrix** 为可开工项（`adapters/motrix/` 移植，~2380 行，前置已清零）；
+> ② 同时立 T1/T2 两个无依赖任务（后端能力契约 + 契约裁决器合并）——它们是第二后端的公共前置，**先做契约、后接引擎**（价值观 V4 > V8）；
+> ③ 把 `tools/probe_motrixsim.py` 接入 CI（可选 job，缺包则 skip），把「14/14 可加载」变成**持续门禁**而非一次性结论。
 
 ---
 
