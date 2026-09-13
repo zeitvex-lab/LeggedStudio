@@ -15,6 +15,9 @@
 #     （见 .cnb.yml 的 vscode 段与 docs.cnb.cool/zh/workspaces/double-container.md）。
 #     装进镜像 -> 单容器模式 -> 进环境秒连开发容器。
 #   - CodeBuddy Web 入口：镜像内装 codebuddy（>= 2.137.0）后自动出现在云开发入口页。
+#   - **必须预装 CodeBuddy IDE 插件**（open-vsx 的 `Tencent-Cloud.coding-copilot`）：
+#     平台那份"右键 AI 助手 / CodeBuddy"来自默认镜像 cnbcool/default-dev-env，一旦改用
+#     自定义镜像（本文件）就不再自动注入；不预装则 WebIDE 里既无插件、右键也无入口。
 #   - 基础镜像 = **Ubuntu 24.04 LTS**（noble）。此前是 python:3.12-bookworm
 #     （Debian 12），Ubuntu 24.04 的 python3 官方源就是 **3.12**，因此
 #     apt 直装即可满足 pyproject.toml 的 >=3.12,<3.13 与
@@ -107,6 +110,24 @@ RUN FORCE=1 bash /opt/legged-studio/scripts/provision_code_server.sh \
 RUN npm install -g @tencent-ai/codebuddy-code@latest 2>/dev/null \
     && (codebuddy --version || echo "[image] codebuddy 版本未知") \
     || echo "[image] codebuddy 安装失败 -> CodeBuddy Web 入口不可用（WebIDE 不受影响）"
+
+# CodeBuddy IDE 插件（WebIDE 内的 AI 助手，含编辑器右键菜单入口）。
+#
+# 为什么必须显式装：CNB 的 WebIDE 扩展源是 open-vsx，编辑器**不会**自动带上
+# 任何 AI 插件；默认镜像 cnbcool/default-dev-env 预装了它，所以"不写 Dockerfile"
+# 时右键有 AI 助手。本项目把开发环境换成自定义镜像后，这份预装就没了——表现为
+# 「云原生开发里 CodeBuddy 插件没了、右键没有 AI 助手」。
+#
+# 扩展 ID 与说明见 open-vsx：https://open-vsx.org/extension/Tencent-Cloud/coding-copilot
+# engines.vscode = ^1.70.2，兼容镜像内的 code-server；装进根用户扩展目录
+# （/root/.local/share/code-server/extensions）后对 WebIDE 与 VSCode Remote-SSH 都生效。
+#
+# 扩展源为 open-vsx（非微软官方源），偶发网络抖动；装失败不阻断构建，
+# 由 code-server --list-extensions 在启动期自检（.cnb.yml 的 vscode 段）。
+RUN code-server --install-extension Tencent-Cloud.coding-copilot 2>/dev/null \
+    && (code-server --list-extensions | grep -i coding-copilot \
+        || echo "[image] CodeBuddy 插件安装后未列出") \
+    || echo "[image] CodeBuddy 插件安装失败 -> WebIDE 无 AI 助手入口（可从 open-vsx 手动装）"
 
 # ---------------------------------------------------------------------------
 # 开发期 MCP 工具链（`.cnb/mcp/servers.json` 的 11 条，见 .cnb/mcp/README.md）
