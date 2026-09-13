@@ -1,0 +1,109 @@
+{
+  "$comment": [
+    "Legged Studio 的 MCP server 声明（开发期工具链，不进运行时镜像）。",
+    "消费方式：云原生开发环境（.cnb.yml 的 vscode 事件）读本文件装配；本地可用",
+    "任意支持 mcpServers 配置的客户端（Claude Desktop / Cursor / WebIDE）直接引用。",
+    "每条都对应本仓一个真实痛点，注释里写明证据落点——不凑数量。",
+    "所有 server 一律走 npx -y（版本随 npx 缓存），避免把 node_modules 提交进仓库。"
+  ],
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/workspace"
+      ],
+      "description": "工作区文件读写。落点：backend/settings_api.py 的工作区路径解析、assets/robots/*  契约与模型文件的批量核对。"
+    },
+    "git": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-git",
+        "--repository",
+        "/workspace"
+      ],
+      "description": "diff / log / blame。落点：云原生开发里全靠手敲 git；PR 描述与 00_know 的进度流水需要真实提交证据。"
+    },
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      },
+      "description": "上游项目检索。落点：tools/sync_resources.py::PROJECTS 的 77 个项目溯源，registry/porting_evidence.json 的上游路径核对。"
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "description": "抓上游文档/README。落点：TRON1 官方部署协议、Unitree SDK 文档这类真值源核对（进度流水反复出现「以官方部署仓为权威」）。"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--browser",
+        "chromium",
+        "--headless"
+      ],
+      "description": "浏览器自动化，本仓最刚需的一条：web/sim2sim 的所有结论都是浏览器实测得出的（lite3 yaw -0.25、m20 前进 3.9m），镜像已预装 Chromium。配合 ?debug=1 的 window.__sim2simDebug 调试 API 使用。"
+    },
+    "sqlite": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-sqlite",
+        "--db-path",
+        "/workspace/workspace/legged-studio.db"
+      ],
+      "description": "run 元数据 / 训练指标查询。落点：backend/training/artifacts.py 的 runs/<id>/ 产物、workspace/ 下的本地产物。"
+    },
+    "tensorboard": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-tensorboard",
+        "--logdir",
+        "/workspace/workspace"
+      ],
+      "description": "训练诊断曲线（reward / KL / entropy / value_loss / ep_len）。落点：backend/tb_events.py、web/training_monitor.html 的五大仪表盘。"
+    },
+    "mujoco": {
+      "command": "python",
+      "args": [
+        "-m",
+        "tools.mcp.mujoco_server"
+      ],
+      "description": "本地 MCP：加载 MJCF、查关节序/执行器、跑 N 秒无头稳定性测试。落点：tools/sim2sim_headless.py、tools/probe_motrixsim.py 的能力复用。"
+    },
+    "onnx": {
+      "command": "python",
+      "args": [
+        "-m",
+        "tools.mcp.onnx_server"
+      ],
+      "description": "本地 MCP：查 onnx 输入输出维、metadata_props、单帧推理对拍。落点：tools/evaluator.py、45 条 sim_policies_onnx 的契约一致性核验。"
+    },
+    "resources": {
+      "command": "python",
+      "args": [
+        "-m",
+        "tools.mcp.resources_server"
+      ],
+      "description": "本地 MCP：00_resources 跨库检索（按机型 / 训练框架 / 任务类型过滤 77 个项目）。落点：00_resources/README.md 与 tools/sync_resources.py。"
+    },
+    "contracts": {
+      "command": "python",
+      "args": [
+        "-m",
+        "tools.mcp.contracts_server"
+      ],
+      "description": "本地 MCP：契约 v3 查询与校验（关节序、PD、obs 维、Pack 哈希）。落点：contracts/、backend/pack_catalog.py、assets/robots/*/contract_v3.json。"
+    }
+  }
+}
