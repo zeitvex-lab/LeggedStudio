@@ -17,7 +17,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+import json
+from pathlib import Path
+
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/perception", tags=["perception"])
 
@@ -234,6 +238,36 @@ def list_perception_items() -> list[dict[str, Any]]:
         }
         for item in PERCEPTION_ITEMS.values()
     ]
+
+
+class PerceptionBindingRequest(BaseModel):
+    """A 类感知绑定校验请求（H4/H24）。"""
+
+    robot_id: str
+    policy_id: str | None = Field(default=None, description="被选策略 id（用于定位它的训练 profile）")
+    perception: dict[str, Any] | None = Field(default=None, description="场景的 perception 声明")
+
+
+@router.post("/binding")
+async def perception_binding(request: PerceptionBindingRequest) -> dict[str, Any]:
+    """校验「场景要求 A 类感知」与「策略是否真的声明了那项观测」。
+
+    **为什么必须校验**：场景写 `perception.route=obs` 只表达"策略应该吃传感器"，
+    真正决定"吃没吃"的是该策略训练 profile 里的 `obs_groups` / `depth` / `height_scan` 声明。
+    不校验就会出现两种静默假象：这一项被运行时忽略（人却以为生效），或形状不一致查不出原因。
+    """
+    from backend.perception_binding import check_perception_binding, load_profile_for_policy
+    from backend.simulation_browser import _browser_package
+
+    root, _preset = _browser_package(request.robot_id)
+    sim_cfg = json.loads((Path(root) / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
+    profile, profile_id = (None, None)
+    if request.policy_id:
+        profile, profile_id = load_profile_for_policy(Path(root), sim_cfg, request.policy_id)
+    verdict = check_perception_binding(
+        request.perception, profile, policy_id=request.policy_id, profile_id=profile_id
+    )
+    return {"success": True, **verdict}
 
 
 @router.get("/items")
