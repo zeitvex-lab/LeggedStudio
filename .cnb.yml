@@ -58,6 +58,7 @@
     - adapters/mjlab/uv.lock
     - scripts/provision_cpu_training.sh
     - scripts/provision_code_server.sh
+    - .cnb/mcp/servers.json
 
 # CPU 训练冒烟门禁的环境：与云原生开发共用根 Dockerfile，镜像里已固化
 # mjlab 的 cpu extra（LEGGED_STUDIO_MJLAB_VENV 指向镜像内 venv），因此门禁
@@ -217,6 +218,13 @@ $:
               echo "           冒烟: bash scripts/cpu_training_smoke_gate.sh"
             else
               echo "CPU 训练: 未供应（跑 scripts/provision_cpu_training.sh）"
+            fi
+            # MCP 工具链（开发期，不进镜像）：打印配置路径 + 自检自研 server。
+            if [ -f .cnb/mcp/servers.json ]; then
+              echo "MCP:      $(pwd)/.cnb/mcp/servers.json （$(python -c 'import json;print(len(json.load(open(".cnb/mcp/servers.json"))["mcpServers"]))') 条 server，见 .cnb/mcp/README.md）"
+              python -m unittest backend.test_mcp_servers >/dev/null 2>&1 \
+                && echo "         自研 server 自检: OK" \
+                || echo "         自研 server 自检: 失败（python -m unittest backend.test_mcp_servers -v）"
             fi
             echo "工作台:   $PREVIEW/web/workbench.html"
             echo "sim2sim:  $PREVIEW/web/sim2sim/index.html"
