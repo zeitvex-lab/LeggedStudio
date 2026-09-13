@@ -10,6 +10,11 @@
 # 清单见 .cnb.yml 的 `.docker-dev-image` 锚点（云原生开发/CI 三处共用）。
 #
 # 设计要点：
+#   - **必须装 code-server**（WebIDE 服务端）：开发环境容器里没有 code-server 时，
+#     CNB 会退回"双容器模式"，终端停在「连接到 CNB 容器中...」、插件能力受限
+#     （见 .cnb.yml 的 vscode 段与 docs.cnb.cool/zh/workspaces/double-container.md）。
+#     装进镜像 -> 单容器模式 -> 进环境秒连开发容器。
+#   - CodeBuddy Web 入口：镜像内装 codebuddy（>= 2.137.0）后自动出现在云开发入口页。
 #   - 基础镜像 = **Ubuntu 24.04 LTS**（noble）。此前是 python:3.12-bookworm
 #     （Debian 12），Ubuntu 24.04 的 python3 官方源就是 **3.12**，因此
 #     apt 直装即可满足 pyproject.toml 的 >=3.12,<3.13 与
@@ -68,6 +73,16 @@ RUN pip install --no-cache-dir --break-system-packages -r /tmp/requirements.txt 
 # 浏览器固化进镜像（含系统依赖），开发环境与 E2E 秒起
 RUN playwright install --with-deps chromium
 
+# ---------------------------------------------------------------------------
+# Node.js 底座（code-server / codebuddy / MCP 的 npx 共同前提）
+# ---------------------------------------------------------------------------
+# noble 官方源的 nodejs 是 18.x，且下方「开发期 MCP 工具链」段用的 NodeSource 22.x
+# 会与 apt 版互相覆盖，因此这里**统一用 NodeSource 22.x 装一次**，两段共用。
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/* \
+    && node --version && npm --version
+
 # uv：与 adapters/mjlab/uv.lock 对齐（版本同 scripts/provision_windows_runtime.ps1）。
 ARG UV_VERSION=0.11.8
 RUN curl -fsSL "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh \
@@ -75,16 +90,32 @@ RUN curl -fsSL "https://astral.sh/uv/${UV_VERSION}/install.sh" | sh \
     && uv --version
 
 # ---------------------------------------------------------------------------
+# WebIDE 服务端（code-server）+ CodeBuddy Web
+# ---------------------------------------------------------------------------
+# 为什么在镜像层装（而不是让平台补容器）：
+#   CNB 云原生开发按"开发环境容器里有没有 code-server"判定单/双容器模式。
+#   本镜像没装时走双容器模式，WebIDE 连的是 code-server 容器，要在开发容器里
+#   干活得切"跨容器终端"（名为 CNB），表现为终端长时间停在「连接到 CNB 容器中...」。
+#   装进镜像后走单容器模式，终端直连开发容器，且 WebIDE 能直接看到镜像里的
+#   训练 venv、mujoco、chromium。
+COPY scripts/provision_code_server.sh /opt/legged-studio/scripts/
+RUN FORCE=1 bash /opt/legged-studio/scripts/provision_code_server.sh \
+    && code-server --version
+
+# CodeBuddy Web：镜像里装了 >= 2.137.0 的 codebuddy 才会在云开发入口页出现该入口。
+# 装失败不影响 WebIDE（单容器模式只依赖 code-server），因此不阻断构建。
+RUN npm install -g @tencent-ai/codebuddy-code@latest 2>/dev/null \
+    && (codebuddy --version || echo "[image] codebuddy 版本未知") \
+    || echo "[image] codebuddy 安装失败 -> CodeBuddy Web 入口不可用（WebIDE 不受影响）"
+
+# ---------------------------------------------------------------------------
 # 开发期 MCP 工具链（`.cnb/mcp/servers.json` 的 11 条，见 .cnb/mcp/README.md）
 # ---------------------------------------------------------------------------
 # 只装 runner（node/npx 与 uvx），**不预装各 server 本体**：MCP server 是
 # 开发期按需拉取的工具，固化进镜像会让「控制面镜像」与「工具链」两个关注点
-# 耦合，还会拖慢每次进环境。这里只提供能跑 npx/uvx 的底座。
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/* \
-    && node --version && npm --version \
-    && npx -y @modelcontextprotocol/server-filesystem --help >/dev/null 2>&1 || true
+# 耦合，还会拖慢每次进环境。node/npm 已在上方 Node.js 底座段装好，这里只做
+# npx runner 自检。
+RUN npx -y @modelcontextprotocol/server-filesystem --help >/dev/null 2>&1 || true
 
 # ---------------------------------------------------------------------------
 # CPU 训练链路（默认装；--build-arg INSTALL_CPU_TRAINING=0 可跳过）
