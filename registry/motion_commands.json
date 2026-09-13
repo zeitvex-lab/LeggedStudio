@@ -1,7 +1,7 @@
 {
   "schema": "motion-command-profile-1.0",
   "generated_at": "2026-09-13",
-  "note": "运动指令档位单一真值（H9）：限速 / 频率 / 超时 / 死区 / 加减速全部来自本文件，代码只做纯函数整形，不再硬编码。单位：m/s、rad/s、Hz、s。",
+  "note": "运动指令档位单一真值（H9）：限速 / 频率 / 超时 / 死区 / 加减速全部来自本文件，代码只做纯函数整形，不再硬编码。单位：m/s、rad/s、Hz、s。跟随控制器参数（H12）同置于此，避免新增第四份注册表（运行时限值契约是三份）。",
   "default_profile": "teleop",
   "profiles": {
     "teleop": {
@@ -34,6 +34,41 @@
         ],
         "note": "导航档 max_vx 0.9 / vy 0.5 / yaw 0.85"
       }
+    }
+  },
+  "follow_controller": {
+    "note": "H12 跟随控制器的**唯一参数真值**（此前浏览器跟随器自造 lookahead 0.6 / gain 1.2 / 1.5，与 H12 已点名的参考实现不一致，现收口）。控制器律取参考实现的形状：朝向前视点（cos 门控）+ 大误差原地转（带滞回）+ 卡死恢复。**到达容差与稳定拍数不在此处**——那是 H10 的 registry/arrival_criteria.json（航点 0.20 m / 稳定 2 拍），避免同一个数字长第三个家。",
+    "lookahead_m": 0.45,
+    "max_vx": 1.2,
+    "max_vy": 0.0,
+    "max_wz": 0.8,
+    "kp_dist": 0.8,
+    "kp_yaw": 1.8,
+    "yaw_stop_threshold_deg": 45.0,
+    "turn_in_place_enter_deg": 70.0,
+    "turn_in_place_exit_deg": 18.0,
+    "turn_in_place_max_wz": 0.8,
+    "waypoint_timeout_s": 30.0,
+    "max_total_time_s": 420.0,
+    "stuck_timeout_s": 4.0,
+    "stuck_progress_m": 0.08,
+    "recovery_duration_s": 2.0,
+    "max_recoveries": 4,
+    "recovery_cmd": { "vx_factor": -0.10, "wz_factor": 0.45, "note": "vx = factor×|cmd_vx_scale|，wz = factor×sign（参考实现转向符号每轮翻转以脱困）" },
+    "reserved_reference_fields": {
+      "note": "参考 SimConfig 里已有、本轮未实现（保留待用，不许当已生效）：min_cmd_vx 0.08 / creep_cmd_vx 0.04 / cmd_vx_scale 1.0 / final_align_max_wz 0.45 / final_align_kp_scale 0.6 / slalom_script_*",
+      "min_cmd_vx": 0.08,
+      "creep_cmd_vx": 0.04,
+      "cmd_vx_scale": 1.0,
+      "final_align_max_wz": 0.45,
+      "final_align_kp_scale": 0.6
+    },
+    "evidence": {
+      "sources": [
+        "00_resources/rc_old/RC_WheelLeg/05_software/train/rc_mjlab/sim2sim/nav_route_sim2sim_check.py::SimConfig",
+        "00_know/50_方案与清单/任务清单.md#H12"
+      ],
+      "note": "对照 SimConfig 逐字段取值；到达容差改走 H10（参考默认 0.15 不采用，我们航点 0.20 + 稳定 2 拍）"
     }
   },
   "timeout_policy": {

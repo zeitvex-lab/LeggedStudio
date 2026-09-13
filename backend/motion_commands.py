@@ -212,6 +212,24 @@ def timeout_policy() -> dict[str, Any]:
     return dict(load_registry("motion_commands").get("timeout_policy") or {})
 
 
+def follow_controller_spec() -> dict[str, Any]:
+    """H12 跟随控制器参数（唯一真值在 ``registry/motion_commands.json#follow_controller``）。
+
+    **为什么放在这份注册表里**：运行时限值契约就是"三份注册表"（H8/H9/H10，有测试锁着），
+    为跟随参数新开第四份会把那个契约改掉；而 nav 档本来就住在这个文件里，参数同源更近。
+
+    缺块即报错——跟随参数不许在代码里留旧默认值（先前浏览器跟随器自造过一套，
+    与 H12 点名的参考实现不一致，正是这种"悄悄用旧数字"造成的）。
+    """
+    spec = load_registry("motion_commands").get("follow_controller")
+    if not isinstance(spec, dict) or not spec:
+        raise ValueError(
+            "registry/motion_commands.json 缺 follow_controller 块；"
+            "跟随参数只有这一处真值，缺失即报错（不回退到代码默认值）"
+        )
+    return dict(spec)
+
+
 def motion_command_selftest() -> dict[str, Any]:
     """离线自检：限幅裁剪、死区、非有限值拒绝、限速方向正确性、档位差异。"""
     cases: list[dict[str, Any]] = []

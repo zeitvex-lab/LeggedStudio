@@ -26,6 +26,13 @@ function payload(overrides = {}) {
     ],
     plan: { combined_path: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]] },
     arrival: { tolerance_m: 0.35, stable_ticks: 3, source: "registry/arrival_criteria.json" },
+    // 镜像 registry/motion_commands.json#follow_controller（Python 侧有测试与注册表对拍）
+    follow_controller: {
+      lookahead_m: 0.45, max_vx: 1.2, max_wz: 0.8,
+      kp_dist: 0.8, kp_yaw: 1.8,
+      yaw_stop_threshold_deg: 45, turn_in_place_enter_deg: 70,
+      turn_in_place_exit_deg: 18, turn_in_place_max_wz: 0.8,
+    },
     ...overrides,
   };
 }
@@ -44,12 +51,19 @@ assert.deepEqual([fromQpos.x, fromQpos.y, fromQpos.yaw], [1, 2, 0], "poseFromQpo
 
 // --- 判据缺失必须抛错（不许自造阈值）---
 assert.throws(() => createNavigationRunner({ ...payload(), arrival: null }), /arrival/, "缺 arrival ⇒ 抛错");
+assert.throws(() => createNavigationRunner({ ...payload(), follow_controller: null }), /follow_controller/, "缺跟随参数 ⇒ 抛错");
+assert.throws(
+  () => createNavigationRunner({ ...payload(), follow_controller: { ...payload().follow_controller, kp_yaw: undefined } }),
+  /kp_yaw/, "跟随参数缺字段 ⇒ 抛错（不许用代码默认值兜底）",
+);
 assert.throws(() => createNavigationRunner({ ...payload(), plan: { combined_path: [[0, 0]] } }), /路径|航点/, "路径不足 ⇒ 抛错");
 
 // --- 朝向目标：直行 ---
 const runner = createNavigationRunner(payload(), { maxCmd: [8, 1.5, 2.5] });
 const straight = runner.command(pose(0, 0, 0));
 assert.ok(straight[0] > 0, "目标在前方 ⇒ vx > 0");
+assert.ok(straight[0] <= 1.2 + 1e-9, "vx 受注册表 max_vx 约束");
+assert.equal(runner.status().sources.follow_controller, "registry/motion_commands.json#follow_controller");
 assert.ok(Math.abs(straight[2]) < 1e-9, "已对准 ⇒ wz ≈ 0");
 assert.equal(NAVIGATION_VERSION, runner.status().version, "状态带版本号");
 
