@@ -748,7 +748,7 @@ README_TAIL = """## 回溯与恢复
 5. 类别计数为**功能导向的启发式**归类（路径关键词），仅用于索引，不代表文件归属的唯一解释。
 
 ## 关联文档
-- 资源模型与重构路线：[`00_know/重构方案_RobotAsset资源模型与实施路线.md`](../00_know/重构方案_RobotAsset资源模型与实施路线.md)
+- 资源模型与重构路线：[`00_know/50_方案与清单/重构方案_RobotAsset资源模型与实施路线.md`](../00_know/50_方案与清单/重构方案_RobotAsset资源模型与实施路线.md)
 - 项目总入口：[`README.md`](../README.md)　｜　归一化资产包：[`assets/robots/`](../assets/robots/)
 """
 

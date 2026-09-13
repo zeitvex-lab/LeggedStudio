@@ -78,7 +78,7 @@ legged_studio/
 ├── tools/                 # 离线工具链（URDF 校验/转 MJCF、策略转换、契约代码生成、移植准入审计）
 ├── packaging/             # electron-builder 两种发行变体配置
 ├── docs/                  # 产品文档（桌面程序 / Web 程序）
-├── 00_know/               # 知识库与决策文档（盘点 / 标准 / 方案 / 专题报告）→ 00_know/README.md
+├── 00_know/               # 知识库与决策文档（价值观 / 参考项目分析 / 盘点 / 标准 / 报告 / 方案）→ 00_know/README.md
 └── 00_resources/          # 参考资源库（按来源项目组织的只读底座）→ 00_resources/README.md
 ```
 
@@ -217,10 +217,13 @@ npm run build:linux               # Linux AppImage
 
 **知识库与决策文档**（面向维护者，索引见 [`00_know/README.md`](00_know/README.md)）：
 
-- [知识库索引](00_know/README.md) —— 愿景与路线 / 资产调研 / 参数标准 / B 组专题四组文档的导航
+- [知识库索引](00_know/README.md) —— 全部决策文档的分组导航（总纲 / 参考项目分析 / 调研盘点 / 参数标准 / 专题报告 / 方案与清单）
+- [项目价值观](00_know/00_项目价值观.md) —— **最高裁决依据**：V1–V10 十条价值观、冲突裁决序、明令禁止清单
 - [参考资源库](00_resources/README.md) —— 按来源项目组织的参考资源、项目 × 机型矩阵与省略登记
-- [资源模型重构方案](00_know/重构方案_RobotAsset资源模型与实施路线.md) —— RobotAsset 5 资源模型与 M0–M5 落地路线
-- [B8 移植准入报告](00_know/B8_移植准入报告.md) —— 训练/仿真的移植准入规则（须有上游训练源码佐证）+ 14 机型审计矩阵
+- [资源模型重构方案](00_know/50_方案与清单/重构方案_RobotAsset资源模型与实施路线.md) —— RobotAsset 5 资源模型与 M0–M5 落地路线
+- [任务清单](00_know/50_方案与清单/任务清单.md) —— 可执行任务清单（P0–P3 + 排期依赖 + DoD）
+- [UniLab 深度分析与 motrixsim 移植评估](00_know/10_参考项目分析/UniLab_深度分析与motrixsim移植评估.md) —— 多后端能力契约 / 跨后端 sim2sim 守卫 / 「保留 mjlab + 移植 motrixsim」可行性
+- [B8 移植准入报告](00_know/40_专题报告/B8_移植准入报告.md) —— 训练/仿真的移植准入规则（须有上游训练源码佐证）+ 14 机型审计矩阵
 
 ---
 
