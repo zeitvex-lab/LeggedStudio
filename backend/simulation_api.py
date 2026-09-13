@@ -691,12 +691,27 @@ async def create_session(request: SimulationSessionRequest) -> dict[str, Any]:
         scenario = ScenarioContract(**scenario_payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"invalid scenario: {exc}") from exc
+    # H3：planner 命令来源 ⇒ 装配导航计划（规划与到达判据只有一处实现，
+    # 与浏览器侧的 /api/navigation/plan 共用，避免两端各算一套）。
+    navigation = None
+    if scenario.command_source == "planner":
+        from backend.navigation_plan import build_navigation_payload
+
+        navigation = await build_navigation_payload(request.map_id, scenario.waypoints)
     env = ContractMujocoEnv(contract, num_envs=1, episode_length_s=request.episode_length_s, scene_geoms=_scene_geoms(request.map_id))
     session_id = f"sim_{uuid.uuid4().hex[:12]}"
     session = SimulationSession(session_id, request.robot_id, request.map_id, mode, env)
     with sessions_lock:
         sessions[session_id] = session
-    return {"success": True, "session_id": session_id, "scenario": scenario.to_payload(), "map": MAPS[request.map_id], "frame": session.reset()}
+    return {
+        "success": True,
+        "session_id": session_id,
+        "scenario": scenario.to_payload(),
+        "map": MAPS[request.map_id],
+        "frame": session.reset(),
+        # 仅 command_source=planner 时非空（其余场景保持原有形状，向后兼容）
+        "navigation": navigation,
+    }
 
 
 def _get_session(session_id: str) -> SimulationSession:

@@ -12,6 +12,7 @@ import { createObservationSystems } from "./obs/observation_builders.js?v=0.44.0
 import { createPieDepth } from "./pie_depth.js?v=0.46.0";
 import { MotionLoader } from "./motion_loader.js";
 import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
+import { createNavigationRunner, poseFromQpos, NAVIGATION_VERSION } from "./navigation.js?v=0.52.0";
 // Loaded on demand only for an explicitly selected policy.
 let ort = null;
 const ORT_DIST_URL = new URL("./vendor/onnxruntime-web/dist/", import.meta.url);
@@ -356,6 +357,8 @@ const sim = {
   paused: false,
   policyEnabled: PAGE_PARAMS.get("policy") !== "off",
   ready: false,
+  // 感知导航（H3）：URL ?nav=<map_id> 时由服务端 /api/navigation/plan 装配，浏览器只跟随
+  navigation: null,
   loadingTerrain: false,
   pendingTerrain: "",
   currentTerrain: "",
@@ -476,6 +479,7 @@ async function init() {
     applyViewerStateFromUrl();
     applyDeterministicReplayFromUrl();
     await loadRobotOptions();
+  await initNavigationFromUrl();
     setStatus(elements.engineStatus, "MuJoCo 初始化中", "pending");
     setStatus(elements.policyStatus, "ONNX 策略初始化中", "pending");
     sim.platformConfig = await loadPlatformConfig();
@@ -3947,6 +3951,12 @@ function updateCommand() {
     syncBinaryJumpCommand();
     return;
   }
+  // 感知导航（H3 command_source=planner）：planner 的 cmd_vel 压过键盘/摇杆/滑条，
+  // 但**低于**确定性回放（验收协议的"固定指令"优先级最高）。
+  if (sim.navigation?.runner) {
+    applyNavigationCommand();
+    return;
+  }
   const xSpeed = clamp(input.vxSpeedLimit, 0.2, CONFIG.maxCmd[0]);
   const target = sim.targetCmd;
   const heightIndex = heightCommandIndex();
@@ -5347,6 +5357,100 @@ function applyDeterministicReplayFromUrl() {
   };
   document.title = `确定性回放 ${raw} · seed ${sim.deterministicReplay.seed} · Locomotion Platform`;
   console.info(`[sim2sim] deterministic replay: cmd=[${parts.slice(0, 3)}] seed=${sim.deterministicReplay.seed}`);
+}
+
+// ---------------------------------------------------------------------------
+// 感知导航（H3 `command_source=planner`）——浏览器侧
+//
+// 分工见 web/sim2sim/navigation.js 顶部：**规划与到达判据由服务端装配**
+// （backend/navigation_plan.py → POST /api/navigation/plan），浏览器只做
+// "折线 → 每拍 cmd_vel"的跟随，以及按服务端判据判定到达。URL 用法：
+//   ?nav=warehouse                    用地图自带障碍与默认航点规划
+//   ?nav=warehouse&nav_waypoints=0,0;6,0   指定航点（分号分隔）
+// ---------------------------------------------------------------------------
+const NAV_HUD_ID = "navigationHud";
+
+async function initNavigationFromUrl() {
+  const mapId = PAGE_PARAMS.get("nav");
+  if (!mapId) return;
+  const raw = PAGE_PARAMS.get("nav_waypoints") || "";
+  const waypoints = raw
+    .split(";")
+    .map((pair) => pair.split(",").map((value) => Number(value.trim())))
+    .filter((point) => point.length === 2 && point.every((value) => Number.isFinite(value)));
+  try {
+    const response = await fetch("/api/navigation/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ map_id: mapId, ...(waypoints.length >= 2 ? { waypoints } : {}) }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload?.success) {
+      throw new Error(payload?.detail || `规划失败（HTTP ${response.status}）`);
+    }
+    sim.navigation = {
+      mapId,
+      payload,
+      runner: createNavigationRunner(payload, {
+        maxCmd: Array.from(CONFIG.maxCmd),
+        lookahead: Number(PAGE_PARAMS.get("nav_lookahead") || 0.6),
+      }),
+      status: null,
+      lastControlStep: -1,
+    };
+    renderNavigationHud(`导航已就绪 · ${mapId} · ${payload.waypoints.length} 个航点 · 判据 ${payload.arrival.source}`);
+    console.info(`[sim2sim] navigation ${NAVIGATION_VERSION}`, payload);
+  } catch (error) {
+    sim.navigation = null;
+    renderNavigationHud(`导航不可用：${error.message}`, true);
+    console.error("[sim2sim] navigation init failed", error);
+  }
+}
+
+/** 每物理步给指令；到达判定只在**控制步**推进（与 frameLog 的 stepIndex 同口径）。 */
+function applyNavigationCommand() {
+  if (!sim.qpos) return;
+  const pose = poseFromQpos(sim.qpos);
+  const cmd = sim.navigation.runner.command(pose);
+  for (let i = 0; i < 3; i += 1) {
+    const value = clamp(cmd[i], -CONFIG.maxCmd[i], CONFIG.maxCmd[i]);
+    sim.targetCmd[i] = value;
+    sim.cmd[i] = value;
+  }
+  syncBinaryJumpCommand();
+  const controlStep = Math.floor(sim.counter / CONFIG.controlDecimation);
+  if (sim.navigation.lastControlStep !== controlStep) {
+    sim.navigation.lastControlStep = controlStep;
+    sim.navigation.status = sim.navigation.runner.tick(pose);
+    renderNavigationHud();
+  }
+}
+
+function renderNavigationHud(message = "", failed = false) {
+  let hud = document.querySelector(`#${NAV_HUD_ID}`);
+  if (!sim.navigation) {
+    if (hud) hud.remove();
+    return;
+  }
+  if (!hud) {
+    hud = document.createElement("div");
+    hud.id = NAV_HUD_ID;
+    hud.style.cssText = "position:fixed;left:12px;bottom:12px;z-index:40;padding:6px 10px;border-radius:8px;background:rgba(10,14,22,.82);color:#dfe8f5;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;pointer-events:none;white-space:pre";
+    document.body.appendChild(hud);
+  }
+  hud.style.color = failed ? "#ffb4b4" : "#dfe8f5";
+  if (message) {
+    hud.textContent = message;
+    return;
+  }
+  const status = sim.navigation?.status;
+  if (!status) return;
+  const legs = `${Math.max(0, status.reached - 1)}/${status.waypoint_count - 1}`;
+  hud.textContent = status.finished
+    ? `导航 ${sim.navigation.mapId} · 航段 ${legs} · 完成率 100% · 已完成`
+    : `导航 ${sim.navigation.mapId} · 航段 ${legs} · 完成率 ${Math.round(status.route_completion * 100)}%`
+      + ` · 容差 ${status.tolerance_m}m（稳定 ${status.stable_count}/${status.stable_ticks}）`
+      + ` · 上限 vx${status.limits[0]} wz${status.limits[2]}`;
 }
 
 /** 把当前 UI 状态写入地址栏（replaceState，不产生历史记录）。 */
