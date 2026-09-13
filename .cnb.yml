@@ -67,6 +67,10 @@
         # "迁移已完成"重写（把真值源从 simulation/config.json 换成 contract_v3，
         # 并把"缺口"正面表述为"必须覆盖每个驱动关节"）后**全量接入**。
         python -m unittest discover -s contracts/tests -p "test_*.py" 2>&1 | tail -30
+        echo "== deterministic replay gate (L1/G2: judge selfcheck) =="
+        # 判据实现只有一处（adapters/mjlab/replay_determinism.py）；这里跑它的自检，
+        # 保证"两次逐帧一致"的判定本身不退化。真实回放比对需两份 frame log（浏览器/无头产出）。
+        python tools/replay_gate.py --selftest
         echo "== control rates consistency (P2: 控制三件套口径) =="
         # v3 自洽（physics_hz == control_hz × decimation）是**硬门禁**；
         # v2 / 训练 profile 的差异是"已登记的报告项"，不判红——但必须可见。
