@@ -141,7 +141,8 @@ mjlab 官方支持 CPU（`cpu` extra），本仓库把它接成完整链路：�
 不需要 GPU 额度。
 
 ```bash
-# 训练栈自检 + 64 envs × 20 iters 真实 PPO + 报告断言
+# 训练栈自检 + 16 envs × 5 iters 真实 PPO + 报告断言
+# （规模可用 SMOKE_NUM_ENVS / SMOKE_ITERS 覆盖，默认档只守"回路通不通"）
 bash scripts/cpu_training_smoke_gate.sh
 
 # 需要重新供应训练 venv 时（幂等）
@@ -173,7 +174,7 @@ python tools/sim2sim_headless.py --seconds 3 \
   --baseline tools/baselines/sim2sim_headless_baseline.json
 ```
 
-CPU 训练冒烟门禁（64 envs × 20 iters 真实 PPO，需已供应训练栈）：
+CPU 训练冒烟门禁（默认 16 envs × 5 iters 真实 PPO，需已供应训练栈）：
 
 ```bash
 bash scripts/cpu_training_smoke_gate.sh

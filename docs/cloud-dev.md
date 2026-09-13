@@ -117,7 +117,8 @@ pytest tests/e2e -v
 ### 一键跑冒烟
 
 ```bash
-# 训练栈自检 + 64 envs × 20 iters 真实 PPO + 报告断言
+# 训练栈自检 + 16 envs × 5 iters 真实 PPO + 报告断言
+# 规模可用 SMOKE_NUM_ENVS / SMOKE_ITERS 覆盖
 bash scripts/cpu_training_smoke_gate.sh
 # 报告：workspace/validation/cpu-training-smoke.json
 ```
@@ -175,7 +176,7 @@ bash scripts/provision_cpu_training.sh
 |---|---|
 | `backend-test` | 语法、契约漂移、单测、**openapi 契约冒烟**、移植准入、Pack 校验 |
 | `headless-sim2sim-gate` | 47 条策略的 CPU 无头验收，对照基线只拦**新增退化** |
-| `cpu-training-smoke` | CPU 训练冒烟门禁：64 envs × 20 iters 真实 PPO + 报告断言 |
+| `cpu-training-smoke` | CPU 训练冒烟门禁：默认 16 envs × 5 iters 真实 PPO + 报告断言；**仅训练相关路径变更才触发**（`ifModify`，见 `.cnb.yml` 的 `.cpu-training-paths`） |
 | `frontend-check` | web JS 语法 + vendor 资产冒烟 |
 
 基线文件：`tools/baselines/sim2sim_headless_baseline.json`。
