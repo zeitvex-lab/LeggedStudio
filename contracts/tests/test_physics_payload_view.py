@@ -157,7 +157,7 @@ class IntendedBehaviourDeltaTest(unittest.TestCase):
                 "microduck": ["torque_limits"],
                 "wuji_hand": ["torque_limits"],
             },
-            "有意变更集合（00_know/全部机型_参数来源对照与标准.md §2.6）："
+            "有意变更集合（00_know/30_参数标准/全部机型_参数来源对照与标准.md §2.6）："
             "zex-w 原本就由契约供给力矩限幅；microduck / wuji_hand 的 effort 原缺失，"
             "现按打包模型补齐（R2 模型层），浏览器由此新增力矩限幅。"
             "除此之外不得出现任何行为漂移",

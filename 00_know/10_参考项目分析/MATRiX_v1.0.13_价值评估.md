@@ -208,7 +208,7 @@ slam/src/config/config.yaml: lid_topic=/front_lidar, imu_topic=/front_lidar/imu
 现状（改动前）：`web/advanced_sim.html` 用**文案**描述「外部传感器（深度相机 / 雷达 / 点云）」，机读词汇只有 `backend/perception_observations.py` 的 4 个派生源（`proprio / foot_contact / heightfield / depth_camera`）、策略侧靠 `sim_surface=advanced` 过滤。**缺：传感器清单契约、多传感器语料、点云→观测的对齐基准。**
 
 > **该缺口已闭合**：传感器清单契约 = `backend/sensor_suite.py` + `/api/sensors/*`；多传感器语料 = `tools/matrix_sensor_corpus.py`；点云 → 观测对齐 = 187 格 height scan 契约（`backend/height_scan.py`）。
-> 另：**「感知两条路径」分层**（A 类感知入观测 / B 类感知在策略外、盲狗 RL 同样合格）见 [`任务清单.md`](./任务清单.md) H 节与 [`最终愿景.md`](./最终愿景.md) §高级仿真——`sim_surface=advanced` 的判定依据是「这条策略被怎么用」，不是「策略是否吃传感器」。
+> 另：**「感知两条路径」分层**（A 类感知入观测 / B 类感知在策略外、盲狗 RL 同样合格）见 [`任务清单.md`](../50_方案与清单/任务清单.md) H 节与 [`最终愿景.md`](../50_方案与清单/最终愿景.md) §高级仿真——`sim_surface=advanced` 的判定依据是「这条策略被怎么用」，不是「策略是否吃传感器」。
 
 | # | MATRiX 资产 | 对高级仿真的价值 | 落地 |
 |---|---|---|---|
@@ -242,7 +242,7 @@ slam/src/config/config.yaml: lid_topic=/front_lidar, imu_topic=/front_lidar/imu
 
 | # | 训练侧输入 | 来源 | 具体用途 | 合规 |
 |---|---|---|---|---|
-| T1 | **actuator / 限位 / 零位真值** | B `*-user-parameters.yaml`：Kp/Kd（关节/WBC/FSM）、`JPos_limit_low/high`、`jointVelocityLimit`、`*_side_sign`、`*_offset`、`stand/liedown/default` 姿态、`body_height`、步态周期 | 与 A 的 MJCF（`range` / `axis` / `pos` / `actuatorfrcrange` / `frictionloss`）和项目 `contracts/` + `00_know/机器人参数单一真值表.md` 做**三方对照**；不一致即暴露真值表缺陷。纯离线、可单测 | ✅ 只读参数 |
+| T1 | **actuator / 限位 / 零位真值** | B `*-user-parameters.yaml`：Kp/Kd（关节/WBC/FSM）、`JPos_limit_low/high`、`jointVelocityLimit`、`*_side_sign`、`*_offset`、`stand/liedown/default` 姿态、`body_height`、步态周期 | 与 A 的 MJCF（`range` / `axis` / `pos` / `actuatorfrcrange` / `frictionloss`）和项目 `contracts/` + [`30_参数标准/机器人参数单一真值表.md`](../30_参数标准/机器人参数单一真值表.md) 做**三方对照**；不一致即暴露真值表缺陷。纯离线、可单测 | ✅ 只读参数 |
 | T2 | **观测/动作口径旁证** | B `*-rl_onnx_config.yaml` + A 的 IC 文档（内外参、FLU 坐标、传感器频率） | 推 `obs_dim`/`action_dim` 量级与归一化惯例（如 `cmpc_x_vel 3.0` 对应命令上限、`ang_vel` 缩放）→ 用于 P5/P6 契约自查 | ⚠️ 仅旁证，不可当规格来源 |
 | T3 | **任务分类与触发枚举** | B 行为清单 + A 动作库命名 | 细化 `task_type`（velocity/stand/balance/imitation/acrobatics/parkour…）与 `trick_triggers`（backflip/frontflip/sideflip/flipover/jump/moonwalk）取值域，避免自造类别 | ✅ |
 | T4 | **估计器路线与基线** | B 的 `policy_*`/`odom_*` 成对 + `encoder`/`actor` 拆分；C 的 FAST-LIO / NDT / GICP + UKF | 对应 `perception_observations.py` 的 `obs_source: estimator/proxy/history`：B 给「学习型估计器与策略分离」的工程范式（与项目 go1 的 HIMLoco **同族**），C 给**几何/滤波基线**——学习型估计器的对照基准 | ✅ |
