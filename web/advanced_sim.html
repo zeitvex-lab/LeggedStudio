@@ -3,211 +3,57 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>高级仿真 - Legged Studio</title>
+  <title>高级仿真 · Legged Studio</title>
   <link rel="stylesheet" href="dashboard.css">
   <style>
-    .adv-shell{display:grid;grid-template-columns:288px minmax(0,1fr);gap:14px;height:100%;min-height:0;box-sizing:border-box;padding:14px}
-    .adv-side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto}
-    .adv-panel{padding:14px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)}
-    .adv-panel h3{margin:0 0 8px;font-size:13px}
-    .adv-panel p{margin:0 0 10px;font-size:12px;line-height:1.55;color:var(--muted)}
-    .adv-kicker{color:var(--accent);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
-    .adv-tag{display:inline-block;margin:0 6px 6px 0;padding:3px 8px;border-radius:999px;border:1px solid var(--border-soft);font-size:11px;color:var(--muted)}
-    .adv-frame-wrap{position:relative;min-height:0;border:1px solid var(--border-soft);border-radius:var(--radius);overflow:hidden;background:var(--surface-soft)}
-    iframe#advSimFrame{width:100%;height:100%;border:0;display:block}
-    .adv-list{margin:0;padding-left:16px;font-size:12px;color:var(--muted);line-height:1.7}
-    .adv-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-raised);color:var(--text);font-size:12px;text-decoration:none;cursor:pointer}
-    .adv-btn.primary{background:var(--accent);color:#04121a;border-color:var(--accent)}
-    body.embedded{padding:0} body.embedded .adv-shell{padding:10px}
+    /* 高级仿真的功能**全部在仿真页内**（左上角悬浮窗切换视图来源 + 外挂传感器开关）。
+       本页只负责把视口铺满。
+
+       **原先左栏那 7 张卡已删除**：它们是「已入库高级任务 / 外部传感器套件 / 相机投影与目标判定 /
+       高度扫描对齐 / 工具 / 说明」等只读展示，把后端的自检结果贴成标签，
+       **没有任何可操作的功能**；这些自检本身仍有 CI 门禁与测试守住，不需要在页面上再摆一遍。 */
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex; flex-direction: column; overflow: hidden;
+      background: var(--bg, #0b1319); color: var(--text, #e6eef4);
+    }
+    .adv-bar {
+      display: flex; align-items: center; gap: 10px; flex: 0 0 auto;
+      padding: 7px 12px; border-bottom: 1px solid var(--border-soft, #23303a);
+      background: var(--surface, #101a22); font-size: 12px;
+    }
+    .adv-bar strong { font-size: 13px; }
+    .adv-bar .hint { color: var(--muted, #8ea1ae); }
+    .adv-bar .spacer { flex: 1; }
+    .adv-btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
+      border: 1px solid var(--border, #2c3a45); border-radius: var(--radius, 6px);
+      background: var(--surface-raised, #16222b); color: inherit;
+      font-size: 12px; text-decoration: none; cursor: pointer;
+    }
+    .adv-btn:hover { border-color: var(--accent, #2588df); }
+    .adv-frame-wrap { position: relative; flex: 1 1 auto; min-height: 0; }
+    iframe#advSimFrame { width: 100%; height: 100%; border: 0; display: block; }
   </style>
 </head>
 <body>
-  <script>if(new URLSearchParams(location.search).get("embedded")==="1"){document.body.classList.add("embedded");}</script>
-  <div class="adv-shell">
-    <aside class="adv-side">
-      <section class="adv-panel">
-        <span class="adv-kicker">Advanced Simulation</span>
-        <h3>高级仿真</h3>
-        <p>承载需要<b>外部传感器</b>（深度相机 / 雷达 / 点云）或<b>目标驱动的自动任务</b>的策略。
-           感知有两条路径且都算合格：<b>A 类</b>感知进观测（深度 / 高度场进 student 策略）、
-           <b>B 类</b>感知在策略外（RL 只负责运动、<b>可以是盲狗</b>，由外挂传感器与感知模块做目标判定与规划决策）。
-           既无外部传感器、也无自动任务，只做手动遥控的策略请用「基础仿真」。</p>
-        <div>
-          <span class="adv-tag">策略内感知（A 类）</span>
-          <span class="adv-tag">盲狗 + 外挂感知（B 类）</span>
-          <span class="adv-tag">自动任务</span>
-          <span class="adv-tag">目标判定</span>
-        </div>
-      </section>
-      <section class="adv-panel">
-        <h3>已入库高级任务</h3>
-        <ul class="adv-list" id="advTaskList">
-          <li>加载中…</li>
-        </ul>
-      </section>
-      <section class="adv-panel">
-        <h3>外部传感器套件</h3>
-        <p>传感器声明抽取自 MATRiX v1.0.13（类型 / 挂载体 / 频率 / 内参 / 话题），
-           作为高级仿真的传感器契约；引用外感受传感器的策略即归入本页。</p>
-        <div id="advSensorPresets"><span class="adv-tag">加载中…</span></div>
-        <div id="advSensorDefault"></div>
-      </section>
-      <section class="adv-panel">
-        <h3>相机投影与目标判定</h3>
-        <p>由传感器声明的内外参解析针孔内参，支持点云投影、目标框投影、深度反投影与
-           到达/可见性判定（全部离线可测）。</p>
-        <div id="advProjection"><span class="adv-tag">加载中…</span></div>
-      </section>
-      <section class="adv-panel">
-        <h3>高度扫描对齐</h3>
-        <p>机身周围 187 个测量点（17×11，0.1 m 步长）是外部雷达与内置射线 heightfield
-           共用的网格；页面显示两者的逐格对齐自检结果。</p>
-        <div id="advHeightScan"><span class="adv-tag">加载中…</span></div>
-      </section>
-      <section class="adv-panel">
-        <h3>工具</h3>
-        <p>导航地图编辑器用于绘制障碍 / 航点并自动求路，服务<b>外挂感知与导航决策（B 类）</b>：
-           规划器输出 <code>cmd_vel</code>，复用同一份 velocity 策略，无需重训。</p>
-        <a class="adv-btn" id="advNavMapLink" href="navigation_editor.html?v=0.46.0&embedded=1" target="_blank" rel="noopener">打开导航地图编辑器</a>
-      </section>
-      <section class="adv-panel">
-        <h3>说明</h3>
-        <p>仿真内核直接复用基础仿真（MuJoCo WASM + ONNX Runtime + 观测构建器），
-           仅按 <code>sim_surface=advanced</code> 过滤策略清单。感知有两条路径且都算合格：
-           <b>A 类</b>感知入观测（深度 / 高度场进 student 策略）、<b>B 类</b>感知在策略外
-           （RL 只负责运动、可以是盲狗，外挂传感器与感知模块负责目标判定与规划决策）。
-           策略的观测 / 动作 / 成功判定与无头 CPU 验收器共用同一份契约。</p>
-      </section>
-    </aside>
-    <div class="adv-frame-wrap">
-      <iframe id="advSimFrame" title="高级仿真" src="sim2sim/index.html?embedded=1&surface=advanced&view=advanced"></iframe>
-    </div>
-  </div>
-  <script type="module">
-    const API = "";
-    async function fetchJson(path) {
-      const res = await fetch(`${API}${path}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
+  <script>
+    if (new URLSearchParams(location.search).get("embedded") === "1") {
+      document.body.classList.add("embedded");
     }
-    async function loadAdvancedTasks() {
-      const list = document.getElementById("advTaskList");
-      try {
-        const presets = await fetchJson("/api/robots/presets");
-        const robots = (presets.presets || presets.robots || presets || [])
-          .map((item) => item.robot_id || item.id || item.name)
-          .filter(Boolean);
-        const policyRows = [];
-        const taskRows = [];
-        for (const robot of robots) {
-          let cfg;
-          try {
-            cfg = await fetchJson(`/api/simulation/browser-config/${encodeURIComponent(robot)}`);
-          } catch (_) { cfg = null; }
-          for (const pol of (((cfg || {}).sim && cfg.sim.asset_package && cfg.sim.asset_package.policies) || [])) {
-            if (String(pol.sim_surface || "basic") !== "advanced") continue;
-            policyRows.push(`${robot} · ${pol.label || pol.id}`);
-          }
-          let prof;
-          try {
-            prof = await fetchJson(`/api/robots/presets/${encodeURIComponent(robot)}/profiles`);
-          } catch (_) { prof = null; }
-          const profiles = (prof && (prof.profiles || prof.training_profiles)) || [];
-          for (const item of profiles) {
-            if (String(item.sim_surface || "basic") !== "advanced") continue;
-            taskRows.push(`${robot} · ${item.display_name || item.profile_id}（训练任务）`);
-          }
-        }
-        const rows = policyRows.concat(taskRows);
-        list.innerHTML = rows.length
-          ? rows.map((r) => `<li>${r}</li>`).join("")
-          : "<li>暂无高级仿真策略（标记 sim_surface=advanced 后出现）</li>";
-      } catch (err) {
-        list.innerHTML = "<li>策略清单加载失败：可在右侧直接选择策略</li>";
-      }
-    }
-    async function loadSensorSuite() {
-      const presetBox = document.getElementById("advSensorPresets");
-      const detailBox = document.getElementById("advSensorDefault");
-      try {
-        const payload = await fetchJson("/api/sensors/presets");
-        const presets = payload.presets || [];
-        presetBox.innerHTML = presets.length
-          ? presets.map((item) => `<span class="adv-tag">${item.name} ×${item.sensor_count}</span>`).join("")
-          : '<span class="adv-tag">暂无传感器套件</span>';
-        const detail = await fetchJson("/api/sensors/presets/default");
-        const sensors = detail.sensors || [];
-        detailBox.innerHTML = sensors.length
-          ? `<p>默认套件 ${sensors.length} 项：</p>` + sensors
-              .map((sensor) => {
-                const optics = sensor.intrinsics && sensor.intrinsics.width
-                  ? ` · ${sensor.intrinsics.width}×${sensor.intrinsics.height}`
-                  : "";
-                return `<span class="adv-tag">${sensor.kind} · ${sensor.frequency_hz}Hz${optics}</span>`;
-              })
-              .join("")
-          : "";
-      } catch (err) {
-        presetBox.innerHTML = '<span class="adv-tag">传感器套件加载失败</span>';
-        detailBox.innerHTML = "";
-      }
-    }
-    async function loadHeightScanContract() {
-      const box = document.getElementById("advHeightScan");
-      try {
-        const grid = await fetchJson("/api/perception/height-scan/grid");
-        const spec = grid.grid || {};
-        const shape = Array.isArray(spec.shape) ? spec.shape.join("×") : "?";
-        const selftest = await fetchJson("/api/perception/height-scan/selftest");
-        const cases = selftest.cases || [];
-        const worst = cases.reduce(
-          (acc, item) => (item.max_abs_diff > (acc.max_abs_diff ?? -1) ? item : acc),
-          {}
-        );
-        const project = await fetchJson("/api/perception/height-scan/selftest-map?kind=noise");
-        const projectCase = project.case || {};
-        box.innerHTML =
-          `<span class="adv-tag">网格 ${spec.points} 格 · ${shape} · ${spec.spacing_m}m</span>` +
-          `<span class="adv-tag">合成地形自检 ${selftest.verdict === "pass" ? "通过" : "未通过"}（${cases.length} 例，最大 ${Number(worst.max_abs_diff || 0).toFixed(3)} m）</span>` +
-          `<span class="adv-tag">项目地形 noise ${project.verdict === "pass" ? "通过" : "未通过"}（${Number(projectCase.max_abs_diff || 0).toFixed(3)} / 上界 ${Number(projectCase.bound || 0).toFixed(3)} m）</span>`;
-      } catch (err) {
-        box.innerHTML = '<span class="adv-tag">高度扫描契约加载失败</span>';
-      }
-    }
-    async function loadProjection() {
-      const box = document.getElementById("advProjection");
-      try {
-        const sensors = await fetchJson("/api/perception/projection/sensors");
-        const selftest = await fetchJson("/api/perception/projection/selftest");
-        const tags = (sensors.sensors || []).map((sensor) => {
-          const optics = sensor.intrinsics || {};
-          return `<span class="adv-tag">${sensor.id} ${optics.width}×${optics.height} · hfov ${Number(optics.hfov_deg).toFixed(1)}° · fx ${Number(optics.fx).toFixed(0)}</span>`;
-        });
-        tags.push(
-          `<span class="adv-tag">几何自检 ${selftest.verdict === "pass" ? "通过" : "未通过"}（${(selftest.cases || []).length} 例）</span>`
-        );
-        try {
-          const cross = await fetchJson("/api/perception/projection/mujoco-check");
-          if (cross.available === false) {
-            tags.push('<span class="adv-tag">MuJoCo 交叉校验 不可用</span>');
-          } else {
-            const worst = Math.max(cross.max_abs_du || 0, cross.max_abs_dv || 0);
-            tags.push(
-              `<span class="adv-tag">MuJoCo 交叉校验 ${cross.verdict === "pass" ? "通过" : "未通过"}（${cross.compared} 点 · 最大 ${worst.toExponential(1)} px）</span>`
-            );
-          }
-        } catch (_) {
-          tags.push('<span class="adv-tag">MuJoCo 交叉校验 不可用</span>');
-        }
-        box.innerHTML = tags.join("");
-      } catch (err) {
-        box.innerHTML = '<span class="adv-tag">相机投影契约加载失败</span>';
-      }
-    }
-    void loadAdvancedTasks();
-    void loadSensorSuite();
-    void loadHeightScanContract();
-    void loadProjection();
   </script>
+  <div class="adv-bar">
+    <strong>高级仿真</strong>
+    <span class="hint">基础速度追踪策略 + 可插拔外挂传感器（视图来源在视口左上角切换）</span>
+    <span class="spacer"></span>
+    <a class="adv-btn" id="advNavMapLink" href="navigation_editor.html?embedded=1" target="_blank" rel="noopener">导航地图编辑器</a>
+  </div>
+  <div class="adv-frame-wrap">
+    <!-- 默认落在一台 go2 的**基础速度追踪**策略上（go2-rlsar-robotlab，45D，最快的闭环），
+         而不是原先的 go2-pie-parkour —— 后者的深度输入是「策略内感知」的特例，
+         而本页的主线形态是「基础策略 + 外挂传感器」（B 类感知在策略外）。 -->
+    <iframe id="advSimFrame" title="高级仿真"
+      src="sim2sim/index.html?embedded=1&surface=advanced&view=advanced&robot=unitree_go2&policy=go2-rlsar-robotlab"></iframe>
+  </div>
 </body>
 </html>

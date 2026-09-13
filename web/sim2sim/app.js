@@ -10,13 +10,49 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import loadMujoco from "./vendor/mujoco/mujoco.js";
 import { createObservationSystems } from "./obs/observation_builders.js?v=0.44.0";
 import { createPieDepth } from "./pie_depth.js?v=0.46.0";
-// 观测面板绘制器（深度图 / 2D 轨迹平面 / odom+IMU 读数）。纯函数 + 注入 ctx：
-// 能画什么由参数决定，模块不读 sim / DOM，所以 Node 单测（sensor_panels.test.mjs）能覆盖。
+// 观测面板绘制器（深度帧 / 俯视高度场 / 极坐标扫描 / 点云散点 / 2D 轨迹平面）。
+// 纯函数 + 注入 ctx：能画什么由参数决定，模块不读 sim / DOM，所以 Node 单测能覆盖。
 import {
   drawDepthFrame,
+  drawHeightField,
+  drawPointCloud,
+  drawPolarScan,
   drawTrail,
-  observationReadout,
 } from "./sensor_panels.js";
+// 传感器视图悬浮窗：来源清单 / 插件清单 / 读数 / 装配与采样规格
+// （纯逻辑在那边，这里只接线）。
+import {
+  applyMountEdit,
+  availableSources,
+  defaultPlugins,
+  deg2rad,
+  dockVisible,
+  isMountOverridden,
+  MOUNT_FIELDS,
+  odomReadout,
+  rangefinderReadout,
+  readoutRows,
+  resolveSource,
+  SCAN_SPECS,
+  SENSOR_MODELS,
+  SENSOR_PLUGINS,
+  sensorMount,
+} from "./sensor_dock.js?v=0.53.0";
+// 几何求交与四元数工具：深度 / 高度 / LiDAR / 点云 / 单点测距**共用同一套**，
+// 采样几何（起点网格、扇扫方向）也在这儿 —— 见 raycast.js 头部说明。
+import {
+  fanDirections,
+  gridOffsets,
+  intersectSceneRay,
+  intersectSceneRays,
+  mountOriginWorld,
+  mountRayDirections,
+  quatFromRpy,
+  quatMul,
+  quatRot,
+  quatToMat,
+  rayHitPoint,
+} from "./raycast.js?v=0.53.0";
 import { MotionLoader } from "./motion_loader.js";
 import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
 import { applyTerrainSwitch, createNavigationRunner, poseFromQpos, NAVIGATION_VERSION } from "./navigation.js?v=0.53.0";
@@ -176,6 +212,12 @@ const URL_AUTOPLAY = PAGE_PARAMS.has("autoplay")
 const URL_TERRAIN = PAGE_PARAMS.get("terrain") || "";
 // 仿真分层过滤：surface=advanced 只列外部传感器/目标驱动任务；surface=basic 排除它们。
 const URL_SURFACE = PAGE_PARAMS.get("surface") || "";
+// 仿真分层**两件事**（同一个仿真内核，两个仿真页）：
+//   · 策略清单按 `sim_surface` 过滤（见 policyCandidates；高级仿真列出全部）
+//   · **观测面板与传感器悬浮窗只属于高级仿真** —— 基础仿真的定义就是「本体 + 本体感知」
+//     （只靠 IMU / 编码器 / 接触，不依赖外部世界），页面上只留 3D 视口与运行 HUD。
+const SHOW_ADVANCED_PANELS = dockVisible(URL_SURFACE);
+const SURFACE_LABEL = SHOW_ADVANCED_PANELS ? "高级仿真" : "基础仿真";
 const DEFAULT_TERRAIN = "wave";
 // 机器人 ID 别名表（数据）：覆盖全部内置包的「完整包 id」与「URL 短键」，
 // 统一归一化到短键，消除「包下划线（unitree_go2）↔ 浏览器连字符/短键（go2）」命名双轨。
@@ -218,6 +260,136 @@ const URL_ROBOT = normalizeRobotParam(PAGE_PARAMS.get("robot") || "");
 const DEBUG_ENABLED = PAGE_PARAMS.get("debug") === "1" || PAGE_PARAMS.has("qa");
 if (PAGE_PARAMS.get("embedded") === "1") document.body.classList.add("embedded");
 if (VIEWER_ONLY) document.body.classList.add("viewer-only");
+// 观测面板与悬浮窗按分层显示：基础仿真**一个都不显示**。
+// 用 hidden 属性**整体移除**而不是"画了再藏" —— updateSensorPanels 里会整段跳过，
+// 省掉每帧的帧拷贝与 RGBA 转换。标题同时按分层区分：此前两个仿真页都叫「仿真验证」，
+// 从标题上分不出自己开的是哪一个。
+document.querySelectorAll('[data-surface="advanced"]').forEach((el) => {
+  el.hidden = !SHOW_ADVANCED_PANELS;
+});
+document.title = `${SURFACE_LABEL} · Legged Studio`;
+const surfaceTitle = document.querySelector("#surfaceTitle");
+if (surfaceTitle) surfaceTitle.textContent = SURFACE_LABEL;
+
+// ── 传感器视图悬浮窗（高级仿真专属）─────────────────────────────────────
+// 单一视图 + 来源切换 + 外挂传感器勾选：来源与插件清单见 sensor_dock.js。
+// 这里只做三件事：建 DOM、维护 dock 状态、以及把"当前来源"标出来。
+// 装配覆盖（用户改过的位置 / 角度）。**刻意不挂在 sim 上** —— dock 的初始化早于
+// sim 定义，挂上去会在初始化时就撞 TDZ；而且这本来就是 UI 侧的状态。
+let sensorMountOverrides = {};
+
+const dock = {
+  visible: SHOW_ADVANCED_PANELS,
+  plugins: defaultPlugins(), // 本体感知（odom / IMU）默认开，外挂传感器默认关
+  source: "",
+  collapsed: false,
+};
+const dockRoot = document.querySelector("#sensorDock");
+const dockSourceSelect = document.querySelector("#dockSource");
+const dockNote = document.querySelector("#dockNote");
+const dockReadoutBox = document.querySelector("#dockReadout");
+const dockCanvasEl = document.querySelector("#dockCanvas");
+const dockPluginsBox = document.querySelector("#dockPlugins");
+const dockMountsBox = document.querySelector("#dockMounts");
+
+/** 重建来源下拉：只列**当前插件下可用**的来源（未勾选的外挂传感器对应的来源不出现）。 */
+function renderDockSources() {
+  if (!dockSourceSelect) return;
+  const options = availableSources(dock.plugins);
+  dockSourceSelect.innerHTML = options.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
+  dock.source = resolveSource(dock.source, dock.plugins);
+  dockSourceSelect.value = dock.source;
+}
+
+/** 重建插件勾选表。改勾选后来源清单要跟着变，且当前来源可能被关掉 → 回落。 */
+function renderDockPlugins() {
+  if (!dockPluginsBox) return;
+  dockPluginsBox.innerHTML = SENSOR_PLUGINS.map((p) => `
+    <label title="${p.hint}">
+      <input type="checkbox" data-plugin="${p.id}"${dock.plugins[p.id] ? " checked" : ""} />
+      <span>${p.label} · ${p.onboard ? "本体" : "外挂"}</span>
+    </label>`).join("");
+  dockPluginsBox.querySelectorAll("[data-plugin]").forEach((box) => {
+    box.addEventListener("change", () => {
+      dock.plugins[box.dataset.plugin] = box.checked;
+      renderDockSources();
+      // 3D 里的可视化模型跟着增删：勾上一个传感器就多一个小方块，取消就消失。
+      ensureSensorModels();
+      // 装配编辑器只列**已启用**的传感器 —— 没插的插件没有装配可言。
+      renderDockMounts();
+    });
+  });
+}
+
+/** 重建装配编辑器（位置 xyz / 姿态 rpy 各三格）。 */
+function renderDockMounts() {
+  if (!dockMountsBox) return;
+  const enabled = SENSOR_PLUGINS.filter((p) => dock.plugins[p.id]);
+  if (!enabled.length) {
+    dockMountsBox.className = "";
+    dockMountsBox.innerHTML = '<p class="dock-mount-hint">先在上方勾选传感器</p>';
+    return;
+  }
+  dockMountsBox.className = "dock-mount-list";
+  dockMountsBox.innerHTML = enabled.map((p) => {
+    const mount = sensorMount(p.id, sensorMountOverrides);
+    const rows = MOUNT_FIELDS.map((f) => `
+        <label>${f.label}
+          <input type="number" step="${f.step}"
+            data-mount="${p.id}" data-key="${f.key}" data-index="${f.index}"
+            value="${mount[f.key][f.index]}"
+            aria-label="${p.label} ${f.label}（${f.unit}）" />${f.unit}
+        </label>`).join("");
+    const cls = isMountOverridden(p.id, sensorMountOverrides) ? " overridden" : "";
+    return `<div class="dock-mount-group${cls}">
+      <header><strong>${p.label}</strong><button type="button" data-reset="${p.id}">重置</button></header>
+      <div class="dock-mount-rows">${rows}</div>
+    </div>`;
+  }).join("");
+
+  // 改一格即写覆盖；3D 模型与单点测距射线**下一帧**就会跟着动（它们在帧循环里读同一份覆盖表）。
+  dockMountsBox.querySelectorAll("input[data-mount]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const { mount: id, key, index } = input.dataset;
+      sensorMountOverrides = applyMountEdit(sensorMountOverrides, id, key, Number(index), input.value);
+      // 值被挡掉时（空串 / 非数字）把输入框拉回**真实**值，免得显示与状态不一致。
+      const truth = sensorMount(id, sensorMountOverrides);
+      input.value = truth[key][Number(index)];
+      syncMountGroupFlag(id);
+    });
+  });
+  dockMountsBox.querySelectorAll("button[data-reset]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const next = { ...sensorMountOverrides };
+      delete next[button.dataset.reset];
+      sensorMountOverrides = next;
+      renderDockMounts();
+    });
+  });
+}
+
+/** 重画某一个传感器那组的"已改过"标记（重置按钮的可见反馈）。 */
+function syncMountGroupFlag(id) {
+  const input = dockMountsBox?.querySelector(`input[data-mount="${id}"]`);
+  const group = input?.closest(".dock-mount-group");
+  if (group) group.classList.toggle("overridden", isMountOverridden(id, sensorMountOverrides));
+}
+
+if (dockRoot) dockRoot.hidden = !dock.visible;
+renderDockPlugins();
+renderDockSources();
+renderDockMounts();
+if (dockSourceSelect) {
+  dockSourceSelect.addEventListener("change", () => { dock.source = dockSourceSelect.value; });
+}
+const dockToggleBtn = document.querySelector("#dockToggle");
+if (dockToggleBtn && dockRoot) {
+  dockToggleBtn.addEventListener("click", () => {
+    dock.collapsed = !dock.collapsed;
+    dockRoot.classList.toggle("collapsed", dock.collapsed);
+    dockToggleBtn.textContent = dock.collapsed ? "+" : "−";
+  });
+}
 const LATEST_POLICY_POLL_MS = 20000;
 const MAX_PAYLOAD_KG = 70;
 
@@ -280,15 +452,6 @@ const elements = {
   jumpHeightButtons: Array.from(document.querySelectorAll("[data-jump-height]")),
   cruiseButtons: Array.from(document.querySelectorAll("[data-cruise-speed]")),
   expertBars: document.querySelector("#expertBars"),
-  depthCanvas: document.querySelector("#depthCanvas"),
-  trailCanvas: document.querySelector("#trailCanvas"),
-  depthPanelNote: document.querySelector("#depthPanelNote"),
-  trailPanelNote: document.querySelector("#trailPanelNote"),
-  readoutNote: document.querySelector("#readoutNote"),
-  odomPosition: document.querySelector("#odomPosition"),
-  odomYaw: document.querySelector("#odomYaw"),
-  imuAngular: document.querySelector("#imuAngular"),
-  odomBaseHeight: document.querySelector("#odomBaseHeight"),
   rollBar: document.querySelector("#rollBar"),
   pitchBar: document.querySelector("#pitchBar"),
   rollVal: document.querySelector("#rollVal"),
@@ -1359,10 +1522,14 @@ function applyPlatformLabels(config) {
     elements.policySelect.innerHTML = `<option value="off">无策略（姿态保持）</option>`;
     const packagePolicies = packageInfo.policies || [];
     const allCandidates = packagePolicies.length ? packagePolicies : (policy.onnx_url ? [{ id: policy.id || policy.onnx_url, url: policy.onnx_url, label: checkpointLabel }] : []);
+    // 分层过滤。**高级仿真列出全部策略** —— 它的主线形态是「基础速度追踪策略 + 外挂传感器」
+    // （B 类感知在策略外），默认那台 go2 速度追踪本身就是 basic；`sim_surface=advanced`
+    // 只作为「该策略自带外部传感器」的标注，不再拿来过滤清单。
+    // 基础仿真仍排除 advanced 策略：那些依赖外部传感器，不属于「本体 + 本体感知」。
     const candidates = allCandidates.filter((item) => {
       if (!URL_SURFACE) return true;
-      const surface = String(item.sim_surface || "basic");
-      return URL_SURFACE === "advanced" ? surface === "advanced" : surface !== "advanced";
+      if (URL_SURFACE === "advanced") return true;
+      return String(item.sim_surface || "basic") !== "advanced";
     });
     candidates.forEach((item) => {
       const option = document.createElement("option");
@@ -4177,6 +4344,73 @@ function hasMotionKey() {
   );
 }
 
+// ── 传感器可视化模型 ────────────────────────────────────────────────────
+// 每个**启用中**的传感器在场景里有个小模型，位置与朝向来自它的**装配**
+// （sensor_dock.js 的 DEFAULT_MOUNTS + 用户覆盖）——「装在哪、朝哪」是**看得见**的，
+// 而不是埋在配置里。形状与颜色取自 SENSOR_MODELS。
+//
+// 与机器人 mesh 用**同一套坐标**：three.js 那边直接用 MuJoCo 的 geom_xpos / geom_xmat
+// 填 `mesh.matrix`（z 轴向上、四元数 (w,x,y,z)），所以这里也照 MuJoCo 约定算。
+const sensorModelCache = new Map();
+
+function disposeSensorModel(mesh) {
+  view.scene?.remove(mesh);
+  mesh.geometry?.dispose?.();
+  mesh.material?.dispose?.();
+}
+
+/** 按当前**插件开关**增删模型：勾上一个传感器就多一个小方块，取消就消失。 */
+function ensureSensorModels() {
+  if (!view.scene || typeof THREE === "undefined") return;
+  const wanted = SENSOR_PLUGINS.filter((p) => dock.plugins[p.id]).map((p) => p.id);
+  for (const [id, mesh] of sensorModelCache) {
+    if (!wanted.includes(id)) {
+      disposeSensorModel(mesh);
+      sensorModelCache.delete(id);
+    }
+  }
+  for (const id of wanted) {
+    if (sensorModelCache.has(id)) continue;
+    const spec = SENSOR_MODELS[id];
+    if (!spec) continue;
+    let geometry;
+    if (spec.kind === "sphere") {
+      geometry = new THREE.SphereGeometry(spec.size[0], 10, 8);
+    } else if (spec.kind === "cylinder") {
+      geometry = new THREE.CylinderGeometry(spec.size[0], spec.size[0], spec.size[1] * 2, 10);
+    } else {
+      geometry = new THREE.BoxGeometry(spec.size[0] * 2, spec.size[1] * 2, spec.size[2] * 2);
+    }
+    const mesh = new THREE.Mesh(
+      geometry,
+      new THREE.MeshBasicMaterial({ color: spec.color, transparent: true, opacity: 0.9 }),
+    );
+    mesh.matrixAutoUpdate = false;
+    view.scene.add(mesh);
+    sensorModelCache.set(id, mesh);
+  }
+}
+
+/** 每帧：世界位姿 = 机身位姿 × 装配位姿。 */
+function updateSensorModels() {
+  if (!sensorModelCache.size || !sim.qpos || sim.qpos.length < 7) return;
+  const basePos = [sim.qpos[0], sim.qpos[1], sim.qpos[2]];
+  const baseQuat = [sim.qpos[3], sim.qpos[4], sim.qpos[5], sim.qpos[6]]; // (w,x,y,z)
+  sensorModelCache.forEach((mesh, id) => {
+    const mount = sensorMount(id, sensorMountOverrides);
+    if (!mount) return;
+    const offset = quatRot(baseQuat, mount.pos);
+    const pose = quatMul(baseQuat, quatFromRpy(mount.rpy.map(deg2rad)));
+    const m = quatToMat(pose);
+    mesh.matrix.set(
+      m[0], m[1], m[2], basePos[0] + offset[0],
+      m[3], m[4], m[5], basePos[1] + offset[1],
+      m[6], m[7], m[8], basePos[2] + offset[2],
+      0, 0, 0, 1,
+    );
+  });
+}
+
 function syncVisualScene() {
   if (!sim.model || !sim.data) return;
   if (view.geoms.length !== sim.model.ngeom) rebuildRenderGeoms();
@@ -4184,6 +4418,10 @@ function syncVisualScene() {
   for (const renderable of view.geoms) {
     updateRenderable(renderable);
   }
+  // 每帧调 ensure（幂等且只有 7 个传感器要过一遍）：这样"场景刚建好"与"用户刚勾上插件"
+  // 两种情况都自然收敛，不需要额外的脏标记或初始化顺序约定。
+  ensureSensorModels();
+  updateSensorModels();
 }
 
 function rebuildRenderGeoms() {
@@ -4993,17 +5231,16 @@ function updateHud(force) {
 }
 
 // ---------------------------------------------------------------------------
-// 观测面板：深度图 / 2D 轨迹平面 / odom+IMU 读数
+// 观测面板：**单一悬浮窗、来源可切**（来源清单见 sensor_dock.js::DOCK_SOURCES）
 // ---------------------------------------------------------------------------
-const sensorContexts = { depth: null, trail: null };
 
-/** 懒取 canvas 2D ctx（面板可被 URL/断点隐藏，取不到就安静跳过）。 */
-function sensorContext(key) {
-  if (sensorContexts[key]) return sensorContexts[key];
-  const canvas = key === "depth" ? elements.depthCanvas : elements.trailCanvas;
-  if (!canvas || typeof canvas.getContext !== "function") return null;
-  sensorContexts[key] = canvas.getContext("2d");
-  return sensorContexts[key];
+/** 懒取悬浮窗 canvas 的 2D ctx（dock 可被分层隐藏，取不到就安静跳过）。 */
+let dockCtxCache = null;
+function dockCanvasCtx() {
+  if (dockCtxCache) return dockCtxCache;
+  if (!dockCanvasEl || typeof dockCanvasEl.getContext !== "function") return null;
+  dockCtxCache = dockCanvasEl.getContext("2d");
+  return dockCtxCache;
 }
 
 /** 机身偏航（与 updateHud 的 roll/pitch 用同一套四元数，避免两处各算一套）。 */
@@ -5012,56 +5249,279 @@ function baseYaw() {
   return Math.atan2(2 * (q[0] * q[3] + q[1] * q[2]), 1 - 2 * (q[2] ** 2 + q[3] ** 2));
 }
 
+/** 按来源把 canvas 调到对应**像素尺寸**。
+ *
+ *  `putImageData` 不缩放，尺寸必须精确对上；改 `width`/`height` 会清空画布内容但
+ * **ctx 对象不变**，所以 `dockCtxCache` 依然有效。 */
+function sizeDockCanvas(width, height) {
+  if (!dockCanvasEl) return false;
+  if (dockCanvasEl.width !== width || dockCanvasEl.height !== height) {
+    dockCanvasEl.width = width;
+    dockCanvasEl.height = height;
+  }
+  return true;
+}
+
+/** 高度扫描：机周网格**起点**、射线都朝下，命中处换算出世界系高度。
+ *
+ *  **变的是起点不是方向**（与 LiDAR 的扇扫正好相反，见 `raycast.js::gridOffsets`）。
+ *  返回行优先的一维数组，未命中的格子给 `null`（绘制时会画成空槽）。 */
+function scanHeightField(basePos, baseQuat, mount) {
+  const spec = SCAN_SPECS.height;
+  const { offsets, side } = gridOffsets(spec.side, spec.extent);
+  const mountQuat = quatFromRpy(mount.rpy.map(deg2rad));
+  const [down] = mountRayDirections(baseQuat, mountQuat, [[0, 0, -1]]);
+  const anchor = mountOriginWorld(basePos, baseQuat, mount.pos);
+  // 网格偏移是**机体系**的，必须跟着机身转 —— 否则机器人一转身，扫描格子还朝着原来的方向。
+  const origins = offsets.map(([ox, oy]) => {
+    const shift = quatRot(baseQuat, [ox, oy, 0]);
+    return [anchor[0] + shift[0], anchor[1] + shift[1], anchor[2] + shift[2]];
+  });
+  const distances = intersectSceneRays(
+    sim.model, sim.data, origins, origins.map(() => down), { maxDist: spec.maxDist },
+  );
+  // 高度 = 起点 z + 方向 z × 距离。**不能直接取起点 z**：装配角一旦不是正朝下，
+  // 那样算出来整个场都是等高，斜面扫描就成了一张纯色图。
+  const field = distances.map((d, i) => (d < 0 ? null : origins[i][2] + down[2] * d));
+  return { field, side, hits: distances.filter((d) => d >= 0).length, total: distances.length };
+}
+
+/** LiDAR：同一原点的整圈扇扫。命中点留给点云复用 —— **两图同源才对得齐**。 */
+function scanLidar(basePos, baseQuat, mount) {
+  const spec = SCAN_SPECS.lidar;
+  const { dirs, angles, count } = fanDirections(spec.count);
+  const mountQuat = quatFromRpy(mount.rpy.map(deg2rad));
+  const origin = mountOriginWorld(basePos, baseQuat, mount.pos);
+  const worldDirs = mountRayDirections(baseQuat, mountQuat, dirs);
+  const distances = intersectSceneRays(
+    sim.model, sim.data, worldDirs.map(() => origin), worldDirs, { maxDist: spec.maxDist },
+  );
+  return { angles, distances, worldDirs, origin, count, maxDist: spec.maxDist };
+}
+
+let rgbPreview = null;
+
+/** 懒建 RGB 预览的离屏渲染器：**只有真的选到 RGB 才建**，不选就不花这份开销。 */
+function rgbPreviewRenderer() {
+  if (rgbPreview) return rgbPreview;
+  if (typeof THREE === "undefined" || !view.scene) return null;
+  const spec = SCAN_SPECS.rgb;
+  const renderer = new THREE.WebGLRenderer({
+    antialias: false,
+    // 渲染完要把它的画布 drawImage 到 2D canvas：不保留缓冲的话读到的可能已经是空的。
+    preserveDrawingBuffer: true,
+  });
+  renderer.setPixelRatio(1); // 预览只有 160×120，不跟设备像素比走（否则白花 4 倍像素）
+  renderer.setSize(spec.width, spec.height, false);
+  renderer.setClearColor(0x0b1220, 1);
+  rgbPreview = {
+    renderer,
+    canvas: renderer.domElement,
+    camera: new THREE.PerspectiveCamera(spec.fov, spec.width / spec.height, spec.near, spec.far),
+  };
+  return rgbPreview;
+}
+
+/**
+ * 渲染 RGB 预览：**three.js 相机 + 离屏 renderer**，不是 MuJoCo 原生渲染
+ * （`mjv_*` 这一套不在 WASM 导出里）。代价是光照与原生渲染有差异，好处是零服务端往返。
+ *
+ * **near 平面刻意取 0.12 m**：相机装在机身内部（机身半长约 0.35 m、装配 x=0.27），
+ * 不裁掉的话整个视野就是一块机身外壳。真机上前置相机也会被取景框挡住近处的自身。
+ */
+function renderRgbPreview(basePos, baseQuat, mount, ctx, width, height) {
+  const preview = rgbPreviewRenderer();
+  if (!preview || !view.scene || !ctx || typeof ctx.drawImage !== "function") return false;
+  const poseQuat = quatMul(baseQuat, quatFromRpy(mount.rpy.map(deg2rad)));
+  const origin = mountOriginWorld(basePos, baseQuat, mount.pos);
+  preview.camera.position.set(origin[0], origin[1], origin[2]);
+  // MuJoCo 与 three.js 的相机约定**恰好一致**（都沿自身 −z 看、+y 为上），姿态可以直搬，
+  // 只差四元数分量顺序：MuJoCo 是 (w,x,y,z)，three 是 (x,y,z,w)。
+  preview.camera.quaternion.set(poseQuat[1], poseQuat[2], poseQuat[3], poseQuat[0]);
+  preview.camera.updateMatrixWorld(true);
+  preview.renderer.render(view.scene, preview.camera);
+  ctx.drawImage(preview.canvas, 0, 0, width, height);
+  return true;
+}
+
+/** 传感器视图渲染：**只画当前来源**（不是并排三块）。
+ *
+ *  基础仿真整段跳过 —— 它是「本体 + 本体感知」验证，页面上只留 3D 视口与运行 HUD。
+ *  各来源的**采数据与绘制一一对应**（③~⑧），读数表最后统一渲染（⑨）——
+ *  这样"图上写着 24² 而数里写 16²"就不可能发生（那是两处各算一份数据的结果）。 */
 function updateSensorPanels() {
   if (!sim.qpos) return;
-  const pose = { x: sim.qpos[0], y: sim.qpos[1], yaw: baseYaw() };
+  if (!dock.visible || !dock.source) return;
+
+  const q = sim.qpos;
+  const rpy = quatToRpy(q.subarray(3, 7));
+  const pose = { x: q[0], y: q[1], z: q[2], roll: rpy[0], pitch: rpy[1], yaw: rpy[2] };
   const angular = sim.qvel && sim.qvel.length >= 6 ? Array.from(sim.qvel.subarray(3, 6)) : null;
+  const velBody = sim.qvel && sim.qvel.length >= 3 ? Array.from(sim.qvel.subarray(0, 3)) : null;
+  const basePos = [q[0], q[1], q[2]];
+  const baseQuat = [q[3], q[4], q[5], q[6]]; // (w,x,y,z)
+  const fmtVec = (arr, digits = 3) => arr.map((v) => Number(v).toFixed(digits)).join(" / ");
 
-  // ① odom / IMU 读数（缺值显示「—」，不是 0.00——那会看起来像真读数）
-  const readout = observationReadout({ pose, angular, baseHeight: sim.qpos[2] });
-  if (elements.odomPosition) elements.odomPosition.textContent = readout.position;
-  if (elements.odomYaw) elements.odomYaw.textContent = readout.yaw;
-  if (elements.imuAngular) elements.imuAngular.textContent = readout.angular;
-  if (elements.odomBaseHeight) elements.odomBaseHeight.textContent = readout.baseHeight;
-
-  // ② 深度图：帧本来就在算（pie_depth.js），此前只喂策略、没人画
-  const depthCtx = sensorContext("depth");
-  const shape = sim.pieDepth && sim.pieDepth.frameShape;
-  const frames = sim.depthHistory;
-  if (depthCtx && shape && Array.isArray(frames) && frames.length) {
-    const frame = frames[frames.length - 1];
-    if (elements.depthCanvas.width !== shape[2] || elements.depthCanvas.height !== shape[1]) {
-      elements.depthCanvas.width = shape[2];
-      elements.depthCanvas.height = shape[1];
+  // ① **全局里程计**：累计里程是它的实质 —— 按世界系位移逐帧累加。
+  //    复位（切策略 / 换场景）会让位姿跳变，跳变不计入（阈值 1 m，远超单帧位移）。
+  if (dock.plugins.odom) {
+    if (!Number.isFinite(sim.odomMileage)) sim.odomMileage = 0;
+    if (Array.isArray(sim.odomLastPos)) {
+      const dist = Math.hypot(pose.x - sim.odomLastPos[0], pose.y - sim.odomLastPos[1]);
+      if (dist < 1) sim.odomMileage += dist;
     }
-    const drawn = drawDepthFrame(depthCtx, frame, shape[1], shape[2]);
-    if (elements.depthPanelNote) {
-      elements.depthPanelNote.textContent = drawn ? `${shape[1]}×${shape[2]} 近亮远暗` : "绘制失败";
-    }
-  } else if (elements.depthPanelNote) {
-    elements.depthPanelNote.textContent = "当前策略无深度输入";
+    sim.odomLastPos = [pose.x, pose.y];
   }
 
-  // ③ 2D 轨迹平面：复用 3D 场景里的根轨迹顶点（world x/y），不另记一份
-  const trailCtx = sensorContext("trail");
-  const trail = view.trail;
-  if (trailCtx && trail && trail.count >= 2) {
+  const readout = odomReadout({ pose, angular, velBody, mileage: sim.odomMileage });
+  // 读数表的值在**下面各来源分支里补齐**，最后统一渲染（见 ⑨）：
+  // "图上写着 24² 而数里写 16²"就是两处各算一份数据算出来的。
+  const extra = { baseHeight: Number.isFinite(pose.z) ? pose.z.toFixed(3) : "—" };
+  let note = "";
+
+  // ② 画布准备：每个分支各自 `sizeDockCanvas` —— 各来源像素尺寸不同
+  //    （深度帧跟随策略、高度场 = 网格边长、极坐标/点云/RGB = 固定预览），
+  //    且 `putImageData` 不缩放，尺寸必须精确对上。
+  const canvasSources = ["depth", "height", "trail", "lidar", "cloud", "rgb"];
+  if (dockCanvasEl) dockCanvasEl.hidden = !canvasSources.includes(dock.source);
+  const ctx = dockCanvasCtx();
+  const scanReady = Boolean(sim.model && sim.data);
+
+  // ③ 单点测距：从装配点沿装配方向打**一条**射线，给出到最近障碍的距离。
+  //    用的是与深度 / 高度 / LiDAR 同一套几何（raycast.js），不是另算一遍。
+  if (dock.source === "rangefinder") {
+    const mount = sensorMount("rangefinder", sensorMountOverrides);
+    if (scanReady) {
+      // 朝向 = 机身姿态 × 装配姿态；方向取局部 −z（与 MuJoCo 相机约定一致）。
+      const dirQuat = quatMul(baseQuat, quatFromRpy(mount.rpy.map(deg2rad)));
+      const origin = mountOriginWorld(basePos, baseQuat, mount.pos);
+      const dir = quatRot(dirQuat, [0, 0, -1]);
+      // 量程与深度相机的 3 m 不同：测距模块问的是"远一点的地方有没有东西"。
+      const RANGE_MAX = 20;
+      const hit = intersectSceneRay(sim.model, sim.data, origin, dir, { maxDist: RANGE_MAX });
+      const reading = rangefinderReadout({ distance: hit, maxDist: RANGE_MAX });
+      extra.distance = reading.distance;
+      note = reading.note;
+    } else {
+      extra.distance = "—";
+      note = "场景几何未就绪";
+    }
+    extra.mountPos = fmtVec(mount.pos);
+    extra.mountRpy = fmtVec(mount.rpy, 0);
+  }
+
+  // ④ 深度相机（外部感知）：帧本来就在算（pie_depth.js），此前只喂策略、没人画
+  if (dock.source === "depth") {
+    const shape = sim.pieDepth && sim.pieDepth.frameShape;
+    const frames = sim.depthHistory;
+    if (shape && frames && frames.length) {
+      sizeDockCanvas(shape[2], shape[1]);
+      const drawn = ctx && drawDepthFrame(ctx, frames[frames.length - 1], shape[1], shape[2]);
+      note = drawn ? `${shape[1]}×${shape[2]} 近亮远暗` : "绘制失败";
+    } else {
+      note = "当前策略无深度输入";
+    }
+  }
+
+  // ⑤ 高度扫描：机周网格**起点**、射线朝下 → 俯视高度场（低蓝高黄，没打中是黑槽）
+  if (dock.source === "height") {
+    const mount = sensorMount("height", sensorMountOverrides);
+    const span = SCAN_SPECS.height.extent * 2;
+    if (scanReady) {
+      const scan = scanHeightField(basePos, baseQuat, mount);
+      sizeDockCanvas(scan.side, scan.side);
+      const drawn = ctx && drawHeightField(ctx, scan.field, scan.side);
+      note = drawn
+        ? `${span.toFixed(0)} m × ${span.toFixed(0)} m · 命中 ${scan.hits}/${scan.total}`
+        : "绘制失败";
+      extra.scanExtent = `${span.toFixed(0)} m × ${span.toFixed(0)} m`;
+      extra.scanGrid = `${scan.side} × ${scan.side}`;
+      extra.hitRatio = `${scan.hits} / ${scan.total}`;
+    } else {
+      note = "场景几何未就绪";
+    }
+    extra.mountPos = fmtVec(mount.pos);
+  }
+
+  // ⑥ 2D 轨迹平面：复用 3D 场景里的根轨迹顶点（world x/y），不另记一份
+  if (dock.source === "trail") {
+    sizeDockCanvas(240, 150);
+    const trail = view.trail;
     const points = [];
-    for (let i = 0; i < trail.count; i += 1) {
-      points.push([trail.positions[i * 3], trail.positions[i * 3 + 1]]);
+    if (trail && trail.count >= 2) {
+      for (let i = 0; i < trail.count; i += 1) {
+        points.push([trail.positions[i * 3], trail.positions[i * 3 + 1]]);
+      }
     }
-    drawTrail(trailCtx, {
-      trail: points,
-      pose,
-      width: elements.trailCanvas.width,
-      height: elements.trailCanvas.height,
-    });
-    if (elements.trailPanelNote) {
-      elements.trailPanelNote.textContent = `${points.length} 点 · x,y 等比`;
+    if (ctx && points.length >= 2) {
+      drawTrail(ctx, { trail: points, pose, width: 240, height: 150 });
+      note = `${points.length} 点 · x,y 等比`;
+    } else {
+      note = "开启「轨迹」后显示";
     }
-  } else if (elements.trailPanelNote && !trail?.count) {
-    elements.trailPanelNote.textContent = "开启「轨迹」后显示";
   }
+
+  // ⑦ LiDAR / 点云：**共用同一次扫描**。分开扫的话"点云比极坐标图多出几个点"永远查不完
+  //    —— 那本来就是同一次测量的两种画法。
+  if (dock.source === "lidar" || dock.source === "cloud") {
+    const mount = sensorMount("lidar", sensorMountOverrides);
+    if (scanReady) {
+      const scan = scanLidar(basePos, baseQuat, mount);
+      const hits = scan.distances
+        .map((d, i) => rayHitPoint(scan.origin, scan.worldDirs[i], d))
+        .filter(Boolean);
+      if (dock.source === "lidar") {
+        sizeDockCanvas(240, 240);
+        const drawn = ctx && drawPolarScan(ctx, {
+          angles: scan.angles, distances: scan.distances, maxDist: scan.maxDist, width: 240, height: 240,
+        });
+        const reached = scan.distances.filter((d) => d >= 0);
+        note = drawn ? `命中 ${hits.length}/${scan.count} · 量程 ${scan.maxDist} m` : "无回波";
+        extra.fanSpec = `360° / ${scan.count} 线`;
+        extra.hitRatio = `${hits.length} / ${scan.count}`;
+        extra.nearest = reached.length ? `${Math.min(...reached).toFixed(3)} m` : "无回波";
+        extra.mountRpy = fmtVec(mount.rpy, 0);
+      } else {
+        sizeDockCanvas(240, 240);
+        const drawn = ctx && drawPointCloud(ctx, { points: hits, pose, width: 240, height: 240 });
+        const xs = hits.map((p) => p[0]);
+        const ys = hits.map((p) => p[1]);
+        note = drawn ? `${hits.length} 点 · 俯视 x-y` : "无回波";
+        extra.pointCount = String(hits.length);
+        extra.cloudBounds = hits.length
+          ? `${(Math.max(...xs) - Math.min(...xs)).toFixed(2)} × ${(Math.max(...ys) - Math.min(...ys)).toFixed(2)}`
+          : "—";
+        extra.cloudSource = "LiDAR 同一次扫描";
+        extra.mountPos = fmtVec(mount.pos);
+      }
+    } else {
+      note = "场景几何未就绪";
+      if (dock.source === "lidar") extra.mountRpy = fmtVec(mount.rpy, 0);
+      else extra.mountPos = fmtVec(mount.pos);
+    }
+  }
+
+  // ⑧ RGB 相机：three.js 离屏渲染（near 为什么是 0.12 见 renderRgbPreview 的说明）
+  if (dock.source === "rgb") {
+    const mount = sensorMount("rgb", sensorMountOverrides);
+    const spec = SCAN_SPECS.rgb;
+    sizeDockCanvas(spec.width, spec.height);
+    const drawn = renderRgbPreview(basePos, baseQuat, mount, ctx, spec.width, spec.height);
+    note = drawn ? `${spec.width}×${spec.height} · three.js` : "渲染器未就绪";
+    extra.rgbSize = `${spec.width} × ${spec.height}`;
+    extra.rgbFov = `${spec.fov}°（垂直）`;
+    extra.rgbBackend = "three.js（非 MuJoCo 原生）";
+    extra.mountPos = fmtVec(mount.pos);
+  }
+
+  // ⑨ 读数表：**最后渲染** —— extra 由上面各分支填好，图与数同源。
+  if (dockReadoutBox) {
+    const rows = readoutRows(dock.source, { ...readout, ...extra });
+    dockReadoutBox.innerHTML = rows
+      .map(([label, value]) => `<div><small>${label}</small><strong>${value ?? "—"}</strong></div>`)
+      .join("");
+  }
+  if (dockNote) dockNote.textContent = note || "—";
 }
 
 function updateCommandLabel() {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>仿真验证 · Locomotion Platform</title>
+    <title>基础仿真 · Legged Studio</title>
     <link rel="stylesheet" href="./styles.css?v=0.44.0" />
     <script type="importmap">
       {
@@ -28,7 +28,7 @@
         <div class="brand">
           <span class="brand-mark"></span>
           <div>
-            <h1>仿真验证</h1>
+            <h1 id="surfaceTitle">基础仿真</h1>
             <p id="modelSubtitle">MuJoCo WASM · ONNX 策略</p>
           </div>
         </div>
@@ -135,24 +135,32 @@
           <div><small>接触数</small><strong id="contacts">0</strong></div>
         </div>
 
-        <div class="sensor-panels">
-          <div class="sensor-panel">
-            <div class="sensor-title"><span>深度图</span><output id="depthPanelNote">—</output></div>
-            <canvas id="depthCanvas" width="86" height="60" aria-label="深度相机画面（近亮远暗）"></canvas>
+        <!-- 传感器视图：**单一视图 + 来源切换**（左上角悬浮窗）。
+             原先三块并排面板（深度图 / 2D 轨迹平面 / odom·IMU）已收进这里 ——
+             "一个悬浮窗就够"，来源用下拉切，不再并排占位置。
+             整个 dock 只属于**高级仿真**：基础仿真是「本体 + 本体感知」验证，
+             只留 3D 视口与运行 HUD（归属见 sensor_dock.js::dockVisible）。 -->
+        <div class="sensor-dock" id="sensorDock" data-surface="advanced">
+          <div class="dock-head">
+            <select id="dockSource" aria-label="传感器视图来源"></select>
+            <output id="dockNote">—</output>
+            <button type="button" id="dockToggle" aria-label="收起或展开">−</button>
           </div>
-          <div class="sensor-panel">
-            <div class="sensor-title"><span>2D 轨迹平面</span><output id="trailPanelNote">—</output></div>
-            <canvas id="trailCanvas" width="240" height="150" aria-label="2D 俯视轨迹与当前位姿"></canvas>
+          <div class="dock-body">
+            <canvas id="dockCanvas" width="240" height="150" aria-label="传感器视图"></canvas>
+            <div class="dock-readout" id="dockReadout"></div>
           </div>
-          <div class="sensor-panel">
-            <div class="sensor-title"><span>odom / IMU</span><output id="readoutNote">—</output></div>
-            <div class="metric-grid sensor-readout">
-              <div><small>位置 x , y</small><strong id="odomPosition">—</strong></div>
-              <div><small>偏航 yaw</small><strong id="odomYaw">—</strong></div>
-              <div><small>角速度 x/y/z</small><strong id="imuAngular">—</strong></div>
-              <div><small>机体高度</small><strong id="odomBaseHeight">—</strong></div>
-            </div>
-          </div>
+          <details class="dock-plugins">
+            <summary>外挂传感器</summary>
+            <div id="dockPlugins"></div>
+          </details>
+          <!-- 装配位置与角度：只列**已启用的**传感器；改哪一格就写进 sim.sensorMountOverrides，
+               3D 场景里的可视化模型与单点测距射线下一帧就跟着动。
+               改回默认值时覆盖整条删除（见 sensor_dock.js::applyMountEdit）。 -->
+          <details class="dock-mounts">
+            <summary>装配位置与角度</summary>
+            <div id="dockMounts"></div>
+          </details>
         </div>
 
         <div class="attitude-gauge" id="attitudeGauge" title="机身姿态实时仪表">

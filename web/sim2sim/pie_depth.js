@@ -6,44 +6,13 @@
 // MuJoCo WASM 未导出 mj_ray，故对 plane / sphere / box 三类地形 geom 做解析求交；
 // 网格类 geom（机器人本体）跳过，既省算力也避免自身遮挡（相机装在机头前）。
 
+import { intersectSceneRay, quatMul, quatRot, quatToMat } from "./raycast.js";
+
 const GAUSS = [
   0.07511361, 0.12384140, 0.07511361,
   0.12384140, 0.20417996, 0.12384140,
   0.07511361, 0.12384140, 0.07511361,
 ];
-
-function quatMul(a, b) {
-  return [
-    a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
-    a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
-    a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
-    a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0],
-  ];
-}
-function quatRot(q, v) {
-  const [w, x, y, z] = q;
-  const t = [2 * (y * v[2] - z * v[1]), 2 * (z * v[0] - x * v[2]), 2 * (x * v[1] - y * v[0])];
-  return [
-    v[0] + w * t[0] + (y * t[2] - z * t[1]),
-    v[1] + w * t[1] + (z * t[0] - x * t[2]),
-    v[2] + w * t[2] + (x * t[1] - y * t[0]),
-  ];
-}
-function quatToMat(q) {
-  const [w, x, y, z] = q;
-  return [
-    1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y),
-    2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x),
-    2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y),
-  ];
-}
-function matTVec(m, v) {
-  return [
-    m[0] * v[0] + m[3] * v[1] + m[6] * v[2],
-    m[1] * v[0] + m[4] * v[1] + m[7] * v[2],
-    m[2] * v[0] + m[5] * v[1] + m[8] * v[2],
-  ];
-}
 
 export function createPieDepth({ sim, contract }) {
   if (!sim?.model || !sim?.data) return null;
@@ -98,64 +67,11 @@ export function createPieDepth({ sim, contract }) {
     };
   }
 
+  // 求交搬到 raycast.js（深度 / 高度扫描 / LiDAR / 点云共用同一套几何 ——
+  // 各写一份的话「深度图与高度场对不上」这类问题永远查不完）。
+  // 上限沿用原来的 `MAX_M * 1.5`：超出该距离的命中在 60×86 的深度图里与"无穷远"无区别。
   function intersectRay(origin, dir) {
-    const model = sim.model;
-    const data = sim.data;
-    let best = -1;
-    const ngeom = Number(model.ngeom || 0);
-    for (let g = 0; g < ngeom; g += 1) {
-      const type = Number(model.geom_type[g]);
-      if (type !== 0 && type !== 2 && type !== 6) continue; // plane/sphere/box
-      const bodyId = Number(model.geom_bodyid[g]);
-      const bq = [data.xquat[bodyId * 4], data.xquat[bodyId * 4 + 1], data.xquat[bodyId * 4 + 2], data.xquat[bodyId * 4 + 3]];
-      const gp = [model.geom_pos[g * 3], model.geom_pos[g * 3 + 1], model.geom_pos[g * 3 + 2]];
-      const gq = [model.geom_quat[g * 4], model.geom_quat[g * 4 + 1], model.geom_quat[g * 4 + 2], model.geom_quat[g * 4 + 3]];
-      const gpw = quatRot(bq, gp);
-      const pos = [data.xpos[bodyId * 3] + gpw[0], data.xpos[bodyId * 3 + 1] + gpw[1], data.xpos[bodyId * 3 + 2] + gpw[2]];
-      const quat = quatMul(bq, gq);
-      const size = [model.geom_size[g * 3], model.geom_size[g * 3 + 1], model.geom_size[g * 3 + 2]];
-      let t = -1;
-      if (type === 0) {
-        const n = quatRot(quat, [0, 0, 1]);
-        const denom = n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2];
-        if (Math.abs(denom) < 1e-9) continue;
-        const num = (pos[0] - origin[0]) * n[0] + (pos[1] - origin[1]) * n[1] + (pos[2] - origin[2]) * n[2];
-        const tt = num / denom;
-        if (tt > 1e-4) t = tt;
-      } else {
-        const m = quatToMat(quat);
-        const o = matTVec(m, [origin[0] - pos[0], origin[1] - pos[1], origin[2] - pos[2]]);
-        const d = matTVec(m, dir);
-        if (type === 2) {
-          const r = size[0];
-          const a = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
-          const b = 2 * (o[0] * d[0] + o[1] * d[1] + o[2] * d[2]);
-          const c = o[0] * o[0] + o[1] * o[1] + o[2] * o[2] - r * r;
-          const disc = b * b - 4 * a * c;
-          if (disc >= 0 && a > 1e-12) {
-            const tt = (-b - Math.sqrt(disc)) / (2 * a);
-            if (tt > 1e-4) t = tt;
-          }
-        } else {
-          let tmin = 0, tmax = Infinity, hit = true;
-          for (let k = 0; k < 3; k += 1) {
-            if (Math.abs(d[k]) < 1e-9) {
-              if (Math.abs(o[k]) > size[k]) { hit = false; break; }
-            } else {
-              let t1 = (-size[k] - o[k]) / d[k];
-              let t2 = (size[k] - o[k]) / d[k];
-              if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
-              tmin = Math.max(tmin, t1);
-              tmax = Math.min(tmax, t2);
-              if (tmin > tmax) { hit = false; break; }
-            }
-          }
-          if (hit && tmax > 1e-4) t = Math.max(tmin, 1e-4);
-        }
-      }
-      if (t > 0 && t <= MAX_M * 1.5 && (best < 0 || t < best)) best = t;
-    }
-    return best;
+    return intersectSceneRay(sim.model, sim.data, origin, dir, { maxDist: MAX_M * 1.5 });
   }
 
   function captureRaw() {
