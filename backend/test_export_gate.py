@@ -2,7 +2,8 @@
 
 - 改坏 action_scale / joint_order / obs_groups / control_hz / armature → 拒绝（blocker）
 - reward_scales / decimation 不一致 → 仅警告（仍放行）
-- 快照缺字段 → 降级 warning（T0.5 起收紧）
+- **K3 起收紧**：DENYLIST 字段"一侧有值一侧缺失"（不对称）→ 拒绝（fail-closed），
+  旧行为是降级成 warning 后放行；两侧都缺才算"与本契约无关"，仅记 warning
 - check_export_result：形状漂移与数值超阈值 → 拒绝；正常 → 放行
 """
 
@@ -108,10 +109,20 @@ class DenylistGateTest(unittest.TestCase):
         self.assertTrue(report["ok"])
         self.assertTrue(any("decimation" in item for item in report["warnings"]))
 
-    def test_missing_snapshot_fields_degrade_to_warning(self) -> None:
+    def test_asymmetric_denylist_fields_fail_closed(self) -> None:
+        """K3：一侧有值、一侧缺失 = 无法验证 → 拒绝（旧行为是降级 warning 后放行）。"""
         report = compare_contracts({"action": {}}, self.current)
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["disposition"], "deny")
+        self.assertTrue(any("不对称" in item for item in report["blockers"]))
+        self.assertTrue(any("fail-closed" in item for item in report["blockers"]))
+
+    def test_both_sides_missing_field_is_only_a_warning(self) -> None:
+        """两侧都没声明该字段 = 与本契约无关，记 warning 但不阻断。"""
+        report = compare_contracts({"action": {}}, {"action": {}})
         self.assertTrue(report["ok"])
-        self.assertTrue(any("无法强校验" in item for item in report["warnings"]))
+        self.assertEqual(report["disposition"], "warn")
+        self.assertTrue(any("两侧均未声明" in item for item in report["warnings"]))
 
 
 class ShapeNumericGateTest(unittest.TestCase):

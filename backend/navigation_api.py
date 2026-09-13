@@ -10,10 +10,16 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
+from backend.arrival_criteria import waypoint_spec
 from backend.scenario_maps import MAPS
 
 
 router = APIRouter(prefix="/api/navigation", tags=["navigation"])
+
+#: H10：航点到达容差的单一真值（registry/arrival_criteria.json）。
+#: 此前这里自持 0.35、相机投影侧自持 0.3，同一件事两套口径；现在统一取注册表。
+#: 注册表缺失时**直接报错**（不做静默兜底）——静默回退正是口径漂移的成因。
+WAYPOINT_TOLERANCE_M = float(waypoint_spec()["tolerance_m"])
 
 
 class NavigationRequest(BaseModel):
@@ -36,7 +42,8 @@ class NavigationRequest(BaseModel):
     use_avoidance: bool = Field(default=True, description="是否启用反应式避障闭环（叠加势场斥力）")
     episodes: int = Field(default=1, ge=1, le=20)
     max_steps: int | None = Field(default=None, ge=1, le=10000)
-    waypoint_tolerance: float = Field(default=0.35, gt=0.0, le=5.0)
+    # H10：默认值来自 registry/arrival_criteria.json（单一真值），不再硬编码 0.35。
+    waypoint_tolerance: float = Field(default=WAYPOINT_TOLERANCE_M, gt=0.0, le=5.0)
     manual_commands: list[dict[str, float]] = Field(default_factory=list)
 
     @field_validator("obstacles")

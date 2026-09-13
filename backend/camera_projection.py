@@ -30,6 +30,8 @@ from typing import Any, Iterable, Sequence
 
 from fastapi import APIRouter, HTTPException
 
+from backend.runtime_registry import load_registry
+
 router = APIRouter(prefix="/api/perception/projection", tags=["perception"])
 
 Point3 = Sequence[float]
@@ -80,6 +82,167 @@ def resolve_intrinsics(
         "hfov_deg": hfov,
         "vfov_deg": vfov,
         "source": "derived_from_fov" if not fx else "calibrated",
+    }
+
+
+# --------------------------------------------------------------------------
+# 相机档位（H8）：理想针孔口径 与 真机标定口径（含畸变项）
+# --------------------------------------------------------------------------
+def camera_profiles() -> list[dict[str, Any]]:
+    """全部相机档位（``registry/cameras.json``，单一真值）。"""
+    payload = load_registry("cameras")
+    profiles = payload.get("profiles") or []
+    if not profiles:
+        raise ValueError("registry/cameras.json 未声明任何档位")
+    return [dict(item) for item in profiles]
+
+
+def camera_profile(profile_id: str) -> dict[str, Any]:
+    """按 id 取一个相机档位；不存在即报错并列出可选值。"""
+    for item in camera_profiles():
+        if str(item.get("id")) == profile_id:
+            return item
+    raise KeyError(f"未知相机档位 {profile_id!r}；可选：{', '.join(str(p.get('id')) for p in camera_profiles())}")
+
+
+def camera_profile_intrinsics(profile: dict[str, Any]) -> dict[str, Any]:
+    """把档位声明解析成完整内参（含畸变模型与系数，供投影直接消费）。"""
+    resolution = profile.get("resolution") or {}
+    declared = profile.get("intrinsics") or {}
+    resolved = resolve_intrinsics(
+        int(resolution.get("width") or 0),
+        int(resolution.get("height") or 0),
+        fov_deg=profile.get("fov_deg"),
+        fx=float(declared.get("fx") or 0.0),
+        fy=float(declared.get("fy") or 0.0),
+        cx=float(declared.get("cx", -1.0)),
+        cy=float(declared.get("cy", -1.0)),
+    )
+    resolved["profile_id"] = profile.get("id")
+    resolved["label"] = profile.get("label")
+    resolved["kind"] = profile.get("kind")
+    resolved["scope"] = profile.get("scope")
+    resolved["distortion_model"] = str(profile.get("model") or "pinhole")
+    resolved["distortion"] = [float(c) for c in (profile.get("distortion") or [])]
+    resolved["evidence"] = profile.get("evidence") or {}
+    return resolved
+
+
+def distort_normalized(
+    x: float,
+    y: float,
+    *,
+    model: str = "pinhole",
+    coefficients: Sequence[float] | None = None,
+) -> tuple[float, float]:
+    """归一化像平面点 ``(x/z, y/z)`` → 畸变后的归一化点。
+
+    支持两种模型（与 ``registry/cameras.json`` 的 ``distortion_models`` 对应）：
+
+    * ``brown_conrady``：``[k1, k2, p1, p2, k3]``，径向 + 切向（OpenCV plumb-bob）；
+    * ``fisheye_equidistant``：``[k1, k2, k3, k4]``，Kannala-Brandt：
+      ``θd = θ·(1 + k1θ² + k2θ⁴ + k3θ⁶ + k4θ⁸)``。
+
+    系数全为 0（或模型为 ``pinhole``）时原样返回，因此「理想针孔」与「畸变真实」
+    共用一条代码路径，差别只在数据。
+    """
+    coeffs = [float(c) for c in (coefficients or [])]
+    if model in ("", "pinhole") or not any(abs(c) > 0.0 for c in coeffs):
+        return x, y
+    if model == "brown_conrady":
+        k1, k2, p1, p2, k3 = (coeffs + [0.0] * 5)[:5]
+        r2 = x * x + y * y
+        radial = 1.0 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2
+        return (
+            x * radial + 2.0 * p1 * x * y + p2 * (r2 + 2.0 * x * x),
+            y * radial + p1 * (r2 + 2.0 * y * y) + 2.0 * p2 * x * y,
+        )
+    if model == "fisheye_equidistant":
+        k1, k2, k3, k4 = (coeffs + [0.0] * 4)[:4]
+        radius = math.hypot(x, y)
+        if radius < 1e-12:
+            return x, y
+        theta = math.atan(radius)
+        theta2 = theta * theta
+        theta_d = theta * (1.0 + k1 * theta2 + k2 * theta2**2 + k3 * theta2**3 + k4 * theta2**4)
+        scale = theta_d / radius
+        return x * scale, y * scale
+    raise ValueError(f"未知畸变模型 {model!r}（可选 brown_conrady / fisheye_equidistant / pinhole）")
+
+
+def distortion_impact(
+    profile_id: str,
+    *,
+    grid: int = 9,
+) -> dict[str, Any]:
+    """同一 K 下「畸变关 vs 畸变开」的像素位移统计（H8 的验收口径）。
+
+    刻意**不比对两组不同内参**（那会把焦距口径差异混进来）：这里用同一个档位的
+    内参，只把畸变系数置零作为「理想针孔」基线，因此量出来的就是**镜头畸变本身**
+    造成的像素位移。返回最大/均值/RMS 位移、四角与边缘位移，以及判定。
+    """
+    profile = camera_profile(profile_id)
+    resolved = camera_profile_intrinsics(profile)
+    width, height = int(resolved["width"]), int(resolved["height"])
+    fx, fy = float(resolved["fx"]), float(resolved["fy"])
+    model = str(resolved["distortion_model"])
+    coeffs = list(resolved["distortion"])
+
+    # 在理想针孔口径下覆盖整幅画面的归一化采样网格
+    u_max = (width - 1) - float(resolved["cx"])
+    u_min = -float(resolved["cx"])
+    v_max = (height - 1) - float(resolved["cy"])
+    v_min = -float(resolved["cy"])
+    steps = max(3, int(grid))
+    samples: list[dict[str, Any]] = []
+    for iy in range(steps):
+        y_off = v_min + (v_max - v_min) * iy / (steps - 1)
+        for ix in range(steps):
+            x_off = u_min + (u_max - u_min) * ix / (steps - 1)
+            ideal_u = x_off + float(resolved["cx"])
+            ideal_v = y_off + float(resolved["cy"])
+            norm_x, norm_y = x_off / fx, y_off / fy
+            dx, dy = distort_normalized(norm_x, norm_y, model=model, coefficients=coeffs)
+            real_u, real_v = fx * dx + float(resolved["cx"]), fy * dy + float(resolved["cy"])
+            if not (math.isfinite(real_u) and math.isfinite(real_v)):
+                continue
+            samples.append(
+                {
+                    "ideal": [ideal_u, ideal_v],
+                    "distorted": [real_u, real_v],
+                    "delta_px": math.hypot(real_u - ideal_u, real_v - ideal_v),
+                    "inside": 0.0 <= real_u <= width - 1 and 0.0 <= real_v <= height - 1,
+                }
+            )
+
+    deltas = [item["delta_px"] for item in samples]
+    if not deltas:
+        raise ValueError(f"档位 {profile_id} 的采样全落在模型奇点，无法比较（检查畸变系数）")
+    mean = sum(deltas) / len(deltas)
+    rms = math.sqrt(sum(d * d for d in deltas) / len(deltas))
+    worst = max(samples, key=lambda item: item["delta_px"])
+    max_delta = worst["delta_px"]
+
+    corners = [
+        item
+        for item in samples
+        if abs(item["ideal"][0] - (0.0 if item["ideal"][0] < width / 2 else width - 1)) < 1e-9
+        and abs(item["ideal"][1] - (0.0 if item["ideal"][1] < height / 2 else height - 1)) < 1e-9
+    ]
+    return {
+        "profile": profile_id,
+        "model": model,
+        "coefficients": coeffs,
+        "resolution": {"width": width, "height": height},
+        "samples": len(samples),
+        "max_delta_px": max_delta,
+        "mean_delta_px": mean,
+        "rms_delta_px": rms,
+        "max_at": worst["ideal"],
+        "corner_delta_px": [round(item["delta_px"], 2) for item in corners],
+        "inside_frame_ratio": sum(1 for item in samples if item["inside"]) / len(samples),
+        "distortion_matters": max_delta >= 1.0,
+        "note": "位移 = 同一内参下「畸变开 - 畸变关」，因此只反映镜头畸变本身",
     }
 
 
@@ -152,19 +315,34 @@ def project_optical_points(
     intrinsics: dict[str, Any],
     *,
     z_min: float = DEFAULT_Z_MIN,
+    distortion_model: str | None = None,
+    distortion_coefficients: Sequence[float] | None = None,
 ) -> list[dict[str, Any]]:
-    """光学系点 → 像素。返回逐点 ``{u, v, depth, inside, valid}``；``depth ≤ z_min`` 视为无效。"""
+    """光学系点 → 像素。返回逐点 ``{u, v, depth, inside, valid}``；``depth ≤ z_min`` 视为无效。
+
+    畸变（H8）：``distortion_model`` / ``distortion_coefficients`` 缺省时从
+    ``intrinsics`` 里读（:func:`camera_profile_intrinsics` 会把档位的
+    ``distortion_model`` 与 ``distortion`` 一并带上），因此**既有调用方零改动**，
+    而带畸变的档位自动走畸变路径。系数全零即退化为理想针孔。
+    """
     fx, fy = float(intrinsics["fx"]), float(intrinsics["fy"])
     cx, cy = float(intrinsics["cx"]), float(intrinsics["cy"])
     width, height = int(intrinsics["width"]), int(intrinsics["height"])
+    model = distortion_model if distortion_model is not None else str(intrinsics.get("distortion_model") or "pinhole")
+    coefficients = (
+        distortion_coefficients
+        if distortion_coefficients is not None
+        else (intrinsics.get("distortion") or [])
+    )
     results: list[dict[str, Any]] = []
     for point in points:
         x, y, z = float(point[0]), float(point[1]), float(point[2])
         if not all(map(math.isfinite, (x, y, z))) or z <= z_min:
             results.append({"u": None, "v": None, "depth": z, "inside": False, "valid": False})
             continue
-        u = fx * (x / z) + cx
-        v = fy * (y / z) + cy
+        dx, dy = distort_normalized(x / z, y / z, model=model, coefficients=coefficients)
+        u = fx * dx + cx
+        v = fy * dy + cy
         results.append(
             {
                 "u": u,
@@ -250,14 +428,31 @@ def arrival_verdict(
     position_xy: Sequence[float],
     target_xy: Sequence[float],
     *,
-    tolerance_m: float = 0.3,
+    tolerance_m: float | None = None,
 ) -> dict[str, Any]:
-    """目标判定（到达）：平面距离 ≤ 容差即判定到达。"""
-    distance = math.dist((float(position_xy[0]), float(position_xy[1])), (float(target_xy[0]), float(target_xy[1])))
+    """目标判定（到达）：平面距离 ≤ 容差即判定到达。
+
+    H10：容差不再由本模块自带默认值（旧默认 0.3 与导航侧的 0.35 是两套口径），
+    而是走 ``registry/arrival_criteria.json`` 的单一真值；显式传入旧值时不阻断，
+    但结果里会带 ``deviation`` 说明已偏离单一真值。稳定性（连续拍数）不在此判定，
+    需要时用 :func:`backend.arrival_criteria.waypoint_arrival`。
+    """
+    from backend.arrival_criteria import waypoint_arrival, waypoint_spec
+
+    spec = waypoint_spec()
+    verdict = waypoint_arrival(
+        position_xy,
+        target_xy,
+        tolerance_m=tolerance_m,
+        consecutive_ticks=int(spec["stable_ticks"]),
+    )
     return {
-        "distance_m": distance,
-        "tolerance_m": tolerance_m,
-        "arrived": distance <= tolerance_m,
+        "distance_m": verdict["distance_m"],
+        "tolerance_m": verdict["thresholds"]["tolerance_m"],
+        "arrived": verdict["arrived"],
+        "thresholds": verdict["thresholds"],
+        "deviation": verdict["deviation"],
+        "source": "registry/arrival_criteria.json::waypoint",
     }
 
 
@@ -434,6 +629,24 @@ def camera_projection_selftest() -> dict[str, Any]:
         "target_verdict_arrival_and_visibility",
         arrived["arrived"] and not missed["arrived"] and visibility["verdict"] == "visible" and visibility["visible_ratio"] > 0.5,
         {"arrived": arrived["arrived"], "missed_arrived": missed["arrived"], "visible_ratio": visibility["visible_ratio"]},
+    )
+
+    # 7) H8：理想针孔 vs 真机畸变的像素差（同 K，只开关畸变）
+    ideal_impact = distortion_impact("ideal-pinhole-1920x1080")
+    real_impact = distortion_impact("go2-front-fisheye-1920x1080")
+    case(
+        "ideal_pinhole_vs_distorted_real_pixel_delta",
+        ideal_impact["max_delta_px"] == 0.0 and real_impact["max_delta_px"] > 1.0,
+        {
+            "ideal_max_delta_px": ideal_impact["max_delta_px"],
+            "real_profile": real_impact["profile"],
+            "real_model": real_impact["model"],
+            "real_max_delta_px": round(real_impact["max_delta_px"], 3),
+            "real_mean_delta_px": round(real_impact["mean_delta_px"], 3),
+            "real_rms_delta_px": round(real_impact["rms_delta_px"], 3),
+            "corner_delta_px": real_impact["corner_delta_px"],
+            "note": "位移 = 同一内参下畸变开-关，只反映镜头畸变本身",
+        },
     )
 
     failures = [item["name"] for item in cases if not item["ok"]]
@@ -687,4 +900,52 @@ async def project_points(payload: dict[str, Any]):
         "intrinsics": intrinsics,
         "count": len(projected),
         "points": projected,
+    }
+
+
+@router.get("/cameras")
+async def projection_cameras():
+    """可选相机档位（H8）：理想针孔口径 与 真机标定口径，含解析后的内参与畸变模型。"""
+    profiles = [
+        {"id": profile.get("id"), "label": profile.get("label"), "kind": profile.get("kind"),
+         "scope": profile.get("scope"), "model": profile.get("model"),
+         "intrinsics": camera_profile_intrinsics(profile)}
+        for profile in camera_profiles()
+    ]
+    return {"success": True, "source": "registry/cameras.json", "count": len(profiles), "profiles": profiles}
+
+
+@router.get("/cameras/compare")
+async def projection_cameras_compare():
+    """理想针孔 vs 畸变真实的像素差（H8 验收口径）。
+
+    两种比较都给：① 同一档位内「畸变关 vs 畸变开」（只反映镜头畸变本身）；
+    ② 注册表声明的跨档位对照（如 fov 90° 理想针孔 vs Go2 真机鱼眼）。
+    """
+    impacts = {str(profile.get("id")): distortion_impact(str(profile.get("id"))) for profile in camera_profiles()}
+    comparisons = []
+    for pair in (load_registry("cameras").get("comparisons") or []):
+        ideal_id, real_id = str(pair.get("ideal")), str(pair.get("real"))
+        ideal, real = impacts.get(ideal_id), impacts.get(real_id)
+        if not ideal or not real:
+            continue
+        comparisons.append(
+            {
+                "label": pair.get("label"),
+                "ideal": {"id": ideal_id, "max_delta_px": ideal["max_delta_px"]},
+                "real": {
+                    "id": real_id,
+                    "model": real["model"],
+                    "max_delta_px": real["max_delta_px"],
+                    "mean_delta_px": real["mean_delta_px"],
+                    "corner_delta_px": real["corner_delta_px"],
+                },
+                "max_delta_px": real["max_delta_px"],
+            }
+        )
+    return {
+        "success": True,
+        "source": "registry/cameras.json",
+        "distortion_impact": impacts,
+        "comparisons": comparisons,
     }

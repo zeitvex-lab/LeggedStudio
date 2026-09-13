@@ -176,38 +176,6 @@
     "source": "builtin-package"
   },
   {
-    "id": "microduck--microduck-roller",
-    "name": "Roller",
-    "robot": "microduck",
-    "family": "MicroDuck",
-    "algorithm": "PPO",
-    "success_rate": null,
-    "avg_reward": null,
-    "path": "/api/simulation/browser-package/microduck/simulation/policies/BEST_roller.onnx",
-    "url": "/api/simulation/browser-package/microduck/simulation/policies/BEST_roller.onnx",
-    "play_url": "/web/sim2sim/index.html?robot=microduck&policy=microduck-roller",
-    "obs_dim": 61,
-    "action_dim": 14,
-    "task_type": "stand",
-    "source": "builtin-package"
-  },
-  {
-    "id": "microduck--microduck-roller-crouch",
-    "name": "Roller Crouch",
-    "robot": "microduck",
-    "family": "MicroDuck",
-    "algorithm": "PPO",
-    "success_rate": null,
-    "avg_reward": null,
-    "path": "/api/simulation/browser-package/microduck/simulation/policies/BEST_roller_crouch.onnx",
-    "url": "/api/simulation/browser-package/microduck/simulation/policies/BEST_roller_crouch.onnx",
-    "play_url": "/web/sim2sim/index.html?robot=microduck&policy=microduck-roller-crouch",
-    "obs_dim": 61,
-    "action_dim": 14,
-    "task_type": "acrobatics",
-    "source": "builtin-package"
-  },
-  {
     "id": "microduck--microduck-roulade",
     "name": "Roulade",
     "robot": "microduck",

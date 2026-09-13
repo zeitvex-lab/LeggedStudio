@@ -57,6 +57,7 @@ function buildRobotWorkspace() {
           <button class="robot-tab active" data-robot-tab="joints" type="button">关节控制</button>
           <button class="robot-tab" data-robot-tab="mapping" type="button">动作映射</button>
           <button class="robot-tab" data-robot-tab="motor" type="button">电机参数</button>
+          <button class="robot-tab" data-robot-tab="scaling" type="button">动作缩放</button>
           <button class="robot-tab" data-robot-tab="inertia" type="button">质量与惯量</button>
           <button class="robot-tab" data-robot-tab="inspection" type="button">体检</button>
         </div>
@@ -67,8 +68,29 @@ function buildRobotWorkspace() {
         </div>
         <div class="robot-pane" data-robot-pane="mapping"><div class="pane-note">动作索引必须与训练和策略输出顺序一致。</div><div id="robotJointEditor" class="robot-joint-editor"><div class="empty-state">未选择机器人包</div></div></div>
         <div class="robot-pane" data-robot-pane="motor">
-          <div class="pane-note">Kp / Kd / 力矩限幅 / 速度限幅按关节组生效，保存后写入机器人包并同步到浏览器仿真配置。</div>
+          <div class="pane-note">按关节组编辑，全部写入契约 v3（训练、浏览器仿真与工作台同源）：Kp / Kd / 力矩限幅 / 速度限幅 / 转子惯量 / 摩擦损耗。「未声明」= 契约未给该关节值，留空即不覆盖。</div>
           <div id="controlGainsGrid" class="control-gains-grid"></div>
+          <details class="advanced-params" id="motorAdvanced">
+            <summary>高级参数<span class="advanced-hint">T-N 曲线 / 执行器模型</span></summary>
+            <div class="advanced-body">
+              <div class="advanced-head"><span>T-N 曲线</span><span class="advanced-unit">rpm:Nm</span></div>
+              <div class="pane-note">每部位一行，格式 <code>转速:扭矩</code>、逗号分隔（例 <code>0:60, 120:60, 188:0</code>）。**留空 = 不声明**；未修改即不写入。转速须升序、扭矩须非增。</div>
+              <div id="tnCurveGrid" class="control-gains-grid"></div>
+              <div class="advanced-foot">
+                <label for="actuatorModel">执行器模型</label>
+                <select id="actuatorModel">
+                  <option value="ideal_pd">ideal_pd（现役；T-N 曲线不生效）</option>
+                  <option value="dc_motor">dc_motor（按 T-N 曲线削顶）</option>
+                </select>
+                <span id="tnCurveMeta" class="pane-meta"></span>
+              </div>
+            </div>
+          </details>
+        </div>
+        <div class="robot-pane" data-robot-pane="scaling">
+          <div class="pane-note">动作缩放 = 策略输出（−1..1）× 该值 → 关节指令。标量是缺省，逐部位值覆盖它（契约 v3 展开序 default &lt; 角色 &lt; 关节）。轮足机型的轮档位常与腿不同，改完点「保存配置」。</div>
+          <div class="action-scale-toolbar"><label for="actionScaleScalar">标量缺省</label><input id="actionScaleScalar" type="number" min="0" step="0.01"><span id="actionScaleMeta" class="pane-meta"></span></div>
+          <div id="actionScaleGrid" class="control-gains-grid"></div>
         </div>
         <div class="robot-pane" data-robot-pane="inertia"><div class="pane-note">来自模型 inertial 定义；勾选“惯性”可在 3D 视图查看等效惯量盒与质心。</div><div id="inertialTable" class="inertial-table"><div class="empty-state">未选择机器人包</div></div></div>
         <div class="robot-pane" data-robot-pane="inspection">
@@ -193,14 +215,26 @@ function renderRobotEditor(preset) {
   }
   // Frequencies and action scale stay owned by the training configuration
   // (03 训练配置); this panel only edits motor-level parameters.
+  // D8：物理量一律取契约 v3 派生视图（preset.physics，与浏览器仿真载荷同源同形状）。
+  // 此前读 preset.simulation_config.stiffness/damping/torque_limits —— B3 已把这组
+  // 重复键从 sim config 移除（物理真值只留契约 v3），继续读会整片显示空白；
+  // 而 armature 在这条链路上从来读不到（也从未生效过）。
+  const physics = preset?.physics || {};
   const simConfig = preset?.simulation_config || {};
   const gainsSource = {
-    stiffness: control.stiffness || simConfig.stiffness || null,
-    damping: control.damping || simConfig.damping || null,
-    torque_limits: control.torque_limits || simConfig.torque_limits || null,
+    stiffness: physics.stiffness || control.stiffness || null,
+    damping: physics.damping || control.damping || null,
+    torque_limits: physics.torque_limits || control.torque_limits || null,
+    // D9：速度限幅也回到契约 v3（此前读 sim config 的 velocity_limits，而 14 包
+    // 实测都没有这个键 → 输入框永远空白，用户改了还只写进第二个家）。
+    velocity_limits: physics.velocity_limits || control.velocity_limits || null,
+    // 常量表（转子惯量 / 摩擦损耗）：键为逐关节 + __default__ 兜底
+    armature: physics.armature || null,
+    friction_loss: physics.frictionloss || null,
+    physics_source: physics.source || null,
   };
-  gainsSource.torque_limits = gainsSource.torque_limits || simConfig.torque_limits || null;
-  gainsSource.velocity_limits = control.velocity_limits || simConfig.velocity_limits || null;
+  renderActionScaleGrid(preset?.action_scale || null, mappedJoints);
+  renderTnCurveGrid(preset?.t_n_curve || null, mappedJoints);
   renderControlGainsGrid(gainsSource, mappedJoints, control.control_modes || simConfig.control_modes || null);
   renderInertialTable();
   $('saveRobotPackage')?.toggleAttribute('disabled', !preset);
@@ -265,7 +299,11 @@ function resolveGainValue(map, segment, joints) {
   const bySegment = Number(map[segment]);
   if (Number.isFinite(bySegment)) return bySegment;
   const jointWide = Number(map.joint);
-  return Number.isFinite(jointWide) ? jointWide : '';
+  if (Number.isFinite(jointWide)) return jointWide;
+  // 契约常量表（armature / frictionloss）用 __default__ 作模型 default 层兜底，
+  // 与后端 physics_binding 的展开语义一致（default < by_role < by_joint）。
+  const fallback = Number(map.__default__);
+  return Number.isFinite(fallback) ? fallback : '';
 }
 
 function renderControlGainsGrid(control, mappedJoints, motorModes) {
@@ -282,17 +320,20 @@ function renderControlGainsGrid(control, mappedJoints, motorModes) {
     { key: 'damping', label: 'Kd', step: '0.01' },
     { key: 'torque_limits', label: '力矩限幅', step: '0.1' },
     { key: 'velocity_limits', label: '速度限幅', step: '0.1' },
+    // D8：契约 v3 的物理常量（此前不可见、且 Python 侧因大小写不匹配从未生效）
+    { key: 'armature', label: '转子惯量', step: '0.001' },
+    { key: 'friction_loss', label: '摩擦损耗', step: '0.01' },
   ];
   const jointsBySegment = {};
   for (const joint of mappedJoints) (jointsBySegment[jointToSegment[joint]] ||= []).push(joint);
-  const cols = 'minmax(84px,1.3fr) repeat(4,minmax(0,1fr))';
+  const cols = 'minmax(84px,1.3fr) repeat(6,minmax(0,1fr))';
   // Velocity-driven segments (wheels) have no stiffness: fill Kp with 0.
   const modeFor = (segment, joints) => {
     if (motorModes[segment]) return String(motorModes[segment]).toLowerCase();
     for (const joint of joints) if (motorModes[joint]) return String(motorModes[joint]).toLowerCase();
     return segment.includes('wheel') ? 'velocity' : 'position';
   };
-  const header = `<div class="gains-row gains-head" style="grid-template-columns:${cols}"><span>部位</span><span>Kp</span><span>Kd</span><span>力矩限幅</span><span>速度限幅</span></div>`;
+  const header = `<div class="gains-row gains-head" style="grid-template-columns:${cols}"><span>部位</span><span>Kp</span><span>Kd</span><span>力矩限幅</span><span>速度限幅</span><span>转子惯量</span><span>摩擦损耗</span></div>`;
   grid.innerHTML = header + segments.map((segment) => {
     const joints = jointsBySegment[segment] || [];
     const mode = modeFor(segment, joints);
@@ -324,6 +365,8 @@ function collectControlGains(control, mappedJoints) {
   const damping = collect('damping');
   const torqueLimits = collect('torque_limits');
   const velocityLimits = collect('velocity_limits');
+  const armature = collect('armature');
+  const frictionLoss = collect('friction_loss');
   return {
     control: {
       ...(control || {}),
@@ -331,6 +374,10 @@ function collectControlGains(control, mappedJoints) {
       ...(Object.keys(damping).length ? { damping } : {}),
       ...(Object.keys(torqueLimits).length ? { torque_limits: torqueLimits } : {}),
       ...(Object.keys(velocityLimits).length ? { velocity_limits: velocityLimits } : {}),
+      // D8：这两项只写契约 v3（保存链把它们映射进 actuator_profile.by_role/by_joint），
+      // 不进 simulation —— B3 已把物理键从 sim config 移除，写回去等于开倒车。
+      ...(Object.keys(armature).length ? { armature } : {}),
+      ...(Object.keys(frictionLoss).length ? { friction_loss: frictionLoss } : {}),
     },
     simulation: {
       ...(Object.keys(stiffness).length ? { stiffness } : {}),
@@ -339,6 +386,131 @@ function collectControlGains(control, mappedJoints) {
       ...(Object.keys(velocityLimits).length ? { velocity_limits: velocityLimits } : {}),
     },
   };
+}
+
+// ---- D10「动作缩放」卡片（action_scale）----------------------------------------
+// 数据源：preset.action_scale = contracts.physics_binding.payload_action_scale_view
+// 的输出（与浏览器载荷**同一实现**）。标量走契约 `action.action_scale`（缺省层），
+// 逐部位/逐关节走 `actuator_profile`（展开序 default < 角色 < 关节）。
+// 存在的理由：轮足机型的轮档位远大于腿（go2w 实测：UniLab 默认 10 / rough 5 /
+// 官方部署 35），只在别处改必然漂移——这里让它成为可编辑的一等参数。
+function renderActionScaleGrid(actionView, mappedJoints) {
+  const grid = $('actionScaleGrid');
+  if (!grid) return;
+  const scalarInput = $('actionScaleScalar');
+  const meta = $('actionScaleMeta');
+  const scalar = actionView ? Number(actionView.action_scale) : NaN;
+  if (scalarInput) scalarInput.value = Number.isFinite(scalar) ? scalar : '';
+  if (!mappedJoints.length) {
+    grid.innerHTML = '<div class="empty-state">Contract 未声明动作关节</div>';
+    if (meta) meta.textContent = '';
+    return;
+  }
+  const { segments, jointToSegment } = inferMotorSegments(mappedJoints);
+  const merged = { ...(actionView?.action_scale_by_role || {}), ...(actionView?.action_scale_by_joint || {}) };
+  const jointsBySegment = {};
+  for (const joint of mappedJoints) (jointsBySegment[jointToSegment[joint]] ||= []).push(joint);
+  const cols = 'minmax(84px,1.3fr) repeat(1,minmax(0,1fr))';
+  const header = `<div class="gains-row gains-head" style="grid-template-columns:${cols}"><span>部位</span><span>动作缩放</span></div>`;
+  grid.innerHTML = header + segments.map((segment) => {
+    const joints = jointsBySegment[segment] || [];
+    const value = resolveGainValue(merged, segment, joints);
+    const cell = `<input data-action-scale-segment="${escapeHtml(segment)}" type="number" min="0" step="0.01" value="${value}">`;
+    return `<div class="gains-row" style="grid-template-columns:${cols}" title="${escapeHtml(joints.join(', '))}"><span>${escapeHtml(segment)}</span>${cell}</div>`;
+  }).join('');
+  if (meta) {
+    meta.textContent = !actionView
+      ? '契约未声明动作缩放，仅显示标量缺省'
+      : (actionView.wheel_scale_declared ? '轮组档位已单独声明' : '轮组档位未单独声明（沿用标量）');
+  }
+}
+
+function collectActionScale(mappedJoints) {
+  const byJoint = {};
+  document.querySelectorAll('[data-action-scale-segment]').forEach((input) => {
+    if (input.value === '') return;
+    const value = Number(input.value);
+    if (!Number.isFinite(value)) return;
+    const segment = input.dataset.actionScaleSegment;
+    mappedJoints.filter((joint) => inferMotorSegments([joint]).segments[0] === segment)
+      .forEach((joint) => { byJoint[joint] = value; });
+  });
+  const input = $('actionScaleScalar');
+  const scalar = input && input.value !== '' && Number.isFinite(Number(input.value)) ? Number(input.value) : null;
+  return { by_joint: byJoint, scalar };
+}
+
+// ---- P1「高级参数」：T-N 曲线（默认收起，不修改不起作用）--------------------
+// 数据源：preset.t_n_curve = contracts.physics_binding.t_n_curve_facts（契约 v3 单一真值）。
+// 语义：**声明 ≠ 生效**——只有 actuator_model=dc_motor 时 T-N 曲线才被消费；ideal_pd（缺省）
+// 一律忽略。面板只在"用户真的改过某一行"时才把它提交上去（空串 = 显式清除）。
+function resolveTextValue(map, segment, joints) {
+  if (!map || typeof map !== 'object') return '';
+  for (const joint of joints) {
+    if (map[joint]) return String(map[joint]);
+  }
+  if (map[segment]) return String(map[segment]);
+  if (map.joint) return String(map.joint);
+  return map.__default__ ? String(map.__default__) : '';
+}
+
+function renderTnCurveGrid(tnCurveView, mappedJoints) {
+  const grid = $('tnCurveGrid');
+  if (!grid) return;
+  const meta = $('tnCurveMeta');
+  const modelSelect = $('actuatorModel');
+  const view = tnCurveView || {};
+  if (modelSelect) {
+    modelSelect.value = view.actuator_model === 'dc_motor' ? 'dc_motor' : 'ideal_pd';
+    modelSelect.dataset.tnCurveOriginal = modelSelect.value;
+  }
+  if (!mappedJoints.length) {
+    grid.innerHTML = '<div class="empty-state">Contract 未声明动作关节</div>';
+    if (meta) meta.textContent = '';
+    return;
+  }
+  const { segments, jointToSegment } = inferMotorSegments(mappedJoints);
+  const merged = { ...(view.text_by_role || {}), ...(view.text_by_joint || {}) };
+  const jointsBySegment = {};
+  for (const joint of mappedJoints) (jointsBySegment[jointToSegment[joint]] ||= []).push(joint);
+  const cols = 'minmax(84px,1.3fr) repeat(1,minmax(0,1fr))';
+  const header = `<div class="gains-row gains-head" style="grid-template-columns:${cols}"><span>部位</span><span>rpm:Nm</span></div>`;
+  grid.innerHTML = header + segments.map((segment) => {
+    const joints = jointsBySegment[segment] || [];
+    const text = resolveTextValue(merged, segment, joints);
+    const cell = `<input data-tn-curve-segment="${escapeHtml(segment)}" data-t_n_curve-original="${escapeHtml(text)}" type="text" placeholder="例如 0:60, 120:60, 188:0" value="${escapeHtml(text)}">`;
+    return `<div class="gains-row" style="grid-template-columns:${cols}" title="${escapeHtml(joints.join(', '))}"><span>${escapeHtml(segment)}</span>${cell}</div>`;
+  }).join('');
+  // 派生提示：把"填了会得到什么"直接显示出来（mjlab DC 模型需要的是两个标量）
+  const derived = Object.entries(view.derived || {});
+  if (meta) {
+    if (view.error) {
+      meta.textContent = `T-N 曲线非法：${view.error}`;
+    } else if (!view.declared) {
+      meta.textContent = '未声明 T-N 曲线（不改动 = 现役 ideal_pd 行为）';
+    } else {
+      const shown = derived.slice(0, 3).map(([key, value]) => (
+        `${key}: 堵转 ${value.saturation_effort} Nm / 空载 ${value.no_load_rpm.toFixed(0)} rpm（${value.velocity_limit_rad_s.toFixed(1)} rad/s）`
+      ));
+      meta.textContent = `${view.actuator_model === 'dc_motor' ? '已启用' : '已声明但未启用（ideal_pd）'}· ${shown.join('；')}`;
+    }
+  }
+}
+
+function collectTnCurvePayload() {
+  // 只提交"用户改过"的行与开关：未修改 → 不出现，后端就不会动契约（"不修改不起作用"）。
+  const t_n_curve = {};
+  document.querySelectorAll('[data-tn-curve-segment]').forEach((input) => {
+    const text = String(input.value || '').trim();
+    const original = String(input.dataset.tnCurveOriginal || '').trim();
+    if (text === original) return;         // 没动过
+    t_n_curve[input.dataset.tnCurveSegment] = text;   // 空串 = 清除该部位声明
+  });
+  const modelSelect = $('actuatorModel');
+  const model = modelSelect && modelSelect.value !== modelSelect.dataset.tnCurveOriginal
+    ? modelSelect.value
+    : null;
+  return { t_n_curve, actuator_model: model };
 }
 
 function renderInertialTable() {
@@ -413,7 +585,19 @@ async function saveRobotPackage() {
     contract.action = { ...(contract.action || {}), dimension: joints.length, joint_order: joints, action_scale: contract.action?.action_scale ?? 0.25 };
     const gains = collectControlGains(contract.control, joints.length ? joints : (contract.joints?.actuated_joints || []));
     contract.control = { ...contract.control, ...gains.control, control_hz: contract.control?.control_hz ?? 50, physics_hz: contract.control?.physics_hz ?? 1000, decimation: contract.control?.decimation ?? 20 };
-    const result = await jsonFetch(`/api/robots/packages/${encodeURIComponent(selectedPreset.robot_id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contract, simulation: { control_hz: contract.control.control_hz, physics_hz: contract.control.physics_hz, decimation: contract.control.decimation, default_pose: contract.joints.default_pose, ...gains.simulation } }) });
+    // D10：「动作缩放」卡片——标量写 v2 的 action.action_scale（后端同步进 v3
+    // action.action_scale），逐关节值随 control.action_scale 进 v3 actuator_profile。
+    const scales = collectActionScale(joints.length ? joints : (contract.joints?.actuated_joints || []));
+    if (Object.keys(scales.by_joint).length) contract.control = { ...contract.control, action_scale: scales.by_joint };
+    if (scales.scalar != null) contract.action = { ...contract.action, action_scale: scales.scalar };
+    // P1 高级参数：T-N 曲线走独立顶层键（只有契约 v3 语义）；执行器模型是契约 control 字段。
+    // 两者都只在"用户改过"时出现——默认保存不会写入任何东西。
+    const advanced = collectTnCurvePayload();
+    if (advanced.actuator_model) contract.control = { ...contract.control, actuator_model: advanced.actuator_model };
+    // P2：不再提交 control_hz/physics_hz/decimation——它们是契约 v3 的字段，而这里手上只有
+    // v2 契约的旧值（go2 实测 v2=1000/20 vs v3=500/10）；送上去只会把 v3 改回旧值。
+    // 后端也已拒绝从这条链改写控制三件套。
+    const result = await jsonFetch(`/api/robots/packages/${encodeURIComponent(selectedPreset.robot_id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contract, simulation: { default_pose: contract.joints.default_pose, ...gains.simulation }, ...(Object.keys(advanced.t_n_curve).length ? { t_n_curve: advanced.t_n_curve } : {}) }) });
     $('contractJson').value = JSON.stringify(result.contract || contract, null, 2); setBadge($('robotState'), '已保存', 'ok'); $('robotDiagnostics').textContent = '配置已写入本地机器人包'; await loadPresets(selectedPreset.robot_id);
   } catch (error) { $('robotDiagnostics').textContent = `保存失败：${error.message}`; setBadge($('robotState'), '保存失败', 'error'); }
 }

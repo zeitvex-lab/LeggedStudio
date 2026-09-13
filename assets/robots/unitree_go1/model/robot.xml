@@ -14,6 +14,8 @@
        - imu site + mjlab-convention sensors; no built-in actuators
          (PD injected by the training task / browser runtime) -->
   <compiler angle="radian" meshdir="assets" autolimits="true"/>
+  <!-- timestep 不在此声明：运行时统一取 contract_v3.json control.physics_hz -->
+  <option gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" impratio="100" />
 
   <default>
     <joint axis="0 1 0" damping="0.1" armature="0.01" frictionloss="0.2"/>
@@ -43,19 +45,19 @@
 
       <body name="FR_hip" pos="0.1881 -0.04675 0">
         <inertial pos="-0.00406411 -0.0193463 4.50733e-06" quat="0.467526 0.531662 -0.466259 0.530431" mass="0.679292" diaginertia="0.00131334 0.00122648 0.000728484"/>
-        <joint name="FR_hip_joint" pos="0 0 0" axis="1 0 0" range="-0.802851 0.802851" actuatorfrcrange="-23.7 23.7"/>
+        <joint name="FR_hip_joint" pos="0 0 0" axis="1 0 0" range="-0.802851 0.802851" actuatorfrcrange="-23.7 23.7" armature="0.01" frictionloss="0.2"/>
         <geom name="FR_hip_visual" quat="0 1 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.913725 0.913725 0.847059 1" mesh="hip"/>
         <geom name="FR_hip_collision" size="0.046 0.02" pos="0 -0.08 0" quat="0.707107 0.707107 0 0" type="cylinder" rgba="0 0 1 0.55"/>
 
         <body name="FR_thigh" pos="0 -0.08 0">
           <inertial pos="-0.003468 0.018947 -0.032736" quat="0.999266 0.00067676 -0.0382978 0.000639813" mass="0.898919" diaginertia="0.00542178 0.00514246 0.000998869"/>
-          <joint name="FR_thigh_joint" pos="0 0 0" axis="0 1 0" range="-1.0472 4.18879" actuatorfrcrange="-23.7 23.7"/>
+          <joint name="FR_thigh_joint" pos="0 0 0" axis="0 1 0" range="-1.0472 4.18879" actuatorfrcrange="-23.7 23.7" armature="0.01" frictionloss="0.2"/>
           <geom name="FR_thigh_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.913725 0.913725 0.847059 1" mesh="thigh_mirror"/>
           <geom name="FR_thigh_collision" size="0.1065 0.01225 0.017" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
 
           <body name="FR_calf" pos="0 0 -0.213">
             <inertial pos="0.00455603 0.0009473 -0.147239" quat="0.762045 0.00970173 0.0180098 0.647201" mass="0.218015" diaginertia="0.00399678 0.00398122 3.99428e-05"/>
-            <joint name="FR_calf_joint" pos="0 0 0" axis="0 1 0" range="-2.69653 -0.916298" actuatorfrcrange="-33.5 33.5"/>
+            <joint name="FR_calf_joint" pos="0 0 0" axis="0 1 0" range="-2.69653 -0.916298" actuatorfrcrange="-33.5 33.5" armature="0.01" frictionloss="0.2"/>
             <geom name="FR_calf_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0 1" mesh="calf"/>
             <geom name="FR_calf_collision" size="0.1065 0.008 0.008" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
             <geom name="FR_foot_collision" size="0.02" pos="0 0 -0.213" rgba="0 0 1 0.55"/>
@@ -65,19 +67,19 @@
 
       <body name="FL_hip" pos="0.1881 0.04675 0">
         <inertial pos="-0.00406411 0.0193463 4.50733e-06" quat="0.531662 0.467526 -0.530431 0.466259" mass="0.679292" diaginertia="0.00131334 0.00122648 0.000728484"/>
-        <joint name="FL_hip_joint" pos="0 0 0" axis="1 0 0" range="-0.802851 0.802851" actuatorfrcrange="-23.7 23.7"/>
+        <joint name="FL_hip_joint" pos="0 0 0" axis="1 0 0" range="-0.802851 0.802851" actuatorfrcrange="-23.7 23.7" armature="0.01" frictionloss="0.2"/>
         <geom name="FL_hip_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.913725 0.913725 0.847059 1" mesh="hip"/>
         <geom name="FL_hip_collision" size="0.046 0.02" pos="0 0.08 0" quat="0.707107 0.707107 0 0" type="cylinder" rgba="0 0 1 0.55"/>
 
         <body name="FL_thigh" pos="0 0.08 0">
           <inertial pos="-0.003468 -0.018947 -0.032736" quat="0.999266 -0.00067676 -0.0382978 -0.000639813" mass="0.898919" diaginertia="0.00542178 0.00514246 0.000998869"/>
-          <joint name="FL_thigh_joint" pos="0 0 0" axis="0 1 0" range="-1.0472 4.18879" actuatorfrcrange="-23.7 23.7"/>
+          <joint name="FL_thigh_joint" pos="0 0 0" axis="0 1 0" range="-1.0472 4.18879" actuatorfrcrange="-23.7 23.7" armature="0.01" frictionloss="0.2"/>
           <geom name="FL_thigh_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.913725 0.913725 0.847059 1" mesh="thigh"/>
           <geom name="FL_thigh_collision" size="0.1065 0.01225 0.017" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
 
           <body name="FL_calf" pos="0 0 -0.213">
             <inertial pos="0.00455603 0.0009473 -0.147239" quat="0.762045 0.00970173 0.0180098 0.647201" mass="0.218015" diaginertia="0.00399678 0.00398122 3.99428e-05"/>
-            <joint name="FL_calf_joint" pos="0 0 0" axis="0 1 0" range="-2.69653 -0.916298" actuatorfrcrange="-33.5 33.5"/>
+            <joint name="FL_calf_joint" pos="0 0 0" axis="0 1 0" range="-2.69653 -0.916298" actuatorfrcrange="-33.5 33.5" armature="0.01" frictionloss="0.2"/>
             <geom name="FL_calf_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0 1" mesh="calf"/>
             <geom name="FL_calf_collision" size="0.1065 0.008 0.008" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
             <geom name="FL_foot_collision" size="0.02" pos="0 0 -0.213" rgba="0 0 1 0.55"/>
@@ -87,19 +89,19 @@
 
       <body name="RL_hip" pos="-0.1881 0.04675 0">
         <inertial pos="0.00406411 0.0193463 4.50733e-06" quat="0.466259 0.530431 -0.467526 0.531662" mass="0.679292" diaginertia="0.00131334 0.00122648 0.000728484"/>
-        <joint name="RL_hip_joint" pos="0 0 0" axis="1 0 0" range="-0.802851 0.802851" actuatorfrcrange="-23.7 23.7"/>
+        <joint name="RL_hip_joint" pos="0 0 0" axis="1 0 0" range="-0.802851 0.802851" actuatorfrcrange="-23.7 23.7" armature="0.01" frictionloss="0.2"/>
         <geom name="RL_hip_visual" quat="0 0 1 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.913725 0.913725 0.847059 1" mesh="hip"/>
         <geom name="RL_hip_collision" size="0.046 0.02" pos="0 0.08 0" quat="0.707107 0.707107 0 0" type="cylinder" rgba="0 0 1 0.55"/>
 
         <body name="RL_thigh" pos="0 0.08 0">
           <inertial pos="-0.003468 -0.018947 -0.032736" quat="0.999266 -0.00067676 -0.0382978 -0.000639813" mass="0.898919" diaginertia="0.00542178 0.00514246 0.000998869"/>
-          <joint name="RL_thigh_joint" pos="0 0 0" axis="0 1 0" range="-1.0472 4.18879" actuatorfrcrange="-23.7 23.7"/>
+          <joint name="RL_thigh_joint" pos="0 0 0" axis="0 1 0" range="-1.0472 4.18879" actuatorfrcrange="-23.7 23.7" armature="0.01" frictionloss="0.2"/>
           <geom name="RL_thigh_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.913725 0.913725 0.847059 1" mesh="thigh"/>
           <geom name="RL_thigh_collision" size="0.1065 0.01225 0.017" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
 
           <body name="RL_calf" pos="0 0 -0.213">
             <inertial pos="0.00455603 0.0009473 -0.147239" quat="0.762045 0.00970173 0.0180098 0.647201" mass="0.218015" diaginertia="0.00399678 0.00398122 3.99428e-05"/>
-            <joint name="RL_calf_joint" pos="0 0 0" axis="0 1 0" range="-2.69653 -0.916298" actuatorfrcrange="-33.5 33.5"/>
+            <joint name="RL_calf_joint" pos="0 0 0" axis="0 1 0" range="-2.69653 -0.916298" actuatorfrcrange="-33.5 33.5" armature="0.01" frictionloss="0.2"/>
             <geom name="RL_calf_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0 1" mesh="calf"/>
             <geom name="RL_calf_collision" size="0.1065 0.008 0.008" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
             <geom name="RL_foot_collision" size="0.02" pos="0 0 -0.213" rgba="0 0 1 0.55"/>
@@ -109,19 +111,19 @@
 
       <body name="RR_hip" pos="-0.1881 -0.04675 0">
         <inertial pos="0.00406411 -0.0193463 4.50733e-06" quat="0.530431 0.466259 -0.531662 0.467526" mass="0.679292" diaginertia="0.00131334 0.00122648 0.000728484"/>
-        <joint name="RR_hip_joint" pos="0 0 0" axis="1 0 0" range="-0.802851 0.802851" actuatorfrcrange="-23.7 23.7"/>
+        <joint name="RR_hip_joint" pos="0 0 0" axis="1 0 0" range="-0.802851 0.802851" actuatorfrcrange="-23.7 23.7" armature="0.01" frictionloss="0.2"/>
         <geom name="RR_hip_visual" quat="0 0 0 -1" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.913725 0.913725 0.847059 1" mesh="hip"/>
         <geom name="RR_hip_collision" size="0.046 0.02" pos="0 -0.08 0" quat="0.707107 0.707107 0 0" type="cylinder" rgba="0 0 1 0.55"/>
 
         <body name="RR_thigh" pos="0 -0.08 0">
           <inertial pos="-0.003468 0.018947 -0.032736" quat="0.999266 0.00067676 -0.0382978 0.000639813" mass="0.898919" diaginertia="0.00542178 0.00514246 0.000998869"/>
-          <joint name="RR_thigh_joint" pos="0 0 0" axis="0 1 0" range="-1.0472 4.18879" actuatorfrcrange="-23.7 23.7"/>
+          <joint name="RR_thigh_joint" pos="0 0 0" axis="0 1 0" range="-1.0472 4.18879" actuatorfrcrange="-23.7 23.7" armature="0.01" frictionloss="0.2"/>
           <geom name="RR_thigh_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.913725 0.913725 0.847059 1" mesh="thigh_mirror"/>
           <geom name="RR_thigh_collision" size="0.1065 0.01225 0.017" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
 
           <body name="RR_calf" pos="0 0 -0.213">
             <inertial pos="0.00455603 0.0009473 -0.147239" quat="0.762045 0.00970173 0.0180098 0.647201" mass="0.218015" diaginertia="0.00399678 0.00398122 3.99428e-05"/>
-            <joint name="RR_calf_joint" pos="0 0 0" axis="0 1 0" range="-2.69653 -0.916298" actuatorfrcrange="-33.5 33.5"/>
+            <joint name="RR_calf_joint" pos="0 0 0" axis="0 1 0" range="-2.69653 -0.916298" actuatorfrcrange="-33.5 33.5" armature="0.01" frictionloss="0.2"/>
             <geom name="RR_calf_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0 1" mesh="calf"/>
             <geom name="RR_calf_collision" size="0.1065 0.008 0.008" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
             <geom name="RR_foot_collision" size="0.02" pos="0 0 -0.213" rgba="0 0 1 0.55"/>
@@ -162,18 +164,18 @@
        运行时按关节名解析执行器，解析失败时按槽位直写 ctrl——两路都必须与
        策略槽序一致，否则 RR/RL 执行器交叉（v0.43 实测教训）。 -->
   <actuator>
-    <position name="FR_hip_joint" joint="FR_hip_joint" kp="35"/>
-    <position name="FR_thigh_joint" joint="FR_thigh_joint" kp="35"/>
-    <position name="FR_calf_joint" joint="FR_calf_joint" kp="35"/>
-    <position name="FL_hip_joint" joint="FL_hip_joint" kp="35"/>
-    <position name="FL_thigh_joint" joint="FL_thigh_joint" kp="35"/>
-    <position name="FL_calf_joint" joint="FL_calf_joint" kp="35"/>
-    <position name="RR_hip_joint" joint="RR_hip_joint" kp="35"/>
-    <position name="RR_thigh_joint" joint="RR_thigh_joint" kp="35"/>
-    <position name="RR_calf_joint" joint="RR_calf_joint" kp="35"/>
-    <position name="RL_hip_joint" joint="RL_hip_joint" kp="35"/>
-    <position name="RL_thigh_joint" joint="RL_thigh_joint" kp="35"/>
-    <position name="RL_calf_joint" joint="RL_calf_joint" kp="35"/>
+    <position name="FR_hip_joint" joint="FR_hip_joint" kp="35" kv="0.5"/>
+    <position name="FR_thigh_joint" joint="FR_thigh_joint" kp="35" kv="0.5"/>
+    <position name="FR_calf_joint" joint="FR_calf_joint" kp="35" kv="0.5"/>
+    <position name="FL_hip_joint" joint="FL_hip_joint" kp="35" kv="0.5"/>
+    <position name="FL_thigh_joint" joint="FL_thigh_joint" kp="35" kv="0.5"/>
+    <position name="FL_calf_joint" joint="FL_calf_joint" kp="35" kv="0.5"/>
+    <position name="RR_hip_joint" joint="RR_hip_joint" kp="35" kv="0.5"/>
+    <position name="RR_thigh_joint" joint="RR_thigh_joint" kp="35" kv="0.5"/>
+    <position name="RR_calf_joint" joint="RR_calf_joint" kp="35" kv="0.5"/>
+    <position name="RL_hip_joint" joint="RL_hip_joint" kp="35" kv="0.5"/>
+    <position name="RL_thigh_joint" joint="RL_thigh_joint" kp="35" kv="0.5"/>
+    <position name="RL_calf_joint" joint="RL_calf_joint" kp="35" kv="0.5"/>
   </actuator>
 
   <keyframe>

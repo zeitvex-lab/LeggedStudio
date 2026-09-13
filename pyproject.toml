@@ -39,6 +39,14 @@ Repository = "https://github.com/zeitvex/legged-studio"
 [tool.hatch.build.targets.wheel]
 packages = ["backend", "contracts"]
 
+# 运行时数据目录：backend 以 `Path(__file__).parents[1]/<dir>` 解析，因此必须随包
+# 一起进 wheel（Electron 侧由 package.json 的 extraResources 同口径携带）。
+# 漏掉任一项的后果不是报错而是"运行时读不到"——registry 缺失会让档案页与
+# 档位接口 500，packs 缺失会让 /api/packs 空表。
+[tool.hatch.build.targets.wheel.force-include]
+"registry" = "registry"
+"packs" = "packs"
+
 # Playwright E2E 默认不随单元测试跑（需要浏览器 + 真实后端）。
 # 跑法：pytest tests/e2e -v  （依赖根 Dockerfile 或 requirements-dev.txt）
 [tool.pytest.ini_options]

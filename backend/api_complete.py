@@ -85,6 +85,7 @@ from backend.perception_observations import router as perception_router
 from backend.sensor_suite import router as sensor_suite_router
 from backend.height_scan import router as height_scan_router
 from backend.camera_projection import router as camera_projection_router
+from backend.limits_api import router as limits_router
 from backend.pack_catalog import router as pack_catalog_router
 
 app = FastAPI(
@@ -144,6 +145,7 @@ app.include_router(sensor_suite_router)
 app.include_router(height_scan_router)
 app.include_router(pack_catalog_router)
 app.include_router(camera_projection_router)
+app.include_router(limits_router)
 if simulation_router is not None:
     app.include_router(simulation_router)
 
@@ -407,6 +409,46 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
     contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else payload
     if not isinstance(contract, dict):
         raise HTTPException(status_code=400, detail="contract must be an object")
+    # P1：T-N 曲线（高级参数）走**独立顶层键**，不塞进 v2 contract——它只有契约 v3 语义
+    # （`actuator_profile[].t_n_curve`），写进 v2 只会又造一个"两个家"。
+    # 兼容 `contract.control.t_n_curve` 的写法（手写请求也会被正确接收）。
+    t_n_curve_payload = payload.get("t_n_curve")
+    if t_n_curve_payload is None:
+        t_n_curve_payload = (contract.get("control") or {}).get("t_n_curve")
+    if isinstance(contract.get("control"), dict):
+        contract["control"].pop("t_n_curve", None)
+    # T-N 曲线相关校验共用（校验函数与开关取值域在写盘前就要到位，避免"只在有载荷时才定义"）
+    from contracts.physics_binding import (
+        ACTUATOR_MODELS,
+        apply_t_n_curves as _validate_t_n_curves,
+    )
+    # P1 fail-closed：T-N 曲线"要么可解析、要么不提交"。v3 同步段是「失败不阻塞 v2 保存」的设计，
+    # 若把校验放那里，坏曲线会被吞成 diagnostics.v3_sync=failed 而接口仍返回 200（面板显示"已保存"
+    # 但曲线没落地）——这正是本项目反复出现的静默失败。故**写盘前**先校验。
+    if t_n_curve_payload:
+        try:
+            _validate_t_n_curves({}, t_n_curve_payload)  # 空 v3 上跑：只触发解析与单调性校验，无副作用
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail=f"T-N 曲线非法：{exc}") from exc
+    requested_model = (contract.get("control") or {}).get("actuator_model")
+    if requested_model is not None and requested_model not in ACTUATOR_MODELS:
+        raise HTTPException(status_code=400, detail=f"actuator_model 取值非法：{requested_model!r}")
+    if requested_model == "dc_motor":
+        # 开了 DC 模型却没有任何曲线 → 拒绝（不静默回退到 ideal_pd：那等于用户以为生效了）
+        _existing_root = Path(str((preset.get("robot_package") or {}).get("package_root", "")))
+        _existing_v3 = _existing_root / "contract_v3.json"
+        _scratch = json.loads(_existing_v3.read_text(encoding="utf-8-sig")) if _existing_v3.is_file() else {}
+        _validate_t_n_curves(_scratch, t_n_curve_payload)
+        _profile = _scratch.get("actuator_profile") or {}
+        _declared = bool((_profile.get("default") or {}).get("t_n_curve")) or any(
+            isinstance(params, dict) and params.get("t_n_curve")
+            for params in (list((_profile.get("by_role") or {}).values()) + list((_profile.get("by_joint") or {}).values()))
+        )
+        if not _declared:
+            raise HTTPException(
+                status_code=400,
+                detail="actuator_model=dc_motor 但包内没有任何 t_n_curve 曲线：请先填写 T-N 曲线（不静默回退到 ideal_pd）",
+            )
     try:
         contract_model = RobotContractV2(**contract)
         contract_result = validate_robot_contract(contract_model)
@@ -437,13 +479,24 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
             except json.JSONDecodeError:
                 previous = {}
         simulation_path.parent.mkdir(parents=True, exist_ok=True)
+        # B3 收尾：merged_simulation 仍保留全部键（下方 D4 段要把控制层标量同步进
+        # 契约 v3），但**落盘时剔除已废弃的物理键**——物理事实只剩契约 v3 一处，
+        # 否则前端每次保存都会把这组重复键写回来，训练/验收侧又读到失效的 armature。
+        from contracts.physics_binding import LEGACY_CONFIG_PHYSICS_KEYS
+
         merged_simulation = {**previous, **simulation}
-        simulation_path.write_text(json.dumps(merged_simulation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        persisted_simulation = {
+            key: value for key, value in merged_simulation.items() if key not in LEGACY_CONFIG_PHYSICS_KEYS
+        }
+        simulation_path.write_text(json.dumps(persisted_simulation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         # D4：同步 contract_v3.json——v3 是训练/浏览器仿真的单一真值（B2/B5），
         # 只写 v2 会让"工作台保存"对训练与仿真静默失效（无两处不一致的验收）。
         # 不重新迁移（会丢人工校准的 by_role/role_hints），而是外科手术式地把
         # 本次编辑的字段同步进 v3：joint_order / default_pose / control / 增益。
         v3_note = "absent"
+        v3_gains: list[str] = []
+        v3_t_n_curves: list[str] = []
+        control_rates: dict[str, Any] = {}
         v3_path = target / "contract_v3.json"
         if v3_path.exists():
             try:
@@ -462,39 +515,41 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
                 payload_pose = contract.get("joints", {}).get("default_pose")
                 if isinstance(payload_pose, list) and payload_pose:
                     v3.setdefault("joints", {})["default_pose"] = payload_pose
+                # P2：控制三件套**不许被这条保存链改写**。
+                # 此前无条件从 merged_simulation 写入 v3，而工作台送来的正是 **v2 契约里的
+                # 旧值**（go2 实测 v2=1000/20 vs v3=500/10）→ 点一次「保存配置」就把 v3 的
+                # 物理频率改成 2 倍，静默改变训练/验收/浏览器的时间基。v3 是唯一真值：
+                # 这里只**对照并回报**（diagnostics.control_rates），不覆盖。
                 v3.setdefault("control", {})
-                for key in ("control_hz", "physics_hz", "decimation"):
-                    if merged_simulation.get(key) is not None:
-                        v3["control"][key] = merged_simulation[key]
+                _rates = ("control_hz", "physics_hz", "decimation")
+                control_rates = {
+                    "v3": {key: v3["control"].get(key) for key in _rates},
+                    "payload": {key: merged_simulation.get(key) for key in _rates},
+                }
+                control_rates["agreed"] = all(
+                    control_rates["payload"][key] is None or control_rates["payload"][key] == control_rates["v3"][key]
+                    for key in _rates
+                )
+                # D10：action_scale 的**标量缺省**也要同步进 v3——工作台的「动作缩放」
+                # 卡片既有标量框也有逐段框，只写 v2 的 action.action_scale 会让浏览器
+                # 与训练侧继续读 v3 的旧值（B5/2 起 action_scale 唯一真值在契约 v3）。
+                payload_scale = (contract.get("action") or {}).get("action_scale")
+                if payload_scale is not None:
+                    v3.setdefault("action", {})["action_scale"] = payload_scale
+                # P1：执行器模型开关（缺省不写 = ideal_pd = 现役行为不变）
+                payload_model = (contract.get("control") or {}).get("actuator_model")
+                if payload_model is not None:
+                    v3["control"]["actuator_model"] = payload_model
                 # 增益：逐关节值按"角色内全同 → by_role，否则 by_joint"归层
                 # （与 role_resolver 的 default < by_role < by_joint 合并序一致）。
-                profile = v3.setdefault("actuator_profile", {})
-                by_role = profile.setdefault("by_role", {})
-                by_joint_layer = profile.setdefault("by_joint", {})
-                roles_of = {e.get("name"): e.get("role") for e in v3["joints"]["actuated"]}
-                gain_to_v3 = {"stiffness": "stiffness", "damping": "damping",
-                              "torque_limits": "effort"}
-                role_groups: dict[str, list[str]] = {}
-                for joint_name, role in roles_of.items():
-                    if role:
-                        role_groups.setdefault(role, []).append(joint_name)
-                for gain_key, v3_key in gain_to_v3.items():
-                    per_joint = contract.get("control", {}).get(gain_key)
-                    if not isinstance(per_joint, dict):
-                        continue
-                    for role, names in role_groups.items():
-                        values = [per_joint.get(n) for n in names if per_joint.get(n) is not None]
-                        if not values:
-                            continue
-                        if len(values) == len(names) and len(set(map(float, values))) == 1:
-                            by_role.setdefault(role, {})[v3_key] = values[0]
-                            for n in names:
-                                if n in by_joint_layer:
-                                    by_joint_layer[n].pop(v3_key, None)
-                        else:
-                            for n in names:
-                                if per_joint.get(n) is not None:
-                                    by_joint_layer.setdefault(n, {})[v3_key] = per_joint[n]
+                # D8：映射实现已抽到 contracts.physics_binding.apply_actuator_gains
+                # （纯函数、可单测），并统一含 armature / friction_loss —— 它们与
+                # stiffness/damping/effort 同为 v3 一等参数，只写 v3、不落 sim config。
+                from contracts.physics_binding import apply_t_n_curves, apply_actuator_gains
+
+                v3_gains = apply_actuator_gains(v3, contract.get("control") or {})
+                # P1：T-N 曲线（高级参数）——同一归层规则，值为折线点列
+                v3_t_n_curves = apply_t_n_curves(v3, t_n_curve_payload)
                 v3_model = parse_v3(v3)  # 校验；失败则不写，保留原 v3
                 v3_path.write_text(
                     json.dumps(dump_v3(v3_model), ensure_ascii=False, indent=2) + "\n",
@@ -509,7 +564,9 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
             descriptor["content_sha256"] = __import__("hashlib").sha256(contract_path.read_bytes()).hexdigest()
             descriptor_path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         upsert_package(target)
-        return {"success": True, "robot_id": robot_id, "package_root": str(target), "contract": contract, "simulation": merged_simulation, "diagnostics": {"valid": True, "writable_root": str(target), "v3_sync": v3_note}}
+        from backend import robot_packages as _packages
+
+        return {"success": True, "robot_id": robot_id, "package_root": str(target), "contract": contract, "simulation": merged_simulation, "physics": _packages._physics_view(target), "action_scale": _packages._action_scale_view(target), "t_n_curve": _packages._t_n_curve_view(target), "diagnostics": {"valid": True, "writable_root": str(target), "v3_sync": v3_note, "v3_gains": v3_gains, "v3_t_n_curves": v3_t_n_curves, "control_rates": control_rates}}
     except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

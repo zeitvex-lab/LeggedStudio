@@ -1,5 +1,23 @@
 # UniLab 深度分析 与 motrixsim 移植评估
 
+> ## ⛔ 本方案已搁置（2026-09-13 用户裁决）
+>
+> **决定**：**删除第二物理后端（motrixsim）的接入规划**，路线改为**先把 mjlab + MuJoCo 这一套做精**。
+> 本文转为**方法论来源**保留，不再作为待办：
+>
+> * **已抽出并已落地**（这些与后端无关，是通用基础设施，**继续保留**）：
+>   「后端能力契约」→ K2（`adapters/backend_adapter.py` 能力表，fail-closed）；
+>   「跨端一致性契约守卫」→ K3（`backend/contract_adjudicator.py`，一次实现两处复用）；
+>   「注册表显式化」→ K4（`registry/skills/index.json`）。
+> * **已随裁决删除**：K5–K8（`adapters/motrix/` 适配层 / 13 机型移植回归 / 跨引擎门禁 / 可选第三后端）。
+>   `adapters/backend_adapter.py` 的 `BACKEND_DESCRIPTORS` / `BACKEND_CAPABILITIES` 已移除 motrixsim 条目
+>   （不留"规划中"的幽灵后端）。
+> * **取证留存**：`tools/probe_motrixsim.py`（14/14 包 MJCF 可加载 + step）**不属于任何里程碑**；
+>   若将来重评第二后端，这份结论可直接复用。
+> * **重评前提**（建议）：产品内「训练→导出→入库」闭环先跑通（B9/B10），否则跨引擎对照只能拿上游策略做样本。
+>
+> 下文为决策当时的完整分析，保留原样不改写历史。
+
 > **日期**：2026-09-13 ｜ **产品版本**：0.51.0 ｜ **对应 Issue**：#31（重构）
 > **取证底座**：[`00_resources/unilab_new/UniLab/`](../../00_resources/unilab_new/UniLab/)（1131 文件 / 8.1 MB，Apache-2.0，上游 `github.com/unilabsim/UniLab`）
 > **分析范围**：源码（`src/unilab` 285 py / 78063 行）+ 配置（187 yaml）+ 文档（248 md，含 6 篇 ADR）+ 测试（215 py / 63219 行）

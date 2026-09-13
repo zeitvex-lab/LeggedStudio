@@ -216,8 +216,16 @@ class PackageContract:
             action = rc.get("action") or {}
             robot_order = [str(n) for n in (action.get("joint_order") or rc.get("joints", {}).get("actuated_joints") or [])]
         self.action_joint_order = [str(n) for n in (self.contract.get("action_joint_order") or [])] or robot_order
-        self.physics_hz = float(self.sim.get("physics_hz") or 200)
-        self.decimation = int(self.sim.get("decimation") or 4)
+        # B3 收尾（2026-09-13 续五）：这两个键**已从 simulation/config.json 移除**，
+        # 继续读 ``self.sim`` 会静默回落 200 / 4，而模型 timestep 已按契约设成 1/500 →
+        #   ① 探针 ``total = seconds * physics_hz`` 少跑 60%（声明 3 s 实跑 1.2 s）；
+        #   ② 策略刷新 ``step % decimation`` 变成每 4 步 = 125 Hz（契约是每 10 步 = 50 Hz）。
+        # 两者都会**静默改变验收结论**，与 armature 那次是同一类问题：改走契约 v3 单一真值。
+        from contracts.physics_binding import physics_scalars
+
+        scalars = physics_scalars(package_dir)
+        self.physics_hz = float(scalars.get("physics_hz") or self.sim.get("physics_hz") or 200)
+        self.decimation = int(scalars.get("decimation") or self.sim.get("decimation") or 4)
         self.step_dt = 1.0 / self.physics_hz * self.decimation
         self.actuator_interface = str(self.sim.get("actuator_interface") or "torque").lower()
         self.initial_height = float(self.sim.get("initial_base_height") or 0.4)
@@ -1360,99 +1368,21 @@ def default_modes(ranges) -> list[list[float]]:
     return modes
 
 
-def apply_actuator_rebuild(spec, package_dir: Path, sim_cfg: dict[str, Any],
-                           effort_override: dict[str, float] | None = None) -> bool:
-    """镜像后端的浏览器执行器重建（`configure_browser_actuators`），在 MjSpec 上原地改。
-
-    包 XML 常是 `motor`（力矩）执行器，而契约 `actuator_interface=position_target`
-    或含 velocity 轮：浏览器按 contract_v3 的 actuator_profile 重建为
-    position/velocity/motor 才能动。用 MjSpec 原生 API（保留 meshdir），
-    自包含不 import backend/fastapi。无 `browser_actuator_rebuild` 时不动。
-    """
-    if not sim_cfg.get("browser_actuator_rebuild"):
-        return False
-    v3_path = package_dir / "contract_v3.json"
-    robot_contract_path = package_dir / "contract.json"
-    if not v3_path.is_file() or not robot_contract_path.is_file():
-        return False
-    robot_contract = json.loads(robot_contract_path.read_text(encoding="utf-8-sig"))
-    action = robot_contract.get("action") or {}
-    order = list(action.get("joint_order") or (robot_contract.get("joints") or {}).get("actuated_joints") or [])
-    if not order:
-        return False
-    try:
-        from contracts.role_resolver import RoleResolver
-
-        expanded = RoleResolver(json.loads(v3_path.read_text(encoding="utf-8-sig"))).expand_actuator_profile()
-    except Exception:
-        return False
-
-    import mujoco
-
-    raw_modes = sim_cfg.get("control_modes") or {}
-    control_modes = {str(k).lower(): str(v).lower() for k, v in raw_modes.items()} if isinstance(raw_modes, dict) else {}
-
-    def _is_velocity_joint(name: str) -> bool:
-        lowered = name.lower()
-        if control_modes.get(lowered) == "velocity":
-            return True
-        return "wheel" in lowered and control_modes.get("wheel") == "velocity"
-
-    for act in list(spec.actuators):
-        spec.delete(act)
-    for joint_name in order:
-        name = str(joint_name)
-        params = expanded.get(name) or {}
-        # 逐策略 effort 覆盖：不同训练工程的力矩限幅不同（如 ArenaX 用 45）。
-        override = (effort_override or {}).get(name.lower())
-        effort = float(override) if override else float(params.get("effort") or 40.0)
-        # control_modes 优先：轮子应建成 velocity 执行器，否则位置执行器会吃掉速度目标。
-        mode = "velocity" if _is_velocity_joint(name) else str(params.get("mode") or "position")
-        act = spec.add_actuator()
-        act.name = name if mode != "torque" else name.removesuffix("_joint")
-        act.trntype = mujoco.mjtTrn.mjTRN_JOINT
-        act.target = name
-        act.gear[0] = 1.0
-        act.forcelimited = True
-        act.forcerange[0], act.forcerange[1] = -effort, effort
-        act.gaintype = mujoco.mjtGain.mjGAIN_FIXED
-        if mode == "torque":
-            act.biastype = mujoco.mjtBias.mjBIAS_NONE
-            act.gainprm[0] = 1.0
-        elif mode == "velocity":
-            kv = float(params.get("damping") or 1.0)
-            act.biastype = mujoco.mjtBias.mjBIAS_AFFINE
-            act.gainprm[0] = kv
-            act.biasprm[2] = -kv
-        else:
-            kp = float(params.get("stiffness") or 20.0)
-            kv = float(params.get("damping") or 1.0)
-            act.biastype = mujoco.mjtBias.mjBIAS_AFFINE
-            act.gainprm[0] = kp
-            act.biasprm[1] = -kp
-            act.biasprm[2] = -kv
-    return True
-
-
-_OPTION_ATTR_RE = re.compile(r"<option\b([^>]*?)/?>")
 _XML_ATTR_RE = re.compile(r'([A-Za-z_][\w]*)\s*=\s*"([^"]*)"')
 _FLOOR_GEOM_RE = re.compile(r'<geom\b([^>]*?)/?>')
-_INTEGRATOR_NAMES = {"euler": 0, "rk4": 1, "implicit": 2, "implicitfast": 3}
-_CONE_NAMES = {"pyramidal": 0, "elliptic": 1}
-_SOLVER_NAMES = {"pgs": 0, "cg": 1, "newton": 2}
-_JACOBIAN_NAMES = {"dense": 0, "sparse": 1, "auto": 2}
 
 
 def scene_physics_overrides(package_dir: Path, sim_cfg: dict[str, Any]):
-    """从包内 ``simulation/scene.xml`` 提取 ``<option>`` 与地板摩擦。
+    """从包内 ``simulation/scene.xml`` 提取地板摩擦（``<option>`` 搬运已于 2026-09-13 退役）。
 
-    浏览器（wasm 执行器）加载的是 ``simulation/scene.xml``，而验收器只编译
-    ``model/robot.xml`` 再自建一块平地。若不把 scene 的 ``<option>`` 与地板摩擦
-    一并搬过来，两个执行器会跑出不同的物理——TRON1 实测差异为
-    Euler/pyramidal/impratio=1/地面 0.6 vs implicitfast/elliptic/impratio=100/地面 0.8，
-    违反 Pack 的 ``simulate.require_deterministic_replay``。
+    **历史**：浏览器加载 ``simulation/scene.xml``，验收器只编译 ``model/robot.xml`` 再自建
+    平地；两边 ``<option>`` 曾不一致（TRON1 实测 Euler/pyramidal/impratio=1/地面 0.6 vs
+    implicitfast/elliptic/impratio=100/地面 0.8），于是有了"把 scene 的 option 搬过来"这一步。
 
-    返回 ``(option_attrs, floor_friction)``；缺 scene 时返回空。
+    **现状**：物理 ``<option>`` 已固化进 ``model/robot.xml``（tools/bake_mjcf_physics.py），
+    scene 不再声明 option——实测 ``<include>`` 里的 option 会被继承，两侧天然同源，故搬运
+    逻辑删除。仍未消除的只有"验收平地"与"场景地面"的摩擦差异，因此本函数只返回地板摩擦；
+    ``option_attrs`` 保留空字典仅为兼容既有调用形态。
     """
     rel = str(sim_cfg.get("scene_path") or "")
     if not rel:
@@ -1464,10 +1394,7 @@ def scene_physics_overrides(package_dir: Path, sim_cfg: dict[str, Any]):
         text = scene.read_text(encoding="utf-8-sig")
     except OSError:
         return {}, None
-    option_attrs: dict[str, str] = {}
-    m = _OPTION_ATTR_RE.search(text)
-    if m:
-        option_attrs = {k: v for k, v in _XML_ATTR_RE.findall(m.group(1))}
+    option_attrs: dict[str, str] = {}  # 退役：物理 <option> 已固化进 model/robot.xml
     floor_friction = None
     for gm in _FLOOR_GEOM_RE.finditer(text):
         attrs = {k: v for k, v in _XML_ATTR_RE.findall(gm.group(1))}
@@ -1480,34 +1407,30 @@ def scene_physics_overrides(package_dir: Path, sim_cfg: dict[str, Any]):
     return option_attrs, floor_friction
 
 
-def apply_scene_option_overrides(model, option_attrs: dict[str, str]) -> None:
-    """把 scene ``<option>`` 属性写进已编译模型的 ``model.opt``（认不出的键忽略）。"""
+def apply_effort_override(model, effort_override: dict[str, float]) -> None:
+    """按调用方给的表覆盖逐关节力矩上限（``sim2sim_headless`` 的"部署口径复现"）。
+
+    这是**显式调用方意图**，不是资产修补：契约 effort 已固化进 MJCF，这里只是把调用方
+    声明的另一套限幅写上（该工具用 v2 契约 ``torque_limits`` 复现部署侧口径）。
+    认不出的关节名**直接报错**，不静默忽略——忽略过一次，工具就会拿"没有覆盖"的结果
+    当"覆盖后"的结论。
+    """
     import mujoco
 
-    for key, raw in (option_attrs or {}).items():
-        if key == "timestep":
-            continue  # 由契约 physics_hz 决定（唯一真值）
-        if not hasattr(model.opt, key):
-            continue
-        value = raw.strip()
-        try:
-            if key in _INTEGRATOR_NAMES:
-                setattr(model.opt, key, _INTEGRATOR_NAMES[value])
-            elif key in _CONE_NAMES:
-                setattr(model.opt, key, _CONE_NAMES[value])
-            elif key in _SOLVER_NAMES:
-                setattr(model.opt, key, _SOLVER_NAMES[value])
-            elif key in _JACOBIAN_NAMES:
-                setattr(model.opt, key, _JACOBIAN_NAMES[value])
-            elif key == "gravity":
-                model.opt.gravity[:] = [float(x) for x in value.split()]
-            else:
-                current = getattr(model.opt, key)
-                if isinstance(current, (int, float)):
-                    setattr(model.opt, key, type(current)(float(value)))
-        except (TypeError, ValueError, KeyError):
-            continue
-    _ = mujoco  # 保持 mujoco 已导入的显式依赖（枚举映射走字面量，无需引用）
+    joint_to_actuator: dict[str, int] = {}
+    for i in range(model.nu):
+        jid = int(model.actuator_trnid[i][0])
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT, jid)
+        if name:
+            joint_to_actuator.setdefault(name.lower(), i)
+    unknown = [name for name in effort_override if name.lower() not in joint_to_actuator]
+    if unknown:
+        raise SystemExit(f"effort_override 含未知或无执行器的关节：{sorted(unknown)}")
+    for name, value in effort_override.items():
+        index = joint_to_actuator[name.lower()]
+        limit = float(value)
+        model.actuator_forcerange[index][:] = (-limit, limit)
+        model.actuator_forcelimited[index] = 1
 
 
 def load_package_model(package_dir: Path, sim_cfg: dict[str, Any],
@@ -1533,25 +1456,13 @@ def load_package_model(package_dir: Path, sim_cfg: dict[str, Any],
         if not model_xml.is_file():
             raise SystemExit(f"包内缺少模型: {model_xml}")
         spec = mujoco.MjSpec.from_file(str(model_xml))
-    apply_actuator_rebuild(spec, package_dir, sim_cfg, effort_override)
+    # 执行器/关节常量不再由验收器改写：包内 MJCF 已固化契约口径
+    # （tools/bake_mjcf_physics.py）。验收 = 编译资产 + 注入契约 timestep，
+    # 物理真值与浏览器/训练完全同源；漂移由校验器报，不静默修。
 
-    armature = sim_cfg.get("armature") or {}
-    frictionloss = sim_cfg.get("frictionloss") or {}
-    default_arm = armature.get("__default__")
-    default_fric = frictionloss.get("__default__")
-    for joint in spec.joints:
-        name = joint.name
-        if not name:
-            continue
-        lowered = name.lower()
-        if lowered in armature:
-            joint.armature = float(armature[lowered])
-        elif default_arm is not None:
-            joint.armature = float(default_arm)
-        if lowered in frictionloss:
-            joint.frictionloss = float(frictionloss[lowered])
-        elif default_fric is not None:
-            joint.frictionloss = float(default_fric)
+    # 关节常量（armature / frictionloss）已固化进包内 MJCF（tools/bake_mjcf_physics.py），
+    # 这里不再注入：同一份数据只允许在资产里存在一次，注入 = "运行时偷偷改写物理"。
+    from contracts.physics_binding import physics_scalars
 
     if not scene_rel:
         spec.worldbody.add_geom(
@@ -1563,17 +1474,22 @@ def load_package_model(package_dir: Path, sim_cfg: dict[str, Any],
     if not scene_rel:
         # 自建场景必须复刻包内 scene.xml 的物理设置，否则 wasm 与 server_mujoco
         # 两个执行器会给出不同结论（Pack 声明 require_deterministic_replay）。
-        option_attrs, floor_friction = scene_physics_overrides(package_dir, sim_cfg)
-        apply_scene_option_overrides(model, option_attrs)
+        # `<option>` 已固化进 model/robot.xml（场景不再重复声明），此处只对齐"场景自带的
+        # 地板摩擦"——那是场景属性，不是机器人物理，不涉及两份真值。
+        _option_attrs, floor_friction = scene_physics_overrides(package_dir, sim_cfg)
         if floor_friction is not None:
             gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "acceptance_floor")
             if gid >= 0:
                 model.geom_friction[gid] = floor_friction
     # 契约 physics_hz 是步长唯一真值：包内 robot.xml 常自带 timestep="0.001"，
     # 调用方漏改就会以 5 倍速跑（策略按 decimation 计频，频率直接错位）。
-    # 默认值与 PackageContract.physics_hz 保持一致，避免两处口径不同。
-    physics_hz = float(sim_cfg.get("physics_hz") or 200)
+    # B3 收尾：取值改走 physics_scalars（契约 v3 优先）——此前读 sim config 顶层
+    # physics_hz，去掉重复键后若不同步迁移就会静默回落 200（go2 契约是 500）。
+    scalars = physics_scalars(package_dir)
+    physics_hz = float(scalars.get("physics_hz") or 200)
     model.opt.timestep = 1.0 / physics_hz
+    if effort_override:
+        apply_effort_override(model, effort_override)
     return model
 
 
@@ -1583,9 +1499,20 @@ def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
 
     无策略参与：raw 恒定为 ±magnitude（逐关节按 action_scale/default 生效），
     记录每种幅值下的存活、最低高度、最大倾角与峰值关节速度。
+
+    **速度限幅（D9）**：此前这里只在记录 ``qvel_max``，从不与任何阈值比对——而
+    浏览器侧的电机模型（``applyVelocityLimits``）一直在用速度限幅限速，"电机参数"
+    三端口径不一致（浏览器有、训练/验收没有）。现在把契约 v3 的
+    ``velocity_limit`` 拉进来，对峰值关节速度逐关节判定并显式报告。
     """
     import mujoco
 
+    # D9：速度限幅的唯一真值 = 契约 v3（键统一小写，带 __default__ 兜底）。
+    from contracts.physics_binding import joint_constant_tables
+
+    speed_limits = joint_constant_tables(contract.root)["velocity_limits"]
+    default_limit = speed_limits.get("__default__")
+    peak_by_joint: dict[str, float] = {}
     results = []
     envelope_reach = 0.0
     for magnitude in (0.0, 0.25, -0.25, 0.5, -0.5, 0.75, -0.75, 1.0, -1.0):
@@ -1608,6 +1535,13 @@ def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
             tilt_max = max(tilt_max, tilt)
             height_min = min(height_min, float(data.qpos[2]))
             qvel_max = max(qvel_max, float(np.max(np.abs(data.qvel))))
+            for name in contract.action_joint_order:
+                addr = obs.jadr.get(name)
+                if addr is None:
+                    continue
+                peak = abs(float(data.qvel[addr[1]]))
+                if peak > peak_by_joint.get(name, 0.0):
+                    peak_by_joint[name] = peak
         survived = finite and height_min > 0.45 * contract.initial_height and tilt_max < 60.0
         if survived:
             envelope_reach = max(envelope_reach, abs(magnitude))
@@ -1621,12 +1555,63 @@ def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
         })
         print(f"[probe] |a|={abs(magnitude):.2f} sign={'-' if magnitude < 0 else '+'} "
               f"survived={survived} h_min={results[-1]['height_min']} tilt={results[-1]['tilt_max_deg']}°")
+
     return {
         "schema": "policy-probe-1.0",
         "seconds": seconds,
         "results": results,
         "envelope_reach": envelope_reach,
         "verdict": "pass" if envelope_reach >= 0.5 else "warn",
+        "speed_limit": _speed_limit_report(contract, peak_by_joint, speed_limits, default_limit),
+    }
+
+
+def _speed_limit_report(contract: PackageContract, peak_by_joint: dict[str, float],
+                        speed_limits: dict[str, float], default_limit: float | None) -> dict[str, Any]:
+    """契约速度限幅 vs 探针峰值关节速度（D9）。
+
+    判定为 ``warn`` 而非 ``fail``：**训练侧物理上并未强制速度上限**（mjlab 的
+    ``ActuatorCfg`` 无 velocity_limit 字段，MuJoCo 关节也没有速度上限属性），
+    超限只说明"动作空间把关节推到了电机转速之外"，属需要知情的信息，不是
+    本次验收失败——把它记为 fail 会让既有基线无预警翻转。
+    """
+    violations: list[dict[str, Any]] = []
+    worst: dict[str, Any] | None = None
+    for name, peak in sorted(peak_by_joint.items()):
+        limit = speed_limits.get(name.lower())
+        if limit is None:
+            limit = default_limit
+        if limit is None or limit <= 0:
+            continue
+        ratio = peak / float(limit)
+        entry = {"joint": name, "peak": round(peak, 3), "limit": float(limit), "ratio": round(ratio, 3)}
+        if ratio > 1.0:
+            violations.append(entry)
+        if worst is None or ratio > worst["ratio"]:
+            worst = entry
+    if not speed_limits and default_limit is None:
+        return {
+            "schema": "policy-speed-limit-1.0",
+            "declared": False,
+            "verdict": "skip",
+            "note": (
+                "契约 v3 未声明 velocity_limit，本次不做速度判定"
+                "（浏览器侧电机模型同样只会用缺省值——要判定请先在包内补速度限幅）"
+            ),
+            "worst": None,
+            "violations": [],
+        }
+    return {
+        "schema": "policy-speed-limit-1.0",
+        "declared": True,
+        "verdict": "pass" if not violations else "warn",
+        "note": (
+            "训练/验收侧的 MuJoCo 物理**不强制**速度上限（mjlab 无 velocity_limit 字段），"
+            "本项为知情性判据；要真正强制需在控制器层做力矩-速度削顶。"
+        ),
+        "worst": worst,
+        "violations": violations,
+        "action_joints": len(contract.action_joint_order),
     }
 
 

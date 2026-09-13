@@ -45,10 +45,10 @@
 
 | 文档 | 作用 |
 |---|---|
-| [`UniLab_深度分析与motrixsim移植评估.md`](./10_参考项目分析/UniLab_深度分析与motrixsim移植评估.md) | UniLab 架构解构（多层后端 / 双运行时 / 3 契约 / 6 ADR）+ motrixsim 移植方案（移植边界 / M1–M3 路线 / 风险表）。**2026-09-13 实测修订**：`motrixsim-core` 三平台可安装、Apache-2.0、本仓库 14/14 包 MJCF 加载通过（`tools/probe_motrixsim.py`）——初稿的三条阻塞判断已推翻，结论收敛为**「只移植 motrixsim 部分，不移植 Unilab 本体」** |
+| [`UniLab_深度分析与motrixsim移植评估.md`](./10_参考项目分析/UniLab_深度分析与motrixsim移植评估.md) | UniLab 架构解构（多层后端 / 双运行时 / 3 契约 / 6 ADR）+ motrixsim 移植方案（移植边界 / M1–M3 路线 / 风险表）。**2026-09-13 用户裁决：移植规划搁置**——路线改为先把 mjlab+MuJoCo 做精；文中「后端能力契约 + 跨后端契约守卫」两块方法论已抽出落地为 K2/K3（与后端无关，已保留），`tools/probe_motrixsim.py` 作为取证留存（14/14 包可加载+step），将来重评时可直接复用 |
 | [`MATRiX_v1.0.13_价值评估.md`](./10_参考项目分析/MATRiX_v1.0.13_价值评估.md) | MATRiX（UE5 + MuJoCo + Zenoh 高保真平台）三份发行物的实物核对、可提取项与「不做什么」 |
 
-> 更多参考项目（77 个）的原始素材在 [`../00_resources/`](../00_resources/README.md)，
+> 更多参考项目（83 个）的原始素材在 [`../00_resources/`](../00_resources/README.md)，
 > 其「按技术框架 / 算法 / 功能 / 特性」的横向分类见 §3 的技术维度盘点。
 
 ## 3. 调研盘点（`20_`）

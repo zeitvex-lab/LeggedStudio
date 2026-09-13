@@ -20,7 +20,9 @@ class RobotPresetTests(unittest.TestCase):
     def test_microduck_is_a_complete_package_not_a_placeholder(self):
         microduck = next(item for item in list_robot_presets() if item["robot_id"] == "microduck")
         self.assertEqual(microduck["dof"], 14)
-        self.assertEqual(len(microduck["training_profiles"]), 18)
+        # 2026-09-13：带轮（rollers/spin/swizzle）那 6 个 profile 属**另一套形态**的
+        # 策略，已从本包移出（本包 = 双腿行走 biped/sole），故 18 → 12。
+        self.assertEqual(len(microduck["training_profiles"]), 12)
         self.assertEqual(microduck["runtime_requirements"]["mjlab"], ">=1.6,<2.0")
         self.assertTrue(microduck["robot_package"].get("extension_entrypoint"))
         self.assertTrue(Path(microduck["robot_package"]["package_root"]).joinpath("model", "robot.xml").exists())

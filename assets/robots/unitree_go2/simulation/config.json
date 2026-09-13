@@ -5,44 +5,6 @@
   "scene_path": "simulation/scene.xml",
   "initial_base_height": 0.445,
   "actuator_interface": "torque",
-  "control_hz": 50,
-  "physics_hz": 500,
-  "decimation": 10,
-  "stiffness": {
-    "hip": 20.0,
-    "thigh": 20.0,
-    "calf": 20.0,
-    "joint": 20.0
-  },
-  "damping": {
-    "hip": 0.5,
-    "thigh": 0.5,
-    "calf": 0.5,
-    "joint": 0.5
-  },
-  "torque_limits": {
-    "hip": 23.7,
-    "thigh": 23.7,
-    "calf": 35.55,
-    "joint": 35.55
-  },
-  "armature": {
-    "FL_hip_joint": 0.01,
-    "FL_thigh_joint": 0.01,
-    "FL_calf_joint": 0.02,
-    "FR_hip_joint": 0.01,
-    "FR_thigh_joint": 0.01,
-    "FR_calf_joint": 0.02,
-    "RL_hip_joint": 0.01,
-    "RL_thigh_joint": 0.01,
-    "RL_calf_joint": 0.02,
-    "RR_hip_joint": 0.01,
-    "RR_thigh_joint": 0.01,
-    "RR_calf_joint": 0.02
-  },
-  "frictionloss": {
-    "__default__": 0.2
-  },
   "policies": [
     {
       "id": "go2-backflip-69",
@@ -1293,7 +1255,6 @@
       }
     }
   ],
-  "browser_actuator_rebuild": true,
   "terrains": [
     {
       "id": "pie_stairs",

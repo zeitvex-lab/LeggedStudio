@@ -126,7 +126,8 @@
         "mode": "position",
         "action_scale": 1.0,
         "effort": 0.96,
-        "armature": 0.0018
+        "armature": 0.0018,
+        "velocity_limit": 10.0
       },
       "hip_roll": {
         "stiffness": 0.55,
@@ -134,7 +135,8 @@
         "mode": "position",
         "action_scale": 1.0,
         "effort": 0.96,
-        "armature": 0.0018
+        "armature": 0.0018,
+        "velocity_limit": 10.0
       },
       "hip_pitch": {
         "stiffness": 0.55,
@@ -142,7 +144,8 @@
         "mode": "position",
         "action_scale": 1.0,
         "effort": 0.96,
-        "armature": 0.0018
+        "armature": 0.0018,
+        "velocity_limit": 10.0
       },
       "knee": {
         "stiffness": 0.55,
@@ -150,7 +153,8 @@
         "mode": "position",
         "action_scale": 1.0,
         "effort": 0.96,
-        "armature": 0.0018
+        "armature": 0.0018,
+        "velocity_limit": 10.0
       },
       "ankle": {
         "stiffness": 0.55,
@@ -158,7 +162,8 @@
         "mode": "position",
         "action_scale": 1.0,
         "effort": 0.96,
-        "armature": 0.0018
+        "armature": 0.0018,
+        "velocity_limit": 10.0
       },
       "neck_pitch": {
         "stiffness": 0.55,
@@ -166,7 +171,8 @@
         "mode": "position",
         "action_scale": 1.0,
         "effort": 0.96,
-        "armature": 0.0018
+        "armature": 0.0018,
+        "velocity_limit": 10.0
       },
       "head_pitch": {
         "stiffness": 0.55,
@@ -174,7 +180,8 @@
         "mode": "position",
         "action_scale": 1.0,
         "effort": 0.96,
-        "armature": 0.0018
+        "armature": 0.0018,
+        "velocity_limit": 10.0
       },
       "head_yaw": {
         "stiffness": 0.55,
@@ -182,7 +189,8 @@
         "mode": "position",
         "action_scale": 1.0,
         "effort": 0.96,
-        "armature": 0.0018
+        "armature": 0.0018,
+        "velocity_limit": 10.0
       },
       "head_roll": {
         "stiffness": 0.55,
@@ -190,12 +198,14 @@
         "mode": "position",
         "action_scale": 1.0,
         "effort": 0.96,
-        "armature": 0.0018
+        "armature": 0.0018,
+        "velocity_limit": 10.0
       }
     },
     "default": {
       "friction_loss": 0.0048
-    }
+    },
+    "by_joint": {}
   },
   "action": {
     "joint_order": [

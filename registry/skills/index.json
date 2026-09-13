@@ -1,0 +1,19 @@
+{
+  "schema": "skill-index-1.0",
+  "generated_at": "2026-09-13",
+  "note": "技能注册显式清单（K4）。此前注册表由 backend/skill_registry.py 扫描 registry/skills/**/*.json 隐式决定——文件放进去就算注册，改名/挪目录就静默改了契约。现在清单是权威：新增技能 = 在此登记一行 + 放入文件；文件存在但未登记即为未注册（由 unregistered_skill_files() 报出）。path 相对本文件所在目录。",
+  "skills": [
+    {
+      "recipe_id": "velocity_base",
+      "path": "velocity_base.json",
+      "role": "base",
+      "summary": "速度跟踪基座配方（任务变体表 tasks 的真值来源）"
+    },
+    {
+      "recipe_id": "zex-w-rough",
+      "path": "patches/zex-w-rough.json",
+      "role": "patch",
+      "patch_of": "velocity_base"
+    }
+  ]
+}

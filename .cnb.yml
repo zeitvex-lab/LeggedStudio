@@ -12,7 +12,9 @@
         echo "== py_compile changed python =="
         # 排除 .venv / node_modules：训练 venv 里是第三方轮子（可能是 3.12+ 语法），
         # 不该由本仓库的语法检查负责。
-        find backend contracts adapters/mjlab tools scripts -name '*.py' \
+        # K2：范围由 adapters/mjlab 改为整个 adapters/ —— 顶层 adapters/backend_adapter.py
+        # 是控制面直接 import 的（backend/training/models.py 引它），此前不在语法检查内。
+        find backend contracts adapters tools scripts -name '*.py' \
           -not -path '*/.venv/*' -not -path '*/node_modules/*' -print0 \
           | xargs -0 -n1 python -m py_compile 2>&1 | tail -20
         echo "python syntax check done"
@@ -39,10 +41,31 @@
         # 守住"路由签名里的模型必须已导入"：ForwardRef 未解析时模块仍可 import、
         # 但 /openapi.json 500，且 /api/training/create 字段解析失败——CI 盲区。
         python -m unittest backend.test_api_complete 2>&1 | tail -20
+        echo "== full backend suite (与 npm test 同口径) =="
+        # B16：backend 共有 24 个 test_*.py，此前 CI 只挑 6 个显式模块跑，导致
+        # backend/test_model_api.py 的两处失败（离屏渲染环境前提 + go2 契约里的
+        # 陈旧 workspace 路径）长期只在本地 `npm test` 暴露。这里补一条全量
+        # discover，口径与 package.json 的 `npm test` 完全一致，不再留盲区。
+        # 上面保留显式模块是有意的：核心用例失败时日志更短、定位更快。
+        python -m unittest discover -s backend -p "test_*.py" 2>&1 | tail -30
         echo "== B8 porting admission (rules T/S/C/X) =="
         python tools/audit_porting_admission.py
         echo "== capability packs (B1: 14 packs validate + refs sha256) =="
         python tools/validate_packs.py
+        echo "== doc reality check (B17: 文档数字 vs 实测) =="
+        # 版本号 / 包数 / 策略数 / 资源库项目数一旦与仓库不符即红，防止再次漂移。
+        python tools/doc_reality_check.py
+        echo "== contracts suite (B18: 契约 / 物理绑定全量) =="
+        # 2026-09-13：此前 CI 只跑 contracts.tests.test_path_bootstrap 一个模块，其余
+        # 123 项（role_resolver 三级展开 / 物理载荷视图 / go2 冻结证据哈希 / 动作缩放…）
+        # 长期不在门禁内 —— 结果 38 项失败（16 FAIL + 22 ERROR）无人知晓。现按
+        # "迁移已完成"重写（把真值源从 simulation/config.json 换成 contract_v3，
+        # 并把"缺口"正面表述为"必须覆盖每个驱动关节"）后**全量接入**。
+        python -m unittest discover -s contracts/tests -p "test_*.py" 2>&1 | tail -30
+        echo "== control rates consistency (P2: 控制三件套口径) =="
+        # v3 自洽（physics_hz == control_hz × decimation）是**硬门禁**；
+        # v2 / 训练 profile 的差异是"已登记的报告项"，不判红——但必须可见。
+        python tools/check_control_consistency.py
 
 # 云原生开发 / CI 共用的环境镜像（根 Dockerfile）。
 #
@@ -126,9 +149,11 @@
       # stage.script 由 sh 解释时 `set -o pipefail` 直接报 Illegal option，
       # 门禁会在开局就退出（判据压根没跑）。用 bash 显式执行规避。
       script: |
-        echo "== CPU headless sim2sim acceptance (47 policies) =="
-        # 既有 3 条特技/跑酷判据未过（go2 backflip/jump/pie-parkour）已记录在基线里；
-        # 门禁只守"不许新增失败/退化"，全量基线刷新用 --write-baseline。
+        echo "== CPU headless sim2sim acceptance (all declared policies) =="
+        # 口径按「包内声明的全部策略」扫描（不写死条数：曾在注释里写 47，而声明
+        # 已增至 48，注释与实测漂移——B16 一并纠正）。基线在
+        # tools/baselines/sim2sim_headless_baseline.json，门禁只守"不许新增失败/
+        # 退化"，全量基线刷新用 --write-baseline。
         exec bash -o pipefail -c '
         set -e
         python tools/sim2sim_headless.py --seconds 3 --baseline tools/baselines/sim2sim_headless_baseline.json --output-dir workspace/validation
@@ -160,6 +185,11 @@ frontend:
             echo "vendor assets OK"
             echo "== index references app.js =="
             node -e "const h=require('fs').readFileSync('web/sim2sim/index.html','utf8');if(!h.includes('./app.js'))throw new Error('app.js missing');console.log('index OK')"
+            echo "== observation builders (与 app.js 同源的观测布局) =="
+            # 观测布局是"浏览器 ↔ 训练/验收"必须逐项对齐的东西（错一位就静默失配，
+            # 只表现为策略抽搐）。这份测试早已存在（package.json 的 test:obs），
+            # 但一直没进 CI —— 本地能跑、CI 看不见等于没有。
+            node web/sim2sim/obs/observation_builders.test.mjs
 
 main:
   push:

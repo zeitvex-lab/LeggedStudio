@@ -164,13 +164,16 @@ def _motor_card(contract_v3: dict | None, official: dict | None) -> dict:
             "damping": sample.get("damping"),
             "effort": sample.get("effort"),
             "armature": sample.get("armature"),
+            # D8：摩擦损耗与转子惯量同为执行器物理常量，体检卡一并展示
+            # （否则 UI 能改、体检看不见，改动无从核对）
+            "friction_loss": sample.get("friction_loss"),
             "mode": sample.get("mode"),
         }
     if official:
         official_roles = official.get("by_role") or {}
         for role, ref in official_roles.items():
             mine = table.get(role) or {}
-            for key in ("effort", "stiffness", "damping", "armature"):
+            for key in ("effort", "stiffness", "damping", "armature", "friction_loss"):
                 if key not in ref or mine.get(key) in (None, 0):
                     continue
                 delta = float(mine[key]) - float(ref[key])

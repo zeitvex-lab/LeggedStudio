@@ -18,7 +18,10 @@
     "build:linux": "electron-builder --linux AppImage",
     "build:dir": "electron-builder --dir",
     "test": "uv run --no-sync python -m unittest discover -s backend -p \"test_*.py\" -v",
-    "test:obs": "node web/sim2sim/obs/observation_builders.test.mjs"
+    "test:obs": "node web/sim2sim/obs/observation_builders.test.mjs",
+    "check:docs": "uv run --no-sync python tools/doc_reality_check.py",
+    "test:contracts": "uv run --no-sync python -m unittest discover -s contracts/tests -p \"test_*.py\" -v",
+    "test:all": "npm run test && npm run test:contracts && npm run test:obs && npm run check:docs"
   },
   "keywords": [
     "robotics",
@@ -48,6 +51,14 @@
       {
         "from": "contracts",
         "to": "app/contracts"
+      },
+      {
+        "from": "registry",
+        "to": "app/registry"
+      },
+      {
+        "from": "packs",
+        "to": "app/packs"
       },
       {
         "from": "assets/robots",

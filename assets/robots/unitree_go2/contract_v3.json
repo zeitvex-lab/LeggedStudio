@@ -108,7 +108,8 @@
         "effort": 23.7,
         "armature": 0.01,
         "mode": "torque",
-        "action_scale": 0.25
+        "action_scale": 0.25,
+        "velocity_limit": 30.1
       },
       "thigh": {
         "stiffness": 20.0,
@@ -116,7 +117,8 @@
         "effort": 23.7,
         "armature": 0.01,
         "mode": "torque",
-        "action_scale": 0.25
+        "action_scale": 0.25,
+        "velocity_limit": 30.1
       },
       "calf": {
         "stiffness": 20.0,
@@ -124,12 +126,14 @@
         "effort": 35.55,
         "armature": 0.02,
         "mode": "torque",
-        "action_scale": 0.25
+        "action_scale": 0.25,
+        "velocity_limit": 15.7
       }
     },
     "default": {
       "friction_loss": 0.2
-    }
+    },
+    "by_joint": {}
   },
   "action": {
     "joint_order": [

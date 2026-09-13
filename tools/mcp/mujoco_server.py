@@ -1,6 +1,6 @@
 """MCP: MuJoCo 模型查询与无头稳定测试。
 
-落点：``tools/sim2sim_headless.py``（CPU 验收器）、``tools/probe_motrixsim.py``
+落点：``tools/sim2sim_headless.py``（CPU 验收器）、``adapters/mjlab/scene_builder.py``
 （MJCF 可加载性探针）、``assets/robots/*/model/``。
 
 为什么值得做成 MCP：agent 回答"这机型 MJCF 能不能编译/关节叫什么/物理跑 N 秒

@@ -291,6 +291,45 @@ PROJECTS: dict[str, dict] = {
                               "传感器声明、自定义/拼接场景、多机器人端口、相机与渲染协议、"
                               "实景扫描 3DGS→PLY→MuJoCo proxy 流水线、G1 材质桥",
                       "kind": "仿真平台参考（场景 / 感知 / 资产流水线）"},
+    # ---------------- 第二训练后端 / 物理引擎（K 组：多后端能力契约与跨引擎 sim2sim） ----------------
+    # 纳入理由：K 组要把「训练后端」从单一 mjlab 变成可插拔（BackendAdapter），并要求
+    # 「训练引擎 ≠ 验证引擎」的跨引擎 sim2sim 守卫。本组三份是这条路线上的上游证据：
+    # GenesisLab 给出「同一任务套件换引擎」的工程形态，Genesis World 与 Newton 给出
+    # 第二/第三物理引擎（含传感器与确定性测试）的可移植面。
+    "genesislab": {"robots": ["unitree_go2", "unitree_g1"],
+                   "desc": "GenesisLab：基于 Genesis 物理引擎的轻量腿足 RL 任务套件（RSL-RL / rl_games 集成）；"
+                           "envs / managers / components / engine 模块化分层，含 Go2 速度跟踪任务与 imitation "
+                           "tracking——第二训练后端（Genesis）候选与「任务套件如何与引擎解耦」的参考",
+                   "kind": "训练后端候选参考（Genesis + RSL-RL）"},
+    "genesis-world": {"robots": [],
+                      "desc": "Genesis World：Python 原生多物理仿真平台（统一多物理引擎 + Nyx 渲染 + Quadrants "
+                              "编译）；URDF / MJCF / OBJ / GLB / USD 资产解析、并行与异构环境、相机与传感器、"
+                              "可微物理——第三物理引擎候选，与传感器/场景/可微训练参考",
+                      "kind": "仿真平台参考（多物理 / 渲染 / 传感器）"},
+    "newton": {"robots": [],
+               "desc": "Newton（Linux Foundation；Disney Research / Google DeepMind / NVIDIA 发起）：NVIDIA Warp "
+                       "之上的 GPU 可微物理引擎，以 MuJoCo Warp 为首要后端；含 solver 抽象、执行器与控制器、"
+                       "IMU / 接触 / tiled_camera / raytrace 传感器、USD 解析与确定性测试"
+                       "——物理后端抽象、传感器建模与跨引擎一致性校验的上游参考",
+               "kind": "物理引擎参考（GPU 可微 / MuJoCo Warp 上游）"},
+    # ---------------- 视觉感知 / 部署接口（B 类外挂感知 · 部署控制器形态） ----------------
+    "PaddleX": {"robots": [],
+                "desc": "PaddleX 3.x：飞桨低代码视觉工具链（200+ 预训练模型 / 33 条模型产线 / 39 个单功能模块），"
+                        "覆盖目标检测、开集检测、语义与实例分割、关键点、OCR 与文档解析；含高性能推理、"
+                        "服务化与端侧部署——B 类外挂感知（目标判定 / 标志识别 / 视觉触发）与「模型产线」"
+                        "资源组织形态参考",
+                "kind": "视觉感知与端侧部署参考（模型产线）"},
+    "mujoco_ros2_control": {"robots": [],
+                            "desc": "ros2_control × MuJoCo 系统接口：SystemInterface 插件 + MJCF/URDF 自动转换 + "
+                                    "插件体系 + 3D LiDAR 扩展；让同一套 ros2_control 控制器在仿真与真机间切换"
+                                    "——部署侧控制器接口形态、MJCF/URDF 转换与 LiDAR 传感器参考",
+                            "kind": "部署与控制器接口参考（ros2_control）"},
+    "Gymnasium-Robotics": {"robots": ["wuji_hand"],
+                           "desc": "Farama Gymnasium-Robotics：基于 MuJoCo 的机器人环境集合（Fetch / Shadow 灵巧手 / "
+                                   "Adroit / Franka Kitchen / MaMuJoCo / D4RL Maze）；含多目标 GoalEnv API"
+                                   "（observation / achieved_goal / desired_goal）与 92 触点触觉观测"
+                                   "——灵巧手操作任务、目标条件观测与迷宫导航场景参考",
+                           "kind": "操作与多目标 API 参考（灵巧手 / 迷宫导航）"},
 }
 
 # 非机型知识库：单独放在 00_resources/knowledge_base/<名称>/

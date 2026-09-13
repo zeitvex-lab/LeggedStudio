@@ -1,8 +1,8 @@
 <mujoco model="wuji_hand_scene">
   <include file="../model/robot.xml"/>
   <compiler meshdir="../model/assets"/>
+  <!-- 物理真值已固化进 model/robot.xml（<include> 的 <option> 实测生效，此处不再重复声明） -->
   <statistic center="0 0 0.2" extent="0.6"/>
-  <option timestep="0.005" gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" impratio="100"/>
   <visual>
     <headlight diffuse="0.82 0.86 0.9" ambient="0.42 0.48 0.54" specular="0.15 0.15 0.18"/>
     <global azimuth="120" elevation="-20"/>

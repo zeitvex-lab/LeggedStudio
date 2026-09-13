@@ -13,17 +13,26 @@ from typing import Any
 
 
 def load_robot_spec(package_dir: Path, sim_cfg: dict[str, Any] | None = None):
-    """编译包内 model/robot.xml，并应用契约的 armature/frictionloss（增量真值）。"""
+    """编译包内 model/robot.xml，并应用契约的 armature/frictionloss（增量真值）。
+
+    B3 收尾：常量改由 :func:`contracts.physics_binding.joint_constant_tables` 供给
+    （契约 v3 优先，键统一小写）。**此前这里读 ``sim_cfg["armature"]`` 并用
+    ``joint.name.lower()`` 去查混合大小写的键，永远查不中 → armature 静默不生效**，
+    而浏览器侧同一份数据是生效的（同数据两结论）。``sim_cfg`` 参数保留仅为兼容调用方，
+    不再作为物理常量来源。
+    """
     import mujoco
+
+    from contracts.physics_binding import joint_constant_tables
 
     model_xml = Path(package_dir) / "model" / "robot.xml"
     if not model_xml.is_file():
         raise FileNotFoundError(f"包内缺少模型: {model_xml}")
     spec = mujoco.MjSpec.from_file(str(model_xml))
 
-    sim_cfg = sim_cfg or {}
-    armature = sim_cfg.get("armature") or {}
-    frictionloss = sim_cfg.get("frictionloss") or {}
+    tables = joint_constant_tables(package_dir)
+    armature = tables["armature"]
+    frictionloss = tables["frictionloss"]
     default_arm = armature.get("__default__")
     default_fric = frictionloss.get("__default__")
     for joint in spec.joints:

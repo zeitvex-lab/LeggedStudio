@@ -5,9 +5,6 @@
   "scene_path": "simulation/scene.xml",
   "actuator_interface": "position_target",
   "action_scale": 1.0,
-  "control_hz": 50,
-  "physics_hz": 200,
-  "decimation": 4,
   "model_variants": [
     {
       "id": "groundcontact",
@@ -142,36 +139,6 @@
       }
     },
     {
-      "id": "microduck-roller",
-      "path": "simulation/policies/BEST_roller.onnx",
-      "label": "Roller",
-      "obs_dim": 61,
-      "action_dim": 14,
-      "contract": {
-        "task_type": "stand"
-      },
-      "training_ref": {
-        "profile": "microduck-rollers-flat",
-        "match": "ported",
-        "upstream": "microduck_rl/.../microduck_velocity_rollers_env_cfg.py"
-      }
-    },
-    {
-      "id": "microduck-roller-crouch",
-      "path": "simulation/policies/BEST_roller_crouch.onnx",
-      "label": "Roller Crouch",
-      "obs_dim": 61,
-      "action_dim": 14,
-      "contract": {
-        "task_type": "acrobatics"
-      },
-      "training_ref": {
-        "profile": "microduck-roller-crouch-flat",
-        "match": "ported",
-        "upstream": "microduck_rl/.../microduck_roller_crouch_env_cfg.py"
-      }
-    },
-    {
       "id": "microduck-ground-pick",
       "path": "simulation/policies/alpha_ground_pick.onnx",
       "label": "Ground Pick",
@@ -221,12 +188,6 @@
     }
   ],
   "initial_base_height": 0.12,
-  "stiffness": {
-    "joint": 0.55
-  },
-  "damping": {
-    "joint": 0.0
-  },
   "terrains": [
     {
       "id": "flat",

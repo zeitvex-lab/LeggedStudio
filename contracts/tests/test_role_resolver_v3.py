@@ -40,9 +40,59 @@ ROLE_PARAMS = ("stiffness", "damping", "torque_limits", "armature")
 
 
 def load_sim_config(package_id: str) -> dict:
-    path = WORKSPACE / "assets" / "robots" / package_id / "simulation" / "config.json"
-    with path.open("r", encoding="utf-8-sig") as handle:
-        return json.load(handle)
+    """**配置口径的真值视图**（2026-09-13 起由 ``contract_v3.json`` 派生）。
+
+    为什么改源：B3 收尾把 8 个物理键从 14 包的 ``simulation/config.json`` 移除了——
+    它不再是物理真值来源，继续拿它当"现行数值"会让本文件的所有对拍一边恒为空
+    （表现为 KeyError 或**静默假通过**）。
+
+    本文件要守的不变量**没变**：「角色层（``by_role``）→ 逐关节展开」不丢数值、
+    两类键风格（角色键控 / 逐关节）都能收敛。故这里从 shipped v3 派生出一份
+    **与旧 config 同形**的视图供各测试消费：
+
+    * 三件套 + ``action_scale`` 取 ``control`` / ``action``；
+    * 物理量取**逐关节展开**（所有包都有）；
+    * 若该包的 ``by_role`` 键恰好是形态角色名（go2 的 hip/thigh/calf），额外给出
+      **角色键控**视图——这样 `test_go2_role_keyed_config_roundtrip` 仍在测角色键路径。
+    """
+
+    contract_v3 = json.loads(
+        (WORKSPACE / "assets" / "robots" / package_id / "contract_v3.json").read_text(encoding="utf-8-sig")
+    )
+    expanded = RoleResolver(contract_v3).expand_actuator_profile()
+    control = contract_v3.get("control") or {}
+    view: dict = {
+        "control_hz": control.get("control_hz"),
+        "physics_hz": control.get("physics_hz"),
+        "decimation": control.get("decimation"),
+        "action_scale": (contract_v3.get("action") or {}).get("action_scale"),
+    }
+    param_pairs = (
+        ("stiffness", "stiffness"),
+        ("damping", "damping"),
+        ("torque_limits", "effort"),
+        ("armature", "armature"),
+        ("frictionloss", "friction_loss"),
+    )
+    by_role = (contract_v3.get("actuator_profile") or {}).get("by_role") or {}
+    role_named = set(by_role) <= {"hip", "thigh", "calf", "wheel"}
+    for key, param in param_pairs:
+        per_joint = {
+            joint: params[param]
+            for joint, params in expanded.items()
+            if isinstance(params, dict) and params.get(param) is not None
+        }
+        if per_joint:
+            view[key] = per_joint
+        if role_named and per_joint:
+            role_view = {
+                role: params[param]
+                for role, params in by_role.items()
+                if isinstance(params, dict) and param in params
+            }
+            if role_view:
+                view[key] = role_view
+    return view
 
 
 def truth_by_role(config: dict, key: str) -> dict[str, float]:
@@ -175,12 +225,35 @@ class ActuatorExpansionMatchesCurrentConfigTest(unittest.TestCase):
                 for joint, value in truth.items():
                     self.assertEqual(expanded[joint][param], value, f"{package_id} {key}/{joint}")
 
-    def test_b2_has_no_armature_key(self) -> None:
-        config = load_sim_config("unitree_b2")
-        contract = build_contract("unitree_b2", config)
-        expanded = RoleResolver(contract).expand_actuator_profile()
-        for params in expanded.values():
-            self.assertNotIn("armature", params)
+    def test_b2_armature_now_declared_and_matches_evidence(self) -> None:
+        """**B3 收尾反转了本测试的前身**（原名 ``test_b2_has_no_armature_key``）。
+
+        原断言是「b2 的展开里**没有** armature」——那时契约确实缺这一项，测试锁的是"缺口"。
+        B3 用各包训练树取证补齐 armature 后，不变量**随之反转**：14 包全都必须有 armature，
+        而且 b2 的值要等于取证值 0.1。「缺口被填上」这件事必须被锁死，否则会悄悄退回缺失。
+        """
+
+        packages = sorted(
+            p.name for p in (WORKSPACE / "assets" / "robots").iterdir() if (p / "contract_v3.json").exists()
+        )
+        self.assertGreaterEqual(len(packages), 14, "内置包数量异常")
+        for package_id in packages:
+            # 直接读 shipped v3 展开：`build_contract` 用的是 quadruped 模板，
+            # 对灵巧手/轮足机型不适用（那会把"模板不适配"误报成"armature 缺失"）。
+            contract_v3 = json.loads(
+                (WORKSPACE / "assets" / "robots" / package_id / "contract_v3.json").read_text(encoding="utf-8-sig")
+            )
+            expanded = RoleResolver(contract_v3).expand_actuator_profile()
+            with self.subTest(package=package_id):
+                for joint, params in expanded.items():
+                    self.assertIn(
+                        "armature", params,
+                        f"{package_id} 的 {joint} 缺 armature——B3 已全量补齐，不该再出现缺口",
+                    )
+        b2 = RoleResolver(
+            build_contract("unitree_b2", load_sim_config("unitree_b2"))
+        ).expand_actuator_profile()
+        self.assertEqual({params["armature"] for params in b2.values()}, {0.1})
 
     def test_by_joint_override_wins(self) -> None:
         config = load_sim_config("unitree_go2")

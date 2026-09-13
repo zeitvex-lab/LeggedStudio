@@ -245,7 +245,10 @@ def browser_model_xml(root: Path, model_path: Path, preset: dict[str, Any]) -> s
     """Return a browser-safe model while retaining every mesh below the size limit."""
     source = model_path.read_text(encoding="utf-8-sig")
     document = ET.fromstring(source)
-    _configure_browser_actuators(document, preset)
+    # 执行器不再由运行时重建：包内 MJCF 已用 `tools/bake_mjcf_physics.py` 按契约固化
+    # （此前这里是"猴子补丁"——整段删掉 <actuator> 再按契约重建，于是"工作台里看到的
+    #  MJCF"与"真正跑的物理"不是同一份）。现在浏览器只加载；契约与 MJCF 是否漂移
+    #  交给校验器显式报出，而不是靠改写掩盖。
     compiler = document.find("compiler")
     mesh_dir = (compiler.get("meshdir") if compiler is not None else "") or ""
     oversized_files: dict[str, Path] = {}
@@ -298,77 +301,6 @@ def read_contract_v3(root: Path | None) -> dict[str, Any] | None:
         return json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return None
-
-
-def configure_browser_actuators(document: ET.Element, preset: dict[str, Any]) -> None:
-    """Normalize actuator semantics for the browser runtime."""
-    root = find_package_root_quiet(preset)
-    simulation_config = read_simulation_config(root) if root else {}
-    if not simulation_config.get("browser_actuator_rebuild"):
-        return
-    contract_v3 = read_contract_v3(root)
-    if contract_v3 is None:
-        return
-    contract = preset.get("contract") or {}
-    order = list(
-        contract.get("action", {}).get("joint_order")
-        or contract.get("joints", {}).get("actuated_joints")
-        or []
-    )
-    if not order:
-        return
-    try:
-        expanded = RoleResolver(contract_v3).expand_actuator_profile()
-    except Exception:
-        return
-    actuator = document.find("actuator")
-    if actuator is None:
-        actuator = ET.SubElement(document, "actuator")
-    for child in list(actuator):
-        actuator.remove(child)
-
-    for joint_name in order:
-        name = str(joint_name)
-        params = expanded.get(name) or {}
-        effort = float(params.get("effort") or 40.0)
-        mode = str(params.get("mode") or "position")
-        if mode == "torque":
-            ET.SubElement(
-                actuator,
-                "motor",
-                {
-                    "name": name.removesuffix("_joint"),
-                    "joint": name,
-                    "gear": "1",
-                    "forcelimited": "true",
-                    "forcerange": f"{-effort:g} {effort:g}",
-                },
-            )
-        elif mode == "velocity":
-            ET.SubElement(
-                actuator,
-                "velocity",
-                {
-                    "name": name,
-                    "joint": name,
-                    "kv": f"{float(params.get('damping') or 1.0):g}",
-                    "forcelimited": "true",
-                    "forcerange": f"{-effort:g} {effort:g}",
-                },
-            )
-        else:
-            ET.SubElement(
-                actuator,
-                "position",
-                {
-                    "name": name,
-                    "joint": name,
-                    "kp": f"{float(params.get('stiffness') or 20.0):g}",
-                    "kv": f"{float(params.get('damping') or 1.0):g}",
-                    "forcelimited": "true",
-                    "forcerange": f"{-effort:g} {effort:g}",
-                },
-            )
 
 
 def browser_scene_file(root: Path, entry: dict[str, Any]) -> str:
@@ -483,6 +415,5 @@ _proxy_geom = proxy_geom
 _browser_model_xml = browser_model_xml
 _find_package_root_quiet = find_package_root_quiet
 _read_contract_v3 = read_contract_v3
-_configure_browser_actuators = configure_browser_actuators
 _browser_scene_file = browser_scene_file
 _terrain_entries = terrain_entries

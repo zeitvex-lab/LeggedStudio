@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.api_complete import app
+from backend.gl_env import offscreen_render_status
 from backend.robot_presets import list_robot_presets
 from backend.robot_packages import package_for_contract
 
@@ -68,6 +69,12 @@ class ModelInspectionTests(unittest.TestCase):
         self.assertIn("hip", payload["svg"])
 
     def test_mjcf_has_real_render_preview(self):
+        # 显式前置：离屏渲染需要可用的 GL 后端（无显示环境依赖 libEGL/libOSMesa）。
+        # 环境显式关闭渲染（MUJOCO_GL=disabled）或缺少后端时，这是环境约束而非
+        # 代码缺陷，按 skip 处理并带上原因，避免把环境问题误报成失败。
+        available, reason = offscreen_render_status()
+        if not available:
+            self.skipTest(f"离屏渲染不可用：{reason}")
         preset = next(item for item in list_robot_presets() if item["robot_id"] == "unitree_go2")
         response = self.client.post("/api/models/preview", json={"path": preset["asset_path"], "format": "mjcf", "width": 960, "height": 640})
         self.assertEqual(response.status_code, 200)

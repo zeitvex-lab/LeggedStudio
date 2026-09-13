@@ -28,6 +28,7 @@ import unittest
 from pathlib import Path
 
 from contracts.physics_binding import (
+    LEGACY_CONFIG_PHYSICS_KEYS,
     PAYLOAD_MAP_KEYS,
     payload_physics_view,
     physics_facts,
@@ -38,6 +39,56 @@ ROBOTS = WORKSPACE / "assets" / "robots"
 
 # config 侧键名（载荷键 -> config 键）
 CONFIG_KEY = {"stiffness": "stiffness", "damping": "damping", "torque_limits": "torque_limits"}
+
+#: 已登记的**载荷覆盖缺口**（package → param → 未被子表覆盖的关节）。
+#:
+#: 本文件最关键的不变量是"任何关节都不许落到 fallback"——浏览器 ``controlValue`` 查不到
+#: 就用调用方默认值，**不报错**，只表现为策略抽搐。所以缺口必须显式登记、**只能减不能增**，
+#: 而不是把断言放宽。
+#:
+#: **当前为空**（2026-09-13 多源对照后补齐）。历史唯一一条缺口
+#: ``unitree_g1 / velocity_limits``（6 个关节 = ankle_pitch/ankle_roll/waist_roll/waist_pitch
+#: 四个角色）的查清过程，正是"多源对照"方法的样板：
+#:
+#: * 最初只按训练树 ``g1_constants.py`` 的**电机型号**反查——该表只有 5/10/25/88/139 五种
+#:   ``effort_limit``，而这四个角色是 ``50``，于是判为"来源存疑"；
+#: * 转去对照**官方 URDF** ``unitree_robotics/g1_description/g1_29dof.urdf``：四个角色写得
+#:   明明白白 ``effort="50" velocity="37"``，且同文件 ``waist_yaw``（``88 / 32``）与本契约
+#:   已填的 32 完全一致 → 两套官方来源互证；
+#: * 官方训练常量里的注释给出了 50 的来历：「Waist pitch/roll and ankles are 4-bar linkages
+#:   with 2 5020 actuators … assume a nominal 1:1 gear ratio … ``effort_limit = 5020 × 2``」——
+#:   并联 2 电机力矩相加、速度不变 ⇒ 关节侧速度 = 5020 自身 ``velocity_limit`` = 37。
+#:
+#: 结论：**原本就有**（写在官方 URDF 的 ``<limit>`` 里），不是迁移时被去掉的；缺的原因是
+#: 我们只看了电机型号表、没看关节侧 URDF。故按 37.0 补齐。
+#:
+#: **现存缺口（2026-09-13 全 14 机型跨源审计后）**：轮腿机的**轮关节在任何源里都没有 velocity**
+#: ——
+#: * `unitree_b2w`：官方 URDF `b2w_description.urdf` 里**根本没有** `*_wheel_joint`（轮只出现在
+#:   MJCF 里，且只给了 `actuatorfrcrange`）；官方 MJCF 同样只有力、没有速度上限；
+#: * `unitree_go2w`：同上（官方 URDF 的轮写成 `*_foot_joint`/`*_foot_motor_joint`，
+#:   且只有 `effort`）。
+#:
+#: 按方法判定属「**原本就没有**」——不是我们没填，也不是迁移时丢的。故登记为已知缺口。
+#: 新增缺口时同样必须给出**来源依据**（哪个源、哪个文件、哪一行），不许凭感觉填。
+KNOWN_COVERAGE_GAPS: dict[str, dict[str, list[str]]] = {
+    "unitree_b2w": {
+        "velocity_limits": [
+            "FR_wheel_joint",
+            "FL_wheel_joint",
+            "RR_wheel_joint",
+            "RL_wheel_joint",
+        ],
+    },
+    "unitree_go2w": {
+        "velocity_limits": [
+            "FL_wheel_joint",
+            "FR_wheel_joint",
+            "RL_wheel_joint",
+            "RR_wheel_joint",
+        ],
+    },
+}
 
 _SENTINEL = object()
 _LEG_PREFIX = re.compile(
@@ -85,8 +136,13 @@ def packages() -> list[Path]:
 
 class PayloadResolutionEquivalenceTest(unittest.TestCase):
     def test_every_joint_is_explicitly_covered_never_falls_back(self) -> None:
-        """最关键的不变量：任何关节都不许落到 fallback（那正是静默失配的表现）。"""
+        """最关键的不变量：任何关节都不许落到 fallback（那正是静默失配的表现）。
 
+        已知缺口逐项登记在 :data:`KNOWN_COVERAGE_GAPS`；**出现新缺口即失败**，
+        且失败信息给出完整集合差异（比逐条 subTest 更容易看出"哪个包新掉了哪个参数"）。
+        """
+
+        actual: dict[str, dict[str, list[str]]] = {}
         for package in packages():
             facts = physics_facts(package)
             view = payload_physics_view(facts)
@@ -98,13 +154,22 @@ class PayloadResolutionEquivalenceTest(unittest.TestCase):
                     continue
                 for entry in joints:
                     name, role = entry["name"], entry.get("role")
-                    for group in (role, None):
-                        with self.subTest(package=package.name, param=param, joint=name, group=group):
-                            resolved = control_value(view[param], name, group, _SENTINEL)
-                            self.assertIsNot(
-                                resolved, _SENTINEL,
-                                f"{package.name} {param}: 关节 {name} 未被子表覆盖，将静默回退默认值",
-                            )
+                    # 前端按 role 作为 group 查表；两条路径（role / None）都必须命中
+                    if all(
+                        control_value(view[param], name, group, _SENTINEL) is not _SENTINEL
+                        for group in (role, None)
+                    ):
+                        continue
+                    bucket = actual.setdefault(package.name, {}).setdefault(param, [])
+                    if name not in bucket:
+                        bucket.append(name)
+
+        self.assertEqual(
+            actual,
+            KNOWN_COVERAGE_GAPS,
+            "载荷覆盖缺口集合发生变化：新缺口会让浏览器**静默回退默认值**（表现为策略抽搐）；"
+            "若确属有意（数据不足且已登记来源存疑），把它写进 KNOWN_COVERAGE_GAPS 并附依据。",
+        )
 
     def test_resolved_values_equal_contract_truth(self) -> None:
         for package in packages():
@@ -115,52 +180,51 @@ class PayloadResolutionEquivalenceTest(unittest.TestCase):
                     with self.subTest(package=package.name, param=param, joint=joint):
                         self.assertEqual(control_value(view[param], joint, None, _SENTINEL), float(expected))
 
-    def test_resolution_matches_legacy_config_where_declared(self) -> None:
-        """过渡期对拍：旧 config 声明过该参数时，新旧解析结果必须逐关节一致。"""
+    def test_legacy_config_no_longer_carries_physics_keys(self) -> None:
+        """B3 已完成：``simulation/config.json`` 不许再出现任何物理键。
 
-        compared = 0
+        原先这里是「新旧逐关节对拍」（过渡期护栏）。B3 收尾把 8 个重复物理键从 14 包移除后，
+        对拍的一边恒为空——继续留着只会变成**假通过**。取而代之的新不变量更硬：
+        **真值只剩契约一处**，任何物理键重新出现在 config 里即失败（防双写回潮）。
+        """
+
         for package in packages():
             config = load(package / "simulation" / "config.json")
-            view = payload_physics_view(physics_facts(package))
-            joints = load(package / "contract_v3.json")["joints"]["actuated"]
-            for param in PAYLOAD_MAP_KEYS:
-                legacy = config.get(CONFIG_KEY[param])
-                if not isinstance(legacy, dict) or not legacy:
-                    continue
-                for entry in joints:
-                    old = control_value(legacy, entry["name"], entry.get("role"), _SENTINEL)
-                    new = control_value(view[param], entry["name"], entry.get("role"), _SENTINEL)
-                    if old is _SENTINEL:
-                        continue
-                    with self.subTest(package=package.name, param=param, joint=entry["name"]):
-                        self.assertIsNot(new, _SENTINEL)
-                        self.assertAlmostEqual(float(new), float(old), places=9)
-                    compared += 1
-        self.assertGreater(compared, 50, "对拍样本过少，测试可能失效")
+            leftover = sorted(key for key in config if key in LEGACY_CONFIG_PHYSICS_KEYS)
+            with self.subTest(package=package.name):
+                self.assertEqual(
+                    leftover, [],
+                    f"{package.name} 的 simulation/config.json 又出现了物理键 {leftover}——"
+                    f"B3 已把物理真值收敛到契约 v3，写回去等于重开两个家",
+                )
 
 
 class IntendedBehaviourDeltaTest(unittest.TestCase):
     """换源后**唯一**的有意变更必须被显式锁定，其余一律不得漂移。"""
 
     def test_intended_behaviour_delta_set_is_locked(self) -> None:
-        deltas: dict[str, list[str]] = {}
-        for package in packages():
-            config = load(package / "simulation" / "config.json")
-            view = payload_physics_view(physics_facts(package))
-            for param in PAYLOAD_MAP_KEYS:
-                if bool(config.get(CONFIG_KEY[param])) != bool(view[param]):
-                    deltas.setdefault(package.name, []).append(param)
+        """换源带来的**有意变更**锁定为一条可长期复跑的语义。
+
+        原实现是与旧 config 对拍算出"行为变更集合"；B3 之后 config 侧已无物理键，
+        对拍无从进行（会变成"14 包全部新增"的假结论）。改为直接锁死那条语义本身
+        （00_know/30_参数标准/全部机型_参数来源对照与标准.md §2.6）：
+        **zex-w 原本就由契约供给力矩限幅；microduck / wuji_hand 的 effort 原缺失，
+        现按打包模型补齐（R2 模型层）→ 浏览器由此新增力矩限幅**。其余包不得出现漂移：
+        即"力矩限幅供给包"恰好是这三个 + 本来就有的那些。
+        """
+
+        supplied = sorted(
+            package.name
+            for package in packages()
+            if payload_physics_view(physics_facts(package))["torque_limits"]
+        )
+        intended = {"zex-w", "microduck", "wuji_hand"}
+        self.assertTrue(intended <= set(supplied), f"这三个包必须由契约供给力矩限幅，实际 {supplied}")
         self.assertEqual(
-            deltas,
-            {
-                "zex-w": ["torque_limits"],
-                "microduck": ["torque_limits"],
-                "wuji_hand": ["torque_limits"],
-            },
-            "有意变更集合（00_know/30_参数标准/全部机型_参数来源对照与标准.md §2.6）："
-            "zex-w 原本就由契约供给力矩限幅；microduck / wuji_hand 的 effort 原缺失，"
-            "现按打包模型补齐（R2 模型层），浏览器由此新增力矩限幅。"
-            "除此之外不得出现任何行为漂移",
+            supplied,
+            sorted(package.name for package in packages()),
+            "力矩限幅供给集合发生变化：换源后应为**全部 14 包**都由契约供给"
+            "（其中 zex-w / microduck / wuji_hand 是换源时新增的三个，属有意变更）",
         )
 
     def test_zex_w_gains_torque_limits_from_contract(self) -> None:

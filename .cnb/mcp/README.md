@@ -29,7 +29,7 @@
 | MCP | 解决什么 | 本仓落点 |
 |---|---|---|
 | `tensorboard` | 训练诊断曲线 | `backend/tb_events.py`、`web/training_monitor.html` 五大仪表盘 |
-| `mujoco` | 加载 MJCF / 查关节序 / 跑无头稳定测试 | `tools/sim2sim_headless.py`、`tools/probe_motrixsim.py` |
+| `mujoco` | 加载 MJCF / 查关节序 / 跑无头稳定测试 | `tools/sim2sim_headless.py`、`adapters/mjlab/scene_builder.py` |
 | `onnx` | 查模型输入输出维 / 单帧推理对拍 | `tools/evaluator.py`、45 条 `sim_policies_onnx` 契约核验 |
 | `resources` | `00_resources` 跨库检索 | `00_resources/README.md`、`tools/sync_resources.py` |
 | `contracts` | 契约 v3 查询与校验 | `contracts/`、`backend/pack_catalog.py`、`assets/robots/*/contract_v3.json` |

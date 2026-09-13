@@ -1,0 +1,37 @@
+{
+  "schema": "arrival-criteria-1.0",
+  "generated_at": "2026-09-13",
+  "note": "到达判据单一真值（H10）：此前 backend/navigation_api.py（waypoint_tolerance=0.35）与 backend/camera_projection.py（arrival_verdict 默认 0.3）各有一套数字，同一件事两个口径。现在全部引用本文件，改一处即全同步。角度单位 rad。",
+  "waypoint": {
+    "label": "航点到达（平面位置 + 停航向 + 稳定拍数）",
+    "tolerance_m": 0.2,
+    "heading_tolerance_rad": 0.8,
+    "stable_ticks": 2,
+    "evidence": {
+      "sources": [
+        "00_resources/rc_old/.../real/sim2real_ros2_v3/src/sim2real_runtime/src/cmd_mux_node.py",
+        "00_resources/rc_old/.../train/rc_mjlab/tools/nav_tools/run_route_experiments.py"
+      ],
+      "note": "到点容差 0.20 m / 停航向 0.80 rad / 稳定 2 拍"
+    }
+  },
+  "visual_dock": {
+    "label": "视觉停靠（横向 / 前向 / 航向 + 丢帧判定）",
+    "lateral_tolerance_m": 0.03,
+    "forward_tolerance_m": 0.03,
+    "yaw_tolerance_rad": 0.0436332313,
+    "lose_frame_s": 0.7,
+    "lose_confirm_s": 2.5,
+    "evidence": {
+      "sources": [
+        "00_resources/unitree_go2_edu_movement/trapezoidal_movement/",
+        "00_resources/26Raicom/"
+      ],
+      "note": "视觉停靠 3 cm / 3 cm / 2.5°（2.5° = 0.043633 rad），丢帧 0.7 s / 确认丢失 2.5 s"
+    }
+  },
+  "legacy_aliases": {
+    "note": "历史口径别名：调用方传 0.35 / 0.30 时仍可用，但判定结果会标注 deviation 提示已偏离单一真值。",
+    "waypoint_tolerance": [0.35, 0.3]
+  }
+}

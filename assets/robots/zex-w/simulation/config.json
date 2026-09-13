@@ -4,22 +4,6 @@
   "scene_path": "simulation/scene.xml",
   "initial_base_height": 0.33,
   "actuator_interface": "position_target",
-  "control_hz": 50,
-  "physics_hz": 500,
-  "decimation": 10,
-  "stiffness": {
-    "hip": 50.0,
-    "thigh": 50.0,
-    "calf": 50.0,
-    "joint": 50.0
-  },
-  "damping": {
-    "hip": 1.5,
-    "thigh": 1.5,
-    "calf": 1.5,
-    "wheel": 1.0,
-    "joint": 1.5
-  },
   "action_scale_by_role": {
     "leg": 0.25,
     "wheel": 5.0
@@ -187,6 +171,5 @@
       "path": "simulation/flat.xml"
     }
   ],
-  "browser_actuator_rebuild": true,
   "viewer_camera_scale": 0.95
 }
