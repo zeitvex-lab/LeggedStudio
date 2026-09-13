@@ -56,16 +56,24 @@ def terrain_metrics(height_scan: Sequence[float], params: dict[str, Any]) -> dic
     grid = _grid(height_scan)
     ix, iy = forward_corridor(params)
 
-    # 相邻列（x 方向）之间的带符号差
+    # 台阶判定用**窗口差**而不是相邻差：立板宽度可能窄于扫描间距（0.1 m），
+    # 相邻差会把一个台阶的高度劈成两半（实测 0.114 m 立板只读到 0.057），系统性低估。
+    # 窗口长度是注册表参数（step_window_m），不是代码里的魔数。
+    window_m = float(params.get("step_window_m", GRID_SPACING_M))
+    window = max(1, int(round(window_m / GRID_SPACING_M)))
+
     max_step_signed = 0.0
     gradients: list[float] = []
     for i in range(len(ix) - 1):
         for j in iy:
             delta = grid[ix[i + 1]][j] - grid[ix[i]][j]
-            if abs(delta) > abs(max_step_signed):
-                max_step_signed = delta
             # value 随地形升高而减小 ⇒ 地形梯度 = -Δvalue/Δx
             gradients.append(-delta / GRID_SPACING_M)
+    for i in range(len(ix) - window):
+        for j in iy:
+            windowed = grid[ix[i + window]][j] - grid[ix[i]][j]
+            if abs(windowed) > abs(max_step_signed):
+                max_step_signed = windowed
     gradients.sort()
 
     def median(values: list[float]) -> float:
@@ -91,9 +99,17 @@ def terrain_metrics(height_scan: Sequence[float], params: dict[str, Any]) -> dic
 
     near = sum(grid[ix[0]][j] for j in iy) / len(iy)
     far = sum(grid[ix[-1]][j] for j in iy) / len(iy)
+    # 「台阶」= 局部坡度**解释不掉**的那部分升高：陡坡本身不该被判成台阶
+    # （实测 25% 坡在 0.2 m 窗口内升高 0.05 m，与 step_min 0.06 只差一点，光比大小会误判）。
+    ratio = float(params.get("step_over_slope_ratio", 1.8))
+    explained = abs(gradient) * window_m * ratio
+    step_excess = max(0.0, abs(max_step_signed) - explained)
     return {
         "max_step_signed_m": round(max_step_signed, 6),
         "max_step_m": round(abs(max_step_signed), 6),
+        "step_excess_m": round(step_excess, 6),
+        "step_explained_by_slope_m": round(explained, 6),
+        "step_window_m": round(window_m, 6),
         "step_is_uphill": max_step_signed < 0.0,
         "slope_deg": round(slope_deg, 4),
         "gradient": round(gradient, 6),
@@ -111,6 +127,7 @@ def classify_terrain(metrics: dict[str, float], params: dict[str, Any]) -> tuple
     （残差大 ⇒ 平面模型不成立），此时报 ``rough`` 比报一个方向可疑的坡度更有用——切换动作
     也不一样（粗糙地形降速 vs 上/下坡保守）。链条上它仍是"保守优先"。"""
     step = float(metrics["max_step_m"])
+    step_excess = float(metrics.get("step_excess_m", step))
     slope = float(metrics["slope_deg"])
     roughness = float(metrics["roughness_m"])
     uphill = bool(metrics["step_is_uphill"]) or slope > 0
@@ -129,9 +146,9 @@ def classify_terrain(metrics: dict[str, float], params: dict[str, Any]) -> tuple
     if step >= step_max or abs(slope) >= slope_max:
         worst = max(step / step_max if step_max else 0.0, abs(slope) / slope_max if slope_max else 0.0)
         return "obstacle", round(max(0.5, min(1.0, worst)), 4)
-    if step >= step_min:
+    if step_excess >= step_min:
         cls = "stair_up" if uphill else "stair_down"
-        return cls, confidence(step - step_min, margin_m)
+        return cls, confidence(step_excess - step_min, margin_m)
     if roughness > rough_std:
         return "rough", confidence(roughness - rough_std, rough_std)
     if abs(slope) >= slope_min:

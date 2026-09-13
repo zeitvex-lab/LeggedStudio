@@ -229,3 +229,33 @@ export function createNavigationRunner(payload, options = {}) {
 
   return { command, tick, status, reset, waypoints, path, arrival: { ...arrival }, params };
 }
+
+/**
+ * 把服务端给的**切换决定**施加到这一拍的指令上（纯函数，可单测）。
+ *
+ * * `kind: "stop"` —— 判定不可通行 ⇒ 指令全零；
+ * * `kind: "limits"` / `"policy"` —— 按 `new_limits` 逐轴裁剪（**只会更严**）；
+ * * 其它（含缺失、未知类型）—— **不施加**并把原因回给调用方（fail-closed：不猜）。
+ *
+ * 为什么把这段做成纯函数：切换是否生效是"感知闭环"的最后一米，必须能脱离浏览器单测。
+ */
+export function applyTerrainSwitch(cmd, decision) {
+  const original = [Number(cmd?.[0] ?? 0), Number(cmd?.[1] ?? 0), Number(cmd?.[2] ?? 0)];
+  if (!decision || typeof decision !== "object") {
+    return { cmd: original, applied: false, kind: null, reason: "无切换决定" };
+  }
+  const kind = String(decision.kind ?? "");
+  if (kind === "stop") {
+    return { cmd: [0, 0, 0], applied: true, kind, stopped: true, reason: decision.note || "不可通行：停机" };
+  }
+  if (kind === "limits" || kind === "policy") {
+    const limits = decision.new_limits || {};
+    const axes = ["vx", "vy", "wz"];
+    const next = original.map((value, index) => {
+      const bound = Number(limits[axes[index]]);
+      return Number.isFinite(bound) ? clampValue(value, bound) : value;
+    });
+    return { cmd: next, applied: true, kind, reason: decision.note || "" };
+  }
+  return { cmd: original, applied: false, kind, reason: `未知切换类型 ${kind || "<空>"}（不施加）` };
+}

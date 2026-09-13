@@ -12,7 +12,7 @@ import { createObservationSystems } from "./obs/observation_builders.js?v=0.44.0
 import { createPieDepth } from "./pie_depth.js?v=0.46.0";
 import { MotionLoader } from "./motion_loader.js";
 import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
-import { createNavigationRunner, poseFromQpos, NAVIGATION_VERSION } from "./navigation.js?v=0.52.0";
+import { applyTerrainSwitch, createNavigationRunner, poseFromQpos, NAVIGATION_VERSION } from "./navigation.js?v=0.53.0";
 // Loaded on demand only for an explicitly selected policy.
 let ort = null;
 const ORT_DIST_URL = new URL("./vendor/onnxruntime-web/dist/", import.meta.url);
@@ -5369,6 +5369,63 @@ function applyDeterministicReplayFromUrl() {
 //   ?nav=warehouse&nav_waypoints=0,0;6,0   指定航点（分号分隔）
 // ---------------------------------------------------------------------------
 const NAV_HUD_ID = "navigationHud";
+//: 感知轮询频率：每 N 个控制步评一次地形（10 ⇒ 50 Hz 控制下 5 Hz）
+const TERRAIN_POLL_CONTROL_STEPS = 10;
+
+/**
+ * 感知闭环：上传位姿 → 服务端按**同源地形**判定并给切换决定 → 下一拍施加。
+ *
+ * 失败即**禁用**感知并把原因显示出来（不静默按平地处理，也不每步重试刷屏）；
+ * 浏览器侧依据是"场景地形数据 + 位姿"，**不是机载射线/深度**——这一点在 HUD 与
+ * 服务端返回的 note 里都写明。
+ */
+async function pollTerrainPerception(pose, controlStep) {
+  const perception = sim.perception;
+  if (!perception || perception.disabledReason || perception.inFlight) return;
+  perception.inFlight = true;
+  perception.polls += 1;
+  const policyIds = elements.policySelect
+    ? Array.from(elements.policySelect.options).map((option) => option.value).filter(Boolean)
+    : [];
+  try {
+    const response = await fetch("/api/perception/terrain/evaluate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scene_id: perception.sceneId,
+        base_xy: [pose.x, pose.y],
+        base_z: Number(sim.qpos?.[2] ?? 0.45),
+        base_yaw: pose.yaw,
+        base_limits: Array.from(sim.navigation?.status?.limits || []).length === 3
+          ? { vx: sim.navigation.status.limits[0], vy: sim.navigation.status.limits[1], wz: sim.navigation.status.limits[2] }
+          : undefined,
+        available_policies: policyIds,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload?.success) {
+      throw new Error(payload?.detail || `感知评估失败（HTTP ${response.status}）`);
+    }
+    perception.lastReading = payload.reading;
+    perception.decision = payload.switch;
+    perception.scene = payload.scene;
+    if (payload.switch?.kind === "policy" && payload.switch.policy_id) {
+      // 策略可切换时才切（离散切换会重置策略状态，代价写在决定说明里）
+      if (elements.policySelect && policyIds.includes(payload.switch.policy_id)) {
+        await switchPolicy(payload.switch.policy_id);
+      }
+    }
+    if (DEBUG_ENABLED) console.info(`[sim2sim] terrain @step ${controlStep}`, payload.reading.raw_class, payload.switch.kind);
+  } catch (error) {
+    perception.errors += 1;
+    perception.disabledReason = error.message;
+    perception.decision = null;
+    console.warn("[sim2sim] terrain perception disabled:", error.message);
+  } finally {
+    perception.inFlight = false;
+    renderNavigationHud();
+  }
+}
 
 async function initNavigationFromUrl() {
   const mapId = PAGE_PARAMS.get("nav");
@@ -5398,6 +5455,17 @@ async function initNavigationFromUrl() {
       status: null,
       lastControlStep: -1,
     };
+    // 感知闭环（S6）：地形判定 + 切换决定由服务端唯一实现，浏览器只上传位姿并施加决定。
+    // 场景 id 默认取导航地图；服务端不认识该场景时**禁用**感知（不按平地处理）。
+    sim.perception = {
+      sceneId: PAGE_PARAMS.get("nav_scene") || mapId,
+      decision: null,
+      lastReading: null,
+      disabledReason: null,
+      inFlight: false,
+      polls: 0,
+      errors: 0,
+    };
     renderNavigationHud(`导航已就绪 · ${mapId} · ${payload.waypoints.length} 个航点 · 判据 ${payload.arrival.source}`);
     console.info(`[sim2sim] navigation ${NAVIGATION_VERSION}`, payload);
   } catch (error) {
@@ -5411,9 +5479,11 @@ async function initNavigationFromUrl() {
 function applyNavigationCommand() {
   if (!sim.qpos) return;
   const pose = poseFromQpos(sim.qpos);
-  const cmd = sim.navigation.runner.command(pose);
+  // 感知结果施加在**跟随指令之上**：只可能更严（限速/停机），不会放大权限
+  const decision = sim.perception?.disabledReason ? null : (sim.perception?.decision ?? null);
+  const switched = applyTerrainSwitch(sim.navigation.runner.command(pose), decision);
   for (let i = 0; i < 3; i += 1) {
-    const value = clamp(cmd[i], -CONFIG.maxCmd[i], CONFIG.maxCmd[i]);
+    const value = clamp(switched.cmd[i], -CONFIG.maxCmd[i], CONFIG.maxCmd[i]);
     sim.targetCmd[i] = value;
     sim.cmd[i] = value;
   }
@@ -5423,6 +5493,7 @@ function applyNavigationCommand() {
     sim.navigation.lastControlStep = controlStep;
     sim.navigation.status = sim.navigation.runner.tick(pose);
     renderNavigationHud();
+    if (controlStep % TERRAIN_POLL_CONTROL_STEPS === 0) pollTerrainPerception(pose, controlStep);
   }
 }
 
@@ -5451,6 +5522,14 @@ function renderNavigationHud(message = "", failed = false) {
     : `导航 ${sim.navigation.mapId} · 航段 ${legs} · 完成率 ${Math.round(status.route_completion * 100)}%`
       + ` · 容差 ${status.tolerance_m}m（稳定 ${status.stable_count}/${status.stable_ticks}）`
       + ` · 上限 vx${status.limits[0]} wz${status.limits[2]}`;
+  const perception = sim.perception;
+  if (perception?.lastReading) {
+    const reading = perception.lastReading;
+    const kind = perception.decision?.kind || "无";
+    hud.textContent += `\n地形 ${reading.raw_class}（置信 ${reading.confidence}）· 切换 ${kind}`;
+  } else if (perception?.disabledReason) {
+    hud.textContent += `\n感知不可用：${perception.disabledReason}`;
+  }
 }
 
 /** 把当前 UI 状态写入地址栏（replaceState，不产生历史记录）。 */

@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 import {
   NAVIGATION_VERSION,
+  applyTerrainSwitch,
   createNavigationRunner,
   poseFromQpos,
   wrapAngle,
@@ -40,6 +41,21 @@ function payload(overrides = {}) {
 function pose(x, y, yaw = 0) {
   return { x, y, yaw };
 }
+
+// --- 切换施加（感知闭环最后一米）---
+const switched = applyTerrainSwitch([1.0, 0.5, 0.8], { kind: "limits", new_limits: { vx: 0.5, vy: 0.25, wz: 0.4 } });
+assert.deepEqual(switched.cmd, [0.5, 0.25, 0.4], "限速决定应逐轴裁剪");
+assert.equal(switched.applied, true);
+const stopped = applyTerrainSwitch([1.0, 0.0, 0.5], { kind: "stop", note: "不可通行" });
+assert.deepEqual(stopped.cmd, [0, 0, 0], "停机决定 ⇒ 指令全零");
+assert.equal(stopped.stopped, true);
+const unknown = applyTerrainSwitch([1.0, 0.0, 0.5], { kind: "teleport" });
+assert.deepEqual(unknown.cmd, [1.0, 0.0, 0.5], "未知切换类型不得施加");
+assert.equal(unknown.applied, false);
+assert.match(unknown.reason, /未知切换类型/);
+const none = applyTerrainSwitch([0.3, 0, 0], null);
+assert.equal(none.applied, false, "没有决定就不动指令");
+assert.deepEqual(none.cmd, [0.3, 0, 0]);
 
 // --- 纯函数 ---
 assert.equal(yawFromQuat([1, 0, 0, 0], 0), 0, "单位四元数 ⇒ yaw 0");
