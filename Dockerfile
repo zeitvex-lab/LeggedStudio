@@ -10,6 +10,11 @@
 # 清单见 .cnb.yml 的 `.docker-dev-image` 锚点（云原生开发/CI 三处共用）。
 #
 # 设计要点：
+#   - **必须装 code-server**（WebIDE 服务端）：开发环境容器里没有 code-server 时，
+#     CNB 会退回"双容器模式"，终端停在「连接到 CNB 容器中...」、插件能力受限
+#     （见 .cnb.yml 的 vscode 段与 docs.cnb.cool/zh/workspaces/double-container.md）。
+#     装进镜像 -> 单容器模式 -> 进环境秒连开发容器。
+#   - CodeBuddy Web 入口：镜像内装 codebuddy（>= 2.137.0）后自动出现在云开发入口页。
 #   - 必须 Python 3.12：pyproject.toml 钉的是 >=3.12,<3.13，且 /api/system/environment
 #     会校验 python_target_match，3.11 会让体检页报红（见 backend/api_complete.py）。
 #   - 控制面依赖（backend/requirements.txt）与 CI 完全一致；onnxruntime 是
@@ -46,6 +51,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY backend/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt \
     && pip install --no-cache-dir onnxruntime httpx playwright pytest pytest-playwright
+
+# ---------------------------------------------------------------------------
+# WebIDE 服务端（code-server）+ CodeBuddy Web
+# ---------------------------------------------------------------------------
+# 为什么在镜像层装（而不是让平台补容器）：
+#   CNB 云原生开发按"开发环境容器里有没有 code-server"判定单/双容器模式。
+#   本镜像没装时走双容器模式，WebIDE 连的是 code-server 容器，要在开发容器里
+#   干活得切"跨容器终端"（名为 CNB），表现为终端长时间停在「连接到 CNB 容器中...」。
+#   装进镜像后走单容器模式，终端直连开发容器，且 WebIDE 能直接看到镜像里的
+#   训练 venv、mujoco、chromium。
+#
+# nodejs 是 code-server 与 codebuddy 的运行前提（基础镜像 python:3.12-bookworm
+# 只有 python）；这里用 apt 装 node，避免引入 nvm 之类的 shell 注入。
+RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY scripts/provision_code_server.sh /opt/legged-studio/scripts/
+RUN FORCE=1 bash /opt/legged-studio/scripts/provision_code_server.sh \
+    && code-server --version
+
+# CodeBuddy Web：镜像里装了 >= 2.137.0 的 codebuddy 才会在云开发入口页出现该入口。
+# 装失败不影响 WebIDE（单容器模式只依赖 code-server），因此不阻断构建。
+RUN npm install -g @tencent-ai/codebuddy-code@latest 2>/dev/null \
+    && (codebuddy --version || echo "[image] codebuddy 版本未知") \
+    || echo "[image] codebuddy 安装失败 -> CodeBuddy Web 入口不可用（WebIDE 不受影响）"
 
 # 浏览器固化进镜像（含系统依赖），开发环境与 E2E 秒起
 RUN playwright install --with-deps chromium
