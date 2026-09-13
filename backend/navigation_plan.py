@@ -24,6 +24,7 @@ from fastapi import HTTPException
 
 from backend.arrival_criteria import waypoint_spec
 from backend.map_editor_api import PlanRequest, plan_map_route
+from backend.motion_commands import follow_controller_spec
 from backend.scenario_maps import MAPS
 
 #: 判据来源标识（写进载荷，便于前端显示与追溯）
@@ -102,6 +103,12 @@ async def build_navigation_payload(
     if len(path) < 2:  # pragma: no cover - plan_map_route 已保证，双保险
         raise HTTPException(status_code=400, detail="规划结果为空：无可达路径")
 
+    # H12：跟随参数与判据一样由服务端装配（浏览器不许自造 lookahead/kp_*）
+    try:
+        follow = follow_controller_spec()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     return {
         "command_source": "planner",
         "map_id": map_id,
@@ -117,4 +124,5 @@ async def build_navigation_payload(
             "diagonal": bool(plan.get("diagonal", diagonal)),
         },
         "arrival": {"tolerance_m": registry_tolerance, "stable_ticks": stable_ticks, "source": ARRIVAL_SOURCE},
+        "follow_controller": follow,
     }
