@@ -898,7 +898,13 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
         pitch_max = max(pitch_max, abs(pitch))
         height_min = min(height_min, float(data.qpos[2]))
         tilted = abs(roll) > 60.0 or abs(pitch) > 60.0
-        if fell_at is None and (data.qpos[2] < 0.45 * contract.initial_height or tilted):
+        # **起摆窗口**：从出生高度落到站立高度是**正常过程**（go2 出生 0.445、站高约 0.28），
+        # 单帧穿过 `0.45 × initial_height` 就判"摔倒"，会把还没机会发动作的策略直接掐掉
+        # （实测 go2-moe-cts 0.248 s、g1-velocity 0.35 s 都是这么被中止的）。
+        settle_steps = int(0.5 * contract.physics_hz)
+        if fell_at is None and step >= settle_steps and (
+            data.qpos[2] < 0.45 * contract.initial_height or tilted
+        ):
             fell_at = step / contract.physics_hz
             break
         # 速度跟踪：只统计后半段（前段含起摆/收敛）
@@ -1682,23 +1688,36 @@ def load_motion_loader(contract: PackageContract, package_dir: Path):
 
 
 def static_stand_height(contract: PackageContract, model, data, obs: ObsBuilder, seconds: float = 1.5) -> float:
-    """零动作下用策略默认姿静立得到的参考高度。
+    """默认姿下**足端触地**时 root 的垂直高度 —— 纯运动学量。
 
-    多个策略共享一个包级 `initial_base_height`，但各自默认站姿不同（深蹲/直腿），
-    拿包级初高当基准会误杀。以「默认姿静立高度」为基准更稳健。
+    早前版本用"零动作静立 ``seconds`` 秒"取稳态高度。那对 ``actuator_interface="torque"``
+    的包（go2 / g1 等）等价于**零力矩**：机器人必然塌下去，参考高度被算成 7~9 cm
+    （上游训练真值 0.3 / 0.754 米），于是"稳态高度比"这把尺子把**本来站得住的策略**
+    判成不合格，还连带把多条策略的复跑提前中止。改成几何量后与力矩语义无关，
+    也不受落地瞬态影响。（``seconds`` 参数保留仅为兼容调用点，现已不参与计算。）
+
+    做法：root 放到 z=0、关节保持默认角，前向算一次，量**非世界体**几何体的最低点；
+    该点深度即"足端到 root 的垂直距离"，也就是足端触地时的 root 高度。
     """
     import mujoco
 
     spawn_default(contract, model, data, obs)
-    total = int(seconds * contract.physics_hz)
-    zero = np.zeros(contract.action_dim, dtype=np.float32)
-    heights: list[float] = []
-    for step in range(total):
-        actuate(contract, model, data, obs, zero)
-        mujoco.mj_step(model, data)
-        if step > total * 0.6:
-            heights.append(float(data.qpos[2]))
-    return float(np.mean(heights)) if heights else contract.initial_height
+    data.qpos[2] = 0.0
+    mujoco.mj_forward(model, data)
+
+    hints = ("foot", "wheel", "toe", "calf", "ankle")
+    robot_geoms = [i for i in range(model.ngeom) if model.geom_bodyid[i] != 0]  # 0 = world（地板）
+    named_feet = [
+        i for i in robot_geoms
+        if any(
+            hint in (mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, i) or "").lower()
+            for hint in hints
+        )
+    ]
+    heights = [float(data.geom_xpos[i][2]) for i in (named_feet or robot_geoms)]
+    if not heights:
+        return contract.initial_height
+    return max(abs(min(heights)), 1e-3)
 
 
 def run_encoder_mode(sess_enc, sess_pol, contract: PackageContract, model, data,
@@ -1751,7 +1770,10 @@ def run_encoder_mode(sess_enc, sess_pol, contract: PackageContract, model, data,
         roll_max = max(roll_max, abs(roll))
         pitch_max = max(pitch_max, abs(pitch))
         height_min = min(height_min, float(data.qpos[2]))
-        if fell_at is None and (data.qpos[2] < 0.45 * contract.initial_height or abs(roll) > 60.0 or abs(pitch) > 60.0):
+        # 与 run_mode 同一口径：起摆窗口内不判摔（双图 encoder 链同样受这条保护）。
+        if fell_at is None and step >= int(0.5 * contract.physics_hz) and (
+            data.qpos[2] < 0.45 * contract.initial_height or abs(roll) > 60.0 or abs(pitch) > 60.0
+        ):
             fell_at = step / contract.physics_hz
             break
         if step > total * 0.7:
