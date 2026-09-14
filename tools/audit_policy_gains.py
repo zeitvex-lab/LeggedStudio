@@ -64,6 +64,39 @@ def gain_for(table: dict, joint: str) -> float:
     return 0.0
 
 
+def _declared_gain(table: dict, joint: str) -> float | None:
+    """声明的逐关节增益；**没有该关节时返回 None**（而 :func:`gain_for` 兜底 0.0）。
+
+    区别很重要：`gain_for` 的 0.0 兜底用于运行时（取不到就是零力矩、必须暴露），
+    但对账时"没声明"与"声明为 0"是两件事 —— 混为一谈会造出假漂移。
+    """
+    lowered = joint.lower()
+    if lowered in table:
+        return float(table[lowered])
+    for key, val in table.items():
+        if str(key).lower() in lowered:
+            return float(val)
+    return None
+
+
+def _contract_profile(robot_dir: Path) -> dict[str, dict[str, float]]:
+    """机器人级真值的**逐关节展开**（契约 v3 ``actuator_profile``）。
+
+    MJCF 由它固化（`tools/bake_mjcf_physics.py`），`validate_mjcf_contract.py` 已保证两者
+    零漂移 —— 所以拿它当参考与拿 MJCF 当参考等价，且不必解析 XML。
+    读不动就返回空：**不猜**，也不因此判漂移。
+    """
+    path = robot_dir / "contract_v3.json"
+    if not path.is_file():
+        return {}
+    try:
+        from contracts.physics_binding import RoleResolver  # noqa: PLC0415
+
+        return RoleResolver(json.loads(path.read_text(encoding="utf-8-sig"))).expand_actuator_profile()
+    except Exception:  # noqa: BLE001  审计不因单个包读不动而中断
+        return {}
+
+
 def deep_merge(base: dict, overlay: dict) -> dict:
     """与运行时同语义的深合并（`policy_acceptance.deep_merge`）：dict 逐键递归，标量/列表覆盖。
 
@@ -113,6 +146,25 @@ def audit(*, robots_dir: Path | str = ROBOTS_DIR) -> dict:
                             order = []
                 contract = {**contract, "action_joint_order": order}
                 stiffness, damping = resolve_gains(contract, sim)
+                # **声明 vs 真值对账**（非力矩接口）：策略级 `control` 在 position/velocity
+                # 下不驱动仿真，它的正确定位是「这条策略上游档位的**断言 + 溯源**」——
+                # 那么它就必须与机器人级真值一致。不一致 = 一条会误导人的假声明。
+                # 为何不让它"生效"：运行时改写执行器已被明确退役（见
+                # `contracts/physics_binding.py` 的 LEGACY_CONFIG_PHYSICS_KEYS 注释与
+                # `policy_acceptance.load_package_model`）：真值只在契约、MJCF 由它固化，
+                # **漂移由校验器报、不静默修**。
+                drift: list[str] = []
+                if interface != "torque" and (contract.get("control") or {}).get("stiffness"):
+                    profile = _contract_profile(config_path.parents[1])
+                    for joint in order:
+                        entry_params = profile.get(joint) or {}
+                        for param, table in (("stiffness", stiffness), ("damping", damping)):
+                            declared = _declared_gain(table or {}, joint)
+                            truth = entry_params.get(param)
+                            if declared is None or truth is None:
+                                continue
+                            if abs(declared - float(truth)) > 1e-6:
+                                drift.append(f"{joint}.{param}: 声明 {declared:g} ≠ 真值 {float(truth):g}")
                 kps = [gain_for(stiffness, name) for name in order]
                 kds = [gain_for(damping, name) for name in order]
                 rows.append({
@@ -141,6 +193,8 @@ def audit(*, robots_dir: Path | str = ROBOTS_DIR) -> dict:
                         (contract.get("control") or {}).get("stiffness")
                         and interface != "torque"
                     ),
+                    # 声明与机器人级真值的**逐关节差异**（非力矩接口；空 = 声明可信）
+                    "declaration_drift": drift,
                 })
     problems = [row for row in rows if row.get("zero_torque")]
     #: 第二类事实：**按策略增益在非力矩接口下不参与仿真**。
@@ -152,11 +206,14 @@ def audit(*, robots_dir: Path | str = ROBOTS_DIR) -> dict:
     #: 唯一差别就是 `control.stiffness`（40 vs 30）——**两条却跑出一字不差的指标**，即由此而来。
     #: 所以它必须被显式报出：要么让它生效，要么承认它只是声明。
     ineffective = [row for row in rows if row.get("gains_ineffective")]
+    #: 第三类事实：**声明与真值不符的按策略增益**（假声明）—— 必须为 0。
+    drifted = [row for row in rows if row.get("declaration_drift")]
     return {
         "schema": "policy-gains-audit-1.0",
         "total": len(rows),
         "problems": problems,
         "ineffective": ineffective,
+        "drifted": drifted,
         "rows": rows,
     }
 
@@ -169,7 +226,7 @@ def main(argv: list[str] | None = None) -> int:
     report = audit()
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
-        return 1 if report["problems"] else 0
+        return 1 if (report["problems"] or report["drifted"]) else 0
 
     print(f"策略 {report['total']} 条；**零力矩**风险 {len(report['problems'])} 条")
     for row in report["problems"]:
@@ -178,12 +235,20 @@ def main(argv: list[str] | None = None) -> int:
               f"→ kp 全 0（腿不会支撑）")
     ineffective = report["ineffective"]
     if ineffective:
-        print(f"\n**声明了但进不了仿真**的按策略增益块 {len(ineffective)} 条"
-              "（非力矩接口 → PD 由 MJCF 的 kp/kv 决定，这份声明不参与物理）：")
+        print(f"\n按策略增益声明 {len(ineffective)} 条（非力矩接口 → PD 由 MJCF 的 kp/kv 决定，"
+              "**不驱动仿真**；它的定位是「上游档位的断言 + 溯源」，必须与真值一致）：")
         for row in ineffective:
-            print(f"  ⚠ {row['robot']}/{row['policy_id']}  interface={row['interface']} "
+            print(f"  · {row['robot']}/{row['policy_id']}  interface={row['interface']} "
                   f"声明 kp={row['kp_min']}~{row['kp_max']} kd={row['kd_max']}"
-                  "（来源 policy.control，**实际不生效**）")
+                  "（来源 policy.control）")
+
+    drifted = report["drifted"]
+    if drifted:
+        print(f"\n✗ **假声明** {len(drifted)} 条（声明值与机器人级真值不符，会误导人）：")
+        for row in drifted:
+            print(f"  ✗ {row['robot']}/{row['policy_id']}")
+            for item in row["declaration_drift"][:6]:
+                print(f"      {item}")
 
     torque_ok = [
         row for row in report["rows"]
@@ -193,7 +258,8 @@ def main(argv: list[str] | None = None) -> int:
     for row in torque_ok:
         print(f"  ✓ {row['robot']}/{row['policy_id']} kp={row['kp_min']}~{row['kp_max']} "
               f"kd={row['kd_max']}（来源 {row['stiffness_source']}）")
-    return 1 if report["problems"] else 0
+    # 零力矩 = 必然不可用；假声明 = 会误导人 —— 两者都判失败（防止再出现）。
+    return 1 if (report["problems"] or report["drifted"]) else 0
 
 
 if __name__ == "__main__":
