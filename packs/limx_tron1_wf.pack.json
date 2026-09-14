@@ -11,7 +11,7 @@
   "morphology_ref": {
     "id": "limx_tron1_wf",
     "path": "assets/robots/limx_tron1_wf/contract_v3.json",
-    "sha256": "bc03a7a093c5971d7091c4788a41fa191dff23f561f3de3dfd749731bb859e6e"
+    "sha256": "58f383072da1d5041379b0b07578781fbae586d352d5b45a1e867d02c4fb4a4b"
   },
   "skill_ref": {
     "id": "core/velocity@2.0",

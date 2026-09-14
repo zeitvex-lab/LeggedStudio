@@ -11,7 +11,7 @@
   "morphology_ref": {
     "id": "deeprobotics_m20",
     "path": "assets/robots/deeprobotics_m20/contract_v3.json",
-    "sha256": "f576007563303324dc4054d6692e678cca89fd645ae3cd79ede888ec92058d27"
+    "sha256": "716f12985e57c1fe246adba4298286d66290e632a906ba379a05a96c3104acae"
   },
   "skill_ref": {
     "id": "core/velocity@2.0",

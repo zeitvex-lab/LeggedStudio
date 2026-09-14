@@ -247,4 +247,12 @@
     "biped"
   ],
   "source": "microduck_rl"
+,
+  "physics_domain": {
+    "contact": {
+      "authority": "training_domain",
+      "official_reference": "无官方克隆对照（00_resources 仅有文件快照）",
+      "note": "接触参数（default geom friction / 足端 contype·conaffinity / condim / solref）按【训练域】口径管理，**不是物理事实**：真机地面摩擦本身不是常数，它是域随机化的对象。数值只保留在 MJCF 一处（单一真源），本区块只声明归属与对照来源，**不复制数值**；逐机型「我方 vs 官方」对照登记在 00_know/03_参数真值标准.md。它不参与 bake_mjcf_physics 固化，也不属于物理真值唯一性门禁。"
+    }
+  }
 }
