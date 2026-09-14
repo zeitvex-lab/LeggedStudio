@@ -2,6 +2,7 @@
   "action_dim": 12,
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-kaiwu-moe-cts-8exp",
+  "aux_blobs": [],
   "contract_digest": "a1b90a02a0c11a7d2c16454d1c461313e771ae0fbdad51e071b1c1e2a515fd74",
   "declared_source": "kaiwu_rl RoboGauge 发布策略（训练源 go2_rl_gym legged_gym go2）",
   "history_len": 5,

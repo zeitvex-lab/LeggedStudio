@@ -2,6 +2,7 @@
   "action_dim": 29,
   "algorithm": null,
   "artifact_id": "unitree_g1__g1-dance-subject2",
+  "aux_blobs": [],
   "contract_digest": "0b9f7beb9a15d223be08498298fd08854bc34d4d94f3c0fe58423d6af5487536",
   "declared_source": "motion-tracking policy（内部研究部署包，无 LICENSE；policy.pt 经 tools/convert_policy.py 转 ONNX，154→29 已验证）",
   "history_len": 1,

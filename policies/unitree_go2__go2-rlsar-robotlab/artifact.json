@@ -2,6 +2,7 @@
   "action_dim": 12,
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-rlsar-robotlab",
+  "aux_blobs": [],
   "contract_digest": "e5ab652dd264efb2006583d8e5ca6a2ffbb9695528a69dc2370d9a1896b0ae03",
   "declared_source": "rl_sar policy/go2/robot_lab（Apache-2.0）——对应 robot_lab Go2 velocity 训练工程",
   "history_len": 1,

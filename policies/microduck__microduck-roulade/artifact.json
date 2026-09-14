@@ -2,6 +2,7 @@
   "action_dim": 14,
   "algorithm": null,
   "artifact_id": "microduck__microduck-roulade",
+  "aux_blobs": [],
   "contract_digest": "e6d4244171904322e22bd85135479de8eeba3f901254362acbe45f6173d51f5d",
   "declared_source": null,
   "history_len": null,

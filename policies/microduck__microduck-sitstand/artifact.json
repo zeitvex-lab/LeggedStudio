@@ -2,6 +2,7 @@
   "action_dim": 14,
   "algorithm": null,
   "artifact_id": "microduck__microduck-sitstand",
+  "aux_blobs": [],
   "contract_digest": "f5a88e01eb03a9702ac9c3f753b9ce9254999e48145088ef62bd7cd12efed783",
   "declared_source": null,
   "history_len": null,

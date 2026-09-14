@@ -124,3 +124,39 @@ async def get_training_run(task_id: str):
         "resolved_config": _read(RESOLVED_CONFIG_NAME),
         "environment_lock": _read(ENVIRONMENT_LOCK_NAME),
     }
+
+
+@router.post("/{task_id}/promote")
+async def promote_training_run(task_id: str, payload: dict[str, Any] | None = None):
+    """**L7「训练→导出→入库」的入库端点**：把一份已完成 Run 的导出产物收进出库。
+
+    显式动作（与 ``--write-baseline`` 同哲学）：训练完成不自动入库 —— 出库是产品决策，
+    不是训练的副作用。判据全取自 Run 档案：run.json（可追溯）/ status=completed /
+    exported/policy.onnx（worker ⑤ 的导出产物），任一不满足即 4xx 如实报因。
+    幂等：同一 run 重复入库覆盖同一 artifact_id（onnx 内容变了 hash 会变，如实反映）。
+    """
+    task = get_training_manager().get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    from backend.policy_artifacts import promote_from_run
+
+    artifact_id = None
+    if isinstance(payload, dict):
+        artifact_id = str(payload.get("artifact_id") or "") or None
+
+    def _run() -> dict[str, Any]:
+        return promote_from_run(task.task_dir, artifact_id=artifact_id)
+
+    try:
+        artifact = await run_in_threadpool(_run)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {
+        "success": True,
+        "task_id": task_id,
+        "artifact": artifact,
+        "index": "policies/index.json（produced 条目随 build_all 重建保留）",
+    }

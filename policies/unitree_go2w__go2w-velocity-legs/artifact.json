@@ -2,6 +2,7 @@
   "action_dim": 12,
   "algorithm": null,
   "artifact_id": "unitree_go2w__go2w-velocity-legs",
+  "aux_blobs": [],
   "contract_digest": "572849c8ba7e594158aee1e289b2f6121298aef5ab43f933d437826623e913e0",
   "declared_source": "unitree_rl_mjlab_go2w velocity_legs_only v0（12 腿位置 + 轮被动）",
   "history_len": 1,

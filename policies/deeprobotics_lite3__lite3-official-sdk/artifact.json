@@ -2,6 +2,7 @@
   "action_dim": 12,
   "algorithm": null,
   "artifact_id": "deeprobotics_lite3__lite3-official-sdk",
+  "aux_blobs": [],
   "contract_digest": "80a0f6039f0713c4ac589b1e5e2f3753fd45e406065ce4cbbec61f634d2b9fc2",
   "declared_source": "00_resources/sdk_deploy/src/Lite3_sdk_deploy/policy/policy.onnx（云深处官方部署包，Apache-2.0）；官方 run_policy/lite3_policy_runner.hpp 为部署协议权威",
   "history_len": 1,

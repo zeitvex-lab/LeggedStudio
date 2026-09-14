@@ -2,6 +2,7 @@
   "action_dim": 12,
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-backflip-69",
+  "aux_blobs": [],
   "contract_digest": "52dd5ca3a470d01526994503f58680d54b557ebe4421a271084ddb73c5e1eb39",
   "declared_source": "LeggedSkillDeploy go2_back_filp（第三方，无 LICENSE；仅内部研究）",
   "history_len": 1,

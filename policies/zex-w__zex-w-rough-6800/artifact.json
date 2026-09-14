@@ -2,6 +2,7 @@
   "action_dim": 16,
   "algorithm": null,
   "artifact_id": "zex-w__zex-w-rough-6800",
+  "aux_blobs": [],
   "contract_digest": "e28fb57fe4e87aa2e6eb03e0604b715227fdb45fda7ddf6144bd905a5cbcf503",
   "declared_source": null,
   "history_len": 1,

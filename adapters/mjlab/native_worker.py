@@ -127,23 +127,30 @@ def export_runner_policy_onnx(report: dict, env, runner, wrapped, rl_cfg, output
     if not joint_names and contract is not None:
         joint_names = [joint.name for joint in contract.joints.actuated_joints]
 
-    with torch.no_grad():
-        obs, _ = wrapped.reset()
-        if isinstance(obs, tuple):
-            obs = obs[0]
-        sample = obs.reshape(obs.shape[0], -1)[:1].to(device)
-        policy = runner.get_inference_policy(device=device)
-        export_path = Path(output) / "exported" / "policy.onnx"
-        export_path.parent.mkdir(parents=True, exist_ok=True)
-        torch.onnx.export(
-            policy,
-            sample,
-            str(export_path),
-            input_names=["obs"],
-            output_names=["action"],
-            dynamic_axes={"obs": {0: "batch"}, "action": {0: "batch"}},
-            opset_version=17,
-        )
+    export_path = Path(output) / "exported" / "policy.onnx"
+    export_path.parent.mkdir(parents=True, exist_ok=True)
+    if hasattr(runner, "export_policy_to_onnx"):
+        # mjlab runner 自带的导出器（与 checkpoint 包装器同一条已验证路径）：它自己提供
+        # dummy inputs / input_names。直接拿 wrapped.reset() 的观测喂 torch.onnx.export
+        # 会因 TensorDict 触发 bool 转换而失败（L7 首跑实测：
+        # "Converting a tensordict to boolean value is not permitted"）。
+        runner.export_policy_to_onnx(str(export_path.parent), export_path.name)
+    else:
+        with torch.no_grad():
+            obs, _ = wrapped.reset()
+            if isinstance(obs, tuple):
+                obs = obs[0]
+            sample = obs.reshape(obs.shape[0], -1)[:1].to(device)
+            policy = runner.get_inference_policy(device=device)
+            torch.onnx.export(
+                policy,
+                sample,
+                str(export_path),
+                input_names=["obs"],
+                output_names=["action"],
+                dynamic_axes={"obs": {0: "batch"}, "action": {0: "batch"}},
+                opset_version=17,
+            )
 
     metadata = build_deploy_metadata(env, rl_cfg, joint_names)
 
@@ -561,6 +568,10 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
     # Generic tasks are registered dynamically from the imported Robot Contract.
     # This path is opt-in so historical extension tasks remain untouched while
     # Web/CLI callers can train any valid MJCF asset without a robot-id branch.
+    # contract_path 在两条分支都要用：generic 分支必填，profile 分支的 checkpoint
+    # 元数据兜底也读它（_checkpoint_metadata 的默认参数）。此前只在 generic 分支赋值，
+    # profile 训练一到 wrap_runner_with_checkpoint_export 就 UnboundLocalError —— L7 首跑抓到。
+    contract_path = config.get("contract_path")
     profile_bundle = None
     if profile:
         profile_bundle = _load_profile_bundle(profile, package, config)
@@ -574,7 +585,6 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         config["native_task_id"] = profile_task_id
         config["profile_task"] = True
     if config.get("generic_task", True) and profile_bundle is None:
-        contract_path = config.get("contract_path")
         if not contract_path:
             raise ValueError("generic MJLab task requires contract_path")
         from contracts.robot_contract_v2 import RobotContractV2
@@ -761,7 +771,6 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                 model_path = candidates[-1] if candidates else model_path
             if model_path.exists() and not (output / "model_final.pt").exists():
                 shutil.copy2(model_path, output / "model_final.pt")
-            contract_path = config.get("contract_path")
             if model_path.exists() and contract_path:
                 from contracts.policy_artifact import TrainingMetrics, create_artifact_from_training
                 from contracts.robot_contract_v2 import RobotContractV2

@@ -2,6 +2,7 @@
   "action_dim": 29,
   "algorithm": null,
   "artifact_id": "unitree_g1__g1-velocity",
+  "aux_blobs": [],
   "contract_digest": "e6b8da3803a4faa5a9f08a6adf906be0d7f07bde1c8307c6cd0c1eb442851759",
   "declared_source": "unitree_rl_mjlab official velocity v0 export (deploy/robots/g1)",
   "history_len": 1,

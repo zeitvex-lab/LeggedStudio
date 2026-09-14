@@ -2,6 +2,7 @@
   "action_dim": 16,
   "algorithm": null,
   "artifact_id": "unitree_go2w__go2w-velocity-robotlab",
+  "aux_blobs": [],
   "contract_digest": "d842c666a0750b9cb3c01be1a5587be4826eaafc6c7231c5401795b746ac400c",
   "declared_source": "rl_sar policy/go2w/robot_lab（Apache-2.0，社区 IsaacLab 系训练基准）",
   "history_len": 1,

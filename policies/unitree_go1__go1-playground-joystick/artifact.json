@@ -2,6 +2,7 @@
   "action_dim": 12,
   "algorithm": null,
   "artifact_id": "unitree_go1__go1-playground-joystick",
+  "aux_blobs": [],
   "contract_digest": "680855e2f6574c5e6112280907e7ce1fa3a520dc1840e10cc6b75edde0490bb3",
   "declared_source": "mujoco_playground experimental/sim2sim onnx（Apache-2.0，官方 play_go1_joystick.py 取证）",
   "history_len": 1,
