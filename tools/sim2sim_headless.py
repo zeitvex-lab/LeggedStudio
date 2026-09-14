@@ -158,7 +158,19 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
     sim_cfg = json.loads((package_dir / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
     policies = sim_cfg.get("policies") or []
     policy_path = package_dir / policy_rel
-    entry = next((p for p in policies if str(p.get("path", "")).endswith(policy_path.name)), {})
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from backend.policy_artifacts import policy_relative_path
+
+    # 条目匹配：先按 id（`--policy <id>` 的用法），再按解析出的相对路径文件名（`--policy <file>`）。
+    entry = next(
+        (
+            p for p in policies
+            if p.get("id") == policy_path.stem
+            or str(policy_relative_path(p, robot_dir=package_dir) or "").endswith(policy_path.name)
+        ),
+        {},
+    )
     contract = engine.PackageContract(package_dir, entry)
     contract.motion_loader = engine.load_motion_loader(contract, package_dir)
 
@@ -327,8 +339,14 @@ def main() -> int:
             continue
         sim_cfg = json.loads((pkg / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
         entries = list(sim_cfg.get("policies") or [])
+        # B10 之后声明只留 `id`（源路径与 hash 都在 policies/index.json），故必须走解析器。
+        # 早期版本在此读 entry["path"]：迁移删掉裸路径后，**每条策略都会被跳过**（total 恒为 0）。
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
+        from backend.policy_artifacts import policy_relative_path
+
         for entry in entries:
-            rel = str(entry.get("path") or "")
+            rel = policy_relative_path(entry, robot_dir=pkg) or ""
             if not rel:
                 continue
             if args.policy and args.policy not in (entry.get("id"), Path(rel).name):
