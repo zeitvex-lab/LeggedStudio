@@ -448,6 +448,7 @@
       "history_len": 6,
       "source": "LeggedSkillDeploy policy/issacgym/go2w/go2w_himloco（第三方，无 LICENSE；仅内部研究）——对应 HIMLoco 训练工程",
       "contract": {
+        "steady_height_policy": "self_stability",
         "observation_kind": "go2w_himloco_57",
         "obs_dim": 57,
         "action_dim": 16,
@@ -774,6 +775,7 @@
       "history_len": 6,
       "source": "LeggedSkillDeploy policy/issacgym/go2w/go2w_himloco（第三方，无 LICENSE；仅内部研究）——对应 HIMLoco 训练工程",
       "contract": {
+        "steady_height_policy": "self_stability",
         "observation_kind": "go2w_himloco_57",
         "obs_dim": 57,
         "action_dim": 16,
