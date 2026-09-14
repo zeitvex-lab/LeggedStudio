@@ -210,9 +210,10 @@ async def create_training(
                 )
             config["overrides"] = point_report["applied"]
 
-        # **E8 冒烟前置门**：未过冒烟不能长训。证据＝同输入指纹的冒烟 Run（见
-        # backend/training/smoke_gate.py）。放在请求层而非 create_task：`smoke_preset`
-        # 的语义只在这里存在，且直接调 manager 的调用方（测试/脚本）不该被门拦住。
+        # **E8 冒烟前置门**：未过冒烟不能长训。证据＝同配置（除规模三元组外逐键
+        # 一致，规范化摘要比对）的已完成冒烟 Run（见 backend/training/smoke_gate.py）。
+        # 放在请求层而非 create_task：`smoke_preset` 的语义只在这里存在，且直接调
+        # manager 的调用方（测试/脚本）不该被门拦住。
         from backend.training import smoke_gate
         from backend.training.runs import run_inputs_from_task
 
@@ -222,8 +223,14 @@ async def create_training(
         )
         run_inputs = run_inputs_from_task(contract_hash=contract_hash, config=config)
         smoke = smoke_gate.check(
-            digest=run_inputs["digest"], config=config,
-            candidates=[(task.status, task.task_dir) for task in manager.tasks.values()],
+            inputs=run_inputs, config=config,
+            # 证据的权威事实在磁盘（status.json）：TrainingTask.status 属性只在创建时
+            # 置 running，worker 完成后无人回写 —— 同进程里刚跑完的冒烟会被 stale
+            # 属性误判成 running，门就永远找不到证据。读盘为准，内存值兜底（无档案时）。
+            candidates=[
+                (task.get_status_info().get("status") or task.status, task.task_dir)
+                for task in manager.tasks.values()
+            ],
         )
         if smoke["required"] and not smoke["ok"]:
             raise HTTPException(
