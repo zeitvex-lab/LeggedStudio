@@ -224,3 +224,59 @@ async def training_profile_schema(robot_id: str, profile_id: str):
         },
         "cached": False,
     }
+
+
+def cached_param_catalog(profile_id: str) -> list[dict[str, Any]] | None:
+    """从 schema 缓存取参数目录；**没有缓存返回 None**（不在这里触发 dump）。
+
+    E6 的门需要目录才能判"未知路径"，但**不能把一次请求变成几十秒的阻塞**
+    （dump 要起 worker 进程）。所以：有缓存就严判，没缓存就退回静态只读表
+    （见 `backend/training/dot_path.py` 的 ``STATIC_READONLY``）——"不能改物理"
+    这条事实不依赖目录。
+    """
+    try:
+        cached = json.loads(_schema_cache_path(profile_id).read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    schema = cached.get("schema") if isinstance(cached, dict) else None
+    if not isinstance(schema, dict):
+        return None
+    try:
+        from adapters.mjlab.param_descriptors import resolve_params
+
+        return resolve_params(schema)
+    except Exception:  # noqa: BLE001  adapter 不可用不该让门变成 500
+        return None
+
+
+@router.post("/validate-overrides")
+async def validate_training_overrides(payload: dict[str, Any]) -> dict[str, Any]:
+    """**E6 专家模式**：校验一批点路径覆盖 —— 未知路径 / 只读项 / 类型不符 **一律拒**。
+
+    返回 ``{ok, applied, details, problems, catalog}``；``ok=False`` 时前端**整批拒绝**
+    （`applied` 仅供展示，不得写入）。目录优先用缓存（秒级）；缓存缺失时用静态只读表兜底，
+    并在 ``catalog`` 字段如实说明 —— 不假装"什么都查过了"。
+    """
+    robot_id = str(payload.get("robot_id") or "")
+    profile_id = str(payload.get("profile_id") or "")
+    edits = payload.get("overrides") or {}
+    if not isinstance(edits, dict) or not edits:
+        raise HTTPException(status_code=400, detail="overrides 必须是非空对象（dot-path → value）")
+    if not robot_id or not profile_id:
+        raise HTTPException(status_code=400, detail="需要 robot_id 与 profile_id（参数目录按档案解析）")
+
+    from backend.training.dot_path import validate_edits
+
+    catalog = cached_param_catalog(profile_id)
+    report = validate_edits(edits, catalog=catalog)
+    return {
+        "success": True,
+        **report,
+        "robot_id": robot_id,
+        "profile_id": profile_id,
+        "catalog": "full" if catalog else "static_only",
+        "catalog_note": None if catalog else (
+            "参数目录尚未生成（schema 缓存为空）：已按**静态只读表**判过物理/契约类，"
+            "但无法判「未知路径」。在训练页选中该档案（或访问 /api/training/schema）即可生成缓存。"
+        ),
+    }
