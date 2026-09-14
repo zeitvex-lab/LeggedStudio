@@ -202,20 +202,26 @@ class ReferenceTest(unittest.TestCase):
             )
 
     def test_relative_path_is_none_when_blob_lives_outside_package(self):
-        """包外的 blob（如 web/sim2sim/models/）不该被编出一个"包内相对路径"。"""
+        """包外的 blob 不该被编出一个"包内相对路径"（否则会产出一个取不到文件的 URL）。
+
+        注意：这里用**包内相对路径能表达、但目标在包外**的形式（``../models/x.onnx``）验证。
+        不能用 ``/web/sim2sim/models/`` 那种绝对形式 —— 它是相对**仓库根**解析的，
+        临时目录里永远解析不到，测的就不是这个属性了。
+        """
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            robot_dir = root / "assets" / "robots" / "go2"
-            elsewhere = root / "web" / "sim2sim" / "models"
-            elsewhere.mkdir(parents=True)
-            (elsewhere / "x.onnx").write_bytes(b"blob")
+            robot_dir = root / "robots" / "go2"
+            (robot_dir / "simulation").mkdir(parents=True)
+            outside = root / "models"
+            outside.mkdir()
+            (outside / "x.onnx").write_bytes(b"blob")
             declaration = {
                 "robot_dir": str(robot_dir),
-                "url": "/web/sim2sim/models/x.onnx",
+                "path": "../models/x.onnx",
                 "robot": "go2", "policy_id": "x",
             }
-            self.assertIsNotNone(pa.policy_blob_path(declaration))
-            self.assertIsNone(pa.policy_relative_path(declaration, robot_dir=robot_dir))
+            self.assertIsNotNone(pa.policy_blob_path(declaration))       # 能解析到文件
+            self.assertIsNone(pa.policy_relative_path(declaration, robot_dir=robot_dir))  # 但不在包内
 
     def test_reference_gaps_lists_unmigrated_declarations(self):
         with tempfile.TemporaryDirectory() as tmp:
