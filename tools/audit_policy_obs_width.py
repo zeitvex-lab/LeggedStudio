@@ -140,8 +140,10 @@ def audit() -> dict:
                 if policy_dim and enc_width is not None and policy_dim * frames == enc_width:
                     policy_verdict = "encoder_consistent"
                     break
-        # 包级块只是"标准单帧布局"：策略级声明能解释的，就不算包级的错。
-        if verdict["kind"] == "mismatch" and policy_verdict == "consistent":
+        # 包级块只是"标准单帧布局"：**策略级声明能解释的，就不算包级的错**。
+        # encoder 架构尤其要放行：包级 30（obs 单帧）与策略输入 36（obs+latent+command）
+        # 本来就不同 —— 拿包级去比策略输入是假警报。
+        if verdict["kind"] == "mismatch" and policy_verdict in ("consistent", "encoder_consistent"):
             verdict = {"kind": "policy_explained", "frames": frames}
         rows.append({**base, "width": width, "inputs": len(shapes), **verdict,
                      "policy_verdict": policy_verdict})
