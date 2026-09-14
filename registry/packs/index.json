@@ -1,0 +1,11 @@
+{
+  "schema": "resource-pack-index-1.0",
+  "generated_at": "2026-09-14",
+  "note": "资源包显式清单（E5）。K4 口径：**清单是权威**——文件存在但未登记即为未注册；清单声明了却不存在则报错。path 相对本文件所在目录。挂载/卸载与校验见 backend/resource_packs.py。",
+  "packs": [
+    {"pack_id": "dreamwaq_blind", "path": "dreamwaq_blind.json", "label": "盲走资源包（DreamWaQ 全家）"},
+    {"pack_id": "imitation_amp", "path": "imitation_amp.json", "label": "模仿三线（DeepMimic / AMP / teacher→student）"},
+    {"pack_id": "perception_obs", "path": "perception_obs.json", "label": "感知观测项（A 类：进观测）"},
+    {"pack_id": "perception_external", "path": "perception_external.json", "label": "外部感知 provider（B 类：策略之外）"}
+  ]
+}

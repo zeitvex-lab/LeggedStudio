@@ -1,0 +1,25 @@
+{
+  "schema": "resource-pack-1.0",
+  "pack_id": "dreamwaq_blind",
+  "label": "盲走资源包（DreamWaQ 全家）",
+  "purpose": "盲走（无外部感知）所需的最小观测集：本体速度与重力由状态估计器/关节速度代理/历史帧还原三选一提供，**不引入任何外部传感器观测项**。挂上它就得到一条能跑的盲走配置；卸下它不会动到手写的同名字段。",
+  "mounts": {
+    "observations": ["base_lin_vel", "base_ang_vel", "projected_gravity", "joint_pos", "joint_vel", "foot_contact"],
+    "reward_terms": ["tracking_lin_vel", "tracking_ang_vel", "orientation", "upright", "torques", "action_rate"],
+    "params": {
+      "obs_source": "estimator",
+      "history_len": 1
+    }
+  },
+  "obs_dim_delta": 37,
+  "calibration": "obs_source 三选一（estimator / proxy / history）见 backend/perception_observations.py 的 OBS_SOURCE_CHOICES。",
+  "evidence": {
+    "observations": "backend/perception_observations.py（观测项目录与宽度：3+3+3+12+12+4 = 37）",
+    "reward_terms": "registry/rewards/reward_terms.json（supported=true 的项）",
+    "sources": [
+      "00_resources/Dreamwaq/（盲走原方法：状态估计器 + 历史编码）",
+      "00_resources/HIMLoco/（历史帧还原一路）",
+      "registry/skills/velocity_base.json（基座配方）"
+    ]
+  }
+}

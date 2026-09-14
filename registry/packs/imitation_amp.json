@@ -1,0 +1,28 @@
+{
+  "schema": "resource-pack-1.0",
+  "pack_id": "imitation_amp",
+  "label": "模仿三线（DeepMimic / AMP / teacher→student）",
+  "purpose": "模仿族共享的那部分：与盲走同档的观测集 ＋ 风格奖励开关。**判别器与蒸馏实现属 runner（adapter）**，包内只放声明——按重构方案 §2.3 第 2 条，算法实现不内联进配置。",
+  "mounts": {
+    "observations": ["base_lin_vel", "base_ang_vel", "projected_gravity", "joint_pos", "joint_vel"],
+    "reward_terms": ["orientation", "upright", "torques", "action_rate"],
+    "params": {
+      "style_weight": 1.0,
+      "motion_ref_required": true
+    }
+  },
+  "obs_dim_delta": 33,
+  "calibration": "style_weight 是初值（calibration=pending）：模仿族的权重必须按参考动作与任务标定后才可当验收判据。",
+  "requires": [
+    "motion 参考数据（外部数据；按重构方案 §2.3 第 6 条只以 motion_ref 引用、不进包体）——仓内 motion 注册表尚未建立，缺失时挂载会失败并明确报出"
+  ],
+  "evidence": {
+    "observations": "backend/perception_observations.py（3+3+3+12+12 = 33）",
+    "reward_terms": "registry/rewards/reward_terms.json（style 层见 adapters/mjlab/reward_layers.py）",
+    "sources": [
+      "00_resources/AMP_mjlab/（AMP 判别器与风格奖励）",
+      "00_resources/MGDP/、00_resources/unitree_rl_mjlab/（teacher→student 蒸馏）",
+      "00_know/02_最终愿景.md §训练任务（模仿三线）"
+    ]
+  }
+}
