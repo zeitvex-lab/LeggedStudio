@@ -118,8 +118,12 @@ async def create_training(
         num_envs = request.num_envs
         max_iterations = request.max_iterations
         if request.smoke:
-            num_envs = min(num_envs, 64)
-            max_iterations = min(max_iterations, 5)
+            from backend.training import smoke_gate
+
+            # 常量与冒烟前置门**同源**（smoke_gate.SMOKE_MAX_*）：两处各自写字面量
+            # 迟早会漂成"冒烟档定义了 64×5、门却按别的规模判"。
+            num_envs = min(num_envs, smoke_gate.SMOKE_MAX_ENVS)
+            max_iterations = min(max_iterations, smoke_gate.SMOKE_MAX_ITERS)
 
         # 准备配置
         config = {
@@ -185,8 +189,28 @@ async def create_training(
             if compatibility["status"] == "unknown":
                 raise HTTPException(status_code=501, detail={"message": "active MJLab runtime version could not be verified for the selected robot package", "compatibility": compatibility, "preflight": native})
 
-        # 创建任务
+        # **E8 冒烟前置门**：未过冒烟不能长训。证据＝同输入指纹的冒烟 Run（见
+        # backend/training/smoke_gate.py）。放在请求层而非 create_task：`smoke_preset`
+        # 的语义只在这里存在，且直接调 manager 的调用方（测试/脚本）不该被门拦住。
+        from backend.training import smoke_gate
+        from backend.training.runs import run_inputs_from_task
+
         manager = get_training_manager()
+        contract_hash = (
+            contract.compute_hash() if hasattr(contract, "compute_hash") else str(contract)
+        )
+        run_inputs = run_inputs_from_task(contract_hash=contract_hash, config=config)
+        smoke = smoke_gate.check(
+            digest=run_inputs["digest"], config=config,
+            candidates=[(task.status, task.task_dir) for task in manager.tasks.values()],
+        )
+        if smoke["required"] and not smoke["ok"]:
+            raise HTTPException(
+                status_code=409,
+                detail={"message": smoke["reason"], "smoke_gate": smoke},
+            )
+
+        # 创建任务
         task_id = manager.create_task(
             contract=contract,
             config=config,
@@ -196,6 +220,7 @@ async def create_training(
         return {
             "success": True,
             "task_id": task_id,
+            "smoke_gate": smoke,
             "message": "Training task created successfully"
         }
 
