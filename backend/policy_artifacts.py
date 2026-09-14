@@ -124,6 +124,10 @@ def scan_declarations(robots_dir: Path | str = ROBOTS_DIR) -> list[dict[str, Any
                     "kind": section,
                     "label": entry.get("label") or entry.get("name") or policy_id,
                     "declared": declared,
+                    # 两种原始形式都保留：有的声明 `path` 在包内、`url` 指向 web 静态目录，
+                    # 只留一个就会解析失败（go2-baseline-164k 正是这种）。
+                    "path": entry.get("path"),
+                    "url": entry.get("url"),
                     "onnx": resolve_declared_onnx(
                         robot_dir, entry.get("path") or "", entry.get("url") or "",
                     ),
