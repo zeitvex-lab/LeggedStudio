@@ -9,7 +9,7 @@
     "path": "assets/robots/wuji_hand/model/robot.xml",
     "hash": "",
     "total_mass_kg": 0.5266,
-    "mass_source": "mjcf-sum"
+    "mass_source": "mjcf_compiled"
   },
   "joints": {
     "actuated_joints": [

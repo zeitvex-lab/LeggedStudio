@@ -9,7 +9,7 @@
     "path": "assets/robots/unitree_go2w/model/robot.xml",
     "hash": "1d67ebaf49f046d6e5e8991c83423688ca231ad60535ef1802da7bd8d947e4c4",
     "total_mass_kg": 19.126,
-    "mass_source": "mjcf_inertial_sum",
+    "mass_source": "mjcf_compiled",
     "mesh_files": [
       "base_0.obj",
       "base_1.obj",

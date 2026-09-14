@@ -9,7 +9,7 @@
     "path": "assets/robots/limx_tron1_wf/model/robot.xml",
     "hash": "",
     "total_mass_kg": 22.273,
-    "mass_source": "manual"
+    "mass_source": "mjcf_compiled"
   },
   "joints": {
     "actuated_joints": [
@@ -23,16 +23,49 @@
       "wheel_R_Joint"
     ],
     "passive_joints": [],
-    "default_pose": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    "default_pose": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
     "joint_limits_rad": {
-      "abad_L_Joint": [-0.38397, 1.39626],
-      "hip_L_Joint": [-1.01229, 1.39626],
-      "knee_L_Joint": [-0.872665, 1.36136],
-      "wheel_L_Joint": [-1000000, 1000000],
-      "abad_R_Joint": [-1.39626, 0.38397],
-      "hip_R_Joint": [-1.39626, 1.01229],
-      "knee_R_Joint": [-1.36136, 0.872665],
-      "wheel_R_Joint": [-1000000, 1000000]
+      "abad_L_Joint": [
+        -0.38397,
+        1.39626
+      ],
+      "hip_L_Joint": [
+        -1.01229,
+        1.39626
+      ],
+      "knee_L_Joint": [
+        -0.872665,
+        1.36136
+      ],
+      "wheel_L_Joint": [
+        -1000000,
+        1000000
+      ],
+      "abad_R_Joint": [
+        -1.39626,
+        0.38397
+      ],
+      "hip_R_Joint": [
+        -1.39626,
+        1.01229
+      ],
+      "knee_R_Joint": [
+        -1.36136,
+        0.872665
+      ],
+      "wheel_R_Joint": [
+        -1000000,
+        1000000
+      ]
     }
   },
   "observation": {

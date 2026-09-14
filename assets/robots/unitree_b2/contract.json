@@ -9,7 +9,7 @@
     "path": "assets/robots/unitree_b2/model/robot.xml",
     "hash": "",
     "total_mass_kg": 83.498,
-    "mass_source": "manual"
+    "mass_source": "mjcf_compiled"
   },
   "joints": {
     "actuated_joints": [

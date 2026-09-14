@@ -101,7 +101,7 @@ def merge_v3_over_v2(v3: dict[str, Any] | None, v2: dict[str, Any] | None) -> di
         base["size_class"] = derived_size.value
 
     # 4) mass_source：真值是 morphology.mass_source（类型化枚举 mjcf_compiled|urdf_inertial）；
-    #    v2 的 urdf.mass_source 是自由文本（manual/estimated/mj_model/mjcf-sum/
+    #    v2 的 urdf.mass_source 历史上是自由文本（manual/estimated/mj_model/mjcf-sum/
     #    mjcf_inertial_sum），保留为**投影**供 v2 消费方读取，使其与真值不再可能分歧。
     if morphology.get("mass_source"):
         urdf["mass_source"] = morphology["mass_source"]
