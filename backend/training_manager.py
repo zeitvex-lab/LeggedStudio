@@ -230,6 +230,17 @@ class TrainingManager:
                 encoding="utf-8",
             )
 
+        # B9 Run 一等对象：四件套在**启动训练之前**落盘（fail-closed）。
+        # 档案写不出来就不开训 —— 否则会产出一份无法回溯的 Run；此时 worker 还没起，
+        # 拦下来的代价为零。（task_dir 即 Run 目录，run_id 即 task_id）
+        from backend.training.runs import create_run_for_task
+
+        run_record = create_run_for_task(task_dir, contract=contract, config=config, task=task_id)
+        print(
+            f"[Manager] Run archive: {run_record.run_id} "
+            f"digest={run_record.inputs_digest[:12]} lock={Path(run_record.environment_lock_path).name}"
+        )
+
         # 创建任务对象
         task = TrainingTask(
             task_id=task_id,
