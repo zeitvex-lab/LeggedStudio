@@ -1,0 +1,30 @@
+{
+  "schema_version": "reward-conflicts-1.0",
+  "description": "奖励项的经典冲突（E3）：结构性冲突写在这个清单里，由 backend/training/reward_catalog.py 计算并在编辑器里提示。冲突**不是错误**（有时就是要这么配），但必须**看得见** —— 否则训练曲线会给出一个看似合理、实为目标打架的结果。",
+  "conflicts": [
+    {
+      "id": "tracking_weight_high",
+      "kind": "scale",
+      "display_name": "大 tracking 权重 → 暴力追踪、机身抖动",
+      "check": "tracking_dominates",
+      "note": "追踪项一枝独秀时，策略会用大幅摆动/瞬时冲刺去换速度误差下降 —— 曲线好看、真机抖。经验阈值：最大正权重 > 5× 第二大的正权重项。",
+      "evidence": "00_know/02_最终愿景.md §训练任务（三组经典冲突之一）"
+    },
+    {
+      "id": "contact_penalty_early",
+      "kind": "scale",
+      "display_name": "早期严罚接触 → 学会不动",
+      "check": "contact_penalty_dominates",
+      "note": "把节律/接触类当罚项且罚得比目标还重，策略最省事的解法是**站着不动**（不动就不被罚）。",
+      "evidence": "00_know/02_最终愿景.md §训练任务（三组经典冲突之一）"
+    },
+    {
+      "id": "tracking_vs_style",
+      "kind": "family_target",
+      "display_name": "速度跟踪 与 模仿风格（Style）互斥",
+      "check": "tracking_with_style",
+      "note": "一个要求服从速度命令、一个要求复现参考动作 —— 同时当成主目标会互相拆台（仓里这两类本来就分族：velocity vs imitation）。",
+      "evidence": "00_know/02_最终愿景.md §训练任务（四层分组）；tools/audit_policy_families.py 的族划分"
+    }
+  ]
+}

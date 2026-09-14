@@ -1,0 +1,123 @@
+"""E4：观测/动作映射板 —— 判据「**维度不符即时报错**」+ 观测五元组可视化。
+
+五元组（重构方案 §5.1）：`(source, role[actor|critic|teacher|student], history, encoder,
+deployment_available)`；**部署观测 = 过滤 `deployment_available=true ∧ role=actor`**。
+
+`RealBoardCharacterizationTest` 里的数字是**特征化测试**（characterization test）：
+它锁住的是"映射板**如实报出**了什么"，而不是"一切都干净"。等那 3 份契约补齐五元组、
+11 份补上组件声明，这两个数字就该被改小 —— **改不动它，就说明缺口还在**。
+"""
+
+import json
+import pathlib
+import unittest
+
+from backend.training import obs_board as ob
+
+ROBOTS = pathlib.Path(__file__).resolve().parents[1] / "assets" / "robots"
+
+
+def _load(robot: str) -> dict:
+    return json.loads((ROBOTS / robot / "contract_v3.json").read_text(encoding="utf-8-sig"))
+
+
+def _synthetic(*, components: list | None = None, dimension: int | None = None,
+               order: list | None = None, actuated: list | None = None) -> dict:
+    return {
+        "robot_id": "synthetic",
+        "observation": {"components": components, "dimension": dimension},
+        "action": {"joint_order": order or [], "action_scale": 0.25},
+        "joints": {"actuated": [{"name": name} for name in (actuated or [])]},
+    }
+
+
+def _full_component(**overrides) -> dict:
+    base = {"id": "c", "width": 3, "source": "imu", "role": "actor",
+            "history": 1, "encoder": None, "deployment_available": True}
+    base.update(overrides)
+    return base
+
+
+class FiveTupleTest(unittest.TestCase):
+    def test_missing_fields_are_reported_with_the_component_id(self):
+        """缺字段必须**点名报出**：缺的字段会一路传到部署侧，不能等部署时才发现。"""
+        board = ob.observation_board(
+            _synthetic(components=[{"id": "base_ang_vel", "width": 3}], dimension=3),
+        )
+        row = board["components"][0]
+        self.assertEqual(["source", "role", "history", "encoder", "deployment_available"],
+                         row["missing_fields"])
+        self.assertTrue(any("base_ang_vel" in item and "五元组缺字段" in item
+                            for item in board["problems"]))
+
+    def test_complete_five_tuple_yields_deployment_dimension(self):
+        """部署宽度＝`deployment_available ∧ role=actor` 的宽度之和（critic/特权项不进部署）。"""
+        components = [
+            _full_component(id="base_ang_vel", width=3),
+            _full_component(id="privileged", width=5, role="critic",
+                            deployment_available=False),
+        ]
+        board = ob.observation_board(_synthetic(components=components, dimension=8))
+        self.assertEqual([], board["problems"])
+        self.assertEqual(8, board["components_total"])
+        self.assertEqual(3, board["deployment_dimension"])
+
+    def test_width_mismatch_is_an_error(self):
+        board = ob.observation_board(_synthetic(components=[_full_component(width=3)], dimension=99))
+        self.assertTrue(any("维度不符即时报错" in item for item in board["problems"]))
+
+    def test_undeclared_components_are_said_out_loud_not_faked(self):
+        """没声明组件就**说没声明**，不拿 dimension 假充组件之和（不编数据）。"""
+        board = ob.observation_board(_synthetic(components=[], dimension=48))
+        self.assertEqual(0, board["components_declared"])
+        self.assertIsNone(board["components_total"])
+        self.assertIsNone(board["deployment_dimension"])
+        self.assertIn("未声明", board["note"])
+
+
+class ActionBoardTest(unittest.TestCase):
+    def test_unknown_and_missing_joints_are_reported(self):
+        board = ob.action_board(_synthetic(
+            order=["A", "B", "Z"], actuated=["A", "B", "C"],
+        ))
+        self.assertEqual(["Z"], board["unknown_in_order"])
+        self.assertEqual(["C"], board["missing_from_order"])
+        self.assertEqual(2, len(board["problems"]))
+
+    def test_every_real_contract_has_consistent_action_mapping(self):
+        """**真实仓不变量**：14 个机型的 `joint_order` 与驱动关节一一对应（实测 0 问题）。"""
+        problems = {}
+        for path in sorted(ROBOTS.glob("*/contract_v3.json")):
+            report = ob.action_board(json.loads(path.read_text(encoding="utf-8-sig")))
+            if report["problems"]:
+                problems[path.parent.name] = report["problems"]
+        self.assertEqual({}, problems)
+
+
+class RealBoardCharacterizationTest(unittest.TestCase):
+    """**特征化测试**：锁住映射板当前如实报出的缺口（补上后这两个数字要改小）。"""
+
+    @staticmethod
+    def _scan() -> tuple[set[str], set[str]]:
+        without_components: set[str] = set()
+        missing_fields: set[str] = set()
+        for path in sorted(ROBOTS.glob("*/contract_v3.json")):
+            robot = path.parent.name
+            report = ob.board(json.loads(path.read_text(encoding="utf-8-sig")))
+            if report["observations"]["components_declared"] == 0:
+                without_components.add(robot)
+            if report["observations"]["problems"]:
+                missing_fields.add(robot)
+        return without_components, missing_fields
+
+    def test_gap_is_reported_not_hidden(self):
+        without_components, missing_fields = self._scan()
+        # 11 个机型只声明了宽度、没声明组件（板子如实说"未声明"，不编）
+        self.assertEqual(11, len(without_components))
+        # 3 个机型声明了组件但缺五元组字段（板子点名报出）
+        self.assertEqual({"deeprobotics_lite3", "deeprobotics_m20", "unitree_b2"}, missing_fields)
+        self.assertEqual(set(), without_components & missing_fields, "两类缺口互斥")
+
+
+if __name__ == "__main__":
+    unittest.main()

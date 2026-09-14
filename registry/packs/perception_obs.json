@@ -1,0 +1,22 @@
+{
+  "schema": "resource-pack-1.0",
+  "pack_id": "perception_obs",
+  "label": "感知观测项（A 类：进观测）",
+  "purpose": "把**外部传感器观测**装进策略输入（A 类）。与 B 类（外部 provider，策略之外）严格分开——这是本仓既有的分层口径：A 类进观测、B 类在策略外。",
+  "mounts": {
+    "observations": ["heightfield", "foot_contact", "contact_force", "joint_torque"],
+    "params": {
+      "terrain_scan": true
+    }
+  },
+  "obs_dim_delta": 207,
+  "calibration": "heightfield 的网格（17×11 / 0.1 m / 187 维，x 主序、机身系）是 B 类感知与训练观测的**同一份**网格契约，见 backend/height_scan.py 的逐格对齐回归。",
+  "evidence": {
+    "observations": "backend/perception_observations.py（187+4+4+12 = 207）",
+    "sources": [
+      "backend/perception_observations.py（观测项登记与网格 meta）",
+      "backend/height_scan.py（187 点网格契约 + 两条取数链路）",
+      "00_know/90_归档/参考项目_MATRiX价值评估.md（heightfield 宽度 180→187 的修正依据）"
+    ]
+  }
+}

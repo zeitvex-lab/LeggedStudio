@@ -244,9 +244,13 @@ async def create_comparison(request: CompareTrainingRequest):
 
 @router.get("/options")
 async def training_options():
+    from backend.skill_registry import list_skills
+
     return {
         "algorithms": list_algorithms(),
         "reward_terms": get_reward_terms(),
+        # E2：技能列表也进 options —— 训练页开箱即拿到数据源，不必另发一次请求
+        "skills": list_skills(),
         "tasks": list_tasks(),
         "hardware": await training_hardware(),
         # 框架选择：由 BackendAdapter 注册表（adapters/backend_adapter.py）单一事实源输出。
@@ -257,6 +261,71 @@ async def training_options():
             for desc in list_backend_descriptors()
         ],
     }
+
+@router.get("/board/{robot_id}")
+async def training_obs_board(robot_id: str):
+    """**E4**：观测/动作映射板 —— 五元组 + 声明宽度 + 动作槽位，**维度不符即时报错**。
+
+    只读契约声明（控制面安全：不 import torch/mjlab），所以没有 GPU 也能画板子，
+    也能在开训前就把维度问题拦下来。
+    """
+    import json
+
+    from backend.policy_artifacts import ROBOTS_DIR
+    from backend.training.obs_board import board
+
+    path = ROBOTS_DIR / robot_id / "contract_v3.json"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"robot package {robot_id} not found")
+    contract = json.loads(path.read_text(encoding="utf-8-sig"))
+    return {"success": True, **board(contract)}
+
+
+@router.get("/skills")
+async def training_skills():
+    """**E2**：技能选择器的数据源 —— `registry/skills` 的显式清单（base + patches）。
+
+    技能列表**来自数据而非硬编码**：清单是权威（K4），`role` / `patch_of` 让前端能画出
+    「基座 + 覆盖」的关系，而不是一堆平铺的名字。
+    """
+    from backend.skill_registry import list_skills, skill_manifest
+
+    manifest = skill_manifest()
+    entries = {str(item["recipe_id"]): dict(item) for item in manifest["skills"]}
+    skills = []
+    for summary in list_skills():
+        entry = entries.get(str(summary["recipe_id"]), {})
+        skills.append({
+            **summary,
+            "role": entry.get("role"),
+            "patch_of": entry.get("patch_of"),
+            "summary": entry.get("summary"),
+            "path": entry.get("path"),
+        })
+    return {"success": True, "schema": manifest.get("schema"), "skills": skills,
+            "available": sorted(entries)}
+
+
+@router.get("/reward-catalog")
+async def training_reward_catalog():
+    """**E3**：奖励目录 —— 四层分组（Tracking/Regularization/Style/Contact）+ 每项中文名/说明/
+    默认值/supported + **三组经典冲突清单**（冲突是数据，判定是代码）。"""
+    from backend.training.reward_catalog import catalog
+
+    return {"success": True, **catalog()}
+
+
+@router.post("/reward-conflicts")
+async def training_reward_conflicts(weights: dict[str, float]):
+    """给一份权重表，报出**命中的经典冲突**。
+
+    只报不拦：冲突常常是刻意的（对比实验），拦下来反而挡住探索；但**必须看得见** ——
+    否则训练曲线会给出一个"看似合理、实为目标打架"的结果。
+    """
+    from backend.training.reward_catalog import check_conflicts
+
+    return {"success": True, "conflicts": check_conflicts(weights)}
+
 
 @router.post("/resolve-recipe")
 async def resolve_training_recipe(config: dict):

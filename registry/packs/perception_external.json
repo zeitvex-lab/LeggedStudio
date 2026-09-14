@@ -1,0 +1,24 @@
+{
+  "schema": "resource-pack-1.0",
+  "pack_id": "perception_external",
+  "label": "外部感知 provider（B 类：策略之外）",
+  "purpose": "把**外部感知 provider** 挂进场景（B 类）：它们在策略之外产出结构化判定（如地形分类/视觉停靠），供上层决策或任务编排使用，**不改变策略输入宽度**。",
+  "mounts": {
+    "providers": ["terrain_classifier"],
+    "params": {
+      "perception_route": "external"
+    }
+  },
+  "obs_dim_delta": 0,
+  "requires_optional_dependency": [
+    "ground_truth_heightfield（内置射线高度场；用外部雷达点云时另需点云链路）"
+  ],
+  "calibration": "provider 自带 calibration=pending（阈值初值），见 registry/perception_providers/index.json。",
+  "evidence": {
+    "providers": "registry/perception_providers/index.json（entry_point 范式：provider_id → module:Class）",
+    "sources": [
+      "registry/perception_providers/index.json（route=external 的 B 类口径）",
+      "backend/height_scan.py（provider 的输入：187 维高度扫描）"
+    ]
+  }
+}
