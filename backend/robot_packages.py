@@ -586,6 +586,54 @@ def remove_package(robot_id: str) -> bool:
     return True
 
 
+def sync_referenced_blobs(shipped_dir: Path, target_dir: Path) -> list[str]:
+    """把副本 ``simulation/config.json`` **引用的**、却在副本里缺失的文件从源包补上。
+
+    为什么按"引用"补、而不是按目录补：`deploy/` 这类目录**不在** ``simulation/`` 下，
+    C6 的"补缺"规则覆盖不到它 —— 而 policy 的 ``path`` 完全可以指向那里
+    （``wuji_hand`` 就是 `deploy/reorient-v2026.5.29/policy.onnx`）。结果副本留下
+    "config 指向一个不存在的 onnx"：**运行时就 404**，发布门禁（``scripts/release-check.js``
+    的 workspace 段）也会红。按引用补 = 恰好补到"能让 config 自洽"的那几个文件，
+    既不搬整棵运行产物目录，也不漏。
+
+    安全：只接受**相对路径**且不含 ``..``（副本可能来自历史/外部，路径不可信）；
+    **源包也没有的文件不伪造** —— 照样缺着，让门禁与运行时如实报出来。
+    返回补齐的相对路径列表。
+    """
+    import shutil
+
+    config_path = target_dir / "simulation" / "config.json"
+    if not config_path.is_file():
+        return []
+    config = _read_json(config_path)
+    entries: list[dict] = []
+    for key in ("policies", "demo_policies"):
+        items = config.get(key)
+        if isinstance(items, list):
+            entries.extend(item for item in items if isinstance(item, dict))
+
+    restored: list[str] = []
+    for entry in entries:
+        relative = entry.get("path")
+        if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
+            continue
+        if ".." in Path(relative).parts:
+            continue
+        dst_file = target_dir / relative
+        if dst_file.exists():
+            continue
+        src_file = shipped_dir / relative
+        if not src_file.is_file():
+            continue  # 源包也没有 → 不伪造，让门禁如实报缺
+        try:
+            dst_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_file, dst_file)
+        except OSError:
+            continue
+        restored.append(Path(relative).as_posix())
+    return restored
+
+
 def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
     """内置包 → workspace 副本的单向内容同步（refresh 时执行）。
 
@@ -687,6 +735,10 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
                         synced += 1
                     except OSError:
                         continue
+        # `deploy/` 等**不在 simulation/ 下**的引用文件：按 config 的 `path` 引用补齐
+        # （C6 只管 simulation/ 子树，管不到 deploy/ —— wuji_hand 的策略就在那里，
+        # 副本缺它会让运行时 404、发布门禁红）。
+        synced += len(sync_referenced_blobs(shipped, target))
         # 顶层 JSON 声明以源树为准：新增/变更字段覆盖过去，源树已删除的
         # 字段（如移除的 extension_entrypoint）也从副本里清除，避免 stale
         # workspace 副本用旧的扩展入口遮蔽源树更新。

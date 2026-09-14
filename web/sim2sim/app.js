@@ -37,7 +37,7 @@ import {
   SENSOR_MODELS,
   SENSOR_PLUGINS,
   sensorMount,
-} from "./sensor_dock.js?v=0.54.0";
+} from "./sensor_dock.js?v=0.54.1";
 // 几何求交与四元数工具：深度 / 高度 / LiDAR / 点云 / 单点测距**共用同一套**，
 // 采样几何（起点网格、扇扫方向）也在这儿 —— 见 raycast.js 头部说明。
 import {
@@ -52,11 +52,11 @@ import {
   quatRot,
   quatToMat,
   rayHitPoint,
-} from "./raycast.js?v=0.54.0";
+} from "./raycast.js?v=0.54.1";
 import { MotionLoader } from "./motion_loader.js";
 import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
-import { applyTerrainSwitch, createNavigationRunner, poseFromQpos, NAVIGATION_VERSION } from "./navigation.js?v=0.54.0";
-import { fanSegments, fanLineSegments } from "./dwa_fan.js?v=0.54.0";
+import { applyTerrainSwitch, createNavigationRunner, poseFromQpos, NAVIGATION_VERSION } from "./navigation.js?v=0.54.1";
+import { fanSegments, fanLineSegments } from "./dwa_fan.js?v=0.54.1";
 // Loaded on demand only for an explicitly selected policy.
 let ort = null;
 const ORT_DIST_URL = new URL("./vendor/onnxruntime-web/dist/", import.meta.url);
