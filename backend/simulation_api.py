@@ -391,28 +391,45 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     default_policy_contract = simulation_config.get("policy_contract") if isinstance(simulation_config.get("policy_contract"), dict) else {}
     public_policies: list[dict[str, Any]] = []
     # B10：声明形式（裸 path / 只留 id）由解析器统一兜住，不再直接读 item["path"]
-    from backend.policy_artifacts import policy_relative_path
+    from backend.policy_artifacts import policy_reference, policy_relative_path
 
     for item in package_policies:
-        policy_path = policy_relative_path(item, robot_dir=root) if isinstance(item, dict) else None
+        if not isinstance(item, dict):
+            continue
+        # 前端 URL 按**解析结果**分两种（2026-09-14 修）：
+        #   · blob 在包内 → 浏览器包接口 `/api/simulation/browser-package/<robot>/<相对路径>`；
+        #   · blob 在包外（首页 demo 的 `web/sim2sim/models/…`）→ **静态目录 URL**。
+        # 旧代码只认包内：包外策略被整个丢掉（工作台里看不到那条 demo）；更早的版本还会把它
+        # 拼成 `/api/…/unitree_go2/models/…` —— 一个**指向不存在文件**的 URL。
+        policy_path = policy_relative_path(item, robot_dir=root)
+        reference = policy_reference(item, robot_dir=root)
+        source = str(reference.get("source_onnx") or "").replace("\\", "/")
         if policy_path:
+            url = f"/api/simulation/browser-package/{canonical_robot_id}/{policy_path}"
+        elif source.startswith("web/"):
+            url = f"/{source}"
+        else:
+            continue                    # 解析不到 blob：不编 URL（缺件由审计报出）
+        if url:
+            # 体检/验收报告只对**包内**策略有意义（它们按包内相对路径落盘）
             entry_checks: list[dict[str, Any]] = [{"id": "package", "ok": True, "message": "Package policy manifest"}]
-            acceptance_check = _acceptance_health_check(root, policy_path)
-            if acceptance_check:
-                entry_checks.append(acceptance_check)
+            if policy_path:
+                acceptance_check = _acceptance_health_check(root, policy_path)
+                if acceptance_check:
+                    entry_checks.append(acceptance_check)
             encoder_path = str(item.get("encoder") or "").replace("\\", "/")
             public_policies.append({
-                "id": str(item.get("id") or Path(policy_path).stem),
-                "label": str(item.get("label") or item.get("id") or Path(policy_path).stem),
-                "url": f"/api/simulation/browser-package/{canonical_robot_id}/{policy_path}",
+                "id": str(item.get("id") or Path(policy_path or source).stem),
+                "label": str(item.get("label") or item.get("id") or Path(policy_path or source).stem),
+                "url": url,
                 "encoder_url": (f"/api/simulation/browser-package/{canonical_robot_id}/{encoder_path}" if encoder_path else None),
-                "path": policy_path,
+                "path": policy_path or source,
                 # 仿真分层：advanced = 需要外部传感器或目标驱动的自动任务；basic = 盲狗/手动遥控。
                 "sim_surface": str(item.get("sim_surface") or "basic"),
                 "obs_dim": int(item.get("obs_dim") or contract.get("observation", {}).get("dimension") or 0),
                 "action_dim": int(item.get("action_dim") or len(order)),
                 "history_len": int(item.get("history_len") or 1),
-                "acceptance": _load_acceptance_report(root, policy_path),
+                "acceptance": _load_acceptance_report(root, policy_path) if policy_path else None,
                 "contract": {
                     **default_policy_contract,
                     **(item.get("contract") if isinstance(item.get("contract"), dict) else {}),

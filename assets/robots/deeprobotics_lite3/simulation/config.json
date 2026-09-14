@@ -14,6 +14,7 @@
       "history_len": 6,
       "source": "rl_sar（Apache-2.0，社区训练基准）",
       "contract": {
+        "steady_height_policy": "self_stability",
         "observation_kind": "himloco_45_hist6",
         "history_layout": "frame_major_v1",
         "obs_dim": 45,
@@ -153,6 +154,7 @@
       "history_len": 6,
       "source": "rl_sar himloco 权重 + DeepRoboticsLab sdk_deploy 官方部署参数（BSD-3）",
       "contract": {
+        "steady_height_policy": "self_stability",
         "observation_kind": "himloco_45_hist6",
         "history_layout": "frame_major_v1",
         "obs_dim": 45,
