@@ -13,7 +13,9 @@
 回归门禁（CI 用）：
   --baseline <baseline.json>  读取历史基线，仅当出现"新增失败/退化"时退出码非 0；
                               已记录的既存失败（如 go2 特技类）不阻塞 CI。
-  --write-baseline <path>     把本次全量结果写成基线（本地定期刷新用）。
+  --write-baseline <path>     把本次全量结果写成基线（本地定期刷新用），并携带
+                              provenance（生成时间/平台/Python/依赖版本/git/运行参数）——
+                              基线在哪台环境刷的必须可查，否则环境差异会被误读成代码退化。
 
   退出码：无 --baseline 时 0 全过 / 1 有 fail；
           有 --baseline 时 0 无新增退化 / 1 有新增退化或基线不可读。
@@ -173,17 +175,13 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
     policy_path = package_dir / policy_rel
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
-    from backend.policy_artifacts import policy_relative_path
 
-    # 条目匹配：先按 id（`--policy <id>` 的用法），再按解析出的相对路径文件名（`--policy <file>`）。
-    entry = next(
-        (
-            p for p in policies
-            if p.get("id") == policy_path.stem
-            or str(policy_relative_path(p, robot_dir=package_dir) or "").endswith(policy_path.name)
-        ),
-        {},
-    )
+    # 条目匹配与 policy_acceptance.py 共用同一实现（先按 id，再按解析出的 blob 文件名全等）。
+    # 匹配不上就报错而不是空条目继续跑 —— 空条目意味着逐策略增益缺位（零力矩同族缺陷），
+    # 对门禁而言"错着跑完还绿了"是最坏结果。外层循环的 except 会把它记为该策略的 error。
+    entry = engine.match_policy_entry(policies, policy_path, package_dir)
+    if entry is None:
+        raise RuntimeError(f"策略文件对不上包内声明: {policy_rel}（包: {package_dir.name}）")
     contract = engine.PackageContract(package_dir, entry)
     contract.motion_loader = engine.load_motion_loader(contract, package_dir)
 
@@ -406,7 +404,11 @@ def main() -> int:
           f"{len(report['skipped'])} skipped, {len(report['failed'])} failed")
 
     if args.write_baseline:
-        baseline_doc = {"schema": "sim2sim-headless-baseline-1.0", "results": _baseline_rows(results)}
+        baseline_doc = {
+            "schema": "sim2sim-headless-baseline-1.0",
+            "provenance": _sim2sim_provenance(args),
+            "results": _baseline_rows(results),
+        }
         args.write_baseline.parent.mkdir(parents=True, exist_ok=True)
         args.write_baseline.write_text(json.dumps(baseline_doc, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"baseline written: {args.write_baseline}")
@@ -417,6 +419,11 @@ def main() -> int:
             print(f"::error::baseline not found: {args.baseline}")
             return 1
         comparison = _compare_baseline(results, args.baseline)
+        diff = _provenance_diff(args.baseline, _sim2sim_provenance(args))
+        if diff:
+            comparison["provenance_diff"] = diff
+            print("  WARNING 基线与本机环境签名不一致 —— 先怀疑环境再怀疑代码"
+                  "（差异见 baseline_compare.provenance_diff；旧基线请用 --write-baseline 重刷）")
         report["baseline_compare"] = comparison
         out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         regressions = comparison["regressions"]
@@ -440,6 +447,66 @@ def _baseline_rows(results: list[dict]) -> list[dict]:
             "family": item.get("family"),
         })
     return rows
+
+
+def _sim2sim_provenance(args) -> dict:
+    """基线 provenance：这份基线是在**什么环境、哪份代码、什么参数**下刷出来的。
+
+    起因（待决 D，2026-09-14）：现行基线由云原生开发环境（Ubuntu 容器）生成，
+    本机 Windows 复跑出现 5 条"退化"，事后查明与代码无关 —— 基线不带环境信息时，
+    这类差异会被误读成代码退化。git 状态复用 B9 的 ``_git_state``（同一逻辑不写两份）。
+    """
+    import platform
+    from importlib import metadata
+
+    from backend.training.runs import _git_state
+
+    def _ver(name: str) -> str | None:
+        try:
+            return metadata.version(name)
+        except Exception:  # noqa: BLE001 —— 缺包不是错误，如实记 None
+            return None
+
+    version_file = ROOT / "VERSION"
+    return {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "product_version": version_file.read_text(encoding="utf-8").strip() if version_file.is_file() else None,
+        "git": _git_state(),
+        "platform": platform.platform(),
+        "python": sys.version.split()[0],
+        # sim2sim 实际用到的三个包（版本变了，物理步进/推理数值就可能变）
+        "packages": {name: _ver(name) for name in ("mujoco", "onnxruntime", "numpy")},
+        "run_params": {"seconds": args.seconds, "seed": args.seed, "gate_tracking": bool(args.gate_tracking)},
+    }
+
+
+def _provenance_diff(baseline_path: Path, current: dict) -> dict | None:
+    """基线与本次运行的环境签名差异（**只报不拦**，门禁语义不变）。
+
+    无 provenance 的旧基线如实标注（而不是装作可比）；有差异时逐项列出
+    baseline/current 两边的值，让"先怀疑环境还是先怀疑代码"有据可依。
+    """
+    try:
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 —— 基线读不了由 _compare_baseline 报，这里不重复
+        return None
+    recorded = baseline.get("provenance") or {}
+    if not recorded:
+        return {"note": "baseline has no provenance (written before 2026-09-14); refresh with --write-baseline"}
+    diffs: dict = {}
+    for key in ("platform", "python", "product_version"):
+        if recorded.get(key) not in (None, current.get(key)):
+            diffs[key] = {"baseline": recorded.get(key), "current": current.get(key)}
+    for key in ("packages", "run_params"):
+        base, cur = recorded.get(key) or {}, current.get(key) or {}
+        differing = {
+            name: {"baseline": base.get(name), "current": cur.get(name)}
+            for name in sorted(set(base) | set(cur))
+            if base.get(name) != cur.get(name)
+        }
+        if differing:
+            diffs[key] = differing
+    return diffs or None
 
 
 def _compare_baseline(results: list[dict], baseline_path: Path) -> dict:
