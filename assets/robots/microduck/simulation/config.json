@@ -147,7 +147,6 @@
       "contract": {
         "task_type": "manipulation"
       },
-      "sim_surface": "advanced",
       "training_ref": {
         "profile": "microduck-groundpick-flat",
         "match": "ported",
@@ -163,7 +162,6 @@
       "contract": {
         "task_type": "stand"
       },
-      "sim_surface": "advanced",
       "training_ref": {
         "profile": "microduck-ballkick-flat",
         "match": "ported",
@@ -179,7 +177,6 @@
       "contract": {
         "task_type": "stand"
       },
-      "sim_surface": "advanced",
       "training_ref": {
         "profile": "microduck-ballkick-flat",
         "match": "ported",

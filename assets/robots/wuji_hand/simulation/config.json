@@ -98,7 +98,6 @@
           "action_filter_alpha": 0.5
         }
       },
-      "sim_surface": "advanced",
       "training_ref": {
         "profile": "wuji-reorient",
         "match": "ported",

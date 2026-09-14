@@ -707,7 +707,6 @@
       "obs_dim": 45,
       "action_dim": 12,
       "history_len": 1,
-      "sim_surface": "advanced",
       "source": "parkour_mjlab logs/rsl_rl/go2_pie/policy.onnx（Unitree-Go2-PIE，Apache-2.0）",
       "contract": {
         "observation_kind": "go2_pie_depth",
