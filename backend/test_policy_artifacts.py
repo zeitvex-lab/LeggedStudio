@@ -184,6 +184,39 @@ class ReferenceTest(unittest.TestCase):
             after = pa.policy_reference(declaration, index=index)["onnx_sha256"]
             self.assertNotEqual(before, after)
 
+    def test_id_only_declaration_resolves_via_index(self):
+        """**终态**：契约只留 `id`（裸 path/url 已删），仍能解析到 blob —— 这是删除的前提。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_package(root, "go2")
+            out = root / "policies"
+            pa.build_all(robots_dir=root, out_dir=out, write=True)
+            index = pa.load_index(out)
+
+            id_only = {"robot": "go2", "policy_id": "walk-100"}          # 无 path / url / artifact_id
+            self.assertFalse(pa.declaration_has_raw_path(id_only))
+            self.assertIsNotNone(pa.policy_blob_path(id_only, index=index))
+            self.assertEqual(
+                "simulation/policies/walk.onnx",
+                pa.policy_relative_path(id_only, robot_dir=root / "go2", index=index),
+            )
+
+    def test_relative_path_is_none_when_blob_lives_outside_package(self):
+        """包外的 blob（如 web/sim2sim/models/）不该被编出一个"包内相对路径"。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            robot_dir = root / "assets" / "robots" / "go2"
+            elsewhere = root / "web" / "sim2sim" / "models"
+            elsewhere.mkdir(parents=True)
+            (elsewhere / "x.onnx").write_bytes(b"blob")
+            declaration = {
+                "robot_dir": str(robot_dir),
+                "url": "/web/sim2sim/models/x.onnx",
+                "robot": "go2", "policy_id": "x",
+            }
+            self.assertIsNotNone(pa.policy_blob_path(declaration))
+            self.assertIsNone(pa.policy_relative_path(declaration, robot_dir=robot_dir))
+
     def test_reference_gaps_lists_unmigrated_declarations(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
