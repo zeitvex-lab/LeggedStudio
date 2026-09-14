@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 
@@ -33,10 +34,39 @@ sys.path.insert(0, str(ROOT))
 
 ROBOTS_DIR = ROOT / "assets" / "robots"
 
+
+def _upstream_root() -> pathlib.Path:
+    """上游**完整克隆**（带 `.git`）的根目录。
+
+    `00_resources/` 只有文件快照、没有历史，字段对照必须用克隆。解析顺序：
+
+    1. `LEGGED_STUDIO_UPSTREAM_ROOT` 环境变量（显式指定，最优先）；
+    2. `/00_open`（Linux / 容器里的约定路径）；
+    3. **本仓的上级目录** —— Windows 本地开发时仓库就落在 `00_open/` 里面，
+       硬编码 `/00_open` 会被解析成 `C:\\00_open` 而**永远找不到源**，于是工具
+       报"无官方 MJCF"，看起来像官方没有该模型（B21 首轮结论就是这样失真的）。
+
+    三者都不可用时返回 `/00_open` 并让调用方显式报"无官方源"，不静默当一致。
+    """
+    env = os.environ.get("LEGGED_STUDIO_UPSTREAM_ROOT")
+    if env:
+        return pathlib.Path(env)
+    container = pathlib.Path("/00_open")
+    if container.is_dir():
+        return container
+    local = ROOT.parent
+    if any((local / name).is_dir() for name in ("unitree_mujoco", "mujoco_menagerie")):
+        return local
+    return container
+
+
+#: 上游克隆根（见 `_upstream_root` 的解析顺序）。
+UPSTREAM_ROOT = _upstream_root()
+
 #: 官方 MJCF 候选（按优先级）：官方 unitree_mujoco 仓 → menagerie（独立第三方）。
 OFFICIAL_MJCF: tuple[tuple[str, pathlib.Path], ...] = (
-    ("unitree_mujoco", pathlib.Path("/00_open/unitree_mujoco/unitree_robots")),
-    ("menagerie", pathlib.Path("/00_open/mujoco_menagerie")),
+    ("unitree_mujoco", UPSTREAM_ROOT / "unitree_mujoco" / "unitree_robots"),
+    ("menagerie", UPSTREAM_ROOT / "mujoco_menagerie"),
 )
 
 #: 官方目录名 → 我方 robot_id（只列有官方 MJCF 的）

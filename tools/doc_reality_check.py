@@ -90,7 +90,27 @@ def collect_facts() -> dict:
     facts["policies"] = plain_policies
     facts["demo_policies"] = demo_policies
     facts["profiles_json"] = len(list(robots_dir.glob("*/training/profiles/*.json")))
-    facts["robot_files"] = len([p for p in robots_dir.rglob("*") if p.is_file()])
+    def _repo_files(root: Path) -> list[Path]:
+        """`assets/` 下**属于仓库的**文件 = 已跟踪 + 未跟踪但未被 `.gitignore` 忽略。
+
+        为什么不能直接 `rglob("*")`：跑过测试后包内会留下 `__pycache__/*.pyc`（V8/N7 明令
+        不入库），于是**同一条命令在跑过测试的机器上必然报漂移**，而文档里的数字其实是
+        "入库资产"的口径 —— 两个口径不同，门禁却在追一个并不存在的差异。没有 git 时
+        （例如解包后的发行物）退回纯文件系统枚举。
+        """
+        import subprocess
+
+        try:
+            completed = subprocess.run(
+                ["git", "-C", str(ROOT), "ls-files", "--cached", "--others",
+                 "--exclude-standard", "--", str(root.relative_to(ROOT))],
+                capture_output=True, text=True, encoding="utf-8", check=True, timeout=120,
+            )
+        except Exception:
+            return [p for p in root.rglob("*") if p.is_file()]
+        return [ROOT / line.strip() for line in completed.stdout.splitlines() if line.strip()]
+
+    facts["robot_files"] = len(_repo_files(robots_dir))
 
     baseline = _read_json(ROOT / "tools" / "baselines" / "sim2sim_headless_baseline.json") or {}
     facts["executable_policies"] = len(baseline.get("results") or [])
@@ -100,7 +120,7 @@ def collect_facts() -> dict:
     facts["pretrained_index"] = len(entries)
     facts["pretrained_index_robots"] = len({str(e.get("robot")) for e in entries if e.get("robot")})
 
-    total_bytes = sum(p.stat().st_size for p in robots_dir.rglob("*") if p.is_file()) if robots_dir.is_dir() else 0
+    total_bytes = sum(p.stat().st_size for p in _repo_files(robots_dir)) if robots_dir.is_dir() else 0
     facts["assets_robots_mb"] = round(total_bytes / 1024 / 1024, 1)
 
     # --- 契约 / Pack / 注册表 ---
