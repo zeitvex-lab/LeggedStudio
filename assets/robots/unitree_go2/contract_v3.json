@@ -154,7 +154,7 @@
   },
   "observation": {
     "components": [],
-    "dimension": 48
+    "dimension": 45
   },
   "control": {
     "control_hz": 50,
