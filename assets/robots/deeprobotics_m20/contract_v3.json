@@ -218,32 +218,56 @@
       {
         "name": "base_ang_vel",
         "width": 3,
-        "source": "imu"
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
       },
       {
         "name": "projected_gravity",
         "width": 3,
-        "source": "imu"
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
       },
       {
         "name": "commands",
         "width": 3,
-        "source": "cmd"
+        "source": "cmd",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
       },
       {
         "name": "joint_pos",
         "width": 16,
-        "source": "actuated"
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
       },
       {
         "name": "joint_vel",
         "width": 16,
-        "source": "actuated"
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
       },
       {
         "name": "last_action",
         "width": 16,
-        "source": "action"
+        "source": "action",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
       }
     ],
     "dimension": 57

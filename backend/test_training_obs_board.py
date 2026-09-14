@@ -4,8 +4,14 @@
 deployment_available)`；**部署观测 = 过滤 `deployment_available=true ∧ role=actor`**。
 
 `RealBoardCharacterizationTest` 里的数字是**特征化测试**（characterization test）：
-它锁住的是"映射板**如实报出**了什么"，而不是"一切都干净"。等那 3 份契约补齐五元组、
-11 份补上组件声明，这两个数字就该被改小 —— **改不动它，就说明缺口还在**。
+它锁住的是"映射板**如实报出**了什么"，而不是"一切都干净"。
+
+**2026-09-14 进展**：3 份契约（lite3 / m20 / b2）的五元组已补齐 —— 证据分三层：① `rl_sar` 的
+lite3 **部署清单**就是这 6 项（`observations: [commands, ang_vel, gravity_vec, dof_pos, dof_vel,
+actions]`，`num_observations: 45`）；② 三者的**策略输入宽度 = 这 6 项之和**（少一项就部署不了）；
+③ 6 项的物理来源都是真机必备（IMU / 关节编码器 / 遥控指令 / 上一步动作）。
+于是「缺五元组字段」这栏归零，并**升格为不变量**（见 `FiveTupleInvariantTest`，不再是快照）。
+**剩下的 11 份仍是「只声明宽度、未声明组件」** —— 那个数字改小了，才说明缺口继续收敛。
 """
 
 import json
@@ -111,12 +117,42 @@ class RealBoardCharacterizationTest(unittest.TestCase):
         return without_components, missing_fields
 
     def test_gap_is_reported_not_hidden(self):
-        without_components, missing_fields = self._scan()
-        # 11 个机型只声明了宽度、没声明组件（板子如实说"未声明"，不编）
-        self.assertEqual(11, len(without_components))
-        # 3 个机型声明了组件但缺五元组字段（板子点名报出）
-        self.assertEqual({"deeprobotics_lite3", "deeprobotics_m20", "unitree_b2"}, missing_fields)
-        self.assertEqual(set(), without_components & missing_fields, "两类缺口互斥")
+        without_components, _ = self._scan()
+        # 11 个机型只声明了宽度、没声明组件（板子如实说「未声明」，不编）
+        self.assertEqual(
+            {"limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf", "microduck", "unitree_b2w",
+             "unitree_g1", "unitree_go1", "unitree_go2", "unitree_go2w", "wuji_hand", "zex-w"},
+            without_components,
+        )
+
+
+class FiveTupleInvariantTest(unittest.TestCase):
+    """**不变量**（不再是快照）：契约一旦声明组件，五元组就得齐全、部署宽度就得自洽。
+
+    2026-09-14 补齐 lite3 / m20 / b2 后升格。缺字段的后果很具体：部署观测 =
+    ``deployment_available ∧ role=actor`` 这条过滤**无从执行** —— 于是"训练能看、部署看不到"
+    的特权信息无处可查（这正是 E4 存在的理由）。
+    """
+
+    def test_no_contract_declares_components_without_a_full_five_tuple(self):
+        incomplete: dict[str, list] = {}
+        for path in sorted(ROBOTS.glob("*/contract_v3.json")):
+            report = ob.board(json.loads(path.read_text(encoding="utf-8-sig")))
+            bad = [row["id"] for row in report["observations"]["components"] if row["missing_fields"]]
+            if bad:
+                incomplete[path.parent.name] = bad
+        self.assertEqual({}, incomplete, "声明了组件就必须五元组齐全")
+
+    def test_filled_robots_have_self_consistent_deployment_width(self):
+        """补齐的 3 份：**部署宽度 == 组件宽度之和 == 声明宽度**（= 策略输入宽度）。"""
+        for robot, expected in (("deeprobotics_lite3", 45), ("deeprobotics_m20", 57), ("unitree_b2", 45)):
+            with self.subTest(robot=robot):
+                observation = ob.board(_load(robot))["observations"]
+                self.assertEqual(expected, observation["declared_dimension"])
+                self.assertEqual(expected, observation["components_total"])
+                self.assertEqual(expected, observation["deployment_dimension"],
+                                 "6 项都是 actor ∧ deployment_available ⇒ 全部可部署")
+                self.assertEqual([], observation["problems"])
 
 
 if __name__ == "__main__":
