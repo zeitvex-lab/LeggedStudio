@@ -10,7 +10,7 @@
 
 import unittest
 
-from tools.sweep_policy_availability import SELF_STABILITY_ONLY, resolve_height_ruler
+from tools.sweep_policy_availability import resolve_height_ruler
 
 
 class RulerResolutionTest(unittest.TestCase):
@@ -44,23 +44,34 @@ class RulerResolutionTest(unittest.TestCase):
         self.assertEqual("declaration", ruler["source"])
         self.assertIsNone(ruler["ref_height_m"])
 
-    def test_builtin_exception_is_flagged_as_code_level_not_data(self):
-        """内置例外仍兜底，但**必须自曝身份**（代码例外 ≠ 声明），否则它又变成隐性例外。"""
-        policy_id = sorted(SELF_STABILITY_ONLY)[0]
-        ruler = resolve_height_ruler(self._declaration(policy_id), family="balance")
-        self.assertEqual("self_stability", ruler["ruler"])
-        self.assertEqual("builtin_exception", ruler["source"])
-        self.assertIn("代码", ruler["note"])
+    def test_there_is_no_code_level_exception_list(self):
+        """代码里已无例外名单：**没有声明就回落引擎**（不再按 policy_id 偷偷放行）。
 
-    def test_declaration_overrides_builtin_exception(self):
-        """声明能覆盖内置例外 —— 这是"把它数据化"的入口（照声明走，不再看代码名单）。"""
-        policy_id = sorted(SELF_STABILITY_ONLY)[0]
-        ruler = resolve_height_ruler(
-            self._declaration(policy_id, expected_steady_height_m=0.35), family="balance",
+        2026-09-14 收尾：原 `SELF_STABILITY_ONLY` 已删除，非标准站姿一律由声明表达。
+        """
+        ruler = resolve_height_ruler(self._declaration("go2w-himloco-leggedstand"), family="balance")
+        self.assertEqual("static_default_pose", ruler["ruler"])
+        self.assertEqual("engine", ruler["source"])
+
+    def test_real_repo_expresses_nonstandard_stance_by_declaration(self):
+        """**真实仓不变量**：非标准站姿（前/后腿站立、低站姿）一律由**声明**表达。
+
+        这条一旦红，说明例外又被写回了代码，或某条策略漏了声明。
+        """
+        from backend import policy_artifacts as pa
+
+        rulers = {
+            d["policy_id"]: resolve_height_ruler(d, family="balance")
+            for d in pa.scan_declarations()
+        }
+        expected = (
+            "go2w-himloco-stand-front", "go2w-himloco-leggedstand",
+            "lite3-velocity-benchmark", "lite3-velocity-sdk45",
         )
-        self.assertEqual("declared", ruler["ruler"])
-        self.assertEqual("declaration", ruler["source"])
-        self.assertAlmostEqual(0.35, ruler["ref_height_m"], places=6)
+        for policy_id in expected:
+            with self.subTest(policy=policy_id):
+                self.assertEqual("self_stability", rulers[policy_id]["ruler"])
+                self.assertEqual("declaration", rulers[policy_id]["source"])
 
     def test_zero_or_invalid_declared_height_falls_through(self):
         """声明值非法（0 / 负数 / 字符串）→ 回落，不得当成"参考高度 0"（那会让高度比爆表）。"""

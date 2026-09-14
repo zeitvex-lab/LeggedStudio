@@ -54,12 +54,12 @@ STANDING_FAMILIES = ("stand", "balance", "velocity")
 #: 用户明确"特技任务再说"。它们仍会跑起来并记录指标，只是不进这条门。
 DEFERRED_FAMILIES = ("imitation", "acrobatics", "parkour", "manipulation", "reorient")
 
-#: 非标准站姿技能：族名归 balance，但**稳态高度天然偏离 `static_stand_height`**，
-#: 故不套 `height_ratio` 硬门，改用"自身稳态稳定性"（后段高度稳定 + tilt 小 + 不摔）。
-SELF_STABILITY_ONLY = {
-    "go2w-himloco-stand-front": "前腿站立：稳态高度天然不等于四足标准站立高度",
-    "go2w-himloco-leggedstand": "后腿站立：同上",
-}
+#: **已删除**：非标准站姿技能的例外名单（原 ``SELF_STABILITY_ONLY``）。
+#:
+#: 2026-09-14 收尾 —— 例外只能住在**数据**里。这类策略（前腿/后腿站立、低站姿）
+#: 现在各自在契约里声明 ``steady_height_policy: "self_stability"``
+#: （`lite3` 两条 + `go2w` 两条），实现见 :func:`resolve_height_ruler`。
+#: 代码里再留一份名单，就是下一次误判的种子：它看不见、也不会随数据更新。
 
 OUTPUT_DIR = ROOT / "workspace" / "validation" / "availability"
 
@@ -81,7 +81,7 @@ def _zero_torque_policies() -> set[tuple[str, str]]:
 
 
 def resolve_height_ruler(declaration: dict, *, family: str) -> dict:
-    """这条策略的高度判据**用哪把尺子**（声明优先；内置例外降级为「带标注的兜底」）。
+    """这条策略的高度判据**用哪把尺子**（**声明优先，否则引擎现算**；代码里没有例外名单）。
 
     高度比本身不是结论 —— ``0.692`` 是"跟默认姿运动学高度比"还是"跟它自己的稳态高度比"，
     含义完全不同。所以尺子必须**随结论一起给出**，而不是藏在判据代码里。
@@ -91,8 +91,9 @@ def resolve_height_ruler(declaration: dict, *, family: str) -> dict:
     1. 策略声明 ``expected_steady_height_m`` —— 显式给出期望稳态高度（**数据即真值**）；
     2. 策略声明 ``steady_height_policy: "self_stability"`` —— 显式声明"高度不作判据"
        （非标准站姿技能：前腿/后腿站立，其稳态高度天然不同于四足标准站姿）；
-    3. 内置例外 :data:`SELF_STABILITY_ONLY` —— 历史遗留，**标注为"代码里的例外"**，待数据化；
-    4. 默认：默认姿运动学高度（引擎 ``static_stand_height`` 现算）。
+    3. 默认：默认姿运动学高度（引擎 ``static_stand_height`` 现算）。
+
+    （原第 3 级"**内置例外名单**"已于 2026-09-14 删除：例外只能住在数据里。）
     """
     contract = declaration.get("contract") or {}
     declared_height = contract.get("expected_steady_height_m")
@@ -112,15 +113,8 @@ def resolve_height_ruler(declaration: dict, *, family: str) -> dict:
             "family": family,
             "note": "声明高度不作判据（非标准站姿技能）",
         }
-    builtin = SELF_STABILITY_ONLY.get(str(declaration.get("policy_id")))
-    if builtin:
-        return {
-            "ruler": "self_stability",
-            "ref_height_m": None,
-            "source": "builtin_exception",
-            "family": family,
-            "note": f"内置例外（写在代码里的名单，待数据化）：{builtin}",
-        }
+    # 代码里**没有**例外名单（原 `SELF_STABILITY_ONLY` 已删除）：没有声明就是引擎现算 ——
+    # 于是"这条用了哪把尺子"永远能从数据推出来，不依赖任何看不见的名单。
     return {
         "ruler": "static_default_pose",
         "ref_height_m": None,
@@ -384,6 +378,8 @@ def sweep(*, robots: list[str] | None = None, limit: int | None = None,
             }
             for r in results
         ],
+        # **必须恒为空**：尺子来源只剩 `declaration` / `engine`（代码里的例外名单已删除）。
+        # 留着这个字段是为了"万一有人又写回名单"时它当场非空 —— 不沉默。
         "builtin_ruler_exceptions": [
             r["artifact_id"] for r in results
             if (r.get("height_ruler") or {}).get("source") == "builtin_exception"
