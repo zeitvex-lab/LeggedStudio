@@ -93,6 +93,52 @@ def resolve_declared_onnx(robot_dir: Path, *declared: str) -> Path | None:
     return None
 
 
+def _repo_path(text: str | None) -> Path | None:
+    """把 :func:`_repo_relative` 的产物还原成绝对路径（仓库外路径原样返回）。"""
+    if not text:
+        return None
+    candidate = Path(str(text))
+    return candidate if candidate.is_absolute() else ROOT / candidate
+
+
+def policy_aux_blobs(
+    declaration: Mapping[str, Any],
+    *,
+    robot_dir: Path | None = None,
+) -> list[dict[str, Any]]:
+    """**辅助 blob**：一个策略除主 onnx 之外还要加载的文件（目前只有 ``encoder``）。
+
+    为什么要多一个文件：TRON1 这类部署把策略拆成两个 onnx 图 ——
+    ``encoder``（历史 → 隐状态）+ ``policy``（隐状态 + 观测 → 动作）。这是**上游的导出约定**，
+    不是我们的发明：`00_resources/tron1-rl-deploy-python`（54 onnx）与 `-ros2`（40 onnx）
+    里就是成对发的。
+
+    也就是说**运行时早就统一了**（`contract.encoder_rel` + `engine.run_encoder_mode`），
+    此前只有**出库/统计层**把 `encoder` 当外人 —— 于是 TRON1 那 3 个 encoder 文件被
+    `unexported_onnx()` 报成"影子产物"（其实是被声明的）。这里按
+    「一个策略 = 主 blob + 辅助 blob」统一建模，**hash 同样实测**；
+    解析不出来时如实记 ``missing``，不静默。
+    """
+    if robot_dir is None and declaration.get("robot_dir"):
+        robot_dir = Path(str(declaration["robot_dir"]))
+    blobs: list[dict[str, Any]] = []
+    for item in declaration.get("aux_blobs") or []:
+        role = str(item.get("role"))
+        declared = str(item.get("declared") or "")
+        path: Path | None = None
+        if robot_dir is not None and declared:
+            candidate = Path(str(robot_dir)) / _URL_PREFIX.sub("", declared).lstrip("/")
+            path = candidate if candidate.is_file() else None
+        blobs.append({
+            "role": role,
+            "declared": declared,
+            "source": _repo_relative(path) if path else None,
+            "sha256": file_digest(path) if path else None,
+            "missing": path is None,
+        })
+    return blobs
+
+
 def scan_declarations(robots_dir: Path | str = ROBOTS_DIR) -> list[dict[str, Any]]:
     """扫描全部机器人包的策略声明，返回**声明清单**（不做任何落盘）。
 
@@ -128,6 +174,14 @@ def scan_declarations(robots_dir: Path | str = ROBOTS_DIR) -> list[dict[str, Any
                     # 只留一个就会解析失败（go2-baseline-164k 正是这种）。
                     "path": entry.get("path"),
                     "url": entry.get("url"),
+                    # 辅助 blob：`encoder` 是"第二个 onnx 图"（上游导出约定，见
+                    # :func:`policy_aux_blobs`）。此前只认 `path`，于是它被误报成影子产物。
+                    "encoder": entry.get("encoder"),
+                    "aux_blobs": [
+                        {"role": role, "declared": entry.get(key)}
+                        for role, key in (("encoder", "encoder"),)
+                        if entry.get(key)
+                    ],
                     "onnx": resolve_declared_onnx(
                         robot_dir, entry.get("path") or "", entry.get("url") or "",
                     ),
@@ -226,6 +280,8 @@ def build_artifact(declaration: Mapping[str, Any], onnx: Path | None = None) -> 
         "source_onnx": _repo_relative(onnx) if onnx else None,
         "onnx_sha256": file_digest(onnx) if onnx else None,
         "onnx_bytes": onnx.stat().st_size if onnx else None,
+        # 主 blob 之外的产物（encoder 等）：同一个框架内建模，hash 同样实测
+        "aux_blobs": policy_aux_blobs(declaration),
         "obs_dim": declaration.get("obs_dim"),
         "action_dim": declaration.get("action_dim"),
         "history_len": declaration.get("history_len"),
@@ -632,11 +688,16 @@ def unexported_onnx(*, robots_dir: Path | str = ROBOTS_DIR) -> list[str]:
     index = load_index()
     # 声明可能只留 `id`（B10 终态），所以"被声明"＝**经索引解析得到该文件**，
     # 而不是"声明里写了 path"。
-    declared = {
-        blob.resolve()
-        for declaration in scan_declarations(robots_dir)
-        if (blob := policy_blob_path(declaration, index=index)) is not None
-    }
+    declared: set[Path] = set()
+    for declaration in scan_declarations(robots_dir):
+        blob = policy_blob_path(declaration, index=index)
+        if blob is not None:
+            declared.add(blob.resolve())
+        # **辅助 blob 也算被声明** —— 否则 TRON1 的 encoder 文件会被误报成"影子产物"。
+        for aux in policy_aux_blobs(declaration):
+            aux_path = _repo_path(aux.get("source"))
+            if aux_path is not None:
+                declared.add(aux_path.resolve())
     return [
         _repo_relative(path)
         for path in iter_onnx_files(robots_dir)

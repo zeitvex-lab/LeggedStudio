@@ -248,6 +248,87 @@ class ReferenceTest(unittest.TestCase):
             self.assertTrue(any("解析不到 blob" in problem for problem in report["problems"]))
 
 
+class AuxBlobTest(unittest.TestCase):
+    """辅助 blob（encoder）：一个策略 = 主 blob + 辅助 blob，**同一个框架**。
+
+    背景：TRON1 的部署策略是两个 onnx 图（encoder + policy），这是**上游的导出约定**
+    （`00_resources/tron1-rl-deploy-{python,ros2}` 就是成对发的）。运行时早已统一支持
+    （`encoder_rel` + `run_encoder_mode`），只有出库/统计层把 encoder 当外人 ——
+    于是那 3 个 encoder 文件被 `unexported_onnx()` 误报成"影子产物"。
+    """
+
+    @staticmethod
+    def _package(root: Path, *, with_encoder: bool = True) -> Path:
+        import json
+
+        robot_dir = root / "go2"
+        policies = robot_dir / "simulation" / "policies"
+        policies.mkdir(parents=True)
+        (policies / "walk.onnx").write_bytes(b"policy-blob")
+        entry = {"id": "walk-100", "label": "walk", "path": "simulation/policies/walk.onnx"}
+        if with_encoder:
+            (policies / "enc.onnx").write_bytes(b"encoder-blob")
+            entry["encoder"] = "simulation/policies/enc.onnx"
+        (robot_dir / "simulation" / "config.json").write_text(
+            json.dumps({"policies": [entry]}), encoding="utf-8",
+        )
+        return robot_dir
+
+    def test_encoder_is_captured_and_hashed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._package(root)
+            aux = pa.policy_aux_blobs(pa.scan_declarations(root)[0])
+            self.assertEqual(1, len(aux))
+            self.assertEqual("encoder", aux[0]["role"])
+            self.assertFalse(aux[0]["missing"])
+            self.assertEqual(
+                pa.file_digest(root / "go2" / "simulation" / "policies" / "enc.onnx"),
+                aux[0]["sha256"],
+            )
+
+    def test_missing_encoder_is_reported_not_silenced(self):
+        """声明了但文件不在 → 如实记 ``missing``（缺件要被看见，不静默）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            robot_dir = self._package(root)
+            (robot_dir / "simulation" / "policies" / "enc.onnx").unlink()
+            aux = pa.policy_aux_blobs(pa.scan_declarations(root)[0])
+            self.assertTrue(aux[0]["missing"])
+            self.assertIsNone(aux[0]["sha256"])
+            self.assertIsNone(aux[0]["source"])
+
+    def test_encoder_counts_as_declared_so_no_shadow_report(self):
+        """关键：encoder 计入"被声明" → 不再被 ``unexported_onnx()`` 误报成影子产物。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._package(root)
+            self.assertEqual([], pa.unexported_onnx(robots_dir=root))
+
+    def test_artifact_metadata_carries_aux_blobs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._package(root)
+            artifact = pa.build_artifact(pa.scan_declarations(root)[0])
+            self.assertEqual(1, len(artifact["aux_blobs"]))
+            self.assertEqual("encoder", artifact["aux_blobs"][0]["role"])
+            self.assertIsNotNone(artifact["aux_blobs"][0]["sha256"])
+
+    def test_real_repo_has_zero_shadow_onnx(self):
+        """**真实仓不变量**：那 3 个 encoder 文件是被声明的 —— 修好后影子产物应为 0。
+
+        这条一旦红，说明包内又出现了"没有任何声明指向"的 onnx（新的影子产物）。
+        """
+        self.assertEqual([], pa.unexported_onnx())
+        missing = [
+            f"{d['robot']}/{d['policy_id']}:{aux['role']}"
+            for d in pa.scan_declarations()
+            for aux in pa.policy_aux_blobs(d)
+            if aux["missing"]
+        ]
+        self.assertEqual([], missing, "声明的辅助 blob 都应找得到")
+
+
 class ProducedPolicyTest(unittest.TestCase):
     def test_promote_writes_blob_and_links_run(self):
         with tempfile.TemporaryDirectory() as tmp:
