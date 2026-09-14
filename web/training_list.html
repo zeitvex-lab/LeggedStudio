@@ -419,11 +419,50 @@
         loadError = null;
         lastUpdated = new Date();
         loadQualityBadges();
+        loadRunBadges();
       } catch (error) {
         console.error('Failed to load training list:', error);
         loadError = error.message;
       }
       render();
+    }
+
+    // F1：Run 档案徽章 —— 列表直接回答"这份 Run 可复现吗 / 入库了吗"。
+    // 与质量徽章同模式：失败静默（缺徽章只影响信息密度），完成/停止态才拉取。
+    let runByTask = {};
+    let runSeq = 0;
+    async function loadRunBadges() {
+      const seq = ++runSeq;
+      const targets = allTasks.filter((t) => ['completed', 'stopped'].includes(String(t.status || '')));
+      await Promise.all(targets.map(async (task) => {
+        try {
+          const res = await fetch(`/api/training/${encodeURIComponent(task.task_id)}/run?summary=1`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (seq === runSeq) runByTask[task.task_id] = data;
+        } catch (_) { /* ignore */ }
+      }));
+      if (seq === runSeq) render();
+    }
+
+    function runBadges(taskId) {
+      const data = runByTask[taskId];
+      if (!data || !data.available) return '';
+      const verify = data.verify || {};
+      const run = data.run || {};
+      const digest = String(run.inputs_digest || '').slice(0, 8);
+      let html = '';
+      if (verify.ok) {
+        html += `<span class="quality-chip q-ok" title="B9 四件套对账通过（inputs_digest ${digest}…）">档案✓ seed=${run.seed ?? '-'}</span>`;
+      } else {
+        const n = (verify.problems || []).length;
+        html += `<span class="quality-chip q-bad" title="${(verify.problems || []).join('；') || '四件套对账未通过'}">档案✗ ${n} 项</span>`;
+      }
+      const produced = data.produced || [];
+      if (produced.length) {
+        html += `<span class="quality-chip q-ok" title="${produced.map((p) => `${p.artifact_id} (${String(p.onnx_sha256 || '').slice(0, 12)}…)`).join('\n')}">已入库×${produced.length}</span>`;
+      }
+      return html;
     }
 
     // 质量徽章（清单 ⑥⑧）：并行拉每个任务的 preflight 探针 / ONNX 验收结论。
@@ -564,7 +603,7 @@
           <div class="table-row" onclick="viewTask('${escapeHtml(task.task_id)}')" title="点击查看监控页面">
             <div class="task-info">
               <strong title="${escapeHtml(task.task_id)}">${escapeHtml(task.task_id)}</strong>
-              <span>${escapeHtml(taskSubtitle(task))}${qualityBadges(task.task_id)}</span>
+              <span>${escapeHtml(taskSubtitle(task))}${qualityBadges(task.task_id)}${runBadges(task.task_id)}</span>
             </div>
             <div class="cell-muted col-robot">${escapeHtml(task.robot || 'Unknown')}</div>
             <div class="cell-muted col-algo">${escapeHtml(task.algorithm || 'PPO')}</div>

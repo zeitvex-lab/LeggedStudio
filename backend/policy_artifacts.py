@@ -495,6 +495,25 @@ def _produced_index_entries(out_dir: Path) -> list[dict[str, Any]]:
     return entries
 
 
+def produced_for_run(run_id: str, *, out_dir: Path | str = OUT_DIR) -> list[dict[str, Any]]:
+    """某个 Run 已入库的 produced 产物（按索引里的 ``run_id`` 反查）。
+
+    页面侧据此显示"这条 Run 的策略已进产物库"；没有就是空表（Run 未入库是
+    正常状态，promote 是显式动作）。
+    """
+    if not run_id:
+        return []
+    return [
+        {
+            "artifact_id": str(item.get("artifact_id")),
+            "onnx_sha256": item.get("onnx_sha256"),
+            "onnx_bytes": item.get("onnx_bytes"),
+        }
+        for item in _produced_index_entries(Path(out_dir))
+        if item.get("run_id") == run_id
+    ]
+
+
 def promote_from_run(
     run_dir: Path | str,
     *,
