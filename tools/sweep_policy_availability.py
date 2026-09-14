@@ -153,7 +153,14 @@ def _policy_inventory(robots: list[str] | None) -> list[dict]:
             "label": declaration.get("label"),
             "family": str(declared or recommendation["family"]),
             "family_source": "declared" if declared else f"inferred({recommendation['confidence']})",
-            "gated": str(declared or recommendation["family"]) in STANDING_FAMILIES,
+            # 首页 **demo 素材**（`demo_policies` 段）不进站立门：它们是演示卡素材，不是可部署
+            # 策略（用户 2026-09-14 裁决）。`go2-baseline-164k` 就是这种：blob 在
+            # `web/sim2sim/models/`（包外）、且契约无 `control` 块（在 torque 接口下会零力矩）。
+            "demo_material": str(declaration.get("kind") or "") == "demo_policies",
+            "gated": (
+                str(declared or recommendation["family"]) in STANDING_FAMILIES
+                and str(declaration.get("kind") or "") != "demo_policies"
+            ),
             # 高度判据用哪把尺子：**声明优先**（见 resolve_height_ruler）。
             # 历史遗留：内置例外按 policy_id 查表（早期版本拿 artifact_id 去查，永远查不中、
             # 覆盖静默失效）；现在它降级为"带标注的兜底"，且尺子会随结论一起写进报告。
@@ -345,6 +352,17 @@ def sweep(*, robots: list[str] | None = None, limit: int | None = None,
             })
             continue
         flag = " ⚠ 零力矩——本轮结果无意义，先修增益" if row.get("zero_torque") else ""
+        if row.get("demo_material"):
+            # **不跑**：不是可部署策略，没有可套的判据；而它的契约缺 `control`（torque 接口下
+            # 零力矩），跑了只会产出"看起来像失败"的指标。如实标为跳过。
+            print(f"[{index}/{len(inventory)}] {row['artifact_id']} demo 素材，跳过（不进站立门）",
+                  flush=True)
+            results.append({
+                **row, "exit_code": None, "metrics": None, "verdict": "skipped",
+                "track_ratio": None, "report_path": None,
+                "stdout_tail": ["demo 素材：不进站立门、不跑仿真（用户 2026-09-14 裁决）"],
+            })
+            continue
         print(f"[{index}/{len(inventory)}] {row['artifact_id']} family={row['family']} "
               f"({row['family_source']}){flag}", flush=True)
         results.append(_run_one(row, seconds=seconds, seed=seed))
