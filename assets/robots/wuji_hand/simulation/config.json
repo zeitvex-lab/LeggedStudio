@@ -10,7 +10,6 @@
     {
       "id": "wuji-reorient",
       "label": "Wuji Hand 立方体重定向 (reorient)",
-      "path": "deploy/reorient-v2026.5.29/policy.onnx",
       "obs_dim": 69,
       "action_dim": 20,
       "history_len": 3,

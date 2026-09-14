@@ -34,7 +34,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--quiet", action="store_true", help="只输出结论与退出码")
     parser.add_argument("--allow-legacy", action="store_true",
                         help="迁移过渡期：裸路径只警告不判失败（hash 不一致仍判失败）")
+    parser.add_argument("--write", action="store_true",
+                        help="**删除**声明里指向 onnx 的裸 path/url（改动 14 份包配置；默认只报告）")
     args = parser.parse_args(argv)
+
+    if args.write:
+        stripped = pa.strip_raw_paths(write=True)
+        print(f"删除裸路径：{stripped['removed_count']} 处 / {len(stripped['files'])} 份包配置")
+        for problem in stripped["problems"]:
+            print(f"  ✗ {problem}")
+        if not stripped["ok"]:
+            return 1
 
     report = pa.reference_gaps()
     legacy = report["legacy_path_declarations"]

@@ -27,7 +27,6 @@
   "policies": [
     {
       "id": "go2w-velocity-legs",
-      "path": "simulation/policies/unitree_velocity_legs.onnx",
       "label": "Velocity Legs-Only (mjlab)",
       "obs_dim": 53,
       "action_dim": 12,
@@ -158,7 +157,6 @@
     },
     {
       "id": "go2w-velocity-robotlab",
-      "path": "simulation/policies/robotlab_velocity_57.onnx",
       "label": "Velocity 57D (rl_sar robot_lab)",
       "obs_dim": 57,
       "action_dim": 16,
@@ -281,7 +279,6 @@
     },
     {
       "id": "go2w-himloco-loco",
-      "path": "simulation/policies/go2w_himloco_loco.onnx",
       "label": "Go2W HIMLoco locomotion",
       "obs_dim": 57,
       "action_dim": 16,
@@ -445,7 +442,6 @@
     },
     {
       "id": "go2w-himloco-stand-front",
-      "path": "simulation/policies/go2w_himloco_stand_front.onnx",
       "label": "Go2W HIMLoco 前腿站立行走",
       "obs_dim": 57,
       "action_dim": 16,
@@ -609,7 +605,6 @@
     },
     {
       "id": "go2w-himloco-handstand",
-      "path": "simulation/policies/go2w_himloco_handstand.onnx",
       "label": "Go2W HIMLoco 倒立 (handstand)",
       "obs_dim": 57,
       "action_dim": 16,
@@ -773,7 +768,6 @@
     },
     {
       "id": "go2w-himloco-leggedstand",
-      "path": "simulation/policies/go2w_himloco_leggedstand.onnx",
       "label": "Go2W HIMLoco 后腿站立 (leggedstand)",
       "obs_dim": 57,
       "action_dim": 16,

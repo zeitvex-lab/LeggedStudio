@@ -8,7 +8,6 @@
   "policies": [
     {
       "id": "go2-backflip-69",
-      "path": "simulation/policies/backflip_69.onnx",
       "label": "Backflip 69D (imitation, motion-csv)",
       "obs_dim": 69,
       "action_dim": 12,
@@ -128,7 +127,6 @@
     },
     {
       "id": "go2-jump-69",
-      "path": "simulation/policies/jump_69.onnx",
       "label": "Jump 69D (imitation, motion-csv)",
       "obs_dim": 69,
       "action_dim": 12,
@@ -249,7 +247,6 @@
     {
       "id": "go2-moe-cts",
       "label": "Go2 MoE-CTS (robot_lab)",
-      "path": "simulation/policies/go2_moe_cts.onnx",
       "obs_dim": 45,
       "action_dim": 12,
       "history_len": 10,
@@ -323,7 +320,6 @@
     {
       "id": "go2-arenax-velocity",
       "label": "Go2 ArenaX velocity",
-      "path": "simulation/policies/go2_arenax_45x6.onnx",
       "obs_dim": 45,
       "action_dim": 12,
       "history_len": 6,
@@ -441,7 +437,6 @@
     },
     {
       "id": "go2-rlsar-robotlab",
-      "path": "simulation/policies/go2_rlsar_robotlab.onnx",
       "label": "Go2 速度跟踪 (rl_sar / robot_lab, 45D)",
       "obs_dim": 45,
       "action_dim": 12,
@@ -571,7 +566,6 @@
     },
     {
       "id": "go2-rlsar-himloco",
-      "path": "simulation/policies/go2_rlsar_himloco.onnx",
       "label": "Go2 HIMLoco (rl_sar, 45D×6)",
       "obs_dim": 45,
       "action_dim": 12,
@@ -703,7 +697,6 @@
     {
       "id": "go2-pie-parkour",
       "label": "Go2 PIE 深度跑酷 (parkour_mjlab)",
-      "path": "simulation/policies/go2_pie_policy.onnx",
       "obs_dim": 45,
       "action_dim": 12,
       "history_len": 1,
@@ -832,7 +825,6 @@
     {
       "id": "go2-kaiwu-cts-max2",
       "label": "Go2 CTS-max2 (kaiwu_rl)",
-      "path": "simulation/policies/go2_kaiwu_cts_max2.onnx",
       "obs_dim": 45,
       "action_dim": 12,
       "history_len": 5,
@@ -938,7 +930,6 @@
     {
       "id": "go2-kaiwu-moe-cts-124k",
       "label": "Go2 MoE-CTS 124k (kaiwu_rl)",
-      "path": "simulation/policies/go2_kaiwu_moe_cts_124k.onnx",
       "obs_dim": 45,
       "action_dim": 12,
       "history_len": 5,
@@ -1044,7 +1035,6 @@
     {
       "id": "go2-kaiwu-moe-cts-137k",
       "label": "Go2 MoE-CTS 137k (kaiwu_rl)",
-      "path": "simulation/policies/go2_kaiwu_moe_cts_137k.onnx",
       "obs_dim": 45,
       "action_dim": 12,
       "history_len": 5,
@@ -1150,7 +1140,6 @@
     {
       "id": "go2-kaiwu-moe-cts-8exp",
       "label": "Go2 MoE-CTS 8-experts (kaiwu_rl)",
-      "path": "simulation/policies/go2_kaiwu_moe_cts_8exp.onnx",
       "obs_dim": 45,
       "action_dim": 12,
       "history_len": 5,
@@ -1266,8 +1255,6 @@
     {
       "id": "go2-baseline-164k",
       "label": "Go2 baseline 164k",
-      "url": "/web/sim2sim/models/go2_moe_cts_high_slope_164k.onnx",
-      "path": "models/go2_moe_cts_high_slope_164k.onnx",
       "checkpoint_iteration": 164000,
       "obs_dim": 45,
       "history_len": 5

@@ -241,10 +241,13 @@ async def run_policy_acceptance(payload: dict[str, Any]) -> dict[str, Any]:
     policy = next((p for p in policies if isinstance(p, dict) and p.get("id") == policy_id), None)
     if not policy:
         raise HTTPException(status_code=404, detail=f"包内不存在策略: {policy_id}")
-    policy_rel = str(policy["path"]).replace("\\", "/")
-    policy_path = root / policy_rel
-    if not policy_path.exists():
-        raise HTTPException(status_code=404, detail=f"策略文件缺失: {policy_rel}")
+    # B10：声明可能只留 `id`（源路径与 hash 在 policies/index.json），故统一走解析器
+    from backend.policy_artifacts import policy_relative_path
+
+    policy_rel = policy_relative_path(policy, robot_dir=root) or ""
+    policy_path = root / policy_rel if policy_rel else root
+    if not policy_rel:
+        raise HTTPException(status_code=404, detail=f"策略文件缺失: {policy.get('id') or policy_id}")
     output = _acceptance_report_path(root, policy_rel)
 
     script = Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / "policy_acceptance.py"
@@ -387,9 +390,12 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     package_policies = simulation_config.get("policies") if isinstance(simulation_config.get("policies"), list) else []
     default_policy_contract = simulation_config.get("policy_contract") if isinstance(simulation_config.get("policy_contract"), dict) else {}
     public_policies: list[dict[str, Any]] = []
+    # B10：声明形式（裸 path / 只留 id）由解析器统一兜住，不再直接读 item["path"]
+    from backend.policy_artifacts import policy_relative_path
+
     for item in package_policies:
-        if isinstance(item, dict) and item.get("path"):
-            policy_path = str(item["path"]).replace("\\", "/")
+        policy_path = policy_relative_path(item, robot_dir=root) if isinstance(item, dict) else None
+        if policy_path:
             entry_checks: list[dict[str, Any]] = [{"id": "package", "ok": True, "message": "Package policy manifest"}]
             acceptance_check = _acceptance_health_check(root, policy_path)
             if acceptance_check:
@@ -416,9 +422,13 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                 },
             })
     if package_policies:
-        selected_policy = next((item for item in package_policies if isinstance(item, dict) and item.get("path")), None)
+        selected_policy = next(
+            (item for item in package_policies
+             if isinstance(item, dict) and policy_relative_path(item, robot_dir=root)),
+            None,
+        )
         if selected_policy:
-            policy_path = str(selected_policy["path"]).replace("\\", "/")
+            policy_path = policy_relative_path(selected_policy, robot_dir=root) or ""
             selected_checks: list[dict[str, Any]] = [{"id": "package", "ok": True, "message": "Package policy manifest"}]
             selected_acceptance = _acceptance_health_check(root, policy_path)
             selected_ok = True
