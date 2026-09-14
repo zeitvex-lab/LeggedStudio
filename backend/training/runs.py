@@ -438,3 +438,71 @@ def verify_run(run_dir: Path | str) -> dict[str, Any]:
         "robot_id": resolved.get("robot_id"),
         "problems": problems,
     }
+
+
+# --------------------------------------------------------------------------------------
+# 接线：训练任务创建时调用
+# --------------------------------------------------------------------------------------
+#: 已单独抽取为 inputs 的键，其余 config 键全部计入 ``params``（**任一改动都派生新 Run**）。
+_INPUT_ONLY_KEYS = ("resolved_recipe", "recipe", "profile_id", "profile_mtime", "seed")
+
+
+def run_inputs_from_task(*, contract_hash: str, config: Mapping[str, Any]) -> dict[str, Any]:
+    """从训练任务的真实 ``config`` 抽取输入四元组（键名对齐 `backend/training/create.py`）。
+
+    * ``recipe`` ← ``config["resolved_recipe"]``（**已解析**的 canonical recipe，非原始请求）；
+    * ``profile`` ← ``profile_id`` + ``profile_mtime`` —— profile 被改但没换 id，指纹同样会变；
+    * ``seed`` ← ``config["seed"]``；
+    * ``params`` ← 其余全部 config 键（含 ``num_envs`` / ``max_iterations`` / ``mode`` 等）。
+
+    这样"任何会影响训练结果的输入"都进了指纹，无需维护一份容易漏项的白名单。
+    """
+    recipe = config.get("resolved_recipe") or config.get("recipe") or {}
+    if not isinstance(recipe, Mapping):
+        recipe = {"value": recipe}
+    profile = {key: config[key] for key in ("profile_id", "profile_mtime") if key in config}
+    params = {
+        key: value for key, value in config.items()
+        if key not in _INPUT_ONLY_KEYS
+    }
+    return build_inputs(
+        contract_hash=str(contract_hash),
+        recipe=recipe,
+        profile=profile,
+        seed=int(config.get("seed") or 0),
+        params=params,
+    )
+
+
+def create_run_for_task(
+    run_dir: Path | str,
+    *,
+    contract: Any,
+    config: Mapping[str, Any],
+    task: str = "training",
+) -> RunRecord:
+    """**B9 接线入口**：训练任务创建时把这次 Run 的档案落盘，返回 Run 记录。
+
+    刻意设计成"训练启动**之前**调用"：档案写不出来就不该开训 —— 否则会产出一份
+    无法回溯的 Run（违背 V1 可追溯），而此时 worker 还没起，拦下来代价为零。
+    """
+    contract_hash = (
+        contract.compute_hash() if hasattr(contract, "compute_hash") else str(contract)
+    )
+    robot_id = getattr(contract, "robot_id", None) or config.get("robot_id") or ""
+    inputs = run_inputs_from_task(contract_hash=contract_hash, config=config)
+    resolved_config = build_resolved_config(
+        robot_id=str(robot_id),
+        task=str(task),
+        inputs=inputs,
+        resolved=dict(config),
+    )
+    environment_lock = collect_environment_lock(
+        seed=inputs["seed"], device=config.get("device"),
+    )
+    return write_run(
+        run_dir,
+        resolved_config=resolved_config,
+        environment_lock=environment_lock,
+        run_id=Path(run_dir).name,
+    )

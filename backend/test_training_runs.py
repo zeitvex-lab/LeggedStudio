@@ -181,5 +181,71 @@ class ImmutabilityTest(unittest.TestCase):
             self.assertIsNone(runs.load_run(Path(tmp) / "不存在"))
 
 
+class TaskWiringTest(unittest.TestCase):
+    """B9 接线：训练任务的 config 决定 Run 指纹（键名对齐 `backend/training/create.py`）。"""
+
+    class _Contract:
+        robot_id = "unitree_go2"
+
+        def compute_hash(self) -> str:
+            return "f" * 64
+
+    @staticmethod
+    def _config(**overrides):
+        config = {
+            "backend": "native_mjlab",
+            "mode": "train",
+            "seed": 7,
+            "profile_id": "go2-velocity",
+            "profile_mtime": 1757800000.0,
+            "num_envs": 4096,
+            "max_iterations": 300,
+            "resolved_recipe": {"id": "core/velocity", "version": "2.0"},
+        }
+        config.update(overrides)
+        return config
+
+    def _inputs(self, **overrides):
+        return runs.run_inputs_from_task(
+            contract_hash=self._Contract().compute_hash(), config=self._config(**overrides),
+        )
+
+    def test_recipe_profile_seed_are_extracted_not_left_in_params(self):
+        inputs = self._inputs()
+        self.assertEqual(inputs["seed"], 7)
+        self.assertEqual(inputs["recipe"], {"id": "core/velocity", "version": "2.0"})
+        self.assertEqual(inputs["profile"]["profile_id"], "go2-velocity")
+        self.assertNotIn("resolved_recipe", inputs["params"])
+        self.assertEqual(inputs["params"]["num_envs"], 4096)
+
+    def test_any_config_change_changes_fingerprint(self):
+        baseline = self._inputs()["digest"]
+        for label, overrides in (
+            ("num_envs", {"num_envs": 1024}),
+            ("max_iterations", {"max_iterations": 5}),
+            ("seed", {"seed": 8}),
+            ("recipe", {"resolved_recipe": {"id": "core/velocity", "version": "2.1"}}),
+            ("profile 换了", {"profile_id": "go2-rough"}),
+            ("profile 被改但 id 没换", {"profile_mtime": 1757999999.0}),
+        ):
+            with self.subTest(which=label):
+                self.assertNotEqual(baseline, self._inputs(**overrides)["digest"])
+
+    def test_create_run_for_task_writes_tetrad_and_verifies(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "go2_velocity_20260914_120000"
+            record = runs.create_run_for_task(
+                run_dir, contract=self._Contract(), config=self._config(),
+                task="go2_velocity_20260914_120000",
+            )
+            self.assertEqual(record.run_id, run_dir.name)      # task_id 即 run_id
+            self.assertEqual(record.robot_id, "unitree_go2")
+            self.assertEqual(record.seed, 7)
+            for key in ("resolved_config", "environment_lock", "record"):
+                self.assertTrue(runs.run_paths(run_dir)[key].is_file(), key)
+            report = runs.verify_run(run_dir)
+            self.assertTrue(report["ok"], report["problems"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -83,3 +83,44 @@ async def get_training_artifact(task_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{task_id}/run")
+async def get_training_run(task_id: str):
+    """**B9 Run 档案**：可复现四件套 + 对账报告（F1/F2 页面消费）。
+
+    直接给出 ``verify`` 结论，页面据此显示"这份 Run 能否复现"，而不是靠人肉比对；
+    接线之前建立的旧任务没有档案，返回 ``available: false`` 并说明原因（不编造）。
+    """
+    from backend.training.runs import (
+        ENVIRONMENT_LOCK_NAME, RESOLVED_CONFIG_NAME, load_run, verify_run,
+    )
+
+    task = get_training_manager().get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    record = load_run(task.task_dir)
+    if record is None:
+        return {
+            "success": True,
+            "available": False,
+            "task_id": task_id,
+            "note": "该任务建立于 B9 接线之前，未落 Run 档案；新建任务即带可复现四件套",
+        }
+
+    def _read(name: str):
+        try:
+            return json.loads((task.task_dir / name).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    return {
+        "success": True,
+        "available": True,
+        "task_id": task_id,
+        "run": record.as_dict(),
+        "verify": verify_run(task.task_dir),
+        "resolved_config": _read(RESOLVED_CONFIG_NAME),
+        "environment_lock": _read(ENVIRONMENT_LOCK_NAME),
+    }
