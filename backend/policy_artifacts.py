@@ -405,25 +405,69 @@ def policy_blob_path(
     """
     if robot_dir is None and declaration.get("robot_dir"):
         robot_dir = Path(str(declaration["robot_dir"]))
-    artifact_id = declaration.get("artifact_id")
-    if artifact_id:
-        entry = (index if index is not None else load_index()).get(str(artifact_id))
-        if not entry:
-            return None
-        source = entry.get("source_onnx")
+    index = index if index is not None else load_index()
+
+    # 引用优先级：① 显式 artifact_id → ② 由 (robot, policy_id) **推导**（＝终态：契约只留 id，
+    # hash 全在出库索引里）→ ③ 裸 path/url（迁移前的旧形式）。三者都走同一个入口，
+    # 所以声明可以逐包删除裸路径字段，消费者无需知道切换发生在哪一刻。
+    candidates: list[str] = []
+    if declaration.get("artifact_id"):
+        candidates.append(str(declaration["artifact_id"]))
+    if declaration.get("robot") and declaration.get("policy_id"):
+        candidates.append(artifact_id_for(str(declaration["robot"]), str(declaration["policy_id"])))
+
+    for candidate in candidates:
+        entry = index.get(candidate)
+        source = (entry or {}).get("source_onnx")
         if not source:
-            return None
-        candidate = Path(str(source))
-        candidate = candidate if candidate.is_absolute() else ROOT / candidate
-        return candidate if candidate.is_file() else None
+            continue
+        resolved = Path(str(source))
+        resolved = resolved if resolved.is_absolute() else ROOT / resolved
+        if resolved.is_file():
+            return resolved
+
     if robot_dir is not None:
         return resolve_declared_onnx(
             Path(robot_dir),
-            # scan_declarations 只留 `declared`（原样字符串），这里兼容两种来源。
             declaration.get("path") or declaration.get("declared") or "",
             declaration.get("url") or "",
         )
     return None
+
+
+def policy_relative_path(
+    declaration: Mapping[str, Any],
+    *,
+    robot_dir: Path | str,
+    index: Mapping[str, Mapping[str, Any]] | None = None,
+) -> str | None:
+    """解析出**包内相对路径**（serv 层拼前端 URL 用）。
+
+    三种声明形式都吃：裸 `path` / 裸 `url` / 只留 `id`（经索引 → `source_onnx`）。
+    解析结果落在包外时（如 `web/sim2sim/models/` 的那条）返回 ``None`` —— 因为此时
+    "包内相对路径"这个概念本身不成立，编一个出来只会产出一个取不到文件的 URL。
+    """
+    blob = policy_blob_path(declaration, robot_dir=Path(robot_dir), index=index)
+    if blob is None:
+        return None
+    try:
+        return blob.resolve().relative_to(Path(robot_dir).resolve()).as_posix()
+    except ValueError:
+        return None
+
+
+def declaration_has_raw_path(declaration: Mapping[str, Any]) -> bool:
+    """声明里是否**仍留着裸路径字段**（`path`/`url` 且指向 .onnx）。
+
+    这是"迁移进度"的判据：索引已能独立解析（见 :func:`policy_blob_path` 的第 ①② 条），
+    所以裸路径字段的存在与否只影响**契约整洁度**，不影响功能 —— 因此删它们可以安全地
+    排在消费者切换之后。
+    """
+    for key in ("path", "url"):
+        value = str(declaration.get(key) or "")
+        if value.lower().endswith(".onnx"):
+            return True
+    return False
 
 
 def policy_reference(
@@ -470,10 +514,7 @@ def reference_gaps(
 
     for declaration in declarations:
         artifact_id = artifact_id_for(str(declaration.get("robot")), str(declaration.get("policy_id")))
-        uses_legacy = not declaration.get("artifact_id") and (
-            declaration.get("declared") or declaration.get("onnx") is not None
-        )
-        if uses_legacy:
+        if declaration_has_raw_path(declaration):
             legacy.append(artifact_id)
         reference = policy_reference(declaration, index=index)
         if reference["onnx_sha256"] is None:
