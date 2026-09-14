@@ -419,6 +419,12 @@
     [data-layer="runtime"] .layer-head { border-left-color: var(--green, #69e0a9);
       background: rgba(105, 224, 169, .06); }
     [data-layer="runtime"] .layer-index { color: var(--green, #69e0a9); }
+    [data-layer="expert"] .layer-head { border-left-color: var(--cyan, #39c5bb);
+      background: rgba(57, 197, 187, .05); }
+    #expertOverrides { width: 100%; box-sizing: border-box; font-family: ui-monospace, monospace;
+      font-size: 12.5px; line-height: 1.5; padding: 8px 10px; border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, .14); background: rgba(0, 0, 0, .18);
+      color: inherit; resize: vertical; }
 
     /* 只读 KV 表（契约信息） */
     .ro-block {
@@ -1101,6 +1107,29 @@
                 </div>
               </div>
             </div>
+
+            <!-- ============ 专家模式：点路径覆盖（E6 逃生门） ============
+                 判据是"任意参数可改"，但**带护栏**：未知路径 / 只读项 / 类型不符当场拒，
+                 且**整批拒绝** —— 不会出现"改了一半、另一半被静默丢掉"。 -->
+            <section class="layer-block" id="layer-expert" data-layer="expert">
+              <div class="layer-head">
+                <span class="layer-index">逃生门</span>
+                <h2>专家模式：点路径覆盖</h2>
+                <span class="layer-note">任意参数可改 · 越界/只读/类型不符当场拒</span>
+              </div>
+              <p class="section-hint">直接写 dot-path 覆盖（JSON 对象，一次可写多条）。**物理与契约类**
+                （stiffness / damping / timestep / decimation / joint_order / default_pose …）是只读的 ——
+                它们属于机器人包（契约 + MJCF），改在这里不会生效，所以这里会直接拒掉。</p>
+              <textarea id="expertOverrides" rows="4" spellcheck="false"
+                placeholder='{ "runner.algorithm.learning_rate": 0.0005 }'></textarea>
+              <div class="field-row" style="margin-top: 8px;">
+                <button type="button" id="expertValidate">校验覆盖</button>
+                <small class="field-hint">先校验再提交：未过校验的覆盖不会写进训练配置</small>
+              </div>
+              <div id="expertDetails" class="spec-groups">
+                <div class="ro-note">写一条覆盖后点「校验覆盖」，这里会列出「哪条通过、哪条被拒、为什么」。</div>
+              </div>
+            </section>
 
             <!-- 05 训练器（第三段：运行参数） -->
             <section class="cat-panel form-panel" id="ch-train" data-chapter="train">
@@ -1866,6 +1895,56 @@
         kvRows(rows) + reasons +
         '<div class="ro-note">要改物理请改机器人包（契约 + MJCF）；直接改这里会被校验器报为漂移（bake --check / validate_mjcf_contract）。</div>');
     }
+
+    // ---------- E6：专家模式（点路径逃生门）----------
+    // 判据"任意参数可改"，但**校验后才算数**：后端按参数目录判「未知路径 / 只读项 / 类型不符」，
+    // 一律整批拒绝。这里只负责把结论如实显示出来（不自己写一套白名单 —— 否则页面与后端会分叉）。
+    async function validateExpertOverrides() {
+      const raw = (($('expertOverrides') || {}).value || '');
+      let edits;
+      try {
+        edits = raw.trim() ? JSON.parse(raw) : {};
+      } catch (error) {
+        setInner('expertDetails', `<div class="ro-note">JSON 解析失败：${escapeHtml(error.message)}</div>`);
+        return;
+      }
+      if (!edits || !Object.keys(edits).length) {
+        setInner('expertDetails', '<div class="ro-note">先写一条覆盖，例如 {"runner.algorithm.learning_rate": 0.0005}。</div>');
+        return;
+      }
+      const preset = state.preset || {};
+      if (!preset.robot_id) {
+        setInner('expertDetails', '<div class="ro-note">先选择训练档案（参数目录按档案解析）。</div>');
+        return;
+      }
+      setInner('expertDetails', '<div class="ro-note">校验中…</div>');
+      try {
+        const response = await fetch('/api/training/validate-overrides', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            robot_id: preset.robot_id, profile_id: state.profileId, overrides: edits,
+          }),
+        });
+        const report = await response.json();
+        if (!response.ok) {
+          throw new Error((report && report.detail) ? String(report.detail) : `HTTP ${response.status}`);
+        }
+        const rows = (report.details || []).map(item => [item.path, item.value]);
+        const head = report.ok
+          ? `<div class="ro-note">✓ 通过 ${rows.length} 条（目录：${escapeHtml(report.catalog)}）</div>`
+          : `<div class="ro-note">✗ ${report.problems.length} 处问题 —— <b>整批拒绝</b>，一条都不会写入：`
+            + `<br>${report.problems.map(escapeHtml).join('<br>')}</div>`;
+        const note = report.catalog_note
+          ? `<div class="ro-note">${escapeHtml(report.catalog_note)}</div>` : '';
+        setInner('expertDetails', head + note + (rows.length ? kvRows(rows) : ''));
+      } catch (error) {
+        setInner('expertDetails', `<div class="ro-note">校验请求失败：${escapeHtml(error.message)}</div>`);
+      }
+    }
+
+    const expertButton = $('expertValidate');
+    if (expertButton) expertButton.addEventListener('click', validateExpertOverrides);
 
     // ---------- 配方只读区（config-preview：契约 / 关节顺序） ----------
     async function refreshConfigPreview() {

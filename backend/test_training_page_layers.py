@@ -54,5 +54,34 @@ class PageLayerTest(unittest.TestCase):
                 self.assertGreater(self.html.find(chapter), task, f"{chapter} 应属于任务层")
 
 
+class ExpertModePanelTest(unittest.TestCase):
+    """E6 逃生门（点路径覆盖）：**面板必须走后端校验**，不能前端自判。
+
+    前端自判一次，就多一份与后端分叉的白名单 —— 那时"页面能改、后端说未知"这类
+    最难查的不一致就会回来。
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.html = PAGE.read_text(encoding="utf-8")
+
+    def test_panel_exists_with_its_own_layer_block(self):
+        self.assertIn('id="layer-expert"', self.html)
+        self.assertIn('id="expertOverrides"', self.html)
+        self.assertIn('id="expertValidate"', self.html)
+        self.assertIn("validateExpertOverrides", self.html)
+
+    def test_validation_goes_through_the_backend(self):
+        self.assertIn("/api/training/validate-overrides", self.html,
+                      "必须调后端校验端点（目录在后端）")
+        self.assertNotIn("STATIC_READONLY", self.html,
+                         "前端不得自己复制一份只读白名单（会与后端分叉）")
+
+    def test_ui_states_the_all_or_nothing_rule_and_physics_readonly(self):
+        self.assertIn("整批拒绝", self.html, "必须写明失败时整批拒绝")
+        self.assertIn("只读", self.html, "必须写明物理/契约类只读")
+        self.assertIn("不会生效", self.html)
+
+
 if __name__ == "__main__":
     unittest.main()

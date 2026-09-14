@@ -189,6 +189,27 @@ async def create_training(
             if compatibility["status"] == "unknown":
                 raise HTTPException(status_code=501, detail={"message": "active MJLab runtime version could not be verified for the selected robot package", "compatibility": compatibility, "preflight": native})
 
+        # **E6 护栏**：专家模式的点路径覆盖必须过校验 —— 未知路径 / 只读项 / 类型不符
+        # **整批拒绝**（不是"应用一半"）。目录优先用 schema 缓存；缓存冷时退回静态只读表
+        # （"不能改物理"这条事实不依赖目录）。通过后**用转好类型的值覆盖** `config["overrides"]`，
+        # 保证"校验过的才算数"。
+        if request.overrides:
+            from backend.training.dot_path import validate_edits
+            from backend.training.schema import cached_param_catalog
+
+            catalog = cached_param_catalog(str(request.profile_id)) if request.profile_id else None
+            point_report = validate_edits(request.overrides, catalog=catalog)
+            if not point_report["ok"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "message": "点路径覆盖未通过校验（整批拒绝，一个都不会写入）",
+                        "problems": point_report["problems"],
+                        "catalog": "full" if catalog else "static_only",
+                    },
+                )
+            config["overrides"] = point_report["applied"]
+
         # **E8 冒烟前置门**：未过冒烟不能长训。证据＝同输入指纹的冒烟 Run（见
         # backend/training/smoke_gate.py）。放在请求层而非 create_task：`smoke_preset`
         # 的语义只在这里存在，且直接调 manager 的调用方（测试/脚本）不该被门拦住。
