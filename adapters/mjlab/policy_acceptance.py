@@ -1814,10 +1814,52 @@ def run_encoder_mode(sess_enc, sess_pol, contract: PackageContract, model, data,
     return metrics
 
 
+def match_policy_entry(
+    policies: list, policy_path: Path, package_dir: Path, policy_id: str = "",
+) -> dict | None:
+    """把 ``--policy``（onnx 路径，或 stem 恰为声明 id 的路径）映射回包内声明条目。
+
+    B10 删掉 46 处裸 ``path``/``url`` 后，旧匹配 ``p.get("path", "")`` 恒为空串；
+    而实测 46 条声明中 45 条**文件名 stem ≠ id**，于是几乎每次都静默回落
+    ``policies[0]`` —— 拿第一条策略的增益/观测布局去验收别的策略
+    （"看起来生效、实际不生效"）。改为与 ``tools/sim2sim_headless.py`` 同一口径，
+    优先级：**① 显式 ``--policy-id``**（唯一无歧义的键；lite3 两条声明共用同一
+    onnx，文件名原理上分不出谁是谁）→ ② stem 恰为声明 id → ③ 解析出的 blob
+    文件名**全等**（``backend.policy_artifacts`` 纯标准库，适配器 venv 亦可导入）。
+    解析不到返回 ``None``，由调用方决定是否 fail-closed。
+
+    匹配用**文件名全等**而非 ``endswith``：后者会把 ``mypolicy.onnx`` 误配给
+    ``--policy policy.onnx``（wuji_hand 的 blob 恰好就叫 ``policy.onnx``）。
+    """
+    from backend.policy_artifacts import policy_blob_path
+
+    for p in policies:
+        if not isinstance(p, dict):
+            continue
+        if policy_id:
+            if p.get("id") == policy_id:
+                return p
+        elif p.get("id") == policy_path.stem:
+            return p
+    if policy_id:
+        # 调用方点名了要谁（端点已预检 id 存在）：对不上就是数据漂移，
+        # 不得退回文件名匹配 —— 给别人属于答非所问。
+        return None
+    for p in policies:
+        if not isinstance(p, dict):
+            continue
+        blob = policy_blob_path(p, robot_dir=package_dir)
+        if blob is not None and blob.name == policy_path.name:
+            return p
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="ONNX 策略验收评估器")
     parser.add_argument("--package", required=True, help="机器人包目录")
     parser.add_argument("--policy", default="", help="policy.onnx 路径（--probe 模式可省略）")
+    parser.add_argument("--policy-id", default="",
+                        help="声明 id（共用同一 onnx 的多条声明靠它区分；缺省时按 id/文件名匹配）")
     parser.add_argument("--modes", nargs="*", default=None, help="指令模式列表，如 0,0,0 0.3,0,0")
     parser.add_argument("--seconds", type=float, default=6.0)
     parser.add_argument("--seed", type=int, default=0)
@@ -1835,10 +1877,18 @@ def main() -> None:
 
     sim_cfg = json.loads((package_dir / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
     policies = sim_cfg.get("policies") or []
-    policy_entry = next(
-        (p for p in policies if str(p.get("path", "")).endswith(policy_path.name) or p.get("id") == policy_path.stem),
-        policies[0] if policies else {},
-    )
+    if args.policy:
+        # 给了 --policy 却对不上任何声明 → fail-closed：静默回落 policies[0] 会拿
+        # 别人的契约条目（增益/观测布局）跑验收，报告看似正常实则答非所问。
+        policy_entry = match_policy_entry(policies, policy_path, package_dir, args.policy_id)
+        if policy_entry is None:
+            raise SystemExit(
+                f"--policy {policy_path.name} 无法对应包内任何策略声明"
+                f"（既非声明 id，也无同名 onnx；包: {package_dir.name}）"
+            )
+    else:
+        # --probe：无策略，契约条目只提供物理口径，取第一条即可。
+        policy_entry = policies[0] if policies else {}
     contract = PackageContract(package_dir, policy_entry)
 
     model = load_package_model(package_dir, sim_cfg)
@@ -1887,6 +1937,8 @@ def main() -> None:
     report = {
         "schema": "policy-acceptance-1.0",
         "policy": policy_path.name,
+        # 实际匹配到的声明 id（lite3 两条声明共用同一 onnx，只看文件名分不出用了谁的契约条目）
+        "policy_id": policy_entry.get("id") if isinstance(policy_entry, dict) else None,
         "robot_package": package_dir.name,
         "seconds_per_mode": args.seconds,
         "seed": args.seed,

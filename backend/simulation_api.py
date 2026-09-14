@@ -257,7 +257,9 @@ async def run_policy_acceptance(payload: dict[str, Any]) -> dict[str, Any]:
     # （验收脚本只用 mujoco/onnxruntime，不依赖训练栈）。
     adapter_interpreter = adapter_python(default=Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / ".venv")
     python_exe = str(adapter_interpreter) if adapter_interpreter.exists() else sys.executable
-    command = [python_exe, str(script), "--package", str(root), "--policy", str(policy_path), "--output", str(output)]
+    # --policy-id 是唯一无歧义的键：lite3 两条声明共用同一 onnx，仅凭文件名分不出谁是谁
+    command = [python_exe, str(script), "--package", str(root), "--policy", str(policy_path),
+               "--policy-id", policy_id, "--output", str(output)]
     try:
         completed = await asyncio.wait_for(
             asyncio.to_thread(
