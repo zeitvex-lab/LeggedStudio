@@ -127,6 +127,8 @@
               <h3 class="metrics-title">健康仪表盘</h3>
               <span class="panel-note" id="healthRuleNote"></span>
             </div>
+            <!-- F6：NaN/OOM 告警条（alerts 非空才渲染，见 renderHealthAlerts） -->
+            <div id="healthAlerts"></div>
             <div class="health-gauges" id="healthGauges">
               <div class="ov-empty">等待健康数据…</div>
             </div>
@@ -602,6 +604,7 @@
       if (!wrap) return;
       try {
         const report = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/health`);
+        renderHealthAlerts(report.alerts);
         const gauges = Object.entries(report.gauges || {});
         wrap.innerHTML = gauges.map(([key, gauge]) => `
           <div class="gauge-card status-${gauge.status}">
@@ -622,7 +625,30 @@
         if (report.rule) $('healthRuleNote').textContent = report.rule;
       } catch (error) {
         wrap.innerHTML = '<div class="ov-empty">健康数据不可用（后端未启动或任务不存在）</div>';
+        renderHealthAlerts(null);
       }
+    }
+
+    // F6：NaN/OOM 告警条——alerts 非空才渲染（每条一行），空列表或旧后端（无键）不渲染任何东西
+    function renderHealthAlerts(alerts) {
+      const box = $('healthAlerts');
+      if (!box) return;
+      if (!Array.isArray(alerts) || !alerts.length) {
+        box.innerHTML = '';
+        return;
+      }
+      box.innerHTML = `<div class="error-banner visible" role="alert">${alerts.map((alert) => `<div>${escapeHtml(healthAlertText(alert))}</div>`).join('')}</div>`;
+    }
+
+    // 告警单行文案：NaN 带指标名与步号，OOM 带命中的日志行（渲染时整体 escapeHtml 转义）
+    function healthAlertText(alert) {
+      if (alert.kind === 'nan') {
+        return `数值异常：指标「${alert.metric}」在第 ${alert.step} 步首次出现 NaN/Inf —— ${alert.text}`;
+      }
+      if (alert.kind === 'oom') {
+        return `${alert.text} ｜ 日志行：${alert.line}`;
+      }
+      return alert.text || JSON.stringify(alert);
     }
 
     function termSparkline(points, color) {

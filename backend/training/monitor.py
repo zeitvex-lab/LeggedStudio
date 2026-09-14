@@ -185,12 +185,16 @@ async def get_training_term_series(task_id: str):
 
 @router.get("/{task_id}/health")
 async def get_training_health(task_id: str):
-    """五大健康仪表盘 + 中文症状路由卡（T2.2，知识库 Ch25 蓝本）。"""
+    """五大健康仪表盘 + 中文症状路由卡（T2.2，知识库 Ch25 蓝本）。
+
+    F6 追加告警：指标序列 NaN/±Inf 由 build_health_report 产出，此处再扫描
+    training.log 尾部的 OOM 记录并追加进 alerts（只报日志里出现过的事实）。
+    """
     task = get_training_manager().get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
 
-    from backend.health_cards import build_health_report
+    from backend.health_cards import build_health_report, scan_oom_alerts
 
     rows = []
     metrics_file = task.task_dir / "metrics.jsonl"
@@ -200,7 +204,9 @@ async def get_training_health(task_id: str):
                 rows.append(json.loads(line))
             except json.JSONDecodeError:
                 continue
-    return {"success": True, "task_id": task_id, **build_health_report(rows)}
+    report = build_health_report(rows)
+    report["alerts"] = [*report["alerts"], *scan_oom_alerts(task.task_dir / "training.log")]
+    return {"success": True, "task_id": task_id, **report}
 
 @router.get("/{task_id}/checkpoints")
 async def get_training_checkpoints(task_id: str):
