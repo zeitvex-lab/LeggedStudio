@@ -136,12 +136,27 @@ def audit(*, robots_dir: Path | str = ROBOTS_DIR) -> dict:
                     "zero_torque": bool(
                         interface == "torque" and order and all(kp <= 0.0 for kp in kps)
                     ),
+                    # 判定：**声明了按策略增益，但它进不了仿真**（见 gains_ineffective 说明）
+                    "gains_ineffective": bool(
+                        (contract.get("control") or {}).get("stiffness")
+                        and interface != "torque"
+                    ),
                 })
     problems = [row for row in rows if row.get("zero_torque")]
+    #: 第二类事实：**按策略增益在非力矩接口下不参与仿真**。
+    #:
+    #: `PackageContract` 会把它读进 `self.stiffness`（`policy_acceptance.py`），审计也会标成
+    #: `stiffness_source=policy.control` —— **看起来生效**；但 `position`/`velocity` 接口下我们只写
+    #: 位置/速度目标，PD 由 **MJCF 执行器的 kp/kv** 决定，这份声明根本不进物理。
+    #: 2026-09-14 实测：`lite3-velocity-benchmark` 与 `lite3-velocity-sdk45` 指向同一 onnx、契约里
+    #: 唯一差别就是 `control.stiffness`（40 vs 30）——**两条却跑出一字不差的指标**，即由此而来。
+    #: 所以它必须被显式报出：要么让它生效，要么承认它只是声明。
+    ineffective = [row for row in rows if row.get("gains_ineffective")]
     return {
         "schema": "policy-gains-audit-1.0",
         "total": len(rows),
         "problems": problems,
+        "ineffective": ineffective,
         "rows": rows,
     }
 
@@ -161,6 +176,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  ✗ {row['robot']}/{row['policy_id']}  interface={row['interface']} "
               f"动作关节 {row['joints']} 个，增益来源={row['stiffness_source']} "
               f"→ kp 全 0（腿不会支撑）")
+    ineffective = report["ineffective"]
+    if ineffective:
+        print(f"\n**声明了但进不了仿真**的按策略增益块 {len(ineffective)} 条"
+              "（非力矩接口 → PD 由 MJCF 的 kp/kv 决定，这份声明不参与物理）：")
+        for row in ineffective:
+            print(f"  ⚠ {row['robot']}/{row['policy_id']}  interface={row['interface']} "
+                  f"声明 kp={row['kp_min']}~{row['kp_max']} kd={row['kd_max']}"
+                  "（来源 policy.control，**实际不生效**）")
+
     torque_ok = [
         row for row in report["rows"]
         if row.get("interface") == "torque" and not row.get("zero_torque") and row.get("kp_max")
