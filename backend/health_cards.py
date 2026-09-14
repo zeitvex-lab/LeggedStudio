@@ -1,4 +1,4 @@
-"""训练健康仪表盘 + 中文症状路由卡（T2.2，批次 2 / M3）。
+"""训练健康仪表盘 + 中文症状路由卡（T2.2，批次 2 / M3）+ NaN/OOM 告警（F6）。
 
 五大仪表盘（Reward / KL / Entropy / Value Loss / Episode Length）来自知识库
 Ch25（00_Survey 报告 1 §9）：每项 ✅⚠❌ + 当前值 + 一句话状态；⚠ 展开中文症状
@@ -6,10 +6,16 @@ Ch25（00_Survey 报告 1 §9）：每项 ✅⚠❌ + 当前值 + 一句话状�
 
 输入是 metrics.jsonl 行 / TB 序列中常见的 rsl_rl 键；键缺失的仪表盘返回
 "未采集"而不是伪造结论。
+
+F6 追加告警层：五大指标序列出现 NaN/±Inf、训练日志尾部出现 OOM 记录时各产出
+一条 alerts 告警；判据诚实——只报真出现的事实，序列为空/缺文件不算告警。
 """
 
 from __future__ import annotations
 
+import math
+import re
+from pathlib import Path
 from typing import Any
 
 # rsl_rl 常见键别名（不同 runner 版本键名略有差异）
@@ -20,6 +26,23 @@ KEY_ALIASES = {
     "value_loss": ["Loss/value_function", "value_loss", "value_function_loss"],
     "episode_length": ["Train/mean_episode_length", "Episode/episode_length", "episode_length"],
 }
+
+# 五大指标的中文标签（告警文案用）
+METRIC_LABELS = {
+    "reward": "奖励",
+    "kl": "KL",
+    "entropy": "熵",
+    "value_loss": "value loss",
+    "episode_length": "回合长度",
+}
+
+# OOM 启发式（F6）：日志行命中任一模式即视为出现过显存不足记录。
+# "out of memory" 同时覆盖 "CUDA out of memory"；\boom\b 用词边界避免误伤 room/zoom。
+OOM_PATTERNS = [
+    re.compile(r"out of memory", re.IGNORECASE),
+    re.compile(r"\boom\b", re.IGNORECASE),
+    re.compile(r"unable to find any valid memory", re.IGNORECASE),
+]
 
 # 症状 → 排查路由（静态；顺序即"先验接口→再查 reward→最后调 PPO"铁律）
 SYMPTOM_CARDS = {
@@ -183,8 +206,85 @@ def evaluate_gauges(rows: list[dict]) -> dict[str, dict[str, Any]]:
     return gauges
 
 
+def _row_step(row: dict, index: int) -> int:
+    """告警步号：优先用行内 iteration/step 字段，缺省回退到行序号（0 起）。"""
+    for key in ("iteration", "step"):
+        value = row.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+    return index
+
+
+def _bad_float(value: Any) -> str | None:
+    """数值是 NaN 返回 "NaN"、±Inf 返回 "Inf"；正常数或非数值返回 None。"""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if math.isnan(value):
+        return "NaN"
+    if math.isinf(value):
+        return "Inf"
+    return None
+
+
+def scan_nan_alerts(rows: list[dict]) -> list[dict[str, Any]]:
+    """五大指标序列的 NaN/±Inf 扫描（F6）。
+
+    判据诚实：只有真出现 NaN/±Inf 才报；序列为空、单点、缺键都不算。
+    每个指标只报首次出现，metric 用五大概括名，text 里带实际命中的别名键。
+    """
+    alerts: list[dict[str, Any]] = []
+    for name, aliases in KEY_ALIASES.items():
+        for key in aliases:
+            hit: dict[str, Any] | None = None
+            for index, row in enumerate(rows):
+                if not isinstance(row, dict):
+                    continue
+                bad = _bad_float(row.get(key))
+                if bad:
+                    step = _row_step(row, index)
+                    hit = {
+                        "kind": "nan",
+                        "metric": name,
+                        "step": step,
+                        "text": f"{METRIC_LABELS.get(name, name)}序列（{key}）在第 {step} 步首次出现 {bad}——数值已发散，请停止训练并检查 reward 分项与学习率",
+                    }
+                    break
+            if hit:
+                alerts.append(hit)
+                break  # 该指标已报首次出现，不再看其余别名
+    return alerts
+
+
+def scan_oom_alerts(log_path: Path | str, tail_lines: int = 400) -> list[dict[str, Any]]:
+    """扫描训练日志尾部 N 行的显存不足（OOM）记录（F6）。
+
+    只报事实（日志里出现过），不推断"训练已死"；文件缺失/不可读返回空列表。
+    命中的日志行截断到 160 字符放进 line 字段，便于前端原样展示。
+    """
+    path = Path(log_path)
+    try:
+        if not path.is_file():
+            return []
+        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+            lines = handle.readlines()[-tail_lines:]
+    except OSError:
+        return []
+    for line in lines:
+        if any(pattern.search(line) for pattern in OOM_PATTERNS):
+            return [{
+                "kind": "oom",
+                "text": "训练日志中出现显存不足（OOM）记录——可减小 batch size / 并行环境数后重试",
+                "line": line.strip()[:160],
+            }]
+    return []
+
+
 def build_health_report(rows: list[dict]) -> dict[str, Any]:
-    """仪表盘 + 关联症状卡全文（⚠ 展开即得，步骤带跳转）。"""
+    """仪表盘 + 关联症状卡全文 + NaN 告警（⚠ 展开即得，步骤带跳转）。
+
+    alerts 键始终存在（空列表 = 已检查且无告警），前端据此区分"没检查"
+    与"无告警"；OOM 告警由 /health 端点扫描 training.log 后追加进来。
+    """
 
     gauges = evaluate_gauges(rows)
     cards: list[dict] = []
@@ -195,5 +295,6 @@ def build_health_report(rows: list[dict]) -> dict[str, Any]:
     return {
         "gauges": gauges,
         "cards": cards,
+        "alerts": scan_nan_alerts(rows),
         "rule": "排查铁律：先验接口（obs/action scale/command）→ 再查 reward → 最后调 PPO",
     }
