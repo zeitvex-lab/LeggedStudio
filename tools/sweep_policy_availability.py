@@ -254,7 +254,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seconds", type=float, default=6.0)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--from-report", action="store_true",
+                        help="不重跑，只读现有 summary.json 并打印未通过项的判据细节（修 bug 循环用）")
     args = parser.parse_args(argv)
+
+    if args.from_report:
+        payload = json.loads((OUTPUT_DIR / "summary.json").read_text(encoding="utf-8"))
+        for row in payload.get("gated", []):
+            verdict = row.get("verdict")
+            if isinstance(verdict, dict) and verdict.get("ok"):
+                continue
+            print(f"\n== {row['artifact_id']}  exit={row['exit_code']}  family={row.get('family')}")
+            print("   metrics:", json.dumps(row.get("metrics"), ensure_ascii=False)[:400])
+            print("   verdict:", json.dumps(verdict, ensure_ascii=False)[:900])
+            for line in (row.get("stdout_tail") or [])[-3:]:
+                print("   |", line)
+        return 0
 
     summary = sweep(
         robots=[r.strip() for r in args.robots.split(",")] if args.robots else None,
