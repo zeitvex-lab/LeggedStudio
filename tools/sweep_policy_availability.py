@@ -356,7 +356,20 @@ def sweep(*, robots: list[str] | None = None, limit: int | None = None,
         "inventory": len(inventory),
         "gated": [r for r in results if r["gated"]],
         "deferred": [r for r in results if not r["gated"]],
-        "self_stability_only": [r for r in results if r["self_stability_only"]],
+        # 尺子随结论一起进汇总（**不再有隐性例外**）：每条写明用的是哪把尺子，
+        # 并把"代码里的例外"单列出来 —— 它们是待数据化的技术债，不该沉默。
+        "height_rulers": [
+            {
+                "artifact_id": r["artifact_id"],
+                "ruler": (r.get("height_ruler") or {}).get("ruler"),
+                "source": (r.get("height_ruler") or {}).get("source"),
+            }
+            for r in results
+        ],
+        "builtin_ruler_exceptions": [
+            r["artifact_id"] for r in results
+            if (r.get("height_ruler") or {}).get("source") == "builtin_exception"
+        ],
     }
     return summary
 
