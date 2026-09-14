@@ -202,6 +202,29 @@
           </div>
         </div>
       </section>
+
+      <!-- 6) Run 档案（F2/F7：可复现四件套 + 对账 + 入库；档案不可变，手动刷新时重拉） -->
+      <section class="collapsible open log-panel" id="runArchivePane">
+        <button type="button" class="collapse-head" data-collapse-target="runArchiveBody" aria-expanded="true" aria-controls="runArchiveBody">
+          <span class="chevron">▾</span>
+          <h3>Run 档案 <span class="panel-note">可复现四件套（seed / 依赖锁 / resolved-config / 输入指纹）</span></h3>
+          <span class="panel-note" id="runArchiveNote">-</span>
+        </button>
+        <div class="collapse-body" id="runArchiveBody">
+          <div class="kv-list" id="runArchiveList">
+            <div class="log-empty">加载中...</div>
+          </div>
+          <div class="artifact-row" id="runProducedRow" style="display:none;">
+            <span>已入库产物 <b id="runProducedCount">0</b></span>
+            <div id="runProducedList" style="display:flex; flex-direction:column; gap:4px; font-size:12px;"></div>
+          </div>
+          <div class="artifact-row" id="runPromoteRow" style="display:none;">
+            <button class="button primary" id="promoteBtn" type="button"
+                    title="把这份 Run 的 exported/policy.onnx 收进产物库（真副本 + sha256 锁定）">入库到产物库</button>
+            <span class="panel-note">显式动作：训练完成不自动入库；判据全取自本 Run 档案，缺件如实报因</span>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -291,6 +314,7 @@
       loadTrainingLogs();
       loadTrainingMetrics();
       loadCheckpoints();
+      loadRunArchive();
     }
 
     // ---------- 复制工具 ----------
@@ -348,6 +372,7 @@
     function applyStatus(status) {
       state.status = status;
       const info = statusInfo(status.status);
+      updatePromoteVisibility();
 
       // 头部：run ID + 状态点 + 徽标 + 元信息
       $('runIdTitle').textContent = status.task_id || taskId;
@@ -910,6 +935,86 @@
       }
     }
 
+    // ---------- F2/F7：Run 档案（四件套 + 对账 + 已入库产物 + 入库入口） ----------
+    async function loadRunArchive() {
+      if (!taskId) return;
+      const listEl = $('runArchiveList');
+      const noteEl = $('runArchiveNote');
+      try {
+        const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/run`);
+        if (!data.available) {
+          noteEl.textContent = '无档案';
+          listEl.innerHTML = `<div class="log-empty">${escapeHtml(data.note || '该任务没有 Run 档案（B9 接线前建立）')}</div>`;
+          return;
+        }
+        $('runPromoteRow').dataset.archive = 'available';
+        const run = data.run || {};
+        const verify = data.verify || {};
+        const lock = data.environment_lock || {};
+        const kv = (k, v, title) =>
+          `<div class="kv-row"><span title="${escapeHtml(title || k)}">${escapeHtml(k)}</span><b>${escapeHtml(v)}</b></div>`;
+        const deps = lock.dependency_lock || {};
+        const git = lock.git || {};
+        const rows = [
+          kv('run_id', run.run_id || '-', 'Run 唯一标识（task_dir 即 Run 目录）'),
+          kv('seed', String(run.seed ?? '-'), '随机种子——可复现四件套之一'),
+          kv('inputs_digest', String(run.inputs_digest || '-').slice(0, 16) + '…', '输入指纹：改任何配置都会变，旧冒烟结论随之失效'),
+          kv('config_digest', String(run.config_digest || '-').slice(0, 16) + '…', '整档配置摘要'),
+          kv('uv.lock', deps.sha256 ? String(deps.sha256).slice(0, 12) + '…' : '-', '依赖解析结果（uv.lock sha256）'),
+          kv('python / 平台', `${lock.python_version || '-'} · ${lock.platform || '-'}`, 'environment-lock：这次 Run 跑在什么环境里'),
+          kv('git', git.commit ? `${String(git.commit).slice(0, 10)}${git.dirty ? ' (dirty)' : ''}` : '-', '训练时代码状态'),
+          kv('对账', verify.ok ? '✓ 四件套一致' : `✗ ${(verify.problems || []).length} 项问题`,
+             (verify.problems || []).join('；') || 'resolved-config / environment-lock / run.json 逐项对账'),
+        ];
+        listEl.innerHTML = rows.join('');
+        noteEl.textContent = verify.ok ? '对账通过' : '对账未通过';
+
+        const produced = data.produced || [];
+        $('runProducedRow').style.display = produced.length ? 'flex' : 'none';
+        $('runProducedCount').textContent = String(produced.length);
+        $('runProducedList').innerHTML = produced.map((p) =>
+          `<code>${escapeHtml(p.artifact_id)} · ${String(p.onnx_sha256 || '').slice(0, 12)}… · ${(p.onnx_bytes || 0) / 1024 | 0} KB</code>`).join('');
+
+        // 入库按钮：只在训练完成态出现（fail-closed 的判据在后端，这里只是入口）；
+        // 状态由 applyStatus 的 3s 轮询持续刷新可见性
+        updatePromoteVisibility();
+      } catch (error) {
+        console.error('Failed to load run archive:', error);
+        noteEl.textContent = '不可用';
+        listEl.innerHTML = `<div class="log-empty">Run 档案加载失败：${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    function updatePromoteVisibility() {
+      const row = $('runPromoteRow');
+      if (!row || row.dataset.archive !== 'available') return;
+      const known = String((state.status || {}).status || '');
+      const cls = known ? statusInfo(known).cls : '';
+      row.style.display = (cls === '' || cls === 'completed') ? 'flex' : 'none';
+    }
+
+    async function promoteRun() {
+      if (!taskId) return;
+      const btn = $('promoteBtn');
+      btn.disabled = true;
+      btn.textContent = '入库中…';
+      try {
+        const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/promote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        const art = data.artifact || {};
+        showToast(`已入库：${art.artifact_id}（sha ${String(art.onnx_sha256 || '').slice(0, 10)}…）`);
+        loadRunArchive();
+      } catch (error) {
+        alert('入库失败: ' + error.message + '\n（判据全取自 Run 档案：未完成 / 缺 exported/policy.onnx 均会如实拒绝）');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '入库到产物库';
+      }
+    }
+
     // ---------- 停止 ----------
     async function stopTraining() {
       if (!taskId) return;
@@ -943,6 +1048,7 @@
     });
 
     $('stopBtn').addEventListener('click', stopTraining);
+    $('promoteBtn').addEventListener('click', promoteRun);
 
     $('envFilter').addEventListener('input', () => renderSidebarSection('env'));
     $('configFilter').addEventListener('input', () => renderSidebarSection('config'));

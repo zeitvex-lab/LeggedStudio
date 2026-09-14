@@ -86,12 +86,15 @@ async def get_training_artifact(task_id: str):
 
 
 @router.get("/{task_id}/run")
-async def get_training_run(task_id: str):
-    """**B9 Run 档案**：可复现四件套 + 对账报告（F1/F2 页面消费）。
+async def get_training_run(task_id: str, summary: bool = False):
+    """**B9 Run 档案**：可复现四件套 + 对账报告 + 已入库产物（F1/F2/F7 页面消费）。
 
     直接给出 ``verify`` 结论，页面据此显示"这份 Run 能否复现"，而不是靠人肉比对；
     接线之前建立的旧任务没有档案，返回 ``available: false`` 并说明原因（不编造）。
+    ``?summary=1`` 只给 run 记录 / verify / produced（列表页徽章用），不带
+    resolved-config 与 environment-lock 两个大块 —— 列表每 5 秒刷一次，不能拖全文。
     """
+    from backend.policy_artifacts import produced_for_run
     from backend.training.runs import (
         ENVIRONMENT_LOCK_NAME, RESOLVED_CONFIG_NAME, load_run, verify_run,
     )
@@ -109,21 +112,26 @@ async def get_training_run(task_id: str):
             "note": "该任务建立于 B9 接线之前，未落 Run 档案；新建任务即带可复现四件套",
         }
 
+    payload = {
+        "success": True,
+        "available": True,
+        "task_id": task_id,
+        "run": record.as_dict(),
+        "verify": verify_run(task.task_dir),
+        "produced": produced_for_run(record.run_id),
+    }
+    if summary:
+        return payload
+
     def _read(name: str):
         try:
             return json.loads((task.task_dir / name).read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return None
 
-    return {
-        "success": True,
-        "available": True,
-        "task_id": task_id,
-        "run": record.as_dict(),
-        "verify": verify_run(task.task_dir),
-        "resolved_config": _read(RESOLVED_CONFIG_NAME),
-        "environment_lock": _read(ENVIRONMENT_LOCK_NAME),
-    }
+    payload["resolved_config"] = _read(RESOLVED_CONFIG_NAME)
+    payload["environment_lock"] = _read(ENVIRONMENT_LOCK_NAME)
+    return payload
 
 
 @router.post("/{task_id}/promote")
