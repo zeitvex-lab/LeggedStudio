@@ -11,7 +11,7 @@
   "morphology_ref": {
     "id": "wuji_hand",
     "path": "assets/robots/wuji_hand/contract_v3.json",
-    "sha256": "4c2850dde920fd8bf81d9ef7acc002a73e7bae2ea37b300e3839397c133b2201"
+    "sha256": "5994204ea8cee1331d355e7495be1f43ed7280b74a4c22ebd04a4a33e5a072bd"
   },
   "skill_ref": {
     "id": "core/velocity@2.0",
