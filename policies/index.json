@@ -970,11 +970,20 @@
       "run_id": "unitree_g1_29dof_v1_20260915_060740_211982",
       "schema": "policy-artifact-1.0",
       "source_onnx": "policies/unitree_g1__produced-unitree_g1_29dof_v1_20260915_060740_211982/policy.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260915_072135_585438",
+      "kind": "produced",
+      "onnx_bytes": 768394,
+      "onnx_sha256": "3d66e4147893e925fd3450e6f9462651ecef61bbe44bdfafc72cce9307413c70",
+      "run_id": "unitree_go2_mvp_v1_20260915_072135_585438",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "policies/unitree_go2__produced-unitree_go2_mvp_v1_20260915_072135_585438/policy.onnx"
     }
   ],
   "blobs": "引用式：onnx 仍单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目例外（训练产物入库时 policy.onnx 是唯一副本，真复制）",
-  "count": 49,
-  "generated_at": "2026-09-14T22:08:14+00:00",
+  "count": 50,
+  "generated_at": "2026-09-14T23:22:17+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"
 }
