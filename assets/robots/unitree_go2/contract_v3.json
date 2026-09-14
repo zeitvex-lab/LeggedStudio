@@ -153,7 +153,62 @@
     "action_scale": 0.25
   },
   "observation": {
-    "components": [],
+    "components": [
+      {
+        "name": "base_ang_vel",
+        "width": 3,
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "projected_gravity",
+        "width": 3,
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "commands",
+        "width": 3,
+        "source": "cmd",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "joint_pos",
+        "width": 12,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "joint_vel",
+        "width": 12,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "last_action",
+        "width": 12,
+        "source": "action",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      }
+    ],
     "dimension": 45
   },
   "control": {
