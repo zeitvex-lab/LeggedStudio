@@ -336,11 +336,22 @@ def build_all(
                 dump_yaml(deploy_payload(declaration)), encoding="utf-8",
             )
 
+    # 产品自产条目（promote_from_run 写入）**跨重建保留**：索引从声明整表重建，
+    # 不主动并回的话一次 build_all 就会把它们冲掉（目录还在、索引没了＝孤儿产物）。
+    for produced in _produced_index_entries(out):
+        pid = str(produced.get("artifact_id"))
+        if pid in seen:
+            problems.append(f"产物 ID 冲突：声明条目与 produced 条目同名 {pid}（改 produced 的 artifact_id）")
+            continue
+        seen.add(pid)
+        artifacts.append(produced)
+
     index = {
         "schema": ARTIFACT_SCHEMA,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "count": len(artifacts),
-        "blobs": "引用式：onnx 仍单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制",
+        "blobs": "引用式：onnx 仍单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；"
+                 "produced 条目例外（训练产物入库时 policy.onnx 是唯一副本，真复制）",
         "artifacts": artifacts,
         "problems": problems,
     }
@@ -402,7 +413,27 @@ def verify_artifacts(
     for artifact_id in recorded.keys() - {
         artifact_id_for(str(d.get("robot")), str(d.get("policy_id"))) for d in declarations
     }:
+        if recorded[artifact_id].get("kind") == "produced":
+            continue  # produced 出自 Run（promote_from_run），本就不在声明里，不是"悬空"
         problems.append(f"{artifact_id}：索引里有、声明里没有（悬空产物）")
+
+    # produced 条目的对账口径：不比对声明（没有声明），实测**自完整性**——
+    # onnx 真副本还在、hash 没被换、档案两件套齐全。
+    for artifact_id, entry in recorded.items():
+        if entry.get("kind") != "produced":
+            continue
+        checked += 1
+        source = str(entry.get("source_onnx") or "")
+        blob = Path(source) if Path(source).is_absolute() else ROOT / source
+        actual = file_digest(blob) if blob.is_file() else None
+        if actual is None:
+            problems.append(f"{artifact_id}：produced 的 onnx 缺失（{source or '未登记'}）")
+        elif actual != entry.get("onnx_sha256"):
+            problems.append(f"{artifact_id}：produced onnx 已变（重跑 promote_from_run 或查明改动）")
+        if not (out / artifact_id / ARTIFACT_NAME).is_file():
+            problems.append(f"{artifact_id}：缺 {ARTIFACT_NAME}")
+        if not (out / artifact_id / DEPLOY_NAME).is_file():
+            problems.append(f"{artifact_id}：缺 {DEPLOY_NAME}")
 
     return {
         "ok": not problems,
@@ -442,6 +473,121 @@ def promote_produced_policy(
         json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8",
     )
     (target / DEPLOY_NAME).write_text(dump_yaml(dict(deploy)), encoding="utf-8")
+    return artifact
+
+
+def _produced_index_entries(out_dir: Path) -> list[dict[str, Any]]:
+    """既有索引里的 **produced 条目**（目录与 ``artifact.json`` 还在的才算）。
+
+    ``build_all`` 的索引是从包声明**整表重建**的 —— 不主动保留的话，一次重建就会把
+    产品自产的条目冲掉（目录还在、索引没了＝"孤儿产物"）。被人工删掉目录的条目
+    **不复活**（复活一个指向不存在文件的索引条目比缺它更糟）。
+    """
+    index = _load_json(Path(out_dir) / INDEX_NAME)
+    entries: list[dict[str, Any]] = []
+    if not isinstance(index, Mapping):
+        return entries
+    for item in index.get("artifacts") or []:
+        if not isinstance(item, Mapping) or item.get("kind") != "produced":
+            continue
+        if (Path(out_dir) / str(item.get("artifact_id")) / ARTIFACT_NAME).is_file():
+            entries.append(dict(item))
+    return entries
+
+
+def promote_from_run(
+    run_dir: Path | str,
+    *,
+    artifact_id: str | None = None,
+    out_dir: Path | str = OUT_DIR,
+) -> dict[str, Any]:
+    """L7「训练→导出→入库」的**入库入口**：把一份已完成 Run 的导出产物收进出库。
+
+    证据链全部取自 Run 档案（B9 四件套 + worker 产物），不信任调用方口述：
+
+    * ``run.json`` 必在 —— 没有 run_id/robot_id/seed 就没有"可追溯"（V1）；
+    * ``status.json`` 必须 ``completed`` —— 没训完的 Run 不入库；
+    * ``exported/policy.onnx`` 必在 —— worker ⑤「训练完成即导出」的产物；缺件说明
+      导出失败（见 status.json 的 ``onnx_export_error``），如实报缺、不伪造。
+
+    produced 条目是索引里唯一的**真副本**（onnx 从 task_dir 复制进出库目录 —— 此时
+    它是唯一副本，不违反 B5 单副本；上游导入的 46 条仍走引用式）。
+    """
+    from backend.training.runs import load_run
+
+    run_dir = Path(run_dir)
+    record = load_run(run_dir)
+    if record is None:
+        raise FileNotFoundError(f"{run_dir} 不是一份 Run 档案（缺 run.json；B9 接线前的旧任务无法入库）")
+
+    status = _load_json(run_dir / "status.json")
+    status_value = str((status or {}).get("status") or "") if isinstance(status, Mapping) else ""
+    # worker 的完成态词表：train 模式写 "train_completed"（report 覆盖了模板的
+    # "completed"）；smoke/evaluate 各有自己的终态且不产 exported/policy.onnx，
+    # 由下面的导出存在性硬证据挡住，不在这里放行。
+    if status_value not in ("completed", "train_completed"):
+        raise RuntimeError(f"Run {record.run_id} 状态为 {status_value or '未知'}，只有训练完成的 Run 才能入库")
+
+    onnx = run_dir / "exported" / POLICY_BLOB_NAME
+    if not onnx.is_file():
+        detail = (status or {}).get("onnx_export_error") if isinstance(status, Mapping) else None
+        raise FileNotFoundError(
+            f"Run {record.run_id} 缺 exported/policy.onnx（worker 导出失败或未导出"
+            + (f"：{detail}" if detail else "")
+            + "）"
+        )
+
+    robot_id = str(record.robot_id or "robot")
+    final_id = artifact_id or artifact_id_for(robot_id, f"produced-{record.run_id}")
+
+    snapshot = _load_json(run_dir / "contract_snapshot.json")
+    observation = (snapshot or {}).get("observation") if isinstance(snapshot, Mapping) else None
+    action = (snapshot or {}).get("action") if isinstance(snapshot, Mapping) else None
+    deploy: dict[str, Any] = {
+        "robot": robot_id,
+        "policy_id": final_id,
+        "kind": "produced",
+        "run_id": record.run_id,
+        "seed": record.seed,
+        "source_onnx": "product-training（训练→导出→入库链路自产）",
+    }
+    # 部署维度只写快照里真实有的（缺项不编造，与 deploy_payload 同原则）
+    if isinstance(observation, Mapping) and observation.get("dimension") is not None:
+        deploy["obs_dim"] = observation["dimension"]
+    if isinstance(action, Mapping):
+        if action.get("dimension") is not None:
+            deploy["action_dim"] = action["dimension"]
+        if action.get("joint_order"):
+            deploy["action_joint_order"] = list(action["joint_order"])
+    if isinstance(status, Mapping) and status.get("max_iterations") is not None:
+        deploy["trained_iterations"] = status["max_iterations"]
+
+    artifact = promote_produced_policy(
+        artifact_id=final_id, onnx=onnx, deploy=deploy, run_id=record.run_id, out_dir=out_dir,
+    )
+
+    # 索引更新：声明条目不动（它们由 build_all 重建），只做 produced 侧的增/改
+    out = Path(out_dir)
+    index = _load_json(out / INDEX_NAME)
+    artifacts = [
+        dict(item) for item in (index or {}).get("artifacts") or []
+        if isinstance(item, Mapping)
+    ] if isinstance(index, Mapping) else []
+    artifacts = [item for item in artifacts if item.get("artifact_id") != final_id]
+    artifacts.append(artifact)
+    doc = {
+        "schema": ARTIFACT_SCHEMA,
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "count": len(artifacts),
+        "blobs": "引用式：onnx 仍单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；"
+                 "produced 条目例外（训练产物入库时 policy.onnx 是唯一副本，真复制）",
+        "artifacts": artifacts,
+        "problems": list((index or {}).get("problems") or []) if isinstance(index, Mapping) else [],
+    }
+    out.mkdir(parents=True, exist_ok=True)
+    (out / INDEX_NAME).write_text(
+        json.dumps(doc, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8",
+    )
     return artifact
 
 

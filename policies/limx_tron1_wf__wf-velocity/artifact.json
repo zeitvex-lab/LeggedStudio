@@ -2,6 +2,15 @@
   "action_dim": 8,
   "algorithm": null,
   "artifact_id": "limx_tron1_wf__wf-velocity",
+  "aux_blobs": [
+    {
+      "declared": "simulation/policies/tron1_wf_tron1b_encoder.onnx",
+      "missing": false,
+      "role": "encoder",
+      "sha256": "80426c0a8c104929d6e7c2109dd3f8561c05c46c4eff3f9847e0a0413f0dfcc1",
+      "source": "assets/robots/limx_tron1_wf/simulation/policies/tron1_wf_tron1b_encoder.onnx"
+    }
+  ],
   "contract_digest": "fca905b11185226e40a29e81bdfc752a0dd20f6122c0a6539af3dc384d82f684",
   "declared_source": null,
   "history_len": 10,

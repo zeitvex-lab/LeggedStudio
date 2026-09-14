@@ -2,6 +2,7 @@
   "action_dim": 29,
   "algorithm": null,
   "artifact_id": "unitree_g1__g1-dance-gangnam-style",
+  "aux_blobs": [],
   "contract_digest": "91c3a13c798543b1f533262c81b92bdedb65562a21d974444c77636ba96dbf22",
   "declared_source": "motion-tracking policy（内部研究部署包，无 LICENSE；policy.pt 经 tools/convert_policy.py 转 ONNX，154→29 已验证）",
   "history_len": 1,

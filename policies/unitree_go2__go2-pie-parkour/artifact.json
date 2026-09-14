@@ -2,6 +2,7 @@
   "action_dim": 12,
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-pie-parkour",
+  "aux_blobs": [],
   "contract_digest": "7470b8a37133751004a7d44b174fb3450a28dbc3dde594a2d260a83b52687ab8",
   "declared_source": "parkour_mjlab logs/rsl_rl/go2_pie/policy.onnx（Unitree-Go2-PIE，Apache-2.0）",
   "history_len": 1,

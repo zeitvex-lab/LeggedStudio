@@ -2,6 +2,7 @@
   "action_dim": 12,
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-jump-69",
+  "aux_blobs": [],
   "contract_digest": "751bebbe34024264b6a2b3a66bfeb86a42c78b414d40ca10de87e8a7e6fa5f29",
   "declared_source": "LeggedSkillDeploy go2_jump（第三方，无 LICENSE；仅内部研究）",
   "history_len": 1,

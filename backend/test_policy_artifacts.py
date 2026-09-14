@@ -346,6 +346,141 @@ class ProducedPolicyTest(unittest.TestCase):
             self.assertTrue((out / "go2__velocity-run1" / pa.DEPLOY_NAME).is_file())
 
 
+class PromoteFromRunTest(unittest.TestCase):
+    """L7「训练→导出→入库」的入库侧：证据链全取自 Run 档案，缺件如实报、不伪造。"""
+
+    def _make_run(self, root: Path, *, status: str = "completed",
+                  with_export: bool = True, with_snapshot: bool = True) -> Path:
+        from types import SimpleNamespace
+
+        from backend.training.runs import create_run_for_task
+
+        run_dir = root / "task_20260914_000000_000000"
+        contract = SimpleNamespace(robot_id="unitree_go2", compute_hash=lambda: "cafe1234")
+        create_run_for_task(
+            run_dir, contract=contract,
+            config={"robot_id": "unitree_go2", "seed": 7, "num_envs": 16, "max_iterations": 5},
+            task="training",
+        )
+        report: dict = {"status": status, "max_iterations": 5}
+        if not with_export:
+            report["onnx_export_error"] = "RuntimeError: adapter venv 缺少 onnx 包"
+        (run_dir / "status.json").write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
+        if with_export:
+            (run_dir / "exported").mkdir()
+            (run_dir / "exported" / "policy.onnx").write_bytes(b"produced-onnx-bytes")
+        if with_snapshot:
+            (run_dir / "contract_snapshot.json").write_text(
+                json.dumps({
+                    "observation": {"dimension": 45},
+                    "action": {"dimension": 12, "joint_order": ["FL_hip_joint", "FR_hip_joint"]},
+                }, ensure_ascii=False), encoding="utf-8",
+            )
+        return run_dir
+
+    def test_promote_writes_produced_artifact_and_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, out = Path(tmp) / "ws", Path(tmp) / "policies"
+            run_dir = self._make_run(root)
+
+            artifact = pa.promote_from_run(run_dir, out_dir=out)
+
+            self.assertEqual("produced", artifact["kind"])
+            self.assertEqual(run_dir.name, artifact["run_id"])
+            self.assertEqual(pa.file_digest(out / artifact["artifact_id"] / "policy.onnx"),
+                             artifact["onnx_sha256"], "hash 必须实测而非转抄")
+            self.assertEqual(b"produced-onnx-bytes",
+                             (out / artifact["artifact_id"] / "policy.onnx").read_bytes())
+            # deploy 带血缘与快照里真实有的维度
+            deploy_text = (out / artifact["artifact_id"] / "deploy.yaml").read_text(encoding="utf-8")
+            self.assertIn(run_dir.name, deploy_text)
+            self.assertIn("unitree_go2", deploy_text)
+            self.assertIn("45", deploy_text)
+            # 索引收录 produced 条目
+            index = pa.load_index(out)
+            self.assertIn(artifact["artifact_id"], index)
+
+    def test_promote_is_idempotent_for_same_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, out = Path(tmp) / "ws", Path(tmp) / "policies"
+            run_dir = self._make_run(root)
+            first = pa.promote_from_run(run_dir, out_dir=out)
+            second = pa.promote_from_run(run_dir, out_dir=out)
+            self.assertEqual(first["artifact_id"], second["artifact_id"])
+            self.assertEqual(1, len(pa.load_index(out)), "同一 Run 重复入库不产生第二条索引")
+
+    def test_promote_requires_completed_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, out = Path(tmp) / "ws", Path(tmp) / "policies"
+            run_dir = self._make_run(root, status="running")
+            with self.assertRaisesRegex(RuntimeError, "状态为 running"):
+                pa.promote_from_run(run_dir, out_dir=out)
+            self.assertFalse(out.exists() and any(out.iterdir()), "失败路径不得落任何产物")
+            # train 模式的完成态词表也要放行（worker 的 report 会把模板的 completed 覆盖掉）
+            train_done = self._make_run(root / "ws2", status="train_completed")
+            artifact = pa.promote_from_run(train_done, out_dir=out)
+            self.assertEqual("produced", artifact["kind"])
+
+    def test_promote_requires_export_and_reports_reason(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, out = Path(tmp) / "ws", Path(tmp) / "policies"
+            run_dir = self._make_run(root, with_export=False)
+            with self.assertRaisesRegex(FileNotFoundError, "导出失败|onnx_export_error"):
+                pa.promote_from_run(run_dir, out_dir=out)
+
+    def test_promote_requires_run_archive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            empty = Path(tmp) / "not_a_run"
+            empty.mkdir()
+            with self.assertRaisesRegex(FileNotFoundError, "run.json|Run 档案"):
+                pa.promote_from_run(empty, out_dir=Path(tmp) / "policies")
+
+    def test_build_all_regeneration_preserves_produced(self):
+        """索引从声明整表重建 —— produced 条目必须跨重建保留，否则一次 build_all 就把它冲掉。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root, out = Path(tmp), Path(tmp) / "policies"
+            make_package(root, "go2")
+            run_dir = self._make_run(root / "ws")
+            artifact = pa.promote_from_run(run_dir, out_dir=out)
+            self.assertIn(artifact["artifact_id"], pa.load_index(out))
+
+            pa.build_all(robots_dir=root, out_dir=out, write=True)
+
+            index = pa.load_index(out)
+            self.assertIn(artifact["artifact_id"], index, "produced 条目被 build_all 冲掉了")
+            self.assertIn("go2__walk-100", index, "声明条目仍在")
+
+    def test_build_all_reports_id_collision_with_produced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, out = Path(tmp), Path(tmp) / "policies"
+            make_package(root, "go2")
+            run_dir = self._make_run(root / "ws")
+            # 故意与声明条目同名：build_all 必须报冲突而不是静默二选一
+            pa.promote_from_run(run_dir, artifact_id="go2__walk-100", out_dir=out)
+            result = pa.build_all(robots_dir=root, out_dir=out, write=True)
+            self.assertTrue(any("冲突" in str(p) for p in result["problems"]),
+                            f"应报 ID 冲突，实得 problems={result['problems']}")
+
+    def test_verify_counts_produced_and_detects_tampering(self):
+        """produced 条目不做"悬空"判定，但对账实测其自完整性——被换内容必须红。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root, out = Path(tmp), Path(tmp) / "policies"
+            make_package(root, "go2")
+            pa.build_all(robots_dir=root, out_dir=out, write=True)
+            artifact = pa.promote_from_run(self._make_run(root / "ws"), out_dir=out)
+
+            v = pa.verify_artifacts(robots_dir=root, out_dir=out)
+            self.assertTrue(v["ok"], v["problems"])
+            self.assertEqual(2, v["checked"], "1 条声明 + 1 条 produced 都要被对账")
+            self.assertEqual(1, v["declared"])
+            self.assertEqual(2, v["indexed"])
+
+            (out / artifact["artifact_id"] / "policy.onnx").write_bytes(b"tampered")
+            v2 = pa.verify_artifacts(robots_dir=root, out_dir=out)
+            self.assertFalse(v2["ok"])
+            self.assertTrue(any("produced onnx 已变" in p for p in v2["problems"]), v2["problems"])
+
+
 class RealRepoTest(unittest.TestCase):
     """真实仓库自检：声明数、onnx 实体数、影子产物。"""
 

@@ -2,6 +2,7 @@
   "action_dim": 29,
   "algorithm": null,
   "artifact_id": "unitree_g1__g1-velocity-mjswan",
+  "aux_blobs": [],
   "contract_digest": "6235d1f9dacdf4f69fc7a0b5627979ca9eb3042168933df6f36ff0b8278e2052",
   "declared_source": "mjswan examples/demo（mjlab G1 velocity，99 维观测）",
   "history_len": 1,

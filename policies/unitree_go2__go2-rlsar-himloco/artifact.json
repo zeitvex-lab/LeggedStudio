@@ -2,6 +2,7 @@
   "action_dim": 12,
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-rlsar-himloco",
+  "aux_blobs": [],
   "contract_digest": "cec233ce73b8cd061033d03281a7f118eb20271f6658e0aa19a9268987ff3feb",
   "declared_source": "rl_sar policy/go2/himloco（Apache-2.0）——对应 HIMLoco 训练工程（00_resources/HIMLoco）",
   "history_len": 6,

@@ -2,6 +2,7 @@
   "action_dim": 12,
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-arenax-velocity",
+  "aux_blobs": [],
   "contract_digest": "c6ac1a44aad00ce9d9415808421211d207923e17734544477891043eb6de66c4",
   "declared_source": null,
   "history_len": 6,
