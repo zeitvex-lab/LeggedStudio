@@ -53,8 +53,26 @@ def _declared_dimension(robot: str) -> int | None:
     return int(value) if isinstance(value, (int, float)) else None
 
 
+def _policy_declaration(robot: str, policy_id: str) -> dict:
+    """策略自己的 obs 声明（`simulation/config.json` 的 ``obs_dim`` / ``history_len``）。
+
+    **这是策略级观测的既有真值** —— 契约的 ``observation`` 块是**包级**的，天然表达不了
+    "同一台机器人的策略一个 45、一个 270"；而逐策略的声明早就在这里了。
+    所以别在契约里再抄一份（那就是第二处真值）：**验它，别重复它**。
+    """
+    path = ROOT / "assets" / "robots" / robot / "simulation" / "config.json"
+    try:
+        config = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    for entry in config.get("policies") or []:
+        if isinstance(entry, dict) and str(entry.get("id")) == policy_id:
+            return entry
+    return {}
+
+
 def audit() -> dict:
-    """逐策略读 ONNX 输入宽度并分类。"""
+    """逐策略读 ONNX 输入宽度，并与**包级**声明、**策略级**声明双比。"""
     import onnxruntime as ort  # noqa: PLC0415  可选依赖，缺了由 main 给指示
 
     from backend import policy_artifacts as pa
@@ -62,28 +80,55 @@ def audit() -> dict:
     rows: list[dict] = []
     for declaration in pa.scan_declarations():
         robot = str(declaration["robot"])
-        declared = _declared_dimension(robot)
+        policy_id = str(declaration["policy_id"])
+        package_dim = _declared_dimension(robot)
+        entry = _policy_declaration(robot, policy_id)
+        policy_dim = entry.get("obs_dim") if isinstance(entry.get("obs_dim"), int) else None
+        policy_hist = entry.get("history_len") if isinstance(entry.get("history_len"), int) else None
+
         blob = pa.policy_blob_path(declaration)
+        base = {"robot": robot, "policy": policy_id, "declared": package_dim,
+                "policy_dim": policy_dim, "policy_history": policy_hist, "entry": bool(entry)}
         if blob is None:
-            rows.append({"robot": robot, "policy": declaration["policy_id"], "declared": declared,
-                         "width": None, "kind": "no_blob", "frames": None})
+            rows.append({**base, "width": None, "kind": "no_blob", "frames": None,
+                         "policy_verdict": "no_blob"})
             continue
         try:
             session = ort.InferenceSession(str(blob), providers=["CPUExecutionProvider"])
+            shapes = [tuple(item.shape) for item in session.get_inputs()]
             shape = session.get_inputs()[0].shape
             width = next((int(dim) for dim in reversed(shape) if isinstance(dim, int)), None)
         except Exception:  # noqa: BLE001  坏 onnx 如实计一类，不打断整轮
-            rows.append({"robot": robot, "policy": declaration["policy_id"], "declared": declared,
-                         "width": None, "kind": "unreadable", "frames": None})
+            rows.append({**base, "width": None, "kind": "unreadable", "frames": None,
+                         "policy_verdict": "unreadable"})
             continue
-        verdict = classify(declared, width)
-        rows.append({"robot": robot, "policy": declaration["policy_id"], "declared": declared,
-                     "width": width, **verdict})
+        verdict = classify(package_dim, width)
+        # 策略级判定：**单帧宽度 × history_len == onnx 宽度** 才算一致。
+        # 别拿单帧数直接比堆叠宽度（我自己第一版就漏乘了 history_len，把 16 条堆叠误判成"声明错"）。
+        frames = policy_hist or 1
+        if policy_dim is None:
+            policy_verdict = "undeclared"
+        elif policy_dim * frames == width:
+            policy_verdict = "consistent"
+        elif policy_dim == width:
+            policy_verdict = "history_off"      # 声明叠了 history 帧，onnx 却只有单帧
+        else:
+            policy_verdict = "wrong"
+        # 包级块只是"标准单帧布局"：策略级声明能解释的，就不算包级的错。
+        if verdict["kind"] == "mismatch" and policy_verdict == "consistent":
+            verdict = {"kind": "policy_explained", "frames": frames}
+        rows.append({**base, "width": width, "inputs": len(shapes), **verdict,
+                     "policy_verdict": policy_verdict})
     return {
         "total": len(rows),
         "match": [r for r in rows if r["kind"] == "match"],
         "history_stack": [r for r in rows if r["kind"] == "history_stack"],
+        "policy_explained": [r for r in rows if r["kind"] == "policy_explained"],
         "mismatch": [r for r in rows if r["kind"] == "mismatch"],
+        "policy_ok": [r for r in rows if r["policy_verdict"] == "consistent"],
+        "policy_wrong": [r for r in rows if r["policy_verdict"] in ("wrong", "history_off")],
+        "policy_undeclared": [r for r in rows if r["policy_verdict"] == "undeclared"],
+        "multi_input": [r for r in rows if r.get("inputs", 1) > 1],
         "rows": rows,
     }
 
@@ -98,7 +143,25 @@ def main() -> int:
 
     print(f"策略 {report['total']} 条："
           f"match {len(report['match'])} / history_stack {len(report['history_stack'])}"
+          f" / policy_explained {len(report['policy_explained'])}"
           f" / mismatch {len(report['mismatch'])}")
+    print(f"策略级声明（config.json 的 obs_dim/history_len）：一致 {len(report['policy_ok'])}"
+          f" / 不一致 {len(report['policy_wrong'])} / 未声明 {len(report['policy_undeclared'])}")
+    if report["policy_wrong"]:
+        print("\n**策略自己的 obs 声明与它的 onnx 不符**（声明或 blob 有一处是错的）：")
+        for row in report["policy_wrong"]:
+            print(f"  ✗ {row['robot']:<22} {row['policy']:<28} 声明 {row['policy_dim']}"
+                  f"（history {row['policy_history']}） 实际 {row['width']}  [{row['policy_verdict']}]")
+    if report["policy_undeclared"]:
+        print(f"\n策略级未声明 obs_dim：{len(report['policy_undeclared'])} 条"
+              "（包级块表达不了逐策略布局，这些只能靠策略级声明）")
+        for row in report["policy_undeclared"][:12]:
+            print(f"  ? {row['robot']:<22} {row['policy']:<28} 实际 {row['width']}")
+    if report["multi_input"]:
+        print(f"\n多输入策略 {len(report['multi_input'])} 条（**不能只取第一个输入**）：")
+        for row in report["multi_input"]:
+            print(f"  · {row['robot']:<22} {row['policy']:<28} inputs={row.get('inputs')}"
+                  f" 首输入={row['width']}")
     if report["history_stack"]:
         print("\n历史堆叠（策略输入 = 声明宽度 × N 帧）：")
         for row in report["history_stack"]:
