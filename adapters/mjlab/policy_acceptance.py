@@ -266,6 +266,13 @@ class PackageContract:
         self.history_len = max(1, int(self.contract.get("history_len") or policy_entry.get("history_len") or 1))
         self.total_obs_dim = self.obs_dim * self.history_len
         self.history_layout = str(self.contract.get("history_layout") or "")
+        # 历史**初值**约定 —— 两种上游语义确有差异，必须由契约声明，不能默认：
+        #   repeat_first（默认）= 用首帧重复预热（LeggedSkillDeploy / HIMLoco 的
+        #     `ObservationBuffer.reset` 语义，见 web/sim2sim/app.js::buildPolicyObs）；
+        #   zero = 历史缓冲清零（robot_lab `source/rsl_rl/rsl_rl/utils/exporter_cts.py`
+        #     的 `reset()` 里 `obs_history.zero_()`）。
+        # 用错会让历史型策略开局就拿到一段"假历史"。
+        self.history_init = str(self.contract.get("history_init") or "repeat_first")
         # 显式 history 分段（Wuji reorient 这类非标准布局）：[[offset,len], ...]，
         # 每段按 旧→新 逐帧拼接（对齐 mjlab concatenate_terms 的逐 term history）。
         self.history_terms = self.contract.get("history_terms") or None
@@ -835,7 +842,8 @@ def _obs_build(self: "ObsBuilder", cmd: np.ndarray) -> np.ndarray:
         self.history = self.history[-c.history_len:]
     frames = list(self.history)
     while len(frames) < c.history_len:
-        frames.insert(0, frames[0])
+        # 预热填充按契约的 `history_init` 约定：`zero` 用零帧，默认用首帧重复。
+        frames.insert(0, np.zeros_like(frames[0]) if c.history_init == "zero" else frames[0])
     packed = pack_history(self, frames)
     if c.total_obs_dim and packed.shape[0] != c.total_obs_dim:
         raise ValueError(
