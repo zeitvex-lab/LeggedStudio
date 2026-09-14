@@ -43,7 +43,6 @@
     {
       "id": "sf-velocity",
       "label": "TRON1 SF velocity (TRON1B)",
-      "path": "simulation/policies/tron1_sf_tron1b_policy.onnx",
       "encoder": "simulation/policies/tron1_sf_tron1b_encoder.onnx",
       "obs_dim": 36,
       "action_dim": 8,

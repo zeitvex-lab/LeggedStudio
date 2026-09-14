@@ -46,7 +46,6 @@
     {
       "id": "wf-velocity",
       "label": "TRON1 WF velocity (TRON1B)",
-      "path": "simulation/policies/tron1_wf_tron1b_policy.onnx",
       "encoder": "simulation/policies/tron1_wf_tron1b_encoder.onnx",
       "obs_dim": 28,
       "action_dim": 8,

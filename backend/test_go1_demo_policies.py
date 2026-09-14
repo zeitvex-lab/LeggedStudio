@@ -45,8 +45,13 @@ class Go1DemoPolicyAdmissionTests(unittest.TestCase):
             "go1 演示策略集合漂移；moe（上游仅推理产物，无训练源码）与 himloco（runtime "
             "不支持其交错 history、demo 从未跑通）已按 B8 规则 S 撤下，不得未经取证恢复",
         )
+        from backend import policy_artifacts
+
         for policy in policies.values():
-            self.assertTrue((GO1 / policy["path"]).exists(), f"{policy['id']} onnx 缺失")
+            # B10：声明只留 `id`，源路径经 policies/index.json 解析（不再读 policy["path"]）
+            blob = policy_artifacts.policy_blob_path(policy, robot_dir=GO1)
+            self.assertIsNotNone(blob, f"{policy['id']} 无法经出库索引解析到 onnx")
+            self.assertTrue(Path(blob).exists(), f"{policy['id']} onnx 缺失")
         self.assertFalse((GO1 / "simulation" / "policies" / "go1_himloco.onnx").exists())
 
     def test_no_stale_top_level_policy_contract(self):

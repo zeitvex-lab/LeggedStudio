@@ -26,7 +26,6 @@
   "policies": [
     {
       "id": "g1-velocity",
-      "path": "simulation/policies/unitree_velocity.onnx",
       "label": "Velocity (Unitree mjlab)",
       "obs_dim": 98,
       "action_dim": 29,
@@ -172,7 +171,6 @@
     },
     {
       "id": "g1-dance-102",
-      "path": "simulation/policies/dance_102.onnx",
       "label": "Dance 102 (motion tracking)",
       "obs_dim": 154,
       "action_dim": 29,
@@ -404,7 +402,6 @@
     },
     {
       "id": "g1-dance-gangnam-style",
-      "path": "simulation/policies/gangnam_style.onnx",
       "label": "Dance Gangnam Style (motion tracking)",
       "obs_dim": 154,
       "action_dim": 29,
@@ -636,7 +633,6 @@
     },
     {
       "id": "g1-dance-subject2",
-      "path": "simulation/policies/dance1_subject2.onnx",
       "label": "Dance Subject2 (motion tracking)",
       "obs_dim": 154,
       "action_dim": 29,
@@ -868,7 +864,6 @@
     },
     {
       "id": "g1-velocity-mjswan",
-      "path": "simulation/policies/locomotion.onnx",
       "label": "Locomotion (mjswan)",
       "obs_dim": 99,
       "action_dim": 29,

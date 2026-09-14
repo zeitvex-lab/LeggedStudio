@@ -79,7 +79,6 @@
   "policies": [
     {
       "id": "zex-w-rough-6800",
-      "path": "simulation/policies/model_6800.onnx",
       "label": "rough 6800 (v3 比赛)",
       "obs_dim": 53,
       "action_dim": 16,
@@ -99,7 +98,6 @@
     },
     {
       "id": "zex-w-wall-84",
-      "path": "simulation/policies/model_84.onnx",
       "label": "wall 84 (v3)",
       "obs_dim": 53,
       "action_dim": 16,
@@ -119,7 +117,6 @@
     },
     {
       "id": "zex-w-rough-9600",
-      "path": "simulation/policies/model_9600.onnx",
       "label": "rough 9600 (v2 里程计)",
       "obs_dim": 53,
       "action_dim": 16,
@@ -139,7 +136,6 @@
     },
     {
       "id": "zex-w-rough-baseline",
-      "path": "simulation/policies/model_rough.onnx",
       "label": "rough 基线 (v2 契约参考)",
       "obs_dim": 53,
       "action_dim": 16,

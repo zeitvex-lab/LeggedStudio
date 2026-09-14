@@ -269,16 +269,29 @@ class RealRepoTest(unittest.TestCase):
     """真实仓库自检：声明数、onnx 实体数、影子产物。"""
 
     def test_repo_declarations_resolve_and_count_matches_blobs(self):
+        """**B10 终态自检**：声明只留 `id`，解析一律经 `policies/index.json`。"""
         declarations = pa.scan_declarations()
         self.assertGreater(len(declarations), 40, "本仓应有 46 条策略声明")
-        unresolved = [d for d in declarations if d["onnx"] is None]
-        self.assertEqual([], [f"{d['robot']}/{d['policy_id']}" for d in unresolved])
+        index = pa.load_index()
+        self.assertTrue(index, "先跑 build_all(write=True) 出库")
 
-        # 包内 46 个 onnx 实体；第 47 个在 `web/sim2sim/models/`（由声明第 3 种形式引用）。
-        # 47 这个总数与清单 §0 的"sim_policies_onnx 47"一致 —— 只是**不在同一处**。
+        unresolved = [
+            f"{d['robot']}/{d['policy_id']}"
+            for d in declarations
+            if pa.policy_blob_path(d, index=index) is None
+        ]
+        self.assertEqual([], unresolved, "每条声明都应能经索引解析到 blob")
+
+        # 终态：声明里不该再留裸路径（这正是 migrate_policy_refs.py 的严格判据）
+        self.assertEqual(
+            [], [d["policy_id"] for d in declarations if pa.declaration_has_raw_path(d)],
+        )
+        gaps = pa.reference_gaps()
+        self.assertEqual([], gaps["problems"], gaps["problems"])
+
+        # 包内 46 个 onnx 实体；第 47 个在 `web/sim2sim/models/`（经声明 url 形式引用）。
         blobs = list(pa.iter_onnx_files())
         self.assertEqual(46, len(blobs), "包内 onnx 实体数")
-        # 影子产物：包里有 onnx 但没被声明 —— 如实报出（当前不为 0 属已知，见清单 B10）
         self.assertIsInstance(pa.unexported_onnx(), list)
 
     def test_artifact_ids_are_unique(self):

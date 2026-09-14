@@ -41,7 +41,6 @@
     {
       "id": "pf-velocity",
       "label": "TRON1 PF velocity (TRON1B)",
-      "path": "simulation/policies/tron1_pf_tron1b_policy.onnx",
       "encoder": "simulation/policies/tron1_pf_tron1b_encoder.onnx",
       "obs_dim": 30,
       "action_dim": 6,

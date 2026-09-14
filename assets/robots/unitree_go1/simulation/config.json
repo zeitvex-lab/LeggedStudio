@@ -28,7 +28,6 @@
   "policies": [
     {
       "id": "go1-playground-joystick",
-      "path": "simulation/policies/go1_playground_joystick.onnx",
       "label": "Go1 Joystick 48D (mujoco_playground 官方导出)",
       "obs_dim": 48,
       "action_dim": 12,

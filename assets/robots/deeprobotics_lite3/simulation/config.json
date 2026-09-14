@@ -8,7 +8,6 @@
   "policies": [
     {
       "id": "lite3-velocity-benchmark",
-      "path": "simulation/policies/himloco_velocity_hist6.onnx",
       "label": "Deeprobotics Lite3 Velocity Benchmark (rl_sar)",
       "obs_dim": 45,
       "action_dim": 12,
@@ -148,7 +147,6 @@
     },
     {
       "id": "lite3-velocity-sdk45",
-      "path": "simulation/policies/himloco_velocity_hist6.onnx",
       "label": "Velocity 45D x6 hist (official SDK params)",
       "obs_dim": 45,
       "action_dim": 12,
@@ -327,7 +325,6 @@
     },
     {
       "id": "lite3-official-sdk",
-      "path": "simulation/policies/lite3_official_sdk.onnx",
       "label": "Lite3 Velocity 45D（云深处官方 SDK 部署策略）",
       "obs_dim": 45,
       "action_dim": 12,

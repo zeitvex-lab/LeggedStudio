@@ -209,9 +209,13 @@ def dump_yaml(payload: Mapping[str, Any], *, indent: int = 0) -> str:
     return "\n".join(lines) + "\n"
 
 
-def build_artifact(declaration: Mapping[str, Any]) -> dict[str, Any]:
-    """单条产物的 ``artifact.json`` 内容（含源路径与 sha256；onnx 不存在时如实记空）。"""
-    onnx: Path | None = declaration.get("onnx")
+def build_artifact(declaration: Mapping[str, Any], onnx: Path | None = None) -> dict[str, Any]:
+    """单条产物的 ``artifact.json`` 内容（含源路径与 sha256；onnx 不存在时如实记空）。
+
+    ``onnx`` 可显式传入 —— 迁移后声明只留 ``id``，blob 需经出库索引解析（见 :func:`build_all`）；
+    但 **hash 始终实测**，不照抄索引。
+    """
+    onnx = onnx if onnx is not None else declaration.get("onnx")
     return {
         "schema": ARTIFACT_SCHEMA,
         "artifact_id": artifact_id_for(str(declaration.get("robot")), str(declaration.get("policy_id"))),
@@ -246,12 +250,16 @@ def build_all(
     """
     out = Path(out_dir)
     declarations = scan_declarations(robots_dir)
+    index = load_index(out)     # 迁移后声明只留 `id`，blob 由索引解析（hash 仍实测）
     artifacts: list[dict[str, Any]] = []
     problems: list[str] = []
     seen: set[str] = set()
 
     for declaration in declarations:
-        artifact = build_artifact(declaration)
+        artifact = build_artifact(
+            declaration,
+            declaration.get("onnx") or policy_blob_path(declaration, index=index),
+        )
         artifact_id = str(artifact["artifact_id"])
         if artifact_id in seen:
             problems.append(f"产物 ID 重复：{artifact_id}（声明 id 在包内必须唯一）")
@@ -319,10 +327,10 @@ def verify_artifacts(
             problems.append(f"{artifact_id}：声明存在但索引未覆盖")
             continue
         checked += 1
-        onnx = declaration.get("onnx")
+        onnx = declaration.get("onnx") or policy_blob_path(declaration, index=recorded)
         actual = file_digest(onnx) if onnx else None
         if actual is None:
-            problems.append(f"{artifact_id}：包内 onnx 已不存在（{declaration.get('declared')!r}）")
+            problems.append(f"{artifact_id}：解析不到 onnx（声明只留 id 且索引也没给出可用路径）")
         elif actual != entry.get("onnx_sha256"):
             problems.append(
                 f"{artifact_id}：onnx 已变（索引 {str(entry.get('onnx_sha256'))[:12]}… vs 实测 {actual[:12]}…）"
@@ -413,8 +421,14 @@ def policy_blob_path(
     candidates: list[str] = []
     if declaration.get("artifact_id"):
         candidates.append(str(declaration["artifact_id"]))
-    if declaration.get("robot") and declaration.get("policy_id"):
-        candidates.append(artifact_id_for(str(declaration["robot"]), str(declaration["policy_id"])))
+    # 消费者手上是**原始 config 条目**（键是 `id`、没有 `robot`），所以两种键名都认，
+    # 并允许从 `robot_dir` 反推机型 —— 否则 serv 层一条策略都解析不出来。
+    robot_name = declaration.get("robot") or (
+        Path(robot_dir).name if robot_dir is not None else declaration.get("robot_dir")
+    )
+    policy_id = declaration.get("policy_id") or declaration.get("id")
+    if robot_name and policy_id:
+        candidates.append(artifact_id_for(Path(str(robot_name)).name, str(policy_id)))
 
     for candidate in candidates:
         entry = index.get(candidate)
@@ -537,6 +551,67 @@ def reference_gaps(
     }
 
 
+def strip_raw_paths(
+    *,
+    robots_dir: Path | str = ROBOTS_DIR,
+    out_dir: Path | str = OUT_DIR,
+    write: bool = False,
+) -> dict[str, Any]:
+    """把声明里指向 onnx 的裸 ``path``/``url`` **删掉**（纯删除，不重排文件）。
+
+    安全性来自 :func:`policy_blob_path` 的第 ①② 条 —— 索引已能独立解析，所以删除只是
+    "清理冗余字段"。两条 fail-closed 保证：
+
+    * 任一声明解析不到 blob → **保留其裸路径不动**（宁可留着，也不能删成取不到）；
+    * 改写后 JSON 解析不过 → **整份文件跳过**（绝不留下读不出来的 config）。
+    """
+    robots = Path(robots_dir)
+    index = load_index(out_dir)
+    files: list[dict[str, Any]] = []
+    problems: list[str] = []
+
+    for robot_dir in sorted(path for path in robots.iterdir() if path.is_dir()):
+        config_path = robot_dir / "simulation" / "config.json"
+        if not config_path.is_file():
+            continue
+        text = config_path.read_text(encoding="utf-8")
+        removed: list[str] = []
+        for declaration in scan_declarations(robots):
+            if declaration["robot"] != robot_dir.name:
+                continue
+            artifact_id = artifact_id_for(robot_dir.name, str(declaration["policy_id"]))
+            if policy_reference(declaration, index=index)["onnx_sha256"] is None:
+                problems.append(f"{artifact_id}：解析不到 blob，保留裸路径不动")
+                continue
+            for key in ("path", "url"):
+                value = str(declaration.get(key) or "")
+                if not value.lower().endswith(".onnx"):
+                    continue
+                pattern = re.compile(
+                    rf'^[ \t]*"{key}":\s*{re.escape(json.dumps(value))},?[ \t]*\n', re.MULTILINE,
+                )
+                text, count = pattern.subn("", text)
+                if count:
+                    removed.append(f"{key}={value}")
+        if not removed:
+            continue
+        try:
+            json.loads(text)
+        except json.JSONDecodeError as exc:
+            problems.append(f"{robot_dir.name}/simulation/config.json：删除后 JSON 不合法，整份跳过（{exc}）")
+            continue
+        if write:
+            config_path.write_text(text, encoding="utf-8")
+        files.append({"robot": robot_dir.name, "removed": removed, "written": bool(write)})
+
+    return {
+        "ok": not problems,
+        "files": files,
+        "removed_count": sum(len(item["removed"]) for item in files),
+        "problems": problems,
+    }
+
+
 def iter_onnx_files(robots_dir: Path | str = ROBOTS_DIR) -> Iterable[Path]:
     """包内全部 onnx 实体（供出库覆盖率核对：包里有几个、声明了几个）。"""
     return sorted(Path(robots_dir).glob("*/simulation/policies/*.onnx"))
@@ -544,11 +619,13 @@ def iter_onnx_files(robots_dir: Path | str = ROBOTS_DIR) -> Iterable[Path]:
 
 def unexported_onnx(*, robots_dir: Path | str = ROBOTS_DIR) -> list[str]:
     """**包内有 onnx、但没有任何声明指向它** —— 这类文件是"影子产物"，必须报出来。"""
-    declarations = scan_declarations(robots_dir)
+    index = load_index()
+    # 声明可能只留 `id`（B10 终态），所以"被声明"＝**经索引解析得到该文件**，
+    # 而不是"声明里写了 path"。
     declared = {
-        declaration["onnx"].resolve()
-        for declaration in declarations
-        if declaration.get("onnx") is not None
+        blob.resolve()
+        for declaration in scan_declarations(robots_dir)
+        if (blob := policy_blob_path(declaration, index=index)) is not None
     }
     return [
         _repo_relative(path)
