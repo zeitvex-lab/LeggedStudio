@@ -111,7 +111,7 @@ def _contract_draft(model_path: Path, model_format: str, inspection: dict[str, A
         "family": str(robot_name),
         "size_class": "M",
         "locomotion_type": "W" if wheel else "P",
-        "urdf": {"path": str(model_path).replace("\\", "/"), "hash": digest, "total_mass_kg": float(mass or 0.0), "mass_source": "urdf_inertial" if mass else "estimated", "mesh_files": inspection.get("mesh_files", [])},
+        "urdf": {"path": str(model_path).replace("\\", "/"), "hash": digest, "total_mass_kg": float(mass or 0.0), "mass_source": "urdf_inertial", "mesh_files": inspection.get("mesh_files", [])},
         "joints": {"actuated_joints": actuated_names, "passive_joints": [name for name in joint_names if name not in actuated_names], "default_pose": [0.0] * len(actuated_names)},
         "observation": {"dimension": max(1, 9 + len(actuated_names) * 3), "components": ["base_lin_vel", "base_ang_vel", "projected_gravity", "joint_pos", "joint_vel", "last_action"]},
         "action": {"dimension": len(actuated_names), "joint_order": actuated_names, "action_scale": 0.25},

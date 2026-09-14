@@ -9,7 +9,7 @@
     "path": "assets/robots/deeprobotics_m20/model/robot.xml",
     "hash": "",
     "total_mass_kg": 34.53,
-    "mass_source": "mj_model"
+    "mass_source": "mjcf_compiled"
   },
   "joints": {
     "actuated_joints": [

@@ -9,7 +9,7 @@
     "path": "assets/robots/zex-w/model/robot.xml",
     "hash": "c163ff6093d72a218b52c74e73ebb83fee9508c41b095d604fb18a7a7be6aef6",
     "total_mass_kg": 18.038,
-    "mass_source": "estimated",
+    "mass_source": "mjcf_compiled",
     "mesh_files": [
       "base_link.STL",
       "fl_hip_abduction_Link.STL",

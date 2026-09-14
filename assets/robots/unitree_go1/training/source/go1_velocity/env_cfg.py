@@ -160,7 +160,11 @@ def make_go1_env_cfg(play: bool = False, *, rough: bool = False) -> ManagerBased
         1: (-0.03, 0.03),
         2: (-0.03, 0.03),
     }
-    cfg.events["push_robot"].params["interval_range_s"] = (10.0, 10.0)
+    # interval_range_s 是 EventTermCfg 的字段，不是 params——params 会被 mjlab 当 kwargs
+    # 传给 push_by_setting_velocity（其签名只收 velocity_range/asset_cfg），首次区间
+    # 事件触发即 TypeError（L7 go1 试跑实测：约 3.5 迭代崩）。写法对齐 mjlab 内置
+    # velocity_env_cfg 的 push_robot 项。
+    cfg.events["push_robot"].interval_range_s = (10.0, 10.0)
     cfg.events["push_robot"].params["velocity_range"] = {
         "x": (-1.0, 1.0), "y": (-1.0, 1.0), "z": (-0.4, 0.4),
     }

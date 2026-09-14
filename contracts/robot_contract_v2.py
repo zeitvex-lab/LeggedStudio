@@ -48,9 +48,12 @@ class URDFInfo(BaseModel):
     path: str
     hash: str  # SHA-256
     total_mass_kg: float
+    # 对齐 v3 真值词表（morphology.mass_source：mjcf_compiled=取编译后 MJCF inertial，
+    # 本仓 14 包全部为此；urdf_inertial=取 URDF inertial）。旧四值词表早已被 4 个包的
+    # 存量数据越界（mj_model/mjcf-sum/mjcf_inertial_sum），create 层如实拒但挡的是自家机型。
     mass_source: str = Field(
         ...,
-        pattern="^(urdf_inertial|mesh_computed|manual|estimated)$"
+        pattern="^(mjcf_compiled|urdf_inertial)$"
     )
     mesh_files: List[str] = []
 
@@ -99,7 +102,10 @@ class RobotContractV2(BaseModel):
     robot_id: str  # go2, a1, etc.
     family: str  # "Unitree Go2"
     size_class: str = Field(..., pattern="^(S|M|L)$")
-    locomotion_type: str = Field(..., pattern="^(P|W)$")  # Point-foot / Wheel
+    # v2 兼容视图对齐 v3 真值：P/W 之外 B（双足）与 H（人形）早已是 14 包现实
+    #（v3 schema 枚举与 contracts/locomotion_view.LOCOMOTION_ENUM 同源）；此前 create 层
+    # 拿旧 pattern 校验会把 g1/wuji_hand 等直接拒之门外（L7 多机型试跑实测抓到）。
+    locomotion_type: str = Field(..., pattern="^(P|B|W|H)$")
 
     # ========== URDF 信息 ==========
     urdf: URDFInfo

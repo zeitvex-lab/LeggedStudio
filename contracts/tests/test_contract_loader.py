@@ -68,7 +68,7 @@ class ContractLoaderTest(unittest.TestCase):
             "size_class": "L",
             "locomotion_type": "P",
             "contract_id": "test_robot_v2",
-            "urdf": {"path": "model/robot.xml", "hash": "abc", "total_mass_kg": 20.0, "mass_source": "manual"},
+            "urdf": {"path": "model/robot.xml", "hash": "abc", "total_mass_kg": 20.0, "mass_source": "mjcf_compiled"},
             "joints": {"actuated_joints": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint"], "default_pose": [0.0, 0.0, 0.0]},
             "observation": {"dimension": 48, "components": ["base_lin_vel", "base_ang_vel", "projected_gravity"]},
             "action": {"dimension": 3, "joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint"], "action_scale": 1.0},

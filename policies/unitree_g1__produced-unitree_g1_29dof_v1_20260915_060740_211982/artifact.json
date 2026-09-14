@@ -1,0 +1,9 @@
+{
+  "artifact_id": "unitree_g1__produced-unitree_g1_29dof_v1_20260915_060740_211982",
+  "kind": "produced",
+  "onnx_bytes": 889126,
+  "onnx_sha256": "b4497b813f4193f5fa2b4bb4358d504dcc5d87dc9984d8851d16cf3a03dd8f86",
+  "run_id": "unitree_g1_29dof_v1_20260915_060740_211982",
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "policies/unitree_g1__produced-unitree_g1_29dof_v1_20260915_060740_211982/policy.onnx"
+}
