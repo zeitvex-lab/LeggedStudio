@@ -1258,6 +1258,7 @@
         "task_type": "velocity"
       },
       "label": "Go2 baseline 164k",
+      "url": "/web/sim2sim/models/go2_moe_cts_high_slope_164k.onnx",
       "checkpoint_iteration": 164000,
       "obs_dim": 45,
       "history_len": 5

@@ -479,8 +479,13 @@ def declaration_has_raw_path(declaration: Mapping[str, Any]) -> bool:
     """
     for key in ("path", "url"):
         value = str(declaration.get(key) or "")
-        if value.lower().endswith(".onnx"):
-            return True
+        if not value.lower().endswith(".onnx"):
+            continue
+        # `demo_policies` 的 `url` 是递送地址而非 blob 引用（同 :func:`strip_raw_paths`
+        # 的豁免），因此不算"未迁移"。
+        if key == "url" and declaration.get("kind") == "demo_policies":
+            continue
+        return True
     return False
 
 
@@ -586,6 +591,11 @@ def strip_raw_paths(
             for key in ("path", "url"):
                 value = str(declaration.get(key) or "")
                 if not value.lower().endswith(".onnx"):
+                    continue
+                # `demo_policies` 的 `url` 是**递送地址**（`simulation_api` 直接把它当
+                # `onnx_url` 交给前端），不是包内 blob 的冗余引用 —— 删掉会让整条 demo
+                # 被跳过、默认策略静默掉回数组第一条（2026-09-14 真实回归，CI 抓到）。
+                if key == "url" and declaration.get("kind") == "demo_policies":
                     continue
                 pattern = re.compile(
                     rf'^[ \t]*"{key}":\s*{re.escape(json.dumps(value))},?[ \t]*\n', re.MULTILINE,
