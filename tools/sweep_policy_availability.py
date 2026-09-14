@@ -80,6 +80,56 @@ def _zero_torque_policies() -> set[tuple[str, str]]:
     }
 
 
+def resolve_height_ruler(declaration: dict, *, family: str) -> dict:
+    """这条策略的高度判据**用哪把尺子**（声明优先；内置例外降级为「带标注的兜底」）。
+
+    高度比本身不是结论 —— ``0.692`` 是"跟默认姿运动学高度比"还是"跟它自己的稳态高度比"，
+    含义完全不同。所以尺子必须**随结论一起给出**，而不是藏在判据代码里。
+
+    优先级（高 → 低）：
+
+    1. 策略声明 ``expected_steady_height_m`` —— 显式给出期望稳态高度（**数据即真值**）；
+    2. 策略声明 ``steady_height_policy: "self_stability"`` —— 显式声明"高度不作判据"
+       （非标准站姿技能：前腿/后腿站立，其稳态高度天然不同于四足标准站姿）；
+    3. 内置例外 :data:`SELF_STABILITY_ONLY` —— 历史遗留，**标注为"代码里的例外"**，待数据化；
+    4. 默认：默认姿运动学高度（引擎 ``static_stand_height`` 现算）。
+    """
+    contract = declaration.get("contract") or {}
+    declared_height = contract.get("expected_steady_height_m")
+    if isinstance(declared_height, (int, float)) and float(declared_height) > 1e-6:
+        return {
+            "ruler": "declared",
+            "ref_height_m": float(declared_height),
+            "source": "declaration",
+            "family": family,
+            "note": f"声明期望稳态高度 {float(declared_height):.3f} m",
+        }
+    if str(contract.get("steady_height_policy") or "") == "self_stability":
+        return {
+            "ruler": "self_stability",
+            "ref_height_m": None,
+            "source": "declaration",
+            "family": family,
+            "note": "声明高度不作判据（非标准站姿技能）",
+        }
+    builtin = SELF_STABILITY_ONLY.get(str(declaration.get("policy_id")))
+    if builtin:
+        return {
+            "ruler": "self_stability",
+            "ref_height_m": None,
+            "source": "builtin_exception",
+            "family": family,
+            "note": f"内置例外（写在代码里的名单，待数据化）：{builtin}",
+        }
+    return {
+        "ruler": "static_default_pose",
+        "ref_height_m": None,
+        "source": "engine",
+        "family": family,
+        "note": "默认姿运动学高度（引擎 static_stand_height 现算）",
+    }
+
+
 def _policy_inventory(robots: list[str] | None) -> list[dict]:
     rows: list[dict] = []
     zero_torque = _zero_torque_policies()
@@ -104,9 +154,12 @@ def _policy_inventory(robots: list[str] | None) -> list[dict]:
             "family": str(declared or recommendation["family"]),
             "family_source": "declared" if declared else f"inferred({recommendation['confidence']})",
             "gated": str(declared or recommendation["family"]) in STANDING_FAMILIES,
-            # 查表用 policy_id（`SELF_STABILITY_ONLY` 的键就是策略 id）——
-            # 早期版本拿 artifact_id 去查，永远查不中，覆盖静默失效。
-            "self_stability_only": SELF_STABILITY_ONLY.get(declaration["policy_id"]),
+            # 高度判据用哪把尺子：**声明优先**（见 resolve_height_ruler）。
+            # 历史遗留：内置例外按 policy_id 查表（早期版本拿 artifact_id 去查，永远查不中、
+            # 覆盖静默失效）；现在它降级为"带标注的兜底"，且尺子会随结论一起写进报告。
+            "height_ruler": resolve_height_ruler(
+                declaration, family=str(declared or recommendation["family"]),
+            ),
             "scan_skip_reason": (
                 "blob 在包外（web 静态目录），没有「包内相对路径」可喂给无头引擎"
                 if outside_package else None
@@ -145,17 +198,22 @@ def _run_one(row: dict, *, seconds: float, seed: int, timeout: float = 900.0) ->
         "--task-type", row["family"], "--seconds", str(seconds), "--seed", str(seed),
         "--output-dir", str(output_dir),
     ]
-    # 非标准站姿技能（前腿/后腿站立）：**稳态高度天然偏离标准站立高度**，套 height_ratio
-    # 硬门等于用错尺子。改用"自身稳态稳定性"——只看存活/不摔 + 不翻倒（tilt 阈值放宽到 75°，
-    # 仍能抓住躺平/侧翻），高度项不参与判定。
-    if row.get("self_stability_only"):
+    # 高度判据用哪把尺子 —— **随结论一起传下去**（并写进 criteria.json，让**报告本身**
+    # 也带着它）：报告里只写 "height_ratio 0.692 < 0.85" 是不够的，必须能看出"跟什么比"。
+    ruler = row.get("height_ruler") or {}
+    criteria_block: dict = {}
+    if ruler.get("ruler") == "self_stability":
+        # 非标准站姿技能（前腿/后腿站立等）：高度项不参与判定；tilt 放到 95°，
+        # 只保留"没有完全翻倒"这一层（真翻倒在 run 循环的 90° 中止规则那里已被截住）。
+        criteria_block = {"height_ratio_min": 0.0, "tilt_max_deg": 95.0}
+    elif ruler.get("ref_height_m"):
+        criteria_block = {"height_ref_m": float(ruler["ref_height_m"])}
+    if criteria_block:
+        criteria_block["height_ruler"] = str(ruler.get("ruler"))
         criteria_path = output_dir / "criteria.json"
         criteria_path.write_text(
             json.dumps(
-                # tilt 放到 95°：这类技能的躯干角**本来就不是判据**（后腿站立实测 86.6°），
-                # 只保留"没有完全翻倒"这一层（真翻倒在 run 循环的 90° 中止规则那里就被截住了）。
-                {family: {"height_ratio_min": 0.0, "tilt_max_deg": 95.0}
-                 for family in ("stand", "balance")},
+                {name: dict(criteria_block) for name in ("stand", "balance", "velocity")},
                 ensure_ascii=False, indent=2,
             ),
             encoding="utf-8",

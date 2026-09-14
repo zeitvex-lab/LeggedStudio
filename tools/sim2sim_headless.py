@@ -109,14 +109,27 @@ def evaluate_mode(metrics: dict, family: str, contract, criteria: dict,
     if metrics.get("fell"):
         hard.append({"name": "not_fallen", "ok": False, "value": metrics.get("fell_at_s")})
     if family in ("stand", "balance", "velocity"):
-        base = ref_height if (ref_height and ref_height > 1e-6) else contract.initial_height
+        # **尺子优先级**：显式声明的参考高度 > 引擎现算的默认姿运动学高度 > 契约初高。
+        # 结论里必须带 `ruler` —— "高度比 0.692" 若不说明"跟什么比"就没有意义：lite3 的
+        # 0.692 是"跟默认姿运动学高度比"，而那不是策略的自然站姿（2026-09-14 实测，
+        # 曾因此误判为"增益错"并一度去改物理常量，被测试挡下）。
+        declared_ref = criteria.get("height_ref_m")
+        if declared_ref and float(declared_ref) > 1e-6:
+            base = float(declared_ref)
+            ruler = str(criteria.get("height_ruler") or "declared")
+        elif ref_height and ref_height > 1e-6:
+            base = float(ref_height)
+            ruler = "static_default_pose"
+        else:
+            base = float(contract.initial_height)
+            ruler = "contract_initial_height"
         h_steady = metrics.get("height_steady")
         h_ratio = (float(h_steady) / max(base, 1e-6)) if h_steady is not None else metrics.get("height_steady_ratio")
         if h_ratio is None:
             h_ratio = (metrics.get("height_min") or 0.0) / max(base, 1e-6)
         hard.append({"name": "height_ratio_steady", "ok": h_ratio >= criteria["height_ratio_min"],
                      "value": round(float(h_ratio), 3), "min": criteria["height_ratio_min"],
-                     "ref_height": round(float(base), 3)})
+                     "ruler": ruler, "ref_height": round(float(base), 3)})
         roll_s = metrics.get("roll_steady_max_deg")
         pitch_s = metrics.get("pitch_steady_max_deg")
         tilt = max(roll_s if roll_s is not None else (metrics.get("roll_max_deg") or 0.0),
