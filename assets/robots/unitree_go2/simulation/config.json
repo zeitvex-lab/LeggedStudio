@@ -1285,6 +1285,7 @@
   "demo_policies": [
     {
       "id": "go2-baseline-164k",
+      "obs_dim": 45,
       "contract": {
         "task_type": "velocity"
       },

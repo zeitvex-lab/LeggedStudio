@@ -65,9 +65,11 @@ def _policy_declaration(robot: str, policy_id: str) -> dict:
         config = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return {}
-    for entry in config.get("policies") or []:
-        if isinstance(entry, dict) and str(entry.get("id")) == policy_id:
-            return entry
+    # `policies` 与 `demo_policies` 都要找：演示策略（如 go2-baseline-164k）声明在后者里。
+    for key in ("policies", "demo_policies"):
+        for entry in config.get(key) or []:
+            if isinstance(entry, dict) and str(entry.get("id")) == policy_id:
+                return entry
     return {}
 
 
@@ -106,7 +108,11 @@ def audit() -> dict:
         # 策略级判定：**单帧宽度 × history_len == onnx 宽度** 才算一致。
         # 别拿单帧数直接比堆叠宽度（我自己第一版就漏乘了 history_len，把 16 条堆叠误判成"声明错"）。
         frames = policy_hist or 1
-        if policy_dim is None:
+        if len(shapes) > 1:
+            # 多输入策略（obs + 历史缓冲 buffer / 视觉）：**单输入口径不适用** —— 如实单列，不当错。
+            # 例：go2-baseline-164k = obs(45) + history(5,45)，`obs_dim 45 / history_len 5` 是对的。
+            policy_verdict = "multi_input"
+        elif policy_dim is None:
             policy_verdict = "undeclared"
         elif policy_dim * frames == width:
             policy_verdict = "consistent"
@@ -114,6 +120,26 @@ def audit() -> dict:
             policy_verdict = "history_off"      # 声明叠了 history 帧，onnx 却只有单帧
         else:
             policy_verdict = "wrong"
+        # **encoder 架构**（TRON1）：策略吃的是 latent，`obs_dim` 描述的是 **encoder 输入** ——
+        # 那就别拿策略宽度去比，改拿 **encoder 的 onnx** 去验：encoder_in == obs_dim × history_len。
+        # 实测：pf 30×10 = 300 = encoder 输入 ✓、sf 36×10 = 360 ✓、wf 28×10 = 280 ✓
+        # （策略输入 36/42/34 = obs + latent(3) + command(3) ✓）。
+        if policy_verdict == "wrong":
+            # 注意用 `policy_aux_blobs()`（**现算**并带 source/hash）——
+            # 声明里的 `aux_blobs` 只有 {role, declared}，直接读它会静默跳过（我第一版就是这么错的）。
+            for aux in pa.policy_aux_blobs(declaration):
+                if aux.get("role") != "encoder" or not aux.get("source"):
+                    continue
+                try:
+                    encoder = ort.InferenceSession(str(ROOT / str(aux["source"])),
+                                                   providers=["CPUExecutionProvider"])
+                    enc_shape = encoder.get_inputs()[0].shape
+                    enc_width = next((int(dim) for dim in reversed(enc_shape) if isinstance(dim, int)), None)
+                except Exception:  # noqa: BLE001
+                    continue
+                if policy_dim and enc_width is not None and policy_dim * frames == enc_width:
+                    policy_verdict = "encoder_consistent"
+                    break
         # 包级块只是"标准单帧布局"：策略级声明能解释的，就不算包级的错。
         if verdict["kind"] == "mismatch" and policy_verdict == "consistent":
             verdict = {"kind": "policy_explained", "frames": frames}
@@ -125,7 +151,8 @@ def audit() -> dict:
         "history_stack": [r for r in rows if r["kind"] == "history_stack"],
         "policy_explained": [r for r in rows if r["kind"] == "policy_explained"],
         "mismatch": [r for r in rows if r["kind"] == "mismatch"],
-        "policy_ok": [r for r in rows if r["policy_verdict"] == "consistent"],
+        "policy_ok": [r for r in rows if r["policy_verdict"] in ("consistent", "encoder_consistent")],
+        "policy_encoder": [r for r in rows if r["policy_verdict"] == "encoder_consistent"],
         "policy_wrong": [r for r in rows if r["policy_verdict"] in ("wrong", "history_off")],
         "policy_undeclared": [r for r in rows if r["policy_verdict"] == "undeclared"],
         "multi_input": [r for r in rows if r.get("inputs", 1) > 1],
