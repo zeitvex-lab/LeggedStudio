@@ -106,11 +106,13 @@ def _run_one(row: dict, *, seconds: float, seed: int, timeout: float = 900.0) ->
     """
     output_dir = OUTPUT_DIR / row["artifact_id"]
     output_dir.mkdir(parents=True, exist_ok=True)
+    # 刻意**不带** `--write-acceptance`：那会把 `*.acceptance.json` 写进包内
+    # （工作台健康检查要在原处读它，但扫描不需要动它），并让 `check:docs` 的资产计数漂移。
     command = [
         sys.executable, str(ROOT / "tools" / "sim2sim_headless.py"),
         "--robot", row["robot"], "--policy", row["policy_id"],
         "--task-type", row["family"], "--seconds", str(seconds), "--seed", str(seed),
-        "--output-dir", str(output_dir), "--write-acceptance",
+        "--output-dir", str(output_dir),
     ]
     exit_code = 0
     tail: list[str] = []
@@ -130,14 +132,30 @@ def _run_one(row: dict, *, seconds: float, seed: int, timeout: float = 900.0) ->
         tail = [f"[OSError] {exc}"]
 
     report = _newest_report(output_dir)
+    verdict, metrics = _extract(report)
     return {
         **row,
         "exit_code": exit_code,
-        "metrics": (report or {}).get("metrics") or (report or {}).get("modes"),
-        "verdict": (report or {}).get("verdict"),
-        "report_path": str(report) if report else None,
+        "metrics": metrics,
+        "verdict": verdict,
+        "track_ratio": _track_ratio(metrics),
+        "report_path": None if report is None else str(output_dir / "sim2sim-headless.json"),
         "stdout_tail": tail,
     }
+
+
+def _track_ratio(metrics: dict | None) -> float | None:
+    """从实测指标折算**跟踪达成率**（与判据同一算法，见 ``sim2sim_headless.tracking_ratio``）。"""
+    if not metrics:
+        return None
+    err = metrics.get("vel_track_err")
+    command = metrics.get("command_effective") or metrics.get("command") or []
+    if err is None or len(command) < 2:
+        return None
+    magnitude = (float(command[0]) ** 2 + float(command[1]) ** 2) ** 0.5
+    if magnitude <= 1e-6:
+        return None
+    return round(max(0.0, min(1.0, 1.0 - float(err) / magnitude)), 3)
 
 
 def _newest_report(output_dir: Path) -> dict | None:
@@ -148,9 +166,36 @@ def _newest_report(output_dir: Path) -> dict | None:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
-        if isinstance(payload, dict) and ("metrics" in payload or "modes" in payload or "verdict" in payload):
+        # 形状是 `{total, passed, failed, skipped, results[]}` —— verdict/metrics 在 results[] 内，
+        # 不在顶层。早期版本只认顶层键，于是永远认不出报告（表现为"无报告"）。
+        if isinstance(payload, dict) and (
+            "results" in payload or "metrics" in payload or "modes" in payload
+        ):
             return payload
     return None
+
+
+def _extract(report: dict | None) -> tuple[dict | None, dict | None]:
+    """从 headless 报告里取 ``(verdict, metrics)``，对三种嵌套形状都容错：
+
+    ``results[i].{verdict, metrics}`` / ``results[i].modes[j].{verdict, metrics}`` / 顶层 ``metrics``。
+    """
+    if not report:
+        return None, None
+    if isinstance(report.get("metrics"), dict):
+        verdict = report.get("verdict")
+        return (verdict if isinstance(verdict, dict) else None), report["metrics"]
+    for item in report.get("results") or []:
+        if not isinstance(item, dict):
+            continue
+        modes = item.get("modes")
+        if isinstance(modes, list):
+            for mode in modes:
+                if isinstance(mode, dict) and isinstance(mode.get("metrics"), dict):
+                    return mode.get("verdict") or item.get("verdict"), mode["metrics"]
+        if isinstance(item.get("metrics"), dict):
+            return item.get("verdict"), item["metrics"]
+    return None, None
 
 
 def _diagnose(row: dict) -> dict:
