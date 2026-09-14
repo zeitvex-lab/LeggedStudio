@@ -210,14 +210,14 @@ class ReferenceTest(unittest.TestCase):
         """
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            robot_dir = root / "robots" / "go2"
+            robot_dir = root / "robots" / "go2"                  # root/robots/go2
             (robot_dir / "simulation").mkdir(parents=True)
-            outside = root / "models"
+            outside = root / "models"                            # root/models（包外）
             outside.mkdir()
             (outside / "x.onnx").write_bytes(b"blob")
             declaration = {
                 "robot_dir": str(robot_dir),
-                "path": "../models/x.onnx",
+                "path": "../../models/x.onnx",                   # 上溯两级才回到 root
                 "robot": "go2", "policy_id": "x",
             }
             self.assertIsNotNone(pa.policy_blob_path(declaration))       # 能解析到文件
