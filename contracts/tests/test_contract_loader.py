@@ -24,7 +24,8 @@ class ContractLoaderTest(unittest.TestCase):
         joints = contract["joints"]
         self.assertEqual(len(joints["actuated_joints"]), 12)
         self.assertEqual(contract["action"]["dimension"], 12)
-        self.assertEqual(contract["observation"]["dimension"], 48)
+        # 45 = 标准 6 项 × 12 驱动关节（2026-09-14 基数校正：旧 48 为声明错，见任务清单 E4）
+        self.assertEqual(contract["observation"]["dimension"], 45)
         self.assertEqual(contract["control"]["control_hz"], 50)
         # v3 actuator profile expanded per joint.
         self.assertIn("actuator_profile_expanded", contract)

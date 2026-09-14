@@ -487,9 +487,10 @@
                   "actuated",
                   "action",
                   "world",
-                  "external"
+                  "external",
+                  "sim_state"
                 ],
-                "description": "取值来源：imu/cmd/驱动关节/上一动作/世界状态/外部传感器(深度/高度场)"
+                "description": "取值来源：imu/cmd/驱动关节/上一动作/世界状态/外部传感器(深度/高度场)/仅仿真可得的状态量(真机 IMU 给不出，如 base_lin_vel ⇒ deployment_available=false)"
               },
               "wrap": {
                 "type": "boolean",
@@ -559,7 +560,8 @@
                   "actuated",
                   "action",
                   "world",
-                  "external"
+                  "external",
+                  "sim_state"
                 ],
                 "description": "取值来源：imu/cmd/驱动关节/上一动作/世界状态/外部传感器(深度/高度场)"
               },
