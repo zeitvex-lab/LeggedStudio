@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 from pathlib import Path
 import json
 import mimetypes
@@ -89,10 +90,37 @@ from backend.camera_projection import router as camera_projection_router
 from backend.limits_api import router as limits_router
 from backend.pack_catalog import router as pack_catalog_router
 
+def _shutdown_training_workers() -> None:
+    """控制面退出时停止全部 running 训练任务（F6：训练进程生命周期无僵尸）。
+
+    接线取舍：选 FastAPI lifespan（shutdown 段）而非 atexit——uvicorn 的正常
+    退出（含 Ctrl+C 的 SIGINT → graceful shutdown）都会走 lifespan，时序上先于
+    解释器退出，异常也更可控。已实测（starlette TestClient 语义）：不作为
+    context manager 使用的 ``TestClient(app).get(...)`` 不触发 lifespan，所以
+    test_api_complete.py 的大量裸 TestClient 用法不受影响。
+    清理函数内部吞错：shutdown 钩子再抛异常只会污染退出码、掩盖真实清理结果。
+    SIGKILL/断电等非正常退出仍无解——那正是启动侧孤儿判定（orphaned/failed
+    补账，见 TrainingManager._reconcile_orphaned_task）存在的理由。
+    """
+    try:
+        from backend import training_manager
+
+        training_manager.shutdown_global_manager()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[Shutdown] 训练 worker 清理失败: {exc}")
+
+
+@asynccontextmanager
+async def _lifespan(_: FastAPI):
+    yield
+    _shutdown_training_workers()
+
+
 app = FastAPI(
     title="Legged Studio API",
     description="Legged Robot RL Platform - Complete Backend",
-    version=APP_VERSION
+    version=APP_VERSION,
+    lifespan=_lifespan,
 )
 
 # CORS

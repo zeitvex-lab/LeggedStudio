@@ -8,6 +8,8 @@ from datetime import datetime
 from pathlib import Path
 import json
 import os
+import subprocess
+import sys
 
 from adapters.mjlab.launcher import TrainingLauncher
 from contracts.robot_contract_v2 import RobotContractV2
@@ -36,6 +38,75 @@ def _package_contract_snapshot(robot_id: str) -> Optional[dict]:
                 except (OSError, json.JSONDecodeError):
                     continue
     return None
+
+
+def _pid_alive(pid: object) -> bool:
+    """判活一个 pid（F6 孤儿判定用，不引入 psutil 等第三方依赖）。
+
+    - Windows：ctypes 走 kernel32.OpenProcess + GetExitCodeProcess——句柄打不开
+      （pid 不存在/无权限）视为已死；退出码 == STILL_ACTIVE(259) 视为存活。
+      显式声明 WinDLL 签名，避免默认 c_int 返回值截断 64 位句柄。
+    - POSIX：os.kill(pid, 0) 只探测存在性、不发送信号。
+    已知局限：pid 复用会把"恰好分配到同号的新进程"误判为存活——本函数只用于
+    控制面启动时的孤儿补账，误判的代价是状态标成 orphaned（可再 stop 清理），
+    不会伪造完成态，可接受。
+    """
+    # bool 是 int 的子类，pid=True 之类的脏数据一并挡掉；缺失/None/0 归入已死分支。
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        return False
+    if sys.platform == "win32":
+        import ctypes
+
+        STILL_ACTIVE = 259
+        kernel32 = ctypes.WinDLL("kernel32")
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        kernel32.OpenProcess.argtypes = (ctypes.c_uint32, ctypes.c_bool, ctypes.c_uint32)
+        kernel32.GetExitCodeProcess.restype = ctypes.c_int
+        kernel32.GetExitCodeProcess.argtypes = (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32))
+        handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return False
+        try:
+            exit_code = ctypes.c_uint32()
+            if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                return False
+            return exit_code.value == STILL_ACTIVE
+        finally:
+            kernel32.CloseHandle(ctypes.c_void_p(handle))
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # 进程存在，只是属于别的用户
+    except OSError:
+        return False
+    return True
+
+
+def _terminate_orphan_worker(pid: int) -> None:
+    """按 pid 终结脱离监督的孤儿 worker（F6：stop_task 的 orphaned 分支）。
+
+    - Windows 用 taskkill /T /F：连同子进程树一起结束（mjlab worker 可能再
+      spawn 子进程，只杀根会留下孙进程）。
+    - POSIX 只 os.kill 单进程、不用 killpg：launcher 的 Popen 没有
+      start_new_session，worker 与控制面同进程组，killpg 会连控制面自己
+      一起误杀。
+    结果吞错：进程在 stop 之前恰好自行退出的竞态，按"已清理"处理。
+    """
+    if sys.platform == "win32":
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            capture_output=True,
+            check=False,
+        )
+        return
+    import signal
+
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        pass
 
 
 class TrainingTask:
@@ -139,10 +210,59 @@ class TrainingManager:
                 contract = RobotContractV2.from_json_file(str(contract_path))
                 config = json.loads(config_path.read_text(encoding="utf-8"))
                 task = TrainingTask(task_dir.name, contract, config, task_dir)
-                task.status = task.get_status_info().get("status", "completed" if (task_dir / "artifact.json").exists() else "pending")
+                status_info = task.get_status_info()
+                task.status = status_info.get("status", "completed" if (task_dir / "artifact.json").exists() else "pending")
+                task.status = self._reconcile_orphaned_task(task, status_info)
                 self.tasks[task.task_id] = task
             except Exception as exc:
                 print(f"[Manager] Failed to recover {task_dir.name}: {exc}")
+
+    def _reconcile_orphaned_task(self, task: "TrainingTask", status_info: dict) -> str:
+        """启动孤儿判定（F6：训练进程生命周期无僵尸）。
+
+        watcher 线程活在控制面进程里（launcher.py），旧控制面一死它先死，worker
+        的终态从此无人记录——恢复时按 status.json 里的 pid 判活补账：
+        - pid 已死（含缺失/None/0：从未真正起过 worker 或旧档案没记 pid）→
+          终结为 failed，error 如实写明"终态无人记录"，不伪造完成态；
+        - pid 仍活 → 置 orphaned（新状态值）：worker 还在跑但已脱离监督，
+          stop_task 会按 pid 直接清理。
+        终态任务（completed/failed/stopped 等非 running/pending 状态）一律不动，
+        避免误伤历史档案；orphaned 自身也纳入判定，保证再次重启时幂等。
+        """
+        status = status_info.get("status") or task.status
+        if status not in ("running", "pending", "orphaned"):
+            return status
+        pid = status_info.get("pid")
+        if _pid_alive(pid):
+            task.status = "orphaned"
+            (task.task_dir / "status.json").write_text(
+                json.dumps(
+                    {**status_info, "status": "orphaned", "error": "控制面重启，worker 仍在运行但已脱离监督"},
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            print(f"[Manager] Orphaned task recovered (worker pid {pid} alive): {task.task_id}")
+            return "orphaned"
+        task.status = "failed"
+        (task.task_dir / "status.json").write_text(
+            json.dumps(
+                {
+                    **status_info,
+                    "status": "failed",
+                    "error": "控制面重启时 worker 已退出（watcher 随旧控制面终止，终态无人记录）",
+                    "orphan_finalized": True,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print(f"[Manager] Orphaned task finalized as failed (worker pid {pid} gone): {task.task_id}")
+        return "failed"
 
     def _load_idempotency(self) -> None:
         """Load the persisted Idempotency-Key -> task_id map (Feature 13)."""
@@ -296,6 +416,13 @@ class TrainingManager:
 
         if task_id in self.launcher.processes:
             self.launcher.stop_training(task_id)
+        elif task.status == "orphaned" or task.get_status_info().get("status") == "orphaned":
+            # F6：控制面重启后恢复的孤儿 worker。launcher.processes 是内存态，
+            # 重启后为空——只能按 status.json 记录的 pid 直接清理；pid 已先一步
+            # 退出的竞态无需杀，直接落 stopped。
+            pid = task.get_status_info().get("pid")
+            if _pid_alive(pid):
+                _terminate_orphan_worker(int(pid))
         task.status = "stopped"
         (task.task_dir / "status.json").write_text(json.dumps({"status": "stopped"}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -353,6 +480,19 @@ def get_training_manager() -> TrainingManager:
     if _global_manager is None:
         _global_manager = TrainingManager()
     return _global_manager
+
+
+def shutdown_global_manager() -> bool:
+    """控制面退出清理入口（F6：训练进程生命周期无僵尸）。
+
+    只在全局实例已存在时执行 cleanup——训练栈从未被使用就不在退出路径上
+    构造 TrainingManager（构造会扫描 workspace 并触发孤儿判定的写盘副作用，
+    退出时不宜引入新副作用）。返回是否执行了清理，供 lifespan 接线方与测试确认。
+    """
+    if _global_manager is None:
+        return False
+    _global_manager.cleanup()
+    return True
 
 
 if __name__ == "__main__":
