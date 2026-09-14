@@ -154,7 +154,7 @@
       "obs_dim": 61,
       "action_dim": 14,
       "contract": {
-        "task_type": "stand"
+        "task_type": "manipulation"
       },
       "training_ref": {
         "profile": "microduck-ballkick-flat",
@@ -168,7 +168,7 @@
       "obs_dim": 61,
       "action_dim": 14,
       "contract": {
-        "task_type": "stand"
+        "task_type": "manipulation"
       },
       "training_ref": {
         "profile": "microduck-ballkick-flat",

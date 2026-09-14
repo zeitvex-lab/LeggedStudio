@@ -196,7 +196,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"{row['robot']:<20}{row['policy_id']:<26}"
             f"{str(row['declared_family'] or '—'):<12}{row['recommended_family']:<12}"
-            f"{ {'agree': '一致', 'missing': '声明缺失', 'mismatch': '不一致'}[row['status']] }"
+            f"{ {'agree': '一致', 'missing': '声明缺失', 'mismatch': '不一致', 'weak': '仅推断'}[row['status']] }"
         )
         if row["status"] != "agree":
             for reason in row["reasons"]:

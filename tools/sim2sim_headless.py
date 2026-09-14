@@ -38,7 +38,11 @@ DEFAULT_CRITERIA = {
     # 硬门 = 存活/未摔 + 稳态姿态；vel_err 单列为质量指标（默认不卡门，见 --gate-tracking）。
     "stand": {"survival_min": 0.999, "height_ratio_min": 0.85, "tilt_max_deg": 20.0, "vel_err_max": 0.20},
     "balance": {"survival_min": 0.999, "height_ratio_min": 0.85, "tilt_max_deg": 20.0, "vel_err_max": 0.20},
-    "velocity": {"survival_min": 0.999, "height_ratio_min": 0.70, "tilt_max_deg": 30.0, "vel_err_max": 0.20},
+    # 站立硬门与 stand 族同档 —— 用户口径（2026-09-14）：站立是底线，
+    # 而 0.70/30° 只保证"没摔倒"（允许趴在 70% 高度、歪 30°），那不等于"站得正常"。
+    # 跟踪两档：track_pass_ratio=0.6 合格 / track_good_ratio=0.8 更好（按命令幅值折算，见 tracking_ratio）。
+    "velocity": {"survival_min": 0.999, "height_ratio_min": 0.85, "tilt_max_deg": 20.0,
+                 "vel_err_max": 0.20, "track_pass_ratio": 0.6, "track_good_ratio": 0.8},
     "imitation": {"survival_min": 0.95},
     "acrobatics": {"survival_min": 0.9},
     "parkour": {"survival_min": 0.95},
@@ -71,6 +75,25 @@ def task_family(entry: dict, contract) -> str:
     # 只有纯 3 维速度命令才算 velocity；复合命令（如 microduck 13 维）按站立/任务
     # 固定指令评估，避免用速度扫描去测技能/站姿策略。
     return "velocity" if (contract.command_dims or 0) == 3 else "stand"
+
+
+def tracking_ratio(metrics: dict) -> float | None:
+    """速度跟踪**达成率** = 1 − vel_track_err / ‖命令速度‖（夹到 [0, 1]）。
+
+    为什么不能直接拿 ``vel_track_err`` 当判据：它是 ``‖v_meas−v_cmd‖ + 0.3·|ω−ω_cmd|``
+    的**绝对误差**（见 `adapters/mjlab/policy_acceptance.py` 的 vel_errs 累加处）。
+    同样 0.4 的误差，在 0.6 m/s 命令下意味着"几乎没动"，在 1.0 m/s 下只差四成 ——
+    同一个数在不同命令下含义不同，无法跨命令比较。折算成达成率后才有统一口径：
+    用户定的 **≥0.6 合格、≥0.8 更好**。
+    """
+    err = metrics.get("vel_track_err")
+    command = metrics.get("command_effective") or metrics.get("command") or []
+    if err is None or len(command) < 2:
+        return None
+    magnitude = (float(command[0]) ** 2 + float(command[1]) ** 2) ** 0.5
+    if magnitude <= 1e-6:
+        return None                      # 零命令（纯站立）没有"跟踪"可言
+    return max(0.0, min(1.0, 1.0 - float(err) / magnitude))
 
 
 def evaluate_mode(metrics: dict, family: str, contract, criteria: dict,
@@ -106,6 +129,16 @@ def evaluate_mode(metrics: dict, family: str, contract, criteria: dict,
     if vel_err is not None and family in ("stand", "balance", "velocity"):
         quality.append({"name": "vel_track_err", "ok": float(vel_err) <= criteria["vel_err_max"],
                         "value": vel_err, "max": criteria["vel_err_max"]})
+        ratio = tracking_ratio(metrics)
+        if ratio is not None:
+            quality.append({
+                "name": "track_ratio",
+                "ok": ratio >= float(criteria.get("track_pass_ratio", 0.6)),
+                "value": round(ratio, 3),
+                "min": float(criteria.get("track_pass_ratio", 0.6)),
+                # `good` 不进 hard/quality 的 ok 判定，只作"更好"的标注（用户口径 0.8）
+                "good": ratio >= float(criteria.get("track_good_ratio", 0.8)),
+            })
     hard_ok = all(c["ok"] for c in hard)
     tracking_ok = all(c["ok"] for c in quality) if quality else True
     return {
