@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go1__go1-playground-joystick",
+  "contract_digest": "680855e2f6574c5e6112280907e7ce1fa3a520dc1840e10cc6b75edde0490bb3",
+  "declared_source": "mujoco_playground experimental/sim2sim onnx（Apache-2.0，官方 play_go1_joystick.py 取证）",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Go1 Joystick 48D (mujoco_playground 官方导出)",
+  "obs_dim": 48,
+  "onnx_bytes": 772916,
+  "onnx_sha256": "386cde6a1eac679e2f2a313ade2b395d9f26905b151ee3b019c2c4163d49b6f2",
+  "policy_id": "go1-playground-joystick",
+  "robot": "unitree_go1",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go1/simulation/policies/go1_playground_joystick.onnx",
+  "task_type": null
+}

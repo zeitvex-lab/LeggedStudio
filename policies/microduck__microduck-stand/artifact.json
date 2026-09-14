@@ -1,0 +1,19 @@
+{
+  "action_dim": 14,
+  "algorithm": null,
+  "artifact_id": "microduck__microduck-stand",
+  "contract_digest": "f5a88e01eb03a9702ac9c3f753b9ce9254999e48145088ef62bd7cd12efed783",
+  "declared_source": null,
+  "history_len": null,
+  "kind": "policies",
+  "label": "Stand",
+  "obs_dim": 61,
+  "onnx_bytes": 793705,
+  "onnx_sha256": "1569268713e40deea795dd2922dba50d3621e15a872855408b6b1b125b1c094b",
+  "policy_id": "microduck-stand",
+  "robot": "microduck",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/microduck/simulation/policies/BEST_alpha_stand.onnx",
+  "task_type": null
+}

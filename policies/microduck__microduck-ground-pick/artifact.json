@@ -1,0 +1,19 @@
+{
+  "action_dim": 14,
+  "algorithm": null,
+  "artifact_id": "microduck__microduck-ground-pick",
+  "contract_digest": "2dc57c75b1dc8c325211ee4a682c3e3822ec09052e6c732927e251bc2f9f2934",
+  "declared_source": null,
+  "history_len": null,
+  "kind": "policies",
+  "label": "Ground Pick",
+  "obs_dim": 61,
+  "onnx_bytes": 793685,
+  "onnx_sha256": "ffbf5109982ff999b0ba53afe86b9ae731bbec679d67fb7f8ab4c52152c88872",
+  "policy_id": "microduck-ground-pick",
+  "robot": "microduck",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/microduck/simulation/policies/alpha_ground_pick.onnx",
+  "task_type": null
+}

@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-kaiwu-moe-cts-8exp",
+  "contract_digest": "a1b90a02a0c11a7d2c16454d1c461313e771ae0fbdad51e071b1c1e2a515fd74",
+  "declared_source": "kaiwu_rl RoboGauge 发布策略（训练源 go2_rl_gym legged_gym go2）",
+  "history_len": 5,
+  "kind": "policies",
+  "label": "Go2 MoE-CTS 8-experts (kaiwu_rl)",
+  "obs_dim": 45,
+  "onnx_bytes": 3861657,
+  "onnx_sha256": "d891cfc95479f1b4a9683c45c93de250ecfe32ec1bebe3d385c889d5cc963892",
+  "policy_id": "go2-kaiwu-moe-cts-8exp",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_kaiwu_moe_cts_8exp.onnx",
+  "task_type": null
+}

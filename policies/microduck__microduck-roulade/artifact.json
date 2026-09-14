@@ -1,0 +1,19 @@
+{
+  "action_dim": 14,
+  "algorithm": null,
+  "artifact_id": "microduck__microduck-roulade",
+  "contract_digest": "e6d4244171904322e22bd85135479de8eeba3f901254362acbe45f6173d51f5d",
+  "declared_source": null,
+  "history_len": null,
+  "kind": "policies",
+  "label": "Roulade",
+  "obs_dim": 61,
+  "onnx_bytes": 793685,
+  "onnx_sha256": "3d60da08fc13f29c1b57f41977aa898132c0d60042100149d8e775affcbca32b",
+  "policy_id": "microduck-roulade",
+  "robot": "microduck",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/microduck/simulation/policies/roulade.onnx",
+  "task_type": null
+}

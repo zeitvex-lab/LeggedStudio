@@ -1,0 +1,19 @@
+{
+  "action_dim": 16,
+  "algorithm": null,
+  "artifact_id": "zex-w__zex-w-rough-baseline",
+  "contract_digest": "e28fb57fe4e87aa2e6eb03e0604b715227fdb45fda7ddf6144bd905a5cbcf503",
+  "declared_source": null,
+  "history_len": 1,
+  "kind": "policies",
+  "label": "rough 基线 (v2 契约参考)",
+  "obs_dim": 53,
+  "onnx_bytes": 777597,
+  "onnx_sha256": "4149be180a197e70495a7a6d186c62be43271a4ce9035a8eee56cd293d869a27",
+  "policy_id": "zex-w-rough-baseline",
+  "robot": "zex-w",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/zex-w/simulation/policies/model_rough.onnx",
+  "task_type": null
+}

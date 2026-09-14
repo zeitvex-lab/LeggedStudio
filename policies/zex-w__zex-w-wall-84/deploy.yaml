@@ -1,0 +1,6 @@
+observation_kind: zexw_53
+obs_dim: 53
+action_dim: 16
+history_len: 1
+robot: zex-w
+policy_id: zex-w-wall-84

@@ -1,0 +1,54 @@
+observation_kind: go2w_himloco_57
+obs_dim: 57
+action_dim: 16
+history_len: 6
+command_dims: 3
+default_command:
+  - 0.0
+  - 0.0
+  - 0.0
+action_joint_order:
+  - FL_hip_joint
+  - FL_thigh_joint
+  - FL_calf_joint
+  - FL_wheel_joint
+  - FR_hip_joint
+  - FR_thigh_joint
+  - FR_calf_joint
+  - FR_wheel_joint
+  - RL_hip_joint
+  - RL_thigh_joint
+  - RL_calf_joint
+  - RL_wheel_joint
+  - RR_hip_joint
+  - RR_thigh_joint
+  - RR_calf_joint
+  - RR_wheel_joint
+default_joint_angles:
+  FL_hip_joint: 0.0
+  FL_thigh_joint: 0.8
+  FL_calf_joint: -1.5
+  FL_wheel_joint: 0.0
+  FR_hip_joint: 0.0
+  FR_thigh_joint: 0.8
+  FR_calf_joint: -1.5
+  FR_wheel_joint: 0.0
+  RL_hip_joint: 0.0
+  RL_thigh_joint: 0.8
+  RL_calf_joint: -1.5
+  RL_wheel_joint: 0.0
+  RR_hip_joint: 0.0
+  RR_thigh_joint: 0.8
+  RR_calf_joint: -1.5
+  RR_wheel_joint: 0.0
+action_scale: 0.25
+scales:
+  ang_vel: 0.25
+  dof_pos: 1.0
+  dof_vel: 0.05
+  command:
+    - 2.0
+    - 2.0
+    - 0.25
+robot: unitree_go2w
+policy_id: go2w-himloco-stand-front

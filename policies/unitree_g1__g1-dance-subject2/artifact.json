@@ -1,0 +1,19 @@
+{
+  "action_dim": 29,
+  "algorithm": null,
+  "artifact_id": "unitree_g1__g1-dance-subject2",
+  "contract_digest": "0b9f7beb9a15d223be08498298fd08854bc34d4d94f3c0fe58423d6af5487536",
+  "declared_source": "motion-tracking policy（内部研究部署包，无 LICENSE；policy.pt 经 tools/convert_policy.py 转 ONNX，154→29 已验证）",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Dance Subject2 (motion tracking)",
+  "obs_dim": 154,
+  "onnx_bytes": 990433,
+  "onnx_sha256": "de72d614796763df3a84198e1b495d1443f02125a626086ade56f347a109a36e",
+  "policy_id": "g1-dance-subject2",
+  "robot": "unitree_g1",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_g1/simulation/policies/dance1_subject2.onnx",
+  "task_type": null
+}

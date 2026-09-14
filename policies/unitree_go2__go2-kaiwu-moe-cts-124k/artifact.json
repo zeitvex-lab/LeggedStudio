@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-kaiwu-moe-cts-124k",
+  "contract_digest": "a1b90a02a0c11a7d2c16454d1c461313e771ae0fbdad51e071b1c1e2a515fd74",
+  "declared_source": "kaiwu_rl RoboGauge 发布策略（训练源 go2_rl_gym legged_gym go2）",
+  "history_len": 5,
+  "kind": "policies",
+  "label": "Go2 MoE-CTS 124k (kaiwu_rl)",
+  "obs_dim": 45,
+  "onnx_bytes": 3861657,
+  "onnx_sha256": "9f21546bef088976d3920f43842a3d7027544a9d58e9eaa66268670e5f5d7409",
+  "policy_id": "go2-kaiwu-moe-cts-124k",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_kaiwu_moe_cts_124k.onnx",
+  "task_type": null
+}

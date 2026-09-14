@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-jump-69",
+  "contract_digest": "751bebbe34024264b6a2b3a66bfeb86a42c78b414d40ca10de87e8a7e6fa5f29",
+  "declared_source": "LeggedSkillDeploy go2_jump（第三方，无 LICENSE；仅内部研究）",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Jump 69D (imitation, motion-csv)",
+  "obs_dim": 69,
+  "onnx_bytes": 807578,
+  "onnx_sha256": "d67dd748891282e38127af5d76e6733f86ee979e841e7be878cca3237df0d267",
+  "policy_id": "go2-jump-69",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/jump_69.onnx",
+  "task_type": null
+}

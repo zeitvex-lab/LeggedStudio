@@ -1,0 +1,19 @@
+{
+  "action_dim": 16,
+  "algorithm": null,
+  "artifact_id": "unitree_go2w__go2w-himloco-handstand",
+  "contract_digest": "33c6af2ffb5ee68122af8bff26fa4516ff135036c134950ca1c3fc7c5e16a8ac",
+  "declared_source": "LeggedSkillDeploy policy/issacgym/go2w/go2w_himloco（第三方，无 LICENSE；仅内部研究）——对应 HIMLoco 训练工程",
+  "history_len": 6,
+  "kind": "policies",
+  "label": "Go2W HIMLoco 倒立 (handstand)",
+  "obs_dim": 57,
+  "onnx_bytes": 1078609,
+  "onnx_sha256": "ee59f0a76e4fcc4edf200743fbac14cf0f34704ec8e446745c81691d02330615",
+  "policy_id": "go2w-himloco-handstand",
+  "robot": "unitree_go2w",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2w/simulation/policies/go2w_himloco_handstand.onnx",
+  "task_type": null
+}
