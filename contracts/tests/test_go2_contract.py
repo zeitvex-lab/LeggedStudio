@@ -17,7 +17,10 @@ WORKSPACE = Path(__file__).resolve().parents[3]
 #: ① 出现未登记的根 → 失败（防止"证据来源被悄悄换掉"）；
 #: ② 在仓库内的证据 → 必须存在且哈希逐字节一致。
 EXTERNAL_EVIDENCE_ROOTS = ("lain_job/", "kaiwu_rl/", "uni_rl/")
-EXTERNAL_EVIDENCE_COUNT = 6
+#: 6 条证据（lain_job / kaiwu_rl / uni_rl）**已全部补进仓库**（现在 `00_resources/<project>/...` 下
+#: 逐字节可核），因此"外部"计数归 0 —— 这正是本断言在自己报错信息里要求的动作：
+#: 「证据补进仓库时，请同步更新本断言」。哈希逐字节校验（本用例的强部分）保持不变。
+EXTERNAL_EVIDENCE_COUNT = 0
 
 
 class Go2ContractTest(unittest.TestCase):

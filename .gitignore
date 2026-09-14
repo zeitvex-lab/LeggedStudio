@@ -57,6 +57,14 @@ matrix-robot-mc-*/
 
 # Portable runtime (generated)
 runtime/
+# 例外：包内训练源的 `env/` 与 `runtime/` 都是**源码目录**（`rsl_rl/env/`、`local_tasks/runtime/`），
+# 它们被**已跟踪**代码 import，且全仓没有任何生成器会写它们 —— 不是虚拟环境、也不是生成的运行时。
+# 通用规则会把它们吞掉 ⇒ 干净 clone 上训练源缺文件（同级文件都已跟踪，属误伤）。
+# 注意：否定规则必须写在被否定规则**之后**才生效（gitignore 以最后一条匹配为准）。
+!assets/robots/**/env/
+!assets/robots/**/env/**
+!assets/robots/**/runtime/
+!assets/robots/**/runtime/**
 
 # Local runtime artifacts (generated)
 MUJOCO_LOG.TXT
