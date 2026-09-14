@@ -144,9 +144,11 @@ class AdapterInterpreterResolutionTest(unittest.TestCase):
             self.pb.adapter_venv_dir(),
             Path("/opt/legged-studio/mjlab-cpu/.venv"),
         )
+        # 解释器在 venv 内的相对落点**随平台不同**（POSIX `bin/python` / Windows `Scripts/python.exe`）。
+        # 期望值用被测模块自己的 helper 推出来，避免把 Linux 路径写死进断言（在 Windows 上必红）。
         self.assertEqual(
             self.pb.adapter_python(),
-            Path("/opt/legged-studio/mjlab-cpu/.venv/bin/python"),
+            self.pb.venv_python(Path("/opt/legged-studio/mjlab-cpu/.venv")),
         )
 
     def test_explicit_interpreter_env_wins_over_venv_dir(self):

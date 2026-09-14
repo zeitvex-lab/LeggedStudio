@@ -236,6 +236,9 @@ class ZexWRoughLiveSchemaTests(unittest.TestCase):
                 env=env,
                 capture_output=True,
                 text=True,
+                # worker 输出是 UTF-8；不显式指定时 Windows 会按系统 ANSI 码页（GBK）解码，
+                # 遇到非 GBK 字节就抛 UnicodeDecodeError ⇒ 用例在本机必红（CI 是 UTF-8 环境所以看不到）。
+                encoding="utf-8",
                 timeout=180,
             )
         finally:
