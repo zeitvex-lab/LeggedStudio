@@ -119,6 +119,7 @@ def scan_declarations(robots_dir: Path | str = ROBOTS_DIR) -> list[dict[str, Any
                 declared = str(entry.get("path") or entry.get("url") or "")
                 declarations.append({
                     "robot": robot,
+                    "robot_dir": str(robot_dir),
                     "policy_id": policy_id,
                     "kind": section,
                     "label": entry.get("label") or entry.get("name") or policy_id,
@@ -374,6 +375,121 @@ def promote_produced_policy(
     )
     (target / DEPLOY_NAME).write_text(dump_yaml(dict(deploy)), encoding="utf-8")
     return artifact
+
+
+# --------------------------------------------------------------------------------------
+# 引用解析（B10 收尾：契约只留引用 + hash 的读侧）
+# --------------------------------------------------------------------------------------
+def load_index(out_dir: Path | str = OUT_DIR) -> dict[str, dict[str, Any]]:
+    """读回出库索引：``artifact_id`` → 条目。未出库时返回空字典（调用方据此判定，不抛异常）。"""
+    index = _load_json(Path(out_dir) / INDEX_NAME)
+    if not isinstance(index, Mapping):
+        return {}
+    return {str(item.get("artifact_id")): dict(item) for item in index.get("artifacts") or []}
+
+
+def policy_blob_path(
+    declaration: Mapping[str, Any],
+    *,
+    robot_dir: Path | None = None,
+    index: Mapping[str, Mapping[str, Any]] | None = None,
+) -> Path | None:
+    """**统一解析入口**：新形式（``artifact_id`` → 索引 → ``source_onnx``）与旧形式（``path``/``url``）都认。
+
+    两种形式并存是刻意的：迁移期间消费者不必知道自己读到的是哪一种，因此**声明可以逐包切换、
+    不必一次性全改**（这正是能安全落地的关键）。
+    """
+    if robot_dir is None and declaration.get("robot_dir"):
+        robot_dir = Path(str(declaration["robot_dir"]))
+    artifact_id = declaration.get("artifact_id")
+    if artifact_id:
+        entry = (index if index is not None else load_index()).get(str(artifact_id))
+        if not entry:
+            return None
+        source = entry.get("source_onnx")
+        if not source:
+            return None
+        candidate = Path(str(source))
+        candidate = candidate if candidate.is_absolute() else ROOT / candidate
+        return candidate if candidate.is_file() else None
+    if robot_dir is not None:
+        return resolve_declared_onnx(
+            Path(robot_dir),
+            # scan_declarations 只留 `declared`（原样字符串），这里兼容两种来源。
+            declaration.get("path") or declaration.get("declared") or "",
+            declaration.get("url") or "",
+        )
+    return None
+
+
+def policy_reference(
+    declaration: Mapping[str, Any],
+    *,
+    robot_dir: Path | None = None,
+    index: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """把一条声明翻译成"**引用 + hash**"（B10 判据的字面语义）。
+
+    ``onnx_sha256`` 一律以**实测**为准（而不是照抄索引）：这样"索引说自己是什么"
+    与"文件实际是什么"一旦分叉，立刻暴露。
+    """
+    index = index if index is not None else load_index()
+    artifact_id = declaration.get("artifact_id") or artifact_id_for(
+        str(declaration.get("robot")), str(declaration.get("policy_id")),
+    )
+    blob = policy_blob_path(declaration, robot_dir=robot_dir, index=index)
+    return {
+        "artifact_id": artifact_id,
+        "onnx_sha256": file_digest(blob) if blob else None,
+        "source_onnx": _repo_relative(blob) if blob else None,
+        "routed_via": (
+            "declaration.artifact_id"
+            if declaration.get("artifact_id")
+            else "policy.path/url"      # 尚未迁移：仍是裸路径声明
+        ),
+    }
+
+
+def reference_gaps(
+    *,
+    robots_dir: Path | str = ROBOTS_DIR,
+    out_dir: Path | str = OUT_DIR,
+) -> dict[str, Any]:
+    """迁移对账：哪些声明还在用裸路径、哪些声明的 hash 与出库索引不一致。
+
+    返回问题清单（不抛异常），既是门禁输入，也是"迁移进度"的唯一真值。
+    """
+    index = load_index(out_dir)
+    declarations = scan_declarations(robots_dir)
+    legacy: list[str] = []
+    problems: list[str] = []
+
+    for declaration in declarations:
+        artifact_id = artifact_id_for(str(declaration.get("robot")), str(declaration.get("policy_id")))
+        uses_legacy = not declaration.get("artifact_id") and (
+            declaration.get("declared") or declaration.get("onnx") is not None
+        )
+        if uses_legacy:
+            legacy.append(artifact_id)
+        reference = policy_reference(declaration, index=index)
+        if reference["onnx_sha256"] is None:
+            problems.append(f"{artifact_id}：引用解析不到 blob")
+            continue
+        entry = index.get(str(reference["artifact_id"]))
+        if entry is None:
+            problems.append(f"{artifact_id}：不在出库索引里（先跑 build_all(write=True)）")
+        elif entry.get("onnx_sha256") != reference["onnx_sha256"]:
+            problems.append(
+                f"{artifact_id}：实测 hash 与索引不一致"
+                f"（索引 {str(entry.get('onnx_sha256'))[:12]}… vs 实测 {str(reference['onnx_sha256'])[:12]}…）"
+            )
+
+    return {
+        "ok": not problems,
+        "declared": len(declarations),
+        "legacy_path_declarations": legacy,     # 仍写裸 path/url 的声明（待迁移）
+        "problems": problems,
+    }
 
 
 def iter_onnx_files(robots_dir: Path | str = ROBOTS_DIR) -> Iterable[Path]:

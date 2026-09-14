@@ -145,6 +145,70 @@ class VerifyTest(unittest.TestCase):
             self.assertTrue(any(pa.INDEX_NAME in problem for problem in report["problems"]))
 
 
+class ReferenceTest(unittest.TestCase):
+    """B10 收尾：声明从"裸路径"切到"引用 + hash"的读侧。"""
+
+    def test_blob_resolves_from_either_form(self):
+        """两种形式并存是迁移能安全落地的关键：消费者不必知道自己读的是哪一种。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_package(root, "go2")
+            out = root / "policies"
+            pa.build_all(robots_dir=root, out_dir=out, write=True)
+            index = pa.load_index(out)
+
+            legacy = pa.scan_declarations(root)[0]
+            self.assertIsNotNone(pa.policy_blob_path(legacy, robot_dir=root / "go2", index=index))
+
+            migrated = dict(legacy)
+            migrated.pop("declared")
+            migrated["onnx"] = None
+            migrated["artifact_id"] = pa.artifact_id_for("go2", "walk-100")
+            blob = pa.policy_blob_path(migrated, robot_dir=root / "go2", index=index)
+            self.assertIsNotNone(blob)
+            self.assertEqual(blob, legacy["onnx"])       # 两条路径解析到同一个文件
+
+    def test_hash_is_measured_not_copied_from_index(self):
+        """"索引说自己是什么"与"文件实际是什么"必须分开 —— 不然漂移查不出来。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_package(root, "go2")
+            out = root / "policies"
+            pa.build_all(robots_dir=root, out_dir=out, write=True)
+            index = pa.load_index(out)
+
+            declaration = pa.scan_declarations(root)[0]
+            before = pa.policy_reference(declaration, index=index)["onnx_sha256"]
+            (root / "go2" / "simulation" / "policies" / "walk.onnx").write_bytes(b"swapped")
+
+            after = pa.policy_reference(declaration, index=index)["onnx_sha256"]
+            self.assertNotEqual(before, after)
+
+    def test_reference_gaps_lists_unmigrated_declarations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_package(root, "go2")
+            out = root / "policies"
+            pa.build_all(robots_dir=root, out_dir=out, write=True)
+
+            report = pa.reference_gaps(robots_dir=root, out_dir=out)
+            self.assertEqual(report["declared"], 1)
+            self.assertEqual(report["legacy_path_declarations"], ["go2__walk-100"])
+            self.assertEqual(report["problems"], [])      # hash 一致，只是形式还没切
+
+    def test_missing_blob_is_reported_not_silenced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_package(root, "go2")
+            out = root / "policies"
+            pa.build_all(robots_dir=root, out_dir=out, write=True)
+            (root / "go2" / "simulation" / "policies" / "walk.onnx").unlink()
+
+            report = pa.reference_gaps(robots_dir=root, out_dir=out)
+            self.assertFalse(report["ok"])
+            self.assertTrue(any("解析不到 blob" in problem for problem in report["problems"]))
+
+
 class ProducedPolicyTest(unittest.TestCase):
     def test_promote_writes_blob_and_links_run(self):
         with tempfile.TemporaryDirectory() as tmp:
