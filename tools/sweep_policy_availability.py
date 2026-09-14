@@ -114,6 +114,20 @@ def _run_one(row: dict, *, seconds: float, seed: int, timeout: float = 900.0) ->
         "--task-type", row["family"], "--seconds", str(seconds), "--seed", str(seed),
         "--output-dir", str(output_dir),
     ]
+    # 非标准站姿技能（前腿/后腿站立）：**稳态高度天然偏离标准站立高度**，套 height_ratio
+    # 硬门等于用错尺子。改用"自身稳态稳定性"——只看存活/不摔 + 不翻倒（tilt 阈值放宽到 75°，
+    # 仍能抓住躺平/侧翻），高度项不参与判定。
+    if row.get("self_stability_only"):
+        criteria_path = output_dir / "criteria.json"
+        criteria_path.write_text(
+            json.dumps(
+                {family: {"height_ratio_min": 0.0, "tilt_max_deg": 75.0}
+                 for family in ("stand", "balance")},
+                ensure_ascii=False, indent=2,
+            ),
+            encoding="utf-8",
+        )
+        command += ["--criteria-json", str(criteria_path)]
     exit_code = 0
     tail: list[str] = []
     try:
