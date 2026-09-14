@@ -32,21 +32,21 @@ LITE3_ACTUATOR_HIP = BuiltinPositionActuatorCfg(
     target_names_expr=(".*HipX.*",),
     stiffness=40.0,
     damping=1.0,
-    effort_limit=24.0,
+    effort_limit=30.0,
     armature=0.01,
 )
 LITE3_ACTUATOR_THIGH = BuiltinPositionActuatorCfg(
     target_names_expr=(".*HipY.*",),
     stiffness=40.0,
     damping=1.0,
-    effort_limit=24.0,
+    effort_limit=30.0,
     armature=0.01,
 )
 LITE3_ACTUATOR_CALF = BuiltinPositionActuatorCfg(
     target_names_expr=(".*Knee.*",),
     stiffness=40.0,
     damping=1.0,
-    effort_limit=36.0,
+    effort_limit=30.0,
     armature=0.01,
 )
 
