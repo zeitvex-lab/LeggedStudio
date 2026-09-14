@@ -81,7 +81,9 @@ def _policy_inventory(robots: list[str] | None) -> list[dict]:
             "family": str(declared or recommendation["family"]),
             "family_source": "declared" if declared else f"inferred({recommendation['confidence']})",
             "gated": str(declared or recommendation["family"]) in STANDING_FAMILIES,
-            "self_stability_only": SELF_STABILITY_ONLY.get(artifact_id),
+            # 查表用 policy_id（`SELF_STABILITY_ONLY` 的键就是策略 id）——
+            # 早期版本拿 artifact_id 去查，永远查不中，覆盖静默失效。
+            "self_stability_only": SELF_STABILITY_ONLY.get(declaration["policy_id"]),
             "artifact_id": artifact_id,
             "blob": str(blob.relative_to(ROOT)) if blob and str(blob).startswith(str(ROOT)) else (str(blob) if blob else None),
             "observation_kind": contract.get("observation_kind"),
@@ -121,7 +123,9 @@ def _run_one(row: dict, *, seconds: float, seed: int, timeout: float = 900.0) ->
         criteria_path = output_dir / "criteria.json"
         criteria_path.write_text(
             json.dumps(
-                {family: {"height_ratio_min": 0.0, "tilt_max_deg": 75.0}
+                # tilt 放到 95°：这类技能的躯干角**本来就不是判据**（后腿站立实测 86.6°），
+                # 只保留"没有完全翻倒"这一层（真翻倒在 run 循环的 90° 中止规则那里就被截住了）。
+                {family: {"height_ratio_min": 0.0, "tilt_max_deg": 95.0}
                  for family in ("stand", "balance")},
                 ensure_ascii=False, indent=2,
             ),

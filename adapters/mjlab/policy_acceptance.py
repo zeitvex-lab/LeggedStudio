@@ -897,7 +897,10 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
         roll_max = max(roll_max, abs(roll))
         pitch_max = max(pitch_max, abs(pitch))
         height_min = min(height_min, float(data.qpos[2]))
-        tilted = abs(roll) > 60.0 or abs(pitch) > 60.0
+        # 倾角闸门放到 90°：**前腿/后腿站立**这类非标准站姿本来就会把躯干立起来
+        # （实测 go2w 后腿站立 pitch 80.5° 是正常姿态，60° 会把它误判成摔倒并中止回合）。
+        # 阈值只用于"回合是否该中止"，姿态是否合格仍由 verdict 的 tilt 判据决定。
+        tilted = abs(roll) > 90.0 or abs(pitch) > 90.0
         # **起摆窗口**：从出生高度落到站立高度是**正常过程**（go2 出生 0.445、站高约 0.28），
         # 单帧穿过 `0.45 × initial_height` 就判"摔倒"，会把还没机会发动作的策略直接掐掉
         # （实测 go2-moe-cts 0.248 s、g1-velocity 0.35 s 都是这么被中止的）。
@@ -1772,7 +1775,7 @@ def run_encoder_mode(sess_enc, sess_pol, contract: PackageContract, model, data,
         height_min = min(height_min, float(data.qpos[2]))
         # 与 run_mode 同一口径：起摆窗口内不判摔（双图 encoder 链同样受这条保护）。
         if fell_at is None and step >= int(0.5 * contract.physics_hz) and (
-            data.qpos[2] < 0.45 * contract.initial_height or abs(roll) > 60.0 or abs(pitch) > 60.0
+            data.qpos[2] < 0.45 * contract.initial_height or abs(roll) > 90.0 or abs(pitch) > 90.0
         ):
             fell_at = step / contract.physics_hz
             break
