@@ -64,8 +64,25 @@ SELF_STABILITY_ONLY = {
 OUTPUT_DIR = ROOT / "workspace" / "validation" / "availability"
 
 
+def _zero_torque_policies() -> set[tuple[str, str]]:
+    """**前置检查**：有效 PD 增益解析后全为 0 的策略（等价于零力矩）。
+
+    这类策略的仿真结果**没有意义** —— 执行器根本不工作：机器人笔直下坠，而且对观测/历史的
+    任何改动都毫无反应。2026-09-14 我正是把它读成了"该因素无关"，连错两轮（`go2-moe-cts`
+    先后试了 `history_layout` / `history_init` 都"指标一字不差"，真因却是契约缺 `control`
+    块）。所以：**先修增益，再看判据** —— 审计实现见 `tools/audit_policy_gains.py`。
+    """
+    from tools.audit_policy_gains import audit  # noqa: PLC0415  前置检查，按需加载
+
+    return {
+        (str(row.get("robot")), str(row.get("policy_id")))
+        for row in audit()["problems"]
+    }
+
+
 def _policy_inventory(robots: list[str] | None) -> list[dict]:
     rows: list[dict] = []
+    zero_torque = _zero_torque_policies()
     for declaration in pa.scan_declarations():
         if robots and declaration["robot"] not in robots:
             continue
@@ -94,6 +111,8 @@ def _policy_inventory(robots: list[str] | None) -> list[dict]:
                 "blob 在包外（web 静态目录），没有「包内相对路径」可喂给无头引擎"
                 if outside_package else None
             ),
+            # 零力矩前置检查结果：命中则本轮仿真结论**不可用于评判策略**
+            "zero_torque": (declaration["robot"], declaration["policy_id"]) in zero_torque,
             "artifact_id": artifact_id,
             "blob": str(blob.relative_to(ROOT)) if blob and str(blob).startswith(str(ROOT)) else (str(blob) if blob else None),
             "observation_kind": contract.get("observation_kind"),
@@ -267,8 +286,9 @@ def sweep(*, robots: list[str] | None = None, limit: int | None = None,
                 "exit_code": None, "track_ratio": None, "stdout_tail": [],
             })
             continue
+        flag = " ⚠ 零力矩——本轮结果无意义，先修增益" if row.get("zero_torque") else ""
         print(f"[{index}/{len(inventory)}] {row['artifact_id']} family={row['family']} "
-              f"({row['family_source']})", flush=True)
+              f"({row['family_source']}){flag}", flush=True)
         results.append(_run_one(row, seconds=seconds, seed=seed))
 
     summary = {
