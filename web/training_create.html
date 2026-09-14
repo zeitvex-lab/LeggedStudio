@@ -405,6 +405,21 @@
     .reward-label small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
     .reward.disabled { opacity: 0.45; }
 
+    /* ---------- E1：三段分区（物理只读 / 任务 Recipe / 运行参数） ---------- */
+    .layer-block { margin: 24px 0 10px; }
+    .layer-head { display: flex; align-items: baseline; gap: 10px; padding: 10px 12px;
+      border-left: 3px solid var(--cyan, #39c5bb); background: rgba(57, 197, 187, .06);
+      border-radius: 6px; }
+    .layer-head h2 { margin: 0; font-size: 17px; }
+    .layer-index { font-size: 12px; letter-spacing: .08em; color: var(--cyan, #39c5bb); }
+    .layer-note { margin-left: auto; font-size: 12px; opacity: .72; }
+    [data-layer="physics"] .layer-head { border-left-color: var(--amber, #d88922);
+      background: rgba(216, 137, 34, .06); }
+    [data-layer="physics"] .layer-index { color: var(--amber, #d88922); }
+    [data-layer="runtime"] .layer-head { border-left-color: var(--green, #69e0a9);
+      background: rgba(105, 224, 169, .06); }
+    [data-layer="runtime"] .layer-index { color: var(--green, #69e0a9); }
+
     /* 只读 KV 表（契约信息） */
     .ro-block {
       border: 1px solid var(--line-soft);
@@ -908,6 +923,34 @@
         <!-- ========== 中间：章节文档 ========== -->
         <div class="config-main">
           <form id="trainingForm" novalidate>
+            <!-- ============ 第一段：物理（只读） ============
+                 物理真值属于机器人契约与训练栈，**不在本页编辑**；这里只把它摊开给人看，
+                 并如实列出"哪些字段是只读的、为什么"（数据来自 /api/training/config-preview
+                 的 simulator / embodiment / editable_vs_readonly 三类）。 -->
+            <section class="layer-block" id="layer-physics" data-layer="physics">
+              <div class="layer-head">
+                <span class="layer-index">第一段</span>
+                <h2>物理（只读）</h2>
+                <span class="layer-note">真值来自机器人契约 / 训练栈 · 本页不编辑</span>
+              </div>
+              <p class="section-hint">关节与默认姿、动作维度、物理频率与仿真步长。要改物理请改机器人包（契约 + MJCF），改在这里会被校验器报为漂移。</p>
+              <div id="physicsReadonly" class="spec-groups">
+                <div class="ro-note">选择训练档案后，此处列出物理层只读事实与只读理由。</div>
+              </div>
+            </section>
+
+            <!-- ============ 第二段：任务（Recipe） ============
+                 "机器人学什么"：环境/接口/目标/鲁棒性四章都属这一层，来源是 registry/skills
+                 的 SkillRecipe（基座 + 覆盖）。 -->
+            <div class="layer-block" id="layer-task" data-layer="task">
+              <div class="layer-head">
+                <span class="layer-index">第二段</span>
+                <h2>任务（Recipe）</h2>
+                <span class="layer-note">来源：registry/skills · 基座 + 机器人覆盖</span>
+              </div>
+              <p class="section-hint">机器人学什么：环境与地形、观测/动作/命令、奖励与终止、鲁棒性与课程。这一层的每一项都来自技能配方，改的是"任务"而不是"运行次数"。</p>
+            </div>
+
             <!-- 01 环境与仿真 -->
             <section class="cat-panel form-panel" id="ch-sim" data-chapter="sim">
               <div class="panel-title">
@@ -918,27 +961,6 @@
                 <span class="kb-src">骨架来源：ManagerBasedRlEnvCfg（Ch03/Ch04）</span></p>
               <div class="runtime-hint mode-hint" id="profileModeHint">
                 档案模式：下方表单为顶层运行参数；所选档案的配方全量参数已按模块分组列出，直接修改即以点路径覆盖写入训练配置。
-              </div>
-              <div class="field-grid three">
-                <div class="field-label">
-                  <label for="numEnvs">并行环境数量</label>
-                  <input type="number" id="numEnvs" value="4096" min="64" max="8192" step="64"
-                         title="并行仿真环境数。越大采样越快但显存占用越高；GPU 训练推荐 4096，CPU 调试建议 64-256">
-                  <small class="field-hint" id="numEnvsHint">64 - 8192 · 推荐 4096 · 调试 256</small>
-                </div>
-                <div class="field-label">
-                  <label for="seed">随机种子</label>
-                  <input type="number" id="seed" value="0" min="0" max="2147483647" step="1"
-                         title="控制环境初始化与网络权重的随机性。相同种子 + 相同配置可复现实验">
-                  <small class="field-hint">相同种子 + 相同配置可复现</small>
-                </div>
-                <div class="field-label">
-                  <label for="deviceMirror">运行设备（顶部同步）</label>
-                  <select id="deviceMirror" disabled title="在页面顶部工具条切换运行设备">
-                    <option value="auto">auto</option>
-                  </select>
-                  <small class="field-hint">与顶部工具条联动</small>
-                </div>
               </div>
               <div class="field-row" style="margin-top: 14px;">
                 <div class="field-label">
@@ -961,7 +983,8 @@
               <div class="spec-groups" data-chapter-groups="sim"><div class="ro-note">选择训练档案后，此处列出仿真 / 场景 / 地形的配方参数。</div></div>
             </section>
 
-            <!-- 02 接口：观测 · 动作 · 命令 -->
+            <!-- 02 接口：观测 · 动作 · 命令（第二段：任务） -->
+
             <section class="cat-panel form-panel" id="ch-iface" data-chapter="iface">
               <div class="panel-title">
                 <div><span class="eyebrow">02 / INTERFACE</span><h2>接口：观测 · 动作 · 命令</h2></div>
@@ -1045,7 +1068,41 @@
               <div class="spec-groups" data-chapter-groups="robust"><div class="ro-note">选择训练档案后，此处列出域随机化事件与课程配方参数。</div></div>
             </section>
 
-            <!-- 05 训练器 -->
+            <!-- ============ 第三段：运行参数 ============
+                 这一层只影响"这次跑多大 / 跑多久 / 在哪跑"，不影响"机器人学什么"。
+                 它们原先被混在 01 环境与仿真里 —— 那正是三段化要消除的混装
+                 （运行参数混进任务层，会让人误以为改环境数就是改任务）。 -->
+            <div class="layer-block" id="layer-runtime" data-layer="runtime">
+              <div class="layer-head">
+                <span class="layer-index">第三段</span>
+                <h2>运行参数</h2>
+                <span class="layer-note">这一次跑多大 · 跑多久 · 在哪跑</span>
+              </div>
+              <p class="section-hint">只影响本次 Run 的资源与时长，不改变任务定义。这些值会进 Run 档案（改动即派生新 Run，见 B9 可复现四件套）。</p>
+              <div class="field-grid three">
+                <div class="field-label">
+                  <label for="numEnvs">并行环境数量</label>
+                  <input type="number" id="numEnvs" value="4096" min="64" max="8192" step="64"
+                         title="并行仿真环境数。越大采样越快但显存占用越高；GPU 训练推荐 4096，CPU 调试建议 64-256">
+                  <small class="field-hint" id="numEnvsHint">64 - 8192 · 推荐 4096 · 调试 256</small>
+                </div>
+                <div class="field-label">
+                  <label for="seed">随机种子</label>
+                  <input type="number" id="seed" value="0" min="0" max="2147483647" step="1"
+                         title="控制环境初始化与网络权重的随机性。相同种子 + 相同配置可复现实验">
+                  <small class="field-hint">相同种子 + 相同配置可复现</small>
+                </div>
+                <div class="field-label">
+                  <label for="deviceMirror">运行设备（顶部同步）</label>
+                  <select id="deviceMirror" disabled title="在页面顶部工具条切换运行设备">
+                    <option value="auto">auto</option>
+                  </select>
+                  <small class="field-hint">与顶部工具条联动</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- 05 训练器（第三段：运行参数） -->
             <section class="cat-panel form-panel" id="ch-train" data-chapter="train">
               <div class="panel-title">
                 <div><span class="eyebrow">05 / TRAINER</span><h2>训练器</h2></div>
@@ -1783,6 +1840,33 @@
       renderTaskChips();
     }
 
+    // ---------- E1：物理层只读面板 ----------
+    // 物理真值属于机器人契约与训练栈，**本页不编辑**；这里只把它摊开，并如实给出只读理由
+    // （理由来自 /api/training/config-preview 的 editable_vs_readonly.readonly_categories）。
+    function renderPhysicsReadonly() {
+      const preview = state.preview;
+      if (!preview) return;
+      const sim = preview.simulator || {};
+      const body = preview.embodiment || {};
+      const locked = ((preview.editable_vs_readonly || {}).readonly_categories) || [];
+      const rows = [
+        ['物理步长 timestep (s)', sim.timestep],
+        ['控制频率 control_hz', sim.control_hz],
+        ['物理频率 physics_hz', sim.physics_hz],
+        ['decimation', sim.decimation],
+        ['动作维度', (body.joint_order || []).length || null],
+        ['关节顺序', (body.joint_order || []).join(' · ') || null],
+      ];
+      const reasons = locked.length
+        ? `<div class="ro-note">只读理由：${locked.map(item =>
+            `${escapeHtml(item.category || item.name || item.id || '')}：${escapeHtml(item.reason || '')}`
+          ).join('；')}</div>`
+        : '';
+      setInner('physicsReadonly',
+        kvRows(rows) + reasons +
+        '<div class="ro-note">要改物理请改机器人包（契约 + MJCF）；直接改这里会被校验器报为漂移（bake --check / validate_mjcf_contract）。</div>');
+    }
+
     // ---------- 配方只读区（config-preview：契约 / 关节顺序） ----------
     async function refreshConfigPreview() {
       if (!state.preset) return;
@@ -1796,6 +1880,7 @@
         return;
       }
       renderReadonlyBlocks();
+      renderPhysicsReadonly();
       scheduleResolve();
     }
 
