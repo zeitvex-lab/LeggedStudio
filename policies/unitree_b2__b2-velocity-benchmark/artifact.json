@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_b2__b2-velocity-benchmark",
+  "contract_digest": "dfc6f91b588b798975d440212e36e0bc845b5f07532b30c614578fd11e2e4e94",
+  "declared_source": "rl_sar（Apache-2.0，社区训练基准）",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Unitree B2 Velocity Benchmark (rl_sar)",
+  "obs_dim": 45,
+  "onnx_bytes": 758426,
+  "onnx_sha256": "d75fdd0df7ebdb2588d0c20b4587ea9bc53e7716e62de788761a5cdf45753dcb",
+  "policy_id": "b2-velocity-benchmark",
+  "robot": "unitree_b2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_b2/simulation/policies/robotlab_velocity_57.onnx",
+  "task_type": null
+}

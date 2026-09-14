@@ -1,0 +1,19 @@
+{
+  "action_dim": 8,
+  "algorithm": null,
+  "artifact_id": "limx_tron1_wf__wf-velocity",
+  "contract_digest": "fca905b11185226e40a29e81bdfc752a0dd20f6122c0a6539af3dc384d82f684",
+  "declared_source": null,
+  "history_len": 10,
+  "kind": "policies",
+  "label": "TRON1 WF velocity (TRON1B)",
+  "obs_dim": 28,
+  "onnx_bytes": 760668,
+  "onnx_sha256": "07a668304a9ca1c88c04a8a69caff41977eff840e396c259ba4bb8ec28c5c7c9",
+  "policy_id": "wf-velocity",
+  "robot": "limx_tron1_wf",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/limx_tron1_wf/simulation/policies/tron1_wf_tron1b_policy.onnx",
+  "task_type": null
+}

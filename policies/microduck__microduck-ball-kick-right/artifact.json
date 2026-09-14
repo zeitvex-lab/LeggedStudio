@@ -1,0 +1,19 @@
+{
+  "action_dim": 14,
+  "algorithm": null,
+  "artifact_id": "microduck__microduck-ball-kick-right",
+  "contract_digest": "f5a88e01eb03a9702ac9c3f753b9ce9254999e48145088ef62bd7cd12efed783",
+  "declared_source": null,
+  "history_len": null,
+  "kind": "policies",
+  "label": "Ball Kick Right",
+  "obs_dim": 61,
+  "onnx_bytes": 793685,
+  "onnx_sha256": "147a32c388c6b19111b3ac3b550a9a6dc8b8bf267118af4d8c3712522eedb5af",
+  "policy_id": "microduck-ball-kick-right",
+  "robot": "microduck",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/microduck/simulation/policies/ball_kick_right.onnx",
+  "task_type": null
+}

@@ -1,0 +1,19 @@
+{
+  "action_dim": null,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-baseline-164k",
+  "contract_digest": null,
+  "declared_source": null,
+  "history_len": 5,
+  "kind": "demo_policies",
+  "label": "Go2 baseline 164k",
+  "obs_dim": 45,
+  "onnx_bytes": 5186135,
+  "onnx_sha256": "9530b2e14bf4b5efe2ea7c1e472f507648c46ddcee4a67fbfa7b492ec03903b3",
+  "policy_id": "go2-baseline-164k",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "web/sim2sim/models/go2_moe_cts_high_slope_164k.onnx",
+  "task_type": null
+}

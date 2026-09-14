@@ -1,0 +1,19 @@
+{
+  "action_dim": 14,
+  "algorithm": null,
+  "artifact_id": "microduck__microduck-ball-kick-left",
+  "contract_digest": "f5a88e01eb03a9702ac9c3f753b9ce9254999e48145088ef62bd7cd12efed783",
+  "declared_source": null,
+  "history_len": null,
+  "kind": "policies",
+  "label": "Ball Kick Left",
+  "obs_dim": 61,
+  "onnx_bytes": 793685,
+  "onnx_sha256": "d6928284dccd3dd61e08bf2f760effa74309fbefd97b2b31afb2a60f526d196a",
+  "policy_id": "microduck-ball-kick-left",
+  "robot": "microduck",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/microduck/simulation/policies/ball_kick_left.onnx",
+  "task_type": null
+}

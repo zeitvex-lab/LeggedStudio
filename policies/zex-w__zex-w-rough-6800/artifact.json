@@ -1,0 +1,19 @@
+{
+  "action_dim": 16,
+  "algorithm": null,
+  "artifact_id": "zex-w__zex-w-rough-6800",
+  "contract_digest": "e28fb57fe4e87aa2e6eb03e0604b715227fdb45fda7ddf6144bd905a5cbcf503",
+  "declared_source": null,
+  "history_len": 1,
+  "kind": "policies",
+  "label": "rough 6800 (v3 比赛)",
+  "obs_dim": 53,
+  "onnx_bytes": 777597,
+  "onnx_sha256": "3c994bdd3434ad15770a52ac0e8d229f502f00d6511cdd42c2e2c742301aef13",
+  "policy_id": "zex-w-rough-6800",
+  "robot": "zex-w",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/zex-w/simulation/policies/model_6800.onnx",
+  "task_type": null
+}

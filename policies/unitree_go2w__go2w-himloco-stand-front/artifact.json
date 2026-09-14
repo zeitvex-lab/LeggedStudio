@@ -1,0 +1,19 @@
+{
+  "action_dim": 16,
+  "algorithm": null,
+  "artifact_id": "unitree_go2w__go2w-himloco-stand-front",
+  "contract_digest": "dd4b423286437990f84696cbb25bbbd03edddb779e13c8de9fe2bdc27e38ded0",
+  "declared_source": "LeggedSkillDeploy policy/issacgym/go2w/go2w_himloco（第三方，无 LICENSE；仅内部研究）——对应 HIMLoco 训练工程",
+  "history_len": 6,
+  "kind": "policies",
+  "label": "Go2W HIMLoco 前腿站立行走",
+  "obs_dim": 57,
+  "onnx_bytes": 1078609,
+  "onnx_sha256": "3741d7099003c97eb56e69641a8d1aabb1bacf1adbe581b20d510ecc80cc60fe",
+  "policy_id": "go2w-himloco-stand-front",
+  "robot": "unitree_go2w",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2w/simulation/policies/go2w_himloco_stand_front.onnx",
+  "task_type": null
+}

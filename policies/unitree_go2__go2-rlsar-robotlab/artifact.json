@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-rlsar-robotlab",
+  "contract_digest": "e5ab652dd264efb2006583d8e5ca6a2ffbb9695528a69dc2370d9a1896b0ae03",
+  "declared_source": "rl_sar policy/go2/robot_lab（Apache-2.0）——对应 robot_lab Go2 velocity 训练工程",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Go2 速度跟踪 (rl_sar / robot_lab, 45D)",
+  "obs_dim": 45,
+  "onnx_bytes": 758426,
+  "onnx_sha256": "c2582ac75dc92707ac03a4e5d1441667fa9e2b8095fc3b9397ba706e7423b56b",
+  "policy_id": "go2-rlsar-robotlab",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_rlsar_robotlab.onnx",
+  "task_type": null
+}

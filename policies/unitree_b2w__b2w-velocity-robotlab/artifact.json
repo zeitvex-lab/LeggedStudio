@@ -1,0 +1,19 @@
+{
+  "action_dim": 16,
+  "algorithm": null,
+  "artifact_id": "unitree_b2w__b2w-velocity-robotlab",
+  "contract_digest": "05b2a13b8c6f3511f59dd8ed61885f6a96224acfc2ff3bb05decfc4032bee91f",
+  "declared_source": "rl_sar policy/b2w/robot_lab（Apache-2.0，社区 IsaacLab 系训练基准）",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Velocity 57D (rl_sar robot_lab)",
+  "obs_dim": 57,
+  "onnx_bytes": 785066,
+  "onnx_sha256": "31a01afc41e3b1628b478d2eecdc0d02857cd5551c380fd95633d3781c1c3806",
+  "policy_id": "b2w-velocity-robotlab",
+  "robot": "unitree_b2w",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_b2w/simulation/policies/robotlab_velocity_57.onnx",
+  "task_type": null
+}

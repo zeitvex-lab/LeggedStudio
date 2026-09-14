@@ -1,0 +1,19 @@
+{
+  "action_dim": 8,
+  "algorithm": null,
+  "artifact_id": "limx_tron1_sf__sf-velocity",
+  "contract_digest": "0893ea00a67dee4a7b6904801a294c58709528a1934541d27d951c29b930977b",
+  "declared_source": null,
+  "history_len": 10,
+  "kind": "policies",
+  "label": "TRON1 SF velocity (TRON1B)",
+  "obs_dim": 36,
+  "onnx_bytes": 777052,
+  "onnx_sha256": "08951691da3dc5bb02bfc1b137da71c45f06e018d19985bb258fb347e2221c9f",
+  "policy_id": "sf-velocity",
+  "robot": "limx_tron1_sf",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/limx_tron1_sf/simulation/policies/tron1_sf_tron1b_policy.onnx",
+  "task_type": null
+}

@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-backflip-69",
+  "contract_digest": "52dd5ca3a470d01526994503f58680d54b557ebe4421a271084ddb73c5e1eb39",
+  "declared_source": "LeggedSkillDeploy go2_back_filp（第三方，无 LICENSE；仅内部研究）",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Backflip 69D (imitation, motion-csv)",
+  "obs_dim": 69,
+  "onnx_bytes": 807578,
+  "onnx_sha256": "6e62985151724077a023d8a23ea8708e08cff8bb62d6e1240f0e8ad5b905b75b",
+  "policy_id": "go2-backflip-69",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/backflip_69.onnx",
+  "task_type": null
+}

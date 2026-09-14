@@ -1,0 +1,396 @@
+"""B10 产物出库（**引用式**）：``policies/<artifact-id>/{deploy.yaml, artifact.json}`` + ``policies/index.json``。
+
+**真值来源**：各机器人包 ``simulation/config.json`` 的 ``policies`` + ``demo_policies`` 声明段
+（消费者：`backend/simulation_api.py` / `health_api.py` / `perception_binding.py` / `pretrained_api.py`；
+全局索引另见 ``pretrained_models/index.json``）。
+
+**为什么是"引用 + hash"而不是把 onnx 复制一份**（对 B10 原文的一处有意收窄）：
+
+B10 原文写 ``policies/<artifact-id>/{policy.onnx, deploy.yaml}``。但 47 份 onnx 约 50 MB，
+再复制一份就与 **B5（mesh 单副本）** 和瘦身目标正面冲突 —— 同一份二进制两处存在，必然漂移。
+因此出库的语义按 B10 自己的后半句"**契约只留引用 + hash**"落实：
+
+* ``artifact.json`` —— 源 onnx 的**仓库相对路径 + sha256 + 字节数**，外加契约块哈希与血缘；
+* ``deploy.yaml`` —— 从 ``contract`` 段展开的**部署参数**（关节序、action_scale、默认角、scales…）；
+* onnx 本体**仍单副本留在包内**，由 sha256 锁定 —— 谁改了就立刻对不上。
+
+**产品自产**的策略（B9 的 Run 产出）出库时才真写 ``policy.onnx``（那时它是唯一副本，不违反单副本）。
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import shutil
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Iterable, Mapping
+
+from backend.training.runs import canonical_digest, file_digest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+#: 机器人包根（每个包内含 ``simulation/config.json``）。
+ROBOTS_DIR = ROOT / "assets" / "robots"
+
+#: 出库根（与 B10 约定一致）。
+OUT_DIR = ROOT / "policies"
+
+INDEX_NAME = "index.json"
+ARTIFACT_NAME = "artifact.json"
+DEPLOY_NAME = "deploy.yaml"
+POLICY_BLOB_NAME = "policy.onnx"
+
+ARTIFACT_SCHEMA = "policy-artifact-1.0"
+
+#: 浏览器包 URL 前缀（``/api/simulation/browser-package/<robot>/``）——声明里可能是 URL 形式。
+_URL_PREFIX = re.compile(r"^/api/simulation/browser-package/[^/]+/")
+
+#: ``deploy.yaml`` 从 ``contract`` 段展开的字段（顺序即书写顺序）。
+_DEPLOY_FIELDS = (
+    "observation_kind", "obs_dim", "action_dim", "history_len",
+    "command_dims", "default_command", "action_joint_order",
+    "default_joint_angles", "action_scale", "scales",
+)
+
+
+# --------------------------------------------------------------------------------------
+# 声明扫描
+# --------------------------------------------------------------------------------------
+def _repo_relative(path: Path) -> str:
+    """仓库相对路径（posix）。不在仓库内时退回绝对路径 —— 不抛异常（外部/临时目录也会走到这里）。"""
+    try:
+        return path.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _load_json(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def resolve_declared_onnx(robot_dir: Path, *declared: str) -> Path | None:
+    """把声明的 ``path`` / ``url`` 解析成真实文件；**三种既有形式都支持**：
+
+    1. 包内相对路径 —— ``simulation/policies/x.onnx``（主流形式）；
+    2. 浏览器包 URL —— ``/api/simulation/browser-package/<robot>/simulation/policies/x.onnx``；
+    3. web 静态目录 —— ``/web/sim2sim/models/x.onnx``（实存于 ``web/sim2sim/models/``）。
+
+    逐个候选实测存在性；都解析不出来返回 ``None`` —— 调用方据此报"缺件"，
+    而不是瞎猜一个路径（V1 可追溯）。
+    """
+    for raw in declared:
+        text = str(raw or "").strip()
+        if not text.lower().endswith(".onnx"):
+            continue
+        relative = _URL_PREFIX.sub("", text).lstrip("/")
+        for candidate in (robot_dir / relative, ROOT / relative):
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def scan_declarations(robots_dir: Path | str = ROBOTS_DIR) -> list[dict[str, Any]]:
+    """扫描全部机器人包的策略声明，返回**声明清单**（不做任何落盘）。
+
+    每个包的两段都收：``policies``（常规）与 ``demo_policies``（首页 demo 卡素材）。
+    """
+    root = Path(robots_dir)
+    declarations: list[dict[str, Any]] = []
+    for config_path in sorted(root.glob("*/simulation/config.json")):
+        config = _load_json(config_path)
+        if not isinstance(config, Mapping):
+            continue
+        robot_dir = config_path.parents[1]
+        robot = robot_dir.name
+        for section in ("policies", "demo_policies"):
+            entries = config.get(section)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, Mapping):
+                    continue
+                policy_id = str(entry.get("id") or "").strip()
+                if not policy_id:
+                    continue
+                declared = str(entry.get("path") or entry.get("url") or "")
+                declarations.append({
+                    "robot": robot,
+                    "policy_id": policy_id,
+                    "kind": section,
+                    "label": entry.get("label") or entry.get("name") or policy_id,
+                    "declared": declared,
+                    "onnx": resolve_declared_onnx(
+                        robot_dir, entry.get("path") or "", entry.get("url") or "",
+                    ),
+                    "obs_dim": entry.get("obs_dim"),
+                    "action_dim": entry.get("action_dim"),
+                    "history_len": entry.get("history_len"),
+                    "task_type": entry.get("task_type"),
+                    "algorithm": entry.get("algorithm"),
+                    "declared_source": entry.get("source"),
+                    "contract": entry.get("contract") if isinstance(entry.get("contract"), Mapping) else None,
+                })
+    return declarations
+
+
+def artifact_id_for(robot: str, policy_id: str) -> str:
+    """``<robot>__<policy-id>``（只保留安全字符）——目录名即产物 ID，可读且唯一。"""
+    raw = f"{robot}__{policy_id}"
+    return re.sub(r"[^0-9A-Za-z._-]+", "-", raw).strip("-")
+
+
+# --------------------------------------------------------------------------------------
+# 产物内容
+# --------------------------------------------------------------------------------------
+def contract_digest(declaration: Mapping[str, Any]) -> str | None:
+    """契约块哈希：观测/动作约定一变，同一个 onnx 也不再是同一个"产物"。
+
+    复用 ``backend.training.runs.canonical_digest`` —— 与 Run 档案同一套规范化摘要，
+    因此两条链上的 hash 可直接互相引用。
+    """
+    contract = declaration.get("contract")
+    return canonical_digest(contract) if contract else None
+
+
+def deploy_payload(declaration: Mapping[str, Any]) -> dict[str, Any]:
+    """``deploy.yaml`` 的内容：从 ``contract`` 段展开的部署参数（缺项不编造，直接省略）。"""
+    contract = declaration.get("contract") or {}
+    payload = {key: contract[key] for key in _DEPLOY_FIELDS if key in contract}
+    payload["robot"] = declaration.get("robot")
+    payload["policy_id"] = declaration.get("policy_id")
+    return payload
+
+
+def _yaml_scalar(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return repr(value)
+    text = str(value)
+    return f'"{text}"' if text == "" or re.search(r"[:#\[\]{},&*!|>'\"%@`]|^\s|\s$", text) else text
+
+
+def dump_yaml(payload: Mapping[str, Any], *, indent: int = 0) -> str:
+    """极简 YAML 写出（dict / list / 标量）。
+
+    不引第三方依赖是有意的：控制面要能在"双击即用"的最小环境里跑（V5 分层）。
+    只用于我们**自己生成**的结构，形态可控、可测。
+    """
+    pad = "  " * indent
+    lines: list[str] = []
+    for key, value in payload.items():
+        if isinstance(value, Mapping):
+            lines.append(f"{pad}{key}:")
+            lines.append(dump_yaml(value, indent=indent + 1).rstrip("\n"))
+        elif isinstance(value, (list, tuple)):
+            if not value:
+                lines.append(f"{pad}{key}: []")
+                continue
+            lines.append(f"{pad}{key}:")
+            for item in value:
+                if isinstance(item, Mapping):
+                    lines.append(f"{pad}  -")
+                    lines.append(dump_yaml(item, indent=indent + 2).rstrip("\n"))
+                else:
+                    lines.append(f"{pad}  - {_yaml_scalar(item)}")
+        else:
+            lines.append(f"{pad}{key}: {_yaml_scalar(value)}")
+    return "\n".join(lines) + "\n"
+
+
+def build_artifact(declaration: Mapping[str, Any]) -> dict[str, Any]:
+    """单条产物的 ``artifact.json`` 内容（含源路径与 sha256；onnx 不存在时如实记空）。"""
+    onnx: Path | None = declaration.get("onnx")
+    return {
+        "schema": ARTIFACT_SCHEMA,
+        "artifact_id": artifact_id_for(str(declaration.get("robot")), str(declaration.get("policy_id"))),
+        "robot": declaration.get("robot"),
+        "policy_id": declaration.get("policy_id"),
+        "kind": declaration.get("kind"),
+        "label": declaration.get("label"),
+        "source_onnx": _repo_relative(onnx) if onnx else None,
+        "onnx_sha256": file_digest(onnx) if onnx else None,
+        "onnx_bytes": onnx.stat().st_size if onnx else None,
+        "obs_dim": declaration.get("obs_dim"),
+        "action_dim": declaration.get("action_dim"),
+        "history_len": declaration.get("history_len"),
+        "task_type": declaration.get("task_type"),
+        "algorithm": declaration.get("algorithm"),
+        "declared_source": declaration.get("declared_source"),
+        "contract_digest": contract_digest(declaration),
+        #: 血缘：产品自产策略出库时由 B9 的 Run 填入（上游导入的 46 条为 None，如实留空）。
+        "run_id": None,
+    }
+
+
+def build_all(
+    *,
+    robots_dir: Path | str = ROBOTS_DIR,
+    out_dir: Path | str = OUT_DIR,
+    write: bool = False,
+) -> dict[str, Any]:
+    """出库全量：``policies/<artifact-id>/{deploy.yaml, artifact.json}`` + ``policies/index.json``。
+
+    ``write=False`` 时只**算出**内容（干跑），不落盘 —— 门禁与页面都能安全调用。
+    """
+    out = Path(out_dir)
+    declarations = scan_declarations(robots_dir)
+    artifacts: list[dict[str, Any]] = []
+    problems: list[str] = []
+    seen: set[str] = set()
+
+    for declaration in declarations:
+        artifact = build_artifact(declaration)
+        artifact_id = str(artifact["artifact_id"])
+        if artifact_id in seen:
+            problems.append(f"产物 ID 重复：{artifact_id}（声明 id 在包内必须唯一）")
+            continue
+        seen.add(artifact_id)
+        if artifact["onnx_sha256"] is None:
+            problems.append(f"{artifact_id}：声明的 onnx 解析不到（{declaration.get('declared')!r}）")
+        artifacts.append(artifact)
+
+        if write:
+            target = out / artifact_id
+            target.mkdir(parents=True, exist_ok=True)
+            (target / ARTIFACT_NAME).write_text(
+                json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            (target / DEPLOY_NAME).write_text(
+                dump_yaml(deploy_payload(declaration)), encoding="utf-8",
+            )
+
+    index = {
+        "schema": ARTIFACT_SCHEMA,
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "count": len(artifacts),
+        "blobs": "引用式：onnx 仍单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制",
+        "artifacts": artifacts,
+        "problems": problems,
+    }
+    if write:
+        out.mkdir(parents=True, exist_ok=True)
+        (out / INDEX_NAME).write_text(
+            json.dumps(index, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    return index
+
+
+# --------------------------------------------------------------------------------------
+# 对账
+# --------------------------------------------------------------------------------------
+def verify_artifacts(
+    *,
+    robots_dir: Path | str = ROBOTS_DIR,
+    out_dir: Path | str = OUT_DIR,
+) -> dict[str, Any]:
+    """**对账**：出库索引是否覆盖全部声明、每个 hash 是否仍与包内源文件一致。
+
+    "出库"最怕的是**悄悄漂移** —— 有人换了包里的 onnx，产物目录却还指着旧 hash。
+    本函数把这件事实测出来（返回问题清单，不抛异常：对账工具不该在坏档案上崩）。
+    """
+    out = Path(out_dir)
+    problems: list[str] = []
+    index = _load_json(out / INDEX_NAME)
+    if not isinstance(index, Mapping):
+        return {"ok": False, "checked": 0, "problems": [f"缺 {INDEX_NAME}（先跑 build_all(write=True)）"]}
+
+    recorded = {str(item.get("artifact_id")): item for item in index.get("artifacts") or []}
+    declarations = scan_declarations(robots_dir)
+    checked = 0
+
+    for declaration in declarations:
+        artifact_id = artifact_id_for(str(declaration.get("robot")), str(declaration.get("policy_id")))
+        entry = recorded.get(artifact_id)
+        if entry is None:
+            problems.append(f"{artifact_id}：声明存在但索引未覆盖")
+            continue
+        checked += 1
+        onnx = declaration.get("onnx")
+        actual = file_digest(onnx) if onnx else None
+        if actual is None:
+            problems.append(f"{artifact_id}：包内 onnx 已不存在（{declaration.get('declared')!r}）")
+        elif actual != entry.get("onnx_sha256"):
+            problems.append(
+                f"{artifact_id}：onnx 已变（索引 {str(entry.get('onnx_sha256'))[:12]}… vs 实测 {actual[:12]}…）"
+                "—— 需要重新出库"
+            )
+        if entry.get("contract_digest") != contract_digest(declaration):
+            problems.append(f"{artifact_id}：契约块已变（观测/动作约定变了，需重新出库）")
+        if not (out / artifact_id / ARTIFACT_NAME).is_file():
+            problems.append(f"{artifact_id}：缺 {ARTIFACT_NAME}")
+        if not (out / artifact_id / DEPLOY_NAME).is_file():
+            problems.append(f"{artifact_id}：缺 {DEPLOY_NAME}")
+
+    for artifact_id in recorded.keys() - {
+        artifact_id_for(str(d.get("robot")), str(d.get("policy_id"))) for d in declarations
+    }:
+        problems.append(f"{artifact_id}：索引里有、声明里没有（悬空产物）")
+
+    return {
+        "ok": not problems,
+        "checked": checked,
+        "declared": len(declarations),
+        "indexed": len(recorded),
+        "problems": problems,
+    }
+
+
+def promote_produced_policy(
+    *,
+    artifact_id: str,
+    onnx: Path | str,
+    deploy: Mapping[str, Any],
+    run_id: str | None = None,
+    out_dir: Path | str = OUT_DIR,
+) -> dict[str, Any]:
+    """**产品自产**策略出库：真写 ``policy.onnx``（它此时是唯一副本，不违反单副本）。
+
+    上游导入的 46 条走 :func:`build_all` 的引用式路径；本函数供 B9 的训练产物出库使用。
+    """
+    target = Path(out_dir) / artifact_id
+    target.mkdir(parents=True, exist_ok=True)
+    blob = target / POLICY_BLOB_NAME
+    shutil.copyfile(onnx, blob)
+    artifact = {
+        "schema": ARTIFACT_SCHEMA,
+        "artifact_id": artifact_id,
+        "kind": "produced",
+        "source_onnx": str(blob.relative_to(ROOT).as_posix()) if blob.is_relative_to(ROOT) else str(blob),
+        "onnx_sha256": file_digest(blob),
+        "onnx_bytes": blob.stat().st_size,
+        "run_id": run_id,
+    }
+    (target / ARTIFACT_NAME).write_text(
+        json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8",
+    )
+    (target / DEPLOY_NAME).write_text(dump_yaml(dict(deploy)), encoding="utf-8")
+    return artifact
+
+
+def iter_onnx_files(robots_dir: Path | str = ROBOTS_DIR) -> Iterable[Path]:
+    """包内全部 onnx 实体（供出库覆盖率核对：包里有几个、声明了几个）。"""
+    return sorted(Path(robots_dir).glob("*/simulation/policies/*.onnx"))
+
+
+def unexported_onnx(*, robots_dir: Path | str = ROBOTS_DIR) -> list[str]:
+    """**包内有 onnx、但没有任何声明指向它** —— 这类文件是"影子产物"，必须报出来。"""
+    declarations = scan_declarations(robots_dir)
+    declared = {
+        declaration["onnx"].resolve()
+        for declaration in declarations
+        if declaration.get("onnx") is not None
+    }
+    return [
+        _repo_relative(path)
+        for path in iter_onnx_files(robots_dir)
+        if path.resolve() not in declared
+    ]

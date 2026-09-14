@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-moe-cts",
+  "contract_digest": "5e0c6076f9ffd2056666a169ad2df09f6c0c127ac7703d313264c03cbe227b77",
+  "declared_source": null,
+  "history_len": 10,
+  "kind": "policies",
+  "label": "Go2 MoE-CTS (robot_lab)",
+  "obs_dim": 45,
+  "onnx_bytes": 6374215,
+  "onnx_sha256": "93ed62bcca5ddd969da1f35960619005f3d3ae692ff41cde79f20697e9b06641",
+  "policy_id": "go2-moe-cts",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_moe_cts.onnx",
+  "task_type": null
+}

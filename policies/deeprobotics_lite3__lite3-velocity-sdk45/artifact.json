@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "deeprobotics_lite3__lite3-velocity-sdk45",
+  "contract_digest": "bcd326adc0525a8ac0b57e9a52603cc378cacce55fb31eb40359824c9174432f",
+  "declared_source": "rl_sar himloco 权重 + DeepRoboticsLab sdk_deploy 官方部署参数（BSD-3）",
+  "history_len": 6,
+  "kind": "policies",
+  "label": "Velocity 45D x6 hist (official SDK params)",
+  "obs_dim": 45,
+  "onnx_bytes": 978175,
+  "onnx_sha256": "965b6e540a24aa22f376994c176180adfa4fa7debbef227d60f58d4c8ae78071",
+  "policy_id": "lite3-velocity-sdk45",
+  "robot": "deeprobotics_lite3",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/deeprobotics_lite3/simulation/policies/himloco_velocity_hist6.onnx",
+  "task_type": null
+}

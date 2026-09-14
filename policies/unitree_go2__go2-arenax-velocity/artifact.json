@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-arenax-velocity",
+  "contract_digest": "c6ac1a44aad00ce9d9415808421211d207923e17734544477891043eb6de66c4",
+  "declared_source": null,
+  "history_len": 6,
+  "kind": "policies",
+  "label": "Go2 ArenaX velocity",
+  "obs_dim": 45,
+  "onnx_bytes": 961045,
+  "onnx_sha256": "59dc10651fb205fb86456f73eceb9ea4821745322b7b2adda5a7b5c8b470b93e",
+  "policy_id": "go2-arenax-velocity",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_arenax_45x6.onnx",
+  "task_type": null
+}

@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-kaiwu-cts-max2",
+  "contract_digest": "a1b90a02a0c11a7d2c16454d1c461313e771ae0fbdad51e071b1c1e2a515fd74",
+  "declared_source": "kaiwu_rl RoboGauge 发布策略（训练源 go2_rl_gym legged_gym go2）",
+  "history_len": 5,
+  "kind": "policies",
+  "label": "Go2 CTS-max2 (kaiwu_rl)",
+  "obs_dim": 45,
+  "onnx_bytes": 1852436,
+  "onnx_sha256": "4165d41fbeb9d6aee466971d7d21645710f6dd58d3485e62525db16c73fecbc3",
+  "policy_id": "go2-kaiwu-cts-max2",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_kaiwu_cts_max2.onnx",
+  "task_type": null
+}

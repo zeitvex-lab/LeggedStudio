@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "deeprobotics_lite3__lite3-velocity-benchmark",
+  "contract_digest": "e8e6ba91ab63665b90037bd8c35e4fdf4fbfdc8bc99c780148fbbf8c4897dc63",
+  "declared_source": "rl_sar（Apache-2.0，社区训练基准）",
+  "history_len": 6,
+  "kind": "policies",
+  "label": "Deeprobotics Lite3 Velocity Benchmark (rl_sar)",
+  "obs_dim": 45,
+  "onnx_bytes": 978175,
+  "onnx_sha256": "965b6e540a24aa22f376994c176180adfa4fa7debbef227d60f58d4c8ae78071",
+  "policy_id": "lite3-velocity-benchmark",
+  "robot": "deeprobotics_lite3",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/deeprobotics_lite3/simulation/policies/himloco_velocity_hist6.onnx",
+  "task_type": null
+}

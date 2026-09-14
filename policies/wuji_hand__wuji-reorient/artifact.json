@@ -1,0 +1,19 @@
+{
+  "action_dim": 20,
+  "algorithm": null,
+  "artifact_id": "wuji_hand__wuji-reorient",
+  "contract_digest": "934d32e8995013bf27102bf61bf7de7d585de988ab83985ae3de7fce101e2725",
+  "declared_source": "wuji-mjlab v0.1.0 WujiHand_Reorient（Apache-2.0）；Apache-2.0 官方发布策略",
+  "history_len": 3,
+  "kind": "policies",
+  "label": "Wuji Hand 立方体重定向 (reorient)",
+  "obs_dim": 69,
+  "onnx_bytes": 1109793,
+  "onnx_sha256": "e515360e4ee0f9ba093c497d61de78d896d19fe986280f2fe6585702687c55ce",
+  "policy_id": "wuji-reorient",
+  "robot": "wuji_hand",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/wuji_hand/deploy/reorient-v2026.5.29/policy.onnx",
+  "task_type": null
+}

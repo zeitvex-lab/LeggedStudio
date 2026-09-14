@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-pie-parkour",
+  "contract_digest": "7470b8a37133751004a7d44b174fb3450a28dbc3dde594a2d260a83b52687ab8",
+  "declared_source": "parkour_mjlab logs/rsl_rl/go2_pie/policy.onnx（Unitree-Go2-PIE，Apache-2.0）",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Go2 PIE 深度跑酷 (parkour_mjlab)",
+  "obs_dim": 45,
+  "onnx_bytes": 2628706,
+  "onnx_sha256": "6460e407120049afe3b74c6d6800b385620a75703cc1adf73803a015a7b1278f",
+  "policy_id": "go2-pie-parkour",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_pie_policy.onnx",
+  "task_type": null
+}

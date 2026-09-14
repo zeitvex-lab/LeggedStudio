@@ -1,0 +1,187 @@
+"""B10 出库测试：声明扫描 / 引用式产物 / hash 对账 / 影子产物检出。
+
+用合成包（临时目录）覆盖逻辑，另加一条**真实仓库**一致性断言 —— 让测试能真正反映本仓现状，
+而不只是"自说自话的小世界"。
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from backend import policy_artifacts as pa  # noqa: E402
+
+
+def make_package(root: Path, robot: str, *, onnx_bytes: bytes = b"onnx-bytes",
+                 policy_id: str = "walk-100", extra_declared: str | None = None) -> Path:
+    """造一个最小机器人包：``<robot>/simulation/{config.json, policies/*.onnx}``。"""
+    pkg = root / robot
+    policies = pkg / "simulation" / "policies"
+    policies.mkdir(parents=True)
+    (policies / "walk.onnx").write_bytes(onnx_bytes)
+    declarations = [{
+        "id": policy_id, "path": "simulation/policies/walk.onnx", "label": "Walk",
+        "obs_dim": 48, "action_dim": 12, "history_len": 1, "task_type": "velocity",
+        "source": "builtin-package",
+        "contract": {"observation_kind": "go2_velocity", "action_scale": 0.25,
+                     "action_joint_order": ["FL_hip_joint", "FR_hip_joint"]},
+    }]
+    if extra_declared:
+        declarations.append({"id": extra_declared, "path": f"simulation/policies/{extra_declared}.onnx"})
+    (pkg / "simulation" / "config.json").write_text(
+        json.dumps({"policies": declarations}, ensure_ascii=False), encoding="utf-8",
+    )
+    return pkg
+
+
+class ScanTest(unittest.TestCase):
+    def test_scan_collects_both_sections_and_resolves_onnx(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_package(root, "go2")
+            (root / "go2" / "simulation" / "config.json").write_text(
+                json.dumps({
+                    "policies": [{"id": "walk-100", "path": "simulation/policies/walk.onnx"}],
+                    "demo_policies": [{"id": "demo-1", "url": "/api/simulation/browser-package/go2/simulation/policies/walk.onnx"}],
+                }), encoding="utf-8",
+            )
+            declarations = pa.scan_declarations(root)
+            self.assertEqual([d["kind"] for d in declarations], ["policies", "demo_policies"])
+            self.assertTrue(all(d["onnx"] is not None for d in declarations))
+            # URL 形式与相对路径形式解析到同一个文件
+            self.assertEqual(declarations[0]["onnx"], declarations[1]["onnx"])
+
+    def test_unresolvable_declaration_is_reported_not_guessed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_package(root, "go2", extra_declared="missing-blob")
+            index = pa.build_all(robots_dir=root, out_dir=root / "policies")
+            self.assertEqual(index["count"], 2)
+            self.assertTrue(any("missing-blob" in problem for problem in index["problems"]))
+
+    def test_artifact_id_is_stable_and_sanitized(self):
+        self.assertEqual(pa.artifact_id_for("go2", "walk-100"), "go2__walk-100")
+        self.assertEqual(pa.artifact_id_for("zex w", "a/b"), "zex-w__a-b")
+
+
+class BuildTest(unittest.TestCase):
+    def test_build_writes_deploy_and_artifact_with_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_package(root, "go2", onnx_bytes=b"payload-123")
+            out = root / "policies"
+            index = pa.build_all(robots_dir=root, out_dir=out, write=True)
+
+            self.assertEqual(index["count"], 1)
+            target = out / "go2__walk-100"
+            self.assertTrue((target / pa.ARTIFACT_NAME).is_file())
+            self.assertTrue((target / pa.DEPLOY_NAME).is_file())
+            self.assertTrue((out / pa.INDEX_NAME).is_file())
+
+            artifact = json.loads((target / pa.ARTIFACT_NAME).read_text(encoding="utf-8"))
+            self.assertEqual(artifact["onnx_sha256"], pa.file_digest(root / "go2" / "simulation" / "policies" / "walk.onnx"))
+            self.assertEqual(artifact["onnx_bytes"], len(b"payload-123"))
+            self.assertTrue(artifact["contract_digest"])
+            self.assertIsNone(artifact["run_id"])          # 上游导入：血缘如实留空
+
+            deploy = (target / pa.DEPLOY_NAME).read_text(encoding="utf-8")
+            self.assertIn("action_scale: 0.25", deploy)     # 数值不带引号
+            self.assertIn("FL_hip_joint", deploy)
+
+    def test_dry_run_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_package(root, "go2")
+            out = root / "policies"
+            index = pa.build_all(robots_dir=root, out_dir=out, write=False)
+            self.assertEqual(index["count"], 1)
+            self.assertFalse(out.exists())
+
+    def test_contract_change_changes_contract_digest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pkg = make_package(root, "go2")
+            first = pa.scan_declarations(root)[0]
+            config = json.loads((pkg / "simulation" / "config.json").read_text(encoding="utf-8"))
+            config["policies"][0]["contract"]["action_scale"] = 0.5   # 动作约定变了
+            (pkg / "simulation" / "config.json").write_text(json.dumps(config), encoding="utf-8")
+            second = pa.scan_declarations(root)[0]
+            self.assertNotEqual(pa.contract_digest(first), pa.contract_digest(second))
+
+
+class VerifyTest(unittest.TestCase):
+    def test_verify_passes_right_after_build(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_package(root, "go2")
+            out = root / "policies"
+            pa.build_all(robots_dir=root, out_dir=out, write=True)
+            report = pa.verify_artifacts(robots_dir=root, out_dir=out)
+            self.assertTrue(report["ok"], report["problems"])
+            self.assertEqual(report["checked"], 1)
+
+    def test_verify_detects_swapped_onnx(self):
+        """换了包里的 onnx 却不重新出库 —— 必须被抓到（这是"出库"最容易悄悄烂掉的地方）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            make_package(root, "go2")
+            out = root / "policies"
+            pa.build_all(robots_dir=root, out_dir=out, write=True)
+            (root / "go2" / "simulation" / "policies" / "walk.onnx").write_bytes(b"tampered")
+
+            report = pa.verify_artifacts(robots_dir=root, out_dir=out)
+            self.assertFalse(report["ok"])
+            self.assertTrue(any("onnx 已变" in problem for problem in report["problems"]))
+
+    def test_verify_detects_missing_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            report = pa.verify_artifacts(robots_dir=Path(tmp), out_dir=Path(tmp) / "policies")
+            self.assertFalse(report["ok"])
+            self.assertTrue(any(pa.INDEX_NAME in problem for problem in report["problems"]))
+
+
+class ProducedPolicyTest(unittest.TestCase):
+    def test_promote_writes_blob_and_links_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "model_final.onnx"
+            source.write_bytes(b"produced-policy")
+            out = root / "policies"
+            artifact = pa.promote_produced_policy(
+                artifact_id="go2__velocity-run1", onnx=source,
+                deploy={"robot": "go2", "action_scale": 0.25},
+                run_id="20260914-120000_velocity_ab12cd34", out_dir=out,
+            )
+            self.assertEqual(artifact["run_id"], "20260914-120000_velocity_ab12cd34")
+            self.assertEqual(artifact["onnx_sha256"], pa.file_digest(out / "go2__velocity-run1" / pa.POLICY_BLOB_NAME))
+            self.assertTrue((out / "go2__velocity-run1" / pa.DEPLOY_NAME).is_file())
+
+
+class RealRepoTest(unittest.TestCase):
+    """真实仓库自检：声明数、onnx 实体数、影子产物。"""
+
+    def test_repo_declarations_resolve_and_count_matches_blobs(self):
+        declarations = pa.scan_declarations()
+        self.assertGreater(len(declarations), 40, "本仓应有 46 条策略声明")
+        unresolved = [d for d in declarations if d["onnx"] is None]
+        self.assertEqual([], [f"{d['robot']}/{d['policy_id']}" for d in unresolved])
+
+        # 包内 46 个 onnx 实体；第 47 个在 `web/sim2sim/models/`（由声明第 3 种形式引用）。
+        # 47 这个总数与清单 §0 的"sim_policies_onnx 47"一致 —— 只是**不在同一处**。
+        blobs = list(pa.iter_onnx_files())
+        self.assertEqual(46, len(blobs), "包内 onnx 实体数")
+        # 影子产物：包里有 onnx 但没被声明 —— 如实报出（当前不为 0 属已知，见清单 B10）
+        self.assertIsInstance(pa.unexported_onnx(), list)
+
+    def test_artifact_ids_are_unique(self):
+        ids = [pa.artifact_id_for(d["robot"], d["policy_id"]) for d in pa.scan_declarations()]
+        self.assertEqual(len(ids), len(set(ids)), "产物 ID 必须唯一，否则出库会互相覆盖")
+
+
+if __name__ == "__main__":
+    unittest.main()

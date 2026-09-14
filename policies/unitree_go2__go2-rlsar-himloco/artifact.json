@@ -1,0 +1,19 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-rlsar-himloco",
+  "contract_digest": "cec233ce73b8cd061033d03281a7f118eb20271f6658e0aa19a9268987ff3feb",
+  "declared_source": "rl_sar policy/go2/himloco（Apache-2.0）——对应 HIMLoco 训练工程（00_resources/HIMLoco）",
+  "history_len": 6,
+  "kind": "policies",
+  "label": "Go2 HIMLoco (rl_sar, 45D×6)",
+  "obs_dim": 45,
+  "onnx_bytes": 978175,
+  "onnx_sha256": "7852ae395613369858b5b96aacb58b0bc6e80ec6b2500ede7084a6a62c6a299f",
+  "policy_id": "go2-rlsar-himloco",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_rlsar_himloco.onnx",
+  "task_type": null
+}

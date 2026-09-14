@@ -1,0 +1,19 @@
+{
+  "action_dim": 29,
+  "algorithm": null,
+  "artifact_id": "unitree_g1__g1-velocity-mjswan",
+  "contract_digest": "6235d1f9dacdf4f69fc7a0b5627979ca9eb3042168933df6f36ff0b8278e2052",
+  "declared_source": "mjswan examples/demo（mjlab G1 velocity，99 维观测）",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Locomotion (mjswan)",
+  "obs_dim": 99,
+  "onnx_bytes": 877936,
+  "onnx_sha256": "d2a4dccdf52b8aadf936958ede8607830bf7e667f13162af47c7460d821ca013",
+  "policy_id": "g1-velocity-mjswan",
+  "robot": "unitree_g1",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_g1/simulation/policies/locomotion.onnx",
+  "task_type": null
+}

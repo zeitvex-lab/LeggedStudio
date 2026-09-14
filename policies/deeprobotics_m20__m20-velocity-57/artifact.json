@@ -1,0 +1,19 @@
+{
+  "action_dim": 16,
+  "algorithm": null,
+  "artifact_id": "deeprobotics_m20__m20-velocity-57",
+  "contract_digest": "adbc2b2283abed5a7d82cb731663b546df276c10598a9fe1be1e67602fddae6c",
+  "declared_source": "m20_rl_isaacsim exported/m20_new_policy.onnx（BSD-3，官方 checkpoint 导出，元数据内嵌）",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Velocity 57D (official export)",
+  "obs_dim": 57,
+  "onnx_bytes": 785758,
+  "onnx_sha256": "212c0c4c81ef163afc65f4db085cf9812e2bb7dd46f4b9ff13bbc9489adc2914",
+  "policy_id": "m20-velocity-57",
+  "robot": "deeprobotics_m20",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/deeprobotics_m20/simulation/policies/m20_velocity_57.onnx",
+  "task_type": null
+}
