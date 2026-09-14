@@ -74,6 +74,12 @@ def _policy_inventory(robots: list[str] | None) -> list[dict]:
         declared = contract.get("task_type") or declaration.get("task_type")
         artifact_id = pa.artifact_id_for(declaration["robot"], declaration["policy_id"])
         blob = declaration.get("onnx") or pa.policy_blob_path(declaration)
+        # blob 若落在包外（如 go2 demo 策略的 onnx 在 `web/sim2sim/models/`），
+        # 就没有"包内相对路径"可喂给无头引擎 —— 如实标为**不参与包内扫描**并给出原因，
+        # 而不是让它在表里显示成含糊的"无报告"。
+        outside_package = blob is not None and pa.policy_relative_path(
+            declaration, robot_dir=pa.ROBOTS_DIR / declaration["robot"],
+        ) is None
         rows.append({
             "robot": declaration["robot"],
             "policy_id": declaration["policy_id"],
@@ -84,6 +90,10 @@ def _policy_inventory(robots: list[str] | None) -> list[dict]:
             # 查表用 policy_id（`SELF_STABILITY_ONLY` 的键就是策略 id）——
             # 早期版本拿 artifact_id 去查，永远查不中，覆盖静默失效。
             "self_stability_only": SELF_STABILITY_ONLY.get(declaration["policy_id"]),
+            "scan_skip_reason": (
+                "blob 在包外（web 静态目录），没有「包内相对路径」可喂给无头引擎"
+                if outside_package else None
+            ),
             "artifact_id": artifact_id,
             "blob": str(blob.relative_to(ROOT)) if blob and str(blob).startswith(str(ROOT)) else (str(blob) if blob else None),
             "observation_kind": contract.get("observation_kind"),
@@ -249,6 +259,14 @@ def sweep(*, robots: list[str] | None = None, limit: int | None = None,
 
     results: list[dict] = []
     for index, row in enumerate(inventory, start=1):
+        if row.get("scan_skip_reason"):
+            print(f"[{index}/{len(inventory)}] {row['artifact_id']} —— 不参与包内扫描"
+                  f"（{row['scan_skip_reason']}）", flush=True)
+            results.append({
+                **row, "skipped": True, "verdict": None, "metrics": None,
+                "exit_code": None, "track_ratio": None, "stdout_tail": [],
+            })
+            continue
         print(f"[{index}/{len(inventory)}] {row['artifact_id']} family={row['family']} "
               f"({row['family_source']})", flush=True)
         results.append(_run_one(row, seconds=seconds, seed=seed))
