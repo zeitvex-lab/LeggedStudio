@@ -454,7 +454,7 @@
         "history_len": 6,
         "history_layout": "frame_major_v1",
         "command_dims": 3,
-        "task_type": "velocity",
+        "task_type": "balance",
         "default_command": [
           0.0,
           0.0,
@@ -780,7 +780,7 @@
         "history_len": 6,
         "history_layout": "frame_major_v1",
         "command_dims": 3,
-        "task_type": "acrobatics",
+        "task_type": "balance",
         "default_command": [
           0.0,
           0.0,
