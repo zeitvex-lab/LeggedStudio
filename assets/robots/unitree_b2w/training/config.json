@@ -1,9 +1,5 @@
 {
   "robot_id": "unitree_b2w",
   "contract_path": "assets/robots/unitree_b2w/contract.json",
-  "profile_id": "b2w-velocity",
-  "task_name": "velocity",
-  "algorithm": "PPO",
-  "num_envs": 4096,
-  "episode_length_s": 20.0
+  "profile_id": "b2w-velocity"
 }

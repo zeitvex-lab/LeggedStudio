@@ -1,9 +1,5 @@
 {
   "robot_id": "deeprobotics_m20",
   "contract_path": "assets/robots/deeprobotics_m20/contract.json",
-  "profile_id": "m20-velocity",
-  "task_name": "velocity",
-  "algorithm": "PPO",
-  "num_envs": 4096,
-  "episode_length_s": 20.0
+  "profile_id": "m20-velocity"
 }
