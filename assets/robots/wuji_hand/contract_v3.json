@@ -354,8 +354,19 @@
     "action_scale": 0.5
   },
   "observation": {
-    "components": [],
-    "dimension": 0
+    "components": [
+      {
+        "name": "proprio",
+        "width": 69,
+        "source": "proprio",
+        "role": "actor",
+        "history": 3,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "**包级 dimension 由 0 修正为 69**：策略自身声明 obs_dim 69 × history_len 3 = 207（ONNX 实测吻合 ✓），此前声明 0 等于说「这台机器人不需要观测」✗。逐项未取证：上游 wuji-mjlab 的训练侧观测与部署侧分开（部署侧 real_hand_obs.py 从 ZMQ 读 cube pose），须专项组装。history=3 来自策略声明并经尺子核对 ✓；cube 位姿在真机由外部提供（同属 encoder 语义待扩展的那一类）。"
+      }
+    ],
+    "dimension": 69
   },
   "control": {
     "control_hz": 20,

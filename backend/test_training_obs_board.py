@@ -116,14 +116,15 @@ class RealBoardCharacterizationTest(unittest.TestCase):
                 missing_fields.add(robot)
         return without_components, missing_fields
 
-    def test_gap_is_reported_not_hidden(self):
+    def test_no_package_is_left_without_components(self):
+        """**不变量**（2026-09-15 收口）：14 包全部声明了观测组件 —— 空缺集必须为空。
+
+        这条从「特征化快照」升格为「不变量」：**只要还有一台没声明组件，它就红**。
+        快照时代它记的是「11 台缺组件」，随补齐一路减到 0（11→9→7→6→3→0）；
+        现在它守的是「别再退回去」。
+        """
         without_components, _ = self._scan()
-        # 仍只声明宽度、没声明组件的机型（板子如实说「未声明」，不编）——
-        # go1/go2 已于 2026-09-14 补齐（见 docstring 的进展说明），补一台就从这个集合里减一台。
-        self.assertEqual(
-            {"microduck", "wuji_hand", "zex-w"},
-            without_components,
-        )
+        self.assertEqual(set(), without_components)
 
 
 class FiveTupleInvariantTest(unittest.TestCase):
