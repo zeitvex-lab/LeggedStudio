@@ -166,6 +166,12 @@ def _package_roots() -> list[Path]:
     return [workspace_root / "packages", ROOT / "assets" / "robots"]
 
 
+#: 代码拥有的同步规则修订号。给同步加新职责（C6 基础文件补齐 / D7 加 morphology 视图与
+#: contract_v3.json 镜像）时 bump 它，让既有安装的索引判为 stale 并重跑一次同步（磁盘未变）。
+#: 提为模块级常量，测试据此动态构造"旧版本 signature"，避免每次 bump 都要改测试。
+SYNC_REVISION = "3"
+
+
 def _package_signature() -> str:
     """Cheap freshness signature over both package roots.
 
@@ -178,8 +184,7 @@ def _package_signature() -> str:
     whenever the sync itself gains a new duty so existing installs re-run the
     sync once even though nothing on disk changed (C6: base-file backfill).
     """
-    _SYNC_REVISION = "2"  # v0.42.0: simulation/ 基础文件补齐 + config.json 增量合并
-    parts: list[str] = [f"sync_rev:{_SYNC_REVISION}"]
+    parts: list[str] = [f"sync_rev:{SYNC_REVISION}"]
     for root in _package_roots():
         if not root.exists():
             parts.append(f"{root}:missing")
@@ -261,7 +266,7 @@ def _record_fields() -> list[str]:
         "size_class", "locomotion_type", "dof", "mass_kg", "contract_id",
         "contract_path", "asset_path", "training_config", "simulation_config",
         "training_profiles", "runtime_requirements", "source_runtime",
-        "contract", "robot_package",
+        "contract", "robot_package", "morphology",
     ]
 
 
@@ -329,8 +334,44 @@ def _build_record(
         "source_runtime": descriptor.get("source_runtime", {}),
         "contract": contract,
         "robot_package": {**descriptor, "capabilities": capabilities, "package_root": str(package_root), "contract_path": descriptor.get("contract_path", "contract.json"), "model": descriptor_model or {"format": "mjcf", "path": "model/robot.xml", "assets_path": "model/assets"}, "training_config_path": descriptor.get("training_config_path", "training/config.json"), "simulation_config_path": descriptor.get("simulation_config_path", "simulation/config.json")},
+        # D7：契约 v3 的构型语义（形态/角色/执行器类型/足型/轮组）
+        "morphology": _morphology_view(package_root),
     }
 
+
+
+def _morphology_view(package_root: Path) -> dict[str, Any]:
+    """D7：契约 v3 的构型语义视图（形态 / 角色 / 执行器类型 / 足型 / 轮组）。
+
+    真值在包内 ``contract_v3.json`` 的 ``morphology`` 块 —— **不是** v2 ``contract.json``
+    （v2 无 morphology；``_build_record`` 的 ``contract`` 字段用的正是 v2，故此前 UI 看不到
+    构型语义）。原样透传 morphology 块，并派生 ``roles``（leg_pattern + extra_roles 去重）与
+    ``wheel_count``，供资产页卡片直接渲染。
+
+    契约缺失时返回 ``{"source": "missing"}`` 的显式空视图（面板提示"未声明"而非显示空）；
+    读取本身出错才返回 ``{}``——单包契约问题不该让整个包索引构建失败。
+    """
+    try:
+        v3_path = package_root / "contract_v3.json"
+        if not v3_path.exists():
+            return {"source": "missing"}
+        v3 = json.loads(v3_path.read_text(encoding="utf-8-sig"))
+        morphology = dict(v3.get("morphology") or {})
+        leg_pattern = [str(r) for r in (morphology.get("leg_pattern") or [])]
+        extra_roles = [str(r) for r in (morphology.get("extra_roles") or [])]
+        roles: list[str] = []
+        for role in [*leg_pattern, *extra_roles]:
+            if role not in roles:
+                roles.append(role)
+        wheel_indices = morphology.get("wheel_indices") or []
+        return {
+            "source": "contract_v3",
+            **morphology,
+            "roles": roles,
+            "wheel_count": len(wheel_indices),
+        }
+    except Exception:
+        return {}
 
 
 def _physics_view(package_root: Path) -> dict[str, Any]:
@@ -766,6 +807,20 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
                     dst_manifest.write_text(json.dumps(dst_data, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")
                     synced += 1
             except (OSError, ValueError):
+                pass
+        # D7：契约 v3 是机器人生理学的**单一真值**（B2/B5），内置包的 workspace 副本应
+        # **镜像源树**——副本曾因不同步 contract_v3.json 而缺 actuator_type/foot_type/
+        # wheel_indices（B4 后加的字段），导致 morphology 视图缺字段。全量覆盖（非合并）：
+        # 契约不允许"副本独立演化"出第二套真值（与 robot_package.json 的字段合并不同）。
+        src_v3 = shipped / "contract_v3.json"
+        dst_v3 = target / "contract_v3.json"
+        if src_v3.exists():
+            try:
+                if (not dst_v3.exists()
+                        or src_v3.read_text(encoding="utf-8-sig") != dst_v3.read_text(encoding="utf-8-sig")):
+                    shutil.copy2(src_v3, dst_v3)
+                    synced += 1
+            except OSError:
                 pass
     if synced:
         print(f"[robot_packages] synced {synced} content file(s) from shipped assets into workspace")

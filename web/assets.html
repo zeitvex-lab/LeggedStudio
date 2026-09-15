@@ -11,6 +11,8 @@
     .package-card{padding:18px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)}
     .package-card h3{margin:0 0 7px}
     .package-card p{margin:6px 0;color:var(--muted);font-size:12px}
+    .package-card .morph-line{margin:2px 0 4px}
+    .package-card .morph-line b{font-family:ui-monospace,monospace;color:var(--accent,#39c5bb)}
     .package-card code{display:block;margin-top:12px;color:var(--muted);font-size:11px;word-break:break-all}
     .package-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
     .package-actions{display:flex;gap:8px;margin-top:15px;flex-wrap:wrap}
@@ -63,10 +65,13 @@
             <a class="btn" href="training_create.html?robot=${esc(item.robot_id)}${document.body.classList.contains('embedded')?'&embedded=1':''}">配置训练</a>
             ${isWorkspace?`<button class="btn danger" data-delete="${esc(item.robot_id)}">删除</button>`:'<span class="badge readonly">内置 · 只读</span>'}
           </div>`;
+          const morph=item.morphology||{};
+          const morphLine=morph.source==='contract_v3'?`<p class="morph-line">形态 <b>${esc(morph.id||'-')}</b> · ${morph.legs??'-'} 腿 · 角色 ${(morph.roles||[]).map(esc).join('/')||'-'} · ${esc(morph.actuator_type||'-')} · ${esc(morph.foot_type||'-')}足${morph.wheel_count?` · 轮组 ${morph.wheel_count}`:''}</p>`:'';
           return `<article class="package-card" data-robot="${esc(item.robot_id)}">
             <div class="package-head"><div><h3>${esc(item.family||item.robot_id)}</h3><span class="badge">${esc(item.robot_id)}</span></div>
             <span class="badge ${isWorkspace?'':'readonly'}">${isWorkspace?'工作区':'内置'}</span></div>
             <p>${esc(item.dof??'-')} 自由度 · ${Number(item.mass_kg||0).toFixed(2)} kg · ${esc(item.size_class||'-')}/${esc(item.locomotion_type||'-')} · ${profiles.length} 个训练档案</p>
+            ${morphLine}
             ${profileChips}
             <code>${esc(root||'-')}</code>${actions}
           </article>`}).join(''):'<div class="empty">没有机器人包。可在上方输入路径导入，或将包放入工作区 packages/ 目录。</div>';
