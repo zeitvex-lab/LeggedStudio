@@ -414,13 +414,23 @@ class TrainingManager:
         if not task:
             raise ValueError(f"Task {task_id} not found")
 
+        # F6：**判定与 pid 都取持久态**。恢复流程只改 status.json，内存态可能落后 ——
+        # 若这里只看内存态，控制面重启后带**活** worker 的孤儿任务会被"标 stopped 但进程
+        # 一次都没杀"（2026-09-15 全量测试抓到的正是这个：状态对了、taskkill 调用 0 次）。
+        # 持久态先行也与本仓一贯口径一致：workspace 是权威。
+        recorded: dict = {}
+        try:
+            recorded = json.loads((task.task_dir / "status.json").read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError):
+            recorded = {}
+        info = task.get_status_info() or {}
+
         if task_id in self.launcher.processes:
             self.launcher.stop_training(task_id)
-        elif task.status == "orphaned" or task.get_status_info().get("status") == "orphaned":
-            # F6：控制面重启后恢复的孤儿 worker。launcher.processes 是内存态，
-            # 重启后为空——只能按 status.json 记录的 pid 直接清理；pid 已先一步
-            # 退出的竞态无需杀，直接落 stopped。
-            pid = task.get_status_info().get("pid")
+        elif "orphaned" in (str(task.status), str(info.get("status")), str(recorded.get("status"))):
+            # 孤儿 worker：launcher.processes 是内存态、重启后为空，只能按记录下来的 pid
+            # 直接清理（pid 也是**持久态优先**）；pid 已先一步退出的竞态无需杀，直接落 stopped。
+            pid = recorded.get("pid", info.get("pid"))
             if _pid_alive(pid):
                 _terminate_orphan_worker(int(pid))
         task.status = "stopped"
