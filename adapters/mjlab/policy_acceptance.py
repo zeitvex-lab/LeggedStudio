@@ -243,6 +243,14 @@ class PackageContract:
         # 回退策略条目顶层：部分包的策略 contract 为空，维度只在条目顶层声明。
         self.obs_dim = int(self.contract.get("obs_dim") or policy_entry.get("obs_dim") or 0)
         self.action_dim = int(self.contract.get("action_dim") or policy_entry.get("action_dim") or 0)
+        # B25（2026-09-16）：worker 训练链从不携带策略条目（``config["policy"]`` 恒缺位），
+        # 而包级 policy_contract 只在 g1/go2w/zex-w/tron1 声明了维度——microduck/go1/go2
+        # 的维度只在 ``policies[]`` 各条目顶层。条目缺位时 action_dim 落 0，但动作关节序
+        # 已从机器人级 contract.json 回退到位，``run_probe`` 拿空动作数组按关节序取
+        # ``raw[0]`` → 裸 IndexError。动作槽与关节序语义同源（逐关节一个动作槽），未声明
+        # 时按关节序派生；已声明的值仍是唯一真值，不做静默改写。
+        if not self.action_dim:
+            self.action_dim = len(self.action_joint_order)
         self.clip_actions = self.contract.get("clip_actions") or None
 
         self.default_joint_angles = {k.lower(): float(v) for k, v in (self.contract.get("default_joint_angles") or {}).items()}
@@ -1522,6 +1530,24 @@ def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
     三端口径不一致（浏览器有、训练/验收没有）。现在把契约 v3 的
     ``velocity_limit`` 拉进来，对峰值关节速度逐关节判定并显式报告。
     """
+    # V4 fail-closed：动作空间声明缺失/自相矛盾时给明确中文原因，不抛裸 IndexError。
+    # 放在 mujoco import 之前：声明校验不需要物理引擎，控制面 venv 也能测这条守卫。
+    # （B25：探针报错不阻断训练，但脏字段每台新机型冒烟都会带——错误必须可读。）
+    order_len = len(contract.action_joint_order)
+    if not contract.action_dim or not order_len:
+        raise ValueError(
+            f"无法开环探测：{contract.root.name} 契约未声明动作空间"
+            f"（action_dim={contract.action_dim}，动作关节序 {order_len} 项）——"
+            "请在包 simulation/config.json 的策略声明（obs_dim/action_dim）"
+            "或 contract.json 的 action.joint_order 补齐后重试"
+        )
+    if order_len > contract.action_dim:
+        raise ValueError(
+            f"无法开环探测：{contract.root.name} 契约自相矛盾——"
+            f"动作关节序 {order_len} 项 > 声明 action_dim={contract.action_dim}，"
+            "恒定动作数组无法覆盖全部关节，请先修正声明"
+        )
+
     import mujoco
 
     # D9：速度限幅的唯一真值 = 契约 v3（键统一小写，带 __default__ 兜底）。
@@ -1854,6 +1880,27 @@ def match_policy_entry(
     return None
 
 
+def resolve_probe_policy_entry(sim_cfg: dict, profile_id: str = "") -> dict:
+    """为**开环探针**挑选包内策略声明条目（与训练 profile 一致的优先）。
+
+    B25 取证：worker 训练链从不携带策略条目（``config["policy"]`` 恒缺位），
+    而探针需要的 obs_dim/action_dim 多数包只在 ``policies[]`` 各条目顶层声明
+    （包级 policy_contract 声明维度的仅 g1/go2w/zex-w/tron1）。条目缺位曾让
+    action_dim 落 0 → ``run_probe`` 裸 IndexError。
+
+    匹配口径：① ``training_ref.profile`` == 当前训练 profile_id（唯一对应训练
+    工程的声明）；② 否则第一条声明（与 CLI ``--probe`` 既有语义一致：契约条目
+    只提供物理口径）。无声明返回空 dict，由 ``run_probe`` 的守卫 fail-closed。
+    """
+    policies = [p for p in (sim_cfg.get("policies") or []) if isinstance(p, dict)]
+    if profile_id:
+        for p in policies:
+            ref = p.get("training_ref") or {}
+            if str(ref.get("profile") or "") == profile_id:
+                return p
+    return policies[0] if policies else {}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="ONNX 策略验收评估器")
     parser.add_argument("--package", required=True, help="机器人包目录")
@@ -1888,7 +1935,7 @@ def main() -> None:
             )
     else:
         # --probe：无策略，契约条目只提供物理口径，取第一条即可。
-        policy_entry = policies[0] if policies else {}
+        policy_entry = resolve_probe_policy_entry(sim_cfg)
     contract = PackageContract(package_dir, policy_entry)
 
     model = load_package_model(package_dir, sim_cfg)
