@@ -1,15 +1,6 @@
 {
   "robot_id": "zex-w",
   "backend": "native_mjlab",
-  "max_iterations": 10000,
-  "learning_rate": 0.0008,
-  "save_interval": 100,
-  "num_steps": 24,
-  "num_minibatches": 4,
-  "gamma": 0.99,
-  "gae_lambda": 0.95,
-  "clip_param": 0.2,
-  "entropy_coef": 0.003,
   "reward_scales": {
     "track_linear_velocity": 2.5,
     "track_angular_velocity": 2.5,

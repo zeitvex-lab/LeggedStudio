@@ -32,6 +32,19 @@ ROBOTS = ROOT / "assets" / "robots"
 #: 不动的键（物理引用 / 格式声明 / profile 引用）
 _KEEP = {"robot_id", "contract_path", "profile_id", "schema_version", "backend"}
 
+#: **死数据字段**（B13 下半段）：运行参数，`models.py` 的 `CreateTrainingRequest` 有**硬编码
+#: Field 默认值**（`learning_rate=3e-4` / `gamma=0.99` / `clip_param=0.2` …），`create.py` 全从
+#: request 读、`schema.py` preview 完全不读它们 —— 所以 config.json 里这层副本**无任何代码读**。
+#: 删掉 = 让真值只剩一处（models.py 默认 + 用户提交 + Run 落盘）。
+#: 注意**不含** `num_envs` / `episode_length_s`：它们被 `schema.py` 兜底读，且个别包的 profile
+#: 没覆盖（如 microduck 的 episode_length_s），删了会丢页面预填来源 —— 那两个是"双写"，上一轮
+#: 已按 profile 覆盖情况处理，本白名单只收"确定无消费者的运行参数"。
+DEAD_FIELDS = {
+    "max_iterations", "learning_rate", "save_interval", "seed",
+    "num_steps", "num_minibatches", "gamma", "gae_lambda", "clip_param", "entropy_coef",
+    "tau", "batch_size", "alpha", "policy_delay", "exploration_noise", "replay_size",
+}
+
 
 def _read_json(path: Path) -> dict:
     try:
@@ -42,7 +55,7 @@ def _read_json(path: Path) -> dict:
 
 
 def plan(robot_dir: Path) -> dict:
-    """返回该包的删除计划：{robot, removals: [{key, config_value, profile_value}], skipped}。"""
+    """返回该包的删除计划：{robot, removals, dead, skipped}。"""
     config_path = robot_dir / "training" / "config.json"
     config = _read_json(config_path)
     profiles_dir = robot_dir / "training" / "profiles"
@@ -54,9 +67,13 @@ def plan(robot_dir: Path) -> dict:
                 profiles.append(value)
 
     removals: list[dict] = []
+    dead: list[dict] = []
     skipped: list[str] = []
     for key in sorted(config.keys()):
         if key in _KEEP:
+            continue
+        if key in DEAD_FIELDS:
+            dead.append({"key": key, "config_value": config[key], "reason": "死数据（models.py 默认值取代）"})
             continue
         # 权威值：某个 profile 里的同名键
         cover = next((p[key] for p in profiles if key in p), None)
@@ -64,7 +81,7 @@ def plan(robot_dir: Path) -> dict:
             skipped.append(key)
             continue
         removals.append({"key": key, "config_value": config[key], "profile_value": cover})
-    return {"robot": robot_dir.name, "removals": removals, "skipped": skipped}
+    return {"robot": robot_dir.name, "removals": removals, "dead": dead, "skipped": skipped}
 
 
 def main() -> int:
@@ -79,21 +96,26 @@ def main() -> int:
             continue
         result = plan(robot_dir)
         removals = result["removals"]
+        dead = result["dead"]
         skipped = result["skipped"]
-        if not removals and not skipped:
+        if not removals and not dead and not skipped:
             continue
         total_skipped += len(skipped)
         if removals:
-            print(f"{result['robot']:<22} 删 {len(removals)} 键："
+            print(f"{result['robot']:<22} 删重复 {len(removals)} 键："
                   f"{[r['key'] for r in removals]}")
+        if dead:
+            print(f"{result['robot']:<22} 删死数据 {len(dead)} 键："
+                  f"{[r['key'] for r in dead]}")
+        if removals or dead:
+            total_removed += len(removals) + len(dead)
             if write:
                 config = _read_json(config_path)
-                for r in removals:
+                for r in [*removals, *dead]:
                     config.pop(r["key"], None)
                 config_path.write_text(
                     json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
                 )
-                total_removed += len(removals)
         if skipped:
             print(f"{result['robot']:<22} 跳过（profile 无此键，不删）：{skipped}")
 
