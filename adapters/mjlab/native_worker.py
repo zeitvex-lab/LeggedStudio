@@ -630,17 +630,23 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             _ensure_on_path(Path(__file__).resolve().parent)
             from policy_acceptance import ObsBuilder, PackageContract, load_package_model, run_probe
 
-            package_contract = PackageContract(package_root, (config.get("policy") or {}))
+            package_contract = PackageContract(package_root, _probe_policy_entry(package_root, config))
             probe_model = load_package_model(package_root, package_contract.sim)
             probe_model.opt.timestep = 1.0 / package_contract.physics_hz
             probe_data = mujoco.MjData(probe_model)
             probe_obs = ObsBuilder(package_contract, probe_model, probe_data)
-            report["acceptance_probe"] = run_probe(
+            probe_report = run_probe(
                 package_contract, probe_model, probe_data, probe_obs,
                 seconds=float(config.get("probe_seconds", 2.0)),
             )
+            # 如实记录探针用的是哪条声明（对照训练工程，也证明条目解析生效）
+            probe_report["policy_entry"] = package_contract.entry.get("id")
+            report["acceptance_probe"] = probe_report
     except Exception as exc:
-        report["acceptance_probe_error"] = f"{type(exc).__name__}: {exc}"
+        # 只留 message 曾让 B25 只剩一句裸 IndexError 无从定位；补最内层出错位置。
+        frames = traceback.extract_tb(sys.exc_info()[2])
+        origin = f" @ {Path(frames[-1].filename).name}:{frames[-1].lineno}" if frames else ""
+        report["acceptance_probe_error"] = f"{type(exc).__name__}: {exc}{origin}"
     try:
         mjlab_version = str(importlib.metadata.version("mjlab"))
     except importlib.metadata.PackageNotFoundError:
@@ -963,6 +969,27 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
     finally:
         if env is not None:
             env.close()
+
+
+def _probe_policy_entry(package_root: Path, config: dict) -> dict:
+    """开环探针用的策略声明条目（B25，2026-09-16）。
+
+    config["policy"] 在训练链上从不写入（training_config.json 无此键，整个仓库只有
+    探针这里消费）——此前恒传空 dict，而包级 policy_contract 只在 g1/go2w/zex-w/tron1
+    声明了 obs_dim/action_dim；microduck/go1/go2 等包的维度只在 ``policies[]`` 各条目
+    顶层，条目缺位让 action_dim 落 0 → ``run_probe`` 拿空动作数组按关节序取 ``raw[0]``
+    → 裸 IndexError，监控页每次冒烟都带脏字段。条目缺位时改从包内声明解析：
+    优先 ``training_ref.profile`` 对上当前训练 profile 的条目，否则第一条
+    （与验收器 CLI ``--probe`` 同口径）。
+    """
+    policy_entry = config.get("policy")
+    if isinstance(policy_entry, dict) and policy_entry:
+        return policy_entry
+    sim_cfg = json.loads((package_root / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
+    _ensure_on_path(Path(__file__).resolve().parent)
+    from policy_acceptance import resolve_probe_policy_entry
+
+    return resolve_probe_policy_entry(sim_cfg, str(config.get("profile_id") or ""))
 
 
 def main() -> int:
