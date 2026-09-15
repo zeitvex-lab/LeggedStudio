@@ -68,7 +68,10 @@ def make_velocity_env_cfg() -> ManagerBasedRlEnvCfg:
   }
 
   observations = {
-    "policy": ObservationGroupCfg(
+    # B26 同族裁决:训练观测组名用 "actor"。mjlab RslRlBaseRunnerCfg.obs_groups
+    # 默认 {"actor": ("actor",), "critic": ("critic",)},旧组名 "policy" 让
+    # runner 找不到 actor 组(env 构建即崩,Available: ['policy', 'critic'])。
+    "actor": ObservationGroupCfg(
       terms=policy_terms,
       concatenate_terms=True,
       enable_corruption=True,

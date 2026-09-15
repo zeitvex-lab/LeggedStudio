@@ -7,7 +7,7 @@ import mujoco
 from pathlib import Path
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
-from mjlab.actuator import BuiltinPositionActuatorCfg, BuiltinVelocityActuatorCfg
+from mjlab.actuator import XmlActuatorCfg
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.utils.spec_config import CollisionCfg
 
@@ -76,34 +76,43 @@ def get_spec() -> mujoco.MjSpec:
 
 ##
 # Actuator config.
+#
+# B28 裁决:MJCF 为执行真值。model/robot.xml 的 <actuator> 段已内建全部 16 个
+# 执行器(12 个 <position>:kp=160 kv=5,forcerange hip/thigh ±200、calf ±320;
+# 4 个 <velocity>:kv=1,forcerange ±20;名字与目标关节同名),且所有关节
+# armature=0.1、frictionloss=0 已写在 <joint> 上。训练源不得对这些关节重复
+# 注册执行器(再 spec.add_actuator 同名即抛 repeated name → env 构建即崩)。
+#
+# 因此这里不再用 BuiltinPosition/VelocityActuatorCfg 重新生成执行器,而是用
+# XmlActuatorCfg 显式「以 MJCF 为准」包装既有执行器:gains/limits/armature
+# 全部沿用 MJCF 定义,本模块不提供任何覆盖参数。包装同时保持
+# entity._actuators 非空——动作侧(JointPositionAction/JointVelocityAction 经
+# Entity.find_joints_by_actuator_names 解析被驱动关节)与观测/随机化侧
+# (actuator_ids → ctrl_ids)依赖该列表,故「整体跳过注册(空 actuators)」
+# 不可行,只能包装。XmlActuator.compute 按 command_field 转发:position 组
+# 出 position_target、velocity 组出 velocity_target,与原 Builtin 语义一致。
+#
+# 参数差异(训练 cfg 曾写 vs MJCF 真值,按裁决以 MJCF 为准,参数对齐另行裁决):
+#   calf effort_limit:训练 cfg 曾写 300.0(go2w 移植残留);MJCF 与
+#   contract_v3(actuator_profile.by_role.calf.effort)均为 320 → 运行时 320。
+#   其余(hip/thigh 200、wheel 20、160/5/1 增益、armature 0.1)与 MJCF 一致。
 ##
 
-GO2W_ACTUATOR_HIP = BuiltinPositionActuatorCfg(
+GO2W_ACTUATOR_HIP = XmlActuatorCfg(
   target_names_expr=GO2W_HIP_JOINT_NAMES,
-  stiffness=160.0,
-  damping=5.0,
-  effort_limit=200.0,
-  armature=0.1,
+  command_field="position",
 )
-GO2W_ACTUATOR_THIGH = BuiltinPositionActuatorCfg(
+GO2W_ACTUATOR_THIGH = XmlActuatorCfg(
   target_names_expr=GO2W_THIGH_JOINT_NAMES,
-  stiffness=160.0,
-  damping=5.0,
-  effort_limit=200.0,
-  armature=0.1,
+  command_field="position",
 )
-GO2W_ACTUATOR_CALF = BuiltinPositionActuatorCfg(
+GO2W_ACTUATOR_CALF = XmlActuatorCfg(
   target_names_expr=GO2W_CALF_JOINT_NAMES,
-  stiffness=160.0,
-  damping=5.0,
-  effort_limit=300.0,
-  armature=0.1,
+  command_field="position",
 )
-GO2W_ACTUATOR_WHEEL = BuiltinVelocityActuatorCfg(
+GO2W_ACTUATOR_WHEEL = XmlActuatorCfg(
   target_names_expr=GO2W_WHEEL_JOINT_NAMES,
-  damping=1.0,
-  effort_limit=20.0,
-  armature=0.1,
+  command_field="velocity",
 )
 
 ##
