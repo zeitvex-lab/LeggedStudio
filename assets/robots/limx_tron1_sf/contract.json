@@ -69,7 +69,7 @@
     }
   },
   "observation": {
-    "dimension": 330,
+    "dimension": 36,
     "components": [
       "cmd",
       "gravity",
