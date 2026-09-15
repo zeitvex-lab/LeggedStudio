@@ -167,10 +167,11 @@ def _package_roots() -> list[Path]:
 
 
 #: 代码拥有的同步规则修订号。给同步加新职责（C6 基础文件补齐 / D7 加 morphology 视图与
-#: contract_v3.json 镜像 / B13 加 training/config.json 指针文件镜像）时 bump 它，
-#: 让既有安装的索引判为 stale 并重跑一次同步（磁盘未变）。
+#: contract_v3.json 镜像 / B13 加 training/config.json 指针文件镜像 / B36 加 v2
+#: contract.json 契约镜像）时 bump 它，让既有安装的索引判为 stale 并重跑一次同步
+#: （磁盘未变）。
 #: 提为模块级常量，测试据此动态构造"旧版本 signature"，避免每次 bump 都要改测试。
-SYNC_REVISION = "4"
+SYNC_REVISION = "5"
 
 
 def _package_signature() -> str:
@@ -704,7 +705,12 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
         if not shipped.is_dir():
             continue
         target = packages_root / shipped.name
-        if not (target / "contract.json").exists():
+        # B36：判据从「target/contract.json 在」放宽为「target 是包副本」——以
+        # robot_package.json（副本标记）为准。contract.json 被误删的**残缺副本**
+        # 也参与同步，由下面的契约镜像补齐、顺势治愈（原判据会让残缺副本永远
+        # 无法自愈、静默回落源树，副本从此成僵尸残留）。纯 logs/checkpoint 之类
+        # 残留目录（无 robot_package.json 标记）仍跳过，不制造假副本。
+        if not target.is_dir() or not (target / "robot_package.json").exists():
             continue  # workspace 没有该包副本，让正常扫描直接用源树
         # 只同步"内容"子树，避开 logs/checkpoints 等运行产物
         for relative_root in ("training/profiles", "training/source"):
@@ -808,6 +814,23 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
                     dst_manifest.write_text(json.dumps(dst_data, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")
                     synced += 1
             except (OSError, ValueError):
+                pass
+        # B36：v2 contract.json 与 contract_v3.json 同为**随包分发的契约/派生文件**——
+        # 契约副本不得独立演化出第二套真值。运行时预设链（create 校验等）对已有
+        # workspace 副本的包以**副本**为权威：镜像集若只有 contract_v3.json（D7），
+        # assets 侧对 v2 的修复（如 B29 wuji_hand observation.dimension 0→69）对存量
+        # 安装不生效，被旧副本静默遮蔽（wuji_hand 现场实证：修复后首次 create 仍 400，
+        # 手动用源树覆盖副本 + 重启后才 200）。照 D7 同一先例：全量覆盖（非合并）+
+        # 内容级比较（一致不重写）+ OSError 容错。
+        src_contract = shipped / "contract.json"
+        dst_contract = target / "contract.json"
+        if src_contract.exists():
+            try:
+                if (not dst_contract.exists()
+                        or src_contract.read_text(encoding="utf-8-sig") != dst_contract.read_text(encoding="utf-8-sig")):
+                    shutil.copy2(src_contract, dst_contract)
+                    synced += 1
+            except OSError:
                 pass
         # D7：契约 v3 是机器人生理学的**单一真值**（B2/B5），内置包的 workspace 副本应
         # **镜像源树**——副本曾因不同步 contract_v3.json 而缺 actuator_type/foot_type/

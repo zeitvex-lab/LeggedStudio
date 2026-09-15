@@ -145,25 +145,25 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ##
     # Observations: 57-dim rl_sdk layout
     ##
-    for group_name in ("policy", "critic"):
+    for group_name in ("actor", "critic"):
         cfg.observations[group_name].terms = {
             "base_ang_vel": ObservationTermCfg(
-                func=envs_mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2) if group_name == "policy" else None
+                func=envs_mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2) if group_name == "actor" else None
             ),
             "projected_gravity": ObservationTermCfg(
                 func=envs_mdp.projected_gravity,
-                noise=Unoise(n_min=-0.05, n_max=0.05) if group_name == "policy" else None,
+                noise=Unoise(n_min=-0.05, n_max=0.05) if group_name == "actor" else None,
             ),
             "command": ObservationTermCfg(func=envs_mdp.generated_commands, params={"command_name": "twist"}),
             "joint_pos_rel": ObservationTermCfg(
                 func=mdp.joint_pos_rel_zero_wheel,
                 params={"all_cfg": all_joint_cfg, "wheel_cfg": wheel_joint_cfg},
-                noise=Unoise(n_min=-0.01, n_max=0.01) if group_name == "policy" else None,
+                noise=Unoise(n_min=-0.01, n_max=0.01) if group_name == "actor" else None,
             ),
             "joint_vel_rel": ObservationTermCfg(
                 func=envs_mdp.joint_vel_rel,
                 params={"asset_cfg": all_joint_cfg},
-                noise=Unoise(n_min=-1.5, n_max=1.5) if group_name == "policy" else None,
+                noise=Unoise(n_min=-1.5, n_max=1.5) if group_name == "actor" else None,
             ),
             "actions": ObservationTermCfg(func=envs_mdp.last_action),
         }
@@ -294,7 +294,7 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
     if play:
         cfg.episode_length_s = int(1e9)
-        cfg.observations["policy"].enable_corruption = False
+        cfg.observations["actor"].enable_corruption = False
         cfg.events.pop("push_robot", None)
         cfg.terminations.pop("out_of_terrain_bounds", None)
         cfg.curriculum = {}
@@ -320,7 +320,7 @@ def m20_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg.scene.sensors = tuple(
         s for s in (cfg.scene.sensors or ()) if s.name != "terrain_scan"
     )
-    for group in ("policy", "critic"):
+    for group in ("actor", "critic"):
         cfg.observations[group].terms.pop("height_scan", None)
     cfg.terminations.pop("out_of_terrain_bounds", None)
     cfg.curriculum.pop("terrain_levels", None)
