@@ -232,6 +232,21 @@ def main() -> int:
     facts = collect_facts()
     problems = run_checks(facts)
 
+    # 清单头的**产品版本**也必须对齐实测：它此前不在锚点里，于是一路停在 0.54.1
+    # 而没人发现（2026-09-15 手工对齐后补上这条）。版本是字符串，故不走 CHECKS 的
+    # 数字组比较，在这里单列一条同性质的检查。
+    try:
+        header_text = (ROOT / "00_know" / "01_任务清单.md").read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        header_text = ""
+    header_match = re.search(r"产品版本\*\*：\*\*([0-9][0-9.]*)\*\*", header_text)
+    doc_version = header_match.group(1) if header_match else "<未找到>"
+    sources = facts.get("version_sources") if isinstance(facts.get("version_sources"), dict) else {}
+    actual_version = str(sources.get("VERSION") or (list(sources.values())[0] if sources else ""))
+    if actual_version and doc_version != actual_version:
+        problems.append({"file": "00_know/01_任务清单.md", "label": "任务清单·产品版本",
+                         "doc": doc_version, "actual": actual_version, "status": "mismatch"})
+
     # 版本三源一致性（文档之外的自检：源文件之间自己不能漂）
     versions = set(facts["version_sources"].values())
     version_consistent = len(versions) == 1
