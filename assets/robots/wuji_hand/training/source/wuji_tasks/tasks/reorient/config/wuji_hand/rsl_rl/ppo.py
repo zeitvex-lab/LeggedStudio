@@ -20,7 +20,17 @@ def wuji_hand_reorient_ppo_runner_cfg(
       activation="elu",
       obs_normalization=True,
       distribution_cfg={
-        "class_name": "SoftplusGaussianDistribution",
+        # B33: this class only exists in the vendored fork (wuji_rl_libs, rsl-rl-lib 5.0.1+wuji1),
+        # not in the installed rsl_rl (5.4.2) that "import rsl_rl" resolves to inside the training
+        # worker (training/source is on sys.path but has no top-level rsl_rl). Installed
+        # resolve_callable only accepts "module:Class" qualified names for symbols outside rsl_rl,
+        # so we point it at the vendored module. The vendored modules/distribution.py depends only
+        # on torch/stdlib and its Distribution protocol (update/sample/input_dim/init_mlp_weights/
+        # log_prob/kl_divergence/...) duck-type-matches what the installed MLPModel/PPO call.
+        # Note: importing it triggers wuji_tasks-adjacent namespace packages
+        # (wuji_rl_libs.rsl_rl.rsl_rl.modules) whose cnn/mlp/rnn submodules import helpers from the
+        # installed rsl_rl.utils — no path shadowing in either direction.
+        "class_name": "wuji_rl_libs.rsl_rl.rsl_rl.modules.distribution:SoftplusGaussianDistribution",
         "init_std": 0.5,
         "min_std": 0.2,
       },
