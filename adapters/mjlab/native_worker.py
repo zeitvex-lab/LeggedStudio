@@ -322,7 +322,15 @@ def apply_training_recipe(env_cfg, rl_cfg, config: dict, *, preserve_profile: bo
                 elif value is not None: raise ValueError(f"command range is not supported by MJLab: {key}")
 
     if hasattr(env_cfg, "episode_length_s"):
-        env_cfg.episode_length_s = float(environment.get("episode_length_s", config.get("episode_length_s", env_cfg.episode_length_s)))
+        # B23：取值链改守卫式 —— environment / config 取到的值是 None（请求省略）时
+        # **不动 env_cfg**，保留任务真值（profile/训练源码自带值，如 standup 6s）；
+        # 只有显式提供的非 None 值才覆盖。
+        _episode_length_s = environment.get("episode_length_s")
+        if _episode_length_s is None:
+            _episode_length_s = config.get("episode_length_s")
+        if _episode_length_s is not None:
+            env_cfg.episode_length_s = float(_episode_length_s)
+    # num_envs 是运行层参数（吞吐规模，请求默认 4096 合法，见 models.py），保持硬默认覆盖不变。
     if hasattr(env_cfg.scene, "num_envs"):
         env_cfg.scene.num_envs = max(1, int(environment.get("num_envs", config.get("num_envs", env_cfg.scene.num_envs))))
 

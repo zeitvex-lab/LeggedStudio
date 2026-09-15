@@ -133,6 +133,8 @@ async def create_training(
             "max_iterations": max_iterations,
             "learning_rate": request.learning_rate,
             "save_interval": request.save_interval,
+            # B23：保持键存在但值可为 None（config 组装惯例同 resume_from / profile_id）；
+            # None = 请求省略 → 下游 recipe_registry 不写键、worker 守卫保留任务真值。
             "episode_length_s": request.episode_length_s,
             "task_name": request.task_name,
             "profile_id": request.profile_id,
