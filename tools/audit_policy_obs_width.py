@@ -158,7 +158,10 @@ def audit() -> dict:
         "policy_encoder": [r for r in rows if r["policy_verdict"] == "encoder_consistent"],
         "policy_wrong": [r for r in rows if r["policy_verdict"] in ("wrong", "history_off")],
         "policy_undeclared": [r for r in rows if r["policy_verdict"] == "undeclared"],
-        "multi_input": [r for r in rows if r.get("inputs", 1) > 1],
+        # **未声明**的多输入策略（已用 aux_inputs 声明的不算 —— 否则报告会自相矛盾：
+        # 同一条既出现在"已声明"又出现在"未声明"里，我第一版就是这么错的）。
+        "multi_input": [r for r in rows
+                        if r.get("inputs", 1) > 1 and r["policy_verdict"] != "aux_declared"],
         "rows": rows,
     }
 
