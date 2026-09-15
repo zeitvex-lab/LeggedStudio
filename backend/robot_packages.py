@@ -167,9 +167,10 @@ def _package_roots() -> list[Path]:
 
 
 #: 代码拥有的同步规则修订号。给同步加新职责（C6 基础文件补齐 / D7 加 morphology 视图与
-#: contract_v3.json 镜像）时 bump 它，让既有安装的索引判为 stale 并重跑一次同步（磁盘未变）。
+#: contract_v3.json 镜像 / B13 加 training/config.json 指针文件镜像）时 bump 它，
+#: 让既有安装的索引判为 stale 并重跑一次同步（磁盘未变）。
 #: 提为模块级常量，测试据此动态构造"旧版本 signature"，避免每次 bump 都要改测试。
-SYNC_REVISION = "3"
+SYNC_REVISION = "4"
 
 
 def _package_signature() -> str:
@@ -819,6 +820,24 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
                 if (not dst_v3.exists()
                         or src_v3.read_text(encoding="utf-8-sig") != dst_v3.read_text(encoding="utf-8-sig")):
                     shutil.copy2(src_v3, dst_v3)
+                    synced += 1
+            except OSError:
+                pass
+        # B13：training/config.json 已收口为**指针文件**（robot_id/contract_path/
+        # profile_id/schema_version/backend，尺子 = tools/audit_training_config_layers.py），
+        # 是随包分发的派生物而非用户编辑面——任务真值在 profiles/（Recipe 层），
+        # 运行真值在 Run（B9），无任何代码读它的任务字段。副本同样**镜像源树**（D7 同一
+        # 先例，全量覆盖非合并）：否则旧安装副本会永远保留已删除的 terrain/reward_scales
+        # 等陈旧任务字段，演化出第二套真值。
+        src_tcfg = shipped / "training" / "config.json"
+        dst_tcfg = target / "training" / "config.json"
+        if src_tcfg.exists():
+            try:
+                if not dst_tcfg.parent.exists():
+                    dst_tcfg.parent.mkdir(parents=True, exist_ok=True)
+                if (not dst_tcfg.exists()
+                        or src_tcfg.read_text(encoding="utf-8-sig") != dst_tcfg.read_text(encoding="utf-8-sig")):
+                    shutil.copy2(src_tcfg, dst_tcfg)
                     synced += 1
             except OSError:
                 pass

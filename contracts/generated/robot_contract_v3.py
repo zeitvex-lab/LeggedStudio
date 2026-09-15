@@ -125,7 +125,7 @@ class ObservationComponentV3(_V3Model):
     name: str = Field(min_length=1)
     width: int = Field(ge=1)
     scale: Optional[float] = None
-    source: Literal["imu", "cmd", "actuated", "action", "world", "external", "sim_state"]
+    source: Literal["imu", "cmd", "actuated", "action", "world", "external", "sim_state", "proprio", "clock"]
     wrap: Optional[bool] = None
 
 

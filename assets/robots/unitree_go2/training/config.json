@@ -1,17 +1,5 @@
 {
   "robot_id": "unitree_go2",
   "contract_path": "assets/robots/unitree_go2/contract.json",
-  "profile_id": "go2-velocity-flat",
-  "terrain": {
-    "terrain_type": "plane",
-    "measure_heights": true
-  },
-  "reward_scales": {
-    "track_linear_velocity": 1.0,
-    "track_angular_velocity": 1.0,
-    "body_orientation_l2": -1.0,
-    "action_rate_l2": -0.05,
-    "joint_acc_l2": -2.5e-07,
-    "joint_pos_limits": -10.0
-  }
+  "profile_id": "go2-velocity-flat"
 }

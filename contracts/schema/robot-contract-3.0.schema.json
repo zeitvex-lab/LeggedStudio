@@ -488,9 +488,11 @@
                   "action",
                   "world",
                   "external",
-                  "sim_state"
+                  "sim_state",
+                  "proprio",
+                  "clock"
                 ],
-                "description": "取值来源：imu/cmd/驱动关节/上一动作/世界状态/外部传感器(深度/高度场)/仅仿真可得的状态量(真机 IMU 给不出，如 base_lin_vel ⇒ deployment_available=false)"
+                "description": "取值来源：imu/cmd/驱动关节/上一动作/世界状态/外部传感器(深度/高度场)/仅仿真可得的状态量(真机 IMU 给不出，如 base_lin_vel ⇒ deployment_available=false)/本体系混合块(imu+驱动关节+上一动作的合并声明，逐项拆分未取证时用，如 TRON1 proprio_history)/控制器时钟派生量(步态相位 sin/cos，部署侧按同周期时钟重建，如 g1 gait_phase)"
               },
               "wrap": {
                 "type": "boolean",
@@ -561,9 +563,11 @@
                   "action",
                   "world",
                   "external",
-                  "sim_state"
+                  "sim_state",
+                  "proprio",
+                  "clock"
                 ],
-                "description": "取值来源：imu/cmd/驱动关节/上一动作/世界状态/外部传感器(深度/高度场)"
+                "description": "取值来源：imu/cmd/驱动关节/上一动作/世界状态/外部传感器(深度/高度场)/本体系混合块(proprio)/控制器时钟派生量(clock)"
               },
               "wrap": {
                 "type": "boolean",
