@@ -35,6 +35,8 @@ from mjlab.tasks.velocity import mdp as velocity_mdp
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
 from mjlab.utils.noise import UniformNoiseCfg as Unoise
 
+import mujoco
+
 from . import lite3_rewards as lite3_mdp
 from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
 from .robot_constants import get_lite3_robot_cfg
@@ -64,11 +66,44 @@ def _configure_height_sensors(cfg: ManagerBasedRlEnvCfg) -> None:
             sensor.frame.name = _ROOT_BODY
         elif sensor.name == "foot_height_scan":
             assert isinstance(sensor, TerrainHeightSensorCfg)
+            # 帧=足端 body(MJCF robot.xml:68/92/115/138),site 不存在故用 body,语义=足端原点不变
             sensor.frame = tuple(
-                ObjRef(type="site", name=lr, entity="robot")
+                ObjRef(type="body", name=f"{lr}_FOOT", entity="robot")
                 for lr in ("FL", "FR", "HL", "HR")
             )
             sensor.pattern = RingPatternCfg.single_ring(radius=0.04, num_samples=4)
+
+
+def _lite3_robot_cfg_with_named_sensors():
+    """Lite3 robot EntityCfg with all MJCF sensors named.
+
+    robot.xml:192-193 defines an unnamed <accelerometer>/<gyro> on imu_site.
+    Scene._add_sensors auto-wraps every spec sensor via
+    BuiltinSensor.from_existing(sns.name); an unnamed sensor yields '' and
+    env construction dies at mj_model.sensor('') (KeyError: Invalid name '').
+    Fix here (only env_cfg.py is editable): give unnamed sensors stable names
+    (robot/imu_accelerometer, robot/imu_gyro after entity prefixing). Sensor
+    type/site/semantics unchanged.
+    """
+    robot_cfg = get_lite3_robot_cfg()
+    base_spec_fn = robot_cfg.spec_fn
+
+    _TYPE_NAMES = {
+        int(mujoco.mjtSensor.mjSENS_ACCELEROMETER): "imu_accelerometer",
+        int(mujoco.mjtSensor.mjSENS_GYRO): "imu_gyro",
+    }
+
+    def spec_fn():
+        spec = base_spec_fn()
+        for sensor in spec.sensors:
+            if not sensor.name:
+                sensor.name = _TYPE_NAMES.get(
+                    int(sensor.type), f"imu_sensor_{int(sensor.type)}"
+                )
+        return spec
+
+    robot_cfg.spec_fn = spec_fn
+    return robot_cfg
 
 def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Lite3 rough-terrain configuration (official reward recipe)."""
@@ -76,7 +111,7 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg.sim.mujoco.ccd_iterations = 500
     cfg.sim.contact_sensor_maxmatch = 500
     cfg.sim.nconmax = None  # full-body contact sensors need headroom
-    cfg.scene.entities = {"robot": get_lite3_robot_cfg()}
+    cfg.scene.entities = {"robot": _lite3_robot_cfg_with_named_sensors()}
     _configure_height_sensors(cfg)
 
     all_joint_cfg = SceneEntityCfg("robot", joint_names=list(ALL_JOINTS), preserve_order=True)

@@ -170,7 +170,7 @@ def go2_wtw_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
     if play:
         cfg.episode_length_s = int(1e9)
-        cfg.observations["policy"].enable_corruption = False
+        cfg.observations["actor"].enable_corruption = False
         cfg.curriculum = {}
         if cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
             terrain = cfg.scene.terrain.terrain_generator

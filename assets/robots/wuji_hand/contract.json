@@ -59,7 +59,7 @@
     ]
   },
   "observation": {
-    "dimension": 0,
+    "dimension": 69,
     "components": [
       "noisy_joint_angles",
       "qpos_error",

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "legged-studio"
-version = "0.55.8"
+version = "0.55.9"
 description = "Legged Robot RL Studio - Full-stack tool for training, evaluation, and deployment"
 readme = "README.md"
 license = "MIT"
