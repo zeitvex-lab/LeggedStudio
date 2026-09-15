@@ -227,7 +227,18 @@
     "action_scale": 1.0
   },
   "observation": {
-    "components": [],
+    "components": [
+      {
+        "name": "proprio",
+        "width": 61,
+        "source": "proprio",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "逐项未取证：上游 `microduck_rl` 是**基线 + 增量**式（actor 侧 del base_lin_vel / del height_scan，新增 raw_accelerometer，并给 IMU 项设了 delay_max_lag 0→1），最终项清单须回基线 cfg 才能拼准，故按一块声明而不是从增量反推 —— 自洽但推错是最坏结果。宽度 61 取自策略自身声明（7 条策略全 61）并经 ONNX 尺子核对 ✓。"
+      }
+    ],
     "dimension": 61
   },
   "control": {
