@@ -1,0 +1,9 @@
+{
+  "artifact_id": "wuji_hand__produced-wuji_hand_right_v1_20260916_070954_372036",
+  "kind": "produced",
+  "onnx_bytes": 1110013,
+  "onnx_sha256": "b2276285833dd5e747645a8078f93f7f8a88b3d79bd5b074c7b65016b7076fda",
+  "run_id": "wuji_hand_right_v1_20260916_070954_372036",
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "policies/wuji_hand__produced-wuji_hand_right_v1_20260916_070954_372036/policy.onnx"
+}

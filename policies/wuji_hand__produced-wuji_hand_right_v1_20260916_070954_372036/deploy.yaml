@@ -1,0 +1,30 @@
+robot: wuji_hand
+policy_id: wuji_hand__produced-wuji_hand_right_v1_20260916_070954_372036
+kind: produced
+run_id: wuji_hand_right_v1_20260916_070954_372036
+seed: 7
+source_onnx: product-training（训练→导出→入库链路自产）
+obs_dim: 69
+action_dim: 20
+action_joint_order:
+  - right_finger1_joint1
+  - right_finger1_joint2
+  - right_finger1_joint3
+  - right_finger1_joint4
+  - right_finger2_joint1
+  - right_finger2_joint2
+  - right_finger2_joint3
+  - right_finger2_joint4
+  - right_finger3_joint1
+  - right_finger3_joint2
+  - right_finger3_joint3
+  - right_finger3_joint4
+  - right_finger4_joint1
+  - right_finger4_joint2
+  - right_finger4_joint3
+  - right_finger4_joint4
+  - right_finger5_joint1
+  - right_finger5_joint2
+  - right_finger5_joint3
+  - right_finger5_joint4
+trained_iterations: 5
