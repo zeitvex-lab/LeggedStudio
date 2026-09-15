@@ -727,6 +727,26 @@
     },
     {
       "id": "go2-pie-parkour",
+      "aux_inputs": [
+        {
+          "name": "proprio_history",
+          "shape": [10, 45],
+          "produced_by": "external:history_buffer",
+          "note": "输入名与形状取自 ONNX 本体（proprio_history (1,450)）；10 帧由 450/45 推得"
+        },
+        {
+          "name": "depth_history",
+          "shape": [2, 60, 86],
+          "produced_by": "external:depth_camera",
+          "note": "输入名与形状取自 ONNX 本体"
+        },
+        {
+          "name": "memory_h_in",
+          "shape": [1, 128],
+          "produced_by": "external:recurrent_state",
+          "note": "输入名与形状取自 ONNX 本体；PIE 是 memory-based 策略，这是它的循环隐状态"
+        }
+      ],
       "label": "Go2 PIE 深度跑酷 (parkour_mjlab)",
       "obs_dim": 45,
       "action_dim": 12,
@@ -1286,6 +1306,14 @@
     {
       "id": "go2-baseline-164k",
       "obs_dim": 45,
+      "aux_inputs": [
+        {
+          "name": "history",
+          "shape": [5, 45],
+          "produced_by": "external:history_buffer",
+          "note": "输入名与形状取自 ONNX 本体（history (1,5,45)）；与 history_len 5 自洽"
+        }
+      ],
       "contract": {
         "task_type": "velocity"
       },

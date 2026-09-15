@@ -109,9 +109,10 @@ def audit() -> dict:
         # 别拿单帧数直接比堆叠宽度（我自己第一版就漏乘了 history_len，把 16 条堆叠误判成"声明错"）。
         frames = policy_hist or 1
         if len(shapes) > 1:
-            # 多输入策略（obs + 历史缓冲 buffer / 视觉）：**单输入口径不适用** —— 如实单列，不当错。
-            # 例：go2-baseline-164k = obs(45) + history(5,45)，`obs_dim 45 / history_len 5` 是对的。
-            policy_verdict = "multi_input"
+            # 多输入策略（obs + 历史缓冲 / 深度 / 循环隐状态）：**单输入口径不适用** —— 不当错。
+            # 若策略已用 `aux_inputs` 把"外部提供的输入"逐项声明（名/形状/produced_by），
+            # 则记为 `aux_declared`（**已accounted**）；否则记为 `multi_input`（待声明）。
+            policy_verdict = "aux_declared" if entry.get("aux_inputs") else "multi_input"
         elif policy_dim is None:
             policy_verdict = "undeclared"
         elif policy_dim * frames == width:
@@ -186,10 +187,18 @@ def main() -> int:
               "（包级块表达不了逐策略布局，这些只能靠策略级声明）")
         for row in report["policy_undeclared"][:12]:
             print(f"  ? {row['robot']:<22} {row['policy']:<28} 实际 {row['width']}")
+    aux_declared = [row for row in report["rows"] if row["policy_verdict"] == "aux_declared"]
+    if aux_declared:
+        print(f"\n多输入且**已用 aux_inputs 声明**：{len(aux_declared)} 条"
+              "（名/形状/来源逐项在策略声明里，可核）")
+        for row in aux_declared:
+            print(f"  ✓ {row['robot']:<22} {row['policy']:<28} inputs={row.get('inputs')}"
+                  f" 首输入={row['width']}")
     if report["multi_input"]:
-        print(f"\n多输入策略 {len(report['multi_input'])} 条（**不能只取第一个输入**）：")
+        print(f"\n**未声明**的多输入策略：{len(report['multi_input'])} 条"
+              "（单输入口径不适用，应补 aux_inputs）")
         for row in report["multi_input"]:
-            print(f"  · {row['robot']:<22} {row['policy']:<28} inputs={row.get('inputs')}"
+            print(f"  ? {row['robot']:<22} {row['policy']:<28} inputs={row.get('inputs')}"
                   f" 首输入={row['width']}")
     if report["history_stack"]:
         print("\n历史堆叠（策略输入 = 声明宽度 × N 帧）：")
