@@ -3,10 +3,6 @@
   "contract_path": "assets/robots/unitree_go2w/contract.json",
   "profile_id": "go2w-flat",
   "backend": "native_mjlab",
-  "max_iterations": 10000,
-  "learning_rate": 0.001,
-  "save_interval": 1000,
-  "seed": 1,
   "terrain": {
     "terrain_type": "plane"
   }
