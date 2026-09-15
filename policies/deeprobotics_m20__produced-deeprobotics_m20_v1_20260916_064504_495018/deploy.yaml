@@ -1,0 +1,26 @@
+robot: deeprobotics_m20
+policy_id: deeprobotics_m20__produced-deeprobotics_m20_v1_20260916_064504_495018
+kind: produced
+run_id: deeprobotics_m20_v1_20260916_064504_495018
+seed: 7
+source_onnx: product-training（训练→导出→入库链路自产）
+obs_dim: 57
+action_dim: 16
+action_joint_order:
+  - fl_hipx_joint
+  - fl_hipy_joint
+  - fl_knee_joint
+  - fr_hipx_joint
+  - fr_hipy_joint
+  - fr_knee_joint
+  - hl_hipx_joint
+  - hl_hipy_joint
+  - hl_knee_joint
+  - hr_hipx_joint
+  - hr_hipy_joint
+  - hr_knee_joint
+  - fl_wheel_joint
+  - fr_wheel_joint
+  - hl_wheel_joint
+  - hr_wheel_joint
+trained_iterations: 5

@@ -1,9 +1,9 @@
 """Unitree B2 robot constants for the package-local velocity task.
 
 The MJCF, actuator tuning and collision layout are owned by this robot
-package.  The training model is ``model/robot.xml`` (no built-in actuators;
-they are injected here), so the simulation and training paths share one
-source of truth.
+package.  The training model is ``model/robot.xml`` (built-in position
+actuators; see the adjudication note below), so the simulation and
+training paths share one source of truth.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import mujoco
-from mjlab.actuator import BuiltinPositionActuatorCfg
+from mjlab.actuator import XmlActuatorCfg
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.utils.spec_config import CollisionCfg
 
@@ -26,28 +26,43 @@ def get_spec() -> mujoco.MjSpec:
 
 ##
 # Actuator config.
+#
+# B35(B28 同族)裁决:MJCF 为执行真值。model/robot.xml 的 <actuator> 段已内建
+# 全部 12 个执行器(12 个 <position>:kp=160 kv=5,forcerange hip/thigh ±200、
+# calf ±320 且 forcelimited;执行器名字与目标关节同名,如 "FL_hip_joint"),
+# 且所有腿关节 armature=0.1、frictionloss=0 已写在 <joint> 上。训练源不得对
+# 这些关节重复注入执行器(再 spec.add_actuator 同名即抛 repeated name
+# 'FL_hip_joint' in actuator → env 构建即崩,即 B35 冒烟所见)。
+#
+# 因此这里不再用 BuiltinPositionActuatorCfg 重新生成执行器,而是用
+# XmlActuatorCfg 显式「以 MJCF 为准」包装既有执行器(B28 先例):gains/limits/
+# armature 全部沿用 MJCF 定义,本模块不提供任何覆盖参数,Xml 沿用不重设。
+# 包装同时保持 entity._actuators 非空——动作侧(JointPositionAction 经
+# Entity.find_joints_by_actuator_names 解析被驱动关节)与观测/随机化侧
+# (actuator_ids → ctrl_ids)依赖该列表,故「整体跳过注册(空 actuators)」
+# 不可行,只能包装。XmlActuator.compute 按 command_field 转发:position 组
+# 出 position_target,与原 Builtin 语义一致。
+#
+# 参数差异(旧训练 cfg 曾写 vs MJCF 真值,逐项对照):
+#   hip/thigh:cfg stiffness=160/damping=5/effort_limit=200/armature=0.1 与
+#   MJCF kp=160/kv=5/forcerange ±200/<joint armature="0.1"> 全部一致。
+#   calf:cfg stiffness=160/damping=5/effort_limit=320/armature=0.1 与 MJCF
+#   kp=160/kv=5/forcerange ±320/<joint armature="0.1"> 全部一致。
+#   即 b2 无实质参数差异(b2w 的 calf effort 300 残留问题在本包不存在),
+#   包装后运行时执行器数值与 MJCF 完全相同。
 ##
 
-B2_ACTUATOR_HIP = BuiltinPositionActuatorCfg(
+B2_ACTUATOR_HIP = XmlActuatorCfg(
     target_names_expr=(".*hip.*",),
-    stiffness=160.0,
-    damping=5.0,
-    effort_limit=200.0,
-    armature=0.1,
+    command_field="position",
 )
-B2_ACTUATOR_THIGH = BuiltinPositionActuatorCfg(
+B2_ACTUATOR_THIGH = XmlActuatorCfg(
     target_names_expr=(".*thigh.*",),
-    stiffness=160.0,
-    damping=5.0,
-    effort_limit=200.0,
-    armature=0.1,
+    command_field="position",
 )
-B2_ACTUATOR_CALF = BuiltinPositionActuatorCfg(
+B2_ACTUATOR_CALF = XmlActuatorCfg(
     target_names_expr=(".*calf.*",),
-    stiffness=160.0,
-    damping=5.0,
-    effort_limit=320.0,
-    armature=0.1,
+    command_field="position",
 )
 
 ##
@@ -102,8 +117,7 @@ def get_b2_robot_cfg() -> EntityCfg:
 
 B2_ACTION_SCALE: dict[str, float] = {}
 for actuator in B2_ARTICULATION.actuators:
-    assert isinstance(actuator, BuiltinPositionActuatorCfg)
-    assert actuator.effort_limit is not None
+    assert isinstance(actuator, XmlActuatorCfg)
     for expression in actuator.target_names_expr:
         B2_ACTION_SCALE[expression] = 0.25
 

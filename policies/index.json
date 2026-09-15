@@ -1015,11 +1015,29 @@
       "run_id": "deeprobotics_lite3_v1_20260916_054529_862107",
       "schema": "policy-artifact-1.0",
       "source_onnx": "policies/deeprobotics_lite3__produced-deeprobotics_lite3_v1_20260916_054529_862107/policy.onnx"
+    },
+    {
+      "artifact_id": "deeprobotics_m20__produced-deeprobotics_m20_v1_20260916_064504_495018",
+      "kind": "produced",
+      "onnx_bytes": 787529,
+      "onnx_sha256": "fa816f58698581914e2bb71ad53c2a724f6b3f74c1a152309a7b373cc5ef6ca4",
+      "run_id": "deeprobotics_m20_v1_20260916_064504_495018",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "policies/deeprobotics_m20__produced-deeprobotics_m20_v1_20260916_064504_495018/policy.onnx"
+    },
+    {
+      "artifact_id": "unitree_b2__produced-unitree_b2_v1_20260916_064556_962139",
+      "kind": "produced",
+      "onnx_bytes": 766846,
+      "onnx_sha256": "dafcd559d7f33553250802883d11154a19bf66065f76ff494a0cac46741a1409",
+      "run_id": "unitree_b2_v1_20260916_064556_962139",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "policies/unitree_b2__produced-unitree_b2_v1_20260916_064556_962139/policy.onnx"
     }
   ],
   "blobs": "引用式：onnx 仍单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目例外（训练产物入库时 policy.onnx 是唯一副本，真复制）",
-  "count": 54,
-  "generated_at": "2026-09-15T21:46:03+00:00",
+  "count": 56,
+  "generated_at": "2026-09-15T22:46:30+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"
 }
