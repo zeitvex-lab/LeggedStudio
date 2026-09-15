@@ -44,3 +44,21 @@ def _invoked_as_train() -> bool:
     return prog.removesuffix(".py").removesuffix("-script") == "train"
 
 
+def maybe_submit_to_hf_jobs() -> None:
+    """Consume `--hf-jobs` and exit the process; a no-op without the flag.
+
+    Called at import time of `mjlab_microduck.tasks`, so it runs inside mjlab's
+    plugin loader. `SystemExit` is a `BaseException`, so it propagates through
+    the loader's `except Exception` and out of `import mjlab` — the local
+    trainer never starts.
+    """
+    if _FLAG not in sys.argv[1:]:
+        return
+    if os.environ.get(_IN_JOB_ENV):
+        return
+    if not _invoked_as_train():
+        return
+
+    from mjlab_microduck.hf_jobs import submit
+
+    sys.exit(submit([a for a in sys.argv[1:] if a != _FLAG]))

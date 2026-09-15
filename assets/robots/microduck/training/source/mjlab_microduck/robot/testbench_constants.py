@@ -56,3 +56,12 @@ testbench_actuators = BamActuatorCfg(
 )
 
 
+XL330_TESTBENCH_ROBOT_CFG = EntityCfg(
+    spec_fn=get_testbench_spec,
+    init_state=HOME_FRAME,
+    collisions=(),
+    articulation=EntityArticulationInfoCfg(
+        actuators=(testbench_actuators,),
+        soft_joint_pos_limit_factor=1.0,
+    ),
+)

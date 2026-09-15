@@ -26,17 +26,22 @@ MICRODUCK_ALLCOLLISIONS_XML: Path = _ROBOT_DIR / "robot_allcollisions.xml"
 # 70mm / 15g ball prop for the BallKick task.
 MICRODUCK_BALL_XML: Path = _ROBOT_DIR / "ball.xml"
 # Roller-skate model: 14 actuated joints + passive wheel hinges (passive_*wheel).
+MICRODUCK_GROUNDCONTACT_ROLLERS_XML: Path = _ROBOT_DIR / "robot_groundcontact_rollers.xml"
 # Backlash models: every servo joint gets an unactuated passive_<joint>_backlash
 # hinge in series (±1° play, 2° total). Exported via
 # config_mjcf_{groundcontact,walk}_backlash.json (add_backlash.py post-processor).
 MICRODUCK_GROUNDCONTACT_BACKLASH_XML: Path = _ROBOT_DIR / "robot_groundcontact_backlash.xml"
 MICRODUCK_WALK_BACKLASH_XML: Path = _ROBOT_DIR / "robot_walk_backlash.xml"
+MICRODUCK_GROUNDCONTACT_ROLLERS_BACKLASH_XML: Path = _ROBOT_DIR / "robot_groundcontact_rollers_backlash.xml"
+
 assert MICRODUCK_WALK_XML.exists(), f"XML not found: {MICRODUCK_WALK_XML}"
 assert MICRODUCK_GROUNDCONTACT_XML.exists(), f"XML not found: {MICRODUCK_GROUNDCONTACT_XML}"
 assert MICRODUCK_ALLCOLLISIONS_XML.exists(), f"XML not found: {MICRODUCK_ALLCOLLISIONS_XML}"
 assert MICRODUCK_BALL_XML.exists(), f"XML not found: {MICRODUCK_BALL_XML}"
+assert MICRODUCK_GROUNDCONTACT_ROLLERS_XML.exists(), f"XML not found: {MICRODUCK_GROUNDCONTACT_ROLLERS_XML}"
 assert MICRODUCK_GROUNDCONTACT_BACKLASH_XML.exists(), f"XML not found: {MICRODUCK_GROUNDCONTACT_BACKLASH_XML}"
 assert MICRODUCK_WALK_BACKLASH_XML.exists(), f"XML not found: {MICRODUCK_WALK_BACKLASH_XML}"
+assert MICRODUCK_GROUNDCONTACT_ROLLERS_BACKLASH_XML.exists(), f"XML not found: {MICRODUCK_GROUNDCONTACT_ROLLERS_BACKLASH_XML}"
 
 
 def get_walk_spec() -> mujoco.MjSpec:
@@ -51,6 +56,16 @@ def get_ground_pick_spec() -> mujoco.MjSpec:
     return mujoco.MjSpec.from_file(str(MICRODUCK_GROUNDCONTACT_XML))
 
 
+def get_walk_rollers_spec() -> mujoco.MjSpec:
+    # NOTE: was loading robot_groundcontact.xml (no wheels) — the roller env
+    # silently ran on the wheel-less standup model.
+    return mujoco.MjSpec.from_file(str(MICRODUCK_GROUNDCONTACT_ROLLERS_XML))
+
+
+def get_allcollisions_spec() -> mujoco.MjSpec:
+    return mujoco.MjSpec.from_file(str(MICRODUCK_ALLCOLLISIONS_XML))
+
+
 def get_ball_spec() -> mujoco.MjSpec:
     return mujoco.MjSpec.from_file(str(MICRODUCK_BALL_XML))
 
@@ -61,6 +76,10 @@ def get_backlash_spec() -> mujoco.MjSpec:
 
 def get_walk_backlash_spec() -> mujoco.MjSpec:
     return mujoco.MjSpec.from_file(str(MICRODUCK_WALK_BACKLASH_XML))
+
+
+def get_rollers_backlash_spec() -> mujoco.MjSpec:
+    return mujoco.MjSpec.from_file(str(MICRODUCK_GROUNDCONTACT_ROLLERS_BACKLASH_XML))
 
 
 HOME_FRAME = EntityCfg.InitialStateCfg(
@@ -174,6 +193,15 @@ MICRODUCK_STANDUP_ROBOT_CFG = EntityCfg(
     ),
 )
 
+MICRODUCK_GROUND_PICK_ROBOT_CFG = EntityCfg(
+    spec_fn=get_ground_pick_spec,
+    init_state=HOME_FRAME,
+    collisions=(FULL_COLLISION,),
+    articulation=EntityArticulationInfoCfg(
+        actuators=(actuators,),
+        soft_joint_pos_limit_factor=0.9,
+    ),
+)
 
 # Backlash robots: base model + ±1° serial backlash hinge per servo.
 # Encoder reads through the backlash (BacklashEncoderBamActuator feedback +
@@ -182,11 +210,61 @@ MICRODUCK_STANDUP_ROBOT_CFG = EntityCfg(
 # MICRODUCK_STANDUP_ROBOT_CFG); walk variant → Velocity backlash
 # tasks (mirrors MICRODUCK_WALK_ROBOT_CFG, keeps backlash-vs-base comparisons
 # unconfounded by the collision model).
+MICRODUCK_BACKLASH_ROBOT_CFG = EntityCfg(
+    spec_fn=get_backlash_spec,
+    init_state=BACKLASH_HOME_FRAME,
+    collisions=(FULL_COLLISION,),
+    articulation=EntityArticulationInfoCfg(
+        actuators=(backlash_actuators,),
+        soft_joint_pos_limit_factor=0.9,
+    ),
+)
 
+MICRODUCK_WALK_BACKLASH_ROBOT_CFG = EntityCfg(
+    spec_fn=get_walk_backlash_spec,
+    init_state=BACKLASH_HOME_FRAME,
+    collisions=(FULL_COLLISION,),
+    articulation=EntityArticulationInfoCfg(
+        actuators=(backlash_actuators,),
+        soft_joint_pos_limit_factor=0.9,
+    ),
+)
+
+# Roller-skate backlash robot: wheels stay free (passive_*wheel untouched by
+# add_backlash.py). collisions=() mirrors MICRODUCK_WALK_ROLLERS_ROBOT_CFG —
+# roller wheel collision geoms have no explicit names; XML defaults apply.
+MICRODUCK_ROLLERS_BACKLASH_ROBOT_CFG = EntityCfg(
+    spec_fn=get_rollers_backlash_spec,
+    init_state=BACKLASH_HOME_FRAME,
+    collisions=(),
+    articulation=EntityArticulationInfoCfg(
+        actuators=(backlash_actuators,),
+        soft_joint_pos_limit_factor=0.9,
+    ),
+)
 
 # Free-floating, non-articulated ball prop for the BallKick task. Position is
 # set each episode by the reset_ball_in_front_of_foot event; the init pos here
 # only matters for the pristine pre-first-reset state.
+MICRODUCK_BALL_CFG = EntityCfg(
+    spec_fn=get_ball_spec,
+    init_state=EntityCfg.InitialStateCfg(pos=(0.3, 0.0, 0.035)),
+)
+
+# Roller skate robot: the 4 passive wheel joints (passive_*wheel) have no XML
+# actuators; the BAM cfg's target regex already excludes them, so the action
+# space stays 14-dimensional. Uses the SAME canonical BAM actuator as every
+# other variant (was a plain XmlActuatorCfg PD — an actuator-physics mismatch
+# vs the rest of the family, and joint-friction DR was impossible).
+MICRODUCK_WALK_ROLLERS_ROBOT_CFG = EntityCfg(
+    spec_fn=get_walk_rollers_spec,
+    init_state=HOME_FRAME,
+    collisions=(),  # roller wheel collision geoms have no explicit names; XML defaults apply
+    articulation=EntityArticulationInfoCfg(
+        actuators=(actuators,),
+        soft_joint_pos_limit_factor=0.9,
+    ),
+)
 
 if __name__ == "__main__":
     import mujoco.viewer as viewer

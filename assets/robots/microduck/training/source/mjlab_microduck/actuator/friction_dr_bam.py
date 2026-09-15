@@ -104,3 +104,9 @@ class BacklashEncoderBamActuator(FrictionDRBamActuator):
         return dataclasses.replace(cmd, pos=pos)
 
 
+@dataclass(kw_only=True)
+class BacklashEncoderBamActuatorCfg(FrictionDRBamActuatorCfg):
+    """FrictionDRBamActuatorCfg whose PD feedback reads through backlash joints."""
+
+    def build(self, entity, target_ids, target_names) -> BacklashEncoderBamActuator:
+        return BacklashEncoderBamActuator(self, entity, target_ids, target_names)
