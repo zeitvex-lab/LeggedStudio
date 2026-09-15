@@ -356,14 +356,54 @@
   "observation": {
     "components": [
       {
-        "name": "proprio",
-        "width": 69,
-        "source": "proprio",
+        "name": "noisy_joint_angles",
+        "width": 20,
+        "source": "actuated",
         "role": "actor",
         "history": 3,
         "encoder": null,
         "deployment_available": true,
-        "note": "**包级 dimension 由 0 修正为 69**：策略自身声明 obs_dim 69 × history_len 3 = 207（ONNX 实测吻合 ✓），此前声明 0 等于说「这台机器人不需要观测」✗。逐项未取证：上游 wuji-mjlab 的训练侧观测与部署侧分开（部署侧 real_hand_obs.py 从 ZMQ 读 cube pose），须专项组装。history=3 来自策略声明并经尺子核对 ✓；cube 位姿在真机由外部提供（同属 encoder 语义待扩展的那一类）。"
+        "note": "joint_pos_limit_normalized（关节角限幅归一化，注入噪声 ±0.06）。reorient_terms.py:59"
+      },
+      {
+        "name": "qpos_error",
+        "width": 20,
+        "source": "actuated",
+        "role": "actor",
+        "history": 3,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "joint_pos_target_error（当前关节角 − 目标关节角，目标来自上位机 reorient 命令）。reorient_terms.py:64"
+      },
+      {
+        "name": "cube_pos_in_tag",
+        "width": 3,
+        "source": "external",
+        "role": "actor",
+        "history": 3,
+        "encoder": "external:cube_pose_vision",
+        "deployment_available": true,
+        "note": "**tag 帧下的 cube 绝对位置**（上游注释明言 Absolute cube position in tag frame）。真机由视觉/ZMQ 提供 cube 位姿（部署侧 real_hand_obs.py 从 ZMQ 读 cube pose），非机器人本体传感器 ⇒ encoder 标 external。reorient_terms.py:69"
+      },
+      {
+        "name": "cube_ori_error",
+        "width": 6,
+        "source": "external",
+        "role": "actor",
+        "history": 3,
+        "encoder": "external:cube_pose_vision",
+        "deployment_available": true,
+        "note": "goal_rot_err_6d（6D 旋转误差：需 cube 当前朝向（视觉）+ 目标朝向（上位机））。reorient_terms.py:75"
+      },
+      {
+        "name": "action_history",
+        "width": 20,
+        "source": "action",
+        "role": "actor",
+        "history": 3,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "previous_raw_action（上一步原始动作）。reorient_terms.py:85"
       }
     ],
     "dimension": 69
