@@ -58,7 +58,6 @@ def resolve_recipe(config: dict[str, Any]) -> TrainingRecipe:
         raise ValueError(f"reward terms not supported by the generic mjlab task — {_reasons}")
     environment = {
         "num_envs": int(config.get("num_envs", 4096)),
-        "episode_length_s": float(config.get("episode_length_s", 20.0)),
         "terrain_type": str(config.get("terrain_type", TASKS[task_name]["terrain"])),
         "terrain": dict(config.get("terrain", {})),
         "command_ranges": dict(config.get("command_ranges", {})),
@@ -66,6 +65,12 @@ def resolve_recipe(config: dict[str, Any]) -> TrainingRecipe:
         "curriculum": dict(config.get("curriculum", {})),
         "reward_params": dict(config.get("reward_params", {})),
     }
+    # B23：只有请求**显式提供** episode_length_s 才写进 recipe 的 environment；
+    # 省略（None）→ 键不存在（不是 null），worker 守卫因此保留 env_cfg 的任务真值
+    # （profile/训练源码），而不是拿硬默认 20.0 冒充真值。
+    _episode_length_s = config.get("episode_length_s")
+    if _episode_length_s is not None:
+        environment["episode_length_s"] = float(_episode_length_s)
     algorithm_config = {key: value for key, value in config.items() if key not in {"task_name", "algorithm", "reward_scales", "num_envs", "episode_length_s", "terrain_type"}}
     backend = str(config.get("backend", "native_mjlab"))
     if backend != "native_mjlab":

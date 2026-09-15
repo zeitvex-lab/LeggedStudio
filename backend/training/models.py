@@ -44,7 +44,10 @@ class CreateTrainingRequest(BaseModel):
     max_iterations: int = 1000
     learning_rate: float = 3e-4
     save_interval: int = 100
-    episode_length_s: float = 20.0
+    # B23：None = 请求未提供 → 沿用任务真值（Recipe/训练源码里 env_cfg 自带的
+    # episode_length_s，如 microduck standup 6s）；只有显式提供才覆盖（V2 单一真值 +
+    # V4 杜绝静默变差）。显式提供时必须 > 0；None 跳过 gt 校验（pydantic 语义）。
+    episode_length_s: float | None = Field(default=None, gt=0.0)
     task_name: str = "forward_walk"
     profile_id: str | None = None
     terrain_type: str = "plane"
