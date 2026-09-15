@@ -1,9 +1,5 @@
 {
   "robot_id": "deeprobotics_lite3",
   "contract_path": "assets/robots/deeprobotics_lite3/contract.json",
-  "profile_id": "deeprobotics_lite3-velocity",
-  "task_name": "velocity",
-  "algorithm": "PPO",
-  "num_envs": 4096,
-  "episode_length_s": 20.0
+  "profile_id": "deeprobotics_lite3-velocity"
 }

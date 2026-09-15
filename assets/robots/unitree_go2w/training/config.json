@@ -2,30 +2,12 @@
   "robot_id": "unitree_go2w",
   "contract_path": "assets/robots/unitree_go2w/contract.json",
   "profile_id": "go2w-flat",
-  "task_name": "go2w_velocity_flat",
-  "algorithm": "PPO",
   "backend": "native_mjlab",
-  "num_envs": 4096,
-  "episode_length_s": 20.0,
   "max_iterations": 10000,
   "learning_rate": 0.001,
   "save_interval": 1000,
   "seed": 1,
   "terrain": {
     "terrain_type": "plane"
-  },
-  "command_ranges": {
-    "lin_vel_x": [
-      -0.5,
-      1.0
-    ],
-    "lin_vel_y": [
-      0.0,
-      0.0
-    ],
-    "ang_vel_z": [
-      -1.0,
-      1.0
-    ]
   }
 }
