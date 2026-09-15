@@ -79,7 +79,7 @@ def unitree_go2w_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       {"step": 5000 * 24, "lin_vel_x": (-0.8, 1.5), "ang_vel_z": (-1.0, 1.0)},
     ]
 
-  for group_name in ("policy", "critic"):
+  for group_name in ("actor", "critic"):
     terms = cfg.observations[group_name].terms
     actions_term = terms.pop("actions")
 
@@ -88,17 +88,17 @@ def unitree_go2w_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     terms["wheel_joint_pos_rel"] = ObservationTermCfg(
       func=mdp.wheel_joint_pos_rel,
       params={"asset_cfg": wheel_joint_cfg},
-      noise=Unoise(n_min=-0.01, n_max=0.01) if group_name == "policy" else None,
+      noise=Unoise(n_min=-0.01, n_max=0.01) if group_name == "actor" else None,
     )
     terms["wheel_joint_vel_rel"] = ObservationTermCfg(
       func=mdp.wheel_joint_vel_rel,
       params={"asset_cfg": wheel_joint_cfg},
-      noise=Unoise(n_min=-1.0, n_max=1.0) if group_name == "policy" else None,
+      noise=Unoise(n_min=-1.0, n_max=1.0) if group_name == "actor" else None,
     )
     terms["actions"] = actions_term
 
-  cfg.observations["policy"].terms["base_ang_vel"].func = mdp.base_ang_vel
-  cfg.observations["policy"].terms["base_ang_vel"].params = {}
+  cfg.observations["actor"].terms["base_ang_vel"].func = mdp.base_ang_vel
+  cfg.observations["actor"].terms["base_ang_vel"].params = {}
   cfg.observations["critic"].terms["base_ang_vel"].func = mdp.base_ang_vel
   cfg.observations["critic"].terms["base_ang_vel"].params = {}
   cfg.observations["critic"].terms["base_lin_vel"].func = mdp.base_lin_vel
@@ -180,7 +180,7 @@ def unitree_go2w_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
   if play:
     cfg.episode_length_s = int(1e9)
-    cfg.observations["policy"].enable_corruption = False
+    cfg.observations["actor"].enable_corruption = False
     cfg.events.pop("push_robot", None)
 
     if cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:

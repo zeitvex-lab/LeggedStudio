@@ -39,7 +39,10 @@ from . import lite3_rewards as lite3_mdp
 from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
 from .robot_constants import get_lite3_robot_cfg
 
-_ROOT_BODY = "base_link"
+# Root body name must match the MJCF root body (robot.xml:47 <body name="TORSO">);
+# "base_link" does not exist in the MJCF and breaks mjlab raycast sensor init
+# (ValueError: Invalid name 'robot/base_link').
+_ROOT_BODY = "TORSO"
 FOOT_PATTERN = r".*_SHANK"
 FOOT_BODIES = [f"{lr}_SHANK" for lr in ("FL", "FR", "HL", "HR")]
 NON_FOOT_PATTERN = r"^(?!.*_SHANK).*"
@@ -161,22 +164,22 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     for group_name in ("actor", "critic"):
         cfg.observations[group_name].terms = {
             "base_ang_vel": ObservationTermCfg(
-                func=envs_mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2) if group_name == "policy" else None
+                func=envs_mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2) if group_name == "actor" else None
             ),
             "projected_gravity": ObservationTermCfg(
                 func=envs_mdp.projected_gravity,
-                noise=Unoise(n_min=-0.05, n_max=0.05) if group_name == "policy" else None,
+                noise=Unoise(n_min=-0.05, n_max=0.05) if group_name == "actor" else None,
             ),
             "command": ObservationTermCfg(func=envs_mdp.generated_commands, params={"command_name": "twist"}),
             "joint_pos_rel": ObservationTermCfg(
                 func=envs_mdp.joint_pos_rel,
                 params={"asset_cfg": all_joint_cfg},
-                noise=Unoise(n_min=-0.01, n_max=0.01) if group_name == "policy" else None,
+                noise=Unoise(n_min=-0.01, n_max=0.01) if group_name == "actor" else None,
             ),
             "joint_vel_rel": ObservationTermCfg(
                 func=envs_mdp.joint_vel_rel,
                 params={"asset_cfg": all_joint_cfg},
-                noise=Unoise(n_min=-1.5, n_max=1.5) if group_name == "policy" else None,
+                noise=Unoise(n_min=-1.5, n_max=1.5) if group_name == "actor" else None,
             ),
             "actions": ObservationTermCfg(func=envs_mdp.last_action),
         }
@@ -335,7 +338,7 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
     if play:
         cfg.episode_length_s = int(1e9)
-        cfg.observations["policy"].enable_corruption = False
+        cfg.observations["actor"].enable_corruption = False
         cfg.curriculum = {}
         if cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
             terrain = cfg.scene.terrain.terrain_generator

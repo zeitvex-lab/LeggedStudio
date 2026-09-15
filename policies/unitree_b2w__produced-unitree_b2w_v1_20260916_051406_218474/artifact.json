@@ -1,0 +1,9 @@
+{
+  "artifact_id": "unitree_b2w__produced-unitree_b2w_v1_20260916_051406_218474",
+  "kind": "produced",
+  "onnx_bytes": 786562,
+  "onnx_sha256": "f5775de6094b8e1e5f876ce30b9a95fa917d9eaed4c4fdececfe48caa5ec88e2",
+  "run_id": "unitree_b2w_v1_20260916_051406_218474",
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "policies/unitree_b2w__produced-unitree_b2w_v1_20260916_051406_218474/policy.onnx"
+}
