@@ -92,6 +92,11 @@ def _recipe_environment(recipe: Any) -> dict[str, Any]:
     return dict(_get(recipe, "environment", {}) or {})
 
 
+def _episode_length_s(environment: dict[str, Any]) -> float:
+    """generic 路径的 episode_length_s 取值：显式键优先，缺键落构建缺省 20.0（B24，裁决见 build_generic_task 内注释）。"""
+    return float(environment.get("episode_length_s", 20.0))
+
+
 def _recipe_rewards(recipe: Any) -> dict[str, float]:
     values = _get(recipe, "reward_scales", {}) or {}
     return {str(key): float(value) for key, value in values.items() if value is not None}
@@ -348,7 +353,13 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
         raise ValueError(f"generic MJLab terrain supports plane or rough, got {terrain_type!r}")
     terrain = TerrainEntityCfg(terrain_type="plane") if terrain_type == "plane" else TerrainEntityCfg(terrain_type="generator", terrain_generator=replace(ROUGH_TERRAINS_CFG))
     num_envs = max(1, int(environment.get("num_envs", 1)))
-    episode_length = float(environment.get("episode_length_s", 20.0))
+    # B24 裁决：这里的 20.0 是**构建缺省**（非覆盖真值）——generic 路径服务于用户导入、
+    # 无训练源码/无 profile 的包，没有任务真值层可沿用，20.0 是唯一显式来源，且被显式
+    # 写进 env_cfg 与 resolved 配置（可见、可查）。请求显式提供的 episode_length_s 经
+    # environment 传入即生效（B23 真值守卫只拦 None/缺键，不拦 generic 路径的显式值）。
+    # 否决「改契约声明」：episode_length_s 是任务层字段，B13 三层拆分裁决物理/契约层
+    # 不放任务字段；否决「强制显式提供」：generic 路径的存在意义就是零配置可跑（V7）。
+    episode_length = _episode_length_s(environment)
     decimation = max(1, int(_contract_value(contract, "control.decimation", 1)))
     env_cfg = ManagerBasedRlEnvCfg(
         decimation=decimation,
