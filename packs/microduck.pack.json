@@ -11,7 +11,7 @@
   "morphology_ref": {
     "id": "microduck",
     "path": "assets/robots/microduck/contract_v3.json",
-    "sha256": "63dcd123b4c86e14201badd67bf508e7362c7c1f8644b48c84156fa7413b5425"
+    "sha256": "bc57578dc9bde7aa843302e3bce5d908070bfd7f38638e2a025d0f1c7b8c0982"
   },
   "skill_ref": {
     "id": "core/velocity@2.0",

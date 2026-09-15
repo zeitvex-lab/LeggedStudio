@@ -229,14 +229,63 @@
   "observation": {
     "components": [
       {
-        "name": "proprio",
-        "width": 61,
-        "source": "proprio",
+        "name": "base_ang_vel",
+        "width": 3,
+        "source": "imu",
         "role": "actor",
         "history": 1,
         "encoder": null,
         "deployment_available": true,
-        "note": "逐项未取证：上游 `microduck_rl` 是**基线 + 增量**式（actor 侧 del base_lin_vel / del height_scan，新增 raw_accelerometer，并给 IMU 项设了 delay_max_lag 0→1），最终项清单须回基线 cfg 才能拼准，故按一块声明而不是从增量反推 —— 自洽但推错是最坏结果。宽度 61 取自策略自身声明（7 条策略全 61）并经 ONNX 尺子核对 ✓。"
+        "note": "上游保留基线项（并加 delay 0→1 与噪声收紧：真机 dxl IMU 路径快，2026-07 审计）"
+      },
+      {
+        "name": "projected_gravity",
+        "width": 3,
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "USE_PROJECTED_GRAVITY=True（velocity_env_cfg.py:53）⇒ 保留 projected_gravity，不换 raw_accelerometer"
+      },
+      {
+        "name": "joint_pos",
+        "width": 14,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "腿+被动关节中取驱动侧（passive_excluded 正则排除 passive_*）；编码器可得"
+      },
+      {
+        "name": "joint_vel",
+        "width": 14,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "同上；上游另有 delay_min_lag=1 的固定延迟建模"
+      },
+      {
+        "name": "last_action",
+        "width": 14,
+        "source": "action",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "command",
+        "width": 13,
+        "source": "cmd",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "**统一 61D 命令布局**：twist(3) + head(4) + body(6)，head/body 在普通任务里零填充（上游日志 2026-07-17/07-22 明文「Layout d'obs unifié 61D obligatoire (--new-cmd-obs)」，策略家族可互换）。这 13 维即此前「一块 61」拼不出的差额 ✓"
       }
     ],
     "dimension": 61
