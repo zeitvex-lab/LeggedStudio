@@ -96,7 +96,7 @@ export interface ObservationComponentV3 {
   width: number; // >=1
   /** 观测缩放；缺省 = 1.0（由训练配置校准） */
   scale?: number;
-  source: "imu" | "cmd" | "actuated" | "action" | "world" | "external" | "sim_state";
+  source: "imu" | "cmd" | "actuated" | "action" | "world" | "external" | "sim_state" | "proprio" | "clock";
   /** 角度量是否 wrap（轮关节必须 false——替代双处同步的 mask 特判） */
   wrap?: boolean;
 }
