@@ -125,6 +125,20 @@ def policy_aux_blobs(
     for item in declaration.get("aux_blobs") or []:
         role = str(item.get("role"))
         declared = str(item.get("declared") or "")
+        # **外部提供**（`external:<what>`）：它不是包内文件，**不得报成缺件** ✗。
+        # 用它表达"这份输入由部署侧自己产生"——如 image encoder 的 latent(128)、
+        # 历史缓冲(5 帧)、手部任务里从 ZMQ 读的 cube pose。这与"包内 encoder onnx"
+        # （TRON1 ✓）是**两种形态**，硬按路径解析只会得到一条假的缺件报警。
+        if declared.startswith("external:"):
+            blobs.append({
+                "role": role,
+                "declared": declared,
+                "source": None,
+                "sha256": None,
+                "external": declared.split(":", 1)[1] or "external",
+                "missing": False,
+            })
+            continue
         path: Path | None = None
         if robot_dir is not None and declared:
             candidate = Path(str(robot_dir)) / _URL_PREFIX.sub("", declared).lstrip("/")

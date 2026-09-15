@@ -314,6 +314,30 @@ class AuxBlobTest(unittest.TestCase):
             self.assertEqual("encoder", artifact["aux_blobs"][0]["role"])
             self.assertIsNotNone(artifact["aux_blobs"][0]["sha256"])
 
+    def test_external_encoder_is_not_a_missing_file(self):
+        """`external:<what>` = 由外部提供 ⇒ **不是包内文件、不得报成缺件**。
+
+        它表达"这份输入由部署侧自己产生"（image encoder 的 latent、历史缓冲、
+        手部任务里从 ZMQ 读的 cube pose）。与"包内 encoder onnx"（TRON1）是两种形态，
+        硬按路径解析会多出一条假的缺件报警。
+        """
+        import json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            robot_dir = self._package(root, with_encoder=False)
+            config_path = robot_dir / "simulation" / "config.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["policies"][0]["encoder"] = "external:latent-128"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+
+            aux = pa.policy_aux_blobs(pa.scan_declarations(root)[0])
+            self.assertEqual(1, len(aux))
+            self.assertFalse(aux[0]["missing"], "外部提供的输入不是缺件")
+            self.assertEqual("latent-128", aux[0]["external"])
+            self.assertIsNone(aux[0]["sha256"])
+            self.assertIsNone(aux[0]["source"])
+
     def test_real_repo_has_zero_shadow_onnx(self):
         """**真实仓不变量**：那 3 个 encoder 文件是被声明的 —— 修好后影子产物应为 0。
 
