@@ -22,6 +22,7 @@
   },
   "algorithm": "PPO",
   "task_name": "forward_walk",
+  "episode_length_s": 6.0,
   "terrain_type": "plane",
   "num_envs": 4096,
   "command_ranges": {
