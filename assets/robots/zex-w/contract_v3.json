@@ -193,14 +193,73 @@
   "observation": {
     "components": [
       {
-        "name": "proprio",
-        "width": 53,
-        "source": "proprio",
+        "name": "base_ang_vel",
+        "width": 3,
+        "source": "imu",
         "role": "actor",
         "history": 1,
         "encoder": null,
         "deployment_available": true,
-        "note": "逐项未取证：上游 `rc_old/RC_WheelLeg/.../rc_mjlab` 的观测项不叫 ObsTerm（定义风格为字典，robot_cfg.py / env_cfgs.py），需换搜法逐一组装。宽度 53 取自策略自身声明（4 条策略全 53 × history 1，observation_kind=zexw_53）并经 ONNX 尺子核对 ✓ —— 53 = 3+3+3+12+16+16 这种「joint_pos 去掉轮子」的轮足形态**只是猜想，未采信** ✗。"
+        "note": "上游 scale=0.25（env_cfgs.py:180）"
+      },
+      {
+        "name": "projected_gravity",
+        "width": 3,
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "command",
+        "width": 3,
+        "source": "cmd",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "twist 命令（generated_commands, command_name=twist）"
+      },
+      {
+        "name": "joint_pos",
+        "width": 12,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "**仅腿**（SceneEntityCfg joint_names 限 hip_abduction/hip_pitch/knee，env_cfgs.py:194-196）——不含轮"
+      },
+      {
+        "name": "joint_vel",
+        "width": 12,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "同上，仅腿（scale=0.05）"
+      },
+      {
+        "name": "wheel_vel",
+        "width": 4,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "**轮速单列一项**（joint_names=.*_wheel_joint，env_cfgs.py:206-209）—— 正是「六项猜 3+3+3+12+16+16」漏掉的结构：轮不在 joint_pos/vel 里，也不与腿混排"
+      },
+      {
+        "name": "last_action",
+        "width": 16,
+        "source": "action",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "含轮（动作维 16 = 12 腿 + 4 轮）；base_lin_vel 仅进 critic（特权项，不在 actor）"
       }
     ],
     "dimension": 53
