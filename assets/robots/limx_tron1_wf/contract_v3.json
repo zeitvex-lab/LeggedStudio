@@ -143,7 +143,18 @@
     "action_scale": 0.25
   },
   "observation": {
-    "components": [],
+    "components": [
+      {
+        "name": "proprio_history",
+        "width": 28,
+        "source": "proprio",
+        "role": "actor",
+        "history": 10,
+        "encoder": "simulation/policies/tron1_wf_tron1b_encoder.onnx",
+        "deployment_available": true,
+        "note": "encoder 架构：encoder 输入 = 28 × 10 帧 = 280（实测）、输出 3 维 latent；策略输入 = 28(本块) + 3(latent) + 3(command) = 34（实测）。单帧内部逐项拆分**未取证**（上游部署仓只给 clip_observations，没有项清单），故按一块声明而不是猜项 —— 拆错比不拆更坏。"
+      }
+    ],
     "dimension": 28
   },
   "control": {

@@ -121,8 +121,7 @@ class RealBoardCharacterizationTest(unittest.TestCase):
         # 仍只声明宽度、没声明组件的机型（板子如实说「未声明」，不编）——
         # go1/go2 已于 2026-09-14 补齐（见 docstring 的进展说明），补一台就从这个集合里减一台。
         self.assertEqual(
-            {"limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf", "microduck",
-             "wuji_hand", "zex-w"},
+            {"microduck", "wuji_hand", "zex-w"},
             without_components,
         )
 

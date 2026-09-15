@@ -109,7 +109,18 @@
     "action_scale": 0.25
   },
   "observation": {
-    "components": [],
+    "components": [
+      {
+        "name": "proprio_history",
+        "width": 30,
+        "source": "proprio",
+        "role": "actor",
+        "history": 10,
+        "encoder": "simulation/policies/tron1_pf_tron1b_encoder.onnx",
+        "deployment_available": true,
+        "note": "encoder 架构：encoder 输入 = 30 × 10 帧 = 300（实测）、输出 3 维 latent；策略输入 = 30(本块) + 3(latent) + 3(command) = 36（实测）。单帧内部逐项拆分**未取证**（上游部署仓只给 clip_observations，没有项清单），故按一块声明而不是猜成 ang_vel/gravity/... —— 拆错比不拆更坏。"
+      }
+    ],
     "dimension": 30
   },
   "control": {
