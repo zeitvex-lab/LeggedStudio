@@ -93,7 +93,7 @@
     }
   },
   "observation": {
-    "dimension": 45,
+    "dimension": 48,
     "components": [
       "base_ang_vel",
       "projected_gravity",
