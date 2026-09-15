@@ -432,7 +432,72 @@
     "action_scale": 0.5
   },
   "observation": {
-    "components": [],
+    "components": [
+      {
+        "name": "base_ang_vel",
+        "width": 3,
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "projected_gravity",
+        "width": 3,
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "commands",
+        "width": 3,
+        "source": "cmd",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "joint_pos",
+        "width": 29,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "joint_vel",
+        "width": 29,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "last_action",
+        "width": 29,
+        "source": "action",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "gait_phase",
+        "width": 2,
+        "source": "clock",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true,
+        "note": "步态相位 sin/cos：策略自身声明 gait_period_s=0.6 且 mjlab 六项只到 96，差的正是这 2 维。**在向量中的位置未证实**（此处暂按末段声明）—— 若要据此重排观测，须先用单帧推理对拍确认。"
+      }
+    ],
     "dimension": 98
   },
   "control": {

@@ -122,7 +122,7 @@ class RealBoardCharacterizationTest(unittest.TestCase):
         # go1/go2 已于 2026-09-14 补齐（见 docstring 的进展说明），补一台就从这个集合里减一台。
         self.assertEqual(
             {"limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf", "microduck",
-             "unitree_g1", "wuji_hand", "zex-w"},
+             "wuji_hand", "zex-w"},
             without_components,
         )
 
