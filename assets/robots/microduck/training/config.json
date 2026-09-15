@@ -1,55 +1,6 @@
 {
-  "schema_version": "training-config-1.0",
-  "backend": "native_mjlab",
-  "framework": "mjlab",
-  "source_project": "microduck_rl",
-  "default_profile": "microduck-velocity-flat",
-  "runtime_requirements": {
-    "mjlab": ">=1.6,<2.0",
-    "python": ">=3.12,<3.14",
-    "torch": ">=2.7"
-  },
-  "observation_dim": 61,
-  "action_dim": 14,
-  "action_scale": 1.0,
-  "control": {
-    "control_hz": 50,
-    "physics_hz": 200,
-    "decimation": 4
-  },
-  "episode_length_s": 20.0,
-  "command_curriculum": {
-    "rel_standing_envs_stages": [
-      0.02,
-      0.05,
-      0.1,
-      0.15,
-      0.2,
-      0.25
-    ],
-    "rel_turn_in_place_envs": 0.15
-  },
-  "default_runner": {
-    "hidden_dims": [
-      512,
-      256,
-      128
-    ],
-    "activation": "elu",
-    "obs_normalization": true,
-    "learning_rate": 0.001,
-    "schedule": "adaptive",
-    "desired_kl": 0.01,
-    "gamma": 0.99,
-    "gae_lambda": 0.95,
-    "clip_param": 0.2,
-    "entropy_coef": 0.01,
-    "num_learning_epochs": 5,
-    "num_mini_batches": 4,
-    "num_steps_per_env": 24,
-    "max_grad_norm": 1.0,
-    "value_loss_coef": 1.0,
-    "save_interval": 250,
-    "max_iterations": 50000
-  }
+  "robot_id": "microduck",
+  "contract_path": "assets/robots/microduck/contract.json",
+  "profile_id": "microduck-velocity-flat",
+  "backend": "native_mjlab"
 }
