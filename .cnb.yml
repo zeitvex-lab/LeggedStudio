@@ -57,6 +57,8 @@
         python tools/audit_porting_admission.py
         echo "== capability packs (B1: 14 packs validate + refs sha256) =="
         python tools/validate_packs.py
+        echo "== license registry (I5: 许可与出处，缺许可的内置包不得进索引) =="
+        python tools/audit_licenses.py
         echo "== doc reality check (B17: 文档数字 vs 实测) =="
         # 版本号 / 包数 / 策略数 / 资源库项目数一旦与仓库不符即红，防止再次漂移。
         python tools/doc_reality_check.py
