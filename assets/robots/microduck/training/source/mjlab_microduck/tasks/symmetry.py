@@ -128,7 +128,7 @@ def microduck_vel_symmetry(
 
     Args:
         env: The vectorised environment (unused, present for interface compatibility).
-        obs: TensorDict with keys ``"policy"`` and ``"critic"``, shape ``[B, obs_dim]``.
+        obs: TensorDict with keys ``"actor"`` and ``"critic"``, shape ``[B, obs_dim]``.
              Pass ``None`` when only actions need to be mirrored.
         actions: Float tensor of shape ``[B, 14]``.
                  Pass ``None`` when only obs need to be mirrored.

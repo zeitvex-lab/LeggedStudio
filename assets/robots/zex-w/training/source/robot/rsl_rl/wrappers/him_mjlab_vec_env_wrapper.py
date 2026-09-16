@@ -44,7 +44,19 @@ class HimMjlabVecEnvWrapper(VecEnv):
         self.num_actions = self.unwrapped.action_manager.total_action_dim
 
         # Single-step observation dimensions from observation manager groups
-        self.num_one_step_obs = self.unwrapped.observation_manager.group_obs_dim["policy"][0]
+        # B37：mjlab 1.6 的训练观测组名是 "actor"（B26 同族裁决：RslRlBaseRunnerCfg.obs_groups
+        # 默认 {"actor": ("actor",), "critic": ("critic",)}），旧名 "policy" 让 runner 找不到组。
+        # 本目录在仓内**零引用**（未接线），双兼容是为了"哪天接线时不至于一上来就崩"：
+        # 有 "actor" 就用 "actor"，只有旧名才回退，两者都没有时**明确报错**（不静默取空）。
+        _groups = self.unwrapped.observation_manager.group_obs_dim
+        if "actor" in _groups:
+            self.num_one_step_obs = _groups["actor"][0]
+        elif "policy" in _groups:
+            self.num_one_step_obs = _groups["policy"][0]
+        else:
+            raise RuntimeError(
+                "HIM 包装器找不到训练观测组：现有 " + repr(sorted(_groups)) + "（mjlab 1.6 应为 'actor'）"
+            )
         self.history_length = history_length
         self.num_obs = self.num_one_step_obs * (self.history_length + 1)
 
