@@ -1,5 +1,31 @@
 {
   "schema_version": "capability-pack-1.0",
+  "license": {
+    "spdx": "MIT",
+    "source": "package.json#license",
+    "redistribution": "allowed",
+    "components": [
+      {
+        "root": "00_resources/lain_job/RoboLab/backends/mjlab/mjlab",
+        "path": "00_resources/lain_job/RoboLab/backends/mjlab/mjlab/LICENSE",
+        "sha256": "8ca04d9dbbccd20f0f1842fb33e13949f9e57064b150dad36af8e7a751ca3321",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/mjlab_new/mjlab",
+        "path": "00_resources/mjlab_new/mjlab/LICENSE",
+        "sha256": "8ca04d9dbbccd20f0f1842fb33e13949f9e57064b150dad36af8e7a751ca3321",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/rc_old/RC_WheelLeg/05_software/train/rc_mjlab/mjlab",
+        "path": "00_resources/rc_old/RC_WheelLeg/05_software/train/rc_mjlab/mjlab/LICENSE",
+        "sha256": "8ca04d9dbbccd20f0f1842fb33e13949f9e57064b150dad36af8e7a751ca3321",
+        "spdx": "Apache-2.0"
+      }
+    ],
+    "unresolved": []
+  },
   "pack_id": "unitree_go1-velocity",
   "display_name": "Unitree Go1 · velocity",
   "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",

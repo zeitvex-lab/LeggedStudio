@@ -71,7 +71,47 @@
     },
     "license": {
       "type": "object",
-      "description": "1.1 新增：{spdx, source, redistribution} 许可链（T6.3 许可门消费）"
+      "description": "1.1 新增：许可链。spdx/source 是**我们自己的打包许可**（非上游资产许可）；components 是上游资产逐条出处（随资源走）；redistribution 为 allowed / restricted-noncommercial / unknown（**取不到证据时是 unknown，绝不默认 allowed**）",
+      "properties": {
+        "spdx": {
+          "type": ["string", "null"],
+          "description": "打包许可的 SPDX id（来自 package.json#license，非上游资产许可）"
+        },
+        "source": {
+          "type": ["string", "null"],
+          "description": "上述 spdx 的出处（如 package.json#license）"
+        },
+        "redistribution": {
+          "enum": ["allowed", "restricted-noncommercial", "unknown"],
+          "description": "再分发口径：含非商用上游（CC-BY-NC 等）即 restricted-noncommercial；取证不全即 unknown"
+        },
+        "components": {
+          "type": "array",
+          "description": "上游资产逐条许可依据（与 registry/licenses.json 对账）",
+          "items": {
+            "type": "object",
+            "properties": {
+              "root": { "type": ["string", "null"] },
+              "path": { "type": ["string", "null"] },
+              "sha256": { "type": ["string", "null"] },
+              "spdx": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "unresolved": {
+          "type": "array",
+          "description": "未取证的缺口（清单自己披露未证之处）",
+          "items": {
+            "type": "object",
+            "properties": {
+              "upstream": { "type": ["string", "null"] },
+              "reason": { "type": ["string", "null"] },
+              "leads": { "type": "array" }
+            }
+          }
+        }
+      },
+      "required": ["spdx", "source", "redistribution"]
     },
     "integrity": {
       "type": "object",

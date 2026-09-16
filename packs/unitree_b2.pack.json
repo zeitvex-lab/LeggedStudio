@@ -1,5 +1,25 @@
 {
   "schema_version": "capability-pack-1.0",
+  "license": {
+    "spdx": "MIT",
+    "source": "package.json#license",
+    "redistribution": "allowed",
+    "components": [
+      {
+        "root": "00_resources/fan_robotlab/robot_lab",
+        "path": "00_resources/fan_robotlab/robot_lab/LICENSE",
+        "sha256": "dab01dca084ffa02bc9bb1bbfdbaf2a826a5da3ae4053d710cb1352b564bd352",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/robot_lab",
+        "path": "00_resources/robot_lab/LICENSE",
+        "sha256": "dab01dca084ffa02bc9bb1bbfdbaf2a826a5da3ae4053d710cb1352b564bd352",
+        "spdx": "Apache-2.0"
+      }
+    ],
+    "unresolved": []
+  },
   "pack_id": "unitree_b2-velocity",
   "display_name": "Unitree B2 · velocity",
   "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",

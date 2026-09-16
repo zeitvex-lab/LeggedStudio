@@ -1,5 +1,18 @@
 {
   "schema_version": "capability-pack-1.0",
+  "license": {
+    "spdx": "MIT",
+    "source": "package.json#license",
+    "redistribution": "unknown",
+    "components": [],
+    "unresolved": [
+      {
+        "upstream": "rc_old",
+        "reason": "祖先链上没有许可文件（LICENSE/COPYING）——该来源的许可未取证",
+        "leads": []
+      }
+    ]
+  },
   "pack_id": "zex-w-velocity",
   "display_name": "ZEX-W · velocity",
   "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",

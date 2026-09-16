@@ -303,6 +303,9 @@ def audit() -> dict[str, Any]:
                     "（缺许可的内置包不得进索引；确无上游许可时须显式登记）"
                 )
 
+    # I5 后半：包清单里的 license 块必须与取证层对账（清单是投影，注册表是证据）
+    problems.extend(audit_pack_manifests(derived))
+
     extra = sorted(set(declared) - set(derived))
     if extra:
         problems.append(f"注册表里有派生不出的包：{', '.join(extra)}")
@@ -400,6 +403,133 @@ def main(argv: list[str] | None = None) -> int:
     print("\n全部内置包都有许可记录，且与实测证据逐项一致。")
     return 0
 
+
+
+# ============================================================================
+# I5 后半：把取证层**投影**进包清单（"许可与出处字段随资源"）
+# ============================================================================
+#
+# 注册表（registry/licenses.json）是**证据层**：逐条许可依据带 sha256 与出处。
+# 包清单（packs/*.pack.json）是**投影层**：随资源一起走的对外声明。
+# 两层必须对账 —— 否则清单上写着 Apache-2.0、注册表却取证到 CC-BY-NC，对外就是错话。
+
+
+def _is_noncommercial(spdx: str | None) -> bool:
+    """非商用许可判定。用片段而非全名单：SPDX 的 NC 族还在增加，
+    漏一个就变成"悄悄允许商用"，比多判一个严重得多。"""
+
+    if not spdx:
+        return False
+    upper = spdx.upper()
+    return "-NC-" in upper or upper.endswith("-NC") or "-NC-SA" in upper or "-NC-ND" in upper
+
+
+def _spdx_of(entry: dict | None) -> list[str]:
+    if not entry:
+        return []
+    return [item["spdx"] for item in entry.get("components", []) if item.get("spdx")]
+
+
+def project_license(robot: str, entry: dict | None) -> dict:
+    """把某机型的取证条目投影成清单里的 ``license`` 块。
+
+    * ``spdx``/``source``：**我们自己的打包许可**（来自 package.json），不是上游资产许可 ——
+      混为一谈就是把别人的许可挂到自己头上；
+    * ``components``：上游资产逐条出处（path + sha256 + spdx），**随资源走**；
+    * ``redistribution``：``allowed`` / ``restricted-noncommercial`` / ``unknown``。
+      **取不到证据时是 unknown，绝不默认 allowed** ——"不知道"是真话，"可以随便用"是假话；
+    * ``unresolved``：未取证的缺口（上游名 + 原因 + 线索），让清单自己披露未证之处。
+    """
+
+    if not entry:
+        return {
+            "spdx": None,
+            "source": None,
+            "redistribution": "unknown",
+            "components": [],
+            "unresolved": [{
+                "upstream": "registry",
+                "reason": f"{robot} 不在 registry/licenses.json 里（无取证）——先取证再进索引",
+                "leads": [],
+            }],
+        }
+    spdxes = _spdx_of(entry)
+    if any(_is_noncommercial(item) for item in spdxes):
+        redistribution = "restricted-noncommercial"
+    elif entry.get("unresolved") or not spdxes:
+        redistribution = "unknown"
+    else:
+        redistribution = "allowed"
+    packaging = entry.get("packaging") or {}
+    return {
+        "spdx": packaging.get("spdx"),
+        "source": packaging.get("source"),
+        "redistribution": redistribution,
+        "components": [
+            {
+                "root": item.get("root"),
+                "path": item.get("path"),
+                "sha256": item.get("sha256"),
+                "spdx": item.get("spdx"),
+            }
+            for item in entry.get("components", [])
+        ],
+        "unresolved": [
+            {
+                "upstream": gap.get("upstream"),
+                "reason": gap.get("reason"),
+                "leads": list(gap.get("leads") or []),
+            }
+            for gap in entry.get("unresolved", [])
+        ],
+    }
+
+
+def packs_dir() -> Path:
+    return PROJECT_ROOT / "packs"
+
+
+def audit_pack_manifests(derived: dict | None = None) -> list[str]:
+    """对账：每份 ``packs/*.pack.json`` 的 license 块必须等于取证层的投影。
+
+    这是"缺许可的内置包不得静默进索引"的落地点：**清单缺 license 块**、
+    **与取证层不一致**、或**注册表里没有这个包**，都判红。
+    """
+
+    problems: list[str] = []
+    entries = derived if derived is not None else derive()
+    directory = packs_dir()
+    if not directory.is_dir():
+        return [f"Pack 目录不存在：{directory}"]
+    manifests = sorted(directory.glob("*.pack.json"))
+    if not manifests:
+        return [f"Pack 目录里没有 *.pack.json：{directory}"]
+    for manifest_path in manifests:
+        payload = _read_json(manifest_path)
+        if not isinstance(payload, dict):
+            problems.append(f"{manifest_path.name}: 读不出 JSON")
+            continue
+        robot = str(payload.get("pack_id") or "").removesuffix("-velocity") or manifest_path.stem
+        declared = payload.get("license")
+        if declared is None:
+            problems.append(
+                f"{manifest_path.name}: 缺 license 块（许可与出处必须**随资源**，不能只躺在注册表里）"
+                "—— 跑 `python tools/generate_packs.py` 重新生成"
+            )
+            continue
+        expected = project_license(robot, entries.get(robot))
+        for field in ("spdx", "source", "redistribution"):
+            if declared.get(field) != expected.get(field):
+                problems.append(
+                    f"{manifest_path.name}: license.{field} 与取证层不一致"
+                    f"（清单 {declared.get(field)!r} vs 取证 {expected.get(field)!r}）"
+                )
+        if len(declared.get("components") or []) != len(expected["components"]):
+            problems.append(
+                f"{manifest_path.name}: license.components 条数与取证层不一致"
+                f"（清单 {len(declared.get('components') or [])} vs 取证 {len(expected['components'])}）"
+            )
+    return problems
 
 if __name__ == "__main__":
     raise SystemExit(main())

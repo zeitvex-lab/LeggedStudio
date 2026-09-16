@@ -329,7 +329,9 @@ def validate_pack(
     warnings.extend(binding_warnings)
 
     unknown = sorted(set(pack) - {"schema_version", "pack_id", "display_name", "description",
-                                  "tags", *REF_KEYS, "bindings"})
+                                  "tags", *REF_KEYS, "bindings",
+                                  # I5：许可链已进 capability-pack-1.0 schema，这里同步（否则每份包都刷无意义告警）
+                                  "license"})
     if unknown:
         warnings.append(f"顶层未声明字段 {unknown}（schema additionalProperties: true，放行）")
 

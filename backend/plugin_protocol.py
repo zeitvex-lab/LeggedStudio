@@ -182,7 +182,14 @@ def scaffold_package(target_dir: Path, package_id: str) -> Path:
         "model": {"format": "mjcf", "path": "model/robot.xml"},
         "contract_path": "contract.json",
         "contract_v3_path": "contract_v3.json",
-        "license": {"spdx": "MIT", "source": "scaffold", "redistribution": "allowed"},
+        # I5：脚手架**不替包作者主张许可**。原值是硬写的 {"spdx": "MIT", "redistribution":
+        # "allowed"} —— 那是"我们核验过你可以再分发"的声明，而实际上谁都没核验过。
+        # 如实写"未声明"，由包作者自己填。
+        "license": {
+            "spdx": None,
+            "source": None,
+            "redistribution": "unknown",
+        },
     }
     (target_dir / "robot_package.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (target_dir / "model" / "robot.xml").write_text(
