@@ -14,11 +14,18 @@ for native MJLab/Isaac adapters later.
 * ``verify package <目录>`` → ``contracts.validator`` + ``contracts.contract_loader``
   —— 包对账门禁（v2 契约 / v3 角色语义 / 训练侧消费的合并契约 / 清单与模型对得上），
   不通过退出码 1；
+* ``verify run <run_id|目录>`` / ``verify run --all`` → :func:`backend.training.runs.verify_run`
+  —— Run 档案（四件套）对账，不通过退出码 1；
+* ``verify artifacts`` → :func:`backend.policy_artifacts.verify_artifacts`
+  —— 出库索引对账（索引覆盖 / hash 一致 / produced 自完整性），不通过退出码 1；
 * ``pack list``     → :func:`backend.pack_catalog.pack_catalog`（与 ``tools/validate_packs.py`` 同源）；
 * ``run list``      → 扫描 ``workspace/`` 下含 ``run.json`` 的目录 + :func:`backend.training.runs.load_run`；
 * ``artifact list`` → :func:`backend.policy_artifacts.load_index`。
 
 因此这些命令**无需后端**（离线命令），只是参数解析与输出格式化在本文件完成。
+
+``--offline``：显式声明"本次不碰后端"。离线命令不受影响；需后端的命令会**直接拒绝并返回
+非 0**（绝不静默跳过——"离线模式下悄悄不发请求"会让 CI 以为命令成功了）。
 
 训练在线命令（I1 第二批）：``train create`` / ``train status`` / ``train stop`` /
 ``train list`` —— **需要后端在跑**，走与 Web 工作台完全相同的 HTTP 契约
@@ -448,6 +455,83 @@ def _cmd_verify_package(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_verify_run(args: argparse.Namespace) -> int:
+    """``verify run <run_id|目录>`` / ``--all``：Run 档案（B9 四件套）对账（离线命令）。
+
+    判据取 :func:`backend.training.runs.verify_run` —— 重新规范化 ``inputs`` 求摘要与登记值
+    逐字比对，并检查依赖锁与四件套文件是否落盘。**不在这里重算一遍**（否则两处判据会分叉）。
+    """
+
+    from backend.training import runs
+
+    workspace = _workspace_root(args.workspace)
+    checks: list[dict] = []
+    if args.all:
+        if not workspace.is_dir():
+            raise SystemExit(f"verify 失败：workspace 不存在：{workspace}")
+        targets = [
+            child for child in sorted(workspace.iterdir())
+            if child.is_dir() and (child / "run.json").is_file()
+        ]
+        if not targets:
+            raise SystemExit(f"verify 失败：{workspace} 下没有含 run.json 的 Run")
+    else:
+        candidate = Path(args.target).expanduser()
+        target = candidate if candidate.is_dir() else workspace / args.target
+        if not (target / "run.json").is_file():
+            raise SystemExit(f"verify 失败：不是 Run 目录（缺 run.json）：{target}")
+        targets = [target]
+
+    for target in targets:
+        try:
+            checks.append(runs.verify_run(target))
+        except (TypeError, ValueError, KeyError) as exc:  # 坏档案如实报，不崩
+            checks.append({"ok": False, "run_id": target.name, "problems": [f"档案不可读：{type(exc).__name__}: {exc}"]})
+
+    failed = [item for item in checks if not item.get("ok")]
+    if args.json:
+        print(json.dumps({"workspace": str(workspace), "count": len(checks),
+                          "ok_count": len(checks) - len(failed), "runs": checks}, ensure_ascii=False, indent=2))
+        return 0 if not failed else 1
+
+    print(f"训练 Run 对账（离线命令，无需后端）：{workspace}")
+    for item in checks:
+        mark = "✓" if item.get("ok") else "✗"
+        print(f"  {mark} {item.get('run_id')}  seed/输入指纹 {str(item.get('inputs_digest') or '-')[:12]}…")
+        for problem in item.get("problems") or []:
+            print(f"      - {problem}")
+    print(f"汇总：{len(checks)} 个 Run，{len(checks) - len(failed)} 通过，{len(failed)} 不通过")
+    return 0 if not failed else 1
+
+
+def _cmd_verify_artifacts(args: argparse.Namespace) -> int:
+    """``verify artifacts``：策略产物出库索引对账（离线命令）。
+
+    判据取 :func:`backend.policy_artifacts.verify_artifacts`（索引是否覆盖全部声明、
+    每个 hash 是否仍与包内源文件一致、produced 条目自完整性）。
+    """
+
+    from backend.policy_artifacts import OUT_DIR, ROBOTS_DIR, verify_artifacts
+
+    out_dir = Path(args.out_dir).expanduser() if args.out_dir else OUT_DIR
+    robots_dir = Path(args.robots_dir).expanduser() if args.robots_dir else ROBOTS_DIR
+    report = verify_artifacts(robots_dir=robots_dir, out_dir=out_dir)
+    if args.json:
+        print(json.dumps({**report, "out_dir": str(out_dir)}, ensure_ascii=False, indent=2))
+        return 0 if report.get("ok") else 1
+
+    print(f"策略产物对账（离线命令，无需后端）：{out_dir}")
+    print(f"  机器人包根：{robots_dir}")
+    print(f"  索引 {report.get('indexed')} 条 / 声明 {report.get('declared')} 条 / 实际检查 {report.get('checked')} 条")
+    for problem in report.get("problems") or []:
+        print(f"  - {problem}")
+    if report.get("problems"):
+        print(f"✗ 不通过（{len(report['problems'])} 项）")
+        return 1
+    print("✓ 通过（索引覆盖全部声明，hash 与包内一致）")
+    return 0
+
+
 # --------------------------------------------------------------------------------------
 # 训练在线命令（I1 第二批）：需后端在跑，走 HTTP —— 与 Web 工作台同一 API 契约
 # --------------------------------------------------------------------------------------
@@ -622,6 +706,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Legged Studio CLI (shared Web/API contract)")
     parser.add_argument("--base-url", default="http://127.0.0.1:8765", help="running control-plane URL")
     parser.add_argument("--json", action="store_true", help="以 JSON 输出（离线 pack/run/artifact 的 list 与在线 train 各子命令均生效）")
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help=(
+            "离线模式：本次不连后端。离线命令（pack / run / artifact / onboard / verify）照常运行；"
+            "需后端的命令会直接拒绝并返回非 0（绝不静默跳过）"
+        ),
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("algorithms", help="list registered algorithms")
@@ -783,6 +875,32 @@ def build_parser() -> argparse.ArgumentParser:
     verify_package.add_argument("directory", help="机器人包目录（含 contract.json / robot_package.json）")
     verify_package.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
 
+    verify_run = verify_sub.add_parser(
+        "run",
+        help="对一个（或全部）训练 Run 的档案做对账（离线命令，无需后端）",
+        description=(
+            "对一个（或全部）训练 Run 的档案做对账（离线命令，无需后端）：重新规范化 inputs "
+            "求摘要与登记值逐字比对 + 依赖锁与四件套文件是否落盘。任一不过 → 退出码 1。"
+            "示例：verify run <run_id>｜verify run <目录>｜verify run --all"
+        ),
+    )
+    verify_run.add_argument("target", nargs="?", default=None, help="run_id 或 Run 目录（--all 时省略）")
+    verify_run.add_argument("--all", action="store_true", default=False, help="对账 workspace 下全部 Run")
+    verify_run.add_argument("--workspace", default=None, help="workspace 根（默认：LEGGED_STUDIO_WORKSPACE 或仓库 workspace/）")
+    verify_run.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
+
+    verify_artifacts = verify_sub.add_parser(
+        "artifacts",
+        help="对策略产物出库索引做对账（离线命令，无需后端）",
+        description=(
+            "对策略产物出库索引做对账（离线命令，无需后端）：索引是否覆盖全部声明、每个 hash "
+            "是否仍与包内源文件一致、produced 条目自完整性。不通过 → 退出码 1。"
+        ),
+    )
+    verify_artifacts.add_argument("--out-dir", default=None, help="出库目录（默认：仓库 policies/）")
+    verify_artifacts.add_argument("--robots-dir", default=None, help="机器人包根（默认：仓库 assets/robots；对账要两侧成对才说得通）")
+    verify_artifacts.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
+
     return parser
 
 
@@ -799,7 +917,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "onboard":
         return _cmd_onboard(args)
     if args.command == "verify":
-        return _cmd_verify_package(args)
+        if args.verify_command == "package":
+            return _cmd_verify_package(args)
+        if args.verify_command == "run":
+            return _cmd_verify_run(args)
+        return _cmd_verify_artifacts(args)
+
+    # `--offline` 的语义：**这次不碰后端**。离线命令在上面已经跑完并返回；走到这里说明
+    # 命中的是需后端的命令，于是如实拒绝 —— 而不是"离线模式下悄悄不发请求"：
+    # 后者会让调用方以为命令成功了，实际上什么都没做（CI 里最坏的一种"绿"）。
+    if args.offline:
+        raise SystemExit(
+            f"`--offline` 模式下不执行需后端的命令 {args.command!r}（它要走 HTTP 访问控制面）。\n"
+            "离线命令（pack / run / artifact / onboard / verify）不受影响；"
+            "如需在线命令，请去掉 --offline。"
+        )
 
     # 训练在线命令（I1 第二批）：需后端在跑，走 HTTP（与 Web 工作台同一契约）
     if args.command == "train":

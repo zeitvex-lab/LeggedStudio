@@ -263,5 +263,144 @@ class BothEntriesShareOnePackageIdTest(unittest.TestCase):
             self.assertEqual(from_directory, _package_content_hash(request))
 
 
+class VerifyRunTest(unittest.TestCase):
+    """``verify run``：Run 档案对账（判据取 backend.training.runs.verify_run，不重算）。"""
+
+    def setUp(self):
+        self.previous_venv = os.environ.get("LEGGED_STUDIO_MJLAB_VENV")
+        self.tmp = tempfile.TemporaryDirectory(prefix="legged-studio-verify-run-")
+
+    def tearDown(self):
+        if self.previous_venv is None:
+            os.environ.pop("LEGGED_STUDIO_MJLAB_VENV", None)
+        else:
+            os.environ["LEGGED_STUDIO_MJLAB_VENV"] = self.previous_venv
+        self.tmp.cleanup()
+
+    def _make_run(self, *, name: str = "unitree_go2_task_000000000001") -> tuple[Path, Path]:
+        """造一个四件套齐全的合成 Run（用真实落盘函数，环境锁指向假 venv 以保证可复现）。"""
+
+        from types import SimpleNamespace
+
+        from backend.training.runs import create_run_for_task
+
+        fake_venv = Path(self.tmp.name) / "venv"
+        site = fake_venv / "lib" / "python3.12" / "site-packages"
+        for dist in ("torch-2.0.0.dist-info", "mjlab-1.6.0.dist-info"):
+            (site / dist).mkdir(parents=True)
+        os.environ["LEGGED_STUDIO_MJLAB_VENV"] = str(fake_venv)
+
+        workspace = Path(self.tmp.name) / "ws"
+        workspace.mkdir(exist_ok=True)
+        run_dir = workspace / name
+        contract = SimpleNamespace(robot_id="unitree_go2", compute_hash=lambda: "cafe1234")
+        create_run_for_task(
+            run_dir, contract=contract,
+            config={"robot_id": "unitree_go2", "seed": 7, "num_envs": 16, "max_iterations": 5},
+            task="training",
+        )
+        return workspace, run_dir
+
+    def test_healthy_run_passes(self):
+        workspace, run_dir = self._make_run()
+        proc = run_cli("verify", "run", run_dir.name, "--workspace", str(workspace))
+        self.assertEqual(0, proc.returncode, proc.stdout)
+        self.assertIn("✓", proc.stdout)
+        self.assertIn("1 通过", proc.stdout)
+
+    def test_tampered_run_is_rejected(self):
+        """档案被改过（resolved-config 与登记指纹不符）→ 必红。"""
+
+        workspace, run_dir = self._make_run()
+        payload = json.loads((run_dir / "resolved-config.json").read_text(encoding="utf-8"))
+        payload["inputs"]["seed"] = 999               # 篡改一处输入（种子）
+        (run_dir / "resolved-config.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
+        )
+        proc = run_cli("verify", "run", run_dir.name, "--workspace", str(workspace))
+        self.assertEqual(1, proc.returncode, proc.stdout)
+        self.assertIn("✗", proc.stdout)
+        self.assertTrue("改动过" in proc.stdout or "不一致" in proc.stdout, proc.stdout)
+
+    def test_all_skips_dirs_without_run_json(self):
+        workspace, _run_dir = self._make_run()
+        (workspace / "legacy_20260101").mkdir()       # B9 接线前的旧目录
+        proc = run_cli("--json", "verify", "run", "--all", "--workspace", str(workspace))
+        self.assertEqual(0, proc.returncode, proc.stdout)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(1, payload["count"])
+        self.assertEqual(1, payload["ok_count"])
+
+    def test_non_run_directory_fails_closed(self):
+        workspace = Path(self.tmp.name) / "ws"
+        workspace.mkdir(exist_ok=True)
+        (workspace / "not_a_run").mkdir()
+        proc = run_cli("verify", "run", "not_a_run", "--workspace", str(workspace))
+        self.assertEqual(1, proc.returncode, proc.stdout)
+        self.assertIn("run.json", proc.stderr)
+
+
+class VerifyArtifactsTest(unittest.TestCase):
+    """``verify artifacts``：出库索引对账（判据取 backend.policy_artifacts.verify_artifacts）。"""
+
+    def _indexed(self, tmp: str) -> Path:
+        from backend import policy_artifacts as pa
+
+        root = Path(tmp) / "robots"
+        out = Path(tmp) / "policies"
+        package = root / "go2"
+        (package / "simulation" / "policies").mkdir(parents=True)
+        (package / "simulation" / "policies" / "walk.onnx").write_bytes(b"onnx-bytes-0123456789")
+        (package / "simulation" / "config.json").write_text(json.dumps({"policies": [{
+            "id": "walk-100", "path": "simulation/policies/walk.onnx", "label": "Walk",
+            "obs_dim": 48, "action_dim": 12, "history_len": 1, "task_type": "velocity",
+            "source": "builtin-package",
+            "contract": {"observation_kind": "go2_velocity", "action_scale": 0.25},
+        }]}, ensure_ascii=False), encoding="utf-8")
+        pa.build_all(robots_dir=root, out_dir=out, write=True)
+        return out
+
+    def test_healthy_index_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._indexed(tmp)
+            proc = run_cli("verify", "artifacts", "--out-dir", str(out), "--robots-dir", str(Path(tmp) / "robots"))
+            self.assertEqual(0, proc.returncode, proc.stdout)
+            self.assertIn("✓ 通过", proc.stdout)
+
+    def test_changed_onnx_is_rejected(self):
+        """包内 onnx 被换掉 → 索引里的 hash 立刻不符（出库最怕的"悄悄漂移"）。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._indexed(tmp)
+            (Path(tmp) / "robots" / "go2" / "simulation" / "policies" / "walk.onnx").write_bytes(b"tampered")
+            proc = run_cli("--json", "verify", "artifacts", "--out-dir", str(out), "--robots-dir", str(Path(tmp) / "robots"))
+            self.assertEqual(1, proc.returncode, proc.stdout)
+            payload = json.loads(proc.stdout)
+            self.assertFalse(payload["ok"])
+            self.assertTrue(any("重新出库" in item for item in payload["problems"]), payload["problems"])
+
+
+class OfflineModeTest(unittest.TestCase):
+    """``--offline``：离线命令照跑；需后端的命令**如实拒绝**（不静默跳过）。"""
+
+    def test_offline_allows_offline_commands(self):
+        proc = run_cli("--offline", "pack", "list")
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        self.assertIn("汇总", proc.stdout)
+
+    def test_offline_refuses_backend_commands(self):
+        proc = run_cli("--offline", "train", "list")
+        self.assertEqual(1, proc.returncode, proc.stdout)
+        self.assertIn("--offline", proc.stderr)
+        self.assertIn("需后端", proc.stderr)
+
+    def test_help_documents_offline_semantics(self):
+        proc = run_cli("--help")
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        self.assertIn("--offline", proc.stdout)
+        for name in ("onboard", "verify"):
+            self.assertIn(name, proc.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
