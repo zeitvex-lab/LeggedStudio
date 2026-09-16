@@ -31,8 +31,8 @@ from mjlab.managers import (
 )
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.rl import (
+    RslRlModelCfg,
     RslRlOnPolicyRunnerCfg,
-    RslRlPpoActorCriticCfg,
     RslRlPpoAlgorithmCfg,
 )
 from mjlab.scene import SceneCfg
@@ -152,7 +152,9 @@ def make_testbench_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     critic_terms = dict(policy_terms)
 
     observations = {
-        "policy": ObservationGroupCfg(
+        # B37:mjlab 1.6 训练观测组名用 "actor"(B26 同族裁决),旧名 "policy" 让 runner
+        # 找不到 actor 组(env 构建即崩,Available: ['policy', 'critic'])。
+        "actor": ObservationGroupCfg(
             terms=policy_terms,
             concatenate_terms=True,
             enable_corruption=True,
@@ -267,13 +269,22 @@ def make_testbench_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
 
 MicroduckTestbenchRlCfg = RslRlOnPolicyRunnerCfg(
-    policy=RslRlPpoActorCriticCfg(
-        init_noise_std=1.0,
-        actor_obs_normalization=False,
-        critic_obs_normalization=False,
-        actor_hidden_dims=(256, 128, 64),
-        critic_hidden_dims=(256, 128, 64),
+    # B37:mjlab 1.6 已无 RslRlPpoActorCriticCfg(单模型配置拆成 actor/critic 两份
+    # RslRlModelCfg,字段改名:hidden_dims / obs_normalization,噪声走 distribution_cfg)。
+    actor=RslRlModelCfg(
+        hidden_dims=(256, 128, 64),
         activation="elu",
+        obs_normalization=False,
+        distribution_cfg={
+            "class_name": "GaussianDistribution",
+            "init_std": 1.0,
+            "std_type": "scalar",
+        },
+    ),
+    critic=RslRlModelCfg(
+        hidden_dims=(256, 128, 64),
+        activation="elu",
+        obs_normalization=False,
     ),
     algorithm=RslRlPpoAlgorithmCfg(
         value_loss_coef=1.0,
