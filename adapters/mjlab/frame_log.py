@@ -84,7 +84,7 @@ def _repo_relative(path: Path) -> str:
         return str(path)
 
 
-def _policy_entry(sim_config: dict[str, Any], policy_id: str | None) -> dict[str, Any]:
+def resolve_policy_entry(sim_config: dict[str, Any], policy_id: str | None) -> dict[str, Any]:
     policies = sim_config.get("policies") or []
     if not policies:
         raise SystemExit("simulation/config.json 里没有 policies[]，无法确定要跑哪条策略")
@@ -96,7 +96,7 @@ def _policy_entry(sim_config: dict[str, Any], policy_id: str | None) -> dict[str
     raise SystemExit(f"包内没有策略 {policy_id!r}；可用：{[p.get('id') for p in policies]}")
 
 
-def _resolve_policy(
+def resolve_policy(
     package_dir: Path, entry: dict[str, Any], explicit: str | None,
 ) -> tuple[Path, str | None, dict[str, Any]]:
     """解析要跑的策略文件 —— **复用后端同一解析器**（`policy_artifacts.policy_blob_path`，B10）。
@@ -181,8 +181,8 @@ def produce_frame_log(
         raise SystemExit(f"包内缺 simulation/config.json：{package_dir}")
     sim_config = json.loads(sim_path.read_text(encoding="utf-8-sig"))
 
-    entry = _policy_entry(sim_config, policy_id)
-    policy_path, declared_path, resolution = _resolve_policy(package_dir, entry, policy)
+    entry = resolve_policy_entry(sim_config, policy_id)
+    policy_path, declared_path, resolution = resolve_policy(package_dir, entry, policy)
     # 如实标注：显式 --policy 指定的文件未必就是该条策略条目声明的那个 —— 若不一致，
     # 头里的 policy.id 记 None 并保留 declared_path，避免"名字是 A、跑的是 B"这种静默错标。
     bound = declared_path is not None and (package_dir / declared_path).resolve() == policy_path
@@ -312,6 +312,11 @@ def main() -> int:
     print(f"  seed {head['seed']} / 物理 {head['physics']['physics_hz']} Hz × {head['physics']['decimation']} / 随机化 {head['randomization']['applied']}")
     print(f"  适配器 {head['adapter']['python']} python / mujoco {head['adapter']['mujoco']} / ort {head['adapter']['onnxruntime']}")
     return 0
+
+
+#: 旧私有名保留（同包其它模块与文档曾引用；定义在末尾避免前向引用）
+_policy_entry = resolve_policy_entry
+_resolve_policy = resolve_policy
 
 
 if __name__ == "__main__":

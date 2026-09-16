@@ -318,6 +318,10 @@ def export_bundle(
     replay: bool = False,
     replay_steps: int = 60,
     out_dir_index: Path | None = None,
+    quality: bool = False,
+    quality_tier: str = "single",
+    quality_min: float = 0.5,
+    quality_steps: int = 200,
 ) -> dict[str, Any]:
     """**Bundle**：Pack 引用 + **被引用物的离线副本** + 哈希（愿景原文口径）。
 
@@ -422,6 +426,32 @@ def export_bundle(
             unresolved.append({"role": "policy", "reason": f"{policy_id}: {type(exc).__name__}: {exc}"})
     else:
         writer.notes.append("Pack 未声明 policy_ref 且未指定 --artifact：Bundle 不含策略权重（形态/技能仍可复现）")
+
+    if quality:
+        # **在导出物自身内**评测（package = 导出目录）：和 R2 同一原则 —— 证据必须来自这份包，
+        # 而不是拿仓库里那套凑。报告落 `quality.json`，`verify bundle` 会汇报它的判据。
+        from backend import quality_matrix
+
+        onnx_in_bundle = (refs.get("policy") or {}).get("onnx_in_bundle")
+        if not onnx_in_bundle:
+            unresolved.append({"role": "quality", "reason": "Bundle 里没有策略（未给 --artifact 且 Pack 无 policy_ref），无法评测"})
+        else:
+            try:
+                report = quality_matrix.run_quality(
+                    package_dir=Path(out_dir), tier=quality_tier, policy=onnx_in_bundle,
+                    steps=quality_steps, quality_min=quality_min,
+                )
+                writer.write_json(report, "quality.json", role="quality")
+                verdict = quality_matrix.gate(report, min_score=quality_min)
+                writer.notes.append(
+                    f"质量门（{quality_tier}）：{'达标' if verdict['ok'] else '未达标'}"
+                    f"（{verdict['score'] if verdict['score'] is None else round(verdict['score'], 4)}"
+                    f" / 下限 {quality_min}）"
+                )
+                for blocker in verdict["blockers"]:
+                    writer.notes.append(f"质量门未过：{blocker}")
+            except Exception as exc:
+                unresolved.append({"role": "quality", "reason": f"{type(exc).__name__}: {exc}"})
 
     if run_dir is not None or replay:
         # R1/R2/R3 一起出：R3 用**当时那套 venv**重算环境并逐项对账；
@@ -548,6 +578,21 @@ def verify_export(out_dir: Path | str) -> dict[str, Any]:
     if ghost:
         problems.append(f"存在 manifest 未登记的文件（幽灵文件）：{', '.join(ghost[:5])}")
 
+    quality = None
+    quality_payload = _read_json(root / "quality.json") if (root / "quality.json").exists() else None
+    if isinstance(quality_payload, dict):
+        # 完整性 ≠ 质量：导出物自洽（ok）与"策略够不够好"是两件事，分开报（与 R1/R2/R3 同处理）。
+        from backend import quality_matrix
+
+        verdict = quality_matrix.gate(quality_payload)
+        quality = {
+            "tier": quality_payload.get("tier"),
+            "score": verdict["score"],
+            "min_score": verdict["min_score"],
+            "ok": verdict["ok"],
+            "blockers": verdict["blockers"],
+        }
+
     reproduction = None
     reproduce_payload = _read_json(root / "reproduce.json") if (root / "reproduce.json").exists() else None
     if isinstance(reproduce_payload, dict):
@@ -564,6 +609,7 @@ def verify_export(out_dir: Path | str) -> dict[str, Any]:
         "refs": manifest.get("refs") or {},
         "unresolved": manifest.get("unresolved") or [],
         "reproduction": reproduction,
+        "quality": quality,
         "problems": problems,
     }
 
