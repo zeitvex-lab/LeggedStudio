@@ -532,6 +532,39 @@ def _cmd_verify_artifacts(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_verify_motions(args: argparse.Namespace) -> int:
+    """``verify motions``：Motion 参考动作注册表对账（离线命令）。
+
+    判据取 :func:`backend.motion_registry.audit`（注册表 vs 磁盘逐文件对账 + 字段校验）——
+    与 ``tools/audit_motions.py``（CI 门禁）**同一实现**，不在这里重算一遍。
+    """
+
+    from backend.motion_registry import INDEX_PATH, audit, derive
+
+    report = audit()
+    if args.json:
+        print(json.dumps({**report, "index": INDEX_PATH.as_posix()}, ensure_ascii=False, indent=2))
+        return 0 if report["ok"] else 1
+
+    print(f"Motion 参考动作对账（离线命令，无需后端）：{INDEX_PATH}")
+    print(f"  条目 {report['clips']} 条 / 数据文件 {report['files']} 份")
+    for entry in derive()["motions"]:
+        print(
+            f"  {entry['robot']:<14}{entry['source']:<12}{entry['format']:<5}"
+            f"fps={str(entry['fps']):<6}dof={entry['dof_layout']:<17}"
+            f"许可={entry['license'].get('spdx') or '未取证'}"
+        )
+    if report["license_gaps"]:
+        print(f"  许可未取证（如实登记，不阻断）：{len(report['license_gaps'])} 条")
+    if report["problems"]:
+        print(f"✗ 不通过（{len(report['problems'])} 项）：")
+        for item in report["problems"]:
+            print(f"  - {item}")
+        return 1
+    print("✓ 通过（注册表覆盖磁盘全部 motion，逐文件 sha256 一致）")
+    return 0
+
+
 # --------------------------------------------------------------------------------------
 # 训练在线命令（I1 第二批）：需后端在跑，走 HTTP —— 与 Web 工作台同一 API 契约
 # --------------------------------------------------------------------------------------
@@ -901,6 +934,17 @@ def build_parser() -> argparse.ArgumentParser:
     verify_artifacts.add_argument("--robots-dir", default=None, help="机器人包根（默认：仓库 assets/robots；对账要两侧成对才说得通）")
     verify_artifacts.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
 
+    verify_motions = verify_sub.add_parser(
+        "motions",
+        help="对 Motion 参考动作注册表做对账（离线命令，无需后端）",
+        description=(
+            "对 Motion 注册表做对账（离线命令，无需后端）：注册表是否覆盖磁盘上全部 motion 数据、"
+            "逐文件 sha256 是否一致、每条是否具备 fps/dof 布局/血缘/许可（许可未取证须显式登记）。"
+            "不通过 → 退出码 1。"
+        ),
+    )
+    verify_motions.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
+
     return parser
 
 
@@ -921,6 +965,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_verify_package(args)
         if args.verify_command == "run":
             return _cmd_verify_run(args)
+        if args.verify_command == "motions":
+            return _cmd_verify_motions(args)
         return _cmd_verify_artifacts(args)
 
     # `--offline` 的语义：**这次不碰后端**。离线命令在上面已经跑完并返回；走到这里说明

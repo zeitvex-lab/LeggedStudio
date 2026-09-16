@@ -1,0 +1,1728 @@
+{
+  "schema_version": "motion-registry-1.0",
+  "generated_by": "tools/audit_motions.py --apply",
+  "rules": {
+    "scan": "assets/robots/<package>/**/motions/** 下的 .pkl/.npz/.csv",
+    "derive": "fps / dof_dim / frames 从文件本身读出；dof_layout 由 dof 宽度命名",
+    "license": "与 I5 同口径：缺许可记录不得进注册表；确未取证须显式 status=unresolved + 依据"
+  },
+  "counts": {
+    "clips": 33,
+    "files": 78
+  },
+  "motions": [
+    {
+      "id": "unitree-g1-amp-arc-jog-left-loop-002-a029",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 345,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/arc_jog_left_loop_002__A029.npz",
+          "sha256": "405fda737fcd33132543960bd2c584ac69f37ba55a88c7ba6671bd39fa4d8d10",
+          "bytes": 620034,
+          "frames": 345
+        }
+      },
+      "frames_max": 345,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-arc-walk-left-loop-001-a029",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 621,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/arc_walk_left_loop_001__A029.npz",
+          "sha256": "23b324482407d32505f2a901bddbe58dec1b77115d133513d568b20384b0ad84",
+          "bytes": 1114626,
+          "frames": 621
+        }
+      },
+      "frames_max": 621,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-fallandgetup1-subject1",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 2575,
+      "files": {
+        "Recovery": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/Recovery/fallAndGetUp1_subject1.npz",
+          "sha256": "31e44c9e34d8aa40109bb7b99efe2326d72b4ce8d89bb96edf438d2c847bfed6",
+          "bytes": 4616194,
+          "frames": 2575
+        }
+      },
+      "frames_max": 2575,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-idle-turn-270-001-a048",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 298,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/idle_turn_270_001__A048.npz",
+          "sha256": "9c873d0081c7788083fb13da97cc573547d3bf73fe4c5ba2b0483f1e52a33593",
+          "bytes": 535810,
+          "frames": 298
+        }
+      },
+      "frames_max": 298,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-idle-turn-360-001-a047",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 371,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/idle_turn_360_001__A047.npz",
+          "sha256": "a38e98408a64ed8d063bcfdf107de04f3cb2b75fb8ddf2627f75ddfdae81b504",
+          "bytes": 666626,
+          "frames": 371
+        }
+      },
+      "frames_max": 371,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-jog-arc-cw-loop-004-a045",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 443,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/jog_arc_cw_loop_004__A045.npz",
+          "sha256": "22ebd40ac1f57c1b9a9eb43b1552f4c6e5ff1f86ba8f5adc5d709a1e7d408e9d",
+          "bytes": 795650,
+          "frames": 443
+        }
+      },
+      "frames_max": 443,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-jog-backward-loop-002-a022",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 287,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/jog_backward_loop_002__A022.npz",
+          "sha256": "90836078c8f644e6a6d5b9cf5ae82cf85b2982808b220d7548faff091abe7fad",
+          "bytes": 516098,
+          "frames": 287
+        }
+      },
+      "frames_max": 287,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-jog-backward-loop-003-a023",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 285,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/jog_backward_loop_003__A023.npz",
+          "sha256": "586d2d4d7399faff1f5346a28ad21c4545edd936f0845440deb32b1dc7d266e7",
+          "bytes": 512514,
+          "frames": 285
+        }
+      },
+      "frames_max": 285,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-jog-forward-loop-003-a021",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 401,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/jog_forward_loop_003__A021.npz",
+          "sha256": "50dd0d8a98cdb7fab7b4050fbba9b8099a37f66413a6b381459d9a17b76b56c1",
+          "bytes": 720386,
+          "frames": 401
+        }
+      },
+      "frames_max": 401,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-jog-forward-loop-003-a022",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 286,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/jog_forward_loop_003__A022.npz",
+          "sha256": "e3f235d904dbadd6e82ef4851d959842b3b6e10f162f33a86cc156e508af538f",
+          "bytes": 514306,
+          "frames": 286
+        }
+      },
+      "frames_max": 286,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-step-rotate-idle-000-002-a026",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 260,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/step_rotate_idle_000_002__A026.npz",
+          "sha256": "c1951233084fc6c9cd0e2ce2655af2b3543fc2441fd2a1a374e2d2f71dc88016",
+          "bytes": 467714,
+          "frames": 260
+        }
+      },
+      "frames_max": 260,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-walk-arc-cw-loop-002-a046",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 291,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/walk_arc_cw_loop_002__A046.npz",
+          "sha256": "f9a3730e955a2859402549b88735ccc5d436a3c67f470a10e04c7650c59c35ea",
+          "bytes": 523266,
+          "frames": 291
+        }
+      },
+      "frames_max": 291,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-walk-backward-loop-001-a022",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 520,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/walk_backward_loop_001__A022.npz",
+          "sha256": "8918acf02c3ad19c339204398dd99b390a6b168f53ca803329dfa7e98be4117a",
+          "bytes": 933634,
+          "frames": 520
+        }
+      },
+      "frames_max": 520,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-walk-backward-loop-001-a024",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 729,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/walk_backward_loop_001__A024.npz",
+          "sha256": "fc19bc5044222ac9ca6dfc77c1c1b63788cc77e759643c77023aee31fef6dd3b",
+          "bytes": 1308162,
+          "frames": 729
+        }
+      },
+      "frames_max": 729,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-walk-forward-loop-002-a022",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 455,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/walk_forward_loop_002__A022.npz",
+          "sha256": "dc1eba2d7f124d99d058562072a2376bcf123ec52b7c2b565abd723c3f688e1f",
+          "bytes": 817154,
+          "frames": 455
+        }
+      },
+      "frames_max": 455,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-walk-forward-loop-002-a024",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 482,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/walk_forward_loop_002__A024.npz",
+          "sha256": "25149b69debf5f015379ead46ed1e709cb052e96dbf974865ea2e2a66bf1be0f",
+          "bytes": 865538,
+          "frames": 482
+        }
+      },
+      "frames_max": 482,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-walk-sideway-left-loop-002-a021",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 713,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/walk_sideway_left_loop_002__A021.npz",
+          "sha256": "5f27f663887ab6367d1d798931d05eec6d0b54cf95b97550aa2380015f0682f8",
+          "bytes": 1279490,
+          "frames": 713
+        }
+      },
+      "frames_max": 713,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-amp-walk-sideway-right-loop-001-a022",
+      "robot": "unitree_g1",
+      "source": "g1_amp",
+      "format": "npz",
+      "layout": "amp-dirs",
+      "fps": 50.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 630,
+      "files": {
+        "WalkandRun": {
+          "path": "assets/robots/unitree_g1/training/source/g1_amp/src/assets/motions/g1/amp/WalkandRun/walk_sideway_right_loop_001__A022.npz",
+          "sha256": "6b7a024e9344d8667b5bec926eecef977c0788666283924e556690a62f42252e",
+          "bytes": 1130754,
+          "frames": 630
+        }
+      },
+      "frames_max": 630,
+      "conventions": {
+        "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）"
+      },
+      "lineage": {
+        "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+        "raw": null,
+        "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py"
+        ]
+      },
+      "license": {
+        "status": "unresolved",
+        "spdx": null,
+        "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证（已登记在 registry/licenses.json 的缺口表）",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+          "registry/licenses.json"
+        ]
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-b22-side-step-left-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 60.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 148,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/B22_-__side_step_left_stageii_genesis.pkl",
+          "sha256": "f106064c1094c6da468de70a6d76d4d6e6ced53f927a039460b6ac83a401879c",
+          "bytes": 78088,
+          "frames": 148
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/B22_-__side_step_left_stageii_isaacgym.pkl",
+          "sha256": "b90a80975bf03ce1d5209c7f3602823ec60d6e83cc4dc5ec41c51f69968ac97d",
+          "bytes": 78087,
+          "frames": 148
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/B22_-__side_step_left_stageii_isaaclab.pkl",
+          "sha256": "6513ed6138b92edc83d30aa54427b8c209127d996ac5d58d3e5a2558ee9fe9f3",
+          "bytes": 78087,
+          "frames": 148
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/B22_-__side_step_left_stageii.rawconv.pkl",
+          "sha256": "f1a2243a747fb439545869610479875222cff13760b5f9adb1bc468f2ce6f276",
+          "bytes": 166004,
+          "frames": 148
+        }
+      },
+      "frames_max": 148,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-b23-side-step-right-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 60.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 180,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/B23_-__side_step_right_stageii_genesis.pkl",
+          "sha256": "3dabc8c09191b0394321420c178d1988b5cdcda4a54fa4e3e630822c750d9c73",
+          "bytes": 94856,
+          "frames": 180
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/B23_-__side_step_right_stageii_isaacgym.pkl",
+          "sha256": "896cfe5942724d80009905ba19a1f86ad31d8408da695a97e62f18c97c144d73",
+          "bytes": 94855,
+          "frames": 180
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/B23_-__side_step_right_stageii_isaaclab.pkl",
+          "sha256": "96f089a9cc5ac9ac3b1a14dd89bdcb18f65ae6e94285b7bd781fa2be16cab994",
+          "bytes": 94855,
+          "frames": 180
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/B23_-__side_step_right_stageii.rawconv.pkl",
+          "sha256": "9f3da999da71c36c5a827eb9aa3d181204de6a0dfc1394d58ec3dbc378070ae0",
+          "bytes": 201588,
+          "frames": 180
+        }
+      },
+      "frames_max": 180,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c11-run-turn-left-90-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 60.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 169,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C11_-_run_turn_left_90_stageii_genesis.pkl",
+          "sha256": "d292d0d1bd935344ba81804ce60e0bf16151df7d2dc9c26dff3f50489799174f",
+          "bytes": 89092,
+          "frames": 169
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C11_-_run_turn_left_90_stageii_isaacgym.pkl",
+          "sha256": "3052a0d15227c35b2f0e0821fe57195cef6242a8f99a186d5bacb62f556b3125",
+          "bytes": 89091,
+          "frames": 169
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C11_-_run_turn_left_90_stageii_isaaclab.pkl",
+          "sha256": "88e03dc7e9a5ee829b1726b33652594e47698a4bd7a1c3c4468525758ce61f0d",
+          "bytes": 89091,
+          "frames": 169
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C11_-_run_turn_left_90_stageii.rawconv.pkl",
+          "sha256": "094211077e5ac3a03a733ccf4fbb3e264a0c064ee3a89598d3fe2096a5989d13",
+          "bytes": 189356,
+          "frames": 169
+        }
+      },
+      "frames_max": 169,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c12-run-turn-left-45-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 60.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 132,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C12_-_run_turn_left_45_stageii_genesis.pkl",
+          "sha256": "390bdca3353a569eb4968e47a2c0b6b5dfca871f0102e93edc8b3af8fe783402",
+          "bytes": 69704,
+          "frames": 132
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C12_-_run_turn_left_45_stageii_isaacgym.pkl",
+          "sha256": "bd9d9404aef1d30813b221ccecd0ddd71d21b40730c2b5fa11ef52e8eccae36f",
+          "bytes": 69703,
+          "frames": 132
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C12_-_run_turn_left_45_stageii_isaaclab.pkl",
+          "sha256": "084cf008eb0554dea51b4a085909b1f27e0732065a1f70cecbb31053c3360340",
+          "bytes": 69703,
+          "frames": 132
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C12_-_run_turn_left_45_stageii.rawconv.pkl",
+          "sha256": "66772a4860f6271e95c85f8dac2b28477e551c4c11ad3000e3a7554e450fadb8",
+          "bytes": 148212,
+          "frames": 132
+        }
+      },
+      "frames_max": 132,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c13-run-turn-left-135-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 60.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 185,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C13_-_run_turn_left_135_stageii_genesis.pkl",
+          "sha256": "b51a2d4bae41878964104221ecc6d2af847ef5fd5f6075135fe12386732a00f8",
+          "bytes": 97476,
+          "frames": 185
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C13_-_run_turn_left_135_stageii_isaacgym.pkl",
+          "sha256": "75eca1be273146edd238346afa994b6e32417b25f43bcd6dbf5075fa71a984e1",
+          "bytes": 97475,
+          "frames": 185
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C13_-_run_turn_left_135_stageii_isaaclab.pkl",
+          "sha256": "17e6f82ae4fd93240bd8942df9f2237a71b636c1612e15794041c2eb4998c6af",
+          "bytes": 97475,
+          "frames": 185
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C13_-_run_turn_left_135_stageii.rawconv.pkl",
+          "sha256": "d27ef841a3bc8945e7611bdc20d0671d3c75ab01aa3b7b4f934db3ff2f65acf4",
+          "bytes": 207157,
+          "frames": 185
+        }
+      },
+      "frames_max": 185,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c14-run-turn-right-90-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 59.84251968503937,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 190,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C14_-_run_turn_right_90_stageii_genesis.pkl",
+          "sha256": "9be9e2923c9da79cdadbb6e083a7ebf35197bc0302d480f792744c6e1c689adf",
+          "bytes": 100096,
+          "frames": 190
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C14_-_run_turn_right_90_stageii_isaacgym.pkl",
+          "sha256": "9135cfcb7fe2688196a78760223b3eb56a6e89d4128369c5d48fefd10b2b28bc",
+          "bytes": 100095,
+          "frames": 190
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C14_-_run_turn_right_90_stageii_isaaclab.pkl",
+          "sha256": "086cec55998b3bfc3da7e71df07128dd4793c59658af664c3abbf9bae20ef20a",
+          "bytes": 100095,
+          "frames": 190
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C14_-_run_turn_right_90_stageii.rawconv.pkl",
+          "sha256": "f662e6bcff7dd93434bef1071a334dc68bfa2126aec8ad808ecaa6da0126cfa5",
+          "bytes": 212717,
+          "frames": 190
+        }
+      },
+      "frames_max": 190,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c15-run-turn-right-45-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 60.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 188,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C15_-_run_turn_right_45_stageii_genesis.pkl",
+          "sha256": "4aedc8f9f4a56ccd3fbe84aa3e1295cf12d9320d392fa92328c069d623405f78",
+          "bytes": 99048,
+          "frames": 188
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C15_-_run_turn_right_45_stageii_isaacgym.pkl",
+          "sha256": "58bea134efee4679b706eace3373c8581b5c14aa729536c6074cadfcd1be39dd",
+          "bytes": 99047,
+          "frames": 188
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C15_-_run_turn_right_45_stageii_isaaclab.pkl",
+          "sha256": "deff7a97b210d83ad60bc6839827e9990ce6db6570298ba04672e81b8ab76aff",
+          "bytes": 99047,
+          "frames": 188
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C15_-_run_turn_right_45_stageii.rawconv.pkl",
+          "sha256": "9cbe4055ec2a6eacc8ca8a6e9bdf988a5e8d33b842aed3114055509b477da4b5",
+          "bytes": 210493,
+          "frames": 188
+        }
+      },
+      "frames_max": 188,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c16-run-turn-right-135-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 59.84168865435356,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 189,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C16_-_run_turn_right_135_stageii_genesis.pkl",
+          "sha256": "afbc9e0aba893a0e1d9418e79dbf4ad53b2e523f2749580a6a9257ce26c0a2e4",
+          "bytes": 99572,
+          "frames": 189
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C16_-_run_turn_right_135_stageii_isaacgym.pkl",
+          "sha256": "b686ad67097de5df618600bcbaa3447c03cf422c88ad04771352e202cae9e691",
+          "bytes": 99571,
+          "frames": 189
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C16_-_run_turn_right_135_stageii_isaaclab.pkl",
+          "sha256": "a878a190758450472edaffd5c1e9ae9f0e755c974dbbc855845916f84a7de388",
+          "bytes": 99571,
+          "frames": 189
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C16_-_run_turn_right_135_stageii.rawconv.pkl",
+          "sha256": "0ada0ee46b84141c44618ef464c8665cc9a2fe0e3b6e763a08008381e83c9deb",
+          "bytes": 211605,
+          "frames": 189
+        }
+      },
+      "frames_max": 189,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c17-run-change-direction-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 60.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 183,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C17_-_run_change_direction_stageii_genesis.pkl",
+          "sha256": "44d76f961ee6b015b40957bc70798b39d7781080db8737f9f5c98c5b76497625",
+          "bytes": 96428,
+          "frames": 183
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C17_-_run_change_direction_stageii_isaacgym.pkl",
+          "sha256": "68be9926942ec645d90c6d690bd615ebc6e54e85cdca8914a317aa00ac07867b",
+          "bytes": 96427,
+          "frames": 183
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C17_-_run_change_direction_stageii_isaaclab.pkl",
+          "sha256": "baef273a7bffa18eba725624de9ec91e1a8b6fed57eb2b3d2a3c7a5d7517f5c9",
+          "bytes": 96427,
+          "frames": 183
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C17_-_run_change_direction_stageii.rawconv.pkl",
+          "sha256": "251f435c174bcf7dca5e292b087741b6f1f6dd0b2115fc086f8e55381e5a8b33",
+          "bytes": 204933,
+          "frames": 183
+        }
+      },
+      "frames_max": 183,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c1-stand-to-run-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 59.877800407331975,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 245,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C1_-_stand_to_run_stageii_genesis.pkl",
+          "sha256": "21100e412cc0ec7896ae45a39821c5d99b279b40760efe26cd0a9e18abf703fd",
+          "bytes": 128925,
+          "frames": 245
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C1_-_stand_to_run_stageii_isaacgym.pkl",
+          "sha256": "a3856052723c247cfa545451d5727bda8f4e81fd58fbcdbda9a1be0880fd2c15",
+          "bytes": 128924,
+          "frames": 245
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C1_-_stand_to_run_stageii_isaaclab.pkl",
+          "sha256": "f728164d01e1091667a66e8c3819d4ae48395f665fc7bb9e48ae0a9909219148",
+          "bytes": 128924,
+          "frames": 245
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C1_-_stand_to_run_stageii.rawconv.pkl",
+          "sha256": "438f7c3e5d038af3fe38de6786b61447436d33e3d091b080cb4da46284d15d41",
+          "bytes": 273886,
+          "frames": 245
+        }
+      },
+      "frames_max": 245,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c3-run-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 60.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 163,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C3_-_run_stageii_genesis.pkl",
+          "sha256": "a18e9718ad1749140a666e07c374a76d7f57809d8c00469d6a55851035f147f6",
+          "bytes": 85948,
+          "frames": 163
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C3_-_run_stageii_isaacgym.pkl",
+          "sha256": "0019f7af8f58697c3b80083bfff9b540a40a856d690f874137d8d4999583ec93",
+          "bytes": 85947,
+          "frames": 163
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C3_-_run_stageii_isaaclab.pkl",
+          "sha256": "ea61ccede0f70fc1c6aefd6b9871cd760359735a8cd0d2f759349e2e316e6a0d",
+          "bytes": 85947,
+          "frames": 163
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C3_-_run_stageii.rawconv.pkl",
+          "sha256": "200a8aad548bf087e80a9f4a4b025dc319ad15a1d5fb501d198b82b8d9203d15",
+          "bytes": 182684,
+          "frames": 163
+        }
+      },
+      "frames_max": 163,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c6-stand-to-run-backwards-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 60.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 349,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C6_-_stand_to_run_backwards_stageii_genesis.pkl",
+          "sha256": "be9be027c165ca18390436aa718ece057f58e50277d3ea15ba6d089b5a7e22c1",
+          "bytes": 183438,
+          "frames": 349
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C6_-_stand_to_run_backwards_stageii_isaacgym.pkl",
+          "sha256": "f1b49f096226939a14b1bc4384d0a9e58c3b772a52b71b5d3c3fe7ec2337ea99",
+          "bytes": 183437,
+          "frames": 349
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C6_-_stand_to_run_backwards_stageii_isaaclab.pkl",
+          "sha256": "61b18379b8a86f6f0dfdf080df0899f625cd69e849ed907d6de93b96eae4ceee",
+          "bytes": 183437,
+          "frames": 349
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C6_-_stand_to_run_backwards_stageii.rawconv.pkl",
+          "sha256": "5830020fd4818d0eba831a0ba146a3d57c39b3dff57fc05113dce24975b37ee9",
+          "bytes": 389542,
+          "frames": 349
+        }
+      },
+      "frames_max": 349,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c7-run-backwards-t2-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 60.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 193,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C7_-_run_backwards_t2_stageii_genesis.pkl",
+          "sha256": "d4dc0ad661e8c0430377ebb3c40ba0b1741cec084ce23fd42d4c1269ed9ce437",
+          "bytes": 101668,
+          "frames": 193
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C7_-_run_backwards_t2_stageii_isaacgym.pkl",
+          "sha256": "8c4188a7a8e6d317bdef7d1ef4cde20db2fe2e32bf852a8e12f5a591d338ff08",
+          "bytes": 101667,
+          "frames": 193
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C7_-_run_backwards_t2_stageii_isaaclab.pkl",
+          "sha256": "a0d924608db1f6f8b395b557cf802989cbe43f2be584f6b6580f95e8d7697e0d",
+          "bytes": 101667,
+          "frames": 193
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C7_-_run_backwards_t2_stageii.rawconv.pkl",
+          "sha256": "322776d0172d81aea08a8b02f2771913524c6ccea9b1c3f33f9e362d63a34b65",
+          "bytes": 216053,
+          "frames": 193
+        }
+      },
+      "frames_max": 193,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c8-run-backwards-to-stand-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 59.87525987525988,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 240,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C8_-_run_backwards_to_stand_stageii_genesis.pkl",
+          "sha256": "7bb9f7adc032dce65ce5c1ebba0ef689c8e8daf843ad62e533ae6e7d8cdf5077",
+          "bytes": 126305,
+          "frames": 240
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C8_-_run_backwards_to_stand_stageii_isaacgym.pkl",
+          "sha256": "05789f9b845b1da6943fad1fb254467e67ef2d33b0b3bf2287331d73b8e01c89",
+          "bytes": 126304,
+          "frames": 240
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C8_-_run_backwards_to_stand_stageii_isaaclab.pkl",
+          "sha256": "a70e76232e39785ad75728d66c68134b94ce402bae49c72f51b09613e22f53d4",
+          "bytes": 126304,
+          "frames": 240
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C8_-_run_backwards_to_stand_stageii.rawconv.pkl",
+          "sha256": "e35952079dcd8767d1d79ac747ce13ab480186b39c14c78aa182d13f748cb0f2",
+          "bytes": 268326,
+          "frames": 240
+        }
+      },
+      "frames_max": 240,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    },
+    {
+      "id": "unitree-g1-tracking-c9-run-backwards-turn-run-forward-stageii",
+      "robot": "unitree_g1",
+      "source": "g1_tracking",
+      "format": "pkl",
+      "layout": "tracking-variants",
+      "fps": 60.0,
+      "dof_dim": 29,
+      "dof_layout": "unitree_dds_29",
+      "frames_min": 215,
+      "files": {
+        "genesis": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C9_-_run_backwards_turn_run_forward_stageii_genesis.pkl",
+          "sha256": "35d4b567b2a9bf0ee7745db2a4d7b1a4879ed4cf4cda79f77075931db8d44ba0",
+          "bytes": 113196,
+          "frames": 215
+        },
+        "isaacgym": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C9_-_run_backwards_turn_run_forward_stageii_isaacgym.pkl",
+          "sha256": "908adef8b848c53ab439699be57714b58342e2f89c3b7016869f84122f5db00d",
+          "bytes": 113195,
+          "frames": 215
+        },
+        "isaaclab": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C9_-_run_backwards_turn_run_forward_stageii_isaaclab.pkl",
+          "sha256": "817595ea7e5bbd91c4fa61f47584eb4b7dee7a00d209cc9117db1ed7c2a0e2b8",
+          "bytes": 113195,
+          "frames": 215
+        },
+        "rawconv": {
+          "path": "assets/robots/unitree_g1/training/source/g1_tracking/assets/motions/g1/tracking/C9_-_run_backwards_turn_run_forward_stageii.rawconv.pkl",
+          "sha256": "833081828b4fa3056f742ebcd0b5a38430022248038c4ab2ce525c072a149cc2",
+          "bytes": 240517,
+          "frames": 215
+        }
+      },
+      "frames_max": 215,
+      "conventions": {
+        "root_pos": "world",
+        "root_rot": "xyzw",
+        "dof_order": "unitree DDS joint order",
+        "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）"
+      },
+      "lineage": {
+        "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+        "raw": null,
+        "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+        "conversion_script": "tools/convert_raw_motion_pkls.py",
+        "evidence": [
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+          "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "BSD-3-Clause",
+        "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+        "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+        "upstream_dataset": {
+          "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+          "status": "unresolved",
+          "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内"
+        }
+      }
+    }
+  ]
+}
