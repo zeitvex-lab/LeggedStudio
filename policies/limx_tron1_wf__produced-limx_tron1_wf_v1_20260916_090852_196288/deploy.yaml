@@ -1,0 +1,18 @@
+robot: limx_tron1_wf
+policy_id: limx_tron1_wf__produced-limx_tron1_wf_v1_20260916_090852_196288
+kind: produced
+run_id: limx_tron1_wf_v1_20260916_090852_196288
+seed: 7
+source_onnx: product-training（训练→导出→入库链路自产）
+obs_dim: 28
+action_dim: 8
+action_joint_order:
+  - abad_L_Joint
+  - hip_L_Joint
+  - knee_L_Joint
+  - wheel_L_Joint
+  - abad_R_Joint
+  - hip_R_Joint
+  - knee_R_Joint
+  - wheel_R_Joint
+trained_iterations: 5

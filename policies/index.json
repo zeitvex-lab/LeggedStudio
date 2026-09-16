@@ -1042,11 +1042,38 @@
       "run_id": "wuji_hand_right_v1_20260916_070954_372036",
       "schema": "policy-artifact-1.0",
       "source_onnx": "policies/wuji_hand__produced-wuji_hand_right_v1_20260916_070954_372036/policy.onnx"
+    },
+    {
+      "artifact_id": "limx_tron1_pf__produced-limx_tron1_pf_v1_20260916_090654_156215",
+      "kind": "produced",
+      "onnx_bytes": 941855,
+      "onnx_sha256": "a8a798ff282dda63d6b7417d803c59a87d9c592962af6b6c85096a43d1c5a92a",
+      "run_id": "limx_tron1_pf_v1_20260916_090654_156215",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "policies/limx_tron1_pf__produced-limx_tron1_pf_v1_20260916_090654_156215/policy.onnx"
+    },
+    {
+      "artifact_id": "limx_tron1_sf__produced-limx_tron1_sf_v1_20260916_090802_000006",
+      "kind": "produced",
+      "onnx_bytes": 1344019,
+      "onnx_sha256": "3aa0755a179a0e5a9af5a3fd51f71e5bbc624c7782d1fcf6cb1f5d8f62cb82df",
+      "run_id": "limx_tron1_sf_v1_20260916_090802_000006",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "policies/limx_tron1_sf__produced-limx_tron1_sf_v1_20260916_090802_000006/policy.onnx"
+    },
+    {
+      "artifact_id": "limx_tron1_wf__produced-limx_tron1_wf_v1_20260916_090852_196288",
+      "kind": "produced",
+      "onnx_bytes": 1302258,
+      "onnx_sha256": "3168e4f6f57f3102eea859ff94b58e0a3ceb23d3787e9bdff3c98a6edfdd1a87",
+      "run_id": "limx_tron1_wf_v1_20260916_090852_196288",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "policies/limx_tron1_wf__produced-limx_tron1_wf_v1_20260916_090852_196288/policy.onnx"
     }
   ],
   "blobs": "引用式：onnx 仍单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目例外（训练产物入库时 policy.onnx 是唯一副本，真复制）",
-  "count": 57,
-  "generated_at": "2026-09-15T23:10:28+00:00",
+  "count": 60,
+  "generated_at": "2026-09-16T01:09:25+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"
 }

@@ -1,0 +1,9 @@
+{
+  "artifact_id": "limx_tron1_wf__produced-limx_tron1_wf_v1_20260916_090852_196288",
+  "kind": "produced",
+  "onnx_bytes": 1302258,
+  "onnx_sha256": "3168e4f6f57f3102eea859ff94b58e0a3ceb23d3787e9bdff3c98a6edfdd1a87",
+  "run_id": "limx_tron1_wf_v1_20260916_090852_196288",
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "policies/limx_tron1_wf__produced-limx_tron1_wf_v1_20260916_090852_196288/policy.onnx"
+}
