@@ -271,3 +271,44 @@ export function drawPointCloud(ctx, {
 }
 
 
+
+/**
+ * H18：把一集回放的「预测 vs 实际」两条轨迹**叠加**画在一起（同一坐标系、同一缩放）。
+ *
+ * 两条轨迹必须共用一次 `projectTrail` 的 bounds —— 各自归一化会把"差 0.6 m"画成"完全重合"，
+ * 那就白测了。预测用橙色虚线，实际用蓝色实线，外加图例文案。
+ */
+export function drawPredictedVsActual(ctx, { predicted = [], actual = [], width = 200, height = 140, labels = null } = {}) {
+  if (!ctx) return false;
+  const all = predicted.concat(actual);
+  if (!all.length) return false;
+  // 共用 bounds：两条轨迹在同一尺度下比较，才看得出偏差
+  const bounds = all.reduce(
+    (acc, [x, y]) => ({ minX: Math.min(acc.minX, x), maxX: Math.max(acc.maxX, x), minY: Math.min(acc.minY, y), maxY: Math.max(acc.maxY, y) }),
+    { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
+  );
+  const predictedPts = projectTrail(predicted, { width, height, bounds }).points;
+  const actualPts = projectTrail(actual, { width, height, bounds }).points;
+  if (typeof ctx.clearRect === 'function') ctx.clearRect(0, 0, width, height);
+
+  const stroke = (points, color, dashed) => {
+    if (points.length < 2 || typeof ctx.beginPath !== 'function') return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    if (typeof ctx.setLineDash === 'function') ctx.setLineDash(dashed ? [4, 3] : []);
+    ctx.beginPath();
+    points.forEach(([sx, sy], index) => (index === 0 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy)));
+    if (typeof ctx.stroke === 'function') ctx.stroke();
+    if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+  };
+  stroke(predictedPts, '#f59e0b', true);  // 预测：橙色虚线
+  stroke(actualPts, '#38bdf8', false);    // 实际：蓝色实线
+
+  if (labels && typeof ctx.fillText === 'function') {
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(labels.predicted || '预测', 4, 11);
+    ctx.fillText(labels.actual || '实际', 4, 23);
+  }
+  return true;
+}
