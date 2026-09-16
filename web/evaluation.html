@@ -1,5 +1,152 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sim2Sim 验证 - Legged Studio</title><link rel="stylesheet" href="dashboard.css"><style>
 .eval-shell{max-width:1180px;margin:0 auto;padding:32px 24px}.eval-form,.result{padding:20px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);margin-top:18px}.eval-form{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.eval-form label{display:grid;gap:6px;color:var(--muted);font-size:12px}.eval-form select,.eval-form input{min-height:38px;padding:0 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-input);color:var(--text)}.result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px}.metric{padding:14px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-raised)}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:4px;font-size:22px;color:var(--accent)}
-</style></head><body><main class="eval-shell"><header class="page-header"><div><span class="page-kicker">Sim2Sim</span><h1>策略验证</h1><p>使用训练产物在隔离的 native MJLab 环境运行确定性回放。</p></div><div class="page-actions"><a class="btn" href="dashboard.html">返回</a></div></header><section class="eval-form"><label>训练产物<select id="task"><option>加载中...</option></select></label><label>回放回合<input id="episodes" type="number" value="5" min="1" max="100"></label><button class="btn primary" id="run">运行验证</button></section><section class="result" id="result"><div class="empty-state">选择已完成任务后开始验证</div></section></main><script>
+.quality-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.badge{padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.badge.ok{background:rgba(56,178,108,.16);color:#38b26c}
+.badge.bad{background:rgba(220,80,80,.16);color:#dc5050}
+.quality-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+.quality-table th,.quality-table td{padding:8px 10px;border-bottom:1px solid var(--border-soft);text-align:left}
+.quality-table th{color:var(--muted);font-weight:500}
+.quality-table td.num,.quality-table th:nth-child(n+2){text-align:right;font-variant-numeric:tabular-nums}
+.hint{color:var(--muted);font-size:12px;margin-top:10px}
+.hint li{margin:4px 0}
+</style></head><body><main class="eval-shell"><header class="page-header"><div><span class="page-kicker">Sim2Sim</span><h1>策略验证</h1><p>使用训练产物在隔离的 native MJLab 环境运行确定性回放。</p></div><div class="page-actions"><a class="btn" href="dashboard.html">返回</a></div></header><section class="eval-form"><label>训练产物<select id="task"><option>加载中...</option></select></label><label>回放回合<input id="episodes" type="number" value="5" min="1" max="100"></label><button class="btn primary" id="run">运行验证</button></section><section class="result" id="result"><div class="empty-state">选择已完成任务后开始验证</div></section>
+<section class="result" id="quality">
+  <h2>质量矩阵（八指标 / 四档）</h2>
+  <p class="hint">RoboGauge 八指标 → single / multi / level / stress。报告落 <code>&lt;workspace&gt;/evaluation/</code>；
+  <strong>打包放行的依据就是那份磁盘报告</strong>——没有报告不算过（未评测 ≠ 达标）。</p>
+  <div class="eval-form">
+    <label>机器人<select id="q-robot"><option>加载中...</option></select></label>
+    <label>策略<select id="q-policy"><option>加载中...</option></select></label>
+    <label>档位<select id="q-tier">
+      <option value="single">single（八指标）</option>
+      <option value="multi">multi（矩阵）</option>
+      <option value="level">level（分层难度）</option>
+      <option value="stress">stress（多条件）</option>
+    </select></label>
+    <label>质量分下限<input id="q-min" type="number" value="0.5" step="0.05" min="0" max="1"></label>
+    <label>控制步数<input id="q-steps" type="number" value="150" min="10" max="2000"></label>
+    <label>level 幅值<input id="q-magnitudes" value="0.5,0.75,1.0"></label>
+    <button class="btn primary" id="q-run">跑评测</button>
+  </div>
+  <div id="q-out"><div class="empty-state">未评测</div></div>
+  <h3>历史报告</h3>
+  <div id="q-list"><div class="empty-state">加载中...</div></div>
+</section></main><script>
 const API='http://127.0.0.1:8765',taskEl=document.querySelector('#task'),resultEl=document.querySelector('#result');async function load(){const r=await fetch(API+'/api/evaluation/list');const d=await r.json();taskEl.innerHTML=(d.tasks||[]).map(x=>`<option value="${x.task_id}">${x.robot} · ${x.task_id}</option>`).join('')||'<option value="">暂无可评估产物</option>'}async function run(){if(!taskEl.value)return;resultEl.innerHTML='<div class="empty-state">评估运行中...</div>';const r=await fetch(API+'/api/evaluation/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:taskEl.value,episodes:Number(document.querySelector('#episodes').value)})});const d=await r.json();if(!r.ok){resultEl.innerHTML=`<div class="empty-state">${d.detail||'评估失败'}</div>`;return}const x=d.result;resultEl.innerHTML=`<h2>${x.robot}</h2><p>${x.evaluated_env} · ${x.episodes} episodes</p><div class="result-grid"><div class="metric"><span>平均奖励</span><strong>${x.avg_reward.toFixed(3)}</strong></div><div class="metric"><span>奖励标准差</span><strong>${x.std_reward.toFixed(3)}</strong></div><div class="metric"><span>平均前进速度</span><strong>${x.avg_forward_velocity.toFixed(3)}</strong></div><div class="metric"><span>成功率</span><strong>${(x.success_rate*100).toFixed(1)}%</strong></div></div>`}document.querySelector('#run').onclick=run;load();
+</script>
+<script>
+// E 组：质量矩阵（B11 八指标 / 四档）。
+// 判据与报告都在后端（`POST /api/evaluation/quality/run` → `backend/quality_matrix.py` +
+// `adapters/mjlab/quality_metrics.py`），本页只负责"选、跑、看"——不在前端重算任何指标，
+// 也不自己判达标（放行依据是磁盘上那份报告，不是页面上的一个绿色对勾）。
+const qEl = (id) => document.querySelector("#" + id);
+const qOut = qEl("q-out");
+const qReportList = qEl("q-list");
+
+const TIER_LABELS = {
+  single: "single（八指标）",
+  multi: "multi（矩阵）",
+  level: "level（分层难度）",
+  stress: "stress（多条件）",
+};
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"]/g, (char) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]
+  ));
+}
+
+function metricsTable(metrics, weights) {
+  const rows = Object.entries(metrics || {}).map(([name, value]) => `<tr>
+      <td>${escapeHtml(name)}</td>
+      <td class="num">${Number(value).toFixed(4)}</td>
+      <td class="num">${weights?.[name] ?? 1}</td>
+      <td class="num">${Number(value) >= 0.5 ? "✓" : "⚠"}</td>
+    </tr>`).join("");
+  return `<table class="quality-table"><thead><tr><th>指标</th><th>得分</th><th>权重</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderQuality(report, verdict) {
+  const score = verdict?.score;
+  const badge = verdict?.ok
+    ? '<span class="badge ok">达标</span>'
+    : `<span class="badge bad">未达标</span>`;
+  const head = `<div class="quality-head"><h3>${escapeHtml(report.policy?.id || report.policy?.policy_id || report.policy?.path || "策略")}</h3>
+    ${badge}<span class="hint">档位 ${escapeHtml(report.tier)} · ${report.steps ?? ""} 步 · 下限 ${verdict?.min_score ?? ""}</span></div>`;
+
+  let body = "";
+  if (report.tier === "level") {
+    body = `<table class="quality-table"><thead><tr><th>层</th><th>幅值</th><th>success_mean</th><th>质量分</th><th></th></tr></thead><tbody>${
+      (report.levels || []).map((level) => `<tr><td>${level.level}</td><td class="num">${level.magnitude}</td>
+        <td class="num">${Number(level.success_mean).toFixed(2)}</td>
+        <td class="num">${(level.quality_scores || []).map((value) => Number(value).toFixed(3)).join(" / ")}</td>
+        <td>${level.passed ? "✓" : "✗"}</td></tr>`).join("")
+    }</tbody></table>${
+      report.stopped_early ? '<p class="hint">遇到不过的层即停：后面的层没跑（不假装跑过）</p>' : ""
+    }`;
+  } else if (report.tier === "stress") {
+    body = `<table class="quality-table"><thead><tr><th>条件</th><th>质量分（中位数）</th></tr></thead><tbody>${
+      Object.entries(report.scores || {}).map(([name, value]) => `<tr><td>${escapeHtml(name)}</td><td class="num">${Number(value).toFixed(4)}</td></tr>`).join("")
+    }</tbody></table><p class="hint">维度：${escapeHtml(report.dimension_note || report.dimension || "")}</p>`;
+  } else if (report.tier === "multi") {
+    body = `<p>矩阵 ${report.count} 格 · mean <strong>${Number(report.aggregate?.mean).toFixed(4)}</strong> · min <strong>${Number(report.aggregate?.min).toFixed(4)}</strong></p>`;
+  } else {
+    body = `<div class="result-grid"><div class="metric"><span>质量分（加权几何平均）</span><strong>${Number(report.quality_score).toFixed(4)}</strong></div>
+      <div class="metric"><span>足距对角长 d_norm</span><strong>${Number(report.d_norm).toFixed(3)}</strong></div></div>${metricsTable(report.metrics, report.weights)}`;
+  }
+
+  const notes = [
+    ...(report.skipped || []).map((item) => `未真正计算：${item}`),
+    ...(verdict?.blockers || report.blockers || []).map((item) => `放行受阻：${item}`),
+  ].map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+
+  qOut.innerHTML = `${head}${body}${notes ? `<ul class="hint">${notes}</ul>` : ""}`;
+}
+
+async function runQuality() {
+  const robot = qEl("q-robot").value;
+  const policy = qEl("q-policy").value;
+  if (!robot || !policy) { qOut.innerHTML = '<div class="empty-state">先选机器人与策略</div>'; return; }
+  qOut.innerHTML = '<div class="empty-state">评测运行中（真跑 MuJoCo，按档位可能要几十秒）...</div>';
+  const payload = {
+    package_dir: `assets/robots/${robot}`,
+    policy_id: policy,
+    tier: qEl("q-tier").value,
+    steps: Number(qEl("q-steps").value),
+    quality_min: Number(qEl("q-min").value),
+    magnitudes: qEl("q-magnitudes").value,
+    save: true,
+  };
+  const response = await fetch(API + "/api/evaluation/quality/run", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    // 501 = 环境没准备好（缺适配器 venv）；页面如实说，不显示"评测失败"这种查不出原因的话。
+    qOut.innerHTML = `<div class="empty-state">${escapeHtml(data.detail || "评测未启动")}</div>`;
+    return;
+  }
+  renderQuality(data.report, data.verdict);
+  loadQualityReports();
+}
+
+async function loadQualityReports() {
+  const response = await fetch(API + "/api/evaluation/quality/list");
+  const data = await response.json();
+  const reports = data.reports || [];
+  qReportList.innerHTML = reports.length
+    ? `<table class="quality-table"><thead><tr><th>报告</th><th>策略</th><th>档位</th><th>分数</th><th>时间</th></tr></thead><tbody>${
+        reports.map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.policy?.id || item.policy?.policy_id || "-")}</td>
+          <td>${escapeHtml(item.tier)}</td><td class="num">${item.quality_score == null ? "-" : Number(item.quality_score).toFixed(4)}</td>
+          <td>${escapeHtml(item.generated_at || "")}</td></tr>`).join("")
+      }</tbody></table>`
+    : '<div class="empty-state">还没有质量报告 —— 打包放行需要一份达标报告（未评测 ≠ 达标）</div>';
+}
+
+qEl("q-robot").addEventListener("change", loadQualityPolicies);
+qEl("q-run").addEventListener("click", runQuality);
+loadQualityRobots().then(loadQualityReports).catch((error) => {
+  qOut.innerHTML = `<div class="empty-state">${escapeHtml(error?.message || error)}</div>`;
+});
 </script></body></html>

@@ -88,6 +88,9 @@ class QualityRequest(BaseModel):
     cmd: str = "0.4,0,0"
     steps: int = Field(default=200, ge=1, le=5000)
     quality_min: float = Field(default=0.5, ge=0.0, le=1.0)
+    # level 档的难度幅值序列（前端会传；缺了会被静默忽略，档位就跑成默认值 —— 那是"看起来跑了"）
+    magnitudes: str = Field(default="0.5,0.75,1.0", description="level 档的幅值序列（逗号分隔）")
+    repeats: int = Field(default=1, ge=1, le=20, description="stress 档每条件重跑次数")
     save: bool = Field(default=True, description="把报告落到 <workspace>/evaluation/")
 
 
@@ -120,6 +123,8 @@ async def run_quality_report(request: QualityRequest):
             cmd=request.cmd,
             steps=request.steps,
             quality_min=request.quality_min,
+            magnitudes=request.magnitudes,
+            repeats=request.repeats,
         )
     except AdapterUnavailable as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
