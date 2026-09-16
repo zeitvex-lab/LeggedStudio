@@ -102,7 +102,23 @@ def _morphology_id(contract_v3: dict) -> str | None:
     return str(morphology.get("id")) if isinstance(morphology, dict) and morphology.get("id") else None
 
 
-def build_pack(package_dir: Path) -> dict | None:
+def existing_policy_ref(package_dir: Path, out_dir: Path) -> dict | None:
+    """读出已生成 Pack 里的 `policy_ref`（若有）——**回挂不能被子生成器冲掉**。
+
+    训练产物经 `attach_policy_to_pack()` 回挂后，Pack 的 `policy_ref` 指向产物的 onnx。
+    生成器若一律写 `null`，下一次重生成就把这条回挂静默抹掉（"生成物"覆盖"产品数据"）——
+    所以这里显式继承，并在 `--dry-run` 下同样生效（否则演练与实跑不一致）。
+    """
+
+    path = out_dir / f"{package_dir.name}.pack.json"
+    if not path.is_file():
+        return None
+    payload = _load_json(path)
+    ref = payload.get("policy_ref") if isinstance(payload, dict) else None
+    return dict(ref) if isinstance(ref, dict) and ref.get("id") else None
+
+
+def build_pack(package_dir: Path, *, policy_ref: dict | None = None) -> dict | None:
     """从单个机器人包构建默认 Pack；缺 contract_v3.json 则跳过（返回 None）。"""
 
     contract_path = package_dir / "contract_v3.json"
@@ -126,7 +142,8 @@ def build_pack(package_dir: Path) -> dict | None:
         },
         "skill_ref": skill_ref,
         "scenario_ref": None,
-        "policy_ref": None,
+        # 回挂过的 policy_ref 原样继承（见 existing_policy_ref 的说明）
+        "policy_ref": dict(policy_ref) if policy_ref else None,
         "bindings": json.loads(json.dumps(DEFAULT_BINDINGS)),
     }
 
@@ -149,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
     written: list[str] = []
     skipped: list[str] = []
     for package_dir in sorted(p for p in robots_dir.iterdir() if p.is_dir()):
-        pack = build_pack(package_dir)
+        pack = build_pack(package_dir, policy_ref=existing_policy_ref(package_dir, out_dir))
         if pack is None:
             skipped.append(package_dir.name)
             continue

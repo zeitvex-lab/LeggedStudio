@@ -180,21 +180,8 @@ class ExportWriter:
         return manifest
 
 
-def robot_package_root(robot_id: str) -> Path:
-    """机器人包根：优先取预设里登记的 `package_root`，退回内置 `assets/robots/<id>`。"""
-
-    try:
-        from backend.robot_presets import get_robot_preset
-
-        preset = get_robot_preset(robot_id) or {}
-        root_value = str(((preset.get("robot_package") or {}).get("package_root") or ""))
-        if root_value:
-            candidate = Path(root_value)
-            if candidate.is_dir():
-                return candidate
-    except Exception:  # 预设不可用时退回内置目录（不因预设问题阻断导出）
-        pass
-    return ROBOTS_DIR / robot_id
+# 包根解析的**单一实现**在 `backend/robot_packages.py`（训练安装与导出必须指向同一个包）。
+from backend.robot_packages import robot_package_root  # noqa: E402  (模块末尾导入，避免循环依赖)
 
 
 def _model_files(package_root: Path, manifest: dict[str, Any]) -> list[tuple[Path, str]]:
@@ -300,9 +287,19 @@ def export_policy(
             writer.copy(source, f"{prefix}{name}", role=role)
         else:
             writer.notes.append(f"{name} 不存在")
-    onnx_files = sorted(artifact_dir.glob("*.onnx"))
+    # 产物 onnx 的落点由**统一解析器**给（`policy_blob_path`）：安装进包之后真副本已搬进
+    # `assets/robots/<robot>/simulation/policies/`（出库目录里只剩元数据），此时若仍 glob
+    # 出库目录就会报"产物目录里没有 onnx"——而它其实好端端在包里。
+    from backend.policy_artifacts import policy_blob_path
+
+    blob = policy_blob_path(entry, index=index)
+    onnx_files: list[Path] = []
+    if blob is not None and Path(blob).is_file() and Path(blob).resolve() != (artifact_dir / Path(blob).name).resolve():
+        onnx_files = [Path(blob)]
     if not onnx_files:
-        raise FileNotFoundError(f"产物目录里没有 onnx：{artifact_dir}")
+        onnx_files = sorted(artifact_dir.glob("*.onnx"))
+    if not onnx_files:
+        raise FileNotFoundError(f"产物解析不到 onnx（出库目录与包内都没有）：{artifact_dir}")
     for source in onnx_files:
         # onnx 的**落点可以是绝对口径**（Bundle 要让包内配置能解析到它，见 _policy_placement）；
         # 元数据（artifact.json/deploy.yaml）只跟着 prefix 走。两者混用会把文件名当目录前缀拼，
@@ -320,6 +317,7 @@ def export_bundle(
     run_dir: Path | str | None = None,
     replay: bool = False,
     replay_steps: int = 60,
+    out_dir_index: Path | None = None,
 ) -> dict[str, Any]:
     """**Bundle**：Pack 引用 + **被引用物的离线副本** + 哈希（愿景原文口径）。
 
@@ -400,9 +398,12 @@ def export_bundle(
     policy_id = artifact_id or str(policy_ref.get("id") or "")
     if policy_id:
         try:
-            metadata_prefix, onnx_path, bound_entry = _policy_placement(package_root, policy_id)
+            metadata_prefix, onnx_path, bound_entry = _policy_placement(
+                package_root, policy_id, out_dir_index=out_dir_index,
+            )
             nested = export_policy(
                 policy_id, Path(out_dir), emit_manifest=False, prefix=metadata_prefix, onnx_path=onnx_path,
+                out_dir_index=out_dir_index,
             )
             writer.entries.extend(nested["entries"])
             writer.notes.extend(f"policy: {note}" for note in nested.get("notes") or [])
@@ -451,7 +452,9 @@ def export_bundle(
     return writer.finish(refs=refs, extra={"unresolved": unresolved})
 
 
-def _policy_placement(package_root: Path | None, artifact_id: str) -> tuple[str, str, str | None]:
+def _policy_placement(
+    package_root: Path | None, artifact_id: str, *, out_dir_index: Path | None = None,
+) -> tuple[str, str, str | None]:
     """产物在 Bundle 里该放哪：**优先放到包内配置声明的位置**（这样 `--policy-id` 能解析到它）。
 
     两种情形（2026-09-16 实测）：
@@ -468,7 +471,9 @@ def _policy_placement(package_root: Path | None, artifact_id: str) -> tuple[str,
 
     from backend import policy_artifacts as pa
 
-    entry = pa.load_index().get(artifact_id) or {}
+    # 出库目录**必须可指定**：单元测试与"导出别人机器上的索引"都要能指到别处；
+    # 写死默认目录会让"装进包但在另一个 out_dir"的产物解析不到（回挂的落点就退回兜底文件名）。
+    entry = (pa.load_index(out_dir_index) if out_dir_index else pa.load_index()).get(artifact_id) or {}
     source = str(entry.get("source_onnx") or "")
     name = Path(source).name if source else "policy.onnx"
     if source and package_root is not None:
