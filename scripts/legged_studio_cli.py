@@ -605,6 +605,8 @@ def _cmd_export(args: argparse.Namespace) -> int:
             manifest = bx.export_bundle(
                 args.pack, out, artifact_id=args.artifact, scenario_path=args.scenario, run_dir=args.run,
                 replay=args.replay, replay_steps=args.replay_steps,
+                quality=args.quality, quality_tier=args.tier, quality_min=args.quality_min,
+                quality_steps=args.quality_steps,
             )
     except (ValueError, FileNotFoundError) as exc:
         raise SystemExit(f"export 失败：{exc}") from exc
@@ -620,6 +622,12 @@ def _cmd_export(args: argparse.Namespace) -> int:
     if reproduction:
         print(f"  复现三档：R1回放={reproduction['R1_playback']} / R2评测={reproduction['R2_evaluation']} / "
               f"R3训练={reproduction['R3_training']}（差异 {reproduction['R3_gaps']} 条，其中影响数值 {reproduction['R3_warn']} 条）")
+    quality = report.get("quality")
+    if quality:
+        score = "无" if quality["score"] is None else f"{quality['score']:.4f}"
+        print(f"  质量门（{quality['tier']}）：{'达标' if quality['ok'] else '未达标'}（{score} / 下限 {quality['min_score']}）")
+        for blocker in quality["blockers"]:
+            print(f"    ! {blocker}")
     for note in manifest.get("notes") or []:
         print(f"  ~ {note}")
     for item in manifest.get("unresolved") or []:
@@ -1080,6 +1088,12 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--replay", action="store_true",
                         help="bundle：在**导出物自身内**无头跑两遍做 R2（需适配器 venv；跑不了如实记 blocked）")
     export.add_argument("--replay-steps", type=int, default=60, help="--replay 的控制步数（默认 60）")
+    export.add_argument("--quality", action="store_true",
+                        help="bundle：在**导出物自身内**跑八指标评测并把报告放进包里（quality.json）")
+    export.add_argument("--tier", default="single", choices=["single", "multi", "level", "stress"],
+                        help="--quality 的评测档位（默认 single）")
+    export.add_argument("--quality-min", type=float, default=0.5, help="质量分下限（默认 0.5）")
+    export.add_argument("--quality-steps", type=int, default=200, help="--quality 的控制步数")
     export.add_argument("--out-dir", default=None, help="出库索引目录（policy 用，默认仓库 policies/）")
     export.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
 

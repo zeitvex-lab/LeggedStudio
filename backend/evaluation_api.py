@@ -76,3 +76,61 @@ async def _run_native_evaluation(task, request: EvaluationRequest):
         detail = result.stderr.strip()[-2000:] or result.stdout.strip()[-2000:] or f"native evaluation exited with code {result.returncode}"
         raise HTTPException(status_code=500, detail=detail)
     return {"success": True, "result": json.loads(evaluation_file.read_text(encoding="utf-8"))}
+
+# --------------------------------------------------------------------------------------
+# B11 评测矩阵（八指标 + 四档）：与训练侧 evaluation 分开，走包内策略（含训练产物）
+# --------------------------------------------------------------------------------------
+class QualityRequest(BaseModel):
+    package_dir: str = Field(description="机器人包目录（仓库相对路径或绝对路径）")
+    policy_id: str | None = Field(default=None, description="包内策略 id（走统一解析器）")
+    policy: str | None = Field(default=None, description="策略 onnx（包内相对/绝对；与 policy_id 二选一）")
+    tier: str = Field(default="single", description="single / multi / level / stress")
+    cmd: str = "0.4,0,0"
+    steps: int = Field(default=200, ge=1, le=5000)
+    quality_min: float = Field(default=0.5, ge=0.0, le=1.0)
+    save: bool = Field(default=True, description="把报告落到 <workspace>/evaluation/")
+
+
+@router.get("/quality/list")
+async def list_quality_reports():
+    """已有的质量报告（磁盘上的报告才是放行依据，不是内存里的一次结论）。"""
+
+    from backend import quality_matrix
+
+    reports = quality_matrix.list_reports()
+    return {"count": len(reports), "reports": reports}
+
+
+@router.post("/quality/run")
+async def run_quality_report(request: QualityRequest):
+    """跑一档评测（需适配器 venv 里的 mujoco；缺环境报 501，不静默退回跑不了的解释器）。"""
+
+    import asyncio
+
+    from backend import quality_matrix
+    from backend.adapter_runtime import AdapterUnavailable
+
+    try:
+        report = await asyncio.to_thread(
+            quality_matrix.run_quality,
+            package_dir=request.package_dir,
+            tier=request.tier,
+            policy_id=request.policy_id,
+            policy=request.policy,
+            cmd=request.cmd,
+            steps=request.steps,
+            quality_min=request.quality_min,
+        )
+    except AdapterUnavailable as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    saved = quality_matrix.save_report(report) if request.save else None
+    verdict = quality_matrix.gate(report, min_score=request.quality_min)
+    return {
+        "success": True,
+        "report": report,
+        "verdict": verdict,
+        "report_path": str(saved) if saved else None,
+    }

@@ -69,9 +69,15 @@ def sim2sim_contract_guard(
 
 
 def check_export_result(
-    result: Any, obs_dim: int, act_dim: int, threshold: float = REPLAY_DIFF_THRESHOLD
+    result: Any, obs_dim: int, act_dim: int, threshold: float = REPLAY_DIFF_THRESHOLD,
+    *, quality: dict[str, Any] | None = None, quality_min: float | None = None,
 ) -> dict[str, Any]:
-    """gate ①+②：导出器结果（dummy 前向形状 + 数值一致性）对照契约维度。"""
+    """gate ①+②：导出器结果（dummy 前向形状 + 数值一致性）对照契约维度。
+
+    **gate ③ 质量（B11）**：给了 ``quality``（`backend.quality_matrix` 的报告）就按
+    ``quality_min`` 判"达标才放行打包"；判据实现在 `quality_matrix.gate`（一处），
+    本函数只是把它的 blockers 并进来 —— 免得"导出闸门"和"质量门"各有一套阈值口径。
+    """
 
     blockers: list[str] = []
     input_shape = list(getattr(result, "input_shape", None) or [])
@@ -92,4 +98,10 @@ def check_export_result(
             f"数值回放 max|Δ|={max_diff:.3e} >= 阈值 {threshold:.0e}"
             "——'验收通过但回放不通过 = 没学会'，请检查导出图与 normalizer bake-in"
         )
-    return {"ok": not blockers, "blockers": blockers}
+    quality_verdict = None
+    if quality is not None or quality_min is not None:
+        from backend.quality_matrix import DEFAULT_MIN_SCORE, gate
+
+        quality_verdict = gate(quality, min_score=quality_min if quality_min is not None else DEFAULT_MIN_SCORE)
+        blockers.extend(quality_verdict["blockers"])
+    return {"ok": not blockers, "blockers": blockers, "quality": quality_verdict}

@@ -98,41 +98,18 @@ def selftest() -> int:
 
 
 def _adapter_interpreter(explicit: str | None) -> Path:
-    """解析适配器解释器：``--venv`` > `LEGGED_STUDIO_MJLAB_VENV` > `contracts.path_bootstrap`。
+    """解释器解析**只有一处实现**（`backend.adapter_runtime`）：候选顺序 + mujoco 探测 + 可执行修法。
 
-    **不静默退回当前解释器**：控制面 python 没装 mujoco，退回只会把"环境没准备好"
-    伪装成 ImportError。解析不到或跑不了 mujoco 就明确退出码 2，并给出可执行的修法。
+    这里曾经自己写了一份；三处各写一套的结果是"静默退回当前解释器"与"探测"两种行为并存
+    ——"环境没准备好"于是有时报 ImportError、有时被当成可用环境。
     """
 
-    candidates: list[Path] = []
-    if explicit:
-        candidates.append(Path(explicit))
-    env = os.environ.get("LEGGED_STUDIO_MJLAB_VENV")
-    if env:
-        candidates.append(Path(env))
+    from backend.adapter_runtime import AdapterUnavailable, adapter_interpreter
+
     try:
-        from contracts.path_bootstrap import adapter_python
-
-        candidates.append(Path(adapter_python(default=ROOT / "adapters" / "mjlab" / ".venv")))
-    except Exception:
-        pass
-    # 最后才退回"当前解释器" —— **但要先过 mujoco/onnxruntime 探测**（见下方 probe）。
-    # CI 的验收作业就是裸 python 直跑 MuJoCo 的（B0 的 sim2sim_headless.py 同样如此），
-    # 所以这一档是真实存在的环境；探测不过仍按"环境没准备好"退出，不伪装成 ImportError。
-    candidates.append(Path(sys.executable))
-
-    for candidate in candidates:
-        for python in (candidate, candidate / "bin" / "python", candidate / "Scripts" / "python.exe"):
-            if python.is_file():
-                probe = subprocess.run([str(python), "-c", "import mujoco, onnxruntime"],
-                                       capture_output=True, text=True)
-                if probe.returncode == 0:
-                    return python
-    considered = ", ".join(str(item) for item in candidates) or "（无候选）"
-    raise SystemExit(
-        f"[replay-gate] 找不到可用的适配器解释器（需要能 import mujoco/onnxruntime）。候选：{considered}\n"
-        "  修法：设 LEGGED_STUDIO_MJLAB_VENV=/path/to/adapter/venv 或用 --venv 指定"
-    )
+        return adapter_interpreter(explicit)
+    except AdapterUnavailable as exc:
+        raise SystemExit(f"[replay-gate] {exc}") from exc
 
 
 def produce_pair(args: argparse.Namespace) -> int:
