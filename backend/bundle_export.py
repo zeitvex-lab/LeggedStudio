@@ -215,7 +215,9 @@ def _model_files(package_root: Path, manifest: dict[str, Any]) -> list[tuple[Pat
     return found
 
 
-def export_morphology(robot_id: str, out_dir: Path | str, *, emit_manifest: bool = True) -> dict[str, Any]:
+def export_morphology(
+    robot_id: str, out_dir: Path | str, *, emit_manifest: bool = True, prefix: str = "morphology/",
+) -> dict[str, Any]:
     """**Morphology 包**：形态与契约（`robot_package.json` + `contract.json` + `contract_v3.json` + 模型/网格）。
 
     有意**不含** `training/`（训练源码）与策略权重 —— 那些属别的粒度（Skill / Policy / Bundle），
@@ -227,16 +229,16 @@ def export_morphology(robot_id: str, out_dir: Path | str, *, emit_manifest: bool
         raise FileNotFoundError(f"机器人包不存在：{package_root}")
     writer = ExportWriter(Path(out_dir), "morphology")
     package_manifest = package_root / "robot_package.json"
-    writer.copy(package_manifest, "morphology/robot_package.json", role="package_manifest")
+    writer.copy(package_manifest, f"{prefix}robot_package.json", role="package_manifest")
     manifest_data = _read_json(package_manifest)
     for name, role in (("contract.json", "contract"), ("contract_v3.json", "contract_v3")):
         source = package_root / name
         if source.is_file():
-            writer.copy(source, f"morphology/{name}", role=role)
+            writer.copy(source, f"{prefix}{name}", role=role)
         else:
             writer.notes.append(f"{name} 不存在（形态可渲染但语义层不完整）")
     for source, relative in _model_files(package_root, manifest_data):
-        writer.copy(source, f"morphology/{relative}", role="model")
+        writer.copy(source, f"{prefix}{relative}", role="model")
     return writer.finish(refs={"morphology": ref(id=robot_id, path=package_root / "contract_v3.json")}, emit=emit_manifest)
 
 
@@ -276,6 +278,7 @@ def export_scenario(scenario_path: Path | str, out_dir: Path | str, *, emit_mani
 
 def export_policy(
     artifact_id: str, out_dir: Path | str, *, out_dir_index: Path | None = None, emit_manifest: bool = True,
+    prefix: str = "policy/",
 ) -> dict[str, Any]:
     """**Policy 包**：复用 B10 出库产物（`artifact.json` + `deploy.yaml` + `policy.onnx`）。"""
 
@@ -292,14 +295,14 @@ def export_policy(
     for name, role in (("artifact.json", "policy_meta"), ("deploy.yaml", "policy_meta")):
         source = artifact_dir / name
         if source.is_file():
-            writer.copy(source, f"policy/{name}", role=role)
+            writer.copy(source, f"{prefix}{name}", role=role)
         else:
             writer.notes.append(f"{name} 不存在")
     onnx_files = sorted(artifact_dir.glob("*.onnx"))
     if not onnx_files:
         raise FileNotFoundError(f"产物目录里没有 onnx：{artifact_dir}")
     for source in onnx_files:
-        writer.copy(source, f"policy/{source.name}", role="policy")
+        writer.copy(source, f"{prefix}{source.name}", role="policy")
     return writer.finish(refs={"policy": ref(id=artifact_id, path=onnx_files[0])}, emit=emit_manifest)
 
 
@@ -309,6 +312,7 @@ def export_bundle(
     *,
     artifact_id: str | None = None,
     scenario_path: Path | str | None = None,
+    run_dir: Path | str | None = None,
 ) -> dict[str, Any]:
     """**Bundle**：Pack 引用 + **被引用物的离线副本** + 哈希（愿景原文口径）。
 
@@ -336,7 +340,7 @@ def export_bundle(
 
     morphology_id = str((pack.get("morphology_ref") or {}).get("id") or "")
     if morphology_id:
-        nested = export_morphology(morphology_id, Path(out_dir) / "morphology", emit_manifest=False)
+        nested = export_morphology(morphology_id, Path(out_dir) / "morphology", emit_manifest=False, prefix="")
         for entry in nested["entries"]:
             writer.entries.append({**entry, "path": f"morphology/{entry['path']}", "source": entry.get("source")})
         writer.notes.extend(f"morphology: {note}" for note in nested.get("notes") or [])
@@ -381,7 +385,7 @@ def export_bundle(
     policy_id = artifact_id or str(policy_ref.get("id") or "")
     if policy_id:
         try:
-            nested = export_policy(policy_id, Path(out_dir) / "policy", emit_manifest=False)
+            nested = export_policy(policy_id, Path(out_dir) / "policy", emit_manifest=False, prefix="")
             for entry in nested["entries"]:
                 writer.entries.append({**entry, "path": f"policy/{entry['path']}"})
             writer.notes.extend(f"policy: {note}" for note in nested.get("notes") or [])
@@ -389,6 +393,18 @@ def export_bundle(
             unresolved.append({"role": "policy", "reason": f"{policy_id}: {type(exc).__name__}: {exc}"})
     else:
         writer.notes.append("Pack 未声明 policy_ref 且未指定 --artifact：Bundle 不含策略权重（形态/技能仍可复现）")
+
+    if run_dir is not None:
+        # R1/R2/R3 一起出：R3 用**当时那套 venv**重算环境并逐项对账，R2 如实标 blocked（无头日志缺口）。
+        from backend import reproduce as rp
+
+        report = rp.build_reproduction(run_dir=run_dir, bundle_dir=out_dir)
+        writer.write_json(report, rp.REPRODUCE_NAME, role="reproduce")
+        summary = rp.summarise(report)
+        writer.notes.append(
+            f"复现报告已附（{rp.REPRODUCE_NAME}）：R1回放={summary['R1_playback']} / "
+            f"R2评测={summary['R2_evaluation']} / R3训练={summary['R3_training']}"
+        )
 
     return writer.finish(refs=refs, extra={"unresolved": unresolved})
 
@@ -452,6 +468,14 @@ def verify_export(out_dir: Path | str) -> dict[str, Any]:
     if ghost:
         problems.append(f"存在 manifest 未登记的文件（幽灵文件）：{', '.join(ghost[:5])}")
 
+    reproduction = None
+    reproduce_payload = _read_json(root / "reproduce.json") if (root / "reproduce.json").exists() else None
+    if isinstance(reproduce_payload, dict):
+        # 完整性 ≠ 可复现性：导出物自洽（ok）与"三档复现到什么程度"是两件事，分开报。
+        from backend import reproduce as rp
+
+        reproduction = rp.summarise(reproduce_payload)
+
     return {
         "ok": not problems,
         "kind": kind,
@@ -459,6 +483,7 @@ def verify_export(out_dir: Path | str) -> dict[str, Any]:
         "roles": sorted(roles),
         "refs": manifest.get("refs") or {},
         "unresolved": manifest.get("unresolved") or [],
+        "reproduction": reproduction,
         "problems": problems,
     }
 

@@ -602,7 +602,9 @@ def _cmd_export(args: argparse.Namespace) -> int:
                 raise ValueError("bundle 需要 --pack <pack.json>")
             name = Path(args.pack).name.replace(".pack.json", "")
             out = Path(args.out) if args.out else bx.default_out_dir(kind, name)
-            manifest = bx.export_bundle(args.pack, out, artifact_id=args.artifact, scenario_path=args.scenario)
+            manifest = bx.export_bundle(
+                args.pack, out, artifact_id=args.artifact, scenario_path=args.scenario, run_dir=args.run,
+            )
     except (ValueError, FileNotFoundError) as exc:
         raise SystemExit(f"export 失败：{exc}") from exc
 
@@ -613,6 +615,10 @@ def _cmd_export(args: argparse.Namespace) -> int:
 
     print(f"导出 {kind}（离线命令，无需后端）：{out}")
     print(f"  条目 {report['entries']} 条 / 角色 {report['roles']}")
+    reproduction = report.get("reproduction")
+    if reproduction:
+        print(f"  复现三档：R1回放={reproduction['R1_playback']} / R2评测={reproduction['R2_evaluation']} / "
+              f"R3训练={reproduction['R3_training']}（差异 {reproduction['R3_gaps']} 条，其中影响数值 {reproduction['R3_warn']} 条）")
     for note in manifest.get("notes") or []:
         print(f"  ~ {note}")
     for item in manifest.get("unresolved") or []:
@@ -642,6 +648,10 @@ def _cmd_verify_bundle(args: argparse.Namespace) -> int:
 
     print(f"导出物对账（离线命令，无需后端）：{args.directory}")
     print(f"  类型 {report.get('kind')} / 条目 {report.get('entries')} / 角色 {report.get('roles')}")
+    reproduction = report.get("reproduction")
+    if reproduction:
+        print(f"  复现三档：R1回放={reproduction['R1_playback']} / R2评测={reproduction['R2_evaluation']} / "
+              f"R3训练={reproduction['R3_training']}（差异 {reproduction['R3_gaps']} 条）")
     for item in report.get("unresolved") or []:
         print(f"  ! Bundle 未包含被引用物 [{item.get('role')}] {item.get('reason')}")
     if not report["ok"]:
@@ -1065,6 +1075,7 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--artifact", default=None, help="policy：出库产物 ID；bundle：覆盖 Pack 的 policy_ref")
     export.add_argument("--pack", default=None, help="bundle：Pack JSON 路径（如 packs/zex-w.pack.json）")
     export.add_argument("--out", default=None, help="导出目录（默认 <workspace>/exports/<kind>-<name>）")
+    export.add_argument("--run", default=None, help="bundle：附上复现报告（Run 目录或 run_id；含 R1 回放就绪 / R2 / R3 环境对账）")
     export.add_argument("--out-dir", default=None, help="出库索引目录（policy 用，默认仓库 policies/）")
     export.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
 

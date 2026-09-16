@@ -130,6 +130,24 @@ class BundleExportTest(unittest.TestCase):
             found = sorted(path.relative_to(Path(tmp) / "bundle").as_posix() for path in (Path(tmp) / "bundle").rglob("manifest.json"))
             self.assertEqual(["manifest.json"], found)
 
+    def test_nested_payload_paths_are_not_double_prefixed(self):
+        """回归：嵌套导出曾把前缀写重（`morphology/morphology/…`、`policy/policy/…`）。
+
+        成因是"子导出自带前缀 + Bundle 再加前缀"。后果不只是难看：R1 回放就绪检查按
+        `morphology/contract.json` 找文件，找不到就判"不就绪"—— 一个路径拼接 bug 会伪装成
+        "这个包不能回放"。
+        """
+
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = bx.export_bundle(ROOT / "packs" / "zex-w.pack.json", Path(tmp) / "bundle")
+            paths = [entry["path"] for entry in manifest["entries"]]
+            for path in paths:
+                head = path.split("/", 1)[0]
+                if path.count("/") >= 1 and head in {"morphology", "policy", "skill", "scenario"}:
+                    rest = path.split("/", 1)[1]
+                    self.assertFalse(rest.startswith(f"{head}/"), f"前缀写重了：{path}")
+            self.assertIn("morphology/contract.json", paths)
+
     def test_dangling_skill_ref_is_recorded_not_hidden(self):
         """Pack 若指向注册表里没有的技能，Bundle 必须把"没带进去"写进 unresolved，而不是假装完整。"""
 
