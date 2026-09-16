@@ -41,7 +41,9 @@ from shared_rewards import feet_distance_ours, foot_flat, foot_landing_vel, no_f
 
 from .robot_constants import TRON1_SF_ACTION_SCALE, get_tron1_sf_robot_cfg
 
-_SITES = ("ankle_L", "ankle_R")
+# 包内 MJCF 为独足(sole-foot):足端即踝,帧/接触/终止判定全部锚定 ankle_L/R_Link
+# (据 robot.xml:69/96)。MJCF 无 ankle site(唯一 site 为 imu),高度扫描改用足端
+# body 帧(lite3 B31 同款修法),一律不用 site 引用。
 _FOOT_GEOMS = ("ankle_L_collision", "ankle_R_collision")
 _FOOT_BODIES = ("ankle_L_Link", "ankle_R_Link")
 _ROOT_BODY = "base_Link"
@@ -53,8 +55,9 @@ def _configure_foot_height_sensor(cfg: ManagerBasedRlEnvCfg) -> None:
     for sensor in cfg.scene.sensors or ():
         if sensor.name == "foot_height_scan":
             assert isinstance(sensor, TerrainHeightSensorCfg)
+            # MJCF 无 ankle site,改用足端 body 帧(lite3 B31 同款修法)。
             sensor.frame = tuple(
-                ObjRef(type="site", name=name, entity="robot") for name in _SITES
+                ObjRef(type="body", name=name, entity="robot") for name in _FOOT_BODIES
             )
             sensor.pattern = RingPatternCfg.single_ring(radius=0.05, num_samples=6)
 
@@ -93,12 +96,21 @@ def _restructure_actor_obs(cfg: ManagerBasedRlEnvCfg) -> None:
     command = terms.pop("command")
     gravity = terms.pop("projected_gravity")
     ang_vel = terms.pop("base_ang_vel")
+    # 包内 MJCF 未声明 imu_ang_vel/imu_lin_vel 传感器(mjlab 自动生成的内置传感器
+    # 名为 robot/gyro、robot/acc),base cfg 的 builtin_sensor 项在构建期即 KeyError;
+    # 改用状态量计算的 base_ang_vel/base_lin_vel(lite3 B31 同款修法),语义不变。
+    # critic 组与 actor 组共享同一 term 对象,此处改写即同时生效。
+    ang_vel.func = envs_mdp.base_ang_vel
+    ang_vel.params = {}
     ang_vel.scale = 0.25  # source obs_scales.ang_vel
     joint_pos = terms.pop("joint_pos")  # biased: dof_pos - default (scale 1.0)
     joint_vel = terms.pop("joint_vel")
     joint_vel.scale = 0.05  # source obs_scales.dof_vel
     actions = terms.pop("actions")
-    terms.pop("base_lin_vel", None)
+    lin_vel = terms.pop("base_lin_vel", None)
+    if lin_vel is not None:  # critic 专属特权观测,同样去传感器化
+        lin_vel.func = envs_mdp.base_lin_vel
+        lin_vel.params = {}
     terms.pop("height_scan", None)
 
     actor.terms = {
@@ -122,12 +134,13 @@ def _configure_rewards(cfg: ManagerBasedRlEnvCfg) -> None:
     cfg.rewards["dof_pos_limits"].weight = -2.0
     cfg.rewards["action_rate_l2"].weight = -0.01  # action_rate
     cfg.rewards["air_time"].weight = 1.0  # feet_air_time
-    cfg.rewards["foot_clearance"].weight = -0.5
-    cfg.rewards["foot_clearance"].params["target_height"] = 0.1
+    # MJCF 无 site:foot_clearance/foot_slip(mdp.feet_clearance/feet_slip)依赖
+    # site 线速度(site_ids 为空则与高度扫描帧数不匹配,step 期即形状错误),
+    # 无法锚定,直接移除这两项(其余足端项均走接触/高度传感器,不受影响)。
+    cfg.rewards.pop("foot_clearance", None)
+    cfg.rewards.pop("foot_slip", None)
     cfg.rewards["foot_swing_height"].weight = 0.0
     cfg.rewards["soft_landing"].weight = 0.0
-    cfg.rewards["foot_slip"].params["asset_cfg"].site_names = _SITES
-    cfg.rewards["foot_clearance"].params["asset_cfg"].site_names = _SITES
 
     cfg.rewards["feet_distance"] = RewardTermCfg(
         func=feet_distance_ours,

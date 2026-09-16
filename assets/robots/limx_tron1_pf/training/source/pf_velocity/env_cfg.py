@@ -43,9 +43,14 @@ from shared_rewards import feet_distance_ours, foot_landing_vel, no_fly
 
 from .robot_constants import TRON1_PF_ACTION_SCALE, get_tron1_pf_robot_cfg
 
-_SITES = ("foot_L", "foot_R")
-_FOOT_GEOMS = ("foot_L_collision", "foot_R_collision")
-_FOOT_BODIES = ("foot_L_Link", "foot_R_Link")
+# 包内 MJCF 为点足:膝末端即足端,帧/接触/终止判定全部锚定 knee_L/R_Link(据 robot.xml:62/86)。
+# MJCF 无 foot site(唯一 site 为 imu),故一律不用 site 引用;foot_L/R_Link 仅是 mesh 名而非 body。
+# 注意:膝 body 下还有足尖球形碰撞体 foot_L/R_collision(robot.xml:69/93,同属 knee_L/R_Link、
+# 无独立 body),是实际着地几何 —— nonfoot 终止判定的 exclude 必须连同它一并排除,
+# 否则站立时足尖触地即被误判为非法接触。
+_FOOT_GEOMS = ("knee_L_collision", "knee_R_collision")
+_FOOT_TIP_GEOMS = ("foot_L_collision", "foot_R_collision")
+_FOOT_BODIES = ("knee_L_Link", "knee_R_Link")
 _ROOT_BODY = "base_Link"
 
 _HISTORY_LEN = 5  # source env.frame_stack / c_frame_stack
@@ -55,8 +60,9 @@ def _configure_foot_height_sensor(cfg: ManagerBasedRlEnvCfg) -> None:
     for sensor in cfg.scene.sensors or ():
         if sensor.name == "foot_height_scan":
             assert isinstance(sensor, TerrainHeightSensorCfg)
+            # MJCF 无 foot site,改用足端 body 帧(lite3 B31 同款修法)。
             sensor.frame = tuple(
-                ObjRef(type="site", name=name, entity="robot") for name in _SITES
+                ObjRef(type="body", name=name, entity="robot") for name in _FOOT_BODIES
             )
             # Ring radius ~ foot sphere radius (0.032 m).
             sensor.pattern = RingPatternCfg.single_ring(radius=0.032, num_samples=4)
@@ -74,7 +80,8 @@ def _contact_sensors() -> tuple[ContactSensorCfg, ContactSensorCfg]:
     other = ContactSensorCfg(
         name="nonfoot_ground_touch",
         primary=ContactMatch(
-            mode="geom", pattern=".*_collision", entity="robot", exclude=_FOOT_GEOMS
+            mode="geom", pattern=".*_collision", entity="robot",
+            exclude=_FOOT_GEOMS + _FOOT_TIP_GEOMS,
         ),
             fields=("found", "force"),
         reduce="netforce",
@@ -96,12 +103,21 @@ def _restructure_actor_obs(cfg: ManagerBasedRlEnvCfg) -> None:
     command = terms.pop("command")
     gravity = terms.pop("projected_gravity")
     ang_vel = terms.pop("base_ang_vel")
+    # 包内 MJCF 未声明 imu_ang_vel/imu_lin_vel 传感器(mjlab 自动生成的内置传感器
+    # 名为 robot/gyro、robot/acc),base cfg 的 builtin_sensor 项在构建期即 KeyError;
+    # 改用状态量计算的 base_ang_vel/base_lin_vel(lite3 B31 同款修法),语义不变。
+    # critic 组与 actor 组共享同一 term 对象,此处改写即同时生效。
+    ang_vel.func = envs_mdp.base_ang_vel
+    ang_vel.params = {}
     ang_vel.scale = 0.25  # source obs_scales.ang_vel
     joint_pos = terms.pop("joint_pos")  # biased: dof_pos - default (scale 1.0)
     joint_vel = terms.pop("joint_vel")
     joint_vel.scale = 0.05  # source obs_scales.dof_vel
     actions = terms.pop("actions")
-    terms.pop("base_lin_vel", None)
+    lin_vel = terms.pop("base_lin_vel", None)
+    if lin_vel is not None:  # critic 专属特权观测,同样去传感器化
+        lin_vel.func = envs_mdp.base_lin_vel
+        lin_vel.params = {}
     terms.pop("height_scan", None)
 
     actor.terms = {
@@ -129,8 +145,11 @@ def _configure_rewards(cfg: ManagerBasedRlEnvCfg) -> None:
     cfg.rewards["foot_clearance"].params["target_height"] = 0.07
     cfg.rewards["foot_swing_height"].weight = 0.0
     cfg.rewards["soft_landing"].weight = 0.0
-    cfg.rewards["foot_slip"].params["asset_cfg"].site_names = _SITES
-    cfg.rewards["foot_clearance"].params["asset_cfg"].site_names = _SITES
+    # MJCF 无 site:foot_clearance/foot_slip(mdp.feet_clearance/feet_slip)依赖
+    # site 线速度(site_ids 为空则与高度扫描帧数不匹配,step 期即形状错误),
+    # 无法锚定,直接移除这两项(其余足端项均走接触/高度传感器,不受影响)。
+    cfg.rewards.pop("foot_clearance", None)
+    cfg.rewards.pop("foot_slip", None)
 
     cfg.rewards["feet_distance"] = RewardTermCfg(
         func=feet_distance_ours,
