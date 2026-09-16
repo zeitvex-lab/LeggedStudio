@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import platform
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -38,11 +39,16 @@ _WARN_FIELDS = ("dependency_lock.sha256", "python.version", "adapter_venv.packag
 #: 只是环境标签的差异（info）：平台补丁号、git 工作树状态。
 _INFO_FIELDS = ("platform.release", "vcs.commit", "vcs.dirty", "platform.machine", "platform.system")
 
-#: R2 的受阻原因（写在这里由测试钉住：哪天无头 frame log 接上了，这条必须被改掉）。
-R2_BLOCKER = (
-    "没有可自动采集的逐帧日志：无头引擎产出 frame log 的路径尚未接入 replay gate"
-    "（L1 已登记缺口）。判据实现已在位（adapters/mjlab/replay_determinism.py，"
-    "同执行器容差 0 / stepIndex 对齐 / first_divergence），但**没有日志可比**。"
+#: R2 的判据机器（产出端 + 门禁）—— 2026-09-16 补齐，不再是缺口。
+R2_MACHINERY = (
+    "无头产出端 adapters/mjlab/frame_log.py（与验收同源原语，产出与浏览器 frameLog 同形）+ "
+    "门禁 tools/replay_gate.py --produce（**两个独立进程**各跑一遍再比对）"
+)
+#: R2 未跑时的说明（不是 blocked —— 是没要求跑；两者必须分清）。
+R2_NOT_RUN = (
+    "未跑（导出时未加 --replay）—— 判据已就位且可执行："
+    "python tools/replay_gate.py --produce --package <包> --policy <onnx> --steps 60。"
+    "**未跑 ≠ 通过**，故状态记 not_run。"
 )
 
 
@@ -117,10 +123,91 @@ def _environment_gaps(recorded: dict[str, Any], current: dict[str, Any]) -> list
     return gaps
 
 
+def evaluation_replay(
+    *,
+    package_dir: Path | str,
+    policy: str | None = None,
+    policy_id: str | None = None,
+    cmd: str = "0.4,0,0",
+    seed: int = 7,
+    steps: int = 60,
+    seed_probe: int | None = 99,
+    venv: Path | str | None = None,
+    timeout: float = 900.0,
+) -> dict[str, Any]:
+    """R2：同一条策略在**两个独立进程**里重跑，逐帧一致才算「复现得同一结果」。
+
+    判据实现只有一处（`tools/replay_gate.py --produce` → 产出端 `adapters/mjlab/frame_log.py`），
+    本函数只是调用方 + **两条诚实闸门**：
+
+    1. **策略必须落在被跑的包内**（`policy.resolution.inside_package`）。在本机（有仓库）跑一份
+       Bundle 时，出库索引可能把策略解析到**仓库里的同名文件** —— 那样「这份 Bundle 在干净机器上
+       可复现」就是假的。落在包外 ⇒ 记 `blocked` 并写明原因，不给绿。
+    2. 环境不满足（缺适配器 venv / 无法 import mujoco）⇒ `blocked`（把退出码 2 的原文照登），
+       **不是 fail** —— 「没跑成」与「跑了不一致」是两件事。
+    """
+
+    import subprocess
+
+    command = [
+        sys.executable, str(ROOT / "tools" / "replay_gate.py"), "--produce",
+        "--package", str(package_dir), "--cmd", cmd, "--steps", str(steps),
+        "--seed", str(seed), "--min-frames", str(min(50, max(1, steps))), "--json",
+    ]
+    if policy_id:
+        command += ["--policy-id", policy_id]
+    if policy:
+        command += ["--policy", policy]
+    if seed_probe is not None:
+        command += ["--seed-probe", str(seed_probe)]
+    if venv:
+        command += ["--venv", str(venv)]
+
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, cwd=str(ROOT), timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return {"status": "blocked", "blocked_by": f"无头重跑超时（>{timeout:.0f}s）", "machinery": R2_MACHINERY}
+
+    raw = (completed.stdout or "").strip()
+    if completed.returncode not in (0, 1) or not raw:
+        detail = (completed.stderr or completed.stdout or "").strip().splitlines()[-4:]
+        return {
+            "status": "blocked",
+            "blocked_by": "环境/参数不满足，未能产出可比较的日志：" + " | ".join(detail),
+            "machinery": R2_MACHINERY,
+        }
+    try:
+        summary = json.loads(raw)
+    except json.JSONDecodeError:
+        return {"status": "blocked", "blocked_by": "门禁输出不是 JSON（未产出结论）", "machinery": R2_MACHINERY}
+
+    runs = summary.get("runs") or {}
+    policy_info = runs.get("policy") or {}
+    resolution = policy_info.get("resolution") or {}
+    report: dict[str, Any] = {
+        "status": "pass" if completed.returncode == 0 else "fail",
+        "machinery": R2_MACHINERY,
+        "determinism": summary.get("determinism"),
+        "seed_sensitivity": summary.get("seed_sensitivity"),
+        "runs": runs,
+        "inputs": {"package": str(package_dir), "policy": policy, "policy_id": policy_id,
+                   "cmd": cmd, "seed": seed, "steps": steps},
+    }
+    if resolution and not resolution.get("inside_package", True):
+        report["status"] = "blocked"
+        report["blocked_by"] = (
+            f"策略解析落在**被跑的包之外**（{policy_info.get('path')}）：本机跑得出结果，"
+            "但它不是在「这份包」内复现的 —— 干净机器上跑不起来。"
+            "把策略放进包内（如 simulation/policies/）或用 --policy 指向包内路径后重跑。"
+        )
+    return report
+
+
 def build_reproduction(
     *,
     run_dir: Path | str | None = None,
     bundle_dir: Path | str | None = None,
+    replay: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """组装三档复现报告：R1 回放就绪 / R2 评测复现（受阻，如实说明）/ R3 训练近似复现。"""
 
@@ -131,13 +218,16 @@ def build_reproduction(
                 "ready": None, "checks": [], "note": "未给导出目录，无法判定回放就绪",
             },
             "R2_evaluation": {
-                "status": "blocked",
-                "blocked_by": R2_BLOCKER,
-                "machinery": "adapters/mjlab/replay_determinism.py + backend/test_replay_determinism.py",
+                "status": "not_run",
+                "reason": R2_NOT_RUN,
+                "machinery": R2_MACHINERY,
             },
             "R3_training": {"status": "not_available", "note": "未给 Run 目录，无法做环境对账"},
         },
     }
+
+    if replay is not None:
+        report["tiers"]["R2_evaluation"] = evaluation_replay(**replay)
 
     if run_dir is None:
         return report
@@ -262,6 +352,31 @@ def summarise(report: dict[str, Any]) -> dict[str, Any]:
         "R3_gaps": len(r3.get("gaps") or []),
         "R3_warn": r3.get("warn_count"),
     }
+
+
+def tier_lines(report: dict[str, Any]) -> list[str]:
+    """人读的三档摘要（CLI 用；不进导出物 —— 导出物里只放结构化结论）。"""
+
+    tiers = report.get("tiers") or {}
+    r1 = tiers.get("R1_playback") or {}
+    r2 = tiers.get("R2_evaluation") or {}
+    r3 = tiers.get("R3_training") or {}
+    r1_label = "是" if r1.get("ready") else ("否" if r1.get("ready") is not None else "未判")
+    lines = [f"R1 回放就绪：{r1_label}（{len(r1.get('checks') or [])} 项检查）"]
+    r2_line = f"R2 评测复现：{r2.get('status')}"
+    if r2.get("blocked_by"):
+        r2_line += f" —— {r2['blocked_by']}"
+    elif r2.get("reason"):
+        r2_line += f" —— {r2['reason']}"
+    lines.append(r2_line)
+    r3_line = f"R3 训练复现：{r3.get('status')}"
+    if r3.get("gaps") is not None:
+        r3_line += f"（差异 {len(r3['gaps'])} 条，影响数值 {r3.get('warn_count')} 条）"
+    lines.append(r3_line)
+    note = (r2.get("seed_sensitivity") or {}).get("note")
+    if note:
+        lines.append(f"seed 敏感性：{note}")
+    return lines
 
 
 def default_reproduce_path(bundle_dir: Path | str) -> Path:

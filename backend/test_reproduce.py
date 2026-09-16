@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -139,18 +140,120 @@ class R3EnvironmentAuditTest(unittest.TestCase):
 
 
 class R2HonestyTest(unittest.TestCase):
-    """R2：判据在位但没有日志可比 ⇒ 必须报 blocked 并写明原因。"""
+    """R2：判据已就位 ⇒ 默认记 `not_run`（未跑 ≠ 通过），且两道诚实闸门必须拦住假绿。
 
-    def test_r2_is_blocked_with_the_registered_reason(self):
+    闸门（2026-09-16）：① 策略必须落在被跑的包内（否则"干净机器可复现"是假的）；
+    ② 环境不满足只能记 blocked（"没跑成"与"跑了不一致"是两件事）。
+    """
+
+    def test_default_is_not_run_with_the_command_to_run_it(self):
         report = rp.build_reproduction()
         tier = report["tiers"]["R2_evaluation"]
-        self.assertEqual("blocked", tier["status"])
-        self.assertIn("frame log", tier["blocked_by"])
-        self.assertIn("replay_determinism", tier["machinery"])
+        self.assertEqual("not_run", tier["status"])
+        self.assertIn("replay_gate.py --produce", tier["reason"])
+        self.assertIn("未跑 ≠ 通过", tier["reason"])
+        self.assertIn("frame_log.py", tier["machinery"])
 
     def test_summarise_exposes_all_three_tiers(self):
         summary = rp.summarise(rp.build_reproduction())
         self.assertEqual({"R1_playback", "R2_evaluation", "R3_training", "R3_gaps", "R3_warn"}, set(summary))
+
+
+def _fake_gate(returncode: int, payload: dict | None = None, stderr: str = ""):
+    """替换 `subprocess.run`：把门禁的返回钉死，用来单测两道闸门（不需适配器 venv）。"""
+
+    class _Completed:
+        def __init__(self):
+            self.returncode = returncode
+            self.stdout = json.dumps(payload) if payload is not None else ""
+            self.stderr = stderr
+
+    def runner(*_args, **_kwargs):
+        return _Completed()
+
+    return runner
+
+
+def _gate_payload(inside_package: bool) -> dict:
+    return {
+        "verdict": "pass",
+        "determinism": {"verdict": "pass", "reason": "identical", "frames": 60},
+        "seed_sensitivity": {"changed": False, "note": "L3 未接入 DR"},
+        "runs": {
+            "frames": 60,
+            "policy": {
+                "path": "policies/x/policy.onnx",
+                "resolution": {"mode": "explicit", "inside_package": inside_package},
+            },
+        },
+    }
+
+
+class R2GateTest(unittest.TestCase):
+    """`evaluation_replay` 的四种结局：pass / fail / blocked(环境) / blocked(包外解析)。"""
+
+    def _run(self, monkey_fake):
+        import subprocess
+
+        original = subprocess.run
+        subprocess.run = monkey_fake
+        try:
+            return rp.evaluation_replay(package_dir="/tmp/pkg", policy="simulation/policies/policy.onnx", steps=60)
+        finally:
+            subprocess.run = original
+
+    def test_pass_when_two_runs_are_identical(self):
+        report = self._run(_fake_gate(0, _gate_payload(inside_package=True)))
+        self.assertEqual("pass", report["status"])
+        self.assertEqual("pass", report["determinism"]["verdict"])
+
+    def test_fail_when_runs_diverge(self):
+        report = self._run(_fake_gate(1, {**_gate_payload(True), "determinism": {"verdict": "fail"}}))
+        self.assertEqual("fail", report["status"])
+
+    def test_blocked_when_environment_missing(self):
+        report = self._run(_fake_gate(2, None, stderr="找不到可用的适配器解释器"))
+        self.assertEqual("blocked", report["status"])
+        self.assertIn("适配器解释器", report["blocked_by"])
+
+    def test_blocked_when_policy_resolved_outside_the_package(self):
+        """本机（有仓库）跑 Bundle 时，索引可能把策略解析到仓库里的同名文件 —— 不算复现证据。"""
+
+        report = self._run(_fake_gate(0, _gate_payload(inside_package=False)))
+        self.assertEqual("blocked", report["status"])
+        self.assertIn("包之外", report["blocked_by"])
+
+
+class R2EndToEndTest(unittest.TestCase):
+    """真跑一遍无头产出门禁（需适配器 venv；缺环境即跳过，不当失败）。"""
+
+    @classmethod
+    def setUpClass(cls):
+        gate = ROOT / "tools" / "replay_gate.py"
+        cls.venv = Path(os.environ.get("LEGGED_STUDIO_MJLAB_VENV") or "/opt/legged-studio/mjlab-cpu/.venv")
+        if not (cls.venv / "bin" / "python").is_file():
+            raise unittest.SkipTest(f"适配器 venv 不在：{cls.venv}")
+        probe = subprocess.run([str(cls.venv / "bin" / "python"), "-c", "import mujoco, onnxruntime"],
+                               capture_output=True, text=True)
+        if probe.returncode != 0:
+            raise unittest.SkipTest("适配器 venv 里没有 mujoco/onnxruntime")
+        if not gate.is_file():
+            raise unittest.SkipTest("缺 tools/replay_gate.py")
+
+    def test_same_policy_twice_reproduces_frame_by_frame(self):
+        report = rp.evaluation_replay(
+            package_dir=ROOT / "assets" / "robots" / "zex-w",
+            policy_id="zex-w-rough-9600",
+            steps=12,
+            seed_probe=99,
+        )
+        if report["status"] == "blocked":
+            self.skipTest(f"环境未就绪：{report.get('blocked_by')}")
+        self.assertEqual("pass", report["status"], report)
+        self.assertEqual(12, report["runs"]["frames"])
+        self.assertTrue(report["runs"]["policy"]["resolution"]["inside_package"])
+        # seed 敏感性：DR 未接入（L3）⇒ 当前应为"未变化"，且报告必须自己说清这是空转
+        self.assertIn("空转", report["seed_sensitivity"]["note"])
 
 
 class R1PlaybackReadinessTest(unittest.TestCase):

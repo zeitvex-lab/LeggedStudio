@@ -56,7 +56,9 @@ REQUIRED_ROLES: dict[str, frozenset[str]] = {
     "skill": frozenset({"skill"}),
     "scenario": frozenset({"scenario"}),
     "policy": frozenset({"policy"}),
-    "bundle": frozenset({"pack", "package_manifest", "contract"}),
+    # Bundle 要能"在干净机器上跑起来"（R1/R2）⇒ 必须带**运行配置** simulation/config.json：
+    # 没有它，PackageContract 建不起来，策略条目/执行器接口/初始高度全都无从谈起。
+    "bundle": frozenset({"pack", "package_manifest", "contract", "simulation_config"}),
 }
 
 #: 拷贝时跳过的目录（与导入侧同口径：VCS 元数据与字节码缓存不属于资产）。
@@ -278,7 +280,7 @@ def export_scenario(scenario_path: Path | str, out_dir: Path | str, *, emit_mani
 
 def export_policy(
     artifact_id: str, out_dir: Path | str, *, out_dir_index: Path | None = None, emit_manifest: bool = True,
-    prefix: str = "policy/",
+    prefix: str = "", onnx_path: str | None = None,
 ) -> dict[str, Any]:
     """**Policy 包**：复用 B10 出库产物（`artifact.json` + `deploy.yaml` + `policy.onnx`）。"""
 
@@ -302,7 +304,10 @@ def export_policy(
     if not onnx_files:
         raise FileNotFoundError(f"产物目录里没有 onnx：{artifact_dir}")
     for source in onnx_files:
-        writer.copy(source, f"{prefix}{source.name}", role="policy")
+        # onnx 的**落点可以是绝对口径**（Bundle 要让包内配置能解析到它，见 _policy_placement）；
+        # 元数据（artifact.json/deploy.yaml）只跟着 prefix 走。两者混用会把文件名当目录前缀拼，
+        # 产出 `policy.onnxartifact.json` 这类垃圾名（2026-09-16 实测踩到）。
+        writer.copy(source, onnx_path or f"{prefix}{source.name}", role="policy")
     return writer.finish(refs={"policy": ref(id=artifact_id, path=onnx_files[0])}, emit=emit_manifest)
 
 
@@ -313,6 +318,8 @@ def export_bundle(
     artifact_id: str | None = None,
     scenario_path: Path | str | None = None,
     run_dir: Path | str | None = None,
+    replay: bool = False,
+    replay_steps: int = 60,
 ) -> dict[str, Any]:
     """**Bundle**：Pack 引用 + **被引用物的离线副本** + 哈希（愿景原文口径）。
 
@@ -339,11 +346,19 @@ def export_bundle(
     unresolved: list[dict[str, str]] = []
 
     morphology_id = str((pack.get("morphology_ref") or {}).get("id") or "")
+    package_root: Path | None = None
     if morphology_id:
-        nested = export_morphology(morphology_id, Path(out_dir) / "morphology", emit_manifest=False, prefix="")
-        for entry in nested["entries"]:
-            writer.entries.append({**entry, "path": f"morphology/{entry['path']}", "source": entry.get("source")})
+        # **Bundle = 可直接跑的包布局**：形态/契约/模型落在导出根（不再套 `morphology/` 子目录），
+        # 于是 Bundle 根目录本身就是一个可被验收器/产出端消费的机器人包（R1 看、R2 用的前提）。
+        package_root = robot_package_root(morphology_id)
+        nested = export_morphology(morphology_id, Path(out_dir), emit_manifest=False, prefix="")
+        writer.entries.extend(nested["entries"])
         writer.notes.extend(f"morphology: {note}" for note in nested.get("notes") or [])
+        simulation_config = package_root / "simulation" / "config.json"
+        if simulation_config.is_file():
+            writer.copy(simulation_config, "simulation/config.json", role="simulation_config")
+        else:
+            unresolved.append({"role": "simulation_config", "reason": f"包内缺 simulation/config.json：{package_root}"})
     else:
         unresolved.append({"role": "package_manifest", "reason": "Pack 未声明 morphology_ref"})
 
@@ -385,20 +400,47 @@ def export_bundle(
     policy_id = artifact_id or str(policy_ref.get("id") or "")
     if policy_id:
         try:
-            nested = export_policy(policy_id, Path(out_dir) / "policy", emit_manifest=False, prefix="")
-            for entry in nested["entries"]:
-                writer.entries.append({**entry, "path": f"policy/{entry['path']}"})
+            metadata_prefix, onnx_path, bound_entry = _policy_placement(package_root, policy_id)
+            nested = export_policy(
+                policy_id, Path(out_dir), emit_manifest=False, prefix=metadata_prefix, onnx_path=onnx_path,
+            )
+            writer.entries.extend(nested["entries"])
             writer.notes.extend(f"policy: {note}" for note in nested.get("notes") or [])
+            refs["policy"] = {
+                **(refs.get("policy") or {}),
+                "artifact_id": policy_id,
+                "onnx_in_bundle": onnx_path,
+                "bound_entry": bound_entry,
+            }
+            if bound_entry is None:
+                writer.notes.append(
+                    f"产物 {policy_id} 未绑定任何包内策略条目（artifact.json 无 policy_id）⇒ "
+                    f"onnx 放在 {onnx_path}，需在包内配置里显式引用后才可被 --policy-id 解析"
+                )
         except Exception as exc:
             unresolved.append({"role": "policy", "reason": f"{policy_id}: {type(exc).__name__}: {exc}"})
     else:
         writer.notes.append("Pack 未声明 policy_ref 且未指定 --artifact：Bundle 不含策略权重（形态/技能仍可复现）")
 
-    if run_dir is not None:
-        # R1/R2/R3 一起出：R3 用**当时那套 venv**重算环境并逐项对账，R2 如实标 blocked（无头日志缺口）。
+    if run_dir is not None or replay:
+        # R1/R2/R3 一起出：R3 用**当时那套 venv**重算环境并逐项对账；
+        # R2 只有 `--replay` 时才真跑（要适配器 venv + 几秒），否则如实记 not_run（未跑 ≠ 通过）。
         from backend import reproduce as rp
 
-        report = rp.build_reproduction(run_dir=run_dir, bundle_dir=out_dir)
+        replay_inputs = None
+        if replay:
+            onnx_in_bundle = (refs.get("policy") or {}).get("onnx_in_bundle")
+            if onnx_in_bundle:
+                # **在被导出的这份 Bundle 自身内跑**（package = 导出目录）：这才是
+                # "Bundle 在干净机器可 R2" 的证据，而不是拿仓库里的包凑出来的一次运行。
+                replay_inputs = {
+                    "package_dir": Path(out_dir),
+                    "policy": onnx_in_bundle,
+                    "steps": replay_steps,
+                }
+            else:
+                unresolved.append({"role": "replay", "reason": "Bundle 里没有策略（未给 --artifact 且 Pack 无 policy_ref），R2 无法跑"})
+        report = rp.build_reproduction(run_dir=run_dir, bundle_dir=out_dir, replay=replay_inputs)
         writer.write_json(report, rp.REPRODUCE_NAME, role="reproduce")
         summary = rp.summarise(report)
         writer.notes.append(
@@ -407,6 +449,39 @@ def export_bundle(
         )
 
     return writer.finish(refs=refs, extra={"unresolved": unresolved})
+
+
+def _policy_placement(package_root: Path | None, artifact_id: str) -> tuple[str, str, str | None]:
+    """产物在 Bundle 里该放哪：**优先放到包内配置声明的位置**（这样 `--policy-id` 能解析到它）。
+
+    两种情形（2026-09-16 实测）：
+
+    * 产物 `source_onnx` 已在某个包内（提升/B10 回挂之后）⇒ 放回同一相对路径，
+      于是 Bundle 的 `simulation/config.json` + `--policy-id <id>` **在 Bundle 自身内**就能解析；
+    * produced 产物（`<robot>__produced-<run_id>`，`artifact.json` 里**没有** `policy_id`）⇒
+      它并未绑定到任何包内策略条目（实测：产物 onnx 的哈希与包内 4 条 onnx 全不匹配）——
+      此时放到 `simulation/policies/<文件名>`，并如实记 `bound_entry=null`：
+      **"训练产物回挂 Pack/策略条目"这一环至今没闭环**，不能假装它已经绑上了。
+
+    ``package_root`` 为 None（Pack 没声明形态）时只按文件名放。
+    """
+
+    from backend import policy_artifacts as pa
+
+    entry = pa.load_index().get(artifact_id) or {}
+    source = str(entry.get("source_onnx") or "")
+    name = Path(source).name if source else "policy.onnx"
+    if source and package_root is not None:
+        resolved = Path(source)
+        resolved = resolved if resolved.is_absolute() else ROOT / resolved
+        try:
+            # 产物已在包内（提升/B10 回挂之后）：落回同一相对路径 ⇒ Bundle 的 config 能解析到它，
+            # `--policy-id` 在 Bundle 自身内即可用。
+            return "policy/", resolved.resolve().relative_to(package_root.resolve()).as_posix(), str(entry.get("policy_id") or "") or None
+        except ValueError:
+            pass
+    # produced 产物（未绑定任何包内策略条目）⇒ 放 simulation/policies/<文件名>，bound_entry=null
+    return "policy/", f"simulation/policies/{name}", None
 
 
 def verify_export(out_dir: Path | str) -> dict[str, Any]:

@@ -192,6 +192,11 @@
         exec bash -o pipefail -c '
         set -e
         python tools/sim2sim_headless.py --seconds 3 --baseline tools/baselines/sim2sim_headless_baseline.json --output-dir workspace/validation
+        echo "== determinism: 同一策略两个独立无头进程逐帧一致（L1/G2 + B12-R2 的判据） =="
+        # 判据实现：adapters/mjlab/frame_log.py（产出端）+ tools/replay_gate.py（比对）。
+        # 两个独立进程各跑一遍，抓的是**跨进程**的非确定性（同进程内跑两次测不出来）。
+        # 选 zex-w 的声明的策略之一（id 走后端统一解析器，与页面/验收同一真值源）。
+        python tools/replay_gate.py --produce --package assets/robots/zex-w --policy-id zex-w-rough-9600 --steps 40 --min-frames 30
         '
 
 frontend:
