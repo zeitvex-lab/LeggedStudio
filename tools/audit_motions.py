@@ -77,6 +77,15 @@ def main(argv: list[str] | None = None) -> int:
     print("M1 Motion 注册表对账")
     print("=" * 78)
     print(f"条目 {report['clips']} 条 / 数据文件 {report['files']} 份")
+    consumers = report.get("consumers") or {}
+    if consumers:
+        counts = consumers.get("counts") or {}
+        print(
+            "三侧消费：tracking {tracking} / amp {amp} / browser {browser}".format(
+                tracking=counts.get("tracking", 0), amp=counts.get("amp", 0), browser=counts.get("browser", 0),
+            )
+            + (f"（另有无消费方 {len(consumers.get('unclaimed') or [])} 份）" if consumers.get("unclaimed") else "")
+        )
     for entry in mr.derive()["motions"]:
         print(
             f"  {entry['robot']:<16}{entry['source']:<14}{entry['format']:<5}"

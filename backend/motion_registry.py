@@ -174,6 +174,29 @@ def _read_motion_meta(path: Path) -> dict[str, Any]:
                     "dof_dim": dof[1] if dof and len(dof) > 1 else None,
                     "frames": frames[0] if frames else None,
                 }
+        if suffix == ".csv":
+            # 浏览器格式：**无表头**，列布局 [root_pos(3), root_quat_xyzw(4), dof_pos(N)]
+            # （web/sim2sim/motion_loader.js 的解析口径）。**fps 不在文件里** —— 浏览器的
+            # loader 默认 50，所以这里如实记 None 并带一句说明，不替它编一个 fps。
+            with path.open("r", encoding="utf-8-sig") as handle:
+                rows = 0
+                columns = 0
+                for line in handle:
+                    if not line.strip():
+                        continue
+                    if rows == 0:
+                        columns = len(line.split(","))
+                    rows += 1
+            return {
+                # 浏览器 CSV **文件里没有 fps**；这里登记的是**浏览器 loader 的缺省值**，出处可查：
+                # `web/sim2sim/motion_loader.js:95` `this.fps = Number(motionParams?.fps ?? 50.0)`。
+                # 校验器要求 fps 为正数是对的（fps 决定 dt），所以不能留 None —— 但要写清它是"缺省"而非"实测"。
+                "fps": 50.0,
+                "fps_note": "文件无 fps 元信息；登记的是浏览器 loader 缺省（motion_loader.js:95 fps ?? 50.0）",
+                "dof_dim": columns - 7 if columns > 7 else None,
+                "frames": rows,
+                "columns": columns,
+            }
     except Exception as exc:  # 读不出来如实记原因，不崩
         return {"fps": None, "dof_dim": None, "frames": None, "error": f"{type(exc).__name__}: {exc}"}
     return {"fps": None, "dof_dim": None, "frames": None}
@@ -193,11 +216,24 @@ def _layout_of(path: Path) -> tuple[str, str, str | None]:
         return "tracking-variants", variant, match.group("clip") + "_stageii"
     if path.parent.parent.name == "amp":
         return "amp-dirs", path.parent.name, path.stem
+    # 浏览器侧：`<包>/simulation/policies/*_motion.csv`（`motion_loader.js` 吃的那种）
+    if path.suffix.lower() == ".csv" and path.parent.name == "policies":
+        return "browser-csv", "browser", path.stem[: -len("_motion")] if path.stem.endswith("_motion") else path.stem
     return "flat", "default", path.stem
 
 
 def iter_motion_files() -> list[Path]:
-    """扫描机器人包内的 motion 数据文件（口径写死：``assets/robots/*`` 下 ``motions/`` 子树）。"""
+    """扫描机器人包内的 motion 数据文件。
+
+    两处口径（都是**结构判定**，不靠文件名猜）：
+
+    * 训练侧：``<包>/training/source/**/motions/**``（tracking 的 pkl / amp 的 npz）；
+    * 浏览器侧：``<包>/simulation/policies/*_motion.csv``（`motion_loader.js` 吃的 CSV）。
+
+    2026-09-16（M2）补第二处：此前只认路径里含 ``motions/`` 的，于是**浏览器格式变体一个都没进注册表** ——
+    三侧（训练 tracking / 训练 amp / 浏览器）里有一侧的数据在索引之外，"同一 motion 的多格式版本由
+    注册表统一索引"这句话就不成立。
+    """
 
     found: list[Path] = []
     for package in sorted(ROBOTS_DIR.iterdir()) if ROBOTS_DIR.is_dir() else []:
@@ -206,9 +242,10 @@ def iter_motion_files() -> list[Path]:
         for candidate in sorted(package.rglob("*")):
             if not candidate.is_file() or candidate.suffix.lower() not in (".pkl", ".npz", ".csv"):
                 continue
-            if "motions" not in candidate.parts:
-                continue
-            found.append(candidate)
+            if "motions" in candidate.parts:
+                found.append(candidate)
+            elif candidate.suffix.lower() == ".csv" and candidate.parent.name == "policies" and "simulation" in candidate.parts:
+                found.append(candidate)
     return found
 
 
@@ -300,7 +337,8 @@ def derive() -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "generated_by": "tools/audit_motions.py --apply",
         "rules": {
-            "scan": "assets/robots/<package>/**/motions/** 下的 .pkl/.npz/.csv",
+            "scan": "assets/robots/<package>/**/motions/** 下的 .pkl/.npz（训练侧）"
+                    " + assets/robots/<package>/simulation/policies/*_motion.csv（浏览器侧，M2 补）",
             "derive": "fps / dof_dim / frames 从文件本身读出；dof_layout 由 dof 宽度命名",
             "license": "与 I5 同口径：缺许可记录不得进注册表；确未取证须显式 status=unresolved + 依据",
         },
@@ -383,12 +421,127 @@ def audit() -> dict[str, Any]:
         {"id": entry["id"], "reason": (entry.get("license") or {}).get("reason", "")}
         for entry in derived["motions"] if not (entry.get("license") or {}).get("spdx")
     ]
+    # M2：三侧消费对账（消费的必须在册 / 声明的必须存在）并进同一份 problems ——
+    # CI 与 `verify motions` 都读这一处，不另开一个门禁入口。
+    consumers = consumer_audit()
+    problems.extend(consumers["problems"])
     return {
         "ok": not problems,
         "clips": derived["counts"]["clips"],
         "files": derived["counts"]["files"],
         "license_gaps": gaps,
+        "consumers": {
+            "counts": consumers["counts"],
+            "declared_browser": consumers["declared"],
+            "unclaimed": consumers["unclaimed"],
+            "labels": consumers["labels"],
+        },
         "problems": problems,
+    }
+
+
+# --------------------------------------------------------------------------------------
+# M2：三侧消费对账（"不许各处各写一份路径"）
+# --------------------------------------------------------------------------------------
+#: 三侧消费方的**结构口径**（不看文件名猜、也不解析源码里的路径字面值）：
+#:   * ``tracking`` —— ``<包>/training/source/**/motions/**`` 下的 pkl（DeepMimic tracking 的参考动作）
+#:   * ``amp``      —— 同上目录下的 npz（AMP 的参考动作；`g1_amp` 的 `_MOTION_DATA_DIR` 指向它）
+#:   * ``browser``  —— ``<包>/simulation/policies/*_motion.csv``，由包内契约的
+#:                     ``motion_params.motion_csv`` 声明并被打包接口服务
+CONSUMER_LABELS = {
+    "tracking": "训练侧 tracking（motion_loader.py 的 glob *.pkl）",
+    "amp": "训练侧 amp（g1_amp 的 _MOTION_DATA_DIR）",
+    "browser": "浏览器侧（web/sim2sim/motion_loader.js 的 CSV）",
+}
+
+
+def _consumer_of(path: Path) -> str:
+    if path.suffix.lower() == ".csv" and "simulation" in path.parts:
+        return "browser"
+    if path.suffix.lower() == ".npz":
+        return "amp"
+    return "tracking"
+
+
+def declared_browser_motions() -> list[dict[str, Any]]:
+    """包内契约声明的浏览器运动（`motion_params.motion_csv`）——**声明**，不是实测。"""
+
+    declared: list[dict[str, Any]] = []
+    for package in sorted(ROBOTS_DIR.iterdir()) if ROBOTS_DIR.is_dir() else []:
+        config = package / "simulation" / "config.json"
+        if not config.is_file():
+            continue
+        try:
+            payload = _read_json(config)
+        except Exception:
+            continue
+        for policy in payload.get("policies") or []:
+            if not isinstance(policy, dict):
+                continue
+            motion = policy.get("motion_params") or policy.get("contract", {}).get("motion_params") or {}
+            csv_value = (motion or {}).get("motion_csv")
+            if not csv_value:
+                continue
+            declared.append({
+                "package": package.name,
+                "policy_id": policy.get("id"),
+                "motion_csv": str(csv_value),
+                "exists": (package / str(csv_value)).is_file(),
+            })
+    return declared
+
+
+def consumer_audit() -> dict[str, Any]:
+    """三侧引用与注册表对账：**消费的必须在册，在册的要说得清谁在消费**。
+
+    判据（M2）：
+    1. 三侧实际存在的 motion 数据文件 **必须都在注册表里**（否则"统一索引"名不副实）；
+    2. 包内契约声明的 `motion_csv` **必须存在且已注册**（否则浏览器侧启动即 404，
+       而页面只会 `console.warn` 一句 —— 静默失败）；
+    3. 注册表里**没有任何消费方**的条目要如实列出来（可能是只索引未接线的数据），
+       但**不判红**：那是"登记了但没消费"，与"消费了没登记"是两码事。
+    """
+
+    index = load_index()
+    indexed = {str(entry.get("id")): entry for entry in index.values()}
+    indexed_files: set[str] = set()
+    for entry in index.values():
+        # `files` 是 **dict**：`{变体名: {path, sha256, bytes, frames}}`（M1 定的形状）
+        for item in (entry.get("files") or {}).values():
+            value = str((item or {}).get("path") or "") if isinstance(item, dict) else str(item or "")
+            if value:
+                indexed_files.add(value)
+
+    problems: list[str] = []
+    on_disk: dict[str, list[str]] = {"tracking": [], "amp": [], "browser": []}
+    for path in iter_motion_files():
+        relative = path.relative_to(ROOT).as_posix()
+        on_disk[_consumer_of(path)].append(relative)
+        if relative not in indexed_files:
+            problems.append(f"{relative}：三侧在用但它不在注册表里（跑 tools/audit_motions.py --apply 重新派生）")
+
+    declared = declared_browser_motions()
+    for item in declared:
+        if not item["exists"]:
+            problems.append(
+                f"{item['package']} 的策略 {item['policy_id']} 声明了 motion_csv "
+                f"{item['motion_csv']!r}，但包内**没有这个文件** ⇒ 浏览器侧启动即 404（页面只 console.warn）"
+            )
+            continue
+        relative = (ROBOTS_DIR / item["package"] / item["motion_csv"]).relative_to(ROOT).as_posix()
+        if relative not in indexed_files:
+            problems.append(f"{relative}：被契约声明为浏览器运动，但不在注册表里")
+
+    consumed = {value for values in on_disk.values() for value in values}
+    unclaimed = sorted(value for value in indexed_files if value not in consumed)
+
+    return {
+        "ok": not problems,
+        "problems": problems,
+        "counts": {name: len(values) for name, values in on_disk.items()},
+        "declared": declared,
+        "unclaimed": unclaimed,
+        "labels": CONSUMER_LABELS,
     }
 
 
