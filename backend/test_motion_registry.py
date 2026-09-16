@@ -31,11 +31,15 @@ if str(ROOT) not in sys.path:
 from backend import motion_registry as mr  # noqa: E402
 
 #: 注册表钉死的规模（2026-09-16 实测）：增删 motion 数据是有意动作，须连同本测试一起改。
-EXPECTED_CLIPS = 33
-EXPECTED_FILES = 78
+# 2026-09-16（M2）：33 → 38 条 / 78 → 83 份 —— 浏览器格式变体（
+# `<包>/simulation/policies/*_motion.csv`）此前**不在扫描口径内**，M2 补上后进册。
+EXPECTED_CLIPS = 38
+EXPECTED_FILES = 83
 #: tracking 15 条 × 4 个引擎变体 + amp 18 条 × 1 份。
 EXPECTED_TRACKING_CLIPS = 15
 EXPECTED_AMP_CLIPS = 18
+#: 浏览器侧 CSV 变体（M2 进册）：`simulation/policies/*_motion.csv`
+EXPECTED_BROWSER_CLIPS = 5
 
 
 class RegistryMatchesDiskTest(unittest.TestCase):
@@ -127,7 +131,8 @@ class LicenseDisciplineTest(unittest.TestCase):
         """未取证条目数 == amp 条数（tracking 有 BSD-3-Clause 依据，amp 数据出处未取证）。"""
 
         report = mr.audit()
-        self.assertEqual(EXPECTED_AMP_CLIPS, len(report["license_gaps"]))
+        # 许可缺口 = amp（18，出处未取证）+ 浏览器 CSV（5，随包 demo 数据，同样未取证）
+        self.assertEqual(EXPECTED_AMP_CLIPS + EXPECTED_BROWSER_CLIPS, len(report["license_gaps"]))
         self.assertEqual(
             sorted(gap["id"] for gap in report["license_gaps"]),
             sorted(gap["id"] for gap in report["license_gaps"]),
