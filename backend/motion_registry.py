@@ -2,7 +2,7 @@
 
 ## 为什么要有它
 
-`02_最终愿景` 的「内容模型 = 五份一等资源」里，**Motion 参考动作**（动作序列 + fps /
+`01_项目定位` 的「内容模型 = 五份一等资源」里，**Motion 参考动作**（动作序列 + fps /
 坐标系 / dof 布局 + 重定向血缘 + 许可）与 Morphology / Skill / Scenario / Policy 同级。
 但本仓此前**只有文件、没有资源层**：`registry/packs/imitation_amp.json` 自己写着
 「仓内 motion 注册表尚未建立，缺失时挂载会失败」。

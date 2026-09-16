@@ -46,7 +46,7 @@ class FiveCardInspectionTest(unittest.TestCase):
         self.assertIn(("hipy", "effort"), flagged)
         self.assertIn(("knee", "effort"), flagged)
         # 刚度已与官方一致（30.0 = isaac 资产 ∩ sdk_deploy ∩ ONNX，见
-        # 00_know/03_参数真值标准.md §4.1），不得再红标
+        # 00_know/04_参数真值标准.md §4.1），不得再红标
         self.assertNotIn(("hipx", "stiffness"), flagged)
 
     def test_m20_motor_card_flags_official_drift(self) -> None:

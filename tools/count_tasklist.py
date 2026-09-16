@@ -2,7 +2,7 @@
 
 ## 为什么需要它
 
-`00_know/01_任务清单.md` 头部有一行「已完成 57 / 部分完成 8 / 未做 34」，它是**手写的**，
+`00_know/05_任务清单.md` 头部有一行「已完成 57 / 部分完成 8 / 未做 34」，它是**手写的**，
 而且**不在** `doc_reality_check.py` 的锚点里（CI 不抓），于是随推进一路漂到失真
 （2026-09-15 实测：明确「已完成」的条目已有 60+，而它写 57；「未做」实测 6，它写 34）。
 
@@ -29,7 +29,7 @@ from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TASKLIST = ROOT / "00_know" / "01_任务清单.md"
+TASKLIST = ROOT / "00_know" / "05_任务清单.md"
 
 #: 桶判定顺序（先命中先得；``note`` 是兜底）
 _RULES: list[tuple[str, tuple[str, ...]]] = [

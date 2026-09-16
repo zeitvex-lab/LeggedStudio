@@ -32,7 +32,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TASKLIST = ROOT / "00_know" / "01_任务清单.md"
+TASKLIST = ROOT / "00_know" / "05_任务清单.md"
 
 ARTIFACT = re.compile(r"(tools/[\w./-]+\.py|test_[\w]+\.py|registry/[\w./-]+\.json|\.cnb\.yml|npm run [\w:]+)")
 VERIFY_WORDS = ("进 CI", "已进 CI", "门禁", "✓", "已达成", "全绿")

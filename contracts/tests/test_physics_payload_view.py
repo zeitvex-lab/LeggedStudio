@@ -207,7 +207,7 @@ class IntendedBehaviourDeltaTest(unittest.TestCase):
 
         原实现是与旧 config 对拍算出"行为变更集合"；B3 之后 config 侧已无物理键，
         对拍无从进行（会变成"14 包全部新增"的假结论）。改为直接锁死那条语义本身
-        （00_know/03_参数真值标准.md §4.6）：
+        （00_know/04_参数真值标准.md §4.6）：
         **zex-w 原本就由契约供给力矩限幅；microduck / wuji_hand 的 effort 原缺失，
         现按打包模型补齐（R2 模型层）→ 浏览器由此新增力矩限幅**。其余包不得出现漂移：
         即"力矩限幅供给包"恰好是这三个 + 本来就有的那些。
