@@ -157,23 +157,26 @@ CPU 训练冒烟通过：1 profile, rewards=[3.167]
 判据有三条，缺一不算通过：rollout 的 reward **有限**、跑了 N 轮真实 PPO、
 `time_outs` 已接线（否则 GAE 会把超时当终止，critic 系统性低估长 episode）。
 
-> **口径边界（2026-09-16 实测登记，见任务清单 A5）**：上面这条能跑通 ≠ **产品内**训练路径
-> 能跑通。`/api/training/create` 的 mjlab preflight 还要求 **mjlab 源码树**存在
-> （`adapters/mjlab/native_adapter.py` 的 `DEFAULT_SOURCE`，Linux 默认 `vendor/mjlab`，
-> 需含 `src/mjlab/envs/manager_based_rl_env.py` 与 `src/mjlab/rl/runner.py`），而镜像里
-> **只有训练 venv、没有源码树** —— 因此在容器里点"开始训练"会拿到
+> **口径边界（2026-09-16 收口，见任务清单 A5）**：冒烟门禁能跑 ⇒ **产品内**训练路径也能跑，
+> 两者现在同口径。曾经的落差与修法值得留档：`/api/training/create` 的就绪判据一度是
+> `exists ∧ manager_env_available ∧ runtime.available`（前两项描述 **mjlab 源码 checkout**），
+> 而镜像只固化了训练 venv、没有 `vendor/mjlab`，于是容器内点"开始训练"恒
 > **501 `native MJLab adapter is not ready`**。
 >
-> 想让容器内也能跑产品路径，把源码树指过去即可（**不改仓库代码**，只影响该进程）：
+> 根因不是"缺源码树"而是**判据过严**：`mjlab==1.6.0` 是 `adapters/mjlab/pyproject.toml`
+> 钉住的依赖（PyPI 装进隔离 venv），**源码树只是可选遮蔽层**（开发 checkout 覆盖已安装版本），
+> `native_worker` 对它也只是 `_ensure_on_path(source/"src")`（路径不存在即 no-op）。
+> 现在就绪判据以**运行时探测为唯一硬证据**，报告里给出 `source_mode`：
 >
-> ```bash
-> # 参考资源库里那份 mjlab 恰好是 1.6.0，与 adapters/mjlab 钉的版本相同
-> LEGGED_STUDIO_MJLAB_SOURCE=$PWD/00_resources/mjlab_new/mjlab \
->   python -m uvicorn backend.api_complete:app --host 127.0.0.1 --port 8766 --log-level warning
-> # 再指驱动脚本：python tools/l7_first_run.py --robot <robot> --profile <profile> --port 8766
-> ```
+> | `source_mode` | 含义 | 就绪 |
+> |---|---|---|
+> | `checkout` | 源码树完整（`src/mjlab/envs/manager_based_rl_env.py` + `src/mjlab/rl/runner.py`） | ✓ |
+> | `installed_package` | **没有**源码树，用已安装的 mjlab 发行版（容器/服务端常态） | ✓ |
+> | `checkout_incomplete` | 源码树存在但残缺 —— 会遮蔽已安装版本，比"没有"更危险 | ✗ fail-closed |
+> | `unavailable` | 候选解释器都装不出 torch/mjlab（真依赖缺失） | ✗ fail-closed |
 >
-> 根治方式是把源码树固化进镜像层（或容器启动脚本设好该变量），登记在 A5。
+> 因此容器内**不需要任何环境变量**即可训练；`LEGGED_STUDIO_MJLAB_SOURCE` 仍可用（见下表），
+> 只是从"必需"降为"可选覆盖"。
 
 ### 本地/容器供应训练 venv
 
@@ -193,7 +196,7 @@ bash scripts/provision_cpu_training.sh
 | `LEGGED_STUDIO_MJLAB_VENV` | 训练 venv **目录**（镜像里指向 `/opt/...`，避免被仓库 bind mount 覆盖） |
 | `LEGGED_STUDIO_MJLAB_PYTHON` / `LEGGED_STUDIO_TRAIN_PYTHON` / `LEGGED_STUDIO_RUNTIME_PYTHON` | 直接指定解释器（优先级最高，桌面启动器沿用此约定） |
 | `MUJOCO_GL=disabled` | 无显示环境下 MuJoCo 不初始化 GL 上下文（镜像已预设） |
-| `LEGGED_STUDIO_MJLAB_SOURCE` | mjlab **源码树**（产品内训练 preflight 要求，镜像**未**固化 —— 见上方边界与 A5） |
+| `LEGGED_STUDIO_MJLAB_SOURCE` | mjlab **源码树**（**可选**遮蔽层：不设则用 venv 里已安装的发行版；残缺的 checkout 会被判未就绪，见上方边界与 A5） |
 
 这些解析集中在 `contracts/path_bootstrap.py` 的 `adapter_venv_dir()` / `adapter_python()`，
 控制面、启动器、工具链都从这里取——不再各自硬编码 `adapters/mjlab/.venv`。
