@@ -175,22 +175,37 @@ class TagProviderTests(unittest.TestCase):
         self.assertFalse(later["dock"]["docked"])
         self.assertEqual(later["action"]["kind"], "stop")
 
-    def test_image_input_is_refused_not_faked(self):
-        with self.assertRaises(ValueError) as ctx:
-            self.provider.update({"image": [[0, 0], [1, 1]]}, 0.0)
-        message = str(ctx.exception)
-        self.assertIn("可选依赖", message)
-        self.assertIn("corners_px", message)
+    def test_image_input_behaviour_tracks_the_environment(self):
+        """**两种环境都要诚实**（H31 之后不再写死"必报错"）：
+
+        * 没装可选依赖 ⇒ 传 `image` 明确报错（写明缺哪些包 + 让人改传 `corners_px`），**不伪造**；
+        * 装了 ⇒ 真去检测（这张图里没有标签 ⇒ `detected=False`，**不是**抛错）。
+        """
+
+        availability = image_detector_available()
+        if not availability["available"]:
+            with self.assertRaises(ValueError) as ctx:
+                self.provider.update({"image": [[0, 0], [1, 1]]}, 0.0)
+            message = str(ctx.exception)
+            self.assertIn("可选依赖", message)
+            self.assertIn("corners_px", message)
+            return
+        reading = self.provider.update({"image": [[0, 0], [1, 1]]}, 0.0)  # 这形状不是图像 ⇒ 由后端报错
+        self.assertFalse(reading["detected"])
 
     def test_registry_entry_is_honest(self):
         spec = provider_spec("tag_detector")
         self.assertEqual(spec.sensor, "rgb")
         self.assertTrue(spec.params["evidence"]["sources"], "参数必须带来源")
-        self.assertIn("opencv-contrib-python", [
-            package for package in ["opencv-contrib-python", "apriltag"]
-        ])
+        # 能力声明必须把"装了可选依赖就支持 / 没装则明确报错"两件事都写出来 ——
+        # 而不是随当前环境写死一句"不支持"（环境会变，声明不该跟着变）
+        image_note = str((spec.inputs or {}).get("image", ""))
+        self.assertIn("opencv-contrib-python", image_note)
+        self.assertIn("不伪造", image_note)
         availability = image_detector_available()
-        self.assertFalse(availability["available"], "当前环境未装图像检测依赖，必须如实报告")
+        self.assertEqual({"cv2", "apriltag", "pupil_apriltags"}, set(availability["packages"]))
+        self.assertEqual(availability["available"], any(availability["packages"].values()),
+                         "可用性必须与逐包实测一致")
 
     def test_missing_params_rejected(self):
         provider = TagDetector()

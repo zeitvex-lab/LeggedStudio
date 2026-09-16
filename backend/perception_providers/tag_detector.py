@@ -12,10 +12,19 @@
 3. **停靠伺服**：`visual_servo_command` —— 先对准（|yaw_err| ≥ 门限原地转），再按前向误差
    前进/后退到 `standoff_m`（与 H12 跟随控制器同形的律）。
 
-**检测这一步**（图像 → 角点）需要可选依赖（`opencv-contrib-python` 的 aruco / `apriltag`）：
-仓库当前环境**只有 numpy**，所以这里**不假装能检测**——传 `image` 进来会得到明确的
-`requires_optional_dependency` 报错；传 `corners_px`（任何检测器的输出）即可走完几何与停靠。
-注意 AprilTag 与 ArUco 是两套互不识别（family 不同）的码，选检测器时要与场景里的标签一致。
+**检测这一步**（图像 → 角点）2026-09-16（H31）补上了**可选依赖路径**，三条后端按序尝试：
+
+1. `cv2.aruco`（`opencv-contrib-python`）—— 支持 ArUco 全家与 **AprilTag 族字典**
+   （`DICT_APRILTAG_36h11` 等），所以一套依赖既能认 ArUco 也能认 AprilTag；
+2. `pupil_apriltags` / `apriltag`（pyapriltags）—— 纯 AprilTag 检测器，返回的角点顺序与
+   `pupil` 的逆时针口径不同，这里统一重排成 `CORNER_ORDER`（tl,tr,br,bl）。
+
+**缺依赖时行为不变**：仍然**不假装能检测** —— 传 `image` 会得到明确报错（写明缺哪些包、
+以及"请传检测器输出的 corners_px"），而不是返回一个编出来的角点。
+去畸变按**档位声明的模型**分派（`pinhole` 不动 / `brown_conrady` 走 `cv2.undistort` /
+`fisheye_equidistant` 走 `cv2.fisheye.undistortImage`）—— 模型是档位里写着的，不在这里猜。
+
+注意 ArUco 与 AprilTag 是两套互不识别（family 不同）的码，`tag_family` 要与场景里的标签一致。
 """
 
 from __future__ import annotations
@@ -69,6 +78,167 @@ def distortion_required(intrinsics: dict[str, Any]) -> bool:
     """档位是否带非零畸变（带畸变就必须先去畸变，本模块不做畸变逆运算）。"""
     coefficients = intrinsics.get("distortion") or []
     return any(abs(float(value)) > 1e-12 for value in coefficients)
+
+
+#: AprilTag / ArUco 族名（cv2.aruco 的字典常量名）——`tag_family` 只接受这些，不接受"随便传"
+DEFAULT_TAG_FAMILY = "DICT_APRILTAG_36h11"
+
+
+def undistort_image(image: "np.ndarray", intrinsics: dict[str, Any]) -> "np.ndarray":
+    """按**档位声明的畸变模型**去畸变（模型是档位里的真值，不在这里猜）。
+
+    * ``pinhole`` —— 无畸变，原样返回；
+    * ``brown_conrady`` —— ``cv2.undistort``（radtan k1,k2,p1,p2,k3）；
+    * ``fisheye_equidistant`` —— ``cv2.fisheye.undistortImage``（k1..k4）。
+    """
+
+    import cv2
+
+    coefficients = [float(value) for value in (intrinsics.get("distortion") or [])]
+    if not coefficients:
+        return image
+    k = np.array([[float(intrinsics["fx"]), 0.0, float(intrinsics["cx"])],
+                  [0.0, float(intrinsics["fy"]), float(intrinsics["cy"])],
+                  [0.0, 0.0, 1.0]], dtype=np.float64)
+    model = str(intrinsics.get("distortion_model") or "brown_conrady")
+    if model == "fisheye_equidistant":
+        return cv2.fisheye.undistortImage(image, k, np.asarray(coefficients, dtype=np.float64), Knew=k)
+    if model == "pinhole":
+        return image
+    return cv2.undistort(image, k, np.asarray(coefficients, dtype=np.float64))
+
+
+def _as_gray(image: "np.ndarray") -> "np.ndarray":
+    array = np.asarray(image)
+    if array.ndim == 2:
+        return array.astype(np.uint8, copy=False)
+    if array.ndim == 3 and array.shape[2] >= 3:
+        # 只用 numpy 转灰度（BGR 是 OpenCV 的口径，与 web/后端其它地方一致）
+        weights = np.array([0.114, 0.587, 0.299], dtype=np.float32)
+        return (array[..., :3].astype(np.float32) @ weights).astype(np.uint8)
+    raise ValueError(f"图像形状不认识：{array.shape}（需要 HxW 灰度或 HxWx3 BGR）")
+
+
+def _detect_with_cv2(gray: "np.ndarray", tag_family: str) -> list[dict[str, Any]]:
+    import cv2
+
+    constant = getattr(cv2.aruco, tag_family, None)
+    if constant is None:
+        raise ValueError(f"cv2.aruco 里没有字典 {tag_family!r}（族名要与场景里的标签一致）")
+    dictionary = cv2.aruco.getPredefinedDictionary(constant)
+    detector = cv2.aruco.ArucoDetector(dictionary, cv2.aruco.DetectorParameters())
+    corners, ids, _ = detector.detectMarkers(gray)
+    found: list[dict[str, Any]] = []
+    for index, marker in enumerate(corners):
+        # cv2.aruco 的角点顺序本来就是 tl,tr,br,bl（与本模块 CORNER_ORDER 一致）
+        points = [[float(point[0]), float(point[1])] for point in marker.reshape(4, 2)]
+        found.append({
+            "tag_id": _scalar_id(ids[index]) if ids is not None else None,
+            "corners_px": points,
+            "backend": "cv2.aruco",
+        })
+    return found
+
+
+def _scalar_id(value: Any) -> int | None:
+    """把检测器给的 id 变成 int —— **两种形状都要认**。
+
+    OpenCV 4.x 给 ``ids`` 形状 ``(N,1)``，5.x 给 ``(N,)``；早先写死 ``ids[index][0]``
+    在 5.x 上直接 ``invalid index to scalar variable``（2026-09-16 实测踩到）。
+    """
+
+    array = np.asarray(value).reshape(-1)
+    return int(array[0]) if array.size else None
+
+
+def _detect_with_pupil(gray: "np.ndarray", tag_family: str) -> list[dict[str, Any]]:
+    """pupil_apriltags / apriltag：只认 AprilTag，角点顺序需**重排**成 tl,tr,br,bl。"""
+
+    try:
+        import pupil_apriltags as library  # type: ignore
+    except ImportError:  # pragma: no cover - 取决于环境
+        import apriltag as library  # type: ignore
+
+    family = tag_family.replace("DICT_APRILTAG_", "tag").lower()  # DICT_APRILTAG_36h11 → tag36h11
+    detector = library.Detector(families=family) if hasattr(library, "Detector") else library.Detector(family)
+    found: list[dict[str, Any]] = []
+    for item in detector.detect(gray):
+        # 这些库给的是 (bl, br, tr, tl) 之类的逆时针序 —— 统一按 y 升序 + x 升序排成阅读序，
+        # 即 tl（左上）→ tr → br → bl，与 CORNER_ORDER 对齐。
+        points = [[float(p[0]), float(p[1])] for p in item.corners]
+        ordered = sorted(points, key=lambda point: (round(point[1], 3), round(point[0], 3)))
+        top = ordered[:2]
+        bottom = ordered[2:]
+        top.sort(key=lambda point: point[0])
+        bottom.sort(key=lambda point: point[0])
+        found.append({
+            "tag_id": int(getattr(item, "tag_id", -1)),
+            "corners_px": [top[0], top[1], bottom[1], bottom[0]],
+            "backend": "pupil_apriltags" if library.__name__ == "pupil_apriltags" else "apriltag",
+        })
+    return found
+
+
+def detect_tag_corners(
+    image: Any,
+    *,
+    intrinsics: dict[str, Any],
+    tag_family: str = DEFAULT_TAG_FAMILY,
+    undistorted: bool = False,
+    want_tag_id: int | str | None = None,
+) -> dict[str, Any]:
+    """**从像素检测标签角点**（H31）：图像 → 去畸变 → 检测 → 统一角点顺序。
+
+    返回 ``{"corners_px": [[u,v]×4], "tag_id": …, "backend": …, "candidates": [...], "undistorted": bool}``；
+    一个都没检到时返回 ``corners_px=None``（**不是错误**：没看见标签是正常状态，丢帧判定要吃到它）。
+    一条后端都没有 ⇒ 抛 ``requires_optional_dependency`` 风格的明确错误（不编角点）。
+    """
+
+    state = image_detector_available()
+    if not state["available"]:
+        raise ValueError(
+            "从图像检测需要可选依赖 "
+            f"{', '.join(IMAGE_DETECTOR_PACKAGES)}（当前 {state['packages']}）；"
+            "请安装后重试，或改传检测器输出的 corners_px —— 本 provider 不伪造检测结果。"
+        )
+
+    working = image if undistorted else undistort_image(np.asarray(image), intrinsics)
+    gray = _as_gray(working)
+    candidates: list[dict[str, Any]] = []
+    backend_errors: list[str] = []
+    try:
+        candidates = _detect_with_cv2(gray, tag_family)
+    except Exception as exc:  # 族名不是 cv2 认识的（如 pupil 的 `tag36h11`）⇒ 交给下一条后端
+        backend_errors.append(f"cv2.aruco: {exc}")
+    if not candidates and (importlib_util_find_spec("pupil_apriltags") or importlib_util_find_spec("apriltag")):
+        try:
+            candidates = _detect_with_pupil(gray, tag_family)
+        except Exception as exc:
+            backend_errors.append(f"apriltag 库: {exc}")
+    if not candidates and backend_errors and not any("未检到" in item for item in backend_errors):
+        # 两条后端都**跑不起来**（而不是"跑起来了但没看到标签"）⇒ 如实报出来，别让人以为标签不在画面里
+        state_hint = "；".join(backend_errors)
+        if all("没有字典" in item or "No module" in item or "family" in item for item in backend_errors):
+            state_hint += "（族名要与场景里的标签一致：cv2 用 DICT_APRILTAG_36h11，apriltag 库用 tag36h11）"
+        raise ValueError(f"检测后端不可用：{state_hint}")
+    if want_tag_id is not None and str(want_tag_id) != "":
+        candidates = [item for item in candidates if str(item["tag_id"]) == str(want_tag_id)]
+
+    best = candidates[0] if candidates else None
+    return {
+        "corners_px": best["corners_px"] if best else None,
+        "tag_id": best["tag_id"] if best else None,
+        "backend": best["backend"] if best else None,
+        "candidates": [{"tag_id": item["tag_id"], "backend": item["backend"]} for item in candidates],
+        "undistorted": bool(undistorted) or distortion_required(intrinsics),
+        "tag_family": tag_family,
+    }
+
+
+def importlib_util_find_spec(module: str) -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec(module) is not None
 
 
 def pose_from_corners(
@@ -195,6 +365,7 @@ class TagDetector:
         self._clock_start: float | None = None
         self._last: dict[str, Any] | None = None
         self._readings = 0
+        self._last_detection: dict[str, Any] | None = None
 
     def _pose_base(self, position_optical: Sequence[float]) -> list[float]:
         frame = camera_frame_from_sensor(self.sensor)
@@ -205,14 +376,20 @@ class TagDetector:
 
     def update(self, reading: Any, time_s: float = 0.0) -> dict[str, Any]:
         """吃一帧检测结果：``{"tag_id": str, "corners_px": [[u,v]×4]}``（空/缺失表示本帧没看到）。"""
-        if isinstance(reading, dict) and reading.get("image") is not None:
-            state = image_detector_available()
-            raise ValueError(
-                "收到原始图像：本 provider 不做图像检测（需要可选依赖 "
-                f"{', '.join(IMAGE_DETECTOR_PACKAGES)}；当前 {state['packages']}）。"
-                "请传入检测器输出的 corners_px。"
-            )
         payload = reading if isinstance(reading, dict) else {}
+        detected_from = "corners"
+        if isinstance(payload.get("image"), (np.ndarray, list, tuple)):
+            # H31：装了可选依赖就**真检测**；没装仍然明确报错（不返回编出来的角点）。
+            detection = detect_tag_corners(
+                payload["image"],
+                intrinsics=self.intrinsics,
+                tag_family=str(payload.get("tag_family") or DEFAULT_TAG_FAMILY),
+                undistorted=bool(payload.get("undistorted", False)),
+                want_tag_id=payload.get("tag_id"),
+            )
+            detected_from = f"image:{detection['backend']}"
+            payload = {**payload, "corners_px": detection["corners_px"], "tag_id": detection.get("tag_id")}
+            self._last_detection = detection
         corners = payload.get("corners_px")
         self._readings += 1
         detected = bool(corners) and len(corners) == 4
@@ -270,6 +447,7 @@ class TagDetector:
             "thresholds_source": "registry/arrival_criteria.json#visual_dock",
             "dock_thresholds": visual_dock_spec(),
             "image_detector": image_detector_available(),
+            "detected_from": detected_from,
             "readings": self._readings,
             "time_s": float(time_s),
         }

@@ -98,7 +98,7 @@
         "corners_px": "标签 4 角点像素 [[u,v]×4]，顺序 tl,tr,br,bl（任意外部检测器 ArUco/AprilTag 的输出）",
         "tag_id": "标签 id（可选，原样回传）",
         "undistorted": "角点是否已去畸变（默认 false；档位带畸变时不置 true 会明确报错）",
-        "image": "原始图像 —— **不支持**：需可选依赖，传入即明确报错（不伪造检测结果）"
+        "image": "原始图像（BGR/灰度 numpy 数组）—— **装了可选依赖即支持**：`opencv-contrib-python`（cv2.aruco，含 AprilTag 族字典如 DICT_APRILTAG_36h11）或 `apriltag`/`pupil_apriltags`；后端按序尝试，去畸变按档位声明的模型（pinhole / brown_conrady / fisheye_equidistant）。缺依赖时传入即明确报错（**不伪造检测结果**）；可用性由 `backend/perception_providers/tag_detector.py::image_detector_available()` 如实汇报。可用时读数里 `detected_from` 会写明这帧来自哪条后端（如 `image:cv2.aruco`）。"
       },
       "outputs": {
         "detected": "本帧是否检测到标签",
