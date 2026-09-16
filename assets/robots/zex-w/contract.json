@@ -7,7 +7,7 @@
   "locomotion_type": "W",
   "urdf": {
     "path": "assets/robots/zex-w/model/robot.xml",
-    "hash": "1a4e5bdc16a3fcb3fcdea1e45e9a7bed3d9883c1130c5a8f6bc788711c533b05",
+    "hash": "561bfe3b70c2943eff67b755c8ea56f303d9e12255452cc3606550f57fa76259",
     "total_mass_kg": 18.038,
     "mass_source": "mjcf_compiled",
     "mesh_files": [

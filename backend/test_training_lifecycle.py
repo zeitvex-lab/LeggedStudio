@@ -122,7 +122,18 @@ class LiveOrphanTest(unittest.TestCase):
                 self.assertIn((os.getpid(), signal.SIGKILL), kills)
 
     def test_stop_task_skips_kill_when_orphan_pid_already_gone(self):
-        """stop 之前 worker 自行退出的竞态：pid 已死则不发起 kill，直接落 stopped。"""
+        """stop 之前 worker 自行退出的竞态：pid 已死则不发起 kill，直接落 stopped。
+
+        **不能只 patch ``os.kill``**：POSIX 下 ``_pid_alive`` 的实现本身就是
+        ``os.kill(pid, 0)``，一旦把它 mock 掉，探测永不抛异常 ⇒ 探活恒为 True，
+        ``kill_mock.assert_not_called()`` 在 Linux/CI 上必然失败（只在 Windows 上
+        恰好成立 —— Windows 走 ctypes ``OpenProcess``，与 ``os.kill`` 无关）。
+        这是"判据只在一台平台成立"的同族问题，2026-09-16 在云开发容器首跑时暴露
+        （见任务清单 B39 同族第三处）。
+
+        因此这里给**判活结论**打桩：被测的是 ``stop_task`` 的分支与持久态写回，
+        探活实现本身由本文件真实 pid 的用例（``OrphanFinalizeTest``）覆盖。
+        """
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
             task_dir = _make_task(workspace, "t_gone", {"status": "running", "pid": os.getpid(), "exit_code": None})
@@ -135,8 +146,10 @@ class LiveOrphanTest(unittest.TestCase):
             (task_dir / "status.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
             with mock.patch.object(tm.subprocess, "run") as run_mock, \
+                    mock.patch.object(tm, "_pid_alive", return_value=False) as alive_mock, \
                     mock.patch.object(tm.os, "kill") as kill_mock:
                 manager.stop_task("t_gone")
+            alive_mock.assert_called_once_with(999999)  # 判活用的是持久态里记下的 pid
             run_mock.assert_not_called()
             kill_mock.assert_not_called()
             self.assertEqual(_read_status(task_dir)["status"], "stopped")

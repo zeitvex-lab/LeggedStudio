@@ -120,7 +120,18 @@ def collect_facts() -> dict:
     facts["pretrained_index"] = len(entries)
     facts["pretrained_index_robots"] = len({str(e.get("robot")) for e in entries if e.get("robot")})
 
-    total_bytes = sum(p.stat().st_size for p in _repo_files(robots_dir)) if robots_dir.is_dir() else 0
+    # 体积口径：**CRLF → LF 归一后再计字节**（与 pack_catalog._content_sha256、
+    # tools/generate_packs.py 同一口径，见 B39）。原实现直接加 `st_size`，于是**同一份
+    # 已提交资产在两台机器上是两个数**：Windows 检出 CRLF 实测 427.3 MB、Linux/CI 检出
+    # LF 实测 424.7 MB（差额 2.67 MB == assets/robots 下文本文件的行数，可精确对上）——
+    # 文档里的数字只能对一台机器成立，CI（Ubuntu）恒红。资产体积不该随检出平台变化。
+    total_bytes = 0
+    if robots_dir.is_dir():
+        for path in _repo_files(robots_dir):
+            try:
+                total_bytes += len(path.read_bytes().replace(b"\r\n", b"\n"))
+            except OSError:
+                continue
     facts["assets_robots_mb"] = round(total_bytes / 1024 / 1024, 1)
 
     # --- 契约 / Pack / 注册表 ---

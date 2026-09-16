@@ -252,12 +252,21 @@ class RobotContractValidator:
 
     @staticmethod
     def _compute_file_hash(file_path: Path) -> str:
-        """计算文件的 SHA-256 哈希"""
-        sha256 = hashlib.sha256()
-        with open(file_path, 'rb') as f:
-            for chunk in iter(lambda: f.read(4096), b''):
-                sha256.update(chunk)
-        return sha256.hexdigest()
+        """计算文件的 SHA-256 哈希（**规范化内容哈希：CRLF → LF**）。
+
+        为什么不做原始字节哈希：同一份资产在 Windows（CRLF 检出）与 Linux/CI（LF 检出）
+        会得到**两个**哈希，而 ``urdf.hash`` 这种"模型有没有被改过"的判据一旦随平台漂移，
+        就只剩下"在某一台机器上自洽"——``backend/pack_catalog._content_sha256`` 与
+        ``tools/generate_packs.py::_sha256`` 早已是这个口径，这里对齐，
+        **一个工件只有一个哈希**（2026-09-16 收口 B27 登记的存量不一致）。
+
+        归一化只动行尾，**仍能检出内容改动**（改一个字符哈希就变），不会掩盖模型漂移。
+
+        实现上必须**整份读入再归一**：分块读时 ``\\r\\n`` 可能恰好被切在两块之间，
+        跨块的那一处会漏归一 —— 这种错随文件长度随机出现，最难查。
+        """
+        data = Path(file_path).read_bytes()
+        return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
 
 
 # ========== 便捷函数 ==========
