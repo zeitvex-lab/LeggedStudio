@@ -5,26 +5,45 @@
 逐帧是否一致"没有判据。判据实现只有一处：`adapters/mjlab/replay_determinism.py`
 （本工具只是它的 CLI 外壳 + 退出码）。
 
-浏览器里怎么产出两份日志（与 `adapters/mjlab/replay_diff.py` 的用法同一套）：
+## 两种用法
+
+**① 比对两份现成日志**（浏览器产出的，或 `--produce` 留下的）：
 
 1. 打开 `?robot=<机型>&policy=<策略>&replay=0.4,0,0&seed=7&debug=1`
 2. 控制台 `__sim2simDebug.startFrameLog()` → 跑 2-3 秒 → `stopFrameLog()` → 存 `run1.json`
 3. **刷新页面**（重新 reset 到同一初态）后重复步骤 2 → 存 `run2.json`
 4. `python tools/replay_gate.py --a run1.json --b run2.json --min-frames 50`
 
+**② 无头跑两遍（L1 补的那条路，不需要开浏览器）**：
+
+    python tools/replay_gate.py --produce --package assets/robots/zex-w \
+        --policy-id zex-w-rough-9600 --steps 60 --min-frames 50 [--seed-probe 99]
+
+产出端是 `adapters/mjlab/frame_log.py`（在适配器 venv 里跑，与验收同源原语），
+**两个独立进程**各跑一遍（同进程内跑两次测不出跨进程的非确定性，如线程调度）。
+`--seed-probe <另一个 seed>` 会再跑一遍，用来判定"seed 到底影不影响结果"：
+
+* 日志头 `randomization.applied=false`（验收路径不做域随机化）⇒ seed 变了结果不变是**正常的**，
+  但这意味着"同 seed 一致"当前**是空转的**，工具会明说（L3 接入 DR 后此处应翻为 changed）；
+* `randomization.applied=true` 却 seed 无关 ⇒ 这是**真问题**（声明有随机量却不生效），判 fail。
+
 用法::
 
     python tools/replay_gate.py --a run1.json --b run2.json [--min-frames 50]
+    python tools/replay_gate.py --produce --package <包> --policy-id <id> [--steps 60]
     python tools/replay_gate.py --selftest            # 不需任何输入，自检判据本身
 
-退出码：0 = 一致（通过）；1 = 不一致或输入不可读（fail-closed）；2 = 参数/输入格式错误。
+退出码：0 = 一致（通过）；1 = 不一致或输入不可读（fail-closed）；2 = 参数/环境不满足（如缺适配器解释器）。
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -78,6 +97,139 @@ def selftest() -> int:
     return 0 if ok else 1
 
 
+def _adapter_interpreter(explicit: str | None) -> Path:
+    """解析适配器解释器：``--venv`` > `LEGGED_STUDIO_MJLAB_VENV` > `contracts.path_bootstrap`。
+
+    **不静默退回当前解释器**：控制面 python 没装 mujoco，退回只会把"环境没准备好"
+    伪装成 ImportError。解析不到或跑不了 mujoco 就明确退出码 2，并给出可执行的修法。
+    """
+
+    candidates: list[Path] = []
+    if explicit:
+        candidates.append(Path(explicit))
+    env = os.environ.get("LEGGED_STUDIO_MJLAB_VENV")
+    if env:
+        candidates.append(Path(env))
+    try:
+        from contracts.path_bootstrap import adapter_python
+
+        candidates.append(Path(adapter_python(default=ROOT / "adapters" / "mjlab" / ".venv")))
+    except Exception:
+        pass
+    # 最后才退回"当前解释器" —— **但要先过 mujoco/onnxruntime 探测**（见下方 probe）。
+    # CI 的验收作业就是裸 python 直跑 MuJoCo 的（B0 的 sim2sim_headless.py 同样如此），
+    # 所以这一档是真实存在的环境；探测不过仍按"环境没准备好"退出，不伪装成 ImportError。
+    candidates.append(Path(sys.executable))
+
+    for candidate in candidates:
+        for python in (candidate, candidate / "bin" / "python", candidate / "Scripts" / "python.exe"):
+            if python.is_file():
+                probe = subprocess.run([str(python), "-c", "import mujoco, onnxruntime"],
+                                       capture_output=True, text=True)
+                if probe.returncode == 0:
+                    return python
+    considered = ", ".join(str(item) for item in candidates) or "（无候选）"
+    raise SystemExit(
+        f"[replay-gate] 找不到可用的适配器解释器（需要能 import mujoco/onnxruntime）。候选：{considered}\n"
+        "  修法：设 LEGGED_STUDIO_MJLAB_VENV=/path/to/adapter/venv 或用 --venv 指定"
+    )
+
+
+def produce_pair(args: argparse.Namespace) -> int:
+    """无头跑两遍（独立进程）并比对；可选 seed 敏感性对照。"""
+
+    interpreter = _adapter_interpreter(args.venv)
+    script = ROOT / "adapters" / "mjlab" / "frame_log.py"
+    if not script.is_file():
+        raise SystemExit(f"[replay-gate] 缺产出脚本：{script}")
+
+    workdir = Path(args.keep_logs) if args.keep_logs else Path(tempfile.mkdtemp(prefix="replay-gate-"))
+    workdir.mkdir(parents=True, exist_ok=True)
+    common = ["--package", str(args.package), "--cmd", args.cmd, "--steps", str(args.steps)]
+    if args.policy_id:
+        common += ["--policy-id", args.policy_id]
+    if args.policy:
+        common += ["--policy", args.policy]
+
+    def run(seed: int, name: str) -> tuple[Path, dict]:
+        target = workdir / f"{name}.json"
+        command = [str(interpreter), str(script), *common, "--seed", str(seed), "--out", str(target)]
+        completed = subprocess.run(command, capture_output=True, text=True, cwd=str(ROOT))
+        if completed.returncode != 0:
+            tail = (completed.stderr or completed.stdout or "").strip().splitlines()[-4:]
+            raise SystemExit(f"[replay-gate] 无头产出失败（seed={seed}）：" + " | ".join(tail))
+        return target, _load(target)
+
+    log_a, payload_a = run(args.seed, "run-a")
+    log_b, payload_b = run(args.seed, "run-b")   # 独立进程：跨进程的非确定性也要被抓住
+    result = determinism_verdict(payload_a, payload_b, tolerance=args.tolerance, min_frames=args.min_frames)
+
+    seed_sensitivity: dict[str, object] | None = None
+    if args.seed_probe is not None:
+        _, payload_probe = run(args.seed_probe, "run-probe")
+        probe = compare_frame_logs(payload_a, payload_probe, tolerance=args.tolerance)
+        randomization = bool((payload_a.get("head") or {}).get("randomization", {}).get("applied"))
+        changed = probe["verdict"] != "pass"
+        if randomization and not changed:
+            note = ("日志声明 randomization.applied=true，但换 seed 结果丝毫不变 ⇒ 随机量根本没生效"
+                    "（声明与行为不一致，按 fail 处理）")
+        elif randomization and changed:
+            note = "seed 确实影响结果 ✓（随机量生效）"
+        else:
+            note = ("本路径不做域随机化（spawn_default 是确定性重置）⇒ seed 变了结果不变是正常的，"
+                    "但也意味着「同 seed 一致」当前**是空转的**：域随机化属 L3 缺口，接进来后此处应翻为 changed")
+        seed_sensitivity = {
+            "probed_seed": args.seed_probe,
+            "changed": changed,
+            "randomization_declared": randomization,
+            "verdict": probe["verdict"],
+            "max_delta": probe.get("max_delta"),
+            "note": note,
+            "is_problem": bool(randomization and not changed),
+        }
+
+    heads = {
+        "a": (payload_a.get("head") or {}),
+        "b": (payload_b.get("head") or {}),
+    }
+    verdict = result["verdict"]
+    if seed_sensitivity and seed_sensitivity["is_problem"]:
+        verdict = "fail"
+    summary = {
+        "schema": "replay-gate-produce-1.0",
+        "verdict": verdict,
+        "determinism": result,
+        "seed_sensitivity": seed_sensitivity,
+        "runs": {
+            "count": 2 + (1 if args.seed_probe is not None else 0),
+            "log_a": str(log_a),
+            "log_b": str(log_b),
+            "seed": args.seed,
+            "package": heads["a"].get("package"),
+            "policy": heads["a"].get("policy"),
+            "frames": heads["a"].get("recorded"),
+            "adapter": heads["a"].get("adapter"),
+        },
+    }
+    if args.json:
+        # `--json` = 机器可读：stdout 只有 JSON（人类可读行一律走 stderr），
+        # 否则调用方（如 backend/reproduce.py）拿到的是"JSON + 几行自然语言"，parse 必炸。
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        print(f"[replay-gate] {summarize(result)}", file=sys.stderr)
+        if seed_sensitivity:
+            print(f"[replay-gate] seed 对照：{seed_sensitivity['note']}", file=sys.stderr)
+        return 0 if verdict == "pass" else 1
+    print(f"[replay-gate] {summarize(result)}")
+    if seed_sensitivity:
+        print(f"[replay-gate] seed 对照（{args.seed} vs {args.seed_probe}）："
+              f"{'结果不同' if seed_sensitivity['changed'] else '结果相同'} —— {seed_sensitivity['note']}")
+    if verdict != "pass":
+        print("[replay-gate] 结论：回放不一致 ⇒ 视为「没学会」（L1/G2 口径）", file=sys.stderr)
+        return 1
+    print(f"[replay-gate] 通过：两个独立无头进程逐帧一致（{summary['runs']['frames']} 帧）")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="确定性回放门禁（两次逐帧一致）")
     parser.add_argument("--a", type=Path, help="第一次运行的 frame log JSON")
@@ -89,18 +241,38 @@ def main() -> int:
                         help="至少要一致多少帧才算通过（门禁建议 ≥50，避免只比初始态）")
     parser.add_argument("--json", action="store_true", help="输出结构化结论（供 CI 归档）")
     parser.add_argument("--selftest", action="store_true", help="自检判据，不需要输入文件")
+    produce = parser.add_argument_group("无头产出（L1：不需要开浏览器）")
+    produce.add_argument("--produce", action="store_true", help="跑两遍无头产出再比对")
+    produce.add_argument("--package", help="机器人包目录（如 assets/robots/zex-w）")
+    produce.add_argument("--policy-id", help="策略 id（走后端统一解析器，与页面/验收同一真值源）")
+    produce.add_argument("--policy", help="策略 onnx 路径（显式指定；与 --policy-id 二选一）")
+    produce.add_argument("--cmd", default="0.4,0,0", help="速度指令 vx,vy,wz")
+    produce.add_argument("--seed", type=int, default=7)
+    produce.add_argument("--seed-probe", type=int, default=None,
+                         help="再跑一个不同 seed，判定 seed 是否真的影响结果（L3 空转检测）")
+    produce.add_argument("--steps", type=int, default=60, help="控制步数（≥ min-frames）")
+    produce.add_argument("--venv", default=None, help="适配器 venv 目录或其 python 路径")
+    produce.add_argument("--keep-logs", default=None, help="把两份日志留在该目录（便于复盘）")
     args = parser.parse_args()
 
     if args.selftest:
         return selftest()
+    if args.produce:
+        if not args.package:
+            parser.error("--produce 需要 --package")
+        if not args.policy_id and not args.policy:
+            parser.error("--produce 需要 --policy-id 或 --policy")
+        return produce_pair(args)
     if not args.a or not args.b:
-        parser.error("需要 --a 与 --b（或用 --selftest）")
+        parser.error("需要 --a 与 --b（或用 --produce / --selftest）")
 
     result = determinism_verdict(_load(args.a), _load(args.b),
                                  tolerance=args.tolerance, min_frames=args.min_frames)
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
-    print(f"[replay-gate] {summarize(result)}")
+        print(f"[replay-gate] {summarize(result)}", file=sys.stderr)
+    else:
+        print(f"[replay-gate] {summarize(result)}")
     if result["verdict"] != "pass":
         print("[replay-gate] 结论：回放不一致 ⇒ 视为「没学会」（L1/G2 口径）", file=sys.stderr)
         return 1

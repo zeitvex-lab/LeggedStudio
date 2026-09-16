@@ -146,7 +146,9 @@ class BundleExportTest(unittest.TestCase):
                 if path.count("/") >= 1 and head in {"morphology", "policy", "skill", "scenario"}:
                     rest = path.split("/", 1)[1]
                     self.assertFalse(rest.startswith(f"{head}/"), f"前缀写重了：{path}")
-            self.assertIn("morphology/contract.json", paths)
+            # Bundle 采用**包布局**（根目录即可被验收器/产出端消费，R1/R2 的前提）
+            self.assertIn("contract.json", paths)
+            self.assertIn("simulation/config.json", paths)
 
     def test_dangling_skill_ref_is_recorded_not_hidden(self):
         """Pack 若指向注册表里没有的技能，Bundle 必须把"没带进去"写进 unresolved，而不是假装完整。"""
@@ -160,6 +162,37 @@ class BundleExportTest(unittest.TestCase):
             reasons = [item["reason"] for item in manifest["unresolved"]]
             self.assertTrue(any("core/velocity@2.0" in reason for reason in reasons), reasons)
             self.assertTrue(bx.verify_export(Path(tmp) / "bundle")["ok"], "未解析项本身不该让导出物不自洽")
+
+    def test_bundle_is_a_runnable_package_layout(self):
+        """Bundle 根目录本身要是一个能被验收/产出端消费的**机器人包布局**（R1/R2 的前提）。
+
+        2026-09-16 之前形态文件套在 `morphology/` 子目录里、运行配置根本不在包里 ——
+        于是"Bundle 在干净机器可跑"只能停在口号上（实测跑不起来）。
+        """
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "bundle"
+            bx.export_bundle(ROOT / "packs" / "zex-w.pack.json", out)
+            for required in ("robot_package.json", "contract.json", "model/robot.xml", "simulation/config.json"):
+                self.assertTrue((out / required).is_file(), f"缺 {required}（Bundle 不是可跑的包布局）")
+
+    def test_policy_placement_does_not_concat_filename_as_prefix(self):
+        """回归：onnx 落点曾被当成目录前缀拼接，产出 `policy.onnxartifact.json` 这种垃圾名。
+
+        成因是把"元数据前缀"和"onnx 落点"两个概念混成一个参数。现在分开：元数据跟 prefix，
+        onnx 跟 onnx_path。
+        """
+
+        artifact_id = _produced_artifact_id()
+        if artifact_id is None:
+            self.skipTest("出库索引里没有 produced 产物")
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = bx.export_bundle(ROOT / "packs" / "zex-w.pack.json", Path(tmp) / "bundle", artifact_id=artifact_id)
+            paths = [entry["path"] for entry in manifest["entries"]]
+            self.assertFalse([path for path in paths if ".onnx" in path and not path.endswith(".onnx")], paths)
+            onnx = [path for path in paths if path.endswith(".onnx")]
+            self.assertTrue(onnx, paths)
+            self.assertTrue(onnx[0].startswith("simulation/policies/"), onnx)
 
     def test_missing_pack_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -200,11 +233,13 @@ class VerifyExportTest(unittest.TestCase):
             self.assertTrue(any("幽灵文件" in problem for problem in report["problems"]), report["problems"])
 
     def test_missing_required_role_is_rejected(self):
-        """把 morphology 目录删掉 ⇒ Bundle 不再具备形态角色，必须红（而不是"少了点东西也还行"）。"""
+        """删掉形态文件 ⇒ Bundle 不再具备形态角色，必须红（而不是"少了点东西也还行"）。"""
 
         with tempfile.TemporaryDirectory() as tmp:
             out = self._bundle(tmp)
-            for path in sorted((out / "morphology").rglob("*"), reverse=True):
+            for name in ("contract.json", "contract_v3.json", "robot_package.json"):
+                (out / name).unlink()
+            for path in sorted((out / "model").rglob("*"), reverse=True):
                 path.unlink() if path.is_file() else path.rmdir()
             report = bx.verify_export(out)
             self.assertFalse(report["ok"])

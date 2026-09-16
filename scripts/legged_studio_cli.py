@@ -604,6 +604,7 @@ def _cmd_export(args: argparse.Namespace) -> int:
             out = Path(args.out) if args.out else bx.default_out_dir(kind, name)
             manifest = bx.export_bundle(
                 args.pack, out, artifact_id=args.artifact, scenario_path=args.scenario, run_dir=args.run,
+                replay=args.replay, replay_steps=args.replay_steps,
             )
     except (ValueError, FileNotFoundError) as exc:
         raise SystemExit(f"export 失败：{exc}") from exc
@@ -1075,7 +1076,10 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--artifact", default=None, help="policy：出库产物 ID；bundle：覆盖 Pack 的 policy_ref")
     export.add_argument("--pack", default=None, help="bundle：Pack JSON 路径（如 packs/zex-w.pack.json）")
     export.add_argument("--out", default=None, help="导出目录（默认 <workspace>/exports/<kind>-<name>）")
-    export.add_argument("--run", default=None, help="bundle：附上复现报告（Run 目录或 run_id；含 R1 回放就绪 / R2 / R3 环境对账）")
+    export.add_argument("--run", default=None, help="bundle：附上复现报告（Run 目录或 run_id；含 R1 回放就绪 / R3 环境对账）")
+    export.add_argument("--replay", action="store_true",
+                        help="bundle：在**导出物自身内**无头跑两遍做 R2（需适配器 venv；跑不了如实记 blocked）")
+    export.add_argument("--replay-steps", type=int, default=60, help="--replay 的控制步数（默认 60）")
     export.add_argument("--out-dir", default=None, help="出库索引目录（policy 用，默认仓库 policies/）")
     export.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
 
