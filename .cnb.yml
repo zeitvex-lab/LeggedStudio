@@ -66,6 +66,8 @@
         python tools/audit_provision_phases.py
         # B37 观测组名/API 残留（按机型包语义判定；静态扫描，不运行 mjlab）
         python tools/audit_obs_group_names.py
+        # N5 仿真分层：data-surface 声明—消费两端（静态扫描，不渲染浏览器）
+        python tools/audit_sim_surface.py
         echo "== doc reality check (B17: 文档数字 vs 实测) =="
         # 版本号 / 包数 / 策略数 / 资源库项目数一旦与仓库不符即红，防止再次漂移。
         python tools/doc_reality_check.py
