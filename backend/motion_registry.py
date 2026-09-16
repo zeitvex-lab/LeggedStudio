@@ -1,0 +1,410 @@
+"""M1 Motion 注册表：把「Motion 参考动作」从散落在包里的文件变成**一等资源**。
+
+## 为什么要有它
+
+`02_最终愿景` 的「内容模型 = 五份一等资源」里，**Motion 参考动作**（动作序列 + fps /
+坐标系 / dof 布局 + 重定向血缘 + 许可）与 Morphology / Skill / Scenario / Policy 同级。
+但本仓此前**只有文件、没有资源层**：`registry/packs/imitation_amp.json` 自己写着
+「仓内 motion 注册表尚未建立，缺失时挂载会失败」。
+
+本模块补的就是那一层，判据全部**从文件本身派生**（可复核），不靠人工填表：
+
+* ``fps`` / ``dof_dim`` —— 直接读文件（pkl 的 ``fps`` / ``dof_pos``、npz 的 ``fps`` / ``joint_pos``）；
+* ``dof_layout`` —— 由 dof 宽度命名（``unitree_dds_29``），依据是加载器的字段契约
+  （`g1_tracking/.../motion_loader.py` 文档串明写 "dof_pos (F, 29) joint angles, robot (DDS)
+  joint order"）；
+* ``lineage`` —— 出处与转换链（tracking 的 pkl 由 `LeggedGym-Ex` retarget 管线产出，
+  本仓 `tools/convert_raw_motion_pkls.py` 做过 raw → tracking schema 的转换；**raw 原文件不在仓**，
+  如实登记）；
+* ``license`` —— 与 I5 同口径：**没有许可记录的 motion 不得进注册表**；许可确未取证时
+  必须**显式登记**（``status: unresolved`` + 原因 + 依据），不许留空、也不许编一个。
+
+## 三种布局（派生规则，写死在这里而不是散在各处）
+
+1. ``tracking-variants``：``*_stageii{,.rawconv,_genesis,_isaacgym,_isaaclab}.pkl``
+   —— 同一个动作的 raw 转换产物 + 逐仿真引擎重定向产物（**血缘就在这里**）；
+2. ``amp-dirs``：``<...>/motions/<robot>/amp/<Group>/<name>.npz`` —— variant = 分组目录名；
+3. ``flat``：其余（兜底，variant = ``default``）。
+
+风格：纯 stdlib（numpy 仅按需 import，供读 npz）。
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import pickle
+import re
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+ROBOTS_DIR = ROOT / "assets" / "robots"
+INDEX_PATH = ROOT / "registry" / "motions" / "index.json"
+SCHEMA_VERSION = "motion-registry-1.0"
+
+#: 每条 motion 必须有这些字段；缺任一项即拒（门禁判据）。
+REQUIRED_FIELDS = (
+    "id", "robot", "source", "format", "fps", "dof_layout", "dof_dim",
+    "conventions", "lineage", "license", "files",
+)
+SUPPORTED_FORMATS = ("pkl", "npz", "csv")
+
+#: tracking 布局的变体后缀 → 语义（`_stageii.rawconv.pkl` 是本仓转换出来的那份）。
+TRACKING_VARIANTS = {
+    "rawconv": "_stageii.rawconv.pkl",
+    "genesis": "_stageii_genesis.pkl",
+    "isaacgym": "_stageii_isaacgym.pkl",
+    "isaaclab": "_stageii_isaaclab.pkl",
+}
+_TRACKING_STEM = re.compile(r"^(?P<clip>.+)_stageii(?:\.rawconv|_genesis|_isaacgym|_isaaclab)?\.pkl$")
+
+#: 出处（可复核的原文位置 + 本仓转换脚本）。tracking 的 pkl 出处写在这两个文件里。
+_TRACKING_LINEAGE = {
+    "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
+    "raw": None,
+    "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
+    "conversion_script": "tools/convert_raw_motion_pkls.py",
+    "evidence": [
+        "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
+        "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py",
+    ],
+}
+
+#: 坐标系/四元数约定（**只写有据可查的**；查不到就写"未取证"，不猜）。
+_TRACKING_CONVENTIONS = {
+    "root_pos": "world",
+    "root_rot": "xyzw",
+    "dof_order": "unitree DDS joint order",
+    "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）",
+}
+_AMP_CONVENTIONS = {
+    "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）",
+}
+
+#: 许可：与 I5 的许可门同口径。
+_TRACKING_LICENSE = {
+    "status": "declared",
+    "spdx": "BSD-3-Clause",
+    "applies_to": "retarget 产物（LeggedGym-Ex 管线）",
+    "evidence": "00_resources/LeggedGym-Ex/LICENSE",
+    "upstream_dataset": {
+        "name": "AMASS stage-II（文件名 `_stageii` 所指）",
+        "status": "unresolved",
+        "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内",
+    },
+}
+_AMP_LICENSE = {
+    "status": "unresolved",
+    "spdx": None,
+    "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**"
+              "（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证"
+              "（已登记在 registry/licenses.json 的缺口表）",
+    "evidence": [
+        "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+        "registry/licenses.json",
+    ],
+}
+
+
+def _read_json(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _sha256(path: Path) -> str | None:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+
+def _scalar(value: Any) -> float | None:
+    """从 pkl/npz 的标量（可能是 0 维数组或单元素数组）取数。"""
+
+    try:
+        import numpy as np
+
+        return float(np.asarray(value).reshape(-1)[0])
+    except Exception:
+        try:
+            return float(value)
+        except Exception:
+            return None
+
+
+def _shape_of(value: Any) -> tuple[int, ...] | None:
+    try:
+        import numpy as np
+
+        return tuple(np.asarray(value).shape)
+    except Exception:
+        return None
+
+
+def _read_motion_meta(path: Path) -> dict[str, Any]:
+    """读一份 motion 文件的元信息（fps / dof 宽度 / 帧数）——**派生自文件本身**。"""
+
+    suffix = path.suffix.lower()
+    try:
+        if suffix == ".pkl":
+            with path.open("rb") as handle:
+                payload = pickle.load(handle)
+            dof = _shape_of(payload.get("dof_pos"))
+            frames = _shape_of(payload.get("root_pos"))
+            return {
+                "fps": _scalar(payload.get("fps")),
+                "dof_dim": dof[1] if dof and len(dof) > 1 else None,
+                "frames": frames[0] if frames else None,
+            }
+        if suffix == ".npz":
+            import numpy as np
+
+            with np.load(path) as payload:
+                dof = _shape_of(payload["joint_pos"]) if "joint_pos" in payload.files else None
+                frames = _shape_of(payload["joint_pos"])
+                return {
+                    "fps": _scalar(payload["fps"]) if "fps" in payload.files else None,
+                    "dof_dim": dof[1] if dof and len(dof) > 1 else None,
+                    "frames": frames[0] if frames else None,
+                }
+    except Exception as exc:  # 读不出来如实记原因，不崩
+        return {"fps": None, "dof_dim": None, "frames": None, "error": f"{type(exc).__name__}: {exc}"}
+    return {"fps": None, "dof_dim": None, "frames": None}
+
+
+def _layout_of(path: Path) -> tuple[str, str, str | None]:
+    """判定 ``(layout, variant, clip_stem)`` —— 规则见模块文档串。"""
+
+    name = path.name
+    match = _TRACKING_STEM.match(name)
+    if match and path.parent.name == "tracking":
+        variant = "raw"
+        for key, suffix in TRACKING_VARIANTS.items():
+            if name.endswith(suffix):
+                variant = key
+                break
+        return "tracking-variants", variant, match.group("clip") + "_stageii"
+    if path.parent.parent.name == "amp":
+        return "amp-dirs", path.parent.name, path.stem
+    return "flat", "default", path.stem
+
+
+def iter_motion_files() -> list[Path]:
+    """扫描机器人包内的 motion 数据文件（口径写死：``assets/robots/*`` 下 ``motions/`` 子树）。"""
+
+    found: list[Path] = []
+    for package in sorted(ROBOTS_DIR.iterdir()) if ROBOTS_DIR.is_dir() else []:
+        if not package.is_dir():
+            continue
+        for candidate in sorted(package.rglob("*")):
+            if not candidate.is_file() or candidate.suffix.lower() not in (".pkl", ".npz", ".csv"):
+                continue
+            if "motions" not in candidate.parts:
+                continue
+            found.append(candidate)
+    return found
+
+
+def _source_of(path: Path) -> str:
+    """``training/source/<source_pkg>/...`` 里的 ``<source_pkg>``（取不到就如实写 unknown）。"""
+
+    parts = path.relative_to(ROBOTS_DIR).parts
+    if "source" in parts:
+        index = parts.index("source")
+        if index + 1 < len(parts):
+            return parts[index + 1]
+    return "unknown"
+
+
+def _source_short(robot: str, source: str) -> str:
+    """给 id 用的短名：去掉与机型重复的前缀（``unitree_g1`` + ``g1_amp`` → ``amp``）。
+
+    纯粹是可读性；``source`` 字段仍记**完整包名**（真值不缩短），所以不会出现"id 好看了但真值丢了"。
+    """
+
+    token = robot.split("_")[-1]
+    if token and source != token:
+        for prefix in (f"{token}_", f"{token}-"):
+            if source.startswith(prefix):
+                return source[len(prefix):] or source
+    return source
+
+
+def derive() -> dict[str, Any]:
+    """从磁盘派生注册表内容（**纯派生**，不读已有 index）。"""
+
+    clips: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for path in iter_motion_files():
+        layout, variant, clip = _layout_of(path)
+        robot = path.relative_to(ROBOTS_DIR).parts[0]
+        source = _source_of(path)
+        key = (robot, source, clip)
+        entry = clips.get(key)
+        if entry is None:
+            meta = _read_motion_meta(path)
+            entry = clips[key] = {
+                "id": f"{_slug(robot)}-{_slug(_source_short(robot, source))}-{_slug(clip)}",
+                "robot": robot,
+                "source": source,
+                "format": path.suffix.lower().lstrip("."),
+                "layout": layout,
+                "fps": meta["fps"],
+                "dof_dim": meta["dof_dim"],
+                "dof_layout": f"unitree_dds_{meta['dof_dim']}" if meta["dof_dim"] else None,
+                "frames_min": meta["frames"],
+                "files": {},
+            }
+        # 同一 clip 的多份产物帧数可能不同（逐引擎重定向），记**范围**而不是随便取一个
+        meta = _read_motion_meta(path)
+        if meta["frames"] is not None:
+            entry["frames_min"] = min(entry["frames_min"] or meta["frames"], meta["frames"])
+            entry["frames_max"] = max(entry.get("frames_max") or meta["frames"], meta["frames"])
+        entry["files"][variant] = {
+            "path": path.relative_to(ROOT).as_posix(),
+            "sha256": _sha256(path),
+            "bytes": path.stat().st_size,
+            "frames": meta["frames"],
+        }
+        if entry["fps"] is None and meta["fps"] is not None:
+            entry["fps"] = meta["fps"]
+        if entry["dof_dim"] is None and meta["dof_dim"] is not None:
+            entry["dof_dim"] = meta["dof_dim"]
+            entry["dof_layout"] = f"unitree_dds_{meta['dof_dim']}"
+
+    for entry in clips.values():
+        entry["files"] = {key: entry["files"][key] for key in sorted(entry["files"])}
+        tracking = entry["layout"] == "tracking-variants"
+        entry["conventions"] = dict(_TRACKING_CONVENTIONS if tracking else _AMP_CONVENTIONS)
+        entry["lineage"] = dict(_TRACKING_LINEAGE) if tracking else {
+            "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+            "raw": None,
+            "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
+            "conversion_script": None,
+            "evidence": [
+                "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
+            ],
+        }
+        entry["license"] = dict(_TRACKING_LICENSE) if tracking else dict(_AMP_LICENSE)
+        if "frames_max" not in entry:
+            entry["frames_max"] = entry["frames_min"]
+
+    entries = [clips[key] for key in sorted(clips)]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "generated_by": "tools/audit_motions.py --apply",
+        "rules": {
+            "scan": "assets/robots/<package>/**/motions/** 下的 .pkl/.npz/.csv",
+            "derive": "fps / dof_dim / frames 从文件本身读出；dof_layout 由 dof 宽度命名",
+            "license": "与 I5 同口径：缺许可记录不得进注册表；确未取证须显式 status=unresolved + 依据",
+        },
+        "counts": {
+            "clips": len(entries),
+            "files": sum(len(entry["files"]) for entry in entries),
+        },
+        "motions": entries,
+    }
+
+
+def validate(entry: dict[str, Any]) -> list[str]:
+    """单条 motion 的字段校验（缺字段/类型错/非正 fps → 问题清单）。"""
+
+    problems: list[str] = []
+    for field in REQUIRED_FIELDS:
+        if field not in entry or entry[field] in (None, {}, []):
+            problems.append(f"缺字段 {field}")
+    if entry.get("format") not in SUPPORTED_FORMATS:
+        problems.append(f"format {entry.get('format')!r} 不在 {SUPPORTED_FORMATS}")
+    fps = entry.get("fps")
+    if not isinstance(fps, (int, float)) or fps <= 0:
+        problems.append(f"fps 必须为正数，得到 {fps!r}")
+    if entry.get("dof_layout") and not re.match(r"^[a-z0-9_]+_\d+$", str(entry["dof_layout"])):
+        problems.append(f"dof_layout {entry['dof_layout']!r} 形状不合法（应形如 unitree_dds_29）")
+    license_block = entry.get("license") or {}
+    if not license_block.get("spdx") and license_block.get("status") != "unresolved":
+        problems.append("license 既没有 spdx，也没有显式 status=unresolved（不许留空、也不许编）")
+    if license_block.get("status") == "unresolved" and not license_block.get("reason"):
+        problems.append("license 标了 unresolved 却没写原因")
+    files = entry.get("files") or {}
+    if not files:
+        problems.append("files 为空（motion 条目必须至少指向一份数据）")
+    for variant, item in files.items():
+        if not item.get("sha256") or not item.get("path"):
+            problems.append(f"files[{variant}] 缺 path/sha256")
+    return problems
+
+
+def audit() -> dict[str, Any]:
+    """对账：``registry/motions/index.json`` 的声明 vs 磁盘实测。"""
+
+    derived = derive()
+    recorded = _read_json(INDEX_PATH)
+    problems: list[str] = []
+    if not isinstance(recorded, dict):
+        return {
+            "ok": False,
+            "clips": derived["counts"]["clips"],
+            "files": derived["counts"]["files"],
+            "problems": [f"缺 {INDEX_PATH.relative_to(ROOT).as_posix()}（先跑 tools/audit_motions.py --apply）"],
+        }
+    declared = {str(item.get("id")): item for item in (recorded.get("motions") or []) if isinstance(item, dict)}
+    for entry in derived["motions"]:
+        problems.extend(f"{entry['id']}: {item}" for item in validate(entry))
+        found = declared.get(entry["id"])
+        if found is None:
+            problems.append(f"{entry['id']}: 注册表未覆盖（磁盘上有这份 motion）")
+            continue
+        for field in ("robot", "source", "format", "fps", "dof_dim", "dof_layout"):
+            if found.get(field) != entry[field]:
+                problems.append(f"{entry['id']}: {field} 与实测不符（注册表 {found.get(field)!r} vs 实测 {entry[field]!r}）")
+        declared_files = found.get("files") or {}
+        for variant, item in entry["files"].items():
+            actual = declared_files.get(variant)
+            if actual is None:
+                problems.append(f"{entry['id']}: 缺变体 {variant}")
+                continue
+            if actual.get("sha256") != item["sha256"]:
+                problems.append(f"{entry['id']}/{variant}: 内容已变（sha256 不符）—— 数据被换过或需重新 --apply")
+    extra = sorted(set(declared) - {entry["id"] for entry in derived["motions"]})
+    if extra:
+        problems.append(f"注册表里有磁盘上已不存在的 motion：{', '.join(extra)}")
+    if recorded.get("counts", {}).get("clips") != derived["counts"]["clips"]:
+        problems.append(
+            f"条目数变了（注册表 {recorded.get('counts', {}).get('clips')} vs 实测 {derived['counts']['clips']}）——两侧一起改"
+        )
+
+    gaps = [
+        {"id": entry["id"], "reason": (entry.get("license") or {}).get("reason", "")}
+        for entry in derived["motions"] if not (entry.get("license") or {}).get("spdx")
+    ]
+    return {
+        "ok": not problems,
+        "clips": derived["counts"]["clips"],
+        "files": derived["counts"]["files"],
+        "license_gaps": gaps,
+        "problems": problems,
+    }
+
+
+def load_index() -> dict[str, dict[str, Any]]:
+    """读回注册表：``motion id`` → 条目（未生成时返回空字典）。"""
+
+    recorded = _read_json(INDEX_PATH)
+    if not isinstance(recorded, dict):
+        return {}
+    return {str(item.get("id")): dict(item) for item in (recorded.get("motions") or []) if isinstance(item, dict)}
+
+
+def apply_registry() -> dict[str, Any]:
+    """按实测重写 ``registry/motions/index.json``（**显式动作**）。"""
+
+    payload = derive()
+    INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    INDEX_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return payload
