@@ -606,7 +606,7 @@ def _cmd_export(args: argparse.Namespace) -> int:
                 args.pack, out, artifact_id=args.artifact, scenario_path=args.scenario, run_dir=args.run,
                 replay=args.replay, replay_steps=args.replay_steps,
                 quality=args.quality, quality_tier=args.tier, quality_min=args.quality_min,
-                quality_steps=args.quality_steps,
+                quality_steps=args.quality_steps, with_player=args.with_player,
             )
     except (ValueError, FileNotFoundError) as exc:
         raise SystemExit(f"export 失败：{exc}") from exc
@@ -622,6 +622,12 @@ def _cmd_export(args: argparse.Namespace) -> int:
     if reproduction:
         print(f"  复现三档：R1回放={reproduction['R1_playback']} / R2评测={reproduction['R2_evaluation']} / "
               f"R3训练={reproduction['R3_training']}（差异 {reproduction['R3_gaps']} 条，其中影响数值 {reproduction['R3_warn']} 条）")
+    player = report.get("player")
+    if player:
+        mark = "就绪" if player["ready"] else "有问题"
+        print(f"  离线播放器：{mark}（{player['entry']}）→ {player['how_to_open']}")
+        for problem in player["problems"]:
+            print(f"    ! {problem}")
     quality = report.get("quality")
     if quality:
         score = "无" if quality["score"] is None else f"{quality['score']:.4f}"
@@ -1094,6 +1100,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="--quality 的评测档位（默认 single）")
     export.add_argument("--quality-min", type=float, default=0.5, help="质量分下限（默认 0.5）")
     export.add_argument("--quality-steps", type=int, default=200, help="--quality 的控制步数")
+    export.add_argument("--with-player", action="store_true",
+                        help="bundle：打入**离线播放器**（静态 sim2sim 包：无本仓库机器也能打开试玩）")
     export.add_argument("--out-dir", default=None, help="出库索引目录（policy 用，默认仓库 policies/）")
     export.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
 

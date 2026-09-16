@@ -149,6 +149,19 @@ class ExportWriter:
         })
         return target
 
+    def write_text(self, text: str, relative: str, *, role: str) -> Path:
+        target = self.out_dir / _safe_relative(relative)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+        self.entries.append({
+            "path": target.relative_to(self.out_dir).as_posix(),
+            "sha256": _sha256(target),
+            "bytes": target.stat().st_size,
+            "role": role,
+            "source": None,
+        })
+        return target
+
     def finish(
         self,
         *,
@@ -322,6 +335,7 @@ def export_bundle(
     quality_tier: str = "single",
     quality_min: float = 0.5,
     quality_steps: int = 200,
+    with_player: bool = False,
 ) -> dict[str, Any]:
     """**Bundle**：Pack 引用 + **被引用物的离线副本** + 哈希（愿景原文口径）。
 
@@ -427,6 +441,23 @@ def export_bundle(
     else:
         writer.notes.append("Pack 未声明 policy_ref 且未指定 --artifact：Bundle 不含策略权重（形态/技能仍可复现）")
 
+    if with_player:
+        # I4：把离线播放器打进包（"无本仓库机器可打开试玩"）。放在策略之后：引导层要把
+        # 包内策略路径写进 browser-config。
+        if not morphology_id:
+            unresolved.append({"role": "player", "reason": "Pack 未声明 morphology_ref，无法生成离线播放器"})
+        else:
+            try:
+                info = export_player(
+                    out_dir, writer, robot_id=morphology_id,
+                    policy_rel=(refs.get("policy") or {}).get("onnx_in_bundle"),
+                )
+                writer.notes.append(
+                    f"离线播放器已打入：{info['entry']}（{info['files']} 个文件）→ {info['how_to_open']}"
+                )
+            except Exception as exc:
+                unresolved.append({"role": "player", "reason": f"{type(exc).__name__}: {exc}"})
+
     if quality:
         # **在导出物自身内**评测（package = 导出目录）：和 R2 同一原则 —— 证据必须来自这份包，
         # 而不是拿仓库里那套凑。报告落 `quality.json`，`verify bundle` 会汇报它的判据。
@@ -519,6 +550,226 @@ def _policy_placement(
     return "policy/", f"simulation/policies/{name}", None
 
 
+# --------------------------------------------------------------------------------------
+# I4：离线播放器（把"可离线打开的 sim2sim 静态包"打进 Bundle）
+#
+# 为什么需要**引导层**而不是"拷一份网页就行"：`web/sim2sim/app.js` 启动时要问后端两件事 ——
+# `GET /api/robots/presets`（有哪台机）与 `GET /api/simulation/browser-config/<robot>`
+# （观测/控制/策略契约），其余是包内文件与 onnx。离线机器上没有后端，所以：
+#   1. **配置形状由后端自己产出**（`simulation_api.browser_simulation_config`，asyncio.run 调用），
+#      只把 URL 换成本地相对路径 —— 免得离线包与在线页面各长一套配置形状、日后必然漂移；
+#   2. `offline-bootstrap.js` 在 app.js **之前**加载，拦 `fetch` 把这两个 API 就地答掉，
+#      并把 `/api/simulation/browser-package/<robot>/<path>` 重写到包内文件；
+#   3. 页面必须经 HTTP 打开（`file://` 下 fetch/模块/WebAssembly 都会被浏览器拦），
+#      所以随包给一个 stdlib 的 `play/serve.py`，并补 `.wasm`/`.mjs` 的 MIME。
+#
+# 不打进包的部分：`web/sim2sim/{models,assets}`（演示自带的模型与资产，共 34MB）——
+# Bundle 有自己的 `model/` 与策略，带进去只是让每个包白白大 34MB。
+# --------------------------------------------------------------------------------------
+PLAYER_DIR = "play"
+PLAYER_ENTRY = f"{PLAYER_DIR}/index.html"
+PLAYER_EXCLUDED = ("models", "assets")
+
+
+def player_source_files() -> list[Path]:
+    """要打进离线播放器的静态资源（相对 `web/sim2sim`，排除演示自带的 models/assets）。"""
+
+    root = ROOT / "web" / "sim2sim"
+    files: list[Path] = []
+    for pattern in ("*.js", "*.css", "*.html"):
+        files.extend(
+            path for path in sorted(root.glob(pattern))
+            if not path.name.endswith(".test.mjs")
+            # index.html **不拷贝**：它是生成物（要注入引导层）。先拷一份到 manifest 再改写，
+            # 会让 manifest 里出现两条同名条目、hash 对不上 ⇒ 导出自校验必红（2026-09-16 实测踩到）。
+            and path.name != "index.html"
+        )
+    for sub in ("obs", "vendor"):
+        files.extend(path for path in sorted((root / sub).rglob("*")) if path.is_file())
+    return files
+
+
+def _localise_urls(value: Any, robot_id: str) -> Any:
+    """把后端给的 URL 换成本地相对路径（`../<包内路径>`）。
+
+    只改 URL，不动其它字段 —— 形状来自后端，改动面越小越不容易漂。
+    """
+
+    prefix = f"/api/simulation/browser-package/{robot_id}/"
+    if isinstance(value, str):
+        if value.startswith(prefix):
+            return f"../{value[len(prefix):]}"
+        return value
+    if isinstance(value, list):
+        return [_localise_urls(item, robot_id) for item in value]
+    if isinstance(value, dict):
+        return {key: _localise_urls(item, robot_id) for key, item in value.items()}
+    return value
+
+
+def offline_payload(robot_id: str, *, policy_rel: str | None = None, preset: dict[str, Any] | None = None) -> dict[str, Any]:
+    """离线引导层要答的两个响应：机器人列表 + browser-config（URL 已本地化）。"""
+
+    import asyncio
+
+    from backend.robot_presets import get_robot_preset
+
+    preset = preset or get_robot_preset(robot_id) or {}
+    canonical = str(preset.get("robot_id") or robot_id)
+    presets = [{
+        "robot_id": canonical,
+        "family": preset.get("family") or canonical,
+        "robot_package": {
+            **(preset.get("robot_package") or {}),
+            "browser_default": True,
+        },
+    }]
+
+    from backend import simulation_api
+
+    config = asyncio.run(simulation_api.browser_simulation_config(canonical))
+    config = _localise_urls(config, canonical)
+    if policy_rel:
+        # 离线包里的策略就是这份 Bundle 自带的那个（在线时由 policies[] 选中）。
+        config["policy"] = {
+            **(config.get("policy") or {}),
+            "disabled": False,
+            "onnx_url": f"../{policy_rel}",
+            "offline_note": "URL 由离线引导层改写为包内相对路径",
+        }
+    else:
+        # 包里没策略：**必须置 disabled**，不能留着"指向仓库里某个模型"的 URL ——
+        # 那个文件不在包里，离线机器上必然 404（页面会白等一个永远不来的 onnx）。
+        # 这与页面 `?policy=off` 的口径一致（app.js 用 disabled 进手动模式）。
+        config["policy"] = {
+            **(config.get("policy") or {}),
+            "disabled": True,
+            "onnx_url": "",
+            "offline_note": "包里没有策略：离线播放器进无策略（手动）模式",
+        }
+    return {"presets": presets, "configs": {canonical: config}, "robot": canonical}
+
+
+def bootstrap_js(payload: dict[str, Any]) -> str:
+    """生成拦截 `fetch` 的引导脚本（内联两份响应，不依赖任何网络）。"""
+
+    body = json.dumps(payload, ensure_ascii=False)
+    # Raw 字符串：下面 JS 里的 `\/` 是**给 JS 看的**转义，不该被 Python 再解释一遍
+    # （不写 r 会有 SyntaxWarning: invalid escape sequence，且语义上误导读者）。
+    return rf"""// 由 `backend/bundle_export.py` 生成：离线 sim2sim 引导层（I4）。
+// 干什么：app.js 启动会问后端两件事（robots/presets、browser-config/<robot>），
+// 这里就地答掉；包内文件走真实 fetch 的相对路径；其余 /api/* 明确回 501 而不是静默失败。
+const OFFLINE = {body};
+const json = (data, status = 200) => new Response(JSON.stringify(data), {{
+  status, headers: {{ "Content-Type": "application/json" }},
+}});
+const realFetch = window.fetch.bind(window);
+window.__LEGGED_OFFLINE__ = OFFLINE;
+window.fetch = async (input, init) => {{
+  const raw = typeof input === "string" ? input : (input && input.url) || String(input);
+  const path = raw.replace(/^https?:\/\/[^/]+/, "").split("?")[0];
+  if (path === "/api/robots/presets") return json({{ presets: OFFLINE.presets }});
+  const configMatch = path.match(/^\/api\/simulation\/browser-config\/(.+)$/);
+  if (configMatch) {{
+    const key = decodeURIComponent(configMatch[1]);
+    const config = OFFLINE.configs[key];
+    if (config) return json(config);
+    return json({{ detail: `离线包只含 ${{OFFLINE.robot}}：${{key}}` }}, 404);
+  }}
+  const assetMatch = path.match(/^\/api\/simulation\/browser-package\/[^/]+\/(.+)$/);
+  if (assetMatch) {{
+    const local = `../${{assetMatch[1]}}`;
+    console.info("[offline] 包内文件重写：", path, "->", local);
+    return realFetch(local, init);
+  }}
+  if (path.startsWith("/api/")) {{
+    console.warn("[offline] 离线包不含该接口：", path);
+    return json({{ detail: `离线包不含 ${{path}}（该功能需要本机后端）`, offline: true }}, 501);
+  }}
+  return realFetch(input, init);
+}};
+console.info("[offline] sim2sim 离线播放器已就绪：", OFFLINE.robot);
+"""
+
+
+SERVE_PY = Path('/tmp/serve_py.txt').read_text(encoding='utf-8')
+
+
+def export_player(
+    out_dir: Path | str,
+    writer: "ExportWriter",
+    *,
+    robot_id: str,
+    policy_rel: str | None = None,
+) -> dict[str, Any]:
+    """把离线播放器写进导出物（静态资源 + 引导层 + 服务脚本 + 入口页）。"""
+
+    root = Path(out_dir)
+    payload = offline_payload(robot_id, policy_rel=policy_rel)
+    copied = 0
+    for source in player_source_files():
+        relative = source.relative_to(ROOT / "web" / "sim2sim").as_posix()
+        role = "player" if "/" not in relative else "player_asset"
+        writer.copy(source, f"{PLAYER_DIR}/{relative}", role=role)
+        copied += 1
+
+    writer.write_json(payload, f"{PLAYER_DIR}/offline-payload.json", role="player")
+    writer.write_text(bootstrap_js(payload), f"{PLAYER_DIR}/offline-bootstrap.js", role="player")
+    writer.write_text(SERVE_PY, f"{PLAYER_DIR}/serve.py", role="player")
+
+    original = (ROOT / "web" / "sim2sim" / "index.html").read_text(encoding="utf-8")
+    marker = '<script type="module"'
+    if marker not in original:
+        raise ValueError("web/sim2sim/index.html 里找不到应用入口 script 标签（页面结构变了？）")
+    injected = original.replace(
+        marker,
+        '<script src="offline-bootstrap.js"></script>\n    ' + marker,
+        1,
+    )
+    writer.write_text(injected, PLAYER_ENTRY, role="player")
+    return {
+        "entry": PLAYER_ENTRY,
+        "files": copied + 4,
+        "robot": payload["robot"],
+        "policy": policy_rel,
+        "how_to_open": f"python {PLAYER_DIR}/serve.py 8765 → http://localhost:8765/{PLAYER_DIR}/",
+        "excluded": list(PLAYER_EXCLUDED),
+    }
+
+
+def verify_player(out_dir: Path | str) -> dict[str, Any] | None:
+    """离线播放器的就绪情况（给 `verify bundle` 汇报；没有播放器返回 None）。"""
+
+    root = Path(out_dir)
+    entry = root / PLAYER_ENTRY
+    if not entry.is_file():
+        return None
+    payload = _read_json(root / PLAYER_DIR / "offline-payload.json")
+    problems: list[str] = []
+    for required in ("offline-bootstrap.js", "serve.py"):
+        if not (root / PLAYER_DIR / required).is_file():
+            problems.append(f"缺 {PLAYER_DIR}/{required}")
+    if payload is None:
+        problems.append("缺 offline-payload.json（引导层答不出 browser-config，页面必然起不来）")
+    else:
+        config = ((payload.get("configs") or {}).get(payload.get("robot")) or {})
+        policy_url = str((config.get("policy") or {}).get("onnx_url") or "")
+        if policy_url.startswith("../"):
+            target = (root / PLAYER_DIR / policy_url).resolve()
+            if not target.is_file():
+                problems.append(f"引导层指向的策略不在包里：{policy_url}")
+    html = entry.read_text(encoding="utf-8")
+    if html.find("offline-bootstrap.js") > html.find('<script type="module"'):
+        problems.append("index.html 里引导层没有排在 app 之前（拦不住启动时的请求）")
+    return {
+        "present": True,
+        "entry": PLAYER_ENTRY,
+        "ready": not problems,
+        "how_to_open": f"python {PLAYER_DIR}/serve.py 8765 → http://localhost:8765/{PLAYER_DIR}/",
+        "problems": problems,
+    }
+
+
 def verify_export(out_dir: Path | str) -> dict[str, Any]:
     """校验一个导出目录：manifest schema + 必需角色 + 逐条 sha256 + 幽灵文件。
 
@@ -578,6 +829,7 @@ def verify_export(out_dir: Path | str) -> dict[str, Any]:
     if ghost:
         problems.append(f"存在 manifest 未登记的文件（幽灵文件）：{', '.join(ghost[:5])}")
 
+    player = verify_player(root)
     quality = None
     quality_payload = _read_json(root / "quality.json") if (root / "quality.json").exists() else None
     if isinstance(quality_payload, dict):
@@ -610,6 +862,7 @@ def verify_export(out_dir: Path | str) -> dict[str, Any]:
         "unresolved": manifest.get("unresolved") or [],
         "reproduction": reproduction,
         "quality": quality,
+        "player": player,
         "problems": problems,
     }
 
