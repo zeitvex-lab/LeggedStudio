@@ -1,5 +1,19 @@
 {
   "schema_version": "capability-pack-1.0",
+  "license": {
+    "spdx": "MIT",
+    "source": "package.json#license",
+    "redistribution": "allowed",
+    "components": [
+      {
+        "root": "00_resources/tron1-rl-isaaclab",
+        "path": "00_resources/tron1-rl-isaaclab/LICENCE",
+        "sha256": "ff28cacaef7b9919a0fb905136cf4ccffba5191522bf5d024c4339932c0edc28",
+        "spdx": "Apache-2.0"
+      }
+    ],
+    "unresolved": []
+  },
   "pack_id": "limx_tron1_sf-velocity",
   "display_name": "LimX Tron1 SF · velocity",
   "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",

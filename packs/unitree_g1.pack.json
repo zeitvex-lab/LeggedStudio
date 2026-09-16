@@ -1,5 +1,99 @@
 {
   "schema_version": "capability-pack-1.0",
+  "license": {
+    "spdx": "MIT",
+    "source": "package.json#license",
+    "redistribution": "restricted-noncommercial",
+    "components": [
+      {
+        "root": "00_resources/InstinctMJ",
+        "path": "00_resources/InstinctMJ/LICENSE",
+        "sha256": "0afbf192c4dfb4f8ffd7783eb61a8829d1ebee17d3f2b1dc1b0bdb62838f2a93",
+        "spdx": "CC-BY-NC-4.0"
+      },
+      {
+        "root": "00_resources/UFO",
+        "path": "00_resources/UFO/LICENSE",
+        "sha256": "db2e35513dbadcdc67f5819a3bfee2777786538dd3531620cd5fbd4b6ed6e538",
+        "spdx": "CC-BY-NC-4.0"
+      },
+      {
+        "root": "00_resources/fan_robotlab/robot_lab",
+        "path": "00_resources/fan_robotlab/robot_lab/LICENSE",
+        "sha256": "dab01dca084ffa02bc9bb1bbfdbaf2a826a5da3ae4053d710cb1352b564bd352",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/g1-mujoco-ros2-nav-sim-G1-MuJoCo-ROS2-/src/unitree_rl_mjlab",
+        "path": "00_resources/g1-mujoco-ros2-nav-sim-G1-MuJoCo-ROS2-/src/unitree_rl_mjlab/LICENCE",
+        "sha256": "ff28cacaef7b9919a0fb905136cf4ccffba5191522bf5d024c4339932c0edc28",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/lain_job/RoboLab/backends/mjlab/mjlab",
+        "path": "00_resources/lain_job/RoboLab/backends/mjlab/mjlab/LICENSE",
+        "sha256": "8ca04d9dbbccd20f0f1842fb33e13949f9e57064b150dad36af8e7a751ca3321",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/mjlab_new/mjlab",
+        "path": "00_resources/mjlab_new/mjlab/LICENSE",
+        "sha256": "8ca04d9dbbccd20f0f1842fb33e13949f9e57064b150dad36af8e7a751ca3321",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/rc_old/RC_WheelLeg/05_software/train/rc_mjlab/mjlab",
+        "path": "00_resources/rc_old/RC_WheelLeg/05_software/train/rc_mjlab/mjlab/LICENSE",
+        "sha256": "8ca04d9dbbccd20f0f1842fb33e13949f9e57064b150dad36af8e7a751ca3321",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/robot_lab",
+        "path": "00_resources/robot_lab/LICENSE",
+        "sha256": "dab01dca084ffa02bc9bb1bbfdbaf2a826a5da3ae4053d710cb1352b564bd352",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/uni_rl/unitree_rl_lab",
+        "path": "00_resources/uni_rl/unitree_rl_lab/LICENCE",
+        "sha256": "ff28cacaef7b9919a0fb905136cf4ccffba5191522bf5d024c4339932c0edc28",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/uni_rl/unitree_rl_mjlab",
+        "path": "00_resources/uni_rl/unitree_rl_mjlab/LICENCE",
+        "sha256": "ff28cacaef7b9919a0fb905136cf4ccffba5191522bf5d024c4339932c0edc28",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/unilab_new/UniLab",
+        "path": "00_resources/unilab_new/UniLab/LICENSE",
+        "sha256": "2191d05c6ee7c145480916b745bd020484adb61653be943c43cff10bc22927a1",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/unitree_rl_mjlab",
+        "path": "00_resources/unitree_rl_mjlab/LICENCE",
+        "sha256": "ff28cacaef7b9919a0fb905136cf4ccffba5191522bf5d024c4339932c0edc28",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/unitree_rl_mjlab_go2w",
+        "path": "00_resources/unitree_rl_mjlab_go2w/LICENCE",
+        "sha256": "ff28cacaef7b9919a0fb905136cf4ccffba5191522bf5d024c4339932c0edc28",
+        "spdx": "Apache-2.0"
+      }
+    ],
+    "unresolved": [
+      {
+        "upstream": "AMP_mjlab",
+        "reason": "祖先链上没有许可文件（LICENSE/COPYING）——该来源的许可未取证",
+        "leads": [
+          "00_resources/AMP_mjlab/rsl_rl/licenses"
+        ]
+      }
+    ]
+  },
   "pack_id": "unitree_g1-velocity",
   "display_name": "Unitree G1 · velocity",
   "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",

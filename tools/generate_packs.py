@@ -118,6 +118,23 @@ def existing_policy_ref(package_dir: Path, out_dir: Path) -> dict | None:
     return dict(ref) if isinstance(ref, dict) and ref.get("id") else None
 
 
+
+_LICENSE_INDEX: dict | None = None
+
+
+def _project_license_for(robot: str) -> dict:
+    """取该机型的许可投影（registry/licenses.json 是证据层，这里只做投影）。"""
+
+    global _LICENSE_INDEX
+    if _LICENSE_INDEX is None:
+        from tools.audit_licenses import derive
+
+        _LICENSE_INDEX = derive()
+    from tools.audit_licenses import project_license
+
+    return project_license(robot, _LICENSE_INDEX.get(robot))
+
+
 def build_pack(package_dir: Path, *, policy_ref: dict | None = None) -> dict | None:
     """从单个机器人包构建默认 Pack；缺 contract_v3.json 则跳过（返回 None）。"""
 
@@ -131,6 +148,8 @@ def build_pack(package_dir: Path, *, policy_ref: dict | None = None) -> dict | N
 
     return {
         "schema_version": "capability-pack-1.0",
+        # I5：license 块**从取证层投影**（不在这里手写常量 —— 手写必然与 registry 漂移）
+        "license": _project_license_for(package_dir.name),
         "pack_id": f"{robot_id}-velocity",
         "display_name": f"{contract_v3.get('family') or robot_id} · velocity",
         "description": f"默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 {skill_ref['id']}。",

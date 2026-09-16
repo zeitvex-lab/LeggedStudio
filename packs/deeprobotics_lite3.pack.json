@@ -1,5 +1,43 @@
 {
   "schema_version": "capability-pack-1.0",
+  "license": {
+    "spdx": "MIT",
+    "source": "package.json#license",
+    "redistribution": "allowed",
+    "components": [
+      {
+        "root": "00_resources/deep_rl/rl_training",
+        "path": "00_resources/deep_rl/rl_training/LICENSE",
+        "sha256": "a5faaa5866c9b0414a6f5fe02724e2178b4f0b07426c77b7f3beb3e05f112c94",
+        "spdx": "BSD-3-Clause"
+      },
+      {
+        "root": "00_resources/fan_robotlab/robot_lab",
+        "path": "00_resources/fan_robotlab/robot_lab/LICENSE",
+        "sha256": "dab01dca084ffa02bc9bb1bbfdbaf2a826a5da3ae4053d710cb1352b564bd352",
+        "spdx": "Apache-2.0"
+      },
+      {
+        "root": "00_resources/m20_rl_isaacsim",
+        "path": "00_resources/m20_rl_isaacsim/LICENSE",
+        "sha256": "a5faaa5866c9b0414a6f5fe02724e2178b4f0b07426c77b7f3beb3e05f112c94",
+        "spdx": "BSD-3-Clause"
+      },
+      {
+        "root": "00_resources/rl_training",
+        "path": "00_resources/rl_training/LICENSE",
+        "sha256": "a5faaa5866c9b0414a6f5fe02724e2178b4f0b07426c77b7f3beb3e05f112c94",
+        "spdx": "BSD-3-Clause"
+      },
+      {
+        "root": "00_resources/robot_lab",
+        "path": "00_resources/robot_lab/LICENSE",
+        "sha256": "dab01dca084ffa02bc9bb1bbfdbaf2a826a5da3ae4053d710cb1352b564bd352",
+        "spdx": "Apache-2.0"
+      }
+    ],
+    "unresolved": []
+  },
   "pack_id": "deeprobotics_lite3-velocity",
   "display_name": "Deeprobotics Lite3 · velocity",
   "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",

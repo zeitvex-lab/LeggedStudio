@@ -4,7 +4,12 @@
   "title": "Capability Pack v1.0",
   "description": "Legged Studio 一等资源的**纯引用组合**（重构方案 §2.1 的 M1 锚点）：morphology_ref × skill_ref [× scenario_ref] [× policy_ref] + 四阶段质量门 bindings。Pack 不拷贝任何资源内容，只做引用与门禁声明；被引用资源各自由 robot-contract-3.0 / skill-recipe-2.0 / scenario-contract-1.1 / policy-artifact-1.1 定义。引用路径一律为包内相对路径 + sha256，保证 Pack 可跨机复现。",
   "type": "object",
-  "required": ["schema_version", "pack_id", "morphology_ref", "skill_ref"],
+  "required": [
+    "schema_version",
+    "pack_id",
+    "morphology_ref",
+    "skill_ref"
+  ],
   "additionalProperties": true,
   "properties": {
     "schema_version": {
@@ -59,6 +64,96 @@
     },
     "bindings": {
       "$ref": "#/$defs/bindings"
+    },
+    "license": {
+      "type": "object",
+      "description": "许可链（I5）：spdx/source 是**我们自己的打包许可**（非上游资产许可）；components 是上游资产逐条出处（随资源走）；redistribution 为 allowed / restricted-noncommercial / unknown（**取不到证据时是 unknown，绝不默认 allowed**）",
+      "required": [
+        "spdx",
+        "source",
+        "redistribution"
+      ],
+      "properties": {
+        "spdx": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "打包许可 SPDX id（package.json#license）"
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "上述 spdx 的出处"
+        },
+        "redistribution": {
+          "enum": [
+            "allowed",
+            "restricted-noncommercial",
+            "unknown"
+          ],
+          "description": "含非商用上游（CC-BY-NC 等）即 restricted-noncommercial；取证不全即 unknown"
+        },
+        "components": {
+          "type": "array",
+          "description": "上游资产逐条许可依据（与 registry/licenses.json 对账）",
+          "items": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sha256": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "spdx": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "unresolved": {
+          "type": "array",
+          "description": "未取证的缺口（清单自己披露未证之处）",
+          "items": {
+            "type": "object",
+            "properties": {
+              "upstream": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "leads": {
+                "type": "array"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {

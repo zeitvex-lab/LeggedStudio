@@ -1,5 +1,19 @@
 {
   "schema_version": "capability-pack-1.0",
+  "license": {
+    "spdx": "MIT",
+    "source": "package.json#license",
+    "redistribution": "allowed",
+    "components": [
+      {
+        "root": "00_resources/wuji-mjlab",
+        "path": "00_resources/wuji-mjlab/LICENSE",
+        "sha256": "7b127e355b573187c40dd99dac59536f350a0c11c5bfccc886483604a4004500",
+        "spdx": "Apache-2.0"
+      }
+    ],
+    "unresolved": []
+  },
   "pack_id": "wuji_hand-velocity",
   "display_name": "Wuji Hand · velocity",
   "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",
