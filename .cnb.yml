@@ -61,6 +61,9 @@
         python tools/audit_licenses.py
         echo "== motion registry (M1: Motion 一等资源，注册表 vs 磁盘逐文件对账) =="
         python tools/audit_motions.py
+        # A1 环境供应四段（只读启动/显式配置/镜像切换/离线 wheelhouse）—— 只做静态契约核对，
+        # 不代替 Windows 实机验证（脚本自己会把这一句打出来）
+        python tools/audit_provision_phases.py
         echo "== doc reality check (B17: 文档数字 vs 实测) =="
         # 版本号 / 包数 / 策略数 / 资源库项目数一旦与仓库不符即红，防止再次漂移。
         python tools/doc_reality_check.py

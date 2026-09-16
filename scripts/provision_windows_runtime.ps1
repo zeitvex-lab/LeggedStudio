@@ -5,7 +5,14 @@ param(
     [string]$BootstrapRoot = '',
     [ValidateSet('gpu', 'cpu', '')]
     [string]$Device = 'gpu',
-    [switch]$DetectGpus
+    [switch]$DetectGpus,
+    # 第 3 段：镜像档位（cn = 国内镜像 / official = 官方 / custom = 用环境变量自定义 / offline = 纯离线）
+    [ValidateSet('cn', 'official', 'custom', 'offline')]
+    [string]$MirrorProfile = 'cn',
+    # 第 4 段：离线 wheelhouse 目录（给了且存在 ⇒ 走 --no-index --find-links，完全不联网）
+    [string]$Wheelhouse = '',
+    # 只读查询：打印将要使用的档位与源，不写任何文件（供启动器 UI 显示）
+    [switch]$ListProfiles
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,7 +22,44 @@ $torchVersion = '2.11.0'
 $mjlabVersion = '1.6.0'
 $mjlabCommit = 'b517e0c489139e7fcee95702cfb2b01931264985'
 $unitreeCommit = '1425b15f73bd4095f0df53709d7c389c3eb9e790'
-$pypiIndex = if ($env:LEGGED_STUDIO_PYPI_INDEX) { $env:LEGGED_STUDIO_PYPI_INDEX } else { 'https://pypi.tuna.tsinghua.edu.cn/simple' }
+# 第 3 段：镜像档位 → 源。**档位是显式选择**（不靠"环境变量碰巧设了"），
+# 且 cn 档失败时会**回退官方源再试一次**并把回退如实报出来（见 Invoke-PipInstall）。
+$cnPyPiIndex = 'https://pypi.tuna.tsinghua.edu.cn/simple'
+$cnTorchIndex = 'https://mirror.sjtu.edu.cn/pytorch-wheels/cu128/'
+$officialPyPiIndex = 'https://pypi.org/simple'
+$officialTorchIndex = 'https://download.pytorch.org/whl/cu128/'
+if ($MirrorProfile -eq 'custom') {
+    if (-not $env:LEGGED_STUDIO_PYPI_INDEX) { throw 'MirrorProfile=custom 需要 LEGGED_STUDIO_PYPI_INDEX（自定义源不能靠猜）' }
+    $pypiIndex = $env:LEGGED_STUDIO_PYPI_INDEX
+    $torchIndex = if ($env:LEGGED_STUDIO_TORCH_INDEX) { $env:LEGGED_STUDIO_TORCH_INDEX } else { $cnTorchIndex }
+} elseif ($MirrorProfile -eq 'official') {
+    $pypiIndex = $officialPyPiIndex
+    $torchIndex = $officialTorchIndex
+} else {
+    $pypiIndex = $cnPyPiIndex
+    $torchIndex = $cnTorchIndex
+}
+$fallbackPyPiIndex = $officialPyPiIndex
+$fallbackTorchIndex = $officialTorchIndex
+# 离线档位必须**真的拿到** wheelhouse（否则会静默联网，那是"以为离线但其实没有"）
+$offlineMode = ($MirrorProfile -eq 'offline') -or ($Wheelhouse -ne '')
+if ($offlineMode) {
+    if (-not $Wheelhouse) { throw 'MirrorProfile=offline 需要 -Wheelhouse <目录>' }
+    if (-not (Test-Path $Wheelhouse)) { throw "wheelhouse 目录不存在：$Wheelhouse" }
+    $Wheelhouse = (Resolve-Path $Wheelhouse).Path
+}
+
+if ($ListProfiles) {
+    # 只读：把将要用的档位/源打出来（启动器 UI 用它显示"配置会从哪下"），**不写盘、不下载**
+    @{
+        mirror_profile = $MirrorProfile
+        offline        = $offlineMode
+        wheelhouse     = if ($offlineMode) { $Wheelhouse } else { $null }
+        pypi_index     = if ($offlineMode) { $null } else { $pypiIndex }
+        torch_index    = if ($offlineMode) { $null } else { $torchIndex }
+    } | ConvertTo-Json -Compress
+    exit 0
+}
 
 if (-not $IsWindows -and $env:OS -ne 'Windows_NT') { throw 'Windows runtime provisioning requires Windows.' }
 
@@ -141,13 +185,41 @@ Get-ChildItem $pythonRoot -Attributes ReparsePoint -ErrorAction SilentlyContinue
 $tempPython = Join-Path $pythonRoot '.temp'
 if (Test-Path $tempPython) { Remove-Item -LiteralPath $tempPython -Recurse -Force }
 
-Write-Host "Installing the Windows $device profile from domestic mirrors..."
-Publish-Stage 'dependencies' 25 'Resolving dependencies from domestic mirrors'
-Write-Host "PyPI: $pypiIndex"
-Write-Host "Torch: $torchIndex"
 $torchRequirement = "torch==$torchVersion+$torchSuffix"
-& $uvExe pip install -v --break-system-packages --python $pythonExe --index-strategy unsafe-best-match --index $torchIndex --default-index $pypiIndex $torchRequirement "mjlab==$mjlabVersion" 'onnxruntime>=1.20,<2' 'fastapi>=0.115.0' 'uvicorn[standard]>=0.31.0' 'pydantic>=2.0.0'
-if ($LASTEXITCODE -ne 0) { throw 'MJLab dependency installation failed' }
+$packages = @($torchRequirement, "mjlab==$mjlabVersion", 'onnxruntime>=1.20,<2', 'fastapi>=0.115.0',
+              'uvicorn[standard]>=0.31.0', 'pydantic>=2.0.0')
+
+function Invoke-PipInstall([string]$pypi, [string]$torchIndexValue, [string]$label) {
+    $arguments = @('pip', 'install', '-v', '--break-system-packages', '--python', $pythonExe)
+    if ($offlineMode) {
+        # 离线：只认本地 wheelhouse（--no-index 是"不许联网"的硬保证，不是礼貌请求）
+        $arguments += @('--no-index', '--find-links', $Wheelhouse)
+    } else {
+        $arguments += @('--index-strategy', 'unsafe-best-match', '--index', $torchIndexValue, '--default-index', $pypi)
+    }
+    $arguments += $packages
+    Write-Host "[$label] PyPI: $(if ($offlineMode) { 'offline wheelhouse' } else { $pypi })"
+    Write-Host "[$label] Torch: $(if ($offlineMode) { $Wheelhouse } else { $torchIndexValue })"
+    & $uvExe @arguments
+    return $LASTEXITCODE
+}
+
+if ($offlineMode) {
+    Write-Host "Installing the Windows $device profile from the offline wheelhouse..."
+    Publish-Stage 'dependencies' 25 "Installing from offline wheelhouse: $Wheelhouse"
+    $exitCode = Invoke-PipInstall '' '' 'offline'
+} else {
+    Write-Host "Installing the Windows $device profile (mirror profile: $MirrorProfile)..."
+    Publish-Stage 'dependencies' 25 "Resolving dependencies (mirror profile: $MirrorProfile)"
+    $exitCode = Invoke-PipInstall $pypiIndex $torchIndex $MirrorProfile
+    if ($exitCode -ne 0 -and $MirrorProfile -eq 'cn') {
+        # 第 3 段的一部分：国内镜像失败**回退官方源再试一次**，并把"回退过"如实报出来
+        Write-Host 'Domestic mirror failed; retrying with the official index...'
+        Publish-Stage 'dependencies' 40 '国内镜像失败，回退官方源重试'
+        $exitCode = Invoke-PipInstall $fallbackPyPiIndex $fallbackTorchIndex 'official-fallback'
+    }
+}
+if ($exitCode -ne 0) { throw 'MJLab dependency installation failed' }
 Publish-Stage 'dependencies' 80 'Python and dependencies installed'
 
 function Install-GitHubSnapshot([string]$repository, [string]$commit, [string]$destination) {
@@ -192,6 +264,9 @@ $manifest = [ordered]@{
     mjlab_extension = 'mjlab_extension'
     generated_at = (Get-Date).ToUniversalTime().ToString('o')
 }
+$manifest.mirror_profile = $MirrorProfile
+$manifest.offline_mode = $offlineMode
+$manifest.wheelhouse = if ($offlineMode) { $Wheelhouse } else { $null }
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'runtime-manifest.json') -Encoding UTF8
 
 if (Test-Path $target) { Remove-Item -LiteralPath $target -Recurse -Force }
