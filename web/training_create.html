@@ -860,6 +860,12 @@
             <option value="">加载中...</option>
           </select>
         </label>
+        <div class="head-field">
+          <button class="button" id="robotImportBtn" type="button"
+                  title="上传 URDF/MJCF 目录（模型与 mesh 一起选，保持目录结构）：生成新的机器人包并自动选上">导入新机器人</button>
+          <input type="file" id="robotImportInput" multiple webkitdirectory hidden>
+        </div>
+        <div class="inline-error" id="robotImportResult" hidden></div>
         <div class="head-field" style="min-width: 0;">
           当前机器人
           <div class="robot-meta-box" id="robotMetaBox">-</div>
@@ -1756,16 +1762,19 @@
     }
 
     // ---------- 机器人 / 档案 ----------
-    async function loadPresets() {
+    async function loadPresets(preferredRobotId) {
       const payload = await fetchJson('/api/robots/presets');
       state.presets = payload.presets || [];
-      if (!state.presets.length) throw new Error('没有可用的机器人训练资产，请先在模型验证页导入资产');
+      if (!state.presets.length) throw new Error('没有可用的机器人训练资产，请先导入机器人资产（本页"导入新机器人"或模型验证页）');
       const select = $('robotSelect');
       select.innerHTML = state.presets.map((preset) =>
         `<option value="${escapeHtml(preset.robot_id)}">${escapeHtml(preset.family || preset.robot_id)}</option>`
       ).join('');
-      select.addEventListener('change', (event) => selectRobot(event.target.value));
-      const requested = new URLSearchParams(window.location.search).get('robot');
+      // 用 onchange **赋值**而不是 addEventListener：导入新包后会再调一次 loadPresets，
+      // addEventListener 会把同一个处理函数叠加多份（选一次机器人跑多次）。
+      select.onchange = (event) => selectRobot(event.target.value);
+      // 优先选中"刚导入的那个包"，其次 URL 参数，最后第一个
+      const requested = preferredRobotId || new URLSearchParams(window.location.search).get('robot');
       const requestedPreset = requested && state.presets.find((preset) => preset.robot_id === requested);
       selectRobot(requestedPreset ? requestedPreset.robot_id : state.presets[0].robot_id);
     }
@@ -3132,6 +3141,85 @@
         $('robotMetaBox').textContent = error.message;
       }
     })();
+
+    // ---------- I3：导入新机器人（训练配置页这半边） ----------
+    // 与 CLI `onboard`、工作台/模型验证页的上传**共用同一份编排**（`POST /api/models/import`）：
+    // 本页只做两件事 —— 把目录编码上传、导入成功后把新包选上。**不在前端猜任何落位规则**
+    // （包 id 由内容哈希决定、契约草稿由后端生成；前端猜出来的 id 一定是错的）。
+    const ROBOT_IMPORT_INPUT = $('robotImportInput');
+    const ROBOT_IMPORT_RESULT = $('robotImportResult');
+
+    function showRobotImportResult(message, ok) {
+      if (!ROBOT_IMPORT_RESULT) return;
+      ROBOT_IMPORT_RESULT.hidden = false;
+      ROBOT_IMPORT_RESULT.textContent = message;
+      ROBOT_IMPORT_RESULT.classList.toggle('inline-error', !ok);
+    }
+
+    async function encodeAssetFolder(files) {
+      // 与工作台 `importAssetFolder` 同一套编码（整目录按 base64，保留相对路径）
+      const entries = [];
+      for (const file of files) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = '';
+        for (let index = 0; index < bytes.length; index += 0x8000) {
+          binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+        }
+        entries.push({ path: file.webkitRelativePath || file.name, content: btoa(binary), encoding: 'base64' });
+      }
+      return entries;
+    }
+
+    async function importRobotFolder(files) {
+      const model = files.find((file) => /\.(urdf|xml)$/i.test(file.name));
+      if (!model) {
+        showRobotImportResult('目录里没有 .urdf / .xml 模型文件（请把模型与 mesh 一起选，保持目录结构）', false);
+        return;
+      }
+      showRobotImportResult(`正在上传 ${files.length} 个文件并校验…`, true);
+      const payload = await fetchJson('/api/models/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          files: await encodeAssetFolder(files),
+          model_filename: model.webkitRelativePath || model.name,
+          format: /\.urdf$/i.test(model.name) ? 'urdf' : 'mjcf',
+        }),
+      });
+      if (!payload.imported) {
+        // 校验不过时后端**一个字节都不写**；这里把校验报告如实摆出来，不写"导入失败"这种查不出原因的话
+        const problems = [...(payload.errors || []), ...(payload.warnings || [])].slice(0, 4);
+        showRobotImportResult(
+          `导入未通过校验（未写入任何文件）：${problems.join('；') || '见后端校验报告'}`, false,
+        );
+        return;
+      }
+      const inspection = payload.inspection || {};
+      const dof = inspection.dof ?? inspection.joint_count ?? '';
+      showRobotImportResult(
+        `已导入 ${payload.package_id}（dof ${dof || '未声明'}）`
+        + (payload.contract_v3?.note ? ` · 契约 v3：${payload.contract_v3.note}` : ''), true,
+      );
+      // 新包直接选上，接着就能配训练（1 目录 + 3 JSON + 模型，不改一行 Python）
+      await loadPresets(payload.package_id);
+    }
+
+    if (ROBOT_IMPORT_INPUT) {
+      ROBOT_IMPORT_INPUT.addEventListener('change', async (event) => {
+        const files = Array.from(event.target.files || []);
+        if (!files.length) return;
+        try {
+          await importRobotFolder(files);
+        } catch (error) {
+          showRobotImportResult(`导入失败：${error.message}`, false);
+        } finally {
+          event.target.value = '';   // 允许再次选同一个目录
+        }
+      });
+    }
+    if ($('robotImportBtn') && ROBOT_IMPORT_INPUT) {
+      $('robotImportBtn').addEventListener('click', () => ROBOT_IMPORT_INPUT.click());
+    }
   </script>
 </body>
 </html>
