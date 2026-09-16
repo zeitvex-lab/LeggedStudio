@@ -70,6 +70,12 @@
         python tools/audit_sim_surface.py
         # N2 资源库许可覆盖（只看文件存在性；新缺口/名单过期判红）
         python tools/audit_resource_licenses.py
+        # N6 验收判据可查性（文本级，守回归）
+        python tools/audit_acceptance_verifiability.py
+        # N7 tools/ 孤儿工具登记（文本级引用检测）
+        python tools/audit_tools_inventory.py
+        # N3 插件包 CLI 可跑性冒烟（ls_plugin 此前不在任何 CI/脚本里）
+        python scripts/ls_plugin.py --help > /dev/null
         echo "== doc reality check (B17: 文档数字 vs 实测) =="
         # 版本号 / 包数 / 策略数 / 资源库项目数一旦与仓库不符即红，防止再次漂移。
         python tools/doc_reality_check.py
