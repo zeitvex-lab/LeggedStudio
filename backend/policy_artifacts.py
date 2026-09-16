@@ -20,6 +20,7 @@ B10 原文写 ``policies/<artifact-id>/{policy.onnx, deploy.yaml}``。但 47 份
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 from datetime import datetime, timezone
@@ -91,6 +92,9 @@ def resolve_declared_onnx(robot_dir: Path, *declared: str) -> Path | None:
             if candidate.is_file():
                 return candidate
     return None
+
+
+PACKS_DIR = ROOT / "packs"
 
 
 def _repo_path(text: str | None) -> Path | None:
@@ -465,10 +469,16 @@ def promote_produced_policy(
     deploy: Mapping[str, Any],
     run_id: str | None = None,
     out_dir: Path | str = OUT_DIR,
+    robot: str | None = None,
+    policy_id: str | None = None,
 ) -> dict[str, Any]:
     """**产品自产**策略出库：真写 ``policy.onnx``（它此时是唯一副本，不违反单副本）。
 
     上游导入的 46 条走 :func:`build_all` 的引用式路径；本函数供 B9 的训练产物出库使用。
+
+    ``robot`` / ``policy_id``（2026-09-16 加）是**回挂**需要的绑定：没有它们就说不清
+    "这份产物是哪台机的哪条策略"，浏览器与无头侧也就都按 id 找不到它（只给非空值写入，
+    缺省不编造）。
     """
     target = Path(out_dir) / artifact_id
     target.mkdir(parents=True, exist_ok=True)
@@ -483,6 +493,10 @@ def promote_produced_policy(
         "onnx_bytes": blob.stat().st_size,
         "run_id": run_id,
     }
+    if robot:
+        artifact["robot"] = str(robot)
+    if policy_id:
+        artifact["policy_id"] = str(policy_id)
     (target / ARTIFACT_NAME).write_text(
         json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8",
     )
@@ -528,11 +542,22 @@ def produced_for_run(run_id: str, *, out_dir: Path | str = OUT_DIR) -> list[dict
     ]
 
 
+def _policy_id_from_run(robot_id: str, run_id: str) -> str:
+    """由 run_id 的时间戳派生一个稳定、可读、唯一的包内策略 id（如 ``zex-w-trained-20260916-100632``）。"""
+
+    match = re.search(r"(\d{8})_(\d{6})", str(run_id))
+    stamp = f"{match.group(1)}-{match.group(2)}" if match else ""
+    return f"{robot_id}-trained{'-' + stamp if stamp else ''}"
+
+
 def promote_from_run(
     run_dir: Path | str,
     *,
     artifact_id: str | None = None,
     out_dir: Path | str = OUT_DIR,
+    policy_id: str | None = None,
+    install: bool = False,
+    attach_pack: bool = False,
 ) -> dict[str, Any]:
     """L7「训练→导出→入库」的**入库入口**：把一份已完成 Run 的导出产物收进出库。
 
@@ -545,6 +570,14 @@ def promote_from_run(
 
     produced 条目是索引里唯一的**真副本**（onnx 从 task_dir 复制进出库目录 —— 此时
     它是唯一副本，不违反 B5 单副本；上游导入的 46 条仍走引用式）。
+
+    ## 回挂（2026-09-16 加）
+
+    ``install=True`` 会把产物**装进机器人包**（`simulation/policies/<policy_id>.onnx` +
+    `simulation/config.json` 里声明一条策略条目），``attach_pack=True`` 再把 Pack 的
+    `policy_ref` 指向它。**默认都关**：它们会**改写包内资产文件**（`simulation/config.json`）
+    与生成物（`packs/*.pack.json`），属于"产品动作"，应由产品入口显式开启，
+    而不是每个调用方（含测试）默认触发。
     """
     from backend.training.runs import load_run
 
@@ -597,31 +630,246 @@ def promote_from_run(
 
     artifact = promote_produced_policy(
         artifact_id=final_id, onnx=onnx, deploy=deploy, run_id=record.run_id, out_dir=out_dir,
+        robot=robot_id, policy_id=policy_id,
     )
 
-    # 索引更新：声明条目不动（它们由 build_all 重建），只做 produced 侧的增/改
+    write_out_index(out_dir, upsert=[artifact])
+
+    if install or attach_pack:
+        from backend.robot_packages import robot_package_root
+
+        robot_dir = robot_package_root(robot_id)
+        if install:
+            installed = install_produced_policy(
+                artifact_id=final_id,
+                robot_dir=robot_dir,
+                policy_id=policy_id or _policy_id_from_run(robot_id, record.run_id),
+                declaration={
+                    "label": f"训练产物（run {record.run_id}）",
+                    "obs_dim": deploy.get("obs_dim"),
+                    "action_dim": deploy.get("action_dim"),
+                    "contract": {
+                        **({"obs_dim": deploy["obs_dim"]} if deploy.get("obs_dim") else {}),
+                        **({"action_dim": deploy["action_dim"]} if deploy.get("action_dim") else {}),
+                    } or None,
+                },
+                out_dir=out_dir,
+            )
+            artifact = installed["artifact"]
+            artifact["installation"] = {
+                "policy_id": installed["policy_id"],
+                "package_path": installed["package_path"],
+                "removed_local_blob": installed["removed_local_blob"],
+            }
+            if policy_id is None:
+                artifact["policy_id"] = installed["policy_id"]
+        if attach_pack:
+            attached = attach_policy_to_pack(robot_id, artifact_id=final_id, out_dir=out_dir)
+            artifact["pack_ref"] = attached["policy_ref"]
+
+    return artifact
+
+
+def write_out_index(out_dir: Path | str, *, upsert: list[Mapping[str, Any]]) -> Path:
+    """更新出库索引（声明条目不动 —— 它们由 :func:`build_all` 重建；只增/改给定条目）。"""
+
     out = Path(out_dir)
     index = _load_json(out / INDEX_NAME)
     artifacts = [
         dict(item) for item in (index or {}).get("artifacts") or []
         if isinstance(item, Mapping)
     ] if isinstance(index, Mapping) else []
-    artifacts = [item for item in artifacts if item.get("artifact_id") != final_id]
-    artifacts.append(artifact)
+    incoming = {str(item.get("artifact_id")): dict(item) for item in upsert if isinstance(item, Mapping)}
+    artifacts = [item for item in artifacts if item.get("artifact_id") not in incoming]
+    artifacts.extend(incoming.values())
     doc = {
         "schema": ARTIFACT_SCHEMA,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "count": len(artifacts),
-        "blobs": "引用式：onnx 仍单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；"
-                 "produced 条目例外（训练产物入库时 policy.onnx 是唯一副本，真复制）",
+        "blobs": "引用式：onnx 单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；"
+                 "produced 条目在**安装进包之前**持真副本，安装后转为引用式（见 install_produced_policy）",
         "artifacts": artifacts,
         "problems": list((index or {}).get("problems") or []) if isinstance(index, Mapping) else [],
     }
     out.mkdir(parents=True, exist_ok=True)
-    (out / INDEX_NAME).write_text(
+    path = out / INDEX_NAME
+    path.write_text(
         json.dumps(doc, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8",
     )
-    return artifact
+    return path
+
+
+# --------------------------------------------------------------------------------------
+# 回挂（2026-09-16）：训练产物 → 包内策略条目 → Pack.policy_ref
+# --------------------------------------------------------------------------------------
+def _repo_relative_path(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _write_json_atomic(path: Path, payload: Any) -> None:
+    """原子写（先写临时文件再替换）——包里的 ``simulation/config.json`` 是手工维护过的资产文件，
+    写坏一半比写错更糟。"""
+
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def install_produced_policy(
+    *,
+    artifact_id: str,
+    robot_dir: Path | str,
+    policy_id: str,
+    declaration: Mapping[str, Any] | None = None,
+    out_dir: Path | str = OUT_DIR,
+    keep_blob: bool = False,
+) -> dict[str, Any]:
+    """把训练产物**装进机器人包**并声明成一条策略条目（回挂的真正落点）。
+
+    ## 为什么必须"装进包"（2026-09-16 实测三处约束）
+
+    1. **浏览器只服务包内 blob**：`policy_relative_path()` 对包外文件返回 ``None``，而
+       `simulation_api` 对解析不到的条目**连 URL 都不编**（直接 continue）—— 产物留在
+       `policies/<id>/` 里，页面上根本看不到这条策略；
+    2. **无头侧按包内配置解析**：`policy_acceptance.py` 与 B12 的无头产出端都从
+       `simulation/config.json` 的 `policies[]` 取 `--policy-id`；
+    3. **Bundle 的 R2 诚实闸门**要求策略解析落在包内（`inside_package=true`），否则判 blocked。
+
+    ## 单副本
+
+    装进包后**删掉出库目录里的真副本**，把 `source_onnx` 改指包内文件（`onnx_sha256` 继续锁定）——
+    "一个策略字节只存一处"在 produced 上也成立，与 B10 的"声明式条目 = 引用式"同一套模型。
+
+    `declaration` 里**只写真实有的字段**（缺项不编造）；`provenance` 记 artifact_id/run_id/时间，
+    让"这条策略是自产还是上游导入"一眼可查（V1）。
+    """
+
+    out = Path(out_dir)
+    index = load_index(out)
+    entry = index.get(artifact_id)
+    if entry is None:
+        raise ValueError(f"出库索引里没有这个产物：{artifact_id}")
+    blob = policy_blob_path(entry, index=index)
+    if blob is None or not Path(blob).is_file():
+        raise FileNotFoundError(f"解析不到产物 onnx（artifact_id={artifact_id}）")
+
+    robot_dir = Path(robot_dir).expanduser().resolve()
+    config_path = robot_dir / "simulation" / "config.json"
+    if not config_path.is_file():
+        raise FileNotFoundError(f"不是机器人包（缺 simulation/config.json）：{robot_dir}")
+
+    policies_dir = robot_dir / "simulation" / "policies"
+    policies_dir.mkdir(parents=True, exist_ok=True)
+    target = policies_dir / f"{policy_id}.onnx"
+    if Path(blob).resolve() != target.resolve():
+        shutil.copyfile(blob, target)
+
+    config = _load_json(config_path)
+    if not isinstance(config, Mapping):
+        raise ValueError(f"simulation/config.json 顶层不是对象：{config_path}")
+    policies = [dict(item) for item in (config.get("policies") or []) if isinstance(item, Mapping)]
+    package_relative = target.relative_to(robot_dir).as_posix()
+
+    declared: dict[str, Any] = {
+        "id": policy_id,
+        "path": package_relative,
+        "provenance": {
+            "artifact_id": artifact_id,
+            "run_id": entry.get("run_id"),
+            "origin": "product-training",
+            "installed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        },
+    }
+    extra = dict(declaration or {})
+    label = extra.pop("label", None)
+    declared["label"] = str(label or f"训练产物 {artifact_id}")
+    for key in ("obs_dim", "action_dim", "history_len", "contract", "task_type"):
+        if extra.get(key) is not None:
+            declared[key] = extra[key]
+    declared.update(extra)
+    policies = [item for item in policies if str(item.get("id")) != policy_id]
+    policies.append(declared)
+    _write_json_atomic(config_path, {**dict(config), "policies": policies})
+
+    updated = dict(entry)
+    updated["source_onnx"] = _repo_relative_path(target)
+    updated["onnx_sha256"] = file_digest(target)
+    updated["onnx_bytes"] = target.stat().st_size
+    updated["installed"] = {
+        "robot": robot_dir.name,
+        "policy_id": policy_id,
+        "package_path": package_relative,
+        "repo_path": _repo_relative_path(target),
+    }
+    artifact_path = Path(out) / artifact_id / ARTIFACT_NAME
+    if artifact_path.is_file():
+        artifact_path.write_text(
+            json.dumps(updated, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8",
+        )
+    write_out_index(out, upsert=[updated])
+
+    removed_local = None
+    local_blob = Path(out) / artifact_id / POLICY_BLOB_NAME
+    if not keep_blob and local_blob.is_file() and local_blob.resolve() != target.resolve():
+        removed_local = str(local_blob)
+        local_blob.unlink()
+
+    return {
+        "artifact": updated,
+        "policy_id": policy_id,
+        "declaration": declared,
+        "package_path": package_relative,
+        "config_path": str(config_path),
+        "removed_local_blob": removed_local,
+    }
+
+
+def attach_policy_to_pack(
+    robot_id: str,
+    *,
+    artifact_id: str,
+    out_dir: Path | str = OUT_DIR,
+    packs_dir: Path | str = PACKS_DIR,
+) -> dict[str, Any]:
+    """把产物回挂到该机型的 Pack（`policy_ref`）—— 愿景原文的"训练/导出后回挂"。
+
+    写的是 Pack schema 的 `$defs.ref`（`{id, path, sha256}`，`additionalProperties: false`），
+    **与 `morphology_ref` 同纪律**：引用也带内容哈希，飘了能被发现（`pack_catalog._check_ref`）。
+    找不到形态 id 匹配的 Pack 就报错，不猜一个写进去（写错 Pack 比不写更坏）。
+    """
+
+    out = Path(out_dir)
+    index = load_index(out)
+    entry = index.get(artifact_id)
+    if entry is None:
+        raise ValueError(f"出库索引里没有这个产物：{artifact_id}")
+    blob = policy_blob_path(entry, index=index)
+    if blob is None or not Path(blob).is_file():
+        raise FileNotFoundError(f"解析不到产物 onnx（artifact_id={artifact_id}）")
+
+    pack_path: Path | None = None
+    for candidate in sorted(Path(packs_dir).glob("*.pack.json")):
+        payload = _load_json(candidate)
+        if isinstance(payload, Mapping) and str((payload.get("morphology_ref") or {}).get("id")) == robot_id:
+            pack_path = candidate
+            break
+    if pack_path is None:
+        raise FileNotFoundError(f"packs/ 里找不到 morphology_ref.id == {robot_id!r} 的 Pack")
+
+    pack = dict(_load_json(pack_path))
+    policy_ref: dict[str, Any] = {
+        "id": artifact_id,
+        "path": _repo_relative_path(Path(blob)),
+        "sha256": file_digest(blob),
+    }
+    if entry.get("policy_id"):
+        policy_ref["version"] = str(entry["policy_id"])
+    pack["policy_ref"] = policy_ref
+    _write_json_atomic(pack_path, pack)
+    return {"pack_path": str(pack_path), "pack_id": pack.get("pack_id"), "policy_ref": policy_ref}
 
 
 # --------------------------------------------------------------------------------------

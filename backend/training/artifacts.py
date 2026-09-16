@@ -154,7 +154,16 @@ async def promote_training_run(task_id: str, payload: dict[str, Any] | None = No
         artifact_id = str(payload.get("artifact_id") or "") or None
 
     def _run() -> dict[str, Any]:
-        return promote_from_run(task.task_dir, artifact_id=artifact_id)
+        # 产品入口默认**安装进包 + 回挂 Pack**（2026-09-16）：训练产出的策略要在页面/CLI 上
+        # 按 --policy-id 可用、且 Pack 记得住它，才算"训练→出库→复现"闭环；
+        # 库函数默认关（它改写包内资产文件，不该由测试或脚本随手触发）。
+        return promote_from_run(
+            task.task_dir,
+            artifact_id=artifact_id,
+            policy_id=(payload or {}).get("policy_id") if isinstance(payload, dict) else None,
+            install=True,
+            attach_pack=True,
+        )
 
     try:
         artifact = await run_in_threadpool(_run)
