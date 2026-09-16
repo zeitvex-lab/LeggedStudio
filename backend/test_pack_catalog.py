@@ -29,7 +29,9 @@ def _base_pack(**overrides) -> dict:
         "schema_version": "capability-pack-1.0",
         "pack_id": "unitree_go2",
         "morphology_ref": {"id": "unitree_go2"},
-        "skill_ref": {"id": "core/velocity@2.0", "version": "2.0"},
+        # skill_ref 必须能在 K4 技能注册表里解析（见 ValidatePackTest.test_dangling_skill_ref_is_rejected）：
+        # 夹具用真 recipe id，否则结构性用例会先被"引用悬空"拦掉，测不到本来要测的东西。
+        "skill_ref": {"id": "velocity_base"},
     }
     pack.update(overrides)
     return pack
@@ -68,6 +70,46 @@ class BuiltinPacksTest(unittest.TestCase):
         assert entry is not None
         self.assertEqual(entry["pack_id"], "unitree_go2-velocity")
         self.assertIsNone(get_pack("no_such_pack"))
+
+
+class SkillRefResolutionTest(unittest.TestCase):
+    """skill_ref 必须解析到登记在册的技能（`require_refs_resolved` 从空话变成判据）。"""
+
+    def test_every_builtin_pack_skill_ref_resolves(self) -> None:
+        for entry in load_packs():
+            with self.subTest(pack=entry["pack_id"]):
+                recipe = (entry["refs"].get("skill_ref") or {}).get("recipe") or {}
+                self.assertTrue(recipe.get("resolved"), f"{entry['file']}: {recipe}")
+                self.assertEqual("velocity_base", recipe.get("id"))
+                self.assertEqual("base", recipe.get("role"))
+
+    def test_builtin_pack_skill_ref_is_hash_pinned(self) -> None:
+        """引用带 path + sha256 ⇒ 与 morphology_ref 同纪律：技能文件被改必被发现。"""
+
+        for entry in load_packs():
+            ref = entry["skill_ref"] or {}
+            with self.subTest(pack=entry["pack_id"]):
+                self.assertTrue(str(ref.get("path", "")).endswith(".json"), ref)
+                resolved = entry["refs"]["skill_ref"]
+                self.assertTrue(resolved.get("exists"), resolved)
+                self.assertTrue(resolved.get("sha256_ok"), resolved)
+
+    def test_dangling_skill_ref_is_rejected(self) -> None:
+        """M1 时代的 `core/velocity@2.0` 在仓库里没有实体 —— 这种悬空引用必须报错。"""
+
+        report = validate_pack(_base_pack(skill_ref={"id": "core/velocity@2.0", "version": "2.0"}))
+        self.assertFalse(report["ok"])
+        self.assertTrue(any("解析不到实体" in error for error in report["errors"]), report["errors"])
+
+    def test_contract_switch_downgrades_to_warning(self) -> None:
+        """`bindings.verify.require_refs_resolved=false` 是**契约里写着的开关**，要真的起作用。"""
+
+        report = validate_pack(_base_pack(
+            skill_ref={"id": "core/velocity@2.0", "version": "2.0"},
+            bindings={"verify": {"require_refs_resolved": False, "require_contract_valid": False}},
+        ))
+        self.assertTrue(report["ok"], report["errors"])
+        self.assertTrue(any("解析不到实体" in warning for warning in report["warnings"]), report["warnings"])
 
 
 class ValidatePackTest(unittest.TestCase):
