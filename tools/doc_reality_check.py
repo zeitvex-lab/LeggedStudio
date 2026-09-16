@@ -174,52 +174,46 @@ CHECKS: list[tuple[str, str, list[tuple[int, str]], str]] = [
     ("00_know/README.md", r"更多参考项目（(\d+)\s*个）", [(1, "resources_projects")], "00_know README 参考项目数"),
     # --- 任务清单「0. 现状锚点」（2026-09-13 起纳入：此前只守 README/索引，
     #     任务清单的锚点是"实测"声明却无人守，microduck 纠正后即漂移无人知） ---
-    ("00_know/01_任务清单.md",
+    ("00_know/05_任务清单.md",
      r"robot_packages (\d+)\s+profiles_json (\d+)\s+sim_policies_onnx (\d+) 文件",
      [(1, "robot_packages"), (2, "profiles_json"), (3, "onnx_files")],
      "任务清单·包/profile/onnx"),
-    ("00_know/01_任务清单.md",
+    ("00_know/05_任务清单.md",
      r"策略声明 (\d+) 条 = policies (\d+) \+ demo_policies (\d+)",
      [(1, "policy_declarations"), (2, "policies"), (3, "demo_policies")],
      "任务清单·策略声明拆分"),
-    ("00_know/01_任务清单.md",
+    ("00_know/05_任务清单.md",
      r"pretrained_models/index\.json (\d+) 条 / 覆盖 (\d+) 机型",
      [(1, "pretrained_index"), (2, "pretrained_index_robots")],
      "任务清单·预训练索引"),
-    ("00_know/01_任务清单.md",
+    ("00_know/05_任务清单.md",
      r"backend (\d+) py（含子目录）/ (\d+) 个 APIRouter",
      [(1, "backend_py_files"), (2, "routers_files")],
      "任务清单·后端规模/路由"),
-    ("00_know/01_任务清单.md",
+    ("00_know/05_任务清单.md",
      r"app\.openapi\(\) 实测生成 (\d+) 条路径",
      [(1, "openapi_paths")],
      "任务清单·openapi 路径数"),
-    ("00_know/01_任务清单.md",
+    ("00_know/05_任务清单.md",
      r"assets/robots: (\d+) 文件 / ([\d.]+) MB",
      [(1, "robot_files"), (2, "assets_robots_mb")],
      "任务清单·资产文件数/体积"),
-    ("00_know/01_任务清单.md",
+    ("00_know/05_任务清单.md",
      r"测试基线：backend (\d+) 项",
      [(1, "backend_test_count")],
      "任务清单·backend 测试条数"),
-    ("00_know/01_任务清单.md",
+    ("00_know/05_任务清单.md",
      r"backend (\d+) 个 test_\*\.py 全量 discover",
      [(1, "backend_test_modules")],
      "任务清单·测试模块数"),
-    # --- 2026-09-16 纳入：此前这三份文档**完全不在门禁内**，于是产品版本分别漂到
-    #     0.51.0（价值观）与 0.17.0（愿景）而无人发现 —— 漂移不是"忘了改"，是"没人守"。 ---
-    ("00_know/00_项目价值观.md",
+    # --- 2026-09-16 纳入：此前这份文档**完全不在门禁内**，产品版本漂到 0.17.0 而无人发现
+    #     —— 漂移不是"忘了改"，是"没人守"。
+    #     同日变动：`00_项目价值观.md` 已删除（其两条锚点随之移除，不保留"守一份不存在的文档"）；
+    #     `00_resources` 项目数仍由 `00_know/README.md` 的那条锚点守着，不重复设锚。 ---
+    ("00_know/01_项目定位.md",
      r"\*\*产品版本\*\*：([0-9.]+)",
      [(1, "version")],
-     "价值观·产品版本"),
-    ("00_know/02_最终愿景.md",
-     r"\*\*产品版本\*\*：([0-9.]+)",
-     [(1, "version")],
-     "愿景·产品版本"),
-    ("00_know/00_项目价值观.md",
-     r"`00_resources` 里 (\d+) 个项目",
-     [(1, "resources_projects")],
-     "价值观·参考项目数"),
+     "定位·产品版本"),
 ]
 
 
@@ -261,7 +255,7 @@ def main() -> int:
     # 而没人发现（2026-09-15 手工对齐后补上这条）。版本是字符串，故不走 CHECKS 的
     # 数字组比较，在这里单列一条同性质的检查。
     try:
-        header_text = (ROOT / "00_know" / "01_任务清单.md").read_text(encoding="utf-8", errors="ignore")
+        header_text = (ROOT / "00_know" / "05_任务清单.md").read_text(encoding="utf-8", errors="ignore")
     except OSError:
         header_text = ""
     header_match = re.search(r"产品版本\*\*：\*\*([0-9][0-9.]*)\*\*", header_text)
@@ -269,7 +263,7 @@ def main() -> int:
     sources = facts.get("version_sources") if isinstance(facts.get("version_sources"), dict) else {}
     actual_version = str(sources.get("VERSION") or (list(sources.values())[0] if sources else ""))
     if actual_version and doc_version != actual_version:
-        problems.append({"file": "00_know/01_任务清单.md", "label": "任务清单·产品版本",
+        problems.append({"file": "00_know/05_任务清单.md", "label": "任务清单·产品版本",
                          "doc": doc_version, "actual": actual_version, "status": "mismatch"})
 
     # 版本三源一致性（文档之外的自检：源文件之间自己不能漂）

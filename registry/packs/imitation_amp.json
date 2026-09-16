@@ -22,7 +22,7 @@
     "sources": [
       "00_resources/AMP_mjlab/（AMP 判别器与风格奖励）",
       "00_resources/MGDP/、00_resources/unitree_rl_mjlab/（teacher→student 蒸馏）",
-      "00_know/02_最终愿景.md §训练任务（模仿三线）"
+      "00_know/02_项目规划.md §核心功能地图（训练：模仿三线）"
     ]
   }
 }

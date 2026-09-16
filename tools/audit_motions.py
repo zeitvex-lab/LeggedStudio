@@ -3,7 +3,7 @@
 
 ## 为什么要有它
 
-Motion 参考动作在 `02_最终愿景` 里与 Morphology / Skill / Scenario / Policy 同级（一等资源），
+Motion 参考动作在 `01_项目定位` 里与 Morphology / Skill / Scenario / Policy 同级（一等资源），
 但本仓此前只有**文件**没有**资源层** —— 数据散在包里、元信息（fps / dof 布局 / 坐标系 /
 血缘 / 许可）写在加载器的文档串里，没有任何东西守着它们。`registry/packs/imitation_amp.json`
 自己写着「仓内 motion 注册表尚未建立，缺失时挂载会失败」。

@@ -85,7 +85,7 @@ class ToolsInventoryGateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tools = Path(tmp)
             (tools / "convert_policy.py").write_text("x = 1\n", encoding="utf-8")
-            report = n7.audit(tools_dir=tools, corpus={"00_know/01_任务清单.md": "见 tools/convert_policy.py"})
+            report = n7.audit(tools_dir=tools, corpus={"00_know/05_任务清单.md": "见 tools/convert_policy.py"})
             self.assertFalse(report["ok"])
             self.assertTrue(any("有人用" in item for item in report["problems"]), report["problems"])
 

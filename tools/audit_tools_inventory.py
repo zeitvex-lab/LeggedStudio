@@ -37,11 +37,11 @@ CONSUMERS = (
     "package.json",
     ".cnb.yml",
     "README.md",
-    "00_know/01_任务清单.md",
-    "00_know/00_项目价值观.md",
-    "00_know/02_最终愿景.md",
-    "00_know/03_参数真值标准.md",
-    "00_know/04_参考项目与资源.md",
+    "00_know/05_任务清单.md",
+    "00_know/01_项目定位.md",
+    "00_know/04_参数真值标准.md",
+    "00_know/03_参考项目与资源.md",
+    "00_know/02_项目规划.md",
     "00_know/README.md",
     "docs/cloud-dev.md",
     "docs/desktop-app.md",
@@ -80,7 +80,7 @@ def _corpus() -> dict[str, str]:
         text = path.read_text(encoding="utf-8", errors="replace")
         # 任务清单的 §N 段是**审计自己写的登记**（里面就列着孤儿名单），不是"消费者"。
         # 不切掉它就会自反馈：名单一写进去，9 个孤儿立刻"有人用了"（第一版就这么错的）。
-        if relative.endswith("01_任务清单.md"):
+        if relative.endswith("05_任务清单.md"):
             cut = text.find("## N. 2026-09-16 全面审计")
             if cut > 0:
                 text = text[:cut]

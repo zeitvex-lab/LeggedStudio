@@ -66,7 +66,7 @@
     "evidence": {
       "sources": [
         "00_resources/rc_old/RC_WheelLeg/05_software/train/rc_mjlab/sim2sim/nav_route_sim2sim_check.py::SimConfig",
-        "00_know/01_任务清单.md#H12"
+        "00_know/05_任务清单.md#H12"
       ],
       "note": "对照 SimConfig 逐字段取值；到达容差改走 H10（参考默认 0.15 不采用，我们航点 0.20 + 稳定 2 拍）"
     }
