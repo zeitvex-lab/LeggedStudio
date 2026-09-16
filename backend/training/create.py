@@ -180,10 +180,17 @@ async def create_training(
             # Training launch is the one path that must really probe torch —
             # waiting here is acceptable, and the cached report makes repeats instant.
             native = await run_in_threadpool(preflight, DEFAULT_SOURCE, True)
-            if not native["exists"] or not native["manager_env_available"] or not native.get("runtime", {}).get("available"):
-                raise HTTPException(status_code=501, detail={"message": "native MJLab adapter is not ready", "preflight": native})
+            # 就绪判据**只读报告**（V4 单一真值）。报告已把「源码树是否存在/是否完整」与
+            # 「候选 worker 解释器能否 import mjlab」合并裁决（native_adapter._preflight_uncached）。
+            # 旧写法在这里自己重拼 `exists ∧ manager_env_available ∧ runtime.available`，
+            # 等于把"必须有 mjlab 源码 checkout"当成产品前提 —— 而 mjlab 已是 pyproject 钉住的
+            # 依赖（mjlab==1.6.0），云开发容器/服务端没有 vendor/mjlab，于是点"开始训练"恒 501
+            # （任务清单 A5，2026-09-16 收口）。两份判据并存正是"判据会分叉"的来源。
             if not native.get("execution_ready"):
-                raise HTTPException(status_code=501, detail={"message": native.get("execution_note", "native MJLab task adapter is not ready"), "preflight": native})
+                raise HTTPException(status_code=501, detail={
+                    "message": native.get("not_ready_reason") or "native MJLab adapter is not ready",
+                    "preflight": native,
+                })
             compatibility = package_runtime_diagnostics(package, native)
             native["package_compatibility"] = compatibility
             if compatibility["status"] == "incompatible":
