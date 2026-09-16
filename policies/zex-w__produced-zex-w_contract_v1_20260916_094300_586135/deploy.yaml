@@ -1,0 +1,26 @@
+robot: zex-w
+policy_id: zex-w__produced-zex-w_contract_v1_20260916_094300_586135
+kind: produced
+run_id: zex-w_contract_v1_20260916_094300_586135
+seed: 7
+source_onnx: product-training（训练→导出→入库链路自产）
+obs_dim: 53
+action_dim: 16
+action_joint_order:
+  - fl_hip_abduction_joint
+  - fl_hip_pitch_joint
+  - fl_knee_joint
+  - fr_hip_abduction_joint
+  - fr_hip_pitch_joint
+  - fr_knee_joint
+  - rl_hip_abduction_joint
+  - rl_hip_pitch_joint
+  - rl_knee_joint
+  - rr_hip_abduction_joint
+  - rr_hip_pitch_joint
+  - rr_knee_joint
+  - fl_wheel_joint
+  - fr_wheel_joint
+  - rl_wheel_joint
+  - rr_wheel_joint
+trained_iterations: 5

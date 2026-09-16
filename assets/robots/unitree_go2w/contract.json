@@ -7,7 +7,7 @@
   "locomotion_type": "W",
   "urdf": {
     "path": "assets/robots/unitree_go2w/model/robot.xml",
-    "hash": "b86e70a4e4f1887a0890b950de8e7c06e512fee7b5028c5f2fa25dad75a3dfbc",
+    "hash": "5691c36b4b974c3169f404e2b57f8a53018051d5152629add72123423ca8eceb",
     "total_mass_kg": 19.126,
     "mass_source": "mjcf_compiled",
     "mesh_files": [

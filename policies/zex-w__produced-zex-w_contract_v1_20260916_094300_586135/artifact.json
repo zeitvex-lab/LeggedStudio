@@ -1,0 +1,9 @@
+{
+  "artifact_id": "zex-w__produced-zex-w_contract_v1_20260916_094300_586135",
+  "kind": "produced",
+  "onnx_bytes": 777643,
+  "onnx_sha256": "5a1b42778226ea08ac259d51f4e5b8dab5dc98edd029d4774f3317a69f670b87",
+  "run_id": "zex-w_contract_v1_20260916_094300_586135",
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "policies/zex-w__produced-zex-w_contract_v1_20260916_094300_586135/policy.onnx"
+}

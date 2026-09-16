@@ -157,6 +157,24 @@ CPU 训练冒烟通过：1 profile, rewards=[3.167]
 判据有三条，缺一不算通过：rollout 的 reward **有限**、跑了 N 轮真实 PPO、
 `time_outs` 已接线（否则 GAE 会把超时当终止，critic 系统性低估长 episode）。
 
+> **口径边界（2026-09-16 实测登记，见任务清单 A5）**：上面这条能跑通 ≠ **产品内**训练路径
+> 能跑通。`/api/training/create` 的 mjlab preflight 还要求 **mjlab 源码树**存在
+> （`adapters/mjlab/native_adapter.py` 的 `DEFAULT_SOURCE`，Linux 默认 `vendor/mjlab`，
+> 需含 `src/mjlab/envs/manager_based_rl_env.py` 与 `src/mjlab/rl/runner.py`），而镜像里
+> **只有训练 venv、没有源码树** —— 因此在容器里点"开始训练"会拿到
+> **501 `native MJLab adapter is not ready`**。
+>
+> 想让容器内也能跑产品路径，把源码树指过去即可（**不改仓库代码**，只影响该进程）：
+>
+> ```bash
+> # 参考资源库里那份 mjlab 恰好是 1.6.0，与 adapters/mjlab 钉的版本相同
+> LEGGED_STUDIO_MJLAB_SOURCE=$PWD/00_resources/mjlab_new/mjlab \
+>   python -m uvicorn backend.api_complete:app --host 127.0.0.1 --port 8766 --log-level warning
+> # 再指驱动脚本：python tools/l7_first_run.py --robot <robot> --profile <profile> --port 8766
+> ```
+>
+> 根治方式是把源码树固化进镜像层（或容器启动脚本设好该变量），登记在 A5。
+
 ### 本地/容器供应训练 venv
 
 镜像里已装好；在别处（本地 Linux、别的容器）需要自己供应时：
@@ -175,6 +193,7 @@ bash scripts/provision_cpu_training.sh
 | `LEGGED_STUDIO_MJLAB_VENV` | 训练 venv **目录**（镜像里指向 `/opt/...`，避免被仓库 bind mount 覆盖） |
 | `LEGGED_STUDIO_MJLAB_PYTHON` / `LEGGED_STUDIO_TRAIN_PYTHON` / `LEGGED_STUDIO_RUNTIME_PYTHON` | 直接指定解释器（优先级最高，桌面启动器沿用此约定） |
 | `MUJOCO_GL=disabled` | 无显示环境下 MuJoCo 不初始化 GL 上下文（镜像已预设） |
+| `LEGGED_STUDIO_MJLAB_SOURCE` | mjlab **源码树**（产品内训练 preflight 要求，镜像**未**固化 —— 见上方边界与 A5） |
 
 这些解析集中在 `contracts/path_bootstrap.py` 的 `adapter_venv_dir()` / `adapter_python()`，
 控制面、启动器、工具链都从这里取——不再各自硬编码 `adapters/mjlab/.venv`。

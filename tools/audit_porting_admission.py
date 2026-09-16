@@ -27,6 +27,11 @@ from pathlib import Path
 from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# 自举：本审计复用 backend.policy_artifacts 的**同一解析入口**（见 package_inventory 的
+# 一致性段），脚本方式运行时 sys.path[0] 是 tools/，故先把仓库根放进去（与 validate_packs 同款）。
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 RESOURCES_ROOT = PROJECT_ROOT / "00_resources"
 ASSETS_ROOT = PROJECT_ROOT / "assets" / "robots"
 EVIDENCE_PATH = PROJECT_ROOT / "registry" / "porting_evidence.json"
@@ -231,8 +236,24 @@ def package_inventory(package_root: Path) -> dict[str, Any]:
         if sim_root.is_dir()
         else []
     )
-    # 一致性：策略声明 ↔ 实际 onnx 文件必须一一对应
-    declared = {str(p.get("path") or "") for p in policies if p.get("path")}
+    # 一致性：策略声明 ↔ 实际 onnx 文件必须一一对应。
+    #
+    # 2026-09-16 修正（B39 同族第五处，**真回归**）：旧实现按 `p.get("path")` 收集"已声明"
+    # 集合，而 B10 已按「引用 + hash」把 14 包 46 处裸 `path`/`url` **全部删掉**（声明只留
+    # `id`，hash 在 `policies/index.json`）⇒ 声明集恒空 ⇒ 包内**每一个** onnx 都被判成
+    # "孤儿"（13 条假违规，CI 恒红），同时 `dangling` 检查静默失效（永远查不出东西）。
+    # B10 当时已修 3 处读取点（simulation_api / sim2sim_headless / policy_acceptance），
+    # 本工具被那次 grep 的关键词过滤漏掉 —— 又一次印证"读取点必须靠运行验证"。
+    # 现统一走 backend.policy_artifacts 的**同一解析入口**（引用 → 索引 → 包内相对路径），
+    # 与其余四处消费者同源，不在这里另写第二套解析规则。
+    from backend.policy_artifacts import load_index, policy_relative_path
+
+    index = load_index()
+    declared: set[str] = set()
+    for policy in policies:
+        relative = policy_relative_path(policy, robot_dir=package_root, index=index)
+        if relative:
+            declared.add(relative)
     # 双模型部署（encoder + policy，如 TRON1）：encoder.onnx 也算已声明。
     declared |= {str(p.get("encoder") or "") for p in policies if p.get("encoder")}
     dangling = sorted(p for p in declared if not (package_root / p).is_file())
