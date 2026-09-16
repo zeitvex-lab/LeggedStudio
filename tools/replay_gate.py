@@ -123,6 +123,8 @@ def produce_pair(args: argparse.Namespace) -> int:
     workdir = Path(args.keep_logs) if args.keep_logs else Path(tempfile.mkdtemp(prefix="replay-gate-"))
     workdir.mkdir(parents=True, exist_ok=True)
     common = ["--package", str(args.package), "--cmd", args.cmd, "--steps", str(args.steps)]
+    if getattr(args, "domain_rand", False):
+        common.append("--domain-rand")
     if args.policy_id:
         common += ["--policy-id", args.policy_id]
     if args.policy:
@@ -228,6 +230,8 @@ def main() -> int:
     produce.add_argument("--seed-probe", type=int, default=None,
                          help="再跑一个不同 seed，判定 seed 是否真的影响结果（L3 空转检测）")
     produce.add_argument("--steps", type=int, default=60, help="控制步数（≥ min-frames）")
+    produce.add_argument("--domain-rand", action="store_true",
+                         help="开启域随机化（L3）：此时 seed 探针应报 changed（验收判据），关闭时应报相同")
     produce.add_argument("--venv", default=None, help="适配器 venv 目录或其 python 路径")
     produce.add_argument("--keep-logs", default=None, help="把两份日志留在该目录（便于复盘）")
     args = parser.parse_args()

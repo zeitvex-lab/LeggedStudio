@@ -164,6 +164,8 @@ def produce_frame_log(
     cmd: tuple[float, ...] | list[float] = (0.4, 0.0, 0.0),
     seed: int = 7,
     steps: int = 100,
+    domain_rand: bool = False,
+    dr_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """跑一条策略 ``steps`` 个**控制步**，返回与浏览器同形的 frame log。
 
@@ -202,6 +204,19 @@ def produce_frame_log(
     obs_builder.last_action[:] = 0
     obs_builder.history = []
 
+    # L3：域随机化（默认**关**）。开了才用 seed 采样 —— 于是 `replay_gate --seed-probe`
+    # 会从"换 seed 结果不变"翻成"结果不同"，这条探测就是 L3 的验收判据。
+    import domain_randomization as dr
+
+    rng = np.random.default_rng(int(seed))
+    dr_terms = dr.terms_from_config(dr_config)
+    dr_reports: list[dict[str, Any]] = []
+    dr_interval: dict[str, float] = {}
+    dr_backup: dict[str, Any] = {}   # 出厂值备份（由调用方持有：scale 类算子不能基于上次结果连乘）
+    if domain_rand:
+        dr_reports.append(dr.apply(model, data, rng, terms=dr_terms, mode="startup", backup=dr_backup))
+        dr_reports.append(dr.apply(model, data, rng, terms=dr_terms, mode="reset", backup=dr_backup))
+
     cmd_arr = np.asarray(cmd, dtype=np.float32)
     actuator_ids = [actuator_for_joint(model, name) for name in contract.action_joint_order]
     frames: list[dict[str, Any]] = []
@@ -231,6 +246,11 @@ def produce_frame_log(
         actuate(contract, model, data, obs_builder, obs_builder.last_action)
         for _ in range(contract.decimation):
             mujoco.mj_step(model, data)
+        if domain_rand:
+            # interval 类（推力）：到点再来一次
+            dr_reports.append(dr.apply(model, data, rng, terms=dr_terms, mode="interval",
+                                       now_s=float(data.time), last_interval=dr_interval,
+                                       backup=dr_backup))
 
     head = {
         "schema": FRAME_LOG_SCHEMA,
@@ -264,10 +284,17 @@ def produce_frame_log(
             "action_dim": contract.action_dim,
         },
         "randomization": {
-            "applied": False,
+            "applied": bool(domain_rand),
+            "seed": int(seed),
+            "terms": [term.name for term in dr_terms] if domain_rand else [],
+            "reports": dr_reports,
+            "summary": [dr.summarise(item) for item in dr_reports] if domain_rand else [],
             "note": (
-                "验收/回放路径不做域随机化：spawn_default 是确定性重置（默认姿态 + 契约初始高度）。"
-                "域随机化属训练侧 L3 的缺口；seed 已在此登记，L3 接进来时它就是承载体。"
+                "本次**开了**域随机化（L3 E1–E8）：模型/初始状态按 seed 采样，换 seed 结果应当不同。"
+                if domain_rand else
+                "本次**没开**域随机化（默认关）：spawn_default 是确定性重置，换 seed 结果不变 —— "
+                "这是正常状态，但也说明「同 seed 同 DR」这句话在关闭时是空转的；"
+                "开它用 `--domain-rand`（或包内 `domain_randomization` 声明）。"
             ),
         },
         "adapter": _adapter_snapshot(),
@@ -292,6 +319,8 @@ def main() -> int:
     parser.add_argument("--cmd", default="0.4,0,0", help="速度指令 vx,vy,wz")
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--steps", type=int, default=100, help="控制步数（默认 100）")
+    parser.add_argument("--domain-rand", action="store_true",
+                        help="开启域随机化（L3 E1–E8）：按 --seed 采样摩擦/armature/质量/质心/推力/初始高度")
     parser.add_argument("--out", required=True, help="输出 JSON 路径")
     args = parser.parse_args()
 
@@ -302,6 +331,7 @@ def main() -> int:
         cmd=tuple(float(x) for x in args.cmd.split(",")),
         seed=args.seed,
         steps=args.steps,
+        domain_rand=args.domain_rand,
     )
     target = write_frame_log(args.out, payload)
     head = payload["head"]
@@ -309,7 +339,10 @@ def main() -> int:
     policy_label = head["policy"]["id"] or f"未绑定条目（文件 {Path(head['policy']['path']).name}）"
     print(f"  包 {head['package']} / 策略 {policy_label}（{head['policy']['sha256'][:12]}…）")
     print(f"  帧 {head['recorded']} 条（stepIndex 0..{head['recorded'] - 1}）/ obs_dim {head['observation']['obs_dim']}")
-    print(f"  seed {head['seed']} / 物理 {head['physics']['physics_hz']} Hz × {head['physics']['decimation']} / 随机化 {head['randomization']['applied']}")
+    randomization = head["randomization"]
+    print(f"  seed {head['seed']} / 物理 {head['physics']['physics_hz']} Hz × {head['physics']['decimation']}"
+          f" / 域随机化 {randomization['applied']}"
+          + (f"（{'；'.join(randomization['summary'][:2])}）" if randomization.get("summary") else ""))
     print(f"  适配器 {head['adapter']['python']} python / mujoco {head['adapter']['mujoco']} / ort {head['adapter']['onnxruntime']}")
     return 0
 
