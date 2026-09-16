@@ -2,7 +2,7 @@
   "schema_version": "capability-pack-1.0",
   "pack_id": "unitree_g1-velocity",
   "display_name": "Unitree G1 · velocity",
-  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与 core/velocity@2.0。",
+  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",
   "tags": [
     "generated",
     "default",
@@ -14,8 +14,9 @@
     "sha256": "ffbfe5edff97d7eeaf0ca3a5d74c7f34e6343ee4a394d9b8464cdea913457e01"
   },
   "skill_ref": {
-    "id": "core/velocity@2.0",
-    "version": "2.0"
+    "id": "velocity_base",
+    "path": "registry/skills/velocity_base.json",
+    "sha256": "1d6ff32cf83313c86dea2236f1f28496de54140ada52e44934ea9c9b8a4d410d"
   },
   "scenario_ref": null,
   "policy_ref": null,

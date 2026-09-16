@@ -81,6 +81,40 @@ def _is_relative_path(value: str) -> bool:
     return ".." not in Path(value).parts
 
 
+def _check_skill_ref_resolution(ref: Any, *, required: bool) -> tuple[list[str], dict[str, Any] | None]:
+    """``skill_ref.id`` 必须能在**技能注册表**（``registry/skills/index.json``，K4 权威）里解析。
+
+    为什么单独有一条（2026-09-16 发现）：``_check_ref`` 对 **id 型引用**只查"id 非空"，
+    于是 14 个内置 Pack 全指向 ``core/velocity@2.0`` —— 一个在仓库里**没有任何实体**的命名
+    （没有 SkillSpec 类/文件；真技能是 ``registry/skills/velocity_base.json``）。
+    这些 Pack 同时声明 ``bindings.verify.require_refs_resolved: true``，等于一句没人执行的话。
+
+    schema 原话是「skill_ref：SkillSpec **或** SkillRecipe」，所以指到 recipe 完全合规；
+    本检查按"**必须解析到登记在册的 recipe**"执行，把引用变成可执行判据 ——
+    悬空引用（写了个好听的 id 却指向不存在的东西）从此报错。
+    ``require_refs_resolved`` 显式为 false 时降级为告警（契约里那个开关是要起作用的）。
+    """
+
+    if not isinstance(ref, dict):
+        return [], None
+    ref_id = str(ref.get("id") or "")
+    if not ref_id:
+        return [], None
+    try:
+        from backend.skill_registry import skill_manifest
+    except Exception as exc:  # 注册表模块不可用：如实降级为告警，不假装检查过
+        return [], {"id": ref_id, "resolved": False, "reason": f"技能注册表不可用：{type(exc).__name__}: {exc}"}
+    entries = {str(item.get("recipe_id")): item for item in (skill_manifest().get("skills") or [])}
+    entry = entries.get(ref_id)
+    if entry is None:
+        message = (
+            f"skill_ref.id 解析不到实体：技能注册表里没有 {ref_id!r}"
+            f"（登记在册：{sorted(entries)}）—— 引用必须指向登记在册的 recipe（SkillSpec 实体尚未建立）"
+        )
+        return ([message] if required else []), {"id": ref_id, "resolved": False}
+    return [], {"id": ref_id, "resolved": True, "path": str(entry.get("path")), "role": entry.get("role")}
+
+
 def _check_ref(
     name: str,
     ref: Any,
@@ -270,6 +304,25 @@ def validate_pack(
         warnings.extend(ref_warnings)
         if resolved is not None:
             refs[name] = resolved
+
+    # skill_ref 是**唯一的 id 型必需引用**（morphology_ref 自带 path+sha256）⇒ 单独做"可解析"检查。
+    bindings_value = pack.get("bindings")
+    require_resolved = True
+    if isinstance(bindings_value, dict):
+        verify_value = bindings_value.get("verify")
+        if isinstance(verify_value, dict) and isinstance(verify_value.get("require_refs_resolved"), bool):
+            require_resolved = verify_value["require_refs_resolved"]
+    skill_errors, skill_resolved = _check_skill_ref_resolution(
+        pack.get("skill_ref"), required=require_resolved
+    )
+    errors.extend(skill_errors)
+    if skill_resolved is not None:
+        refs.setdefault("skill_ref", {})["recipe"] = skill_resolved
+        if not skill_resolved.get("resolved") and not require_resolved:
+            warnings.append(
+                f"skill_ref.id {skill_resolved.get('id')!r} 解析不到实体，"
+                "但 bindings.verify.require_refs_resolved=false ⇒ 仅告警"
+            )
 
     binding_errors, binding_warnings = _check_bindings(pack.get("bindings"))
     errors.extend(binding_errors)

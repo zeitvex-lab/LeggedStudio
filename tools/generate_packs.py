@@ -27,7 +27,36 @@ from contracts.path_bootstrap import ensure_project_root_on_path
 
 ROOT = ensure_project_root_on_path() and Path(__file__).resolve().parents[1]
 
-DEFAULT_SKILL = {"id": "core/velocity@2.0", "version": "2.0"}
+def default_skill_ref() -> dict:
+    """Pack 的默认技能引用：**从 K4 技能注册表解析**（基座 recipe），带路径 + 内容哈希。
+
+    此前这里写死 ``{"id": "core/velocity@2.0", "version": "2.0"}`` —— 那个命名在仓库里
+    **没有任何实体**（没有 SkillSpec 类、没有 SkillSpec 文件；真技能是
+    ``registry/skills/velocity_base.json``，其 recipe_id 为 ``velocity_base``）。后果是 14 个
+    内置 Pack 的 ``skill_ref`` **谁也解析不到**，而它们又都声明
+    ``bindings.verify.require_refs_resolved: true`` —— 一句没人执行的话（id 型引用此前
+    只查"非空"，见 ``backend/pack_catalog._check_ref``）。
+
+    2026-09-16 改为解析式：schema 原话是「skill_ref：SkillSpec **或** SkillRecipe」，
+    所以指到真 recipe 完全合规；同时带上 ``path`` + ``sha256``，让"引用"也能**逐字节对账**
+    （与 ``morphology_ref`` 同纪律）。
+    """
+
+    from backend.skill_registry import SKILLS_DIR, skill_manifest
+
+    entries = skill_manifest().get("skills") or []
+    base = next((item for item in entries if item.get("role") == "base"), None)
+    if base is None:
+        raise SystemExit("技能注册表里没有 role=base 的 recipe，无法生成 Pack 的 skill_ref")
+    recipe_path = SKILLS_DIR / str(base["path"])
+    if not recipe_path.is_file():
+        raise SystemExit(f"技能清单登记的 recipe 文件不存在：{recipe_path}")
+    return {
+        "id": str(base["recipe_id"]),
+        "path": recipe_path.relative_to(ROOT).as_posix(),
+        "sha256": _sha256(recipe_path),
+    }
+
 
 DEFAULT_BINDINGS = {
     "verify": {
@@ -82,19 +111,20 @@ def build_pack(package_dir: Path) -> dict | None:
 
     contract_v3 = _load_json(contract_path)
     robot_id = str(contract_v3.get("robot_id") or package_dir.name)
+    skill_ref = default_skill_ref()
 
     return {
         "schema_version": "capability-pack-1.0",
         "pack_id": f"{robot_id}-velocity",
         "display_name": f"{contract_v3.get('family') or robot_id} · velocity",
-        "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与 core/velocity@2.0。",
+        "description": f"默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 {skill_ref['id']}。",
         "tags": ["generated", "default", _morphology_id(contract_v3) or "unknown_morphology"],
         "morphology_ref": {
             "id": robot_id,
             "path": f"assets/robots/{package_dir.name}/contract_v3.json",
             "sha256": _sha256(contract_path),
         },
-        "skill_ref": dict(DEFAULT_SKILL),
+        "skill_ref": skill_ref,
         "scenario_ref": None,
         "policy_ref": None,
         "bindings": json.loads(json.dumps(DEFAULT_BINDINGS)),

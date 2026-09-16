@@ -565,6 +565,94 @@ def _cmd_verify_motions(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_export(args: argparse.Namespace) -> int:
+    """``export <kind>``：导出五类粒度之一（离线命令，无需后端）。
+
+    逻辑全在 :mod:`backend.bundle_export`（不在这里另写一套哈希/拷贝）：五类共用一份
+    ``manifest.json``（逐条 ``{path, sha256, bytes, role}``），导出物**自带证据**，
+    ``verify bundle <目录>`` 能在另一台机器上重算。
+    """
+
+    from backend import bundle_export as bx
+
+    kind = args.kind
+    try:
+        if kind == "morphology":
+            if not args.robot:
+                raise ValueError("morphology 需要 --robot <robot_id>")
+            out = Path(args.out) if args.out else bx.default_out_dir(kind, args.robot)
+            manifest = bx.export_morphology(args.robot, out)
+        elif kind == "skill":
+            if not args.recipe:
+                raise ValueError("skill 需要 --recipe <recipe_id>")
+            out = Path(args.out) if args.out else bx.default_out_dir(kind, args.recipe)
+            manifest = bx.export_skill(args.recipe, out)
+        elif kind == "scenario":
+            if not args.scenario:
+                raise ValueError("scenario 需要 --scenario <scenario.json>")
+            out = Path(args.out) if args.out else bx.default_out_dir(kind, Path(args.scenario).stem)
+            manifest = bx.export_scenario(args.scenario, out)
+        elif kind == "policy":
+            if not args.artifact:
+                raise ValueError("policy 需要 --artifact <artifact_id>")
+            out = Path(args.out) if args.out else bx.default_out_dir(kind, args.artifact)
+            manifest = bx.export_policy(args.artifact, out, out_dir_index=Path(args.out_dir) if args.out_dir else None)
+        else:
+            if not args.pack:
+                raise ValueError("bundle 需要 --pack <pack.json>")
+            name = Path(args.pack).name.replace(".pack.json", "")
+            out = Path(args.out) if args.out else bx.default_out_dir(kind, name)
+            manifest = bx.export_bundle(args.pack, out, artifact_id=args.artifact, scenario_path=args.scenario)
+    except (ValueError, FileNotFoundError) as exc:
+        raise SystemExit(f"export 失败：{exc}") from exc
+
+    report = bx.verify_export(out)
+    if args.json:
+        print(json.dumps({"out_dir": str(out), "manifest": manifest, "verify": report}, ensure_ascii=False, indent=2))
+        return 0 if report["ok"] else 1
+
+    print(f"导出 {kind}（离线命令，无需后端）：{out}")
+    print(f"  条目 {report['entries']} 条 / 角色 {report['roles']}")
+    for note in manifest.get("notes") or []:
+        print(f"  ~ {note}")
+    for item in manifest.get("unresolved") or []:
+        print(f"  ! 未解析 [{item.get('role')}] {item.get('reason')}")
+    if not report["ok"]:
+        print(f"✗ 导出物自校验未通过（{len(report['problems'])} 项）：")
+        for problem in report["problems"]:
+            print(f"  - {problem}")
+        return 1
+    print("✓ 导出物自校验通过（逐条 sha256 与 manifest 一致）")
+    return 0
+
+
+def _cmd_verify_bundle(args: argparse.Namespace) -> int:
+    """``verify bundle <目录>``：校验一个导出物的 manifest 与内容（离线命令）。
+
+    判据取 :func:`backend.bundle_export.verify_export`（与导出时同一实现）——
+    所以"从别人那儿拷来的 Bundle"同样能验：逐条重算 sha256、必需角色齐备、无幽灵文件。
+    """
+
+    from backend.bundle_export import verify_export
+
+    report = verify_export(args.directory)
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report["ok"] else 1
+
+    print(f"导出物对账（离线命令，无需后端）：{args.directory}")
+    print(f"  类型 {report.get('kind')} / 条目 {report.get('entries')} / 角色 {report.get('roles')}")
+    for item in report.get("unresolved") or []:
+        print(f"  ! Bundle 未包含被引用物 [{item.get('role')}] {item.get('reason')}")
+    if not report["ok"]:
+        print(f"✗ 不通过（{len(report['problems'])} 项）：")
+        for problem in report["problems"]:
+            print(f"  - {problem}")
+        return 1
+    print("✓ 通过")
+    return 0
+
+
 # --------------------------------------------------------------------------------------
 # 训练在线命令（I1 第二批）：需后端在跑，走 HTTP —— 与 Web 工作台同一 API 契约
 # --------------------------------------------------------------------------------------
@@ -945,6 +1033,41 @@ def build_parser() -> argparse.ArgumentParser:
     )
     verify_motions.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
 
+    verify_bundle = verify_sub.add_parser(
+        "bundle",
+        help="校验一个导出物（Bundle / 形态包 / 技能包 / 场景包 / 策略包）的 manifest 与内容",
+        description=(
+            "校验一个导出物（离线命令，无需后端）：manifest schema、逐条文件 sha256 与字节数、"
+            "该类导出必需的角色是否齐备、有没有 manifest 未登记的幽灵文件。"
+            "**对拷来的导出物同样有效**（判据只看磁盘与 manifest）。不通过 → 退出码 1。"
+        ),
+    )
+    verify_bundle.add_argument("directory", help="导出目录（含 manifest.json）")
+    verify_bundle.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
+
+    # B12：五类粒度导出（Morphology / Skill / Scenario / Policy / Bundle）
+    from backend.bundle_export import EXPORT_KINDS  # 单一真值：类目表只在 backend 里定义一次
+
+    export = sub.add_parser(
+        "export",
+        help="导出五类粒度之一（离线命令，无需后端；导出物自带 manifest + 逐条 sha256）",
+        description=(
+            "导出五类粒度之一（离线命令，无需后端）：morphology（形态+契约）/ skill（自包含技能包）/ "
+            "scenario（场景契约）/ policy（出库产物）/ bundle（Pack 引用 + **被引用物离线副本** + 哈希）。"
+            "导出物落 manifest.json（逐条 path/sha256/bytes/role），并当场自校验；"
+            "Bundle 里缺被引用物时如实记进 unresolved（不假装完整）。"
+        ),
+    )
+    export.add_argument("kind", choices=list(EXPORT_KINDS), help="导出的粒度")
+    export.add_argument("--robot", default=None, help="morphology：机器人 ID")
+    export.add_argument("--recipe", default=None, help="skill：技能 recipe ID（见 registry/skills/index.json）")
+    export.add_argument("--scenario", default=None, help="scenario：场景契约 JSON 路径")
+    export.add_argument("--artifact", default=None, help="policy：出库产物 ID；bundle：覆盖 Pack 的 policy_ref")
+    export.add_argument("--pack", default=None, help="bundle：Pack JSON 路径（如 packs/zex-w.pack.json）")
+    export.add_argument("--out", default=None, help="导出目录（默认 <workspace>/exports/<kind>-<name>）")
+    export.add_argument("--out-dir", default=None, help="出库索引目录（policy 用，默认仓库 policies/）")
+    export.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
+
     return parser
 
 
@@ -967,7 +1090,11 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_verify_run(args)
         if args.verify_command == "motions":
             return _cmd_verify_motions(args)
+        if args.verify_command == "bundle":
+            return _cmd_verify_bundle(args)
         return _cmd_verify_artifacts(args)
+    if args.command == "export":
+        return _cmd_export(args)
 
     # `--offline` 的语义：**这次不碰后端**。离线命令在上面已经跑完并返回；走到这里说明
     # 命中的是需后端的命令，于是如实拒绝 —— 而不是"离线模式下悄悄不发请求"：
