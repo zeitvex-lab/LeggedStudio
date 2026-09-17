@@ -2050,8 +2050,16 @@
         });
         if (seq === resolveSeq) {
           state.recipe = data.recipe || null;
-          $('previewStatus').textContent = '配方解析成功';
-          $('previewStatus').style.color = '';
+          // U9：包扩展档案（带 entrypoints，如 lite3-velocity）的配方由包内训练源码
+          // 提供，通用奖励表不适用 —— 状态栏如实标注来源（蓝），而不是报红失败。
+          const source = state.recipe && state.recipe.environment && state.recipe.environment.source;
+          if (source === 'package-extension') {
+            $('previewStatus').textContent = '配方由包扩展提供（任务真值在包内训练源码，通用奖励表不适用）';
+            $('previewStatus').style.color = 'var(--blue)';
+          } else {
+            $('previewStatus').textContent = '配方解析成功';
+            $('previewStatus').style.color = '';
+          }
         }
       } catch (error) {
         if (seq === resolveSeq) {

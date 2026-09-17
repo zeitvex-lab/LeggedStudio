@@ -68,25 +68,27 @@
           <span class="status-badge running" id="systemBadge">检查中</span>
         </div>
         <div class="system-rows" id="systemRows">
+          <!-- U11：数据真值化 —— 三行的值由 dashboard.js 读 /api/system/environment 填充，
+               HTML 不再硬编码假值；拿不到时如实显示「未检测」。 -->
           <div class="system-row">
             <span class="system-label">Python 运行时</span>
-            <span class="system-value" id="pythonVersion">3.12.2</span>
-            <span class="system-status success">✓</span>
+            <span class="system-value" id="pythonVersion">未检测</span>
+            <span class="system-status" id="pythonStatus"></span>
           </div>
           <div class="system-row">
-            <span class="system-label">CUDA Toolkit</span>
-            <span class="system-value" id="cudaVersion">12.8</span>
-            <span class="system-status success">✓</span>
+            <span class="system-label">CUDA / GPU</span>
+            <span class="system-value" id="cudaVersion">未检测</span>
+            <span class="system-status" id="cudaStatus"></span>
           </div>
           <div class="system-row">
             <span class="system-label">MJLab Adapter</span>
-            <span class="system-value">就绪</span>
-            <span class="system-status success">✓</span>
+            <span class="system-value" id="mjlabVersion">未检测</span>
+            <span class="system-status" id="mjlabStatus"></span>
           </div>
           <div class="system-row">
             <span class="system-label">后端服务</span>
             <span class="system-value" id="backendStatus">运行中</span>
-            <span class="system-status success">✓</span>
+            <span class="system-status success" id="backendStatusDot">✓</span>
           </div>
         </div>
       </article>

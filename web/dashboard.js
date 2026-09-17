@@ -19,6 +19,23 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ========== 系统状态 ==========
+// U11：三行系统状态的值一律来自 /api/system/environment 的真值字段
+// （control_plane.python_version / gpu.mode / adapters.mjlab.version），
+// 不再硬编码占位；任一字段拿不到时如实显示「未检测」。
+const UNKNOWN_TEXT = '未检测';
+
+function setSystemRow(valueId, statusId, text, dot) {
+  const valueEl = document.getElementById(valueId);
+  if (!valueEl) return;
+  const known = text != null && String(text).trim() !== '';
+  valueEl.textContent = known ? String(text) : UNKNOWN_TEXT;
+
+  const statusEl = document.getElementById(statusId);
+  if (!statusEl) return;
+  statusEl.className = 'system-status' + (known && dot ? ' success' : '');
+  statusEl.textContent = known && dot ? '✓' : '·';
+}
+
 async function loadSystemStatus() {
   try {
     const response = await fetch(`${API_BASE}/api/system/environment`);
@@ -33,13 +50,36 @@ async function loadSystemStatus() {
       hint.textContent = '所有系统就绪';
     }
 
-    if (data.control_plane) {
-      document.getElementById('pythonVersion').textContent =
-        data.control_plane.python_version;
+    if (data.control_plane && data.control_plane.python_version) {
+      setSystemRow('pythonVersion', 'pythonStatus',
+        data.control_plane.python_version, data.control_plane.python_target_match !== false);
+    } else {
+      setSystemRow('pythonVersion', 'pythonStatus', null, false);
     }
 
+    // GPU：mode 与 /api/health/layers 的 L0 同源（gpu_probe 三态）。
+    // 行标签已写「CUDA / GPU」，值只放设备名，避免窄面板里挤成长串。
+    const gpu = data.gpu || {};
+    let cudaText = null;
+    if (gpu.mode === 'cuda' && gpu.devices && gpu.devices.length > 0) {
+      cudaText = gpu.devices[0].name || 'CUDA';
+    } else if (gpu.mode === 'cpu-only') {
+      cudaText = '无 GPU（CPU 训练链路可用）';
+    } else if (gpu.mode === 'unavailable') {
+      cudaText = '不可用';
+    }
+    setSystemRow('cudaVersion', 'cudaStatus', cudaText, gpu.mode === 'cuda');
+
+    // MJLab：适配器 venv 的 dist-info 实装版本。
+    const mjlab = (data.adapters && data.adapters.mjlab) || {};
+    setSystemRow('mjlabVersion', 'mjlabStatus', mjlab.version || null, mjlab.status === 'installed');
+
   } catch (error) {
+    // 整个端点不可达时：三行全部如实「未检测」，不编值。
     console.error('[Dashboard] Failed to load system status:', error);
+    setSystemRow('pythonVersion', 'pythonStatus', null, false);
+    setSystemRow('cudaVersion', 'cudaStatus', null, false);
+    setSystemRow('mjlabVersion', 'mjlabStatus', null, false);
   }
 }
 
