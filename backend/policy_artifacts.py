@@ -947,14 +947,38 @@ def policy_relative_path(
     三种声明形式都吃：裸 `path` / 裸 `url` / 只留 `id`（经索引 → `source_onnx`）。
     解析结果落在包外时（如 `web/sim2sim/models/` 的那条）返回 ``None`` —— 因为此时
     "包内相对路径"这个概念本身不成立，编一个出来只会产出一个取不到文件的 URL。
+
+    **副本回退（2026-09-17，G1 全机型浏览器实测缺陷 A）**：索引里的 `source_onnx` 按仓库
+    相对路径记录（出库时以 `assets/robots/<id>` 为包根），但运行期包根可能是 workspace
+    副本（`workspace/packages/<id>`，D7/C6 的持久化权威）——此时 blob 解析命中索引路径
+    （在"包外"）⇒ 旧逻辑直接返回 None ⇒ browser-config 对该包**静默跳过全部策略**，
+    浏览器里整机以"无策略"姿态运行（实测 lite3/go2/zex-w/wuji_hand 四台同病，go2 还是
+    浏览器默认落点）。workspace 副本与源树的策略 blob 由同步机制（C6）保证逐字节一致，
+    故回退按**同一包内相对路径**找副本是安全的：命中副本 ⇒ 返回该相对路径。
     """
-    blob = policy_blob_path(declaration, robot_dir=Path(robot_dir), index=index)
-    if blob is None:
-        return None
-    try:
-        return blob.resolve().relative_to(Path(robot_dir).resolve()).as_posix()
-    except ValueError:
-        return None
+    robot = Path(robot_dir)
+    blob = policy_blob_path(declaration, robot_dir=robot, index=index)
+    if blob is not None:
+        try:
+            return blob.resolve().relative_to(robot.resolve()).as_posix()
+        except ValueError:
+            pass  # 落在包外（如索引按源树记录而包根是 workspace 副本）——试副本回退
+    # 副本回退：索引按源树记录（assets/robots）而运行期包根是 workspace 副本时，
+    # 按声明/推导的相对路径在**真实包根**下找文件。只认包内真实存在的文件——
+    # 包外路径（如 demo 的 web/sim2sim/models/）在包内不存在，is_file() 为假 ⇒ 仍返回
+    # None（"包内相对路径"对它们不成立，编一个只会产出取不到文件的 URL，既有测试钉住）。
+    stem = declaration.get("path") or declaration.get("declared") or ""
+    if not stem:
+        policy_id = declaration.get("policy_id") or declaration.get("id")
+        if not policy_id:
+            return None
+        stem = f"simulation/policies/{policy_id}"
+    stem = str(stem).replace("\\", "/").lstrip("/")
+    candidate = (robot / stem).resolve()
+    robot_root = robot.resolve()
+    if candidate.is_file() and robot_root in candidate.parents:
+        return candidate.relative_to(robot_root).as_posix()
+    return None
 
 
 def declaration_has_raw_path(declaration: Mapping[str, Any]) -> bool:

@@ -223,6 +223,43 @@ class ReferenceTest(unittest.TestCase):
             self.assertIsNotNone(pa.policy_blob_path(declaration))       # 能解析到文件
             self.assertIsNone(pa.policy_relative_path(declaration, robot_dir=robot_dir))  # 但不在包内
 
+    def test_relative_path_falls_back_to_package_copy_when_index_points_outside(self):
+        """G1 全机型浏览器实测缺陷 A：索引按源树记录而包根是 workspace 副本时，
+        按声明裸 path 的**包内副本**回退（副本由 C6 同步保证逐字节一致）。
+
+        现象：blob 解析命中索引路径（在"包外"）⇒ 旧逻辑返回 None ⇒ browser-config
+        对该包静默跳过全部策略 ⇒ 浏览器里整机以"无策略"姿态运行。
+        真实仓 46 条存量声明都带裸 path（终态形式只留 id 的包回退按 id 推导文件名，
+        文件名≠id 时回退不命中——局限已知，存量数据不受影响）。
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # 包根（模拟 workspace/packages/go2）：副本里 blob 真实存在
+            robot_dir = root / "packages" / "go2"
+            (robot_dir / "simulation" / "policies").mkdir(parents=True)
+            (robot_dir / "simulation" / "policies" / "walk.onnx").write_bytes(b"blob")
+            # 索引（模拟出库索引）：source_onnx 指源树 assets/robots/go2/...（不在包根下）
+            index = {
+                pa.artifact_id_for("go2", "walk-100"): {
+                    "source_onnx": str(root / "assets" / "robots" / "go2" / "simulation" / "policies" / "walk.onnx"),
+                },
+            }
+            declaration = {"robot": "go2", "policy_id": "walk-100", "path": "simulation/policies/walk.onnx"}
+            self.assertIsNotNone(pa.policy_blob_path(declaration, robot_dir=robot_dir, index=index))
+            self.assertEqual(
+                "simulation/policies/walk.onnx",
+                pa.policy_relative_path(declaration, robot_dir=robot_dir, index=index),
+            )
+
+    def test_relative_path_fallback_ignores_missing_package_copy(self):
+        """回退只认包内真实存在的文件：包内没有副本 ⇒ 仍 None（不编 URL）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            robot_dir = root / "packages" / "go2"
+            (robot_dir / "simulation").mkdir(parents=True)  # 没有 policies/walk.onnx
+            declaration = {"robot": "go2", "policy_id": "walk-100", "path": "simulation/policies/walk.onnx"}
+            self.assertIsNone(pa.policy_relative_path(declaration, robot_dir=robot_dir))
+
     def test_reference_gaps_lists_unmigrated_declarations(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

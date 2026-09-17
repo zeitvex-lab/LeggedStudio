@@ -307,17 +307,31 @@ def read_contract_v3(root: Path | None) -> dict[str, Any] | None:
 
 
 def browser_scene_file(root: Path, entry: dict[str, Any]) -> str:
-    """Build a self-contained primitive terrain scene from a config-registered entry."""
+    """Build a self-contained primitive terrain scene from a config-registered entry.
+
+    include 改写必须按**场景在浏览器 FS 里的执行目录**来定，不能一律剥 ``../``：
+
+    * 场景以 ``simulation/`` 前缀下发（wuji_hand 的 ``simulation/scene.xml`` 等，
+      terrains 条目的 path 带目录前缀）→ 在 FS 里位于 ``/platform/simulation/`` 下，
+      磁盘上的 ``../model/X`` **本来就是对的**（模型在 ``/platform/model/``）——
+      剥掉 ``../`` 反而指向不存在的 ``/platform/model``（G1 全机型浏览器实测缺陷 B：
+      wuji_hand 两个场景 XML 编译失败、整机起不来）；
+    * 场景直接从 FS 根执行（历史 go2 内置布局，path 无目录前缀）→ ``model/...`` 才对，
+      沿用旧的剥 ``../`` 改写。
+    """
     path = REPO_ROOT / entry["path"] if entry.get("repo_path") else root / entry["path"]
+    entry_path = str(entry.get("path") or "").replace("\\", "/").lstrip("/")
+    scenes_under_simulation = entry_path.startswith("simulation/")
     document = ET.fromstring(path.read_text(encoding="utf-8-sig"))
     model_include = {str(entry.get("robot_include") or ""), "robot.xml"}
     for include in document.findall("include"):
         include_file = str(include.get("file", "")).replace("\\", "/")
-        # Any package-local model XML (robot / extra bodies / cube …) must be
-        # addressed relative to the browser virtual FS root, where package
-        # files live at their package-relative path (``model/...``). Scenes sit
-        # under ``simulation/``, so their ``../model/X`` includes are rewritten.
-        if include_file.startswith("../model/"):
+        if scenes_under_simulation:
+            # 场景在 /platform/simulation/ 下执行：../model/ 是正确引用，原样保留；
+            # 仅当被写成相对 FS 根的 model/X 时才补回 ../（防一种写法漂移）。
+            if include_file.startswith("model/"):
+                include.set("file", f"../{include_file}")
+        elif include_file.startswith("../model/"):
             include.set("file", include_file[len("../") :])
         elif Path(include_file).name in model_include:
             include.set("file", "model/robot.xml")
