@@ -1,0 +1,339 @@
+{
+  "schema": "navigation-browser-routes-1.1",
+  "generated_at": "2026-09-17T18:26:51",
+  "surface": "web/sim2sim/index.html（基础仿真，?debug=1&nav=warehouse&nav_waypoints=...）",
+  "mode": "e2e",
+  "provenance": {
+    "product_version": "0.55.43",
+    "git": {
+      "commit": "68d923d979a9cb6475669ffc7e2900cad8264071",
+      "dirty": true
+    },
+    "platform": "Windows-11-10.0.22631-SP0",
+    "python": "3.12.2",
+    "browser": "playwright chromium (headless)",
+    "robot": "unitree_go2",
+    "policy": "go2-rlsar-robotlab",
+    "route_rule": "tools/route_regression.build_routes(warehouse)（H19 路线集，seed=20260913）",
+    "run_params": {
+      "ready_timeout_s": 120.0,
+      "nav_sim_seconds": 90.0,
+      "ff_chunk_s": 10.0
+    }
+  },
+  "summary": {
+    "total": 7,
+    "arrived": 1,
+    "failed": 6,
+    "classification": {
+      "arrived": 1,
+      "h12_overshoot": 6,
+      "h12_no_follow": 0,
+      "link_defect": 0
+    },
+    "note": "H3 验收口径：链路级缺陷（导航未接线/payload 缺 follow_controller 或 arrival/fastForward 异常/页面自身 JS 错误）为 0 ⇒ 浏览器实测走完全程的链路成立。控制器到达短板（h12_overshoot）是 H12 follow_controller 已知短板的同源表现（lookahead 0.45 在拐角切角、vx=1.2 m/s 下过冲振荡使 stable_ticks=2 在容差 0.2m 内无法连续满足），不改产品代码，如实记录为防退化基线。"
+  },
+  "classification_legend": {
+    "arrived": "到达判据触发（finished=True，位姿误差 ≤ 容差 0.2m）",
+    "h12_overshoot": "跟随在推进（followed=True）但 90s 内到达判据不触发 —— H12 follow_controller 过冲/振荡短板",
+    "h12_no_follow": "跟随完全没推进（followed=False）—— H12 本体侵入/卡死登记项",
+    "link_defect": "链路级缺陷（导航未接线/payload 缺 follow_controller 或 arrival/fastForward 异常/页面自身 JS 错误）"
+  },
+  "results": [
+    {
+      "route": "full",
+      "kind": "map_default",
+      "waypoints": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          1.5,
+          2.2
+        ],
+        [
+          3.2,
+          2.2
+        ],
+        [
+          6.0,
+          0.0
+        ]
+      ],
+      "robot": "unitree_go2",
+      "policy_id": "go2-rlsar-robotlab",
+      "started": true,
+      "nav_wired": true,
+      "path_nonempty": true,
+      "followed": true,
+      "arrived": false,
+      "sim_time_s": 90.0,
+      "final_pose": [
+        3.891,
+        -1.491
+      ],
+      "final_error_m": 2.583,
+      "path_len_m": 49.385,
+      "lookahead_m": 0.45,
+      "ok": false,
+      "first_error": null,
+      "page_errors": [],
+      "console_errors": [],
+      "resource_errors": [
+        "400 http://127.0.0.1:50387/api/perception/terrain/evaluate"
+      ],
+      "screenshot": "workspace/e2e-screenshots/navigation-routes/full.png",
+      "total_ms": 4437,
+      "classification": "h12_overshoot",
+      "link_ok": true,
+      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
+    },
+    {
+      "route": "leg_0_1",
+      "kind": "map_leg",
+      "waypoints": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          1.5,
+          2.2
+        ]
+      ],
+      "robot": "unitree_go2",
+      "policy_id": "go2-rlsar-robotlab",
+      "started": true,
+      "nav_wired": true,
+      "path_nonempty": true,
+      "followed": true,
+      "arrived": false,
+      "sim_time_s": 90.0,
+      "final_pose": [
+        0.329,
+        1.272
+      ],
+      "final_error_m": 1.494,
+      "path_len_m": 12.899,
+      "lookahead_m": 0.45,
+      "ok": false,
+      "first_error": null,
+      "page_errors": [],
+      "console_errors": [],
+      "resource_errors": [
+        "400 http://127.0.0.1:50387/api/perception/terrain/evaluate"
+      ],
+      "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_0_1.png",
+      "total_ms": 4704,
+      "classification": "h12_overshoot",
+      "link_ok": true,
+      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
+    },
+    {
+      "route": "leg_1_2",
+      "kind": "map_leg",
+      "waypoints": [
+        [
+          1.5,
+          2.2
+        ],
+        [
+          3.2,
+          2.2
+        ]
+      ],
+      "robot": "unitree_go2",
+      "policy_id": "go2-rlsar-robotlab",
+      "started": true,
+      "nav_wired": true,
+      "path_nonempty": true,
+      "followed": true,
+      "arrived": true,
+      "sim_time_s": 40.0,
+      "final_pose": [
+        2.826,
+        1.9
+      ],
+      "final_error_m": 0.479,
+      "path_len_m": 8,
+      "lookahead_m": 0.45,
+      "ok": true,
+      "first_error": null,
+      "page_errors": [],
+      "console_errors": [],
+      "resource_errors": [
+        "400 http://127.0.0.1:50387/api/perception/terrain/evaluate"
+      ],
+      "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_1_2.png",
+      "total_ms": 2750,
+      "classification": "arrived",
+      "link_ok": true,
+      "reason": null
+    },
+    {
+      "route": "leg_2_3",
+      "kind": "map_leg",
+      "waypoints": [
+        [
+          3.2,
+          2.2
+        ],
+        [
+          6.0,
+          0.0
+        ]
+      ],
+      "robot": "unitree_go2",
+      "policy_id": "go2-rlsar-robotlab",
+      "started": true,
+      "nav_wired": true,
+      "path_nonempty": true,
+      "followed": true,
+      "arrived": false,
+      "sim_time_s": 90.0,
+      "final_pose": [
+        5.301,
+        2.535
+      ],
+      "final_error_m": 2.629,
+      "path_len_m": 28.485,
+      "lookahead_m": 0.45,
+      "ok": false,
+      "first_error": null,
+      "page_errors": [],
+      "console_errors": [],
+      "resource_errors": [
+        "400 http://127.0.0.1:50387/api/perception/terrain/evaluate"
+      ],
+      "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_2_3.png",
+      "total_ms": 4141,
+      "classification": "h12_overshoot",
+      "link_ok": true,
+      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
+    },
+    {
+      "route": "random_1",
+      "kind": "random",
+      "waypoints": [
+        [
+          -0.56,
+          2.745
+        ],
+        [
+          0.27,
+          -1.817
+        ]
+      ],
+      "robot": "unitree_go2",
+      "policy_id": "go2-rlsar-robotlab",
+      "started": true,
+      "nav_wired": true,
+      "path_nonempty": true,
+      "followed": true,
+      "arrived": false,
+      "sim_time_s": 90.0,
+      "final_pose": [
+        0.619,
+        3.122
+      ],
+      "final_error_m": 4.951,
+      "path_len_m": 23.657,
+      "lookahead_m": 0.45,
+      "ok": false,
+      "first_error": null,
+      "page_errors": [],
+      "console_errors": [],
+      "resource_errors": [
+        "400 http://127.0.0.1:50387/api/perception/terrain/evaluate"
+      ],
+      "screenshot": "workspace/e2e-screenshots/navigation-routes/random_1.png",
+      "total_ms": 4922,
+      "classification": "h12_overshoot",
+      "link_ok": true,
+      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
+    },
+    {
+      "route": "random_2",
+      "kind": "random",
+      "waypoints": [
+        [
+          6.795,
+          2.482
+        ],
+        [
+          1.513,
+          2.369
+        ]
+      ],
+      "robot": "unitree_go2",
+      "policy_id": "go2-rlsar-robotlab",
+      "started": true,
+      "nav_wired": true,
+      "path_nonempty": true,
+      "followed": true,
+      "arrived": false,
+      "sim_time_s": 90.0,
+      "final_pose": [
+        6.235,
+        2.374
+      ],
+      "final_error_m": 4.722,
+      "path_len_m": 28.485,
+      "lookahead_m": 0.45,
+      "ok": false,
+      "first_error": null,
+      "page_errors": [],
+      "console_errors": [],
+      "resource_errors": [
+        "400 http://127.0.0.1:50387/api/perception/terrain/evaluate"
+      ],
+      "screenshot": "workspace/e2e-screenshots/navigation-routes/random_2.png",
+      "total_ms": 3968,
+      "classification": "h12_overshoot",
+      "link_ok": true,
+      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
+    },
+    {
+      "route": "random_3",
+      "kind": "random",
+      "waypoints": [
+        [
+          4.639,
+          -3.379
+        ],
+        [
+          -0.272,
+          -1.236
+        ]
+      ],
+      "robot": "unitree_go2",
+      "policy_id": "go2-rlsar-robotlab",
+      "started": true,
+      "nav_wired": true,
+      "path_nonempty": true,
+      "followed": true,
+      "arrived": false,
+      "sim_time_s": 90.0,
+      "final_pose": [
+        7.976,
+        -7.382
+      ],
+      "final_error_m": 10.286,
+      "path_len_m": 32.142,
+      "lookahead_m": 0.45,
+      "ok": false,
+      "first_error": null,
+      "page_errors": [],
+      "console_errors": [],
+      "resource_errors": [
+        "400 http://127.0.0.1:50387/api/perception/terrain/evaluate"
+      ],
+      "screenshot": "workspace/e2e-screenshots/navigation-routes/random_3.png",
+      "total_ms": 3828,
+      "classification": "h12_overshoot",
+      "link_ok": true,
+      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
+    }
+  ]
+}

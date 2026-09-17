@@ -3836,6 +3836,22 @@ function holdStance() {
 if (DEBUG_ENABLED) {
   window.__sim2simDebug = {
     state: buildDebugState,
+    // H3 导航到达判据暴露（?debug=1）：E2E 实测需要轮询 arrival 状态（finished /
+    // reached / stable_count 等），buildDebugState 快照太大且不含 navigation。
+    navigation() {
+      if (!sim.navigation) return null;
+      return {
+        mapId: sim.navigation.mapId,
+        payload: sim.navigation.payload
+          ? {
+              waypoints: sim.navigation.payload.waypoints,
+              arrival: sim.navigation.payload.arrival,
+              follow_controller: sim.navigation.payload.follow_controller,
+            }
+          : null,
+        status: sim.navigation.status ? { ...sim.navigation.status } : null,
+      };
+    },
     setPolicyEnabled(enabled) {
       const next = Boolean(enabled);
       if (next !== sim.policyEnabled) resetPolicyState();
