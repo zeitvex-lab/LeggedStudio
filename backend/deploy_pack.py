@@ -360,8 +360,20 @@ def run_bench_scan(contract, duration_s: float = 3.0, freq_hz: float = 1.0, send
     print(\"[bench] D2 台架扫频完成——温升正常则视为通过（D2 级）\")
 '''
 
-def generate_deploy_package(robot_id: str, *, degraded: bool = False, target_platform: str = "unitree_sdk2", bench_mode: bool = False) -> dict:
-    """生成部署包 zip。返回 {path, files}。"""
+def generate_deploy_package(
+    robot_id: str, *,
+    degraded: bool = False,
+    target_platform: str = "unitree_sdk2",
+    bench_mode: bool = False,
+    out_dir: Path | str | None = None,
+) -> dict:
+    """生成部署包 zip。返回 {path, files}。
+
+    ``out_dir`` 缺省落 ``<仓库>/workspace/deploy``（与 Web 的
+    ``POST /api/deploy/package`` 同一落点）；CLI 的 ``deploy package --out <目录>``
+    传入自定目录（测试 / CI 把产物放进临时目录，不污染真实 workspace）。
+    打包逻辑本身只有这一份（单一真值），参数只是换落点。
+    """
 
     from backend.robot_presets import get_robot_preset
 
@@ -375,7 +387,7 @@ def generate_deploy_package(robot_id: str, *, degraded: bool = False, target_pla
         raise ValueError(f"robot {robot_id} 缺少 contract_v3.json——先运行 tools/migrate_contract_v3.py")
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    out_dir = ROOT / "workspace" / "deploy"
+    out_dir = Path(out_dir) if out_dir else ROOT / "workspace" / "deploy"
     out_dir.mkdir(parents=True, exist_ok=True)
     zip_path = out_dir / f"{robot_id}_deploy_{ts}.zip"
 
