@@ -1,0 +1,214 @@
+{
+  "schema": "policy-hot-switch-1.0",
+  "generated_at": "2026-09-17T18:26:08",
+  "surface": "web/sim2sim/index.html（基础仿真 ?debug=1&robot=unitree_go2）",
+  "mode": "hot-switch",
+  "provenance": {
+    "product_version": "0.55.43",
+    "git": {
+      "commit": "68d923d979a9cb6475669ffc7e2900cad8264071",
+      "dirty": true
+    },
+    "platform": "Windows-11-10.0.22631-SP0",
+    "python": "3.12.2",
+    "browser": "playwright chromium (headless)",
+    "policy_pair_rule": "go2-moe-cts / go2-arenax-velocity（browser-config 下发的基础策略，MoE vs 普通 history）",
+    "run_params": {
+      "ready_timeout_s": 120.0,
+      "observe_ms": 2500,
+      "fast_forward_s": 1.0
+    }
+  },
+  "summary": {
+    "ok": true,
+    "assertions_passed": 13,
+    "total_steps": 13,
+    "total_ms": 13079
+  },
+  "result": {
+    "robot": "unitree_go2",
+    "policy_a": "go2-moe-cts",
+    "policy_b": "go2-arenax-velocity",
+    "steps": [
+      {
+        "step": "load_policy_a",
+        "ok": true,
+        "detail": {
+          "select": "go2-moe-cts",
+          "status": "已就绪 · 策略 ONNX 没有元数据盖章，跳过契约校验（历史/第三方导入策略）",
+          "url_policy": "go2-moe-cts",
+          "ready_ms": 266
+        }
+      },
+      {
+        "step": "sim_running_a",
+        "ok": true,
+        "detail": {}
+      },
+      {
+        "step": "realtime_running_a",
+        "ok": true,
+        "detail": {
+          "clock_before": 1.16,
+          "clock_after": 1.74
+        }
+      },
+      {
+        "step": "switch_a_to_b",
+        "ok": true,
+        "detail": {
+          "select": "go2-arenax-velocity",
+          "status": "已就绪 · 策略 ONNX 没有元数据盖章，跳过契约校验（历史/第三方导入策略）",
+          "url_policy": "go2-arenax-velocity",
+          "ready_ms": 766,
+          "switch_ms": 859
+        }
+      },
+      {
+        "step": "onnx_http_fetch_b",
+        "ok": true,
+        "detail": {
+          "url": "http://127.0.0.1:50387/api/simulation/browser-package/unitree_go2/simulation/policies/go2_arenax_45x6.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-arenax-velocity%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_arenax_45x6.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A6%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22himloco_45_hist6%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789640763106"
+        }
+      },
+      {
+        "step": "sim_running_b",
+        "ok": true,
+        "detail": {}
+      },
+      {
+        "step": "switch_b_to_a",
+        "ok": true,
+        "detail": {
+          "select": "go2-moe-cts",
+          "status": "已就绪 · 策略 ONNX 没有元数据盖章，跳过契约校验（历史/第三方导入策略）",
+          "url_policy": "go2-moe-cts",
+          "ready_ms": 766,
+          "switch_ms": 859
+        }
+      },
+      {
+        "step": "onnx_http_fetch_a2",
+        "ok": true,
+        "detail": {
+          "url": "http://127.0.0.1:50387/api/simulation/browser-package/unitree_go2/simulation/policies/go2_moe_cts.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-moe-cts%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_moe_cts.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A10%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22go2_rl_sdk_45%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789640764478"
+        }
+      },
+      {
+        "step": "sim_running_a2",
+        "ok": true,
+        "detail": {}
+      },
+      {
+        "step": "invalid_policy_rejected",
+        "ok": true,
+        "detail": {
+          "select_restored": "go2-moe-cts",
+          "status_after": "策略切换失败: 包内不存在策略: __nonexistent_policy__",
+          "policyEnabled": true
+        }
+      },
+      {
+        "step": "sim_running_after_invalid",
+        "ok": true,
+        "detail": {}
+      },
+      {
+        "step": "policies_differ",
+        "ok": true,
+        "detail": {
+          "policyMode": {
+            "a": "stacked-history",
+            "b": "stacked-history"
+          },
+          "policyInputs": {
+            "a": [
+              "obs"
+            ],
+            "b": [
+              "obs_history"
+            ]
+          },
+          "baseZ_after_0.5s_ff": {
+            "a": 0.3448,
+            "b": 0.1502,
+            "a2": 0.3459
+          },
+          "quat_after_0.5s_ff": {
+            "a": [
+              0.9995,
+              -0.0144,
+              -0.0198,
+              0.0212
+            ],
+            "b": [
+              0.0151,
+              0.9446,
+              -0.3273,
+              0.0204
+            ]
+          }
+        }
+      },
+      {
+        "step": "roundtrip_state_consistent",
+        "ok": true,
+        "detail": {}
+      }
+    ],
+    "ok": true,
+    "assertions_passed": 13,
+    "total_ms": 13079,
+    "page_errors": [],
+    "console_errors": [],
+    "resource_errors": [],
+    "policy_diff": {
+      "policyMode": {
+        "a": "stacked-history",
+        "b": "stacked-history"
+      },
+      "policyInputs": {
+        "a": [
+          "obs"
+        ],
+        "b": [
+          "obs_history"
+        ]
+      },
+      "baseZ_after_0.5s_ff": {
+        "a": 0.3448,
+        "b": 0.1502,
+        "a2": 0.3459
+      },
+      "quat_after_0.5s_ff": {
+        "a": [
+          0.9995,
+          -0.0144,
+          -0.0198,
+          0.0212
+        ],
+        "b": [
+          0.0151,
+          0.9446,
+          -0.3273,
+          0.0204
+        ]
+      }
+    },
+    "first_error": null,
+    "onnx_http_requests": [
+      "http://127.0.0.1:50387/api/simulation/browser-package/unitree_go2/simulation/policies/go2_moe_cts.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-moe-cts%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_moe_cts.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A10%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22go2_rl_sdk_45%22%2C%22history_layout%22%3A%22%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789640758925",
+      "http://127.0.0.1:50387/api/simulation/browser-package/unitree_go2/simulation/policies/go2_arenax_45x6.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-arenax-velocity%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_arenax_45x6.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A6%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22himloco_45_hist6%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789640763106",
+      "http://127.0.0.1:50387/api/simulation/browser-package/unitree_go2/simulation/policies/go2_moe_cts.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-moe-cts%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_moe_cts.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A10%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22go2_rl_sdk_45%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789640764478"
+    ]
+  },
+  "defects": [
+    {
+      "id": "hot-switch-empty-id-treated-as-off",
+      "surface": "web/sim2sim/app.js switchPolicy",
+      "summary": "select.value 赋非 option 清单内的 id 会静默变空串，switchPolicy('') 走 off 分支禁用策略而非拒绝并回滚",
+      "severity": "low",
+      "status": "registered-not-fixed"
+    }
+  ]
+}
