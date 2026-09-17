@@ -694,7 +694,16 @@ async def browser_simulation_asset(robot_id: str, asset_path: str):
     candidate = (root / normalized).resolve()
     if candidate != root and root not in candidate.parents:
         raise HTTPException(status_code=400, detail="invalid package asset path")
-    allowed_prefixes = (root / "model", root / "simulation" / "policies", root / "simulation" / "visual")
+    # deploy/ 也要放行：wuji_hand 的策略按上游部署布局存放在
+    # deploy/<version>/policy.onnx（不是 simulation/policies/）——G1 全机型浏览器实测
+    # 缺陷 B 的残余：声明解析已修（副本回退），但这里的白名单把它 404，浏览器侧仍
+    # "策略下载失败"。deploy/ 与 simulation/policies/ 同为部署产物目录，包内真实文件才放行。
+    allowed_prefixes = (
+        root / "model",
+        root / "simulation" / "policies",
+        root / "simulation" / "visual",
+        root / "deploy",
+    )
     if not candidate.is_file() or not any(candidate == prefix or prefix in candidate.parents for prefix in allowed_prefixes):
         raise HTTPException(status_code=404, detail="browser package asset not found")
     # 策略 ONNX（及外部数据文件）会在原地被重写（例如外部数据内联）。

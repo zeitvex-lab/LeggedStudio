@@ -364,8 +364,11 @@ function buildWujiReorientObservation() {
   const model = sim.model;
   const data = sim.data;
   const mj = sim.mujoco;
-  const jntObj = mj.mjtObj.mjOBJ_JOINT;
-  const bodyObj = mj.mjtObj.mjOBJ_BODY;
+  // WASM 枚举是包装对象：mj_name2id 需要 enumValue() 解包后的数字
+  // （G1 全机型浏览器实测缺陷 C——wuji 两个 builder 直接传包装对象，
+  // 抛 'Cannot convert "[object Object]" to int'，仿真异常自动重试循环）。
+  const jntObj = enumValue(mj.mjtObj.mjOBJ_JOINT);
+  const bodyObj = enumValue(mj.mjtObj.mjOBJ_BODY);
   const order = CONFIG.actionJointOrder || [];
   const bodyId = (name) => Number(mj.mj_name2id(model, bodyObj, String(name)));
 
