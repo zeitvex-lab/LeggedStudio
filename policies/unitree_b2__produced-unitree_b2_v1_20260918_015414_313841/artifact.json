@@ -1,0 +1,16 @@
+{
+  "artifact_id": "unitree_b2__produced-unitree_b2_v1_20260918_015414_313841",
+  "installed": {
+    "package_path": "simulation/policies/unitree_b2-trained-20260918-015414.onnx",
+    "policy_id": "unitree_b2-trained-20260918-015414",
+    "repo_path": "assets/robots/unitree_b2/simulation/policies/unitree_b2-trained-20260918-015414.onnx",
+    "robot": "unitree_b2"
+  },
+  "kind": "produced",
+  "onnx_bytes": 766846,
+  "onnx_sha256": "fa246aa3dd7cda08b23107ae3072ec192a6195cb34416476d799915fab8e2283",
+  "robot": "unitree_b2",
+  "run_id": "unitree_b2_v1_20260918_015414_313841",
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_b2/simulation/policies/unitree_b2-trained-20260918-015414.onnx"
+}

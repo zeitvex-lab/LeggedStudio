@@ -1,0 +1,137 @@
+{
+  "schema": "training-scale-tiers-1.0",
+  "description": "L7 常态化规模档位标定：同配置（除规模三元组 num_envs/max_iterations/smoke_preset）下逐档实测耗时与 reward，作为下一轮再往上推的对照。",
+  "constraint": {
+    "unattended_ceiling_seconds": 600,
+    "nature": "operational",
+    "note": "10 分钟无人值守上限是任务清单（00_know/05_任务清单.md L7）给本轮定的运维约束；backend/training/create.py 与 backend/training/monitor.py 里没有对应的代码常量/超时（2026-09-18 全文检索核实），单训练任务在产品内可运行超过 10 分钟，本轮按运维上限自律。",
+    "smoke_gate": "E8：长训（>64 envs × >5 iters 任一超限）前必须有同配置（除规模三元组外逐键一致，规范化摘要比对）的已完成冒烟 Run 作证据（backend/training/smoke_gate.py）；本轮证据 Run＝20260918_022258_095883。"
+  },
+  "environment": {
+    "date": "2026-09-18",
+    "host": "RTX 4060 Laptop 8G（GPU 空闲独占）",
+    "robot": "unitree_go2",
+    "profile_id": "go2-velocity-flat",
+    "config_shared": "algorithm=PPO, task_name=forward_walk, seed=7, save_interval=5, device=auto, terrain=plane, 无 overrides；除规模三元组外逐键一致（E8 摘要比对通过）",
+    "chain": "POST /api/training/create → worker(adapters/mjlab/native_worker.py, profile 分支 local_tasks) → train_completed → POST /{task_id}/promote",
+    "entry_rule": "go2 走 profile 分支（training_ref 齐全）；generic 分支当轮不可用，见 findings[0]"
+  },
+  "tiers": [
+    {
+      "tier": "smoke_16x5",
+      "kind": "smoke",
+      "envs": 16,
+      "iters": 5,
+      "wall_seconds": 210,
+      "seconds_per_iter": null,
+      "reward_last": null,
+      "train_completed": true,
+      "promote": "historical（2026-09-15 前后 produced 16 条已入库）",
+      "provenance": "B22 实测档（00_know/05_任务清单.md L7 行：『冒烟档 16 envs × 5 iters 约 3.5 分钟』），本轮未重跑，仅作对照基线；注意当时走 generic 分支，该分支现已对 go2 失效（findings[0]），16×5 的 3.5 分钟含旧链路开销，与 profile 分支数字不可直接比。"
+    },
+    {
+      "tier": "smoke_64x5_profile",
+      "kind": "smoke",
+      "task_id": "unitree_go2_mvp_v1_20260918_022258_095883",
+      "envs": 64,
+      "iters": 5,
+      "wall_seconds": 36.0,
+      "seconds_per_iter": 0.63,
+      "reward_last": -1.334,
+      "reward_note": "5 iter 样本太少且策略早期撞地，reward 末值无意义；本轮价值＝E8 证据 + 固定开销标定（~30s 启动/构建/探针/导出 + 0.63s/iter 训练）",
+      "train_completed": true,
+      "promote": "未 promote（证据 Run）",
+      "gate": "required=false（冒烟档规模内，它自己就是冒烟）",
+      "provenance": "task_dir workspace/unitree_go2_mvp_v1_20260918_022258_095883（resolved-config.json / status.json / training.log / tfevents）"
+    },
+    {
+      "tier": "calibration_64x10",
+      "kind": "scale",
+      "task_id": "unitree_go2_mvp_v1_20260918_022444_944820",
+      "envs": 64,
+      "iters": 10,
+      "wall_seconds": 36.0,
+      "seconds_per_iter": 0.63,
+      "reward_last": -1.81,
+      "train_completed": true,
+      "promote": "未 promote（标定档）",
+      "gate": {
+        "required": true,
+        "ok": true,
+        "evidence_run": "unitree_go2_mvp_v1_20260918_022258_095883",
+        "note": "E8 首次实战放行：同配置（除规模三元组）冒烟 Run 被规范化摘要比对命中，未用环境变量绕过"
+      },
+      "provenance": "task_dir workspace/unitree_go2_mvp_v1_20260918_022444_944820"
+    },
+    {
+      "tier": "scale_64x400",
+      "kind": "scale",
+      "task_id": "unitree_go2_mvp_v1_20260918_022630_598318",
+      "envs": 64,
+      "iters": 400,
+      "wall_seconds": 324.1,
+      "seconds_per_iter": 0.73,
+      "seconds_per_iter_note": "training.log Iteration time 首尾 0.83→0.69s（collection 0.63→0.56 + learning 0.20→0.12）；均值按 wall-iters 反推 ≈0.73s/iter 含全开销",
+      "reward_last": 16.5612,
+      "reward_first": 0.1683,
+      "reward_trend": "monotonic_rise",
+      "reward_detail": {
+        "train_mean_reward": "0.168 → 16.56（n=400，无 NaN/±Inf）",
+        "mean_episode_length": "5.0 → 948.2 步（1000 步封顶，50Hz×20s）",
+        "tracking": "track_linear_velocity 0.0004→0.5184；track_angular_velocity 0.0055→0.2373；upright 0.0050→0.7968",
+        "regularization_cost": "action_rate_l2 -0.0065→-1.0386；foot_clearance -0.0008→-0.1588（步态成型伴随正则代价上升）",
+        "caveat": "Metrics/twist/error_vel_xy 末值 1.4589 偏高而 tracked reward 同步上升——速度误差口径与奖励口径不一致的混合信号，判优劣需更长跑，本轮只记录不下结论",
+        "health": "GET /{task_id}/health alerts=[]（F6 无 NaN/OOM 告警）；gauges warn 仅因 metrics.jsonl 未采集（曲线数据在 tfevents，/terms 正常解析 39 个 tag）"
+      },
+      "probe": {
+        "preflight": "pass（native_preflight.json acceptance_probe.verdict=pass）",
+        "acceptance": "not_evaluated（exported/ 仅 policy.onnx，无 policy.acceptance.json；与既有 produced Run 同常态，验收是独立消费步骤）",
+        "onnx_load": "onnxruntime CPU 载入 exported/policy.onnx：input [1,48] → output (1,12)，输出有限（48 为 go2 profile 任务真值维度；契约层 v3 声明 45，与既有 go2 产物口径一致）"
+      },
+      "train_completed": true,
+      "promote": {
+        "http": 200,
+        "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_022630_598318",
+        "onnx_sha256": "f99772487d6ab25a9f2b64ba8f34a44270485a4f864368808d4b394427449055",
+        "onnx_bytes": 777610,
+        "verify_run": "ok=true problems=[]",
+        "index": "policies/index.json 64→65 条（produced +1）"
+      },
+      "tier_choice_rationale": "任务建议 64×10 起步、显著低于 10 分钟可再升。实测固定开销 ~30s + 0.63~0.85s/iter：64×10 全程 36s（上限的 6%），故按标定数据直接定 64×400（预计 ~4.7min，实测 5.4min，占上限 54%）。再上一档 64×600 预计 ~9.0-9.4min（>90% 上限，无余量），留给下一轮带后台监督时再推。",
+      "provenance": "task_dir workspace/unitree_go2_mvp_v1_20260918_022630_598318；policies/index.json 单元 unitree_go2__produced-unitree_go2_mvp_v1_20260918_022630_598318"
+    }
+  ],
+  "findings": [
+    {
+      "id": "go2-generic-path-regression",
+      "severity": "blocker-for-generic-go2",
+      "status": "registered-not-fixed",
+      "summary": "go2 走 generic 分支（不带 profile_id）训练链当轮必失败：create 200 → worker 29s failed『reward terms are not available in MJLab task [track_linear_velocity, track_angular_velocity, body_orientation_l2]』（task unitree_go2_mvp_v1_20260918_021124_523944）。",
+      "root_cause": "三因叠加：① B32 后 go2 v2 contract.json 观测 components 不含 commands（45 维恰平账）；② generic_task_builder._build_commands 只在观测含 command 项时建 twist 命令 → has_commands=False → _build_rewards 跳过 track_* 两项，且 body_orientation_l2 不在其 funcs 表（只认 upright）→ 三项全部 skipped；③ B23 起 create 恒写 resolved_recipe（含默认 reward_scales 五项），native_worker.apply_training_recipe 把三项判为 unmatched 且非零权重即 raise。本地用 mjlab 解释器重建 generic task 复现：reward_terms=[action_rate_l2, joint_torques_l2]，skipped_rewards 恰为报错三项。",
+      "why_b2_unaffected": "unitree_b2 的 v2 contract 仍声明 commands 组件 → generic 命令/跟踪奖励可解析，故 2026-09-18 凌晨 b2 generic 冒烟可绿。",
+      "last_good": "go2 generic 最后一次全链绿＝2026-09-15 07:21（16×15，task_kind=generic，早于 B23 09-16 03:20 与 B32 契约对齐入库）；B23/B32 落地后 go2 未再走过 generic 全链，本轮首跑暴露。",
+      "discovered_by": "L7 规模档位标定（2026-09-18）"
+    },
+    {
+      "id": "b2-declaration-index-mismatch",
+      "severity": "pre-existing-warning",
+      "status": "registered-not-fixed（并行任务的产物，本轮不碰）",
+      "summary": "verify_artifacts 全量对账 checked=65 / problems=1：『unitree_b2__unitree_b2-trained-20260918-015414：声明存在但索引未覆盖』。来源是并行任务 2026-09-18 01:54 的 b2 promote 把 policy 拷入 assets/robots/unitree_b2/simulation/policies/（未被索引覆盖的声明文件）。该文件与问题在本轮开始前已存在（会话开场 git status 已有该 untracked 文件）；本轮 go2 的 promote 拷贝落在 workspace/packages/...（不在声明扫描范围），未新增问题。本轮新增产物自身对账干净（checked 覆盖、hash/契约一致）。",
+      "discovered_by": "本轮 verify_artifacts 例行对账"
+    },
+    {
+      "id": "worker-recurrent-onnx-export-warn",
+      "severity": "cosmetic",
+      "status": "logged",
+      "summary": "profile 分支导出期告警『[WARN] recurrent ONNX export failed (training continues): ExportingRunner object has no attribute export_recurrent_policy_to_onnx』，训练与最终 policy.onnx 导出不受影响（产物已验载入）。go2 的 VelocityOnPolicyRunner 非递归策略，告警属导出器能力探测的预期分支，仅登记。"
+    }
+  ],
+  "next_tier_projection": {
+    "basis": "64 envs 实测 0.73s/iter 全开销 + ~30s 固定",
+    "candidates": {
+      "64x600": "预计 ~7.5-9.4min（占上限 75-94%，需后台监督防撞墙）",
+      "64x800": "预计 ~10.1min（超上限，需突破无人值守约束或分段 resume）"
+    },
+    "note": "下一轮先重跑本表对照 64×400 实测，再决定是否推 64×600。"
+  }
+}

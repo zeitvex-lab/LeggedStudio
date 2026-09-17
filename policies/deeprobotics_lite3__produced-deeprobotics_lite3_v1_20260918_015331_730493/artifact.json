@@ -1,0 +1,16 @@
+{
+  "artifact_id": "deeprobotics_lite3__produced-deeprobotics_lite3_v1_20260918_015331_730493",
+  "installed": {
+    "package_path": "simulation/policies/deeprobotics_lite3-trained-20260918-015331.onnx",
+    "policy_id": "deeprobotics_lite3-trained-20260918-015331",
+    "repo_path": "workspace/packages/deeprobotics_lite3/simulation/policies/deeprobotics_lite3-trained-20260918-015331.onnx",
+    "robot": "deeprobotics_lite3"
+  },
+  "kind": "produced",
+  "onnx_bytes": 760748,
+  "onnx_sha256": "ddb34f168e5dcc1e290b4ff53f02695589edb1eb23fab54ec9e703b4a2f9e9dd",
+  "robot": "deeprobotics_lite3",
+  "run_id": "deeprobotics_lite3_v1_20260918_015331_730493",
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "workspace/packages/deeprobotics_lite3/simulation/policies/deeprobotics_lite3-trained-20260918-015331.onnx"
+}

@@ -81,7 +81,14 @@ class AttachFixture(unittest.TestCase):
             "artifact_id": self.artifact_id,
             "robot_dir": self.package,
             "policy_id": self.policy_id,
-            "declaration": {"obs_dim": 53, "action_dim": 16, "label": "演示训练产物"},
+            # promote_from_run 组装的声明恒带 contract（obs/action 约定）——install
+            # 据此回填产物条目的 contract/contract_digest（verify 对账用）
+            "declaration": {
+                "obs_dim": 53,
+                "action_dim": 16,
+                "label": "演示训练产物",
+                "contract": {"obs_dim": 53, "action_dim": 16},
+            },
             "out_dir": self.out_dir,
         }
         payload.update(overrides)
@@ -152,6 +159,34 @@ class InstallProducedPolicyTest(AttachFixture):
         self.install()
         leftovers = list((self.package / "simulation").glob("*.tmp"))
         self.assertEqual([], leftovers)
+
+    def test_index_entry_gets_policy_id_and_contract_digest_after_install(self):
+        """install 回填的绑定必须落回出库索引（B8 试点首例的红）。
+
+        promote_from_run 先 write_out_index 再 install——install 分支回填的
+        policy_id / contract_digest 若不重写索引，磁盘条目永远缺绑定，
+        verify_artifacts 按声明 id 推导必报"索引未覆盖"。
+        """
+
+        self.install()
+        index = pa.load_index(self.out_dir)
+        entry = index.get(self.artifact_id)
+        self.assertIsNotNone(entry)
+        self.assertEqual(self.policy_id, entry.get("policy_id"))
+        # 契约块与安装声明的契约对齐（verify 用 contract_digest 对账）
+        self.assertEqual({"obs_dim": 53, "action_dim": 16}, entry.get("contract"))
+        self.assertIsNotNone(entry.get("contract_digest"))
+
+    def test_verify_recognizes_installed_declaration_via_provenance(self):
+        """verify 对安装式声明的对账：声明自带 provenance.artifact_id 指向出库条目，
+        其包内策略 id（<robot>-trained-<stamp>）与出库键本来就不同——按 id 推导必误报。"""
+
+        self.install()
+        report = pa.verify_artifacts(robots_dir=self.package.parent, out_dir=self.out_dir)
+        self.assertTrue(
+            all(not problem.startswith(f"{self.artifact_id}：") for problem in report["problems"]),
+            report["problems"],
+        )
 
     @property
     def tmp_source(self):

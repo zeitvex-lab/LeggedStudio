@@ -1,12 +1,12 @@
 {
   "schema": "policy-hot-switch-1.0",
-  "generated_at": "2026-09-17T18:26:08",
+  "generated_at": "2026-09-18T03:30:40",
   "surface": "web/sim2sim/index.html（基础仿真 ?debug=1&robot=unitree_go2）",
   "mode": "hot-switch",
   "provenance": {
-    "product_version": "0.55.43",
+    "product_version": "0.55.47",
     "git": {
-      "commit": "68d923d979a9cb6475669ffc7e2900cad8264071",
+      "commit": "bac750505cef2e69d1dd0c955150893f79ef2464",
       "dirty": true
     },
     "platform": "Windows-11-10.0.22631-SP0",
@@ -23,7 +23,7 @@
     "ok": true,
     "assertions_passed": 13,
     "total_steps": 13,
-    "total_ms": 13079
+    "total_ms": 11625
   },
   "result": {
     "robot": "unitree_go2",
@@ -37,7 +37,7 @@
           "select": "go2-moe-cts",
           "status": "已就绪 · 策略 ONNX 没有元数据盖章，跳过契约校验（历史/第三方导入策略）",
           "url_policy": "go2-moe-cts",
-          "ready_ms": 266
+          "ready_ms": 297
         }
       },
       {
@@ -50,7 +50,7 @@
         "ok": true,
         "detail": {
           "clock_before": 1.16,
-          "clock_after": 1.74
+          "clock_after": 1.7
         }
       },
       {
@@ -60,15 +60,15 @@
           "select": "go2-arenax-velocity",
           "status": "已就绪 · 策略 ONNX 没有元数据盖章，跳过契约校验（历史/第三方导入策略）",
           "url_policy": "go2-arenax-velocity",
-          "ready_ms": 766,
-          "switch_ms": 859
+          "ready_ms": 797,
+          "switch_ms": 891
         }
       },
       {
         "step": "onnx_http_fetch_b",
         "ok": true,
         "detail": {
-          "url": "http://127.0.0.1:50387/api/simulation/browser-package/unitree_go2/simulation/policies/go2_arenax_45x6.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-arenax-velocity%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_arenax_45x6.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A6%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22himloco_45_hist6%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789640763106"
+          "url": "http://127.0.0.1:65453/api/simulation/browser-package/unitree_go2/simulation/policies/go2_arenax_45x6.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-arenax-velocity%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_arenax_45x6.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A6%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22himloco_45_hist6%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789673435131"
         }
       },
       {
@@ -83,15 +83,15 @@
           "select": "go2-moe-cts",
           "status": "已就绪 · 策略 ONNX 没有元数据盖章，跳过契约校验（历史/第三方导入策略）",
           "url_policy": "go2-moe-cts",
-          "ready_ms": 766,
-          "switch_ms": 859
+          "ready_ms": 813,
+          "switch_ms": 907
         }
       },
       {
         "step": "onnx_http_fetch_a2",
         "ok": true,
         "detail": {
-          "url": "http://127.0.0.1:50387/api/simulation/browser-package/unitree_go2/simulation/policies/go2_moe_cts.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-moe-cts%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_moe_cts.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A10%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22go2_rl_sdk_45%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789640764478"
+          "url": "http://127.0.0.1:65453/api/simulation/browser-package/unitree_go2/simulation/policies/go2_moe_cts.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-moe-cts%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_moe_cts.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A10%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22go2_rl_sdk_45%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789673436571"
         }
       },
       {
@@ -130,22 +130,22 @@
             ]
           },
           "baseZ_after_0.5s_ff": {
-            "a": 0.3448,
-            "b": 0.1502,
+            "a": 0.3449,
+            "b": 0.0869,
             "a2": 0.3459
           },
           "quat_after_0.5s_ff": {
             "a": [
               0.9995,
-              -0.0144,
-              -0.0198,
-              0.0212
+              -0.0141,
+              -0.0199,
+              0.0207
             ],
             "b": [
-              0.0151,
-              0.9446,
-              -0.3273,
-              0.0204
+              0.9326,
+              0.3543,
+              0.001,
+              0.0693
             ]
           }
         }
@@ -158,7 +158,7 @@
     ],
     "ok": true,
     "assertions_passed": 13,
-    "total_ms": 13079,
+    "total_ms": 11625,
     "page_errors": [],
     "console_errors": [],
     "resource_errors": [],
@@ -176,30 +176,30 @@
         ]
       },
       "baseZ_after_0.5s_ff": {
-        "a": 0.3448,
-        "b": 0.1502,
+        "a": 0.3449,
+        "b": 0.0869,
         "a2": 0.3459
       },
       "quat_after_0.5s_ff": {
         "a": [
           0.9995,
-          -0.0144,
-          -0.0198,
-          0.0212
+          -0.0141,
+          -0.0199,
+          0.0207
         ],
         "b": [
-          0.0151,
-          0.9446,
-          -0.3273,
-          0.0204
+          0.9326,
+          0.3543,
+          0.001,
+          0.0693
         ]
       }
     },
     "first_error": null,
     "onnx_http_requests": [
-      "http://127.0.0.1:50387/api/simulation/browser-package/unitree_go2/simulation/policies/go2_moe_cts.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-moe-cts%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_moe_cts.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A10%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22go2_rl_sdk_45%22%2C%22history_layout%22%3A%22%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789640758925",
-      "http://127.0.0.1:50387/api/simulation/browser-package/unitree_go2/simulation/policies/go2_arenax_45x6.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-arenax-velocity%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_arenax_45x6.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A6%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22himloco_45_hist6%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789640763106",
-      "http://127.0.0.1:50387/api/simulation/browser-package/unitree_go2/simulation/policies/go2_moe_cts.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-moe-cts%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_moe_cts.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A10%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22go2_rl_sdk_45%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789640764478"
+      "http://127.0.0.1:65453/api/simulation/browser-package/unitree_go2/simulation/policies/go2_moe_cts.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-moe-cts%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_moe_cts.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A10%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22go2_rl_sdk_45%22%2C%22history_layout%22%3A%22%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789673430909",
+      "http://127.0.0.1:65453/api/simulation/browser-package/unitree_go2/simulation/policies/go2_arenax_45x6.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-arenax-velocity%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_arenax_45x6.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A6%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22himloco_45_hist6%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789673435131",
+      "http://127.0.0.1:65453/api/simulation/browser-package/unitree_go2/simulation/policies/go2_moe_cts.onnx?rev=%7B%22run_id%22%3A%22%22%2C%22policy_id%22%3A%22go2-moe-cts%22%2C%22onnx_url%22%3A%22%2Fapi%2Fsimulation%2Fbrowser-package%2Funitree_go2%2Fsimulation%2Fpolicies%2Fgo2_moe_cts.onnx%22%2C%22checkpoint%22%3A%22%22%2C%22checkpoint_iteration%22%3A164000%2C%22obs_dim%22%3A45%2C%22history_len%22%3A10%2C%22action_dim%22%3A12%2C%22action_scale%22%3A0.25%2C%22observation_kind%22%3A%22go2_rl_sdk_45%22%2C%22history_layout%22%3A%22frame_major%22%2C%22onnx_inputs%22%3A%5B%5D%2C%22onnx_outputs%22%3A%5B%5D%2C%22joint_order%22%3A%5B%22FL_hip_joint%22%2C%22FL_thigh_joint%22%2C%22FL_calf_joint%22%2C%22FR_hip_joint%22%2C%22FR_thigh_joint%22%2C%22FR_calf_joint%22%2C%22RL_hip_joint%22%2C%22RL_thigh_joint%22%2C%22RL_calf_joint%22%2C%22RR_hip_joint%22%2C%22RR_thigh_joint%22%2C%22RR_calf_joint%22%5D%7D-t1789673436571"
     ]
   },
   "defects": [
