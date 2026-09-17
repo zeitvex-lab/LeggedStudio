@@ -902,9 +902,12 @@
               gate.contract ? `gate 契约: ${gate.contract.ok ? '✅' : '❌'} / 形状数值: ${(gate.shape_numeric || {}).ok ? '✅' : '❌'}` : 'gate: 早期产物（无 gate 报告）',
             ];
             const box = document.createElement('div');
+            box.id = 'artifactSummaryBox';
             box.className = 'artifact-summary';
             box.style.cssText = 'font-size:12px;color:#1d2935;background:#f7fafc;border:1px solid #e8eff4;border-radius:6px;padding:8px;margin-top:8px;';
             box.innerHTML = lines.map((line) => `<div>${line}</div>`).join('');
+            const prevBox = document.getElementById('artifactSummaryBox');
+            if (prevBox) prevBox.remove();  // 轮询/手动刷新会重跑此处：先摘旧盒再挂新盒，避免重复堆叠
             artifactPill.parentElement.parentElement.appendChild(box);
           }).catch(() => {});
         }
@@ -945,12 +948,12 @@
 
         listEl.innerHTML = rows + exportRows + eventNote
           || '<div class="log-empty">尚无检查点（等待第一次 save_interval）</div>';
-        listEl.querySelectorAll('[data-copy-index]').forEach((button) => button.addEventListener('click', () => {
         listEl.querySelectorAll('[data-sim-index]').forEach((button) => button.addEventListener('click', () => {
           const params = new URLSearchParams({ task_id: taskId, checkpoint: button.dataset.ckptName || '' });
           if (button.dataset.ckptIteration) params.set('checkpoint_iteration', button.dataset.ckptIteration);
           window.open(`/web/sim2sim/index.html?${params.toString()}`, '_blank');
         }));
+        listEl.querySelectorAll('[data-copy-index]').forEach((button) => button.addEventListener('click', () => {
           const path = copyablePaths[Number(button.dataset.copyIndex)];
           if (path) copyText(path);
         }));

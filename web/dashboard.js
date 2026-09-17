@@ -3,7 +3,11 @@
  * 修复：连接到图形化训练界面
  */
 
-const API_BASE = 'http://127.0.0.1:8765';
+// Same-origin first (served by the control plane at any port); fall back to the
+// well-known desktop port only for file:// usage — matches training-common.js.
+const API_BASE = (location.protocol === 'http:' || location.protocol === 'https:')
+  ? location.origin
+  : 'http://127.0.0.1:8765';
 
 // ========== 初始化 ==========
 document.addEventListener('DOMContentLoaded', () => {
@@ -153,7 +157,7 @@ function openTraining() {
 }
 
 function openRobots() {
-  window.location.href = 'workbench.html#model';
+  window.location.href = 'workbench.html#robot';
 }
 
 function openAlgorithms() {

@@ -276,6 +276,9 @@ if (VIEWER_ONLY) document.body.classList.add("viewer-only");
 document.querySelectorAll('[data-surface="advanced"]').forEach((el) => {
   el.hidden = !SHOW_ADVANCED_PANELS;
 });
+// 高级仿真：左上角是传感器悬浮窗（sensor-dock），品牌卡（top:16/left:16）会和它叠在一起
+// （embedded 入口本来就隐藏 .brand，直连 URL 没有 embedded 类 → 补一个等价类，见 styles.css）。
+if (SHOW_ADVANCED_PANELS) document.body.classList.add("surface-advanced");
 document.title = `${SURFACE_LABEL} · Legged Studio`;
 const surfaceTitle = document.querySelector("#surfaceTitle");
 if (surfaceTitle) surfaceTitle.textContent = SURFACE_LABEL;
@@ -313,6 +316,7 @@ function renderDockSources() {
 /** 重建插件勾选表。改勾选后来源清单要跟着变，且当前来源可能被关掉 → 回落。 */
 function renderDockPlugins() {
   if (!dockPluginsBox) return;
+  dockPluginsBox.className = "dock-plugin-list"; // 列表网格样式在 CSS 里只挂在 .dock-plugin-list 上，重建内容时必须把类挂回去
   dockPluginsBox.innerHTML = SENSOR_PLUGINS.map((p) => `
     <label title="${p.hint}">
       <input type="checkbox" data-plugin="${p.id}"${dock.plugins[p.id] ? " checked" : ""} />
@@ -384,7 +388,14 @@ function syncMountGroupFlag(id) {
   if (group) group.classList.toggle("overridden", isMountOverridden(id, sensorMountOverrides));
 }
 
-if (dockRoot) dockRoot.hidden = !dock.visible;
+if (dockRoot) {
+  dockRoot.hidden = !dock.visible;
+  // 定位基准改挂 #viewer：dock 原是 .panel-left（滚动容器）的子元素，absolute 相对面板
+  // 解析会盖住面板状态行、且随面板滚动被裁掉；CSS 里 .sensor-dock 的注释有实测记录。
+  // viewer 是 fixed+inset:0 的全屏视口，dock 移进去后钉在视口左上角。
+  // （#viewer 按 id 现查：此时 elements 常量还没初始化，不能引用它。）
+  document.querySelector("#viewer")?.appendChild(dockRoot);
+}
 renderDockPlugins();
 renderDockSources();
 renderDockMounts();
