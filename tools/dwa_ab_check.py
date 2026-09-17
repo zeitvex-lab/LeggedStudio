@@ -55,6 +55,11 @@ from backend.geometric_tracker import (  # noqa: E402
 #: 三个"算法候选"，而浏览器实际跑的是这个状态机 —— 不测产品实际执行器，回归就没有意义。
 from backend.follow_controller import FollowController  # noqa: E402
 
+#: 「mpc」第五侧 = ``backend/mpc_tracker.py``（H14 可选对照）—— LightNav-0 ``vln_mpc``
+#: 的纯 Python 简化版（CasADi/IPOPT → 网格近似，简化清单见该文件头注释）。
+#: 定位是「可选对照项」而不是推荐（H14 结论：四个参考项目没有一个以 DWA/优化器为主线）。
+from backend.mpc_tracker import MpcParams, MpcTracker  # noqa: E402
+
 
 def _parse_waypoints(text: str | None, map_id: str) -> list[list[float]]:
     if text:
@@ -117,6 +122,9 @@ def simulate(
     follow_controller = (
         FollowController(path if len(path) >= 2 else waypoints) if mode == "follow" else None
     )
+    # ``mpc`` = H14 可选对照（LightNav-0 vln_mpc 简化版）。与 geometric 同样吃**参考路径**，
+    # 逐拍持有内部状态（追踪点下标 + 上一拍控制，供加减速首拍约束）。
+    mpc_tracker = MpcTracker(path, params=MpcParams.from_registry()) if mode == "mpc" else None
 
     for step in range(1, max_steps + 1):
         target = waypoints[min(index, len(waypoints) - 1)]
@@ -146,6 +154,11 @@ def simulate(
             follow_step = follow_controller.update([x, y, yaw], (step - 1) * dt)
             v, wz = follow_step.cmd[0], follow_step.cmd[2]
             decision = f"state={follow_step.state} wp={follow_step.waypoint_index}"
+        elif mode == "mpc":
+            # H14 可选对照（vln_mpc 简化版）：位姿对齐参考段 + 网格 MPC，逐拍喂上一拍控制
+            mpc_result = mpc_tracker.update([x, y, yaw])
+            v, wz = mpc_result["cmd"][0], mpc_result["cmd"][2]
+            decision = f"cost={mpc_result.get('cost')} cand={mpc_result.get('candidates')}"
         else:
             plan = plan_local(
                 [x, y, yaw], [prev_v, 0.0, prev_wz], path, obstacles, params=params
@@ -235,6 +248,7 @@ def run_ab(
     dwa = simulate("dwa", waypoints, path, obstacles, **common)
     geometric = simulate("geometric", waypoints, path, obstacles, **common)
     follow = simulate("follow", waypoints, path, obstacles, **common)
+    mpc = simulate("mpc", waypoints, path, obstacles, **common)
     return {
         "map_id": map_id,
         "waypoints": waypoints,
@@ -246,12 +260,14 @@ def run_ab(
         "dwa": dwa,
         "geometric": geometric,
         "follow": follow,
+        "mpc": mpc,
         "verdict": _verdict(
             {
                 "potential_field": potential,
                 "dwa": dwa,
                 "geometric": geometric,
                 "follow": follow,
+                "mpc": mpc,
             }
         ),
     }
@@ -305,6 +321,7 @@ def main() -> int:
         ("dwa", "DWA (采样择优)"),
         ("geometric", "几何跟踪 (d1_controller)"),
         ("follow", "跟随状态机 (H12 产品默认)"),
+        ("mpc", "MPC 对照 (vln_mpc 简化)"),
     ):
         result = report[key]
         print(

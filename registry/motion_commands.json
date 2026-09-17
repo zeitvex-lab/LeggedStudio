@@ -129,6 +129,29 @@
       "note": "全部字段 = d1_controller.cpp 同名 declare_parameter 的默认值（tracking_point_reached_xy_tolerance 0.20 / linear_gain 1.5 / lateral_gain 1.5 / heading_gain 2.5 / cross_track_angular_gain 1.0 / max_linear_speed 0.60 / max_lateral_speed 0.60 / max_angular_speed 1.50 / deadband 0.05）；LightNav-0 的 go2_adapter 提供安全与超时口径（见 H20）、tdt-nav-kit 的 kinodynamicAstar 提供 maxVel/maxAcc 的动力学约束口径（供将来评估，本模块暂用差速积分）"
     }
   },
+  "mpc_tracker": {
+    "note": "H14 可选对照控制器（controller: mpc）的**唯一参数真值**。参考实现 = 00_resources/LightNav-0/robot_deploy/src/vln_mpc/vln_mpc/mpc.py 的 MPCController（CasADi/IPOPT 位姿对齐单车 MPC）与其 mpc_node.py 的 ROS 参数（horizon 5 / dt 0.1 / w_max 3.0 / a_max_v 2.0 / a_max_w 5.0 / q_x q_y 10 / q_yaw 1 / r_v r_w 0.1；track_v_max 1.5 在本仓收敛到 nav 档 vx 上限 0.9，与 geometric/potential 同口径）。本仓纯 Python 版是它的**逐字段简化**（线性化 + 网格求解，详见 backend/mpc_tracker.py 头注释），这里只放与参考同名的参数。",
+    "horizon": 5,
+    "mpc_dt_s": 0.1,
+    "max_vx": 0.9,
+    "max_wz": 3.0,
+    "a_max_v": 2.0,
+    "a_max_w": 5.0,
+    "q_x": 10.0,
+    "q_y": 10.0,
+    "q_yaw": 1.0,
+    "r_v": 0.1,
+    "r_w": 0.1,
+    "w_grid_steps": 17,
+    "v_grid_steps": 5,
+    "evidence": {
+      "sources": [
+        "00_resources/LightNav-0/robot_deploy/src/vln_mpc/vln_mpc/mpc.py",
+        "00_resources/LightNav-0/robot_deploy/src/vln_mpc/vln_mpc/mpc_node.py"
+      ],
+      "note": "horizon 5 / mpc_dt_s 0.1 / a_max_v 2.0 / a_max_w 5.0 / q_x q_y 10 / q_yaw 1 / r_v r_w 0.1 = mpc_node.py 同名 declare_parameter 默认值；w_max 3.0 同源（本仓键名 max_wz）；max_vx 0.9 = 本仓 nav 档 vx 限速（参考 track_v_max 1.5 超出本仓运动指令档位，按 H9 口径收敛到 nav 档）；w_grid_steps / v_grid_steps 为本仓纯 Python 网格求解的分辨率（参考用 IPOPT 连续求解，无此参数）"
+    }
+  },
   "route_postprocess": {
     "note": "H13 规划后处理（净空四级 + 路径简化 + 转角混合）的**唯一参数真值**。判据与足迹半径取自 00_resources/rc_old/.../nav_tools/route_safety_check.py（`required_clearance = footprint_radius + avoid_margin`，`margin < 0 → VIOLATION`、`margin < warn_margin → TIGHT`）；简化容差取自 00_resources/tdt-nav-kit/src/YAstar/yastar.hpp 的 `simplifyPath(path, 0.1f)`；转角混合与段长上限取自 00_resources/rc_old/.../nav_tools/route_candidate_optimizer.py（`--max-segment-length 0.65`、`--min-speed 0.22`）。",
     "footprint_radius_m": 0.21,

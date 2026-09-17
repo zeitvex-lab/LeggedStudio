@@ -245,6 +245,21 @@ def geometric_tracker_spec() -> dict[str, Any]:
     return dict(spec)
 
 
+def mpc_tracker_spec() -> dict[str, Any]:
+    """H14 可选对照控制器（mpc）参数（唯一真值在 ``registry/motion_commands.json#mpc_tracker``）。
+
+    与 :func:`geometric_tracker_spec` / :func:`local_planner_spec` 同源同理：数字是数据，
+    缺块即报错、不回退默认值。字段出处见该块的 ``evidence``（vln_mpc 的 mpc_node.py）。
+    """
+    spec = load_registry("motion_commands").get("mpc_tracker")
+    if not isinstance(spec, dict) or not spec:
+        raise ValueError(
+            "registry/motion_commands.json 缺 mpc_tracker 块；"
+            "MPC 对照参数只有这一处真值，缺失即报错（不回退到代码默认值）"
+        )
+    return dict(spec)
+
+
 def route_postprocess_spec() -> dict[str, Any]:
     """H13 规划后处理参数（唯一真值在 ``registry/motion_commands.json#route_postprocess``）。
 

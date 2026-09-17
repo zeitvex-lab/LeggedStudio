@@ -69,6 +69,20 @@ CONTROLLER_CATALOG: tuple[dict[str, str], ...] = (
         "params_source": "registry/motion_commands.json#local_planner",
         "evidence": "四个参考项目均未以其为主线；保留理由是净空硬约束 + 候选扇形可视化，以及作为回归里的负面对照",
     },
+    {
+        "name": "mpc",
+        "label": "MPC 对照（LightNav vln_mpc 简化）",
+        "role": "alternative",
+        "implementation": "backend/mpc_tracker.py",
+        "params_source": "registry/motion_commands.json#mpc_tracker",
+        "evidence": (
+            "H14 可选对照项；出处 00_resources/LightNav-0/robot_deploy/src/vln_mpc/vln_mpc/mpc.py"
+            "（CasADi/IPOPT 单车 MPC）+ mpc_node.py，本仓为纯 Python 网格近似（简化清单见实现头注释）。"
+            "2026-09-17 实测（warehouse 7 路线）：通过率与 geometric 并列 1.00，速度最快"
+            "（均值 6.2 s vs 12.6 s），但最小净空 -0.049（leg_2_3 有 4 步穿障）劣于 geometric 的 0.170——"
+            "结论：geometric 仍是推荐，mpc 定位为速度参照 + 净空反例"
+        ),
+    },
 )
 
 #: H19 回归基线（实测来源）。文件缺失时**如实标 missing**，不编造数字。
