@@ -3920,6 +3920,9 @@ if (DEBUG_ENABLED) {
         targetCmd: Array.from(sim.targetCmd, round4),
         action: Array.from(sim.action, round4),
         policyEnabled: sim.policyEnabled,
+        // H12/E2E 观测：策略会话是否真的加载完（policyEnabled 只是开关，
+        // 加载没完成时 runPolicy 走 holdStance——机器人站桩不动）。
+        policyLoaded: Boolean(sim.policy && sim.policyInfo),
         paused: sim.paused,
       };
     },
@@ -6105,6 +6108,10 @@ async function initNavigationFromUrl() {
       runner: createNavigationRunner(payload, {
         maxCmd: Array.from(CONFIG.maxCmd),
         lookahead: Number(PAGE_PARAMS.get("nav_lookahead") || 0.6),
+        // H12 卡死恢复状态机需要真实时间：控制拍时长 = sim_dt × decimation。
+        // 传 getter（每拍求值）：模型合约（simulationDt/decimation）可能晚于导航初始化到达，
+        // 且热切换/换机型会改写 CONFIG——runner 每拍取最新值，避免快照过期。
+        controlDt: () => CONFIG.simulationDt * CONFIG.controlDecimation,
       }),
       status: null,
       lastControlStep: -1,
@@ -6154,7 +6161,12 @@ function applyNavigationCommand() {
   const controlStep = Math.floor(sim.counter / CONFIG.controlDecimation);
   if (sim.navigation.lastControlStep !== controlStep) {
     sim.navigation.lastControlStep = controlStep;
-    sim.navigation.status = sim.navigation.runner.tick(pose);
+    // 策略未就绪（ONNX 会话仍在加载，runPolicy 走 holdStance）时**不推状态机时钟**：
+    // H12 卡死/超时判据衡量的是"执行层接到指令却不动"；执行层还没接上时计时是
+    // 假卡死（冷启动实测：策略加载慢于场景 ⇒ 4s 内烧光 4 轮恢复、误判 stuck）。
+    if (sim.policy && sim.policyInfo) {
+      sim.navigation.status = sim.navigation.runner.tick(pose);
+    }
     renderNavigationHud();
     if (controlStep % TERRAIN_POLL_CONTROL_STEPS === 0) {
       pollTerrainPerception(pose, controlStep);
@@ -6183,11 +6195,25 @@ function renderNavigationHud(message = "", failed = false) {
   const status = sim.navigation?.status;
   if (!status) return;
   const legs = `${Math.max(0, status.reached - 1)}/${status.waypoint_count - 1}`;
-  hud.textContent = status.finished
-    ? `导航 ${sim.navigation.mapId} · 航段 ${legs} · 完成率 100% · 已完成`
-    : `导航 ${sim.navigation.mapId} · 航段 ${legs} · 完成率 ${Math.round(status.route_completion * 100)}%`
+  // H12 终止原因分层（抄 LightNav：策略结论 / 预算截断 / 判据未定义 分开）——
+  // 页面状态栏如实显示中文原因，不把 timeout/stuck/truncated 混称"已完成"。
+  const reasonText = {
+    complete: "到达判据触发，走完全程",
+    timeout: "单航点超时（策略结论）",
+    stuck: `卡死：恢复动作 ${status.recoveries_used}/${status.max_recoveries} 轮后仍无进展`,
+    truncated: "总时长预算拉停（非策略结论）",
+    undefined: "判据未定义（无有效航点）",
+  }[status.termination_reason] || null;
+  if (status.finished) {
+    hud.textContent = `导航 ${sim.navigation.mapId} · 航段 ${legs} · 完成率 ${Math.round(status.route_completion * 100)}%`
+      + (status.termination_reason === "complete" ? " · 已完成" : ` · 终止：${reasonText}`);
+  } else {
+    hud.textContent = `导航 ${sim.navigation.mapId} · 航段 ${legs} · 完成率 ${Math.round(status.route_completion * 100)}%`
       + ` · 容差 ${status.tolerance_m}m（稳定 ${status.stable_count}/${status.stable_ticks}）`
       + ` · 上限 vx${status.limits[0]} wz${status.limits[2]}`;
+    // 恢复中如实显示（卡死恢复是 H12 状态机动作，不是正常跟随）
+    if (status.stuck) hud.textContent += `\n卡死恢复中（第 ${status.recoveries_used}/${status.max_recoveries} 轮）`;
+  }
   const perception = sim.perception;
   if (perception?.lastReading) {
     const reading = perception.lastReading;

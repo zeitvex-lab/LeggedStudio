@@ -163,9 +163,14 @@ def nav_results(request):
             "note": (
                 "H3 验收口径：链路级缺陷（导航未接线/payload 缺 follow_controller 或 arrival/"
                 "fastForward 异常/页面自身 JS 错误）为 0 ⇒ 浏览器实测走完全程的链路成立。"
-                "控制器到达短板（h12_overshoot）是 H12 follow_controller 已知短板的同源表现"
-                "（lookahead 0.45 在拐角切角、vx=1.2 m/s 下过冲振荡使 stable_ticks=2 在容差 0.2m 内"
-                "无法连续满足），不改产品代码，如实记录为防退化基线。"
+                "2026-09-17 H12 浏览器侧收口：跟随器接入卡死检测/恢复动作/终止原因分层"
+                "（backend/follow_controller.py 同参数同语义），到达判定改按 "
+                "termination_reason==='complete'（此前 finished 混入了 timeout 等提前终止）。"
+                "测量口径修正：e2e 先等策略会话就绪（sample().policyLoaded）再快进，"
+                "且浏览器侧状态机时钟在策略加载完成前不计时（否则 holdStance 站桩被"
+                "误判成卡死——首轮实测 7/7 误判 stuck 即此竞态）。"
+                "h12_overshoot=跟随推进但 90s 内未到（过冲/振荡短板）；h12_no_follow=状态机判卡死"
+                "（stuck，含恢复轮数）或跟随未推进；如实记录为防退化基线。"
             ),
         },
         "classification_legend": {
@@ -241,9 +246,12 @@ def test_navigation_route(route: dict, page, base_url: str, console_watch, nav_r
         "policy_id": POLICY_ID,
         "started": False,
         "nav_wired": False,
+        "policy_wait_s": None,
         "path_nonempty": False,
         "followed": False,
         "arrived": False,
+        "termination_reason": None,
+        "recoveries_used": None,
         "sim_time_s": None,
         "final_pose": None,
         "final_error_m": None,
@@ -271,6 +279,18 @@ def test_navigation_route(route: dict, page, base_url: str, console_watch, nav_r
         except Exception as exc:
             link_problems.append(f"页面未在 {READY_TIMEOUT_S:.0f}s 内就绪: {exc}")
         else:
+            # 策略会话就绪才允许开始仿真：#loading 只代表 MuJoCo 场景就绪，
+            # ONNX 会话（sim.policy）晚于它——过早 fastForward 会测到 holdStance
+            # 站桩（指令正确但执行层没接上），把"没开始"误记成控制器短板。
+            policy_t0 = time.monotonic()
+            try:
+                page.wait_for_function(
+                    "() => window.__sim2simDebug?.sample?.()?.policyLoaded === true",
+                    timeout=READY_TIMEOUT_S * 1000,
+                )
+                row["policy_wait_s"] = round(time.monotonic() - policy_t0, 1)
+            except Exception as exc:
+                link_problems.append(f"策略会话未在 {READY_TIMEOUT_S:.0f}s 内加载（policyLoaded=false）: {exc}")
             # 导航已接线（initNavigationFromUrl 被调，payload 装配成功）
             try:
                 nav = page.evaluate("() => window.__sim2simDebug.navigation()")
@@ -330,8 +350,18 @@ def test_navigation_route(route: dict, page, base_url: str, console_watch, nav_r
                     sim_time += ff_chunk
                     nav_now = page.evaluate("() => window.__sim2simDebug.navigation()")
                     status = (nav_now or {}).get("status") or {}
+                    # H12 终止原因分层（LightNav 语义）：finished 只说明状态机停了，
+                    # **到达 = termination_reason === "complete"**——timeout/stuck 是
+                    # 策略结论（如实记为未到达），truncated 是预算拉停（非策略结论）。
                     if status.get("finished"):
-                        arrived = True
+                        termination = status.get("termination_reason")
+                        row["termination_reason"] = termination
+                        row["recoveries_used"] = status.get("recoveries_used")
+                        if termination == "complete":
+                            arrived = True
+                        else:
+                            # 状态机已终止且原因不是 complete：早停（stuck/timeout/truncated）
+                            break
                     # 位姿沿 path 推进检查
                     qpos = page.evaluate("() => window.__sim2simDebug.state().qpos")
                     if qpos and len(qpos) >= 2:
@@ -360,6 +390,8 @@ def test_navigation_route(route: dict, page, base_url: str, console_watch, nav_r
                     problems.append(
                         f"到达判据未触发（仿真 {sim_time:.1f}s，"
                         f"finished={status.get('finished')}, "
+                        f"termination_reason={status.get('termination_reason')}, "
+                        f"recoveries_used={status.get('recoveries_used')}, "
                         f"reached={status.get('reached')}/{status.get('waypoint_count')}, "
                         f"route_completion={status.get('route_completion')}）"
                     )
@@ -374,13 +406,26 @@ def test_navigation_route(route: dict, page, base_url: str, console_watch, nav_r
                     f"console.error x{len(console_watch['console_errors'])}: {console_watch['console_errors'][0]}"
                 )
     finally:
+        # H12 终止原因补录：90s 未终止的行回查一次最终状态（timeout/stuck/truncated 都要留痕）
+        if not row["arrived"] and row["nav_wired"] and row.get("termination_reason") is None:
+            try:
+                nav_final = page.evaluate("() => window.__sim2simDebug.navigation()")
+                status_final = ((nav_final or {}).get("status") or {})
+                row["termination_reason"] = status_final.get("termination_reason")
+                row["recoveries_used"] = status_final.get("recoveries_used")
+            except Exception:
+                pass
         row["total_ms"] = round((time.monotonic() - started_at) * 1000)
         row["page_errors"] = console_watch["page_errors"][:10]
         row["console_errors"] = console_watch["console_errors"][:10]
         row["resource_errors"] = console_watch["resource_errors"][:10]
-        # H12 短板分类：跟随在推进但没到 ⇒ 控制器过冲/振荡；完全没跟随 ⇒ 本体侵入/卡死（同属 H12 登记项）
+        # H12 短板分类：跟随在推进但没到 ⇒ 控制器过冲/振荡；完全没跟随 ⇒ 本体侵入/卡死（同属 H12 登记项）。
+        # 状态机终止原因参与分类：stuck ⇒ h12_no_follow（本体卡死登记项）；
+        # timeout/未终止 + followed ⇒ h12_overshoot（过冲振荡从未稳定进容差）。
         if row["arrived"]:
             row["classification"] = "arrived"
+        elif row["termination_reason"] == "stuck":
+            row["classification"] = "h12_no_follow"
         elif row["followed"]:
             row["classification"] = "h12_overshoot"
         else:

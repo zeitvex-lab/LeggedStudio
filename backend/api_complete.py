@@ -32,10 +32,18 @@ from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # Force UTF-8 console output on Windows regardless of the active code page.
+# 保留模块级引用：多余的 TextIOWrapper 若被 GC 会在 __del__ 里 close 共享的底层
+# buffer，pytest capture 期间表现为 "ValueError: I/O operation on closed file"
+# （曾让所有 import 本模块的后端测试在 pytest 下全挂）。
+_UTF8_STDOUT_WRAPPERS: tuple = ()
 if sys.platform == 'win32':
     import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+    _UTF8_STDOUT_WRAPPERS = (
+        io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True),
+        io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', line_buffering=True),
+    )
+    sys.stdout = _UTF8_STDOUT_WRAPPERS[0]
+    sys.stderr = _UTF8_STDOUT_WRAPPERS[1]
 
 # Make the repository root importable when started as a plain script.
 # 统一自举：见 contracts/path_bootstrap.py。
@@ -821,9 +829,67 @@ async def get_system_info():
         "architecture": platform.machine(),
     }
 
+async def _gpu_status() -> dict:
+    """GPU 三态（cuda / cpu-only / unavailable）——**与 /api/health 口径同源**。
+
+    直接复用 ``adapters.mjlab.preflight.gpu_probe``（L0 体检的同一实现：nvidia-smi
+    子进程列设备 + 训练栈元数据判 cpu-only/unavailable，全程不 import torch）。
+    探测是子进程调用（nvidia-smi 最多 10s），放到线程池避免阻塞事件循环。
+    fail-soft：任何失败返回 ``unknown`` + 中文 reason，绝不让端点 500。
+    """
+    try:
+        from adapters.mjlab.preflight import gpu_probe
+
+        gpu = await run_in_threadpool(gpu_probe)
+        devices = gpu.get("devices") or []
+        mode = gpu.get("mode") or ("cuda" if devices else "unknown")
+        return {
+            "mode": mode,
+            "devices": devices,
+            "cpu_ready": bool(gpu.get("cpu_ready")),
+            "available": bool(gpu.get("available")),
+            "reason": gpu.get("reason"),
+            "status": "ok",
+        }
+    except Exception as exc:  # noqa: BLE001 — fail-soft：探测失败如实降级，不让端点 500
+        return {"mode": "unknown", "devices": [], "cpu_ready": False, "available": False,
+                "reason": f"GPU 探测失败：{exc}", "status": "error"}
+
+
+async def _mjlab_version_status() -> dict:
+    """MJLab 实装版本 —— 复用 training/runs.py 的 dist-info 读取（纯文件系统，不 import）。
+
+    venv 不存在 → ``not_installed``；存在但读不到 mjlab 的 dist-info → ``unknown``。
+    全程 fail-soft：探测异常返回 ``version=None`` + 中文 reason。
+    """
+    try:
+        project_root = Path(__file__).parent.parent
+        from contracts.path_bootstrap import adapter_venv_dir
+
+        venv_path = adapter_venv_dir(default=project_root / "adapters" / "mjlab" / ".venv")
+        if not venv_path.exists():
+            return {"version": None, "status": "not_installed",
+                    "reason": f"适配器 venv 不存在（{venv_path}）——先在启动器『配置运行环境』供应"}
+        from backend.training.runs import venv_package_versions
+
+        versions = await run_in_threadpool(venv_package_versions, venv_path)
+        version = versions.get("mjlab")
+        if not version:
+            return {"version": None, "status": "unknown",
+                    "reason": f"venv 存在但未读到 mjlab 的 dist-info（{venv_path}）"}
+        return {"version": version, "status": "installed", "reason": None}
+    except Exception as exc:  # noqa: BLE001 — fail-soft
+        return {"version": None, "status": "unknown", "reason": f"MJLab 版本读取失败：{exc}"}
+
+
 @app.get("/api/system/environment")
 async def get_environment_status():
-    """Report runtime environment status."""
+    """Report runtime environment status.
+
+    数据真值化（U11）：GPU 走 health 同源的 ``gpu_probe``，MJLab 版本走
+    ``venv_package_versions`` 的 dist-info 实装版本 —— 展示层不再硬编码占位。
+    控制面不 import torch/mjlab（dist-info 是读文件，不是 import）。
+    """
     project_root = Path(__file__).parent.parent
     embedded_python_value = os.environ.get("LEGGED_STUDIO_RUNTIME_PYTHON", "").strip()
     embedded_python = Path(embedded_python_value) if embedded_python_value else None
@@ -845,6 +911,14 @@ async def get_environment_status():
             "embedded": bool(embedded_python and embedded_python.exists()),
             "status": "installed" if exists else "not_installed",
         }
+    # U11：实装版本（dist-info 读文件，非 import）。venv 不存在时如实 not_installed；
+    # 探测失败/缺包时 version=None，状态与中文原因随 version_status 如实透出。
+    version_status = await _mjlab_version_status()
+    adapters["mjlab"]["version"] = version_status["version"]
+    adapters["mjlab"]["version_status"] = {
+        "status": version_status["status"],
+        "reason": version_status["reason"],
+    }
 
     return {
         "control_plane": {
@@ -854,6 +928,8 @@ async def get_environment_status():
             "status": "running"
         },
         "adapters": adapters,
+        # U11：GPU 三态，与 /api/health/layers 的 L0 同一探测实现（gpu_probe）。
+        "gpu": await _gpu_status(),
     }
 
 if __name__ == "__main__":
