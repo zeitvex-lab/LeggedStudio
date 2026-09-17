@@ -1,5 +1,48 @@
 {
   "schema_version": "map-library-1.0",
+  "categories": {
+    "field": "maps[].category",
+    "description": "展示层按 category 归组（地形下拉框 optgroup）。order 即组序；未声明或未知的 category 由消费端 fail-closed 落入 fallback 组（其他），绝不丢弃。",
+    "order": [
+      "basic",
+      "stairs",
+      "slope",
+      "platform",
+      "rough",
+      "complex"
+    ],
+    "definitions": {
+      "basic": {
+        "label": "基础平地",
+        "description": "平面或近平面环境：基线检查与热身用。"
+      },
+      "stairs": {
+        "label": "楼梯台阶",
+        "description": "规则踏步：上行 / 下行 / 双向交叉楼梯。"
+      },
+      "slope": {
+        "label": "坡道斜面",
+        "description": "连续斜面：上下坡走廊与横向斜坡，考验坡面附着与侧向平衡。"
+      },
+      "platform": {
+        "label": "高台障碍",
+        "description": "分级高台（30-100 cm）：考验越障与落点。"
+      },
+      "rough": {
+        "label": "崎岖起伏",
+        "description": "散布矮障碍块或圆柱凸台的粗糙起伏地面。"
+      },
+      "complex": {
+        "label": "综合场景",
+        "description": "复合功能场景（赛道计时、室内公寓），不属于单一地形性质。"
+      }
+    },
+    "fallback": {
+      "key": "other",
+      "label": "其他",
+      "description": "未分类或未知 category 的地图兜底组（数据中不应出现）。"
+    }
+  },
   "maps": [
     {
       "id": "flat",
@@ -7,7 +50,8 @@
       "path": "flat.xml",
       "kind": "env-only",
       "description": "无限平面 + 棋盘地面，所有机型的默认检查环境",
-      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）",
+      "category": "basic"
     },
     {
       "id": "stairs",
@@ -15,7 +59,8 @@
       "path": "stairs.xml",
       "kind": "env-only",
       "description": "上行楼梯，踏步高度阶梯递增",
-      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）",
+      "category": "stairs"
     },
     {
       "id": "cross_stairs",
@@ -23,7 +68,8 @@
       "path": "cross_stairs.xml",
       "kind": "env-only",
       "description": "双向交叉楼梯，上下行交替",
-      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）",
+      "category": "stairs"
     },
     {
       "id": "high_platforms",
@@ -31,7 +77,8 @@
       "path": "high_platforms.xml",
       "kind": "env-only",
       "description": "30-100 cm 高台群，考验越障与落点",
-      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）",
+      "category": "platform"
     },
     {
       "id": "cross_slope",
@@ -39,7 +86,8 @@
       "path": "cross_slope.xml",
       "kind": "env-only",
       "description": "横向斜坡，考验侧向平衡",
-      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）",
+      "category": "slope"
     },
     {
       "id": "race_track",
@@ -47,7 +95,8 @@
       "path": "race_track.xml",
       "kind": "env-only",
       "description": "环形赛道，适合速度跟踪计时",
-      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）"
+      "source": "web/sim2sim/assets/go2（1000framesai go2 参考）",
+      "category": "complex"
     },
     {
       "id": "rough",
@@ -55,7 +104,8 @@
       "path": "rough.xml",
       "kind": "env-only",
       "description": "散布矮障碍块的粗糙地面（沿自 ZEX-W 比赛场地）",
-      "source": "assets/robots/zex-w（rc_old 比赛场地）"
+      "source": "assets/robots/zex-w（rc_old 比赛场地）",
+      "category": "rough"
     },
     {
       "id": "slope",
@@ -63,7 +113,8 @@
       "path": "slope.xml",
       "kind": "env-only",
       "description": "15° 上下坡走廊：前平台 → 上坡 → 顶台（0.814 m）→ 下坡 → 后平台，宽 3.0 m",
-      "source": "布局取自 assets/robots/zex-w（rc_old 比赛场地）；坡道几何改用薄板倾斜——zex-w 原版用 size_z=1.5327 的厚板旋转，射线实测会露出悬空斜板并遮住顶台（x≈2.0 处出现 61°~78° 的墙）不可通行——坡度定为 15°"
+      "source": "布局取自 assets/robots/zex-w（rc_old 比赛场地）；坡道几何改用薄板倾斜——zex-w 原版用 size_z=1.5327 的厚板旋转，射线实测会露出悬空斜板并遮住顶台（x≈2.0 处出现 61°~78° 的墙）不可通行——坡度定为 15°",
+      "category": "slope"
     },
     {
       "id": "relief",
@@ -71,7 +122,8 @@
       "path": "relief.xml",
       "kind": "env-only",
       "description": "3×3 m 围场 + 三个固定圆柱凸台（沿自 microduck-simulator）",
-      "source": "assets/robots/microduck（microduck-simulator）"
+      "source": "assets/robots/microduck（microduck-simulator）",
+      "category": "rough"
     },
     {
       "id": "apartment",
@@ -79,7 +131,8 @@
       "path": "apartment.xml",
       "kind": "env-only",
       "description": "室内公寓场景（墙体与家具轮廓，原始几何）",
-      "source": "assets/robots/microduck（上游场景）"
+      "source": "assets/robots/microduck（上游场景）",
+      "category": "complex"
     }
   ]
 }

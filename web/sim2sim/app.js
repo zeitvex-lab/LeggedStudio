@@ -63,6 +63,8 @@ import {
 } from "./onnx_contract_check.js";
 import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
 import { applyTerrainSwitch, createNavigationRunner, poseFromQpos, NAVIGATION_VERSION } from "./navigation.js?v=0.55.0";
+// 地形归组（G5）：_index.json 分类快照 → optgroup 分组结构（纯函数，Node 单测覆盖）。
+import { groupTerrains } from "./terrain_groups.js?v=0.55.41";
 import { fanSegments, fanLineSegments } from "./dwa_fan.js?v=0.55.0";
 // Loaded on demand only for an explicitly selected policy.
 let ort = null;
@@ -2354,13 +2356,25 @@ function applyTerrainOptions(config) {
   const currentScene = resolveTerrainName(current, scenes);
   const flatScene = resolveTerrainName("flat", scenes);
   elements.terrainSelect.innerHTML = "";
-  scenes.forEach((sceneName) => {
-    const option = document.createElement("option");
-    option.value = sceneName;
+  // G5「地形与扰动归组」：按 category 用 <optgroup> 归组渲染。
+  // terrain entries（包声明 terrains + 公共地图库）带 id/label/path ——
+  // 有 category 用 category，没有的按 id 落到内置分类快照；未知的 fail-closed 进「其他」组。
+  const terrainEntries = scenes.map((sceneName) => {
     const manifestEntry = terrainOptions.find((item) => item?.path === sceneName);
-    option.textContent = manifestEntry?.label || terrainLabel(sceneName);
-    elements.terrainSelect.append(option);
+    return {
+      id: manifestEntry?.id || sceneBasename(sceneName).replace(/\.xml$/i, "").replace(/^scene_/, "").toLowerCase(),
+      label: manifestEntry?.label || terrainLabel(sceneName),
+      path: sceneName,
+    };
   });
+  const terrainGroups = groupTerrains(terrainEntries);
+  for (const group of terrainGroups) {
+    // 每组一个 <optgroup>（含「其他」兜底组——未分类/未知 category 的地图落这里，绝不消失）。
+    const optgroup = document.createElement("optgroup");
+    optgroup.label = group.label;
+    group.items.forEach((item) => optgroup.append(buildTerrainOption(item)));
+    elements.terrainSelect.append(optgroup);
+  }
   if (requested) {
     elements.terrainSelect.value = requested;
   } else if (flatScene) {
@@ -2375,6 +2389,13 @@ function applyTerrainOptions(config) {
 function terrainLabel(sceneName) {
   const key = sceneBasename(sceneName).replace(/\.xml$/i, "").replace(/^scene_/, "").toLowerCase();
   return TERRAIN_LABELS[key] || key.replace(/_/g, " ");
+}
+
+function buildTerrainOption(item) {
+  const option = document.createElement("option");
+  option.value = item.path;
+  option.textContent = item.label;
+  return option;
 }
 
 function activeRobotKey() {

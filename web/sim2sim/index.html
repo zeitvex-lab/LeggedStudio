@@ -57,12 +57,22 @@
           <label class="select-field">
             <span>地形</span>
             <select id="terrainSelect">
-              <option value="flat.xml">平地</option>
-              <option value="stairs.xml">楼梯</option>
-              <option value="cross_stairs.xml">交叉楼梯</option>
-              <option value="high_platforms.xml">高台（30-100 cm）</option>
-              <option value="cross_slope.xml">横坡</option>
-              <option value="race_track.xml">赛道</option>
+              <optgroup label="基础平地">
+                <option value="flat.xml">平地</option>
+              </optgroup>
+              <optgroup label="楼梯台阶">
+                <option value="stairs.xml">楼梯</option>
+                <option value="cross_stairs.xml">交叉楼梯</option>
+              </optgroup>
+              <optgroup label="坡道斜面">
+                <option value="cross_slope.xml">横坡</option>
+              </optgroup>
+              <optgroup label="高台障碍">
+                <option value="high_platforms.xml">高台（30-100 cm）</option>
+              </optgroup>
+              <optgroup label="综合场景">
+                <option value="race_track.xml">赛道</option>
+              </optgroup>
             </select>
           </label>
           <button id="playButton" type="button" title="暂停/继续（Space）">暂停</button>
@@ -218,10 +228,10 @@
           </div>
           <div class="payload-control">
             <div class="payload-control-row">
-              <span>附加负载</span>
+              <span>附加负载<span class="disturbance-badge" title="扰动注入：给机身挂载质量（负载扰动）">扰动</span></span>
               <output id="payloadMassLabel">0.0 kg</output>
             </div>
-            <input id="payloadMass" type="range" min="0" max="70" value="0" step="0.5" aria-label="附加负载（千克）" />
+            <input id="payloadMass" type="range" min="0" max="70" value="0" step="0.5" aria-label="附加负载（负载扰动）" />
           </div>
           <details class="com-offset-control">
             <summary>
@@ -248,10 +258,10 @@
           </details>
           <div class="payload-control terrain-friction-control">
             <div class="payload-control-row">
-              <span>接触摩擦力</span>
+              <span>接触摩擦力<span class="disturbance-badge" title="扰动注入：改变地面接触摩擦（地形扰动）">扰动</span></span>
               <output id="terrainFrictionLabel">0.70</output>
             </div>
-            <input id="terrainFriction" type="range" min="0" max="1.5" value="0.7" step="0.01" aria-label="接触摩擦力" />
+            <input id="terrainFriction" type="range" min="0" max="1.5" value="0.7" step="0.01" aria-label="接触摩擦力（地形扰动）" />
           </div>
           <details class="imu-axis-control">
             <summary>
