@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from backend.training.runs import canonical_digest, file_digest
+from contracts.validator import normalized_sha256
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -213,6 +214,8 @@ def scan_declarations(robots_dir: Path | str = ROBOTS_DIR) -> list[dict[str, Any
                     "task_type": entry.get("task_type"),
                     "algorithm": entry.get("algorithm"),
                     "declared_source": entry.get("source"),
+                    # 安装式产物的绑定（provenance.artifact_id 指向出库条目，verify 对账用）
+                    "provenance": entry.get("provenance") if isinstance(entry.get("provenance"), Mapping) else None,
                     "contract": entry.get("contract") if isinstance(entry.get("contract"), Mapping) else None,
                 })
     return declarations
@@ -410,7 +413,14 @@ def verify_artifacts(
     checked = 0
 
     for declaration in declarations:
-        artifact_id = artifact_id_for(str(declaration.get("robot")), str(declaration.get("policy_id")))
+        # 安装式产物（promote_from_run → install_produced_policy）的声明自带
+        # ``provenance.artifact_id``——它的包内策略 id（``<robot>-trained-<stamp>``）
+        # 与出库条目键（``<robot>__produced-...``）**本来就不同**，按 id 推导会误报
+        # "索引未覆盖"（G1 轮 B8 试点首例）。带 provenance 的声明优先按它对账。
+        provenance = declaration.get("provenance") if isinstance(declaration.get("provenance"), Mapping) else {}
+        artifact_id = str(provenance.get("artifact_id") or "") or artifact_id_for(
+            str(declaration.get("robot")), str(declaration.get("policy_id"))
+        )
         entry = recorded.get(artifact_id)
         if entry is None:
             problems.append(f"{artifact_id}：声明存在但索引未覆盖")
@@ -670,6 +680,11 @@ def promote_from_run(
         if attach_pack:
             attached = attach_policy_to_pack(robot_id, artifact_id=final_id, out_dir=out_dir)
             artifact["pack_ref"] = attached["policy_ref"]
+        # install/attach 回填的 policy_id / installation / pack_ref 必须落回索引：
+        # 第一次 write_out_index 在 install 之前，那时这些绑定还不存在——不重写的话
+        # 索引里的条目永远缺 policy_id，verify 的声明绑定对不上（B8 试点首例）。
+        if install or attach_pack:
+            write_out_index(out_dir, upsert=[artifact])
 
     return artifact
 
@@ -808,6 +823,13 @@ def install_produced_policy(
         "package_path": package_relative,
         "repo_path": _repo_relative_path(target),
     }
+    # 顶层绑定：包内策略 id 与契约块/digest 必须随安装落进索引——verify 按声明
+    # （id = <robot>-trained-<stamp>、contract 块）对账的就是这两样（B8 试点首例）。
+    updated["policy_id"] = policy_id
+    installed_contract = declared.get("contract")
+    if installed_contract:
+        updated["contract"] = installed_contract
+        updated["contract_digest"] = canonical_digest(installed_contract)
     artifact_path = Path(out) / artifact_id / ARTIFACT_NAME
     if artifact_path.is_file():
         artifact_path.write_text(
@@ -867,7 +889,10 @@ def attach_policy_to_pack(
     policy_ref: dict[str, Any] = {
         "id": artifact_id,
         "path": _repo_relative_path(Path(blob)),
-        "sha256": file_digest(blob),
+        # 与 morphology_ref / pack_catalog._content_sha256 同纪律：**归一摘要**
+        # （B40 口径）。file_digest 的原始字节口径对含 \r\n 序列的二进制 onnx
+        # 会与 catalog 校验必然分叉（B8 试点的三台 promote 当场暴露）。
+        "sha256": normalized_sha256(Path(blob).read_bytes()),
     }
     if entry.get("policy_id"):
         policy_ref["version"] = str(entry["policy_id"])
@@ -987,7 +1012,14 @@ def declaration_has_raw_path(declaration: Mapping[str, Any]) -> bool:
     这是"迁移进度"的判据：索引已能独立解析（见 :func:`policy_blob_path` 的第 ①② 条），
     所以裸路径字段的存在与否只影响**契约整洁度**，不影响功能 —— 因此删它们可以安全地
     排在消费者切换之后。
+
+    **豁免**：`provenance.origin == "product-training"` 的安装式声明——它们的 `path`
+    是产品自己写的解析载体（训练产物安装进包时组装），不是上游迁移债；其绑定由
+    `provenance.artifact_id` 承载（verify 对账认它）。
     """
+    provenance = declaration.get("provenance")
+    if isinstance(provenance, Mapping) and str(provenance.get("origin") or "") == "product-training":
+        return False
     for key in ("path", "url"):
         value = str(declaration.get(key) or "")
         if not value.lower().endswith(".onnx"):
@@ -1012,8 +1044,13 @@ def policy_reference(
     与"文件实际是什么"一旦分叉，立刻暴露。
     """
     index = index if index is not None else load_index()
-    artifact_id = declaration.get("artifact_id") or artifact_id_for(
-        str(declaration.get("robot")), str(declaration.get("policy_id")),
+    # 安装式声明的绑定在 provenance.artifact_id（包内策略 id 与出库键本就不同名）
+    provenance = declaration.get("provenance") if isinstance(declaration.get("provenance"), Mapping) else {}
+    provenance_id = str(provenance.get("artifact_id") or "")
+    artifact_id = (
+        declaration.get("artifact_id")
+        or provenance_id
+        or artifact_id_for(str(declaration.get("robot")), str(declaration.get("policy_id")))
     )
     blob = policy_blob_path(declaration, robot_dir=robot_dir, index=index)
     return {
@@ -1023,6 +1060,8 @@ def policy_reference(
         "routed_via": (
             "declaration.artifact_id"
             if declaration.get("artifact_id")
+            else "provenance.artifact_id"
+            if provenance_id
             else "policy.path/url"      # 尚未迁移：仍是裸路径声明
         ),
     }

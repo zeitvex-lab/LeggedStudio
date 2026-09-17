@@ -129,6 +129,25 @@
         "match": "family",
         "upstream": "robot_lab/.../velocity/config/quadruped/unitree_b2"
       }
+    },
+    {
+      "id": "unitree_b2-trained-20260918-015414",
+      "path": "simulation/policies/unitree_b2-trained-20260918-015414.onnx",
+      "provenance": {
+        "artifact_id": "unitree_b2__produced-unitree_b2_v1_20260918_015414_313841",
+        "run_id": "unitree_b2_v1_20260918_015414_313841",
+        "origin": "product-training",
+        "installed_at": "2026-09-17T17:54:48+00:00"
+      },
+      "label": "训练产物（run unitree_b2_v1_20260918_015414_313841）",
+      "obs_dim": 45,
+      "action_dim": 12,
+      "contract": {
+        "obs_dim": 48,
+        "action_dim": 12,
+        "observation_kind": "unknown"
+      },
+      "note": "B8 试点冒烟产物：observation 布局未逐项取证，显式标记 unknown（实际 obs[1,48]→actions[1,12]）"
     }
   ]
 }

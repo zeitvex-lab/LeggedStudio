@@ -1,0 +1,22 @@
+robot: deeprobotics_lite3
+policy_id: deeprobotics_lite3__produced-deeprobotics_lite3_v1_20260918_015331_730493
+kind: produced
+run_id: deeprobotics_lite3_v1_20260918_015331_730493
+seed: 7
+source_onnx: product-training（训练→导出→入库链路自产）
+obs_dim: 45
+action_dim: 12
+action_joint_order:
+  - FL_HipX_joint
+  - FL_HipY_joint
+  - FL_Knee_joint
+  - FR_HipX_joint
+  - FR_HipY_joint
+  - FR_Knee_joint
+  - HL_HipX_joint
+  - HL_HipY_joint
+  - HL_Knee_joint
+  - HR_HipX_joint
+  - HR_HipY_joint
+  - HR_Knee_joint
+trained_iterations: 5

@@ -57,7 +57,11 @@
     "sha256": "1d6ff32cf83313c86dea2236f1f28496de54140ada52e44934ea9c9b8a4d410d"
   },
   "scenario_ref": null,
-  "policy_ref": null,
+  "policy_ref": {
+    "id": "deeprobotics_lite3__produced-deeprobotics_lite3_v1_20260918_015331_730493",
+    "path": "workspace/packages/deeprobotics_lite3/simulation/policies/deeprobotics_lite3-trained-20260918-015331.onnx",
+    "sha256": "1449f515464b6f97c1190259122a8232c7dede27321e102a60df6ad721dd4e3b"
+  },
   "bindings": {
     "verify": {
       "require_contract_valid": true,
