@@ -45,42 +45,42 @@
     {
       "source_id": "mjlab_go2_mjcf",
       "path": "lain_job/RoboLab/resources/robots/unitree_go2/go2.xml",
-      "sha256": "e6c6dd9defeeaa1b129f0bb154b634a9fe8fa983b849e36f5cf5fbb30cdcbaf2",
+      "sha256": "ca90557ae26c93b9e5199ed0903b68d61a6f8ed0f649f301f97e0d8fa64e78bb",
       "supports": ["joints.canonical_order", "joints.mujoco_indices", "joints.deploy_indices"],
       "note": "Compiled qpos addresses are 7..18 in FL/FR/RL/RR order; actuator references are in FR/FL/RR/RL SDK order."
     },
     {
       "source_id": "go2_rl_gym_mjcf",
       "path": "kaiwu_rl/go2_rl_gym/resources/robots/go2/go2.xml",
-      "sha256": "10a0e07456b5fcff39f300556a98bc2e886d6487f194e79cc23833c8b658c067",
+      "sha256": "ff15ca7849a759e54b2d3606dc9733b9301980d5fdfe9edf68b1cc108247b2f1",
       "supports": ["joints.canonical_order", "joints.mujoco_indices"],
       "note": "The articulated joints compile at qpos addresses 7..18 in FL/FR/RL/RR order."
     },
     {
       "source_id": "go2_rl_gym_mujoco_config",
       "path": "kaiwu_rl/go2_rl_gym/deploy/deploy_mujoco/configs/go2.yaml",
-      "sha256": "3aaaa773399af995fd1b2e960ef9dba104f092a516dba58927929fa073f371a1",
+      "sha256": "cc7ffcde15c4e9535a1ec8eacf3470e810ceac6192da3077078f8f580c7fe58f",
       "supports": ["joints.canonical_order", "joints.training_indices", "control_hz", "action_scale", "default_pose"],
       "note": "Declares identical model and MuJoCo joint-name lists, 0.002 s simulation step with decimation 10, and the policy defaults."
     },
     {
       "source_id": "go2_rl_gym_real_config",
       "path": "kaiwu_rl/go2_rl_gym/deploy/deploy_real/configs/go2.yaml",
-      "sha256": "e6b83bcef1a4a64cb186977ec8202cb519f7b5266922287afe04fd5ddaa6d1ed",
+      "sha256": "233fe98aaff3280f8f1ec6c42e51def33b7abe2ecba4cc3c14b57292606af382",
       "supports": ["joints.deploy_indices", "control_hz", "action_scale", "default_pose"],
       "note": "Declares joint2motor_idx and a 0.02 s control step."
     },
     {
       "source_id": "unitree_rl_lab_go2_asset",
       "path": "uni_rl/unitree_rl_lab/source/unitree_rl_lab/unitree_rl_lab/assets/robots/unitree.py",
-      "sha256": "98631185e13326435c9c0585a883608ed339c476d571d767b291c57c0074a1a8",
+      "sha256": "5bb4d9b8cabfde167b0f905d0cfa63a2d8a6ab0209077c4885997edbc25c6a62",
       "supports": ["joints.deploy_indices", "actuated_joint_names", "default_pose"],
       "note": "Declares Go2 SDK order FR/FL/RR/RL and joint default expressions."
     },
     {
       "source_id": "unitree_rl_lab_go2_task",
       "path": "uni_rl/unitree_rl_lab/source/unitree_rl_lab/unitree_rl_lab/tasks/locomotion/robots/go2/velocity_env_cfg.py",
-      "sha256": "12b8cbe03c88a71795c76311d4d4152f79c12da1e6f3fdd7dfb4a4f083e2d352",
+      "sha256": "56859832148dacc724ddba3954a7684b99a43560e4fde561f6361b9daa051b56",
       "supports": ["control_hz", "action_scale"],
       "note": "Uses simulation dt 0.005 s with decimation 4 and action scale 0.25."
     }

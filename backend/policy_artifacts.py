@@ -59,11 +59,15 @@ _DEPLOY_FIELDS = (
 # 声明扫描
 # --------------------------------------------------------------------------------------
 def _repo_relative(path: Path) -> str:
-    """仓库相对路径（posix）。不在仓库内时退回绝对路径 —— 不抛异常（外部/临时目录也会走到这里）。"""
+    """仓库相对路径（posix）。不在仓库内时退回绝对路径 —— 不抛异常（外部/临时目录也会走到这里）。
+
+    回退分支也必须 ``as_posix()``：这些字符串会写进 pack/artifact 的 JSON（``policy_ref.path``、
+    ``source_onnx``），反斜杠会让同一份产物在 Windows 写出、Linux 复核时对不上（2026-09-17）。
+    """
     try:
         return path.resolve().relative_to(ROOT).as_posix()
     except ValueError:
-        return str(path)
+        return path.as_posix()
 
 
 def _load_json(path: Path) -> Any:
@@ -488,7 +492,7 @@ def promote_produced_policy(
         "schema": ARTIFACT_SCHEMA,
         "artifact_id": artifact_id,
         "kind": "produced",
-        "source_onnx": str(blob.relative_to(ROOT).as_posix()) if blob.is_relative_to(ROOT) else str(blob),
+        "source_onnx": str(blob.relative_to(ROOT).as_posix()) if blob.is_relative_to(ROOT) else blob.as_posix(),
         "onnx_sha256": file_digest(blob),
         "onnx_bytes": blob.stat().st_size,
         "run_id": run_id,
@@ -706,7 +710,7 @@ def _repo_relative_path(path: Path) -> str:
     try:
         return path.resolve().relative_to(ROOT).as_posix()
     except ValueError:
-        return str(path)
+        return path.as_posix()  # 与 _repo_relative 同纪律：序列化进 JSON 的路径一律 posix 分隔符
 
 
 def _write_json_atomic(path: Path, payload: Any) -> None:

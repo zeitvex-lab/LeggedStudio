@@ -31,12 +31,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import pickle
 import re
 from pathlib import Path
 from typing import Any
+
+from contracts.validator import normalized_sha256
 
 ROOT = Path(__file__).resolve().parents[1]
 ROBOTS_DIR = ROOT / "assets" / "robots"
@@ -116,7 +117,10 @@ def _read_json(path: Path) -> Any:
 
 def _sha256(path: Path) -> str | None:
     try:
-        return hashlib.sha256(path.read_bytes()).hexdigest()
+        # B39 口径（2026-09-17 对齐）：规范化内容哈希（CRLF → LF）。5 个浏览器 CSV 是文本文件，
+        # Windows 检出是 CRLF，原始字节哈希会与注册表里按 LF 记的值必然不符；
+        # 二进制（pkl/npz）不含 \r\n 序列则逐字节等价，口径统一无副作用。
+        return normalized_sha256(path.read_bytes())
     except OSError:
         return None
 

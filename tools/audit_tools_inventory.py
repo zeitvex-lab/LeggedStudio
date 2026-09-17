@@ -91,10 +91,10 @@ def _corpus() -> dict[str, str]:
     for path in _tool_files():
         if path.name == "audit_tools_inventory.py":
             continue
-        texts[str(path.relative_to(ROOT))] = path.read_text(encoding="utf-8", errors="replace")
+        texts[path.relative_to(ROOT).as_posix()] = path.read_text(encoding="utf-8", errors="replace")
     # 测试引用也算
     for path in (ROOT / "backend").glob("test_*.py"):
-        texts[str(path.relative_to(ROOT))] = path.read_text(encoding="utf-8", errors="replace")
+        texts[path.relative_to(ROOT).as_posix()] = path.read_text(encoding="utf-8", errors="replace")
     return texts
 
 

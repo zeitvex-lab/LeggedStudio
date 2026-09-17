@@ -13,6 +13,24 @@ from contracts.robot_contract_v2 import RobotContractV2
 from contracts.asset_paths import resolve_asset_path
 
 
+def normalize_line_endings(data: bytes) -> bytes:
+    """CRLF → LF。归一规则全仓只此一份实现（B39 口径：一个工件只有一个哈希）。
+
+    为什么不做原始字节：同一份资产在 Windows（CRLF 检出 / 文本写入）与 Linux/CI（LF 检出）
+    会得到**两个**哈希，``urdf.hash`` 这类"模型有没有被改过"的判据一旦随平台漂移，
+    就只剩下"在某一台机器上自洽"。归一化只动行尾，仍能检出内容改动
+    （改一个字符哈希就变），不会掩盖模型漂移。
+    实现上调用方必须**整份读入再归一**：分块读时 ``\\r\\n`` 可能恰好被切在两块之间，
+    跨块的那一处会漏归一 —— 这种错随文件长度随机出现，最难查。
+    """
+    return data.replace(b"\r\n", b"\n")
+
+
+def normalized_sha256(data: bytes) -> str:
+    """规范化内容 SHA-256（CRLF → LF 后摘要），与 ``pack_catalog._content_sha256`` 同口径。"""
+    return hashlib.sha256(normalize_line_endings(data)).hexdigest()
+
+
 @dataclass
 class ValidationError:
     """验证错误"""
@@ -252,21 +270,8 @@ class RobotContractValidator:
 
     @staticmethod
     def _compute_file_hash(file_path: Path) -> str:
-        """计算文件的 SHA-256 哈希（**规范化内容哈希：CRLF → LF**）。
-
-        为什么不做原始字节哈希：同一份资产在 Windows（CRLF 检出）与 Linux/CI（LF 检出）
-        会得到**两个**哈希，而 ``urdf.hash`` 这种"模型有没有被改过"的判据一旦随平台漂移，
-        就只剩下"在某一台机器上自洽"——``backend/pack_catalog._content_sha256`` 与
-        ``tools/generate_packs.py::_sha256`` 早已是这个口径，这里对齐，
-        **一个工件只有一个哈希**（2026-09-16 收口 B27 登记的存量不一致）。
-
-        归一化只动行尾，**仍能检出内容改动**（改一个字符哈希就变），不会掩盖模型漂移。
-
-        实现上必须**整份读入再归一**：分块读时 ``\\r\\n`` 可能恰好被切在两块之间，
-        跨块的那一处会漏归一 —— 这种错随文件长度随机出现，最难查。
-        """
-        data = Path(file_path).read_bytes()
-        return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
+        """计算文件的规范化 SHA-256（CRLF → LF）。规则与理由见模块级 ``normalized_sha256``。"""
+        return normalized_sha256(Path(file_path).read_bytes())
 
 
 # ========== 便捷函数 ==========
