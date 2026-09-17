@@ -47,7 +47,9 @@ from backend.scenario_maps import MAPS  # noqa: E402
 from tools.dwa_ab_check import reference_path, simulate  # noqa: E402
 
 BASELINE_PATH = ROOT / "tools/baselines/route_regression_baseline.json"
-ALL_CONTROLLERS = ("follow", "geometric", "potential", "dwa")
+#: ``mpc`` = H14 可选对照（LightNav-0 vln_mpc 简化版，backend/mpc_tracker.py）——
+#: 定位是「可选对照项」，不进默认控制器集合（默认 = follow/geometric/potential）。
+ALL_CONTROLLERS = ("follow", "geometric", "potential", "dwa", "mpc")
 LEVELS = ("OK", "TIGHT", "VIOLATION", "INTERSECT")
 
 
@@ -322,7 +324,7 @@ def main() -> int:
         "--controllers",
         default="follow,geometric,potential",
         help=f"逗号分隔，可选 {','.join(ALL_CONTROLLERS)}"
-        "（默认含 follow = 产品实际默认执行器，不含 dwa：采样式规划器较慢）",
+        "（默认含 follow = 产品实际默认执行器，不含 dwa/mpc：较慢的可选对照，用 --with-dwa 或显式列入）",
     )
     parser.add_argument("--with-dwa", action="store_true", help="临时把 dwa 加进控制器集合")
     parser.add_argument("--waypoints", default=None, help='"x,y;x,y"（覆盖地图默认航点）')
