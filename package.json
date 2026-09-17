@@ -1,6 +1,6 @@
 {
   "name": "legged-studio",
-  "version": "0.55.40",
+  "version": "0.55.41",
   "description": "Legged Robot RL Studio - Desktop Launcher",
   "main": "electron/launcher/main.js",
   "scripts": {
@@ -24,9 +24,10 @@
     "test:sensors": "node web/sim2sim/sensor_panels.test.mjs",
     "test:raycast": "node web/sim2sim/raycast.test.mjs",
     "test:dock": "node web/sim2sim/sensor_dock.test.mjs",
+    "test:onnx-meta": "node web/sim2sim/onnx_contract_check.test.mjs",
     "check:docs": "uv run --no-sync python tools/doc_reality_check.py",
     "test:contracts": "uv run --no-sync python -m unittest discover -s contracts/tests -p \"test_*.py\" -v",
-    "test:all": "npm run test && npm run test:contracts && npm run test:obs && npm run test:nav && npm run test:fan && npm run test:sensors && npm run test:raycast && npm run test:dock && npm run check:docs && npm run check:licenses && npm run check:motions",
+    "test:all": "npm run test && npm run test:contracts && npm run test:obs && npm run test:nav && npm run test:fan && npm run test:sensors && npm run test:raycast && npm run test:dock && npm run test:onnx-meta && npm run check:docs && npm run check:licenses && npm run check:motions",
     "check:licenses": "uv run --no-sync python tools/audit_licenses.py",
     "check:motions": "uv run --no-sync python tools/audit_motions.py"
   },
