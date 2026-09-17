@@ -10,7 +10,11 @@
 3. **三类判据**：`complete`（走完）/ `timeout`（单航点超时）/ `stuck`（恢复用尽），
    且**恢复动作真的发得出来**（vx<0、wz≠0、符号翻转）；
 4. **终止原因分层（抄 LightNav）**：`truncated`（预算拉停）与 `undefined` **不是策略结论**
-   （`details.is_strategy_verdict == False`），不许与 `stuck/timeout` 混为一谈。
+   （`details.is_strategy_verdict == False`），不许与 `stuck/timeout` 混为一谈；
+5. **卡死进展按"目标导向运动"登记（v0.55.46 收口第 2 条裁决）**：拐角航向差 90°+ 的
+   原地急转/切角追赶**不得误触恢复动作**（进展 = 到前视目标距离缩短，或 turn_in_place
+   期间航向误差收敛 ≥ stuck_turn_progress_deg）；被夹住（位置与朝向全冻结）的真卡死
+   **仍必须触发**恢复直至 stuck——急转豁免不许吞掉真卡死。
 """
 
 from __future__ import annotations
@@ -26,8 +30,12 @@ from backend.motion_commands import follow_controller_spec
 DT = 0.02
 
 
-def _simulate(controller: FollowController, *, start=(0.0, 0.0, 0.0), freeze=False, max_steps=4000):
-    """按控制周期推进：默认把 cmd 积分为位姿变化（简单单车积分）；freeze=True 模拟卡住不动。"""
+def _simulate(controller: FollowController, *, start=(0.0, 0.0, 0.0), freeze=False, max_steps=4000, yaw_efficiency=1.0):
+    """按控制周期推进：默认把 cmd 积分为位姿变化（简单单车积分）；freeze=True 模拟卡住不动。
+
+    yaw_efficiency < 1 模拟真机转向跟踪滞后（指令 wz 只兑现一部分——浏览器实测 180°
+    原地急转的无位移时长因此超过 stuck_timeout_s，是误触卡死的现场）。
+    """
     x, y, yaw = start
     t = 0.0
     steps = []
@@ -39,7 +47,7 @@ def _simulate(controller: FollowController, *, start=(0.0, 0.0, 0.0), freeze=Fal
         if not freeze:
             x += step.cmd[0] * math.cos(yaw) * DT
             y += step.cmd[0] * math.sin(yaw) * DT
-            yaw = normalize_angle(yaw + step.cmd[2] * DT)
+            yaw = normalize_angle(yaw + step.cmd[2] * yaw_efficiency * DT)
         t += DT
     return steps, x, y, yaw, t
 
@@ -54,6 +62,7 @@ class FollowParamsTests(unittest.TestCase):
         self.assertEqual(params.turn_in_place_enter_deg, 70.0)
         self.assertEqual(params.turn_in_place_exit_deg, 18.0)
         self.assertEqual(params.stuck_timeout_s, 4.0)
+        self.assertEqual(params.stuck_turn_progress_deg, 15.0)
         self.assertEqual(params.max_recoveries, 4)
         self.assertEqual(params.recovery_vx_factor, -0.10)
         self.assertEqual(params.recovery_wz_factor, 0.45)
@@ -61,6 +70,7 @@ class FollowParamsTests(unittest.TestCase):
         for field, key in (
             ("lookahead_m", "lookahead_m"), ("max_vx", "max_vx"), ("kp_dist", "kp_dist"),
             ("kp_yaw", "kp_yaw"), ("max_wz", "max_wz"), ("stuck_timeout_s", "stuck_timeout_s"),
+            ("stuck_turn_progress_deg", "stuck_turn_progress_deg"),
         ):
             with self.subTest(field=field):
                 self.assertEqual(getattr(params, field), spec[key])
@@ -130,6 +140,58 @@ class FollowLawTests(unittest.TestCase):
         params = controller.params
         step = controller.update([0.0, 0.0, math.radians(60)], 0.0)
         self.assertLessEqual(abs(step.cmd[2]), params.max_wz + 1e-9)
+
+
+class CornerProgressTests(unittest.TestCase):
+    """v0.55.46 收口第 2 条：拐角急转不误触卡死恢复；被夹住的真卡死仍触发。
+
+    误触机理（改前实测）：拐角航向差大 ⇒ 前视目标切到下一段 ⇒ 原地转/切角后机器人
+    追的是新方向，而**当前航点在身后**——按旧口径（到当前航点的距离）4s 无进展 ⇒
+    误发恢复动作（135° 拐角首轮实测 5.88s 触发、180° 折返 30s 内烧光 4 轮判 stuck）。
+    """
+
+    def test_sharp_corner_waypoint_registers_pursuit_progress(self):
+        """航向差 135° 的拐角航点：切角追赶前视目标算进展，不得误发恢复动作。"""
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0], [0.0, 2.0]])
+        steps, *_ = _simulate(controller)
+        self.assertEqual(
+            [s for s in steps if s.event == "recovery"],
+            [],
+            "拐角切角追赶前视目标是进展，不得误触恢复动作",
+        )
+        verdict = controller.verdict()
+        self.assertEqual(verdict["recoveries_used"], 0)
+        # 切角几何上绕过了当前航点（H12 已登记的"lookahead 0.45 拐角切角"短板，
+        # 此前被误触卡死的挣扎掩盖）⇒ 终止是**航点超时**（策略结论），不是卡死——
+        # 终止原因分层不得因卡死口径修正而混淆。
+        self.assertEqual(verdict["termination_reason"], "timeout")
+        self.assertEqual(verdict["verdict"], "fail")
+        self.assertTrue(verdict["details"]["is_strategy_verdict"])
+
+    def test_fold_back_slow_pivot_beyond_stuck_window_keeps_rotating(self):
+        """180° 折返 + 转向跟踪打折（0.5×，真机滞后现场）：原地转远超 4s 不得误触恢复。"""
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0], [0.5, 0.0]])
+        steps, *_ = _simulate(controller, yaw_efficiency=0.5)
+        self.assertEqual(
+            [s for s in steps if s.event == "recovery"],
+            [],
+            "180° 慢速原地转：航向误差持续收敛 ⇒ 进展，不得误触恢复动作",
+        )
+        self.assertEqual(controller.verdict()["recoveries_used"], 0)
+        states = {s.state for s in steps}
+        self.assertIn("turn_in_place", states, "用例本身必须经过原地转阶段（否则没测到目标分支）")
+
+    def test_true_stuck_while_turning_still_triggers_recovery(self):
+        """航向差 130° ⇒ 持续发原地转指令，但位姿全冻结（被夹住转不动）⇒ 必须恢复。"""
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0], [0.0, 2.0]])
+        steps, *_ = _simulate(controller, start=(1.7, 0.0, 0.0), freeze=True)
+        recoveries = [s for s in steps if s.event == "recovery"]
+        self.assertTrue(recoveries, "朝向冻住的真卡死必须触发恢复（急转豁免不许吞掉它）")
+        self.assertLess(recoveries[0].cmd[0], 0.0, "恢复动作应后退")
+        self.assertNotEqual(recoveries[0].cmd[2], 0.0, "恢复动作应转向以脱困")
+        verdict = controller.verdict()
+        self.assertEqual(verdict["termination_reason"], "stuck")
+        self.assertEqual(verdict["verdict"], "fail")
 
 
 class VerdictTests(unittest.TestCase):
