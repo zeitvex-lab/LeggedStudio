@@ -21,6 +21,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from contracts.asset_paths import resolve_asset_path
+from contracts.validator import normalized_sha256, normalize_line_endings
 from backend.gl_env import ensure_headless_gl, render_error_hint
 from backend.robot_packages import write_package_manifest
 
@@ -48,17 +49,21 @@ def _content_hash(entries: Iterable[tuple[Path, bytes]]) -> str:
     digest 与"哪些文件 / 路径长什么样 / 内容是什么"完全绑定 ⇒ **同一份资产重复导入
     得到同一个 ``package_id``**（幂等），换掉一个 mesh 就得到新包（不可变，见 import 文档）。
 
-    两件必须一起成立的事（2026-09-16 I 组）：
+    三件必须一起成立的事（2026-09-16 I 组；第三件 2026-09-17 补，B39 同族收口）：
       * **上传与目录拷贝必须得到同一个 digest** —— Web 走 base64 上传、CLI 走 `onboard <dir>`
         目录拷贝，两条入口描述的是同一份资产，digest 不同就会产出两个包；
-      * 排序键是**包内相对路径**（``as_posix``），与调用方给的绝对路径无关。
+      * 排序键是**包内相对路径**（``as_posix``），与调用方给的绝对路径无关；
+      * **内容先 CRLF → LF 归一再摘要**（``contracts.validator.normalize_line_endings``，
+        全仓唯一实现）—— 上传的文本载荷经 universal newlines 到达时已是 LF，目录入口是
+        原始字节（Windows 文本写入产生 CRLF）；不归一的话同一份资产在两条入口/两个平台
+        得到两个 digest，正是 B39 拆掉的"同一工件两套哈希口径"在这条链上的残留。
     """
 
     digest = hashlib.sha256()
     for relative, data in sorted(entries, key=lambda pair: pair[0].as_posix()):
         digest.update(relative.as_posix().encode("utf-8"))
         digest.update(b"\0")
-        digest.update(data)
+        digest.update(normalize_line_endings(data))
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -457,7 +462,9 @@ def _validate(request: ModelValidationRequest) -> dict[str, Any]:
     warnings: list[str] = []
     try:
         raw = path.read_bytes()
-        digest = hashlib.sha256(raw).hexdigest()
+        # B39 口径：urdf.hash 必须是规范化哈希（与 contracts.validator._compute_file_hash 同一实现），
+        # 否则 Windows 文本写入的 CRLF 会让 onboard 写入的哈希与 verify package 的复算必然分叉。
+        digest = normalized_sha256(raw)
         try:
             root = ET.fromstring(raw)
         except ET.ParseError as exc:

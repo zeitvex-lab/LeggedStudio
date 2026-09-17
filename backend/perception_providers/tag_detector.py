@@ -90,21 +90,25 @@ def undistort_image(image: "np.ndarray", intrinsics: dict[str, Any]) -> "np.ndar
     * ``pinhole`` —— 无畸变，原样返回；
     * ``brown_conrady`` —— ``cv2.undistort``（radtan k1,k2,p1,p2,k3）；
     * ``fisheye_equidistant`` —— ``cv2.fisheye.undistortImage``（k1..k4）。
-    """
 
-    import cv2
+    ``cv2`` 是可选依赖：**直通分支（无系数 / pinhole）必须在 import 之前返回**，
+    否则没装 cv2 的环境连"无畸变档"都走不通（H31 声明的两态行为，2026-09-17 修正）。
+    """
 
     coefficients = [float(value) for value in (intrinsics.get("distortion") or [])]
     if not coefficients:
         return image
+    model = str(intrinsics.get("distortion_model") or "brown_conrady")
+    if model == "pinhole":
+        return image
+
+    import cv2
+
     k = np.array([[float(intrinsics["fx"]), 0.0, float(intrinsics["cx"])],
                   [0.0, float(intrinsics["fy"]), float(intrinsics["cy"])],
                   [0.0, 0.0, 1.0]], dtype=np.float64)
-    model = str(intrinsics.get("distortion_model") or "brown_conrady")
     if model == "fisheye_equidistant":
         return cv2.fisheye.undistortImage(image, k, np.asarray(coefficients, dtype=np.float64), Knew=k)
-    if model == "pinhole":
-        return image
     return cv2.undistort(image, k, np.asarray(coefficients, dtype=np.float64))
 
 

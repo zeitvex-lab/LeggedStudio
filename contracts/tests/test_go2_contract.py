@@ -7,6 +7,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from contracts import load_robot_contract
+from contracts.validator import normalized_sha256
 
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "go2.v1.json"
@@ -30,30 +31,18 @@ EXTERNAL_EVIDENCE_ROOTS = ("lain_job/", "kaiwu_rl/", "uni_rl/")
 #: 解析候选根（按顺序取第一个存在的）：仓库内历史布局 → 入库快照落点。
 EVIDENCE_ROOTS = (REPO_ROOT, REPO_ROOT / "00_resources")
 
-#: 已登记的"入库副本 = 不同修订"清单（只登记**路径**，不重签冻结哈希）：
-#: 这些路径在 `00_resources/` 下有文件，但内容不是 v1 契约冻结时那份，故不参与冻结哈希比对。
-#: 登记值 = 2026-09-16 实测的入库副本 sha256 与冻结值（仅供人工复核，不作断言）：
-#:   lain_job/RoboLab/resources/robots/unitree_go2/go2.xml
-#:     冻结 e6c6dd9defeeaa1b… / 入库 ca90557ae26c93b9…
-#:   kaiwu_rl/go2_rl_gym/resources/robots/go2/go2.xml
-#:     冻结 10a0e07456b5fcff… / 入库 ff15ca7849a759e5…
-#:   kaiwu_rl/go2_rl_gym/deploy/deploy_mujoco/configs/go2.yaml
-#:     冻结 3aaaa773399af995… / 入库 cc7ffcde15c4e953…
-#:   kaiwu_rl/go2_rl_gym/deploy/deploy_real/configs/go2.yaml
-#:     冻结 e6b83bcef1a4a64c… / 入库 233fe98aaff3280f…
-#:   uni_rl/unitree_rl_lab/source/unitree_rl_lab/unitree_rl_lab/assets/robots/unitree.py
-#:     冻结 98631185e1332643… / 入库 5bb4d9b8cabfde16…
-#:   uni_rl/unitree_rl_lab/source/unitree_rl_lab/unitree_rl_lab/tasks/locomotion/robots/go2/velocity_env_cfg.py
-#:     冻结 12b8cbe03c88a717… / 入库 56859832148dacc7…
-#: 想让它们回到强校验：把上游快照换成冻结时那份（或另立新契约、按新契约重签证据哈希）。
-IN_REPO_DIFFERENT_REVISION = frozenset({
-    "lain_job/RoboLab/resources/robots/unitree_go2/go2.xml",
-    "kaiwu_rl/go2_rl_gym/resources/robots/go2/go2.xml",
-    "kaiwu_rl/go2_rl_gym/deploy/deploy_mujoco/configs/go2.yaml",
-    "kaiwu_rl/go2_rl_gym/deploy/deploy_real/configs/go2.yaml",
-    "uni_rl/unitree_rl_lab/source/unitree_rl_lab/unitree_rl_lab/assets/robots/unitree.py",
-    "uni_rl/unitree_rl_lab/source/unitree_rl_lab/unitree_rl_lab/tasks/locomotion/robots/go2/velocity_env_cfg.py",
-})
+#: 已登记的"入库副本 = 不同修订"清单（只登记**路径**，不重签冻结哈希）。
+#:
+#: **2026-09-17 清空并重签（修正 2026-09-16 的误诊）**：当时把"冻结哈希 ≠ 入库副本哈希"
+#: 判成了"上游快照的不同修订"；2026-09-17 复测发现那 6 条的差异**逐条恰好等于
+#: CRLF→LF 归一差**（下表"入库"值 = 归一哈希）——是**行尾口味差**，不是内容差。
+#: 根因与 B39 同族：冻结哈希当年在 Windows 工作树按 CRLF 字节烤入，git blob 是 LF，
+#: 于是"匹配与否"随检出平台翻转（本机全匹配、CI 全不匹配 ⇒ 登记清单只在一边成立）。
+#: 处置：**6 条证据哈希全部重签为归一口径**（`contracts.validator.normalized_sha256`，
+#: 与 validator / pack_catalog / generate_packs 同口径），比对也改归一——任何机器、任何
+#: 检出方式下逐字节同判。登记清单随之清空；漂移守卫保持：今后内容真被换过 ⇒ 归一哈希
+#: 必然不符 ⇒ 无登记的差异照旧判红。
+IN_REPO_DIFFERENT_REVISION: frozenset = frozenset()
 
 #: 候选根都找不到的证据条数（仓库内确定化解析后：每台机器都是 0，故不再随机器漂）。
 EXTERNAL_EVIDENCE_COUNT = 0
@@ -89,7 +78,9 @@ class Go2ContractTest(unittest.TestCase):
                 None,
             )
             if source is not None:
-                actual = hashlib.sha256(source.read_bytes()).hexdigest()
+                # 归一口径比对（2026-09-17）：冻结哈希已重签为 CRLF→LF 归一值，
+                # 原始字节比对会随检出平台（autocrlf）翻转——见 IN_REPO_DIFFERENT_REVISION 的订正说明。
+                actual = normalized_sha256(source.read_bytes())
                 if actual == evidence.sha256:
                     continue  # 同修订：逐字节强校验通过
                 self.assertIn(
