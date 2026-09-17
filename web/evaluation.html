@@ -33,7 +33,7 @@
   <h3>历史报告</h3>
   <div id="q-list"><div class="empty-state">加载中...</div></div>
 </section></main><script>
-const API='http://127.0.0.1:8765',taskEl=document.querySelector('#task'),resultEl=document.querySelector('#result');async function load(){const r=await fetch(API+'/api/evaluation/list');const d=await r.json();taskEl.innerHTML=(d.tasks||[]).map(x=>`<option value="${x.task_id}">${x.robot} · ${x.task_id}</option>`).join('')||'<option value="">暂无可评估产物</option>'}async function run(){if(!taskEl.value)return;resultEl.innerHTML='<div class="empty-state">评估运行中...</div>';const r=await fetch(API+'/api/evaluation/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:taskEl.value,episodes:Number(document.querySelector('#episodes').value)})});const d=await r.json();if(!r.ok){resultEl.innerHTML=`<div class="empty-state">${d.detail||'评估失败'}</div>`;return}const x=d.result;resultEl.innerHTML=`<h2>${x.robot}</h2><p>${x.evaluated_env} · ${x.episodes} episodes</p><div class="result-grid"><div class="metric"><span>平均奖励</span><strong>${x.avg_reward.toFixed(3)}</strong></div><div class="metric"><span>奖励标准差</span><strong>${x.std_reward.toFixed(3)}</strong></div><div class="metric"><span>平均前进速度</span><strong>${x.avg_forward_velocity.toFixed(3)}</strong></div><div class="metric"><span>成功率</span><strong>${(x.success_rate*100).toFixed(1)}%</strong></div></div>`}document.querySelector('#run').onclick=run;load();
+const API=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://127.0.0.1:8765',taskEl=document.querySelector('#task'),resultEl=document.querySelector('#result');async function load(){const r=await fetch(API+'/api/evaluation/list');const d=await r.json();taskEl.innerHTML=(d.tasks||[]).map(x=>`<option value="${x.task_id}">${x.robot} · ${x.task_id}</option>`).join('')||'<option value="">暂无可评估产物</option>'}async function run(){if(!taskEl.value)return;resultEl.innerHTML='<div class="empty-state">评估运行中...</div>';const r=await fetch(API+'/api/evaluation/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:taskEl.value,episodes:Number(document.querySelector('#episodes').value)})});const d=await r.json();if(!r.ok){resultEl.innerHTML=`<div class="empty-state">${d.detail||'评估失败'}</div>`;return}const x=d.result;resultEl.innerHTML=`<h2>${x.robot}</h2><p>${x.evaluated_env} · ${x.episodes} episodes</p><div class="result-grid"><div class="metric"><span>平均奖励</span><strong>${x.avg_reward.toFixed(3)}</strong></div><div class="metric"><span>奖励标准差</span><strong>${x.std_reward.toFixed(3)}</strong></div><div class="metric"><span>平均前进速度</span><strong>${x.avg_forward_velocity.toFixed(3)}</strong></div><div class="metric"><span>成功率</span><strong>${(x.success_rate*100).toFixed(1)}%</strong></div></div>`}document.querySelector('#run').onclick=run;load();
 </script>
 <script>
 // E 组：质量矩阵（B11 八指标 / 四档）。
@@ -142,6 +142,31 @@ async function loadQualityReports() {
           <td>${escapeHtml(item.generated_at || "")}</td></tr>`).join("")
       }</tbody></table>`
     : '<div class="empty-state">还没有质量报告 —— 打包放行需要一份达标报告（未评测 ≠ 达标）</div>';
+}
+
+async function loadQualityRobots() {
+  const response = await fetch(API + "/api/robots/presets?summary=1");
+  if (!response.ok) throw new Error(`robots/presets ${response.status}`);
+  const data = await response.json();
+  const presets = data.presets || [];
+  qEl("q-robot").innerHTML = presets.length
+    ? '<option value="">选择机器人…</option>' + presets.map((item) =>
+        `<option value="${escapeHtml(item.robot_id)}">${escapeHtml(item.family || item.robot_id)}</option>`).join("")
+    : '<option value="">无可用机器人包</option>';
+}
+
+async function loadQualityPolicies() {
+  const robot = qEl("q-robot").value;
+  if (!robot) { qEl("q-policy").innerHTML = '<option value="">先选机器人</option>'; return; }
+  qEl("q-policy").innerHTML = '<option>加载中...</option>';
+  const response = await fetch(API + `/api/robots/presets/${encodeURIComponent(robot)}`);
+  if (!response.ok) { qEl("q-policy").innerHTML = '<option value="">策略清单不可用</option>'; return; }
+  const preset = await response.json();
+  // 与 browser-config 同口径：读包内 simulation/config.json 声明的策略 id
+  const policies = ((preset.simulation_config || {}).policies || []).filter((item) => item && item.id);
+  qEl("q-policy").innerHTML = policies.length
+    ? policies.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label || item.id)}</option>`).join("")
+    : '<option value="">该包未声明策略</option>';
 }
 
 qEl("q-robot").addEventListener("change", loadQualityPolicies);

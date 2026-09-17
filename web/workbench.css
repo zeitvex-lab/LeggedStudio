@@ -200,7 +200,10 @@ body.embedded .content { padding-top: 16px; }
 /* ===== 工作台形态重构：左侧六功能区 + 顶部工作流进度条 ===== */
 /* 侧栏与顶栏使用与内容卡片一致的浅色体系（白面板、浅灰描边、蓝色强调），
    避免深色导航壳与白色卡片并置造成的割裂感。 */
-.app-shell { display: flex; min-height: 100vh; }
+/* 工作台形态（侧栏 + 主区）才用横向 flex；topbar 形态的页面
+   （training_monitor / training_list / training_create 等）复用本样式表，
+   侧栏布局必须是纵向文档流，否则顶栏与内容会被并排挤压（2026-09-17 修） */
+.app-shell:has(.sidebar) { display: flex; min-height: 100vh; }
 .sidebar {
   width: 232px; flex: 0 0 232px; position: sticky; top: 0; height: 100vh;
   display: flex; flex-direction: column; gap: 8px; padding: 16px 12px 16px 6px;

@@ -53,7 +53,14 @@ export function createPieDepth({ sim, contract }) {
     const data = sim.data;
     let bid = -1;
     if (typeof sim.mujoco?.mj_name2id === "function" && sim.mujoco.mjtObj) {
-      bid = Number(sim.mujoco.mj_name2id(model, sim.mujoco.mjtObj.mjOBJ_BODY, BASE_BODY));
+      // mj_name2id 的 objtype 形参是 **int**（WASM toWireType），必须传枚举的数值。
+      // 直接把 emscripten 枚举对象（{value: 1}）传进去会每帧抛
+      // `Cannot convert "[object Object]" to int` —— 深度帧链路整个断掉，
+      // 页面表现为「当前策略无深度输入」+ 仿真时钟停在 0（app.js 各处都先过 enumValue）。
+      const objtype = sim.mujoco.mjtObj.mjOBJ_BODY?.value ?? sim.mujoco.mjtObj.mjOBJ_BODY;
+      if (Number.isFinite(Number(objtype))) {
+        bid = Number(sim.mujoco.mj_name2id(model, Number(objtype), String(BASE_BODY)));
+      }
     }
     if (bid < 0) {
       for (let b = 1; b < Number(model.nbody || 0); b += 1) {
