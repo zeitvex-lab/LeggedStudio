@@ -20,7 +20,13 @@ for native MJLab/Isaac adapters later.
   —— 出库索引对账（索引覆盖 / hash 一致 / produced 自完整性），不通过退出码 1；
 * ``pack list``     → :func:`backend.pack_catalog.pack_catalog`（与 ``tools/validate_packs.py`` 同源）；
 * ``run list``      → 扫描 ``workspace/`` 下含 ``run.json`` 的目录 + :func:`backend.training.runs.load_run`；
-* ``artifact list`` → :func:`backend.policy_artifacts.load_index`。
+* ``artifact list`` → :func:`backend.policy_artifacts.load_index`；
+* ``deploy gate <robot_id>``   → ``backend.export_gate.compare_contracts``
+  （与 ``GET /api/deploy/gate/{robot_id}`` 同一组成：包内 contract_v3 vs contract.json，
+  DENYLIST fail-closed，存在 blocker 退出码 1）；
+* ``deploy package <robot_id>`` → ``backend.deploy_pack.generate_deploy_package``
+  （与 ``POST /api/deploy/package`` 同一实现：部署四件套 + 平台适配层；只生成物料，
+  不直接发电机命令——一键生成 ≠ 一键上机）。
 
 因此这些命令**无需后端**（离线命令），只是参数解析与输出格式化在本文件完成。
 
@@ -678,6 +684,99 @@ def _cmd_verify_bundle(args: argparse.Namespace) -> int:
     return 0
 
 
+def _deploy_workspace(args: argparse.Namespace) -> None:
+    """``--workspace`` 是"**这个进程**的 workspace"：与 onboard 同约定，同步进环境变量，
+    让下游（backend.robot_packages 的包解析）看到同一处——否则"包在 A、解析按 B 判"。"""
+
+    if getattr(args, "workspace", None):
+        os.environ["LEGGED_STUDIO_WORKSPACE"] = str(Path(args.workspace).expanduser())
+
+
+def _cmd_deploy_gate(args: argparse.Namespace) -> int:
+    """``deploy gate <robot_id>``：部署契约校验（离线命令，无需后端）。
+
+    与 ``GET /api/deploy/gate/{robot_id}``（backend.deploy_api）**同一组成**：
+    ``backend.robot_presets.get_robot_preset`` 解析包根 → ``backend.deploy_pack._load_json``
+    读包内 contract_v3.json / contract.json → ``backend.export_gate.compare_contracts``
+    裁决（DENYLIST fail-closed，硬约束字段不一致即 deny）。判据只在 backend 有一份，
+    这里不另写字段比较。存在 blocker → 退出码 1（可直接当上机前门禁）。
+    """
+
+    from backend.deploy_pack import ROOT, _load_json
+    from backend.export_gate import compare_contracts
+    from backend.robot_presets import get_robot_preset
+
+    _deploy_workspace(args)
+    preset = get_robot_preset(args.robot_id)
+    root_value = str(((preset or {}).get("robot_package") or {}).get("package_root", ""))
+    root = Path(root_value) if root_value else ROOT / "assets" / "robots" / args.robot_id
+    if not root.is_dir():
+        raise SystemExit(f"deploy 失败：找不到机器人包 {args.robot_id!r}（按过 {root}）")
+
+    v3 = _load_json(root / "contract_v3.json")
+    v2 = _load_json(root / "contract.json")
+    missing = [name for name, value in (("contract_v3.json", v3), ("contract.json", v2)) if not value]
+    if missing:
+        raise SystemExit(f"deploy 失败：包内契约不全（缺 {' / '.join(missing)}）：{root}")
+
+    report = compare_contracts(v3, v2)
+    payload = {**report, "robot_id": args.robot_id, "package_root": str(root)}
+
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0 if report["ok"] else 1
+
+    print(f"部署契约校验（离线命令，无需后端）：{root}")
+    print(f"  机器人：{args.robot_id}（包内 contract_v3 vs contract.json，硬约束字段 fail-closed）")
+    for item in report.get("warnings") or []:
+        print(f"  ~ {item}")
+    blockers = report.get("blockers") or []
+    if blockers:
+        print(f"✗ 不通过（{len(blockers)} 项 blocker，处置 {report.get('disposition')}）：")
+        for item in blockers:
+            print(f"  - {item}")
+        print("（先回训练区让包内契约一致，再重新导出/打包——不一致即视为没准备好上机）")
+        return 1
+    print(f"✓ 通过（处置 {report.get('disposition')}，包内契约硬约束字段一致）")
+    return 0
+
+
+def _cmd_deploy_package(args: argparse.Namespace) -> int:
+    """``deploy package <robot_id>``：生成部署包 zip（离线命令，无需后端）。
+
+    打包逻辑全在 :func:`backend.deploy_pack.generate_deploy_package`（与 Web 的
+    ``POST /api/deploy/package`` 同一实现，这里只换落点与输出格式）：四件套
+    （部署契约 / FSM 安全状态机 / 动作解码层 / 人工确认清单）+ 平台适配层。
+    安全线不变：只生成物料，不直接发电机命令——"一键生成 ≠ 一键上机"。
+    """
+
+    from backend.deploy_pack import generate_deploy_package
+
+    _deploy_workspace(args)
+    try:
+        report = generate_deploy_package(
+            args.robot_id,
+            degraded=args.degraded,
+            target_platform=args.platform,
+            bench_mode=args.bench,
+            out_dir=Path(args.out).expanduser() if args.out else None,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        raise SystemExit(f"deploy 失败：{exc}") from exc
+
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+
+    print(f"部署包已生成（离线命令，无需后端）：{report['path']}")
+    print(f"  机器人：{report['robot_id']} / 目标平台：{report['target_platform']}"
+          + (" / D2 台架模式" if report.get("bench_mode") else "")
+          + (" / 劣化参数档（力矩 ×0.8）" if args.degraded else ""))
+    print(f"  内含 {len(report['files'])} 个文件：{'、'.join(report['files'])}")
+    print("  提醒：一键生成 ≠ 一键上机——按包内《人工确认清单》逐项确认后再上机。")
+    return 0
+
+
 # --------------------------------------------------------------------------------------
 # 训练在线命令（I1 第二批）：需后端在跑，走 HTTP —— 与 Web 工作台同一 API 契约
 # --------------------------------------------------------------------------------------
@@ -856,8 +955,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--offline",
         action="store_true",
         help=(
-            "离线模式：本次不连后端。离线命令（pack / run / artifact / onboard / verify）照常运行；"
-            "需后端的命令会直接拒绝并返回非 0（绝不静默跳过）"
+            "离线模式：本次不连后端。离线命令（pack / run / artifact / onboard / verify / export / deploy）"
+            "照常运行；需后端的命令会直接拒绝并返回非 0（绝不静默跳过）"
         ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1105,6 +1204,57 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--out-dir", default=None, help="出库索引目录（policy 用，默认仓库 policies/）")
     export.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
 
+    # I1 收尾：deploy（部署物料 = 契约校验 gate + 部署包打包 package）—— 同样是离线命令，
+    # 判据/打包一律委托 backend 既有实现（deploy_api 同一组成），CLI 只做参数与输出。
+    from backend.deploy_pack import PLATFORM_LABELS  # 单一真值：平台表只在 backend 里定义一次
+
+    deploy = sub.add_parser(
+        "deploy",
+        help="部署物料 gate/package（离线命令，无需后端；校验不过退出码 1）",
+        description=(
+            "部署物料两条离线命令：gate（部署契约校验：包内 contract_v3 vs contract.json，"
+            "DENYLIST fail-closed）与 package（部署包 zip：契约/FSM/解码层/人工确认清单 + 平台适配层）。"
+            "判据与打包全部委托 backend 既有实现（与 Web 的 /api/deploy/* 同一实现），"
+            "只生成物料不发电机命令——一键生成 ≠ 一键上机。"
+        ),
+    )
+    deploy_sub = deploy.add_subparsers(dest="deploy_command", required=True)
+
+    deploy_gate = deploy_sub.add_parser(
+        "gate",
+        help="部署契约校验：包内契约 v3 vs v2 一致性（离线命令，无需后端）",
+        description=(
+            "部署契约校验（离线命令，无需后端）：与 GET /api/deploy/gate/{robot_id} 同一组成——"
+            "解析机器人包根，读包内 contract_v3.json 与 contract.json，交给 "
+            "backend.export_gate.compare_contracts 裁决（硬约束字段不一致即 deny）。"
+            "存在 blocker → 退出码 1，可当上机前门禁。"
+        ),
+    )
+    deploy_gate.add_argument("robot_id", help="机器人 ID（包根解析顺序：workspace 包副本 > 内置 assets/robots/<id>）")
+    deploy_gate.add_argument("--workspace", default=None, help="workspace 根（默认：LEGGED_STUDIO_WORKSPACE 环境变量或仓库 workspace/）")
+    deploy_gate.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
+
+    deploy_package = deploy_sub.add_parser(
+        "package",
+        help="生成部署包 zip：四件套 + 平台适配层（离线命令，无需后端）",
+        description=(
+            "生成部署包 zip（离线命令，无需后端）：与 POST /api/deploy/package 同一实现——"
+            "deployment-contract.yaml / fsm_safety_template.py / action_decoder_template.py / "
+            "人工确认清单.md + platform_adapter.py。只生成物料，不直接发电机命令"
+            "（一键生成 ≠ 一键上机）。"
+        ),
+    )
+    deploy_package.add_argument("robot_id", help="机器人 ID（包根解析顺序：workspace 包副本 > 内置 assets/robots/<id>）")
+    deploy_package.add_argument("--platform", default="unitree_sdk2", choices=list(PLATFORM_LABELS),
+                                help="目标平台适配层模板（默认 unitree_sdk2）")
+    deploy_package.add_argument("--degraded", action="store_true", default=False,
+                                help="劣化参数档：力矩 ×0.8（先跑稳再上真机）")
+    deploy_package.add_argument("--bench", action="store_true", default=False,
+                                help="D2 台架模式：额外生成 d2_bench_test.py（空载正弦扫频）")
+    deploy_package.add_argument("--out", default=None, help="输出目录（默认 <仓库>/workspace/deploy）")
+    deploy_package.add_argument("--workspace", default=None, help="workspace 根（默认：LEGGED_STUDIO_WORKSPACE 环境变量或仓库 workspace/）")
+    deploy_package.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
+
     return parser
 
 
@@ -1132,6 +1282,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_verify_artifacts(args)
     if args.command == "export":
         return _cmd_export(args)
+    if args.command == "deploy":
+        if args.deploy_command == "gate":
+            return _cmd_deploy_gate(args)
+        return _cmd_deploy_package(args)
 
     # `--offline` 的语义：**这次不碰后端**。离线命令在上面已经跑完并返回；走到这里说明
     # 命中的是需后端的命令，于是如实拒绝 —— 而不是"离线模式下悄悄不发请求"：
@@ -1139,7 +1293,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.offline:
         raise SystemExit(
             f"`--offline` 模式下不执行需后端的命令 {args.command!r}（它要走 HTTP 访问控制面）。\n"
-            "离线命令（pack / run / artifact / onboard / verify）不受影响；"
+            "离线命令（pack / run / artifact / onboard / verify / export / deploy）不受影响；"
             "如需在线命令，请去掉 --offline。"
         )
 

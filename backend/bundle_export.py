@@ -692,7 +692,71 @@ console.info("[offline] sim2sim 离线播放器已就绪：", OFFLINE.robot);
 """
 
 
-SERVE_PY = Path('/tmp/serve_py.txt').read_text(encoding='utf-8')
+#: 随包本地服务脚本（仅 stdlib）：页面必须经 HTTP 打开（``file://`` 下 fetch/模块/wasm
+#: 会被浏览器拦），并补 ``.wasm``/``.mjs`` 的 MIME（少了它 ``WebAssembly.instantiateStreaming``
+#: 会因 MIME 不对而失败）；文档根设在 Bundle 根（页面里的 ``../...`` 才解析得到）。
+#: 模板内嵌在本模块（与其余生成模板同惯例）——曾误写成从 /tmp 草稿文件读取，
+#: 换机器即 ``FileNotFoundError``、整个 ``backend.bundle_export`` 无法 import。
+SERVE_PY = '''#!/usr/bin/env python3
+"""离线播放器本地服务（Legged Studio 导出物自带，仅 Python 标准库）。
+
+用法（在导出物根目录）：
+
+    python play/serve.py 8765
+
+然后浏览器打开  http://localhost:8765/play/
+
+为什么需要它：ES Module 与 fetch 在 ``file://`` 下会被浏览器拦；``.wasm``/``.mjs``
+还必须有正确的 Content-Type（``WebAssembly.instantiateStreaming`` 对 MIME 很挑剔）。
+文档根设在导出物根（play/ 的上一级），页面里的 ``../simulation/...`` 才解析得到。
+"""
+
+import sys
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+#: 文档根 = 导出物根（play/ 的上一级）
+ROOT = Path(__file__).resolve().parent.parent
+
+#: 浏览器按 Content-Type 决定怎么消费：wasm 必须是 application/wasm；
+#: .js/.mjs 必须是 text/javascript（Windows 注册表常把它们配成 text/plain）。
+EXTRA_TYPES = {
+    ".wasm": "application/wasm",
+    ".mjs": "text/javascript",
+    ".js": "text/javascript",
+}
+
+
+class Handler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(ROOT), **kwargs)
+
+    def guess_type(self, path):
+        return EXTRA_TYPES.get(Path(str(path)).suffix.lower(), "") or super().guess_type(path)
+
+    def end_headers(self):
+        # 导出物是拷来拷去的静态物料：别让缓存遮住新包
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
+    def log_message(self, fmt, *args):
+        sys.stdout.write("[serve] %s - %s\\n" % (self.address_string(), fmt % args))
+
+
+def main() -> int:
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    print(f"服务根目录 {ROOT} -> http://localhost:{port}/play/  （Ctrl+C 停止）")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\\n已停止。")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+'''
 
 
 def export_player(
