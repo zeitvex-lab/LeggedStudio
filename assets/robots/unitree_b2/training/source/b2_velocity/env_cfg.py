@@ -5,47 +5,41 @@ constants and mjlab's shared velocity base.  The wiring mirrors the A2
 tuning documented in the package manifest (root body ``base_link``, four
 leg feet, 0.5 m command z-offset) so the trained policy matches the
 deployed sim2sim contract.
+
+B8 训练去包化（试点轮）：与 deeprobotics_lite3 逐字重复的装配骨架（sim 上限 /
+高度扫描重指 / viewer / play 与 flat 收尾 / PPO runner）上移到
+``adapters/mjlab/velocity_task_kit``；本文件只留 B2 专属 wiring 与入口
+stub（entrypoint 符号仍在原模块原符号名，静态解析与运行时加载不受影响）。
 """
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 from mjlab.envs import ManagerBasedRlEnvCfg
-from mjlab.envs import mdp as envs_mdp
 from mjlab.envs.mdp.actions import JointPositionActionCfg
-from mjlab.managers.event_manager import EventTermCfg
-from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers import TerminationTermCfg
-from mjlab.sensor import (
-    ContactMatch,
-    ContactSensorCfg,
-    ObjRef,
-    RayCastSensorCfg,
-    RingPatternCfg,
-    TerrainHeightSensorCfg,
-)
+from mjlab.sensor import ContactMatch, ContactSensorCfg
 from mjlab.tasks.velocity import mdp
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
-from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
+
+# 仓库根自举（见 velocity_task_kit 模块注释）：worker / schema-dump / 冒烟三种
+# 运行环境都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab
+# 对 assets 源树与 workspace 镜像副本两种深度都成立。
+for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+        if str(_parent) not in sys.path:
+            sys.path.insert(0, str(_parent))
+        break
+
+from adapters.mjlab import velocity_task_kit as kit  # noqa: E402
 
 from .robot_constants import B2_ACTION_SCALE, get_b2_robot_cfg
 
 _QUAD_FEET = ("FR", "FL", "RR", "RL")
 _QUAD_GEOMS = tuple(f"{name}_foot_collision" for name in _QUAD_FEET)
 _ROOT_BODY = "base_link"
-
-
-def _configure_height_sensors(cfg: ManagerBasedRlEnvCfg) -> None:
-    for sensor in cfg.scene.sensors or ():
-        if sensor.name == "terrain_scan":
-            assert isinstance(sensor, RayCastSensorCfg)
-            assert isinstance(sensor.frame, ObjRef)
-            sensor.frame.name = _ROOT_BODY
-        elif sensor.name == "foot_height_scan":
-            assert isinstance(sensor, TerrainHeightSensorCfg)
-            sensor.frame = tuple(
-                ObjRef(type="site", name=name, entity="robot") for name in _QUAD_FEET
-            )
-            sensor.pattern = RingPatternCfg.single_ring(radius=0.04, num_samples=4)
 
 
 def _contact_sensors() -> tuple[ContactSensorCfg, ContactSensorCfg]:
@@ -87,13 +81,12 @@ def _configure_posture(cfg: ManagerBasedRlEnvCfg) -> None:
 
 def make_b2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Rough-terrain A2 velocity configuration."""
-    cfg = make_velocity_env_cfg()
-    cfg.sim.mujoco.ccd_iterations = 500
-    cfg.sim.contact_sensor_maxmatch = 500
-    cfg.sim.nconmax = None
-    cfg.scene.entities = {"robot": get_b2_robot_cfg()}
-
-    _configure_height_sensors(cfg)
+    cfg = kit.new_velocity_env_cfg(get_b2_robot_cfg())
+    # 足端高度扫描沿用基座的 site 帧（B2 MJCF 四腿有命名 site，与 lite3 的
+    # body 帧裁决 B31 不同源，见 kit.repoint_height_scan_sensors 注释）。
+    kit.repoint_height_scan_sensors(
+        cfg, root_body=_ROOT_BODY, foot_frames=_QUAD_FEET, frame_type="site"
+    )
     feet_sensor, other_sensor = _contact_sensors()
     cfg.scene.sensors = (cfg.scene.sensors or ()) + (feet_sensor, other_sensor)
 
@@ -108,9 +101,7 @@ def make_b2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     # on this robot (its MJCF geoms are unnamed); drop it.
     cfg.events.pop("foot_friction", None)
 
-    cfg.viewer.body_name = _ROOT_BODY
-    cfg.viewer.distance = 1.5
-    cfg.viewer.elevation = -10.0
+    kit.set_viewer(cfg, body_name=_ROOT_BODY)
     command = cfg.commands["twist"]
     assert isinstance(command, UniformVelocityCommandCfg)
     command.viz.z_offset = 0.5
@@ -129,42 +120,15 @@ def make_b2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     )
 
     if play:
-        cfg.episode_length_s = int(1e9)
-        cfg.observations["actor"].enable_corruption = False
-        cfg.events.pop("push_robot", None)
+        kit.apply_play_postlude(cfg, drop_push_event=True, add_randomize_terrain=True)
         cfg.terminations.pop("out_of_terrain_bounds", None)
-        cfg.curriculum = {}
-        cfg.events["randomize_terrain"] = EventTermCfg(
-            func=envs_mdp.randomize_terrain,
-            mode="reset",
-            params={},
-        )
-        if cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
-            terrain = cfg.scene.terrain.terrain_generator
-            terrain.curriculum = False
-            terrain.num_cols = 5
-            terrain.num_rows = 5
-            terrain.border_width = 10.0
     return cfg
 
 
 def make_b2_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Flat-ground A2 velocity configuration."""
     cfg = make_b2_rough_env_cfg(play=play)
-    cfg.sim.njmax = 300
-    cfg.sim.mujoco.ccd_iterations = 50
-    cfg.sim.contact_sensor_maxmatch = 64
-    cfg.sim.nconmax = None
-    assert cfg.scene.terrain is not None
-    cfg.scene.terrain.terrain_type = "plane"
-    cfg.scene.terrain.terrain_generator = None
-    cfg.scene.sensors = tuple(
-        sensor for sensor in (cfg.scene.sensors or ()) if sensor.name != "terrain_scan"
-    )
-    cfg.observations["actor"].terms.pop("height_scan", None)
-    cfg.observations["critic"].terms.pop("height_scan", None)
-    cfg.terminations.pop("out_of_terrain_bounds", None)
-    cfg.curriculum.pop("terrain_levels", None)
+    kit.apply_flat_postlude(cfg, drop_terrain_scan_sensor=True, drop_height_scan_obs=True)
     if play:
         command = cfg.commands["twist"]
         assert isinstance(command, UniformVelocityCommandCfg)
@@ -183,44 +147,4 @@ def b2_rough_env_cfg(*, play: bool = False):
 
 
 def b2_runner_cfg():
-    from mjlab.rl import (
-        RslRlModelCfg,
-        RslRlOnPolicyRunnerCfg,
-        RslRlPpoAlgorithmCfg,
-    )
-
-    return RslRlOnPolicyRunnerCfg(
-        actor=RslRlModelCfg(
-            hidden_dims=(512, 256, 128),
-            activation="elu",
-            obs_normalization=True,
-            distribution_cfg={
-                "class_name": "GaussianDistribution",
-                "init_std": 1.0,
-                "std_type": "scalar",
-            },
-        ),
-        critic=RslRlModelCfg(
-            hidden_dims=(512, 256, 128),
-            activation="elu",
-            obs_normalization=True,
-        ),
-        algorithm=RslRlPpoAlgorithmCfg(
-            value_loss_coef=1.0,
-            use_clipped_value_loss=True,
-            clip_param=0.2,
-            entropy_coef=0.01,
-            num_learning_epochs=5,
-            num_mini_batches=4,
-            learning_rate=1.0e-3,
-            schedule="adaptive",
-            gamma=0.99,
-            lam=0.95,
-            desired_kl=0.01,
-            max_grad_norm=1.0,
-        ),
-        experiment_name="b2_velocity",
-        save_interval=100,
-        num_steps_per_env=24,
-        max_iterations=10_000,
-    )
+    return kit.ppo_runner_cfg("b2_velocity")

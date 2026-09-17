@@ -12,33 +12,42 @@ BSD-3-Clause).  Differences from the generic B2-style base:
   sync, command-gated air times, foot impact velocity),
 - push / external-force / COM randomization disabled (source Lite3 cfg),
 - illegal-contact termination disabled (bad_orientation kept).
+
+B8 训练去包化（试点轮）：与 unitree_b2 逐字重复的装配骨架（sim 上限 / 高度
+扫描重指 / viewer / play 与 flat 收尾 / PPO runner）上移到
+``adapters/mjlab/velocity_task_kit``；本文件只留 Lite3 专属 wiring 与入口
+stub（entrypoint 符号仍在原模块原符号名，静态解析与运行时加载不受影响）。
 """
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+import mujoco
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as envs_mdp
 from mjlab.envs.mdp.actions import JointPositionActionCfg
-from mjlab.managers import TerminationTermCfg
-from mjlab.managers.observation_manager import ObservationTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
-from mjlab.sensor import (
-    ContactMatch,
-    ContactSensorCfg,
-    ObjRef,
-    RayCastSensorCfg,
-    RingPatternCfg,
-    TerrainHeightSensorCfg,
-)
+from mjlab.managers.observation_manager import ObservationTermCfg
+from mjlab.sensor import ContactMatch, ContactSensorCfg
 from mjlab.tasks.velocity import mdp as velocity_mdp
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
 from mjlab.utils.noise import UniformNoiseCfg as Unoise
 
-import mujoco
+# 仓库根自举（见 velocity_task_kit 模块注释）：worker / schema-dump / 冒烟三种
+# 运行环境都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab
+# 对 assets 源树与 workspace 镜像副本两种深度都成立。
+for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+        if str(_parent) not in sys.path:
+            sys.path.insert(0, str(_parent))
+        break
+
+from adapters.mjlab import velocity_task_kit as kit  # noqa: E402
 
 from . import lite3_rewards as lite3_mdp
-from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
 from .robot_constants import get_lite3_robot_cfg
 
 # Root body name must match the MJCF root body (robot.xml:47 <body name="TORSO">);
@@ -47,6 +56,8 @@ from .robot_constants import get_lite3_robot_cfg
 _ROOT_BODY = "TORSO"
 FOOT_PATTERN = r".*_SHANK"
 FOOT_BODIES = [f"{lr}_SHANK" for lr in ("FL", "FR", "HL", "HR")]
+# 足端高度扫描的帧 = 足端 body（B31；与接触传感器的 SHANK 帧是两回事）。
+FOOT_SCAN_BODIES = [f"{lr}_FOOT" for lr in ("FL", "FR", "HL", "HR")]
 NON_FOOT_PATTERN = r"^(?!.*_SHANK).*"
 
 JOINT_GROUPS = {
@@ -55,23 +66,6 @@ JOINT_GROUPS = {
     "knee": [f"{lr}_Knee_joint" for lr in ("FL", "FR", "HL", "HR")],
 }
 ALL_JOINTS = JOINT_GROUPS["hipx"] + JOINT_GROUPS["hipy"] + JOINT_GROUPS["knee"]
-
-
-
-def _configure_height_sensors(cfg: ManagerBasedRlEnvCfg) -> None:
-    for sensor in cfg.scene.sensors or ():
-        if sensor.name == "terrain_scan":
-            assert isinstance(sensor, RayCastSensorCfg)
-            assert isinstance(sensor.frame, ObjRef)
-            sensor.frame.name = _ROOT_BODY
-        elif sensor.name == "foot_height_scan":
-            assert isinstance(sensor, TerrainHeightSensorCfg)
-            # 帧=足端 body(MJCF robot.xml:68/92/115/138),site 不存在故用 body,语义=足端原点不变
-            sensor.frame = tuple(
-                ObjRef(type="body", name=f"{lr}_FOOT", entity="robot")
-                for lr in ("FL", "FR", "HL", "HR")
-            )
-            sensor.pattern = RingPatternCfg.single_ring(radius=0.04, num_samples=4)
 
 
 def _lite3_robot_cfg_with_named_sensors():
@@ -105,14 +99,15 @@ def _lite3_robot_cfg_with_named_sensors():
     robot_cfg.spec_fn = spec_fn
     return robot_cfg
 
+
 def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Lite3 rough-terrain configuration (official reward recipe)."""
-    cfg = make_velocity_env_cfg()
-    cfg.sim.mujoco.ccd_iterations = 500
-    cfg.sim.contact_sensor_maxmatch = 500
-    cfg.sim.nconmax = None  # full-body contact sensors need headroom
-    cfg.scene.entities = {"robot": _lite3_robot_cfg_with_named_sensors()}
-    _configure_height_sensors(cfg)
+    cfg = kit.new_velocity_env_cfg(_lite3_robot_cfg_with_named_sensors())
+    # B31 裁决:足端高度扫描改用足端 body 帧(MJCF robot.xml:68/92/115/138 的
+    # FL/FR/HL/HR_FOOT;site 不存在故用 body,射线原点仍在足端,语义不变)。
+    kit.repoint_height_scan_sensors(
+        cfg, root_body=_ROOT_BODY, foot_frames=FOOT_SCAN_BODIES, frame_type="body"
+    )
 
     all_joint_cfg = SceneEntityCfg("robot", joint_names=list(ALL_JOINTS), preserve_order=True)
     hipx_cfg = SceneEntityCfg("robot", joint_names=list(JOINT_GROUPS["hipx"]), preserve_order=True)
@@ -361,84 +356,23 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
     }
 
-    ##
-    # Viewer / events / terminations / curriculum
-    ##
-    cfg.viewer.body_name = "TORSO"
-    cfg.viewer.distance = 1.5
-    cfg.viewer.elevation = -10.0
+    kit.set_viewer(cfg, body_name=_ROOT_BODY)
 
     cfg.terminations.pop("illegal_contact", None)
     cfg.curriculum.pop("command_vel", None)
 
     if play:
-        cfg.episode_length_s = int(1e9)
-        cfg.observations["actor"].enable_corruption = False
-        cfg.curriculum = {}
-        if cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
-            terrain = cfg.scene.terrain.terrain_generator
-            terrain.curriculum = False
-            terrain.num_cols = 5
-            terrain.num_rows = 5
-            terrain.border_width = 10.0
+        kit.apply_play_postlude(cfg)
     return cfg
 
 
 def lite3_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Lite3 flat-ground variant."""
     cfg = lite3_rough_env_cfg(play=play)
-    cfg.sim.njmax = 300
-    cfg.sim.mujoco.ccd_iterations = 50
-    cfg.sim.contact_sensor_maxmatch = 64
-    cfg.sim.nconmax = None
-    assert cfg.scene.terrain is not None
-    cfg.scene.terrain.terrain_type = "plane"
-    cfg.scene.terrain.terrain_generator = None
-    cfg.terminations.pop("out_of_terrain_bounds", None)
-    cfg.curriculum.pop("terrain_levels", None)
+    kit.apply_flat_postlude(cfg)
     return cfg
 
 
 def lite3_runner_cfg():
     """Official Lite3 PPO runner config (rl_training rsl_rl_ppo_cfg)."""
-    from mjlab.rl import (
-        RslRlModelCfg,
-        RslRlOnPolicyRunnerCfg,
-        RslRlPpoAlgorithmCfg,
-    )
-
-    return RslRlOnPolicyRunnerCfg(
-        actor=RslRlModelCfg(
-            hidden_dims=(512, 256, 128),
-            activation="elu",
-            obs_normalization=True,
-            distribution_cfg={
-                "class_name": "GaussianDistribution",
-                "init_std": 1.0,
-                "std_type": "scalar",
-            },
-        ),
-        critic=RslRlModelCfg(
-            hidden_dims=(512, 256, 128),
-            activation="elu",
-            obs_normalization=True,
-        ),
-        algorithm=RslRlPpoAlgorithmCfg(
-            value_loss_coef=1.0,
-            use_clipped_value_loss=True,
-            clip_param=0.2,
-            entropy_coef=0.01,
-            num_learning_epochs=5,
-            num_mini_batches=4,
-            learning_rate=1.0e-3,
-            schedule="adaptive",
-            gamma=0.99,
-            lam=0.95,
-            desired_kl=0.01,
-            max_grad_norm=1.0,
-        ),
-        experiment_name="lite3_velocity",
-        save_interval=100,
-        num_steps_per_env=24,
-        max_iterations=10_000,
-    )
+    return kit.ppo_runner_cfg("lite3_velocity")
