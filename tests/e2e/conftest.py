@@ -74,6 +74,31 @@ def base_url() -> str:
             proc.kill()
 
 
+def pytest_addoption(parser) -> None:
+    parser.addoption(
+        "--sweep", action="store_true", default=False,
+        help="跑全量逐机型浏览器 sweep（默认只跑冒烟机型，见 test_all_models.py）",
+    )
+
+
+def pytest_configure(config) -> None:
+    # 标记在 e2e conftest 里注册即可，不动 pyproject 的全局 markers 清单。
+    config.addinivalue_line(
+        "markers", "sweep: 逐机型全量 sweep（默认跳过；--sweep 或 LEGGED_STUDIO_E2E_SWEEP=1 显式触发）",
+    )
+    config.addinivalue_line("markers", "smoke: 冒烟机型（默认档进 CI）")
+
+
+def pytest_collection_modifyitems(config, items) -> None:
+    sweep_enabled = config.getoption("--sweep") or os.environ.get("LEGGED_STUDIO_E2E_SWEEP") == "1"
+    if sweep_enabled:
+        return
+    skip = pytest.mark.skip(reason="全量逐机型 sweep 默认跳过：用 --sweep 或 LEGGED_STUDIO_E2E_SWEEP=1 显式触发")
+    for item in items:
+        if item.get_closest_marker("sweep") and not item.get_closest_marker("smoke"):
+            item.add_marker(skip)
+
+
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args: dict) -> dict:
     """让页面内 SharedArrayBuffer 可用；截图用固定视口，保证可比性。"""
