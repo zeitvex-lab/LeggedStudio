@@ -54,6 +54,13 @@ import {
   rayHitPoint,
 } from "./raycast.js?v=0.55.0";
 import { MotionLoader } from "./motion_loader.js";
+// G3「加载即校验」：ONNX metadata_props 扫描 + 契约校验（纯函数，Node 单测覆盖）。
+import {
+  checkOnnxMetadataContract,
+  contractSummaryFromConfig,
+  formatContractViolations,
+  scanOnnxMetadata,
+} from "./onnx_contract_check.js";
 import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
 import { applyTerrainSwitch, createNavigationRunner, poseFromQpos, NAVIGATION_VERSION } from "./navigation.js?v=0.55.0";
 import { fanSegments, fanLineSegments } from "./dwa_fan.js?v=0.55.0";
@@ -939,6 +946,7 @@ async function loadPolicyFromConfig(config, initial = false) {
     sim.policy = null;
     sim.policyInfo = null;
     sim.policyEnabled = false;
+    sim.metadataCheck = null; // 无策略即无元数据校验结果，清掉上一次的附注
     setStatus(elements.policyStatus, "No policy - manual mode", "ready");
     return false;
   }
@@ -950,6 +958,7 @@ async function loadPolicyFromConfig(config, initial = false) {
   sim.policyLoading = true;
   let session;
   let modelBytes;
+  let metadataCheck = null;
   if (contract.motion_params?.motion_csv) {
     try {
       // 包内相对路径必须相对 asset_package.base_url 解析：base_url 由后端用
@@ -985,6 +994,22 @@ async function loadPolicyFromConfig(config, initial = false) {
     // 残留的旧版（带外部数据引用）ONNX 字节——go2w 曾因此报
     // 'Failed to load external data file "policy.onnx.data"'。
     modelBytes = await fetchPolicyModelBytes(cacheBustedUrl(url, `${revision}-t${Date.now()}`));
+    // G3「加载即校验」：下载完字节后、创建推理会话**前**扫描 metadata_props 并
+    // 对照 browser-config 契约。不符 → 直接抛错拒绝加载（此前是半成品：会话照建、
+    // 策略照跑，只在状态栏事后标红）。扫描失败/无盖章 ≠ 契约不符——历史/第三方
+    // 导入策略（实测 34/45 条）没有盖章，按「missing」放行但如实提示，见模块头注释。
+    const metaScan = scanOnnxMetadata(modelBytes);
+    metadataCheck = metaScan.ok
+      ? checkOnnxMetadataContract(metaScan.metadata, contractSummaryFromConfig(config))
+      : {
+          status: "missing",
+          violations: [],
+          warnings: [`ONNX 元数据扫描失败（按无章放行，等 ort 自行把关字节）：${metaScan.error}`],
+          info: { jointCount: 0, source: null, jointIdsMap: null },
+        };
+    if (metadataCheck.status === "reject") {
+      throw new Error(`策略元数据与仿真契约不符，已拒绝加载：${formatContractViolations(metadataCheck)}`);
+    }
     session = await ort.InferenceSession.create(modelBytes, {
       executionProviders: ["wasm"],
       graphOptimizationLevel: "basic",
@@ -1024,117 +1049,39 @@ async function loadPolicyFromConfig(config, initial = false) {
   sim.encoderFrames = sim.encoderSession ? Math.max(1, Math.round(Number(contract?.tron1?.history) || 10)) : 0;
   sim.encoderHistory = sim.encoderFrames ? new Float32Array(sim.encoderFrames * CONFIG.numObs) : null;
   CONFIG.encoderChain = !!sim.encoderSession;
-  const metaProblem = validatePolicyMetadata(modelBytes);
+  sim.metadataCheck = metadataCheck;
   applyPlatformLabels(config);
+  const metaNote = metadataStatusNote(metadataCheck);
   setStatus(
     elements.policyStatus,
-    metaProblem ? `已就绪 · 元数据不匹配（${metaProblem}）` : `${sim.policyInfo.mode} 已就绪`,
-    metaProblem ? "error" : "ready",
+    metaNote ? `已就绪 · ${metaNote}` : `${sim.policyInfo.mode} 已就绪`,
+    "ready",
   );
+  if (metadataCheck?.info?.jointCount) {
+    console.info(
+      `[sim2sim] ✔ 策略元数据契约校验通过（${metadataCheck.info.jointCount} 关节，来源=${metadataCheck.info.source || "stamped"}）`,
+    );
+    // joint_ids_map：策略槽位 → 电机 ID 排列；非恒等映射时提示（浏览器按槽位直写
+    // 执行器，硬件部署需要该排列，浏览器语义不受影响但值得可见）。
+    const idsMap = metadataCheck.info.jointIdsMap;
+    if (idsMap && !idsMap.every((v, i) => v === i)) {
+      console.info(`[sim2sim] 策略携带非恒等 joint_ids_map（硬件部署用）：[${idsMap.join(",")}]`);
+    }
+  }
   if (previousPolicy && previousPolicy !== session) {
     try { await previousPolicy.release?.(); } catch (error) { console.warn("policy release failed", error); }
   }
   return true;
 }
 
-/** 极简 ONNX protobuf 扫描：只提取顶层 metadata_props（field 14），其余字段按 wire type 跳过。
- * vendored onnxruntime-web 是精简版、没有 InferenceSession.metadata API，所以自己读模型字节。 */
-function readOnnxMetadataBytes(bytes) {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const decoder = new TextDecoder();
-  const cursor = { pos: 0 };
-  const readVarint = () => {
-    let result = 0, shift = 0;
-    for (;;) {
-      const b = view.getUint8(cursor.pos);
-      cursor.pos += 1;
-      result += (b & 0x7f) * Math.pow(2, shift);
-      if (!(b & 0x80)) return result;
-      shift += 7;
-    }
-  };
-  const readSlice = () => {
-    const len = readVarint();
-    const slice = bytes.subarray(cursor.pos, cursor.pos + len);
-    cursor.pos += len;
-    return slice;
-  };
-  const readString = (slice) => decoder.decode(slice);
-  const meta = {};
-  while (cursor.pos < bytes.length) {
-    const tag = readVarint();
-    const field = tag >>> 3;
-    const wire = tag & 7;
-    if (wire === 0) {
-      readVarint();
-    } else if (wire === 1) {
-      cursor.pos += 8;
-    } else if (wire === 5) {
-      cursor.pos += 4;
-    } else if (wire === 2) {
-      const slice = readSlice();
-      if (field !== 14) continue;
-      // StringStringEntryProto: key = field 1, value = field 2（都是 length-delim 字符串）
-      const inner = { pos: 0 };
-      const innerVarint = () => {
-        let result = 0, shift = 0;
-        for (;;) {
-          const b = slice[inner.pos];
-          inner.pos += 1;
-          result += (b & 0x7f) * Math.pow(2, shift);
-          if (!(b & 0x80)) return result;
-          shift += 7;
-        }
-      };
-      let key = null;
-      let value = null;
-      while (inner.pos < slice.length) {
-        const tag2 = innerVarint();
-        if ((tag2 & 7) !== 2) { inner.pos = slice.length; break; }
-        const len2 = innerVarint();
-        const s = readString(slice.subarray(inner.pos, inner.pos + len2));
-        inner.pos += len2;
-        if ((tag2 >>> 3) === 1) key = s;
-        else if ((tag2 >>> 3) === 2) value = s;
-      }
-      if (key !== null) meta[key] = value ?? "";
-    } else {
-      throw new Error(`ONNX protobuf: 未知 wire type ${wire} @${cursor.pos}`);
-    }
+/** 元数据校验结果 → 状态栏附注（reject 走不到这里：加载路径已抛错拒绝）。
+ * ok=无附注；missing/警告类=如实提示但不影响就绪。 */
+function metadataStatusNote(check) {
+  if (!check || check.status === "ok") return null;
+  if (check.status === "reject") {
+    return `元数据不匹配（${formatContractViolations(check)}）`;
   }
-  return meta;
-}
-
-/** 元数据契约校验：导出时盖章的 joint_names/clip_actions 与当前契约比对。
- * 无盖章的旧策略静默跳过；返回问题描述（用于就绪状态提示），一致返回 null。 */
-function validatePolicyMetadata(modelBytes) {
-  try {
-    const meta = readOnnxMetadataBytes(modelBytes);
-    const jointNamesCsv = meta.joint_names;
-    if (!jointNamesCsv) return null;
-    const stamped = jointNamesCsv.split(",").map((s) => s.trim());
-    const expected = (CONFIG.actionJointOrder || CONFIG.jointOrder || []).map((s) => String(s));
-    if (!expected.length) return null;
-    if (stamped.length !== expected.length) {
-      return `关节数 ${stamped.length} ≠ 契约 ${expected.length}`;
-    }
-    const first = stamped.findIndex((name, i) => name !== expected[i]);
-    if (first >= 0) return `槽 ${first}: 元数据=${stamped[first]} 契约=${expected[first]}`;
-    console.info(`[sim2sim] ✔ 策略元数据与契约一致（${stamped.length} 关节，来源=${meta.source || "stamped"}）`);
-    // joint_ids_map：策略槽位 → 电机 ID 排列；非恒等映射时提示（浏览器按槽位直写执行器，
-    // 硬件部署需要该排列，浏览器语义不受影响但值得可见）。
-    if (meta.joint_ids_map) {
-      try {
-        const map = meta.joint_ids_map.split(",").map((s) => Number(s.trim()));
-        const identity = map.every((v, i) => v === i);
-        if (!identity) console.info(`[sim2sim] 策略携带非恒等 joint_ids_map（硬件部署用）：[${map.join(",")}]`);
-      } catch (_) { /* 忽略解析失败 */ }
-    }
-    return null;
-  } catch (error) {
-    console.warn("[sim2sim] policy metadata validation skipped", error);
-    return null;
-  }
+  return (check.warnings || []).filter(Boolean).join("；") || null;
 }
 
 async function ensureOrtRuntime() {
@@ -1207,6 +1154,8 @@ async function switchPolicy(policyId) {
     console.error("policy switch failed", error);
     sim.platformConfig = previousConfig;
     sim.policy = previousPolicy;
+    // 被拒/失败的候选策略没有有效的校验结果，清掉，别让旧结果冒充它
+    sim.metadataCheck = null;
     applyPlatformLabels(previousConfig);
     const described = describeLoadError(error);
     setStatus(elements.policyStatus, `策略切换失败: ${described?.message || error}`, "error");
