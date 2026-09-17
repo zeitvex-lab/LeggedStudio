@@ -33,8 +33,9 @@ function payload(overrides = {}) {
       kp_dist: 0.8, kp_yaw: 1.8,
       yaw_stop_threshold_deg: 45, turn_in_place_enter_deg: 70,
       turn_in_place_exit_deg: 18, turn_in_place_max_wz: 0.8,
-      // H12 卡死/恢复/终止（服务端 FollowParams 同字段）
-      stuck_timeout_s: 4.0, stuck_progress_m: 0.08,
+      // H12 卡死/恢复/终止（服务端 FollowParams 同字段；stuck_turn_progress_deg =
+      // v0.55.46 收口第 2 条的急转豁免量尺，镜像 registry/motion_commands.json）
+      stuck_timeout_s: 4.0, stuck_progress_m: 0.08, stuck_turn_progress_deg: 15,
       recovery_duration_s: 2.0, max_recoveries: 4,
       waypoint_timeout_s: 30.0, max_total_time_s: 420.0,
       recovery_cmd: { vx_factor: -0.1, wz_factor: 0.45 },
@@ -270,7 +271,82 @@ for (let i = 0; i < 120; i += 1) {
 assert.ok(sawRecovery, "累计改进 < stuck_progress_m ⇒ 判卡死（防蠕行）");
 assert.equal(crawling.status().recoveries_used, 1, "蠕行 ⇒ 触发 1 轮恢复");
 
-// --- 单航点超时 ⇒ 终止原因 timeout（服务端 215–217 行同语义）---
+// ===========================================================================
+// --- v0.55.46 收口第 2 条：进展按目标导向运动登记（服务端 CornerProgressTests 同款用例，
+//     backend/follow_controller.py「3a) 进展登记」同分支，注释互引）---
+// 误触机理：拐角航向差大 ⇒ 前视目标切到下一段 ⇒ 原地转/切角后当前航点在身后，
+// 按旧口径（到当前航点的距离）4s 无进展 ⇒ 误发恢复动作。修法：进展 = 到前视目标
+// 距离缩短 ≥ stuck_progress_m，或 turn_in_place 期间航向误差收敛 ≥ stuck_turn_progress_deg。
+// ===========================================================================
+
+function sharpRoutePayload(overrides = {}) {
+  // 直角拐角航线（(2,0) 处航向差 90°+）+ 沿路径的前视点折线
+  return payload({
+    waypoints: [
+      { x: 0, y: 0, tolerance_m: 0.35 },
+      { x: 2, y: 0, tolerance_m: 0.35 },
+      { x: 0, y: 2, tolerance_m: 0.35 },
+    ],
+    plan: { combined_path: [[0, 0], [1, 0], [2, 0], [1.6, 0.9], [0.9, 1.6], [0, 2]] },
+    ...overrides,
+  });
+}
+
+// 急转场景必须 command()+tick() 同拍驱动（app.js applyNavigationCommand 的真实调用序；
+// turnInPlace 标志在 command() 里更新，tick() 的航向进展依赖它——见 navigation.js tick 注释）。
+// --- 慢速原地急转 > stuck_timeout_s（真机转向滞后现场）：不得误触恢复 ---
+const pivot = createNavigationRunner(sharpRoutePayload(), { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 });
+const pivotStep = (p) => {
+  pivot.command(p);
+  pivot.tick(p);
+};
+for (let i = 0; i <= 30; i += 1) pivotStep({ x: i * 0.065, y: 0, yaw: 0 }); // 直行到拐角
+assert.equal(pivot.status().waypoint_index, 2, "直行段推进到拐角航点");
+// 原地慢转（指令 wz 只兑现 0.4×，真机滞后）：转过滞回带（≈96°）需 >4s 无位移
+let pivotPose = { x: 2, y: 0, yaw: 0 };
+for (let i = 0; i < 140; i += 1) {
+  // 140 拍 = 7s ≫ stuck_timeout_s 4s
+  const cmd = pivot.command(pivotPose);
+  pivotPose = { x: 2, y: 0, yaw: pivotPose.yaw + cmd[2] * 0.4 * 0.05 };
+  pivot.tick(pivotPose);
+  if (pivot.status().finished) break;
+}
+assert.ok(pivotPose.yaw > Math.PI / 3, `用例本身必须真的转过大角度（实测 ${pivotPose.yaw.toFixed(2)} rad）`);
+assert.equal(pivot.status().recoveries_used, 0, "慢速原地急转（>4s 无位移）不得误触恢复");
+assert.notEqual(pivot.status().termination_reason, "stuck", "急转豁免后不得判 stuck");
+// 转完后沿路径走向 (0,2)（切角追赶：当前航点已消费，追的是前视目标 ⇒ 距离缩短算进展）
+const walkPoints = [
+  [1.85, 0.32],
+  [1.6, 0.9],
+  [1.25, 1.25],
+  [0.9, 1.6],
+  [0.32, 1.85],
+  [0, 2],
+];
+for (const [wx, wy] of walkPoints) {
+  for (let k = 0; k < 20; k += 1) pivotStep({ x: wx, y: wy, yaw: Math.atan2(2 - wy, 0 - wx) });
+}
+for (let k = 0; k < 4; k += 1) pivotStep({ x: 0, y: 2, yaw: -Math.PI / 2 });
+assert.equal(pivot.status().finished, true, "急转→切角行走→到达 ⇒ 走完全程");
+assert.equal(pivot.status().termination_reason, "complete", "终止原因 = complete（分层不变）");
+assert.equal(pivot.status().recoveries_used, 0, "全程零误触恢复");
+
+// --- 真卡死（位置恒定且朝向不变，原地转指令下被夹住）仍触发恢复 ---
+const jammed = createNavigationRunner(sharpRoutePayload(), { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 });
+let sawJammedRecovery = false;
+for (let i = 0; i < 200; i += 1) {
+  jammed.command({ x: 1.6, y: 0, yaw: 0 }); // 航向差 180° ⇒ 原地转指令；位姿全冻结 ⇒ 转不动
+  jammed.tick({ x: 1.6, y: 0, yaw: 0 });
+  if (jammed.status().state === "recovery") {
+    sawJammedRecovery = true;
+    break;
+  }
+}
+assert.ok(sawJammedRecovery, "被夹住（位置+朝向全冻结）的真卡死仍触发恢复（豁免不吞真卡死）");
+assert.equal(jammed.status().recoveries_used, 1, "真卡死恢复计数 1");
+const jammedCmd = jammed.command({ x: 1.6, y: 0, yaw: 0 });
+assert.ok(jammedCmd[0] < 0 && jammedCmd[2] !== 0, "恢复动作 = 后退 + 转向（照旧）");
+
 // --- 单航点超时 ⇒ 终止原因 timeout（服务端 215–217 行同语义）---
 // 静止在容差外（距航点 1.53m ≫ 0.35 容差），卡死窗口调大到 50s 隔离 ⇒ 只有超时能拉停。
 const timeoutRunner = createNavigationRunner(
@@ -365,6 +441,7 @@ assert.equal(exhausted.status().recoveries_used, 0, "reset 后恢复计数归零
 const cases = [
   ["stuck_timeout_s", { stuck_timeout_s: undefined }],
   ["stuck_progress_m", { stuck_progress_m: undefined }],
+  ["stuck_turn_progress_deg", { stuck_turn_progress_deg: undefined }],
   ["recovery_duration_s", { recovery_duration_s: undefined }],
   ["max_recoveries", { max_recoveries: undefined }],
   ["waypoint_timeout_s", { waypoint_timeout_s: undefined }],

@@ -37,7 +37,7 @@
     }
   },
   "follow_controller": {
-    "note": "H12 跟随控制器的**唯一参数真值**（此前浏览器跟随器自造 lookahead 0.6 / gain 1.2 / 1.5，与 H12 已点名的参考实现不一致，现收口）。控制器律取参考实现的形状：朝向前视点（cos 门控）+ 大误差原地转（带滞回）+ 卡死恢复。**到达容差与稳定拍数不在此处**——那是 H10 的 registry/arrival_criteria.json（航点 0.20 m / 稳定 2 拍），避免同一个数字长第三个家。",
+    "note": "H12 跟随控制器的**唯一参数真值**（此前浏览器跟随器自造 lookahead 0.6 / gain 1.2 / 1.5，与 H12 已点名的参考实现不一致，现收口）。控制器律取参考实现的形状：朝向前视点（cos 门控）+ 大误差原地转（带滞回）+ 卡死恢复。**到达容差与稳定拍数不在此处**——那是 H10 的 registry/arrival_criteria.json（航点 0.20 m / 稳定 2 拍），避免同一个数字长第三个家。**2026-09-17（v0.55.46 收口第 2 条裁决）**：卡死「进展」改按目标导向运动登记——到前视目标的距离缩短 ≥ stuck_progress_m（不再按到当前航点的距离：拐角切角后当前航点在身后，距离不缩反涨，135° 拐角必误判卡死），或 turn_in_place 期间航向误差收敛 ≥ stuck_turn_progress_deg（真机 180° 急转超 4s 不能按位移判卡死；朝向冻住的真卡死两项都不成立，照常触发恢复）。浏览器侧 web/sim2sim/navigation.js 同参数同分支（注释互引）。",
     "lookahead_m": 0.45,
     "max_vx": 1.2,
     "max_vy": 0.0,
@@ -52,6 +52,7 @@
     "max_total_time_s": 420.0,
     "stuck_timeout_s": 4.0,
     "stuck_progress_m": 0.08,
+    "stuck_turn_progress_deg": 15.0,
     "recovery_duration_s": 2.0,
     "max_recoveries": 4,
     "recovery_cmd": { "vx_factor": -0.10, "wz_factor": 0.45, "note": "vx = factor×|cmd_vx_scale|，wz = factor×sign（参考实现转向符号每轮翻转以脱困）" },

@@ -7,8 +7,13 @@
 * 朝前视点走：``wz = clamp(kp_yaw·yaw_err, ±max_wz)``；仅当 ``|yaw_err| ≤ 45°`` 才给
   ``vx = clamp(kp_dist·dist·cos(yaw_err), 0, speed_limit)``（cos 门控，不是线性衰减）；
 * 大误差**原地转**：``|yaw_err| ≥ 70°`` 进入、``≤ 18°`` 退出（滞回）；
-* **卡死恢复**：``stuck_timeout_s`` 内前视距离无 ``stuck_progress_m`` 进展 ⇒ 发 2 s 恢复动作
-  ``vx = -0.10, wz = 0.45·sign``（符号每轮翻转），至多 ``max_recoveries`` 轮；
+* **卡死恢复**：``stuck_timeout_s`` 内无"目标导向进展" ⇒ 发 2 s 恢复动作
+  ``vx = -0.10, wz = 0.45·sign``（符号每轮翻转），至多 ``max_recoveries`` 轮。
+  进展有两类口径（v0.55.46 收口裁决，修"拐角急转误触卡死"）：
+  朝**前视目标**逼近 ≥ ``stuck_progress_m``（不是到当前航点的距离——拐角切角后当前
+  航点在身后，距离不缩反涨，按旧口径 135° 拐角必误判）；或 ``turn_in_place`` 期间
+  航向误差收敛 ≥ ``stuck_turn_progress_deg``（真机 180° 急转超 4s，不能按位移判卡死；
+  朝向冻住的真卡死两项都不成立 ⇒ 照常触发恢复）；
 * 判据三类：``complete``（走完全程）/ ``timeout``（单航点超时）/ ``stuck``（恢复用尽）。
 
 **判据/阈值的两个来源（都不在本文件里硬编码）**：
@@ -60,6 +65,7 @@ class FollowParams:
     max_total_time_s: float
     stuck_timeout_s: float
     stuck_progress_m: float
+    stuck_turn_progress_deg: float
     recovery_duration_s: float
     max_recoveries: int
     recovery_vx_factor: float
@@ -87,6 +93,7 @@ class FollowParams:
             "max_total_time_s": spec.get("max_total_time_s"),
             "stuck_timeout_s": spec.get("stuck_timeout_s"),
             "stuck_progress_m": spec.get("stuck_progress_m"),
+            "stuck_turn_progress_deg": spec.get("stuck_turn_progress_deg"),
             "recovery_duration_s": spec.get("recovery_duration_s"),
             "max_recoveries": spec.get("max_recoveries"),
             "recovery_vx_factor": recovery.get("vx_factor"),
@@ -159,6 +166,8 @@ class FollowController:
         self.stable_count = 0
         self.waypoint_start_time = time_s
         self.best_distance = float("inf")
+        self.best_heading_err = float("inf")
+        self.progress_target_index: int | None = None
         self.last_progress_time = time_s
         self.recovery_until = -1.0
         self.recovery_count = 0
@@ -170,14 +179,17 @@ class FollowController:
     def active(self) -> list[float]:
         return self.waypoints[min(self.index, len(self.waypoints) - 1)]
 
-    def _lookahead_target(self, x: float, y: float) -> list[float]:
-        """前视点：跳过近处已消费的点，取第一个 ≥ lookahead 的点（参考实现同法）。"""
-        target = self.waypoints[min(self.index, len(self.waypoints) - 1)]
-        for i in range(self.index, len(self.waypoints)):
-            target = self.waypoints[i]
-            if math.hypot(target[0] - x, target[1] - y) >= self.params.lookahead_m:
-                break
-        return target
+    def _lookahead_index(self, x: float, y: float) -> int:
+        """前视点**下标**：跳过近处已消费的点，取第一个 ≥ lookahead 的点（参考实现同法）。
+
+        返回下标而不是坐标：进展登记要识别"前视目标切换了"（切换 ⇒ 换基准重记，
+        见 update 的进展登记段），下标是稳定身份（两个航点可能坐标相同）。
+        """
+        for i in range(min(self.index, len(self.waypoints) - 1), len(self.waypoints)):
+            wp = self.waypoints[i]
+            if math.hypot(wp[0] - x, wp[1] - y) >= self.params.lookahead_m:
+                return i
+        return len(self.waypoints) - 1
 
     # ---------- 一拍 ----------
     def update(self, pose: Sequence[float], time_s: float) -> FollowStep:
@@ -203,6 +215,7 @@ class FollowController:
                 self.stable_count = 0
                 self.waypoint_start_time = time_s
                 self.best_distance = float("inf")
+                self.best_heading_err = float("inf")
                 self.last_progress_time = time_s
                 if self.index >= len(self.waypoints):
                     self.reason = "complete"
@@ -216,10 +229,41 @@ class FollowController:
             self.reason = "timeout"
             return self._step([0.0, 0.0, 0.0], "timeout", "timeout", time_s, distance)
 
-        # 3) 卡死恢复
-        if distance + self.params.stuck_progress_m < self.best_distance:
-            self.best_distance = distance
+        # 3) 卡死恢复 —— 进展按"目标导向运动"登记（v0.55.46 收口裁决）
+        target_index = self._lookahead_index(x, y)
+        target = self.waypoints[target_index]
+        if target_index != self.progress_target_index:
+            # 前视目标切换 ⇒ 进展基准对新目标重记（切换本身既不算进展也不算倒退）。
+            # 浏览器镜像：web/sim2sim/navigation.js tick() 的 progressTargetIndex 同款。
+            self.progress_target_index = target_index
+            self.best_distance = float("inf")
+            self.best_heading_err = float("inf")
+        pursuit_dx, pursuit_dy = target[0] - x, target[1] - y
+        pursuit_distance = math.hypot(pursuit_dx, pursuit_dy)
+        yaw_err = normalize_angle(math.atan2(pursuit_dy, pursuit_dx) - yaw)
+
+        # 原地转滞回（参考实现形状）。提前到进展登记之前：turn_in_place 态决定
+        # 进展的第二类口径（航向收敛），跟随律复用同一份状态，不重复判定。
+        if self.turn_in_place:
+            if abs(yaw_err) <= math.radians(self.params.turn_in_place_exit_deg):
+                self.turn_in_place = False
+        elif abs(yaw_err) >= math.radians(self.params.turn_in_place_enter_deg):
+            self.turn_in_place = True
+
+        # 3a) 进展登记，两类任一成立即刷新 last_progress_time：
+        #   * 朝前视目标逼近 ≥ stuck_progress_m（直线/弧线推进；拐角切角后机器人追的
+        #     是前视目标，到"身后当前航点"的距离不缩反涨——旧口径因此误判卡死）；
+        #   * turn_in_place 期间航向误差收敛 ≥ stuck_turn_progress_deg（原地急转是
+        #     目标导向运动，真机 180° 急转可超 4s）。被夹住转不动的真卡死两项都不
+        #     成立 ⇒ 恢复照常触发，急转豁免不会吞掉真卡死。
+        if pursuit_distance + self.params.stuck_progress_m < self.best_distance:
+            self.best_distance = pursuit_distance
             self.last_progress_time = time_s
+        if self.turn_in_place:
+            heading_err = abs(yaw_err)
+            if heading_err + math.radians(self.params.stuck_turn_progress_deg) < self.best_heading_err:
+                self.best_heading_err = heading_err
+                self.last_progress_time = time_s
         if self.recovery_until > time_s:
             cmd = [
                 self.params.recovery_vx_factor,
@@ -242,25 +286,15 @@ class FollowController:
             ]
             return self._step(cmd, "recovery", "recovery", time_s, distance)
 
-        # 4) 跟随（参考实现形状：滞回原地转 + cos 门控前进）
-        target = self._lookahead_target(x, y)
-        target_yaw = math.atan2(target[1] - y, target[0] - x)
-        yaw_err = normalize_angle(target_yaw - yaw)
-        if self.turn_in_place:
-            if abs(yaw_err) <= math.radians(self.params.turn_in_place_exit_deg):
-                self.turn_in_place = False
-        elif abs(yaw_err) >= math.radians(self.params.turn_in_place_enter_deg):
-            self.turn_in_place = True
-
+        # 4) 跟随（参考实现形状：滞回原地转 + cos 门控前进；target/yaw_err 复用上面）
         if self.turn_in_place:
             wz = _clamp(self.params.kp_yaw * yaw_err, -self.params.turn_in_place_max_wz, self.params.turn_in_place_max_wz)
             return self._step([0.0, 0.0, wz], None, "turn_in_place", time_s, distance)
 
-        lookahead_distance = math.hypot(target[0] - x, target[1] - y)
         vx = 0.0
         if abs(yaw_err) <= math.radians(self.params.yaw_stop_threshold_deg):
             vx = _clamp(
-                self.params.kp_dist * lookahead_distance * math.cos(yaw_err),
+                self.params.kp_dist * pursuit_distance * math.cos(yaw_err),
                 0.0,
                 min(self.params.max_vx, self.params.max_vx),
             )

@@ -21,11 +21,18 @@
 // 的 FollowController 状态机**同参数同语义**——参数全部取 `payload.follow_controller`
 // （即 registry/motion_commands.json#follow_controller，缺字段 fail-closed 抛错，沿用
 // requiredNumber 惯例），判据形状逐分支对齐服务端：
-//   * 进展登记：`distance + stuck_progress_m < best_distance` ⇒ 有进展（服务端 220 行）；
-//   * 卡死判定：`stuck_timeout_s` 内无进展 ⇒ 发恢复段（服务端 230 行）；
+//   * 进展登记（2026-09-17 v0.55.46 收口第 2 条裁决，服务端 update「3a) 进展登记」段）：
+//     按**目标导向运动**记两类进展，任一成立即刷新 lastProgress：
+//     (1) 到**前视目标**的距离缩短 ≥ stuck_progress_m —— 不按到当前航点的距离：
+//         拐角切角后当前航点在身后，距离不缩反涨，按旧口径 135° 拐角必误判卡死；
+//     (2) turn_in_place 期间航向误差收敛 ≥ stuck_turn_progress_deg —— 真机 180° 急转
+//         无位移可超 4s，不能按位移判卡死（服务端同款 stuck_turn_progress_deg 参数）。
+//     前视目标切换 ⇒ 进展基准对新目标重记（progressTargetIndex，同服务端）。
+//   * 卡死判定：`stuck_timeout_s` 内无进展 ⇒ 发恢复段（服务端「卡死判定」分支）；
 //   * 恢复动作：`vx = recovery_cmd.vx_factor, wz = recovery_cmd.wz_factor × sign`
-//     （符号每轮翻转），持续 `recovery_duration_s`，至多 `max_recoveries` 轮
-//     （服务端 223–243 行）；恢复用尽 ⇒ 终止原因 `stuck`；
+//     （符号每轮翻转），持续 `recovery_duration_s`，至多 `max_recoveries` 轮；恢复用尽
+//     ⇒ 终止原因 `stuck`。被夹住（位置与朝向全冻结）的真卡死两类进展都不成立 ⇒
+//     照常触发恢复——急转豁免不吞真卡死（服务端 CornerProgressTests 同款用例）。
 //   * 终止原因分层抄 LightNav：`complete / timeout / stuck / truncated / undefined`
 //     ——`truncated` 表示"被总时长预算拉停"，不是策略结论，必须与"策略失败"分开记。
 // 时间口径：服务端 update(pose, time_s) 以秒计时；浏览器把每控制拍的增量
@@ -138,6 +145,9 @@ export function createNavigationRunner(payload, options = {}) {
   const stuckParams = {
     stuck_timeout_s: requiredFinite(follow, "stuck_timeout_s", "follow_controller"),
     stuck_progress_m: requiredFinite(follow, "stuck_progress_m", "follow_controller"),
+    // v0.55.46 收口第 2 条：turn_in_place 期间航向误差收敛多少度算"有进展"
+    // （急转豁免的量尺；服务端 FollowParams.stuck_turn_progress_deg 同真值）。
+    stuck_turn_progress_deg: requiredFinite(follow, "stuck_turn_progress_deg", "follow_controller"),
     recovery_duration_s: requiredFinite(follow, "recovery_duration_s", "follow_controller"),
     max_recoveries: Math.round(requiredFinite(follow, "max_recoveries", "follow_controller")),
     recovery_vx: requiredFinite(recovery, "vx_factor", "follow_controller.recovery_cmd"),
@@ -171,6 +181,9 @@ export function createNavigationRunner(payload, options = {}) {
   let terminationReason = null; // complete / timeout / stuck / truncated / undefined（LightNav 分层）
   let waypointStart_s = 0; // 当前航点的起始时刻（服务端 waypoint_start_time）
   let bestDistance = Number.POSITIVE_INFINITY; // 本航点历史最近距离（服务端 best_distance）
+  // v0.55.46 收口第 2 条：进展按目标导向运动登记（服务端 update「3a) 进展登记」同语义）。
+  let bestHeadingErr = Number.POSITIVE_INFINITY; // turn_in_place 期间历史最小航向误差（服务端 best_heading_err）
+  let progressTargetIndex = -1; // 当前登记进展所对的前视目标下标（服务端 progress_target_index）
   let lastProgress_s = 0; // 最近一次有进展的时刻（服务端 last_progress_time）
   let recoveryUntil_s = -1; // 恢复段截止时刻（服务端 recovery_until）
   let recoveryCount = 0; // 已用恢复轮数（服务端 recovery_count）
@@ -201,13 +214,19 @@ export function createNavigationRunner(payload, options = {}) {
     return Number.isFinite(value) ? value : arrivalTolerance;
   }
 
-  function targetPoint(pose) {
-    // 先消费掉近处的路径点，再取第一个 ≥ 前视距离的点（参考实现同法）
+  function targetIndex(pose) {
+    // 先消费掉近处的路径点，再取第一个 ≥ 前视距离的点的**下标**（参考实现同法）。
+    // 返回下标：进展登记要识别"前视目标切换了"（切换 ⇒ 进展基准重记，同服务端
+    // _lookahead_index 返回下标的理由——两个路径点可能坐标相同，下标才是稳定身份）。
     while (cursor < path.length - 1 && distance(pose, path[cursor]) < params.lookahead_m * 0.5) cursor += 1;
     for (let i = cursor; i < path.length; i += 1) {
-      if (distance(pose, path[i]) >= params.lookahead_m) return path[i];
+      if (distance(pose, path[i]) >= params.lookahead_m) return i;
     }
-    return path[path.length - 1];
+    return path.length - 1;
+  }
+
+  function targetPoint(pose) {
+    return path[targetIndex(pose)];
   }
 
   function command(pose) {
@@ -282,11 +301,12 @@ export function createNavigationRunner(payload, options = {}) {
         stableCount = 0;
         waypointIndex += 1;
         turnInPlace = false; // 换段重新判定朝向
-        // 新航点只重置计时/进展登记（服务端 204–206 行同语义：waypoint_start_time /
-        // best_distance / last_progress_time）——**不**清 recovery_until / recovery_count，
-        // 残余恢复窗口跨航点有效（服务端 advance 分支同样不清，语义以此为准）。
+        // 新航点只重置计时/进展登记（服务端 advance 分支同语义：waypoint_start_time /
+        // best_distance / best_heading_err / last_progress_time）——**不**清 recovery_until /
+        // recovery_count，残余恢复窗口跨航点有效（服务端 advance 分支同样不清，语义以此为准）。
         waypointStart_s = elapsed_s;
         bestDistance = Number.POSITIVE_INFINITY;
+        bestHeadingErr = Number.POSITIVE_INFINITY;
         lastProgress_s = elapsed_s;
         if (waypointIndex >= waypoints.length) return finish("complete", "done");
         lastState = "arrived";
@@ -302,12 +322,34 @@ export function createNavigationRunner(payload, options = {}) {
       return finish("timeout", "timeout");
     }
 
-    // 3) 卡死恢复（服务端 219–243 行同语义）：
-    //    进展登记 ⇒ 恢复段发令 ⇒ 恢复用尽判 stuck。
-    //    首拍 best 为 ∞ ⇒ 恒刷新（d + p < ∞ 对有限 d 恒真，与服务端 reset 后形状一致）。
-    if (distanceToTarget + stuckParams.stuck_progress_m < bestDistance) {
-      bestDistance = distanceToTarget;
+    // 3) 卡死恢复（服务端 update「3) 卡死恢复」段同语义）：进展登记 ⇒ 恢复段发令 ⇒ 恢复用尽判 stuck。
+    //    进展按**目标导向运动**登记（v0.55.46 收口第 2 条裁决，服务端「3a) 进展登记」逐分支对齐）：
+    //    前视目标切换 ⇒ 进展基准对新目标重记（切换本身既不算进展也不算倒退）；
+    //    (1) 到前视目标距离缩短 ≥ stuck_progress_m（拐角切角后当前航点在身后，
+    //        到它的距离不缩反涨——旧口径因此误判，服务端同注释）；
+    //    (2) turn_in_place 期间航向误差收敛 ≥ stuck_turn_progress_deg（真机 180° 急转
+    //        可超 4s）。turnInPlace 标志由 command() 每拍更新（服务端在 update 内先于
+    //        进展登记判定滞回，同一份状态）；只调 tick 不调 command 的单测里标志恒 false，
+    //        航向进展自然关闭——与服务端"未进入原地转态就没有第二类进展"一致。
+    //    被夹住（位置与朝向全冻结）的真卡死两类进展都不成立 ⇒ 恢复照常触发。
+    const pursuitIndex = targetIndex(pose);
+    const pursuit = path[pursuitIndex];
+    if (pursuitIndex !== progressTargetIndex) {
+      progressTargetIndex = pursuitIndex;
+      bestDistance = Number.POSITIVE_INFINITY;
+      bestHeadingErr = Number.POSITIVE_INFINITY;
+    }
+    const pursuitDistance = distance(pose, pursuit);
+    if (pursuitDistance + stuckParams.stuck_progress_m < bestDistance) {
+      bestDistance = pursuitDistance;
       lastProgress_s = elapsed_s;
+    }
+    if (turnInPlace) {
+      const headingErr = Math.abs(wrapAngle(Math.atan2(pursuit[1] - pose.y, pursuit[0] - pose.x) - pose.yaw));
+      if (headingErr + stuckParams.stuck_turn_progress_deg * DEG < bestHeadingErr) {
+        bestHeadingErr = headingErr;
+        lastProgress_s = elapsed_s;
+      }
     }
     if (recoveryUntil_s > elapsed_s) {
       lastState = "recovery"; // 指令在 command() 里发（调用方每拍都问 command）
@@ -375,6 +417,8 @@ export function createNavigationRunner(payload, options = {}) {
     terminationReason = null;
     waypointStart_s = 0;
     bestDistance = Number.POSITIVE_INFINITY;
+    bestHeadingErr = Number.POSITIVE_INFINITY;
+    progressTargetIndex = -1;
     lastProgress_s = 0;
     recoveryUntil_s = -1;
     recoveryCount = 0;

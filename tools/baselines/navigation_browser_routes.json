@@ -1,12 +1,12 @@
 {
   "schema": "navigation-browser-routes-1.1",
-  "generated_at": "2026-09-18T00:10:33",
+  "generated_at": "2026-09-18T03:31:05",
   "surface": "web/sim2sim/index.html（基础仿真，?debug=1&nav=warehouse&nav_waypoints=...）",
   "mode": "e2e",
   "provenance": {
-    "product_version": "0.55.45",
+    "product_version": "0.55.47",
     "git": {
-      "commit": "fbdf042b575b7fa6c7b23ea4b601b268821aef23",
+      "commit": "bac750505cef2e69d1dd0c955150893f79ef2464",
       "dirty": true
     },
     "platform": "Windows-11-10.0.22631-SP0",
@@ -27,8 +27,8 @@
     "failed": 6,
     "classification": {
       "arrived": 1,
-      "h12_overshoot": 1,
-      "h12_no_follow": 5,
+      "h12_overshoot": 5,
+      "h12_no_follow": 1,
       "link_defect": 0
     },
     "note": "H3 验收口径：链路级缺陷（导航未接线/payload 缺 follow_controller 或 arrival/fastForward 异常/页面自身 JS 错误）为 0 ⇒ 浏览器实测走完全程的链路成立。2026-09-17 H12 浏览器侧收口：跟随器接入卡死检测/恢复动作/终止原因分层（backend/follow_controller.py 同参数同语义），到达判定改按 termination_reason==='complete'（此前 finished 混入了 timeout 等提前终止）。测量口径修正：e2e 先等策略会话就绪（sample().policyLoaded）再快进，且浏览器侧状态机时钟在策略加载完成前不计时（否则 holdStance 站桩被误判成卡死——首轮实测 7/7 误判 stuck 即此竞态）。h12_overshoot=跟随推进但 90s 内未到（过冲/振荡短板）；h12_no_follow=状态机判卡死（stuck，含恢复轮数）或跟随未推进；如实记录为防退化基线。"
@@ -69,14 +69,14 @@
       "path_nonempty": true,
       "followed": true,
       "arrived": false,
-      "termination_reason": "stuck",
-      "recoveries_used": 4,
+      "termination_reason": "timeout",
+      "recoveries_used": 0,
       "sim_time_s": 30.0,
       "final_pose": [
-        2.011,
-        1.02
+        0.21,
+        1.236
       ],
-      "final_error_m": 4.117,
+      "final_error_m": 5.921,
       "path_len_m": 49.385,
       "lookahead_m": 0.45,
       "ok": false,
@@ -84,13 +84,13 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:55407/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:65453/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/full.png",
-      "total_ms": 5922,
-      "classification": "h12_no_follow",
+      "total_ms": 5844,
+      "classification": "h12_overshoot",
       "link_ok": true,
-      "reason": "follow_controller limitation: body intrusion / stuck (H12 registered)"
+      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
     },
     {
       "route": "leg_0_1",
@@ -113,14 +113,14 @@
       "path_nonempty": true,
       "followed": true,
       "arrived": false,
-      "termination_reason": "stuck",
-      "recoveries_used": 4,
+      "termination_reason": "timeout",
+      "recoveries_used": 0,
       "sim_time_s": 30.0,
       "final_pose": [
-        2.012,
-        1.012
+        0.209,
+        1.234
       ],
-      "final_error_m": 1.294,
+      "final_error_m": 1.612,
       "path_len_m": 12.899,
       "lookahead_m": 0.45,
       "ok": false,
@@ -128,13 +128,13 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:55407/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:65453/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_0_1.png",
-      "total_ms": 3735,
-      "classification": "h12_no_follow",
+      "total_ms": 3797,
+      "classification": "h12_overshoot",
       "link_ok": true,
-      "reason": "follow_controller limitation: body intrusion / stuck (H12 registered)"
+      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
     },
     {
       "route": "leg_1_2",
@@ -161,10 +161,10 @@
       "recoveries_used": 0,
       "sim_time_s": 10.0,
       "final_pose": [
-        3.026,
-        2.167
+        3.024,
+        2.168
       ],
-      "final_error_m": 0.177,
+      "final_error_m": 0.179,
       "path_len_m": 8,
       "lookahead_m": 0.45,
       "ok": true,
@@ -172,10 +172,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:55407/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:65453/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_1_2.png",
-      "total_ms": 2485,
+      "total_ms": 3016,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -202,13 +202,13 @@
       "followed": true,
       "arrived": false,
       "termination_reason": "timeout",
-      "recoveries_used": 4,
+      "recoveries_used": 2,
       "sim_time_s": 30.0,
       "final_pose": [
-        6.176,
-        3.011
+        5.682,
+        3.825
       ],
-      "final_error_m": 3.016,
+      "final_error_m": 3.838,
       "path_len_m": 28.485,
       "lookahead_m": 0.45,
       "ok": false,
@@ -216,10 +216,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:55407/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:65453/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_2_3.png",
-      "total_ms": 3328,
+      "total_ms": 3312,
       "classification": "h12_overshoot",
       "link_ok": true,
       "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
@@ -243,16 +243,16 @@
       "nav_wired": true,
       "policy_wait_s": 0.2,
       "path_nonempty": true,
-      "followed": true,
+      "followed": false,
       "arrived": false,
       "termination_reason": "stuck",
       "recoveries_used": 4,
       "sim_time_s": 30.0,
       "final_pose": [
-        -2.042,
-        -1.099
+        -1.883,
+        -0.286
       ],
-      "final_error_m": 2.421,
+      "final_error_m": 2.642,
       "path_len_m": 23.657,
       "lookahead_m": 0.45,
       "ok": false,
@@ -260,10 +260,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:55407/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:65453/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_1.png",
-      "total_ms": 3516,
+      "total_ms": 3781,
       "classification": "h12_no_follow",
       "link_ok": true,
       "reason": "follow_controller limitation: body intrusion / stuck (H12 registered)"
@@ -289,14 +289,14 @@
       "path_nonempty": true,
       "followed": true,
       "arrived": false,
-      "termination_reason": "stuck",
-      "recoveries_used": 4,
+      "termination_reason": "timeout",
+      "recoveries_used": 0,
       "sim_time_s": 30.0,
       "final_pose": [
-        6.115,
-        2.169
+        6.258,
+        2.373
       ],
-      "final_error_m": 4.606,
+      "final_error_m": 4.745,
       "path_len_m": 28.485,
       "lookahead_m": 0.45,
       "ok": false,
@@ -304,13 +304,13 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:55407/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:65453/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_2.png",
-      "total_ms": 3453,
-      "classification": "h12_no_follow",
+      "total_ms": 3250,
+      "classification": "h12_overshoot",
       "link_ok": true,
-      "reason": "follow_controller limitation: body intrusion / stuck (H12 registered)"
+      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
     },
     {
       "route": "random_3",
@@ -331,16 +331,16 @@
       "nav_wired": true,
       "policy_wait_s": 0.2,
       "path_nonempty": true,
-      "followed": false,
+      "followed": true,
       "arrived": false,
-      "termination_reason": "stuck",
-      "recoveries_used": 4,
-      "sim_time_s": 20.0,
+      "termination_reason": "timeout",
+      "recoveries_used": 3,
+      "sim_time_s": 30.0,
       "final_pose": [
-        4.101,
-        -2.531
+        4.671,
+        -2.463
       ],
-      "final_error_m": 4.561,
+      "final_error_m": 5.093,
       "path_len_m": 32.142,
       "lookahead_m": 0.45,
       "ok": false,
@@ -348,13 +348,13 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:55407/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:65453/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_3.png",
-      "total_ms": 3532,
-      "classification": "h12_no_follow",
+      "total_ms": 3312,
+      "classification": "h12_overshoot",
       "link_ok": true,
-      "reason": "follow_controller limitation: body intrusion / stuck (H12 registered)"
+      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
     }
   ]
 }
