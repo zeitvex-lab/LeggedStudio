@@ -567,6 +567,20 @@ input[type="checkbox"] {
   border-top: 1px solid rgba(255, 255, 255, 0.09);
 }
 
+/* 扰动注入徽标（G5「地形与扰动归组」）：摩擦 / 负载这类扰动控件旁的小标记，
+   让「地形」与「扰动」两类控制在视觉上可区分。 */
+.disturbance-badge {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid rgba(255, 176, 32, 0.45);
+  border-radius: 4px;
+  color: #ffb020;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  vertical-align: 1px;
+}
+
 .payload-control-row {
   display: flex;
   align-items: center;
