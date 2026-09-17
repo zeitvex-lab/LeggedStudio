@@ -21,6 +21,11 @@ FORBIDDEN_PREFIXES = (
     "contracts",
 )
 
+#: B8 框架上移的**共享任务 kit**（训练栈侧纯 mjlab 级 helper，不 import backend/控制面）：
+#: 包内 stub 允许且应当引用它——这正是"框架层上移、任务特有留包"的载体。
+#: 它是显式列名的白名单（而不是放行整个 adapters），边界守卫对其余 adapters 模块照旧生效。
+SANCTIONED_SHARED_KITS = ("adapters.mjlab.velocity_task_kit",)
+
 # 扩展入口（extension_entrypoint）白名单前缀：平台按契约显式加载它们，
 # 它们可以 import mjlab 的任务注册 API。
 ENTRYPOINT_ALLOWED_PREFIXES = ("mjlab", "isaaclab", "isaaclab")
@@ -89,6 +94,16 @@ class RobotPackageBoundaryTests(unittest.TestCase):
                         if raw_line.startswith((" ", "\t")):
                             continue
                         target = line.split()[1].split(".")[0] if line.startswith("import ") else line.split()[1]
+                        # 完整点路径匹配（`from adapters.mjlab import velocity_task_kit`
+                        # 的 target 只是首段 "adapters"，必须拼上导入名再比对）
+                        if line.startswith("from ") and " import " in line:
+                            module_path = line.split()[1]
+                            names = [n.split(" as ")[0].strip() for n in line.split(" import ", 1)[1].split(",")]
+                            dotted = [f"{module_path}.{n}" for n in names] + [module_path]
+                        else:
+                            dotted = [target]
+                        if any(any(f == kit or f.startswith(kit + ".") for kit in SANCTIONED_SHARED_KITS) for f in dotted):
+                            continue
                         for prefix in FORBIDDEN_PREFIXES:
                             if target == prefix or target.startswith(prefix.rstrip(".")):
                                 violations.append(

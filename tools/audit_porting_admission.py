@@ -269,6 +269,30 @@ def package_inventory(package_root: Path) -> dict[str, Any]:
     }
 
 
+def product_training_evidence(policy: dict[str, Any], index: dict[str, dict[str, Any]]) -> str | None:
+    """产品内训练产物（promote 安装进包）的规则 S 证据，fail-closed。
+
+    背景（B8 试点轮 2026-09-17 实测发现）：promote 的「产物默认安装进包」链路
+    会往 ``simulation/config.json`` 追加 ``origin=product-training`` 的策略条目
+    （带 run_id / artifact_id 溯源）。人工裁定表里没有这种 id —— 首个无 workspace
+    镜像的包（unitree_b2）跑冒烟全链时被误判「准入表未登记」。按本审计自己的
+    规则 S 措辞（「上游**或包内已准入的训练代码**」），产物由包内已准入 profile
+    训练而来，属自证；但**必须能在出库索引解析到对应 artifact** 才算数
+    （索引查无此 artifact → 不给证据，照旧走裁定表 → 不达标），防手编 provenance。
+    """
+    provenance = policy.get("provenance") if isinstance(policy, dict) else None
+    if not isinstance(provenance, dict):
+        return None
+    if str(provenance.get("origin") or "") != "product-training":
+        return None
+    artifact_id = str(provenance.get("artifact_id") or "")
+    entry = index.get(artifact_id) if artifact_id else None
+    if not entry:
+        return None
+    run_id = str(provenance.get("run_id") or entry.get("run_id") or "unknown-run")
+    return f"包内已准入训练代码自证（product-training run={run_id}）"
+
+
 def audit(evidence: dict[str, Any]) -> dict[str, Any]:
     available = bool(evidence.get("available"))
     evidence_robots: dict[str, list[str]] = evidence.get("robots", {})
@@ -291,9 +315,16 @@ def audit(evidence: dict[str, Any]) -> dict[str, Any]:
 
         admitted, rejected = [], []
         table = POLICY_ADMISSION.get(robot, {})
+        from backend.policy_artifacts import load_index
+
+        index = load_index()
         for policy in inv["policies"]:
             policy_id = str(policy.get("id") or "")
             reason = table.get(policy_id, "")
+            if not reason:
+                # 人工裁定表未登记时，产品训练产物可凭可解析的溯源自证（见
+                # product_training_evidence docstring；解析不到则照旧不达标）。
+                reason = product_training_evidence(policy, index)
             if reason:
                 admitted.append({"id": policy_id, "evidence": reason})
             else:

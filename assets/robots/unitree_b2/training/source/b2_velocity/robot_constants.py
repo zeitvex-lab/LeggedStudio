@@ -4,24 +4,31 @@ The MJCF, actuator tuning and collision layout are owned by this robot
 package.  The training model is ``model/robot.xml`` (built-in position
 actuators; see the adjudication note below), so the simulation and
 training paths share one source of truth.
+
+B8 训练去包化（试点轮）：与 deeprobotics_lite3 逐字重复的框架机制（MJCF 解析、
+XmlActuatorCfg 包装、碰撞/动作缩放推导）上移到 ``adapters/mjlab/velocity_task_kit``；
+本文件只留 B2 专属常量与裁决记录。
 """
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-import mujoco
-from mjlab.actuator import XmlActuatorCfg
-from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
-from mjlab.utils.spec_config import CollisionCfg
+# 仓库根自举（见 velocity_task_kit 模块注释）：worker / schema-dump / 冒烟三种
+# 运行环境都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab
+# 对 assets 源树与 workspace 镜像副本两种深度都成立。
+for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+        if str(_parent) not in sys.path:
+            sys.path.insert(0, str(_parent))
+        break
 
-_PACKAGE_ROOT = Path(__file__).resolve().parents[3]
-B2_XML = _PACKAGE_ROOT / "model" / "robot.xml"
-assert B2_XML.exists()
+from mjlab.entity import EntityArticulationInfoCfg, EntityCfg  # noqa: E402
 
+from adapters.mjlab import velocity_task_kit as kit  # noqa: E402
 
-def get_spec() -> mujoco.MjSpec:
-    return mujoco.MjSpec.from_file(str(B2_XML))
+B2_XML, get_spec = kit.package_mjcf(__file__)
 
 
 ##
@@ -52,18 +59,11 @@ def get_spec() -> mujoco.MjSpec:
 #   包装后运行时执行器数值与 MJCF 完全相同。
 ##
 
-B2_ACTUATOR_HIP = XmlActuatorCfg(
-    target_names_expr=(".*hip.*",),
-    command_field="position",
-)
-B2_ACTUATOR_THIGH = XmlActuatorCfg(
-    target_names_expr=(".*thigh.*",),
-    command_field="position",
-)
-B2_ACTUATOR_CALF = XmlActuatorCfg(
-    target_names_expr=(".*calf.*",),
-    command_field="position",
-)
+(
+    B2_ACTUATOR_HIP,
+    B2_ACTUATOR_THIGH,
+    B2_ACTUATOR_CALF,
+) = kit.position_actuator_trio((".*hip.*", ".*thigh.*", ".*calf.*"))
 
 ##
 # Keyframe.
@@ -86,14 +86,7 @@ INIT_STATE = EntityCfg.InitialStateCfg(
 
 _FOOT_RE = "^[FR][LR][RL]_foot_collision$"
 
-FULL_COLLISION = CollisionCfg(
-    geom_names_expr=(".*",),
-    contype=1,
-    conaffinity=0,
-    condim={".*foot.*": 3, ".*": 1},
-    priority={".*foot.*": 1, ".*": 0},
-    friction={".*foot.*": (0.6,)},
-)
+FULL_COLLISION = kit.quadruped_foot_collision()
 
 B2_ARTICULATION = EntityArticulationInfoCfg(
     actuators=(
@@ -115,11 +108,9 @@ def get_b2_robot_cfg() -> EntityCfg:
     )
 
 
-B2_ACTION_SCALE: dict[str, float] = {}
-for actuator in B2_ARTICULATION.actuators:
-    assert isinstance(actuator, XmlActuatorCfg)
-    for expression in actuator.target_names_expr:
-        B2_ACTION_SCALE[expression] = 0.25
+B2_ACTION_SCALE: dict[str, float] = kit.action_scale_from_actuators(
+    B2_ARTICULATION, 0.25
+)
 
 __all__ = [
     "B2_ACTION_SCALE",
