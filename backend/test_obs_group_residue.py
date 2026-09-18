@@ -105,13 +105,12 @@ class LandedFixesTest(unittest.TestCase):
         self.assertIn("actor=RslRlModelCfg(", text)
         self.assertIn("critic=RslRlModelCfg(", text)
 
-    def test_him_wrapper_is_dual_compatible(self):
-        path = ROOT / "assets/robots/zex-w/training/source/robot/rsl_rl/wrappers/him_mjlab_vec_env_wrapper.py"
-        text = path.read_text(encoding="utf-8")
-        self.assertIn('if "actor" in _groups:', text)
-        self.assertIn('elif "policy" in _groups:', text)
-        # 两者都没有时不许静默取空
-        self.assertIn("raise RuntimeError", text)
+    def test_him_files_removed_per_user_ruling(self):
+        """HIM 已按用户裁决删除（2026-09-19：纯 PPO 可用、HIM 不用）——
+        防"文件回来了但没人接线"的僵尸态：整个 rsl_rl 子树不许再出现 him 文件。"""
+        base = ROOT / "assets/robots/zex-w/training/source/robot/rsl_rl"
+        residue = [p.name for p in base.rglob("*.py") if "him" in p.name.lower()]
+        self.assertEqual(residue, [], f"HIM 文件不该回来：{residue}")
 
     def test_microduck_symmetry_docstring_says_actor(self):
         path = ROOT / "assets/robots/microduck/training/source/mjlab_microduck/tasks/symmetry.py"
