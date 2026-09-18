@@ -1334,11 +1334,196 @@
       "run_id": "unitree_go2_mvp_v1_20260918_113206_736619",
       "schema": "policy-artifact-1.0",
       "source_onnx": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-113206.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_170954_466317",
+      "contract": {
+        "action_dim": 12,
+        "obs_dim": 48,
+        "observation_kind": "go2_mjlab_actor_48"
+      },
+      "contract_digest": "6e8436e4dfd3d2ef66e6ae5d40a81de180ddcfca48dd290d94c007daa0303aec",
+      "installation": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-170954.onnx",
+        "policy_id": "unitree_go2-trained-20260918-170954",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2__produced-unitree_go2_mvp_v1_20260918_170954_466317\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-170954.onnx",
+        "policy_id": "unitree_go2-trained-20260918-170954",
+        "repo_path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-170954.onnx",
+        "robot": "unitree_go2"
+      },
+      "kind": "produced",
+      "obs_dim": 48,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
+      "onnx_bytes": 777689,
+      "onnx_sha256": "134b42b392125bdfc32300fe90b0ffdb03d78a69b9aa50f628c39015a49c569f",
+      "pack_ref": {
+        "id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_170954_466317",
+        "path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-170954.onnx",
+        "sha256": "165f27b56b8f319ca2586c08b11122cc2e89dac47bfd25ef5a81fcc54569491f",
+        "version": "unitree_go2-trained-20260918-170954"
+      },
+      "policy_id": "unitree_go2-trained-20260918-170954",
+      "robot": "unitree_go2",
+      "run_id": "unitree_go2_mvp_v1_20260918_170954_466317",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-170954.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_171631_267752",
+      "contract": {
+        "action_dim": 12,
+        "obs_dim": 48,
+        "observation_kind": "go2_mjlab_actor_48"
+      },
+      "contract_digest": "6e8436e4dfd3d2ef66e6ae5d40a81de180ddcfca48dd290d94c007daa0303aec",
+      "installation": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-171631.onnx",
+        "policy_id": "unitree_go2-trained-20260918-171631",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2__produced-unitree_go2_mvp_v1_20260918_171631_267752\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-171631.onnx",
+        "policy_id": "unitree_go2-trained-20260918-171631",
+        "repo_path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-171631.onnx",
+        "robot": "unitree_go2"
+      },
+      "kind": "produced",
+      "obs_dim": 48,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
+      "onnx_bytes": 777689,
+      "onnx_sha256": "e71d4c8609b0f6c25dddf85d9db673271966ae2636b75b2bd7239caf9fc097a7",
+      "pack_ref": {
+        "id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_171631_267752",
+        "path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-171631.onnx",
+        "sha256": "b54e89ff1819d8d5ae5bc74a72500d7cd5e4ce107982370e56e081ff709d97b5",
+        "version": "unitree_go2-trained-20260918-171631"
+      },
+      "policy_id": "unitree_go2-trained-20260918-171631",
+      "robot": "unitree_go2",
+      "run_id": "unitree_go2_mvp_v1_20260918_171631_267752",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-171631.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_172122_733976",
+      "contract": {
+        "action_dim": 12,
+        "obs_dim": 48,
+        "observation_kind": "go2_mjlab_actor_48"
+      },
+      "contract_digest": "6e8436e4dfd3d2ef66e6ae5d40a81de180ddcfca48dd290d94c007daa0303aec",
+      "installation": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-172122.onnx",
+        "policy_id": "unitree_go2-trained-20260918-172122",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2__produced-unitree_go2_mvp_v1_20260918_172122_733976\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-172122.onnx",
+        "policy_id": "unitree_go2-trained-20260918-172122",
+        "repo_path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-172122.onnx",
+        "robot": "unitree_go2"
+      },
+      "kind": "produced",
+      "obs_dim": 48,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
+      "onnx_bytes": 777689,
+      "onnx_sha256": "0a5acc62240c1b7ea136ef9bdb1a6122f31b64cd166a97f4c298b9081a57028d",
+      "pack_ref": {
+        "id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_172122_733976",
+        "path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-172122.onnx",
+        "sha256": "bc0600eccf3454e5c835f6a8276a6a2f486bf6cc6c6284120407f6bf28dbfabf",
+        "version": "unitree_go2-trained-20260918-172122"
+      },
+      "policy_id": "unitree_go2-trained-20260918-172122",
+      "robot": "unitree_go2",
+      "run_id": "unitree_go2_mvp_v1_20260918_172122_733976",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-172122.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_172821_592048",
+      "contract": {
+        "action_dim": 12,
+        "obs_dim": 48,
+        "observation_kind": "go2_mjlab_actor_48"
+      },
+      "contract_digest": "6e8436e4dfd3d2ef66e6ae5d40a81de180ddcfca48dd290d94c007daa0303aec",
+      "installation": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-172821.onnx",
+        "policy_id": "unitree_go2-trained-20260918-172821",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2__produced-unitree_go2_mvp_v1_20260918_172821_592048\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-172821.onnx",
+        "policy_id": "unitree_go2-trained-20260918-172821",
+        "repo_path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-172821.onnx",
+        "robot": "unitree_go2"
+      },
+      "kind": "produced",
+      "obs_dim": 48,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
+      "onnx_bytes": 777689,
+      "onnx_sha256": "5d1e13bd5e32b0a67834e3caa65e5fba969b018dde3ad301149fe619b2eda937",
+      "pack_ref": {
+        "id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_172821_592048",
+        "path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-172821.onnx",
+        "sha256": "27cf3333a34eac36e5c72d09f44c306da44be080795ea43b93ac717b275a3254",
+        "version": "unitree_go2-trained-20260918-172821"
+      },
+      "policy_id": "unitree_go2-trained-20260918-172821",
+      "robot": "unitree_go2",
+      "run_id": "unitree_go2_mvp_v1_20260918_172821_592048",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-172821.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_173309_855482",
+      "contract": {
+        "action_dim": 12,
+        "obs_dim": 48,
+        "observation_kind": "go2_mjlab_actor_48"
+      },
+      "contract_digest": "6e8436e4dfd3d2ef66e6ae5d40a81de180ddcfca48dd290d94c007daa0303aec",
+      "installation": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-173309.onnx",
+        "policy_id": "unitree_go2-trained-20260918-173309",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2__produced-unitree_go2_mvp_v1_20260918_173309_855482\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-173309.onnx",
+        "policy_id": "unitree_go2-trained-20260918-173309",
+        "repo_path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-173309.onnx",
+        "robot": "unitree_go2"
+      },
+      "kind": "produced",
+      "obs_dim": 48,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
+      "onnx_bytes": 777689,
+      "onnx_sha256": "55c5ec407653813b5fbd0be9b85b9827541600ffe6b7079cddf1b10b996acb88",
+      "pack_ref": {
+        "id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_173309_855482",
+        "path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-173309.onnx",
+        "sha256": "6fcfebe1d238aa51bde74848c73b6ac76a0aacaec389228692278b35a1251ce0",
+        "version": "unitree_go2-trained-20260918-173309"
+      },
+      "policy_id": "unitree_go2-trained-20260918-173309",
+      "robot": "unitree_go2",
+      "run_id": "unitree_go2_mvp_v1_20260918_173309_855482",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-173309.onnx"
     }
   ],
   "blobs": "引用式：onnx 单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目在**安装进包之前**持真副本，安装后转为引用式（见 install_produced_policy）",
-  "count": 70,
-  "generated_at": "2026-09-18T03:45:25+00:00",
+  "count": 75,
+  "generated_at": "2026-09-18T09:36:47+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"
 }

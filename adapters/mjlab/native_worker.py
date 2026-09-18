@@ -65,7 +65,10 @@ def build_deploy_metadata(env, rl_cfg, joint_names: list[str]) -> dict:
     except Exception:
         action_scale = []
     try:
-        observation_names = list(env.observation_manager.active_terms.get("policy", []))
+        # B26 同族裁决：训练观测组名是 "actor"（读 "policy" 恒得空——B44 轮登记的
+        # metadata 盲项）；有 "actor" 用 "actor"，历史环境无 "actor" 时回退 "policy"。
+        active_terms = env.observation_manager.active_terms
+        observation_names = list(active_terms.get("actor") or active_terms.get("policy") or [])
     except Exception:
         observation_names = []
     try:
