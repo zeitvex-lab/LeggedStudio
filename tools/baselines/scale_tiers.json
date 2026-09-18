@@ -5,7 +5,7 @@
     "unattended_ceiling_seconds": 600,
     "nature": "operational",
     "note": "10 分钟无人值守上限是任务清单（00_know/05_任务清单.md L7）给本轮定的运维约束；backend/training/create.py 与 backend/training/monitor.py 里没有对应的代码常量/超时（2026-09-18 全文检索核实），单训练任务在产品内可运行超过 10 分钟，本轮按运维上限自律。",
-    "smoke_gate": "E8：长训（>64 envs × >5 iters 任一超限）前必须有同配置（除规模三元组外逐键一致，规范化摘要比对）的已完成冒烟 Run 作证据（backend/training/smoke_gate.py）；本轮证据 Run＝20260918_022258_095883。64×600 档（2026-09-18 第二轮）create 首试即 200 直接放行——同一冒烟证据 Run 复用成功，未补冒烟、未绕过。"
+    "smoke_gate": "E8：长训（>64 envs × >5 iters 任一超限）前必须有同配置（除规模三元组外逐键一致，规范化摘要比对）的已完成冒烟 Run 作证据（backend/training/smoke_gate.py）；本轮证据 Run＝20260918_022258_095883。64×600 档（2026-09-18 第二轮）与 64×800 档（2026-09-18 第三轮）create 均首试即 200 直接放行——同一冒烟证据 Run 三次复用成功，未补冒烟、未绕过。"
   },
   "environment": {
     "date": "2026-09-18",
@@ -150,6 +150,58 @@
       },
       "tier_choice_rationale": "执行上轮投影的 64×600 档（预计 7.5-9.4min）。实测 6.4min（383s），低于投影下沿——0.57s/iter 实测比标定推算的 0.73 快 22%，固定开销 42s 与上轮 ~30s 同量级。",
       "provenance": "task_dir workspace/unitree_go2_mvp_v1_20260918_094930_165943；policies/index.json 单元 unitree_go2__produced-unitree_go2_mvp_v1_20260918_094930_165943"
+    },
+    {
+      "tier": "scale_64x800",
+      "kind": "scale",
+      "task_id": "unitree_go2_mvp_v1_20260918_113206_736619",
+      "envs": 64,
+      "iters": 800,
+      "wall_seconds": 598.0,
+      "wall_seconds_note": "create(11:32:07 local)→exported/policy.onnx 落盘(11:42:04.8)＝598s 全链（run.json created_at 03:32:07Z 与 mtime 11:42:04 对齐）；训练循环本体 Time elapsed 0:09:05=545s；固定开销 ~53s（worker 启动/构建/探针/导出，三轮 30-42-53s 属机况波动）",
+      "seconds_per_iter": 0.68,
+      "seconds_per_iter_note": "545s/800iter=0.681 训练循环口径；比 64×600 档 0.57 慢 19%（本轮机况偏慢：首尾 Iteration time 0.75→0.64，collection 0.535→0.486 + learning 0.219→0.157；与 400/600 档同为 64 envs，规模无关）",
+      "ceiling_pct": 99.7,
+      "ceiling_pct_note": "占 600s 无人值守上限 99.7%——预测区间 8.0-9.3min 被本轮慢机况击穿上沿，全链贴线通过（剩 2s 余量）。**无人值守上限已开始实质约束 64×N 档位**：同档重跑在快机况（0.57s/iter）约 8.6min 有余量，慢机况即贴线，再升 iters 无人值守必超",
+      "reward_last": 35.3901,
+      "reward_first": 0.1683,
+      "reward_trend": "monotonic_rise_slowing_not_saturated",
+      "reward_detail": {
+        "train_mean_reward": "0.168 → 35.39（n=800，无 NaN/±Inf；对比 64×600 末值 27.09 ⇒ +8.3，+30.6%；对比 64×400 16.56 ⇒ +113.7%）",
+        "same_iter_crosscheck": "同 iter 三档对照（800/600/400）：iter 273: 6.09/8.76/9.57；iter 400: 13.83/18.58/—；iter 599: 25.90/27.09/———本轮同 iter 位置低于上两档（机况慢不影响曲线形状，属随机性/采样波动，同 seed 但 PPO 并行采样非逐位确定），曲线形状仍是同族单调升，非换曲线",
+        "still_rising": "均值段 360-400:11.8 → 400-500:17.3 → 500-600:23.7 → 600-700:28.3 → 700-780:32.4 → 末段 780-800:34.7；**增幅逐段收窄**（+5.5/+6.4/+4.6/+4.1/+2.2 每百 iter）——边际收益递减已现，但末 10 iter 均值 34.9 仍在缓升，未到平台",
+        "mean_episode_length": "5.0 → 988.3 步（1000 步封顶；64×600 为 974.1）",
+        "tracking": "track_linear_velocity 0.0004→0.7201（600 档 0.9094，本轮反而低）；track_angular_velocity 0.0055→0.6809（600 档 0.5588）；upright 0.0050→0.9733（600 档 0.9736 持平）——各项此消彼长，单 iter 位置低导致 linear 跟踪末值低于 600 档，不构成退步证据",
+        "regularization_cost": "action_rate_l2 -0.0065→-0.8241；foot_clearance -0.0008→-0.0850（600 档 -1.0694/-0.0768——正则代价低于上轮，与本轮奖励结构一致）",
+        "mixed_signal": "Metrics/twist/error_vel_xy 末值 1.5324（600 档 1.2425，400 档 1.4589）——速度误差口径与奖励口径的背离持续存在且本轮更大，维持『只记录不下结论』",
+        "health": "GET /{task_id}/health alerts=[]（F6 无 NaN/OOM 告警）；/status 的 current_iteration 恒 0/None 属 metrics.jsonl 未采集的既有常态，进度以 training.log 为准"
+      },
+      "probe": {
+        "preflight": "pass（native_preflight.json acceptance_probe.verdict=pass，envelope_reach 0.75，speed_limit verdict=pass）",
+        "acceptance": "not_evaluated（exported/ 仅 policy.onnx，与 400/600 档及既有 produced Run 同常态，验收是独立消费步骤）",
+        "onnx_load": "onnxruntime CPU 载入 exported/policy.onnx：input obs[1,48] → output actions[1,12]，零输入前向输出有限（与 400/600 档产物同契约口径）"
+      },
+      "train_completed": true,
+      "promote": {
+        "http": 200,
+        "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_113206_736619",
+        "onnx_sha256": "2ad2eb3d8f00f4050ef0540bf92822e1d9a3aaa63f36c7441200b2b6be2889ac",
+        "onnx_bytes": 777610,
+        "install": "安装式 promote：包内 simulation/policies/unitree_go2-trained-20260918-113206.onnx + 索引记录 installation（本地出库 blob 转引用式）",
+        "verify_run": "ok=true problems=[]",
+        "index": "policies/index.json 69→70 条（produced 23→24；本轮 L7 链 +1）",
+        "verify_artifacts": "全量对账 checked=74 / declared=50 / indexed=70 / problems=[]（0 problems）"
+      },
+      "gate": {
+        "required": true,
+        "ok": true,
+        "bypassed": false,
+        "evidence_run": "unitree_go2_mvp_v1_20260918_022258_095883",
+        "digest": "39cf6681c607aee3340bc5ce3f64cf70e37758ccbdc638dccae9ebbdbbf40c50",
+        "note": "E8 第三次实战放行：create 64×800 首试即 200，同配置（除规模三元组）规范化摘要比对再次命中上轮 64×5 冒烟证据 Run——同一冒烟证据跨 600/800 两档三连复用，门语义『先冒烟后长训、同配置才可沿用』复验"
+      },
+      "tier_choice_rationale": "执行上轮投影的 64×800 档（预计 8.0-9.3min/80-93%）并按要求带后台监督。实测全链 598s（99.7% 上限）贴线通过：投影区间被本轮慢机况（0.68s/iter vs 上轮 0.57）击穿上沿。reward 800 iters 仍在升但增幅逐段收窄，规模档学理价值（探 reward 上限）边际递减，**64×N 档位探索按计划到此为止**——再升无人值守必超上限",
+      "provenance": "task_dir workspace/unitree_go2_mvp_v1_20260918_113206_736619；policies/index.json 单元 unitree_go2__produced-unitree_go2_mvp_v1_20260918_113206_736619；包内 simulation/policies/unitree_go2-trained-20260918-113206.onnx"
     }
   ],
   "findings": [
@@ -178,13 +230,13 @@
     }
   ],
   "next_tier_projection": {
-    "basis": "64 envs 实测 0.57s/iter 全开销（本轮 600 iters 标定；上轮 0.73s/iter 属机况偏慢，取本轮口径并留 ±20% 波动带）+ ~42s 固定（worker 启动/构建/探针/导出，两轮 30-42s）",
+    "basis": "64 envs 实测 0.57-0.68s/iter 全开销（400/600/800 三档标定，机况波动带 ±20%）+ 30-53s 固定（worker 启动/构建/探针/导出）",
     "candidates": {
-      "64x800": "预计 8.0-9.3min（占上限 80-93%）——本轮口径下有 7-20% 余量，但已贴近上轮口径的撞墙线，须带后台监督（status 轮询 + stop 预案）再跑；reward 曲线未饱和，档位仍有学理价值",
-      "64x900": "预计 8.9-10.4min（占上限 89-104%）——跨越上限概率过半，不建议无人值守直跑",
-      "64x1000": "预计 ~9.7-11.6min——超上限，除非突破无人值守约束或分段 resume（create 支持 resume_from，两段各 500 iter 的墙钟仍会二次计入固定开销，收益待标定）",
-      "128x400": "环境数翻倍：collection 线性、learning 基本不变，粗估 0.85-1.1s/iter ⇒ ~6.0-7.7min；batch 效应可能改善 sample efficiency（单 iter 步数 ×2），但 RTX 4060 8G 显存余量未标定，需先冒烟 128×5 探针（E8 门的同配置口径会判定 128×5 与 64×N 不同摘要——需先跑 128 冒烟档拿新证据）"
+      "64x900": "预计 9.4-11.3min（占上限 94-113%）——本轮 64×800 实测已 99.7% 贴线，再升无人值守必超；除非突破无人值守约束或分段 resume（create 支持 resume_from，两段各 450 iter 墙钟会二次计入固定开销 ~50s，收益待标定），否则不推",
+      "64x1000": "预计 10.3-12.4min——超上限，同上",
+      "128x400": "环境数翻倍：collection 线性、learning 基本不变，粗估 0.85-1.1s/iter ⇒ ~6.3-8.3min；batch 效应可能改善 sample efficiency（单 iter 步数 ×2），但 RTX 4060 8G 显存余量未标定，需先冒烟 128×5 探针（E8 门的同配置口径会判定 128×5 与 64×N 不同摘要——需先跑 128 冒烟档拿新证据）",
+      "结论": "**64×N 规模档探索到 800 为止**：reward 0.17→16.56（400）→27.09（600）→35.39（800）持续上升但增幅逐百 iter 收窄（末段每百 iter +2~3），reward 上限未探到但边际递减明显；无人值守墙钟上限在 800 档已被贴线（99.7%）。下一轮建议转向质量评估（验收探针消费/速度误差混合信号的分径分析）或 128×400 新档（需新冒烟 + 显存标定）"
     },
-    "note": "下一轮候选优先序：64×800（同配置冒烟证据可直接复用本轮链）> 128×400（需新冒烟 + 显存标定）> 分段 resume。reward 400→600 仍在升（+63.6%），当前无『收敛无需再加档』的证据。"
+    "note": "规模档位留下的开放问题：① error_vel_xy 与 reward 口径背离三轮持续（1.46/1.24/1.53）未裁决；② reward 增幅收窄是渐近还是平台需更长跑验证（受墙钟约束，产品内无人值守已无法验证——留给约束放松后或分段 resume 标定）；③ 800 档同 iter 位置低于 400/600 档（同 seed 非逐位确定），单档末值对比含机况/随机性噪声，跨档结论以趋势段均值为主。"
   }
 }
