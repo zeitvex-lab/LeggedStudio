@@ -221,6 +221,19 @@ def _unitree_go2_velocity_env_cfg(
     params={"sensor_name": trunk_head_ground_cfg.name},
   )
 
+  # 结构层攻关收口（任务清单 §2.1 序 1，2026-09-18 六组同批实验后定格）：
+  # 保留 V1（dof_power 型功率惩罚，-0.001 保守档）为默认任务结构——六组中唯一
+  # 不劣于 CTRL 的变体（0.211 vs CTRL 0.189，其余变体见
+  # tools/baselines/reward_shaping_experiments.json v2 段）。功率 early-termination
+  # （mdp/terminations.py::go2_power_runaway）经 V2（1500/900 零触发）/V3（120/60
+  # 咬死步态，0.034）/V4（250/100，0.179）三档标定后**不进默认任务**：训练侧
+  # |tau*v| 量级比评测侧低一个量级，训练侧截断无法转化为评测侧 dof_power 收益。
+  cfg.rewards["dof_power_abs"] = RewardTermCfg(
+    func=mdp.go2_dof_power_penalty,
+    weight=-0.001,
+    params={"asset_cfg": SceneEntityCfg("robot"), "kernel": "mean_abs"},
+  )
+
   # On rough terrain the quadruped tilts significantly; don't terminate on
   # orientation alone. Let out_of_terrain_bounds handle resets.
   cfg.terminations.pop("fell_over", None)
@@ -229,6 +242,12 @@ def _unitree_go2_velocity_env_cfg(
     func=mdp.illegal_contact,
     params={"sensor_name": thigh_ground_cfg.name},
   )
+
+  # 功率超限 early-termination（V2/V3/V4 已实验，默认不启用）：mdp/terminations.py
+  # ::go2_power_runaway 提供逐关节 |tau*v| 瞬时峰值 + EMA 均值两线截断。经三档
+  # 标定（1500/900 零触发 → 120/60 咬死步态 → 250/100 无净收益），训练侧功率
+  # 量级与评测侧 dof_power 指标差一个量级，训练侧截断不转化为评测侧收益——
+  # 默认任务不注册本项，留作后续（阈值课程化/sim2sim 对齐后）复用。
 
   if terrain_profile == "flat":
     cfg.sim.njmax = 300

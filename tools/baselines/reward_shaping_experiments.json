@@ -158,5 +158,178 @@
       "B11 评测的 orientation_stability 变动（0.52-0.80）与 upright 权重被 preset 改写相关（MECH-2），已用 D 组钉回验证，但未做逐指标消融",
       "dof_power 的 RMS≈100 推断来自分数反解（1 - score/100 公式），未单独跑轨迹级 τ·v 输出核验"
     ]
+  },
+  "v2_structural": {
+    "schema": "reward-shaping-experiments-2.0-structural",
+    "description": "任务结构层攻关（任务清单 §2.1 序 1 主战场）：v1 已实证配置层 reward_scales 塑形无效，本轮改 go2 训练源（assets/robots/unitree_go2/training/source/**）加功率型惩罚项（V1）与功率超限 early-termination（V2/V3/V4），外加同批 CTRL 复跑，回答『任务结构层手段能否在 64×100 同预算下把质量分拉到 ≥1.5× CTRL』。",
+    "improvement_bar": "同批 CTRL 0.1893 的 ≥1.5×（即 ≥0.284）→ 追加 64×400 放大；未达成 → 如实记录并给下一轮方向，不硬凑。",
+    "environment": {
+      "date": "2026-09-18 20:32-21:12（同批串行，RTX 4060 8G 独占）",
+      "robot": "unitree_go2",
+      "profile_id": "go2-velocity-flat（task_name=forward_walk, terrain=plane）",
+      "base_config": "algorithm=PPO, num_envs=64, max_iterations=100, seed=7, save_interval=100, device=auto, reward_scales={}, reward_overrides=false——与 v1 CTRL 完全同请求；六组长训请求逐键相同，变体差异全部在训练源码",
+      "git_commit": "5f6e6add + 工作树（含并行任务的 native_worker/web 改动，本轮未动）",
+      "chain": "POST /api/training/create（smoke=true 64×5，train_completed）→ 同请求 64×100 长训 → POST /{task_id}/promote（install=True 进包）→ backend.quality_matrix.run_quality(package_dir='workspace/packages/unitree_go2', policy_id=…, tier='single', steps=400)。B11 按任务要求 save=False 未落盘报告，数值记录于本文件，可按 policy_id 复跑复核（onnx 已装包）。"
+    },
+    "source_diff_summary": {
+      "mdp/rewards.py": "+go2_dof_power_penalty(env, asset_cfg, kernel)：逐关节 |actuator_force×joint_vel| 惩罚（kernel=mean_abs 默认 / mean_square / rms），口径对齐 quality_metrics.dof_power（评测侧 joint_torque 同为 data.actuator_force，go2 执行器与关节 1:1 同序）",
+      "mdp/terminations.py": "新增文件：go2_power_runaway(env, asset_cfg, peak_power_limit, mean_power_limit, mean_alpha=0.9)：任一关节瞬时 |tau·v|>peak 或关节均值 EMA（有效窗 ~0.4s，episode_length_buf<=1 逐 env 清零）>mean 即截断（非 time_out，计 failure）",
+      "mdp/__init__.py": "+from .terminations import *",
+      "tasks/locomotion/velocity.py": "cfg.rewards['dof_power_abs']（V1 档位 -0.001/-0.01 切换）；cfg.terminations['power_runaway']（V2/V3/V4 阈值切换）；实验后定格：奖励项 -0.001 留在默认任务，termination 不注册（代码与三档标定注释保留）"
+    },
+    "calibration_probe": {
+      "method": "flat_env_cfg 64 envs，随机动作 [-1,1] × 300 步，读 asset.data.actuator_force×joint_vel（adapters/mjlab/.venv 内跑）",
+      "per_joint_abs_power_percentiles": {"p50": 2.1, "p90": 10.0, "p95": 14.3, "p99": 25.6, "p99.5": 31.2, "p99.9": 49.5},
+      "per_env_joint_mean_percentiles": {"p50": 3.6, "p99": 10.3},
+      "per_env_joint_peak_percentiles": {"p50": 12.9, "p99": 50.1},
+      "overall_joint_rms": 6.8,
+      "conclusion": "训练侧 |tau·v| 量级：随机动作 p99.9≈50、RMS≈6.8；训练策略 episode 均值 15-40（训练日志 Episode_Reward/dof_power_abs 反解）。评测侧 dof_power 分数反解 RMS≈100（CTRL 0.0013 → 99.87）——训练/评测之间存在 ~1 个数量级的功率量级缺口。"
+    },
+    "variants": [
+      {
+        "id": "CTRL_v2",
+        "name": "对照组复跑（源码未动，同批基准）",
+        "smoke_run": "unitree_go2_mvp_v1_20260918_203246_334214",
+        "run_id": "unitree_go2_mvp_v1_20260918_203424_157556",
+        "policy_id": "unitree_go2-trained-20260918-203424",
+        "train_reward": {"first": 0.17, "last": -0.31, "track_lin_vel_last": 0.0442, "episode_len_last": 107.89},
+        "quality_single": 0.1893198214579002,
+        "per_metric": {"lin_vel_err": 0.6664649857035354, "ang_vel_err": 0.032607905275429616, "dof_limits": 0.9477405392844664, "dof_power": 0.0012919759816720036, "orientation_stability": 0.8365983627526358, "torque_smoothness": 0.14397370422965453, "friction_margin": 0.985392727370162, "zmp_margin": 0.861800905513282},
+        "note": "与 v1 CTRL（0.2237）差 -0.034：同请求不同批次/机况的运行间噪声量级参考。"
+      },
+      {
+        "id": "V1a_power_penalty_lo",
+        "name": "V1 功率惩罚·保守档",
+        "design": "cfg.rewards + dof_power_abs（kernel=mean_abs, weight=-0.001）",
+        "smoke_run": "unitree_go2_mvp_v1_20260918_204244_659759",
+        "run_id": "unitree_go2_mvp_v1_20260918_204329_909417",
+        "policy_id": "unitree_go2-trained-20260918-204329",
+        "train_reward": {"first": 0.17, "last": -0.23, "track_lin_vel_last": 0.0507, "dof_power_abs_last": -0.0008, "episode_len_last": 100.2},
+        "quality_single": 0.21104903293999652,
+        "vs_ctrl": 1.11,
+        "per_metric": {"lin_vel_err": 0.6864268032239642, "ang_vel_err": 0.03469894149836192, "dof_limits": 0.9480539594388301, "dof_power": 0.004266742514010775, "orientation_stability": 0.8701713948631756, "torque_smoothness": 0.10503484764106404, "friction_margin": 0.9735470677307706, "zmp_margin": 0.8585944718743937},
+        "note": "六组中唯一 ≥CTRL 的变体，但 +0.022 在运行间噪声（±0.03）内，不构成方向性证据。"
+      },
+      {
+        "id": "V1b_power_penalty_hi",
+        "name": "V1 功率惩罚·加强档",
+        "design": "dof_power_abs weight=-0.01（每步贡献与 track_linear_velocity 同量级）",
+        "smoke_run": "unitree_go2_mvp_v1_20260918_204617_386054",
+        "run_id": "unitree_go2_mvp_v1_20260918_204657_303338",
+        "policy_id": "unitree_go2-trained-20260918-204657",
+        "train_reward": {"first": 0.16, "last": -0.30, "track_lin_vel_last": 0.0054, "dof_power_abs_last": -0.003, "episode_len_last": 21.75},
+        "quality_single": 0.15554042146232497,
+        "vs_ctrl": 0.82,
+        "per_metric": {"lin_vel_err": 0.6633452314385141, "ang_vel_err": 0.018933982610488773, "dof_limits": 0.9452307594442105, "dof_power": 0.00034452928905878005, "orientation_stability": 0.7242442232416363, "torque_smoothness": 0.2583849059367935, "friction_margin": 0.9912681879617934, "zmp_margin": 0.8696854429982921},
+        "note": "dof_power 分数仍≈0，orientation_stability 掉到 0.724；episode 长度 21.75（vs CTRL 107.89）——纯奖励权重扰动即可使训练轨迹大幅发散（RNG 级），单次对比噪声主导。"
+      },
+      {
+        "id": "V2_power_termination_nominal",
+        "name": "V2 early-termination·按评测 RMS 定标（1500/900）",
+        "design": "cfg.terminations + power_runaway(peak=1500, ema_mean=900, alpha=0.9)；无奖励项",
+        "smoke_run": "unitree_go2_mvp_v1_20260918_205148_037035",
+        "run_id": "unitree_go2_mvp_v1_20260918_205227_750853",
+        "policy_id": "unitree_go2-trained-20260918-205227",
+        "train_reward": {"first": 0.17, "last": -0.29, "track_lin_vel_last": 0.0094, "episode_len_last": 35.3},
+        "termination_firing": "100/100 iteration Episode_Termination/power_runaway=0.0000（零触发）",
+        "quality_single": 0.2045967054518064,
+        "vs_ctrl": 1.08,
+        "per_metric": {"lin_vel_err": 0.6889409499285009, "ang_vel_err": 0.025358733534085142, "dof_limits": 0.9462769757079996, "dof_power": 0.002968420715645661, "orientation_stability": 0.7569551504640907, "torque_smoothness": 0.23198400355657112, "friction_margin": 0.99395935350108, "zmp_margin": 0.8588685549302377},
+        "note": "按『评测 RMS 700 量级』定的阈值在训练环境结构性够不着（训练侧量级低 ~1 个数量级，见 calibration_probe）→ 本组实为又一次种子采样，分数落在 CTRL 噪声带内，与零触发自洽。"
+      },
+      {
+        "id": "V3_combo_tight",
+        "name": "V3 组合·重标定阈值（过紧，反例）",
+        "design": "dof_power_abs(-0.001) + power_runaway(peak=120≈随机 p99.9 的 2.4×, ema_mean=60≈训练策略均值 4×)",
+        "smoke_run": "unitree_go2_mvp_v1_20260918_210104_013571",
+        "run_id": "unitree_go2_mvp_v1_20260918_210138_853758",
+        "policy_id": "unitree_go2-trained-20260918-210138",
+        "train_reward": {"first": -0.05, "last": 0.09, "track_lin_vel_last": 0.0032, "dof_power_abs_last": -0.0001, "episode_len_last": 9.54},
+        "termination_firing": "全程高频触发（1.6-7.7/s），Mean episode length 全程 ~10 步",
+        "quality_single": 0.03444748925430546,
+        "vs_ctrl": 0.18,
+        "per_metric": {"lin_vel_err": 0.5470810932989956, "ang_vel_err": 0.009756895356303358, "dof_limits": 0.9320945870138827, "dof_power": 0.0, "orientation_stability": 0.6344490618103573, "torque_smoothness": 0.17097861222169836, "friction_margin": 0.9345250833597237, "zmp_margin": 0.8738955561424487},
+        "note": "截断咬死步态习得：episode 10 步内 tracking 无法兑现（趴在 0.003），策略既学不会走也站不稳；评测侧 dof_power 依然 0。"
+      },
+      {
+        "id": "V4_combo_interpolated",
+        "name": "V4 组合·内插阈值（触发但不窒息）",
+        "design": "dof_power_abs(-0.001) + power_runaway(peak=250, ema_mean=100)",
+        "smoke_run": "unitree_go2_mvp_v1_20260918_210542_577364",
+        "run_id": "unitree_go2_mvp_v1_20260918_210622_462722",
+        "policy_id": "unitree_go2-trained-20260918-210622",
+        "train_reward": {"first": 0.1, "last": -0.18, "track_lin_vel_last": 0.0339, "dof_power_abs_last": -0.0008, "episode_len_last": 59.12},
+        "termination_firing": "早期高频、后期衰减到 0.25-0.6/s；episode 末段 ~55-59 步（CTRL 107.9）",
+        "quality_single": 0.1791642586469277,
+        "vs_ctrl": 0.95,
+        "per_metric": {"lin_vel_err": 0.6161404052686215, "ang_vel_err": 0.01883810715363303, "dof_limits": 0.9468081273802134, "dof_power": 0.0015373450490424028, "orientation_stability": 0.7201897594264366, "torque_smoothness": 0.2812234578000203, "friction_margin": 0.9867653953874922, "zmp_margin": 0.8696292438353672},
+        "note": "『触发但不窒息』窗口存在（步态部分习得、track 0.034），但评测侧 dof_power 依旧钉在 0.0015——训练侧功率压制不转化为评测侧功率收益。"
+      }
+    ],
+    "score_table": {
+      "columns": ["variant", "quality_single", "vs_CTRL_0.1893", "dof_power", "torque_smoothness", "lin_vel_err", "train_episode_len_last", "termination_firing"],
+      "rows": [
+        ["CTRL_v2", 0.1893, "1.00×", 0.0013, 0.144, 0.666, 107.9, "-"],
+        ["V1a_power_lo", 0.2110, "1.11×", 0.0043, 0.105, 0.686, 100.2, "-"],
+        ["V1b_power_hi", 0.1555, "0.82×", 0.0003, 0.258, 0.663, 21.8, "-"],
+        ["V2_term_1500/900", 0.2046, "1.08×", 0.0030, 0.232, 0.689, 35.3, "0 次（零触发）"],
+        ["V3_term_120/60", 0.0344, "0.18×", 0.0, 0.171, 0.547, 9.5, "全程 ~10 步/次咬死"],
+        ["V4_term_250/100", 0.1792, "0.95×", 0.0015, 0.281, 0.616, 59.1, "衰减到 0.25-0.6/s"]
+      ]
+    },
+    "mechanism_findings": [
+      {
+        "id": "MECH-4",
+        "title": "【关键发现】训练侧与评测侧 |tau·v| 量级缺口 ~1 个数量级，评测侧 dof_power 钉死",
+        "detail": "训练环境实测：随机动作逐关节 |tau·v| p99.9=49.5、整体 RMS=6.8；训练策略 episode 均值 15-40（训练日志反解）。而六个行为差异巨大的策略（含 V3 半坏策略）评测侧 dof_power 全部钉在 0.0003-0.0043（RMS 99.6-99.97）——像评测侧『任何步态在该部署模型下都有的功率下限』，而非策略差异。可能与部署模型（model/robot.xml，position kp=35）与训练模型（training.xml）执行器差异或评测 PD 伺服方式有关，本轮未做 standing 策略对照（推断，非实证结论）。"
+      },
+      {
+        "id": "MECH-5",
+        "title": "几何平均口径下 dof_power 理论杠杆很大，但前提在评测侧",
+        "detail": "quality_score=加权几何平均（dof_power 权重 1/10）。dof_power 0.0013→0.1 单独值 (0.1/0.0013)^0.1≈1.54×——单凭它就够 1.5× 门。但 RMS 从 99.9 压到 <90 需要评测侧行为改变；训练侧功率本就低一个量级，训练侧 shaping/截断（V1/V2 全档位）对评测侧 RMS 的可观测影响为 0。"
+      },
+      {
+        "id": "MECH-6",
+        "title": "E8 冒烟门的指纹不覆盖训练源码——『改了源码，门不知道』",
+        "detail": "六组长训请求逐键相同 → inputs.digest 完全相同（CTRL 长训的 gate evidence 甚至引用了 v1 轮的旧冒烟 172712_209381）。本轮仍按『每变体改源后先冒烟』执行（6 冒烟 + 6 长训 verify_run 全 ok=true，bypassed=false 全程），但这是纪律而非机制保证。建议：把 training/source 的 tree hash 纳入 runs.build_inputs 的指纹。"
+      },
+      {
+        "id": "MECH-7",
+        "title": "64×100 档运行间噪声 ±0.03，微小扰动即大幅改写训练轨迹",
+        "detail": "CTRL 同请求本轮 0.1893 vs v1 轮 0.2237；V1b 仅改一个奖励权重，episode 长度从 107.9 崩到 21.8。单 seed 单次对比的因果解释力弱：V1a 的 1.11×、V2 的 1.08× 都在噪声带内。后续对比要么 3 seed，要么升到 64×400。"
+      }
+    ],
+    "verdict": {
+      "headline": "任务结构层【本形态不成立】：V1 功率惩罚（-0.001/-0.01 两档）、V2 early-termination（三档阈值）及其组合在 64×100 同预算下无一达到 ≥1.5× CTRL（最高 V1a 1.11×，在噪声带内）。阈值三档标定给出完整机理：太松（1500/900）训练侧结构性零触发、太紧（120/60）咬死步态习得（0.034）、中间（250/100）无净收益（0.179）。根因指向 MECH-4 的训练/评测功率量级缺口。判据未达成 → 未跑 64×400 放大（不硬凑）。",
+      "long_training_collapse": "『长训质量崩塌』（64×800 dof_power RMS≈700 vs 64×100 ≈100）未被本轮手段治好，且证据表明它不是训练侧功率纪律问题：训练侧功率量级本来就在评测侧的 1/10 以下。长训后期崩塌更可能与『训练命令分布（站立/低速混合 + 课程扩速）vs 评测恒定 0.4m/s 的失配 + 长训策略动力学漂移』有关。",
+      "retained_change": "默认任务保留 dof_power_abs(-0.001)（六组中唯一 ≥CTRL 的变体，风险最小，连续小梯度无害）；go2_power_runaway 代码保留在 mdp/terminations.py 但不注册（附三档标定注释，供阈值课程化/sim2sim 对齐后复用）。",
+      "next_direction": [
+        "① 先攻评测侧钉死机理（最高优先）：跑 standing/低速策略对照与不同 kp/armature 部署模型的 dof_power 分解——若 dof_power 在评测侧结构性不可改，八指标攻点转向 ang_vel_err（六组 0.0098-0.0347，权重 2.0 的第二重锤）与 torque_smoothness（V4 已到 0.281）。",
+        "② 治长训崩塌换杠杆：curriculum/命令重采样（把训练命令分布向评测工作点 0.4m/s 恒速靠拢）、LR 退火、save_interval 细化 + 按 B11 分数选 checkpoint（而非取 model_final）。",
+        "③ 若坚持训练侧功率路线：需先把评测口径的 τ/v 引入训练侧对齐（例如按部署模型 kp 重算功率，或训练 env 直接挂部署模型执行器参数），否则两侧量纲不对齐，任何训练侧阈值/权重都是盲标定。",
+        "④ 工程护栏：E8 指纹纳入 training/source tree hash（MECH-6）；对比实验升到 3 seed 或 64×400（MECH-7）。"
+      ]
+    },
+    "e8_and_regression": {
+      "smoke_gate": "六组全部『改源 → 同请求 64×5 冒烟（train_completed）→ 64×100 长训』；smoke_gate.bypassed=false 全程。注意：因指纹不含源码，长训的 gate evidence 均引用同 digest 的旧冒烟记录（CTRL 引用 v1 轮 172712_209381）——本轮新冒烟是纪律性补齐而非门强制。",
+      "verify_run": "12 条新 Run 档案（6 冒烟 + 6 长训）verify_run ok=true problems=[] 全过",
+      "verify_artifacts": "problems=[]（declared 50 / checked 85，含本轮 produced +6）",
+      "audit_training_entrypoints": "exit 0（go2 entrypoint 未断）",
+      "audit_porting_admission": "exit 0 全部准入",
+      "incident": "CTRL 长训中途被并行任务侧的 TrainingManager 实例化孤儿结算误写 failed（F6 reconcile）；worker 正常跑完并覆盖回 train_completed，链路证据完整。并行 pytest/多控制面实例与训练共享 workspace 是运行风险（详见 status.json 历史）。"
+    },
+    "provenance": {
+      "task_dirs": "workspace/unitree_go2_mvp_v1_20260918_{203246,203424,204244,204329,204617,204657,205148,205227,210104,210138,210542,210622}*（冒烟/长训各 6，resolved-config + status + training.log + tfevents + exported/policy.onnx 全套在场）",
+      "installed_policies": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-{203424,204329,204657,205227,210138,210622}.onnx + simulation/config.json 条目 + packs/unitree_go2.pack.json 回挂（promote 链标准产物，produced 75→81）",
+      "backend": "http://127.0.0.1:64384（既有控制面实例，本轮全程复用）",
+      "b11_reports": "按任务要求 save=False 未落盘；数值记录于本文件 variants[].per_metric，可由 run_quality(package_dir='workspace/packages/unitree_go2', policy_id=<上表 policy_id>, tier='single', steps=400) 复核",
+      "honest_limits": [
+        "单 seed 单次运行；运行间噪声 ±0.03（MECH-7），V1a/V2 相对 CTRL 的差值不构成方向性证据",
+        "评测侧 dof_power『钉死』是六组全钉 + 量级缺口的推断，未做 standing 策略对照或部署模型参数分解实验",
+        "V2 长训的 episode 长度 35.3 与 CTRL 107.9 的差异由 RNG 级轨迹发散造成（termination 零触发），不是处理效应",
+        "64×400 放大未跑：成功判据（≥1.5×）未达成，放大无效变体属于硬凑",
+        "随机动作标定探针只代表训练环境初始分布，未覆盖训练中期策略的功率尾部分布（V3 高频触发说明尾部分布远超随机探针）"
+      ]
+    }
   }
 }
