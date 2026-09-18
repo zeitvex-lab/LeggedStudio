@@ -238,6 +238,8 @@ body.embedded .content { padding-top: 16px; }
   border: 1px solid var(--line-soft); border-radius: 8px; background: #ffffff;
   box-shadow: 0 5px 18px rgba(65,82,99,.08);
   color: var(--text); text-align: left; cursor: pointer;
+  /* 长训练产物名（如 unitree_b2w_v1_20260918_093241_627441）无空格 token 会撑破卡片 → 1920 溢出 38px（U 组同族） */
+  min-width: 0; overflow-wrap: anywhere;
 }
 .demo-card:hover { border-color: var(--cyan); background: #eef6fd; }
 .demo-card .demo-ico { font-size: 22px; margin-bottom: 4px; }

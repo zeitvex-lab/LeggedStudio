@@ -62,7 +62,36 @@ def run_quality(
     interpreter: Path | str | None = None,
     timeout: float = 1200.0,
 ) -> dict[str, Any]:
-    """跑一档评测并返回报告（与适配器脚本同一份 JSON，不在这里重新算）。"""
+    """跑一档评测并返回报告（与适配器脚本同一份 JSON，不在这里重新算）。
+
+    B11-GAP-2（multi 档单策略降级）：本接口只接收**一个**策略（``policy_id``/``policy``），
+    传 ``tier="multi"`` 时适配器侧只会摆出 1×1 矩阵（一策略 × 一指令），那格分数与 single
+    同分 —— 为一个假矩阵多跑一遍 MuJoCo 是纯冗余。语义选择「**跳过并说明**」而不是
+    「复用 single 结果」：复用会把单条件跑分冠以 multi 报告之名，是同一造假问题的另一种
+    服装；跳过报告带 ``multi="skipped-single-policy"`` + ``reason``，``ok=False`` 且含
+    blocker，`gate` 不放行（未评测 ≠ 达标）。真正多策略矩阵请直接用适配器脚本
+    ``adapters/mjlab/quality_metrics.py``（``run_multi`` 接受策略列表）。
+    """
+
+    if tier == "multi":
+        return {
+            # 与适配器 run_multi 的 MATRIX_SCHEMA 同字面量（不 import，避免把 numpy 拖进控制面进程）
+            "schema": "quality-matrix-1.0",
+            "tier": "multi",
+            "generated_at": now(),
+            "package": str(package_dir),
+            "policy": {"policy": policy, "policy_id": policy_id},
+            "multi": "skipped-single-policy",
+            "reason": (
+                "multi 档是多策略×多指令矩阵；本接口只接收单个策略，跑出来是 1×1 冗余矩阵"
+                "（与 single 同分）。需要跨策略对比请用适配器脚本 run_multi 传策略列表，"
+                "或对各策略分别跑 single。"
+            ),
+            "requested": {"cmd": cmd, "steps": steps, "quality_min": quality_min},
+            "skipped": ["multi 档按单策略跳过（skipped-single-policy）"],
+            "ok": False,
+            "blockers": ["multi 档未运行：单策略请求（skipped-single-policy，见 reason）——未评测 ≠ 达标"],
+        }
 
     from backend.adapter_runtime import run_json_script
 

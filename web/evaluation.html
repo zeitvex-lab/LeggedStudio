@@ -1,5 +1,6 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sim2Sim 验证 - Legged Studio</title><link rel="stylesheet" href="dashboard.css"><style>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>策略验证 - Legged Studio</title><link rel="stylesheet" href="dashboard.css"><style>
 .eval-shell{max-width:1180px;margin:0 auto;padding:32px 24px}.eval-form,.result{padding:20px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);margin-top:18px}.eval-form{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.eval-form label{display:grid;gap:6px;color:var(--muted);font-size:12px}.eval-form select,.eval-form input{min-height:38px;padding:0 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-input);color:var(--text)}.result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px}.metric{padding:14px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-raised)}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:4px;font-size:22px;color:var(--accent)}
+.block-head{margin:22px 0 0}.block-head h2{margin:0 0 4px;font-size:16px}.block-head .hint{margin-top:0}
 .quality-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .badge{padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
 .badge.ok{background:rgba(56,178,108,.16);color:#38b26c}
@@ -10,10 +11,14 @@
 .quality-table td.num,.quality-table th:nth-child(n+2){text-align:right;font-variant-numeric:tabular-nums}
 .hint{color:var(--muted);font-size:12px;margin-top:10px}
 .hint li{margin:4px 0}
-</style></head><body><main class="eval-shell"><header class="page-header"><div><span class="page-kicker">Sim2Sim</span><h1>策略验证</h1><p>使用训练产物在隔离的 native MJLab 环境运行确定性回放。</p></div><div class="page-actions"><a class="btn" href="dashboard.html">返回</a></div></header><section class="eval-form"><label>训练产物<select id="task"><option>加载中...</option></select></label><label>回放回合<input id="episodes" type="number" value="5" min="1" max="100"></label><button class="btn primary" id="run">运行验证</button></section><section class="result" id="result"><div class="empty-state">选择已完成任务后开始验证</div></section>
+<!-- U14：页头即声明双入口，① ② 两块各自带端点与判据说明，防止把两套分数混为一谈。 -->
+</style></head><body><main class="eval-shell"><header class="page-header"><div><span class="page-kicker">Evaluation</span><h1>策略验证</h1><p>本页两套<b>独立</b>入口——① Sim2Sim 验证（确定性回放）② 质量矩阵（B11 八指标）。判据互不替代，混用分数 = 自欺。</p></div><div class="page-actions"><a class="btn" href="dashboard.html">返回</a></div></header>
+<section class="block-head" id="sim2sim-block"><h2>① Sim2Sim 验证 · 确定性回放</h2><p class="hint">端点 <code>/api/evaluation/run</code>：训练产物在隔离的 native MJLab 环境逐回合确定性回放，产出奖励 / 前进速度 / 成功率。</p></section>
+<section class="eval-form"><label>训练产物<select id="task"><option>加载中...</option></select></label><label>回放回合<input id="episodes" type="number" value="5" min="1" max="100"></label><button class="btn primary" id="run">运行验证</button></section><section class="result" id="result"><div class="empty-state">选择已完成任务后开始验证</div></section>
 <section class="result" id="quality">
-  <h2>质量矩阵（八指标 / 四档）</h2>
-  <p class="hint">RoboGauge 八指标 → single / multi / level / stress。报告落 <code>&lt;workspace&gt;/evaluation/</code>；
+  <h2>② 质量矩阵（B11 八指标 / 四档）</h2>
+  <p class="hint">端点 <code>/api/evaluation/quality/run</code>，与上方 ① 的回放是<b>两套判据</b>：八指标加权质量分 ≠ 回放成功率，互不替代、互不推算。
+  RoboGauge 八指标 → single / multi / level / stress。报告落 <code>&lt;workspace&gt;/evaluation/</code>；
   <strong>打包放行的依据就是那份磁盘报告</strong>——没有报告不算过（未评测 ≠ 达标）。</p>
   <div class="eval-form">
     <label>机器人<select id="q-robot"><option>加载中...</option></select></label>
@@ -90,7 +95,13 @@ function renderQuality(report, verdict) {
       Object.entries(report.scores || {}).map(([name, value]) => `<tr><td>${escapeHtml(name)}</td><td class="num">${Number(value).toFixed(4)}</td></tr>`).join("")
     }</tbody></table><p class="hint">维度：${escapeHtml(report.dimension_note || report.dimension || "")}</p>`;
   } else if (report.tier === "multi") {
-    body = `<p>矩阵 ${report.count} 格 · mean <strong>${Number(report.aggregate?.mean).toFixed(4)}</strong> · min <strong>${Number(report.aggregate?.min).toFixed(4)}</strong></p>`;
+    if (report.multi === "skipped-single-policy") {
+      // B11-GAP-2：单策略请求 multi 档时后端不再冗余跑（1×1 矩阵与 single 同分），
+      // 返回 skipped 报告——页面如实转述跳过原因，不渲染假矩阵。
+      body = `<p class="hint">multi 档未运行（${escapeHtml(report.multi)}）：${escapeHtml(report.reason || "单策略请求不构成矩阵，未评测 ≠ 达标")}</p>`;
+    } else {
+      body = `<p>矩阵 ${report.count} 格 · mean <strong>${Number(report.aggregate?.mean).toFixed(4)}</strong> · min <strong>${Number(report.aggregate?.min).toFixed(4)}</strong></p>`;
+    }
   } else {
     body = `<div class="result-grid"><div class="metric"><span>质量分（加权几何平均）</span><strong>${Number(report.quality_score).toFixed(4)}</strong></div>
       <div class="metric"><span>足距对角长 d_norm</span><strong>${Number(report.d_norm).toFixed(3)}</strong></div></div>${metricsTable(report.metrics, report.weights)}`;

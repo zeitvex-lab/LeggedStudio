@@ -67,6 +67,7 @@
       <p style="font-size:13px; color:#5a6672; margin:0 0 6px">
         ① dummy forward 维度检查　② 固定输入数值回放（&lt;1e-5）——
         DENYLIST：obs_groups / action_scale / joint_order / control_hz / armature 不一致 = 拒绝
+        （本步比对包内 contract_v3.json 训练契约 vs contract.json 部署契约；包未带 v3 时无从比对，另行说明）
       </p>
       <button class="ghost" id="runGate">运行 gate 校验</button>
       <ul class="gate-list" id="gateList"></ul>
@@ -129,7 +130,20 @@
         // gate A：契约一致性（服务端 v3 vs v2 层间快检；导出侧另有训练快照强校验）
         const report = await fetch(`/api/deploy/gate/${encodeURIComponent(currentRobot)}`).then((r) => r.json());
         const rows = [];
-        (report.blockers || []).forEach((item) => rows.push(`<li class="gate-bad">✗ ${item}</li>`));
+        // U13：包里没有 contract_v3.json 时，服务端 v3={} 会让每个 DENYLIST 字段都报
+        // 「源侧未声明 → 不对称 fail-closed」——那是「没有 v3 契约可校验」，不是逐字段「校验不通过」。
+        // 判据（纯前端）：所有条目的 source_value 都是 "<缺失>"（契约裁决器对缺字段的渲染）。
+        const entries = report.entries || [];
+        const noV3Contract = !report.ok
+          && entries.length > 0
+          && entries.every((item) => item.source_value === '<缺失>');
+        if (noV3Contract) {
+          rows.push('<li class="gate-warn">ℹ 该包未携带 contract_v3.json——没有 v3 训练契约可校验（这不是「校验不通过」）。</li>');
+          rows.push(`<li class="gate-bad">✗ gate 仍不放行：v3 契约缺失时 ${entries.length} 个字段无从比对，按 fail-closed 记为不一致（无法验证 ≠ 一致）。</li>`);
+          rows.push('<li class="gate-warn">⚠ 下一步：走一次带契约快照的训练 / 导出流程生成 contract_v3.json，再回本步重跑 gate。</li>');
+        } else {
+          (report.blockers || []).forEach((item) => rows.push(`<li class="gate-bad">✗ ${item}</li>`));
+        }
         (report.warnings || []).forEach((item) => rows.push(`<li class="gate-warn">⚠ ${item}</li>`));
         if (report.ok) {
           rows.unshift('<li class="gate-ok">✅ DENYLIST 契约一致性通过（obs_groups / action_scale / joint_order / control_hz / armature）</li>');
