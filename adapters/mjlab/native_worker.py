@@ -244,10 +244,35 @@ def apply_training_recipe(env_cfg, rl_cfg, config: dict, *, preserve_profile: bo
     """Apply the canonical Web/CLI recipe to real MJLab config objects."""
     recipe = config.get("resolved_recipe") or config.get("recipe") or {}
     environment = recipe.get("environment", {}) if isinstance(recipe, dict) else {}
-    rewards = recipe.get("reward_scales", {}) if isinstance(recipe, dict) else {}
-    rewards = rewards or config.get("reward_scales", {})
-    if preserve_profile and not config.get("reward_overrides", False):
-        rewards = {}
+    recipe_rewards = recipe.get("reward_scales", {}) if isinstance(recipe, dict) else {}
+    # MECH-2 裁决 A「任务真值优先」（2026-09-18 三十轮塑形实验取证，见
+    # tools/baselines/reward_shaping_experiments.json §mechanism_findings MECH-2）：
+    # preserve_profile=True 意味着包声明了自己的任务（worker 按 profile_id 载入包内
+    # profile bundle），此时 recipe.reward_scales 里由 resolve_recipe
+    # （recipe_registry.py 通用任务分支 ``get_reward_preset`` + ``update``）并入的
+    # 通用 preset（registry/rewards/presets.json）只是**通用任务的缺省**，不是包任务
+    # 真值。reward_overrides=true 的语义据此收紧：只有**请求显式列出的** reward_scales
+    # 才允许覆盖包任务（显式意图），preset 全表不得随之涌入 —— 此前把 recipe 全表
+    # setattr 进 env_cfg，go2 任务真值 track_angular_velocity=2.0 / upright=+1.0 被
+    # 通用值 0.5 / -2.0（经 body_orientation_l2→upright 别名）静默顶掉，任何带
+    # reward_scales 的实验都在"测一个被偷换的任务"。
+    # 与裁决 A 字面（"preset 只填充任务未定义的项"）的等价性：任务未定义的奖励项在
+    # preserve_profile 下本就 unmatched 跳过（不报错也不生效），所以"只透传显式项"
+    # 与"preset 填洞"可观测行为一致，且不依赖对任务词表的猜测，语义更干净。
+    # 否决 B（显式钉住要求：请求方必须列全要动的项、未列项不进 preset）：把复杂度
+    # 推给调用方/前端，漏列即踩坑；A 无技术障碍，故选 A。
+    # 两条既有路径逐字节不漂移：通用任务（preserve_profile=False，generic_task_builder
+    # 拿 recipe 建任务，preset 表就是任务自身定义）照旧全表应用；默认路径
+    # （reward_overrides 缺省 false）照旧全表丢弃、保留任务真值。
+    explicit_rewards = {
+        str(key): float(value)
+        for key, value in (config.get("reward_scales") or {}).items()
+        if value is not None
+    }
+    if preserve_profile:
+        rewards = explicit_rewards if config.get("reward_overrides", False) else {}
+    else:
+        rewards = recipe_rewards or explicit_rewards
     terrain_type = str(environment.get("terrain_type", config.get("terrain_type", "plane"))).lower()
     if not preserve_profile and terrain_type not in {"plane", "rough"}:
         raise ValueError(f"native MJLab training supports terrain_type plane or rough; got {terrain_type!r}")
