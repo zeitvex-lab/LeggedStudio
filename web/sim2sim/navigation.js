@@ -15,7 +15,13 @@
 // 控制器律对齐参考实现（H12）：
 //   * 前视点跟随：`wz = clamp(kp_yaw·err, ±max_wz)`；仅当 `|err| ≤ yaw_stop_threshold` 才给
 //     `vx = clamp(kp_dist·d·cos(err), 0, max_vx)`（cos 门控，不是线性衰减）；
-//   * 大误差**原地转**：`|err| ≥ turn_in_place_enter` 进入、`≤ turn_in_place_exit` 退出（滞回）。
+//   * 大误差**原地转**：`|err| ≥ turn_in_place_enter` 进入、`≤ turn_in_place_exit` 退出（滞回）；
+//   * **接近减速（v0.55.48，与 backend/follow_controller.py update「接近减速」段同分支
+//     同参数）**：仅**最后一段**（活跃航点即最终航点）且距最终航点 < goal_slowdown_m 时，
+//     vx 上限按剩余距离比例收紧 `vx_cap = max_vx × clamp(dist/goal_slowdown_m, min_scale, 1)`
+//     ——修 H12 登记短板「0.2m 容差过冲振荡」（匀速冲线 → 过冲 → stable_ticks 攒不上，
+//     e2e 基线 arrived 1/7）。min_scale 是上限地板（最后几十厘米不熄火）；wz 不受影响；
+//     中途航点跟随语义不变（折返航线中途靠近最终航点也不减速）。
 //
 // H12 卡死/恢复/终止原因（2026-09-17 接入）：与服务端 `backend/follow_controller.py`
 // 的 FollowController 状态机**同参数同语义**——参数全部取 `payload.follow_controller`
@@ -37,7 +43,7 @@
 //     ——`truncated` 表示"被总时长预算拉停"，不是策略结论，必须与"策略失败"分开记。
 // 时间口径：服务端 update(pose, time_s) 以秒计时；浏览器把每控制拍的增量
 // `options.controlDt`（= sim_dt × control_decimation，由 app.js 传入）累计成秒。
-export const NAVIGATION_VERSION = "nav-follow-2.1";
+export const NAVIGATION_VERSION = "nav-follow-2.2";
 
 /** 把角度归一化到 (-π, π]。 */
 export function wrapAngle(angle) {
@@ -128,6 +134,11 @@ export function createNavigationRunner(payload, options = {}) {
     lookahead_m: requiredNumber(follow, "lookahead_m", "follow_controller"),
     kp_dist: requiredNumber(follow, "kp_dist", "follow_controller"),
     kp_yaw: requiredNumber(follow, "kp_yaw", "follow_controller"),
+    // v0.55.48 接近减速（服务端 FollowParams.goal_slowdown_* 同真值，registry 唯一来源；
+    // 标定推导见 registry/motion_commands.json#follow_controller note：goal_slowdown_m 必须
+    // > max_vx/kp_dist 上限才压得住自然律，2.4 ⇒ 达点时间常数 2.0s）。
+    goal_slowdown_m: requiredFinite(follow, "goal_slowdown_m", "follow_controller"),
+    goal_slowdown_min_scale: requiredFinite(follow, "goal_slowdown_min_scale", "follow_controller"),
     max_vx: requiredNumber(follow, "max_vx", "follow_controller"),
     max_wz: requiredNumber(follow, "max_wz", "follow_controller"),
     yaw_stop_threshold_deg: requiredNumber(follow, "yaw_stop_threshold_deg", "follow_controller"),
@@ -264,10 +275,28 @@ export function createNavigationRunner(payload, options = {}) {
       return [0, 0, clampValue(params.kp_yaw * error, turnInPlaceMaxWz)];
     }
 
+    // 接近减速（v0.55.48，服务端 backend/follow_controller.py update「接近减速」段
+    // 同分支同参数）：仅**最后一段**（活跃航点即最终航点）且距最终航点 <
+    // goal_slowdown_m 时，vx 上限按剩余距离比例收紧——修 H12 登记短板「0.2m 容差
+    // 过冲振荡」（e2e 基线 arrived 1/7）。min_scale 是上限地板（最后几十厘米不熄火）；
+    // wz 不受影响；中途航点跟随语义不变（折返航线中途靠近最终航点也不减速）。
+    const lastWaypoint = waypoints[waypoints.length - 1];
+    let vxLimit = limits[0];
+    if (waypointIndex === waypoints.length - 1 && lastWaypoint) {
+      const distToGoal = distance(pose, [Number(lastWaypoint.x), Number(lastWaypoint.y)]);
+      if (distToGoal < params.goal_slowdown_m) {
+        const scale = Math.max(
+          params.goal_slowdown_min_scale,
+          Math.min(1, distToGoal / params.goal_slowdown_m),
+        );
+        vxLimit = Math.min(vxLimit, params.max_vx * scale);
+      }
+    }
+
     const lookaheadDistance = Math.hypot(dx, dy);
     let vx = 0;
     if (Math.abs(error) <= params.yaw_stop_threshold_deg * DEG) {
-      vx = Math.max(0, Math.min(limits[0], params.kp_dist * lookaheadDistance * Math.cos(error)));
+      vx = Math.max(0, Math.min(vxLimit, params.kp_dist * lookaheadDistance * Math.cos(error)));
     }
     const wz = clampValue(params.kp_yaw * error, limits[2]);
     return [vx, 0, wz];

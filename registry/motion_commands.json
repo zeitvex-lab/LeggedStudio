@@ -37,13 +37,15 @@
     }
   },
   "follow_controller": {
-    "note": "H12 跟随控制器的**唯一参数真值**（此前浏览器跟随器自造 lookahead 0.6 / gain 1.2 / 1.5，与 H12 已点名的参考实现不一致，现收口）。控制器律取参考实现的形状：朝向前视点（cos 门控）+ 大误差原地转（带滞回）+ 卡死恢复。**到达容差与稳定拍数不在此处**——那是 H10 的 registry/arrival_criteria.json（航点 0.20 m / 稳定 2 拍），避免同一个数字长第三个家。**2026-09-17（v0.55.46 收口第 2 条裁决）**：卡死「进展」改按目标导向运动登记——到前视目标的距离缩短 ≥ stuck_progress_m（不再按到当前航点的距离：拐角切角后当前航点在身后，距离不缩反涨，135° 拐角必误判卡死），或 turn_in_place 期间航向误差收敛 ≥ stuck_turn_progress_deg（真机 180° 急转超 4s 不能按位移判卡死；朝向冻住的真卡死两项都不成立，照常触发恢复）。浏览器侧 web/sim2sim/navigation.js 同参数同分支（注释互引）。",
+    "note": "H12 跟随控制器的**唯一参数真值**（此前浏览器跟随器自造 lookahead 0.6 / gain 1.2 / 1.5，与 H12 已点名的参考实现不一致，现收口）。控制器律取参考实现的形状：朝向前视点（cos 门控）+ 大误差原地转（带滞回）+ 卡死恢复。**到达容差与稳定拍数不在此处**——那是 H10 的 registry/arrival_criteria.json（航点 0.20 m / 稳定 2 拍），避免同一个数字长第三个家。**2026-09-17（v0.55.46 收口第 2 条裁决）**：卡死「进展」改按目标导向运动登记——到前视目标的距离缩短 ≥ stuck_progress_m（不再按到当前航点的距离：拐角切角后当前航点在身后，距离不缩反涨，135° 拐角必误判卡死），或 turn_in_place 期间航向误差收敛 ≥ stuck_turn_progress_deg（真机 180° 急转超 4s 不能按位移判卡死；朝向冻住的真卡死两项都不成立，照常触发恢复）。浏览器侧 web/sim2sim/navigation.js 同参数同分支（注释互引）。**2026-09-17（v0.55.48 接近减速）**：H12 登记短板「0.2m 容差过冲振荡成为到达率瓶颈」（e2e 基线 arrived 1/7）——最后一段（活跃航点即最终航点）距最终航点 < goal_slowdown_m 时，vx 上限按剩余距离比例收紧 vx_cap = max_vx × clamp(dist/goal_slowdown_m, goal_slowdown_min_scale, 1)（wz 不受影响，中途跟随语义不变）。标定：goal_slowdown_m 必须大于 max_vx/kp_dist=1.5m 上限才会真正压住自然律（kp_dist·dist），取 2.4m ⇒ 等效达点时间常数 2.0s（1m→0.5 m/s、0.5m→0.25 m/s）；min_scale 0.2（0.15~0.25 中档）⇒ 上限地板 0.24 m/s，最后几十厘米走得完不熄火。",
     "lookahead_m": 0.45,
     "max_vx": 1.2,
     "max_vy": 0.0,
     "max_wz": 0.8,
     "kp_dist": 0.8,
     "kp_yaw": 1.8,
+    "goal_slowdown_m": 2.4,
+    "goal_slowdown_min_scale": 0.2,
     "yaw_stop_threshold_deg": 45.0,
     "turn_in_place_enter_deg": 70.0,
     "turn_in_place_exit_deg": 18.0,

@@ -6,6 +6,12 @@
 
 * 朝前视点走：``wz = clamp(kp_yaw·yaw_err, ±max_wz)``；仅当 ``|yaw_err| ≤ 45°`` 才给
   ``vx = clamp(kp_dist·dist·cos(yaw_err), 0, speed_limit)``（cos 门控，不是线性衰减）；
+* **接近减速（v0.55.48，H12 登记短板「0.2m 容差过冲振荡」的收口）**：只在**最后一段**
+  （活跃航点即最终航点）且距最终航点 ``< goal_slowdown_m`` 时，vx 上限按剩余距离比例
+  收紧 ``vx_cap = max_vx·clamp(dist/goal_slowdown_m, goal_slowdown_min_scale, 1)``
+  （``min_scale`` 是上限地板，保证最后几十厘米走得完；``wz`` 与中途跟随语义不变）。
+  标定约束：``goal_slowdown_m`` 必须 > ``max_vx/kp_dist``（1.2/0.8 = 1.5m）上限才会真正
+  压住自然律，取 2.4m ⇒ 等效达点时间常数 2.0s（1m→0.5 m/s、0.5m→0.25 m/s）。
 * 大误差**原地转**：``|yaw_err| ≥ 70°`` 进入、``≤ 18°`` 退出（滞回）；
 * **卡死恢复**：``stuck_timeout_s`` 内无"目标导向进展" ⇒ 发 2 s 恢复动作
   ``vx = -0.10, wz = 0.45·sign``（符号每轮翻转），至多 ``max_recoveries`` 轮。
@@ -57,6 +63,8 @@ class FollowParams:
     max_wz: float
     kp_dist: float
     kp_yaw: float
+    goal_slowdown_m: float
+    goal_slowdown_min_scale: float
     yaw_stop_threshold_deg: float
     turn_in_place_enter_deg: float
     turn_in_place_exit_deg: float
@@ -85,6 +93,9 @@ class FollowParams:
             "max_wz": spec.get("max_wz"),
             "kp_dist": spec.get("kp_dist"),
             "kp_yaw": spec.get("kp_yaw"),
+            # v0.55.48 接近减速：最后一段按剩余距离比例收紧 vx 上限（浏览器镜像同字段）
+            "goal_slowdown_m": spec.get("goal_slowdown_m"),
+            "goal_slowdown_min_scale": spec.get("goal_slowdown_min_scale"),
             "yaw_stop_threshold_deg": spec.get("yaw_stop_threshold_deg"),
             "turn_in_place_enter_deg": spec.get("turn_in_place_enter_deg"),
             "turn_in_place_exit_deg": spec.get("turn_in_place_exit_deg"),
@@ -291,12 +302,27 @@ class FollowController:
             wz = _clamp(self.params.kp_yaw * yaw_err, -self.params.turn_in_place_max_wz, self.params.turn_in_place_max_wz)
             return self._step([0.0, 0.0, wz], None, "turn_in_place", time_s, distance)
 
+        # 接近减速（v0.55.48）：仅**最后一段**（活跃航点即最终航点）且距最终航点
+        # < goal_slowdown_m 时，vx 上限按剩余距离比例收紧——修 H12 登记短板
+        # 「0.2m 容差过冲振荡」（匀速冲线 → 过冲 → stable_ticks=2 攒不上）。
+        #   vx_cap = max_vx · clamp(dist/goal_slowdown_m, goal_slowdown_min_scale, 1)
+        # min_scale 是上限地板（最后几十厘米仍有 0.24 m/s 前进余量，不熄火）；
+        # wz 不受影响；中途航点跟随语义不变（门控在 index==最后航点，折返航线中途
+        # 靠近最终航点也不减速）。浏览器镜像：web/sim2sim/navigation.js command()
+        # 的 isFinalLeg / vxLimit 同分支同参数（goal_slowdown_* 同源 registry）。
+        # 标定：goal_slowdown_m 2.4 > max_vx/kp_dist 1.5，上限才压得住自然律
+        # （等效达点时间常数 2.0s）；推导见 registry/motion_commands.json#follow_controller note。
+        vx_limit = self.params.max_vx
+        if self.index == len(self.waypoints) - 1 and distance < self.params.goal_slowdown_m:
+            scale = _clamp(distance / self.params.goal_slowdown_m, self.params.goal_slowdown_min_scale, 1.0)
+            vx_limit = min(vx_limit, self.params.max_vx * scale)
+
         vx = 0.0
         if abs(yaw_err) <= math.radians(self.params.yaw_stop_threshold_deg):
             vx = _clamp(
                 self.params.kp_dist * pursuit_distance * math.cos(yaw_err),
                 0.0,
-                min(self.params.max_vx, self.params.max_vx),
+                vx_limit,
             )
         wz = _clamp(self.params.kp_yaw * yaw_err, -self.params.max_wz, self.params.max_wz)
         return self._step([vx, 0.0, wz], None, "following", time_s, distance)
