@@ -15,6 +15,16 @@
 `adapters/mjlab/replay_determinism.compare_frame_logs()` / `tools/replay_gate.py` 直接吃，
 无需任何转换。
 
+## 记录器抽象（两侧共享的帧约定，S4 剩余项）
+
+服务端无头记录器（本模块）与浏览器记录器（`web/sim2sim/app.js` 的 `sim.frameLog`）是
+**两个实现、一个约定**：帧必备五件套 `t / stepIndex / obs / action / ctrlBefore`
+（对齐键 + 比对载荷 + 复现上下文），增强三件套 `targetsPos / targetsVel / actuatorIds`
+（浏览器动作落地后回填，无头端一次写全）。约定落在
+:func:`validate_frame_log` —— 产出端收尾时**自检**，采集器（`tools/replay_gate.py --auto`）
+拿到子进程产出后**再验一遍**：形状坏了就地报清场，绝不把一份烂日志喂给判据让它在深处
+报一个语焉不详的 ValueError。
+
 ## 为什么必须有它（L1 的已登记缺口）
 
 此前 frame log 的**唯一**产出路径是浏览器控制台（`__sim2simDebug.startFrameLog()` →
@@ -50,6 +60,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import platform
 import sys
 from datetime import datetime, timezone
@@ -71,6 +82,20 @@ from policy_acceptance import (  # noqa: E402
 
 FRAME_LOG_SCHEMA = "frame-log-1.0"
 ROOT = Path(__file__).resolve().parents[2]
+
+# --------------------------------------------------------------------------------------
+# 记录器抽象：两侧（无头 / 浏览器）共享的**最小**帧约定 —— 常量 + 校验，仅此而已。
+# 判定逻辑不在这里（比对归 replay_determinism），这里只回答"这份日志是不是双方都认的形状"。
+# --------------------------------------------------------------------------------------
+
+#: 帧必备五件套（浏览器 `sim.frameLog.push` 与本模块 `frames.append` 都写这些）：
+#: `stepIndex` 是对齐键、`obs` 是比对载荷、`t/action/ctrlBefore` 是复现上下文。
+FRAME_REQUIRED_FIELDS = ("t", "stepIndex", "obs", "action", "ctrlBefore")
+#: 增强三件套：浏览器在动作落地后回填（app.js 的 `entry.targetsPos = ...`），无头端一次写全。
+#: 有就校验形状，缺了不算坏日志（浏览器的裸 frameLog 没有头部也一样能比对）。
+FRAME_ENRICHED_FIELDS = ("targetsPos", "targetsVel", "actuatorIds")
+#: 无头日志头部字段（浏览器裸 frameLog 没有 head，故只约束无头端）。
+FRAME_HEAD_FIELDS = ("schema", "created_at", "producer", "seed", "cmd", "steps", "recorded")
 
 
 def _sha256(path: Path) -> str:
@@ -154,6 +179,116 @@ def _adapter_snapshot() -> dict[str, Any]:
         "onnxruntime": onnxruntime.__version__,
         "numpy": np.__version__,
     }
+
+
+def _is_finite_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _is_number_list(value: Any) -> bool:
+    return isinstance(value, list) and bool(value) and all(_is_finite_number(item) for item in value)
+
+
+def validate_frame(frame: Any, position: int = 0) -> list[str]:
+    """校验**一帧**是否符合共享帧约定；返回问题清单（空 = 合格）。
+
+    NaN/Inf 在这里就拦下（JSON 允许它们溜进来，但逐帧比对遇上就是说不清的"差"）；
+    `action` 为 null 视为未完成帧（浏览器端动作落地后必须回填，无头端一次写全）。
+    """
+
+    if not isinstance(frame, dict):
+        return [f"frames[{position}]：不是对象（{type(frame).__name__}）"]
+    problems: list[str] = []
+    for field in FRAME_REQUIRED_FIELDS:
+        if field not in frame:
+            problems.append(
+                f"frames[{position}]：缺必备字段 {field!r}（约定五件套：{'/'.join(FRAME_REQUIRED_FIELDS)}）"
+            )
+    step = frame.get("stepIndex")
+    if "stepIndex" in frame and (isinstance(step, bool) or not isinstance(step, int)):
+        problems.append(f"frames[{position}]：stepIndex 必须是整数（两侧对齐靠它），实际 {step!r}")
+    if frame.get("action") is None:
+        problems.append(f"frames[{position}]：action 还是 null（未回填的帧不能进比对）")
+    for field in ("obs", "action", "ctrlBefore"):
+        value = frame.get(field)
+        if field in frame and value is not None and not _is_number_list(value):
+            offender = next((item for item in value if not _is_finite_number(item)), None) \
+                if isinstance(value, list) else None
+            detail = f"类型 {type(value).__name__}" if offender is None else f"{offender!r} 不是有限数"
+            problems.append(f"frames[{position}]：{field} 必须是非空有限数值数组（{detail}）")
+    action = frame.get("action")
+    if _is_number_list(action):
+        for field in ("targetsPos", "targetsVel"):
+            targets = frame.get(field)
+            if field in frame and targets is not None:
+                if not _is_number_list(targets):
+                    problems.append(f"frames[{position}]：{field} 必须是非空有限数值数组")
+                elif len(targets) != len(action):
+                    problems.append(f"frames[{position}]：{field} 长度 {len(targets)} ≠ action 长度 {len(action)}")
+        actuator_ids = frame.get("actuatorIds")
+        if "actuatorIds" in frame and actuator_ids is not None:
+            if not (isinstance(actuator_ids, list) and actuator_ids
+                    and all(isinstance(i, int) and not isinstance(i, bool) for i in actuator_ids)):
+                problems.append(f"frames[{position}]：actuatorIds 必须是非空整数数组")
+    return problems
+
+
+def _validate_head(head: Any, *, frame_count: int | None) -> list[str]:
+    if not isinstance(head, dict):
+        return ["head 必须是对象"]
+    problems: list[str] = []
+    if head.get("schema") != FRAME_LOG_SCHEMA:
+        problems.append(f"head.schema 必须是 {FRAME_LOG_SCHEMA!r}，实际 {head.get('schema')!r}")
+    for field in FRAME_HEAD_FIELDS:
+        if field not in head:
+            problems.append(f"head 缺字段 {field!r}（无头头部约定：{'/'.join(FRAME_HEAD_FIELDS)}）")
+    if "seed" in head and (isinstance(head["seed"], bool) or not isinstance(head["seed"], int)):
+        problems.append(f"head.seed 必须是整数，实际 {head['seed']!r}")
+    cmd = head.get("cmd")
+    if "cmd" in head and not (isinstance(cmd, list) and len(cmd) == 3 and all(_is_finite_number(c) for c in cmd)):
+        problems.append(f"head.cmd 必须是 [vx, vy, wz] 三个有限数，实际 {cmd!r}")
+    if frame_count is not None and head.get("recorded") != frame_count:
+        problems.append(f"head.recorded（{head.get('recorded')}）与 frames 实条数（{frame_count}）不符")
+    return problems
+
+
+def validate_frame_log(payload: Any, *, require_head: bool = False) -> list[str]:
+    """校验整份 frame log（两侧记录器共享的形状约定）；返回问题清单（空 = 合格）。
+
+    接受两种形状（与 ``replay_determinism._frames`` 同口径，别处不必再各写一遍）：
+
+    * **无头端**：``{"head": {...}, "frames": [...]}`` —— ``require_head=True`` 时 head 必须在
+      且 schema/recorded/seed/cmd 合约（采集器对子进程产出用这一档）；
+    * **浏览器端**：裸帧数组（页面 `__sim2simDebug.getFrameLog()` 的返回），head 可 absent。
+    """
+
+    problems: list[str] = []
+    frames: list[Any] | None
+    if isinstance(payload, dict):
+        head = payload.get("head")
+        raw = payload.get("frames")
+        if raw is not None and not isinstance(raw, list):
+            return ["frames 必须是数组"]
+        frames = raw
+        if require_head and head is None:
+            return ["缺 head（无头产出端必须带头部：schema/recorded/seed/cmd/...）"]
+        if head is not None:
+            problems += _validate_head(head, frame_count=len(frames) if frames is not None else None)
+            if frames is None:
+                problems.append("缺 frames 数组")
+                return problems
+    elif isinstance(payload, list):
+        frames = payload
+        if require_head:
+            problems.append("缺 head（裸帧数组是浏览器形状；无头产出端必须带头部：schema/recorded/seed/cmd/...）")
+    else:
+        return [f"frame log 必须是对象或数组，实际 {type(payload).__name__}"]
+
+    if not frames:
+        problems.append("frames 为空（至少记录 1 帧才有比对意义）")
+    for position, frame in enumerate(frames):
+        problems += validate_frame(frame, position)
+    return problems
 
 
 def produce_frame_log(
@@ -299,7 +434,14 @@ def produce_frame_log(
         },
         "adapter": _adapter_snapshot(),
     }
-    return {"head": head, "frames": frames}
+    payload = {"head": head, "frames": frames}
+    # 记录器抽象的**自用**：产出端收尾先过一遍自己参与的约定——形状坏了就地报清场，
+    # 不等采集器/判据在下游深处报一个语焉不详的错（fail-closed，绝不带病落盘）。
+    problems = validate_frame_log(payload, require_head=True)
+    if problems:
+        raise SystemExit("frame log 未通过共享帧校验（记录器约定，frame_log.validate_frame_log）：\n  "
+                         + "\n  ".join(problems[:8]))
+    return payload
 
 
 def write_frame_log(path: Path | str, payload: dict[str, Any]) -> Path:

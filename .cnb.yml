@@ -215,6 +215,10 @@
         # 两个独立进程各跑一遍，抓的是**跨进程**的非确定性（同进程内跑两次测不出来）。
         # 选 zex-w 的声明的策略之一（id 走后端统一解析器，与页面/验收同一真值源）。
         python tools/replay_gate.py --produce --package assets/robots/zex-w --policy-id zex-w-rough-9600 --steps 40 --min-frames 30
+        echo "== determinism collector: --auto 单参数采集器（S4：给定目标 → 自动两进程采集 + 比对） =="
+        # 同一产出端/判据（零重写）；这里守的是**编排入口**：一个目录目标自己解析出（包，策略），
+        # 自动起两个独立子进程各跑一遍再比对（40 步实测数秒级，与上行同量级，不超预算）。
+        python tools/replay_gate.py --auto assets/robots/zex-w --policy-id zex-w-rough-9600 --steps 40 --min-frames 30
         '
 
 frontend:
