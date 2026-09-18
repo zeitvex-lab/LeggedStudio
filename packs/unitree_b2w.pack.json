@@ -39,7 +39,12 @@
     "sha256": "1d6ff32cf83313c86dea2236f1f28496de54140ada52e44934ea9c9b8a4d410d"
   },
   "scenario_ref": null,
-  "policy_ref": null,
+  "policy_ref": {
+    "id": "unitree_b2w__produced-unitree_b2w_v1_20260918_093241_627441",
+    "path": "assets/robots/unitree_b2w/simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
+    "sha256": "9e1cdb504aff7193a8897b395c3952f97ad3c625d42cc31b41ba3282f892e891",
+    "version": "unitree_b2w-trained-20260918-093241"
+  },
   "bindings": {
     "verify": {
       "require_contract_valid": true,

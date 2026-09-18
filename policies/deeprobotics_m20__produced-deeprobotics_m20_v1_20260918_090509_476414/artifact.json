@@ -1,0 +1,23 @@
+{
+  "artifact_id": "deeprobotics_m20__produced-deeprobotics_m20_v1_20260918_090509_476414",
+  "contract": {
+    "action_dim": 16,
+    "obs_dim": 57,
+    "observation_kind": "unknown"
+  },
+  "contract_digest": "689cd6ea17b328c090de7d0701a4e46912c740ebaaade0b573744a0cca5c233b",
+  "installed": {
+    "package_path": "simulation/policies/deeprobotics_m20-trained-20260918-090509.onnx",
+    "policy_id": "deeprobotics_m20-trained-20260918-090509",
+    "repo_path": "assets/robots/deeprobotics_m20/simulation/policies/deeprobotics_m20-trained-20260918-090509.onnx",
+    "robot": "deeprobotics_m20"
+  },
+  "kind": "produced",
+  "onnx_bytes": 787529,
+  "onnx_sha256": "9650579a4a2fed16ee8b49025b4ed33b3cbb2577795eb036e403838f16bfa3ef",
+  "policy_id": "deeprobotics_m20-trained-20260918-090509",
+  "robot": "deeprobotics_m20",
+  "run_id": "deeprobotics_m20_v1_20260918_090509_476414",
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/deeprobotics_m20/simulation/policies/deeprobotics_m20-trained-20260918-090509.onnx"
+}

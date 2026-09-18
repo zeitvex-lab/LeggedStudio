@@ -548,7 +548,7 @@ class RealRepoTest(unittest.TestCase):
     def test_repo_declarations_resolve_and_count_matches_blobs(self):
         """**B10 终态自检**：声明只留 `id`，解析一律经 `policies/index.json`。"""
         declarations = pa.scan_declarations()
-        self.assertGreater(len(declarations), 40, "本仓应有 47 条策略声明")
+        self.assertGreater(len(declarations), 40, "本仓应有 50 条策略声明")
         index = pa.load_index()
         self.assertTrue(index, "先跑 build_all(write=True) 出库")
 
@@ -566,10 +566,10 @@ class RealRepoTest(unittest.TestCase):
         gaps = pa.reference_gaps()
         self.assertEqual([], gaps["problems"], gaps["problems"])
 
-        # 包内 47 个 onnx 实体（B8 试点 b2 produced 安装进 assets 后 +1）；
-        # 第 48 个在 `web/sim2sim/models/`（经声明 url 形式引用）。
+        # 包内 50 个 onnx 实体（B8 试点 +1、第二批 m20/b2w/go2w 各 +1）；
+        # 第 51 个在 `web/sim2sim/models/`（经声明 url 形式引用）。
         blobs = list(pa.iter_onnx_files())
-        self.assertEqual(47, len(blobs), "包内 onnx 实体数")
+        self.assertEqual(50, len(blobs), "包内 onnx 实体数")
         self.assertIsInstance(pa.unexported_onnx(), list)
 
     def test_artifact_ids_are_unique(self):

@@ -1,0 +1,23 @@
+{
+  "artifact_id": "unitree_b2w__produced-unitree_b2w_v1_20260918_093241_627441",
+  "contract": {
+    "action_dim": 16,
+    "obs_dim": 57,
+    "observation_kind": "unknown"
+  },
+  "contract_digest": "689cd6ea17b328c090de7d0701a4e46912c740ebaaade0b573744a0cca5c233b",
+  "installed": {
+    "package_path": "simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
+    "policy_id": "unitree_b2w-trained-20260918-093241",
+    "repo_path": "assets/robots/unitree_b2w/simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
+    "robot": "unitree_b2w"
+  },
+  "kind": "produced",
+  "onnx_bytes": 786562,
+  "onnx_sha256": "3a37329c7dcf8e4445b5f2cf69d94e497bd2ab2c7d0005ed5a4f06499e07931e",
+  "policy_id": "unitree_b2w-trained-20260918-093241",
+  "robot": "unitree_b2w",
+  "run_id": "unitree_b2w_v1_20260918_093241_627441",
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_b2w/simulation/policies/unitree_b2w-trained-20260918-093241.onnx"
+}
