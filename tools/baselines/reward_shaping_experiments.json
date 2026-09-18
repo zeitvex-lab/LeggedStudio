@@ -1,0 +1,162 @@
+{
+  "schema": "reward-shaping-experiments-1.0",
+  "description": "B11 三档评测（00_know/05_任务清单.md 二十八轮）指出的下一主攻方向——奖励塑形攻关的第一轮**纯配置层**实验：不改编译产物/训练源码/包契约，仅经 POST /api/training/create 的 reward_scales（reward_overrides=true）与 E6 dot-path overrides 机制改奖励权重，回答『配置层塑形能否把 go2 质量分从 0.026 拉到 ≥0.04（1.5×）』。",
+  "constraint": {
+    "improvement_bar": "相对基线 0.026（single 档）≥1.5×（即 ≥0.04）⇒ 方向成立",
+    "quality_min_gate": 0.5,
+    "no_scaling_tamper": "B11 的 dof_power scaling=100 是上游 RoboGauge 口径（adapters/mjlab/quality_metrics.py::DOF_POWER_SCALING），本轮未动。归一公式：dof_power = 1 - RMS(|τ·v|)/100。基线 800 档 |τ·v| RMS≈680-720 ⇒ 分数记 0；本轮 64×100 短训把 RMS 压到 ≈100 附近（CTRL 实测 0.0036 ⇒ RMS≈99.6），说明短训本身就大幅降低了动作功率。",
+    "pure_config": "全部实验只改请求级 reward_scales + reward_overrides 标志，未改 assets/robots/unitree_go2/training/source/**、未改任何 backend/adapters 包代码、未改包契约。git 工作树相对起点（726ccb18）仅 native_worker.py 的 observation_names 组名修复（本轮开始前已存在，保留）+ promote 链标准产物（policies/index.json、packs/unitree_go2.pack.json、policies/unitree_go2__produced-* 目录 + 本文件）。"
+  },
+  "environment": {
+    "date": "2026-09-18",
+    "host": "RTX 4060 Laptop 8G（GPU 训练串行；B11 评测走 onnxruntime CPU）",
+    "robot": "unitree_go2",
+    "profile_id": "go2-velocity-flat",
+    "base_config": "algorithm=PPO, num_envs=64, max_iterations=100, task_name=forward_walk, profile_id=go2-velocity-flat, seed=7, save_interval=100, device=auto, terrain=plane",
+    "baseline_reference": "L7 三档 64×400/600/800（reward 16.6/21.9/35.4）质量分 0.0280/0.0218/0.0258（single），拖后腿三指标 dof_power=0.0 / torque_smoothness≈0.0025 / lin_vel_err≈0.7（tools/baselines/quality_scale_tiers.json）",
+    "chain": "POST /api/training/create（reward_scales + reward_overrides=true）→ E8 冒烟门（同配置 64×5 冒烟先行，规范化摘要比对）→ 64×100 训练 → POST /{task_id}/promote（install=True 进包）→ POST /api/evaluation/quality/run（single, steps=400, cmd=0.4,0,0）",
+    "git_commit": "726ccb18（B44 promote 链根源收口）+ 工作树含 adapters/mjlab/native_worker.py observation_names 组名修复（B26 同族裁决，本轮开始前已在，保留未动）"
+  },
+  "mechanism_findings": [
+    {
+      "id": "MECH-1",
+      "title": "纯配置改奖励权重可走通，但有两条不同语义的入口",
+      "detail": "① reward_scales + reward_overrides=true：worker apply_training_recipe（adapters/mjlab/native_worker.py:243）在 profile 分支（preserve_profile=True）下默认丢弃 recipe 奖励、保留包任务真值；reward_overrides=true 时才把请求里的 reward_scales 逐项 setattr 进 env_cfg.rewards。② E6 dot-path overrides（environment.rewards.<term>.weight）：经 _apply_config_overrides（native_worker.py:497）在 recipe 之后最后执行，user edits win。两路都不需要动训练源码——『改得动』的正道成立。"
+    },
+    {
+      "id": "MECH-2",
+      "title": "【关键坑】reward_overrides=true 的 preset 别名副作用：对照组实验实锤",
+      "detail": "reward_overrides=true 时 resolve_recipe 先并通用预设 forward_walk（registry/rewards/presets.json：track_angular_velocity=0.5, body_orientation_l2=-2.0, joint_torques_l2=-0.0002, action_rate_l2=-0.01），再叠加请求值；请求未钉住的键会以 preset 值覆盖 go2 任务真值。worker 别名表把 body_orientation_l2→upright、joint_torques_l2→joint_torques_l2。go2-velocity-flat 任务真值是 track_angular_velocity=2.0 / upright=+1.0（官方 mjlab 形态），preset 叠加后变成 track_angular_velocity=0.5 / upright=-2.0（正奖励项被改成了负惩罚）——变体 A 日志 upright Episode_Reward 为负、D 组钉回后为正即为直接证据。",
+      "evidence": "对照组（完全不带 reward_scales，reward_overrides 缺省 false）64×100 → 质量分 0.2237；变体 D 钉住 track_angular_velocity=2.0+upright=1.0 后日志 upright 项转正。resolved-config.json inputs.recipe.reward_scales 逐组可比。"
+    },
+    {
+      "id": "MECH-3",
+      "title": "E8 冒烟门按设计拦截了 save_interval 漂移",
+      "detail": "第一组长训（save_interval=100）因冒烟证据 save_interval=5 被拒（409，指纹 10a7ae83… vs 853d22e2…）——save_interval 不在规模三元组（num_envs/max_iterations/smoke_preset）里，改一个字就换摘要。按规矩补跑同配置冒烟后放行。五组实验全部『同指纹冒烟先行』，无绕过（bypassed=false 全程）。"
+    }
+  ],
+  "variants": [
+    {
+      "id": "A_track_up",
+      "name": "跟踪加权（任务指令 a）",
+      "hypothesis": "track_linear_velocity ×2（2.0→4.0）+ action_rate_l2 ×2（-0.1→-0.2）双向压",
+      "reward_scales": {"track_linear_velocity": 4.0, "action_rate_l2": -0.2},
+      "smoke_run": "unitree_go2_mvp_v1_20260918_170840_854666",
+      "run_id": "unitree_go2_mvp_v1_20260918_170954_466317",
+      "wall_seconds": 108.4,
+      "train_reward": {"first": -0.34, "last": -0.78, "track_linear_velocity_last": 0.0067, "action_rate_l2_last": -0.0338},
+      "policy_id": "unitree_go2-trained-20260918-170954",
+      "quality_single": 0.03587469998141596,
+      "vs_baseline": 1.38,
+      "per_metric": {"lin_vel_err": 0.6271645250492287, "ang_vel_err": 0.011768977992581111, "dof_limits": 0.9304351111256239, "dof_power": 0.0, "orientation_stability": 0.5246574523614335, "torque_smoothness": 0.1576534947158874, "friction_margin": 0.9621753332809817, "zmp_margin": 0.8752307114488171},
+      "report": "workspace/evaluation/unitree_go2__unitree_go2-trained-20260918-170954__single.json"
+    },
+    {
+      "id": "B_smooth",
+      "name": "平滑优先（任务指令 b）",
+      "hypothesis": "action_rate_l2 ×4（-0.1→-0.4）+ 足端抑制加强（foot_swing_height -0.25→-0.5, foot_slip -0.1→-0.2）",
+      "reward_scales": {"action_rate_l2": -0.4, "foot_swing_height": -0.5, "foot_slip": -0.2},
+      "smoke_run": "unitree_go2_mvp_v1_20260918_171456_995067",
+      "run_id": "unitree_go2_mvp_v1_20260918_171631_267752",
+      "wall_seconds": 108.4,
+      "train_reward": {"first": -0.61, "last": -1.54, "track_linear_velocity_last": 0.0025, "action_rate_l2_last": -0.0663},
+      "policy_id": "unitree_go2-trained-20260918-171631",
+      "quality_single": 0.042699937105481145,
+      "vs_baseline": 1.64,
+      "per_metric": {"lin_vel_err": 0.6756511626481446, "ang_vel_err": 0.02316853593629852, "dof_limits": 0.929595389158409, "dof_power": 0.0, "orientation_stability": 0.6725254271280755, "torque_smoothness": 0.15505654623510692, "friction_margin": 0.9887682376790733, "zmp_margin": 0.8579121763596268},
+      "report": "workspace/evaluation/unitree_go2__unitree_go2-trained-20260918-171631__single.json"
+    },
+    {
+      "id": "C_mixed",
+      "name": "混合（任务指令 c：分析后最可能改善三拖后腿指标的组合）",
+      "hypothesis": "track_linear_velocity 1.5×（2.0→3.0）+ action_rate_l2 ×5（-0.1→-0.5）+ foot_clearance -2→-3 + foot_slip -0.1→-0.2",
+      "reward_scales": {"track_linear_velocity": 3.0, "action_rate_l2": -0.5, "foot_clearance": -3.0, "foot_slip": -0.2},
+      "smoke_run": "unitree_go2_mvp_v1_20260918_172011_364699",
+      "run_id": "unitree_go2_mvp_v1_20260918_172122_733976",
+      "wall_seconds": 98.0,
+      "train_reward": {"first": -0.74, "last": -1.86, "track_linear_velocity_last": 0.0046, "action_rate_l2_last": -0.0819},
+      "policy_id": "unitree_go2-trained-20260918-172122",
+      "quality_single": 0.04321358480937052,
+      "vs_baseline": 1.66,
+      "per_metric": {"lin_vel_err": 0.6496073761616027, "ang_vel_err": 0.02538232054994177, "dof_limits": 0.9289415697970103, "dof_power": 0.0, "orientation_stability": 0.604995596828267, "torque_smoothness": 0.18367402868970892, "friction_margin": 0.9681215700377525, "zmp_margin": 0.8358342160091451},
+      "report": "workspace/evaluation/unitree_go2__unitree_go2-trained-20260918-172122__single.json"
+    },
+    {
+      "id": "CTRL_default",
+      "name": "对照组（默认权重，无 reward_scales）",
+      "hypothesis": "补做：剥离 reward_overrides 副作用，回答『64×100 短训本身值多少分、变体的增益是否来自塑形』",
+      "reward_scales": {},
+      "smoke_run": "unitree_go2_mvp_v1_20260918_172712_209381",
+      "run_id": "unitree_go2_mvp_v1_20260918_172821_592048",
+      "wall_seconds": 93.3,
+      "train_reward": {"first": 0.17, "last": -0.32, "track_linear_velocity_last": 0.0385, "action_rate_l2_last": -0.1346},
+      "policy_id": "unitree_go2-trained-20260918-172821",
+      "quality_single": 0.2236735281387788,
+      "vs_baseline": 8.6,
+      "per_metric": {"lin_vel_err": 0.694714014468458, "ang_vel_err": 0.039390423389047566, "dof_limits": 0.9476232372573062, "dof_power": 0.003600321994989618, "orientation_stability": 0.8000763618587741, "torque_smoothness": 0.1817324687598455, "friction_margin": 0.9901373480322799, "zmp_margin": 0.8521499259643994},
+      "report": "workspace/evaluation/unitree_go2__unitree_go2-trained-20260918-172821__single.json"
+    },
+    {
+      "id": "D_pinned",
+      "name": "变体 C + 显式钉住被 preset 别名误伤的项（MECH-2 归因修正）",
+      "hypothesis": "变体 C 的塑形 + 钉住 track_angular_velocity=2.0 / upright=1.0（任务真值），剔除 preset 叠加副作用后看塑形净效应",
+      "reward_scales": {"track_linear_velocity": 3.0, "track_angular_velocity": 2.0, "upright": 1.0, "action_rate_l2": -0.5, "foot_clearance": -3.0, "foot_slip": -0.2},
+      "smoke_run": "unitree_go2_mvp_v1_20260918_173145_469381",
+      "run_id": "unitree_go2_mvp_v1_20260918_173309_855482",
+      "wall_seconds": 100.0,
+      "train_reward": {"first": -0.36, "last": -1.72, "track_linear_velocity_last": 0.0054, "action_rate_l2_last": -0.0896, "upright_last": 0.0053},
+      "policy_id": "unitree_go2-trained-20260918-173309",
+      "quality_single": 0.03740863498734175,
+      "vs_baseline": 1.44,
+      "per_metric": {"lin_vel_err": 0.6291018285657731, "ang_vel_err": 0.01218132975701947, "dof_limits": 0.9287597280119513, "dof_power": 0.0, "orientation_stability": 0.5831808092221402, "torque_smoothness": 0.1986371167942704, "friction_margin": 0.9686671901348337, "zmp_margin": 0.8768912296405398},
+      "report": "workspace/evaluation/unitree_go2__unitree_go2-trained-20260918-173309__single.json"
+    }
+  ],
+  "score_table": {
+    "columns": ["variant", "quality_single", "vs_baseline_0.026", "dof_power", "torque_smoothness", "lin_vel_err", "train_reward_last"],
+    "rows": [
+      ["baseline(L7 64×800)", 0.0258, "1.00×", 0.0, 0.0025, 0.72, 35.4],
+      ["A_track_up", 0.0359, "1.38×", 0.0, 0.158, 0.63, -0.78],
+      ["B_smooth", 0.0427, "1.64×", 0.0, 0.155, 0.68, -1.54],
+      ["C_mixed", 0.0432, "1.66×", 0.0, 0.184, 0.65, -1.86],
+      ["CTRL_default", 0.2237, "8.60×", 0.0036, 0.182, 0.69, -0.32],
+      ["D_pinned", 0.0374, "1.44×", 0.0, 0.199, 0.63, -1.72]
+    ]
+  },
+  "verdict": {
+    "headline": "配置层塑形【不成立】为主方向；三变体表面过 1.5× 门（B/C），但对照组（默认权重、同 64×100 规模、无任何 reward_scales）拿到 0.2237 = 8.6× 基线，增益主体来自『64×100 短训 vs 64×800 长训的动力学差异』与 reward_overrides preset 副作用，不是塑形本身——A/B/C/D 四组（全部 reward_overrides=true）无一超过对照组的 1/5。",
+    "per_question": {
+      "dof_power": "四组塑形变体全部仍为 0.0（RMS≥100），对照组也仅 0.0036（RMS≈99.6）。短训已把 |τ·v| RMS 从基线 ~700 压到 ~100 量级（-86%），但压到 scaling=100 线下需要结构性手段——纯权重调整未观察到 dof_power 脱离 0 区间。"
+      ,
+      "torque_smoothness": "0.0025 → 0.15-0.20，八指标里改善最显著的一项；但对照组同样达到 0.182，属于短训规模效应而非塑形贡献（B 的 -0.4 action_rate 与 D 的 -0.5 并未显著超过对照组的 -0.1 缺省）。"
+      ,
+      "lin_vel_err": "0.72 → 0.63-0.69；A/D（含 track 加权）略优（0.627/0.629），但训练侧 error_vel_xy 末值（0.015-0.017 vs CTRL 0.131）与 B11 侧改善不成比例，跟踪奖励加权的净效应在 100 iter 内未兑现。"
+    },
+    "next_direction": "① 塑形实验的【正交结论】reward_overrides=true 会把通用 preset 的 track_angular_velocity=0.5 / body_orientation_l2→upright=-2.0 叠加进 go2 任务真值——任何后续塑形实验必须显式钉住 track_angular_velocity 与 upright，否则改的与自己以为的不是一个奖励表（MECH-2，建议后续轮把它变成 create 侧护栏或档案模式下要求全表声明）；② dof_power 要过 0.5 门需 RMS≤50，即功率再砍一半：配置层权重已无杠杆，下一轮应改任务结构——在 env_cfg.rewards 加功率型惩罚项（|τ·v| 逐关节 L1，官方 mdp 有 analog 先例）或降 action scale（environment.actions.joint_pos.scale 走 E6 dot-path，同属纯配置但改变动作幅度语义，本轮未动以免与权重实验混淆）；③ 64×100 短训与 64×800 长训的 B11 分差（0.224 vs 0.026）本身是第二轮『规模→质量脱节』的强信号：长训后期策略动力学（episode 988/1000 步贴顶、低速游走）才是 dof_power 崩掉的主因，值得单独立项（如 64×800+塑形组合或 early-stop）。"
+  },
+  "observation_names_fix_check": {
+    "fix": "adapters/mjlab/native_worker.py build_deploy_metadata 读 observation 组名 'policy'→'actor'（本仓库工作树既有改动，本轮保留）",
+    "verification": "五条新 Run 全部经 ExportingRunner.save → attach_metadata_to_onnx 盖章。抽验冒烟 Run unitree_go2_mvp_v1_20260918_170643_962471 与四条长训 Run 的 exported/policy.onnx metadata_props：observation_names = 'base_lin_vel,base_ang_vel,projected_gravity,joint_pos,joint_vel,actions,command'（7 项非空，与 training.log 'Active Observation Terms in Group: actor (shape: (48,))' 逐项一致）——修复生效。",
+    "promote_side": "三条 promote 后 artifact 的 obs_dim=48（obs_dim_source=onnx）、observation_kind=go2_mjlab_actor_48（backend/policy_artifacts.py 注册表命中）——B44 链路对新生成 Run 也正常工作。"
+  },
+  "regression": {
+    "verify_artifacts": "索引 75 条 / 声明 50 条 / 实际检查 79 条 / 0 problems（本轮 produced +5 后首跑即过）",
+    "verify_run": "五条新 Run 档案（B9 四件套 + digest 重算）verify_run ok=true problems=[] × 5",
+    "smoke_gate": "五组全部同指纹冒烟先行（E8 首次拒绝 save_interval 漂移为按设计拦截），bypassed=false 全程",
+    "tests_note": "本轮未跑 pytest 全量（纯 API 层实验，未改任何产品代码；native_worker.py 的 observation_names 修复属本轮开始前工作树既有改动）"
+  },
+  "provenance": {
+    "task_dirs": "workspace/unitree_go2_mvp_v1_{170643,170840,170954,171456,171631,172011,172122,172712,172821,173145,173309}*（resolved-config.json / status.json / training.log / tfevents / exported/policy.onnx 全套在场）",
+    "evaluation_reports": "workspace/evaluation/unitree_go2__unitree_go2-trained-20260918-{170954,171631,172122,172821,173309}__single.json（B11 标准落盘，save=true）",
+    "policies_outbox": "policies/unitree_go2__produced-unitree_go2_mvp_v1_{170954,171631,172122,172821,173309}*/（promote 链标准产物，produced 70→75）",
+    "backend": "http://127.0.0.1:64384（既有控制面实例，本轮全程复用）",
+    "eval_interpreter": "adapters/mjlab/.venv（mujoco 3.11.0 + onnxruntime CPUExecutionProvider）",
+    "wall_seconds_note": "wall≈ run_id 时间戳至 status.json mtime 的差值（含启动/构建/探针/导出全开销）；训练本体 ≈0.7s/iter × 100 ≈ 70-80s",
+    "honest_limits": [
+      "64×100 是为实验吞吐选的短训档（~100s/组）；基线 0.026 是 64×800 档——两组不同规模的对比对『塑形净效应』是有偏的，这正是补对照组的原因；若要下『塑形在长训下无效』的结论，需 64×800 + 同款塑形的放大验证（本轮预算内未做）",
+      "单 seed（7）单次运行，无重复方差；B vs C 差 0.0005 在噪声范围内",
+      "B11 评测的 orientation_stability 变动（0.52-0.80）与 upright 权重被 preset 改写相关（MECH-2），已用 D 组钉回验证，但未做逐指标消融",
+      "dof_power 的 RMS≈100 推断来自分数反解（1 - score/100 公式），未单独跑轨迹级 τ·v 输出核验"
+    ]
+  }
+}
