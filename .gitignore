@@ -77,3 +77,4 @@ native_worker_output/
 .Trash-*/
 
 .tmp_b8_batch2/
+.go2_scan.json
