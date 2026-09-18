@@ -1,6 +1,6 @@
 {
   "name": "legged-studio",
-  "version": "0.55.53",
+  "version": "0.55.54",
   "description": "Legged Robot RL Studio - Desktop Launcher",
   "main": "electron/launcher/main.js",
   "scripts": {
