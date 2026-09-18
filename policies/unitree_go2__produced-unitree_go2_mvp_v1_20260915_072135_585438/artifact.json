@@ -1,6 +1,8 @@
 {
   "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260915_072135_585438",
   "kind": "produced",
+  "obs_dim_source": "onnx",
+  "observation_kind": "go2_mjlab_actor_48",
   "onnx_bytes": 768394,
   "onnx_sha256": "3d66e4147893e925fd3450e6f9462651ecef61bbe44bdfafc72cce9307413c70",
   "run_id": "unitree_go2_mvp_v1_20260915_072135_585438",

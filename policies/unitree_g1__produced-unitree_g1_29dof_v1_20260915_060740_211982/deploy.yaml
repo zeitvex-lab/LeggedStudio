@@ -1,10 +1,12 @@
 robot: unitree_g1
 policy_id: unitree_g1__produced-unitree_g1_29dof_v1_20260915_060740_211982
 kind: produced
+observation_kind: unknown
 run_id: unitree_g1_29dof_v1_20260915_060740_211982
 seed: 7
 source_onnx: product-training（训练→导出→入库链路自产）
-obs_dim: 98
+obs_dim: 99
+obs_dim_source: onnx
 action_dim: 29
 action_joint_order:
   - left_hip_pitch_joint

@@ -577,5 +577,222 @@ class RealRepoTest(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)), "产物 ID 必须唯一，否则出库会互相覆盖")
 
 
+class B44OnnxObsDimTest(unittest.TestCase):
+    """B44：promote 链的 obs 真值 = **ONNX 图输入实测宽度**（产物自证），快照仅 fallback。
+
+    背景：contract_snapshot 的 observation.dimension 是**部署视图**（go2=45，无
+    base_lin_vel、命令在中间——真机 IMU 给不出线速度，E4 历史裁决），worker 导出的
+    actor ONNX 吃的是**训练视图**（go2=48，base_lin_vel 打头、command 在帧尾）。
+    照抄快照 = 训练图配部署宽度 ⇒ 评测器按声明 45 对实测 48 直接拒载（B44）。
+    """
+
+    @staticmethod
+    def _write_onnx(path: Path, obs_width: int, *, input_name: str = "obs") -> None:
+        import onnx
+        from onnx import helper, TensorProto
+
+        graph = helper.make_graph(
+            [
+                helper.make_node("Identity", ["obs"], ["actions"]),
+            ],
+            "policy",
+            [helper.make_tensor_value_info(input_name, TensorProto.FLOAT, [1, obs_width])],
+            [helper.make_tensor_value_info("actions", TensorProto.FLOAT, [1, 12])],
+        )
+        model = helper.make_model(graph, producer_name="b44-test")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        onnx.save(model, str(path))
+
+    def _make_run(self, root: Path, *, obs_width: int | None) -> Path:
+        """复用 PromoteFromRunTest 的 Run 脚手架；obs_width=None 模拟"不可解析的 onnx"。"""
+        from types import SimpleNamespace
+
+        from backend.training.runs import create_run_for_task
+
+        run_dir = root / "task_20260914_000000_000000"
+        contract = SimpleNamespace(robot_id="unitree_go2", compute_hash=lambda: "cafe1234")
+        create_run_for_task(
+            run_dir, contract=contract,
+            config={"robot_id": "unitree_go2", "seed": 7, "num_envs": 16, "max_iterations": 800},
+            task="training",
+        )
+        (run_dir / "status.json").write_text(
+            json.dumps({"status": "train_completed", "max_iterations": 800}), encoding="utf-8",
+        )
+        (run_dir / "exported").mkdir(parents=True, exist_ok=True)
+        if obs_width is None:
+            (run_dir / "exported" / "policy.onnx").write_bytes(b"not-a-real-onnx")
+        else:
+            self._write_onnx(run_dir / "exported" / "policy.onnx", obs_width)
+        (run_dir / "contract_snapshot.json").write_text(
+            json.dumps({
+                "observation": {"dimension": 45},   # 部署视图（与 ONNX 实测 48 冲突）
+                "action": {"dimension": 12, "joint_order": ["FL_hip_joint"]},
+            }, ensure_ascii=False), encoding="utf-8",
+        )
+        return run_dir
+
+    def test_snapshot_conflict_yields_to_onnx_width(self):
+        """快照说 45、ONNX 实测 48 ⇒ obs_dim=48 以实测为准，且如实标注来源与布局名。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root, out = Path(tmp) / "ws", Path(tmp) / "policies"
+            artifact = pa.promote_from_run(self._make_run(root, obs_width=48), out_dir=out)
+            self.assertEqual(48, artifact["obs_dim"])
+            self.assertEqual("onnx", artifact["obs_dim_source"])
+            self.assertEqual("go2_mjlab_actor_48", artifact["observation_kind"])
+            deploy = (out / artifact["artifact_id"] / pa.DEPLOY_NAME).read_text(encoding="utf-8")
+            self.assertIn("obs_dim: 48", deploy)
+            self.assertIn("observation_kind: go2_mjlab_actor_48", deploy)
+            self.assertIn("obs_dim_source: onnx", deploy)
+
+    def test_unparseable_onnx_falls_back_to_snapshot_with_honest_source(self):
+        """实测不到（onnx 缺 onnx 包/文件坏）⇒ fallback 快照并标注 contract_snapshot，不静默。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root, out = Path(tmp) / "ws", Path(tmp) / "policies"
+            artifact = pa.promote_from_run(self._make_run(root, obs_width=None), out_dir=out)
+            self.assertEqual(45, artifact["obs_dim"])
+            self.assertEqual("contract_snapshot", artifact["obs_dim_source"])
+            deploy = (out / artifact["artifact_id"] / pa.DEPLOY_NAME).read_text(encoding="utf-8")
+            self.assertIn("obs_dim_source: contract_snapshot", deploy)
+
+    def test_unregistered_shape_gets_unknown_kind(self):
+        """宽度实测到了但布局未取证 ⇒ observation_kind=unknown（B43 先例），不编造布局名。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root, out = Path(tmp) / "ws", Path(tmp) / "policies"
+            artifact = pa.promote_from_run(self._make_run(root, obs_width=48), out_dir=out)
+            # 上面的 run 造在 root（robot_id=unitree_go2）——换台未登记映射的机器人再看
+        with tempfile.TemporaryDirectory() as tmp:
+            from types import SimpleNamespace
+
+            from backend.training.runs import create_run_for_task
+
+            run_dir = Path(tmp) / "task_20260914_000000_000000"
+            contract = SimpleNamespace(robot_id="unitree_go1", compute_hash=lambda: "cafe1234")
+            create_run_for_task(
+                run_dir, contract=contract,
+                config={"robot_id": "unitree_go1", "seed": 7, "num_envs": 16, "max_iterations": 5},
+                task="training",
+            )
+            (run_dir / "status.json").write_text(json.dumps({"status": "completed"}), encoding="utf-8")
+            (run_dir / "exported").mkdir()
+            self._write_onnx(run_dir / "exported" / "policy.onnx", 48)
+            (run_dir / "contract_snapshot.json").write_text(json.dumps({}), encoding="utf-8")
+
+            artifact = pa.promote_from_run(run_dir, out_dir=Path(tmp) / "policies")
+            self.assertEqual(48, artifact["obs_dim"])
+            self.assertEqual("unknown", artifact["observation_kind"])
+
+    def test_installed_declaration_carries_kind(self):
+        """install 的声明组装：deploy 的 observation_kind 一并落进包内条目与 contract 块。
+
+        走与 :class:`PromoteFromRunTest` 同一条组装路径（promote_from_run 内联在
+        install=True 分支里组装 declaration dict），这里直接以同形 declaration 调
+        ``install_produced_policy``（挂显式 robot_dir，不动仓库 assets）——评测器
+        deep_merge 契约后按 contract.observation_kind 选帧构建器，缺了就拒载。
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_dir = self._make_run(root / "ws", obs_width=48)
+            deploy = {
+                "obs_dim": 48,
+                "action_dim": 12,
+                "observation_kind": "go2_mjlab_actor_48",
+            }
+            out = root / "policies"
+            # 先入库一条 produced（与 promote_from_run 同参语义），再走 install
+            artifact = pa.promote_from_run(run_dir, out_dir=out)
+            robot_dir = root / "pkg" / "unitree_go2"
+            (robot_dir / "simulation" / "config.json").parent.mkdir(parents=True)
+            (robot_dir / "simulation" / "config.json").write_text(
+                json.dumps({"policies": []}), encoding="utf-8",
+            )
+            installed = pa.install_produced_policy(
+                artifact_id=artifact["artifact_id"],
+                robot_dir=robot_dir,
+                policy_id="unitree_go2-trained-test",
+                declaration={
+                    "label": f"训练产物（run {artifact['run_id']}）",
+                    "obs_dim": deploy["obs_dim"],
+                    "action_dim": deploy["action_dim"],
+                    **({"observation_kind": deploy["observation_kind"]} if deploy.get("observation_kind") else {}),
+                    "contract": {
+                        **({"obs_dim": deploy["obs_dim"]} if deploy.get("obs_dim") else {}),
+                        **({"action_dim": deploy["action_dim"]} if deploy.get("action_dim") else {}),
+                        **({"observation_kind": deploy["observation_kind"]} if deploy.get("observation_kind") else {}),
+                    } or None,
+                },
+                out_dir=out,
+            )
+            config = json.loads(
+                (robot_dir / "simulation" / "config.json").read_text(encoding="utf-8"),
+            )
+            entry = config["policies"][0]
+            self.assertEqual(48, entry["obs_dim"])
+            self.assertEqual("go2_mjlab_actor_48", entry["observation_kind"])
+            self.assertEqual(
+                {"obs_dim": 48, "action_dim": 12, "observation_kind": "go2_mjlab_actor_48"},
+                entry["contract"],
+            )
+            # 索引条目的 contract 同步带 kind（verify 对账口径）
+            index = pa.load_index(out)
+            self.assertEqual(
+                "go2_mjlab_actor_48",
+                index[artifact["artifact_id"]]["contract"]["observation_kind"],
+            )
+            _ = installed
+
+    def test_real_repo_go2_produced_entries_measure_48(self):
+        """**真实仓不变量**：go2/b2 的 produced ONNX 实测宽度都是 48，声明的 obs_dim 与之一致，
+        observation_kind 已对齐评测侧注册的 go2_mjlab_actor_48。这条一旦红说明又产生了
+        "训练图配部署宽度"的新 produced 条目（promote 链修复已上线，红＝回归）。"""
+        index = pa.load_index()
+        for entry in index.values():
+            if entry.get("kind") != "produced" or str(entry.get("robot", "")) != "unitree_go2":
+                continue
+            measured = pa.onnx_obs_dim(pa.ROOT / entry["source_onnx"])
+            self.assertEqual(48, measured, entry["artifact_id"])
+            self.assertEqual(measured, entry["obs_dim"], entry["artifact_id"])
+            self.assertEqual("go2_mjlab_actor_48", entry["observation_kind"], entry["artifact_id"])
+
+    def test_deploy_kind_names_are_registered_builders(self):
+        """**对齐口径守卫**：本模块登记/写出的每个 observation_kind 都必须是评测侧
+        ``FRAME_BUILDERS`` 的键（或 unknown）——名字两边一漂，评测器就"不支持布局"拒载。"""
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from adapters.mjlab.policy_acceptance import FRAME_BUILDERS
+
+        for key in pa._OBSERVATION_KIND_BY_SHAPE.values():
+            self.assertIn(key, FRAME_BUILDERS, f"{key} 不在评测侧注册表里")
+        # unknown 是"宽度已知、布局未取证"的诚实标记，评测器按不支持如实报错
+        self.assertEqual("unknown", pa.observation_kind_for("unitree_go1", 48))
+        self.assertEqual("unknown", pa.observation_kind_for("unitree_go2", None))
+
+
+class RealRepoB44StockTest(unittest.TestCase):
+    """真实仓存量一致性：installed 声明的 obs_dim 与索引/实测三方一致。"""
+
+    def test_installed_b44_family_declarations_agree_with_index(self):
+        index = pa.load_index()
+        for robot_dir in sorted(pa.ROBOTS_DIR.iterdir()):
+            config_path = robot_dir / "simulation" / "config.json"
+            if not config_path.is_file():
+                continue
+            for declaration in pa.scan_declarations(pa.ROBOTS_DIR):
+                if declaration["robot"] != robot_dir.name:
+                    continue
+                provenance = declaration.get("provenance") or {}
+                artifact_id = str(provenance.get("artifact_id") or "")
+                entry = index.get(artifact_id)
+                if entry is None or entry.get("kind") != "produced":
+                    continue
+                measured = pa.onnx_obs_dim(pa.ROOT / entry["source_onnx"]) if entry.get("source_onnx") else None
+                if measured is None or measured == 1:
+                    continue  # 不可实测的如实跳过（fallback 条目另有标注）
+                declared = declaration.get("obs_dim")
+                self.assertEqual(
+                    measured, declared,
+                    f"{artifact_id}: 包内声明 obs_dim={declared} vs ONNX 实测 {measured}",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
