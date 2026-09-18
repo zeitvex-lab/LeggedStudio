@@ -76,3 +76,4 @@ _tmp_*
 native_worker_output/
 .Trash-*/
 
+.tmp_b8_batch2/
