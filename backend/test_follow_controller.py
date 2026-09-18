@@ -14,7 +14,11 @@
 5. **卡死进展按"目标导向运动"登记（v0.55.46 收口第 2 条裁决）**：拐角航向差 90°+ 的
    原地急转/切角追赶**不得误触恢复动作**（进展 = 到前视目标距离缩短，或 turn_in_place
    期间航向误差收敛 ≥ stuck_turn_progress_deg）；被夹住（位置与朝向全冻结）的真卡死
-   **仍必须触发**恢复直至 stuck——急转豁免不许吞掉真卡死。
+   **仍必须触发**恢复直至 stuck——急转豁免不许吞掉真卡死；
+6. **接近减速（v0.55.48，修登记短板「0.2m 容差过冲振荡」）**：仅最后一段且距最终航点
+   < goal_slowdown_m 时 vx 上限按剩余距离比例收紧（浏览器 navigation.js 同分支同参数）；
+   中途航点**不受影响**；极近距离上限不低于 max_vx×goal_slowdown_min_scale（能走完最后
+   几十厘米）；**到达判定仍由 arrival_criteria（H10）口径**，减速分支不碰判据。
 """
 
 from __future__ import annotations
@@ -59,6 +63,8 @@ class FollowParamsTests(unittest.TestCase):
         self.assertEqual(params.lookahead_m, 0.45)
         self.assertEqual(params.kp_dist, 0.8)
         self.assertEqual(params.kp_yaw, 1.8)
+        self.assertEqual(params.goal_slowdown_m, 2.4)
+        self.assertEqual(params.goal_slowdown_min_scale, 0.2)
         self.assertEqual(params.turn_in_place_enter_deg, 70.0)
         self.assertEqual(params.turn_in_place_exit_deg, 18.0)
         self.assertEqual(params.stuck_timeout_s, 4.0)
@@ -71,6 +77,8 @@ class FollowParamsTests(unittest.TestCase):
             ("lookahead_m", "lookahead_m"), ("max_vx", "max_vx"), ("kp_dist", "kp_dist"),
             ("kp_yaw", "kp_yaw"), ("max_wz", "max_wz"), ("stuck_timeout_s", "stuck_timeout_s"),
             ("stuck_turn_progress_deg", "stuck_turn_progress_deg"),
+            ("goal_slowdown_m", "goal_slowdown_m"),
+            ("goal_slowdown_min_scale", "goal_slowdown_min_scale"),
         ):
             with self.subTest(field=field):
                 self.assertEqual(getattr(params, field), spec[key])
@@ -88,6 +96,17 @@ class FollowParamsTests(unittest.TestCase):
             with self.assertRaises(ValueError) as ctx:
                 FollowParams.from_registry()
         self.assertIn("kp_yaw", str(ctx.exception))
+
+    def test_missing_slowdown_field_raises_and_names_it(self):
+        """接近减速两参数同走 fail-closed（registry 唯一真值，缺了不许静默兜底）。"""
+        for key in ("goal_slowdown_m", "goal_slowdown_min_scale"):
+            with self.subTest(field=key):
+                spec = dict(follow_controller_spec())
+                spec.pop(key)
+                with mock.patch("backend.motion_commands.follow_controller_spec", return_value=spec):
+                    with self.assertRaises(ValueError) as ctx:
+                        FollowParams.from_registry()
+                self.assertIn(key, str(ctx.exception))
 
     def test_arrival_spec_still_comes_from_h10(self):
         from backend.arrival_criteria import waypoint_spec
@@ -140,6 +159,78 @@ class FollowLawTests(unittest.TestCase):
         params = controller.params
         step = controller.update([0.0, 0.0, math.radians(60)], 0.0)
         self.assertLessEqual(abs(step.cmd[2]), params.max_wz + 1e-9)
+
+
+class NearGoalSlowdownTests(unittest.TestCase):
+    """v0.55.48 接近减速：最后一段按剩余距离比例收紧 vx 上限（浏览器 navigation.js 同分支）。
+
+    修的是 H12 登记短板「0.2m 容差过冲振荡成为到达率瓶颈」（e2e 基线 arrived 1/7）：
+    末段匀速冲线 → 过冲 → stable_ticks=2 在容差内攒不上。守四件事：
+    减速生效、中途不变、极近不离地（min_scale 地板）、到达判定仍是 H10 口径。
+    """
+
+    def test_slowdown_caps_vx_half_meter_from_final_waypoint(self):
+        """距终点 0.5m：vx = max_vx·(0.5/2.4) = 0.25 < max_vx（减速生效）。"""
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0]])
+        step = controller.update([1.5, 0.0, 0.0], 0.0)
+        expected_cap = controller.params.max_vx * (0.5 / controller.params.goal_slowdown_m)
+        self.assertAlmostEqual(step.cmd[0], expected_cap, places=9)
+        self.assertLess(step.cmd[0], controller.params.max_vx)
+        self.assertEqual(step.state, "following")
+
+    def test_slowdown_does_not_touch_wz(self):
+        """wz 只由 kp_yaw·yaw_err 决定，减速分支不碰它（同位姿、同 yaw_err 对拍）。"""
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0]])
+        slowed = controller.update([1.5, 0.0, 0.2], 0.0)
+        # 同一 yaw_err 放到减速窗口外（把减速距离改小到不生效）取 wz 基准
+        wide = replace(controller.params, goal_slowdown_m=0.01)
+        baseline = FollowController([[0.0, 0.0], [2.0, 0.0]], params=wide).update([1.5, 0.0, 0.2], 0.0)
+        self.assertEqual(slowed.cmd[2], baseline.cmd[2])
+        self.assertLess(slowed.cmd[0], baseline.cmd[0], "vx 收紧而 wz 不动 ⇒ 分支只作用在 vx 上限")
+
+    def test_mid_route_following_unchanged(self):
+        """中途航点：即使距最终航点已 < goal_slowdown_m 也不减速（门控在活跃航点==最终航点）。"""
+        # 活跃航点 (0.5,0) 不是最终航点，前视目标 (2,0)：自然律 0.8·1.75=1.4 ⇒ 顶满 max_vx。
+        # 若门控失效（按"距最终航点"减速），cap = 1.2·1.75/2.4 = 0.875，vx 就到不了 1.2。
+        controller = FollowController([[0.0, 0.0], [0.5, 0.0], [2.0, 0.0]])
+        step = controller.update([0.25, 0.0, 0.0], 0.0)
+        self.assertAlmostEqual(step.cmd[0], controller.params.max_vx, places=9)
+        # 最终一段但距终点 ≥ goal_slowdown_m：同样不减速
+        far = FollowController([[0.0, 0.0], [5.0, 0.0]])
+        step_far = far.update([1.0, 0.0, 0.0], 0.0)
+        self.assertAlmostEqual(step_far.cmd[0], far.params.max_vx, places=9)
+
+    def test_very_near_goal_cap_floors_at_min_scale(self):
+        """极近距离：上限不低于 max_vx·goal_slowdown_min_scale（最后几十厘米走得完）。"""
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0]])
+        # 距终点 0.4m：0.4/2.4=0.167 < min_scale 0.2 ⇒ 地板生效，cap=0.24；
+        # 自然律 0.8·0.4=0.32 > cap ⇒ 观察到的 vx 恰为地板值（无地板会是 0.2）。
+        step = controller.update([1.6, 0.0, 0.0], 0.0)
+        expected_floor = controller.params.max_vx * controller.params.goal_slowdown_min_scale
+        self.assertAlmostEqual(step.cmd[0], expected_floor, places=9)
+        self.assertGreater(step.cmd[0], 0.0, "地板保证末段仍有前进指令，不熄火")
+        # 更极端：kp_dist 调大让自然律远超地板（d=0.3m ⇒ 自然 1.5 vs 地板 0.24；
+        # 取 0.3m 是为了留在 H10 容差 0.2m 之外——容差内是 settling 零指令分支）
+        aggressive = replace(controller.params, kp_dist=5.0)
+        near = FollowController([[0.0, 0.0], [2.0, 0.0]], params=aggressive)
+        step_near = near.update([1.7, 0.0, 0.0], 0.0)
+        self.assertAlmostEqual(step_near.cmd[0], expected_floor, places=9)
+
+    def test_arrival_criteria_unchanged_by_slowdown(self):
+        """到达判定仍由 arrival_criteria（H10）口径：容差内零指令 settling、判据链路照旧。"""
+        from backend.arrival_criteria import waypoint_spec
+
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0]])
+        tolerance = float(waypoint_spec()["tolerance_m"])
+        # 容差内（1.95m 处，容差 0.2）⇒ 到达判定分支先于减速/跟随律：零指令 settling
+        step = controller.update([1.95, 0.0, 0.0], 0.0)
+        self.assertEqual(step.cmd, [0.0, 0.0, 0.0])
+        self.assertEqual(step.state, "settling")
+        # 减速整段仿真：仍按容差带完成（减速不改变"到了没"的判据）
+        steps, x, _, _, _ = _simulate(controller)
+        self.assertEqual(controller.verdict()["termination_reason"], "complete")
+        self.assertGreaterEqual(x, 2.0 - tolerance - 1e-6, f"应停在容差带内（x={x:.3f}）")
+        self.assertLess(x, 2.0 + tolerance + 0.05, "减速后不应深冲过终点")
 
 
 class CornerProgressTests(unittest.TestCase):

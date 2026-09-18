@@ -31,6 +31,8 @@ function payload(overrides = {}) {
     follow_controller: {
       lookahead_m: 0.45, max_vx: 1.2, max_wz: 0.8,
       kp_dist: 0.8, kp_yaw: 1.8,
+      // v0.55.48 接近减速（服务端 FollowParams.goal_slowdown_* 同真值）
+      goal_slowdown_m: 2.4, goal_slowdown_min_scale: 0.2,
       yaw_stop_threshold_deg: 45, turn_in_place_enter_deg: 70,
       turn_in_place_exit_deg: 18, turn_in_place_max_wz: 0.8,
       // H12 卡死/恢复/终止（服务端 FollowParams 同字段；stuck_turn_progress_deg =
@@ -431,6 +433,102 @@ assert.deepEqual(
   "advance 后残余恢复窗口照发恢复指令（服务端同语义；sign 首轮翻转 ⇒ wz 取负）",
 );
 
+// ===========================================================================
+// --- v0.55.48 接近减速（服务端 backend/follow_controller.py update「接近减速」段
+//     同分支同参数，NearGoalSlowdownTests 同款用例，注释互引）---
+// 修 H12 登记短板「0.2m 容差过冲振荡成为到达率瓶颈」（e2e 基线 arrived 1/7）：
+// 最后一段匀速冲线 → 过冲 → stable_ticks 攒不上。
+// vx_cap = max_vx × clamp(dist/goal_slowdown_m, goal_slowdown_min_scale, 1)。
+// ===========================================================================
+
+function slowdownPayload(overrides = {}) {
+  // 两条航点的直线航线 + 密集折线（浏览器跟随器追的是 path 折线，航点只管到达判定）
+  return payload({
+    waypoints: [
+      { x: 0, y: 0, tolerance_m: 0.2 },
+      { x: 2, y: 0, tolerance_m: 0.2 },
+    ],
+    plan: { combined_path: [[0, 0], [0.5, 0], [1, 0], [1.5, 0], [2, 0]] },
+    ...overrides,
+  });
+}
+
+// 沿路径走几拍让 cursor 消费近处折线点（对齐真实每拍驱动；不消费就取身后的点转原地）
+const walkTo = (runner, xTo, yaw = 0) => {
+  for (let i = 0; i * 0.05 <= xTo + 1e-9; i += 1) runner.command(pose(i * 0.05, 0, yaw));
+};
+
+// --- 减速生效：距最终航点 0.5m ⇒ cap = 1.2×(0.5/2.4) = 0.25 < max_vx ---
+const slowing = createNavigationRunner(slowdownPayload(), { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 });
+walkTo(slowing, 1.5);
+const slowedCmd = slowing.command(pose(1.5, 0, 0));
+assert.ok(Math.abs(slowedCmd[0] - 1.2 * (0.5 / 2.4)) < 1e-9, `距终点 0.5m ⇒ vx = 0.25（实测 ${slowedCmd[0]}）`);
+assert.ok(slowedCmd[0] < 1.2, "接近减速生效（vx < max_vx）");
+assert.ok(slowedCmd[0] > 0, "减速不熄火（最后一段仍给前进指令）");
+
+// --- wz 不受影响：同一 yaw_err 在减速窗口内外取值一致（分支只收紧 vx 上限）---
+const slowingYaw = createNavigationRunner(slowdownPayload(), { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 });
+walkTo(slowingYaw, 1.5, 0.2);
+const slowedWz = slowingYaw.command(pose(1.5, 0, 0.2))[2];
+const wideFollow = { ...slowdownPayload().follow_controller, goal_slowdown_m: 0.01 };
+const wideRunner = createNavigationRunner(
+  slowdownPayload({ follow_controller: wideFollow }),
+  { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 },
+);
+walkTo(wideRunner, 1.5, 0.2);
+assert.equal(slowedWz, wideRunner.command(pose(1.5, 0, 0.2))[2], "减速分支不碰 wz");
+assert.ok(slowingYaw.command(pose(1.5, 0, 0.2))[0] < wideRunner.command(pose(1.5, 0, 0.2))[0], "vx 收紧而基准不收紧");
+
+// --- 中途不受影响：非最终段照自然律（即使距最终航点已 < goal_slowdown_m）---
+const midRoute = createNavigationRunner(
+  payload({
+    waypoints: [
+      { x: 0, y: 0, tolerance_m: 0.2 },
+      { x: 0.5, y: 0, tolerance_m: 0.2 },
+      { x: 2, y: 0, tolerance_m: 0.2 },
+    ],
+    plan: { combined_path: [[0, 0], [0.5, 0], [1, 0], [1.5, 0], [2, 0]] },
+  }),
+  { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 },
+);
+// 活跃航点 (0.5,0) 不是最终航点 ⇒ 无减速，vx = kp_dist×前视距离 = 0.8×0.75 ≈ 0.6
+const midCmd = midRoute.command(pose(0.25, 0, 0));
+assert.ok(Math.abs(midCmd[0] - 0.6) < 1e-9, `中途段 vx 照自然律 0.6（实测 ${midCmd[0]}），不被接近减速收紧`);
+
+// --- 最后一段但距终点 ≥ goal_slowdown_m：同样不减速 ---
+const farLeg = createNavigationRunner(
+  payload({
+    waypoints: [
+      { x: 0, y: 0, tolerance_m: 0.2 },
+      { x: 3, y: 0, tolerance_m: 0.2 },
+    ],
+    plan: { combined_path: [[0, 0], [1.5, 0], [3, 0]] },
+  }),
+  { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 },
+);
+assert.ok(Math.abs(farLeg.command(pose(0.5, 0, 0))[0] - 0.8) < 1e-9, "减速窗口（2.4m）之外 vx 不受影响");
+
+// --- 极近距离：cap 不低于 max_vx×goal_slowdown_min_scale（0.24，最后几十厘米走得完）---
+const flooring = createNavigationRunner(slowdownPayload(), { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 });
+walkTo(flooring, 1.6);
+// d=0.4：0.4/2.4≈0.167 < min_scale 0.2 ⇒ 地板生效；自然律 0.8×0.4=0.32 > cap ⇒ vx 恰为 0.24
+const flooredCmd = flooring.command(pose(1.6, 0, 0));
+assert.ok(Math.abs(flooredCmd[0] - 1.2 * 0.2) < 1e-9, `极近处 cap 地板 = 0.24（实测 ${flooredCmd[0]}）`);
+
+// --- 到达判定仍由 arrival 口径：容差内零指令 settling（减速分支在判定之后）---
+const settleGoal = createNavigationRunner(slowdownPayload(), { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 });
+walkTo(settleGoal, 1.9);
+assert.deepEqual(settleGoal.command(pose(1.9, 0, 0)), [0, 0, 0], "最终航点容差内 ⇒ 零指令（不因减速加前提航）");
+
+// --- 卡死恢复后分流：接近减速分支位于容差/恢复判定之后，恢复指令原样发 ---
+const recStillRaw = createNavigationRunner(slowdownPayload(), { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 });
+for (let i = 0; i < 82; i += 1) recStillRaw.tick(pose(1.5, 0, 0)); // 无进展 ⇒ 进入恢复
+assert.equal(recStillRaw.status().state, "recovery", "末段不动照样判卡死（减速不是豁免）");
+const rawRec = recStillRaw.command(pose(1.5, 0, 0));
+assert.equal(rawRec[0], -0.1, "恢复段 vx 原样发，不经减速上限");
+
+// --- fail-closed 用例汇入下方 cases（goal_slowdown_m / goal_slowdown_min_scale）---
+
 // --- reset 清空状态机（恢复计数/终止原因归零）---
 exhausted.reset();
 assert.equal(exhausted.status().finished, false, "reset 后可重跑");
@@ -439,6 +537,8 @@ assert.equal(exhausted.status().recoveries_used, 0, "reset 后恢复计数归零
 
 // --- H12 参数缺字段 ⇒ fail-closed（同 requiredNumber 惯例，不许自造默认值）---
 const cases = [
+  ["goal_slowdown_m", { goal_slowdown_m: undefined }],
+  ["goal_slowdown_min_scale", { goal_slowdown_min_scale: undefined }],
   ["stuck_timeout_s", { stuck_timeout_s: undefined }],
   ["stuck_progress_m", { stuck_progress_m: undefined }],
   ["stuck_turn_progress_deg", { stuck_turn_progress_deg: undefined }],
