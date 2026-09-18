@@ -38,11 +38,11 @@ ARTIFACT = re.compile(r"(tools/[\w./-]+\.py|test_[\w]+\.py|registry/[\w./-]+\.js
 VERIFY_WORDS = ("进 CI", "已进 CI", "门禁", "✓", "已达成", "全绿")
 
 #: **冻结基线**：有据可查的条数（2026-09-16 实测）。下降 ⇒ 判红。
-BASELINE_MACHINE_TEXTUAL = 43  # 2026-09-16 实测冻结（登记类收口后从 39 升到 43）
+BASELINE_MACHINE_TEXTUAL = 52  # 2026-09-18 重排后重冻：结构性重排压缩巨行、但按行补回证据指针（上一冻结值 43）
 
 #: **解析覆盖基线**：能解析出的 4 列任务行数（2026-09-16 实测 110）。
 #: 行数掉了 ⇒ 判红（否则"条目被改成别的表形"会让统计静默失真）。
-BASELINE_PARSED_ROWS = 110
+BASELINE_PARSED_ROWS = 139  # 2026-09-18 重排后重冻：140 条全量 4 列可解析（上一冻结值 110）
 
 
 def _rows(text: str) -> list[dict]:
