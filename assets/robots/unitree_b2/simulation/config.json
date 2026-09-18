@@ -140,14 +140,14 @@
         "installed_at": "2026-09-17T17:54:48+00:00"
       },
       "label": "训练产物（run unitree_b2_v1_20260918_015414_313841）",
-      "obs_dim": 45,
+      "obs_dim": 48,
       "action_dim": 12,
       "contract": {
         "obs_dim": 48,
         "action_dim": 12,
-        "observation_kind": "unknown"
+        "observation_kind": "go2_mjlab_actor_48"
       },
-      "note": "B8 试点冒烟产物：observation 布局未逐项取证，显式标记 unknown（实际 obs[1,48]→actions[1,12]）"
+      "note": "B44 裁决：obs_dim 以 ONNX 实测宽度为准（48），布局 go2_mjlab_actor_48（training.log actor 组逐项取证）"
     }
   ]
 }

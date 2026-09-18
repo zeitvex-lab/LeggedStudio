@@ -49,11 +49,76 @@ ARTIFACT_SCHEMA = "policy-artifact-1.0"
 _URL_PREFIX = re.compile(r"^/api/simulation/browser-package/[^/]+/")
 
 #: ``deploy.yaml`` 从 ``contract`` 段展开的字段（顺序即书写顺序）。
+#: ``obs_dim_source``（B44）：obs_dim 的真值来源（``onnx``＝导出时刻实测，``contract_snapshot``
+#: ＝实测不到时回退快照）——如实标注而不是让读者猜部署视图和训练视图哪个赢了。
 _DEPLOY_FIELDS = (
-    "observation_kind", "obs_dim", "action_dim", "history_len",
+    "observation_kind", "obs_dim", "obs_dim_source", "action_dim", "history_len",
     "command_dims", "default_command", "action_joint_order",
     "default_joint_angles", "action_scale", "scales",
 )
+
+#: B44：``(robot_id, ONNX 实测单帧宽度) → 评测侧已注册的 observation_kind``。
+#: 值必须是 ``adapters/mjlab/policy_acceptance.FRAME_BUILDERS`` 里的键（对齐口径，
+#: ``backend/test_policy_artifacts.py`` 有注册表守卫测试）。只登记**逐项取证过**的映射：
+#: go2/b2 的 L7 产物走 official mjlab velocity（training.log actor 组逐项序 =
+#: base_lin_vel, base_ang_vel, projected_gravity, joint_pos, joint_vel, actions, command，
+#: 48 维；ONNX 实测 obs[1,48] 双证）；其余布局沿用 B43 先例 ``unknown``，不编造。
+_OBSERVATION_KIND_BY_SHAPE: dict[tuple[str, int], str] = {
+    ("unitree_go2", 48): "go2_mjlab_actor_48",
+    ("unitree_b2", 48): "go2_mjlab_actor_48",
+}
+
+
+def onnx_obs_dim(onnx_path: Path | str) -> int | None:
+    """**ONNX 图输入的实测单帧宽度**（worker 导出时刻的产物自证真值，B44）。
+
+    为什么不信契约快照：``contract_snapshot.json`` 的 ``observation.dimension`` 是包契约的
+    **部署视图**（go2=45：无 base_lin_vel、命令 term 在中间——真机 IMU 给不出线速度，
+    E4 历史裁决），而 worker 导出的 actor ONNX 吃的是**训练视图**（go2=48：official
+    mjlab velocity 的 actor 组 base_lin_vel 打头、command 在帧尾）。produced 声明把两个
+    视图配错（训练图配部署宽度）会让评测器按声明 45 对实测 48 直接拒载。metadata 的
+    ``observation_names`` 此前恒空（worker 读旧组名 "policy"，B26 已改组名 "actor"），
+    不可依赖 ⇒ **图输入宽度**是唯一可靠的导出时刻真值（B43「provenance 自证」同款思路）。
+
+    只读模型头（``load_external_data=False``，不解析权重数据）；onnx 包缺失或文件不可
+    解析时返回 ``None`` —— 调用方按快照 fallback 并**如实标注来源**，不静默。
+    """
+    try:
+        import onnx
+    except ImportError:
+        return None
+    try:
+        model = onnx.load(str(onnx_path), load_external_data=False)
+        inputs = [
+            (i.name, [d.dim_value for d in i.type.tensor_type.shape.dim])
+            for i in model.graph.input
+        ]
+    except Exception:
+        return None
+    # 优先名为 obs 的输入（native_worker 导出约定 input_names=["obs"]），兜底第一个输入；
+    # 取最后一维（batch 维在前）。动态维（0）说明宽度没被固化 ⇒ 不可信，如实返回 None。
+    shape: list[int] | None = None
+    for name, dims in inputs:
+        if name == "obs":
+            shape = dims
+            break
+        if shape is None and dims:
+            shape = dims
+    if not shape:
+        return None
+    width = int(shape[-1])
+    return width if width > 0 else None
+
+
+def observation_kind_for(robot_id: str, obs_dim: int | None) -> str:
+    """按 ``(robot, ONNX 实测宽度)`` 查已注册的观测布局名。
+
+    查不到沿用 B43 先例 ``unknown`` —— 明确表达"宽度已知、布局未逐项取证"，
+    与编造一个似是而非的布局名相比，评测器对 ``unknown`` 的"不支持"才是诚实结论。
+    """
+    if obs_dim is None:
+        return "unknown"
+    return _OBSERVATION_KIND_BY_SHAPE.get((str(robot_id), int(obs_dim)), "unknown")
 
 
 # --------------------------------------------------------------------------------------
@@ -631,9 +696,19 @@ def promote_from_run(
         "seed": record.seed,
         "source_onnx": "product-training（训练→导出→入库链路自产）",
     }
-    # 部署维度只写快照里真实有的（缺项不编造，与 deploy_payload 同原则）
-    if isinstance(observation, Mapping) and observation.get("dimension") is not None:
+    # B44 裁决（产物自证）：obs 真值以 **ONNX 图输入实测宽度** 为准，契约快照的
+    # ``observation.dimension`` 是部署视图（go2=45），与 worker 导出的训练视图图
+    # （go2=48）天然不同——照抄快照就是把训练图配上部署宽度，评测器按声明拒载。
+    # 实测不到（onnx 缺失/不可解析/onnx 包不在）时 fallback 快照值，并**如实标注
+    # 来源**（obs_dim_source），绝不静默。
+    measured_dim = onnx_obs_dim(onnx)
+    if measured_dim is not None:
+        deploy["obs_dim"] = measured_dim
+        deploy["obs_dim_source"] = "onnx"
+        deploy["observation_kind"] = observation_kind_for(robot_id, measured_dim)
+    elif isinstance(observation, Mapping) and observation.get("dimension") is not None:
         deploy["obs_dim"] = observation["dimension"]
+        deploy["obs_dim_source"] = "contract_snapshot"
     if isinstance(action, Mapping):
         if action.get("dimension") is not None:
             deploy["action_dim"] = action["dimension"]
@@ -646,6 +721,11 @@ def promote_from_run(
         artifact_id=final_id, onnx=onnx, deploy=deploy, run_id=record.run_id, out_dir=out_dir,
         robot=robot_id, policy_id=policy_id,
     )
+    # B44：obs 真值与布局名一并落进产物条目（deploy.yaml 已有；索引是 verify 与
+    # 评测预检共读的对账面，只活在 deploy.yaml 里的话对账时读不到）。
+    for key in ("obs_dim", "obs_dim_source", "observation_kind"):
+        if key in deploy:
+            artifact[key] = deploy[key]
 
     write_out_index(out_dir, upsert=[artifact])
 
@@ -662,9 +742,13 @@ def promote_from_run(
                     "label": f"训练产物（run {record.run_id}）",
                     "obs_dim": deploy.get("obs_dim"),
                     "action_dim": deploy.get("action_dim"),
+                    # B44：观测布局名与 deploy/评测侧注册表同一来源（实测 48 → go2_mjlab_actor_48，
+                    # 未取证 → unknown）。评测器 deep_merge 契约后按它选帧构建器。
+                    **({"observation_kind": deploy["observation_kind"]} if deploy.get("observation_kind") else {}),
                     "contract": {
                         **({"obs_dim": deploy["obs_dim"]} if deploy.get("obs_dim") else {}),
                         **({"action_dim": deploy["action_dim"]} if deploy.get("action_dim") else {}),
+                        **({"observation_kind": deploy["observation_kind"]} if deploy.get("observation_kind") else {}),
                     } or None,
                 },
                 out_dir=out_dir,

@@ -1,10 +1,12 @@
 robot: unitree_b2
 policy_id: unitree_b2__produced-unitree_b2_v1_20260918_015414_313841
 kind: produced
+observation_kind: go2_mjlab_actor_48
 run_id: unitree_b2_v1_20260918_015414_313841
 seed: 7
 source_onnx: product-training（训练→导出→入库链路自产）
-obs_dim: 45
+obs_dim: 48
+obs_dim_source: onnx
 action_dim: 12
 action_joint_order:
   - FR_hip_joint

@@ -947,6 +947,8 @@
     {
       "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260914_232229_429374",
       "kind": "produced",
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
       "onnx_bytes": 768394,
       "onnx_sha256": "13fd7518ba52dab646fcc9c54c785838877a7ef9e1272233ee900734823ae159",
       "run_id": "unitree_go2_mvp_v1_20260914_232229_429374",
@@ -965,6 +967,9 @@
     {
       "artifact_id": "unitree_g1__produced-unitree_g1_29dof_v1_20260915_060740_211982",
       "kind": "produced",
+      "obs_dim": 99,
+      "obs_dim_source": "onnx",
+      "observation_kind": "unknown",
       "onnx_bytes": 889126,
       "onnx_sha256": "b4497b813f4193f5fa2b4bb4358d504dcc5d87dc9984d8851d16cf3a03dd8f86",
       "run_id": "unitree_g1_29dof_v1_20260915_060740_211982",
@@ -974,6 +979,8 @@
     {
       "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260915_072135_585438",
       "kind": "produced",
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
       "onnx_bytes": 768394,
       "onnx_sha256": "3d66e4147893e925fd3450e6f9462651ecef61bbe44bdfafc72cce9307413c70",
       "run_id": "unitree_go2_mvp_v1_20260915_072135_585438",
@@ -1028,6 +1035,9 @@
     {
       "artifact_id": "unitree_b2__produced-unitree_b2_v1_20260916_064556_962139",
       "kind": "produced",
+      "obs_dim": 48,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
       "onnx_bytes": 766846,
       "onnx_sha256": "dafcd559d7f33553250802883d11154a19bf66065f76ff494a0cac46741a1409",
       "run_id": "unitree_b2_v1_20260916_064556_962139",
@@ -1109,9 +1119,9 @@
       "contract": {
         "action_dim": 12,
         "obs_dim": 48,
-        "observation_kind": "unknown"
+        "observation_kind": "go2_mjlab_actor_48"
       },
-      "contract_digest": "6df193bc066797732cdfbd7c6bd9445fd144c0bd6769814c1c4a62c423d336c1",
+      "contract_digest": "6e8436e4dfd3d2ef66e6ae5d40a81de180ddcfca48dd290d94c007daa0303aec",
       "installed": {
         "package_path": "simulation/policies/unitree_b2-trained-20260918-015414.onnx",
         "policy_id": "unitree_b2-trained-20260918-015414",
@@ -1119,6 +1129,9 @@
         "robot": "unitree_b2"
       },
       "kind": "produced",
+      "obs_dim": 48,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
       "onnx_bytes": 766846,
       "onnx_sha256": "fa246aa3dd7cda08b23107ae3072ec192a6195cb34416476d799915fab8e2283",
       "policy_id": "unitree_b2-trained-20260918-015414",
@@ -1136,6 +1149,9 @@
         "robot": "unitree_go2"
       },
       "kind": "produced",
+      "obs_dim": 48,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
       "onnx_bytes": 777610,
       "onnx_sha256": "f99772487d6ab25a9f2b64ba8f34a44270485a4f864368808d4b394427449055",
       "robot": "unitree_go2",
@@ -1249,9 +1265,10 @@
       "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_094930_165943",
       "contract": {
         "action_dim": 12,
-        "obs_dim": 45
+        "obs_dim": 48,
+        "observation_kind": "go2_mjlab_actor_48"
       },
-      "contract_digest": "ab82322827bc9698a0b651fe6f0a147b4f816b62fb765ee48e5c280d69e19929",
+      "contract_digest": "6e8436e4dfd3d2ef66e6ae5d40a81de180ddcfca48dd290d94c007daa0303aec",
       "installation": {
         "package_path": "simulation/policies/unitree_go2-trained-20260918-094930.onnx",
         "policy_id": "unitree_go2-trained-20260918-094930",
@@ -1264,6 +1281,9 @@
         "robot": "unitree_go2"
       },
       "kind": "produced",
+      "obs_dim": 48,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
       "onnx_bytes": 777610,
       "onnx_sha256": "d475c704502bf2c02f06c70d3834abf7edd2e1f158f85e784678a960d4fe1cc7",
       "pack_ref": {
@@ -1282,9 +1302,10 @@
       "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_113206_736619",
       "contract": {
         "action_dim": 12,
-        "obs_dim": 45
+        "obs_dim": 48,
+        "observation_kind": "go2_mjlab_actor_48"
       },
-      "contract_digest": "ab82322827bc9698a0b651fe6f0a147b4f816b62fb765ee48e5c280d69e19929",
+      "contract_digest": "6e8436e4dfd3d2ef66e6ae5d40a81de180ddcfca48dd290d94c007daa0303aec",
       "installation": {
         "package_path": "simulation/policies/unitree_go2-trained-20260918-113206.onnx",
         "policy_id": "unitree_go2-trained-20260918-113206",
@@ -1297,6 +1318,9 @@
         "robot": "unitree_go2"
       },
       "kind": "produced",
+      "obs_dim": 48,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2_mjlab_actor_48",
       "onnx_bytes": 777610,
       "onnx_sha256": "2ad2eb3d8f00f4050ef0540bf92822e1d9a3aaa63f36c7441200b2b6be2889ac",
       "pack_ref": {
