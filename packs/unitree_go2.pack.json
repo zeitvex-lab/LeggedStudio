@@ -94,10 +94,10 @@
   },
   "scenario_ref": null,
   "policy_ref": {
-    "id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_094930_165943",
-    "path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-094930.onnx",
-    "sha256": "0c562c5882c9a847091f472f36f70bdd5a64e88766cf5de598cb296d253a046e",
-    "version": "unitree_go2-trained-20260918-094930"
+    "id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_113206_736619",
+    "path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-113206.onnx",
+    "sha256": "3e7dc641cf9c621dde67074b7fccd51a06a01f64226231fcb7cfa18f0026a451",
+    "version": "unitree_go2-trained-20260918-113206"
   },
   "bindings": {
     "verify": {
