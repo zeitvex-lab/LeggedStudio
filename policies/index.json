@@ -1106,6 +1106,12 @@
     },
     {
       "artifact_id": "unitree_b2__produced-unitree_b2_v1_20260918_015414_313841",
+      "contract": {
+        "action_dim": 12,
+        "obs_dim": 48,
+        "observation_kind": "unknown"
+      },
+      "contract_digest": "6df193bc066797732cdfbd7c6bd9445fd144c0bd6769814c1c4a62c423d336c1",
       "installed": {
         "package_path": "simulation/policies/unitree_b2-trained-20260918-015414.onnx",
         "policy_id": "unitree_b2-trained-20260918-015414",
@@ -1115,16 +1121,11 @@
       "kind": "produced",
       "onnx_bytes": 766846,
       "onnx_sha256": "fa246aa3dd7cda08b23107ae3072ec192a6195cb34416476d799915fab8e2283",
+      "policy_id": "unitree_b2-trained-20260918-015414",
       "robot": "unitree_b2",
       "run_id": "unitree_b2_v1_20260918_015414_313841",
       "schema": "policy-artifact-1.0",
-      "source_onnx": "assets/robots/unitree_b2/simulation/policies/unitree_b2-trained-20260918-015414.onnx",
-      "policy_id": "unitree_b2-trained-20260918-015414",
-      "contract": {
-        "obs_dim": 45,
-        "action_dim": 12
-      },
-      "contract_digest": "ab82322827bc9698a0b651fe6f0a147b4f816b62fb765ee48e5c280d69e19929"
+      "source_onnx": "assets/robots/unitree_b2/simulation/policies/unitree_b2-trained-20260918-015414.onnx"
     },
     {
       "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_022630_598318",
@@ -1141,11 +1142,146 @@
       "run_id": "unitree_go2_mvp_v1_20260918_022630_598318",
       "schema": "policy-artifact-1.0",
       "source_onnx": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-022630.onnx"
+    },
+    {
+      "artifact_id": "deeprobotics_m20__produced-deeprobotics_m20_v1_20260918_090509_476414",
+      "contract": {
+        "action_dim": 16,
+        "obs_dim": 57,
+        "observation_kind": "unknown"
+      },
+      "contract_digest": "689cd6ea17b328c090de7d0701a4e46912c740ebaaade0b573744a0cca5c233b",
+      "installation": {
+        "package_path": "simulation/policies/deeprobotics_m20-trained-20260918-090509.onnx",
+        "policy_id": "deeprobotics_m20-trained-20260918-090509",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\deeprobotics_m20__produced-deeprobotics_m20_v1_20260918_090509_476414\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/deeprobotics_m20-trained-20260918-090509.onnx",
+        "policy_id": "deeprobotics_m20-trained-20260918-090509",
+        "repo_path": "assets/robots/deeprobotics_m20/simulation/policies/deeprobotics_m20-trained-20260918-090509.onnx",
+        "robot": "deeprobotics_m20"
+      },
+      "kind": "produced",
+      "onnx_bytes": 787529,
+      "onnx_sha256": "9650579a4a2fed16ee8b49025b4ed33b3cbb2577795eb036e403838f16bfa3ef",
+      "pack_ref": {
+        "id": "deeprobotics_m20__produced-deeprobotics_m20_v1_20260918_090509_476414",
+        "path": "assets/robots/deeprobotics_m20/simulation/policies/deeprobotics_m20-trained-20260918-090509.onnx",
+        "sha256": "36a6fd94d4e7a7f11cce31beb5b822fe85a8fa54b3c1ea4cc535289cd06c3b3b",
+        "version": "deeprobotics_m20-trained-20260918-090509"
+      },
+      "policy_id": "deeprobotics_m20-trained-20260918-090509",
+      "robot": "deeprobotics_m20",
+      "run_id": "deeprobotics_m20_v1_20260918_090509_476414",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "assets/robots/deeprobotics_m20/simulation/policies/deeprobotics_m20-trained-20260918-090509.onnx"
+    },
+    {
+      "artifact_id": "unitree_b2w__produced-unitree_b2w_v1_20260918_093241_627441",
+      "contract": {
+        "action_dim": 16,
+        "obs_dim": 57,
+        "observation_kind": "unknown"
+      },
+      "contract_digest": "689cd6ea17b328c090de7d0701a4e46912c740ebaaade0b573744a0cca5c233b",
+      "installation": {
+        "package_path": "simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
+        "policy_id": "unitree_b2w-trained-20260918-093241",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_b2w__produced-unitree_b2w_v1_20260918_093241_627441\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
+        "policy_id": "unitree_b2w-trained-20260918-093241",
+        "repo_path": "assets/robots/unitree_b2w/simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
+        "robot": "unitree_b2w"
+      },
+      "kind": "produced",
+      "onnx_bytes": 786562,
+      "onnx_sha256": "3a37329c7dcf8e4445b5f2cf69d94e497bd2ab2c7d0005ed5a4f06499e07931e",
+      "pack_ref": {
+        "id": "unitree_b2w__produced-unitree_b2w_v1_20260918_093241_627441",
+        "path": "assets/robots/unitree_b2w/simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
+        "sha256": "9e1cdb504aff7193a8897b395c3952f97ad3c625d42cc31b41ba3282f892e891",
+        "version": "unitree_b2w-trained-20260918-093241"
+      },
+      "policy_id": "unitree_b2w-trained-20260918-093241",
+      "robot": "unitree_b2w",
+      "run_id": "unitree_b2w_v1_20260918_093241_627441",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "assets/robots/unitree_b2w/simulation/policies/unitree_b2w-trained-20260918-093241.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260918_093550_665376",
+      "contract": {
+        "action_dim": 16,
+        "obs_dim": 57,
+        "observation_kind": "unknown"
+      },
+      "contract_digest": "689cd6ea17b328c090de7d0701a4e46912c740ebaaade0b573744a0cca5c233b",
+      "installation": {
+        "package_path": "simulation/policies/unitree_go2w-trained-20260918-093550.onnx",
+        "policy_id": "unitree_go2w-trained-20260918-093550",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2w__produced-unitree_go2w_contract_v1_20260918_093550_665376\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/unitree_go2w-trained-20260918-093550.onnx",
+        "policy_id": "unitree_go2w-trained-20260918-093550",
+        "repo_path": "assets/robots/unitree_go2w/simulation/policies/unitree_go2w-trained-20260918-093550.onnx",
+        "robot": "unitree_go2w"
+      },
+      "kind": "produced",
+      "onnx_bytes": 786636,
+      "onnx_sha256": "95c1b11672482d2fa8bf27d270af132c1d2c221570148639fb0e5674b9b57cc8",
+      "pack_ref": {
+        "id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260918_093550_665376",
+        "path": "assets/robots/unitree_go2w/simulation/policies/unitree_go2w-trained-20260918-093550.onnx",
+        "sha256": "659f4fc16602f275b33512f1186b89907a8aad27c6a8174fd859d086e1348d66",
+        "version": "unitree_go2w-trained-20260918-093550"
+      },
+      "policy_id": "unitree_go2w-trained-20260918-093550",
+      "robot": "unitree_go2w",
+      "run_id": "unitree_go2w_contract_v1_20260918_093550_665376",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "assets/robots/unitree_go2w/simulation/policies/unitree_go2w-trained-20260918-093550.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_094930_165943",
+      "contract": {
+        "action_dim": 12,
+        "obs_dim": 45
+      },
+      "contract_digest": "ab82322827bc9698a0b651fe6f0a147b4f816b62fb765ee48e5c280d69e19929",
+      "installation": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-094930.onnx",
+        "policy_id": "unitree_go2-trained-20260918-094930",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2__produced-unitree_go2_mvp_v1_20260918_094930_165943\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260918-094930.onnx",
+        "policy_id": "unitree_go2-trained-20260918-094930",
+        "repo_path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-094930.onnx",
+        "robot": "unitree_go2"
+      },
+      "kind": "produced",
+      "onnx_bytes": 777610,
+      "onnx_sha256": "d475c704502bf2c02f06c70d3834abf7edd2e1f158f85e784678a960d4fe1cc7",
+      "pack_ref": {
+        "id": "unitree_go2__produced-unitree_go2_mvp_v1_20260918_094930_165943",
+        "path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-094930.onnx",
+        "sha256": "0c562c5882c9a847091f472f36f70bdd5a64e88766cf5de598cb296d253a046e",
+        "version": "unitree_go2-trained-20260918-094930"
+      },
+      "policy_id": "unitree_go2-trained-20260918-094930",
+      "robot": "unitree_go2",
+      "run_id": "unitree_go2_mvp_v1_20260918_094930_165943",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-094930.onnx"
     }
   ],
   "blobs": "引用式：onnx 单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目在**安装进包之前**持真副本，安装后转为引用式（见 install_produced_policy）",
-  "count": 65,
-  "generated_at": "2026-09-17T18:33:38+00:00",
+  "count": 69,
+  "generated_at": "2026-09-18T01:58:09+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"
 }
