@@ -500,6 +500,30 @@ def _frame_go1_playground_48(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     return out
 
 
+def _frame_go2_mjlab_actor_48(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """mjlab velocity actor 组单帧 48：lin_vel, ang_vel, gravity, q_rel(12), dq(12), action(12), cmd。
+
+    2026-09-18 B11 规模档质量评测新增：L7 产品自产策略（go2-velocity-flat profile）按
+    mjlab `make_velocity_env_cfg` 的 actor 组训练 —— training.log ObservationManager 表
+    逐项序 = base_lin_vel, base_ang_vel, projected_gravity, joint_pos, joint_vel, actions,
+    command（48 维），且各 term 无 scale（mjlab ObservationTermCfg 默认 1.0）；命令 term 在
+    **帧尾**。ONNX metadata_props 的 default_joint_pos / action_scale（逐关节）与
+    clip_actions=100 是部署侧真值（由 onnx_exporter.attach_metadata_to_onnx 盖章）。
+    """
+    c = obs.contract
+    _, ang_b, lin_b = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = list(lin_b)
+    out += list(ang_b * c.ang_vel_scale)
+    out += list(projected_gravity(q))
+    out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * c.dof_pos_scale for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in order]
+    out += list(obs.last_action)
+    out += list(cmd * np.asarray(c.cmd_scale))
+    return out
+
+
 def _frame_go2_motion_69(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     """Go2 模仿/特技 69：motion_command(24)+anchor_ori_b(6)+ang_vel(3)+q(12)+dq(12)+action(12)。"""
     c = obs.contract
@@ -774,6 +798,7 @@ def _frame_wuji_reorient_69(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
 
 FRAME_BUILDERS = {
     "go2_rl_sdk_45": _std_frame,
+    "go2_mjlab_actor_48": _frame_go2_mjlab_actor_48,
     "lite3_rl_sdk_hist6": _std_frame,
     "s07_amp_cts": _std_frame,
     "g1_amp_96": _frame_g1_amp_96,
