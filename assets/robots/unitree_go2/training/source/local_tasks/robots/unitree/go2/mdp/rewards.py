@@ -1334,6 +1334,37 @@ def go2_exactly_one_foot_contact(
   return (contacts.sum(dim=-1) == 1).to(torch.float32)
 
 
+def go2_dof_power_penalty(
+  env: ManagerBasedRlEnv,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+  kernel: str = "mean_abs",
+) -> torch.Tensor:
+  """Per-joint mechanical power |tau*v| penalty, aligned with the quality metric.
+
+  结构层攻关（任务清单 §2.1 序 1）依据：B11 评测口径
+  ``adapters/mjlab/quality_metrics.py::dof_power``（只读参照）为
+  ``1 - RMS_joint(|tau*v|) / 100``，其中关节力矩取 mujoco ``data.actuator_force``、
+  关节速度取 ``data.qvel`` 关节分量。这里同用 ``asset.data.actuator_force *
+  asset.data.joint_vel`` 保证训练侧与评测侧量纲逐位一致（go2 的执行器与关节
+  1:1 同序，仓库既有 ``go2_torque_penalty`` 亦按此约定索引）。
+
+  go2 64×800 基线 |tau*v| RMS≈700（dof_power 记 0）是质量分贴地（0.026）的
+  主因；配置层 reward_scales 塑形已实证无杠杆（reward_shaping_experiments.json
+  verdict），故在任务结构层新增本功率惩罚项。kernel：
+  ``mean_abs``（逐关节 |tau*v| 均值，权重可读性好，-0.001/-0.01 两档标定）、
+  ``mean_square`` / ``rms`` 备查。
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  force = asset.data.actuator_force[:, asset_cfg.joint_ids]
+  velocity = asset.data.joint_vel[:, asset_cfg.joint_ids]
+  power = (force * velocity).abs()
+  if kernel == "mean_square":
+    return torch.mean(torch.square(power), dim=-1)
+  if kernel == "rms":
+    return torch.sqrt(torch.mean(torch.square(power), dim=-1) + 1e-6)
+  return torch.mean(power, dim=-1)
+
+
 def go2_jump_contact_reward(
   env: ManagerBasedRlEnv,
   sensor_name: str = "feet_ground_contact",
