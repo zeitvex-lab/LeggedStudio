@@ -147,6 +147,8 @@ PROJECTS: dict[str, dict] = {
                "desc": "多机型统一 RL 训练框架（宇树全系）"},
     "lain_job": {"robots": ["unitree_go2", "unitree_go1", "unitree_g1", "deeprobotics_m20"],
                  "desc": "LLoco 技能式 RL 任务与部署（多机型）"},
+    "LainLab": {"robots": ["unitree_go2", "unitree_g1"],
+                "desc": "LainLab：mjlab 1.6 多厂商资产/任务/部署层（go2 skills 全套 + OpenDoge 自研；Apache-2.0）"},
     "kaiwu_rl": {"robots": ["unitree_go2", "unitree_g1"],
                  "desc": "开悟 RL 工程（Go2/G1）"},
     "mjswan": {"robots": ["unitree_go2", "unitree_go1", "unitree_g1"],
