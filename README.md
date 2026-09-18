@@ -2,7 +2,7 @@
 
 **腿足机器人强化学习工作室** —— 覆盖「资产盘点 → 工作台（模型检查与调整 + 契约校准）→ RL 训练 → 策略导出 → 仿真验证（浏览器 sim2sim + 验收基准）→ 部署打包」全流程的全栈工具；并在仿真内提供**感知导航**：传感器可外挂，感知可入观测（A 类）或置于策略之外（B 类），在场景任务中自动完成「目标判定 → 规划 → 到达」闭环（**导航闭环进行中**，见任务清单 H2/H3）。
 
-- 版本：`0.55.59`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
+- 版本：`0.55.60`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
 - 许可：MIT
 - 作者：zeitvex
 
