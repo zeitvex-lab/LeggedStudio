@@ -33,28 +33,10 @@
           </div>
           <a class="btn primary" href="#" onclick="quickDemo()">立即体验</a>
         </div>
+        <!-- U12：卡片不再硬编码（go2_walk/go2_trot/a1_basic 是假真源），
+             由 dashboard.js 读 /api/health/demo-cards 渲染；失败时如实空态，不造假卡。 -->
         <div class="quick-list" id="quickList">
-          <div class="quick-item" onclick="loadPretrainedModel('go2_walk')">
-            <div class="quick-icon">🏃</div>
-            <div class="quick-info">
-              <strong>Go2 Forward Walk</strong>
-              <span>稳定前行，成功率 92%</span>
-            </div>
-          </div>
-          <div class="quick-item" onclick="loadPretrainedModel('go2_trot')">
-            <div class="quick-icon">⚡</div>
-            <div class="quick-info">
-              <strong>Go2 Trot</strong>
-              <span>快速奔跑，1.5 m/s</span>
-            </div>
-          </div>
-          <div class="quick-item" onclick="loadPretrainedModel('a1_basic')">
-            <div class="quick-icon">🤖</div>
-            <div class="quick-info">
-              <strong>A1 Basic</strong>
-              <span>基础运动，参考对照</span>
-            </div>
-          </div>
+          <div class="empty-state"><p>正在读取内置策略…</p></div>
         </div>
       </article>
 
@@ -146,18 +128,20 @@
             <small>实时曲线 / 指标 / 日志</small>
           </div>
         </a>
-        <a href="artifacts.html" class="workflow-step">
+        <!-- U10：链接语义对齐——「评估验证」落 evaluation.html（Sim2Sim 验证 + B11 质量矩阵），
+             「导出部署」落 deploy.html（双 gate 校验 + 生成部署包）。 -->
+        <a href="evaluation.html" class="workflow-step">
           <span class="step-num">4</span>
           <div class="step-content">
             <strong>评估验证</strong>
             <small>成功率 / Sim2Sim / RoboGauge</small>
           </div>
         </a>
-        <a href="evaluation.html" class="workflow-step">
+        <a href="deploy.html" class="workflow-step">
           <span class="step-num">5</span>
           <div class="step-content">
             <strong>导出部署</strong>
-            <small>ONNX 导出 / TensorRT / 实机测试</small>
+            <small>双 gate 校验 / 部署包生成 / 上机清单</small>
           </div>
         </a>
       </div>

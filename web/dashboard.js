@@ -13,6 +13,7 @@ const API_BASE = (location.protocol === 'http:' || location.protocol === 'https:
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[Dashboard] Initializing...');
   loadSystemStatus();
+  loadQuickDemos();
   loadTrainingStats();
   loadRecentTrainings();
   loadPretrainedModels();
@@ -157,9 +158,71 @@ async function loadRecentTrainings() {
 function refreshDashboard() {
   console.log('[Dashboard] Refreshing...');
   loadSystemStatus();
+  loadQuickDemos();
   loadTrainingStats();
   loadRecentTrainings();
   loadPretrainedModels();
+}
+
+// ========== 快速体验卡（U12：真源化） ==========
+// 数据源与首页 workbench 同源：/api/health/demo-cards
+// （扫各机器人包 simulation/config.json 声明的 policies + demo_policies）。
+// 端点不可达或包未声明策略时如实显示空态 + 提示——不再硬编码三张假卡。
+function escapeDashboardHtml(value) {
+  return String(value ?? '').replace(/[&<>"]/g, (char) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]
+  ));
+}
+
+async function loadQuickDemos() {
+  const host = document.getElementById('quickList');
+  if (!host) return;
+  try {
+    const response = await fetch(`${API_BASE}/api/health/demo-cards`);
+    const data = await response.json();
+    const cards = data.cards || [];
+
+    if (!cards.length) {
+      host.innerHTML = `
+        <div class="empty-state">
+          <p>暂无内置策略</p>
+          <small>导入机器人包并在其 simulation/config.json 声明 policies 后，即可免训练试玩。</small>
+        </div>
+      `;
+      return;
+    }
+
+    host.innerHTML = cards.slice(0, 6).map((card) => {
+      const robot = String(card.robot_id || '');
+      const name = String(card.label || card.id || robot || '策略');
+      const dims = card.obs_dim ? `obs ${card.obs_dim} · act ${card.action_dim ?? '-'}` : robot || '内置策略';
+      const playUrl = String(card.play_url || `/web/sim2sim/index.html?robot=${encodeURIComponent(robot)}`);
+      return `
+        <div class="quick-item" data-play="${escapeDashboardHtml(playUrl)}">
+          <div class="quick-icon">🤖</div>
+          <div class="quick-info">
+            <strong>${escapeDashboardHtml(name)}</strong>
+            <span>${escapeDashboardHtml(dims)}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    host.querySelectorAll('[data-play]').forEach((item) => item.addEventListener('click', () => {
+      const playUrl = item.dataset.play || '';
+      // file:// 直开时相对路径落不到控制面端口——统一解析到 API_BASE（与 training-common.js 同约定）。
+      const target = /^https?:/.test(playUrl) ? playUrl : API_BASE + playUrl;
+      window.open(target, '_blank');
+    }));
+  } catch (error) {
+    console.error('[Dashboard] Failed to load demo cards:', error);
+    host.innerHTML = `
+      <div class="empty-state">
+        <p>内置策略读取失败</p>
+        <small>${escapeDashboardHtml(error.message)}——确认控制面已启动后点「刷新」重试。</small>
+      </div>
+    `;
+  }
 }
 
 // ========== 快速演示 ==========
@@ -187,6 +250,8 @@ async function quickDemo() {
   }
 }
 
+// U12：卡片点击已由 loadQuickDemos 的 data-play 处理器直达对应策略；
+// 旧入口保留为兜底（不指向具体模型，走「选一个可玩策略」的通用路径）。
 function loadPretrainedModel(modelId) {
   quickDemo();
 }

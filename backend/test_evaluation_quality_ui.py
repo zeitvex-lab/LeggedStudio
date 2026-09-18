@@ -10,6 +10,8 @@
 3. **前端传的字段不会被静默忽略**：`magnitudes`/`repeats` 必须一路传到跑评测的函数
    —— 否则 level 档会"看起来跑了"实际用默认幅值；
 4. **环境没准备好时如实报 501**（缺适配器 venv），不是 500 也不是"评测失败"这种查不出原因的话。
+5. **B11-GAP-2**：单策略请求 multi 档不再冗余跑 1×1 矩阵——后端跳过并说明
+   （`skipped-single-policy` + reason），gate 不放行；页面转述原因，不渲染假矩阵。
 """
 
 from __future__ import annotations
@@ -125,6 +127,61 @@ class QualityEndpointTest(unittest.TestCase):
         paths = {route.path for route in ea.router.routes}
         self.assertIn("/api/evaluation/quality/run", paths)
         self.assertIn("/api/evaluation/quality/list", paths)
+
+
+class MultiTierSinglePolicySkipTest(unittest.TestCase):
+    """B11-GAP-2：单策略请求 multi 档 = 1×1 冗余矩阵（与 single 同分）。
+
+    语义钉死为「跳过并说明」（`multi="skipped-single-policy"` + reason）：
+    不真跑适配器（省一次冗余 MuJoCo），也不复用 single 分数冒充矩阵报告；
+    报告 ok=False 且带 blocker，`gate` 不放行（未评测 ≠ 达标）。
+    """
+
+    def test_multi_with_single_policy_is_skipped_without_running(self):
+        from backend import adapter_runtime
+        from backend import quality_matrix
+
+        def boom(*_args, **_kwargs):
+            raise AssertionError("单策略 multi 档不应启动适配器脚本（应跳过并说明）")
+
+        original = adapter_runtime.run_json_script
+        adapter_runtime.run_json_script = boom
+        try:
+            report = quality_matrix.run_quality(
+                package_dir="assets/robots/demo", tier="multi", policy_id="p")
+        finally:
+            adapter_runtime.run_json_script = original
+        self.assertEqual("skipped-single-policy", report.get("multi"))
+        self.assertIn("single", str(report.get("reason")))
+        self.assertFalse(report.get("ok"))
+
+    def test_gate_rejects_skipped_multi_report(self):
+        from backend import quality_matrix
+
+        report = quality_matrix.run_quality(
+            package_dir="assets/robots/demo", tier="multi", policy_id="p")
+        verdict = quality_matrix.gate(report, min_score=0.5)
+        # gate 只认分数：跳过报告没有分数 ⇒ 不放行（未评测 ≠ 达标）；
+        # 跳过原因由报告自带（blockers/reason），页面据此转述，不靠 gate 复述。
+        self.assertFalse(verdict["ok"])
+        self.assertIsNone(verdict["score"])
+        self.assertIn("skipped-single-policy", str(report.get("multi")))
+        self.assertTrue(
+            any("multi" in str(blocker) for blocker in report["blockers"]),
+            f"报告自身应带 multi 跳过说明：{report['blockers']}",
+        )
+
+
+class EvaluationPageMultiSkipCopyTest(unittest.TestCase):
+    """B11-GAP-2 前端半边：页面转述 skipped 原因，不渲染假矩阵（NaN 聚合）。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.html = (ROOT / "web" / "evaluation.html").read_text(encoding="utf-8")
+
+    def test_multi_skip_is_explained_not_faked(self):
+        self.assertIn("skipped-single-policy", self.html)
+        self.assertIn("multi 档未运行", self.html)
 
 
 if __name__ == "__main__":
