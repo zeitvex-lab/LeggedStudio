@@ -158,6 +158,25 @@
         "match": "family",
         "upstream": "robot_lab/.../velocity/config/wheeled/unitree_b2w"
       }
+    },
+    {
+      "id": "unitree_b2w-trained-20260918-093241",
+      "path": "simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
+      "provenance": {
+        "artifact_id": "unitree_b2w__produced-unitree_b2w_v1_20260918_093241_627441",
+        "run_id": "unitree_b2w_v1_20260918_093241_627441",
+        "origin": "product-training",
+        "installed_at": "2026-09-18T01:34:06+00:00"
+      },
+      "label": "训练产物（run unitree_b2w_v1_20260918_093241_627441）",
+      "obs_dim": 57,
+      "action_dim": 16,
+      "contract": {
+        "observation_kind": "unknown",
+        "obs_dim": 57,
+        "action_dim": 16
+      },
+      "note": "B8 第二批冒烟产物：observation 布局未逐项取证，显式标记 unknown（实际 obs[1,57]→actions[1,16]）"
     }
   ]
 }

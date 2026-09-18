@@ -297,6 +297,25 @@
           ]
         }
       }
+    },
+    {
+      "id": "deeprobotics_m20-trained-20260918-090509",
+      "path": "simulation/policies/deeprobotics_m20-trained-20260918-090509.onnx",
+      "provenance": {
+        "artifact_id": "deeprobotics_m20__produced-deeprobotics_m20_v1_20260918_090509_476414",
+        "run_id": "deeprobotics_m20_v1_20260918_090509_476414",
+        "origin": "product-training",
+        "installed_at": "2026-09-18T01:05:44+00:00"
+      },
+      "label": "训练产物（run deeprobotics_m20_v1_20260918_090509_476414）",
+      "obs_dim": 57,
+      "action_dim": 16,
+      "contract": {
+        "observation_kind": "unknown",
+        "obs_dim": 57,
+        "action_dim": 16
+      },
+      "note": "B8 第二批冒烟产物：observation 布局未逐项取证，显式标记 unknown（实际 obs[1,57]→actions[1,16]）"
     }
   ]
 }

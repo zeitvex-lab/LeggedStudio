@@ -930,6 +930,25 @@
         "match": "family",
         "upstream": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）"
       }
+    },
+    {
+      "id": "unitree_go2w-trained-20260918-093550",
+      "path": "simulation/policies/unitree_go2w-trained-20260918-093550.onnx",
+      "provenance": {
+        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260918_093550_665376",
+        "run_id": "unitree_go2w_contract_v1_20260918_093550_665376",
+        "origin": "product-training",
+        "installed_at": "2026-09-18T01:37:28+00:00"
+      },
+      "label": "训练产物（run unitree_go2w_contract_v1_20260918_093550_665376）",
+      "obs_dim": 57,
+      "action_dim": 16,
+      "contract": {
+        "observation_kind": "unknown",
+        "obs_dim": 57,
+        "action_dim": 16
+      },
+      "note": "B8 第二批冒烟产物：observation 布局未逐项取证，显式标记 unknown（实际 obs[1,57]→actions[1,16]）"
     }
   ],
   "default_map": "flat",

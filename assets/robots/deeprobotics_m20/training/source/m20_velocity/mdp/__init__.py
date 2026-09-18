@@ -1,21 +1,27 @@
-from mjlab.envs.mdp import *  # noqa: F401, F403
+# ------------------------------------------------------------------------------
+# B8 训练去包化（第二批）：mdp 框架族十文件已上移 adapters/mjlab/velocity_task_kit/
+# mdp/（见 kit/mdp/__init__ 头注释）。本包 __init__ = kit 组合真值一行星导入 +
+# **本包特有的尾部两行**（原样保留，次序必须最后）：
+# `from .m20_rewards import *` 会把命名空间里的 UniformVelocityCommandCfg /
+# UniformVelocityCommand 覆盖成 mjlab.tasks.velocity.mdp 版本（m20_rewards 为
+# 子类化 UniformThresholdVelocityCommandM20 而显式导入再泄出），并把 m20 专属
+# 奖励项挂进命名空间——velocity_env_cfg 的 twist 基类与 env_cfgs 的 mdp.* 解析
+# 都依赖这一覆盖语义，等价实证按此对账。
+# ------------------------------------------------------------------------------
 
-from .curriculums import *  # noqa: F403
-from .feet_rewards import *  # noqa: F403
-from .observations import *  # noqa: F403
-from .posture_rewards import *  # noqa: F403
-from .randomization import *  # noqa: F403
-from .tracking_rewards import *  # noqa: F403
-from .terminations import *  # noqa: F403
-from .velocity_command import *  # noqa: F403
-from .wheel_rewards import *  # noqa: F403
+import sys
+from pathlib import Path
 
-# Shared mjlab 1.6 keeps these in submodules rather than the mdp top level.
-from mjlab.envs.mdp.rewards import (  # noqa: F401
-    action_rate_l2,
-    flat_orientation_l2,
-    joint_acc_l2,
-)
-from mjlab.envs.mdp.dr.joint import encoder_bias as randomize_encoder_bias  # noqa: F401
-from .m20_rewards import *  # noqa: F401, F403
-from .m20_rewards import joint_pos_rel_zero_wheel  # noqa: F401
+# 仓库根自举（见 velocity_task_kit 模块注释）：worker / schema-dump / 冒烟三种
+# 运行环境都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab
+# 对 assets 源树与 workspace 镜像副本两种深度都成立。
+for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+        if str(_parent) not in sys.path:
+            sys.path.insert(0, str(_parent))
+        break
+
+from adapters.mjlab.velocity_task_kit.mdp import *  # noqa: F401, F403, E402
+
+from .m20_rewards import *  # noqa: F401, F403, E402
+from .m20_rewards import joint_pos_rel_zero_wheel  # noqa: F401, E402

@@ -1,3 +1,9 @@
+# ------------------------------------------------------------------------------
+# B8 训练去包化（第二批）：本文件由 b2w_velocity/mdp/velocity_command.py 逐字上移
+# （== go2w_velocity 同名文件 sha256 一致）。m20_velocity 同名文件语义相同，仅
+# _update_command 里一个局部变量名不同（env_ids → heading_env_ids，纯可读性改名、
+# 无行为差异）；kit 采用 b2w/go2w 的写法为唯一真值。
+# ------------------------------------------------------------------------------
 from __future__ import annotations
 
 from dataclasses import dataclass, field
