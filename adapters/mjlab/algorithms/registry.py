@@ -36,6 +36,23 @@ def list_algorithms() -> list[dict[str, Any]]:
     return [{"id": key, **value} for key, value in ALGORITHM_REGISTRY.items()]
 
 
+def resolve(name: str) -> Any:
+    """Resolve a registered algorithm plugin by name (training stack required).
+
+    Fail-closed: an unknown name raises ``ValueError`` listing the plugin
+    names available in ``registry.json``.  The name check itself is pure JSON
+    (control-plane safe); the returned plugin instance is only materialized
+    when the training stack (torch) is importable.
+    """
+    from adapters.mjlab.algorithms.plugin_registry import list_plugins as _list_plugins
+    from adapters.mjlab.algorithms.plugin_registry import resolve_plugin
+
+    available = _list_plugins()
+    if name not in available:
+        raise ValueError(f"unknown algorithm {name!r}; available: {', '.join(available)}")
+    return resolve_plugin(name)
+
+
 def create_algorithm(name: str, num_obs: int, num_actions: int, config: dict[str, Any], device: str):
     # Keep registry discovery available in the lightweight control-plane
     # environment.  Training dependencies are loaded only when a run starts.
@@ -56,4 +73,4 @@ def create_algorithm(name: str, num_obs: int, num_actions: int, config: dict[str
     return cls(num_obs=num_obs, num_actions=num_actions, config=off_policy, device=device)
 
 
-__all__ = ["ALGORITHM_REGISTRY", "create_algorithm", "list_algorithms"]
+__all__ = ["ALGORITHM_REGISTRY", "create_algorithm", "list_algorithms", "resolve"]

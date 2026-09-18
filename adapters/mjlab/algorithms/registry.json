@@ -1,0 +1,189 @@
+{
+  "schema_version": "algorithm-plugin-registry-1.0",
+  "description": "Algorithm plugin registry: algorithm name -> plugin module + metadata + runner-cfg variants. Unknown names must fail closed at load time (see plugin_registry.py).",
+  "plugins": {
+    "cts": {
+      "module": "adapters.mjlab.algorithms.cts",
+      "plugin_class": "CtsPlugin",
+      "family": "on_policy",
+      "metadata": {
+        "name": "cts",
+        "label": "CTS (Concurrent Teacher-Student)",
+        "upstream": "LeggedGym-Ex go2 CTS/TS (00_resources/LeggedGym-Ex); migrated via local_tasks/learning",
+        "license": "BSD-3-Clause (00_resources/LeggedGym-Ex/LICENSE)",
+        "supported_obs_types": ["actor", "critic", "history", "privileged"]
+      },
+      "variants": {
+        "base": {
+          "algorithm": "adapters.mjlab.algorithms.cts.algorithms:CtsPPO",
+          "actor": "adapters.mjlab.algorithms.cts.models:CtsActorModel",
+          "critic": "adapters.mjlab.algorithms.cts.models:CtsCriticModel"
+        },
+        "amp": {
+          "algorithm": "adapters.mjlab.algorithms.cts.algorithms:AmpCtsPPO",
+          "actor": "adapters.mjlab.algorithms.cts.models:CtsActorModel",
+          "critic": "adapters.mjlab.algorithms.cts.models:CtsCriticModel"
+        }
+      },
+      "legacy_entrypoints": {
+        "algorithm_base": "local_tasks.learning.algorithms.CtsPPO",
+        "algorithm_amp": "local_tasks.learning.algorithms.AmpCtsPPO",
+        "actor": "local_tasks.learning.models.CtsActorModel",
+        "critic": "local_tasks.learning.models.CtsCriticModel"
+      }
+    },
+    "dreamwaq": {
+      "module": "adapters.mjlab.algorithms.dreamwaq",
+      "plugin_class": "DreamWaQPlugin",
+      "family": "on_policy",
+      "metadata": {
+        "name": "dreamwaq",
+        "label": "DreamWaQ (CENet/VAE blind locomotion)",
+        "upstream": "DreamWaQ reference project (00_resources/Dreamwaq); migrated via local_tasks/learning",
+        "license": "BSD-3-Clause (declared in 00_resources/Dreamwaq/setup.py; no LICENSE file in the vendored copy)",
+        "supported_obs_types": ["actor", "critic", "history", "explicit"]
+      },
+      "variants": {
+        "base": {
+          "algorithm": "adapters.mjlab.algorithms.dreamwaq.algorithms:DreamWaQPPO",
+          "actor": "adapters.mjlab.algorithms.dreamwaq.models:DreamWaQActorModel"
+        },
+        "amp": {
+          "algorithm": "adapters.mjlab.algorithms.dreamwaq.algorithms:AmpDreamWaQPPO",
+          "actor": "adapters.mjlab.algorithms.dreamwaq.models:DreamWaQActorModel"
+        }
+      },
+      "legacy_entrypoints": {
+        "algorithm_base": "local_tasks.learning.algorithms.DreamWaQPPO",
+        "algorithm_amp": "local_tasks.learning.algorithms.AmpDreamWaQPPO",
+        "actor": "local_tasks.learning.models.DreamWaQActorModel"
+      }
+    },
+    "amp": {
+      "module": "adapters.mjlab.algorithms.amp",
+      "plugin_class": "AmpPlugin",
+      "family": "on_policy_composition",
+      "metadata": {
+        "name": "amp",
+        "label": "AMP (Adversarial Motion Prior)",
+        "upstream": "LeggedGym-Ex go2 AMP variants (00_resources/LeggedGym-Ex) with mjlab AMP reference (00_resources/AMP_mjlab); migrated via local_tasks/learning",
+        "license": "BSD-3-Clause (00_resources/LeggedGym-Ex/LICENSE; AMP_mjlab vendored copy carries no top-level license)",
+        "supported_obs_types": ["actor", "critic", "amp"]
+      },
+      "variants": {
+        "base": {
+          "algorithm": "adapters.mjlab.algorithms.amp.algorithms:AmpPPO",
+          "actor": "rsl_rl.models.mlp_model:MLPModel"
+        },
+        "ts": {
+          "algorithm": "adapters.mjlab.algorithms.amp.algorithms:AmpPPO",
+          "actor": "adapters.mjlab.algorithms.distill.models:TeacherActorModel",
+          "distribution": "adapters.mjlab.algorithms.common.modules:Go2ClampedGaussianDistribution"
+        }
+      },
+      "legacy_entrypoints": {
+        "algorithm_base": "local_tasks.learning.algorithms.AmpPPO",
+        "algorithm_ts": "local_tasks.learning.algorithms.AmpPPO",
+        "actor_ts": "local_tasks.learning.models.TeacherActorModel",
+        "discriminator": "local_tasks.learning.models.AmpDiscriminator",
+        "distribution": "local_tasks.learning.models.Go2ClampedGaussianDistribution"
+      }
+    },
+    "distill": {
+      "module": "adapters.mjlab.algorithms.distill",
+      "plugin_class": "DistillPlugin",
+      "family": "on_policy_distillation",
+      "metadata": {
+        "name": "distill",
+        "label": "Distill (Teacher-Student latent distillation)",
+        "upstream": "LeggedGym-Ex go2 CTS/TS teacher-student framework (00_resources/LeggedGym-Ex); migrated via local_tasks/learning",
+        "license": "BSD-3-Clause (00_resources/LeggedGym-Ex/LICENSE)",
+        "supported_obs_types": ["actor", "critic", "history", "terrain", "privileged"]
+      },
+      "variants": {
+        "teacher": {
+          "algorithm": "adapters.mjlab.algorithms.common.auxiliary_ppo:Go2AuxiliaryPPO",
+          "actor": "adapters.mjlab.algorithms.distill.models:TeacherActorModel",
+          "distribution": "adapters.mjlab.algorithms.common.modules:Go2ClampedGaussianDistribution"
+        },
+        "student": {
+          "algorithm": "adapters.mjlab.algorithms.distill.algorithms:TeacherStudentPPO",
+          "actor": "adapters.mjlab.algorithms.distill.models:StudentActorModel",
+          "distribution": "adapters.mjlab.algorithms.common.modules:Go2ClampedGaussianDistribution"
+        },
+        "amp_teacher": {
+          "algorithm": "adapters.mjlab.algorithms.amp.algorithms:AmpPPO",
+          "actor": "adapters.mjlab.algorithms.distill.models:TeacherActorModel",
+          "distribution": "adapters.mjlab.algorithms.common.modules:Go2ClampedGaussianDistribution"
+        },
+        "amp_student": {
+          "algorithm": "adapters.mjlab.algorithms.distill.algorithms:TeacherStudentPPO",
+          "actor": "adapters.mjlab.algorithms.distill.models:StudentActorModel",
+          "distribution": "adapters.mjlab.algorithms.common.modules:Go2ClampedGaussianDistribution"
+        }
+      },
+      "legacy_entrypoints": {
+        "algorithm_teacher": "local_tasks.learning.algorithms.Go2AuxiliaryPPO",
+        "algorithm_student": "local_tasks.learning.algorithms.TeacherStudentPPO",
+        "actor_teacher": "local_tasks.learning.models.TeacherActorModel",
+        "actor_student": "local_tasks.learning.models.StudentActorModel",
+        "distribution": "local_tasks.learning.models.Go2ClampedGaussianDistribution"
+      }
+    },
+    "him": {
+      "module": "adapters.mjlab.algorithms.him",
+      "plugin_class": "HIMPlugin",
+      "family": "on_policy",
+      "metadata": {
+        "name": "him",
+        "label": "HIM (Hybrid Internal Model estimator PPO)",
+        "upstream": "UniLab him_ppo (00_resources/unilab_new/UniLab/src/unilab/algos/him_ppo); HIMLoco-lineage clean torch extraction",
+        "license": "Apache-2.0 (00_resources/unilab_new/UniLab/LICENSE)",
+        "supported_obs_types": ["actor", "critic", "history", "privileged"]
+      },
+      "variants": {
+        "base": {
+          "algorithm": "adapters.mjlab.algorithms.him.algorithm:HIMPPO",
+          "actor": "adapters.mjlab.algorithms.him.actor_critic:HIMActorCritic"
+        }
+      }
+    },
+    "hora": {
+      "module": "adapters.mjlab.algorithms.hora",
+      "plugin_class": "HoraPlugin",
+      "family": "on_policy",
+      "metadata": {
+        "name": "hora",
+        "label": "HORA (shared-backbone privileged-latent adaptation)",
+        "upstream": "UniLab hora (00_resources/unilab_new/UniLab/src/unilab/algos/hora); HORA clean torch extraction",
+        "license": "Apache-2.0 (00_resources/unilab_new/UniLab/LICENSE)",
+        "supported_obs_types": ["actor", "privileged", "history"]
+      },
+      "variants": {
+        "base": {
+          "algorithm": "adapters.mjlab.algorithms.hora.ppo:HoraPPO",
+          "actor": "adapters.mjlab.algorithms.hora.models:HoraSharedActorCritic"
+        }
+      }
+    },
+    "appo": {
+      "module": "adapters.mjlab.algorithms.appo",
+      "plugin_class": "AppoPlugin",
+      "family": "off_policy_async",
+      "metadata": {
+        "name": "appo",
+        "label": "APPO (asymmetric async PPO, IMPACT-style V-trace)",
+        "upstream": "UniLab appo (00_resources/unilab_new/UniLab/src/unilab/algos/appo); IMPACT async-PPO clean torch extraction",
+        "license": "Apache-2.0 (00_resources/unilab_new/UniLab/LICENSE)",
+        "supported_obs_types": ["actor", "critic"]
+      },
+      "variants": {
+        "base": {
+          "algorithm": "adapters.mjlab.algorithms.appo.learner:APPOLearner",
+          "actor": "adapters.mjlab.algorithms.appo.models:APPOActor",
+          "critic": "adapters.mjlab.algorithms.appo.models:APPOCritic"
+        }
+      }
+    }
+  }
+}
