@@ -1,0 +1,137 @@
+{
+  "schema": "quality-scale-tiers-1.0",
+  "description": "B11 规模档质量矩阵收官：L7 三档产物（64 envs × 400/600/800 iters）× 四档评测（single/multi/level/stress），RoboGauge 八指标加权几何平均质量分，回答『更多 iters 换来的是不是更好的策略』。",
+  "headline": {
+    "conclusion": "脱节（no-correlation）：reward 单调上涨（0.17→16.6→21.9→35.4），但三档质量分全部贴地在 0.021–0.028 区间、无随规模改善的趋势；800 档放行门（quality_min=0.5）不过。",
+    "scale_vs_quality": "规模→质量不正相关。三档质量分 400/600/800 = 0.0280/0.0218/0.0258（single 档），差距在 ±0.006 内且 600 档最低——与 reward 递增方向无关。reward 35.4 是训练侧 curriculum+reward shaping 口径的分数，与 B11 八指标（真实跟踪精度/能耗/平滑性）脱节。",
+    "dragging_metric": "分指标看，拖后腿的是三件套（加权几何平均，任一接近 0 都把总分钉死）：① dof_power = 0.0（|τ·v| RMS ≈ 680–720，远超 scaling=100，功率型指标记 0）；② torque_smoothness ≈ 0.0025（Δτ RMS 接近满量程 30，抖振）；③ lin_vel_err ≈ 0.69–0.72（cmd=0.4 m/s 下实际速度误差超限位 60%+）。其余五项（ang_vel_err/dof_limits/orientation/friction/zmp）均在 0.68–0.99，不是瓶颈。"
+  },
+  "constraint": {
+    "quality_min": 0.5,
+    "nature": "B11 打包放行门（backend/quality_matrix.DEFAULT_MIN_SCORE）",
+    "note": "本矩阵三档 × 四档全部未达 0.5（最高 0.028）。放行门语义：没有报告不算过；有报告分数不够也不算过。800 档即使 reward 最高也不能放行打包。"
+  },
+  "environment": {
+    "date": "2026-09-18",
+    "host": "RTX 4060 Laptop 8G（CPU 推理：评测矩阵走 onnxruntime CPUExecutionProvider，不用 GPU）",
+    "robot": "unitree_go2",
+    "package": "workspace/packages/unitree_go2（影子包副本评测，见 contract_gap[0]）",
+    "interpreter": "adapters/mjlab/.venv（run_quality 经 backend.adapter_runtime 解析 + import mujoco/onnxruntime 探测）",
+    "mujoco": "3.11.0（适配器 venv）",
+    "chain": "backend.quality_matrix.run_quality → adapters/mjlab/quality_metrics.py 子进程真跑 MuJoCo + ONNX 前向（隔离 venv，非口述分）",
+    "git_commit": "cff2c56bb73fb139f643e48255890f90389f55bb",
+    "git_dirty_note": "评测运行时工作树有且仅有一处产品代码新增：adapters/mjlab/policy_acceptance.py +25 行（注册 go2_mjlab_actor_48 帧构建器，见 contract_gap[0].evaluator_side_fix）——不改任何既有路径的行为，全仓相关测试 72 passed + 2 skipped 复核通过。"
+  },
+  "eval_parameters": {
+    "tiers": {
+      "single": "steps=400, cmd=0.4,0,0",
+      "multi": "steps=400, 单策略 × cmd=0.4,0,0（与 single 等价口径，aggregate.mean）",
+      "level": "steps=400, magnitudes=0.5,0.75,1.0（默认），success_threshold=0.5，遇首层不过即停",
+      "stress": "steps=400, repeats=2, 五指令条件（forward/backward/lateral/yaw/diagonal），逐条件取中位数 ⇒ benchmark_score"
+    },
+    "quality_weights": "lin_vel_err=2, ang_vel_err=2, 其余=1（上游 RoboGauge QUALITY_WEIGHTS）",
+    "wall_clock_total_seconds": 39.0,
+    "serial": "true（一次一个评测任务）"
+  },
+  "matrix": {
+    "score_semantics": "single=quality_score；multi=aggregate.mean；level=通过层占比（score_of 同口径）；stress=benchmark_score",
+    "unitree_go2-trained-20260918-022630（64×400，reward_last=16.56）": {
+      "single": 0.028,
+      "multi": 0.028,
+      "level": 0.0,
+      "stress": 0.025
+    },
+    "unitree_go2-trained-20260918-094930（64×600，reward_last=21.88）": {
+      "single": 0.0218,
+      "multi": 0.0218,
+      "level": 0.0,
+      "stress": 0.0256
+    },
+    "unitree_go2-trained-20260918-113206（64×800，reward_last=35.40）": {
+      "single": 0.0258,
+      "multi": 0.0258,
+      "level": 0.0,
+      "stress": 0.0244
+    }
+  },
+  "per_metric_single": {
+    "note": "single 档八指标分档对照（cmd=0.4,0,0，400 控制步）。加权几何平均对低分项极其敏感——dof_power=0 直接把总分压到 0 附近。",
+    "unitree_go2-trained-20260918-022630": {
+      "lin_vel_err": 0.7182, "ang_vel_err": 0.0216, "dof_limits": 0.983, "dof_power": 0.0,
+      "orientation_stability": 0.8865, "torque_smoothness": 0.0025, "friction_margin": 0.6842, "zmp_margin": 0.8193
+    },
+    "unitree_go2-trained-20260918-094930": {
+      "lin_vel_err": 0.7227, "ang_vel_err": 0.0052, "dof_limits": 0.9884, "dof_power": 0.0,
+      "orientation_stability": 0.824, "torque_smoothness": 0.0025, "friction_margin": 0.9734, "zmp_margin": 0.8686
+    },
+    "unitree_go2-trained-20260918-113206": {
+      "lin_vel_err": 0.6938, "ang_vel_err": 0.0126, "dof_limits": 0.992, "dof_power": 0.0,
+      "orientation_stability": 0.8091, "torque_smoothness": 0.0025, "friction_margin": 0.961, "zmp_margin": 0.8723
+    },
+    "level_detail": "三档 level 档全部在 level 1（magnitude 0.5）即停（success_mean=0 < 0.8，stopped_early=true），level 2/3 未跑不假装跑过",
+    "stress_detail": "stress 档五条件分数区间 0.021–0.033，各档 benchmark_score 0.024–0.026；repeats=2 下同条件两次分值一致（本仓无域随机化 L3 缺口 ⇒ 同 seed 重跑同值，robust_score 方差恒 0 是如实结果非稳如老狗）"
+  },
+  "gate_verdict": {
+    "tier_400": {"ok": false, "score": 0.028, "min_score": 0.5},
+    "tier_600": {"ok": false, "score": 0.0218, "min_score": 0.5},
+    "tier_800": {"ok": false, "score": 0.0258, "min_score": 0.5, "note": "reward 最高的一档照样不过门；scale_tiers.json 的 reward 曲线还在涨不代表策略质量分过 0.5"}
+  },
+  "reward_vs_quality_evidence": {
+    "note": "训练侧自家指标也在恶化，佐证 B11 矩阵的『脱节』结论不是评测器单方面口径问题：",
+    "twist_error_vel_xy_final": {"400": 1.4589, "600": 1.2425, "800": 1.5324},
+    "twist_error_trend": "800 档训练日志内 twist/error_vel_xy 从首迭代 0.0095 一路涨到 1.5+（训练 cmd 采样全域内统计，量纲与 B11 lin_vel_err 不同但同向）——训练奖励结构里 track_linear_velocity 末值仅 0.78、action_rate_l2 惩罚 -0.82 持续恶化：策略在『拿步态奖励 + 忍受跟踪惩罚』，不是学会跟踪",
+    "episode_length": "三档均 ~988/1000 步封顶（未摔死 ≠ 走得好）"
+  },
+  "contract_gap": [
+    {
+      "id": "B11-GAP-1",
+      "severity": "blocker（对 L7 产物评测而言）",
+      "title": "L7 promote→install 链写进包内 config.json 的 produced 策略条目缺 observation_kind 等部署契约字段，且 obs_dim 声明与 ONNX 实际输入不符",
+      "symptom": "对原包条目直接 run_quality：『验收器暂不支持观测布局: \"\"』；修正 kind 后单帧观测 45 维 vs ONNX 实际输入 obs[1,48]。",
+      "root_cause": "backend/policy_artifacts.py::promote_from_run 的 install 分支 declaration 只写 obs_dim/action_dim（取自 contract_snapshot.json 的 observation.dimension=45），而该 snapshot 的组件表（base_ang_vel+projected_gravity+commands+joint_pos+joint_vel+last_action）本身与训练真实布局（mjlab actor 组：base_lin_vel,base_ang_vel,projected_gravity,joint_pos,joint_vel,actions,command=48 维）不一致——快照把 48 维 actor 观测错拼成 45 维『部署视图』，command/lin_vel 组件缺失、kind 缺失。",
+      "evidence": "① 三份 ONNX metadata_props（joint_names/default_joint_pos/action_scale/clip_actions=100）与输入 shape[1,48]；② 800 档 training.log L135『Active Observation Terms in Group: actor (shape: (48,))』逐项表；③ mjlab velocity_env_cfg.py actor_terms 定义；④ adapters/mjlab/policy_acceptance.py _obs_build 对 kind=\"\" 抛错。",
+      "impact": "浏览器/验收/评测三个消费方都无法用声明契约正确驱动这三条策略（消费方按 45 维喂观测 = 喂错输入）；L7 产物目前事实上『不可部署评测』，reward 数字再高也过不了放行门。",
+      "fix_owner": "产品代码（promote_from_run 的 declaration 构造 + contract_snapshot 的 actor 组件表），本任务不修，只登记。",
+      "evaluator_side_fix": "评测侧单点新增（+25 行，纯增量不改既有行为）：adapters/mjlab/policy_acceptance.py 注册 observation_kind=go2_mjlab_actor_48 帧构建器（lin_vel,ang_vel,gravity,q_rel,dq,action,cmd 尾置，各 term 无缩放）——与 mjlab actor 组逐项对齐，依据全部来自仓内可复核文件。",
+      "shadow_package": {
+        "path": "C:\\Users\\31560\\AppData\\Local\\Temp\\ls_b11_shadow\\unitree_go2_shadow",
+        "nature": "包外临时影子包（不动 workspace 原包）：simulation/config.json 给三条 produced 条目补齐修正契约（kind=go2_mjlab_actor_48/obs_dim=48/action_joint_order=肢体分组序/default_joint_angles 取 ONNX metadata 默认姿态/逐关节 action_scale 与 PD 增益取训练源 local_tasks/mjlab_extension.py 执行器常量 kp20·kd1·effort23.5（hip/thigh）、kp40·kd2·effort45（calf）/physics 200Hz·decimation 4 取 mjlab 训练默认），三条 onnx 与包内模型/场景文件逐字节同源。",
+        "truth_sources": "ONNX metadata_props（onnx_exporter.attach_metadata_to_onnx 盖章）+ training.log ObservationManager 表 + training/source 执行器常量 + contract_snapshot.json（对照用）。逐字段可复核，无口述值。",
+        "residual_uncertainty": "contract_snapshot.json 的 actuator_profile（kp20/kd0.5/effort23.7/35.55/action_scale0.25）与 ONNX metadata action_scale（0.29375/0.28125）互相矛盾——前者是包 v3 契约的部署声明，后者是训练真实执行器推导值（0.25*effort_limit/stiffness），两者只能对一个为真；本矩阵取训练源/ONNX 口径（快照与训练源冲突时信训练源），若实为快照口径，dof_power/lin_vel_err 会变但『三档脱节』的相对结论不变（三档同口径对比）。"
+      }
+    },
+    {
+      "id": "B11-GAP-2",
+      "severity": "minor（口径债）",
+      "title": "multi 档单策略时与 single 档同格重复跑一遍（aggregate.mean == quality_score）",
+      "symptom": "本矩阵 multi 档分数与 single 档完全相同（0.028/0.0218/0.0258）。",
+      "root_cause": "quality_metrics.run_multi 的 policies 入参在 CLI 路径恒为单策略（native 路径同构），单策略 × 单指令矩阵退化为 single 重跑；『多策略对照』要消费方显式传多策略才成立，而 run_quality 签名没有暴露它。",
+      "impact": "当前多档矩阵里 multi 档不提供增量信息（不误导，只是冗余）。",
+      "fix_owner": "产品代码（run_quality 暴露 multi 的 policies 列表参数），本任务不修，只登记。"
+    }
+  ],
+  "provenance": {
+    "reports_dir": "workspace/evaluation/（B11 标准落盘，10 份报告：3 档 × single/level/stress + multi 汇总）",
+    "report_files": [
+      "unitree_go2_shadow__unitree_go2-trained-20260918-022630__single.json",
+      "unitree_go2_shadow__unitree_go2-trained-20260918-022630__level.json",
+      "unitree_go2_shadow__unitree_go2-trained-20260918-022630__stress.json",
+      "unitree_go2_shadow__unitree_go2-trained-20260918-094930__single.json",
+      "unitree_go2_shadow__unitree_go2-trained-20260918-094930__level.json",
+      "unitree_go2_shadow__unitree_go2-trained-20260918-094930__stress.json",
+      "unitree_go2_shadow__unitree_go2-trained-20260918-113206__single.json",
+      "unitree_go2_shadow__unitree_go2-trained-20260918-113206__level.json",
+      "unitree_go2_shadow__unitree_go2-trained-20260918-113206__stress.json",
+      "unitree_go2_shadow__policy__multi.json"
+    ],
+    "driver": "串行 run_quality → save_report（评测报告是门禁与基线共同读取的磁盘真值）",
+    "related_baselines": "tools/baselines/scale_tiers.json（L7 训练侧耗时/reward 标定，本文件的姊妹篇：那边回答『训练多快/reward 多高』，这边回答『策略质量分多少』）"
+  },
+  "honest_limits": [
+    "评测契约是影子包重建口径（B11-GAP-1），非原包声明——分数不能与未来『链路修好后的正式评测』直接互换；三档之间同口径横向对比成立。",
+    "contract_snapshot 与 ONNX metadata 的 action_scale/PD 增益矛盾未裁决（登记见 residual_uncertainty）；若裁决反了，绝对分值会移动。",
+    "stress 档 repeats=2 且无域随机化：方差为 0 是结构性结果；地形维度未启用（本包只声明 flat，上游 stress 按地形分层）。",
+    "friction_margin/zmp_margin 按 RoboGauge 口径在无足端接触/竖向合力过小时记 1.0 并标注——本矩阵三档 skipped 名单为空（足端接触确实发生），但其中混有接触抖动段的记 1.0 步，按上游口径不作剔除。",
+    "400 控制步 = 8 秒 @50Hz，策略可能在 8 秒内未进入稳态（尤其摔后挣扎段拉低均值）；步数选 400 是任务定值，与 single 档默认 200 的差异只影响绝对分不影响三档可比性。"
+  ]
+}
