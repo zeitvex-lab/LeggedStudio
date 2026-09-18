@@ -1,12 +1,31 @@
+# ------------------------------------------------------------------------------
+# B8 训练去包化（第二批）：``make_go2w_runner_cfg`` 的构造正文与 m20_velocity /
+# go2w_velocity 的 rl_cfg.py 逐字同文（三份仅函数名 / experiment_name 字符串
+# 不同；b2w 与 go2w 两份文件互为仅差 experiment_name 三处的副本），已上移为
+# adapters/mjlab/velocity_task_kit.ppo_runner_cfg_ex（唯一真值）。包内保留原
+# 函数签名与全部入口包装（entrypoint 符号 ``unitree_go2w_*_ppo_runner_cfg``
+# 仍在 ``b2w_velocity.rl_cfg`` 模块内，静态解析不受影响），构造委托 kit。
+# ------------------------------------------------------------------------------
+
 """RL configuration for active Unitree Go2-W velocity tasks."""
 
 from __future__ import annotations
 
-from mjlab.rl import (
-  RslRlModelCfg,
-  RslRlOnPolicyRunnerCfg,
-  RslRlPpoAlgorithmCfg,
-)
+import sys
+from pathlib import Path
+
+# 仓库根自举（见 velocity_task_kit 模块注释）：worker / schema-dump / 冒烟三种
+# 运行环境都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab
+# 对 assets 源树与 workspace 镜像副本两种深度都成立。
+for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+        if str(_parent) not in sys.path:
+            sys.path.insert(0, str(_parent))
+        break
+
+from mjlab.rl import RslRlOnPolicyRunnerCfg  # noqa: E402
+
+from adapters.mjlab import velocity_task_kit as kit  # noqa: E402
 
 
 def make_go2w_runner_cfg(
@@ -23,46 +42,18 @@ def make_go2w_runner_cfg(
   load_checkpoint: str | None = None,
 ) -> RslRlOnPolicyRunnerCfg:
   """Build a Go2-W PPO runner config from the shared lab defaults."""
-  cfg = RslRlOnPolicyRunnerCfg(
-    actor=RslRlModelCfg(
-      hidden_dims=(512, 256, 128),
-      activation="elu",
-      obs_normalization=True,
-      distribution_cfg={
-        "class_name": "GaussianDistribution",
-        "init_std": init_noise_std,
-        "std_type": "scalar",
-      },
-    ),
-    critic=RslRlModelCfg(
-      hidden_dims=(512, 256, 128),
-      activation="elu",
-      obs_normalization=True,
-    ),
-    algorithm=RslRlPpoAlgorithmCfg(
-      value_loss_coef=1.0,
-      use_clipped_value_loss=True,
-      clip_param=0.2,
-      entropy_coef=entropy_coef,
-      num_learning_epochs=5,
-      num_mini_batches=4,
-      learning_rate=learning_rate,
-      schedule="adaptive",
-      gamma=0.99,
-      lam=0.95,
-      desired_kl=0.01,
-      max_grad_norm=max_grad_norm,
-    ),
-    experiment_name=experiment_name,
+  return kit.ppo_runner_cfg_ex(
+    experiment_name,
     run_name=run_name,
-    save_interval=save_interval,
-    num_steps_per_env=24,
     max_iterations=max_iterations,
+    save_interval=save_interval,
+    init_noise_std=init_noise_std,
+    learning_rate=learning_rate,
+    entropy_coef=entropy_coef,
+    max_grad_norm=max_grad_norm,
+    resume=resume,
+    load_checkpoint=load_checkpoint,
   )
-  cfg.resume = resume
-  if load_checkpoint is not None:
-    cfg.load_checkpoint = load_checkpoint
-  return cfg
 
 
 def unitree_go2w_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
