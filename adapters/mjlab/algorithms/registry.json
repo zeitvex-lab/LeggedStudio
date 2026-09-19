@@ -143,8 +143,9 @@
       },
       "variants": {
         "base": {
-          "algorithm": "adapters.mjlab.algorithms.him.algorithm:HIMPPO",
-          "actor": "adapters.mjlab.algorithms.him.actor_critic:HIMActorCritic"
+          "algorithm": "adapters.mjlab.algorithms.him.algorithms:HimPPO",
+          "actor": "adapters.mjlab.algorithms.him.models:HIMActorModel",
+          "critic": "rsl_rl.models.mlp_model:MLPModel"
         }
       }
     },

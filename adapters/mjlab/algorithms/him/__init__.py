@@ -3,7 +3,9 @@
 来源: 00_resources/unilab_new/UniLab/src/unilab/algos/him_ppo/（HIMLoco 的 UniLab 清洁版）
 
 提取: actor_critic.py / estimator.py / storage.py / algorithm.py（全部核心）
-未提取: runner.py（绑定 UniLab env/hydra 训练循环，属训练链，下轮接）
+接口层: models.HIMActorModel + algorithms.HimPPO —— rsl_rl 5.x 运行面适配
+（OnPolicyRunner 经 cfg.algorithm.class_name 按 ``HimPPO`` 派发，actor 组即
+HIMLoco 270-D 堆叠历史），详见 algorithms.py 模块注释。
 
 插件面: ``HIMPlugin`` 实现 ``adapters.mjlab.algorithms.base.AlgorithmPlugin``
 （4 个 build 方法 + 4 个元数据字段），经 ``registry.json`` 按名 ``"him"`` 解析。
@@ -26,8 +28,10 @@ from adapters.mjlab.algorithms.common.export import (
 
 from .actor_critic import HIMActorCritic
 from .algorithm import HIMPPO
+from .algorithms import HimPPO
 from .config import DEFAULT_HIM_CONFIG, HimAlgorithmConfig
 from .estimator import HIMEstimator, get_activation, sinkhorn
+from .models import HIMActorModel
 from .storage import HIMRolloutStorage
 
 
@@ -133,11 +137,13 @@ PLUGIN = HIMPlugin()
 __all__ = [
     "DEFAULT_HIM_CONFIG",
     "HIMActorCritic",
+    "HIMActorModel",
     "HIMEstimator",
     "HIMPPO",
     "HIMPlugin",
     "HIMRolloutStorage",
     "HimAlgorithmConfig",
+    "HimPPO",
     "PLUGIN",
     "get_activation",
     "sinkhorn",

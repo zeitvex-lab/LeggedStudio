@@ -741,18 +741,20 @@ class B44OnnxObsDimTest(unittest.TestCase):
             )
             _ = installed
 
-    def test_real_repo_go2_produced_entries_measure_48(self):
-        """**真实仓不变量**：go2/b2 的 produced ONNX 实测宽度都是 48，声明的 obs_dim 与之一致，
-        observation_kind 已对齐评测侧注册的 go2_mjlab_actor_48。这条一旦红说明又产生了
-        "训练图配部署宽度"的新 produced 条目（promote 链修复已上线，红＝回归）。"""
+    def test_real_repo_go2_produced_entries_measure_correct(self):
+        """**真实仓不变量**：go2/b2 的 produced ONNX 实测宽度与声明的 obs_dim 一致，
+        observation_kind 与注册表对齐（标准 PPO=48→go2_mjlab_actor_48；HIM=270→himloco_45_hist6）。
+        这条一旦红说明又产生了"训练图配部署宽度"的错配 produced 条目（promote 链修复已上线，红＝回归）。"""
         index = pa.load_index()
+        kind_map = pa._OBSERVATION_KIND_BY_SHAPE
         for entry in index.values():
             if entry.get("kind") != "produced" or str(entry.get("robot", "")) != "unitree_go2":
                 continue
             measured = pa.onnx_obs_dim(pa.ROOT / entry["source_onnx"])
-            self.assertEqual(48, measured, entry["artifact_id"])
+            self.assertIsNotNone(measured, entry["artifact_id"])
             self.assertEqual(measured, entry["obs_dim"], entry["artifact_id"])
-            self.assertEqual("go2_mjlab_actor_48", entry["observation_kind"], entry["artifact_id"])
+            expected_kind = kind_map.get(("unitree_go2", measured), "unknown")
+            self.assertEqual(expected_kind, entry.get("observation_kind"), entry["artifact_id"])
 
     def test_deploy_kind_names_are_registered_builders(self):
         """**对齐口径守卫**：本模块登记/写出的每个 observation_kind 都必须是评测侧

@@ -1,0 +1,23 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "go2-him",
+  "display_name": "Go2 HIM (混合内模型估计器)",
+  "source": "HIMLoco (00_resources/HIMLoco) via UniLab him_ppo clean extraction (00_resources/unilab_new/UniLab)",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "local_tasks.robots.unitree.go2.tasks.locomotion.variants:unitree_go2_him_env_cfg",
+    "runner": "local_tasks.robots.unitree.go2.training.config:go2_him_runner_cfg",
+    "runner_class": "local_tasks.robots.unitree.go2.training.runner:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "Mjlab-HIM-Rough-Unitree-Go2",
+  "terrain_type": "rough",
+  "algorithm": "HIM",
+  "algorithm_plugin": "him",
+  "algorithm_plugin_registry": "adapters/mjlab/algorithms/registry.json",
+  "num_envs": 1024,
+  "episode_length_s": 20.0,
+  "history_length": 6,
+  "observation_contract": "himloco_45_hist6",
+  "sort_order": 105
+}

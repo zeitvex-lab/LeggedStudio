@@ -1741,11 +1741,48 @@
       "run_id": "unitree_go2_mvp_v1_20260918_210622_462722",
       "schema": "policy-artifact-1.0",
       "source_onnx": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-210622.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260919_143025_458525",
+      "contract": {
+        "action_dim": 12,
+        "obs_dim": 270,
+        "observation_kind": "unknown"
+      },
+      "contract_digest": "017801b76701817032c472bc213a9b6a2b682418fbf4e440ea09ab1a361758cb",
+      "installation": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260919-143025.onnx",
+        "policy_id": "unitree_go2-trained-20260919-143025",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2__produced-unitree_go2_mvp_v1_20260919_143025_458525\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/unitree_go2-trained-20260919-143025.onnx",
+        "policy_id": "unitree_go2-trained-20260919-143025",
+        "repo_path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260919-143025.onnx",
+        "robot": "unitree_go2"
+      },
+      "kind": "produced",
+      "obs_dim": 270,
+      "obs_dim_source": "onnx",
+      "observation_kind": "himloco_45_hist6",
+      "onnx_bytes": 981615,
+      "onnx_sha256": "fb6735b2578c8a0993ba4ff36e33c9d329031de587cdd00a36a2204b6535f779",
+      "pack_ref": {
+        "id": "unitree_go2__produced-unitree_go2_mvp_v1_20260919_143025_458525",
+        "path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260919-143025.onnx",
+        "sha256": "3122d168f80340084fc85ad391618d43d2b21e181f3d72f8c6c0ef65ee8056c4",
+        "version": "unitree_go2-trained-20260919-143025"
+      },
+      "policy_id": "unitree_go2-trained-20260919-143025",
+      "robot": "unitree_go2",
+      "run_id": "unitree_go2_mvp_v1_20260919_143025_458525",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260919-143025.onnx"
     }
   ],
   "blobs": "引用式：onnx 单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目在**安装进包之前**持真副本，安装后转为引用式（见 install_produced_policy）",
-  "count": 81,
-  "generated_at": "2026-09-18T13:08:18+00:00",
+  "count": 82,
+  "generated_at": "2026-09-19T06:31:00+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"
 }
