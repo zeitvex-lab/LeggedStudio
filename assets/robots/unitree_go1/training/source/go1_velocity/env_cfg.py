@@ -14,6 +14,9 @@ mjlab's shared velocity base, adapted from HIMLoco ``legged_gym/envs/go1``
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp.actions import JointPositionActionCfg
 from mjlab.managers import TerminationTermCfg
@@ -21,6 +24,17 @@ from mjlab.sensor import ContactMatch, ContactSensorCfg
 from mjlab.tasks.velocity import mdp
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
 from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
+
+# 仓库根自举（见 kits/quadruped_kit 模块注释）：worker / schema-dump / 冒烟三种
+# 运行环境都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab
+# 对 assets 源树与 workspace 镜像副本两种深度都成立。
+for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+        if str(_parent) not in sys.path:
+            sys.path.insert(0, str(_parent))
+        break
+
+from adapters.mjlab.kits import quadruped_kit as kit  # noqa: E402
 
 from .robot_constants import GO1_ACTION_SCALE, get_go1_robot_cfg
 
@@ -217,44 +231,13 @@ def go1_rough_env_cfg(*, play: bool = False):
 
 
 def go1_runner_cfg():
-    from mjlab.rl import (
-        RslRlModelCfg,
-        RslRlOnPolicyRunnerCfg,
-        RslRlPpoAlgorithmCfg,
-    )
+    """PPO runner —— **委托** `kits/quadruped_kit.ppo_runner_cfg`（唯一真值）。
 
-    return RslRlOnPolicyRunnerCfg(
-        actor=RslRlModelCfg(
-            hidden_dims=(512, 256, 128),
-            activation="elu",
-            obs_normalization=True,
-            distribution_cfg={
-                "class_name": "GaussianDistribution",
-                "init_std": 1.0,
-                "std_type": "scalar",
-            },
-        ),
-        critic=RslRlModelCfg(
-            hidden_dims=(512, 256, 128),
-            activation="elu",
-            obs_normalization=True,
-        ),
-        algorithm=RslRlPpoAlgorithmCfg(
-            value_loss_coef=1.0,
-            use_clipped_value_loss=True,
-            clip_param=0.2,
-            entropy_coef=0.01,
-            num_learning_epochs=5,
-            num_mini_batches=4,
-            learning_rate=1.0e-3,
-            schedule="adaptive",
-            gamma=0.99,
-            lam=0.95,
-            desired_kl=0.01,
-            max_grad_norm=1.0,
-        ),
-        experiment_name="go1_velocity",
-        save_interval=100,
-        num_steps_per_env=24,
-        max_iterations=10_000,
-    )
+    原先本函数内联了一份与 lite3/b2 逐字段相同的 runner 配置（隐藏层 512/256/128、
+    elu、obs_normalization、Gaussian std 1.0 scalar、clip 0.2、entropy 0.01、
+    epochs 5、minibatches 4、lr 1e-3 adaptive、gamma 0.99、lam 0.95、desired_kl 0.01、
+    max_grad_norm 1.0、save_interval 100、num_steps 24、max_iterations 10_000）
+    —— 三份副本一旦 Kit 调超参就会各自漂移。唯一差异是实验名，故由参数携带。
+    """
+
+    return kit.ppo_runner_cfg("go1_velocity")
