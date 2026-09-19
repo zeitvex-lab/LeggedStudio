@@ -60,7 +60,7 @@ class RobotPresetTests(unittest.TestCase):
             (package / "training" / "profiles").mkdir(parents=True)
             (package / "training" / "source" / "acme").mkdir(parents=True)
             (package / "model" / "robot.xml").write_text('<mujoco model="acme"/>', encoding="utf-8")
-            (package / "contract.json").write_text(json.dumps({"robot_id": "acme_quadruped", "family": "Acme", "joints": {"actuated_joints": []}, "urdf": {"path": str(package / "model" / "robot.xml")}}), encoding="utf-8")
+            (package / "contract_legacy_v2.json").write_text(json.dumps({"robot_id": "acme_quadruped", "family": "Acme", "joints": {"actuated_joints": []}, "urdf": {"path": str(package / "model" / "robot.xml")}}), encoding="utf-8")
             (package / "robot_package.json").write_text(json.dumps({"schema_version": "robot-package-1.0", "package_id": "acme_quadruped", "model": {"format": "mjcf", "path": "model/robot.xml"}, "extension_root": "training/source", "extension_entrypoint": "acme.extension:register"}), encoding="utf-8")
             profile = {"schema_version": "training-profile-1.0", "profile_id": "acme-flat", "backend": "native_mjlab", "source_root": "training/source", "entrypoints": {"env": "acme.profile:env_cfg", "runner": "acme.profile:runner_cfg"}}
             (package / "training" / "profiles" / "flat.json").write_text(json.dumps(profile), encoding="utf-8")
@@ -85,7 +85,7 @@ class RobotPresetTests(unittest.TestCase):
                 package = packages / directory
                 (package / "model").mkdir(parents=True)
                 (package / "model" / "robot.xml").write_text('<mujoco model="acme"/>', encoding="utf-8")
-                (package / "contract.json").write_text(json.dumps({"robot_id": "acme", "family": family, "joints": {"actuated_joints": []}}), encoding="utf-8")
+                (package / "contract_legacy_v2.json").write_text(json.dumps({"robot_id": "acme", "family": family, "joints": {"actuated_joints": []}}), encoding="utf-8")
                 (package / "robot_package.json").write_text(json.dumps({"schema_version": "robot-package-1.0", "package_id": "acme", "model": {"format": "mjcf", "path": "model/robot.xml"}}), encoding="utf-8")
             previous = os.environ.get("LEGGED_STUDIO_WORKSPACE")
             os.environ["LEGGED_STUDIO_WORKSPACE"] = str(workspace)

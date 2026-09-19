@@ -2,7 +2,7 @@
 
 - Go2 部署包四件套齐全、模板可编译、FSM 状态机冒烟、解码层维度守卫
 - 劣化参数档：力矩 ×0.8 落入部署契约
-- 坏请求（无 contract_v3 的包）→ 422
+- 坏请求（无 contract_truth 的包）→ 422
 """
 
 from __future__ import annotations
@@ -93,6 +93,80 @@ class DeployPackTest(unittest.TestCase):
     def test_unknown_robot_rejected(self) -> None:
         response = self.client.post("/api/deploy/package", json={"robot_id": "no_such_robot"})
         self.assertEqual(response.status_code, 404)
+
+
+class DeployPackagePolicyTest(unittest.TestCase):
+    """策略随包携带（``policy_onnx``）：带上就真在包里、缺了就 fail-closed。
+
+    架构含义：打包/追加逻辑**只有 ``deploy_pack.generate_deploy_package`` 一份**，
+    API 与 CLI 都只是薄壳——所以这里守的两条（带上了 / 缺失即拒）对两个入口同时成立。
+    """
+
+    def setUp(self) -> None:
+        self.client = TestClient(api.app)
+
+    def test_policy_onnx_is_packed_and_listed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            onnx = Path(tmp) / "policy.onnx"
+            onnx.write_bytes(b"fake-onnx-bytes")
+            response = self.client.post(
+                "/api/deploy/package",
+                json={"robot_id": "unitree_go2", "policy_onnx_path": str(onnx)},
+            )
+            self.assertEqual(200, response.status_code, response.text)
+            report = response.json()
+            self.assertIn("policy.onnx", report["files"])
+            with zipfile.ZipFile(report["path"]) as zf:
+                self.assertEqual(b"fake-onnx-bytes", zf.read("policy.onnx"))
+
+    def test_default_package_carries_no_policy_weights(self) -> None:
+        """不给策略路径 ⇒ 包里没有 policy.onnx、files 也不谎报（如实两态）。"""
+
+        response = self.client.post("/api/deploy/package", json={"robot_id": "unitree_go2"})
+        self.assertEqual(200, response.status_code, response.text)
+        report = response.json()
+        self.assertNotIn("policy.onnx", report["files"])
+        self.assertNotIn("policy.onnx", set(zipfile.ZipFile(report["path"]).namelist()))
+
+    def test_missing_policy_onnx_fails_closed(self) -> None:
+        """给了路径而文件不存在 ⇒ 拒绝（404），绝不静默忽略成"以为带上了策略"。"""
+
+        response = self.client.post(
+            "/api/deploy/package",
+            json={"robot_id": "unitree_go2", "policy_onnx_path": "/no/such/policy.onnx"},
+        )
+        self.assertEqual(404, response.status_code, response.text)
+        self.assertIn("/no/such/policy.onnx", response.json()["detail"])
+
+
+class DeployGateParityTest(unittest.TestCase):
+    """gate 判据只有一份：HTTP 端点与 ``deploy_gate_report`` 必须同结果同字段。"""
+
+    def test_api_gate_matches_backend_report(self) -> None:
+        import json as _json
+
+        from backend.deploy_pack import deploy_gate_report
+
+        got = TestClient(api.app).get("/api/deploy/gate/unitree_go2")
+        self.assertEqual(200, got.status_code, got.text)
+        # compare_contracts 的 entries 内是 tuple，HTTP 往返会变成 list——
+        # 按 JSON 语义比对才等价（判据同一份，序列化形态不构成差异）。
+        expected = _json.loads(_json.dumps(deploy_gate_report("unitree_go2")))
+        self.assertEqual(expected, got.json())
+
+    def test_api_gate_reports_package_root_and_verdict(self) -> None:
+        payload = TestClient(api.app).get("/api/deploy/gate/unitree_go2").json()
+        self.assertEqual("unitree_go2", payload["robot_id"])
+        # 包根可能是内置 assets 树，也可能是 workspace 包副本（两条解析路径都合法）——
+        # 这里只钉住"包根指向的就是这台机器人"，不钉住具体来源目录。
+        self.assertTrue(Path(payload["package_root"]).is_dir(), payload["package_root"])
+        for key in ("ok", "blockers", "warnings", "disposition"):
+            self.assertIn(key, payload)
+
+    def test_api_gate_unknown_robot_is_404(self) -> None:
+        got = TestClient(api.app).get("/api/deploy/gate/no_such_robot")
+        self.assertEqual(404, got.status_code, got.text)
+        self.assertIn("no_such_robot", got.json()["detail"])
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from pathlib import Path
+from contracts.validator import normalized_sha256  # 归一摘要唯一实现
 import json
 
 from backend.export_gate import check_export_result, compare_contracts
@@ -153,7 +154,7 @@ def _training_snapshot_from_task(task) -> dict:
 
 
 def _current_contract_for(robot_id: str) -> dict:
-    """包当前契约：优先 contract_v3.json，回落 contract.json。"""
+    """包当前契约：优先 contract.json，回落 contract_legacy_v2.json。"""
 
     from backend.robot_presets import get_robot_preset
 
@@ -161,7 +162,7 @@ def _current_contract_for(robot_id: str) -> dict:
     root = Path(str(((preset or {}).get("robot_package") or {}).get("package_root", ""))) if preset else None
     if root is None:
         return {}
-    for name in ("contract_v3.json", "contract.json"):
+    for name in ("contract.json", "contract_legacy_v2.json"):
         path = root / name
         if path.exists():
             try:
@@ -240,10 +241,8 @@ async def export_task_to_onnx(task_id: str):
                 detail={"message": "导出被形状/数值 gate 拒绝（产物已删除）", "gate": shape_gate},
             )
 
-        # 更新 Artifact
-        import hashlib
-        with open(onnx_path, 'rb') as f:
-            onnx_hash = hashlib.sha256(f.read()).hexdigest()
+        # 更新 Artifact：产物哈希用归一摘要（与 policy_artifacts 的 onnx_sha256 同口径）
+        onnx_hash = normalized_sha256(Path(onnx_path).read_bytes())
 
         artifact.onnx_model_path = str(onnx_path)
         artifact.onnx_model_hash = onnx_hash

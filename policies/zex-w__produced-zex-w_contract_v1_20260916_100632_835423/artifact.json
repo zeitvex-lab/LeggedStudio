@@ -2,7 +2,7 @@
   "artifact_id": "zex-w__produced-zex-w_contract_v1_20260916_100632_835423",
   "kind": "produced",
   "onnx_bytes": 777643,
-  "onnx_sha256": "d4ebd75f082f55b3934777433e25aa7b70c39411428c472f5c629b82272d3bc6",
+  "onnx_sha256": "87381ad5fef22a7d1507cb311545fda669f2712f31cfdfbcfa65a83b2aca9efe",
   "run_id": "zex-w_contract_v1_20260916_100632_835423",
   "schema": "policy-artifact-1.0",
   "source_onnx": "policies/zex-w__produced-zex-w_contract_v1_20260916_100632_835423/policy.onnx"

@@ -130,7 +130,7 @@ def packages() -> list[Path]:
     return sorted(
         p
         for p in ROBOTS.iterdir()
-        if p.is_dir() and (p / "contract_v3.json").exists() and (p / "simulation" / "config.json").exists()
+        if p.is_dir() and (p / "contract.json").exists() and (p / "simulation" / "config.json").exists()
     )
 
 
@@ -146,7 +146,7 @@ class PayloadResolutionEquivalenceTest(unittest.TestCase):
         for package in packages():
             facts = physics_facts(package)
             view = payload_physics_view(facts)
-            joints = load(package / "contract_v3.json")["joints"]["actuated"]
+            joints = load(package / "contract.json")["joints"]["actuated"]
             for param in PAYLOAD_MAP_KEYS:
                 # 该参数在契约里整体缺失（如 wuji_hand 无力矩上限）时无覆盖可言，
                 # 前端 applyTorqueLimits(None) 本就早退——不属静默失配。
@@ -195,7 +195,7 @@ class PayloadResolutionEquivalenceTest(unittest.TestCase):
                 self.assertEqual(
                     leftover, [],
                     f"{package.name} 的 simulation/config.json 又出现了物理键 {leftover}——"
-                    f"B3 已把物理真值收敛到契约 v3，写回去等于重开两个家",
+                    f"B3 已把物理真值收敛到契约真值，写回去等于重开两个家",
                 )
 
 
@@ -233,7 +233,7 @@ class IntendedBehaviourDeltaTest(unittest.TestCase):
         view = payload_physics_view(physics_facts(ROBOTS / "zex-w"))
         self.assertTrue(view["torque_limits"], "契约 by_role.effort 有值，应供给浏览器")
         # 每个驱动关节都能解析出力矩上限（含轮）
-        for entry in load(ROBOTS / "zex-w" / "contract_v3.json")["joints"]["actuated"]:
+        for entry in load(ROBOTS / "zex-w" / "contract.json")["joints"]["actuated"]:
             self.assertIsNot(control_value(view["torque_limits"], entry["name"], entry.get("role")), _SENTINEL)
 
 
@@ -250,7 +250,7 @@ class FrictionLossDefaultPreservedTest(unittest.TestCase):
         for name in ("unitree_go2", "deeprobotics_lite3", "microduck", "zex-w"):
             with self.subTest(package=name):
                 contract = json.loads(
-                    (ROBOTS / name / "contract_v3.json").read_text(encoding="utf-8-sig")
+                    (ROBOTS / name / "contract.json").read_text(encoding="utf-8-sig")
                 )
                 declared = (
                     (contract.get("actuator_profile") or {}).get("default") or {}

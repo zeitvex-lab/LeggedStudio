@@ -34,7 +34,7 @@
   },
   "pack_id": "microduck-velocity",
   "display_name": "MicroDuck · velocity",
-  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",
+  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约真值 与技能 velocity_base。",
   "tags": [
     "generated",
     "default",
@@ -42,7 +42,7 @@
   ],
   "morphology_ref": {
     "id": "microduck",
-    "path": "assets/robots/microduck/contract_v3.json",
+    "path": "assets/robots/microduck/contract.json",
     "sha256": "bc57578dc9bde7aa843302e3bce5d908070bfd7f38638e2a025d0f1c7b8c0982"
   },
   "skill_ref": {

@@ -1,10 +1,10 @@
 """契约 v2 → v3 迁移核心（T0.2/T1.3 共用）。
 
 被两处消费：
-  - tools/migrate_contract_v3.py（16 包批量迁移 CLI）
-  - backend/model_api.py（导入 → 生成契约 v3 闭环）
+  - tools/migrate_contract.py（16 包批量迁移 CLI）
+  - backend/model_api.py（导入 → 生成契约真值 闭环）
 
-函数均为纯数据变换：contract_v2 dict (+ 可选 simulation config) → contract_v3 dict。
+函数均为纯数据变换：contract_v2 dict (+ 可选 simulation config) → contract_truth dict。
 `config` 缺失时（外部导入的裸模型）用 GENERIC_ACTUATOR 默认值并打 review 标记。
 """
 
@@ -21,7 +21,7 @@ from contracts.path_bootstrap import bootstrap_root  # noqa: E402
 
 ROOT = bootstrap_root()
 
-from contracts.role_resolver import RoleResolver, build_v3_contract  # noqa: E402
+from contracts.role_resolver import RoleResolver, build_contract  # noqa: E402
 
 ROBOTS_DIR = ROOT / "assets" / "robots"
 LEG_VOCAB = {"fl", "fr", "rl", "rr", "hl", "hr", "left", "right", "l", "r"}
@@ -35,7 +35,7 @@ ROLE_HINTS = {
     },
 }
 
-# actuator_interface → 契约 v3 执行器模式
+# actuator_interface → 契约真值 执行器模式
 INTERFACE_MODE = {
     "torque": "torque",
     "position_target": "position",
@@ -224,7 +224,7 @@ def migrate_contract_dict(
     package_id: str | None = None,
     generic_defaults: bool = False,
 ) -> dict[str, Any]:
-    """v2 契约 (+ 可选 config) → v3 契约 dict，过 RoleResolver 自洽校验。
+    """v2 契约 (+ 可选 config) → 真值契约 dict，过 RoleResolver 自洽校验。
 
     generic_defaults=True（外部导入、无仿真配置）时用 GENERIC_ACTUATOR 兜底，
     并在 description 打上"待校准"标记。
@@ -260,7 +260,7 @@ def migrate_contract_dict(
             params.setdefault("mode", interface_mode)
         note = None
     dof = len(joints)
-    contract = build_v3_contract(
+    contract = build_contract(
         robot_id=contract_v2["robot_id"],
         morphology_id=guess_morphology_id(len(legs), pattern, extras),
         leg_ids=legs,

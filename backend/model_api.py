@@ -7,7 +7,6 @@ MuJoCo compilation. It does not import or duplicate the URDF Studio viewer.
 
 from __future__ import annotations
 
-import hashlib
 import base64
 import json
 import os
@@ -21,7 +20,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from contracts.asset_paths import resolve_asset_path
-from contracts.validator import normalized_sha256, normalize_line_endings
+from contracts.validator import normalized_sha256, package_digest
 from backend.gl_env import ensure_headless_gl, render_error_hint
 from backend.robot_packages import write_package_manifest
 
@@ -30,9 +29,8 @@ router = APIRouter(prefix="/api/models", tags=["models"])
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-def _workspace_root() -> Path:
-    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE")
-    return Path(configured).expanduser().resolve() if configured else PROJECT_ROOT / "workspace"
+# 工作区根解析收口到 ``backend.paths``（此前 7 处各写一遍，且 strip/resolve 规则不一致）。
+from backend.paths import workspace_root as _workspace_root
 
 
 def _api_path(path: Path) -> str:
@@ -59,13 +57,7 @@ def _content_hash(entries: Iterable[tuple[Path, bytes]]) -> str:
         得到两个 digest，正是 B39 拆掉的"同一工件两套哈希口径"在这条链上的残留。
     """
 
-    digest = hashlib.sha256()
-    for relative, data in sorted(entries, key=lambda pair: pair[0].as_posix()):
-        digest.update(relative.as_posix().encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(normalize_line_endings(data))
-        digest.update(b"\0")
-    return digest.hexdigest()
+    return package_digest(entries)
 
 
 def _package_content_hash(request: "ModelImportRequest") -> str:
@@ -172,7 +164,7 @@ def import_staged_package(
     """**导入核心（两条入口共用）**：staging 里已放好该包的全部文件 →
 
     ① 校验模型（结构 + MuJoCo 编译）→ ② 生成三件 JSON（``contract.json`` /
-    ``robot_package.json`` / ``contract_v3.json``）→ ③ 落到 ``packages/<package_id>/``
+    ``robot_package.json`` / ``contract_legacy_v2.json``）→ ③ 落到 ``packages/<package_id>/``
     → ④ 登记索引。
 
     Web 的 ``POST /api/models/import``（base64 上传）与 CLI 的 ``onboard <dir>``（目录拷贝）
@@ -196,32 +188,32 @@ def import_staged_package(
     contract["contract_id"] = f"{package_id}_contract_v1"
 
     if not package_root.exists():
-        (staging / "contract.json").write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        (staging / "contract_legacy_v2.json").write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         write_package_manifest(staging, package_id=package_id, task_kind="generic")
         descriptor = json.loads((staging / "robot_package.json").read_text(encoding="utf-8"))
         descriptor.update({
             "model": {"format": model_format, "path": model_relative.as_posix(), "assets_path": str(model_relative.parent).replace("\\", "/")},
-            "contract_path": "contract.json",
+            "contract_path": "contract_legacy_v2.json",
             "content_sha256": content_hash,
         })
         descriptor_path = staging / "robot_package.json"
         descriptor_path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         staging.rename(package_root)
 
-    # T1.3 导入闭环：导入即生成契约 v3 sidecar（外部裸模型无仿真配置 →
+    # T1.3 导入闭环：导入即生成契约真值 sidecar（外部裸模型无仿真配置 →
     # 通用执行器默认值并在 description 标注"待校准"；失败不阻断导入）
-    contract_v3_note = None
-    if package_root.exists() and not (package_root / "contract_v3.json").exists():
+    contract_note = None
+    if package_root.exists() and not (package_root / "contract.json").exists():
         try:
             from backend.contract_migration import migrate_contract_dict
 
             draft_v3 = migrate_contract_dict(contract, None, generic_defaults=True)
-            (package_root / "contract_v3.json").write_text(
+            (package_root / "contract.json").write_text(
                 json.dumps(draft_v3, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
             )
-            contract_v3_note = "generated（通用执行器默认值，训练前请校准）"
+            contract_note = "generated（通用执行器默认值，训练前请校准）"
         except Exception as exc:
-            contract_v3_note = f"skipped: {exc}"
+            contract_note = f"skipped: {exc}"
 
     from backend.robot_packages import upsert_package
 
@@ -234,7 +226,7 @@ def import_staged_package(
         "package_root": _api_path(package_root),
         "model_path": final_model_value,
         "contract_draft": contract,
-        "contract_v3": {"generated": contract_v3_note is not None and contract_v3_note.startswith("generated"), "note": contract_v3_note},
+        "contract": {"generated": contract_note is not None and contract_note.startswith("generated"), "note": contract_note},
     })
     return validation
 
@@ -508,11 +500,11 @@ def _validate(request: ModelValidationRequest) -> dict[str, Any]:
 
         contract_result = None
         if request.contract:
-            from contracts.robot_contract_v2 import RobotContractV2
+            from contracts.contract_legacy_v2 import ContractLegacyV2
             from contracts.validator import validate_contract
 
             try:
-                contract = RobotContractV2(**request.contract)
+                contract = ContractLegacyV2(**request.contract)
                 validation = validate_contract(contract)
                 contract_result = {
                     "valid": validation.valid,
@@ -762,10 +754,10 @@ def preview_package_import(
         try:
             from backend.contract_migration import migrate_contract_dict
 
-            preview["contract_v3_preview"] = migrate_contract_dict(contract, None, generic_defaults=True)
+            preview["contract_preview"] = migrate_contract_dict(contract, None, generic_defaults=True)
         except Exception as exc:  # 预演不该因 sidecar 生成失败而整体失败，如实标注
-            preview["contract_v3_preview"] = None
-            preview["warnings"].append(f"contract_v3 预览生成失败: {exc}")
+            preview["contract_preview"] = None
+            preview["warnings"].append(f"contract_truth 预览生成失败: {exc}")
         return preview
 
 

@@ -25,7 +25,6 @@ Pack 是**纯引用组合**（重构方案 §2.1 的 M1 锚点）：``morphology
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from datetime import datetime
@@ -33,6 +32,8 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+
+from contracts.validator import normalized_sha256  # 归一摘要唯一实现（B39 口径）
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
 PACKS_DIR = WORKSPACE_ROOT / "packs"
@@ -45,6 +46,8 @@ SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 
 REF_KEYS = ("morphology_ref", "skill_ref", "scenario_ref", "policy_ref")
 REQUIRED_REFS = ("morphology_ref", "skill_ref")
+#: 随仓分发的引用**不得**指向这些前缀（见 ``_gitignored_prefix``）
+GITIGNORED_REF_PREFIXES = ("workspace/",)
 BINDING_KEYS = ("verify", "train", "simulate", "deploy")
 PIPELINE_TOPOLOGIES = {
     "direct", "asymmetric_ac", "rma", "latent", "distill_2stage", "distill_3stage",
@@ -57,13 +60,13 @@ router = APIRouter(prefix="/api/packs", tags=["packs"])
 
 
 def _content_sha256(data: bytes) -> str:
-    """规范化内容哈希：CRLF → LF 后再哈希。
+    """规范化内容哈希：委托 ``contracts.validator.normalized_sha256``（**唯一实现**）。
 
     对原始字节做 sha256 会随 git ``core.autocrlf`` 漂移（Windows 检出 CRLF、
-    CI 检出 LF，同一文件两个哈希），Pack 对账就失去跨机复现意义。生成器
-    ``tools/generate_packs.py`` 用同一口径，两侧必须同步修改。
+    CI 检出 LF，同一文件两个哈希），Pack 对账就失去跨机复现意义。
+    这里此前自带一份实现、靠"两侧必须同步修改"的注释与生成器维系——现在口径是代码事实。
     """
-    return hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
+    return normalized_sha256(data)
 
 
 def _sha256_file(path: Path) -> str | None:
@@ -79,6 +82,40 @@ def _is_relative_path(value: str) -> bool:
     if not value or Path(value).is_absolute():
         return False
     return ".." not in Path(value).parts
+
+
+def gitignored_ref_prefix(rel_path: str) -> str | None:
+    """命中则返回那个"随仓分发不得引用"的前缀，否则 ``None``。
+
+    ``workspace/`` 是 ``.gitignore`` 里的**运行期目录**（用户的包副本、产物、部署包）：
+    写进 ``packs/*.pack.json`` 的引用在生成它的那台机器上能过，换台机器 / 干净 clone /
+    CI **必然解析失败**——而 Pack 是要随包分发、要给第三方导入的东西。
+    2026-09-19 实测：go2 与 lite3 两份 Pack 的 ``policy_ref`` 正是这种路径，
+    于是"14/14 通过"只在本机成立（CI 恒红）。
+    """
+
+    normalized = rel_path.replace("\\", "/").lstrip("./")
+    for prefix in GITIGNORED_REF_PREFIXES:
+        if normalized.startswith(prefix):
+            return prefix
+    return None
+
+
+def _package_root_for(robot_id: str | None) -> Path | None:
+    """按机型解析机器人包根（**复用 deploy_pack 的唯一实现**，含 workspace 副本优先）。
+
+    解析不到（合成用例、包不存在）返回 ``None``——引用校验继续只按仓库根走，
+    不因为"包解析不了"把一条本该报"文件不存在"的引用报成异常。
+    """
+
+    if not robot_id:
+        return None
+    try:
+        from backend.deploy_pack import resolve_package_root
+
+        return resolve_package_root(str(robot_id))
+    except Exception:
+        return None
 
 
 def _check_skill_ref_resolution(ref: Any, *, required: bool) -> tuple[list[str], dict[str, Any] | None]:
@@ -121,8 +158,23 @@ def _check_ref(
     *,
     required: bool,
     workspace_root: Path,
+    package_root: Path | None = None,
 ) -> tuple[list[str], list[str], dict[str, Any] | None]:
-    """校验一个 ``$defs/ref``；返回 (errors, warnings, resolved)。"""
+    """校验一个 ``$defs/ref``；返回 (errors, warnings, resolved)。
+
+    **两种相对路径语义**（2026-09-19 收口）：
+
+    * 其余引用（``morphology_ref`` / ``skill_ref`` / ``scenario_ref``）是**仓库相对**——
+      它们指向仓库级资源（``assets/robots/...``、``registry/skills/...``）；
+    * ``policy_ref`` 是**包内相对**（相对该机型包根）——策略的合法落点是包内
+      ``simulation/policies/``，而包根在运行时可能是用户 workspace 里的副本；
+      写成仓库相对就必然要写死"哪一份副本"，这正是 go2/lite3 两份 Pack 引用了
+      gitignored ``workspace/`` 的根因。传 ``package_root`` 即启用该语义
+      （先按仓库根解析，**兼容旧 Pack**；再按包根解析）。
+
+    任何引用命中 gitignored 前缀（``workspace/``）都**直接报错**——随仓分发的东西
+    不能指向"只有生成它的那台机器才有"的文件。
+    """
 
     errors: list[str] = []
     warnings: list[str] = []
@@ -148,29 +200,46 @@ def _check_ref(
     elif not isinstance(rel_path, str):
         errors.append(f"{name}.path 必须是字符串")
     elif not _is_relative_path(rel_path):
-        errors.append(f"{name}.path 必须是包内相对路径（禁止绝对路径与 .. 越界）：{rel_path!r}")
+        errors.append(f"{name}.path 必须是相对路径（禁止绝对路径与 .. 越界）：{rel_path!r}")
     else:
-        target = workspace_root / rel_path
-        resolved["resolved_path"] = str(target)
-        if not target.is_file():
-            errors.append(f"{name}.path 指向的文件不存在：{rel_path}")
+        blocker = gitignored_ref_prefix(rel_path)
+        if blocker:
+            errors.append(
+                f"{name}.path 指向机器本地状态（{blocker}** 在 .gitignore 里，干净 clone / CI 上不存在）："
+                f"{rel_path!r}——随仓分发的引用只能指向仓库内文件"
+            )
             resolved["exists"] = False
+            resolved["gitignored"] = blocker
         else:
-            resolved["exists"] = True
-            actual = _sha256_file(target)
-            declared = ref.get("sha256")
-            if declared is None:
-                warnings.append(f"{name} 未声明 sha256——加载即校验（verify.require_refs_resolved）会降级")
-            elif not isinstance(declared, str) or not SHA256_PATTERN.fullmatch(declared):
-                errors.append(f"{name}.sha256 必须是 64 位小写十六进制")
-            elif actual != declared:
-                errors.append(
-                    f"{name}.sha256 与实际文件不一致（声明 {declared[:12]}… 实际 "
-                    f"{(actual or '')[:12]}…）：{rel_path} 已变更或 Pack 过期"
-                )
-                resolved["sha256_ok"] = False
+            candidates: list[tuple[str, Path]] = [("仓库根", workspace_root / rel_path)]
+            if package_root is not None:
+                candidates.append(("机器人包根", package_root / rel_path))
+
+            hit = next(((label, candidate) for label, candidate in candidates if candidate.is_file()), None)
+            resolved["candidate_paths"] = {label: str(candidate) for label, candidate in candidates}
+            if hit is None:
+                attempted = " / ".join(f"{label}({candidate})" for label, candidate in candidates)
+                errors.append(f"{name}.path 指向的文件不存在：{rel_path}（按 {attempted} 解析均无）")
+                resolved["exists"] = False
             else:
-                resolved["sha256_ok"] = True
+                label, target = hit
+                resolved["exists"] = True
+                resolved["resolved_path"] = str(target)
+                resolved["resolved_against"] = label
+                actual = _sha256_file(target)
+                declared = ref.get("sha256")
+                if declared is None:
+                    warnings.append(f"{name} 未声明 sha256——加载即校验（verify.require_refs_resolved）会降级")
+                elif not isinstance(declared, str) or not SHA256_PATTERN.fullmatch(declared):
+                    errors.append(f"{name}.sha256 必须是 64 位小写十六进制")
+                elif actual != declared:
+                    errors.append(
+                        f"{name}.sha256 与实际文件不一致（声明 {declared[:12]}… 实际 "
+                        f"{(actual or '')[:12]}…）：{rel_path} 已变更或 Pack 过期"
+                    )
+                    resolved["sha256_ok"] = False
+                else:
+                    resolved["sha256_ok"] = True
 
     declared_hash = ref.get("sha256")
     if declared_hash is not None and not isinstance(declared_hash, str):
@@ -295,10 +364,20 @@ def validate_pack(
     if tags is not None and (not isinstance(tags, list) or any(not isinstance(t, str) for t in tags)):
         errors.append("tags 必须是字符串数组")
 
+    # policy_ref 是**包内相对**引用（相对 morphology_ref.id 的包根），其余是仓库相对；
+    # 包根解析复用 deploy_pack 的唯一实现（含 workspace 副本优先），解析不到就只按仓库根判。
+    morphology = pack.get("morphology_ref")
+    morphology_id = morphology.get("id") if isinstance(morphology, dict) else None
+    policy_package_root = _package_root_for(morphology_id)
+
     refs: dict[str, Any] = {}
     for name in REF_KEYS:
         ref_errors, ref_warnings, resolved = _check_ref(
-            name, pack.get(name), required=name in REQUIRED_REFS, workspace_root=workspace_root
+            name,
+            pack.get(name),
+            required=name in REQUIRED_REFS,
+            workspace_root=workspace_root,
+            package_root=policy_package_root if name == "policy_ref" else None,
         )
         errors.extend(ref_errors)
         warnings.extend(ref_warnings)

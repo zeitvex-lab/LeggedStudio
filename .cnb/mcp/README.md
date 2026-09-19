@@ -32,7 +32,7 @@
 | `mujoco` | 加载 MJCF / 查关节序 / 跑无头稳定测试 | `tools/sim2sim_headless.py`、`adapters/mjlab/scene_builder.py` |
 | `onnx` | 查模型输入输出维 / 单帧推理对拍 | `tools/evaluator.py`、45 条 `sim_policies_onnx` 契约核验 |
 | `resources` | `00_resources` 跨库检索 | `00_resources/README.md`、`tools/sync_resources.py` |
-| `contracts` | 契约 v3 查询与校验 | `contracts/`、`backend/pack_catalog.py`、`assets/robots/*/contract_v3.json` |
+| `contracts` | 契约真值 查询与校验 | `contracts/`、`backend/pack_catalog.py`、`assets/robots/*/contract.json` |
 
 后 4 条是**本仓自研 server**，实现在 [`../../tools/mcp/`](../../tools/mcp/)：
 

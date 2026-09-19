@@ -5,8 +5,8 @@
 ----------------------
 同一个物理量在三处出现，而且**并不总是一致**：
 
-* **契约 v3** ``control.{control_hz, physics_hz, decimation}`` —— 唯一真值（训练/验收/浏览器/工作台都读它）；
-* **契约 v2** ``contract.json`` 的 ``control`` 块 —— 工作台手上只有这份；保存链曾无条件把它写回 v3
+* **契约真值** ``control.{control_hz, physics_hz, decimation}`` —— 唯一真值（训练/验收/浏览器/工作台都读它）；
+* **契约 v2** ``contract_legacy_v2.json`` 的 ``control`` 块 —— 工作台手上只有这份；保存链曾无条件把它写回 v3
   （go2 实测 v2=1000/20 vs v3=500/10）→ 点一次保存就把物理频率改成 2 倍。该回写已在
   ``PUT /api/robots/packages/<id>`` 里**关闭**（改为只对照回报）；
 * **训练侧** ``training/profiles/*.json`` 的 ``decimation`` 与任务源码里的 ``sim.mujoco.timestep``
@@ -55,8 +55,8 @@ def _profile_decimations(package: pathlib.Path) -> list[int]:
 
 
 def check_package(package: pathlib.Path) -> dict:
-    v3 = _read_json(package / "contract_v3.json").get("control") or {}
-    v2 = _read_json(package / "contract.json").get("control") or {}
+    v3 = _read_json(package / "contract.json").get("control") or {}
+    v2 = _read_json(package / "contract_legacy_v2.json").get("control") or {}
     rates = {key: v3.get(key) for key in RATE_KEYS}
     control_hz, physics_hz, decimation = rates["control_hz"], rates["physics_hz"], rates["decimation"]
 
@@ -89,7 +89,7 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     args = parser.parse_args()
 
-    packages = sorted(p for p in ROBOTS.glob("*") if (p / "contract_v3.json").is_file())
+    packages = sorted(p for p in ROBOTS.glob("*") if (p / "contract.json").is_file())
     reports = [check_package(p) for p in packages]
     hard = [r for r in reports if r["self_consistent"] is False]
     drift = [r for r in reports if r["v2_differs"] or r["profile_differs"]]
@@ -118,7 +118,7 @@ def main() -> int:
         for report in hard:
             print(f"   {report['robot_id']}: physics_hz={report['v3']['physics_hz']} 但 control_hz×decimation={report['expected_physics_hz']}")
     else:
-        print("✅ 契约 v3 自身全部自洽（physics_hz == control_hz × decimation）")
+        print("✅ 契约真值 自身全部自洽（physics_hz == control_hz × decimation）")
     if drift:
         print()
         print(f"⚠️  口径差异 {len(drift)} 个（**已登记、非错误**——见任务清单「待决 #7」与 P2 记录）：")

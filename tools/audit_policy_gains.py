@@ -80,13 +80,13 @@ def _declared_gain(table: dict, joint: str) -> float | None:
 
 
 def _contract_profile(robot_dir: Path) -> dict[str, dict[str, float]]:
-    """机器人级真值的**逐关节展开**（契约 v3 ``actuator_profile``）。
+    """机器人级真值的**逐关节展开**（契约真值 ``actuator_profile``）。
 
     MJCF 由它固化（`tools/bake_mjcf_physics.py`），`validate_mjcf_contract.py` 已保证两者
     零漂移 —— 所以拿它当参考与拿 MJCF 当参考等价，且不必解析 XML。
     读不动就返回空：**不猜**，也不因此判漂移。
     """
-    path = robot_dir / "contract_v3.json"
+    path = robot_dir / "contract.json"
     if not path.is_file():
         return {}
     try:
@@ -133,11 +133,11 @@ def audit(*, robots_dir: Path | str = ROBOTS_DIR) -> dict:
                 )
                 contract = deep_merge(package_default, entry.get("contract") or {})
                 # 动作序的第二条继承链（与运行时同语义）：策略没声明时回退到**包级
-                # `contract.json` 的 `action.joint_order`**。漏掉它会把"继承来的关节序"
+                # `contract_legacy_v2.json` 的 `action.joint_order`**。漏掉它会把"继承来的关节序"
                 # 误读成"没声明"，进而把增益判定也带偏。
                 order = list(contract.get("action_joint_order") or [])
                 if not order:
-                    robot_contract = config_path.parents[1] / "contract.json"
+                    robot_contract = config_path.parents[1] / "contract_legacy_v2.json"
                     if robot_contract.is_file():
                         try:
                             robot_doc = json.loads(robot_contract.read_text(encoding="utf-8-sig"))

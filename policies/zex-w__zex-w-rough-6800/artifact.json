@@ -10,7 +10,7 @@
   "label": "rough 6800 (v3 比赛)",
   "obs_dim": 53,
   "onnx_bytes": 777597,
-  "onnx_sha256": "3c994bdd3434ad15770a52ac0e8d229f502f00d6511cdd42c2e2c742301aef13",
+  "onnx_sha256": "450b904453947f31756a8027706b5c81f9db209eca902d4d1eb13998bb6dae84",
   "policy_id": "zex-w-rough-6800",
   "robot": "zex-w",
   "run_id": null,

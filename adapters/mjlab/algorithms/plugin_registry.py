@@ -211,9 +211,38 @@ def bind_algorithm_to_runner_cfg(
   return cfg
 
 
+def apply_algorithm_plugin(
+  cfg: Any,
+  *,
+  algorithm_plugin: str,
+  variant: str | None = None,
+  path: str | Path | None = None,
+) -> dict[str, Any]:
+  """把 profile 声明的 ``algorithm_plugin`` 绑到 runner cfg 上；返回留痕用的裁决。
+
+  **profile 显式声明是唯一开关**：没有 ``algorithm_plugin`` 的 profile（历史上是绝大多数）
+  走 mjlab 原生 dataclass cfg 路径，本函数不参与——"默认路径一行不碰"是硬约束。
+
+  ``variant`` 省略时取 ``"base"``（注册表必须声明 base），注册表里没有 base 则取首字母序第一个；
+  未知插件 / 未知变体由 :func:`variant_entrypoints` fail-closed。
+
+  返回值形如 ``{"plugin": "him", "variant": "base", "algorithm": "<class_name>", ...}``，
+  调用方把它写进 run 报告——"这次训练用的是哪个算法的哪套接线"必须可查，
+  否则产物谱系在插件时代就断了。
+  """
+
+  name = str(algorithm_plugin).strip()
+  variants = plugin_variants(name, path)
+  chosen = str(variant).strip() if variant else ("base" if "base" in variants else sorted(variants)[0])
+  binding = variant_entrypoints(name, chosen, path)
+  bind_algorithm_to_runner_cfg(cfg, name, chosen, path)
+  return {"plugin": name, "variant": chosen, **binding}
+
+
 __all__ = [
   "BUILD_METHODS",
   "PluginRegistryError",
+  "apply_algorithm_plugin",
   "bind_algorithm_to_runner_cfg",
   "get_plugin_metadata",
   "list_plugins",

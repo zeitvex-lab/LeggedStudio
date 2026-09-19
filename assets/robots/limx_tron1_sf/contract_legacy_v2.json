@@ -1,0 +1,115 @@
+{
+  "schema_version": "robot-contract-2.0",
+  "contract_id": "limx_tron1_sf_v1",
+  "robot_id": "limx_tron1_sf",
+  "family": "LimX Tron1 SF",
+  "size_class": "M",
+  "locomotion_type": "B",
+  "urdf": {
+    "path": "assets/robots/limx_tron1_sf/model/robot.xml",
+    "hash": "",
+    "total_mass_kg": 20.813,
+    "mass_source": "mjcf_compiled"
+  },
+  "joints": {
+    "actuated_joints": [
+      "abad_L_Joint",
+      "hip_L_Joint",
+      "knee_L_Joint",
+      "ankle_L_Joint",
+      "abad_R_Joint",
+      "hip_R_Joint",
+      "knee_R_Joint",
+      "ankle_R_Joint"
+    ],
+    "passive_joints": [],
+    "default_pose": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "joint_limits_rad": {
+      "abad_L_Joint": [
+        -0.38397,
+        1.39626
+      ],
+      "hip_L_Joint": [
+        -1.01229,
+        1.39626
+      ],
+      "knee_L_Joint": [
+        -0.872665,
+        1.36136
+      ],
+      "ankle_L_Joint": [
+        -1.15192,
+        1.5708
+      ],
+      "abad_R_Joint": [
+        -1.39626,
+        0.38397
+      ],
+      "hip_R_Joint": [
+        -1.39626,
+        1.01229
+      ],
+      "knee_R_Joint": [
+        -1.36136,
+        0.872665
+      ],
+      "ankle_R_Joint": [
+        -1.15192,
+        1.5708
+      ]
+    }
+  },
+  "observation": {
+    "dimension": 36,
+    "components": [
+      "cmd",
+      "gravity",
+      "ang_vel",
+      "joint_pos_rel",
+      "joint_vel",
+      "last_action",
+      "history"
+    ],
+    "single_obs_dim": 33,
+    "history_len": 10,
+    "normalizer": null
+  },
+  "action": {
+    "dimension": 8,
+    "joint_order": [
+      "abad_L_Joint",
+      "hip_L_Joint",
+      "knee_L_Joint",
+      "ankle_L_Joint",
+      "abad_R_Joint",
+      "hip_R_Joint",
+      "knee_R_Joint",
+      "ankle_R_Joint"
+    ],
+    "action_scale": 0.25
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 200,
+    "decimation": 4
+  },
+  "description": "LimX Dynamics TRON1 球足/踝足双足（SF，8-DoF：髋侧摆/髋前摆/膝/踝前后 ×2）。模型为包内 MJCF（LeggedGym-Ex BSD-3 资产），PD Kp45/Kd1.5（踝 Kd0.8），力矩限幅 髋/膝 80 N·m、踝 20 N·m，obs 33×10 历史栈，统一 mjlab 1.6 运行时。",
+  "tags": [
+    "biped",
+    "sole-foot",
+    "mjcf",
+    "package",
+    "limx_tron1"
+  ],
+  "source": "legged_gym_ex_import",
+  "python_version": "3.12"
+}

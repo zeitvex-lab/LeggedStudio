@@ -28,9 +28,9 @@ from backend.training_config_helpers import (  # noqa: F401
 from backend.training_manager import get_training_manager
 from backend.robot_presets import get_robot_preset
 from backend.robot_packages import package_for_contract
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 from adapters.mjlab.env_factory import get_reward_terms
-from adapters.mjlab.algorithms.registry import list_algorithms
+from adapters.mjlab.algorithms.registry import list_algorithms, resolve_algorithm
 from adapters.mjlab.recipe_registry import list_tasks, resolve_recipe
 from adapters.backend_adapter import list_backend_descriptors
 
@@ -95,14 +95,34 @@ async def create_training(
                     "message": "Idempotent replay: returning existing task",
                 }
 
-        algorithm = request.algorithm.upper()
-        available = {item["id"] for item in list_algorithms() if item.get("available")}
-        if algorithm not in available:
-            raise HTTPException(status_code=400, detail=f"算法 {request.algorithm} 不可用，目前可用算法：{', '.join(sorted(available))}")
-        if algorithm != "PPO":
-            raise HTTPException(status_code=501, detail="native MJLab currently exposes PPO training; native SAC/TD3 are not implemented")
+        # 算法裁决**单一来源**（adapters.mjlab.algorithms.registry）：
+        # 未登记 → 400（列出全部词汇）；登记但产品内未开放 → 501（说清是哪一类原因，
+        # 而不是"反正不是 PPO"）。三个"能"的分野见该模块头：registered / native_supported / product_open。
+        try:
+            algorithm_entry = resolve_algorithm(request.algorithm)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        algorithm = str(algorithm_entry["id"])
+        if not algorithm_entry["product_open"]:
+            raise HTTPException(
+                status_code=501,
+                detail={
+                    "message": f"算法 {algorithm} 已登记，但产品内未开放训练",
+                    "kind": algorithm_entry["kind"],
+                    "native_supported": algorithm_entry["native_supported"],
+                    "reason": (
+                        "插件路径：协议与 class_name 绑定已就绪（profile 里 algorithm_plugin 可启用），"
+                        "但尚未经真训练验证，产品内不开放"
+                        if algorithm_entry["kind"] == "plugin"
+                        else "内置路径：off-policy（SAC/TD3）尚未接入 runner"
+                    ),
+                    "open_algorithms": [
+                        item["id"] for item in list_algorithms() if item.get("product_open")
+                    ],
+                },
+            )
         # 解析 Contract
-        contract = RobotContractV2(**request.contract)
+        contract = ContractLegacyV2(**request.contract)
 
         # 验证 Contract
         from contracts.validator import validate_contract
@@ -311,7 +331,7 @@ async def training_obs_board(robot_id: str):
     from backend.policy_artifacts import ROBOTS_DIR
     from backend.training.obs_board import board
 
-    path = ROBOTS_DIR / robot_id / "contract_v3.json"
+    path = ROBOTS_DIR / robot_id / "contract.json"
     if not path.is_file():
         raise HTTPException(status_code=404, detail=f"robot package {robot_id} not found")
     contract = json.loads(path.read_text(encoding="utf-8-sig"))

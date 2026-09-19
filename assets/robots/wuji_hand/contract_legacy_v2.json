@@ -1,0 +1,129 @@
+{
+  "schema_version": "robot-contract-2.0",
+  "contract_id": "wuji_hand_right_v1",
+  "robot_id": "wuji_hand",
+  "family": "Wuji Hand",
+  "size_class": "S",
+  "locomotion_type": "H",
+  "urdf": {
+    "path": "assets/robots/wuji_hand/model/robot.xml",
+    "hash": "",
+    "total_mass_kg": 0.5266,
+    "mass_source": "mjcf_compiled"
+  },
+  "joints": {
+    "actuated_joints": [
+      "right_finger1_joint1",
+      "right_finger1_joint2",
+      "right_finger1_joint3",
+      "right_finger1_joint4",
+      "right_finger2_joint1",
+      "right_finger2_joint2",
+      "right_finger2_joint3",
+      "right_finger2_joint4",
+      "right_finger3_joint1",
+      "right_finger3_joint2",
+      "right_finger3_joint3",
+      "right_finger3_joint4",
+      "right_finger4_joint1",
+      "right_finger4_joint2",
+      "right_finger4_joint3",
+      "right_finger4_joint4",
+      "right_finger5_joint1",
+      "right_finger5_joint2",
+      "right_finger5_joint3",
+      "right_finger5_joint4"
+    ],
+    "passive_joints": [],
+    "default_pose": [
+      0.8,
+      -0.0215,
+      0.285,
+      0.582,
+      0.441,
+      0.163,
+      0.822,
+      0.494,
+      0.448,
+      -0.0832,
+      0.883,
+      0.305,
+      0.594,
+      -0.268,
+      1.13,
+      0.18,
+      1.2,
+      -0.228,
+      0.794,
+      0.407
+    ]
+  },
+  "observation": {
+    "dimension": 69,
+    "components": [
+      "noisy_joint_angles",
+      "qpos_error",
+      "cube_pos_in_tag",
+      "cube_ori_error",
+      "action_history"
+    ]
+  },
+  "action": {
+    "dimension": 20,
+    "joint_order": [
+      "right_finger1_joint1",
+      "right_finger1_joint2",
+      "right_finger1_joint3",
+      "right_finger1_joint4",
+      "right_finger2_joint1",
+      "right_finger2_joint2",
+      "right_finger2_joint3",
+      "right_finger2_joint4",
+      "right_finger3_joint1",
+      "right_finger3_joint2",
+      "right_finger3_joint3",
+      "right_finger3_joint4",
+      "right_finger4_joint1",
+      "right_finger4_joint2",
+      "right_finger4_joint3",
+      "right_finger4_joint4",
+      "right_finger5_joint1",
+      "right_finger5_joint2",
+      "right_finger5_joint3",
+      "right_finger5_joint4"
+    ],
+    "action_scale": 0.5,
+    "action_scale_note": "JointPositionOffsetEMAActionCfg：default + clamp(a)*0.5 + EMA(0.5) 平滑"
+  },
+  "control": {
+    "control_hz": 20,
+    "physics_hz": 100,
+    "decimation": 5
+  },
+  "actuators": {
+    "xml_position": {
+      "kp_range": [
+        0.18,
+        0.686
+      ],
+      "kd_range": [
+        0.0082,
+        0.0306
+      ],
+      "effort_limit_max": 0.649,
+      "joints": [
+        "全部 20 关节（逐关节 XML position 执行器）"
+      ]
+    }
+  },
+  "description": "Wuji Hand 右手五指灵巧手（20 关节，固定基座）。模型与任务为包内资产（in-hand 方块重定向 WujiHand_Reorient），统一 mjlab 1.6 运行时。",
+  "tags": [
+    "dexterous-hand",
+    "mjcf",
+    "H",
+    "mjlab-1.6",
+    "in-hand"
+  ],
+  "source": "package-local asset",
+  "python_version": "3.12"
+}

@@ -24,7 +24,7 @@ ROBOTS = pathlib.Path(__file__).resolve().parents[1] / "assets" / "robots"
 
 
 def _load(robot: str) -> dict:
-    return json.loads((ROBOTS / robot / "contract_v3.json").read_text(encoding="utf-8-sig"))
+    return json.loads((ROBOTS / robot / "contract.json").read_text(encoding="utf-8-sig"))
 
 
 def _synthetic(*, components: list | None = None, dimension: int | None = None,
@@ -93,7 +93,7 @@ class ActionBoardTest(unittest.TestCase):
     def test_every_real_contract_has_consistent_action_mapping(self):
         """**真实仓不变量**：14 个机型的 `joint_order` 与驱动关节一一对应（实测 0 问题）。"""
         problems = {}
-        for path in sorted(ROBOTS.glob("*/contract_v3.json")):
+        for path in sorted(ROBOTS.glob("*/contract.json")):
             report = ob.action_board(json.loads(path.read_text(encoding="utf-8-sig")))
             if report["problems"]:
                 problems[path.parent.name] = report["problems"]
@@ -107,7 +107,7 @@ class RealBoardCharacterizationTest(unittest.TestCase):
     def _scan() -> tuple[set[str], set[str]]:
         without_components: set[str] = set()
         missing_fields: set[str] = set()
-        for path in sorted(ROBOTS.glob("*/contract_v3.json")):
+        for path in sorted(ROBOTS.glob("*/contract.json")):
             robot = path.parent.name
             report = ob.board(json.loads(path.read_text(encoding="utf-8-sig")))
             if report["observations"]["components_declared"] == 0:
@@ -137,7 +137,7 @@ class FiveTupleInvariantTest(unittest.TestCase):
 
     def test_no_contract_declares_components_without_a_full_five_tuple(self):
         incomplete: dict[str, list] = {}
-        for path in sorted(ROBOTS.glob("*/contract_v3.json")):
+        for path in sorted(ROBOTS.glob("*/contract.json")):
             report = ob.board(json.loads(path.read_text(encoding="utf-8-sig")))
             bad = [row["id"] for row in report["observations"]["components"] if row["missing_fields"]]
             if bad:

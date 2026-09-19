@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from pathlib import Path
+from contracts.validator import normalized_sha256  # 归一摘要唯一实现
 import json
 
 
@@ -160,10 +161,9 @@ class PolicyArtifact(BaseModel):
         if not Path(self.pytorch_model_path).exists():
             return False
 
-        # 检查哈希
-        import hashlib
+        # 检查哈希（归一摘要：CRLF → LF，与写入端同一口径）
         with open(self.pytorch_model_path, 'rb') as f:
-            actual_hash = hashlib.sha256(f.read()).hexdigest()
+            actual_hash = normalized_sha256(f.read())
         if actual_hash != self.pytorch_model_hash:
             return False
 
@@ -172,7 +172,7 @@ class PolicyArtifact(BaseModel):
             if not Path(self.onnx_model_path).exists():
                 return False
             with open(self.onnx_model_path, 'rb') as f:
-                actual_hash = hashlib.sha256(f.read()).hexdigest()
+                actual_hash = normalized_sha256(f.read())
             if actual_hash != self.onnx_model_hash:
                 return False
 
@@ -182,7 +182,7 @@ class PolicyArtifact(BaseModel):
 # ========== 工厂函数 ==========
 
 def create_artifact_from_training(
-    contract: 'RobotContractV2',
+    contract: 'ContractLegacyV2',
     task_name: str,
     algorithm: str,
     model_path: str,
@@ -190,13 +190,12 @@ def create_artifact_from_training(
     **kwargs
 ) -> PolicyArtifact:
     """从训练结果创建 Artifact"""
-    import hashlib
     import sys
     import torch
 
-    # 计算模型哈希
+    # 计算模型哈希（归一摘要：与 validate_integrity 的校验端同一口径）
     with open(model_path, 'rb') as f:
-        model_hash = hashlib.sha256(f.read()).hexdigest()
+        model_hash = normalized_sha256(f.read())
 
     # 创建 Artifact
     artifact = PolicyArtifact(
@@ -233,7 +232,7 @@ def create_artifact_from_training(
 
 if __name__ == "__main__":
     # 测试
-    from contracts.robot_contract_v2 import create_go2_contract
+    from contracts.contract_legacy_v2 import create_go2_contract
 
     contract = create_go2_contract()
 

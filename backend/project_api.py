@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import io
-import hashlib
 import json
 import os
 import shutil
@@ -18,17 +17,14 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from backend.version import get_version
 from backend.robot_packages import package_for_contract
+from contracts.validator import normalized_sha256, package_digest  # 内容摘要唯一实现
 from backend.model_api import _validate, ModelValidationRequest, _contract_draft
 
 
 router = APIRouter(prefix="/api/project", tags=["project"])
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE = PROJECT_ROOT / "workspace"
-
-
-def _workspace_root() -> Path:
-    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE")
-    return Path(configured).expanduser().resolve() if configured else WORKSPACE
+#: 工作区根的唯一实现见 ``backend/paths.py``（此前本模块自带一份，且与他处规则不一致）。
+from backend.paths import workspace_root as _workspace_root  # noqa: E402  (import 位置跟随既有排版)
 
 
 def _api_path(path: Path) -> str:
@@ -47,13 +43,19 @@ def _safe_package_id(value: str) -> str:
 
 
 def _tree_hash(root: Path) -> str:
-    digest = hashlib.sha256()
-    for path in sorted((item for item in root.rglob("*") if item.is_file()), key=lambda item: item.relative_to(root).as_posix()):
-        digest.update(path.relative_to(root).as_posix().encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-        digest.update(b"\0")
-    return digest.hexdigest()
+    """目录内容摘要：委托 ``contracts.validator.package_digest``（**唯一实现**）。
+
+    此前这里是第二套口径：与 ``model_api`` 的 ``content_sha256`` 相比**少了 CRLF → LF 归一**，
+    而两者算出来的值都会写进/读自 ``robot_package.json`` 的同一个 ``content_sha256`` 字段。
+    实测（2026-09-19）：本仓 4 个机器人包两种口径**全都不同** ⇒ 只要"带清单字段的源包"与
+    "没字段的目标包"被放进同一次比较（或反过来），同一份内容就会被判成两份、生成多余副本。
+    """
+
+    return package_digest(
+        (item.relative_to(root), item.read_bytes())
+        for item in sorted(root.rglob("*"))
+        if item.is_file()
+    )
 
 
 class ProjectExportRequest(BaseModel):
@@ -75,7 +77,11 @@ async def list_project_packages() -> dict[str, Any]:
         if not package_root.is_dir():
             continue
         descriptor = package_root / "robot_package.json"
-        contract = package_root / "contract.json"
+        # 包识别判据：manifest + **至少一份契约**。新导入的包一定有 v2 视图
+        # （导入链必写），真值契约要有一次迁移/生成才在——所以先看 v2 视图，再回落真值。
+        contract = package_root / "contract_legacy_v2.json"
+        if not contract.exists():
+            contract = package_root / "contract.json"
         if not descriptor.exists() or not contract.exists():
             continue
         try:
@@ -232,7 +238,10 @@ def _normalise_robot_packages(imported_root: Path, manifest: dict[str, Any]) -> 
         report = _validate(ModelValidationRequest(path=relative, filename=model.name, format=fmt))
         if not report.get("valid"):
             continue
-        digest = __import__("hashlib").sha256(model.read_bytes()).hexdigest()
+        # 归一摘要（CRLF → LF）：这个值会写进契约的 ``urdf.hash``，而契约校验
+        # （``contracts.validator._compute_file_hash``）用的是归一版 —— 此前这里是原始字节
+        # sha256，于是 CRLF 模型文件导入后**立刻**校验失败（hash mismatch）。
+        digest = normalized_sha256(model.read_bytes())
         package_id = "imported_" + "".join(c.lower() if c.isalnum() else "_" for c in model.stem).strip("_")[:40]
         contract = _contract_draft(Path(relative), fmt, report.get("inspection", {}), digest)
         contract.update({"robot_id": package_id or "imported_robot", "contract_id": f"{package_id}_contract_v1", "source": "legged_studio_project_import", "tags": ["imported", "project_package"]})

@@ -11,8 +11,8 @@ backend 既有实现（``backend.export_gate.compare_contracts`` /
 2. **成功路径**：真实机器人包（unitree_go2）打包出四件套 + 平台适配层，产物落
    ``--out`` 指定的临时目录（绝不污染真实 ``workspace/``）；契约一致的包 gate 通过；
 3. **失败路径 fail-closed**：包内契约漂移（如 control_hz 被改）→ blocker + 退出码 1；
-   未知机器人 / 缺 contract_v3 → 如实报错、退出码非 0；
-4. **当前真实数据的诚实结果**：内置包的 contract_v3 比 v2 丰富（observation.components /
+   未知机器人 / 缺 contract_truth → 如实报错、退出码非 0；
+4. **当前真实数据的诚实结果**：内置包的 contract_truth 比 v2 丰富（observation.components /
    actuator_profile 是 v3 才有的声明），gate 必须**如实报 deny**（退出码 1），
    绝不为了"绿"编造通过。
 
@@ -76,10 +76,10 @@ def make_probe_workspace(base: Path, *, with_v3: bool = True) -> Path:
     probe = ws / "packages" / "go2_gate_probe"
     probe.mkdir(parents=True)
     source = ROOT / "assets" / "robots" / GO2
-    for name in ("contract.json", "robot_package.json"):
+    for name in ("contract_legacy_v2.json", "robot_package.json"):
         shutil.copy2(source / name, probe / name)
     if with_v3:
-        shutil.copy2(source / "contract_v3.json", probe / "contract_v3.json")
+        shutil.copy2(source / "contract.json", probe / "contract.json")
     return ws
 
 
@@ -125,7 +125,7 @@ class DeployGateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             ws = make_probe_workspace(Path(tmp))
             probe = ws / "packages" / "go2_gate_probe"
-            shutil.copy2(probe / "contract_v3.json", probe / "contract.json")  # v2 := v3
+            shutil.copy2(probe / "contract.json", probe / "contract_legacy_v2.json")  # legacy := truth
             proc = run_cli("deploy", "gate", GO2, "--workspace", str(ws))
             self.assertEqual(0, proc.returncode, proc.stdout)
             self.assertIn("✓ 通过", proc.stdout)
@@ -136,7 +136,7 @@ class DeployGateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             ws = make_probe_workspace(Path(tmp))
             probe = ws / "packages" / "go2_gate_probe"
-            shutil.copy2(probe / "contract_v3.json", probe / "contract.json")
+            shutil.copy2(probe / "contract.json", probe / "contract_legacy_v2.json")
             proc = run_cli("--offline", "deploy", "gate", GO2, "--workspace", str(ws))
             self.assertEqual(0, proc.returncode, proc.stdout + proc.stderr)
             self.assertIn("✓ 通过", proc.stdout)
@@ -147,9 +147,9 @@ class DeployGateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             ws = make_probe_workspace(Path(tmp))
             probe = ws / "packages" / "go2_gate_probe"
-            payload = json.loads((probe / "contract.json").read_text(encoding="utf-8-sig"))
+            payload = json.loads((probe / "contract_legacy_v2.json").read_text(encoding="utf-8-sig"))
             payload["control"]["control_hz"] = int(payload["control"].get("control_hz", 50)) + 7
-            (probe / "contract.json").write_text(
+            (probe / "contract_legacy_v2.json").write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
             )
             proc = run_cli("deploy", "gate", GO2, "--workspace", str(ws))
@@ -163,7 +163,7 @@ class DeployGateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             ws = make_probe_workspace(Path(tmp))
             probe = ws / "packages" / "go2_gate_probe"
-            shutil.copy2(probe / "contract_v3.json", probe / "contract.json")
+            shutil.copy2(probe / "contract.json", probe / "contract_legacy_v2.json")
             good = run_cli("--json", "deploy", "gate", GO2, "--workspace", str(ws))
             self.assertEqual(0, good.returncode, good.stdout)
             payload = json.loads(good.stdout)
@@ -172,7 +172,7 @@ class DeployGateTest(unittest.TestCase):
             self.assertIn("go2_gate_probe", payload["package_root"])
             self.assertEqual([], payload["blockers"])
 
-            (probe / "contract.json").write_text(
+            (probe / "contract_legacy_v2.json").write_text(
                 json.dumps({"control": {"control_hz": 999}}, ensure_ascii=False), encoding="utf-8",
             )
             bad = run_cli("--json", "deploy", "gate", GO2, "--workspace", str(ws))
@@ -240,14 +240,14 @@ class DeployPackageTest(unittest.TestCase):
             self.assertIn("no_such_robot", proc.stderr)
             self.assertEqual([], list(Path(tmp).glob("*.zip")))                # 失败不落任何产物
 
-    def test_missing_contract_v3_fails_closed(self):
-        """副本缺 contract_v3.json ⇒ backend 拒绝打包（一键生成不能建在不完整契约上）。"""
+    def test_missing_truth_contract_fails_closed(self):
+        """副本缺 contract.json ⇒ backend 拒绝打包（一键生成不能建在不完整契约上）。"""
 
         with tempfile.TemporaryDirectory() as tmp:
             ws = make_probe_workspace(Path(tmp), with_v3=False)
             proc = run_cli("deploy", "package", GO2, "--workspace", str(ws), "--out", str(Path(tmp) / "out"))
             self.assertEqual(1, proc.returncode, proc.stdout)
-            self.assertIn("contract_v3", proc.stderr)
+            self.assertIn("contract", proc.stderr)
             self.assertFalse((Path(tmp) / "out").exists())
 
     def test_offline_flag_still_runs(self):
@@ -256,6 +256,31 @@ class DeployPackageTest(unittest.TestCase):
             proc = run_cli("--offline", "deploy", "package", GO2, "--out", str(out))
             self.assertEqual(0, proc.returncode, proc.stdout + proc.stderr)
             self.assertEqual(1, len(list(out.glob("*.zip"))))
+
+    def test_policy_flag_is_carried_into_the_package(self):
+        """``--policy <onnx>``：策略真进包（与 API 的 policy_onnx_path 同一实现）。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "deploy_out"
+            onnx = Path(tmp) / "policy.onnx"
+            onnx.write_bytes(b"fake-onnx-bytes")
+            proc = run_cli("deploy", "package", GO2, "--out", str(out), "--policy", str(onnx))
+            self.assertEqual(0, proc.returncode, proc.stderr)
+            with zipfile.ZipFile(next(out.glob("*.zip"))) as zf:
+                self.assertIn("policy.onnx", zf.namelist())
+                self.assertEqual(b"fake-onnx-bytes", zf.read("policy.onnx"))
+
+    def test_missing_policy_fails_closed(self):
+        """给了 --policy 而文件不存在 ⇒ 退出码 1、不落任何产物（不静默忽略）。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "deploy_out"
+            proc = run_cli("deploy", "package", GO2, "--out", str(out),
+                           "--policy", str(Path(tmp) / "no_such.onnx"))
+            self.assertEqual(1, proc.returncode, proc.stdout)
+            self.assertIn("deploy 失败", proc.stderr)
+            self.assertIn("no_such.onnx", proc.stderr)
+            self.assertFalse(out.exists())
 
 
 if __name__ == "__main__":

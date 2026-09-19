@@ -3207,7 +3207,7 @@
       const dof = inspection.dof ?? inspection.joint_count ?? '';
       showRobotImportResult(
         `已导入 ${payload.package_id}（dof ${dof || '未声明'}）`
-        + (payload.contract_v3?.note ? ` · 契约 v3：${payload.contract_v3.note}` : ''), true,
+        + (payload.contract?.note ? ` · 契约真值：${payload.contract_v3.note}` : ''), true,
       );
       // 新包直接选上，接着就能配训练（1 目录 + 3 JSON + 模型，不改一行 Python）
       await loadPresets(payload.package_id);

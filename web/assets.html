@@ -41,7 +41,7 @@
       <div class="page-actions"><a class="btn" href="workbench.html#home">返回工作台</a><button class="btn" id="refresh">刷新索引</button></div>
     </header>
     <div class="import-bar">
-      <input id="importPath" type="text" placeholder="输入机器人包的绝对路径（目录需包含 contract.json 与 robot_package.json），例如 C:\data\my_robot_pkg" spellcheck="false">
+      <input id="importPath" type="text" placeholder="输入机器人包的绝对路径（目录需包含 contract_legacy_v2.json 与 robot_package.json），例如 C:\data\my_robot_pkg" spellcheck="false">
       <button class="btn primary" id="importBtn">导入包</button>
     </div>
     <p class="toolbar-note">索引具备自动同步：任何包新增/修改/删除都会在下一次读取时被检测并重建，无需手动刷新。内置包（assets/robots）为只读。</p>
@@ -66,7 +66,7 @@
             ${isWorkspace?`<button class="btn danger" data-delete="${esc(item.robot_id)}">删除</button>`:'<span class="badge readonly">内置 · 只读</span>'}
           </div>`;
           const morph=item.morphology||{};
-          const morphLine=morph.source==='contract_v3'?`<p class="morph-line">形态 <b>${esc(morph.id||'-')}</b> · ${morph.legs??'-'} 腿 · 角色 ${(morph.roles||[]).map(esc).join('/')||'-'} · ${esc(morph.actuator_type||'-')} · ${esc(morph.foot_type||'-')}足${morph.wheel_count?` · 轮组 ${morph.wheel_count}`:''}</p>`:'';
+          const morphLine=morph.source==='contract_truth'?`<p class="morph-line">形态 <b>${esc(morph.id||'-')}</b> · ${morph.legs??'-'} 腿 · 角色 ${(morph.roles||[]).map(esc).join('/')||'-'} · ${esc(morph.actuator_type||'-')} · ${esc(morph.foot_type||'-')}足${morph.wheel_count?` · 轮组 ${morph.wheel_count}`:''}</p>`:'';
           return `<article class="package-card" data-robot="${esc(item.robot_id)}">
             <div class="package-head"><div><h3>${esc(item.family||item.robot_id)}</h3><span class="badge">${esc(item.robot_id)}</span></div>
             <span class="badge ${isWorkspace?'':'readonly'}">${isWorkspace?'工作区':'内置'}</span></div>

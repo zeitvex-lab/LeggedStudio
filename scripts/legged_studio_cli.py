@@ -9,7 +9,7 @@ for native MJLab/Isaac adapters later.
 
 * ``onboard <目录>``    → :func:`backend.model_api.import_package_directory` / ``preview_package_import``
   —— 新机器人 = 1 目录 + 模型 → 校验 → 生成三件 JSON（contract.json / robot_package.json /
-  contract_v3.json）→ 落 ``workspace/packages/`` → 登记索引；**默认预演**，``--write`` 落盘，
+  contract.json）→ 落 ``workspace/packages/`` → 登记索引；**默认预演**，``--write`` 落盘，
   校验不过一字节不写（与 Web 的 ``POST /api/models/import`` 共用同一份编排与内容摘要）；
 * ``verify package <目录>`` → ``contracts.validator`` + ``contracts.contract_loader``
   —— 包对账门禁（v2 契约 / v3 角色语义 / 训练侧消费的合并契约 / 清单与模型对得上），
@@ -22,7 +22,7 @@ for native MJLab/Isaac adapters later.
 * ``run list``      → 扫描 ``workspace/`` 下含 ``run.json`` 的目录 + :func:`backend.training.runs.load_run`；
 * ``artifact list`` → :func:`backend.policy_artifacts.load_index`；
 * ``deploy gate <robot_id>``   → ``backend.export_gate.compare_contracts``
-  （与 ``GET /api/deploy/gate/{robot_id}`` 同一组成：包内 contract_v3 vs contract.json，
+  （与 ``GET /api/deploy/gate/{robot_id}`` 同一组成：包内 contract_truth vs contract_legacy_v2.json，
   DENYLIST fail-closed，存在 blocker 退出码 1）；
 * ``deploy package <robot_id>`` → ``backend.deploy_pack.generate_deploy_package``
   （与 ``POST /api/deploy/package`` 同一实现：部署四件套 + 平台适配层；只生成物料，
@@ -172,16 +172,17 @@ def _cmd_pack_list(as_json: bool) -> int:
 
 
 def _workspace_root(workspace: str | None) -> Path:
-    """workspace 根：``--workspace`` 参数 > 环境变量 > 仓库 ``workspace/``（与 backend 各模块同约定）。"""
+    """workspace 根：``--workspace`` 参数 > 环境变量 > 仓库 ``workspace/``（唯一实现见 ``backend/paths.py``）。
+
+    ``--workspace`` 分支也做 ``resolve()``：否则同一个 ``--workspace ws`` 会以相对/绝对两种
+    形态出现在"环境变量里的值"与"下游模块解析出的值"之间，前缀判断与缓存键随之失配。
+    """
 
     if workspace:
-        return Path(workspace).expanduser()
-    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE", "").strip()
-    if configured:
-        return Path(configured).expanduser().resolve()
-    from backend.training.runs import ROOT
+        return Path(workspace).expanduser().resolve()
+    from backend.paths import workspace_root
 
-    return ROOT / "workspace"
+    return workspace_root()
 
 
 def _run_status(run_dir: Path, fallback: str) -> str:
@@ -298,7 +299,7 @@ def _cmd_onboard(args: argparse.Namespace) -> int:
 
     与 Web 的 ``POST /api/models/import`` **共用同一份编排**（``backend.model_api``）：
     校验模型 → 生成三件 JSON（``contract.json`` / ``robot_package.json`` /
-    ``contract_v3.json``）→ 落 ``workspace/packages/<package_id>/`` → 登记索引。
+    ``contract_legacy_v2.json``）→ 落 ``workspace/packages/<package_id>/`` → 登记索引。
     两条入口的 ``package_id`` 由同一份内容摘要算出，所以"同一份资产"不会变成两个包。
 
     **默认预演**（与 ``tools/skill_pack.py import`` 同惯例：导入是写操作，先看清再落盘），
@@ -352,10 +353,10 @@ def _cmd_onboard(args: argparse.Namespace) -> int:
 
     print(f"  包 id：{report.get('package_id')}")
     print(f"  落点：{report.get('package_root')}")
-    print("  三件 JSON：contract.json / robot_package.json / contract_v3.json")
-    note = (report.get("contract_v3") or {}).get("note")
+    print("  三件 JSON：contract.json / robot_package.json / contract_legacy_v2.json")
+    note = (report.get("contract") or {}).get("note")
     if note:
-        print(f"  contract_v3：{note}")
+        print(f"  contract_truth：{note}")
     if args.write:
         print("已导入并登记索引。下一步：verify package <落点> → train create")
     else:
@@ -369,7 +370,7 @@ def _cmd_verify_package(args: argparse.Namespace) -> int:
     判据一律取**既有实现**（不在这里另写一套校验）：
       * v2 契约 → ``contracts.validator.validate_contract_file``（模型哈希 / 驱动关节 /
         观测与动作维度）；
-      * v3 契约 → ``contracts.contract_loader.load_contract_v3``（角色语义
+      * 契约真值 → ``contracts.contract_loader.load_contract``（角色语义
         ``RoleResolver.validate``）；
       * 「训练实际消费的那份合并契约」→ ``load_training_contract``（v3 覆盖 v2）；
       * 清单与模型文件对得上（``robot_package.json`` 的 ``model.path`` / ``contract_path``）。
@@ -377,7 +378,7 @@ def _cmd_verify_package(args: argparse.Namespace) -> int:
     任一不过 → 退出码 1（可直接当 CI / 脚本门禁）。
     """
 
-    from contracts.contract_loader import ContractLoadError, load_contract_v3, load_training_contract
+    from contracts.contract_loader import ContractLoadError, load_contract, load_training_contract
     from contracts.validator import validate_contract_file
 
     root = Path(args.directory).expanduser()
@@ -389,7 +390,7 @@ def _cmd_verify_package(args: argparse.Namespace) -> int:
         raise SystemExit(f"verify 失败：目录不存在：{root}")
 
     manifest_path = root / "robot_package.json"
-    contract_path = root / "contract.json"
+    contract_path = root / "contract_legacy_v2.json"
     manifest: dict = {}
     if not manifest_path.is_file():
         problems.append("缺 robot_package.json（不是机器人包）")
@@ -401,7 +402,7 @@ def _cmd_verify_package(args: argparse.Namespace) -> int:
             problems.append(f"robot_package.json 不可解析：{exc}")
 
     if not contract_path.is_file():
-        problems.append("缺 contract.json（v2 契约）")
+        problems.append("缺 contract_legacy_v2.json（v2 契约）")
     else:
         try:
             result = validate_contract_file(str(contract_path))
@@ -411,13 +412,13 @@ def _cmd_verify_package(args: argparse.Namespace) -> int:
             problems.append(f"契约 v2 校验异常：{type(exc).__name__}: {exc}")
 
     try:
-        v3 = load_contract_v3(root)
-        report["contract_v3"] = "present" if v3 is not None else "missing"
+        v3 = load_contract(root)
+        report["contract"] = "present" if v3 is not None else "missing"
         if v3 is None:
-            warnings.append("缺 contract_v3.json（语义层：构型/角色/执行器按 v3 取，缺它训练侧只能退回 v2）")
+            warnings.append("缺 contract.json（语义层：构型/角色/执行器按 v3 取，缺它训练侧只能退回 v2）")
     except Exception as exc:
-        problems.append(f"契约 v3 角色语义校验失败：{exc}")
-        report["contract_v3"] = "invalid"
+        problems.append(f"契约真值角色语义校验失败：{exc}")
+        report["contract"] = "invalid"
 
     try:
         merged = load_training_contract(root)
@@ -430,7 +431,7 @@ def _cmd_verify_package(args: argparse.Namespace) -> int:
 
     model = ((manifest.get("model") or {}) if isinstance(manifest, dict) else {}) or {}
     model_path = root / str(model.get("path") or "")
-    declared_contract = root / str(manifest.get("contract_path") or "contract.json")
+    declared_contract = root / str(manifest.get("contract_path") or "contract_legacy_v2.json")
     if model and not model_path.is_file():
         problems.append(f"robot_package.json 指认的模型文件不存在：{model.get('path')}")
     if not declared_contract.is_file():
@@ -448,7 +449,7 @@ def _cmd_verify_package(args: argparse.Namespace) -> int:
 
     print(f"机器人包对账（离线命令，无需后端）：{root}")
     print(f"  包 id：{report.get('package_id') or '(未知)'}")
-    print(f"  契约：v2 {'在' if contract_path.is_file() else '缺'} / v3 {report.get('contract_v3')}")
+    print(f"  契约：v2 {'在' if contract_path.is_file() else '缺'} / 真值 {report.get('contract')}")
     print(f"  合并契约：{report.get('merged_keys', 0)} 个键（训练侧实际消费的那份）")
     for item in warnings:
         print(f"  ~ {item}")
@@ -695,39 +696,29 @@ def _deploy_workspace(args: argparse.Namespace) -> None:
 def _cmd_deploy_gate(args: argparse.Namespace) -> int:
     """``deploy gate <robot_id>``：部署契约校验（离线命令，无需后端）。
 
-    与 ``GET /api/deploy/gate/{robot_id}``（backend.deploy_api）**同一组成**：
-    ``backend.robot_presets.get_robot_preset`` 解析包根 → ``backend.deploy_pack._load_json``
-    读包内 contract_v3.json / contract.json → ``backend.export_gate.compare_contracts``
-    裁决（DENYLIST fail-closed，硬约束字段不一致即 deny）。判据只在 backend 有一份，
-    这里不另写字段比较。存在 blocker → 退出码 1（可直接当上机前门禁）。
+    判据全在 :func:`backend.deploy_pack.deploy_gate_report`（与 ``GET /api/deploy/gate/{robot_id}``
+    **同一实现**）：包根解析 → 读包内 contract_legacy_v2.json / contract_legacy_v2.json →
+    ``backend.export_gate.compare_contracts`` 裁决（DENYLIST fail-closed，硬约束字段不一致即 deny）。
+    本命令只做异常到退出码/措辞的映射，不自己拼路径、不自己比字段。
+    存在 blocker → 退出码 1（可直接当上机前门禁）。
     """
 
-    from backend.deploy_pack import ROOT, _load_json
-    from backend.export_gate import compare_contracts
-    from backend.robot_presets import get_robot_preset
+    from backend.deploy_pack import RobotPackageNotFound, deploy_gate_report
 
     _deploy_workspace(args)
-    preset = get_robot_preset(args.robot_id)
-    root_value = str(((preset or {}).get("robot_package") or {}).get("package_root", ""))
-    root = Path(root_value) if root_value else ROOT / "assets" / "robots" / args.robot_id
-    if not root.is_dir():
-        raise SystemExit(f"deploy 失败：找不到机器人包 {args.robot_id!r}（按过 {root}）")
-
-    v3 = _load_json(root / "contract_v3.json")
-    v2 = _load_json(root / "contract.json")
-    missing = [name for name, value in (("contract_v3.json", v3), ("contract.json", v2)) if not value]
-    if missing:
-        raise SystemExit(f"deploy 失败：包内契约不全（缺 {' / '.join(missing)}）：{root}")
-
-    report = compare_contracts(v3, v2)
-    payload = {**report, "robot_id": args.robot_id, "package_root": str(root)}
+    try:
+        report = deploy_gate_report(args.robot_id)
+    except RobotPackageNotFound as exc:
+        raise SystemExit(f"deploy 失败：找不到机器人包 {exc.robot_id!r}（按过 {exc.attempted}）") from exc
+    except ValueError as exc:
+        raise SystemExit(f"deploy 失败：{exc}") from exc
 
     if args.json:
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        print(json.dumps(report, ensure_ascii=False, indent=2))
         return 0 if report["ok"] else 1
 
-    print(f"部署契约校验（离线命令，无需后端）：{root}")
-    print(f"  机器人：{args.robot_id}（包内 contract_v3 vs contract.json，硬约束字段 fail-closed）")
+    print(f"部署契约校验（离线命令，无需后端）：{report['package_root']}")
+    print(f"  机器人：{args.robot_id}（包内 contract_truth vs contract_legacy_v2.json，硬约束字段 fail-closed）")
     for item in report.get("warnings") or []:
         print(f"  ~ {item}")
     blockers = report.get("blockers") or []
@@ -750,7 +741,7 @@ def _cmd_deploy_package(args: argparse.Namespace) -> int:
     安全线不变：只生成物料，不直接发电机命令——"一键生成 ≠ 一键上机"。
     """
 
-    from backend.deploy_pack import generate_deploy_package
+    from backend.deploy_pack import RobotPackageNotFound, generate_deploy_package
 
     _deploy_workspace(args)
     try:
@@ -760,7 +751,10 @@ def _cmd_deploy_package(args: argparse.Namespace) -> int:
             target_platform=args.platform,
             bench_mode=args.bench,
             out_dir=Path(args.out).expanduser() if args.out else None,
+            policy_onnx=Path(args.policy).expanduser() if args.policy else None,
         )
+    except RobotPackageNotFound as exc:
+        raise SystemExit(f"deploy 失败：找不到机器人包 {exc.robot_id!r}（按过 {exc.attempted}）") from exc
     except (FileNotFoundError, ValueError) as exc:
         raise SystemExit(f"deploy 失败：{exc}") from exc
 
@@ -771,7 +765,8 @@ def _cmd_deploy_package(args: argparse.Namespace) -> int:
     print(f"部署包已生成（离线命令，无需后端）：{report['path']}")
     print(f"  机器人：{report['robot_id']} / 目标平台：{report['target_platform']}"
           + (" / D2 台架模式" if report.get("bench_mode") else "")
-          + (" / 劣化参数档（力矩 ×0.8）" if args.degraded else ""))
+          + (" / 劣化参数档（力矩 ×0.8）" if args.degraded else "")
+          + (" / 随包携带策略" if args.policy else ""))
     print(f"  内含 {len(report['files'])} 个文件：{'、'.join(report['files'])}")
     print("  提醒：一键生成 ≠ 一键上机——按包内《人工确认清单》逐项确认后再上机。")
     return 0
@@ -1094,7 +1089,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="把机器人目录导入为机器人包（离线命令，无需后端；默认预演，--write 落盘）",
         description=(
             "把机器人目录导入为机器人包（离线命令，无需后端）。与 Web 的 POST /api/models/import "
-            "共用同一份编排：校验 → 生成 contract.json / robot_package.json / contract_v3.json "
+            "共用同一份编排：校验 → 生成 contract.json / robot_package.json / contract_legacy_v2.json "
             "→ 落 workspace/packages/<package_id>/ → 登记索引。**默认预演**（不写任何文件），"
             "--write 才落盘；校验不过一个字节都不写。"
         ),
@@ -1113,7 +1108,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="对一个机器人包做全面对账（离线命令，无需后端）",
         description=(
             "对一个机器人包做全面对账（离线命令，无需后端）：v2 契约（模型哈希/驱动关节/维度）、"
-            "v3 契约（角色语义）、训练侧实际消费的合并契约、清单与模型文件是否对得上。"
+            "真值契约（角色语义）、训练侧实际消费的合并契约、清单与模型文件是否对得上。"
             "任一不过 → 退出码 1。"
         ),
     )
@@ -1212,7 +1207,7 @@ def build_parser() -> argparse.ArgumentParser:
         "deploy",
         help="部署物料 gate/package（离线命令，无需后端；校验不过退出码 1）",
         description=(
-            "部署物料两条离线命令：gate（部署契约校验：包内 contract_v3 vs contract.json，"
+            "部署物料两条离线命令：gate（部署契约校验：包内 contract_truth vs contract_legacy_v2.json，"
             "DENYLIST fail-closed）与 package（部署包 zip：契约/FSM/解码层/人工确认清单 + 平台适配层）。"
             "判据与打包全部委托 backend 既有实现（与 Web 的 /api/deploy/* 同一实现），"
             "只生成物料不发电机命令——一键生成 ≠ 一键上机。"
@@ -1222,10 +1217,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     deploy_gate = deploy_sub.add_parser(
         "gate",
-        help="部署契约校验：包内契约 v3 vs v2 一致性（离线命令，无需后端）",
+        help="部署契约校验：包内契约真值 vs v2 一致性（离线命令，无需后端）",
         description=(
             "部署契约校验（离线命令，无需后端）：与 GET /api/deploy/gate/{robot_id} 同一组成——"
-            "解析机器人包根，读包内 contract_v3.json 与 contract.json，交给 "
+            "解析机器人包根，读包内 contract_legacy_v2.json 与 contract_legacy_v2.json，交给 "
             "backend.export_gate.compare_contracts 裁决（硬约束字段不一致即 deny）。"
             "存在 blocker → 退出码 1，可当上机前门禁。"
         ),
@@ -1252,6 +1247,8 @@ def build_parser() -> argparse.ArgumentParser:
     deploy_package.add_argument("--bench", action="store_true", default=False,
                                 help="D2 台架模式：额外生成 d2_bench_test.py（空载正弦扫频）")
     deploy_package.add_argument("--out", default=None, help="输出目录（默认 <仓库>/workspace/deploy）")
+    deploy_package.add_argument("--policy", default=None,
+                                help="随包携带的策略 ONNX（打进包内 policy.onnx；路径不存在即失败，不静默忽略）")
     deploy_package.add_argument("--workspace", default=None, help="workspace 根（默认：LEGGED_STUDIO_WORKSPACE 环境变量或仓库 workspace/）")
     deploy_package.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
 

@@ -29,11 +29,7 @@ SCRIPT = ROOT / "adapters" / "mjlab" / "quality_metrics.py"
 DEFAULT_MIN_SCORE = 0.5
 
 
-def _workspace_root() -> Path:
-    import os
-
-    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE")
-    return Path(configured).expanduser().resolve() if configured else ROOT / "workspace"
+from backend.paths import workspace_root as _workspace_root  # 唯一实现见 backend/paths.py
 
 
 def reports_dir() -> Path:

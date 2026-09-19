@@ -15,7 +15,7 @@ if str(Path(__file__).resolve().parents[2]) not in sys.path:
 from contracts.path_bootstrap import ensure_project_root_on_path
 ensure_project_root_on_path()
 
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 from adapters.mjlab.training_adapter import TrainingConfig, MJLabTrainingAdapter
 
 
@@ -52,7 +52,7 @@ def main():
 
     # 加载 Contract
     print("[Worker] Loading Contract...")
-    contract = RobotContractV2.from_json_file(args.contract)
+    contract = ContractLegacyV2.from_json_file(args.contract)
     print(f"[Worker] Contract loaded: {contract.contract_id}")
     print(f"[Worker] Robot: {contract.family} ({contract.robot_id})")
     print()

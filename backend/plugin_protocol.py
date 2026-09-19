@@ -1,8 +1,8 @@
 """ls_plugin 插件协议 v1（T6.1，批次 6 / M7）。
 
-协议对着已完成的契约 v3 设计（报告 8 方案二 E1"不凭空设计"）：
-  - manifest：robot-package-1.1（capabilities/model/contract_v3_path/license/integrity）
-  - 校验：目录结构 → manifest → 契约 v3 自洽 → 完整性哈希 → 许可声明
+协议对着已完成的契约真值 设计（报告 8 方案二 E1"不凭空设计"）：
+  - manifest：robot-package-1.1（capabilities/model/contract_path/license/integrity）
+  - 校验：目录结构 → manifest → 契约真值 自洽 → 完整性哈希 → 许可声明
   - 匹配：三谓词数据交集（报告 6 §4.6）——
       requires_morphology ⊆ ｜ requires_roles ⊆ ｜ action_dim ==
   - 目录：catalog.json 汇总（ZIP hash 分发与许可门的消费形态，T6.3）
@@ -13,7 +13,6 @@ manifest（报告 6 §1）、robot_lab framework 层（报告 4 §1 范式 B）�
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from datetime import datetime
@@ -21,6 +20,8 @@ from pathlib import Path
 from typing import Any
 
 from contracts.role_resolver import RoleResolver, RoleResolverError
+
+from contracts.validator import normalized_sha256  # 归一摘要唯一实现（B39 口径）
 
 MANIFEST_VERSIONS = {"robot-package-1.0", "robot-package-1.1"}
 PACKAGE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -36,7 +37,12 @@ def _load_json(path: Path) -> dict | None:
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """规范化内容哈希：委托 ``contracts.validator.normalized_sha256``（**唯一实现**）。
+
+    包内 ``integrity.model_sha256`` 由本函数写入、也由本函数校验；用原始字节会让
+    "在一台机器上签名、在另一台机器校验"随行尾漂移失败。
+    """
+    return normalized_sha256(path.read_bytes())
 
 
 def validate_package(package_root: Path) -> dict[str, Any]:
@@ -69,12 +75,12 @@ def validate_package(package_root: Path) -> dict[str, Any]:
         elif required and not rel:
             errors.append(f"{key} 缺失")
 
-    contract_v3 = _load_json(package_root / (manifest.get("contract_v3_path") or "contract_v3.json"))
-    if not contract_v3:
-        warnings.append("缺少 contract_v3.json——建议运行 tools/migrate_contract_v3.py 生成（T0.2）")
+    contract_truth = _load_json(package_root / (manifest.get("contract_path") or "contract.json"))
+    if not contract_truth:
+        warnings.append("缺少 contract.json——建议运行 tools/migrate_contract.py 生成（T0.2）")
     else:
-        resolver_errors = RoleResolver(contract_v3).validate()
-        errors.extend(f"契约 v3: {item}" for item in resolver_errors)
+        resolver_errors = RoleResolver(contract_truth).validate()
+        errors.extend(f"契约真值: {item}" for item in resolver_errors)
 
     integrity = manifest.get("integrity") or {}
     if isinstance(integrity, dict) and integrity.get("model_sha256"):
@@ -94,15 +100,15 @@ def _norm(value: Any) -> set[str]:
     return {str(item) for item in value or []}
 
 
-def match_profiles(robot_contract_v3: dict, profiles: list[dict]) -> dict[str, Any]:
+def match_profiles(robot_contract: dict, profiles: list[dict]) -> dict[str, Any]:
     """三谓词匹配（报告 6 §4.6）：morphology ⊆ / roles ⊆ / action_dim ==。
 
     未声明需求字段的 profile 视为通用（与 1000frames morphology=""=通用一致）。
     """
 
-    morphology = (robot_contract_v3.get("morphology") or {}).get("id")
-    robot_roles = {entry["role"] for entry in (robot_contract_v3.get("joints") or {}).get("actuated", [])}
-    action_dim = len((robot_contract_v3.get("action") or {}).get("joint_order") or [])
+    morphology = (robot_contract.get("morphology") or {}).get("id")
+    robot_roles = {entry["role"] for entry in (robot_contract.get("joints") or {}).get("actuated", [])}
+    action_dim = len((robot_contract.get("action") or {}).get("joint_order") or [])
     results = []
     for profile in profiles:
         requires_morphology = _norm(profile.get("requires_morphology"))
@@ -120,7 +126,7 @@ def match_profiles(robot_contract_v3: dict, profiles: list[dict]) -> dict[str, A
             "compatible": not reasons,
             "reasons": reasons,
         })
-    return {"robot_id": robot_contract_v3.get("robot_id"), "morphology": morphology, "profiles": results}
+    return {"robot_id": robot_contract.get("robot_id"), "morphology": morphology, "profiles": results}
 
 
 def generate_catalog(package_roots: list[Path]) -> dict[str, Any]:
@@ -171,17 +177,17 @@ def scaffold_package(target_dir: Path, package_id: str) -> Path:
         "locomotion_type": "P",
     }
     draft_v2["joints"]["default_pose"] = [0.0] * 12
-    contract_v3 = migrate_contract_dict(draft_v2, None, generic_defaults=True)
-    (target_dir / "contract_v3.json").write_text(json.dumps(contract_v3, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    (target_dir / "contract.json").write_text(json.dumps(draft_v2, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    contract_truth = migrate_contract_dict(draft_v2, None, generic_defaults=True)
+    (target_dir / "contract.json").write_text(json.dumps(contract_truth, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (target_dir / "contract_legacy_v2.json").write_text(json.dumps(draft_v2, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     manifest = {
         "schema_version": "robot-package-1.1",
         "package_id": package_id,
         "display_name": package_id,
         "capabilities": ["mujoco_sim"],
         "model": {"format": "mjcf", "path": "model/robot.xml"},
+        "contract_path": "contract_legacy_v2.json",
         "contract_path": "contract.json",
-        "contract_v3_path": "contract_v3.json",
         # I5：脚手架**不替包作者主张许可**。原值是硬写的 {"spdx": "MIT", "redistribution":
         # "allowed"} —— 那是"我们核验过你可以再分发"的声明，而实际上谁都没核验过。
         # 如实写"未声明"，由包作者自己填。

@@ -24,6 +24,7 @@ if str(ROOT) not in sys.path:
 
 from adapters.mjlab.algorithms.base import REGISTRY_SCHEMA_VERSION  # noqa: E402
 from adapters.mjlab.algorithms.plugin_registry import (  # noqa: E402
+  apply_algorithm_plugin,
   get_plugin_metadata,
   list_plugins,
   load_registry,
@@ -31,6 +32,7 @@ from adapters.mjlab.algorithms.plugin_registry import (  # noqa: E402
 from adapters.mjlab.algorithms.registry import (  # noqa: E402
   list_algorithms,
   resolve,
+  resolve_algorithm,
 )
 
 EXPECTED_PLUGINS = ("amp", "appo", "cts", "distill", "dreamwaq", "him", "hora")
@@ -55,8 +57,104 @@ class RegistryControlPlaneTest(unittest.TestCase):
     self.assertIn("available", str(ctx.exception))
     self.assertIn("cts", str(ctx.exception))
 
-  def test_capability_catalog_unchanged(self):
-    self.assertEqual({"PPO", "SAC", "TD3"}, {item["id"] for item in list_algorithms()})
+  def test_capability_catalog_covers_native_and_plugins(self):
+    """单一词汇表：一份清单同时含内置 runner 算法与插件（2026-09-19 收口）。
+
+    此前这里钉的是 `{"PPO","SAC","TD3"}`——那是"只认内置、插件另立一份词表"的旧形态；
+    profile 里的 `algorithm: "HIM"` 因此不属于任何一份词表，谁都不认。
+    """
+
+    entries = {item["id"]: item for item in list_algorithms()}
+    self.assertEqual({"PPO", "SAC", "TD3"} | set(EXPECTED_PLUGINS), set(entries))
+    for name, item in entries.items():
+      with self.subTest(algo=name):
+        self.assertIn(item["kind"], {"native", "plugin"})
+        self.assertTrue(item["registered"])
+        # `available` 是 `product_open` 的别名（前端按它决定能不能选）
+        self.assertEqual(item["product_open"], item["available"])
+
+  def test_only_ppo_is_product_open(self):
+    """三个"能"必须分清：注册 ≠ 能接进来 ≠ 产品内可创建训练。"""
+
+    self.assertEqual(["PPO"], sorted(item["id"] for item in list_algorithms() if item["product_open"]))
+
+  def test_plugin_entry_declares_provenance_and_binding(self):
+    him = next(item for item in list_algorithms() if item["id"] == "him")
+    self.assertEqual("plugin", him["kind"])
+    self.assertTrue(him["native_supported"], "有 variants 绑定 ⇒ 能接进 native runner")
+    self.assertFalse(him["product_open"], "未经真训练验证 ⇒ 产品内不开放")
+    self.assertTrue(him["upstream"] and him["license"] and him["variants"])
+    self.assertIn("HIM", him["label"])
+
+  def test_resolve_algorithm_by_native_label(self):
+    entry = resolve_algorithm("ppo")           # 大小写不敏感
+    self.assertEqual("PPO", entry["id"])
+    self.assertEqual("native", entry["kind"])
+    self.assertTrue(entry["product_open"])
+
+  def test_resolve_algorithm_by_plugin_name(self):
+    entry = resolve_algorithm("HIM")           # 大写同样命中插件名
+    self.assertEqual("him", entry["id"])
+    self.assertEqual("plugin", entry["kind"])
+    self.assertFalse(entry["product_open"])
+
+  def test_resolve_algorithm_prefers_explicit_plugin(self):
+    entry = resolve_algorithm("HIM", plugin="him")
+    self.assertEqual("him", entry["id"])
+    self.assertEqual("algorithm_plugin", entry["resolved_by"])
+
+  def test_resolve_algorithm_unknown_lists_both_vocabularies(self):
+    with self.assertRaises(ValueError) as ctx:
+      resolve_algorithm("magic")
+    message = str(ctx.exception)
+    self.assertIn("PPO", message)
+    self.assertIn("cts", message)
+
+  def test_resolve_algorithm_unknown_plugin_fails_closed(self):
+    with self.assertRaises(ValueError):
+      resolve_algorithm("him", plugin="no_such_plugin")
+
+
+class ApplyAlgorithmPluginTest(unittest.TestCase):
+  """插件绑定：**profile 显式声明才生效**，且只需注册表（纯 JSON）即可决策。
+
+  这条是"算法像插件一样可插拔"的接线点：worker 在 profile 声明 ``algorithm_plugin``
+  时调它把 class_name 写进 runner cfg；没声明的 profile（52 个里的 50 个）一行不碰。
+  """
+
+  class _Node:
+    def __init__(self) -> None:
+      self.class_name = ""
+
+  class _Cfg:
+    def __init__(self) -> None:
+      self.algorithm = ApplyAlgorithmPluginTest._Node()
+      self.actor = ApplyAlgorithmPluginTest._Node()
+      self.actor.distribution_cfg = None
+      self.critic = ApplyAlgorithmPluginTest._Node()
+
+  def test_binding_writes_class_names(self):
+    cfg = self._Cfg()
+    report = apply_algorithm_plugin(cfg, algorithm_plugin="him")
+    self.assertEqual("him", report["plugin"])
+    self.assertEqual("base", report["variant"])
+    self.assertTrue(cfg.algorithm.class_name.endswith("HimPPO"))
+    self.assertTrue(cfg.actor.class_name.endswith("HIMActorModel"))
+    self.assertTrue(cfg.critic.class_name)
+
+  def test_variant_selection(self):
+    cfg = self._Cfg()
+    report = apply_algorithm_plugin(cfg, algorithm_plugin="cts", variant="amp")
+    self.assertEqual("amp", report["variant"])
+    self.assertTrue(cfg.algorithm.class_name.endswith("AmpCtsPPO"))
+
+  def test_unknown_plugin_fails_closed(self):
+    with self.assertRaises(Exception):
+      apply_algorithm_plugin(self._Cfg(), algorithm_plugin="no_such_plugin")
+
+  def test_unknown_variant_fails_closed(self):
+    with self.assertRaises(Exception):
+      apply_algorithm_plugin(self._Cfg(), algorithm_plugin="him", variant="nope")
 
 
 try:

@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import numpy as np
 
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 from contracts.policy_artifact import PolicyArtifact, Sim2SimResult
 
 
@@ -89,7 +89,7 @@ class Sim2SimValidator:
 
     def __init__(
         self,
-        contract: RobotContractV2,
+        contract: ContractLegacyV2,
         performance_threshold: float = 0.15
     ):
         """
@@ -235,7 +235,7 @@ class Sim2SimValidator:
 
 def validate_sim2sim(
     artifact: PolicyArtifact,
-    contract: RobotContractV2,
+    contract: ContractLegacyV2,
     source_env: str = "mjlab",
     target_env: str = "mujoco",
     num_episodes: int = 50,
@@ -261,7 +261,7 @@ def validate_sim2sim(
 
 if __name__ == "__main__":
     # 测试
-    from contracts.robot_contract_v2 import create_go2_contract
+    from contracts.contract_legacy_v2 import create_go2_contract
     from contracts.policy_artifact import create_artifact_from_training, TrainingMetrics
 
     # 创建测试数据

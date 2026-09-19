@@ -2,7 +2,7 @@
   "artifact_id": "unitree_go1__produced-unitree_go1_v1_20260915_060701_092834",
   "kind": "produced",
   "onnx_bytes": 1130735,
-  "onnx_sha256": "aed919b62e69a0ea4704709d9e16698907d2677d52d53b33c7e6a62c9a2927df",
+  "onnx_sha256": "6fbc2d681b7dc3c3a42b8f3bb33859b1c0654dbf81c963d67ca320316d6c7deb",
   "run_id": "unitree_go1_v1_20260915_060701_092834",
   "schema": "policy-artifact-1.0",
   "source_onnx": "policies/unitree_go1__produced-unitree_go1_v1_20260915_060701_092834/policy.onnx"

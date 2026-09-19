@@ -87,7 +87,7 @@ class DeploymentMapping(BaseModel):
     zero_offset: Optional[Dict[str, float]] = None  # {joint_name: offset_rad}
 
 
-class RobotContractV2(BaseModel):
+class ContractLegacyV2(BaseModel):
     """
     Robot Contract V2
     统一的机器人配置契约，贯穿验证→训练→评估→部署
@@ -148,7 +148,7 @@ class RobotContractV2(BaseModel):
             json.dump(self.model_dump(), f, indent=2, default=str)
 
     @classmethod
-    def from_json_file(cls, path: str) -> 'RobotContractV2':
+    def from_json_file(cls, path: str) -> 'ContractLegacyV2':
         """从 JSON 文件加载"""
         # Accept contracts created by Windows editors and PowerShell, which
         # commonly prepend a UTF-8 BOM.
@@ -176,13 +176,13 @@ class RobotContractV2(BaseModel):
 
 # ========== 工厂函数 ==========
 
-def create_go2_contract() -> RobotContractV2:
+def create_go2_contract() -> ContractLegacyV2:
     """创建 Go2 的标准 Contract（MVP 主线）"""
     canonical_fixture = Path(__file__).parent / "fixtures" / "unitree_go2.v2.json"
     if canonical_fixture.exists():
-        return RobotContractV2.from_json_file(str(canonical_fixture))
+        return ContractLegacyV2.from_json_file(str(canonical_fixture))
 
-    return RobotContractV2(
+    return ContractLegacyV2(
         contract_id="go2_mvp_v1",
         robot_id="go2",
         family="Unitree Go2",

@@ -53,8 +53,8 @@ class FakeDeclarationDriftTest(unittest.TestCase):
     def _package(root: Path, declared: float) -> None:
         robot = root / "deeprobotics_lite3"
         (robot / "simulation").mkdir(parents=True)
-        shutil.copy(LITE3 / "contract_v3.json", robot / "contract_v3.json")
-        contract = json.loads((LITE3 / "contract_v3.json").read_text(encoding="utf-8-sig"))
+        shutil.copy(LITE3 / "contract.json", robot / "contract.json")
+        contract = json.loads((LITE3 / "contract.json").read_text(encoding="utf-8-sig"))
         order = list((contract.get("action") or {}).get("joint_order") or [])
         (robot / "simulation" / "config.json").write_text(
             json.dumps({

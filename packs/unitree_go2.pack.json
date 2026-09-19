@@ -76,7 +76,7 @@
   },
   "pack_id": "unitree_go2-velocity",
   "display_name": "Unitree Go2 · velocity",
-  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",
+  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约真值 与技能 velocity_base。",
   "tags": [
     "generated",
     "default",
@@ -84,7 +84,7 @@
   ],
   "morphology_ref": {
     "id": "unitree_go2",
-    "path": "assets/robots/unitree_go2/contract_v3.json",
+    "path": "assets/robots/unitree_go2/contract.json",
     "sha256": "2b7706f69a8d6b6ac208921e3bce21442267f4165a61db17244620efb271813c"
   },
   "skill_ref": {
@@ -93,12 +93,7 @@
     "sha256": "1d6ff32cf83313c86dea2236f1f28496de54140ada52e44934ea9c9b8a4d410d"
   },
   "scenario_ref": null,
-  "policy_ref": {
-    "id": "unitree_go2__produced-unitree_go2_mvp_v1_20260919_143025_458525",
-    "path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260919-143025.onnx",
-    "sha256": "3122d168f80340084fc85ad391618d43d2b21e181f3d72f8c6c0ef65ee8056c4",
-    "version": "unitree_go2-trained-20260919-143025"
-  },
+  "policy_ref": null,
   "bindings": {
     "verify": {
       "require_contract_valid": true,

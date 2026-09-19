@@ -10,7 +10,7 @@
   "label": "Jump 69D (imitation, motion-csv)",
   "obs_dim": 69,
   "onnx_bytes": 807578,
-  "onnx_sha256": "d67dd748891282e38127af5d76e6733f86ee979e841e7be878cca3237df0d267",
+  "onnx_sha256": "2ce8f8a8213c55d8ec675e861cf0a5db64bf82d146e064787d5990431d4e333b",
   "policy_id": "go2-jump-69",
   "robot": "unitree_go2",
   "run_id": null,

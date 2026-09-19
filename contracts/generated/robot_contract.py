@@ -195,8 +195,8 @@ class RobotContractV3(_V3Model):
     evidence: Optional[list[dict[str, Any]]] = None
 
 
-def parse_v3(payload: dict[str, Any]) -> RobotContractV3:
-    """从 dict 构造并校验契约 v3。"""
+def parse_contract(payload: dict[str, Any]) -> RobotContractV3:
+    """从 dict 构造并校验契约真值。"""
 
     return RobotContractV3.model_validate(payload)
 

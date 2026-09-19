@@ -10,7 +10,7 @@
   "label": "Go2 PIE 深度跑酷 (parkour_mjlab)",
   "obs_dim": 45,
   "onnx_bytes": 2628706,
-  "onnx_sha256": "6460e407120049afe3b74c6d6800b385620a75703cc1adf73803a015a7b1278f",
+  "onnx_sha256": "9fb86b707de134e78882c011ee397661f0e1e3f45e3f405326f78bfe571b9f8f",
   "policy_id": "go2-pie-parkour",
   "robot": "unitree_go2",
   "run_id": null,

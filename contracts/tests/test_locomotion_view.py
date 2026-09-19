@@ -11,7 +11,7 @@ import json
 import unittest
 from pathlib import Path
 
-from contracts.contract_loader import load_training_contract, merge_v3_over_v2
+from contracts.contract_loader import load_training_contract, merge_legacy_over_contract
 from contracts.locomotion_view import LOCOMOTION_ENUM, locomotion_type_from_contract
 
 WORKSPACE = Path(__file__).resolve().parents[2]
@@ -39,12 +39,12 @@ EXPECTED = {
 class LocomotionViewTest(unittest.TestCase):
     def _packages(self) -> list[str]:
         return sorted(
-            p.name for p in ROBOTS.iterdir() if (p / "contract_v3.json").exists()
+            p.name for p in ROBOTS.iterdir() if (p / "contract.json").exists()
         )
 
     def _v3(self, package: str) -> dict:
         return json.loads(
-            (ROBOTS / package / "contract_v3.json").read_text(encoding="utf-8-sig")
+            (ROBOTS / package / "contract.json").read_text(encoding="utf-8-sig")
         )
 
     def test_derivation_matches_expected_table(self) -> None:
@@ -66,9 +66,9 @@ class LocomotionViewTest(unittest.TestCase):
                 self.assertEqual(
                     self._v3(package).get("locomotion_type"),
                     derived,
-                    f"{package}/contract_v3.json 的 locomotion_type 与 morphology 漂移",
+                    f"{package}/contract.json 的 locomotion_type 与 morphology 漂移",
                 )
-            v2_path = ROBOTS / package / "contract.json"
+            v2_path = ROBOTS / package / "contract_legacy_v2.json"
             if not v2_path.exists():
                 continue
             v2 = json.loads(v2_path.read_text(encoding="utf-8-sig"))
@@ -76,7 +76,7 @@ class LocomotionViewTest(unittest.TestCase):
                 self.assertEqual(
                     v2.get("locomotion_type"),
                     derived,
-                    f"{package}/contract.json 的 locomotion_type 与 v3 morphology 漂移",
+                    f"{package}/contract_legacy_v2.json 的 locomotion_type 与 v3 morphology 漂移",
                 )
 
     def test_merged_contract_uses_derived_value(self) -> None:
@@ -93,7 +93,7 @@ class LocomotionViewTest(unittest.TestCase):
         """无 morphology 的旧契约不猜：沿用存量值，缺失才回落 P。"""
 
         self.assertEqual(locomotion_type_from_contract({"locomotion_type": "W"}), "W")
-        merged = merge_v3_over_v2(None, {"robot_id": "legacy", "locomotion_type": "W"})
+        merged = merge_legacy_over_contract(None, {"robot_id": "legacy", "locomotion_type": "W"})
         self.assertEqual(merged["locomotion_type"], "W")
         self.assertEqual(locomotion_type_from_contract({"morphology": {}}), "P")
 

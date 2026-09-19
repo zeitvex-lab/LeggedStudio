@@ -257,9 +257,9 @@ async def perception_binding(request: PerceptionBindingRequest) -> dict[str, Any
     不校验就会出现两种静默假象：这一项被运行时忽略（人却以为生效），或形状不一致查不出原因。
     """
     from backend.perception_binding import check_perception_binding, load_profile_for_policy
-    from backend.simulation_browser import _browser_package
+    from backend.simulation_browser import browser_package
 
-    root, _preset = _browser_package(request.robot_id)
+    root, _preset = browser_package(request.robot_id)
     sim_cfg = json.loads((Path(root) / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
     profile, profile_id = (None, None)
     if request.policy_id:

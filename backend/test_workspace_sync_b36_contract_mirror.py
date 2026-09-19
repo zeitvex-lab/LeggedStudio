@@ -1,8 +1,8 @@
-"""B36：v2 contract.json 契约镜像同步的回归锁。
+"""B36：v2 contract_legacy_v2.json 契约镜像同步的回归锁。
 
 背景（系统性缺陷，wuji_hand 现场实证）：`_sync_shipped_packages_into_workspace`
-的镜像集原本只有 contract_v3.json（D7）、training/profiles、training/source、
-simulation/ 补缺、training/config.json（B13）——**从不同步 v2 contract.json**。
+的镜像集原本只有 contract.json（D7）、training/profiles、training/source、
+simulation/ 补缺、training/config.json（B13）——**从不同步 v2 contract_legacy_v2.json**。
 运行时预设链（create 校验等）对已有 workspace 副本的包以**副本**为权威，
 assets 侧对 v2 的修复（如 B29 wuji_hand observation.dimension 0→69）对存量
 安装不生效，被旧副本静默遮蔽（wuji_hand：修复后首次 create 仍 400，手动用
@@ -64,7 +64,7 @@ SOURCE_CONTRACT_V3 = {
 
 POINTER_CONFIG = {
     "robot_id": "acme_bot",
-    "contract_path": "assets/robots/acme_bot/contract.json",
+    "contract_path": "assets/robots/acme_bot/contract_legacy_v2.json",
     "profile_id": "acme-flat",
 }
 
@@ -81,16 +81,16 @@ class WorkspaceSyncB36ContractMirrorTests(unittest.TestCase):
         (shipped / "model" / "robot.xml").write_text('<mujoco model="acme"/>', encoding="utf-8")
         (shipped / "training" / "profiles" / "flat.json").write_text("{}", encoding="utf-8")
         _write_json(shipped / "training" / "config.json", POINTER_CONFIG)
-        _write_json(shipped / "contract.json", SOURCE_CONTRACT)
-        _write_json(shipped / "contract_v3.json", SOURCE_CONTRACT_V3)
+        _write_json(shipped / "contract_legacy_v2.json", SOURCE_CONTRACT)
+        _write_json(shipped / "contract.json", SOURCE_CONTRACT_V3)
         _write_json(shipped / "robot_package.json", {"schema_version": "robot-package-1.0", "package_id": "acme_bot", "model": {"format": "mjcf", "path": "model/robot.xml"}})
 
-        # workspace 副本：contract.json 是 B29 前的陈旧契约（漂移副本）
+        # workspace 副本：contract_legacy_v2.json 是 B29 前的陈旧契约（漂移副本）
         target = self.workspace_root / "packages" / "acme_bot"
         (target / "model").mkdir(parents=True)
         (target / "model" / "robot.xml").write_text('<mujoco model="acme"/>', encoding="utf-8")
-        _write_json(target / "contract.json", STALE_CONTRACT)
-        _write_json(target / "contract_v3.json", SOURCE_CONTRACT_V3)
+        _write_json(target / "contract_legacy_v2.json", STALE_CONTRACT)
+        _write_json(target / "contract.json", SOURCE_CONTRACT_V3)
         _write_json(target / "robot_package.json", _read_json(shipped / "robot_package.json"))
         _write_json(target / "training" / "config.json", POINTER_CONFIG)
 
@@ -114,7 +114,7 @@ class WorkspaceSyncB36ContractMirrorTests(unittest.TestCase):
         self._tmp.cleanup()
 
     def _workspace_contract(self) -> Path:
-        return self._target / "contract.json"
+        return self._target / "contract_legacy_v2.json"
 
     def _acme_record(self) -> dict:
         records = robot_packages.list_robot_packages()
@@ -160,7 +160,7 @@ class WorkspaceSyncB36ContractMirrorTests(unittest.TestCase):
         robot_packages.rebuild_package_index()
         self.assertFalse(
             self._workspace_contract().exists(),
-            "非包副本的残留目录被伪造了 contract.json（不应制造假副本）",
+            "非包副本的残留目录被伪造了 contract_legacy_v2.json（不应制造假副本）",
         )
         record = self._acme_record()
         self.assertEqual(record["source"], "bundled", "无副本时应回落源树（bundled）而非残缺目录")

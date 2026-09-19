@@ -43,9 +43,9 @@
     "contract_path": {
       "type": "string"
     },
-    "contract_v3_path": {
+    "contract_path": {
       "type": "string",
-      "description": "1.1 新增：契约 v3 sidecar 相对路径（T0.2 迁移产物，如 'contract_v3.json'）"
+      "description": "1.1 新增：契约真值 sidecar 相对路径（T0.2 迁移产物，如 'contract.json'）"
     },
     "simulation_config_path": {
       "type": "string"

@@ -32,7 +32,6 @@ SPDX 识别**保守**：只在文本**无歧义**时给 id；认不出就 `spdx:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 import sys
@@ -41,6 +40,10 @@ from pathlib import Path
 from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from contracts.validator import normalized_sha256  # noqa: E402  (归一摘要唯一实现)
 RESOURCES_ROOT = PROJECT_ROOT / "00_resources"
 EVIDENCE_PATH = PROJECT_ROOT / "registry" / "porting_evidence.json"
 REGISTRY_PATH = PROJECT_ROOT / "registry" / "licenses.json"
@@ -173,8 +176,10 @@ def nearby_license_leads(relative_path: str) -> list[str]:
 
 
 def _sha256(path: Path) -> str | None:
+    """归一摘要唯一实现见 ``contracts.validator``（此前这里自带一份 CRLF 归一键）。"""
+
     try:
-        return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+        return normalized_sha256(path.read_bytes())
     except OSError:
         return None
 

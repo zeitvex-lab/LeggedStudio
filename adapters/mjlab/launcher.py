@@ -318,7 +318,7 @@ def launch_training_from_contract(
 
 if __name__ == "__main__":
     # 测试
-    from contracts.robot_contract_v2 import create_go2_contract
+    from contracts.contract_legacy_v2 import create_go2_contract
 
     # 创建测试 Contract
     contract = create_go2_contract()

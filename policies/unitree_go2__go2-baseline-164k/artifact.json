@@ -10,7 +10,7 @@
   "label": "Go2 baseline 164k",
   "obs_dim": 45,
   "onnx_bytes": 5186135,
-  "onnx_sha256": "9530b2e14bf4b5efe2ea7c1e472f507648c46ddcee4a67fbfa7b492ec03903b3",
+  "onnx_sha256": "1ac3a62523cc18ae7e71418ca11fa92a670d7004132743cedc7c0952395e7853",
   "policy_id": "go2-baseline-164k",
   "robot": "unitree_go2",
   "run_id": null,

@@ -1,6 +1,6 @@
 """Contract v3 role resolver.
 
-契约 v3 的跨字段自洽校验与角色展开引擎。数据模型见
+契约真值 的跨字段自洽校验与角色展开引擎。数据模型见
 ``contracts/schema/robot-contract-3.0.schema.json``（唯一真值源）。
 
 - 自洽校验：legs×leg_pattern 覆盖、leg_naming 模板匹配、Σcomponents.width == dimension、
@@ -52,7 +52,7 @@ _ACTUATOR_PARAM_KEYS = (
 
 
 class RoleResolverError(ValueError):
-    """契约 v3 结构或自洽校验失败。"""
+    """契约真值 结构或自洽校验失败。"""
 
 
 def validate_robot_id(value: str) -> None:
@@ -98,7 +98,7 @@ def _merge_params(*layers: dict[str, Any] | None) -> dict[str, Any]:
 
 
 class RoleResolver:
-    """契约 v3 的校验与展开。输入为契约 dict（schema 见 robot-contract-3.0）。"""
+    """契约真值 的校验与展开。输入为契约 dict（schema 见 robot-contract-3.0）。"""
 
     def __init__(self, contract: dict[str, Any]):
         if not isinstance(contract, dict):
@@ -238,7 +238,7 @@ class RoleResolver:
     def ensure_valid(self) -> None:
         errors = self.validate()
         if errors:
-            raise RoleResolverError("契约 v3 自洽校验失败：" + "；".join(errors))
+            raise RoleResolverError("契约真值 自洽校验失败：" + "；".join(errors))
 
     def _validate_morphology(self) -> list[str]:
         errors: list[str] = []
@@ -603,7 +603,7 @@ def _morphology_kernel(
     return kernel
 
 
-def build_v3_contract(
+def build_contract(
     *,
     robot_id: str,
     morphology_id: str,
@@ -628,7 +628,7 @@ def build_v3_contract(
     mass_source: str | None = None,
     **metadata: Any,
 ) -> dict[str, Any]:
-    """从紧凑输入组装契约 v3 dict。
+    """从紧凑输入组装契约真值 dict。
 
     默认驱动关节由 leg_ids×leg_pattern×模板展开（合成场景）；迁移/对接真实模型时传
     ``actuated_entries=[{name, leg, role}, ...]``（name 必须与模型 1:1，大小写保留）。

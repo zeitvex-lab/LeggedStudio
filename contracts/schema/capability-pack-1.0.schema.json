@@ -34,7 +34,7 @@
     },
     "morphology_ref": {
       "$ref": "#/$defs/ref",
-      "description": "形态资源引用（必填）：通常是本机型的 contract_v3.json"
+      "description": "形态资源引用（必填）：通常是本机型的 contract.json"
     },
     "skill_ref": {
       "$ref": "#/$defs/ref",

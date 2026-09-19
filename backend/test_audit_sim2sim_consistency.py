@@ -2,10 +2,10 @@
 
 守三件事：
 
-1. **当前仓全绿**：浏览器下发 ↔ 契约 v3 ↔ 训练常量表 ↔ 电机参数卡 四端同值，
+1. **当前仓全绿**：浏览器下发 ↔ 契约真值 ↔ 训练常量表 ↔ 电机参数卡 四端同值，
    B3 残留为零，端点接线钉住全中，rc_old 参考事实可取证；
 2. **注入反例必红**：往 ``simulation/config.json`` 篡改/回填增益（B3 残留）、删掉
-   ``contract_v3.json``（物理真值回落 legacy config）、清空契约增益（端点以内置
+   ``contract.json``（物理真值回落 legacy config）、清空契约增益（端点以内置
    默认 fabrication 进仿真）、拆掉端点接线钉住——审计必须逐条报出；
 3. **诚实边界**：``--json`` 结构稳定；rc_old 参考文件缺失时降级为
    ``status="missing"`` 而不崩、不判红（参考值不参与门禁，契约才是真值）。
@@ -33,15 +33,15 @@ from tools.audit_sim2sim_consistency import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-GO2_CONTRACT = ROOT / "assets" / "robots" / "unitree_go2" / "contract_v3.json"
+GO2_CONTRACT = ROOT / "assets" / "robots" / "unitree_go2" / "contract.json"
 
 
 def make_package(root: Path, contract: dict | None = None, sim_config: dict | None = None) -> Path:
-    """在临时目录搭一个最小机器人包（契约 v3 [+ sim config]）。"""
+    """在临时目录搭一个最小机器人包（契约真值 [+ sim config]）。"""
     package = root / "unitree_go2_like"
     package.mkdir(parents=True)
     source = contract if contract is not None else json.loads(GO2_CONTRACT.read_text(encoding="utf-8-sig"))
-    (package / "contract_v3.json").write_text(json.dumps(source, ensure_ascii=False), encoding="utf-8")
+    (package / "contract.json").write_text(json.dumps(source, ensure_ascii=False), encoding="utf-8")
     if sim_config is not None:
         (package / "simulation").mkdir(exist_ok=True)
         (package / "simulation" / "config.json").write_text(json.dumps(sim_config, ensure_ascii=False), encoding="utf-8")
@@ -62,7 +62,7 @@ class RealRepoAuditGreenTest(unittest.TestCase):
     def test_every_package_serves_contract_v3_physics(self):
         for row in self.report["packages"]:
             with self.subTest(package=row["robot"], scope=row["scope"]):
-                self.assertEqual("contract_v3", row["physics_source"])
+                self.assertEqual("contract", row["physics_source"])
                 self.assertTrue(row["gains_equal_contract"], row["problems"])
                 self.assertTrue(row["physics_view_equal_payload"])
 
@@ -150,14 +150,14 @@ class CounterexampleRedTest(unittest.TestCase):
         self.assertFalse(report["gains_equal_contract"] and not report["problems"])
 
     def test_missing_contract_falls_back_to_legacy_and_is_red(self):
-        """删掉 contract_v3.json → physics_facts 回落 legacy config → 判红。"""
+        """删掉 contract.json → physics_facts 回落 legacy config → 判红。"""
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
             package = make_package(Path(tmp), sim_config={"stiffness": {"hip": 20.0}})
-            (package / "contract_v3.json").unlink()
+            (package / "contract.json").unlink()
             report = check_package(package)
-        self.assertTrue(any(p["check"] == "物理真值来源=契约 v3" for p in report["problems"]))
+        self.assertTrue(any(p["check"] == "物理真值来源=契约真值" for p in report["problems"]))
         self.assertFalse(report["gains_equal_contract"])
 
     def test_stripped_gains_trigger_endpoint_fabrication_red(self):

@@ -10,7 +10,7 @@
   "label": "Ground Pick",
   "obs_dim": 61,
   "onnx_bytes": 793685,
-  "onnx_sha256": "ffbf5109982ff999b0ba53afe86b9ae731bbec679d67fb7f8ab4c52152c88872",
+  "onnx_sha256": "279caef6f2931132d19c99730c1685c001b2883217cef3e1ab0622ef44ead67c",
   "policy_id": "microduck-ground-pick",
   "robot": "microduck",
   "run_id": null,

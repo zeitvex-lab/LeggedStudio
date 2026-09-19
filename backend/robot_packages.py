@@ -23,7 +23,6 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE = ROOT / "workspace"
 _INDEX_FILENAME = "package_index.json"
 
 # In-memory copy of the last loaded index so repeated reads inside a short
@@ -35,9 +34,8 @@ _INDEX_CACHE: Any = None
 _INDEX_CACHE_LOCK = threading.Lock()
 
 
-def _workspace_root() -> Path:
-    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE")
-    return Path(configured).expanduser().resolve() if configured else WORKSPACE
+# 委托到唯一实现（本模块内有局部变量叫 workspace_root，故沿用私有名，避免 LEGB 遮蔽）。
+from backend.paths import workspace_root as _workspace_root
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -84,7 +82,7 @@ def validate_training_profile(profile: dict[str, Any]) -> list[str]:
 def package_for_contract(contract: dict[str, Any]) -> dict[str, Any]:
     """Return the package descriptor owning a contract.
 
-    Imported packages use ``robot_package.json`` next to ``contract.json``.
+    Imported packages use ``robot_package.json`` next to ``contract_legacy_v2.json``.
     Legacy built-in assets get a deterministic generic descriptor until their
     package manifest is added.
     """
@@ -120,7 +118,7 @@ def package_for_contract(contract: dict[str, Any]) -> dict[str, Any]:
         "schema_version": "robot-package-1.0",
         "package_id": package_id,
         "package_root": str(package_path),
-        "contract_path": str(package_path / "contract.json"),
+        "contract_path": str(package_path / "contract_legacy_v2.json"),
         "asset_path": str((package_path / str((descriptor.get("model") or {}).get("path", "model/robot.xml"))).resolve()) if descriptor else str(model),
         "task_kind": "generic",
         "native_task_id": None,
@@ -188,8 +186,8 @@ def _package_roots() -> list[Path]:
 
 
 #: 代码拥有的同步规则修订号。给同步加新职责（C6 基础文件补齐 / D7 加 morphology 视图与
-#: contract_v3.json 镜像 / B13 加 training/config.json 指针文件镜像 / B36 加 v2
-#: contract.json 契约镜像）时 bump 它，让既有安装的索引判为 stale 并重跑一次同步
+#: contract.json 镜像 / B13 加 training/config.json 指针文件镜像 / B36 加 v2
+#: contract_legacy_v2.json 契约镜像）时 bump 它，让既有安装的索引判为 stale 并重跑一次同步
 #: （磁盘未变）。
 #: 提为模块级常量，测试据此动态构造"旧版本 signature"，避免每次 bump 都要改测试。
 SYNC_REVISION = "5"
@@ -219,7 +217,7 @@ def _package_signature() -> str:
         parts.append(f"{root}:{','.join(entries)}")
         for name in entries:
             pkg = root / name
-            for rel in ("contract.json", "robot_package.json"):
+            for rel in ("contract_legacy_v2.json", "robot_package.json"):
                 f = pkg / rel
                 try:
                     parts.append(f"{name}/{rel}:{int(f.stat().st_mtime_ns)}")
@@ -300,7 +298,7 @@ def _build_record(
     descriptor: dict[str, Any],
 ) -> dict[str, Any]:
     """Build a single serialisable package record from its on-disk package."""
-    contract_path = package_root / "contract.json"
+    contract_path = package_root / "contract_legacy_v2.json"
     training_path = package_root / "training" / "config.json"
     simulation_path = package_root / "simulation" / "config.json"
     profile_dir = package_root / "training" / "profiles"
@@ -344,7 +342,7 @@ def _build_record(
         "asset_path": asset_value,
         "training_config": _read_json(training_path) if training_path.exists() else {},
         "simulation_config": _read_json(simulation_path) if simulation_path.exists() else {},
-        # D8：电机面板的物理事实改由契约 v3 单一真值供给（与浏览器载荷同源同形状）。
+        # D8：电机面板的物理事实改由契约真值 单一真值供给（与浏览器载荷同源同形状）。
         # 此前工作台读 simulation_config.stiffness/damping/...，而 B3 已把这组键从
         # sim config 移除——不切源，网格会变空（且 armature 从来读不到）。
         "physics": _physics_view(package_root),
@@ -356,17 +354,17 @@ def _build_record(
         "runtime_requirements": descriptor.get("runtime_requirements", {}),
         "source_runtime": descriptor.get("source_runtime", {}),
         "contract": contract,
-        "robot_package": {**descriptor, "capabilities": capabilities, "package_root": str(package_root), "contract_path": descriptor.get("contract_path", "contract.json"), "model": descriptor_model or {"format": "mjcf", "path": "model/robot.xml", "assets_path": "model/assets"}, "training_config_path": descriptor.get("training_config_path", "training/config.json"), "simulation_config_path": descriptor.get("simulation_config_path", "simulation/config.json")},
-        # D7：契约 v3 的构型语义（形态/角色/执行器类型/足型/轮组）
+        "robot_package": {**descriptor, "capabilities": capabilities, "package_root": str(package_root), "contract_path": descriptor.get("contract_path", "contract_legacy_v2.json"), "model": descriptor_model or {"format": "mjcf", "path": "model/robot.xml", "assets_path": "model/assets"}, "training_config_path": descriptor.get("training_config_path", "training/config.json"), "simulation_config_path": descriptor.get("simulation_config_path", "simulation/config.json")},
+        # D7：契约真值 的构型语义（形态/角色/执行器类型/足型/轮组）
         "morphology": _morphology_view(package_root),
     }
 
 
 
 def _morphology_view(package_root: Path) -> dict[str, Any]:
-    """D7：契约 v3 的构型语义视图（形态 / 角色 / 执行器类型 / 足型 / 轮组）。
+    """D7：契约真值 的构型语义视图（形态 / 角色 / 执行器类型 / 足型 / 轮组）。
 
-    真值在包内 ``contract_v3.json`` 的 ``morphology`` 块 —— **不是** v2 ``contract.json``
+    真值在包内 ``contract.json`` 的 ``morphology`` 块 —— **不是** v2 ``contract_legacy_v2.json``
     （v2 无 morphology；``_build_record`` 的 ``contract`` 字段用的正是 v2，故此前 UI 看不到
     构型语义）。原样透传 morphology 块，并派生 ``roles``（leg_pattern + extra_roles 去重）与
     ``wheel_count``，供资产页卡片直接渲染。
@@ -375,7 +373,7 @@ def _morphology_view(package_root: Path) -> dict[str, Any]:
     读取本身出错才返回 ``{}``——单包契约问题不该让整个包索引构建失败。
     """
     try:
-        v3_path = package_root / "contract_v3.json"
+        v3_path = package_root / "contract.json"
         if not v3_path.exists():
             return {"source": "missing"}
         v3 = json.loads(v3_path.read_text(encoding="utf-8-sig"))
@@ -388,7 +386,7 @@ def _morphology_view(package_root: Path) -> dict[str, Any]:
                 roles.append(role)
         wheel_indices = morphology.get("wheel_indices") or []
         return {
-            "source": "contract_v3",
+            "source": "contract",
             **morphology,
             "roles": roles,
             "wheel_count": len(wheel_indices),
@@ -398,7 +396,7 @@ def _morphology_view(package_root: Path) -> dict[str, Any]:
 
 
 def _physics_view(package_root: Path) -> dict[str, Any]:
-    """D8：契约 v3 派生的物理事实视图（与浏览器 payload 同源、同形状）。
+    """D8：契约真值 派生的物理事实视图（与浏览器 payload 同源、同形状）。
 
     键：``stiffness`` / ``damping`` / ``torque_limits`` / ``armature`` / ``frictionloss``
     （每项都是 角色键 + 逐关节键 + ``joint`` 兜底）。
@@ -420,7 +418,7 @@ def _physics_view(package_root: Path) -> dict[str, Any]:
 
 
 def _action_scale_view(package_root: Path) -> dict[str, Any]:
-    """D10：「动作缩放」卡片的数据源（契约 v3 单一真值）。
+    """D10：「动作缩放」卡片的数据源（契约真值 单一真值）。
 
     复用 :func:`contracts.physics_binding.payload_action_scale_view` —— 与浏览器
     载荷**同一实现**，避免 UI 与仿真出现两套展开口径（B5/2 起 action_scale 的
@@ -431,19 +429,19 @@ def _action_scale_view(package_root: Path) -> dict[str, Any]:
     try:
         from contracts.physics_binding import action_scale_facts, payload_action_scale_view
 
-        v3_path = package_root / "contract_v3.json"
+        v3_path = package_root / "contract.json"
         if not v3_path.exists():
             return {}
         v3 = json.loads(v3_path.read_text(encoding="utf-8-sig"))
         view = dict(payload_action_scale_view(action_scale_facts(v3)))
-        view["source"] = "contract_v3"
+        view["source"] = "contract"
         return view
     except Exception:
         return {}
 
 
 def _t_n_curve_view(package_root: Path) -> dict[str, Any]:
-    """P1：T-N 曲线（高级参数）面板的数据源（契约 v3 单一真值）。
+    """P1：T-N 曲线（高级参数）面板的数据源（契约真值 单一真值）。
 
     * ``actuator_model``：``ideal_pd``（缺省，**T-N 曲线一律不生效**）/ ``dc_motor``；
     * ``by_role`` / ``by_joint``：折线点列；``text_by_*``：面板紧凑文本（``rpm:扭矩``）；
@@ -535,7 +533,7 @@ def _scan_package_records() -> list[dict[str, Any]]:
         for package_root in sorted(root.iterdir()):
             if not package_root.is_dir():
                 continue
-            contract_path = package_root / "contract.json"
+            contract_path = package_root / "contract_legacy_v2.json"
             descriptor_path = package_root / "robot_package.json"
             if not contract_path.exists() or not descriptor_path.exists():
                 continue
@@ -617,7 +615,7 @@ def upsert_package(package_root: Path, source: str = "workspace") -> str | None:
     hook used by package import/save operations.
     """
     package_root = Path(package_root).resolve()
-    contract_path = package_root / "contract.json"
+    contract_path = package_root / "contract_legacy_v2.json"
     descriptor_path = package_root / "robot_package.json"
     if not contract_path.exists() or not descriptor_path.exists():
         return None
@@ -726,8 +724,8 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
         if not shipped.is_dir():
             continue
         target = packages_root / shipped.name
-        # B36：判据从「target/contract.json 在」放宽为「target 是包副本」——以
-        # robot_package.json（副本标记）为准。contract.json 被误删的**残缺副本**
+        # B36：判据从「target/contract_legacy_v2.json 在」放宽为「target 是包副本」——以
+        # robot_package.json（副本标记）为准。contract_legacy_v2.json 被误删的**残缺副本**
         # 也参与同步，由下面的契约镜像补齐、顺势治愈（原判据会让残缺副本永远
         # 无法自愈、静默回落源树，副本从此成僵尸残留）。纯 logs/checkpoint 之类
         # 残留目录（无 robot_package.json 标记）仍跳过，不制造假副本。
@@ -836,15 +834,15 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
                     synced += 1
             except (OSError, ValueError):
                 pass
-        # B36：v2 contract.json 与 contract_v3.json 同为**随包分发的契约/派生文件**——
+        # B36：v2 contract_legacy_v2.json 与 contract.json 同为**随包分发的契约/派生文件**——
         # 契约副本不得独立演化出第二套真值。运行时预设链（create 校验等）对已有
-        # workspace 副本的包以**副本**为权威：镜像集若只有 contract_v3.json（D7），
+        # workspace 副本的包以**副本**为权威：镜像集若只有 contract.json（D7），
         # assets 侧对 v2 的修复（如 B29 wuji_hand observation.dimension 0→69）对存量
         # 安装不生效，被旧副本静默遮蔽（wuji_hand 现场实证：修复后首次 create 仍 400，
         # 手动用源树覆盖副本 + 重启后才 200）。照 D7 同一先例：全量覆盖（非合并）+
         # 内容级比较（一致不重写）+ OSError 容错。
-        src_contract = shipped / "contract.json"
-        dst_contract = target / "contract.json"
+        src_contract = shipped / "contract_legacy_v2.json"
+        dst_contract = target / "contract_legacy_v2.json"
         if src_contract.exists():
             try:
                 if (not dst_contract.exists()
@@ -853,12 +851,12 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
                     synced += 1
             except OSError:
                 pass
-        # D7：契约 v3 是机器人生理学的**单一真值**（B2/B5），内置包的 workspace 副本应
-        # **镜像源树**——副本曾因不同步 contract_v3.json 而缺 actuator_type/foot_type/
+        # D7：契约真值 是机器人生理学的**单一真值**（B2/B5），内置包的 workspace 副本应
+        # **镜像源树**——副本曾因不同步 contract.json 而缺 actuator_type/foot_type/
         # wheel_indices（B4 后加的字段），导致 morphology 视图缺字段。全量覆盖（非合并）：
         # 契约不允许"副本独立演化"出第二套真值（与 robot_package.json 的字段合并不同）。
-        src_v3 = shipped / "contract_v3.json"
-        dst_v3 = target / "contract_v3.json"
+        src_v3 = shipped / "contract.json"
+        dst_v3 = target / "contract.json"
         if src_v3.exists():
             try:
                 if (not dst_v3.exists()

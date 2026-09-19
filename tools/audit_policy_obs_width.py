@@ -44,7 +44,7 @@ def classify(declared: int | None, width: int | None) -> dict:
 
 
 def _declared_dimension(robot: str) -> int | None:
-    path = ROOT / "assets" / "robots" / robot / "contract_v3.json"
+    path = ROOT / "assets" / "robots" / robot / "contract.json"
     try:
         contract = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):

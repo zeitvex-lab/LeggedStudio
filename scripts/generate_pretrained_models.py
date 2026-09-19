@@ -13,7 +13,7 @@ if str(Path(__file__).resolve().parents[1]) not in sys.path:
 from contracts.path_bootstrap import ensure_project_root_on_path
 ensure_project_root_on_path()
 
-from contracts.robot_contract_v2 import create_go2_contract
+from contracts.contract_legacy_v2 import create_go2_contract
 from adapters.mjlab.complete_trainer import CompleteTrainer
 from datetime import datetime
 import json

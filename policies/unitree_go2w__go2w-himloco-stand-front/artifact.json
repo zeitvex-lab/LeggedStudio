@@ -10,7 +10,7 @@
   "label": "Go2W HIMLoco 前腿站立行走",
   "obs_dim": 57,
   "onnx_bytes": 1078609,
-  "onnx_sha256": "3741d7099003c97eb56e69641a8d1aabb1bacf1adbe581b20d510ecc80cc60fe",
+  "onnx_sha256": "8719eee8dcb7e9ac9a9ac2d8a803de70c4a5e9b0906fad250eee53ff5994b5d7",
   "policy_id": "go2w-himloco-stand-front",
   "robot": "unitree_go2w",
   "run_id": null,

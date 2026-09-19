@@ -3,7 +3,7 @@
 <!-- Onshape https://cad.onshape.com/documents/804927696f06d877f3f1803e/w/5b75db19292e71970de02dee/e/ef6e972847fec8d82570b35e -->
 <mujoco model="microduck">
   <compiler angle="radian" meshdir="assets" autolimits="true"/>
-  <!-- timestep 不在此声明：运行时统一取 contract_v3.json control.physics_hz -->
+  <!-- timestep 不在此声明：运行时统一取 contract.json control.physics_hz -->
   <option gravity="0 0 -9.81" />
   <default>
     <default class="microduck">

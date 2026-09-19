@@ -7,7 +7,7 @@
       "declared": "simulation/policies/tron1_sf_tron1b_encoder.onnx",
       "missing": false,
       "role": "encoder",
-      "sha256": "2984decd77a5c368e68b2f8fabdb7bd264ec462564883872d0dc3972ae4d43b7",
+      "sha256": "cfec2876ae6568c82c5962540fa5a5c676cbbff88adebd5616e296131f7d167b",
       "source": "assets/robots/limx_tron1_sf/simulation/policies/tron1_sf_tron1b_encoder.onnx"
     }
   ],
@@ -18,7 +18,7 @@
   "label": "TRON1 SF velocity (TRON1B)",
   "obs_dim": 36,
   "onnx_bytes": 777052,
-  "onnx_sha256": "08951691da3dc5bb02bfc1b137da71c45f06e018d19985bb258fb347e2221c9f",
+  "onnx_sha256": "7d2c10d0a81c5c223d59a63161326b8a84d7867f067ed57a258611a5994c5ccb",
   "policy_id": "sf-velocity",
   "robot": "limx_tron1_sf",
   "run_id": null,

@@ -122,8 +122,8 @@ def export_runner_policy_onnx(report: dict, env, runner, wrapped, rl_cfg, output
         raise RuntimeError(f"适配器 venv 缺少 onnx 包: {exc}")
 
     if contract is None and contract_path:
-        from contracts.robot_contract_v2 import RobotContractV2
-        contract = RobotContractV2.from_json_file(str(contract_path))
+        from contracts.contract_legacy_v2 import ContractLegacyV2
+        contract = ContractLegacyV2.from_json_file(str(contract_path))
 
     robot = env.scene["robot"]
     joint_names = list(getattr(robot, "joint_names", []) or [])
@@ -451,6 +451,29 @@ def strip_visual_geoms(env_cfg) -> int:
     return stripped_total
 
 
+def _apply_profile_algorithm_plugin(profile: dict | None, rl_cfg) -> dict | None:
+    """profile 显式声明 ``algorithm_plugin`` 时才绑定插件；否则**一行不碰**。
+
+    为什么把开关放在 profile 上：算法插件层（``adapters/mjlab/algorithms/``）与
+    "包内训练源自带 runner"是两条合法路径，只有 profile 作者知道这次要用哪条——
+    平台不替它猜（猜错就是把原生 PPO 的 runner 换成插件类，训练照跑但结论不可比）。
+
+    绑定本身只读注册表（纯 JSON）+ 写 class_name 字符串，**不需要 torch**；
+    真正的插件类 import 由训练栈解析 class_name 时发生——所以这段能进控制面测试。
+    阈值与口径见 ``adapters/mjlab/algorithms/registry.py`` 模块头。
+    """
+
+    if not isinstance(profile, dict):
+        return None
+    name = str(profile.get("algorithm_plugin") or "").strip()
+    if not name:
+        return None
+    from adapters.mjlab.algorithms.plugin_registry import apply_algorithm_plugin
+
+    variant = profile.get("algorithm_variant")
+    return apply_algorithm_plugin(rl_cfg, algorithm_plugin=name, variant=str(variant) if variant else None)
+
+
 def _load_profile_bundle(profile: dict, package: dict, config: dict):
     """Load an isolated package profile without robot-id-specific branches."""
     package_root = Path(str(package.get("package_root", ""))).resolve()
@@ -623,10 +646,10 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
     if config.get("generic_task", True) and profile_bundle is None:
         if not contract_path:
             raise ValueError("generic MJLab task requires contract_path")
-        from contracts.robot_contract_v2 import RobotContractV2
+        from contracts.contract_legacy_v2 import ContractLegacyV2
         from adapters.mjlab.generic_task_builder import build_generic_task
 
-        contract = RobotContractV2.from_json_file(str(contract_path))
+        contract = ContractLegacyV2.from_json_file(str(contract_path))
         bundle = build_generic_task(
             contract,
             config.get("resolved_recipe") or config.get("recipe") or config,
@@ -717,6 +740,11 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         env_cfg = load_env_cfg(task_id)
         rl_cfg = load_rl_cfg(task_id)
     recipe_report = apply_training_recipe(env_cfg, rl_cfg, config, preserve_profile=profile_bundle is not None)
+    # 算法插件绑定：只在 profile 显式声明 ``algorithm_plugin`` 时生效（默认路径不变）。
+    # 绑定的 class_name 进 ``recipe`` 报告——"这次用的是哪个算法的哪套接线"必须可查。
+    plugin_report = _apply_profile_algorithm_plugin(profile if profile_bundle is not None else None, rl_cfg)
+    if plugin_report:
+        recipe_report = {**recipe_report, "algorithm_plugin": plugin_report}
     env_cfg.scene.num_envs = max(1, int(config.get("num_envs", env_cfg.scene.num_envs)))
     actor_terms = env_cfg.observations.get("actor")
     critic_terms = env_cfg.observations.get("critic")
@@ -763,8 +791,8 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             def _checkpoint_metadata(r, _rl_cfg=rl_cfg, _cp=contract_path):
                 joint_names = list(getattr(r.env.unwrapped.scene["robot"], "joint_names", []) or [])
                 if not joint_names and _cp:
-                    from contracts.robot_contract_v2 import RobotContractV2
-                    loaded = RobotContractV2.from_json_file(str(_cp))
+                    from contracts.contract_legacy_v2 import ContractLegacyV2
+                    loaded = ContractLegacyV2.from_json_file(str(_cp))
                     joint_names = [joint.name for joint in loaded.joints.actuated_joints]
                 return build_deploy_metadata(r.env.unwrapped, _rl_cfg, joint_names)
 
@@ -815,8 +843,8 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                 shutil.copy2(model_path, output / "model_final.pt")
             if model_path.exists() and contract_path:
                 from contracts.policy_artifact import TrainingMetrics, create_artifact_from_training
-                from contracts.robot_contract_v2 import RobotContractV2
-                contract = RobotContractV2.from_json_file(str(contract_path))
+                from contracts.contract_legacy_v2 import ContractLegacyV2
+                contract = ContractLegacyV2.from_json_file(str(contract_path))
                 logical_task = str(config.get("task_name", task_id)).lower().replace(" ", "_").replace("-", "_")
                 artifact = create_artifact_from_training(
                     contract=contract,

@@ -22,7 +22,7 @@
   },
   "pack_id": "unitree_b2w-velocity",
   "display_name": "Unitree B2-W · velocity",
-  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",
+  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约真值 与技能 velocity_base。",
   "tags": [
     "generated",
     "default",
@@ -30,7 +30,7 @@
   ],
   "morphology_ref": {
     "id": "unitree_b2w",
-    "path": "assets/robots/unitree_b2w/contract_v3.json",
+    "path": "assets/robots/unitree_b2w/contract.json",
     "sha256": "44970a0e14fd02806078a423e4fba0542348d7172e19cc78a67573eeecc49a36"
   },
   "skill_ref": {
@@ -41,7 +41,7 @@
   "scenario_ref": null,
   "policy_ref": {
     "id": "unitree_b2w__produced-unitree_b2w_v1_20260918_093241_627441",
-    "path": "assets/robots/unitree_b2w/simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
+    "path": "simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
     "sha256": "9e1cdb504aff7193a8897b395c3952f97ad3c625d42cc31b41ba3282f892e891",
     "version": "unitree_b2w-trained-20260918-093241"
   },

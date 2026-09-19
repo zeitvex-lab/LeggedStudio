@@ -2,9 +2,9 @@
 
 ## 这组测试守的是什么
 
-v2 ``contract.json`` 的 ``observation.dimension`` 曾停留在 E4 基数校正前的旧值：
+v2 ``contract_legacy_v2.json`` 的 ``observation.dimension`` 曾停留在 E4 基数校正前的旧值：
 tron1 三包是旧「全帧和」口径（pf=135 / sf=330 / wf=165），其余各包是早期手写基数
-（b2w=45 / g1=105 / go1=45 / go2=48）。v3 ``contract_v3.json`` 按实测裁定后，v2 作为
+（b2w=45 / g1=105 / go1=45 / go2=48）。v3 ``contract.json`` 按实测裁定后，v2 作为
 兼容视图必须跟着 v3 走。B32 已把 7 个漂移包逐一对齐（wuji_hand=69 更早上轮已修），
 本文件把全仓不变量钉死：
 
@@ -29,7 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ROBOTS = ROOT / "assets" / "robots"
 
-# v3 真值表（B32 时的实测基数）。v3 变更是有意动作：先改 contract_v3.json 并在此
+# v3 真值表（B32 时的实测基数）。v3 变更是有意动作：先改 contract.json 并在此
 # 登记新真值，再让 v2 跟上——两处都动、测试才绿。
 V3_DIMENSION_TRUTH = {
     "deeprobotics_lite3": 45,
@@ -54,7 +54,7 @@ def _builtin_robots() -> list[str]:
     """有 v2+v3 双契约的内置包清单（按目录名排序）。"""
     return sorted(
         d.name for d in ROBOTS.iterdir()
-        if d.is_dir() and (d / "contract.json").exists() and (d / "contract_v3.json").exists()
+        if d.is_dir() and (d / "contract_legacy_v2.json").exists() and (d / "contract.json").exists()
     )
 
 
@@ -76,8 +76,8 @@ class RepoObsDimensionInvariantTest(unittest.TestCase):
         """14 包全部：v2 observation.dimension == v3 observation.dimension，无例外。"""
         drift: dict[str, tuple[int, int]] = {}
         for robot in _builtin_robots():
-            v2 = _obs_dimension(robot, "contract.json")
-            v3 = _obs_dimension(robot, "contract_v3.json")
+            v2 = _obs_dimension(robot, "contract_legacy_v2.json")
+            v3 = _obs_dimension(robot, "contract.json")
             if v2 != v3:
                 drift[robot] = (v2, v3)
         self.assertEqual(
@@ -88,13 +88,13 @@ class RepoObsDimensionInvariantTest(unittest.TestCase):
 
 
 class V3TruthPinTest(unittest.TestCase):
-    """v3 真值表钉死：v3 基数变更是有意动作，须先改 contract_v3.json 再登记本表。"""
+    """v3 真值表钉死：v3 基数变更是有意动作，须先改 contract.json 再登记本表。"""
 
     def test_v3_dimension_matches_pinned_truth(self):
         """逐包钉 v3 基数；漂移说明 v3 被改，须连带更新真值表（双向防漂）。"""
         mismatch: dict[str, tuple[int, int]] = {}
         for robot in _builtin_robots():
-            actual = _obs_dimension(robot, "contract_v3.json")
+            actual = _obs_dimension(robot, "contract.json")
             expected = V3_DIMENSION_TRUTH[robot]
             if actual != expected:
                 mismatch[robot] = (expected, actual)

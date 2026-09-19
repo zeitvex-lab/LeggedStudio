@@ -1632,7 +1632,7 @@ function applyRuntimeConfig(config) {
   //  - torque：CONFIG.kps/kds 就是应用每步下发的 PD 律，必须与训练一致。
   //    go2-backflip-69 训练 40/1，沿用包级 20/0.5 起跳发力不足，后空翻只翻到
   //    ~180° 就背部着地。全量扫描里 torque 接口仅此一个策略与包级不同。
-  //  - position_target：PD 属于模型，后端按 contract_v3.actuator_profile 重建原生
+  //  - position_target：PD 属于模型，后端按 contract_truth.actuator_profile 重建原生
   //    执行器（go1 = kp20/kv0.5）。运行时再改写 gainprm/biasprm 会破坏这一已验证
   //    配置——实测 go1-playground-joystick(35) 与 go1-moe-loco【PD 数值与包级完全
   //    相同】都会倒地。回退到"不覆盖"后两者均恢复稳定站立。

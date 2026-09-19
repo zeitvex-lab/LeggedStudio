@@ -1,0 +1,139 @@
+{
+  "schema_version": "robot-contract-2.0",
+  "contract_id": "unitree_go1_v1",
+  "robot_id": "unitree_go1",
+  "family": "Unitree Go1",
+  "size_class": "S",
+  "locomotion_type": "P",
+  "urdf": {
+    "path": "assets/robots/unitree_go1/model/robot.xml",
+    "hash": "",
+    "total_mass_kg": 11.986,
+    "mass_source": "mjcf_compiled"
+  },
+  "joints": {
+    "actuated_joints": [
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint"
+    ],
+    "passive_joints": [],
+    "default_pose": [
+      -0.1,
+      0.8,
+      -1.5,
+      0.1,
+      0.8,
+      -1.5,
+      -0.1,
+      0.8,
+      -1.5,
+      0.1,
+      0.8,
+      -1.5
+    ],
+    "joint_limits_rad": {
+      "FL_hip_joint": [
+        -0.802851,
+        0.802851
+      ],
+      "FL_thigh_joint": [
+        -1.0472,
+        4.18879
+      ],
+      "FL_calf_joint": [
+        -2.69653,
+        -0.916298
+      ],
+      "FR_hip_joint": [
+        -0.802851,
+        0.802851
+      ],
+      "FR_thigh_joint": [
+        -1.0472,
+        4.18879
+      ],
+      "FR_calf_joint": [
+        -2.69653,
+        -0.916298
+      ],
+      "RL_hip_joint": [
+        -0.802851,
+        0.802851
+      ],
+      "RL_thigh_joint": [
+        -1.0472,
+        4.18879
+      ],
+      "RL_calf_joint": [
+        -2.69653,
+        -0.916298
+      ],
+      "RR_hip_joint": [
+        -0.802851,
+        0.802851
+      ],
+      "RR_thigh_joint": [
+        -1.0472,
+        4.18879
+      ],
+      "RR_calf_joint": [
+        -2.69653,
+        -0.916298
+      ]
+    }
+  },
+  "observation": {
+    "dimension": 48,
+    "components": [
+      "base_ang_vel",
+      "projected_gravity",
+      "commands",
+      "joint_pos",
+      "joint_vel",
+      "last_action"
+    ]
+  },
+  "action": {
+    "dimension": 12,
+    "joint_order": [
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint"
+    ],
+    "action_scale": 0.25
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 200,
+    "decimation": 4
+  },
+  "description": "Unitree Go1。中型四足（12-DoF：hip/thigh/calf ×4），模型为包内 MJCF（LeggedSkillDeploy go1 资产，碰撞已按 go1_description.urdf 补全并 primitive 化），hip/thigh 力矩限幅 23.7 N·m、calf 33.5 N·m，统一 mjlab 1.6 运行时。",
+  "tags": [
+    "quadruped",
+    "mjcf",
+    "imported",
+    "package",
+    "unitree_go1"
+  ],
+  "source": "legged_skill_deploy_import",
+  "python_version": "3.12"
+}

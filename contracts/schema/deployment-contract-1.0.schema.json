@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cnb.cool/zeitvex/LeggedStudio/schema/deployment-contract-1.0.schema.json",
   "title": "DeploymentContractV1",
-  "description": "部署契约真值源（对应优化清单 #9）。部署包内的 deployment-contract.yaml/json 由此定义；关节映射/控制频率/PD/armature/限位全部来自机器人契约 v3，修改请回训练区。",
+  "description": "部署契约真值源（对应优化清单 #9）。部署包内的 deployment-contract.yaml/json 由此定义；关节映射/控制频率/PD/armature/限位全部来自机器人契约真值，修改请回训练区。",
   "type": "object",
   "required": ["schema_version", "robot_id", "control", "action"],
   "additionalProperties": true,

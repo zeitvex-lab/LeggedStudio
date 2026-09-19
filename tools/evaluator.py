@@ -9,7 +9,7 @@ import numpy as np
 from pathlib import Path
 import json
 
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 from contracts.policy_artifact import PolicyArtifact
 
 
@@ -77,7 +77,7 @@ class PolicyEvaluator:
 
     def __init__(
         self,
-        contract: RobotContractV2,
+        contract: ContractLegacyV2,
         num_episodes: int = 100,
         deterministic: bool = True
     ):
@@ -273,7 +273,7 @@ def evaluate_artifact(
     """
     # 加载
     artifact = PolicyArtifact.from_json_file(artifact_path)
-    contract = RobotContractV2.from_json_file(contract_path)
+    contract = ContractLegacyV2.from_json_file(contract_path)
 
     # 评估
     evaluator = PolicyEvaluator(contract, num_episodes=num_episodes)
@@ -288,7 +288,7 @@ def evaluate_artifact(
 
 if __name__ == "__main__":
     # 测试
-    from contracts.robot_contract_v2 import create_go2_contract
+    from contracts.contract_legacy_v2 import create_go2_contract
     from contracts.policy_artifact import create_artifact_from_training, TrainingMetrics
 
     # 创建测试 Artifact

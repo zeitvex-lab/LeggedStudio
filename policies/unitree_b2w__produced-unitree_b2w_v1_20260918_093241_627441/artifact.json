@@ -1,11 +1,16 @@
 {
+  "action_dim": 16,
+  "algorithm": null,
   "artifact_id": "unitree_b2w__produced-unitree_b2w_v1_20260918_093241_627441",
+  "aux_blobs": [],
   "contract": {
     "action_dim": 16,
     "obs_dim": 57,
     "observation_kind": "unknown"
   },
   "contract_digest": "689cd6ea17b328c090de7d0701a4e46912c740ebaaade0b573744a0cca5c233b",
+  "declared_source": null,
+  "history_len": null,
   "installed": {
     "package_path": "simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
     "policy_id": "unitree_b2w-trained-20260918-093241",
@@ -13,11 +18,15 @@
     "robot": "unitree_b2w"
   },
   "kind": "produced",
+  "label": "训练产物（run unitree_b2w_v1_20260918_093241_627441）",
+  "obs_dim": 57,
+  "observation_kind": "unknown",
   "onnx_bytes": 786562,
-  "onnx_sha256": "3a37329c7dcf8e4445b5f2cf69d94e497bd2ab2c7d0005ed5a4f06499e07931e",
+  "onnx_sha256": "9e1cdb504aff7193a8897b395c3952f97ad3c625d42cc31b41ba3282f892e891",
   "policy_id": "unitree_b2w-trained-20260918-093241",
   "robot": "unitree_b2w",
   "run_id": "unitree_b2w_v1_20260918_093241_627441",
   "schema": "policy-artifact-1.0",
-  "source_onnx": "assets/robots/unitree_b2w/simulation/policies/unitree_b2w-trained-20260918-093241.onnx"
+  "source_onnx": "simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
+  "task_type": null
 }

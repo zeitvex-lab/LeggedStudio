@@ -10,7 +10,7 @@
   "label": "Backflip 69D (imitation, motion-csv)",
   "obs_dim": 69,
   "onnx_bytes": 807578,
-  "onnx_sha256": "6e62985151724077a023d8a23ea8708e08cff8bb62d6e1240f0e8ad5b905b75b",
+  "onnx_sha256": "d0fabe3cc76a5839eb45f004dc2f34ef926ae7aad2262601049bc3335d521db8",
   "policy_id": "go2-backflip-69",
   "robot": "unitree_go2",
   "run_id": null,

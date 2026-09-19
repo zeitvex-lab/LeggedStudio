@@ -35,17 +35,17 @@ MASS_SOURCES = ("mjcf_compiled", "urdf_inertial")
 class ParameterSingleHomeTest(unittest.TestCase):
     def _packages(self) -> list[str]:
         return sorted(
-            p.name for p in ROBOTS.iterdir() if (p / "contract_v3.json").exists()
+            p.name for p in ROBOTS.iterdir() if (p / "contract.json").exists()
         )
 
     def _v3(self, package: str) -> dict:
         return json.loads(
-            (ROBOTS / package / "contract_v3.json").read_text(encoding="utf-8-sig")
+            (ROBOTS / package / "contract.json").read_text(encoding="utf-8-sig")
         )
 
     def _v2(self, package: str) -> dict:
         return json.loads(
-            (ROBOTS / package / "contract.json").read_text(encoding="utf-8-sig")
+            (ROBOTS / package / "contract_legacy_v2.json").read_text(encoding="utf-8-sig")
         )
 
     def test_size_class_matches_mass_bucket(self) -> None:
@@ -58,12 +58,12 @@ class ParameterSingleHomeTest(unittest.TestCase):
             with self.subTest(package=package, side="v3"):
                 self.assertEqual(
                     self._v3(package).get("size_class"), expected.value,
-                    f"{package}/contract_v3.json 的 size_class 与质量 {mass} 不符",
+                    f"{package}/contract.json 的 size_class 与质量 {mass} 不符",
                 )
             with self.subTest(package=package, side="v2"):
                 self.assertEqual(
                     self._v2(package).get("size_class"), expected.value,
-                    f"{package}/contract.json 的 size_class 与质量 {mass} 不符",
+                    f"{package}/contract_legacy_v2.json 的 size_class 与质量 {mass} 不符",
                 )
 
     def test_mass_source_uses_canonical_enum(self) -> None:

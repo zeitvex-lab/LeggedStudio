@@ -10,7 +10,7 @@
   "label": "Walking",
   "obs_dim": 61,
   "onnx_bytes": 793705,
-  "onnx_sha256": "e36332d383997d51401897734cd3e79cf5038406feddb18b4d57ecfb141daa6c",
+  "onnx_sha256": "8faa9cec0e6f7a68f29b2e33935b14742db9821a4e6f395a0d3e9c2ba0545846",
   "policy_id": "microduck-walking",
   "robot": "microduck",
   "run_id": null,

@@ -25,8 +25,10 @@
         set -eo pipefail
         echo "== install control-plane deps =="
         pip install --quiet --upgrade pip || true
-        # 与 backend/requirements.txt 保持一致；httpx 是 starlette TestClient 依赖。
-        pip install --quiet -r backend/requirements.txt httpx
+        # 与 backend/requirements.txt 保持一致；httpx 是 starlette TestClient 依赖；
+        # onnx 是 B44「产物自证」的量具（读 ONNX 图输入宽度）——不装它那组用例会 skip，
+        # 而 verify_artifacts 会静默退化成快照 fallback（B44 要挡的正是这种错配）。
+        pip install --quiet -r backend/requirements.txt httpx onnx
         echo "== offscreen GL backend (best-effort, never fatal) =="
         # 无显示环境下离屏渲染需要**软件 GL**（libOSMesa）。这里尽力装：
         # 装不上也不判红——backend/gl_env.offscreen_render_status() 是**实测探针**
@@ -68,7 +70,7 @@
         python tools/audit_obs_group_names.py
         # N5 仿真分层：data-surface 声明—消费两端（静态扫描，不渲染浏览器）
         python tools/audit_sim_surface.py
-        # H23 sim2sim 执行器/滤波一致性：浏览器下发 ↔ 契约 v3 ↔ 训练常量表 ↔ 电机参数卡
+        # H23 sim2sim 执行器/滤波一致性：浏览器下发 ↔ 契约真值 ↔ 训练常量表 ↔ 电机参数卡
         # 四端同值 + B3 物理键残留复检 + 端点白名单接线钉住（rc_old 参考值只记录不判红）
         python tools/audit_sim2sim_consistency.py
         # N2 资源库许可覆盖（只看文件存在性；新缺口/名单过期判红）
@@ -86,7 +88,7 @@
         # 2026-09-13：此前 CI 只跑 contracts.tests.test_path_bootstrap 一个模块，其余
         # 123 项（role_resolver 三级展开 / 物理载荷视图 / go2 冻结证据哈希 / 动作缩放…）
         # 长期不在门禁内 —— 结果 38 项失败（16 FAIL + 22 ERROR）无人知晓。现按
-        # "迁移已完成"重写（把真值源从 simulation/config.json 换成 contract_v3，
+        # "迁移已完成"重写（把真值源从 simulation/config.json 换成 contract_truth，
         # 并把"缺口"正面表述为"必须覆盖每个驱动关节"）后**全量接入**。
         python -m unittest discover -s contracts/tests -p "test_*.py" 2>&1 | tail -30
         echo "== deterministic replay gate (L1/G2: judge selfcheck) =="

@@ -10,7 +10,7 @@
   "label": "Go2 ArenaX velocity",
   "obs_dim": 45,
   "onnx_bytes": 961045,
-  "onnx_sha256": "59dc10651fb205fb86456f73eceb9ea4821745322b7b2adda5a7b5c8b470b93e",
+  "onnx_sha256": "a3b893d044491dca63308a50dce6d559c83edc288a07215aaa89f123f2bb9382",
   "policy_id": "go2-arenax-velocity",
   "robot": "unitree_go2",
   "run_id": null,

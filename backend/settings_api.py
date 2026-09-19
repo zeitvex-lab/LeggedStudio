@@ -109,9 +109,7 @@ class SettingsUpdate(BaseModel):
     auto_start_backend: bool | None = None
 
 
-def _workspace_root() -> Path:
-    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE", "").strip()
-    return Path(configured).expanduser() if configured else Path(__file__).resolve().parents[1] / "workspace"
+from backend.paths import workspace_root as _workspace_root  # 唯一实现见 backend/paths.py
 
 
 @router.get("")

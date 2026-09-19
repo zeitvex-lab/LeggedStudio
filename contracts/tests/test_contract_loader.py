@@ -7,10 +7,10 @@ from pathlib import Path
 
 from contracts.contract_loader import (
     ContractLoadError,
-    load_contract_v2,
-    load_contract_v3,
+    load_legacy_contract,
+    load_contract,
     load_training_contract,
-    merge_v3_over_v2,
+    merge_legacy_over_contract,
 )
 
 WORKSPACE = Path(__file__).resolve().parents[2]
@@ -75,7 +75,7 @@ class ContractLoaderTest(unittest.TestCase):
             "control": {"control_hz": 100, "physics_hz": 1000, "decimation": 10},
         }
 
-        merged = merge_v3_over_v2(v3, v2)
+        merged = merge_legacy_over_contract(v3, v2)
         # v3 wins for the semantic authority fields.
         self.assertEqual(merged["robot_id"], "test_robot")
         self.assertEqual(merged["size_class"], "M")
@@ -148,7 +148,7 @@ class FieldLevelObservationMergeTest(unittest.TestCase):
             "control": {"control_hz": 100},
         }
 
-        merged = merge_v3_over_v2(v3, v2)
+        merged = merge_legacy_over_contract(v3, v2)
         obs = merged["observation"]
         # v3 字段级表述 wins（components 非空）。
         self.assertEqual(obs["dimension"], 6)
@@ -187,7 +187,7 @@ class FieldLevelObservationMergeTest(unittest.TestCase):
             "observation": {"dimension": 48, "components": ["base_lin_vel"]},
             "action": {"dimension": 1, "joint_order": ["FL_hip_joint"]},
         }
-        merged = merge_v3_over_v2(v3, v2)
+        merged = merge_legacy_over_contract(v3, v2)
         obs = merged["observation"]
         self.assertEqual(len(obs["components"]), 1)  # 保留 v2 组件名
         self.assertEqual(obs["history_length"], 5)   # 透传 v3 历史帧

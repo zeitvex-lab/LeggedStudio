@@ -4,7 +4,7 @@
 Pack 是**纯引用组合**：`morphology_ref × skill_ref [× scenario_ref] [× policy_ref]`
 + 四阶段质量门 `bindings`。本脚本只读不写资源本身，产出为 `packs/<robot_id>.pack.json`：
 
-  morphology_ref → 该包 contract_v3.json（包内相对路径 + sha256）
+  morphology_ref → 该包 contract.json（包内相对路径 + sha256）
   skill_ref      → 默认 core/velocity@2.0（M1 阶段的唯一 Spec）
   bindings       → verify/train/simulate/deploy 的默认门禁（冒烟 64×5、确定性回放、DENYLIST）
 
@@ -87,19 +87,55 @@ DEFAULT_BINDINGS = {
 
 
 def _sha256(path: Path) -> str:
-    # 规范化内容哈希（CRLF → LF），与 backend/pack_catalog._content_sha256 同口径；
-    # 对原始字节哈希会随 git core.autocrlf 漂移，跨机对账失效。两侧须同步修改。
-    data = path.read_bytes().replace(b"\r\n", b"\n")
-    return hashlib.sha256(data).hexdigest()
+    """规范化内容哈希：委托 ``contracts.validator.normalized_sha256``（**唯一实现**）。
+
+    生成器与 ``backend/pack_catalog`` 此前各写一份、靠注释"两侧必须同步修改"维系；
+    现在两侧都引用同一函数——口径是代码事实，改一处即全链生效。
+    """
+
+    from contracts.validator import normalized_sha256
+
+    return normalized_sha256(path.read_bytes())
 
 
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
-def _morphology_id(contract_v3: dict) -> str | None:
-    morphology = contract_v3.get("morphology")
+def _morphology_id(contract_truth: dict) -> str | None:
+    morphology = contract_truth.get("morphology")
     return str(morphology.get("id")) if isinstance(morphology, dict) and morphology.get("id") else None
+
+
+#: 本次生成中**被丢弃**的 ``policy_ref``（路径指向 gitignored 目录）。``main()`` 统一打印——
+#: "回挂被丢弃"必须在输出里可见，否则就成了静默丢数据。
+DROPPED_POLICY_REFS: list[str] = []
+
+
+def sanitize_policy_ref(ref: dict | None) -> dict | None:
+    """回挂继承的卫生检查：**路径指向 gitignored 目录就丢弃**。
+
+    为什么丢弃而不是原样继承（2026-09-19 收口）：``packs/*.pack.json`` 是随仓库分发的东西，
+    而 ``workspace/**`` 在 ``.gitignore`` 里——继承它等于把"只有本机才有的路径"永久写进
+    一份会被别人 clone 的文件（实测 go2 / lite3 两份 Pack 就是这么红的：本机 14/14、
+    干净 clone 与 CI 12/14）。
+
+    丢弃是**如实**的：策略 blob 不在仓库里，Pack 就不该声称自己带策略；产物与出处仍完整
+    记在 ``policies/index.json``（产物登记的家在索引，不在 Pack）。等价判据在
+    ``backend/pack_catalog._check_ref``（校验侧）与 ``policy_artifacts._policy_ref_path``
+    （写入侧），三处同一口径。
+    """
+
+    if not isinstance(ref, dict) or not ref.get("id"):
+        return None
+    rel = str(ref.get("path") or "")
+    from backend.pack_catalog import gitignored_ref_prefix
+
+    blocker = gitignored_ref_prefix(rel) if rel else None
+    if blocker:
+        DROPPED_POLICY_REFS.append(f"{ref['id']} → {rel}（{blocker}** 在 .gitignore 里）")
+        return None
+    return dict(ref)
 
 
 def existing_policy_ref(package_dir: Path, out_dir: Path) -> dict | None:
@@ -108,6 +144,7 @@ def existing_policy_ref(package_dir: Path, out_dir: Path) -> dict | None:
     训练产物经 `attach_policy_to_pack()` 回挂后，Pack 的 `policy_ref` 指向产物的 onnx。
     生成器若一律写 `null`，下一次重生成就把这条回挂静默抹掉（"生成物"覆盖"产品数据"）——
     所以这里显式继承，并在 `--dry-run` 下同样生效（否则演练与实跑不一致）。
+    继承前过一道 :func:`sanitize_policy_ref`（去掉指向 gitignored 目录的路径）。
     """
 
     path = out_dir / f"{package_dir.name}.pack.json"
@@ -115,7 +152,7 @@ def existing_policy_ref(package_dir: Path, out_dir: Path) -> dict | None:
         return None
     payload = _load_json(path)
     ref = payload.get("policy_ref") if isinstance(payload, dict) else None
-    return dict(ref) if isinstance(ref, dict) and ref.get("id") else None
+    return sanitize_policy_ref(ref)
 
 
 
@@ -136,14 +173,14 @@ def _project_license_for(robot: str) -> dict:
 
 
 def build_pack(package_dir: Path, *, policy_ref: dict | None = None) -> dict | None:
-    """从单个机器人包构建默认 Pack；缺 contract_v3.json 则跳过（返回 None）。"""
+    """从单个机器人包构建默认 Pack；缺 contract.json 则跳过（返回 None）。"""
 
-    contract_path = package_dir / "contract_v3.json"
+    contract_path = package_dir / "contract.json"
     if not contract_path.exists():
         return None
 
-    contract_v3 = _load_json(contract_path)
-    robot_id = str(contract_v3.get("robot_id") or package_dir.name)
+    contract_truth = _load_json(contract_path)
+    robot_id = str(contract_truth.get("robot_id") or package_dir.name)
     skill_ref = default_skill_ref()
 
     return {
@@ -151,12 +188,12 @@ def build_pack(package_dir: Path, *, policy_ref: dict | None = None) -> dict | N
         # I5：license 块**从取证层投影**（不在这里手写常量 —— 手写必然与 registry 漂移）
         "license": _project_license_for(package_dir.name),
         "pack_id": f"{robot_id}-velocity",
-        "display_name": f"{contract_v3.get('family') or robot_id} · velocity",
-        "description": f"默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 {skill_ref['id']}。",
-        "tags": ["generated", "default", _morphology_id(contract_v3) or "unknown_morphology"],
+        "display_name": f"{contract_truth.get('family') or robot_id} · velocity",
+        "description": f"默认 Pack（tools/generate_packs.py 生成）：引用该机型契约真值 与技能 {skill_ref['id']}。",
+        "tags": ["generated", "default", _morphology_id(contract_truth) or "unknown_morphology"],
         "morphology_ref": {
             "id": robot_id,
-            "path": f"assets/robots/{package_dir.name}/contract_v3.json",
+            "path": f"assets/robots/{package_dir.name}/contract.json",
             "sha256": _sha256(contract_path),
         },
         "skill_ref": skill_ref,
@@ -184,6 +221,7 @@ def main(argv: list[str] | None = None) -> int:
 
     written: list[str] = []
     skipped: list[str] = []
+    DROPPED_POLICY_REFS.clear()
     for package_dir in sorted(p for p in robots_dir.iterdir() if p.is_dir()):
         pack = build_pack(package_dir, policy_ref=existing_policy_ref(package_dir, out_dir))
         if pack is None:
@@ -195,11 +233,16 @@ def main(argv: list[str] | None = None) -> int:
             )
         written.append(pack["pack_id"])
 
-    print(f"packs 生成：{len(written)}" + (f"（{len(skipped)} 个包缺 contract_v3.json，已跳过：{', '.join(skipped)}）" if skipped else ""))
+    print(f"packs 生成：{len(written)}" + (f"（{len(skipped)} 个包缺 contract.json，已跳过：{', '.join(skipped)}）" if skipped else ""))
     if not args.dry_run:
         print(f"输出目录：{out_dir}")
     for pack_id in written:
         print(f"  - {pack_id}")
+    if DROPPED_POLICY_REFS:
+        print(f"丢弃 {len(DROPPED_POLICY_REFS)} 条指向 gitignored 目录的 policy_ref（随仓分发的 Pack 不能引用机器本地状态）：")
+        for item in DROPPED_POLICY_REFS:
+            print(f"  ! {item}")
+        print("  → 策略产物与出处仍在 policies/index.json；要进 Pack，先把产物安装进仓库内的机器人包。")
     return 0
 
 

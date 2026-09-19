@@ -25,7 +25,7 @@ from backend.training_config_helpers import (  # noqa: F401
 from backend.training_manager import get_training_manager
 from backend.robot_presets import get_robot_preset
 from backend.robot_packages import package_for_contract
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 from adapters.mjlab.env_factory import get_reward_terms
 from adapters.mjlab.algorithms.registry import list_algorithms
 from adapters.mjlab.recipe_registry import list_tasks, resolve_recipe

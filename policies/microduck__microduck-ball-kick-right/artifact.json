@@ -10,7 +10,7 @@
   "label": "Ball Kick Right",
   "obs_dim": 61,
   "onnx_bytes": 793685,
-  "onnx_sha256": "147a32c388c6b19111b3ac3b550a9a6dc8b8bf267118af4d8c3712522eedb5af",
+  "onnx_sha256": "fdac5b3e161e66932519fda5af0738fa7e7818d608a558b35da51caba3b1ff3e",
   "policy_id": "microduck-ball-kick-right",
   "robot": "microduck",
   "run_id": null,

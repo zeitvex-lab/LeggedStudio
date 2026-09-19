@@ -10,7 +10,7 @@
   "label": "Lite3 Velocity 45D（云深处官方 SDK 部署策略）",
   "obs_dim": 45,
   "onnx_bytes": 758441,
-  "onnx_sha256": "d2365801b05d0bee208eb2699d4553bf58a66d5cba92f5922eac231e5f9f9bb1",
+  "onnx_sha256": "f9b3f714bd3cb843339d5ce42f2f5f63bfc4e21c62ec32bfb84705eb04534583",
   "policy_id": "lite3-official-sdk",
   "robot": "deeprobotics_lite3",
   "run_id": null,

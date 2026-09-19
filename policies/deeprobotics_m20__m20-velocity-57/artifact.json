@@ -10,7 +10,7 @@
   "label": "Velocity 57D (official export)",
   "obs_dim": 57,
   "onnx_bytes": 785758,
-  "onnx_sha256": "212c0c4c81ef163afc65f4db085cf9812e2bb7dd46f4b9ff13bbc9489adc2914",
+  "onnx_sha256": "fda19dff22baa65875e3f34623754168c6c40c50da0f2363894c0c50e955e0cb",
   "policy_id": "m20-velocity-57",
   "robot": "deeprobotics_m20",
   "run_id": null,

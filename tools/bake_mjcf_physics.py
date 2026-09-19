@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""把契约 v3 的物理真值固化进包内 MJCF —— 消灭运行时"猴子补丁"（B-系列：单一真值）。
+"""把契约真值 的物理真值固化进包内 MJCF —— 消灭运行时"猴子补丁"（B-系列：单一真值）。
 
 背景
 ----
@@ -57,7 +57,7 @@ TAG_RE = re.compile(r"<(?P<tag>[A-Za-z_][\w.-]*)\b(?P<attrs>[^>]*?)/?>")
 ACTUATOR_BLOCK_RE = re.compile(r"(?P<head>[ \t]*<actuator\b[^>]*>)(?P<body>.*?)(?P<tail>[ \t]*</actuator>)", re.DOTALL)
 INCLUDE_RE = re.compile(r'<include\b[^>]*file\s*=\s*"([^"]+)"')
 
-OPTION_TRUTH_COMMENT = "  <!-- timestep 不在此声明：运行时统一取 contract_v3.json control.physics_hz -->"
+OPTION_TRUTH_COMMENT = "  <!-- timestep 不在此声明：运行时统一取 contract.json control.physics_hz -->"
 SCENE_OPTION_COMMENT = "  <!-- 物理真值已固化进 model/robot.xml（<include> 的 <option> 实测生效，此处不再重复声明） -->"
 
 
@@ -273,10 +273,10 @@ def bake_actuators(source: str, expanded: dict[str, dict], order: list[str]) -> 
 
 def bake_package(package_dir: Path, *, write: bool) -> dict:
     """固化单个包；返回变更摘要（``changed`` 为 False 表示已是最新）。"""
-    contract_path = package_dir / "contract_v3.json"
+    contract_path = package_dir / "contract.json"
     model_path = package_dir / "model" / "robot.xml"
     if not contract_path.is_file() or not model_path.is_file():
-        return {"package": package_dir.name, "skipped": "缺 contract_v3.json 或 model/robot.xml"}
+        return {"package": package_dir.name, "skipped": "缺 contract.json 或 model/robot.xml"}
 
     contract = json.loads(contract_path.read_text(encoding="utf-8-sig"))
     expanded = RoleResolver(contract).expand_actuator_profile()
@@ -349,14 +349,14 @@ def _insert_scene_comment(source: str) -> str:
 
 
 def iter_packages(root: Path, only: str | None) -> list[Path]:
-    packages = sorted(path for path in (root / "assets" / "robots").iterdir() if (path / "contract_v3.json").is_file())
+    packages = sorted(path for path in (root / "assets" / "robots").iterdir() if (path / "contract.json").is_file())
     if only:
         packages = [path for path in packages if path.name == only]
     return packages
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="把契约 v3 物理真值固化进包内 MJCF")
+    parser = argparse.ArgumentParser(description="把契约真值 物理真值固化进包内 MJCF")
     parser.add_argument("--check", action="store_true", help="只报告差异（有差异则退出码 1），不写文件")
     parser.add_argument("--only", default=None, help="只处理指定机器人包目录名")
     parser.add_argument("--quiet", action="store_true", help="只打印有变更的包")

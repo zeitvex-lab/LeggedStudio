@@ -2,7 +2,7 @@
   "artifact_id": "microduck__produced-microduck_mjlab_v1_20260916_020936_680479",
   "kind": "produced",
   "onnx_bytes": 793730,
-  "onnx_sha256": "cc8e9dea6d17629d09ce8e2042fa3baa2f0dcb06b2c947054fd35561873e8a88",
+  "onnx_sha256": "ab313537ace89295276293ee5acbf228df36c74a846aedeb25cd6c12351f5901",
   "run_id": "microduck_mjlab_v1_20260916_020936_680479",
   "schema": "policy-artifact-1.0",
   "source_onnx": "policies/microduck__produced-microduck_mjlab_v1_20260916_020936_680479/policy.onnx"

@@ -30,16 +30,15 @@ class DeployPackageRequest(BaseModel):
 @router.post("/package")
 async def create_deploy_package(request: DeployPackageRequest):
     try:
-        report = generate_deploy_package(request.robot_id, degraded=request.degraded, target_platform=request.target_platform, bench_mode=request.bench_mode)
-        if request.policy_onnx_path:
-            from pathlib import Path as _P
-            import zipfile
-
-            onnx = _P(request.policy_onnx_path)
-            if onnx.exists():
-                with zipfile.ZipFile(report["path"], "a", zipfile.ZIP_DEFLATED) as zf:
-                    zf.write(onnx, "policy.onnx")
-                report["files"].append("policy.onnx")
+        # 生成、打包与"随包携带策略"全在 deploy_pack 一处（CLI `deploy pack` 走同一实现）；
+        # policy_onnx_path 给了却不存在 → 404（fail-closed，不静默忽略）。
+        report = generate_deploy_package(
+            request.robot_id,
+            degraded=request.degraded,
+            target_platform=request.target_platform,
+            bench_mode=request.bench_mode,
+            policy_onnx=request.policy_onnx_path,
+        )
         report["download_url"] = f"/api/deploy/download?path={Path(report['path']).name}"
         return {"success": True, **report}
     except FileNotFoundError as exc:
@@ -68,18 +67,17 @@ async def download_deploy_package(path: str):
 async def deploy_gate(robot_id: str):
     """向导步骤 2：当前契约一致性快检（v3 vs v2）。
 
+    判据全在 :func:`backend.deploy_pack.deploy_gate_report`（与 CLI ``deploy gate``
+    同一实现）——本端点只做异常到 HTTP 状态的映射，不自己拼路径、不自己比字段。
+
     真正的强校验在导出侧（训练快照 vs 当前契约，contract_snapshot 固化后自动收紧）；
     本端点供向导在导出前即时核对包内契约的层间一致性。
     """
-    from backend.deploy_pack import _load_json
-    from backend.export_gate import compare_contracts
-    from backend.robot_presets import get_robot_preset
+    from backend.deploy_pack import deploy_gate_report
 
-    preset = get_robot_preset(robot_id)
-    root_value = str(((preset or {}).get("robot_package") or {}).get("package_root", ""))
-    root = Path(root_value) if root_value else ROOT / "assets" / "robots" / robot_id
-    if not root.exists():
-        raise HTTPException(status_code=404, detail=f"robot package not found: {robot_id}")
-    v3 = _load_json(root / "contract_v3.json") or {}
-    v2 = _load_json(root / "contract.json") or {}
-    return {"robot_id": robot_id, **compare_contracts(v3, v2)}
+    try:
+        return deploy_gate_report(robot_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

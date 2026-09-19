@@ -19,7 +19,7 @@ ROBOTS = WORKSPACE / "assets" / "robots"
 
 class ValidatePackagesTest(unittest.TestCase):
     def test_all_builtin_packages_pass_validation(self) -> None:
-        for package_dir in sorted(p for p in ROBOTS.iterdir() if (p / "contract.json").exists()):
+        for package_dir in sorted(p for p in ROBOTS.iterdir() if (p / "contract_legacy_v2.json").exists()):
             with self.subTest(package=package_dir.name):
                 report = validate_package(package_dir)
                 self.assertTrue(report["ok"], f"{package_dir.name}: {report['errors']}")
@@ -33,8 +33,8 @@ class ScaffoldRoundtripTest(unittest.TestCase):
             path = scaffold_package(Path(tmp), "my_robot")
             report = validate_package(path)
             self.assertTrue(report["ok"], report["errors"])
-            contract_v3 = (path / "contract_v3.json").read_text(encoding="utf-8")
-            self.assertIn('"robot_id": "my_robot"', contract_v3)
+            contract_truth = (path / "contract.json").read_text(encoding="utf-8")
+            self.assertIn('"robot_id": "my_robot"', contract_truth)
 
     def test_duplicate_scaffold_rejected(self) -> None:
         import tempfile
@@ -72,7 +72,7 @@ class ThreePredicateMatchTest(unittest.TestCase):
 
 class CatalogTest(unittest.TestCase):
     def test_catalog_covers_packages_with_hashes(self) -> None:
-        catalog = generate_catalog(sorted(p for p in ROBOTS.iterdir() if (p / "contract.json").exists()))
+        catalog = generate_catalog(sorted(p for p in ROBOTS.iterdir() if (p / "contract_legacy_v2.json").exists()))
         # agibot_d1 / unitree_h1_2 已下线删除、deeprobotics_x30 已移出，内置包 16 → 14。
         self.assertGreaterEqual(len(catalog["packages"]), 14)
         for entry in catalog["packages"]:

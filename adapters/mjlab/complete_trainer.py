@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional, Callable, Dict, Any
 import time
 
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 from backend.robot_packages import package_for_contract
 from contracts.policy_artifact import PolicyArtifact, TrainingMetrics, create_artifact_from_training
 
@@ -53,7 +53,7 @@ class CompleteTrainer:
 
     def __init__(
         self,
-        contract: RobotContractV2,
+        contract: ContractLegacyV2,
         config: Dict[str, Any],
         output_dir: str
     ):
@@ -93,7 +93,7 @@ class CompleteTrainer:
 
 def train_go2_forward_walk(output_dir: Optional[str] = None) -> PolicyArtifact:
     """训练 Go2 forward walk（快速测试）"""
-    from contracts.robot_contract_v2 import create_go2_contract
+    from contracts.contract_legacy_v2 import create_go2_contract
 
     contract = create_go2_contract()
 

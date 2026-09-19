@@ -71,7 +71,7 @@ class WorkspaceSyncC6Tests(unittest.TestCase):
         (shipped / "simulation" / "scene.xml").write_text("<mujoco/>", encoding="utf-8")
         (shipped / "simulation" / "policies" / "walk.onnx").write_bytes(b"\x08\x01onnx-walk")
         (shipped / "training" / "profiles" / "flat.json").write_text("{}", encoding="utf-8")
-        _write_json(shipped / "contract.json", {"robot_id": "acme_bot", "family": "Acme", "joints": {"actuated_joints": []}, "urdf": {"path": "model/robot.xml"}})
+        _write_json(shipped / "contract_legacy_v2.json", {"robot_id": "acme_bot", "family": "Acme", "joints": {"actuated_joints": []}, "urdf": {"path": "model/robot.xml"}})
         _write_json(shipped / "robot_package.json", {"schema_version": "robot-package-1.0", "package_id": "acme_bot", "model": {"format": "mjcf", "path": "model/robot.xml"}})
         _write_json(shipped / "simulation" / "config.json", SOURCE_CONFIG)
 
@@ -86,7 +86,7 @@ class WorkspaceSyncC6Tests(unittest.TestCase):
         aged["stiffness"]["knee"] = 37.5  # 用户工作台编辑
         self._aged_config = aged
         _write_json(target / "simulation" / "config.json", aged)
-        _write_json(target / "contract.json", _read_json(shipped / "contract.json"))
+        _write_json(target / "contract_legacy_v2.json", _read_json(shipped / "contract_legacy_v2.json"))
         _write_json(target / "robot_package.json", _read_json(shipped / "robot_package.json"))
 
         self._previous_root = robot_packages.ROOT

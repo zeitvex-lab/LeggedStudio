@@ -31,6 +31,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:  # 供 ``from contracts...`` 使用（脚本直接运行时 sys.path[0] 是 tools/）
+    sys.path.insert(0, str(ROOT))
+
+from contracts.validator import normalize_line_endings  # noqa: E402  (归一规则唯一实现)
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +133,7 @@ def collect_facts() -> dict:
     if robots_dir.is_dir():
         for path in _repo_files(robots_dir):
             try:
-                total_bytes += len(path.read_bytes().replace(b"\r\n", b"\n"))
+                total_bytes += len(normalize_line_endings(path.read_bytes()))
             except OSError:
                 continue
     facts["assets_robots_mb"] = round(total_bytes / 1024 / 1024, 1)

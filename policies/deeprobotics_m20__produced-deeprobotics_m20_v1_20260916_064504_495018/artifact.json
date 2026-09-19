@@ -2,7 +2,7 @@
   "artifact_id": "deeprobotics_m20__produced-deeprobotics_m20_v1_20260916_064504_495018",
   "kind": "produced",
   "onnx_bytes": 787529,
-  "onnx_sha256": "fa816f58698581914e2bb71ad53c2a724f6b3f74c1a152309a7b373cc5ef6ca4",
+  "onnx_sha256": "d30f32f07a9cf6fb7b7eb64824e6943dd1569b2806dc57b0554d645972b82f64",
   "run_id": "deeprobotics_m20_v1_20260916_064504_495018",
   "schema": "policy-artifact-1.0",
   "source_onnx": "policies/deeprobotics_m20__produced-deeprobotics_m20_v1_20260916_064504_495018/policy.onnx"

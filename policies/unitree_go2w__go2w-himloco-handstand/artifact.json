@@ -10,7 +10,7 @@
   "label": "Go2W HIMLoco 倒立 (handstand)",
   "obs_dim": 57,
   "onnx_bytes": 1078609,
-  "onnx_sha256": "ee59f0a76e4fcc4edf200743fbac14cf0f34704ec8e446745c81691d02330615",
+  "onnx_sha256": "00a3532da43a4ce062facb41ac931422509a48f3458230226f64f34bbab6186d",
   "policy_id": "go2w-himloco-handstand",
   "robot": "unitree_go2w",
   "run_id": null,

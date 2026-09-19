@@ -14,13 +14,13 @@ import json
 import unittest
 from pathlib import Path
 
-from contracts.generated import RobotContractV3, dump_v3, parse_v3
+from contracts.generated import RobotContractV3, dump_v3, parse_contract
 from contracts.physics_binding import action_scale_facts, payload_action_scale_view
 from contracts.role_resolver import (
     RoleResolver,
+    build_contract,
     RoleResolverError,
     action_scale_for_contract,
-    build_v3_contract,
     load_schema,
     naming_pattern,
     role_values_from_per_joint,
@@ -40,7 +40,7 @@ ROLE_PARAMS = ("stiffness", "damping", "torque_limits", "armature")
 
 
 def load_sim_config(package_id: str) -> dict:
-    """**配置口径的真值视图**（2026-09-13 起由 ``contract_v3.json`` 派生）。
+    """**配置口径的真值视图**（2026-09-13 起由 ``contract.json`` 派生）。
 
     为什么改源：B3 收尾把 8 个物理键从 14 包的 ``simulation/config.json`` 移除了——
     它不再是物理真值来源，继续拿它当"现行数值"会让本文件的所有对拍一边恒为空
@@ -56,16 +56,16 @@ def load_sim_config(package_id: str) -> dict:
       **角色键控**视图——这样 `test_go2_role_keyed_config_roundtrip` 仍在测角色键路径。
     """
 
-    contract_v3 = json.loads(
-        (WORKSPACE / "assets" / "robots" / package_id / "contract_v3.json").read_text(encoding="utf-8-sig")
+    contract_truth = json.loads(
+        (WORKSPACE / "assets" / "robots" / package_id / "contract.json").read_text(encoding="utf-8-sig")
     )
-    expanded = RoleResolver(contract_v3).expand_actuator_profile()
-    control = contract_v3.get("control") or {}
+    expanded = RoleResolver(contract_truth).expand_actuator_profile()
+    control = contract_truth.get("control") or {}
     view: dict = {
         "control_hz": control.get("control_hz"),
         "physics_hz": control.get("physics_hz"),
         "decimation": control.get("decimation"),
-        "action_scale": (contract_v3.get("action") or {}).get("action_scale"),
+        "action_scale": (contract_truth.get("action") or {}).get("action_scale"),
     }
     param_pairs = (
         ("stiffness", "stiffness"),
@@ -74,7 +74,7 @@ def load_sim_config(package_id: str) -> dict:
         ("armature", "armature"),
         ("frictionloss", "friction_loss"),
     )
-    by_role = (contract_v3.get("actuator_profile") or {}).get("by_role") or {}
+    by_role = (contract_truth.get("actuator_profile") or {}).get("by_role") or {}
     role_named = set(by_role) <= {"hip", "thigh", "calf", "wheel"}
     for key, param in param_pairs:
         per_joint = {
@@ -127,7 +127,7 @@ def truth_per_joint(config: dict, key: str) -> dict[str, float] | None:
     return dict(raw)
 
 
-def build_contract(package_id: str, config: dict, observation_components=None) -> dict:
+def build_contract_from_config(package_id: str, config: dict, observation_components=None) -> dict:
     profile_by_role: dict[str, dict] = {}
     for key, param in (
         ("stiffness", "stiffness"),
@@ -142,7 +142,7 @@ def build_contract(package_id: str, config: dict, observation_components=None) -
         "physics_hz": config["physics_hz"],
         "decimation": config["decimation"],
     }
-    contract = build_v3_contract(
+    contract = build_contract(
         robot_id=package_id,
         morphology_id=QUADRUPED_TEMPLATE["id"],
         leg_ids=QUADRUPED_TEMPLATE["leg_ids"],
@@ -176,14 +176,14 @@ class QuadrupedSharedMorphologyTest(unittest.TestCase):
     def test_go2_b2_share_one_morphology_template(self) -> None:
         # unitree_a1 / unitree_a2 已下线删除。
         contracts = {
-            pkg: build_contract(pkg, load_sim_config(pkg))
+            pkg: build_contract_from_config(pkg, load_sim_config(pkg))
             for pkg in ("unitree_go2", "unitree_b2")
         }
         templates = {json.dumps(c["morphology"], sort_keys=True) for c in contracts.values()}
         self.assertEqual(len(templates), 1, "quadruped_12dof 必须共用同一份 morphology 模板")
 
     def test_actuated_sets_equal_naming_expansion(self) -> None:
-        contract = build_contract("unitree_go2", load_sim_config("unitree_go2"))
+        contract = build_contract_from_config("unitree_go2", load_sim_config("unitree_go2"))
         expected = {
             f"{leg}_{role}_joint"
             for leg in QUADRUPED_TEMPLATE["leg_ids"]
@@ -197,7 +197,7 @@ class ActuatorExpansionMatchesCurrentConfigTest(unittest.TestCase):
 
     def test_go2_role_keyed_config_roundtrip(self) -> None:
         config = load_sim_config("unitree_go2")
-        contract = build_contract("unitree_go2", config)
+        contract = build_contract_from_config("unitree_go2", config)
         expanded = RoleResolver(contract).expand_actuator_profile()
         for key, param in (("stiffness", "stiffness"), ("damping", "damping"), ("torque_limits", "effort")):
             truth = truth_per_joint(config, key)
@@ -207,7 +207,7 @@ class ActuatorExpansionMatchesCurrentConfigTest(unittest.TestCase):
 
     def test_go2_armature_role_pattern(self) -> None:
         config = load_sim_config("unitree_go2")
-        contract = build_contract("unitree_go2", config)
+        contract = build_contract_from_config("unitree_go2", config)
         expanded = RoleResolver(contract).expand_actuator_profile()
         # 现行 go2 armature 逐关节散写，但取值按角色恒定：hip/thigh=0.01, calf=0.02
         for joint, params in expanded.items():
@@ -217,7 +217,7 @@ class ActuatorExpansionMatchesCurrentConfigTest(unittest.TestCase):
     def test_b2_per_joint_config_roundtrip(self) -> None:
         for package_id in ("unitree_b2",):
             config = load_sim_config(package_id)
-            contract = build_contract(package_id, config)
+            contract = build_contract_from_config(package_id, config)
             expanded = RoleResolver(contract).expand_actuator_profile()
             for key, param in (("stiffness", "stiffness"), ("damping", "damping"), ("torque_limits", "effort")):
                 truth = truth_per_joint(config, key)
@@ -234,16 +234,16 @@ class ActuatorExpansionMatchesCurrentConfigTest(unittest.TestCase):
         """
 
         packages = sorted(
-            p.name for p in (WORKSPACE / "assets" / "robots").iterdir() if (p / "contract_v3.json").exists()
+            p.name for p in (WORKSPACE / "assets" / "robots").iterdir() if (p / "contract.json").exists()
         )
         self.assertGreaterEqual(len(packages), 14, "内置包数量异常")
         for package_id in packages:
             # 直接读 shipped v3 展开：`build_contract` 用的是 quadruped 模板，
             # 对灵巧手/轮足机型不适用（那会把"模板不适配"误报成"armature 缺失"）。
-            contract_v3 = json.loads(
-                (WORKSPACE / "assets" / "robots" / package_id / "contract_v3.json").read_text(encoding="utf-8-sig")
+            contract_truth = json.loads(
+                (WORKSPACE / "assets" / "robots" / package_id / "contract.json").read_text(encoding="utf-8-sig")
             )
-            expanded = RoleResolver(contract_v3).expand_actuator_profile()
+            expanded = RoleResolver(contract_truth).expand_actuator_profile()
             with self.subTest(package=package_id):
                 for joint, params in expanded.items():
                     self.assertIn(
@@ -251,13 +251,13 @@ class ActuatorExpansionMatchesCurrentConfigTest(unittest.TestCase):
                         f"{package_id} 的 {joint} 缺 armature——B3 已全量补齐，不该再出现缺口",
                     )
         b2 = RoleResolver(
-            build_contract("unitree_b2", load_sim_config("unitree_b2"))
+            build_contract_from_config("unitree_b2", load_sim_config("unitree_b2"))
         ).expand_actuator_profile()
         self.assertEqual({params["armature"] for params in b2.values()}, {0.1})
 
     def test_by_joint_override_wins(self) -> None:
         config = load_sim_config("unitree_go2")
-        contract = build_contract("unitree_go2", config)
+        contract = build_contract_from_config("unitree_go2", config)
         contract["actuator_profile"]["by_joint"] = {
             "FL_hip_joint": {"stiffness": 99.0},
         }
@@ -268,7 +268,7 @@ class ActuatorExpansionMatchesCurrentConfigTest(unittest.TestCase):
 
 class SelfConsistencyTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.base = build_contract("unitree_go2", load_sim_config("unitree_go2"))
+        self.base = build_contract_from_config("unitree_go2", load_sim_config("unitree_go2"))
 
     def expect_error(self, mutate) -> None:
         import copy
@@ -327,7 +327,7 @@ class ReindexSemanticsTest(unittest.TestCase):
                 "leg_pattern": ["hip", "thigh", "calf", "wheel"],
                 "leg_naming": "{LR}_{role}_joint",
                 "leg_ids": leg_ids,
-                # B4 内核字段：合成契约不走 build_v3_contract，需显式声明（fail-closed）
+                # B4 内核字段：合成契约不走 build_contract，需显式声明（fail-closed）
                 "actuator_type": "hybrid",
                 "foot_type": "wheel",
                 "wheel_indices": [3, 7, 11, 15],
@@ -370,12 +370,12 @@ class SchemaParityAndRoundtripTest(unittest.TestCase):
     """schema → Py → TS 三产物 parity + roundtrip。"""
 
     def setUp(self) -> None:
-        self.contract = build_contract("unitree_go2", load_sim_config("unitree_go2"))
+        self.contract = build_contract_from_config("unitree_go2", load_sim_config("unitree_go2"))
 
     def test_pydantic_roundtrip(self) -> None:
-        model = parse_v3(self.contract)
+        model = parse_contract(self.contract)
         dumped = dump_v3(model)
-        reparsed = parse_v3(dumped)
+        reparsed = parse_contract(dumped)
         self.assertEqual(dump_v3(reparsed), dumped)
         self.assertEqual(reparsed.robot_id, "unitree_go2")
         self.assertEqual(reparsed.morphology.leg_pattern, ["hip", "thigh", "calf"])
@@ -428,14 +428,14 @@ class MorphologyKernelFieldsB4Test(unittest.TestCase):
     }
 
     def _load(self, package_id: str) -> dict:
-        path = self.ROBOTS / package_id / "contract_v3.json"
+        path = self.ROBOTS / package_id / "contract.json"
         return json.loads(path.read_text(encoding="utf-8-sig"))
 
     def _all_contracts(self) -> dict[str, dict]:
         return {
-            package.name: json.loads((package / "contract_v3.json").read_text(encoding="utf-8-sig"))
+            package.name: json.loads((package / "contract.json").read_text(encoding="utf-8-sig"))
             for package in sorted(p for p in self.ROBOTS.iterdir() if p.is_dir())
-            if (package / "contract_v3.json").exists()
+            if (package / "contract.json").exists()
         }
 
     def test_all_packages_declare_kernel_fields(self) -> None:
@@ -478,7 +478,7 @@ class MorphologyKernelFieldsB4Test(unittest.TestCase):
     def test_missing_kernel_fields_fail_closed(self) -> None:
         import copy
 
-        base = build_contract("unitree_go2", load_sim_config("unitree_go2"))
+        base = build_contract_from_config("unitree_go2", load_sim_config("unitree_go2"))
         for field in ("actuator_type", "foot_type", "mass_source"):
             with self.subTest(field=field):
                 contract = copy.deepcopy(base)
@@ -580,9 +580,9 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
 
     def _contracts(self) -> dict[str, dict]:
         return {
-            package.name: json.loads((package / "contract_v3.json").read_text(encoding="utf-8-sig"))
+            package.name: json.loads((package / "contract.json").read_text(encoding="utf-8-sig"))
             for package in sorted(p for p in self.ROBOTS.iterdir() if p.is_dir())
-            if (package / "contract_v3.json").exists()
+            if (package / "contract.json").exists()
         }
 
     def test_every_actuated_joint_resolves_a_scale(self) -> None:
@@ -689,7 +689,7 @@ class ActionScalePayloadViewB52Test(unittest.TestCase):
 
     def _contract(self, package: str) -> dict:
         return json.loads(
-            (self.ROBOTS / package / "contract_v3.json").read_text(encoding="utf-8-sig")
+            (self.ROBOTS / package / "contract.json").read_text(encoding="utf-8-sig")
         )
 
     def _view(self, package: str) -> dict:
@@ -697,7 +697,7 @@ class ActionScalePayloadViewB52Test(unittest.TestCase):
 
     def _packages(self) -> list[str]:
         return sorted(
-            p.name for p in self.ROBOTS.iterdir() if (p / "contract_v3.json").exists()
+            p.name for p in self.ROBOTS.iterdir() if (p / "contract.json").exists()
         )
 
     def test_role_view_covers_every_joint(self) -> None:

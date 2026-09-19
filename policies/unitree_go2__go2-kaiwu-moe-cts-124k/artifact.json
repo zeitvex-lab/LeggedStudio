@@ -10,7 +10,7 @@
   "label": "Go2 MoE-CTS 124k (kaiwu_rl)",
   "obs_dim": 45,
   "onnx_bytes": 3861657,
-  "onnx_sha256": "9f21546bef088976d3920f43842a3d7027544a9d58e9eaa66268670e5f5d7409",
+  "onnx_sha256": "f0e212acd2cc9bfb9468329a3e677b8b849692f4b93c01939191d1cf0c72c392",
   "policy_id": "go2-kaiwu-moe-cts-124k",
   "robot": "unitree_go2",
   "run_id": null,

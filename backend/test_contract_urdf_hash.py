@@ -54,17 +54,17 @@ def _builtin_robots() -> list[str]:
     """有 v2+v3 双契约的内置包清单（与 B32 同口径）。"""
     return sorted(
         d.name for d in ROBOTS.iterdir()
-        if d.is_dir() and (d / "contract.json").exists() and (d / "contract_v3.json").exists()
+        if d.is_dir() and (d / "contract_legacy_v2.json").exists() and (d / "contract.json").exists()
     )
 
 
 def _declared_hash(robot: str) -> str:
-    payload = json.loads((ROBOTS / robot / "contract.json").read_text(encoding="utf-8-sig"))
+    payload = json.loads((ROBOTS / robot / "contract_legacy_v2.json").read_text(encoding="utf-8-sig"))
     return str(((payload.get("urdf") or {}).get("hash")) or "")
 
 
 def _asset_path(robot: str) -> Path:
-    payload = json.loads((ROBOTS / robot / "contract.json").read_text(encoding="utf-8-sig"))
+    payload = json.loads((ROBOTS / robot / "contract_legacy_v2.json").read_text(encoding="utf-8-sig"))
     return ROOT / str((payload.get("urdf") or {}).get("path"))
 
 

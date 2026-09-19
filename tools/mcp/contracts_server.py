@@ -1,6 +1,6 @@
-"""MCP: 契约 v3 查询与校验。
+"""MCP: 契约真值 查询与校验。
 
-落点：``contracts/``（schema + 校验器）、``assets/robots/*/contract_v3.json``、
+落点：``contracts/``（schema + 校验器）、``assets/robots/*/contract.json``、
 ``backend/pack_catalog.py``（Pack 引用哈希对账）。
 
 为什么值得做成 MCP：契约是本仓的"单一事实源"，agent 每次问"这机器人的关节序/
@@ -8,13 +8,13 @@ PD/obs 维是多少"都要跨 3~4 个文件手工拼，MCP 把这层拼装固化
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+from contracts.validator import normalized_sha256  # 归一摘要唯一实现
 
 from tools.mcp._rpc import run_server  # noqa: E402
 
@@ -23,7 +23,7 @@ PACKS_DIR = ROOT / "packs"
 
 
 def _contract_path(robot: str) -> Path:
-    return ROBOTS_DIR / robot / "contract_v3.json"
+    return ROBOTS_DIR / robot / "contract.json"
 
 
 def _load_contract(robot: str) -> dict:
@@ -49,7 +49,7 @@ def get_contract(robot: str, section: str = "") -> object:
 def list_joints(robot: str) -> object:
     """列关节名与顺序 —— 关节序错了策略必废，这是最高频的核对项。
 
-    契约 v3 里关节有**三种序**，含义不同、不可混用（混用是 reindex bug 的源头）：
+    契约真值 里关节有**三种序**，含义不同、不可混用（混用是 reindex bug 的源头）：
       - ``joints.actuated``：声明序（带 leg/role 语义，只有这个能按 role 查）；
       - ``action.joint_order``：**策略输出序**，部署 reindex 的判据；
       - ``joints.default_pose``：与之按位对齐的默认姿态。
@@ -72,8 +72,8 @@ def list_joints(robot: str) -> object:
 
 
 def list_robots() -> object:
-    """已入库机型清单（有 contract_v3.json 的目录）。"""
-    robots = sorted(p.parent.name for p in ROBOTS_DIR.glob("*/contract_v3.json"))
+    """已入库机型清单（有 contract.json 的目录）。"""
+    robots = sorted(p.parent.name for p in ROBOTS_DIR.glob("*/contract.json"))
     return {"count": len(robots), "robots": robots}
 
 
@@ -96,8 +96,8 @@ def verify_pack(pack_id: str) -> object:
     if not robot or not expected:
         return {"pack": path.name, "ok": False, "reason": "morphology_ref 缺 robot/sha256"}
 
-    raw = _contract_path(robot).read_bytes().replace(b"\r\n", b"\n")
-    actual = hashlib.sha256(raw).hexdigest()
+    # 归一摘要唯一实现见 ``contracts.validator``（此前这里自带一份 CRLF 归一键）
+    actual = normalized_sha256(_contract_path(robot).read_bytes())
     return {
         "pack": path.name,
         "robot": robot,
@@ -111,12 +111,12 @@ def verify_pack(pack_id: str) -> object:
 TOOLS = [
     {
         "name": "list_robots",
-        "description": "列出已入库机型（有 contract_v3.json 的目录）",
+        "description": "列出已入库机型（有 contract.json 的目录）",
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "get_contract",
-        "description": "读某机型契约 v3 的全部或某一段（点号路径，如 joints / actuator.by_role）",
+        "description": "读某机型契约真值 的全部或某一段（点号路径，如 joints / actuator.by_role）",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -164,5 +164,5 @@ if __name__ == "__main__":
         "0.1.0",
         TOOLS,
         call,
-        instructions="查询 Legged Studio 契约 v3：机型清单、关节序、任意字段段、Pack 哈希对账。",
+        instructions="查询 Legged Studio 契约真值：机型清单、关节序、任意字段段、Pack 哈希对账。",
     )

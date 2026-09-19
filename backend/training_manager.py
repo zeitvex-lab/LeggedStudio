@@ -12,25 +12,25 @@ import subprocess
 import sys
 
 from adapters.mjlab.launcher import TrainingLauncher
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 
 
 def _package_contract_snapshot(robot_id: str) -> Optional[dict]:
     """读取包当前契约作为训练快照：v3 语义优先合并，v2 数据补全。"""
 
     from backend.robot_presets import get_robot_preset
-    from contracts.contract_loader import load_contract_v3, load_contract_v2, merge_v3_over_v2
+    from contracts.contract_loader import load_contract, load_legacy_contract, merge_legacy_over_contract
 
     preset = get_robot_preset(robot_id)
     root = Path(str(((preset or {}).get("robot_package") or {}).get("package_root", ""))) if preset else None
     if root is None:
         return None
     try:
-        return merge_v3_over_v2(load_contract_v3(root), load_contract_v2(root))
+        return merge_legacy_over_contract(load_contract(root), load_legacy_contract(root))
     except Exception:
         # Fall back to the raw v3/v2 record when semantic merge fails so the
         # snapshot still lands (the DENYLIST gate treats drift as a warning).
-        for name in ("contract_v3.json", "contract.json"):
+        for name in ("contract.json", "contract_legacy_v2.json"):
             path = root / name
             if path.exists():
                 try:
@@ -115,7 +115,7 @@ class TrainingTask:
     def __init__(
         self,
         task_id: str,
-        contract: RobotContractV2,
+        contract: ContractLegacyV2,
         config: dict,
         task_dir: Path
     ):
@@ -185,8 +185,12 @@ class TrainingManager:
     """训练管理器"""
 
     def __init__(self, workspace_dir: str | None = None):
-        configured_dir = workspace_dir or os.environ.get("LEGGED_STUDIO_WORKSPACE") or "workspace"
-        self.workspace_dir = Path(configured_dir)
+        # 工作区根的唯一实现见 ``backend/paths.py``：此前这里默认值是**相对 cwd** 的
+        # "workspace"，同一个后端在不同 cwd 下启动会把任务写进不同目录（实测踩坑形态）。
+        # 显式传入的 ``workspace_dir`` 仍原样尊重（含相对路径——调用方自己的选择）。
+        from backend.paths import workspace_root
+
+        self.workspace_dir = Path(workspace_dir) if workspace_dir else workspace_root()
         self.workspace_dir.mkdir(parents=True, exist_ok=True)
 
         self.launcher = TrainingLauncher(workspace_dir=str(self.workspace_dir))
@@ -207,7 +211,7 @@ class TrainingManager:
             if not task_dir.is_dir() or not contract_path.exists() or not config_path.exists():
                 continue
             try:
-                contract = RobotContractV2.from_json_file(str(contract_path))
+                contract = ContractLegacyV2.from_json_file(str(contract_path))
                 config = json.loads(config_path.read_text(encoding="utf-8"))
                 task = TrainingTask(task_dir.name, contract, config, task_dir)
                 status_info = task.get_status_info()
@@ -304,7 +308,7 @@ class TrainingManager:
 
     def create_task(
         self,
-        contract: RobotContractV2,
+        contract: ContractLegacyV2,
         config: dict,
         idempotency_key: str | None = None,
     ) -> str:
@@ -341,7 +345,7 @@ class TrainingManager:
         contract.to_json_file(str(contract_path))
 
         # 固化契约快照（UniLab contract_snapshot 语义，报告 7 §3）：训练时刻的
-        # 包契约 v3（缺则 v2 导出）。导出 DENYLIST gate 以此为训练侧真值，
+        # 包契约真值（缺则 v2 导出）。导出 DENYLIST gate 以此为训练侧真值，
         # 契约漂移在导出时被 fail-closed 拦截。
         snapshot = _package_contract_snapshot(str(contract.robot_id))
         if snapshot is not None:
@@ -507,7 +511,7 @@ def shutdown_global_manager() -> bool:
 
 if __name__ == "__main__":
     # 测试
-    from contracts.robot_contract_v2 import create_go2_contract
+    from contracts.contract_legacy_v2 import create_go2_contract
 
     manager = TrainingManager()
 

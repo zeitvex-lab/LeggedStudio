@@ -25,13 +25,13 @@ from backend.training.obs_board import board  # noqa: E402
 
 
 def contracts() -> list[tuple[str, dict]]:
-    """**契约真值在包内** ``assets/robots/<robot>/contract_v3.json``（E4 端点就是这么读的）。
+    """**契约真值在包内** ``assets/robots/<robot>/contract.json``（E4 端点就是这么读的）。
 
     注意别用预设里的 ``contract`` —— 那是**摘要**、没有 ``components``，用它会把
     "14/14 都没声明组件"报成事实（本审计第一版正是这么错的，被"3 个已声明组件"的既有记录顶回来）。
     """
     found: list[tuple[str, dict]] = []
-    for path in sorted(ROBOTS_DIR.glob("*/contract_v3.json")):
+    for path in sorted(ROBOTS_DIR.glob("*/contract.json")):
         try:
             found.append((path.parent.name, json.loads(path.read_text(encoding="utf-8-sig"))))
         except (OSError, json.JSONDecodeError):

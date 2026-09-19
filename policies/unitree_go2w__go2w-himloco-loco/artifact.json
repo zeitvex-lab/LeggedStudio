@@ -10,7 +10,7 @@
   "label": "Go2W HIMLoco locomotion",
   "obs_dim": 57,
   "onnx_bytes": 1078609,
-  "onnx_sha256": "819911cc0a725975c12e91646a70e3ea28d564d7f15fd82443a593cf07e43fc7",
+  "onnx_sha256": "a3132f2ffb3330969aff23595812eb37de0477e518014fc3a12c18ec2a4acc2d",
   "policy_id": "go2w-himloco-loco",
   "robot": "unitree_go2w",
   "run_id": null,

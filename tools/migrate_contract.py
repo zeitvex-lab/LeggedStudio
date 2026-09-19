@@ -1,4 +1,4 @@
-"""T0.2：把 16 个机器人包从契约 v2 机械迁移到契约 v3 sidecar（CLI）。
+"""T0.2：把 16 个机器人包从契约 v2 机械迁移到契约真值 sidecar（CLI）。
 
 核心逻辑在 backend/contract_migration.py（与导入流程共用）：
   - 关节名 token 解析自适应大小写与腿词序；无腿 token 关节归 extra_roles
@@ -30,13 +30,13 @@ ROBOTS_DIR = ROOT / "assets" / "robots"
 
 
 def migrate_package(package_dir: Path) -> dict:
-    v2 = json.loads((package_dir / "contract.json").read_text(encoding="utf-8-sig"))
+    v2 = json.loads((package_dir / "contract_legacy_v2.json").read_text(encoding="utf-8-sig"))
     config = json.loads(
         (package_dir / "simulation" / "config.json").read_text(encoding="utf-8-sig")
     )
     contract = migrate_contract_dict(v2, config)
     contract = apply_role_hints(contract, package_dir.name)
-    out = package_dir / "contract_v3.json"
+    out = package_dir / "contract.json"
     out.write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     morphology = contract["morphology"]
     return {
@@ -53,7 +53,7 @@ def migrate_package(package_dir: Path) -> dict:
 
 def main() -> int:
     report = []
-    for package_dir in sorted(p for p in ROBOTS_DIR.iterdir() if (p / "contract.json").exists()):
+    for package_dir in sorted(p for p in ROBOTS_DIR.iterdir() if (p / "contract_legacy_v2.json").exists()):
         info = migrate_package(package_dir)
         report.append(info)
         print(
@@ -61,7 +61,7 @@ def main() -> int:
             f"extras={info['extras'] or '-'} reindex={info['reindex']} "
             f"obs={info['obs_components']}项/{info['obs_dimension']}维"
         )
-    print(f"\n迁移完成：{len(report)} 包 → contract_v3.json（v2 保留，消费端切换在 T0.3）")
+    print(f"\n迁移完成：{len(report)} 包 → contract.json（v2 兼容视图保留，消费端切换在 T0.3）")
     return 0
 
 

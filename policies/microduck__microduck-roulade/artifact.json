@@ -10,7 +10,7 @@
   "label": "Roulade",
   "obs_dim": 61,
   "onnx_bytes": 793685,
-  "onnx_sha256": "3d60da08fc13f29c1b57f41977aa898132c0d60042100149d8e775affcbca32b",
+  "onnx_sha256": "09c99c2a97ad8d51bcf5c9cde16343f1f787185fd6443a4fb0af03f9bfba7e2a",
   "policy_id": "microduck-roulade",
   "robot": "microduck",
   "run_id": null,

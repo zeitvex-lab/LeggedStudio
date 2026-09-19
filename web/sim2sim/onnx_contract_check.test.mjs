@@ -33,7 +33,7 @@ const GO2W_CONFIG_URL = new URL(
   import.meta.url,
 );
 const M20_CONTRACT_URL = new URL(
-  "../../assets/robots/deeprobotics_m20/contract_v3.json",
+  "../../assets/robots/deeprobotics_m20/contract.json",
   import.meta.url,
 );
 

@@ -10,7 +10,7 @@
   "label": "Velocity Legs-Only (mjlab)",
   "obs_dim": 53,
   "onnx_bytes": 788555,
-  "onnx_sha256": "ff7c56c31174dd06878a7ff80d57bc91cb2c67c57b7378e8b3c9f15388cbdc57",
+  "onnx_sha256": "903aeb0f0787b3975f95ea85bb7bff6a0592153539d799d8f05e9758762ba3c1",
   "policy_id": "go2w-velocity-legs",
   "robot": "unitree_go2w",
   "run_id": null,

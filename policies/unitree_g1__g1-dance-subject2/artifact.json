@@ -10,7 +10,7 @@
   "label": "Dance Subject2 (motion tracking)",
   "obs_dim": 154,
   "onnx_bytes": 990433,
-  "onnx_sha256": "de72d614796763df3a84198e1b495d1443f02125a626086ade56f347a109a36e",
+  "onnx_sha256": "e44724b07050760a3a909086fc69682ebfdc508771c12371c956a20fc5c3ceeb",
   "policy_id": "g1-dance-subject2",
   "robot": "unitree_g1",
   "run_id": null,

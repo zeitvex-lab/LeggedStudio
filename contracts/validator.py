@@ -4,12 +4,12 @@ Robot Contract Validator
 """
 
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, Iterable, List
 from dataclasses import dataclass
 import hashlib
 import xml.etree.ElementTree as ET
 
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 from contracts.asset_paths import resolve_asset_path
 
 
@@ -27,8 +27,38 @@ def normalize_line_endings(data: bytes) -> bytes:
 
 
 def normalized_sha256(data: bytes) -> str:
-    """规范化内容 SHA-256（CRLF → LF 后摘要），与 ``pack_catalog._content_sha256`` 同口径。"""
+    """规范化内容 SHA-256（CRLF → LF 后摘要）—— **单文件**摘要的唯一实现。
+
+    ``pack_catalog`` / ``tools/generate_packs.py`` / ``policy_artifacts`` 等处此前各写一份
+    （注释里靠"两侧必须同步修改"维系），现在全部委托到这里：口径是代码事实，不是口头约定。
+    """
     return hashlib.sha256(normalize_line_endings(data)).hexdigest()
+
+
+def package_digest(entries: Iterable[tuple[Path, bytes]]) -> str:
+    """规范化**包内容**摘要：``(包内相对路径, 字节)`` 按路径排序后连路径一起摘要。
+
+    与 :func:`normalized_sha256` 的区别只有"路径"这一维 —— 同一份字节放在不同路径是不同包，
+    所以单独一个函数，而不是让调用方自己拼。
+
+    三件必须同时成立的事（B39 口径：一个工件只有一个哈希）：
+
+    * **上传与目录拷贝必须得到同一个 digest**：Web 走 base64 上传、CLI 走 ``onboard <dir>``
+      目录拷贝，两条入口描述同一份资产，digest 不同就会产出两个包（幂等破坏）；
+    * **排序键是包内相对路径**（``as_posix``），与调用方给的绝对路径无关；
+    * **内容先 CRLF → LF 归一**（:func:`normalize_line_endings`）—— 不归一时，同一份资产在
+      Windows（CRLF）与 CI（LF）得到两个 digest。**2026-09-19 实测**：本仓 4 个机器人包
+      "归一 / 不归一"算出的值**全都不同**（包内是 OBJ 这类文本网格），所以"一边归一、
+      一边不归一"的两处实现一旦被放到同一次比较里，就会把同一份内容判成两份。
+    """
+
+    digest = hashlib.sha256()
+    for relative, data in sorted(entries, key=lambda pair: Path(pair[0]).as_posix()):
+        digest.update(Path(relative).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(normalize_line_endings(data))
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 @dataclass
@@ -59,7 +89,7 @@ class ValidationResult:
 class RobotContractValidator:
     """Contract 验证器"""
 
-    def validate(self, contract: RobotContractV2) -> ValidationResult:
+    def validate(self, contract: ContractLegacyV2) -> ValidationResult:
         """完整验证"""
         errors = []
         warnings = []
@@ -86,7 +116,7 @@ class RobotContractValidator:
             warnings=warnings
         )
 
-    def _validate_urdf(self, contract: RobotContractV2) -> List[ValidationError]:
+    def _validate_urdf(self, contract: ContractLegacyV2) -> List[ValidationError]:
         """验证 URDF 文件"""
         errors = []
         urdf_path = resolve_asset_path(contract.urdf.path)
@@ -156,7 +186,7 @@ class RobotContractValidator:
 
         return errors
 
-    def _validate_joints(self, contract: RobotContractV2) -> List[ValidationError]:
+    def _validate_joints(self, contract: ContractLegacyV2) -> List[ValidationError]:
         """验证关节配置"""
         errors = []
 
@@ -203,7 +233,7 @@ class RobotContractValidator:
 
         return errors
 
-    def _validate_dimensions(self, contract: RobotContractV2) -> List[ValidationError]:
+    def _validate_dimensions(self, contract: ContractLegacyV2) -> List[ValidationError]:
         """验证维度一致性"""
         errors = []
 
@@ -219,7 +249,7 @@ class RobotContractValidator:
 
         return errors
 
-    def _validate_control(self, contract: RobotContractV2) -> List[ValidationError]:
+    def _validate_control(self, contract: ContractLegacyV2) -> List[ValidationError]:
         """验证控制参数"""
         warnings = []
 
@@ -251,7 +281,7 @@ class RobotContractValidator:
 
         return warnings
 
-    def _validate_deployment(self, contract: RobotContractV2) -> List[ValidationError]:
+    def _validate_deployment(self, contract: ContractLegacyV2) -> List[ValidationError]:
         """验证部署映射"""
         warnings = []
 
@@ -276,7 +306,7 @@ class RobotContractValidator:
 
 # ========== 便捷函数 ==========
 
-def validate_contract(contract: RobotContractV2) -> ValidationResult:
+def validate_contract(contract: ContractLegacyV2) -> ValidationResult:
     """验证 Contract"""
     validator = RobotContractValidator()
     return validator.validate(contract)
@@ -284,13 +314,13 @@ def validate_contract(contract: RobotContractV2) -> ValidationResult:
 
 def validate_contract_file(contract_path: str) -> ValidationResult:
     """验证 Contract 文件"""
-    contract = RobotContractV2.from_json_file(contract_path)
+    contract = ContractLegacyV2.from_json_file(contract_path)
     return validate_contract(contract)
 
 
 if __name__ == "__main__":
     # 测试
-    from contracts.robot_contract_v2 import create_go2_contract
+    from contracts.contract_legacy_v2 import create_go2_contract
 
     contract = create_go2_contract()
     result = validate_contract(contract)

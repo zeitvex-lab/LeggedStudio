@@ -33,38 +33,27 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from adapters.mjlab.mujoco_env import ContractMujocoEnv
-from backend.robot_presets import get_robot_preset
 from backend.scenario_maps import MAPS
 from contracts.role_resolver import RoleResolver
 from contracts.scenario_contract import ScenarioContract
 
 
+from backend.api_routes import browser_package_url, browser_package_url_prefix  # noqa: E402
+from backend.package_locator import robot_definition  # noqa: E402
 from backend.simulation_browser import (  # noqa: E402
     BROWSER_INITIAL_KEYFRAME, BROWSER_MESH_LIMIT_BYTES,
-    _browser_package, _browser_package_root, _browser_asset_bytes,
-    _read_simulation_config, _acceptance_report_path, _load_acceptance_report,
-    _acceptance_health_check, _browser_asset_files, _initial_key_qpos,
-    _mesh_aabb, _proxy_geom, _browser_model_xml, _find_package_root_quiet,
-    _read_contract_v3, _browser_scene_file,
-    _terrain_entries, common_map_entries, map_scene_xml, MAPS_ROOT,
+    browser_package, browser_package_root, browser_asset_bytes,
+    read_simulation_config, acceptance_report_path, load_acceptance_report,
+    acceptance_health_check, browser_asset_files, initial_key_qpos,
+    mesh_aabb, proxy_geom, browser_model_xml,
+    read_contract, browser_scene_file,
+    terrain_entries, common_map_entries, map_scene_xml, MAPS_ROOT,
     common_map_asset_files, read_common_map_asset,
 )
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
 
 
-def _get_robot_definition(robot_id: str) -> dict[str, Any] | None:
-    preset = get_robot_preset(robot_id)
-    if preset is not None:
-        return preset
-    packages_root = Path(__file__).resolve().parents[1] / "workspace" / "packages"
-    for contract_path in packages_root.glob("*/contract.json"):
-        try:
-            contract = json.loads(contract_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if contract.get("robot_id") == robot_id:
-            return {"robot_id": robot_id, "family": contract.get("family", robot_id), "contract": contract, "asset_path": contract.get("urdf", {}).get("path", "")}
-    return None
+
 
 
 def _scene_geoms(map_id: str) -> list[dict[str, Any]]:
@@ -235,8 +224,8 @@ async def run_policy_acceptance(payload: dict[str, Any]) -> dict[str, Any]:
     policy_id = str(payload.get("policy_id") or "")
     if not robot_id or not policy_id:
         raise HTTPException(status_code=400, detail="robot_id 与 policy_id 必填")
-    root, _preset = _browser_package(robot_id)
-    sim_cfg = _read_simulation_config(root)
+    root, _preset = browser_package(robot_id)
+    sim_cfg = read_simulation_config(root)
     policies = sim_cfg.get("policies") if isinstance(sim_cfg.get("policies"), list) else []
     policy = next((p for p in policies if isinstance(p, dict) and p.get("id") == policy_id), None)
     if not policy:
@@ -248,7 +237,7 @@ async def run_policy_acceptance(payload: dict[str, Any]) -> dict[str, Any]:
     policy_path = root / policy_rel if policy_rel else root
     if not policy_rel:
         raise HTTPException(status_code=404, detail=f"策略文件缺失: {policy.get('id') or policy_id}")
-    output = _acceptance_report_path(root, policy_rel)
+    output = acceptance_report_path(root, policy_rel)
 
     script = Path(__file__).resolve().parents[1] / "adapters" / "mjlab" / "policy_acceptance.py"
     from contracts.path_bootstrap import adapter_python
@@ -272,7 +261,7 @@ async def run_policy_acceptance(payload: dict[str, Any]) -> dict[str, Any]:
     if completed.returncode != 0:
         detail = (completed.stderr or completed.stdout or "").strip().splitlines()[-6:]
         raise HTTPException(status_code=500, detail="验收评估失败: " + " | ".join(detail))
-    report = _load_acceptance_report(root, policy_rel)
+    report = load_acceptance_report(root, policy_rel)
     if not report:
         raise HTTPException(status_code=500, detail="验收评估未产出指标文件")
     return report
@@ -301,7 +290,7 @@ async def run_policy_acceptance(payload: dict[str, Any]) -> dict[str, Any]:
 @router.get("/browser-config/{robot_id}")
 async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     """Return the browser-native MuJoCo/Three.js package manifest."""
-    root, preset = _browser_package(robot_id)
+    root, preset = browser_package(robot_id)
     # 能力门控（robot_lab register/detect 模式）：未声明 mujoco_sim 的包不进浏览器仿真
     package_capabilities = ((preset.get("robot_package") or {}).get("capabilities")) or []
     if "mujoco_sim" not in package_capabilities:
@@ -310,23 +299,25 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     contract = preset.get("contract") or {}
     order = list(contract.get("action", {}).get("joint_order") or contract.get("joints", {}).get("actuated_joints") or [])
     default_pose = list(contract.get("joints", {}).get("default_pose") or [0.0] * len(order))
-    # 与 _initial_key_qpos 同规则：joints.default_pose 若标注为模型树序，先重排到 action.joint_order。
+    # 与 initial_key_qpos 同规则：joints.default_pose 若标注为模型树序，先重排到 action.joint_order。
     pose_order = str(contract.get("joints", {}).get("default_pose_order") or "").lower()
     if pose_order == "tree" and len(default_pose) == len(contract.get("joints", {}).get("actuated_joints") or []):
         tree_map = dict(zip(contract["joints"]["actuated_joints"], default_pose))
         default_pose = [tree_map.get(name, 0.0) for name in order]
-    simulation_config = _read_simulation_config(root)
+    simulation_config = read_simulation_config(root)
     policy: dict[str, Any] = {
         "disabled": True,
         "contract": {"obs_dim": 0, "action_dim": len(order), "history_len": 1},
     }
-    asset_bytes = _browser_asset_bytes(root)
-    browser_assets, omitted_meshes, browser_asset_bytes = _browser_asset_files(root)
+    asset_bytes = browser_asset_bytes(root)
+    # 局部名不叫 browser_asset_bytes：那与上面的函数同名，Python 的 LEGB 会把整段
+    # 变成"局部变量未赋值"（改名前后实测踩过）。payload 键名保持不变。
+    browser_assets, omitted_meshes, browser_assets_bytes = browser_asset_files(root)
     lightweight_preview = bool(omitted_meshes)
     preview_mode = "hybrid_visual_meshes" if lightweight_preview else "visual_meshes"
-    terrain_entries = _terrain_entries(simulation_config)
+    terrain_rows = terrain_entries(simulation_config)
     terrain_options = []
-    for entry in terrain_entries:
+    for entry in terrain_rows:
         label_source = entry.get("label") or entry.get("id") or Path(entry["path"]).stem
         terrain_options.append({
             "id": entry["id"],
@@ -407,7 +398,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
         reference = policy_reference(item, robot_dir=root)
         source = str(reference.get("source_onnx") or "").replace("\\", "/")
         if policy_path:
-            url = f"/api/simulation/browser-package/{canonical_robot_id}/{policy_path}"
+            url = browser_package_url(canonical_robot_id, policy_path)
         elif source.startswith("web/"):
             url = f"/{source}"
         else:
@@ -416,7 +407,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
             # 体检/验收报告只对**包内**策略有意义（它们按包内相对路径落盘）
             entry_checks: list[dict[str, Any]] = [{"id": "package", "ok": True, "message": "Package policy manifest"}]
             if policy_path:
-                acceptance_check = _acceptance_health_check(root, policy_path)
+                acceptance_check = acceptance_health_check(root, policy_path)
                 if acceptance_check:
                     entry_checks.append(acceptance_check)
             encoder_path = str(item.get("encoder") or "").replace("\\", "/")
@@ -424,14 +415,14 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                 "id": str(item.get("id") or Path(policy_path or source).stem),
                 "label": str(item.get("label") or item.get("id") or Path(policy_path or source).stem),
                 "url": url,
-                "encoder_url": (f"/api/simulation/browser-package/{canonical_robot_id}/{encoder_path}" if encoder_path else None),
+                "encoder_url": (browser_package_url(canonical_robot_id, encoder_path) if encoder_path else None),
                 "path": policy_path or source,
                 # 仿真分层：advanced = 需要外部传感器或目标驱动的自动任务；basic = 盲狗/手动遥控。
                 "sim_surface": str(item.get("sim_surface") or "basic"),
                 "obs_dim": int(item.get("obs_dim") or contract.get("observation", {}).get("dimension") or 0),
                 "action_dim": int(item.get("action_dim") or len(order)),
                 "history_len": int(item.get("history_len") or 1),
-                "acceptance": _load_acceptance_report(root, policy_path) if policy_path else None,
+                "acceptance": load_acceptance_report(root, policy_path) if policy_path else None,
                 "contract": {
                     **default_policy_contract,
                     **(item.get("contract") if isinstance(item.get("contract"), dict) else {}),
@@ -449,7 +440,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
         if selected_policy:
             policy_path = policy_relative_path(selected_policy, robot_dir=root) or ""
             selected_checks: list[dict[str, Any]] = [{"id": "package", "ok": True, "message": "Package policy manifest"}]
-            selected_acceptance = _acceptance_health_check(root, policy_path)
+            selected_acceptance = acceptance_health_check(root, policy_path)
             selected_ok = True
             if selected_acceptance:
                 selected_checks.append(selected_acceptance)
@@ -458,8 +449,8 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
             policy = {
                 "id": str(selected_policy.get("id") or Path(policy_path).stem),
                 "disabled": False,
-                "onnx_url": f"/api/simulation/browser-package/{canonical_robot_id}/{policy_path}",
-                "encoder_url": (f"/api/simulation/browser-package/{canonical_robot_id}/{sel_encoder}" if sel_encoder else None),
+                "onnx_url": browser_package_url(canonical_robot_id, policy_path),
+                "encoder_url": (browser_package_url(canonical_robot_id, sel_encoder) if sel_encoder else None),
                 "checkpoint_iteration": selected_policy.get("checkpoint_iteration"),
                 "health": {"status": "pass" if selected_ok else "warn", "checks": selected_checks},
                 "contract": {
@@ -505,7 +496,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
         })
         break
     simulation_control = simulation_config.get("control") if isinstance(simulation_config.get("control"), dict) else {}
-    # B3/2：物理事实改由契约 v3 单一真值供给（contracts/physics_binding.py）。
+    # B3/2：物理事实改由契约真值 单一真值供给（contracts/physics_binding.py）。
     # simulation/config.json 仅作未迁移包的兼容回落，不再参与物理取值。
     from contracts.physics_binding import (
         action_scale_facts,
@@ -522,11 +513,11 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
     # applyMotorEnvelopes，但 `robot.control` 是**显式白名单**，这两个键此前不在其中 →
     # 契约里有值也到不了仿真。默认（无包声明）两者为空，浏览器各自早退，行为与现在一致。
     payload_t_n_curve = payload_t_n_curve_view(t_n_curve_facts(root))
-    # B5/2：action_scale（标量 / 按角色 / 按关节）改由契约 v3 单一真值供给。
+    # B5/2：action_scale（标量 / 按角色 / 按关节）改由契约真值 单一真值供给。
     # 不再读 simulation/config.json——轮足机型的轮档位在训练侧本就随任务变化
     # （go2w 实测：UniLab 类默认 10.0 / rough 任务 5.0 / 官方部署 yaml 35.0），
     # config 只是其中一个快照，继续读它必然与契约漂移。
-    contract_v3_file = root / "contract_v3.json"
+    contract_v3_file = root / "contract.json"
     if contract_v3_file.exists():
         action_payload = payload_action_scale_view(
             action_scale_facts(json.loads(contract_v3_file.read_text(encoding="utf-8-sig")))
@@ -619,7 +610,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                 "camera_max_distance": float(simulation_config.get("viewer_camera_max_distance", 22.0)),
             },
             "asset_package": {
-                "base_url": f"/api/simulation/browser-package/{canonical_robot_id}/",
+                "base_url": browser_package_url_prefix(canonical_robot_id),
                 "files": files,
                 "scenes": scenes,
                 "models": public_models,
@@ -631,7 +622,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
                 "lightweight_preview": lightweight_preview,
                 "preview_mode": preview_mode,
                 "asset_bytes": asset_bytes,
-                "browser_asset_bytes": browser_asset_bytes,
+                "browser_asset_bytes": browser_assets_bytes,
                 "mesh_limit_bytes": BROWSER_MESH_LIMIT_BYTES,
                 "omitted_meshes": omitted_meshes,
             },
@@ -642,7 +633,7 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
 @router.get("/browser-package/{robot_id}/{asset_path:path}")
 async def browser_simulation_asset(robot_id: str, asset_path: str):
     """Serve allowlisted package files to the browser MuJoCo virtual FS."""
-    root, preset = _browser_package(robot_id)
+    root, preset = browser_package(robot_id)
     normalized = asset_path.replace("\\", "/").lstrip("/")
     if normalized.startswith("maps/"):
         rel = normalized[len("maps/"):]
@@ -654,13 +645,13 @@ async def browser_simulation_asset(robot_id: str, asset_path: str):
             raise HTTPException(status_code=404, detail="common map asset not found")
         media_type = mimetypes.guess_type(rel)[0] or "application/octet-stream"
         return Response(content=payload, media_type=media_type)
-    simulation_config = _read_simulation_config(root)
-    for entry in _terrain_entries(simulation_config):
+    simulation_config = read_simulation_config(root)
+    for entry in terrain_entries(simulation_config):
         if not entry.get("browser_scene"):
             continue
         if normalized == str(entry["path"]).lstrip("/"):
             return PlainTextResponse(
-                _browser_scene_file(root, entry), media_type="application/xml"
+                browser_scene_file(root, entry), media_type="application/xml"
             )
     if normalized == "scene.xml":
         scene = root / "simulation" / "scene.xml"
@@ -676,7 +667,7 @@ async def browser_simulation_asset(robot_id: str, asset_path: str):
         model_root = (root / "model").resolve()
         if not candidate.is_file() or model_root not in candidate.parents:
             raise HTTPException(status_code=404, detail="browser simulation model not found")
-        return PlainTextResponse(_browser_model_xml(root, candidate, preset), media_type="application/xml")
+        return PlainTextResponse(browser_model_xml(root, candidate, preset), media_type="application/xml")
     if normalized.startswith("simulation/") and normalized.endswith(".xml"):
         candidate = (root / normalized).resolve()
         simulation_root = (root / "simulation").resolve()
@@ -726,7 +717,7 @@ async def list_sessions() -> dict[str, Any]:
 async def create_session(request: SimulationSessionRequest) -> dict[str, Any]:
     if request.map_id not in MAPS:
         raise HTTPException(status_code=404, detail=f"Unknown simulation map: {request.map_id}")
-    preset = _get_robot_definition(request.robot_id)
+    preset = robot_definition(request.robot_id)
     if request.contract is not None:
         preset = {"robot_id": request.robot_id, "family": request.contract.get("family", request.robot_id), "contract": request.contract, "asset_path": request.contract.get("urdf", {}).get("path", "")}
     if preset is None:
@@ -734,9 +725,9 @@ async def create_session(request: SimulationSessionRequest) -> dict[str, Any]:
     mode = request.mode
     if MAPS[request.map_id]["mode"] == "navigation":
         mode = "navigation"
-    from contracts.robot_contract_v2 import RobotContractV2
+    from contracts.contract_legacy_v2 import ContractLegacyV2
 
-    contract = RobotContractV2(**preset["contract"])
+    contract = ContractLegacyV2(**preset["contract"])
     scenario_payload = request.scenario or {"scenario_id": f"{request.map_id}_session", "map_id": request.map_id, "mode": mode, "seed": request.seed, "episode_length_s": request.episode_length_s}
     try:
         scenario = ScenarioContract(**scenario_payload)

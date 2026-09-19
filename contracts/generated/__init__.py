@@ -6,7 +6,7 @@ json-schema-to-typescript，见脚本内说明）。当前签入的模块与 sch
 由 contracts/tests/test_role_resolver_v3.py 的 parity 测试守护。
 """
 
-from .robot_contract_v3 import (
+from .robot_contract import (
     ActuatorParamsV3,
     ActuatorProfileV3,
     ActionSpecV3,
@@ -20,7 +20,7 @@ from .robot_contract_v3 import (
     TaskRequirements,
     dump_v3,
     load_schema,
-    parse_v3,
+    parse_contract,
 )
 
 __all__ = [
@@ -37,5 +37,5 @@ __all__ = [
     "TaskRequirements",
     "dump_v3",
     "load_schema",
-    "parse_v3",
+    "parse_contract",
 ]

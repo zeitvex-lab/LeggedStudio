@@ -5,7 +5,7 @@
 tools/audit_training_config_layers.py）。它是随包分发的派生物而非用户
 编辑面，workspace 副本必须**镜像**源树——否则旧安装副本会永远保留已
 删除的 terrain/reward_scales 等陈旧任务字段，演化出第二套真值
-（D7 contract_v3.json 镜像的同一先例）。
+（D7 contract.json 镜像的同一先例）。
 
 锁死语义：
 - 副本含残留键（陈旧任务字段）→ 全量覆盖为源树指针文件，不是增量合并；
@@ -33,7 +33,7 @@ def _read_json(path: Path) -> dict:
 
 POINTER_CONFIG = {
     "robot_id": "acme_bot",
-    "contract_path": "assets/robots/acme_bot/contract.json",
+    "contract_path": "assets/robots/acme_bot/contract_legacy_v2.json",
     "profile_id": "acme-flat",
 }
 
@@ -57,7 +57,7 @@ class WorkspaceSyncB13PointerConfigTests(unittest.TestCase):
         (shipped / "model" / "robot.xml").write_text('<mujoco model="acme"/>', encoding="utf-8")
         (shipped / "training" / "profiles" / "flat.json").write_text("{}", encoding="utf-8")
         _write_json(shipped / "training" / "config.json", POINTER_CONFIG)
-        _write_json(shipped / "contract.json", {"robot_id": "acme_bot", "family": "Acme", "joints": {"actuated_joints": []}, "urdf": {"path": "model/robot.xml"}})
+        _write_json(shipped / "contract_legacy_v2.json", {"robot_id": "acme_bot", "family": "Acme", "joints": {"actuated_joints": []}, "urdf": {"path": "model/robot.xml"}})
         _write_json(shipped / "robot_package.json", {"schema_version": "robot-package-1.0", "package_id": "acme_bot", "model": {"format": "mjcf", "path": "model/robot.xml"}})
 
         # 陈旧 workspace 副本：training/config.json 还是 B13 前的旧布局
@@ -65,7 +65,7 @@ class WorkspaceSyncB13PointerConfigTests(unittest.TestCase):
         (target / "model").mkdir(parents=True)
         (target / "model" / "robot.xml").write_text('<mujoco model="acme"/>', encoding="utf-8")
         _write_json(target / "training" / "config.json", STALE_CONFIG)
-        _write_json(target / "contract.json", _read_json(shipped / "contract.json"))
+        _write_json(target / "contract_legacy_v2.json", _read_json(shipped / "contract_legacy_v2.json"))
         _write_json(target / "robot_package.json", _read_json(shipped / "robot_package.json"))
 
         self._root = root

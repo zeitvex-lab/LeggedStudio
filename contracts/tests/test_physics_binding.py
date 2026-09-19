@@ -1,4 +1,4 @@
-"""B3 物理事实绑定测试：契约 v3 单一真值 == 各包现行 simulation/config.json。
+"""B3 物理事实绑定测试：契约真值 单一真值 == 各包现行 simulation/config.json。
 
 这是"翻转真值之前"的**等价性证明**（重构方案 §5.7-1）：
 
@@ -67,7 +67,7 @@ def packages() -> list[Path]:
     return sorted(
         p
         for p in ROBOTS.iterdir()
-        if p.is_dir() and (p / "contract_v3.json").exists() and (p / "simulation" / "config.json").exists()
+        if p.is_dir() and (p / "contract.json").exists() and (p / "simulation" / "config.json").exists()
     )
 
 
@@ -76,7 +76,7 @@ class PhysicsFactsFromContractTest(unittest.TestCase):
         for package in packages():
             with self.subTest(package=package.name):
                 facts = physics_facts(package)
-                self.assertEqual(facts["source"], "contract_v3", "物理真值必须来自契约 v3")
+                self.assertEqual(facts["source"], "contract", "物理真值必须来自契约真值")
                 self.assertNotIn("needs_migration", facts)
 
     def test_control_triple_matches_config(self) -> None:
@@ -103,7 +103,7 @@ class PhysicsFactsFromContractTest(unittest.TestCase):
 
         overrides = {
             package.name: sorted(
-                ((load(package / "contract_v3.json").get("actuator_profile") or {}).get("by_joint") or {})
+                ((load(package / "contract.json").get("actuator_profile") or {}).get("by_joint") or {})
             )
             for package in packages()
         }
@@ -121,14 +121,14 @@ class PhysicsFactsFromContractTest(unittest.TestCase):
         for package in packages():
             if package.name in overrides:
                 continue
-            contract_v3 = load(package / "contract_v3.json")
-            profile = contract_v3.get("actuator_profile") or {}
-            rebuilt = {key: value for key, value in contract_v3.items() if key != "actuator_profile"}
+            contract_truth = load(package / "contract.json")
+            profile = contract_truth.get("actuator_profile") or {}
+            rebuilt = {key: value for key, value in contract_truth.items() if key != "actuator_profile"}
             rebuilt["actuator_profile"] = {
                 "default": profile.get("default") or {},
                 "by_role": profile.get("by_role") or {},
             }
-            shipped = RoleResolver(load(package / "contract_v3.json")).expand_actuator_profile()
+            shipped = RoleResolver(load(package / "contract.json")).expand_actuator_profile()
             rebuilt_expanded = RoleResolver(rebuilt).expand_actuator_profile()
             for joint, params in shipped.items():
                 for param, value in params.items():
@@ -139,9 +139,9 @@ class PhysicsFactsFromContractTest(unittest.TestCase):
 
     def test_role_view_covers_every_role_in_profile(self) -> None:
         for package in packages():
-            contract_v3 = load(package / "contract_v3.json")
-            by_role = (contract_v3.get("actuator_profile") or {}).get("by_role") or {}
-            facts = facts_from_contract(contract_v3)
+            contract_truth = load(package / "contract.json")
+            by_role = (contract_truth.get("actuator_profile") or {}).get("by_role") or {}
+            facts = facts_from_contract(contract_truth)
             with self.subTest(package=package.name):
                 for role, params in by_role.items():
                     if "stiffness" in params:
@@ -156,8 +156,8 @@ class FrictionLossMigratedTest(unittest.TestCase):
     def test_default_friction_loss_migrated(self) -> None:
         for package_id, expected in (("unitree_go2", 0.2), ("unitree_go2w", 0.2)):
             with self.subTest(package=package_id):
-                contract_v3 = load(ROBOTS / package_id / "contract_v3.json")
-                default = (contract_v3.get("actuator_profile") or {}).get("default") or {}
+                contract_truth = load(ROBOTS / package_id / "contract.json")
+                default = (contract_truth.get("actuator_profile") or {}).get("default") or {}
                 self.assertEqual(default.get("friction_loss"), expected)
 
     def test_named_friction_loss_migrated(self) -> None:
@@ -242,11 +242,11 @@ class ContractCoverageVsLegacyConfigTest(unittest.TestCase):
 
         gaps: dict[str, list[str]] = {}
         for package in packages():
-            contract_v3 = load(package / "contract_v3.json")
-            facts = facts_from_contract(contract_v3)
+            contract_truth = load(package / "contract.json")
+            facts = facts_from_contract(contract_truth)
             for param in ("armature", "torque_limits", "friction_loss"):
                 table = facts["by_joint"].get(param) or {}
-                for entry in contract_v3["joints"]["actuated"]:
+                for entry in contract_truth["joints"]["actuated"]:
                     joint = entry["name"]
                     if table.get(joint) is None:
                         gaps.setdefault(package.name, [])
@@ -296,7 +296,7 @@ class FrictionLossPopulatedTest(unittest.TestCase):
 
     def test_every_package_declares_friction_loss(self) -> None:
         contracts = {
-            package.name: load(package / "contract_v3.json") for package in packages()
+            package.name: load(package / "contract.json") for package in packages()
         }
         for name, contract in contracts.items():
             with self.subTest(package=name):
@@ -319,14 +319,14 @@ class FrictionLossPopulatedTest(unittest.TestCase):
     def test_default_values_locked(self) -> None:
         for name, expected in self.EXPECTED_DEFAULT.items():
             with self.subTest(package=name):
-                contract = load(ROBOTS / name / "contract_v3.json")
+                contract = load(ROBOTS / name / "contract.json")
                 default = (contract.get("actuator_profile") or {}).get("default") or {}
                 self.assertEqual(default.get("friction_loss"), expected)
 
     def test_named_values_locked(self) -> None:
         for name, expected in self.EXPECTED_BY_JOINT.items():
             with self.subTest(package=name):
-                contract = load(ROBOTS / name / "contract_v3.json")
+                contract = load(ROBOTS / name / "contract.json")
                 by_joint = (contract.get("actuator_profile") or {}).get("by_joint") or {}
                 values = {
                     params["friction_loss"]
@@ -351,7 +351,7 @@ class LegacyFallbackTest(unittest.TestCase):
     def test_legacy_config_is_marked_needs_migration(self) -> None:
         """兼容回落**代码路径**仍必须可用（未迁移的老包 = config 里带物理键）。
 
-        真值源换成契约 v3 后，仓库里的 config 已不再带物理键，所以这里用一份**合成样本**
+        真值源换成契约真值 后，仓库里的 config 已不再带物理键，所以这里用一份**合成样本**
         ——测的是 ``facts_from_legacy_config`` 这条路径本身，而不是某个包的数据现状。
         （原实现直接读 go2 的 config 取 ``sample["control_hz"]``，B3 后该键已不存在。）
         """

@@ -89,7 +89,7 @@
     },
     "observation_template": {
       "type": "string",
-      "description": "1.1 新增：消费的观测模板 ID（对应契约 v3 observation.kind）"
+      "description": "1.1 新增：消费的观测模板 ID（对应契约真值 observation.kind）"
     },
     "requires_morphology": {
       "type": "array",

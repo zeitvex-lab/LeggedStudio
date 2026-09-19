@@ -16,7 +16,7 @@ from typing import Any, Sequence
 
 from fastapi import HTTPException
 
-from backend.robot_presets import get_robot_preset
+from backend.package_locator import RobotPackageNotFound, resolve_package_entry
 from contracts.role_resolver import RoleResolver
 
 # Browser transfer limits and consts (moved from simulation_api.py)
@@ -31,21 +31,29 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MAPS_ROOT = REPO_ROOT / "assets" / "maps"
 MAP_INDEX = MAPS_ROOT / "_index.json"
 
-
 def browser_package(robot_id: str) -> tuple[Path, dict[str, Any]]:
-    """Resolve a robot package root and its preset entry by robot id."""
-    preset = get_robot_preset(robot_id)
-    if not preset:
-        normalized = robot_id.replace("_", "-").lower()
-        from backend.robot_presets import list_robot_presets
-        preset = next((item for item in list_robot_presets() if str(item.get("robot_id", "")).lower().replace("_", "-") == normalized), None)
+    """解析机器人包根与 preset 条目（定位规则见 ``backend.package_locator``）。
+
+    本域**特有前置**：浏览器要在包内加载 MJCF —— 没有模型文件的包在浏览器里跑不起来。
+    所以"必须有 ``model/robot.xml``"留在这里，而不是塞进共用的包定位
+    （部署域不需要这条前置，两者前置不同是设计，不是漂移）。
+    """
+
+    try:
+        _canonical_id, root, preset = resolve_package_entry(robot_id)
+    except RobotPackageNotFound as exc:
+        # 登记在册但包根缺失 = 安装损坏；查无此机 = 写错了 id —— 两种提示分开，
+        # 否则一条"未知机器人"会把"包被删了"也吞掉。
+        detail = (
+            f"Robot package files not found: {robot_id}"
+            if exc.preset_resolved
+            else f"Unknown robot package: {robot_id}"
+        )
+        raise HTTPException(status_code=404, detail=detail) from exc
     if not preset:
         raise HTTPException(status_code=404, detail=f"Unknown robot package: {robot_id}")
-    package = preset.get("robot_package") or {}
-    root = Path(str(package.get("package_root", ""))).resolve()
-    if not root.exists():
-        raise HTTPException(status_code=404, detail=f"Robot package files not found: {robot_id}")
-    model_info = package.get("model") if isinstance(package.get("model"), dict) else {}
+    model_info = preset.get("robot_package") or {}
+    model_info = model_info.get("model") if isinstance(model_info.get("model"), dict) else {}
     model_path = root / str(model_info.get("path") or "model/robot.xml")
     if not model_path.exists():
         raise HTTPException(status_code=404, detail=f"Robot package has no browser MJCF model: {robot_id}")
@@ -284,20 +292,11 @@ def browser_model_xml(root: Path, model_path: Path, preset: dict[str, Any]) -> s
     return ET.tostring(document, encoding="unicode")
 
 
-def find_package_root_quiet(preset: dict[str, Any]) -> Path | None:
-    """Return package root if present and exists, else None."""
-    try:
-        root = Path(str((preset.get("robot_package") or {}).get("package_root", ""))).resolve()
-        return root if root.exists() else None
-    except (TypeError, ValueError, OSError):
-        return None
-
-
-def read_contract_v3(root: Path | None) -> dict[str, Any] | None:
-    """Read ``contract_v3.json`` if present, else None."""
+def read_contract(root: Path | None) -> dict[str, Any] | None:
+    """Read ``contract.json`` if present, else None."""
     if root is None:
         return None
-    path = root / "contract_v3.json"
+    path = root / "contract.json"
     if not path.exists():
         return None
     try:
@@ -447,23 +446,3 @@ def terrain_entries(simulation_config: dict[str, Any]) -> list[dict[str, Any]]:
                 "robot_include": item.get("robot_include"),
             })
     return entries
-
-
-# Re-export the private helpers under their historical names for compatibility
-# with existing imports in ``simulation_api.py``.
-_browser_package = browser_package
-_browser_package_root = browser_package_root
-_browser_asset_bytes = browser_asset_bytes
-_read_simulation_config = read_simulation_config
-_acceptance_report_path = acceptance_report_path
-_load_acceptance_report = load_acceptance_report
-_acceptance_health_check = acceptance_health_check
-_browser_asset_files = browser_asset_files
-_initial_key_qpos = initial_key_qpos
-_mesh_aabb = mesh_aabb
-_proxy_geom = proxy_geom
-_browser_model_xml = browser_model_xml
-_find_package_root_quiet = find_package_root_quiet
-_read_contract_v3 = read_contract_v3
-_browser_scene_file = browser_scene_file
-_terrain_entries = terrain_entries

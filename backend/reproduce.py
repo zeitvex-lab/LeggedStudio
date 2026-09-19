@@ -311,10 +311,10 @@ def playback_readiness(bundle_dir: Path | str | None) -> dict[str, Any]:
         except Exception as exc:
             check("onnx_loadable", False, f"{onnx_files[0].name} 载入失败：{type(exc).__name__}: {exc}")
 
-    contract_path = next((path for path in (root / "morphology" / "contract.json", root / "contract.json") if path.is_file()), None)
-    v3_path = next((path for path in (root / "morphology" / "contract_v3.json", root / "contract_v3.json") if path.is_file()), None)
+    contract_path = next((path for path in (root / "morphology" / "contract_legacy_v2.json", root / "contract_legacy_v2.json") if path.is_file()), None)
+    v3_path = next((path for path in (root / "morphology" / "contract.json", root / "contract.json") if path.is_file()), None)
     if contract_path is None and v3_path is None:
-        check("contract", False, "既没有 contract.json 也没有 contract_v3.json")
+        check("contract", False, "既没有 contract_legacy_v2.json 也没有 contract.json")
     else:
         problems: list[str] = []
         if contract_path is not None:

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from contracts.policy_artifact import PolicyArtifact
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 from backend.robot_packages import package_for_contract
 
 
@@ -105,7 +105,7 @@ class TrainingConfig:
 class MJLabTrainingAdapter:
     """Synchronous facade over the manager-based native MJLab worker."""
 
-    def __init__(self, contract: RobotContractV2, config: TrainingConfig, output_dir: str):
+    def __init__(self, contract: ContractLegacyV2, config: TrainingConfig, output_dir: str):
         self.contract = contract
         self.config = config
         self.output_dir = Path(output_dir)
@@ -143,7 +143,7 @@ class MJLabTrainingAdapter:
         return PolicyArtifact.from_json_file(str(artifact_path))
 
 
-def train_from_contract(contract: RobotContractV2, config: Optional[TrainingConfig] = None, output_dir: Optional[str] = None, progress_callback: Optional[Callable] = None) -> PolicyArtifact:
+def train_from_contract(contract: ContractLegacyV2, config: Optional[TrainingConfig] = None, output_dir: Optional[str] = None, progress_callback: Optional[Callable] = None) -> PolicyArtifact:
     config = config or TrainingConfig()
     if output_dir is None:
         from datetime import datetime

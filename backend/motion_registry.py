@@ -118,8 +118,12 @@ def _read_json(path: Path) -> Any:
 def _sha256(path: Path) -> str | None:
     try:
         # B39 口径（2026-09-17 对齐）：规范化内容哈希（CRLF → LF）。5 个浏览器 CSV 是文本文件，
-        # Windows 检出是 CRLF，原始字节哈希会与注册表里按 LF 记的值必然不符；
-        # 二进制（pkl/npz）不含 \r\n 序列则逐字节等价，口径统一无副作用。
+        # Windows 检出是 CRLF，原始字节哈希会与注册表里按 LF 记的值必然不符。
+        #
+        # **前提修正（2026-09-19 实测）**：别把"二进制逐字节等价"当成前提 ——
+        # MB 级二进制几乎必然出现 0D 0A 字节对（实测本仓 50 个 onnx **全都**出现），
+        # 所以归一会**改变**二进制的哈希值。这是有意取舍："一个工件只有一个哈希"
+        # 优先于"二进制完整性最强"；代价是 0D 0A ↔ 0A 的改动会被掩盖，选型时须知道。
         return normalized_sha256(path.read_bytes())
     except OSError:
         return None
