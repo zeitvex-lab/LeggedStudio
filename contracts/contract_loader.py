@@ -22,6 +22,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from contracts.jsonio import load_json
 from contracts.locomotion_view import locomotion_type_from_contract
 from contracts.role_resolver import RoleResolver
 
@@ -31,8 +32,9 @@ class ContractLoadError(RuntimeError):
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8-sig") as handle:
-        value = json.load(handle)
+    """读 JSON 对象（编码与失败语义见 ``contracts/jsonio``）；**非对象即报错**。"""
+
+    value = load_json(path)
     if not isinstance(value, dict):
         raise ContractLoadError(f"Contract is not a JSON object: {path}")
     return value

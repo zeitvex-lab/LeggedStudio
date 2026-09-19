@@ -269,7 +269,7 @@ def _newest_report(output_dir: Path) -> dict | None:
     candidates = sorted(output_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
     for path in candidates:
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload = json.loads(path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError):
             continue
         # 形状是 `{total, passed, failed, skipped, results[]}` —— verdict/metrics 在 results[] 内，
@@ -400,7 +400,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.from_report:
-        payload = json.loads((OUTPUT_DIR / "summary.json").read_text(encoding="utf-8"))
+        payload = json.loads((OUTPUT_DIR / "summary.json").read_text(encoding="utf-8-sig"))
         for row in payload.get("gated", []):
             verdict = row.get("verdict")
             if isinstance(verdict, dict) and verdict.get("ok"):

@@ -35,16 +35,17 @@ if str(ROOT) not in sys.path:  # 供 ``from contracts...`` 使用（脚本直接
     sys.path.insert(0, str(ROOT))
 
 from contracts.validator import normalize_line_endings  # noqa: E402  (归一规则唯一实现)
+from contracts.jsonio import read_json, load_json  # JSON 读取唯一实现
+
 
 
 # ---------------------------------------------------------------------------
 # 实测真值
 # ---------------------------------------------------------------------------
 def _read_json(path: Path):
-    try:
-        return json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    """读 JSON；缺失 / 坏内容一律 ``None``（实现见 ``contracts/jsonio``）。"""
+
+    return read_json(path, default=None)
 
 
 def _openapi_paths():

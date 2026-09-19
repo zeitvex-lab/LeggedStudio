@@ -30,7 +30,7 @@ def _load_contract(robot: str) -> dict:
     path = _contract_path(robot)
     if not path.is_file():
         raise FileNotFoundError(f"契约不存在: {path.relative_to(ROOT)}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 def get_contract(robot: str, section: str = "") -> object:
@@ -89,7 +89,7 @@ def verify_pack(pack_id: str) -> object:
         if len(matches) != 1:
             raise FileNotFoundError(f"找不到唯一 Pack: {pack_id}（候选 {len(matches)} 个）")
         path = matches[0]
-    pack = json.loads(path.read_text(encoding="utf-8"))
+    pack = json.loads(path.read_text(encoding="utf-8-sig"))
     ref = pack.get("morphology_ref") or {}
     robot = ref.get("robot") or ref.get("id")
     expected = ref.get("sha256")

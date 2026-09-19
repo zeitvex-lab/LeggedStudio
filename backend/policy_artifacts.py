@@ -31,6 +31,8 @@ from backend.training.runs import canonical_digest, file_digest
 from backend.api_routes import BROWSER_PACKAGE_URL_PREFIX
 from contracts.validator import normalized_sha256
 
+from backend.jsonio import read_json, load_json  # JSON 读取唯一实现
+
 ROOT = Path(__file__).resolve().parents[1]
 
 #: 机器人包根（每个包内含 ``simulation/config.json``）。
@@ -140,10 +142,9 @@ def _repo_relative(path: Path) -> str:
 
 
 def _load_json(path: Path) -> Any:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    """读 JSON（编码口径见 ``backend.jsonio``：``utf-8-sig``，吃 BOM）；失败 ``None``。"""
+
+    return read_json(path, default=None)
 
 
 def resolve_declared_onnx(robot_dir: Path, *declared: str) -> Path | None:

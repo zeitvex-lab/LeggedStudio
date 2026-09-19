@@ -120,7 +120,14 @@ def _request(
 
 
 def _json_file(path: str) -> dict:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    """读 JSON 对象（编码口径见 contracts/jsonio：吃 BOM）；非对象即报错。"""
+
+    from contracts.jsonio import load_json
+
+    value = load_json(path)
+    if not isinstance(value, dict):
+        raise ValueError(f"not a JSON object: {path}")
+    return value
 
 
 # --------------------------------------------------------------------------------------
@@ -189,7 +196,7 @@ def _run_status(run_dir: Path, fallback: str) -> str:
     """读 ``status.json`` 的 ``status`` 字段；缺失/不可解析时回退 run.json 自带的 status（如实，不编造）。"""
 
     try:
-        payload = json.loads((run_dir / "status.json").read_text(encoding="utf-8"))
+        payload = json.loads((run_dir / "status.json").read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return fallback
     value = payload.get("status") if isinstance(payload, dict) else None

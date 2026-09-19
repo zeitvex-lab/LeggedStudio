@@ -75,7 +75,7 @@ async def _run_native_evaluation(task, request: EvaluationRequest):
     if result.returncode != 0 or not evaluation_file.exists():
         detail = result.stderr.strip()[-2000:] or result.stdout.strip()[-2000:] or f"native evaluation exited with code {result.returncode}"
         raise HTTPException(status_code=500, detail=detail)
-    return {"success": True, "result": json.loads(evaluation_file.read_text(encoding="utf-8"))}
+    return {"success": True, "result": json.loads(evaluation_file.read_text(encoding="utf-8-sig"))}
 
 # --------------------------------------------------------------------------------------
 # B11 评测矩阵（八指标 + 四档）：与训练侧 evaluation 分开，走包内策略（含训练产物）

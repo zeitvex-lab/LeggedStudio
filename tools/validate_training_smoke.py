@@ -168,7 +168,7 @@ def _compare_baseline(results: list[dict], baseline_path: Path) -> dict:
     或以相同 mode 跑出更差的 rewards（长训回归），则标记 regressed。
     """
     try:
-        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8-sig"))
     except Exception:
         return {"error": f"cannot parse baseline {baseline_path}"}
     base_by_key = {}

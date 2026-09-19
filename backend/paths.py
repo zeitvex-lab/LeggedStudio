@@ -33,6 +33,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 #: 环境变量名：指向用户工作区（Electron 多实例 / e2e 测试都靠它切换）。
 WORKSPACE_ENV = "LEGGED_STUDIO_WORKSPACE"
 
+#: 环境变量名：指向运行期数据目录（Episode / 设置 / 模型白名单等）。
+DATA_DIR_ENV = "LEGGED_STUDIO_DATA_DIR"
+
 
 def repo_root() -> Path:
     """仓库根（与 ``REPO_ROOT`` 同一值；函数形式便于调用方统一风格）。"""
@@ -59,9 +62,50 @@ def packages_root() -> Path:
     return workspace_root() / "packages"
 
 
+def data_dir(*, default: Path | None = None) -> Path:
+    """**数据目录**（Episode / 设置 / 模型白名单等运行期数据的根）。
+
+    统一的只是**解析规则**：``strip`` → ``expanduser`` → 绝对化，环境变量为空则用 ``default``。
+    此前三处实现各缺一样，同一个环境变量在不同入口落到不同路径：
+
+    * ``model_api``：默认值 ``Path("workspace").resolve()`` —— **相对 cwd**（换个目录启动，白名单范围就变了）；
+    * ``episode_api``：不 strip、不 expanduser、不绝对化；
+    * ``settings_api``：``.strip()`` 了但没 ``resolve``。
+
+    **默认值刻意留给调用方**（``default=``）：它表达的是"这类数据的家在哪儿"
+    （Episode 存档与设置文件本来就可以不同），不该被一个共用默认悄悄改掉。
+    """
+
+    configured = os.environ.get(DATA_DIR_ENV, "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return Path(default) if default is not None else workspace_root()
+
+
+def api_path(path: Path | str) -> str:
+    """**仓库相对 posix 路径**（不在仓库内时退回绝对路径）。
+
+    前端与 API 用仓库相对形式传路径（``assets/robots/go2/model/robot.xml``），
+    而磁盘上拿到的是绝对路径 —— 转换规则此前在 ``model_api`` 与 ``project_api``
+    各写一份**逐字相同**的实现。
+
+    回退分支也必须 ``as_posix()``：这些字符串会写进 JSON（``policy_ref.path``、
+    ``asset_path``），反斜杠会让别处的路径解析按字面理解。
+    """
+
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return resolved.as_posix()
+
+
 __all__ = [
+    "DATA_DIR_ENV",
     "REPO_ROOT",
     "WORKSPACE_ENV",
+    "api_path",
+    "data_dir",
     "packages_root",
     "repo_root",
     "workspace_root",

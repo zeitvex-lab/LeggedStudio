@@ -33,9 +33,15 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:  # 供 ``from contracts...`` 使用（直接运行时 sys.path[0] 是 tools/）
+    sys.path.insert(0, str(ROOT))
+
+from contracts.jsonio import read_json  # noqa: E402  (JSON 读取唯一实现)
+
 ROBOTS = ROOT / "assets" / "robots"
 
 #: 指针字段集：config.json 终态只允许这些键（物理层引用 / profile 引用 / 格式与后端声明）。
@@ -43,11 +49,9 @@ POINTER_FIELDS = {"robot_id", "contract_path", "profile_id", "schema_version", "
 
 
 def _read_json(path: Path) -> dict:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return value if isinstance(value, dict) else {}
+    """读 JSON 对象；缺失 / 坏内容 / 非对象一律 ``{}``（实现见 ``contracts/jsonio``）。"""
+
+    return read_json(path, default={}, require=dict)
 
 
 def audit(*, robots_dir: Path | str = ROBOTS) -> dict:

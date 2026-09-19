@@ -67,6 +67,8 @@ _SKIP_DIRS = frozenset({".git", "__pycache__", ".venv", "node_modules"})
 
 
 from backend.paths import workspace_root as _workspace_root  # 唯一实现见 backend/paths.py
+from backend.jsonio import read_json, load_json  # JSON 读取唯一实现
+
 
 
 def _sha256(path: Path) -> str:
@@ -80,7 +82,9 @@ def _sha256(path: Path) -> str:
 
 
 def _read_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8-sig"))
+    """严格读（异常原样抛）—— 实现见 ``backend.jsonio``。"""
+
+    return load_json(path)
 
 
 def _write_json(path: Path, payload: Any) -> None:

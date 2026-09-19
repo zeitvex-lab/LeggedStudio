@@ -33,15 +33,19 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:  # 供 ``from contracts...`` 使用（直接运行时 sys.path[0] 是 tools/）
+    sys.path.insert(0, str(ROOT))
+
+from contracts.jsonio import read_json  # noqa: E402  (JSON 读取唯一实现)
+
 ROBOTS = ROOT / "assets" / "robots"
 RATE_KEYS = ("control_hz", "physics_hz", "decimation")
 
 
 def _read_json(path: pathlib.Path) -> dict:
-    try:
-        return json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError):
-        return {}
+    """读 JSON 对象；缺失 / 坏内容 / 非对象一律 ``{}``（实现见 ``contracts/jsonio``）。"""
+
+    return read_json(path, default={}, require=dict)
 
 
 def _profile_decimations(package: pathlib.Path) -> list[int]:

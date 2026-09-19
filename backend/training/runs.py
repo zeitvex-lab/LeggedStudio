@@ -39,6 +39,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 from contracts.validator import normalized_sha256  # 归一摘要唯一实现
+from backend.jsonio import read_json, load_json  # JSON 读取唯一实现
+
 
 #: 仓库根（``backend/training/runs.py`` → 上溯两级）。
 ROOT = Path(__file__).resolve().parents[2]
@@ -294,10 +296,9 @@ def run_paths(run_dir: Path | str) -> dict[str, Path]:
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    """读 JSON 对象（编码口径见 ``backend.jsonio``）；缺失 / 坏内容 / 非对象 ``None``。"""
+
+    return read_json(path, default=None, require=dict)
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:

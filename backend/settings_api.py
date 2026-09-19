@@ -14,7 +14,6 @@ malformed file never crashes the control plane.
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import sys
 from pathlib import Path
@@ -49,10 +48,11 @@ MIRRORS: dict[str, dict[str, str]] = {
 
 
 def _data_dir() -> Path:
-    configured = os.environ.get("LEGGED_STUDIO_DATA_DIR", "").strip()
-    if configured:
-        return Path(configured).expanduser()
-    return Path(__file__).resolve().parents[1] / "workspace"
+    """数据目录（解析规则唯一实现见 ``backend.paths.data_dir``）。"""
+
+    from backend.paths import data_dir
+
+    return data_dir()
 
 
 def _settings_path() -> Path:
@@ -71,7 +71,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
 
 def read_settings() -> dict[str, Any]:
     try:
-        value = json.loads(_settings_path().read_text(encoding="utf-8"))
+        value = json.loads(_settings_path().read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return dict(DEFAULT_SETTINGS)
     settings = {**DEFAULT_SETTINGS, **value}

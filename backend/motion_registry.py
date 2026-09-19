@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from contracts.validator import normalized_sha256
+from backend.jsonio import read_json  # JSON 读取唯一实现
 
 ROOT = Path(__file__).resolve().parents[1]
 ROBOTS_DIR = ROOT / "assets" / "robots"
@@ -109,10 +110,9 @@ _AMP_LICENSE = {
 
 
 def _read_json(path: Path) -> Any:
-    try:
-        return json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    """读 JSON；缺失 / 坏内容一律 ``None``（实现见 ``backend.jsonio``）。"""
+
+    return read_json(path, default=None)
 
 
 def _sha256(path: Path) -> str | None:

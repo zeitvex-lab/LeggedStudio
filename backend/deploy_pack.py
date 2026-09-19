@@ -23,19 +23,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from backend.jsonio import read_json  # JSON 读取唯一实现
+
 ROOT = Path(__file__).resolve().parents[1]
 
 GENERATED_HEADER = "# 本文件由 Legged Studio 部署包生成器产出（{ts}）；真值源：contract.json\n"
 
 
 def _load_json(path: Path) -> dict | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    """读一份 JSON 对象；缺失 / 坏内容 / 非对象一律 ``None``（实现见 ``backend.jsonio``）。"""
 
+    return read_json(path, default=None, require=dict)
 
 # 包定位已收口到 ``backend.package_locator``（本模块按名 re-export，保持既有 import 可用）：
 # 部署域曾与仿真域各实现一遍"包根从哪来"，规则还不同（``zex_w`` 在仿真域 200、在这里 404）。

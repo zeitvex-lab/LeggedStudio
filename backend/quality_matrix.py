@@ -115,7 +115,7 @@ def save_report(report: dict[str, Any], path: Path | None = None, *, directory: 
 
 def load_report(path: Path | str) -> dict[str, Any] | None:
     try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
+        return json.loads(Path(path).read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return None
 

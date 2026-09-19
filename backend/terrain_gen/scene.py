@@ -12,7 +12,7 @@ from .mujoco_xml import export_mujoco
 
 def load_scene(path: str | Path) -> ArenaScene:
     path = Path(path)
-    return ArenaScene.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    return ArenaScene.from_dict(json.loads(path.read_text(encoding="utf-8-sig")))
 
 
 def save_scene(scene: ArenaScene, path: str | Path) -> Path:

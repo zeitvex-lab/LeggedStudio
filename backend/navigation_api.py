@@ -94,7 +94,7 @@ def controller_measurements() -> dict[str, Any]:
     if not REGRESSION_BASELINE_PATH.exists():
         return {"source": str(REGRESSION_BASELINE_PATH), "available": False, "per_controller": {}}
     try:
-        payload = json.loads(REGRESSION_BASELINE_PATH.read_text(encoding="utf-8"))
+        payload = json.loads(REGRESSION_BASELINE_PATH.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:  # 基线损坏不能把端点带崩
         return {
             "source": str(REGRESSION_BASELINE_PATH),
@@ -234,7 +234,7 @@ async def _run_native_navigation(task, request: NavigationRequest):
     if result.returncode != 0 or not navigation_file.exists():
         detail = result.stderr.strip()[-2000:] or result.stdout.strip()[-2000:] or f"native navigation exited with code {result.returncode}"
         raise HTTPException(status_code=500, detail=detail)
-    nav_result = json.loads(navigation_file.read_text(encoding="utf-8"))
+    nav_result = json.loads(navigation_file.read_text(encoding="utf-8-sig"))
     _record_navigation_evaluation(task, nav_result, request)
     return {"success": True, "result": nav_result}
 

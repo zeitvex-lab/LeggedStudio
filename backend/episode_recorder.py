@@ -203,7 +203,7 @@ def read_episode(episode_dir: str | os.PathLike[str]) -> dict[str, Any]:
     manifest_path = directory / "manifest.json"
     if not manifest_path.is_file():
         raise FileNotFoundError(f"缺 manifest.json：{directory}")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
 
     jsonl_path = directory / "actions.jsonl"
     records: list[dict[str, Any]] = []
@@ -234,7 +234,7 @@ def list_episodes(record_root: str | os.PathLike[str]) -> list[dict[str, Any]]:
     episodes: list[dict[str, Any]] = []
     for manifest_path in sorted(root.glob("run_*/*/episode_*/manifest.json")):
         try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError):
             continue
         directory = manifest_path.parent

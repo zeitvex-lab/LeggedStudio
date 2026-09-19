@@ -26,7 +26,7 @@ RES = ROOT / "00_resources"
 def _index() -> dict:
     if not INDEX.is_file():
         raise FileNotFoundError(f"索引不存在: {INDEX.relative_to(ROOT)}（跑 tools/sync_resources.py --reindex）")
-    return json.loads(INDEX.read_text(encoding="utf-8"))
+    return json.loads(INDEX.read_text(encoding="utf-8-sig"))
 
 
 def list_robots() -> object:

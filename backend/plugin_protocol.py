@@ -23,18 +23,16 @@ from contracts.role_resolver import RoleResolver, RoleResolverError
 
 from contracts.validator import normalized_sha256  # 归一摘要唯一实现（B39 口径）
 
+from backend.jsonio import read_json  # JSON 读取唯一实现
+
 MANIFEST_VERSIONS = {"robot-package-1.0", "robot-package-1.1"}
 PACKAGE_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
 def _load_json(path: Path) -> dict | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    """读一份 JSON 对象；缺失 / 坏内容 / 非对象一律 ``None``（实现见 ``backend.jsonio``）。"""
 
+    return read_json(path, default=None, require=dict)
 
 def _sha256(path: Path) -> str:
     """规范化内容哈希：委托 ``contracts.validator.normalized_sha256``（**唯一实现**）。

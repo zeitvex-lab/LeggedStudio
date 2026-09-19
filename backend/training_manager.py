@@ -156,7 +156,7 @@ class TrainingTask:
         runtime_file = self.task_dir / "runtime.json"
         if runtime_file.exists():
             try:
-                runtime_info = json.loads(runtime_file.read_text(encoding="utf-8"))
+                runtime_info = json.loads(runtime_file.read_text(encoding="utf-8-sig"))
             except (OSError, json.JSONDecodeError):
                 runtime_info = {}
 
@@ -212,7 +212,7 @@ class TrainingManager:
                 continue
             try:
                 contract = ContractLegacyV2.from_json_file(str(contract_path))
-                config = json.loads(config_path.read_text(encoding="utf-8"))
+                config = json.loads(config_path.read_text(encoding="utf-8-sig"))
                 task = TrainingTask(task_dir.name, contract, config, task_dir)
                 status_info = task.get_status_info()
                 task.status = status_info.get("status", "completed" if (task_dir / "artifact.json").exists() else "pending")
@@ -272,7 +272,7 @@ class TrainingManager:
         """Load the persisted Idempotency-Key -> task_id map (Feature 13)."""
         try:
             if self._idem_path.exists():
-                data = json.loads(self._idem_path.read_text(encoding="utf-8"))
+                data = json.loads(self._idem_path.read_text(encoding="utf-8-sig"))
                 if isinstance(data, dict):
                     # Drop entries whose task_dir no longer exists so a stale
                     # key never guards a deleted task.

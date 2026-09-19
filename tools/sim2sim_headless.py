@@ -339,7 +339,7 @@ def main() -> int:
     engine = load_engine()
     criteria_all = {}
     if args.criteria_json and args.criteria_json.is_file():
-        criteria_all = json.loads(args.criteria_json.read_text(encoding="utf-8"))
+        criteria_all = json.loads(args.criteria_json.read_text(encoding="utf-8-sig"))
 
     packages = sorted((ROOT / "assets" / "robots").iterdir())
     results = []
@@ -487,7 +487,7 @@ def _provenance_diff(baseline_path: Path, current: dict) -> dict | None:
     baseline/current 两边的值，让"先怀疑环境还是先怀疑代码"有据可依。
     """
     try:
-        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8-sig"))
     except Exception:  # noqa: BLE001 —— 基线读不了由 _compare_baseline 报，这里不重复
         return None
     recorded = baseline.get("provenance") or {}
@@ -516,7 +516,7 @@ def _compare_baseline(results: list[dict], baseline_path: Path) -> dict:
     基线里；CI 应在这批失败之外守住"不许新增失败"，而不是一开始就全绿。
     """
     try:
-        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8-sig"))
     except Exception as exc:  # noqa: BLE001
         return {"error": f"cannot parse baseline {baseline_path}: {exc}",
                 "compared": 0, "new_policies": [], "regressions": []}

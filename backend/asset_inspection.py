@@ -17,18 +17,16 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
+from backend.jsonio import read_json  # JSON 读取唯一实现
+
 _MASS_SPREAD_WARN = 0.20
 _EFFORT_DRIFT_WARN = 0.10
 
 
 def _load_json(path: Path) -> dict | None:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    """读一份 JSON 对象；缺失 / 坏内容 / 非对象一律 ``None``（实现见 ``backend.jsonio``）。"""
 
+    return read_json(path, default=None, require=dict)
 
 def _card(status: str, summary: str, **extra: Any) -> dict:
     return {"status": status, "summary": summary, **extra}
