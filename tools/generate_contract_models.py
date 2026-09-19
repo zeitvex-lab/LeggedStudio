@@ -69,7 +69,7 @@ NESTED_CHECKS = [
 def _load_schema() -> dict:
     if not SCHEMA.exists():
         raise SystemExit(f"schema 不存在: {SCHEMA}")
-    return json.loads(SCHEMA.read_text(encoding="utf-8"))
+    return json.loads(SCHEMA.read_text(encoding="utf-8-sig"))
 
 
 def _top_level_fields(schema: dict) -> list[str]:

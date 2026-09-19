@@ -224,7 +224,7 @@ async def get_map(map_id: str):
     if path.exists():
         try:
             import json
-            saved = json.loads(path.read_text(encoding="utf-8"))
+            saved = json.loads(path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError):
             saved = {}
     return {

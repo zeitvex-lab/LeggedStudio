@@ -47,7 +47,7 @@ async def get_policy_artifact(task_id: str):
         return {"success": True, "task_id": task_id, "available": False,
                 "note": "训练完成后生成 PolicyArtifact；含 lineage 与双 gate 报告"}
     try:
-        artifact = json.loads(artifact_file.read_text(encoding="utf-8"))
+        artifact = json.loads(artifact_file.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=500, detail=f"artifact.json 解析失败: {exc}") from exc
     return {"success": True, "task_id": task_id, "available": True, "artifact": artifact}
@@ -125,7 +125,7 @@ async def get_training_run(task_id: str, summary: bool = False):
 
     def _read(name: str):
         try:
-            return json.loads((task.task_dir / name).read_text(encoding="utf-8"))
+            return json.loads((task.task_dir / name).read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError):
             return None
 

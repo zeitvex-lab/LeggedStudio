@@ -35,13 +35,17 @@ from backend.skill_registry import (  # noqa: PLC2701  复用 K4 结构校验，
 )
 from backend.training.runs import canonical_digest
 
+from backend.jsonio import read_json, load_json  # JSON 读取唯一实现
+
 #: 包格式版本。
 PACK_SCHEMA = "skill-pack-1.0"
 INDEX_NAME = "index.json"
 
 
 def _load_json(path: Path) -> Any:
-    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    """严格读（异常原样抛给调用方包成域错误）—— 实现见 ``backend.jsonio``。"""
+
+    return load_json(path)
 
 
 def _safe_join(skills_dir: Path, raw: str) -> Path:

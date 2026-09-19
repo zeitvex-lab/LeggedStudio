@@ -25,9 +25,10 @@ def episode_root() -> Path:
     override = os.environ.get("LEGGED_STUDIO_EPISODE_DIR")
     if override:
         return Path(override)
-    data_dir = os.environ.get("LEGGED_STUDIO_DATA_DIR")
-    base = Path(data_dir) if data_dir else Path.home() / ".legged_studio"
-    return base / "episodes"
+    # 解析规则唯一实现见 backend/paths.data_dir；**默认值**留给这里（Episode 存档之家）
+    from backend.paths import data_dir
+
+    return data_dir(default=Path.home() / ".legged_studio") / "episodes"
 
 
 @router.get("/list")

@@ -41,7 +41,7 @@ from backend.package_locator import (  # noqa: E402
     resolve_package_root,
     robot_definition,
 )
-from backend.paths import WORKSPACE_ENV, workspace_root  # noqa: E402
+from backend.paths import DATA_DIR_ENV, WORKSPACE_ENV, api_path, data_dir, workspace_root  # noqa: E402
 from backend.robot_presets import list_robot_presets  # noqa: E402
 
 #: ``zex-w`` 是全仓唯一带连字符的 robot_id —— 别名归一是否真的生效，靠它证伪。
@@ -193,14 +193,16 @@ class WorkspaceRootSingleSourceTest(unittest.TestCase):
             self.assertEqual(Path("/tmp/flag-ws"), cli_root("/tmp/flag-ws"))
 
     def test_no_second_implementation_in_product_code(self) -> None:
-        """源码级防回归：产品代码里只允许 ``backend/paths.py`` **读取**该环境变量。
+        """源码级防回归：产品代码里只允许 ``backend/paths.py`` **读取**这两个环境变量。
 
         「写环境变量」（CLI 把 ``--workspace`` 同步进去给下游看）是另一回事，不在此列。
+        数据目录同理：解析规则（strip → expanduser → 绝对化）只有一处，
+        **默认值**由调用方给（它表达"这类数据的家在哪儿"，本就可能不同）。
         """
 
         read_patterns = (
-            re.compile(rf'os\.environ\.get\(\s*["\']{WORKSPACE_ENV}["\']'),
-            re.compile(rf'os\.environ\[\s*["\']{WORKSPACE_ENV}["\']\s*\]\.'),
+            re.compile(rf'os\.environ\.get\(\s*["\'](?:{WORKSPACE_ENV}|{DATA_DIR_ENV})["\']'),
+            re.compile(rf'os\.environ\[\s*["\'](?:{WORKSPACE_ENV}|{DATA_DIR_ENV})["\']\s*\]\.'),
         )
         offenders: list[str] = []
         for base in ("backend", "tools", "scripts", "adapters"):
@@ -210,7 +212,26 @@ class WorkspaceRootSingleSourceTest(unittest.TestCase):
                 text = path.read_text(encoding="utf-8", errors="ignore")
                 if any(pattern.search(text) for pattern in read_patterns):
                     offenders.append(str(path.relative_to(ROOT)))
-        self.assertEqual([], offenders, f"工作区根解析应只在 backend/paths.py：{offenders}")
+        self.assertEqual([], offenders, f"路径约定解析应只在 backend/paths.py：{offenders}")
+
+    def test_data_dir_shares_the_rule_and_keeps_defaults_explicit(self) -> None:
+        """数据目录：**规则**唯一（strip → expanduser → 绝对化），**默认值**由调用方给。"""
+
+        with mock.patch.dict(os.environ, {DATA_DIR_ENV: "  ~/data-ws  "}):
+            self.assertEqual(Path.home() / "data-ws", data_dir())
+        with mock.patch.dict(os.environ, {DATA_DIR_ENV: "   "}):
+            self.assertEqual(ROOT / "workspace", data_dir(), "空值回落工作区根")
+            self.assertEqual(Path("/tmp/episodes"), data_dir(default=Path("/tmp/episodes")))
+        with mock.patch.dict(os.environ, {DATA_DIR_ENV: "relative-dir"}):
+            self.assertTrue(data_dir().is_absolute(), "相对值必须绝对化")
+
+    def test_api_path_is_repo_relative_and_falls_back_to_absolute(self) -> None:
+        """仓库相对 posix 路径：仓内给相对、仓外退回绝对（此前两处逐字相同的实现）。"""
+
+        self.assertEqual("assets/robots", api_path(ROOT / "assets" / "robots"))
+        outside = Path(tempfile.gettempdir()) / "outside.json"
+        self.assertEqual(outside.as_posix(), api_path(outside))
+        self.assertNotIn("\\", api_path(ROOT / "assets"))
 
 
 class RobotDefinitionLookupTest(unittest.TestCase):

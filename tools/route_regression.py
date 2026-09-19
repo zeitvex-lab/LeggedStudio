@@ -363,7 +363,7 @@ def main() -> int:
         print(json.dumps(report["per_controller"], ensure_ascii=False, indent=2))
         return 0
 
-    baseline = json.loads(args.baseline.read_text(encoding="utf-8")) if args.baseline.exists() else {}
+    baseline = json.loads(args.baseline.read_text(encoding="utf-8-sig")) if args.baseline.exists() else {}
     problems = compare_to_baseline(report, baseline)
     report["regression"] = {"baseline": str(args.baseline), "problems": problems, "passed": not problems}
 

@@ -26,6 +26,8 @@ import json
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from backend.jsonio import load_json  # JSON 读取唯一实现
+
 ROOT = Path(__file__).resolve().parents[1]
 PACKS_DIR = ROOT / "registry" / "packs"
 INDEX_NAME = "index.json"
@@ -41,8 +43,10 @@ class ResourcePackError(ValueError):
 
 
 def _load_json(path: Path) -> Any:
+    """读 JSON 包；坏文件包成 ``ResourcePackError``（编码口径见 ``backend.jsonio``）。"""
+
     try:
-        return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+        return load_json(path)
     except (OSError, json.JSONDecodeError) as exc:
         raise ResourcePackError(f"资源包文件不可读 {path}: {exc}") from exc
 

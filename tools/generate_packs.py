@@ -23,6 +23,7 @@ from pathlib import Path
 
 if str(Path(__file__).resolve().parents[1]) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from contracts.jsonio import load_json  # JSON 读取唯一实现
 from contracts.path_bootstrap import ensure_project_root_on_path
 
 ROOT = ensure_project_root_on_path() and Path(__file__).resolve().parents[1]
@@ -99,7 +100,9 @@ def _sha256(path: Path) -> str:
 
 
 def _load_json(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8-sig"))
+    """严格读（异常原样抛）—— 实现见 ``contracts/jsonio``。"""
+
+    return load_json(path)
 
 
 def _morphology_id(contract_truth: dict) -> str | None:

@@ -36,14 +36,14 @@ _INDEX_CACHE_LOCK = threading.Lock()
 
 # 委托到唯一实现（本模块内有局部变量叫 workspace_root，故沿用私有名，避免 LEGB 遮蔽）。
 from backend.paths import workspace_root as _workspace_root
+from backend.jsonio import read_json, load_json  # JSON 读取唯一实现
+
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8-sig"))
-        return value if isinstance(value, dict) else {}
-    except (OSError, json.JSONDecodeError):
-        return {}
+    """读 JSON 对象；缺失 / 坏内容 / 非对象一律 ``{}``（"空清单"语义）。"""
+
+    return read_json(path, default={}, require=dict)
 
 
 def _public_path(path: Path) -> str:

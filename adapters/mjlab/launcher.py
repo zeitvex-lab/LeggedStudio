@@ -172,7 +172,7 @@ class TrainingLauncher:
     def _read_status(task_dir: Path) -> dict:
         path = task_dir / "status.json"
         try:
-            return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+            return json.loads(path.read_text(encoding="utf-8-sig")) if path.exists() else {}
         except (OSError, json.JSONDecodeError):
             return {}
 

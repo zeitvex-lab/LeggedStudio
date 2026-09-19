@@ -29,16 +29,14 @@ router = APIRouter(prefix="/api/models", tags=["models"])
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-# 工作区根解析收口到 ``backend.paths``（此前 7 处各写一遍，且 strip/resolve 规则不一致）。
-from backend.paths import workspace_root as _workspace_root
+# 路径约定解析收口到 ``backend.paths``（工作区根 / 数据目录 / 仓库相对路径，各一处实现）。
+from backend.paths import api_path, data_dir, workspace_root as _workspace_root
 
 
 def _api_path(path: Path) -> str:
-    path = path.resolve()
-    try:
-        return path.relative_to(PROJECT_ROOT).as_posix()
-    except ValueError:
-        return str(path)
+    """仓库相对 posix 路径（唯一实现见 ``backend.paths.api_path``）。"""
+
+    return api_path(path)
 
 
 def _content_hash(entries: Iterable[tuple[Path, bytes]]) -> str:
@@ -190,7 +188,7 @@ def import_staged_package(
     if not package_root.exists():
         (staging / "contract_legacy_v2.json").write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         write_package_manifest(staging, package_id=package_id, task_kind="generic")
-        descriptor = json.loads((staging / "robot_package.json").read_text(encoding="utf-8"))
+        descriptor = json.loads((staging / "robot_package.json").read_text(encoding="utf-8-sig"))
         descriptor.update({
             "model": {"format": model_format, "path": model_relative.as_posix(), "assets_path": str(model_relative.parent).replace("\\", "/")},
             "contract_path": "contract_legacy_v2.json",
@@ -425,7 +423,7 @@ def _safe_path(value: str) -> Path:
     allowed_roots = [
         PROJECT_ROOT,
         _workspace_root(),
-        Path(os.environ.get("LEGGED_STUDIO_DATA_DIR", "workspace")).resolve(),
+        data_dir(default=_workspace_root()),
     ]
     if not any(candidate == root or root in candidate.parents for root in allowed_roots):
         raise ValueError("model path must be inside the Legged Studio project or workspace")

@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import io
 import json
-import os
 import shutil
 import tempfile
 import zipfile
@@ -22,17 +21,14 @@ from backend.model_api import _validate, ModelValidationRequest, _contract_draft
 
 
 router = APIRouter(prefix="/api/project", tags=["project"])
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 #: 工作区根的唯一实现见 ``backend/paths.py``（此前本模块自带一份，且与他处规则不一致）。
-from backend.paths import workspace_root as _workspace_root  # noqa: E402  (import 位置跟随既有排版)
+from backend.paths import api_path, workspace_root as _workspace_root  # noqa: E402  (import 位置跟随既有排版)
 
 
 def _api_path(path: Path) -> str:
-    path = path.resolve()
-    try:
-        return path.relative_to(PROJECT_ROOT).as_posix()
-    except ValueError:
-        return str(path)
+    """仓库相对 posix 路径（唯一实现见 ``backend.paths.api_path``）。"""
+
+    return api_path(path)
 
 
 def _safe_package_id(value: str) -> str:
@@ -198,10 +194,10 @@ async def import_project(request: ProjectImportRequest) -> dict[str, Any]:
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_bytes(archive.read(info))
             manifest_path = extracted_root / "manifest.json"
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig")) if manifest_path.exists() else {}
             _normalise_robot_packages(extracted_root, manifest)
-            training_config = json.loads((extracted_root / "training/config.json").read_text(encoding="utf-8")) if (extracted_root / "training/config.json").exists() else {}
-            scenario = json.loads((extracted_root / "scenarios/active.json").read_text(encoding="utf-8")) if (extracted_root / "scenarios/active.json").exists() else {}
+            training_config = json.loads((extracted_root / "training/config.json").read_text(encoding="utf-8-sig")) if (extracted_root / "training/config.json").exists() else {}
+            scenario = json.loads((extracted_root / "scenarios/active.json").read_text(encoding="utf-8-sig")) if (extracted_root / "scenarios/active.json").exists() else {}
             robots = _persist_robot_packages(extracted_root, packages_root)
         return {"success": True, "import_root": _api_path(packages_root), "package_ids": [item["package_id"] for item in robots], "manifest": manifest, "robots": robots, "training_config": training_config, "scenario": scenario}
     except Exception as exc:
@@ -256,13 +252,13 @@ def _persist_robot_packages(extracted_root: Path, packages_root: Path) -> list[d
     package_roots = sorted({path.parent for path in extracted_root.rglob("robot_package.json") if (path.parent / "contract.json").exists()})
     robots: list[dict[str, Any]] = []
     for source in package_roots:
-        descriptor = json.loads((source / "robot_package.json").read_text(encoding="utf-8"))
-        contract = json.loads((source / "contract.json").read_text(encoding="utf-8"))
+        descriptor = json.loads((source / "robot_package.json").read_text(encoding="utf-8-sig"))
+        contract = json.loads((source / "contract.json").read_text(encoding="utf-8-sig"))
         base_id = _safe_package_id(str(descriptor.get("package_id") or contract.get("robot_id") or source.name))
         source_hash = str(descriptor.get("content_sha256") or _tree_hash(source))
         target = packages_root / base_id
         if target.exists():
-            existing_descriptor = json.loads((target / "robot_package.json").read_text(encoding="utf-8")) if (target / "robot_package.json").exists() else {}
+            existing_descriptor = json.loads((target / "robot_package.json").read_text(encoding="utf-8-sig")) if (target / "robot_package.json").exists() else {}
             existing_hash = str(existing_descriptor.get("content_sha256") or _tree_hash(target))
             if existing_hash != source_hash:
                 target = packages_root / f"{base_id}_{source_hash[:10]}"
@@ -274,9 +270,9 @@ def _persist_robot_packages(extracted_root: Path, packages_root: Path) -> list[d
             staging.rename(target)
 
         contract_path = target / "contract.json"
-        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        contract = json.loads(contract_path.read_text(encoding="utf-8-sig"))
         descriptor_path = target / "robot_package.json"
-        descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+        descriptor = json.loads(descriptor_path.read_text(encoding="utf-8-sig"))
         model_entry = descriptor.get("model", {}) if isinstance(descriptor.get("model"), dict) else {}
         model = target / str(model_entry.get("path", "")) if model_entry.get("path") else None
         if model is None or not model.is_file():

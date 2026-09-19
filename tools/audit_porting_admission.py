@@ -209,7 +209,7 @@ def load_evidence(refresh: bool) -> dict[str, Any]:
             json.dumps(manifest, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
         )
         return manifest
-    return json.loads(EVIDENCE_PATH.read_text(encoding="utf-8"))
+    return json.loads(EVIDENCE_PATH.read_text(encoding="utf-8-sig"))
 
 
 def package_inventory(package_root: Path) -> dict[str, Any]:

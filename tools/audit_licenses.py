@@ -44,6 +44,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from contracts.validator import normalized_sha256  # noqa: E402  (归一摘要唯一实现)
+from contracts.jsonio import read_json, load_json  # JSON 读取唯一实现
+
 RESOURCES_ROOT = PROJECT_ROOT / "00_resources"
 EVIDENCE_PATH = PROJECT_ROOT / "registry" / "porting_evidence.json"
 REGISTRY_PATH = PROJECT_ROOT / "registry" / "licenses.json"
@@ -76,10 +78,9 @@ EXPECTED_ZERO_LICENSE: frozenset[str] = frozenset({"zex-w"})
 
 
 def _read_json(path: Path) -> Any:
-    try:
-        return json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    """读 JSON；缺失 / 坏内容一律 ``None``（实现见 ``contracts/jsonio``）。"""
+
+    return read_json(path, default=None)
 
 
 def identify_spdx(text: str) -> tuple[str | None, str]:

@@ -79,4 +79,4 @@ def validate_deployment_contract(contract: dict[str, Any]) -> list[str]:
 
 
 def load_schema() -> dict:
-    return json.loads(_SCHEMA.read_text(encoding="utf-8"))
+    return json.loads(_SCHEMA.read_text(encoding="utf-8-sig"))

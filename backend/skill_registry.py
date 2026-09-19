@@ -25,6 +25,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from backend.jsonio import load_json  # JSON 读取唯一实现
+
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_DIR = ROOT / "registry"
 SKILLS_DIR = REGISTRY_DIR / "skills"
@@ -42,8 +44,10 @@ class SkillRegistryError(ValueError):
 
 
 def _load_json(path: Path) -> Any:
+    """读注册表；坏文件包成 ``SkillRegistryError``（编码口径见 ``backend.jsonio``）。"""
+
     try:
-        return json.loads(path.read_text(encoding="utf-8-sig"))
+        return load_json(path)
     except (OSError, json.JSONDecodeError) as exc:
         raise SkillRegistryError(f"注册表文件不可读 {path.name}: {exc}") from exc
 

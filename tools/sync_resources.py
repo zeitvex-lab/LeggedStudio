@@ -738,7 +738,7 @@ def reindex_existing(dry: bool) -> int:
     old = {}
     if index_path.exists():
         try:
-            old = json.loads(index_path.read_text(encoding="utf-8"))
+            old = json.loads(index_path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError):
             old = {}
     old_projects = old.get("projects") or {}
