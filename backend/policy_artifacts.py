@@ -65,6 +65,7 @@ _DEPLOY_FIELDS = (
 #: 48 维；ONNX 实测 obs[1,48] 双证）；其余布局沿用 B43 先例 ``unknown``，不编造。
 _OBSERVATION_KIND_BY_SHAPE: dict[tuple[str, int], str] = {
     ("unitree_go2", 48): "go2_mjlab_actor_48",
+    ("unitree_go2", 270): "himloco_45_hist6",  # HIM 45D×6 帧历史堆叠（2026-09-19 三十九轮移植）
     ("unitree_b2", 48): "go2_mjlab_actor_48",
 }
 

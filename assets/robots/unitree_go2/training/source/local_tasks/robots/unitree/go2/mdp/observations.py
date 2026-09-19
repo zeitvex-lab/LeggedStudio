@@ -765,3 +765,81 @@ class Go2SourceStandHistory:
       self._buf.zero_()
     else:
       self._buf[env_ids] = 0.0
+
+
+class Go2HimHistory:
+  """HIMLoco ``obs_hist_buf``: 45-D frames stacked newest first.
+
+  HIM feeds the estimator and the actor the full stacked history
+  ``cat(current_frame, older_frames)`` (source:
+  ``obs_buf = cat(current_obs[:, :45], obs_buf[:, :-45])``), unlike the
+  CTS/DreamWaQ history encoders that consume only frames preceding the current
+  one. The term samples the observation noise itself and caches the processed
+  (noisy) current frame so :func:`go2_him_privileged_observation` can reuse the
+  identical frame, mirroring how the source privileged buffer shares the noisy
+  ``current_obs`` prefix.
+  """
+
+  def __init__(self, cfg, env) -> None:
+    params = getattr(cfg, "params", {}) or {}
+    self._command_name = str(params.get("command_name", "twist"))
+    self._command_first = bool(params.get("command_first", True))
+    self._add_noise = bool(params.get("add_noise", True))
+    self._noise = params.get("noise")
+    self._length = max(1, int(params.get("length", 6)))
+    self._frame_dim = 45
+    self._frame = torch.zeros((env.num_envs, self._frame_dim), device=env.device)
+    self._buf = torch.zeros(
+      (env.num_envs, self._length, self._frame_dim), device=env.device
+    )
+    env._go2_him_history_term = self
+
+  def __call__(self, env, **_kwargs) -> torch.Tensor:
+    frame = go2_source_stand_observation(
+      env, self._command_name, command_first=self._command_first
+    )
+    if self._add_noise and self._noise is not None:
+      low = torch.as_tensor(self._noise.n_min, device=env.device, dtype=frame.dtype)
+      high = torch.as_tensor(self._noise.n_max, device=env.device, dtype=frame.dtype)
+      frame = frame + low + (high - low) * torch.rand_like(frame)
+    self._frame.copy_(frame)
+    # Source stacking keeps the newest frame at offset 0; older frames follow
+    # in recency order so ``history[:, :45]`` is the current observation.
+    self._buf = torch.roll(self._buf, shifts=1, dims=1)
+    self._buf[:, 0] = frame
+    return self._buf.reshape(env.num_envs, -1)
+
+  def reset(self, env_ids=None) -> None:
+    if env_ids is None:
+      self._frame.zero_()
+      self._buf.zero_()
+    else:
+      self._frame[env_ids] = 0.0
+      self._buf[env_ids] = 0.0
+
+
+def go2_him_privileged_observation(
+  env: ManagerBasedRlEnv,
+  command_name: str = "twist",
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Build the 48-D HIM privileged frame: ``noisy_frame45 || base_lin_vel * 2``.
+
+  HIMLoco's per-step privileged frame shares the noisy ``current_obs`` prefix
+  and appends the clean base linear velocity scaled by
+  ``obs_scales.lin_vel = 2.0`` at offset 45 — the estimator's velocity ground
+  truth slice (``next_critic_obs[:, 45:48]``). Its contrastive target slice
+  (``[:, 3:48]``) reads the same frame minus the command prefix plus the
+  velocity, so a 48-D frame reproduces both upstream estimator slices exactly.
+  The perceptive variant's additional disturbance and height-scan dimensions
+  are omitted for this blind Go2 task (the estimator never indexes them and the
+  value network width is not part of the deployment contract).
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  history = getattr(env, "_go2_him_history_term", None)
+  if history is not None:
+    frame = history._frame.clone()
+  else:
+    frame = go2_source_stand_observation(env, command_name, command_first=True)
+  lin_vel = asset.data.root_link_lin_vel_b * 2.0
+  return torch.cat((frame, lin_vel), dim=-1)

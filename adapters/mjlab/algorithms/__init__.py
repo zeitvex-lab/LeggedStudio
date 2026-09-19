@@ -83,11 +83,13 @@ _LAZY_EXPORTS: dict[str, str] = {
   "Go2AuxiliaryPPO": "common.auxiliary_ppo",
   # him
   "HIMActorCritic": "him",
+  "HIMActorModel": "him",
   "HIMEstimator": "him",
   "HIMPPO": "him",
   "HIMPlugin": "him",
   "HIMRolloutStorage": "him",
   "HimAlgorithmConfig": "him",
+  "HimPPO": "him",
   # hora
   "HoraActorModel": "hora",
   "HoraAlgorithmConfig": "hora",

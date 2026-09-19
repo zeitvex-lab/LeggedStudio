@@ -40,6 +40,7 @@ def _go2_custom_algorithm_env_cfg(
     "amp_ts_student",
     "ts",
     "ts_student",
+    "him",
   ],
   play: bool = False,
 ) -> ManagerBasedRlEnvCfg:
@@ -154,6 +155,7 @@ def _go2_custom_algorithm_env_cfg(
     "amp_cts": (0.2, 1.0),
     "dreamwaq": (0.2, 1.25),
     "amp_dreamwaq": (0.2, 1.25),
+    "him": (0.2, 1.25),
     "amp_ts": (0.05, 3.0),
     "amp_ts_student": (0.05, 3.0),
     "ts": (0.05, 3.0),
@@ -417,27 +419,53 @@ def _go2_custom_algorithm_env_cfg(
     concatenate_terms=True,
     enable_corruption=not play,
   )
-  cfg.observations["history"] = ObservationGroupCfg(
-    terms={
-      "source_history": ObservationTermCfg(
-        # CTS and DreamWaQ feed the five observations immediately preceding
-        # the current actor frame to their history encoders.  mjlab history
-        # includes the current frame, so retain six here and drop the newest
-        # frame in the matching models.  TS students keep recurrent state in
-        # their dedicated runner and do not consume this compatibility group.
-        func=mdp.Go2SourceStandHistory,
-        params={
-          "length": (
-            6 if kind in ("cts", "amp_cts", "dreamwaq", "amp_dreamwaq") else 5
-          )
-        },
-        history_length=1,
-        flatten_history_dim=True,
-      )
-    },
-    concatenate_terms=True,
-    enable_corruption=not play,
-  )
+  if kind != "him":
+    # HIM consumes the stacked history directly as its actor observation (see
+    # the him branch below) and needs no separate preceding-frames group.
+    cfg.observations["history"] = ObservationGroupCfg(
+      terms={
+        "source_history": ObservationTermCfg(
+          # CTS and DreamWaQ feed the five observations immediately preceding
+          # the current actor frame to their history encoders.  mjlab history
+          # includes the current frame, so retain six here and drop the newest
+          # frame in the matching models.  TS students keep recurrent state in
+          # their dedicated runner and do not consume this compatibility group.
+          func=mdp.Go2SourceStandHistory,
+          params={
+            "length": (
+              6 if kind in ("cts", "amp_cts", "dreamwaq", "amp_dreamwaq") else 5
+            )
+          },
+          history_length=1,
+          flatten_history_dim=True,
+        )
+      },
+      concatenate_terms=True,
+      enable_corruption=not play,
+    )
+  if kind == "him":
+    # HIM actor observation = HIMLoco obs_hist_buf: the 45-D source frame × 6
+    # stacked newest first (deployment contract himloco_45_hist6). The term
+    # samples its own noise and caches the current frame for the privileged
+    # group below, exactly like the CTS/DreamWaQ actor/history pair.
+    cfg.observations["actor"] = ObservationGroupCfg(
+      terms={
+        "him_history": ObservationTermCfg(
+          func=mdp.Go2HimHistory,
+          params={
+            "command_name": "twist",
+            "command_first": True,
+            "noise": custom_noise,
+            "add_noise": not play,
+            "length": 6,
+          },
+          history_length=1,
+          flatten_history_dim=True,
+        )
+      },
+      concatenate_terms=True,
+      enable_corruption=not play,
+    )
   cfg.observations["terrain"] = ObservationGroupCfg(
     terms={
       "terrain_scan": ObservationTermCfg(
@@ -474,6 +502,7 @@ def _go2_custom_algorithm_env_cfg(
   lin_y_range = {
     "cts": (-1.0, 1.0),
     "dreamwaq": (-1.0, 1.0),
+    "him": (-1.0, 1.0),
     "amp_cts": (-0.65, 0.65),
     "amp_dreamwaq": (-0.6, 0.6),
     "amp_ts": (-0.6, 0.6),
@@ -481,9 +510,10 @@ def _go2_custom_algorithm_env_cfg(
     "amp_ts_student": (-0.5, 0.5),
     "ts_student": (-0.5, 0.5),
   }[kind]
-  yaw_range = (-math.pi, math.pi) if is_ts_family else (-1.0, 1.0)
   # Source custom configs set heading_command=True globally; they do not use
-  # mjlab's mixed heading/standing/forward environment fractions.
+  # mjlab's mixed heading/standing/forward environment fractions.  HIMLoco
+  # samples the yaw-rate bound at ±pi like the TS family.
+  yaw_range = (-math.pi, math.pi) if is_ts_family or kind == "him" else (-1.0, 1.0)
   custom_twist.heading_command = True
   custom_twist.ranges.heading = (-math.pi, math.pi)
   custom_twist.rel_heading_envs = 1.0
@@ -580,6 +610,22 @@ def _go2_custom_algorithm_env_cfg(
       concatenate_terms=True,
       enable_corruption=False,
     )
+  elif kind == "him":
+    # HIM value input: single 48-D privileged frame
+    # ``noisy_frame45 || base_lin_vel*2`` whose offsets reproduce the extracted
+    # estimator's velocity slice [45:48] and swap-target slice [3:48] exactly.
+    cfg.observations["critic"] = ObservationGroupCfg(
+      terms={
+        "him_privileged": ObservationTermCfg(
+          func=mdp.go2_him_privileged_observation,
+          params={"command_name": "twist"},
+          history_length=1,
+          flatten_history_dim=True,
+        )
+      },
+      concatenate_terms=True,
+      enable_corruption=False,
+    )
   else:
     cfg.observations["privileged"] = ObservationGroupCfg(
       terms={
@@ -645,3 +691,7 @@ def unitree_go2_ts_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
 def unitree_go2_ts_student_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   return _go2_custom_algorithm_env_cfg("ts_student", play)
+
+
+def unitree_go2_him_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+  return _go2_custom_algorithm_env_cfg("him", play)

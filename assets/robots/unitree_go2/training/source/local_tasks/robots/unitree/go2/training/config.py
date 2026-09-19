@@ -166,3 +166,27 @@ def go2_amp_ts_runner_cfg() -> RslRlOnPolicyRunnerCfg:
 
 def go2_ts_student_runner_cfg() -> RslRlOnPolicyRunnerCfg:
   return unitree_go2_custom_runner_cfg("ts_student")
+
+
+def go2_him_runner_cfg() -> RslRlOnPolicyRunnerCfg:
+  """HIM (HIMLoco hybrid internal model) runner configuration.
+
+  Dispatches through the standard RSL-RL ``OnPolicyRunner`` mechanism: the
+  algorithm/actor ``class_name`` strings below are resolved by
+  ``rsl_rl.utils.resolve_callable`` inside ``PPO.construct_algorithm``.  The
+  actor observation is the himloco_45_hist6 stacked history (270-D, newest
+  frame first); the value observation is the 48-D HIM privileged frame built by
+  ``go2_him_privileged_observation``.  Hyper-parameters follow HIMLoco's
+  legacy PPO config (adaptive 1e-3, KL 0.01, entropy 0.01, gamma 0.99).
+  """
+  cfg = unitree_go2_source_ppo_runner_cfg(
+    learning_rate=1.0e-3,
+    max_iterations=20_000,
+    save_interval=100,
+    seed=1,
+  )
+  cfg.algorithm.class_name = "adapters.mjlab.algorithms.him.algorithms:HimPPO"
+  cfg.actor.class_name = "adapters.mjlab.algorithms.him.models:HIMActorModel"
+  cfg.critic.class_name = "rsl_rl.models.mlp_model:MLPModel"
+  cfg.experiment_name = "go2_him"
+  return cfg
