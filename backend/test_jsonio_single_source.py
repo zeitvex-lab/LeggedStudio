@@ -23,6 +23,7 @@ BOM 不是理论问题：Windows 的编辑器、PowerShell 重定向、部分导
 from __future__ import annotations
 
 import ast
+import json
 import sys
 import tempfile
 import unittest
@@ -109,6 +110,25 @@ class BomToleranceTest(unittest.TestCase):
 
     def test_encoding_constant_is_bom_tolerant(self) -> None:
         self.assertEqual("utf-8-sig", JSON_ENCODING)
+
+    def test_dumps_is_the_only_formatter(self) -> None:
+        """格式化规则唯一：中文不转义（可读）+ 尾随换行；**落盘策略不在它里面**。
+
+        原子写（临时文件 + rename）是另一件事 —— ``policy_artifacts._write_json_atomic``
+        用 :func:`dumps` 拿文本后自己落盘，两者分层不混。
+        """
+
+        from contracts.jsonio import dumps
+
+        text = dumps({"b": 1, "a": "中文"})
+        self.assertIn("中文", text, "ensure_ascii=False：中文必须是可读的，不是 \\uXXXX")
+        self.assertTrue(text.endswith("\n"), "尾随换行：产物进 git 时不留「\\ No newline」")
+        self.assertEqual(text, json.dumps({"b": 1, "a": "中文"}, ensure_ascii=False, indent=2) + "\n")
+        self.assertEqual(
+            dumps({"b": 1, "a": 2}, sort_keys=True),
+            json.dumps({"a": 2, "b": 1}, ensure_ascii=False, indent=2) + "\n",
+            "sort_keys 透传（run 档案靠它让 diff 稳定）",
+        )
 
     def test_write_json_has_no_bom_and_trailing_newline(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

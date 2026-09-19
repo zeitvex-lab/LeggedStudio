@@ -31,7 +31,7 @@ from backend.training.runs import canonical_digest, file_digest
 from backend.api_routes import BROWSER_PACKAGE_URL_PREFIX
 from contracts.validator import normalized_sha256
 
-from backend.jsonio import read_json, load_json  # JSON 读取唯一实现
+from backend.jsonio import dumps, load_json, read_json  # JSON 读写唯一实现
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -982,7 +982,7 @@ def _write_json_atomic(path: Path, payload: Any) -> None:
     写坏一半比写错更糟。"""
 
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.write_text(dumps(payload), encoding="utf-8")
     os.replace(tmp, path)
 
 

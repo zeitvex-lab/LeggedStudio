@@ -5,6 +5,6 @@
 保留本模块是为了既有 ``from backend.jsonio import ...`` 的 import 路径不用改。
 """
 
-from contracts.jsonio import JSON_ENCODING, load_json, read_json, write_json  # noqa: F401
+from contracts.jsonio import JSON_ENCODING, dumps, load_json, read_json, write_json  # noqa: F401
 
-__all__ = ["JSON_ENCODING", "load_json", "read_json", "write_json"]
+__all__ = ["JSON_ENCODING", "dumps", "load_json", "read_json", "write_json"]
