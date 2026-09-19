@@ -65,19 +65,28 @@ def read_json(path: Path | str, *, default: T = None, require: type | tuple[type
     return payload
 
 
-def write_json(path: Path | str, payload: Any, *, indent: int = 2, sort_keys: bool = False) -> None:
-    """写 JSON（UTF-8、无 BOM、尾随换行）—— 仓内既有写法的形状。
+def dumps(payload: Any, *, indent: int = 2, sort_keys: bool = False) -> str:
+    """JSON 文本（**格式化规则的唯一实现**）：``ensure_ascii=False``（中文可读）+ 尾随换行。
 
-    **不提供原子写**：原子性是另一件事（临时文件 + rename），需要它的模块自己封装，
-    别把两件事混进一个函数里。
+    ``ensure_ascii=True``（stdlib 默认）会把中文写成 ``\\uXXXX``：产物随包分发、要给人读，
+    也进 git diff —— 转义后的 token 让"这行改了什么"无法目视。
+
+    **落盘策略不在这里**：原子写（临时文件 + rename）是另一件事，需要它的模块用
+    :func:`dumps` 拿到文本后自己落盘 —— 格式化唯一、策略各留。
+    """
+
+    return json.dumps(payload, ensure_ascii=False, indent=indent, sort_keys=sort_keys) + "\n"
+
+
+def write_json(path: Path | str, payload: Any, *, indent: int = 2, sort_keys: bool = False) -> None:
+    """写 JSON（UTF-8、无 BOM、尾随换行）：建目录 + 落盘 + 格式化（见 :func:`dumps`）。
+
+    **不提供原子写**：需要原子性的调用方用 :func:`dumps` 自己写临时文件再 rename。
     """
 
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=indent, sort_keys=sort_keys) + "\n",
-        encoding="utf-8",
-    )
+    target.write_text(dumps(payload, indent=indent, sort_keys=sort_keys), encoding="utf-8")
 
 
-__all__ = ["JSON_ENCODING", "load_json", "read_json", "write_json"]
+__all__ = ["JSON_ENCODING", "dumps", "load_json", "read_json", "write_json"]

@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 from contracts.validator import normalized_sha256  # 归一摘要唯一实现
-from backend.jsonio import read_json, load_json  # JSON 读取唯一实现
+from backend.jsonio import load_json, read_json, write_json  # JSON 读写唯一实现
 
 
 #: 仓库根（``backend/training/runs.py`` → 上溯两级）。
@@ -302,11 +302,10 @@ def _read_json(path: Path) -> dict[str, Any] | None:
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    """写 JSON 档案（格式化规则见 ``contracts/jsonio.dumps``）；``sort_keys`` 保持为真
+    —— run 档案是提交物，键序稳定才让 diff 只显示真正的改动。"""
+
+    write_json(path, payload, sort_keys=True)
 
 
 def write_run(

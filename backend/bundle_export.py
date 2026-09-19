@@ -67,7 +67,7 @@ _SKIP_DIRS = frozenset({".git", "__pycache__", ".venv", "node_modules"})
 
 
 from backend.paths import workspace_root as _workspace_root  # 唯一实现见 backend/paths.py
-from backend.jsonio import read_json, load_json  # JSON 读取唯一实现
+from backend.jsonio import load_json, read_json, write_json  # JSON 读写唯一实现
 
 
 
@@ -88,8 +88,9 @@ def _read_json(path: Path) -> Any:
 
 
 def _write_json(path: Path, payload: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    """写 JSON（格式化规则见 ``contracts/jsonio``）。"""
+
+    write_json(path, payload)
 
 
 def _safe_relative(value: str) -> Path:
