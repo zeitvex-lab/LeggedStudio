@@ -24,7 +24,7 @@
 ## 两条路径（不要混）
 
 1. **内置 runner 路径**（``kind="native"``）：mjlab 原生 dataclass cfg
-   （``RslRlOnPolicyRunnerCfg`` / ``RslRlPpoAlgorithmCfg``），由 ``velocity_task_kit``
+   （``RslRlOnPolicyRunnerCfg`` / ``RslRlPpoAlgorithmCfg``），由 ``kits/``（形态 Kit）
    与包内训练源直接构造。它**没有 class_name 绑定**，也不该假装成插件——把它塞进插件
    注册表要凭空编一套 class_name 字符串（那是虚构，不是统一）。
 2. **插件路径**（``kind="plugin"``）：注册在 ``registry.json`` 的算法，由
