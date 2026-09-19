@@ -149,6 +149,8 @@ PROJECTS: dict[str, dict] = {
                  "desc": "LLoco 技能式 RL 任务与部署（多机型）"},
     "LainLab": {"robots": ["unitree_go2", "unitree_g1"],
                 "desc": "LainLab：mjlab 1.6 多厂商资产/任务/部署层（go2 skills 全套 + OpenDoge 自研；Apache-2.0）"},
+    "robo_know": {"robots": [],
+                  "desc": "Robotics Tutorial 知识库：28 章 RL 运控教程（观测/动作/奖励/算法/仿真/部署全链，含 mjlab+Isaac Lab 双框架对比）"},
     "kaiwu_rl": {"robots": ["unitree_go2", "unitree_g1"],
                  "desc": "开悟 RL 工程（Go2/G1）"},
     "mjswan": {"robots": ["unitree_go2", "unitree_go1", "unitree_g1"],
