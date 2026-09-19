@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "legged-studio/robot-contract-3.0",
   "title": "Robot Contract v3",
-  "description": "Legged Studio 机器人契约 v3：在 v2 的'关节名字层'之上增加 构型(morphology)/角色(role)/关节(joint) 三层。数据模型依据 1000framesai.com 的 morphology+control_defaults-by-role+reindex 证据（00_Survey 报告 6 §1）与 robot_mujoco(MATRiX) 的 MJCF default-class-per-role 写法（报告 9 §2.2）。本 schema 是唯一真值源：Python 模型（contracts/generated/robot_contract_v3.py）与 TypeScript 类型（web/shared/generated/types.d.ts）由 tools/generate_contract_models.py 从本文件生成；跨字段自洽校验（legs×leg_pattern、Σwidth==dimension、reindex 置换、leg_naming 模板匹配）由 contracts/role_resolver.py 执行。",
+  "description": "Legged Studio 机器人契约真值：在 v2 的'关节名字层'之上增加 构型(morphology)/角色(role)/关节(joint) 三层。数据模型依据 1000framesai.com 的 morphology+control_defaults-by-role+reindex 证据（00_Survey 报告 6 §1）与 robot_mujoco(MATRiX) 的 MJCF default-class-per-role 写法（报告 9 §2.2）。本 schema 是唯一真值源：Python 模型（contracts/generated/robot_contract.py）与 TypeScript 类型（web/shared/generated/types.d.ts）由 tools/generate_contract_models.py 从本文件生成；跨字段自洽校验（legs×leg_pattern、Σwidth==dimension、reindex 置换、leg_naming 模板匹配）由 contracts/role_resolver.py 执行。",
   "type": "object",
   "required": [
     "schema_version",

@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 
 
 def _manager(workspace_dir: str):
@@ -17,10 +17,10 @@ def _manager(workspace_dir: str):
     return TrainingManager(workspace_dir=workspace_dir)
 
 
-def _sample_contract() -> RobotContractV2:
-    """Load a real, schema-valid RobotContractV2 fixture from contracts/fixtures."""
+def _sample_contract() -> ContractLegacyV2:
+    """Load a real, schema-valid ContractLegacyV2 fixture from contracts/fixtures."""
     fixtures = Path(__file__).resolve().parents[1] / "contracts" / "fixtures" / "unitree_go2.v2.json"
-    return RobotContractV2.from_json_file(str(fixtures))
+    return ContractLegacyV2.from_json_file(str(fixtures))
 
 
 class TrainingIdempotencyTest(unittest.TestCase):

@@ -68,7 +68,7 @@ function buildRobotWorkspace() {
         </div>
         <div class="robot-pane" data-robot-pane="mapping"><div class="pane-note">动作索引必须与训练和策略输出顺序一致。</div><div id="robotJointEditor" class="robot-joint-editor"><div class="empty-state">未选择机器人包</div></div></div>
         <div class="robot-pane" data-robot-pane="motor">
-          <div class="pane-note">按关节组编辑，全部写入契约 v3（训练、浏览器仿真与工作台同源）：Kp / Kd / 力矩限幅 / 速度限幅 / 转子惯量 / 摩擦损耗。「未声明」= 契约未给该关节值，留空即不覆盖。</div>
+          <div class="pane-note">按关节组编辑，全部写入契约真值（训练、浏览器仿真与工作台同源）：Kp / Kd / 力矩限幅 / 速度限幅 / 转子惯量 / 摩擦损耗。「未声明」= 契约未给该关节值，留空即不覆盖。</div>
           <div id="controlGainsGrid" class="control-gains-grid"></div>
           <details class="advanced-params" id="motorAdvanced">
             <summary>高级参数<span class="advanced-hint">T-N 曲线 / 执行器模型</span></summary>
@@ -88,7 +88,7 @@ function buildRobotWorkspace() {
           </details>
         </div>
         <div class="robot-pane" data-robot-pane="scaling">
-          <div class="pane-note">动作缩放 = 策略输出（−1..1）× 该值 → 关节指令。标量是缺省，逐部位值覆盖它（契约 v3 展开序 default &lt; 角色 &lt; 关节）。轮足机型的轮档位常与腿不同，改完点「保存配置」。</div>
+          <div class="pane-note">动作缩放 = 策略输出（−1..1）× 该值 → 关节指令。标量是缺省，逐部位值覆盖它（契约真值 展开序 default &lt; 角色 &lt; 关节）。轮足机型的轮档位常与腿不同，改完点「保存配置」。</div>
           <div class="action-scale-toolbar"><label for="actionScaleScalar">标量缺省</label><input id="actionScaleScalar" type="number" min="0" step="0.01"><span id="actionScaleMeta" class="pane-meta"></span></div>
           <div id="actionScaleGrid" class="control-gains-grid"></div>
         </div>
@@ -120,7 +120,7 @@ function renderRobotPackageList() {
 /** @typedef {import("./shared/generated/types").RobotContractV3} RobotContractV3 */
 
 /**
- * v3 契约的观测维度自洽值（Σcomponents.width）；v2 契约无 components 时返回 null。
+ * 真值契约的观测维度自洽值（Σcomponents.width）；v2 契约无 components 时返回 null。
  * 类型来自 schema 真值源生成的 web/shared/generated/types.d.ts。
  * @param {Partial<RobotContractV3>} contract
  * @returns {number|null}
@@ -165,16 +165,16 @@ async function runPackageInspection() {
   }
 }
 
-// D2：reindex_from_model 可见可比对——契约 v3 里"模型关节序 → 动作序"的重排
+// D2：reindex_from_model 可见可比对——契约真值 里"模型关节序 → 动作序"的重排
 // 数组与当前动作映射并排展示；长度不一致或非排列时给出红字提示。
 function renderReindexCompare(preset, mappedJoints) {
   const host = $('reindexCompare');
   if (!host) return;
   if (!preset?.robot_id) { host.hidden = true; return; }
   jsonFetch(`/api/robots/packages/${encodeURIComponent(preset.robot_id)}/contract-v3`).then((payload) => {
-    const reindex = payload?.contract_v3?.action?.reindex_from_model;
+    const reindex = payload?.contract?.action?.reindex_from_model;
     if (!Array.isArray(reindex) || !reindex.length) {
-      host.innerHTML = '契约 v3 未声明 <code>reindex_from_model</code>——动作序与模型关节序一致，无需重排。';
+      host.innerHTML = '契约真值 未声明 <code>reindex_from_model</code>——动作序与模型关节序一致，无需重排。';
       host.hidden = false;
       return;
     }
@@ -215,9 +215,9 @@ function renderRobotEditor(preset) {
   }
   // Frequencies and action scale stay owned by the training configuration
   // (03 训练配置); this panel only edits motor-level parameters.
-  // D8：物理量一律取契约 v3 派生视图（preset.physics，与浏览器仿真载荷同源同形状）。
+  // D8：物理量一律取契约真值 派生视图（preset.physics，与浏览器仿真载荷同源同形状）。
   // 此前读 preset.simulation_config.stiffness/damping/torque_limits —— B3 已把这组
-  // 重复键从 sim config 移除（物理真值只留契约 v3），继续读会整片显示空白；
+  // 重复键从 sim config 移除（物理真值只留契约真值），继续读会整片显示空白；
   // 而 armature 在这条链路上从来读不到（也从未生效过）。
   const physics = preset?.physics || {};
   const simConfig = preset?.simulation_config || {};
@@ -225,7 +225,7 @@ function renderRobotEditor(preset) {
     stiffness: physics.stiffness || control.stiffness || null,
     damping: physics.damping || control.damping || null,
     torque_limits: physics.torque_limits || control.torque_limits || null,
-    // D9：速度限幅也回到契约 v3（此前读 sim config 的 velocity_limits，而 14 包
+    // D9：速度限幅也回到契约真值（此前读 sim config 的 velocity_limits，而 14 包
     // 实测都没有这个键 → 输入框永远空白，用户改了还只写进第二个家）。
     velocity_limits: physics.velocity_limits || control.velocity_limits || null,
     // 常量表（转子惯量 / 摩擦损耗）：键为逐关节 + __default__ 兜底
@@ -320,7 +320,7 @@ function renderControlGainsGrid(control, mappedJoints, motorModes) {
     { key: 'damping', label: 'Kd', step: '0.01' },
     { key: 'torque_limits', label: '力矩限幅', step: '0.1' },
     { key: 'velocity_limits', label: '速度限幅', step: '0.1' },
-    // D8：契约 v3 的物理常量（此前不可见、且 Python 侧因大小写不匹配从未生效）
+    // D8：契约真值 的物理常量（此前不可见、且 Python 侧因大小写不匹配从未生效）
     { key: 'armature', label: '转子惯量', step: '0.001' },
     { key: 'friction_loss', label: '摩擦损耗', step: '0.01' },
   ];
@@ -374,7 +374,7 @@ function collectControlGains(control, mappedJoints) {
       ...(Object.keys(damping).length ? { damping } : {}),
       ...(Object.keys(torqueLimits).length ? { torque_limits: torqueLimits } : {}),
       ...(Object.keys(velocityLimits).length ? { velocity_limits: velocityLimits } : {}),
-      // D8：这两项只写契约 v3（保存链把它们映射进 actuator_profile.by_role/by_joint），
+      // D8：这两项只写契约真值（保存链把它们映射进 actuator_profile.by_role/by_joint），
       // 不进 simulation —— B3 已把物理键从 sim config 移除，写回去等于开倒车。
       ...(Object.keys(armature).length ? { armature } : {}),
       ...(Object.keys(frictionLoss).length ? { friction_loss: frictionLoss } : {}),
@@ -441,7 +441,7 @@ function collectActionScale(mappedJoints) {
 }
 
 // ---- P1「高级参数」：T-N 曲线（默认收起，不修改不起作用）--------------------
-// 数据源：preset.t_n_curve = contracts.physics_binding.t_n_curve_facts（契约 v3 单一真值）。
+// 数据源：preset.t_n_curve = contracts.physics_binding.t_n_curve_facts（契约真值 单一真值）。
 // 语义：**声明 ≠ 生效**——只有 actuator_model=dc_motor 时 T-N 曲线才被消费；ideal_pd（缺省）
 // 一律忽略。面板只在"用户真的改过某一行"时才把它提交上去（空串 = 显式清除）。
 function resolveTextValue(map, segment, joints) {
@@ -590,11 +590,11 @@ async function saveRobotPackage() {
     const scales = collectActionScale(joints.length ? joints : (contract.joints?.actuated_joints || []));
     if (Object.keys(scales.by_joint).length) contract.control = { ...contract.control, action_scale: scales.by_joint };
     if (scales.scalar != null) contract.action = { ...contract.action, action_scale: scales.scalar };
-    // P1 高级参数：T-N 曲线走独立顶层键（只有契约 v3 语义）；执行器模型是契约 control 字段。
+    // P1 高级参数：T-N 曲线走独立顶层键（只有契约真值 语义）；执行器模型是契约 control 字段。
     // 两者都只在"用户改过"时出现——默认保存不会写入任何东西。
     const advanced = collectTnCurvePayload();
     if (advanced.actuator_model) contract.control = { ...contract.control, actuator_model: advanced.actuator_model };
-    // P2：不再提交 control_hz/physics_hz/decimation——它们是契约 v3 的字段，而这里手上只有
+    // P2：不再提交 control_hz/physics_hz/decimation——它们是契约真值 的字段，而这里手上只有
     // v2 契约的旧值（go2 实测 v2=1000/20 vs v3=500/10）；送上去只会把 v3 改回旧值。
     // 后端也已拒绝从这条链改写控制三件套。
     const result = await jsonFetch(`/api/robots/packages/${encodeURIComponent(selectedPreset.robot_id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contract, simulation: { default_pose: contract.joints.default_pose, ...gains.simulation }, ...(Object.keys(advanced.t_n_curve).length ? { t_n_curve: advanced.t_n_curve } : {}) }) });

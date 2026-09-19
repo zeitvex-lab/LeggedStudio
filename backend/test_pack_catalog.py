@@ -16,6 +16,7 @@ from backend.pack_catalog import (
     PACKS_DIR,
     WORKSPACE_ROOT,
     get_pack,
+    gitignored_ref_prefix,
     load_packs,
     pack_catalog,
     validate_pack,
@@ -59,7 +60,7 @@ class BuiltinPacksTest(unittest.TestCase):
         for entry in load_packs():
             ref = entry["morphology_ref"] or {}
             with self.subTest(pack=entry["pack_id"]):
-                self.assertTrue(str(ref.get("path", "")).endswith("contract_v3.json"))
+                self.assertTrue(str(ref.get("path", "")).endswith("contract.json"))
                 resolved = entry["refs"]["morphology_ref"]
                 self.assertTrue(resolved.get("exists"), resolved)
                 self.assertTrue(resolved.get("sha256_ok"), resolved)
@@ -198,6 +199,62 @@ class ValidatePackTest(unittest.TestCase):
             self.assertEqual(len(entries), 1)
             self.assertFalse(entries[0]["valid"])
             self.assertTrue(any("不可解析" in e for e in entries[0]["errors"]))
+
+
+class PolicyRefPathConventionTest(unittest.TestCase):
+    """``policy_ref.path`` 的语义（2026-09-19 收口）：
+
+    * **包内相对**（相对 ``morphology_ref.id`` 的包根）——仓库内包与 workspace 副本都能解析；
+    * **不得指向 gitignored 目录**——Pack 随仓库分发，写机器本地状态等于"本机绿、别处红"
+      （实测：go2 / lite3 两份 Pack 的 ``workspace/packages/...`` 引用）。
+    """
+
+    def test_gitignored_prefix_detected(self) -> None:
+        self.assertEqual("workspace/", gitignored_ref_prefix("workspace/packages/x/a.onnx"))
+        self.assertEqual("workspace/", gitignored_ref_prefix("./workspace/a.onnx"))
+        self.assertEqual("workspace/", gitignored_ref_prefix("workspace\\a.onnx".replace("\\", "/")))
+        self.assertIsNone(gitignored_ref_prefix("assets/robots/x/a.onnx"))
+        self.assertIsNone(gitignored_ref_prefix("policies/x/policy.onnx"))
+
+    def test_workspace_path_is_rejected(self) -> None:
+        report = validate_pack(_base_pack(policy_ref={
+            "id": "unitree_go2__produced-x",
+            "path": "workspace/packages/unitree_go2/simulation/policies/x.onnx",
+        }))
+        self.assertFalse(report["ok"])
+        self.assertTrue(any("gitignore" in error for error in report["errors"]), report["errors"])
+        self.assertFalse(report["refs"]["policy_ref"]["exists"])
+
+    def test_policy_ref_resolves_against_package_root(self) -> None:
+        import hashlib
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            package = Path(tmp) / "robot"
+            (package / "simulation" / "policies").mkdir(parents=True)
+            (package / "simulation" / "policies" / "a.onnx").write_bytes(b"onnx")
+            digest = hashlib.sha256(b"onnx").hexdigest()
+            with mock.patch("backend.pack_catalog._package_root_for", return_value=package):
+                report = validate_pack(_base_pack(policy_ref={
+                    "id": "x", "path": "simulation/policies/a.onnx", "sha256": digest,
+                }))
+            self.assertTrue(report["ok"], report["errors"])
+            resolved = report["refs"]["policy_ref"]
+            self.assertEqual("机器人包根", resolved["resolved_against"])
+            self.assertTrue(resolved["sha256_ok"])
+
+    def test_missing_policy_ref_lists_both_bases(self) -> None:
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch("backend.pack_catalog._package_root_for", return_value=Path(tmp) / "nope"):
+                report = validate_pack(_base_pack(policy_ref={
+                    "id": "x", "path": "simulation/policies/missing.onnx",
+                }))
+        self.assertFalse(report["ok"])
+        message = next(error for error in report["errors"] if "policy_ref.path" in error)
+        self.assertIn("仓库根", message)
+        self.assertIn("机器人包根", message)
 
 
 class PacksDirTest(unittest.TestCase):

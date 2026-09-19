@@ -1,6 +1,6 @@
-"""D7：契约 v3 构型语义在 UI 可读（形态 / 角色 / 执行器类型 / 足型 / 轮组）。
+"""D7：契约真值 构型语义在 UI 可读（形态 / 角色 / 执行器类型 / 足型 / 轮组）。
 
-真值在包内 ``contract_v3.json`` 的 ``morphology`` 块（v2 ``contract.json`` 没有）；
+真值在包内 ``contract.json`` 的 ``morphology`` 块（v2 ``contract_legacy_v2.json`` 没有）；
 后端 ``list_robot_packages()`` 经 ``_morphology_view`` 把它暴露为 record 的 ``morphology``
 字段，前端 ``assets.html`` 的包卡片渲染它。判据：五个语义都能在 UI 读到，且来自契约
 真值而非前端硬编码（否则又会出现"页面有、契约没有"的两套真值）。
@@ -26,8 +26,8 @@ class MorphologyViewTest(unittest.TestCase):
             with self.subTest(robot=robot_id):
                 morph = record.get("morphology") or {}
                 self.assertEqual(
-                    "contract_v3", morph.get("source"),
-                    "每个包都该从包内 contract_v3.json 读到 morphology",
+                    "contract", morph.get("source"),
+                    "每个包都该从包内 contract.json 读到 morphology",
                 )
                 self.assertIn("id", morph)
                 self.assertIn("actuator_type", morph)
@@ -53,11 +53,11 @@ class MorphologyViewTest(unittest.TestCase):
                     self.assertEqual(0, count)
 
     def test_morphology_view_matches_on_disk_contract(self):
-        # 视图必须等于包内 contract_v3.json 的 morphology 块（不另造真值）。
+        # 视图必须等于包内 contract.json 的 morphology 块（不另造真值）。
         for robot_id, record in self.records.items():
             with self.subTest(robot=robot_id):
                 disk = json.loads(
-                    (ROBOTS / robot_id / "contract_v3.json").read_text(encoding="utf-8-sig")
+                    (ROBOTS / robot_id / "contract.json").read_text(encoding="utf-8-sig")
                 )
                 expect = dict(disk.get("morphology") or {})
                 morph = dict(record["morphology"])
@@ -81,8 +81,8 @@ class MorphologyUiTest(unittest.TestCase):
                       "形态语义必须来自后端 record 的 morphology 字段")
 
     def test_missing_contract_does_not_crash_card(self):
-        # 后端契约缺失返回 source=missing，前端只在 source==='contract_v3' 时渲染。
-        self.assertIn("morph.source==='contract_v3'", self.html)
+        # 后端契约缺失返回 source=missing，前端只在 source==='contract_truth' 时渲染。
+        self.assertIn("morph.source==='contract_truth'", self.html)
 
 
 if __name__ == "__main__":

@@ -407,6 +407,79 @@ class ProducedPolicyTest(unittest.TestCase):
             self.assertTrue((out / "go2__velocity-run1" / pa.DEPLOY_NAME).is_file())
 
 
+class DeclarationIdentityTest(unittest.TestCase):
+    """产物身份唯一（2026-09-19）：一条声明只许有一个身份，同名条目必须**合并**。
+
+    收口前身份有两个来源、两侧规则还不同：写索引一律用 ``artifact_id_for``、
+    读引用却优先 ``provenance.artifact_id`` → 带血缘的声明多出一个**永不命中**的别名条目，
+    同一份 onnx 在索引里带两个身份、两个哈希。
+    """
+
+    def test_identity_prefers_provenance(self) -> None:
+        recorded = {"robot": "go2", "policy_id": "go2-trained-1", "provenance": {"artifact_id": "go2__produced-run1"}}
+        self.assertEqual("go2__produced-run1", pa.declaration_artifact_id(recorded))
+        # 显式 artifact_id 最优先
+        self.assertEqual("explicit", pa.declaration_artifact_id({**recorded, "artifact_id": "explicit"}))
+        # 无血缘才派生
+        self.assertEqual("go2__go2-trained-1", pa.declaration_artifact_id({"robot": "go2", "policy_id": "go2-trained-1"}))
+
+    def test_merge_takes_lineage_from_produced_and_measurements_from_declaration(self) -> None:
+        declared = {
+            "artifact_id": "go2__produced-run1", "kind": "policies",
+            "source_onnx": "assets/robots/go2/simulation/policies/a.onnx",   # 声明侧给仓库相对
+            "onnx_sha256": "measured", "run_id": None,
+        }
+        produced = {
+            "artifact_id": "go2__produced-run1", "kind": "produced",
+            "run_id": "run1", "installed": {"robot": "go2", "package_path": "simulation/policies/a.onnx"},
+            "onnx_sha256": "stale", "source_onnx": "simulation/policies/a.onnx",
+        }
+        merged = pa._merge_declaration_and_produced(declared, produced)
+        self.assertEqual("produced", merged["kind"], "身份性质由血缘决定")
+        self.assertEqual("run1", merged["run_id"], "血缘取 produced")
+        self.assertEqual({"robot": "go2", "package_path": "simulation/policies/a.onnx"}, merged["installed"])
+        self.assertEqual("measured", merged["onnx_sha256"], "实测取声明侧（刚扫出来的真值）")
+        # 路径跟 produced：它必须与 installed.package_path 一致（B44 判据），声明侧是仓库相对
+        self.assertEqual("simulation/policies/a.onnx", merged["source_onnx"])
+
+    def test_landed_archive_keeps_lineage(self) -> None:
+        """端到端回归：同名时**落盘**的档案也不能被声明侧覆盖。
+
+        这正是本轮踩到的坑：``build_all`` 原先把声明侧 ``artifact.json`` 直接写进
+        同名目录，produced 档案（``run_id`` / ``installed``）被覆盖后**永久丢失**。
+        """
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            robots, out = root / "robots", root / "policies"
+            produced_id = "go2__produced-go2_v1_20260918_090509_476414"
+
+            make_package(robots, "go2", policy_id="go2-trained-20260918-090509")
+            config_path = robots / "go2" / "simulation" / "config.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["policies"][0]["provenance"] = {"artifact_id": produced_id}
+            config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+
+            source = root / "final.onnx"
+            source.write_bytes(b"produced-bytes")
+            pa.promote_produced_policy(
+                artifact_id=produced_id, onnx=source, deploy={"robot": "go2"},
+                run_id="go2_v1_20260918_090509_476414", out_dir=out,
+            )
+
+            index = pa.build_all(robots_dir=robots, out_dir=out, write=True)
+            ids = [item["artifact_id"] for item in index["artifacts"]]
+            self.assertEqual([produced_id], ids, f"同一份产物只许有一个身份：{ids}")
+
+            entry = index["artifacts"][0]
+            self.assertEqual("produced", entry["kind"])
+            self.assertEqual("go2_v1_20260918_090509_476414", entry["run_id"])
+
+            on_disk = json.loads((out / produced_id / pa.ARTIFACT_NAME).read_text(encoding="utf-8"))
+            self.assertEqual("produced", on_disk["kind"], "落盘档案的身份不能被声明侧覆盖")
+            self.assertEqual("go2_v1_20260918_090509_476414", on_disk["run_id"], "血缘必须在")
+
+
 class PromoteFromRunTest(unittest.TestCase):
     """L7「训练→导出→入库」的入库侧：证据链全取自 Run 档案，缺件如实报、不伪造。"""
 
@@ -577,6 +650,19 @@ class RealRepoTest(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)), "产物 ID 必须唯一，否则出库会互相覆盖")
 
 
+try:  # pragma: no cover - 环境相关
+    import onnx as _onnx  # noqa: F401
+
+    _ONNX_AVAILABLE = True
+except ImportError:  # pragma: no cover - 控制面/最小环境
+    _ONNX_AVAILABLE = False
+
+_ONNX_REQUIRED = unittest.skipUnless(
+    _ONNX_AVAILABLE,
+    "onnx 未安装（B44 产物自证的量具）：pip install onnx（见 requirements-dev.txt / CI 安装行）",
+)
+
+
 class B44OnnxObsDimTest(unittest.TestCase):
     """B44：promote 链的 obs 真值 = **ONNX 图输入实测宽度**（产物自证），快照仅 fallback。
 
@@ -632,6 +718,7 @@ class B44OnnxObsDimTest(unittest.TestCase):
         )
         return run_dir
 
+    @_ONNX_REQUIRED
     def test_snapshot_conflict_yields_to_onnx_width(self):
         """快照说 45、ONNX 实测 48 ⇒ obs_dim=48 以实测为准，且如实标注来源与布局名。"""
         with tempfile.TemporaryDirectory() as tmp:
@@ -655,6 +742,7 @@ class B44OnnxObsDimTest(unittest.TestCase):
             deploy = (out / artifact["artifact_id"] / pa.DEPLOY_NAME).read_text(encoding="utf-8")
             self.assertIn("obs_dim_source: contract_snapshot", deploy)
 
+    @_ONNX_REQUIRED
     def test_unregistered_shape_gets_unknown_kind(self):
         """宽度实测到了但布局未取证 ⇒ observation_kind=unknown（B43 先例），不编造布局名。"""
         with tempfile.TemporaryDirectory() as tmp:
@@ -682,6 +770,7 @@ class B44OnnxObsDimTest(unittest.TestCase):
             self.assertEqual(48, artifact["obs_dim"])
             self.assertEqual("unknown", artifact["observation_kind"])
 
+    @_ONNX_REQUIRED
     def test_installed_declaration_carries_kind(self):
         """install 的声明组装：deploy 的 observation_kind 一并落进包内条目与 contract 块。
 
@@ -741,20 +830,69 @@ class B44OnnxObsDimTest(unittest.TestCase):
             )
             _ = installed
 
-    def test_real_repo_go2_produced_entries_measure_correct(self):
-        """**真实仓不变量**：go2/b2 的 produced ONNX 实测宽度与声明的 obs_dim 一致，
+    def test_real_repo_produced_entries_are_machine_independent(self):
+        """**真实仓不变量（元数据层）**：索引里任何 ``source_onnx`` 都不得指向机器本地目录。
+
+        索引是随仓跟踪/分发的文件：写 ``workspace/packages/...``（.gitignore）等于
+        "生成它的那台机绿、别的机器全解析不到"——2026-09-19 实测 16 条 produced 条目
+        （go2 15 + lite3 1）正是这种，且 Pack 的 ``policy_ref`` 是从这里派生的，
+        于是一起烂（同一缺陷类的两个落点）。
+        """
+
+        from backend.pack_catalog import gitignored_ref_prefix
+
+        offenders = []
+        for entry in pa.load_index().values():
+            source = str(entry.get("source_onnx") or "")
+            if not source or source.startswith("/"):
+                continue
+            if gitignored_ref_prefix(source):
+                offenders.append((entry["artifact_id"], source))
+        self.assertEqual([], offenders, f"索引里出现机器本地路径：{offenders}")
+
+        # 安装式条目必须同时留**包内相对**路径（解析侧据此按包根还原）
+        for entry in pa.load_index().values():
+            installed = entry.get("installed")
+            if not isinstance(installed, dict):
+                continue
+            package_rel = str(installed.get("package_path") or "")
+            with self.subTest(artifact=entry["artifact_id"]):
+                self.assertTrue(package_rel.startswith("simulation/policies/"), package_rel)
+                self.assertEqual(package_rel, str(entry.get("source_onnx")))
+
+    @_ONNX_REQUIRED
+    def test_real_repo_produced_entries_measure_correct(self):
+        """**真实仓不变量（产物层）**：能解析到的 produced ONNX，实测宽度与声明一致、
         observation_kind 与注册表对齐（标准 PPO=48→go2_mjlab_actor_48；HIM=270→himloco_45_hist6）。
-        这条一旦红说明又产生了"训练图配部署宽度"的错配 produced 条目（promote 链修复已上线，红＝回归）。"""
+
+        只在 blob **本机可解析**时判：产物可能产在别的机器、没随仓分发（这是合法状态，
+        元数据层的不变量由上面那条守——"没分发"与"路径写错"必须分得开）。
+        可解析却对不上 = promote 链回归，必须红。
+        """
+
         index = pa.load_index()
         kind_map = pa._OBSERVATION_KIND_BY_SHAPE
+        measured_count = 0
         for entry in index.values():
-            if entry.get("kind") != "produced" or str(entry.get("robot", "")) != "unitree_go2":
+            if entry.get("kind") != "produced":
                 continue
-            measured = pa.onnx_obs_dim(pa.ROOT / entry["source_onnx"])
+            # 只判**声明完整**（robot + obs_dim）的条目：B44 之前的存量条目没有这两项，
+            # 拿它们当判据会变成"测一个没声明的数"，没有意义；B44 之后 promote 必填。
+            robot = str(entry.get("robot") or "")
+            declared = entry.get("obs_dim")
+            if not robot or declared is None:
+                continue
+            blob = pa.policy_blob_path({"artifact_id": entry["artifact_id"]}, index=index)
+            if blob is None:
+                continue
+            measured = pa.onnx_obs_dim(blob)
             self.assertIsNotNone(measured, entry["artifact_id"])
-            self.assertEqual(measured, entry["obs_dim"], entry["artifact_id"])
-            expected_kind = kind_map.get(("unitree_go2", measured), "unknown")
+            self.assertEqual(measured, declared, entry["artifact_id"])
+            expected_kind = kind_map.get((robot, measured), "unknown")
             self.assertEqual(expected_kind, entry.get("observation_kind"), entry["artifact_id"])
+            measured_count += 1
+        # 兜底：本仓至少有一条"声明完整且可解析"的 produced（否则这条测试等于空跑）
+        self.assertGreater(measured_count, 0, "没有可检验的 produced 产物——不变量没被真正检验")
 
     def test_deploy_kind_names_are_registered_builders(self):
         """**对齐口径守卫**：本模块登记/写出的每个 observation_kind 都必须是评测侧

@@ -133,7 +133,7 @@ def _policy_inventory(robots: list[str] | None) -> list[dict]:
         contract = declaration.get("contract") or {}
         recommendation = fam.recommend_family(declaration)
         declared = contract.get("task_type") or declaration.get("task_type")
-        artifact_id = pa.artifact_id_for(declaration["robot"], declaration["policy_id"])
+        artifact_id = pa.declaration_artifact_id(declaration)  # 身份唯一规则（见 policy_artifacts）
         blob = declaration.get("onnx") or pa.policy_blob_path(declaration)
         # blob 若落在包外（如 go2 demo 策略的 onnx 在 `web/sim2sim/models/`），
         # 就没有"包内相对路径"可喂给无头引擎 —— 如实标为**不参与包内扫描**并给出原因，

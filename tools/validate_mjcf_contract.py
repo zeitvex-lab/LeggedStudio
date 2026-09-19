@@ -71,10 +71,10 @@ def check_package(package: Path) -> tuple[list[str], list[str]]:
     """返回 ``(hard_failures, drift)``。"""
     hard: list[str] = []
     drift: list[str] = []
-    contract_path = package / "contract_v3.json"
+    contract_path = package / "contract.json"
     model_path = package / "model" / "robot.xml"
     if not contract_path.is_file() or not model_path.is_file():
-        return [f"缺 contract_v3.json 或 model/robot.xml"], drift
+        return [f"缺 contract.json 或 model/robot.xml"], drift
 
     contract = json.loads(contract_path.read_text(encoding="utf-8-sig"))
     expanded = RoleResolver(contract).expand_actuator_profile()
@@ -197,7 +197,7 @@ def main() -> int:
     parser.add_argument("--quiet-drift", action="store_true", help="不逐行打印漂移，只给计数")
     args = parser.parse_args()
 
-    packages = sorted(p for p in (ROOT / "assets" / "robots").iterdir() if (p / "contract_v3.json").is_file())
+    packages = sorted(p for p in (ROOT / "assets" / "robots").iterdir() if (p / "contract.json").is_file())
     if args.only:
         packages = [p for p in packages if p.name == args.only]
 

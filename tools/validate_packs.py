@@ -3,7 +3,7 @@
 
 Pack 是纯引用组合（`morphology_ref × skill_ref [× scenario_ref] [× policy_ref]` + 四阶段
 `bindings`），它的失效方式几乎都是「引用的文件被改过、哈希对不上」——2026-09-12 首次运行
-本命令时就抓到 **14 份 Pack 全部过期**（D3/D4 保存链改写了 `contract_v3.json`）。因此这条
+本命令时就抓到 **14 份 Pack 全部过期**（D3/D4 保存链改写了 `contract.json`）。因此这条
 命令的价值在于把这种漂移在 CI 里暴露出来，而不是等到加载策略时才炸。
 
 用法：

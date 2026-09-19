@@ -10,7 +10,7 @@
   "label": "Go2 MoE-CTS 8-experts (kaiwu_rl)",
   "obs_dim": 45,
   "onnx_bytes": 3861657,
-  "onnx_sha256": "d891cfc95479f1b4a9683c45c93de250ecfe32ec1bebe3d385c889d5cc963892",
+  "onnx_sha256": "cd6ba8f9b9b0db5d2ebc6add69b1ef18e28fc933b5525fcecab40f07078302e2",
   "policy_id": "go2-kaiwu-moe-cts-8exp",
   "robot": "unitree_go2",
   "run_id": null,

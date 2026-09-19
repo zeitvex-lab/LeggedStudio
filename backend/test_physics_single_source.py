@@ -1,4 +1,4 @@
-"""B3 收尾回归：物理事实只在一处（契约 v3），且两条消费链同源。
+"""B3 收尾回归：物理事实只在一处（契约真值），且两条消费链同源。
 
 **这条测试守的是什么**（B3 的验收口径「物理事实只在一处；`simulation/config.json`
 降级为引用」）：
@@ -6,14 +6,14 @@
 1. `assets/robots/*/simulation/config.json` **不得**再出现那组物理键
    （stiffness/damping/torque_limits/armature/frictionloss/control_hz/physics_hz/
    decimation）——否则"两处并存"回潮；
-2. 14/14 包的 `contract_v3.json` 必须给**每个执行器角色**声明 armature
+2. 14/14 包的 `contract.json` 必须给**每个执行器角色**声明 armature
    （lite3 / m20 / zex-w 此前三包全缺，训练与浏览器都没有转子惯量）；
 3. `contracts.physics_binding.joint_constant_tables()` 的键**统一小写**，
    大小写不敏感查表必须命中——这是修掉的静默失效：训练/验收侧用
    `joint.name.lower()` 查混合大小写键（`FL_hip_joint`）永远查不中，
    armature 静默不生效，而浏览器侧同一份数据是生效的；
 4. 训练侧（scene_builder / policy_acceptance）与浏览器侧（simulation_api 载荷）
-   取的**是同一份事实**（`physics_facts` → source=contract_v3）。
+   取的**是同一份事实**（`physics_facts` → source=contract_truth）。
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ class ContractCarriesPhysicsTests(unittest.TestCase):
     def test_every_package_declares_armature_for_every_role(self):
         missing: dict[str, list[str]] = {}
         for package in package_dirs():
-            contract_path = package / "contract_v3.json"
+            contract_path = package / "contract.json"
             if not contract_path.is_file():
                 continue
             contract = json.loads(contract_path.read_text(encoding="utf-8-sig"))
@@ -82,13 +82,13 @@ class ContractCarriesPhysicsTests(unittest.TestCase):
             gaps = [role for role, params in by_role.items() if not isinstance(params, dict) or params.get("armature") is None]
             if gaps:
                 missing[package.name] = gaps
-        self.assertEqual(missing, {}, f"契约 v3 缺 armature 的角色：{missing}")
+        self.assertEqual(missing, {}, f"契约真值 缺 armature 的角色：{missing}")
 
     def test_physics_facts_come_from_contract_for_all_packages(self):
         for package in package_dirs():
             with self.subTest(package=package.name):
                 facts = physics_facts(package)
-                self.assertEqual(facts["source"], "contract_v3")
+                self.assertEqual(facts["source"], "contract")
                 self.assertFalse(facts.get("needs_migration"))
 
     def test_scalars_expose_control_layer_from_contract(self):
@@ -96,7 +96,7 @@ class ContractCarriesPhysicsTests(unittest.TestCase):
         for package in package_dirs():
             with self.subTest(package=package.name):
                 scalars = physics_scalars(package)
-                contract = json.loads((package / "contract_v3.json").read_text(encoding="utf-8-sig"))
+                contract = json.loads((package / "contract.json").read_text(encoding="utf-8-sig"))
                 control = contract.get("control") or {}
                 if control.get("physics_hz") is not None:
                     self.assertEqual(scalars["physics_hz"], control["physics_hz"])
@@ -147,7 +147,7 @@ class CaseInsensitiveLookupTests(unittest.TestCase):
 
 
 class ActuatorGainMappingTests(unittest.TestCase):
-    """D8：面板编辑 → 契约 v3 的唯一映射实现（`apply_actuator_gains`）。"""
+    """D8：面板编辑 → 契约真值 的唯一映射实现（`apply_actuator_gains`）。"""
 
     @staticmethod
     def _v3() -> dict:
@@ -199,7 +199,7 @@ class ActuatorGainMappingTests(unittest.TestCase):
                 "friction_loss": {"FL_hip_joint": 0.2, "FR_hip_joint": 0.2},
             },
         )
-        # 返回的是**契约 v3 的键名**（力矩限幅在 v3 里叫 effort）
+        # 返回的是**契约真值 的键名**（力矩限幅在 v3 里叫 effort）
         self.assertEqual(written, ["armature", "effort", "friction_loss", "stiffness"])
         hip = v3["actuator_profile"]["by_role"]["hip"]
         self.assertEqual(hip["effort"], 23.7)
@@ -222,13 +222,13 @@ class ActuatorGainMappingTests(unittest.TestCase):
 
 
 class WorkbenchPhysicsViewTests(unittest.TestCase):
-    """D8：工作台电机面板的数据源 = 契约 v3 物理视图（与浏览器同源同形状）。"""
+    """D8：工作台电机面板的数据源 = 契约真值 物理视图（与浏览器同源同形状）。"""
 
     def test_physics_view_covers_all_packages(self):
         for package in package_dirs():
             with self.subTest(package=package.name):
                 view = _physics_view(package)
-                self.assertEqual(view.get("source"), "contract_v3")
+                self.assertEqual(view.get("source"), "contract")
                 for key in ("stiffness", "damping", "torque_limits", "armature", "frictionloss"):
                     self.assertIn(key, view, f"{package.name} 缺 {key}")
                 self.assertTrue(view["armature"], f"{package.name} 的 armature 为空，面板将显示空白")
@@ -252,7 +252,7 @@ class WorkbenchPhysicsViewTests(unittest.TestCase):
 
 
 class ControlConsistencyTests(unittest.TestCase):
-    """P2：契约 v3 的控制三件套必须自洽——decimation 是派生量（physics_hz / control_hz）。
+    """P2：契约真值 的控制三件套必须自洽——decimation 是派生量（physics_hz / control_hz）。
 
     这条一旦不成立，策略频率、观测频率、验收时长全部按错的数走，而且不会报错。
     """
@@ -260,8 +260,8 @@ class ControlConsistencyTests(unittest.TestCase):
     def test_v3_control_rates_are_self_consistent(self):
         checked = 0
         for package in package_dirs():
-            contract_v3 = json.loads((package / "contract_v3.json").read_text(encoding="utf-8-sig"))
-            control = contract_v3.get("control") or {}
+            contract_truth = json.loads((package / "contract.json").read_text(encoding="utf-8-sig"))
+            control = contract_truth.get("control") or {}
             hz, physics_hz, decimation = (
                 control.get("control_hz"), control.get("physics_hz"), control.get("decimation")
             )
@@ -351,9 +351,9 @@ class TnCurveTests(unittest.TestCase):
             root = Path(tmp)
             package = package_dirs()[0]
             shutil.copytree(package, root / "pkg")
-            v3 = json.loads((root / "pkg" / "contract_v3.json").read_text(encoding="utf-8-sig"))
+            v3 = json.loads((root / "pkg" / "contract.json").read_text(encoding="utf-8-sig"))
             v3["control"]["actuator_model"] = "dc_motor"
-            (root / "pkg" / "contract_v3.json").write_text(
+            (root / "pkg" / "contract.json").write_text(
                 json.dumps(v3, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
             )
             with self.assertRaises(ValueError):
@@ -363,7 +363,7 @@ class TnCurveTests(unittest.TestCase):
                 role: "0:60, 120:60, 188:0" for role in (v3.get("actuator_profile") or {}).get("by_role", {})
             }
             apply_t_n_curves(v3, t_n_curves)
-            (root / "pkg" / "contract_v3.json").write_text(
+            (root / "pkg" / "contract.json").write_text(
                 json.dumps(v3, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
             )
             settings = dc_actuator_settings(root / "pkg")

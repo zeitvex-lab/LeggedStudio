@@ -4,7 +4,7 @@
   "obs_dim_source": "onnx",
   "observation_kind": "go2_mjlab_actor_48",
   "onnx_bytes": 768394,
-  "onnx_sha256": "13fd7518ba52dab646fcc9c54c785838877a7ef9e1272233ee900734823ae159",
+  "onnx_sha256": "9bf3cef7f33c1ba09b4cfff4c0cf2d18d3cec34735175427f1b7b2d088829fb6",
   "run_id": "unitree_go2_mvp_v1_20260914_232229_429374",
   "schema": "policy-artifact-1.0",
   "source_onnx": "policies/unitree_go2__produced-unitree_go2_mvp_v1_20260914_232229_429374/policy.onnx"

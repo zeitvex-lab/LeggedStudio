@@ -2,7 +2,7 @@
   "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260916_051135_326294",
   "kind": "produced",
   "onnx_bytes": 786636,
-  "onnx_sha256": "5e82a9f5f94497804c6478a4e898ed14f07be6d26958cb0d4e0631ea5373a17c",
+  "onnx_sha256": "3e63b67f23bb452e2be4d5335af9c9d02a604e39920e96c00e1ed8911343775b",
   "run_id": "unitree_go2w_contract_v1_20260916_051135_326294",
   "schema": "policy-artifact-1.0",
   "source_onnx": "policies/unitree_go2w__produced-unitree_go2w_contract_v1_20260916_051135_326294/policy.onnx"

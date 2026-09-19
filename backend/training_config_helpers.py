@@ -71,9 +71,14 @@ def domain_randomization(profile: dict) -> Optional[dict]:
 
 
 def schema_workspace() -> Path:
-    """Resolve the schema-cache workspace directory."""
-    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE")
-    return Path(configured).expanduser().resolve() if configured else _ROOT / "workspace"
+    """Resolve the schema-cache workspace directory.
+
+    委托到唯一实现（``backend/paths.py``）：本模块此前自带一份，且没有 ``strip``。
+    """
+
+    from backend.paths import workspace_root
+
+    return workspace_root()
 
 
 def schema_cache_path(profile_id: str) -> Path:

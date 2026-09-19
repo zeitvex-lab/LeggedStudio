@@ -10,7 +10,7 @@
   "label": "wall 84 (v3)",
   "obs_dim": 53,
   "onnx_bytes": 777597,
-  "onnx_sha256": "e3a447782df6c6e11e66c3acbe41697ff88ebf5e75dcab65efcf9a2eb1ca639f",
+  "onnx_sha256": "518694adcf2b966dea96bbd5cf665d65ac35ae190cdcfa9ed2c1ecfdf1d83766",
   "policy_id": "zex-w-wall-84",
   "robot": "zex-w",
   "run_id": null,

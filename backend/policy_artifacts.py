@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from backend.training.runs import canonical_digest, file_digest
+from backend.api_routes import BROWSER_PACKAGE_URL_PREFIX
 from contracts.validator import normalized_sha256
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,8 +46,9 @@ POLICY_BLOB_NAME = "policy.onnx"
 
 ARTIFACT_SCHEMA = "policy-artifact-1.0"
 
-#: 浏览器包 URL 前缀（``/api/simulation/browser-package/<robot>/``）——声明里可能是 URL 形式。
-_URL_PREFIX = re.compile(r"^/api/simulation/browser-package/[^/]+/")
+#: 浏览器包 URL 前缀（声明里可能是 URL 形式）——形状由 ``backend.api_routes`` 定义，
+#: 这里只把它编译成"识别用"的正则，不再自带第二个字面量。
+_URL_PREFIX = re.compile(rf"^{re.escape(BROWSER_PACKAGE_URL_PREFIX)}/[^/]+/")
 
 #: ``deploy.yaml`` 从 ``contract`` 段展开的字段（顺序即书写顺序）。
 #: ``obs_dim_source``（B44）：obs_dim 的真值来源（``onnx``＝导出时刻实测，``contract_snapshot``
@@ -288,9 +290,36 @@ def scan_declarations(robots_dir: Path | str = ROBOTS_DIR) -> list[dict[str, Any
 
 
 def artifact_id_for(robot: str, policy_id: str) -> str:
-    """``<robot>__<policy-id>``（只保留安全字符）——目录名即产物 ID，可读且唯一。"""
+    """``<robot>__<policy-id>``（只保留安全字符）——目录名即产物 ID，可读且唯一。
+
+    **派生形**（无血缘声明的兜底），声明的身份请用 :func:`declaration_artifact_id`。
+    """
     raw = f"{robot}__{policy_id}"
     return re.sub(r"[^0-9A-Za-z._-]+", "-", raw).strip("-")
+
+
+def declaration_artifact_id(declaration: Mapping[str, Any]) -> str:
+    """一条声明的**产物身份（唯一规则）**：显式 ``artifact_id`` → ``provenance.artifact_id`` → 派生 id。
+
+    为什么必须有这一条：身份此前有**两个来源**且两侧规则不同 —— 写索引时
+    （``build_artifact``）一律用 ``artifact_id_for``，读引用时（``policy_reference``）
+    却优先用 ``provenance.artifact_id``。于是带血缘的声明会多出一个**永不命中**的别名条目：
+    实测 4 条训练产出的策略同时挂在 ``<robot>__<policy_id>`` 与 ``produced-…`` 两个身份下，
+    指向**同一份 onnx** —— 正是"一个工件一个身份"要消灭的形态（2026-09-19）。
+
+    有血缘（``provenance.artifact_id``）时以它为准：那份 onnx 的出处是 Run，
+    产物库里的账只有一条；``<robot>__<policy_id>`` 只是它在包内的落脚点。
+    """
+
+    explicit = str(declaration.get("artifact_id") or "")
+    if explicit:
+        return explicit
+    provenance = declaration.get("provenance")
+    if isinstance(provenance, Mapping):
+        recorded = str(provenance.get("artifact_id") or "")
+        if recorded:
+            return recorded
+    return artifact_id_for(str(declaration.get("robot")), str(declaration.get("policy_id")))
 
 
 # --------------------------------------------------------------------------------------
@@ -363,7 +392,7 @@ def build_artifact(declaration: Mapping[str, Any], onnx: Path | None = None) -> 
     onnx = onnx if onnx is not None else declaration.get("onnx")
     return {
         "schema": ARTIFACT_SCHEMA,
-        "artifact_id": artifact_id_for(str(declaration.get("robot")), str(declaration.get("policy_id"))),
+        "artifact_id": declaration_artifact_id(declaration),
         "robot": declaration.get("robot"),
         "policy_id": declaration.get("policy_id"),
         "kind": declaration.get("kind"),
@@ -417,25 +446,41 @@ def build_all(
         artifacts.append(artifact)
 
         if write:
+            # 这里**只**写 deploy.yaml（它由声明生成，produced 条目没有声明）。
+            # ``artifact.json`` 统一在合并**之后**落盘：声明条目与 produced 条目同名时
+            # （同一份 onnx 的两个来源），先写声明侧会把 produced 档案覆盖掉，
+            # 血缘（``run_id`` / ``installed``）就此永久丢失 —— 2026-09-19 实测踩过。
             target = out / artifact_id
             target.mkdir(parents=True, exist_ok=True)
-            (target / ARTIFACT_NAME).write_text(
-                json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
             (target / DEPLOY_NAME).write_text(
                 dump_yaml(deploy_payload(declaration)), encoding="utf-8",
             )
 
     # 产品自产条目（promote_from_run 写入）**跨重建保留**：索引从声明整表重建，
     # 不主动并回的话一次 build_all 就会把它们冲掉（目录还在、索引没了＝孤儿产物）。
+    # 声明**显式引用**的产物 id（安装式：provenance.artifact_id 指向出库条目）——
+    # 只有这种同名才是"同一件事"，才允许合并；巧合同名仍是冲突（见下）。
+    referenced = {
+        str((item.get("provenance") or {}).get("artifact_id"))
+        for item in declarations
+        if isinstance(item.get("provenance"), Mapping) and item["provenance"].get("artifact_id")
+    }
     for produced in _produced_index_entries(out):
         pid = str(produced.get("artifact_id"))
-        if pid in seen:
-            problems.append(f"产物 ID 冲突：声明条目与 produced 条目同名 {pid}（改 produced 的 artifact_id）")
+        declared_at = next((i for i, item in enumerate(artifacts) if item.get("artifact_id") == pid), None)
+        if declared_at is None:
+            seen.add(pid)
+            artifacts.append(_refresh_produced_digest(produced))
             continue
-        seen.add(pid)
-        artifacts.append(produced)
+        if pid in referenced:
+            # 同一件事的两个视角：声明说"它在包里"，produced 说"它出自哪次 Run"。
+            # 身份统一后它们必然同名 —— 合并成一条（血缘取 produced、实测取声明侧）。
+            artifacts[declared_at] = _merge_declaration_and_produced(
+                artifacts[declared_at], _refresh_produced_digest(produced)
+            )
+            continue
+        # 巧合同名：不是引用关系，必须报出来，不能静默二选一（既有判据）。
+        problems.append(f"产物 ID 冲突：声明条目与 produced 条目同名 {pid}（改 produced 的 artifact_id）")
 
     index = {
         "schema": ARTIFACT_SCHEMA,
@@ -448,6 +493,15 @@ def build_all(
     }
     if write:
         out.mkdir(parents=True, exist_ok=True)
+        # 统一落盘**合并后**的档案：同名条目（声明 ↔ produced）只能有一个真身，
+        # 落盘顺序错了就会把血缘覆盖掉（见上面 deploy.yaml 处的注释）。
+        for artifact in artifacts:
+            target = out / str(artifact["artifact_id"])
+            target.mkdir(parents=True, exist_ok=True)
+            (target / ARTIFACT_NAME).write_text(
+                json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
         (out / INDEX_NAME).write_text(
             json.dumps(index, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
@@ -483,10 +537,7 @@ def verify_artifacts(
         # ``provenance.artifact_id``——它的包内策略 id（``<robot>-trained-<stamp>``）
         # 与出库条目键（``<robot>__produced-...``）**本来就不同**，按 id 推导会误报
         # "索引未覆盖"（G1 轮 B8 试点首例）。带 provenance 的声明优先按它对账。
-        provenance = declaration.get("provenance") if isinstance(declaration.get("provenance"), Mapping) else {}
-        artifact_id = str(provenance.get("artifact_id") or "") or artifact_id_for(
-            str(declaration.get("robot")), str(declaration.get("policy_id"))
-        )
+        artifact_id = declaration_artifact_id(declaration)
         entry = recorded.get(artifact_id)
         if entry is None:
             problems.append(f"{artifact_id}：声明存在但索引未覆盖")
@@ -508,9 +559,7 @@ def verify_artifacts(
         if not (out / artifact_id / DEPLOY_NAME).is_file():
             problems.append(f"{artifact_id}：缺 {DEPLOY_NAME}")
 
-    for artifact_id in recorded.keys() - {
-        artifact_id_for(str(d.get("robot")), str(d.get("policy_id"))) for d in declarations
-    }:
+    for artifact_id in recorded.keys() - {declaration_artifact_id(d) for d in declarations}:
         if recorded[artifact_id].get("kind") == "produced":
             continue  # produced 出自 Run（promote_from_run），本就不在声明里，不是"悬空"
         problems.append(f"{artifact_id}：索引里有、声明里没有（悬空产物）")
@@ -521,11 +570,15 @@ def verify_artifacts(
         if entry.get("kind") != "produced":
             continue
         checked += 1
-        source = str(entry.get("source_onnx") or "")
-        blob = Path(source) if Path(source).is_absolute() else ROOT / source
-        actual = file_digest(blob) if blob.is_file() else None
+        # 走**统一解析入口**（仓库相对 / 包内相对 / 安装时机器落点三层）——本模块自己算
+        # `ROOT / source_onnx` 会在"安装式产物的 source_onnx 是包内相对路径"时误报缺失
+        # （2026-09-19 收口前的实际故障）。
+        blob = policy_blob_path({"artifact_id": artifact_id}, index=recorded)
+        actual = file_digest(blob) if blob is not None else None
         if actual is None:
-            problems.append(f"{artifact_id}：produced 的 onnx 缺失（{source or '未登记'}）")
+            problems.append(
+                f"{artifact_id}：produced 的 onnx 缺失（{entry.get('source_onnx') or '未登记'}）"
+            )
         elif actual != entry.get("onnx_sha256"):
             problems.append(f"{artifact_id}：produced onnx 已变（重跑 promote_from_run 或查明改动）")
         if not (out / artifact_id / ARTIFACT_NAME).is_file():
@@ -585,22 +638,132 @@ def promote_produced_policy(
 
 
 def _produced_index_entries(out_dir: Path) -> list[dict[str, Any]]:
-    """既有索引里的 **produced 条目**（目录与 ``artifact.json`` 还在的才算）。
+    """跨重建保留的 **produced 条目**：**路径取自索引（已清洗）、血缘取自档案（真源）**。
 
     ``build_all`` 的索引是从包声明**整表重建**的 —— 不主动保留的话，一次重建就会把
     产品自产的条目冲掉（目录还在、索引没了＝"孤儿产物"）。被人工删掉目录的条目
     **不复活**（复活一个指向不存在文件的索引条目比缺它更糟）。
+
+    ## 为什么要两边都读（2026-09-19 实测）
+
+    * **只读索引**：索引是重建的中间产物，一旦某轮漏并某个条目，下一轮再从索引取就
+      **永久丢失**它的血缘（同名冲突被跳过的那 4 条，索引里只剩声明侧、``run_id`` 没了）；
+    * **只读档案**：档案里可能残留**机器本地路径**（``workspace/packages/...``，
+      索引侧已在 2026-09-19 收口为包内相对路径）—— 照抄档案会让索引重新"本机绿、别处红"。
+
+    所以：以索引条目为基（``source_onnx`` 等已清洗），用档案补**血缘字段**。
     """
-    index = _load_json(Path(out_dir) / INDEX_NAME)
+
+    out = Path(out_dir)
+    if not out.is_dir():
+        return []
     entries: list[dict[str, Any]] = []
-    if not isinstance(index, Mapping):
-        return entries
-    for item in index.get("artifacts") or []:
-        if not isinstance(item, Mapping) or item.get("kind") != "produced":
+    for target in sorted(out.iterdir()):
+        if not target.is_dir():
             continue
-        if (Path(out_dir) / str(item.get("artifact_id")) / ARTIFACT_NAME).is_file():
-            entries.append(dict(item))
+        archive = _load_json(target / ARTIFACT_NAME)
+        if not isinstance(archive, Mapping) or archive.get("kind") != "produced":
+            continue
+        entry = dict(archive)
+        # 路径真值是 ``installed.package_path``（promote 时写入的包内相对路径）：
+        # 用它覆盖档案里的 ``source_onnx`` —— 后者可能残留机器本地落点
+        # （workspace/packages/...，2026-09-19 实测 16 条），也可能被重建周期里的
+        # 其它写入路径改成仓库相对。既有判据（B44 测试）正是断言两者相等，
+        # 以 ``package_path`` 为准即恒等。
+        installed = entry.get("installed")
+        package_path = str((installed or {}).get("package_path") or "") if isinstance(installed, Mapping) else ""
+        cleaned = _clean_source_onnx(package_path or entry.get("source_onnx"))
+        if cleaned:
+            entry["source_onnx"] = cleaned
+        entries.append(entry)
     return entries
+
+
+def _clean_source_onnx(value: Any) -> str | None:
+    """把"随仓分发不得引用"的机器本地落点归一为**包内相对**；空值返回 ``None``。
+
+    判据复用 ``backend.pack_catalog.gitignored_ref_prefix``（``workspace/`` 是 ``.gitignore``
+    里的运行期目录，写进索引就会让"本机绿、别处红"）；归一规则是
+    ``workspace/packages/<robot>/<包内相对>`` → ``<包内相对>``。
+    """
+
+    text = str(value or "").replace(chr(92), "/").strip()
+    if not text:
+        return None
+    from backend.pack_catalog import gitignored_ref_prefix
+
+    if gitignored_ref_prefix(text):
+        parts = text.split("/")
+        # workspace/packages/<robot>/simulation/policies/x.onnx → simulation/policies/x.onnx
+        if len(parts) > 3 and parts[1] == "packages":
+            return "/".join(parts[3:])
+    return text
+
+
+#: 合并"声明条目 + produced 条目"时**以声明侧实测值**为准的字段（声明是刚扫出来的当下真值）。
+#:
+#: 不含 ``source_onnx``：produced 条目的路径有自己的约定 —— 与 ``installed.package_path``
+#: 一致（包内相对 ``simulation/policies/x.onnx``），而声明侧给的是仓库相对
+#: （``assets/robots/<robot>/simulation/policies/x.onnx``）。既有判据
+#: （``B44OnnxObsDimTest``）正是断言这两个字段相等，合并时若让声明侧覆盖路径就会红。
+_MEASURED_FIELDS = ("onnx_sha256", "onnx_bytes", "contract_digest", "aux_blobs")
+
+
+
+def _merge_declaration_and_produced(declared: Mapping[str, Any], produced: Mapping[str, Any]) -> dict[str, Any]:
+    """把同一身份的**声明条目**与 **produced 条目**合并成一条。
+
+    两者描述的是同一份 onnx：前者是"它在包里"，后者是"它出自哪次 Run"。
+    此前各用一个 id（``<robot>__<policy_id>`` / ``produced-…``）分开记，于是同一份文件
+    在索引里有两个身份、两个哈希（2026-09-19 实测 4 条）。
+
+    取值规则：血缘/装机（``kind`` / ``run_id`` / ``installed``）以 **produced** 为准 ——
+    Run 是产出处的账；实测字段（:data:`_MEASURED_FIELDS`）以**声明侧**为准 ——
+    声明是刚扫出来的真值。两边都有值的普通字段以 produced 为先、声明补空。
+    """
+
+    merged: dict[str, Any] = {**declared}
+    merged.update({key: value for key, value in produced.items() if value is not None})
+    for key in _MEASURED_FIELDS:
+        if declared.get(key) is not None:
+            merged[key] = declared[key]
+    # 观测布局名：B44 之前的存量 produced 条目没有这个字段，而合并会把声明侧的
+    # ``obs_dim`` 补进来 —— 于是它从"数据不全、不被判"变成"声明完整、必须自洽"。
+    # 缺失时按既有唯一实现推导（``observation_kind_for``，查不到如实给 ``unknown``），
+    # 而不是留空让下游各自猜。
+    if not merged.get("observation_kind"):
+        merged["observation_kind"] = observation_kind_for(
+            str(merged.get("robot") or ""), merged.get("obs_dim")
+        )
+    return merged
+
+
+def _refresh_produced_digest(entry: dict[str, Any]) -> dict[str, Any]:
+    """produced 条目的 ``onnx_sha256`` **以实测为准**（与 :func:`policy_reference` 同一原则）。
+
+    照抄索引里上一版的值，等于把"文件现在是什么"冻在写出那一刻：口径变更（B40 之后
+    仍有残留）或文件被替换，索引都反映不出来。**2026-09-19 实测**：4 条 produced 条目
+    停在旧口径（原始字节）上，而它们的 blob 与声明条目指向**同一份 onnx** ——
+    同一份文件在索引里带着两个哈希，正是"一个工件一个哈希"要消灭的形态。
+    """
+
+    source = str(entry.get("source_onnx") or "")
+    if not source:
+        return entry
+    relative = Path(source)
+    if relative.is_absolute():
+        path: Path | None = relative
+    elif (ROOT / relative).is_file():
+        # 仓库相对：产物库内副本 ``policies/<id>/policy.onnx``、或包内实体
+        path = ROOT / relative
+    else:
+        # **包内相对**（如 ``simulation/policies/x.onnx``）：必须经包根解析 ——
+        # 复用 :func:`_package_blob_candidate` 这一个实现，不另起一套路径拼接。
+        path = _package_blob_candidate(entry, relative)
+    measured = file_digest(path) if path is not None else None
+    if measured is None or measured == entry.get("onnx_sha256"):
+        return entry
+    return {**entry, "onnx_sha256": measured}
 
 
 def produced_for_run(run_id: str, *, out_dir: Path | str = OUT_DIR) -> list[dict[str, Any]]:
@@ -899,7 +1062,11 @@ def install_produced_policy(
     _write_json_atomic(config_path, {**dict(config), "policies": policies})
 
     updated = dict(entry)
-    updated["source_onnx"] = _repo_relative_path(target)
+    # ``source_onnx`` 写**包内相对路径**（不是机器本地路径）：索引是随仓跟踪/分发的文件，
+    # 写 `workspace/packages/...` 会让"本机绿、别处红"（2026-09-19 前 16 条 produced 条目
+    # 就是这么烂的）。解析侧 ``policy_blob_path`` 按包根还原（workspace 副本优先），
+    # 所以仓库内包与用户副本都能解析到同一份产物。
+    updated["source_onnx"] = package_relative
     updated["onnx_sha256"] = file_digest(target)
     updated["onnx_bytes"] = target.stat().st_size
     updated["installed"] = {
@@ -938,6 +1105,44 @@ def install_produced_policy(
     }
 
 
+def _policy_ref_path(blob: str | Path, entry: Mapping[str, Any]) -> str:
+    """决定 ``policy_ref.path`` 写什么——**包内相对优先，绝不写机器本地路径**。
+
+    ## 为什么是包内相对（2026-09-19 收口）
+
+    `policy_ref` 的目标是**这台机器人包里的那份策略**，而包根在运行时可能是用户
+    workspace 里的副本（`robot_packages` 的副本优先是设计行为）。因此：
+
+    * 写**仓库相对**（`assets/robots/<id>/...`）⇒ 用户把包装进 workspace 后引用就指向
+      一个不存在/陈旧的副本；
+    * 写**运行期解析出来的绝对落点**（`workspace/packages/<id>/...`）⇒ 干净 clone 与
+      CI 上必然解析失败，而 Pack 是要随仓库分发、给别人导入的。实测证据：go2 与
+      lite3 两份 Pack 因此长期只在生成它的那台机器上"通过"。
+    * 写**包内相对**（`simulation/policies/<file>.onnx`）⇒ 仓库内包与 workspace 副本
+      都能解析（校验器按 `morphology_ref.id` 的包根解析，见 `pack_catalog._check_ref`）。
+
+    退化路径（产物只出库、未安装进任何包）保持仓库相对；此时若落点在 gitignored
+    目录里（`workspace/**`），**报错而不是写进去**——"能过但换台机必炸"的引用比没有引用更坏。
+    """
+
+    blob_path = Path(blob)
+    installed = entry.get("installed")
+    package_rel = str((installed or {}).get("package_path") or "") if isinstance(installed, Mapping) else ""
+    if package_rel and blob_path.as_posix().endswith("/" + package_rel):
+        return package_rel
+
+    repo_rel = _repo_relative_path(blob_path)
+    from backend.pack_catalog import gitignored_ref_prefix
+
+    blocker = gitignored_ref_prefix(repo_rel)
+    if blocker:
+        raise ValueError(
+            f"产物 onnx 落在 gitignored 目录（{blocker}**）里，不能写进随仓分发的 Pack：{repo_rel}"
+            "——先把产物安装进仓库内的机器人包（assets/robots/<id>/simulation/policies/），再回挂"
+        )
+    return repo_rel
+
+
 def attach_policy_to_pack(
     robot_id: str,
     *,
@@ -973,7 +1178,7 @@ def attach_policy_to_pack(
     pack = dict(_load_json(pack_path))
     policy_ref: dict[str, Any] = {
         "id": artifact_id,
-        "path": _repo_relative_path(Path(blob)),
+        "path": _policy_ref_path(blob, entry),
         # 与 morphology_ref / pack_catalog._content_sha256 同纪律：**归一摘要**
         # （B40 口径）。file_digest 的原始字节口径对含 \r\n 序列的二进制 onnx
         # 会与 catalog 校验必然分叉（B8 试点的三台 promote 当场暴露）。
@@ -997,6 +1202,25 @@ def load_index(out_dir: Path | str = OUT_DIR) -> dict[str, dict[str, Any]]:
     return {str(item.get("artifact_id")): dict(item) for item in index.get("artifacts") or []}
 
 
+def _package_blob_candidate(entry: Mapping[str, Any], relative: Path) -> Path | None:
+    """把**包内相对**的 ``source_onnx`` 解析到机器人包根下（包根 = workspace 副本优先）。
+
+    复用 ``backend.deploy_pack.resolve_package_root`` 这一个实现，避免"部署按一套包解析、
+    产物按另一套包解析"——那正是 16 条 produced 条目指向 gitignored 路径的成因。
+    """
+
+    installed = entry.get("installed")
+    robot = str((installed or {}).get("robot") or "") if isinstance(installed, Mapping) else ""
+    if not robot:
+        return None
+    try:
+        from backend.deploy_pack import resolve_package_root
+
+        return resolve_package_root(robot) / relative
+    except Exception:
+        return None
+
+
 def policy_blob_path(
     declaration: Mapping[str, Any],
     *,
@@ -1018,6 +1242,10 @@ def policy_blob_path(
     candidates: list[str] = []
     if declaration.get("artifact_id"):
         candidates.append(str(declaration["artifact_id"]))
+    provenance = declaration.get("provenance")
+    recorded_id = str((provenance or {}).get("artifact_id") or "") if isinstance(provenance, Mapping) else ""
+    if recorded_id:
+        candidates.append(recorded_id)
     # 消费者手上是**原始 config 条目**（键是 `id`、没有 `robot`），所以两种键名都认，
     # 并允许从 `robot_dir` 反推机型 —— 否则 serv 层一条策略都解析不出来。
     robot_name = declaration.get("robot") or (
@@ -1033,9 +1261,33 @@ def policy_blob_path(
         if not source:
             continue
         resolved = Path(str(source))
-        resolved = resolved if resolved.is_absolute() else ROOT / resolved
-        if resolved.is_file():
-            return resolved
+        if resolved.is_absolute():
+            if resolved.is_file():
+                return resolved
+            continue
+        # ① 仓库相对（上游声明与未安装的 produced：`assets/robots/...`、`policies/<id>/policy.onnx`）
+        repo_candidate = ROOT / resolved
+        if repo_candidate.is_file():
+            return repo_candidate
+        # ② **包内相对**（安装式产物：`simulation/policies/<file>.onnx`）。
+        #    安装式条目的 blob 合法落点是机器人包内，而包根在运行时可能是用户 workspace
+        #    里的副本——按包根解析才能既在仓库内包、又在 workspace 副本上解析到同一份产物。
+        #    2026-09-19 前这里只按仓库根解析，于是 promote 只能把**机器本地路径**写进索引
+        #    （16 条 produced 条目因此指向 gitignored 的 workspace/，干净 clone 全解析不到）。
+        package_candidate = _package_blob_candidate(entry, resolved)
+        if package_candidate is not None and package_candidate.is_file():
+            return package_candidate
+        # ③ 安装时记录的**机器本地落点**（``installed.repo_path``）——只作"这台机器上还能不能
+        #    读到"的能力回退，不作元数据主引用：元数据（①②）必须机器无关，否则干净 clone
+        #    与 CI 必然解析失败；而仓库外的包（用户 workspace 副本、临时目录）只有这条提示
+        #    知道 blob 在哪。
+        installed = entry.get("installed")
+        hint = installed.get("repo_path") if isinstance(installed, Mapping) else None
+        if hint:
+            hinted = Path(str(hint))
+            hinted = hinted if hinted.is_absolute() else ROOT / hinted
+            if hinted.is_file():
+                return hinted
 
     if robot_dir is not None:
         return resolve_declared_onnx(
@@ -1129,14 +1381,10 @@ def policy_reference(
     与"文件实际是什么"一旦分叉，立刻暴露。
     """
     index = index if index is not None else load_index()
-    # 安装式声明的绑定在 provenance.artifact_id（包内策略 id 与出库键本就不同名）
-    provenance = declaration.get("provenance") if isinstance(declaration.get("provenance"), Mapping) else {}
-    provenance_id = str(provenance.get("artifact_id") or "")
-    artifact_id = (
-        declaration.get("artifact_id")
-        or provenance_id
-        or artifact_id_for(str(declaration.get("robot")), str(declaration.get("policy_id")))
-    )
+    # 身份规则唯一实现见 declaration_artifact_id：显式 → provenance（安装式）→ 派生
+    artifact_id = declaration_artifact_id(declaration)
+    provenance = declaration.get("provenance")
+    has_provenance = bool(str((provenance or {}).get("artifact_id") or "")) if isinstance(provenance, Mapping) else False
     blob = policy_blob_path(declaration, robot_dir=robot_dir, index=index)
     return {
         "artifact_id": artifact_id,
@@ -1146,7 +1394,7 @@ def policy_reference(
             "declaration.artifact_id"
             if declaration.get("artifact_id")
             else "provenance.artifact_id"
-            if provenance_id
+            if has_provenance
             else "policy.path/url"      # 尚未迁移：仍是裸路径声明
         ),
     }
@@ -1167,7 +1415,7 @@ def reference_gaps(
     problems: list[str] = []
 
     for declaration in declarations:
-        artifact_id = artifact_id_for(str(declaration.get("robot")), str(declaration.get("policy_id")))
+        artifact_id = declaration_artifact_id(declaration)
         if declaration_has_raw_path(declaration):
             legacy.append(artifact_id)
         reference = policy_reference(declaration, index=index)
@@ -1219,7 +1467,7 @@ def strip_raw_paths(
         for declaration in scan_declarations(robots):
             if declaration["robot"] != robot_dir.name:
                 continue
-            artifact_id = artifact_id_for(robot_dir.name, str(declaration["policy_id"]))
+            artifact_id = declaration_artifact_id(declaration)
             if policy_reference(declaration, index=index)["onnx_sha256"] is None:
                 problems.append(f"{artifact_id}：解析不到 blob，保留裸路径不动")
                 continue

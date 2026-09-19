@@ -1,15 +1,15 @@
-"""B3 物理事实绑定：把三端消费的物理参数收敛到契约 v3 的单一真值。
+"""B3 物理事实绑定：把三端消费的物理参数收敛到契约真值 的单一真值。
 
 背景（重构方案 §5.7-1、任务清单 B3）
 ------------------------------------
-各包的 ``simulation/config.json`` 与契约 v3 的 ``actuator_profile`` / ``control``
+各包的 ``simulation/config.json`` 与契约真值 的 ``actuator_profile`` / ``control``
 长期**双写**，且 config 侧的键风格在包之间并不统一（实测）：
 
 * ``deeprobotics_lite3`` / ``deeprobotics_m20``：``stiffness`` 等是**逐关节**键；
 * ``unitree_go2`` / ``zex-w``：**角色键控** + ``joint`` 兜底；
 * ``wuji_hand``：只有 ``joint`` 一个兜底键；``torque_limits`` 在 zex-w/wuji_hand **缺失**。
 
-契约 v3 侧则是角色化的 ``actuator_profile.by_role``（default < by_role < by_joint
+契约真值 侧则是角色化的 ``actuator_profile.by_role``（default < by_role < by_joint
 三级展开），且既有测试已证明其展开值与 config 逐关节相等。因此本模块提供**唯一读取
 API**，让消费者不再各自解释 config 的键风格：
 
@@ -18,7 +18,7 @@ API**，让消费者不再各自解释 config 的键风格：
     facts["by_joint"]["armature"]      # 逐关节展开（mjlab 装配用）
     facts["control_hz"]                # 控制频率三件套
 
-真值优先级：``contract_v3.json`` → ``simulation/config.json``（未迁移包的兼容回落，
+真值优先级：``contract.json`` → ``simulation/config.json``（未迁移包的兼容回落，
 以 ``source="legacy_config"`` 标记，使迁移进度可观测，而不是静默双真值）。
 
 本模块只依赖标准库与 ``contracts.role_resolver``。
@@ -75,7 +75,7 @@ PARAM_KEYS = (
     ("stiffness", "stiffness"),
     ("damping", "damping"),
     ("effort", "torque_limits"),
-    # 速度限幅（D9）：契约 v3 键为单数 `velocity_limit`，对外统一名沿用前端既有的
+    # 速度限幅（D9）：契约真值 键为单数 `velocity_limit`，对外统一名沿用前端既有的
     # 复数 `velocity_limits`（与 `effort -> torque_limits` 同一处理）。
     # 此前该字段**只有 schema 声明、没有任何包填值、也没有消费者**：浏览器侧的
     # `applyVelocityLimits` 读的是 sim config 的 `velocity_limits`（14 包实测都没有
@@ -91,13 +91,13 @@ PAYLOAD_MAP_KEYS = ("stiffness", "damping", "torque_limits", "velocity_limits")
 PAYLOAD_CONST_KEYS = (("armature", "armature"), ("friction_loss", "frictionloss"))
 
 #: ``simulation/config.json`` 上**已废弃**的物理键（B3 收尾）。
-#: 物理事实现在只剩契约 v3 一处：这组键既造成"两处并存"，又让训练/验收侧用
+#: 物理事实现在只剩契约真值 一处：这组键既造成"两处并存"，又让训练/验收侧用
 #: 小写关节名查混合大小写键而静默失效。保存链落盘前必须剔除，防止又被写回来。
 LEGACY_CONFIG_PHYSICS_KEYS = (
     "stiffness",
     "damping",
     "torque_limits",
-    # D9：速度限幅的唯一真值是契约 v3 `actuator_profile[].velocity_limit`。
+    # D9：速度限幅的唯一真值是契约真值 `actuator_profile[].velocity_limit`。
     # sim config 里的 `velocity_limits` 是历史第二个家（UI 曾写这里、浏览器曾读这里），
     # 一并剔除——否则"改一处不生效"的问题会再演一次。
     "velocity_limits",
@@ -112,21 +112,21 @@ LEGACY_CONFIG_PHYSICS_KEYS = (
 )
 
 
-def _expand(contract_v3: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    return RoleResolver(contract_v3).expand_actuator_profile()
+def _expand(contract_truth: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return RoleResolver(contract_truth).expand_actuator_profile()
 
 
-def facts_from_contract(contract_v3: dict[str, Any]) -> dict[str, Any]:
-    """从契约 v3 抽出物理事实（单一真值路径）。
+def facts_from_contract(contract_truth: dict[str, Any]) -> dict[str, Any]:
+    """从契约真值 抽出物理事实（单一真值路径）。
 
     同时给出角色键控与逐关节两种视图，避免各消费者自行改口径。
     """
 
-    profile = contract_v3.get("actuator_profile") or {}
+    profile = contract_truth.get("actuator_profile") or {}
     by_role = profile.get("by_role") or {}
     default = profile.get("default") or {}
     by_joint_raw = profile.get("by_joint") or {}
-    expanded = _expand(contract_v3)
+    expanded = _expand(contract_truth)
 
     role_view: dict[str, dict[str, Any]] = {}
     joint_view: dict[str, dict[str, Any]] = {}
@@ -142,9 +142,9 @@ def facts_from_contract(contract_v3: dict[str, Any]) -> dict[str, Any]:
             if isinstance(params, dict) and contract_key in params
         }
 
-    control = contract_v3.get("control") or {}
+    control = contract_truth.get("control") or {}
     facts: dict[str, Any] = {
-        "source": "contract_v3",
+        "source": "contract",
         "by_role": role_view,
         "by_joint": joint_view,
         "default": {
@@ -164,7 +164,7 @@ def facts_from_contract(contract_v3: dict[str, Any]) -> dict[str, Any]:
     }
     for key in CONTROL_KEYS:
         facts[key] = control.get(key)
-    facts["actuator_type"] = (contract_v3.get("morphology") or {}).get("actuator_type")
+    facts["actuator_type"] = (contract_truth.get("morphology") or {}).get("actuator_type")
     # P1：执行器模型开关（缺省 ideal_pd = 现役行为**不变**；dc_motor 才消费 t_n_curve）
     model = control.get("actuator_model") or ACTUATOR_MODEL_IDEAL_PD
     if model not in ACTUATOR_MODELS:
@@ -249,7 +249,7 @@ def payload_physics_view(facts: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return view
 
 
-def action_scale_facts(contract_v3: dict[str, Any]) -> dict[str, Any]:
+def action_scale_facts(contract_truth: dict[str, Any]) -> dict[str, Any]:
     """action_scale 的事实（B5/2）：``{scalar, by_role, by_joint}``。
 
     真值归**契约**：`action.action_scale` 是标量缺省，`actuator_profile.by_role[]`
@@ -260,17 +260,17 @@ def action_scale_facts(contract_v3: dict[str, Any]) -> dict[str, Any]:
     yaml 35.0），仿真侧那份 config 只是其中一个快照，再读它就会与契约漂移。
     """
 
-    profile = contract_v3.get("actuator_profile") or {}
+    profile = contract_truth.get("actuator_profile") or {}
     by_role = {
         role: params["action_scale"]
         for role, params in (profile.get("by_role") or {}).items()
         if isinstance(params, dict) and params.get("action_scale") is not None
     }
     return {
-        "source": "contract_v3",
-        "scalar": (contract_v3.get("action") or {}).get("action_scale"),
+        "source": "contract",
+        "scalar": (contract_truth.get("action") or {}).get("action_scale"),
         "by_role": by_role,
-        "by_joint": RoleResolver(contract_v3).action_scale_by_joint(),
+        "by_joint": RoleResolver(contract_truth).action_scale_by_joint(),
     }
 
 
@@ -313,13 +313,13 @@ def payload_action_scale_view(facts: dict[str, Any]) -> dict[str, Any]:
 
 
 def physics_facts(package_dir: str | Path) -> dict[str, Any]:
-    """读取某机器人包的物理事实（契约 v3 优先，缺失则回落 config）。"""
+    """读取某机器人包的物理事实（契约真值 优先，缺失则回落 config）。"""
 
     root = Path(package_dir)
-    contract_path = root / "contract_v3.json"
+    contract_path = root / "contract.json"
     if contract_path.exists():
-        contract_v3 = json.loads(contract_path.read_text(encoding="utf-8-sig"))
-        return facts_from_contract(contract_v3)
+        contract_truth = json.loads(contract_path.read_text(encoding="utf-8-sig"))
+        return facts_from_contract(contract_truth)
 
     config_path = root / "simulation" / "config.json"
     if config_path.exists():
@@ -461,7 +461,7 @@ def t_n_curve_facts(package_dir: str | Path) -> dict[str, Any]:
     ``derived`` 给出逐关节的 DC 标量（供 mjlab 装配），键为关节名（+ ``__default__``）。
     """
     root = Path(package_dir)
-    contract_path = root / "contract_v3.json"
+    contract_path = root / "contract.json"
     empty = {
         "source": "missing",
         "actuator_model": ACTUATOR_MODEL_IDEAL_PD,
@@ -472,8 +472,8 @@ def t_n_curve_facts(package_dir: str | Path) -> dict[str, Any]:
     }
     if not contract_path.exists():
         return empty
-    contract_v3 = json.loads(contract_path.read_text(encoding="utf-8-sig"))
-    profile = contract_v3.get("actuator_profile") or {}
+    contract_truth = json.loads(contract_path.read_text(encoding="utf-8-sig"))
+    profile = contract_truth.get("actuator_profile") or {}
     default_points = _normalize_tn_curve_points((profile.get("default") or {}).get(TN_CURVE_KEY))
     by_role = {
         role: _normalize_tn_curve_points(params.get(TN_CURVE_KEY))
@@ -482,7 +482,7 @@ def t_n_curve_facts(package_dir: str | Path) -> dict[str, Any]:
     }
     by_joint = {
         joint: _normalize_tn_curve_points(params.get(TN_CURVE_KEY))
-        for joint, params in _expand(contract_v3).items()
+        for joint, params in _expand(contract_truth).items()
         if isinstance(params, dict) and params.get(TN_CURVE_KEY)
     }
     derived = {
@@ -492,9 +492,9 @@ def t_n_curve_facts(package_dir: str | Path) -> dict[str, Any]:
     }
     if default_points:
         derived["__default__"] = dc_params_from_t_n_curve(default_points)
-    model = str(((contract_v3.get("control") or {}).get("actuator_model")) or ACTUATOR_MODEL_IDEAL_PD)
+    model = str(((contract_truth.get("control") or {}).get("actuator_model")) or ACTUATOR_MODEL_IDEAL_PD)
     return {
-        "source": "contract_v3",
+        "source": "contract",
         "actuator_model": model,
         "declared": bool(by_joint or by_role or default_points),
         "by_role": by_role,
@@ -537,15 +537,15 @@ def dc_actuator_settings(package_dir: str | Path) -> dict[str, dict[str, float]]
     本函数只负责"契约 → 参数"，因此不需要 mjlab 即可被测试。
     """
     root = Path(package_dir)
-    contract_path = root / "contract_v3.json"
+    contract_path = root / "contract.json"
     if not contract_path.exists():
         return {}
-    contract_v3 = json.loads(contract_path.read_text(encoding="utf-8-sig"))
-    control = contract_v3.get("control") or {}
+    contract_truth = json.loads(contract_path.read_text(encoding="utf-8-sig"))
+    control = contract_truth.get("control") or {}
     if str(control.get("actuator_model") or ACTUATOR_MODEL_IDEAL_PD) != ACTUATOR_MODEL_DC_MOTOR:
         return {}
-    facts = facts_from_contract(contract_v3)
-    expanded = _expand(contract_v3)
+    facts = facts_from_contract(contract_truth)
+    expanded = _expand(contract_truth)
     derived = t_n_curve_facts(root).get("derived") or {}
     default_derived = derived.get("__default__")
     tables = joint_constant_tables(root)
@@ -586,7 +586,7 @@ def dc_actuator_settings(package_dir: str | Path) -> dict[str, dict[str, float]]
 
 
 def apply_t_n_curves(v3: dict[str, Any], t_n_curves: Any) -> list[str]:
-    """把「逐关节 T-N 曲线点列」按角色归层写进契约 v3 ``actuator_profile``（就地修改）。
+    """把「逐关节 T-N 曲线点列」按角色归层写进契约真值 ``actuator_profile``（就地修改）。
 
     归层规则与 :func:`apply_actuator_gains` 完全一致（角色内全同 → ``by_role``，否则
     ``by_joint``；写 ``by_role`` 时清掉同键的逐关节覆盖），只是值从标量换成点列。
@@ -657,10 +657,10 @@ def joint_constant_tables(package_dir: str | Path) -> dict[str, dict[str, float]
     `adapters/mjlab/policy_acceptance.py`）此前直接读 `simulation/config.json` 顶层的
     ``armature`` / ``frictionloss``，再拿 ``joint.name.lower()`` 去查**混合大小写**的键
     （``FL_hip_joint``）——查不到就落到 ``__default__``（多数包没有）→ **armature 实际
-    从未生效**；而浏览器侧（契约 v3 + 精确关节名查 ``mj_name2id``）是生效的。同一条
+    从未生效**；而浏览器侧（契约真值 + 精确关节名查 ``mj_name2id``）是生效的。同一条
     数据、两条链路、两种结论，且失败方式是**静默**的。
 
-    这里统一一处：来源 = :func:`physics_facts`（契约 v3 优先，legacy config 仅兜底），
+    这里统一一处：来源 = :func:`physics_facts`（契约真值 优先，legacy config 仅兜底），
     键统一小写，并显式带出 ``__default__``（模型 default 层兜底，覆盖非驱动 dof）。
     调用方只需 ``name.lower()`` 查表。
     """
@@ -704,7 +704,7 @@ def physics_scalars(package_dir: str | Path) -> dict[str, Any]:
     return scalars
 
 
-#: 可编辑的执行器参数（工作台/接口口径）→ 契约 v3 ``actuatorParams`` 键名。
+#: 可编辑的执行器参数（工作台/接口口径）→ 契约真值 ``actuatorParams`` 键名。
 #: D8：`armature` 与 `friction_loss` 与 stiffness/damping/effort 同为 v3 一等参数
 #: （schema `actuatorParams` 已声明），因此统一走这一张表，避免"某些参数写 v3、
 #: 某些写 sim config"的两处并存。
@@ -714,7 +714,7 @@ GAIN_TO_V3: dict[str, str] = {
     "torque_limits": "effort",
     "armature": "armature",
     "friction_loss": "friction_loss",
-    # D9：速度限幅也走这张表（control 侧沿用前端复数键名 → 契约 v3 单数键名）
+    # D9：速度限幅也走这张表（control 侧沿用前端复数键名 → 契约真值 单数键名）
     "velocity_limits": "velocity_limit",
     # D10：动作缩放（工作台「动作缩放」卡片）。标量缺省走 v3 `action.action_scale`，
     # 逐关节/角色值走同一张 actuator_profile 分发表（schema actuatorParams 已含
@@ -724,7 +724,7 @@ GAIN_TO_V3: dict[str, str] = {
 
 
 def apply_actuator_gains(v3: dict[str, Any], control: dict[str, Any]) -> list[str]:
-    """把「逐关节参数表」按角色归层写进契约 v3 的 ``actuator_profile``（就地修改）。
+    """把「逐关节参数表」按角色归层写进契约真值 的 ``actuator_profile``（就地修改）。
 
     归层规则与 ``role_resolver`` 的 ``default < by_role < by_joint`` 合并序一致：
 
@@ -732,10 +732,10 @@ def apply_actuator_gains(v3: dict[str, Any], control: dict[str, Any]) -> list[st
       （否则旧的逐关节覆盖会盖住新写入的角色值）；
     * 否则 → 逐关节写 ``by_joint``。
 
-    这是唯一一处"面板编辑 → 契约 v3"的映射实现（原为接口内联代码，D8 抽出以便单测）。
+    这是唯一一处"面板编辑 → 契约真值"的映射实现（原为接口内联代码，D8 抽出以便单测）。
 
     Args:
-        v3: 契约 v3 文档（就地修改）。
+        v3: 契约真值 文档（就地修改）。
         control: ``{参数名: {关节名: 值}}``，键取自 :data:`GAIN_TO_V3`。
 
     Returns:

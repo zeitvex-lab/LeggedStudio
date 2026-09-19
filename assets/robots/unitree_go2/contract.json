@@ -1,32 +1,90 @@
 {
-  "schema_version": "robot-contract-2.0",
-  "contract_id": "unitree_go2_mvp_v1",
+  "schema_version": "robot-contract-3.0",
   "robot_id": "unitree_go2",
-  "family": "Unitree Go2",
-  "size_class": "M",
-  "locomotion_type": "P",
-  "urdf": {
-    "path": "assets/robots/unitree_go2/model/robot.xml",
-    "hash": "",
-    "total_mass_kg": 15.206408,
-    "mass_source": "mjcf_compiled"
+  "morphology": {
+    "id": "quadruped_12dof",
+    "legs": 4,
+    "leg_pattern": [
+      "hip",
+      "thigh",
+      "calf"
+    ],
+    "leg_naming": "{LR}_{role}_joint",
+    "actuator_type": "position",
+    "foot_type": "point",
+    "wheel_indices": [],
+    "mass_source": "mjcf_compiled",
+    "leg_ids": [
+      "FL",
+      "FR",
+      "RL",
+      "RR"
+    ],
+    "actuated_via": "leg_pattern×legs"
   },
   "joints": {
-    "actuated_joints": [
-      "FL_hip_joint",
-      "FL_thigh_joint",
-      "FL_calf_joint",
-      "FR_hip_joint",
-      "FR_thigh_joint",
-      "FR_calf_joint",
-      "RL_hip_joint",
-      "RL_thigh_joint",
-      "RL_calf_joint",
-      "RR_hip_joint",
-      "RR_thigh_joint",
-      "RR_calf_joint"
+    "actuated": [
+      {
+        "name": "FL_hip_joint",
+        "leg": "FL",
+        "role": "hip"
+      },
+      {
+        "name": "FL_thigh_joint",
+        "leg": "FL",
+        "role": "thigh"
+      },
+      {
+        "name": "FL_calf_joint",
+        "leg": "FL",
+        "role": "calf"
+      },
+      {
+        "name": "FR_hip_joint",
+        "leg": "FR",
+        "role": "hip"
+      },
+      {
+        "name": "FR_thigh_joint",
+        "leg": "FR",
+        "role": "thigh"
+      },
+      {
+        "name": "FR_calf_joint",
+        "leg": "FR",
+        "role": "calf"
+      },
+      {
+        "name": "RL_hip_joint",
+        "leg": "RL",
+        "role": "hip"
+      },
+      {
+        "name": "RL_thigh_joint",
+        "leg": "RL",
+        "role": "thigh"
+      },
+      {
+        "name": "RL_calf_joint",
+        "leg": "RL",
+        "role": "calf"
+      },
+      {
+        "name": "RR_hip_joint",
+        "leg": "RR",
+        "role": "hip"
+      },
+      {
+        "name": "RR_thigh_joint",
+        "leg": "RR",
+        "role": "thigh"
+      },
+      {
+        "name": "RR_calf_joint",
+        "leg": "RR",
+        "role": "calf"
+      }
     ],
-    "passive_joints": [],
     "default_pose": [
       0.1,
       0.8,
@@ -42,19 +100,42 @@
       -1.5
     ]
   },
-  "observation": {
-    "dimension": 45,
-    "components": [
-      "base_lin_vel",
-      "base_ang_vel",
-      "projected_gravity",
-      "joint_pos",
-      "joint_vel",
-      "last_action"
-    ]
+  "actuator_profile": {
+    "by_role": {
+      "hip": {
+        "stiffness": 20.0,
+        "damping": 0.5,
+        "effort": 23.7,
+        "armature": 0.01,
+        "mode": "torque",
+        "action_scale": 0.25,
+        "velocity_limit": 30.1
+      },
+      "thigh": {
+        "stiffness": 20.0,
+        "damping": 0.5,
+        "effort": 23.7,
+        "armature": 0.01,
+        "mode": "torque",
+        "action_scale": 0.25,
+        "velocity_limit": 30.1
+      },
+      "calf": {
+        "stiffness": 20.0,
+        "damping": 0.5,
+        "effort": 35.55,
+        "armature": 0.02,
+        "mode": "torque",
+        "action_scale": 0.25,
+        "velocity_limit": 15.7
+      }
+    },
+    "default": {
+      "friction_loss": 0.2
+    },
+    "by_joint": {}
   },
   "action": {
-    "dimension": 12,
     "joint_order": [
       "FL_hip_joint",
       "FL_thigh_joint",
@@ -71,11 +152,74 @@
     ],
     "action_scale": 0.25
   },
+  "observation": {
+    "components": [
+      {
+        "name": "base_ang_vel",
+        "width": 3,
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "projected_gravity",
+        "width": 3,
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "commands",
+        "width": 3,
+        "source": "cmd",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "joint_pos",
+        "width": 12,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "joint_vel",
+        "width": 12,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "last_action",
+        "width": 12,
+        "source": "action",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      }
+    ],
+    "dimension": 45
+  },
   "control": {
     "control_hz": 50,
-    "physics_hz": 1000,
-    "decimation": 20
+    "physics_hz": 500,
+    "decimation": 10
   },
+  "contract_id": "unitree_go2_v3",
+  "family": "Unitree Go2",
+  "size_class": "M",
+  "locomotion_type": "P",
   "description": "Canonical Unitree Go2 MJCF preset sourced from the local UniLab asset snapshot.",
   "tags": [
     "mvp",
@@ -83,6 +227,13 @@
     "P",
     "python-3.12"
   ],
-  "source": "unilab_new/UniLab",
-  "python_version": "3.12"
+  "source": "unilab_new/UniLab"
+,
+  "physics_domain": {
+    "contact": {
+      "authority": "training_domain",
+      "official_reference": "unitreerobotics/unitree_mujoco@1eb6642 unitree_robots/go2/go2.xml",
+      "note": "接触参数（default geom friction / 足端 contype·conaffinity / condim / solref）按【训练域】口径管理，**不是物理事实**：真机地面摩擦本身不是常数，它是域随机化的对象。数值只保留在 MJCF 一处（单一真源），本区块只声明归属与对照来源，**不复制数值**；逐机型「我方 vs 官方」对照登记在 00_know/03_参数真值标准.md。它不参与 bake_mjcf_physics 固化，也不属于物理真值唯一性门禁。"
+    }
+  }
 }

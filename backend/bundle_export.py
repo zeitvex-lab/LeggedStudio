@@ -36,9 +36,10 @@ Pack 的 `morphology_ref / skill_ref / scenario_ref / policy_ref` 用的是
 
 from __future__ import annotations
 
-import hashlib
 import json
 import shutil
+from backend.api_routes import BROWSER_PACKAGE_URL_PREFIX, browser_package_url_prefix
+from contracts.validator import normalized_sha256  # noqa: E402  (归一摘要唯一实现)
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -65,17 +66,17 @@ REQUIRED_ROLES: dict[str, frozenset[str]] = {
 _SKIP_DIRS = frozenset({".git", "__pycache__", ".venv", "node_modules"})
 
 
-def _workspace_root() -> Path:
-    """工作区根（与 `backend.robot_packages._workspace_root` 同一优先级：环境变量 > 仓库 workspace/）。"""
-
-    import os
-
-    configured = os.environ.get("LEGGED_STUDIO_WORKSPACE")
-    return Path(configured).expanduser().resolve() if configured else ROOT / "workspace"
+from backend.paths import workspace_root as _workspace_root  # 唯一实现见 backend/paths.py
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """规范化内容哈希：委托 ``contracts.validator.normalized_sha256``（**唯一实现**）。
+
+    这个值既写进离线包 manifest、又在 verify 时重算比对 —— 用原始字节会让
+    "Windows 上打出来的包、在另一台机器 verify"必然失败（包内文本是 CRLF），
+    而那正是离线包最常见的用法（打包机上验、目标机上跑）。
+    """
+    return normalized_sha256(path.read_bytes())
 
 
 def _read_json(path: Path) -> Any:
@@ -220,7 +221,7 @@ def _model_files(package_root: Path, manifest: dict[str, Any]) -> list[tuple[Pat
 def export_morphology(
     robot_id: str, out_dir: Path | str, *, emit_manifest: bool = True, prefix: str = "morphology/",
 ) -> dict[str, Any]:
-    """**Morphology 包**：形态与契约（`robot_package.json` + `contract.json` + `contract_v3.json` + 模型/网格）。
+    """**Morphology 包**：形态与契约（`robot_package.json` + `contract.json` + `contract_legacy_v2.json` + 模型/网格）。
 
     有意**不含** `training/`（训练源码）与策略权重 —— 那些属别的粒度（Skill / Policy / Bundle），
     把它们塞进形态包会让"形态包"变成一个含糊的大包（也就没法单独校验形态是否可渲染/可加载）。
@@ -233,7 +234,7 @@ def export_morphology(
     package_manifest = package_root / "robot_package.json"
     writer.copy(package_manifest, f"{prefix}robot_package.json", role="package_manifest")
     manifest_data = _read_json(package_manifest)
-    for name, role in (("contract.json", "contract"), ("contract_v3.json", "contract_v3")):
+    for name, role in (("contract.json", "contract"), ("contract_legacy_v2.json", "contract_legacy_v2")):
         source = package_root / name
         if source.is_file():
             writer.copy(source, f"{prefix}{name}", role=role)
@@ -241,7 +242,7 @@ def export_morphology(
             writer.notes.append(f"{name} 不存在（形态可渲染但语义层不完整）")
     for source, relative in _model_files(package_root, manifest_data):
         writer.copy(source, f"{prefix}{relative}", role="model")
-    return writer.finish(refs={"morphology": ref(id=robot_id, path=package_root / "contract_v3.json")}, emit=emit_manifest)
+    return writer.finish(refs={"morphology": ref(id=robot_id, path=package_root / "contract.json")}, emit=emit_manifest)
 
 
 def export_skill(recipe_id: str, out_dir: Path | str, *, emit_manifest: bool = True) -> dict[str, Any]:
@@ -534,18 +535,21 @@ def _policy_placement(
 
     # 出库目录**必须可指定**：单元测试与"导出别人机器上的索引"都要能指到别处；
     # 写死默认目录会让"装进包但在另一个 out_dir"的产物解析不到（回挂的落点就退回兜底文件名）。
-    entry = (pa.load_index(out_dir_index) if out_dir_index else pa.load_index()).get(artifact_id) or {}
+    index = pa.load_index(out_dir_index) if out_dir_index else pa.load_index()
+    entry = index.get(artifact_id) or {}
     source = str(entry.get("source_onnx") or "")
     name = Path(source).name if source else "policy.onnx"
     if source and package_root is not None:
-        resolved = Path(source)
-        resolved = resolved if resolved.is_absolute() else ROOT / resolved
-        try:
-            # 产物已在包内（提升/B10 回挂之后）：落回同一相对路径 ⇒ Bundle 的 config 能解析到它，
-            # `--policy-id` 在 Bundle 自身内即可用。
-            return "policy/", resolved.resolve().relative_to(package_root.resolve()).as_posix(), str(entry.get("policy_id") or "") or None
-        except ValueError:
-            pass
+        # 统一解析入口（仓库相对 / 包内相对 / 安装时机器落点）——本函数自己拼 `ROOT / source`
+        # 会在 source 是包内相对路径时判成"不在包内"，于是退化成兜底文件名（回挂白做）。
+        resolved = pa.policy_blob_path({"artifact_id": artifact_id}, index=index)
+        if resolved is not None:
+            try:
+                # 产物已在包内（提升/B10 回挂之后）：落回同一相对路径 ⇒ Bundle 的 config 能解析到它，
+                # `--policy-id` 在 Bundle 自身内即可用。
+                return "policy/", resolved.resolve().relative_to(package_root.resolve()).as_posix(), str(entry.get("policy_id") or "") or None
+            except ValueError:
+                pass
     # produced 产物（未绑定任何包内策略条目）⇒ 放 simulation/policies/<文件名>，bound_entry=null
     return "policy/", f"simulation/policies/{name}", None
 
@@ -595,7 +599,7 @@ def _localise_urls(value: Any, robot_id: str) -> Any:
     只改 URL，不动其它字段 —— 形状来自后端，改动面越小越不容易漂。
     """
 
-    prefix = f"/api/simulation/browser-package/{robot_id}/"
+    prefix = browser_package_url_prefix(robot_id)
     if isinstance(value, str):
         if value.startswith(prefix):
             return f"../{value[len(prefix):]}"
@@ -654,6 +658,10 @@ def bootstrap_js(payload: dict[str, Any]) -> str:
     """生成拦截 `fetch` 的引导脚本（内联两份响应，不依赖任何网络）。"""
 
     body = json.dumps(payload, ensure_ascii=False)
+    # 浏览器包 URL 的形状由 ``backend.api_routes`` 定义；这里只把它转义成 **JS 正则字面量**。
+    # 此前这行是第二个（跨语言的）字面量：改前缀时 Python 侧改了、这段 JS 忘了，
+    # 离线播放器就会把包内文件请求当"离线包不含该接口"回 501——一次典型的 silent break。
+    asset_url_pattern = BROWSER_PACKAGE_URL_PREFIX.replace("/", chr(92) + "/")
     # Raw 字符串：下面 JS 里的 `\/` 是**给 JS 看的**转义，不该被 Python 再解释一遍
     # （不写 r 会有 SyntaxWarning: invalid escape sequence，且语义上误导读者）。
     return rf"""// 由 `backend/bundle_export.py` 生成：离线 sim2sim 引导层（I4）。
@@ -676,7 +684,7 @@ window.fetch = async (input, init) => {{
     if (config) return json(config);
     return json({{ detail: `离线包只含 ${{OFFLINE.robot}}：${{key}}` }}, 404);
   }}
-  const assetMatch = path.match(/^\/api\/simulation\/browser-package\/[^/]+\/(.+)$/);
+  const assetMatch = path.match(/^{asset_url_pattern}/[^/]+\/(.+)$/);
   if (assetMatch) {{
     const local = `../${{assetMatch[1]}}`;
     console.info("[offline] 包内文件重写：", path, "->", local);

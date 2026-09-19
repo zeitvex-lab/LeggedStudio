@@ -1,11 +1,16 @@
 {
+  "action_dim": 12,
+  "algorithm": null,
   "artifact_id": "unitree_b2__produced-unitree_b2_v1_20260918_015414_313841",
+  "aux_blobs": [],
   "contract": {
     "action_dim": 12,
     "obs_dim": 48,
     "observation_kind": "unknown"
   },
-  "contract_digest": "6df193bc066797732cdfbd7c6bd9445fd144c0bd6769814c1c4a62c423d336c1",
+  "contract_digest": "6e8436e4dfd3d2ef66e6ae5d40a81de180ddcfca48dd290d94c007daa0303aec",
+  "declared_source": null,
+  "history_len": null,
   "installed": {
     "package_path": "simulation/policies/unitree_b2-trained-20260918-015414.onnx",
     "policy_id": "unitree_b2-trained-20260918-015414",
@@ -13,13 +18,16 @@
     "robot": "unitree_b2"
   },
   "kind": "produced",
+  "label": "训练产物（run unitree_b2_v1_20260918_015414_313841）",
   "obs_dim": 48,
   "obs_dim_source": "onnx",
   "observation_kind": "go2_mjlab_actor_48",
   "onnx_bytes": 766846,
-  "onnx_sha256": "fa246aa3dd7cda08b23107ae3072ec192a6195cb34416476d799915fab8e2283",
+  "onnx_sha256": "44367ab0febd6521a6c7e3e111bfe9086acac656d916d18a4a99dedd1d7ac719",
+  "policy_id": "unitree_b2-trained-20260918-015414",
   "robot": "unitree_b2",
   "run_id": "unitree_b2_v1_20260918_015414_313841",
   "schema": "policy-artifact-1.0",
-  "source_onnx": "assets/robots/unitree_b2/simulation/policies/unitree_b2-trained-20260918-015414.onnx"
+  "source_onnx": "simulation/policies/unitree_b2-trained-20260918-015414.onnx",
+  "task_type": null
 }

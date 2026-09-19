@@ -8,7 +8,7 @@
         * imu site renamed to "imu" and template-style sensor suite added
           (mjlab velocity task reads these);
         * floor/light/texture removed (mjlab supplies terrain).
-      Joint names match contract_v3.json `joints.actuated` verbatim.
+      Joint names match contract.json `joints.actuated` verbatim.
     -->
 
     <option cone="elliptic" impratio="100" />

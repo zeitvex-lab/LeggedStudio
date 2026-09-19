@@ -10,7 +10,7 @@
   "label": "Go2 CTS-max2 (kaiwu_rl)",
   "obs_dim": 45,
   "onnx_bytes": 1852436,
-  "onnx_sha256": "4165d41fbeb9d6aee466971d7d21645710f6dd58d3485e62525db16c73fecbc3",
+  "onnx_sha256": "be847331ee119e86e5534b23537227f51dd86d4006e20af68681b4e833e8f079",
   "policy_id": "go2-kaiwu-cts-max2",
   "robot": "unitree_go2",
   "run_id": null,

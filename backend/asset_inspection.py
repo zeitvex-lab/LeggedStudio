@@ -142,17 +142,17 @@ def _inertia_card(root: Path) -> dict:
     return _card("pass", "连杆惯量张量全部为正（列出前 12 个）", degenerate=0, bodies=bodies[:12])
 
 
-def _motor_card(contract_v3: dict | None, official: dict | None) -> dict:
-    if not contract_v3:
-        return _card("warn", "契约 v3 缺失，电机参数卡需要先迁移（tools/migrate_contract_v3.py）")
+def _motor_card(contract_truth: dict | None, official: dict | None) -> dict:
+    if not contract_truth:
+        return _card("warn", "契约真值 缺失，电机参数卡需要先迁移（tools/migrate_contract.py）")
     try:
         from contracts.role_resolver import RoleResolver
 
-        expanded = RoleResolver(contract_v3).expand_actuator_profile()
+        expanded = RoleResolver(contract_truth).expand_actuator_profile()
     except Exception as exc:
-        return _card("fail", f"契约 v3 展开失败：{exc}")
+        return _card("fail", f"契约真值 展开失败：{exc}")
     by_role: dict[str, dict[str, Any]] = {}
-    for entry in contract_v3["joints"]["actuated"]:
+    for entry in contract_truth["joints"]["actuated"]:
         by_role.setdefault(entry["role"], []).append(entry["name"])
     table = {}
     diffs: list[dict] = []
@@ -198,11 +198,11 @@ def _motor_card(contract_v3: dict | None, official: dict | None) -> dict:
     return _card("pass", "无官方参考源（official_actuator.json 缺失），仅展示角色分组参数", roles=table, official_source=None, diffs=[])
 
 
-def _joint_card(contract_v2: dict, contract_v3: dict | None) -> dict:
+def _joint_card(contract_v2: dict, contract_truth: dict | None) -> dict:
     order = contract_v2.get("action", {}).get("joint_order") or []
     limits = contract_v2.get("joints", {}).get("joint_limits") or {}
     default_pose = contract_v2.get("joints", {}).get("default_pose") or []
-    reindex = (contract_v3 or {}).get("action", {}).get("reindex_from_model")
+    reindex = (contract_truth or {}).get("action", {}).get("reindex_from_model")
     details = []
     for i, name in enumerate(order):
         limit = limits.get(name) or {}
@@ -223,15 +223,15 @@ def _joint_card(contract_v2: dict, contract_v3: dict | None) -> dict:
 def inspect_package(root: Path) -> dict:
     """五卡体检。root = 机器人包目录（assets/robots/<id> 或 workspace 副本）。"""
 
-    contract_v2 = _load_json(root / "contract.json") or {}
-    contract_v3 = _load_json(root / "contract_v3.json")
+    contract_v2 = _load_json(root / "contract_legacy_v2.json") or {}
+    contract_truth = _load_json(root / "contract.json")
     official = _load_json(root / "official_actuator.json")
     cards = {
         "mass": _mass_card(root, contract_v2),
         "collision": _collision_card(root),
         "inertia": _inertia_card(root),
-        "motor": _motor_card(contract_v3, official),
-        "joints": _joint_card(contract_v2, contract_v3),
+        "motor": _motor_card(contract_truth, official),
+        "joints": _joint_card(contract_v2, contract_truth),
     }
     worst = "pass"
     for status in ("fail", "warn"):

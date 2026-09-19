@@ -58,7 +58,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import platform
@@ -70,6 +69,12 @@ from typing import Any
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# 统一自举：见 contracts/path_bootstrap.py（幂等）。本模块既要作为扁平脚本被同行导入
+# （``from frame_log import ...``），也要能用 ``contracts``（归一摘要唯一实现）。
+if str(Path(__file__).resolve().parents[2]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from contracts.validator import normalized_sha256  # noqa: E402  (归一摘要唯一实现)
 
 from policy_acceptance import (  # noqa: E402
     ObsBuilder,
@@ -99,7 +104,14 @@ FRAME_HEAD_FIELDS = ("schema", "created_at", "producer", "seed", "cmd", "steps",
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """归一摘要（CRLF → LF）：委托 ``contracts.validator``（**唯一实现**）。
+
+    这份值进复现清单（R2 判据），指向的正是 ``policy_artifacts.policy_ref.sha256``
+    所指向的同一份策略文件 —— 两处口径不同，会让"同一份策略"在清单与 Pack 里
+    出现两个哈希。
+    """
+
+    return normalized_sha256(path.read_bytes())
 
 
 def _repo_relative(path: Path) -> str:

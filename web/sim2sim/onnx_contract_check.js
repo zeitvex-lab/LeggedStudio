@@ -26,7 +26,7 @@
 // 3) 仓库实测覆盖率（用本模块的扫描器逐文件扫 assets/robots + web/sim2sim/models）：
 //    48 个打包 onnx 里 11 个带 metadata_props，且 11/11 都带 joint_names；
 //    45 条包内声明的策略（backend.policy_artifacts 解析）中 11 条带章，并用
-//    包内 contract_v3 + 各自 policy contract 比对全部一致（含 go2w 腿子集
+//    包内 contract_truth + 各自 policy contract 比对全部一致（含 go2w 腿子集
 //    12 槽、g1 29 关节）。34/45 条历史/第三方导入策略完全没有元数据
 //    （himloco/robotlab/rlsar/kaiwu/zex-w…），硬拒它们等于废掉 3/4 策略库。
 //

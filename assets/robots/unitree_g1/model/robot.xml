@@ -1,6 +1,6 @@
 <mujoco model="g1_29dof_rev_1_0">
   <compiler angle="radian" meshdir="assets" autolimits="true"/>
-  <!-- timestep 不在此声明：运行时统一取 contract_v3.json control.physics_hz -->
+  <!-- timestep 不在此声明：运行时统一取 contract.json control.physics_hz -->
   <option integrator="implicitfast" solver="Newton" iterations="10" ls_iterations="20" gravity="0 0 -9.81" />
 
 

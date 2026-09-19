@@ -2,7 +2,7 @@
  * Robot Contract v3 TypeScript types.
  *
  * 真值源：contracts/schema/robot-contract-3.0.schema.json
- * 与 contracts/generated/robot_contract_v3.py（Python 侧）逐字段对齐，
+ * 与 contracts/generated/robot_contract.py（Python 侧）逐字段对齐，
  * 再生成：python tools/generate_contract_models.py（json-schema-to-typescript）。
  * parity 由 contracts/tests/test_role_resolver_v3.py 守护。
  */

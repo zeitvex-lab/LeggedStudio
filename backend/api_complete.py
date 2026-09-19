@@ -11,6 +11,8 @@ from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from pathlib import Path
+from contracts.validator import normalized_sha256  # 归一摘要唯一实现
+
 import json
 import mimetypes
 import os
@@ -82,7 +84,7 @@ try:
 except ImportError as exc:  # optional MuJoCo/NumPy stack
     simulation_router = None
     SIM_IMPORT_ERROR = str(exc)
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 from contracts.validator import validate_contract as validate_robot_contract
 from contracts.scenario_contract import ScenarioContract
 from adapters.mjlab.native_adapter import preflight as native_mjlab_preflight
@@ -353,9 +355,9 @@ async def import_robot_package(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="path 必须是绝对路径")
     if not source.is_dir():
         raise HTTPException(status_code=404, detail=f"目录不存在: {source}")
-    if not (source / "contract.json").is_file() or not (source / "robot_package.json").is_file():
-        raise HTTPException(status_code=400, detail="目标目录缺少 contract.json 或 robot_package.json，不是有效的机器人包")
-    contract = robot_packages._read_json(source / "contract.json")
+    if not (source / "contract_legacy_v2.json").is_file() or not (source / "robot_package.json").is_file():
+        raise HTTPException(status_code=400, detail="目标目录缺少 contract_legacy_v2.json 或 robot_package.json，不是有效的机器人包")
+    contract = robot_packages._read_json(source / "contract_legacy_v2.json")
     robot_id = str(contract.get("robot_id") or robot_packages._read_json(source / "robot_package.json").get("package_id") or source.name)
     workspace_root = robot_packages._workspace_root()
     packages_root = (workspace_root / "packages").resolve()
@@ -425,17 +427,17 @@ async def export_robot_package(robot_id: str):
 
 
 @app.get("/api/robots/packages/{robot_id}/contract-v3")
-async def get_robot_contract_v3(robot_id: str) -> dict[str, Any]:
-    """D2：读包内契约 v3——动作映射页的 reindex_from_model 可见可比对。"""
+async def get_robot_contract(robot_id: str) -> dict[str, Any]:
+    """D2：读包内契约真值——动作映射页的 reindex_from_model 可见可比对。"""
     preset = load_robot_preset(robot_id)
     if preset is None:
         raise HTTPException(status_code=404, detail=f"Unknown robot package: {robot_id}")
     root = Path(str((preset.get("robot_package") or {}).get("package_root", "")))
-    v3_path = root / "contract_v3.json"
+    v3_path = root / "contract.json"
     if not v3_path.exists():
-        return {"success": True, "contract_v3": None}
+        return {"success": True, "contract": None}
     try:
-        return {"success": True, "contract_v3": json.loads(v3_path.read_text(encoding="utf-8-sig"))}
+        return {"success": True, "contract": json.loads(v3_path.read_text(encoding="utf-8-sig"))}
     except (OSError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -449,7 +451,7 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
     contract = payload.get("contract") if isinstance(payload.get("contract"), dict) else payload
     if not isinstance(contract, dict):
         raise HTTPException(status_code=400, detail="contract must be an object")
-    # P1：T-N 曲线（高级参数）走**独立顶层键**，不塞进 v2 contract——它只有契约 v3 语义
+    # P1：T-N 曲线（高级参数）走**独立顶层键**，不塞进 v2 contract——它只有契约真值 语义
     # （`actuator_profile[].t_n_curve`），写进 v2 只会又造一个"两个家"。
     # 兼容 `contract.control.t_n_curve` 的写法（手写请求也会被正确接收）。
     t_n_curve_payload = payload.get("t_n_curve")
@@ -476,7 +478,7 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
     if requested_model == "dc_motor":
         # 开了 DC 模型却没有任何曲线 → 拒绝（不静默回退到 ideal_pd：那等于用户以为生效了）
         _existing_root = Path(str((preset.get("robot_package") or {}).get("package_root", "")))
-        _existing_v3 = _existing_root / "contract_v3.json"
+        _existing_v3 = _existing_root / "contract.json"
         _scratch = json.loads(_existing_v3.read_text(encoding="utf-8-sig")) if _existing_v3.is_file() else {}
         _validate_t_n_curves(_scratch, t_n_curve_payload)
         _profile = _scratch.get("actuator_profile") or {}
@@ -490,7 +492,7 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
                 detail="actuator_model=dc_motor 但包内没有任何 t_n_curve 曲线：请先填写 T-N 曲线（不静默回退到 ideal_pd）",
             )
     try:
-        contract_model = RobotContractV2(**contract)
+        contract_model = ContractLegacyV2(**contract)
         contract_result = validate_robot_contract(contract_model)
         if not contract_result.valid:
             raise ValueError("; ".join(item.message for item in contract_result.errors))
@@ -508,7 +510,7 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
                 shutil.copytree(root, target)
         else:
             raise ValueError("package is outside writable package roots")
-        contract_path = target / "contract.json"
+        contract_path = target / "contract_legacy_v2.json"
         contract_path.write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         simulation = payload.get("simulation") if isinstance(payload.get("simulation"), dict) else {}
         simulation_path = target / "simulation" / "config.json"
@@ -520,7 +522,7 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
                 previous = {}
         simulation_path.parent.mkdir(parents=True, exist_ok=True)
         # B3 收尾：merged_simulation 仍保留全部键（下方 D4 段要把控制层标量同步进
-        # 契约 v3），但**落盘时剔除已废弃的物理键**——物理事实只剩契约 v3 一处，
+        # 契约真值），但**落盘时剔除已废弃的物理键**——物理事实只剩契约真值 一处，
         # 否则前端每次保存都会把这组重复键写回来，训练/验收侧又读到失效的 armature。
         from contracts.physics_binding import LEGACY_CONFIG_PHYSICS_KEYS
 
@@ -529,7 +531,7 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
             key: value for key, value in merged_simulation.items() if key not in LEGACY_CONFIG_PHYSICS_KEYS
         }
         simulation_path.write_text(json.dumps(persisted_simulation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        # D4：同步 contract_v3.json——v3 是训练/浏览器仿真的单一真值（B2/B5），
+        # D4：同步 contract.json——v3 是训练/浏览器仿真的单一真值（B2/B5），
         # 只写 v2 会让"工作台保存"对训练与仿真静默失效（无两处不一致的验收）。
         # 不重新迁移（会丢人工校准的 by_role/role_hints），而是外科手术式地把
         # 本次编辑的字段同步进 v3：joint_order / default_pose / control / 增益。
@@ -537,10 +539,10 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
         v3_gains: list[str] = []
         v3_t_n_curves: list[str] = []
         control_rates: dict[str, Any] = {}
-        v3_path = target / "contract_v3.json"
+        v3_path = target / "contract.json"
         if v3_path.exists():
             try:
-                from contracts.generated import dump_v3, parse_v3
+                from contracts.generated import dump_v3, parse_contract
 
                 v3 = json.loads(v3_path.read_text(encoding="utf-8-sig"))
                 new_order = contract.get("action", {}).get("joint_order") or \
@@ -572,7 +574,7 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
                 )
                 # D10：action_scale 的**标量缺省**也要同步进 v3——工作台的「动作缩放」
                 # 卡片既有标量框也有逐段框，只写 v2 的 action.action_scale 会让浏览器
-                # 与训练侧继续读 v3 的旧值（B5/2 起 action_scale 唯一真值在契约 v3）。
+                # 与训练侧继续读 v3 的旧值（B5/2 起 action_scale 唯一真值在契约真值）。
                 payload_scale = (contract.get("action") or {}).get("action_scale")
                 if payload_scale is not None:
                     v3.setdefault("action", {})["action_scale"] = payload_scale
@@ -590,7 +592,7 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
                 v3_gains = apply_actuator_gains(v3, contract.get("control") or {})
                 # P1：T-N 曲线（高级参数）——同一归层规则，值为折线点列
                 v3_t_n_curves = apply_t_n_curves(v3, t_n_curve_payload)
-                v3_model = parse_v3(v3)  # 校验；失败则不写，保留原 v3
+                v3_model = parse_contract(v3)  # 校验；失败则不写，保留原 v3
                 v3_path.write_text(
                     json.dumps(dump_v3(v3_model), ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8",
@@ -601,7 +603,8 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
         descriptor_path = target / "robot_package.json"
         if descriptor_path.exists():
             descriptor = json.loads(descriptor_path.read_text(encoding="utf-8-sig"))
-            descriptor["content_sha256"] = __import__("hashlib").sha256(contract_path.read_bytes()).hexdigest()
+            # content_sha256 是"包内容摘要"字段：口径必须与 model_api / project_api 同源
+            descriptor["content_sha256"] = normalized_sha256(contract_path.read_bytes())
             descriptor_path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         upsert_package(target)
         from backend import robot_packages as _packages
@@ -615,7 +618,7 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
 async def validate_robot_contract_endpoint(contract_data: dict[str, Any]) -> dict[str, Any]:
     """Validate the canonical Robot Contract v2 used by every workflow step."""
     try:
-        contract = RobotContractV2(**contract_data)
+        contract = ContractLegacyV2(**contract_data)
     except Exception as exc:
         return {"valid": False, "errors": [str(exc)], "warnings": []}
 

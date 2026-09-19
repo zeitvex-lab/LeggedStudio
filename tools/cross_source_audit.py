@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""跨源对照审计（B20）：把契约 v3 的 ``effort`` / ``velocity_limit`` 与**外部源**逐关节对照。
+"""跨源对照审计（B20）：把契约真值 的 ``effort`` / ``velocity_limit`` 与**外部源**逐关节对照。
 
 方法（2026-09-13 用户提出并已用 g1 验证，见任务清单 §方法固化）
 ----------------------------------------------------------------
@@ -154,7 +154,7 @@ def _extract_limits(path: pathlib.Path) -> dict[str, dict[str, float]]:
 
 
 def audit_robot(robot_id: str) -> dict:
-    contract_path = ROBOTS_DIR / robot_id / "contract_v3.json"
+    contract_path = ROBOTS_DIR / robot_id / "contract.json"
     contract = json.loads(contract_path.read_text(encoding="utf-8-sig"))
     expanded = RoleResolver(contract).expand_actuator_profile()
 
@@ -261,7 +261,7 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
-    robots = sorted(p.name for p in ROBOTS_DIR.iterdir() if (p / "contract_v3.json").is_file())
+    robots = sorted(p.name for p in ROBOTS_DIR.iterdir() if (p / "contract.json").is_file())
     if args.robot_id:
         robots = [r for r in robots if r == args.robot_id]
         if not robots:

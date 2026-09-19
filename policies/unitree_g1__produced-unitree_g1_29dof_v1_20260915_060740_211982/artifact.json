@@ -5,7 +5,7 @@
   "obs_dim_source": "onnx",
   "observation_kind": "unknown",
   "onnx_bytes": 889126,
-  "onnx_sha256": "b4497b813f4193f5fa2b4bb4358d504dcc5d87dc9984d8851d16cf3a03dd8f86",
+  "onnx_sha256": "16a5bc58819e6beeae4957ef15926ba32ccf6dd14c4e116b926fe6e79f25c8f4",
   "run_id": "unitree_g1_29dof_v1_20260915_060740_211982",
   "schema": "policy-artifact-1.0",
   "source_onnx": "policies/unitree_g1__produced-unitree_g1_29dof_v1_20260915_060740_211982/policy.onnx"

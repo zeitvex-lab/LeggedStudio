@@ -10,7 +10,7 @@
   "label": "Dance Gangnam Style (motion tracking)",
   "obs_dim": 154,
   "onnx_bytes": 990821,
-  "onnx_sha256": "55bff3269e161796164197ee6e5517a74c7b82af8e7ce572a04c93676a52fb02",
+  "onnx_sha256": "6ac823f280fbc4254ba93b4b3c6451b5b558d170fe46e033b701c503ec4c8265",
   "policy_id": "g1-dance-gangnam-style",
   "robot": "unitree_g1",
   "run_id": null,

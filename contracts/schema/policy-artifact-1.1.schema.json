@@ -27,7 +27,7 @@
     },
     "contract_snapshot": {
       "type": "object",
-      "description": "1.1 新增：训练时契约 v3 快照（UniLab contract_snapshot 语义，T0.5 写入 run_config）"
+      "description": "1.1 新增：训练时契约真值 快照（UniLab contract_snapshot 语义，T0.5 写入 run_config）"
     },
     "observation": {
       "type": "object",

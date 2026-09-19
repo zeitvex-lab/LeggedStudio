@@ -14,7 +14,7 @@
        - imu site + mjlab-convention sensors; no built-in actuators
          (PD injected by the training task / browser runtime) -->
   <compiler angle="radian" meshdir="assets" autolimits="true"/>
-  <!-- timestep 不在此声明：运行时统一取 contract_v3.json control.physics_hz -->
+  <!-- timestep 不在此声明：运行时统一取 contract.json control.physics_hz -->
   <option gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" impratio="100" />
 
   <default>

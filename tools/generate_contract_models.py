@@ -2,7 +2,7 @@
 
 真值源：contracts/schema/robot-contract-3.0.schema.json
 产物：
-  - contracts/generated/robot_contract_v3.py   （Pydantic v2 模型）
+  - contracts/generated/robot_contract.py   （Pydantic v2 模型）
   - web/shared/generated/types.d.ts            （TypeScript 类型）
 
 两种运行模式：
@@ -46,7 +46,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "contracts" / "schema" / "robot-contract-3.0.schema.json"
-PY_OUT = ROOT / "contracts" / "generated" / "robot_contract_v3.py"
+PY_OUT = ROOT / "contracts" / "generated" / "robot_contract.py"
 TS_OUT = ROOT / "web" / "shared" / "generated" / "types.d.ts"
 
 # 嵌套模型字段级校验：验证 schema $defs 的关键嵌套字段与 Pydantic/TS 子模型是否同步。
@@ -167,7 +167,7 @@ _DATAMODEL_CMD = [
     "uvx", "datamodel-code-generator",
     "--input", str(SCHEMA.relative_to(ROOT)),
     "--input-file-type", "jsonschema",
-    "--output", "/tmp/robot_contract_v3.py",
+    "--output", "/tmp/robot_contract.py",
     "--output-model-type", "pydantic_v2.BaseModel",
 ]
 _JSTS_CMD = [
@@ -180,7 +180,7 @@ def write() -> int:
     """用真实工具重新生成（输出到 stdout 路径以人工核对，不覆盖签入产物）。"""
     print(">>> 注意：机械生成与签入的语义对齐版本存在格式差异，仅供人工核对，不覆盖签入产物。")
     if shutil.which("uvx"):
-        print("+ datamodel-code-generator 生成 Python 模型（写 /tmp/robot_contract_v3.py）...")
+        print("+ datamodel-code-generator 生成 Python 模型（写 /tmp/robot_contract.py）...")
         result = subprocess.run(_DATAMODEL_CMD, cwd=ROOT, check=False)
         if result.returncode != 0:
             print("datamodel-code-generator 失败，请手工核对 Python 产物")

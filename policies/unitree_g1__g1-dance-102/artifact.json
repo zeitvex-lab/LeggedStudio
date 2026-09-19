@@ -10,7 +10,7 @@
   "label": "Dance 102 (motion tracking)",
   "obs_dim": 154,
   "onnx_bytes": 990821,
-  "onnx_sha256": "e25202dbfdf453486a26772fc83b48286d08b3ddd47b75c6e82db76975fa1c76",
+  "onnx_sha256": "6392f105fa8b7c0200727d959dfcc14be5cf8b022ce288cd5f08fa49d308e1ef",
   "policy_id": "g1-dance-102",
   "robot": "unitree_g1",
   "run_id": null,

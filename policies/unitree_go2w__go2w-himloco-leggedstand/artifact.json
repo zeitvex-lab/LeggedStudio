@@ -10,7 +10,7 @@
   "label": "Go2W HIMLoco 后腿站立 (leggedstand)",
   "obs_dim": 57,
   "onnx_bytes": 1078609,
-  "onnx_sha256": "157a22d4585c9cc165d541c2c35a93bbfba0989910d0688c30d8822a835809ee",
+  "onnx_sha256": "845da825a8efae1934f2bdcf6bff3d945bcf9fc45b39bbc7ccd856d81e181a25",
   "policy_id": "go2w-himloco-leggedstand",
   "robot": "unitree_go2w",
   "run_id": null,

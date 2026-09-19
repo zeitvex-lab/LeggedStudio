@@ -10,7 +10,7 @@
   "label": "Unitree B2 Velocity Benchmark (rl_sar)",
   "obs_dim": 45,
   "onnx_bytes": 758426,
-  "onnx_sha256": "d75fdd0df7ebdb2588d0c20b4587ea9bc53e7716e62de788761a5cdf45753dcb",
+  "onnx_sha256": "8628d7f3719c8d1bdfed778d34a70c27ad138f019a503e0e471e0aa9ad2fe53b",
   "policy_id": "b2-velocity-benchmark",
   "robot": "unitree_b2",
   "run_id": null,

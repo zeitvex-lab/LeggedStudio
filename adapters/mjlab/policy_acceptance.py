@@ -220,7 +220,7 @@ class PackageContract:
         # 继续读 ``self.sim`` 会静默回落 200 / 4，而模型 timestep 已按契约设成 1/500 →
         #   ① 探针 ``total = seconds * physics_hz`` 少跑 60%（声明 3 s 实跑 1.2 s）；
         #   ② 策略刷新 ``step % decimation`` 变成每 4 步 = 125 Hz（契约是每 10 步 = 50 Hz）。
-        # 两者都会**静默改变验收结论**，与 armature 那次是同一类问题：改走契约 v3 单一真值。
+        # 两者都会**静默改变验收结论**，与 armature 那次是同一类问题：改走契约真值 单一真值。
         from contracts.physics_binding import physics_scalars
 
         scalars = physics_scalars(package_dir)
@@ -1533,7 +1533,7 @@ def load_package_model(package_dir: Path, sim_cfg: dict[str, Any],
                 model.geom_friction[gid] = floor_friction
     # 契约 physics_hz 是步长唯一真值：包内 robot.xml 常自带 timestep="0.001"，
     # 调用方漏改就会以 5 倍速跑（策略按 decimation 计频，频率直接错位）。
-    # B3 收尾：取值改走 physics_scalars（契约 v3 优先）——此前读 sim config 顶层
+    # B3 收尾：取值改走 physics_scalars（契约真值 优先）——此前读 sim config 顶层
     # physics_hz，去掉重复键后若不同步迁移就会静默回落 200（go2 契约是 500）。
     scalars = physics_scalars(package_dir)
     physics_hz = float(scalars.get("physics_hz") or 200)
@@ -1552,7 +1552,7 @@ def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
 
     **速度限幅（D9）**：此前这里只在记录 ``qvel_max``，从不与任何阈值比对——而
     浏览器侧的电机模型（``applyVelocityLimits``）一直在用速度限幅限速，"电机参数"
-    三端口径不一致（浏览器有、训练/验收没有）。现在把契约 v3 的
+    三端口径不一致（浏览器有、训练/验收没有）。现在把契约真值 的
     ``velocity_limit`` 拉进来，对峰值关节速度逐关节判定并显式报告。
     """
     # V4 fail-closed：动作空间声明缺失/自相矛盾时给明确中文原因，不抛裸 IndexError。
@@ -1575,7 +1575,7 @@ def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
 
     import mujoco
 
-    # D9：速度限幅的唯一真值 = 契约 v3（键统一小写，带 __default__ 兜底）。
+    # D9：速度限幅的唯一真值 = 契约真值（键统一小写，带 __default__ 兜底）。
     from contracts.physics_binding import joint_constant_tables
 
     speed_limits = joint_constant_tables(contract.root)["velocity_limits"]
@@ -1663,7 +1663,7 @@ def _speed_limit_report(contract: PackageContract, peak_by_joint: dict[str, floa
             "declared": False,
             "verdict": "skip",
             "note": (
-                "契约 v3 未声明 velocity_limit，本次不做速度判定"
+                "契约真值 未声明 velocity_limit，本次不做速度判定"
                 "（浏览器侧电机模型同样只会用缺省值——要判定请先在包内补速度限幅）"
             ),
             "worst": None,

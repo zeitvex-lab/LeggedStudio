@@ -7,7 +7,7 @@
       "declared": "simulation/policies/tron1_wf_tron1b_encoder.onnx",
       "missing": false,
       "role": "encoder",
-      "sha256": "80426c0a8c104929d6e7c2109dd3f8561c05c46c4eff3f9847e0a0413f0dfcc1",
+      "sha256": "910475135aac5f3f0524c06ce70a81a0ba516ff085091d5f1099355c52d3f19e",
       "source": "assets/robots/limx_tron1_wf/simulation/policies/tron1_wf_tron1b_encoder.onnx"
     }
   ],
@@ -18,7 +18,7 @@
   "label": "TRON1 WF velocity (TRON1B)",
   "obs_dim": 28,
   "onnx_bytes": 760668,
-  "onnx_sha256": "07a668304a9ca1c88c04a8a69caff41977eff840e396c259ba4bb8ec28c5c7c9",
+  "onnx_sha256": "9ed66853f0404086ec0d4b5b3e2638151c7092102219ce826264648fdff3b61a",
   "policy_id": "wf-velocity",
   "robot": "limx_tron1_wf",
   "run_id": null,

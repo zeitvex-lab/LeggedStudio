@@ -134,7 +134,7 @@ class BundleExportTest(unittest.TestCase):
         """回归：嵌套导出曾把前缀写重（`morphology/morphology/…`、`policy/policy/…`）。
 
         成因是"子导出自带前缀 + Bundle 再加前缀"。后果不只是难看：R1 回放就绪检查按
-        `morphology/contract.json` 找文件，找不到就判"不就绪"—— 一个路径拼接 bug 会伪装成
+        `morphology/contract_legacy_v2.json` 找文件，找不到就判"不就绪"—— 一个路径拼接 bug 会伪装成
         "这个包不能回放"。
         """
 
@@ -147,7 +147,7 @@ class BundleExportTest(unittest.TestCase):
                     rest = path.split("/", 1)[1]
                     self.assertFalse(rest.startswith(f"{head}/"), f"前缀写重了：{path}")
             # Bundle 采用**包布局**（根目录即可被验收器/产出端消费，R1/R2 的前提）
-            self.assertIn("contract.json", paths)
+            self.assertIn("contract_legacy_v2.json", paths)
             self.assertIn("simulation/config.json", paths)
 
     def test_dangling_skill_ref_is_recorded_not_hidden(self):
@@ -173,7 +173,7 @@ class BundleExportTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "bundle"
             bx.export_bundle(ROOT / "packs" / "zex-w.pack.json", out)
-            for required in ("robot_package.json", "contract.json", "model/robot.xml", "simulation/config.json"):
+            for required in ("robot_package.json", "contract_legacy_v2.json", "model/robot.xml", "simulation/config.json"):
                 self.assertTrue((out / required).is_file(), f"缺 {required}（Bundle 不是可跑的包布局）")
 
     def test_policy_placement_does_not_concat_filename_as_prefix(self):
@@ -237,7 +237,7 @@ class VerifyExportTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             out = self._bundle(tmp)
-            for name in ("contract.json", "contract_v3.json", "robot_package.json"):
+            for name in ("contract_legacy_v2.json", "contract.json", "robot_package.json"):
                 (out / name).unlink()
             for path in sorted((out / "model").rglob("*"), reverse=True):
                 path.unlink() if path.is_file() else path.rmdir()

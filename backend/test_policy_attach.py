@@ -217,8 +217,12 @@ class AttachPolicyToPackTest(AttachFixture):
         ref = result["policy_ref"]
         self.assertEqual(self.artifact_id, ref["id"])
         self.assertEqual(self.policy_id, ref["version"])
-        self.assertTrue(str(ref["path"]).endswith(f"simulation/policies/{self.policy_id}.onnx"))
-        target = ROOT / ref["path"] if not Path(ref["path"]).is_absolute() else Path(ref["path"])
+        # **包内相对路径**（相对机器人包根）——不是仓库相对、更不是机器本地绝对路径：
+        # 包根在运行时可能是 workspace 副本，任何"写死哪一份副本"的形态都会在
+        # 干净 clone / CI 上解析失败（2026-09-19 收口，见 _policy_ref_path）。
+        self.assertEqual(f"simulation/policies/{self.policy_id}.onnx", ref["path"])
+        self.assertNotIn("workspace/", ref["path"])
+        target = ROOT / ref["path"]
         if target.is_file():
             self.assertEqual(file_digest(target), ref["sha256"])
 
@@ -253,7 +257,7 @@ class GeneratePacksPreservesAttachTest(unittest.TestCase):
         root = Path(self._tmp.name)
         self.robots = root / "assets" / "robots"
         (self.robots / "demo_bot").mkdir(parents=True)
-        (self.robots / "demo_bot" / "contract_v3.json").write_text(
+        (self.robots / "demo_bot" / "contract.json").write_text(
             json.dumps({"robot_id": "demo_bot", "family": "Demo", "morphology": {"id": "demo_bot"}}),
             encoding="utf-8",
         )
@@ -286,6 +290,28 @@ class GeneratePacksPreservesAttachTest(unittest.TestCase):
         pack_path = self.out / "demo_bot.pack.json"
         pack_path.write_text(json.dumps({"policy_ref": {"id": ""}}), encoding="utf-8")
         self.assertIsNone(self.module.existing_policy_ref(self.robots / "demo_bot", self.out))
+
+    def test_workspace_local_policy_ref_is_dropped_on_regeneration(self):
+        """指向 ``workspace/``（gitignored）的回挂**不继承**——随仓分发的 Pack 不能引用机器本地状态。
+
+        丢弃必须在生成输出里可见（``DROPPED_POLICY_REFS``），否则就是静默丢数据。
+        """
+
+        self.assertEqual(0, self._generate())
+        pack_path = self.out / "demo_bot.pack.json"
+        pack = json.loads(pack_path.read_text(encoding="utf-8"))
+        pack["policy_ref"] = {
+            "id": "demo_bot__produced-x",
+            "path": "workspace/packages/demo_bot/simulation/policies/demo.onnx",
+            "sha256": "a" * 64,
+        }
+        pack_path.write_text(json.dumps(pack, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        self.assertEqual(0, self._generate())
+        regenerated = json.loads(pack_path.read_text(encoding="utf-8"))
+        self.assertIsNone(regenerated["policy_ref"], "gitignored 路径被继承了")
+        self.assertEqual(1, len(self.module.DROPPED_POLICY_REFS))
+        self.assertIn("workspace/", self.module.DROPPED_POLICY_REFS[0])
 
 
 if __name__ == "__main__":

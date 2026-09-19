@@ -94,7 +94,7 @@ def get_spec() -> mujoco.MjSpec:
 #
 # 参数差异(训练 cfg 曾写 vs MJCF 真值,按裁决以 MJCF 为准,参数对齐另行裁决):
 #   calf effort_limit:训练 cfg 曾写 300.0(go2w 移植残留);MJCF 与
-#   contract_v3(actuator_profile.by_role.calf.effort)均为 320 → 运行时 320。
+#   contract_truth(actuator_profile.by_role.calf.effort)均为 320 → 运行时 320。
 #   其余(hip/thigh 200、wheel 20、160/5/1 增益、armature 0.1)与 MJCF 一致。
 ##
 

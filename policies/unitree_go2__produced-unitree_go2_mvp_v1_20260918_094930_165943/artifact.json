@@ -21,5 +21,5 @@
   "robot": "unitree_go2",
   "run_id": "unitree_go2_mvp_v1_20260918_094930_165943",
   "schema": "policy-artifact-1.0",
-  "source_onnx": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260918-094930.onnx"
+  "source_onnx": "simulation/policies/unitree_go2-trained-20260918-094930.onnx"
 }

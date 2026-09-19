@@ -10,7 +10,7 @@
   "label": "Wuji Hand 立方体重定向 (reorient)",
   "obs_dim": 69,
   "onnx_bytes": 1109793,
-  "onnx_sha256": "e515360e4ee0f9ba093c497d61de78d896d19fe986280f2fe6585702687c55ce",
+  "onnx_sha256": "9dd91e2beb1ef68a3dbd698e110d516ac08ed910be5fd629093885ab2ffaec0b",
   "policy_id": "wuji-reorient",
   "robot": "wuji_hand",
   "run_id": null,

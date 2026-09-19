@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""H23：sim2sim 执行器/滤波一致性审计（浏览器下发 ↔ 契约 v3 ↔ rc_old 参考事实）。
+"""H23：sim2sim 执行器/滤波一致性审计（浏览器下发 ↔ 契约真值 ↔ rc_old 参考事实）。
 
 ## 背景（任务清单 H23）
 
 rc_old 实测部署参数：腿 kp/kd = ``50/1.5``、轮 kd = ``1.0``、力矩上限 ``17 Nm``，
 低通 ``lpf_legs 5.0 / lpf_wheels 15.0``（取证路径见 :data:`RC_OLD_CONTRACT_HPP` /
-:data:`RC_OLD_BRIDGE_CPP`）。本仓"物理真值唯一"：PD/armature/频率只认契约 v3
+:data:`RC_OLD_BRIDGE_CPP`）。本仓"物理真值唯一"：PD/armature/频率只认契约真值
 （``contracts/physics_binding.py``），浏览器 sim2sim 的执行器增益由
 ``backend/simulation_api.py::browser_simulation_config`` 从
 ``payload_physics_view(physics_facts(root))`` 下发（``robot.control`` 是显式白名单）。
 
 ## 硬不变量（任一破坏 → exit 1）
 
-a) **浏览器下发的每机型执行器增益 == 契约 v3 逐关节展开**：按
+a) **浏览器下发的每机型执行器增益 == 契约真值 逐关节展开**：按
    ``web/sim2sim/app.js::controlValue`` 的查找顺序（精确关节名 → 去前缀段 →
    分组/角色 → ``joint`` 兜底 → 前端默认）逐关节复核 stiffness/damping/
    torque_limits；armature/frictionloss/velocity_limits 与
@@ -190,8 +190,8 @@ def browser_velocity_value(table: dict | None, joint_name: str, default=None):
 
 
 def joint_order_for(root: Path, v3: dict) -> list[str]:
-    """与端点同链的动作关节序：预设 v2 ``contract.json`` → v3 ``joints.actuated``。"""
-    v2_path = root / "contract.json"
+    """与端点同链的动作关节序：预设 v2 ``contract_legacy_v2.json`` → v3 ``joints.actuated``。"""
+    v2_path = root / "contract_legacy_v2.json"
     if v2_path.is_file():
         try:
             v2 = json.loads(v2_path.read_text(encoding="utf-8-sig"))
@@ -281,17 +281,17 @@ def check_package(root: Path) -> dict:
             gain_problems.append(entry)
 
     facts, payload, delivered = delivered_control_maps(root)
-    v3_path = root / "contract_v3.json"
+    v3_path = root / "contract.json"
     v3: dict = {}
     if v3_path.is_file():
         try:
             v3 = json.loads(v3_path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError) as exc:
-            problem("contract_v3 可解析", f"读取失败：{exc}", str(v3_path))
-    if facts.get("source") != "contract_v3":
+            problem("contract_truth 可解析", f"读取失败：{exc}", str(v3_path))
+    if facts.get("source") != "contract":
         problem(
-            "物理真值来源=契约 v3",
-            f"physics_facts(source)={facts.get('source')!r}（B3 之后浏览器/训练必须同读契约 v3，"
+            "物理真值来源=契约真值",
+            f"physics_facts(source)={facts.get('source')!r}（B3 之后浏览器/训练必须同读契约真值，"
             "回落 legacy config 即两端可能各说各话）",
             str(v3_path if not v3_path.is_file() else rel_root),
             gain=True,
@@ -474,7 +474,7 @@ def check_package(root: Path) -> dict:
             "file": str(config_path),
             "evidence": f"config.control.{key} 仍存物理数据（B3 口径之外的死数据："
                         "端点只从 control 块读 decimation/physics_hz/action_filter_cutoffs/settle_steps，"
-                        "增益消费链已全部改读契约 v3）——建议随下次保存链清理",
+                        "增益消费链已全部改读契约真值）——建议随下次保存链清理",
         })
 
     # c) D8 电机参数卡数据源 == 浏览器载荷（backend/robot_packages._physics_view）
@@ -582,7 +582,7 @@ def rc_old_reference(rc_old_hpp: Path | None = None, rc_old_cpp: Path | None = N
 def _wheel_leg_counterpart(roots: list[Path]) -> Path | None:
     """rc_old RC_WheelLeg 的本仓同构机型：动作关节含 ``hip_abduction`` 的轮足包（= zex-w）。"""
     for root in roots:
-        v3_path = root / "contract_v3.json"
+        v3_path = root / "contract.json"
         if not v3_path.is_file():
             continue
         try:
@@ -724,7 +724,7 @@ def audit(robots_dir: Path | None = None, simulation_api_path: Path | None = Non
                         "file": residual_problem["file"],
                         "evidence": residual_problem["evidence"],
                         "note": "workspace 副本的 config.json 仍存 B3 废弃物理键（死数据："
-                                "契约 v3 存在时 physics_facts 不再读 config）；"
+                                "契约真值 存在时 physics_facts 不再读 config）；"
                                 "下次经保存链落盘时会被剔除，不作为仓内门禁红项",
                     })
                     continue
@@ -793,7 +793,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report["ok"] else 1
 
     print("=" * 74)
-    print("H23 sim2sim 执行器/滤波一致性审计（浏览器下发 ↔ 契约 v3 ↔ rc_old 参考）")
+    print("H23 sim2sim 执行器/滤波一致性审计（浏览器下发 ↔ 契约真值 ↔ rc_old 参考）")
     print("=" * 74)
     rows = report["packages"]
     consistent = [row for row in rows if not row["problems"]]
@@ -813,7 +813,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  ✗ [{item['robot']}] {item['check']}（{item['file']}）")
             print(f"      {item['evidence']}")
     else:
-        print("\n✓ 我们自己的两端（浏览器下发 ↔ 契约 v3 ↔ 训练常量表 ↔ 电机参数卡）全部一致")
+        print("\n✓ 我们自己的两端（浏览器下发 ↔ 契约真值 ↔ 训练常量表 ↔ 电机参数卡）全部一致")
 
     wiring = report["endpoint_wiring"]
     print(f"\n端点接线钉住：{wiring['pins'] - len(wiring['missing'])}/{wiring['pins']} 命中"

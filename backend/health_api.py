@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from backend.api_routes import browser_package_url
 import time
 from pathlib import Path
 from typing import Any
@@ -202,7 +203,7 @@ async def demo_cards():
         for item in (config.get("policies") or []) + (config.get("demo_policies") or []):
             if not isinstance(item, dict) or not (item.get("path") or item.get("url")):
                 continue
-            url = str(item.get("url") or f"/api/simulation/browser-package/{robot_id}/{str(item['path']).replace(chr(92), '/')}")
+            url = str(item.get("url") or browser_package_url(robot_id, str(item["path"])))
             cards.append({
                 "robot_id": robot_id,
                 "family": record.get("family") or robot_id,

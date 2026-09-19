@@ -16,7 +16,7 @@
   },
   "pack_id": "limx_tron1_pf-velocity",
   "display_name": "LimX Tron1 PF · velocity",
-  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",
+  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约真值 与技能 velocity_base。",
   "tags": [
     "generated",
     "default",
@@ -24,7 +24,7 @@
   ],
   "morphology_ref": {
     "id": "limx_tron1_pf",
-    "path": "assets/robots/limx_tron1_pf/contract_v3.json",
+    "path": "assets/robots/limx_tron1_pf/contract.json",
     "sha256": "08e1f193038f8c0eeaadfa39ed2927e90a599758ace6ac25dc66ed3e97c3ff3e"
   },
   "skill_ref": {

@@ -69,7 +69,7 @@ class Go1ModelFixTests(unittest.TestCase):
 
     def test_default_pose_hip_signs_follow_left_right_convention(self):
         """修正锁：按消费序（actuated_joints 字母序）解读，右 hip=+0.1、左 hip=-0.1。"""
-        for name in ("contract.json", "contract_v3.json"):
+        for name in ("contract_legacy_v2.json", "contract.json"):
             data = _read(GO1 / name)
             joints = data["joints"]
             actuated = joints.get("actuated_joints") or joints.get("actuated")

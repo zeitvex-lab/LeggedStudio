@@ -4,7 +4,7 @@
 四件套（报告 10 §⑤ / 报告 2 §4 rl_sar 双层契约 + microduck publish 门）：
 
   1. deployment-contract.yaml —— 关节映射/控制频率/PD/armature/限位（JSON 是合法
-     YAML 子集；注释指向真值源 contract_v3.json）
+     YAML 子集；注释指向真值源 contract.json）
   2. fsm_safety_template.py —— PASSIVE→STAND→POLICY→RECOVER→ESTOP 安全状态机
      （安全链路独立于策略；急停最高优先；wheel 角色走速度指令）
   3. action_decoder_template.py —— 策略槽序 × reindex_from_model → 真实电机命令
@@ -12,7 +12,7 @@
      SDK 电机序"是最高频部署 bug，报告 2 §3）
   4. 人工确认清单.md —— 增益先降 50% / 急停最高优先 / 零点初始化 / 软限位一致
 
-数据全部来自契约 v3（DENYLIST gate 已在导出侧把关一致性）。
+数据全部来自契约真值（DENYLIST gate 已在导出侧把关一致性）。
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 
-GENERATED_HEADER = "# 本文件由 Legged Studio 部署包生成器产出（{ts}）；真值源：contract_v3.json\n"
+GENERATED_HEADER = "# 本文件由 Legged Studio 部署包生成器产出（{ts}）；真值源：contract.json\n"
 
 
 def _load_json(path: Path) -> dict | None:
@@ -37,22 +37,28 @@ def _load_json(path: Path) -> dict | None:
         return None
 
 
-def deployment_contract_yaml(contract_v3: dict) -> str:
+# 包定位已收口到 ``backend.package_locator``（本模块按名 re-export，保持既有 import 可用）：
+# 部署域曾与仿真域各实现一遍"包根从哪来"，规则还不同（``zex_w`` 在仿真域 200、在这里 404）。
+# 本域只保留**域特有前置**（契约真值存在 / 策略文件存在），定位规则不再各说各话。
+from backend.package_locator import RobotPackageNotFound, resolve_package_root  # noqa: E402
+
+
+def deployment_contract_yaml(contract_truth: dict) -> str:
     """JSON 是合法 YAML 子集——机器可读、人可读、无 PyYAML 依赖。"""
 
     payload = {
         "schema_version": "deployment-contract-1.0",
         "generated_by": "legged-studio deploy packager",
-        "robot_id": contract_v3.get("robot_id"),
-        "control": contract_v3.get("control") or {},
+        "robot_id": contract_truth.get("robot_id"),
+        "control": contract_truth.get("control") or {},
         "action": {
-            "joint_order": contract_v3.get("action", {}).get("joint_order"),
-            "reindex_from_model": contract_v3.get("action", {}).get("reindex_from_model"),
-            "action_scale": contract_v3.get("action", {}).get("action_scale"),
+            "joint_order": contract_truth.get("action", {}).get("joint_order"),
+            "reindex_from_model": contract_truth.get("action", {}).get("reindex_from_model"),
+            "action_scale": contract_truth.get("action", {}).get("action_scale"),
         },
-        "actuator_profile": contract_v3.get("actuator_profile") or {},
-        "default_pose": (contract_v3.get("joints") or {}).get("default_pose"),
-        "notes": "关节映射/控制频率/PD/armature 全部来自契约 v3（rl_sar base.yaml 语义）——修改请回训练区，不要手改本文件",
+        "actuator_profile": contract_truth.get("actuator_profile") or {},
+        "default_pose": (contract_truth.get("joints") or {}).get("default_pose"),
+        "notes": "关节映射/控制频率/PD/armature 全部来自契约真值（rl_sar base.yaml 语义）——修改请回训练区，不要手改本文件",
     }
     header = (
         "# deployment contract（rl_sar 双层 YAML 契约语义）\n"
@@ -62,15 +68,15 @@ def deployment_contract_yaml(contract_v3: dict) -> str:
     return header + json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
 
 
-def deployment_contract_json(contract_v3: dict) -> str:
+def deployment_contract_json(contract_truth: dict) -> str:
     payload = {
         "schema_version": "deployment-contract-1.0",
         "generated_by": "legged-studio deploy packager",
-        "robot_id": contract_v3.get("robot_id"),
-        "control": contract_v3.get("control") or {},
-        "action": contract_v3.get("action") or {},
-        "actuator_profile": contract_v3.get("actuator_profile") or {},
-        "default_pose": (contract_v3.get("joints") or {}).get("default_pose"),
+        "robot_id": contract_truth.get("robot_id"),
+        "control": contract_truth.get("control") or {},
+        "action": contract_truth.get("action") or {},
+        "actuator_profile": contract_truth.get("actuator_profile") or {},
+        "default_pose": (contract_truth.get("joints") or {}).get("default_pose"),
     }
     return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
 
@@ -188,7 +194,7 @@ class RobotSafetyFSM:
 '''
 
 
-def fsm_template(contract_v3: dict) -> str:
+def fsm_template(contract_truth: dict) -> str:
     header = GENERATED_HEADER.format(ts=datetime.now().isoformat(timespec="seconds"))
     return header + FSM_TEMPLATE
 
@@ -275,7 +281,7 @@ def single_joint_sine_test(duration_s: float = 3.0, freq_hz: float = 1.0, send=N
 '''
 
 
-def decoder_template(contract_v3: dict) -> str:
+def decoder_template(contract_truth: dict) -> str:
     header = GENERATED_HEADER.format(ts=datetime.now().isoformat(timespec="seconds"))
     # 模板 import deployment_contract —— 附带 joints_actuated 供角色展开
     return header + DECODER_TEMPLATE
@@ -366,35 +372,43 @@ def generate_deploy_package(
     target_platform: str = "unitree_sdk2",
     bench_mode: bool = False,
     out_dir: Path | str | None = None,
+    policy_onnx: str | Path | None = None,
 ) -> dict:
-    """生成部署包 zip。返回 {path, files}。
+    """生成部署包 zip。返回 ``{robot_id, path, files, target_platform, bench_mode}``。
 
     ``out_dir`` 缺省落 ``<仓库>/workspace/deploy``（与 Web 的
     ``POST /api/deploy/package`` 同一落点）；CLI 的 ``deploy package --out <目录>``
     传入自定目录（测试 / CI 把产物放进临时目录，不污染真实 workspace）。
-    打包逻辑本身只有这一份（单一真值），参数只是换落点。
+
+    ``policy_onnx``：可选，随包携带策略 ONNX（打进包内 ``policy.onnx``）。
+    **给了路径而文件不存在时 fail-closed 报错**——"以为带上了策略"比不带更危险。
+
+    打包逻辑本身只有这一份（单一真值）：``POST /api/deploy/package`` 与 CLI
+    ``deploy package`` 都调这里，不各自再写一套打包/追加逻辑。
     """
 
-    from backend.robot_presets import get_robot_preset
+    root = resolve_package_root(robot_id)
+    contract_truth = _load_json(root / "contract.json")
+    if not contract_truth:
+        raise ValueError(f"robot {robot_id} 缺少 contract.json——先运行 tools/migrate_contract.py")
 
-    preset = get_robot_preset(robot_id)
-    root_value = str(((preset or {}).get("robot_package") or {}).get("package_root", ""))
-    root = Path(root_value) if root_value else ROOT / "assets" / "robots" / robot_id
-    if not root.exists():
-        raise FileNotFoundError(f"robot package not found: {robot_id}")
-    contract_v3 = _load_json(root / "contract_v3.json")
-    if not contract_v3:
-        raise ValueError(f"robot {robot_id} 缺少 contract_v3.json——先运行 tools/migrate_contract_v3.py")
+    # 输入校验全部前置：**不通过就不落任何产物（连输出目录都不建）**——"失败留半个包"
+    # 比"失败没包"更难排查（调用方会以为这是上一次的产物）。产出目录只在输入合格后创建。
+    onnx_path: Path | None = None
+    if policy_onnx is not None:
+        onnx_path = Path(policy_onnx)
+        if not onnx_path.is_file():
+            raise FileNotFoundError(f"policy onnx not found: {onnx_path}")
 
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     out_dir = Path(out_dir) if out_dir else ROOT / "workspace" / "deploy"
     out_dir.mkdir(parents=True, exist_ok=True)
     zip_path = out_dir / f"{robot_id}_deploy_{ts}.zip"
 
-    joints_actuated = contract_v3.get("joints", {}).get("actuated", [])
+    joints_actuated = contract_truth.get("joints", {}).get("actuated", [])
     effort_scale = 0.8 if degraded else 1.0
     if degraded and effort_scale != 1.0:
-        profile = dict(contract_v3.get("actuator_profile") or {})
+        profile = dict(contract_truth.get("actuator_profile") or {})
         scaled_roles = {}
         for role, params in (profile.get("by_role") or {}).items():
             scaled = dict(params)
@@ -403,20 +417,20 @@ def generate_deploy_package(
             scaled_roles[role] = scaled
         profile["by_role"] = scaled_roles
         profile["degraded"] = {"effort_scale": effort_scale, "note": "劣化参数档：摩擦 -20% 建议 + 力矩 ×0.8 跑稳再上真机"}
-        contract_v3 = dict(contract_v3)
-        contract_v3["actuator_profile"] = profile
+        contract_truth = dict(contract_truth)
+        contract_truth["actuator_profile"] = profile
 
     dc_payload = _strip_none({
         "schema_version": "deployment-contract-1.0",
-        "robot_id": contract_v3.get("robot_id"),
-        "control": contract_v3.get("control") or {},
+        "robot_id": contract_truth.get("robot_id"),
+        "control": contract_truth.get("control") or {},
         "action": {
-            "joint_order": contract_v3.get("action", {}).get("joint_order"),
-            "reindex_from_model": contract_v3.get("action", {}).get("reindex_from_model"),
-            "action_scale": contract_v3.get("action", {}).get("action_scale"),
+            "joint_order": contract_truth.get("action", {}).get("joint_order"),
+            "reindex_from_model": contract_truth.get("action", {}).get("reindex_from_model"),
+            "action_scale": contract_truth.get("action", {}).get("action_scale"),
         },
-        "actuator_profile": contract_v3.get("actuator_profile") or {},
-        "default_pose": contract_v3.get("joints", {}).get("default_pose"),
+        "actuator_profile": contract_truth.get("actuator_profile") or {},
+        "default_pose": contract_truth.get("joints", {}).get("default_pose"),
         "joints_actuated": joints_actuated,
     })
     dc_py = (
@@ -427,20 +441,50 @@ def generate_deploy_package(
     )
 
     files = {
-        "deployment-contract.yaml": deployment_contract_yaml(contract_v3),
+        "deployment-contract.yaml": deployment_contract_yaml(contract_truth),
         "deployment_contract.json": json.dumps(dc_payload, ensure_ascii=False, indent=2) + "\n",
         "deployment_contract.py": dc_py,
-        "fsm_safety_template.py": fsm_template(contract_v3),
-        "action_decoder_template.py": decoder_template(contract_v3),
+        "fsm_safety_template.py": fsm_template(contract_truth),
+        "action_decoder_template.py": decoder_template(contract_truth),
         "platform_adapter.py": platform_adapter(target_platform),
-        "人工确认清单.md": CHECKLIST_TEMPLATE.format(ts=ts, robot_id=contract_v3.get("robot_id")),
+        "人工确认清单.md": CHECKLIST_TEMPLATE.format(ts=ts, robot_id=contract_truth.get("robot_id")),
     }
     if bench_mode:
         files["d2_bench_test.py"] = D2_BENCH_TEMPLATE
+
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, content in files.items():
             zf.writestr(name, content)
-    return {"robot_id": robot_id, "path": str(zip_path), "files": list(files), "target_platform": target_platform, "bench_mode": bench_mode}
+        if onnx_path is not None:
+            zf.write(onnx_path, "policy.onnx")
+
+    listed = list(files) + (["policy.onnx"] if onnx_path is not None else [])
+    return {"robot_id": robot_id, "path": str(zip_path), "files": listed, "target_platform": target_platform, "bench_mode": bench_mode}
+
+
+def deploy_gate_report(robot_id: str) -> dict:
+    """部署前契约一致性快检（包内 v3 vs v2）：
+    ``{robot_id, package_root, ok, blockers, warnings, disposition, entries, context}``。
+
+    ``GET /api/deploy/gate/{robot_id}`` 与 CLI ``deploy gate`` 都调这里（**同一处实现**）。
+    边界：真正的强校验在**导出侧**（训练快照 vs 当前契约）；这里只核对包内两版契约的层间一致性。
+
+    失败语义（调用方各自映射措辞，不各自判条件）：
+
+    - 包不存在 → :class:`RobotPackageNotFound`（API 404 / CLI 退出码 1）；
+    - 包在但两版契约缺任一 → ``ValueError``（"包内契约不全"属数据问题，不是"包不在"）；
+    - 两版契约都在 → ``compare_contracts`` 的裁决结果，**不一致就是 deny**（不编造通过）。
+    """
+
+    from backend.export_gate import compare_contracts
+
+    root = resolve_package_root(robot_id)
+    contract = _load_json(root / "contract.json")
+    legacy = _load_json(root / "contract_legacy_v2.json")
+    missing = [name for name, value in (("contract.json", contract), ("contract_legacy_v2.json", legacy)) if not value]
+    if missing:
+        raise ValueError(f"包内契约不全（缺 {' / '.join(missing)}）：{root}")
+    return {"robot_id": robot_id, "package_root": str(root), **compare_contracts(contract, legacy)}
 
 
 # ===== 目标平台模板实例化（T5.x 部署模板） =====

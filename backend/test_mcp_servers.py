@@ -72,7 +72,7 @@ class McpSelfHostedServerTest(unittest.TestCase):
         from tools.mcp import contracts_server
 
         robots = contracts_server.list_robots()
-        self.assertGreaterEqual(robots["count"], 14, "14 个内置机型都应有 contract_v3.json")
+        self.assertGreaterEqual(robots["count"], 14, "14 个内置机型都应有 contract.json")
 
         joints = contracts_server.list_joints("unitree_go2")
         self.assertEqual(joints["count"], 12)

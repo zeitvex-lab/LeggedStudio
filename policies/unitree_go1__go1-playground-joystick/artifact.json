@@ -10,7 +10,7 @@
   "label": "Go1 Joystick 48D (mujoco_playground 官方导出)",
   "obs_dim": 48,
   "onnx_bytes": 772916,
-  "onnx_sha256": "386cde6a1eac679e2f2a313ade2b395d9f26905b151ee3b019c2c4163d49b6f2",
+  "onnx_sha256": "7c2744f881560e13859c73f5ef66b69168d15ad1c0ba1d7195b66aa4825eca54",
   "policy_id": "go1-playground-joystick",
   "robot": "unitree_go1",
   "run_id": null,

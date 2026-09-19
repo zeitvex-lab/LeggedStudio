@@ -1,0 +1,101 @@
+{
+  "schema_version": "robot-contract-2.0",
+  "contract_id": "unitree_b2w_v1",
+  "robot_id": "unitree_b2w",
+  "family": "Unitree B2-W",
+  "size_class": "L",
+  "locomotion_type": "W",
+  "urdf": {
+    "path": "assets/robots/unitree_b2w/model/robot.xml",
+    "hash": "",
+    "total_mass_kg": 87.17,
+    "mass_source": "mjcf_compiled"
+  },
+  "joints": {
+    "actuated_joints": [
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "FR_wheel_joint",
+      "FL_wheel_joint",
+      "RR_wheel_joint",
+      "RL_wheel_joint"
+    ],
+    "passive_joints": [],
+    "default_pose": [
+      0.0,
+      0.5,
+      -1.5,
+      0.0,
+      0.5,
+      -1.5,
+      0.0,
+      0.8,
+      -1.5,
+      0.0,
+      0.8,
+      -1.5,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "observation": {
+    "dimension": 57,
+    "components": [
+      "base_ang_vel",
+      "projected_gravity",
+      "commands",
+      "joint_pos",
+      "joint_vel",
+      "last_action"
+    ]
+  },
+  "action": {
+    "dimension": 16,
+    "joint_order": [
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint",
+      "FR_wheel_joint",
+      "FL_wheel_joint",
+      "RR_wheel_joint",
+      "RL_wheel_joint"
+    ],
+    "action_scale": 0.125
+  },
+  "control": {
+    "control_hz": 50,
+    "physics_hz": 200,
+    "decimation": 4
+  },
+  "description": "Unitree B2-W。模型为包内 MJCF（rl_sar_zoo 资产），统一 mjlab 1.6 运行时。",
+  "tags": [
+    "wheel_leg",
+    "mjcf",
+    "imported",
+    "package",
+    "unitree_b2w"
+  ],
+  "source": "rl_sar_zoo_import",
+  "python_version": "3.12"
+}

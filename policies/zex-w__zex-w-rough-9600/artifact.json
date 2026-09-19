@@ -10,7 +10,7 @@
   "label": "rough 9600 (v2 里程计)",
   "obs_dim": 53,
   "onnx_bytes": 777597,
-  "onnx_sha256": "7ce30cf0db926d4b8be10529407786e8c448fe1737b434854ff5ec0aed18112d",
+  "onnx_sha256": "b1ab068d0f50dd9c9497c9d9c6227fd934bfaf07610be3728ad4b932bb666662",
   "policy_id": "zex-w-rough-9600",
   "robot": "zex-w",
   "run_id": null,

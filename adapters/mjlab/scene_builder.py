@@ -16,7 +16,7 @@ def load_robot_spec(package_dir: Path, sim_cfg: dict[str, Any] | None = None):
     """编译包内 model/robot.xml，并应用契约的 armature/frictionloss（增量真值）。
 
     B3 收尾：常量改由 :func:`contracts.physics_binding.joint_constant_tables` 供给
-    （契约 v3 优先，键统一小写）。**此前这里读 ``sim_cfg["armature"]`` 并用
+    （契约真值 优先，键统一小写）。**此前这里读 ``sim_cfg["armature"]`` 并用
     ``joint.name.lower()`` 去查混合大小写的键，永远查不中 → armature 静默不生效**，
     而浏览器侧同一份数据是生效的（同数据两结论）。``sim_cfg`` 参数保留仅为兼容调用方，
     不再作为物理常量来源。

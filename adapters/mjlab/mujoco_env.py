@@ -9,7 +9,7 @@ import mujoco
 import numpy as np
 
 from contracts.asset_paths import resolve_asset_path
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 
 
 class ContractMujocoEnv:
@@ -23,7 +23,7 @@ class ContractMujocoEnv:
 
     def __init__(
         self,
-        contract: RobotContractV2,
+        contract: ContractLegacyV2,
         num_envs: int,
         episode_length_s: float = 20.0,
         seed: int = 0,

@@ -10,7 +10,7 @@
   "label": "Velocity 57D (rl_sar robot_lab)",
   "obs_dim": 57,
   "onnx_bytes": 785066,
-  "onnx_sha256": "31a01afc41e3b1628b478d2eecdc0d02857cd5551c380fd95633d3781c1c3806",
+  "onnx_sha256": "b337de1063ad165f08d19d965950d08f2fb82692b5c72c21fabc9caec15d7396",
   "policy_id": "b2w-velocity-robotlab",
   "robot": "unitree_b2w",
   "run_id": null,

@@ -1,6 +1,6 @@
 <mujoco model="wujihand-right-mjlab">
   <compiler angle="radian" meshdir="assets" />
-  <!-- timestep 不在此声明：运行时统一取 contract_v3.json control.physics_hz -->
+  <!-- timestep 不在此声明：运行时统一取 contract.json control.physics_hz -->
   <option integrator="implicitfast" iterations="5" ls_iterations="8" gravity="0 0 -9.81" cone="elliptic" impratio="100">
 <flag eulerdamp="disable"/>
   </option>

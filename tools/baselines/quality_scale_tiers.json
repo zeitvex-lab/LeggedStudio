@@ -97,7 +97,7 @@
         "path": "C:\\Users\\31560\\AppData\\Local\\Temp\\ls_b11_shadow\\unitree_go2_shadow",
         "nature": "包外临时影子包（不动 workspace 原包）：simulation/config.json 给三条 produced 条目补齐修正契约（kind=go2_mjlab_actor_48/obs_dim=48/action_joint_order=肢体分组序/default_joint_angles 取 ONNX metadata 默认姿态/逐关节 action_scale 与 PD 增益取训练源 local_tasks/mjlab_extension.py 执行器常量 kp20·kd1·effort23.5（hip/thigh）、kp40·kd2·effort45（calf）/physics 200Hz·decimation 4 取 mjlab 训练默认），三条 onnx 与包内模型/场景文件逐字节同源。",
         "truth_sources": "ONNX metadata_props（onnx_exporter.attach_metadata_to_onnx 盖章）+ training.log ObservationManager 表 + training/source 执行器常量 + contract_snapshot.json（对照用）。逐字段可复核，无口述值。",
-        "residual_uncertainty": "contract_snapshot.json 的 actuator_profile（kp20/kd0.5/effort23.7/35.55/action_scale0.25）与 ONNX metadata action_scale（0.29375/0.28125）互相矛盾——前者是包 v3 契约的部署声明，后者是训练真实执行器推导值（0.25*effort_limit/stiffness），两者只能对一个为真；本矩阵取训练源/ONNX 口径（快照与训练源冲突时信训练源），若实为快照口径，dof_power/lin_vel_err 会变但『三档脱节』的相对结论不变（三档同口径对比）。"
+        "residual_uncertainty": "contract_snapshot.json 的 actuator_profile（kp20/kd0.5/effort23.7/35.55/action_scale0.25）与 ONNX metadata action_scale（0.29375/0.28125）互相矛盾——前者是包 真值契约的部署声明，后者是训练真实执行器推导值（0.25*effort_limit/stiffness），两者只能对一个为真；本矩阵取训练源/ONNX 口径（快照与训练源冲突时信训练源），若实为快照口径，dof_power/lin_vel_err 会变但『三档脱节』的相对结论不变（三档同口径对比）。"
       }
     },
     {

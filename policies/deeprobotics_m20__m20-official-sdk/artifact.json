@@ -10,7 +10,7 @@
   "label": "M20 Velocity 57D（云深处官方 SDK 部署策略，轮速度动作）",
   "obs_dim": 57,
   "onnx_bytes": 785081,
-  "onnx_sha256": "031e24ddd85c6383483391c97e00f88323445272f4a3a4a276f0457dc3b65d33",
+  "onnx_sha256": "989285207afc41f8f4d9f385fa0fdcf2ce8c1364f53773b1cb1ee5f63909e69a",
   "policy_id": "m20-official-sdk",
   "robot": "deeprobotics_m20",
   "run_id": null,

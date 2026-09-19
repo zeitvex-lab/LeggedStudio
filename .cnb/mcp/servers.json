@@ -103,7 +103,7 @@
         "-m",
         "tools.mcp.contracts_server"
       ],
-      "description": "本地 MCP：契约 v3 查询与校验（关节序、PD、obs 维、Pack 哈希）。落点：contracts/、backend/pack_catalog.py、assets/robots/*/contract_v3.json。"
+      "description": "本地 MCP：契约真值 查询与校验（关节序、PD、obs 维、Pack 哈希）。落点：contracts/、backend/pack_catalog.py、assets/robots/*/contract.json。"
     }
   }
 }

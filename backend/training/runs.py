@@ -11,7 +11,7 @@
   artifact_path/metrics_path/environment``）与 ``frameworks/mjlab/worker.py``（run_dir 里写
   ``resolved_config.json`` + ``metrics.json``）。
 * **配置规范化哈希** —— ``genesislab`` ``utils/configclass/dict.py::dict_to_md5_hash``
-  （``json.dumps(sort_keys=True)`` → 摘要）。本仓改用 **sha256**（与 ``RobotContractV2.compute_hash``
+  （``json.dumps(sort_keys=True)`` → 摘要）。本仓改用 **sha256**（与 ``ContractLegacyV2.compute_hash``
   同一算法族），并统一用紧凑分隔符，保证"同输入必同摘要"。
 * **环境元数据字段集** —— ``unilab_new/UniLab`` ``logging/common.py``（run_config.json：git
   commit/branch/dirty + hardware + seed）与 ``wandb`` ``sdk/lib/filenames.py`` +
@@ -38,6 +38,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
+from contracts.validator import normalized_sha256  # 归一摘要唯一实现
 
 #: 仓库根（``backend/training/runs.py`` → 上溯两级）。
 ROOT = Path(__file__).resolve().parents[2]
@@ -83,14 +84,19 @@ def canonical_digest(payload: Any) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def file_digest(path: Path, *, chunk: int = 1 << 20) -> str | None:
-    """文件 sha256（分块读，避免把大文件读进内存）；文件不存在返回 ``None``。"""
+def file_digest(path: Path) -> str | None:
+    """文件内容摘要（CRLF → LF 归一）：委托 ``contracts.validator.normalized_sha256``。
+
+    **为什么不再分块**：归一与分块天然冲突 —— ``\r\n`` 可能恰好被切在两块之间，
+    跨块那一处会漏归一（``normalize_line_endings`` 的 docstring 已写明这条），
+    而这种错随文件长度随机出现、最难查。本函数只服务策略产物（onnx 几十 MB 级），
+    整份读的内存代价换来"一个工件只有一个哈希"，值。
+
+    此前这里是**第二套口径**（原始字节），与 ``policy_artifacts`` 里 B40 收口的
+    ``normalized_sha256`` 并存 —— 同一个 onnx 在同一模块里能算出两个哈希。
+    """
     try:
-        digest = hashlib.sha256()
-        with Path(path).open("rb") as handle:
-            for block in iter(lambda: handle.read(chunk), b""):
-                digest.update(block)
-        return digest.hexdigest()
+        return normalized_sha256(Path(path).read_bytes())
     except OSError:
         return None
 

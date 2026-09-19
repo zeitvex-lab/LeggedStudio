@@ -10,7 +10,7 @@
   "label": "rough 基线 (v2 契约参考)",
   "obs_dim": 53,
   "onnx_bytes": 777597,
-  "onnx_sha256": "4149be180a197e70495a7a6d186c62be43271a4ce9035a8eee56cd293d869a27",
+  "onnx_sha256": "a59a1582902c64054235ae1d0d8a66d91e3ec10e6c2bddec8d59ecf439821184",
   "policy_id": "zex-w-rough-baseline",
   "robot": "zex-w",
   "run_id": null,

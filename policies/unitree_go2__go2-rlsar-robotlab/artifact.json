@@ -10,7 +10,7 @@
   "label": "Go2 速度跟踪 (rl_sar / robot_lab, 45D)",
   "obs_dim": 45,
   "onnx_bytes": 758426,
-  "onnx_sha256": "c2582ac75dc92707ac03a4e5d1441667fa9e2b8095fc3b9397ba706e7423b56b",
+  "onnx_sha256": "294c3418042a42903e9ae33ed3f211cc0cda621681ecda8532a49f73d258b01f",
   "policy_id": "go2-rlsar-robotlab",
   "robot": "unitree_go2",
   "run_id": null,

@@ -6,7 +6,7 @@ Environment Factory
 
 from typing import Dict, Any, Optional
 from pathlib import Path
-from contracts.robot_contract_v2 import RobotContractV2
+from contracts.contract_legacy_v2 import ContractLegacyV2
 from contracts.asset_paths import resolve_asset_path
 
 
@@ -15,7 +15,7 @@ class EnvFactory:
 
     @staticmethod
     def create_from_contract(
-        contract: RobotContractV2,
+        contract: ContractLegacyV2,
         task_config: Optional[Dict[str, Any]] = None
     ):
         """
@@ -161,7 +161,7 @@ class EnvFactory:
         return True
 
     @staticmethod
-    def manager_based_config(contract: RobotContractV2, recipe: Dict[str, Any]) -> Dict[str, Any]:
+    def manager_based_config(contract: ContractLegacyV2, recipe: Dict[str, Any]) -> Dict[str, Any]:
         """Translate a resolved recipe to MJLab's manager-based vocabulary."""
         environment = recipe.get("environment", {})
         return {
@@ -234,7 +234,7 @@ def get_reward_layer(term_name: str) -> str:
 
 if __name__ == "__main__":
     # 测试
-    from contracts.robot_contract_v2 import create_go2_contract
+    from contracts.contract_legacy_v2 import create_go2_contract
 
     contract = create_go2_contract()
 

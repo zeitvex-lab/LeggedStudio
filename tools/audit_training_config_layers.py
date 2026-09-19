@@ -2,7 +2,7 @@
 
 ## 背景（B13「无重复真值」→「终态收口」）
 
-三层语义：物理 → 契约（`contract_v3.json`，B2/B3）；任务 → Recipe（`training/profiles/*.json`
+三层语义：物理 → 契约（`contract.json`，B2/B3）；任务 → Recipe（`training/profiles/*.json`
 + `registry/skills`，B6/B7）；运行 → Run（`backend/training/runs.py`，B9）。
 
 各包 `training/config.json`（旧文件）的终态是**纯指针文件**：只引用别层的真值，自身不持有

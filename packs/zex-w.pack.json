@@ -15,7 +15,7 @@
   },
   "pack_id": "zex-w-velocity",
   "display_name": "ZEX-W · velocity",
-  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约 v3 与技能 velocity_base。",
+  "description": "默认 Pack（tools/generate_packs.py 生成）：引用该机型契约真值 与技能 velocity_base。",
   "tags": [
     "generated",
     "default",
@@ -23,7 +23,7 @@
   ],
   "morphology_ref": {
     "id": "zex-w",
-    "path": "assets/robots/zex-w/contract_v3.json",
+    "path": "assets/robots/zex-w/contract.json",
     "sha256": "482398b4ce9f9fdd896ff31c0104a8954ecf695eb8e2e682cd6e78ed0b0673fe"
   },
   "skill_ref": {

@@ -5,6 +5,10 @@
 #
 # httpx: starlette TestClient 依赖
 httpx>=0.27.0
+# onnx: B44「产物自证」的量具（backend/policy_artifacts.onnx_obs_dim 读 ONNX 图输入宽度）。
+# 缺它时产物宽度只能退回契约快照，而快照是**部署视图**、训练图是训练视图——两者配错正是
+# B44 要挡的事。所以"声称做了自证"的环境必须装上它（CI 同一行也装）。
+onnx>=1.16.0
 # 无头 CPU sim2sim 验收（tools/sim2sim_headless.py）
 onnxruntime>=1.17.0
 # 浏览器 E2E（tests/e2e/，sim2sim 截图调试闭环）

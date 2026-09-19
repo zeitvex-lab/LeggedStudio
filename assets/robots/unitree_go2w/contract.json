@@ -1,60 +1,116 @@
 {
-  "schema_version": "robot-contract-2.0",
-  "contract_id": "unitree_go2w_contract_v1",
+  "schema_version": "robot-contract-3.0",
   "robot_id": "unitree_go2w",
-  "family": "Unitree Go2-W",
-  "size_class": "M",
-  "locomotion_type": "W",
-  "urdf": {
-    "path": "assets/robots/unitree_go2w/model/robot.xml",
-    "hash": "5691c36b4b974c3169f404e2b57f8a53018051d5152629add72123423ca8eceb",
-    "total_mass_kg": 19.126,
+  "morphology": {
+    "id": "wheel_leg_16dof",
+    "legs": 4,
+    "leg_pattern": [
+      "hip",
+      "thigh",
+      "calf",
+      "wheel"
+    ],
+    "leg_naming": "{LR}_{role}_joint",
+    "actuator_type": "hybrid",
+    "foot_type": "wheel",
+    "wheel_indices": [
+      12,
+      13,
+      14,
+      15
+    ],
     "mass_source": "mjcf_compiled",
-    "mesh_files": [
-      "base_0.obj",
-      "base_1.obj",
-      "base_2.obj",
-      "base_3.obj",
-      "base_4.obj",
-      "calf.stl",
-      "calf_0.obj",
-      "calf_1.obj",
-      "calf_mirror.stl",
-      "calf_mirror_0.obj",
-      "calf_mirror_1.obj",
-      "foot.obj",
-      "hip_0.obj",
-      "hip_1.obj",
-      "terrain.stl",
-      "thigh_0.obj",
-      "thigh_1.obj",
-      "thigh_mirror_0.obj",
-      "thigh_mirror_1.obj",
-      "untitled.stl",
-      "wheel.stl",
-      "wheel1.stl"
-    ]
+    "leg_ids": [
+      "FL",
+      "FR",
+      "RL",
+      "RR"
+    ],
+    "actuated_via": "leg_pattern×legs（含 wheel 角色）"
   },
   "joints": {
-    "actuated_joints": [
-      "FL_hip_joint",
-      "FL_thigh_joint",
-      "FL_calf_joint",
-      "FL_wheel_joint",
-      "FR_hip_joint",
-      "FR_thigh_joint",
-      "FR_calf_joint",
-      "FR_wheel_joint",
-      "RL_hip_joint",
-      "RL_thigh_joint",
-      "RL_calf_joint",
-      "RL_wheel_joint",
-      "RR_hip_joint",
-      "RR_thigh_joint",
-      "RR_calf_joint",
-      "RR_wheel_joint"
+    "actuated": [
+      {
+        "name": "FL_hip_joint",
+        "leg": "FL",
+        "role": "hip"
+      },
+      {
+        "name": "FL_thigh_joint",
+        "leg": "FL",
+        "role": "thigh"
+      },
+      {
+        "name": "FL_calf_joint",
+        "leg": "FL",
+        "role": "calf"
+      },
+      {
+        "name": "FL_wheel_joint",
+        "leg": "FL",
+        "role": "wheel"
+      },
+      {
+        "name": "FR_hip_joint",
+        "leg": "FR",
+        "role": "hip"
+      },
+      {
+        "name": "FR_thigh_joint",
+        "leg": "FR",
+        "role": "thigh"
+      },
+      {
+        "name": "FR_calf_joint",
+        "leg": "FR",
+        "role": "calf"
+      },
+      {
+        "name": "FR_wheel_joint",
+        "leg": "FR",
+        "role": "wheel"
+      },
+      {
+        "name": "RL_hip_joint",
+        "leg": "RL",
+        "role": "hip"
+      },
+      {
+        "name": "RL_thigh_joint",
+        "leg": "RL",
+        "role": "thigh"
+      },
+      {
+        "name": "RL_calf_joint",
+        "leg": "RL",
+        "role": "calf"
+      },
+      {
+        "name": "RL_wheel_joint",
+        "leg": "RL",
+        "role": "wheel"
+      },
+      {
+        "name": "RR_hip_joint",
+        "leg": "RR",
+        "role": "hip"
+      },
+      {
+        "name": "RR_thigh_joint",
+        "leg": "RR",
+        "role": "thigh"
+      },
+      {
+        "name": "RR_calf_joint",
+        "leg": "RR",
+        "role": "calf"
+      },
+      {
+        "name": "RR_wheel_joint",
+        "leg": "RR",
+        "role": "wheel"
+      }
     ],
-    "passive_joints": [],
     "default_pose": [
       -0.1,
       0.9,
@@ -72,24 +128,52 @@
       0.9,
       -1.8,
       0.0
-    ],
-    "default_pose_order": "tree"
-  },
-  "observation": {
-    "dimension": 57,
-    "components": [
-      "base_ang_vel",
-      "projected_gravity",
-      "command",
-      "joint_pos",
-      "joint_vel",
-      "wheel_joint_pos_rel",
-      "wheel_joint_vel_rel",
-      "actions"
     ]
   },
+  "actuator_profile": {
+    "by_role": {
+      "hip": {
+        "stiffness": 20.0,
+        "damping": 0.5,
+        "effort": 23.5,
+        "mode": "position",
+        "action_scale": 0.5,
+        "armature": 0.01,
+        "velocity_limit": 30.1
+      },
+      "thigh": {
+        "stiffness": 20.0,
+        "damping": 0.5,
+        "effort": 23.5,
+        "mode": "position",
+        "action_scale": 0.5,
+        "armature": 0.01,
+        "velocity_limit": 30.1
+      },
+      "calf": {
+        "stiffness": 20.0,
+        "damping": 0.5,
+        "effort": 35.5,
+        "armature": 0.02,
+        "mode": "position",
+        "action_scale": 0.5,
+        "velocity_limit": 20.07
+      },
+      "wheel": {
+        "stiffness": 0.0,
+        "damping": 0.5,
+        "effort": 23.5,
+        "armature": 0.01,
+        "mode": "velocity",
+        "action_scale": 35.0
+      }
+    },
+    "default": {
+      "friction_loss": 0.2
+    },
+    "by_joint": {}
+  },
   "action": {
-    "dimension": 16,
     "joint_order": [
       "FR_hip_joint",
       "FR_thigh_joint",
@@ -108,33 +192,76 @@
       "RR_wheel_joint",
       "RL_wheel_joint"
     ],
-    "action_scale": 0.5,
-    "wheel_velocity_scale": 35.0,
-    "default_pose": [
-      0.1,
-      0.9,
-      -1.8,
-      -0.1,
-      0.9,
-      -1.8,
-      0.1,
-      0.9,
-      -1.8,
-      -0.1,
-      0.9,
-      -1.8,
-      0.0,
-      0.0,
-      0.0,
-      0.0
+    "action_scale": 0.5
+  },
+  "observation": {
+    "components": [
+      {
+        "name": "base_ang_vel",
+        "width": 3,
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "projected_gravity",
+        "width": 3,
+        "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "commands",
+        "width": 3,
+        "source": "cmd",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "joint_pos",
+        "width": 16,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "joint_vel",
+        "width": 16,
+        "source": "actuated",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "last_action",
+        "width": 16,
+        "source": "action",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      }
     ],
-    "default_pose_order": "sdk"
+    "dimension": 57
   },
   "control": {
     "control_hz": 50,
     "physics_hz": 200,
     "decimation": 4
   },
+  "contract_id": "unitree_go2w_v3",
+  "family": "Unitree Go2-W",
+  "size_class": "M",
+  "locomotion_type": "W",
   "description": "Unitree Go2-W wheel-legged robot (12 leg joints + 4 wheel joints), hybrid position/velocity control.",
   "tags": [
     "imported",
@@ -142,7 +269,13 @@
     "unitree_go2w",
     "wheel_leg"
   ],
-  "source": "unitree_rl_mjlab_go2w_import",
-  "min_mjlab_version": "1.6.0",
-  "python_version": "3.12"
+  "source": "unitree_rl_mjlab_go2w_import"
+,
+  "physics_domain": {
+    "contact": {
+      "authority": "training_domain",
+      "official_reference": "unitreerobotics/unitree_mujoco@1eb6642 unitree_robots/go2w/go2w.xml",
+      "note": "接触参数（default geom friction / 足端 contype·conaffinity / condim / solref）按【训练域】口径管理，**不是物理事实**：真机地面摩擦本身不是常数，它是域随机化的对象。数值只保留在 MJCF 一处（单一真源），本区块只声明归属与对照来源，**不复制数值**；逐机型「我方 vs 官方」对照登记在 00_know/03_参数真值标准.md。它不参与 bake_mjcf_physics 固化，也不属于物理真值唯一性门禁。"
+    }
+  }
 }

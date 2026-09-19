@@ -2,7 +2,7 @@
   "artifact_id": "limx_tron1_pf__produced-limx_tron1_pf_v1_20260916_090654_156215",
   "kind": "produced",
   "onnx_bytes": 941855,
-  "onnx_sha256": "a8a798ff282dda63d6b7417d803c59a87d9c592962af6b6c85096a43d1c5a92a",
+  "onnx_sha256": "1fa6b74fc85c65ec8ef8ae066ce4f8ef19c988da187c322d054d7890b3e89015",
   "run_id": "limx_tron1_pf_v1_20260916_090654_156215",
   "schema": "policy-artifact-1.0",
   "source_onnx": "policies/limx_tron1_pf__produced-limx_tron1_pf_v1_20260916_090654_156215/policy.onnx"

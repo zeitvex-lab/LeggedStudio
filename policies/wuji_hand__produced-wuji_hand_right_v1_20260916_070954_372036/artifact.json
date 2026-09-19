@@ -2,7 +2,7 @@
   "artifact_id": "wuji_hand__produced-wuji_hand_right_v1_20260916_070954_372036",
   "kind": "produced",
   "onnx_bytes": 1110013,
-  "onnx_sha256": "b2276285833dd5e747645a8078f93f7f8a88b3d79bd5b074c7b65016b7076fda",
+  "onnx_sha256": "85db5cc51f2a7e28b54795fd02ac1964361f16d82ca59d7595ae56a56df5efc1",
   "run_id": "wuji_hand_right_v1_20260916_070954_372036",
   "schema": "policy-artifact-1.0",
   "source_onnx": "policies/wuji_hand__produced-wuji_hand_right_v1_20260916_070954_372036/policy.onnx"

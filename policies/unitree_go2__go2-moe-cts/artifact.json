@@ -10,7 +10,7 @@
   "label": "Go2 MoE-CTS (robot_lab)",
   "obs_dim": 45,
   "onnx_bytes": 6374215,
-  "onnx_sha256": "93ed62bcca5ddd969da1f35960619005f3d3ae692ff41cde79f20697e9b06641",
+  "onnx_sha256": "6bf4a0554d93fbd92589f7574ee77af740f76a78c9d5fa5fba0c701f3051004f",
   "policy_id": "go2-moe-cts",
   "robot": "unitree_go2",
   "run_id": null,

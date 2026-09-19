@@ -104,7 +104,7 @@ class OnboardTest(unittest.TestCase):
             packages = sorted(p for p in (workspace / "packages").iterdir() if p.is_dir())
             self.assertEqual(1, len(packages), f"应恰好落下一个包：{packages}")
             package = packages[0]
-            for name in ("contract.json", "robot_package.json", "contract_v3.json"):
+            for name in ("contract_legacy_v2.json", "robot_package.json", "contract.json"):
                 self.assertTrue((package / name).is_file(), f"缺 {name}")
             # 模型与随附 mesh 都照搬（不做"猜哪些是资产"的筛选）
             self.assertTrue((package / "model.urdf").is_file())
@@ -174,7 +174,7 @@ class VerifyPackageTest(unittest.TestCase):
             proc = run_cli("verify", "package", str(package))
             self.assertEqual(0, proc.returncode, proc.stdout)
             self.assertIn("✓ 通过", proc.stdout)
-            self.assertIn("v3 present", proc.stdout)
+            self.assertIn("真值 present", proc.stdout)
 
     def test_tampered_model_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -188,18 +188,18 @@ class VerifyPackageTest(unittest.TestCase):
     def test_missing_contract_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             _workspace, package = self._onboarded(tmp)
-            (package / "contract_v3.json").unlink()
+            (package / "contract.json").unlink()
             proc = run_cli("--json", "verify", "package", str(package))
             # 缺 v3 是 warning（训练侧可退回 v2），不是 fail：如实分级
             self.assertEqual(0, proc.returncode, proc.stdout)
             payload = json.loads(proc.stdout)
-            self.assertEqual("missing", payload["contract_v3"])
-            self.assertTrue(any("contract_v3" in item for item in payload["warnings"]))
+            self.assertEqual("missing", payload["contract"])
+            self.assertTrue(any("contract" in item for item in payload["warnings"]))
 
-            (package / "contract.json").unlink()
+            (package / "contract_legacy_v2.json").unlink()
             broken = run_cli("--json", "verify", "package", str(package))
             self.assertEqual(1, broken.returncode, broken.stdout)
-            self.assertIn("缺 contract.json", json.loads(broken.stdout)["problems"][0])
+            self.assertIn("缺 contract_legacy_v2.json", json.loads(broken.stdout)["problems"][0])
 
 
 class BothEntriesShareOnePackageIdTest(unittest.TestCase):

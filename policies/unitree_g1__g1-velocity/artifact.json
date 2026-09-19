@@ -10,7 +10,7 @@
   "label": "Velocity (Unitree mjlab)",
   "obs_dim": 98,
   "onnx_bytes": 880528,
-  "onnx_sha256": "0b5a34fec8ba8213a3b451436665f9bede081d4c0fe42c3c6e65a2754a9d741d",
+  "onnx_sha256": "7b1776d2f274e316c48c164a210989a6c4ada20fb2cfb58b3767c6e1fcb6ec1f",
   "policy_id": "g1-velocity",
   "robot": "unitree_g1",
   "run_id": null,

@@ -2,7 +2,7 @@
 
 Evidence chain (all three agree):
   * joint names / kinematics: official ``deep_robotics_model/M20/mjcf/M20.xml``
-    (fl/fr/hl/hr x hipx/hipy/knee/wheel) == contract_v3.json ``joints.actuated``;
+    (fl/fr/hl/hr x hipx/hipy/knee/wheel) == contract.json ``joints.actuated``;
   * PD gains / effort: contract ``actuator_profile.by_role`` ==
     DreamWaQ ``deploy_mujoco/configs/m20.yaml`` (kps 80/80/80, wheel kd 0.6)
     with effort limits from the official MJCF ``actuatorfrcrange``

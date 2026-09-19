@@ -1,9 +1,9 @@
 """Unified contract loading for the training pipeline (v2/v3 convergence).
 
-Contract v3 (``contract_v3.json``) carries the morphology/role/actuator semantic
+Contract v3 (``contract.json``) carries the morphology/role/actuator semantic
 layer and is the canonical source for joint order, control timing, action scale,
 size class, locomotion and the per-joint actuator parameter expansion.  Contract
-v2 (``contract.json``) still carries the data-complete record the training stack
+v2 (``contract_legacy_v2.json``) still carries the data-complete record the training stack
 needs (URDF path, default pose, joint limits, observation component names).
 
 This module lets the training pipeline consume **one** merged contract by:
@@ -38,9 +38,9 @@ def _read_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def load_contract_v3(package_dir: Path) -> dict[str, Any] | None:
+def load_contract(package_dir: Path) -> dict[str, Any] | None:
     """Return the v3 contract dict if present and resolvable, else None."""
-    path = package_dir / "contract_v3.json"
+    path = package_dir / "contract.json"
     if not path.exists():
         return None
     data = _read_json(path)
@@ -49,15 +49,15 @@ def load_contract_v3(package_dir: Path) -> dict[str, Any] | None:
     return data
 
 
-def load_contract_v2(package_dir: Path) -> dict[str, Any] | None:
+def load_legacy_contract(package_dir: Path) -> dict[str, Any] | None:
     """Return the v2 contract dict if present, else None."""
-    path = package_dir / "contract.json"
+    path = package_dir / "contract_legacy_v2.json"
     if not path.exists():
         return None
     return _read_json(path)
 
 
-def merge_v3_over_v2(v3: dict[str, Any] | None, v2: dict[str, Any] | None) -> dict[str, Any]:
+def merge_legacy_over_contract(v3: dict[str, Any] | None, v2: dict[str, Any] | None) -> dict[str, Any]:
     """Merge the v3 semantic authority over the v2 data-complete record.
 
     Returns a single contract dict.  v3 wins for joint order, control timing,
@@ -173,8 +173,8 @@ def load_training_contract(package_dir: Path) -> dict[str, Any]:
 
     Raises :class:`ContractLoadError` when no contract file is present.
     """
-    v3 = load_contract_v3(package_dir)
-    v2 = load_contract_v2(package_dir)
+    v3 = load_contract(package_dir)
+    v2 = load_legacy_contract(package_dir)
     if v3 is None and v2 is None:
         raise ContractLoadError(f"No contract found in {package_dir}")
-    return merge_v3_over_v2(v3, v2)
+    return merge_legacy_over_contract(v3, v2)
