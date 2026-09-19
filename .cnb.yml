@@ -249,27 +249,15 @@ frontend:
             echo "vendor assets OK"
             echo "== index references app.js =="
             node -e "const h=require('fs').readFileSync('web/sim2sim/index.html','utf8');if(!h.includes('./app.js'))throw new Error('app.js missing');console.log('index OK')"
-            echo "== observation builders (与 app.js 同源的观测布局) =="
-            # 观测布局是"浏览器 ↔ 训练/验收"必须逐项对齐的东西（错一位就静默失配，
-            # 只表现为策略抽搐）。这份测试早已存在（package.json 的 test:obs），
-            # 但一直没进 CI —— 本地能跑、CI 看不见等于没有。
-            node web/sim2sim/obs/observation_builders.test.mjs
-            echo "== DWA candidate fan (H11：候选轨迹 → 页面折线) =="
-            node web/sim2sim/dwa_fan.test.mjs
-            echo "== sensor panels (深度图 / 2D 轨迹 / odom+IMU 读数) =="
-            # 这几个绘制器此前不存在（深度只喂策略、高度图只展示契约、2D 平面只有地图编辑器）。
-            # 用假 ctx 断言"画了什么、画在哪"，不需要浏览器。
-            node web/sim2sim/sensor_panels.test.mjs
-            echo "== raycast（深度/高度/LiDAR/点云共用的几何求交）=="
-            # 这套求交此前没有任何测试（内联在 pie_depth.js 里，只被"深度图看起来对不对"间接覆盖）。
-            # 抽成共用模块后，四种传感器都建立在它上面 —— 平面/球/盒命中距离、取最近、maxDist 截断、
-            # geom_quat 与 body 位姿参与求交，逐条用可手算的几何钉住。
-            node web/sim2sim/raycast.test.mjs
-            echo "== sensor dock（来源/插件归属 + 全局里程计读数）=="
-            # 悬浮窗的规则层：本体感知（odom / IMU）默认开、外挂传感器默认关；
-            # 来源与插件是**依赖关系**（插件没勾则该来源不可选，fail-closed）；
-            # "全局里程计"最要紧的一条 —— 世界系速度要按偏航角转，不是体轴原值。
-            node web/sim2sim/sensor_dock.test.mjs
+            echo "== 前端单元套件（**自动枚举**：新增 *.test.mjs 即纳入，不再维护手写清单）=="
+            # 这里原先是一份**手写清单**，于是 navigation / onnx_contract_check / terrain_groups
+            # 三套测试**存在却没进 CI** —— 与下面第一条注释要解决的是同一个问题
+            # （"本地能跑、CI 看不见等于没有"）。清单改为从文件系统派生：新增套件不会漏。
+            # 每套件守什么写在各自文件头部（`node <套件>` 直接跑，零依赖）。
+            # 注意用 for（不是 while 子shell）：`set -e` 才能让首个失败立即中止。
+            suites=$(find web -name '*.test.mjs' -not -path '*/vendor/*' | sort)
+            echo "$suites"
+            for suite in $suites; do echo "== $suite"; node "$suite"; done
 
 main:
   push:

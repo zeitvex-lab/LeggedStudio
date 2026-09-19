@@ -603,12 +603,15 @@ async function saveRobotPackage() {
 }
 
 
+/**
+ * JSON 请求 —— **委托** `web/shared/api.js`（HTTP 错误 / 超时 / JSON 解析的唯一实现）。
+ *
+ * 这里曾自带一份：与 training-common.js、workbench.js 各写一遍意味着"超时"和
+ * "非 JSON 响应"只在其中一处被处理。保留本函数的签名与"空响应回 `{}`"的兜底语义。
+ */
 async function jsonFetch(path, options = {}) {
-  const response = await fetch(`${API}${path}`, options);
-  let payload = {};
-  try { payload = await response.json(); } catch {}
-  if (!response.ok) throw new Error(payload.detail?.message || payload.detail || payload.error?.message || `HTTP ${response.status}`);
-  return payload;
+  const payload = await LSApi.fetchJson(`${API}${path}`, options);
+  return payload === null ? {} : payload;
 }
 function setView(name, options = {}) {
   // Inline pages hosted inside frames so the sidebar/workflow shell stays

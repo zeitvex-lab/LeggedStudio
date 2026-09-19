@@ -39,8 +39,7 @@ function setSystemRow(valueId, statusId, text, dot) {
 
 async function loadSystemStatus() {
   try {
-    const response = await fetch(`${API_BASE}/api/system/environment`);
-    const data = await response.json();
+    const data = await LSApi.fetchJson(`${API_BASE}/api/system/environment`);
 
     const badge = document.getElementById('systemBadge');
     const hint = document.getElementById('systemHint');
@@ -87,8 +86,7 @@ async function loadSystemStatus() {
 // ========== 预训练模型 ==========
 async function loadPretrainedModels() {
   try {
-    const response = await fetch(`${API_BASE}/api/pretrained/list`);
-    const data = await response.json();
+    const data = await LSApi.fetchJson(`${API_BASE}/api/pretrained/list`);
 
     if (data.success && data.models && data.models.length > 0) {
       document.getElementById('pretrainedModels').textContent = data.count;
@@ -102,8 +100,7 @@ async function loadPretrainedModels() {
 // ========== 训练统计 ==========
 async function loadTrainingStats() {
   try {
-    const response = await fetch(`${API_BASE}/api/training/list`);
-    const data = await response.json();
+    const data = await LSApi.fetchJson(`${API_BASE}/api/training/list`);
 
     const tasks = data.tasks || [];
     const total = tasks.length;
@@ -122,8 +119,7 @@ async function loadTrainingStats() {
 // ========== 最近训练 ==========
 async function loadRecentTrainings() {
   try {
-    const response = await fetch(`${API_BASE}/api/training/list`);
-    const data = await response.json();
+    const data = await LSApi.fetchJson(`${API_BASE}/api/training/list`);
 
     const listEl = document.getElementById('trainingList');
 
@@ -178,8 +174,7 @@ async function loadQuickDemos() {
   const host = document.getElementById('quickList');
   if (!host) return;
   try {
-    const response = await fetch(`${API_BASE}/api/health/demo-cards`);
-    const data = await response.json();
+    const data = await LSApi.fetchJson(`${API_BASE}/api/health/demo-cards`);
     const cards = data.cards || [];
 
     if (!cards.length) {
@@ -228,8 +223,7 @@ async function loadQuickDemos() {
 // ========== 快速演示 ==========
 async function quickDemo() {
   try {
-    const response = await fetch(`${API_BASE}/api/pretrained/list`);
-    const data = await response.json();
+    const data = await LSApi.fetchJson(`${API_BASE}/api/pretrained/list`);
 
     if (!data.success || !data.models || data.models.length === 0) {
       alert('暂无预训练模型\n\n请在机器人包的 simulation/config.json 中配置 policies，或运行 tools/generate_pretrained_index.py 重建索引');
