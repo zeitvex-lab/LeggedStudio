@@ -546,18 +546,14 @@
     }
   }
 
-  /** fetch() JSON helper with a consistent error message. */
+  /** fetch() JSON helper —— **委托** `web/shared/api.js`（HTTP 错误/超时/JSON 解析的唯一实现）。
+   *
+   * 这里曾自带一份（检查 `.ok` + 取 detail），与 sim2sim 侧、dashboard 侧各有一份：
+   * 三份实现意味着"超时"和"非 JSON 响应"这类边界只在其中一处被处理。
+   * 保留本函数的**签名**（`${API_BASE}${path}` + init），调用点不用动。
+   */
   async function fetchJson(path, init) {
-    const response = await fetch(`${API_BASE}${path}`, init);
-    if (!response.ok) {
-      let detail = `${response.status} ${response.statusText}`;
-      try {
-        const body = await response.json();
-        if (body && body.detail) detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
-      } catch (err) { /* non-JSON error body */ }
-      throw new Error(detail);
-    }
-    return response.json();
+    return LSApi.fetchJson(`${API_BASE}${path}`, init);
   }
 
   function downloadText(filename, text) {
