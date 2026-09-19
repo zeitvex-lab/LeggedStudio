@@ -6,7 +6,7 @@ actuators; see the adjudication note below), so the simulation and
 training paths share one source of truth.
 
 B8 训练去包化（试点轮）：与 deeprobotics_lite3 逐字重复的框架机制（MJCF 解析、
-XmlActuatorCfg 包装、碰撞/动作缩放推导）上移到 ``adapters/mjlab/velocity_task_kit``；
+XmlActuatorCfg 包装、碰撞/动作缩放推导）上移到 ``adapters/mjlab/kits/quadruped_kit``；
 本文件只留 B2 专属常量与裁决记录。
 """
 
@@ -15,7 +15,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# 仓库根自举（见 velocity_task_kit 模块注释）：worker / schema-dump / 冒烟三种
+# 仓库根自举（见 kits/quadruped_kit 模块注释）：worker / schema-dump / 冒烟三种
 # 运行环境都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab
 # 对 assets 源树与 workspace 镜像副本两种深度都成立。
 for _parent in Path(__file__).resolve().parents:
@@ -26,7 +26,7 @@ for _parent in Path(__file__).resolve().parents:
 
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg  # noqa: E402
 
-from adapters.mjlab import velocity_task_kit as kit  # noqa: E402
+from adapters.mjlab.kits import quadruped_kit as kit  # noqa: E402
 
 B2_XML, get_spec = kit.package_mjcf(__file__)
 

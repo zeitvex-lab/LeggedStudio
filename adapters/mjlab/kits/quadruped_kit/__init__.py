@@ -1,28 +1,28 @@
-"""Package-local velocity 任务的**框架层**共享模块（B8 训练去包化）。
+"""四足形态 Kit（quadruped）—— 框架层唯一真值。
 
-背景（00_know/05_任务清单.md B8）：deeprobotics_lite3 与 unitree_b2 两包的
-``training/source/`` 里各有一份逐字重复的「框架层」代码 —— mjlab velocity 基座
-的装配骨架（sim 上限 / 实体挂载 / 高度扫描重指 / viewer / play 与 flat 收尾 /
-PPO runner）与 B28 同族「MJCF 为执行真值」的 XmlActuatorCfg 包装机制。本模块把
-这些跨包重复块上移为唯一真值；包内只留任务特有部分（奖励表 / 传感器 / 终止 /
-常量）与入口 stub（entrypoint 符号仍在 ``<pkg>_velocity.env_cfg`` 模块内，
-``tools/audit_training_entrypoints.py`` 的静态解析不受影响）。
+## 这份代码从哪来
 
-第二批（m20/b2w/go2w 轮足三包组）起本模块由单文件升格为**包**：
-``adapters/mjlab/velocity_task_kit/``
+原先叫 ``adapters/mjlab/velocity_task_kit``（B8 训练去包化试点），当时它同时服务两组包：
 
-- ``__init__``（本文件）：试点轮的装配骨架 + 执行器包装机制，API 不变
-  （``from adapters.mjlab import velocity_task_kit as kit`` 继续成立）；
-  新增 ``ppo_runner_cfg_ex``（轮足三包 rl_cfg 的扩展参数版 PPO runner，
-  与既有 ``ppo_runner_cfg``（lite3/b2 语义）并存，见函数 docstring）。
-- ``mdp/``：三包逐字全同的 mdp 框架族（curriculums / feet_rewards /
-  observations / posture_rewards / randomization / rewards / terminations /
-  tracking_rewards / velocity_command / wheel_rewards 十个文件原样上移）
-  加 ``mdp/__init__`` 的命名空间组合真值（b2w/go2w 版；m20 包内多出的
-  m20_rewards 两行属任务 wiring，留包且保持最后次序）。
-- ``velocity_env_cfg.py``：三包逐字全同的 velocity 基座 cfg 工厂，twist 命令
-  类来源参数化（默认 = kit 框架族类 = b2w/go2w 语义；m20 stub 显式传入其
-  mdp 命名空间解析到的 mjlab 类，保持上移前语义）。
+* **四足组**（``unitree_b2`` / ``deeprobotics_lite3``）：用本模块的装配骨架 ——
+  包内 MJCF 真值解析 / ``XmlActuatorCfg`` 执行器包装 / velocity env 装配 /
+  高度扫描重指 / viewer 与 play 收尾 / ``ppo_runner_cfg``；
+* **轮足组**（``deeprobotics_m20`` / ``unitree_b2w`` / ``unitree_go2w``）：用
+  ``mdp/`` 框架族 + ``velocity_env_cfg.py`` + ``ppo_runner_cfg_ex``。
+
+2026-09-19 按形态拆成两个 Kit（决策依据与三条否决理由见
+``00_know/90_归档/07_形态Kit设计草案.md``）——**两组用的符号完全不重叠**，
+所以这是纯归属划分：没有共享代码、没有双份、没有行为变更。
+包侧 stub 的调用点只改模块名（``from adapters.mjlab.kits import quadruped_kit as kit``）。
+
+## 边界
+
+* **管**：装配骨架 / 执行器包装机制 / 运行器配置 —— 即"与任务无关的框架层"；
+* **不管**：任何物理数值（契约真值 → MJCF 是执行真值）、半自主参数**取值**（Kit 只给方法）、
+  状态与进度（在 `05`）；
+* 任务特有部分（奖励表 / 传感器 / 终止 / 常量）与入口 stub **留在包内**
+  （entrypoint 符号仍在 ``<pkg>_velocity.env_cfg`` 模块内，
+  ``tools/audit_training_entrypoints.py`` 的静态解析不受影响）。
 
 对照手册：``00_resources/mjlab-skillkit/``（dict-based manager、迁移配方、
 preserve-layout 模式）——只对照写法，不引入其 adapters/agents 目录；本模块归属
@@ -305,78 +305,3 @@ def ppo_runner_cfg(experiment_name: str):
         num_steps_per_env=24,
         max_iterations=10_000,
     )
-
-
-def ppo_runner_cfg_ex(
-    experiment_name: str,
-    *,
-    run_name: str | None = None,
-    max_iterations: int = 10001,
-    save_interval: int = 1000,
-    init_noise_std: float = 1.0,
-    learning_rate: float = 1.0e-3,
-    entropy_coef: float = 0.01,
-    max_grad_norm: float = 1.0,
-    resume: bool = False,
-    load_checkpoint: str | None = None,
-):
-    """轮足三包（m20/b2w/go2w）rl_cfg 的 PPO runner 配置（B8 第二批上移）。
-
-    来源：三包 rl_cfg.py 的 ``make_X_runner_cfg`` 逐字共同正文（三份仅函数名与
-    experiment_name 字符串不同——b2w/go2w 互为逐字副本、m20 是带 go2w 残留命名
-    的同正文副本）。与 :func:`ppo_runner_cfg`（lite3/b2 语义）的差异都是**各自
-    包里出现过的字面值**：默认 ``save_interval=1000`` / ``max_iterations=10001``、
-    可调噪声/学习率/熵系数/梯度裁剪，以及 ``run_name`` / ``resume`` /
-    ``load_checkpoint`` 三个 lite3/b2 版没有的维度。各包 stub 传自己的字面值
-    即逐字段复现原 runner；包内包装函数签名不变。
-
-    ``run_name`` 直接透传（含 None——三包原实现就是显式传 None，与
-    RslRlOnPolicyRunnerCfg 的 dataclass 默认空串不同，语义等价实证以此为准）；
-    ``resume`` / ``load_checkpoint`` 按原实现的构造后赋值路径写回。
-    """
-    from mjlab.rl import (
-        RslRlModelCfg,
-        RslRlOnPolicyRunnerCfg,
-        RslRlPpoAlgorithmCfg,
-    )
-
-    cfg = RslRlOnPolicyRunnerCfg(
-        actor=RslRlModelCfg(
-            hidden_dims=(512, 256, 128),
-            activation="elu",
-            obs_normalization=True,
-            distribution_cfg={
-                "class_name": "GaussianDistribution",
-                "init_std": init_noise_std,
-                "std_type": "scalar",
-            },
-        ),
-        critic=RslRlModelCfg(
-            hidden_dims=(512, 256, 128),
-            activation="elu",
-            obs_normalization=True,
-        ),
-        algorithm=RslRlPpoAlgorithmCfg(
-            value_loss_coef=1.0,
-            use_clipped_value_loss=True,
-            clip_param=0.2,
-            entropy_coef=entropy_coef,
-            num_learning_epochs=5,
-            num_mini_batches=4,
-            learning_rate=learning_rate,
-            schedule="adaptive",
-            gamma=0.99,
-            lam=0.95,
-            desired_kl=0.01,
-            max_grad_norm=max_grad_norm,
-        ),
-        experiment_name=experiment_name,
-        run_name=run_name,
-        save_interval=save_interval,
-        num_steps_per_env=24,
-        max_iterations=max_iterations,
-    )
-    cfg.resume = resume
-    if load_checkpoint is not None:
-        cfg.load_checkpoint = load_checkpoint
-    return cfg

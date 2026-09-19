@@ -43,7 +43,6 @@ CONSUMERS = (
     "00_know/03_参考项目与资源.md",
     "00_know/02_项目规划.md",
     "00_know/06_统一架构方案.md",
-    "00_know/07_形态Kit设计草案.md",
     "00_know/README.md",
     "docs/cloud-dev.md",
     "docs/desktop-app.md",

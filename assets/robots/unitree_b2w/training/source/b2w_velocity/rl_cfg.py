@@ -2,7 +2,7 @@
 # B8 训练去包化（第二批）：``make_go2w_runner_cfg`` 的构造正文与 m20_velocity /
 # go2w_velocity 的 rl_cfg.py 逐字同文（三份仅函数名 / experiment_name 字符串
 # 不同；b2w 与 go2w 两份文件互为仅差 experiment_name 三处的副本），已上移为
-# adapters/mjlab/velocity_task_kit.ppo_runner_cfg_ex（唯一真值）。包内保留原
+# adapters/mjlab/kits/wheel_leg_kit.ppo_runner_cfg_ex（唯一真值）。包内保留原
 # 函数签名与全部入口包装（entrypoint 符号 ``unitree_go2w_*_ppo_runner_cfg``
 # 仍在 ``b2w_velocity.rl_cfg`` 模块内，静态解析不受影响），构造委托 kit。
 # ------------------------------------------------------------------------------
@@ -14,7 +14,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# 仓库根自举（见 velocity_task_kit 模块注释）：worker / schema-dump / 冒烟三种
+# 仓库根自举（见 kits/wheel_leg_kit 模块注释）：worker / schema-dump / 冒烟三种
 # 运行环境都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab
 # 对 assets 源树与 workspace 镜像副本两种深度都成立。
 for _parent in Path(__file__).resolve().parents:
@@ -25,7 +25,7 @@ for _parent in Path(__file__).resolve().parents:
 
 from mjlab.rl import RslRlOnPolicyRunnerCfg  # noqa: E402
 
-from adapters.mjlab import velocity_task_kit as kit  # noqa: E402
+from adapters.mjlab.kits import wheel_leg_kit as kit  # noqa: E402
 
 
 def make_go2w_runner_cfg(

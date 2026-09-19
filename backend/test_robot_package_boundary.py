@@ -24,7 +24,12 @@ FORBIDDEN_PREFIXES = (
 #: B8 框架上移的**共享任务 kit**（训练栈侧纯 mjlab 级 helper，不 import backend/控制面）：
 #: 包内 stub 允许且应当引用它——这正是"框架层上移、任务特有留包"的载体。
 #: 它是显式列名的白名单（而不是放行整个 adapters），边界守卫对其余 adapters 模块照旧生效。
-SANCTIONED_SHARED_KITS = ("adapters.mjlab.velocity_task_kit",)
+SANCTIONED_SHARED_KITS = (
+    # 2026-09-19 按形态拆分：四足 Kit 服务 lite3/b2，轮足 Kit 服务 m20/b2w/go2w。
+    # 仍是**显式列名**——新增形态 Kit 时须在此登记（一次人工确认，胜过放行整个 kits/）。
+    "adapters.mjlab.kits.quadruped_kit",
+    "adapters.mjlab.kits.wheel_leg_kit",
+)
 
 # 扩展入口（extension_entrypoint）白名单前缀：平台按契约显式加载它们，
 # 它们可以 import mjlab 的任务注册 API。
@@ -94,7 +99,7 @@ class RobotPackageBoundaryTests(unittest.TestCase):
                         if raw_line.startswith((" ", "\t")):
                             continue
                         target = line.split()[1].split(".")[0] if line.startswith("import ") else line.split()[1]
-                        # 完整点路径匹配（`from adapters.mjlab import velocity_task_kit`
+                        # 完整点路径匹配（`from adapters.mjlab.kits import quadruped_kit`
                         # 的 target 只是首段 "adapters"，必须拼上导入名再比对）
                         if line.startswith("from ") and " import " in line:
                             module_path = line.split()[1]
