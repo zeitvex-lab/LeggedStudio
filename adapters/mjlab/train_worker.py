@@ -58,9 +58,12 @@ def main():
     print()
 
     # 加载训练配置
+    # 走单一来源（``utf-8-sig``）：旧实现 ``open(path, 'r')`` 不指定编码，Windows（GBK）
+    # 下读含中文的配置会抛 UnicodeDecodeError。语义保持"坏 JSON 原样抛"（用严格入口）。
     print("[Worker] Loading training config...")
-    with open(args.config, 'r') as f:
-        config_dict = json.load(f)
+    from contracts.jsonio import load_json
+
+    config_dict = load_json(args.config)
 
     config = TrainingConfig(**config_dict)
     print(f"[Worker] Algorithm: {config.algorithm}")

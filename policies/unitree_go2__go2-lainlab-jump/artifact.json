@@ -1,0 +1,20 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-lainlab-jump",
+  "aux_blobs": [],
+  "contract_digest": "05e9739d34d411b6e9b3a83c78e0c671395c7420763e05d88a9b92be24f46709",
+  "declared_source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/jump",
+  "history_len": 10,
+  "kind": "policies",
+  "label": "Go2 Jump (LainLab)",
+  "obs_dim": 47,
+  "onnx_bytes": 1628636,
+  "onnx_sha256": "af5dabf563d9ba9f1267ef000a8602c433a1f5bc95706e120a325d6a582ac09c",
+  "policy_id": "go2-lainlab-jump",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_lainlab_jump.onnx",
+  "task_type": null
+}

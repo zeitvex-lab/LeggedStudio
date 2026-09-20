@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>打包与分发 · Legged Studio</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <style>
+    /* 序 10「发得出去」的 Web 入口。三件事，一页读完：
+         ① 我有哪些导出物、**是不是好的**（逐项 verify 结论，坏包必须显眼）；
+         ② 怎么打包（场景 / Bundle）；
+         ③ 收到别人的包怎么收下（校验通过才给载荷）。
+       判据与打包全部委托后端 `/api/exports`（与 CLI `export` 同一实现），本页不自己算。 */
+    html, body { height: 100%; margin: 0; }
+    body { background: var(--bg, #0b1319); color: var(--text, #e6eef4); }
+    body.embedded .page-header { display: none; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 20px 40px; }
+    .page-header { display: flex; align-items: center; gap: 14px; padding: 10px 20px;
+      border-bottom: 1px solid var(--border-soft, #23303a); background: var(--surface, #101a22); }
+    .main-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+    .nav-item { padding: 5px 9px; border-radius: 6px; font-size: 12px; text-decoration: none;
+      color: var(--muted, #8ea1ae); border: 1px solid transparent; }
+    .nav-item:hover { border-color: var(--border, #2c3a45); color: var(--text); }
+    .nav-item.active { color: var(--text); border-color: var(--accent, #2588df); background: var(--surface-raised, #16222b); }
+    .nav-index { opacity: .6; margin-right: 4px; }
+    h1 { font-size: 20px; margin: 4px 0 2px; }
+    h2 { font-size: 14px; margin: 0 0 8px; }
+    .sub { color: var(--muted, #8ea1ae); font-size: 12px; margin: 0 0 16px; }
+    .panel { border: 1px solid var(--border-soft, #23303a); border-radius: 8px;
+      background: var(--surface, #101a22); padding: 14px 16px; margin-bottom: 16px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+    .field > span { color: var(--muted, #8ea1ae); }
+    input, select, textarea, button { font: inherit; font-size: 12px; padding: 5px 7px;
+      border: 1px solid var(--border, #2c3a45); border-radius: 5px;
+      background: var(--bg, #0b1319); color: inherit; }
+    textarea { font-family: ui-monospace, monospace; min-height: 60px; width: 100%; }
+    button { cursor: pointer; background: var(--surface-raised, #16222b); }
+    button.primary { border-color: var(--accent, #2588df); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border-soft, #23303a); }
+    th { color: var(--muted, #8ea1ae); font-weight: 500; }
+    tr.bad td { color: #e2725b; }
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover td { background: var(--surface-raised, #16222b); }
+    .ok { color: #5fbf7a; }
+    .bad { color: #e2725b; }
+    .muted { color: var(--muted, #8ea1ae); }
+    pre { white-space: pre-wrap; font-size: 11px; margin: 6px 0 0; }
+    .hint { color: var(--muted, #8ea1ae); font-size: 11px; line-height: 1.6; margin-top: 8px; }
+    #detailBox, #actionBox { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <script>
+    if (new URLSearchParams(location.search).get("embedded") === "1") {
+      document.body.classList.add("embedded");
+    }
+  </script>
+  <header class="page-header">
+    <nav class="main-nav" aria-label="主功能">
+      <a class="nav-item" href="dashboard.html"><span class="nav-index">01</span>首页</a>
+      <a class="nav-item" href="workbench.html#robot"><span class="nav-index">02</span>验证</a>
+      <a class="nav-item" href="training_create.html"><span class="nav-index">03</span>训练配置</a>
+      <a class="nav-item" href="training_list.html"><span class="nav-index">04</span>训练</a>
+      <a class="nav-item" href="workbench.html#simulation"><span class="nav-index">05</span>仿真</a>
+      <a class="nav-item active" href="exports.html"><span class="nav-index">06</span>打包分发</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <h1>打包与分发</h1>
+    <p class="sub">导出物自带清单与逐条哈希；打包、校验、收包一律走后端同一实现（与 CLI <code>export</code> 同源）。</p>
+
+    <section class="panel">
+      <h2>已有导出物 <span class="muted" id="exportsRoot"></span></h2>
+      <div id="exportsTable"><span class="muted">正在读取…</span></div>
+      <div class="hint">
+        <strong>坏包会被标红</strong>：文件缺失、sha256 与清单不符、或存在清单未登记的"幽灵文件"。
+        点一行看完整校验报告；包若来自别处，先看这里再决定要不要用。
+      </div>
+      <div id="detailBox"></div>
+    </section>
+
+    <section class="panel">
+      <h2>打包一份场景</h2>
+      <div class="row">
+        <label class="field"><span>场景 id</span><input id="scId" value="share_demo"></label>
+        <label class="field"><span>地图</span><select id="scMap"></select></label>
+        <label class="field"><span>命令来源</span>
+          <select id="scSource">
+            <option value="policy">policy</option>
+            <option value="planner">planner</option>
+            <option value="script">script</option>
+            <option value="teleop">teleop</option>
+          </select>
+        </label>
+        <label class="field"><span>航点（每行 x,y；仅 planner/perception 需要）</span><textarea id="scWaypoints" spellcheck="false">0,0
+2.5,-1</textarea></label>
+        <button class="primary" id="packBtn">打包场景</button>
+      </div>
+      <div class="hint">打包前会在服务端过一次 <code>ScenarioContract</code>（与仿真入口同一道闸）；同名导出物已存在时**默认不覆盖**。</div>
+      <div id="actionBox"></div>
+    </section>
+
+    <section class="panel">
+      <h2>收下别人给的场景包</h2>
+      <div class="row">
+        <label class="field"><span>导出物名字（在 <code>&lt;workspace&gt;/exports/</code> 下）</span><input id="importName" placeholder="scenario-xxx"></label>
+        <button id="importBtn">校验并收下</button>
+      </div>
+      <div class="hint">
+        通过完整性校验与契约校验后，返回**可直接使用的场景载荷**（拿去开仿真或预填编辑器）。
+        本页<strong>不落盘</strong>：往哪儿存没有唯一答案，凭空造目录比不写更糟。
+      </div>
+      <div id="importBox"></div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[char]));
+    }
+
+    async function jsonFetch(url, options) {
+      const response = await fetch(url, { cache: "no-store", ...options });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = payload.detail;
+        throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail || payload));
+      }
+      return payload;
+    }
+
+    async function loadMaps() {
+      try {
+        const payload = await jsonFetch("/api/simulation/maps");
+        const maps = (payload.maps || []).filter((item) => item && item.id);
+        $("scMap").innerHTML = maps.map((item) => `<option value="${item.id}">${item.label || item.id}</option>`).join("")
+          || '<option value="flat">flat</option>';
+      } catch (_) {
+        $("scMap").innerHTML = '<option value="flat">flat</option>';
+      }
+    }
+
+    async function loadExports() {
+      const host = $("exportsTable");
+      try {
+        const payload = await jsonFetch("/api/exports");
+        $("exportsRoot").textContent = `（${payload.root}，共 ${payload.count} 个，坏包 ${payload.broken}）`;
+        if (!payload.count) {
+          host.innerHTML = '<span class="muted">还没有导出物。用下面「打包一份场景」生成第一个。</span>';
+          return;
+        }
+        host.innerHTML = `<table><thead><tr><th>名字</th><th>类型</th><th>条目</th><th>校验</th><th>未解析</th></tr></thead><tbody>${
+          payload.exports.map((item) => `<tr class="clickable ${item.ok ? "" : "bad"}" data-name="${escapeHtml(item.name)}">
+            <td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.kind || "-")}</td><td>${item.entries ?? "-"}</td>
+            <td>${item.ok ? '<span class="ok">通过</span>' : '<span class="bad">有问题</span>'}</td>
+            <td>${item.unresolved ?? 0}</td></tr>`).join("")
+        }</tbody></table>`;
+        host.querySelectorAll("tr[data-name]").forEach((row) => {
+          row.addEventListener("click", () => showDetail(row.dataset.name));
+        });
+      } catch (error) {
+        host.innerHTML = `<span class="bad">导出物列表不可用：${escapeHtml(error.message)}</span>`;
+      }
+    }
+
+    async function showDetail(name) {
+      const box = $("detailBox");
+      box.innerHTML = '<span class="muted">读取中…</span>';
+      try {
+        const detail = await jsonFetch(`/api/exports/${encodeURIComponent(name)}`);
+        const problems = detail.problems || [];
+        box.innerHTML = `<strong>${escapeHtml(name)}</strong> · ${escapeHtml(detail.kind || "-")} · 条目 ${detail.entries ?? "-"}
+          ${detail.ok ? '<span class="ok">校验通过</span>' : `<span class="bad">${problems.length} 个问题</span>`}
+          ${problems.length ? `<ul>${problems.map((text) => `<li>${escapeHtml(text)}</li>`).join("")}</ul>` : ""}
+          <pre>${escapeHtml(JSON.stringify(detail.refs || {}, null, 2))}</pre>`;
+      } catch (error) {
+        box.innerHTML = `<span class="bad">读取失败：${escapeHtml(error.message)}</span>`;
+      }
+    }
+
+    function parseWaypoints(text) {
+      return String(text || "").split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
+        const [x, y] = line.split(",").map((part) => Number(part.trim()));
+        return { x, y };
+      }).filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+    }
+
+    async function packScenario() {
+      const box = $("actionBox");
+      box.innerHTML = '<span class="muted">打包中…</span>';
+      const scenario = {
+        scenario_id: $("scId").value.trim(),
+        map_id: $("scMap").value,
+        mode: $("scSource").value === "policy" ? "basic" : "navigation",
+        command_source: $("scSource").value,
+        waypoints: parseWaypoints($("scWaypoints").value),
+      };
+      try {
+        const payload = await jsonFetch("/api/exports/scenario", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario }),
+        });
+        box.innerHTML = `<p class="ok">已打包：${escapeHtml(payload.out_dir)}（条目 ${payload.verify.entries}，校验${payload.verify.ok ? "通过" : "未通过"}）</p>`;
+        loadExports();
+      } catch (error) {
+        box.innerHTML = `<p class="bad">打包失败：${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    async function importScenario() {
+      const box = $("importBox");
+      const name = $("importName").value.trim();
+      if (!name) { box.innerHTML = '<p class="bad">先填导出物名字。</p>'; return; }
+      box.innerHTML = '<span class="muted">校验中…</span>';
+      try {
+        const payload = await jsonFetch("/api/exports/import-scenario", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }),
+        });
+        box.innerHTML = `<p class="ok">收下：${escapeHtml(payload.scenario_id)}（形态 ${escapeHtml(payload.form)}，完整性${
+          payload.integrity ? "通过" : "无清单可验（裸 JSON）"}）</p><pre>${escapeHtml(JSON.stringify(payload.scenario, null, 2))}</pre>`;
+      } catch (error) {
+        box.innerHTML = `<p class="bad">拒绝收下：${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    $("packBtn").addEventListener("click", packScenario);
+    $("importBtn").addEventListener("click", importScenario);
+    loadMaps();
+    loadExports();
+  </script>
+</body>
+</html>

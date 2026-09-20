@@ -475,19 +475,109 @@ function buildGo1HimlocoObservation() {
 
 // Go2/B2 四足 rl_sar/robot_lab 部署契约（45 维，12 位置动作）：
 // ang_vel×0.25(body), gravity, cmd×1.0, (dof_pos-default)×1.0, dof_vel×0.05, 原始 action。
-function buildGo2RlSdkObservation() {
-  if (CONFIG.numObs !== 45 || CONFIG.numActions !== 12) {
-    throw new Error(`go2_rl_sdk_45 requires 45 observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
-  }
+// 45 维帧的**共享填充**：lainlab_handstand_48（3 个恒零 legacy 前缀 + 同一帧）也用它，
+// 抽取时逐字保持原实现 —— 既有 go2_rl_sdk_45 策略的行为不得有任何变化（测试钉着）。
+function fillRlSdkActorFrame(startOffset) {
   const imu = readImuSample();
-  sim.obs.fill(0);
-  let offset = 0;
+  let offset = startOffset;
   for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
   for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
   for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
   for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+  return offset;
+}
+
+function buildGo2RlSdkObservation() {
+  if (CONFIG.numObs !== 45 || CONFIG.numActions !== 12) {
+    throw new Error(`go2_rl_sdk_45 requires 45 observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  sim.obs.fill(0);
+  fillRlSdkActorFrame(0);
+}
+
+// ── LainLab playground 技能族（2026-09-20 入库；全部布局由 ONNX 图 + 包内训练源取证）──
+// 共同点：12 位置动作、action_scale 0.25、50Hz 控制（physics_dt 0.005 × decimation 4）。
+// **缩放用字面量**（训练源即真值），不走 CONFIG 的缩放字段——那些是各部署契约的，混用会漂移。
+
+// DreamWaQ / AMP-CTS 单帧（45，**cmd 在前**，与 rl_sdk 的 ang_vel 在前**不同序**，见
+// dreamwaq/mdp/observations.py::_actor_frame）。ONNX 270 = [history 5×45（旧→新）, 当前帧]
+// （图实测：首个 Slice 为 [0:-45]，encoder 吃前 225、actor MLP 吃末 45）⇒ 契约
+// history_layout 必须 = "frame_major_oldest_first"。
+function buildLainlabDreamObservation() {
+  if (CONFIG.numObs !== 45 || CONFIG.numActions !== 12) {
+    throw new Error(`lainlab_dream_45_hist6 requires 45 observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * [2.0, 2.0, 0.25][i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * 0.25;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQpos(i) - CONFIG.defaultAngles[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * 0.05;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
+// trot / jump / spring_jump 单帧（47，trot/mdp/observations.py::actor_frame）：
+// [sin(2π·phase), cos(2π·phase), cmd_x×2, cmd_y×2, cmd_w×0.25]（5）+ ang_vel×0.25（3）
+// + euler_xyz（3）+ (dof_pos−default)（12）+ dof_vel×0.05（12）+ action（12）。
+// ONNX 470 = 10×47 按历史缓冲原序（frame-major、旧→新，_SourceHistory）⇒ 同上 layout。
+// phase = (episode 计步 × step_dt) mod cycle_time / cycle_time，cycle_time 逐技能
+// （trot 0.5 / jump 1.5，进契约 gait_period_s），step_dt = 0.02s。这里用 mujoco 的
+// sim.data.time（每步推进、reset 归零）对应 episode_length_buf × step_dt。
+// euler 取 IMU rpy（mjlab 侧为 root_link_quat_w 的 xyz euler）。
+function buildLainlabGaitObservation() {
+  if (CONFIG.numObs !== 47 || CONFIG.numActions !== 12) {
+    throw new Error(`lainlab_gait_47_hist10 requires 47 observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  const period = CONFIG.gaitPeriodS > 0 ? CONFIG.gaitPeriodS : 0.5;
+  const elapsed = Number(sim.data && sim.data.time) || 0;
+  const phase = (elapsed % period) / period;
+  sim.obs.fill(0);
+  let offset = 0;
+  sim.obs[offset++] = Math.sin(2 * Math.PI * phase);
+  sim.obs[offset++] = Math.cos(2 * Math.PI * phase);
+  sim.obs[offset++] = sim.cmd[0] * 2.0;
+  sim.obs[offset++] = sim.cmd[1] * 2.0;
+  sim.obs[offset++] = sim.cmd[2] * 0.25;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * 0.25;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.rpy ? imu.rpy[i] : 0;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQpos(i) - CONFIG.defaultAngles[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * 0.05;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
+// spring_jump 单帧（47，spring_jump/mdp/observations.py::_actor_frame）：**无相位项**（该任务
+// 没有 cycle_time 参数），前 2 位是恒零 legacy 前缀：[zeros(2), 裸 cmd（**无缩放**）,
+// ang_vel×0.25, euler_xyz, (dof_pos−default), dof_vel×0.05, action]。ONNX 470 = 10×47
+// 按历史缓冲原序（旧→新）⇒ 同 frame_major_oldest_first。
+function buildLainlabSpringObservation() {
+  if (CONFIG.numObs !== 47 || CONFIG.numActions !== 12) {
+    throw new Error(`lainlab_spring_47_hist10 requires 47 observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 2; // 前 2 位恒零（legacy 字段，训练时从未被写）
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * 0.25;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.rpy ? imu.rpy[i] : 0;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQpos(i) - CONFIG.defaultAngles[i];
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * 0.05;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
+// handstand 单帧（48）= **3 个恒零 legacy 前缀**（上游注释：zeros(2)+stand_command(1)，
+// 训练时恒为零、从未被写）+ 45 维 rl_sdk 标准帧（同序同缩放，handstand_actor_frame 的
+// constant_prefix_dim=3）。
+function buildLainlabHandstandObservation() {
+  if (CONFIG.numObs !== 48 || CONFIG.numActions !== 12) {
+    throw new Error(`lainlab_handstand_48 requires 48 observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  sim.obs.fill(0);
+  fillRlSdkActorFrame(3);
 }
 
 // Go2 模仿学习技能（LeggedSkillDeploy 协议，69 维）：
@@ -909,12 +999,40 @@ function geomBodyName(geomId) {
     // PIE 深度跑酷：单帧本体 45 与 go2_rl_sdk_45 同序同缩放（合约按 1.0），
     // 另由 app.js 喂 proprio_history / depth_history / GRU memory。
     go2_pie_depth: buildGo2RlSdkObservation,
+    // LainLab playground 技能族（2026-09-20）。rear-stand 45×1 与 go2_rl_sdk_45
+    // **同序同缩放**（_stand_actor_frame 与 rl_sdk 帧逐字段一致），直接复用该 builder。
+    lainlab_dream_45_hist6: buildLainlabDreamObservation,
+    lainlab_gait_47_hist10: buildLainlabGaitObservation,
+    lainlab_spring_47_hist10: buildLainlabSpringObservation,
+    lainlab_handstand_48: buildLainlabHandstandObservation,
   };
 
+  //: 已经报过"kind 没有 builder"的 kind（**只报一次**：每帧抛异常会把控制台刷爆，反而没人看见）。
+  const _unbuiltKindsReported = new Set();
+
   function buildObservation() {
-    const builder = OBSERVATION_BUILDERS[CONFIG.observationKind];
+    const kind = CONFIG.observationKind;
+    const builder = OBSERVATION_BUILDERS[kind];
     if (builder) {
       builder();
+      return;
+    }
+    // 未声明 kind（真空值）或 app.js 的缺省哨兵 "default" 都走通用 locomotion
+    // 布局 —— 那是既有策略的既定默认，不是"未知"。哨兵必须放行：2026-09-20
+    // 实测 go2-baseline-164k（demo 契约不声明 observation_kind）被 app.js 标成
+    // "default"，此处误当"声明了具体 kind"抛错，页面每帧报错且策略拿不到观测。
+    if (kind && kind !== "default") {
+      // **声明了具体 kind 却没有 builder ⇒ 不静默回落**。
+      // 回落会让"跑得起来但吃错观测"变成无声错误：页面照常出动作，只是布局是另一套
+      // （如把 57 维轮足观测按 45 维四足布局填），从现象上完全看不出来。
+      if (!_unbuiltKindsReported.has(kind)) {
+        _unbuiltKindsReported.add(kind);
+        throw new Error(
+          `observation_kind=${kind} 没有对应的观测 builder，拒绝按通用布局静默代跑。`
+          + `请在 observation_builders.js 里补 builder，或在策略声明里标 sim_ready:false（并进 sim_blocker 说明）。`
+        );
+      }
+      buildLocomotionObservation();
       return;
     }
     buildLocomotionObservation();

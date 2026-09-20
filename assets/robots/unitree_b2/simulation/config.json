@@ -133,6 +133,8 @@
     {
       "id": "unitree_b2-trained-20260918-015414",
       "path": "simulation/policies/unitree_b2-trained-20260918-015414.onnx",
+      "sim_ready": false,
+      "sim_blocker": "observation_kind=go2_mjlab_actor_48 在 observation_builders.js 里没有 builder：按通用布局代跑会吃错观测。补 builder（或把 kind 归并到既有 48 维布局）后把 sim_ready 改回 true。",
       "provenance": {
         "artifact_id": "unitree_b2__produced-unitree_b2_v1_20260918_015414_313841",
         "run_id": "unitree_b2_v1_20260918_015414_313841",

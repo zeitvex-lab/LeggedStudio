@@ -17,7 +17,7 @@
   "obs_dim_source": "onnx",
   "observation_kind": "go2_mjlab_actor_48",
   "onnx_bytes": 777689,
-  "onnx_sha256": "e71d4c8609b0f6c25dddf85d9db673271966ae2636b75b2bd7239caf9fc097a7",
+  "onnx_sha256": "b54e89ff1819d8d5ae5bc74a72500d7cd5e4ce107982370e56e081ff709d97b5",
   "policy_id": "unitree_go2-trained-20260918-171631",
   "robot": "unitree_go2",
   "run_id": "unitree_go2_mvp_v1_20260918_171631_267752",

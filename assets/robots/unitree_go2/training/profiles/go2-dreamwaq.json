@@ -13,7 +13,8 @@
   "task_name": "Unitree-Go2-DreamWaQ-Rough",
   "terrain_type": "rough",
   "algorithm": "PPO",
-  "num_envs": 4096,
+  "num_envs": 1024,
   "episode_length_s": 20.0,
-  "sort_order": 60
+  "sort_order": 60,
+  "max_iterations": 250
 }

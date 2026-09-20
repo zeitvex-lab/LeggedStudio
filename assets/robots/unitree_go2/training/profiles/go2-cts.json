@@ -15,8 +15,9 @@
   "algorithm": "CTS/TS",
   "algorithm_plugin": "cts",
   "algorithm_plugin_registry": "adapters/mjlab/algorithms/registry.json",
-  "num_envs": 4096,
+  "num_envs": 1024,
   "episode_length_s": 20.0,
   "history_length": 5,
-  "sort_order": 100
+  "sort_order": 100,
+  "max_iterations": 250
 }

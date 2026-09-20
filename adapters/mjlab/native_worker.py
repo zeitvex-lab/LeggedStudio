@@ -61,6 +61,12 @@ def build_deploy_metadata(env, rl_cfg, joint_names: list[str]) -> dict:
     try:
         action_term = env.action_manager.get_term("joint_pos")
         scale = getattr(action_term, "_scale")
+        # _scale 形状是 (num_envs, num_joints)——整只 flatten 会把 12 关节 × N 环境
+        # 串成 N 倍长（64 envs ⇒ 768 值），metadata 的 action_scale 就废了
+        # （2026-09-20 实测 64×800 产物盖了 768 个值）。逐关节 scale 对所有环境
+        # 相同，取第一行（一维/标量形状原样回落）。
+        if getattr(scale, "ndim", 1) == 2:
+            scale = scale[0]
         action_scale = scale.flatten().tolist() if hasattr(scale, "flatten") else [float(x) for x in scale]
     except Exception:
         action_scale = []

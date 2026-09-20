@@ -201,9 +201,27 @@ async def demo_cards():
         except (OSError, json.JSONDecodeError):
             continue
         for item in (config.get("policies") or []) + (config.get("demo_policies") or []):
-            if not isinstance(item, dict) or not (item.get("path") or item.get("url")):
+            if not isinstance(item, dict):
                 continue
-            url = str(item.get("url") or browser_package_url(robot_id, str(item["path"])))
+            # B10/B44 之后条目的合法形态是"只留 id、blob 由出库索引/包内约定解析"，
+            # 所以这里**不能**再要求字面 path/url —— 那会把迁移后的条目（microduck/g1/
+            # go1/tron1×3 等 6 包）全部静默丢掉（2026-09-20 重生成索引时实测：46→40）。
+            # 解析一律走统一入口 `policy_blob_path`；解析不到就不给卡（如实跳过，不猜）。
+            if item.get("sim_ready") is False:
+                continue  # 与仿真页同口径：声明了不可仿真的策略不给卡
+            from backend import policy_artifacts as _pa
+
+            try:
+                blob = _pa.policy_blob_path(item, robot_dir=root)
+            except Exception:  # noqa: BLE001  解析失败等同解析不到，不给卡
+                blob = None
+            if blob is None:
+                continue
+            relative = _pa.policy_relative_path(item, robot_dir=root)
+            if relative:
+                url = str(item.get("url") or browser_package_url(robot_id, relative))
+            else:
+                url = str(item.get("url") or blob)
             cards.append({
                 "robot_id": robot_id,
                 "family": record.get("family") or robot_id,

@@ -70,13 +70,24 @@ def validate_profile_subprocess(record, profile, num_envs, rollout_steps, mode, 
         package_root, source_root,
         entry.get("env", ""), entry.get("runner", "-"),
         str(num_envs), str(rollout_steps),
+        # profile 声明的 runner 类透传给 worker（产品路径也是按它导入的）：
+        # 不透传就只剩标准 PPO runner，自定义算法全部落进 skipped。
+        "--runner-class", str(entry.get("runner_class") or ""),
     ]
     if mode == "train":
         cmd += ["--train", "--iters", str(iters)]
 
     result = {"robot_id": record["robot_id"], "profile_id": profile["profile_id"]}
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+        # 编码必须显式给 UTF-8：``text=True`` 默认按 **locale**（Windows=GBK）解码子进程
+        # 输出，而 worker 侧写的是 UTF-8（``launcher._prepare_env`` 设 PYTHONIOENCODING=utf-8）
+        # —— 含中文的输出会让 reader 线程抛 UnicodeDecodeError，``proc.stdout`` 随之变 None，
+        # 于是本函数紧接着在 ``proc.stdout.strip()`` 上抛 AttributeError：**把真跑通的
+        # profile 记成 crashed**（2026-09-19 实测：go2 全 profile 基线 18 档里 7 档是这样
+        # 的假失败）。``errors="replace"`` 是第二道保险：即便子进程吐坏字节也只损失那几个字符。
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800
+        )
         json_line = None
         for line in reversed(proc.stdout.strip().splitlines()):
             if line.startswith("{"):
@@ -94,6 +105,45 @@ def validate_profile_subprocess(record, profile, num_envs, rollout_steps, mode, 
         result["status"] = "crashed"
         result["error"] = f"{type(exc).__name__}: {exc}"
     return result
+
+
+def _source_drift(record) -> list[str]:
+    """包内 ``training/{profiles,source}`` 与内置源树的**文件集合**差异。
+
+    只在"选中的是 workspace 副本"时才有意义（内置源树与自身当然一致）。有差异说明
+    单向同步还没把源树的增删搬到副本 —— 此时跑冒烟**验的是旧副本**，必须判失败而不是
+    静默通过（2026-09-20 go2 去包化实况：删掉 23 个文件后首次回归等于没验）。
+    """
+    package_root = Path(str((record.get("robot_package") or {}).get("package_root") or "")).resolve()
+    shipped = (ROOT / "assets" / "robots" / str(record.get("robot_id") or "")).resolve()
+    if not shipped.is_dir() or package_root == shipped:
+        return []
+
+    def _tree(root: Path) -> dict[str, int]:
+        """相对路径 → 字节数。比"只比文件名"多一层：**内容被改却没同步**也看得出来
+        （只看集合会漏掉"同名不同内容"的陈旧副本，而那正是最隐蔽的一种）。"""
+        found: dict[str, int] = {}
+        for path in root.rglob("*"):
+            if not path.is_file() or "__pycache__" in path.parts:
+                continue
+            try:
+                found[path.relative_to(root).as_posix()] = path.stat().st_size
+            except OSError:
+                continue
+        return found
+
+    drift: list[str] = []
+    for relative in ("training/profiles", "training/source"):
+        source_files = _tree(shipped / relative) if (shipped / relative).is_dir() else {}
+        copy_files = _tree(package_root / relative) if (package_root / relative).is_dir() else {}
+        drift += [f"{relative}/{name}：源树已删、副本仍在" for name in sorted(set(copy_files) - set(source_files))]
+        drift += [f"{relative}/{name}：源树有、副本缺" for name in sorted(set(source_files) - set(copy_files))]
+        drift += [
+            f"{relative}/{name}：内容与源树不一致（副本陈旧）"
+            for name in sorted(set(source_files) & set(copy_files))
+            if source_files[name] != copy_files[name]
+        ]
+    return drift
 
 
 def main() -> None:
@@ -114,6 +164,13 @@ def main() -> None:
         args.iters = 2000
 
     started = datetime.now()
+    # 源树 → workspace 副本的单向同步只在"索引重扫"时发生。改完包内训练源码就直接跑冒烟，
+    # 验的可能是**旧副本**（2026-09-20 go2 去包化实况：删掉 23 个文件后首次回归等于没验，
+    # 副本仍是 182 个 .py）。故这里先强制重建一次索引（会连带触发内容同步），
+    # 再在下面逐 profile 断言"副本源码集合 == 源树"，不一致就判失败而非静默通过。
+    from backend.robot_packages import rebuild_package_index  # noqa: PLC0415
+
+    rebuild_package_index()
     records = list_robot_packages()
     results = []
     for record in records:
@@ -123,7 +180,15 @@ def main() -> None:
             if args.profile and profile["profile_id"] != args.profile:
                 continue
             entry = {"robot_id": record["robot_id"], "profile_id": profile["profile_id"]}
-            res = validate_profile_subprocess(record, profile, args.num_envs, args.rollout_steps, args.mode, args.iters)
+            drift = _source_drift(record)
+            if drift:
+                res = {
+                    "status": "failed",
+                    "error": "包内训练源码与内置源树不一致（此时验的是旧副本，结论不可信）："
+                             + "; ".join(drift[:4]),
+                }
+            else:
+                res = validate_profile_subprocess(record, profile, args.num_envs, args.rollout_steps, args.mode, args.iters)
             entry.update(res)
             flag = "OK " if res["status"] == "ok" else ("SK " if res["status"].startswith("skip") else "!! ")
             print(f"[{flag}] {entry['robot_id']}/{entry['profile_id']} -> {res['status']}")

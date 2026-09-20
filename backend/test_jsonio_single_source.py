@@ -18,6 +18,10 @@ BOM 不是理论问题：Windows 的编辑器、PowerShell 重定向、部分导
 2. **实现唯一**：``load_json`` / ``read_json`` 之外不许再出现
    ``json.loads(<...>.read_text(encoding="utf-8"))``（非 sig 形式）；
 3. **语义各留**：各模块的薄封装（缺失 → ``{}`` / ``None`` / 抛域错误）行为不变。
+
+*> 2026-09-19 追加第 4 条性质*：**读 JSON 不许依赖 locale 默认编码**
+（``json.load(open(path))`` 不带 ``encoding`` —— Windows(locale=GBK) 上读含中文的
+``status.json`` 会抛，被上层 ``except: pass`` 吞掉，已完成的 Run 被报成 running）。
 """
 
 from __future__ import annotations
@@ -43,13 +47,23 @@ ALLOWED_DIRECT = {JSONIO}
 BOM = b"\xef\xbb\xbf"
 
 
+#: 跳过**非本仓代码**：本地训练 venv 就落在 ``adapters/mjlab/.venv``，``rglob`` 会把
+#: 整个 site-packages 扫进来 —— 既慢（实测一次 4 分钟）又会把第三方实现报成"本仓违规"
+#: （本地必红、CI 里 venv 不在该路径下则绿，正是"守卫不可信"的典型）。
+_SKIP_PARTS = ("__pycache__", ".venv", "site-packages", "node_modules", "build", "dist", ".git")
+
+
 def _python_files() -> list[Path]:
     files: list[Path] = []
     for base in ("backend", "contracts", "tools", "adapters", "scripts"):
         root = ROOT / base
         if root.is_dir():
             files.extend(sorted(root.rglob("*.py")))
-    return [p for p in files if "__pycache__" not in p.parts and not p.name.startswith("test_")]
+    return [
+        p
+        for p in files
+        if not any(part in _SKIP_PARTS for part in p.parts) and not p.name.startswith("test_")
+    ]
 
 
 class BomToleranceTest(unittest.TestCase):
@@ -140,6 +154,54 @@ class BomToleranceTest(unittest.TestCase):
             self.assertEqual({"a": 1}, read_json(path))
 
 
+class LocaleDependentReadRegressionTest(unittest.TestCase):
+    """回归：任务状态的读取不许依赖 **locale 默认编码**（2026-09-19 实缺陷）。
+
+    缺陷形态：``with open(path, 'r') as f: json.load(f)`` —— **不指定编码**，
+    于是在 Windows（locale=GBK）上读含中文的 ``status.json`` 抛
+    ``UnicodeDecodeError``，又被 ``except Exception: pass`` 吞掉；``to_dict()``
+    于是回落到内存里的 ``status``（创建后一直是 "running"）——**已完成的 Run
+    被一直报成 running**，E8 冒烟门因此找不到「已完成」证据，长训被 409 拒。
+
+    本用例用 **BOM + 中文**：在 UTF-8 locale 的 CI 上旧实现会因 BOM 抛
+    ``JSONDecodeError``（同样被吞），所以**任何平台**都能钉住这两个缺陷。
+    """
+
+    def test_status_json_with_bom_and_cjk_is_read(self) -> None:
+        from backend.training_manager import TrainingTask
+
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = Path(tmp)
+            payload = {
+                "status": "train_completed",
+                "note": "训练完成：中文备注（旧实现按 locale 解码会抛）",
+                "exit_code": 0,
+            }
+            (task_dir / "status.json").write_bytes(
+                BOM + json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            )
+            (task_dir / "progress.json").write_bytes(
+                BOM + json.dumps({"iteration": 7, "reward_mean": 1.5}, ensure_ascii=False).encode("utf-8")
+            )
+
+            task = TrainingTask("regression-task", None, {}, task_dir)
+            self.assertEqual(
+                "train_completed",
+                task.get_status_info().get("status"),
+                "带 BOM + 中文的 status.json 必须可读——否则管理器会把完成的 Run 报成 running",
+            )
+            self.assertEqual(7, task.get_progress().get("iteration"))
+
+    def test_missing_status_still_reads_as_empty(self) -> None:
+        """失败语义不变：文件不存在 → 空对象（由调用方回落）。"""
+        from backend.training_manager import TrainingTask
+
+        with tempfile.TemporaryDirectory() as tmp:
+            task = TrainingTask("missing-task", None, {}, Path(tmp))
+            self.assertEqual({}, task.get_status_info())
+            self.assertEqual({}, task.get_progress())
+
+
 class SingleSourceScanTest(unittest.TestCase):
     """源码面：读 JSON 的实现只许在 ``backend/jsonio.py``。"""
 
@@ -181,6 +243,64 @@ class SingleSourceScanTest(unittest.TestCase):
                     if isinstance(target, ast.Name) and target.id == "loads":
                         offenders.append(f"{path.relative_to(ROOT)}::{node.name}")
         self.assertEqual([], offenders, f"JSON 读取实现只许在 backend/jsonio.py：{offenders}")
+
+    def test_json_reads_never_rely_on_locale_encoding(self) -> None:
+        """``json.load(open(path))``（**不给 ``encoding``**）是"locale 依赖读"的唯一形式。
+
+        2026-09-19 的实缺陷正是它：Windows（locale=GBK）下读含中文的 ``status.json``
+        抛 ``UnicodeDecodeError``，被上层的 ``except Exception: pass`` 吞掉，于是已完成
+        的 Run 被一直报成 ``running``（E8 冒烟门随之失灵）。本规则只看
+        "``open(...)`` 没给 ``encoding`` 又喂给 ``json.load``"，因此**不吃**显式
+        ``utf-8`` / ``utf-8-sig`` 的既有写法，不需要任何白名单。
+        """
+
+        offenders: list[str] = []
+        for path in _python_files():
+            if path in ALLOWED_DIRECT:
+                continue
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"))
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.With):
+                    continue
+                for item in node.items:
+                    call = item.context_expr
+                    if not isinstance(call, ast.Call) or item.optional_vars is None:
+                        continue
+                    func = call.func
+                    name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+                    if name != "open":
+                        continue
+                    if any(keyword.arg == "encoding" for keyword in call.keywords):
+                        continue
+                    bound = item.optional_vars
+                    if not isinstance(bound, ast.Name):
+                        continue
+                    for inner in ast.walk(node):
+                        if not isinstance(inner, ast.Call):
+                            continue
+                        target = inner.func
+                        # **只看 ``json.load(...)``**：``pickle.load`` / ``tomllib.load`` 读的
+                        # 是二进制 / TOML，不是 JSON —— 规则过宽会把它们误报成违规
+                        # （2026-09-19 实测：首版规则在 motion_registry / preflight /
+                        # convert_raw_motion_pkls 上产生 3 处假阳性）。
+                        is_json_load = (
+                            isinstance(target, ast.Attribute)
+                            and target.attr in {"load", "loads"}
+                            and isinstance(target.value, ast.Name)
+                            and target.value.id == "json"
+                        )
+                        if not is_json_load:
+                            continue
+                        if any(isinstance(arg, ast.Name) and arg.id == bound.id for arg in inner.args):
+                            offenders.append(f"{path.relative_to(ROOT)}:{inner.lineno}")
+        self.assertEqual(
+            [],
+            offenders,
+            f"JSON 读取不许依赖 locale 默认编码（给 encoding 或改用 contracts.jsonio）：{offenders}",
+        )
 
 
 if __name__ == "__main__":

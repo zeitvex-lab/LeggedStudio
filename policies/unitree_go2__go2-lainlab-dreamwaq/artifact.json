@@ -1,0 +1,20 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-lainlab-dreamwaq",
+  "aux_blobs": [],
+  "contract_digest": "f3dc3f6173f82042b97e24aaf3e7602fccba95f634a0129f023001b1183b4cd6",
+  "declared_source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/dreamwaq",
+  "history_len": 6,
+  "kind": "policies",
+  "label": "Go2 DreamWaQ (LainLab)",
+  "obs_dim": 45,
+  "onnx_bytes": 961043,
+  "onnx_sha256": "69dfa0897d16edaeb4ae2ec2ebbbc11e2966e7f4b6b7127bf4abb52ca714106a",
+  "policy_id": "go2-lainlab-dreamwaq",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_lainlab_dreamwaq.onnx",
+  "task_type": null
+}

@@ -25,8 +25,21 @@ export function formatSigned(value) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
 }
 
+/**
+ * 四元数 → (roll, pitch, yaw)，即 mjlab `euler_xyz_from_quat` 的同一约定。
+ *
+ * 入参是 **MuJoCo 的 (w, x, y, z)**（qpos 自由关节位姿段 / poseFromQpos 的
+ * quat 数组），与本文件其余 quat_* 助手（quatRotateInverse / getGravityOrientation
+ * / getLinearVelocityBody，全部 q[0]=w）以及 raycast.js 的 quatToMat 一致。
+ *
+ * 历史包袱：本函数曾按 three.js 的 (x, y, z, w) 解包，两个调用点
+ * （captureImuSample 的 imu.rpy、updateSensorPanels 的位姿读数）传的都是
+ * (w,x,y,z)，于是 roll↔yaw 互换、pitch 变号：lainlab_gait_47_hist10 /
+ * lainlab_spring_47_hist10 观测的 euler_xyz 段（3/47 维）每帧都在喂错值，
+ * 实测 trot 策略 2.7s 内倒地（同 checkpoint 在 mjlab 训练环境 vx=0.5 跟踪正常）。
+ */
 export function quatToRpy(q) {
-  const x = q[0], y = q[1], z = q[2], w = q[3];
+  const w = q[0], x = q[1], y = q[2], z = q[3];
   const sinrCosp = 2 * (w * x + y * z);
   const cosrCosp = 1 - 2 * (x * x + y * y);
   const roll = Math.atan2(sinrCosp, cosrCosp);

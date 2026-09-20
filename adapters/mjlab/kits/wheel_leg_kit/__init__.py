@@ -23,13 +23,15 @@ def ppo_runner_cfg_ex(
     max_iterations: int = 10001,
     save_interval: int = 1000,
     init_noise_std: float = 1.0,
+    obs_normalization: bool = True,
+    std_type: str = "scalar",
     learning_rate: float = 1.0e-3,
     entropy_coef: float = 0.01,
     max_grad_norm: float = 1.0,
     resume: bool = False,
     load_checkpoint: str | None = None,
 ):
-    """轮足三包（m20/b2w/go2w）rl_cfg 的 PPO runner 配置（B8 第二批上移）。
+    """轮足各包 rl_cfg 的 PPO runner 配置（B8 上移；m20/b2w/go2w 第二批、zex-w 第三批）。
 
     来源：三包 rl_cfg.py 的 ``make_X_runner_cfg`` 逐字共同正文（三份仅函数名与
     experiment_name 字符串不同——b2w/go2w 互为逐字副本、m20 是带 go2w 残留命名
@@ -39,8 +41,14 @@ def ppo_runner_cfg_ex(
     ``load_checkpoint`` 三个 lite3/b2 版没有的维度。各包 stub 传自己的字面值
     即逐字段复现原 runner；包内包装函数签名不变。
 
+    ``obs_normalization`` / ``std_type`` 是 zex-w 接入（2026-09-19，按"框架一致"
+    裁决）时补的两个维度：zex-w 原 runner 是 ``obs_normalization=False`` +
+    ``std_type="log"``，而 m20/b2w/go2w 是 True + "scalar"。**默认值即原三包语义**
+    （不传就等于旧行为），zex-w 显式传自己的两个字面值。
+
     ``run_name`` 直接透传（含 None——三包原实现就是显式传 None，与
-    RslRlOnPolicyRunnerCfg 的 dataclass 默认空串不同，语义等价实证以此为准）；
+    RslRlOnPolicyRunnerCfg 的 dataclass 默认空串不同，语义等价实证以此为准；
+    未显式传 run_name 的包传 ``""`` 即复现 dataclass 默认）；
     ``resume`` / ``load_checkpoint`` 按原实现的构造后赋值路径写回。
     """
     from mjlab.rl import (
@@ -53,17 +61,17 @@ def ppo_runner_cfg_ex(
         actor=RslRlModelCfg(
             hidden_dims=(512, 256, 128),
             activation="elu",
-            obs_normalization=True,
+            obs_normalization=obs_normalization,
             distribution_cfg={
                 "class_name": "GaussianDistribution",
                 "init_std": init_noise_std,
-                "std_type": "scalar",
+                "std_type": std_type,
             },
         ),
         critic=RslRlModelCfg(
             hidden_dims=(512, 256, 128),
             activation="elu",
-            obs_normalization=True,
+            obs_normalization=obs_normalization,
         ),
         algorithm=RslRlPpoAlgorithmCfg(
             value_loss_coef=1.0,

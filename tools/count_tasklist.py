@@ -16,6 +16,11 @@
 - 其余（路径引用、``覆盖面已达标``、``现有多策略文件``、``依托 XX``、``CLI …`` 等）→ note
   （记录/参考类，**不计入五桶** —— 这正是老计数行混进去后失真的来源）
 
+归类取**各规则标记在状态格里最早出现的位置**，位置最小者胜（同位置按 ``_RULES`` 表序）——
+而不是"按规则表顺序做子串包含"。理由：状态格常先写主状态、后写附带事实
+（例：B8「**部分完成**：…**go1 已完成**」）——若按表序包含匹配，附带事实会把整格改判成
+done，与"只认**开头**标记"的口径相悖（2026-09-19 实测该误判把 B8 记成了已完成）。
+
 用法::
 
     python tools/count_tasklist.py
@@ -41,6 +46,19 @@ _RULES: list[tuple[str, tuple[str, ...]]] = [
 ]
 
 
+def _bucket_for(status: str) -> str:
+    """取状态格里**最早出现的标记**所属的桶（都不命中回落到 ``note``）。"""
+    best: tuple[int, int, str] | None = None
+    for order, (name, markers) in enumerate(_RULES):
+        positions = [status.find(marker) for marker in markers if marker in status]
+        if not positions:
+            continue
+        candidate = (min(positions), order, name)
+        if best is None or candidate < best:
+            best = candidate
+    return best[2] if best else "note"
+
+
 def count() -> dict:
     """逐条归类，返回分组计数与桶计数。"""
     if not TASKLIST.is_file():
@@ -61,11 +79,7 @@ def count() -> dict:
             continue
         group[m.group(1)] += 1
         status = cells[2]
-        bucket = "note"
-        for name, markers in _RULES:
-            if any(marker in status for marker in markers):
-                bucket = name
-                break
+        bucket = _bucket_for(status)
         buckets[bucket] += 1
         if bucket == "note":
             note_ids.append(f"{m.group(1)}{m.group(2)}")

@@ -120,8 +120,11 @@ def create_pretrained_models_index():
 
     models = []
     for artifact_file in pretrained_dir.glob("*/artifact.json"):
-        with open(artifact_file, 'r') as f:
-            artifact = json.load(f)
+        # JSON 读取走单一来源（``utf-8-sig``）：旧实现不指定编码，Windows(locale=GBK) 下
+        # 读含中文的 artifact.json 会抛 UnicodeDecodeError。
+        from contracts.jsonio import load_json
+
+        artifact = load_json(artifact_file)
 
         models.append({
             "id": artifact["artifact_id"],

@@ -1,0 +1,20 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-side-flip-69",
+  "aux_blobs": [],
+  "contract_digest": "e3f60d576ca6c079deae4bd2f9e3f2b9944a00ec0b203ff71791866768885cb3",
+  "declared_source": "LeggedSkillDeploy go2_silde_filp（第三方，无 LICENSE；仅内部研究）",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Go2 Side-Flip 69D (imitation, motion-csv)",
+  "obs_dim": 69,
+  "onnx_bytes": 810217,
+  "onnx_sha256": "faf69d0eeee7cc874d7ea1727ba1bdf2abdd589a470a093aadb9cac0a0f9dcdd",
+  "policy_id": "go2-side-flip-69",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/sideflip_69.onnx",
+  "task_type": null
+}

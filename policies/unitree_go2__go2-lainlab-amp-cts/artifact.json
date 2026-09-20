@@ -1,0 +1,20 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-lainlab-amp-cts",
+  "aux_blobs": [],
+  "contract_digest": "f3dc3f6173f82042b97e24aaf3e7602fccba95f634a0129f023001b1183b4cd6",
+  "declared_source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/cts",
+  "history_len": 6,
+  "kind": "policies",
+  "label": "Go2 AMP-CTS (LainLab)",
+  "obs_dim": 45,
+  "onnx_bytes": 1848296,
+  "onnx_sha256": "ce8a056b7e4695b330e01e608d6a1ea739c034d2291de4242f04c7b3f2122feb",
+  "policy_id": "go2-lainlab-amp-cts",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_lainlab_amp_cts.onnx",
+  "task_type": null
+}

@@ -148,6 +148,15 @@ def make_go1_env_cfg(play: bool = False, *, rough: bool = False) -> ManagerBased
         sensor for sensor in (cfg.scene.sensors or ())
         if sensor.name not in drop_sensors
     )
+    if rough:
+        # 序 15（2026-09-20 修）：`terrain_scan` 是 mjlab velocity 基座自带的通用传感器，
+        # 它的默认 frame 是 ``ObjRef(entity="robot", name="")`` → 解析成 ``robot/``（**空 body 名**），
+        # Scene 初始化时 ``mj_model.body("robot/")`` 直接 KeyError。lite3 / b2 都靠
+        # ``kit.repoint_height_scan_sensors(..., root_body=...)`` 重指到本机型根 body；
+        # **go1 此前从未重指**，而 flat 又把 terrain_scan 整个丢掉 ⇒ 只有 rough 会炸，
+        # 且自该 profile 引入（1726423a）起就无法建环境（漏实现，非回归）。
+        # go1 无足端 site（site 级 foot_height_scan 恒被丢弃），故只重指根 body。
+        kit.repoint_height_scan_sensors(cfg, root_body=_ROOT_BODY)
 
     action = cfg.actions["joint_pos"]
     assert isinstance(action, JointPositionActionCfg)

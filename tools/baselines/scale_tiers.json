@@ -2,9 +2,10 @@
   "schema": "training-scale-tiers-1.0",
   "description": "L7 常态化规模档位标定：同配置（除规模三元组 num_envs/max_iterations/smoke_preset）下逐档实测耗时与 reward，作为下一轮再往上推的对照。",
   "constraint": {
-    "unattended_ceiling_seconds": 600,
-    "nature": "operational",
-    "note": "10 分钟无人值守上限是任务清单（00_know/05_任务清单.md L7）给本轮定的运维约束；backend/training/create.py 与 backend/training/monitor.py 里没有对应的代码常量/超时（2026-09-18 全文检索核实），单训练任务在产品内可运行超过 10 分钟，本轮按运维上限自律。",
+    "unattended_ceiling_seconds": null,
+    "unattended_ceiling_retired": "2026-09-20",
+    "nature": "operational（已废止）",
+    "note": "10 分钟无人值守上限是任务清单（00_know/05_任务清单.md L7）给 64×N 探索轮定的运维约束（当时为云开发容器会话制）；backend/training/create.py 与 backend/training/monitor.py 里从来没有对应的代码常量/超时（2026-09-18 全文检索核实，2026-09-20 复核一致），单训练任务在产品内本就可运行超过 10 分钟。**2026-09-20 用户裁决『放宽即可』⇒ 上限废止**：`unattended_ceiling_seconds` 置 null 留档，历史档位行的 ceiling_pct/ceiling_pct_note 保留作当时决策的取证，不再约束后续档位（1024–2048×≥1000、13.2min 级）与质量攻关的规模选择。分段 resume 能力（create 的 resume_from）保持可用，但不再是进产品链的前提。",
     "smoke_gate": "E8：长训（>64 envs × >5 iters 任一超限）前必须有同配置（除规模三元组外逐键一致，规范化摘要比对）的已完成冒烟 Run 作证据（backend/training/smoke_gate.py）；本轮证据 Run＝20260918_022258_095883。64×600 档（2026-09-18 第二轮）与 64×800 档（2026-09-18 第三轮）create 均首试即 200 直接放行——同一冒烟证据 Run 三次复用成功，未补冒烟、未绕过。"
   },
   "environment": {
@@ -227,6 +228,24 @@
       "severity": "cosmetic",
       "status": "logged",
       "summary": "profile 分支导出期告警『[WARN] recurrent ONNX export failed (training continues): ExportingRunner object has no attribute export_recurrent_policy_to_onnx』，训练与最终 policy.onnx 导出不受影响（产物已验载入）。go2 的 VelocityOnPolicyRunner 非递归策略，告警属导出器能力探测的预期分支，仅登记。"
+    },
+    {
+      "id": "smoke-run-manager-view-stuck-running",
+      "severity": "blocks-e8-gate",
+      "status": "fixed（2026-09-19）",
+      "summary": "冒烟 Run 在磁盘上已完整完成（status.json=train_completed / exit_code=0 / artifact.json 落盘 / exported/policy.onnx），但 TrainingManager 视图恒为 running，于是 E8 冒烟门找不到『已完成』证据，2048×250 长训 create 被 409 拒。",
+      "root_cause": "``TrainingTask.get_status_info()`` 用 ``with open(status_file, 'r') as f: json.load(f)`` —— **不指定编码**。Windows 上 ``open()`` 用 locale 默认编码（本机 GBK），而 status.json 是 UTF-8 且含中文 ⇒ ``UnicodeDecodeError: 'gbk' codec can't decode byte 0xad in position 3199``；该异常被 ``except Exception: pass`` 吞掉 ⇒ 返回 ``{}`` ⇒ ``to_dict()`` 回落到内存 ``self.status``（创建后一直是 running）。**与后端启动方式无关**——原登记的「疑似 detached 启动产物」已被排除（同一条 Run 修复后立即正确）。",
+      "fix": "① 病根：``backend/training_manager.py`` 的 status/progress 两个读取改为委托 ``contracts/jsonio.read_json``（``utf-8-sig``），失败留 stderr 痕迹（不再静默）；② 同类漏网一并收口：``adapters/mjlab/launcher.py``(progress) / ``adapters/mjlab/train_worker.py``(config) / ``backend/export_api.py``(artifact) / ``backend/inventory.py`` / ``scripts/generate_pretrained_models.py``；③ 守卫：``backend/test_jsonio_single_source.py`` 新增 AST 规则『``json.load(open(path))`` 不给 ``encoding``』（只认 ``json.load``，避开 ``pickle.load``/``tomllib.load`` 假阳性）+ 回归用例『BOM + 中文的 status.json 必须可读』（用 BOM 让旧实现在 **任何平台** 都失败，从而在 CI 也能钉住），并把扫描范围排除 ``.venv/site-packages``（顺带修掉本地必红的既有测试，且扫描从 260s 降到 13s）。",
+      "verification": "``unittest backend.test_jsonio_single_source`` **11 项全绿**；重启后端后同一 Run 的 ``/api/training/{id}/status`` 由 running → ``train_completed``（``exit_code 0``、``device cuda``）；重试 create(2048×250 rough) 返回 200，``smoke_gate={required:true, ok:true, bypassed:false, evidence:{run_id:unitree_go2_mvp_v1_20260919_222850_973520}}`` —— **未使用 LEGGED_STUDIO_SMOKE_GATE=0 绕过**。",
+      "evidence_pre_fix": {
+        "smoke_run_dir": "workspace/unitree_go2_mvp_v1_20260919_222850_973520（go2-velocity-rough，16×5）",
+        "disk": "status.json=train_completed / exit_code 0；artifact.json 22:29:25 落盘（training_duration_seconds=6.64，acceptance_probe.verdict=pass）；run.json.status=created",
+        "manager": "/status 与 /list 均 running，pid=null、exit_code=null",
+        "e8_reject": "POST create(2048×250 rough) → 409；smoke_gate={required:true,ok:false,digest:9b7da366…,evidence:null}",
+        "gate_note": "E8 比对口径本身没错（_match_digest 已按设计剔除规模三元组）；卡点是证据候选的**状态**取自管理器视图，该视图未收敛。"
+      },
+      "impact": "修复前：Windows 上任何含中文的 status.json 都会让产品内长训无法通过 E8 门（CI/Linux locale 为 UTF-8，所以一直漏过）。",
+      "discovered_by": "序 12 新规模标定（2026-09-19）尝试走产品 Run 链时"
     }
   ],
   "next_tier_projection": {
@@ -238,5 +257,163 @@
       "结论": "**64×N 规模档探索到 800 为止**：reward 0.17→16.56（400）→27.09（600）→35.39（800）持续上升但增幅逐百 iter 收窄（末段每百 iter +2~3），reward 上限未探到但边际递减明显；无人值守墙钟上限在 800 档已被贴线（99.7%）。下一轮建议转向质量评估（验收探针消费/速度误差混合信号的分径分析）或 128×400 新档（需新冒烟 + 显存标定）"
     },
     "note": "规模档位留下的开放问题：① error_vel_xy 与 reward 口径背离三轮持续（1.46/1.24/1.53）未裁决；② reward 增幅收窄是渐近还是平台需更长跑验证（受墙钟约束，产品内无人值守已无法验证——留给约束放松后或分段 resume 标定）；③ 800 档同 iter 位置低于 400/600 档（同 seed 非逐位确定），单档末值对比含机况/随机性噪声，跨档结论以趋势段均值为主。"
+  },
+  "vram_probe": {
+    "description": "新规模（1024 envs）训练链路 + 显存标定（2026-09-19）。**地形复杂度与碰撞计算是显存的主导变量**：同族 profile 下 rough 档（地形生成器 + terrain_scan 射线 + height_scan 观测 + 更大接触/CCD 预算）比 flat 档（plane, njmax=300, ccd=50, contact_sensor_maxmatch=64）高近一个数量级——**flat 档数字不可外推到复杂地形**。",
+    "environment": {
+      "date": "2026-09-19",
+      "host": "RTX 4060 Laptop 8G（8188 MiB，driver 591.74）",
+      "training_env": "adapters/mjlab/.venv（torch 2.11.0+cu128，torch.cuda.is_available()=True）",
+      "device": "cuda:0（tools/_smoke_one.py 第 30 行自动选择）",
+      "method": "tools/validate_training_smoke.py --mode train --num-envs 1024 --rollout-steps 10（链路/显存探针，非产品 Run 链）；显存以 nvidia-smi 全程 3s 采样取整卡 memory.used 峰值"
+    },
+    "probes": [
+      {
+        "profile_id": "go2-velocity-flat",
+        "terrain": "plane",
+        "envs": 1024,
+        "iters": 150,
+        "wall_seconds": 141.0,
+        "seconds_per_iter": 0.79,
+        "startup_seconds_est": 22,
+        "peak_gpu_mem_mib": 483,
+        "peak_gpu_util_pct": 55,
+        "rewards": 50.039647,
+        "train_completed": true,
+        "provenance": "workspace/validation/gpu-1024x{5,100,150}.json（T(n)=a+b·n 由 100/150 两档拟合：b≈0.79s/iter，a≈22s）"
+      },
+      {
+        "profile_id": "go2-velocity-flat",
+        "terrain": "plane",
+        "envs": 128,
+        "iters": 400,
+        "wall_seconds": 294.9,
+        "seconds_per_iter": 0.68,
+        "startup_seconds_est": 22,
+        "rewards": 8.57361,
+        "train_completed": true,
+        "peak_gpu_mem_mib": null,
+        "gpu_mem_note": "本轮未采样显存（同上：工具不输出）",
+        "smoke_fingerprint": "workspace/validation/gpu-128x5.json（128 档冒烟证据先于长训，E8 同配置口径要求）",
+        "runner_class": "local_tasks.robots.unitree.go2.training.runner:VelocityOnPolicyRunner",
+        "time_outs_wired": true,
+        "provenance": "workspace/validation/gpu-128x400.json（2026-09-20，后台 Start-Process；wall 由报告落盘时间反推）",
+        "note": "**128 档首测**。0.68 s/iter **低于** 64 档的 0.79 —— envs 翻倍后单 iter 墙钟反而更省，且 128×800 ≈ 0.68×800+22 ≈ **566s < 600s**：128 档有望成为产品内无人值守可跑的新档（64 档在 800 已 99.7% 贴线）。**reward 8.57 vs 64×400 的 16.56 不可直接比**：本轮取自 smoke 报告的 rewards 字段，64×400 的 16.56 取自 tfevents 曲线末值，提取口径可能不同——不构成\"128 档更差\"的证据；裁决需同口径复测（解析 tfevents 对比同 iter 位置的 mean_reward）",
+        "same_gauge_retest": {
+          "date": "2026-09-20",
+          "method": "免跑复测：两侧 tfevents 都在盘上（64×400＝产品 Run workspace/unitree_go2_mvp_v1_20260918_022630_598318/events.out.tfevents.*；128×400＝当次验证链临时目录 %TEMP%/legged_smoke_3apac5kf），直接解析 Train/mean_reward 同 iter 位置对齐——省去一次 13 分钟 GPU。",
+          "curve_64": {
+            "iter100": -0.192,
+            "iter200": 2.824,
+            "iter300": 9.487,
+            "iter399": 16.561
+          },
+          "curve_128": {
+            "iter100": 0.083,
+            "iter200": 5.583,
+            "iter300": 15.743,
+            "iter399": 22.213
+          },
+          "conclusion": "同口径末值 128 档 22.21 > 64 档 16.56（+34%），各中段（100/200/300）全面领先且斜率更陡——先前『8.57 更差』确认为提取口径差（smoke 报告 rewards=rollout 均值 vs tfevents 曲线末值），存疑解除。",
+          "verdict": "128 档不劣于且优于 64 档"
+        }
+      },
+      {
+        "profile_id": "go2-velocity-flat",
+        "terrain": "plane",
+        "envs": 1024,
+        "iters": 1000,
+        "wall_seconds": 792.7,
+        "seconds_per_iter": 0.77,
+        "startup_seconds_est": 22,
+        "rewards": 67.946357,
+        "train_completed": true,
+        "peak_gpu_mem_mib": null,
+        "gpu_mem_note": "本轮未采样显存（validate_training_smoke 不输出该值）；1024 flat 的既有探针为 483 MiB，量级可参考但**非本轮实测**，勿当本轮数据引用",
+        "runner_class": "local_tasks.robots.unitree.go2.training.runner:VelocityOnPolicyRunner（按 profile 声明实例化，产品同口径）",
+        "time_outs_wired": true,
+        "provenance": "workspace/validation/gpu-1024x1000.json（2026-09-20，后台 Start-Process 运行；wall 由报告落盘时间反推）。与 T(n)=22+0.79n 的投影 812s 偏差 **2.4%**——投影公式在 1000 iter 量级仍然成立",
+        "note": "序 12『先跑一次 1024×1000 标定』的 **flat 档实测**。经验证链（validate_training_smoke）可整档跑通；**产品内无人值守 create 仍受 600s 墙钟上限约束**，此档要进产品链需分段 resume（create 支持 resume_from）或放宽约束——两条路都待裁决。reward 67.95 是『保底 1024 envs × ≥1000 iters』的 **flat 参照点**（64×800 档为 35.39：envs 与 iters 都不同，不可直接比，只作新基线；rough 档按用户口径 2048×250 看趋势已足够，不跑 1000）"
+      },
+      {
+        "profile_id": "go2-velocity-rough",
+        "terrain": "rough（terrain_generator + curriculum + terrain_scan + height_scan）",
+        "envs": 1024,
+        "iters": 20,
+        "peak_gpu_mem_mib": 3739,
+        "peak_gpu_util_pct": 59,
+        "train_completed": true,
+        "provenance": "workspace/validation/gpu-1024x20-rough.json"
+      },
+      {
+        "profile_id": "go2-velocity-rough",
+        "terrain": "rough（同上）",
+        "envs": 2048,
+        "iters": 250,
+        "wall_seconds": 463.0,
+        "seconds_per_iter": 1.72,
+        "peak_gpu_mem_mib": 6999,
+        "peak_gpu_util_pct": 80,
+        "train_completed": true,
+        "reward_curve": {
+          "metric": "Train/mean_reward（tfevents 250 点；用户口径『rough 不跑 1000，2048×200–300 看趋势』）",
+          "samples": {
+            "iter0": -0.295,
+            "iter25": 4.614,
+            "iter50": 28.753,
+            "iter75": 40.162,
+            "iter100": 58.745,
+            "iter125": 53.499,
+            "iter150": 62.325,
+            "iter175": 62.67,
+            "iter200": 57.491,
+            "iter225": 65.907
+          },
+          "trend": "快速上升后在 ~iter100–150 进入 60–66 平台（iter200 回落属采样波动）——**250 iters 足以看到趋势**，2048×1000 对趋势判断是浪费",
+          "legs": "track_linear_velocity 0.004→0.62；track_angular_velocity 0.005→1.256；upright 0.015→0.975；Metrics/twist/error_vel_xy 的口径背离（§next_tier_projection note ①）仍存在，需更长跑判读",
+          "seconds_per_iter_note": "由 Train/mean_reward/time 反推：(386s-2s)/(225-2) ≈ 1.72 s/iter（rough 2048；flat 1024 为 0.79）——地形/射线/接触预算同时抬高显存与单轮耗时"
+        },
+        "provenance": "workspace/validation/gpu-2048x250-rough.json；曲线取自 %TEMP%/legged_smoke_8ejut1hx/events.out.tfevents.*（tensorboard EventAccumulator 解析）"
+      },
+      {
+        "profile_id": "go2-velocity-flat",
+        "terrain": "plane",
+        "envs": 1024,
+        "iters": 250,
+        "rewards": 67.973141,
+        "train_completed": true,
+        "peak_gpu_mem_mib": null,
+        "gpu_mem_note": "validate_training_smoke 不输出显存",
+        "provenance": "workspace/validation/gpu-1024x250.json（2026-09-20 第四轮用户指令『统一 1024/2048 × 250』的首档实测）",
+        "note": "reward 67.97 与 1024×1000 的 67.95 同水平——flat 档 250 iters 已进平台，印证『250 看趋势足够』从 rough 推广到 flat 成立。2048×250 rough 已有实测（463s/6999MiB/平台 60-66），flat 2048×250 未单独跑（按 1.72s/iter 投影 ≈450s，如需可补）。"
+      }
+    ],
+    "conclusion": {
+      "rough_over_flat_vram_factor": 7.74,
+      "implication": "8G 卡上 1024 envs rough = 3.7 GB；**2048 envs rough = 6999 MiB（85% 显存）通过**（此前按 envs 线性外推 ~7.3 GB，与实测吻合）——rough 档 **2048 是可行上限**，再升必 OOM。序 12『保底 1024–2048』的可行上界须**按 profile 分别标定**：rough/感知类取 2048（贴边），flat 档可上 2048+ 且有余量；感知更重的档（depth/lidar）须单独实测。**且 iters 不必到 1000——250 轮已见平台**。",
+      "caveat": "① 采样口径为整卡 memory.used（含桌面基线），非进程级；② 显存随地形规模 / 接触预算 / 感知观测（height_scan·depth·lidar）显著变化，go2-parkour（深度）等档须单独实测；③ 单机单次，未做重复性统计。"
+    },
+    "next": "用户口径已确认并实测：**rough 不跑 1000 iters，2048×200–300 足以看趋势**（本轮 250 已见 60–66 平台）。产品 Run 链（POST /api/training/create → Run 档案 → promote）的 2048×250 标定仍待做，以产出可入库的 produced 产物与 tiers 口径（本探针走的是 tools/validate_training_smoke.py，非产品 Run 链）。"
+  },
+  "product_default": {
+    "decided": "2026-09-20（第四轮用户指令：直接统一跑 1024 或 2048 × 250，长点的 250）",
+    "tier": {
+      "envs": 1024,
+      "iters": 250
+    },
+    "tier_high": {
+      "envs": 2048,
+      "iters": 250,
+      "applicability": "rough 档 / 显存允许时（2048×250 rough 已实测：463s、6999 MiB、reward 平台 60–66）"
+    },
+    "projection_flat_1024x250": "T(n)=22+0.79n ⇒ ≈220s（600s 内余量充足）",
+    "rationale": "250 iters 依据＝用户既有口径『rough 250 看趋势已足够』推广为 flat 产品档统一长度；1024/2048 统一后不再维护 64/128 中间档作为产品默认。",
+    "supersedes": "第三轮曾按同口径复测结论拟定位 128×400 为产品默认档；本指令覆盖之——128×400 的 tfevents 对比（22.21 vs 16.56，+34%）降级为历史标定数据保留在 vram_probe.probes。",
+    "verified": {
+      "date": "2026-09-20",
+      "run": "workspace/validation/gpu-1024x250.json",
+      "result": "status ok / rewards 67.97 / iters 250",
+      "conclusion": "新默认档全链（含 tfevents/logger/timeouts）通过；250 iters 与 1000 iters 同平台（67.97 vs 67.95），确认 250 足够。"
+    }
   }
 }

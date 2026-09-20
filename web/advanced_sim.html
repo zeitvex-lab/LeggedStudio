@@ -6,12 +6,12 @@
   <title>高级仿真 · Legged Studio</title>
   <link rel="stylesheet" href="dashboard.css">
   <style>
-    /* 高级仿真的功能**全部在仿真页内**（左上角悬浮窗切换视图来源 + 外挂传感器开关）。
-       本页只负责把视口铺满。
+    /* S5：本页从"只铺满 iframe 的壳"升级为 **Scenario 编辑器**（地图 / 传感器 / 任务 / 判据），
+       视口仍是同一个仿真内核（右侧 iframe），编辑器按场景契约生成参数后重写它的 URL。
 
-       **原先左栏那 7 张卡已删除**：它们是「已入库高级任务 / 外部传感器套件 / 相机投影与目标判定 /
-       高度扫描对齐 / 工具 / 说明」等只读展示，把后端的自检结果贴成标签，
-       **没有任何可操作的功能**；这些自检本身仍有 CI 门禁与测试守住，不需要在页面上再摆一遍。 */
+       为什么编辑器在**壳页**而不是塞进仿真页内：仿真是"跑一份场景"的执行器，场景编辑是
+       "写一份场景"的创作面，两者生命周期不同（编辑不该打断正在跑的仿真）；而且壳页天然
+       能把「校验不通过就不许启动」做在按钮上（S2② 的前端半边）。 */
     html, body { height: 100%; margin: 0; }
     body {
       display: flex; flex-direction: column; overflow: hidden;
@@ -32,6 +32,50 @@
       font-size: 12px; text-decoration: none; cursor: pointer;
     }
     .adv-btn:hover { border-color: var(--accent, #2588df); }
+    .adv-btn:disabled { opacity: .45; cursor: not-allowed; }
+    .adv-btn.primary { border-color: var(--accent, #2588df); }
+
+    .adv-body { display: flex; flex: 1 1 auto; min-height: 0; }
+    .adv-editor {
+      flex: 0 0 340px; overflow-y: auto; padding: 10px 12px 24px;
+      border-right: 1px solid var(--border-soft, #23303a); background: var(--surface, #101a22);
+      font-size: 12px;
+    }
+    .adv-editor section { margin-bottom: 14px; }
+    .adv-editor h3 {
+      margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .02em;
+      color: var(--accent, #2588df); text-transform: none;
+    }
+    .adv-editor label { display: block; margin: 6px 0 2px; color: var(--muted, #8ea1ae); }
+    .adv-editor input[type="text"], .adv-editor input[type="number"],
+    .adv-editor select, .adv-editor textarea {
+      width: 100%; box-sizing: border-box; padding: 4px 6px;
+      border: 1px solid var(--border, #2c3a45); border-radius: 4px;
+      background: var(--bg, #0b1319); color: inherit; font-size: 12px;
+    }
+    .adv-editor textarea { min-height: 62px; resize: vertical; font-family: ui-monospace, monospace; }
+    .adv-editor .row { display: flex; gap: 6px; }
+    .adv-editor .row > * { flex: 1; }
+    .adv-editor .inline { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--text); }
+    .adv-editor .inline input { width: auto; }
+    .adv-editor .note { color: var(--muted, #8ea1ae); font-size: 11px; line-height: 1.5; margin-top: 6px; }
+    /* 步骤条（范式抄 references_1000framesai/shared_nav.js 的 STEPS：加一段 = 表加一条） */
+    .adv-editor .sc-steps { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+    .adv-editor .sc-step {
+      flex: 0 0 auto; padding: 3px 8px; font-size: 11px; cursor: pointer;
+      border: 1px solid var(--border, #2c3a45); border-radius: 999px;
+      background: var(--surface-raised, #16222b); color: var(--muted, #8ea1ae);
+    }
+    .adv-editor .sc-step.active { border-color: var(--accent, #2588df); color: var(--text, #e6eef4); }
+    #scStepHint { min-height: 15px; margin-bottom: 6px; }
+    .adv-editor .actions { display: flex; gap: 8px; position: sticky; bottom: 0;
+      padding: 8px 0; background: linear-gradient(transparent, var(--surface, #101a22) 30%); }
+    #scReport { margin-top: 8px; line-height: 1.6; }
+    #scReport ul { margin: 4px 0 4px 18px; padding: 0; }
+    #scReport pre { white-space: pre-wrap; font-size: 11px; }
+    .sc-ok { color: #5fbf7a; }
+    .sc-bad { color: #e2725b; }
+    .sc-warn { color: #d8a657; }
     .adv-frame-wrap { position: relative; flex: 1 1 auto; min-height: 0; }
     iframe#advSimFrame { width: 100%; height: 100%; border: 0; display: block; }
   </style>
@@ -43,17 +87,122 @@
     }
   </script>
   <div class="adv-bar">
-    <strong>高级仿真</strong>
-    <span class="hint">基础速度追踪策略 + 可插拔外挂传感器（视图来源在视口左上角切换）</span>
+    <strong>高级仿真 · Scenario 编辑器</strong>
+    <span class="hint" id="scSummary">（尚未生成场景）</span>
     <span class="spacer"></span>
     <a class="adv-btn" id="advNavMapLink" href="navigation_editor.html?embedded=1" target="_blank" rel="noopener">导航地图编辑器</a>
   </div>
-  <div class="adv-frame-wrap">
-    <!-- 默认落在一台 go2 的**基础速度追踪**策略上（go2-rlsar-robotlab，45D，最快的闭环），
-         而不是原先的 go2-pie-parkour —— 后者的深度输入是「策略内感知」的特例，
-         而本页的主线形态是「基础策略 + 外挂传感器」（B 类感知在策略外）。 -->
-    <iframe id="advSimFrame" title="高级仿真"
-      src="sim2sim/index.html?embedded=1&surface=advanced&view=advanced&robot=unitree_go2&policy=go2-rlsar-robotlab"></iframe>
+
+  <div class="adv-body">
+    <aside class="adv-editor">
+      <!-- 步骤条由 `scenario_editor.SCENARIO_STEPS` 渲染（唯一真值），这里只给宿主 -->
+      <nav class="sc-steps" id="scSteps"></nav>
+      <div class="note" id="scStepHint"></div>
+
+      <!-- 场景身份 + 机器人/策略：A 类绑定校验需要"被选策略"，故这里必须能选策略 -->
+      <section data-step="identity">
+        <h3>场景</h3>
+        <label for="scScenarioId">场景 id（小写字母/数字/_/-）</label>
+        <input type="text" id="scScenarioId" value="advanced_probe">
+        <label for="scRobot">机器人</label>
+        <select id="scRobot"></select>
+        <label for="scPolicy">策略（A 类场景必须选，否则不校验绑定）</label>
+        <select id="scPolicy"></select>
+        <div class="row">
+          <div>
+            <label for="scSeed">随机种子</label>
+            <input type="number" id="scSeed" value="0" step="1">
+          </div>
+          <div>
+            <label for="scEpisode">时长 (s)</label>
+            <input type="number" id="scEpisode" value="60" min="1" max="600">
+          </div>
+        </div>
+      </section>
+
+      <!-- 地图：地图 id 同时是仿真页的 `terrain`（其 resolveTerrainName 按名解析） -->
+      <section data-step="map">
+        <h3>地图</h3>
+        <label for="scMap">地图库（服务端真值）</label>
+        <select id="scMap"></select>
+        <label for="scTerrain">地形种类（契约 terrain.kind）</label>
+        <select id="scTerrain"></select>
+        <label>指令上限 (vx / vy / wz)</label>
+        <div class="row">
+          <input type="number" id="scLimitVx" value="1" step="0.1" min="0.01">
+          <input type="number" id="scLimitVy" value="1" step="0.1" min="0.01">
+          <input type="number" id="scLimitWz" value="1" step="0.1" min="0.01">
+        </div>
+      </section>
+
+      <!-- 传感器：route 是"感知分层"的开关（A 类进策略观测 / B 类在策略外） -->
+      <section data-step="sensors">
+        <h3>传感器</h3>
+        <label for="scRoute">感知分层 perception.route</label>
+        <select id="scRoute">
+          <option value="external">external（B 类：感知在策略外）</option>
+          <option value="obs">obs（A 类：感知进策略观测）</option>
+        </select>
+        <label class="inline"><input type="checkbox" id="scHeightfield"> 地形高度场 heightfield</label>
+        <label class="inline"><input type="checkbox" id="scDepthCamera"> 深度相机 depth_camera</label>
+        <div class="row">
+          <div>
+            <label for="scDepthWidth">宽 px</label>
+            <input type="number" id="scDepthWidth" value="106" min="1">
+          </div>
+          <div>
+            <label for="scDepthHeight">高 px</label>
+            <input type="number" id="scDepthHeight" value="60" min="1">
+          </div>
+          <div>
+            <label for="scDepthCutoff">截断 m</label>
+            <input type="number" id="scDepthCutoff" value="3" step="0.5" min="0.1">
+          </div>
+        </div>
+        <label class="inline"><input type="checkbox" id="scFootContact"> 足端接触 foot_contact</label>
+        <label for="scMount">挂载点 mount</label>
+        <input type="text" id="scMount" value="base">
+        <div class="note" id="scPerceptionItems">（读取观测项目录…）</div>
+      </section>
+
+      <!-- 任务：命令来源决定"谁在开"；外部决策必须有航点（契约硬约束） -->
+      <section data-step="task">
+        <h3>任务</h3>
+        <label for="scCommandSource">命令来源 command_source</label>
+        <select id="scCommandSource"></select>
+        <div id="scWaypointsRow" hidden>
+          <label for="scWaypoints">航点（每行一个 <code>x,y</code>）</label>
+          <textarea id="scWaypoints" spellcheck="false" placeholder="0,0
+2.5,-1"></textarea>
+        </div>
+      </section>
+
+      <!-- 判据：跑完按什么判合格 / 记什么账 -->
+      <section data-step="checks">
+        <h3>判据</h3>
+        <label>检查项 checks</label>
+        <div id="scChecks"></div>
+        <label>记录器 recorders</label>
+        <div id="scRecorders"></div>
+      </section>
+
+      <div class="actions">
+        <button class="adv-btn" id="scValidate">校验</button>
+        <button class="adv-btn primary" id="scStart" disabled>启动仿真</button>
+      </div>
+      <div class="note" id="scLastLaunch"></div>
+      <div id="scReport"></div>
+    </aside>
+
+    <div class="adv-frame-wrap">
+      <!-- 默认落在一台 go2 的**基础速度追踪**策略上（go2-rlsar-robotlab，45D，最快的闭环），
+           而不是 go2-pie-parkour —— 后者的深度输入是「策略内感知」的特例，
+           而本页的主线形态是「基础策略 + 外挂传感器」（B 类感知在策略外）。 -->
+      <iframe id="advSimFrame" title="高级仿真"
+        src="sim2sim/index.html?embedded=1&surface=advanced&view=advanced&robot=unitree_go2&policy=go2-rlsar-robotlab"></iframe>
+    </div>
   </div>
+
+  <script type="module" src="sim2sim/scenario_editor_ui.js"></script>
 </body>
 </html>

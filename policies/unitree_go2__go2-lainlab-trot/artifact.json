@@ -1,0 +1,20 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-lainlab-trot",
+  "aux_blobs": [],
+  "contract_digest": "109f05771be1be8cf7d7a214c48a06ccc90138b53f9b76fe7aec892c4babd5a7",
+  "declared_source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/trot",
+  "history_len": 10,
+  "kind": "policies",
+  "label": "Go2 Trot (LainLab)",
+  "obs_dim": 47,
+  "onnx_bytes": 1628636,
+  "onnx_sha256": "4b701dec2e3570f45ddb8b6bff5c53341f86399f4a8a18d3a900169af7c21d67",
+  "policy_id": "go2-lainlab-trot",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_lainlab_trot.onnx",
+  "task_type": null
+}

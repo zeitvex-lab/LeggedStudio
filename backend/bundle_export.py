@@ -49,6 +49,8 @@ ROBOTS_DIR = ROOT / "assets" / "robots"
 
 MANIFEST_SCHEMA = "capability-export-1.0"
 MANIFEST_NAME = "manifest.json"
+#: Scenario 包里的场景文件名（导出与导入**必须同名**，故取常量而不是各写各的字面量）。
+SCENARIO_FILE = "scenario.json"
 EXPORT_KINDS = ("morphology", "skill", "scenario", "policy", "bundle")
 
 #: 每类导出的**必需角色**（verify 据此判"到底导出了这一类没有"）。
@@ -280,8 +282,98 @@ def export_scenario(scenario_path: Path | str, out_dir: Path | str, *, emit_mani
         raise ValueError(f"场景文件不是 JSON 对象：{source}")
     contract = ScenarioContract(**raw)  # 校验失败就抛（不导出半成品）
     writer = ExportWriter(Path(out_dir), "scenario")
-    writer.write_json(contract.to_payload(), "scenario.json", role="scenario")
+    writer.write_json(contract.to_payload(), SCENARIO_FILE, role="scenario")
     return writer.finish(refs={"scenario": {"id": contract.scenario_id}}, emit=emit_manifest)
+
+
+def import_scenario(
+    source: Path | str, *, dest: Path | str | None = None, force: bool = False
+) -> dict[str, Any]:
+    """**导入 Scenario 包** —— H5「Scenario 包可导出/导入」的导入半边（此前只有导出）。
+
+    认**三种**实际会被人递过来的形态（不要求对方先转格式）：
+
+    * ``export_dir``：场景导出目录（`manifest.json` + `scenario.json`，即 `export_scenario` 的产物）；
+    * ``bundle_embedded``：Bundle 导出目录里内嵌的场景（`scenario/scenario.json`，无自己的 manifest）；
+    * ``bare_json``：裸场景 JSON 文件（手写/从别处贴来的也认）。
+
+    三条判据（**fail-closed**，与导出口同一套）：
+
+    1. 只要源目录里有 `manifest.json`，就**先验完整性** —— 委托 :func:`verify_export`，
+       **不另写一套**（第二套校验实现正是本仓反复出现的漂移源）；不过就拒绝导入。
+       这条的意义就在于"从别处拷来的包"：损坏/被改过的包不该被当成可信场景跑起来。
+    2. 场景本身必须过 ``ScenarioContract`` —— 与 :func:`export_scenario` **同一道闸**，
+       否则"能导出不能导入"或反之都会出现。
+    3. 形态不对（例如拿 Policy 导出物当场景）时**明确报错并说明原因**，不做任何猜测性兼容。
+
+    ``dest`` 给了就把**规范化后**的载荷落盘（目录则落 ``scenario.json``），默认不覆盖已存在文件
+    （要覆盖得显式 ``force=True``）——导入是"放进工作区"的动作，静默覆盖别人的场景是不可接受的。
+    """
+
+    from contracts.scenario_contract import ScenarioContract
+
+    origin = Path(source).expanduser()
+    if not origin.exists():
+        raise FileNotFoundError(f"导入源不存在：{origin}")
+
+    integrity: dict[str, Any] | None = None
+    form = ""
+    scenario_file: Path | None = None
+
+    if origin.is_file():
+        form, scenario_file = "bare_json", origin
+    elif (origin / MANIFEST_NAME).is_file():
+        integrity = verify_export(origin)
+        if not integrity.get("ok"):
+            raise ValueError(f"场景包完整性校验未通过（拒绝导入）：{integrity.get('problems')}")
+        kind = str(integrity.get("kind") or "")
+        if kind == "scenario":
+            form, scenario_file = "export_dir", origin / SCENARIO_FILE
+        elif (origin / "scenario" / SCENARIO_FILE).is_file():
+            # Bundle：整包已过 verify_export（比只看场景文件更严），场景是它的内嵌件。
+            form, scenario_file = "bundle_embedded", origin / "scenario" / SCENARIO_FILE
+        else:
+            raise ValueError(
+                f"{kind!r} 导出物里没有场景（只有 scenario 导出物或含 scenario/ 的 Bundle 才有）：{origin}"
+            )
+    elif (origin / "scenario" / SCENARIO_FILE).is_file():
+        form, scenario_file = "scenario_dir", origin / "scenario" / SCENARIO_FILE
+    else:
+        raise ValueError(
+            f"认不出这是场景（既不是 {SCENARIO_FILE}、也不是含它的导出目录/Bundle）：{origin}"
+        )
+
+    assert scenario_file is not None
+    if not scenario_file.is_file():
+        raise ValueError(f"场景包缺 {SCENARIO_FILE}：{scenario_file}")
+    raw = _read_json(scenario_file)
+    if not isinstance(raw, dict):
+        raise ValueError(f"场景文件不是 JSON 对象：{scenario_file}")
+    contract = ScenarioContract(**raw)  # 与导出口同一道闸：校验失败就抛
+    payload = contract.to_payload()
+
+    written: str | None = None
+    if dest is not None:
+        target = Path(dest).expanduser()
+        if target.is_dir() or target.suffix == "":
+            target = target / SCENARIO_FILE
+        if target.exists() and not force:
+            raise FileExistsError(f"目标已存在（要覆盖请显式 force=True）：{target}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _write_json(target, payload)
+        written = _repo_relative(target)
+
+    return {
+        "ok": True,
+        "form": form,
+        "source": _repo_relative(origin),
+        "scenario_file": _repo_relative(scenario_file),
+        "scenario": payload,
+        "scenario_id": contract.scenario_id,
+        "schema_version": contract.schema_version,
+        "integrity": integrity,
+        "written": written,
+    }
 
 
 def export_policy(

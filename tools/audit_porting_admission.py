@@ -141,6 +141,21 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         "go2-kaiwu-moe-cts-124k": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）",
         "go2-kaiwu-moe-cts-137k": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）",
         "go2-kaiwu-moe-cts-8exp": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）",
+        # P1③（2026-09-20）：LainLab playground 7 条（Apache-2.0，mjlab 1.6；训练源 169 py
+        # 已同步进 00_resources/LainLab，逐技能 config+mdp+rl 完整——见 §P-1 附表 #1）。
+        "go2-lainlab-amp-cts": "LainLab/src/tasks/robots/go2/skills/cts（AMP-CTS，mjlab 1.6）",
+        "go2-lainlab-dreamwaq": "LainLab/src/tasks/robots/go2/skills/dreamwaq（DreamWaQ + VAE）",
+        "go2-lainlab-trot": "LainLab/src/tasks/robots/go2/skills/trot（cycle_time 0.5）",
+        "go2-lainlab-jump": "LainLab/src/tasks/robots/go2/skills/jump（cycle_time 1.5）",
+        "go2-lainlab-spring-jump": "LainLab/src/tasks/robots/go2/skills/spring_jump（无相位项）",
+        "go2-lainlab-rear-stand": "LainLab/src/tasks/robots/go2/skills/rear_stand",
+        "go2-lainlab-handstand": "LainLab/src/tasks/robots/go2/skills/hand_stand",
+        # P 组 #8/#9（2026-09-20）：LeggedSkillDeploy 另两条产物——上游只给 config.yaml
+        # + policy.pt（无训练代码、无 LICENSE）⇒ 规则 S 产物-only：准入证据 = 上游部署
+        # 配置自身（observations 顺序/缩放/PD/joint_mapping 逐字段可取），登记口径见
+        # tools/register_legskill_go2.py。
+        "go2-loco-45": "LeggedSkillDeploy go2_loco/config.yaml（无训练代码；规则 S 产物-only）",
+        "go2-side-flip-69": "LeggedSkillDeploy go2_silde_filp/config.yaml + motion CSV（无训练代码；规则 S 产物-only）",
     },
     "unitree_go2w": {
         "go2w-velocity-legs": "unitree_rl_mjlab_go2w（velocity_legs_only）",

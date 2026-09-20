@@ -13,7 +13,7 @@
   "task_name": "spring_jump",
   "terrain_type": "plane",
   "algorithm": "PPO",
-  "num_envs": 4096,
+  "num_envs": 1024,
   "episode_length_s": 5.0,
   "history_length": 10,
   "runner": {
@@ -34,5 +34,6 @@
     "save_interval": 100,
     "symmetry": "spring_jump_symmetry"
   },
-  "sort_order": 50
+  "sort_order": 50,
+  "max_iterations": 250
 }

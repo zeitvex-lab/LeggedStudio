@@ -148,14 +148,11 @@ class TrainingLauncher:
         process = proc_info["process"]
 
         # 读取进度文件
-        progress_file = proc_info["task_dir"] / "progress.json"
-        progress = {}
-        if progress_file.exists():
-            try:
-                with open(progress_file, 'r') as f:
-                    progress = json.load(f)
-            except Exception:
-                pass
+        # JSON 读取走单一来源（``utf-8-sig``）：旧实现 ``open(path, 'r')`` **不指定编码**，
+        # 在 Windows（locale=GBK）上读含中文的 ``progress.json`` 会抛 UnicodeDecodeError。
+        from contracts.jsonio import read_json
+
+        progress = read_json(proc_info["task_dir"] / "progress.json", default={}, require=dict)
 
         status_info = self._read_status(proc_info["task_dir"])
         process_status = "running" if process.poll() is None else ("completed" if process.returncode == 0 else "failed")

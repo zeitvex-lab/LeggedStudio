@@ -168,7 +168,12 @@ def dump_schema_via_worker(robot_id: str, profile_id: str, profile: dict, packag
                 cwd=str(_ROOT),
                 env=env,
                 capture_output=True,
+                # 显式 UTF-8：``text=True`` 默认按 locale（Windows=GBK）解码，而 schema dump
+                # 的日志/异常含中文 —— locale 解码失败会让 stdout/stderr 变 None，把可读的
+                # 报错变成"什么都没拿到"（同 2026-09-19 修的冒烟工具缺陷类）。
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=_SCHEMA_TIMEOUT_S,
             )
         except (OSError, subprocess.SubprocessError) as exc:

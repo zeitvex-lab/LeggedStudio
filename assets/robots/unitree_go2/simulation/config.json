@@ -1292,8 +1292,384 @@
         "match": "family",
         "upstream": "kaiwu_rl/go2_rl_gym/legged_gym/envs/go2（legged_gym go2 训练工程）"
       }
+    },
+    {
+      "id": "go2-lainlab-amp-cts",
+      "label": "Go2 AMP-CTS (LainLab)",
+      "obs_dim": 45,
+      "action_dim": 12,
+      "history_len": 6,
+      "source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/cts",
+      "contract": {
+        "observation_kind": "lainlab_dream_45_hist6",
+        "obs_dim": 45,
+        "action_dim": 12,
+        "history_len": 6,
+        "command_dims": 3,
+        "task_type": "velocity",
+        "history_layout": "frame_major_oldest_first",
+        "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
+        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "action_scale": 0.25
+      },
+      "training_ref": { "profile": "go2-amp-cts", "match": "family", "upstream": "LainLab/src/tasks/robots/go2/skills/cts（AMP-CTS；45+5×45 历史）" }
+    },
+    {
+      "id": "go2-lainlab-dreamwaq",
+      "label": "Go2 DreamWaQ (LainLab)",
+      "obs_dim": 45,
+      "action_dim": 12,
+      "history_len": 6,
+      "source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/dreamwaq",
+      "contract": {
+        "observation_kind": "lainlab_dream_45_hist6",
+        "obs_dim": 45,
+        "action_dim": 12,
+        "history_len": 6,
+        "command_dims": 3,
+        "task_type": "velocity",
+        "history_layout": "frame_major_oldest_first",
+        "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
+        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "action_scale": 0.25
+      },
+      "training_ref": { "profile": "go2-dreamwaq", "match": "family", "upstream": "LainLab/src/tasks/robots/go2/skills/dreamwaq（DreamWaQ；45 当前帧 + 5×45 历史，VAE 在模型内）" }
+    },
+    {
+      "id": "go2-lainlab-trot",
+      "label": "Go2 Trot (LainLab)",
+      "obs_dim": 47,
+      "action_dim": 12,
+      "history_len": 10,
+      "source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/trot",
+      "contract": {
+        "observation_kind": "lainlab_gait_47_hist10",
+        "obs_dim": 47,
+        "action_dim": 12,
+        "history_len": 10,
+        "command_dims": 3,
+        "task_type": "gait",
+        "history_layout": "frame_major_oldest_first",
+        "gait_period_s": 0.5,
+        "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
+        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "action_scale": 0.25
+      },
+      "training_ref": { "profile": "go2-trot", "match": "family", "upstream": "LainLab/src/tasks/robots/go2/skills/trot（47=5 相位/指令 + 42 本体；cycle_time 0.5）" }
+    },
+    {
+      "id": "go2-lainlab-jump",
+      "label": "Go2 Jump (LainLab)",
+      "obs_dim": 47,
+      "action_dim": 12,
+      "history_len": 10,
+      "source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/jump",
+      "contract": {
+        "observation_kind": "lainlab_gait_47_hist10",
+        "obs_dim": 47,
+        "action_dim": 12,
+        "history_len": 10,
+        "command_dims": 3,
+        "task_type": "gait",
+        "history_layout": "frame_major_oldest_first",
+        "gait_period_s": 1.5,
+        "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
+        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "action_scale": 0.25
+      },
+      "training_ref": { "profile": "go2-jump", "match": "family", "upstream": "LainLab/src/tasks/robots/go2/skills/jump（47 帧；cycle_time 1.5）" }
+    },
+    {
+      "id": "go2-lainlab-spring-jump",
+      "label": "Go2 Spring Jump (LainLab)",
+      "obs_dim": 47,
+      "action_dim": 12,
+      "history_len": 10,
+      "source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/spring_jump",
+      "contract": {
+        "observation_kind": "lainlab_spring_47_hist10",
+        "obs_dim": 47,
+        "action_dim": 12,
+        "history_len": 10,
+        "command_dims": 3,
+        "task_type": "gait",
+        "history_layout": "frame_major_oldest_first",
+        "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
+        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "action_scale": 0.25
+      },
+      "training_ref": { "profile": "go2-spring-jump", "match": "family", "upstream": "LainLab/src/tasks/robots/go2/skills/spring_jump（47=2 恒零 + 3 裸 cmd + 42 本体；无相位项）" }
+    },
+    {
+      "id": "go2-lainlab-rear-stand",
+      "label": "Go2 Rear Stand (LainLab)",
+      "obs_dim": 45,
+      "action_dim": 12,
+      "history_len": 1,
+      "source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/rear_stand",
+      "contract": {
+        "observation_kind": "go2_rl_sdk_45",
+        "obs_dim": 45,
+        "action_dim": 12,
+        "history_len": 1,
+        "command_dims": 3,
+        "task_type": "stand",
+        "history_layout": "",
+        "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
+        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "action_scale": 0.25
+      },
+      "training_ref": { "profile": "go2-leggedstand", "match": "family", "upstream": "LainLab/src/tasks/robots/go2/skills/rear_stand（45 帧与 go2_rl_sdk_45 同序同缩放，复用既有 builder）" }
+    },
+    {
+      "id": "go2-lainlab-handstand",
+      "label": "Go2 Handstand (LainLab)",
+      "obs_dim": 48,
+      "action_dim": 12,
+      "history_len": 1,
+      "source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/hand_stand",
+      "contract": {
+        "observation_kind": "lainlab_handstand_48",
+        "obs_dim": 48,
+        "action_dim": 12,
+        "history_len": 1,
+        "command_dims": 3,
+        "task_type": "stand",
+        "history_layout": "",
+        "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
+        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "action_scale": 0.25
+      },
+      "training_ref": { "profile": "go2-handstand", "match": "family", "upstream": "LainLab/src/tasks/robots/go2/skills/hand_stand（48=3 恒零 legacy 前缀 + 45 rl_sdk 帧）" }
     }
-  ],
+  ,
+    {
+      "id": "go2-loco-45",
+      "label": "Go2 Loco 45D (velocity, LeggedSkillDeploy)",
+      "obs_dim": 45,
+      "action_dim": 12,
+      "history_len": 1,
+      "source": "LeggedSkillDeploy go2_loco（第三方，无 LICENSE；仅内部研究）",
+      "training_ref": {
+        "profile": null,
+        "match": "product_only",
+        "upstream": "LeggedSkillDeploy go2_loco config.yaml（无训练代码；规则 S 产物-only）"
+      },
+      "contract": {
+        "observation_kind": "go2_rl_sdk_45",
+        "obs_dim": 45,
+        "action_dim": 12,
+        "history_len": 1,
+        "command_dims": 3,
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "task_type": "velocity",
+        "action_joint_order": [
+          "FL_hip_joint",
+          "FR_hip_joint",
+          "RL_hip_joint",
+          "RR_hip_joint",
+          "FL_thigh_joint",
+          "FR_thigh_joint",
+          "RL_thigh_joint",
+          "RR_thigh_joint",
+          "FL_calf_joint",
+          "FR_calf_joint",
+          "RL_calf_joint",
+          "RR_calf_joint"
+        ],
+        "default_joint_angles": {
+          "FL_hip_joint": 0.1,
+          "FR_hip_joint": -0.1,
+          "RL_hip_joint": 0.1,
+          "RR_hip_joint": -0.1,
+          "FL_thigh_joint": 0.8,
+          "FR_thigh_joint": 0.8,
+          "RL_thigh_joint": 1.0,
+          "RR_thigh_joint": 1.0,
+          "FL_calf_joint": -1.5,
+          "FR_calf_joint": -1.5,
+          "RL_calf_joint": -1.5,
+          "RR_calf_joint": -1.5
+        },
+        "action_scale": 0.25,
+        "scales": {
+          "ang_vel": 0.2,
+          "dof_pos": 1.0,
+          "dof_vel": 0.05,
+          "command": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "control": {
+          "stiffness": {
+            "FL_hip_joint": 25.0,
+            "FR_hip_joint": 25.0,
+            "RL_hip_joint": 25.0,
+            "RR_hip_joint": 25.0,
+            "FL_thigh_joint": 25.0,
+            "FR_thigh_joint": 25.0,
+            "RL_thigh_joint": 25.0,
+            "RR_thigh_joint": 25.0,
+            "FL_calf_joint": 25.0,
+            "FR_calf_joint": 25.0,
+            "RL_calf_joint": 25.0,
+            "RR_calf_joint": 25.0
+          },
+          "damping": {
+            "FL_hip_joint": 0.5,
+            "FR_hip_joint": 0.5,
+            "RL_hip_joint": 0.5,
+            "RR_hip_joint": 0.5,
+            "FL_thigh_joint": 0.5,
+            "FR_thigh_joint": 0.5,
+            "RL_thigh_joint": 0.5,
+            "RR_thigh_joint": 0.5,
+            "FL_calf_joint": 0.5,
+            "FR_calf_joint": 0.5,
+            "RL_calf_joint": 0.5,
+            "RR_calf_joint": 0.5
+          }
+        }
+      }
+    },
+    {
+      "id": "go2-side-flip-69",
+      "label": "Go2 Side-Flip 69D (imitation, motion-csv)",
+      "obs_dim": 69,
+      "action_dim": 12,
+      "history_len": 1,
+      "source": "LeggedSkillDeploy go2_silde_filp（第三方，无 LICENSE；仅内部研究）",
+      "training_ref": {
+        "profile": null,
+        "match": "product_only",
+        "upstream": "LeggedSkillDeploy go2_silde_filp config.yaml + motion CSV（无训练代码；规则 S 产物-only）"
+      },
+      "contract": {
+        "observation_kind": "go2_motion_69",
+        "obs_dim": 69,
+        "action_dim": 12,
+        "history_len": 1,
+        "command_dims": 3,
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "task_type": "imitation",
+        "autoplay": false,
+        "action_joint_order": [
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint"
+        ],
+        "motion_joint_mapping": [
+          3,
+          4,
+          5,
+          0,
+          1,
+          2,
+          9,
+          10,
+          11,
+          6,
+          7,
+          8
+        ],
+        "default_joint_angles": {
+          "FL_hip_joint": -0.1,
+          "FL_thigh_joint": 0.9,
+          "FL_calf_joint": -1.8,
+          "FR_hip_joint": 0.1,
+          "FR_thigh_joint": 0.9,
+          "FR_calf_joint": -1.8,
+          "RL_hip_joint": -0.1,
+          "RL_thigh_joint": 0.9,
+          "RL_calf_joint": -1.8,
+          "RR_hip_joint": 0.1,
+          "RR_thigh_joint": 0.9,
+          "RR_calf_joint": -1.8
+        },
+        "action_scale_by_joint": {
+          "FL_hip_joint": 0.3349008680922322,
+          "FR_hip_joint": 0.3349008680922322,
+          "RL_hip_joint": 0.3349008680922322,
+          "RR_hip_joint": 0.3349008680922322,
+          "FL_thigh_joint": 0.3349008680922322,
+          "FR_thigh_joint": 0.3349008680922322,
+          "RL_thigh_joint": 0.3349008680922322,
+          "RR_thigh_joint": 0.3349008680922322,
+          "FL_calf_joint": 0.17414387605840184,
+          "FR_calf_joint": 0.17414387605840184,
+          "RL_calf_joint": 0.17414387605840184,
+          "RR_calf_joint": 0.17414387605840184
+        },
+        "scales": {
+          "ang_vel": 1.0,
+          "dof_pos": 1.0,
+          "dof_vel": 1.0,
+          "command": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "control": {
+          "stiffness": {
+            "FL_hip_joint": 17.6918024541168,
+            "FR_hip_joint": 17.6918024541168,
+            "RL_hip_joint": 17.6918024541168,
+            "RR_hip_joint": 17.6918024541168,
+            "FL_thigh_joint": 17.6918024541168,
+            "FR_thigh_joint": 17.6918024541168,
+            "RL_thigh_joint": 17.6918024541168,
+            "RR_thigh_joint": 17.6918024541168,
+            "FL_calf_joint": 65.21906056685614,
+            "FR_calf_joint": 65.21906056685614,
+            "RL_calf_joint": 65.21906056685614,
+            "RR_calf_joint": 65.21906056685614
+          },
+          "damping": {
+            "FL_hip_joint": 1.1262951251433972,
+            "FR_hip_joint": 1.1262951251433972,
+            "RL_hip_joint": 1.1262951251433972,
+            "RR_hip_joint": 1.1262951251433972,
+            "FL_thigh_joint": 1.1262951251433972,
+            "FR_thigh_joint": 1.1262951251433972,
+            "RL_thigh_joint": 1.1262951251433972,
+            "RR_thigh_joint": 1.1262951251433972,
+            "FL_calf_joint": 4.1519743493286185,
+            "FR_calf_joint": 4.1519743493286185,
+            "RL_calf_joint": 4.1519743493286185,
+            "RR_calf_joint": 4.1519743493286185
+          }
+        },
+        "motion_params": {
+          "motion_csv": "simulation/policies/sideflip_motion.csv",
+          "fps": 50.0,
+          "time_start": 0.0,
+          "time_end": 2.36,
+          "csv_layout": "root_pos3,quat_xyzw4,dof_pos12",
+          "ref_axis": "y_up",
+          "loop": false
+        }
+      }
+    }],
   "terrains": [
     {
       "id": "pie_stairs",
