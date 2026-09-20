@@ -106,11 +106,19 @@ class LandedFixesTest(unittest.TestCase):
         self.assertIn("critic=RslRlModelCfg(", text)
 
     def test_him_files_removed_per_user_ruling(self):
-        """HIM 已按用户裁决删除（2026-09-19：纯 PPO 可用、HIM 不用）——
-        防"文件回来了但没人接线"的僵尸态：整个 rsl_rl 子树不许再出现 him 文件。"""
+        """HIM 已按用户裁决删除（2026-09-19：纯 PPO 可用、HIM 不用）；
+        同日按"框架一致"裁决，又把删除 HIM 后剩下的 ``rsl_rl`` 空壳整棵清掉
+        （包内零引用，属 B8 残渣）。
+
+        判据因此升级为**两层**：① him 文件不许回来（原判据）；② 空壳不许以
+        "没人引用的目录"形态回潮 —— 整个 ``rsl_rl`` 子树不许有任何 ``.py``
+        （目录不存在同样通过）。
+        """
         base = ROOT / "assets/robots/zex-w/training/source/robot/rsl_rl"
-        residue = [p.name for p in base.rglob("*.py") if "him" in p.name.lower()]
-        self.assertEqual(residue, [], f"HIM 文件不该回来：{residue}")
+        residue = (
+            sorted(str(p.relative_to(base)) for p in base.rglob("*.py")) if base.exists() else []
+        )
+        self.assertEqual(residue, [], f"zex-w 的 rsl_rl 已整棵清理，不许再有 py：{residue}")
 
     def test_microduck_symmetry_docstring_says_actor(self):
         path = ROOT / "assets/robots/microduck/training/source/mjlab_microduck/tasks/symmetry.py"

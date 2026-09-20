@@ -13,7 +13,7 @@
   "task_name": "forward_walk",
   "terrain_type": "plane",
   "algorithm": "PPO",
-  "num_envs": 4096,
+  "num_envs": 1024,
   "episode_length_s": 20.0,
   "command_ranges": {
     "lin_vel_x": [
@@ -46,5 +46,6 @@
     "max_iterations": 15000,
     "save_interval": 100
   },
-  "sort_order": 10
+  "sort_order": 10,
+  "max_iterations": 250
 }

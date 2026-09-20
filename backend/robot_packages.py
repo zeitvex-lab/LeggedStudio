@@ -190,20 +190,63 @@ def _package_roots() -> list[Path]:
 #: contract_legacy_v2.json 契约镜像）时 bump 它，让既有安装的索引判为 stale 并重跑一次同步
 #: （磁盘未变）。
 #: 提为模块级常量，测试据此动态构造"旧版本 signature"，避免每次 bump 都要改测试。
-SYNC_REVISION = "5"
+SYNC_REVISION = "6"
+
+#: simulation/config.json 里的**策略声明数组**键。它们顶层键在副本里早就存在
+#: （旧版布局就带 policies），故"源树新增顶层键才合并"的 C6 口径看不见数组内追加的
+#: 新声明——2026-09-20 LainLab 7 条入库时条目进了 assets、浏览器端点读的 workspace
+#: 副本却没有，页面选不到新策略。合并语义按 id 逐条追加（见 sync 内 config 分支）。
+_POLICY_LIST_KEYS = ("policies", "demo_policies")
+
+
+def _tree_digest(directory: Path) -> str:
+    """``(相对路径, 字节数, mtime_ns)`` 的顺序摘要——用于感知**内容级**变更。
+
+    为什么不能只取目录 mtime：目录 mtime 只在**增删条目**时变化，
+    ① catalog 内文件的**内容编辑**不改变它；② `training/source` 下的任何变化原本
+    完全没有进入签名。两者后果相同且严重：源树删/改了包内训练源码，索引不判过期
+    ⇒ 不触发 `_scan_package_records()` ⇒ 不触发 `_sync_shipped_packages_into_workspace`
+    ⇒ **运行时与所有"改完就跑"的冒烟验的都是旧副本**（2026-09-20 go2 去包化实况踩中：
+    删掉 23 个文件后首次回归等于没验，副本仍是 182 个 .py）。
+
+    排除 ``__pycache__``：同步本身不搬它，纳进来会让两侧**永远**判为不一致、每次读都重扫。
+    成本：一次 ``rglob`` + ``stat``（本仓 14 包合计约两千个文件，一次进程内只算一次——
+    ``list_robot_packages`` 有内存缓存短路）。``copy2`` 保留 mtime，故同步完成后两侧摘要一致。
+    """
+    import hashlib
+
+    if not directory.is_dir():
+        return "-"
+    hasher = hashlib.sha1()
+    for path in sorted(directory.rglob("*")):
+        if not path.is_file() or "__pycache__" in path.parts:
+            continue
+        try:
+            info = path.stat()
+        except OSError:
+            continue
+        line = f"{path.relative_to(directory).as_posix()}:{info.st_size}:{info.st_mtime_ns}\n"
+        hasher.update(line.encode("utf-8"))
+    return hasher.hexdigest()[:16]
 
 
 def _package_signature() -> str:
     """Cheap freshness signature over both package roots.
 
-    Covers: which package dirs exist, and the mtimes of each contract /
-    manifest / profiles dir.  Any add / edit / delete flips the signature so
-    the persisted index can be auto-refreshed (fixes "stale index" bugs where
-    newly added robots never showed up in the desktop app).
+    Covers: which package dirs exist, the mtimes of each contract / manifest,
+    and a **content digest** of each package's ``training/profiles`` +
+    ``training/source``.  Any add / edit / delete flips the signature so the
+    persisted index can be auto-refreshed (fixes "stale index" bugs where newly
+    added robots never showed up in the desktop app) **and** so the shipped →
+    workspace content sync actually runs after the source tree changes
+    (2026-09-20：内容摘要取代原先的"profiles 目录 mtime+计数"——后者看不见内容编辑，
+    更看不见 `training/source` 的一切变化，见 `_tree_digest`）。
 
     ``sync_rev`` is a code-owned revision of the content-sync rules: bump it
     whenever the sync itself gains a new duty so existing installs re-run the
-    sync once even though nothing on disk changed (C6: base-file backfill).
+    sync once even though nothing on disk changed (C6: base-file backfill)。
+    （本次改的是**签名覆盖面**而非同步职责，字段变化本身就会让存量 meta 判为过期、
+    自动重扫一次，故无需 bump。）
     """
     parts: list[str] = [f"sync_rev:{SYNC_REVISION}"]
     for root in _package_roots():
@@ -223,13 +266,8 @@ def _package_signature() -> str:
                     parts.append(f"{name}/{rel}:{int(f.stat().st_mtime_ns)}")
                 except OSError:
                     parts.append(f"{name}/{rel}:-")
-            profiles = pkg / "training" / "profiles"
-            if profiles.is_dir():
-                try:
-                    count = sum(1 for x in profiles.glob("*.json"))
-                    parts.append(f"{name}/profiles:{int(profiles.stat().st_mtime_ns)}:{count}")
-                except OSError:
-                    pass
+            for rel in ("model", "training/profiles", "training/source"):
+                parts.append(f"{name}/{rel}@{_tree_digest(pkg / rel)}")
     return "|".join(parts)
 
 
@@ -708,10 +746,11 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
     C6 补齐（v0.42.0）：workspace 副本缺基础文件时从源树补——
     - ``simulation/`` 下缺失的文件（scene.xml、策略 onnx 等）按缺复制；
       workspace 独有文件（训练导出的策略等）不清理；
-    - ``simulation/config.json`` 只做**增量合并**：源树新增的键（如后加的
-      policies/demo_policies 声明段）并入副本，副本已有的键一律不动——
-      用户在工作台改过的增益等以 workspace 为权威。曾因副本缺 policies
-      声明导致 lite3 演示策略从首页消失。
+    - ``simulation/config.json`` 只做**增量合并**：顶层键副本已有的不动（用户
+      在工作台改过的增益等以 workspace 为权威），源树新增的键并入副本；曾因副本缺
+      policies 声明导致 lite3 演示策略从首页消失。**policies/demo_policies
+      数组按 id 逐条追加**（2026-09-20：顶层键老早存在，数组内新声明进不来——
+      LainLab 7 条入库后 assets 有、副本无，浏览器选不到）。
     """
     import shutil
 
@@ -780,12 +819,40 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
                             pass
                         continue
                     # 文件存在：增量合并——副本已有的键不动（用户编辑权威），
-                    # 源树新增的键并入（声明段如 policies/demo_policies 可达）
+                    # 源树新增的键并入（声明段如 policies/demo_policies 可达）。
+                    # **例外是策略数组**：顶层键早就存在，数组内追加的新声明
+                    # （如 LainLab 7 条）在原口径下永远进不了副本——条目已在
+                    # assets 入库，运行时读的还是副本 ⇒ 页面选不到。故对
+                    # policies/demo_policies 按 **id** 逐条追加：副本没有的 id
+                    # 从源树补上；同 id 一律以副本为准（用户编辑权威不变）；
+                    # produced 用户训练产物本来就不在源树里，天然不动。无 id 的
+                    # 条目无法去重（同一条会被反复追加），保守不并入。
                     src_cfg = _read_json(src_file)
                     dst_cfg = _read_json(dst_file)
-                    added = {key: value for key, value in src_cfg.items() if key not in dst_cfg}
-                    if added:
-                        dst_cfg.update(added)
+                    changed = False
+                    for key, value in src_cfg.items():
+                        if key not in dst_cfg:
+                            dst_cfg[key] = value
+                            changed = True
+                            continue
+                        if key not in _POLICY_LIST_KEYS:
+                            continue
+                        existing, incoming = dst_cfg[key], value
+                        if not isinstance(existing, list) or not isinstance(incoming, list):
+                            continue
+                        known_ids = {
+                            item.get("id") for item in existing
+                            if isinstance(item, dict) and item.get("id")
+                        }
+                        appended = [
+                            item for item in incoming
+                            if isinstance(item, dict) and item.get("id")
+                            and item["id"] not in known_ids
+                        ]
+                        if appended:
+                            dst_cfg[key] = existing + appended
+                            changed = True
+                    if changed:
                         try:
                             dst_file.write_text(
                                 json.dumps(dst_cfg, ensure_ascii=False, indent=2) + chr(10),
@@ -865,6 +932,43 @@ def _sync_shipped_packages_into_workspace(roots: list[Path]) -> int:
                     synced += 1
             except OSError:
                 pass
+        # 执行真值 `model/`（MJCF + 网格）**同样镜像**：`04_参数真值标准` §0.2 明确
+        # ``model/robot.xml`` 是"验收 / 训练装配 / 浏览器（编译后）"的**执行真值**
+        # （由 tools/bake_mjcf_physics.py 写入、tools/validate_mjcf_contract.py 守门），
+        # 与 contract.json 同级 ⇒ 照 D7/B36/B13 同一先例，副本不得独立演化出第二套真值。
+        #
+        # 2026-09-20 实证（序 14）：`deeprobotics_lite3` 副本的 MJCF 停在旧 ``<motor>``(effort)
+        # 形态，源树已是 B28/B35 的 ``<position kp/kv/forcerange>`` ⇒ 训练装配置直接报
+        # "XML actuator ... is type 'effort', but command_field='position' was requested"，
+        # 而报错点在**建环境**，极易被误读成"训练随机失败"。
+        #
+        # 语义与 `training/` 子树一致：内容级比较（一致不重写）→ 按缺/按差异复制 →
+        # 源树已删的文件同步清除（"副本与源树内容集合一致，不残留陈旧"）。
+        # 二进制网格按 (size, mtime) 比较，不读内容。
+        src_model = shipped / "model"
+        dst_model = target / "model"
+        if src_model.is_dir():
+            for src_file in sorted(src_model.rglob("*")):
+                if not src_file.is_file() or "__pycache__" in src_file.parts:
+                    continue
+                dst_file = dst_model / src_file.relative_to(src_model)
+                try:
+                    if (not dst_file.exists()
+                            or src_file.stat().st_size != dst_file.stat().st_size
+                            or int(src_file.stat().st_mtime) > int(dst_file.stat().st_mtime)):
+                        dst_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(src_file, dst_file)
+                        synced += 1
+                except OSError:
+                    continue
+            if dst_model.is_dir():
+                src_rel = {str(p.relative_to(src_model)) for p in src_model.rglob("*") if p.is_file() and "__pycache__" not in p.parts}
+                for stale in dst_model.rglob("*"):
+                    if not stale.is_file() or "__pycache__" in stale.parts:
+                        continue
+                    if str(stale.relative_to(dst_model)) not in src_rel:
+                        stale.unlink()
+                        synced += 1
         # B13：training/config.json 已收口为**指针文件**（robot_id/contract_path/
         # profile_id/schema_version/backend，尺子 = tools/audit_training_config_layers.py），
         # 是随包分发的派生物而非用户编辑面——任务真值在 profiles/（Recipe 层），

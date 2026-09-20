@@ -82,9 +82,12 @@ def _mass_size(mass: float | None) -> str | None:
 
 
 def load_inventory(path: Path = INVENTORY_PATH) -> dict[str, Any]:
+    # JSON 读取走单一来源（``utf-8-sig`` 吃 BOM）：旧实现是 ``path.open(encoding="utf-8")``，
+    # 带 BOM 的清单会在第一个字节就抛（报错只说 Expecting value，不指向编码）。
+    from contracts.jsonio import load_json
+
     try:
-        with path.open("r", encoding="utf-8") as handle:
-            value = json.load(handle)
+        value = load_json(path)
     except FileNotFoundError:
         return _scan_default_inventory()
     except json.JSONDecodeError as exc:

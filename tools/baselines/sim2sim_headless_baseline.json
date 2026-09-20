@@ -218,6 +218,18 @@
       "family": null
     },
     {
+      "robot": "unitree_go2",
+      "policy": "go2-loco-45",
+      "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-side-flip-69",
+      "verdict": "fail",
+      "family": null
+    },
+    {
       "robot": "unitree_go2w",
       "policy": "go2w-velocity-legs",
       "verdict": "pass",

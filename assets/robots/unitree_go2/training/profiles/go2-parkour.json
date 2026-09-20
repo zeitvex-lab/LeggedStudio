@@ -18,7 +18,11 @@
   "episode_length_s": 20.0,
   "history_length": 10,
   "runner": {
-    "hidden_dims": [512, 256, 128],
+    "hidden_dims": [
+      512,
+      256,
+      128
+    ],
     "learning_rate": 0.001,
     "gamma": 0.99,
     "gae_lambda": 0.95,
@@ -33,11 +37,21 @@
     "max_iterations": 20000,
     "save_interval": 1000,
     "obs_groups": {
-      "actor": ["actor", "proprio_history", "camera"],
-      "critic": ["critic"]
+      "actor": [
+        "actor",
+        "proprio_history",
+        "camera"
+      ],
+      "critic": [
+        "critic"
+      ]
     },
     "depth": {
-      "shape": [2, 60, 86],
+      "shape": [
+        2,
+        60,
+        86
+      ],
       "cutoff_distance": 3.0,
       "update_period_steps": 5
     },
@@ -51,9 +65,19 @@
     }
   },
   "command_ranges": {
-    "lin_vel_x": [0.0, 1.5],
-    "lin_vel_y": [0.0, 0.0],
-    "ang_vel_z": [-1.2, 1.2]
+    "lin_vel_x": [
+      0.0,
+      1.5
+    ],
+    "lin_vel_y": [
+      0.0,
+      0.0
+    ],
+    "ang_vel_z": [
+      -1.2,
+      1.2
+    ]
   },
-  "notes": "PIE-style perceptive stair locomotion with a 106x60 front depth camera (87 deg HFOV, 10-column crop), 45-dim proprioception, terrain-aware yaw-mode command sampling, and VAE/memory auxiliary losses. Terrain: flat 10% + pyramid stairs up/down 45% each with curriculum."
+  "notes": "PIE-style perceptive stair locomotion with a 106x60 front depth camera (87 deg HFOV, 10-column crop), 45-dim proprioception, terrain-aware yaw-mode command sampling, and VAE/memory auxiliary losses. Terrain: flat 10% + pyramid stairs up/down 45% each with curriculum.",
+  "max_iterations": 250
 }

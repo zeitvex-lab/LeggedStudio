@@ -19,5 +19,6 @@
   "episode_length_s": 20.0,
   "history_length": 6,
   "observation_contract": "himloco_45_hist6",
-  "sort_order": 105
+  "sort_order": 105,
+  "max_iterations": 250
 }

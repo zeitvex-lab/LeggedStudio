@@ -93,7 +93,17 @@ class _FakeProducer:
         self.corrupt = corrupt
         self.calls: list[list[str]] = []
 
-    def __call__(self, command, capture_output=True, text=True, cwd=None):
+    def __call__(self, command, capture_output=True, text=True, cwd=None,
+                 encoding=None, errors=None, timeout=None):
+        # **必须接受 encoding/errors**：生产代码（`tools/replay_gate.py`）显式指定
+        # `encoding="utf-8", errors="replace"` —— 子进程输出含中文，不指定就按 locale
+        # （Windows=GBK）解码，会在 reader 线程抛 UnicodeDecodeError 且 stdout 变 None。
+        # 2026-09-20 给生产代码补这两个 kwarg 时**漏了同步本假体**，于是 6 个编排用例
+        # 全部 TypeError（"函数签名对不上"是比"卡住"更安静的一种失败）。
+        # 这里顺便把"显式 UTF-8"钉成**不变量**：谁把生产侧的显式编码去掉，这条就红。
+        assert encoding == "utf-8", (
+            f"replay_gate 子进程必须显式按 UTF-8 解码（含中文输出），当前 encoding={encoding!r}"
+        )
         self.calls.append(list(command))
         if self.returncode != 0:
             return SimpleNamespace(returncode=self.returncode, stdout="", stderr=self.stderr)

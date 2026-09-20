@@ -22,6 +22,11 @@ router = APIRouter(prefix="/api/navigation", tags=["navigation"])
 #: 注册表缺失时**直接报错**（不做静默兜底）——静默回退正是口径漂移的成因。
 WAYPOINT_TOLERANCE_M = float(waypoint_spec()["tolerance_m"])
 
+#: H7 落档必需的导航指标四项（完成率 / 跟踪误差 / 碰撞 / 稳定性）。
+#: 与 `adapters/mjlab/native_worker.py` 的 navigation 报告**一次性产出**的那四个键同名
+#: —— 缺任一项就拒绝写档案（理由见 `_record_navigation_evaluation`：不得用 0.0 冒充"未上报"）。
+NAVIGATION_METRICS = ("route_completion", "mean_tracking_error", "collision_count", "stability_score")
+
 #: 控制器目录（**声明**部分：角色 / 实现 / 参数真值）。**实测**（通过率、最小净空）不写在这里，
 #: 而是从 H19 回归基线 ``tools/baselines/route_regression_baseline.json`` 读 —— "声称"与
 #: "实测"分开，才不会出现"文档说推荐、数据说它到不了"。
@@ -235,39 +240,56 @@ async def _run_native_navigation(task, request: NavigationRequest):
         detail = result.stderr.strip()[-2000:] or result.stdout.strip()[-2000:] or f"native navigation exited with code {result.returncode}"
         raise HTTPException(status_code=500, detail=detail)
     nav_result = json.loads(navigation_file.read_text(encoding="utf-8-sig"))
-    _record_navigation_evaluation(task, nav_result, request)
-    return {"success": True, "result": nav_result}
+    # H7：把落档结果一起回给调用方 —— 不再让"没落上"隐形（见本函数注释）。
+    writeback = _record_navigation_evaluation(task, nav_result, request)
+    return {"success": True, "result": nav_result, "artifact_writeback": writeback}
 
 
-def _record_navigation_evaluation(task, nav_result: dict, request: NavigationRequest) -> None:
-    """将结构化的导航评估（路径完成率/跟踪误差/碰撞/稳定性）回写 PolicyArtifact。
+def _record_navigation_evaluation(task, nav_result: dict, request: NavigationRequest) -> dict[str, Any]:
+    """将结构化的导航评估（路径完成率/跟踪误差/碰撞/稳定性）回写 PolicyArtifact，**并如实上报结果**。
 
     让策略档案真正可追溯：基础回放验证策略正确性，此处补充感知-决策闭环落档。
-    若任务尚无 artifact 或字段缺失，则静默跳过，不阻断导航主流程。
+
+    **为什么必须返回状态**（H7 修复，2026-09-20）：本函数此前是 best-effort **静默**返回 ``None``
+    —— 没有 artifact 就悄悄不写、写失败也悄悄不写，而接口照样回 ``{"success": True}``，
+    于是"落档没落上"这件事**谁都不知道**。H7 的判据是"完成率/误差/碰撞/稳定性**落档**"，
+    不是"尝试落档"；本仓纪律又是"静默假绿最忌讳"。故改为显式上报：成功回 ``recorded=True``，
+    未落档回 ``recorded=False`` + 原因 + artifact 路径，由调用方带进响应。
+
+    **拒绝用默认值冒充未上报的指标**：契约里四项都不是 Optional。旧写法对缺失项一律
+    ``.get(key, 0.0)`` —— 若 worker 的报告里没有这项（例如走的不是 navigation 分支），
+    就等于往策略档案里写一句"完成率 0%"的**假话**，比不写更糟。现在缺项即拒绝写入并报
+    ``metrics_missing``（若 0.0 是报告里**真实**给出的，照写不误——判据是"键在不在"）。
+
+    落档仍是**旁路**：任何异常都只转成 ``recorded=False``，不阻断导航主流程。
     """
     from contracts.policy_artifact import NavigationEvaluation, PolicyArtifact
 
     artifact_path = task.task_dir / "artifact.json"
     if not artifact_path.exists():
-        return
+        return {"recorded": False, "reason": "artifact_missing", "artifact": str(artifact_path)}
+    missing = [name for name in NAVIGATION_METRICS if name not in nav_result]
+    if missing:
+        return {"recorded": False, "reason": "metrics_missing", "missing": missing, "artifact": str(artifact_path)}
     try:
         artifact = PolicyArtifact.from_json_file(str(artifact_path))
         artifact.navigation_evaluation = NavigationEvaluation(
             map_id=request.map_id,
             waypoints=request.waypoints,
             episodes=request.episodes,
-            route_completion=float(nav_result.get("route_completion", 0.0)),
-            mean_tracking_error=float(nav_result.get("mean_tracking_error", 0.0)),
-            collision_count=int(nav_result.get("collision_count", 0)),
-            stability_score=float(nav_result.get("stability_score", 0.0)),
+            route_completion=float(nav_result["route_completion"]),
+            mean_tracking_error=float(nav_result["mean_tracking_error"]),
+            collision_count=int(nav_result["collision_count"]),
+            stability_score=float(nav_result["stability_score"]),
             evaluated_env=str(nav_result.get("evaluated_env", "native_mjlab_navigation")),
             use_avoidance=bool(nav_result.get("use_avoidance", False)),
             avoidance_engagement=nav_result.get("avoidance_engagement"),
             min_obstacle_distance_m=nav_result.get("min_obstacle_distance_m"),
         )
         artifact.to_json_file(str(artifact_path))
-    except Exception:  # pragma: no cover - best-effort writeback
-        return
+    except Exception as exc:
+        return {"recorded": False, "reason": f"{type(exc).__name__}: {exc}", "artifact": str(artifact_path)}
+    return {"recorded": True, "artifact": str(artifact_path), "map_id": request.map_id}
 
 
 class NavigationPlanRequest(BaseModel):

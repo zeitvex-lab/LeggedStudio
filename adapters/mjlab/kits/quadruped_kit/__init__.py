@@ -159,7 +159,7 @@ def repoint_height_scan_sensors(
     cfg: ManagerBasedRlEnvCfg,
     *,
     root_body: str,
-    foot_frames: Sequence[str],
+    foot_frames: Sequence[str] = (),
     frame_type: str = "site",
 ) -> None:
     """把基座高度扫描重指到本机型：terrain_scan 挂根 body，足端扫描挂足端帧。
@@ -167,6 +167,11 @@ def repoint_height_scan_sensors(
     来源：lite3 env_cfg.py L61-74 / b2 env_cfg.py L37-48（同一逻辑；lite3 用
     body 帧 + ``<LR>_FOOT``（B31 裁决：MJCF 无足端 site），b2 用 site 帧）。
     ``frame_type`` ∈ {"site", "body"}；ring 参数两包一致（0.04 m × 4 samples）。
+
+    ``foot_frames`` 默认空列表：**go1 没有足端 site**（其 site 级 `foot_height_scan`
+    恒被丢弃），只需要重指根 body。**不重指的后果**见 go1 env_cfg 的序 15 注释 ——
+    mjlab 基座给 `terrain_scan` 的默认 frame 是 ``ObjRef(entity="robot", name="")``，
+    会解析成 ``robot/``（空 body 名）并在 Scene 初始化时 `mj_model.body("robot/")` KeyError。
     """
     for sensor in cfg.scene.sensors or ():
         if sensor.name == "terrain_scan":
@@ -258,10 +263,15 @@ def apply_flat_postlude(
     cfg.curriculum.pop("terrain_levels", None)
 
 
-def ppo_runner_cfg(experiment_name: str):
-    """两包逐字共享的 PPO runner 配置（lite3 L402-444 / b2 L185-226）。
+def ppo_runner_cfg(experiment_name: str, *, save_interval: int = 100):
+    """四足组逐字共享的 PPO runner 配置（lite3 L402-444 / b2 L185-226）。
 
-    唯一差异是 ``experiment_name``（lite3_velocity / b2_velocity），故成为参数。
+    原先唯一差异是 ``experiment_name``（lite3_velocity / b2_velocity），故成为参数；
+    2026-09-20 接入 go2 时发现**第二个差异**：go2 的 ``save_interval`` 是 50，其余 20 余个
+    字段与 lite3/b2 逐字相同（隐藏层 512/256/128、全部 PPO 超参、num_steps 24、
+    max_iterations 10_000）。按 zex-w 同一先例（``wheel_leg_kit.ppo_runner_cfg_ex`` 为它补
+    ``obs_normalization`` / ``std_type`` 两维、默认值即原语义），这里补 ``save_interval``：
+    **默认 100 = lite3 / b2 / go1 的既有行为**，go2 显式传 50 保持自己的语义。
     ``mjlab.rl`` 沿用包内原样的函数内导入（保持 schema-dump 路径的导入面不变）。
     """
     from mjlab.rl import (
@@ -301,7 +311,7 @@ def ppo_runner_cfg(experiment_name: str):
             max_grad_norm=1.0,
         ),
         experiment_name=experiment_name,
-        save_interval=100,
+        save_interval=save_interval,
         num_steps_per_env=24,
         max_iterations=10_000,
     )

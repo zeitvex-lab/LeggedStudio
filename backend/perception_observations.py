@@ -270,6 +270,26 @@ async def perception_binding(request: PerceptionBindingRequest) -> dict[str, Any
     return {"success": True, **verdict}
 
 
+class ScenarioObsItemsRequest(BaseModel):
+    """由场景声明生成 recipe 观测项（S2①）。"""
+
+    perception: dict[str, Any] | None = Field(default=None, description="场景的 perception 声明")
+    group: str = Field(default="actor", description="目标观测组（目录路径可解析出 group 时以路径为准）")
+
+
+@router.post("/obs-items")
+async def scenario_obs_items(request: ScenarioObsItemsRequest) -> dict[str, Any]:
+    """由**场景声明**生成 recipe 的观测项（S2①）。
+
+    与 `/binding` 的分工：`/binding` **校验**"策略是否真的声明了场景要的那项"；
+    本端点**生成**"按场景要求应该挂哪些观测项"（项定义取自本模块目录，不另抄）。
+    fail-closed：场景启用了目录里没有的项 ⇒ `ok=false` 并列出 `unsupported`，不猜近似项。
+    """
+    from backend.perception_binding import generate_recipe_obs_items
+
+    return {"success": True, **generate_recipe_obs_items(request.perception, group=request.group)}
+
+
 @router.get("/items")
 async def perception_items():
     """Return the generic perception observation catalog."""

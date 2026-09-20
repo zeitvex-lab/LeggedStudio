@@ -31,13 +31,26 @@ SCAN_DIRS = ("backend", "contracts", "tools", "adapters", "scripts")
 DIGEST_HOME = REPO / "contracts" / "validator.py"
 
 
+#: 扫描时必须跳过的**第三方/生成物**目录。
+#: **为什么必须显式写**（2026-09-20 实测）：`SCAN_DIRS` 含 `adapters`，而适配器 venv 在
+#: Windows 上就落在仓内（`adapters/mjlab/.venv/`；CI 是 Linux，venv 在仓外
+#: `/opt/legged-studio/mjlab-cpu/.venv`）。不排除 ⇒ 把 torch 自己的 `.py` 当本仓源码判违规
+#: （实测 offenders = `adapters/mjlab/.venv/Lib/site-packages/torch/package/_importlib.py`），
+#: 于是**本机门禁永远红、守卫在 Windows 上等于失效**——比没有守卫更糟，因为它训练人忽略红。
+_EXCLUDED_DIRS = ("__pycache__", ".venv", "venv", "site-packages", "node_modules", ".git")
+
+
 def _python_files() -> list[Path]:
     files: list[Path] = []
     for base in SCAN_DIRS:
         root = REPO / base
         if root.is_dir():
             files.extend(sorted(root.rglob("*.py")))
-    return [path for path in files if "__pycache__" not in path.parts and not path.name.startswith("test_")]
+    return [
+        path for path in files
+        if not any(part in _EXCLUDED_DIRS for part in path.parts)
+        and not path.name.startswith("test_")
+    ]
 
 
 class NormalizedSha256Test(unittest.TestCase):

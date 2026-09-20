@@ -301,6 +301,8 @@
     {
       "id": "deeprobotics_m20-trained-20260918-090509",
       "path": "simulation/policies/deeprobotics_m20-trained-20260918-090509.onnx",
+      "sim_ready": false,
+      "sim_blocker": "observation_kind=unknown（布局未逐项取证）：浏览器 observation_builders.js 没有对应 builder，按通用布局代跑会吃错观测（objs 57 维轮足 vs 通用 45 维四足）。补齐布局取证并补 builder 后把 sim_ready 改回 true。",
       "provenance": {
         "artifact_id": "deeprobotics_m20__produced-deeprobotics_m20_v1_20260918_090509_476414",
         "run_id": "deeprobotics_m20_v1_20260918_090509_476414",

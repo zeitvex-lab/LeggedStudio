@@ -24,6 +24,20 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "provision_windows_runtime.ps1"
 LAUNCHER = ROOT / "electron" / "launcher" / "main.js"
 
+#: **stdout 永不因编码崩**（2026-09-20 实测踩到）：本门禁的输出含 `✓`（U+2713）与中文，
+#: 而 Windows 上 stdout 被**重定向/管道**时按 locale（GBK）编码 —— 于是
+#: `print("✓ …")` 抛 `UnicodeEncodeError`，**门禁自己崩掉（exit 1）而不是报告结论**。
+#: 触发场景很平常：任何 PS/批处理脚本把它的输出收进文件或 `*>` 掉（`scripts/verify_windows_real_machine.ps1`
+#: 第一次就这么撞上）。直跑不撞只因为调用方碰巧设了 `PYTHONIOENCODING=utf-8`，属"环境对了才活"。
+#: 与今日修的子进程解码缺陷（`validate_training_smoke` / `simulation_api` / `training_config_helpers`
+#: / `replay_gate` 的 `encoding="utf-8"`）同族，只是发生在**自身的输出端**。
+#: `errors="replace"` 是第二道保险：真出现编码不了的字符也只损失那几个字符，绝不中断判据。
+try:  # pragma: no cover - 平台相关，Linux/CI 上本就 UTF-8
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, OSError):  # 极老的解释器或不可重配的流：照旧跑
+    pass
+
 #: 实机验证状态（**不随静态门禁变绿而变绿**）
 WINDOWS_E2E_VERIFIED = False
 

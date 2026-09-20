@@ -13,6 +13,27 @@ import sys
 
 from adapters.mjlab.launcher import TrainingLauncher
 from contracts.contract_legacy_v2 import ContractLegacyV2
+from contracts.jsonio import read_json
+
+
+def _read_json_dict(path: Path) -> dict:
+    """宽容读一个 JSON 对象（缺失 / 坏内容 / 编码错 → ``{}``），但**失败要留痕**。
+
+    JSON 读取的实现只此一处（``contracts/jsonio.read_json``，``utf-8-sig``）。
+    旧实现是 ``with open(path, 'r') as f: json.load(f)`` —— **不指定编码**，于是在
+    Windows（locale=GBK）上读含中文的 ``status.json`` / ``progress.json`` 会抛
+    ``UnicodeDecodeError``，又被 ``except Exception: pass`` 吞掉：**"读不出来"与
+    "没有这个文件"在调用方看来一模一样**（2026-09-19 实证：已完成的 Run 被一直报成
+    ``running``，E8 冒烟门因此找不到"已完成"证据，长训被 409 拒）。留一行 stderr，
+    让这类失败不再无声。
+    """
+    if not path.exists():
+        return {}
+    payload = read_json(path, default=None)
+    if isinstance(payload, dict):
+        return payload
+    print(f"[Manager] JSON 读取失败或非对象，按空处理：{path}", file=sys.stderr)
+    return {}
 
 
 def _package_contract_snapshot(robot_id: str) -> Optional[dict]:
@@ -127,26 +148,18 @@ class TrainingTask:
         self.status = "pending"
 
     def get_progress(self) -> dict:
-        """获取进度"""
-        progress_file = self.task_dir / "progress.json"
-        if progress_file.exists():
-            try:
-                with open(progress_file, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return {}
+        """获取进度（编码与失败语义走单一来源，见 :func:`_read_json_dict`）。"""
+        return _read_json_dict(self.task_dir / "progress.json")
 
     def get_status_info(self) -> dict:
-        """获取状态信息"""
-        status_file = self.task_dir / "status.json"
-        if status_file.exists():
-            try:
-                with open(status_file, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return {}
+        """获取状态信息（同上）。
+
+        ⚠️ 这是**任务状态的真源**：``to_dict()`` 优先取 ``status_info["status"]``，
+        读不到才回落到内存 ``self.status``（创建后长期是 "running"）。所以这个读取
+        一旦静默失败，``/api/training/{id}/status`` 与 ``/list`` 就会把**已完成的
+        Run 报成 running**。
+        """
+        return _read_json_dict(self.task_dir / "status.json")
 
     def to_dict(self) -> dict:
         """转为字典"""

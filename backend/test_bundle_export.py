@@ -267,5 +267,125 @@ class VerifyExportTest(unittest.TestCase):
             self.assertTrue(bx.verify_export(moved)["ok"])
 
 
+class ScenarioImportTest(unittest.TestCase):
+    """H5「Scenario 包可导出/**导入**」的导入半边（此前只有导出）。
+
+    守四条：① 导出→导入**往返一致**（不是"能读个大概"）；② 三种实际会被递过来的形态都认
+    （导出目录 / Bundle 内嵌 / 裸 JSON）；③ 完整性被破坏就**拒绝**（从别处拷来的包也要可信）；
+    ④ 形态不对时明确报错、不做猜测性兼容；⑤ 落盘默认不覆盖别人的场景。
+    """
+
+    def _scenario_file(self, tmp: str) -> Path:
+        path = Path(tmp) / "source.json"
+        path.write_text(
+            json.dumps({"scenario_id": "flat-demo", "map_id": "flat", "mode": "basic"}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return path
+
+    def test_round_trip_export_then_import_is_identical(self):
+        """往返一致：导入出来的载荷 == 导出时校验过的规范化载荷。"""
+
+        from contracts.scenario_contract import ScenarioContract
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = self._scenario_file(tmp)
+            out = Path(tmp) / "pack"
+            bx.export_scenario(source, out)
+            result = bx.import_scenario(out)
+            expected = ScenarioContract(**json.loads(source.read_text(encoding="utf-8"))).to_payload()
+            self.assertEqual(expected, result["scenario"], "导出→导入必须逐字段一致")
+            self.assertEqual("export_dir", result["form"])
+            self.assertEqual("flat-demo", result["scenario_id"])
+            self.assertIsNotNone(result["integrity"])
+            self.assertTrue(result["integrity"]["ok"])
+
+    def test_bare_json_is_accepted(self):
+        """裸场景 JSON 也认（手写/从别处贴来的），此时没有 manifest 可验，如实回 None。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = bx.import_scenario(self._scenario_file(tmp))
+            self.assertEqual("bare_json", result["form"])
+            self.assertIsNone(result["integrity"])
+            self.assertEqual("flat-demo", result["scenario_id"])
+
+    def test_import_accepts_a_bundle_embedded_scenario(self):
+        """Bundle 里内嵌的场景（`scenario/scenario.json`，没有自己的 manifest）也能导入。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "bundle"
+            bx.export_bundle(ROOT / "packs" / "zex-w.pack.json", out, scenario_path=str(self._scenario_file(tmp)))
+            self.assertTrue((out / "scenario" / "scenario.json").is_file(), "Bundle 应内嵌场景")
+            result = bx.import_scenario(out)
+            self.assertEqual("bundle_embedded", result["form"])
+            self.assertEqual("flat-demo", result["scenario_id"])
+            # Bundle 的完整性验的是**整包**，比只看场景文件更严
+            self.assertEqual("bundle", result["integrity"]["kind"])
+
+    def test_tampered_scenario_pack_is_refused(self):
+        """场景文件被改过（sha256 与 manifest 不符）⇒ 拒绝导入，不当成可信场景跑起来。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "pack"
+            bx.export_scenario(self._scenario_file(tmp), out)
+            target = out / "scenario.json"
+            payload = json.loads(target.read_text(encoding="utf-8"))
+            payload["map_id"] = "warehouse"  # 改内容不改 manifest
+            target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            with self.assertRaises(ValueError) as ctx:
+                bx.import_scenario(out)
+            self.assertIn("完整性", str(ctx.exception))
+
+    def test_non_scenario_export_is_refused_with_reason(self):
+        """拿形态包当场景 ⇒ 明确说"里面没有场景"，而不是猜。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "morph"
+            bx.export_morphology("zex-w", out)
+            with self.assertRaises(ValueError) as ctx:
+                bx.import_scenario(out)
+            self.assertIn("没有场景", str(ctx.exception))
+
+    def test_unrecognised_source_is_refused(self):
+        """两种错**分开报**：路径不存在 ⇒ FileNotFoundError；存在但不是场景 ⇒ 说"认不出"。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            empty = Path(tmp) / "empty-dir"
+            empty.mkdir()
+            with self.assertRaises(ValueError) as ctx:
+                bx.import_scenario(empty)
+            self.assertIn("认不出", str(ctx.exception))
+            with self.assertRaises(FileNotFoundError):
+                bx.import_scenario(Path(tmp) / "no-such-dir")
+
+    def test_dest_is_not_clobbered_without_force(self):
+        """导入落盘默认不覆盖：静默覆盖别人的场景是不可接受的。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pack = Path(tmp) / "pack"
+            bx.export_scenario(self._scenario_file(tmp), pack)
+            dest = Path(tmp) / "workspace"
+            first = bx.import_scenario(pack, dest=dest)
+            self.assertTrue(first["written"].endswith("scenario.json"))
+            landed = Path(tmp) / "workspace" / "scenario.json"
+            self.assertTrue(landed.is_file())
+            with self.assertRaises(FileExistsError):
+                bx.import_scenario(pack, dest=dest)
+            second = bx.import_scenario(pack, dest=dest, force=True)
+            self.assertEqual(first["scenario"], second["scenario"])
+            # 落盘的也必须能再过一次契约（导入的是"可用场景"，不是一段 JSON 文本）
+            self.assertEqual(second["scenario"], json.loads(landed.read_text(encoding="utf-8")))
+
+    def test_invalid_scenario_is_rejected_by_the_same_gate_as_export(self):
+        """非法场景：导入与导出走**同一道闸**（否则"能导出不能导入"这类不对称迟早出现）。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Path(tmp) / "bad.json"
+            bad.write_text(json.dumps({"scenario_id": "Bad Id!"}), encoding="utf-8")
+            with self.assertRaises(Exception):
+                bx.import_scenario(bad)
+
+
 if __name__ == "__main__":
     unittest.main()
+

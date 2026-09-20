@@ -1,0 +1,20 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-lainlab-handstand",
+  "aux_blobs": [],
+  "contract_digest": "6f41c7e7232e9b91094c1242a6b6ffe8d10d1068e29318388ef5bd1e00ed812f",
+  "declared_source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/hand_stand",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Go2 Handstand (LainLab)",
+  "obs_dim": 48,
+  "onnx_bytes": 765327,
+  "onnx_sha256": "54c905a31b1227ed13f41ecad2623c2e6ce914aea279ac1684671b390741f1e4",
+  "policy_id": "go2-lainlab-handstand",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_lainlab_handstand.onnx",
+  "task_type": null
+}

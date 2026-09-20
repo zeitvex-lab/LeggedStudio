@@ -934,6 +934,8 @@
     {
       "id": "unitree_go2w-trained-20260918-093550",
       "path": "simulation/policies/unitree_go2w-trained-20260918-093550.onnx",
+      "sim_ready": false,
+      "sim_blocker": "observation_kind=unknown（布局未逐项取证）：浏览器没有对应 builder，按通用布局代跑会吃错观测（57 维轮足观测；本包已有 go2w_rl_sdk_57 / go2w_himloco_57 两个 57 维 builder，取证后可直接归并）。",
       "provenance": {
         "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260918_093550_665376",
         "run_id": "unitree_go2w_contract_v1_20260918_093550_665376",

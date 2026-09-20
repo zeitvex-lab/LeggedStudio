@@ -103,10 +103,13 @@ async def download_onnx(task_id: str):
             # 尝试从 Artifact 读取路径
             artifact_file = task.task_dir / "artifact.json"
             if artifact_file.exists():
-                with open(artifact_file, 'r') as f:
-                    artifact = json.load(f)
-                    if artifact.get('onnx_model_path'):
-                        onnx_file = Path(artifact['onnx_model_path'])
+                # JSON 读取走单一来源（``utf-8-sig``）：旧实现 ``open(..., 'r')`` 不指定编码，
+                # Windows(locale=GBK) 下读含中文的 artifact.json 会抛 UnicodeDecodeError。
+                from contracts.jsonio import load_json
+
+                artifact = load_json(artifact_file)
+                if artifact.get('onnx_model_path'):
+                    onnx_file = Path(artifact['onnx_model_path'])
 
         if not onnx_file.exists():
             raise HTTPException(

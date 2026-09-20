@@ -1153,7 +1153,16 @@ async function switchPolicy(policyId) {
           onnx_url: selected.url,
           encoder_url: selected.encoder_url || null,
           health: { status: "pass", checks: [{ id: "package", ok: true, message: "Package policy manifest" }] },
-          contract: { ...(previousConfig.policy?.contract || {}), ...(selected.contract || {}) },
+          // 整体替换，不做 { 旧, ...新 } 合并：清单条目的契约是**每策略完整**的，
+          // 稀疏条目（如 go2-baseline-164k 不声明 observation_kind）靠缺省回落到
+          // 通用布局——合并会把上一个策略的 observation_kind/gait_period_s 等
+          // 键残留下来（实测 handstand→baseline：numObs 已按 45 重置，builder
+          // 仍按残留的 lainlab_handstand_48 校验，每帧抛错刷屏）。
+          contract: { ...(selected.contract || {}) },
+          // checkpoint 元数据同理：属于上一个策略的轮次不得冒充新策略（下拉
+          // 标签"第 N 轮 ONNX"按此读数）。
+          checkpoint: selected.checkpoint || "",
+          checkpoint_iteration: selected.checkpoint_iteration ?? null,
         },
       };
       await loadPolicyFromConfig(nextConfig, false);
@@ -1489,6 +1498,11 @@ function applyPlatformLabels(config) {
     // 只作为「该策略自带外部传感器」的标注，不再拿来过滤清单。
     // 基础仿真仍排除 advanced 策略：那些依赖外部传感器，不属于「本体 + 本体感知」。
     const candidates = allCandidates.filter((item) => {
+      // **声明了"不可仿真"的策略一律不列出**（`simulation/config.json` 的 `sim_ready:false`）：
+      // 它们的观测布局没有浏览器 builder，列出来只会让用户选到一个必然吃错观测的策略
+      // （症状是"跑得起来但动作很怪"，看不出原因）。原因在条目的 `sim_blocker` 里，
+      // 覆盖守卫见 backend/test_policy_obs_builders_cover_kinds.py。
+      if (item.sim_ready === false) return false;
       if (!URL_SURFACE) return true;
       if (URL_SURFACE === "advanced") return true;
       return String(item.sim_surface || "basic") !== "advanced";
@@ -1591,6 +1605,16 @@ function applyRuntimeConfig(config) {
   CONFIG.actionJointOrder = (Array.isArray(contract.action_joint_order) && contract.action_joint_order.length)
     ? contract.action_joint_order.slice(0)
     : null;
+  // 关节槽序变了就必须重建 qpos/dof/执行器地址表：这三张表按 CONFIG.jointOrder 的
+  // **名字**解析模型地址，却原来只在加载 MuJoCo 模型时建一次。切换策略时若新旧契约
+  // 的关节序不同（默认 per-leg 序 ↔ LeggedSkillDeploy 的 type-major 序），不重建就会
+  // 拿旧序的地址配新序的默认角/观测/动作——复位把髋角写进大腿槽、后腿髋被设到
+  // ±1.5 rad（"伸出来一条腿然后马上死"），观测与动作也全部错位。模型未就绪时（首屏
+  // 契约先于模型应用）跳过，模型加载流程自己会建。
+  if (sim.model) {
+    resolveJointAddresses();
+    resolveActuatorAddresses();
+  }
   const defaults = Object.keys(contract.default_joint_angles || {}).length
     ? contract.default_joint_angles
     : (robot.default_joint_angles || {});
@@ -4028,6 +4052,18 @@ function buildPolicyObs(size) {
 }
 
 function packObsHistoryByTerm(frames) {
+  // LainLab 技能族（dreamwaq/amp-cts 270、trot/jump/spring 470）：整帧依时序拼接、
+  // **最旧在前、当前帧在最后** —— ONNX 图实测（dreamwaq 首个 Slice 为 [0:-45]：
+  // encoder 吃前 225=5 帧历史，actor MLP 吃末 45=当前帧）。与 frame_major_v1（最新在前）相反。
+  if (CONFIG.historyLayout === "frame_major_oldest_first") {
+    const packed = new Float32Array(frames.length * CONFIG.numObs);
+    let cursor = 0;
+    for (const frame of frames) {
+      packed.set(frame, cursor);
+      cursor += CONFIG.numObs;
+    }
+    return packed;
+  }
   // frame_major_v1（LeggedSkillDeploy go1/himloco）：部署端 ObservationBuffer
   // .get_obs_vec 对 yaml 倒序表 [5,4,3,2,1,0] 做 reversed 遍历后 torch.cat ——
   // 语义 = 整帧依时序拼接且最新帧在前（[obs_t, obs_{t-1}, …, obs_{t-5}]），

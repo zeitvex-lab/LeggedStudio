@@ -661,6 +661,39 @@ def _cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_import_scenario(args: argparse.Namespace) -> int:
+    """``import-scenario <路径>``：导入场景包（离线命令）。
+
+    H5「Scenario 包可导出/导入」的**导入入口** —— 此前只有导出。判据一律委托
+    :func:`backend.bundle_export.import_scenario`（三种形态、完整性校验、契约校验都在那里），
+    CLI 只做参数与输出（与 ``export`` 同一分工）。退出码：校验通过 0，被拒 1。
+    """
+    from backend import bundle_export as bx
+
+    try:
+        result = bx.import_scenario(args.path, dest=args.out, force=args.force)
+    except FileExistsError as exc:
+        raise SystemExit(f"import-scenario 失败：{exc}") from exc
+    except (ValueError, FileNotFoundError) as exc:
+        # 「不是场景」「完整性不过」「契约不合法」都不是崩溃，是**判据说不通过**：清晰报错 + 非零退出。
+        print(f"✗ import-scenario 失败：{exc}")
+        return 1
+
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+
+    integrity = result.get("integrity") or {}
+    print(f"✓ 已校验场景：{result['scenario_id']}（{result['schema_version']}）")
+    print(f"  形态：{result['form']}    来源：{result['scenario_file']}")
+    if integrity:
+        print(f"  完整性：通过（kind={integrity.get('kind')}，登记 {integrity.get('entries')} 条，逐条 sha256 一致）")
+    else:
+        print("  完整性：裸 JSON，无 manifest 可验（如实标注，不假装验过）")
+    print(f"  落盘：{result['written'] or '（未落盘，仅校验；要落盘请给 --out）'}")
+    return 0
+
+
 def _cmd_verify_bundle(args: argparse.Namespace) -> int:
     """``verify bundle <目录>``：校验一个导出物的 manifest 与内容（离线命令）。
 
@@ -1206,6 +1239,24 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--out-dir", default=None, help="出库索引目录（policy 用，默认仓库 policies/）")
     export.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
 
+    # H5：`import-scenario` —— 导入（**导出的对偶**）。只实现 scenario 一种粒度：其余四类的
+    # "导入"没有明确语义（形态/技能从注册表来、策略由出库索引管、Bundle 是整包搬），
+    # **不为了对称而假装支持**。
+    import_scenario = sub.add_parser(
+        "import-scenario",
+        help="导入 Scenario 包（离线命令，无需后端；三种形态都认）",
+        description=(
+            "导入 Scenario 包（离线命令，无需后端）：认三种实际会被递过来的形态——场景导出目录"
+            "（manifest.json + scenario.json）、Bundle 里内嵌的场景（scenario/scenario.json）、裸场景 JSON。"
+            "有 manifest 就先验完整性（损坏/被改过 ⇒ 拒绝导入），再过 ScenarioContract（与导出口同一道闸）。"
+            "给 --out 才落盘；默认**不覆盖**已存在文件（要覆盖需 --force）。"
+        ),
+    )
+    import_scenario.add_argument("path", help="导出目录 / Bundle 目录 / 裸场景 JSON 路径")
+    import_scenario.add_argument("--out", default=None, help="落盘目标（目录或文件；省略则只校验并打印）")
+    import_scenario.add_argument("--force", action="store_true", default=False, help="允许覆盖已存在的目标文件")
+    import_scenario.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="以 JSON 输出")
+
     # I1 收尾：deploy（部署物料 = 契约校验 gate + 部署包打包 package）—— 同样是离线命令，
     # 判据/打包一律委托 backend 既有实现（deploy_api 同一组成），CLI 只做参数与输出。
     from backend.deploy_pack import PLATFORM_LABELS  # 单一真值：平台表只在 backend 里定义一次
@@ -1286,6 +1337,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_verify_artifacts(args)
     if args.command == "export":
         return _cmd_export(args)
+    if args.command == "import-scenario":
+        return _cmd_import_scenario(args)
     if args.command == "deploy":
         if args.deploy_command == "gate":
             return _cmd_deploy_gate(args)
@@ -1297,7 +1350,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.offline:
         raise SystemExit(
             f"`--offline` 模式下不执行需后端的命令 {args.command!r}（它要走 HTTP 访问控制面）。\n"
-            "离线命令（pack / run / artifact / onboard / verify / export / deploy）不受影响；"
+            "离线命令（pack / run / artifact / onboard / verify / export / import-scenario / deploy）不受影响；"
             "如需在线命令，请去掉 --offline。"
         )
 

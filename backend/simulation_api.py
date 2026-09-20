@@ -80,6 +80,10 @@ class SimulationSessionRequest(BaseModel):
     episode_length_s: float = Field(default=60.0, gt=0.0, le=600.0)
     seed: int = 0
     scenario: dict[str, Any] | None = None
+    #: S2②：调用方若知道将被使用的策略，就把它带上 —— 场景声明 A 类感知（`route=obs`）时
+    #: 服务端会逐项对照该策略的训练 profile 声明，**不匹配即拒绝启动**（400）。
+    #: 可选：不传则跳过校验（保持既有调用方向后兼容）。
+    policy_id: str | None = None
 
 
 class SimulationStepRequest(BaseModel):
@@ -252,7 +256,12 @@ async def run_policy_acceptance(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         completed = await asyncio.wait_for(
             asyncio.to_thread(
-                subprocess.run, command, capture_output=True, text=True, timeout=900, cwd=str(script.parent.parent)
+                # 显式 UTF-8：``text=True`` 默认按 locale（Windows=GBK）解码子进程输出，
+                # 而验收脚本的日志含中文 —— locale 解码会抛 UnicodeDecodeError 使 stdout
+                # 变 None，把"评估成功但日志读不出"误报成失败（同 2026-09-19 修的
+                # validate_training_smoke.py 缺陷类）。
+                subprocess.run, command, capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=900, cwd=str(script.parent.parent)
             ),
             timeout=920,
         )
@@ -713,6 +722,28 @@ async def list_sessions() -> dict[str, Any]:
     return {"sessions": items, "count": len(items)}
 
 
+def _a_class_binding_verdict(robot_id: str, policy_id: str | None, perception: Any) -> dict[str, Any] | None:
+    """场景声明 A 类且给了 ``policy_id`` ⇒ 返回绑定校验结论；否则 ``None``（不校验）。
+
+    S2② 的**服务端**那一半：把"策略其实没吃场景要求的那项传感器"挡在**启动之前**，
+    而不是等运行期维度不匹配、或该项被静默忽略（见 `perception_binding` 模块头）。
+    前端那半（选中 A 类场景即调 `POST /api/perception/binding` 并禁用启动按钮）需要一个
+    "场景选择器"作为宿主，随 **S5** 的 Scenario 编辑器一起落地 —— 服务端先 fail-closed，
+    前端未接线也挡得住。
+    """
+    if not policy_id:
+        return None
+    from backend.perception_binding import check_perception_binding, load_profile_for_policy
+    from backend.simulation_browser import browser_package
+
+    root, _preset = browser_package(robot_id)
+    sim_cfg = read_simulation_config(root)
+    profile, profile_id = load_profile_for_policy(Path(root), sim_cfg, policy_id)
+    return check_perception_binding(
+        perception, profile, policy_id=policy_id, profile_id=profile_id
+    )
+
+
 @router.post("/sessions")
 async def create_session(request: SimulationSessionRequest) -> dict[str, Any]:
     if request.map_id not in MAPS:
@@ -733,6 +764,13 @@ async def create_session(request: SimulationSessionRequest) -> dict[str, Any]:
         scenario = ScenarioContract(**scenario_payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"invalid scenario: {exc}") from exc
+    # S2②：A 类感知与所选策略不匹配 ⇒ **拒绝启动**（服务端 fail-closed）。
+    binding = _a_class_binding_verdict(request.robot_id, request.policy_id, scenario.perception)
+    if binding is not None and not binding.get("ok", True):
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "A 类感知与所选策略不匹配，拒绝启动仿真会话", **binding},
+        )
     # H3：planner 命令来源 ⇒ 装配导航计划（规划与到达判据只有一处实现，
     # 与浏览器侧的 /api/navigation/plan 共用，避免两端各算一套）。
     navigation = None

@@ -1,0 +1,20 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-lainlab-rear-stand",
+  "aux_blobs": [],
+  "contract_digest": "3ec0e037706e71b6f5e6202a4c19b5863a0050ae998ee3e4dd27505460e27332",
+  "declared_source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/rear_stand",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Go2 Rear Stand (LainLab)",
+  "obs_dim": 45,
+  "onnx_bytes": 758234,
+  "onnx_sha256": "988a17f7abe773ca3ad7fb46625d051e20a438cbcea583d53587544a71068e9a",
+  "policy_id": "go2-lainlab-rear-stand",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/go2_lainlab_rear_stand.onnx",
+  "task_type": null
+}

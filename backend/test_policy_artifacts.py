@@ -10,6 +10,7 @@ import json
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -639,10 +640,11 @@ class RealRepoTest(unittest.TestCase):
         gaps = pa.reference_gaps()
         self.assertEqual([], gaps["problems"], gaps["problems"])
 
-        # 包内 50 个 onnx 实体（B8 试点 +1、第二批 m20/b2w/go2w 各 +1）；
-        # 第 51 个在 `web/sim2sim/models/`（经声明 url 形式引用）。
+        # 包内 59 个 onnx 实体（B8 试点 +1、第二批 m20/b2w/go2w 各 +1、
+        # P1③ LainLab +7、P 组 #8/#9 LeggedSkillDeploy go2_loco/side-flip +2 = 2026-09-20）；
+        # 第 60 个在 `web/sim2sim/models/`（经声明 url 形式引用）。
         blobs = list(pa.iter_onnx_files())
-        self.assertEqual(50, len(blobs), "包内 onnx 实体数")
+        self.assertEqual(59, len(blobs), "包内 onnx 实体数")
         self.assertIsInstance(pa.unexported_onnx(), list)
 
     def test_artifact_ids_are_unique(self):
@@ -932,6 +934,144 @@ class RealRepoB44StockTest(unittest.TestCase):
                     measured, declared,
                     f"{artifact_id}: 包内声明 obs_dim={declared} vs ONNX 实测 {measured}",
                 )
+
+
+def _assets_recorded_index(repo: Path, artifact_id: str, source_onnx: str) -> dict[str, dict]:
+    return {artifact_id: {"artifact_id": artifact_id, "kind": "asset", "source_onnx": source_onnx}}
+
+
+class RuntimePackageFallbackTest(unittest.TestCase):
+    """运行期包根优先回退：索引按源树记录的 blob，也要能在 workspace 副本包根上解析。
+
+    病象（2026-09-20 P1③ 收尾实测）：id-only 终态（B10）＋索引按 `assets/robots/<pkg>/…`
+    记录的组合里，`robot_dir` 是 workspace 副本时解析只回源树路径，
+    `policy_relative_path` 求 `relative_to(副本)` 失败、而无 path 声明时的文件名猜谜
+    （`simulation/policies/<policy_id>`）又命不中真实的下划线文件名 → browser-config
+    把这些策略**整条静默丢掉**。源树 go2 全部 18 条 id-only 声明如此；老副本只因残留裸
+    `path` 字段才没暴露，干净 clone 上必然复现。副本与源树 blob 由 C6 同步保证逐字节
+    一致，故按"同一包内相对路径"在副本上命中时优先返回副本是安全的。
+    """
+
+    ONNX = b"onnx-bytes"
+
+    def _repo_tree(self, tmp: Path, source_onnx: str) -> Path:
+        repo = tmp / "repo"
+        blob = repo / Path(source_onnx)
+        blob.parent.mkdir(parents=True, exist_ok=True)
+        blob.write_bytes(self.ONNX)
+        return repo
+
+    def _runtime_copy(self, tmp: Path, *, with_blob: bool = True) -> Path:
+        copy = tmp / "workspace" / "packages" / "go2"
+        if with_blob:
+            policies = copy / "simulation" / "policies"
+            policies.mkdir(parents=True)
+            (policies / "walk.onnx").write_bytes(self.ONNX)
+        return copy
+
+    def test_assets_recorded_blob_resolves_into_runtime_copy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = self._repo_tree(root, "assets/robots/go2/simulation/policies/walk.onnx")
+            copy = self._runtime_copy(root)
+            artifact_id = pa.artifact_id_for("go2", "walk-100")
+            index = _assets_recorded_index(repo, artifact_id, "assets/robots/go2/simulation/policies/walk.onnx")
+            declaration = {"robot": "go2", "policy_id": "walk-100"}      # id-only 终态
+            with unittest.mock.patch.object(pa, "ROOT", repo):
+                blob = pa.policy_blob_path(declaration, robot_dir=copy, index=index)
+                self.assertEqual(
+                    copy / "simulation" / "policies" / "walk.onnx", blob.resolve(),
+                    "源树记录的 blob 应解析到运行期副本（而非源树），serv 层才能给出包内 URL",
+                )
+                self.assertEqual(
+                    "simulation/policies/walk.onnx",
+                    pa.policy_relative_path(declaration, robot_dir=copy, index=index),
+                )
+
+    def test_copy_missing_blob_falls_back_to_source_tree(self):
+        """副本上没有该 blob（干净 clone / 用户删过）：回源树路径，旧行为不变。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = self._repo_tree(root, "assets/robots/go2/simulation/policies/walk.onnx")
+            copy = self._runtime_copy(root, with_blob=False)
+            artifact_id = pa.artifact_id_for("go2", "walk-100")
+            index = _assets_recorded_index(repo, artifact_id, "assets/robots/go2/simulation/policies/walk.onnx")
+            declaration = {"robot": "go2", "policy_id": "walk-100"}
+            with unittest.mock.patch.object(pa, "ROOT", repo):
+                blob = pa.policy_blob_path(declaration, robot_dir=copy, index=index)
+                self.assertEqual(repo / "assets/robots/go2/simulation/policies/walk.onnx", blob)
+                self.assertIsNone(pa.policy_relative_path(declaration, robot_dir=copy, index=index))
+
+    def test_robot_dir_absent_keeps_source_tree_resolution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = self._repo_tree(root, "assets/robots/go2/simulation/policies/walk.onnx")
+            artifact_id = pa.artifact_id_for("go2", "walk-100")
+            index = _assets_recorded_index(repo, artifact_id, "assets/robots/go2/simulation/policies/walk.onnx")
+            with unittest.mock.patch.object(pa, "ROOT", repo):
+                self.assertEqual(
+                    repo / "assets/robots/go2/simulation/policies/walk.onnx",
+                    pa.policy_blob_path({"robot": "go2", "policy_id": "walk-100"}, index=index),
+                )
+
+    def test_recordings_outside_assets_robots_are_not_remapped(self):
+        """`assets/robots` 之外的记录（如仓库根的 `policies/<id>/policy.onnx`）不重映射进包根。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = self._repo_tree(root, "policies/go2__walk-100/policy.onnx")
+            copy = self._runtime_copy(root)
+            (copy / "policies" / "go2__walk-100").mkdir(parents=True)
+            (copy / "policies" / "go2__walk-100" / "policy.onnx").write_bytes(b"decoy")
+            artifact_id = pa.artifact_id_for("go2", "walk-100")
+            index = _assets_recorded_index(repo, artifact_id, "policies/go2__walk-100/policy.onnx")
+            with unittest.mock.patch.object(pa, "ROOT", repo):
+                self.assertEqual(
+                    repo / "policies/go2__walk-100/policy.onnx",
+                    pa.policy_blob_path({"robot": "go2", "policy_id": "walk-100"}, robot_dir=copy, index=index),
+                    "诱饵文件不得被选中：这类记录按仓库根解析，与包根无关",
+                )
+
+    def test_package_relative_component_is_stripped_exactly_once(self):
+        """只剥"源树根"会多带一层 `<包目录>/`：钉住 strip 掉包目录本身。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = self._repo_tree(root, "assets/robots/go2/simulation/policies/nested/deep/walk.onnx")
+            copy = self._runtime_copy(root)
+            (copy / "simulation" / "policies" / "nested" / "deep").mkdir(parents=True)
+            (copy / "simulation" / "policies" / "nested" / "deep" / "walk.onnx").write_bytes(self.ONNX)
+            artifact_id = pa.artifact_id_for("go2", "walk-100")
+            index = _assets_recorded_index(
+                repo, artifact_id, "assets/robots/go2/simulation/policies/nested/deep/walk.onnx",
+            )
+            with unittest.mock.patch.object(pa, "ROOT", repo):
+                blob = pa.policy_blob_path({"robot": "go2", "policy_id": "walk-100"}, robot_dir=copy, index=index)
+                self.assertEqual(copy / "simulation/policies/nested/deep/walk.onnx", blob)
+
+
+class RealRepoRuntimeCopyTest(unittest.TestCase):
+    """真实仓库自检（2026-09-20 P1③ 收尾）：源树 id-only 声明必须在副本包根上解析出包内路径。
+
+    这是上面那条病的线上形态：browser-config 以 D7/C6 解析出的 workspace 副本为包根读
+    `simulation/config.json`，而声明全是 id-only、索引按源树记录 —— 任何一条解析不出
+    "包内路径"，浏览器里就少一个可选策略。断言同时检查 blob 字节可达（副本上真实存在）。
+    """
+
+    def test_source_side_declarations_resolve_against_runtime_copy(self):
+        from backend.package_locator import resolve_package_root
+
+        index = pa.load_index()
+        unresolved = []
+        for robot_id in ("unitree_go2",):
+            copy = resolve_package_root(robot_id)
+            config_path = Path(pa.ROBOTS_DIR) / robot_id / "simulation" / "config.json"
+            declared = json.loads(config_path.read_text(encoding="utf-8-sig")).get("policies") or []
+            for item in declared:
+                if not isinstance(item, dict) or not item.get("id"):
+                    continue
+                relative = pa.policy_relative_path(item, robot_dir=copy, index=index)
+                if not relative or not (copy / relative).is_file():
+                    unresolved.append(str(item.get("id")))
+        self.assertEqual([], unresolved, "源树声明须在 workspace 副本上解析出可下载的包内路径")
 
 
 if __name__ == "__main__":

@@ -13,8 +13,9 @@
   "task_name": "Mjlab-TS-Rough-Unitree-Go2",
   "terrain_type": "rough",
   "algorithm": "TS",
-  "num_envs": 4096,
+  "num_envs": 1024,
   "episode_length_s": 20.0,
   "history_length": 1,
-  "sort_order": 102
+  "sort_order": 102,
+  "max_iterations": 250
 }

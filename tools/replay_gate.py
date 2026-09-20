@@ -266,7 +266,11 @@ def produce_pair(args: argparse.Namespace) -> int:
     def run(seed: int, name: str) -> tuple[Path, dict]:
         target = workdir / f"{name}.json"
         command = [str(interpreter), str(script), *common, "--seed", str(seed), "--out", str(target)]
-        completed = subprocess.run(command, capture_output=True, text=True, cwd=str(ROOT))
+        # 显式 UTF-8：``text=True`` 默认按 locale（Windows=GBK）解码子进程输出，字幕/日志里
+        # 的中文会让解码抛错并把 stdout 变 None（同 2026-09-19 修的冒烟工具缺陷类）。
+        completed = subprocess.run(
+            command, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(ROOT)
+        )
         if completed.returncode != 0:
             tail = (completed.stderr or completed.stdout or "").strip().splitlines()[-4:]
             raise _fail_environment(

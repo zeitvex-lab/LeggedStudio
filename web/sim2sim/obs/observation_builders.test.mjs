@@ -1,4 +1,5 @@
 import { createObservationSystems } from './observation_builders.js';
+import { quatToRpy } from '../utils.js';
 
 function makeCtx(overrides = {}) {
   const numObs = overrides.numObs ?? 45;
@@ -85,6 +86,18 @@ function test(name, ctx) {
     console.log('FAIL', name, '--', e.message);
   }
 }
+/** 断言"**应当拒绝**"的用例：声明了具体 kind 却没有 builder 时必须抛错，不许静默回落。 */
+function testRefuses(name, ctx) {
+  try {
+    const obs = createObservationSystems(ctx);
+    obs.buildObservation();
+    failed++;
+    console.log('FAIL', name, '-- 应当拒绝（抛错），却静默跑过了');
+  } catch (e) {
+    passed++;
+    console.log('OK', name, '--', e.message.slice(0, 40));
+  }
+}
 function makeMotionLoader(n, { torso=false }={}) {
   const loader = {
     duration: 10,
@@ -106,7 +119,19 @@ function makeMotionLoader(n, { torso=false }={}) {
 test('microduck_61', makeCtx({ kind:'microduck_61', numObs:61, numActions:14 }));
 test('zexw_53', makeCtx({ kind:'zexw_53', numObs:53, numActions:16 }));
 test('go2_rl_sdk_45', makeCtx({ kind:'go2_rl_sdk_45', numObs:45, numActions:12 }));
-test('unknown -> locomotion', makeCtx({ kind:'unknown_xyz', numObs:45, numActions:12 }));
+// LainLab 技能族（2026-09-20 入库）：帧构成/拼接顺序的取证记录见 00_know/05 §P1③。
+test('lainlab_dream_45_hist6', makeCtx({ kind:'lainlab_dream_45_hist6', numObs:45, numActions:12 }));
+test('lainlab_gait_47_hist10', makeCtx({ kind:'lainlab_gait_47_hist10', numObs:47, numActions:12 }));
+test('lainlab_spring_47_hist10', makeCtx({ kind:'lainlab_spring_47_hist10', numObs:47, numActions:12 }));
+test('lainlab_handstand_48', makeCtx({ kind:'lainlab_handstand_48', numObs:48, numActions:12 }));
+// **契约变更（2026-09-20）**：本行原为 `test('unknown -> locomotion', ...)` —— 断言"未知 kind
+// 回落到通用布局"。那个回落正是"跑得起来但吃错观测"的成因（57 维轮足观测被按 45 维四足布局填），
+// 故反转为**必须拒绝**；"未声明 kind（空值）仍回落"作为既定默认单独保留一条正向用例。
+testRefuses('未知 kind 拒绝静默回落', makeCtx({ kind:'unknown_xyz', numObs:45, numActions:12 }));
+test('未声明 kind 仍回落通用布局', makeCtx({ kind:'', numObs:45, numActions:12 }));
+// app.js 对契约未声明 observation_kind 的策略写入哨兵 "default"（1786 行），
+// 必须与空串同走通用布局——go2-baseline-164k 实测在此抛错（2026-09-20）。
+test('"default" 哨兵回落通用布局', makeCtx({ kind:'default', numObs:45, numActions:12 }));
 test('g1_mjlab_velocity_98', makeCtx({ kind:'g1_mjlab_velocity_98', numObs:98, numActions:29 }));
 test('g1_mjswan_balance', makeCtx({ kind:'g1_mjswan_balance', numObs:93, numActions:29 }));
 test('g1_mjswan_locomotion', makeCtx({ kind:'g1_mjswan_locomotion', numObs:99, numActions:29 }));
@@ -237,6 +262,70 @@ test('s07_amp_cts', makeCtx({ kind:'s07_amp_cts', numObs:45, numActions:12 }));
   } else {
     passed++;
     console.log('OK go2_motion_69 loops clock when motionLoop=true');
+  }
+}
+// ── euler_xyz 的 (w,x,y,z) 布局回归（2026-09-20 浏览器实测事故）──
+// captureImuSample 的 quaternion = sim.qpos.subarray(3,7)，MuJoCo 自由关节位姿段是
+// (w,x,y,z)。utils.js 的 quatToRpy 曾按 three.js 的 (x,y,z,w) 解包 ⇒ roll↔yaw 互换、
+// pitch 变号：lainlab_gait_47_hist10 / lainlab_spring_47_hist10 观测的 euler 段
+// （第 8..10 维，3/47）每帧都在喂错值。同一 checkpoint 在 mjlab 训练环境里 vx=0.5
+// 稳定跟踪（vx≈0.47），浏览器里 2.7s 倒地。下面两组四元数取自那次浏览器取证。
+function eulerXyzReference([w, x, y, z]) {
+  // 与 mjlab/Isaac 的 euler_xyz_from_quat 同一公式，此处独立复算（避免同源错）。
+  const roll = Math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y));
+  const sinp = 2 * (w * y - z * x);
+  const pitch = Math.asin(Math.max(-1, Math.min(1, sinp)));
+  const yaw = Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
+  return [roll, pitch, yaw];
+}
+function eulerXyzMisread([w0, x0, y0, z0]) {
+  // 旧约定：把同一个缓冲当成 (x, y, z, w)。
+  return eulerXyzReference([z0, w0, x0, y0]);
+}
+{
+  const quats = [
+    [1, 0, 0, 0],
+    [0.963937, -0.008327, 0.197449, 0.178242],
+    [0.7071068, 0.0, 0.7071068, 0.0],
+    // 注意：不能放 [0.5,0.5,0.5,0.5] 这类四元数——循环移位后数值集合不变，
+    // 两种约定算出同一组 Euler，失去"能区分误读"的判别力。
+  ];
+  let worst = 0;
+  let discriminated = true;
+  for (const q of quats) {
+    const got = quatToRpy(q);
+    const want = eulerXyzReference(q);
+    const wrong = eulerXyzMisread(q);
+    worst = Math.max(worst, ...want.map((v, i) => Math.abs(v - got[i])));
+    if (Math.max(...wrong.map((v, i) => Math.abs(v - got[i]))) < 1e-3) discriminated = false;
+  }
+  if (worst > 1e-6 || !discriminated) {
+    failed++;
+    console.log('FAIL quatToRpy MuJoCo (w,x,y,z) 布局 -- 最大差', worst, '可区分误读', discriminated);
+  } else {
+    passed++;
+    console.log('OK quatToRpy MuJoCo (w,x,y,z) 布局');
+  }
+}
+{
+  // 端到端：gait 观测第 8..10 维必须等于该姿态的 euler_xyz（mjlab root_euler）。
+  const quat = [0.963937, -0.008327, 0.197449, 0.178242];
+  const c = makeCtx({ kind: 'lainlab_gait_47_hist10', numObs: 47, numActions: 12 });
+  c.readImuSample = () => ({
+    angular: [0, 0, 0], gravity: [0, 0, -1], rpy: quatToRpy(quat), linear: [0, 0, 0],
+  });
+  const obs = createObservationSystems(c);
+  obs.buildObservation();
+  const want = eulerXyzReference(quat);
+  const got = [c.sim.obs[8], c.sim.obs[9], c.sim.obs[10]];
+  const gap = Math.max(...want.map((v, i) => Math.abs(v - got[i])));
+  const fromMisread = Math.max(...eulerXyzMisread(quat).map((v, i) => Math.abs(v - got[i])));
+  if (gap > 1e-6 || fromMisread < 1e-3) {
+    failed++;
+    console.log('FAIL gait 观测 euler 段 -- 与参考差', gap, '与误读差', fromMisread, '实际', got);
+  } else {
+    passed++;
+    console.log('OK gait 观测 euler 段（第 8..10 维）= euler_xyz(w,x,y,z)');
   }
 }
 console.log(`\nFINAL PASS=${passed} FAIL=${failed}`);

@@ -183,6 +183,92 @@ def check_perception_binding(
     return result
 
 
+def generate_recipe_obs_items(perception: Any, *, group: str = "actor") -> dict[str, Any]:
+    """由**场景声明**生成 recipe 的观测项（S2①）。
+
+    现状只做了"策略自己声明、场景只校验"（:func:`check_perception_binding`）；本函数补上
+    另一半：场景声明 A 类感知后，直接产出**可挂进 recipe 的观测项列表**，让"场景要求"
+    能够驱动策略输入，而不只是事后判它错。
+
+    **目录是唯一真值**（`backend/perception_observations.PERCEPTION_ITEMS`）：每项的
+    `sample_dot_path` / `width` / `scale` / `obs_source` 一律取自目录，本函数不另抄一份。
+
+    fail-closed：场景启用了某项、而目录里没有对应实现 ⇒ 进 ``unsupported`` 且 ``ok=False``，
+    **绝不猜一个近似项顶上**（那正是"看着生效、其实没生效"的来源）。
+    非 A 类（``route != "obs"`` 或未写 perception）⇒ ``not_applicable`` 且不生成任何项。
+    """
+    from backend.perception_observations import PERCEPTION_ITEMS
+
+    data = _as_dict(perception)
+    route = str((data or {}).get("route", "external"))
+    base = {"route": route, "items": [], "total_width": 0, "unsupported": [], "scenario_items": []}
+    if data is None or route != "obs":
+        return {
+            **base,
+            "ok": True,
+            "verdict": "not_applicable",
+            "reason": "未声明 A 类感知（route≠obs 或未写 perception）⇒ 不从场景生成观测项",
+        }
+
+    required = required_items(data)
+    if not required:
+        return {
+            **base,
+            "ok": True,
+            "verdict": "not_applicable",
+            "reason": "route=obs 但未启用任何感知观测项",
+        }
+
+    items: list[dict[str, Any]] = []
+    unsupported: list[str] = []
+    for item_id in required:
+        entry = PERCEPTION_ITEMS.get(item_id)
+        if entry is None:
+            unsupported.append(item_id)
+            continue
+        parts = entry.sample_dot_path.split(".")
+        # 期望形如 environment.observations.<group>.terms.<term>；形状不符时退化为调用方给的 group
+        item_group = parts[2] if len(parts) >= 5 and parts[0] == "environment" and parts[1] == "observations" else group
+        term = parts[-1] if parts else entry.id
+        items.append({
+            "id": entry.id,
+            "group": item_group,
+            "term": term,
+            "dot_path": entry.sample_dot_path,
+            "width": entry.width,
+            "scale": entry.scale,
+            "obs_source": entry.obs_source,
+            # 场景那一侧原始声明（宽度/形状可能只写一部分，如 {width:106,height:60}）——
+            # 一览"场景要什么"与"目录给的规范形态"是否一致由调用方决定怎么用。
+            "scenario_value": data.get(_FIELD_OF_ITEM.get(entry.id, entry.id)),
+        })
+
+    result: dict[str, Any] = {
+        "ok": not unsupported,
+        "verdict": "generated" if not unsupported else "unsupported",
+        "route": "obs",
+        "scenario_items": required,
+        "items": items,
+        "total_width": sum(int(item["width"]) for item in items),
+        "unsupported": unsupported,
+        "field_of_item": dict(_FIELD_OF_ITEM),
+    }
+    if unsupported:
+        result["reason"] = (
+            f"场景启用了 {unsupported}，但观测项目录里没有对应实现"
+            "（目录 backend/perception_observations.py 是唯一真值）—— 不猜近似项顶上"
+        )
+        result["fix"] = [
+            "在 backend/perception_observations.py 的 PERCEPTION_ITEMS 里登记该项，或",
+            "把场景 perception 里对应字段去掉（不要求策略吃它）",
+        ]
+    return result
+
+
+#: 观测项目录 id → 场景 `perception` 字段名（`FIELD_TO_ITEM` 的反查，供生成器回填原始声明）
+_FIELD_OF_ITEM: dict[str, str] = {item: field for field, item in FIELD_TO_ITEM.items()}
+
+
 def load_profile_for_policy(package_root: Path, sim_cfg: dict[str, Any], policy_id: str) -> tuple[dict[str, Any] | None, str | None]:
     """按策略 id 找到它的训练 profile（``simulation/config.json`` → ``training/profiles/*.json``）。
 

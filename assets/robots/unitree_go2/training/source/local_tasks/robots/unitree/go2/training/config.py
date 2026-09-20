@@ -1,49 +1,34 @@
 """RL configurations for Unitree Go2 experiments."""
 
-from mjlab.rl import (
-  RslRlModelCfg,
-  RslRlOnPolicyRunnerCfg,
-  RslRlPpoAlgorithmCfg,
-)
+import sys
+from pathlib import Path
+
+# 仓库根自举（见 kits/quadruped_kit 模块注释）：worker / schema-dump / 冒烟三种运行环境
+# 都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab，对 assets 源树
+# 与 workspace 镜像副本两种深度都成立。
+for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+        if str(_parent) not in sys.path:
+            sys.path.insert(0, str(_parent))
+        break
+
+from mjlab.rl import RslRlOnPolicyRunnerCfg  # noqa: E402
+
+from adapters.mjlab.kits import quadruped_kit as kit  # noqa: E402
 
 
 def unitree_go2_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
-  """Create RL runner configuration for Unitree Go2 velocity task."""
-  return RslRlOnPolicyRunnerCfg(
-    actor=RslRlModelCfg(
-      hidden_dims=(512, 256, 128),
-      activation="elu",
-      obs_normalization=True,
-      distribution_cfg={
-        "class_name": "GaussianDistribution",
-        "init_std": 1.0,
-        "std_type": "scalar",
-      },
-    ),
-    critic=RslRlModelCfg(
-      hidden_dims=(512, 256, 128),
-      activation="elu",
-      obs_normalization=True,
-    ),
-    algorithm=RslRlPpoAlgorithmCfg(
-      value_loss_coef=1.0,
-      use_clipped_value_loss=True,
-      clip_param=0.2,
-      entropy_coef=0.01,
-      num_learning_epochs=5,
-      num_mini_batches=4,
-      learning_rate=1.0e-3,
-      schedule="adaptive",
-      gamma=0.99,
-      lam=0.95,
-      desired_kl=0.01,
-      max_grad_norm=1.0,
-    ),
-    experiment_name="go2_velocity",
-    save_interval=50,
-    num_steps_per_env=24,
-    max_iterations=10_000,
-  )
+  """Create RL runner configuration for Unitree Go2 velocity task.
+
+  **委托** ``kits/quadruped_kit.ppo_runner_cfg``（四足框架层唯一真值；与 lite3 / b2 / go1
+  同一先例）。原先本函数内联了一份与 lite3/b2 逐字相同的 runner 配置（隐藏层 512/256/128、
+  elu、obs_normalization、Gaussian std 1.0 scalar、clip 0.2、entropy 0.01、epochs 5、
+  minibatches 4、lr 1e-3 adaptive、gamma 0.99、lam 0.95、desired_kl 0.01、max_grad_norm 1.0、
+  num_steps 24、max_iterations 10_000）—— 多份副本一旦 Kit 调超参就会各自漂移。
+  本包**唯一差异**是 ``save_interval=50``（Kit 默认 100，即 lite3/b2/go1 语义），由参数携带。
+  等价性由迁移前后的 ``dataclasses.asdict`` dump 逐字段比对（0 差异）保证。
+  """
+  return kit.ppo_runner_cfg("go2_velocity", save_interval=50)
 
 
 def unitree_go2_source_ppo_runner_cfg(

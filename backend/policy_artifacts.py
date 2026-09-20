@@ -115,6 +115,70 @@ def onnx_obs_dim(onnx_path: Path | str) -> int | None:
     return width if width > 0 else None
 
 
+def onnx_deploy_metadata(onnx_path: Path | str) -> dict[str, Any] | None:
+    """导出时刻盖章进 ONNX ``metadata_props`` 的**部署真值**（B11-GAP-1 产品侧）。
+
+    worker 的 ``onnx_exporter.attach_metadata_to_onnx`` 在导出时把部署侧需要的
+    训练真值写进模型头：``default_joint_pos`` / ``action_scale``（逐关节）、
+    ``joint_stiffness`` / ``joint_damping``（mjlab 执行器 PD；早期导出恒 0——
+    stamp 时机在执行器数值注入前，见 _parse_deploy_metadata 的全零过滤）、
+    ``clip_actions``。install 时把它们带进包内条目 contract，评测/浏览器才
+    不会按包级默认驱动一条训练口径完全不同的策略（2026-09-20 取证：同一
+    64×800 产物，真值口径能走、包级默认口径 20 步俯摔）。
+
+    onnx 不可解析或没有任何可识别键时返回 ``None``（调用方跳过，不编造）。
+    """
+    try:
+        import onnx
+    except ImportError:
+        return None
+    try:
+        model = onnx.load(str(onnx_path), load_external_data=False)
+        props = {p.key: p.value for p in model.metadata_props}
+    except Exception:
+        return None
+
+    def _floats(key: str, *, first_row_len: int | None = None) -> list[float] | None:
+        raw = props.get(key)
+        if not raw:
+            return None
+        try:
+            values = [float(x) for x in str(raw).split(",")]
+        except ValueError:
+            return None
+        if not values:
+            return None
+        # 旧导出器 bug（2026-09-20 发现，native_worker 同日修复）：action_scale 按
+        # (num_envs, joints) 整只 flatten，64 envs ⇒ 768 值的逐环境重复。检测到
+        # 整数倍重复时压缩回第一行。
+        if first_row_len and len(values) > first_row_len and len(values) % first_row_len == 0:
+            first_row = values[:first_row_len]
+            repetitions = len(values) // first_row_len
+            if all(values[i] == first_row[i % first_row_len] for i in range(len(values))):
+                values = first_row
+                del repetitions
+        return values
+
+    out: dict[str, Any] = {}
+    defaults = _floats("default_joint_pos")
+    if defaults:
+        out["default_joint_pos"] = defaults
+    scales = _floats("action_scale", first_row_len=len(defaults) if defaults else None)
+    if scales:
+        out["action_scale"] = scales
+    stiffness = _floats("joint_stiffness")
+    damping = _floats("joint_damping")
+    # 全零 = 导出时执行器数值还没注入（旧导出器时序），带下去比不带更误导。
+    if stiffness and any(v != 0.0 for v in stiffness):
+        out["stiffness"] = stiffness
+    if damping and any(v != 0.0 for v in damping):
+        out["damping"] = damping
+    clip = _floats("clip_actions")
+    if clip and len(clip) == 1:
+        out["clip_actions"] = clip[0]
+    return out or None
+
+
 def observation_kind_for(robot_id: str, obs_dim: int | None) -> str:
     """按 ``(robot, ONNX 实测宽度)`` 查已注册的观测布局名。
 
@@ -881,6 +945,16 @@ def promote_from_run(
             deploy["action_joint_order"] = list(action["joint_order"])
     if isinstance(status, Mapping) and status.get("max_iterations") is not None:
         deploy["trained_iterations"] = status["max_iterations"]
+    # B11-GAP-1 产品侧修复（2026-09-20 机理核验后落地）：导出时盖章进 ONNX
+    # metadata_props 的**部署真值**随条目落 contract——否则评测/浏览器按包级
+    # 默认（default=0、action_scale=0.5、PD=20/0.5）驱动一条按
+    # default=-0.1/0.9/-1.8、scale=0.294/0.281、PD=20/1·40/2 训练的策略，
+    # 20 步内俯摔（2026-09-20 实测 64×800 产物），dof_power 反而拿 0.98 假高分；
+    # 而影子包修正 PD 下同一策略能走、|τ·v| RMS≈700 ⇒ dof_power 记 0——
+    # "六组实验 dof_power 恒 0.0003-0.0043"的机理就是评测口径随部署契约漂移。
+    metadata_truth = onnx_deploy_metadata(onnx)
+    if metadata_truth:
+        deploy["deploy_metadata"] = metadata_truth
 
     artifact = promote_produced_policy(
         artifact_id=final_id, onnx=onnx, deploy=deploy, run_id=record.run_id, out_dir=out_dir,
@@ -899,6 +973,30 @@ def promote_from_run(
 
         robot_dir = robot_package_root(robot_id)
         if install:
+            # B11-GAP-1：部署真值（ONNX metadata 的 default/scale/PD）逐项落进条目
+            # contract——评测器与浏览器 deep_merge 后即按训练口径驱动。
+            contract_block: dict[str, Any] = {
+                **({"obs_dim": deploy["obs_dim"]} if deploy.get("obs_dim") else {}),
+                **({"action_dim": deploy["action_dim"]} if deploy.get("action_dim") else {}),
+                **({"observation_kind": deploy["observation_kind"]} if deploy.get("observation_kind") else {}),
+            }
+            meta = deploy.get("deploy_metadata") or {}
+            joint_order = deploy.get("action_joint_order") or []
+            defaults = meta.get("default_joint_pos")
+            if defaults and joint_order and len(defaults) == len(joint_order):
+                contract_block["default_joint_angles"] = dict(zip(joint_order, defaults))
+            scales = meta.get("action_scale")
+            if scales and joint_order and len(scales) == len(joint_order):
+                contract_block["action_scale_by_joint"] = dict(zip(joint_order, scales))
+            stiffness = meta.get("stiffness")
+            damping = meta.get("damping")
+            if stiffness and damping and joint_order and len(stiffness) == len(damping) == len(joint_order):
+                contract_block["control"] = {
+                    "stiffness": dict(zip(joint_order, stiffness)),
+                    "damping": dict(zip(joint_order, damping)),
+                }
+            if meta.get("clip_actions") is not None:
+                contract_block["clip_actions"] = meta["clip_actions"]
             installed = install_produced_policy(
                 artifact_id=final_id,
                 robot_dir=robot_dir,
@@ -910,11 +1008,7 @@ def promote_from_run(
                     # B44：观测布局名与 deploy/评测侧注册表同一来源（实测 48 → go2_mjlab_actor_48，
                     # 未取证 → unknown）。评测器 deep_merge 契约后按它选帧构建器。
                     **({"observation_kind": deploy["observation_kind"]} if deploy.get("observation_kind") else {}),
-                    "contract": {
-                        **({"obs_dim": deploy["obs_dim"]} if deploy.get("obs_dim") else {}),
-                        **({"action_dim": deploy["action_dim"]} if deploy.get("action_dim") else {}),
-                        **({"observation_kind": deploy["observation_kind"]} if deploy.get("observation_kind") else {}),
-                    } or None,
+                    "contract": contract_block or None,
                 },
                 out_dir=out_dir,
             )
@@ -1222,6 +1316,34 @@ def _package_blob_candidate(entry: Mapping[str, Any], relative: Path) -> Path | 
         return None
 
 
+def _runtime_package_candidate(repo_candidate: Path, robot_dir: Path | str | None) -> Path | None:
+    """索引按源树（``assets/robots/<pkg>/…``）记录的 blob → 运行期包根下的**同一包内相对路径**。
+
+    运行期包根通常是 workspace 副本（D7/C6 的持久化权威），其策略 blob 与源树由同步机制
+    保证逐字节一致，所以"同一包内相对路径"在副本上命中时优先返回副本：serv 层拿到的
+    就是运行期包的真实文件（浏览器 URL 也按副本拼）。
+
+    此前这条回退只在索引条目带 ``installed.robot`` 绑定时发生（见
+    :func:`_package_blob_candidate`）。随包入库的**上游声明**按设计不带该绑定（干净 clone
+    也没有），于是 id-only 终态（B10）在副本包根上一律解析不到"包内路径"：
+    browser-config 对这些策略静默整条跳过——2026-09-20 实测源树 go2 全部 18 条 id-only
+    声明无一解析成功（老副本只因残留裸 ``path`` 字段才没暴露，干净 clone 上会整个复现）。
+    回退只认包内真实存在的文件，猜错路径自然落空、沿原有优先级继续。
+    """
+    if robot_dir is None:
+        return None
+    try:
+        relative = Path(repo_candidate).resolve().relative_to((ROOT / "assets" / "robots").resolve())
+    except ValueError:
+        return None
+    # 记录形态是 `assets/robots/<包目录>/<包内相对路径>`：剥掉"源树根＋一级包目录"才是
+    # 包根相对路径。首版只剥了源树根，多带一层 `<包目录>/`（解析出
+    # workspace/packages/unitree_go2/unitree_go2/…，什么都命中不了）。
+    if len(relative.parts) < 2:
+        return None
+    return Path(robot_dir).resolve() / Path(*relative.parts[1:])
+
+
 def policy_blob_path(
     declaration: Mapping[str, Any],
     *,
@@ -1269,6 +1391,13 @@ def policy_blob_path(
         # ① 仓库相对（上游声明与未安装的 produced：`assets/robots/...`、`policies/<id>/policy.onnx`）
         repo_candidate = ROOT / resolved
         if repo_candidate.is_file():
+            # ①' 运行期包根优先：按同一包内相对路径在 robot_dir 下找同名 blob（副本回退的
+            #     统一版本，不再要求 `installed.robot` 绑定——随包入库的上游声明没有它）。
+            #     命中副本 ⇒ 返回副本（serv/浏览器 URL 按运行期包拼）；没命中 ⇒ 仍返回源树
+            #     路径（干净 clone 上没有副本时的既有行为不变）。
+            runtime_candidate = _runtime_package_candidate(repo_candidate, robot_dir)
+            if runtime_candidate is not None and runtime_candidate.is_file():
+                return runtime_candidate
             return repo_candidate
         # ② **包内相对**（安装式产物：`simulation/policies/<file>.onnx`）。
         #    安装式条目的 blob 合法落点是机器人包内，而包根在运行时可能是用户 workspace

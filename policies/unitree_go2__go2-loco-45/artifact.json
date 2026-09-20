@@ -1,0 +1,20 @@
+{
+  "action_dim": 12,
+  "algorithm": null,
+  "artifact_id": "unitree_go2__go2-loco-45",
+  "aux_blobs": [],
+  "contract_digest": "17c072e282b5cd916399bb4494f27ae1849fca2cb782b3c47e7e0eb01296f45c",
+  "declared_source": "LeggedSkillDeploy go2_loco（第三方，无 LICENSE；仅内部研究）",
+  "history_len": 1,
+  "kind": "policies",
+  "label": "Go2 Loco 45D (velocity, LeggedSkillDeploy)",
+  "obs_dim": 45,
+  "onnx_bytes": 758426,
+  "onnx_sha256": "e7ee42b3f29adbed21e733d5db73a866c5d9e02e85fad763ad83f225b00e1de1",
+  "policy_id": "go2-loco-45",
+  "robot": "unitree_go2",
+  "run_id": null,
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "assets/robots/unitree_go2/simulation/policies/loco_45.onnx",
+  "task_type": null
+}
