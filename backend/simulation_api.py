@@ -203,6 +203,23 @@ async def list_maps() -> dict[str, Any]:
     return {"maps": list(MAPS.values()), "count": len(MAPS)}
 
 
+@router.get("/executors")
+async def list_executors() -> dict[str, Any]:
+    """执行器能力矩阵（H2 的**产品侧出口**，B1）。
+
+    此前 `backend/executors.py` 的 `select_executor` / `describe` 只有测试 fixture 价值：
+    没有路由、没有页面，"契约允许但没人能跑"因此从产品上看不见。现在把矩阵原样暴露出来，
+    场景编辑器与仿真页都读它来判"这个 command_source 到底能不能跑"——真值只有这一份，
+    前端镜像（`web/sim2sim/sensors/sensor_catalog.js` 的 EXECUTOR_COMMAND_SOURCES）只在
+    接口不可达时兜底。
+
+    返回形状由 `executors.describe()` 固定（schema: executor-matrix-1.0），不在此重组装。
+    """
+    from backend.executors import describe
+
+    return describe()
+
+
 
 
 

@@ -104,6 +104,41 @@ export function drawHeightField(ctx, field, side, { x = 0, y = 0 } = {}) {
   return blitRgba(ctx, image, { x, y });
 }
 
+/** **矩形**高度网格（A 类契约的 187 = 17×11 就是矩形：x 17 列、y 11 行）。
+ *
+ *  为什么不能复用 `drawHeightField`：它按 `side × side` 取方阵，17×11 的场传进去会因
+ *  长度不足（187 < 289）被判 null ⇒ "绘制失败"——而调用方看到的是"有数据却画不出来"。
+ *  归一化与配色**逐字复用** `heightFieldToRgba` 的规则（全平取 0.5 中间色、空值画黑槽），
+ *  只把"方阵索引"换成"矩形索引"：`index = i_x * ny + i_y`，第 0 行是 x 最小。
+ */
+export function drawHeightGrid(ctx, field, nx, ny, { x = 0, y = 0, min = null, max = null } = {}) {
+  const cols = Math.max(1, Math.floor(Number(nx) || 0));
+  const rows = Math.max(1, Math.floor(Number(ny) || 0));
+  if (!ctx || typeof ctx.putImageData !== "function") return false;
+  if (!Array.isArray(field) || field.length < cols * rows) return false;
+  const values = field.slice(0, cols * rows);
+  const known = values.map(Number).filter((v) => Number.isFinite(v));
+  const low = Number.isFinite(min) ? Number(min) : (known.length ? Math.min(...known) : 0);
+  const high = Number.isFinite(max) ? Number(max) : (known.length ? Math.max(...known) : 1);
+  const span = high - low;
+  const data = new Uint8ClampedArray(cols * rows * 4);
+  for (let i = 0; i < cols * rows; i += 1) {
+    const raw = values[i];
+    // 空值必须单独挡：`Number(null) === 0`，直接 Number 会把"没打中"当成"零高度"。
+    const hasValue = raw !== null && raw !== undefined && raw !== "" && Number.isFinite(Number(raw));
+    if (!hasValue) {
+      data[i * 4] = 0; data[i * 4 + 1] = 0; data[i * 4 + 2] = 0; data[i * 4 + 3] = 255;
+      continue;
+    }
+    const t = span > 1e-9 ? Math.min(1, Math.max(0, (Number(raw) - low) / span)) : 0.5;
+    data[i * 4] = Math.round(30 + t * 225);
+    data[i * 4 + 1] = Math.round(80 + t * 175);
+    data[i * 4 + 2] = Math.round(180 - t * 140);
+    data[i * 4 + 3] = 255;
+  }
+  return blitRgba(ctx, { data, height: rows, width: cols }, { x, y });
+}
+
 /** 世界折线 → 屏幕坐标（等比缩放 + 居中，x 右、y 上）。返回 `{points, scale, origin}`。 */
 export function projectTrail(points, { width, height, padding = 8, bounds = null } = {}) {
   const clean = (Array.isArray(points) ? points : [])
@@ -311,4 +346,48 @@ export function drawPredictedVsActual(ctx, { predicted = [], actual = [], width 
     ctx.fillText(labels.actual || '实际', 4, 23);
   }
   return true;
+}
+
+
+/**
+ * 足底接触视图：四只脚各一块"着地板"，着地=亮、离地=暗，并在板上写接触力。
+ *
+ * 为什么不用折线/散点：接触是**二值+力**的量，画成曲线会让人误以为它是连续信号。
+ * 2×2 网格按机身方位排（前左/前右/后左/后右），与 3D 里看到的方位一致——错位的话
+ * "图上说 FL 着地、屏幕里 FL 明明抬着"这类投诉永远查不完。
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {{feet: Array<{name: string, grounded: boolean, force: number}>}} state
+ * @param {{width?: number, height?: number}} opts
+ */
+export function drawContactStates(ctx, state, { width = 240, height = 150 } = {}) {
+  if (!ctx || typeof ctx.fillRect !== 'function') return false;
+  const feet = Array.isArray(state?.feet) ? state.feet : [];
+  ctx.fillStyle = '#0b1220';
+  ctx.fillRect(0, 0, width, height);
+  const order = ['FL', 'FR', 'RL', 'RR'];
+  const byName = new Map(feet.map((f) => [String(f.name).toUpperCase(), f]));
+  const pad = 10;
+  const cellW = (width - pad * 3) / 2;
+  const cellH = (height - pad * 3) / 2;
+  order.forEach((name, index) => {
+    const col = index % 2;
+    const row = Math.floor(index / 2);
+    const x = pad + col * (cellW + pad);
+    const y = pad + row * (cellH + pad);
+    const foot = byName.get(name);
+    const grounded = Boolean(foot?.grounded);
+    const force = Number(foot?.force) || 0;
+    ctx.fillStyle = grounded ? 'rgba(34,197,94,.85)' : 'rgba(100,116,139,.25)';
+    ctx.fillRect(x, y, cellW, cellH);
+    ctx.strokeStyle = grounded ? '#22c55e' : '#475569';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, cellW, cellH);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = 'bold 12px ui-monospace,SFMono-Regular,Menlo,monospace';
+    ctx.fillText(name, x + 6, y + 15);
+    ctx.font = '10px ui-monospace,SFMono-Regular,Menlo,monospace';
+    ctx.fillText(grounded ? `着地 ${force.toFixed(1)} N` : '离地', x + 6, y + cellH - 7);
+  });
+  return feet.length > 0;
 }

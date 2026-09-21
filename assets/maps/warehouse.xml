@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  仓库导航场景（warehouse）—— A3 补的场景资产。
+
+  为什么有这一份：`backend/scenario_maps.py` 的 MAPS["warehouse"] 是**唯一**带障碍物与
+  默认航点的导航地图（bounds [-2,8,-4,4]，两条障碍，四个默认航点），而 `assets/maps/`
+  里一直没有对应 XML。后果是用户在场景编辑器选"Warehouse / 导航"后，浏览器
+  `resolveTerrainName("warehouse")` 解析不到场景 ⇒ 静默回落平地（编辑器说 warehouse、
+  仿真跑平地面，且地形感知因没有高度场来源被后端 fail-closed 禁用）。
+
+  本文件的障碍几何**逐值取自** MAPS["warehouse"].obstacles（[cx, cy, half_w, half_h]）：
+    [2.0, -1.2, 0.6, 2.4] ⇒ 中心 (2.0,-1.2)，半宽 0.6、半长 2.4 的 1m 高横墙
+    [4.5,  0.8, 0.8, 2.0] ⇒ 中心 (4.5, 0.8)，半宽 0.8、半长 2.0 的 1m 高货架
+  改任一处都必须同步另一处（导航规划读 MAPS、浏览器读本文件），否则"规划绕的障"与
+  "眼前看到的障"不是同一批。
+-->
+<mujoco model="map_warehouse">
+  <statistic center="3 0 0.1" extent="6" />
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
+    <rgba haze="0.15 0.25 0.35 1" />
+    <global azimuth="135" elevation="-25" />
+    <quality shadowsize="4096" />
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
+    <material name="wall" rgba="0.62 0.64 0.68 1" reflectance="0.05" />
+    <material name="shelf" rgba="0.45 0.38 0.30 1" reflectance="0.04" />
+    <material name="boundary" rgba="0.30 0.33 0.38 1" reflectance="0.03" />
+  </asset>
+  <worldbody>
+    <light pos="0 0 3" dir="0 0 -1" directional="true" castshadow="true" />
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+
+    <!-- MAPS["warehouse"].obstacles[0]：中心 (2.0,-1.2)，半宽 0.6 / 半长 2.4，高 1.0m -->
+    <body name="warehouse_wall_a" pos="2.0 -1.2 0">
+      <geom name="wall_a" type="box" size="0.6 2.4 0.5" pos="0 0 0.5" material="wall" />
+    </body>
+    <!-- MAPS["warehouse"].obstacles[1]：中心 (4.5,0.8)，半宽 0.8 / 半长 2.0，高 1.0m -->
+    <body name="warehouse_shelf_b" pos="4.5 0.8 0">
+      <geom name="shelf_b" type="box" size="0.8 2.0 0.5" pos="0 0 0.5" material="shelf" />
+    </body>
+
+    <!-- 场地边界（bounds [-2,8,-4,4] 的低墙，只作视觉参照，不参与导航判据） -->
+    <body name="boundary" pos="0 0 0">
+      <geom name="b_south" type="box" size="5.0 0.1 0.25" pos="3 -4 0.25" material="boundary" />
+      <geom name="b_north" type="box" size="5.0 0.1 0.25" pos="3 4 0.25" material="boundary" />
+      <geom name="b_west" type="box" size="0.1 4.0 0.25" pos="-2 0 0.25" material="boundary" />
+      <geom name="b_east" type="box" size="0.1 4.0 0.25" pos="8 0 0.25" material="boundary" />
+    </body>
+  </worldbody>
+</mujoco>

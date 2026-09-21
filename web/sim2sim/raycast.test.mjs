@@ -26,7 +26,7 @@ function scene(geoms, { bodyPos = [0, 0, 0], bodyQuat = [1, 0, 0, 0] } = {}) {
     model: {
       ngeom: geoms.length,
       geom_type: Int32Array.from(geoms.map((g) => g.type)),
-      geom_bodyid: Int32Array.from(geoms.map(() => 0)),
+      geom_bodyid: Int32Array.from(geoms.map((g) => g.body ?? 0)),
       geom_pos: Float64Array.from(geoms.flatMap((g) => g.pos || [0, 0, 0])),
       geom_quat: Float64Array.from(geoms.flatMap((g) => g.quat || [1, 0, 0, 0])),
       geom_size: Float64Array.from(geoms.flatMap((g) => g.size)),
@@ -183,4 +183,32 @@ const near = (a, b, tol = 1e-9) => Math.abs(a - b) < tol;
   assert.ok(near(dir[0], 0, 1e-9) && near(dir[1], 1, 1e-9) && near(dir[2], 0, 1e-9), `实际 ${dir}`);
 }
 
-console.log("raycast: 15 checks ok");
+
+// worldBodyOnly：只认世界体（body 0）——机器人自身碰撞体挂在子 body 上，
+// 高度场要地形高度，不滤自身的话机腹正下方会读到底盘
+{
+  // 内联构造（scene() helper 只给一份 xquat，子 body 会越界）
+  const model = {
+    ngeom: 2,
+    geom_type: Int32Array.from([0, 6]),
+    geom_bodyid: Int32Array.from([0, 3]),
+    geom_pos: Float64Array.from([0, 0, 0, 0, 0, 0.4]),
+    geom_quat: Float64Array.from([1, 0, 0, 0, 1, 0, 0, 0]),
+    geom_size: Float64Array.from([0, 0, 1, 0.2, 0.2, 0.1]),
+  };
+  const data = {
+    xpos: Float64Array.from([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    xquat: Float64Array.from([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]),
+  };
+  // 不过滤：从 z=1 向下先碰到底盘顶面（z=0.5）⇒ 0.5
+  assert.ok(near(intersectSceneRay(model, data, [0, 0, 1], DOWN), 0.5), "不过滤时命中底盘");
+  // 过滤后：只剩地面 ⇒ 1
+  assert.ok(
+    near(intersectSceneRay(model, data, [0, 0, 1], DOWN, { worldBodyOnly: true }), 1),
+    "worldBodyOnly 应跳过子 body 的 geom",
+  );
+  const dists = intersectSceneRays(model, data, [[0, 0, 1]], [DOWN], { worldBodyOnly: true });
+  assert.ok(near(dists[0], 1), "批量接口也要认 worldBodyOnly");
+}
+
+console.log("raycast: 16 checks ok");

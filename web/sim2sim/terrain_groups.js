@@ -37,6 +37,8 @@ export const TERRAIN_CATEGORY_BY_ID = {
   slope: "slope",
   relief: "rough",
   apartment: "complex",
+  // A3 补的仓库导航场景（障碍几何与 backend/scenario_maps.py 的 MAPS["warehouse"] 逐值一致）
+  warehouse: "complex",
 };
 
 /** 从 _index.json 形状的数据里读出分类定义（容错：坏/缺块回内置快照）。 */

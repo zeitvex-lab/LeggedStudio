@@ -44,6 +44,20 @@ def projected_gravity(q: np.ndarray) -> np.ndarray:
     return quat_rotate_inverse(q, np.array([0.0, 0.0, -1.0]))
 
 
+def quat_to_euler_xyz(q) -> list[float]:
+    """四元数 (w,x,y,z) → XYZ Tait-Bryan 欧拉 [roll, pitch, yaw]。
+
+    与 web/sim2sim/utils.js::quatToRpy 逐式一致（LainLab gait 帧的 euler_xyz 段
+    = mjlab root_link_quat_w 的 xyz euler，即浏览器 IMU rpy），约定/符号不得漂移。
+    """
+    w, x, y, z = (float(v) for v in q)
+    roll = math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y))
+    sinp = 2 * (w * y - z * x)
+    pitch = math.copysign(math.pi / 2, sinp) if abs(sinp) >= 1 else math.asin(sinp)
+    yaw = math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
+    return [roll, pitch, yaw]
+
+
 def wrap_pi(a: float) -> float:
     return math.atan2(math.sin(a), math.cos(a))
 
@@ -796,9 +810,37 @@ def _frame_wuji_reorient_69(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     return [float(x) for x in out]
 
 
+# LainLab playground 技能族（2026-09-20 入库）——trot/jump 共用的 47 维单帧。
+# 逐字对齐 web/sim2sim/obs/observation_builders.js::buildLainlabGaitObservation。
+# **缩放用字面量**（训练源即真值，与 JS 同）：该契约未声明 scales，若走
+# c.ang_vel_scale/c.dof_pos_scale/c.cmd_scale 会全部回落 1.0，与训练时不一致。
+# 布局（47）：[sin(2π·phase), cos(2π·phase), cmd_x·2, cmd_y·2, cmd_w·0.25]（5）
+#   + ang_vel(body)·0.25（3）+ euler_xyz（3）+ (q−default)（12）+ dq·0.05（12）+ action（12）。
+# 相位 = (真实 sim.data.time mod gait_period_s) / gait_period_s；data.time 每物理步
+# 推进、mj_resetData 归零 ⇒ 复位即清相位来源，无需额外累积器。sin/cos 用 2π·归一化
+# 相位（不是把 0..1 周期当弧度）。gravity 段该帧不含（用 euler 表姿态）。
+def _frame_lainlab_gait_47(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    quat = obs.data.qpos[3:7]
+    period = c.gait_period if c.gait_period > 0 else 0.5
+    phase = (float(obs.data.time) % period) / period
+    order = c.action_joint_order
+    angle = 2.0 * math.pi * phase
+    out = [math.sin(angle), math.cos(angle)]
+    out += [float(cmd[0]) * 2.0, float(cmd[1]) * 2.0, float(cmd[2]) * 0.25]
+    out += [float(ang_b[i]) * 0.25 for i in range(3)]
+    out += quat_to_euler_xyz(quat)
+    out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] * 0.05 for n in order]
+    out += [float(a) for a in obs.last_action]
+    return out
+
+
 FRAME_BUILDERS = {
     "go2_rl_sdk_45": _std_frame,
     "go2_mjlab_actor_48": _frame_go2_mjlab_actor_48,
+    "lainlab_gait_47_hist10": _frame_lainlab_gait_47,
     "lite3_rl_sdk_hist6": _std_frame,
     "s07_amp_cts": _std_frame,
     "g1_amp_96": _frame_g1_amp_96,
@@ -832,7 +874,11 @@ def pack_history(obs: "ObsBuilder", frames: list[np.ndarray]) -> np.ndarray:
     c = obs.contract
     if c.history_layout == "frame_major_v1":
         return np.concatenate(list(reversed(frames)))  # 最新帧在前
-    if c.history_layout == "frame_major":
+    if c.history_layout in ("frame_major", "frame_major_oldest_first"):
+        # 整帧依时序拼接、最老帧在前、当前帧在最后。`frame_major_oldest_first` 是
+        # LainLab 技能族（trot/jump 470 等）在契约里显式声明的同语义别名（ONNX 图首
+        # 个 Slice 为 [0:-obs_dim]，encoder 吃前段历史、actor MLP 吃末帧），与
+        # web/sim2sim/app.js::packObsHistoryByTerm 完全一致。
         return np.concatenate(frames)  # 整帧依时序拼接，最老帧在前（DreamWaQ 系）
     if c.history_layout == "wuji_term_major" and c.history_terms:
         # 每个显式分段按 旧→新 逐帧拼接（term-major / 段内 history 连续）

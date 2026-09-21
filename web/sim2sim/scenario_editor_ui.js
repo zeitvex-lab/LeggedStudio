@@ -22,6 +22,11 @@ import {
   toQuery,
   toSimParams,
 } from "./scenario_editor.js";
+// A1：完整场景的交运（postMessage）与判据/摘要的**纯逻辑**在那边，这里只发/收。
+import {
+  SCENARIO_MESSAGE_TYPE,
+  toScenarioMessage,
+} from "./scenario_run.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -259,6 +264,11 @@ async function refresh() {
 }
 
 // ── 启动：场景 → 仿真页参数 ────────────────────────────────────────────────
+// A1：**两条腿同时走**。URL 参数照旧发（深链接/刷新仍可用，参数仍是仿真页真正认的那几个），
+// 但**完整场景**（判据/记录器/感知/指令源/时长/地图）走 postMessage —— 塞进 URL 要么塞不下
+// 要么静默失效。握手：发 ready-request → 仿真页就绪后回 ready → **才发场景**（不等就绪就发，
+// 仿真页的策略清单还没填，"策略不在清单里"会把一次好场景误判成拒收；仿真页侧也会缓冲，
+// 这里等 ready 只是让正常情况下走正路）。
 function start() {
   const composed = composeScenario(state);
   if (!composed.ok) return;
@@ -267,6 +277,36 @@ function start() {
   const frame = $("advSimFrame");
   frame.src = `sim2sim/index.html?${toQuery(params)}`;
   $("scLastLaunch").textContent = `已启动：${toQuery(params)}`;
+  const message = toScenarioMessage(composed.scenario, { robot: state.robot, policy: state.policy });
+  const status = (text) => { $("scLastLaunch").textContent = text; };
+  const send = () => {
+    try {
+      frame.contentWindow?.postMessage(message, window.location.origin);
+      status(`已启动并交运完整场景（${toQuery(params)}）`);
+    } catch (error) {
+      status(`已启动，但场景交运失败：${error.message}`);
+    }
+  };
+  let sent = false;
+  const sendOnce = () => { if (!sent) { sent = true; send(); } };
+  frame.addEventListener("load", () => {
+    try {
+      frame.contentWindow?.postMessage({ type: "legged-studio:ready-request" }, window.location.origin);
+    } catch (error) { /* 下一行兜底 */ }
+    // 兜底：ready 回执慢/丢时不要卡住启动（仿真页侧有缓冲，晚到也会被应用）
+    window.setTimeout(sendOnce, 8000);
+  }, { once: true });
+  window.addEventListener("message", (event) => {
+    if (event.origin !== window.location.origin) return;
+    const data = event.data;
+    if (data?.type === "legged-studio:ready") { sendOnce(); return; }
+    if (data?.type !== "legged-studio:scenario-applied") return;
+    const result = data;
+    const skipped = (result.skipped || []).join("；");
+    status(result.ok
+      ? `场景已在仿真页生效（${(result.applied || []).length} 项）${result.pending ? "（就绪后应用）" : ""}${skipped ? `；未应用：${skipped}` : ""}`
+      : `仿真页拒收场景：${result.reason}`);
+  });
 }
 
 // ── 初始化 ───────────────────────────────────────────────────────────────

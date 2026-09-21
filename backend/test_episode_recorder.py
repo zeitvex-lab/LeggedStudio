@@ -248,3 +248,74 @@ class EpisodeApiEndToEndTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EpisodeImportRouteTests(unittest.TestCase):
+    """B4：浏览器运行产出的 episode 必须能落盘并被同一读侧读出。
+
+    防的回归：`EpisodeRecorder` 曾只在测试里实例化 ⇒ `/api/episode/list` 结构上恒空、
+    回放页永远空态。现在写侧是 `POST /api/episode/import`（浏览器场景跑完调用），
+    这里钉三件事：落盘布局与 recorder 一致、不覆盖既有 episode、非法 run/conn 拒收。
+    """
+
+    def setUp(self):
+        # 与既有用例同一套隔离：把 episode 根指到临时目录，绝不写用户主目录
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self._root = Path(self._tmp.name)
+        import backend.episode_api as api
+
+        original = api.episode_root
+        api.episode_root = lambda **kw: self._root
+        self.addCleanup(lambda: setattr(api, "episode_root", original))
+
+    def _client(self):
+        from fastapi.testclient import TestClient
+
+        from backend.api_complete import app
+
+        return TestClient(app)
+
+    def _payload(self, run="b4_case"):
+        return {
+            "run": run,
+            "conn": "browser-wasm",
+            "episode": 1,
+            "manifest": {"task": "scenario", "instruction": "b4", "extra": {"scenario_id": "b4"}},
+            "records": [
+                {"step": 0, "waypoints": [[0.0, 0.0]], "pointing": {"actual": [0.0, 0.0]}},
+                {"step": 1, "waypoints": [[0.5, 0.0]], "pointing": {"actual": [0.45, 0.02]}},
+            ],
+        }
+
+    def test_import_round_trip(self):
+        client = self._client()
+        response = client.post("/api/episode/import", json=self._payload())
+        self.assertEqual(200, response.status_code, response.text)
+        body = response.json()
+        self.assertEqual(2, body["steps"])
+        self.assertIn("replay_url", body)
+        # 同一读侧必须能读回来（布局一致），且 overlay 有预测/实际两条
+        detail = client.get(f"/api/episode/{body['run']}/browser-wasm/1")
+        self.assertEqual(200, detail.status_code, detail.text)
+        overlay = detail.json()["overlay"]
+        self.assertEqual([[0.0, 0.0], [0.5, 0.0]], overlay["predicted"])
+        self.assertEqual([[0.0, 0.0], [0.45, 0.02]], overlay["actual"])
+        self.assertFalse(overlay["offset_calibrated"], "浏览器运行未做相机标定，必须如实说未标定")
+
+    def test_import_refuses_overwrite(self):
+        client = self._client()
+        self.assertEqual(200, client.post("/api/episode/import", json=self._payload()).status_code)
+        again = client.post("/api/episode/import", json=self._payload())
+        self.assertEqual(409, again.status_code, "episode 是证据，不静默覆盖")
+
+    def test_import_rejects_traversal_names(self):
+        client = self._client()
+        for bad in ("../escape", "a/b", ".."):
+            response = client.post("/api/episode/import", json={**self._payload(), "run": bad})
+            self.assertEqual(400, response.status_code, f"run={bad} 必须拒收")
+
+    def test_import_requires_records(self):
+        client = self._client()
+        response = client.post("/api/episode/import", json={**self._payload(), "records": []})
+        self.assertEqual(400, response.status_code)

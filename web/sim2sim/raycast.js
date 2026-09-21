@@ -64,7 +64,7 @@ export function intersectSceneRay(
   data,
   origin,
   dir,
-  { maxDist = Infinity, types = RAYCAST_GEOM_TYPES, epsilon = 1e-4 } = {},
+  { maxDist = Infinity, types = RAYCAST_GEOM_TYPES, epsilon = 1e-4, worldBodyOnly = false } = {},
 ) {
   let best = -1;
   const ngeom = Number(model.ngeom || 0);
@@ -72,6 +72,10 @@ export function intersectSceneRay(
     const type = Number(model.geom_type[g]);
     if (!types.includes(type)) continue;
     const bodyId = Number(model.geom_bodyid[g]);
+    // worldBodyOnly：只认世界体（body 0）的 geom——**地形/障碍**才在 body 0 上，
+    // 机器人自己的碰撞体挂在子 body 上。高度场要的是地形高度（训练侧就是对地形函数
+    // 采样），不滤掉自身的话，机腹正下方的格子会读到底盘高度，"地形"被自身污染。
+    if (worldBodyOnly && bodyId !== 0) continue;
     const bq = [
       data.xquat[bodyId * 4], data.xquat[bodyId * 4 + 1],
       data.xquat[bodyId * 4 + 2], data.xquat[bodyId * 4 + 3],

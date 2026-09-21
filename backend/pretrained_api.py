@@ -148,49 +148,27 @@ async def download_pretrained_model(model_id: str, format: str = "pytorch"):
 
 @router.post("/{model_id}/demo")
 async def run_pretrained_demo(model_id: str, num_episodes: int = 5):
-    """运行预训练模型演示"""
-    try:
-        # 加载模型
-        index_file = PRETRAINED_DIR / "index.json"
+    """运行预训练模型演示。
 
-        if not index_file.exists():
-            raise HTTPException(status_code=404, detail="No pretrained models found")
-
-        models = json.loads(index_file.read_text(encoding="utf-8-sig"))
-
-        model = next((m for m in models if m['id'] == model_id), None)
-
-        if not model:
-            raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
-
-        # TODO: 实际运行演示
-        # 需要加载模型、创建环境、运行 episode
-
-        # 临时：模拟结果
-        demo_results = {
-            "model_id": model_id,
-            "num_episodes": num_episodes,
-            "avg_reward": model['avg_reward'],
-            "success_rate": model['success_rate'],
-            "episodes": [
-                {
-                    "episode": i,
-                    "reward": model['avg_reward'] + (i - num_episodes/2) * 5,
-                    "success": True
-                }
-                for i in range(num_episodes)
-            ]
-        }
-
-        return {
-            "success": True,
-            "demo_results": demo_results
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    **501 未实现，如实说**：此端点曾返回用索引 ``avg_reward`` 合成的假 episode
+    （"临时：模拟结果"）——本仓的原则是"没有评估报告就不算通过"，返回编造数比
+    404 更坏（404 让人去找原因，假 200 让人相信不存在的 rollout）。真实现需要
+    加载模型 + 创建环境 + 跑 episode，那是评测矩阵（`/api/evaluation/run`）的职责，
+    不该在这里造一份低保真副本。前端无消费方（dashboard.js 明确"不造假卡"）。
+    """
+    index_file = PRETRAINED_DIR / "index.json"
+    if not index_file.exists():
+        raise HTTPException(status_code=404, detail="No pretrained models found")
+    models = json.loads(index_file.read_text(encoding="utf-8-sig"))
+    if not any(m.get("id") == model_id for m in models):
+        raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
+    raise HTTPException(
+        status_code=501,
+        detail=(
+            "预训练模型演示未实现：跑真实 rollout 属于评测矩阵（POST /api/evaluation/run），"
+            "本端点不再返回编造的 episode 数据"
+        ),
+    )
 
 
 @router.post("/generate")

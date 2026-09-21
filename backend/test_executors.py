@@ -145,5 +145,51 @@ class SelectExecutorTest(unittest.TestCase):
         self.assertEqual({"server_mujoco", "browser_wasm"}, {item["id"] for item in described["executors"]})
 
 
+class ExecutorMatrixHttpSurfaceTest(unittest.TestCase):
+    """能力矩阵必须**有 HTTP 出口**（B1）：否则它只是测试 fixture。
+
+    防的回归：`select_executor` / `describe` 曾经零生产调用方——"契约允许但没人能跑"
+    在产品上完全看不见。现在场景编辑器与仿真页都经 `GET /api/simulation/executors`
+    读它，路由没了这两处立刻退化成"用镜像兜底"（功能还在，但真值源丢了）。
+    """
+
+    def test_route_is_registered_and_matches_describe(self):
+        from fastapi import FastAPI
+
+        from backend.api_complete import app as complete_app
+
+        paths = complete_app.openapi()["paths"]
+        self.assertIn("/api/simulation/executors", paths, "能力矩阵没有 HTTP 出口（B1 回潮）")
+
+        described = executors.describe()
+        for item in described["executors"]:
+            for anchor in item["anchors"]:
+                kind, _, value = anchor.partition(":")
+                if kind == "route":
+                    self.assertIn(value, paths, f"{item['id']} 的锚点路由不在 openapi 里：{value}")
+
+    def test_browser_mirror_matches_the_matrix(self):
+        """跨语言守卫：前端镜像（接口不可达时兜底）必须与 Python 矩阵逐值一致。
+
+        镜像是 `web/sim2sim/scenario_run.js` 的 `EXECUTOR_COMMAND_SOURCES`。
+        两边漂移的后果：页面上说"这个来源能跑"而矩阵说不能（或反过来）——而这种分歧
+        没有任何运行时会报错。
+        """
+
+        import re
+
+        js = (ROOT / "web" / "sim2sim" / "scenario_run.js").read_text(encoding="utf-8")
+        block = js[js.index("export const EXECUTOR_COMMAND_SOURCES"):]
+        block = block[:block.index("};")]
+        for item in executors.EXECUTORS:
+            match = re.search(rf'{item["id"]}:\s*\[([^\]]*)\]', block)
+            self.assertIsNotNone(match, f"JS 镜像里没有 {item['id']}")
+            mirrored = [part.strip().strip('"') for part in match.group(1).split(",") if part.strip()]
+            self.assertEqual(
+                list(item["supports"]["command_sources"]), mirrored,
+                f"{item['id']} 的指令来源镜像与矩阵不一致",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -24,16 +24,24 @@ import {
   sourceEnabled,
 } from "./sensor_dock.js";
 
-// 1) 默认插件：**本体感知开、外挂传感器关**（"插件可以选择"，要就勾上）
+// 1) 默认插件：**本体自知开、外挂传感器关**（"插件可以选择"，要就勾上）
+//    本体自知 = 不依赖外部世界模型的器件：一台盲狗只有 IMU 与电机编码器（编码器不是插件）。
+//    **odom 不算**：世界系位姿是外部估计管线（VIO/LiO/LO）的输出，全局定位仍是开放问题。
 {
   const plugins = defaultPlugins();
-  assert.equal(plugins.odom, true, "odom 是本体感知，默认开");
-  assert.equal(plugins.imu, true, "IMU 是本体感知，默认开");
+  assert.equal(plugins.odom, false, "odom 是外部里程计管线的输出，不是本体自知，默认关");
+  assert.equal(plugins.imu, true, "IMU 是本体自知，默认开（盲狗策略的输入之一）");
   assert.equal(plugins.depth, false, "深度相机是外挂传感器，默认关");
   assert.equal(plugins.height, false);
   assert.equal(plugins.lidar, false);
   assert.equal(plugins.rgb, false);
   assert.equal(Object.keys(plugins).length, SENSOR_PLUGINS.length);
+  // 派生视图（lidar_height_scan）**不是插件**——它与 LiDAR 共用一次扫描，再给一个开关
+  // 会让人以为那是另一个传感器
+  assert.ok(!("lidar_height_scan" in plugins), "派生视图不该出现在插件清单里");
+  // 只有 IMU 一个默认开——这与"盲狗强化学习用到的全部输入"一致
+  const enabledByDefault = Object.entries(plugins).filter(([, on]) => on).map(([id]) => id);
+  assert.deepEqual(enabledByDefault, ["imu"], "默认开启的传感器必须只有 IMU");
 }
 
 // 2) 悬浮窗归属：**只有高级仿真**（基础仿真只留 3D 视口与运行 HUD）
@@ -60,8 +68,12 @@ import {
     ["trail"],
     "默认只有不依赖插件的来源可用",
   );
-  const withDepth = availableSources({ depth: true, lidar: true });
-  assert.deepEqual(withDepth.map((s) => s.id), ["depth", "trail", "lidar", "cloud"]);
+  const withDepth = availableSources({ depth: true, lidar: true, height: true });
+  assert.deepEqual(
+    withDepth.map((s) => s.id),
+    ["depth", "height", "lidar_height_scan", "trail", "lidar", "cloud"],
+    "新来源（heightfield 187 / 雷达高度扫描）必须随插件出现",
+  );
   assert.equal(resolveSource("depth", {}), "trail", "当前来源被关 ⇒ 回落到第一个可选项");
   assert.equal(resolveSource("depth", { depth: true }), "depth", "仍可选则保持不变");
   assert.equal(resolveSource("nope", {}), "trail", "未知来源也要回落");
