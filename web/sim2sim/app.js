@@ -26,6 +26,7 @@ import {
 // 传感器框架：pattern 生成（对标 mjlab raycast_sensor 的三种 PatternCfg）+ 目录参数真值
 import { buildPattern } from "./sensors/sensor_patterns.js?v=0.46.0";
 import { aggregateHeightScan, patternParams } from "./sensors/sensor_catalog.js?v=0.46.0";
+import { createHeightScanLayer, createLidarLayer, createContactLayer, createImuAxes, updatePointsLayer } from "./sensors/sensor_layers.js?v=0.46.0";
 import {
   applyContactNoise,
   applyDepthNoise,
@@ -35,6 +36,7 @@ import {
   describeNoiseRegistry,
 } from "./sensors/sensor_runtime.js?v=0.46.0";
 import { EXECUTOR_COMMAND_SOURCES, unsupportedCommandSourceProblems } from "./scenario_run.js?v=0.46.0";
+import { heightPointColors, distancePointColors, contactVisualStates } from "./sensors/sensor_visual.js?v=0.46.0";
 import {
   applyMountEdit,
   availableSources,
@@ -631,6 +633,8 @@ const sim = {
   sensorNoise: createNoiseRegistry(0, false),
   // 坞内射线类扫描的节流状态（上次重扫时刻/来源）
   dockScan: { lastMs: -1e9, lastSource: "" },
+  // Isaac 风格 3D 可视化层（高度彩球 / LiDAR 点云 / 足底接触球 / IMU 轴）
+  sensorViz: {},
 };
 
 const view = {
@@ -3685,11 +3689,19 @@ async function frame(now) {
   // 暂停（sim.paused）只停 stepSimulation；syncVisualScene + renderer.render
   // 照常执行，冻结帧仍可旋转视角/缩放（对齐 mjswan 的 pause 语义）。
   if (sim.ready) {
-    syncVisualScene();
-    updateFollowCamera();
-    updateDragArrow();
-    updateTrail();
-    updateHud(false);
+    try {
+      syncVisualScene();
+      updateFollowCamera();
+      updateDragArrow();
+      updateTrail();
+      updateHud(false);
+    } catch (error) {
+      // HUD/可视化段的单帧异常（如 WASM 堆扩容瞬间视图 detach）只丢帧——
+      // 异常绝不能逃出 frame()：requestAnimationFrame 在函数末尾，逃逸即整循环卡死
+      // （2026-09-21 实测：detached ArrayBuffer 抛在 buildDebugState，画面/HUD 全冻结）。
+      view.frameErrorCount = (view.frameErrorCount || 0) + 1;
+      console.warn(`[sim2sim] hud error #${view.frameErrorCount}`, error);
+    }
   }
   // 诊断探针：骨盆高度 / 是否在跑
   try {
@@ -3708,6 +3720,135 @@ async function frame(now) {
   view.renderer.render(view.scene, view.camera);
   updatePerf(now);
   requestAnimationFrame(frame);
+}
+
+// ── Isaac 风格 3D 传感器可视化层 ────────────────────────────────────────────
+// 高度扫描 → 187 彩球、LiDAR → 距离点云、足底接触 → 半透明球、IMU → 坐标轴。
+// 数据侧在 sensor_visual.js（纯色映射），本节只做 THREE 对象的创建/更新/可见性。
+// 层的开关**跟随坞里的插件勾选**（勾高度 → 场景里出彩球）——同一个开关管两处视图，
+// 不另设第二份开关（两份必然漂移）。射线类扫描与坞同用 10 Hz 节流：这是"开雷达就卡"
+// 的教训（updateSensorPanels 处有完整注释），3D 层不重新犯一遍。
+function ensureSensorViz() {
+  if (!view.scene) return;
+  const viz = sim.sensorViz;
+  if (!viz.heightScan) {
+    viz.heightScan = createHeightScanLayer(187);
+    view.scene.add(viz.heightScan);
+  }
+  if (!viz.lidarScan) {
+    viz.lidarScan = createLidarLayer(240);
+    view.scene.add(viz.lidarScan);
+  }
+  if (!viz.contact) {
+    const contact = createContactLayer(["FL", "FR", "RL", "RR"]);
+    viz.contact = contact;
+    view.scene.add(contact.group);
+  }
+  if (!viz.imuAxes) {
+    viz.imuAxes = createImuAxes(0.08);
+    view.scene.add(viz.imuAxes);
+  }
+}
+
+/** 层可见性 ⇆ 坞插件勾选（每帧对齐，省一套事件接线）。 */
+function syncSensorVizVisibility(viz) {
+  const on = (id) => Boolean(dock.plugins && dock.plugins[id]);
+  viz.heightScan.visible = on("height");
+  viz.lidarScan.visible = on("lidar");
+  if (viz.contact) viz.contact.group.visible = on("foot_contact");
+  if (viz.imuAxes) viz.imuAxes.visible = on("imu");
+}
+
+/** 更新 3D 传感器可视化层：高度彩球、LiDAR 点云、足底接触球、IMU 轴。
+ *
+ *  每帧从 updateHud 调；射线扫描（187/240 条）按 DOCK_SCAN_INTERVAL_MS 节流后缓存，
+ *  读数组/摆位姿的部分逐帧（便宜）。不可见的层直接跳过——visible=false 不进 GPU 管线。
+ */
+function updateSensorViz() {
+  const viz = sim.sensorViz;
+  if (!viz.heightScan || !sim.qpos) return;
+  syncSensorVizVisibility(viz);
+  const basePos = [sim.qpos[0], sim.qpos[1], sim.qpos[2]];
+  const baseQuat = [sim.qpos[3], sim.qpos[4], sim.qpos[5], sim.qpos[6]];
+
+  // 高度扫描彩球：画在**真实命中点**（scanHeightField 的射线交点），颜色按地形
+  // 世界高度彩虹映射——与坞里 height 来源同一条数据（scan.world），两视图必然一致。
+  if (viz.heightScan.visible) {
+    if (!viz.heightCache || performance.now() - viz.heightCache.ms >= DOCK_SCAN_INTERVAL_MS) {
+      const scan = scanHeightField(basePos, baseQuat, sensorMount("height", {}));
+      viz.heightCache = { ms: performance.now(), scan };
+    }
+    const scan = viz.heightCache.scan;
+    const colors = heightPointColors(scan.world);
+    const positions = new Float32Array(scan.total * 3);
+    const colorArr = new Float32Array(scan.total * 3);
+    const points = scan.points || [];
+    for (let i = 0; i < scan.total; i += 1) {
+      const p = points[i];
+      if (p) {
+        positions[i * 3] = p[0]; positions[i * 3 + 1] = p[1]; positions[i * 3 + 2] = p[2];
+        colorArr[i * 3] = colors[i * 3]; colorArr[i * 3 + 1] = colors[i * 3 + 1]; colorArr[i * 3 + 2] = colors[i * 3 + 2];
+      } else {
+        positions[i * 3 + 2] = -999; // 未命中：藏远处 + 黑（同坞里黑槽口径）
+      }
+    }
+    updatePointsLayer(viz.heightScan, positions, colorArr);
+  }
+
+  // LiDAR 点云：真实射线的命中点（origin + dir·distance）+ 距离着色（近绿远红，
+  // miss/超量程黑）——不是"固定半径的方向环"：那是方向指示，不是雷达回波。
+  if (viz.lidarScan.visible) {
+    if (!viz.lidarCache || performance.now() - viz.lidarCache.ms >= DOCK_SCAN_INTERVAL_MS) {
+      const scan = scanLidar(basePos, baseQuat, sensorMount("lidar", {}));
+      viz.lidarCache = { ms: performance.now(), scan };
+    }
+    const scan = viz.lidarCache.scan;
+    const colors = distancePointColors(scan.distances, scan.maxDist);
+    const positions = new Float32Array(scan.count * 3);
+    const colorArr = new Float32Array(scan.count * 3);
+    for (let i = 0; i < scan.count; i += 1) {
+      const d = scan.distances[i];
+      const dir = scan.worldDirs[i];
+      if (dir && d >= 0 && d <= scan.maxDist) {
+        positions[i * 3] = scan.origin[0] + dir[0] * d;
+        positions[i * 3 + 1] = scan.origin[1] + dir[1] * d;
+        positions[i * 3 + 2] = scan.origin[2] + dir[2] * d;
+        colorArr[i * 3] = colors[i * 3]; colorArr[i * 3 + 1] = colors[i * 3 + 1]; colorArr[i * 3 + 2] = colors[i * 3 + 2];
+      } else {
+        positions[i * 3 + 2] = -999;
+      }
+    }
+    updatePointsLayer(viz.lidarScan, positions, colorArr);
+  }
+
+  // 足底接触球：只在**实际接触**时显示，画在命中 geom 的世界位（两种模型布局都真：
+  // 平台包的足球叫 FL/…，bundle 里足球无名——都从接触表反查，不靠猜名字）。
+  if (viz.contact && viz.contact.group.visible && sim.data) {
+    const scan = scanFootContacts();
+    const states = contactVisualStates(scan.feet);
+    for (const st of states) {
+      const mesh = viz.contact.spheres.get(st.name);
+      if (!mesh) continue;
+      const foot = scan.feet.find((f) => f.name === st.name);
+      if (!st.grounded || !foot || !(foot.geomId >= 0) || !sim.data.geom_xpos) {
+        mesh.visible = false;
+        continue;
+      }
+      const o = foot.geomId * 3;
+      mesh.position.set(sim.data.geom_xpos[o], sim.data.geom_xpos[o + 1], sim.data.geom_xpos[o + 2]);
+      mesh.material.color.setRGB(st.color[0], st.color[1], st.color[2]);
+      mesh.visible = true;
+    }
+  }
+
+  // IMU 轴：跟随装配位（红=x 绿=y 蓝=z）
+  if (viz.imuAxes && viz.imuAxes.visible) {
+    const mount = sensorMount("imu", {});
+    const imuOrigin = mountOriginWorld(basePos, baseQuat, mount.pos);
+    const imuQuat = quatMul(baseQuat, quatFromRpy(mount.rpy.map(deg2rad)));
+    viz.imuAxes.position.set(imuOrigin[0], imuOrigin[1], imuOrigin[2]);
+    viz.imuAxes.quaternion.set(imuQuat[1], imuQuat[2], imuQuat[3], imuQuat[0]);
+  }
 }
 
 /** 场景运行采样（A1）：每个**控制步**记一点；到 `episode_length_s` 就收打出摘要。 */
@@ -3738,7 +3879,21 @@ function sampleScenarioRun() {
   }
 }
 
+/** WASM 堆扩容后，旧的 TypedArray 视图会变 detached（%TypedArray%.prototype.values
+ *  抛 "detached or out-of-bounds ArrayBuffer"，2026-09-21 跑 83s 实测踩中）。`data.qpos`
+ *  这类 getter 每次访问都从**当前**堆重新包视图——所以每帧重取，不缓存。 */
+function refreshDataViews() {
+  if (!sim.data) return;
+  try {
+    sim.qpos = sim.data.qpos;
+    sim.qvel = sim.data.qvel;
+    sim.ctrl = sim.data.ctrl;
+  } catch (_) { /* 堆重分配竞态：丢一帧读数，下一帧自然恢复 */ }
+}
+
 async function stepSimulation() {
+  refreshDataViews();
+  ensureSensorViz();
   updateCommand();
   if (sim.counter % CONFIG.controlDecimation === 0) {
     activatePendingJumpCommand();
@@ -4882,16 +5037,36 @@ function classifyGeom(info) {
   return "visual";
 }
 
+// geom 名查表缓存：`mj_id2name` 每次调用都从 WASM 堆分配新字符串——接触扫描逐帧调用
+// 就是逐帧分配，堆被顶到扩容，旧 TypedArray 视图随之 detach（2026-09-21 实测的崩溃根源）。
+// 名字在模型生命周期内不变，按 geomId 缓存；换模型（sim.model 引用变化）整体失效。
+const _geomNameCache = { model: null, names: new Map(), bodies: new Map() };
+function geomNameCache() {
+  if (_geomNameCache.model !== sim.model) {
+    _geomNameCache.model = sim.model;
+    _geomNameCache.names.clear();
+    _geomNameCache.bodies.clear();
+  }
+  return _geomNameCache;
+}
+
 function geomName(geomId) {
   if (!sim.model || geomId == null || geomId < 0) return "";
+  const cache = geomNameCache();
+  if (cache.names.has(geomId)) return cache.names.get(geomId);
+  let name = "";
   try {
-    if (typeof sim.model.geom === "function") return sim.model.geom(geomId)?.name || "";
+    if (typeof sim.model.geom === "function") name = sim.model.geom(geomId)?.name || "";
   } catch (_) { /* use the C API below */ }
-  try {
-    return sim.mujoco.mj_id2name(sim.model, sim.objGeom, geomId) || "";
-  } catch (_) {
-    return "";
+  if (!name) {
+    try {
+      name = sim.mujoco.mj_id2name(sim.model, sim.objGeom, geomId) || "";
+    } catch (_) {
+      name = "";
+    }
   }
+  cache.names.set(geomId, name);
+  return name;
 }
 
 /** geom → **身体**名（`mjOBJ_BODY === 1`）。足底碰撞 geom 在浏览器 bundle 里**无名**
@@ -4901,12 +5076,17 @@ function geomName(geomId) {
  */
 function geomBodyName(geomId) {
   if (!sim.model || !Number.isInteger(geomId) || geomId < 0) return "";
+  const cache = geomNameCache();
+  if (cache.bodies.has(geomId)) return cache.bodies.get(geomId);
+  let name = "";
   try {
     const bodyId = Number(sim.model.geom_bodyid[geomId]);
-    return sim.mujoco.mj_id2name(sim.model, 1, bodyId) || `body${bodyId}`;
+    name = sim.mujoco.mj_id2name(sim.model, 1, bodyId) || `body${bodyId}`;
   } catch (_) {
-    return "";
+    name = "";
   }
+  cache.bodies.set(geomId, name);
+  return name;
 }
 
 function geometryKey(info) {
@@ -5403,6 +5583,7 @@ function updateHud(force) {
   const now = performance.now();
   if (!force && now - (view.lastHudUpdate || 0) < 80) return;
   view.lastHudUpdate = now;
+  refreshDataViews();
 
   const localVel = quatRotateInverse(sim.qpos.subarray(3, 7), sim.qvel.subarray(0, 3));
   const localAngVel = sim.qvel.subarray(3, 6);
@@ -5443,6 +5624,7 @@ function updateHud(force) {
   }
   elements.simClock.textContent = `时间 ${sim.data.time.toFixed(2)}`;
   updateSensorPanels();
+  updateSensorViz();
   updateExpertBars();
   publishDebugState();
 }
@@ -5510,7 +5692,12 @@ function scanHeightField(basePos, baseQuat, mount) {
   // 装配角一旦不是正朝下，那样算出来整个场都是等高，斜面扫描就成了一张纯色图。
   const terrain = distances.map((d, i) => (d < 0 ? null : origins[i][2] + down[2] * d));
   const field = terrain.map((h) => (h === null ? null : basePos[2] - h));
-  return { field, world: terrain, side, hits: distances.filter((d) => d >= 0).length, total: distances.length };
+  // 命中点的**世界坐标**：3D 彩球层直接画在这（Isaac 风格）——坞图与 3D 层同一条扫描，
+  // 两视图不会各画各的。
+  const points = distances.map((d, i) => (d < 0 ? null : [
+    origins[i][0] + down[0] * d, origins[i][1] + down[1] * d, origins[i][2] + down[2] * d,
+  ]));
+  return { field, world: terrain, points, side, hits: distances.filter((d) => d >= 0).length, total: distances.length };
 }
 
 /** LiDAR：同一原点的整圈扇扫。命中点留给点云复用 —— **两图同源才对得齐**。
@@ -5547,7 +5734,7 @@ function scanLidar(basePos, baseQuat, mount) {
  *  取不到时退回**接触数**作为着地判据，并如实标注用的是哪个口径）。
  */
 function scanFootContacts() {
-  const feet = ["FL", "FR", "RL", "RR"].map((name) => ({ name, grounded: false, force: 0, contacts: 0 }));
+  const feet = ["FL", "FR", "RL", "RR"].map((name) => ({ name, grounded: false, force: 0, contacts: 0, geomId: -1 }));
   if (!sim.data) return { feet, contactCount: 0, forceAvailable: false };
   const ncon = Number(sim.data.ncon || 0);
   const contact = sim.data.contact;
@@ -5581,6 +5768,8 @@ function scanFootContacts() {
       if (!foot) continue;
       foot.contacts += 1;
       foot.grounded = true;
+      // 记下命中 geom：3D 接触球要画在它的世界位（两种模型布局都真，见上文两条例）
+      if (foot.geomId < 0) foot.geomId = gid;
     }
   }
   // 退化模型（默认关）：迟滞 + 漏检，键为足名
@@ -5938,6 +6127,20 @@ function publishDebugState() {
   debugStateNode.textContent = JSON.stringify(buildDebugState());
 }
 
+/** WASM 视图快照：视图在"取引用 → Array.from"窗口里被堆扩容 detach 时（refreshDataViews
+ *  也挡不住窗口内的扩容），重取一次再试；仍失败就丢这一帧读数，不让异常上抛。 */
+function snapshotOf(getView) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const view = getView();
+      return view ? Array.from(view) : [];
+    } catch (_) {
+      refreshDataViews();
+    }
+  }
+  return [];
+}
+
 function maxAbs(values) {
   let result = 0;
   for (const value of values) result = Math.max(result, Math.abs(value));
@@ -6018,9 +6221,9 @@ function buildDebugState() {
         } catch (_) { return null; }
       })(),
     } : null,
-    qpos: sim.qpos ? Array.from(sim.qpos) : [],
-    qvel: sim.qvel ? Array.from(sim.qvel) : [],
-    ctrl: sim.ctrl ? Array.from(sim.ctrl) : [],
+    qpos: snapshotOf(() => sim.qpos),
+    qvel: snapshotOf(() => sim.qvel),
+    ctrl: snapshotOf(() => sim.ctrl),
     action: Array.from(sim.action),
     appliedAction: Array.from(sim.appliedAction),
     filteredAction: Array.from(sim.filteredAction),
