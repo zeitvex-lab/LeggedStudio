@@ -49,6 +49,8 @@ CONTROLLER_CATALOG: tuple[dict[str, str], ...] = (
         "implementation": "backend/follow_controller.py",
         "params_source": "registry/motion_commands.json#follow_controller",
         "evidence": "H12；浏览器 navigation.js#targetPoint 跟 plan.combined_path，本项是产品实际默认执行器",
+        # B2：可达面如实标注——"目录里有"与"产品里能选到"是两件事（2026-09-21 审计结论）。
+        "reachable_via": ["browser-wasm"],
     },
     {
         "name": "geometric",
@@ -57,6 +59,9 @@ CONTROLLER_CATALOG: tuple[dict[str, str], ...] = (
         "implementation": "backend/geometric_tracker.py",
         "params_source": "registry/motion_commands.json#geometric_tracker",
         "evidence": "控制律逐项取自 00_resources/jie_3d_nav/octo_planner/src/d1_controller.cpp",
+        # 控制律在库里有、产品面（HTTP/页面）没有入口：只有离线 A/B 工具能用。
+        "reachable_via": ["offline-tools"],
+        "reachable_note": "库已实现且测试齐；产品面接入属 B2 后续（服务端尚无策略循环可挂）",
     },
     {
         "name": "potential",
@@ -65,6 +70,8 @@ CONTROLLER_CATALOG: tuple[dict[str, str], ...] = (
         "implementation": "adapters/mjlab/nav_avoidance.py",
         "params_source": "registry/motion_commands.json#follow_controller（转向增益同源）",
         "evidence": "反应式控制器；H19 回归里多条路线卡死超时",
+        "reachable_via": ["offline-tools"],
+        "reachable_note": "同 geometric：库在、产品面无入口",
     },
     {
         "name": "dwa",
@@ -73,6 +80,8 @@ CONTROLLER_CATALOG: tuple[dict[str, str], ...] = (
         "implementation": "backend/dwa_planner.py",
         "params_source": "registry/motion_commands.json#local_planner",
         "evidence": "四个参考项目均未以其为主线；保留理由是净空硬约束 + 候选扇形可视化，以及作为回归里的负面对照",
+        # 唯一有 HTTP 入口的局部控制器：POST /api/navigation/local-plan（浏览器每 10 拍轮询）
+        "reachable_via": ["browser-wasm", "http"],
     },
     {
         "name": "mpc",
@@ -393,6 +402,17 @@ async def list_controllers():
         "product_default": next(
             (item["name"] for item in controllers if item["role"] == "product_default"), None
         ),
+        # B2：把"目录里有"与"产品里能选到"分开——消费方（编辑器/CLI）据此只提供
+        # 真能跑的选项，而不是让用户选到一个"选了也没人执行"的名字。
+        "reachable_summary": {
+            name: sorted({
+                surface
+                for item in controllers
+                if item["name"] == name
+                for surface in (item.get("reachable_via") or ["offline-tools"])
+            })
+            for name in {item["name"] for item in controllers}
+        },
         "measurement_source": {
             "path": measured.get("source"),
             "available": measured.get("available", False),

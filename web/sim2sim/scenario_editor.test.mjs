@@ -5,7 +5,10 @@
 //     （route=obs⇒policy、外部决策⇒有航点、route=obs⇒至少一项观测）；
 //   · **URL 映射**：只产出仿真页真正认的参数（不发明新参数，否则静默失效），
 //     且航点只在外部决策驱动时下发；
-//   · **启动闸门**（S2② 前端半边）：场景不合法或 A 类绑定缺项 ⇒ 不许启动，并给出缺什么/怎么修。
+//   · **启动闸门**（S2② 前端半边）：场景不合法或 A 类绑定缺项 ⇒ 不许启动，并给出缺什么/怎么修；
+//   · **执行器能力**（A2）：当前执行器跑不了的指令来源在组合期就拦（与 backend/executors.py
+//     的 UNSUPPORTED_CONTRACT_OPTIONS 同口径），且 URL 参数仍只发仿真页真正认的那些
+//     （完整场景走 postMessage —— 见 scenario_run.test.mjs）。
 //
 // 另加一条**防漂移**核对：组合出的每个字段都必须存在于 `contracts/schema/scenario-contract-1.1.schema.json`
 // —— 契约改字段而这里没跟，本测试就红（与 terrain_groups.test.mjs 核对 _index.json 同一手法）。
@@ -19,6 +22,7 @@ import {
   enabledPerceptionItems,
   toQuery,
   toSimParams,
+  unsupportedCommandSourceProblems,
   SCENARIO_ID_RE,
   SCENARIO_STEPS,
   stepHint,
@@ -200,4 +204,45 @@ const SCHEMA = JSON.parse(
   assert.equal(stepHint("no_such_step"), "", "未知步骤回退空串而不是抛错");
 }
 
-console.log("scenario_editor.test.mjs: 11 组断言全部通过 ✔");
+// 12) A2 执行器能力：浏览器跑不了的指令来源在组合期就拦（与 executors.py 同口径）
+{
+  assert.deepEqual(unsupportedCommandSourceProblems("policy"), [], "policy 到处能跑");
+  assert.deepEqual(unsupportedCommandSourceProblems("planner"), []);
+  assert.deepEqual(unsupportedCommandSourceProblems("teleop"), []);
+  const script = unsupportedCommandSourceProblems("script");
+  assert.equal(script.length, 1);
+  assert.match(script[0], /command_source=script/);
+  assert.match(script[0], /服务端执行器/);
+  const perception = unsupportedCommandSourceProblems("perception");
+  assert.match(perception[0], /感知进观测链路/);
+  // 换了执行器（服务端）就不再是浏览器这一套限制
+  assert.deepEqual(unsupportedCommandSourceProblems("script", "server_mujoco"), []);
+  // 组合期也要拦住：选了 script 的场景不许 ok（页面上提前拦，理由是同一套）
+  const state = defaultState();
+  state.commandSource = "script";
+  const composed = composeScenario(state);
+  assert.equal(composed.ok, false, "script 场景不许组合通过");
+  assert.ok(composed.problems.some((text) => text.includes("command_source=script")), composed.problems.join(" | "));
+  // 换回 planner + 给航点 ⇒ 恢复可组合（证明拦的是指令来源，不是别的）
+  state.commandSource = "planner";
+  state.waypoints = [{ x: 1, y: 1 }, { x: 2, y: 2 }];
+  assert.equal(composeScenario(state).ok, true);
+}
+
+// 13) A1：URL 参数仍然只发仿真页真正认的那些（完整场景走 postMessage，见 scenario_run.test.mjs）
+{
+  const state = defaultState();
+  state.commandSource = "planner";
+  state.waypoints = [{ x: 1, y: 1 }, { x: 2, y: 2 }];
+  const { scenario } = composeScenario(state);
+  const params = toSimParams(scenario, { robot: "unitree_go2", policy: "go2-loco-45" });
+  // URL 里没有的字段不是"忘了发"——它们在 postMessage 的完整场景里（防回归：别把它们塞回 URL）
+  for (const key of ["perception", "checks", "recorders", "command_source", "episode_length_s", "mode"]) {
+    assert.ok(!(key in params), `${key} 不该出现在 URL 参数里（走 postMessage）`);
+  }
+  assert.deepEqual(Object.keys(params).sort(), ["autoplay_absent", "embedded", "nav", "nav_waypoints", "policy", "robot", "seed", "surface", "terrain", "view"].filter((k) => k !== "autoplay_absent").sort());
+  assert.equal(params.nav_waypoints, "1,1;2,2");
+  assert.equal(params.terrain, "flat");
+}
+
+console.log("scenario_editor.test.mjs: 13 组断言全部通过 ✔");

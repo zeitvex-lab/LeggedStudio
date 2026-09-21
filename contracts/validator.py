@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List
 from dataclasses import dataclass
 import hashlib
+import json
 import xml.etree.ElementTree as ET
 
 from contracts.contract_legacy_v2 import ContractLegacyV2
@@ -59,6 +60,27 @@ def package_digest(entries: Iterable[tuple[Path, bytes]]) -> str:
         digest.update(normalize_line_endings(data))
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+def canonical_sha256(payload: Any) -> str:
+    """**内存对象**的规范化摘要（sha256 全串）：摘要之家对"非文件字节"口径的唯一实现。
+
+    规范化 = ``sort_keys`` + 紧凑分隔符 + 保留非 ASCII（不转义），因此键顺序、平台、
+    locale 都不影响结果 —— 同一份内容在任何机器上得到同一个摘要。
+
+    与 :func:`normalized_sha256` 的分工（**不是重复**）：
+
+    * :func:`normalized_sha256` / :func:`package_digest` 吃的是**落盘工件字节**，
+      必须先做 CRLF → LF 归一，否则同一份资产在 Windows 与 CI 上得到两个哈希；
+    * 本函数吃的是**已解析的内存结构**（运行规格、请求体），根本没有行尾概念。
+
+    高级仿真的 ``spec_digest``（"两次 resolve 是不是同一个运行"）用它，
+    这样"参数来源顺序变了"不会被误判成"运行变了"。非 JSON 可序列化的输入直接抛
+    （不静默 ``default=str`` —— 那会让两种不同对象算出同一个摘要）。
+    """
+
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 @dataclass

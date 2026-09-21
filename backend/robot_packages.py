@@ -199,6 +199,21 @@ SYNC_REVISION = "6"
 _POLICY_LIST_KEYS = ("policies", "demo_policies")
 
 
+def _file_signature(path: Path) -> str:
+    """单文件的 ``(字节数, mtime_ns)`` 签名（不存在记 ``-``）。
+
+    与 :func:`_tree_digest` 同思路但用于**单文件**：签名必须感知**内容级**变更，
+    只记存在与否是不够的——`simulation/config.json` 增删策略声明正是这类变更
+    （2026-09-21 实测踩中：新登记两条策略后 `/api/robots/presets/<id>` 仍返回旧
+    策略清单，场景编辑器的策略下拉因此选不到新策略，而 `browser-config` 是新的）。
+    """
+    try:
+        stat = path.stat()
+    except OSError:
+        return "-"
+    return f"{stat.st_size}:{stat.st_mtime_ns}"
+
+
 def _tree_digest(directory: Path) -> str:
     """``(相对路径, 字节数, mtime_ns)`` 的顺序摘要——用于感知**内容级**变更。
 
@@ -234,13 +249,18 @@ def _package_signature() -> str:
     """Cheap freshness signature over both package roots.
 
     Covers: which package dirs exist, the mtimes of each contract / manifest,
-    and a **content digest** of each package's ``training/profiles`` +
-    ``training/source``.  Any add / edit / delete flips the signature so the
+    a **content digest** of each package's ``training/profiles`` +
+    ``training/source``, and a file signature of ``simulation/config.json`` /
+    ``training/config.json`` (policy and training declarations live there, so
+    editing them must flip the index).
+    Any add / edit / delete flips the signature so the
     persisted index can be auto-refreshed (fixes "stale index" bugs where newly
     added robots never showed up in the desktop app) **and** so the shipped →
     workspace content sync actually runs after the source tree changes
     (2026-09-20：内容摘要取代原先的"profiles 目录 mtime+计数"——后者看不见内容编辑，
-    更看不见 `training/source` 的一切变化，见 `_tree_digest`）。
+    更看不见 `training/source` 的一切变化，见 `_tree_digest`；2026-09-21：补
+    `simulation/config.json`——只覆盖训练侧时，新登记策略不换索引，presets 与
+    browser-config 两端不一致）。
 
     ``sync_rev`` is a code-owned revision of the content-sync rules: bump it
     whenever the sync itself gains a new duty so existing installs re-run the
@@ -268,6 +288,11 @@ def _package_signature() -> str:
                     parts.append(f"{name}/{rel}:-")
             for rel in ("model", "training/profiles", "training/source"):
                 parts.append(f"{name}/{rel}@{_tree_digest(pkg / rel)}")
+            # 策略声明在 `simulation/config.json`（与 `training/config.json`）里：
+            # 不纳入签名的话，增删策略不换索引 ⇒ presets 返回旧策略清单（编辑器选不到
+            # 新策略），而 browser-config 每次现算所以是新的——两端不一致。
+            for rel in ("simulation/config.json", "training/config.json"):
+                parts.append(f"{name}/{rel}@{_file_signature(pkg / rel)}")
     return "|".join(parts)
 
 

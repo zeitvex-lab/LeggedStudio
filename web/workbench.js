@@ -619,6 +619,9 @@ function setView(name, options = {}) {
   // （#assetLibraryGrid），不再有独立 assets 视图。
   const framePages = {
     navmap: ['navMapFrame', 'advanced_sim.html?v=0.46.0&embedded=1'],
+    // B4：episode 回放页。此前它是个**无链接的孤儿页**（只有测试和手输 URL 能到），
+    // 而浏览器场景跑完现在会把 episode 落盘——没有入口的话数据进去了也没人看得到。
+    replay: ['replayFrame', 'sim2sim/episode_replay.html?v=0.44.0&embedded=1'],
     deploy: ['deployFrame', 'deploy.html?v=0.44.0&embedded=1'],
     artifacts: ['artifactsFrame', 'artifacts.html?v=0.44.0&embedded=1'],
   };
@@ -645,7 +648,7 @@ function setView(name, options = {}) {
   document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active-view', view.id === name));
   // 全出血视图（iframe 内嵌页与 Sim2Sim）不带 content 内边距，精确填满
   // main-area 剩余高度；首页/机器人工作台保留常规卡片留白。
-  const fullBleed = ['config', 'training', 'simulation', 'navmap', 'deploy', 'artifacts'].includes(name);
+  const fullBleed = ['config', 'training', 'simulation', 'navmap', 'replay', 'deploy', 'artifacts'].includes(name);
   document.querySelector('.content')?.classList.toggle('content-fullbleed', fullBleed);
   // Sidebar + workflow progress both carry data-step targets.
   document.querySelectorAll('.side-item').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
@@ -1163,4 +1166,4 @@ function bindEvents() {
   $('saveRobotPackage')?.addEventListener('click', saveRobotPackage); $('refreshRobotPackages')?.addEventListener('click', () => loadPresets(selectedPreset?.robot_id)); $('deleteRobotPackage')?.addEventListener('click', async () => { if (!selectedPreset || selectedPreset.source !== 'workspace') return; if (!confirm('删除当前机器人包？')) return; await jsonFetch('/api/project/packages/' + encodeURIComponent(selectedPreset.robot_id), { method: 'DELETE' }); selectedPreset = null; await loadPresets(); });
   $('validateBtn').addEventListener('click', validateModel); $('startSimulation')?.addEventListener('click', startSimulation); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
 }
-document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home','robot','config','training','simulation','navmap','deploy','artifacts'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });
+document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home','robot','config','training','simulation','navmap','replay','deploy','artifacts'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });

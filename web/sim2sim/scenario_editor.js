@@ -29,6 +29,14 @@ export const RECORDER_OPTIONS = ["trajectory", "metrics"];
 /** 需要航点的命令来源（B 类外部决策）——契约里"没目标就不算导航"。 */
 export const WAYPOINT_SOURCES = ["planner", "perception"];
 
+// A2：**执行器能力**决定哪些指令来源真能跑。默认执行器 = 浏览器 WASM（编辑器当前唯一
+// 启动目标）。真值在 `backend/executors.py` 的能力矩阵，页面经 `GET /api/simulation/executors`
+// 现取（B1）；纯逻辑这里只做镜像 + 判据（"契约允许但没人能跑"必须在这里被拦住，而不是
+// 让用户启动后才发现）。
+import { unsupportedCommandSourceProblems } from "./scenario_run.js";
+
+export { unsupportedCommandSourceProblems };
+
 /**
  * 编辑器的**步骤表**（声明式，交互范式抄 `00_resources/references_1000framesai/shared_nav.js`
  * 的 `STEPS`：**加一段 = 加一条**，其余代码不动）。
@@ -103,7 +111,7 @@ export function enabledPerceptionItems(perception) {
  *   2. `route=obs`（A 类）⇒ `command_source` 必须为 `policy`；
  *   3. `command_source ∈ {planner, perception}` ⇒ 必须有航点。
  */
-export function composeScenario(state) {
+export function composeScenario(state, { executor = "browser_wasm" } = {}) {
   const input = state || {};
   const problems = [];
 
@@ -130,6 +138,8 @@ export function composeScenario(state) {
   if (WAYPOINT_SOURCES.includes(commandSource) && !waypoints.length) {
     problems.push(`command_source=${commandSource} 需要至少一个航点（没有目标就判不出到达）`);
   }
+  // A2：执行器跑不了的指令来源在页面上就拦（真值来自 /api/simulation/executors）
+  problems.push(...unsupportedCommandSourceProblems(commandSource, executor));
   if (routeIntent === "obs" && enabledPerceptionItems(perception).length === 0) {
     problems.push("感知 route=obs 但一个观测项都没启用 —— 没有可绑定的东西，绑定校验也无从谈起");
   }

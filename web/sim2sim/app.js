@@ -13,7 +13,9 @@ import { createPieDepth } from "./pie_depth.js?v=0.46.0";
 // 观测面板绘制器（深度帧 / 俯视高度场 / 极坐标扫描 / 点云散点 / 2D 轨迹平面）。
 // 纯函数 + 注入 ctx：能画什么由参数决定，模块不读 sim / DOM，所以 Node 单测能覆盖。
 import {
+  drawContactStates,
   drawDepthFrame,
+  drawHeightGrid,
   drawHeightField,
   drawPointCloud,
   drawPolarScan,
@@ -21,6 +23,18 @@ import {
 } from "./sensor_panels.js";
 // 传感器视图悬浮窗：来源清单 / 插件清单 / 读数 / 装配与采样规格
 // （纯逻辑在那边，这里只接线）。
+// 传感器框架：pattern 生成（对标 mjlab raycast_sensor 的三种 PatternCfg）+ 目录参数真值
+import { buildPattern } from "./sensors/sensor_patterns.js?v=0.46.0";
+import { aggregateHeightScan, patternParams } from "./sensors/sensor_catalog.js?v=0.46.0";
+import {
+  applyContactNoise,
+  applyDepthNoise,
+  applyImuNoise,
+  applyRangeNoise,
+  createNoiseRegistry,
+  describeNoiseRegistry,
+} from "./sensors/sensor_runtime.js?v=0.46.0";
+import { EXECUTOR_COMMAND_SOURCES, unsupportedCommandSourceProblems } from "./scenario_run.js?v=0.46.0";
 import {
   applyMountEdit,
   availableSources,
@@ -38,6 +52,14 @@ import {
   SENSOR_PLUGINS,
   sensorMount,
 } from "./sensor_dock.js?v=0.55.0";
+// A1 场景运行侧：交运消息解析 + 判据/度量/记录器产物（纯逻辑在那边，这里只接线）。
+import {
+  buildRunSummary,
+  parseScenarioMessage,
+  recorderArtifacts,
+  SCENARIO_MESSAGE_TYPE,
+  tracePoint,
+} from "./scenario_run.js?v=0.46.0";
 // 几何求交与四元数工具：深度 / 高度 / LiDAR / 点云 / 单点测距**共用同一套**，
 // 采样几何（起点网格、扇扫方向）也在这儿 —— 见 raycast.js 头部说明。
 import {
@@ -322,6 +344,16 @@ function renderDockPlugins() {
       <input type="checkbox" data-plugin="${p.id}"${dock.plugins[p.id] ? " checked" : ""} />
       <span>${p.label} · ${p.onboard ? "本体" : "外挂"}</span>
     </label>`).join("");
+  // 退化模型开关：**默认关**（历史读数均为理想值）。开了按当前场景种子可复现地退化，
+  // 摘要显示在读数 note 里——"这次读数是理想值还是退化值"必须看得见。
+  const noiseBox = dockPluginsBox.querySelector('[data-noise-toggle]');
+  if (noiseBox) {
+    noiseBox.checked = sim.sensorNoise.enabled;
+    noiseBox.addEventListener("change", () => {
+      sim.sensorNoise = createNoiseRegistry(Number(PAGE_PARAMS.get("seed") || 0), noiseBox.checked);
+      console.info("[sim2sim] sensor noise", describeNoiseRegistry(sim.sensorNoise));
+    });
+  }
   dockPluginsBox.querySelectorAll("[data-plugin]").forEach((box) => {
     box.addEventListener("change", () => {
       dock.plugins[box.dataset.plugin] = box.checked;
@@ -579,6 +611,26 @@ const sim = {
   jumpActive: false,
   jumpStartPending: false,
   g1PhaseS: 0,
+  // A1 场景运行态：交运来的完整场景 + 轨迹采样 + 判据/摘要。场景说了算——
+  // 未声明的判据不跑、未声明的记录器不造文件（见 scenario_run.js）。
+  scenario: null,
+  scenarioRun: {
+    trace: [],
+    active: false,
+    deadlineS: null,
+    summary: null,
+    applied: null,
+    refusedReason: "",
+  },
+  // 就绪前到达的场景（父页不等 ready 回执就发的情况）——就绪后应用，不丢不假拒
+  pendingScenario: null,
+  // B1：执行器能力矩阵（GET /api/simulation/executors）——指令来源能不能跑由它判
+  executorMatrix: null,
+  // 传感器退化模型（框架 sensors/sensor_runtime.js）。**默认关**——历史读数均为理想值，
+  // 默认打开会静默改变所有读数与策略表现。开了就按场景种子可复现地退化。
+  sensorNoise: createNoiseRegistry(0, false),
+  // 坞内射线类扫描的节流状态（上次重扫时刻/来源）
+  dockScan: { lastMs: -1e9, lastSource: "" },
 };
 
 const view = {
@@ -673,6 +725,52 @@ window.addEventListener("message", (event) => {
   resize(Number(event.data.width), Number(event.data.height));
 });
 
+// A1：场景交运的**接收侧**。编辑器（advanced_sim.html 的 iframe 父页）把完整 Scenario
+// 用 postMessage 送进来 —— 不再是 7 个有损 URL 参数。握手两步：
+//   ① 本页就绪后向父页发 ready（父页据此重发，防"消息比页面先到"）；
+//   ② 收到场景后应用，并把**应用结果**回给父页（拒收也要说清理由，不让编辑器假绿）。
+window.addEventListener("message", (event) => {
+  if (event.origin !== window.location.origin) return;
+  const data = event.data;
+  if (!data || typeof data !== "object") return;
+  if (data.type === "legged-studio:ready-request") {
+    // 编辑器问"你在吗"——就绪才答；未就绪时它会在 load 事件里重试
+    if (sim.ready) postToParent({ type: "legged-studio:ready" });
+    return;
+  }
+  if (data.type !== SCENARIO_MESSAGE_TYPE) return;
+  const verdict = parseScenarioMessage(event);
+  if (!verdict.ok) {
+    sim.scenarioRun.refusedReason = verdict.reason;
+    postToParent({ type: "legged-studio:scenario-applied", ok: false, reason: verdict.reason });
+    return;
+  }
+  // 页面还没就绪（模型/策略清单未加载）就到了 ⇒ **先存着**，就绪后应用。直接应用会让
+  // "策略不在清单里"这类假拒绝发生（策略下拉还没填），而用户看到的是"场景被拒"。
+  if (!sim.ready) {
+    sim.pendingScenario = verdict.payload;
+    postToParent({ type: "legged-studio:scenario-applied", ok: true, reason: "", pending: true });
+    return;
+  }
+  applyScenario(verdict.payload).then(
+    (result) => postToParent({ type: "legged-studio:scenario-applied", ...result }),
+    (error) => postToParent({
+      type: "legged-studio:scenario-applied",
+      ok: false,
+      reason: `应用场景失败：${error?.message || String(error)}`,
+    }),
+  );
+});
+
+function postToParent(message) {
+  if (window.parent === window) return;
+  try {
+    window.parent.postMessage(message, window.location.origin);
+  } catch (error) {
+    console.warn("[sim2sim] postMessage to parent failed", error);
+  }
+}
+
 async function init() {
   try {
     initExpertBars();
@@ -682,6 +780,14 @@ async function init() {
     applyDeterministicReplayFromUrl();
     await loadRobotOptions();
   await initNavigationFromUrl();
+    // 执行器能力矩阵（B1）：拿不到不阻塞页面（框架目录里的镜像兜底），但要在场景应用前
+    // 尽力拿到——"这个指令来源到底能不能跑"由它判，不由页面里的副本判。
+    try {
+      const response = await fetch("/api/simulation/executors", { cache: "no-store" });
+      if (response.ok) sim.executorMatrix = await response.json();
+    } catch (error) {
+      console.info("[sim2sim] executor matrix unavailable; using bundled mirror", error?.message || error);
+    }
     setStatus(elements.engineStatus, "MuJoCo 初始化中", "pending");
     setStatus(elements.policyStatus, "ONNX 策略初始化中", "pending");
     sim.platformConfig = await loadPlatformConfig();
@@ -720,7 +826,12 @@ async function init() {
     const tScene = await setLoadingPainted(0.62, "④ 编译 MuJoCo 场景...");
     // Always start with the package's explicitly declared flat scene when
     // available. Complex terrains are opt-in after the model is visible.
-    const initialScene = sim.platformConfig?.sim?.asset_package?.scenes?.find((name) => /(^|\/)flat\.xml$/i.test(name))
+    // **但 URL 的地形参数就是那个 opt-in**：`?terrain=warehouse`（场景编辑器按
+    // map_id 发）若被这里无条件覆盖成 flat，用户选的地图就静默失效——编辑器说
+    // warehouse、仿真跑平地面。故 URL 优先，解析不到才回落包内 flat。
+    const urlScene = resolveTerrainName(URL_TERRAIN, sim.platformConfig?.sim?.asset_package?.scenes || []);
+    const initialScene = urlScene
+      || sim.platformConfig?.sim?.asset_package?.scenes?.find((name) => /(^|\/)flat\.xml$/i.test(name))
       || elements.terrainSelect.value;
     elements.terrainSelect.value = initialScene;
     await loadTerrain(initialScene);
@@ -1035,6 +1146,8 @@ async function loadPolicyFromConfig(config, initial = false) {
   sim.policyInfo = inspectPolicy(session, contract);
   // 深度策略（PIE）：浏览器端 raycast 渲染深度历史。
   sim.pieDepth = sim.policyInfo.depthName ? createPieDepth({ sim, contract }) : null;
+  // C2：场景在策略加载前到达时挂起的 A 类绑定校验，在这里判（fail-closed：不过就停）
+  verifyScenarioPerceptionBinding();
   sim.depthHistory = sim.pieDepth ? [] : null;
   sim.depthCounter = 0;
   // encoder+policy 双模型（TRON1 等）：额外加载 encoder 会话。
@@ -3195,6 +3308,21 @@ async function loadTerrain(xmlName) {
     sim.currentTerrain = xmlName;
     setStatus(elements.engineStatus, "MuJoCo 已就绪", "ready");
     elements.loading.classList.add("is-hidden");
+    // A1 握手：告诉父页（场景编辑器）"我可以收场景了"——它可能在页面就绪前就发过消息。
+    postToParent({ type: "legged-studio:ready" });
+    // 就绪前到达的场景在此应用（缓冲见 message handler）
+    if (sim.pendingScenario) {
+      const payload = sim.pendingScenario;
+      sim.pendingScenario = null;
+      applyScenario(payload).then(
+        (result) => postToParent({ type: "legged-studio:scenario-applied", ...result }),
+        (error) => postToParent({
+          type: "legged-studio:scenario-applied",
+          ok: false,
+          reason: `应用场景失败：${error?.message || String(error)}`,
+        }),
+      );
+    }
   } catch (error) {
     try { nextData?.delete?.(); } catch (_) { /* no-op */ }
     try { nextModel?.delete?.(); } catch (_) { /* no-op */ }
@@ -3441,6 +3569,13 @@ function resetSimulation() {
   seedHistory(sim.obs);
   syncVisualScene();
   updateHud(true);
+  // 场景运行随之**重新开始**（R 键/重置按钮都走这里）：旧轨迹与旧摘要不作数——
+  // 留着会让"上一趟的判据结论"冒充这一趟的。
+  if (sim.scenarioRun.active && sim.scenario) {
+    sim.scenarioRun.trace = [];
+    sim.scenarioRun.summary = null;
+    renderScenarioPanel();
+  }
 }
 
 function initializePayloadMass() {
@@ -3575,12 +3710,41 @@ async function frame(now) {
   requestAnimationFrame(frame);
 }
 
+/** 场景运行采样（A1）：每个**控制步**记一点；到 `episode_length_s` 就收打出摘要。 */
+function sampleScenarioRun() {
+  const run = sim.scenarioRun;
+  if (!run.active || !sim.scenario || !sim.qpos) return;
+  const pose = poseFromQpos(sim.qpos);
+  const quat = [sim.qpos[3], sim.qpos[4], sim.qpos[5], sim.qpos[6]];
+  const rpy = quatToRpy(quat);
+  const fallen = sim.qpos[2] < 0.12 || Math.abs(rpy[0]) > 1.2 || Math.abs(rpy[1]) > 1.2;
+  run.trace.push(tracePoint({
+    t: sim.data?.time ?? 0,
+    x: pose.x,
+    y: pose.y,
+    yawDeg: (pose.yaw ?? 0) * 180 / Math.PI,
+    rollDeg: rpy[0] * 180 / Math.PI,
+    pitchDeg: rpy[1] * 180 / Math.PI,
+    vx: sim.cmd[0] ?? 0,
+    vy: sim.cmd[1] ?? 0,
+    wz: sim.cmd[2] ?? 0,
+    fallen,
+  }));
+  if (run.trace.length % 50 === 0) renderScenarioPanel();
+  if (run.deadlineS !== null && (sim.data?.time ?? 0) >= run.deadlineS) {
+    sim.paused = true;
+    elements.playButton.textContent = "继续";
+    finishScenarioRun(`到达场景时长上限 ${run.deadlineS}s`);
+  }
+}
+
 async function stepSimulation() {
   updateCommand();
   if (sim.counter % CONFIG.controlDecimation === 0) {
     activatePendingJumpCommand();
     await runPolicy();
     OBSERVATION.advanceWheelLegGaitClock();
+    sampleScenarioRun();
   }
   advanceMotorDelay();
 
@@ -4029,8 +4193,10 @@ function readImuSample() {
   if (!sim.imuSamples.length) recordImuSample();
   const requested = input.imuDelayEnabled ? randomDelaySteps(input.imuDelayMaxSteps) : 0;
   input.imuDelaySampleSteps = Math.min(requested, Math.max(0, sim.imuSamples.length - 1));
-  return sim.imuSamples[sim.imuSamples.length - 1 - input.imuDelaySampleSteps]
+  const sample = sim.imuSamples[sim.imuSamples.length - 1 - input.imuDelaySampleSteps]
     || captureImuSample();
+  // 退化模型只作用在**读数出口**（观测构造与坞的显示同源），且默认关——见 sim.sensorNoise。
+  return applyImuNoise(sim.sensorNoise, sample) || sample;
 }
 
 
@@ -4728,6 +4894,21 @@ function geomName(geomId) {
   }
 }
 
+/** geom → **身体**名（`mjOBJ_BODY === 1`）。足底碰撞 geom 在浏览器 bundle 里**无名**
+ *  （`web/sim2sim/assets/go2/go2.xml` 只给 base 三块命了名），但承载它的身体叫
+ *  `FL_calf`/`FR_calf`/… —— 所以接触归属按**身体**做，这也正是训练栈
+ *  `mjlab/sensor/contact_sensor.py` 的做法（它按名字把 primary 元素解析成一组再逐项取）。
+ */
+function geomBodyName(geomId) {
+  if (!sim.model || !Number.isInteger(geomId) || geomId < 0) return "";
+  try {
+    const bodyId = Number(sim.model.geom_bodyid[geomId]);
+    return sim.mujoco.mj_id2name(sim.model, 1, bodyId) || `body${bodyId}`;
+  } catch (_) {
+    return "";
+  }
+}
+
 function geometryKey(info) {
   const type = info.type;
   if (type === sim.geomType.mesh) return `mesh:${meshIdFromGeom(info)}`;
@@ -5301,10 +5482,18 @@ function sizeDockCanvas(width, height) {
 /** 高度扫描：机周网格**起点**、射线都朝下，命中处换算出世界系高度。
  *
  *  **变的是起点不是方向**（与 LiDAR 的扇扫正好相反，见 `raycast.js::gridOffsets`）。
- *  返回行优先的一维数组，未命中的格子给 `null`（绘制时会画成空槽）。 */
+ *  返回行优先的一维数组，未命中的格子给 `null`（绘制时会画成空槽）。
+ *  **pattern 参数取自传感器框架目录**（`sensors/sensor_catalog.js` 的 height 条目，
+ *  与训练栈 mjlab GridPatternCfg 同语义）——不再在这里写死 24×24。 */
 function scanHeightField(basePos, baseQuat, mount) {
+  // 网格契约取自框架目录（187 = 17×11，x 主序，与 backend/height_scan.py 逐值一致）——
+  // A 类感知绑定认的是这一份；坞里此前的 24×24 只是"画着好看"，与契约不同格。
+  // SCAN_SPECS.height 只在目录缺失时兜底。
   const spec = SCAN_SPECS.height;
-  const { offsets, side } = gridOffsets(spec.side, spec.extent);
+  const grid = patternParams("height")?.grid || {};
+  const pattern = buildPattern("grid", patternParams("height")) || gridOffsets(spec.side, spec.extent);
+  const offsets = pattern.offsets || [];
+  const side = grid.nx ? grid.ny : (pattern.count ? Math.round(Math.sqrt(pattern.count)) : spec.side);
   const mountQuat = quatFromRpy(mount.rpy.map(deg2rad));
   const [down] = mountRayDirections(baseQuat, mountQuat, [[0, 0, -1]]);
   const anchor = mountOriginWorld(basePos, baseQuat, mount.pos);
@@ -5314,18 +5503,30 @@ function scanHeightField(basePos, baseQuat, mount) {
     return [anchor[0] + shift[0], anchor[1] + shift[1], anchor[2] + shift[2]];
   });
   const distances = intersectSceneRays(
-    sim.model, sim.data, origins, origins.map(() => down), { maxDist: spec.maxDist },
+    sim.model, sim.data, origins, origins.map(() => down), { maxDist: spec.maxDist, worldBodyOnly: true },
   );
-  // 高度 = 起点 z + 方向 z × 距离。**不能直接取起点 z**：装配角一旦不是正朝下，
-  // 那样算出来整个场都是等高，斜面扫描就成了一张纯色图。
-  const field = distances.map((d, i) => (d < 0 ? null : origins[i][2] + down[2] * d));
-  return { field, side, hits: distances.filter((d) => d >= 0).length, total: distances.length };
+  // 两个值都留：`field` 是**契约值** base_z − terrain_z（A 类观测要的那个，未缩放），
+  // `world` 是地形世界高度（绘制用——彩色图看绝对高度更直观）。**不能直接取起点 z**：
+  // 装配角一旦不是正朝下，那样算出来整个场都是等高，斜面扫描就成了一张纯色图。
+  const terrain = distances.map((d, i) => (d < 0 ? null : origins[i][2] + down[2] * d));
+  const field = terrain.map((h) => (h === null ? null : basePos[2] - h));
+  return { field, world: terrain, side, hits: distances.filter((d) => d >= 0).length, total: distances.length };
 }
 
-/** LiDAR：同一原点的整圈扇扫。命中点留给点云复用 —— **两图同源才对得齐**。 */
+/** LiDAR：同一原点的整圈扇扫。命中点留给点云复用 —— **两图同源才对得齐**。
+ *  pattern 参数同样取自框架目录（lidar 条目；fan pattern = mjlab RingPattern 的半径 0 退化）。 */
 function scanLidar(basePos, baseQuat, mount) {
   const spec = SCAN_SPECS.lidar;
-  const { dirs, angles, count } = fanDirections(spec.count);
+  const legacy = fanDirections(spec.count);
+  // 框架 pattern 的字段名是 **offsets/directions/angles/count**（对标 mjlab 的
+  // (local_offsets, local_directions)），与旧 `fanDirections` 返回的 `dirs` **不同名**——
+  // 照旧名读会得到 undefined ⇒ 空射线数组 ⇒ "全 miss"而不报错（本框架接线第一版就这么
+  // 错的，被 Node 形状契约测试钉住）。
+  const fan = buildPattern("fan", patternParams("lidar"))
+    || { offsets: legacy.offsets, directions: legacy.dirs, angles: legacy.angles, count: legacy.count };
+  const dirs = fan.directions || [];
+  const angles = fan.angles || [];
+  const count = fan.count || spec.count;
   const mountQuat = quatFromRpy(mount.rpy.map(deg2rad));
   const origin = mountOriginWorld(basePos, baseQuat, mount.pos);
   const worldDirs = mountRayDirections(baseQuat, mountQuat, dirs);
@@ -5333,6 +5534,62 @@ function scanLidar(basePos, baseQuat, mount) {
     sim.model, sim.data, worldDirs.map(() => origin), worldDirs, { maxDist: spec.maxDist },
   );
   return { angles, distances, worldDirs, origin, count, maxDist: spec.maxDist };
+}
+
+/** 足底接触：遍历 MuJoCo 接触表，按 geom 名把接触归属到 FL/FR/RL/RR。
+ *
+ *  与训练栈 `mjlab/sensor/contact_sensor.py` 的口径对齐：那边用正则把 primary 元素解析成
+ *  一组名字再逐 primary 取数据；这里模型小（四只脚各一个 collision geom，名字就是 FL/FR/
+ *  RL/RR），直接按名字归属即可——但**归属规则必须一样**：geom 名的精确匹配，不做
+ *  "包含 calf 就算"这类猜测（go2 的碰撞 geom 名与训练侧 primary 名逐字一致）。
+ *
+ *  力取该足所有接触的法向力之和（MuJoCo 的 contact force 在 `efc_force` 里，WASM 侧
+ *  取不到时退回**接触数**作为着地判据，并如实标注用的是哪个口径）。
+ */
+function scanFootContacts() {
+  const feet = ["FL", "FR", "RL", "RR"].map((name) => ({ name, grounded: false, force: 0, contacts: 0 }));
+  if (!sim.data) return { feet, contactCount: 0, forceAvailable: false };
+  const ncon = Number(sim.data.ncon || 0);
+  const contact = sim.data.contact;
+  // `contact` 在 WASM 侧是 **embind 向量**（`MjContactVec*`）：`.size()` / `.get(i)`，
+  // 元素是 `{geom1, geom2, ...}`（值是 `{value: N}` 包装）。**不是**扁平数组——
+  // 按 `contact[i*6]` 读会恒得 undefined ⇒ "ncon=4 却着地 无"（2026-09-21 实测踩中，
+  // 常驻诊断字段 `model.contacts.pairs` 就是为这类形状猜错留下的）。
+  const readGeomPair = (i) => {
+    try {
+      if (typeof contact?.get === "function") {
+        const el = contact.get(i);
+        if (!el) return null;
+        const pick = (v) => Number(v?.value ?? v ?? -1);
+        return [pick(el.geom1), pick(el.geom2)];
+      }
+    } catch (_) { /* 落到扁平读法 */ }
+    const base = i * 6;
+    const g1 = Number(contact?.[base] ?? -1);
+    const g2 = Number(contact?.[base + 1] ?? -1);
+    return Number.isFinite(g1) && g1 >= 0 ? [g1, g2] : null;
+  };
+  for (let i = 0; i < ncon; i += 1) {
+    const pair = readGeomPair(i);
+    if (!pair) continue;
+    for (const gid of pair) {
+      if (gid < 0) continue;
+      // 先按 geom 名（包里 model/robot.xml 的足碰撞球就叫 FL/FR/…），再按身体名
+      // （浏览器 bundle 的足球无名，但身体叫 FL_calf…）。两条路覆盖两种模型布局。
+      const candidates = [String(geomName(gid) || "").toUpperCase(), String(geomBodyName(gid) || "").toUpperCase()];
+      const foot = feet.find((f) => candidates.some((c) => c === f.name || c.startsWith(`${f.name}_`)));
+      if (!foot) continue;
+      foot.contacts += 1;
+      foot.grounded = true;
+    }
+  }
+  // 退化模型（默认关）：迟滞 + 漏检，键为足名
+  const noised = feet.map((foot) => ({
+    ...foot,
+    force: foot.contacts, // WASM 侧拿不到 efc_force 的时代替：接触数即"力"的离散版
+    grounded: applyContactNoise(sim.sensorNoise, foot.name, foot.contacts > 0 ? 1 : 0),
+  }));
+  return { feet: noised, contactCount: ncon, forceAvailable: false };
 }
 
 let rgbPreview = null;
@@ -5371,9 +5628,13 @@ function renderRgbPreview(basePos, baseQuat, mount, ctx, width, height) {
   const poseQuat = quatMul(baseQuat, quatFromRpy(mount.rpy.map(deg2rad)));
   const origin = mountOriginWorld(basePos, baseQuat, mount.pos);
   preview.camera.position.set(origin[0], origin[1], origin[2]);
-  // MuJoCo 与 three.js 的相机约定**恰好一致**（都沿自身 −z 看、+y 为上），姿态可以直搬，
-  // 只差四元数分量顺序：MuJoCo 是 (w,x,y,z)，three 是 (x,y,z,w)。
-  preview.camera.quaternion.set(poseQuat[1], poseQuat[2], poseQuat[3], poseQuat[0]);
+  // 朝向用 **lookAt 构造**而不是直搬四元数：装配 rpy 只定义"前向"（局部 −z 转到世界系），
+  // "图像上方"永远取世界 +z（直立相机的直观语义）。直搬四元数的问题：装配 rpy 里 y=−90
+  // 的俯仰会把相机的局部 +y（three 的 up）转到世界左侧 ⇒ 地平线在图里变成竖线
+  // （图像转了 90°，用户报的"RGB 是旋转过的"就是它）。
+  const fwd = quatRot(poseQuat, [0, 0, -1]);
+  preview.camera.up.set(0, 0, 1);
+  preview.camera.lookAt(origin[0] + fwd[0], origin[1] + fwd[1], origin[2] + fwd[2]);
   preview.camera.updateMatrixWorld(true);
   preview.renderer.render(view.scene, preview.camera);
   ctx.drawImage(preview.canvas, 0, 0, width, height);
@@ -5388,6 +5649,19 @@ function renderRgbPreview(basePos, baseQuat, mount, ctx, width, height) {
 function updateSensorPanels() {
   if (!sim.qpos) return;
   if (!dock.visible || !dock.source) return;
+  // **射线类来源节流**（性能审计）：lidar/cloud/height 每次渲染要做 187–240 条 CPU
+  // 射线求交，而本函数在 `updateHud`（每帧）里 ⇒ 60fps 下每秒上万条射线——这就是
+  // "开雷达就卡"的根源。真实 LiDAR 也是固定频率旋转（10–30 Hz），逐帧重扫既卡又不
+  // 更真。按来源限频 10 Hz：读数类（odom/imu/rangefinder）逐帧（纯读数组，不扫）。
+  const heavyScan = dock.source === "lidar" || dock.source === "cloud"
+    || dock.source === "height" || dock.source === "lidar_height_scan";
+  if (heavyScan) {
+    if (!sim.dockScan) sim.dockScan = { lastMs: -1e9, lastSource: "" };
+    const scanState = sim.dockScan;
+    if (scanState.lastSource === dock.source && performance.now() - scanState.lastMs < DOCK_SCAN_INTERVAL_MS) return;
+    scanState.lastMs = performance.now();
+    scanState.lastSource = dock.source;
+  }
 
   const q = sim.qpos;
   const rpy = quatToRpy(q.subarray(3, 7));
@@ -5434,8 +5708,11 @@ function updateSensorPanels() {
       const dir = quatRot(dirQuat, [0, 0, -1]);
       // 量程与深度相机的 3 m 不同：测距模块问的是"远一点的地方有没有东西"。
       const RANGE_MAX = 20;
-      const hit = intersectSceneRay(sim.model, sim.data, origin, dir, { maxDist: RANGE_MAX });
-      const reading = rangefinderReadout({ distance: hit, maxDist: RANGE_MAX });
+      const raw = intersectSceneRay(sim.model, sim.data, origin, dir, { maxDist: RANGE_MAX });
+      // 单射线也走同一条退化管线（包成数组）：丢帧/量化/超量程的语义与 LiDAR 完全一致，
+      // 不会出现"测距说 3m、LiDAR 说 miss"的分裂。
+      const [hit] = applyRangeNoise(sim.sensorNoise, [raw]);
+      const reading = rangefinderReadout({ distance: hit === undefined ? raw : hit, maxDist: RANGE_MAX });
       extra.distance = reading.distance;
       note = reading.note;
     } else {
@@ -5446,37 +5723,87 @@ function updateSensorPanels() {
     extra.mountRpy = fmtVec(mount.rpy, 0);
   }
 
+  // ⑧ 足底接触：四只脚的着地状态（训练栈 contact_sensor 的浏览器侧对应物）
+  if (dock.source === "contact") {
+    sizeDockCanvas(240, 150);
+    const scan = scanFootContacts();
+    const drawn = ctx && drawContactStates(ctx, scan, { width: 240, height: 150 });
+    const grounded = scan.feet.filter((f) => f.grounded).map((f) => f.name);
+    note = drawn ? `着地 ${grounded.length ? grounded.join(" / ") : "无"}` : "无接触数据";
+    extra.grounded = grounded.join(" / ") || "无";
+    extra.forces = scan.feet.map((f) => `${f.name} ${f.grounded ? "●" : "○"}`).join(" ");
+    extra.contactCount = String(scan.contactCount);
+    extra.noiseMode = sim.sensorNoise.enabled ? "退化（迟滞+漏检）" : "理想";
+  }
+
   // ④ 深度相机（外部感知）：帧本来就在算（pie_depth.js），此前只喂策略、没人画
   if (dock.source === "depth") {
     const shape = sim.pieDepth && sim.pieDepth.frameShape;
     const frames = sim.depthHistory;
     if (shape && frames && frames.length) {
       sizeDockCanvas(shape[2], shape[1]);
-      const drawn = ctx && drawDepthFrame(ctx, frames[frames.length - 1], shape[1], shape[2]);
+      const rawFrame = frames[frames.length - 1];
+      const frame = applyDepthNoise(sim.sensorNoise, Array.from(rawFrame)) || rawFrame;
+      const drawn = ctx && drawDepthFrame(ctx, frame, shape[1], shape[2]);
       note = drawn ? `${shape[1]}×${shape[2]} 近亮远暗` : "绘制失败";
     } else {
       note = "当前策略无深度输入";
     }
   }
 
-  // ⑤ 高度扫描：机周网格**起点**、射线朝下 → 俯视高度场（低蓝高黄，没打中是黑槽）
+  // ⑤ 高度扫描（heightfield 项，A 类契约 187 = 17×11）：机周网格**起点**、射线朝下
+  //   → 俯视高度场。画的是**世界高度**（彩色图看绝对高度直观），读数给的是**契约值**
+  //   base_z − terrain_z（策略要吃的那份）——两者都要，各有去处。
   if (dock.source === "height") {
     const mount = sensorMount("height", sensorMountOverrides);
-    const span = SCAN_SPECS.height.extent * 2;
+    const grid = patternParams("height")?.grid || {};
+    const nx = grid.nx || 17;
+    const ny = grid.ny || 11;
     if (scanReady) {
       const scan = scanHeightField(basePos, baseQuat, mount);
-      sizeDockCanvas(scan.side, scan.side);
-      const drawn = ctx && drawHeightField(ctx, scan.field, scan.side);
-      note = drawn
-        ? `${span.toFixed(0)} m × ${span.toFixed(0)} m · 命中 ${scan.hits}/${scan.total}`
-        : "绘制失败";
-      extra.scanExtent = `${span.toFixed(0)} m × ${span.toFixed(0)} m`;
-      extra.scanGrid = `${scan.side} × ${scan.side}`;
+      sizeDockCanvas(nx, ny);
+      const drawn = ctx && drawHeightGrid(ctx, scan.world, nx, ny);
+      note = drawn ? `187 点契约网格 · 命中 ${scan.hits}/${scan.total}` : "绘制失败";
+      extra.scanExtent = "1.6 m × 1.0 m（x −0.8..0.8 / y −0.5..0.5）";
+      extra.scanGrid = `${nx} × ${ny}（x 主序）`;
       extra.hitRatio = `${scan.hits} / ${scan.total}`;
+      extra.contractValue = "base_z − terrain_z（未缩放）";
     } else {
       note = "场景几何未就绪";
     }
     extra.mountPos = fmtVec(mount.pos);
+  }
+
+  // ⑤b 雷达高度扫描（lidar_height_scan 项）：LiDAR 点云按同一 187 网格聚合 min-z。
+  //     与 heightfield **同格**是本项存在的理由——两条链路可以逐格对齐回归。
+  if (dock.source === "lidar_height_scan") {
+    const grid = patternParams("lidar_height_scan")?.grid || {};
+    const nx = grid.nx || 17;
+    const ny = grid.ny || 11;
+    if (scanReady) {
+      const lidar = scanLidar(basePos, baseQuat, sensorMount("lidar", sensorMountOverrides));
+      const points = lidar.distances
+        .map((d, i) => (d < 0 ? null : [
+          lidar.origin[0] + lidar.worldDirs[i][0] * d,
+          lidar.origin[1] + lidar.worldDirs[i][1] * d,
+          lidar.origin[2] + lidar.worldDirs[i][2] * d,
+        ]))
+        .filter(Boolean);
+      const q = sim.qpos ? [sim.qpos[3], sim.qpos[4], sim.qpos[5], sim.qpos[6]] : [1, 0, 0, 0];
+      const yaw = Math.atan2(2 * (q[0] * q[3] + q[1] * q[2]), 1 - 2 * (q[2] * q[2] + q[3] * q[3]));
+      const scan = aggregateHeightScan(points, { x: basePos[0], y: basePos[1], z: basePos[2], yaw });
+      sizeDockCanvas(nx, ny);
+      const drawn = ctx && drawHeightGrid(ctx, scan.field, nx, ny);
+      note = drawn
+        ? `点云聚合 min-z · 有值 ${scan.filled}/${scan.total} 格`
+        : "绘制失败";
+      extra.scanGrid = `${nx} × ${ny}（与 heightfield 同格）`;
+      extra.aggregate = "min_z_per_cell";
+      extra.filled = `${scan.filled} / ${scan.total}`;
+      extra.emptyFill = "空单元填 null（绘制为黑槽，不编高度）";
+    } else {
+      note = "场景几何未就绪";
+    }
   }
 
   // ⑥ 2D 轨迹平面：复用 3D 场景里的根轨迹顶点（world x/y），不另记一份
@@ -5548,6 +5875,11 @@ function updateSensorPanels() {
     extra.rgbFov = `${spec.fov}°（垂直）`;
     extra.rgbBackend = "three.js（非 MuJoCo 原生）";
     extra.mountPos = fmtVec(mount.pos);
+    // 诊断：相机世界位姿（排查"看到的不是前方"时用）
+    const camQuat = quatMul(baseQuat, quatFromRpy(mount.rpy.map(deg2rad)));
+    const camOrigin = mountOriginWorld(basePos, baseQuat, mount.pos);
+    const camDir = quatRot(camQuat, [0, 0, -1]);
+    extra.camWorld = `${camOrigin.map((v) => v.toFixed(2)).join(" / ")} · 朝向 ${camDir.map((v) => v.toFixed(2)).join(" / ")}`;
   }
 
   // ⑨ 读数表：**最后渲染** —— extra 由上面各分支填好，图与数同源。
@@ -5621,6 +5953,30 @@ function buildDebugState() {
       geomPos0: sim.model.geom_pos ? Array.from(sim.model.geom_pos.subarray(0, 3)) : null,
       ngeom: Number(sim.model.ngeom || 0),
       nmesh: Number(sim.model.nmesh || 0),
+      // 接触诊断（常驻）：`contact` 在 WASM 侧是 embind 向量（`MjContactVec*`，`.get(i)`），
+      // 不是扁平数组；足底归属按 geom 名 → 身体名两级匹配。原始接触对留在这里，
+      // "着地 无"这类症状才能一眼分清是布局猜错还是真没接触。
+      contacts: (() => {
+        try {
+          const data = sim.data;
+          if (!data) return null;
+          const ncon = Number(data.ncon || 0);
+          const raw = data.contact;
+          const pairs = [];
+          if (raw && typeof raw.get === "function") {
+            for (let i = 0; i < Math.min(ncon, 8); i += 1) {
+              const el = raw.get(i);
+              if (!el) continue;
+              const a = Number(el.geom1?.value ?? el.geom1 ?? -1);
+              const b = Number(el.geom2?.value ?? el.geom2 ?? -1);
+              pairs.push([geomName(a) || geomBodyName(a) || a, geomName(b) || geomBodyName(b) || b]);
+            }
+          }
+          return { ncon, pairs };
+        } catch (error) {
+          return { error: String(error).slice(0, 80) };
+        }
+      })(),
       geoms: (() => {
         try {
           const rows = [];
@@ -5957,6 +6313,9 @@ function applyDeterministicReplayFromUrl() {
 //   ?nav=warehouse&nav_waypoints=0,0;6,0   指定航点（分号分隔）
 // ---------------------------------------------------------------------------
 const NAV_HUD_ID = "navigationHud";
+/** 坞内射线类来源的重扫间隔（ms）。10 Hz 与常见 LiDAR 的旋转频率同量级——
+ *  逐帧重扫（60 fps × 240 射线）是"开雷达就卡"的根源，而且不比 10 Hz 更真实。 */
+const DOCK_SCAN_INTERVAL_MS = 100;
 //: 感知轮询频率：每 N 个控制步评一次地形（10 ⇒ 50 Hz 控制下 5 Hz）
 const TERRAIN_POLL_CONTROL_STEPS = 10;
 //: H11 候选扇形轮询频率与容量（35 候选 × 20 点 ≈ 1330 顶点，6000 顶点足够）
@@ -6118,6 +6477,419 @@ async function pollTerrainPerception(pose, controlStep) {
     perception.inFlight = false;
     renderNavigationHud();
   }
+}
+
+/**
+ * A1：应用交运来的完整 Scenario。
+ *
+ * 三条纪律：
+ *   1. **不支持就拒**，不静默降级（`command_source=script/perception` 浏览器执行器跑不了，
+ *      见 `backend/executors.py` 的 UNSUPPORTED_CONTRACT_OPTIONS）；
+ *   2. **能应用的应用，不能应用的明说**（种子/机型/运行面只能在加载时定，中途改不了）——
+ *      返回的 `applied` / `skipped` 两边都让编辑器显示出来，不许"看起来全应用了"；
+ *   3. 场景的判据/记录器**按声明**跑（未声明的不跑、不造文件）。
+ *
+ * @returns {Promise<{ok: boolean, reason: string, applied: string[], skipped: string[]}>}
+ */
+/** 场景声明的感知项里，**当前策略没有对应输入**的那些（C2 的 fail-closed 判据）。
+ *
+ *  映射关系（场景项 → 策略输入）只有一条是今天真通的：`depth_camera` → 策略 ONNX 的
+ *  `depth` 输入（PIE 族，浏览器 raycast 喂深度历史）。其余三项目录里有定义、浏览器执行器
+ *  还没有对应输入 ⇒ 一律算"未接入"——不猜一个近似输入顶上。
+ */
+/** 策略加载完成后，补判场景挂起的 A 类感知绑定（C2）。
+ *  不过 ⇒ 暂停仿真并在场景面板写明原因（不静默跑一个吃不到感知的场景）。 */
+function verifyScenarioPerceptionBinding() {
+  const pending = sim.pendingPerceptionCheck;
+  if (!pending || !sim.scenario || !sim.scenarioRun.active) return;
+  sim.pendingPerceptionCheck = null;
+  const gaps = unsupportedPerceptionItems(pending);
+  if (!gaps.length) {
+    renderScenarioPanel(`A 类绑定通过：${pending.join(" / ")} 已接入策略观测`);
+    return;
+  }
+  sim.paused = true;
+  elements.playButton.textContent = "继续";
+  const reason = `场景声明 A 类感知（route=obs）但当前策略没有对应输入：${gaps.join("；")}`
+    + `（A 类 = 感知进策略观测，策略没声明就是吃不到；B 类请用 route=external）`;
+  sim.scenarioRun.refusedReason = reason;
+  renderScenarioPanel(`场景被拒：${reason}`, true);
+  console.warn("[sim2sim] scenario perception binding failed", reason);
+}
+
+/** 场景声明的感知项里，**当前策略没有对应输入**的那些（C2 的 fail-closed 判据）。
+ *
+ *  **浏览器执行器能产出什么**（与策略是否吃它是两件事，别混）：`depth_camera`（raycast
+ *  深度历史）、`heightfield` / `lidar_height_scan`（187 网格射线 / 点云聚合）、
+ *  `foot_contact`（四脚状态）——四项目前都能在坞里看到数。
+ *  **但"执行器能产出"≠"策略会吃"**：除 depth 外，今天没有任何已登记策略在其 ONNX 上
+ *  声明这些输入 ⇒ A 类场景声明它们仍然拒启。拒绝理由必须区分"执行器没接线"与
+ *  "策略没声明"，否则修的人找错方向。
+ */
+function unsupportedPerceptionItems(items) {
+  const info = sim.policyInfo || {};
+  const executorCanProduce = {
+    depth_camera: true,
+    heightfield: true,
+    lidar_height_scan: true,
+    foot_contact: true,
+  };
+  const policyDeclares = {
+    depth_camera: Boolean(info.depthName),
+    heightfield: false,
+    lidar_height_scan: false,
+    foot_contact: false,
+  };
+  return items.filter((item) => !policyDeclares[item]).map((item) => (
+    executorCanProduce[item]
+      ? `${item}：浏览器执行器能产出（坞里可看），但当前策略没有对应输入`
+      : `${item}：浏览器执行器暂无该观测输入（目录有定义、接线未做）`
+  ));
+}
+
+async function applyScenario(payload) {
+  const scenario = payload.scenario;
+  const applied = [];
+  const skipped = [];
+  const note = (text) => { applied.push(text); };
+  const skip = (text) => { skipped.push(text); };
+
+  const commandSource = String(scenario.command_source || "policy");
+  // 执行器能力真值从 /api/simulation/executors 拿（B1）；拿不到时用框架目录里的浏览器镜像。
+  const supportedSources = sim.executorMatrix?.executors
+    ?.find((item) => item.id === "browser_wasm")?.supports?.command_sources
+    || EXECUTOR_COMMAND_SOURCES.browser_wasm;
+  const gaps = unsupportedCommandSourceProblems(commandSource, supportedSources);
+  if (gaps.length) {
+    const reason = `${gaps[0]}（可执行：${supportedSources.join(" / ")}）`;
+    sim.scenarioRun.refusedReason = reason;
+    return { ok: false, reason, applied, skipped };
+  }
+
+  // 机型：交运的机型与当前不一致时**拒绝**（换机型要整页重载，偷偷按当前的跑等于跑错场景）
+  const currentRobot = String(elements.robotSelect?.value || URL_ROBOT || "");
+  if (payload.robot && currentRobot && payload.robot !== currentRobot
+      && normalizeRobotParam(payload.robot) !== normalizeRobotParam(currentRobot)) {
+    const reason = `场景指定机器人 ${payload.robot}，当前加载的是 ${currentRobot} —— 换机型需重新打开页面（不按当前机型假跑）`;
+    sim.scenarioRun.refusedReason = reason;
+    return { ok: false, reason, applied, skipped };
+  }
+  if (payload.robot) note(`机器人 ${payload.robot}`);
+
+  // 策略：不同才切（同 id 不重启会话，避免白丢一次加载）
+  const currentPolicy = String(elements.policySelect?.value || "off");
+  if (payload.policy && payload.policy !== currentPolicy) {
+    if (payload.policy === "off") {
+      await switchPolicy("off");
+      note("策略：无（姿态保持）");
+    } else if (Array.from(elements.policySelect?.options || []).some((option) => option.value === payload.policy)) {
+      await switchPolicy(payload.policy);
+      note(`策略 ${payload.policy}`);
+    } else {
+      skip(`策略 ${payload.policy} 不在本包策略清单里`);
+    }
+  } else if (payload.policy) {
+    note(`策略 ${payload.policy}（已在运行）`);
+  }
+
+  // 地形：map_id 走**同一条解析链**（resolveTerrainName）。解析不到就明说——
+  // 静默回落 flat 会让"编辑器说 warehouse、仿真跑平地面"（A3 的同源缺陷）。
+  const requestedTerrain = String(scenario.map_id || "");
+  if (requestedTerrain) {
+    const scenes = Array.from(elements.terrainSelect?.options || []).map((option) => option.value);
+    const resolved = resolveTerrainName(requestedTerrain, scenes);
+    const currentTerrain = elements.terrainSelect?.value || "";
+    if (resolved && resolved !== currentTerrain) {
+      elements.terrainSelect.value = resolved;
+      elements.terrainSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      note(`地形 ${requestedTerrain} → ${resolved}`);
+    } else if (resolved) {
+      note(`地形 ${requestedTerrain}（已加载）`);
+    } else {
+      skip(`地形 ${requestedTerrain} 在本包没有对应场景（可选：${scenes.join(" / ") || "无"}）——未静默改用其它地形`);
+    }
+  }
+
+  // 指令上限：场景的 command_limits 覆盖 CONFIG.maxCmd（跟随/规划都按它夹取）
+  const limits = scenario.command_limits || {};
+  let limitText = "";
+  for (const [index, key] of ["vx", "vy", "wz"].entries()) {
+    const value = Number(limits[key]);
+    if (Number.isFinite(value) && value > 0) {
+      CONFIG.maxCmd[index] = value;
+      limitText += ` ${key}=${value}`;
+    }
+  }
+  if (limitText) note(`指令上限${limitText}`);
+
+  // 指令来源：planner/perception ⇒ 起导航（waypoints 由场景给）；policy ⇒ 确保不接管；
+  // teleop ⇒ 键盘/摇杆（默认行为，无需动作）。
+  const waypoints = (Array.isArray(scenario.waypoints) ? scenario.waypoints : [])
+    .map((point) => ({ x: Number(point?.x) || 0, y: Number(point?.y) || 0 }));
+  if (commandSource === "planner" || commandSource === "perception") {
+    if (waypoints.length >= 2) {
+      await startNavigation(requestedTerrain || "flat", waypoints);
+      note(`指令来源 ${commandSource}：导航已就绪（${waypoints.length} 个航点）`);
+    } else {
+      const reason = `command_source=${commandSource} 需要至少 2 个航点，场景只给了 ${waypoints.length} 个`;
+      sim.scenarioRun.refusedReason = reason;
+      return { ok: false, reason, applied, skipped };
+    }
+  } else if (commandSource === "policy") {
+    if (sim.navigation) {
+      sim.navigation = null;
+      renderNavigationHud();
+      note("指令来源 policy：已关闭导航接管");
+    } else {
+      note("指令来源 policy（无导航接管）");
+    }
+  } else {
+    note(`指令来源 ${commandSource}（键盘/摇杆直驱）`);
+  }
+
+  // 时长：只认"加载时定的 seed / 运行面"，中途改不了的要明说（不假报已应用）
+  if (Number.isFinite(Number(scenario.seed)) && Number(scenario.seed) !== Number(PAGE_PARAMS.get("seed") || 0)) {
+    skip(`种子 ${scenario.seed} 需在打开页面时指定（当前 ${PAGE_PARAMS.get("seed") || 0}）`);
+  }
+  const surface = scenario.mode === "navigation" ? "advanced" : "basic";
+  if (PAGE_PARAMS.get("surface") !== surface) {
+    skip(`运行面 ${surface} 需在打开页面时指定（当前 ${PAGE_PARAMS.get("surface") || "basic"}）`);
+  }
+
+  // 感知（C2）：场景声明的传感器**真的开**（dock 插件开关），且 **route=obs（A 类）时
+  // 校验当前策略是否真的声明了该项**——服务端会话早有这道闸（simulation_api 的 A-class
+  // guard），浏览器侧此前没有：场景说"感知进观测"而策略没有对应输入时，页面照常启动、
+  // 传感器照常画，只是策略永远吃不到它（"看着生效、其实没生效"）。
+  const perception = scenario.perception && typeof scenario.perception === "object" ? scenario.perception : null;
+  if (perception) {
+    const enabled = [];
+    if (perception.heightfield) enabled.push("heightfield");
+    if (perception.depth_camera) enabled.push("depth_camera");
+    if (perception.foot_contact) enabled.push("foot_contact");
+    if (enabled.length) {
+      sim.scenarioSensors = { route: perception.route || "external", mount: perception.mount || "base", enabled };
+      note(`感知传感器已启用：${enabled.join(" / ")}（route=${perception.route || "external"}）`);
+      if ((perception.route || "external") === "obs") {
+        if (sim.policyInfo) {
+          const gaps = unsupportedPerceptionItems(enabled);
+          if (gaps.length) {
+            const reason = `场景声明 A 类感知（route=obs）但当前策略没有对应输入：${gaps.join("；")}`
+              + `（A 类 = 感知进策略观测，策略没声明就是吃不到；B 类请用 route=external）`;
+            sim.scenarioRun.refusedReason = reason;
+            return { ok: false, reason, applied, skipped };
+          }
+          note(`A 类绑定：${enabled.join(" / ")} 已接入策略观测`);
+        } else {
+          // 策略还没加载完（`policyInfo` 在 ONNX 会话建好后才填）——**此时判会把好场景
+          // 误拒**（2026-09-21 实测：pie-parkour 有 depth 输入，但消息比策略先到）。
+          // 挂起，等策略加载完再由 `verifyScenarioPerceptionBinding` 判。
+          sim.pendingPerceptionCheck = enabled.slice();
+          note(`A 类绑定待策略加载后校验：${enabled.join(" / ")}`);
+        }
+      }
+    }
+  }
+
+  sim.scenario = scenario;
+  sim.scenarioRun = {
+    trace: [],
+    active: true,
+    deadlineS: Number(scenario.episode_length_s) > 0 ? Number(scenario.episode_length_s) : null,
+    summary: null,
+    applied,
+    refusedReason: "",
+  };
+  resetSimulation();
+  renderScenarioPanel(`场景 ${scenario.scenario_id} 已应用 · ${applied.length} 项生效`
+    + (skipped.length ? ` · ${skipped.length} 项未应用（见摘要）` : ""));
+  console.info("[sim2sim] scenario applied", { scenario, applied, skipped });
+  return { ok: true, reason: "", applied, skipped };
+}
+
+/** 把 `/api/navigation/plan` 的失败原因拼成人能读的一句话（detail 可能是字符串/数组/对象）。 */
+function describePlanFailure(payload, status) {
+  const detail = payload?.detail ?? payload?.message;
+  if (typeof detail === "string" && detail) return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail.map((item) => {
+      if (typeof item === "string") return item;
+      const where = Array.isArray(item?.loc) ? item.loc.join(".") : "";
+      return where ? `${where}: ${item.msg}` : String(item?.msg ?? item);
+    }).filter(Boolean);
+    if (parts.length) return `规划请求被拒（${parts.join("；")}）`;
+  }
+  if (detail && typeof detail === "object") {
+    const msg = detail.msg || detail.error || detail.reason;
+    if (typeof msg === "string" && msg) return msg;
+  }
+  return `规划失败（HTTP ${status}）`;
+}
+
+/** 起导航（与 initNavigationFromUrl 同一服务端真值，只是航点来自场景而非 URL）。 */
+async function startNavigation(mapId, waypoints) {
+  // 服务端 `NavigationPlanRequest.waypoints` 是 `list[list[float]]`（[[x, y], …]）——
+  // 场景契约里是 [{x, y}, …]，这里做**唯一一次**形状转换（与 initNavigationFromUrl
+  // 从 URL 串解析出的形状一致），别把两种形状混着发。
+  const pairs = waypoints.map((point) => [Number(point.x) || 0, Number(point.y) || 0]);
+  const response = await fetch("/api/navigation/plan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ map_id: mapId, waypoints: pairs }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload?.success) {
+    // FastAPI 的 detail 可能是字符串、数组（422 校验错误 [{loc,msg}]）或对象——
+    // 直接 `String(detail)` 会得到 "[object Object]"，把人挡在原因外面。
+    throw new Error(describePlanFailure(payload, response.status));
+  }
+  sim.navigation = {
+    mapId,
+    payload,
+    runner: createNavigationRunner(payload, {
+      maxCmd: Array.from(CONFIG.maxCmd),
+      lookahead: Number(PAGE_PARAMS.get("nav_lookahead") || 0.6),
+      controlDt: () => CONFIG.simulationDt * CONFIG.controlDecimation,
+    }),
+    status: null,
+    lastControlStep: -1,
+  };
+  sim.perception = {
+    sceneId: mapId,
+    decision: null,
+    lastReading: null,
+    disabledReason: null,
+    inFlight: false,
+    polls: 0,
+    errors: 0,
+  };
+  sim.dwaFan = { enabled: PAGE_PARAMS.get("fan") !== "0", inFlight: false, lastControlStep: -1, polls: 0, errors: 0, reason: "" };
+  renderNavigationHud(`导航已就绪 · ${mapId} · ${payload.waypoints.length} 个航点 · 判据 ${payload.arrival.source}`);
+}
+
+/** 场景运行面板（A1）：应用项/未应用项/判据结论/记录器产物，一处看完，不拆页面。 */
+function renderScenarioPanel(message = "", failed = false) {
+  let panel = document.querySelector("#scenarioPanel");
+  const run = sim.scenarioRun;
+  if (!sim.scenario && !message) {
+    if (panel) panel.remove();
+    return;
+  }
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "scenarioPanel";
+    panel.style.cssText = "position:fixed;right:12px;top:12px;z-index:40;max-width:340px;padding:8px 10px;"
+      + "border-radius:8px;background:rgba(10,14,22,.86);color:#dfe8f5;"
+      + "font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap";
+    document.body.appendChild(panel);
+  }
+  panel.style.color = failed ? "#ffb4b4" : "#dfe8f5";
+  if (message) {
+    panel.textContent = message;
+    return;
+  }
+  const summary = run.summary;
+  if (!summary) {
+    panel.textContent = `场景 ${sim.scenario?.scenario_id || ""} 运行中 · 采样 ${run.trace.length} 点`
+      + (run.deadlineS ? ` · 上限 ${run.deadlineS}s` : "");
+    return;
+  }
+  const lines = [`场景 ${summary.scenarioId} · ${summary.passed ? "通过" : "未通过"}`];
+  for (const check of summary.checks) lines.push(`  ${check.ok ? "✓" : "✗"} ${check.name}: ${check.detail}`);
+  lines.push(`  度量: ${summary.metrics.distanceM}m / ${summary.metrics.durationS}s / 最大 roll ${summary.metrics.maxRollDeg}°`
+    + ` / 摔倒 ${summary.metrics.fell ? "是" : "否"}`);
+  if (summary.artifacts.length) lines.push(`  记录器产物: ${summary.artifacts.join(", ")}`);
+  if (run.episode?.dir) {
+    lines.push(`  episode 已落档: ${run.episode.dir}`);
+    lines.push(`  回放: ${run.episode.replay_url}`);
+  }
+  panel.textContent = lines.join("\n");
+}
+
+/** 收尾一趟场景运行：求判据、出摘要、按声明产记录器文件、面板显示。
+ *
+ *  B4：若场景声明了 `trajectory` 记录器，就把这一趟**上报成 episode**（POST
+ *  /api/episode/import）—— 此前 `EpisodeRecorder` 只在测试里实例化，回放页结构上恒空。
+ *  上报失败**不阻断收尾**（摘要已在面板上），但要在控制台如实说失败原因。
+ */
+async function finishScenarioRun(reason) {
+  const run = sim.scenarioRun;
+  if (!run.active || !sim.scenario) return;
+  run.active = false;
+  const arrival = sim.navigation?.payload?.arrival || null;
+  run.summary = buildRunSummary(sim.scenario, run.trace, arrival);
+  renderScenarioPanel();
+  console.info(`[sim2sim] scenario run finished (${reason})`, run.summary);
+  const artifacts = recorderArtifacts(sim.scenario, run.trace, arrival);
+  sim.scenarioArtifacts = artifacts;
+  if (Object.keys(artifacts).length) {
+    console.info("[sim2sim] recorder artifacts ready", Object.keys(artifacts));
+  }
+  if (!run.summary.recorders.includes("trajectory")) return;
+  try {
+    const response = await fetch("/api/episode/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildEpisodeImportPayload(reason)),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.detail || `HTTP ${response.status}`);
+    }
+    run.episode = payload;
+    renderScenarioPanel();
+    console.info("[sim2sim] episode recorded", payload);
+  } catch (error) {
+    console.warn("[sim2sim] episode upload failed", error?.message || error);
+  }
+}
+
+/** 轨迹 → episode 记录（LightNav 语义：`waypoints` = 该步**指令**位置，`pointing.actual` = 实测）。
+ *
+ *  指令位置由轨迹里的 vx/vy **积分**得到（世界系）—— 于是回放页的"预测 vs 实际"
+ *  实际是"指令积分 vs 实测轨迹"，这正是本仓要对齐的那条比较。
+ */
+function buildEpisodeImportPayload(reason) {
+  const run = sim.scenarioRun;
+  const scenario = sim.scenario;
+  const records = [];
+  let cmdX = 0;
+  let cmdY = 0;
+  let previousT = null;
+  for (const point of run.trace) {
+    const dt = previousT === null ? 0 : Math.max(0, point.t - previousT);
+    previousT = point.t;
+    cmdX += point.vx * dt;
+    cmdY += point.vy * dt;
+    records.push({
+      step: records.length,
+      seq: records.length,
+      waypoints: [[Number(cmdX.toFixed(4)), Number(cmdY.toFixed(4))]],
+      pointing: { actual: [Number(point.x.toFixed(4)), Number(point.y.toFixed(4))] },
+      stop: point.fallen,
+      extra: { t: point.t, yawDeg: point.yawDeg, rollDeg: point.rollDeg, pitchDeg: point.pitchDeg },
+    });
+  }
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  return {
+    run: `${scenario.scenario_id}-${stamp}`,
+    conn: "browser-wasm",
+    episode: 1,
+    manifest: {
+      task: "scenario",
+      instruction: scenario.scenario_id,
+      model_path: String(elements.policySelect?.value || ""),
+      waypoint_dt_s: 0.02,
+      extra: {
+        scenario_id: scenario.scenario_id,
+        command_source: scenario.command_source,
+        episode_length_s: scenario.episode_length_s,
+        finish_reason: reason,
+        checks: run.summary.checks,
+        metrics: run.summary.metrics,
+      },
+    },
+    records,
+  };
 }
 
 async function initNavigationFromUrl() {

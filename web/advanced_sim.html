@@ -195,11 +195,11 @@
     </aside>
 
     <div class="adv-frame-wrap">
-      <!-- 默认落在一台 go2 的**基础速度追踪**策略上（go2-rlsar-robotlab，45D，最快的闭环），
-           而不是 go2-pie-parkour —— 后者的深度输入是「策略内感知」的特例，
-           而本页的主线形态是「基础策略 + 外挂传感器」（B 类感知在策略外）。 -->
+      <!-- 默认落在与基础仿真同款、浏览器已验证稳定的 go2 基础速度跟踪策略。
+           go2-rlsar-robotlab（go2_rl_sdk_45）桌面验收 pass 但浏览器闭环发散（步态异常），
+           浏览器 parity 未定位前不作默认，可在策略下拉手动选用。 -->
       <iframe id="advSimFrame" title="高级仿真"
-        src="sim2sim/index.html?embedded=1&surface=advanced&view=advanced&robot=unitree_go2&policy=go2-rlsar-robotlab"></iframe>
+        src="sim2sim/index.html?embedded=1&surface=advanced&view=advanced&robot=unitree_go2&policy=go2-baseline-164k"></iframe>
     </div>
   </div>
 

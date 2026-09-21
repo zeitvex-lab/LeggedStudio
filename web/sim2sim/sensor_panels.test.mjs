@@ -6,6 +6,8 @@ import assert from "node:assert/strict";
 import {
   blitRgba,
   depthFrameToRgba,
+  drawContactStates,
+  drawHeightGrid,
   drawDepthFrame,
   drawHeightField,
   drawPointCloud,
@@ -30,7 +32,19 @@ function makeCtx() {
     arc: (...a) => calls.push(["arc", ...a]),
     fill: () => calls.push(["fill"]),
     stroke: () => calls.push(["stroke"]),
+    strokeRect: (...a) => calls.push(["strokeRect", ...a]),
+    fillText: (text, ...a) => calls.push(["fillText", text, ...a]),
   };
+  // fillStyle 是属性而非方法：用 setter 记录，才能断言"这块板涂的什么颜色"
+  let style = "";
+  Object.defineProperty(ctx, "fillStyle", {
+    get: () => style,
+    set: (v) => { style = String(v); calls.push(["fillStyle", style]); },
+  });
+  Object.defineProperty(ctx, "strokeStyle", {
+    get: () => style,
+    set: (v) => { style = String(v); calls.push(["strokeStyle", String(v)]); },
+  });
   return ctx;
 }
 const count = (ctx, name) => ctx.calls.filter((call) => call[0] === name).length;
@@ -213,3 +227,53 @@ const count = (ctx, name) => ctx.calls.filter((call) => call[0] === name).length
 }
 
 console.log("sensor_panels: 16 checks ok");
+
+
+// 矩形高度网格（A 类契约 187 = 17×11）：方形渲染器喂矩形场会"有数据却画不出"
+{
+  const ctx = makeCtx();
+  const field = new Array(187).fill(0.3);
+  field[0] = 0.0; field[186] = 0.6; // 首末点拉出跨度，避免全平中间色不好判
+  const ok = drawHeightGrid(ctx, field, 17, 11);
+  assert.equal(ok, true, "17×11 矩形场应能画出");
+  const puts = ctx.calls.filter(([op]) => op === "putImageData");
+  assert.equal(puts.length, 1, "应有一次 putImageData");
+  const img = puts[0][1];
+  assert.equal(img.width, 17, "宽 = x 方向格数");
+  assert.equal(img.height, 11, "高 = y 方向格数");
+  // 空值画黑槽（不编高度）
+  const withHoles = field.slice();
+  withHoles[5] = null;
+  assert.equal(drawHeightGrid(makeCtx(), withHoles, 17, 11), true, "含空值的场也要能画");
+  // 长度不足必须拒（而不是画一张缺角的图）
+  assert.equal(drawHeightGrid(makeCtx(), new Array(100).fill(0.1), 17, 11), false, "187 格场只有 100 个值要拒");
+  assert.equal(drawHeightGrid(null, field, 17, 11), false, "ctx 缺失返回 false");
+}
+
+// 足底接触：四块板、着地亮/离地暗、按 FL/FR/RL/RR 方位排
+{
+  const ctx = makeCtx();
+  const calls = ctx.calls;
+  const ok = drawContactStates(ctx, {
+    feet: [
+      { name: "FL", grounded: true, force: 12.5 },
+      { name: "FR", grounded: false, force: 0 },
+      { name: "RL", grounded: true, force: 9.1 },
+      { name: "RR", grounded: false, force: 0 },
+    ],
+  });
+  assert.equal(ok, true, "有脚数据应返回 true");
+  const fills = calls.filter(([op]) => op === "fillRect");
+  assert.ok(fills.length >= 5, `背景 + 四块板 = 至少 5 次 fillRect，实得 ${fills.length}`);
+  // 着地的两块用绿色、离地的用暗灰
+  const greens = calls.filter(([op, style]) => op === "fillStyle" && /34,\s*197,\s*94/.test(String(style)));
+  const darks = calls.filter(([op, style]) => op === "fillStyle" && /100,\s*116,\s*139/.test(String(style)));
+  assert.equal(greens.length, 2, `着地两脚应为绿，实得 ${greens.length}`);
+  assert.equal(darks.length, 2, `离地两脚应为暗，实得 ${darks.length}`);
+  // 足名必须画出来（方位错位的投诉永远查不完，所以名字要在图上）
+  const texts = calls.filter(([op]) => op === "fillText").map(([, text]) => text);
+  for (const name of ["FL", "FR", "RL", "RR"]) assert.ok(texts.includes(name), `图上必须有 ${name}`);
+  // 空数据不抛错、返回 false
+  assert.equal(drawContactStates(makeCtx(), { feet: [] }), false, "无脚数据返回 false");
+  assert.equal(drawContactStates(null, { feet: [] }), false, "ctx 缺失也返回 false");
+}

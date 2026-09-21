@@ -90,6 +90,15 @@
       "category": "slope"
     },
     {
+      "id": "warehouse",
+      "label": "仓库导航",
+      "path": "warehouse.xml",
+      "kind": "env-only",
+      "description": "带固定障碍的二维航线场景，适合 waypoint 任务（障碍几何与 backend/scenario_maps.py 的 MAPS[\"warehouse\"] 逐值一致）",
+      "source": "本仓自建（A3：补齐 scenario_maps.py 已声明却缺场景的 warehouse）",
+      "category": "complex"
+    },
+    {
       "id": "race_track",
       "label": "赛道",
       "path": "race_track.xml",

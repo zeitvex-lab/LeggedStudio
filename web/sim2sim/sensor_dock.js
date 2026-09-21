@@ -17,45 +17,47 @@ export const DOCK_SOURCES = [
   { id: "imu", label: "IMU", kind: "readout", requires: "imu" },
   { id: "rangefinder", label: "单点测距", kind: "readout", requires: "rangefinder" },
   { id: "depth", label: "深度相机", kind: "canvas", requires: "depth" },
-  { id: "height", label: "高度扫描", kind: "canvas", requires: "height" },
+  { id: "height", label: "高度场 187", kind: "canvas", requires: "height" },
+  { id: "lidar_height_scan", label: "雷达高度扫描", kind: "canvas", requires: "lidar" },
   { id: "trail", label: "2D 轨迹平面", kind: "canvas", requires: null },
   { id: "lidar", label: "射线 LiDAR", kind: "canvas", requires: "lidar" },
   { id: "cloud", label: "点云", kind: "canvas", requires: "lidar" },
   { id: "rgb", label: "RGB 相机", kind: "canvas", requires: "rgb" },
+  // 足底接触：四只脚的着地状态与接触力。训练栈早有（mjlab contact_sensor），
+  // 浏览器坞此前没有——补上后"盲狗策略输入之外的接触信息"才有一个诚实的出口。
+  { id: "contact", label: "足底接触", kind: "canvas", requires: "foot_contact" },
 ];
 
 /**
- * 传感器清单。
- * `onboard: true` 是**本体感知**（IMU / 里程计 —— 机器人本来就有的），默认开；
- * 其余是**外挂传感器**，默认关 —— "插件可以选择"，要就勾上。
- * 每个都有**默认装配**（`DEFAULT_MOUNTS`）与**可视化模型**（`SENSOR_MODELS`）。
- */
-export const SENSOR_PLUGINS = [
-  { id: "odom", label: "全局里程计 odom", onboard: true, hint: "世界坐标系位姿 x/y/z + 姿态 + 累计里程" },
-  { id: "imu", label: "IMU", onboard: true, hint: "三轴角速度 + 重力投影" },
-  { id: "rangefinder", label: "单点测距", onboard: false, hint: "沿装配方向打一条射线，给出到最近障碍的距离" },
-  { id: "depth", label: "深度相机", onboard: false, hint: "机头前向 60×86 深度帧" },
-  { id: "height", label: "高度扫描（雷达）", onboard: false, hint: "机周 0.1 m 网格高度场" },
-  { id: "lidar", label: "LiDAR（射线）", onboard: false, hint: "水平扇扫 → 极坐标图与点云" },
-  { id: "rgb", label: "RGB 相机", onboard: false, hint: "three.js 相机（非 MuJoCo 原生渲染）" },
-];
-
-/**
- * **默认装配**（机身坐标系：x 前、y 左、z 上；位置单位 m，角度单位**度**）。
+ * 传感器清单 —— **从框架目录派生**（单一真值在 `sensors/sensor_catalog.js`）。
  *
- * **朝向约定：传感器的"看"方向 = 它局部的 −z**（与 MuJoCo 相机一致）。
- * 于是 `rpy = [0, 0, 0]` 是**朝下**，朝前要把 −z 绕 y 转到 +x —— 即 **y = −90°**。
- * 这几个默认值是"出厂位置"，全部可以在 UI 里改（位置与角度各三格）。
+ * 为什么派生而不是各自维护：坞里显示的清单与框架目录一旦分叉，会出现"目录说有足底接触、
+ * 坞里没有"或反过来——而两边都不会报错。派生后只有一处可改。
+ *
+ * `DEFAULT_MOUNTS` 同样取自目录的 `defaultMount`（缺装配的传感器如 odom/足底接触给零位姿）。
  */
-export const DEFAULT_MOUNTS = {
-  odom: { pos: [0, 0, 0], rpy: [0, 0, 0] }, // 本体感知：机身原点（不是物理器件）
-  imu: { pos: [0, 0, 0.05], rpy: [0, 0, 0] }, // 机身中部上方
-  rangefinder: { pos: [0.30, 0, 0.05], rpy: [0, -90, 0] }, // 机头，水平前视
-  depth: { pos: [0.28, 0, 0.08], rpy: [0, -80, 0] }, // 机头，朝前略下俯
-  height: { pos: [0, 0, 0.06], rpy: [0, 0, 0] }, // 雷达，垂直向下
-  lidar: { pos: [0.05, 0, 0.16], rpy: [0, 0, 0] }, // 机顶旋转雷达
-  rgb: { pos: [0.27, 0, 0.09], rpy: [0, -80, 0] }, // 与深度相机并排
-};
+import { SENSOR_CATALOG, defaultPlugins as catalogDefaultPlugins } from "./sensors/sensor_catalog.js";
+
+export const SENSOR_PLUGINS = SENSOR_CATALOG
+  .filter((item) => !item.derivedFrom)
+  .map((item) => ({
+    id: item.id,
+    label: item.label,
+    onboard: item.onboard,
+    hint: item.hint,
+  }));
+
+export const DEFAULT_MOUNTS = Object.fromEntries(
+  SENSOR_CATALOG.map((item) => [item.id, {
+    pos: (item.defaultMount?.pos || [0, 0, 0]).slice(),
+    rpy: (item.defaultMount?.rpy || [0, 0, 0]).slice(),
+  }]),
+);
+
+/** 默认插件开关：**只有本体自知开**（= IMU 一个，与"盲狗的全部输入"一致）。 */
+export function defaultPlugins() {
+  return catalogDefaultPlugins();
+}
 
 /**
  * **可视化模型**：每个传感器在 3D 场景里的默认外形，让人能看出"装在哪、朝哪"。
@@ -70,6 +72,11 @@ export const SENSOR_MODELS = {
   height: { kind: "cylinder", size: [0.03, 0.02], color: 0x22c55e, label: "雷达" },
   lidar: { kind: "cylinder", size: [0.04, 0.05], color: 0xeab308, label: "LiDAR" },
   rgb: { kind: "box", size: [0.03, 0.06, 0.035], color: 0xf472b6, label: "RGB" },
+  // 雷达高度扫描没有独立器件（它与 LiDAR 同一次扫描），可视化复用雷达外形
+  lidar_height_scan: { kind: "cylinder", size: [0.04, 0.05], color: 0x84cc16, label: "高度扫描" },
+  // 足底接触没有"器件"——它是四只脚上的力感知，可视化用机身原点的小标记表示
+  // "本传感器在跑"（真正的接触状态画在接触视图里，不在这枚标记上）。
+  foot_contact: { kind: "sphere", size: [0.015], color: 0xef4444, label: "接触" },
 };
 
 /**
@@ -81,9 +88,11 @@ export const SENSOR_MODELS = {
  * 576 条射线/帧对 CPU 求交来说不构成负担。
  */
 export const SCAN_SPECS = {
-  /** 高度扫描：机周 4 m × 4 m 的 24×24 **起点**网格（射线都朝下）。 */
+  /** 高度扫描：机周 4 m × 4 m 的 24×24 **起点**网格（射线都朝下）。
+   *  数值真值在 `sensors/sensor_catalog.js` 的 `height.patternParams`（grid pattern，
+   *  与训练栈 mjlab GridPatternCfg 同语义）；这里保留同一份读数供画布/跨度使用。 */
   height: { side: 24, extent: 2.0, maxDist: 4.5 },
-  /** LiDAR：整圈 360° 均布 240 线，量程 12 m。 */
+  /** LiDAR：整圈 360° 均布 240 线，量程 12 m（fan pattern）。 */
   lidar: { count: 240, maxDist: 12 },
   /** 点云与 LiDAR **共用同一次扫描**：两图必须同源，否则"点云比极坐标图多出几个点"永远查不完。 */
   cloud: { maxDist: 12 },
@@ -175,11 +184,6 @@ export function rangefinderReadout({ distance = null, maxDist = null, hit = null
     return { distance: "无回波", note: has(maxDist) ? `量程 ${Number(maxDist).toFixed(2)} m` : "—" };
   }
   return { distance: `${Number(distance).toFixed(3)} m`, note: "单点回波" };
-}
-
-/** 默认插件开关：本体感知开、外挂传感器关。 */
-export function defaultPlugins() {
-  return Object.fromEntries(SENSOR_PLUGINS.map((p) => [p.id, Boolean(p.onboard)]));
 }
 
 /** 悬浮窗归属：**只有高级仿真显示**（与 sensor_panels.js 的分层规则一致）。
@@ -288,6 +292,22 @@ export function readoutRows(sourceId, values = {}) {
       ["距离", values.distance],
       ["装配位置 x / y / z (m)", values.mountPos],
       ["装配角度 r / p / y (deg)", values.mountRpy],
+    ];
+  }
+  if (sourceId === "lidar_height_scan") {
+    return [
+      ["聚合方式", values.aggregate],
+      ["有值 / 总格", values.filled],
+      ["空单元", values.emptyFill],
+      ["网格", values.scanGrid],
+    ];
+  }
+  if (sourceId === "contact") {
+    return [
+      ["着地足", values.grounded],
+      ["接触力 (N)", values.forces],
+      ["接触总数", values.contactCount],
+      ["退化模型", values.noiseMode],
     ];
   }
   // 以下四个是"有图也有数"的来源：数用来交代**这张图是什么尺度**（扫了多少、看多远），

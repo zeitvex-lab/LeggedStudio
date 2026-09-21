@@ -120,7 +120,35 @@ def facts_from_contract(contract_truth: dict[str, Any]) -> dict[str, Any]:
     """从契约真值 抽出物理事实（单一真值路径）。
 
     同时给出角色键控与逐关节两种视图，避免各消费者自行改口径。
+
+    **契约结构不完整时（半份契约）结构化降级，不抛 KeyError**：``joints`` /
+    ``actuator_profile`` 缺失时旧行为是 ``RoleResolver`` 里
+    ``contract["joints"]["actuated"]`` 直接抛，而消费方（如
+    ``backend.simulation_resolver`` 的运行规格解析）的契约是"失败必须是结构化
+    blocker + 修法"——崩溃会让整条链在路上死掉，页面/CLI 拿到的是 500 而不是
+    "缺哪一段、怎么补"。**control 段照常读**：时间基（physics_hz/decimation/
+    control_hz）与执行器画像是两件事，前者在 ``control`` 里、后者才需要
+    ``joints``/``actuator_profile``——用前者的缺失去否决后者是可用的数据，反过来
+    用后者的缺失去崩掉前者就是这条修法要消灭的行为。降级时 ``source`` 仍为
+    ``contract``（契约文件在、control 段可读）并置 ``needs_migration`` 提示
+    执行器画像未声明。
     """
+
+    if not isinstance(contract_truth.get("joints"), dict) or not isinstance(
+        contract_truth.get("actuator_profile"), dict
+    ):
+        control = contract_truth.get("control") or {}
+        facts = {
+            "source": "contract",
+            "needs_migration": True,
+            "by_role": {},
+            "by_joint": {},
+            "default": {},
+            "by_joint_override": {},
+        }
+        for key in CONTROL_KEYS:
+            facts[key] = control.get(key)
+        return facts
 
     profile = contract_truth.get("actuator_profile") or {}
     by_role = profile.get("by_role") or {}

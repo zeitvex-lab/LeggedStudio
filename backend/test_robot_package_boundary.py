@@ -6,6 +6,7 @@ packages portable across the browser viewer, the FastAPI process, and the
 isolated MJLab worker.
 """
 
+import json
 import unittest
 from pathlib import Path
 
@@ -182,6 +183,72 @@ class RobotPackageConfigImmutabilityTests(unittest.TestCase):
                     if not (contract.get(field) or policy.get(field) or shared.get(field)):
                         problems.append(f"{config_path} policy {pid}: missing {field}")
         self.assertFalse(problems, chr(10).join(problems[:20]))
+
+
+class PackageIndexSignatureTests(unittest.TestCase):
+    """包索引的新鲜度签名必须覆盖**策略/训练声明文件**。
+
+    防的回归（2026-09-21 实测）：`_package_signature` 只覆盖 contract/manifest
+    的 mtime 与 `training/profiles` + `training/source` 的目录摘要，**不含**
+    `simulation/config.json`。于是在 `simulation/config.json` 里新登记一条策略后：
+      * `/api/robots/presets/<id>`（读持久索引）仍返回**旧**策略清单
+        ⇒ 场景编辑器的策略下拉选不到新策略；
+      * `/api/simulation/browser-config/<id>`（每次现算）是**新**的。
+    两端不一致，且旧的那端没有报错——正是"stale index"类缺陷（该函数 docstring 自己
+    点名要防的那类）。这里钉住：改 `simulation/config.json` 必须翻转签名。
+    """
+
+    def _signature(self) -> str:
+        import importlib
+
+        module = importlib.import_module("backend.robot_packages")
+        return module._package_signature()
+
+    def test_simulation_config_edit_flips_the_signature(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pkg = root / "unitree_go2"
+            (pkg / "simulation").mkdir(parents=True)
+            config = pkg / "simulation" / "config.json"
+            config.write_text(json.dumps({"policies": [{"id": "a"}]}), encoding="utf-8")
+            import backend.robot_packages as rp
+
+            original_roots = rp._package_roots
+            rp._package_roots = lambda: [root]
+            try:
+                before = self._signature()
+                # 内容级变更：加一条策略（字节数与 mtime 都变）
+                config.write_text(json.dumps({"policies": [{"id": "a"}, {"id": "b"}]}), encoding="utf-8")
+                after = self._signature()
+                self.assertNotEqual(before, after, "simulation/config.json 的内容变更必须翻转索引签名")
+                # 纯内容变更也要翻转（同一字节数、只改内容）——mtime 精度不足时靠字节数
+                same_size = json.dumps({"policies": [{"id": "a"}, {"id": "c"}]})
+                config.write_text(same_size, encoding="utf-8")
+                self.assertNotEqual(before, self._signature(), "同尺寸的内容变更也要能被感知")
+            finally:
+                rp._package_roots = original_roots
+
+    def test_missing_config_file_is_in_the_signature(self):
+        """缺文件与有文件必须可区分（新建 config.json 也要触发重扫）。"""
+
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pkg = root / "unitree_go2"
+            (pkg / "simulation").mkdir(parents=True)
+            import backend.robot_packages as rp
+
+            original_roots = rp._package_roots
+            rp._package_roots = lambda: [root]
+            try:
+                missing = self._signature()
+                (pkg / "simulation" / "config.json").write_text("{}", encoding="utf-8")
+                self.assertNotEqual(missing, self._signature(), "新建 simulation/config.json 必须翻转签名")
+            finally:
+                rp._package_roots = original_roots
 
 
 if __name__ == "__main__":

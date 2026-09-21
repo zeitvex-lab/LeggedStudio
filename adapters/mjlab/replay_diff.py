@@ -28,10 +28,18 @@ SEGMENTS_98 = [
     ("joint_pos_rel", 29), ("joint_vel_rel", 29), ("last_action", 29),
 ]
 
+# go2_rl_sdk_45 / 通用 45 维 locomotion 帧（与 observation_builders.js fillRlSdkActorFrame 同序）
+SEGMENTS_45 = [
+    ("base_ang_vel", 3), ("projected_gravity", 3), ("command", 3),
+    ("joint_pos_rel", 12), ("joint_vel_rel", 12), ("last_action", 12),
+]
+
+SELECTED_SEGMENTS = SEGMENTS_98
+
 
 def segment_of(index: int) -> str:
     offset = 0
-    for name, size in SEGMENTS_98:
+    for name, size in SELECTED_SEGMENTS:
         if index < offset + size:
             return f"{name}[{index - offset}]"
         offset += size
@@ -42,6 +50,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--package", required=True)
     parser.add_argument("--policy", default="simulation/policies/unitree_velocity.onnx")
+    parser.add_argument("--policy-id", default="", help="策略声明 id（缺省按 --policy 文件名/首条匹配）")
     parser.add_argument("--framelog", required=True, help="浏览器 frameLog JSON（obs 数组列表）")
     parser.add_argument("--cmd", default="0.4,0,0")
     parser.add_argument("--seed", type=int, default=7)
@@ -56,6 +65,8 @@ def main() -> None:
     if not frames:
         raise SystemExit("framelog 为空")
     browser_obs = np.asarray([f["obs"] for f in frames], dtype=np.float32)
+    global SELECTED_SEGMENTS
+    SELECTED_SEGMENTS = SEGMENTS_45 if browser_obs.shape[1] == 45 else SEGMENTS_98
     # 新口径：帧带 stepIndex（控制步序号，reset 后从 0 起）。frames[0] 若 stepIndex==0
     # 且速度/动作全零，则为初始 obs（reset 尾部的 buildObservation），对齐时跳过。
     has_step_index = isinstance(frames[0], dict) and "stepIndex" in frames[0]
@@ -63,7 +74,13 @@ def main() -> None:
 
     sim_cfg = json.loads((package_dir / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
     contract = PackageContract(package_dir, next(
-        (p for p in sim_cfg.get("policies", []) if p.get("id") == "g1-velocity"), sim_cfg["policies"][0]))
+        (p for p in sim_cfg.get("policies", []) if p.get("id") == args.policy_id),
+        next(
+            (p for p in sim_cfg.get("policies", [])
+             if Path(str(p.get("path", ""))).stem == Path(args.policy).stem),
+            sim_cfg["policies"][0],
+        ),
+    ))
     model = load_package_model(package_dir, sim_cfg)
     model.opt.timestep = 1.0 / contract.physics_hz
     data = mujoco.MjData(model)
@@ -86,7 +103,7 @@ def main() -> None:
         phase = math.atan2(s, c) / (2 * math.pi)
         return phase * contract.gait_period if phase >= 0 else (phase + 1) * contract.gait_period
     import math
-    target_phase_s = _phase_seconds(frames[0]["obs"])
+    target_phase_s = _phase_seconds(frames[0]["obs"]) if browser_obs.shape[1] == 98 else 0.0
     skip_steps = int(round(target_phase_s / contract.step_dt))
     for step in range(steps + skip_steps):
         if step % contract.decimation == 0:

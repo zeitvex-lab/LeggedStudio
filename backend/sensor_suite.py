@@ -42,6 +42,8 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from contracts import sensor_plugin_contract as plugin_contract
+
 router = APIRouter(prefix="/api/sensors", tags=["sensors"])
 
 SOURCE = "MATRiX v1.0.13 UeSim/Content/model/config/{config.json,sensors/*.json}"
@@ -257,6 +259,49 @@ def sensor_kind_catalog() -> list[dict[str, Any]]:
 def default_sensor_suite() -> list[dict[str, Any]]:
     """The MATRiX release default suite, as plain dicts."""
     return [sensor.to_dict() for sensor in preset_sensors("default")]
+
+
+# --------------------------------------------------------------------------------------
+# v2 高级仿真：共享插件声明的**导出口**（不是第二份定义）
+# --------------------------------------------------------------------------------------
+#
+# 本模块上面的预设携的是 **MATRiX v1.0.13 硬件套件**（"这台机器人出厂装了什么"，
+# 出处是外部发行包，逐字复制）；v2 高级仿真需要的是"**原生运行时可实例化的插件契约**"
+# （输出形状、参数默认值与出处、能力等级）。两者的字段语义不同，**不能互相翻译**：
+# 把 ``SensorSpec.rate_hz`` 映射成 ``sample_period_ticks`` 会造出第二个采样率真值
+# （前者是硬件申报率，后者必须是 contract 时间基下的整数 tick）。
+#
+# 所以这里只做**委托**：一个字节都不解释，全部交给 contracts 里的那一份声明。
+# 这样"UI 上写着 240 线、worker 实际打 128 线"这类漂移在结构上就不可能出现。
+
+
+def plugin_catalog_v2() -> dict[str, Any]:
+    """v2 插件 catalog（委托 :func:`contracts.sensor_plugin_contract.plugin_catalog_payload`）。"""
+
+    return plugin_contract.plugin_catalog_payload()
+
+
+def plugin_default_config_v2(plugin_id: str) -> dict[str, Any]:
+    """某插件的默认参数（**唯一**来源仍是 contracts；未知插件抛 ``KeyError`` 而非返回空）。"""
+
+    definition = plugin_contract.plugin_definition(plugin_id)
+    if definition is None:
+        raise KeyError(f"Unknown v2 sensor plugin: {plugin_id}")
+    return definition.default_config()
+
+
+@router.get("/v2/plugins")
+async def sensor_plugins_v2():
+    """v2 可实例化插件与命令提供器声明（默认值与出处只在 contracts 一处）。"""
+
+    catalog = plugin_catalog_v2()
+    return {
+        "success": True,
+        "source": SOURCE,
+        "schema_version": catalog["schema_version"],
+        "count": len(catalog["sensors"]),
+        **catalog,
+    }
 
 
 @router.get("/kinds")
