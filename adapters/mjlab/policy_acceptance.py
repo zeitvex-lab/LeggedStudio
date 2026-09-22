@@ -1028,6 +1028,14 @@ def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
     `scale` 除字面量外还认 **`"@contract"`**：用该策略契约声明的缩放字段
     （`scales.ang_vel / dof_pos / dof_vel / command`）——`_std_frame` 这类"缩放随契约走"的
     布局因此也能声明成规格（同一个 kind 跨机型时数值各按各的契约，规格仍只有一份）。
+
+    **关节类段的语义筛选（2026-09-22 v0.58.0 补，与 JS `applyLayoutSpec` 逐字同规则）**：
+    原先 `joint_pos`/`joint_vel` 只能"按位置取前 N 个"，于是"轮位清零 / 按控制模式分列"
+    这类**语义**只能靠"腿恰好排在前 12"的位置巧合表达——契约一换序就静默错位。新增：
+      · `"mode": "position" | "velocity"`：只取该**控制模式**的关节（**必须显式给 width**，
+        = 选中关节数，不符即抛——"猜宽度"正是静默错位的来源）；
+      · `"zero_velocity_joints": true`：宽度不变，但速度控制关节写 0
+        （`go2w_rl_sdk_57` / `go2w_himloco_57` 的"轮位置清零"就是这一条）。
     """
     c = obs.contract
     order = c.action_joint_order
@@ -1064,6 +1072,24 @@ def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
             width = int((seg or {}).get("width") or len(order))
         if source == "zeros" and not (seg or {}).get("width"):
             raise ValueError("段 'zeros' 必须显式声明 width（零占位没有天然宽度）")
+        # 语义筛选：选中哪些关节由**控制模式**定（不是"前 N 个"）。缺省 any＝全取。
+        raw_mode = str((seg or {}).get("mode") or "any").lower()
+        if raw_mode == "torque":
+            raise ValueError('段 mode="torque" 尚未实现（词汇表只区分 position/velocity）')
+        picked: list[int] | None = None
+        if raw_mode in ("position", "velocity"):
+            want_velocity = raw_mode == "velocity"
+            picked = [i for i, n in enumerate(order)
+                      if bool(c.is_velocity_joint(n)) is want_velocity]
+            if not (seg or {}).get("width"):
+                raise ValueError(
+                    f"段 {source!r} 声明了 mode={raw_mode} 就必须显式给 width"
+                    f"（= 选中关节数 {len(picked)}）")
+            if len(picked) != width:
+                raise ValueError(
+                    f"段 {source!r} 的 width={width} ≠ mode={raw_mode} 选中的关节数 "
+                    f"{len(picked)}（规格与契约不符）")
+        zero_velocity = bool((seg or {}).get("zero_velocity_joints"))
         scales = scale_values(source, (seg or {}).get("scale", 1.0))
         # 标量缩放 = 该段所有维同一个值（JS 侧 `Array.isArray` 分支同语义）；**少于宽度**才报错。
         if len(scales) == 1:
@@ -1087,10 +1113,14 @@ def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
             angle = 2.0 * math.pi * phase
             out.append(math.sin(angle) if source == "phase_sin" else math.cos(angle))
         elif source == "joint_pos":
-            out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * scales[i]
-                    for i, n in enumerate(order[:width])]
+            picked_order = order if picked is None else [order[i] for i in picked]
+            out += [0.0 if (zero_velocity and c.is_velocity_joint(n))
+                    else (obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * scales[i]
+                    for i, n in enumerate(picked_order[:width])]
         elif source == "joint_vel":
-            out += [obs.data.qvel[obs.jadr[n][1]] * scales[i] for i, n in enumerate(order[:width])]
+            picked_order = order if picked is None else [order[i] for i in picked]
+            out += [obs.data.qvel[obs.jadr[n][1]] * scales[i]
+                    for i, n in enumerate(picked_order[:width])]
         elif source == "action":
             out += [float(a) for a in obs.last_action[:width]]
     return out

@@ -1073,6 +1073,15 @@ const OBSERVATION_BUILDERS = {
   // （实测过：缩放两侧一起错，逐维对拍照样全绿，策略却崩）。
   // 段词汇与 Python 逐字一致：zeros / ang_vel / gravity / euler / cmd / phase_sin / phase_cos /
   // joint_pos / joint_vel / action；缺省 width = 动作关节数、缺省 scale = 1（cmd 的 scale 可逐维）。
+  //
+  // **关节类段的语义筛选（2026-09-22 v0.58.0 补）**：原先关节段只能"按位置取前 N 个"
+  // （`joint_pos` 永远是 `order[0..width)`），于是"轮位清零/按控制模式分列"这类**语义**
+  // 只能靠"腿恰好排在前 12"的位置巧合表达 —— 一旦契约换序就静默错位。新增两个**语义**
+  // 选项（与 Python `frame_from_spec` 逐字同规则）：
+  //   · `"mode": "position" | "velocity"`：只取该控制模式的关节（取哪个关节由**控制模式**定，
+  //      不是由位置定）；**必须显式声明 `width`**（= 选中关节数，不符即抛，fail-closed）；
+  //   · `"zero_velocity_joints": true`：宽度不变，但**速度控制**的关节写 0
+  //      （`go2w_rl_sdk_57` / `go2w_himloco_57` 的"轮位置清零"就是这一条）。
   function applyLayoutSpec(spec) {
     const imu = readImuSample();
     const signs = input.imuAxisSigns;
@@ -1095,6 +1104,30 @@ const OBSERVATION_BUILDERS = {
       if (source === "zeros" && !(seg && seg.width)) {
         throw new Error("段 'zeros' 必须显式声明 width（零占位没有天然宽度）");
       }
+      // 语义筛选：选中的关节下标（**按控制模式**，不是按位置）。`mode` 缺省 any ⇒ 全取。
+      const rawMode = String((seg && seg.mode) || "any").toLowerCase();
+      if (rawMode === "torque") {
+        throw new Error("段 mode=\"torque\" 尚未实现（词汇表只区分 position/velocity）");
+      }
+      let jointIndex = null;
+      if (rawMode === "position" || rawMode === "velocity") {
+        const want = rawMode === "velocity";
+        jointIndex = [];
+        for (let i = 0; i < CONFIG.numActions; i += 1) {
+          if ((CONFIG.controlModes[i] === "velocity") === want) jointIndex.push(i);
+        }
+        if (!(seg && seg.width)) {
+          throw new Error(`段 ${source} 声明了 mode=${rawMode} 就必须显式给 width（= 选中关节数 ${jointIndex.length}）`);
+        }
+        if (jointIndex.length !== width) {
+          throw new Error(
+            `段 ${source} 的 width=${width} ≠ mode=${rawMode} 选中的关节数 ${jointIndex.length}（规格与契约不符）`,
+          );
+        }
+      }
+      const zeroVelocity = Boolean(seg && seg.zero_velocity_joints);
+      const writeJoint = (i) => (jointIndex === null ? i : jointIndex[i]);
+      const isZeroed = (i) => zeroVelocity && CONFIG.controlModes[i] === "velocity";
       // scale 除字面量外认 "@contract"：用契约声明的缩放字段（同一 kind 跨机型时各按各的契约）。
       let scaleList = null;
       if (rawScale === "@contract") {
@@ -1135,10 +1168,13 @@ const OBSERVATION_BUILDERS = {
           sim.obs[offset++] = Math.cos(angle);
           break;
         case "joint_pos":
-          for (let i = 0; i < width; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * scaleAt(i);
+          for (let i = 0; i < width; i += 1) {
+            const j = writeJoint(i);
+            sim.obs[offset++] = isZeroed(j) ? 0 : (jointQpos(j) - CONFIG.defaultAngles[j]) * scaleAt(i);
+          }
           break;
         case "joint_vel":
-          for (let i = 0; i < width; i += 1) sim.obs[offset++] = jointQvel(i) * scaleAt(i);
+          for (let i = 0; i < width; i += 1) sim.obs[offset++] = jointQvel(writeJoint(i)) * scaleAt(i);
           break;
         case "action":
           for (let i = 0; i < width; i += 1) sim.obs[offset++] = sim.action[i];

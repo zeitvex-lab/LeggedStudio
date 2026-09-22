@@ -24,6 +24,7 @@
       "source": "rl_sar policy/b2w/robot_lab（Apache-2.0，社区 IsaacLab 系训练基准）",
       "contract": {
         "observation_kind": "go2w_rl_sdk_57",
+        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
         "obs_dim": 57,
         "action_dim": 16,
         "history_len": 1,

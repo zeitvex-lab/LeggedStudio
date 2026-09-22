@@ -6,6 +6,8 @@ function makeCtx(overrides = {}) {
   const numActions = overrides.numActions ?? 12;
   const CONFIG = {
     observationKind: overrides.kind ?? 'go2_rl_sdk_45',
+    // 声明式布局规格（`observation_layout`）：非空即优先于 kind builder（与验收器同一条路）。
+    observationLayout: overrides.layout ?? null,
     numObs, numActions,
     simulationDt: 0.002, controlDecimation: 10,
     angVelScale: 0.25, dofPosScale: 1.0, dofVelScale: 0.05,
@@ -400,4 +402,71 @@ function eulerXyzMisread([w0, x0, y0, z0]) {
     console.log('OK mjswan actor 117：新帧入槽 0、旧帧后移（逐位核对 gravity / 关节 / 动作三段）');
   }
 }
+// ── 声明式布局解释器（`CONFIG.observationLayout`）的**语义筛选**（2026-09-22 v0.58.0）─────
+// 为什么单独测：这两个选项（`mode` / `zero_velocity_joints`）是为了让"轮位清零""按控制模式
+// 分列"从"腿恰好排在前 12"的**位置巧合**升级成**语义**（契约一换序，位置写法就静默错位）。
+// 两侧（JS `applyLayoutSpec` / Python `frame_from_spec`）规则逐字相同，故判据必须落到**值**上。
+/** 断言"跑得通 + 逐维值对"（解释器必须看值，不能只看"没抛错"）。 */
+function testSpecValues(name, ctx, check) {
+  try {
+    const obs = createObservationSystems(ctx);
+    obs.buildObservation();
+    check(ctx);
+    passed++;
+    console.log('OK', name);
+  } catch (e) {
+    failed++;
+    console.log('FAIL', name, '--', e.message);
+  }
+}
+
+// 16 动作：前 12 腿（position）、后 4 轮（velocity）；关节角 = i+1、dq = 10·(i+1)。
+// 注意：测试用的 ctx 默认把 `jointQpos/jointQvel` 打成了常量假体（`defaultAngles[i]` / 0），
+// 所以这里必须**从 ctx 覆盖**这两个访问器——否则本组用例全是 0，看着"通过"其实什么都没测。
+function makeWheelLegLayoutCtx(layout, numObs) {
+  const numActions = 16;
+  const ctx = makeCtx({
+    kind: 'go2w_rl_sdk_57', numObs, numActions, layout,
+    ctx: { jointQpos: (i) => (i + 1), jointQvel: (i) => 10 * (i + 1) },
+  });
+  ctx.CONFIG.controlModes = [...new Array(12).fill('position'), ...new Array(4).fill('velocity')];
+  return ctx;
+}
+
+testSpecValues('布局·zero_velocity_joints：轮位清零、腿位保留', 
+  makeWheelLegLayoutCtx([{ source: 'joint_pos', scale: '@contract', zero_velocity_joints: true }], 16),
+  (ctx) => {
+    const o = ctx.sim.obs;
+    const near = (a, b) => Math.abs(a - b) < 1e-5;
+    // q_rel = (i+1) − 0.1，dofPosScale = 1.0
+    if (!near(o[0], 0.9) || !near(o[11], 11.9)) throw new Error(`腿位不对：${o[0]}, ${o[11]}`);
+    if (!near(o[12], 0) || !near(o[15], 0)) throw new Error(`轮位没清零：${o[12]}, ${o[15]}`);
+  });
+
+testSpecValues('布局·mode=velocity：只取速度控制关节（按语义，不按位置）',
+  makeWheelLegLayoutCtx([{ source: 'joint_vel', mode: 'velocity', width: 4, scale: '@contract' }], 4),
+  (ctx) => {
+    const o = ctx.sim.obs;
+    const near = (a, b) => Math.abs(a - b) < 1e-5;
+    // dofVelScale = 0.05；选中的是 12..15 号关节 ⇒ 10·(12+1)·0.05 = 6.5 起
+    if (!near(o[0], 6.5) || !near(o[3], 8.0)) throw new Error(`取的关节不对：${o.slice(0, 4)}`);
+  });
+
+testSpecValues('布局·mode=position：取非速度控制关节',
+  makeWheelLegLayoutCtx([{ source: 'joint_vel', mode: 'position', width: 12, scale: '@contract' }], 12),
+  (ctx) => {
+    const o = ctx.sim.obs;
+    const near = (a, b) => Math.abs(a - b) < 1e-5;
+    if (!near(o[0], 0.5) || !near(o[11], 6.0)) throw new Error(`取的关节不对：${o.slice(0, 3)}`);
+  });
+
+testRefuses('布局·mode 不给 width ⇒ 拒绝（宽度不许猜）',
+  makeWheelLegLayoutCtx([{ source: 'joint_vel', mode: 'velocity' }], 4));
+testRefuses('布局·width 与 mode 选中的关节数不符 ⇒ 拒绝',
+  makeWheelLegLayoutCtx([{ source: 'joint_vel', mode: 'velocity', width: 5 }], 5));
+testRefuses('布局·mode="torque" 未实现 ⇒ 拒绝（不许静默当 position）',
+  makeWheelLegLayoutCtx([{ source: 'joint_vel', mode: 'torque', width: 16 }], 16));
+testRefuses('布局·段宽之和 ≠ numObs ⇒ 拒绝',
+  makeWheelLegLayoutCtx([{ source: 'gravity' }], 45));
+
 console.log(`\nFINAL PASS=${passed} FAIL=${failed}`);

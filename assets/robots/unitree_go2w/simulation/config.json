@@ -164,6 +164,7 @@
       "source": "rl_sar policy/go2w/robot_lab（Apache-2.0，社区 IsaacLab 系训练基准）",
       "contract": {
         "observation_kind": "go2w_rl_sdk_57",
+        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
         "obs_dim": 57,
         "action_dim": 16,
         "history_len": 1,
@@ -286,6 +287,7 @@
       "source": "LeggedSkillDeploy policy/issacgym/go2w/go2w_himloco（第三方，无 LICENSE；仅内部研究）——对应 HIMLoco 训练工程",
       "contract": {
         "observation_kind": "go2w_himloco_57",
+        "observation_layout": [{"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
         "obs_dim": 57,
         "action_dim": 16,
         "history_len": 6,
@@ -450,6 +452,7 @@
       "contract": {
         "steady_height_policy": "self_stability",
         "observation_kind": "go2w_himloco_57",
+        "observation_layout": [{"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
         "obs_dim": 57,
         "action_dim": 16,
         "history_len": 6,
@@ -613,6 +616,7 @@
       "source": "LeggedSkillDeploy policy/issacgym/go2w/go2w_himloco（第三方，无 LICENSE；仅内部研究）——对应 HIMLoco 训练工程",
       "contract": {
         "observation_kind": "go2w_himloco_57",
+        "observation_layout": [{"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
         "obs_dim": 57,
         "action_dim": 16,
         "history_len": 6,
@@ -777,6 +781,7 @@
       "contract": {
         "steady_height_policy": "self_stability",
         "observation_kind": "go2w_himloco_57",
+        "observation_layout": [{"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
         "obs_dim": 57,
         "action_dim": 16,
         "history_len": 6,
