@@ -140,5 +140,60 @@ class ObservationKindCoverageTest(unittest.TestCase):
             self.assertIn(expected, keys, f"抽取漏了已知 builder 键 {expected}")
 
 
+class FrameBuildersDictTest(unittest.TestCase):
+    """**Python 侧 `FRAME_BUILDERS` 不许有重复键**（2026-09-22 实测踩到）。
+
+    字典字面量里重复的字符串键，Python **不报错、也不警告** —— 后写的赢，先写的静默变死条目。
+    实测 `policy_acceptance.py` 里 `lite3_rl_sdk_hist6` 就出现两次（`_std_frame` 与
+    `_frame_himloco_45`，后者带注释说明"包内 kind 标注曾误用通用序"）：行为恰好是注释想要的，
+    但**第一条是死条目**，读代码的人会以为该 kind 走通用序 —— 与同文件 `_STANDARD_KINDS`
+    包含它的口径正面矛盾。这类"两份口径各自成立、其中一个永远不生效"正是本仓反复吃亏的形态，
+    而它**不会在运行时暴露**，只能靠静态守卫。
+    """
+
+    def test_no_duplicate_keys(self):
+        import ast
+
+        source = (ROOT / "adapters" / "mjlab" / "policy_acceptance.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        maps: list[tuple[int, list[str]]] = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Dict) or node.lineno != _frame_builders_lineno():
+                continue
+            keys = [k.value for k in node.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)]
+            maps.append((node.lineno, keys))
+        self.assertEqual(1, len(maps), "没找到 FRAME_BUILDERS 字典（抽取逻辑失效，守卫会假绿）")
+        _, keys = maps[0]
+        self.assertGreaterEqual(len(keys), 15, f"FRAME_BUILDERS 键太少（{len(keys)}），抽取可能失效")
+        duplicates = sorted({k for k in keys if keys.count(k) > 1})
+        self.assertEqual([], duplicates, f"FRAME_BUILDERS 有重复键（后写的赢、先写的静默变死条目）：{duplicates}")
+
+    def test_extraction_finds_real_kinds(self):
+        """自检：真正在用的 kind 必须在表里（否则上一条可能在"抽到空表"时假绿）。"""
+
+        import ast
+
+        source = (ROOT / "adapters" / "mjlab" / "policy_acceptance.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        keys: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Dict) and node.lineno == _frame_builders_lineno():
+                keys = {k.value for k in node.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)}
+        # 注意：`go2_pie_depth` **不在** `FRAME_BUILDERS` 里（它走专用控制回路 run_pie_policy），
+        # 别把它写进期望值——那会让守卫在"抽取正确"时报假红。
+        for expected in ("go2_rl_sdk_45", "himloco_45_hist6", "go2_motion_69", "lite3_rl_sdk_hist6"):
+            self.assertIn(expected, keys, f"FRAME_BUILDERS 抽取漏了 {expected}")
+
+
+def _frame_builders_lineno() -> int:
+    """`FRAME_BUILDERS = {` 那一行的行号（按文本找，避免在测试里再抄一份键名）。"""
+
+    source = (ROOT / "adapters" / "mjlab" / "policy_acceptance.py").read_text(encoding="utf-8")
+    for index, line in enumerate(source.splitlines(), start=1):
+        if line.startswith("FRAME_BUILDERS = {"):
+            return index
+    raise AssertionError("policy_acceptance.py 里找不到 FRAME_BUILDERS 定义（改名了？同步本守卫）")
+
+
 if __name__ == "__main__":
     unittest.main()

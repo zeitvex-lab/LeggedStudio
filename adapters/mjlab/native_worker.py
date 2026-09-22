@@ -295,7 +295,7 @@ def apply_training_recipe(env_cfg, rl_cfg, config: dict, *, preserve_profile: bo
         "track_lin_vel": "track_linear_velocity", "track_ang_vel": "track_angular_velocity",
         "joint_torques": "joint_torques_l2", "joint_acc": "joint_acc_l2",
         "body_ang_vel": "body_angular_velocity_penalty", "body_collision": "self_collision_cost",
-        "feet_air_time": "feet_air_time", "wheel_roll_tracking": "wheel_roll_tracking",
+        "wheel_roll_tracking": "wheel_roll_tracking",
         "orientation": "body_orientation_l2", "torques": "joint_torques_l2", "dof_vel": "joint_vel_l2",
         "dof_acc": "joint_acc_l2", "action_rate": "action_rate_l2", "collision": "illegal_contact",
         "feet_air_time": "air_time", "base_height": "upright", "stumble": "body_orientation_l2",
