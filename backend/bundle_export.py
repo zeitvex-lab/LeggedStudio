@@ -269,8 +269,60 @@ def export_skill(recipe_id: str, out_dir: Path | str, *, emit_manifest: bool = T
     )
 
 
+def scenario_map_references(contract) -> dict[str, Any]:
+    """场景引用的地图**能不能随包走**（H5 已登记的诚实边界 C4）。
+
+    规则与**运行时解析器同源**（`backend/simulation_resolver.py` 按
+    `assets/maps/<map_id>.xml` 解析）：`assets/maps/` 是**产品自带的公共地图库**
+    （`_index.json` 登记 + 随浏览器载荷下发，见 `simulation_browser.common_map_entries`）
+    ⇒ 引用库内地图的场景在任何人机器上都能跑，**无需带**。
+
+    引用**库外**东西则不然（自加的 `map_id`、或 `terrain.xml_path` 指向的文件）：
+    不带走就必然在接收方跑不起来——所以导出期**二选一**（本函数只判定，不落盘）：
+
+    * 库内 id ⇒ `shipped=True`，无文件要带；
+    * 库外但本地确有该文件 ⇒ 计划复制进包 `maps/<名字>`（`shipped=False` + 说明，
+      接收方需把该文件放进自己的 `assets/maps/<id>.xml`）；
+    * 库外且**找不到文件** ⇒ **拒绝**（fail-closed：宁可现在报错，也不产出一个
+      注定跑不起来的包——"分享即可跑"不成立时要说出来，不能让包看起来是好的）。
+    """
+
+    from backend.simulation_browser import MAPS_ROOT, common_map_entries
+
+    map_id = str(getattr(contract, "map_id", "") or "flat")
+    library = {str(entry.get("id")) for entry in common_map_entries()}
+    if map_id in library and (MAPS_ROOT / f"{map_id}.xml").is_file():
+        return {"id": map_id, "source": "common-map-library", "shipped": True, "files": [],
+                "hint": "引用的是产品自带公共地图库里的地图，接收方无需额外文件"}
+
+    terrain = getattr(contract, "terrain", None)
+    explicit = str(getattr(terrain, "xml_path", "") or "") if terrain is not None else ""
+    candidates: list[Path] = []
+    if explicit:
+        raw_path = Path(explicit).expanduser()
+        candidates.append(raw_path if raw_path.is_absolute() else (ROOT / raw_path))
+    candidates.append(MAPS_ROOT / f"{map_id}.xml")
+    found = next((path for path in candidates if path.is_file()), None)
+    if found is None:
+        where = f"（`terrain.xml_path={explicit}`）" if explicit else ""
+        raise ValueError(
+            f"场景引用的地图 {map_id!r}{where} 既不在公共地图库 assets/maps/（_index.json 登记），"
+            f"本地也没有对应文件 ⇒ 导出后接收方必然跑不起来。二选一：① 把该 XML 放进 "
+            f"assets/maps/ 并登记进 _index.json（这样所有包共享）；② 先把它放到本地可确定的路径"
+            f"（留档后自行随包发给接收方并按 maps/ 放置）。拒绝导出而不是产出一个坏包。"
+        )
+    return {"id": map_id, "source": "packaged-with-scenario", "shipped": False,
+            "files": [{"src": found, "relative": f"maps/{found.name}"}],
+            "hint": f"该地图不在公共地图库：已随包携带 maps/{found.name}，"
+                    f"接收方需把它放进自己的 assets/maps/{map_id}.xml（或按包声明同名 id）"}
+
+
 def export_scenario(scenario_path: Path | str, out_dir: Path | str, *, emit_manifest: bool = True) -> dict[str, Any]:
-    """**Scenario 包**：场景契约 JSON（导出前用 `ScenarioContract` 校验，fail-closed）。"""
+    """**Scenario 包**：场景契约 JSON（导出前用 `ScenarioContract` 校验，fail-closed）。
+
+    并核验**地图可分享性**（C4）：库内地图无需带；库外地图复制进包并附放置说明；
+    找不到就拒绝导出（`scenario_map_references`）——**判定在写盘之前**，不留半成品。
+    """
 
     from contracts.scenario_contract import ScenarioContract
 
@@ -281,9 +333,15 @@ def export_scenario(scenario_path: Path | str, out_dir: Path | str, *, emit_mani
     if not isinstance(raw, dict):
         raise ValueError(f"场景文件不是 JSON 对象：{source}")
     contract = ScenarioContract(**raw)  # 校验失败就抛（不导出半成品）
+    map_ref = scenario_map_references(contract)   # 同样在写盘前判定（fail-closed）
     writer = ExportWriter(Path(out_dir), "scenario")
     writer.write_json(contract.to_payload(), SCENARIO_FILE, role="scenario")
-    return writer.finish(refs={"scenario": {"id": contract.scenario_id}}, emit=emit_manifest)
+    for item in map_ref.get("files") or []:
+        writer.copy(Path(item["src"]), str(item["relative"]), role="map")
+    if not map_ref.get("shipped"):
+        writer.notes.append(str(map_ref.get("hint") or ""))
+    payload = {k: v for k, v in map_ref.items() if k != "files"}
+    return writer.finish(refs={"scenario": {"id": contract.scenario_id}, "map": payload}, emit=emit_manifest)
 
 
 def import_scenario(

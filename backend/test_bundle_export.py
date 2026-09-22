@@ -91,6 +91,84 @@ class SkillAndScenarioExportTest(unittest.TestCase):
                 bx.export_scenario(bad, Path(tmp) / "out")
 
 
+class ScenarioMapSharingTest(unittest.TestCase):
+    """场景引用的地图**能不能随包走**（C4，2026-09-22）。
+
+    为什么单列：`export_scenario` 原先只写场景 JSON，`map_id` 是**引用** ⇒ 引用产品自带
+    公共地图库之外的图时，"分享即可跑"不成立，而包**看起来是好的**（`verify_export` 也绿，
+    因为它只核 manifest 与磁盘是否一致）。H5 已把这条登记为诚实边界，本组把它钉成行为：
+    库内无需带 / 库外随包携带并附放置说明 / 找不到就**拒绝导出**。
+    """
+
+    def _scenario(self, tmp: str, payload: dict) -> Path:
+        path = Path(tmp) / "scenario.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        return path
+
+    def test_library_map_needs_no_extra_file(self):
+        """库内地图（`flat` 等）：接收方都有 ⇒ 不复制任何文件，只在 refs 里记明来源。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = bx.export_scenario(
+                self._scenario(tmp, {"scenario_id": "lib-map", "map_id": "flat"}), Path(tmp) / "out"
+            )
+            ref = manifest["refs"]["map"]
+            self.assertTrue(ref["shipped"])
+            self.assertEqual("common-map-library", ref["source"])
+            self.assertNotIn("map", {entry["role"] for entry in manifest["entries"]})
+            self.assertTrue(bx.verify_export(Path(tmp) / "out")["ok"])
+
+    def test_foreign_map_id_is_refused(self):
+        """库外 id 且本地没有该文件 ⇒ **拒绝导出**，且**不留半成品目录**。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "out"
+            with self.assertRaises(ValueError) as ctx:
+                bx.export_scenario(
+                    self._scenario(tmp, {"scenario_id": "foreign-map", "map_id": "my_secret_terrain"}), out
+                )
+            self.assertIn("公共地图库", str(ctx.exception))
+            self.assertFalse(out.exists(), "拒绝时不许落盘半成品")
+
+    def test_explicit_terrain_file_is_packaged(self):
+        """库外但显式给了 `terrain.xml_path` 且文件在 ⇒ 复制进包 + 附接收方放置说明。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            terrain = Path(tmp) / "custom_terrain.xml"
+            terrain.write_text("<mujoco/>", encoding="utf-8")
+            manifest = bx.export_scenario(
+                self._scenario(tmp, {
+                    "scenario_id": "custom-terrain",
+                    "map_id": "my_secret_terrain",
+                    "terrain": {"xml_path": str(terrain)},
+                }),
+                Path(tmp) / "out",
+            )
+            ref = manifest["refs"]["map"]
+            self.assertFalse(ref["shipped"])
+            self.assertEqual("packaged-with-scenario", ref["source"])
+            self.assertIn("map", {entry["role"] for entry in manifest["entries"]})
+            self.assertTrue((Path(tmp) / "out" / "maps" / "custom_terrain.xml").is_file())
+            self.assertTrue(any("接收方" in str(note) for note in manifest.get("notes") or []),
+                            "随包携带时必须写明接收方该把文件放到哪")
+            self.assertTrue(bx.verify_export(Path(tmp) / "out")["ok"])
+
+    def test_missing_explicit_terrain_file_is_refused(self):
+        """显式声明了 `terrain.xml_path` 但文件不存在 ⇒ 同样拒绝（声明与事实不符不许放行）。"""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError) as ctx:
+                bx.export_scenario(
+                    self._scenario(tmp, {
+                        "scenario_id": "dangling-terrain",
+                        "map_id": "my_secret_terrain",
+                        "terrain": {"xml_path": str(Path(tmp) / "nope.xml")},
+                    }),
+                    Path(tmp) / "out",
+                )
+            self.assertIn("公共地图库", str(ctx.exception))
+
+
 class PolicyExportTest(unittest.TestCase):
     def test_policy_export_copies_blob_and_metadata(self):
         artifact_id = _produced_artifact_id()

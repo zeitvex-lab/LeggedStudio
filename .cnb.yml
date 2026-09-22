@@ -176,6 +176,14 @@ syntax-check: &syntax-check
       # 装不上也不判红——backend/gl_env.offscreen_render_status() 是**实测探针**
       # （真建 Renderer 渲一帧），不可用时对应用例自我 skip，不会把环境问题报成失败。
       (apt-get update -qq && apt-get install -y -qq libosmesa6) || echo "libosmesa6 安装失败：渲染用例将 skip"
+      echo "== node runtime (观测对拍链的回归锁依赖它) =="
+      # `backend/test_obs_crosscheck_harness.py` 会**真跑** `tools/obs_crosscheck.py`
+      # （它再驱动 `web/sim2sim/obs/*.js` 的浏览器侧构建器）。本镜像是 `python:3.12`，
+      # **不带 node** ⇒ 缺了它那组用例原地 `skipUnless(node)` ⇒ **门禁形同不存在**
+      # （这正是"工具静默失效"的形态：CI 全绿，而链子从没被检查过）。
+      # 与 libosmesa6 同口径：best-effort，装不上就如实 skip（不把环境问题报成失败，
+      # 也不假装在守）。
+      (apt-get install -y -qq nodejs) || echo "nodejs 安装失败：观测对拍链回归锁将 skip"
       echo "== path_bootstrap tests =="
       python -m unittest contracts.tests.test_path_bootstrap 2>&1 | tail -20
       echo "== pure-logic backend tests =="
