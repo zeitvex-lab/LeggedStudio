@@ -38,6 +38,9 @@ import {
 import { EXECUTOR_COMMAND_SOURCES, unsupportedCommandSourceProblems } from "./scenario_run.js?v=0.46.0";
 import { resolveTerrainKit, paintFloorTile } from "./terrain_materials.js?v=0.46.0";
 import { heightPointColors, distancePointColors, contactVisualStates } from "./sensors/sensor_visual.js?v=0.46.0";
+// 屏幕系/相机系**唯一真值**（哪边朝上、哪边朝右、像素↔射线）——坞里所有图与两个相机
+// 预览都从这里取换算，见该文件头部"为什么单独一个模块"。
+import { cameraBasis, rayFromBasis } from "./sensors/screen_frame.js?v=0.46.0";
 import {
   applyMountEdit,
   availableSources,
@@ -5866,7 +5869,13 @@ function cachedScan(kind, compute) {
 
 /** 外挂深度预览：20×12 粗针孔网格（策略没吃深度也能"看"——深度相机本就是外挂件，
  *  此前坞里只会写"当前策略无深度输入"，2026-09-22 用户指正）。宽高比与视场对齐目录
- *  的 pinhole 参数，画布上放大显示（预览给人看，不必喂策略的 106×60）。 */
+ *  的 pinhole 参数，画布上放大显示（预览给人看，不必喂策略的 106×60）。
+ *
+ *  **朝向与 RGB 预览同源**（`sensors/screen_frame.js`）：装配 rpy 只定"往哪看"，
+ *  图像右/上由 `cameraBasis(光轴)` 从**光轴 + 世界上方向**构造出来。此前这里把
+ *  `mountQuat` 直接当基架用，而前视相机的 rpy `[0,-80,0]` 自带 90° 滚转 ⇒ 预览里的
+ *  地平线是**竖的**（用户报的"深度图被旋转过"，2026-09-22 修；同一坑 RGB 预览此前
+ *  已用 lookAt 构造绕过）。 */
 function scanDepthPreview(basePos, baseQuat, mount) {
   const params = patternParams("depth") || {};
   const pattern = buildPattern("pinhole", {
@@ -5874,9 +5883,11 @@ function scanDepthPreview(basePos, baseQuat, mount) {
     width: 20,
     height: 12,
   });
-  const mountQuat = quatFromRpy(mount.rpy.map(deg2rad));
   const origin = mountOriginWorld(basePos, baseQuat, mount.pos);
-  const worldDirs = mountRayDirections(baseQuat, mountQuat, pattern.directions);
+  // 像素 → 相机系射线（buildPattern）→ 世界系（基架），两步都在 screen_frame 的口径下。
+  const fwd = quatRot(quatMul(baseQuat, quatFromRpy(mount.rpy.map(deg2rad))), [0, 0, -1]);
+  const basis = cameraBasis(fwd);
+  const worldDirs = pattern.directions.map((d) => rayFromBasis(basis, d));
   const maxDist = 8;
   const distances = intersectSceneRays(
     sim.model, sim.data, worldDirs.map(() => origin), worldDirs, { maxDist },
@@ -5982,11 +5993,13 @@ function renderRgbPreview(basePos, baseQuat, mount, ctx, width, height) {
   const origin = mountOriginWorld(basePos, baseQuat, mount.pos);
   preview.camera.position.set(origin[0], origin[1], origin[2]);
   // 朝向用 **lookAt 构造**而不是直搬四元数：装配 rpy 只定义"前向"（局部 −z 转到世界系），
-  // "图像上方"永远取世界 +z（直立相机的直观语义）。直搬四元数的问题：装配 rpy 里 y=−90
-  // 的俯仰会把相机的局部 +y（three 的 up）转到世界左侧 ⇒ 地平线在图里变成竖线
-  // （图像转了 90°，用户报的"RGB 是旋转过的"就是它）。
+  // "图像上方"由 `cameraBasis` 从光轴 + 世界上方向构造。直搬四元数的问题：装配 rpy 里
+  // y=−90 的俯仰会把相机的局部 +y（three 的 up）转到世界左侧 ⇒ 地平线在图里变成竖线
+  // （图像转了 90°，用户报的"RGB 是旋转过的"就是它）。基架与深度外挂预览**同一份**
+  // （`sensors/screen_frame.js`），两个前向相机不会各转一个角度。
   const fwd = quatRot(poseQuat, [0, 0, -1]);
-  preview.camera.up.set(0, 0, 1);
+  const basis = cameraBasis(fwd);
+  preview.camera.up.set(basis.up[0], basis.up[1], basis.up[2]);
   preview.camera.lookAt(origin[0] + fwd[0], origin[1] + fwd[1], origin[2] + fwd[2]);
   preview.camera.updateMatrixWorld(true);
   preview.renderer.render(view.scene, preview.camera);

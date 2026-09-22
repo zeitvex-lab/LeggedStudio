@@ -91,6 +91,13 @@ export const TERRAIN_KITS = {
     floor: { pattern: "planks", base: "#8a6f52", seam: "#6f583f", plankEvery: 0.12, cell: 1.2 },
     props: { color: "#b8b2a6", roughness: 0.8, metalness: 0.02 },
   },
+  // 比赛场地：暖灰水泥台面 + 醒目黄标线（真实赛场的画法，与仓库的"深灰+窄黄线"、
+  // 赛道的"深灰+白线"都拉开距离），障碍件压深一档 —— 场地大、障碍密，靠明度差读出结构。
+  robocon_dual_track: {
+    label: "RC2026障碍赛 · 赛场水泥 + 黄标线",
+    floor: { pattern: "asphalt", base: "#7e7466", line: "#e0b83c", lineEvery: 2.5, cell: 5.0 },
+    props: { color: "#4e5257", roughness: 0.9, metalness: 0.02 },
+  },
 };
 
 const FALLBACK_KIT = {

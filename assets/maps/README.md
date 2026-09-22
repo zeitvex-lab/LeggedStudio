@@ -25,5 +25,12 @@
 | rough / slope | 粗糙地形 / 斜坡 | zex-w（rc_old 比赛场地） |
 | relief | 起伏围场 | microduck-simulator |
 | apartment | 公寓室内 | microduck 上游场景 |
+| robocon_dual_track | RC2026障碍赛（比赛地图，15×12 m 整场，1623 geom） | lain_job/ArenaX terrain_library |
 
 索引机器可读版：`_index.json`（`map-library-1.0`）。
+
+> 本库 XML 一律**不声明 `compiler.angle`**：地图跨机型共用，而各机型 `model/robot.xml` 都是
+> `angle="radian"`（且 tron1/g1/go1/zex-w 的模型里有 `euler/axisangle/xyaxes` 这类角度型属性），
+> 地图一旦声明 `degree` 就会**覆盖被包含机型的单位**，那些机型全歪。所以导入外部地形时，
+> 把它的 `euler="…"`（度）换算成等价的 `quat="…"` 再入库
+> （`robocon_dual_track.xml` 就是这么做的，106 处，已用 MuJoCo 编译对拍 geom 位姿）。

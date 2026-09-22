@@ -9,6 +9,12 @@
 // 与训练栈的**实现差异**（如实记）：训练栈在 GPU 上并行求交，返回 (offsets, directions)
 // 两个张量；本框架返回普通数组，交给 `raycast.js` 的 CPU 解析求交。形状与语义一致，
 // 数值路径不同——这点在测试里用"同参数下网格点数/方向数可对"来守，不用逐值对拍。
+//
+// **像素 → 射线只写一处**：针孔射线的朝向（哪一行是图像上边、+y 朝哪）在
+// `screen_frame.js::pinholeRays`，本文件只分发。那里记着"为什么是 −py 而不是 +py"的
+// 三条实证依据，以及与上游 raycast pattern 的差异——朝向这类缺陷不抛异常，只有人能看出来。
+
+import { pinholeRays } from "./screen_frame.js";
 
 /** 归一化（训练栈的 direction / direction.norm() 同款）。 */
 function normalize(v) {
@@ -104,24 +110,19 @@ export function fanPattern({ count = 240 } = {}) {
  * PinholePattern：针孔相机射线（局部 **−z 为光轴**，与 MuJoCo 相机一致）。
  *
  * `width/height/fovy`：fovy 为垂直视场角（度，MuJoCo 约定）。返回的 offsets 全零
- * （都从针心出发），directions 按像素中心发散——训练栈同款。
+ * （都从针心出发），directions 按像素中心发散，**行优先、row 0 = 图像顶部**。
+ *
+ * **实现在 `screen_frame.js::pinholeRays`**（唯一一份"像素 → 射线"）：本文件只做分发，
+ * 免得"框架 pattern 的朝向"与"深度帧 / 预览的朝向"再次各写一份。
+ *
+ * ⚠ 与上游 `mjlab/sensor/raycast_sensor.py::PinholeCameraPatternCfg` **故意不同**：
+ * 上游注释写 "−Z forward, +X right, +Y down" 并把 ray_y 取 `+grid_v`，那与右手系矛盾
+ * （"+x 右 + y 下"是左手系），也会让上游自己的渲染图上下颠倒。本框架以真实渲染图像为准
+ * （依据见 `screen_frame.js` 头部：`mujoco.Renderer.render` 的 `np.flipud` + 右手系定理
+ * + 上游 PIE 相机四元数的正立性），差异记在此处。
  */
-export function pinholePattern({ width = 16, height = 12, fovy = 45 } = {}) {
-  const w = Math.max(1, Math.round(Number(width) || 1));
-  const h = Math.max(1, Math.round(Number(height) || 1));
-  const fovY = (Math.max(1e-3, Number(fovy) || 45) * Math.PI) / 180;
-  const focal = 0.5 * h / Math.tan(fovY / 2);
-  const offsets = [];
-  const directions = [];
-  for (let v = 0; v < h; v += 1) {
-    const py = (v + 0.5 - 0.5 * h) / focal;
-    for (let u = 0; u < w; u += 1) {
-      const px = (u + 0.5 - 0.5 * w) / focal;
-      offsets.push([0, 0, 0]);
-      directions.push(normalize([px, py, -1]));
-    }
-  }
-  return { offsets, directions, count: w * h, width: w, height: h };
+export function pinholePattern(params = {}) {
+  return pinholeRays(params);
 }
 
 /** 单射线（point pattern）：一个起点、一个方向。 */

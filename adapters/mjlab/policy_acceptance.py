@@ -1250,12 +1250,23 @@ _PIE_GAUSSIAN /= _PIE_GAUSSIAN.sum()
 
 
 def _pie_ray_dirs():
-    """相机坐标系下的逐像素射线方向（单位向量）与 z→ray 缩放。"""
+    """相机坐标系下的逐像素射线方向（单位向量）与 z→ray 缩放。
+
+    相机系口径：**−z 是光轴、+x 朝图像右、+y 朝图像上**；帧数组行优先、行 0 = 图像顶部。
+    依据（实证，见 web/sim2sim/sensors/screen_frame.js 头部）：mujoco.Renderer.render 对
+    EGL/OSMesa 后端显式 ``np.flipud``（行 0 = 顶）＋ 右手系定理（"+x 右 + y 下"是左手系，
+    任何旋转都造不出来）＋ 上游 PIE 相机四元数只有在这个口径下才是正立图像。
+    于是行 0 在上 ⇒ y 分量取 −py；列 0 在左 ⇒ x 分量取 **+px**。
+
+    2026-09-22 修：x 分量此前是 −px ⇒ 策略（以及本引擎的验收结论）吃到的是**左右镜像**
+    的深度图。浏览器侧同一实现 ``web/sim2sim/pie_depth.js`` 同步修正——两处必须逐值同口径，
+    否则"浏览器里跑得动、验收里跑不动"这类分裂无从判断。
+    """
     focal = 0.5 * _PIE_DEPTH_H / math.tan(0.5 * math.radians(_PIE_DEPTH_FOVY_DEG))
     px = (np.arange(_PIE_DEPTH_RAW_W, dtype=np.float64) + 0.5 - 0.5 * _PIE_DEPTH_RAW_W) / focal
     py = (np.arange(_PIE_DEPTH_H, dtype=np.float64) + 0.5 - 0.5 * _PIE_DEPTH_H) / focal
     scale = np.sqrt(1.0 + py[:, None] ** 2 + px[None, :] ** 2)
-    dirs = np.stack((-px[None, :].repeat(_PIE_DEPTH_H, 0),
+    dirs = np.stack((px[None, :].repeat(_PIE_DEPTH_H, 0),
                      -py[:, None].repeat(_PIE_DEPTH_RAW_W, 1),
                      -np.ones((_PIE_DEPTH_H, _PIE_DEPTH_RAW_W))), axis=-1)
     dirs /= np.linalg.norm(dirs, axis=-1, keepdims=True)
