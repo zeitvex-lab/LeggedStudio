@@ -257,3 +257,4 @@ npm run build:linux               # Linux AppImage
 2. **契约驱动**：机器人、策略产物、部署、训练配置全部由 `contracts/` 下的 JSON Schema 定义，全项目单一事实源，CI 有契约漂移检查。
 3. **插件化训练后端**：`adapters/backend_adapter.py` 定义 `BackendAdapter` Protocol（env/runner/exporter 三入口），可扩展接入 IsaacGym / UniLab / RoboLab 等其他训练栈。
 4. **完全离线闭环**：浏览器 sim2sim 的 MuJoCo WASM、ONNX Runtime、Three.js 全部本地 vendor，训练 → 导出 → 验证全流程无需联网。
+5. **多输入 / 递归策略的部署契约**：本体观测之外的外部输入（历史缓冲、深度、命令、递归隐状态、episode 首帧标志）在**包内契约 `aux_inputs` 里逐项声明**（名 / 形状 / `produced_by` 来源），验收器与浏览器按声明喂入、按声明回传；遇到**导出器命名不可依赖**的产物（如 mjswan 的 `l_kwargs_*`）改按**位置槽表**映射（`contract.onnx_slots`），张量名一律不作为语义。
