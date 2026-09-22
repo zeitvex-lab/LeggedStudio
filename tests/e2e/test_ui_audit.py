@@ -150,7 +150,14 @@ def _container_is_loading(page: Page, selector: str) -> bool:
     return any(hint in text for hint in _LOADING_HINTS)
 
 
-def _wait_settled(page: Page, selectors: list[str], timeout_ms: int = 20_000) -> None:
+def _wait_settled(page: Page, selectors: list[str], timeout_ms: int = 45_000) -> None:
+    """等容器离开"加载中/骨架"态。
+
+    **2026-09-23 把 20s 提到 45s**：整目录连跑时（浏览器里同时有过 WASM/WebGL 仿真页在跑、
+    机器吃紧）数据页的首屏取数会超过 20s ⇒ 三条页面健康用例被判"停留在骨架态"，而**单独跑全绿**
+    —— 那是**环境节奏**不是产品属性。这里放宽的是"给它多久"，判据本身没变（真卡住仍然会红；
+    直接依赖慢首屏来判红，等于把负载当成缺陷）。
+    """
     for selector in selectors:
         page.wait_for_selector(selector, state="attached", timeout=timeout_ms)
         # 轮询等待"加载中"占位消失（页面用 setTimeout 轮询，无事件可挂）
@@ -200,7 +207,14 @@ def _audit_page(browser, base_url: str, spec: dict, viewport: dict, suffix: str)
 
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
     shot = ARTIFACT_DIR / f"{spec['name']}-{suffix}.png"
-    page.screenshot(path=str(shot), full_page=True)
+    # 截图**尽力而为**：它是证据，不是判据。整目录连跑时 `full_page=True` 会在
+    # `Page.captureScreenshot` 抛 `Protocol error: Unable to capture screenshot`
+    # （2026-09-23 实测：四条页面健康用例**断言全过却因为这一张图被判红**）——
+    # "证据链反过来咬判据"是本仓反复吃过的形态，故截不到只打印一句，不影响判定。
+    try:
+        page.screenshot(path=str(shot), full_page=True, timeout=10_000)
+    except Exception as exc:  # noqa: BLE001 - 任何截图失败都不该判红用例
+        print(f"[shot] 整页截图失败（不影响判定）：{shot.name} -> {exc}")
     context.close()
     return {
         "name": spec["name"],

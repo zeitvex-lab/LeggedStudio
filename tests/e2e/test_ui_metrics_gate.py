@@ -40,6 +40,12 @@ PAGES = [
     "deploy.html", "exports.html", "navigation_editor.html", "advanced_sim.html",
 ]
 
+#: 需要先"摆成某个状态"再量的页面 —— 默认态的页面量不到藏在浮层/折叠区里的东西。
+#: `advanced_sim.html` 的场景编辑器**默认收起**（2026-09-23 布局修复），只量默认态等于
+#: 放弃覆盖那 360px 浮层里的全部控件 ⇒ 两个态都量。
+_OPEN_ADVANCED_EDITOR = "open-advanced-editor"
+CASES = [(name, None) for name in PAGES] + [("advanced_sim.html", _OPEN_ADVANCED_EDITOR)]
+
 # 探针：在页面里跑，返回 7 类问题的逐条明细（空数组 = 该项达标）
 PROBE = r"""
 (() => {
@@ -137,10 +143,17 @@ PROBE = r"""
 CHECKS = ("contrast", "tiny_text", "tap_target", "a11y", "clipped", "offscreen", "dup_id")
 
 
-@pytest.mark.parametrize("name", PAGES)
-def test_page_ui_metrics_are_clean(name: str, base_url: str, page: Page) -> None:
+@pytest.mark.parametrize("name,prepare", CASES, ids=[f"{n}{'@' + p if p else ''}" for n, p in CASES])
+def test_page_ui_metrics_are_clean(name: str, prepare: str | None, base_url: str, page: Page) -> None:
     page.goto(f"{base_url}/web/{name}", wait_until="domcontentloaded", timeout=60_000)
     page.wait_for_timeout(2500)
+    if prepare == _OPEN_ADVANCED_EDITOR:
+        # 等编辑器 init 跑完再开浮层（固定 sleep 在慢机器上会点到还没绑事件的按钮）
+        page.wait_for_function(
+            "() => { const el = document.getElementById('scSummary');"
+            " return el && el.textContent && !el.textContent.includes('尚未生成场景'); }", timeout=60_000)
+        page.click("#advEditorToggle")
+        page.wait_for_timeout(500)
     report = page.evaluate(PROBE)
     problems = {key: report.get(key) or [] for key in CHECKS if report.get(key)}
     assert not problems, f"{name} 的 UI 指标未达标：\n{json.dumps(problems, ensure_ascii=False, indent=1)[:2500]}"

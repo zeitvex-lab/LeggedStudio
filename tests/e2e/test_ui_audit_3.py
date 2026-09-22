@@ -49,6 +49,22 @@ BASIC_URL = "/web/sim2sim/index.html?debug=1&robot=unitree_go2&policy=go2-moe-ct
 pytestmark = [pytest.mark.e2e]
 
 
+def _dock_source_ids() -> set[str]:
+    """从 `web/sim2sim/sensor_dock.js::DOCK_SOURCES` **现取**视图来源 id（跨语言真值）。
+
+    为什么不在测试里抄一份：这份清单已经涨过两次（`contact` 足底接触、`lidar_height_scan`
+    LiDAR 聚合高度），而**抄在测试里的那份不会自己更新** —— 上一次就是这么红的
+    （e2e 长期不在 CI 里 ⇒ 没人看见）。读 JS 是文本级的，但比第二份清单可靠。
+    """
+
+    source = (ROOT / "web" / "sim2sim" / "sensor_dock.js").read_text(encoding="utf-8")
+    start = source.index("export const DOCK_SOURCES = [")
+    block = source[start:source.index("\n];", start)]
+    ids = set(re.findall(r'\{\s*id:\s*"([^"]+)"', block))
+    assert len(ids) >= 9, f"从 DOCK_SOURCES 只抽到 {len(ids)} 个来源，抽取逻辑可能失效"
+    return ids
+
+
 # ---------------------------------------------------------------------------
 # 公共工具
 # ---------------------------------------------------------------------------
@@ -87,10 +103,22 @@ def _open_sim(page: Page, base_url: str, query: str) -> None:
     page.wait_for_function("() => window.__probe && Number.isFinite(window.__probe.z)", timeout=30_000)
 
 
-def _shot(page: Page, name: str) -> Path:
+def _shot(page: Page, name: str) -> Path | None:
+    """截图**尽力而为**：它是证据，不是判据。
+
+    2026-09-23 实测：整目录连跑时 `Page.captureScreenshot` 会抛
+    `Protocol error: Unable to capture screenshot`（页面还在跑 WASM/WebGL 仿真、内存吃紧），
+    于是**断言全过的用例因为一张截图被判红** —— 这类"证据链反过来咬判据"的形态本仓吃过不止一次
+    （同 `_watch` 把资源加载失败单列的口径）。所以：截不到就如实打印一句，不让它影响判定。
+    """
+
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
     path = ARTIFACT_DIR / name
-    page.screenshot(path=str(path))
+    try:
+        page.screenshot(path=str(path), timeout=10_000)
+    except Exception as exc:  # noqa: BLE001 - 任何截图失败都不该判红用例
+        print(f"[shot] 截图失败（不影响判定）：{name} -> {exc}")
+        return None
     return path
 
 
@@ -139,8 +167,12 @@ def test_basic_sidebar_controls_and_terrain_groups(audit_browser, base_url):
         assert all(g["label"].strip() for g in terrain), f"optgroup 缺中文标签：{terrain}"
         total = page.eval_on_selector("#terrainSelect", "el => el.querySelectorAll('option').length")
         assert total >= 7, f"地形选项数异常（应含内置场景 + 公共地图库）：{total}"
-        # 组标签应是仓库声明的中文组名（基础平地/楼梯台阶/坡道斜面/高台障碍/崎岖起伏/综合场景）
-        known = {"基础平地", "楼梯台阶", "坡道斜面", "高台障碍", "崎岖起伏", "综合场景", "其他"}
+        # 组标签应是仓库声明的中文组名（基础平地/楼梯台阶/坡道斜面/高台障碍/崎岖起伏/综合场景/比赛地图）
+        # **2026-09-23 补**：`比赛地图`（`terrain_groups.js::TERRAIN_CATEGORIES.competition` +
+        # `assets/maps/_index.json` 的 competition 类）是后来加的合法分组，本期望集合漏了它 ⇒
+        # 这条 e2e 一直红（而 e2e 不在 CI 里，没人看见）。真值以 `terrain_groups.js` / `_index.json` 为准，
+        # 两者漂移由 `npm run test:maps` 守着；这里只核"页面渲染出来的组名是不是这套中文名"。
+        known = {"基础平地", "楼梯台阶", "坡道斜面", "高台障碍", "崎岖起伏", "综合场景", "比赛地图", "其他"}
         unknown = [g["label"] for g in terrain if g["label"] not in known]
         assert not unknown, f"出现未知组标签 {unknown}（terrain_groups.js 与 _index.json 漂移？）"
 
@@ -294,8 +326,21 @@ def test_advanced_dock_all_nine_sources(audit_browser, base_url):
         sources = page.evaluate(
             """() => Array.from(document.querySelectorAll('#dockSource option')).map(o => o.value)"""
         )
-        # 默认插件（odom/IMU 开）下至少 odom/imu/trail 可选；勾上全部插件后九个来源全出现
-        assert {"odom", "imu", "trail"} <= set(sources), f"本体感知来源缺失：{sources}"
+        # **默认插件 = 只有本体自知**（`sensors/sensor_catalog.js` 的 onboard 口径 + 2026-09-21 用户裁决：
+        # odom 是外部估计管线的输出、属**外挂、默认关**）⇒ 默认来源里应有 imu 与 trail（trail 不依赖插件），
+        # 而 odom 必须**先勾上插件**才可选。**2026-09-23 改**：期望原先写的是"默认就有 odom" ——
+        # 与上面那条设计口径相矛盾（同样因为 e2e 不在 CI 里而长期没人发现）；现在按设计判，
+        # 并把"勾上插件 ⇒ 来源立即可选"这条链单独钉一句（下面勾满九个来源那段继续覆盖全覆盖）。
+        assert {"imu", "trail"} <= set(sources), f"默认来源缺失：{sources}"
+        assert "odom" not in sources, f"odom 是外挂、默认关，不该默认出现在来源里：{sources}"
+        page.evaluate(
+            """() => { const box = document.querySelector('#dockPlugins input[data-plugin="odom"]');
+                       if (box && !box.checked) box.click(); }"""
+        )
+        page.wait_for_timeout(200)
+        assert "odom" in page.evaluate(
+            "() => Array.from(document.querySelectorAll('#dockSource option')).map(o => o.value)"
+        ), "勾上 odom 插件后来源仍不可选（插件→来源这条链断了）"
 
         page.evaluate(
             """() => {
@@ -308,8 +353,13 @@ def test_advanced_dock_all_nine_sources(audit_browser, base_url):
         sources_all = page.evaluate(
             """() => Array.from(document.querySelectorAll('#dockSource option')).map(o => o.value)"""
         )
-        assert set(sources_all) == {"odom", "imu", "rangefinder", "depth", "height", "trail", "lidar", "cloud", "rgb"}, (
-            f"勾满插件后九来源不全：{sources_all}"
+        # **2026-09-23 修**：期望集合原先**在测试里抄了一份**（九个来源），后来新增的
+        # `contact`（足底接触）与 `lidar_height_scan`（LiDAR 聚合高度，派生件）都没跟上 ⇒ 这条长期红
+        # （e2e 不在 CI 里，没人看见）。现在**从 `sensor_dock.js::DOCK_SOURCES` 现取**真值——
+        # 跨语言（Python 测试 ↔ JS 数据）只能靠"读那段代码"，但至少不会再有第二份会过期的清单。
+        expected_sources = _dock_source_ids()
+        assert set(sources_all) == expected_sources, (
+            f"勾满插件后来源与 DOCK_SOURCES 不符（差集）：{sorted(set(sources_all) ^ expected_sources)}"
         )
 
         for source_id in sources_all:

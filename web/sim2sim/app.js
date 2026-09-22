@@ -15,7 +15,7 @@ import {
   normalizeNameMap,
   jointGroup,
   resolveActuatorRolesAndModes,
-} from "./obs/actuator_modes.js?v=0.61.0";
+} from "./obs/actuator_modes.js?v=0.62.0";
 // 契约级**槽表**（`onnx_slots`）：导出器命名不可依赖的产物按**位置**绑定 in/out 槽。
 import { resolveOnnxSlots } from "./obs/onnx_slots.js?v=0.46.0";
 import { createPieDepth } from "./pie_depth.js?v=0.46.0";
@@ -7128,9 +7128,14 @@ async function applyScenario(payload) {
   if (Number.isFinite(Number(scenario.seed)) && Number(scenario.seed) !== Number(PAGE_PARAMS.get("seed") || 0)) {
     skip(`种子 ${scenario.seed} 需在打开页面时指定（当前 ${PAGE_PARAMS.get("seed") || 0}）`);
   }
-  const surface = scenario.mode === "navigation" ? "advanced" : "basic";
-  if (PAGE_PARAMS.get("surface") !== surface) {
-    skip(`运行面 ${surface} 需在打开页面时指定（当前 ${PAGE_PARAMS.get("surface") || "basic"}）`);
+  // 运行面：**反向才 skip**（场景需要高级面、而页面在基础面 ⇒ 确实跑不了导航那套）；
+  // 反过来不是错——高级仿真页跑一份 `mode=basic` 的场景正是编辑器的常态
+  // （高级面是"创作面"，它照样能跑基础任务）。原先写成"两侧不等就 skip"，于是**每次**
+  // 从高级仿真页按默认场景启动都会白报一句"未应用：运行面 basic…"（诚实提示被噪声淹没）。
+  const needsAdvanced = scenario.mode === "navigation";
+  const pageSurface = PAGE_PARAMS.get("surface") || "basic";
+  if (needsAdvanced && pageSurface !== "advanced") {
+    skip(`运行面 advanced 需在打开页面时指定（当前 ${pageSurface}）`);
   }
 
   // 感知（C2）：场景声明的传感器**真的开**（dock 插件开关），且 **route=obs（A 类）时
