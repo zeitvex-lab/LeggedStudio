@@ -65,7 +65,7 @@ pytestmark = [pytest.mark.e2e]
 
 def _first_basic_policy(config_path: Path) -> str | None:
     """每包第一条基础策略 id（sim_surface != "advanced"），app.js 基础仿真同口径。"""
-    data = json.loads(config_path.read_text(encoding="utf-8"))
+    data = json.loads(config_path.read_text(encoding="utf-8-sig"))
     for item in data.get("policies") or []:
         if not isinstance(item, dict):
             continue

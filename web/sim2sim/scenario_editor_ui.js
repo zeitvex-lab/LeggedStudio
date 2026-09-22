@@ -360,6 +360,10 @@ async function refresh() {
   if (seq !== refreshSeq) return;
   const gate = bindingGate({ scenarioVerdict, binding });
   $("scStart").disabled = !gate.canStart;
+  // 顶栏那个常驻「启动仿真」与编辑器里的同权：两处禁用态必须一起动，
+  // 否则收起编辑器后会出现"按钮亮着但点了没反应"（或反过来"能跑却灰着"）。
+  const startTop = $("scStartTop");
+  if (startTop) startTop.disabled = !gate.canStart;
 
   if (binding) {
     if (binding.verdict === "not_applicable") {
@@ -393,6 +397,8 @@ function start() {
   const frame = $("advSimFrame");
   frame.src = `sim2sim/index.html?${toQuery(params)}`;
   $("scLastLaunch").textContent = `已启动：${toQuery(params)}`;
+  // 启动 = "配置完了" ⇒ 顺手收起浮层，把视口让给仿真（顶栏仍留着启动按钮，随时可再跑）。
+  if (editorOpen) setEditorOpen(false);
   const message = toScenarioMessage(composed.scenario, { robot: state.robot, policy: state.policy });
   const status = (text) => { $("scLastLaunch").textContent = text; };
   const send = () => {
@@ -430,6 +436,33 @@ function start() {
 // 步骤表在 `scenario_editor.js`（唯一真值），这里只渲染：**加一段 = 步骤表加一条 + HTML 加一段**，
 // 其余代码不动。当前步只影响"显示哪一段"，不影响校验（校验永远是整份场景）。
 let activeStep = SCENARIO_STEPS[0].id;
+
+// ── 编辑器浮层：仿真视口优先 ────────────────────────────────────────────────
+// **默认收起**：这页的主体是仿真，"写场景"是间歇性动作。此前编辑器实占 340px
+// （`flex: 0 0 340px`）—— 一打开就把机器人视口挤窄，用户口径"非常突兀、大幅挤占仿真空间"。
+// 现在它浮在仿真之上、可随时收起；选择记在 localStorage（下次进来保持用户习惯）。
+const EDITOR_OPEN_KEY = "legged-studio:advanced-editor-open";
+let editorOpen = false;
+
+function setEditorOpen(open) {
+  editorOpen = Boolean(open);
+  const panel = $("scEditorPanel");
+  const toggle = $("advEditorToggle");
+  panel.classList.toggle("open", editorOpen);
+  toggle.setAttribute("aria-expanded", editorOpen ? "true" : "false");
+  toggle.textContent = editorOpen ? "收起编辑器" : "场景编辑器";
+  try {
+    window.localStorage.setItem(EDITOR_OPEN_KEY, editorOpen ? "1" : "0");
+  } catch (_) { /* 隐私模式下写不了就算了，不影响功能 */ }
+}
+
+function restoreEditorOpen() {
+  let stored = null;
+  try {
+    stored = window.localStorage.getItem(EDITOR_OPEN_KEY);
+  } catch (_) { /* 同上 */ }
+  setEditorOpen(stored === "1");     // 首次进来（无记录）⇒ 收起，先把仿真给足空间
+}
 
 function renderSteps() {
   const host = $("scSteps");
@@ -482,7 +515,13 @@ function bindEvents() {
     refresh();
   });
   $("scStart").addEventListener("click", start);
+  $("scStartTop").addEventListener("click", start);
   $("scValidate").addEventListener("click", () => { refresh(); });
+  // 编辑器浮层：按钮切换 + Esc 收起（收起后仿真视口自动占满，见 advanced_sim.html 的注释）。
+  $("advEditorToggle").addEventListener("click", () => { setEditorOpen(!editorOpen); });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && editorOpen) setEditorOpen(false);
+  });
   // 任务插件：选一条只更新说明（**不自动改表单** —— 改字段是「一键填入」这个显式动作）；
   // 点「一键填入」才把服务端算好的补丁写进表单并重新校验。
   $("scTaskPlugin").addEventListener("change", renderTaskPluginHint);
@@ -495,6 +534,7 @@ function bindEvents() {
 
 async function init() {
   fillStaticSelects();
+  restoreEditorOpen();
   renderSteps();
   selectStep(activeStep);
   await Promise.all([loadMaps(), loadRobots(), loadPerceptionItems()]);

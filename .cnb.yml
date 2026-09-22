@@ -284,7 +284,7 @@ syntax-check: &syntax-check
   - name: browser-e2e-gate
     script: |
       set -eo pipefail
-      echo "== 浏览器 e2e（页面级健康 + 任务插件消费） =="
+      echo "== 浏览器 e2e（整目录：页面健康 / 任务插件 / 深度相机 / UI 指标 / 高级仿真布局） =="
       # **为什么必须有这一段（2026-09-23 实测踩到）**：`web/sim2sim/app.js` 里一个
       # `ReferenceError: normalizedNameMap is not defined`（把该函数抽进
       # `obs/actuator_modes.js` 后，app.js 里 5 处调用点没跟着改名）**打断了基础仿真页的
@@ -295,11 +295,32 @@ syntax-check: &syntax-check
       # 于是"页面坏了"与"门禁全绿"同时成立 —— 与 B16 那条同一个形态：**有测试 ≠ 门禁在守**。
       # 这一段把「至少一条真开页面的用例」钉进 main 门禁；用例本身在
       # `tests/e2e/test_task_plugin_fill.py`（约 3 s，装浏览器才是长板）。
+      #
+      # **为什么现在是整目录跑**（2026-09-23 收编，替换掉原先"只跑四个文件"的写法）：
+      #   · 原先 `pytest tests/e2e/` **收集阶段就炸**（`test_all_models.py` 用
+      #     `read_text(encoding="utf-8")` 读带 BOM 的包配置 ⇒ `JSONDecodeError`）——
+      #     e2e 一直不在 CI 里，所以没人发现。改 `utf-8-sig` 后 **83 条可收集**。
+      #   · 收集能过之后暴露出**三类长期红**（都不是产品缺陷，而是"测试停在旧世界"）：
+      #     ① 期望陈旧：`test_ui_audit_3` 的地形组名漏了后来新增的 `比赛地图`；坞来源期望
+      #        写死九个（漏 `contact` / `lidar_height_scan`）且假定默认就有 `odom`
+      #        （而设计口径是"odom 属外挂、默认关"）⇒ 现改为**从 `DOCK_SOURCES` 现取**真值
+      #        并把 `odom` 断言改成"勾上插件后立即可选"（顺带钉住"插件→来源"这条链）。
+      #     ② 证据反过来咬判据：`page.screenshot` 在整目录连跑时抛 `Unable to capture
+      #        screenshot`（页面还在跑 WASM/WebGL 仿真、机器吃紧）⇒ **断言全过的用例因为一张
+      #        截图被判红**。两个 e2e 文件的截图一律改成**尽力而为**（截不到只打印一句）。
+      #     ③ 把负载当缺陷：页面健康用例等"骨架态消失"的窗口从 20s 提到 45s（连跑时首屏
+      #        取数变慢，是环境节奏不是产品属性；真卡住仍会红）。
+      #   · 修完实测 **整目录 68 passed / 15 skipped / 0 failed，约 5.3 min**（含四个新文件：
+      #     任务插件消费 / 深度相机预览 / UI 指标 13 态 / 高级仿真布局）。
+      #   · 因此本阶段**整目录跑**：与其在 CI 里维护一份"挑着跑"的清单（清单本身会过期，
+      #     上面三类红就是这么攒出来的），不如让整目录必须绿。墙钟是长板，但这是唯一能挡住
+      #     "页面坏了而门禁全绿"的闸（2026-09-23 那个 `normalizedNameMap` ReferenceError
+      #     就是在所有单测/语法门禁全绿的情况下打断了整个基础仿真页的初始化）。
       python -m pip install --quiet --break-system-packages playwright pytest pytest-playwright
       # 与 .dev-env-bootstrap 同口径：**装不上如实报，不把环境问题判成红**
       # （但一定要可见——静默 skip 正是本条要消灭的东西）。
       if python -m playwright install --with-deps chromium >/dev/null 2>&1; then
-        python -m pytest tests/e2e/test_task_plugin_fill.py tests/e2e/test_depth_camera_preview.py tests/e2e/test_ui_metrics_gate.py -q 2>&1 | tail -20
+        python -m pytest tests/e2e/ -q 2>&1 | tail -25
       else
         echo "[WARN] Chromium 装不上：本轮 browser-e2e-gate 未跑（环境问题，不判红；但请留意）"
       fi

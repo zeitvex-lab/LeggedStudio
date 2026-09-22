@@ -57,7 +57,11 @@ def _shot(page: Page, name: str) -> None:
 
 
 def _open_editor(page: Page, base_url: str) -> dict[str, list[str]]:
-    """打开编辑器并等到**任务插件清单真的来自服务端**（不是"不可用"占位）。"""
+    """打开编辑器，等到**任务插件清单真的来自服务端**（不是"不可用"占位），并展开浮层。
+
+    **2026-09-23 补**：编辑器改成**默认收起的浮层**（用户口径"挤占仿真空间"）⇒ 想操作面板里的
+    东西，得先点顶栏的「场景编辑器」。这不是测试的权宜之计，而是真实用户流程（先开面板再配）。
+    """
 
     watched = _watch(page)
     page.goto(f"{base_url}/web/advanced_sim.html", wait_until="domcontentloaded")
@@ -66,6 +70,9 @@ def _open_editor(page: Page, base_url: str) -> dict[str, list[str]]:
         " return sel && sel.options.length > 1 && !(sel.textContent || '').includes('不可用'); }",
         timeout=60_000,
     )
+    if page.get_attribute("#advEditorToggle", "aria-expanded") != "true":
+        page.click("#advEditorToggle")
+        page.wait_for_timeout(400)
     return watched
 
 

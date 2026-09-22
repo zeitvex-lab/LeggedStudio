@@ -1,10 +1,10 @@
 {
   "schema": "sim2sim-headless-baseline-1.0",
   "provenance": {
-    "generated_at": "2026-09-23T01:27:26",
-    "product_version": "0.61.0",
+    "generated_at": "2026-09-23T01:47:00",
+    "product_version": "0.62.0",
     "git": {
-      "commit": "08adc9e986fecbda1ad4f62475c894144f9d6bb1",
+      "commit": "90f47e9d39b1ed6b1c80c0a763f1d5e742d60f58",
       "dirty": true
     },
     "platform": "Linux-5.4.241-1-tlinux4-0025.10-x86_64-with-glibc2.41",
