@@ -17,11 +17,11 @@ export const DOCK_SOURCES = [
   { id: "imu", label: "IMU", kind: "readout", requires: "imu" },
   { id: "rangefinder", label: "单点测距", kind: "readout", requires: "rangefinder" },
   { id: "depth", label: "深度相机", kind: "canvas", requires: "depth" },
-  { id: "height", label: "高度场 187", kind: "canvas", requires: "height" },
-  { id: "lidar_height_scan", label: "雷达高度扫描", kind: "canvas", requires: "lidar" },
+  { id: "height", label: "高度扫描（187 格）", kind: "canvas", requires: "height" },
+  { id: "lidar_height_scan", label: "LiDAR 聚合高度", kind: "canvas", requires: "lidar" },
   { id: "trail", label: "2D 轨迹平面", kind: "canvas", requires: null },
-  { id: "lidar", label: "射线 LiDAR", kind: "canvas", requires: "lidar" },
-  { id: "cloud", label: "点云", kind: "canvas", requires: "lidar" },
+  { id: "lidar", label: "LiDAR 极坐标", kind: "canvas", requires: "lidar" },
+  { id: "cloud", label: "LiDAR 点云", kind: "canvas", requires: "lidar" },
   { id: "rgb", label: "RGB 相机", kind: "canvas", requires: "rgb" },
   // 足底接触：四只脚的着地状态与接触力。训练栈早有（mjlab contact_sensor），
   // 浏览器坞此前没有——补上后"盲狗策略输入之外的接触信息"才有一个诚实的出口。

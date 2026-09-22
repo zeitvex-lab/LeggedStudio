@@ -53,20 +53,18 @@ export function matTVec(m, v) {
 export const RAYCAST_GEOM_TYPES = [0, 2, 6];
 
 /**
- * 单条射线求交，返回**最近命中距离**（米），未命中返回 `-1`。
+ * 逐 geom 的**世界系快照**：每批次（一次扫描）只算一遍，而不是每条射线重算一遍。
  *
- * `model` / `data` 是 MuJoCo WASM 的 MjModel / MjData（只读用到的数组）。
- * 与 `pie_depth.js` 原先的内联实现**逐行等价** —— 抽取时保持行为不变，
- * 差别只是把上限从常量改成参数（默认无限，调用方按需传 `maxDist`）。
+ * 此前 `intersectSceneRays` 对每条射线都把全场景 geom 的世界变换（两次四元数乘法 +
+ * 多次数组分配）重算一遍——240 线 LiDAR × 每次全场景重算，正是"开雷达就卡"的计算
+ * 侧根源（2026-09-22 性能复盘；与坞面板/3D 层各自缓存导致的重复扫描一并修）。
+ * geom 的世界变换只依赖当前物理状态，同批次内完全相同——摊平到每 geom 一次。
+ *
+ * 元素全部拆成标量字段（零分配的热路径），`rbound` 是包围球半径（mjModel.geom_rbound，
+ * 缺失时按类型兜底），用于射线级**预剔除**：球心对射线的最近距离超过半径必不相交。
  */
-export function intersectSceneRay(
-  model,
-  data,
-  origin,
-  dir,
-  { maxDist = Infinity, types = RAYCAST_GEOM_TYPES, epsilon = 1e-4, worldBodyOnly = false } = {},
-) {
-  let best = -1;
+function snapshotGeoms(model, data, { types = RAYCAST_GEOM_TYPES, worldBodyOnly = false }) {
+  const geoms = [];
   const ngeom = Number(model.ngeom || 0);
   for (let g = 0; g < ngeom; g += 1) {
     const type = Number(model.geom_type[g]);
@@ -86,32 +84,70 @@ export function intersectSceneRay(
       model.geom_quat[g * 4 + 2], model.geom_quat[g * 4 + 3],
     ];
     const gpw = quatRot(bq, gp);
-    const pos = [
-      data.xpos[bodyId * 3] + gpw[0],
-      data.xpos[bodyId * 3 + 1] + gpw[1],
-      data.xpos[bodyId * 3 + 2] + gpw[2],
-    ];
     const quat = quatMul(bq, gq);
     const size = [model.geom_size[g * 3], model.geom_size[g * 3 + 1], model.geom_size[g * 3 + 2]];
-    let t = -1;
+    const entry = {
+      type,
+      px: data.xpos[bodyId * 3] + gpw[0],
+      py: data.xpos[bodyId * 3 + 1] + gpw[1],
+      pz: data.xpos[bodyId * 3 + 2] + gpw[2],
+      s0: size[0], s1: size[1], s2: size[2],
+      rbound: 0,
+    };
+    let rbound = Number(model.geom_rbound ? model.geom_rbound[g] : NaN);
+    if (!Number.isFinite(rbound) || rbound <= 0) {
+      if (type === 2) rbound = size[0];
+      else if (type === 6) rbound = Math.hypot(size[0], size[1], size[2]);
+      else rbound = 0; // 平面无限延伸，不做包围球剔除
+    }
+    entry.rbound = rbound;
     if (type === 0) {
-      // 平面：法向为局部 +z。
+      // 平面：法向为局部 +z，每 geom 算一次。
       const n = quatRot(quat, [0, 0, 1]);
-      const denom = n[0] * dir[0] + n[1] * dir[1] + n[2] * dir[2];
+      entry.nx = n[0]; entry.ny = n[1]; entry.nz = n[2];
+    } else {
+      entry.m = quatToMat(quat); // 行主序 R；用 matTVec(R, v) = Rᵀv 转进机体系
+    }
+    geoms.push(entry);
+  }
+  return geoms;
+}
+
+/** 对一份 geom 快照投一条射线（热路径：全标量、零分配）。语义与旧逐 geom 实现一致。 */
+function castAgainstList(geoms, origin, dir, maxDist, epsilon) {
+  let best = -1;
+  for (let i = 0; i < geoms.length; i += 1) {
+    const g = geoms[i];
+    if (g.rbound > 0) {
+      // 包围球预剔除：球心相对射线起点的投影 t_ca 与垂距平方 d²，d² > r² 必不相交。
+      const cx = g.px - origin[0];
+      const cy = g.py - origin[1];
+      const cz = g.pz - origin[2];
+      const tca = cx * dir[0] + cy * dir[1] + cz * dir[2];
+      if (tca < -g.rbound) continue;
+      if (cx * cx + cy * cy + cz * cz - tca * tca > g.rbound * g.rbound) continue;
+    }
+    let t = -1;
+    if (g.type === 0) {
+      const denom = g.nx * dir[0] + g.ny * dir[1] + g.nz * dir[2];
       if (Math.abs(denom) < 1e-9) continue;
-      const num = (pos[0] - origin[0]) * n[0] + (pos[1] - origin[1]) * n[1] + (pos[2] - origin[2]) * n[2];
-      const tt = num / denom;
+      const tt = ((g.px - origin[0]) * g.nx + (g.py - origin[1]) * g.ny + (g.pz - origin[2]) * g.nz) / denom;
       if (tt > epsilon) t = tt;
     } else {
-      const m = quatToMat(quat);
-      const o = matTVec(m, [origin[0] - pos[0], origin[1] - pos[1], origin[2] - pos[2]]);
-      const d = matTVec(m, dir);
-      if (type === 2) {
+      const m = g.m;
+      const wx = origin[0] - g.px, wy = origin[1] - g.py, wz = origin[2] - g.pz;
+      const ox = m[0] * wx + m[3] * wy + m[6] * wz;
+      const oy = m[1] * wx + m[4] * wy + m[7] * wz;
+      const oz = m[2] * wx + m[5] * wy + m[8] * wz;
+      const dx = m[0] * dir[0] + m[3] * dir[1] + m[6] * dir[2];
+      const dy = m[1] * dir[0] + m[4] * dir[1] + m[7] * dir[2];
+      const dz = m[2] * dir[0] + m[5] * dir[1] + m[8] * dir[2];
+      if (g.type === 2) {
         // 球：解二次方程取近根。
-        const r = size[0];
-        const a = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
-        const b = 2 * (o[0] * d[0] + o[1] * d[1] + o[2] * d[2]);
-        const c = o[0] * o[0] + o[1] * o[1] + o[2] * o[2] - r * r;
+        const r = g.s0;
+        const a = dx * dx + dy * dy + dz * dz;
+        const b = 2 * (ox * dx + oy * dy + oz * dz);
+        const c = ox * ox + oy * oy + oz * oz - r * r;
         const disc = b * b - 4 * a * c;
         if (disc >= 0 && a > 1e-12) {
           const tt = (-b - Math.sqrt(disc)) / (2 * a);
@@ -122,12 +158,15 @@ export function intersectSceneRay(
         let tmin = 0;
         let tmax = Infinity;
         let hit = true;
+        const lo = [ox, oy, oz];
+        const ld = [dx, dy, dz];
+        const size = [g.s0, g.s1, g.s2];
         for (let k = 0; k < 3; k += 1) {
-          if (Math.abs(d[k]) < 1e-9) {
-            if (Math.abs(o[k]) > size[k]) { hit = false; break; }
+          if (Math.abs(ld[k]) < 1e-9) {
+            if (Math.abs(lo[k]) > size[k]) { hit = false; break; }
           } else {
-            let t1 = (-size[k] - o[k]) / d[k];
-            let t2 = (size[k] - o[k]) / d[k];
+            let t1 = (-size[k] - lo[k]) / ld[k];
+            let t2 = (size[k] - lo[k]) / ld[k];
             if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
             tmin = Math.max(tmin, t1);
             tmax = Math.min(tmax, t2);
@@ -140,6 +179,23 @@ export function intersectSceneRay(
     if (t > 0 && t <= maxDist && (best < 0 || t < best)) best = t;
   }
   return best;
+}
+
+/**
+ * 单条射线求交，返回**最近命中距离**（米），未命中返回 `-1`。
+ *
+ * `model` / `data` 是 MuJoCo WASM 的 MjModel / MjData（只读用到的数组）。
+ * 多条射线请走 `intersectSceneRays`——它把 geom 快照摊平到每批次一次。
+ */
+export function intersectSceneRay(
+  model,
+  data,
+  origin,
+  dir,
+  { maxDist = Infinity, epsilon = 1e-4, worldBodyOnly = false, types } = {},
+) {
+  const geoms = snapshotGeoms(model, data, { types, worldBodyOnly });
+  return castAgainstList(geoms, origin, dir, maxDist, epsilon);
 }
 
 /** 便捷封装：给定机身位姿与"机体系下的射线方向"，返回世界系方向。 */
@@ -220,14 +276,19 @@ export function fanDirections(count) {
  * 逐条配对而不是"一个原点 + 多方向"，因为高度扫描要的正是**多起点同方向**
  * （见 `gridOffsets`）—— 调用方把方向数组广播成等长即可，比多写一个接口划算。
  * 未命中仍是 `-1`，与单条 `intersectSceneRay` 一致。
+ *
+ * geom 快照每批次只建一次（见 `snapshotGeoms`）——这是本函数相对"循环调单条"
+ * 的全部性能差异所在。
  */
 export function intersectSceneRays(model, data, origins, dirs, options = {}) {
   const from = Array.isArray(origins) ? origins : [];
   const along = Array.isArray(dirs) ? dirs : [];
   const n = Math.min(from.length, along.length);
+  const geoms = snapshotGeoms(model, data, options);
+  const { maxDist = Infinity, epsilon = 1e-4 } = options;
   const distances = new Array(n);
   for (let i = 0; i < n; i += 1) {
-    distances[i] = intersectSceneRay(model, data, from[i], along[i], options);
+    distances[i] = castAgainstList(geoms, from[i], along[i], maxDist, epsilon);
   }
   return distances;
 }

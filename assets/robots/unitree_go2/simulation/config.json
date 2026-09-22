@@ -2,7 +2,6 @@
   "schema_version": "simulation-config-1.0",
   "backend": "mujoco",
   "default_map": "flat",
-  "scene_path": "simulation/scene.xml",
   "initial_base_height": 0.445,
   "actuator_interface": "torque",
   "policies": [
@@ -854,7 +853,6 @@
             -0.579228
           ]
         },
-        "scene_path": "simulation/scene_pie_stairs.xml",
         "scales": {
           "ang_vel": 1.0,
           "dof_pos": 1.0,
@@ -1670,14 +1668,7 @@
         }
       }
     }],
-  "terrains": [
-    {
-      "id": "pie_stairs",
-      "label": "PIE Stairs",
-      "path": "simulation/scene_pie_stairs.xml",
-      "browser_scene": true
-    }
-  ],
+  "terrains": [],
   "demo_policies": [
     {
       "id": "go2-baseline-164k",
