@@ -8,7 +8,7 @@
 # 平台侧维护，上述问题面直接消失。
 #
 # 依赖改由**环境启动时按需供应**（.dev-env-bootstrap 锚点，幂等）：
-# 控制面 pip 依赖 / 训练 venv 走缓存卷复用，不在镜像层固化。
+# 控制面 pip 依赖 / 训练 venv 在启动时供应，不在镜像层固化。
 
 # 环境供应的公共锚点：默认镜像只有 Python/Node 运行时，控制面依赖与训练栈
 # 都**不预装**（见 .dev-env-bootstrap 的注释）。CI 与云原生开发共用这一段，
@@ -18,7 +18,7 @@
 # `- *dev-env-bootstrap` 引用，YAML 会展开成嵌套 list（stages[0][0]），
 # CNB 不认嵌套结构，stage 会被整体跳过。引用方一律用合并键 `- <<: *anchor`。
 #
-# 为什么 CI 不缓存、每次装：runner 上都是几分钟量级（缓存卷只在开发环境里配），
+# 为什么 CI 不缓存、每次装：runner 上都是几分钟量级，
 # 好处是**依赖版本零漂移**——backend/requirements.txt 改一行立刻生效，不存在
 # 「镜像层还是旧依赖」的滞后。装不上的失败会直接暴露在门禁里，不会静默降级。
 .dev-env-bootstrap: &dev-env-bootstrap
@@ -328,7 +328,12 @@ main:
 # 正是自建镜像时代要一项项手工补回的东西。
 #
 # 依赖（控制面 pip 包 / CPUs 训练 venv / 无头浏览器依赖）由 stages 在启动时
-# **按需供应**，pip 与 Playwright 落节点级缓存卷，第二次进环境基本是复用。
+# **按需供应**：dev-env-bootstrap 的 import 探测让重复进环境短路为秒级校验。
+#
+# 这里刻意**不用 `docker.volumes` 声明缓存卷**：该字段在流水线里合法（Schema 列
+# docker.image/build/volumes/devcontainer），但 **vscode 事件下会被平台拒绝**——
+# 报 `不允许的字段 "docker.volumes"`（本仓 v0.56.2 前踩过）。云开发用的是平台
+# 托管的开发环境，缓存复用由平台的节点卷/幂等供应共同保证，不按流水线那套配。
 $:
   vscode:
     - name: legged-studio-dev
@@ -341,12 +346,8 @@ $:
         # 训练 venv 落点：仓库外，不被 bind mount 覆盖（由 dev-env-bootstrap 供应）。
         LEGGED_STUDIO_MJLAB_VENV: /opt/legged-studio/mjlab-cpu/.venv
         MUJOCO_GL: disabled
-      docker.volumes:
-        # 节点级缓存：同级路径，避免"路径包含关系"约束。
-        # pip 缓存让"每次进环境重装控制面依赖"退化成秒级校验；
-        # ms-playwright 缓存让固定版本 Chromium 不必重复下载（版本号见下 stages）。
-        - /root/.cache/pip
-        - /root/.cache/ms-playwright
+      # 缓存复用靠平台节点卷 + dev-env-bootstrap 的幂等短路，不声明 docker.volumes
+      # （vscode 事件下该字段不被平台接受，见上方注释）。
       stages:
         - name: dev-env-bootstrap
           script: |
@@ -359,12 +360,12 @@ $:
                    -r backend/requirements.txt httpx onnx onnxruntime 2>&1 | tail -5
             python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" \
               || { echo "[FAIL] 控制面依赖供应失败"; exit 1; }
-            echo "== 无头浏览器（Playwright Chromium，缓存卷复用） =="
-            # 浏览器是本仓的刚需（sim2sim 结论全是浏览器实测得出的），装到缓存卷。
+            echo "== 无头浏览器（Playwright Chromium，版本标记对齐） =="
+            # 浏览器是本仓的刚需（sim2sim 结论全是浏览器实测得出的）。
             pip install --quiet --break-system-packages playwright pytest pytest-playwright 2>&1 | tail -3
             PLAYWRIGHT_VERSION="$(python3 -c 'import playwright,sys;print(playwright.__version__)')"
-            # 缓存卷里的 Chromium 是"上一次的版本"：版本不合就重装（否则 E2E 会静默
-            # 用旧浏览器跑，正是"本地能跑、CI 看不见"的同类坑）。
+            # Chromium 是"上一次的版本"：版本不合就重装（否则 E2E 会静默用旧浏览器跑，
+            # 正是"本地能跑、CI 看不见"的同类坑）。
             MARKER="/root/.cache/ms-playwright/.legged-studio-playwright-version"
             if [ "$(cat "$MARKER" 2>/dev/null || true)" != "$PLAYWRIGHT_VERSION" ]; then
               playwright install --with-deps chromium 2>&1 | tail -5
