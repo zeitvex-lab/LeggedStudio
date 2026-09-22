@@ -213,6 +213,20 @@ def deep_merge(base: dict, overlay: dict) -> dict:
 
 # ---------- 包契约读取 ----------
 
+def _gain_levels(*tables) -> list[dict[str, float]]:
+    """把多级增益表按**优先级从高到低**收成列表（空表丢弃，值统一 float）。
+
+    为什么要分级而不是"取第一个非空表"：后者会让"只想改小腿"的策略被迫把 12 个关节
+    （stiffness/damping 各一份）全部重抄——漏抄的关节静默落 0，就是零力矩事故的来源。
+    """
+    levels: list[dict[str, float]] = []
+    for table in tables:
+        if not isinstance(table, dict) or not table:
+            continue
+        levels.append({str(k).lower(): float(v) for k, v in table.items() if v is not None})
+    return levels
+
+
 class PackageContract:
     def __init__(self, package_dir: Path, policy_entry: dict[str, Any]):
         self.root = package_dir
@@ -225,11 +239,39 @@ class PackageContract:
         # 策略未声明动作序时回退到机器人级 contract.json 的 action.joint_order
         robot_contract_path = package_dir / "contract.json"
         robot_order: list[str] = []
+        rc: dict[str, Any] = {}
         if robot_contract_path.is_file():
             rc = json.loads(robot_contract_path.read_text(encoding="utf-8-sig"))
             action = rc.get("action") or {}
             robot_order = [str(n) for n in (action.get("joint_order") or rc.get("joints", {}).get("actuated_joints") or [])]
         self.action_joint_order = [str(n) for n in (self.contract.get("action_joint_order") or [])] or robot_order
+        # ── 单一真值：机器人级 `contract.json`（2026-09-22 接上）────────────────────────
+        # 部署所需的东西**本来就在**机器人契约里：`joints.actuated` 的 `role` +
+        # `joints.default_pose` + `actuator_profile.by_role` 的 stiffness/damping/effort/
+        # action_scale + `control{control_hz,physics_hz,decimation}`。但运行时此前**只从它读
+        # 关节序**，其余全靠每条策略自己再写一遍 ⇒ 漏写即静默拿到 **0 增益**。
+        # **代价（2026-09-22 实测）**：go2 包一度 8 条策略"零力矩"（腿完全不支撑、笔直下坠），
+        # 其中 7 条 lainlab 因此长期挂在行为级验收 fail 上，而根因只是"没重写一遍增益"。
+        # 这里把它接成**回落链的末位**（策略 `contract.control` > 策略 `contract.stiffness`
+        # > 包级 `simulation.control` > **机器人契约 by_role**），于是：
+        # "新增一条策略"= 只声明真正与机器人不同的东西，其余继承 ⇒ 训练/部署不再逐族人肉对齐。
+        self.robot_stiffness: dict[str, float] = {}
+        self.robot_damping: dict[str, float] = {}
+        self.robot_default_pose: dict[str, float] = {}
+        rc_joints = rc.get("joints") or {}
+        rc_pose = [float(v) for v in (rc_joints.get("default_pose") or [])]
+        rc_by_role = ((rc.get("actuator_profile") or {}).get("by_role") or {})
+        for _idx, _item in enumerate(rc_joints.get("actuated") or []):
+            _name = str((_item or {}).get("name") or "").lower()
+            if not _name:
+                continue
+            _spec = rc_by_role.get(str((_item or {}).get("role") or "")) or {}
+            if _spec.get("stiffness") is not None:
+                self.robot_stiffness[_name] = float(_spec["stiffness"])
+            if _spec.get("damping") is not None:
+                self.robot_damping[_name] = float(_spec["damping"])
+            if _idx < len(rc_pose):
+                self.robot_default_pose[_name] = rc_pose[_idx]
         # B3 收尾（2026-09-13 续五）：这两个键**已从 simulation/config.json 移除**，
         # 继续读 ``self.sim`` 会静默回落 200 / 4，而模型 timestep 已按契约设成 1/500 →
         #   ① 探针 ``total = seconds * physics_hz`` 少跑 60%（声明 3 s 实跑 1.2 s）；
@@ -317,10 +359,32 @@ class PackageContract:
 
         control = self.sim.get("control") or {}
         ctrl = self.contract.get("control") or {}
-        self.stiffness = (ctrl.get("stiffness") or self.contract.get("stiffness")
-                          or control.get("stiffness") or self.sim.get("stiffness") or {})
-        self.damping = (ctrl.get("damping") or self.contract.get("damping")
-                        or control.get("damping") or self.sim.get("damping") or {})
+        # 回落链末位 = **机器人契约 by_role**（见上面"单一真值"段）：策略只要声明真正不同的部分。
+        # **按级解析**（2026-09-22）：不是"取第一个非空表"，而是**逐级**查——
+        # 策略只想把小腿调硬（`{"calf": 40}`）时，hip/thigh 仍从机器人契约继承，不必把
+        # 12×2 个键重抄一遍（今天 7 条 lainlab 就是因为"整表替换"必须全抄，而漏抄即零力矩）。
+        # 每级内部：先精确名匹配，再按子串匹配（于是 role 键 hip/thigh/calf 也能命中关节名）。
+        self.stiffness = _gain_levels(ctrl.get("stiffness"), self.contract.get("stiffness"),
+                                      control.get("stiffness"), self.sim.get("stiffness"),
+                                      self.robot_stiffness)
+        self.damping = _gain_levels(ctrl.get("damping"), self.contract.get("damping"),
+                                    control.get("damping"), self.sim.get("damping"),
+                                    self.robot_damping)
+        # **fail-closed**（2026-09-22）：`gain_for` 查不到即返回 0.0，而 torque 接口下
+        # `torque = (target−q)·0 − dq·0 = 0` ⇒ 腿完全不支撑 ⇒ 机器人笔直下坠、对观测的任何
+        # 改动毫无反应（这正是 go2 一度 8 条"零力矩"策略的真相，也是它们长期挂在行为级验收
+        # fail 上的原因）。这类"参数缺失"**不许静默降级成物理错误**——查不到就当场炸，
+        # 并指名是哪几个关节、该去哪儿补。
+        if self.actuator_interface == "torque":
+            missing = [n for n in self.action_joint_order
+                       if not self.is_velocity_joint(n) and self.gain_for(self.stiffness, n) <= 0.0]
+            if missing:
+                raise ValueError(
+                    f"{self.root.name}/{self.entry.get('id')}: 位置控制关节 {missing} 的 PD 增益解析为 0 —— "
+                    f"torque 接口下等于腿不支撑（静默零力矩）。补齐处按优先级："
+                    f"策略 contract.control / 包级 simulation.control / 机器人 contract.json 的 "
+                    f"actuator_profile.by_role（含 role 与 stiffness/damping）。"
+                )
 
         ranges = (self.contract.get("command_ranges") or {})
         self.cmd_ranges = (
@@ -330,7 +394,11 @@ class PackageContract:
         )
 
     def default_for(self, joint: str) -> float:
-        return self.default_joint_angles.get(joint.lower(), 0.0)
+        # 策略没声明就继承机器人契约的 `joints.default_pose`（单一真值链的同一原则）。
+        key = joint.lower()
+        if key in self.default_joint_angles:
+            return self.default_joint_angles[key]
+        return self.robot_default_pose.get(key, 0.0)
 
     def effective_command(self, cmd) -> np.ndarray:
         """策略**实际收到**的速度指令（obs 构建器内部会乘的那一层缩放）。
@@ -356,14 +424,23 @@ class PackageContract:
             return True
         return "wheel" in lowered and self.control_modes.get("wheel") == "velocity"
 
-    def gain_for(self, table: dict, joint: str) -> float:
-        v = table.get(joint.lower())
-        if v is not None:
-            return float(v)
+    def gain_for(self, table, joint: str) -> float:
+        """查 PD 增益：`table` 可以是单表（dict）或**分级表**（list，高优先级在前）。
+
+        每级内部先**精确名**匹配、再按**子串**匹配（`{"calf": 40}` 命中 `FL_calf_joint`）；
+        全部查不到返回 0.0 —— 调用点必须把它当"缺失"处理（构造期有 fail-closed 守卫）。
+        """
+        levels = table if isinstance(table, (list, tuple)) else [table]
         lowered = joint.lower()
-        for key, val in table.items():
-            if key.lower() in lowered:
-                return float(val)
+        for tbl in levels:
+            if not isinstance(tbl, dict):
+                continue
+            v = tbl.get(lowered)
+            if v is not None:
+                return float(v)
+            for key, val in tbl.items():
+                if str(key).lower() in lowered:
+                    return float(val)
         return 0.0
 
 

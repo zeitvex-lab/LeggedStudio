@@ -36,31 +36,42 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.policy_artifacts import ROBOTS_DIR  # noqa: E402
 
 
-def resolve_gains(entry_contract: dict, sim: dict) -> tuple[dict, dict]:
+def resolve_gains(entry_contract: dict, sim: dict,
+                  robot_stiffness: dict | None = None,
+                  robot_damping: dict | None = None) -> tuple[list, list]:
     """**照抄** `PackageContract.__init__` 的解析链（刻意重复实现：审计必须独立于运行时，
-    否则同一处 bug 会同时骗过运行与审计）。"""
+    否则同一处 bug 会同时骗过运行与审计）。
+
+    **2026-09-22 与运行时对齐**：链尾补上**机器人契约 `actuator_profile.by_role`**，并把
+    "取第一个非空表"改成**按级解析**（高优先级在前，级内先精确名后子串）。改这两点的原因：
+    运行时已按此解析（否则"只想改小腿"的策略会被迫重抄 12×2 个键，漏抄即零力矩），审计若
+    不同步就会**把已接上真值的策略误报成零力矩**（本轮实测：`go2-baseline-164k` 正是如此）。
+    独立实现的价值在于"不共享 bug"，代价是**链的形状必须逐字同步**——所以另有一条
+    `test_audit_matches_engine_gain_chain` 拿真实包逐关节对账，链一漂就红。
+    """
     control = sim.get("control") or {}
     ctrl = entry_contract.get("control") or {}
-    stiffness = (
-        ctrl.get("stiffness") or entry_contract.get("stiffness")
-        or control.get("stiffness") or sim.get("stiffness") or {}
-    )
-    damping = (
-        ctrl.get("damping") or entry_contract.get("damping")
-        or control.get("damping") or sim.get("damping") or {}
-    )
-    return stiffness, damping
+    levels_s = [ctrl.get("stiffness"), entry_contract.get("stiffness"),
+                control.get("stiffness"), sim.get("stiffness"), robot_stiffness]
+    levels_d = [ctrl.get("damping"), entry_contract.get("damping"),
+                control.get("damping"), sim.get("damping"), robot_damping]
+    return ([t for t in levels_s if t], [t for t in levels_d if t])
 
 
-def gain_for(table: dict, joint: str) -> float:
-    """同 `PackageContract.gain_for`：精确名优先、再做子串匹配、兜底 **0.0**。"""
-    value = table.get(joint.lower())
-    if value is not None:
-        return float(value)
+def gain_for(table, joint: str) -> float:
+    """同 `PackageContract.gain_for`：`table` 可以是单表或**分级表**（list，高优先级在前）；
+    级内精确名优先、再做子串匹配；全查不到兜底 **0.0**（运行时把 0.0 当"缺失"并 fail-closed）。"""
+    levels = table if isinstance(table, (list, tuple)) else [table]
     lowered = joint.lower()
-    for key, val in table.items():
-        if str(key).lower() in lowered:
-            return float(val)
+    for tbl in levels:
+        if not isinstance(tbl, dict):
+            continue
+        value = tbl.get(lowered)
+        if value is not None:
+            return float(value)
+        for key, val in tbl.items():
+            if str(key).lower() in lowered:
+                return float(val)
     return 0.0
 
 
@@ -145,7 +156,13 @@ def audit(*, robots_dir: Path | str = ROBOTS_DIR) -> dict:
                         except (OSError, json.JSONDecodeError):
                             order = []
                 contract = {**contract, "action_joint_order": order}
-                stiffness, damping = resolve_gains(contract, sim)
+                # 机器人级真值（逐关节展开）：既是"声明 vs 真值"的参考，也是解析链的**末位**
+                profile = _contract_profile(config_path.parents[1])
+                robot_stiffness = {j: p["stiffness"] for j, p in profile.items()
+                                   if p.get("stiffness") is not None}
+                robot_damping = {j: p["damping"] for j, p in profile.items()
+                                 if p.get("damping") is not None}
+                stiffness, damping = resolve_gains(contract, sim, robot_stiffness, robot_damping)
                 # **声明 vs 真值对账**（非力矩接口）：策略级 `control` 在 position/velocity
                 # 下不驱动仿真，它的正确定位是「这条策略上游档位的**断言 + 溯源**」——
                 # 那么它就必须与机器人级真值一致。不一致 = 一条会误导人的假声明。
@@ -155,11 +172,12 @@ def audit(*, robots_dir: Path | str = ROBOTS_DIR) -> dict:
                 # **漂移由校验器报、不静默修**。
                 drift: list[str] = []
                 if interface != "torque" and (contract.get("control") or {}).get("stiffness"):
-                    profile = _contract_profile(config_path.parents[1])
                     for joint in order:
                         entry_params = profile.get(joint) or {}
-                        for param, table in (("stiffness", stiffness), ("damping", damping)):
-                            declared = _declared_gain(table or {}, joint)
+                        # 对账用**声明表**（策略自己写的），不是解析后的分级表
+                        for param, table in (("stiffness", contract.get("control") or {}),
+                                             ("damping", contract.get("control") or {})):
+                            declared = _declared_gain((table.get(param) or {}), joint)
                             truth = entry_params.get(param)
                             if declared is None or truth is None:
                                 continue
@@ -179,6 +197,7 @@ def audit(*, robots_dir: Path | str = ROBOTS_DIR) -> dict:
                         else "contract.stiffness" if contract.get("stiffness")
                         else "sim.control" if (sim.get("control") or {}).get("stiffness")
                         else "sim.stiffness" if sim.get("stiffness")
+                        else "robot.actuator_profile" if robot_stiffness
                         else "none"
                     ),
                     "kp_min": min(kps) if kps else None,

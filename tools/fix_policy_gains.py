@@ -62,11 +62,22 @@ def insert_package_control(text: str, control: dict, *, has_package_control: boo
     """
     if has_package_control:
         return text, False
-    anchor = '"scene_path"'
-    index = text.find(anchor)
-    if index < 0:
+    # 锚点（2026-09-22 修）：原先写死 `"scene_path"`——那个键 **go2 包没有** ⇒ go2 一调用
+    # 就报"找不到插入锚点"，于是这条补增益的路对 go2 从未走通（`go2-baseline-164k` 就这么
+    # 一直零增益）。改为「顶层键白名单」（行首恰好两空格缩进 = 顶层，避免命中嵌套同名键），
+    # 取第一个可用者，插在它那一行之后；并要求其后仍有顶层键（否则会插出尾随逗号）。
+    line_end = -1
+    for key in ("scene_path", "actuator_interface", "initial_base_height", "default_map", "backend"):
+        index = text.find(f'\n  "{key}":')
+        if index < 0:
+            continue
+        candidate = text.find("\n", index + 1)
+        if candidate < 0 or text.find('\n  "', candidate + 1) < 0:
+            continue
+        line_end = candidate
+        break
+    if line_end < 0:
         return text, False
-    line_end = text.find("\n", index)
     block = json.dumps({"control": control}, ensure_ascii=False, indent=2)[1:-1].rstrip()
     # `{"control": {...}}` 去掉首尾花括号后，缩进两格即为包级键
     indented = "\n".join(("  " + line) if line.strip() else line for line in block.splitlines())
@@ -76,7 +87,14 @@ def insert_package_control(text: str, control: dict, *, has_package_control: boo
 def apply_fix(*, robot: str, source_policy: str, write: bool = False) -> dict:
     package = Path(ROBOTS_DIR) / robot
     config_path = package / "simulation" / "config.json"
-    text = config_path.read_text(encoding="utf-8")
+    # BOM（2026-09-22 修）：go2 包的 config.json **带 UTF-8 BOM**，原先按 ``utf-8`` 读 ⇒
+    # `json.loads` 直接抛 "Unexpected UTF-8 BOM" ⇒ 该包**永远走不通**这条补增益的路
+    # （这正是 `go2-baseline-164k` 至今零增益、却没人用它修的原因）。读用 utf-8-sig，
+    # 写回保持原文件的 BOM 有无（不能顺手把 BOM 抹掉：全仓解析器都按 `utf-8-sig` 读，
+    # 但抹掉 BOM 会让本文件在 diff 里整份"变样"，且与其它机的约定不一致）。
+    raw = config_path.read_bytes()
+    had_bom = raw.startswith(b"\xef\xbb\xbf")
+    text = raw.decode("utf-8-sig")
     try:
         sim = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -99,7 +117,7 @@ def apply_fix(*, robot: str, source_policy: str, write: bool = False) -> dict:
         return {"ok": False, "inserted": False, "problems": [f"{robot}：插入后 JSON 非法（{exc}）"]}
 
     if write:
-        config_path.write_text(updated, encoding="utf-8")
+        config_path.write_text(updated, encoding="utf-8-sig" if had_bom else "utf-8")
     return {"ok": True, "inserted": True, "written": bool(write), "control": control, "problems": []}
 
 
