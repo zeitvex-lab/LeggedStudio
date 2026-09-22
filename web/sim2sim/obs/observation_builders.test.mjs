@@ -460,6 +460,23 @@ testSpecValues('布局·mode=position：取非速度控制关节',
     if (!near(o[0], 0.5) || !near(o[11], 6.0)) throw new Error(`取的关节不对：${o.slice(0, 3)}`);
   });
 
+testSpecValues('布局·base_lin_vel：机体系线速度（裸值 / 标量缩放）',
+  (() => {
+    // 测试 ctx 默认 `readImuSample` 的 linear 是零 ⇒ 这里换成可辨识值（与验收器 `base_state()` 同源）
+    const ctx = makeCtx({
+      layout: [{ source: 'base_lin_vel', width: 3 }, { source: 'base_lin_vel', width: 3, scale: 0.5 }],
+      numObs: 6,
+    });
+    ctx.readImuSample = () => ({ angular: [0, 0, 0], gravity: [0, 0, -1], rpy: [0, 0, 0], linear: [1.5, -2.5, 0.5] });
+    return ctx;
+  })(),
+  (ctx) => {
+    const o = ctx.sim.obs;
+    const near = (a, b) => Math.abs(a - b) < 1e-6;
+    if (!near(o[0], 1.5) || !near(o[1], -2.5) || !near(o[2], 0.5)) throw new Error(`裸值不对：${o.slice(0, 3)}`);
+    if (!near(o[3], 0.75) || !near(o[4], -1.25) || !near(o[5], 0.25)) throw new Error(`缩放不对：${o.slice(3, 6)}`);
+  });
+
 testRefuses('布局·mode 不给 width ⇒ 拒绝（宽度不许猜）',
   makeWheelLegLayoutCtx([{ source: 'joint_vel', mode: 'velocity' }], 4));
 testRefuses('布局·width 与 mode 选中的关节数不符 ⇒ 拒绝',

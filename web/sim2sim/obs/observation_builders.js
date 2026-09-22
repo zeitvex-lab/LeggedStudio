@@ -1091,7 +1091,7 @@ const OBSERVATION_BUILDERS = {
     const angle = 2 * Math.PI * phase;
     sim.obs.fill(0);
     let offset = 0;
-    const fixedWidth = { gravity: 3, euler: 3, phase_sin: 1, phase_cos: 1 };
+    const fixedWidth = { gravity: 3, euler: 3, phase_sin: 1, phase_cos: 1, base_lin_vel: 3 };
     for (const seg of spec) {
       const source = seg && seg.source;
       const rawScale = seg && seg.scale !== undefined ? seg.scale : 1.0;
@@ -1151,6 +1151,10 @@ const OBSERVATION_BUILDERS = {
           break;
         case "ang_vel":
           for (let i = 0; i < width; i += 1) sim.obs[offset++] = imu.angular[i] * signs.angular[i] * scaleAt(i);
+          break;
+        case "base_lin_vel":
+          // 机体系线速度（`utils.js::imuSampleFromQpos` 的 linear，与验收器 `base_state()[2]` 同源）
+          for (let i = 0; i < width; i += 1) sim.obs[offset++] = (imu.linear ? imu.linear[i] : 0) * scaleAt(i);
           break;
         case "gravity":
           for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * signs.gravity[i];

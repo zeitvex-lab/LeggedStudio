@@ -62,6 +62,10 @@ class _FakeObs:
                                     qvel=np.asarray(qvel, dtype=np.float64), time=time)
         self.last_action = np.zeros(len(contract.action_joint_order), dtype=np.float64)
 
+    def base_state(self):
+        """机体系线/角速度：给 `base_lin_vel` 段用（值可辨识，便于断言）。"""
+        return None, np.array([0.3, -0.5, 0.2]), np.array([1.5, -2.5, 0.5])
+
 
 def _setup():
     order = [f"leg{i}_joint" for i in range(12)] + [f"wheel{i}_joint" for i in range(4)]
@@ -123,6 +127,34 @@ class SemanticSegmentTest(unittest.TestCase):
         )
         self.assertNotAlmostEqual(positional[0], semantic[0], places=6)
         self.assertAlmostEqual(0.5, positional[0], places=6)   # 位置写法取的是 leg0
+
+
+class BaseLinVelSegmentTest(unittest.TestCase):
+    """`base_lin_vel` 段（2026-09-22 v0.58.0 补）：`go1_playground_48` / `g1_mjswan_locomotion`
+    这类"带本体线速度"的帧原先只能手写，单列成段后两侧才都能声明。"""
+
+    def setUp(self):
+        self.engine = _load_engine()
+
+    def test_base_lin_vel_is_body_frame_raw(self):
+        contract, obs = _setup()
+        out = self.engine.frame_from_spec(obs, np.zeros(3), [{"source": "base_lin_vel", "width": 3}])
+        self.assertEqual([1.5, -2.5, 0.5], out)
+
+    def test_base_lin_vel_has_no_contract_scale(self):
+        """`@contract` 没有对应字段 ⇒ **抛**（不许静默当 1.0 —— 那正是"看着像对"的错法）。"""
+        contract, obs = _setup()
+        with self.assertRaises(ValueError):
+            self.engine.frame_from_spec(
+                obs, np.zeros(3), [{"source": "base_lin_vel", "width": 3, "scale": "@contract"}]
+            )
+
+    def test_base_lin_vel_scalar_scale(self):
+        contract, obs = _setup()
+        out = self.engine.frame_from_spec(obs, np.zeros(3), [
+            {"source": "base_lin_vel", "width": 3, "scale": 0.5},
+        ])
+        self.assertEqual([0.75, -1.25, 0.25], out)
 
 
 class SemanticSegmentFailClosedTest(unittest.TestCase):

@@ -35,6 +35,7 @@
       "source": "mujoco_playground experimental/sim2sim onnx（Apache-2.0，官方 play_go1_joystick.py 取证）",
       "contract": {
         "observation_kind": "go1_playground_48",
+        "observation_layout": [{"source": "base_lin_vel", "width": 3}, {"source": "ang_vel", "width": 3}, {"source": "gravity"}, {"source": "joint_pos"}, {"source": "joint_vel"}, {"source": "action"}, {"source": "cmd", "width": 3}],
         "obs_dim": 48,
         "action_dim": 12,
         "history_len": 1,
