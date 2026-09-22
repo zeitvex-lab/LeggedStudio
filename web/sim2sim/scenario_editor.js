@@ -246,6 +246,91 @@ export function stepHint(stepId) {
   return step ? step.hint || "" : "";
 }
 
+/**
+ * 任务插件的**下拉项**（`GET /api/task-plugins` 的返回 → 选项表）。
+ *
+ * 页面**不自己编任务清单**：`plugin_id` / 标签 / 证据都在服务端注册表里（`registry/task_plugins`），
+ * 这里只做"取字段 + 兜底文案"，取不到就如实留空。
+ */
+export function taskPluginOptions(payload) {
+  const plugins = (payload?.plugins || []).filter((item) => item && item.plugin_id);
+  return plugins.map((item) => ({
+    id: String(item.plugin_id),
+    label: String(item.label || item.plugin_id),
+    description: String(item.description || ""),
+    taskType: String(item.task_type || ""),
+    sensorCount: Array.isArray(item.sensors) ? item.sensors.length : 0,
+  }));
+}
+
+/**
+ * **一键填入**：把 `POST /api/task-plugins/{id}/instantiate` 的返回 → 编辑器状态补丁。
+ *
+ * 三条纪律（与页面其余部分同源）：
+ *   1. **不自己拼场景**：`perception` / `command_source` / `checks` / `recorders` 一律取服务端回的
+ *      `scenario`（它就是"任务需要什么"的权威），前端只做形状映射；服务端没回场景 ⇒ 拒绝填入，
+ *      不许"部分应用"（半份状态比不填更坏：人会以为已经填好了）。
+ *   2. **不许替服务端说"能跑"**：`readiness.verified` 由服务端给（当前传感器插件止步 `registered`
+ *      ⇒ 恒 false）。这里原样带出 `verified` 与 `reason`，页面照它显示；**前端不解释成"可用"**。
+ *   3. **勾选框装不下的项要报出来**：契约里 `checks`/`recorders` 是自由字符串数组，而页面只有
+ *      `CHECK_OPTIONS`/`RECORDER_OPTIONS` 两小组候选 —— 插件声明了别的项时，复选框没有它，
+ *      静默丢弃等于把"这个任务要看的判据"悄悄改掉 ⇒ 单独列 `unmapped*` 让人看得见。
+ */
+export function applyTaskPluginResult(state, response) {
+  const problems = [];
+  const pluginId = response?.plugin_id ? String(response.plugin_id) : "";
+  const scenario = response?.scenario;
+  if (!pluginId) problems.push("服务端没有回 plugin_id —— 不接受这次填入");
+  if (!scenario || typeof scenario !== "object") problems.push("服务端没有回场景载荷 —— 不接受这次填入");
+  if (problems.length) return { ok: false, state, summary: null, problems };
+
+  const perception = scenario.perception || null;
+  const checks = Array.isArray(scenario.checks) ? scenario.checks.map(String) : (state.checks || []);
+  const recorders = Array.isArray(scenario.recorders) ? scenario.recorders.map(String) : (state.recorders || []);
+  const next = {
+    ...state,
+    perception: {
+      route: perception?.route === "obs" ? "obs" : "external",
+      heightfield: Boolean(perception?.heightfield),
+      depthCamera: Boolean(perception?.depth_camera),
+      footContact: Boolean(perception?.foot_contact),
+      mount: String(perception?.mount || state.perception?.mount || "base"),
+    },
+    commandSource: COMMAND_SOURCES.includes(scenario.command_source)
+      ? scenario.command_source : state.commandSource,
+    checks,
+    recorders,
+  };
+  if (perception?.depth_camera) {
+    const camera = perception.depth_camera || {};
+    next.depthCamera = {
+      width: Number(camera.width) || state.depthCamera?.width || 106,
+      height: Number(camera.height) || state.depthCamera?.height || 60,
+      cutoffM: Number(camera.cutoff_m) || state.depthCamera?.cutoffM || 3,
+    };
+  }
+
+  const readiness = response.readiness || {};
+  const items = response.obs_items || {};
+  const summary = {
+    pluginId,
+    label: String(response.plugin_id),
+    taskType: String(response.task_type || ""),
+    applied: Object.keys(response.applied || {}),
+    obsVerdict: String(items.verdict || ""),
+    obsTerms: (items.items || []).map((item) => String(item.term || item.id || "")).filter(Boolean),
+    // 诚实面：这三项**照抄服务端**，页面据此显示"声明可实例化 / 还不能声称能跑"
+    verified: Boolean(readiness.verified),
+    readinessReason: String(readiness.reason || ""),
+    blockers: (readiness.blockers || []).map(String),
+    unconsumedChecks: (readiness.unconsumed_checks || []).map(String),
+    unconsumedRecorders: (readiness.unconsumed_recorders || []).map(String),
+    unmappedChecks: checks.filter((key) => !CHECK_OPTIONS.includes(key)),
+    unmappedRecorders: recorders.filter((key) => !RECORDER_OPTIONS.includes(key)),
+  };
+  return { ok: true, state: next, summary, problems };
+}
+
 /** 一行中文摘要（编辑器标题栏显示"现在这份场景是什么"）。 */
 export function describeScenario(scenario) {
   if (!scenario) return "（尚未生成场景）";

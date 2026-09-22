@@ -14,11 +14,13 @@ import {
   RECORDER_OPTIONS,
   SCENARIO_STEPS,
   TERRAIN_KINDS,
+  applyTaskPluginResult,
   bindingGate,
   composeScenario,
   defaultState,
   describeScenario,
   stepHint,
+  taskPluginOptions,
   toQuery,
   toSimParams,
 } from "./scenario_editor.js";
@@ -48,6 +50,8 @@ const TERRAIN_LABELS = {
 let state = defaultState();
 let mapsAvailable = false;
 let policiesLoading = false;
+/** 服务端任务插件清单（下拉项 + 描述），由 `loadTaskPlugins()` 填。 */
+let taskPlugins = new Map();
 
 // ── 取数：一律用服务端真值 ────────────────────────────────────────────────
 // HTTP 错误 / 超时 / JSON 解析 / 中文错误消息的**唯一实现**在 `web/shared/api.js`
@@ -122,6 +126,91 @@ async function loadPerceptionItems() {
   }
 }
 
+// ── 任务插件（服务端注册表 → 下拉 + 一键填入）──────────────────────────────
+// 页面**不编任务清单、不编传感器需求**：`GET /api/task-plugins` 给清单，
+// `POST /api/task-plugins/{id}/instantiate` 给"补齐后的场景 + 观测项 + 就绪度"。
+async function loadTaskPlugins() {
+  const select = $("scTaskPlugin");
+  try {
+    const payload = await LSApi.fetchJson("/api/task-plugins", { cache: "no-store" });
+    const options = taskPluginOptions(payload);
+    if (!options.length) throw new Error("注册表里没有任务插件");
+    select.innerHTML = options.map((item) => `<option value="${item.id}">${
+      escapeHtml(item.label)}（${escapeHtml(item.id)}｜${item.sensorCount} 个传感器）</option>`).join("");
+    taskPlugins = new Map(options.map((item) => [item.id, item]));
+    renderTaskPluginHint();
+  } catch (error) {
+    select.innerHTML = '<option value="">（任务插件不可用）</option>';
+    $("scTaskPluginResult").textContent = `任务插件清单不可用：${error.message}`;
+  }
+}
+
+function renderTaskPluginHint() {
+  const item = taskPlugins.get($("scTaskPlugin").value);
+  $("scTaskPluginResult").textContent = item
+    ? `${item.label}${item.taskType ? `（task_type=${item.taskType}）` : ""}：${item.description}`
+    : "（未选任务插件）";
+}
+
+async function fillFromTaskPlugin() {
+  const pluginId = $("scTaskPlugin").value;
+  const host = $("scTaskPluginResult");
+  if (!pluginId) { host.textContent = "先选一条任务插件。"; return; }
+  const composed = composeScenario(readForm());
+  if (!composed.ok) {
+    host.textContent = "当前表单里的场景还不合法，先修好再一键填入（否则补出来的场景也是坏的）。";
+    return;
+  }
+  host.textContent = `正在向服务端实例化 ${pluginId} …`;
+  try {
+    const payload = await LSApi.fetchJson(
+      `/api/task-plugins/${encodeURIComponent(pluginId)}/instantiate`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenario: composed.scenario }),
+      },
+    );
+    const result = applyTaskPluginResult(readForm(), payload);
+    if (!result.ok) { host.textContent = `填入被拒：${result.problems.join("；")}`; return; }
+    state = result.state;
+    applyStateToForm(state);
+    await refresh();
+    host.innerHTML = renderTaskPluginSummary(result.summary);
+  } catch (error) {
+    host.textContent = `实例化失败：${error.message}`;
+  }
+}
+
+/**
+ * 就绪度的**诚实显示**：`verified=false` 时必须把服务端给的理由原样摆出来，
+ * 不许在页面上把它渲染成"可用"（传感器插件当前止步 `registered`）。
+ */
+function renderTaskPluginSummary(summary) {
+  if (!summary) return "";
+  const rows = [
+    `<div><strong>已填入 ${escapeHtml(summary.pluginId)}</strong>`
+    + `（观测项：${escapeHtml(summary.obsVerdict || "—")}${summary.obsTerms.length ? ` → ${escapeHtml(summary.obsTerms.join(" / "))}` : ""}）</div>`,
+    `<div>改动的字段：${escapeHtml(summary.applied.join(" / ") || "（无：插件声明与当前场景一致）")}</div>`,
+    summary.verified
+      ? '<div class="sc-ok">就绪度：已验证</div>'
+      : `<div class="sc-warn">就绪度：<strong>仅“声明可实例化”，不能声称“能跑”</strong>`
+        + `${summary.readinessReason ? `—— ${escapeHtml(summary.readinessReason)}` : ""}</div>`,
+  ];
+  if (summary.blockers.length) {
+    rows.push(`<div class="sc-bad">阻断项：${escapeHtml(summary.blockers.join(" / "))}</div>`);
+  }
+  if (summary.unconsumedChecks.length || summary.unconsumedRecorders.length) {
+    rows.push(`<div class="sc-warn">声明了但今天没人执行的：${escapeHtml(
+      [...summary.unconsumedChecks, ...summary.unconsumedRecorders].join(" / "))}</div>`);
+  }
+  if (summary.unmappedChecks.length || summary.unmappedRecorders.length) {
+    rows.push(`<div class="sc-warn">表单里没有对应勾选框的项（已按服务端原样记在场景里）：${escapeHtml(
+      [...summary.unmappedChecks, ...summary.unmappedRecorders].join(" / "))}</div>`);
+  }
+  return rows.join("");
+}
+
 // ── 表单 ⇄ 状态 ──────────────────────────────────────────────────────────
 function parseWaypoints(text) {
   return String(text || "")
@@ -174,6 +263,30 @@ function readForm() {
 
 function renderReport(html) {
   $("scReport").innerHTML = html;
+}
+
+/** 状态 → 表单（一键填入的落点：**只写自己有权威的那几项**，其余字段不动）。 */
+function applyStateToForm(next) {
+  $("scRoute").value = next.perception?.route === "obs" ? "obs" : "external";
+  $("scHeightfield").checked = Boolean(next.perception?.heightfield);
+  $("scDepthCamera").checked = Boolean(next.perception?.depthCamera);
+  $("scFootContact").checked = Boolean(next.perception?.footContact);
+  $("scMount").value = next.perception?.mount || "base";
+  if (next.depthCamera) {
+    $("scDepthWidth").value = String(next.depthCamera.width);
+    $("scDepthHeight").value = String(next.depthCamera.height);
+    $("scDepthCutoff").value = String(next.depthCamera.cutoffM);
+  }
+  if (COMMAND_SOURCES.includes(next.commandSource)) $("scCommandSource").value = next.commandSource;
+  for (const key of CHECK_OPTIONS) {
+    const box = $(`scCheck_${key}`);
+    if (box) box.checked = (next.checks || []).includes(key);
+  }
+  for (const key of RECORDER_OPTIONS) {
+    const box = $(`scRecorder_${key}`);
+    if (box) box.checked = (next.recorders || []).includes(key);
+  }
+  syncWaypointVisibility();
 }
 
 function renderScenarioSummary(composed) {
@@ -370,6 +483,10 @@ function bindEvents() {
   });
   $("scStart").addEventListener("click", start);
   $("scValidate").addEventListener("click", () => { refresh(); });
+  // 任务插件：选一条只更新说明（**不自动改表单** —— 改字段是「一键填入」这个显式动作）；
+  // 点「一键填入」才把服务端算好的补丁写进表单并重新校验。
+  $("scTaskPlugin").addEventListener("change", renderTaskPluginHint);
+  $("scTaskFill").addEventListener("click", () => { fillFromTaskPlugin(); });
   $("scSteps").addEventListener("click", (event) => {
     const button = event.target.closest?.("[data-step]");
     if (button) selectStep(button.dataset.step);
@@ -381,6 +498,7 @@ async function init() {
   renderSteps();
   selectStep(activeStep);
   await Promise.all([loadMaps(), loadRobots(), loadPerceptionItems()]);
+  await loadTaskPlugins();
   await loadPolicies($("scRobot").value);
   bindEvents();
   refresh();

@@ -13,13 +13,16 @@
 // 另加一条**防漂移**核对：组合出的每个字段都必须存在于 `contracts/schema/scenario-contract-1.1.schema.json`
 // —— 契约改字段而这里没跟，本测试就红（与 terrain_groups.test.mjs 核对 _index.json 同一手法）。
 import assert from "node:assert/strict";
+
 import { readFileSync } from "node:fs";
 import {
+  applyTaskPluginResult,
   bindingGate,
   composeScenario,
   defaultState,
   describeScenario,
   enabledPerceptionItems,
+  taskPluginOptions,
   toQuery,
   toSimParams,
   unsupportedCommandSourceProblems,
@@ -245,4 +248,76 @@ const SCHEMA = JSON.parse(
   assert.equal(params.terrain, "flat");
 }
 
-console.log("scenario_editor.test.mjs: 13 组断言全部通过 ✔");
+// 14) 任务插件：下拉项取自服务端载荷（页面不编清单）
+{
+  const options = taskPluginOptions({
+    plugins: [
+      { plugin_id: "wheel-leg-terrain", label: "轮足地形穿越", task_type: "velocity",
+        description: "高度扫描 + 足端接触进观测", sensors: [{ plugin_id: "foot_contact" }, { plugin_id: "imu" }] },
+      { plugin_id: "no_label" },
+      { label: "缺 id ⇒ 丢掉" },
+    ],
+  });
+  assert.deepEqual(options.map((item) => item.id), ["wheel-leg-terrain", "no_label"]);
+  assert.equal(options[0].sensorCount, 2);
+  assert.equal(options[1].label, "no_label", "缺 label 时回退 plugin_id");
+  assert.deepEqual(taskPluginOptions(null), [], "取不到载荷就得空表，不许编");
+}
+
+// 15) 一键填入：改的是服务端回的那几项（route / 感知开关 / 命令来源 / 判据 / 记录器）
+{
+  const before = defaultState();
+  const response = {
+    plugin_id: "wheel-leg-terrain",
+    task_type: "velocity",
+    applied: { "perception.heightfield": true, "perception.foot_contact": true, "perception.route": "obs" },
+    scenario: {
+      command_source: "policy",
+      perception: { route: "obs", heightfield: true, foot_contact: true, mount: "base" },
+      checks: [],
+      recorders: ["metrics"],
+    },
+    obs_items: { verdict: "generated", items: [{ term: "foot_contact" }, { term: "heightmap" }] },
+    readiness: { verified: false, reason: "传感器插件当前止步 registered", blockers: [], unconsumed_checks: [],
+                 unconsumed_recorders: [] },
+  };
+  const result = applyTaskPluginResult(before, response);
+  assert.equal(result.ok, true, result.problems.join(" | "));
+  assert.equal(result.state.perception.route, "obs");
+  assert.equal(result.state.perception.heightfield, true);
+  assert.equal(result.state.perception.footContact, true);
+  assert.equal(result.state.perception.depthCamera, false, "插件没声明深度 ⇒ 不许顺手打开");
+  assert.deepEqual(result.state.recorders, ["metrics"]);
+  assert.deepEqual(result.summary.obsTerms, ["foot_contact", "heightmap"]);
+  assert.equal(result.summary.applied.length, 3);
+  // **诚实面**：verified=false 原样带出，页面照着显示，不许在前端翻成"可用"
+  assert.equal(result.summary.verified, false);
+  assert.ok(result.summary.readinessReason.includes("registered"), result.summary.readinessReason);
+}
+
+// 16) 一键填入：缺场景载荷 ⇒ 整次拒绝（不做"部分应用"）
+{
+  const before = defaultState();
+  before.perception.heightfield = true;
+  const result = applyTaskPluginResult(before, { plugin_id: "x" });
+  assert.equal(result.ok, false);
+  assert.equal(result.state.perception.heightfield, true, "被拒时状态必须原样不动（半份状态更坏）");
+  assert.ok(result.problems.join(" ").includes("场景载荷"), result.problems.join(" | "));
+}
+
+// 17) 一键填入：勾选框装不下的 checks/recorders 必须被列出来（不许静默丢）
+{
+  const response = {
+    plugin_id: "custom-task",
+    scenario: { command_source: "policy", perception: null, checks: ["arrival", "custom_metric"],
+                recorders: ["metrics", "rosbag"] },
+    readiness: { verified: false },
+    obs_items: {},
+  };
+  const result = applyTaskPluginResult(defaultState(), response);
+  assert.deepEqual(result.state.checks, ["arrival", "custom_metric"], "服务端声明的项要原样进场景");
+  assert.deepEqual(result.summary.unmappedChecks, ["custom_metric"]);
+  assert.deepEqual(result.summary.unmappedRecorders, ["rosbag"]);
+}
+
+console.log("scenario_editor.test.mjs: 17 组断言全部通过 ✔");
