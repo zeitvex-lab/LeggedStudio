@@ -261,6 +261,48 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
             "verdict": "pass" if passed == len(mode_reports) else "fail",
         }
 
+    # Go2 mjswan 四输入 RNN（robust/vanilla/facet）：actor(117) / is_init / adapt_hx(128) /
+    # command_(16) 按**槽表位置**喂，隐藏状态逐步回灌 —— 通用单输入路径不适用，走专用回路。
+    # 判据与 PIE 同口径（存活 + 姿态 + 前进），便于同一份报告里横比。
+    if contract.observation_kind == "go2_mjswan_velocity":
+        slots = tuple(
+            (contract.contract.get("onnx_slots") or {}).get("inputs")
+            or ("actor", "is_init", "adapt_hx", "command_")
+        )
+        model = engine.load_package_model(package_dir, sim_cfg, None,
+                                          scene_rel=contract.contract.get("scene_path"))
+        model.opt.timestep = 1.0 / float(contract.physics_hz)
+        data = mujoco.MjData(model)
+        sess = ort.InferenceSession(str(policy_path), providers=["CPUExecutionProvider"])
+        criteria = {"survival_min": 0.9, "tilt_max_deg": 75.0, "forward_min_m": 0.3}
+        criteria.update(criteria_all.get("velocity") or {})
+        modes = [[0.6, 0.0, 0.0], [1.0, 0.0, 0.0]]
+        mode_reports = []
+        for idx, cmd in enumerate(modes):
+            metrics = engine.run_mjswan_policy(
+                sess, contract, model, data, engine.ObsBuilder(contract, model, data),
+                cmd, max(float(seconds), 10.0), seed + idx, slots=slots,
+            )
+            ok = (
+                (not metrics["fell"])
+                and metrics["survival_ratio"] >= criteria["survival_min"]
+                and metrics["tilt_max_deg"] <= criteria["tilt_max_deg"]
+                and metrics["forward_max_m"] >= criteria["forward_min_m"]
+            )
+            mode_reports.append({"command": cmd, "metrics": metrics, "verdict": {"ok": ok}})
+        passed = sum(1 for m in mode_reports if m["verdict"]["ok"])
+        return {
+            "status": "ok",
+            "task_family": "velocity",
+            "observation_kind": contract.observation_kind,
+            "criteria": criteria,
+            "slots": list(slots),
+            "modes": mode_reports,
+            "passed": passed,
+            "total": len(mode_reports),
+            "verdict": "pass" if passed == len(mode_reports) else "fail",
+        }
+
     motion = contract.observation_kind in ("go2_motion_69", "g1_motion_154")
     family = "imitation" if motion else (family or task_family(entry, contract))
 

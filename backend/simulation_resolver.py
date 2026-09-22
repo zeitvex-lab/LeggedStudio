@@ -81,6 +81,10 @@ MAIN_OBS_INPUT_NAMES = (
     "policy_obs",
     "actor_states",
     "proprio",
+    # mjswan 导出器给主观测槽起的名（`examples/demo` 的 unitree_go2 产物实测：四个输入
+    # `l_kwargs_policy_[1,117]` / `arg1[1]bool` / `l_kwargs_adapt_hx_[1,128]` /
+    # `l_kwargs_command_[1,16]`，槽表顺序由包的 `contract.onnx_slots` 声明）。
+    "l_kwargs_policy_",
 )
 
 #: ONNX ``TensorProto.elem_type`` → 线协议 dtype（唯一表）。**故意不收录** f2/bf16/complex：
@@ -108,6 +112,10 @@ AUX_PRODUCED_BY_BINDINGS: dict[str, tuple[str, str]] = {
     "external:recurrent_state": ("memory", "recurrent_state"),
     "external:base_command": ("command", "command"),
     "external:command": ("command", "command"),
+    # mjswan 四输入链的 `is_init`（bool 标量：该步是否 episode 首帧）。它既不是观测也不是
+    # 命令，而是**随 episode 边界变化的运行态标志** —— 与 `adapt_hx` 同属"运行时自己填"的槽
+    # （上游 `RUNTIME_INPUT_SLOTS = {is_init, adapt_hx, time_step}`）。
+    "external:is_init": ("memory", "is_init"),
 }
 
 #: 策略契约 ``contract.depth_camera`` → 深度插件参数名。标定四项**只有这一处**从策略契约
