@@ -1075,11 +1075,36 @@ const OBSERVATION_BUILDERS = {
     const angle = 2 * Math.PI * phase;
     sim.obs.fill(0);
     let offset = 0;
+    const fixedWidth = { gravity: 3, euler: 3, phase_sin: 1, phase_cos: 1 };
     for (const seg of spec) {
       const source = seg && seg.source;
       const rawScale = seg && seg.scale !== undefined ? seg.scale : 1.0;
-      const width = Number((seg && seg.width) || CONFIG.numActions);
-      const scaleAt = (i) => Number(Array.isArray(rawScale) ? rawScale[i] : rawScale);
+      // 宽度默认值按来源定（与 Python 同规则）：定宽来源固定；cmd = 命令维数；
+      // 关节/动作类 = 动作关节数；zeros **必须显式给宽**（没有天然宽度，猜错就是静默错位）。
+      let width;
+      if (fixedWidth[source] !== undefined) width = fixedWidth[source];
+      else if (source === "cmd") width = Number((seg && seg.width) || (CONFIG.cmdScale ? CONFIG.cmdScale.length : 3));
+      else width = Number((seg && seg.width) || CONFIG.numActions);
+      if (source === "zeros" && !(seg && seg.width)) {
+        throw new Error("段 'zeros' 必须显式声明 width（零占位没有天然宽度）");
+      }
+      // scale 除字面量外认 "@contract"：用契约声明的缩放字段（同一 kind 跨机型时各按各的契约）。
+      let scaleList = null;
+      if (rawScale === "@contract") {
+        if (source === "ang_vel") scaleList = CONFIG.angVelScale;
+        else if (source === "joint_pos") scaleList = CONFIG.dofPosScale;
+        else if (source === "joint_vel") scaleList = CONFIG.dofVelScale;
+        else if (source === "cmd") scaleList = CONFIG.cmdScale;
+        else throw new Error(`段 ${source} 不支持 scale="@contract"（无对应契约字段）`);
+      }
+      const scaleAt = (i) => {
+        const src = scaleList !== null ? scaleList : rawScale;
+        // 注意：契约里的缩放数组在浏览器侧常是 **TypedArray**（如 `Float32Array`），
+        // 而 `Array.isArray(Float32Array)` 是 **false** ⇒ 早期版本走到 `Number(typedArray)`
+        // 得 `NaN`（JSON 里序列化成 `null`），把整条观测污染掉。故两种数组都要认。
+        if (Array.isArray(src) || ArrayBuffer.isView(src)) return Number(src[i]);
+        return Number(src);
+      };
       switch (source) {
         case "zeros":
           for (let i = 0; i < width; i += 1) sim.obs[offset++] = 0;
