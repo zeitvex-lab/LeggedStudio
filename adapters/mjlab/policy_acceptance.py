@@ -1607,7 +1607,9 @@ def run_pie_policy(sess, contract: PackageContract, model, data, obs: "ObsBuilde
         height_min = min(height_min, float(data.qpos[2]))
         forward = float(np.asarray(data.xpos[base_id], dtype=np.float64)[0] - start_xy[0])
         forward_max = max(forward_max, forward)
-        if fell_at is None and (data.qpos[2] < 0.5 * contract.initial_height or max(abs(roll), abs(pitch)) > 75.0):
+        # 判摔与训练同源：`base_contact`（躯干触地、法向力 > 1.0 N），见 base_ground_contact_force。
+        if fell_at is None and step * _PIE_CONTROL_DT >= 0.5 and \
+                base_ground_contact_force(model, data) > 1.0:
             fell_at = step * _PIE_CONTROL_DT
             break
 
@@ -1771,7 +1773,9 @@ def run_mjswan_policy(sess, contract: PackageContract, model, data, obs: "ObsBui
         height_min = min(height_min, float(data.qpos[2]))
         forward = float(np.asarray(data.xpos[base_id], dtype=np.float64)[0] - start_xy[0])
         forward_max = max(forward_max, forward)
-        if fell_at is None and (data.qpos[2] < 0.5 * contract.initial_height or max(abs(roll), abs(pitch)) > 75.0):
+        # 判摔与训练同源：`base_contact`（躯干触地、法向力 > 1.0 N），见 base_ground_contact_force。
+        if fell_at is None and step * _MJSWAN_CONTROL_DT >= 0.5 and \
+                base_ground_contact_force(model, data) > 1.0:
             fell_at = step * _MJSWAN_CONTROL_DT
             break
 
@@ -1976,9 +1980,11 @@ def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
         total = int(seconds * contract.physics_hz)
         height_min = float("inf")
         tilt_max = 0.0
+        contact_peak = 0.0
         qvel_max = 0.0
         finite = True
-        for _ in range(total):
+        settle = int(0.5 * contract.physics_hz)      # 起摆窗口（与 run_mode 同口径）
+        for step in range(total):
             actuate(contract, model, data, obs, raw)
             mujoco.mj_step(model, data)
             if not (np.all(np.isfinite(data.qpos)) and np.all(np.isfinite(data.qvel))):
@@ -1989,6 +1995,8 @@ def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
             tilt = math.degrees(math.acos(clamp(-g[2], -1.0, 1.0)))
             tilt_max = max(tilt_max, tilt)
             height_min = min(height_min, float(data.qpos[2]))
+            if step >= settle:                        # 判摔与训练同源：躯干触地
+                contact_peak = max(contact_peak, base_ground_contact_force(model, data))
             qvel_max = max(qvel_max, float(np.max(np.abs(data.qvel))))
             for name in contract.action_joint_order:
                 addr = obs.jadr.get(name)
@@ -1997,7 +2005,9 @@ def run_probe(contract: PackageContract, model, data, obs: ObsBuilder,
                 peak = abs(float(data.qvel[addr[1]]))
                 if peak > peak_by_joint.get(name, 0.0):
                     peak_by_joint[name] = peak
-        survived = finite and height_min > 0.45 * contract.initial_height and tilt_max < 60.0
+        # 存活判据与训练同源：只看"是否躯干触地"（`base_contact`），不再用高度/倾角代理
+        # ——高度代理是"为绕开起摆误判"而加的，倾角 60° 更会把"躯干立起来"的正常姿态误杀。
+        survived = finite and contact_peak <= 1.0
         if survived:
             envelope_reach = max(envelope_reach, abs(magnitude))
         results.append({
@@ -2219,10 +2229,10 @@ def run_encoder_mode(sess_enc, sess_pol, contract: PackageContract, model, data,
         roll_max = max(roll_max, abs(roll))
         pitch_max = max(pitch_max, abs(pitch))
         height_min = min(height_min, float(data.qpos[2]))
-        # 与 run_mode 同一口径：起摆窗口内不判摔（双图 encoder 链同样受这条保护）。
-        if fell_at is None and step >= int(0.5 * contract.physics_hz) and (
-            data.qpos[2] < 0.45 * contract.initial_height or abs(roll) > 90.0 or abs(pitch) > 90.0
-        ):
+        # 与 run_mode 同一口径：起摆窗口（0.5 s）内不判摔，之后按**训练同源**的 `base_contact`
+        # （躯干触地、法向力 > 1.0 N）判定 —— 不再是高度/倾角代理判据。
+        if fell_at is None and step >= int(0.5 * contract.physics_hz) and \
+                base_ground_contact_force(model, data) > 1.0:
             fell_at = step / contract.physics_hz
             break
         if step > total * 0.7:
