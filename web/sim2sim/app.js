@@ -26,7 +26,7 @@ import {
 // 传感器框架：pattern 生成（对标 mjlab raycast_sensor 的三种 PatternCfg）+ 目录参数真值
 import { buildPattern } from "./sensors/sensor_patterns.js?v=0.46.0";
 import { aggregateHeightScan, patternParams } from "./sensors/sensor_catalog.js?v=0.46.0";
-import { createHeightScanLayer, createLidarLayer, createContactLayer, createImuAxes, updatePointsLayer } from "./sensors/sensor_layers.js?v=0.46.0";
+import { createHeightScanLayer, createLidarLayer, createContactLayer, createImuAxes, createRangefinderLayer, updatePointsLayer } from "./sensors/sensor_layers.js?v=0.46.0";
 import {
   applyContactNoise,
   applyDepthNoise,
@@ -36,6 +36,7 @@ import {
   describeNoiseRegistry,
 } from "./sensors/sensor_runtime.js?v=0.46.0";
 import { EXECUTOR_COMMAND_SOURCES, unsupportedCommandSourceProblems } from "./scenario_run.js?v=0.46.0";
+import { resolveTerrainKit, paintFloorTile } from "./terrain_materials.js?v=0.46.0";
 import { heightPointColors, distancePointColors, contactVisualStates } from "./sensors/sensor_visual.js?v=0.46.0";
 import {
   applyMountEdit,
@@ -520,6 +521,7 @@ const elements = {
   perfStats: document.querySelector("#perfStats"),
   fitViewButton: document.querySelector("#fitViewButton"),
   trailToggle: document.querySelector("#trailToggle"),
+  shadowToggle: document.querySelector("#shadowToggle"),
   velocityCommandControl: document.querySelector("#velocityCommandControl"),
   velCmdVx: document.querySelector("#velCmdVx"),
   velCmdVy: document.querySelector("#velCmdVy"),
@@ -645,6 +647,13 @@ const view = {
   geoms: [],
   geometryCache: new Map(),
   materials: new Set(),
+  // 地形漆装缓存：键 `${mapId}:${role}`（floor/props）。纹理画一次反复用；
+  // 换场景（clearRenderGeoms）整体作废。
+  terrainSurfaceCache: new Map(),
+  keyLight: null,
+  shadowsEnabled: false,
+  shadowLowFpsSince: 0,
+  shadowEverHealthy: false,
   followTarget: new THREE.Vector3(0, 0, 0.35),
   lastClockUpdate: performance.now(),
   frames: 0,
@@ -2699,6 +2708,21 @@ function navigateToPolicyUpdate(update) {
   window.location.href = url.toString();
 }
 
+/** 「光影」开关 → renderer/keyLight。three 的 shadowMap.enabled 运行期切换必须
+ *  让现存材质重编译（needsUpdate），否则现场不刷新——这是 three 的坑，不是可选优化。 */
+function applyShadowSetting() {
+  const on = elements.shadowToggle ? Boolean(elements.shadowToggle.checked) : false;
+  view.shadowsEnabled = on;
+  view.shadowLowFpsSince = 0;
+  // 见过一次健康帧率才允许看门狗动作：加载期（编译场景/着色器）必然有低帧率窗口，
+  // 不设这道武装门槛就会在页面刚打开时误关光影（2026-09-22 实测踩中）。
+  view.shadowEverHealthy = false;
+  if (!view.renderer || !view.keyLight) return;
+  view.renderer.shadowMap.enabled = on;
+  view.keyLight.castShadow = on;
+  for (const material of view.materials) material.needsUpdate = true;
+}
+
 function initThree() {
   view.scene = new THREE.Scene();
   // Keep the WebGL stage legible while a package is loading.  The previous
@@ -2713,7 +2737,10 @@ function initThree() {
 
   view.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
   view.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  // 光影默认跟随「光影」勾选框（applyShadowSetting）：PCFSoft + 1024 阴影图对集成
+  // 显卡也便宜，但帧率守不住 40 会自动关（updatePerf 的看门狗）——性能优先。
   view.renderer.shadowMap.enabled = false;
+  view.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   view.renderer.outputColorSpace = THREE.SRGBColorSpace;
   elements.viewer.append(view.renderer.domElement);
 
@@ -2733,9 +2760,23 @@ function initThree() {
   const hemi = new THREE.HemisphereLight(0xf2f7ff, 0x2b1f16, 1.9);
   view.scene.add(hemi);
 
+  // 主光（阴影投手）：目标物每帧跟随机器人（syncVisualScene），阴影相机罩住
+  // 机周 ±7 m；target 必须 add 进 scene，否则它的 matrixWorld 不更新、阴影框不动。
   const key = new THREE.DirectionalLight(0xffffff, 2.6);
   key.position.set(-3.2, -4.2, 7.5);
+  key.castShadow = false;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.camera.left = -7;
+  key.shadow.camera.right = 7;
+  key.shadow.camera.top = 7;
+  key.shadow.camera.bottom = -7;
+  key.shadow.camera.near = 0.5;
+  key.shadow.camera.far = 30;
+  key.shadow.bias = -0.0006;
   view.scene.add(key);
+  view.scene.add(key.target);
+  view.keyLight = key;
+  applyShadowSetting();
 
   resize();
   window.addEventListener("resize", resize);
@@ -2900,6 +2941,7 @@ function bindUi() {
   });
   elements.collisionToggle.addEventListener("change", updateRenderFlags);
   elements.wireToggle.addEventListener("change", updateRenderFlags);
+  elements.shadowToggle?.addEventListener("change", applyShadowSetting);
   elements.fitViewButton?.addEventListener("click", () => {
     frameCameraToModel();
   });
@@ -3302,6 +3344,9 @@ async function loadTerrain(xmlName) {
     resolveJointAddresses();
     resolveActuatorAddresses();
     initializeTerrainFriction(xmlName);
+    // 先记地形名再置 ready：首帧 syncVisualScene 就会建地形材质并缓存，
+    // ready 之后再赋值会让第一份缓存落成兜底漆装（2026-09-22 实测踩中）。
+    sim.currentTerrain = xmlName;
     initializePayloadMass();
 
     resetSimulation();
@@ -3309,7 +3354,6 @@ async function loadTerrain(xmlName) {
     sim.paused = VIEWER_ONLY;
     elements.playButton.textContent = sim.paused ? "继续" : "暂停";
     sim.ready = true;
-    sim.currentTerrain = xmlName;
     setStatus(elements.engineStatus, "MuJoCo 已就绪", "ready");
     elements.loading.classList.add("is-hidden");
     // A1 握手：告诉父页（场景编辑器）"我可以收场景了"——它可能在页面就绪前就发过消息。
@@ -3745,8 +3789,12 @@ function ensureSensorViz() {
     view.scene.add(contact.group);
   }
   if (!viz.imuAxes) {
-    viz.imuAxes = createImuAxes(0.08);
+    viz.imuAxes = createImuAxes(0.09);
     view.scene.add(viz.imuAxes);
+  }
+  if (!viz.rangefinder) {
+    viz.rangefinder = createRangefinderLayer();
+    view.scene.add(viz.rangefinder.group);
   }
 }
 
@@ -3757,6 +3805,7 @@ function syncSensorVizVisibility(viz) {
   viz.lidarScan.visible = on("lidar");
   if (viz.contact) viz.contact.group.visible = on("foot_contact");
   if (viz.imuAxes) viz.imuAxes.visible = on("imu");
+  if (viz.rangefinder) viz.rangefinder.group.visible = on("rangefinder");
 }
 
 /** 更新 3D 传感器可视化层：高度彩球、LiDAR 点云、足底接触球、IMU 轴。
@@ -3772,13 +3821,9 @@ function updateSensorViz() {
   const baseQuat = [sim.qpos[3], sim.qpos[4], sim.qpos[5], sim.qpos[6]];
 
   // 高度扫描彩球：画在**真实命中点**（scanHeightField 的射线交点），颜色按地形
-  // 世界高度彩虹映射——与坞里 height 来源同一条数据（scan.world），两视图必然一致。
+  // 世界高度彩虹映射——与坞里 height 来源同一条数据（cachedScan 共享缓存），必然一致。
   if (viz.heightScan.visible) {
-    if (!viz.heightCache || performance.now() - viz.heightCache.ms >= DOCK_SCAN_INTERVAL_MS) {
-      const scan = scanHeightField(basePos, baseQuat, sensorMount("height", {}));
-      viz.heightCache = { ms: performance.now(), scan };
-    }
-    const scan = viz.heightCache.scan;
+    const scan = cachedScan("height", (bp, bq) => scanHeightField(bp, bq, sensorMount("height", sensorMountOverrides)));
     const colors = heightPointColors(scan.world);
     const positions = new Float32Array(scan.total * 3);
     const colorArr = new Float32Array(scan.total * 3);
@@ -3796,13 +3841,9 @@ function updateSensorViz() {
   }
 
   // LiDAR 点云：真实射线的命中点（origin + dir·distance）+ 距离着色（近绿远红，
-  // miss/超量程黑）——不是"固定半径的方向环"：那是方向指示，不是雷达回波。
+  // miss/超量程黑）——与坞里 lidar 来源同一份缓存扫描。
   if (viz.lidarScan.visible) {
-    if (!viz.lidarCache || performance.now() - viz.lidarCache.ms >= DOCK_SCAN_INTERVAL_MS) {
-      const scan = scanLidar(basePos, baseQuat, sensorMount("lidar", {}));
-      viz.lidarCache = { ms: performance.now(), scan };
-    }
-    const scan = viz.lidarCache.scan;
+    const scan = cachedScan("lidar", (bp, bq) => scanLidar(bp, bq, sensorMount("lidar", sensorMountOverrides)));
     const colors = distancePointColors(scan.distances, scan.maxDist);
     const positions = new Float32Array(scan.count * 3);
     const colorArr = new Float32Array(scan.count * 3);
@@ -3819,6 +3860,27 @@ function updateSensorViz() {
       }
     }
     updatePointsLayer(viz.lidarScan, positions, colorArr);
+  }
+
+  // 单点测距特效：装配方向射线 + 命中点标记（命中亮黄线+黄球 / 未命中暗灰线到量程上限）
+  // ——此前这个传感器只有读数没有 3D 特效（2026-09-22 用户反馈补齐）。
+  if (viz.rangefinder && viz.rangefinder.group.visible) {
+    const mount = sensorMount("rangefinder", sensorMountOverrides);
+    const dirQuat = quatMul(baseQuat, quatFromRpy(mount.rpy.map(deg2rad)));
+    const origin = mountOriginWorld(basePos, baseQuat, mount.pos);
+    const dir = quatRot(dirQuat, [0, 0, -1]);
+    const RANGE_MAX = 20;
+    const hit = cachedScan("rangefinder", () => intersectSceneRay(sim.model, sim.data, origin, dir, { maxDist: RANGE_MAX }));
+    const end = hit >= 0 ? hit : RANGE_MAX;
+    const pos = viz.rangefinder.line.geometry.getAttribute("position");
+    pos.setXYZ(0, origin[0], origin[1], origin[2]);
+    pos.setXYZ(1, origin[0] + dir[0] * end, origin[1] + dir[1] * end, origin[2] + dir[2] * end);
+    pos.needsUpdate = true;
+    viz.rangefinder.line.material.color.setHex(hit >= 0 ? 0xffd23f : 0x5a6470);
+    viz.rangefinder.marker.visible = hit >= 0;
+    if (hit >= 0) {
+      viz.rangefinder.marker.position.set(origin[0] + dir[0] * hit, origin[1] + dir[1] * hit, origin[2] + dir[2] * hit);
+    }
   }
 
   // 足底接触球：只在**实际接触**时显示，画在命中 geom 的世界位（两种模型布局都真：
@@ -4775,6 +4837,13 @@ function syncVisualScene() {
   for (const renderable of view.geoms) {
     updateRenderable(renderable);
   }
+  // 阴影相机的目标跟随机器人：光照方向不变，只是整框平移到机周——
+  // 否则机器人一走远就出阴影相机的覆盖范围，影子整片消失。
+  if (view.keyLight && sim.qpos) {
+    view.keyLight.position.set(sim.qpos[0] - 3.2, sim.qpos[1] - 4.2, sim.qpos[2] + 7.5);
+    view.keyLight.target.position.set(sim.qpos[0], sim.qpos[1], sim.qpos[2]);
+    view.keyLight.target.updateMatrixWorld();
+  }
   // 每帧调 ensure（幂等且只有 7 个传感器要过一遍）：这样"场景刚建好"与"用户刚勾上插件"
   // 两种情况都自然收敛，不需要额外的脏标记或初始化顺序约定。
   ensureSensorModels();
@@ -4994,18 +5063,75 @@ function mergeGeometries(geometries) {
   return merged;
 }
 
+function currentMapId() {
+  // "maps/flat.xml" / "flat.xml" → "flat"；未知地形（Default scene 等）落兜底漆装。
+  return String(sim.currentTerrain || "").split("/").pop().replace(/\.xml$/i, "");
+}
+
+/** 地面/地形件材质（按地图漆装，替代原全地形一个硬编码色）。
+ *
+ *  plane 地面吃 `floor` 贴图（CanvasTexture，repeat 按 90 m 平面 / cell 换算，
+ *  纹素密度与地图无关）；名字带 floor/ground 的板式地面（如 apartment 的
+ *  floor_* 拼板）吃底色素面；其余地形件（台阶/货箱/墙）吃 `props` 素色。
+ *  材质按 `${mapId}:${role}` 缓存——同一场景几十个 geom 共享一份。
+ */
+function makeTerrainMaterial(info) {
+  const mapId = currentMapId();
+  const kit = resolveTerrainKit(mapId);
+  const isFloorPlane = info.type === sim.geomType.plane;
+  const isFloorSlab = !isFloorPlane && /floor|ground/.test(geomName(info.objid).toLowerCase());
+  const role = isFloorPlane ? "floor" : (isFloorSlab ? "floor-slab" : "props");
+  const cacheKey = `${mapId}:${role}`;
+  const cached = view.terrainSurfaceCache.get(cacheKey);
+  if (cached) return cached;
+
+  let material;
+  if (role === "floor") {
+    const S = 512;
+    const canvas = document.createElement("canvas");
+    canvas.width = S;
+    canvas.height = S;
+    const ctx = canvas.getContext("2d");
+    paintFloorTile(ctx, S, kit.floor);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    // 平面几何固定 90×90 m（getGeometry），repeat 让一个贴片正好覆盖 cell 米。
+    const repeat = 90 / (kit.floor.cell || 1);
+    texture.repeat.set(repeat, repeat);
+    texture.anisotropy = Math.min(4, view.renderer?.capabilities?.getMaxAnisotropy?.() || 1);
+    material = new THREE.MeshStandardMaterial({
+      map: texture,
+      roughness: 0.92,
+      metalness: 0.0,
+      side: THREE.DoubleSide,
+    });
+  } else {
+    const spec = role === "floor-slab"
+      ? { color: resolveTerrainKit(mapId).floor.base || "#7f878e", roughness: 0.9, metalness: 0.02 }
+      : kit.props;
+    material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(spec.color),
+      roughness: spec.roughness ?? 0.88,
+      metalness: spec.metalness ?? 0.02,
+      side: THREE.DoubleSide,
+    });
+  }
+  view.terrainSurfaceCache.set(cacheKey, material);
+  return material;
+}
+
 function makeMaterial(info) {
   const rgba = info.rgba;
   const kind = classifyGeom(info);
-  const color = kind === "terrain"
-    ? new THREE.Color(0x5f7486)
-    : new THREE.Color(rgba[0], rgba[1], rgba[2]);
+  if (kind === "terrain") return makeTerrainMaterial(info);
   const material = new THREE.MeshStandardMaterial({
-    color,
+    color: new THREE.Color(rgba[0], rgba[1], rgba[2]),
     roughness: kind === "visual" ? 0.52 : 0.84,
     metalness: kind === "visual" ? 0.18 : 0.02,
-    transparent: kind === "terrain" ? false : (rgba[3] < 0.98 || kind === "collision"),
-    opacity: kind === "terrain" ? 1 : rgba[3] * (kind === "collision" ? 0.28 : 1),
+    transparent: rgba[3] < 0.98 || kind === "collision",
+    opacity: rgba[3] * (kind === "collision" ? 0.28 : 1),
     side: THREE.DoubleSide,
   });
   return material;
@@ -5723,6 +5849,44 @@ function scanLidar(basePos, baseQuat, mount) {
   return { angles, distances, worldDirs, origin, count, maxDist: spec.maxDist };
 }
 
+/** 射线扫描**共享缓存**：坞面板与 3D 叠加层同吃一份（此前各缓存各的——同帧最多
+ *  把同一扫描算三遍，"雷达（LiDAR）类来源还是很卡"的另一半根源，2026-09-22）。
+ *  100 ms 节流；谁先要谁触发重扫，另一个直接吃缓存。 */
+function cachedScan(kind, compute) {
+  if (!sim.scanCache) sim.scanCache = {};
+  const now = performance.now();
+  const entry = sim.scanCache[kind];
+  if (entry && now - entry.ms < DOCK_SCAN_INTERVAL_MS) return entry.scan;
+  const basePos = [sim.qpos[0], sim.qpos[1], sim.qpos[2]];
+  const baseQuat = [sim.qpos[3], sim.qpos[4], sim.qpos[5], sim.qpos[6]];
+  const scan = compute(basePos, baseQuat);
+  sim.scanCache[kind] = { ms: now, scan };
+  return scan;
+}
+
+/** 外挂深度预览：20×12 粗针孔网格（策略没吃深度也能"看"——深度相机本就是外挂件，
+ *  此前坞里只会写"当前策略无深度输入"，2026-09-22 用户指正）。宽高比与视场对齐目录
+ *  的 pinhole 参数，画布上放大显示（预览给人看，不必喂策略的 106×60）。 */
+function scanDepthPreview(basePos, baseQuat, mount) {
+  const params = patternParams("depth") || {};
+  const pattern = buildPattern("pinhole", {
+    ...params,
+    width: 20,
+    height: 12,
+  });
+  const mountQuat = quatFromRpy(mount.rpy.map(deg2rad));
+  const origin = mountOriginWorld(basePos, baseQuat, mount.pos);
+  const worldDirs = mountRayDirections(baseQuat, mountQuat, pattern.directions);
+  const maxDist = 8;
+  const distances = intersectSceneRays(
+    sim.model, sim.data, worldDirs.map(() => origin), worldDirs, { maxDist },
+  );
+  // 帧归一化到 [0,1]（0=近 1=远，miss→远），与 pie_depth 的输出口径一致——
+  // drawDepthFrame 吃的是这个，不是原始米距。
+  const frame = distances.map((d) => (Number.isFinite(d) && d >= 0 ? Math.min(1, d / maxDist) : 1));
+  return { width: pattern.width, height: pattern.height, frame, maxDist };
+}
+
 /** 足底接触：遍历 MuJoCo 接触表，按 geom 名把接触归属到 FL/FR/RL/RR。
  *
  *  与训练栈 `mjlab/sensor/contact_sensor.py` 的口径对齐：那边用正则把 primary 元素解析成
@@ -5838,19 +6002,9 @@ function renderRgbPreview(basePos, baseQuat, mount, ctx, width, height) {
 function updateSensorPanels() {
   if (!sim.qpos) return;
   if (!dock.visible || !dock.source) return;
-  // **射线类来源节流**（性能审计）：lidar/cloud/height 每次渲染要做 187–240 条 CPU
-  // 射线求交，而本函数在 `updateHud`（每帧）里 ⇒ 60fps 下每秒上万条射线——这就是
-  // "开雷达就卡"的根源。真实 LiDAR 也是固定频率旋转（10–30 Hz），逐帧重扫既卡又不
-  // 更真。按来源限频 10 Hz：读数类（odom/imu/rangefinder）逐帧（纯读数组，不扫）。
-  const heavyScan = dock.source === "lidar" || dock.source === "cloud"
-    || dock.source === "height" || dock.source === "lidar_height_scan";
-  if (heavyScan) {
-    if (!sim.dockScan) sim.dockScan = { lastMs: -1e9, lastSource: "" };
-    const scanState = sim.dockScan;
-    if (scanState.lastSource === dock.source && performance.now() - scanState.lastMs < DOCK_SCAN_INTERVAL_MS) return;
-    scanState.lastMs = performance.now();
-    scanState.lastSource = dock.source;
-  }
+  // 射线类来源的节流在 `cachedScan`（每 kind 一份共享缓存，坞面板与 3D 叠加层同吃）：
+  // 此前这里按"来源"各自限频——换来源就重扫，且与 3D 层的缓存互不知晓，同一扫描
+  // 一帧最多算三遍（"LiDAR 类来源还是很卡"的另一半根源，2026-09-22 复盘后收口）。
 
   const q = sim.qpos;
   const rpy = quatToRpy(q.subarray(3, 7));
@@ -5925,7 +6079,9 @@ function updateSensorPanels() {
     extra.noiseMode = sim.sensorNoise.enabled ? "退化（迟滞+漏检）" : "理想";
   }
 
-  // ④ 深度相机（外部感知）：帧本来就在算（pie_depth.js），此前只喂策略、没人画
+  // ④ 深度相机（外部感知）：策略吃深度时画策略那份（pie_depth.js）；
+  //    不吃时走**外挂预览**——深度相机本就是外挂件，没策略输入也应该能"看"
+  //  （此前只会写"当前策略无深度输入"，2026-09-22 用户指正）。
   if (dock.source === "depth") {
     const shape = sim.pieDepth && sim.pieDepth.frameShape;
     const frames = sim.depthHistory;
@@ -5935,8 +6091,14 @@ function updateSensorPanels() {
       const frame = applyDepthNoise(sim.sensorNoise, Array.from(rawFrame)) || rawFrame;
       const drawn = ctx && drawDepthFrame(ctx, frame, shape[1], shape[2]);
       note = drawn ? `${shape[1]}×${shape[2]} 近亮远暗` : "绘制失败";
+    } else if (scanReady) {
+      const preview = cachedScan("depth", (bp, bq) => scanDepthPreview(bp, bq, sensorMount("depth", sensorMountOverrides)));
+      sizeDockCanvas(preview.width, preview.height);
+      const drawn = ctx && drawDepthFrame(ctx, preview.frame, preview.height, preview.width);
+      note = drawn ? `外挂预览 ${preview.width}×${preview.height}（当前策略不消费深度）` : "绘制失败";
+      extra.depthMode = "外挂预览（20×12 粗格）";
     } else {
-      note = "当前策略无深度输入";
+      note = "场景几何未就绪";
     }
   }
 
@@ -5949,7 +6111,7 @@ function updateSensorPanels() {
     const nx = grid.nx || 17;
     const ny = grid.ny || 11;
     if (scanReady) {
-      const scan = scanHeightField(basePos, baseQuat, mount);
+      const scan = cachedScan("height", (bp, bq) => scanHeightField(bp, bq, mount));
       sizeDockCanvas(nx, ny);
       const drawn = ctx && drawHeightGrid(ctx, scan.world, nx, ny);
       note = drawn ? `187 点契约网格 · 命中 ${scan.hits}/${scan.total}` : "绘制失败";
@@ -5963,14 +6125,14 @@ function updateSensorPanels() {
     extra.mountPos = fmtVec(mount.pos);
   }
 
-  // ⑤b 雷达高度扫描（lidar_height_scan 项）：LiDAR 点云按同一 187 网格聚合 min-z。
+  // ⑤b LiDAR 聚合高度场（lidar_height_scan 项）：LiDAR 点云按同一 187 网格聚合 min-z。
   //     与 heightfield **同格**是本项存在的理由——两条链路可以逐格对齐回归。
   if (dock.source === "lidar_height_scan") {
     const grid = patternParams("lidar_height_scan")?.grid || {};
     const nx = grid.nx || 17;
     const ny = grid.ny || 11;
     if (scanReady) {
-      const lidar = scanLidar(basePos, baseQuat, sensorMount("lidar", sensorMountOverrides));
+      const lidar = cachedScan("lidar", (bp, bq) => scanLidar(bp, bq, sensorMount("lidar", sensorMountOverrides)));
       const points = lidar.distances
         .map((d, i) => (d < 0 ? null : [
           lidar.origin[0] + lidar.worldDirs[i][0] * d,
@@ -6018,7 +6180,7 @@ function updateSensorPanels() {
   if (dock.source === "lidar" || dock.source === "cloud") {
     const mount = sensorMount("lidar", sensorMountOverrides);
     if (scanReady) {
-      const scan = scanLidar(basePos, baseQuat, mount);
+      const scan = cachedScan("lidar", (bp, bq) => scanLidar(bp, bq, mount));
       const hits = scan.distances
         .map((d, i) => rayHitPoint(scan.origin, scan.worldDirs[i], d))
         .filter(Boolean);
@@ -6343,6 +6505,22 @@ function updatePerf(now) {
   view.frames = 0;
   view.simSteps = 0;
   view.lastClockUpdate = now;
+  // 光影看门狗：武装后（见过健康帧率）连续 5 秒 < 40 帧 → 自动关掉并如实报告。
+  // 只兜一次底，用户重新勾上不再拦（那是用户在知情下的取舍）。
+  if (view.shadowsEnabled && view.fps >= 40) {
+    view.shadowEverHealthy = true;
+  }
+  if (view.shadowsEnabled && view.shadowEverHealthy && view.fps > 0 && view.fps < 40) {
+    if (!view.shadowLowFpsSince) {
+      view.shadowLowFpsSince = now;
+    } else if (now - view.shadowLowFpsSince > 5000) {
+      if (elements.shadowToggle) elements.shadowToggle.checked = false;
+      applyShadowSetting();
+      setStatus(elements.engineStatus, "帧率偏低 · 光影已自动关闭", "ready");
+    }
+  } else {
+    view.shadowLowFpsSince = 0;
+  }
 }
 
 function initExpertBars() {
@@ -7345,6 +7523,9 @@ function clearRenderGeoms() {
   view.geometryCache.clear();
   for (const material of view.materials.values()) material.dispose();
   view.materials.clear();
+  // 地形漆装（含 CanvasTexture 的材质）随场景一起作废——换地图必须重画。
+  for (const material of view.terrainSurfaceCache.values()) material.dispose();
+  view.terrainSurfaceCache.clear();
 }
 
 function disposeRenderable(renderable) {

@@ -298,8 +298,12 @@ class CompleteApiContractTests(unittest.TestCase):
         terrain_ids = [item["id"] for item in package["terrains"]]
         for common_id in ("flat", "stairs", "cross_stairs", "high_platforms", "cross_slope", "race_track", "rough"):
             self.assertIn(common_id, terrain_ids)
-        # go2 专属任务场景保留在包内（workspace 副本经 scene*.xml 回落，id 带 scene_ 前缀）
-        self.assertTrue("pie_stairs" in terrain_ids or "scene_pie_stairs" in terrain_ids)
+        # go2 包内任务场景已删（2026-09-22 用户裁决：「其他」组两个不可用场景移除）——
+        # 不允许 scene*.xml 或 phantom "default" 再出现在包场景里
+        for stale in ("pie_stairs", "scene_pie_stairs", "scene", "default"):
+            self.assertNotIn(stale, terrain_ids)
+        for scene_path in package["scenes"]:
+            self.assertFalse(scene_path.startswith("simulation/scene"), scene_path)
         self.assertFalse(payload["policy"]["disabled"])
         self.assertEqual(payload["policy"]["contract"]["obs_dim"], 45)
         self.assertEqual(payload["policy"]["contract"]["action_dim"], 12)

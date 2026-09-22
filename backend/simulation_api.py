@@ -362,8 +362,9 @@ async def browser_simulation_config(robot_id: str) -> dict[str, Any]:
             }
             for path in scene_files
         ]
-    if not terrain_options:
-        terrain_options = [{"id": "default", "label": "Default scene", "path": "simulation/scene.xml"}]
+    # 不再为"空场景"造 phantom 条目（指向可能不存在的 scene.xml）：包场景为空时
+    # 公共地图库（下面追加）就是全部地形——go2 已删除包内 scene*（2026-09-22 用户裁决：
+    # 「其他」组里两个不可用的场景直接删掉）。
     # 公共地图库（assets/maps/）：所有机型共用，id 冲突时包声明（任务场景）优先。
     package_ids = {item["id"] for item in terrain_options}
     for common in common_map_entries():

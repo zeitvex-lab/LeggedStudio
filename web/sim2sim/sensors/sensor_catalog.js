@@ -66,7 +66,7 @@ export const SENSOR_CATALOG = [
   },
   {
     id: "height",
-    label: "高度扫描（雷达）",
+    label: "高度扫描 Height Scan",
     onboard: false,
     kind: "rays",
     pattern: "grid",
@@ -86,7 +86,7 @@ export const SENSOR_CATALOG = [
   },
   {
     id: "lidar_height_scan",
-    label: "雷达高度扫描",
+    label: "LiDAR 聚合高度场",
     onboard: false,
     kind: "rays",
     pattern: "grid",
@@ -108,7 +108,7 @@ export const SENSOR_CATALOG = [
   },
   {
     id: "lidar",
-    label: "LiDAR（射线）",
+    label: "LiDAR 激光雷达",
     onboard: false,
     kind: "rays",
     pattern: "fan",

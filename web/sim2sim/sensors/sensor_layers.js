@@ -75,11 +75,51 @@ export function createContactLayer(footNames) {
   return { group, spheres };
 }
 
-/** IMU 坐标轴层：三脚架标在装配位（红=x 绿=y 蓝=z）。 */
-export function createImuAxes(size = 0.08) {
-  const axes = new THREE.AxesHelper(size);
-  axes.visible = false;
-  return axes;
+/** IMU 装配位标记：三支箭头（AxisHelper 的细线在场景里几乎不可见——2026-09-22
+ *  用户反馈"很差"）+ 白色基座球。RGB = XYZ，仍按坐标轴口径，只是看得清。 */
+export function createImuAxes(size = 0.09) {
+  const group = new THREE.Group();
+  const make = (dir, color) => {
+    const arrow = new THREE.ArrowHelper(
+      new THREE.Vector3(dir[0], dir[1], dir[2]),
+      new THREE.Vector3(0, 0, 0),
+      size,
+      color,
+      size * 0.38, // 锥头长
+      size * 0.2,  // 锥头半径
+    );
+    group.add(arrow);
+  };
+  make([1, 0, 0], 0xe4574c); // x 红
+  make([0, 1, 0], 0x4cc06a); // y 绿
+  make([0, 0, 1], 0x4c7de4); // z 蓝
+  const base = new THREE.Mesh(
+    new THREE.SphereGeometry(size * 0.2, 14, 10),
+    new THREE.MeshBasicMaterial({ color: 0xf5f7fa, transparent: true, opacity: 0.9, depthWrite: false }),
+  );
+  group.add(base);
+  group.visible = false;
+  return group;
+}
+
+/** 单点测距层：装配方向的射线 + 命中点标记（2026-09-22 用户反馈：没特效）。
+ *  命中 → 亮黄射线到命中点 + 黄球标记；未命中 → 暗灰射线到量程上限，无标记。 */
+export function createRangefinderLayer() {
+  const group = new THREE.Group();
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
+  const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({
+    color: 0xffd23f, transparent: true, opacity: 0.9,
+  }));
+  line.frustumCulled = false;
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(0.025, 12, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.95, depthWrite: false }),
+  );
+  group.add(line);
+  group.add(marker);
+  group.visible = false;
+  return { group, line, marker };
 }
 
 /** 更新 Points 层的 positions + colors（增量写，不重建 geometry）。 */
