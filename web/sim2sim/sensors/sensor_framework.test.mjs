@@ -5,6 +5,8 @@
 //      每条传感器都带 `upstream` 出处——没有出处的条目不许进目录；
 //   2. **pattern 语义对标训练栈**：grid 的点数/方向、fan 的方向均布、pinhole 的焦距与
 //      像素中心，都与 mjlab raycast_sensor 的三种 PatternCfg 同口径（逐值对拍少量样本）；
+//      **唯一例外是 pinhole 的行方向**——上游注释 "+Y down" 与右手系矛盾，本框架以真实
+//      渲染图像为准（见 `screen_frame.js` 头部与下面第 4 组断言）；
 //   3. **噪声可复现**：同 seed 同序列；不同 seed 不同序列；miss/超量程/丢帧语义正确；
 //   4. **fail-closed**：未知 pattern / 未知噪声 / 未知传感器 id 一律返回 null，不猜。
 import assert from "node:assert/strict";
@@ -75,7 +77,10 @@ import {
   assert.equal(fanPattern({ count: 1 }).count, 1, "count=1 不塌");
 }
 
-// 4) pinhole pattern：焦距与像素中心（与 PinholeCameraPatternCfg 同口径）
+// 4) pinhole pattern：焦距与像素中心（与 PinholeCameraPatternCfg 同口径），
+//    **朝向以真实渲染图像为准**：行 0 = 图像顶部、列 0 = 图像左侧、图像上 = 局部 +y。
+//    （2026-09-22 修：此前按上游注释 "+Y down" 把 y 取了正号 ⇒ 与真实图像上下颠倒；
+//     依据见 screen_frame.js 头部：mujoco.Renderer.render 的 np.flipud + 右手系定理。）
 {
   // 奇数宽高才有**正中像素**（偶数宽的正中落在两像素之间，不是缺陷）
   const cam = pinholePattern({ width: 5, height: 3, fovy: 90 });
@@ -85,15 +90,15 @@ import {
   assert.ok(Math.abs(mid[0]) < 1e-9 && Math.abs(mid[1]) < 1e-9 && Math.abs(mid[2] + 1) < 1e-9, "中心像素朝 −z");
   // 光轴是局部 −z（MuJoCo 相机约定）
   for (const d of cam.directions) assert.ok(d[2] < 0, "针孔射线都必须朝 −z 半球");
-  // 左上与右下方向相反（对称性）。第 0 行是"上"⇒ 局部 −y，末行是"下"⇒ +y
+  // 左上与右下方向相反（对称性）。第 0 行是图像**顶部** ⇒ 局部 +y；第 0 列是最左 ⇒ 局部 −x
   const tl = cam.directions[0];
   const br = cam.directions[cam.count - 1];
-  assert.ok(tl[0] < 0 && br[0] > 0, "左右应发散");
-  assert.ok(tl[1] < 0 && br[1] > 0, "上下应发散（第 0 行在上 ⇒ 局部 −y）");
+  assert.ok(tl[0] < 0 && br[0] > 0, "左右应发散（列 0 在左 ⇒ x 为负）");
+  assert.ok(tl[1] > 0 && br[1] < 0, "上下应发散（行 0 在顶 ⇒ 局部 +y；MuJoCo 相机图像上 = +y）");
   assert.ok(Math.abs(tl[0] + br[0]) < 1e-9 && Math.abs(tl[1] + br[1]) < 1e-9, "对角色应严格反向");
-  // 焦距 sanity：fovy 90°、h=3 ⇒ focal=1.5；角像素 px=-4/3、py=-2/3 ⇒ |px|/|py| = 2
+  // 焦距 sanity：fovy 90°、h=3 ⇒ focal=1.5；角像素 px=−4/3、py=−2/3 ⇒ px/(−py) = −2
   const edge = cam.directions[0];
-  assert.ok(Math.abs(edge[0] / edge[1] - 2) < 1e-9, "边缘像素两轴比例应由焦距决定");
+  assert.ok(Math.abs(edge[0] / edge[1] + 2) < 1e-9, "边缘像素两轴比例应由焦距决定（符号随 y 取负）");
   assert.ok(Math.abs(Math.hypot(...edge) - 1) < 1e-9, "方向必须归一");
 }
 

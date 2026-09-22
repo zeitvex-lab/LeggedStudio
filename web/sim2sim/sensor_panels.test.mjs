@@ -190,6 +190,15 @@ const count = (ctx, name) => ctx.calls.filter((call) => call[0] === name).length
     "全未命中：不画点，也不谎报画成功了",
   );
   assert.equal(count(miss, "fillRect"), 0);
+
+  // **方位基准**（2026-09-22 钉住，见 screen_frame.js）：角度 0 = 局部 +x（机头）→ 屏幕右；
+  // 绕 +z 逆时针 → **屏幕上**。于是"机头左侧（+y）有障碍"必须画在中心**上方**——
+  // 画反了就是"障碍在机头左侧却出现在右侧"这类投诉的来源。
+  const left = makeCtx();
+  drawPolarScan(left, { angles: [Math.PI / 2], distances: [10], maxDist: 10, width: 100, height: 100 });
+  const leftHit = left.calls.find((c) => c[0] === "fillRect");
+  assert.ok(Math.abs(leftHit[1] - 50) < 1.5, `+y 方向应画在中心列，实际 x=${leftHit[1]}`);
+  assert.ok(leftHit[2] < 50, `+y 方向（机身左侧）应画在中心**上方**，实际 y=${leftHit[2]}`);
 }
 
 // 14) 点云：俯视投影 + 位姿标记**共用同一套基准**（各算一份就会机器人与点云错开）
@@ -248,6 +257,24 @@ console.log("sensor_panels: 16 checks ok");
   // 长度不足必须拒（而不是画一张缺角的图）
   assert.equal(drawHeightGrid(makeCtx(), new Array(100).fill(0.1), 17, 11), false, "187 格场只有 100 个值要拒");
   assert.equal(drawHeightGrid(null, field, 17, 11), false, "ctx 缺失返回 false");
+
+  // **值序 → 像素序**（2026-09-22 钉住）：场是 **x 主序**（`i = i_x*11 + i_y`），
+  // 而 ImageData 是**行主序**。直接按 `i%17` 铺图会把这张表转置着乱序贴上去——
+  // 平地看不出来（全同色），楼梯/斜坡上就是一片斜条（用户报的"高度图也是旋转过的"）。
+  // 画布约定：+x 向右、+y 向上 ⇒ col = i_x、row = 11−1−i_y。
+  const probe = new Array(187).fill(null);
+  probe[0 * 11 + 0] = 0;    // (x=−0.8, y=−0.5)：左下角 ⇒ col 0、row 10
+  probe[16 * 11 + 10] = 1;  // (x=+0.8, y=+0.5)：右上角 ⇒ col 16、row 0
+  const gridCtx = makeCtx();
+  assert.equal(drawHeightGrid(gridCtx, probe, 17, 11, { min: 0, max: 1 }), true);
+  const image = gridCtx.calls.find(([op]) => op === "putImageData")[1];
+  const pixel = (row, col) => {
+    const i = (row * 17 + col) * 4;
+    return [image.data[i], image.data[i + 1], image.data[i + 2]];
+  };
+  assert.deepEqual(pixel(10, 0), [30, 80, 180], "(x最小, y最小) 应落在左下角（最低色）");
+  assert.deepEqual(pixel(0, 16), [255, 255, 40], "(x最大, y最大) 应落在右上角（最高色）");
+  assert.deepEqual(pixel(0, 0), [0, 0, 0], "其余格是空值 ⇒ 黑槽（不编高度）");
 }
 
 // 足底接触：四块板、着地亮/离地暗、按 FL/FR/RL/RR 方位排

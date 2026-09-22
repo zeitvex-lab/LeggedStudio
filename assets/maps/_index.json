@@ -9,7 +9,8 @@
       "slope",
       "platform",
       "rough",
-      "complex"
+      "complex",
+      "competition"
     ],
     "definitions": {
       "basic": {
@@ -35,6 +36,10 @@
       "complex": {
         "label": "综合场景",
         "description": "复合功能场景（赛道计时、室内公寓），不属于单一地形性质。"
+      },
+      "competition": {
+        "label": "比赛地图",
+        "description": "赛事场地整体导入：多障碍串联的完整赛道（起跑区 / 坑 / 砾石带 / 木箱阵 / 桥），用于整场通过性验证。"
       }
     },
     "fallback": {
@@ -142,6 +147,15 @@
       "description": "室内公寓场景（墙体与家具轮廓，原始几何）",
       "source": "assets/robots/microduck（上游场景）",
       "category": "complex"
+    },
+    {
+      "id": "robocon_dual_track",
+      "label": "RC2026障碍赛",
+      "path": "robocon_dual_track.xml",
+      "kind": "env-only",
+      "description": "Robocon 双赛道整场（15 m × 12 m 台面 + 起跑区 / 坑 / 1220 块砾石 / 木箱阵 / T 台 / 双桥 / 标杆，共 1623 geom）：比赛地图大类的第一张，用于整场通过性验证。场地在 x∈[0,15]、y∈[-6,6]，出生点 (0,0) 在台面西缘",
+      "source": "00_resources/lain_job/ArenaX/terrain_library/robocon_dual_track.xml（仅 euler→quat 等价换算 + 库内标准头部；几何逐值保留，已用 MuJoCo 编译对拍 geom 位姿/尺寸/类型）",
+      "category": "competition"
     }
   ]
 }

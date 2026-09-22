@@ -13,7 +13,7 @@
 
 /** 内置分类快照：与 assets/maps/_index.json 的 categories 块同源（测试钉住）。 */
 export const TERRAIN_CATEGORIES = {
-  order: ["basic", "stairs", "slope", "platform", "rough", "complex"],
+  order: ["basic", "stairs", "slope", "platform", "rough", "complex", "competition"],
   definitions: {
     basic: { label: "基础平地" },
     stairs: { label: "楼梯台阶" },
@@ -21,6 +21,7 @@ export const TERRAIN_CATEGORIES = {
     platform: { label: "高台障碍" },
     rough: { label: "崎岖起伏" },
     complex: { label: "综合场景" },
+    competition: { label: "比赛地图" },
   },
   fallback: { key: "other", label: "其他" },
 };
@@ -39,6 +40,8 @@ export const TERRAIN_CATEGORY_BY_ID = {
   apartment: "complex",
   // A3 补的仓库导航场景（障碍几何与 backend/scenario_maps.py 的 MAPS["warehouse"] 逐值一致）
   warehouse: "complex",
+  // 「比赛地图」大类第一张：ArenaX 的 Robocon 双赛道整场（1623 个 geom 的完整赛道）
+  robocon_dual_track: "competition",
 };
 
 /** 从 _index.json 形状的数据里读出分类定义（容错：坏/缺块回内置快照）。 */

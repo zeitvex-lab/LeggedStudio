@@ -10,6 +10,13 @@
 //
 // **为什么写成纯函数 + 注入 ctx**：Node 里可以直接拿假 ctx 断言"画了什么、画在哪"，
 // 不必开浏览器（CI 不装浏览器）。约定：**只画不算** —— 不读 sim、不读 DOM，输入全是参数。
+//
+// **朝向一律从 `sensors/screen_frame.js` 取**（"哪边朝上/哪边朝右"只写一处）：俯视类图
+// （极坐标 / 点云 / 轨迹 / 高度场）用那里的**平面画布系**（+x 右、+y 上）。本文件不自己
+// 写 `cy - …` 这类翻转——写两处就一定会只改对一处（高度场曾经把 x 主序当行主序贴图，
+// 整张图错位成斜条，就是"翻转写错地方"的代价）。
+
+import { gridIndexToPixel, planeToCanvas, polarToCanvas } from "./sensors/screen_frame.js";
 
 /** 深度帧 → RGBA 像素。输入是 `pie_depth.js` 的输出（已归一化到 [0,1]，0=近、1=远）。 */
 export function depthFrameToRgba(frame, height, width, { nearIsBright = true } = {}) {
@@ -108,8 +115,14 @@ export function drawHeightField(ctx, field, side, { x = 0, y = 0 } = {}) {
  *
  *  为什么不能复用 `drawHeightField`：它按 `side × side` 取方阵，17×11 的场传进去会因
  *  长度不足（187 < 289）被判 null ⇒ "绘制失败"——而调用方看到的是"有数据却画不出来"。
- *  归一化与配色**逐字复用** `heightFieldToRgba` 的规则（全平取 0.5 中间色、空值画黑槽），
- *  只把"方阵索引"换成"矩形索引"：`index = i_x * ny + i_y`，第 0 行是 x 最小。
+ *  归一化与配色**逐字复用** `heightFieldToRgba` 的规则（全平取 0.5 中间色、空值画黑槽）。
+ *
+ *  **值序 ≠ 像素序**（这里曾经错，2026-09-22 修）：契约场的值序是 **x 主序**
+ *  （`index = i_x*ny + i_y`，`backend/height_scan.py::point_cloud_to_heights` 与
+ *  `gridPattern(order="x_major")` 都是这一份），而 ImageData 是**行主序**（`row*width + col`）。
+ *  直接把 x 主序数组按 `i%cols` 铺图，等于把一张 17×11 的表**转置着乱序**贴上去——平地
+ *  看不出来（全同色），楼梯/斜坡上就是一片斜条（用户报的"高度图也是旋转过的"）。
+ *  换算走 `screen_frame.js::gridIndexToPixel`（+x 向右、+y 向上，与其它俯视图一致）。
  */
 export function drawHeightGrid(ctx, field, nx, ny, { x = 0, y = 0, min = null, max = null } = {}) {
   const cols = Math.max(1, Math.floor(Number(nx) || 0));
@@ -122,19 +135,23 @@ export function drawHeightGrid(ctx, field, nx, ny, { x = 0, y = 0, min = null, m
   const high = Number.isFinite(max) ? Number(max) : (known.length ? Math.max(...known) : 1);
   const span = high - low;
   const data = new Uint8ClampedArray(cols * rows * 4);
-  for (let i = 0; i < cols * rows; i += 1) {
-    const raw = values[i];
-    // 空值必须单独挡：`Number(null) === 0`，直接 Number 会把"没打中"当成"零高度"。
-    const hasValue = raw !== null && raw !== undefined && raw !== "" && Number.isFinite(Number(raw));
-    if (!hasValue) {
-      data[i * 4] = 0; data[i * 4 + 1] = 0; data[i * 4 + 2] = 0; data[i * 4 + 3] = 255;
-      continue;
+  for (let ix = 0; ix < cols; ix += 1) {
+    for (let iy = 0; iy < rows; iy += 1) {
+      const raw = values[ix * rows + iy];
+      const { row, col } = gridIndexToPixel(ix, iy, cols, rows);
+      const p = (row * cols + col) * 4;
+      // 空值必须单独挡：`Number(null) === 0`，直接 Number 会把"没打中"当成"零高度"。
+      const hasValue = raw !== null && raw !== undefined && raw !== "" && Number.isFinite(Number(raw));
+      if (!hasValue) {
+        data[p] = 0; data[p + 1] = 0; data[p + 2] = 0; data[p + 3] = 255;
+        continue;
+      }
+      const t = span > 1e-9 ? Math.min(1, Math.max(0, (Number(raw) - low) / span)) : 0.5;
+      data[p] = Math.round(30 + t * 225);
+      data[p + 1] = Math.round(80 + t * 175);
+      data[p + 2] = Math.round(180 - t * 140);
+      data[p + 3] = 255;
     }
-    const t = span > 1e-9 ? Math.min(1, Math.max(0, (Number(raw) - low) / span)) : 0.5;
-    data[i * 4] = Math.round(30 + t * 225);
-    data[i * 4 + 1] = Math.round(80 + t * 175);
-    data[i * 4 + 2] = Math.round(180 - t * 140);
-    data[i * 4 + 3] = 255;
   }
   return blitRgba(ctx, { data, height: rows, width: cols }, { x, y });
 }
@@ -162,11 +179,11 @@ export function projectTrail(points, { width, height, padding = 8, bounds = null
   const scale = Math.min(innerW / spanX, innerH / spanY); // 等比，避免轨迹被拉歪
   const originX = padding + (innerW - spanX * scale) / 2 - x0 * scale;
   const originY = padding + (innerH - spanY * scale) / 2;
-  const projected = clean.map(([wx, wy]) => [
-    originX + wx * scale,
-    // 屏幕 y 向下、世界 y 向上：这里翻一次，否则轨迹上下颠倒。
-    height - (originY + (wy - y0) * scale),
-  ]);
+  // 世界 (x,y) → 屏幕：**+x 右、+y 上**（canvas y 向下，翻转在 `screen_frame.js` 一处做）。
+  const projected = clean.map(([wx, wy]) => planeToCanvas(wx * scale, (wy - y0) * scale, {
+    cx: originX,
+    cy: height - originY,
+  }));
   // 把 y0 一并返回：**位姿点必须用同一基准投影**，否则箭头会相对轨迹偏移
   // （`drawTrail` 里位姿是单独投影的，用错基准就画歪）。
   return { points: projected, scale, origin: [originX, originY], y0 };
@@ -204,13 +221,15 @@ export function drawTrail(ctx, { path = [], trail = [], pose = null, bounds = nu
  *
  * 抽出来是因为**轨迹图与点云图都要画它**，而它必须复用画该图时的**同一套投影基准**
  * —— 各写一份的话，"点云图里的机器人与点云错开"这类问题永远查不完。
- * 箭头纵轴取负：世界 yaw 逆时针为正，而屏幕 y 向下。
+ * 位姿点与朝向箭头都走 `planeToCanvas` / `polarToCanvas`（同一套"+x 右、+y 上"）。
  */
 export function drawPoseMarker(ctx, projection, pose, height, { color = '#f97316', radius = 3, arrow = 12 } = {}) {
   if (!ctx || !projection || !(projection.scale > 0) || !pose) return false;
   if (!Number.isFinite(Number(pose.x)) || !Number.isFinite(Number(pose.y))) return false;
-  const sx = projection.origin[0] + Number(pose.x) * projection.scale;
-  const sy = height - (projection.origin[1] + (Number(pose.y) - projection.y0) * projection.scale);
+  const [sx, sy] = planeToCanvas(Number(pose.x) * projection.scale, (Number(pose.y) - projection.y0) * projection.scale, {
+    cx: projection.origin[0],
+    cy: height - projection.origin[1],
+  });
   const yaw = Number(pose.yaw) || 0;
   ctx.fillStyle = color;
   ctx.strokeStyle = color;
@@ -222,7 +241,8 @@ export function drawPoseMarker(ctx, projection, pose, height, { color = '#f97316
   if (typeof ctx.beginPath === 'function' && typeof ctx.moveTo === 'function') {
     ctx.beginPath();
     ctx.moveTo(sx, sy);
-    ctx.lineTo(sx + Math.cos(yaw) * arrow, sy - Math.sin(yaw) * arrow);
+    const [ax, ay] = polarToCanvas(yaw, arrow, { cx: sx, cy: sy });
+    ctx.lineTo(ax, ay);
     if (typeof ctx.stroke === 'function') ctx.stroke();
   }
   return true;
@@ -235,6 +255,9 @@ export function drawPoseMarker(ctx, projection, pose, height, { color = '#f97316
  * 而实际是"那边什么都没有"。这与单点测距显示「无回波」是同一条原则：
  * **把"没有"画成"有"是这类图最坏的一种错**。
  * 量程圆环只画圈不填充（填了就像"整个范围都被占了"）。
+ *
+ * **方位基准**：角度 0 = 局部 +x（机头）→ 屏幕右；绕 +z 逆时针 → 屏幕上
+ * （换算在 `screen_frame.js::polarToCanvas`，与点云 / 轨迹 / 高度场同一份）。
  */
 export function drawPolarScan(ctx, {
   angles = [], distances = [], maxDist = 12, width = 240, height = 240,
@@ -254,7 +277,7 @@ export function drawPolarScan(ctx, {
       ctx.arc(cx, cy, radius * frac, 0, Math.PI * 2);
       ctx.stroke();
     }
-    // 十字：交代方位基准 —— 局部 +x（机头）是 0 弧度，落在屏幕右侧。
+    // 十字：交代方位基准 —— 局部 +x（机头）是 0 弧度，落在屏幕右侧；+y（机身左）在屏幕上方。
     ctx.beginPath();
     ctx.moveTo(cx - radius, cy);
     ctx.lineTo(cx + radius, cy);
@@ -272,9 +295,7 @@ export function drawPolarScan(ctx, {
     if (!Number.isFinite(d) || d < 0) continue; // 未命中：不画
     const a = Number(angles[i]) || 0;
     const r = Math.min(1, d / span) * radius;
-    // 屏幕 y 向下，而机体系绕 +z 逆时针 → 纵轴取负。
-    const sx = cx + Math.cos(a) * r;
-    const sy = cy - Math.sin(a) * r;
+    const [sx, sy] = polarToCanvas(a, r, { cx, cy });
     if (typeof ctx.fillRect === 'function') ctx.fillRect(sx - 1, sy - 1, 2, 2);
     hits += 1;
   }

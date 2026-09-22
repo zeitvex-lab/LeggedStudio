@@ -36,12 +36,21 @@ export function createPieDepth({ sim, contract }) {
   const dirs = new Float64Array(HEIGHT * RAW_W * 3);
   const zScale = new Float64Array(HEIGHT * RAW_W);
   for (let v = 0; v < HEIGHT; v += 1) {
+    // 相机系：−z 是光轴、**+x 朝图像右、+y 朝图像上**；帧数组行优先、行 0 = 图像顶部。
+    // 依据（实证，见 `sensors/screen_frame.js` 头部）：mujoco.Renderer.render 对 EGL/OSMesa
+    // 显式 `np.flipud`（行 0 = 顶）＋ 右手系定理（"+x 右 + y 下"是左手系，造不出来）＋
+    // 上游 PIE 相机四元数只有在这个口径下才是正立图像。
+    // 于是：行 0 在上 ⇒ 方向的 y 分量取 −py；列 0 在左 ⇒ x 分量取 **+px**。
+    // **2026-09-22 修**：x 分量此前写成 −px ⇒ 策略吃到的是**左右镜像**的深度图
+    // （同一台相机的"外挂预览"用的是 +px，两者在坞里看着差 180°，用户报的"深度图
+    // 被旋转过"）。Python 侧对拍实现 `adapters/mjlab/policy_acceptance.py::_pie_ray_dirs`
+    // 同步修正，两处必须逐值同口径。
     const py = (v + 0.5 - 0.5 * HEIGHT) / focal;
     for (let u = 0; u < RAW_W; u += 1) {
       const px = (u + 0.5 - 0.5 * RAW_W) / focal;
       const n = Math.sqrt(px * px + py * py + 1);
       const i = v * RAW_W + u;
-      dirs[i * 3] = -px / n;
+      dirs[i * 3] = px / n;
       dirs[i * 3 + 1] = -py / n;
       dirs[i * 3 + 2] = -1 / n;
       zScale[i] = Math.sqrt(1 + px * px + py * py);
