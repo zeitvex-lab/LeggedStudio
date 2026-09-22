@@ -1018,7 +1018,9 @@ def _frame_lainlab_handstand_48(obs: "ObsBuilder", cmd: np.ndarray) -> list[floa
 #   `joint_pos`    `q − 默认姿`（× scale）
 #   `joint_vel`    `dq`（× scale）
 #   `action`       上一步动作（**不缩放**）
-OBS_LAYOUT_SOURCES = ("zeros", "ang_vel", "gravity", "euler", "cmd",
+#   `base_lin_vel` 机体系线速度（× scale）—— `go1_playground_48` / `g1_mjswan_locomotion`
+#                  这类"带本体线速度"的帧原先只能手写（两处实现），单列成段后即可声明
+OBS_LAYOUT_SOURCES = ("zeros", "ang_vel", "base_lin_vel", "gravity", "euler", "cmd",
                       "phase_sin", "phase_cos", "joint_pos", "joint_vel", "action")
 
 
@@ -1039,7 +1041,7 @@ def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
     """
     c = obs.contract
     order = c.action_joint_order
-    fixed_width = {"gravity": 3, "euler": 3, "phase_sin": 1, "phase_cos": 1}
+    fixed_width = {"gravity": 3, "euler": 3, "phase_sin": 1, "phase_cos": 1, "base_lin_vel": 3}
 
     def scale_values(source: str, raw):
         """段缩放展开成逐维列表（长度 = 该段宽度）。"""
@@ -1101,6 +1103,9 @@ def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
         elif source == "ang_vel":
             _, ang_b, _ = obs.base_state()
             out += [float(ang_b[i]) * scales[i] for i in range(width)]
+        elif source == "base_lin_vel":
+            _, _, lin_b = obs.base_state()
+            out += [float(lin_b[i]) * scales[i] for i in range(width)]
         elif source == "gravity":
             out += list(projected_gravity(obs.data.qpos[3:7]))
         elif source == "euler":

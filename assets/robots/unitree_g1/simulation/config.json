@@ -97,6 +97,7 @@
       "source": "unitree_rl_mjlab official velocity v0 export (deploy/robots/g1)",
       "contract": {
         "observation_kind": "g1_mjlab_velocity_98",
+        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "phase_sin"}, {"source": "phase_cos"}, {"source": "joint_pos", "scale": "@contract"}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
         "obs_dim": 98,
         "action_dim": 29,
         "history_len": 1,
@@ -935,6 +936,7 @@
       "source": "mjswan examples/demo（mjlab G1 velocity，99 维观测）",
       "contract": {
         "observation_kind": "g1_mjswan_locomotion",
+        "observation_layout": [{"source": "base_lin_vel", "width": 3}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract"}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}, {"source": "cmd", "width": 3, "scale": "@contract"}],
         "obs_dim": 99,
         "action_dim": 29,
         "history_len": 1,
