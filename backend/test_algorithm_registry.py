@@ -38,6 +38,64 @@ from adapters.mjlab.algorithms.registry import (  # noqa: E402
 EXPECTED_PLUGINS = ("amp", "appo", "cts", "distill", "dreamwaq", "him", "hora")
 
 
+class ProfilePluginDeclarationTest(unittest.TestCase):
+  """**profile 声明的 `algorithm_plugin` 必须能在注册表里落地**（2026-09-22 补）。
+
+  为什么要有这一条：`apply_algorithm_plugin` 是**运行期**才 fail-closed 的（训练栈里
+  解析 class_name 时），而声明本身是**数据**——写错一个变体名，控制面一路全绿，直到某天
+  真去训练才炸。所以在控制面按"数据 ⇄ 注册表"对账：
+
+  * 声明的插件与变体都必须存在（未知即失败）；
+  * 选中的变体必须**有 `legacy_entrypoints`**（= 绑定可回源到包内训练源里的类名）——
+    没有它就无法回答"这次训练到底用的是哪套接线"，prod 谱系在插件时代就断了。
+  """
+
+  def _profiles(self):
+    import json
+
+    for path in sorted((ROOT / "assets" / "robots").glob("*/training/profiles/*.json")):
+      payload = json.loads(path.read_text(encoding="utf-8-sig"))
+      if isinstance(payload, dict) and payload.get("algorithm_plugin"):
+        yield path, payload
+
+  def test_declared_plugins_and_variants_exist(self):
+    registry = load_registry()
+    declared = list(self._profiles())
+    self.assertTrue(declared, "没有任何 profile 声明 algorithm_plugin —— 插件层失去产品入口")
+    for path, payload in declared:
+      plugin = str(payload["algorithm_plugin"])
+      variant = str(payload.get("algorithm_variant") or "base")
+      with self.subTest(profile=path.name):
+        self.assertIn(plugin, registry["plugins"], f"{path.name} 声明了未注册插件 {plugin!r}")
+        variants = registry["plugins"][plugin].get("variants") or {}
+        self.assertIn(variant, variants, f"{path.name} 声明了 {plugin}.{variant} 不存在的变体")
+
+  def test_bound_variant_is_traceable_to_source_classes(self):
+    """每个被绑定的变体都要能**回源**——两种合法回源路，至少占一条：
+
+    * 迁移族：`legacy_entrypoints` 里登记包内训练源类名（`local_tasks.*`）；
+    * 新引入族（him/hora/appo 这类从 UniLab 新做的）：`metadata.upstream` 写明上游出处。
+
+    为什么必须占一条：`apply_algorithm_plugin` 会把 runner cfg 的 class_name 换成插件里的类
+    ——**换掉了什么、出自哪里**要能查，否则"这次训练用的是哪套接线"就答不上来（产物谱系断）。
+    """
+
+    registry = load_registry()
+    for path, payload in self._profiles():
+      plugin = str(payload["algorithm_plugin"])
+      variant = str(payload.get("algorithm_variant") or "base")
+      entry = (registry["plugins"][plugin].get("variants") or {}).get(variant) or {}
+      legacy = (registry["plugins"][plugin].get("legacy_entrypoints") or {})
+      upstream = str(((registry["plugins"][plugin].get("metadata") or {}).get("upstream")) or "")
+      with self.subTest(profile=path.name):
+        self.assertTrue(entry, f"{path.name}: {plugin}.{variant} 无绑定条目")
+        self.assertTrue(
+          any(str(v).startswith("local_tasks.") for v in legacy.values()) or bool(upstream.strip()),
+          f"{path.name}: 插件 {plugin} 既没有包内训练源类名（legacy_entrypoints），"
+          f"也没有 metadata.upstream —— 绑定无法回源",
+        )
+
+
 class RegistryControlPlaneTest(unittest.TestCase):
   """注册表加载 / 解析 / fail-closed（纯 JSON，无 torch 必跑）。"""
 

@@ -91,6 +91,7 @@ from adapters.mjlab.native_adapter import preflight as native_mjlab_preflight
 from backend.version import APP_VERSION
 from backend.project_api import router as project_router
 from backend.exports_api import router as exports_router
+from backend.task_plugins_api import router as task_plugins_router
 from backend.settings_api import router as settings_router
 from backend.map_editor_api import router as map_editor_router
 from backend.perception_observations import router as perception_router
@@ -180,6 +181,7 @@ app.include_router(health_router)
 app.include_router(model_router)
 app.include_router(project_router)
 app.include_router(exports_router)  # 序 10：Capability 导出物的 Web 入口（打包 / 校验 / 收包）
+app.include_router(task_plugins_router)  # 任务插件：列目录 + 把"需要传感器的任务"实例化到场景
 app.include_router(settings_router)
 app.include_router(map_editor_router)
 app.include_router(perception_router)

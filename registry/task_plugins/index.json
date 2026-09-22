@@ -1,0 +1,79 @@
+{
+  "schema_version": "task-plugin-registry-1.0",
+  "description": "任务插件注册表（显式 index.json，同 registry/ 其余成员的口径）。每条 = 一份契约式声明：要哪些传感器插件的哪个输出 + 自动填哪些场景 perception / command_source 字段 + 挂哪些判据与记录器。传感器 id 与输出名一律取自 contracts/sensor_plugin_contract（不在这里重抄），校验与 fail-closed 见 contracts/task_plugin_contract.py；checks/recorders 只填「今天真的被消费」的取值（arrival / route_completion、trajectory / metrics）。",
+  "plugins": [
+    {
+      "schema_version": "task-plugin-1.0",
+      "plugin_id": "blind-velocity",
+      "label": "盲走速度跟踪（本体感觉基线）",
+      "description": "只有本体感觉的最小任务：不依赖任何外部感知，用于基线对照与回归。",
+      "version": "1.0",
+      "task_type": "velocity",
+      "evidence": "上游 mjlab/legged_gym velocity 任务的 actor 组只吃 base_ang_vel + projected_gravity + joint_pos/vel + last_action（不吃外部传感器）⇒ 这是「零感知」基线，任何感知任务的读数都该与它对照。",
+      "sensors": [
+        { "plugin_id": "imu", "outputs": ["angular_velocity", "orientation_quat_wxyz"] },
+        { "plugin_id": "odom", "outputs": ["pose_position"] }
+      ],
+      "perception": { "route": "external" },
+      "command_source": "policy",
+      "checks": [],
+      "recorders": []
+    },
+    {
+      "schema_version": "task-plugin-1.0",
+      "plugin_id": "depth-parkour",
+      "label": "深度跑酷（策略吃深度）",
+      "description": "A 类感知任务：深度相机进策略观测（深度历史），用于越障/跑酷。",
+      "version": "1.0",
+      "task_type": "parkour",
+      "evidence": "本仓已入的 go2-pie-parkour（parkour_mjlab src/tasks/pie）的 actor 吃 depth 历史（frame_history_length=2）；perception_route=obs 是它的语义前提（S2① 的 obs-items 生成按 route 分叉）。",
+      "sensors": [
+        { "plugin_id": "depth", "outputs": ["policy_tensor"] },
+        { "plugin_id": "imu", "outputs": ["angular_velocity", "orientation_quat_wxyz"] },
+        { "plugin_id": "odom", "outputs": ["pose_position"] }
+      ],
+      "perception": {
+        "route": "obs",
+        "depth_camera": { "width": 64, "height": 36, "mount": "base" }
+      },
+      "command_source": "policy",
+      "checks": [],
+      "recorders": ["metrics"]
+    },
+    {
+      "schema_version": "task-plugin-1.0",
+      "plugin_id": "heightfield-nav",
+      "label": "高度场导航（地形感知 + 航点）",
+      "description": "感知在策略外（B 类）：高度扫描供外挂规划/判定使用，策略仍是运动控制；命令来自外部规划。",
+      "version": "1.0",
+      "task_type": "velocity",
+      "evidence": "H22 的口径（真实高度扫描替硬编码限高）要求限高由扫描判定；backend/height_scan.py（187 格）与 S2① 的 obs-items 生成已就位，本插件只声明所需传感器与开关；命令走 planner（H3：外部规划输出 cmd_vel 复用 velocity 策略，不必重训）。",
+      "sensors": [
+        { "plugin_id": "height", "outputs": ["heights"] },
+        { "plugin_id": "odom", "outputs": ["pose_position", "pose_quat_wxyz"] },
+        { "plugin_id": "imu", "outputs": ["angular_velocity"] }
+      ],
+      "perception": { "route": "external", "heightfield": true },
+      "command_source": "planner",
+      "checks": ["arrival", "route_completion"],
+      "recorders": ["trajectory", "metrics"]
+    },
+    {
+      "schema_version": "task-plugin-1.0",
+      "plugin_id": "foot-contact-gait",
+      "label": "足端接触步态（接触相位 / 打滑判定）",
+      "description": "足端接触进观测：用于步态相位与打滑判定。",
+      "version": "1.0",
+      "task_type": "gait",
+      "evidence": "PerceptionSpec.foot_contact 与 sensor_plugin_contract 的 foot_contact 输出（found/force）是现成契约；lainlab 行走族与 AMP 判据都要接触信息做相位/打滑判定（S2① 对 foot_contact=True 会生成对应 obs 项）。",
+      "sensors": [
+        { "plugin_id": "foot_contact", "outputs": ["force"] },
+        { "plugin_id": "imu", "outputs": ["angular_velocity", "orientation_quat_wxyz"] }
+      ],
+      "perception": { "route": "obs", "foot_contact": true },
+      "command_source": "policy",
+      "checks": [],
+      "recorders": ["metrics"]
+    }
+  ]
+}
