@@ -203,6 +203,10 @@
     </div>
   </div>
 
+  <!-- 前端 API 调用的唯一实现（UMD：模块经全局 LSApi 取用）。编辑器不再自建 fetch 封装，
+       与 web/shared/api.test.mjs 的源码面守卫同一条口径。普通脚本先于模块执行，
+       所以下面的 module 里读 `LSApi` 一定有值。 -->
+  <script src="shared/api.js"></script>
   <script type="module" src="sim2sim/scenario_editor_ui.js"></script>
 </body>
 </html>
