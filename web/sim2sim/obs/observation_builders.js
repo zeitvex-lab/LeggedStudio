@@ -1060,7 +1060,74 @@ const OBSERVATION_BUILDERS = {
   //: 已经报过"kind 没有 builder"的 kind（**只报一次**：每帧抛异常会把控制台刷爆，反而没人看见）。
   const _unbuiltKindsReported = new Set();
 
+  // ── 声明式观测布局：**与 Python `policy_acceptance.py::frame_from_spec` 同一份规格** ──────
+  // 契约里的 `observation_layout`（段列表）两侧共用。目的：布局从"每个 kind 一个 builder
+  // （Python + 浏览器各写一份）"收成"一份规格、两侧消费"——因为**两份实现一致 ≠ 规格正确**
+  // （实测过：缩放两侧一起错，逐维对拍照样全绿，策略却崩）。
+  // 段词汇与 Python 逐字一致：zeros / ang_vel / gravity / euler / cmd / phase_sin / phase_cos /
+  // joint_pos / joint_vel / action；缺省 width = 动作关节数、缺省 scale = 1（cmd 的 scale 可逐维）。
+  function applyLayoutSpec(spec) {
+    const imu = readImuSample();
+    const signs = input.imuAxisSigns;
+    const period = CONFIG.gaitPeriodS > 0 ? CONFIG.gaitPeriodS : 0.5;
+    const elapsed = Number(sim.data && sim.data.time) || 0;
+    const phase = (elapsed % period) / period;
+    const angle = 2 * Math.PI * phase;
+    sim.obs.fill(0);
+    let offset = 0;
+    for (const seg of spec) {
+      const source = seg && seg.source;
+      const rawScale = seg && seg.scale !== undefined ? seg.scale : 1.0;
+      const width = Number((seg && seg.width) || CONFIG.numActions);
+      const scaleAt = (i) => Number(Array.isArray(rawScale) ? rawScale[i] : rawScale);
+      switch (source) {
+        case "zeros":
+          for (let i = 0; i < width; i += 1) sim.obs[offset++] = 0;
+          break;
+        case "ang_vel":
+          for (let i = 0; i < width; i += 1) sim.obs[offset++] = imu.angular[i] * signs.angular[i] * scaleAt(i);
+          break;
+        case "gravity":
+          for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * signs.gravity[i];
+          break;
+        case "euler":
+          for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.rpy ? imu.rpy[i] : 0;
+          break;
+        case "cmd":
+          for (let i = 0; i < width; i += 1) sim.obs[offset++] = sim.cmd[i] * scaleAt(i);
+          break;
+        case "phase_sin":
+          sim.obs[offset++] = Math.sin(angle);
+          break;
+        case "phase_cos":
+          sim.obs[offset++] = Math.cos(angle);
+          break;
+        case "joint_pos":
+          for (let i = 0; i < width; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * scaleAt(i);
+          break;
+        case "joint_vel":
+          for (let i = 0; i < width; i += 1) sim.obs[offset++] = jointQvel(i) * scaleAt(i);
+          break;
+        case "action":
+          for (let i = 0; i < width; i += 1) sim.obs[offset++] = sim.action[i];
+          break;
+        default:
+          throw new Error(`未知的观测段来源 ${source}（与 Python frame_from_spec 同一词汇表）`);
+      }
+    }
+    return offset;
+  }
+
   function buildObservation() {
+    // **声明式布局优先**（与验收器同一条路）；没声明才退回每 kind 的 builder（增量迁移）。
+    const layout = CONFIG.observationLayout;
+    if (Array.isArray(layout) && layout.length) {
+      const written = applyLayoutSpec(layout);
+      if (CONFIG.numObs && written !== CONFIG.numObs) {
+        throw new Error(`声明式布局段宽之和 ${written} ≠ numObs ${CONFIG.numObs}`);
+      }
+      return;
+    }
     const kind = CONFIG.observationKind;
     const builder = OBSERVATION_BUILDERS[kind];
     if (builder) {
