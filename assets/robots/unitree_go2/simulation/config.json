@@ -1775,6 +1775,7 @@
       },
       "contract": {
         "observation_kind": "go2_rl_sdk_45",
+          "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "scale": "@contract"}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
         "obs_dim": 45,
         "action_dim": 12,
         "history_len": 1,
