@@ -138,6 +138,15 @@ CodeBuddy），依赖、Chromium 与 **CPU 训练栈**在环境启动时按需�
 环境还会打印 **MCP 工具链**配置路径。
 详见 [`docs/cloud-dev.md`](docs/cloud-dev.md)。
 
+### 发布（自动上传 GitHub）
+
+`main` 的 push 会把分支与 tag **镜像到 GitHub**（逐 sha 比对，无变更即跳过）；
+`v*` 的 tag_push 还会在**本仓与 GitHub 两侧**各建一个 Release。凭据只从密钥仓库
+[`zeitvex/github-secrets`](https://cnb.cool/zeitvex/github-secrets/-/blob/main/github-secrets.yaml)
+经 `imports` 注入，不落工作区文件；执行体是
+[`adapters/github/mirror.py`](adapters/github/mirror.py)（只用标准库）。
+手动演练 `python -m adapters.github.mirror --check`，详见 [`docs/cloud-dev.md`](docs/cloud-dev.md)。
+
 ### CPU 训练链路（无 GPU 也能跑真训练）
 
 mjlab 官方支持 CPU（`cpu` extra），本仓库把它接成完整链路：容器/本地进环境即可训练，

@@ -62,6 +62,10 @@ python -m tools.mcp.contracts_server
 把 `servers.json` 的 `mcpServers` 段整段贴进客户端的 MCP 配置即可；
 `${GITHUB_TOKEN}` 是唯一需要自备的环境变量（不填则 `github` 这条降级不可用，其余不受影响）。
 
+它与**发布镜像**用的是**同一个 PAT** —— 都存在密钥仓库 [`zeitvex/github-secrets`](https://cnb.cool/zeitvex/github-secrets/-/blob/main/github-secrets.yaml) 里，由 `.cnb.yml` 的 `.github-mirror` 锚点经 `imports` 注入到发布流水线。
+开发环境里这份不会自动注入（`imports` 只覆盖流水线），要用时自己 `export GITHUB_TOKEN=...`，
+或在个人环境变量里配一份 —— 见 [`docs/cloud-dev.md`](../../docs/cloud-dev.md) 的「自动上传 GitHub」一节。
+
 ---
 
 ## 三、云原生开发环境里怎么用
