@@ -110,7 +110,7 @@
 .ov-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); }
 
 .ov-head h3 small {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--faint);
   text-transform: uppercase;
@@ -124,7 +124,7 @@
   border: 1px solid var(--line);
   background: var(--surface-input);
   color: var(--muted);
-  font: 700 10px Consolas, monospace;
+  font: 700 11px Consolas, monospace;
   white-space: nowrap;
 }
 
@@ -391,7 +391,7 @@
 
 .ckpt-info { min-width: 0; }
 .ckpt-info strong { display: block; font-size: 12px; font-family: Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ckpt-info small { display: block; color: var(--faint); font-size: 10px; margin-top: 2px; }
+.ckpt-info small { display: block; color: var(--faint); font-size: 11px; margin-top: 2px; }
 
 .copy-btn {
   min-height: 26px;
@@ -421,7 +421,7 @@
 }
 
 .artifact-row b { color: var(--text); font-size: 12px; }
-.pill { padding: 2px 8px; border-radius: 999px; font: 700 10px Consolas, monospace; border: 1px solid var(--line); }
+.pill { padding: 2px 8px; border-radius: 999px; font: 700 11px Consolas, monospace; border: 1px solid var(--line); }
 .pill.ok { color: var(--green); border-color: rgba(105, 224, 169, 0.35); background: rgba(105, 224, 169, 0.08); }
 .pill.no { color: var(--faint); }
 

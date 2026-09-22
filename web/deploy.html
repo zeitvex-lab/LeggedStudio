@@ -18,12 +18,12 @@
     .panel { border: 1px solid #e8eff4; border-radius: 8px; background: #fff; padding: 14px; margin-bottom: 14px; }
     .panel h2 { font-size: 15px; margin: 0 0 10px; }
     select, button.primary { font-size: 14px; padding: 8px 12px; border-radius: 6px; border: 1px solid #e8eff4; }
-    button.primary { background: #2f6fed; color: #fff; border: none; cursor: pointer; }
+    button.primary { background: #1c56b8; color: #fff; border: none; cursor: pointer; }
     button.primary:disabled { background: #9db4e8; cursor: not-allowed; }
     button.ghost { background: #fff; border: 1px solid #e8eff4; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
     .gate-list { list-style: none; padding: 0; margin: 8px 0 0; font-family: Consolas, monospace; font-size: 13px; }
     .gate-list li { padding: 4px 0; }
-    .gate-ok { color: #2e9e5b; } .gate-bad { color: #d64545; } .gate-warn { color: #d88922; }
+    .gate-ok { color: #217a37; } .gate-bad { color: #d64545; } .gate-warn { color: #8a5a12; }
     .result { margin-top: 10px; font-size: 13px; }
     .result a { color: #2f6fed; }
     .degraded-row { margin-top: 10px; font-size: 13px; }
@@ -180,7 +180,7 @@
         $('packResult').innerHTML = `
           ✅ 部署包已生成：<a href="${report.download_url}">下载 ${report.robot_id} 部署包</a>
           <span style="color:#5a6672">（${report.files.join(' · ')}）</span>
-          <p style="color:#d88922; margin:8px 0 0">⚠ 一键生成 ≠ 一键上机——先过人工确认清单，增益先降 50%。</p>`;
+          <p style="color: #8a5a12; margin:8px 0 0">⚠ 一键生成 ≠ 一键上机——先过人工确认清单，增益先降 50%。</p>`;
         $('chip3').classList.add('done');
       } catch (error) {
         $('packResult').innerHTML = `<span style="color:#d64545">✗ ${error.message}</span>`;

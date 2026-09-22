@@ -13,11 +13,11 @@
   --border: #d9e0e7;
   --border-soft: #e8edf2;
   --text: #1f2933;
-  --muted: #687582;
-  --faint: #8b98a5;
-  --accent: #2588df;
-  --accent-strong: #1e73be;
-  --danger: #c94343;
+  --muted: #5f6c79;
+  --faint: #5f6c79;
+  --accent: #1769a9;
+  --accent-strong: #16589a;
+  --danger: #b3261e;
   --success: #32a36c;
   --shadow: 0 10px 30px rgba(65, 82, 99, .10);
   --radius: 8px;
@@ -28,6 +28,10 @@
   padding: 0;
   box-sizing: border-box;
 }
+
+/* 点击目标下限（可量 UI 门禁项，见 tests/e2e/test_ui_contrast_gate.py）：
+   小按钮/小下拉实测只有 17~19px 高，鼠标点不准；统一抬到 26px。 */
+.button, .text-button, .icon-btn, select { min-height: 26px; }
 
 html {
   background: var(--bg);
