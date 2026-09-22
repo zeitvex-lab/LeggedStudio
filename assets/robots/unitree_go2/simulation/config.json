@@ -481,7 +481,8 @@
           0.0,
           0.0
         ],
-        "action_joint_order": [
+        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "scale": "@contract"}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
+          "action_joint_order": [
           "FR_hip_joint",
           "FR_thigh_joint",
           "FR_calf_joint",

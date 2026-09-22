@@ -1023,37 +1023,74 @@ OBS_LAYOUT_SOURCES = ("zeros", "ang_vel", "gravity", "euler", "cmd",
 
 
 def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
-    """按**声明式规格**（段列表）构建单帧观测——布局的唯一解释器。"""
+    """按**声明式规格**（段列表）构建单帧观测——布局的唯一解释器。
+
+    `scale` 除字面量外还认 **`"@contract"`**：用该策略契约声明的缩放字段
+    （`scales.ang_vel / dof_pos / dof_vel / command`）——`_std_frame` 这类"缩放随契约走"的
+    布局因此也能声明成规格（同一个 kind 跨机型时数值各按各的契约，规格仍只有一份）。
+    """
     c = obs.contract
     order = c.action_joint_order
+    fixed_width = {"gravity": 3, "euler": 3, "phase_sin": 1, "phase_cos": 1}
+
+    def scale_values(source: str, raw):
+        """段缩放展开成逐维列表（长度 = 该段宽度）。"""
+        if isinstance(raw, str) and raw == "@contract":
+            if source == "ang_vel":
+                return [float(c.ang_vel_scale)]
+            if source == "joint_pos":
+                return [float(c.dof_pos_scale)]
+            if source == "joint_vel":
+                return [float(c.dof_vel_scale)]
+            if source == "cmd":
+                return [float(x) for x in c.cmd_scale]
+            raise ValueError(f'段 {source!r} 不支持 scale="@contract"（无对应契约字段）')
+        if isinstance(raw, (list, tuple)):
+            return [float(x) for x in raw]
+        return [float(raw)]
+
     out: list[float] = []
     for seg in spec or ():
         source = str((seg or {}).get("source") or "")
         if source not in OBS_LAYOUT_SOURCES:
             raise ValueError(f"未知的观测段来源 {source!r}（可用：{OBS_LAYOUT_SOURCES}）")
-        width = int((seg or {}).get("width") or len(order))
-        raw_scale = (seg or {}).get("scale", 1.0)
+        # 宽度默认值按来源定：定宽来源固定；`cmd` = 命令维数；关节/动作类 = 动作关节数；
+        # `zeros` **必须显式给宽**（"零占位"没有天然宽度，猜错就是静默错位）。
+        if source in fixed_width:
+            width = fixed_width[source]
+        elif source == "cmd":
+            width = int((seg or {}).get("width") or c.command_dims)
+        else:
+            width = int((seg or {}).get("width") or len(order))
+        if source == "zeros" and not (seg or {}).get("width"):
+            raise ValueError("段 'zeros' 必须显式声明 width（零占位没有天然宽度）")
+        scales = scale_values(source, (seg or {}).get("scale", 1.0))
+        # 标量缩放 = 该段所有维同一个值（JS 侧 `Array.isArray` 分支同语义）；**少于宽度**才报错。
+        if len(scales) == 1:
+            scales = scales * width
+        elif len(scales) < width:
+            raise ValueError(f"段 {source!r} 的 scale 给了 {len(scales)} 个值，少于段宽 {width}")
         if source == "zeros":
             out += [0.0] * width
         elif source == "ang_vel":
             _, ang_b, _ = obs.base_state()
-            out += [float(ang_b[i]) * float(raw_scale) for i in range(width)]
+            out += [float(ang_b[i]) * scales[i] for i in range(width)]
         elif source == "gravity":
             out += list(projected_gravity(obs.data.qpos[3:7]))
         elif source == "euler":
             out += quat_to_euler_xyz(obs.data.qpos[3:7])
         elif source == "cmd":
-            scales = raw_scale if isinstance(raw_scale, (list, tuple)) else [float(raw_scale)] * width
-            out += [float(cmd[i]) * float(scales[i]) for i in range(width)]
+            out += [float(cmd[i]) * scales[i] for i in range(width)]
         elif source in ("phase_sin", "phase_cos"):
             period = c.gait_period if c.gait_period > 0 else 0.5
             phase = (float(obs.data.time) % period) / period
             angle = 2.0 * math.pi * phase
             out.append(math.sin(angle) if source == "phase_sin" else math.cos(angle))
         elif source == "joint_pos":
-            out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * float(raw_scale) for n in order[:width]]
+            out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * scales[i]
+                    for i, n in enumerate(order[:width])]
         elif source == "joint_vel":
-            out += [obs.data.qvel[obs.jadr[n][1]] * float(raw_scale) for n in order[:width]]
+            out += [obs.data.qvel[obs.jadr[n][1]] * scales[i] for i, n in enumerate(order[:width])]
         elif source == "action":
             out += [float(a) for a in obs.last_action[:width]]
     return out

@@ -47,7 +47,36 @@ if str(ROOT) not in sys.path:
 
 #: 通例段（**定位提示**，不是判据）：绝大多数 kind 的前 9 维是 ang_vel / gravity / cmd。
 #: 判据只有一条 —— 逐维 max|Δ| ≤ tol。段名写在这里只是让人一眼看出"错在哪个语义段"。
+#: 无声明式规格时的**兜底**段名（按 rl_sdk 顺序写死的那份）。
+#: 注意它只对"ang_vel 在前"的布局成立——对 `cmd` 在前或带相位的 kind 会**贴错段名**
+#: （实测：注入反例时差异被标在 `ang_vel` 段上），故有规格时一律走 `segments_for()`。
 COMMON_SEGMENTS = (("ang_vel", 0, 3), ("gravity", 3, 6), ("cmd", 6, 9))
+
+
+def segments_for(contract: dict, action_dim: int | None = None, command_dims: int = 3) -> tuple:
+    """**按声明式规格生成段名** `(label, lo, hi)`；无规格则回落 `COMMON_SEGMENTS`。
+
+    段名带缩放（如 `cmd×[2.0, 2.0, 0.25]`）—— 对拍输出从此是**自解释**的：读者不用再去
+    翻解释器就知道每一段的语义与缩放，也不用猜"0-3 到底是不是 ang_vel"。
+    """
+    layout = (contract or {}).get("observation_layout")
+    if not layout:
+        return COMMON_SEGMENTS
+    fixed = {"gravity": 3, "euler": 3, "phase_sin": 1, "phase_cos": 1}
+    out, lo = [], 0
+    for seg in layout:
+        source = str((seg or {}).get("source") or "")
+        if source in fixed:
+            width = fixed[source]
+        elif source == "cmd":
+            width = int((seg or {}).get("width") or command_dims)
+        else:
+            width = int((seg or {}).get("width") or action_dim or 0)
+        scale = (seg or {}).get("scale", 1.0)
+        label = source if scale in (1, 1.0) else f"{source}×{scale}"
+        out.append((label, lo, lo + width))
+        lo += width
+    return tuple(out)
 
 
 def load_engine():
@@ -127,6 +156,8 @@ def build_state(engine, package_dir: Path, sim_cfg: dict, entry: dict, yaw_deg: 
             "obs_dim": int(contract.obs_dim or own.shape[0]),
             "action_dim": int(contract.action_dim),
             "history_len": int(contract.history_len or 1),
+            # 声明式布局规格：对拍工具的段名/宽度也由它派生（不再按 rl_sdk 顺序写死）。
+            "observation_layout": contract.contract.get("observation_layout"),
             "command_dims": int(contract.command_dims or 3),
             "decimation": int(contract.decimation or 1),
             "physics_hz": float(contract.physics_hz),
@@ -245,7 +276,9 @@ def main() -> int:
 
     print("② 整条观测（逐维；段名按通例标注，仅作定位提示）")
     obs_worst, obs_detail = compare("obs", reference["obs"], browser["obs"], args.tol)
-    for name, lo, hi in COMMON_SEGMENTS:
+    for name, lo, hi in segments_for(state["contract"],
+                                     action_dim=state["contract"]["action_dim"],
+                                     command_dims=state["contract"]["command_dims"]):
         if hi > len(reference["obs"]):
             continue
         seg_worst, _ = compare(name, reference["obs"][lo:hi], browser["obs"][lo:hi], args.tol)
