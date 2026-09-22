@@ -89,7 +89,7 @@ import {
   formatContractViolations,
   scanOnnxMetadata,
 } from "./onnx_contract_check.js";
-import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, getGravityOrientation, getLinearVelocityBody, enumValue, isEditableElement } from "./utils.js";
+import { clamp, escapeAttr, escapeHtml, formatSigned, quatToRpy, quatRotateInverse, imuSampleFromQpos, enumValue, isEditableElement } from "./utils.js";
 import { applyTerrainSwitch, createNavigationRunner, poseFromQpos, NAVIGATION_VERSION } from "./navigation.js?v=0.55.0";
 // 地形归组（G5）：_index.json 分类快照 → optgroup 分组结构（纯函数，Node 单测覆盖）。
 import { groupTerrains } from "./terrain_groups.js?v=0.55.41";
@@ -4352,50 +4352,20 @@ if (DEBUG_ENABLED) {
 }
 
 function captureImuSample() {
-  const quaternion = sim.qpos.subarray(3, 7);
-  // mjlab 语义：base_lin_vel/base_ang_vel 取自 root body 的 link 速度
-  // （cvel 绕 subtree COM，须修正到 body origin，见 rootLinkVelW）。qvel 的自由关节
-  // 线速度是 root body 原点速度，但角速度为体坐标系；mjswan 用 cvel 统一世界系后再投影，
-  // 走行策略对参考点敏感（G1 实测：qvel 版 3 秒跌倒，cvel 版稳定行走）。
-  let angular = sim.qvel.subarray(3, 6);
-  let linearWorld = null;
-  if (sim.model?.cvel && sim.model?.nbody > 1 && sim.data?.cvel) {
-    try {
-      const rootBody = 1; // 自由关节根 body（pelvis/torso）
-      const cvel = sim.data.cvel;
-      const base = rootBody * 6;
-      const angW = [cvel[base], cvel[base + 1], cvel[base + 2]];
-      const linC = [cvel[base + 3], cvel[base + 4], cvel[base + 5]];
-      const pos = sim.data.xpos[rootBody];
-      const com = sim.data.subtree_com[rootBody];
-      const ox = com[0] - pos[0], oy = com[1] - pos[1], oz = com[2] - pos[2];
-      linearWorld = [
-        linC[0] - (angW[1] * oz - angW[2] * oy),
-        linC[1] - (angW[2] * ox - angW[0] * oz),
-        linC[2] - (angW[0] * oy - angW[1] * ox),
-      ];
-      // 角速度也走 cvel（世界系），与 mjswan slotReader 一致
-      angular = new Float32Array(angW);
-    } catch (_) { /* 回退到 qvel */ }
-  }
-  if (!linearWorld) linearWorld = [sim.qvel[0], sim.qvel[1], sim.qvel[2]];
-  return {
-    angular: new Float32Array(rotateVectorByQuatInverse(quaternion, angular)),
-    linear: new Float32Array(rotateVectorByQuatInverse(quaternion, linearWorld)),
-    gravity: new Float32Array(getGravityOrientation(quaternion)),
-    rpy: new Float32Array(quatToRpy(quaternion)),
-  };
-}
-
-// v_body = R^T · v_world
-function rotateVectorByQuatInverse(quaternion, v) {
-  const qw = quaternion[0], qx = quaternion[1], qy = quaternion[2], qz = quaternion[3];
-  const [vx, vy, vz] = v;
-  return [
-    (1 - 2 * (qy * qy + qz * qz)) * vx + 2 * (qx * qy + qw * qz) * vy + 2 * (qx * qz - qw * qy) * vz,
-    2 * (qx * qy - qw * qz) * vx + (1 - 2 * (qx * qx + qz * qz)) * vy + 2 * (qy * qz + qw * qx) * vz,
-    2 * (qx * qz + qw * qy) * vx + 2 * (qy * qz - qw * qx) * vy + (1 - 2 * (qx * qx + qy * qy)) * vz,
-  ];
+  // 状态 → 机体系 IMU 读数**只写一处**（`utils.js::imuSampleFromQpos`），口径与验收器
+  // `policy_acceptance.py::ObsBuilder.base_state` 逐条一致：**角速度不转、线速度转**。
+  //
+  // 这里曾经自己实现，并且把**两段都乘了 Rᵀ**：自由关节的 `qvel[3:6]` 本来就是机体系角速度，
+  // 再转一次等于双重旋转——yaw≈0 时 R≈I 所以完全看不出来（策略照走，"看着没事"了很久），
+  // yaw→180° 时水平两轴翻号（Rᵀ·ω = (−ωx,−ωy,ωz)）⇒ 角速度反馈变成**正反馈** ⇒ 机器人
+  // 直接乱动失衡（用户报的"转到 180° 左右必然抽风"，2026-09-22 用浏览器同款 WASM 复核后修）。
+  //
+  // 那段 `cvel` 分支一并删掉：守卫写的是 `sim.model?.cvel`，而 **cvel 属 MjData** ⇒ 条件恒假、
+  // 分支**从未执行**（Node 里加载 `vendor/mujoco/mujoco.js` 实测：`model.cvel === undefined`，
+  // 而 `data.cvel` 确实存在、是平铺 `Float64Array(18)`）。它本身口径是对的（世界系角速度再
+  // Rᵀ），但"看着有两条路、实际永远走另一条"正是这类缺陷最容易藏身的地方——留一条永远不跑
+  // 的正确实现，比删掉它更危险。
+  return imuSampleFromQpos(sim.qpos, sim.qvel);
 }
 
 function recordImuSample() {
