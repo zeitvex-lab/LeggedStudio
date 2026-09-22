@@ -147,5 +147,51 @@ class DeclaredCriteriaTest(unittest.TestCase):
         self.assertEqual(want, seen, "姿态类技能丢了？")
 
 
+
+class BaseContactFallCriterionTest(unittest.TestCase):
+    """**判摔判据与训练同源**：躯干触地（`base_contact`），不是"高度/倾角"代理。
+
+    上游技能只声明两条终止：`time_out` 与 `base_contact`（躯干触地、法向力 > 1.0 N，
+    见 `skills/<skill>/config.py::cfg.terminations`）。代理判据（`qpos[2] < 0.45×初高`
+    或倾角 > 90°）会把"躯干立起来/低伏但不承重"的正常姿态判成摔倒——实测换成同源判据后
+    全量验收 44→**47 pass**、0 回归（多出来的 3 条正是被代理判据误杀的）。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import mujoco  # noqa: F401
+        except ImportError:  # pragma: no cover - 精简环境
+            raise unittest.SkipTest("无 mujoco")
+        spec = importlib.util.spec_from_file_location(
+            "policy_acceptance_for_base_contact_test",
+            ROOT / "adapters" / "mjlab" / "policy_acceptance.py",
+        )
+        cls.engine = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.engine)
+
+    def test_default_spawn_no_contact_and_collapse_yes(self):
+        import mujoco
+
+        engine = self.engine
+        pkg = ROOT / "assets" / "robots" / "unitree_go2"
+        sim = json.loads((pkg / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
+        entry = next(e for e in sim["policies"] if e["id"] == "go2-lainlab-trot")
+        contract = engine.PackageContract(pkg, entry)
+        model = engine.load_package_model(pkg, sim, None)
+        model.opt.timestep = 1.0 / contract.physics_hz
+        data = mujoco.MjData(model)
+        obs = engine.ObsBuilder(contract, model, data)
+        engine.spawn_default(contract, model, data, obs)
+
+        self.assertLessEqual(engine.base_ground_contact_force(model, data), 1.0,
+                             "正常出生姿不该判'躯干触地'")
+        for _ in range(20):                      # 把躯干压到地面并让求解器算出接触力
+            data.qpos[2] = 0.02
+            mujoco.mj_step(model, data)
+        self.assertGreater(engine.base_ground_contact_force(model, data), 1.0,
+                           "躯干贴地必须被判成'触地'（训练同源判据）")
+
+
 if __name__ == "__main__":
     unittest.main()
