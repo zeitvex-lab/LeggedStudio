@@ -1,0 +1,29 @@
+load("@com_github_mvukov_rules_ros2//ros2:cc_defs.bzl", "ros2_cpp_binary")
+load("@com_github_mvukov_rules_ros2//ros2:test.bzl", "ros2_test")
+
+ros2_cpp_binary(
+    name = "diagnostic_publisher",
+    srcs = ["diagnostic_publisher.cc"],
+    deps = [
+        "@ros2_diagnostics//:cpp_diagnostic_updater",
+        "@ros2_rclcpp//:rclcpp",
+    ],
+)
+
+ros2_test(
+    name = "diagnostic_heartbeat_test",
+    size = "small",
+    data = [
+        "aggregator_config.yaml",
+    ],
+    launch_file = "tests.py",
+    nodes = [
+        ":diagnostic_publisher",
+        "@ros2_diagnostics//:aggregator_node",
+    ],
+    deps = [
+        "@ros2_common_interfaces//:py_diagnostic_msgs",
+        "@ros2_rclpy//:rclpy",
+        "@rules_python//python/runfiles",
+    ],
+)

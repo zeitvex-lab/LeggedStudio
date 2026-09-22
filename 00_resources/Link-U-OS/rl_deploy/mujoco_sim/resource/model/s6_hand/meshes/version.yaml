@@ -1,0 +1,9 @@
+model: "s6_hand"
+version: "1.0.2"
+date: "2025-05-14"
+author: "FulongYin"
+description: "S6 Hand Mesh"
+note:
+  version 1.0.1: "rename little to pinky"
+  version 1.0.2: "add finger convex hull"
+

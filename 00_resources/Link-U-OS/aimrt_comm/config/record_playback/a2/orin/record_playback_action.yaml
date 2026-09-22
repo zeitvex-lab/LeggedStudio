@@ -1,0 +1,62 @@
+max_single_bag_size: 1024 #MB
+all_bag_size: 200 #GB
+is_fctl: true # bag滚动删除开关
+msg_write_interval: 100000
+msg_write_interval_time: 1000
+record_bag_path: /agibot/data/bag/
+compression_mode: zstd
+compression_level: default
+
+actions:
+  - action_name: "default_action"
+    mode: "imd"
+    method: "record"
+    is_enable: true # action开关
+    record_enabled: true # action录制开关
+    is_auto_upload: false # 是否自动上传bag
+    preparation_duration_s: 0 # 仅适用于signal action，表示录制的前xx秒
+    record_duration_s: 0 # 仅适用于signal action，表示录制的后xx秒
+    max_record_duration_s: 0 # 仅适用于signal action，表示最大录制时长，0表示不限制
+    skip_duration_s: 0 # 仅使用于playback action，表示播包过滤包前xx秒
+    play_duration_s: 0 # 仅使用于playback action，表示播包xx秒
+    playback_bag_path: null # 播包路径，用逗号隔开，示例："/agibot/data/bag/imd/aimrtbag_xxx/"
+    topics:
+      - ros2:/aima/hal/lidar/neck/imu
+      - ros2:/aima/hal/lidar/neck/pointcloud
+      - ros2:/heartbeat/loc_state
+      - ros2:/tf
+      - ros2:/ranger_base_node/odom
+      - ros2:/aima/log/module_log
+      - ros2:/aima/hal/rgbd_camera/head_front/color/h264
+      - ros2:/aima/hal/rgbd_camera/waist_front/color/h264
+      - ros2:/aima/hal/fish_eye_camera/chest_left/color/h264
+      - ros2:/aima/hal/fish_eye_camera/chest_right/color/h264
+      - ros2:/cmd_vel
+      - ros2:/cmd_vel_final
+      - ros2:/tf_static
+      - ros2:/map
+      - ros2:/costmap_update_map
+      - ros2:/dbg_static_map
+      - ros2:/path
+      - ros2:/path_local
+      - ros2:/dbg_polygon_visualize
+      - ros2:/dbg_collision_pose
+      - ros2:/dbg_collision_check_path
+      - ros2:/point_cloud_percep/tracked_obstacles
+      - ros2:/aima/hds/system_status_soc0
+      - ros2:/aima/hds/system_status_soc1
+      - ros2:/aima/heartbeat
+      - ros2:/legged_odometry/mode
+      - ros2:/legged_odometry_node/legged_odometry
+      - $AGIBOT_FEATURE_HDS_NEW_BACKEND:/aima/hds/exception
+      - ros2:/aimrte/trace/events
+      - ros2:/aima/hds/fallback
+      - ros2:/aima/hds/alert
+      - ros2:/ros2_debug/imu
+      - ros2:/ros2_debug/joint_states_serial
+    extra_file_path:
+      - /agibot/data/param/calibration
+    cache_last_msg_topics:
+      - /tf_static
+      - /map
+      - /dbg_static_map

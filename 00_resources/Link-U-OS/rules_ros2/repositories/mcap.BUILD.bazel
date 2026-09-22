@@ -1,0 +1,18 @@
+""" Builds mcap.
+"""
+
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "mcap",
+    hdrs = glob([
+        "include/**/*.hpp",
+        "include/**/*.inl",
+    ]),
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@integration//:lz4",
+        "@integration//:zstd",
+    ],
+)

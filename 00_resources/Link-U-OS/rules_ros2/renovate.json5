@@ -1,0 +1,56 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:base"],
+  dependencyDashboard: true,
+  bazel: {
+    ignorePaths: ["repositories/ros2_repositories_impl.bzl"],
+  },
+  pip_requirements: {
+    enabled: false,
+  },
+  "pre-commit": {
+    enabled: true,
+  },
+  packageRules: [
+    {
+      matchManagers: ["bazel"],
+      matchPackagePatterns: ["*"],
+      enabled: false,
+    },
+    {
+      matchManagers: ["bazel"],
+      matchDepNames: [
+        "bazel_features",
+        "bazel_skylib",
+        "boringssl",
+        "curl",
+        "googletest",
+        "eigen",
+        "fmt",
+        "foxglove_bridge",
+        "libyaml",
+        "lz4",
+        "nlohmann_json",
+        "pybind11",
+        "ros2_rust",
+        "rules_foreign_cc",
+        "rules_license",
+        "rules_python",
+        "rules_rust",
+        "spdlog",
+        "tinyxml2",
+        "websocketpp",
+        "yaml-cpp",
+        "zlib",
+        "zstd",
+      ],
+      enabled: true,
+    },
+    {
+      matchManagers: ["pre-commit"],
+      matchPackagePatterns: ["*"],
+      groupName: "pre-commit-deps",
+    },
+  ],
+  schedule: ["every 1 months on the first day of the month"],
+}

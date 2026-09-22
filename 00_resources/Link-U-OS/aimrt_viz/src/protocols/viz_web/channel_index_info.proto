@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package aimrt.protocols.viz_web;
+
+message ChannelIndexInfoRequest {
+}
+
+message ChannelIndexStaticInfoResponse {
+}
+
+message ChannelIndexDynamicInfoResponse {
+  message ChannelDynamicInfoMeta {
+    string topic_name = 1;
+    string msg_type = 2;
+    uint32 sub_count = 3;
+    uint32 pub_count = 4;
+    repeated string backend_name = 5;
+    repeated string filter_name = 6;
+    float sub_frequency = 7;
+    float pub_frequency = 8;
+  }
+  repeated ChannelDynamicInfoMeta dynamic_info_meta = 1;
+}
+
+message ChannelIndexInfoResponse {
+  ChannelIndexStaticInfoResponse channel_index_static_info = 1;
+  ChannelIndexDynamicInfoResponse channel_index_dynamic_info = 2;
+}

@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package test_protocol;
+
+message TestMsg {
+  string str = 1;
+}
+
+service TestService {
+  rpc MyMethod(TestMsg) returns (TestMsg);
+  rpc MyMethod2(TestMsg) returns (TestMsg);
+}

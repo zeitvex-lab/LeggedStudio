@@ -1,0 +1,14 @@
+model: "a2_t2d0_ultra"
+version: "1.0.5"
+date: "2025-06-02"
+author: "FulongYin"
+description: "A2 T2D0 Ultra Mesh"
+note:
+  version 1.0.1: "manually create mirrored meshes for right side"
+  version 1.0.2: "simplify meshes hide internal structures"
+  version 1.0.3: "add logo"
+  version 1.0.4: "fix wrist_rod position"
+  version 1.0.5: "fix public wrist mesh"
+
+
+

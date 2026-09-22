@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package aimrt.protocols.viz_web;
+
+message ChannelBaseInfo {
+  string topic_name = 1;
+  string msg_type = 2;
+  uint32 schema_id = 3;
+  repeated string backend_name = 4;
+  repeated string filter_name = 5;
+}
+
+message ChannelModuleStatusInfo {
+  string node_name = 1;
+  string module_name = 2;
+  repeated string backend_name = 3;
+  repeated string filter_name = 4;
+  float frequency = 5;
+}
+
+message ChannelCurrentStatusInfo {
+  float frequency = 1;
+}
+
+message ChannelHistoryStatusInfo {
+  uint64 seq_num = 1;
+}
+
+message ChannelSubInfo {
+  ChannelCurrentStatusInfo current_status = 1;
+  ChannelHistoryStatusInfo history_stats = 2;
+  repeated ChannelModuleStatusInfo module_infos = 3;
+}
+
+message ChannelPubInfo {
+  ChannelCurrentStatusInfo current_status = 1;
+  ChannelHistoryStatusInfo history_stats = 2;
+  repeated ChannelModuleStatusInfo module_infos = 3;
+}
+
+message ChannelEndpointInfo {
+  message EndpointInfo {
+    string node_name = 1;
+    string module_name = 2;
+    repeated string filter_name = 3;
+  }
+  string backend_name = 1;
+  repeated EndpointInfo sub_endpoints = 2;
+  repeated EndpointInfo pub_endpoints = 3;
+}
+
+message ChannelDetailStaticInfoResponse {
+  ChannelBaseInfo base_info = 1;
+}
+
+message ChannelDetailDynamicInfoResponse {
+  ChannelSubInfo sub_info = 1;
+  ChannelPubInfo pub_info = 2;
+  repeated ChannelEndpointInfo endpoint_info = 3;
+}
+
+message ChannelDetailInfoRequest {
+  string topic_name = 1;
+  string msg_type = 2;
+}
+
+message ChannelDetailInfoResponse {
+  ChannelDetailStaticInfoResponse channel_detail_static_info = 1;
+  ChannelDetailDynamicInfoResponse channel_detail_dynamic_info = 2;
+}

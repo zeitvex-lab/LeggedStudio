@@ -1,0 +1,12 @@
+// Copyright (c) 2025, AgiBot Inc.
+// All rights reserved.
+
+syntax = "proto3";
+package aimdk.protocol;
+
+/**
+ * @brief example 中用于介绍 AimRTe 通信功能的示范数据。
+ */
+message Ball {
+  string msg = 1;
+}

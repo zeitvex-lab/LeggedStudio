@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="actuator_arm">
+    <position name = "idx13_left_arm_joint1_actuator" joint = "idx13_left_arm_joint1" kp="1000" ctrlrange="-2.967 2.967"/>
+    <position name = "idx14_left_arm_joint2_actuator" joint = "idx14_left_arm_joint2" kp="1000" ctrlrange="-0.523598767 1.658062761"/>
+    <position name = "idx15_left_arm_joint3_actuator" joint = "idx15_left_arm_joint3" kp="1000" ctrlrange="-2.967 2.967"/>
+    <position name = "idx16_left_arm_joint4_actuator" joint = "idx16_left_arm_joint4" kp="1000" ctrlrange="-2.094395067 0"/>
+    <position name = "idx17_left_arm_joint5_actuator" joint = "idx17_left_arm_joint5" kp="1000" ctrlrange="-2.87979 2.87979"/>
+    <position name = "idx18_01_left_wrist_rod_A_joint_actuator" joint = "idx18_01_left_wrist_rod_A_joint" kp="10000" ctrlrange="-0.01199 0.01204"/>
+    <position name = "idx19_01_left_wrist_rod_B_joint_actuator" joint = "idx19_01_left_wrist_rod_B_joint" kp="10000" ctrlrange="-0.01199 0.01204"/>
+
+    <position name = "idx20_right_arm_joint1_actuator" joint = "idx20_right_arm_joint1" kp="1000" ctrlrange="-2.967 2.967"/>
+    <position name = "idx21_right_arm_joint2_actuator" joint = "idx21_right_arm_joint2" kp="1000" ctrlrange="-1.658062761 0.523598767"/>
+    <position name = "idx22_right_arm_joint3_actuator" joint = "idx22_right_arm_joint3" kp="1000" ctrlrange="-2.967 2.967"/>
+    <position name = "idx23_right_arm_joint4_actuator" joint = "idx23_right_arm_joint4" kp="1000" ctrlrange="0 2.094395067"/>
+    <position name = "idx24_right_arm_joint5_actuator" joint = "idx24_right_arm_joint5" kp="1000" ctrlrange="-2.87979 2.87979"/>
+    <position name = "idx25_01_right_wrist_rod_A_joint_actuator" joint = "idx25_01_right_wrist_rod_A_joint" kp="10000" ctrlrange="-0.01199 0.01204"/>
+    <position name = "idx26_01_right_wrist_rod_B_joint_actuator" joint = "idx26_01_right_wrist_rod_B_joint" kp="10000" ctrlrange="-0.01199 0.01204"/>
+</mujoco>

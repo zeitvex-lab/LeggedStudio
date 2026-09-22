@@ -1,0 +1,21 @@
+aimrt:
+  channel:
+    backends:
+      - type: ros2
+        options:
+          pub_topics_options:
+            - topic_name: my_pub_topic
+            - topic_name: my_pub_topic_renamed
+              qos:
+                reliability: reliable
+  rpc:
+    backends:
+      - type: ros2
+        options:
+          timeout_executor: "default_timeout_time_wheel"
+
+
+my_module:
+  pub_topic_name: my_pub_topic_renamed
+  values: [4, 5, 6, 7]
+  message: ${CFG_DEMO2_MESSAGE}

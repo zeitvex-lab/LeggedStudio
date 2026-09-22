@@ -1,0 +1,46 @@
+# Copyright (c) 2025, AgiBot Inc.
+# All rights reserved.
+
+std_msgs/Header header
+# 头部电流
+float32 head_current
+# 头部电压
+float32 head_voltage
+# 右胳膊电流
+float32 right_arm_current
+# 左胳膊电流
+float32 left_arm_current
+# 胳膊电压
+float32 arm_voltage
+# 右腿电流
+float32 right_leg_current
+# 左腿电流
+float32 left_leg_current
+# 腿部电压
+float32 leg_voltage
+# 主控板电流
+float32 board_current
+# 主控板电压
+float32 board_voltage
+# 主控板mos温度
+float32 board_mos_temperature
+# 24V电压检测
+float32 voltage24_detection
+# 12V电压检测
+float32 voltage12_detection
+# x86电流检测
+float32 x86_current_detection
+# orin电流检测
+float32 orin_current_detection
+# 充电器电压检测
+float32 charger_voltage_detection
+# 电池电压
+float32 battery_voltage
+# 电池放电电流
+float32 battery_discharge_current
+# 电池放电电压
+float32 battery_discharge_voltage
+# 电池充电电流
+float32 battery_charge_current
+# 电池充电电压
+float32 battery_charge_voltage

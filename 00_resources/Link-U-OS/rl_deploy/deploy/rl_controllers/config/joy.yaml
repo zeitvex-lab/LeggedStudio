@@ -1,0 +1,82 @@
+joy_teleop:
+  ros__parameters:
+
+    walk:
+      type: topic
+      interface_type: geometry_msgs/msg/Twist
+      topic_name: cmd_vel
+      deadman_buttons: [4] # 输入此按键才可以发送消息
+      axis_mappings:
+        linear-x:
+          axis: 1           # 在输入此摇杆发送消息
+          scale: 2.4
+          offset: 0
+        linear-y:
+          axis: 0
+          scale: 1.5
+          offset: 0
+        angular-z:
+          axis: 3
+          scale: 1.0
+          offset: 0
+
+    cmd_waist_bias:
+      type: topic
+      interface_type: std_msgs/msg/Float32
+      topic_name: cmd_waist_bias
+      deadman_buttons: [4]
+      axis_mappings:
+        data:
+          axis: 7
+          scale: 1.0
+          offset: 0
+
+    emergency_stop:
+      type: topic
+      interface_type: std_msgs/msg/Float32
+      topic_name: emergency_stop
+      deadman_buttons: [ 5, 1 ]
+      axis_mappings:
+        data:
+          button: 6
+          scale: 1.0
+
+    start_control:
+      type: topic
+      interface_type: std_msgs/msg/Float32
+      topic_name: start_control
+      deadman_buttons: [7]
+      axis_mappings:
+        data:
+          button: 7
+          scale: 1.0
+
+    switch_mode:
+      type: topic
+      interface_type: std_msgs/msg/Float32
+      topic_name: switch_mode
+      deadman_buttons: [4, 0]
+      axis_mappings:
+        data:
+          button: 0
+          scale: 1.0
+
+    walk_mode:
+      type: topic
+      interface_type: std_msgs/msg/Float32
+      topic_name: walk_mode
+      deadman_buttons: [2]
+      axis_mappings:
+        data:
+          button: 2
+          scale: 1.0
+
+    position_control:
+      type: topic
+      interface_type: std_msgs/msg/Float32
+      topic_name: position_control
+      deadman_buttons: [3]
+      axis_mappings:
+        data:
+          button: 3
+          scale: 1.0

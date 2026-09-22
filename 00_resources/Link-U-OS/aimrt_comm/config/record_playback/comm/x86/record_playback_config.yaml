@@ -1,0 +1,18 @@
+aimrte:
+  rpc:
+    servers_options:
+      - !!new+override
+        func_name: "(.*)"
+        enable_backends: [local, http, ros2]
+    clients_options:
+      - !!new+override
+        func_name: "(.*)"
+        enable_backends: [local, http]
+  channel:
+    backends:
+      - type: ros2
+        options:
+          sub_topics_options:
+            - !!new+override
+              topic_name: "(.*)"
+              use_serialized: true

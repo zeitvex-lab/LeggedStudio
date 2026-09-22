@@ -1,0 +1,18 @@
+<library path="rl_controllers">
+  <class name="legged/RLControllerBase"
+         type="legged::RLControllerBase"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>
+      RL Controller Base.
+    </description>
+  </class>
+
+  <class name="legged/AcController"
+         type="legged::AcController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>
+      AcController.
+    </description>
+  </class>
+
+</library>

@@ -1,0 +1,71 @@
+aimrt:
+  log:
+    core_lvl: Info
+    default_module_lvl: Info
+  plugin:
+    plugins:
+      - name: mqtt_plugin
+        path: libaimrt_mqtt_plugin.so
+        options:
+          broker_addr: tcp://192.168.100.110:1883
+          client_id: ${EM_APP_NAME}
+          max_pkg_size_k: 1024
+  channel:
+    backends:
+      - type: mqtt
+
+health_monitor:
+  system_status_topic: "/aima/hds/system_status_soc1"
+  monitor:
+    - name: cpu
+      enable: true
+      rate: 1
+      params:
+        max_usage: 95
+    - name: memory
+      enable: true
+      rate: 1
+      params:
+        max_usage: 95
+    - name: disk
+      enable: true
+      rate: 1
+      params:
+        max_usage: 95
+    - name: battery
+      enable: true
+      rate: 5
+      params:
+        battery_low_percent: 30
+        battery_low_2_percent: 15
+        battery_low_limit_percent: 5
+    - name: EmergencyStop
+      enable: true
+      rate: 10
+    - name: heartbeat
+      enable: true
+      rate: 1
+    - name: mainboard_temp
+      enable: true
+      rate: 0.05
+      params:
+        mainboard_temp_topic: "/aima/mainboard/temp"
+    - name: network
+      enable: true
+      rate: 1
+    - name: process
+      enable: true
+      rate: 1
+      params:
+        apps: ["iox-roudi"]
+    - name: gpu_stats
+      enable: true
+      rate: 1
+    - name: disk_stats
+      enable: true
+      rate: 1
+      params:
+        disk_name: "/dev/nvme0n1"
+    - name: system_status
+      enable: true
+      rate: 1

@@ -334,6 +334,48 @@ PROJECTS: dict[str, dict] = {
                                    "（observation / achieved_goal / desired_goal）与 92 触点触觉观测"
                                    "——灵巧手操作任务、目标条件观测与迷宫导航场景参考",
                            "kind": "操作与多目标 API 参考（灵巧手 / 迷宫导航）"},
+    # ---------------- 人形/具身 OS 栈（2026-09-23 补：用户指定外链项目） ----------------
+    # 两个项目都**不含 14 机型中的任何一个**（EngineAI 是 PM01/SA01 双足；Link-U OS 面向智元
+    # 远征 A2），故 `robots: []`：不参与「机型 → 项目反查」，只作为跨机型工程形态参考。
+    # 纳入理由：本仓的 sim2sim/sim2real、训练→出库→部署三段链路要照"工业界怎么把这三段接起来"
+    # 找对照 —— EngineAI 给的是 legged_gym 系**统一训练/评测框架**的工程分层（含执行器网络与
+    # 格式转换），Link-U OS 给的是**OS 级**的通信中间件 + 构建 + 图形化部署工具链（含人形
+    # 站立/行走 RL 的训练-仿真验证-实机部署全链）。
+    "engineai_rl_workspace": {"robots": [],
+                              "desc": "EngineAI RL Workspace（深圳众擎机器人；GitHub 上可访问的快照为 "
+                                      "MeredithRowe/engineai_rl_workspace 的 community 分支，上游 "
+                                      "engineai-robotics/engineai_rl_workspace 已不可公开访问）：通用腿足 RL "
+                                      "框架（engineai_gym 环境 / engineai_rl 算法·网络·runner / "
+                                      "engineai_rl_workspace 实验与脚本 / engineai_rl_lib 参考状态），"
+                                      "训练与播放共用一套 runner 逻辑、run 记录与代码快照可复现、.pt→.onnx/.mnn "
+                                      "格式转换；含 PM01/SA01 双足与 quadruped 资产、actuator_nets 执行器网络",
+                              "kind": "人形/四足 RL 训练·评测框架参考（legged_gym 系）"},
+    "Link-U-OS": {"robots": [],
+                  "desc": "Link-U OS（智元/灵犀具身智能 OS 开源版，GitHub: Link-U-OS/Link-U-OS）：面向具身智能的"
+                          "操作系统栈——AimRT 通信中间件（RPC/Topic，Protobuf 与 ROS2 消息双格式）、Bazel 多仓"
+                          "构建与 x86_64→aarch64 一键交叉编译、Docker 开发环境、AimStudio 图形化部署工具，"
+                          "以及基于 MuJoCo/Isaac Gym 的人形站立·行走 RL 训练-仿真验证-实机部署全链；"
+                          "本目录同时收下 `.gitmodules` 点名的 13 个外链子仓（rl_training / rl_deploy / "
+                          "aimrt / aimrt_comm / aimrt_sensor / aimrt_protocol / aimrt_viz / "
+                          "aimrt_process_manager / aimrt_health_monitor / aimrt_prebuilt / rules_ros2 / "
+                          "integration / AimStudio）",
+                  "kind": "具身智能 OS 参考（中间件 / 构建 / 部署工具链 + 人形运动 RL）"},
+    # EngineAI 的 README「Acknowledgement」点名的两个上游（2026-09-23 连带纳入）：
+    # 一个是本库多个训练工程（go2_rl_gym / LeggedGym-Ex / gym_ex / HIMLoco …）的**共同祖先**，
+    # 一个是人形 reward / terrain 组织的来源。它们回答的是"某个写法是从哪来的"。
+    "legged_gym": {"robots": [],
+                   "desc": "leggedrobotics/legged_gym：腿足 RL 训练的**上游范式**"
+                           "（`legged_robot` / `legged_robot_config` / `_get_envs` 任务注册 / "
+                           "`terrain` 生成 / MDP 组织），本库多个训练工程 "
+                           "（go2_rl_gym / LeggedGym-Ex / gym_ex / HIMLoco / EngineAI RL Workspace …）"
+                           "的共同祖先 —— 用于回答\"某个写法/约定是哪来的\"，并与各分支做差异对照",
+                   "kind": "训练框架上游参考（legged_gym 原始范式）"},
+    "humanoid-gym": {"robots": [],
+                     "desc": "roboterax/humanoid-gym：人形（XBot-L）RL 训练 + Sim2Real 工程"
+                             "（`humanoid/` 下的 envs / algorithms / scripts 与 reward、terrain 组织、"
+                             "参考动作）；EngineAI RL Workspace 自述其 reward 与 terrain 生成部分"
+                             "受该库启发 ⇒ 人形任务的奖励/地形写法对照源",
+                     "kind": "人形训练上游参考（humanoid_gym；reward / terrain 组织）"},
 }
 
 # 非机型知识库：单独放在 00_resources/knowledge_base/<名称>/

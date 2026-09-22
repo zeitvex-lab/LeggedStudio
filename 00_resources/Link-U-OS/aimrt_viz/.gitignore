@@ -1,0 +1,30 @@
+# Build and IDE
+.vscode/
+.cache/
+.idea/
+_deps/
+build/
+cmake-build*/
+compile_commands.json
+
+# Python
+dist/
+*.egg-info/
+
+__pycache__/
+*_pb2.py
+*_pb2_grpc.py
+*_aimrt_rpc_ros2.py
+
+# Logs
+log/
+test_log/
+
+# Misc
+.DS_Store
+tmp/
+
+
+protocol/build/
+bazel-*
+MODULE.bazel*

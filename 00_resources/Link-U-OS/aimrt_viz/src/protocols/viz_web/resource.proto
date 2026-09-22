@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package aimrt.protocols.viz_web;
+
+message GetResourceRequest {
+  uint32 resource_id = 1;
+}
+
+message GetResourceResponse {
+  uint32 resource_id = 1;
+  bytes data = 2;
+}

@@ -1,0 +1,202 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="a2_t2d0_ultra">
+  <link name="right_tarsus">
+    <inertial>
+      <origin xyz="-0.17711952 0.00417209 -0.00013325" rpy="0 0 0" />
+      <mass value="3.02166726" />
+      <inertia ixx="0.00286094" iyy="0.02537518" izz="0.02674320" ixy="-0.00112212" ixz="-0.00004708" iyz="-0.00001928"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/right_tarsus.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="0 0.5 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/right_tarsus_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="right_toe_pitch">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.08772028" />
+      <inertia ixx="0.00001572" iyy="0.00001128" izz="0.00001148" ixy="0.0" ixz="0.0" iyz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/right_toe_pitch.stl"/>
+      </geometry>
+      <material name="">
+        <color rgba="0.8 1.0 0.8 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/right_toe_pitch_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx11_right_toe_pitch" type="revolute">
+    <origin xyz="-0.377 0 0" rpy="0 0 0" />
+    <parent link="right_tarsus" />
+    <child link="right_toe_pitch" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.047197533" upper="0.523598767" effort="50" velocity="12" />
+  </joint>
+
+  <link name="right_toe_roll">
+    <inertial>
+      <origin xyz="-0.03898340 -0.00002335 0.03167314" rpy="0 0 0" />
+      <mass value="1.21058213" />
+      <inertia ixx="0.00701152" iyy="0.00653210" izz="0.00112114" ixy="-0.00000021" ixz="0.00015476" iyz="0.00000270"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/right_toe_roll.stl"/>
+      </geometry>
+      <material name="">
+        <color rgba="1 0.5 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/right_toe_roll_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx12_right_toe_roll" type="revolute">
+    <origin xyz="0 0 0" rpy="-1.5707963 0 0" />
+    <parent link="right_toe_pitch" />
+    <child link="right_toe_roll" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.488692182" upper="0.488692182" effort="50" velocity="12" />
+  </joint>
+  
+  <link name="right_toe_A">
+    <inertial>
+      <origin xyz="0.0161564618609389 0.00025642819293159 -0.001574295479989" rpy="0 0 0" />
+      <mass value="0.0959876865493352" />
+      <inertia ixx="1.47306517352712E-05" ixy="7.09922163047177E-07" ixz="-1.01514241960403E-05" iyy="5.94672678768343E-05" iyz="-1.61051852281769E-07" izz="6.68731357306057E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/right_toe_A.stl"/>
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/right_toe_A_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx11_01_right_toe_motorA" type="fixed">
+    <origin xyz="-0.138 0 0.0315" rpy="0 0 -1.5707963" />
+    <parent link="right_tarsus" />
+    <child link="right_toe_A" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="0" effort="0" velocity="0" />
+  </joint>
+
+  <link name="right_toe_A_rod">
+    <inertial>
+      <origin xyz="-0.119506775010566 2.76775022988937E-05 2.07236899269908E-05" rpy="0 0 0" />
+      <mass value="0.133194826485545" />
+      <inertia ixx="4.13825457277786E-06" ixy="2.68995206710072E-08" ixz="2.45335787860636E-09" iyy="0.00062505988112825" iyz="2.44266827827242E-12" izz="0.000627531716420421" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/right_toe_A_rod.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/right_toe_A_rod_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx11_01_right_toe_motorA_ball " type="fixed">
+    <origin xyz="0.063 0 0" rpy="3.1415926535 0 1.5707963" />
+    <parent link="right_toe_A" />
+    <child link="right_toe_A_rod" />
+    <axis xyz="0 0 0" />
+  </joint>
+
+  <link name="right_toe_B">
+    <inertial>
+      <origin xyz="0.0161605408863716 0.000255895525077321 0.00157429551102603" rpy="0 0 0" />
+      <mass value="0.0959876868444429" />
+      <inertia ixx="1.47306045969354E-05" ixy="7.08435168511415E-07" ixz="1.01514296159037E-05" iyy="5.94673154325773E-05" iyz="1.60714100188362E-07" izz="6.68731361073396E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/right_toe_B.stl"/>
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/right_toe_B_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx12_01_right_toe_motorB" type="fixed">
+    <origin xyz="-0.232 0 -0.0315" rpy="0 0 -1.5707963" />
+    <parent link="right_tarsus" />
+    <child link="right_toe_B" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="0" effort="0" velocity="0" />
+  </joint>
+  <link name="right_toe_B_rod">
+    <inertial>
+      <origin xyz="-0.0724977388604912 2.97174338039705E-05 2.75478483252878E-05" rpy="0 0 0" />
+      <mass value="0.0989853087337611" />
+      <inertia ixx="3.41390533484477E-06" ixy="7.16306173866274E-09" ixz="-1.67153379781756E-13" iyy="0.000168898913182443" iyz="-6.92078088288279E-15" izz="0.000171065639810983" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/right_toe_B_rod.stl"/>
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/right_toe_B_rod_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx12_01_right_toe_motorB_ball" type="fixed">
+    <origin xyz="0.063 0 0" rpy="3.1415926535 0 1.5707963" />
+    <parent link="right_toe_B" />
+    <child link="right_toe_B_rod" />
+    <axis xyz="0 0 0" />
+  </joint>
+</robot>

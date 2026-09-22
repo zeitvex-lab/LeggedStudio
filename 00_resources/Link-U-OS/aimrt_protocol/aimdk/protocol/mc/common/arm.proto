@@ -1,0 +1,15 @@
+// Copyright (c) 2025, AgiBot Inc.
+// All rights reserved.
+
+syntax = "proto3";
+package aimdk.protocol;
+
+
+/**
+ * @brief 臂类型
+ */
+enum ArmType {
+  ArmType_UNKNOWN = 0;    // 未定义
+  ArmType_LEFT    = 1;    // 左臂
+  ArmType_RIGHT   = 2;    // 右臂
+}

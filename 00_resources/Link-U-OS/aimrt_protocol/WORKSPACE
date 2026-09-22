@@ -1,0 +1,21 @@
+workspace(name = "aimrt_protocol")
+
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+# Loading agibot bazel build tools
+git_repository(
+    name = "integration",
+    branch = "main",
+    patch_cmds = [
+        "git log -n 1 --format=%H > VERSION",
+    ],
+    remote = "git@github.com:Link-U-OS/integration.git",
+)
+
+load("@integration//projects:base_deps.bzl", "base_deps")
+
+base_deps()
+
+load("@integration//projects:deps.bzl", "all_deps")
+
+all_deps()

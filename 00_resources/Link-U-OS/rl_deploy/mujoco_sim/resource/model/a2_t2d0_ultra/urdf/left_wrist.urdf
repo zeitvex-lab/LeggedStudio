@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com)
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+     
+<robot name="a2_t2d0_ultra">
+  <link name = "left_arm_link05">
+    <inertial>
+      <origin xyz="-0.001962 -0.000002 0.071786" rpy="0 0 0" />
+      <mass value="0.260886" />
+      <inertia ixx="0.000638" iyy="0.000618" izz="0.000229" ixy="0.000000" ixz="0.000015" iyz="0.000000"/>
+    </inertial>
+    <visual name = "">
+      <origin rpy = "0.0 0.0 0.0" xyz = "0.0 0.0 0.0" />
+      <geometry>
+        <mesh filename = "package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_arm_link05.stl" />
+      </geometry>
+      <material name = "">
+        <color rgba = "0 0.5 1 1.0" />
+        <texture filename = "" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_arm_link05_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name = "left_arm_link06">
+    <inertial>
+      <origin xyz="0.00018011 -0.00021701 0.00000000" rpy="0 0 0" />
+      <mass value="0.02504627" />
+      <inertia ixx="0.00000197" iyy="0.00000173" izz="0.00000071" ixy="0.00000000" ixz="0.00000000" iyz="0.00000000"/>
+    </inertial>
+    <visual name = "">
+      <origin rpy = "0.0 0.0 0.0" xyz = "0.0 0.0 0.0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_arm_link06.stl" />
+      </geometry>
+      <material name = "">
+        <color rgba = "0.8 1.0 0.8 1" />
+        <texture filename = "" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_arm_link06_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+   <joint name = "idx18_left_arm_joint6" type = "revolute">
+    <origin xyz="-0.01 0 0.1595" rpy="-1.5707963 1.5707963 0" />
+    <parent link = "left_arm_link05" />
+    <child link = "left_arm_link06" />
+    <axis xyz = "0 0 1" />
+    <limit lower = "-0.785398" upper = "0.785398" velocity = "0.0" effort = "0" />
+  </joint>
+
+  <link name = "left_arm_link07">
+    <inertial>
+      <origin xyz="-0.01211757 -0.00009712 0.00886324" rpy="0 0 0" />
+      <mass value="0.05050219" />
+      <inertia ixx="0.00000828" iyy="0.00001140" izz="0.00001294" ixy="0.00000006" ixz="-0.00000179" iyz="0.00000004"/>
+    </inertial>
+    <visual name = "">
+      <origin rpy = "0.0 0.0 0.0" xyz = "0.0 0.0 0.0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_arm_link07.stl" />
+      </geometry>
+      <material name = "">
+        <color rgba = "1 0.5 1 1" />
+        <texture filename = "" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_arm_link07_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name = "idx19_left_arm_joint7" type = "revolute">
+    <origin xyz="0 0 0" rpy="1.5707963 0 0" />
+    <parent link = "left_arm_link06" />
+    <child link = "left_arm_link07" />
+    <axis xyz = "0 0 1" />
+    <limit lower="-0.5236" upper="0.5236" effort="0" velocity="0" />
+  </joint>
+
+  <joint name="left_wrist_motor_A_ball" type="fixed">
+    <origin xyz="0.005 0.02245 0.0245" rpy="0 -3.126778944 0" />
+    <parent link="left_arm_link05" />
+    <child link="left_wrist_motor_A" />
+  </joint>
+  <link name="left_wrist_motor_A">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_wrist_motor_A.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_wrist_motor_A_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="left_wrist_rod_A_joint" type="fixed">
+    <origin xyz="0 0 -0.135015" rpy="0 3.1415926535 0" />
+    <parent link="left_wrist_motor_A" />
+    <child link="left_wrist_rod_A" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.01199" upper="0.01204" effort="0" velocity="0" />
+  </joint>
+  <link name="left_wrist_rod_A">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_wrist_rod_A.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_wrist_rod_A_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="left_wrist_motor_B_ball" type="fixed">
+    <origin xyz="0.005 -0.02245 0.0245" rpy="0 -3.126778944 0" />
+    <parent link="left_arm_link05" />
+    <child link="left_wrist_motor_B" />
+  </joint>
+  <link name="left_wrist_motor_B">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_wrist_motor_B.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_wrist_motor_B_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="left_wrist_rod_B_joint" type="fixed">
+    <origin xyz="0 0 -0.135015" rpy="0 3.1415926535 0" />
+    <parent link="left_wrist_motor_B" />
+    <child link="left_wrist_rod_B" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.01199" upper="0.01204" effort="0" velocity="0" />
+  </joint>
+  <link name="left_wrist_rod_B">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_wrist_rod_B.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_wrist_rod_B_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>

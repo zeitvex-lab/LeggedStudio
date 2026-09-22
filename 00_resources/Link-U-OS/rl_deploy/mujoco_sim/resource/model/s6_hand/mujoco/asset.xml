@@ -1,0 +1,41 @@
+<mujoco model="s6_hand_asset">
+    <!-- Base link mesh -->
+    <mesh name="R_paw" file="../meshes/base_link.stl"/>
+
+    <!-- Thumb meshes -->
+    <mesh name="R_thumb_swing" file="../meshes/R_thumb_swing.stl"/>
+    <mesh name="R_thumb_1" file="../meshes/R_thumb_1.stl"/>
+    <mesh name="R_thumb_2" file="../meshes/R_thumb_2.stl"/>
+    <mesh name="R_thumb_3" file="../meshes/R_thumb_3.stl"/>
+
+    <!-- Index finger meshes -->
+    <mesh name="R_index_1" file="../meshes/R_index_1.stl"/>
+    <mesh name="R_index_2" file="../meshes/R_index_2.stl"/>
+
+    <!-- Middle finger meshes -->
+    <mesh name="R_middle_1" file="../meshes/R_middle_1.stl"/>
+    <mesh name="R_middle_2" file="../meshes/R_middle_2.stl"/>
+
+    <!-- Ring finger meshes -->
+    <mesh name="R_ring_1" file="../meshes/R_ring_1.stl"/>
+    <mesh name="R_ring_2" file="../meshes/R_ring_2.stl"/>
+
+    <!-- pinky finger meshes -->
+    <mesh name="R_pinky_1" file="../meshes/R_pinky_1.stl"/>
+    <mesh name="R_pinky_2" file="../meshes/R_pinky_2.stl"/>
+
+    <mesh name="L_paw" file="../meshes/base_link.stl" scale="1 -1 1"/>
+    <mesh name="L_thumb_swing" file="../meshes/R_thumb_swing.stl" scale="1 -1 1"/>
+    <mesh name="L_thumb_1" file="../meshes/R_thumb_1.stl" scale="1 1 -1"/>
+    <mesh name="L_thumb_2" file="../meshes/R_thumb_2.stl" scale="1 1 -1"/>
+    <mesh name="L_thumb_3" file="../meshes/R_thumb_3.stl" scale="1 1 -1"/>
+    <mesh name="L_index_1" file="../meshes/R_index_1.stl" scale="-1 1 1"/>
+    <mesh name="L_index_2" file="../meshes/R_index_2.stl" scale="-1 1 1"/>
+    <mesh name="L_middle_1" file="../meshes/R_middle_1.stl" scale="-1 1 1"/>
+    <mesh name="L_middle_2" file="../meshes/R_middle_2.stl" scale="-1 1 1"/>
+    <mesh name="L_ring_1" file="../meshes/R_ring_1.stl" scale="-1 1 1"/>
+    <mesh name="L_ring_2" file="../meshes/R_ring_2.stl" scale="-1 1 1"/>
+    <mesh name="L_pinky_1" file="../meshes/R_pinky_1.stl" scale="-1 1 1"/>
+    <mesh name="L_pinky_2" file="../meshes/R_pinky_2.stl" scale="-1 1 1"/>
+</mujoco>
+

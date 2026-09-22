@@ -1,0 +1,11 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_binary(
+    name = "demo5",
+    srcs = ["main.cpp"],
+    deps = [
+        "//:aimrte",
+        "//aimdk/protocol/demo:demo_service_rpc",
+        "//aimdk/protocol/demo:demo_channel_cc_proto",
+    ],
+)

@@ -1,0 +1,16 @@
+aimrt:
+  log:
+    core_lvl: Info
+    default_module_lvl: Info
+
+mid360lidar:
+  pointcloud_topic_name: /aima/hal/lidar/neck/pointcloud
+  lidar_frame_id: livox_frame
+  lidar_port: 56301
+  imu_topic_name: /aima/hal/lidar/neck/imu
+  imu_frame_id: livox_frame
+  imu_port: 56401
+  log_port: 56201
+  use_lidar_clock: true # 是否使用时间同步
+  wait_time_sync_s: 15  # 若15s后时间同步仍未成功则回退使用软件时间戳
+  time_sync_success_diff_s: 0.5  # 判定时间同步成功的方法，接收到udp包的系统时间 - udp包中的lidar时间 < 0.5s则判定同步成功

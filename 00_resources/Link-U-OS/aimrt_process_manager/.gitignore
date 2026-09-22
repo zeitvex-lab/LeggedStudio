@@ -1,0 +1,13 @@
+.vscode/
+.idea/
+.cache/
+.marscode/
+
+build*/
+cmake-build*/
+*.dump
+protocol/build/
+
+compile_commands.json
+bazel-*
+MODULE.bazel*

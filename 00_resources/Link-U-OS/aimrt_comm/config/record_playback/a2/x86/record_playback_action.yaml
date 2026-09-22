@@ -1,0 +1,60 @@
+max_single_bag_size: 512 #MB
+all_bag_size: 100 #GB
+is_fctl: true # bag滚动删除开关
+msg_write_interval: 100000
+msg_write_interval_time: 1000
+record_bag_path: /agibot/data/bag/
+compression_mode: zstd
+compression_level: default
+
+actions:
+  - action_name: "default_action"
+    mode: "imd"
+    method: "record"
+    is_enable: true # action开关
+    record_enabled: true # action录制开关
+    is_auto_upload: false # 是否自动上传bag
+    preparation_duration_s: 0 # 仅适用于signal action，表示录制的前xx秒
+    record_duration_s: 0 # 仅适用于signal action，表示录制的后xx秒
+    max_record_duration_s: 0 # 仅适用于signal action，表示最大录制时长，0表示不限制
+    skip_duration_s: 0 # 仅使用于playback action，表示播包过滤包前xx秒
+    play_duration_s: 0 # 仅使用于playback action，表示播包xx秒
+    playback_bag_path: null # 播包路径，用逗号隔开，示例："/agibot/data/bag/imd/aimrtbag_xxx/"
+    topics:
+      - ros2:/arm_joint_servo/joint_state
+      - ros2:/ros2_debug/fusion
+      - ros2:/ros2_debug/user_command
+      - ros2:/mc/kinematics/foot_kine
+      - ros2:/body_drive/arm_joint_command
+      - ros2:/body_drive/leg_joint_command
+      - ros2:/body_drive/hand_joint_command
+      - ros2:/body_drive/neck_joint_command
+      - ros2:/mc/base/state
+      - ros2:/motion/control/arm_joint_state
+      - ros2:/motion/control/neck_joint_state
+      - ros2:/motion/control/hand_joint_state
+      - ros2:/ros2_debug/joint_commands_active_total
+      - ros2:/body_drive/leg_joint_state
+      - ros2:/body_drive/neck_joint_state
+      - ros2:/body_drive/imu/data
+      - ros2:/body_drive/hand_joint_state
+      - ros2:/body_drive/foot_sensor_state
+      - ros2:/body_drive/power/data
+      - mqtt:/aima/bms/data
+      - mqtt:/hal_state/emergency
+      - ros2:/body_drive/arm_joint_state
+      - ros2:/body_drive/leg_temp_state
+      - ros2:/arm_joint_servo/joint_command
+      - ros2:/motion/control/locomotion_velocity
+      - ros2:/motion/control/move_waist
+      - ros2:/motion/control/move_waist_lift
+      - ros2:/motion/control/move_waist_sideways
+      - ros2:/motion/control/move_waist_pitch
+      - ros2:/motion/control/move_waist_twist
+      - ros2:/osmonitor/event
+      - ros2:/motion/control/arm_joint_command
+      - ros2:/motion/control/neck_joint_command
+      - ros2:/motion/control/hand_joint_command
+      - ros2:/motion_streamer/mocap_data_status
+    extra_file_path: []
+    cache_last_msg_topics: []

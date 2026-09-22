@@ -1,0 +1,9 @@
+<library path="legged_system">
+  <class name="legged/LeggedSystemHardware"
+         type="legged::LeggedSystemHardware"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+        legged robot hardware.
+    </description>
+  </class>
+</library>

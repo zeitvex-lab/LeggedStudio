@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="body_torso">
+    <body name = "torso" pos = "0 0 2" childclass = "zhiyuan">
+        <inertial pos = "-0.06893 0.00034 0.17523" mass = "20.4197"
+                fullinertia = "0.6018644 0.5693776 0.1900957 -0.0007320 0.0031931 -0.0008633" />
+        <freejoint/>
+        <geom type = "mesh" mesh = "torso" material = "metalic silver"/>
+        <geom type = "mesh" mesh = "logo" material = "metalic black"/>
+        <geom type = "mesh" mesh = "torso" class = "collision" />
+        <site name = "imu" size = "0.01" pos = "0 0 0" />
+
+        <include file = "head.xml" />
+        <include file = "leg.xml" />
+        <include file = "arm.xml" />
+    </body>
+</mujoco>

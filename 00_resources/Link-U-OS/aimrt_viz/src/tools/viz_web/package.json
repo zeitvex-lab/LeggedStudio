@@ -1,0 +1,43 @@
+{
+  "name": "aimrt-viz",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "lint": "vue-tsc -b ",
+    "build:dev": "vue-tsc -b && vite build --mode dev",
+    "build:test": "vue-tsc -b && vite build --mode test",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "@types/lodash-es": "^4.17.12",
+    "@vitejs/plugin-vue-jsx": "^4.1.2",
+    "@vueuse/core": "^13.1.0",
+    "axios": "^1.9.0",
+    "dayjs": "^1.11.13",
+    "element-plus": "^2.9.8",
+    "highlight.js": "^11.11.1",
+    "jsplumb": "^2.15.6",
+    "lodash-es": "^4.17.21",
+    "markdown-it": "^14.1.0",
+    "vue": "^3.5.13",
+    "vue-router": "4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.4",
+    "@types/jsplumb": "^1.3.31",
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^22.15.2",
+    "@vitejs/plugin-vue": "^5.2.2",
+    "@vue/tsconfig": "^0.7.0",
+    "sass-embedded": "^1.87.0",
+    "tailwindcss": "^4.1.4",
+    "typescript": "~5.7.2",
+    "vite": "^6.3.1",
+    "vue-tsc": "^2.2.8"
+  },
+  "packageManager": "pnpm@8.7.0+sha512.1d61f8c10e8a5a5dbfbddea0f1f5efb7dbd5177223073aec953cf230aa46416884b9427a6421dba78f28ad0f93fbede38ba57083237b350243de6b1e3a8ce71d"
+}

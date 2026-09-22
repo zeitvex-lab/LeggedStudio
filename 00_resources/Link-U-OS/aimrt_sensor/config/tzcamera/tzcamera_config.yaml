@@ -1,0 +1,92 @@
+aimrt:
+  plugin:
+    plugins:
+      - name: net_plugin
+        path: libaimrt_net_plugin.so
+        options:
+          thread_num: 1
+      - name: iceoryx_plugin
+        path: libaimrt_iceoryx_plugin.so
+        options:
+          shm_init_size: 2048
+      - name: mqtt_plugin
+        path: libaimrt_mqtt_plugin.so
+        options:
+          broker_addr: tcp://${MQTT_BROKER_IP}:1883
+          client_id: ${EM_APP_NAME}
+          max_pkg_size_k: 10240
+  log:
+    core_lvl: Info
+    default_module_lvl: Info
+  channel: # 消息队列相关配置
+    #      - type: mqtt
+    backends:
+      - type: iceoryx
+      - type: ros2
+    pub_topics_options:
+      - topic_name: /aima/hal/fish_eye_camera/chest_left/color
+        enable_backends: [ ros2 ]
+      - topic_name: /aima/hal/fish_eye_camera/chest_right/color
+        enable_backends: [ ros2 ]
+      - topic_name: /aima/hal/fish_eye_camera/chest_left/color/h264
+        enable_backends: [ ros2 ]
+      - topic_name: /aima/hal/fish_eye_camera/chest_right/color/h264
+        enable_backends: [ ros2 ]
+      - topic_name: /aima/hal/fish_eye_camera/chest_left/color/compressed
+        enable_backends: [ ros2 ]
+      - topic_name: /aima/hal/fish_eye_camera/chest_right/color/compressed
+        enable_backends: [ ros2 ]        
+      - topic_name: /aima/hal/camera/interactive/color
+        enable_backends: [ ros2 ]
+      - topic_name: /aima/hal/camera/interactive/color/h264
+        enable_backends: [ ros2 ]
+  rpc:
+    backends: # rpc后端配置
+      - type: http # http rpc后端
+      - type: mqtt
+      - type: ros2
+
+tzcamera:
+  cfg_path: /agibot/software/v0/config/tzcamera/hb_j5dev.json
+  calibration_path: /agibot/data/param/hal/intrinsic
+  enable_after_startup: true
+  work_mode:
+    Normal: ["raw", "stream"]
+    DataCollection: ["compressed"]
+  ports:
+    - pipeid: 0
+      topic_name: /aima/hal/fish_eye_camera/chest_left/color
+      compressed_topic_name: "/aima/hal/fish_eye_camera/chest_left/color/compressed"
+      streamer_topic_name: ""
+      output_width: 640
+      output_height: 480
+      converter: yuyv2bgr
+      compressed_converter: yuyv2jpeg
+      streamer: ""
+      name: chest_left
+      i2c_dev: /dev/i2c-10
+      i2c_addr: 0x11
+    - pipeid: 1
+      topic_name: /aima/hal/fish_eye_camera/chest_right/color
+      compressed_topic_name: /aima/hal/fish_eye_camera/chest_right/color/compressed
+      streamer_topic_name: ""   
+      output_width: 640
+      output_height: 480
+      converter: yuyv2bgr
+      compressed_converter: yuyv2jpeg
+      streamer: ""
+      name: chest_right
+      i2c_dev: /dev/i2c-10
+      i2c_addr: 0x12      
+    - pipeid: 2
+      topic_name: /aima/hal/camera/interactive/color
+      compressed_topic_name: ""
+      streamer_topic_name: "/aima/hal/camera/interactive/color/h264"      
+      output_width: 1920
+      output_height: 1536
+      converter: yuyv2bgr_ldc
+      compressed_converter: ""
+      streamer: "yuyv2h264"
+      name: interactive
+      i2c_dev: /dev/i2c-10
+      i2c_addr: 0x13

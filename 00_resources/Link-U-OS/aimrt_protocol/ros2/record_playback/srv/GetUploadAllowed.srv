@@ -1,0 +1,6 @@
+# Copyright (c) 2025, AgiBot Inc.
+# All rights reserved.
+
+---
+bool upload_allowed
+string msg

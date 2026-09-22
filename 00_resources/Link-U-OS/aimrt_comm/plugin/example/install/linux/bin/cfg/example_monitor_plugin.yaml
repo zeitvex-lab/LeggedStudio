@@ -1,0 +1,4 @@
+aimrt:
+  log:
+    core_lvl: Debug # Trace/Debug/Info/Warn/Error/Fatal/Off
+    default_module_lvl: Debug # 模块默认日志等级

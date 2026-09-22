@@ -1,0 +1,43 @@
+# Build and IDE
+.vscode/
+.cache/
+.idea/
+.marscode/
+_deps/
+build/
+cmake-build*/
+compile_commands.json
+
+# Document
+document/doxygen/html
+document/doxygen/doxygen.log
+document/doxygen/dockerfile/html.tar.gz
+
+document/sphinx-cn/_build
+document/sphinx-cn/dockerfile/html.tar.gz
+
+document/sphinx-en/_build
+document/sphinx-en/dockerfile/html.tar.gz
+
+# Python
+src/tools/aimrt_cli/dist
+src/tools/aimrt_cli/build
+
+dist/
+*.egg-info/
+
+__pycache__/
+*_pb2.py
+*_pb2_grpc.py
+*_aimrt_rpc_ros2.py
+
+# Logs
+log/
+test_log/
+tmp/
+bazel-*
+compile_commands.json
+
+# Misc
+tmp/
+*test_reports/

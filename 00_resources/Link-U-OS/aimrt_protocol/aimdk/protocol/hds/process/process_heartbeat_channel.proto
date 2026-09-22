@@ -1,0 +1,15 @@
+// Copyright (c) 2025, AgiBot Inc.
+// All rights reserved.
+
+syntax = "proto3";
+package aimdk.protocol;
+import "aimdk/protocol/common/timestamp.proto";
+import "aimdk/protocol/hds/process/process_heartbeat.proto";
+
+/**
+ * @brief 进程心跳上报 topic:"/aima/heartbeat"
+ */
+message ProcessHeartbeatChannel {
+  Timestamp timestamp = 1;
+  ProcessHeartbeat data = 2;
+}

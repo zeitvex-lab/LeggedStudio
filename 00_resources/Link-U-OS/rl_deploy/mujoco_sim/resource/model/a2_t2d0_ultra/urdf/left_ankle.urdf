@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com)
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+     
+<robot name="a2_t2d0_ultra">
+  <link name="left_tarsus">
+    <inertial>
+      <origin xyz="-0.17711952 0.00417209 0.00013325" rpy="0 0 0" />
+      <mass value="3.02166726" />
+      <inertia ixx="0.00286094" iyy="0.02537518" izz="0.02674320" ixy="-0.00112212" ixz="0.00004708" iyz="0.00001928"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_tarsus.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="0 0.5 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_tarsus_hull.stl" />
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="left_toe_pitch">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.08772028" />
+      <inertia ixx="0.00001572" iyy="0.00001128" izz="0.00001148" ixy="0.0" ixz="0.0" iyz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_toe_pitch.stl"/>
+      </geometry>
+      <material name="">
+        <color rgba="0.8 1.0 0.8 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_toe_pitch_hull.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx05_left_toe_pitch" type="revolute">
+    <origin xyz="-0.377 0 0" rpy="0 0 0" />
+    <parent link="left_tarsus" />
+    <child link="left_toe_pitch" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.047197533" upper="0.523598767" effort="50" velocity="12" />
+  </joint>
+
+  <link name="left_toe_roll">
+    <inertial>
+      <origin xyz="-0.03898340 0.00002335 0.03167314" rpy="0 0 0" />
+      <mass value="1.21058213" />
+      <inertia ixx="0.00701152" iyy="0.00653210" izz="0.00112114" ixy="0.00000021" ixz="0.00015476" iyz="-0.00000270"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_toe_roll.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.5 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_toe_roll_hull.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx06_left_toe_roll" type="revolute">
+    <origin xyz="0 0 0" rpy="-1.5707963 0 0" />
+    <parent link="left_toe_pitch" />
+    <child link="left_toe_roll" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.488692182" upper="0.488692182" effort="50" velocity="12" />
+  </joint>
+
+  <link name="left_toe_A">
+    <inertial>
+      <origin xyz="0.0161339967539726 0.000256129454551002 0.00157429551114607" rpy="0 0 0" />
+      <mass value="0.0959876868449394" />
+      <inertia ixx="1.47306660350068E-05" ixy="7.10372384628399E-07" ixz="1.01514226468701E-05" iyy="5.94672539950203E-05" iyz="1.61153684004436E-07" izz="6.68731361080011E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_toe_A.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_toe_A_hull.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </collision>
+  </link>
+  <joint name="idx05_01_left_toe_motorA" type="fixed">
+    <origin xyz="-0.138 0 -0.0315" rpy="0 0 -1.5707963" />
+    <parent link="left_tarsus" />
+    <child link="left_toe_A" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.5707963" upper="1.5707963" effort="0" velocity="0" />
+  </joint>
+
+
+  <link name="left_toe_A_rod">
+    <inertial>
+      <origin xyz="-0.11950903764711 -4.54312300279813E-09 2.0722082788957E-05" rpy="0 0 0" />
+      <mass value="0.133194826485547" />
+      <inertia ixx="4.13825335822083E-06" ixy="6.85930711305851E-12" ixz="2.45335802357092E-09" iyy="0.000625059882342822" iyz="2.33641130593936E-12" izz="0.000627531716420437" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_toe_A_rod.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_toe_A_rod_hull.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx05_01_left_toe_motorA_ball" type="fixed">
+    <origin xyz="0.063 0 0" rpy="-3.1415926535 0 1.5707963" />
+    <parent link="left_toe_A" />
+    <child link="left_toe_A_rod" />
+    <axis xyz="0 0 0" />
+  </joint>
+
+  <link name="left_toe_B">
+    <inertial>
+      <origin xyz="0.0161339965985728 0.000256125750057401 -0.00157429547986562" rpy="0 0 0" />
+      <mass value="0.0959876865489089" />
+      <inertia ixx="1.47306660936761E-05" ixy="7.10374422550964E-07" ixz="-1.0151422567557E-05" iyy="5.94672535179347E-05" iyz="-1.61154476946449E-07" izz="6.68731357299622E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_toe_B.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_toe_B_hull.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx06_01_left_toe_motorB" type="fixed">
+    <origin xyz="-0.232 0 0.0315" rpy="0 0 -1.5707963" />
+    <parent link="left_tarsus" />
+    <child link="left_toe_B" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.5707963" upper="1.5707963" effort="0" velocity="0" />
+  </joint>
+
+  <link name="left_toe_B_rod">
+    <inertial>
+      <origin xyz="-0.0725000006179941 2.39833153337088E-11 2.75483156604583E-05" rpy="0 0 0" />
+      <mass value="0.0989853087337602" />
+      <inertia ixx="3.41390504492216E-06" ixy="-7.00234342247419E-12" ixz="-1.67152635087163E-13" iyy="0.000168898913472365" iyz="-6.91334604265453E-15" izz="0.000171065639810982" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/compressed/left_toe_B_rod.stl" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/a2_t2d0_ultra/meshes/convex/left_toe_B_rod_hull.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx06_01_left_toe_motorB_ball" type="fixed">
+    <origin xyz="0.063 0 0" rpy="-3.14159265358666 0 1.57074160362305" />
+    <parent link="left_toe_B" />
+    <child link="left_toe_B_rod" />
+    <axis xyz="0 0 0" />
+  </joint>
+
+</robot>

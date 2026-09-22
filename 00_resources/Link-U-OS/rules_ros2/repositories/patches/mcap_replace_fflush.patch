@@ -1,0 +1,24 @@
+From d5fec66d1c089e9b0581ff3a4cb373b216e0483e Mon Sep 17 00:00:00 2001
+From: ggmsunshine <250811275+ggmsunshine@users.noreply.github.com>
+Date: Mon, 18 Aug 2025 16:47:27 +0800
+Subject: [PATCH] optimize mcap lib
+
+---
+ include/mcap/writer.inl | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/mcap/writer.inl b/include/mcap/writer.inl
+index 15f2fcf..c0d7622 100644
+--- a/include/mcap/writer.inl
++++ b/include/mcap/writer.inl
+@@ -64,6 +64,7 @@ void FileWriter::handleWrite(const std::byte* data, uint64_t size) {
+ void FileWriter::flush() {
+   if (file_) {
+     std::fflush(file_);
++    ::fsync(fileno(file_));
+   }
+ }
+ 
+-- 
+2.50.1
+

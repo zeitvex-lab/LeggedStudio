@@ -1,0 +1,17 @@
+// Copyright (c) 2025, AgiBot Inc.
+// All rights reserved.
+
+syntax = "proto3";
+package aimdk.protocol;
+
+import public "aimdk/protocol/common/rpc.proto";
+import public "aimdk/protocol/mc/safety/collision.proto";
+
+
+/**
+ * @brief 运控安全服务
+ */
+service McSafetyService {
+  // 碰撞恢复
+  rpc CollisionRecover(CollisionRecoverRequest) returns (CommonResponse);
+}

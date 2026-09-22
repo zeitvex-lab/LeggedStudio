@@ -1,0 +1,40 @@
+aimrt:
+  git:
+    commit: 4f29b89248f6473803b1ba8881c4a1a50a71ba64
+    remote: git@github.com:Link-U-OS/aimrt.git
+    shallow_since: 1766987329 +0800
+aimrt_comm:
+  git:
+    commit: 9ec05594d2108e1d9e38579a7387a14776239f77
+    remote: git@github.com:Link-U-OS/aimrt_comm.git
+    shallow_since: 1766999499 +0800
+aimrt_protocol:
+  git:
+    commit: 03263afbbe05b224e2525c70c7ec74afb119cecc
+    remote: git@github.com:Link-U-OS/aimrt_protocol.git
+    shallow_since: 1766999620 +0800
+aimrt_sensor:
+  git:
+    commit: be30e88dc7d7582e7c1e487cdd5ad7a32ac8bce3
+    remote: git@github.com:Link-U-OS/aimrt_sensor.git
+    shallow_since: 1767170156 +0800
+aimrt_health_monitor:
+  git:
+    commit: 5c5515fde80d37e7302e119b7b900fac74555433
+    remote: git@github.com:Link-U-OS/aimrt_health_monitor.git
+    shallow_since: 1766999550 +0800
+aimrt_viz:
+  git:
+    commit: ec9e4c67d100b554c29b0a189fa2354f27caf233
+    remote: git@github.com:Link-U-OS/aimrt_viz.git
+    shallow_since: 1767074547 +0800
+aimrt_process_manager:
+  git:
+    commit: f7611ad2eeaf56a20ef6ee3fb23c6c3e3c815955
+    remote: git@github.com:Link-U-OS/aimrt_process_manager.git
+    shallow_since: 1766999581 +0800
+com_github_mvukov_rules_ros2:
+  git:
+    commit: cfc47340bc07a9760d1c12788a6846e8d9ebbe63
+    remote: git@github.com:Link-U-OS/rules_ros2.git
+    shallow_since: 1766977162 +0800

@@ -1,0 +1,12 @@
+aimrt:
+  module: # 模块配置
+    pkgs: # 要加载的动态库配置
+      - path: libexample-use_pkg_mode.so # so/dll地址
+        disable_module: [] # 此动态库中要屏蔽的模块名称。默认全部加载
+
+MyModule1:
+  x: 11
+  z: 33
+
+MyModule2:
+  z: 555

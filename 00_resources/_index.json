@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-09-13T09:57:12",
+ "generated_at": "2026-09-23T00:18:50",
  "spec": "_SPEC.md",
  "policy": {
   "keep": "源码/配置/文档/数据/URDF·MJCF/推理策略文件",
@@ -368,27 +368,27 @@
     "wuji_hand"
    ],
    "desc": "Farama Gymnasium-Robotics：基于 MuJoCo 的机器人环境集合（Fetch / Shadow 灵巧手 / Adroit / Franka Kitchen / MaMuJoCo / D4RL Maze）；含多目标 GoalEnv API（observation / achieved_goal / desired_goal）与 92 触点触觉观测——灵巧手操作任务、目标条件观测与迷宫导航场景参考",
-   "kept": 212,
-   "kept_bytes": 1337654,
+   "kept": 199,
+   "kept_bytes": 1245690,
    "omitted": 181,
    "omitted_bytes": 308386201,
    "policy_files": 0,
    "per_category": {
     "model": 0,
     "contract": 0,
-    "training": 151,
+    "training": 139,
     "deploy": 0,
     "terrain_scene": 0,
     "motion": 0,
     "evaluation": 14,
-    "misc": 47
+    "misc": 46
    },
    "ext_top": {
     ".py": 95,
     ".xml": 59,
-    ".md": 32,
+    ".md": 20,
     ".yml": 9,
-    "(无扩展名)": 7,
+    "(无扩展名)": 6,
     ".template": 2,
     ".yaml": 1,
     ".cff": 1,
@@ -465,6 +465,52 @@
     ".toml": 1
    },
    "readme": "InstinctMJ/README.md"
+  },
+  "LainLab": {
+   "source": "00_open/LainLab",
+   "robots": [
+    "unitree_go2",
+    "unitree_g1"
+   ],
+   "desc": "LainLab：mjlab 1.6 多厂商资产/任务/部署层（go2 skills 全套 + OpenDoge 自研；Apache-2.0）",
+   "kept": 295,
+   "kept_bytes": 51449775,
+   "omitted": 303,
+   "omitted_bytes": 272315187,
+   "policy_files": 8,
+   "per_category": {
+    "model": 41,
+    "contract": 0,
+    "training": 76,
+    "deploy": 9,
+    "terrain_scene": 0,
+    "motion": 47,
+    "evaluation": 12,
+    "misc": 110
+   },
+   "ext_top": {
+    ".py": 185,
+    ".txt": 18,
+    ".xml": 16,
+    ".md": 11,
+    ".js": 8,
+    ".onnx": 8,
+    ".npz": 8,
+    "(无扩展名)": 7,
+    ".json": 5,
+    ".h": 5,
+    ".html": 4,
+    ".css": 4,
+    ".cc": 3,
+    ".yaml": 2,
+    ".bvh": 2,
+    ".csv": 2,
+    ".toml": 1,
+    ".typed": 1,
+    ".mjs": 1,
+    ".cpp": 1
+   },
+   "readme": "LainLab/README.md"
   },
   "LeggedGym-Ex": {
    "source": "00_open/LeggedGym-Ex",
@@ -591,6 +637,49 @@
    },
    "readme": "LightNav-0/README.md"
   },
+  "Link-U-OS": {
+   "source": "00_open/Link-U-OS",
+   "robots": [],
+   "desc": "Link-U OS（智元/灵犀具身智能 OS 开源版，GitHub: Link-U-OS/Link-U-OS）：面向具身智能的操作系统栈——AimRT 通信中间件（RPC/Topic，Protobuf 与 ROS2 消息双格式）、Bazel 多仓构建与 x86_64→aarch64 一键交叉编译、Docker 开发环境、AimStudio 图形化部署工具，以及基于 MuJoCo/Isaac Gym 的人形站立·行走 RL 训练-仿真验证-实机部署全链；本目录同时收下 `.gitmodules` 点名的 13 个外链子仓（rl_training / rl_deploy / aimrt / aimrt_comm / aimrt_sensor / aimrt_protocol / aimrt_viz / aimrt_process_manager / aimrt_health_monitor / aimrt_prebuilt / rules_ros2 / integration / AimStudio）",
+   "kept": 4085,
+   "kept_bytes": 23739456,
+   "omitted": 684,
+   "omitted_bytes": 455606272,
+   "policy_files": 3,
+   "per_category": {
+    "model": 33,
+    "contract": 27,
+    "training": 341,
+    "deploy": 994,
+    "terrain_scene": 8,
+    "motion": 61,
+    "evaluation": 240,
+    "misc": 2381
+   },
+   "ext_top": {
+    ".h": 557,
+    "(无扩展名)": 453,
+    ".sh": 393,
+    ".yaml": 377,
+    ".cc": 356,
+    ".md": 350,
+    ".txt": 210,
+    ".py": 194,
+    ".proto": 183,
+    ".cpp": 128,
+    ".bazel": 94,
+    ".hpp": 76,
+    ".msg": 67,
+    ".xml": 65,
+    ".build": 62,
+    ".bzl": 56,
+    ".bat": 48,
+    ".cmake": 45,
+    ".csv": 44,
+    ".ts": 31
+   },
+   "readme": "Link-U-OS/README.md"
+  },
   "MGDP": {
    "source": "00_open/MGDP",
    "robots": [
@@ -683,8 +772,8 @@
    "source": "00_open/PaddleX",
    "robots": [],
    "desc": "PaddleX 3.x：飞桨低代码视觉工具链（200+ 预训练模型 / 33 条模型产线 / 39 个单功能模块），覆盖目标检测、开集检测、语义与实例分割、关键点、OCR 与文档解析；含高性能推理、服务化与端侧部署——B 类外挂感知（目标判定 / 标志识别 / 视觉触发）与「模型产线」资源组织形态参考",
-   "kept": 3037,
-   "kept_bytes": 22198695,
+   "kept": 2957,
+   "kept_bytes": 21666809,
    "omitted": 0,
    "omitted_bytes": 0,
    "policy_files": 0,
@@ -692,26 +781,26 @@
     "model": 61,
     "contract": 1,
     "training": 669,
-    "deploy": 1616,
+    "deploy": 1537,
     "terrain_scene": 0,
     "motion": 17,
     "evaluation": 62,
-    "misc": 611
+    "misc": 610
    },
    "ext_top": {
     ".py": 1248,
     ".yaml": 652,
-    ".cc": 331,
     ".md": 326,
-    ".h": 257,
+    ".cc": 295,
+    ".h": 219,
     ".txt": 86,
     ".cmake": 31,
     ".sh": 23,
     ".in": 17,
     ".pbtxt": 17,
-    "(无扩展名)": 11,
-    ".cu": 11,
+    "(无扩展名)": 10,
     ".yml": 7,
+    ".cu": 6,
     ".html": 4,
     ".toml": 3,
     ".jinja": 3,
@@ -818,6 +907,38 @@
     ".txt": 1
    },
    "readme": "deep_robotics_model/README.md"
+  },
+  "engineai_rl_workspace": {
+   "source": "00_open/engineai_rl_workspace",
+   "robots": [],
+   "desc": "EngineAI RL Workspace（深圳众擎机器人；GitHub 上可访问的快照为 MeredithRowe/engineai_rl_workspace 的 community 分支，上游 engineai-robotics/engineai_rl_workspace 已不可公开访问）：通用腿足 RL 框架（engineai_gym 环境 / engineai_rl 算法·网络·runner / engineai_rl_workspace 实验与脚本 / engineai_rl_lib 参考状态），训练与播放共用一套 runner 逻辑、run 记录与代码快照可复现、.pt→.onnx/.mnn 格式转换；含 PM01/SA01 双足与 quadruped 资产、actuator_nets 执行器网络",
+   "kept": 196,
+   "kept_bytes": 1474298,
+   "omitted": 92,
+   "omitted_bytes": 116496793,
+   "policy_files": 1,
+   "per_category": {
+    "model": 14,
+    "contract": 0,
+    "training": 101,
+    "deploy": 1,
+    "terrain_scene": 2,
+    "motion": 17,
+    "evaluation": 0,
+    "misc": 61
+   },
+   "ext_top": {
+    ".py": 158,
+    ".json": 13,
+    ".urdf": 8,
+    "(无扩展名)": 6,
+    ".txt": 5,
+    ".yaml": 3,
+    ".toml": 1,
+    ".pt": 1,
+    ".xml": 1
+   },
+   "readme": "engineai_rl_workspace/README.md"
   },
   "fan_rlsar": {
    "source": "00_open/fan_rlsar",
@@ -1045,8 +1166,8 @@
     ".yml": 10,
     ".frag": 9,
     ".vert": 9,
-    ".geom": 6,
     ".json": 6,
+    ".geom": 6,
     ".sdf": 5,
     ".html": 3,
     ".yaml": 2,
@@ -1371,6 +1492,34 @@
    },
    "readme": "him_dog/README.md"
   },
+  "humanoid-gym": {
+   "source": "00_open/humanoid-gym",
+   "robots": [],
+   "desc": "roboterax/humanoid-gym：人形（XBot-L）RL 训练 + Sim2Real 工程（`humanoid/` 下的 envs / algorithms / scripts 与 reward、terrain 组织、参考动作）；EngineAI RL Workspace 自述其 reward 与 terrain 生成部分受该库启发 ⇒ 人形任务的奖励/地形写法对照源",
+   "kept": 33,
+   "kept_bytes": 2551187,
+   "omitted": 89,
+   "omitted_bytes": 27996979,
+   "policy_files": 1,
+   "per_category": {
+    "model": 2,
+    "contract": 0,
+    "training": 9,
+    "deploy": 2,
+    "terrain_scene": 2,
+    "motion": 1,
+    "evaluation": 0,
+    "misc": 17
+   },
+   "ext_top": {
+    ".py": 26,
+    "(无扩展名)": 3,
+    ".xml": 2,
+    ".pt": 1,
+    ".urdf": 1
+   },
+   "readme": "humanoid-gym/README.md"
+  },
   "humanoid-motion-planning": {
    "source": "00_open/humanoid-motion-planning",
    "robots": [
@@ -1525,6 +1674,35 @@
     ".cc": 3
    },
    "readme": "lain_job/README.md"
+  },
+  "legged_gym": {
+   "source": "00_open/legged_gym",
+   "robots": [],
+   "desc": "leggedrobotics/legged_gym：腿足 RL 训练的**上游范式**（`legged_robot` / `legged_robot_config` / `_get_envs` 任务注册 / `terrain` 生成 / MDP 组织），本库多个训练工程 （go2_rl_gym / LeggedGym-Ex / gym_ex / HIMLoco / EngineAI RL Workspace …）的共同祖先 —— 用于回答\"某个写法/约定是哪来的\"，并与各分支做差异对照",
+   "kept": 41,
+   "kept_bytes": 320708,
+   "omitted": 73,
+   "omitted_bytes": 42886758,
+   "policy_files": 1,
+   "per_category": {
+    "model": 8,
+    "contract": 0,
+    "training": 12,
+    "deploy": 1,
+    "terrain_scene": 2,
+    "motion": 0,
+    "evaluation": 1,
+    "misc": 17
+   },
+   "ext_top": {
+    ".py": 23,
+    ".txt": 9,
+    ".urdf": 4,
+    "(无扩展名)": 3,
+    ".pt": 1,
+    ".md": 1
+   },
+   "readme": "legged_gym/README.md"
   },
   "legged_sim": {
    "source": "00_open/legged_sim",
@@ -2004,8 +2182,8 @@
     ".sh": 2,
     ".json": 1,
     ".pixi": 1,
-    ".rviz": 1,
-    ".h": 1
+    ".h": 1,
+    ".rviz": 1
    },
    "readme": "mujoco_ros2_control/README.md"
   },
@@ -2285,6 +2463,33 @@
     ".md": 1
    },
    "readme": "rl_training/README.md"
+  },
+  "robo_know": {
+   "source": "00_open/robo_know",
+   "robots": [],
+   "desc": "Robotics Tutorial 知识库：28 章 RL 运控教程（观测/动作/奖励/算法/仿真/部署全链，含 mjlab+Isaac Lab 双框架对比）",
+   "kept": 437,
+   "kept_bytes": 48530569,
+   "omitted": 1,
+   "omitted_bytes": 115,
+   "policy_files": 0,
+   "per_category": {
+    "model": 4,
+    "contract": 0,
+    "training": 1,
+    "deploy": 9,
+    "terrain_scene": 0,
+    "motion": 4,
+    "evaluation": 1,
+    "misc": 418
+   },
+   "ext_top": {
+    ".md": 431,
+    "(无扩展名)": 3,
+    ".yml": 2,
+    ".py": 1
+   },
+   "readme": "robo_know/README.md"
   },
   "robo_re": {
    "source": "00_open/robo_re",
@@ -3403,6 +3608,7 @@
     "unilab_new",
     "uni_rl",
     "lain_job",
+    "LainLab",
     "kaiwu_rl",
     "mjswan",
     "parkour_mjlab",
@@ -3488,6 +3694,7 @@
     "unilab_new",
     "uni_rl",
     "lain_job",
+    "LainLab",
     "kaiwu_rl",
     "mjswan",
     "mujoco_playground",

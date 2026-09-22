@@ -1,0 +1,22 @@
+@forward 'element-plus/theme-chalk/src/common/var.scss' with (
+  $colors: (
+    'primary': (
+      'base': #2f54eb
+    ),
+    'success': (
+      'base': #21ba45
+    ),
+    'warning': (
+      'base': #cd7b02
+    ),
+    'danger': (
+      'base': #e02e1b
+    ),
+    'error': (
+      'base': #e02e1b
+    )
+  )
+);
+
+// 必须导入 Element Plus 的样式源文件
+@use 'element-plus/theme-chalk/src/index' as *;

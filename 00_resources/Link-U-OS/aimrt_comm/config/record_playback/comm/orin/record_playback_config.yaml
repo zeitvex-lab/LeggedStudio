@@ -1,0 +1,45 @@
+aimrte:
+  rpc:
+    servers_options:
+      - !!new+override
+        func_name: "(.*)"
+        enable_backends: [local, http, ros2]
+    clients_options:
+      - !!new+override
+        func_name: "(.*)"
+        enable_backends: [local, http]
+  channel:
+    backends:
+      - type: ros2
+        options:
+          sub_topics_options:
+            - !!new+override
+              topic_name: "/map"
+              use_serialized: true
+              qos:
+                reliability: reliable
+                durability: transient_local
+            - !!new+override
+              topic_name: "/map_updates"
+              use_serialized: true
+              qos:
+                reliability: reliable
+                durability: transient_local
+            - !!new+override
+              topic_name: "/costmap_update_map"
+              use_serialized: true
+              qos:
+                reliability: reliable
+                durability: transient_local
+            - !!new+override
+              topic_name: "/dbg_static_map"
+              use_serialized: true
+              qos:
+                reliability: reliable
+                durability: transient_local
+            - !!new+override
+              topic_name: "/tf_static"
+              use_serialized: true
+              qos:
+                reliability: reliable
+                durability: transient_local

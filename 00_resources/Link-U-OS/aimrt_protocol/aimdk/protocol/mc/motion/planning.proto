@@ -1,0 +1,150 @@
+// Copyright (c) 2025, AgiBot Inc.
+// All rights reserved.
+
+syntax = "proto3";
+package aimdk.protocol;
+
+import public "aimdk/protocol/common/scalar_trajectory.proto";
+import public "aimdk/protocol/common/rpc.proto";
+import public "aimdk/protocol/common/se3_pose.proto";
+import public "aimdk/protocol/common/joint.proto";
+import public "aimdk/protocol/mc/common/planning.proto";
+import public "aimdk/protocol/mc/motion/motion_param.proto";
+import public "aimdk/protocol/hal/hand/hand.proto";
+
+message PlanningMoveObjectInfo {
+  enum GeometryType {
+    UNKNOWN = 0;
+    BOX = 1;
+    CYLINDER = 2;
+    SPHERE = 3;
+  }
+
+  string name = 1;
+  SE3Pose pose = 2;
+  GeometryType type = 3;
+  string parent_frame = 4;
+}
+
+message PlanningTarget {
+  enum Type {
+    UNKNOWN = 0;
+    SE3 = 1;
+    JOINT = 2;
+    EE = 3;
+  }
+
+  Type type = 1;
+  SE3Pose left = 2;
+  SE3Pose right = 3;
+  repeated double joints = 4;
+}
+
+message PlanningReference {
+  // 参考的关节角度，数量需要与group的关节数量一致
+  repeated double joint_position = 1;
+  ScalarTrajectory trajectory = 9;
+}
+
+enum InteractiveMotionType {
+  None = 0;
+  HandShake = 1;
+  FistBump = 2;
+  FreeMove = 3;
+}
+
+message PlanningMoveRequest {
+  // 请求头
+  RequestHeader header = 1;
+
+  McPlanningWorldModel world_model = 2;
+
+  // 规划组
+  McPlanningGroup group = 3;
+
+  // 模式
+  McPlanningMode mode = 4;
+
+  // 目标位置
+  PlanningTarget target = 5;
+
+  // 多目标位置
+  repeated PlanningTarget targets = 6;
+
+  // 参考位置
+  PlanningReference reference = 7;
+
+  PlanningMoveObjectInfo obj_info = 8;
+
+  // 运动参数
+  MotionParam param = 9;
+}
+
+message InteractiveMoveRequest {
+  // 请求头
+  RequestHeader header = 1;
+
+  // 交互动作类型
+  InteractiveMotionType type = 2;
+
+  // 规划组
+  McPlanningGroup group = 3;
+
+  // 目标位置
+  PlanningTarget target = 4;
+
+  // 多目标位置
+  repeated PlanningTarget targets = 5;
+
+  // 参考位置
+  PlanningReference reference = 6;
+
+  // 手部控制
+  HandCommand hand = 7;
+}
+
+message ComputeKinematicsRequest {
+  // 请求头
+  RequestHeader header = 1;
+
+  // 规划组
+  McPlanningGroup group = 2;
+
+  // 目标位置
+  PlanningTarget target = 3;
+
+  // 参考位置
+  PlanningReference reference = 4;
+}
+
+message ComputeKinematicsResponse {
+  // 响应头
+  ResponseHeader header = 1;
+
+  bool success_flag = 2;
+
+  // 规划的轨迹
+  ScalarTrajectory ik_results = 3;
+}
+
+// 主动动作暂停/继续rpc
+message ActiveMotionControlRequest {
+  // 请求头
+  RequestHeader header = 1;
+
+  // control_flag: 0继续； 1暂停；
+  bool control_flag = 2;
+
+}
+
+
+message TempPlanningMoveResponse {
+  // 响应头
+  ResponseHeader header = 1;
+
+  uint64 task_id = 2;
+  CommonState state = 3;
+
+  // 规划的轨迹
+  ScalarTrajectory trajectory = 4;
+}

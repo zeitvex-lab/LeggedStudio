@@ -1,0 +1,58 @@
+load(
+    "@com_github_mvukov_rules_ros2//ros2:interfaces.bzl",
+    "cpp_ros2_interface_library",
+    "ros2_interface_library",
+)
+
+ros2_interface_library(
+    name = "nav2_msgs",
+    srcs = glob([
+        "nav2_msgs/msg/Costmap.msg",
+        "nav2_msgs/msg/CostmapMetaData.msg",
+        "nav2_msgs/msg/CostmapFilterInfo.msg",
+        "nav2_msgs/msg/SpeedLimit.msg",
+        "nav2_msgs/msg/VoxelGrid.msg",
+        "nav2_msgs/msg/BehaviorTreeStatusChange.msg",
+        "nav2_msgs/msg/BehaviorTreeLog.msg",
+        "nav2_msgs/msg/Particle.msg",
+        "nav2_msgs/msg/ParticleCloud.msg",
+        "nav2_msgs/srv/GetCostmap.srv",
+        "nav2_msgs/srv/IsPathValid.srv",
+        "nav2_msgs/srv/ClearCostmapExceptRegion.srv",
+        "nav2_msgs/srv/ClearCostmapAroundRobot.srv",
+        "nav2_msgs/srv/ClearEntireCostmap.srv",
+        "nav2_msgs/srv/ManageLifecycleNodes.srv",
+        "nav2_msgs/srv/LoadMap.srv",
+        "nav2_msgs/srv/SaveMap.srv",
+        "nav2_msgs/srv/SetInitialPose.srv",
+        "nav2_msgs/action/AssistedTeleop.action",
+        "nav2_msgs/action/BackUp.action",
+        "nav2_msgs/action/ComputePathToPose.action",
+        "nav2_msgs/action/ComputePathThroughPoses.action",
+        "nav2_msgs/action/DriveOnHeading.action",
+        "nav2_msgs/action/SmoothPath.action",
+        "nav2_msgs/action/FollowPath.action",
+        "nav2_msgs/action/NavigateToPose.action",
+        "nav2_msgs/action/NavigateThroughPoses.action",
+        "nav2_msgs/action/Wait.action",
+        "nav2_msgs/action/Spin.action",
+        "nav2_msgs/action/DummyBehavior.action",
+        "nav2_msgs/action/FollowWaypoints.action",
+    ]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "@ros2_rcl_interfaces//:builtin_interfaces",
+        "@ros2_common_interfaces//:geometry_msgs",
+        "@ros2_common_interfaces//:std_msgs",
+        "@ros2_rcl_interfaces//:action_msgs",
+        "@ros2_common_interfaces//:nav_msgs",
+    ],
+)
+
+cpp_ros2_interface_library(
+    name = "cpp_nav2_msgs",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":nav2_msgs",
+    ],
+)

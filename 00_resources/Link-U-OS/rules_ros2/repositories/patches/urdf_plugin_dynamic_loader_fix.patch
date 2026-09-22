@@ -1,0 +1,279 @@
+From bf6b5286133f426a8bb574c2acaa2d0d545bd6b5 Mon Sep 17 00:00:00 2001
+From: ggmsunshine <250811275+ggmsunshine@users.noreply.github.com>
+Date: Fri, 9 May 2025 20:56:31 +0800
+Subject: [PATCH] fix urdf plugin
+
+---
+ urdf/include/urdf/model.h       |  7 +--
+ urdf/include/urdf/urdf_plugin.h | 83 +++++++++++++++++++++++++++++++
+ urdf/src/model.cpp              | 87 ++++++++++++---------------------
+ urdf/src/urdf_plugin.cpp        |  5 ++
+ 4 files changed, 120 insertions(+), 62 deletions(-)
+ create mode 100644 urdf/include/urdf/urdf_plugin.h
+
+diff --git a/urdf/include/urdf/model.h b/urdf/include/urdf/model.h
+index b8e4282..538cdbf 100644
+--- a/urdf/include/urdf/model.h
++++ b/urdf/include/urdf/model.h
+@@ -53,10 +53,7 @@ class ModelImplementation;
+ 
+ /// \brief Populates itself based on a robot descripton
+ ///
+-/// This class uses `urdf_parser_plugin` to parse the given robot description.
+-/// The chosen plugin is the one that reports the most confident score.
+-/// There is no way to override this choice except by uninstalling undesirable
+-/// parser plugins.
++/// This class uses a statically compiled XML parser to parse the given robot description.
+ class Model : public ModelInterface
+ {
+ public:
+@@ -81,4 +78,4 @@ private:
+ 
+ }  // namespace urdf
+ 
+-#endif  // URDF__MODEL_H_
++#endif  // URDF__MODEL_H_
+\ No newline at end of file
+diff --git a/urdf/include/urdf/urdf_plugin.h b/urdf/include/urdf/urdf_plugin.h
+new file mode 100644
+index 0000000..6112419
+--- /dev/null
++++ b/urdf/include/urdf/urdf_plugin.h
+@@ -0,0 +1,83 @@
++/*********************************************************************
++* Software License Agreement (BSD License)
++*
++*  Copyright (c) 2020, Open Source Robotics Foundation, Inc.
++*  All rights reserved.
++*
++*  Redistribution and use in source and binary forms, with or without
++*  modification, are permitted provided that the following conditions
++*  are met:
++*
++*   * Redistributions of source code must retain the above copyright
++*     notice, this list of conditions and the following disclaimer.
++*   * Redistributions in binary form must reproduce the above
++*     copyright notice, this list of conditions and the following
++*     disclaimer in the documentation and/or other materials provided
++*     with the distribution.
++*   * Neither the name of the Willow Garage nor the names of its
++*     contributors may be used to endorse or promote products derived
++*     from this software without specific prior written permission.
++*
++*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
++*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
++*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
++*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
++*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
++*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++*  POSSIBILITY OF SUCH DAMAGE.
++*********************************************************************/
++
++#ifndef URDF_PLUGIN_H
++#define URDF_PLUGIN_H
++
++#include <urdf_parser_plugin/parser.h>
++#include <string>
++#include <memory>
++
++namespace urdf
++{
++
++/**
++ * @brief URDF XML解析器插件类
++ * 
++ * 该类实现了URDFParser接口，用于解析XML格式的URDF机器人描述文件
++ */
++class URDFXMLParser final : public urdf::URDFParser
++{
++public:
++  URDFXMLParser() = default;
++  ~URDFXMLParser() = default;
++
++  /**
++   * @brief 解析XML字符串为URDF模型
++   * 
++   * @param xml_string 包含URDF描述的XML字符串
++   * @return urdf::ModelInterfaceSharedPtr 解析后的模型指针
++   */
++  urdf::ModelInterfaceSharedPtr parse(const std::string & xml_string) override;
++
++  /**
++   * @brief 检查数据是否可能是URDF XML格式
++   * 
++   * @param data 要检查的数据字符串
++   * @return size_t 如果可能是URDF XML，返回"<robot"在字符串中的位置；
++   *                如果确定是XML但不是URDF，返回字符串长度
++   */
++  size_t might_handle(const std::string & data) override;
++};
++
++/**
++ * @brief 创建URDF XML解析器的工厂函数
++ * 
++ * @return std::shared_ptr<URDFParser> 创建的解析器实例
++ */
++std::shared_ptr<URDFParser> createURDFXMLParser();
++
++}  // namespace urdf
++
++#endif  // URDF_PLUGIN_H
+\ No newline at end of file
+diff --git a/urdf/src/model.cpp b/urdf/src/model.cpp
+index 0817ea1..a5e5140 100644
+--- a/urdf/src/model.cpp
++++ b/urdf/src/model.cpp
+@@ -45,7 +45,8 @@
+ #include <vector>
+ 
+ #include "urdf_parser_plugin/parser.h"
+-#include "pluginlib/class_loader.hpp"
++#include "urdf_parser/urdf_parser.h"
++#include "urdf/urdf_plugin.h"
+ 
+ // Windows has preprocessor defines for "max", which conflicts with
+ // several things (one of them being std::numeric_limits<T>::max()).  Since
+@@ -55,25 +56,32 @@
+ #undef max
+ #endif
+ 
++// namespace urdf {
++// std::shared_ptr<URDFParser> createURDFXMLParser();
++// }
++
+ namespace urdf
+ {
+ class ModelImplementation final
+ {
+ public:
+-  ModelImplementation()
+-  : loader_("urdf_parser_plugin", "urdf::URDFParser")
+-  {
+-  }
+-
++  ModelImplementation() = default;
+   ~ModelImplementation() = default;
+ 
+-  pluginlib::UniquePtr<urdf::URDFParser> load_plugin(const std::string & plugin_name);
+-
+-  // Loader used to get plugins
+-  pluginlib::ClassLoader<urdf::URDFParser> loader_;
++  // 静态创建 XML 解析器
++  std::shared_ptr<urdf::URDFParser> createXmlParser();
+ };
+ 
+ 
++
++// 创建 XML 解析器的静态方法
++std::shared_ptr<urdf::URDFParser> ModelImplementation::createXmlParser()
++{
++  // 使用工厂函数创建解析器
++  return urdf::createURDFXMLParser();
++}
++
++
+ Model::Model()
+ : impl_(new ModelImplementation)
+ {
+@@ -104,59 +112,24 @@ bool Model::initFile(const std::string & filename)
+   }
+ }
+ 
+-pluginlib::UniquePtr<urdf::URDFParser>
+-ModelImplementation::load_plugin(const std::string & plugin_name)
+-{
+-  pluginlib::UniquePtr<urdf::URDFParser> plugin_instance;
+-  try {
+-    plugin_instance = loader_.createUniqueInstance(plugin_name);
+-  } catch (const pluginlib::CreateClassException &) {
+-    fprintf(stderr, "Failed to load urdf_parser_plugin [%s]\n", plugin_name.c_str());
+-  }
+-  return plugin_instance;
+-}
+-
+ bool Model::initString(const std::string & data)
+ {
+   urdf::ModelInterfaceSharedPtr model;
+-
+-  size_t best_score = std::numeric_limits<size_t>::max();
+-  auto best_plugin = pluginlib::UniquePtr<urdf::URDFParser>{nullptr};
+-  std::string best_plugin_name;
+-
+-  // Figure out what plugins might handle this format
+-  for (const std::string & plugin_name : impl_->loader_.getDeclaredClasses()) {
+-    pluginlib::UniquePtr<urdf::URDFParser> plugin_instance = impl_->load_plugin(plugin_name);
+-    if (!plugin_instance) {
+-      // Debug mode
+-      assert(plugin_instance);
+-      // Release mode
+-      continue;
+-    }
+-    size_t score = plugin_instance->might_handle(data);
+-    if (score < best_score) {
+-      best_score = score;
+-      best_plugin = std::move(plugin_instance);
+-      best_plugin_name = plugin_name;
+-    }
+-  }
+-
+-  if (best_score >= data.size()) {
+-    // No plugin was confident ... try urdf anyways
+-    best_plugin_name = "urdf_xml_parser/URDFXMLParser";
+-    best_plugin = impl_->load_plugin(best_plugin_name);
+-  }
+-
+-  if (!best_plugin) {
+-    fprintf(stderr, "No plugin found for given robot description.\n");
++  
++  // 直接创建 XML 解析器
++  auto parser = impl_->createXmlParser();
++  
++  if (!parser) {
++    fprintf(stderr, "Failed to create XML parser for robot description.\n");
+     return false;
+   }
+-
+-  model = best_plugin->parse(data);
+-
++  
++  // 使用解析器解析数据
++  model = parser->parse(data);
++  
+   // copy data from model into this object
+   if (!model) {
+-    fprintf(stderr, "Failed to parse robot description using: %s\n", best_plugin_name.c_str());
++    fprintf(stderr, "Failed to parse robot description using XML parser.\n");
+     return false;
+   }
+ 
+@@ -167,4 +140,4 @@ bool Model::initString(const std::string & data)
+   this->root_link_ = model->root_link_;
+   return true;
+ }
+-}  // namespace urdf
++}  // namespace urdf
+\ No newline at end of file
+diff --git a/urdf/src/urdf_plugin.cpp b/urdf/src/urdf_plugin.cpp
+index 3c2f389..d209d11 100644
+--- a/urdf/src/urdf_plugin.cpp
++++ b/urdf/src/urdf_plugin.cpp
+@@ -75,6 +75,11 @@ size_t URDFXMLParser::might_handle(const std::string & data)
+   //  3) It is a URDF XML with correct XML syntax
+   return data.find("<robot");
+ }
++
++std::shared_ptr<URDFParser> createURDFXMLParser()
++{
++  return std::make_shared<URDFXMLParser>();
++}
+ }  // namespace urdf
+ 
+ #include <pluginlib/class_list_macros.hpp>  // NOLINT
+-- 
+2.34.1
+

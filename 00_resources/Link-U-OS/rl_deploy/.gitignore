@@ -1,0 +1,76 @@
+build/
+install/
+log/
+tmp/
+dist/
+
+mujoco-sim/bin/MUJOCO_LOG.TXT
+
+mujoco_sim_install/
+
+*.onnx
+*.zip
+
+.cache/
+
+# ROS/ROS2 & Catkin/Colcon
+devel/
+devel_isolated/
+build_isolated/
+install_isolated/
+
+# CMake build artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+Testing/
+CTestTestfile.cmake
+CTestCustom.cmake
+Makefile
+install_manifest.txt
+compile_commands.json
+
+# Compiled objects and binaries
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.lib
+*.so*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+*.dSYM/
+*.pdb
+*.ilk
+
+# Coverage and debug
+*.gcno
+*.gcda
+*.gcov
+*.lcov
+coverage/
+
+# Python caches and virtualenvs
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Editors/IDE
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini

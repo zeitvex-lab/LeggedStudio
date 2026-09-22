@@ -1,0 +1,36 @@
+robot_state_publisher:
+  ros__parameters:
+    publish_frequency: 60.0
+
+joint_state_publisher:
+  ros__parameters:
+    rate: 60.0
+    zeros:
+      idx01_left_hip_roll: 0.0
+      idx02_left_hip_yaw: 0.0
+      idx03_left_hip_pitch: 0.0
+      idx04_left_tarsus: 0.0
+      idx05_left_toe_pitch: 0.0
+      idx06_left_toe_roll: 0.0
+      idx07_right_hip_roll: 0.0
+      idx08_right_hip_yaw: 0.0
+      idx09_right_hip_pitch: 0.0
+      idx10_right_tarsus: 0.0
+      idx11_right_toe_pitch: 0.0
+      idx12_right_toe_roll: 0.0
+      idx13_left_arm_joint1: 0.176
+      idx14_left_arm_joint2: 1.363
+      idx15_left_arm_joint3: 0.465
+      idx16_left_arm_joint4: -0.566
+      idx17_left_arm_joint5: 1.62
+      idx18_left_arm_joint6: 0.0
+      idx19_left_arm_joint7: 0.0
+      idx20_right_arm_joint1: 0.176
+      idx21_right_arm_joint2: -1.363
+      idx22_right_arm_joint3: 0.465
+      idx23_right_arm_joint4: 0.566
+      idx24_right_arm_joint5: 1.62
+      idx25_right_arm_joint6: 0.0
+      idx26_right_arm_joint7: 0.0
+      idx27_head_joint1: 0.0
+      idx28_head_joint2: 0.0

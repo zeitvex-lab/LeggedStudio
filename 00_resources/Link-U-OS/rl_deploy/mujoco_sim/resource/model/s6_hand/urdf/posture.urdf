@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot name="ZY_hand">
+
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb_0.stl"/>
+            </geometry>
+            <material name="grey">
+                <color rgba="0.5 0.5 0.5 1"/>
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb_0.stl"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="thumb_45_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb_45.stl"/>
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb_45.stl"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="thumb_90_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb_90.stl"/>
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb_90.stl"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="thumb_126_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb_126.stl"/>
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb_126.stl"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="thumb1_22_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb1_22..stl"/>
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb1_22..stl"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="thumb_45_thumb1_22_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb_45_thumb1_22.stl"/>
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb_45_thumb1_22.stl"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="thumb1_44_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb1_44.stl"/>
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_thumb1_44.stl"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="finger_30_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_finger_30.stl"/>
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_finger_30.stl"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="finger_60_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_finger_60.stl"/>
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_finger_60.stl"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="finger_97_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_finger_97.stl"/>
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://robot_descriptions/models/s6_hand/meshes/posture/right_hand_finger_97.stl"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <!-- Fixed joints to connect all links to base_link -->
+    <joint name="thumb_45_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="thumb_45_link"/>
+    </joint>
+
+    <joint name="thumb_90_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="thumb_90_link"/>
+    </joint>
+
+    <joint name="thumb_126_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="thumb_126_link"/>
+    </joint>
+
+    <joint name="thumb1_22_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="thumb1_22_link"/>
+    </joint>
+
+    <joint name="thumb_45_thumb1_22_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="thumb_45_thumb1_22_link"/>
+    </joint>
+
+    <joint name="thumb1_44_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="thumb1_44_link"/>
+    </joint>
+
+    <joint name="finger_30_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="finger_30_link"/>
+    </joint>
+
+    <joint name="finger_60_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="finger_60_link"/>
+    </joint>
+
+    <joint name="finger_97_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="finger_97_link"/>
+    </joint>
+
+</robot>

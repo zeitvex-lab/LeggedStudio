@@ -1,0 +1,29 @@
+# Copyright (c) 2025, AgiBot Inc.
+# All rights reserved.
+
+# ----------------------------------------------------
+# request
+
+# 请求数据头
+std_msgs/Header header
+
+# 文件信息
+AudioFile file
+
+# 可选项，文件录制时长
+# 如未设置时长，默认一直录音，调用StopCaptureAudioFile或切换内外置麦时停止录音
+uint32 duration
+
+---
+
+# ----------------------------------------------------
+# response
+
+# 响应数据头
+std_msgs/Header header
+
+# 必要项，表明当前麦克风类型
+uint32 mic_source
+
+# 文件信息
+AudioFile file

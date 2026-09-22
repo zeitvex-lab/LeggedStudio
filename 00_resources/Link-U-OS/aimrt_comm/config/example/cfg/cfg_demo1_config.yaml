@@ -1,0 +1,7 @@
+aimrt:
+  plugin:
+    plugins:
+      - name: mqtt_plugin
+        options:
+          broker_addr: tcp://${MQTT_BROKER_IP}:1883
+      - name: ros2_plugin

@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package aimrt.protocols.viz_web;
+
+message ModuleDetailInfoRequest {
+  string node_name = 1;
+  string module_name = 2;
+}
+
+message ModuleBaseStaticInfo {
+  string name = 1;
+  string pkg_path = 2;
+  string log_lvl = 3;
+  string author = 4;
+  string version = 5;
+  string description = 6;
+  string cfg_path = 7;
+  uint32 options_id = 8;
+}
+
+message ModuleBaseDynamicInfo {
+}
+
+message ModuleRpcStaticInfo {
+  string func_name = 1;
+  repeated string backend = 2;
+  repeated string filters = 3;
+}
+
+message ModuleRpcDynamicInfo {
+  message ConnectedTo {
+    string node_name = 1;
+    string module_name = 2;
+    string soc = 3;
+    uint64 pid = 4;
+  }
+
+  string func_name = 1;
+  repeated ConnectedTo conneced_to = 2;
+}
+
+message ModuleChannelStaticInfo {
+  string topic = 1;
+  string msg_type = 2;
+  repeated string backend = 3;
+  repeated string filters = 4;
+}
+
+message ModuleChannelDynamicInfo {
+  message ConnectedTo {
+    string node_name = 1;
+    string module_name = 2;
+    string soc = 3;
+    uint64 pid = 4;
+  }
+  string topic = 1;
+  string msg_type = 2;
+  repeated ConnectedTo connected_to = 3;
+}
+
+message ModuleDetailStaticInfoResponse {
+  ModuleBaseStaticInfo base_info = 1;
+  repeated ModuleRpcStaticInfo server_info = 2;
+  repeated ModuleRpcStaticInfo client_info = 3;
+  repeated ModuleChannelStaticInfo sub_info = 4;
+  repeated ModuleChannelStaticInfo pub_info = 5;
+}
+
+message ModuleDetailDynamicInfoResponse {
+  ModuleBaseDynamicInfo base_info = 1;
+  repeated ModuleRpcDynamicInfo server_info = 2;
+  repeated ModuleRpcDynamicInfo client_info = 3;
+  repeated ModuleChannelDynamicInfo sub_info = 4;
+  repeated ModuleChannelDynamicInfo pub_info = 5;
+}
+
+message ModuleDetailInfoResponse {
+  ModuleDetailStaticInfoResponse module_detail_static_info = 1;
+  ModuleDetailDynamicInfoResponse module_detail_dynamic_info = 2;
+}

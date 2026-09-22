@@ -1,0 +1,181 @@
+From e63408388eed2bb2ccf54ad588d1607fdd69e209 Mon Sep 17 00:00:00 2001
+From: ggmsunshine <250811275+ggmsunshine@users.noreply.github.com>
+Date: Wed, 13 Aug 2025 17:10:38 +0800
+Subject: [PATCH] fix ros2 rmw DDS_CDR enum
+
+---
+ rmw_fastrtps_cpp/src/rmw_serialize.cpp        |  4 ++--
+ .../src/rmw_serialize.cpp                     |  4 ++--
+ .../src/TypeSupport_impl.cpp                  | 22 +++++++++----------
+ rmw_fastrtps_shared_cpp/src/rmw_publish.cpp   |  2 +-
+ rmw_fastrtps_shared_cpp/src/rmw_request.cpp   |  2 +-
+ rmw_fastrtps_shared_cpp/src/rmw_response.cpp  |  2 +-
+ 6 files changed, 18 insertions(+), 18 deletions(-)
+
+diff --git a/rmw_fastrtps_cpp/src/rmw_serialize.cpp b/rmw_fastrtps_cpp/src/rmw_serialize.cpp
+index 8689e69..05363bb 100644
+--- a/rmw_fastrtps_cpp/src/rmw_serialize.cpp
++++ b/rmw_fastrtps_cpp/src/rmw_serialize.cpp
+@@ -52,7 +52,7 @@ rmw_serialize(
+   eprosima::fastcdr::FastBuffer buffer(
+     reinterpret_cast<char *>(serialized_message->buffer), data_length);
+   eprosima::fastcdr::Cdr ser(
+-    buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN, eprosima::fastcdr::Cdr::DDS_CDR);
++    buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN, eprosima::fastcdr::CdrVersion::DDS_CDR);
+ 
+   auto ret = tss.serializeROSmessage(ros_message, ser, callbacks);
+   serialized_message->buffer_length = data_length;
+@@ -82,7 +82,7 @@ rmw_deserialize(
+   eprosima::fastcdr::FastBuffer buffer(
+     reinterpret_cast<char *>(serialized_message->buffer), serialized_message->buffer_length);
+   eprosima::fastcdr::Cdr deser(buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN,
+-    eprosima::fastcdr::Cdr::DDS_CDR);
++    eprosima::fastcdr::CdrVersion::DDS_CDR);
+ 
+   auto ret = tss.deserializeROSmessage(deser, ros_message, callbacks);
+   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
+diff --git a/rmw_fastrtps_dynamic_cpp/src/rmw_serialize.cpp b/rmw_fastrtps_dynamic_cpp/src/rmw_serialize.cpp
+index c6d28b0..8277d2b 100644
+--- a/rmw_fastrtps_dynamic_cpp/src/rmw_serialize.cpp
++++ b/rmw_fastrtps_dynamic_cpp/src/rmw_serialize.cpp
+@@ -55,7 +55,7 @@ rmw_serialize(
+     reinterpret_cast<char *>(serialized_message->buffer),
+     data_length);
+   eprosima::fastcdr::Cdr ser(
+-    buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN, eprosima::fastcdr::Cdr::DDS_CDR);
++    buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN, eprosima::fastcdr::CdrVersion::DDS_CDR);
+ 
+   auto ret = tss->serializeROSmessage(ros_message, ser, ts->data);
+   serialized_message->buffer_length = data_length;
+@@ -86,7 +86,7 @@ rmw_deserialize(
+   eprosima::fastcdr::FastBuffer buffer(
+     reinterpret_cast<char *>(serialized_message->buffer), serialized_message->buffer_length);
+   eprosima::fastcdr::Cdr deser(buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN,
+-    eprosima::fastcdr::Cdr::DDS_CDR);
++    eprosima::fastcdr::CdrVersion::DDS_CDR);
+ 
+   auto ret = tss->deserializeROSmessage(deser, ros_message, ts->data);
+   type_registry.return_message_type_support(ts);
+diff --git a/rmw_fastrtps_shared_cpp/src/TypeSupport_impl.cpp b/rmw_fastrtps_shared_cpp/src/TypeSupport_impl.cpp
+index bad85cb..e51d059 100644
+--- a/rmw_fastrtps_shared_cpp/src/TypeSupport_impl.cpp
++++ b/rmw_fastrtps_shared_cpp/src/TypeSupport_impl.cpp
+@@ -71,11 +71,11 @@ bool TypeSupport::serialize(
+   auto ser_data = static_cast<SerializedData *>(data);
+   if (ser_data->is_cdr_buffer) {
+     auto ser = static_cast<eprosima::fastcdr::Cdr *>(ser_data->data);
+-    if (payload->max_size >= ser->getSerializedDataLength()) {
+-      payload->length = static_cast<uint32_t>(ser->getSerializedDataLength());
++    if (payload->max_size >= ser->get_serialized_data_length()) {
++      payload->length = static_cast<uint32_t>(ser->get_serialized_data_length());
+       payload->encapsulation = ser->endianness() ==
+         eprosima::fastcdr::Cdr::BIG_ENDIANNESS ? CDR_BE : CDR_LE;
+-      memcpy(payload->data, ser->getBufferPointer(), ser->getSerializedDataLength());
++      memcpy(payload->data, ser->get_buffer_pointer(), ser->get_serialized_data_length());
+       return true;
+     }
+   } else {
+@@ -83,11 +83,11 @@ bool TypeSupport::serialize(
+       reinterpret_cast<char *>(payload->data),
+       payload->max_size);  // Object that manages the raw buffer.
+     eprosima::fastcdr::Cdr ser(fastbuffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN,
+-      eprosima::fastcdr::Cdr::DDS_CDR);  // Object that serializes the data.
++      eprosima::fastcdr::CdrVersion::DDS_CDR);  // Object that serializes the data.
+     if (this->serializeROSmessage(ser_data->data, ser, ser_data->impl)) {
+       payload->encapsulation = ser.endianness() ==
+         eprosima::fastcdr::Cdr::BIG_ENDIANNESS ? CDR_BE : CDR_LE;
+-      payload->length = (uint32_t)ser.getSerializedDataLength();
++      payload->length = (uint32_t)ser.get_serialized_data_length();
+       return true;
+     }
+   }
+@@ -118,7 +118,7 @@ bool TypeSupport::deserialize(
+   eprosima::fastcdr::Cdr deser(
+     fastbuffer,
+     eprosima::fastcdr::Cdr::DEFAULT_ENDIAN,
+-    eprosima::fastcdr::Cdr::DDS_CDR);
++    eprosima::fastcdr::CdrVersion::DDS_CDR);
+   return deserializeROSmessage(deser, ser_data->data, ser_data->impl);
+ }
+ 
+@@ -131,7 +131,7 @@ std::function<uint32_t()> TypeSupport::getSerializedSizeProvider(void * data)
+     {
+       if (ser_data->is_cdr_buffer) {
+         auto ser = static_cast<eprosima::fastcdr::Cdr *>(ser_data->data);
+-        return static_cast<uint32_t>(ser->getSerializedDataLength());
++        return static_cast<uint32_t>(ser->get_serialized_data_length());
+       }
+       return static_cast<uint32_t>(
+         this->getEstimatedSerializedSize(
+@@ -265,12 +265,12 @@ const TypeObject * GetCompleteObject(
+   // DDS document)
+   eprosima::fastcdr::Cdr ser(
+     fastbuffer, eprosima::fastcdr::Cdr::LITTLE_ENDIANNESS,
+-    eprosima::fastcdr::Cdr::DDS_CDR);  // Object that serializes the data.
++    eprosima::fastcdr::CdrVersion::DDS_CDR);  // Object that serializes the data.
+   payload.encapsulation = CDR_LE;
+ 
+   type_object->serialize(ser);
+   payload.length =
+-    static_cast<uint32_t>(ser.getSerializedDataLength());  // Get the serialized length
++    static_cast<uint32_t>(ser.get_serialized_data_length());  // Get the serialized length
+   MD5 objectHash;
+   objectHash.update(reinterpret_cast<char *>(payload.data), payload.length);
+   objectHash.finalize();
+@@ -341,12 +341,12 @@ const TypeObject * GetMinimalObject(
+   // DDS document)
+   eprosima::fastcdr::Cdr ser(
+     fastbuffer, eprosima::fastcdr::Cdr::LITTLE_ENDIANNESS,
+-    eprosima::fastcdr::Cdr::DDS_CDR);  // Object that serializes the data.
++    eprosima::fastcdr::CdrVersion::DDS_CDR);  // Object that serializes the data.
+   payload.encapsulation = CDR_LE;
+ 
+   type_object->serialize(ser);
+   payload.length =
+-    static_cast<uint32_t>(ser.getSerializedDataLength());  // Get the serialized length
++    static_cast<uint32_t>(ser.get_serialized_data_length());  // Get the serialized length
+   MD5 objectHash;
+   objectHash.update(reinterpret_cast<char *>(payload.data), payload.length);
+   objectHash.finalize();
+diff --git a/rmw_fastrtps_shared_cpp/src/rmw_publish.cpp b/rmw_fastrtps_shared_cpp/src/rmw_publish.cpp
+index c6033a2..42da5e4 100644
+--- a/rmw_fastrtps_shared_cpp/src/rmw_publish.cpp
++++ b/rmw_fastrtps_shared_cpp/src/rmw_publish.cpp
+@@ -94,7 +94,7 @@ __rmw_publish_serialized_message(
+   eprosima::fastcdr::FastBuffer buffer(
+     reinterpret_cast<char *>(serialized_message->buffer), serialized_message->buffer_length);
+   eprosima::fastcdr::Cdr ser(
+-    buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN, eprosima::fastcdr::Cdr::DDS_CDR);
++    buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN, eprosima::fastcdr::CdrVersion::DDS_CDR);
+   if (!ser.jump(serialized_message->buffer_length)) {
+     RMW_SET_ERROR_MSG("cannot correctly set serialized buffer");
+     return RMW_RET_ERROR;
+diff --git a/rmw_fastrtps_shared_cpp/src/rmw_request.cpp b/rmw_fastrtps_shared_cpp/src/rmw_request.cpp
+index ef4e6b4..5f71eae 100644
+--- a/rmw_fastrtps_shared_cpp/src/rmw_request.cpp
++++ b/rmw_fastrtps_shared_cpp/src/rmw_request.cpp
+@@ -124,7 +124,7 @@ __rmw_take_request(
+         auto raw_type_support = dynamic_cast<rmw_fastrtps_shared_cpp::TypeSupport *>(
+           info->response_type_support_.get());
+         eprosima::fastcdr::Cdr deser(*request.buffer_, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN,
+-          eprosima::fastcdr::Cdr::DDS_CDR);
++          eprosima::fastcdr::CdrVersion::DDS_CDR);
+         if (raw_type_support->deserializeROSmessage(
+             deser, ros_request, info->request_type_support_impl_))
+         {
+diff --git a/rmw_fastrtps_shared_cpp/src/rmw_response.cpp b/rmw_fastrtps_shared_cpp/src/rmw_response.cpp
+index 68ba417..1def512 100644
+--- a/rmw_fastrtps_shared_cpp/src/rmw_response.cpp
++++ b/rmw_fastrtps_shared_cpp/src/rmw_response.cpp
+@@ -78,7 +78,7 @@ __rmw_take_response(
+         eprosima::fastcdr::Cdr deser(
+           *response.buffer_,
+           eprosima::fastcdr::Cdr::DEFAULT_ENDIAN,
+-          eprosima::fastcdr::Cdr::DDS_CDR);
++          eprosima::fastcdr::CdrVersion::DDS_CDR);
+         if (raw_type_support->deserializeROSmessage(
+             deser, ros_response, info->response_type_support_impl_))
+         {
+-- 
+2.50.1
+

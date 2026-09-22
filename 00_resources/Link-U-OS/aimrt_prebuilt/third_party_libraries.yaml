@@ -1,0 +1,241 @@
+# 第三方库配置文件
+version: "1.0.1"
+description: "Third-party libraries inventory"
+
+libraries:
+  - name: boost
+    version: "1.82.0"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - boost-1.82.0_aarch64.tar.gz
+      - boost-1.82.0_x86_64.tar.gz
+
+  - name: curl
+    version: "7.81.0"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - curl-7.81.0_aarch64.tar.gz
+      - curl-7.81.0_x86_64.tar.gz
+
+  - name: eigen
+    version: "3.4.0"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - eigen_3.4.0_aarch64.tar.gz
+      - eigen_3.4.0_x86_64.tar.gz
+
+  - name: elfutils
+    version: "0.189"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - elfutils-0.189_aarch64.tar.gz
+      - elfutils-0.189_x86_64.tar.gz
+
+  - name: Fast-CDR
+    version: "2.2.5"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - Fast-CDR-2.2.5_aarch64.tar.gz
+      - Fast-CDR-2.2.5_x86_64.tar.gz
+
+  - name: Fast-DDS
+    version: "2.14.5"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - Fast-DDS-2.14.5_aarch64.tar.gz
+      - Fast-DDS-2.14.5_x86_64.tar.gz
+
+  - name: iceoryx
+    version: "2.95.4"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - iceoryx-2.95.4_aarch64_rc1.tar.gz
+      - iceoryx-2.95.4_x86_64_rc1.tar.gz
+
+  - name: libarchive
+    version: "3.6.2"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - libarchive-3.6.2.tar.gz
+      - libarchive-orin-4.tar.gz
+
+  - name: libunifex
+    version: "591ec09e"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - libunifex-591ec09e_aarch64.tar.gz
+      - libunifex-591ec09e_x86_64.tar.gz
+
+  - name: linux-suscall-support
+    version: "ed31caa6"
+    architectures:
+      - aarch64
+    files:
+      - linux-suscall-support-ed31caa6.tar.gz
+
+  - name: lz4
+    version: "1.10.0"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - lz4-1.10.0_aarch64.tar.gz
+      - lz4-1.10.0_x86_64.tar.gz
+
+  - name: mcap_cli
+    version: "v0.0.53"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - mcap_cli-v0.0.53_aarch64.tar.gz
+      - mcap_cli-v0.0.53_x86_64.tar.gz
+
+  - name: nghttp2
+    version: "1.62.1"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - nghttp2-1.62.1_aarch64.tar.gz
+      - nghttp2-1.62.1_x86_64.tar.gz
+
+  - name: opencv
+    version: "4.5.4"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - opencv-4.5.4_aarch64.tar.gz
+      - opencv-4.5.4_x86_64.tar.gz
+
+  - name: openssl
+    version: "3.0.2"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - openssl-3.0.2_arrch64.tar.gz
+      - openssl-3.0.2_x86_64.tar.gz
+
+  - name: opentelemetry-cpp
+    version: "1.16.1"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - opentelemetry-cpp-1.16.1_aarch64.tar.gz
+      - opentelemetry-cpp-1.16.1_x86_64.tar.gz
+
+  - name: OrbbecSDK
+    version: "1.8.3"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - OrbbecSDK-1.8.3_aarch64.tar.gz
+      - OrbbecSDK-1.8.3_x86_64.tar.gz
+
+  - name: paho.mqtt.c
+    version: "1.3.13"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - paho.mqtt.c-1.3.13_aarch64.tar.gz
+      - paho.mqtt.c-1.3.13_x86_64.tar.gz
+
+  - name: patchelf
+    version: "0.18.0"
+    architectures:
+      - x86_64
+    files:
+      - patchelf-0.18.0_x86_64.tar.gz
+
+  - name: protobuf
+    version: "30.0"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - protobuf-30.0-fix-20250630.tar.gz
+      - protobuf-30.0_test_aarch64.tar.gz
+      - protobuf-30.0_test_x86_64.tar.gz
+
+  - name: pubind11
+    version: "2.13.1"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - pubind11-2.13.1_aarch64.tar.gz
+      - pubind11-2.13.1_x86_64.tar.gz
+
+  - name: realsense
+    version: "2.55.1"
+    architectures:
+      - aarch64
+    files:
+      - realsense-2.55.1_aarch64.tar.gz
+      - realsense-2.55.1_lz_aarch64_rc1.tar.gz
+
+  - name: sqlcipher
+    version: "3.50.4"
+    architectures:
+      - x86_64
+      - aarch64
+    files:
+      - sqlcipher-3.50.4_x86_64.tar.gz
+      - sqlcipher-3.50.4_aarch64.tar.gz
+
+  - name: xz
+    version: "5.2.7"
+    architectures:
+      - x86_64
+      - aarch64
+    files:
+      - xz-5.2.7_aarch64.tar.gz
+      - xz-5.2.7_x86_64.tar.gz
+
+  - name: zenoh-c
+    version: "1.0.0.11"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - zenoh-c-1.0.0.11_aarch64.tar.gz
+      - zenoh-c-1.0.0.11_x86_64.tar.gz
+
+  - name: zstd
+    version: "1.5.7"
+    architectures:
+      - aarch64
+      - x86_64
+    files:
+      - zstd-1.5.7_aarch64.tar.gz
+      - zstd-1.5.7_x86_64.tar.gz
+
+  - name: tzcam
+    version: "20250609"
+    architectures:
+      - aarch64
+    files:
+      - tzcam_20250609_aarch64.tar.gz

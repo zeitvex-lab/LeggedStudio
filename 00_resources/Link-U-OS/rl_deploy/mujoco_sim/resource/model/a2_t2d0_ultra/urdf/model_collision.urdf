@@ -1,0 +1,1340 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com)
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+     
+<robot name="a2_t2d0_ultra">
+  <link name="base_link">
+    <inertial>
+      <origin xyz="-0.07088950 -0.00016512 0.16138088" rpy="0 0 0" />
+      <mass value="18.89945962" />
+      <inertia ixx="0.59376016" iyy="0.55503329" izz="0.18455985" ixy="0.00015891" ixz="0.00353796" iyz="-0.00043902"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>  
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/body.STL"/>
+      </geometry>
+      <material name="">
+        <color rgba="0.8 0.4 0 1" />
+      </material>
+    </visual>
+    <!-- <collision>
+      <origin rpy="0 0 0" xyz="-0.1 0.0 -0.18"/>
+      <geometry>
+        <cylinder length="1.73" radius="0.24"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.1 0.0 -0.585"/>
+      <geometry>
+        <cylinder length="0.92" radius="0.24"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- left leg -->
+  <link name="left_hip_roll">
+    <inertial>
+      <origin xyz="0.00011252 0.02130615 -0.07465143" rpy="0 0 0" />
+      <mass value="2.39059365" />
+      <inertia ixx="0.00381223" iyy="0.00368166" izz="0.00334373" ixy="-0.00000253" ixz="0.00000433" iyz="0.00019809"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_hip_roll.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx01_left_hip_roll" type = "revolute">
+    <origin xyz="-0.0808 0.105 -0.0652" rpy="0.7854 0 1.5708" />
+    <parent link="base_link" />
+    <child link="left_hip_roll" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.698" upper="0.698" effort="120" velocity="12" />
+  </joint>
+
+  <link name="left_hip_yaw">
+    <inertial>
+      <origin xyz="-0.00012288 0.01576460 0.10828703" rpy="0 0 0" />
+      <mass value="3.79911511" />
+      <inertia ixx="0.00941292" iyy="0.01442888" izz="0.00698406" ixy="0.00000766" ixz="0.00000238" iyz="-0.00055185"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_hip_yaw.STL"/>
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx02_left_hip_yaw" type = "revolute">
+    <origin xyz="0 -0.017 -0.0682" rpy="1.5708 -1.5708 0" />
+    <parent link="left_hip_roll" />
+    <child link="left_hip_yaw" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.57" upper="1.57" effort="120" velocity="12" />
+  </joint>
+
+  <link name="left_hip_pitch">
+    <inertial>
+      <origin xyz="-0.06943423 0.00469099 0.02228242" rpy="0 0 0" />
+      <mass value="5.92461880" />
+      <inertia ixx="0.01406779" iyy="0.08875802" izz="0.09356940" ixy="0.00370132" ixz="-0.00808512" iyz="0.00067639"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_hip_pitch.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.4 1 0.4 1" />
+      </material>
+    </visual>
+    <!-- <collision>
+      <origin rpy="0 0.1 0" xyz="-0.15 0 0.015"/>
+      <geometry>
+        <box size="0.45 0.2 0.17"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin rpy="0 1.5707963 0" xyz="-0.15 0 0"/>
+      <geometry>
+        <cylinder length="0.4" radius="0.11"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx03_left_hip_pitch" type = "revolute">
+    <origin xyz="0 -0.020 0.1205" rpy="1.5708 0.7854 0" />
+    <parent link="left_hip_yaw" />
+    <child link="left_hip_pitch" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.919862144" upper="0.78539815" effort="140" velocity="12" />
+  </joint>
+
+  <link name="left_tarsus">
+    <inertial>
+      <origin xyz="-0.17711952 0.00417209 0.00013325" rpy="0 0 0" />
+      <mass value="3.02166726" />
+      <inertia ixx="0.00286094" iyy="0.02537518" izz="0.02674320" ixy="-0.00112212" ixz="0.00004708" iyz="0.00001928"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_knee.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0 0.5 1 1" />
+      </material>
+    </visual>
+    <!-- <collision>
+      <origin rpy="0 0 0" xyz="-0.2 0 0"/>
+      <geometry>
+        <box size="0.38 0.12 0.08"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin rpy="0 1.5707963 0" xyz="-0.2 0.01 0"/>
+      <geometry>
+        <cylinder length="0.38" radius="0.07"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx04_left_tarsus" type = "revolute">
+    <origin xyz="-0.34 0 0" rpy="0 0 0" />
+    <parent link="left_hip_pitch" />
+    <child link="left_tarsus" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.087266461" upper="2.443460911" effort="140" velocity="12" />
+  </joint>
+
+  <link name="left_toe_pitch">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.08772028" />
+      <inertia ixx="0.00001572" iyy="0.00001128" izz="0.00001148" ixy="0.0" ixz="0.0" iyz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_toe_pitch.STL"/>
+      </geometry>
+      <material name="">
+        <color rgba="0.8 1.0 0.8 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx05_left_toe_pitch" type = "revolute">
+    <origin xyz="-0.377 0 0" rpy="0 0 0" />
+    <parent link="left_tarsus" />
+    <child link="left_toe_pitch" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.047197533" upper="0.523598767" effort="50" velocity="12" />
+  </joint>
+
+  <link name="left_toe_roll">
+    <inertial>
+      <origin xyz="-0.03898340 0.00002335 0.03167314" rpy="0 0 0" />
+      <mass value="1.21058213" />
+      <inertia ixx="0.00701152" iyy="0.00653210" izz="0.00112114" ixy="0.00000021" ixz="0.00015476" iyz="-0.00000270"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_foot.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.5 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0.0 0.0 0.0" xyz="-0.03 0.0 0.04"/>
+      <geometry>
+        <box size="0.06 0.11 0.27"/>
+      </geometry>
+    </collision> 
+  </link>
+  <joint name="idx06_left_toe_roll" type = "revolute">
+    <origin xyz="0 0 0" rpy="-1.5707963 0 0" />
+    <parent link="left_toe_pitch" />
+    <child link="left_toe_roll" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.488692182" upper="0.488692182" effort="50" velocity="12" />
+  </joint>
+
+  <link name="left_foot_site">
+    <visual>
+      <origin rpy = "0 0 0" xyz = "0 0 0" />
+      <geometry>
+        <sphere radius = "0.02" />
+      </geometry>
+      <material name = "">
+        <color rgba = "1 0 0 1" />
+        <texture filename = "" />
+      </material>
+    </visual>
+  </link>
+  <joint name="left_foot_site_fixed" type="fixed">
+    <origin xyz="-0.059 0 0.04" rpy="3.1415926 -1.5707963 0" />
+    <parent link="left_toe_roll" />
+    <child link="left_foot_site" />
+  </joint>
+
+  <joint name = "joint_left_foot_toe_left" type = "fixed">
+    <origin rpy = "0 0 0" xyz = "0.08 0.05 0" />
+    <parent link = "left_foot_site" />
+    <child link = "left_foot_toe_left" />
+  </joint>
+  <link name = "left_foot_toe_left">
+    <visual>
+        <origin rpy = "0 0 0" xyz = "0 0 0" />
+        <geometry>
+          <sphere radius = "0.02" />
+        </geometry>
+        <material name = "">
+          <color rgba = "1 0 0 1" />
+          <texture filename = "" />
+        </material>
+    </visual>
+  </link>
+  <joint name = "joint_left_foot_toe_right" type = "fixed">
+      <origin rpy = "0 0 0" xyz = "0.08 -0.05 0" />
+      <parent link = "left_foot_site" />
+      <child link = "left_foot_toe_right" />
+  </joint>
+  <link name = "left_foot_toe_right">
+      <visual>
+          <origin rpy = "0 0 0" xyz = "0 0 0" />
+          <geometry>
+            <sphere radius = "0.02" />
+          </geometry>
+          <material name = "">
+            <color rgba = "1 0 0 1" />
+            <texture filename = "" />
+          </material>
+      </visual>
+  </link>
+  <joint name = "joint_left_foot_heel_left" type = "fixed">
+    <origin rpy = "0 0 0" xyz = "-0.11 0.05 0" />
+    <parent link = "left_foot_site" />
+    <child link = "left_foot_heel_left" />
+  </joint>
+  <link name = "left_foot_heel_left">
+      <visual>
+          <origin rpy = "0 0 0" xyz = "0 0 0" />
+          <geometry>
+            <sphere radius = "0.02" />
+          </geometry>
+          <material name = "">
+            <color rgba = "1 0 0 1" />
+            <texture filename = "" />
+          </material>
+      </visual>
+  </link>
+  <joint name = "joint_left_foot_heel_right" type = "fixed">
+      <origin rpy = "0 0 0" xyz = "-0.11 -0.05 0" />
+      <parent link = "left_foot_site" />
+      <child link = "left_foot_heel_right" />
+  </joint>
+  <link name = "left_foot_heel_right">
+      <visual>
+          <origin rpy = "0 0 0" xyz = "0 0 0" />
+          <geometry>
+            <sphere radius = "0.02" />
+          </geometry>
+          <material name = "">
+            <color rgba = "1 0 0 1" />
+            <texture filename = "" />
+          </material>
+      </visual>
+  </link>
+
+  <!-- right leg -->
+  <link name="right_hip_roll">
+    <inertial>
+      <origin xyz="-0.00011252 0.02130615 -0.07465143" rpy="0 0 0" />
+      <mass value="2.39059365" />
+      <inertia ixx="0.00381223" iyy="0.00368166" izz="0.00334373" ixy="0.00000253" ixz="-0.00000433" iyz="0.00019809"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_hip_roll.STL" scale = '-1 1 1' />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx07_right_hip_roll" type = "revolute">
+    <origin xyz="-0.0808 -0.105 -0.0652" rpy="0.7854 0 1.5708" />
+    <parent link="base_link" />
+    <child link="right_hip_roll" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.698" upper="0.698" effort="120" velocity="12" />
+  </joint>
+
+  <link name="right_hip_yaw">
+    <inertial>
+      <origin xyz="-0.00012288 -0.01576460 0.10828703" rpy="0 0 0" />
+      <mass value="3.79911511" />
+      <inertia ixx="0.00941292" iyy="0.01442888" izz="0.00698406" ixy="-0.00000766" ixz="0.00000238" iyz="0.00055185"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_hip_yaw.STL" scale = '1 -1 1' />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx08_right_hip_yaw" type = "revolute">
+    <origin xyz="0 -0.017 -0.0682" rpy="1.5708 -1.5708 0" />
+    <parent link="right_hip_roll" />
+    <child link="right_hip_yaw" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.57" upper="1.57" effort="120" velocity="12" />
+  </joint>
+
+  <link name="right_hip_pitch">
+    <inertial>
+      <origin xyz="-0.06943423 0.00469099 -0.02228242" rpy="0 0 0" />
+      <mass value="5.92461880" />
+      <inertia ixx="0.01406779" iyy="0.08875802" izz="0.09356940" ixy="0.00370132" ixz="0.00808512" iyz="-0.00067639"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_hip_pitch.STL" scale = '1 1 -1' />
+      </geometry>
+      <material name="">
+        <color rgba="0.4 1 0.4 1" />
+      </material>
+    </visual>
+    <!-- <collision>
+      <origin rpy="0 -0.1 0" xyz="-0.15 0 -0.015"/>
+      <geometry>
+        <box size="0.45 0.2 0.17"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin rpy="0 1.5707963 0" xyz="-0.15 0 0"/>
+      <geometry>
+        <cylinder length="0.4" radius="0.11"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx09_right_hip_pitch" type = "revolute">
+    <origin xyz="0 0.020 0.1205" rpy="1.5708 0.7854 0" />
+    <parent link="right_hip_yaw" />
+    <child link="right_hip_pitch" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.919862144" upper="0.78539815" effort="140" velocity="12" />
+  </joint>
+
+  <link name="right_tarsus">
+    <inertial>
+      <origin xyz="-0.17711952 0.00417209 -0.00013325" rpy="0 0 0" />
+      <mass value="3.02166726" />
+      <inertia ixx="0.00286094" iyy="0.02537518" izz="0.02674320" ixy="-0.00112212" ixz="-0.00004708" iyz="-0.00001928"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_knee.STL" scale = '1 1 -1' />
+      </geometry>
+      <material name="">
+        <color rgba="0 0.5 1 1" />
+      </material>
+    </visual>
+    <!-- <collision>
+      <origin rpy="0 0 0" xyz="-0.2 0 0"/>
+      <geometry>
+        <box size="0.38 0.12 0.08"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin rpy="0 1.5707963 0" xyz="-0.2 0.01 0"/>
+      <geometry>
+        <cylinder length="0.38" radius="0.07"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx10_right_tarsus" type = "revolute">
+    <origin xyz="-0.34 0 0" rpy="0 0 0" />
+    <parent link="right_hip_pitch" />
+    <child link="right_tarsus" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.087266461" upper="2.443460911" effort="140" velocity="12" />
+  </joint>
+
+  <link name="right_toe_pitch">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.08772028" />
+      <inertia ixx="0.00001572" iyy="0.00001128" izz="0.00001148" ixy="0.0" ixz="0.0" iyz="0.0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_toe_pitch.STL" scale = '1 1 -1'/>
+      </geometry>
+      <material name="">
+        <color rgba="0.8 1.0 0.8 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx11_right_toe_pitch" type = "revolute">
+    <origin xyz="-0.377 0 0" rpy="0 0 0" />
+    <parent link="right_tarsus" />
+    <child link="right_toe_pitch" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.047197533" upper="0.523598767" effort="50" velocity="12" />
+  </joint>
+
+  <link name="right_toe_roll">
+    <inertial>
+      <origin xyz="-0.03898340 -0.00002335 0.03167314" rpy="0 0 0" />
+      <mass value="1.21058213" />
+      <inertia ixx="0.00701152" iyy="0.00653210" izz="0.00112114" ixy="-0.00000021" ixz="0.00015476" iyz="0.00000270"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_leg_foot.STL" scale = '1 -1 1' />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.5 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0.0 0.0 0.0" xyz="-0.03 0.0 0.04"/>
+      <geometry>
+        <box size="0.06 0.11 0.27"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx12_right_toe_roll" type = "revolute">
+    <origin xyz="0 0 0" rpy="-1.5707963 0 0" />
+    <parent link="right_toe_pitch" />
+    <child link="right_toe_roll" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.488692182" upper="0.488692182" effort="50" velocity="12" />
+  </joint>
+
+  <link name="right_foot_site">
+    <visual>
+      <origin rpy = "0 0 0" xyz = "0 0 0" />
+      <geometry>
+        <sphere radius = "0.02" />
+      </geometry>
+      <material name = "">
+        <color rgba = "1 0 0 1" />
+        <texture filename = "" />
+      </material>
+    </visual>
+  </link>
+  <joint name="right_foot_site_fixed" type="fixed">
+    <origin xyz="-0.059 0 0.04" rpy="3.1415926 -1.5707963 0" />
+    <parent link="right_toe_roll" />
+    <child link="right_foot_site" />
+  </joint>
+
+  <joint name = "joint_right_foot_toe_left" type = "fixed">
+    <origin rpy = "0 0 0" xyz = "0.08 0.05 0" />
+    <parent link = "right_foot_site" />
+    <child link = "right_foot_toe_left" />
+  </joint>
+  <link name = "right_foot_toe_left">
+    <visual>
+        <origin rpy = "0 0 0" xyz = "0 0 0" />
+        <geometry>
+          <sphere radius = "0.02" />
+        </geometry>
+        <material name = "">
+          <color rgba = "1 0 0 1" />
+          <texture filename = "" />
+        </material>
+    </visual>
+  </link>
+  <joint name = "joint_right_foot_toe_right" type = "fixed">
+    <origin rpy = "0 0 0" xyz = "0.08 -0.05 0" />
+    <parent link = "right_foot_site" />
+    <child link = "right_foot_toe_right" />
+  </joint>
+  <link name = "right_foot_toe_right">
+    <visual>
+        <origin rpy = "0 0 0" xyz = "0 0 0" />
+        <geometry>
+          <sphere radius = "0.02" />
+        </geometry>
+        <material name = "">
+          <color rgba = "1 0 0 1" />
+          <texture filename = "" />
+        </material>
+    </visual>
+  </link>
+  <joint name = "joint_right_foot_heel_left" type = "fixed">
+    <origin rpy = "0 0 0" xyz = "-0.11 0.05 0" />
+    <parent link = "right_foot_site" />
+    <child link = "right_foot_heel_left" />
+  </joint>
+  <link name = "right_foot_heel_left">
+      <visual>
+        <origin rpy = "0 0 0" xyz = "0 0 0" />
+        <geometry>
+          <sphere radius = "0.02" />
+        </geometry>
+        <material name = "">
+          <color rgba = "1 0 0 1" />
+          <texture filename = "" />
+        </material>
+      </visual>
+  </link>
+  <joint name = "joint_right_foot_heel_right" type = "fixed">
+    <origin rpy = "0 0 0" xyz = "-0.11 -0.05 0" />
+    <parent link = "right_foot_site" />
+    <child link = "right_foot_heel_right" />
+  </joint>
+  <link name = "right_foot_heel_right">
+    <visual>
+        <origin rpy = "0 0 0" xyz = "0 0 0" />
+        <geometry>
+          <sphere radius = "0.02" />
+        </geometry>
+        <material name = "">
+          <color rgba = "1 0 0 1" />
+          <texture filename = "" />
+        </material>
+    </visual>
+  </link>  
+
+  <!-- left arm -->
+  <link name="left_arm_link_base"/>
+  <joint name="left_arm_base_joint" type="fixed">
+    <origin rpy="1.5707963  0 0" xyz="-0.03779 0 0.3421"/>
+    <parent link="base_link"/>
+    <child link="left_arm_link_base"/>
+  </joint>
+
+  <link name="left_arm_link01">
+    <inertial>
+      <origin xyz="-0.002330 0.008782 0.032870" rpy="0 0 0" />
+      <mass value="0.276944" />
+      <inertia ixx="0.000595" iyy="0.000381" izz="0.000542" ixy="-0.000006" ixz="-0.000002" iyz="0.000053"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link01.STL" scale="1 1 1" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx13_left_arm_joint1" type = "revolute">
+    <origin xyz="-0.0 0.0 -0.191 " rpy="0 0 -1.5707963" />
+    <parent link="left_arm_link_base" />
+    <child link="left_arm_link01" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.967" upper="2.967" effort="0" velocity="0" />
+  </joint>
+
+
+  <link name="left_arm_link02">
+    <inertial>
+      <origin xyz="-0.000451 -0.051682 -0.001084" rpy="0 0 0" />
+      <mass value="2.852114" />
+      <inertia ixx="0.011984" iyy="0.002880" izz="0.011709" ixy="0.000039" ixz="0.000003" iyz="0.000140"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link02.STL"  scale="1 1 1"/>
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963 0 0" xyz="0.0 -0.12 0.0"/>
+      <geometry>
+        <cylinder length="0.28" radius="0.06"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx14_left_arm_joint2" type = "revolute">
+    <origin xyz="0 0 -0.0" rpy="1.5707963 0 0"/>
+    <parent link="left_arm_link01" />
+    <child link="left_arm_link02" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.523598767" upper="1.658062761" effort="0" velocity="0" />
+  </joint>
+
+  <link name="left_arm_link03">
+    <inertial>
+      <origin xyz="-0.000673 0.001065 0.079222" rpy="0 0 0" />
+      <mass value="1.310295" />
+      <inertia ixx="0.002030" iyy="0.002186" izz="0.001189" ixy="-0.000008" ixz="0.000005" iyz="0.000018"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link03.STL"  scale="1 1 1"/>
+      </geometry>
+      <material name="">
+        <color rgba="0.4 1 0.4 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx15_left_arm_joint3" type = "revolute">
+    <origin  rpy="1.5707963 0 0" xyz="0 -0.154 0" />
+    <parent link="left_arm_link02" />
+    <child link="left_arm_link03" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.967" upper="2.967" effort="0" velocity="0" />
+  </joint>
+
+
+  <link name="left_arm_link04">
+    <inertial>
+      <origin xyz="0.000273 -0.066853 -0.007408" rpy="0 0 0" />
+      <mass value="0.677343" />
+     <inertia ixx="0.000893" iyy="0.000508" izz="0.000767" ixy="-0.000001" ixz="-0.000002" iyz="0.000238"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link04.STL"  scale="1 1 1"/>
+      </geometry>
+      <material name="">
+        <color rgba="0.4 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963 0 0" xyz="0.0 -0.14 0.0"/>
+      <geometry>
+        <cylinder length="0.28" radius="0.06"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx16_left_arm_joint4" type = "revolute">
+    <origin xyz="0 0 0.093" rpy="-1.5707963  0  1.5707963" />
+    <parent link="left_arm_link03" />
+    <child link="left_arm_link04" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.094395067" upper="0" effort="0" velocity="0" />
+  </joint>
+
+  <link name = "left_arm_link05">
+    <inertial>
+      <origin xyz="-0.001962 -0.000002 0.071786" rpy="0 0 0" />
+      <mass value="0.260886" />
+      <inertia ixx="0.000638" iyy="0.000618" izz="0.000229" ixy="0.000000" ixz="0.000015" iyz="0.000000"/>
+    </inertial>
+    <visual name = "">
+      <origin rpy = "0.0 0.0 0.0" xyz = "0.0 0.0 0.0" />
+      <geometry>
+        <mesh filename = "package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link05.STL"  scale="1 1 1"/>
+      </geometry>
+      <material name = "">
+        <color rgba = "0 0.5 1 1.0" />
+        <texture filename = "" />
+      </material>
+    </visual>
+  </link>
+  <joint name = "idx17_left_arm_joint5" type = "revolute">
+    <origin xyz = "0  -0.103 0.0" rpy = "1.5707963 0 0"  />
+    <parent link = "left_arm_link04" />
+    <child link = "left_arm_link05" />
+    <axis xyz = "0 0 1" />
+    <limit lower = "-2.87979" upper = "2.87979" velocity = "0.0" effort = "0"/>
+  </joint>
+
+
+  <link name = "left_arm_link06">
+    <inertial>
+      <origin xyz="0.00018011 -0.00021701 0.00000000" rpy="0 0 0" />
+      <mass value="0.02504627" />
+      <inertia ixx="0.00000197" iyy="0.00000173" izz="0.00000071" ixy="0.00000000" ixz="0.00000000" iyz="0.00000000"/>
+    </inertial>
+    <visual name = "">
+      <origin rpy = "0.0 0.0 0.0" xyz = "0.0 0.0 0.0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link06.STL"  scale="1 1 1"/>
+      </geometry>
+      <material name = "">
+        <color rgba = "0.8 1.0 0.8 1" />
+        <texture filename = "" />
+      </material>
+    </visual>
+  </link>
+   <joint name = "idx18_left_arm_joint6" type = "revolute">
+    <origin xyz="-0.01 0 0.1595" rpy="-1.5707963 1.5707963 0" />
+    <parent link = "left_arm_link05" />
+    <child link = "left_arm_link06" />
+    <axis xyz = "0 0 1" />
+    <limit lower = "-0.785398" upper = "0.785398" velocity = "0.0" effort = "0" />
+  </joint>
+
+  <link name = "left_arm_link07">
+    <inertial>
+      <origin xyz="-0.01211757 -0.00009712 0.00886324" rpy="0 0 0" />
+      <mass value="0.05050219" />
+      <inertia ixx="0.00000828" iyy="0.00001140" izz="0.00001294" ixy="0.00000006" ixz="-0.00000179" iyz="0.00000004"/>
+    </inertial>
+    <visual name = "">
+      <origin rpy = "0.0 0.0 0.0" xyz = "0.0 0.0 0.0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link07.STL"  scale="1 1 1"/>
+      </geometry>
+      <material name = "">
+        <color rgba = "1 0.5 1 1" />
+        <texture filename = "" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 1.5707963 0" xyz="-0.11 0 0.01"/>
+      <geometry>
+        <cylinder length="0.17" radius="0.06"/>
+      </geometry>
+    </collision>
+    <!-- <collision>
+      <origin rpy="0 1.5707963 0" xyz="-0.15 0.0 0.0"/>
+      <geometry>
+        <cylinder length="0.24" radius="0.1"/>
+      </geometry>
+    </collision> -->
+  </link>
+  <joint name = "idx19_left_arm_joint7" type = "revolute">
+    <origin xyz="0 0 0" rpy="1.5707963 0 0" />
+    <parent link = "left_arm_link06" />
+    <child link = "left_arm_link07" />
+    <axis xyz = "0 0 1" />
+    <limit lower="-0.5236" upper="0.5236" effort="0" velocity="0" />
+  </joint>
+
+  <joint name = "left_arm_joint07_fixed" type = "fixed">
+    <origin rpy = "0 0 0" xyz = "0 0 0" />
+    <parent link = "left_arm_link07" />
+    <child link = "left_arm_end" />
+  </joint>
+  <link name = "left_arm_end">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <sphere radius = "0.02" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.5 1 1" />
+      </material>
+    </visual>
+  </link>
+
+
+  <joint name="left_wrist_motor_A_ball" type="fixed">
+    <origin xyz="0.005 0.02245 0.0245" rpy="0 -3.126778944 0" />
+    <parent link="left_arm_link05" />
+    <child link="left_wrist_motor_A" />
+  </joint>
+  <link name="left_wrist_motor_A">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_wrist_motor_A.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="left_wrist_rod_A_joint" type="fixed">
+    <origin xyz="0 0 -0.135015" rpy="0 0 0" />
+    <parent link="left_wrist_motor_A" />
+    <child link="left_wrist_rod_A" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.01199" upper="0.01204" effort="0" velocity="0" />
+  </joint>
+  <link name="left_wrist_rod_A">
+    <visual>
+      <origin xyz="0.00000369429970323472 0.00000000037888964188 -0.00627793227181139" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_wrist_rod_A.STL" scale="1 1 -1"/>
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="left_wrist_motor_B_ball" type="fixed">
+    <origin xyz="0.005 -0.02245 0.0245" rpy="0 -3.126778944 0" />
+    <parent link="left_arm_link05" />
+    <child link="left_wrist_motor_B" />
+  </joint>
+  <link name="left_wrist_motor_B">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_wrist_motor_A.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="left_wrist_rod_B_joint" type="fixed">
+    <origin xyz="0 0 -0.135015" rpy="0 0 0" />
+    <parent link="left_wrist_motor_B" />
+    <child link="left_wrist_rod_B" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.01199" upper="0.01204" effort="0" velocity="0" />
+  </joint>
+  <link name="left_wrist_rod_B">
+    <visual>
+      <origin xyz="-0.00000369429544130537 0.00000000014097240042 -0.00627793206999139" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_wrist_rod_A.STL" scale="1 1 -1"/>
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+  </link>
+
+  <!-- <joint name = "left_arm_joint07_fixed" type = "fixed">
+    <origin rpy = "0 0 0" xyz = "0 0 0" />
+    <parent link = "left_arm_link07" />
+    <child link = "left_arm_end" />
+  </joint>
+  <link name = "left_arm_end">
+    <inertial>
+      <mass value = "0.0001" />
+      <inertia ixx = "1e-07" ixy = "0.0" ixz = "0.0" iyy = "1e-07" iyz = "0.0" izz = "1e-07" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_hand.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.5 1 1" />
+      </material>
+    </visual>
+  </link> -->
+
+  <!-- right arm -->
+  <link name="right_arm_link_base"/>
+  <joint name="right_arm_base_joint" type="fixed">
+    <origin rpy="1.5707963  0 0" xyz="-0.03779 0 0.3421"/>
+    <parent link="base_link"/>
+    <child link="right_arm_link_base"/>
+  </joint>
+
+  <link name="right_arm_link01">
+    <inertial>
+      <origin xyz="-0.002330 0.008782 -0.032870" rpy="0 0 0" />
+      <mass value="0.276944" />
+      <inertia ixx="0.000595" iyy="0.000381" izz="0.000542" ixy="-0.000006" ixz="0.000002" iyz="-0.000053"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link01.STL"    scale="1 1 -1" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx20_right_arm_joint1" type = "revolute">
+    <origin xyz="-0.0 0.0 0.191 " rpy="0   0  -1.5707963" />
+    <parent link="right_arm_link_base" />
+    <child link="right_arm_link01" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.967" upper="2.967" effort="0" velocity="0" />
+  </joint>
+
+  <link name="right_arm_link02">
+    <inertial>
+      <origin xyz="-0.000451 0.051682 -0.001084" rpy="0 0 0" />
+      <mass value="2.852114" />
+      <inertia ixx="0.011984" iyy="0.002880" izz="0.011709" ixy="-0.000039" ixz="0.000003" iyz="-0.000140"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link02.STL" scale="1 -1 1"/>
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx21_right_arm_joint2" type = "revolute">
+    <origin xyz="0 0 0.0" rpy="1.5707963 0 0"/>
+    <parent link="right_arm_link01" />
+    <child link="right_arm_link02" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.658062761" upper="0.523598767" effort="0" velocity="0" />
+  </joint>
+
+
+
+  <link name="right_arm_link03">
+    <inertial>
+      <origin xyz="-0.000673 0.001065 -0.079222" rpy="0 0 0" />
+      <mass value="1.310295" />
+      <inertia ixx="0.002030" iyy="0.002186" izz="0.001189" ixy="-0.000008" ixz="-0.000005" iyz="-0.000018"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link03.STL" scale="1 1 -1"/>
+      </geometry>
+      <material name="">
+        <color rgba="0.4 1 0.4 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx22_right_arm_joint3" type = "revolute">
+    <origin xyz="0 0.154  0" rpy="1.5707963 0 0" />
+    <parent link="right_arm_link02" />
+    <child link="right_arm_link03" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.967" upper="2.967" effort="0" velocity="0" />
+  </joint>
+
+
+  <link name="right_arm_link04">
+    <inertial>
+      <origin xyz="0.000273 0.066853 -0.007408" rpy="0 0 0" />
+      <mass value="0.677343" />
+     <inertia ixx="0.000893" iyy="0.000508" izz="0.000767" ixy="0.000001" ixz="-0.000002" iyz="-0.000238"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link04.STL"  scale="1 -1 1"/>
+      </geometry>
+      <material name="">
+        <color rgba="0.4 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963 0 0" xyz="0.0 0.14 0.0"/>
+      <geometry>
+        <cylinder length="0.28" radius="0.06"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx23_right_arm_joint4" type = "revolute">
+    <origin xyz="0 0 -0.093" rpy="-1.5707963 0 1.5707963" />
+    <parent link="right_arm_link03" />
+    <child link="right_arm_link04" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="2.094395067" effort="0" velocity="0" />
+  </joint>
+
+
+ 
+  <link name = "right_arm_link05">
+    <inertial>
+      <origin xyz="-0.001962 -0.000002 -0.071786" rpy="0 0 0" />
+      <mass value="0.260886" />
+      <inertia ixx="0.000638" iyy="0.000618" izz="0.000229" ixy="0.000000" ixz="-0.000015" iyz="-0.000000"/>
+    </inertial>
+    <visual name = "">
+      <origin rpy = "0.0 0.0 0.0" xyz = "0.0 0.0 0.0" />
+      <geometry>
+        <mesh filename = "package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link05.STL" scale="1 1 -1"/>
+      </geometry>
+      <material name = "">
+        <color rgba = "0 0.5 1 1" />
+        <texture filename = "" />
+      </material>
+    </visual>
+  </link>
+  <joint name = "idx24_right_arm_joint5" type = "revolute">
+    <origin xyz = "0  0.103 0.0" rpy = "1.5707963 0 0"  />
+    <parent link = "right_arm_link04" />
+    <child link = "right_arm_link05" />
+    <axis xyz = "0 0 1" />
+    <limit lower = "-2.87979" upper = "2.87979" velocity = "0.0" effort = "0.0"/>
+  </joint>
+
+  
+  <link name = "right_arm_link06">
+    <inertial>
+      <origin xyz="-0.00018011 -0.00021701 0.00000000" rpy="0 0 0" />
+      <mass value="0.02504627" />
+      <inertia ixx="0.00000197" iyy="0.00000173" izz="0.00000071" ixy="-0.00000000" ixz="-0.00000000" iyz="0.00000000"/>
+    </inertial>
+    <visual name = "">
+      <origin rpy = "0.0 0.0 0.0" xyz = "0.0 0.0 0.0" />
+      <geometry>
+        <mesh filename = "package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link06.STL" scale="-1 1 1" />
+      </geometry>
+      <material name = "">
+        <color rgba = "0.8 1.0 0.8 1" />
+        <texture filename = "" />
+      </material>
+    </visual>
+  </link>
+  <joint name = "idx25_right_arm_joint6" type = "revolute">
+    <origin xyz="-0.01 0 -0.1595" rpy="-1.5707963 1.5707963 0" />
+    <parent link = "right_arm_link05" />
+    <child link = "right_arm_link06" />
+    <axis xyz = "0 0 1" />
+    <limit lower = "-0.785398" upper = "0.785398" velocity = "0.0" effort = "0.0"/>
+  </joint>
+
+  
+  <link name = "right_arm_link07">
+    <inertial>
+      <origin xyz="0.01211757 -0.00009712 0.00886324" rpy="0 0 0" />
+      <mass value="0.05050219" />
+      <inertia ixx="0.00000828" iyy="0.00001140" izz="0.00001294" ixy="-0.00000006" ixz="0.00000179" iyz="0.00000004"/>
+    </inertial>
+    <visual name = "">
+      <origin rpy = "0.0 0.0 0.0" xyz = "0.0 0.0 0.0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_link07.STL" scale="-1 1 1" />
+      </geometry>
+      <material name = "">
+        <color rgba = "1 0.5 1 1" />
+        <texture filename = "" />
+      </material>
+    </visual>
+    <!-- <collision>
+      <origin rpy="0 1.5707963 0" xyz="0.1 0.02 -0.04"/>
+      <geometry>
+        <cylinder length="0.17" radius="0.08"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin rpy="0 1.5707963 0" xyz="0.11 0 0.01"/>
+      <geometry>
+        <cylinder length="0.17" radius="0.06"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name = "idx26_right_arm_joint7" type = "revolute">
+    <origin xyz="0 0 0" rpy="1.5707963 0 0" />
+    <parent link="right_arm_link06" />
+    <child link="right_arm_link07" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.5236" upper="0.5236" effort="0" velocity="0" />
+  </joint>
+
+  <joint name = "right_arm_joint07_fixed" type = "fixed">
+    <origin rpy = "0 0 0" xyz = "0 0 0" />
+    <parent link = "right_arm_link07" />
+    <child link = "right_arm_end" />
+  </joint>
+  <link name = "right_arm_end">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <sphere radius = "0.02" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.5 1 1" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="right_wrist_motor_A_ball" type="fixed">
+    <origin xyz="0.005 0.02245 -0.0245" rpy="0 -0.01481371 0" />
+    <parent link="right_arm_link05" />
+    <child link="right_wrist_motor_A" />
+  </joint>
+  <link name="right_wrist_motor_A">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_wrist_motor_A.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="right_wrist_rod_A_joint" type="fixed">
+    <origin xyz="0 0 -0.135015" rpy="0 0 0" />
+    <parent link="right_wrist_motor_A" />
+    <child link="right_wrist_rod_A" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.01199" upper="0.01204" effort="0" velocity="0" />
+  </joint>
+  <link name="right_wrist_rod_A">
+    <visual>
+      <origin xyz="0.00000369429545234862 -0.00000000014095802303 -0.00627793207000482" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_wrist_rod_A.STL" scale="1 1 -1"/>
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="right_wrist_motor_B_ball" type="fixed">
+    <origin xyz="0.005 -0.02245 -0.0245" rpy="0 -0.01481371 0" />
+    <parent link="right_arm_link05" />
+    <child link="right_wrist_motor_B" />
+  </joint>
+  <link name="right_wrist_motor_B">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_wrist_motor_A.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="right_wrist_rod_B_joint" type="fixed">
+    <origin xyz="0 0 -0.135015" rpy="0 0 0" />
+    <parent link="right_wrist_motor_B" />
+    <child link="right_wrist_rod_B" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.01199" upper="0.01204" effort="0" velocity="0" />
+  </joint>
+  <link name="right_wrist_rod_B">
+    <visual>
+      <origin xyz="-0.00000369429969338756 -0.00000000037887520898 -0.00627793227182449" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/left_arm_wrist_rod_A.STL" scale="1 1 -1"/>
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+  </link>
+
+
+  <link name="head_link01">
+    <inertial>
+      <origin xyz="-0.00154008 0.00649494 0.11627791" rpy="0 0 0" />
+      <mass value="1.39889495" />
+      <inertia ixx="0.00378192" iyy="0.00393150" izz="0.00152438" ixy="-0.00000282" ixz="0.00029671" iyz="-0.00021616"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/head_link01.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 0.4 0.4 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="idx27_head_joint1" type = "revolute">
+    <origin xyz="-0.03779 0 0.4101" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="head_link01" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.2" upper="2.2" effort="0" velocity="0" />
+  </joint>
+
+
+
+  <link name="head_link02">
+    <inertial>
+      <origin xyz="0.03256533 0.02834041 0.00009476" rpy="0 0 0" />
+      <mass value="0.65606942" />
+      <inertia ixx="0.00350189" iyy="0.00369636" izz="0.00360950" ixy="0.00039729" ixz="-0.00000150" iyz="0.00000231"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_descriptions/models/raise_a2_t2d0_flagship/meshes/head_link02.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="1 1 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="1.5707963 0 0" xyz="0.03 0.02 0.0"/>
+      <geometry>
+        <cylinder length="0.22" radius="0.11"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="idx28_head_joint2" type = "revolute">
+    <origin xyz="-0.00501 0 0.16059" rpy="1.5708 0 0" />
+    <parent link="head_link01" />
+    <child link="head_link02" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.5" upper="0.5" effort="0" velocity="0" />
+  </joint>
+
+  <!-- <link name="LeftArm"/>
+  <joint name="LeftArm_op" type="fixed">
+    <origin xyz="0 0 0" rpy="0 1.5707963 -1.5707963" />
+    <parent link="left_arm_link02" />
+    <child link="LeftArm" />
+  </joint>
+
+  <link name="RightArm"/>
+  <joint name="RightArm_op" type="fixed">
+    <origin xyz="0 0 0" rpy="0 1.5707963 1.5707963" />
+    <parent link="right_arm_link02" />
+    <child link="RightArm" />
+  </joint>
+
+  <link name="LeftForearm"/>
+  <joint name="LeftForearm_op" type="fixed">
+    <origin xyz="0 0 0" rpy="-1.5707963 0 3.1415926536" />
+    <parent link="left_arm_link04" />
+    <child link="LeftForearm" />
+  </joint>
+
+  <link name="RightForearm"/>
+  <joint name="RightForearm_op" type="fixed">
+    <origin xyz="0 0 0" rpy="1.5707963 0 3.1415926536" />
+    <parent link="right_arm_link04" />
+    <child link="RightForearm" />
+  </joint>
+
+  <link name="LeftHand"/>
+  <joint name="LeftHand_op" type="fixed">
+    <origin xyz="0 0 0" rpy="0 1.5707963 3.1415926535" />
+    <parent link="left_arm_link07" />
+    <child link="LeftHand" />
+  </joint>
+
+  <link name="RightHand"/>
+  <joint name="RightHand_op" type="fixed">
+    <origin xyz="0 0 0" rpy="0 1.5707963 0" />
+    <parent link="right_arm_link07" />
+    <child link="RightHand" />
+  </joint>
+
+  <link name="Head"/>
+  <joint name="Head_op" type="fixed">
+    <origin xyz="0 0 0" rpy="0 1.5707963 0" />
+    <parent link="head_link02" />
+    <child link="Head" />
+  </joint>
+
+  <link name="Hips"/>
+  <joint name="Hip_op" type="fixed">
+    <origin xyz="0 0 0.24" rpy="0 -0.07 0" />
+    <parent link="base_link" />
+    <child link="Hips" />
+  </joint>
+
+  <link name="LeftUpleg"/>
+  <joint name="LeftUpleg_op" type="fixed">
+    <origin xyz="0 0 0" rpy="0 -1.54 0" />
+    <parent link="left_hip_pitch" />
+    <child link="LeftUpleg" />
+  </joint>
+
+  <link name="RightUpleg"/>
+  <joint name="RightUpleg_op" type="fixed">
+    <origin xyz="0 0 0" rpy="0 -1.6 0" />
+    <parent link="right_hip_pitch" />
+    <child link="RightUpleg" />
+  </joint>
+
+  <link name="LeftLeg"/>
+  <joint name="LeftLeg_op" type="fixed">
+    <origin xyz="0 0 0" rpy="0 -1.5707963 0" />
+    <parent link="left_tarsus" />
+    <child link="LeftLeg" />
+  </joint>
+
+  <link name="RightLeg"/>
+  <joint name="RightLeg_op" type="fixed">
+    <origin xyz="0 0 0" rpy="0 -1.5707963 0" />
+    <parent link="right_tarsus" />
+    <child link="RightLeg" />
+  </joint>
+  
+  <link name="LeftFoot"/>
+  <joint name="LeftFoot_op" type="fixed">
+    <origin xyz="0 0.05 0.07" rpy="0 0 0" />
+    <parent link="left_toe_roll" />
+    <child link="LeftFoot" />
+  </joint>
+
+  <link name="RightFoot"/>
+  <joint name="RightFoot_op" type="fixed">
+    <origin xyz="0 -0.05 0.07" rpy="0 0 0" />
+    <parent link="right_toe_roll" />
+    <child link="RightFoot" />
+  </joint> -->
+
+  <link name="base_link_2">
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.09 0.0 0.15"/>
+      <geometry>
+        <cylinder length="0.56" radius="0.19"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="base_link_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="base_link_2" />
+  </joint>
+
+
+</robot>

@@ -1,0 +1,6 @@
+*~
+bazel-*
+__pycache__
+user.bazelrc
+MODULE.bazel*
+repositories/rust/rustfmt/rustfmt_wrapper_impl.sh

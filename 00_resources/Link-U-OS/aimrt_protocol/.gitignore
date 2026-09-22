@@ -1,0 +1,8 @@
+.vscode/
+.idea/
+.cache/
+
+*.dump
+bazel-*
+MODULE.bazel*
+build/

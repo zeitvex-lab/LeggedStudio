@@ -1,0 +1,32 @@
+aimrt:
+  git:
+    branch: main
+    remote: git@github.com:Link-U-OS/aimrt.git
+aimrt_comm:
+  git:
+    branch: main
+    remote: git@github.com:Link-U-OS/aimrt_comm.git
+aimrt_protocol:
+  git:
+    branch: main
+    remote: git@github.com:Link-U-OS/aimrt_protocol.git
+aimrt_sensor:
+  git:
+    branch: main
+    remote: git@github.com:Link-U-OS/aimrt_sensor.git
+aimrt_health_monitor:
+  git:
+    branch: main
+    remote: git@github.com:Link-U-OS/aimrt_health_monitor.git
+aimrt_viz:
+  git:
+    branch: main
+    remote: git@github.com:Link-U-OS/aimrt_viz.git
+aimrt_process_manager:
+  git:
+    branch: main
+    remote: git@github.com:Link-U-OS/aimrt_process_manager.git
+com_github_mvukov_rules_ros2:
+  git:
+    branch: main
+    remote: git@github.com:Link-U-OS/rules_ros2.git

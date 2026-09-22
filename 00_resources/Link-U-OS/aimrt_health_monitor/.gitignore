@@ -1,0 +1,10 @@
+.vscode/
+.idea/
+.cache/
+db/*
+*.log
+*.pyc
+build/
+cmake-build*/
+/.vs
+bazel-*

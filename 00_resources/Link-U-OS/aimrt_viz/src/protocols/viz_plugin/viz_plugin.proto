@@ -1,0 +1,246 @@
+syntax = "proto3";
+
+package aimrt.protocols.viz_plugin;
+
+message NodeBaseStaticInfo {
+  string node_name = 1;
+  string soc = 2;
+  uint64 pid = 3;
+  string aimrt_version = 4;
+  uint64 start_time_stamp_ns = 5;
+  string executable_path = 6;
+  string cfg_file_path = 7;
+}
+
+message NodeBaseDynamicInfo {
+  uint64 online_time_s = 1;
+  uint64 memory_usage_kb = 2;
+  float memory_usage_percent = 3;
+  uint64 thread_count = 4;
+  float cpu_usage_percent = 5;
+  int32 scheduler_priority = 6;
+}
+
+message ConfigurationStaticInfo {
+  string orin_cfg_file = 1;
+  string parased_cfg_file = 2;
+}
+
+message ConfigurationDynamicInfo {
+}
+
+// Plugin info
+message PluginInfoMeta {
+  string name = 1;
+  string path = 2;
+  string options = 3;
+}
+
+message PluginStaticInfo {
+  repeated PluginInfoMeta plugin_info_list = 1;
+}
+
+message PluginDynamicInfo {
+}
+
+// Executor info
+message AimrtCoreThreadInfoMeta {
+  message ThreadInfoMeta {
+    uint64 tid = 1;
+    string name = 2;
+    string thread_sched_policy = 3;
+    repeated uint32 bind_cpu = 4;
+  }
+  ThreadInfoMeta main_thread = 1;
+  ThreadInfoMeta guard_thread = 2;
+};
+
+message ExecutorInfoMeta {
+  string name = 1;
+  string type = 2;
+  bool thread_safe = 3;
+  bool support_time_schedule = 4;
+  string options = 5;
+}
+
+message ExecutorStaticInfo {
+  AimrtCoreThreadInfoMeta core_threads = 1;
+  repeated string available_executor_list = 2;
+  repeated ExecutorInfoMeta executor_info_list = 3;
+}
+
+message ExecutorDynamicInfo {
+}
+
+// Log info
+message LogBackendInfoMeta {
+  string type = 1;
+  string options = 2;
+}
+
+message LogStaticInfo {
+  string core_lvl = 1;
+  string default_module_lvl = 2;
+  repeated string reliable_log_backend_list = 3;
+  repeated LogBackendInfoMeta log_backend_info_list = 4;
+}
+
+message LogDynamicInfo {
+}
+
+// Module info
+message ModuleInfoMeta {
+  string name = 1;
+  string log_lvl = 2;
+  string pkg_path = 3;
+  string cfg_path = 4;
+  string version = 5;
+  string author = 6;
+  string description = 7;
+  string options = 8;
+}
+
+message ModuleStaticInfo {
+  repeated ModuleInfoMeta module_info_list = 1;
+}
+
+message ModuleDynamicInfo {
+}
+// Rpc info
+
+message RpcBackendInfoMeta {
+  string type = 1;
+  string options = 2;
+}
+
+message RpcClientInfoMeta {
+  string func_name = 1;
+  string req_type = 2;
+  string rsp_type = 3;
+  string req_schema = 4;
+  string rsp_schema = 5;
+  repeated string modules = 6;
+  repeated string backends = 7;
+  repeated string filters = 8;
+}
+
+message RpcServerInfoMeta {
+  string func_name = 1;
+  string req_type = 2;
+  string rsp_type = 3;
+  string req_schema = 4;
+  string rsp_schema = 5;
+  repeated string modules = 6;
+  repeated string backends = 7;
+  repeated string filters = 8;
+}
+
+message RpcStaticInfo {
+  repeated string available_client_filter_list = 1;
+  repeated string available_server_filter_list = 2;
+  repeated RpcBackendInfoMeta rpc_backend_info_list = 3;
+  repeated RpcClientInfoMeta rpc_client_info_list = 4;
+  repeated RpcServerInfoMeta rpc_server_info_list = 5;
+}
+
+message RpcDynamicInfoMeta {
+  string func_name = 1;
+  string module = 2;
+  float frequency = 3;
+  float latency_us = 4;            // latency (us)
+  float error_rate = 5;            // error rate
+  uint64 seq_num = 6;              // sequence number
+  uint64 history_seq_num = 7;      // history sequence number
+  uint64 history_error_count = 8;  // history error count
+  uint64 error_count = 9;          // error count
+}
+
+message RpcDynamicInfo {
+  repeated RpcDynamicInfoMeta client_dynamic_info_list = 1;
+  repeated RpcDynamicInfoMeta server_dynamic_info_list = 2;
+}
+
+// Channel  info
+message ChannelBackendInfoMeta {
+  string type = 1;
+  string options = 2;
+}
+
+message ChannelPubInfoMeta {
+  string topic = 1;
+  string msg_type = 2;
+  string schema = 3;
+  repeated string modules = 4;
+  repeated string backends = 5;
+  repeated string filters = 6;
+}
+
+// Channel sunscriber topic info
+message ChannelSubInfoMeta {
+  string topic = 1;
+  string msg_type = 2;
+  string schema = 3;
+  repeated string modules = 4;
+  repeated string backends = 5;
+  repeated string filters = 6;
+}
+
+message ChannelStaticInfo {
+  repeated string available_pub_filter_list = 1;
+  repeated string available_sub_filter_list = 2;
+  repeated ChannelBackendInfoMeta channel_backend_info_list = 3;
+  repeated ChannelPubInfoMeta channel_pub_info_list = 4;
+  repeated ChannelSubInfoMeta channel_sub_info_list = 5;
+}
+
+message ChannelDynamicInfoMeta {
+  string topic = 1;
+  string msg_type = 2;
+  string module = 3;
+  float frequency = 4;
+  float payload_size_speed = 5;  // bytes/s
+  uint64 history_seq_num = 6;    // history sequence number
+}
+
+message ChannelDynamicInfo {
+  repeated ChannelDynamicInfoMeta sub_dynamic_info_list = 1;
+  repeated ChannelDynamicInfoMeta pub_dynamic_info_list = 2;
+}
+
+message StaticInfo {
+  NodeBaseStaticInfo node_base_info = 1;
+  ConfigurationStaticInfo configuration_info = 2;
+  PluginStaticInfo plugin_info = 3;
+  ExecutorStaticInfo executor_info = 4;
+  LogStaticInfo log_info = 5;
+  ModuleStaticInfo module_info = 6;
+  RpcStaticInfo rpc_info = 7;
+  ChannelStaticInfo channel_info = 8;
+}
+
+message DynamicInfo {
+  NodeBaseDynamicInfo node_base_info = 1;
+  ConfigurationDynamicInfo configuration_info = 2;
+  PluginDynamicInfo plugin_info = 3;
+  ExecutorDynamicInfo executor_info = 4;
+  LogDynamicInfo log_info = 5;
+  ModuleDynamicInfo module_info = 6;
+  RpcDynamicInfo rpc_info = 7;
+  ChannelDynamicInfo channel_info = 8;
+}
+
+// Node information request message
+message NodeInfoRequest {
+  string soc = 1;
+  uint64 pid = 2;
+}
+
+// Node information response message
+message NodeInfoResponse {
+  StaticInfo static_info = 1;
+  DynamicInfo dynamic_info = 2;
+}
+
+service NodeService {
+  rpc GetNodeInfo(NodeInfoRequest) returns (NodeInfoResponse);
+}

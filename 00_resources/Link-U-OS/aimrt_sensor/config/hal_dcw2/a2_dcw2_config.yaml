@@ -1,0 +1,22 @@
+aimrt:
+  log:
+    core_lvl: Info
+    default_module_lvl: Info
+
+dcw2:
+  # color
+  color_topic_name: /aima/hal/rgbd_camera/waist_front/color
+  # color_h264_topic_name: /aima/hal/rgbd_camera/waist_front/color
+  color_frame_id: dcw2
+  color_width:  640
+  color_height: 480
+  color_fps:    10
+  color_intrinsics_path: /agibot/data/param/hal/intrinsic/waist_front_color.yaml
+
+  # depth
+  depth_topic_name: /aima/hal/rgbd_camera/waist_front/depth
+  depth_frame_id: dcw2
+  depth_width:  640
+  depth_height: 400
+  depth_fps:    10
+  depth_intrinsics_path: /agibot/data/param/hal/intrinsic/waist_front_depth.yaml

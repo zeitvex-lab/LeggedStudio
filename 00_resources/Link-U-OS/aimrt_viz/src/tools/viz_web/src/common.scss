@@ -1,0 +1,339 @@
+/**
+ * 通用样式
+ * 包含页面布局、卡片、表格、表单等组件的公共样式
+ */
+
+@use './element-ui-custom.scss' as *;
+* {
+  box-sizing: border-box;
+}
+
+/* 布局容器 */
+.page-container {
+  padding: 16px;
+  margin: 0 auto;
+}
+
+/* 卡片与头部 */
+.app-card {
+  border-radius: 8px;
+  transition: box-shadow 0.3s;
+
+  &:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    h2 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+  }
+}
+
+/* 搜索与过滤 */
+.search-area {
+  display: flex;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .search-input {
+    width: 240px;
+  }
+  .filter-select {
+    width: 160px;
+  }
+}
+
+/* 状态区域 */
+.content-empty {
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* 描述信息样式 */
+.descriptions-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #303133;
+  padding-left: 10px;
+  border-left: 10px solid #409eff;
+  margin-bottom: 20px;
+  line-height: 1.2;
+  // display: flex;
+  // align-items: center;
+
+  // &::after {
+  //   content: '';
+  //   flex: 1;
+  //   height: 2px;
+  //   margin-left: 12px;
+
+  //   background: linear-gradient(
+  //     to right,
+  //     #409eff 0%,
+  //     #409eff 20%,
+  //     rgba(64, 158, 255, 0.6) 40%,
+  //     rgba(64, 158, 255, 0.2) 60%,
+  //     rgba(64, 158, 255, 0) 100%
+  //   );
+  // }
+}
+
+.descriptions-sub-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #303133;
+  padding-left: 10px;
+  margin-bottom: 8px;
+  line-height: 1.2;
+
+  &::before {
+    content: '•'; // Unicode 圆点
+    color: #409eff;
+    margin-right: 8px;
+    font-size: 24px; // 可以调整圆点大小
+  }
+}
+
+/* el-descriptions 组件样式优化 */
+.descriptions-item {
+  margin-left: 24px;
+  margin-bottom: 36px;
+
+  /* 整体自动换行控制 */
+  :deep(.el-descriptions__body) {
+    .el-descriptions__table {
+      table-layout: fixed; // 固定表格布局
+      width: 100%;
+
+      .el-descriptions__cell {
+        padding: 12px 16px !important;
+        vertical-align: top;
+        word-break: break-all; // 强制换行
+        word-wrap: break-word; // 单词内换行
+        white-space: normal; // 允许换行
+        overflow-wrap: break-word; // 现代浏览器换行属性
+      }
+
+      // 有边框的描述列表
+      &.is-bordered .el-descriptions__cell {
+        min-width: 120px;
+        max-width: 400px; // 限制最大宽度防止过度拉伸
+      }
+    }
+  }
+
+  /* 标签样式 */
+  .el-descriptions__label {
+    font-size: 14px !important;
+    font-weight: bold;
+    color: #666666 !important;
+    min-width: 100px; // 设置标签最小宽度
+    max-width: 200px; // 限制标签最大宽度
+    word-break: break-all;
+    word-wrap: break-word;
+  }
+
+  /* 内容样式 */
+  .el-descriptions__content {
+    font-size: 14px !important;
+    color: #333333 !important;
+    min-width: 120px; // 设置内容最小宽度
+    max-width: 500px; // 限制内容最大宽度
+    word-break: break-all;
+    word-wrap: break-word;
+    line-height: 1.6;
+  }
+
+  /* 单元格间距 */
+  .el-descriptions__cell {
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+  }
+
+  /* 特殊内容处理 - 防止按钮等元素被换行影响 */
+  .el-descriptions__content {
+    .el-button,
+    .el-tag,
+    .el-link {
+      white-space: nowrap;
+      margin: 2px 4px 2px 0;
+    }
+  }
+}
+
+/* 行内描述项（间距较小） */
+.descriptions-item-inliner {
+  @extend .descriptions-item;
+  margin-bottom: 2px;
+}
+
+/* 自定义描述项样式类 */
+.descriptions-auto-wrap {
+  /* 自动换行的描述项 */
+  :deep(.el-descriptions-item__content) {
+    max-width: 300px;
+    word-break: break-all;
+    word-wrap: break-word;
+    white-space: normal;
+    line-height: 1.5;
+  }
+
+  :deep(.el-descriptions-item__label) {
+    width: 150px;
+    word-break: break-all;
+    word-wrap: break-word;
+    white-space: normal;
+  }
+}
+
+/* 长内容描述项 */
+.descriptions-long-content {
+  :deep(.el-descriptions-item__content) {
+    max-width: 500px;
+    word-break: break-all;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    line-height: 1.6;
+  }
+}
+
+/* 紧凑型描述项 */
+.descriptions-compact {
+  :deep(.el-descriptions__body) {
+    .el-descriptions__table .el-descriptions__cell {
+      padding: 8px 12px !important;
+      max-width: 250px;
+      word-break: break-all;
+      word-wrap: break-word;
+    }
+  }
+}
+
+/* 描述表格样式 */
+.descriptions-table {
+  font-size: 15px;
+  margin-bottom: 80px;
+
+  /* 表头样式 */
+  .el-table__header-wrapper th.el-table__cell {
+    background-color: #f5f7fa !important;
+    color: #7c7b7b !important;
+    font-weight: 600 !important;
+    padding: 14px 0 !important;
+    border-bottom: 1px solid #ebeef5 !important;
+  }
+
+  /* 所有单元格背景设置为白色 */
+  .el-table__body td.el-table__cell {
+    background-color: #ffffff !important;
+  }
+
+  /* 内容单元格样式 */
+  .el-table__body td.el-table__cell .cell {
+    padding-left: 14px !important;
+    padding-right: 4px !important;
+    font-weight: 400 !important;
+    line-height: 2;
+    word-break: break-all;
+    word-wrap: break-word;
+  }
+
+  /* 鼠标悬停效果 */
+  .el-table__body tr:hover > td.el-table__cell {
+    background-color: #ecf5ff !important;
+  }
+}
+
+.clickable-cell {
+  color: #23a0e3;
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover {
+    color: #66b1ff;
+    text-decoration: underline;
+  }
+}
+
+.disabled-cell {
+  color: #c0c4cc;
+  cursor: not-allowed;
+
+  &:hover {
+    color: #a8abb2;
+  }
+}
+
+/* 按钮样式 */
+.descriptions-button {
+  border: none !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  background-color: #3593e0; /* 标准蓝色 */
+}
+
+.simple-separator {
+  height: 1px;
+  background-color: #e0e0e0;
+  margin-left: 16px;
+  margin-right: 16px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.bordered-box {
+  border: 2px solid #ebeef5;
+  padding: 15px;
+  border-radius: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateX(-15px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.header-message {
+  margin-top: 50px !important;
+  z-index: 99 !important;
+}
+
+/* 响应式处理 */
+@media (max-width: 768px) {
+  .descriptions-item {
+    margin-left: 12px;
+
+    :deep(.el-descriptions__body) {
+      .el-descriptions__table .el-descriptions__cell {
+        padding: 8px 12px !important;
+        max-width: 200px;
+      }
+    }
+
+    .el-descriptions__label {
+      max-width: 120px !important;
+    }
+
+    .el-descriptions__content {
+      max-width: 250px !important;
+    }
+  }
+}

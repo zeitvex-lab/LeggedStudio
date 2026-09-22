@@ -1,0 +1,87 @@
+{
+	"global": {
+		"init_in_seq": 1,
+        "trigger_mode": 2,
+        "partial_enable":1,
+		"env" : {
+			"CAM_LOGLEVEL": "3",
+			"CAM_DRIVER_NOVERSION": "1"
+		},
+        "trig_fps": [30],
+        "offset": [0],
+        "duty_time": [1000]
+	},
+    "deserial_0": {
+        "deserial_name": "max96712",
+        "deserial_addr": "0x4b",
+        "bus_num": 9,
+        "deserial_gpio": {
+			"camerr_pin": [9, 14],
+			"trig_pin": [2, 4, 5, 7]
+		},
+        "poc": {
+            "poc_addr": "0xff",
+            "poc_map": "0x3210"
+        },
+        "lane_speed": 1500
+    },
+    "deserial_1": {
+        "deserial_name": "max96712",
+        "deserial_addr": "0x49",
+        "bus_num": 10,
+        "deserial_gpio": {
+			"camerr_pin": [9, 14],
+			"trig_pin": [2, 4, 5, 7]
+		},
+        "poc": {
+            "poc_addr": "0xff",
+            "poc_map": "0x3210"
+        },
+        "lane_speed": 1500
+    },
+    "port_0": {
+        "sensor_name": "isx031std",
+        "serial_addr": "0x41",
+        "sensor_addr": "0x11",
+        "eeprom_addr": "0x52",
+        "sensor_mode": 1,
+        "fps": 30,
+        "format": 1,
+        "width": 1920,
+        "height": 1536,
+        "extra_mode": 12,
+        "config_index": 1024,
+        "deserial_index": 1,
+        "deserial_port": 0
+    },
+    "port_1": {
+        "sensor_name": "isx031std",
+        "serial_addr": "0x42",
+        "sensor_addr": "0x12",
+        "eeprom_addr": "0x53",
+        "sensor_mode": 1,
+        "fps": 30,
+        "format": 1,
+        "width": 1920,
+        "height": 1536,
+        "extra_mode": 12,
+        "config_index": 1024,
+        "deserial_index": 1,
+        "deserial_port": 1
+    },
+    "port_2": {
+        "sensor_name": "isx031std",
+        "serial_addr": "0x43",
+        "sensor_addr": "0x13",
+        "eeprom_addr": "0x54",
+        "sensor_mode": 1,
+        "fps": 30,
+        "format": 1,
+        "width": 1920,
+        "height": 1536,
+        "extra_mode": 11,
+        "config_index": 1024,
+        "deserial_index": 1,
+        "deserial_port": 2
+    }
+}

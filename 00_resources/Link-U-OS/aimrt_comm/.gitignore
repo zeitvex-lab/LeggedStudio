@@ -1,0 +1,8 @@
+.vscode/
+.idea/
+.cache/
+.marscode/
+
+compile_commands.json
+bazel-*
+MODULE.bazel*

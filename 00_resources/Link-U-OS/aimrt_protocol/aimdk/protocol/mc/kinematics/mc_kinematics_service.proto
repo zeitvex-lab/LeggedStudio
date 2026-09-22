@@ -1,0 +1,19 @@
+// Copyright (c) 2025, AgiBot Inc.
+// All rights reserved.
+
+syntax = "proto3";
+package aimdk.protocol;
+
+import public "aimdk/protocol/mc/kinematics/kine_forward.proto";
+import public "aimdk/protocol/mc/kinematics/kine_inverse.proto";
+
+
+/**
+ * @brief 运控运动学服务
+ */
+service McKinematicsService {
+  // 向前
+  rpc KineForward(KineForwardRequest) returns (KineForwardResponse);
+  // 逆向
+  rpc KineInverse(KineInverseRequest) returns (KineInverseResponse);
+}

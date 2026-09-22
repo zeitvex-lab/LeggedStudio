@@ -1,0 +1,58 @@
+aimrte:
+  log:
+    core_lvl: Warn
+    backends:
+      - !!delete
+        type: rotate_file
+
+  executor:
+    executors:
+      - type: asio_thread
+        name: global_executor_maybe_multiple_defined
+        options:
+          thread_num: 5
+
+      - !!new 
+        type: asio_thread
+        name: new_patch_executor
+        options:
+          thread_num: 2
+
+      - !!new.never
+        type: asio_thread
+        name: never_new_patch_executor
+        options:
+          thread_num: 2
+
+      - !!new.never # 程序里没有，这里有的话，不增加
+        type: asio_thread
+        name: another_global_executor_maybe_multiple_defined
+        options:
+          thread_num: 2
+
+  rpc:
+    servers_options:
+      - func_name: pb:/aimdk.protocol.DemoService/GetLatestBall
+        enable_backends: !!override
+          - mqtt
+          - ros2
+        enable_filters:
+          - !!delete otp_simple_trace
+          - !!new otp_trace
+
+    clients_options:
+      - func_name: pb:/aimdk.protocol.DemoService/GetLatestBall
+        enable_backends:
+          - !!new mqtt
+
+  channel:
+    pub_topics_options:
+      - !!override.back
+        topic_name: /aima/heartbeat
+        enable_backends:
+          - ros2
+          - mqtt
+        enable_filters: []
+
+  main_thread: !!override
+    name: renamed_demo5

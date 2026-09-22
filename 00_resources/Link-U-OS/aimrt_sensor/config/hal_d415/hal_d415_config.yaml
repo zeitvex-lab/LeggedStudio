@@ -1,0 +1,82 @@
+aimrt:
+  log:
+    core_lvl: Info
+    default_module_lvl: Info
+
+d415:
+  enable_after_startup: true  # 启动后默认不工作
+  reinit_after_no_data_ms: 3000  # 3s收不到数据尝试重新初始化
+
+  # 需要把所有pub的topic先初始化好
+  color_topic_name: /aima/hal/rgbd_camera/head_front/color
+  depth_topic_name: /aima/hal/rgbd_camera/head_front/depth
+  color_h264_topic_name: /aima/hal/rgbd_camera/head_front/color/h264
+  color_compressed_topic_name: /aima/hal/rgbd_camera/head_front/color/compressed
+
+  # 内参
+  color_intrinsics_path: /agibot/data/param/hal/intrinsic/head_front_color.yaml
+  depth_intrinsics_path: /agibot/data/param/hal/intrinsic/head_front_depth.yaml
+
+  # 工作模式到SM状态的映射
+  default_mode: normal_mode  # 对应mode_to_cfg_map中的设置, 除了额外配置的SM状态，其他SM状态下都启动这个工作模式
+  # 特殊模式对应的SM状态
+  sm_state_to_mode_map:
+    DataCollection: high_fps_mode
+    Calibration: high_fps_mode
+    
+  # 不同模式下不同配置
+  mode_to_cfg_map:
+    normal_mode:
+      enable_device: true
+      # color
+      pub_color_topic: true
+      color_frame_id: d415
+      color_width:  1280
+      color_height: 720
+      color_fps:    15
+      # depth
+      pub_depth_topic: true
+      depth_frame_id: d415
+      depth_width:  1280
+      depth_height: 720
+      depth_fps:    15
+      # h264
+      pub_color_h264_topic: false
+      # compressed
+      pub_color_compressed_topic: false
+    high_fps_mode:
+      enable_device: true
+      # color
+      pub_color_topic: true
+      color_frame_id: d415
+      color_width:  1280
+      color_height: 720
+      color_fps:    30
+      # depth
+      pub_depth_topic: true
+      depth_frame_id: d415
+      depth_width:  1280
+      depth_height: 720
+      depth_fps:    30
+      # h264
+      pub_color_h264_topic: false
+      # compressed
+      pub_color_compressed_topic: true
+    shutdown_mode:
+      enable_device: false
+      # color
+      pub_color_topic: true
+      color_frame_id: d415
+      color_width:  1280
+      color_height: 720
+      color_fps:    15
+      # depth
+      pub_depth_topic: true
+      depth_frame_id: d415
+      depth_width:  1280
+      depth_height: 720
+      depth_fps:    15
+      # h264
+      pub_color_h264_topic: false
+      # compressed
+      pub_color_compressed_topic: false

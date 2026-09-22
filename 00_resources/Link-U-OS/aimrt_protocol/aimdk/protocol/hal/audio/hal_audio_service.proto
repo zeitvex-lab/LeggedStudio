@@ -1,0 +1,15 @@
+// Copyright (c) 2025, AgiBot Inc.
+// All rights reserved.
+
+syntax = "proto3";
+package aimdk.protocol;
+
+import public "aimdk/protocol/common/rpc.proto";
+import public "aimdk/protocol/hal/audio/audio.proto";
+
+service HalAudioService {
+    rpc PlayFile(FileRequest) returns (AudioCommonResponse);
+    rpc StopPlay(FileRequest) returns (AudioCommonResponse);
+    rpc SetAudioVolume(VolumeRequest) returns (AudioCommonResponse);
+    rpc GetAudioVolume(CommonRequest) returns (VolumeResponse);
+}

@@ -1,0 +1,406 @@
+From 23c1aeb88d77268e2b07c3dc067640f87500a6f0 Mon Sep 17 00:00:00 2001
+From: ggmsunshine <250811275+ggmsunshine@users.noreply.github.com>
+Date: Sun, 27 Apr 2025 13:48:26 +0800
+Subject: [PATCH] rosidl_typesupport_fix_support_fastrtps
+
+---
+ rosidl_typesupport_c/bin/rosidl_typesupport_c |  4 +-
+ .../rosidl_typesupport_c/type_support_map.h   |  2 +-
+ .../resource/msg__type_support.cpp.em         | 10 +--
+ .../resource/srv__type_support.cpp.em         | 10 +--
+ .../rosidl_typesupport_c/__init__.py          |  2 +-
+ .../src/type_support_dispatch.hpp             | 60 ++----------------
+ .../bin/rosidl_typesupport_cpp                |  5 +-
+ .../resource/msg__type_support.cpp.em         |  8 ++-
+ .../resource/srv__type_support.cpp.em         |  8 ++-
+ .../src/type_support_dispatch.hpp             | 61 ++-----------------
+ 10 files changed, 41 insertions(+), 129 deletions(-)
+
+diff --git a/rosidl_typesupport_c/bin/rosidl_typesupport_c b/rosidl_typesupport_c/bin/rosidl_typesupport_c
+index 7b6f80e..547547c 100644
+--- a/rosidl_typesupport_c/bin/rosidl_typesupport_c
++++ b/rosidl_typesupport_c/bin/rosidl_typesupport_c
+@@ -7,6 +7,7 @@ from rosidl_typesupport_c import generate_c
+ 
+ 
+ def main(argv=sys.argv[1:]):
++    print("argv", argv)
+     parser = argparse.ArgumentParser(
+         description='Generate the C type support to handle ROS messages.',
+         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+@@ -17,9 +18,10 @@ def main(argv=sys.argv[1:]):
+     parser.add_argument(
+         '--typesupports',
+         required=True,
+-        nargs='+',
++        action='append',
+         help='The typesupports to be used')
+     args = parser.parse_args(argv)
++    print("args", args)
+ 
+     generate_c(args.generator_arguments_file, args.typesupports)
+ 
+diff --git a/rosidl_typesupport_c/include/rosidl_typesupport_c/type_support_map.h b/rosidl_typesupport_c/include/rosidl_typesupport_c/type_support_map.h
+index 345a222..4970da4 100644
+--- a/rosidl_typesupport_c/include/rosidl_typesupport_c/type_support_map.h
++++ b/rosidl_typesupport_c/include/rosidl_typesupport_c/type_support_map.h
+@@ -15,7 +15,7 @@
+ #ifndef ROSIDL_TYPESUPPORT_C__TYPE_SUPPORT_MAP_H_
+ #define ROSIDL_TYPESUPPORT_C__TYPE_SUPPORT_MAP_H_
+ 
+-#include <cstddef>
++#include "stddef.h"
+ 
+ #ifdef __cplusplus
+ extern "C"
+diff --git a/rosidl_typesupport_c/resource/msg__type_support.cpp.em b/rosidl_typesupport_c/resource/msg__type_support.cpp.em
+index bd2e929..2f0592d 100644
+--- a/rosidl_typesupport_c/resource/msg__type_support.cpp.em
++++ b/rosidl_typesupport_c/resource/msg__type_support.cpp.em
+@@ -6,10 +6,12 @@ include_parts = [package_name] + list(interface_path.parents[0].parts) + [
+ include_base = '/'.join(include_parts)
+ 
+ header_files = [
+-    'cstddef',
++    'stddef.h',
+     'rosidl_runtime_c/message_type_support_struct.h',
+     include_base + '__struct.h',
+     include_base + '__type_support.h',
++    include_base + '__rosidl_typesupport_fastrtps_c.h',
++    include_base + '__rosidl_typesupport_introspection_c.h',
+ ]
+ if len(type_supports) != 1:
+     header_files += [
+@@ -73,13 +75,13 @@ static const _@(message.structure.namespaced_type.name)_type_support_symbol_name
+ 
+ typedef struct _@(message.structure.namespaced_type.name)_type_support_data_t
+ {
+-  void * data[@(len(type_supports))];
++  const void * data[@(len(type_supports))];
+ } _@(message.structure.namespaced_type.name)_type_support_data_t;
+ 
+ static _@(message.structure.namespaced_type.name)_type_support_data_t _@(message.structure.namespaced_type.name)_message_typesupport_data = {
+   {
+ @[for type_support in sorted(type_supports)]@
+-    0,  // will store the shared library later
++    ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(@(type_support), @(', '.join([package_name] + list(interface_path.parents[0].parts))), @(message.structure.namespaced_type.name))(),
+ @[end for]@
+   }
+ };
+@@ -89,7 +91,7 @@ static const type_support_map_t _@(message.structure.namespaced_type.name)_messa
+   "@(package_name)",
+   &_@(message.structure.namespaced_type.name)_message_typesupport_ids.typesupport_identifier[0],
+   &_@(message.structure.namespaced_type.name)_message_typesupport_symbol_names.symbol_name[0],
+-  &_@(message.structure.namespaced_type.name)_message_typesupport_data.data[0],
++  const_cast<void**>(&_@(message.structure.namespaced_type.name)_message_typesupport_data.data[0]),
+ };
+ 
+ static const rosidl_message_type_support_t @(message.structure.namespaced_type.name)_message_type_support_handle = {
+diff --git a/rosidl_typesupport_c/resource/srv__type_support.cpp.em b/rosidl_typesupport_c/resource/srv__type_support.cpp.em
+index 17ee3f3..0057c89 100644
+--- a/rosidl_typesupport_c/resource/srv__type_support.cpp.em
++++ b/rosidl_typesupport_c/resource/srv__type_support.cpp.em
+@@ -22,9 +22,11 @@ include_parts = [package_name] + list(interface_path.parents[0].parts) + [
+ include_base = '/'.join(include_parts)
+ 
+ header_files = [
+-    'cstddef',
++    'stddef.h',
+     'rosidl_runtime_c/service_type_support_struct.h',
+     include_base + '__type_support.h',
++    include_base + '__rosidl_typesupport_fastrtps_c.h',
++    include_base + '__rosidl_typesupport_introspection_c.h',
+ ]
+ if len(type_supports) != 1:
+     header_files += [
+@@ -86,13 +88,13 @@ static const _@(service.namespaced_type.name)_type_support_symbol_names_t _@(ser
+ 
+ typedef struct _@(service.namespaced_type.name)_type_support_data_t
+ {
+-  void * data[@(len(type_supports))];
++  const void * data[@(len(type_supports))];
+ } _@(service.namespaced_type.name)_type_support_data_t;
+ 
+ static _@(service.namespaced_type.name)_type_support_data_t _@(service.namespaced_type.name)_service_typesupport_data = {
+   {
+ @[for type_support in sorted(type_supports)]@
+-    0,  // will store the shared library later
++    ROSIDL_TYPESUPPORT_INTERFACE__SERVICE_SYMBOL_NAME(@(type_support), @(', '.join([package_name] + list(interface_path.parents[0].parts))), @(service.namespaced_type.name))(),
+ @[end for]@
+   }
+ };
+@@ -102,7 +104,7 @@ static const type_support_map_t _@(service.namespaced_type.name)_service_typesup
+   "@(package_name)",
+   &_@(service.namespaced_type.name)_service_typesupport_ids.typesupport_identifier[0],
+   &_@(service.namespaced_type.name)_service_typesupport_symbol_names.symbol_name[0],
+-  &_@(service.namespaced_type.name)_service_typesupport_data.data[0],
++  const_cast<void**>(&_@(service.namespaced_type.name)_service_typesupport_data.data[0]),
+ };
+ 
+ static const rosidl_service_type_support_t @(service.namespaced_type.name)_service_type_support_handle = {
+diff --git a/rosidl_typesupport_c/rosidl_typesupport_c/__init__.py b/rosidl_typesupport_c/rosidl_typesupport_c/__init__.py
+index 0839df4..ea41128 100644
+--- a/rosidl_typesupport_c/rosidl_typesupport_c/__init__.py
++++ b/rosidl_typesupport_c/rosidl_typesupport_c/__init__.py
+@@ -23,7 +23,7 @@ def generate_c(generator_arguments_file, type_supports):
+     :param type_support: List of type supports to be used
+     """
+     mapping = {
+-        'idl__type_support.cpp.em': '%s__type_support.cpp',
++        'idl__type_support.cpp.em': '%s__type_support_c.cpp',
+     }
+     return generate_files(
+         generator_arguments_file, mapping,
+diff --git a/rosidl_typesupport_c/src/type_support_dispatch.hpp b/rosidl_typesupport_c/src/type_support_dispatch.hpp
+index 4c7ae3e..2c996f2 100644
+--- a/rosidl_typesupport_c/src/type_support_dispatch.hpp
++++ b/rosidl_typesupport_c/src/type_support_dispatch.hpp
+@@ -50,64 +50,14 @@ get_typesupport_handle_function(
+       if (strcmp(map->typesupport_identifier[i], identifier) != 0) {
+         continue;
+       }
+-      rcpputils::SharedLibrary * lib = nullptr;
+-
+       if (!map->data[i]) {
+-        char library_basename[1024];
+-        int ret = rcutils_snprintf(
+-          library_basename, 1023, "%s__%s",
+-          map->package_name, identifier);
+-        if (ret < 0) {
+-          RCUTILS_SET_ERROR_MSG("Failed to format library name");
+-          return nullptr;
+-        }
+-
+-        std::string library_name;
+-        try {
+-          library_name = rcpputils::get_platform_library_name(library_basename);
+-        } catch (const std::exception & e) {
+-          RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+-            "Failed to compute library name for '%s' due to %s",
+-            library_basename, e.what());
+-          return nullptr;
+-        }
+-
+-        try {
+-          lib = new rcpputils::SharedLibrary(library_name);
+-        } catch (const std::runtime_error & e) {
+-          RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+-            "Could not load library %s: %s", library_name.c_str(), e.what());
+-          return nullptr;
+-        } catch (const std::bad_alloc & e) {
+-          RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+-            "Could not load library %s: %s", library_name.c_str(), e.what());
+-          return nullptr;
+-        }
+-        map->data[i] = lib;
+-      }
+-      auto clib = static_cast<const rcpputils::SharedLibrary *>(map->data[i]);
+-      lib = const_cast<rcpputils::SharedLibrary *>(clib);
+-
+-      void * sym = nullptr;
+-
+-      try {
+-        if (!lib->has_symbol(map->symbol_name[i])) {
+-          RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+-            "Failed to find symbol '%s' in library", map->symbol_name[i]);
+-          return nullptr;
+-        }
+-        sym = lib->get_symbol(map->symbol_name[i]);
+-      } catch (const std::exception & e) {
+-        RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+-          "Failed to get symbol '%s' in library: %s",
+-          map->symbol_name[i], e.what());
++        // 错误处理：静态编译环境中不应该出现未初始化的句柄
+         return nullptr;
+       }
+-
+-      typedef const TypeSupport * (* funcSignature)(void);
+-      funcSignature func = reinterpret_cast<funcSignature>(sym);
+-      const TypeSupport * ts = func();
+-      return ts;
++      
++      // 获取类型支持句柄
++      const TypeSupport * specific_handle = static_cast<const TypeSupport *>(map->data[i]);
++      return specific_handle;
+     }
+   }
+   RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+diff --git a/rosidl_typesupport_cpp/bin/rosidl_typesupport_cpp b/rosidl_typesupport_cpp/bin/rosidl_typesupport_cpp
+index d681214..2e1fbdb 100644
+--- a/rosidl_typesupport_cpp/bin/rosidl_typesupport_cpp
++++ b/rosidl_typesupport_cpp/bin/rosidl_typesupport_cpp
+@@ -7,6 +7,7 @@ from rosidl_typesupport_cpp import generate_cpp
+ 
+ 
+ def main(argv=sys.argv[1:]):
++    print("argv", argv)
+     parser = argparse.ArgumentParser(
+         description='Generate the C++ type support to handle ROS messages.',
+         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+@@ -17,10 +18,10 @@ def main(argv=sys.argv[1:]):
+     parser.add_argument(
+         '--typesupports',
+         required=True,
+-        nargs='+',
++        action='append',
+         help='The typesupports to be used')
+     args = parser.parse_args(argv)
+-
++    print("args", args)
+     generate_cpp(args.generator_arguments_file, args.typesupports)
+ 
+ 
+diff --git a/rosidl_typesupport_cpp/resource/msg__type_support.cpp.em b/rosidl_typesupport_cpp/resource/msg__type_support.cpp.em
+index 32d481e..e6a0456 100644
+--- a/rosidl_typesupport_cpp/resource/msg__type_support.cpp.em
++++ b/rosidl_typesupport_cpp/resource/msg__type_support.cpp.em
+@@ -9,6 +9,8 @@ header_files = [
+     'cstddef',
+     'rosidl_runtime_c/message_type_support_struct.h',
+     include_base + '__struct.hpp',
++    include_base + '__rosidl_typesupport_fastrtps_cpp.hpp',
++    include_base + '__rosidl_typesupport_introspection_cpp.hpp',
+ ]
+ if len(type_supports) != 1:
+     header_files.append('rosidl_typesupport_cpp/identifier.hpp')
+@@ -74,13 +76,13 @@ static const _@(message.structure.namespaced_type.name)_type_support_symbol_name
+ 
+ typedef struct _@(message.structure.namespaced_type.name)_type_support_data_t
+ {
+-  void * data[@(len(type_supports))];
++  const void * data[@(len(type_supports))];
+ } _@(message.structure.namespaced_type.name)_type_support_data_t;
+ 
+ static _@(message.structure.namespaced_type.name)_type_support_data_t _@(message.structure.namespaced_type.name)_message_typesupport_data = {
+   {
+ @[for type_support in sorted(type_supports)]@
+-    0,  // will store the shared library later
++    ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(@(type_support), @(', '.join([package_name] + list(interface_path.parents[0].parts))), @(message.structure.namespaced_type.name))(),
+ @[end for]@
+   }
+ };
+@@ -90,7 +92,7 @@ static const type_support_map_t _@(message.structure.namespaced_type.name)_messa
+   "@(package_name)",
+   &_@(message.structure.namespaced_type.name)_message_typesupport_ids.typesupport_identifier[0],
+   &_@(message.structure.namespaced_type.name)_message_typesupport_symbol_names.symbol_name[0],
+-  &_@(message.structure.namespaced_type.name)_message_typesupport_data.data[0],
++  const_cast<void**>(&_@(message.structure.namespaced_type.name)_message_typesupport_data.data[0]),
+ };
+ 
+ static const rosidl_message_type_support_t @(message.structure.namespaced_type.name)_message_type_support_handle = {
+diff --git a/rosidl_typesupport_cpp/resource/srv__type_support.cpp.em b/rosidl_typesupport_cpp/resource/srv__type_support.cpp.em
+index edf104b..8bfd3a8 100644
+--- a/rosidl_typesupport_cpp/resource/srv__type_support.cpp.em
++++ b/rosidl_typesupport_cpp/resource/srv__type_support.cpp.em
+@@ -25,6 +25,8 @@ header_files = [
+     'cstddef',
+     'rosidl_runtime_c/service_type_support_struct.h',
+     include_base + '__struct.hpp',
++    include_base + '__rosidl_typesupport_fastrtps_cpp.hpp',
++    include_base + '__rosidl_typesupport_introspection_cpp.hpp',
+ ]
+ if len(type_supports) != 1:
+     header_files.append('rosidl_typesupport_cpp/identifier.hpp')
+@@ -90,13 +92,13 @@ static const _@(service.namespaced_type.name)_type_support_symbol_names_t _@(ser
+ 
+ typedef struct _@(service.namespaced_type.name)_type_support_data_t
+ {
+-  void * data[@(len(type_supports))];
++  const void * data[@(len(type_supports))];
+ } _@(service.namespaced_type.name)_type_support_data_t;
+ 
+ static _@(service.namespaced_type.name)_type_support_data_t _@(service.namespaced_type.name)_service_typesupport_data = {
+   {
+ @[for type_support in sorted(type_supports)]@
+-    0,  // will store the shared library later
++    ROSIDL_TYPESUPPORT_INTERFACE__SERVICE_SYMBOL_NAME(@(type_support), @(', '.join([package_name] + list(interface_path.parents[0].parts))), @(service.namespaced_type.name))(),
+ @[end for]@
+   }
+ };
+@@ -106,7 +108,7 @@ static const type_support_map_t _@(service.namespaced_type.name)_service_typesup
+   "@(package_name)",
+   &_@(service.namespaced_type.name)_service_typesupport_ids.typesupport_identifier[0],
+   &_@(service.namespaced_type.name)_service_typesupport_symbol_names.symbol_name[0],
+-  &_@(service.namespaced_type.name)_service_typesupport_data.data[0],
++  const_cast<void**>(&_@(service.namespaced_type.name)_service_typesupport_data.data[0]),
+ };
+ 
+ static const rosidl_service_type_support_t @(service.namespaced_type.name)_service_type_support_handle = {
+diff --git a/rosidl_typesupport_cpp/src/type_support_dispatch.hpp b/rosidl_typesupport_cpp/src/type_support_dispatch.hpp
+index c662ffc..cc091ed 100644
+--- a/rosidl_typesupport_cpp/src/type_support_dispatch.hpp
++++ b/rosidl_typesupport_cpp/src/type_support_dispatch.hpp
+@@ -48,64 +48,15 @@ get_typesupport_handle_function(
+       if (strcmp(map->typesupport_identifier[i], identifier) != 0) {
+         continue;
+       }
+-      rcpputils::SharedLibrary * lib = nullptr;
+-
+       if (!map->data[i]) {
+-        char library_basename[1024];
+-        int ret = rcutils_snprintf(
+-          library_basename, 1023, "%s__%s",
+-          map->package_name, identifier);
+-        if (ret < 0) {
+-          RCUTILS_SET_ERROR_MSG("Failed to format library name");
+-          return nullptr;
+-        }
+-
+-        std::string library_name;
+-        try {
+-          library_name = rcpputils::get_platform_library_name(library_basename);
+-        } catch (const std::runtime_error & e) {
+-          RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+-            "Failed to compute library name for '%s' due to %s",
+-            library_basename, e.what());
+-          return nullptr;
+-        }
+-
+-        try {
+-          lib = new rcpputils::SharedLibrary(library_name);
+-        } catch (const std::runtime_error & e) {
+-          RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+-            "Could not load library %s: %s", library_name.c_str(), e.what());
+-          return nullptr;
+-        } catch (const std::bad_alloc & e) {
+-          RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+-            "Could not load library %s: %s", library_name.c_str(), e.what());
+-          return nullptr;
+-        }
+-        map->data[i] = lib;
+-      }
+-      auto clib = static_cast<const rcpputils::SharedLibrary *>(map->data[i]);
+-      lib = const_cast<rcpputils::SharedLibrary *>(clib);
+-
+-      void * sym = nullptr;
+-
+-      try {
+-        if (!lib->has_symbol(map->symbol_name[i])) {
+-          RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+-            "Failed to find symbol '%s' in library", map->symbol_name[i]);
+-          return nullptr;
+-        }
+-        sym = lib->get_symbol(map->symbol_name[i]);
+-      } catch (const std::exception & e) {
+-        RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+-          "Failed to get symbol '%s' in library: %s",
+-          map->symbol_name[i], e.what());
++        // 错误处理：静态编译环境中不应该出现未初始化的句柄
+         return nullptr;
+       }
+-
+-      typedef const TypeSupport * (* funcSignature)(void);
+-      funcSignature func = reinterpret_cast<funcSignature>(sym);
+-      const TypeSupport * ts = func();
+-      return ts;
++      
++      // 获取类型支持句柄
++      const TypeSupport * specific_handle = static_cast<const TypeSupport *>(map->data[i]);
++      return specific_handle;
++        
+     }
+   }
+   RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
+-- 
+2.34.1
+

@@ -1,0 +1,308 @@
+From 04b18e32c7215f271e4f396e82ad5a75ff5dd63c Mon Sep 17 00:00:00 2001
+From: ggmsunshine <250811275+ggmsunshine@users.noreply.github.com>
+Date: Wed, 13 Aug 2025 16:38:53 +0800
+Subject: [PATCH] fix rosidl typesupport fastrtps
+
+---
+ .../msg__rosidl_typesupport_fastrtps_c.h.em   |  4 +--
+ .../resource/msg__type_support_c.cpp.em       | 36 +++++++++----------
+ .../resource/srv__type_support_c.cpp.em       |  1 -
+ ...sg__rosidl_typesupport_fastrtps_cpp.hpp.em |  4 +--
+ .../resource/msg__type_support.cpp.em         | 36 +++++++++----------
+ ...rv__rosidl_typesupport_fastrtps_cpp.hpp.em |  2 +-
+ 6 files changed, 41 insertions(+), 42 deletions(-)
+
+diff --git a/rosidl_typesupport_fastrtps_c/resource/msg__rosidl_typesupport_fastrtps_c.h.em b/rosidl_typesupport_fastrtps_c/resource/msg__rosidl_typesupport_fastrtps_c.h.em
+index 1f69191..3fbb8c8 100644
+--- a/rosidl_typesupport_fastrtps_c/resource/msg__rosidl_typesupport_fastrtps_c.h.em
++++ b/rosidl_typesupport_fastrtps_c/resource/msg__rosidl_typesupport_fastrtps_c.h.em
+@@ -33,8 +33,8 @@ size_t get_serialized_size_@('__'.join([package_name] + list(interface_path.pare
+ 
+ ROSIDL_TYPESUPPORT_FASTRTPS_C_PUBLIC_@(package_name)
+ size_t max_serialized_size_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(
+-  bool & full_bounded,
+-  bool & is_plain,
++  bool * full_bounded,
++  bool * is_plain,
+   size_t current_alignment);
+ 
+ ROSIDL_TYPESUPPORT_FASTRTPS_C_PUBLIC_@(package_name)
+diff --git a/rosidl_typesupport_fastrtps_c/resource/msg__type_support_c.cpp.em b/rosidl_typesupport_fastrtps_c/resource/msg__type_support_c.cpp.em
+index 7ca24f9..0031243 100644
+--- a/rosidl_typesupport_fastrtps_c/resource/msg__type_support_c.cpp.em
++++ b/rosidl_typesupport_fastrtps_c/resource/msg__type_support_c.cpp.em
+@@ -133,8 +133,8 @@ size_t get_serialized_size_@('__'.join(key))(
+ ROSIDL_TYPESUPPORT_FASTRTPS_C_IMPORT_@(package_name)
+ @[  end if]@
+ size_t max_serialized_size_@('__'.join(key))(
+-  bool & full_bounded,
+-  bool & is_plain,
++  bool * full_bounded,
++  bool * is_plain,
+   size_t current_alignment);
+ 
+ @[  if key[0] != package_name]@
+@@ -224,7 +224,7 @@ if isinstance(type_, AbstractNestedType):
+       }
+     }
+ @[    elif isinstance(member.type.value_type, BasicType)]@
+-    cdr.serializeArray(array_ptr, size);
++    cdr.serialize_array(array_ptr, size);
+ @[    else]@
+     for (size_t i = 0; i < size; ++i) {
+       if (!callbacks->cdr_serialize(
+@@ -369,7 +369,7 @@ else:
+       array_ptr[i] = static_cast<char16_t>(tmp);
+     }
+ @[    elif isinstance(member.type.value_type, BasicType)]@
+-    cdr.deserializeArray(array_ptr, size);
++    cdr.deserialize_array(array_ptr, size);
+ @[    else]@
+     for (size_t i = 0; i < size; ++i) {
+       if (!callbacks->cdr_deserialize(
+@@ -508,8 +508,8 @@ static uint32_t _@(message.structure.namespaced_type.name)__get_serialized_size(
+ 
+ ROSIDL_TYPESUPPORT_FASTRTPS_C_PUBLIC_@(package_name)
+ size_t max_serialized_size_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(
+-  bool & full_bounded,
+-  bool & is_plain,
++  bool * full_bounded,
++  bool * is_plain,
+   size_t current_alignment)
+ {
+   size_t initial_alignment = current_alignment;
+@@ -521,8 +521,8 @@ size_t max_serialized_size_@('__'.join([package_name] + list(interface_path.pare
+   (void)padding;
+   (void)wchar_size;
+ 
+-  full_bounded = true;
+-  is_plain = true;
++  *full_bounded = true;
++  *is_plain = true;
+ 
+ @{
+ last_member_name_ = None
+@@ -540,10 +540,10 @@ last_member_name_ = member.name
+     size_t array_size = @(member.type.maximum_size);
+ @[    else]@
+     size_t array_size = 0;
+-    full_bounded = false;
++    *full_bounded = false;
+ @[    end if]@
+ @[    if isinstance(member.type, AbstractSequence)]@
+-    is_plain = false;
++    *is_plain = false;
+     current_alignment += padding +
+       eprosima::fastcdr::Cdr::alignment(current_alignment, padding);
+ @[    end if]@
+@@ -557,8 +557,8 @@ if isinstance(type_, AbstractNestedType):
+     type_ = type_.value_type
+ }@
+ @[  if isinstance(type_, AbstractGenericString)]@
+-    full_bounded = false;
+-    is_plain = false;
++    *full_bounded = false;
++    *is_plain = false;
+     for (size_t index = 0; index < array_size; ++index) {
+       current_alignment += padding +
+         eprosima::fastcdr::Cdr::alignment(current_alignment, padding) +
+@@ -602,11 +602,11 @@ if isinstance(type_, AbstractNestedType):
+       size_t inner_size;
+       inner_size =
+         max_serialized_size_@('__'.join(type_.namespaced_name()))(
+-        inner_full_bounded, inner_is_plain, current_alignment);
++        &inner_full_bounded, &inner_is_plain, current_alignment);
+       last_member_size += inner_size;
+       current_alignment += inner_size;
+-      full_bounded &= inner_full_bounded;
+-      is_plain &= inner_is_plain;
++      *full_bounded &= inner_full_bounded;
++      *is_plain &= inner_is_plain;
+     }
+ @[  end if]@
+   }
+@@ -614,12 +614,12 @@ if isinstance(type_, AbstractNestedType):
+ 
+   size_t ret_val = current_alignment - initial_alignment;
+ @[if last_member_name_ is not None]@
+-  if (is_plain) {
++  if (*is_plain) {
+     // All members are plain, and type is not empty.
+     // We still need to check that the in-memory alignment
+     // is the same as the CDR mandated alignment.
+     using DataType = @('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]));
+-    is_plain =
++    *is_plain =
+       (
+       offsetof(DataType, @(last_member_name_)) +
+       last_member_size
+@@ -637,7 +637,7 @@ static size_t _@(message.structure.namespaced_type.name)__max_serialized_size(ch
+   size_t ret_val;
+ 
+   ret_val = max_serialized_size_@('__'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]))(
+-    full_bounded, is_plain, 0);
++    &full_bounded, &is_plain, 0);
+ 
+   bounds_info =
+     is_plain ? ROSIDL_TYPESUPPORT_FASTRTPS_PLAIN_TYPE :
+diff --git a/rosidl_typesupport_fastrtps_c/resource/srv__type_support_c.cpp.em b/rosidl_typesupport_fastrtps_c/resource/srv__type_support_c.cpp.em
+index 495120e..888a3d8 100644
+--- a/rosidl_typesupport_fastrtps_c/resource/srv__type_support_c.cpp.em
++++ b/rosidl_typesupport_fastrtps_c/resource/srv__type_support_c.cpp.em
+@@ -23,7 +23,6 @@ include_base = '/'.join(include_parts)
+ header_files = [
+     # Provides the definition of the service_type_support_callbacks_t struct.
+     'rosidl_typesupport_fastrtps_cpp/service_type_support.h',
+-    'rosidl_typesupport_cpp/service_type_support.hpp',
+     'rosidl_typesupport_fastrtps_c/identifier.h',
+     package_name + '/msg/rosidl_typesupport_fastrtps_c__visibility_control.h',
+     include_base + '.h',
+diff --git a/rosidl_typesupport_fastrtps_cpp/resource/msg__rosidl_typesupport_fastrtps_cpp.hpp.em b/rosidl_typesupport_fastrtps_cpp/resource/msg__rosidl_typesupport_fastrtps_cpp.hpp.em
+index 6a8894d..4560b32 100644
+--- a/rosidl_typesupport_fastrtps_cpp/resource/msg__rosidl_typesupport_fastrtps_cpp.hpp.em
++++ b/rosidl_typesupport_fastrtps_cpp/resource/msg__rosidl_typesupport_fastrtps_cpp.hpp.em
+@@ -79,8 +79,8 @@ get_serialized_size(
+ size_t
+ ROSIDL_TYPESUPPORT_FASTRTPS_CPP_PUBLIC_@(package_name)
+ max_serialized_size_@(message.structure.namespaced_type.name)(
+-  bool & full_bounded,
+-  bool & is_plain,
++  bool * full_bounded,
++  bool * is_plain,
+   size_t current_alignment);
+ 
+ }  // namespace typesupport_fastrtps_cpp
+diff --git a/rosidl_typesupport_fastrtps_cpp/resource/msg__type_support.cpp.em b/rosidl_typesupport_fastrtps_cpp/resource/msg__type_support.cpp.em
+index 39dc452..3415356 100644
+--- a/rosidl_typesupport_fastrtps_cpp/resource/msg__type_support.cpp.em
++++ b/rosidl_typesupport_fastrtps_cpp/resource/msg__type_support.cpp.em
+@@ -65,8 +65,8 @@ size_t get_serialized_size(
+   size_t current_alignment);
+ size_t
+ max_serialized_size_@(type_.name)(
+-  bool & full_bounded,
+-  bool & is_plain,
++  bool * full_bounded,
++  bool * is_plain,
+   size_t current_alignment);
+ }  // namespace typesupport_fastrtps_cpp
+ @[      for ns in reversed(type_.namespaces)]@
+@@ -130,7 +130,7 @@ cdr_serialize(
+     cdr << static_cast<uint32_t>(size);
+ @[        if isinstance(member.type.value_type, BasicType) and member.type.value_type.typename not in ('boolean', 'wchar')]@
+     if (size > 0) {
+-      cdr.serializeArray(&(ros_message.@(member.name)[0]), size);
++      cdr.serialize_array(&(ros_message.@(member.name)[0]), size);
+     }
+ @[        else]@
+ @[            if isinstance(member.type.value_type, AbstractWString)]@
+@@ -219,7 +219,7 @@ cdr_deserialize(
+     ros_message.@(member.name).resize(size);
+ @[        if isinstance(member.type.value_type, BasicType) and member.type.value_type.typename not in ('boolean', 'wchar')]@
+     if (size > 0) {
+-      cdr.deserializeArray(&(ros_message.@(member.name)[0]), size);
++      cdr.deserialize_array(&(ros_message.@(member.name)[0]), size);
+     }
+ @[        else]@
+ @[            if isinstance(member.type.value_type, AbstractWString)]@
+@@ -364,8 +364,8 @@ get_serialized_size(
+ size_t
+ ROSIDL_TYPESUPPORT_FASTRTPS_CPP_PUBLIC_@(package_name)
+ max_serialized_size_@(message.structure.namespaced_type.name)(
+-  bool & full_bounded,
+-  bool & is_plain,
++  bool * full_bounded,
++  bool * is_plain,
+   size_t current_alignment)
+ {
+   size_t initial_alignment = current_alignment;
+@@ -377,8 +377,8 @@ max_serialized_size_@(message.structure.namespaced_type.name)(
+   (void)padding;
+   (void)wchar_size;
+ 
+-  full_bounded = true;
+-  is_plain = true;
++  *full_bounded = true;
++  *is_plain = true;
+ 
+ @{
+ last_member_name_ = None
+@@ -397,10 +397,10 @@ last_member_name_ = member.name
+     size_t array_size = @(member.type.maximum_size);
+ @[    else]@
+     size_t array_size = 0;
+-    full_bounded = false;
++    *full_bounded = false;
+ @[    end if]@
+ @[    if isinstance(member.type, AbstractSequence)]@
+-    is_plain = false;
++    *is_plain = false;
+     current_alignment += padding +
+       eprosima::fastcdr::Cdr::alignment(current_alignment, padding);
+ @[    end if]@
+@@ -414,8 +414,8 @@ if isinstance(type_, AbstractNestedType):
+     type_ = type_.value_type
+ }@
+ @[  if isinstance(type_, AbstractGenericString)]@
+-    full_bounded = false;
+-    is_plain = false;
++    *full_bounded = false;
++    *is_plain = false;
+     for (size_t index = 0; index < array_size; ++index) {
+       current_alignment += padding +
+         eprosima::fastcdr::Cdr::alignment(current_alignment, padding) +
+@@ -458,11 +458,11 @@ if isinstance(type_, AbstractNestedType):
+       bool inner_is_plain;
+       size_t inner_size =
+         @('::'.join(type_.namespaces))::typesupport_fastrtps_cpp::max_serialized_size_@(type_.name)(
+-        inner_full_bounded, inner_is_plain, current_alignment);
++        &inner_full_bounded, &inner_is_plain, current_alignment);
+       last_member_size += inner_size;
+       current_alignment += inner_size;
+-      full_bounded &= inner_full_bounded;
+-      is_plain &= inner_is_plain;
++      *full_bounded &= inner_full_bounded;
++      *is_plain &= inner_is_plain;
+     }
+ @[  end if]@
+   }
+@@ -470,12 +470,12 @@ if isinstance(type_, AbstractNestedType):
+ 
+   size_t ret_val = current_alignment - initial_alignment;
+ @[if last_member_name_ is not None]@
+-  if (is_plain) {
++  if (*is_plain) {
+     // All members are plain, and type is not empty.
+     // We still need to check that the in-memory alignment
+     // is the same as the CDR mandated alignment.
+     using DataType = @('::'.join([package_name] + list(interface_path.parents[0].parts) + [message.structure.namespaced_type.name]));
+-    is_plain =
++    *is_plain =
+       (
+       offsetof(DataType, @(last_member_name_)) +
+       last_member_size
+@@ -521,7 +521,7 @@ static size_t _@(message.structure.namespaced_type.name)__max_serialized_size(ch
+   bool is_plain;
+   size_t ret_val;
+ 
+-  ret_val = max_serialized_size_@(message.structure.namespaced_type.name)(full_bounded, is_plain, 0);
++  ret_val = max_serialized_size_@(message.structure.namespaced_type.name)(&full_bounded, &is_plain, 0);
+ 
+   bounds_info =
+     is_plain ? ROSIDL_TYPESUPPORT_FASTRTPS_PLAIN_TYPE :
+diff --git a/rosidl_typesupport_fastrtps_cpp/resource/srv__rosidl_typesupport_fastrtps_cpp.hpp.em b/rosidl_typesupport_fastrtps_cpp/resource/srv__rosidl_typesupport_fastrtps_cpp.hpp.em
+index 38a3247..50dc0d7 100644
+--- a/rosidl_typesupport_fastrtps_cpp/resource/srv__rosidl_typesupport_fastrtps_cpp.hpp.em
++++ b/rosidl_typesupport_fastrtps_cpp/resource/srv__rosidl_typesupport_fastrtps_cpp.hpp.em
+@@ -16,7 +16,7 @@ TEMPLATE(
+ @{
+ header_files = [
+     'rmw/types.h',
+-    'rosidl_typesupport_cpp/service_type_support.hpp',
++    'rosidl_runtime_c/service_type_support_struct.h',
+     'rosidl_typesupport_interface/macros.h',
+     package_name + '/msg/rosidl_typesupport_fastrtps_cpp__visibility_control.h',
+ ]
+-- 
+2.50.1
+

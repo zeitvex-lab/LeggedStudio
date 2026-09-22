@@ -1,0 +1,4 @@
+exports_files([
+    "expand_teplate.bzl",
+    "symlink.bzl",
+])

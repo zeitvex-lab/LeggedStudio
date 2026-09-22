@@ -1,0 +1,8 @@
+aimrt:
+  log:
+    core_lvl: Info
+    default_module_lvl: INFO
+
+my_module:
+  pub:
+    name: /my/pub/another/topic

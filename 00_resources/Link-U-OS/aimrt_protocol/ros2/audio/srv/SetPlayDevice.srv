@@ -1,0 +1,21 @@
+# Copyright (c) 2025, AgiBot Inc.
+# All rights reserved.
+
+# ----------------------------------------------------
+# request
+
+# 请求数据头
+std_msgs/Header header
+
+# 请求播放设备
+# default: 本体
+# 蓝牙设备传入MAC地址
+string address
+
+---
+
+# ----------------------------------------------------
+# response
+
+# 响应数据头
+std_msgs/Header header
