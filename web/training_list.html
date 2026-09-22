@@ -47,7 +47,7 @@
     }
 
     .summary-card.running .value { color: var(--cyan); }
-    .summary-card.completed .value { color: var(--green); }
+    .summary-card.completed .value { color: #217a37; }
     .summary-card.failed .value { color: var(--red); }
 
     .summary-card .label {
@@ -239,15 +239,15 @@
     .status-badge.running .status-dot { background: var(--cyan); animation: tsui-breathe 1.5s ease-in-out infinite; }
     .status-badge.pending { color: #cbd5e1; }
     .status-badge.pending .status-dot { animation: tsui-breathe 1.5s ease-in-out infinite; }
-    .status-badge.completed { background: rgba(94, 234, 212, 0.1); color: var(--green); border-color: rgba(94, 234, 212, 0.3); }
+    .status-badge.completed { background: rgba(94, 234, 212, 0.1); color: #217a37; border-color: rgba(94, 234, 212, 0.3); }
     .status-badge.completed .status-dot { background: var(--green); }
     .status-badge.failed { background: rgba(248, 113, 113, 0.12); color: var(--red); border-color: rgba(248, 113, 113, 0.35); }
     .status-badge.failed .status-dot { background: var(--red); }
     .status-badge.stopped { color: #fde68a; border-color: rgba(251, 191, 36, 0.3); }
     .status-badge.stopped .status-dot { background: #fbbf24; }
     .quality-chip { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
-      font-size: 10px; vertical-align: 1px; border: 1px solid; }
-    .quality-chip.q-ok { color: var(--green); border-color: rgba(94, 234, 212, 0.3); background: rgba(94, 234, 212, 0.08); }
+      font-size: 11px; vertical-align: 1px; border: 1px solid; }
+    .quality-chip.q-ok { color: #217a37; border-color: rgba(94, 234, 212, 0.3); background: rgba(94, 234, 212, 0.08); }
     .quality-chip.q-warn { color: #fbbf24; border-color: rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.08); }
     .quality-chip.q-bad { color: var(--red); border-color: rgba(248, 113, 113, 0.35); background: rgba(248, 113, 113, 0.1); }
     .quality-chip.q-mute { color: #94a3b8; border-color: rgba(148, 163, 184, 0.3); background: rgba(148, 163, 184, 0.08); }
@@ -306,12 +306,12 @@
       .pack-card { border: 1px solid var(--line-soft, #e8eff4); border-radius: 8px; background: #fff; padding: 10px 12px; }
       .pack-card strong { display: block; margin-bottom: 4px; color: #1d2935; }
       .pack-card .pack-desc { font-size: 12px; color: #5a6672; }
-      .pack-card .pack-count { display: inline-block; margin-top: 6px; font-family: Consolas, monospace; font-size: 12px; color: #2e9e5b; }
+      .pack-card .pack-count { display: inline-block; margin-top: 6px; font-family: Consolas, monospace; font-size: 12px; color: #217a37; }
       .pack-card .pack-manifest { list-style: none; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px dashed var(--line-soft, #e8eff4); }
       .pack-card .pack-manifest li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 0; font-size: 11px; color: #5a6672; }
       .pack-card .pack-manifest code { color: #2478c5; font-size: 11px; }
-      .pack-card .pack-manifest em { color: #d88922; font-style: normal; }
-      .pack-card .pack-manifest b { margin-left: auto; color: #687582; font-family: Consolas, monospace; font-size: 10px; font-weight: 500; }
+      .pack-card .pack-manifest em { color: #8a5a12; font-style: normal; }
+      .pack-card .pack-manifest b { margin-left: auto; color: #687582; font-family: Consolas, monospace; font-size: 11px; font-weight: 500; }
     </style>
     <!-- 页面头部 -->
     <header class="page-header">
@@ -347,7 +347,7 @@
       </select>
       <div class="search-box">
         <span style="color: var(--faint); font-size: 12px;">⌕</span>
-        <input id="searchInput" type="text" placeholder="搜索任务 ID / 机器人 / 算法..." oninput="renderList()">
+        <input id="searchInput" aria-label="搜索训练任务" type="text" placeholder="搜索任务 ID / 机器人 / 算法..." oninput="renderList()">
       </div>
       <span class="refresh-note" id="refreshNote">每 5 秒自动刷新</span>
     </div>
@@ -598,7 +598,7 @@
             <div class="progress-mini">
               <div class="progress-mini-bar ${info.cls}" style="width: ${info.cls === 'completed' ? 100 : meta.pct}%;"></div>
             </div>
-            <span style="display:block; font-size:10px; color: var(--faint); margin-top:4px;">${escapeHtml(meta.speedText)}</span>
+            <span style="display:block; font-size: 11px; color: var(--faint); margin-top:4px;">${escapeHtml(meta.speedText)}</span>
           </div>`;
         return `
           <div class="table-row" onclick="viewTask('${escapeHtml(task.task_id)}')" title="点击查看监控页面">

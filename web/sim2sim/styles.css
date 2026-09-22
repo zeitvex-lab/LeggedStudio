@@ -575,7 +575,7 @@ input[type="checkbox"] {
   border: 1px solid rgba(255, 176, 32, 0.45);
   border-radius: 4px;
   color: #ffb020;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.4;
   vertical-align: 1px;
@@ -1540,7 +1540,7 @@ input[type="range"] {
   border: 1px solid rgba(148, 178, 188, 0.28); border-radius: 6px;
   background: rgba(15, 23, 32, 0.9); color: #dfe9f0; font-size: 11px;
 }
-.dock-head output { color: var(--cyan, #2588df); font: 10px Consolas, monospace; white-space: nowrap; }
+.dock-head output { color: var(--cyan, #2588df); font: 11px Consolas, monospace; white-space: nowrap; }
 .dock-head button {
   width: 20px; height: 20px; padding: 0; line-height: 1;
   border: 1px solid rgba(148, 178, 188, 0.28); border-radius: 6px;
@@ -1560,7 +1560,7 @@ input[type="range"] {
 .dock-plugins summary { cursor: pointer; color: #8ea1ae; font-size: 11px; }
 .dock-plugin-list { display: grid; gap: 2px; margin-top: 4px; }
 .dock-plugin-list label { display: flex; align-items: baseline; gap: 6px; padding: 1px 0; cursor: pointer; }
-.dock-plugin-list label span { color: #8ea1ae; font-size: 10px; }
+.dock-plugin-list label span { color: #8ea1ae; font-size: 11px; }
 /* 装配编辑器：每个启用的传感器一组六格（位置 xyz / 姿态 rpy）。 */
 .dock-mounts summary { cursor: pointer; color: #8ea1ae; font-size: 11px; }
 .dock-mount-list { display: grid; gap: 6px; margin-top: 4px; max-height: 40vh; overflow: auto; }
@@ -1569,25 +1569,25 @@ input[type="range"] {
 .dock-mount-group > header strong { font-size: 11px; }
 .dock-mount-group > header button {
   padding: 1px 6px; border: 1px solid rgba(148, 178, 188, 0.28); border-radius: 4px;
-  background: transparent; color: #8ea1ae; font-size: 10px; cursor: pointer;
+  background: transparent; color: #8ea1ae; font-size: 11px; cursor: pointer;
 }
 .dock-mount-group > header button:hover { color: inherit; border-color: var(--cyan, #2588df); }
 .dock-mount-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 6px; }
-.dock-mount-rows label { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #8ea1ae; }
+.dock-mount-rows label { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #8ea1ae; }
 .dock-mount-rows input {
   width: 100%; min-width: 0; padding: 1px 4px;
   border: 1px solid rgba(148, 178, 188, 0.24); border-radius: 4px;
-  background: rgba(15, 23, 32, 0.9); color: #dfe9f0; font: 10px Consolas, monospace;
+  background: rgba(15, 23, 32, 0.9); color: #dfe9f0; font: 11px Consolas, monospace;
 }
 /* 被改过装配的传感器标出来（`applyMountEdit` 会在改回默认值时把覆盖整条删掉）。
    亮色主题下 label 文字继承 dock 的暗底亮字（见 .sensor-dock 的 color），这里保持一致。 */
 .dock-mount-group.overridden > header strong { color: var(--cyan, #2588df); }
-.dock-mount-hint { margin: 4px 0 0; color: #8ea1ae; font-size: 10px; }
+.dock-mount-hint { margin: 4px 0 0; color: #8ea1ae; font-size: 11px; }
 
 
 .attitude-gauge { display: grid; gap: 6px; margin-top: 4px; padding: 8px 0; border-top: 1px dashed rgba(148, 178, 188, 0.25); }
 .att-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) 48px; align-items: center; gap: 8px; }
-.att-row small { color: var(--muted, #8ea1ae); font: 10px Consolas, monospace; }
+.att-row small { color: var(--muted, #8ea1ae); font: 11px Consolas, monospace; }
 .att-track { position: relative; height: 8px; border-radius: 4px; background: rgba(148, 178, 188, 0.18); overflow: hidden; }
 .att-track i { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; border-radius: 4px; background: var(--cyan, #2588df); transition: width 0.08s linear, left 0.08s linear; }
 .att-track b.att-center { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: rgba(148, 178, 188, 0.5); }
@@ -1614,7 +1614,7 @@ body.panel-hidden .panel-left { display: none !important; }
 }
 .vel-cmd-enable { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11px; color: var(--muted); }
 .vel-cmd-enable input { accent-color: var(--teal, var(--cyan, #2588df)); }
-.vel-cmd-max-label { color: var(--faint, #8b98a5); font-size: 10px; text-align: right; }
+.vel-cmd-max-label { color: var(--faint, #9aa7b4); font-size: 11px; text-align: right; }
 .velocity-command-control .vel-cmd-max { accent-color: var(--amber, #d88922); }
 .velocity-command-control .vel-cmd-row input {
   width: 100%;

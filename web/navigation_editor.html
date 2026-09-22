@@ -21,7 +21,7 @@
     .btn.primary{background:var(--accent);color:#04121a;border-color:var(--accent)}
     .btn.active{border-color:var(--accent);color:var(--accent)}
     .btn.small{padding:6px 10px;font-size:11px}
-    .btn.danger{color:#f85149;border-color:rgba(248,81,73,.4)}
+    .btn.danger{color:#b3261e;border-color:rgba(248,81,73,.4)}
     .btn:disabled{opacity:.5;cursor:not-allowed}
     .field{display:flex;flex-direction:column;gap:6px}
     .field label{color:var(--muted);font-size:11px}
@@ -54,7 +54,7 @@
     <div class="editor-grid">
       <div class="canvas-panel">
         <div class="canvas-toolbar">
-          <select id="mapSelect" class="map-select"></select>
+          <select id="mapSelect" aria-label="选择要编辑的地图" class="map-select"></select>
           <button class="btn" id="btnObstacle">✚ 画障碍</button>
           <button class="btn" id="btnWaypoint">◆ 设航点</button>
           <button class="btn" id="btnMove">↔ 移动</button>

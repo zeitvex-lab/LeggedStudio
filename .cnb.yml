@@ -299,7 +299,7 @@ syntax-check: &syntax-check
       # 与 .dev-env-bootstrap 同口径：**装不上如实报，不把环境问题判成红**
       # （但一定要可见——静默 skip 正是本条要消灭的东西）。
       if python -m playwright install --with-deps chromium >/dev/null 2>&1; then
-        python -m pytest tests/e2e/test_task_plugin_fill.py -q 2>&1 | tail -20
+        python -m pytest tests/e2e/test_task_plugin_fill.py tests/e2e/test_depth_camera_preview.py tests/e2e/test_ui_metrics_gate.py -q 2>&1 | tail -20
       else
         echo "[WARN] Chromium 装不上：本轮 browser-e2e-gate 未跑（环境问题，不判红；但请留意）"
       fi

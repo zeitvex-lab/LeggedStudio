@@ -33,6 +33,7 @@
     }
     .adv-btn:hover { border-color: var(--accent, #2588df); }
     .adv-btn:disabled { opacity: .45; cursor: not-allowed; }
+    #scTaskPlugin, #scTaskFill { min-height: 26px; }
     .adv-btn.primary { border-color: var(--accent, #2588df); }
 
     .adv-body { display: flex; flex: 1 1 auto; min-height: 0; }
@@ -62,7 +63,7 @@
     /* 步骤条（范式抄 references_1000framesai/shared_nav.js 的 STEPS：加一段 = 表加一条） */
     .adv-editor .sc-steps { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
     .adv-editor .sc-step {
-      flex: 0 0 auto; padding: 3px 8px; font-size: 11px; cursor: pointer;
+      flex: 0 0 auto; padding: 3px 8px; font-size: 11px; cursor: pointer; min-height: 26px;
       border: 1px solid var(--border, #2c3a45); border-radius: 999px;
       background: var(--surface-raised, #16222b); color: var(--muted, #8ea1ae);
     }
@@ -73,7 +74,7 @@
     #scReport { margin-top: 8px; line-height: 1.6; }
     #scReport ul { margin: 4px 0 4px 18px; padding: 0; }
     #scReport pre { white-space: pre-wrap; font-size: 11px; }
-    .sc-ok { color: #5fbf7a; }
+    .sc-ok { color: #217a37; }
     .sc-bad { color: #e2725b; }
     .sc-warn { color: #d8a657; }
     .adv-frame-wrap { position: relative; flex: 1 1 auto; min-height: 0; }

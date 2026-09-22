@@ -15,7 +15,7 @@ import {
   normalizeNameMap,
   jointGroup,
   resolveActuatorRolesAndModes,
-} from "./obs/actuator_modes.js?v=0.60.0";
+} from "./obs/actuator_modes.js?v=0.61.0";
 // 契约级**槽表**（`onnx_slots`）：导出器命名不可依赖的产物按**位置**绑定 in/out 槽。
 import { resolveOnnxSlots } from "./obs/onnx_slots.js?v=0.46.0";
 import { createPieDepth } from "./pie_depth.js?v=0.46.0";
@@ -379,6 +379,41 @@ function renderDockPlugins() {
       renderDockMounts();
     });
   });
+}
+
+/** 场景感知项 → 坞插件 id（**同一张表**驱动"声明即开"与来源可选性）。 */
+const PERCEPTION_TO_DOCK_PLUGIN = {
+  heightfield: "height",
+  depth_camera: "depth",
+  foot_contact: "foot_contact",
+};
+
+/**
+ * 场景声明了某项感知 ⇒ **把坞里对应的插件真的打开**（2026-09-23 修）。
+ *
+ * 此前 `sim.scenarioSensors` 只被写过一次、**全仓没有读者**：页面上明明提示
+ * "感知传感器已启用：depth_camera"，但坞的插件勾选没动 ⇒ 来源下拉里**根本没有"深度相机"
+ * 这一项**（`DOCK_SOURCES[].requires` 就是按插件过滤的），用户既看不到声明的那台相机，
+ * 也就无从判断它"对不对"——典型的**声明与实际不符的静默空转**。
+ *
+ * @returns {string[]} 本次新打开的插件 id（用于在面板里如实说明"顺带开了什么"）
+ */
+function enableDockPluginsForScenario(perception) {
+  const ids = Object.entries(PERCEPTION_TO_DOCK_PLUGIN)
+    .filter(([field]) => Boolean(perception?.[field]))
+    .map(([, plugin]) => plugin)
+    .filter((id) => SENSOR_PLUGINS.some((item) => item.id === id));
+  if (!ids.length) return [];
+  if (!dock.plugins) dock.plugins = {};
+  const turned = ids.filter((id) => !dock.plugins[id]);
+  for (const id of ids) dock.plugins[id] = true;
+  if (turned.length) {
+    renderDockPlugins();
+    renderDockSources();
+    ensureSensorModels();
+    renderDockMounts();
+  }
+  return turned;
 }
 
 /** 重建装配编辑器（位置 xyz / 姿态 rpy 各三格）。 */
@@ -5901,24 +5936,45 @@ function cachedScan(kind, compute) {
  *  已用 lookAt 构造绕过）。 */
 function scanDepthPreview(basePos, baseQuat, mount) {
   const params = patternParams("depth") || {};
-  const pattern = buildPattern("pinhole", {
-    ...params,
-    width: 20,
-    height: 12,
-  });
+  // **相机规格：场景声明优先，传感器目录兜底**（2026-09-23 修）。
+  //
+  // 此前这里把分辨率写死 `20×12`、把归一化距离写死 `8 m`，于是坞里那张"深度图"：
+  //   ① 分辨率与声明/目录里的相机（默认 106×60）**不是同一台**——用户看到的是粗格图，
+  //      与策略/训练侧口径无关，第一眼就是"深度相机不对"；
+  //   ② 距离刻度用的是 8 m，而场景声明的是 `cutoff_m`（默认 3 m）⇒ 同一面墙在预览里
+  //      "才走了一半"，在策略口径里已接近截止 —— 亮度含义两套；
+  //   ③ 标签还写死"20×12 粗格"，与它自己画的数据（数据源早已按声明走）**互相矛盾**。
+  // 现在三者同源：分辨率与截止距离都取 `sim.scenario.perception.depth_camera`
+  // （缺项回落到目录默认），标签按实际尺寸渲染。
+  const declared = sim.scenario?.perception?.depth_camera;
+  const spec = declared && typeof declared === "object" ? declared : {};
+  const clampInt = (value, lo, hi, fallback) => {
+    const n = Math.round(Number(value));
+    return Number.isFinite(n) && n > 0 ? Math.max(lo, Math.min(hi, n)) : fallback;
+  };
+  const width = clampInt(spec.width ?? params.width, 12, 160, 106);
+  const height = clampInt(spec.height ?? params.height, 8, 120, 60);
+  const maxDist = Number(spec.cutoff_m) > 0 ? Number(spec.cutoff_m) : 3.0;
+  const pattern = buildPattern("pinhole", { ...params, width, height });
   const origin = mountOriginWorld(basePos, baseQuat, mount.pos);
   // 像素 → 相机系射线（buildPattern）→ 世界系（基架），两步都在 screen_frame 的口径下。
   const fwd = quatRot(quatMul(baseQuat, quatFromRpy(mount.rpy.map(deg2rad))), [0, 0, -1]);
   const basis = cameraBasis(fwd);
   const worldDirs = pattern.directions.map((d) => rayFromBasis(basis, d));
-  const maxDist = 8;
   const distances = intersectSceneRays(
     sim.model, sim.data, worldDirs.map(() => origin), worldDirs, { maxDist },
   );
   // 帧归一化到 [0,1]（0=近 1=远，miss→远），与 pie_depth 的输出口径一致——
   // drawDepthFrame 吃的是这个，不是原始米距。
   const frame = distances.map((d) => (Number.isFinite(d) && d >= 0 ? Math.min(1, d / maxDist) : 1));
-  return { width: pattern.width, height: pattern.height, frame, maxDist };
+  const declaredSpec = Number(spec.width) > 0 || Number(spec.height) > 0;
+  return {
+    width: pattern.width,
+    height: pattern.height,
+    frame,
+    maxDist,
+    source: declaredSpec ? "scenario" : "catalog",
+  };
 }
 
 /** 足底接触：遍历 MuJoCo 接触表，按 geom 名把接触归属到 FL/FR/RL/RR。
@@ -6131,8 +6187,12 @@ function updateSensorPanels() {
       const preview = cachedScan("depth", (bp, bq) => scanDepthPreview(bp, bq, sensorMount("depth", sensorMountOverrides)));
       sizeDockCanvas(preview.width, preview.height);
       const drawn = ctx && drawDepthFrame(ctx, preview.frame, preview.height, preview.width);
-      note = drawn ? `外挂预览 ${preview.width}×${preview.height}（当前策略不消费深度）` : "绘制失败";
-      extra.depthMode = "外挂预览（20×12 粗格）";
+      note = drawn
+        ? `外挂预览 ${preview.width}×${preview.height} · 截止 ${preview.maxDist} m（当前策略不消费深度）`
+        : "绘制失败";
+      extra.depthMode = `外挂预览（${preview.width}×${preview.height}，`
+        + `截止 ${preview.maxDist} m，规格来源：${preview.source === "scenario" ? "场景声明" : "传感器目录"}）`;
+      extra.depthCutoffM = String(preview.maxDist);
     } else {
       note = "场景几何未就绪";
     }
@@ -7085,7 +7145,10 @@ async function applyScenario(payload) {
     if (perception.foot_contact) enabled.push("foot_contact");
     if (enabled.length) {
       sim.scenarioSensors = { route: perception.route || "external", mount: perception.mount || "base", enabled };
-      note(`感知传感器已启用：${enabled.join(" / ")}（route=${perception.route || "external"}）`);
+      // 声明即开：把坞里对应的插件勾上（否则"已启用"只是面板上的一句话，坞里无从查看）。
+      const turnedOn = enableDockPluginsForScenario(perception);
+      note(`感知传感器已启用：${enabled.join(" / ")}（route=${perception.route || "external"}）`
+        + (turnedOn.length ? `；坞里已打开：${turnedOn.join(" / ")}` : ""));
       if ((perception.route || "external") === "obs") {
         if (sim.policyInfo) {
           const gaps = unsupportedPerceptionItems(enabled);

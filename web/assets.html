@@ -17,16 +17,16 @@
     .package-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
     .package-actions{display:flex;gap:8px;margin-top:15px;flex-wrap:wrap}
     .badge{display:inline-flex;padding:3px 8px;border-radius:99px;background:var(--surface-raised);color:var(--accent);font-size:11px}
-    .badge.ok{background:rgba(46,160,67,.15);color:#2ea043}
-    .badge.warn{background:rgba(216,137,34,.15);color:#d88922}
+    .badge.ok{background:rgba(46,160,67,.15);color:#217a37}
+    .badge.warn{background:rgba(216,137,34,.15);color:#8a5a12}
     .badge.readonly{background:var(--surface-raised);color:var(--muted)}
     .empty{padding:60px;text-align:center;color:var(--muted);border:1px dashed var(--border-soft)}
     .import-bar{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
     .import-bar input{flex:1;min-width:280px;padding:9px 12px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:12px}
-    .btn.primary{background:var(--accent);color:#04121a;border-color:var(--accent)}
+    .btn.primary{background:var(--accent);color:#ffffff;border-color:var(--accent)}
     .btn.danger{color:#f85149;border-color:rgba(248,81,73,.4)}
     .profile-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-    .profile-chips .badge{font-size:10px}
+    .profile-chips .badge{font-size: 11px}
     .toolbar-note{margin-top:10px;color:var(--muted);font-size:11px}
   
     body.embedded{padding:0}
@@ -41,7 +41,7 @@
       <div class="page-actions"><a class="btn" href="workbench.html#home">返回工作台</a><button class="btn" id="refresh">刷新索引</button></div>
     </header>
     <div class="import-bar">
-      <input id="importPath" type="text" placeholder="输入机器人包的绝对路径（目录需包含 contract_legacy_v2.json 与 robot_package.json），例如 C:\data\my_robot_pkg" spellcheck="false">
+      <input id="importPath" aria-label="导入包的文件路径" type="text" placeholder="输入机器人包的绝对路径（目录需包含 contract_legacy_v2.json 与 robot_package.json），例如 C:\data\my_robot_pkg" spellcheck="false">
       <button class="btn primary" id="importBtn">导入包</button>
     </div>
     <p class="toolbar-note">索引具备自动同步：任何包新增/修改/删除都会在下一次读取时被检测并重建，无需手动刷新。内置包（assets/robots）为只读。</p>

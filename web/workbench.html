@@ -62,7 +62,7 @@
 
           <div class="section-title"><div><span class="eyebrow">PACKAGE LIBRARY</span><h2>资产库</h2></div><div class="heading-actions"><span id="assetLibraryStatus" class="muted">内置包与工作区包统一管理，修改自动同步训练与仿真</span><button class="text-button" id="refreshAssetLibrary">刷新索引</button></div></div>
           <div class="asset-import-row">
-            <input id="assetImportPath" type="text" placeholder="输入机器人包绝对路径（目录需含 contract.json 与 robot_package.json），回车或点「导入包」" spellcheck="false">
+            <input id="assetImportPath" aria-label="导入包的文件路径" type="text" placeholder="输入机器人包绝对路径（目录需含 contract.json 与 robot_package.json），回车或点「导入包」" spellcheck="false">
             <button class="button" id="importAssetPackage">导入包</button>
           </div>
           <div id="assetLibraryGrid" class="asset-card-grid"><div class="empty-state">正在读取机器人包...</div></div>
