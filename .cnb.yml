@@ -227,6 +227,11 @@ syntax-check: &syntax-check
   # 降核理由见文件头「CI 资源规模」注。
   runner:
     cpus: 2
+  # 与 .main-env 同理：这条 pipeline 的第一步是 .dev-env-bootstrap（要 python3/pip），
+  # 而 **CI runner 的默认镜像没有 python**（实测 `python`/`python3` 均 127）。
+  # 镜像只是运行底座，依赖仍由 .dev-env-bootstrap 现装（训练 venv 由 uv 自供）。
+  docker:
+    image: python:3.12
   env:
     # 训练 venv 落点：仓库外，不被 bind mount 覆盖（由 dev-env-bootstrap 供应）。
     LEGGED_STUDIO_MJLAB_VENV: /opt/legged-studio/mjlab-cpu/.venv
@@ -276,6 +281,9 @@ syntax-check: &syntax-check
   # 降核理由见文件头「CI 资源规模」注。
   runner:
     cpus: 2
+  # 同 .cpu-training-env：首段 .dev-env-bootstrap 要 python3/pip，默认 runner 镜像没有 python。
+  docker:
+    image: python:3.12
   # 无头 CPU sim2sim 验收器需要 mujoco（纯 CPU wheel）+ onnxruntime，
   # 由 .dev-env-bootstrap 在启动时按需安装（与开发环境同一份 requirements）。
   stages:
