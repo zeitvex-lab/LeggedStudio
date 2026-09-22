@@ -135,7 +135,7 @@
       "id": "unitree_b2-trained-20260918-015414",
       "path": "simulation/policies/unitree_b2-trained-20260918-015414.onnx",
       "sim_ready": false,
-      "sim_blocker": "observation_kind=go2_mjlab_actor_48 在 observation_builders.js 里没有 builder：按通用布局代跑会吃错观测。补 builder（或把 kind 归并到既有 48 维布局）后把 sim_ready 改回 true。",
+      "sim_blocker": "**布局与动作口径已取证**（v0.59.0：obs 自训练源/既有帧逐项、动作自训练源与 ONNX 元数据），但**行为级实测不合格**：无头验收 5 档命令 **0/5**（默认门同为 0/5：各档均摔倒） ⇒ B8 冒烟轮产物，不入可仿真清单；要入清单须重训后重评（补 builder 解决不了\"不走\"）。",
       "provenance": {
         "artifact_id": "unitree_b2__produced-unitree_b2_v1_20260918_015414_313841",
         "run_id": "unitree_b2_v1_20260918_015414_313841",
@@ -148,9 +148,12 @@
       "contract": {
         "obs_dim": 48,
         "action_dim": 12,
+        "observation_layout": [{"source": "base_lin_vel", "width": 3}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract"}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}, {"source": "cmd", "width": 3, "scale": "@contract"}],
+        "action_scale": 0.25,
+        "default_joint_angles": {"fl_hip_joint": -0.1, "fl_thigh_joint": 0.8, "fl_calf_joint": -1.5, "fr_hip_joint": 0.1, "fr_thigh_joint": 0.8, "fr_calf_joint": -1.5, "rl_hip_joint": -0.1, "rl_thigh_joint": 0.8, "rl_calf_joint": -1.5, "rr_hip_joint": 0.1, "rr_thigh_joint": 0.8, "rr_calf_joint": -1.5},
         "observation_kind": "go2_mjlab_actor_48"
       },
-      "note": "B44 裁决：obs_dim 以 ONNX 实测宽度为准（48），布局 go2_mjlab_actor_48（training.log actor 组逐项取证）"
+      "note": "B8 第二批冒烟产物。**2026-09-23 补齐取证（v0.59.0）**：obs 布局 = 验收器既有 `_frame_go2_mjlab_actor_48` 的逐项序（training.log actor 组取证：lin_vel / ang_vel / gravity / q12 / dq12 / actions12 / cmd）；动作缩放自 ONNX 元数据 `action_scale`（逐关节 0.25）；ONNX 元数据默认姿态 hip −0.1（包级 0.0）+ thigh 0.8 / calf −1.5 ⇒ 逐关节声明。**行为级实测**：无头验收 5 档命令 **0/5**（默认门同为 0/5：各档均摔倒）。"
     }
   ]
 }

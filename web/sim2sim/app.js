@@ -15,7 +15,7 @@ import {
   normalizeNameMap,
   jointGroup,
   resolveActuatorRolesAndModes,
-} from "./obs/actuator_modes.js?v=0.58.0";
+} from "./obs/actuator_modes.js?v=0.59.0";
 // 契约级**槽表**（`onnx_slots`）：导出器命名不可依赖的产物按**位置**绑定 in/out 槽。
 import { resolveOnnxSlots } from "./obs/onnx_slots.js?v=0.46.0";
 import { createPieDepth } from "./pie_depth.js?v=0.46.0";

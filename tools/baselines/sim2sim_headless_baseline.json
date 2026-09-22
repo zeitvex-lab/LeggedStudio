@@ -1,10 +1,10 @@
 {
   "schema": "sim2sim-headless-baseline-1.0",
   "provenance": {
-    "generated_at": "2026-09-22T19:19:43",
-    "product_version": "0.58.0",
+    "generated_at": "2026-09-23T00:34:36",
+    "product_version": "0.59.0",
     "git": {
-      "commit": "70afdb5e52047d87fdd04319e23c9f4241573720",
+      "commit": "738efae4c577a44fbe1c312f2b2584e5a5df660d",
       "dirty": true
     },
     "platform": "Linux-5.4.241-1-tlinux4-0025.10-x86_64-with-glibc2.41",
@@ -54,7 +54,7 @@
     {
       "robot": "deeprobotics_m20",
       "policy": "deeprobotics_m20-trained-20260918-090509",
-      "verdict": "error",
+      "verdict": "pass",
       "family": null
     },
     {
@@ -138,7 +138,7 @@
     {
       "robot": "unitree_b2w",
       "policy": "unitree_b2w-trained-20260918-093241",
-      "verdict": "error",
+      "verdict": "fail",
       "family": null
     },
     {
@@ -336,7 +336,7 @@
     {
       "robot": "unitree_go2w",
       "policy": "unitree_go2w-trained-20260918-093550",
-      "verdict": "error",
+      "verdict": "fail",
       "family": null
     },
     {

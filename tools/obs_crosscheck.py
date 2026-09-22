@@ -359,7 +359,12 @@ def check_one(engine, robot: str, policy: str, yaw_deg: float, tol: float,
         return 2, "没有该策略"
     # 声明为**不可仿真**的策略（`sim_ready:false` + `sim_blocker`）本来就没有浏览器
     # builder —— 如实报"不适用"，不要让它以"浏览器拒绝"的形态冒充一条红（也不是绿）。
-    if entry.get("sim_ready") is False:
+    #
+    # **2026-09-23 例外（唯一一条）**：若它**自己声明了 `observation_layout`**，那它就有
+    # 可比的那一层了 —— 规格是两侧共用的解释器入口（浏览器侧不必有专用 builder），
+    # 此时仍要跑对拍：验的是"这份取证过的规格两侧同口径"（否则一个取证过的规格可能
+    # 只在一侧成立，而它又因为 `sim_ready:false` 永不进入任何比较 ⇒ 取证等于没验）。
+    if entry.get("sim_ready") is False and not (entry.get("contract") or {}).get("observation_layout"):
         reason = str(entry.get("sim_blocker") or "未写 sim_blocker")
         if not quiet:
             print("=" * 74)
