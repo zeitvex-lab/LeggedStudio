@@ -11,34 +11,45 @@
 # 控制面 pip 依赖 / 训练 venv 在启动时供应，不在镜像层固化。
 
 # ───────────────────────────────────────────────────────────────────────────
-# CI 资源规模：所有流水线锚点（.main-env / .cpu-training-env / .sim2sim-env / vscode）
-# 一律**显式**写 `cpus: 2`。
+# CI 资源规模：所有流水线锚点（.main-env / .cpu-training-env / .sim2sim-env / vscode / frontend）
+# 一律**显式**写 `cpus: 1`。
 #
-# 根因（2026-09-22 PR #45/#46 遗留）：平台在 Prepare 阶段按 `cpus × 5min`（上限时长）
-# 从根组织**预冻结**核时；`cpus: 8` 时根组织剩余额度不足，pipeline 在 Prepare 就被
-# 驳回，一条 stage 都没跑：
+# 根因（2026-09-22 PR #45/#46/#47 遗留）：平台在 Prepare 阶段按 `cpus × 5min`（上限时长）
+# 从根组织**预冻结**核时；核数越大冻结越多，根组织剩余额度不足时 pipeline 在 Prepare
+# 就被驳回，一条 stage 都没跑：
 #
 #   Root Group's events CPU core-hours are insufficient for pre-freezing
-#   (Freezing time: 5.00 min, equivalent to 0.67 core-hours)
+#   (Freezing time: 5.00 min, equivalent to 0.67 core-hours)   # cpus: 8
+#   (Freezing time: 5.00 min, equivalent to 0.17 core-hours)   # cpus: 2
 #
 # 失败落点会指向 stage 链的**第一段**（依赖安装），看起来像"依赖装不上"，实际与依赖无关。
 #
-# 平台实跑证据（PR #46 的 `cnb-4u8-1k33crd5o`）：同一次构建里
-#   syntax-check（cpus: 2）  → Prepare 通过，success [22.9s]
-#   backend-test-pr（cpus: 8）→ Prepare error [4.5s]
-#   cpu-training-smoke-pr（cpus: 8）→ Prepare error [3s]
-# 即**降核可解**，不是必须等组织提额。
+# 额度口径（官方文档「定价」）：云原生构建-CPU 免费额度 **160 核时/月**，月底清零、
+# 不叠加次月；超额 ¥0.125/核时。冻结规则：每 5 min 冻结 `5min × 节点规格`，
+# 预冻结时额度不足则**立即终止**任务。折算：
+#   8 核 × 5min = 0.67 核时 / 次冻结
+#   2 核 × 5min = 0.17 核时 / 次冻结
+#   1 核 × 5min = 0.08 核时 / 次冻结   ← 本仓现值
 #
-# 注意：不写 `runner.cpus` 时平台兜底就是 8 核（构建日志 `Pipeline actual limit cpus: 8`），
-# "不声明"并不省额度——所以这里必须**显式**写小核数。这些门禁以 I/O + 单进程为主
-# （py_compile / 单测 / 审计脚本 / ONNX 推理 / 加载冒烟），2 核足够；真需要更多核时
+# 为什么必须显式写小核数：不写 `runner.cpus` 时平台兜底就是 **8 核**
+# （构建日志 `Pipeline actual limit cpus: 8`），"不声明"并不省额度。
+# 1 核是平台允许的最小值（`cnb:arch:amd64` 范围 1~64）。这些门禁以 I/O + 单进程为主
+# （py_compile / 单测 / 审计脚本 / ONNX 推理 / 加载冒烟），1 核足够；真需要更多核时
 # 显式调高，而不是留空吃 8 核默认。
 #
+# **第二条杠杆：并发数。** 额度是按**根组织**算的，同一次构建里并发的 pipeline 会
+# **各自**预冻结一份——PR 的三条并发 = 3 份同时冻结。降核只把"单价"降下来，
+# 冻结份数由并发度决定。故 main.pull_request 的三条 pipeline 共用一把 lock
+# （key: ci-pr, wait: true）串行，任一时刻只有 1 份预冻结在生效。
+# 详见 main.pull_request 处的「并发即配额」注。
+#
 # **降核只解决「配额」这一半，另一半是「底座」。** 不声明 `docker.image` 的 pipeline
-# （cpu-training-smoke(-pr) / vscode）跑在平台默认 runner 上，那里**没有 python3/pip**：
+# （如 vscode 段）跑在平台默认 runner 上，那里**没有 python3/pip**：
 # Prepare 能通过、stage 照样秒挂（本仓 PR #47 实测 `pip: command not found` /
 # `python3: command not found`）。所以凡是不挂 `docker.image` 又需要解释器的 stage，
-# 一律**自举**（见 .dev-env-bootstrap 的「解释器与包管理器」段）。
+# 一律**自举**（见 .dev-env-bootstrap 的「解释器与包管理器」段）；
+# cpu-training / sim2sim 段则**两者都做**：显式 `docker.image: python:3.12` 做底座，
+# 同时 bootstrap 内部保留自举段兜底。
 # 只读日志里那句「依赖供应失败」容易误判成 requirements 的问题，实际与依赖无关。
 # ───────────────────────────────────────────────────────────────────────────
 
@@ -61,22 +72,22 @@
     # 会直接报 "Illegal option" 并让门禁在开局就退出（本仓曾因此 167ms 判失败）。
     # 也不依赖 python3/pip 预装：下方**自举**，见「解释器与包管理器」段。
     set -e
-    echo "== 解释器与包管理器（默认镜像不保证预装） =="
-    # 本锚点挂在 cpu-training-smoke(-pr) 的 stage 链首；而 .cpu-training-env 只声明
-    # `runner.cpus`，**不声明 docker.image**，于是它跑在平台默认 runner 上 —— 那里
-    # 既没有 python3 也没有 pip：
+    echo "== 解释器与包管理器（底座不保证预装，自举） =="
+    # 本锚点挂在 cpu-training-smoke(-pr) 的 stage 链首。曾有一段时期
+    # `.cpu-training-env` 只声明 `runner.cpus`、**不声明 docker.image**，
+    # 于是它跑在平台默认 runner 上 —— 那里既没有 python3 也没有 pip：
     #
     #   == control-plane deps ==
     #   sh: line 7: pip: command not found
     #   sh: line 9: python3: command not found
     #   [FAIL] 控制面依赖供应失败        （stage 在 150ms 内判 error）
     #
-    # 与 syntax-check 的注释是同一条约束的两种表现：**默认 runner 没有 python**。
-    # syntax-check / .main-env 都靠显式 `docker.image: python:3.12` 解决；而这里
-    # 与 vscode 段一样跑在**无 image 底座**上，所以必须**自举**：优先复用镜像自带的
+    # 现在 `.cpu-training-env` 已补上 `docker.image: python:3.12`，但**这段自举仍然保留**：
+    # 同一条锚点也被 vscode 段（无 image 底座的平台默认开发环境）复用，且它是
+    # 「开发环境能起 = CI 也能起」的同一份口径。自举逻辑：优先复用镜像自带的
     # python3，缺失时按发行版装上（apt 版 python3 自带 ensurepip/pip）。
     if ! command -v python3 >/dev/null 2>&1; then
-      echo "默认 runner 无 python3：按发行版安装"
+      echo "底座无 python3：按发行版安装"
       if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -qq
@@ -118,7 +129,7 @@
 #
 # 这一步只跑 py_compile 与契约产物漂移检查，不需要成堆第三方包，因此：
 #   - 单独成 pipeline，与 unit-tests **并发**（push 墙钟 ≈ max 而不是串行和）；
-#   - `cpus: 2`（纯 I/O + 单文件编译 2 核够用；降核依据见文件头「CI 资源规模」注）。
+#   - `cpus: 1`（纯 I/O + 单文件编译 1 核够用；降核依据见文件头「CI 资源规模」注）。
 #
 # 仍声明 `docker.image: python:3.12`：**CI runner 的默认镜像没有 python**
 # （实测 `python` / `python3` 均 127），无镜像声明跑不起来；而 python:3.12
@@ -128,7 +139,7 @@
 syntax-check: &syntax-check
   name: syntax-check
   runner:
-    cpus: 2
+    cpus: 1
   docker:
     image: python:3.12
   stages:
@@ -157,7 +168,7 @@ syntax-check: &syntax-check
 .main-env: &main-env
   # 降核理由见文件头「CI 资源规模」注。
   runner:
-    cpus: 2
+    cpus: 1
   docker:
     image: python:3.12
   stages:
@@ -270,14 +281,14 @@ syntax-check: &syntax-check
 
 .cpu-training-env: &cpu-training-env
   # 降核理由见文件头「CI 资源规模」注。
-  # 这里**不声明 docker.image**：跑在平台默认 runner 上。默认 runner 没有 python3/pip，
-  # 故引用本锚点的 stage 链必须以 .dev-env-bootstrap 开头（它负责自举解释器），
-  # 且其后阶段的脚本要用 python3（镜像里 python 与 python3 等价；CNB 默认镜像里 python 也是 3.12）。
   runner:
-    cpus: 2
+    cpus: 1
   # 与 .main-env 同理：这条 pipeline 的第一步是 .dev-env-bootstrap（要 python3/pip），
-  # 而 **CI runner 的默认镜像没有 python**（实测 `python`/`python3` 均 127）。
-  # 镜像只是运行底座，依赖仍由 .dev-env-bootstrap 现装（训练 venv 由 uv 自供）。
+  # 而 **CI runner 的默认镜像没有 python**（实测 `python`/`python3` 均 127），
+  # 所以必须显式给一个带解释器的**运行底座**：镜像只是底座，依赖仍由
+  # .dev-env-bootstrap 现装（训练 venv 由 uv 自供），不把依赖固化进镜像层。
+  # 注：bootstrap 内部**同样自带**自举段（无 python3 时按发行版安装）——双保险，
+  # 保证即使将来这个 image 被移除 / 换成无 python 的底座，门禁也不会在开局 127。
   docker:
     image: python:3.12
   env:
@@ -285,7 +296,7 @@ syntax-check: &syntax-check
     LEGGED_STUDIO_MJLAB_VENV: /opt/legged-studio/mjlab-cpu/.venv
     # 冒烟档固定 CPU：显式而非依赖"碰巧没 GPU"，避免门禁语义随 runner 漂移。
     LEGGED_STUDIO_TRAIN_DEVICE: cpu
-    # 限制线程数，避免 8 核 runner 上 torch/warp 线程超订导致抖动。
+    # 限制线程数，避免核数上调后 torch/warp 线程超订导致抖动。
     OMP_NUM_THREADS: "4"
     # 冒烟规模：门禁守的是"回路通不通"（栈可导入 / reward 有限 / 权重在动 /
     # time_outs 已接线），不是"训得好不好"——判据强度不随规模线性增长，
@@ -328,7 +339,7 @@ syntax-check: &syntax-check
 .sim2sim-env: &sim2sim-env
   # 降核理由见文件头「CI 资源规模」注。
   runner:
-    cpus: 2
+    cpus: 1
   # 同 .cpu-training-env：首段 .dev-env-bootstrap 要 python3/pip，默认 runner 镜像没有 python。
   docker:
     image: python:3.12
@@ -365,7 +376,7 @@ frontend:
   push:
     - name: frontend-check
       runner:
-        cpus: 4
+        cpus: 1
       docker:
         image: node:20
       stages:
@@ -425,11 +436,32 @@ main:
             exec bash scripts/cpu_training_smoke_gate.sh
 
   pull_request:
+    # ── 并发即配额：PR 门禁**串行**而非并发 ──────────────────────────────
+    # 平台按 `cpus × 5min` 预冻结核时。此前 PR 的三条 pipeline **同时**起，
+    # 同一次构建要连冻 3 份（2 核时是 3 × 0.17 核时），组织月度额度本就吃紧，
+    # 于是三条全部在 Prepare 被驳回（本仓 PR #47 实测，报错 0.17 核时/条）。
+    #
+    # 加同 key 的 lock 后，同 key 流水线**排队**（wait: true）而不是并发冻结：
+    # 任一时刻只有 1 份预冻结在生效。代价是 PR 门禁墙钟由 max 变成 sum，
+    # 但门禁的**可运行性**优先于墙钟——冻结不到额度的门禁，跑得再快也是 0。
+    # 三条共用同一把锁 `ci-pr`，按声明顺序串行。
+    #
+    # 注意：lock.key 支持变量替换，这里刻意**写死**（不掺 PR 号/commit），
+    # 让同仓库所有 PR 共享一把锁——额度是按**根组织**算的，锁也必须按组织粒度。
     - <<: *syntax-check
+      lock:
+        key: ci-pr
+        wait: true
     - name: backend-test-pr
       <<: *main-env
+      lock:
+        key: ci-pr
+        wait: true
     - name: cpu-training-smoke-pr
       <<: *cpu-training-env
+      lock:
+        key: ci-pr
+        wait: true
       # 同 push 侧：PR 只在训练相关路径变更时才付镜像重建的代价。
       ifModify: *cpu-training-paths
       stages:
@@ -459,7 +491,7 @@ $:
     - name: legged-studio-dev
       # 降核理由见文件头「CI 资源规模」注。
       runner:
-        cpus: 2
+        cpus: 1
       services:
         - vscode
         - docker
