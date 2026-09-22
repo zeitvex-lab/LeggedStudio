@@ -92,6 +92,41 @@ export function getLinearVelocityBody(quaternion, vx, vy, vz) {
   ];
 }
 
+/**
+ * **IMU 采样**：`qpos`/`qvel` → **机体系**读数（纯函数；全项目唯一一处"状态 → IMU"）。
+ *
+ * 为什么必须集中一处：MuJoCo 自由关节的 `qvel` 两段**不在同一坐标系**——
+ *   · `qvel[0:3]` 线速度在**世界系**（= 体原点速度；与 `mj_objectVelocity(flg_local=0)`
+ *     逐值对拍过）⇒ 要 `Rᵀ` 转进机体系；
+ *   · `qvel[3:6]` 角速度**本来就是机体系**（= `mj_objectVelocity(flg_local=1).rot`）
+ *     ⇒ **不能再乘一次 Rᵀ**。
+ *
+ * **这段曾经错在浏览器侧**（2026-09-22 用户报"机器人转到 180° 左右必然抽风"）：两段都乘了
+ * Rᵀ，而 yaw=0 处 R≈I ⇒ 错误**完全不可见**（策略照走，"看着没事"了很久）；yaw 一大，水平
+ * 两轴就翻号（180° 时 `Rᵀ·ω = (−ωx, −ωy, ωz)`）⇒ 角速度反馈变成**正反馈** ⇒ 机器人直接乱动
+ * 失衡。实测 ω_body=(0.5,−1.1,0.9)：正确读数在 yaw 0/90/180 恒为 (0.5,−1.1,0.9)；
+ * 双重旋转给出 (0.5,−1.1,0.9) / (−1.1,−0.5,0.9) / (−0.5,1.1,0.9)。
+ * 验收器（`adapters/mjlab/policy_acceptance.py::ObsBuilder.base_state`：`ang_b = qvel[3:6]`、
+ * `lin_b = Rᵀ·qvel[0:3]`）用的是正确口径 ⇒ 同一条策略"验收里稳、浏览器里歪"。
+ * **这类"两份实现差一步"的缺陷只有在**同状态下逐段对拍**才抓得到**，所以这里写成纯函数并
+ * 由 `utils.test.mjs` 用"同 ω 下不同 yaw 读数必须逐位相同"钉死。
+ *
+ * @param {ArrayLike<number>} qpos 自由关节位姿段（[3..6] 为四元数 w,x,y,z）
+ * @param {ArrayLike<number>} qvel 自由关节速度段（[0..2] 世界系线速度、[3..5] 机体系角速度）
+ * @returns {{angular: Float32Array, linear: Float32Array, gravity: Float32Array, rpy: Float32Array}}
+ */
+export function imuSampleFromQpos(qpos, qvel) {
+  const quaternion = [qpos[3], qpos[4], qpos[5], qpos[6]];
+  return {
+    // 角速度**已是机体系**：原样透传（再转一次就是"双重旋转"，见上文）
+    angular: new Float32Array([qvel[3], qvel[4], qvel[5]]),
+    // 线速度是**世界系**：这一步才需要 Rᵀ
+    linear: new Float32Array(quatRotateInverse(quaternion, [qvel[0], qvel[1], qvel[2]])),
+    gravity: new Float32Array(getGravityOrientation(quaternion)),
+    rpy: new Float32Array(quatToRpy(quaternion)),
+  };
+}
+
 export function enumValue(value) {
   if (typeof value === "number") return value;
   if (value && typeof value.value === "number") return value.value;
