@@ -36,8 +36,10 @@
 ## 环境结构
 
 ```
-.cnb.yml  （无 docker.build）     # 镜像=默认镜像；依赖在启动阶段供应
-.cnb.yml  .dev-env-bootstrap     # 依赖供应：控制面 pip 包 + libosmesa（CI/开发共用锚点）
+.cnb.yml  （无 docker.build）     # 开发环境镜像=默认镜像；依赖在启动阶段供应
+.cnb.yml  .dev-env-bootstrap     # 依赖供应：控制面 pip 包 + libosmesa + 训练 venv（CI/开发共用锚点）
+.cnb.yml  syntax-check           # CI 语法门禁：不装 pip 包，独立 pipeline，与单测并发
+.cnb.yml  .main-env              # CI 单测/审计门禁：python:3.12 底座 + 现装依赖
 .cnb.yml  $: vscode              # 启动流程：供应依赖 + 自检 + 起后端 + 打印预览地址
 .cnb/settings.yml                # 入口按钮名称 / CPU 核数 / 自动打开 WebIDE
 .cnb/mcp/servers.json            # 开发期 MCP 工具链（11 条，见 .cnb/mcp/README.md）
@@ -236,12 +238,38 @@ CI runner 每次现装（换来的是依赖版本零漂移 —— 改了 `requir
 > 云开发**不声明 `docker.volumes`**：该字段在流水线里合法，但在 `vscode` 事件下平台
 > 会拒绝（`不允许的字段 "docker.volumes"`）。缓存复用改由平台节点卷 + 幂等供应共同保证。
 
-| CI 任务 | 内容 |
-|---|---|
-| `backend-test` | 语法、契约漂移、单测、**openapi 契约冒烟**、移植准入、Pack 校验 |
-| `headless-sim2sim-gate` | 包内声明策略全量的 CPU 无头验收（当前 49 条可执行），对照基线只拦**新增退化** |
-| `cpu-training-smoke` | CPU 训练冒烟门禁：默认 16 envs × 5 iters 真实 PPO + 报告断言；**仅训练相关路径变更才触发**（`ifModify`，见 `.cnb.yml` 的 `.cpu-training-paths`） |
-| `frontend-check` | web JS 语法 + vendor 资产冒烟 |
+### CI 结构：按「依赖形态」拆成三段，互不拖累
+
+历史上 `push` 只有一条 `backend-test`，里面把 `syntax-check`（零依赖）和 `unit-tests`
+（要 pip 装 20+ 包）**串在同一个 python:3.12 容器**里 —— 短门禁必须等长门禁的容器
+准备与依赖安装。现在按「这一步到底需要什么」拆开：
+
+| Pipeline | 镜像 | 规模 | 内容 |
+|---|---|---|---|
+| `syntax-check` | `python:3.12` | `cpus: 2` | `py_compile` + 契约产物漂移；**不装任何 pip 包** |
+| `backend-test` / `backend-test-pr` | `python:3.12` | `cpus: 8` | 单测、**openapi 契约冒烟**、移植准入、Pack 校验、全部审计工具 |
+| `cpu-training-smoke`（+PR 侧） | 默认 runner + `dev-env-bootstrap` 供应 | `cpus: 8` | CPU 训练冒烟：16 envs × 5 iters 真实 PPO + 报告断言；**仅训练相关路径变更才触发**（`ifModify`，见 `.cpu-training-paths`） |
+| `headless-sim2sim-gate` | 默认 runner + `dev-env-bootstrap` 供应 | `cpus: 8` | 包内声明策略全量的 CPU 无头验收（当前 49 条可执行），对照基线只拦**新增退化** |
+| `frontend-check` | `node:20` | `cpus: 4` | web JS 语法 + vendor 资产冒烟 |
+
+三条要点：
+
+- **`syntax-check` 单独成 pipeline，与 `backend-test` 并发**：此前语法检查与单测串在
+  同一个容器里，短门禁要等长门禁的容器与依赖。拆开后 push 的墙钟 ≈
+  `max(syntax, unit-tests)`，而不是两者串行相加（单测仍是长板）。
+- **默认 CI runner 没有 python**（实测 `python` / `python3` 均 127）—— 除依赖由
+  `.dev-env-bootstrap` 现装的 `cpu-training-smoke` / `headless-sim2sim-gate` 外，
+  凡要跑 Python 的 job 都必须显式声明 `docker.image: python:3.12`。该镜像与云原生
+  开发的默认镜像同版，但只作**运行底座**：依赖仍在 stage 里现装，因此不引入
+  「镜像层里是旧依赖」的漂移面。
+- **`runner.cpus` 与配额**：0.5 core-hour/freeze 的配额下，预冻结折算 = `cpus × 5min`，
+  所以 `cpus` 越大单位时间配额消耗越快。纯 I/O + 单文件编译的 `syntax-check` 用 2 核
+  足够，属于「降低单位时间配额消耗」，不牺牲判据强度（判据仍是全量 `py_compile`）。
+
+> 网络与 `apt`：`syntax-check` 不装依赖；`backend-test` 与 `cpu-training-smoke`
+> 仍各自 `apt-get install libosmesa6`（best-effort，装不上只影响渲染用例，会 self-skip）。
+> 改成 `docker.build` 预装能省这几秒，但会把依赖重新固回镜像层，与本仓「默认镜像 +
+> 启动时供应」的方向相悖，故保持现状。
 
 基线文件：`tools/baselines/sim2sim_headless_baseline.json`。
 仓库现存 3 条既存失败（go2 特技/跑酷量化判据未过）已记录在基线里，
