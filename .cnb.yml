@@ -10,6 +10,31 @@
 # 依赖改由**环境启动时按需供应**（.dev-env-bootstrap 锚点，幂等）：
 # 控制面 pip 依赖 / 训练 venv 在启动时供应，不在镜像层固化。
 
+# ───────────────────────────────────────────────────────────────────────────
+# CI 资源规模：所有流水线锚点（.main-env / .cpu-training-env / .sim2sim-env / vscode）
+# 一律**显式**写 `cpus: 2`。
+#
+# 根因（2026-09-22 PR #45/#46 遗留）：平台在 Prepare 阶段按 `cpus × 5min`（上限时长）
+# 从根组织**预冻结**核时；`cpus: 8` 时根组织剩余额度不足，pipeline 在 Prepare 就被
+# 驳回，一条 stage 都没跑：
+#
+#   Root Group's events CPU core-hours are insufficient for pre-freezing
+#   (Freezing time: 5.00 min, equivalent to 0.67 core-hours)
+#
+# 失败落点会指向 stage 链的**第一段**（依赖安装），看起来像"依赖装不上"，实际与依赖无关。
+#
+# 平台实跑证据（PR #46 的 `cnb-4u8-1k33crd5o`）：同一次构建里
+#   syntax-check（cpus: 2）  → Prepare 通过，success [22.9s]
+#   backend-test-pr（cpus: 8）→ Prepare error [4.5s]
+#   cpu-training-smoke-pr（cpus: 8）→ Prepare error [3s]
+# 即**降核可解**，不是必须等组织提额。
+#
+# 注意：不写 `runner.cpus` 时平台兜底就是 8 核（构建日志 `Pipeline actual limit cpus: 8`），
+# "不声明"并不省额度——所以这里必须**显式**写小核数。这些门禁以 I/O + 单进程为主
+# （py_compile / 单测 / 审计脚本 / ONNX 推理 / 加载冒烟），2 核足够；真需要更多核时
+# 显式调高，而不是留空吃 8 核默认。
+# ───────────────────────────────────────────────────────────────────────────
+
 # 环境供应的公共锚点：默认镜像只有 Python/Node 运行时，控制面依赖与训练栈
 # 都**不预装**（见 .dev-env-bootstrap 的注释）。CI 与云原生开发共用这一段，
 # 保证「开发环境里跑通的」和「CI 里跑的」仍是同一套依赖。
@@ -50,8 +75,7 @@
 #
 # 这一步只跑 py_compile 与契约产物漂移检查，不需要成堆第三方包，因此：
 #   - 单独成 pipeline，与 unit-tests **并发**（push 墙钟 ≈ max 而不是串行和）；
-#   - `cpus: 2`（0.5 core-hour/freeze 配额下，预冻结折算 = cpus × 5min，
-#     纯 I/O + 单文件编译 2 核够用，属"降低单位时间配额消耗"）。
+#   - `cpus: 2`（纯 I/O + 单文件编译 2 核够用；降核依据见文件头「CI 资源规模」注）。
 #
 # 仍声明 `docker.image: python:3.12`：**CI runner 的默认镜像没有 python**
 # （实测 `python` / `python3` 均 127），无镜像声明跑不起来；而 python:3.12
@@ -88,8 +112,9 @@ syntax-check: &syntax-check
 # （backend/requirements.txt），因此不引入「镜像层里是旧依赖」的漂移面。
 # ───────────────────────────────────────────────────────────────────────────
 .main-env: &main-env
+  # 降核理由见文件头「CI 资源规模」注。
   runner:
-    cpus: 8
+    cpus: 2
   docker:
     image: python:3.12
   stages:
@@ -199,8 +224,9 @@ syntax-check: &syntax-check
 # 依赖不固化在镜像层，因此不会再把「镜像重建」与「训练链路」耦在一起。
 
 .cpu-training-env: &cpu-training-env
+  # 降核理由见文件头「CI 资源规模」注。
   runner:
-    cpus: 8
+    cpus: 2
   env:
     # 训练 venv 落点：仓库外，不被 bind mount 覆盖（由 dev-env-bootstrap 供应）。
     LEGGED_STUDIO_MJLAB_VENV: /opt/legged-studio/mjlab-cpu/.venv
@@ -247,8 +273,9 @@ syntax-check: &syntax-check
 
 
 .sim2sim-env: &sim2sim-env
+  # 降核理由见文件头「CI 资源规模」注。
   runner:
-    cpus: 8
+    cpus: 2
   # 无头 CPU sim2sim 验收器需要 mujoco（纯 CPU wheel）+ onnxruntime，
   # 由 .dev-env-bootstrap 在启动时按需安装（与开发环境同一份 requirements）。
   stages:
@@ -374,8 +401,9 @@ main:
 $:
   vscode:
     - name: legged-studio-dev
+      # 降核理由见文件头「CI 资源规模」注。
       runner:
-        cpus: 8
+        cpus: 2
       services:
         - vscode
         - docker
