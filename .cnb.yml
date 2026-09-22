@@ -14,31 +14,35 @@
 # 都**不预装**（见 .dev-env-bootstrap 的注释）。CI 与云原生开发共用这一段，
 # 保证「开发环境里跑通的」和「CI 里跑的」仍是同一套依赖。
 #
+# 注意锚点形态：这必须是**单个 stage 的映射**（不是 list）。若写成 list 再以
+# `- *dev-env-bootstrap` 引用，YAML 会展开成嵌套 list（stages[0][0]），
+# CNB 不认嵌套结构，stage 会被整体跳过。引用方一律用合并键 `- <<: *anchor`。
+#
 # 为什么 CI 不缓存、每次装：runner 上都是几分钟量级（缓存卷只在开发环境里配），
 # 好处是**依赖版本零漂移**——backend/requirements.txt 改一行立刻生效，不存在
 # 「镜像层还是旧依赖」的滞后。装不上的失败会直接暴露在门禁里，不会静默降级。
 .dev-env-bootstrap: &dev-env-bootstrap
-  - name: dev-env-bootstrap
-    script: |
-      # 幂等：已装好就跳过（开发环境里每次起环境都会走到这里）。
-      # 这里刻意**不用 pipefail**：stage.script 由 sh 解释，dash 的 `set -o pipefail`
-      # 会直接报 "Illegal option" 并让门禁在开局就退出（本仓曾因此 167ms 判失败）。
-      set -e
-      echo "== control-plane deps =="
-      python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" 2>/dev/null \
-        || pip install --quiet --break-system-packages \
-             -r backend/requirements.txt httpx onnx onnxruntime 2>&1 | tail -5
-      python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" \
-        || { echo "[FAIL] 控制面依赖供应失败"; exit 1; }
-      echo "== offscreen GL backend (best-effort, never fatal) =="
-      # 无显示环境下离屏渲染需要软件 GL（libOSMesa）；装不上不判红——
-      # backend/gl_env.offscreen_render_status() 是实测探针，不可用时用例自我 skip。
-      (apt-get update -qq && apt-get install -y -qq libosmesa6) \
-        || echo "libosmesa6 安装失败：渲染用例将 skip"
-      echo "== CPU training venv (idempotent) =="
-      # 默认镜像不预装 torch/mjlab；用适配器的 cpu extra 供应到仓库外的落点
-      # （避免被 bind mount 覆盖），已就绪时脚本自身短路复用。
-      LEGGED_STUDIO_UV_BIN=/usr/local/bin/uv bash scripts/provision_cpu_training.sh
+  name: dev-env-bootstrap
+  script: |
+    # 幂等：已装好就跳过（开发环境里每次起环境都会走到这里）。
+    # 这里刻意**不用 pipefail**：stage.script 由 sh 解释，dash 的 `set -o pipefail`
+    # 会直接报 "Illegal option" 并让门禁在开局就退出（本仓曾因此 167ms 判失败）。
+    set -e
+    echo "== control-plane deps =="
+    python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" 2>/dev/null \
+      || pip install --quiet --break-system-packages \
+           -r backend/requirements.txt httpx onnx onnxruntime 2>&1 | tail -5
+    python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" \
+      || { echo "[FAIL] 控制面依赖供应失败"; exit 1; }
+    echo "== offscreen GL backend (best-effort, never fatal) =="
+    # 无显示环境下离屏渲染需要软件 GL（libOSMesa）；装不上不判红——
+    # backend/gl_env.offscreen_render_status() 是实测探针，不可用时用例自我 skip。
+    (apt-get update -qq && apt-get install -y -qq libosmesa6) \
+      || echo "libosmesa6 安装失败：渲染用例将 skip"
+    echo "== CPU training venv (idempotent) =="
+    # 默认镜像不预装 torch/mjlab；用适配器的 cpu extra 供应到仓库外的落点
+    # （避免被 bind mount 覆盖），已就绪时脚本自身短路复用。
+    LEGGED_STUDIO_UV_BIN=/usr/local/bin/uv bash scripts/provision_cpu_training.sh
 
 
 .main-env: &main-env
@@ -219,7 +223,7 @@
   # 无头 CPU sim2sim 验收器需要 mujoco（纯 CPU wheel）+ onnxruntime，
   # 由 .dev-env-bootstrap 在启动时按需安装（与开发环境同一份 requirements）。
   stages:
-    - *dev-env-bootstrap
+    - <<: *dev-env-bootstrap
     - name: headless-sim2sim-gate
       # 与 cpu-training-gate 同理：stage.script 由 sh（dash）解释，
       # `set -o pipefail` 直接报 Illegal option，门禁会在开局就退出（判据压根没跑）。
@@ -290,7 +294,7 @@ main:
       # 无关改动（docs/web 等）不再触发 torch 镜像重建。
       ifModify: *cpu-training-paths
       stages:
-        - *dev-env-bootstrap
+        - <<: *dev-env-bootstrap
         - name: cpu-training-gate
           # 用 bash 执行：CNB 的 stage.script 默认由 sh 解释，Debian/dash 下
           # `set -o pipefail` 会直接报 "Illegal option"（本门禁曾因此在 167ms 内失败，
@@ -309,7 +313,7 @@ main:
       # 同 push 侧：PR 只在训练相关路径变更时才付镜像重建的代价。
       ifModify: *cpu-training-paths
       stages:
-        - *dev-env-bootstrap
+        - <<: *dev-env-bootstrap
         - name: cpu-training-gate
           # 同 push 侧：stage.script 由 sh 解释，不能用 `set -o pipefail`。
           # 显式 exec bash 让门禁脚本自己的 set -euo pipefail 生效。
