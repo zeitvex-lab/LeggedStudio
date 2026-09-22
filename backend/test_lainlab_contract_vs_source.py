@@ -271,6 +271,51 @@ class LainlabContractMatchesSourceTest(unittest.TestCase):
                     mismatch.append(f"{name}: 契约 {got} vs 上游 {want}")
             self.assertEqual([], mismatch, f"{entry['id']} 默认姿与上游不一致：{mismatch}")
 
+    def test_artifact_metadata_matches_contract(self):
+        """**产物自证**：ONNX 自带元数据时，契约必须与它逐值一致（最硬的一手年代真值）。
+
+        实测只有 `go2-handstand.onnx` 带元数据（其余 7 个的 `custom_metadata_map` 为空），
+        它给出 `default_joint_pos` 12 值 / `action_scale` / `joint_names` / `command_names` /
+        `observation_names` —— 这份元数据**确认了默认姿**（`0.1,0.8,-1.5,-0.1,0.8,-1.5,0.1,1.0,-1.5,
+        -0.1,1.0,-1.5`，与我们从技能工厂取的值一致 ✓，即"逐技能工厂"这条路走对了）。
+
+        **它 settle 不了增益**：`joint_stiffness` 全 1.0、`joint_damping` 全 −0.0 是导出占位
+        （不是训练真值）⇒ 增益年代问题仍按 `test_gain_era_evidence` 的行为证据处理。
+        没有元数据的产物跳过（不假装有）。
+        """
+        checked = 0
+        try:
+            import onnxruntime as ort
+        except ImportError:          # 精简环境（无 onnxruntime）时跳过，不假装验过
+            self.skipTest("无 onnxruntime")
+        from backend.policy_artifacts import policy_relative_path
+
+        robot_dir = SIM_CFG.parents[1]
+        for entry in self.policies:
+            rel_name = policy_relative_path(entry, robot_dir=robot_dir)
+            rel = (robot_dir / rel_name) if rel_name else None
+            if rel is None or not rel.is_file():
+                continue
+            meta = ort.InferenceSession(str(rel), providers=["CPUExecutionProvider"]).get_modelmeta()
+            props = dict(meta.custom_metadata_map or {})
+            if not props:
+                continue
+            contract = entry.get("contract") or {}
+            if props.get("action_scale"):
+                self.assertAlmostEqual(float(props["action_scale"]),
+                                       float(contract.get("action_scale")), places=6,
+                                       msg=f"{entry['id']} action_scale 与产物元数据不一致")
+            if props.get("joint_names"):
+                self.assertEqual([x for x in str(props["joint_names"]).split(",") if x],
+                                 list(contract.get("action_joint_order") or []), entry["id"])
+            if props.get("default_joint_pos"):
+                want = [float(x) for x in str(props["default_joint_pos"]).split(",") if x]
+                got = [float((contract.get("default_joint_angles") or {})[n])
+                       for n in contract.get("action_joint_order") or []]
+                self.assertEqual(want, got, f"{entry['id']} 默认姿与产物元数据不一致")
+            checked += 1
+        self.assertGreater(checked, 0, "一个带元数据的产物都没验到——元数据来源变了？")
+
     def test_gain_era_evidence(self):
         """7 条 lainlab 的执行器增益 = **基座谱系**（hip/thigh 20/1、calf 40/2），不是现 `src` 工厂的 20/0.5。
 
