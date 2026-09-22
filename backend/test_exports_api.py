@@ -98,6 +98,19 @@ class ExportsApiTest(unittest.TestCase):
         response = self.client.post("/api/exports/scenario", json={})
         self.assertEqual(400, response.status_code)
 
+    def test_unshippable_map_is_rejected_with_reason(self):
+        """地图不可随包走（库外且找不到文件）⇒ **400 带原话**，不是 500（C4）。
+
+        "接口说谎"的反面：拒绝要让人看得懂怎么修；而如果这里返回 500，用户只会知道
+        "打包失败了"，不知道要先把地形放进 `assets/maps/`。
+        """
+
+        payload = dict(SCENARIO, scenario_id="unshippable-map", map_id="my_secret_terrain")
+        response = self.client.post("/api/exports/scenario",
+                                    json={"scenario": payload, "out_name": "unshippable-map"})
+        self.assertEqual(400, response.status_code)
+        self.assertIn("公共地图库", response.json()["detail"])
+
     def test_absolute_scenario_path_is_rejected(self):
         for value in ("C:/tmp/x.json", "/tmp/x.json", "../outside.json"):
             response = self.client.post("/api/exports/scenario", json={"scenario_path": value})

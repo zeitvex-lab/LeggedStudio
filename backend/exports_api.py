@@ -164,7 +164,12 @@ async def create_scenario_export(request: ScenarioExportRequest) -> dict[str, An
             out = _prepare_out_dir(request.out_name, overwrite=request.overwrite)
         elif out.exists() and any(out.iterdir()) and not request.overwrite:
             raise HTTPException(status_code=409, detail=f"{api_path(out)} 已存在且非空；要覆盖请显式 overwrite=true")
-        manifest = export_scenario(source, out)
+        try:
+            manifest = export_scenario(source, out)
+        except ValueError as exc:
+            # 地图不可分享（库外且找不到文件）等**用户可修**的拒绝原因 ⇒ 400 带原话，
+            # 不许变成 500（"接口说谎"的反面：拒绝要让人看得懂怎么修）。
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
