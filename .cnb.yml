@@ -121,7 +121,12 @@
     echo "== CPU training venv (idempotent) =="
     # 默认镜像不预装 torch/mjlab；用适配器的 cpu extra 供应到仓库外的落点
     # （避免被 bind mount 覆盖），已就绪时脚本自身短路复用。
-    LEGGED_STUDIO_UV_BIN=/usr/local/bin/uv bash scripts/provision_cpu_training.sh
+    #
+    # 这里**不再写死** LEGGED_STUDIO_UV_BIN：CI 底座是 python:3.12（无 uv），
+    # 写死 /usr/local/bin/uv 会让 provision 脚本在第 3 步 127
+    # （`/usr/local/bin/uv: No such file or directory`，实测于构建 cnb-p9g-1k33d6d1m-003）。
+    # 让脚本自己「PATH 探测 → 缺失则按 UV_VERSION 安装」即可，两处落点口径一致。
+    bash scripts/provision_cpu_training.sh
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -552,8 +557,9 @@ $:
               echo "chromium 已是 playwright $PLAYWRIGHT_VERSION，跳过"
             fi
             echo "== CPU 训练 venv（幂等） =="
-            # 默认镜像自带 uv（也可由 provision 脚本自行安装）。
-            LEGGED_STUDIO_UV_BIN=/usr/local/bin/uv bash scripts/provision_cpu_training.sh
+            # 默认镜像自带 uv，但这里同样不写死路径：脚本会 PATH 探测、缺失则自动安装，
+            # 与 CI 侧同一口径（默认镜像里 uv 就在 PATH 上）。
+            bash scripts/provision_cpu_training.sh
         - name: assert-default-env
           # 回归哨兵：默认镜像本该提供 WebIDE 服务端与 CodeBuddy 入口。
           # 缺失说明镜像被换回去了 / 平台默认环境变了，在环境启动时就显式报出来，
