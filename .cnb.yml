@@ -203,6 +203,11 @@ syntax-check: &syntax-check
         backend.test_hygiene \
         backend.test_pack_catalog \
         backend.test_deploy_pack 2>&1 | tail -40
+      echo "== github mirror contract (adapters/ 不在 backend discover 范围内) =="
+      # 这条必须显式列出：`python -m unittest discover -s backend` 只扫 backend/，
+      # 而适配器测试随适配器走（adapters/test_backend_adapter.py 同样是显式模块）。
+      # 不列在这里 = 测试存在但 CI 看不见 —— 正是 B16 与前端套件清单踩过的同一个坑。
+      python -m unittest adapters.github.test_github_mirror 2>&1 | tail -20
       echo "== API contract smoke (openapi must generate) =="
       # 守住"路由签名里的模型必须已导入"：ForwardRef 未解析时模块仍可 import、
       # 但 /openapi.json 500，且 /api/training/create 字段解析失败——CI 盲区。
@@ -238,6 +243,11 @@ syntax-check: &syntax-check
       python tools/audit_acceptance_verifiability.py
       # N7 tools/ 孤儿工具登记（文本级引用检测）
       python tools/audit_tools_inventory.py
+      # GitHub 镜像：无密钥时打印 SKIPPED 并 exit 0（本地/CI 的常态），
+      # **有密钥时才有意义** —— 真正的同步由 push / tag_push 事件的 github-mirror 做。
+      # 这里跑 --check 只做一件静态可守的事：确认入口可导入、参数可解析（防止
+      # "流水线里配了但脚本压根跑不起来"这种只在发布时才暴露的错）。
+      python -m adapters.github.mirror --check
       # N3 插件包 CLI 可跑性冒烟（ls_plugin 此前不在任何 CI/脚本里）
       python scripts/ls_plugin.py --help > /dev/null
       echo "== doc reality check (B17: 文档数字 vs 实测) =="
@@ -377,6 +387,49 @@ syntax-check: &syntax-check
         '
 
 
+# ───────────────────────────────────────────────────────────────────────────
+# GitHub 自动上传（镜像）
+#
+# 本仓（CNB）是开发主仓，GitHub 侧保留一份**可直接克隆**的公开副本。
+# 手工同步的问题不是"麻烦"，是**没人知道上一次同步到哪个提交**：漏同步、同步一半、
+# 把未发布的分支推上去，都只能靠人记。所以这里把它做成一条可复跑的流水线步骤。
+#
+# 三件事写在这里，是因为它们都是"看起来能省、省了必出事"的：
+#
+# 1. `imports` 引**密钥仓库** `zeitvex/github-secrets` —— 密钥只进环境变量，
+#    不落在工作区文件里。$GITHUB_TOKEN 仅由 `adapters/github/mirror.py` 经
+#    `http.extraheader` 传给 git（不进 `.git/config`、不进 argv），输出侧一律脱敏。
+# 2. **只在 push / tag_push 触发**：密钥仓库 owner 触发的 pipeline 默认就有权引用；
+#    但这里显式挂在发布事件上，PR 侧的贡献者代码拿不到密钥（最小授权）。
+# 3. **判据是 sha 相等，不是"名字在不在"**：每次运行先查 GitHub 侧 ref 的实际 sha，
+#    与本地一致即跳过 —— 于是这条步骤**幂等**，重跑不会重复推、也不会推错。
+#
+# 触发面：`main` 分支的 push（同步主分支）+ 任意 `v*` tag（同步版本与 Release）。
+# 本地/PR 上拿不到密钥时，脚本打印 `SKIPPED` 并 exit 0 —— **没配密钥不是失败**，
+# 判据是"配了就同步"。手动演练：`python -m adapters.github.mirror --check`。
+.github-mirror: &github-mirror
+  name: github-mirror
+  runner:
+    # 与其余 pipeline 一致降到平台最小 1 核（依据见文件头「CI 资源规模」注）：
+    # 本步是"git push + 几个 REST 请求"的纯 I/O，1 核足够。
+    cpus: 1
+  docker:
+    # 与其余门禁同底座：CI runner 默认**没有 python**（见上方注释），必须显式声明。
+    image: python:3.12
+  imports:
+    # 密钥文件（格式见 https://cnb.cool/zeitvex/github-secrets/-/blob/main/github-secrets.yaml）：
+    #   GITHUB_USER:  "your-github-username"
+    #   GITHUB_TOKEN: "ghp_xxxxxxxxxxxxxxxxxxxx"
+    # 需要 push 到别的仓库时再加一行 `GITHUB_REPO: "owner/repo"`（缺省 = $GITHUB_USER/LeggedStudio）。
+    - https://cnb.cool/zeitvex/github-secrets/-/blob/main/github-secrets.yaml
+  stages:
+    - name: mirror
+      script: |
+        set -eo pipefail
+        # 本脚本**只用标准库**（urllib + git CLI）——镜像动作不该依赖控制面那套 pip 包，
+        # 否则"上传失败"里会混进"依赖装不上"两种原因。
+        python -m adapters.github.mirror
+
 frontend:
   push:
     - name: frontend-check
@@ -423,6 +476,14 @@ main:
     - <<: *syntax-check
     - name: backend-test
       <<: *main-env
+    # GitHub 镜像：main 的每次 push 同步一次（幂等，无变更即跳过）。
+    # 加锁的理由与 PR 侧同一套（见下「并发即配额」注）：push 侧原本 3 条并发 =
+    # 3 份同时预冻结，现在把镜像这条也纳入同一把锁，任一时刻只有 1 份在生效。
+    # 对镜像本身的代价极小——它是纯 I/O，排队多等的是前序门禁的时间。
+    - <<: *github-mirror
+      lock:
+        key: ci-pr
+        wait: true
     - name: cpu-training-smoke
       <<: *cpu-training-env
       # 仅训练相关路径变更才触发（见 .cpu-training-paths 注释）：
@@ -492,6 +553,34 @@ main:
 # 报 `不允许的字段 "docker.volumes"`（本仓 v0.56.2 前踩过）。云开发用的是平台
 # 托管的开发环境，缓存复用由平台的节点卷/幂等供应共同保证，不按流水线那套配。
 $:
+  # Tag 事件：`v*` 的 push 就是"发布"这个动作本身。
+  #
+  # **必须挂在 "$" 兜底分支下**：tag_push 是**仓库级**事件（不属于任何分支），
+  # 挂在 `main:` 下会被平台判为非法配置（本仓第一版正是这么写的，schema 校验直接报
+  # 「分支 "main" 下不允许使用仓库级事件 "tag_push"」）。这类错在页面上表现为
+  # "打了 tag 但什么都没发生"，很难从现象倒推回来。
+  #
+  # 与 push 侧共用同一个 *github-mirror 锚点（同一份判据/同一套日志），另加两件发布专属的事：
+  #   1. **本仓（CNB）建 Release** —— 平台内置任务 `git:release`（tag_push 免传 tag）；
+  #   2. **GitHub 侧建 Release** —— `adapters/github/mirror.py` 推完 tag 后建同名 Release。
+  #      两边都建，是因为两边都有人直接下载：只有本仓有 Release 时，GitHub 访客看不到版本——
+  #      而镜像的意义正是"GitHub 侧可直接用"。
+  #
+  # 为什么不做"只同步正式 tag"的分支白名单：tag 的语义由打 tag 的人负责，
+  # 流水线再猜"这个 tag 算不算正式"只会制造第二套真相。`v*` 是唯一门槛。
+  tag_push:
+    - <<: *github-mirror
+      stages:
+        - name: release
+          type: git:release
+          options:
+            overlying: true
+            title: "$CNB_BRANCH"
+        - name: mirror
+          script: |
+            set -eo pipefail
+            echo "== 发布 $CNB_BRANCH：同步 tag 到 GitHub 并建 Release =="
+            python -m adapters.github.mirror
   vscode:
     - name: legged-studio-dev
       # 降核理由见文件头「CI 资源规模」注。

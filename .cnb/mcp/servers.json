@@ -34,6 +34,7 @@
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
       },
+      "//": "GITHUB_TOKEN 与发布镜像（adapters/github/mirror.py）同源：都用密钥仓库 zeitvex/github-secrets 里的那个 PAT。开发环境里它不会自动存在——要自己 export，或走 imports 引入。",
       "description": "上游项目检索。落点：tools/sync_resources.py::PROJECTS 的 77 个项目溯源，registry/porting_evidence.json 的上游路径核对。"
     },
     "fetch": {
