@@ -133,7 +133,7 @@ start.bat
 ### 云原生开发（免配置在线环境）
 
 仓库页面点 **「Legged Studio 开发」** 即进入在线环境（**CNB 默认镜像**，自带 WebIDE 与
-CodeBuddy），依赖、Chromium 与 **CPU 训练栈**在环境启动时按需供应（幂等 + 缓存卷复用），
+CodeBuddy），依赖、Chromium 与 **CPU 训练栈**在环境启动时按需供应（幂等短路复用），
 后端自动在 `0.0.0.0:8765` 起来，浏览器 sim2sim 可直接看、可直接截图调试；
 环境还会打印 **MCP 工具链**配置路径。
 详见 [`docs/cloud-dev.md`](docs/cloud-dev.md)。

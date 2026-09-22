@@ -6,9 +6,9 @@
   `docker.build`）。平台侧维护，自带 code-server（单容器模式）、CodeBuddy Web
   与 WebIDE 的 CodeBuddy 插件、Python 3.12、Node 22、uv、git-lfs、zsh、cnb-cli；
 - 控制面依赖（`backend/requirements.txt` + `onnxruntime`）与 **CPU 训练 venv**
-  由启动阶段按需供应（幂等），pip 缓存落节点级缓存卷，第二次进环境基本是复用；
-- Playwright Chromium 装到缓存卷（版本随 `playwright` 包自动对齐），浏览器 sim2sim
-  可直接看、可直接截图；
+  由启动阶段按需供应（**import 探测幂等**，第二次进环境短路成秒级校验）；
+- Playwright Chromium 按版本标记对齐（版本随 `playwright` 包自动对齐，不合就重装），
+  浏览器 sim2sim 可直接看、可直接截图；
 - **CPU 训练链路进环境即可用**：mjlab 的 `cpu` extra 装在仓库外的隔离 venv
   （`/opt/legged-studio/mjlab-cpu/.venv`）；
 - 后端在 `0.0.0.0:8765` 自动拉起。
@@ -64,9 +64,9 @@ Python 版本要求（`pyproject.toml` 的 `>=3.12,<3.13` 与 `/api/system/envir
 
 | 依赖 | 供应方式 | 复用 |
 |---|---|---|
-| 控制面（`backend/requirements.txt` + `httpx`/`onnx`/`onnxruntime`） | `pip install --break-system-packages` | `/root/.cache/pip` 缓存卷 |
+| 控制面（`backend/requirements.txt` + `httpx`/`onnx`/`onnxruntime`） | `pip install --break-system-packages` | import 探测幂等（已装即短路） |
 | CPU 训练 venv（mjlab cpu extra） | `scripts/provision_cpu_training.sh`（幂等） | 落在 `/opt/...`（仓库外，不被 bind mount 覆盖） |
-| Playwright Chromium | `playwright install --with-deps chromium` | `/root/.cache/ms-playwright` 缓存卷 + 版本标记 |
+| Playwright Chromium | `playwright install --with-deps chromium` | 版本标记文件（不合则重装） |
 | 离屏渲染软件 GL（`libosmesa6`） | `apt-get install`（尽力而为，失败不判红） | —— |
 
 ### 启动阶段做了什么
@@ -229,9 +229,12 @@ bash scripts/provision_cpu_training.sh
 （`.cnb.yml` 的 `.dev-env-bootstrap`），所以「开发环境里能跑通的」和「CI 里跑的」
 是同一套依赖，不会出现环境漂移。
 
-差别只在缓存：开发环境把 `/root/.cache/pip` 与 `/root/.cache/ms-playwright` 挂成
-节点级缓存卷（第二次进环境基本都在复用）；CI runner 每次现装（换来的是依赖版本
-零漂移 —— 改了 `requirements.txt` 立刻生效，不存在"镜像层还是旧依赖"的滞后）。
+差别只在缓存：开发环境依赖装一次后靠**幂等短路**复用（第二次进环境是秒级校验）；
+CI runner 每次现装（换来的是依赖版本零漂移 —— 改了 `requirements.txt` 立刻生效，
+不存在"镜像层还是旧依赖"的滞后）。
+
+> 云开发**不声明 `docker.volumes`**：该字段在流水线里合法，但在 `vscode` 事件下平台
+> 会拒绝（`不允许的字段 "docker.volumes"`）。缓存复用改由平台节点卷 + 幂等供应共同保证。
 
 | CI 任务 | 内容 |
 |---|---|
