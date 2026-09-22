@@ -281,6 +281,28 @@ syntax-check: &syntax-check
       # 长期编译不过」的事故。这步守**资源完整性**（硬门禁）；地形几何差异只报告不判红
       # ——差异可能是有意的（如 slope 的 friction）。
       python tools/audit_map_duplication.py
+  - name: browser-e2e-gate
+    script: |
+      set -eo pipefail
+      echo "== 浏览器 e2e（页面级健康 + 任务插件消费） =="
+      # **为什么必须有这一段（2026-09-23 实测踩到）**：`web/sim2sim/app.js` 里一个
+      # `ReferenceError: normalizedNameMap is not defined`（把该函数抽进
+      # `obs/actuator_modes.js` 后，app.js 里 5 处调用点没跟着改名）**打断了基础仿真页的
+      # 整个初始化**（applyRuntimeConfig → applyActuatorContract），而那一轮所有门禁全绿：
+      #   · 前端单测**不加载 app.js**（只测纯逻辑模块）；
+      #   · `node --check` 只查语法，查不出"名字不存在"；
+      #   · `tests/e2e/` **不在流水线里** ⇒ 页面级错误没人看。
+      # 于是"页面坏了"与"门禁全绿"同时成立 —— 与 B16 那条同一个形态：**有测试 ≠ 门禁在守**。
+      # 这一段把「至少一条真开页面的用例」钉进 main 门禁；用例本身在
+      # `tests/e2e/test_task_plugin_fill.py`（约 3 s，装浏览器才是长板）。
+      python -m pip install --quiet --break-system-packages playwright pytest pytest-playwright
+      # 与 .dev-env-bootstrap 同口径：**装不上如实报，不把环境问题判成红**
+      # （但一定要可见——静默 skip 正是本条要消灭的东西）。
+      if python -m playwright install --with-deps chromium >/dev/null 2>&1; then
+        python -m pytest tests/e2e/test_task_plugin_fill.py -q 2>&1 | tail -20
+      else
+        echo "[WARN] Chromium 装不上：本轮 browser-e2e-gate 未跑（环境问题，不判红；但请留意）"
+      fi
 
 # CPU 训练冒烟门禁的环境：默认镜像 + 启动时供应训练 venv。
 # 依赖不固化在镜像层，因此不会再把「镜像重建」与「训练链路」耦在一起。

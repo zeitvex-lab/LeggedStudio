@@ -15,7 +15,7 @@ import {
   normalizeNameMap,
   jointGroup,
   resolveActuatorRolesAndModes,
-} from "./obs/actuator_modes.js?v=0.59.0";
+} from "./obs/actuator_modes.js?v=0.60.0";
 // 契约级**槽表**（`onnx_slots`）：导出器命名不可依赖的产物按**位置**绑定 in/out 槽。
 import { resolveOnnxSlots } from "./obs/onnx_slots.js?v=0.46.0";
 import { createPieDepth } from "./pie_depth.js?v=0.46.0";
@@ -1810,9 +1810,9 @@ function applyRuntimeConfig(config) {
   }
   // Per-policy PD override (third-party rl_sar-style contracts pin their own
   // rl_kp/rl_kd, which can differ from the package-wide gains).
-  const policyKps = normalizedNameMap(contract?.control?.stiffness);
-  const policyKds = normalizedNameMap(contract?.control?.damping);
-  // normalizedNameMap 返回普通对象（非 Map），读 .size 恒为 undefined——曾因此
+  const policyKps = normalizeNameMap(contract?.control?.stiffness);
+  const policyKds = normalizeNameMap(contract?.control?.damping);
+  // normalizeNameMap 返回普通对象（非 Map），读 .size 恒为 undefined——曾因此
   // 静默跳过整个 per-policy PD 覆盖。
   //
   // 覆盖【只对 torque 接口生效】，两条理由都由实测得出：
@@ -2156,7 +2156,7 @@ function resizeActionBuffers(actionDim) {
 
 function applyActuatorContract(contract, control, order) {
   const roleScales = control?.action_scale_by_role || {};
-  const jointScales = normalizedNameMap(control?.action_scale_by_joint || contract?.action_scale_by_joint);
+  const jointScales = normalizeNameMap(control?.action_scale_by_joint || contract?.action_scale_by_joint);
   const defaultPositionScale = finiteNumber(contract?.action_scale, finiteNumber(control?.action_scale, CONFIG.actionScale));
   const defaultVelocityScale = finiteNumber(
     contract?.control?.velocity_scale,
@@ -2236,7 +2236,7 @@ function settleRobot() {
   }
 }
 
-// `normalizedNameMap` / `jointGroup` 已抽到 `obs/actuator_modes.js`（**单一真值**，
+// `normalizeNameMap` / `jointGroup` 已抽到 `obs/actuator_modes.js`（**单一真值**，
 // 对拍工具与浏览器共用）——见文件头 import 与 `applyActuatorContract` 的说明。
 
 // During polling the policy may be unchanged but the user may have edited the
@@ -2461,7 +2461,7 @@ function applyJointMotorLimits(limits, order = null) {
   CONFIG.torqueLimits.fill(0);
   CONFIG.motorVelocityLimits.fill(0);
   if (!limits || typeof limits !== "object") return;
-  const normalized = normalizedNameMap(limits);
+  const normalized = normalizeNameMap(limits);
   const jointOrder = Array.isArray(order) && order.length >= CONFIG.numActions
     ? order
     : CONFIG.jointOrder;
@@ -2493,7 +2493,7 @@ function applyMotorEnvelopes(envelopes, order = null) {
   CONFIG.motorEnvelopes = new Array(CONFIG.numActions).fill(null);
   CONFIG.dynamicTorqueLimits.fill(0);
   if (!envelopes || typeof envelopes !== "object") return;
-  const normalized = normalizedNameMap(envelopes);
+  const normalized = normalizeNameMap(envelopes);
   const jointOrder = Array.isArray(order) && order.length >= CONFIG.numActions
     ? order
     : CONFIG.jointOrder;

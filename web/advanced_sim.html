@@ -168,6 +168,13 @@
       <!-- 任务：命令来源决定"谁在开"；外部决策必须有航点（契约硬约束） -->
       <section data-step="task">
         <h3>任务</h3>
+        <!-- 任务插件（服务端 `registry/task_plugins` 是唯一真值）：选一条 = "这个任务需要
+             哪些传感器 / 自动填哪些字段 / 挂哪些判据"，点「一键填入」把服务端算好的场景
+             补到下面的表单里。**不在这页里自己编任务清单或传感器需求**。 -->
+        <label for="scTaskPlugin">任务插件（服务端注册表）</label>
+        <select id="scTaskPlugin"></select>
+        <button type="button" class="adv-btn" id="scTaskFill">一键填入</button>
+        <div class="note" id="scTaskPluginResult">（未选任务插件）</div>
         <label for="scCommandSource">命令来源 command_source</label>
         <select id="scCommandSource"></select>
         <div id="scWaypointsRow" hidden>
