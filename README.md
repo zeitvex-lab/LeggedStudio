@@ -101,7 +101,7 @@ legged_studio/
 | 数据契约 | JSON Schema ×8 + 生成的 Pydantic 模型 |
 | 资产准入 | 移植准入审计（训练/仿真须有 00_resources 上游训练源码佐证，包自包含与策略↔onnx 一致性检查），见 `tools/audit_porting_admission.py` |
 | CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测（backend 全量 24 模块）、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、Capability Pack 校验、**文档数字对账**、前端 vendor 冒烟 |
-| 云原生开发 | 根 `Dockerfile`（**Ubuntu 24.04 LTS** + Python 3.12）+ `.cnb.yml` 的 `vscode` 事件，一键起环境（控制面依赖 + Chromium + **mjlab CPU 训练栈**全固化，浏览器 sim2sim 开箱可用）→ `docs/cloud-dev.md` |
+| 云原生开发 | **CNB 默认镜像** + `.cnb.yml` 的 `vscode` 事件，一键起环境（依赖与 **mjlab CPU 训练栈**在启动阶段按需供应，浏览器 sim2sim 开箱可用）→ `docs/cloud-dev.md` |
 | 开发期 MCP | `.cnb/mcp/servers.json` 11 条（通用 6 + 机器人专用 5）+ `tools/mcp/` 4 个自研 server（契约 / MuJoCo / onnx / 资源库，零新增依赖）→ `.cnb/mcp/README.md` |
 
 ---
@@ -132,9 +132,10 @@ start.bat
 
 ### 云原生开发（免配置在线环境）
 
-仓库页面点 **「Legged Studio 开发」** 即进入在线环境（基础镜像 **Ubuntu 24.04 LTS**），
-依赖、Chromium 与 **CPU 训练栈**已固化在镜像里，后端自动在 `0.0.0.0:8765` 起来，
-浏览器 sim2sim 可直接看、可直接截图调试；环境还会打印 **MCP 工具链**配置路径。
+仓库页面点 **「Legged Studio 开发」** 即进入在线环境（**CNB 默认镜像**，自带 WebIDE 与
+CodeBuddy），依赖、Chromium 与 **CPU 训练栈**在环境启动时按需供应（幂等 + 缓存卷复用），
+后端自动在 `0.0.0.0:8765` 起来，浏览器 sim2sim 可直接看、可直接截图调试；
+环境还会打印 **MCP 工具链**配置路径。
 详见 [`docs/cloud-dev.md`](docs/cloud-dev.md)。
 
 ### CPU 训练链路（无 GPU 也能跑真训练）
