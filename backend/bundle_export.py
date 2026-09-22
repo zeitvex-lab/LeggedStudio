@@ -51,7 +51,9 @@ MANIFEST_SCHEMA = "capability-export-1.0"
 MANIFEST_NAME = "manifest.json"
 #: Scenario 包里的场景文件名（导出与导入**必须同名**，故取常量而不是各写各的字面量）。
 SCENARIO_FILE = "scenario.json"
-EXPORT_KINDS = ("morphology", "skill", "scenario", "policy", "bundle")
+#: 任务插件包里的插件声明文件名（**与注册表同一份契约**，见 `export_task_plugin`）。
+TASK_PLUGIN_FILE = "task-plugin.json"
+EXPORT_KINDS = ("morphology", "skill", "scenario", "policy", "bundle", "task_plugin")
 
 #: 每类导出的**必需角色**（verify 据此判"到底导出了这一类没有"）。
 REQUIRED_ROLES: dict[str, frozenset[str]] = {
@@ -62,6 +64,7 @@ REQUIRED_ROLES: dict[str, frozenset[str]] = {
     # Bundle 要能"在干净机器上跑起来"（R1/R2）⇒ 必须带**运行配置** simulation/config.json：
     # 没有它，PackageContract 建不起来，策略条目/执行器接口/初始高度全都无从谈起。
     "bundle": frozenset({"pack", "package_manifest", "contract", "simulation_config"}),
+    "task_plugin": frozenset({"task_plugin"}),
 }
 
 #: 拷贝时跳过的目录（与导入侧同口径：VCS 元数据与字节码缓存不属于资产）。
@@ -429,6 +432,94 @@ def import_scenario(
         "scenario": payload,
         "scenario_id": contract.scenario_id,
         "schema_version": contract.schema_version,
+        "integrity": integrity,
+        "written": written,
+    }
+
+
+def export_task_plugin(plugin_id: str, out_dir: Path | str, *, emit_manifest: bool = True) -> dict[str, Any]:
+    """**任务插件包**：把注册表里的一条任务插件**原样**导出（含 `evidence` 与传感器需求）。
+
+    为什么要它（用户指令里的"一键导入导出"）：任务插件的**实例化产物**（一份场景）本来就随
+    Scenario 包走，但**插件定义本身**原先只能在仓内注册表里改 —— 别人写好的任务（要哪些传感器、
+    自动填哪些字段、挂哪些判据）没有"拿走一份"的形态。导出的是**注册表里的同一份**（不重抄，
+    `backend.task_plugins.task_plugin()` 取的就是加载后的对象），且未注册的 id **fail-closed**。
+    """
+
+    from backend.task_plugins import task_plugin as _task_plugin
+
+    plugin = _task_plugin(plugin_id)                  # 未知名 ⇒ 带可用清单的失败
+    writer = ExportWriter(Path(out_dir), "task_plugin")
+    writer.write_json(plugin.model_dump(), TASK_PLUGIN_FILE, role="task_plugin")
+    return writer.finish(
+        refs={"task_plugin": {"id": plugin.plugin_id, "version": plugin.version,
+                              "task_type": plugin.task_type,
+                              "sensors": [s.plugin_id for s in plugin.sensors]}},
+        emit=emit_manifest,
+    )
+
+
+def import_task_plugin(
+    source: Path | str, *, dest: Path | str | None = None, force: bool = False
+) -> dict[str, Any]:
+    """**导入任务插件包** —— 与 :func:`import_scenario` 同一套纪律（不另写第二套校验）。
+
+    认两种形态：**导出目录**（`manifest.json` + `task-plugin.json`，先验完整性）与**裸 JSON**。
+    校验走 :func:`contracts.task_plugin_contract.validate_task_plugin_payload` —— 与注册表加载
+    **同一道闸**（未知传感器 id / 未知输出 / 缺证据都当场拒），所以"能导出不能导入"不会发生。
+    ``dest`` 给了才落盘（目录则落 `task-plugin.json`），默认不覆盖已存在文件。
+    """
+
+    from contracts.task_plugin_contract import TaskPluginError, validate_task_plugin_payload
+
+    origin = Path(source).expanduser()
+    if not origin.exists():
+        raise FileNotFoundError(f"导入源不存在：{origin}")
+
+    integrity: dict[str, Any] | None = None
+    form = ""
+    plugin_file: Path | None = None
+    if origin.is_file():
+        form, plugin_file = "bare_json", origin
+    elif (origin / MANIFEST_NAME).is_file():
+        integrity = verify_export(origin)
+        if not integrity.get("ok"):
+            raise ValueError(f"任务插件包完整性校验未通过（拒绝导入）：{integrity.get('problems')}")
+        kind = str(integrity.get("kind") or "")
+        if kind != "task_plugin":
+            raise ValueError(f"{kind!r} 导出物里没有任务插件（只有 task_plugin 导出物才有）：{origin}")
+        form, plugin_file = "export_dir", origin / TASK_PLUGIN_FILE
+    elif (origin / TASK_PLUGIN_FILE).is_file():
+        form, plugin_file = "plugin_dir", origin / TASK_PLUGIN_FILE
+    else:
+        raise ValueError(f"认不出这是任务插件（既不是 {TASK_PLUGIN_FILE}、也不是含它的导出目录）：{origin}")
+
+    assert plugin_file is not None
+    raw = _read_json(plugin_file)
+    try:
+        plugin = validate_task_plugin_payload(raw)
+    except TaskPluginError as exc:
+        raise ValueError(f"任务插件声明不合法（拒绝导入）：{exc}") from exc
+
+    written: str | None = None
+    if dest is not None:
+        target = Path(dest).expanduser()
+        if target.is_dir() or target.suffix == "":
+            target = target / TASK_PLUGIN_FILE
+        if target.exists() and not force:
+            raise FileExistsError(f"目标已存在（要覆盖请显式 force=True）：{target}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _write_json(target, plugin.model_dump())
+        written = _repo_relative(target)
+
+    return {
+        "ok": True,
+        "form": form,
+        "source": _repo_relative(origin),
+        "plugin_file": _repo_relative(plugin_file),
+        "plugin": plugin.model_dump(),
+        "plugin_id": plugin.plugin_id,
+        "schema_version": plugin.schema_version,
         "integrity": integrity,
         "written": written,
     }
