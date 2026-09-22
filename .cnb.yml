@@ -1,153 +1,208 @@
-.main-env: &main-env
+# 环境镜像：**一律用 CNB 默认镜像**（.cnb.yml 里不写 docker.image / docker.build）。
+#
+# 为什么不再用根 Dockerfile 自建（2026-09-22 指令「不要用自定义的，有很多问题」）：
+# 自建镜像把「控制面依赖 + Chromium + code-server + 训练栈」全固化进层里，换来的是
+# 一长串只有自建镜像才有的问题——code-server 单/双容器判定、CodeBuddy 插件要手动补装、
+# 基础镜像 apt 包名随发行版迁移（bookworm→noble 已踩过一次）、每次改 by 清单就整体重建。
+# 默认镜像 cnbcool/default-dev-env 本身就是单容器 + WebIDE + CodeBuddy（含插件）齐备，
+# 平台侧维护，上述问题面直接消失。
+#
+# 依赖改由**环境启动时按需供应**（.dev-env-bootstrap 锚点，幂等）：
+# 控制面 pip 依赖 / 训练 venv 在启动时供应，不在镜像层固化。
+
+# 环境供应的公共锚点：默认镜像只有 Python/Node 运行时，控制面依赖与训练栈
+# 都**不预装**（见 .dev-env-bootstrap 的注释）。CI 与云原生开发共用这一段，
+# 保证「开发环境里跑通的」和「CI 里跑的」仍是同一套依赖。
+#
+# 注意锚点形态：这必须是**单个 stage 的映射**（不是 list）。若写成 list 再以
+# `- *dev-env-bootstrap` 引用，YAML 会展开成嵌套 list（stages[0][0]），
+# CNB 不认嵌套结构，stage 会被整体跳过。引用方一律用合并键 `- <<: *anchor`。
+#
+# 为什么 CI 不缓存、每次装：runner 上都是几分钟量级，
+# 好处是**依赖版本零漂移**——backend/requirements.txt 改一行立刻生效，不存在
+# 「镜像层还是旧依赖」的滞后。装不上的失败会直接暴露在门禁里，不会静默降级。
+.dev-env-bootstrap: &dev-env-bootstrap
+  name: dev-env-bootstrap
+  script: |
+    # 幂等：已装好就跳过（开发环境里每次起环境都会走到这里）。
+    # 这里刻意**不用 pipefail**：stage.script 由 sh 解释，dash 的 `set -o pipefail`
+    # 会直接报 "Illegal option" 并让门禁在开局就退出（本仓曾因此 167ms 判失败）。
+    set -e
+    echo "== control-plane deps =="
+    python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" 2>/dev/null \
+      || pip install --quiet --break-system-packages \
+           -r backend/requirements.txt httpx onnx onnxruntime 2>&1 | tail -5
+    python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" \
+      || { echo "[FAIL] 控制面依赖供应失败"; exit 1; }
+    echo "== offscreen GL backend (best-effort, never fatal) =="
+    # 无显示环境下离屏渲染需要软件 GL（libOSMesa）；装不上不判红——
+    # backend/gl_env.offscreen_render_status() 是实测探针，不可用时用例自我 skip。
+    (apt-get update -qq && apt-get install -y -qq libosmesa6) \
+      || echo "libosmesa6 安装失败：渲染用例将 skip"
+    echo "== CPU training venv (idempotent) =="
+    # 默认镜像不预装 torch/mjlab；用适配器的 cpu extra 供应到仓库外的落点
+    # （避免被 bind mount 覆盖），已就绪时脚本自身短路复用。
+    LEGGED_STUDIO_UV_BIN=/usr/local/bin/uv bash scripts/provision_cpu_training.sh
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# 语法门禁（**不装任何 pip 包**）
+#
+# 这一步只跑 py_compile 与契约产物漂移检查，不需要成堆第三方包，因此：
+#   - 单独成 pipeline，与 unit-tests **并发**（push 墙钟 ≈ max 而不是串行和）；
+#   - `cpus: 2`（0.5 core-hour/freeze 配额下，预冻结折算 = cpus × 5min，
+#     纯 I/O + 单文件编译 2 核够用，属"降低单位时间配额消耗"）。
+#
+# 仍声明 `docker.image: python:3.12`：**CI runner 的默认镜像没有 python**
+# （实测 `python` / `python3` 均 127），无镜像声明跑不起来；而 python:3.12
+# 与云原生开发的默认镜像同版。它只是**运行底座**，不装依赖，因此没有
+# "镜像层里是旧依赖"的漂移面。
+# ───────────────────────────────────────────────────────────────────────────
+syntax-check: &syntax-check
+  name: syntax-check
   runner:
-    cpus: 8
-  # 后端任务必须显式声明带解释器的镜像；默认 runner 环境没有 python/pip，
-  # 否则命令直接 127（command not found）。与 frontend 的 node:20 同理。
+    cpus: 2
   docker:
     image: python:3.12
   stages:
-    - name: syntax-check
-      script: |
-        set -eo pipefail
-        echo "== py_compile changed python =="
-        # 排除 .venv / node_modules：训练 venv 里是第三方轮子（可能是 3.12+ 语法），
-        # 不该由本仓库的语法检查负责。
-        # K2：范围由 adapters/mjlab 改为整个 adapters/ —— 顶层 adapters/backend_adapter.py
-        # 是控制面直接 import 的（backend/training/models.py 引它），此前不在语法检查内。
-        find backend contracts adapters tools scripts -name '*.py' \
-          -not -path '*/.venv/*' -not -path '*/node_modules/*' -print0 \
-          | xargs -0 -n1 python -m py_compile 2>&1 | tail -20
-        echo "python syntax check done"
-        echo "== contract artifact drift check =="
-        python tools/generate_contract_models.py 2>&1 | tail -20
-    - name: unit-tests
-      script: |
-        set -eo pipefail
-        echo "== install control-plane deps =="
-        pip install --quiet --upgrade pip || true
-        # 与 backend/requirements.txt 保持一致；httpx 是 starlette TestClient 依赖；
-        # onnx 是 B44「产物自证」的量具（读 ONNX 图输入宽度）——不装它那组用例会 skip，
-        # 而 verify_artifacts 会静默退化成快照 fallback（B44 要挡的正是这种错配）。
-        pip install --quiet -r backend/requirements.txt httpx onnx
-        echo "== offscreen GL backend (best-effort, never fatal) =="
-        # 无显示环境下离屏渲染需要**软件 GL**（libOSMesa）。这里尽力装：
-        # 装不上也不判红——backend/gl_env.offscreen_render_status() 是**实测探针**
-        # （真建 Renderer 渲一帧），不可用时对应用例自我 skip，不会把环境问题报成失败。
-        (apt-get update -qq && apt-get install -y -qq libosmesa6) || echo "libosmesa6 安装失败：渲染用例将 skip"
-        echo "== path_bootstrap tests =="
-        python -m unittest contracts.tests.test_path_bootstrap 2>&1 | tail -20
-        echo "== pure-logic backend tests =="
-        python -m unittest \
-          backend.test_nav_avoidance \
-          backend.test_map_editor_api \
-          backend.test_perception_observations \
-          backend.test_hygiene \
-          backend.test_pack_catalog \
-          backend.test_deploy_pack 2>&1 | tail -40
-        echo "== API contract smoke (openapi must generate) =="
-        # 守住"路由签名里的模型必须已导入"：ForwardRef 未解析时模块仍可 import、
-        # 但 /openapi.json 500，且 /api/training/create 字段解析失败——CI 盲区。
-        python -m unittest backend.test_api_complete 2>&1 | tail -20
-        echo "== full backend suite (与 npm test 同口径) =="
-        # B16：backend 共有 24 个 test_*.py，此前 CI 只挑 6 个显式模块跑，导致
-        # backend/test_model_api.py 的两处失败（离屏渲染环境前提 + go2 契约里的
-        # 陈旧 workspace 路径）长期只在本地 `npm test` 暴露。这里补一条全量
-        # discover，口径与 package.json 的 `npm test` 完全一致，不再留盲区。
-        # 上面保留显式模块是有意的：核心用例失败时日志更短、定位更快。
-        python -m unittest discover -s backend -p "test_*.py" 2>&1 | tail -30
-        echo "== B8 porting admission (rules T/S/C/X) =="
-        python tools/audit_porting_admission.py
-        echo "== capability packs (B1: 14 packs validate + refs sha256) =="
-        python tools/validate_packs.py
-        echo "== license registry (I5: 许可与出处，缺许可的内置包不得进索引) =="
-        python tools/audit_licenses.py
-        echo "== motion registry (M1: Motion 一等资源，注册表 vs 磁盘逐文件对账) =="
-        python tools/audit_motions.py
-        # A1 环境供应四段（只读启动/显式配置/镜像切换/离线 wheelhouse）—— 只做静态契约核对，
-        # 不代替 Windows 实机验证（脚本自己会把这一句打出来）
-        python tools/audit_provision_phases.py
-        # B37 观测组名/API 残留（按机型包语义判定；静态扫描，不运行 mjlab）
-        python tools/audit_obs_group_names.py
-        # N5 仿真分层：data-surface 声明—消费两端（静态扫描，不渲染浏览器）
-        python tools/audit_sim_surface.py
-        # H23 sim2sim 执行器/滤波一致性：浏览器下发 ↔ 契约真值 ↔ 训练常量表 ↔ 电机参数卡
-        # 四端同值 + B3 物理键残留复检 + 端点白名单接线钉住（rc_old 参考值只记录不判红）
-        python tools/audit_sim2sim_consistency.py
-        # N2 资源库许可覆盖（只看文件存在性；新缺口/名单过期判红）
-        python tools/audit_resource_licenses.py
-        # N6 验收判据可查性（文本级，守回归）
-        python tools/audit_acceptance_verifiability.py
-        # N7 tools/ 孤儿工具登记（文本级引用检测）
-        python tools/audit_tools_inventory.py
-        # N3 插件包 CLI 可跑性冒烟（ls_plugin 此前不在任何 CI/脚本里）
-        python scripts/ls_plugin.py --help > /dev/null
-        echo "== doc reality check (B17: 文档数字 vs 实测) =="
-        # 版本号 / 包数 / 策略数 / 资源库项目数一旦与仓库不符即红，防止再次漂移。
-        python tools/doc_reality_check.py
-        echo "== contracts suite (B18: 契约 / 物理绑定全量) =="
-        # 2026-09-13：此前 CI 只跑 contracts.tests.test_path_bootstrap 一个模块，其余
-        # 123 项（role_resolver 三级展开 / 物理载荷视图 / go2 冻结证据哈希 / 动作缩放…）
-        # 长期不在门禁内 —— 结果 38 项失败（16 FAIL + 22 ERROR）无人知晓。现按
-        # "迁移已完成"重写（把真值源从 simulation/config.json 换成 contract_truth，
-        # 并把"缺口"正面表述为"必须覆盖每个驱动关节"）后**全量接入**。
-        python -m unittest discover -s contracts/tests -p "test_*.py" 2>&1 | tail -30
-        echo "== deterministic replay gate (L1/G2: judge selfcheck) =="
-        # 判据实现只有一处（adapters/mjlab/replay_determinism.py）；这里跑它的自检，
-        # 保证"两次逐帧一致"的判定本身不退化。真实回放比对需两份 frame log（浏览器/无头产出）。
-        python tools/replay_gate.py --selftest
-        echo "== control rates consistency (P2: 控制三件套口径) =="
-        # v3 自洽（physics_hz == control_hz × decimation）是**硬门禁**；
-        # v2 / 训练 profile 的差异是"已登记的报告项"，不判红——但必须可见。
-        python tools/check_control_consistency.py
-        echo "== route regression (H19: 通过率 / 最小净空 / 本体侵入) =="
-        # 只守退化：与 tools/baselines/route_regression_baseline.json 对比，通过率下降 /
-        # 最小净空下降 / 新增超时或碰撞 / 本体侵入路线增加 / H13 后处理不再消掉 VIOLATION
-        # ——任一发生即 exit 2。基线刷新是**显式动作**（--write-baseline），避免顺手改绿。
-        # 含 dwa（采样式规划器约 9 s/条）：这是 H11「DWA 未到达」结论的唯一自动守卫点，
-        # 慢值得。CI 用 --routes 1 控制规模，本地可用 --routes 6 做更重的回归。
-        python tools/route_regression.py --with-dwa --routes 1
-        echo "== map visuals consistency (地图视觉基调：skybox / groundplane / light) =="
-        # 10 张图的视觉基调原本各写各的：apartment 连 <visual>/<light> 都没有，flat 用纯黑
-        # skybox、stairs 用 gradient，groundplane 的 reflectance 在 0.0/0.2 之间来回。
-        # 这里只**检查**是否仍与 mjlab 官方口径一致（exit 2 = 有漂移）；
-        # 刷新用 `python tools/unify_map_visuals.py --apply`。
-        # 同时守住「外部贴图必须存在」——cross_slope / cross_stairs 曾因 `imgs/` 没跟着 xml
-        # 一起拷过来而**长期编译不过**（引用了不存在的 label_*.png）。
-        python tools/unify_map_visuals.py
-        echo "== map dual-link audit (assets/maps vs web/sim2sim/assets/go2) =="
-        # 两套地图是**设计上并存**的：新链路=公共地图库（纯环境，服务端按机型注入机器人），
-        # 旧链路=内置 bundled flow（自带 go2 include，且与 Go2 策略的 reference MJCF 耦合）。
-        # 但地形几何同源、靠手工同步，已经出过「贴图没跟着拷 ⇒ cross_slope/cross_stairs
-        # 长期编译不过」的事故。这步守**资源完整性**（硬门禁）；地形几何差异只报告不判红
-        # ——差异可能是有意的（如 slope 的 friction）。
-        python tools/audit_map_duplication.py
+  - name: syntax-check
+    script: |
+      set -eo pipefail
+      echo "== py_compile changed python =="
+      # 排除 .venv / node_modules：训练 venv 里是第三方轮子（可能是 3.12+ 语法），
+      # 不该由本仓库的语法检查负责。
+      # K2：范围由 adapters/mjlab 改为整个 adapters/ —— 顶层 adapters/backend_adapter.py
+      # 是控制面直接 import 的（backend/training/models.py 引它），此前不在语法检查内。
+      find backend contracts adapters tools scripts -name '*.py' \
+        -not -path '*/.venv/*' -not -path '*/node_modules/*' -print0 \
+        | xargs -0 -n1 python -m py_compile 2>&1 | tail -20
+      echo "python syntax check done"
+      echo "== contract artifact drift check =="
+      python tools/generate_contract_models.py 2>&1 | tail -20
 
-# 云原生开发 / CI 共用的环境镜像（根 Dockerfile）。
+# ───────────────────────────────────────────────────────────────────────────
+# 后端单测与审计门禁（需要解释器 + pip）
 #
-# 为什么必须写 `by`：CNB 的 `docker.build` **只把 Dockerfile 与 `by` 列出的文件**
-# 放进构建上下文（官方文档：未出现在 by 列表中的文件不会被 COPY 进镜像）。
-# 只写 `build: Dockerfile` 会得到空上下文，Dockerfile 里所有 COPY 都报
-# "not found"（本次 CI 失败的根因）。by 的路径相对仓库根，按原相对路径进上下文。
-.docker-dev-image: &docker-dev-image
-  dockerfile: Dockerfile
-  by:
-    - backend/requirements.txt
-    - adapters/mjlab/pyproject.toml
-    - adapters/mjlab/uv.lock
-    - scripts/provision_cpu_training.sh
-    - scripts/provision_code_server.sh
-    - .cnb/mcp/servers.json
-
-# CPU 训练冒烟门禁的环境：与云原生开发共用根 Dockerfile，镜像里已固化
-# mjlab 的 cpu extra（LEGGED_STUDIO_MJLAB_VENV 指向镜像内 venv），因此门禁
-# 不需要每次重装 torch——进容器即可跑真训练。
-.cpu-training-env: &cpu-training-env
+# 唯一保留 docker.image 的地方：默认 runner 环境没有 python/pip，命令会直接 127。
+# 与默认镜像同版的 python:3.12 只是**运行底座**，依赖仍由 stage 现装
+# （backend/requirements.txt），因此不引入「镜像层里是旧依赖」的漂移面。
+# ───────────────────────────────────────────────────────────────────────────
+.main-env: &main-env
   runner:
     cpus: 8
   docker:
-    build: *docker-dev-image
+    image: python:3.12
+  stages:
+  - name: unit-tests
+    script: |
+      set -eo pipefail
+      echo "== install control-plane deps =="
+      pip install --quiet --upgrade pip || true
+      # 与 backend/requirements.txt 保持一致；httpx 是 starlette TestClient 依赖；
+      # onnx 是 B44「产物自证」的量具（读 ONNX 图输入宽度）——不装它那组用例会 skip，
+      # 而 verify_artifacts 会静默退化成快照 fallback（B44 要挡的正是这种错配）。
+      pip install --quiet -r backend/requirements.txt httpx onnx
+      echo "== offscreen GL backend (best-effort, never fatal) =="
+      # 无显示环境下离屏渲染需要**软件 GL**（libOSMesa）。这里尽力装：
+      # 装不上也不判红——backend/gl_env.offscreen_render_status() 是**实测探针**
+      # （真建 Renderer 渲一帧），不可用时对应用例自我 skip，不会把环境问题报成失败。
+      (apt-get update -qq && apt-get install -y -qq libosmesa6) || echo "libosmesa6 安装失败：渲染用例将 skip"
+      echo "== path_bootstrap tests =="
+      python -m unittest contracts.tests.test_path_bootstrap 2>&1 | tail -20
+      echo "== pure-logic backend tests =="
+      python -m unittest \
+        backend.test_nav_avoidance \
+        backend.test_map_editor_api \
+        backend.test_perception_observations \
+        backend.test_hygiene \
+        backend.test_pack_catalog \
+        backend.test_deploy_pack 2>&1 | tail -40
+      echo "== API contract smoke (openapi must generate) =="
+      # 守住"路由签名里的模型必须已导入"：ForwardRef 未解析时模块仍可 import、
+      # 但 /openapi.json 500，且 /api/training/create 字段解析失败——CI 盲区。
+      python -m unittest backend.test_api_complete 2>&1 | tail -20
+      echo "== full backend suite (与 npm test 同口径) =="
+      # B16：backend 共有 24 个 test_*.py，此前 CI 只挑 6 个显式模块跑，导致
+      # backend/test_model_api.py 的两处失败（离屏渲染环境前提 + go2 契约里的
+      # 陈旧 workspace 路径）长期只在本地 `npm test` 暴露。这里补一条全量
+      # discover，口径与 package.json 的 `npm test` 完全一致，不再留盲区。
+      # 上面保留显式模块是有意的：核心用例失败时日志更短、定位更快。
+      python -m unittest discover -s backend -p "test_*.py" 2>&1 | tail -30
+      echo "== B8 porting admission (rules T/S/C/X) =="
+      python tools/audit_porting_admission.py
+      echo "== capability packs (B1: 14 packs validate + refs sha256) =="
+      python tools/validate_packs.py
+      echo "== license registry (I5: 许可与出处，缺许可的内置包不得进索引) =="
+      python tools/audit_licenses.py
+      echo "== motion registry (M1: Motion 一等资源，注册表 vs 磁盘逐文件对账) =="
+      python tools/audit_motions.py
+      # A1 环境供应四段（只读启动/显式配置/镜像切换/离线 wheelhouse）—— 只做静态契约核对，
+      # 不代替 Windows 实机验证（脚本自己会把这一句打出来）
+      python tools/audit_provision_phases.py
+      # B37 观测组名/API 残留（按机型包语义判定；静态扫描，不运行 mjlab）
+      python tools/audit_obs_group_names.py
+      # N5 仿真分层：data-surface 声明—消费两端（静态扫描，不渲染浏览器）
+      python tools/audit_sim_surface.py
+      # H23 sim2sim 执行器/滤波一致性：浏览器下发 ↔ 契约真值 ↔ 训练常量表 ↔ 电机参数卡
+      # 四端同值 + B3 物理键残留复检 + 端点白名单接线钉住（rc_old 参考值只记录不判红）
+      python tools/audit_sim2sim_consistency.py
+      # N2 资源库许可覆盖（只看文件存在性；新缺口/名单过期判红）
+      python tools/audit_resource_licenses.py
+      # N6 验收判据可查性（文本级，守回归）
+      python tools/audit_acceptance_verifiability.py
+      # N7 tools/ 孤儿工具登记（文本级引用检测）
+      python tools/audit_tools_inventory.py
+      # N3 插件包 CLI 可跑性冒烟（ls_plugin 此前不在任何 CI/脚本里）
+      python scripts/ls_plugin.py --help > /dev/null
+      echo "== doc reality check (B17: 文档数字 vs 实测) =="
+      # 版本号 / 包数 / 策略数 / 资源库项目数一旦与仓库不符即红，防止再次漂移。
+      python tools/doc_reality_check.py
+      echo "== contracts suite (B18: 契约 / 物理绑定全量) =="
+      # 2026-09-13：此前 CI 只跑 contracts.tests.test_path_bootstrap 一个模块，其余
+      # 123 项（role_resolver 三级展开 / 物理载荷视图 / go2 冻结证据哈希 / 动作缩放…）
+      # 长期不在门禁内 —— 结果 38 项失败（16 FAIL + 22 ERROR）无人知晓。现按
+      # "迁移已完成"重写（把真值源从 simulation/config.json 换成 contract_truth，
+      # 并把"缺口"正面表述为"必须覆盖每个驱动关节"）后**全量接入**。
+      python -m unittest discover -s contracts/tests -p "test_*.py" 2>&1 | tail -30
+      echo "== deterministic replay gate (L1/G2: judge selfcheck) =="
+      # 判据实现只有一处（adapters/mjlab/replay_determinism.py）；这里跑它的自检，
+      # 保证"两次逐帧一致"的判定本身不退化。真实回放比对需两份 frame log（浏览器/无头产出）。
+      python tools/replay_gate.py --selftest
+      echo "== control rates consistency (P2: 控制三件套口径) =="
+      # v3 自洽（physics_hz == control_hz × decimation）是**硬门禁**；
+      # v2 / 训练 profile 的差异是"已登记的报告项"，不判红——但必须可见。
+      python tools/check_control_consistency.py
+      echo "== route regression (H19: 通过率 / 最小净空 / 本体侵入) =="
+      # 只守退化：与 tools/baselines/route_regression_baseline.json 对比，通过率下降 /
+      # 最小净空下降 / 新增超时或碰撞 / 本体侵入路线增加 / H13 后处理不再消掉 VIOLATION
+      # ——任一发生即 exit 2。基线刷新是**显式动作**（--write-baseline），避免顺手改绿。
+      # 含 dwa（采样式规划器约 9 s/条）：这是 H11「DWA 未到达」结论的唯一自动守卫点，
+      # 慢值得。CI 用 --routes 1 控制规模，本地可用 --routes 6 做更重的回归。
+      python tools/route_regression.py --with-dwa --routes 1
+      echo "== map visuals consistency (地图视觉基调：skybox / groundplane / light) =="
+      # 10 张图的视觉基调原本各写各的：apartment 连 <visual>/<light> 都没有，flat 用纯黑
+      # skybox、stairs 用 gradient，groundplane 的 reflectance 在 0.0/0.2 之间来回。
+      # 这里只**检查**是否仍与 mjlab 官方口径一致（exit 2 = 有漂移）；
+      # 刷新用 `python tools/unify_map_visuals.py --apply`。
+      # 同时守住「外部贴图必须存在」——cross_slope / cross_stairs 曾因 `imgs/` 没跟着 xml
+      # 一起拷过来而**长期编译不过**（引用了不存在的 label_*.png）。
+      python tools/unify_map_visuals.py
+      echo "== map dual-link audit (assets/maps vs web/sim2sim/assets/go2) =="
+      # 两套地图是**设计上并存**的：新链路=公共地图库（纯环境，服务端按机型注入机器人），
+      # 旧链路=内置 bundled flow（自带 go2 include，且与 Go2 策略的 reference MJCF 耦合）。
+      # 但地形几何同源、靠手工同步，已经出过「贴图没跟着拷 ⇒ cross_slope/cross_stairs
+      # 长期编译不过」的事故。这步守**资源完整性**（硬门禁）；地形几何差异只报告不判红
+      # ——差异可能是有意的（如 slope 的 friction）。
+      python tools/audit_map_duplication.py
+
+# CPU 训练冒烟门禁的环境：默认镜像 + 启动时供应训练 venv。
+# 依赖不固化在镜像层，因此不会再把「镜像重建」与「训练链路」耦在一起。
+
+.cpu-training-env: &cpu-training-env
+  runner:
+    cpus: 8
   env:
-    # 镜像层的 CPU venv 落点（仓库外，不被 bind mount 覆盖）。
+    # 训练 venv 落点：仓库外，不被 bind mount 覆盖（由 dev-env-bootstrap 供应）。
     LEGGED_STUDIO_MJLAB_VENV: /opt/legged-studio/mjlab-cpu/.venv
     # 冒烟档固定 CPU：显式而非依赖"碰巧没 GPU"，避免门禁语义随 runner 漂移。
     LEGGED_STUDIO_TRAIN_DEVICE: cpu
@@ -162,19 +217,18 @@
 
 # CPU 训练冒烟门禁的"相关变更面"。
 #
-# 为什么要有它：`docker.build` 的上下文失效面覆盖 Dockerfile + by 清单，而镜像里
-# 固化了 torch/warp/mujoco_warp 整个 cpu venv —— 只要训练相关路径一提交，镜像整体
-# 重建（实测 5~7 min，见 issue #31 的耗时对照），而门禁本身只跑分钟级冒烟。
-# 用 ifModify 把"重建镜像"与"变更面"对齐：非训练改动不再付这笔钱。
+# 为什么要有它：这条门禁要现装整份 CPU 训练栈（torch/warp/mujoco_warp，实测
+# 数分钟量级），而它本身只跑分钟级冒烟；镜像时代这里曾对齐"重建镜像"的代价
+# （见 issue #31），现在对齐的是"现装训练栈"的代价。非训练改动不再付这笔钱。
 #
 # 清单口径 = 能改变"训练链路结论"的最小路径集：
 #   - 训练栈本体（adapters/mjlab、venv 供应脚本）
 #   - 门禁自身与其消费的启动路径（scripts / tools 的冒烟工具）
 #   - 训练控制面（backend 的 training* 与 health 深度体检）
 #   - 契约与资产（contracts 校验/训练不变量；assets 里被训练消费的机器人契约）
-#   - 镜像定义（Dockerfile 与流水线配置本身）
+#   - 供应与流水线定义（provision 脚本、本文件）
+
 .cpu-training-paths: &cpu-training-paths
-  - Dockerfile
   - .cnb.yml
   - adapters/mjlab/**
   - backend/training/**
@@ -191,18 +245,18 @@
   - tools/validate_training_smoke.py
   - tools/_smoke_one.py
 
+
 .sim2sim-env: &sim2sim-env
   runner:
     cpus: 8
-  # 无头 CPU sim2sim 验收器需要 mujoco（纯 CPU wheel）+ onnxruntime。
-  # 与云原生开发环境共用根 Dockerfile，保证 CI 与开发环境同一套依赖。
-  docker:
-    build: *docker-dev-image
+  # 无头 CPU sim2sim 验收器需要 mujoco（纯 CPU wheel）+ onnxruntime，
+  # 由 .dev-env-bootstrap 在启动时按需安装（与开发环境同一份 requirements）。
   stages:
+    - <<: *dev-env-bootstrap
     - name: headless-sim2sim-gate
-      # 与 cpu-training-gate 同理：`docker.build` 出来的镜像里 /bin/sh 是 dash，
-      # stage.script 由 sh 解释时 `set -o pipefail` 直接报 Illegal option，
-      # 门禁会在开局就退出（判据压根没跑）。用 bash 显式执行规避。
+      # 与 cpu-training-gate 同理：stage.script 由 sh（dash）解释，
+      # `set -o pipefail` 直接报 Illegal option，门禁会在开局就退出（判据压根没跑）。
+      # 用 bash 显式执行规避。
       script: |
         echo "== CPU headless sim2sim acceptance (all declared policies) =="
         # 口径按「包内声明的全部策略」扫描（不写死条数：曾在注释里写 47，而声明
@@ -222,6 +276,7 @@
         # 自动起两个独立子进程各跑一遍再比对（40 步实测数秒级，与上行同量级，不超预算）。
         python tools/replay_gate.py --auto assets/robots/zex-w --policy-id zex-w-rough-9600 --steps 40 --min-frames 30
         '
+
 
 frontend:
   push:
@@ -258,9 +313,15 @@ frontend:
             suites=$(find web -name '*.test.mjs' -not -path '*/vendor/*' | sort)
             echo "$suites"
             for suite in $suites; do echo "== $suite"; node "$suite"; done
-
 main:
   push:
+    # 语法门禁独立成 pipeline（零依赖，`syntax-check` 锚点直挂）。
+    # 与 `backend-test` 单测**并发**：整个 push 的墙钟 ≈ max(两者)，
+    # 而不是此前 syntax-check → unit-tests 串行相加。两段共用同一份依赖/
+    # 语法事实源，拆开只是让「短门禁早出结论、长门禁不等待短门禁」。
+    # 多一个 pipeline 不增加并发容器数（仍是 2 个），只把 max 从 unit-tests
+    # 换成 max(syntax, unit-tests) —— 单测仍是长板。
+    - <<: *syntax-check
     - name: backend-test
       <<: *main-env
     - name: cpu-training-smoke
@@ -269,6 +330,7 @@ main:
       # 无关改动（docs/web 等）不再触发 torch 镜像重建。
       ifModify: *cpu-training-paths
       stages:
+        - <<: *dev-env-bootstrap
         - name: cpu-training-gate
           # 用 bash 执行：CNB 的 stage.script 默认由 sh 解释，Debian/dash 下
           # `set -o pipefail` 会直接报 "Illegal option"（本门禁曾因此在 167ms 内失败，
@@ -280,6 +342,7 @@ main:
             exec bash scripts/cpu_training_smoke_gate.sh
 
   pull_request:
+    - <<: *syntax-check
     - name: backend-test-pr
       <<: *main-env
     - name: cpu-training-smoke-pr
@@ -287,6 +350,7 @@ main:
       # 同 push 侧：PR 只在训练相关路径变更时才付镜像重建的代价。
       ifModify: *cpu-training-paths
       stages:
+        - <<: *dev-env-bootstrap
         - name: cpu-training-gate
           # 同 push 侧：stage.script 由 sh 解释，不能用 `set -o pipefail`。
           # 显式 exec bash 让门禁脚本自己的 set -euo pipefail 生效。
@@ -294,56 +358,91 @@ main:
             exec bash scripts/cpu_training_smoke_gate.sh
 
 # 云原生开发：点「云原生开发」按钮即建环境。
-# 环境本身固化在根 Dockerfile（控制面依赖 + Chromium + mjlab cpu extra 全在
-# 镜像层），stages 只负责把后端拉起来并打印预览地址，不做重复安装。
+#
+# 镜像 = **CNB 默认镜像**（这里刻意不写 docker.image / docker.build）。
+# 默认镜像自带 code-server + ssh（单容器模式）、CodeBuddy Web 与 WebIDE 插件、
+# Python 3.12 / Node 22 / uv / git-lfs / zsh，以及 cnb-cli + skills —— 这些
+# 正是自建镜像时代要一项项手工补回的东西。
+#
+# 依赖（控制面 pip 包 / CPUs 训练 venv / 无头浏览器依赖）由 stages 在启动时
+# **按需供应**：dev-env-bootstrap 的 import 探测让重复进环境短路为秒级校验。
+#
+# 这里刻意**不用 `docker.volumes` 声明缓存卷**：该字段在流水线里合法（Schema 列
+# docker.image/build/volumes/devcontainer），但 **vscode 事件下会被平台拒绝**——
+# 报 `不允许的字段 "docker.volumes"`（本仓 v0.56.2 前踩过）。云开发用的是平台
+# 托管的开发环境，缓存复用由平台的节点卷/幂等供应共同保证，不按流水线那套配。
 $:
   vscode:
     - name: legged-studio-dev
       runner:
         cpus: 8
-      docker:
-        build: *docker-dev-image
       services:
         - vscode
         - docker
       env:
-        # 镜像内已固化 CPU 训练 venv：进环境即可训练，无需重装。
+        # 训练 venv 落点：仓库外，不被 bind mount 覆盖（由 dev-env-bootstrap 供应）。
         LEGGED_STUDIO_MJLAB_VENV: /opt/legged-studio/mjlab-cpu/.venv
         MUJOCO_GL: disabled
-      docker.volumes:
-        # 节点级缓存：同级路径，避免"路径包含关系"约束。
-        - /root/.cache/pip
-        - /root/.cache/ms-playwright
+      # 缓存复用靠平台节点卷 + dev-env-bootstrap 的幂等短路，不声明 docker.volumes
+      # （vscode 事件下该字段不被平台接受，见上方注释）。
       stages:
-        - name: assert-single-container
-          # 回归哨兵：镜像里没有可执行的 code-server 时，云原生开发会退回双容器
-          # 模式，WebIDE 连的是 code-server 容器，终端停在「连接到 CNB 容器中...」
-          # （详见 Dockerfile 的 WebIDE 段）。这条 stage 让"又被改回双容器模式"
-          # 在环境启动时就显式失败，而不是让人对着卡住的终端猜。
+        - name: dev-env-bootstrap
           script: |
             set -e
-            echo "== 单容器模式自检（code-server 必须已装进镜像） =="
+            echo "== 控制面依赖（幂等） =="
+            # 默认镜像不预装本项目依赖：已装好就跳过，否则按 requirements 装。
+            # 用 python3：默认镜像里 python 也是 3.12，两者等价。
+            python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" 2>/dev/null \
+              || pip install --quiet --break-system-packages \
+                   -r backend/requirements.txt httpx onnx onnxruntime 2>&1 | tail -5
+            python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" \
+              || { echo "[FAIL] 控制面依赖供应失败"; exit 1; }
+            echo "== 无头浏览器（Playwright Chromium，版本标记对齐） =="
+            # 浏览器是本仓的刚需（sim2sim 结论全是浏览器实测得出的）。
+            pip install --quiet --break-system-packages playwright pytest pytest-playwright 2>&1 | tail -3
+            PLAYWRIGHT_VERSION="$(python3 -c 'import playwright,sys;print(playwright.__version__)')"
+            # Chromium 是"上一次的版本"：版本不合就重装（否则 E2E 会静默用旧浏览器跑，
+            # 正是"本地能跑、CI 看不见"的同类坑）。
+            MARKER="/root/.cache/ms-playwright/.legged-studio-playwright-version"
+            if [ "$(cat "$MARKER" 2>/dev/null || true)" != "$PLAYWRIGHT_VERSION" ]; then
+              playwright install --with-deps chromium 2>&1 | tail -5
+              printf '%s' "$PLAYWRIGHT_VERSION" > "$MARKER"
+            else
+              echo "chromium 已是 playwright $PLAYWRIGHT_VERSION，跳过"
+            fi
+            echo "== CPU 训练 venv（幂等） =="
+            # 默认镜像自带 uv（也可由 provision 脚本自行安装）。
+            LEGGED_STUDIO_UV_BIN=/usr/local/bin/uv bash scripts/provision_cpu_training.sh
+        - name: assert-default-env
+          # 回归哨兵：默认镜像本该提供 WebIDE 服务端与 CodeBuddy 入口。
+          # 缺失说明镜像被换回去了 / 平台默认环境变了，在环境启动时就显式报出来，
+          # 而不是让人对着卡住的终端或消失的右键菜单猜。
+          script: |
+            set -e
+            echo "== 默认环境自检 =="
             if ! command -v code-server >/dev/null 2>&1; then
-              echo "[FAIL] 镜像内无 code-server -> 云原生开发会走双容器模式"
-              echo "       修复：确认 Dockerfile 的 code-server 层未被删除，且 .cnb.yml"
-              echo "       的 .docker-dev-image.by 含 scripts/provision_code_server.sh"
+              echo "[FAIL] 无 code-server -> 会退回双容器模式（终端停在「连接到 CNB 容器中...」）"
+              echo "       修复：确认 .cnb.yml 的 vscode 段未指定无法提供 WebIDE 的镜像"
               exit 1
             fi
             code-server --version
+            for cmd in python3 node uv git-lfs; do
+              command -v "$cmd" >/dev/null 2>&1 \
+                && echo "  $cmd: $(command -v "$cmd")" \
+                || echo "  [WARN] 缺 $cmd（默认镜像应自带；缺失可能影响对应链路）"
+            done
             if command -v codebuddy >/dev/null 2>&1; then
               echo "CodeBuddy Web: 入口可用"
             else
               echo "CodeBuddy Web: 未安装（不影响 WebIDE）"
             fi
             echo "== WebIDE AI 助手插件自检（CodeBuddy IDE 插件） =="
-            # 默认镜像 cnbcool/default-dev-env 预装了 CodeBuddy 插件，自定义镜像不会
-            # 自动注入 -> 不预装就表现为「插件没了、右键没有 AI 助手」。这里只告警
-            # 不失败：插件缺失不影响控制面与训练链路，不该拦住进环境。
+            # 默认镜像预装了 CodeBuddy 插件；不预装就表现为「插件没了、右键没有
+            # AI 助手」。只告警不失败：插件缺失不影响控制面与训练链路。
             if code-server --list-extensions 2>/dev/null | grep -qi 'coding-copilot'; then
               echo "CodeBuddy 插件: 已装（WebIDE 右键可见 AI 助手）"
             else
               echo "[WARN] 未预装 CodeBuddy 插件 -> WebIDE 无 AI 助手入口"
-              echo "       修复：确认 Dockerfile 的 code-server --install-extension 层未被删除；"
               echo "       临时可用: code-server --install-extension Tencent-Cloud.coding-copilot"
             fi
         - name: start-control-plane
@@ -370,7 +469,7 @@ $:
             else
               echo "CPU 训练: 未供应（跑 scripts/provision_cpu_training.sh）"
             fi
-            # MCP 工具链（开发期，不进镜像）：打印配置路径 + 自检自研 server。
+            # MCP 工具链（开发期，不预装 server 本体）：打印配置路径 + 自检自研 server。
             if [ -f .cnb/mcp/servers.json ]; then
               echo "MCP:      $(pwd)/.cnb/mcp/servers.json （$(python -c 'import json;print(len(json.load(open(".cnb/mcp/servers.json"))["mcpServers"]))') 条 server，见 .cnb/mcp/README.md）"
               python -m unittest backend.test_mcp_servers >/dev/null 2>&1 \
