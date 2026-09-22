@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import json
 import re
 import unittest
@@ -359,6 +360,40 @@ class LainlabContractMatchesSourceTest(unittest.TestCase):
             self.assertAlmostEqual(0.25, float(scales.get("ang_vel", 0)), places=6, msg=pid)
             self.assertAlmostEqual(0.05, float(scales.get("dof_vel", 0)), places=6, msg=pid)
             self.assertEqual([2.0, 2.0, 0.25], [float(x) for x in (scales.get("command") or [])], pid)
+
+
+    def test_declared_layout_spec_self_consistent(self):
+        """声明了 `observation_layout` 的策略：**段宽之和 == obs_dim**、来源名在词汇表内。
+
+        规格是"布局的唯一陈述"，所以它自己必须先自洽（宽度、来源名）——本测试抓的就是
+        "规格写错一段"（实测第一版 handstand 规格漏了 `cmd` 段，被引擎的宽度断言当场拦下：
+        "构建 45 vs 契约 obs_dim=48"）。至于规格**是否等价于手写实现**，由
+        `tools/obs_crosscheck.py` 的逐维对拍守（本测试不重复跑物理）。
+        """
+        spec_mod = importlib.util.spec_from_file_location(
+            "policy_acceptance_for_layout_test", ROOT / "adapters" / "mjlab" / "policy_acceptance.py"
+        )
+        engine = importlib.util.module_from_spec(spec_mod)
+        spec_mod.loader.exec_module(engine)
+        declared = 0
+        for entry in self.policies:
+            contract = entry.get("contract") or {}
+            layout = contract.get("observation_layout")
+            if not layout:
+                continue
+            total = 0
+            for seg in layout:
+                source = seg.get("source")
+                self.assertIn(source, engine.OBS_LAYOUT_SOURCES, entry["id"])
+                # 定宽来源（与解释器同规则：`gravity/euler` 3 维、相位各 1 维）；
+                # 其余按声明宽度、缺省 = 动作关节数。
+                fixed = {"gravity": 3, "euler": 3, "phase_sin": 1, "phase_cos": 1}
+                total += int(seg.get("width") or fixed.get(source)
+                             or len(contract.get("action_joint_order") or []))
+            self.assertEqual(contract.get("obs_dim"), total,
+                             f"{entry['id']}：声明式布局段宽之和 {total} ≠ obs_dim {contract.get('obs_dim')}")
+            declared += 1
+        self.assertGreaterEqual(declared, 7, "lainlab 七条都应声明 observation_layout")
 
 
 if __name__ == "__main__":

@@ -1001,6 +1001,64 @@ def _frame_lainlab_handstand_48(obs: "ObsBuilder", cmd: np.ndarray) -> list[floa
     return [0.0, 0.0, 0.0] + _std_frame(obs, cmd)
 
 
+# ---------- 声明式观测布局（2026-09-22）：把"布局"从**又一份实现**变成**数据** -------------
+#
+# 背景：验收侧布局此前是"每个 kind 一个 `_frame_*` 函数"，浏览器侧是"每个 kind 一个 builder"
+# ——同一件事两份实现，靠 `tools/obs_crosscheck.py` 逐维对拍守一致。可**两份实现一致 ≠ 规格
+# 正确**（第十三笔实证：缩放两侧一起错，对拍全绿而策略崩）。所以布局要能**声明**出来：
+# 契约里写 `observation_layout`（段列表），两侧都消费同一份规格。
+#
+# 段词汇（`{"source": …, "width": …, "scale": …}`，按序拼接；缺省 width = 动作关节数、缺省 scale = 1）：
+#   `zeros`        恒零占位（legacy 前缀）
+#   `ang_vel`      体坐标角速度（× scale）
+#   `gravity`      projected_gravity（**不缩放**，上游即原值）
+#   `euler`        quat→euler_xyz（**不缩放**）
+#   `cmd`          速度指令（scale 可为逐维列表，如 `[2, 2, 0.25]`）
+#   `phase_sin`/`phase_cos`  步态相位正余弦（周期取契约 `gait_period_s`）
+#   `joint_pos`    `q − 默认姿`（× scale）
+#   `joint_vel`    `dq`（× scale）
+#   `action`       上一步动作（**不缩放**）
+OBS_LAYOUT_SOURCES = ("zeros", "ang_vel", "gravity", "euler", "cmd",
+                      "phase_sin", "phase_cos", "joint_pos", "joint_vel", "action")
+
+
+def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
+    """按**声明式规格**（段列表）构建单帧观测——布局的唯一解释器。"""
+    c = obs.contract
+    order = c.action_joint_order
+    out: list[float] = []
+    for seg in spec or ():
+        source = str((seg or {}).get("source") or "")
+        if source not in OBS_LAYOUT_SOURCES:
+            raise ValueError(f"未知的观测段来源 {source!r}（可用：{OBS_LAYOUT_SOURCES}）")
+        width = int((seg or {}).get("width") or len(order))
+        raw_scale = (seg or {}).get("scale", 1.0)
+        if source == "zeros":
+            out += [0.0] * width
+        elif source == "ang_vel":
+            _, ang_b, _ = obs.base_state()
+            out += [float(ang_b[i]) * float(raw_scale) for i in range(width)]
+        elif source == "gravity":
+            out += list(projected_gravity(obs.data.qpos[3:7]))
+        elif source == "euler":
+            out += quat_to_euler_xyz(obs.data.qpos[3:7])
+        elif source == "cmd":
+            scales = raw_scale if isinstance(raw_scale, (list, tuple)) else [float(raw_scale)] * width
+            out += [float(cmd[i]) * float(scales[i]) for i in range(width)]
+        elif source in ("phase_sin", "phase_cos"):
+            period = c.gait_period if c.gait_period > 0 else 0.5
+            phase = (float(obs.data.time) % period) / period
+            angle = 2.0 * math.pi * phase
+            out.append(math.sin(angle) if source == "phase_sin" else math.cos(angle))
+        elif source == "joint_pos":
+            out += [(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * float(raw_scale) for n in order[:width]]
+        elif source == "joint_vel":
+            out += [obs.data.qvel[obs.jadr[n][1]] * float(raw_scale) for n in order[:width]]
+        elif source == "action":
+            out += [float(a) for a in obs.last_action[:width]]
+    return out
+
+
 FRAME_BUILDERS = {
     "go2_rl_sdk_45": _std_frame,
     "go2_mjlab_actor_48": _frame_go2_mjlab_actor_48,
@@ -1074,10 +1132,17 @@ def _obs_build(self: "ObsBuilder", cmd: np.ndarray) -> np.ndarray:
     kind = c.observation_kind
     if kind in _DEFERRED_KINDS:
         raise ValueError(f"观测布局 {kind!r} 需 MotionLoader/复合命令，请用 Node 桥验收（obs_bridge.mjs）")
-    builder = FRAME_BUILDERS.get(kind)
-    if builder is None:
-        raise ValueError(f"验收器暂不支持观测布局: {kind!r}")
-    frame = np.asarray(builder(self, cmd), dtype=np.float32)
+    # **声明式布局优先**（2026-09-22）：契约给了 `observation_layout`（段列表）就走通用解释器——
+    # 布局从此是**数据**而不是又一份实现，"每加一族就写一个 builder"的口子开始收窄；
+    # 没给规格的 kind 仍走既有的 `FRAME_BUILDERS`（增量迁移，不搞大爆炸重写）。
+    declared = c.contract.get("observation_layout")
+    if declared:
+        frame = np.asarray(frame_from_spec(self, cmd, declared), dtype=np.float32)
+    else:
+        builder = FRAME_BUILDERS.get(kind)
+        if builder is None:
+            raise ValueError(f"验收器暂不支持观测布局: {kind!r}")
+        frame = np.asarray(builder(self, cmd), dtype=np.float32)
     if c.obs_dim and frame.shape[0] != c.obs_dim:
         raise ValueError(f"单帧观测维度不符: 构建 {frame.shape[0]} vs 契约 obs_dim={c.obs_dim}")
     if c.history_len <= 1:
