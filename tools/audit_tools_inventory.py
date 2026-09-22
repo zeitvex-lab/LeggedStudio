@@ -77,6 +77,29 @@ def _tool_files() -> list[Path]:
     return sorted(files, key=lambda item: str(item))
 
 
+#: 任务清单 §N 段的标题（**只此一份**）。
+#:
+#: 2026-09-22 修：原先这里写死 `"## N. 2026-09-16 全面审计"`，而那一节后来改名成了
+#: `"## N. 审计登记（…）"` ⇒ `find` 恒为 -1 ⇒ **守卫静默失效**（没有测试守它，谁也没发现）。
+#: 代价是自反馈又回来了：§N 表里写到的名字会把自己算成"有人用"。两处配套改动：
+#:   ① 只切**这一节**（标题 → 下一个 `## `），不再"从此切到文末"——轮次日志（进度流水）
+#:      排在 §N 之后，那里的引用是**真引用**（`quality_exp_resampling.py` 就只被它提到）；
+#:   ② 标题找不到 ⇒ **直接抛**（fail-closed）。宁可门禁炸掉报出来，也不要静默地什么都没切。
+N_SECTION_HEADING = "## N. 审计登记"
+
+
+def _without_n_section(text: str) -> str:
+    """去掉任务清单的 §N 段（审计自己的登记表，不算"消费者"）。找不到标题即抛。"""
+    start = text.find(N_SECTION_HEADING)
+    if start < 0:
+        raise ValueError(
+            f"任务清单里找不到 §N 标题 {N_SECTION_HEADING!r}——切除点又过期了。"
+            "请同步 N_SECTION_HEADING：否则 §N 里的名字会把自己算成'有人用'，门禁静默放水。"
+        )
+    end = text.find("\n## ", start + len(N_SECTION_HEADING))
+    return text[:start] if end < 0 else text[:start] + text[end:]
+
+
 def _corpus() -> dict[str, str]:
     texts: dict[str, str] = {}
     for relative in CONSUMERS:
@@ -87,9 +110,7 @@ def _corpus() -> dict[str, str]:
         # 任务清单的 §N 段是**审计自己写的登记**（里面就列着孤儿名单），不是"消费者"。
         # 不切掉它就会自反馈：名单一写进去，9 个孤儿立刻"有人用了"（第一版就这么错的）。
         if relative.endswith("05_任务清单.md"):
-            cut = text.find("## N. 2026-09-16 全面审计")
-            if cut > 0:
-                text = text[:cut]
+            text = _without_n_section(text)
         texts[relative] = text
     # 工具之间互相引用也算"有人用"。
     # **但本文件要排除**：它自己存着孤儿冻结名单，名单里的名字会"自己引用自己"，

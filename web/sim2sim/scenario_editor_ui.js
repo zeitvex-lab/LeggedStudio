@@ -49,17 +49,18 @@ let state = defaultState();
 let mapsAvailable = false;
 let policiesLoading = false;
 
-async function jsonFetch(url, options) {
-  const response = await fetch(url, { cache: "no-store", ...options });
-  if (!response.ok) throw new Error(`${url} → HTTP ${response.status}`);
-  return response.json();
-}
-
 // ── 取数：一律用服务端真值 ────────────────────────────────────────────────
+// HTTP 错误 / 超时 / JSON 解析 / 中文错误消息的**唯一实现**在 `web/shared/api.js`
+// （UMD 形态：本页是 ES module，经全局 `LSApi` 取用；`advanced_sim.html` 里以普通脚本
+// 先加载它，普通脚本先于模块执行 ⇒ 模块里 `LSApi` 一定有值）。
+//
+// **2026-09-22 修**：本文件此前自建了第二个 `jsonFetch`——它只查 `response.ok`、不取后端
+// `detail`，与共享实现各自演化；被 `web/shared/api.test.mjs` 的源码面守卫判红
+// （"JSON fetch 封装应只在 web/shared/api.js"）。删掉，6 处调用全部改走共享实现。
 async function loadMaps() {
   const select = $("scMap");
   try {
-    const payload = await jsonFetch("/api/simulation/maps");
+    const payload = await LSApi.fetchJson("/api/simulation/maps", { cache: "no-store" });
     const maps = (payload.maps || []).filter((item) => item && item.id);
     if (!maps.length) throw new Error("地图库为空");
     select.innerHTML = maps
@@ -76,7 +77,7 @@ async function loadMaps() {
 async function loadRobots() {
   const select = $("scRobot");
   try {
-    const payload = await jsonFetch("/api/robots/presets");
+    const payload = await LSApi.fetchJson("/api/robots/presets", { cache: "no-store" });
     const presets = (payload.presets || []).filter((item) => item && item.robot_id);
     if (!presets.length) throw new Error("没有可用机器人包");
     select.innerHTML = presets.map((item) => `<option value="${item.robot_id}">${item.robot_id}</option>`).join("");
@@ -96,7 +97,9 @@ async function loadPolicies(robotId) {
   select.innerHTML = '<option value="">加载中…</option>';
   try {
     // 与 evaluation.html 同口径：包内 `simulation/config.json` 的 policies 声明就是策略清单
-    const preset = await jsonFetch(`/api/robots/presets/${encodeURIComponent(robotId)}`);
+    const preset = await LSApi.fetchJson(
+      `/api/robots/presets/${encodeURIComponent(robotId)}`, { cache: "no-store" },
+    );
     const policies = ((preset.simulation_config || {}).policies || []).filter((item) => item && item.id);
     select.innerHTML = '<option value="">（不指定策略：跳过 A 类绑定校验）</option>'
       + policies.map((item) => `<option value="${item.id}">${item.label || item.id}</option>`).join("");
@@ -111,7 +114,7 @@ async function loadPolicies(robotId) {
 async function loadPerceptionItems() {
   const host = $("scPerceptionItems");
   try {
-    const payload = await jsonFetch("/api/perception/items");
+    const payload = await LSApi.fetchJson("/api/perception/items", { cache: "no-store" });
     const items = (payload.items || []).filter((item) => item && item.id);
     host.textContent = `观测项目录 ${items.length} 项：${items.map((item) => item.id).join(" / ")}`;
   } catch (error) {
@@ -212,7 +215,7 @@ async function refresh() {
 
   if (composed.ok) {
     try {
-      const payload = await jsonFetch("/api/scenarios/validate", {
+      const payload = await LSApi.fetchJson("/api/scenarios/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(composed.scenario),
@@ -229,7 +232,7 @@ async function refresh() {
     // A 类（route=obs）且选了策略 ⇒ 问服务端"这策略真的吃了这些传感器吗"
     if (composed.route === "obs" && state.policy) {
       try {
-        binding = await jsonFetch("/api/perception/binding", {
+        binding = await LSApi.fetchJson("/api/perception/binding", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ robot_id: state.robot, policy_id: state.policy, perception: composed.scenario.perception }),
