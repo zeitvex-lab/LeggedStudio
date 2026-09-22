@@ -3586,6 +3586,10 @@ function resetSimulation() {
   input.motorDelaySampleSteps = 0;
   input.imuDelaySampleSteps = 0;
   sim.history.fill(0);
+  // mjswan 四输入链（`go2_mjswan_velocity`）的 actor 帧缓冲：**复位后必须重新 prime**
+  // （首帧填满每一槽），否则下一段会把上一段的帧当历史——上游 `HistoryObservation.needsPrime`
+  // 同口径；`sim.history` 那份共享缓冲管不到它（那是另一种 layout）。
+  sim.mjswanActorFrames = null;
   sim.gaitElapsedS = 0;
   // Imitation policies: realign the reference motion to the robot's current
   // heading (yaw-only) and restart from the configured start time.

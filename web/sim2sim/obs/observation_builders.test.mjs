@@ -328,4 +328,76 @@ function eulerXyzMisread([w0, x0, y0, z0]) {
     console.log('OK gait 观测 euler 段（第 8..10 维）= euler_xyz(w,x,y,z)');
   }
 }
+{
+  // ── mjswan 四输入链的 `actor` 117（2026-09-22）：**逐 term 新→旧 + last_action element-major
+  // 交错 + 首帧填满每一槽**。这是"两份实现逐值同口径"的钉子：Python 侧
+  // `adapters/mjlab/policy_acceptance.py::_MjswanActorHistory` 必须给出同一张表 ——
+  // 这类错序不抛异常、只在策略行为上显现，靠人眼看图永远抓不到。
+  let g = [1, 2, 3];
+  let qBase = 100;
+  let dqBase = 200;
+  const c = makeCtx({
+    kind: 'go2_mjswan_velocity', numObs: 117, numActions: 12,
+    ctx: {
+      // 这三个（连同 IMU）在 `createObservationSystems` 时就被闭包捕获 ⇒ 只能靠**可变闭包**换值；
+      // 事后 `c.jointQpos = ...` 赋值不会生效（第一版就是这么错的：q_rel 段恒 0）。
+      readImuSample: () => ({ angular: [0, 0, 0], gravity: g, rpy: [0, 0, 0], linear: [0, 0, 0] }),
+      jointQpos: (i) => qBase + i,
+      jointQvel: (i) => dqBase + i,
+    },
+  });
+  const obs = createObservationSystems(c);
+  const DEF = 0.1; // 脚手架 defaultAngles 全 0.1
+  c.sim.action.set(Array.from({ length: 12 }, (_, i) => 300 + i));
+  obs.buildObservation();
+  // 段序：gravity(3) | joint_pos_rel(12) | joint_vel(12) | last_action(12)，**每段 3 帧新→旧**
+  const want = [];
+  const frame = (gravity, qBase, dqBase, aBase) => {
+    const out = [...gravity];
+    for (let i = 0; i < 12; i += 1) out.push(qBase + i - DEF);
+    for (let i = 0; i < 12; i += 1) out.push(dqBase + i);
+    for (let i = 0; i < 12; i += 1) out.push(aBase + i);
+    return out;
+  };
+  const newest = frame([1, 2, 3], 100, 200, 300);
+  // gravity 段：3 帧整段铺
+  for (let rep = 0; rep < 3; rep += 1) for (let i = 0; i < 3; i += 1) want.push(newest[i]);
+  // joint_pos / joint_vel：同样整段铺
+  for (const base of [3, 15]) {
+    for (let rep = 0; rep < 3; rep += 1) for (let i = 0; i < 12; i += 1) want.push(newest[base + i]);
+  }
+  // last_action：**element-major**（每个关节自己的 3 帧相邻）
+  for (let j = 0; j < 12; j += 1) for (let rep = 0; rep < 3; rep += 1) want.push(newest[27 + j]);
+  const gap0 = Math.max(...want.map((v, i) => Math.abs(v - c.sim.obs[i])));
+  // 容差 1e-5：`sim.obs` 是 Float32（`99.9` 存进去是 99.9000015…），与对拍工具同一口径
+  if (c.sim.obs.length !== 117 || gap0 > 1e-5) {
+    failed++;
+    console.log('FAIL mjswan actor 117 首帧布局 -- 最大差', gap0, '前 12 位', Array.from(c.sim.obs.slice(0, 12)));
+  } else {
+    passed++;
+    console.log('OK mjswan actor 117：首帧填满每一槽 + last_action element-major 交错');
+  }
+
+  // 第二步：新帧入槽 0、旧帧后移（**新→旧**）——换成一组可区分的值再验一次
+  g = [7, 8, 9];
+  qBase = 400;
+  dqBase = 500;
+  c.sim.action.set(Array.from({ length: 12 }, (_, i) => 600 + i));
+  obs.buildObservation();
+  const step2 = Array.from(c.sim.obs);
+  const near = (a, b) => Math.abs(a - b) < 1e-5;
+  const q3 = step2.slice(9, 45);
+  const la = step2.slice(81, 117);
+  const gravityOk = near(step2[0], 7) && near(step2[3], 1) && near(step2[6], 1); // 新, 旧, 最旧
+  // q_rel = jointQpos(i) − 0.1 ⇒ 新帧 399.9+i、上一帧 99.9+i（首帧被 prime 成了第一步的值）
+  const qOk = near(q3[0], 399.9) && near(q3[11], 410.9) && near(q3[12], 99.9) && near(q3[23], 110.9);
+  const laOk = near(la[0], 600) && near(la[1], 300) && near(la[2], 300) && near(la[3], 601) && near(la[4], 301);
+  if (!gravityOk || !qOk || !laOk) {
+    failed++;
+    console.log('FAIL mjswan actor 117：第二帧未按 新→旧 入槽（gravity', step2.slice(0, 9), '| q_rel', q3.slice(0, 3), '| la', la.slice(0, 6), '）');
+  } else {
+    passed++;
+    console.log('OK mjswan actor 117：新帧入槽 0、旧帧后移（逐位核对 gravity / 关节 / 动作三段）');
+  }
+}
 console.log(`\nFINAL PASS=${passed} FAIL=${failed}`);
