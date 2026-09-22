@@ -35,27 +35,44 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "adapters" / "mjlab"))
 
-# 默认阈值：可按任务族用 --criteria-json 覆盖。
+# 默认阈值：可按任务族用 --criteria-json 覆盖（策略自己也能声明——见 evaluate_policy
+# 里 `contract.criteria` 的合并：**判据属于任务语义，应当由任务声明，而不是工具写死**）。
+#
+# `checks` = **量哪几项**（声明式检查表，2026-09-22 起）。此前是 `evaluate_mode` 里按家族写
+# `if family in (...)`，于是"姿态类技能"（反关节/倒立：躯干立起来才是成功）与"站立类"共用
+# 同一套检查，量出"倾角 88° 判不合格"这种**假阴性**——实测 `go2-lainlab-rear-stand` 稳定保持
+# 躯干 −88°、baseZ 0.40 达 8 s（真的用后腿立住了），却被站立族判据判 fail。新增 `posture` 族
+# 量"姿态角带"；将来任何新族只需在这里（或策略契约里）声明 checks，**不必改工具代码**。
 DEFAULT_CRITERIA = {
     # 硬门 = 存活/未摔 + 稳态姿态；vel_err 单列为质量指标（默认不卡门，见 --gate-tracking）。
-    "stand": {"survival_min": 0.999, "height_ratio_min": 0.85, "tilt_max_deg": 20.0, "vel_err_max": 0.20},
-    "balance": {"survival_min": 0.999, "height_ratio_min": 0.85, "tilt_max_deg": 20.0, "vel_err_max": 0.20},
+    "stand": {"survival_min": 0.999, "height_ratio_min": 0.85, "tilt_max_deg": 20.0, "vel_err_max": 0.20,
+              "checks": ["survival", "not_fallen", "height_ratio", "tilt_max", "vel_track"]},
+    "balance": {"survival_min": 0.999, "height_ratio_min": 0.85, "tilt_max_deg": 20.0, "vel_err_max": 0.20,
+                "checks": ["survival", "not_fallen", "height_ratio", "tilt_max", "vel_track"]},
     # 站立硬门与 stand 族同档 —— 用户口径（2026-09-14）：站立是底线，
     # 而 0.70/30° 只保证"没摔倒"（允许趴在 70% 高度、歪 30°），那不等于"站得正常"。
     # 跟踪两档：track_pass_ratio=0.6 合格 / track_good_ratio=0.8 更好（按命令幅值折算，见 tracking_ratio）。
     "velocity": {"survival_min": 0.999, "height_ratio_min": 0.85, "tilt_max_deg": 20.0,
-                 "vel_err_max": 0.20, "track_pass_ratio": 0.6, "track_good_ratio": 0.8},
-    "imitation": {"survival_min": 0.95},
+                 "vel_err_max": 0.20, "track_pass_ratio": 0.6, "track_good_ratio": 0.8,
+                 "checks": ["survival", "not_fallen", "height_ratio", "tilt_max", "vel_track"]},
+    "imitation": {"survival_min": 0.95, "checks": ["survival", "not_fallen"]},
     # LainLab playground 行走族（trot / jump / spring-jump，包内契约 `task_type="gait"`）：
     # 相位驱动的行走技能，判据与 velocity 同档（存活/高度/倾角 + 跟踪两档）。
     # **2026-09-22 补**：此前 **没有这一族** —— 三条策略在无头验收里直接 `KeyError: 'gait'`，
     # 这就是"四族行为级 B11 评测未做"里 gait 那几条的真身（不是观测布局的问题）。
     "gait": {"survival_min": 0.999, "height_ratio_min": 0.85, "tilt_max_deg": 20.0,
-             "vel_err_max": 0.20, "track_pass_ratio": 0.6, "track_good_ratio": 0.8},
-    "acrobatics": {"survival_min": 0.9},
-    "parkour": {"survival_min": 0.95},
+             "vel_err_max": 0.20, "track_pass_ratio": 0.6, "track_good_ratio": 0.8,
+             "checks": ["survival", "not_fallen", "height_ratio", "tilt_max", "vel_track"]},
+    # **姿态类技能**（后腿站立 / 倒立 / 反关节立姿）：成功 = 立住那个姿态，**不是**"站得平"
+    # ——所以量稳态倾角**落在声明带内**（|roll| / |pitch| 的幅值），并保留存活/未摔。
+    # 下界取 60°：躯干立不起来（实测 handstand 只到 33.5° 就定住）= 没做到，如实判失败；
+    # 上界 110° 容许轻微过冲。带值可由策略契约 `criteria.tilt_band_deg` 覆盖（任务语义声明）。
+    "posture": {"survival_min": 0.999, "tilt_band_deg": [60.0, 110.0],
+                "checks": ["survival", "not_fallen", "tilt_band"]},
+    "acrobatics": {"survival_min": 0.9, "checks": ["survival", "not_fallen"]},
+    "parkour": {"survival_min": 0.95, "checks": ["survival", "not_fallen"]},
     # 操作类（抓取/搬运等）：站姿高度/倾角不是判据（任务本身就要求下蹲/伸出），只看存活。
-    "manipulation": {"survival_min": 0.999},
+    "manipulation": {"survival_min": 0.999, "checks": ["survival", "not_fallen"]},
     # Wuji Hand in-hand 重定向：成功 = 朝向误差 < 阈值保持 hold_steps 步（试次间聚合成功率）
     "reorient": {"success_rate_min": 0.8, "trials": 10, "trial_timeout_s": 14.0, "success_threshold_rad": 0.2, "success_hold_steps": 5},
 }
@@ -104,62 +121,92 @@ def tracking_ratio(metrics: dict) -> float | None:
     return max(0.0, min(1.0, 1.0 - float(err) / magnitude))
 
 
+def _legacy_checks(family: str) -> list[str]:
+    """未声明 `checks` 的家族按**旧行为**回落（逐项等价，避免改动既有结论）。"""
+    if family in ("stand", "balance", "velocity", "gait"):
+        return ["survival", "not_fallen", "height_ratio", "tilt_max", "vel_track"]
+    return ["survival", "not_fallen"]
+
+
+def _steady_tilt(metrics: dict) -> float:
+    """稳态倾角**幅值**（|roll| 与 |pitch| 取大者；无稳态窗口时回落全程最大值）。"""
+    roll_s = metrics.get("roll_steady_max_deg")
+    pitch_s = metrics.get("pitch_steady_max_deg")
+    return max(roll_s if roll_s is not None else (metrics.get("roll_max_deg") or 0.0),
+               pitch_s if pitch_s is not None else (metrics.get("pitch_max_deg") or 0.0))
+
+
 def evaluate_mode(metrics: dict, family: str, contract, criteria: dict,
                   gate_tracking: bool = False, ref_height: float | None = None) -> dict:
     """硬门 = 存活/未摔 + 稳态姿态；跟踪精度为质量指标，按 gate_tracking 决定是否卡门。
 
+    **量哪几项由 `criteria["checks"]` 声明**（2026-09-22 起）——"判据属于任务语义"的落点：
+    此前按家族在代码里写 `if family in (...)`，于是姿态类技能（反关节/倒立）被站立族判据量成
+    "倾角 88° 不合格"的**假阴性**（`go2-lainlab-rear-stand` 实测真立住了）；反过来新增一类任务
+    又必须改工具代码。现在新族只需在 `DEFAULT_CRITERIA` 或策略契约 `criteria` 里声明 checks。
+
     高度基准优先用「默认姿静立参考高度」ref_height（多策略共享包级初高时更稳健）。
     """
+    checks = list(criteria.get("checks") or _legacy_checks(family))
     hard: list[dict] = []
-    survival = float(metrics.get("survival_ratio") or 0.0)
-    hard.append({"name": "survival", "ok": survival >= criteria["survival_min"],
-                 "value": survival, "min": criteria["survival_min"]})
-    if metrics.get("fell"):
-        hard.append({"name": "not_fallen", "ok": False, "value": metrics.get("fell_at_s")})
-    if family in ("stand", "balance", "velocity", "gait"):
-        # **尺子优先级**：显式声明的参考高度 > 引擎现算的默认姿运动学高度 > 契约初高。
-        # 结论里必须带 `ruler` —— "高度比 0.692" 若不说明"跟什么比"就没有意义：lite3 的
-        # 0.692 是"跟默认姿运动学高度比"，而那不是策略的自然站姿（2026-09-14 实测，
-        # 曾因此误判为"增益错"并一度去改物理常量，被测试挡下）。
-        declared_ref = criteria.get("height_ref_m")
-        if declared_ref and float(declared_ref) > 1e-6:
-            base = float(declared_ref)
-            ruler = str(criteria.get("height_ruler") or "declared")
-        elif ref_height and ref_height > 1e-6:
-            base = float(ref_height)
-            ruler = "static_default_pose"
-        else:
-            base = float(contract.initial_height)
-            ruler = "contract_initial_height"
-        h_steady = metrics.get("height_steady")
-        h_ratio = (float(h_steady) / max(base, 1e-6)) if h_steady is not None else metrics.get("height_steady_ratio")
-        if h_ratio is None:
-            h_ratio = (metrics.get("height_min") or 0.0) / max(base, 1e-6)
-        hard.append({"name": "height_ratio_steady", "ok": h_ratio >= criteria["height_ratio_min"],
-                     "value": round(float(h_ratio), 3), "min": criteria["height_ratio_min"],
-                     "ruler": ruler, "ref_height": round(float(base), 3)})
-        roll_s = metrics.get("roll_steady_max_deg")
-        pitch_s = metrics.get("pitch_steady_max_deg")
-        tilt = max(roll_s if roll_s is not None else (metrics.get("roll_max_deg") or 0.0),
-                   pitch_s if pitch_s is not None else (metrics.get("pitch_max_deg") or 0.0))
-        hard.append({"name": "tilt_steady", "ok": tilt <= criteria["tilt_max_deg"],
-                     "value": tilt, "max": criteria["tilt_max_deg"]})
-
     quality: list[dict] = []
-    vel_err = metrics.get("vel_track_err")
-    if vel_err is not None and family in ("stand", "balance", "velocity", "gait"):
-        quality.append({"name": "vel_track_err", "ok": float(vel_err) <= criteria["vel_err_max"],
-                        "value": vel_err, "max": criteria["vel_err_max"]})
-        ratio = tracking_ratio(metrics)
-        if ratio is not None:
-            quality.append({
-                "name": "track_ratio",
-                "ok": ratio >= float(criteria.get("track_pass_ratio", 0.6)),
-                "value": round(ratio, 3),
-                "min": float(criteria.get("track_pass_ratio", 0.6)),
-                # `good` 不进 hard/quality 的 ok 判定，只作"更好"的标注（用户口径 0.8）
-                "good": ratio >= float(criteria.get("track_good_ratio", 0.8)),
-            })
+
+    for check in checks:
+        if check == "survival":
+            survival = float(metrics.get("survival_ratio") or 0.0)
+            hard.append({"name": "survival", "ok": survival >= criteria["survival_min"],
+                         "value": survival, "min": criteria["survival_min"]})
+        elif check == "not_fallen":
+            if metrics.get("fell"):
+                hard.append({"name": "not_fallen", "ok": False, "value": metrics.get("fell_at_s")})
+        elif check == "height_ratio":
+            # **尺子优先级**：显式声明的参考高度 > 引擎现算的默认姿运动学高度 > 契约初高。
+            # 结论里必须带 `ruler` —— "高度比 0.692" 若不说明"跟什么比"就没有意义：lite3 的
+            # 0.692 是"跟默认姿运动学高度比"，而那不是策略的自然站姿（2026-09-14 实测，
+            # 曾因此误判为"增益错"并一度去改物理常量，被测试挡下）。
+            declared_ref = criteria.get("height_ref_m")
+            if declared_ref and float(declared_ref) > 1e-6:
+                base = float(declared_ref)
+                ruler = str(criteria.get("height_ruler") or "declared")
+            elif ref_height and ref_height > 1e-6:
+                base = float(ref_height)
+                ruler = "static_default_pose"
+            else:
+                base = float(contract.initial_height)
+                ruler = "contract_initial_height"
+            h_steady = metrics.get("height_steady")
+            h_ratio = (float(h_steady) / max(base, 1e-6)) if h_steady is not None else metrics.get("height_steady_ratio")
+            if h_ratio is None:
+                h_ratio = (metrics.get("height_min") or 0.0) / max(base, 1e-6)
+            hard.append({"name": "height_ratio_steady", "ok": h_ratio >= criteria["height_ratio_min"],
+                         "value": round(float(h_ratio), 3), "min": criteria["height_ratio_min"],
+                         "ruler": ruler, "ref_height": round(float(base), 3)})
+        elif check == "tilt_max":
+            tilt = _steady_tilt(metrics)
+            hard.append({"name": "tilt_steady", "ok": tilt <= criteria["tilt_max_deg"],
+                         "value": tilt, "max": criteria["tilt_max_deg"]})
+        elif check == "tilt_band":
+            band = criteria.get("tilt_band_deg") or [60.0, 110.0]
+            lo, hi = float(band[0]), float(band[1])
+            tilt = _steady_tilt(metrics)
+            hard.append({"name": "tilt_band", "ok": lo <= tilt <= hi,
+                         "value": tilt, "band": [lo, hi]})
+        elif check == "vel_track":
+            vel_err = metrics.get("vel_track_err")
+            if vel_err is None:
+                continue
+            quality.append({"name": "vel_track_err", "ok": float(vel_err) <= criteria["vel_err_max"],
+                            "value": vel_err, "max": criteria["vel_err_max"]})
+            ratio = tracking_ratio(metrics)
+            if ratio is not None:
+                quality.append({
+                    "name": "track_ratio",
+                    "ok": ratio >= float(criteria.get("track_pass_ratio", 0.6)),
+                    "value": round(ratio, 3),
+                    "min": float(criteria.get("track_pass_ratio", 0.6)),
+                    # `good` 不进 hard/quality 的 ok 判定，只作"更好"的标注（用户口径 0.8）
+                    "good": ratio >= float(criteria.get("track_good_ratio", 0.8)),
+                })
     hard_ok = all(c["ok"] for c in hard)
     tracking_ok = all(c["ok"] for c in quality) if quality else True
     return {
@@ -339,9 +386,12 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
     if family in ("acrobatics", "parkour") and not motion:
         return {"status": "skipped", "reason": f"{family} 技能需参考动作/任务专属判据，静态站立判据不适用"}
 
-    criteria = {**DEFAULT_CRITERIA[family], **(criteria_all.get(family) or {})}
+    # 判据优先级：**策略自己声明的**（`contract.criteria`，任务语义）> 运行参数 `--criteria-json`
+    # > 家族默认。策略级声明是"新族不必改工具"的正门（如姿态类技能声明自己的 `tilt_band_deg`）。
+    criteria = {**DEFAULT_CRITERIA[family], **(criteria_all.get(family) or {}),
+                **((contract.contract.get("criteria") or {}))}
     # 复合命令（command_dims != 3）一律单指令评估，即使 task_type 标为 velocity。
-    single_mode = (contract.command_dims != 3) or family in ("stand", "balance", "imitation", "acrobatics", "parkour")
+    single_mode = (contract.command_dims != 3) or family in ("stand", "balance", "imitation", "acrobatics", "parkour", "posture")
     modes = [[0.0, 0.0, 0.0]] if single_mode else engine.default_modes(contract.cmd_ranges)
     mode_reports = []
     for idx, cmd in enumerate(modes):
