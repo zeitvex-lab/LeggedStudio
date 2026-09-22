@@ -39,6 +39,47 @@ def quat_rotate_inverse(q: np.ndarray, v: np.ndarray) -> np.ndarray:
     return v - 2.0 * w * np.cross(u, v) + 2.0 * np.cross(u, np.cross(u, v))
 
 
+_BASE_GEOM_CACHE: dict[int, tuple[set[int], set[int]]] = {}
+
+
+def base_ground_contact_force(model, data) -> float:
+    """躯干（`base_link` 系几何）与地面之间的**法向力**最大值 [N]。
+
+    **判据与训练同源**：上游技能的终止条件实测只有两条 —— `time_out` 与 `base_contact`
+    （`ContactSensorCfg(primary=ContactMatch(mode="body", pattern="base_link"), secondary=terrain)`
+    且 `‖force‖ > 1.0`，见 `skills/<skill>/config.py::cfg.terminations`，7 个技能一致）：
+    **没有倾角终止，也没有高度阈值**。此前验收用"高度 < 0.45×初高 或 倾角 > 90°"是**代理判据**
+    —— 不是训练判据，会把"躯干立起来"（后腿站立/倒立）或"低伏但不承重"的姿态误判/提前中止。
+
+    模型里找不到 base 系几何时返回 0.0（= 未触地）：**不假装判过**。
+    """
+    import mujoco
+
+    cached = _BASE_GEOM_CACHE.get(id(model))
+    if cached is None:
+        base_geoms: set[int] = set()
+        for gid in range(model.ngeom):
+            body = int(model.geom_bodyid[gid])
+            name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body) or ""
+            if "base" in name.lower():
+                base_geoms.add(gid)
+        floor_geoms = {gid for gid in range(model.ngeom) if int(model.geom_bodyid[gid]) == 0}
+        cached = (base_geoms, floor_geoms)
+        _BASE_GEOM_CACHE[id(model)] = cached
+    base_geoms, floor_geoms = cached
+    if not base_geoms:
+        return 0.0
+    worst = 0.0
+    force = np.zeros(6, dtype=np.float64)
+    for idx in range(data.ncon):
+        contact = data.contact[idx]
+        pair = {int(contact.geom1), int(contact.geom2)}
+        if (pair & base_geoms) and (pair & floor_geoms):
+            mujoco.mj_contactForce(model, data, idx, force)
+            worst = max(worst, abs(float(force[0])))
+    return worst
+
+
 def projected_gravity(q: np.ndarray) -> np.ndarray:
     """R^T · [0, 0, -1]：直立时 (0, 0, -1)，与 app.getGravityOrientation 同约定。"""
     return quat_rotate_inverse(q, np.array([0.0, 0.0, -1.0]))
@@ -1109,17 +1150,17 @@ def run_mode(sess, contract: PackageContract, model, data, obs: ObsBuilder,
         roll_max = max(roll_max, abs(roll))
         pitch_max = max(pitch_max, abs(pitch))
         height_min = min(height_min, float(data.qpos[2]))
-        # 倾角闸门放到 90°：**前腿/后腿站立**这类非标准站姿本来就会把躯干立起来
-        # （实测 go2w 后腿站立 pitch 80.5° 是正常姿态，60° 会把它误判成摔倒并中止回合）。
-        # 阈值只用于"回合是否该中止"，姿态是否合格仍由 verdict 的 tilt 判据决定。
-        tilted = abs(roll) > 90.0 or abs(pitch) > 90.0
-        # **起摆窗口**：从出生高度落到站立高度是**正常过程**（go2 出生 0.445、站高约 0.28），
-        # 单帧穿过 `0.45 × initial_height` 就判"摔倒"，会把还没机会发动作的策略直接掐掉
-        # （实测 go2-moe-cts 0.248 s、g1-velocity 0.35 s 都是这么被中止的）。
+        # **判据与训练同源（2026-09-22）**：上游技能的终止条件只有 `time_out` + `base_contact`
+        # （躯干触地、法向力 > 1.0 N，见 `skills/<skill>/config.py::cfg.terminations`）——
+        # **没有倾角终止、也没有高度阈值**。此前这里用的是"`qpos[2] < 0.45 × initial_height`
+        # 或 倾角 > 90°"这套**代理判据**：它把"躯干立起来"（后腿站立/倒立，倾角本来就大）当摔倒
+        # 中止，也会在起摆/低伏阶段把还没机会做动作的策略掐掉。现在改用同一条 `base_contact`。
+        # （历史上那两条阈值的来由留在 git log：倾角 90° 是为 go2w 后腿站立（pitch 80.5°）放宽的，
+        # 高度代理是为避免"出生高度→站高"的起摆过程被误判——两者都是**为绕开代理判据的假阳性
+        # 而调参**，换成训练判据后不再需要。）
         settle_steps = int(0.5 * contract.physics_hz)
-        if fell_at is None and step >= settle_steps and (
-            data.qpos[2] < 0.45 * contract.initial_height or tilted
-        ):
+        if fell_at is None and step >= settle_steps and \
+                base_ground_contact_force(model, data) > 1.0:
             fell_at = step / contract.physics_hz
             break
         # 速度跟踪：只统计后半段（前段含起摆/收敛）
