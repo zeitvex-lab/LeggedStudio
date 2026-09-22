@@ -1458,6 +1458,170 @@ def run_pie_policy(sess, contract: PackageContract, model, data, obs: "ObsBuilde
     }
 
 
+# ---------- mjswan 多输入 RNN 回路（槽表：actor / is_init / adapt_hx / command_）----------
+
+#: 上游 mjswan demo 的 `control_dt`（50 Hz 控制步）；物理子步数按契约 `physics_hz` 推。
+_MJSWAN_CONTROL_DT = 0.02
+#: actor 各 term 的 (名, 维度, 是否 element-major 交错)，顺序 = 上游 `go2_velocity_obs["actor"]`；
+#: 维度 0 = 随 `action_dim`（关节项）。实测该组**无 command、无 base_ang_vel、各 term scale=1.0**。
+_MJSWAN_ACTOR_TERMS: tuple[tuple[str, int, bool], ...] = (
+    ("projected_gravity", 3, False),
+    ("joint_pos_rel", 0, False),
+    ("joint_vel_rel", 0, False),
+    ("last_action", 0, True),
+)
+#: 上游 `history_steps=(0,1,2)`：**新→旧**（dense `history_length` 才是旧→新，别搞混）。
+_MJSWAN_HISTORY_STEPS = 3
+#: `command_` 槽 = velocity_cmd(3) + 13 个零（oscillator 槽位占位，上游 `velocity_command_padding`）。
+_MJSWAN_COMMAND_PAD = 13
+#: 循环隐状态宽度（上游 `adapt_hx`）。
+_MJSWAN_RECURRENT_DIM = 128
+#: 上游 `out_keys` 里这两项的位置，robust/vanilla/facet 三个导出件**实测一致**（15/16 个输出里）。
+_MJSWAN_ACTION_OUTPUT = 10  # 见下：部署取均值时改用 7
+_MJSWAN_RECURRENT_OUTPUT = 4
+
+
+def _mjswan_actor_frame(obs: "ObsBuilder") -> np.ndarray:
+    """单帧 actor（**无缩放**）：projected_gravity(3) + joint_pos_rel(A) + joint_vel(A) + last_action(A)。"""
+    c = obs.contract
+    q = obs.data.qpos[3:7]
+    out = [float(v) for v in projected_gravity(q)]
+    out += [float(obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) for n in c.action_joint_order]
+    out += [float(obs.data.qvel[obs.jadr[n][1]]) for n in c.action_joint_order]
+    out += [float(v) for v in obs.last_action]
+    return np.asarray(out, dtype=np.float32)
+
+
+class _MjswanActorHistory:
+    """`history_steps=(0,1,2)` 的 actor 历史：逐 term 堆叠、**新→旧**，`last_action` 交错。
+
+    逐值口径（唯一真值 = 上游 `HistoryObservation.ts`，两份实现必须一致——这类"差一步"不抛异常）：
+      · 非交错项：按 offset 序整段铺 ⇒ `[g_t(3), g_{t-1}(3), g_{t-2}(3)]`；
+      · 交错项（element-major）：**每个元素自己的几帧相邻** ⇒ `[a_t[0],a_{t-1}[0],a_{t-2}[0], a_t[1], …]`；
+      · reset 后首帧**填满每一槽**（`needsPrime`：不许把未训练的零当历史）。
+    """
+
+    def __init__(self, frame_dim: int, action_dim: int) -> None:
+        self._frame_dim = int(frame_dim)
+        self._action_dim = int(action_dim)
+        self._frames: list[np.ndarray] = []
+
+    def reset(self) -> None:
+        self._frames = []
+
+    def append(self, frame: np.ndarray) -> None:
+        f = np.asarray(frame, dtype=np.float32).reshape(self._frame_dim)
+        if not self._frames:
+            self._frames = [f.copy() for _ in range(_MJSWAN_HISTORY_STEPS)]
+        else:
+            self._frames = [f.copy(), *self._frames[: _MJSWAN_HISTORY_STEPS - 1]]
+
+    @property
+    def array(self) -> np.ndarray:
+        chunks: list[float] = []
+        offset = 0
+        for _name, dim, interleaved in _MJSWAN_ACTOR_TERMS:
+            width = dim or self._action_dim
+            if interleaved:
+                for j in range(width):
+                    for frame in self._frames:
+                        chunks.append(float(frame[offset + j]))
+            else:
+                for frame in self._frames:
+                    chunks.extend(float(v) for v in frame[offset : offset + width])
+            offset += width
+        return np.asarray(chunks, dtype=np.float32)
+
+
+def run_mjswan_policy(sess, contract: PackageContract, model, data, obs: "ObsBuilder",
+                      cmd: list[float], seconds: float, seed: int,
+                      base_body: str = "base",
+                      slots: tuple[str, ...] | None = None) -> dict[str, Any]:
+    """mjswan 四输入 RNN 回路（50 Hz 控制）：`actor` / `is_init` / `adapt_hx` / `command_`。
+
+    **输入按槽表位置喂**（上游 ADR 0006 §5：onnx 自己的张量名无意义、`l_kwargs_*` 只是导出器
+    产物名），槽表顺序来自契约；`adapt_hx` 回灌上一步输出（索引 4 的 `[next,adapt_hx]`），
+    `is_init` 只在 episode 首帧为真（**bool** 张量，喂 float 会直接被 onnxruntime 拒），
+    `command_` = 命令 3 维 + 13 个零占位。动作不额外 clip（上游 `clip_actions` 取 rsl-rl 包装器
+    的默认 100，实际不起作用）。判据口径与 PIE 回路一致（存活/姿态/前进），便于同报告比较。
+    """
+    import mujoco
+
+    slots = tuple(slots or ("actor", "is_init", "adapt_hx", "command_"))
+    in_names = [str(i.name) for i in sess.get_inputs()]
+    if len(in_names) != len(slots):
+        raise ValueError(
+            f"槽表与网络输入数不符：声明 {list(slots)}（{len(slots)} 路）"
+            f" vs onnx {in_names}（{len(in_names)} 路）——按位置映射，多一路少一路都是错绑"
+        )
+
+    spawn_default(contract, model, data, obs)
+    # 关节初始姿态对齐**策略默认角**（上游 `default_joint_pos` = 包内契约的 default_joint_angles）。
+    # 与 PIE 回路同一步：不对齐的话策略从一个它没训过的姿态起步，表现为"站得住但不走/偶发摔"。
+    for name in contract.action_joint_order:
+        data.qpos[obs.jadr[name][0]] = contract.default_for(name)
+    mujoco.mj_forward(model, data)
+    base_id = _pie_body_id(model, base_body)
+    cmd_arr = np.asarray(cmd, dtype=np.float32)[:3]
+    cmd_scale = np.asarray(contract.cmd_scale, dtype=np.float32)
+    physics_steps = max(1, int(round(_MJSWAN_CONTROL_DT * float(contract.physics_hz))))
+    control_steps = max(1, int(float(seconds) / _MJSWAN_CONTROL_DT))
+
+    obs.last_action = np.zeros(contract.action_dim, dtype=np.float32)
+    history = _MjswanActorHistory(3 + 3 * contract.action_dim, contract.action_dim)
+    hx = np.zeros((1, _MJSWAN_RECURRENT_DIM), dtype=np.float32)
+    start_xy = np.asarray(data.xpos[base_id], dtype=np.float64)[:2].copy()
+    fell_at: float | None = None
+    tilt_max = 0.0
+    forward_max = 0.0
+    height_min = float("inf")
+
+    for step in range(control_steps):
+        history.append(_mjswan_actor_frame(obs))
+        values = {
+            "actor": history.array.reshape(1, -1),
+            # rank 必须与 onnx 一致（`arg1` 是 [1] 一维 bool；喂 [[.]] 会被 onnxruntime 判
+            # "Invalid rank for input: arg1 Got: 2 Expected: 1" —— 实测踩过）。
+            "is_init": np.asarray([step == 0], dtype=bool),
+            "adapt_hx": hx,
+            "command_": np.concatenate(
+                [cmd_arr * cmd_scale, np.zeros(_MJSWAN_COMMAND_PAD, dtype=np.float32)]
+            ).reshape(1, -1),
+        }
+        outs = sess.run(None, {in_names[i]: values[slot] for i, slot in enumerate(slots)})
+        action = np.asarray(outs[_MJSWAN_ACTION_OUTPUT], dtype=np.float32).reshape(-1)[: contract.action_dim]
+        hx = np.asarray(outs[_MJSWAN_RECURRENT_OUTPUT], dtype=np.float32).reshape(1, _MJSWAN_RECURRENT_DIM)
+        obs.last_action = action.copy()
+        # 位置目标 = default + action_scale*action（与 PIE/通用路径同一份 actuate）。
+        actuate(contract, model, data, obs, action)
+        for _ in range(physics_steps):
+            mujoco.mj_step(model, data)
+
+        q = data.qpos[3:7]
+        g = projected_gravity(q)
+        roll = math.degrees(math.atan2(g[1], -g[2])) if -g[2] > 1e-6 else math.copysign(90.0, g[1])
+        pitch = math.degrees(math.asin(clamp(g[0], -1.0, 1.0)))
+        tilt_max = max(tilt_max, abs(roll), abs(pitch))
+        height_min = min(height_min, float(data.qpos[2]))
+        forward = float(np.asarray(data.xpos[base_id], dtype=np.float64)[0] - start_xy[0])
+        forward_max = max(forward_max, forward)
+        if fell_at is None and (data.qpos[2] < 0.5 * contract.initial_height or max(abs(roll), abs(pitch)) > 75.0):
+            fell_at = step * _MJSWAN_CONTROL_DT
+            break
+
+    survived = (fell_at / _MJSWAN_CONTROL_DT) if fell_at is not None else control_steps
+    return {
+        "command": [float(x) for x in cmd_arr],
+        "fell": fell_at is not None,
+        "fell_at_s": round(fell_at, 3) if fell_at is not None else None,
+        "survival_ratio": round(survived / control_steps, 3),
+        "tilt_max_deg": round(tilt_max, 1),
+        "forward_max_m": round(forward_max, 3),
+        "height_min": round(height_min, 3),
+        "slots": list(slots),
+    }
+
+
 # ---------- 主入口 ----------
 
 def default_modes(ranges) -> list[list[float]]:
