@@ -78,9 +78,29 @@ class CrosscheckHarnessTest(unittest.TestCase):
         self.assertIn("不适用", done.stdout)
         self.assertIn("qpos[0:7] 不是浮动基座", done.stdout)
 
-    def test_unbuildable_policy_is_reported_not_green(self):
-        """`sim_ready:false`（浏览器没 builder）⇒ 报"不适用"，既不绿也不红。"""
-        done = _run("--robot", "unitree_b2", "--policy", "unitree_b2-trained-20260918-015414")
+    def test_blocked_entry_without_layout_is_reported_not_green(self):
+        """`sim_ready:false` **且没有布局** ⇒ 报"不适用"，既不绿也不红。
+
+        **2026-09-23 收窄**：原先这条断言的是"`sim_ready:false` ⇒ 一律不适用"。但那样一来
+        **取证过布局的阻塞条目永远不会被比对**（"取证等于没验"）；工具已改为"只有既没布局、
+        又标了不可仿真才早退"。这里用**反例注入**（临时撤掉布局）来钉住剩下的那一半：
+        没有可比的那一层时，仍须如实报不适用，不许伪装成绿。
+        """
+        import json as _json
+
+        config_path = ROOT / "assets" / "robots" / "unitree_b2" / "simulation" / "config.json"
+        original = config_path.read_bytes()
+        bom = original[:3] == b"\xef\xbb\xbf"
+        data = _json.loads(original.decode("utf-8-sig"))
+        entry = next(e for e in data["policies"] if e["id"] == "unitree_b2-trained-20260918-015414")
+        self.assertIn("observation_layout", entry["contract"], "靶子变了：该条目本来就该带布局")
+        entry["contract"].pop("observation_layout")           # 注入：撤掉布局
+        config_path.write_bytes((b"\xef\xbb\xbf" if bom else b"")
+                                + _json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"))
+        try:
+            done = _run("--robot", "unitree_b2", "--policy", "unitree_b2-trained-20260918-015414")
+        finally:
+            config_path.write_bytes(original)
         self.assertEqual(2, done.returncode, done.stdout[-2000:])
         self.assertIn("sim_ready:false", done.stdout)
 

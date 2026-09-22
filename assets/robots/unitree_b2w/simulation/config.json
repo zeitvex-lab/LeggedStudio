@@ -164,7 +164,7 @@
       "id": "unitree_b2w-trained-20260918-093241",
       "path": "simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
       "sim_ready": false,
-      "sim_blocker": "observation_kind=unknown（布局未逐项取证）：浏览器没有对应 builder，按通用布局代跑会吃错观测（57 维轮足观测）。补齐取证并补 builder 后把 sim_ready 改回 true。",
+      "sim_blocker": "**布局与动作口径已取证**（v0.59.0：obs 自训练源/既有帧逐项、动作自训练源与 ONNX 元数据），但**行为级实测不合格**：无头验收 5 档命令 **0/5**（默认门同为 0/5：vx 档摔倒） ⇒ B8 冒烟轮产物，不入可仿真清单；要入清单须重训后重评（补 builder 解决不了\"不走\"）。",
       "provenance": {
         "artifact_id": "unitree_b2w__produced-unitree_b2w_v1_20260918_093241_627441",
         "run_id": "unitree_b2w_v1_20260918_093241_627441",
@@ -177,9 +177,13 @@
       "contract": {
         "observation_kind": "unknown",
         "obs_dim": 57,
-        "action_dim": 16
+        "action_dim": 16,
+        "observation_layout": [{"source": "ang_vel", "width": 3}, {"source": "gravity"}, {"source": "cmd", "width": 3}, {"source": "joint_pos", "mode": "position", "width": 12}, {"source": "joint_vel", "mode": "position", "width": 12}, {"source": "joint_pos", "mode": "velocity", "width": 4}, {"source": "joint_vel", "mode": "velocity", "width": 4}, {"source": "action"}],
+        "action_scale": 0.5,
+        "velocity_scale": 35.0,
+        "default_joint_angles": {"fl_hip_joint": -0.1, "fl_thigh_joint": 0.8, "fl_calf_joint": -1.5, "fl_wheel_joint": 0.0, "fr_hip_joint": 0.1, "fr_thigh_joint": 0.8, "fr_calf_joint": -1.5, "fr_wheel_joint": 0.0, "rl_hip_joint": -0.1, "rl_thigh_joint": 0.8, "rl_calf_joint": -1.5, "rl_wheel_joint": 0.0, "rr_hip_joint": 0.1, "rr_thigh_joint": 0.8, "rr_calf_joint": -1.5, "rr_wheel_joint": 0.0}
       },
-      "note": "B8 第二批冒烟产物：observation 布局未逐项取证，显式标记 unknown（实际 obs[1,57]→actions[1,16]）"
+      "note": "B8 第二批冒烟产物。**2026-09-23 补齐取证（v0.59.0）**：obs 布局自训练源 adapters/mjlab/kits/wheel_leg_kit/velocity_env_cfg.py::policy_terms + 包内 `training/source/b2w_velocity/env_cfgs.py`（ang_vel / gravity / cmd / 腿 q12 / 腿 dq12 / 轮 q4 / 轮 dq4 / actions16）；动作口径同源（腿 `JointPositionActionCfg(scale=0.5)`、轮 `JointVelocityActionCfg(scale=35.0)`）；ONNX 元数据默认姿态（hip −0.1 / thigh 0.8 / calf −1.5）与包级（0.0 / 0.5 / −1.5）不同 ⇒ 逐关节声明。**行为级实测**：无头验收 5 档命令 **0/5**（默认门同为 0/5：vx 档摔倒）。"
     }
   ]
 }

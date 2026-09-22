@@ -940,7 +940,7 @@
       "id": "unitree_go2w-trained-20260918-093550",
       "path": "simulation/policies/unitree_go2w-trained-20260918-093550.onnx",
       "sim_ready": false,
-      "sim_blocker": "observation_kind=unknown（布局未逐项取证）：浏览器没有对应 builder，按通用布局代跑会吃错观测（57 维轮足观测；本包已有 go2w_rl_sdk_57 / go2w_himloco_57 两个 57 维 builder，取证后可直接归并）。",
+      "sim_blocker": "**布局与动作口径已取证**（v0.59.0：obs 自训练源/既有帧逐项、动作自训练源与 ONNX 元数据），但**行为级实测不合格**：无头验收 5 档命令 **2/5**（存活 5/5、默认门 4/5——唯一短板是**不跟踪**：站得住不走） ⇒ B8 冒烟轮产物，不入可仿真清单；要入清单须重训后重评（补 builder 解决不了\"不走\"）。",
       "provenance": {
         "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260918_093550_665376",
         "run_id": "unitree_go2w_contract_v1_20260918_093550_665376",
@@ -953,9 +953,12 @@
       "contract": {
         "observation_kind": "unknown",
         "obs_dim": 57,
-        "action_dim": 16
+        "action_dim": 16,
+        "observation_layout": [{"source": "ang_vel", "width": 3}, {"source": "gravity"}, {"source": "cmd", "width": 3}, {"source": "joint_pos", "mode": "position", "width": 12}, {"source": "joint_vel", "mode": "position", "width": 12}, {"source": "joint_pos", "mode": "velocity", "width": 4}, {"source": "joint_vel", "mode": "velocity", "width": 4}, {"source": "action"}],
+        "action_scale": 0.5,
+        "velocity_scale": 35.0
       },
-      "note": "B8 第二批冒烟产物：observation 布局未逐项取证，显式标记 unknown（实际 obs[1,57]→actions[1,16]）"
+      "note": "B8 第二批冒烟产物。**2026-09-23 补齐取证（v0.59.0）**：obs 布局自训练源 adapters/mjlab/kits/wheel_leg_kit/velocity_env_cfg.py::policy_terms + 包内 `training/source/go2w_velocity/env_cfgs.py`（同上逐项序）；动作口径同源（腿 0.5、轮 35.0，包级 wheel 缩放是 5.0）；ONNX 元数据默认姿态与包级逐值一致 ⇒ 不重复声明。**行为级实测**：无头验收 5 档命令 **2/5**（存活 5/5、默认门 4/5——唯一短板是**不跟踪**：站得住不走）。"
     }
   ],
   "default_map": "flat",
