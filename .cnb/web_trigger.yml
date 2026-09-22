@@ -1,0 +1,32 @@
+# 自定义按钮：把被移除的 PR 门禁做成**手动**路径。
+#
+# 背景见 `.cnb.yml` 里 `main` 段的「移除原因」注释：PR 事件上的三条门禁已整段移除，
+# 因为它们连 1 核（平台最小规格，0.08 核时/次冻结）都冻结不到——根组织当月构建额度
+# 已见底。额度是**外部约束**，配置侧降不动，所以把"跑门禁"改成**显式动作**：
+# 平时不扣额度，需要合并前验证时点一下按钮。
+#
+# 判据不缩水：两个按钮跑的就是 push 侧同一份锚点（*syntax-check / *main-env /
+# *cpu-training-env），「手动跑的」与「合并后 main 跑的」是同一份判据。
+#
+# 按钮显示在**分支详情页**（这是 `web_trigger.yml` 的平台限制，只支持分支详情页）。
+# 对 PR 源分支：进「代码 → 分支 → <源分支>」页面即可看到这两个按钮。
+branch:
+  - buttons:
+      - name: PR 门禁（语法 + 后端单测）
+        description: 手动等价于原 pull_request 的 syntax-check + backend-test-pr。合并前验证用；会消耗根组织构建核时额度。
+        event: web_trigger_pr_gate
+        groupName: 手动门禁
+        permissions:
+          roles:
+            - owner
+            - master
+            - developer
+      - name: 训练冒烟门禁（cpu-training-smoke）
+        description: 手动等价于原 pull_request 的 cpu-training-smoke-pr（现装 CPU 训练栈，分钟级，消耗额度较多）。只在训练相关改动时按需点。
+        event: web_trigger_training_gate
+        groupName: 手动门禁
+        permissions:
+          roles:
+            - owner
+            - master
+            - developer
