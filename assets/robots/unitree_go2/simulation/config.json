@@ -1307,7 +1307,21 @@
         "task_type": "velocity",
         "history_layout": "frame_major_oldest_first",
         "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
-        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "default_joint_angles": {
+          "FL_hip_joint": -0.1,
+          "FL_thigh_joint": 0.9,
+          "FL_calf_joint": -1.8,
+          "FR_hip_joint": 0.1,
+          "FR_thigh_joint": 0.9,
+          "FR_calf_joint": -1.8,
+          "RL_hip_joint": -0.1,
+          "RL_thigh_joint": 0.9,
+          "RL_calf_joint": -1.8,
+          "RR_hip_joint": 0.1,
+          "RR_thigh_joint": 0.9,
+          "RR_calf_joint": -1.8
+        },
+          "initial_base_height": 0.32,
         "action_scale": 0.25,
         "control": {
           "stiffness": {
@@ -1358,7 +1372,21 @@
         "task_type": "velocity",
         "history_layout": "frame_major_oldest_first",
         "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
-        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "default_joint_angles": {
+          "FL_hip_joint": -0.1,
+          "FL_thigh_joint": 0.9,
+          "FL_calf_joint": -1.8,
+          "FR_hip_joint": 0.1,
+          "FR_thigh_joint": 0.9,
+          "FR_calf_joint": -1.8,
+          "RL_hip_joint": -0.1,
+          "RL_thigh_joint": 0.9,
+          "RL_calf_joint": -1.8,
+          "RR_hip_joint": 0.1,
+          "RR_thigh_joint": 0.9,
+          "RR_calf_joint": -1.8
+        },
+          "initial_base_height": 0.32,
         "action_scale": 0.25,
         "control": {
           "stiffness": {
@@ -1410,7 +1438,21 @@
         "history_layout": "frame_major_oldest_first",
         "gait_period_s": 0.5,
         "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
-        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "default_joint_angles": {
+          "FL_hip_joint": 0.0,
+          "FL_thigh_joint": 0.8,
+          "FL_calf_joint": -1.5,
+          "FR_hip_joint": 0.0,
+          "FR_thigh_joint": 0.8,
+          "FR_calf_joint": -1.5,
+          "RL_hip_joint": 0.0,
+          "RL_thigh_joint": 0.8,
+          "RL_calf_joint": -1.5,
+          "RR_hip_joint": 0.0,
+          "RR_thigh_joint": 0.8,
+          "RR_calf_joint": -1.5
+        },
+          "initial_base_height": 0.42,
         "action_scale": 0.25,
         "control": {
           "stiffness": {
@@ -1462,7 +1504,21 @@
         "history_layout": "frame_major_oldest_first",
         "gait_period_s": 1.5,
         "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
-        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "default_joint_angles": {
+          "FL_hip_joint": 0.1,
+          "FL_thigh_joint": 0.8,
+          "FL_calf_joint": -1.5,
+          "FR_hip_joint": -0.1,
+          "FR_thigh_joint": 0.8,
+          "FR_calf_joint": -1.5,
+          "RL_hip_joint": 0.1,
+          "RL_thigh_joint": 1.0,
+          "RL_calf_joint": -1.5,
+          "RR_hip_joint": -0.1,
+          "RR_thigh_joint": 1.0,
+          "RR_calf_joint": -1.5
+        },
+          "initial_base_height": 0.42,
         "action_scale": 0.25,
         "control": {
           "stiffness": {
@@ -1513,7 +1569,21 @@
         "task_type": "gait",
         "history_layout": "frame_major_oldest_first",
         "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
-        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "default_joint_angles": {
+          "FL_hip_joint": -0.1,
+          "FL_thigh_joint": 0.9,
+          "FL_calf_joint": -1.8,
+          "FR_hip_joint": 0.1,
+          "FR_thigh_joint": 0.9,
+          "FR_calf_joint": -1.8,
+          "RL_hip_joint": -0.1,
+          "RL_thigh_joint": 0.9,
+          "RL_calf_joint": -1.8,
+          "RR_hip_joint": 0.1,
+          "RR_thigh_joint": 0.9,
+          "RR_calf_joint": -1.8
+        },
+          "initial_base_height": 0.39,
         "action_scale": 0.25,
         "control": {
           "stiffness": {
@@ -1564,7 +1634,22 @@
         "task_type": "stand",
         "history_layout": "",
         "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
-        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "default_joint_angles": {
+          "FL_hip_joint": 0.1,
+          "FL_thigh_joint": 0.8,
+          "FL_calf_joint": -1.5,
+          "FR_hip_joint": -0.1,
+          "FR_thigh_joint": 0.8,
+          "FR_calf_joint": -1.5,
+          "RL_hip_joint": 0.1,
+          "RL_thigh_joint": 1.0,
+          "RL_calf_joint": -1.5,
+          "RR_hip_joint": -0.1,
+          "RR_thigh_joint": 1.0,
+          "RR_calf_joint": -1.5
+        },
+          "initial_base_height": 0.42,
+          "scales": {"ang_vel": 0.25, "dof_pos": 1.0, "dof_vel": 0.05, "command": [2.0, 2.0, 0.25]},
         "action_scale": 0.25,
         "control": {
           "stiffness": {
@@ -1615,7 +1700,22 @@
         "task_type": "stand",
         "history_layout": "",
         "action_joint_order": ["FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint"],
-        "default_joint_angles": { "FL_hip_joint": 0.1, "FL_thigh_joint": 0.8, "FL_calf_joint": -1.5, "FR_hip_joint": -0.1, "FR_thigh_joint": 0.8, "FR_calf_joint": -1.5, "RL_hip_joint": 0.1, "RL_thigh_joint": 1.0, "RL_calf_joint": -1.5, "RR_hip_joint": -0.1, "RR_thigh_joint": 1.0, "RR_calf_joint": -1.5 },
+        "default_joint_angles": {
+          "FL_hip_joint": 0.1,
+          "FL_thigh_joint": 0.8,
+          "FL_calf_joint": -1.5,
+          "FR_hip_joint": -0.1,
+          "FR_thigh_joint": 0.8,
+          "FR_calf_joint": -1.5,
+          "RL_hip_joint": 0.1,
+          "RL_thigh_joint": 1.0,
+          "RL_calf_joint": -1.5,
+          "RR_hip_joint": -0.1,
+          "RR_thigh_joint": 1.0,
+          "RR_calf_joint": -1.5
+        },
+          "initial_base_height": 0.42,
+          "scales": {"ang_vel": 0.25, "dof_pos": 1.0, "dof_vel": 0.05, "command": [2.0, 2.0, 0.25]},
         "action_scale": 0.25,
         "control": {
           "stiffness": {

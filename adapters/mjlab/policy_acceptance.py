@@ -284,7 +284,11 @@ class PackageContract:
         self.decimation = int(scalars.get("decimation") or self.sim.get("decimation") or 4)
         self.step_dt = 1.0 / self.physics_hz * self.decimation
         self.actuator_interface = str(self.sim.get("actuator_interface") or "torque").lower()
-        self.initial_height = float(self.sim.get("initial_base_height") or 0.4)
+        # 出生高：**策略级可覆盖包级**（2026-09-22）。理由与增益同：同一机型下各技能的
+        # 训练出生高并不相同（实测 LainLab go2：trot/hand_stand/rear_stand 0.42、
+        # spring_jump 0.39、dreamwaq/cts 用基座 0.32），包级一个值只能近似。
+        self.initial_height = float(self.contract.get("initial_base_height")
+                                    or self.sim.get("initial_base_height") or 0.4)
         # 力矩限幅：策略契约可覆盖包级（不同训练工程限幅不同，如 ArenaX 用 45）。
         torque_limits = self.contract.get("torque_limits") or self.sim.get("torque_limits") or {}
         self.torque_limits = {k.lower(): float(v) for k, v in torque_limits.items()}
