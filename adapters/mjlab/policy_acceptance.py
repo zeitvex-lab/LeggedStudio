@@ -1892,7 +1892,8 @@ class _MjswanActorHistory:
 def run_mjswan_policy(sess, contract: PackageContract, model, data, obs: "ObsBuilder",
                       cmd: list[float], seconds: float, seed: int,
                       base_body: str = "base",
-                      slots: tuple[str, ...] | None = None) -> dict[str, Any]:
+                      slots: tuple[str, ...] | None = None,
+                      on_step=None) -> dict[str, Any]:
     """mjswan 四输入 RNN 回路（50 Hz 控制）：`actor` / `is_init` / `adapt_hx` / `command_`。
 
     **输入按槽表位置喂**（上游 ADR 0006 §5：onnx 自己的张量名无意义、`l_kwargs_*` 只是导出器
@@ -1900,6 +1901,11 @@ def run_mjswan_policy(sess, contract: PackageContract, model, data, obs: "ObsBui
     `is_init` 只在 episode 首帧为真（**bool** 张量，喂 float 会直接被 onnxruntime 拒），
     `command_` = 命令 3 维 + 13 个零占位。动作不额外 clip（上游 `clip_actions` 取 rsl-rl 包装器
     的默认 100，实际不起作用）。判据口径与 PIE 回路一致（存活/姿态/前进），便于同报告比较。
+
+    `on_step(step, model, data, obs, action, forward)` 是**诊断钩子**（可选）：给
+    `tools/probe_mjswan_variants.py` 这类探针逐拍取数用。加它是因为这一族卡在
+    "站得住但不走"——**只有逐拍看"动作多大 / 关节跟不跟得上 / 轮子转不转"**才能定位，
+    而"再写一份控制回路来观察"会把被观察对象换掉（观察者偏差）。
     """
     import mujoco
 
@@ -1961,6 +1967,8 @@ def run_mjswan_policy(sess, contract: PackageContract, model, data, obs: "ObsBui
         height_min = min(height_min, float(data.qpos[2]))
         forward = float(np.asarray(data.xpos[base_id], dtype=np.float64)[0] - start_xy[0])
         forward_max = max(forward_max, forward)
+        if on_step is not None:
+            on_step(step, model, data, obs, action, forward)
         # 判摔与训练同源：`base_contact`（躯干触地、法向力 > 1.0 N），见 base_ground_contact_force。
         if fell_at is None and step * _MJSWAN_CONTROL_DT >= 0.5 and \
                 base_ground_contact_force(model, data) > 1.0:
