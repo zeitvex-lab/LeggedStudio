@@ -16,6 +16,7 @@
       "contract": {
         "steady_height_policy": "self_stability",
         "observation_kind": "himloco_45_hist6",
+        "observation_layout": [{"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract"}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
         "history_layout": "frame_major_v1",
         "obs_dim": 45,
         "action_dim": 12,
@@ -156,6 +157,7 @@
       "contract": {
         "steady_height_policy": "self_stability",
         "observation_kind": "himloco_45_hist6",
+        "observation_layout": [{"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract"}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
         "history_layout": "frame_major_v1",
         "obs_dim": 45,
         "action_dim": 12,

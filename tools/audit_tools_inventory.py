@@ -59,7 +59,10 @@ EXPECTED_UNREFERENCED: frozenset[str] = frozenset({
     # `convert_policy.py` 不在此列：门禁复核发现它在清单别处**确实被引用**（抓对了，从名单移出）
     "dedup_training_config.py",
     "fix_policy_families.py",
-    "fix_policy_gains.py",
+    # `fix_policy_gains.py` **已移出**（2026-09-22）：它被 `05_任务清单.md` 的第十二笔轮次
+    # 日志（第十二笔用它补包级增益）与 `06_统一架构方案.md` 点到名 —— 按本文件的判据
+    # （"文档里提一句也算"、且流水排 §N 之后 ⇒ 算真引用）它已不是孤儿了。如实记：这
+    # 只说明**有人提到它**，不说明**有人验证过它**（见文件头"绿 ≠ 每个工具都被验证过"）。
     "generate_asset_inventory.py",
     "migrate_contract.py",
     "stl_volume.py",

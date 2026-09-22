@@ -83,7 +83,11 @@ class PolicySwitchJointAddressTest(unittest.TestCase):
                 continue
             if not default_order:
                 continue
-            for entry in json.loads(config_path.read_text(encoding="utf-8")).get("policies") or []:
+            # `encoding="utf-8-sig"`：**有 BOM 的数据文件读之前先 strip**——go2/b2/lite3 三个
+            # 包的 `simulation/config.json` 带 BOM（历史产物），仓库口径是"读侧剥"，
+            # 见 `backend/simulation_browser.py::read_simulation_config`。此前这里用 `"utf-8"`，
+            # 于是整条用例以 **JSONDecodeError** 收场（不是"没找到靶子"，是压根没读到数据）。
+            for entry in json.loads(config_path.read_text(encoding="utf-8-sig")).get("policies") or []:
                 if not isinstance(entry, dict):
                     continue
                 order = [str(n) for n in ((entry.get("contract") or {}).get("action_joint_order") or [])]

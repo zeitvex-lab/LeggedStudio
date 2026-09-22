@@ -1,6 +1,6 @@
 {
   "name": "legged-studio",
-  "version": "0.57.1",
+  "version": "0.58.0",
   "description": "Legged Robot RL Studio - Desktop Launcher",
   "main": "electron/launcher/main.js",
   "scripts": {
@@ -18,7 +18,7 @@
     "build:linux": "electron-builder --linux AppImage",
     "build:dir": "electron-builder --dir",
     "test": "uv run --no-sync python -m unittest discover -s backend -p \"test_*.py\" -v",
-    "test:obs": "node web/sim2sim/obs/observation_builders.test.mjs",
+    "test:obs": "node web/sim2sim/obs/observation_builders.test.mjs && node web/sim2sim/obs/actuator_modes.test.mjs",
     "test:nav": "node web/sim2sim/navigation.test.mjs",
     "test:fan": "node web/sim2sim/dwa_fan.test.mjs",
     "test:sensors": "node web/sim2sim/sensor_panels.test.mjs",

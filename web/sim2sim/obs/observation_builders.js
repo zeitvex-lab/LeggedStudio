@@ -704,11 +704,18 @@ function buildG1MjlabVelocityObservation() {
   if (!Number.isFinite(sim.g1PhaseS)) sim.g1PhaseS = 0;
   const period = CONFIG.gaitPeriodS > 0 ? CONFIG.gaitPeriodS : 0.6;
   const cmdNorm = Math.hypot(sim.cmd[0], sim.cmd[1], sim.cmd[2]);
-  // 训练相位钟 = 回合时间，每控制步推进 step_dt；站立只清零输出，时钟不停。
-  sim.g1PhaseS += CONFIG.simulationDt * CONFIG.controlDecimation;
+  // 训练相位钟 = 回合时间；站立只清零输出，时钟不停。
+  //
+  // **2026-09-22 订正（口径）**：原先是"先推进、再算相位" ⇒ 第一帧相位就 ≠ 0，
+  // 比训练侧（`episode_length_buf=0` 的 reset obs，相位 0）与验收器镜像
+  // （`_frame_g1_mjlab_velocity_98`：先算后推进）都**领先一个控制步**，实测对拍
+  // 第 [9] 维 验收器 +0.000000 vs 浏览器 +0.207912。改为"**用当前相位、算完再推进**"，
+  // 与本文件 `advanceWheelLegGaitClock()`（app.js 在 runPolicy() **之后**调用）同拍，
+  // 也与上游训练一致：obs 用**本步开始时**的相位。
   const globalPhase = (sim.g1PhaseS % period) / period;
   const phaseSin = cmdNorm < 0.1 ? 0 : Math.sin(globalPhase * Math.PI * 2);
   const phaseCos = cmdNorm < 0.1 ? 0 : Math.cos(globalPhase * Math.PI * 2);
+  sim.g1PhaseS += CONFIG.simulationDt * CONFIG.controlDecimation;
   sim.obs.fill(0);
   let offset = 0;
   for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;

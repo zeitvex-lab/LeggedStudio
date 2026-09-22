@@ -1130,6 +1130,81 @@ FRAME_BUILDERS = {
 _DEFERRED_KINDS = {"quadrupedal_agility_ll", "wheel_leg_gait_moe_cts", "wheel_leg_jump_moe_cts"}
 
 
+def history_terms_for(c) -> list[tuple[int, int]]:
+    """**term-major 打包的段表**——`[(offset, length)]`，段内按 旧→新 逐帧连续。
+
+    段表此前**只存在于 `pack_history` 函数体内**，于是任何"想按段定位某一帧"的调用方
+    （对拍工具）都只能自己再写一份 ⇒ 抄错就是**静默错位**（2026-09-22 实测：
+    `tools/obs_crosscheck.py` 用 `packed[:obs_dim]` 取"当前帧"，对 frame-major 成立、
+    对 **term-major 不成立**——term-major 下当前帧**分散在每一段的末槽**，切出来的
+    是"第 0 段的历史 + 第 1 段的历史"，于是 5 条 `go2_rl_sdk_45` 族策略被**误报**
+    "浏览器↔验收器不一致"（实际两侧逐维一致 ≤6e-8）。段表抽出来后由两侧共用。
+
+    **只服务 term-major 系**：`frame_major_v1` / `frame_major*` 是整帧拼接、没有段表，
+    由 `packed_current_frame` 另行处理。
+    """
+    if c.history_layout == "wuji_term_major" and c.history_terms:
+        return [(int(o), int(l)) for o, l in c.history_terms]
+    if c.observation_kind == "zexw_53":
+        return [(0, 3), (3, 3), (6, 3), (9, 12), (21, 12), (33, 4), (37, 16)]
+    n = len(c.action_joint_order)
+    joint_offset, vel_offset, act_offset = 9, 9 + n, 9 + 2 * n
+    extra_offset = act_offset + n
+    extra_len = max(0, (c.obs_dim or extra_offset) - extra_offset)
+    base = [(0, 3), (3, 3), (6, c.command_dims)]
+    action_terms = [(joint_offset, n), (vel_offset, n), (act_offset, n)]
+    if c.history_layout == "term_major_suffix_extra_v1":
+        terms = base + action_terms + ([(extra_offset, extra_len)] if extra_len > 0 else [])
+    else:
+        terms = base + ([(extra_offset, extra_len)] if extra_len > 0 else []) + action_terms
+    return terms
+
+
+def packed_current_frame(c, packed):
+    """从**打包后**的观测（obs_dim × history_len）里取出**当前（最新）帧**。
+
+    **为什么需要它**：单帧才是"两份实现可比"的那一层（浏览器 builder 只产单帧、叠帧在
+    `app.js`），而打包后的向量是 obs_dim×history 的一坨——取哪一槽完全由布局决定：
+      · `frame_major_v1`（最新在前）⇒ 首段；
+      · `frame_major*` / `frame_major_oldest_first`（最老在前）⇒ 末段；
+      · **term-major（缺省）** ⇒ 当前帧**分散在每段的最后一槽**（段内 旧→新）。
+    历史上正是"一律取首段"把 5 条策略判成不一致（见 `history_terms_for` 的注）。
+
+    **fail-closed**：长度不符 / 段表覆盖不满 obs_dim / 元素主序（本仓 Python 侧不支持）
+    一律抛——宁可报错，不许给出一个"看着像当前帧"的错向量。
+    """
+    obs_dim = int(c.obs_dim or 0)
+    hist = max(1, int(c.history_len or 1))
+    flat = np.asarray(packed, dtype=np.float64).reshape(-1)
+    if obs_dim <= 0 or flat.shape[0] != obs_dim * hist:
+        raise ValueError(
+            f"打包观测长度 {flat.shape[0]} ≠ obs_dim {obs_dim} × history {hist}，无法定位当前帧"
+        )
+    if hist == 1:
+        return flat
+    if getattr(c, "history_interleaved", False):
+        raise ValueError("history_interleaved（元素主序）布局不支持按段取当前帧（Python 侧未实现该打包）")
+    layout = str(c.history_layout or "")
+    if layout == "frame_major_v1":
+        return flat[:obs_dim]
+    if layout in ("frame_major", "frame_major_oldest_first"):
+        return flat[-obs_dim:]
+    if layout == "wuji_term_major" and not c.history_terms:
+        raise ValueError("history_layout=wuji_term_major 必须同时声明 history_terms")
+    terms = history_terms_for(c)
+    if sum(int(l) for _, l in terms) != obs_dim:
+        raise ValueError(
+            f"段表覆盖 {sum(int(l) for _, l in terms)} 维 ≠ obs_dim {obs_dim}（段表与契约不符）"
+        )
+    out = np.zeros(obs_dim, dtype=np.float64)
+    cursor = 0
+    for off, length in terms:
+        newest = cursor + (hist - 1) * int(length)
+        out[int(off):int(off) + int(length)] = flat[newest:newest + int(length)]
+        cursor += int(length) * hist
+    return out
+
+
 def pack_history(obs: "ObsBuilder", frames: list[np.ndarray]) -> np.ndarray:
     """按 app.js packObsHistoryByTerm 同布局打包 history（frames 为 oldest→newest）。"""
     c = obs.contract
@@ -1141,27 +1216,8 @@ def pack_history(obs: "ObsBuilder", frames: list[np.ndarray]) -> np.ndarray:
         # 个 Slice 为 [0:-obs_dim]，encoder 吃前段历史、actor MLP 吃末帧），与
         # web/sim2sim/app.js::packObsHistoryByTerm 完全一致。
         return np.concatenate(frames)  # 整帧依时序拼接，最老帧在前（DreamWaQ 系）
-    if c.history_layout == "wuji_term_major" and c.history_terms:
-        # 每个显式分段按 旧→新 逐帧拼接（term-major / 段内 history 连续）
-        return np.concatenate([
-            f[int(off):int(off) + int(length)]
-            for off, length in c.history_terms
-            for f in frames
-        ])
-    if c.observation_kind == "zexw_53":
-        terms = [(0, 3), (3, 3), (6, 3), (9, 12), (21, 12), (33, 4), (37, 16)]
-        return np.concatenate([f[o:o + l] for o, l in terms for f in frames])
-    n = len(c.action_joint_order)
-    joint_offset, vel_offset, act_offset = 9, 9 + n, 9 + 2 * n
-    extra_offset = act_offset + n
-    extra_len = max(0, (c.obs_dim or extra_offset) - extra_offset)
-    base = [(0, 3), (3, 3), (6, c.command_dims)]
-    action_terms = [(joint_offset, n), (vel_offset, n), (act_offset, n)]
-    if c.history_layout == "term_major_suffix_extra_v1":
-        terms = base + action_terms + ([(extra_offset, extra_len)] if extra_len > 0 else [])
-    else:
-        terms = base + ([(extra_offset, extra_len)] if extra_len > 0 else []) + action_terms
-    return np.concatenate([f[o:o + l] for o, l in terms for f in frames])
+    # term-major：段表由 `history_terms_for` 单一真值给出（对拍工具按同一张表取当前帧）。
+    return np.concatenate([f[int(o):int(o) + int(l)] for o, l in history_terms_for(c) for f in frames])
 
 
 def _obs_build(self: "ObsBuilder", cmd: np.ndarray) -> np.ndarray:
