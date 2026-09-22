@@ -271,6 +271,33 @@ class LainlabContractMatchesSourceTest(unittest.TestCase):
                     mismatch.append(f"{name}: 契约 {got} vs 上游 {want}")
             self.assertEqual([], mismatch, f"{entry['id']} 默认姿与上游不一致：{mismatch}")
 
+    def test_gain_era_evidence(self):
+        """7 条 lainlab 的执行器增益 = **基座谱系**（hip/thigh 20/1、calf 40/2），不是现 `src` 工厂的 20/0.5。
+
+        **这是一条"年代错配"的显式登记**（不是疏忽，也不是"回退顺手改绿"）：
+
+        * 现快照 `skills/shared/robot.py` 的技能工厂把执行器改成 `hip/thigh/calf 全部 20/0.5`；
+          而 `assets/robots/unitree_go2/go2_constants.py` 的基座执行器是 hip/thigh 20/1、calf **40/2**。
+        * 包内这批 ONNX 是 **playground 随包的旧产物**：`skills/hand_stand/mdp/observations.py`
+          自己注明"the successful bundled Gym policy was trained **before** these legacy fields
+          were deleted" ⇒ 训练配置早于现 `src` 快照的那次执行器改动。
+        * **行为证据（本机实测，同一批策略两套增益各跑一遍）**：现工厂值 20/0.5 下
+          `spring-jump` **fail 4/5**（转向模式稳态倾角 36.5°）、`handstand` 稳态倾角 **0°**（更差）；
+          基座值 20/1+40/2 下 5 条行动族全 5/5、`handstand` 33.5°、`rear-stand` 90°（均入 `posture` 带）。
+        * **真仲裁者**是 playground 侧训练/导出时的配置——它**不在本快照内**（开源仓只有推理 demo）。
+          所以这里把"当前采用值 + 两套候选值 + 证据"一起钉住：以后若换仲裁者，必须连本测试一起改。
+        """
+        want_hip_thigh, want_calf = (20.0, 1.0), (40.0, 2.0)
+        for entry in self.policies:
+            control = (entry.get("contract") or {}).get("control") or {}
+            stiff = control.get("stiffness") or {}
+            damp = control.get("damping") or {}
+            self.assertTrue(stiff and damp, f"{entry['id']} 没声明增益（torque 接口下=零力矩）")
+            for name in (entry["contract"].get("action_joint_order") or []):
+                want = want_calf if "calf" in name else want_hip_thigh
+                self.assertEqual((stiff[name], damp[name]), (want[0], want[1]),
+                                 f"{entry['id']}.{name}：增益 {stiff[name]}/{damp[name]} 偏离已登记的证据值 {want}")
+
     def test_stand_skills_declare_source_frame_scales(self):
         """两条姿态类技能的 `scales` 必须与上游帧构造一致（本轮修的就是这条）。
 
