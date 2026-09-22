@@ -10,6 +10,49 @@
 # 依赖改由**环境启动时按需供应**（.dev-env-bootstrap 锚点，幂等）：
 # 控制面 pip 依赖 / 训练 venv 在启动时供应，不在镜像层固化。
 
+# ───────────────────────────────────────────────────────────────────────────
+# CI 资源规模：所有流水线锚点（.main-env / .cpu-training-env / .sim2sim-env / vscode / frontend）
+# 一律**显式**写 `cpus: 1`。
+#
+# 根因（2026-09-22 PR #45/#46/#47 遗留）：平台在 Prepare 阶段按 `cpus × 5min`（上限时长）
+# 从根组织**预冻结**核时；核数越大冻结越多，根组织剩余额度不足时 pipeline 在 Prepare
+# 就被驳回，一条 stage 都没跑：
+#
+#   Root Group's events CPU core-hours are insufficient for pre-freezing
+#   (Freezing time: 5.00 min, equivalent to 0.67 core-hours)   # cpus: 8
+#   (Freezing time: 5.00 min, equivalent to 0.17 core-hours)   # cpus: 2
+#
+# 失败落点会指向 stage 链的**第一段**（依赖安装），看起来像"依赖装不上"，实际与依赖无关。
+#
+# 额度口径（官方文档「定价」）：云原生构建-CPU 免费额度 **160 核时/月**，月底清零、
+# 不叠加次月；超额 ¥0.125/核时。冻结规则：每 5 min 冻结 `5min × 节点规格`，
+# 预冻结时额度不足则**立即终止**任务。折算：
+#   8 核 × 5min = 0.67 核时 / 次冻结
+#   2 核 × 5min = 0.17 核时 / 次冻结
+#   1 核 × 5min = 0.08 核时 / 次冻结   ← 本仓现值
+#
+# 为什么必须显式写小核数：不写 `runner.cpus` 时平台兜底就是 **8 核**
+# （构建日志 `Pipeline actual limit cpus: 8`），"不声明"并不省额度。
+# 1 核是平台允许的最小值（`cnb:arch:amd64` 范围 1~64）。这些门禁以 I/O + 单进程为主
+# （py_compile / 单测 / 审计脚本 / ONNX 推理 / 加载冒烟），1 核足够；真需要更多核时
+# 显式调高，而不是留空吃 8 核默认。
+#
+# **第二条杠杆：并发数。** 额度是按**根组织**算的，同一次构建里并发的 pipeline 会
+# **各自**预冻结一份——PR 的三条并发 = 3 份同时冻结。降核只把"单价"降下来，
+# 冻结份数由并发度决定。故 main.pull_request 的三条 pipeline 共用一把 lock
+# （key: ci-pr, wait: true）串行，任一时刻只有 1 份预冻结在生效。
+# 详见 main.pull_request 处的「并发即配额」注。
+#
+# **降核只解决「配额」这一半，另一半是「底座」。** 不声明 `docker.image` 的 pipeline
+# （如 vscode 段）跑在平台默认 runner 上，那里**没有 python3/pip**：
+# Prepare 能通过、stage 照样秒挂（本仓 PR #47 实测 `pip: command not found` /
+# `python3: command not found`）。所以凡是不挂 `docker.image` 又需要解释器的 stage，
+# 一律**自举**（见 .dev-env-bootstrap 的「解释器与包管理器」段）；
+# cpu-training / sim2sim 段则**两者都做**：显式 `docker.image: python:3.12` 做底座，
+# 同时 bootstrap 内部保留自举段兜底。
+# 只读日志里那句「依赖供应失败」容易误判成 requirements 的问题，实际与依赖无关。
+# ───────────────────────────────────────────────────────────────────────────
+
 # 环境供应的公共锚点：默认镜像只有 Python/Node 运行时，控制面依赖与训练栈
 # 都**不预装**（见 .dev-env-bootstrap 的注释）。CI 与云原生开发共用这一段，
 # 保证「开发环境里跑通的」和「CI 里跑的」仍是同一套依赖。
@@ -27,10 +70,46 @@
     # 幂等：已装好就跳过（开发环境里每次起环境都会走到这里）。
     # 这里刻意**不用 pipefail**：stage.script 由 sh 解释，dash 的 `set -o pipefail`
     # 会直接报 "Illegal option" 并让门禁在开局就退出（本仓曾因此 167ms 判失败）。
+    # 也不依赖 python3/pip 预装：下方**自举**，见「解释器与包管理器」段。
     set -e
+    echo "== 解释器与包管理器（底座不保证预装，自举） =="
+    # 本锚点挂在 cpu-training-smoke(-pr) 的 stage 链首。曾有一段时期
+    # `.cpu-training-env` 只声明 `runner.cpus`、**不声明 docker.image**，
+    # 于是它跑在平台默认 runner 上 —— 那里既没有 python3 也没有 pip：
+    #
+    #   == control-plane deps ==
+    #   sh: line 7: pip: command not found
+    #   sh: line 9: python3: command not found
+    #   [FAIL] 控制面依赖供应失败        （stage 在 150ms 内判 error）
+    #
+    # 现在 `.cpu-training-env` 已补上 `docker.image: python:3.12`，但**这段自举仍然保留**：
+    # 同一条锚点也被 vscode 段（无 image 底座的平台默认开发环境）复用，且它是
+    # 「开发环境能起 = CI 也能起」的同一份口径。自举逻辑：优先复用镜像自带的
+    # python3，缺失时按发行版装上（apt 版 python3 自带 ensurepip/pip）。
+    if ! command -v python3 >/dev/null 2>&1; then
+      echo "底座无 python3：按发行版安装"
+      if command -v apt-get >/dev/null 2>&1; then
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update -qq
+        apt-get install -y -qq python3 python3-pip python3-venv
+      elif command -v apk >/dev/null 2>&1; then
+        apk add --no-cache python3 py3-pip python3-dev
+      elif command -v dnf >/dev/null 2>&1; then
+        dnf install -y -q python3 python3-pip
+      elif command -v yum >/dev/null 2>&1; then
+        yum install -y -q python3 python3-pip
+      fi
+    else
+      command -v pip >/dev/null 2>&1 \
+        || python3 -m ensurepip --upgrade >/dev/null 2>&1 \
+        || true
+    fi
+    command -v python3 >/dev/null 2>&1 \
+      || { echo "[FAIL] 无法获得 python3（默认 runner 未预装，且 apt/apk/dnf/yum 均不可用）"; exit 1; }
+    python3 --version
     echo "== control-plane deps =="
     python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" 2>/dev/null \
-      || pip install --quiet --break-system-packages \
+      || python3 -m pip install --quiet --break-system-packages \
            -r backend/requirements.txt httpx onnx onnxruntime 2>&1 | tail -5
     python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" \
       || { echo "[FAIL] 控制面依赖供应失败"; exit 1; }
@@ -42,7 +121,12 @@
     echo "== CPU training venv (idempotent) =="
     # 默认镜像不预装 torch/mjlab；用适配器的 cpu extra 供应到仓库外的落点
     # （避免被 bind mount 覆盖），已就绪时脚本自身短路复用。
-    LEGGED_STUDIO_UV_BIN=/usr/local/bin/uv bash scripts/provision_cpu_training.sh
+    #
+    # 这里**不再写死** LEGGED_STUDIO_UV_BIN：CI 底座是 python:3.12（无 uv），
+    # 写死 /usr/local/bin/uv 会让 provision 脚本在第 3 步 127
+    # （`/usr/local/bin/uv: No such file or directory`，实测于构建 cnb-p9g-1k33d6d1m-003）。
+    # 让脚本自己「PATH 探测 → 缺失则按 UV_VERSION 安装」即可，两处落点口径一致。
+    bash scripts/provision_cpu_training.sh
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -50,8 +134,7 @@
 #
 # 这一步只跑 py_compile 与契约产物漂移检查，不需要成堆第三方包，因此：
 #   - 单独成 pipeline，与 unit-tests **并发**（push 墙钟 ≈ max 而不是串行和）；
-#   - `cpus: 2`（0.5 core-hour/freeze 配额下，预冻结折算 = cpus × 5min，
-#     纯 I/O + 单文件编译 2 核够用，属"降低单位时间配额消耗"）。
+#   - `cpus: 1`（纯 I/O + 单文件编译 1 核够用；降核依据见文件头「CI 资源规模」注）。
 #
 # 仍声明 `docker.image: python:3.12`：**CI runner 的默认镜像没有 python**
 # （实测 `python` / `python3` 均 127），无镜像声明跑不起来；而 python:3.12
@@ -61,7 +144,7 @@
 syntax-check: &syntax-check
   name: syntax-check
   runner:
-    cpus: 2
+    cpus: 1
   docker:
     image: python:3.12
   stages:
@@ -88,8 +171,9 @@ syntax-check: &syntax-check
 # （backend/requirements.txt），因此不引入「镜像层里是旧依赖」的漂移面。
 # ───────────────────────────────────────────────────────────────────────────
 .main-env: &main-env
+  # 降核理由见文件头「CI 资源规模」注。
   runner:
-    cpus: 8
+    cpus: 1
   docker:
     image: python:3.12
   stages:
@@ -97,11 +181,13 @@ syntax-check: &syntax-check
     script: |
       set -eo pipefail
       echo "== install control-plane deps =="
-      pip install --quiet --upgrade pip || true
+      # 本 pipeline 有 python:3.12 底座，`pip` / `python` 都在 PATH 上；容器无 venv
+      # （该镜像不带 venv 模块），故用 `--break-system-packages` 直装系统 site-packages。
+      python -m pip install --quiet --upgrade pip || true
       # 与 backend/requirements.txt 保持一致；httpx 是 starlette TestClient 依赖；
       # onnx 是 B44「产物自证」的量具（读 ONNX 图输入宽度）——不装它那组用例会 skip，
       # 而 verify_artifacts 会静默退化成快照 fallback（B44 要挡的正是这种错配）。
-      pip install --quiet -r backend/requirements.txt httpx onnx
+      python -m pip install --quiet --break-system-packages -r backend/requirements.txt httpx onnx
       echo "== offscreen GL backend (best-effort, never fatal) =="
       # 无显示环境下离屏渲染需要**软件 GL**（libOSMesa）。这里尽力装：
       # 装不上也不判红——backend/gl_env.offscreen_render_status() 是**实测探针**
@@ -199,14 +285,23 @@ syntax-check: &syntax-check
 # 依赖不固化在镜像层，因此不会再把「镜像重建」与「训练链路」耦在一起。
 
 .cpu-training-env: &cpu-training-env
+  # 降核理由见文件头「CI 资源规模」注。
   runner:
-    cpus: 8
+    cpus: 1
+  # 与 .main-env 同理：这条 pipeline 的第一步是 .dev-env-bootstrap（要 python3/pip），
+  # 而 **CI runner 的默认镜像没有 python**（实测 `python`/`python3` 均 127），
+  # 所以必须显式给一个带解释器的**运行底座**：镜像只是底座，依赖仍由
+  # .dev-env-bootstrap 现装（训练 venv 由 uv 自供），不把依赖固化进镜像层。
+  # 注：bootstrap 内部**同样自带**自举段（无 python3 时按发行版安装）——双保险，
+  # 保证即使将来这个 image 被移除 / 换成无 python 的底座，门禁也不会在开局 127。
+  docker:
+    image: python:3.12
   env:
     # 训练 venv 落点：仓库外，不被 bind mount 覆盖（由 dev-env-bootstrap 供应）。
     LEGGED_STUDIO_MJLAB_VENV: /opt/legged-studio/mjlab-cpu/.venv
     # 冒烟档固定 CPU：显式而非依赖"碰巧没 GPU"，避免门禁语义随 runner 漂移。
     LEGGED_STUDIO_TRAIN_DEVICE: cpu
-    # 限制线程数，避免 8 核 runner 上 torch/warp 线程超订导致抖动。
+    # 限制线程数，避免核数上调后 torch/warp 线程超订导致抖动。
     OMP_NUM_THREADS: "4"
     # 冒烟规模：门禁守的是"回路通不通"（栈可导入 / reward 有限 / 权重在动 /
     # time_outs 已接线），不是"训得好不好"——判据强度不随规模线性增长，
@@ -247,8 +342,12 @@ syntax-check: &syntax-check
 
 
 .sim2sim-env: &sim2sim-env
+  # 降核理由见文件头「CI 资源规模」注。
   runner:
-    cpus: 8
+    cpus: 1
+  # 同 .cpu-training-env：首段 .dev-env-bootstrap 要 python3/pip，默认 runner 镜像没有 python。
+  docker:
+    image: python:3.12
   # 无头 CPU sim2sim 验收器需要 mujoco（纯 CPU wheel）+ onnxruntime，
   # 由 .dev-env-bootstrap 在启动时按需安装（与开发环境同一份 requirements）。
   stages:
@@ -282,7 +381,7 @@ frontend:
   push:
     - name: frontend-check
       runner:
-        cpus: 4
+        cpus: 1
       docker:
         image: node:20
       stages:
@@ -342,11 +441,32 @@ main:
             exec bash scripts/cpu_training_smoke_gate.sh
 
   pull_request:
+    # ── 并发即配额：PR 门禁**串行**而非并发 ──────────────────────────────
+    # 平台按 `cpus × 5min` 预冻结核时。此前 PR 的三条 pipeline **同时**起，
+    # 同一次构建要连冻 3 份（2 核时是 3 × 0.17 核时），组织月度额度本就吃紧，
+    # 于是三条全部在 Prepare 被驳回（本仓 PR #47 实测，报错 0.17 核时/条）。
+    #
+    # 加同 key 的 lock 后，同 key 流水线**排队**（wait: true）而不是并发冻结：
+    # 任一时刻只有 1 份预冻结在生效。代价是 PR 门禁墙钟由 max 变成 sum，
+    # 但门禁的**可运行性**优先于墙钟——冻结不到额度的门禁，跑得再快也是 0。
+    # 三条共用同一把锁 `ci-pr`，按声明顺序串行。
+    #
+    # 注意：lock.key 支持变量替换，这里刻意**写死**（不掺 PR 号/commit），
+    # 让同仓库所有 PR 共享一把锁——额度是按**根组织**算的，锁也必须按组织粒度。
     - <<: *syntax-check
+      lock:
+        key: ci-pr
+        wait: true
     - name: backend-test-pr
       <<: *main-env
+      lock:
+        key: ci-pr
+        wait: true
     - name: cpu-training-smoke-pr
       <<: *cpu-training-env
+      lock:
+        key: ci-pr
+        wait: true
       # 同 push 侧：PR 只在训练相关路径变更时才付镜像重建的代价。
       ifModify: *cpu-training-paths
       stages:
@@ -374,8 +494,9 @@ main:
 $:
   vscode:
     - name: legged-studio-dev
+      # 降核理由见文件头「CI 资源规模」注。
       runner:
-        cpus: 8
+        cpus: 1
       services:
         - vscode
         - docker
@@ -389,30 +510,56 @@ $:
         - name: dev-env-bootstrap
           script: |
             set -e
+            echo "== 解释器与包管理器（与 .dev-env-bootstrap 同一口径） =="
+            # 云开发用平台默认 dev 环境，理论上自带 python3；这里仍是**自举**而非假设
+            # ——同一条锚点在 CI（.cpu-training-env，默认 runner 无 python3）上必须自举才跑得起来，
+            # 两处口径保持一致，避免"开发环境能起、CI 起不来"再次分叉。
+            if ! command -v python3 >/dev/null 2>&1; then
+              echo "无 python3：按发行版安装"
+              if command -v apt-get >/dev/null 2>&1; then
+                export DEBIAN_FRONTEND=noninteractive
+                apt-get update -qq
+                apt-get install -y -qq python3 python3-pip python3-venv
+              elif command -v apk >/dev/null 2>&1; then
+                apk add --no-cache python3 py3-pip python3-dev
+              elif command -v dnf >/dev/null 2>&1; then
+                dnf install -y -q python3 python3-pip
+              elif command -v yum >/dev/null 2>&1; then
+                yum install -y -q python3 python3-pip
+              fi
+            else
+              command -v pip >/dev/null 2>&1 \
+                || python3 -m ensurepip --upgrade >/dev/null 2>&1 \
+                || true
+            fi
+            command -v python3 >/dev/null 2>&1 \
+              || { echo "[FAIL] 无法获得 python3"; exit 1; }
+            python3 --version
             echo "== 控制面依赖（幂等） =="
             # 默认镜像不预装本项目依赖：已装好就跳过，否则按 requirements 装。
             # 用 python3：默认镜像里 python 也是 3.12，两者等价。
             python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" 2>/dev/null \
-              || pip install --quiet --break-system-packages \
+              || python3 -m pip install --quiet --break-system-packages \
                    -r backend/requirements.txt httpx onnx onnxruntime 2>&1 | tail -5
             python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" \
               || { echo "[FAIL] 控制面依赖供应失败"; exit 1; }
             echo "== 无头浏览器（Playwright Chromium，版本标记对齐） =="
             # 浏览器是本仓的刚需（sim2sim 结论全是浏览器实测得出的）。
-            pip install --quiet --break-system-packages playwright pytest pytest-playwright 2>&1 | tail -3
+            python3 -m pip install --quiet --break-system-packages playwright pytest pytest-playwright 2>&1 | tail -3
             PLAYWRIGHT_VERSION="$(python3 -c 'import playwright,sys;print(playwright.__version__)')"
             # Chromium 是"上一次的版本"：版本不合就重装（否则 E2E 会静默用旧浏览器跑，
             # 正是"本地能跑、CI 看不见"的同类坑）。
             MARKER="/root/.cache/ms-playwright/.legged-studio-playwright-version"
             if [ "$(cat "$MARKER" 2>/dev/null || true)" != "$PLAYWRIGHT_VERSION" ]; then
-              playwright install --with-deps chromium 2>&1 | tail -5
+              python3 -m playwright install --with-deps chromium 2>&1 | tail -5
               printf '%s' "$PLAYWRIGHT_VERSION" > "$MARKER"
             else
               echo "chromium 已是 playwright $PLAYWRIGHT_VERSION，跳过"
             fi
             echo "== CPU 训练 venv（幂等） =="
-            # 默认镜像自带 uv（也可由 provision 脚本自行安装）。
-            LEGGED_STUDIO_UV_BIN=/usr/local/bin/uv bash scripts/provision_cpu_training.sh
+            # 默认镜像自带 uv，但这里同样不写死路径：脚本会 PATH 探测、缺失则自动安装，
+            # 与 CI 侧同一口径（默认镜像里 uv 就在 PATH 上）。
+            bash scripts/provision_cpu_training.sh
         - name: assert-default-env
           # 回归哨兵：默认镜像本该提供 WebIDE 服务端与 CodeBuddy 入口。
           # 缺失说明镜像被换回去了 / 平台默认环境变了，在环境启动时就显式报出来，
