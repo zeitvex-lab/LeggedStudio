@@ -164,6 +164,13 @@ bash scripts/provision_cpu_training.sh
 训练栈落点集中在 `contracts/path_bootstrap.py`（`LEGGED_STUDIO_MJLAB_VENV` 可覆盖），
 体检 L0 给出三态：`cuda`（正式训练）/ `cpu-only`（仿真与冒烟）/ `unavailable`（先供应环境）。
 
+**CPU 冒烟的实测包络（2026-09-22 实测，别拿它当 GPU 用）**：门禁默认档（16×5）单 profile
+**≈23 s**；`tools/validate_training_smoke.py --robot unitree_go2 --mode train --num-envs 16
+--iters 5` 跑**全 18 个 go2 profile**（含 jump/backflip/dreamwaq/cts/ts/him/parkour 与蒸馏
+runner）**7:55，18 ok / 0 skipped / 0 failed**；128×20 **6:13**（≈18 s/iter，CPU 随 envs
+近似线性）。⇒ **能干的**：回路验证与**移植冒烟**（改完能建 env、能跑 PPO、reward 有限、
+`time_outs` 已接线）；**干不了的**：1024–2048×250 质量档（线性外推是小时级，仍需 GPU）。
+
 ### 测试
 
 ```powershell
