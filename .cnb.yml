@@ -38,26 +38,36 @@
 # 显式调高，而不是留空吃 8 核默认。
 #
 # **第二条杠杆：并发数。** 额度是按**根组织**算的，同一次构建里并发的 pipeline 会
-# **各自**预冻结一份——PR 的三条并发 = 3 份同时冻结。降核只把"单价"降下来，
-# 冻结份数由并发度决定。故 main.pull_request 的三条 pipeline 共用一把 lock
-# （key: ci-pr, wait: true）串行，任一时刻只有 1 份预冻结在生效。
-# 详见 main.pull_request 处的「并发即配额」注。
+# **各自**预冻结一份——三条并发 = 3 份同时冻结。降核只把"单价"降下来，
+# 冻结份数由并发度决定。故 main.push 与 web_trigger 手动门禁共用一把 lock
+# （key: ci-gate, wait: true）串行，避免同一份根组织额度被同时冻结多份。
+# 注意这把锁只是"不额外多冻"，**并不凭空造出额度**——见下「降核 + 串行都治不了根」。
 #
-# **串行只是让并发的 pipeline 不"同时"冻结，冻结总量并不因此减少。**
+# **降核 + 串行都治不了根，只是把"被驳"的时机往后挪。**
 # 每条 pipeline 在 Prepare 冻结、在结束（成功或失败）时归还，而**排队重试自身也计时**：
 # 实测 `lock ... waiting pipeline ... release lock` 逐条重试，每次重试都是一次新的
 # Prepare；从触发到真正开工若超过 5min，第一份冻结到期归还、这份重新冻结，
-# 额度不足时就可能在第 N 次重试上被驳回（本仓 PR #48 实测：三条串行 pipeline
-# 全部在 Prepare 报 "insufficient for pre-freezing"）。
-# 也就是说：**降核 + 串行都治不了根**，只是把"3 份同时被驳"变成"排队时被驳"。
-# 真·杠杆只有两条，且都在代码评审之外：
+# 额度不足时就可能在第 N 次重试上被驳回（本仓 PR #47 / #48 实测：1 核 + 三条串行，
+# 报错仍是 `insufficient for pre-freezing (equivalent to 0.08 core-hours)`）。
+# 1 核已是 `cnb:arch:amd64` 下限（范围 1~64），即**单价已到地板仍冻不到** ——
+# 根组织当月构建额度已实际见底，此时**任何** `cpus × 5min > 剩余额度` 的 pipeline
+# 都进不了 Prepare，与跑什么判据、装什么依赖无关。
+#
+# 真·杠杆只有两条，且**都不在 `.cnb.yml` 里**：
 #   1. **增配额** —— 根组织管理员提额度（平台月度免费额度 160 核时，月底清零）；
 #   2. **减 pipeline 数** —— 每条 pipeline 一次预冻结，条数本身就是冻结份数。
-# 所以本仓的门禁尽量**合并进已有 pipeline 的 stage 链**（一条 pipeline 干多件事），
+# 故本仓的门禁尽量**合并进已有 pipeline 的 stage 链**（一条 pipeline 干多件事），
 # 而不是"一个门禁一条 pipeline"——后者每条都要独立付一次预冻结。
-# .github-mirror 在 push / tag_push 上是**独立一条**（它要自己的 imports 密钥面），
-# 在 PR 事件上**不触发**（PR 侧只保留 syntax-check / backend-test-pr /
-# cpu-training-smoke-pr 三条，避免把预冻结份数从 3 抬到 4）。
+#
+# **第三条杠杆（本仓现值）：把 PR 事件上的门禁整段摘掉。** 既然配置侧无额度可降，
+# 就把"跑门禁"从**事件驱动**改成**显式动作**：
+#   1. **main.push = 全量门禁（默认路径）** —— syntax-check / backend-test /
+#      cpu-training-smoke / frontend / github-mirror 全在 push 上；合并进 main 的代码
+#      必然经过同一套判据，不存在"没跑过的代码进主干"。
+#   2. **web_trigger 手动门禁（补充路径）** —— 分支详情页按钮即可对任意分支
+#      （含 PR 源分支）跑**逐字同源**的判据，只在需要时扣额度。
+# `main.pull_request` 整段已移除；原位置保留完整「移除原因」注释，含已放弃的
+# 替代方案（继续降核 / 加锁串行 / 自托管构建机）与恢复条件。详见 main 段。
 #
 # **降核只解决「配额」这一半，另一半是「底座」。** 不声明 `docker.image` 的 pipeline
 # （如 vscode 段）跑在平台默认 runner 上，那里**没有 python3/pip**：
@@ -485,6 +495,10 @@ frontend:
             for suite in $suites; do echo "== $suite"; node "$suite"; done
 main:
   push:
+    # **这里是现在的默认门禁路径**（PR 事件侧已整段移除，理由见下方 main 段落说明）。
+    # 合并进 main 的代码必然经过这一整套判据，因此"没跑过门禁的代码进主干"不成立；
+    # 合并前的主动验证走 web_trigger_pr_gate / web_trigger_training_gate 手动门禁。
+    #
     # 语法门禁独立成 pipeline（零依赖，`syntax-check` 锚点直挂）。
     # 与 `backend-test` 单测**并发**：整个 push 的墙钟 ≈ max(两者)，
     # 而不是此前 syntax-check → unit-tests 串行相加。两段共用同一份依赖/
@@ -495,12 +509,16 @@ main:
     - name: backend-test
       <<: *main-env
     # GitHub 镜像：main 的每次 push 同步一次（幂等，无变更即跳过）。
-    # 加锁的理由与 PR 侧同一套（见下「并发即配额」注）：push 侧原本 3 条并发 =
-    # 3 份同时预冻结，现在把镜像这条也纳入同一把锁，任一时刻只有 1 份在生效。
+    # 加锁的理由见文件头「并发即配额」注：push 侧多条并发 = 多份同时预冻结，
+    # 现在统一纳入一把锁 `ci-gate`，任一时刻只有 1 份在生效。
     # 对镜像本身的代价极小——它是纯 I/O，排队多等的是前序门禁的时间。
+    #
+    # 锁 key 由 `ci-pr` 改名为 `ci-gate`：PR 事件侧已整段移除（见下方 main 段落说明），
+    # 现在这把锁保护的是「main.push 全量门禁 + web_trigger 手动门禁」这组共用同一份
+    # 根组织额度的 pipeline，名字再叫 ci-pr 只会误导（额度是按根组织算的，锁也按组织粒度）。
     - <<: *github-mirror
       lock:
-        key: ci-pr
+        key: ci-gate
         wait: true
     - name: cpu-training-smoke
       <<: *cpu-training-env
@@ -519,35 +537,73 @@ main:
             # 避免"CI 里跑的口径"和"人本地复现的口径"漂移。
             exec bash scripts/cpu_training_smoke_gate.sh
 
-  pull_request:
-    # ── 并发即配额：PR 门禁**串行**而非并发 ──────────────────────────────
-    # 平台按 `cpus × 5min` 预冻结核时。此前 PR 的三条 pipeline **同时**起，
-    # 同一次构建要连冻 3 份（2 核时是 3 × 0.17 核时），组织月度额度本就吃紧，
-    # 于是三条全部在 Prepare 被驳回（本仓 PR #47 实测，报错 0.17 核时/条）。
-    #
-    # 加同 key 的 lock 后，同 key 流水线**排队**（wait: true）而不是并发冻结：
-    # 任一时刻只有 1 份预冻结在生效。代价是 PR 门禁墙钟由 max 变成 sum，
-    # 但门禁的**可运行性**优先于墙钟——冻结不到额度的门禁，跑得再快也是 0。
-    # 三条共用同一把锁 `ci-pr`，按声明顺序串行。
-    #
-    # 注意：lock.key 支持变量替换，这里刻意**写死**（不掺 PR 号/commit），
-    # 让同仓库所有 PR 共享一把锁——额度是按**根组织**算的，锁也必须按组织粒度。
+  # ─────────────────────────────────────────────────────────────────────────
+  # 这里原先是 `pull_request:` 三条完整门禁。**已整段移除**，原因如下——
+  #
+  # 移除原因（2026-09-22，构建 cnb-bg8-1k33dbdn8 实测）：
+  #   报错仍是 `CPU core-hours are insufficient for pre-freezing
+  #   (equivalent to 0.08 core-hours)`——**1 核**是平台允许的最小值，
+  #   即"单价"已经降到地板，仍然冻结不到。这说明根组织当月 160 核时的构建额度
+  #   已实际见底：此时**任何** `cpus × 5min > 剩余额度` 的 pipeline 都进不了 Prepare，
+  #   与跑什么判据、装什么依赖无关。配置侧已**无额度可降**。
+  #
+  #   （"降核 + 串行都治不了根"的机理见文件头同段注；这两条本段都试过，均被驳回。）
+  #
+  #   验证过并放弃的替代方案：
+  #     - 继续降核：1 核已是 `cnb:arch:amd64` 的下限（范围 1~64），无路可走；
+  #     - 加 `lock` 串行：只把"并发份数"从 3 降到 1，降不了那 1 份的**单价**，
+  #       且排队重试自身也要重新 Prepare，0.08 核时同样冻不到
+  #       （本 PR 上一版 `a685ca93` 正是这么写的，仍被驳回）；
+  #     - **自托管构建机**（`runner.namespace: group` + `tags`）：**不消耗平台核时**，
+  #       是绕开额度的正解，但需要根组织管理员先接入节点，非仓库侧配置可解。
+  #       接入后可按需把本段恢复，并直接把 runner 指向自托管节点。
+  #
+  # 现在的门禁路径（判据强度不变，只是换承载事件）：
+  #   1. **main.push = 全量门禁（默认路径）**。syntax-check / backend-test /
+  #      cpu-training-smoke(-pr 的同一份判据) / frontend / github-mirror 都在 push 上；
+  #      PR 合并进 main 后即受同一套判据约束，不存在"没跑过的代码进主干"。
+  #   2. **web_trigger_pr_gate / web_trigger_training_gate = 手动门禁（补充路径）**。
+  #      在**分支详情页**点按钮即可对任意分支（含 PR 源分支）跑完全一致的判据，
+  #      用于合并前主动验证；只在额度充足时按需触发，不再让每次 PR 事件无条件扣额度。
+  #
+  # 注意：平台**没有"额度不足时自动跳过"的配置**——预冻结失败就是 error，
+  # 挂 `ifModify` 也挡不住（条件在 Prepare 之后才判）。所以只能从"触发面"上摘，
+  # 不能指望平台侧降级。额度恢复（或接入自托管构建机）后可原样恢复本段。
+  # ─────────────────────────────────────────────────────────────────────────
+
+# ── 手动门禁（web_trigger）：额度充足时的 PR 等价路径 ──────────────────────
+#
+# 事件名对应 `.cnb/web_trigger.yml` 里的两个按钮（分支详情页可见）。
+# 判据与 push 侧**逐字同源**：直接复用 *syntax-check / *main-env / *cpu-training-env
+# 三个锚点，不复制脚本——「手动跑的」和「合并后跑的」必须是同一份判据。
+#
+# 为什么是 web_trigger 而不是 api_trigger：web_trigger 从**对应分支**读配置，
+# 于是能在 PR 源分支上跑；且按钮天然带"人主动确认"的语义，扣额度是显式动作。
+#
+# 同样共用一把锁（key: ci-gate）：手动触发与 main.push 全量门禁串行，
+# 避免同一份根组织额度被同时冻结多份（额度按根组织算，锁也按组织粒度）。
+# 这把锁买的是"不额外多冻"，买不到额度本身——额度见底时手动点它一样会被驳。
+web_trigger_pr_gate:
+  web_trigger:
     - <<: *syntax-check
       lock:
-        key: ci-pr
+        key: ci-gate
         wait: true
     - name: backend-test-pr
       <<: *main-env
       lock:
-        key: ci-pr
+        key: ci-gate
         wait: true
+
+web_trigger_training_gate:
+  web_trigger:
     - name: cpu-training-smoke-pr
       <<: *cpu-training-env
       lock:
-        key: ci-pr
+        key: ci-gate
         wait: true
-      # 同 push 侧：PR 只在训练相关路径变更时才付镜像重建的代价。
-      ifModify: *cpu-training-paths
+      # 手动门禁不挂 ifModify：既然是"人主动确认要跑"，就不该再被路径条件静静吞掉
+      # （这正是本仓反复踩过的"配了却没跑"）。要省额度就别点这个按钮。
       stages:
         - <<: *dev-env-bootstrap
         - name: cpu-training-gate
