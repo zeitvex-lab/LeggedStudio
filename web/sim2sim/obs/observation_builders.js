@@ -972,7 +972,53 @@ function geomBodyName(geomId) {
   return "";
 }
 
-  const OBSERVATION_BUILDERS = {
+  // ── mjswan 四输入 RNN 的 `actor` 槽（117）——规格 = 上游 `examples/demo/main.py` + TS 运行时 ──
+// `actor` 117 = projected_gravity(3) + joint_pos_rel(12) + joint_vel_rel(12) + last_action(12)，
+// **每一项各自带 3 帧**、偏移 `(0,1,2)` = **新→旧**（dense 的 `history_length` 才是旧→新）；
+// 其中 `last_action` 是 `history_interleaved` = **element-major**（每个关节自己的 3 帧相邻）：
+//   `[a_t[0], a_{t-1}[0], a_{t-2}[0], a_t[1], a_{t-1}[1], a_{t-2}[1], …]`
+// 其余项按 offset 序整段铺（`[g_t(3), g_{t-1}(3), g_{t-2}(3)]`）。**各 term 无缩放**（该组
+// scale=1.0）。**reset 后首帧要填满每一槽**（上游 `HistoryObservation.needsPrime`：不许把
+// 未训练的零当历史）。
+//
+// **为什么要 builder 自带状态**：现成的两种历史 layout（`frame_major_v1` 新→旧整帧 /
+// `frame_major_oldest_first` 旧→新整帧）都表达不了"逐 term 稀疏 + 其中一项 element-major
+// 交错"这张表 —— 硬套任一 layout 都是**静默错序**（跑得动、只是喂错）。与 Python 侧
+// `adapters/mjlab/policy_acceptance.py::_MjswanActorHistory` **逐值同口径**：这类"两份实现
+// 差一步"的缺陷不抛异常，只有同状态对拍才抓得到（同 `sensors/screen_frame.js` 那条纪律）。
+//
+// `command_`(16) / `is_init` / `adapt_hx`(128) **不在 obs 里**：它们由 app.js 按契约
+// `onnx_slots` 的槽表**按位置**喂（onnx 张量名是导出器产物名，无意义）。
+function buildMjswanVelocityObservation() {
+  if (CONFIG.numObs !== 117 || CONFIG.numActions !== 12) {
+    throw new Error(`go2_mjswan_velocity requires 117 observations and 12 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  const a = CONFIG.numActions;
+  const frame = new Float32Array(3 + 3 * a);
+  let p = 0;
+  for (let i = 0; i < 3; i += 1) frame[p++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < a; i += 1) frame[p++] = jointQpos(i) - CONFIG.defaultAngles[i];
+  for (let i = 0; i < a; i += 1) frame[p++] = jointQvel(i);
+  for (let i = 0; i < a; i += 1) frame[p++] = sim.action[i];
+
+  const kept = Array.isArray(sim.mjswanActorFrames) && sim.mjswanActorFrames.length === 3
+    ? sim.mjswanActorFrames
+    : null;
+  // 首帧（含 reset 后）⇒ 三槽同帧；否则新帧入槽 0、旧帧后移（槽 0 = 最新）
+  sim.mjswanActorFrames = kept ? [frame, kept[0], kept[1]] : [frame, frame.slice(), frame.slice()];
+  const seq = sim.mjswanActorFrames;
+
+  sim.obs.fill(0);
+  let offset = 0;
+  for (const f of seq) for (let i = 0; i < 3; i += 1) sim.obs[offset++] = f[i];          // gravity 9
+  for (const base of [3, 3 + a]) {                                                        // q 36 + dq 36
+    for (const f of seq) for (let i = 0; i < a; i += 1) sim.obs[offset++] = f[base + i];
+  }
+  for (let j = 0; j < a; j += 1) for (const f of seq) sim.obs[offset++] = f[3 + 2 * a + j]; // action 36（交错）
+}
+
+const OBSERVATION_BUILDERS = {
     microduck_61: buildMicroDuckObservation,
     zexw_53: buildZexWObservation,
     go1_playground_48: buildGo1PlaygroundObservation,
@@ -986,6 +1032,10 @@ function geomBodyName(geomId) {
     go2w_himloco_57: buildGo2wHimlocoObservation,
     go2_rl_sdk_45: buildGo2RlSdkObservation,
     go2_motion_69: buildGo2MotionObservation,
+    // mjswan 四输入 RNN 的 `actor` 槽（117 = 3×39，逐 term 新→旧 + last_action element-major
+    // 交错，builder 自带 3 帧状态）；另三路（is_init / adapt_hx / command_）由 app.js 按
+    // 契约 `onnx_slots` 的槽表按位置喂。
+    go2_mjswan_velocity: buildMjswanVelocityObservation,
     g1_motion_154: buildG1Motion154Observation,
     g1_mjlab_velocity_98: buildG1MjlabVelocityObservation,
     g1_mjswan_locomotion: buildG1MjswanLocomotionObservation,
