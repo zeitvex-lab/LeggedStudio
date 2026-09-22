@@ -1,10 +1,10 @@
 {
   "schema": "sim2sim-headless-baseline-1.0",
   "provenance": {
-    "generated_at": "2026-09-22T16:26:42",
+    "generated_at": "2026-09-22T17:18:21",
     "product_version": "0.57.1",
     "git": {
-      "commit": "7b2eca61faea04687c668aa98c2e94fb50db237e",
+      "commit": "fcd6de178f8fc17d17a1c8519be3de47cc0b22ad",
       "dirty": true
     },
     "platform": "Linux-5.4.241-1-tlinux4-0025.10-x86_64-with-glibc2.41",
@@ -252,7 +252,7 @@
     {
       "robot": "unitree_go2",
       "policy": "go2-lainlab-dreamwaq",
-      "verdict": "pass",
+      "verdict": "fail",
       "family": null
     },
     {
@@ -276,7 +276,7 @@
     {
       "robot": "unitree_go2",
       "policy": "go2-lainlab-rear-stand",
-      "verdict": "fail",
+      "verdict": "pass",
       "family": null
     },
     {
