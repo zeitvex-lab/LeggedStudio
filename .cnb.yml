@@ -11,72 +11,34 @@
 # 控制面 pip 依赖 / 训练 venv 在启动时供应，不在镜像层固化。
 
 # ───────────────────────────────────────────────────────────────────────────
-# CI 资源规模：所有流水线锚点（.main-env / .cpu-training-env / .sim2sim-env / vscode / frontend）
-# 一律**显式**写 `cpus: 1`。
+# CI 资源规模：**不声明 `runner.cpus`**，一律吃平台默认（8 核 / 16 GiB）。
 #
-# 根因（2026-09-22 PR #45/#46/#47 遗留）：平台在 Prepare 阶段按 `cpus × 5min`（上限时长）
-# 从根组织**预冻结**核时；核数越大冻结越多，根组织剩余额度不足时 pipeline 在 Prepare
-# 就被驳回，一条 stage 都没跑：
+# 来龙去脉（2026-09-22，同一件事来回走了三趟，这里一次写清，避免再改回去）：
+#   1. PR #46/#47 期间，根组织的「云原生构建-CPU」月度额度（免费 160 核时/月）
+#      见底，而 Prepare 阶段按 `cpus × 5min` 从根组织**预冻结**核时，额度不足
+#      直接驳回、一条 stage 都不跑；报错落点却在 stage 链第一段（依赖安装），
+#      看着像"依赖装不上"，实际与依赖无关。当时把 `cpus` 一路降到平台下限 1 核
+#      （0.08 核时/次冻结），并把 PR 事件上的门禁整段摘掉。
+#   2. 额度恢复后，1 核这个"地板价"就没有存在理由了：它是**为躲临时额度**设的，
+#      不是任何一条门禁的真实资源需求。1 核会让单测 / 训练冒烟 / 无头验收这类
+#      本来就吃 CPU 的 stage 变成长板，墙钟明显变慢。
+#   3. 现在按「配置回到平台默认」处理：删掉全部 `cpus` 声明。
 #
-#   Root Group's events CPU core-hours are insufficient for pre-freezing
-#   (Freezing time: 5.00 min, equivalent to 0.67 core-hours)   # cpus: 8
-#   (Freezing time: 5.00 min, equivalent to 0.17 core-hours)   # cpus: 2
+# 两个必须记住的点：
+#   - **不写 `cpus` = 8 核，不是"不花额度"**（构建日志会打印
+#     `Pipeline actual limit cpus: 8`）。额度是按 `cpus × 5min` 预冻结的，
+#     留空就是按 8 核的单价冻结（0.67 核时/次）。若某天门禁又在 Prepare 被
+#     驳回，报错形如：
+#       Root Group's events CPU core-hours are insufficient for pre-freezing
+#       (Freezing time: 5.00 min, equivalent to 0.67 core-hours)   # 8 核
+#     处置顺序应是**先找根组织管理员提额**，再考虑临时降核；不要再把降核
+#     当成常规手段——它治不了额度见底，只把"被驳"的时机往后挪（降核 + 串行
+#     都试过，1 核仍被驳，见 PR #47/#48 的实测）。
+#   - **内存不是独立字段**，是平台的固定公式 `cpus × 2 GB`，所以 `2 GiB` 与
+#     `1 核` 是同一件事的两种描述；`.cnb.yml` 里根本没有 `memory` 字段。
 #
-# 失败落点会指向 stage 链的**第一段**（依赖安装），看起来像"依赖装不上"，实际与依赖无关。
-#
-# 额度口径（官方文档「定价」）：云原生构建-CPU 免费额度 **160 核时/月**，月底清零、
-# 不叠加次月；超额 ¥0.125/核时。冻结规则：每 5 min 冻结 `5min × 节点规格`，
-# 预冻结时额度不足则**立即终止**任务。折算：
-#   8 核 × 5min = 0.67 核时 / 次冻结
-#   2 核 × 5min = 0.17 核时 / 次冻结
-#   1 核 × 5min = 0.08 核时 / 次冻结   ← 本仓现值
-#
-# 为什么必须显式写小核数：不写 `runner.cpus` 时平台兜底就是 **8 核**
-# （构建日志 `Pipeline actual limit cpus: 8`），"不声明"并不省额度。
-# 1 核是平台允许的最小值（`cnb:arch:amd64` 范围 1~64）。这些门禁以 I/O + 单进程为主
-# （py_compile / 单测 / 审计脚本 / ONNX 推理 / 加载冒烟），1 核足够；真需要更多核时
-# 显式调高，而不是留空吃 8 核默认。
-#
-# **第二条杠杆：并发数。** 额度是按**根组织**算的，同一次构建里并发的 pipeline 会
-# **各自**预冻结一份——三条并发 = 3 份同时冻结。降核只把"单价"降下来，
-# 冻结份数由并发度决定。故 main.push 与 web_trigger 手动门禁共用一把 lock
-# （key: ci-gate, wait: true）串行，避免同一份根组织额度被同时冻结多份。
-# 注意这把锁只是"不额外多冻"，**并不凭空造出额度**——见下「降核 + 串行都治不了根」。
-#
-# **降核 + 串行都治不了根，只是把"被驳"的时机往后挪。**
-# 每条 pipeline 在 Prepare 冻结、在结束（成功或失败）时归还，而**排队重试自身也计时**：
-# 实测 `lock ... waiting pipeline ... release lock` 逐条重试，每次重试都是一次新的
-# Prepare；从触发到真正开工若超过 5min，第一份冻结到期归还、这份重新冻结，
-# 额度不足时就可能在第 N 次重试上被驳回（本仓 PR #47 / #48 实测：1 核 + 三条串行，
-# 报错仍是 `insufficient for pre-freezing (equivalent to 0.08 core-hours)`）。
-# 1 核已是 `cnb:arch:amd64` 下限（范围 1~64），即**单价已到地板仍冻不到** ——
-# 根组织当月构建额度已实际见底，此时**任何** `cpus × 5min > 剩余额度` 的 pipeline
-# 都进不了 Prepare，与跑什么判据、装什么依赖无关。
-#
-# 真·杠杆只有两条，且**都不在 `.cnb.yml` 里**：
-#   1. **增配额** —— 根组织管理员提额度（平台月度免费额度 160 核时，月底清零）；
-#   2. **减 pipeline 数** —— 每条 pipeline 一次预冻结，条数本身就是冻结份数。
-# 故本仓的门禁尽量**合并进已有 pipeline 的 stage 链**（一条 pipeline 干多件事），
-# 而不是"一个门禁一条 pipeline"——后者每条都要独立付一次预冻结。
-#
-# **第三条杠杆（本仓现值）：把 PR 事件上的门禁整段摘掉。** 既然配置侧无额度可降，
-# 就把"跑门禁"从**事件驱动**改成**显式动作**：
-#   1. **main.push = 全量门禁（默认路径）** —— syntax-check / backend-test /
-#      cpu-training-smoke / frontend / github-mirror 全在 push 上；合并进 main 的代码
-#      必然经过同一套判据，不存在"没跑过的代码进主干"。
-#   2. **web_trigger 手动门禁（补充路径）** —— 分支详情页按钮即可对任意分支
-#      （含 PR 源分支）跑**逐字同源**的判据，只在需要时扣额度。
-# `main.pull_request` 整段已移除；原位置保留完整「移除原因」注释，含已放弃的
-# 替代方案（继续降核 / 加锁串行 / 自托管构建机）与恢复条件。详见 main 段。
-#
-# **降核只解决「配额」这一半，另一半是「底座」。** 不声明 `docker.image` 的 pipeline
-# （如 vscode 段）跑在平台默认 runner 上，那里**没有 python3/pip**：
-# Prepare 能通过、stage 照样秒挂（本仓 PR #47 实测 `pip: command not found` /
-# `python3: command not found`）。所以凡是不挂 `docker.image` 又需要解释器的 stage，
-# 一律**自举**（见 .dev-env-bootstrap 的「解释器与包管理器」段）；
-# cpu-training / sim2sim 段则**两者都做**：显式 `docker.image: python:3.12` 做底座，
-# 同时 bootstrap 内部保留自举段兜底。
-# 只读日志里那句「依赖供应失败」容易误判成 requirements 的问题，实际与依赖无关。
+# 云原生开发按钮的核数在 `.cnb/settings.yml`（现 8 核，扣的是「云原生开发-CPU」
+# 额度，1600 核时/月，与构建配额不是一本账），也不属于本次回退范围。
 # ───────────────────────────────────────────────────────────────────────────
 
 # 环境供应的公共锚点：默认镜像只有 Python/Node 运行时，控制面依赖与训练栈
@@ -160,7 +122,7 @@
 #
 # 这一步只跑 py_compile 与契约产物漂移检查，不需要成堆第三方包，因此：
 #   - 单独成 pipeline，与 unit-tests **并发**（push 墙钟 ≈ max 而不是串行和）；
-#   - `cpus: 1`（纯 I/O + 单文件编译 1 核够用；降核依据见文件头「CI 资源规模」注）。
+#   - 不声明 `runner.cpus`，吃平台默认 8 核（依据见文件头「CI 资源规模」注）。
 #
 # 仍声明 `docker.image: python:3.12`：**CI runner 的默认镜像没有 python**
 # （实测 `python` / `python3` 均 127），无镜像声明跑不起来；而 python:3.12
@@ -169,10 +131,6 @@
 # ───────────────────────────────────────────────────────────────────────────
 syntax-check: &syntax-check
   name: syntax-check
-  runner:
-    # 降核理由见文件头「CI 资源规模」注：不写 cpus 时平台兜底 8 核，
-    # 而 Prepare 按 `cpus x 5min` 从根组织预冻结核时——额度吃紧时直接驳回。
-    cpus: 1
   docker:
     image: python:3.12
   stages:
@@ -199,9 +157,6 @@ syntax-check: &syntax-check
 # （backend/requirements.txt），因此不引入「镜像层里是旧依赖」的漂移面。
 # ───────────────────────────────────────────────────────────────────────────
 .main-env: &main-env
-  # 降核理由见文件头「CI 资源规模」注。
-  runner:
-    cpus: 1
   docker:
     image: python:3.12
   stages:
@@ -323,9 +278,6 @@ syntax-check: &syntax-check
 # 依赖不固化在镜像层，因此不会再把「镜像重建」与「训练链路」耦在一起。
 
 .cpu-training-env: &cpu-training-env
-  # 降核理由见文件头「CI 资源规模」注。
-  runner:
-    cpus: 1
   # 与 .main-env 同理：这条 pipeline 的第一步是 .dev-env-bootstrap（要 python3/pip），
   # 而 **CI runner 的默认镜像没有 python**（实测 `python`/`python3` 均 127），
   # 所以必须显式给一个带解释器的**运行底座**：镜像只是底座，依赖仍由
@@ -380,9 +332,6 @@ syntax-check: &syntax-check
 
 
 .sim2sim-env: &sim2sim-env
-  # 降核理由见文件头「CI 资源规模」注。
-  runner:
-    cpus: 1
   # 同 .cpu-training-env：首段 .dev-env-bootstrap 要 python3/pip，默认 runner 镜像没有 python。
   docker:
     image: python:3.12
@@ -437,10 +386,6 @@ syntax-check: &syntax-check
 # 判据是"配了就同步"。手动演练：`python -m adapters.github.mirror --check`。
 .github-mirror: &github-mirror
   name: github-mirror
-  runner:
-    # 与其余 pipeline 一致降到平台最小 1 核（依据见文件头「CI 资源规模」注）：
-    # 本步是"git push + 几个 REST 请求"的纯 I/O，1 核足够。
-    cpus: 1
   docker:
     # 与其余门禁同底座：CI runner 默认**没有 python**（见上方注释），必须显式声明。
     image: python:3.12
@@ -461,8 +406,6 @@ syntax-check: &syntax-check
 frontend:
   push:
     - name: frontend-check
-      runner:
-        cpus: 1
       docker:
         image: node:20
       stages:
@@ -551,6 +494,8 @@ main:
   #
   #   验证过并放弃的替代方案：
   #     - 继续降核：1 核已是 `cnb:arch:amd64` 的下限（范围 1~64），无路可走；
+  #       （注：这里的 1 核是**当时**为躲额度临时设的下限，现已随「CI 资源规模」
+  #       一节整段回退——`runner.cpus` 全部删除，回归平台默认 8 核。）
   #     - 加 `lock` 串行：只把"并发份数"从 3 降到 1，降不了那 1 份的**单价**，
   #       且排队重试自身也要重新 Prepare，0.08 核时同样冻不到
   #       （本 PR 上一版 `a685ca93` 正是这么写的，仍被驳回）；
@@ -657,9 +602,6 @@ $:
             python -m adapters.github.mirror
   vscode:
     - name: legged-studio-dev
-      # 降核理由见文件头「CI 资源规模」注。
-      runner:
-        cpus: 1
       services:
         - vscode
         - docker

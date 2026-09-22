@@ -286,11 +286,11 @@ CI runner 每次现装（换来的是依赖版本零漂移 —— 改了 `requir
 
 | Pipeline | 镜像 | 规模 | 内容 |
 |---|---|---|---|
-| `syntax-check` | `python:3.12` | `cpus: 2` | `py_compile` + 契约产物漂移；**不装任何 pip 包** |
-| `backend-test` / `backend-test-pr` | `python:3.12` | `cpus: 8` | 单测、**openapi 契约冒烟**、移植准入、Pack 校验、全部审计工具 |
-| `cpu-training-smoke`（+PR 侧） | 默认 runner + `dev-env-bootstrap` 供应 | `cpus: 8` | CPU 训练冒烟：16 envs × 5 iters 真实 PPO + 报告断言；**仅训练相关路径变更才触发**（`ifModify`，见 `.cpu-training-paths`） |
-| `headless-sim2sim-gate` | 默认 runner + `dev-env-bootstrap` 供应 | `cpus: 8` | 包内声明策略全量的 CPU 无头验收（当前 49 条可执行），对照基线只拦**新增退化** |
-| `frontend-check` | `node:20` | `cpus: 4` | web JS 语法 + vendor 资产冒烟 |
+| `syntax-check` | `python:3.12` | 平台默认（不声明 `cpus` ⇒ 8 核 / 16 GiB） | `py_compile` + 契约产物漂移；**不装任何 pip 包** |
+| `backend-test` / `backend-test-pr` | `python:3.12` | 平台默认 | 单测、**openapi 契约冒烟**、移植准入、Pack 校验、全部审计工具 |
+| `cpu-training-smoke`（+PR 侧） | 默认 runner + `dev-env-bootstrap` 供应 | 平台默认 | CPU 训练冒烟：16 envs × 5 iters 真实 PPO + 报告断言；**仅训练相关路径变更才触发**（`ifModify`，见 `.cpu-training-paths`） |
+| `headless-sim2sim-gate` | 默认 runner + `dev-env-bootstrap` 供应 | 平台默认 | 包内声明策略全量的 CPU 无头验收（当前 49 条可执行），对照基线只拦**新增退化** |
+| `frontend-check` | `node:20` | 平台默认 | web JS 语法 + vendor 资产冒烟 |
 
 三条要点：
 
@@ -302,9 +302,16 @@ CI runner 每次现装（换来的是依赖版本零漂移 —— 改了 `requir
   凡要跑 Python 的 job 都必须显式声明 `docker.image: python:3.12`。该镜像与云原生
   开发的默认镜像同版，但只作**运行底座**：依赖仍在 stage 里现装，因此不引入
   「镜像层里是旧依赖」的漂移面。
-- **`runner.cpus` 与配额**：0.5 core-hour/freeze 的配额下，预冻结折算 = `cpus × 5min`，
-  所以 `cpus` 越大单位时间配额消耗越快。纯 I/O + 单文件编译的 `syntax-check` 用 2 核
-  足够，属于「降低单位时间配额消耗」，不牺牲判据强度（判据仍是全量 `py_compile`）。
+- **`runner.cpus` 与配额**：**配置里一律不声明 `runner.cpus`**，吃平台默认
+  （`cnb:arch:amd64` ⇒ 8 核 / 16 GiB；内存由固定公式 `cpus × 2 GB` 推导，没有独立
+  `memory` 字段）。要注意「不声明」不等于「不花额度」：构建的 Prepare 阶段按
+  `cpus × 5min` 从根组织**预冻结**核时，8 核 = 0.67 核时/次，额度不足就直接驳回，
+  **与依赖装不装得上无关**（报错落点却会指向 stage 链第一段）。
+  2026-09-22 期间曾因根组织额度见底把 `cpus` 一路降到平台下限 1 核，随后已整段回退
+  ——那是为躲临时额度设的地板价，不是任何门禁的真实需求，1 核会让单测 / 训练冒烟 /
+  无头验收这些吃 CPU 的 stage 变成明显的长板。
+  若再遇到 `insufficient for pre-freezing`：**先找根组织管理员提额**，不要又把降核
+  当常规手段（降核 + 串行都试过，1 核仍被驳，见 PR #47/#48）。
 
 > 网络与 `apt`：`syntax-check` 不装依赖；`backend-test` 与 `cpu-training-smoke`
 > 仍各自 `apt-get install libosmesa6`（best-effort，装不上只影响渲染用例，会 self-skip）。
