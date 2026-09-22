@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -189,6 +190,79 @@ class ExecutorMatrixHttpSurfaceTest(unittest.TestCase):
                 list(item["supports"]["command_sources"]), mirrored,
                 f"{item['id']} 的指令来源镜像与矩阵不一致",
             )
+
+
+class ExecutorSelectionHttpSurfaceTest(unittest.TestCase):
+    """**"这份场景该谁跑"必须有 HTTP 出口**（2026-09-22，接自动化）。
+
+    防的回归：`GET /executors` 只列矩阵、不回答"这份场景能不能跑" ⇒ 自动化调用方只能自己
+    抄一份判断，而那份判断**不会随矩阵更新**（漂移点）。本用例同时钉住两件事：
+    ① 路由在册（`openapi` 里）；② 返回**委托自纯函数**（不重组装）。
+    """
+
+    def setUp(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from backend.api_complete import app
+
+        self.client = TestClient(app)
+
+    def test_route_is_registered(self):
+        from backend.api_complete import app as complete_app
+
+        self.assertIn("/api/simulation/executors/select", complete_app.openapi()["paths"])
+
+    def test_policy_scenario_goes_to_the_browser_and_is_delegated_verbatim(self):
+        scenario = {"command_source": "policy", "robot_id": "unitree_go2"}
+        response = self.client.post("/api/simulation/executors/select", json={"scenario": scenario})
+        self.assertEqual(200, response.status_code, response.text)
+        payload = response.json()
+        self.assertTrue(payload["ok"], payload)
+        self.assertEqual("browser_wasm", payload["executor"]["id"])
+        # **委托非重组装**：与纯函数逐字段一致（JSON 往返会把 tuple 变 list，故比两者都归一）
+        self.assertEqual(json.loads(json.dumps(executors.select_executor(scenario))), payload)
+
+    def test_unrunnable_scenario_is_200_with_ok_false_and_reasons(self):
+        """查询语义：跑不了不是 HTTP 错误 —— `ok=false` + `reasons` 才是答案（同 `/scenarios/validate`）。"""
+
+        response = self.client.post(
+            "/api/simulation/executors/select", json={"scenario": {"command_source": "perception"}}
+        )
+        self.assertEqual(200, response.status_code, response.text)
+        payload = response.json()
+        self.assertFalse(payload["ok"])
+        self.assertTrue(payload["reasons"], payload)
+        self.assertTrue(any("没有任何执行器" in reason for reason in payload["reasons"]), payload)
+        self.assertTrue(
+            payload["unsupported_contract_options"],
+            "契约里'没人能跑'的取值必须一并返回，否则自动化只看 ok 会漏掉缺口",
+        )
+
+    def test_require_and_prefer_are_honoured_and_explained(self):
+        response = self.client.post(
+            "/api/simulation/executors/select",
+            json={"scenario": {"command_source": "script"}, "require": ["offscreen_render"]},
+        )
+        self.assertEqual("server_mujoco", response.json()["executor"]["id"], response.text)
+
+        response = self.client.post(
+            "/api/simulation/executors/select",
+            json={"scenario": {"command_source": "policy"}, "prefer": "server_mujoco"},
+        )
+        payload = response.json()
+        self.assertEqual("browser_wasm", payload["executor"]["id"], payload)
+        self.assertTrue(any("prefer" in reason for reason in payload["reasons"]), payload["reasons"])
+
+    def test_unknown_prefer_is_400_not_a_silent_fallback(self):
+        response = self.client.post(
+            "/api/simulation/executors/select", json={"scenario": {}, "prefer": "no_such_executor"}
+        )
+        self.assertEqual(400, response.status_code, response.text)
+
+    def test_bad_shapes_are_422(self):
+        for body in ({"scenario": "x"}, {"require": "offscreen_render"}, {"prefer": 3}):
+            response = self.client.post("/api/simulation/executors/select", json=body)
+            self.assertEqual(422, response.status_code, body)
 
 
 if __name__ == "__main__":

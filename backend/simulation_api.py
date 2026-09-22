@@ -220,6 +220,41 @@ async def list_executors() -> dict[str, Any]:
     return describe()
 
 
+@router.post("/executors/select")
+async def select_executor_for_scenario(payload: dict[str, Any]) -> dict[str, Any]:
+    """**按场景挑执行器**（H2 的产品侧出口之二，2026-09-22 接上自动化）。
+
+    与 `GET /executors`（列矩阵）的分工：这条回答"**这份场景该谁跑、跑不了缺什么**"。
+    返回形状由 `executors.select_executor()` 固定
+    （`{ok, executor, reasons, considered, unsupported_contract_options}`），**本路由不重组装**
+    —— 重组装就会长成"第二份判断逻辑"，而它必然与纯函数漂移。
+
+    **HTTP 语义**：`ok=false` 仍返回 200 —— 这是**查询**、不是拒绝执行（同
+    `POST /api/scenarios/validate` 的 `valid:false` 口径）。自动化调用方按 `ok` 分流；
+    `reasons` 与 `considered[].gaps` 就是"缺什么"的机器可读答案（fail-closed 的判断留在
+    **执行入口**：谁真去跑，谁就必须先看这个 ok）。
+    `prefer` 写了个不存在的执行器 id ⇒ **400**：那是调用方写错，不是场景的问题。
+
+    请求体：`{"scenario": {...}, "prefer": "browser_wasm", "require": ["offscreen_render"]}`
+    （`scenario` 缺省 = `{}`：只问"有哪些执行器、各自支持什么"）。
+    """
+    from backend.executors import select_executor
+
+    scenario = payload.get("scenario")
+    if scenario is not None and not isinstance(scenario, dict):
+        raise HTTPException(status_code=422, detail="scenario 必须是对象（ScenarioContract 载荷）")
+    require = payload.get("require") or []
+    if not isinstance(require, (list, tuple)) or any(not isinstance(item, str) for item in require):
+        raise HTTPException(status_code=422, detail="require 必须是字符串数组")
+    prefer = payload.get("prefer")
+    if prefer is not None and not isinstance(prefer, str):
+        raise HTTPException(status_code=422, detail="prefer 必须是字符串")
+    try:
+        return select_executor(scenario, prefer=prefer, require=tuple(require))
+    except KeyError as exc:  # 未知 executor：调用方写错
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 
 
 
