@@ -187,7 +187,7 @@ playwright install chromium
 pytest tests/e2e -v
 ```
 
-无头 CPU sim2sim 验收（包内声明的策略全量，当前 49 条可执行，对照基线只拦新增退化）：
+无头 CPU sim2sim 验收（包内声明的策略全量，当前 58 条可执行，对照基线只拦新增退化）：
 
 ```bash
 python tools/sim2sim_headless.py --seconds 3 \

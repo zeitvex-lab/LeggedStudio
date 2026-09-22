@@ -106,6 +106,20 @@ def build_state(engine, package_dir: Path, sim_cfg: dict, entry: dict, yaw_deg: 
     obs.last_action = np.zeros(contract.action_dim, dtype=np.float32)
     cmd = np.array([0.6, 0.0, 0.0], dtype=np.float32)
     own = np.asarray(obs.build(cmd), dtype=np.float64).reshape(-1)
+    # **历史口径（2026-09-22 补）**：验收器的 `build()` 直接给出**叠好历史**的整向量
+    # （如 270 = 6×45），而浏览器侧被驱动的是 **builder 单帧**（叠帧在
+    # `app.js::packObsHistoryByTerm`，Node 侧没驱动那一层）⇒ 直接比会得到"270 vs 45"的**假红**。
+    # 故有历史时只比**当前帧**那一段，基准按契约 `history_layout` 取：
+    #   · `frame_major_oldest_first`（旧→新）⇒ 当前帧在**末尾**；
+    #   · 其余（`frame_major_v1` 等，新→旧）⇒ 当前帧在**开头**。
+    # 叠帧布局本身由验收器自己的 `history_len × obs_dim` 断言守着（这里不重复判它）。
+    history_len = int(contract.history_len or 1)
+    frame_width = int(contract.obs_dim or own.shape[0])
+    layout = str(getattr(contract, "history_layout", "") or "")
+    compare_basis = "整向量"
+    if history_len > 1 and own.shape[0] == frame_width * history_len:
+        own = own[-frame_width:] if layout == "frame_major_oldest_first" else own[:frame_width]
+        compare_basis = f"当前帧（{layout or 'frame_major_v1'}，另 {history_len - 1} 帧历史不在此层）"
 
     state = {
         "contract": {
@@ -137,6 +151,7 @@ def build_state(engine, package_dir: Path, sim_cfg: dict, entry: dict, yaw_deg: 
     }
     reference = {
         "obs": [float(v) for v in own],
+        "compare_basis": compare_basis,
         "imu": {
             "angular": [float(v) for v in data.qvel[3:6]],
             "linear": [float(v) for v in (rot.T @ data.qvel[0:3])],
@@ -216,6 +231,7 @@ def main() -> int:
     print(f"同状态观测对拍：{args.robot} / {args.policy}")
     print(f"  kind={kind}  obs={state['contract']['obs_dim']}  history={state['contract']['history_len']}"
           f"  yaw={args.yaw_deg:g}°  容差={args.tol:g}")
+    print(f"  对比基准：{reference.get('compare_basis') or '整向量'}")
     print("-" * 74)
 
     failures: list[str] = []

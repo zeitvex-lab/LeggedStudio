@@ -46,6 +46,12 @@ DEFAULT_CRITERIA = {
     "velocity": {"survival_min": 0.999, "height_ratio_min": 0.85, "tilt_max_deg": 20.0,
                  "vel_err_max": 0.20, "track_pass_ratio": 0.6, "track_good_ratio": 0.8},
     "imitation": {"survival_min": 0.95},
+    # LainLab playground 行走族（trot / jump / spring-jump，包内契约 `task_type="gait"`）：
+    # 相位驱动的行走技能，判据与 velocity 同档（存活/高度/倾角 + 跟踪两档）。
+    # **2026-09-22 补**：此前 **没有这一族** —— 三条策略在无头验收里直接 `KeyError: 'gait'`，
+    # 这就是"四族行为级 B11 评测未做"里 gait 那几条的真身（不是观测布局的问题）。
+    "gait": {"survival_min": 0.999, "height_ratio_min": 0.85, "tilt_max_deg": 20.0,
+             "vel_err_max": 0.20, "track_pass_ratio": 0.6, "track_good_ratio": 0.8},
     "acrobatics": {"survival_min": 0.9},
     "parkour": {"survival_min": 0.95},
     # 操作类（抓取/搬运等）：站姿高度/倾角不是判据（任务本身就要求下蹲/伸出），只看存活。
@@ -110,7 +116,7 @@ def evaluate_mode(metrics: dict, family: str, contract, criteria: dict,
                  "value": survival, "min": criteria["survival_min"]})
     if metrics.get("fell"):
         hard.append({"name": "not_fallen", "ok": False, "value": metrics.get("fell_at_s")})
-    if family in ("stand", "balance", "velocity"):
+    if family in ("stand", "balance", "velocity", "gait"):
         # **尺子优先级**：显式声明的参考高度 > 引擎现算的默认姿运动学高度 > 契约初高。
         # 结论里必须带 `ruler` —— "高度比 0.692" 若不说明"跟什么比"就没有意义：lite3 的
         # 0.692 是"跟默认姿运动学高度比"，而那不是策略的自然站姿（2026-09-14 实测，
@@ -141,7 +147,7 @@ def evaluate_mode(metrics: dict, family: str, contract, criteria: dict,
 
     quality: list[dict] = []
     vel_err = metrics.get("vel_track_err")
-    if vel_err is not None and family in ("stand", "balance", "velocity"):
+    if vel_err is not None and family in ("stand", "balance", "velocity", "gait"):
         quality.append({"name": "vel_track_err", "ok": float(vel_err) <= criteria["vel_err_max"],
                         "value": vel_err, "max": criteria["vel_err_max"]})
         ratio = tracking_ratio(metrics)

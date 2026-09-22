@@ -1,16 +1,36 @@
 {
   "schema": "sim2sim-headless-baseline-1.0",
+  "provenance": {
+    "generated_at": "2026-09-22T16:14:18",
+    "product_version": "0.57.1",
+    "git": {
+      "commit": "c3cc8eda969fc4d82127eb6f06ccec92b27ec34f",
+      "dirty": true
+    },
+    "platform": "Linux-5.4.241-1-tlinux4-0025.10-x86_64-with-glibc2.41",
+    "python": "3.12.14",
+    "packages": {
+      "mujoco": "3.11.0",
+      "onnxruntime": "1.30.0",
+      "numpy": "2.5.3"
+    },
+    "run_params": {
+      "seconds": 3.0,
+      "seed": 0,
+      "gate_tracking": false
+    }
+  },
   "results": [
     {
       "robot": "deeprobotics_lite3",
       "policy": "lite3-velocity-benchmark",
-      "verdict": "pass",
+      "verdict": "fail",
       "family": null
     },
     {
       "robot": "deeprobotics_lite3",
       "policy": "lite3-velocity-sdk45",
-      "verdict": "pass",
+      "verdict": "fail",
       "family": null
     },
     {
@@ -29,6 +49,12 @@
       "robot": "deeprobotics_m20",
       "policy": "m20-official-sdk",
       "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "deeprobotics_m20",
+      "policy": "deeprobotics_m20-trained-20260918-090509",
+      "verdict": "error",
       "family": null
     },
     {
@@ -75,18 +101,6 @@
     },
     {
       "robot": "microduck",
-      "policy": "microduck-roller",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "microduck",
-      "policy": "microduck-roller-crouch",
-      "verdict": "skipped",
-      "family": null
-    },
-    {
-      "robot": "microduck",
       "policy": "microduck-ground-pick",
       "verdict": "pass",
       "family": null
@@ -110,9 +124,21 @@
       "family": null
     },
     {
+      "robot": "unitree_b2",
+      "policy": "unitree_b2-trained-20260918-015414",
+      "verdict": "fail",
+      "family": null
+    },
+    {
       "robot": "unitree_b2w",
       "policy": "b2w-velocity-robotlab",
       "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_b2w",
+      "policy": "unitree_b2w-trained-20260918-093241",
+      "verdict": "error",
       "family": null
     },
     {
@@ -190,7 +216,7 @@
     {
       "robot": "unitree_go2",
       "policy": "go2-pie-parkour",
-      "verdict": "fail",
+      "verdict": "pass",
       "family": null
     },
     {
@@ -215,6 +241,48 @@
       "robot": "unitree_go2",
       "policy": "go2-kaiwu-moe-cts-8exp",
       "verdict": "pass",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-lainlab-amp-cts",
+      "verdict": "fail",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-lainlab-dreamwaq",
+      "verdict": "fail",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-lainlab-trot",
+      "verdict": "fail",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-lainlab-jump",
+      "verdict": "fail",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-lainlab-spring-jump",
+      "verdict": "fail",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-lainlab-rear-stand",
+      "verdict": "fail",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2",
+      "policy": "go2-lainlab-handstand",
+      "verdict": "fail",
       "family": null
     },
     {
@@ -262,7 +330,13 @@
     {
       "robot": "unitree_go2w",
       "policy": "go2w-himloco-leggedstand",
-      "verdict": "skipped",
+      "verdict": "fail",
+      "family": null
+    },
+    {
+      "robot": "unitree_go2w",
+      "policy": "unitree_go2w-trained-20260918-093550",
+      "verdict": "error",
       "family": null
     },
     {

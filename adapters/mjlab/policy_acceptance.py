@@ -834,10 +834,58 @@ def _frame_lainlab_gait_47(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     return out
 
 
+# DreamWaQ / AMP-CTS 单帧（45，**cmd 在前**，与 rl_sdk 的 ang_vel 在前**不同序**——见
+# dreamwaq/mdp/observations.py::_actor_frame）。逐字对齐
+# `web/sim2sim/obs/observation_builders.js::buildLainlabDreamObservation`：
+# ONNX 270 = [历史 5×45（旧→新）, 当前帧] ⇒ 契约 `history_layout` 必须是
+# `frame_major_oldest_first`（打包由 `ObsBuilder.build` 统一做）。
+# **缩放用字面量**（训练源即真值）：cmd×[2, 2, 0.25]、ang_vel×0.25、dq×0.05。
+def _frame_lainlab_dream_45(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = [float(cmd[0]) * 2.0, float(cmd[1]) * 2.0, float(cmd[2]) * 0.25]
+    out += [float(ang_b[i]) * 0.25 for i in range(3)]
+    out += list(projected_gravity(q))
+    out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] * 0.05 for n in order]
+    out += [float(a) for a in obs.last_action]
+    return out
+
+
+# spring_jump 单帧（47）：**无相位项**（该任务没有 cycle_time），前两位是恒零 legacy 前缀：
+# [zeros(2), **裸 cmd（无缩放）**, ang_vel×0.25, euler_xyz, (q−default), dq×0.05, action]。
+# 同 `buildLainlabSpringObservation`（ONNX 470 = 10×47，旧→新）。
+def _frame_lainlab_spring_47(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    quat = obs.data.qpos[3:7]
+    order = c.action_joint_order
+    out = [0.0, 0.0]
+    out += [float(cmd[0]), float(cmd[1]), float(cmd[2])]
+    out += [float(ang_b[i]) * 0.25 for i in range(3)]
+    out += quat_to_euler_xyz(quat)
+    out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in order]
+    out += [obs.data.qvel[obs.jadr[n][1]] * 0.05 for n in order]
+    out += [float(a) for a in obs.last_action]
+    return out
+
+
+# handstand（48）：**[zeros(3) legacy 前缀] + 与 `go2_rl_sdk_45` 同序同缩放的 45 维帧** ——
+# 浏览器侧两者共用 `fillRlSdkActorFrame`（同一个填帧函数），Python 侧同样共用 `_std_frame`
+# （缩放走契约 `scales`，与 CONFIG.* 同源）。单帧、无历史。
+def _frame_lainlab_handstand_48(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    return [0.0, 0.0, 0.0] + _std_frame(obs, cmd)
+
+
 FRAME_BUILDERS = {
     "go2_rl_sdk_45": _std_frame,
     "go2_mjlab_actor_48": _frame_go2_mjlab_actor_48,
+    "lainlab_dream_45_hist6": _frame_lainlab_dream_45,
     "lainlab_gait_47_hist10": _frame_lainlab_gait_47,
+    "lainlab_spring_47_hist10": _frame_lainlab_spring_47,
+    "lainlab_handstand_48": _frame_lainlab_handstand_48,
     "s07_amp_cts": _std_frame,
     "g1_amp_96": _frame_g1_amp_96,
     "g1_mjlab_velocity_98": _frame_g1_mjlab_velocity_98,
