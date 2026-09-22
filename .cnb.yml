@@ -43,6 +43,22 @@
 # （key: ci-pr, wait: true）串行，任一时刻只有 1 份预冻结在生效。
 # 详见 main.pull_request 处的「并发即配额」注。
 #
+# **串行只是让并发的 pipeline 不"同时"冻结，冻结总量并不因此减少。**
+# 每条 pipeline 在 Prepare 冻结、在结束（成功或失败）时归还，而**排队重试自身也计时**：
+# 实测 `lock ... waiting pipeline ... release lock` 逐条重试，每次重试都是一次新的
+# Prepare；从触发到真正开工若超过 5min，第一份冻结到期归还、这份重新冻结，
+# 额度不足时就可能在第 N 次重试上被驳回（本仓 PR #48 实测：三条串行 pipeline
+# 全部在 Prepare 报 "insufficient for pre-freezing"）。
+# 也就是说：**降核 + 串行都治不了根**，只是把"3 份同时被驳"变成"排队时被驳"。
+# 真·杠杆只有两条，且都在代码评审之外：
+#   1. **增配额** —— 根组织管理员提额度（平台月度免费额度 160 核时，月底清零）；
+#   2. **减 pipeline 数** —— 每条 pipeline 一次预冻结，条数本身就是冻结份数。
+# 所以本仓的门禁尽量**合并进已有 pipeline 的 stage 链**（一条 pipeline 干多件事），
+# 而不是"一个门禁一条 pipeline"——后者每条都要独立付一次预冻结。
+# .github-mirror 在 push / tag_push 上是**独立一条**（它要自己的 imports 密钥面），
+# 在 PR 事件上**不触发**（PR 侧只保留 syntax-check / backend-test-pr /
+# cpu-training-smoke-pr 三条，避免把预冻结份数从 3 抬到 4）。
+#
 # **降核只解决「配额」这一半，另一半是「底座」。** 不声明 `docker.image` 的 pipeline
 # （如 vscode 段）跑在平台默认 runner 上，那里**没有 python3/pip**：
 # Prepare 能通过、stage 照样秒挂（本仓 PR #47 实测 `pip: command not found` /
@@ -144,6 +160,8 @@
 syntax-check: &syntax-check
   name: syntax-check
   runner:
+    # 降核理由见文件头「CI 资源规模」注：不写 cpus 时平台兜底 8 核，
+    # 而 Prepare 按 `cpus x 5min` 从根组织预冻结核时——额度吃紧时直接驳回。
     cpus: 1
   docker:
     image: python:3.12
