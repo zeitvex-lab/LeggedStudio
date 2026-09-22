@@ -59,19 +59,21 @@ SEGMENT_LABELS: dict[str, str] = {
     "ang_vel_z": "转向角速度",
     "heading": "朝向范围",
     "init_velocity_prob": "初始速度指令概率",
+    # **观测/动作同名段**：本表是**扁平**字典，同名段只能有一个标签，否则**后写的静默覆盖**
+    # 前面的（2026-09-22 实测踩到——这里曾同时写「观测裁剪/缩放」与「动作裁剪/缩放」，
+    # 前一组是死条目）。消费点 `segment_label()` 只按段名查、拿不到段所在分区，
+    # 所以文案必须**上下文无关**。
+    "clip": "裁剪（观测/动作）",
+    "scale": "缩放（观测/动作）",
     # 观测
     "noise": "观测噪声",
     "enable_corruption": "启用观测噪声",
     "concatenate_terms": "拼接观测项",
-    "clip": "观测裁剪",
-    "scale": "缩放",
     "history_length": "历史帧数",
     # 动作
-    "scale": "动作缩放",
     "offset": "动作偏移",
     "use_default_offset": "基于默认姿态偏移",
     "preserve_order": "保持关节顺序",
-    "clip": "动作裁剪",
     "control_frequency": "控制频率 (Hz)",
     "cut_off_frequency": "低通截止频率 (Hz)",
     "min_delay": "最小动作延迟",

@@ -184,7 +184,6 @@ def scaffold_package(target_dir: Path, package_id: str) -> Path:
         "display_name": package_id,
         "capabilities": ["mujoco_sim"],
         "model": {"format": "mjcf", "path": "model/robot.xml"},
-        "contract_path": "contract_legacy_v2.json",
         "contract_path": "contract.json",
         # I5：脚手架**不替包作者主张许可**。原值是硬写的 {"spdx": "MIT", "redistribution":
         # "allowed"} —— 那是"我们核验过你可以再分发"的声明，而实际上谁都没核验过。

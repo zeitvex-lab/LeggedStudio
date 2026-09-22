@@ -437,9 +437,6 @@ def spawn_default(contract: PackageContract, model, data, obs: "ObsBuilder") -> 
 # 浏览器端 IMU 采样与 mjlab/契约同号（直立 projected_gravity=(0,0,-1)），
 # 故 Python 侧直接用 qpos/qvel 推导，不再做符号翻转。
 
-_STANDARD_KINDS = {"go2_rl_sdk_45", "lite3_rl_sdk_hist6", "s07_amp_cts"}
-
-
 def _std_frame(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     """ang_vel·s, gravity, cmd·s, (q-default)·s, dq·s, action（四足/人形通用 45/98 基座）。"""
     c = obs.contract
@@ -841,7 +838,6 @@ FRAME_BUILDERS = {
     "go2_rl_sdk_45": _std_frame,
     "go2_mjlab_actor_48": _frame_go2_mjlab_actor_48,
     "lainlab_gait_47_hist10": _frame_lainlab_gait_47,
-    "lite3_rl_sdk_hist6": _std_frame,
     "s07_amp_cts": _std_frame,
     "g1_amp_96": _frame_g1_amp_96,
     "g1_mjlab_velocity_98": _frame_g1_mjlab_velocity_98,
