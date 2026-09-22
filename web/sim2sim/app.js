@@ -1432,6 +1432,7 @@ function inspectPolicy(session, contract = {}) {
   return {
     mode,
     observationKind,
+    observationLayout: contract?.observation_layout || null,
     inputNames,
     outputNames,
     obsName,
@@ -1950,6 +1951,8 @@ function applyPolicyContract(contract, order = []) {
   }
   CONFIG.observationKind = contract?.observation_kind
     || (CONFIG.numObs === 99 ? "quadrupedal_agility_ll" : "default");
+  // 声明式观测布局（契约 observation_layout）：有它就走**与验收器同一份规格**的解释器。
+  CONFIG.observationLayout = contract?.observation_layout || null;
   CONFIG.historyLayout = String(contract?.history_layout || "");
   // 显式 history 分段（Wuji reorient）：[[offset,len], ...]，每段 旧→新 逐帧拼接。
   CONFIG.historyTerms = Array.isArray(contract?.history_terms) ? contract.history_terms : null;

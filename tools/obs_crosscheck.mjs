@@ -58,6 +58,8 @@ const input = {
 
 const CONFIG = {
   observationKind: D.contract.observation_kind,
+  // 声明式布局（与 Python frame_from_spec 同一份规格）：两侧消费同一份，不各写一份实现。
+  observationLayout: D.contract.observation_layout || null,
   numObs, numActions,
   simulationDt: D.contract.simulation_dt, controlDecimation: D.contract.decimation,
   angVelScale: D.scales.ang_vel, dofPosScale: D.scales.dof_pos, dofVelScale: D.scales.dof_vel,
