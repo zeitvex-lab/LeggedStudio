@@ -168,5 +168,97 @@ class TaskPluginApiTest(unittest.TestCase):
         self.assertIn("可用", response.json()["detail"])
 
 
+class BuiltinTaskCatalogTest(unittest.TestCase):
+    """**内置任务的取证与接线**（2026-09-22 第二批：里程计+航点 / 视觉 / 其他传感器）。
+
+    为什么逐条钉：任务插件最容易退化成"名字好听、证据空口"——传感器 id 抄错会被契约挡住，
+    但"这个任务凭什么需要这些传感器""上游谁这么干过"**只有证据能挡**。所以：
+      · 每条必须有**可追溯的取证**（长度 + 至少一处路径/来源引用）；
+      · `task_type` 必须是验收器**真有的判据族**（否则挂上去了却没人判）；
+      · 视觉/接触类必须真的把传感器接到**观测**上（`route=obs` ⇒ S2① 生成 obs 项）。
+    """
+
+    def test_catalog_has_the_named_builtins(self):
+        registry = tp.load_task_plugins()
+        self.assertGreaterEqual(len(registry), 10)
+        for plugin_id in ("odom-waypoint-nav", "depth-ts-locomotion", "depth-decoder-policy",
+                          "wheel-leg-terrain", "lidar-terrain-avoid", "attitude-balance"):
+            with self.subTest(plugin=plugin_id):
+                self.assertIn(plugin_id, registry)
+
+    def test_every_evidence_is_traceable(self):
+        """取证不许空口：至少 80 字，且带一处路径/来源引用（上游工程或本仓文件）。"""
+
+        for plugin_id, plugin in tp.load_task_plugins().items():
+            with self.subTest(plugin=plugin_id):
+                self.assertGreaterEqual(len(plugin.evidence), 80, f"{plugin_id} 的 evidence 太短，说不清凭什么")
+                self.assertIn("/", plugin.evidence, f"{plugin_id} 的 evidence 没有一处可核对的路径")
+
+    def test_task_type_is_a_known_criteria_family(self):
+        """`task_type` 必须是 `tools/sim2sim_headless.py::DEFAULT_CRITERIA` 真有的族。
+
+        否则会出现"任务声明了类型、验收器却没这一族"（`gait` 族当年就是这样缺的：
+        三条 lainlab 策略在无头验收里直接 KeyError）。
+        """
+
+        try:
+            import importlib.util
+
+            spec = importlib.util.spec_from_file_location("sim2sim_headless_criteria",
+                                                          ROOT / "tools" / "sim2sim_headless.py")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            families = set(module.DEFAULT_CRITERIA)
+        except Exception as exc:  # pragma: no cover - 环境缺 mujoco 时如实跳过
+            self.skipTest(f"读不到 DEFAULT_CRITERIA：{exc}")
+        for plugin_id, plugin in tp.load_task_plugins().items():
+            if plugin.task_type:
+                with self.subTest(plugin=plugin_id):
+                    self.assertIn(plugin.task_type, families)
+
+    def test_odom_waypoint_nav_wires_planner_and_route_checks(self):
+        plugin = tp.task_plugin("odom-waypoint-nav")
+        self.assertEqual("planner", plugin.command_source)
+        self.assertEqual(["arrival", "route_completion"], list(plugin.checks))
+        self.assertEqual({"odom", "imu"}, {s.plugin_id for s in plugin.sensors})
+        result = tp.instantiate_task_plugin("odom-waypoint-nav", scenario={"scenario_id": "nav"})
+        self.assertEqual("planner", result["scenario"]["command_source"])
+        self.assertEqual(["arrival", "route_completion"], result["scenario"]["checks"])
+        # 规划器是两执行器都支持的取值 ⇒ 不该被 blockers 拦
+        self.assertTrue(result["readiness"]["executor"]["supported"])
+        self.assertFalse(result["readiness"]["blockers"])
+
+    def test_depth_ts_uses_upstream_camera_size_and_generates_obs(self):
+        """深度相机的 80×60 不是随手写的：取上游 `resolution=(60, 80)`（高, 宽）。"""
+
+        result = tp.instantiate_task_plugin("depth-ts-locomotion", scenario={"scenario_id": "depth"})
+        camera = result["scenario"]["perception"]["depth_camera"]
+        self.assertEqual({"width": 80, "height": 60}, {"width": camera["width"], "height": camera["height"]})
+        self.assertEqual("obs", result["scenario"]["perception"]["route"])
+        self.assertTrue(result["obs_items"]["items"], "route=obs ⇒ 必须真的生成 obs 项（委托 S2①）")
+
+    def test_low_resolution_depth_decoder_plugin(self):
+        result = tp.instantiate_task_plugin("depth-decoder-policy", scenario={"scenario_id": "edge"})
+        camera = result["scenario"]["perception"]["depth_camera"]
+        self.assertEqual({"width": 16, "height": 16}, {"width": camera["width"], "height": camera["height"]})
+
+    def test_wheel_leg_terrain_feeds_height_and_contact(self):
+        result = tp.instantiate_task_plugin("wheel-leg-terrain", scenario={"scenario_id": "terrain"})
+        perception = result["scenario"]["perception"]
+        self.assertTrue(perception["heightfield"])
+        self.assertTrue(perception["foot_contact"])
+        self.assertEqual("obs", perception["route"])
+        terms = {item.get("term") for item in result["obs_items"]["items"]}
+        self.assertTrue(terms, "地形+接触都进观测 ⇒ 必须生成 obs 项")
+
+    def test_attitude_balance_does_not_patch_command_source(self):
+        """没有指令流的任务**不许**顺手给别人塞一个 command_source（保持基场景原样）。"""
+
+        result = tp.instantiate_task_plugin("attitude-balance",
+                                            scenario={"scenario_id": "bal", "command_source": "script"})
+        self.assertEqual("script", result["scenario"]["command_source"])
+        self.assertNotIn("command_source", result["applied"])
+
+
 if __name__ == "__main__":
     unittest.main()

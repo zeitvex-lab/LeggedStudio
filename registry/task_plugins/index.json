@@ -74,6 +74,108 @@
       "command_source": "policy",
       "checks": [],
       "recorders": ["metrics"]
+    },
+    {
+      "schema_version": "task-plugin-1.0",
+      "plugin_id": "odom-waypoint-nav",
+      "label": "全局里程计 + 航点导航（外挂规划器出 cmd_vel）",
+      "description": "B 类：位姿与航点由外部规划器负责，策略只做速度跟踪 —— 换地图/换航点不必重训策略。",
+      "version": "1.0",
+      "task_type": "velocity",
+      "evidence": "zex-w 上游实机栈（RC_WheelLeg）：sim2real_ros2/src/sim2real_nav2/config/nav2_params.yaml 显式声明三级坐标系（global_frame_id=map / odom_frame_id=odom / base_frame_id=base_link），全局规划器 nav2_navfn_planner/NavfnPlanner（tolerance 0.5）、局部控制器 dwb_core::DWBLocalPlanner（FollowPath，xy_goal_tolerance 0.25 / yaw_goal_tolerance 0.25）+ SimpleGoalChecker；sim2real_runtime 另有 odom_relay_node（里程计转发）与 cmd_mux_node（nav2 cmd_vel 与遥控多路复用）⇒ 「航点 →（规划）→ cmd_vel → 策略」是上游既有链路，不是为本插件杜撰的形状。",
+      "sensors": [
+        { "plugin_id": "odom", "outputs": ["pose_position", "pose_quat_wxyz"] },
+        { "plugin_id": "imu", "outputs": ["angular_velocity", "orientation_quat_wxyz"] }
+      ],
+      "perception": { "route": "external" },
+      "command_source": "planner",
+      "checks": ["arrival", "route_completion"],
+      "recorders": ["trajectory", "metrics"]
+    },
+    {
+      "schema_version": "task-plugin-1.0",
+      "plugin_id": "depth-ts-locomotion",
+      "label": "深度相机教师-学生越障（策略吃深度）",
+      "description": "A 类：深度图进策略观测（CNN 吃深度历史），用于地形越障。",
+      "version": "1.0",
+      "task_type": "velocity",
+      "evidence": "LeggedGym-Ex go2_ts_depth：envs/go2/go2_ts_depth/go2_ts_depth_config.py 里 add_depth=True、depth_camera_config（num_sensors=1 / num_history=1 / resolution=(60,80) 即 宽80×高60 / horizontal_fov_deg=75 / near_clip=0.1 / far_clip=2.0 / pos=(0.3,0,0.1) / euler 下俯 0.3rad / decimation=5）；policy 段 cnn_input_channel=num_history（CNN 输入通道 = 深度历史帧数）⇒ 深度确进策略；同文件注释写明“只给前进指令，因为深度图 FOV 有限”。本仓 depth_camera 尺寸按该真值填 80×60。",
+      "sensors": [
+        { "plugin_id": "depth", "outputs": ["policy_tensor"] },
+        { "plugin_id": "imu", "outputs": ["angular_velocity", "orientation_quat_wxyz"] },
+        { "plugin_id": "odom", "outputs": ["pose_position"] }
+      ],
+      "perception": { "route": "obs", "depth_camera": { "width": 80, "height": 60, "mount": "base" } },
+      "command_source": "policy",
+      "checks": [],
+      "recorders": ["trajectory", "metrics"]
+    },
+    {
+      "schema_version": "task-plugin-1.0",
+      "plugin_id": "depth-decoder-policy",
+      "label": "低分辨率深度 + 视觉解码器（16×16 深度图）",
+      "description": "A 类：极低分辨率深度图经解码器进策略 —— 面向算力受限 / 端侧部署。",
+      "version": "1.0",
+      "task_type": "velocity",
+      "evidence": "MGDP legged_gym：envs/base/legged_robot_config.py 的 camera 段（use_camera 开关 / camera_res=[16,16] / isaac_camera_type=“d”（注释 rgb）/ image_nums=2 / use_decoder=True / horizontal_fov），envs/baseline/legged_robot_camera.py 是真建相机实现（gym.create_camera_sensor + width/height/enable_tensors，两种挂载 make_handle_trans）⇒ 「低分辨率深度 + 解码器」是上游既有做法；16×16 即该配置的真值。",
+      "sensors": [
+        { "plugin_id": "depth", "outputs": ["policy_tensor", "image"] },
+        { "plugin_id": "imu", "outputs": ["angular_velocity", "orientation_quat_wxyz"] }
+      ],
+      "perception": { "route": "obs", "depth_camera": { "width": 16, "height": 16, "mount": "base" } },
+      "command_source": "policy",
+      "checks": [],
+      "recorders": ["metrics"]
+    },
+    {
+      "schema_version": "task-plugin-1.0",
+      "plugin_id": "wheel-leg-terrain",
+      "label": "轮足地形穿越（高度扫描 + 足端接触进观测）",
+      "description": "A 类：射线高度扫描与足端接触都进策略观测，用于崎岖地形上的轮足运动。",
+      "version": "1.0",
+      "task_type": "velocity",
+      "evidence": "zex-w 上游训练源 rc_mjlab/src/robot/config/env_cfgs.py：terrain_scan = RayCastSensorCfg(name=“height_scanner”，...)（射线高度扫描器），观测组里 foot_contact = ObservationTermCfg(func=safe_foot_contact, params={“sensor_name”: “feet_ground_contact”}) 与 height_scan = ObservationTermCfg(func=safe_height_scan, params={“sensor_name”: “height_scanner”})（两者都进观测），命令为 twist（heading_command=True）⇒ 地形感知与接触相位是轮足任务的既有观测项，不是外部添加。",
+      "sensors": [
+        { "plugin_id": "lidar_height_scan", "outputs": ["heights"] },
+        { "plugin_id": "foot_contact", "outputs": ["force"] },
+        { "plugin_id": "imu", "outputs": ["angular_velocity", "orientation_quat_wxyz"] },
+        { "plugin_id": "odom", "outputs": ["pose_position"] }
+      ],
+      "perception": { "route": "obs", "heightfield": true, "foot_contact": true },
+      "command_source": "policy",
+      "checks": [],
+      "recorders": ["metrics"]
+    },
+    {
+      "schema_version": "task-plugin-1.0",
+      "plugin_id": "lidar-terrain-avoid",
+      "label": "激光雷达避障（外挂感知 + 规划）",
+      "description": "B 类：雷达距离/点云由外挂避障模块消费，策略仍只跟踪 cmd_vel。",
+      "version": "1.0",
+      "task_type": "velocity",
+      "evidence": "MGDP legged_gym：配置层 legged_robot_config_baseline.py 有 use_lidar 开关（与 use_camera 并列），envs/baseline/legged_robot_camera.py 里 self.use_lidar = cfg.camera.use_lidar，random_dog/random_dog.py 中 “if (self.use_camera or self.use_lidar) and camera_type == 'warp'” 与两处 “if self.cfg.camera.use_lidar == True” 分支 ⇒ 雷达是该训练族里与相机并列的一等传感器来源；本插件把它接到外挂避障（规划器出 cmd_vel）这条 B 类链上。",
+      "sensors": [
+        { "plugin_id": "lidar", "outputs": ["ranges", "points"] },
+        { "plugin_id": "imu", "outputs": ["angular_velocity"] },
+        { "plugin_id": "odom", "outputs": ["pose_position", "pose_quat_wxyz"] }
+      ],
+      "perception": { "route": "external" },
+      "command_source": "planner",
+      "checks": ["arrival", "route_completion"],
+      "recorders": ["trajectory", "metrics"]
+    },
+    {
+      "schema_version": "task-plugin-1.0",
+      "plugin_id": "attitude-balance",
+      "label": "IMU 姿态平衡（无速度指令，只靠机体系角速度/重力）",
+      "description": "平衡任务：没有速度指令输入，成功 = 站住且姿态落在判据带内。",
+      "version": "1.0",
+      "task_type": "balance",
+      "evidence": "mjswan examples/demo/main.py 的 G1「Balance」策略：observations = base_ang_vel + projected_gravity + joint_pos + joint_vel + prev_actions（**没有 commands 组**）⇒ 该任务只靠 IMU（机体系角速度 + 重力方向）判姿态；本仓 policy_acceptance 已有同族 g1_mjswan_balance kind，且 tools/sim2sim_headless.py 的 balance 判据族（survival/height_ratio/tilt_max/vel_track）与之配套。",
+      "sensors": [
+        { "plugin_id": "imu", "outputs": ["angular_velocity", "orientation_quat_wxyz", "specific_force"] }
+      ],
+      "perception": { "route": "external" }
     }
   ]
 }
