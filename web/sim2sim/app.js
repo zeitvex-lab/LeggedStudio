@@ -9,6 +9,13 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import loadMujoco from "./vendor/mujoco/mujoco.js";
 import { createObservationSystems } from "./obs/observation_builders.js?v=0.44.0";
+// 执行器角色/控制模式解析：与同状态对拍工具（tools/obs_crosscheck.mjs）**同一个函数**，
+// 不许各写一份（2026-09-22：工具少读 `control_modes` 就把 m20/b2w 误判成实现不一致）。
+import {
+  normalizeNameMap,
+  jointGroup,
+  resolveActuatorRolesAndModes,
+} from "./obs/actuator_modes.js?v=0.58.0";
 // 契约级**槽表**（`onnx_slots`）：导出器命名不可依赖的产物按**位置**绑定 in/out 槽。
 import { resolveOnnxSlots } from "./obs/onnx_slots.js?v=0.46.0";
 import { createPieDepth } from "./pie_depth.js?v=0.46.0";
@@ -2148,9 +2155,6 @@ function resizeActionBuffers(actionDim) {
 }
 
 function applyActuatorContract(contract, control, order) {
-  const contractRoles = normalizedNameMap(contract?.actuator_roles);
-  const contractModes = normalizedNameMap(contract?.control_modes);
-  const robotModes = normalizedNameMap(control?.control_modes);
   const roleScales = control?.action_scale_by_role || {};
   const jointScales = normalizedNameMap(control?.action_scale_by_joint || contract?.action_scale_by_joint);
   const defaultPositionScale = finiteNumber(contract?.action_scale, finiteNumber(control?.action_scale, CONFIG.actionScale));
@@ -2159,19 +2163,26 @@ function applyActuatorContract(contract, control, order) {
     finiteNumber(control?.velocity_scale, 20),
   );
 
+  // 角色/模式解析走 `obs/actuator_modes.js`（**单一真值**，对拍工具调同一个函数）：
+  // 这里只负责把输入摆出来（策略契约 + 机器人 control）与消费结果（缩放表）。
+  const names = Array.from(
+    { length: CONFIG.numActions },
+    (_, index) => String(order[index] || CONFIG.jointOrder[index] || ""),
+  );
+  const { roles, modes } = resolveActuatorRolesAndModes({
+    actionDim: CONFIG.numActions,
+    jointOrder: names,
+    jointGroup,
+    contractRoles: contract?.actuator_roles,
+    contractModes: contract?.control_modes,
+    robotModes: control?.control_modes,
+  });
+
   for (let i = 0; i < CONFIG.numActions; i += 1) {
-    const name = String(order[i] || CONFIG.jointOrder[i] || "").toLowerCase();
-    const inferredRole = jointGroup(name) === "wheel" ? "wheel" : "leg";
-    const role = String(contractRoles[name] || inferredRole).toLowerCase();
-    const mode = String(
-      contractModes[name]
-      || contractModes[role]
-      || robotModes[name]
-      || robotModes[role]
-      || (role === "wheel" ? "velocity" : "position"),
-    ).toLowerCase();
+    const name = names[i].toLowerCase();
+    const role = roles[i];
     CONFIG.actuatorRoles[i] = role;
-    CONFIG.controlModes[i] = ["position", "velocity", "torque"].includes(mode) ? mode : "position";
+    CONFIG.controlModes[i] = modes[i];
     CONFIG.positionActionScales[i] = finiteNumber(
       jointScales[name],
       finiteNumber(roleScales[role], defaultPositionScale),
@@ -2225,12 +2236,8 @@ function settleRobot() {
   }
 }
 
-function normalizedNameMap(value) {
-  const result = {};
-  if (!value || typeof value !== "object") return result;
-  for (const [key, item] of Object.entries(value)) result[String(key).toLowerCase()] = item;
-  return result;
-}
+// `normalizedNameMap` / `jointGroup` 已抽到 `obs/actuator_modes.js`（**单一真值**，
+// 对拍工具与浏览器共用）——见文件头 import 与 `applyActuatorContract` 的说明。
 
 // During polling the policy may be unchanged but the user may have edited the
 // robot's default joint angles. Re-apply runtime config (and re-home the robot)
@@ -2361,13 +2368,7 @@ function resizeObservationBuffers(obsDim, historyFrames = 5) {
   }
 }
 
-function jointGroup(jointName) {
-  const name = String(jointName).toLowerCase();
-  if (name.includes("wheel") || name.includes("foot")) return "wheel";
-  if (name.includes("calf")) return "calf";
-  if (name.includes("thigh")) return "thigh";
-  return "hip";
-}
+// `jointGroup` 见 `obs/actuator_modes.js`（与对拍工具共用同一份）。
 
 // Morphology-agnostic joint segment: strips the leg-side prefix and the
 // trailing "joint" token, so "fl_hip_abduction_joint" -> "hip_abduction",
