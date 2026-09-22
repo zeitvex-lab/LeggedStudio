@@ -44,6 +44,8 @@
 .cnb/settings.yml                # 入口按钮名称 / CPU 核数 / 自动打开 WebIDE
 .cnb/mcp/servers.json            # 开发期 MCP 工具链（11 条，见 .cnb/mcp/README.md）
 tools/mcp/                       # 4 个自研 MCP server（契约 / MuJoCo / onnx / 资源库）
+adapters/github/mirror.py        # 发布：自动上传 GitHub（分支 / 标签 / Release，逐 sha 幂等）
+.cnb.yml  .github-mirror         # 该同步的流水线锚点（main.push + main.tag_push）
 scripts/provision_cpu_training.sh  # CPU 训练 venv 供应（CI 与本地同一脚本）
 scripts/cpu_training_smoke_gate.sh # CPU 训练冒烟门禁（CI 与本地同一命令）
 ```
@@ -82,6 +84,44 @@ Python 版本要求（`pyproject.toml` 的 `>=3.12,<3.13` 与 `/api/system/envir
 
 依赖供应与 CI 共用同一个锚点（`.dev-env-bootstrap`），因此
 「开发环境里能跑通的」和「CI 里跑的」仍是同一套依赖，不会出现环境漂移。
+
+### 发布：自动上传 GitHub（镜像）
+
+本仓（CNB）是开发主仓，GitHub 侧保留一份**可直接克隆**的公开副本。同步由流水线自动完成：
+
+| 事件 | 做什么 |
+|---|---|
+| `main` 的 **push** | 把 `main` 与本地 tag 镜像到 GitHub（**逐 sha 比对，无变更即跳过**） |
+| `v*` 的 **tag_push** | 同上 + 在**本仓与 GitHub 两侧**各建一个 Release |
+
+- 触发配置：`.cnb.yml` 的 `.github-mirror` 锚点（`main.push` 与 `main.tag_push` 各挂一次）；
+- 执行体：[`adapters/github/mirror.py`](../adapters/github/mirror.py) —— **只用标准库**
+  （`urllib` + git CLI），所以"上传失败"里不会混进"依赖装不上"两种原因；
+- 凭据：`imports` 引**密钥仓库** [`zeitvex/github-secrets`](https://cnb.cool/zeitvex/github-secrets/-/blob/main/github-secrets.yaml)，
+  只以环境变量形式注入，不落到工作区文件；`GITHUB_TOKEN` 仅经 `http.extraheader` 传给 git
+  （不进 `.git/config`、不进 argv），输出侧一律脱敏。
+
+```yaml
+# github-secrets.yaml（密钥仓库里，Web 界面编辑）
+GITHUB_USER: "your-github-username"
+GITHUB_TOKEN: "ghp_xxxxxxxxxxxxxxxxxxxx"
+# 可选：镜像到别的仓库（缺省 = $GITHUB_USER/LeggedStudio）
+# GITHUB_REPO: "owner/repo"
+# 可选：镜像分支白名单，逗号分隔（缺省 = main）
+# GITHUB_MIRROR_BRANCHES: "main,release/v1.0"
+```
+
+**边界（如实声明）**：只覆盖 git 层（commit / branch / tag / Release 说明）；GitHub 侧的
+仓库设置、Actions、Issues、LFS 大文件**不在范围内**。空仓库会被拒绝（`git push` 对空仓会把
+远端默认分支设成第一个被推的分支）。**没配密钥不算失败**：脚本打印 `SKIPPED` 并 exit 0 ——
+本地与 PR 上本来就拿不到密钥（`imports` 只对 `push` / `tag_push` 生效），判据是"配了就同步"。
+
+手动演练（不写任何东西）：
+
+```bash
+python -m adapters.github.mirror --check     # 只报告会同步哪些 ref
+python -m unittest adapters.github.test_github_mirror    # 14 项契约测试
+```
 
 ### MCP 工具链（开发期，不预装本体）
 

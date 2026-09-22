@@ -33,6 +33,11 @@ ROOT = Path(__file__).resolve().parents[1]
 TOOLS_DIR = ROOT / "tools"
 
 #: 消费面：这些地方提到工具名即算"有人用"
+#:
+#: 注意本清单只管 **tools/** 下的孤儿检测；`adapters/*` 里的可执行入口
+#: （如 `adapters/github/mirror.py`）不在这套判据内 —— 它们由 `.cnb.yml` 的
+#: github-mirror pipeline 直接调用，属于"随适配器走"的成员，与
+#: `adapters/backend_adapter.py` 同惯例。
 CONSUMERS = (
     "package.json",
     ".cnb.yml",
