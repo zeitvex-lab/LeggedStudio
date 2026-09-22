@@ -9,6 +9,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import loadMujoco from "./vendor/mujoco/mujoco.js";
 import { createObservationSystems } from "./obs/observation_builders.js?v=0.44.0";
+// 契约级**槽表**（`onnx_slots`）：导出器命名不可依赖的产物按**位置**绑定 in/out 槽。
+import { resolveOnnxSlots } from "./obs/onnx_slots.js?v=0.46.0";
 import { createPieDepth } from "./pie_depth.js?v=0.46.0";
 // 观测面板绘制器（深度帧 / 俯视高度场 / 极坐标扫描 / 点云散点 / 2D 轨迹平面）。
 // 纯函数 + 注入 ctx：能画什么由参数决定，模块不读 sim / DOM，所以 Node 单测能覆盖。
@@ -1341,31 +1343,50 @@ function inspectPolicy(session, contract = {}) {
   const inputNames = session.inputNames || tensorMetadataNames(session.inputMetadata);
   const outputNames = session.outputNames || tensorMetadataNames(session.outputMetadata);
   const HISTORY_INPUT_NAMES = ["history", "hist", "obs_hist", "proprio_history"];
-  const historyName = inputNames.find((n) => HISTORY_INPUT_NAMES.includes(n)) || "";
+  // 契约级**槽表**（`onnx_slots`，见 `obs/onnx_slots.js`）：mjswan 一类**导出器命名不可依赖**
+  // 的产物按**位置**绑定（名字毫无语义：`l_kwargs_policy_` / `l__args___0_module_1_1`）。
+  // 声明了槽表 ⇒ 本体观测、动作、递归 in/out 全由它定，下面的名字约定不再参与（两条路径
+  // 同时生效就必然有一份是错的）。
+  const slots = resolveOnnxSlots(contract, inputNames, outputNames);
+  const historyName = slots ? "" : (inputNames.find((n) => HISTORY_INPUT_NAMES.includes(n)) || "");
   const hasHistory = Boolean(historyName);
   // 深度输入（PIE 等）：独立的 depth_history 张量，由浏览器 raycast 渲染。
-  const depthName = inputNames.find((n) => /depth/i.test(n)) || "";
-  const obsName = inputNames.includes("obs")
-    ? "obs"
-    : inputNames.find((n) => n !== historyName && n !== depthName) || inputNames[0];
-  const actionName = outputNames.includes("act")
-    ? "act"
-    : outputNames.includes("action")
-      ? "action"
-      : outputNames.includes("actions")
-        ? "actions"
-        : outputNames[0];
+  const depthName = slots ? "" : (inputNames.find((n) => /depth/i.test(n)) || "");
+  const obsName = slots
+    ? slots.actorName
+    : (inputNames.includes("obs")
+      ? "obs"
+      : inputNames.find((n) => n !== historyName && n !== depthName) || inputNames[0]);
+  const actionName = slots?.actionName
+    || (outputNames.includes("act")
+      ? "act"
+      : outputNames.includes("action")
+        ? "action"
+        : outputNames.includes("actions")
+          ? "actions"
+          : outputNames[0]);
   const weightsName = outputNames.includes("weights") ? "weights" : "";
   const estimatedVelName = outputNames.includes("estimated_vel") ? "estimated_vel" : "";
   const latentName = outputNames.includes("latent") ? "latent" : "";
   const nextHistoryName = outputNames.includes("next_history") ? "next_history" : "";
-  const recurrentStates = inspectRecurrentStates(
-    session,
-    contract,
-    inputNames,
-    outputNames,
-    [obsName, historyName],
-  );
+  // 递归状态：槽表声明时按**输出位置**配对（`outputs.recurrent`），名字约定配不上导出器命名
+  const slotRecurrentStates = slots && slots.recurrentName ? [{
+    inputName: slots.recurrentName,
+    outputName: slots.recurrentOutputName,
+    shape: tensorMetadataShape(session.inputMetadata, slots.recurrentName, inputNames),
+    type: "float32",
+    size: tensorElementCount(tensorMetadataShape(session.inputMetadata, slots.recurrentName, inputNames)),
+  }] : [];
+  const recurrentStates = slots
+    ? slotRecurrentStates
+    : inspectRecurrentStates(session, contract, inputNames, outputNames, [obsName, historyName]);
+  // 命令槽宽度在这里（**只有这一处拿得到 session metadata**）读出来存进 info：喂入那段
+  // `runPolicy()` 作用域里没有 session（第一版直接在那边读 `session.inputMetadata`，
+  // 一跑必 ReferenceError）。
+  const slotCommandShape = slots
+    ? tensorMetadataShape(session.inputMetadata, slots.commandName, inputNames)
+    : [];
+  const slotCommandDim = Number(slotCommandShape[slotCommandShape.length - 1]) || 0;
   const obsDims = tensorMetadataShape(session.inputMetadata, obsName, inputNames);
   const historyDims = hasHistory
     ? tensorMetadataShape(session.inputMetadata, historyName, inputNames)
@@ -1425,6 +1446,8 @@ function inspectPolicy(session, contract = {}) {
     latentName,
     nextHistoryName,
     recurrentStates,
+    slots,
+    slotCommandDim,
     obsSize,
     baseObsSize,
     historyObsSize,
@@ -1535,6 +1558,9 @@ function allocateTensorData(type, size) {
 
 function resetPolicyState() {
   sim.policyStateEpoch += 1;
+  // mjswan 四输入链的 `is_init`：**episode 首帧为真**（上游 OnnxModule.ts 实测 true→false），
+  // 复位时挂上"待发首帧"标记，喂入那一步消费掉（`resetPolicyState` 是唯一的复位入口）。
+  sim.mjswanInitPending = true;
   sim.recurrentState = Object.create(null);
   for (const state of sim.policyInfo?.recurrentStates || []) {
     sim.recurrentState[state.inputName] = allocateTensorData(state.type, state.size);
@@ -4134,6 +4160,25 @@ async function runPolicy() {
   for (const state of info.recurrentStates || []) {
     const data = sim.recurrentState[state.inputName] || allocateTensorData(state.type, state.size);
     feeds[state.inputName] = new ort.Tensor(state.type, data, state.shape);
+  }
+  if (info.slots) {
+    // 命令槽（`command_`）：`velocity_cmd(3) × cmd_scale` + 其余**零占位**（oscillator 槽，
+    // 上游 `velocity_command_padding` 就是 zeros(13)）。宽度在 `inspectPolicy` 里读好存进
+    // `info.slotCommandDim`（这里没有 session 可读）。
+    const cmdDim = Number(info.slotCommandDim) || 0;
+    if (cmdDim >= 3) {
+      const cmdVec = new Float32Array(cmdDim);
+      for (let i = 0; i < 3; i += 1) cmdVec[i] = sim.cmd[i] * (CONFIG.cmdScale?.[i] ?? 1);
+      feeds[info.slots.commandName] = new ort.Tensor("float32", cmdVec, [1, cmdDim]);
+    }
+    // `is_init`：**episode 首帧为真**（上游 `OnnxModule.ts` 实测 true→其后 false）。必须是
+    // **rank-1 的 bool**：上游张量是 `[1]`，喂 `[[..]]` 会被 onnxruntime 判 `Invalid rank`
+    // （Python 侧踩过同一个坑）。
+    if (info.slots.isInitName) {
+      const first = sim.mjswanInitPending === true;
+      sim.mjswanInitPending = false;
+      feeds[info.slots.isInitName] = new ort.Tensor("bool", Uint8Array.from([first ? 1 : 0]), [1]);
+    }
   }
   const output = await queueOrtRun(() => sim.policy.run(feeds));
   if (policyStateEpoch !== sim.policyStateEpoch) return;
