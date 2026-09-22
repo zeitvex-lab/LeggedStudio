@@ -1,8 +1,8 @@
 # `.cnb/mcp/` — Legged Studio 的开发期 MCP 工具链
 
-> **定位**：MCP server 是**开发期工具**，不是运行期依赖。因此**不进 Dockerfile 镜像**，
+> **定位**：MCP server 是**开发期工具**，不是运行期依赖。因此**不预装进环境**，
 > 而是随仓库走，由云原生开发环境（`.cnb.yml` 的 `vscode` 事件）读 `servers.json` 装配。
-> 镜像只提供 `npx` / `uvx` 两个 runner 底座（见 `Dockerfile` 的「开发期 MCP 工具链」段）。
+> `npx` / `uvx` 两个 runner 底座由 CNB 默认镜像提供，本仓不再自建镜像。
 
 配置入口：[`servers.json`](./servers.json)（标准 `mcpServers` 结构，任意支持 MCP 的客户端可直接引用）。
 

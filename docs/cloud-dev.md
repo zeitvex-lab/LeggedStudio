@@ -2,12 +2,22 @@
 
 点仓库页面的 **「Legged Studio 开发」** 按钮，即可获得一个开箱即用的在线开发环境：
 
-- 基础镜像 = **Ubuntu 24.04 LTS**（noble），Python 3.12 来自 Ubuntu 官方源（不是 PPA）；
-- 依赖（`backend/requirements.txt` + `onnxruntime`）已固化在镜像里，**每次进入都不用重新配环境**；
-- Chromium + Playwright 预装，浏览器 sim2sim 可直接看、可直接截图；
-- **CPU 训练链路已就绪**：mjlab 的 `cpu` extra 装在镜像内的隔离 venv
-  （`/opt/legged-studio/mjlab-cpu/.venv`），进环境就能真跑训练，无需等 torch 下载；
+- 镜像 = **CNB 默认镜像 `cnbcool/default-dev-env`**（`.cnb.yml` 里不写 `docker.image` /
+  `docker.build`）。平台侧维护，自带 code-server（单容器模式）、CodeBuddy Web
+  与 WebIDE 的 CodeBuddy 插件、Python 3.12、Node 22、uv、git-lfs、zsh、cnb-cli；
+- 控制面依赖（`backend/requirements.txt` + `onnxruntime`）与 **CPU 训练 venv**
+  由启动阶段按需供应（幂等），pip 缓存落节点级缓存卷，第二次进环境基本是复用；
+- Playwright Chromium 装到缓存卷（版本随 `playwright` 包自动对齐），浏览器 sim2sim
+  可直接看、可直接截图；
+- **CPU 训练链路进环境即可用**：mjlab 的 `cpu` extra 装在仓库外的隔离 venv
+  （`/opt/legged-studio/mjlab-cpu/.venv`）；
 - 后端在 `0.0.0.0:8765` 自动拉起。
+
+> **为什么不再自建镜像**（2026-09-22 决定，见 issue #44）：根 `Dockerfile` 那份自建镜像
+> 是**一长串问题的来源**——code-server 装不进去就退回双容器模式（终端停在「连接到 CNB
+> 容器中...」）、CodeBuddy 插件不再自动注入（右键没有 AI 助手）、基础镜像 apt 包名随
+> 发行版迁移（bookworm→noble 已踩过一次）、改一次 `by` 清单就整体重建。
+> 换成平台默认镜像后这些面直接消失，代价只有"进环境时供应一次依赖"。
 
 ## 入口与预览地址
 
@@ -26,35 +36,56 @@
 ## 环境结构
 
 ```
-Dockerfile                       # 唯一环境事实源：云原生开发与 CI 共用同一镜像
-.cnb.yml  $: vscode              # 启动流程：起后端 + 打印 MCP/预览地址（不做重复安装）
-.cnb.yml  .docker-dev-image      # 上述镜像的 docker.build 配置（含 by 文件清单）
+.cnb.yml  （无 docker.build）     # 镜像=默认镜像；依赖在启动阶段供应
+.cnb.yml  .dev-env-bootstrap     # 依赖供应：控制面 pip 包 + libosmesa（CI/开发共用锚点）
+.cnb.yml  $: vscode              # 启动流程：供应依赖 + 自检 + 起后端 + 打印预览地址
 .cnb/settings.yml                # 入口按钮名称 / CPU 核数 / 自动打开 WebIDE
 .cnb/mcp/servers.json            # 开发期 MCP 工具链（11 条，见 .cnb/mcp/README.md）
 tools/mcp/                       # 4 个自研 MCP server（契约 / MuJoCo / onnx / 资源库）
-scripts/provision_cpu_training.sh  # CPU 训练 venv 供应（镜像构建与本地同一脚本）
+scripts/provision_cpu_training.sh  # CPU 训练 venv 供应（CI 与本地同一脚本）
 scripts/cpu_training_smoke_gate.sh # CPU 训练冒烟门禁（CI 与本地同一命令）
 ```
 
-### 基础镜像与 Python 来源
+### 镜像与依赖来源
 
-`FROM ubuntu:24.04`，Python 3.12 **apt 直装**（`python3` 在 noble 官方源就是 3.12）：
+镜像就是 **CNB 默认镜像**（`cnbcool/default-dev-env`）—— `.cnb.yml` 里**没有任何**
+`docker.image` / `docker.build` 声明，平台兜底即默认镜像：
 
-- 满足 `pyproject.toml` 的 `>=3.12,<3.13` 与 `/api/system/environment` 的
-  `python_target_match`（3.11 会让体检页报红）；
-- 不引 deadsnakes PPA —— 避免把外部信任源引进"唯一环境事实源"，代价是多一次
-  `apt-get install python3 python3-venv python3-dev python3-pip`（约 30 秒）；
-- Ubuntu 不提供 `python` 别名，镜像里显式建了 `/usr/local/bin/python → python3`，
-  与 CI（`python -m ...`）保持同一调用口径。
+- 自带 code-server + ssh → **单容器模式**（WebIDE 直连开发容器，终端不会卡在
+  「连接到 CNB 容器中...」）；
+- 自带 CodeBuddy Web 入口与 WebIDE 的 CodeBuddy 插件（`Tencent-Cloud.coding-copilot`），
+  **无需**再手工补装；
+- Python 3.12（uv 提供）、Node 22、`uv`、`git-lfs`、`zsh`、`cnb-cli`、`skills` 齐备。
 
-> 由 `python:3.12-bookworm`（Debian 12）迁到 `ubuntu:24.04` 时，apt 包名要跟着改：
-> `libgl1-mesa-glx` 在 noble 已删除，改为 `libgl1` + `libglx-mesa0`。
+Python 版本要求（`pyproject.toml` 的 `>=3.12,<3.13` 与 `/api/system/environment` 的
+`python_target_match`）由默认镜像的 3.12 满足；镜像里 `python` 与 `python3` 都指向 3.12。
 
-### MCP 工具链（开发期，不进镜像）
+**不固化的东西**（都改由启动阶段供应，见下节）：
 
-镜像只装 `npx` / `uvx` 两个 runner，**不预装各 MCP server 本体**（它们是按需拉取的
-开发期工具，写进镜像会让"控制面镜像"和"工具链"两个关注点耦合）。清单与选型理由见
-[`../.cnb/mcp/README.md`](../.cnb/mcp/README.md)，共 11 条：
+| 依赖 | 供应方式 | 复用 |
+|---|---|---|
+| 控制面（`backend/requirements.txt` + `httpx`/`onnx`/`onnxruntime`） | `pip install --break-system-packages` | `/root/.cache/pip` 缓存卷 |
+| CPU 训练 venv（mjlab cpu extra） | `scripts/provision_cpu_training.sh`（幂等） | 落在 `/opt/...`（仓库外，不被 bind mount 覆盖） |
+| Playwright Chromium | `playwright install --with-deps chromium` | `/root/.cache/ms-playwright` 缓存卷 + 版本标记 |
+| 离屏渲染软件 GL（`libosmesa6`） | `apt-get install`（尽力而为，失败不判红） | —— |
+
+### 启动阶段做了什么
+
+`.cnb.yml` 的 `vscode` 段有三个 stage：
+
+1. `dev-env-bootstrap` — 供应控制面依赖、Chromium、训练 venv（**全部幂等**）；
+2. `assert-default-env` — 自检默认镜像的关键能力：`code-server` 必须存在（否则会退回
+   双容器模式，直接判失败）；`codebuddy` / CodeBuddy 插件 / `uv` / `git-lfs` 缺失只告警；
+3. `start-control-plane` — 起后端、打印预览地址与 MCP 自检结果。
+
+依赖供应与 CI 共用同一个锚点（`.dev-env-bootstrap`），因此
+「开发环境里能跑通的」和「CI 里跑的」仍是同一套依赖，不会出现环境漂移。
+
+### MCP 工具链（开发期，不预装本体）
+
+默认镜像已提供 `npx` / `uvx` 两个 runner，本项目**不预装各 MCP server 本体**
+（它们是按需拉取的开发期工具，固化进环境会让"控制面依赖"和"工具链"两个关注点耦合）。
+清单与选型理由见 [`../.cnb/mcp/README.md`](../.cnb/mcp/README.md)，共 11 条：
 
 - 通用系 6：`filesystem` / `git` / `github` / `fetch` / `playwright` / `sqlite`
   （其中 `playwright` 最刚需——本仓所有 sim2sim 结论都是浏览器实测得出的）；
@@ -62,7 +93,7 @@ scripts/cpu_training_smoke_gate.sh # CPU 训练冒烟门禁（CI 与本地同一
   （`mujoco` / `onnx` / `resources` / `contracts`，实现在 `tools/mcp/`）。
 
 自研 server 只用 `mujoco` / `onnxruntime` / 标准库，**不增依赖**，因此
-`backend/requirements.txt` 与 `.docker-dev-image.by` 清单都不用改。自检：
+`backend/requirements.txt` 无需改动（`mujoco` / `onnxruntime` 已在其中）。自检：
 
 ```bash
 python -m unittest backend.test_mcp_servers -v          # 声明 + 4 个 server 自检 + 真调用
@@ -70,41 +101,21 @@ python -m tools.mcp.contracts_server --selftest         # 单条 server 的工�
 python -m tools.mcp.contracts_server                    # stdio 起服务（JSON-RPC）
 ```
 
-依赖与浏览器都在镜像层，`stages` 里**不放安装命令**，所以进入环境是秒级的。
+MCP 只装 `npx` / `uvx` runner，server 本体按需拉取；这与"控制面依赖在启动阶段供应"的分工一致。
 
 ### WebIDE 里的 CodeBuddy（AI 助手）从哪来
 
-WebIDE 内的 CodeBuddy 插件（`Tencent-Cloud.coding-copilot`）**不会自动注入**：
-
-- 默认镜像 `cnbcool/default-dev-env` 预装了它，所以「不写 Dockerfile」时右键有 AI 助手；
-- 本项目用自定义镜像（根 `Dockerfile`）换掉了默认镜像，这份预装随之消失——
-  于是出现「云原生开发里 CodeBuddy 插件没了、右键没有 AI 助手」。
-
-因此本镜像显式执行 `code-server --install-extension Tencent-Cloud.coding-copilot`
-（见 `Dockerfile` 的「CodeBuddy IDE 插件」段），装进根用户扩展目录
-`/root/.local/share/code-server/extensions`，对 WebIDE 与 VSCode Remote-SSH 同时生效。
-扩展源是 open-vsx（非微软官方源），ID 见
-<https://open-vsx.org/extension/Tencent-Cloud/coding-copilot>。
-
-两种 CodeBuddy 入口别混淆：
+**默认镜像自带的**，不需要仓库做任何事：
 
 | 入口 | 依赖 | 表现 |
 |---|---|---|
-| CodeBuddy Web | 镜像内有 `codebuddy` 命令且 >= 2.137.0 | 云开发入口页多一个浏览器入口 |
-| CodeBuddy IDE 插件 | 镜像内预装 open-vsx 扩展 | WebIDE 编辑器内可用，有右键 AI 助手 |
+| CodeBuddy Web | 镜像内有 `codebuddy` 命令（>= 2.137.0） | 云开发入口页多一个浏览器入口 |
+| CodeBuddy IDE 插件 | 镜像预装 open-vsx 扩展 `Tencent-Cloud.coding-copilot` | WebIDE 编辑器内可用，有右键 AI 助手 |
 
-启动期自检（`.cnb.yml` 的 `vscode` 段）会打印两者状态：插件缺失只告警不失败。
-
-### 改 Dockerfile 时别忘 `by` 清单
-
-CNB 的 `docker.build` **只把 Dockerfile 与 `by` 列出的文件放进构建上下文**
-（官方文档：未出现在 `by` 列表中的文件不会被 COPY 进镜像）。所以：
-
-- Dockerfile 里每加一条 `COPY <repo 内文件>`，都必须把该文件加进
-  `.cnb.yml` 的 `.docker-dev-image.by`，否则构建报 `"<path>": not found`；
-- `by` 路径相对**仓库根**（不是 Dockerfile 所在目录）。
-
-漏加 `by` 的表现是 `Prepare` 阶段直接失败（空上下文），而不是进容器后才报错。
+> 历史坑（已随自建镜像一起退场）：改用自定义根 `Dockerfile` 后，默认镜像里的这份
+> 预装**不会自动注入**，表现为「插件没了、右键没有 AI 助手」。当时的修法是自己在
+> Dockerfile 里 `code-server --install-extension`。现在回到默认镜像，问题面不复存在。
+> 启动期自检仍会打印两者状态（插件缺失只告警不失败）。
 
 ## 浏览器验证（浏览器是刚需）
 
@@ -214,8 +225,13 @@ bash scripts/provision_cpu_training.sh
 
 ## 与 CI 的关系
 
-云原生开发与云原生构建底层是同一套引擎，这里共用根 `Dockerfile`，
-所以「开发环境里能跑通的」和「CI 里跑的」是同一套依赖，不会出现环境漂移。
+云原生开发与云原生构建底层是同一套引擎，这里共用**默认镜像 + 同一个依赖供应锚点**
+（`.cnb.yml` 的 `.dev-env-bootstrap`），所以「开发环境里能跑通的」和「CI 里跑的」
+是同一套依赖，不会出现环境漂移。
+
+差别只在缓存：开发环境把 `/root/.cache/pip` 与 `/root/.cache/ms-playwright` 挂成
+节点级缓存卷（第二次进环境基本都在复用）；CI runner 每次现装（换来的是依赖版本
+零漂移 —— 改了 `requirements.txt` 立刻生效，不存在"镜像层还是旧依赖"的滞后）。
 
 | CI 任务 | 内容 |
 |---|---|
