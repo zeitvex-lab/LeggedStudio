@@ -824,6 +824,25 @@ async def create_session(request: SimulationSessionRequest) -> dict[str, Any]:
             status_code=400,
             detail={"message": "A 类感知与所选策略不匹配，拒绝启动仿真会话", **binding},
         )
+    # H2（2026-09-22）：**"没有任何执行器能跑"的场景不许建会话**。契约允许而两个执行器都不支持的
+    # 取值（当前只有 `command_source=perception`）此前在这条入口是**放行**的——会话建起来了、
+    # `step` 也推进得动，但没有执行器认这个语义（fail-open：把"没人能跑"当成"能跑"）。
+    # 判据只有一份（`executors.select_executor`），不在这里复述能力表。
+    # **只拦"没人能跑"**：`command_source=policy` 本路由跑不了、浏览器能跑（A 类场景正是这样），
+    # 那种情况不该在这里判死——所以问的是"有没有执行器能跑"，不是"本路由能不能跑"。
+    from backend.executors import select_executor
+
+    runnable = select_executor(scenario_payload)
+    if not runnable["ok"]:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "没有任何执行器能跑这份场景，拒绝启动仿真会话",
+                "reasons": runnable["reasons"],
+                "considered": runnable["considered"],
+                "unsupported_contract_options": runnable["unsupported_contract_options"],
+            },
+        )
     # H3：planner 命令来源 ⇒ 装配导航计划（规划与到达判据只有一处实现，
     # 与浏览器侧的 /api/navigation/plan 共用，避免两端各算一套）。
     navigation = None

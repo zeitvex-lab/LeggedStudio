@@ -265,5 +265,58 @@ class ExecutorSelectionHttpSurfaceTest(unittest.TestCase):
             self.assertEqual(422, response.status_code, body)
 
 
+class SessionEntryFailClosedTest(unittest.TestCase):
+    """**"没人能跑"的场景不许建会话**（2026-09-22，把 H2 的判据接到执行入口）。
+
+    守的是**过度放行**：契约允许 `command_source=perception`，而两个执行器的
+    `supports.command_sources` 都没有它（见 `UNSUPPORTED_CONTRACT_OPTIONS`）——会话入口
+    此前照建不误：会话建起来了、`step` 也推进得动，只是**没有执行器认这个语义**。
+
+    同时守**过度拦截**：`command_source=policy` 在服务端跑不了、浏览器能跑（A 类场景正是
+    这样），绝不能被这条闸门判死——所以判据问的是"**有没有**执行器能跑"，不是"本路由能不能跑"。
+    """
+
+    def setUp(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from backend.api_complete import app
+
+        self.client = TestClient(app)
+
+    @staticmethod
+    def _body(command_source: str) -> dict:
+        scenario = {
+            "scenario_id": "executor_gate_probe",
+            "map_id": "flat",
+            "mode": "basic",
+            "command_source": command_source,
+        }
+        if command_source in ("planner", "perception"):
+            # 契约的交叉校验：`planner|perception ⇒ 必须有航点`（S1）——不加航点会先被
+            # **契约**拦下（`invalid scenario`），那样测的就不是本闸门了。
+            scenario["waypoints"] = [{"x": 0, "y": 0}, {"x": 2, "y": 1}]
+        return {
+            "robot_id": "unitree_go2",
+            "map_id": "flat",
+            "mode": "basic",
+            "scenario": scenario,
+        }
+
+    def test_unrunnable_scenario_is_refused_with_reasons(self):
+        response = self.client.post("/api/simulation/sessions", json=self._body("perception"))
+        self.assertEqual(400, response.status_code, response.text)
+        detail = response.json()["detail"]
+        self.assertIn("没有任何执行器能跑", detail["message"])
+        self.assertTrue(detail["reasons"], detail)
+        self.assertTrue(
+            detail["unsupported_contract_options"],
+            "拒绝理由里必须带上'契约允许但没人能跑'的缺口，否则调用方不知道去找谁补",
+        )
+
+    def test_browser_only_scenario_is_not_blocked_here(self):
+        response = self.client.post("/api/simulation/sessions", json=self._body("policy"))
+        self.assertEqual(200, response.status_code, response.text)
+
+
 if __name__ == "__main__":
     unittest.main()
