@@ -57,6 +57,20 @@ class ImportScenarioRequest(BaseModel):
     name: str
 
 
+class TaskPluginExportRequest(BaseModel):
+    """打包一条**任务插件**（注册表里的那一份，原样带走）。"""
+
+    plugin_id: str
+    out_name: str | None = None
+    overwrite: bool = False
+
+
+class ImportTaskPluginRequest(BaseModel):
+    """收下别人给的**任务插件包**（`<workspace>/exports/` 下按名字找）。"""
+
+    name: str
+
+
 def _exports_root() -> Path:
     return _workspace_root() / EXPORTS_DIR_NAME
 
@@ -235,6 +249,54 @@ async def import_scenario_export(request: ImportScenarioRequest) -> dict[str, An
 
     try:
         result = import_scenario(_export_dir(request.name))
+    except FileExistsError as exc:  # pragma: no cover - 本接口不写盘，出现即说明语义变了
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"success": True, "name": request.name, **result}
+
+
+@router.post("/task-plugin")
+async def create_task_plugin_export(request: TaskPluginExportRequest) -> dict[str, Any]:
+    """**打包任务插件**：注册表里的那一条 → `<workspace>/exports/task-plugin-<名字>`。
+
+    导出的是**注册表加载后的同一份对象**（不重抄），所以"导出的正是我在页面上选的那条任务"
+    无需另证；未注册的 id 走 400 带可用清单（拒绝要说清怎么改）。
+    """
+
+    from backend.bundle_export import default_out_dir, export_task_plugin, verify_export
+    from contracts.task_plugin_contract import TaskPluginError
+
+    out = default_out_dir("task-plugin", _safe_export_name(request.out_name or request.plugin_id))
+    if request.out_name:
+        out = _prepare_out_dir(f"task-plugin-{_safe_export_name(request.out_name)}", overwrite=request.overwrite)
+    elif out.exists() and any(out.iterdir()) and not request.overwrite:
+        raise HTTPException(status_code=409, detail=f"{api_path(out)} 已存在且非空；要覆盖请显式 overwrite=true")
+    try:
+        manifest = export_task_plugin(request.plugin_id, out)
+    except TaskPluginError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    report = verify_export(out)
+    return {
+        "success": bool(report.get("ok")),
+        "out_dir": api_path(out),
+        "manifest": manifest,
+        "verify": report,
+    }
+
+
+@router.post("/import-task-plugin")
+async def import_task_plugin_export(request: ImportTaskPluginRequest) -> dict[str, Any]:
+    """**收下别人给的任务插件包**：完整性 + 契约双校验后**回载荷**（不落盘）。
+
+    与 `import-scenario` 同一条纪律：不落盘是因为"导入到哪里"没有唯一答案；要归档就把包
+    放在 `<workspace>/exports/` 下（本接口正从这里读）。校验不过一律 400 带原话。
+    """
+
+    from backend.bundle_export import import_task_plugin
+
+    try:
+        result = import_task_plugin(_export_dir(request.name))
     except FileExistsError as exc:  # pragma: no cover - 本接口不写盘，出现即说明语义变了
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (ValueError, FileNotFoundError) as exc:

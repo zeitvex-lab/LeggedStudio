@@ -138,6 +138,100 @@ class TaskPluginInstantiateTest(unittest.TestCase):
         self.assertEqual(["future_recorder"], result["readiness"]["unconsumed_recorders"])
 
 
+class TaskPluginPackTest(unittest.TestCase):
+    """**任务插件包**的导出/导入（用户指令里的"一键导入导出"）。
+
+    纪律与场景包同一条：导出的必须是**注册表里的同一份**（不重抄）、完整性先验、
+    契约同一道闸、收包只校验不落盘。
+    """
+
+    def test_export_then_import_round_trip(self):
+        from backend import bundle_export as bx
+
+        registry = tp.load_task_plugins()["odom-waypoint-nav"]
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "pack"
+            manifest = bx.export_task_plugin("odom-waypoint-nav", out)
+            self.assertEqual("task_plugin", manifest["kind"])
+            self.assertEqual("odom-waypoint-nav", manifest["refs"]["task_plugin"]["id"])
+            self.assertTrue(bx.verify_export(out)["ok"], "导出的包必须自验通过")
+
+            result = bx.import_task_plugin(out)
+            self.assertEqual("export_dir", result["form"])
+            self.assertIsNone(result["written"], "不给 dest 就不落盘")
+            self.assertEqual(registry.model_dump(), result["plugin"])
+
+    def test_tampered_pack_is_rejected(self):
+        """把包里的插件声明改坏（未知传感器 id）⇒ 导入必须拒（不是"看着像插件"就收下）。"""
+
+        from backend import bundle_export as bx
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "pack"
+            bx.export_task_plugin("blind-velocity", out)
+            target = out / bx.TASK_PLUGIN_FILE
+            payload = json.loads(target.read_text(encoding="utf-8"))
+            payload["sensors"] = [{"plugin_id": "no_such_sensor"}]
+            target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            with self.assertRaises(ValueError) as ctx:
+                bx.import_task_plugin(out)
+            message = str(ctx.exception)
+            self.assertTrue("完整性" in message or "未知传感器" in message, message)
+
+    def test_bare_json_is_accepted_and_labelled(self):
+        from backend import bundle_export as bx
+
+        plugin = tp.load_task_plugins()["attitude-balance"].model_dump()
+        with tempfile.TemporaryDirectory() as tmp:
+            bare = Path(tmp) / "plugin.json"
+            bare.write_text(json.dumps(plugin, ensure_ascii=False), encoding="utf-8")
+            result = bx.import_task_plugin(bare)
+        self.assertEqual("bare_json", result["form"])
+        self.assertIsNone(result["integrity"], "裸 JSON 没有 manifest 可验——如实标 None，不假装验过")
+        self.assertEqual("attitude-balance", result["plugin_id"])
+
+    def test_unknown_plugin_id_cannot_be_exported(self):
+        from backend import bundle_export as bx
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(TaskPluginError) as ctx:
+                bx.export_task_plugin("no_such_task", Path(tmp) / "pack")
+            self.assertIn("可用", str(ctx.exception))
+
+    def test_export_and_import_over_http(self):
+        """HTTP 面：`POST /api/exports/task-plugin` → `POST /api/exports/import-task-plugin`。"""
+
+        import os
+        from unittest import mock
+
+        from backend.paths import WORKSPACE_ENV
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {WORKSPACE_ENV: tmp}):
+                from fastapi.testclient import TestClient
+
+                import backend.api_complete as api_complete
+
+                client = TestClient(api_complete.app)
+                exported = client.post("/api/exports/task-plugin",
+                                       json={"plugin_id": "wheel-leg-terrain", "out_name": "terrain-task"})
+                self.assertEqual(200, exported.status_code, exported.text)
+                body = exported.json()
+                self.assertTrue(body["success"], body)
+                name = Path(body["out_dir"]).name
+
+                imported = client.post("/api/exports/import-task-plugin", json={"name": name})
+                self.assertEqual(200, imported.status_code, imported.text)
+                payload = imported.json()
+                self.assertEqual("wheel-leg-terrain", payload["plugin_id"])
+                self.assertEqual("export_dir", payload["form"])
+
+                # 未注册的 id ⇒ 400 带可用清单（不是 500）
+                bad = client.post("/api/exports/task-plugin", json={"plugin_id": "no_such_task"})
+                self.assertEqual(400, bad.status_code)
+                self.assertIn("可用", bad.json()["detail"])
+
+
 class TaskPluginApiTest(unittest.TestCase):
     def setUp(self):
         from fastapi.testclient import TestClient
