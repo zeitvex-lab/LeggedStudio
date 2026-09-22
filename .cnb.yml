@@ -33,6 +33,13 @@
 # "不声明"并不省额度——所以这里必须**显式**写小核数。这些门禁以 I/O + 单进程为主
 # （py_compile / 单测 / 审计脚本 / ONNX 推理 / 加载冒烟），2 核足够；真需要更多核时
 # 显式调高，而不是留空吃 8 核默认。
+#
+# **降核只解决「配额」这一半，另一半是「底座」。** 不声明 `docker.image` 的 pipeline
+# （cpu-training-smoke(-pr) / vscode）跑在平台默认 runner 上，那里**没有 python3/pip**：
+# Prepare 能通过、stage 照样秒挂（本仓 PR #47 实测 `pip: command not found` /
+# `python3: command not found`）。所以凡是不挂 `docker.image` 又需要解释器的 stage，
+# 一律**自举**（见 .dev-env-bootstrap 的「解释器与包管理器」段）。
+# 只读日志里那句「依赖供应失败」容易误判成 requirements 的问题，实际与依赖无关。
 # ───────────────────────────────────────────────────────────────────────────
 
 # 环境供应的公共锚点：默认镜像只有 Python/Node 运行时，控制面依赖与训练栈
@@ -52,10 +59,46 @@
     # 幂等：已装好就跳过（开发环境里每次起环境都会走到这里）。
     # 这里刻意**不用 pipefail**：stage.script 由 sh 解释，dash 的 `set -o pipefail`
     # 会直接报 "Illegal option" 并让门禁在开局就退出（本仓曾因此 167ms 判失败）。
+    # 也不依赖 python3/pip 预装：下方**自举**，见「解释器与包管理器」段。
     set -e
+    echo "== 解释器与包管理器（默认镜像不保证预装） =="
+    # 本锚点挂在 cpu-training-smoke(-pr) 的 stage 链首；而 .cpu-training-env 只声明
+    # `runner.cpus`，**不声明 docker.image**，于是它跑在平台默认 runner 上 —— 那里
+    # 既没有 python3 也没有 pip：
+    #
+    #   == control-plane deps ==
+    #   sh: line 7: pip: command not found
+    #   sh: line 9: python3: command not found
+    #   [FAIL] 控制面依赖供应失败        （stage 在 150ms 内判 error）
+    #
+    # 与 syntax-check 的注释是同一条约束的两种表现：**默认 runner 没有 python**。
+    # syntax-check / .main-env 都靠显式 `docker.image: python:3.12` 解决；而这里
+    # 与 vscode 段一样跑在**无 image 底座**上，所以必须**自举**：优先复用镜像自带的
+    # python3，缺失时按发行版装上（apt 版 python3 自带 ensurepip/pip）。
+    if ! command -v python3 >/dev/null 2>&1; then
+      echo "默认 runner 无 python3：按发行版安装"
+      if command -v apt-get >/dev/null 2>&1; then
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update -qq
+        apt-get install -y -qq python3 python3-pip python3-venv
+      elif command -v apk >/dev/null 2>&1; then
+        apk add --no-cache python3 py3-pip python3-dev
+      elif command -v dnf >/dev/null 2>&1; then
+        dnf install -y -q python3 python3-pip
+      elif command -v yum >/dev/null 2>&1; then
+        yum install -y -q python3 python3-pip
+      fi
+    else
+      command -v pip >/dev/null 2>&1 \
+        || python3 -m ensurepip --upgrade >/dev/null 2>&1 \
+        || true
+    fi
+    command -v python3 >/dev/null 2>&1 \
+      || { echo "[FAIL] 无法获得 python3（默认 runner 未预装，且 apt/apk/dnf/yum 均不可用）"; exit 1; }
+    python3 --version
     echo "== control-plane deps =="
     python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" 2>/dev/null \
-      || pip install --quiet --break-system-packages \
+      || python3 -m pip install --quiet --break-system-packages \
            -r backend/requirements.txt httpx onnx onnxruntime 2>&1 | tail -5
     python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" \
       || { echo "[FAIL] 控制面依赖供应失败"; exit 1; }
@@ -122,11 +165,13 @@ syntax-check: &syntax-check
     script: |
       set -eo pipefail
       echo "== install control-plane deps =="
-      pip install --quiet --upgrade pip || true
+      # 本 pipeline 有 python:3.12 底座，`pip` / `python` 都在 PATH 上；容器无 venv
+      # （该镜像不带 venv 模块），故用 `--break-system-packages` 直装系统 site-packages。
+      python -m pip install --quiet --upgrade pip || true
       # 与 backend/requirements.txt 保持一致；httpx 是 starlette TestClient 依赖；
       # onnx 是 B44「产物自证」的量具（读 ONNX 图输入宽度）——不装它那组用例会 skip，
       # 而 verify_artifacts 会静默退化成快照 fallback（B44 要挡的正是这种错配）。
-      pip install --quiet -r backend/requirements.txt httpx onnx
+      python -m pip install --quiet --break-system-packages -r backend/requirements.txt httpx onnx
       echo "== offscreen GL backend (best-effort, never fatal) =="
       # 无显示环境下离屏渲染需要**软件 GL**（libOSMesa）。这里尽力装：
       # 装不上也不判红——backend/gl_env.offscreen_render_status() 是**实测探针**
@@ -225,6 +270,9 @@ syntax-check: &syntax-check
 
 .cpu-training-env: &cpu-training-env
   # 降核理由见文件头「CI 资源规模」注。
+  # 这里**不声明 docker.image**：跑在平台默认 runner 上。默认 runner 没有 python3/pip，
+  # 故引用本锚点的 stage 链必须以 .dev-env-bootstrap 开头（它负责自举解释器），
+  # 且其后阶段的脚本要用 python3（镜像里 python 与 python3 等价；CNB 默认镜像里 python 也是 3.12）。
   runner:
     cpus: 2
   # 与 .main-env 同理：这条 pipeline 的第一步是 .dev-env-bootstrap（要 python3/pip），
@@ -425,23 +473,48 @@ $:
         - name: dev-env-bootstrap
           script: |
             set -e
+            echo "== 解释器与包管理器（与 .dev-env-bootstrap 同一口径） =="
+            # 云开发用平台默认 dev 环境，理论上自带 python3；这里仍是**自举**而非假设
+            # ——同一条锚点在 CI（.cpu-training-env，默认 runner 无 python3）上必须自举才跑得起来，
+            # 两处口径保持一致，避免"开发环境能起、CI 起不来"再次分叉。
+            if ! command -v python3 >/dev/null 2>&1; then
+              echo "无 python3：按发行版安装"
+              if command -v apt-get >/dev/null 2>&1; then
+                export DEBIAN_FRONTEND=noninteractive
+                apt-get update -qq
+                apt-get install -y -qq python3 python3-pip python3-venv
+              elif command -v apk >/dev/null 2>&1; then
+                apk add --no-cache python3 py3-pip python3-dev
+              elif command -v dnf >/dev/null 2>&1; then
+                dnf install -y -q python3 python3-pip
+              elif command -v yum >/dev/null 2>&1; then
+                yum install -y -q python3 python3-pip
+              fi
+            else
+              command -v pip >/dev/null 2>&1 \
+                || python3 -m ensurepip --upgrade >/dev/null 2>&1 \
+                || true
+            fi
+            command -v python3 >/dev/null 2>&1 \
+              || { echo "[FAIL] 无法获得 python3"; exit 1; }
+            python3 --version
             echo "== 控制面依赖（幂等） =="
             # 默认镜像不预装本项目依赖：已装好就跳过，否则按 requirements 装。
             # 用 python3：默认镜像里 python 也是 3.12，两者等价。
             python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" 2>/dev/null \
-              || pip install --quiet --break-system-packages \
+              || python3 -m pip install --quiet --break-system-packages \
                    -r backend/requirements.txt httpx onnx onnxruntime 2>&1 | tail -5
             python3 -c "import fastapi, uvicorn, pydantic, numpy, mujoco" \
               || { echo "[FAIL] 控制面依赖供应失败"; exit 1; }
             echo "== 无头浏览器（Playwright Chromium，版本标记对齐） =="
             # 浏览器是本仓的刚需（sim2sim 结论全是浏览器实测得出的）。
-            pip install --quiet --break-system-packages playwright pytest pytest-playwright 2>&1 | tail -3
+            python3 -m pip install --quiet --break-system-packages playwright pytest pytest-playwright 2>&1 | tail -3
             PLAYWRIGHT_VERSION="$(python3 -c 'import playwright,sys;print(playwright.__version__)')"
             # Chromium 是"上一次的版本"：版本不合就重装（否则 E2E 会静默用旧浏览器跑，
             # 正是"本地能跑、CI 看不见"的同类坑）。
             MARKER="/root/.cache/ms-playwright/.legged-studio-playwright-version"
             if [ "$(cat "$MARKER" 2>/dev/null || true)" != "$PLAYWRIGHT_VERSION" ]; then
-              playwright install --with-deps chromium 2>&1 | tail -5
+              python3 -m playwright install --with-deps chromium 2>&1 | tail -5
               printf '%s' "$PLAYWRIGHT_VERSION" > "$MARKER"
             else
               echo "chromium 已是 playwright $PLAYWRIGHT_VERSION，跳过"
