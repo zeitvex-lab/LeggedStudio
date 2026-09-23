@@ -18,7 +18,8 @@
       "seconds": 3.0,
       "seed": 0,
       "gate_tracking": false
-    }
+    },
+    "scope_note": "2026-09-23 族架构收敛（只留 8 机型）：14 → 8；已删除机型的行在此文件中移除（未重跑测量，其余行是原测量值）。"
   },
   "results": [
     {
@@ -58,66 +59,6 @@
       "family": null
     },
     {
-      "robot": "limx_tron1_pf",
-      "policy": "pf-velocity",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "limx_tron1_sf",
-      "policy": "sf-velocity",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "limx_tron1_wf",
-      "policy": "wf-velocity",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "microduck",
-      "policy": "microduck-walking",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "microduck",
-      "policy": "microduck-stand",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "microduck",
-      "policy": "microduck-sitstand",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "microduck",
-      "policy": "microduck-roulade",
-      "verdict": "skipped",
-      "family": null
-    },
-    {
-      "robot": "microduck",
-      "policy": "microduck-ground-pick",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "microduck",
-      "policy": "microduck-ball-kick-left",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "microduck",
-      "policy": "microduck-ball-kick-right",
-      "verdict": "pass",
-      "family": null
-    },
-    {
       "robot": "unitree_b2",
       "policy": "b2-velocity-benchmark",
       "verdict": "pass",
@@ -139,36 +80,6 @@
       "robot": "unitree_b2w",
       "policy": "unitree_b2w-trained-20260918-093241",
       "verdict": "fail",
-      "family": null
-    },
-    {
-      "robot": "unitree_g1",
-      "policy": "g1-velocity",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "unitree_g1",
-      "policy": "g1-dance-102",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "unitree_g1",
-      "policy": "g1-dance-gangnam-style",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "unitree_g1",
-      "policy": "g1-dance-subject2",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "unitree_g1",
-      "policy": "g1-velocity-mjswan",
-      "verdict": "pass",
       "family": null
     },
     {
@@ -337,12 +248,6 @@
       "robot": "unitree_go2w",
       "policy": "unitree_go2w-trained-20260918-093550",
       "verdict": "fail",
-      "family": null
-    },
-    {
-      "robot": "wuji_hand",
-      "policy": "wuji-reorient",
-      "verdict": "pass",
       "family": null
     },
     {

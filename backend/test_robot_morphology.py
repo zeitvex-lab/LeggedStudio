@@ -39,11 +39,19 @@ class MorphologyViewTest(unittest.TestCase):
     def test_roles_are_derived_from_leg_pattern(self):
         go2 = self.records["unitree_go2"]["morphology"]
         self.assertEqual(["hip", "thigh", "calf"], go2["roles"])
-        g1 = self.records["unitree_g1"]["morphology"]
-        self.assertIn("waist_yaw", g1["roles"], "extra_roles 也要并入 roles")
+        # 原锚点 unitree_g1（waist_yaw 属 extra_roles）已随 family-arch 收敛出库 ⇒
+        # "extra_roles 也要并入 roles"改用 `_morphology_view` 等价构造验证
+        # （保留的 8 机型均未声明 extra_roles，此构造不依赖包内数据）。
+        from backend.package_records import _morphology_view
+
+        view = _morphology_view({"morphology": {
+            "leg_pattern": ["hip", "thigh", "calf"],
+            "extra_roles": ["waist_yaw"],
+        }})
+        self.assertEqual(["hip", "thigh", "calf", "waist_yaw"], view["roles"])
 
     def test_wheel_groups_marked_only_on_wheel_robots(self):
-        wheel = {"deeprobotics_m20", "unitree_b2w", "unitree_go2w", "zex-w", "limx_tron1_wf"}
+        wheel = {"deeprobotics_m20", "unitree_b2w", "unitree_go2w", "zex-w"}
         for robot_id, record in self.records.items():
             with self.subTest(robot=robot_id):
                 count = record["morphology"].get("wheel_count", 0)

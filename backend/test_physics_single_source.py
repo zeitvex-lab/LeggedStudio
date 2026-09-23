@@ -6,7 +6,7 @@
 1. `assets/robots/*/simulation/config.json` **不得**再出现那组物理键
    （stiffness/damping/torque_limits/armature/frictionloss/control_hz/physics_hz/
    decimation）——否则"两处并存"回潮；
-2. 14/14 包的 `contract.json` 必须给**每个执行器角色**声明 armature
+2. 8/8 包的 `contract.json` 必须给**每个执行器角色**声明 armature
    （lite3 / m20 / zex-w 此前三包全缺，训练与浏览器都没有转子惯量）；
 3. `contracts.physics_binding.joint_constant_tables()` 的键**统一小写**，
    大小写不敏感查表必须命中——这是修掉的静默失效：训练/验收侧用
@@ -273,7 +273,10 @@ class ControlConsistencyTests(unittest.TestCase):
                     abs(physics_hz - hz * decimation), 1,
                     f"{package.name}: physics_hz={physics_hz} 与 control_hz×decimation={hz * decimation} 不自洽",
                 )
-        self.assertGreater(checked, 10, "自洽性检查覆盖的包太少，检查是否失效")
+        self.assertEqual(
+            8, checked,
+            "自洽性检查须覆盖 family-arch 收敛后的全部 8 机型（数字不对说明循环没跑全）",
+        )
 
 
 class TnCurveTests(unittest.TestCase):
@@ -313,7 +316,7 @@ class TnCurveTests(unittest.TestCase):
                     dc_params_from_t_n_curve(bad)
 
     def test_all_packages_default_to_ideal_pd_and_no_t_n_curve(self):
-        """装箱状态：14 包都不该有 T-N 曲线，且 actuator_model 缺省 = ideal_pd（不改任何行为）。"""
+        """装箱状态：8 包都不该有 T-N 曲线，且 actuator_model 缺省 = ideal_pd（不改任何行为）。"""
         for package in package_dirs():
             with self.subTest(package=package.name):
                 facts = t_n_curve_facts(package)
@@ -389,10 +392,11 @@ class BrowserControlWiringTests(unittest.TestCase):
         from backend.api_complete import app
 
         client = TestClient(app)
-        control = client.get("/api/simulation/browser-config/unitree_g1").json()["robot"]["control"]
+        # 原锚点 unitree_g1 已随 family-arch 收敛出库，重锚到保留机型 unitree_go2
+        control = client.get("/api/simulation/browser-config/unitree_go2").json()["robot"]["control"]
         self.assertIn("velocity_limits", control)
-        self.assertTrue(control["velocity_limits"], "g1 契约声明了速度限幅，浏览器载荷必须带上")
-        self.assertEqual(control["velocity_limits"]["hip_pitch"], 32.0)
+        self.assertTrue(control["velocity_limits"], "go2 契约声明了速度限幅，浏览器载荷必须带上")
+        self.assertEqual(control["velocity_limits"]["hip"], 30.1)
 
     def test_browser_control_payload_carries_t_n_curves(self):
         from fastapi.testclient import TestClient
@@ -402,7 +406,7 @@ class BrowserControlWiringTests(unittest.TestCase):
         client = TestClient(app)
         control = client.get("/api/simulation/browser-config/unitree_go2").json()["robot"]["control"]
         self.assertIn("motor_envelopes", control)
-        # 装箱态：14 包都未声明曲线 → 空值（浏览器 applyMotorEnvelopes 早退，行为与现状一致）
+        # 装箱态：8 包都未声明曲线 → 空值（浏览器 applyMotorEnvelopes 早退，行为与现状一致）
         self.assertIsNone(control["motor_envelopes"])
 
     def test_browser_t_n_curve_view_shape_matches_browser_parser(self):

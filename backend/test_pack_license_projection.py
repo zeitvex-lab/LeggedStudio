@@ -1,8 +1,11 @@
 """I5 后半：许可取证层 → 包清单的投影与对账。
 
 守四件事：
-1. **14 份包清单都带 license 块**，且与 `registry/licenses.json` 的取证逐项一致；
-2. **非商用上游如实标注**（g1 有 CC-BY-NC 上游 ⇒ `restricted-noncommercial`）；
+1. **8 份包清单都带 license 块**（family-arch 收敛后的 8 机型），且与
+   `registry/licenses.json` 的取证逐项一致；
+2. **非商用披露机制仍生效**：注入 CC-BY-NC 依据 ⇒ 再分发口径必须投影为
+   `restricted-noncommercial`，清单写 allowed 会被判红（保留机型目前**没有**非商用
+   上游——原 g1 的 CC-BY-NC 用例已随包出库，故用派生数据副本等价构造，不碰仓库真实 pack）；
 3. **取不到证据时是 unknown，绝不默认 allowed**（zex-w 一条许可依据都取不到）；
 4. **漂移会判红**：清单被手改成别的口径 ⇒ 对账失败（这是"缺许可不得静默"的落地点）。
 """
@@ -33,13 +36,29 @@ class ProjectionTest(unittest.TestCase):
         self.assertEqual([], problems)
 
     def test_noncommercial_upstream_is_disclosed(self):
-        """g1 有 CC-BY-NC-4.0 上游（InstinctMJ/UFO）⇒ 再分发口径必须是"受限"，不能写成 allowed。"""
+        """非商用上游 ⇒ 再分发口径必须是"受限"（restricted-noncommercial），不能写成 allowed。
 
-        entry = self.derived["unitree_g1"]
-        projection = al.project_license("unitree_g1", entry)
+        family-arch 收敛（2026-09）后保留的 8 机型**均无非商用上游**（原 unitree_g1 的
+        CC-BY-NC-4.0 上游已随包出库）⇒ 按等价构造验证机制本身：在 `derive()` 结果的
+        **派生副本**上注入一条 CC-BY-NC 依据（纯内存 fixture，不碰 registry 与 packs）。
+        """
+
+        derived = copy.deepcopy(self.derived)
+        derived["unitree_b2"]["components"].append({
+            "root": "00_resources/__fixture_nc_upstream",
+            "path": "00_resources/__fixture_nc_upstream/LICENSE",
+            "sha256": "0" * 64,
+            "spdx": "CC-BY-NC-4.0",
+            "name": "Creative Commons Attribution-NonCommercial 4.0（fixture 注入）",
+            "evidence_files": 1,
+        })
+        projection = al.project_license("unitree_b2", derived["unitree_b2"])
         self.assertEqual("restricted-noncommercial", projection["redistribution"])
-        manifest = json.loads((ROOT / "packs/unitree_g1.pack.json").read_text(encoding="utf-8"))
-        self.assertEqual("restricted-noncommercial", manifest["license"]["redistribution"])
+        # 投影口径与仓库真实清单（allowed）不同 ⇒ 对账必须判红，不许静默
+        problems = al.audit_pack_manifests(derived)
+        self.assertTrue(
+            any("unitree_b2" in item and "redistribution" in item for item in problems), problems
+        )
 
     def test_unknown_never_defaults_to_allowed(self):
         """**取不到证据就是 unknown** —— 给它一个 allowed 是假话。zex-w 一条许可依据都取不到。"""
@@ -66,14 +85,19 @@ class ProjectionTest(unittest.TestCase):
 
 
 class DriftDetectionTest(unittest.TestCase):
-    """漂移必须判红 —— 否则清单会慢慢变成"对外说错话"的地方。"""
+    """漂移必须判红 —— 否则清单会慢慢变成"对外说错话"的地方。
 
-    def _problems_with_manifest(self, mutate) -> list[str]:
-        derived = al.derive()
-        source = json.loads((ROOT / "packs/unitree_g1.pack.json").read_text(encoding="utf-8"))
+    family-arch 收敛（2026-09）后原靶子 unitree_g1 已出库，重锚到保留机型
+    unitree_b2；"受限口径被写成 allowed"这一最危险改法用**派生副本注入 NC 依据**
+    等价构造（不碰仓库真实 pack）。
+    """
+
+    def _problems_with_manifest(self, mutate, derived=None) -> list[str]:
+        derived = derived if derived is not None else al.derive()
+        source = json.loads((ROOT / "packs/unitree_b2.pack.json").read_text(encoding="utf-8"))
         mutated = mutate(copy.deepcopy(source))
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "unitree_g1.pack.json"
+            path = Path(tmp) / "unitree_b2.pack.json"
             path.write_text(json.dumps(mutated, ensure_ascii=False), encoding="utf-8")
             with mock.patch.object(al, "packs_dir", lambda: Path(tmp)):
                 return al.audit_pack_manifests(derived)
@@ -81,11 +105,19 @@ class DriftDetectionTest(unittest.TestCase):
     def test_redistribution_drift_is_caught(self):
         """把受限口径改成 allowed（最危险的一种改法：对外变成"随便用"）⇒ 判红。"""
 
-        def mutate(pack):
-            pack["license"]["redistribution"] = "allowed"
-            return pack
-
-        problems = self._problems_with_manifest(mutate)
+        derived = copy.deepcopy(al.derive())
+        derived["unitree_b2"]["components"].append({
+            "root": "00_resources/__fixture_nc_upstream",
+            "path": "00_resources/__fixture_nc_upstream/LICENSE",
+            "sha256": "0" * 64,
+            "spdx": "CC-BY-NC-4.0",
+            "name": "Creative Commons Attribution-NonCommercial 4.0（fixture 注入）",
+            "evidence_files": 1,
+        })
+        expected = al.project_license("unitree_b2", derived["unitree_b2"])
+        self.assertEqual("restricted-noncommercial", expected["redistribution"], "注入前提不成立")
+        # 仓库真实清单写的是 allowed ⇒ 与注入后的取证层不一致，必须判红
+        problems = self._problems_with_manifest(lambda pack: pack, derived)
         self.assertTrue(any("redistribution" in item for item in problems), problems)
 
     def test_missing_license_block_is_caught(self):

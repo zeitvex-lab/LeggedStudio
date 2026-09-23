@@ -72,9 +72,14 @@ class ThreePredicateMatchTest(unittest.TestCase):
 
 class CatalogTest(unittest.TestCase):
     def test_catalog_covers_packages_with_hashes(self) -> None:
-        catalog = generate_catalog(sorted(p for p in ROBOTS.iterdir() if (p / "contract_legacy_v2.json").exists()))
-        # agibot_d1 / unitree_h1_2 已下线删除、deeprobotics_x30 已移出，内置包 16 → 14。
-        self.assertGreaterEqual(len(catalog["packages"]), 14)
+        packages = sorted(p for p in ROBOTS.iterdir() if (p / "contract_legacy_v2.json").exists())
+        catalog = generate_catalog(packages)
+        # family-arch 收敛后内置包恰为 8（4 四足 + 4 轮足）：候选目录与目录条目精确相等，
+        # 每个包都必须进目录且带模型哈希（原 ≥14 的旧口径随收敛更新）。
+        self.assertEqual(
+            [p.name for p in packages],
+            sorted(entry["package_id"] for entry in catalog["packages"]),
+        )
         for entry in catalog["packages"]:
             self.assertTrue(entry["valid"], f"{entry['package_id']}: invalid")
             self.assertTrue(entry["model_sha256"])

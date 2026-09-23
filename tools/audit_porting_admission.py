@@ -38,9 +38,7 @@ EVIDENCE_PATH = PROJECT_ROOT / "registry" / "porting_evidence.json"
 
 ROBOTS = [
     "unitree_go2", "unitree_go2w", "unitree_go1", "unitree_b2", "unitree_b2w",
-    "unitree_g1", "deeprobotics_lite3", "deeprobotics_m20",
-    "limx_tron1_pf", "limx_tron1_sf", "limx_tron1_wf", "microduck",
-    "wuji_hand", "zex-w",
+    "deeprobotics_lite3", "deeprobotics_m20", "zex-w",
 ]
 
 # 机型 token：用于在上游路径中定位「机型专属」训练任务
@@ -50,14 +48,8 @@ ROBOT_TOKENS: dict[str, list[str]] = {
     "unitree_go1": [r"unitree_go1", r"/go1", r"go1_"],
     "unitree_b2": [r"unitree_b2", r"/b2\b", r"b2_"],
     "unitree_b2w": [r"unitree_b2w", r"b2w"],
-    "unitree_g1": [r"unitree_g1", r"/g1\b", r"g1_2[39]dof", r"g1_"],
     "deeprobotics_lite3": [r"lite3"],
     "deeprobotics_m20": [r"deeprobotics_m20", r"/m20\b", r"m20_"],
-    "limx_tron1_pf": [r"pointfoot", r"tron1_pf", r"/PF\b", r"/pf\b"],
-    "limx_tron1_sf": [r"solefoot", r"tron1_sf", r"/SF\b", r"/sf\b"],
-    "limx_tron1_wf": [r"wheelfoot", r"tron1_wf", r"/WF\b", r"/wf\b"],
-    "microduck": [r"microduck", r"micro_duck"],
-    "wuji_hand": [r"wuji"],
     "zex-w": [r"wheelleg", r"rc_mjlab/src/robot", r"zex"],
 }
 
@@ -91,43 +83,16 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         "m20-velocity-57": "m20_rl_isaacsim + Dreamwaq/legged_gym/envs/M20",
         "m20-official-sdk": "sdk_deploy/src/M20_sdk_deploy/policy/policy.onnx（官方部署包）+ deep_rl wheeled/deeprobotics_m20（官方训练工程）",
     },
-    "microduck": {
-        "microduck-walking": "microduck_rl/.../microduck_velocity_env_cfg.py",
-        "microduck-stand": "microduck_rl/.../microduck_standup_env_cfg.py",
-        "microduck-sitstand": "microduck_rl/.../microduck_sitstand_env_cfg.py",
-        "microduck-roulade": "microduck_rl/.../microduck_roulade_env_cfg.py",
-        "microduck-roller": "microduck_rl/.../microduck_velocity_rollers_env_cfg.py",
-        "microduck-roller-crouch": "microduck_rl/.../microduck_roller_crouch_env_cfg.py",
-        "microduck-ground-pick": "microduck_rl/.../microduck_ground_pick_env_cfg.py",
-        "microduck-ball-kick-left": "microduck_rl/.../microduck_ball_kick_env_cfg.py",
-        "microduck-ball-kick-right": "microduck_rl/.../microduck_ball_kick_env_cfg.py",
-    },
     "unitree_b2": {
         "b2-velocity-benchmark": "robot_lab/.../velocity/config/quadruped/unitree_b2",
     },
     "unitree_b2w": {
         "b2w-velocity-robotlab": "robot_lab/.../velocity/config/wheeled/unitree_b2w",
     },
-    "unitree_g1": {
-        "g1-velocity": "unitree_rl_mjlab（官方 velocity 任务）",
-        "g1-dance-102": "uni_rl/unitree_rl_lab/.../tasks/mimic/robots/g1_29dof/dance_102",
-        "g1-dance-gangnam-style": "uni_rl/unitree_rl_lab/.../tasks/mimic（motion-tracking）",
-        "g1-dance-subject2": "uni_rl/unitree_rl_lab/.../tasks/mimic（motion-tracking）",
-        "g1-velocity-mjswan": "unitree_rl_mjlab（G1 velocity 任务，mjswan 为导出方）",
-    },
     "unitree_go1": {
         "go1-playground-joystick": "mujoco_playground/.../locomotion/go1/joystick.py",
         # LeggedSkillDeploy 仅提供 moe_best.pt + config.yaml（推理产物），无训练源码
         "go1-moe-loco": "",
-    },
-    "limx_tron1_pf": {
-        "pf-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_pointfoot_env_cfg.py",
-    },
-    "limx_tron1_sf": {
-        "sf-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_solefoot_env_cfg.py",
-    },
-    "limx_tron1_wf": {
-        "wf-velocity": "tron1-rl-isaaclab/.../tasks/locomotion/robots/limx_wheelfoot_env_cfg.py",
     },
     "unitree_go2": {
         "go2-backflip-69": "包内 local_tasks/robots/unitree/go2/tasks/aerial（backflip）",
@@ -165,9 +130,6 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         "go2w-himloco-handstand": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
         "go2w-himloco-leggedstand": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
     },
-    "wuji_hand": {
-        "wuji-reorient": "wuji-mjlab src/wuji_mjlab/tasks/reorient（WujiHand_Reorient 训练任务）",
-    },
     "zex-w": {
         "zex-w-rough-6800": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
         "zex-w-wall-84": "rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
@@ -178,7 +140,6 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
 
 # 包自包含约束：包内不得出现「其他机型」的训练任务目录
 FOREIGN_TASK_PATTERNS = {
-    "unitree_g1": re.compile(r"(^|/)local_tasks/robots/unitree/g1/"),
     "unitree_go2": re.compile(r"(^|/)local_tasks/robots/unitree/go2/"),
 }
 
@@ -244,7 +205,7 @@ def package_inventory(package_root: Path) -> dict[str, Any]:
         except (OSError, json.JSONDecodeError):
             policies = []
     # X 规则只覆盖**浏览器仿真策略**（simulation/ 下的 onnx）。包内 deploy/ 目录
-    # 携带的是部署产物（如 wuji 手持重定向的 policy.onnx/model.pt），不参与仿真准入。
+    # 携带的是部署产物（如按上游部署布局存放的 policy.onnx/model.pt），不参与仿真准入。
     sim_root = package_root / "simulation"
     onnx = (
         sorted(p.relative_to(package_root).as_posix() for p in sim_root.rglob("*.onnx"))

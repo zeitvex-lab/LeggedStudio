@@ -20,8 +20,13 @@
 * `unitree_go2/go2-moe-cts`：有历史 + 缺省 term-major（陷阱 1）；
 * `deeprobotics_m20/m20-velocity-57`：**逐关节**声明 `control_modes`（陷阱 2）；
 * `unitree_go2w/go2w-velocity-robotlab`：**角色级** `{"wheel": "velocity"}`（陷阱 2 的另一形）；
-* `unitree_g1/g1-velocity`：相位钟（`simulationDt` 缺喂会 NaN）；
-* `wuji_hand/wuji-reorient`：自由关节不在 qpos 0 位、需要真 body 位姿（陷阱 3）。
+* `unitree_go2/go2-lainlab-trot`：相位钟（`gait_period_s` 非零，`simulationDt` 缺喂会 NaN）；
+* `zex-w/zex-w-rough-9600`：轮足 + 角色/逐关节双形态 `control_modes`。
+
+**2026-09 family-arch 收敛后的删减**：原 `unitree_g1/g1-velocity`（相位钟）与
+`wuji_hand/wuji-reorient`（陷阱 3：自由关节不在 qpos 0 位）两条已随对应包出库删除；
+相位钟分支改由 `go2-lainlab-trot` 重锚，陷阱 3 在保留的 8 机型上无适用对象
+（浮动基座都在 `qpos[0:7]`），工具侧实现保留、仅不再有真机用例。
 """
 
 from __future__ import annotations
@@ -57,9 +62,13 @@ class CrosscheckHarnessTest(unittest.TestCase):
         ("unitree_go2", "go2-moe-cts", "有历史 + 缺省 term-major 布局"),
         ("deeprobotics_m20", "m20-velocity-57", "逐关节 control_modes（轮位清零）"),
         ("unitree_go2w", "go2w-velocity-robotlab", "角色级 control_modes"),
-        ("unitree_g1", "g1-velocity", "相位钟（simulationDt 缺喂即 NaN）"),
-        ("wuji_hand", "wuji-reorient", "自由基座不在 qpos[0:7]（需真 body 位姿）"),
+        ("unitree_go2", "go2-lainlab-trot", "相位钟（gait_period_s 非零，simulationDt 缺喂即 NaN）"),
+        ("zex-w", "zex-w-rough-9600", "轮足 + 角色/逐关节双形态 control_modes"),
     )
+    # 原 g1-velocity（相位钟）与 wuji-reorient（陷阱 3：自由关节不在 qpos[0]）两条
+    # 已随 unitree_g1 / wuji_hand 出库删除（family-arch 收敛）：相位钟分支改由
+    # go2-lainlab-trot 覆盖；"自由关节不在 0 位 ⇒ IMU 段不适用"机制在保留机型上
+    # 不成立（8 机型的浮动基座都在 qpos[0:7]），无重锚对象，仅在工具侧保留实现。
 
     def test_representative_policies_match(self):
         for robot, policy, why in self.CASES:
@@ -71,12 +80,10 @@ class CrosscheckHarnessTest(unittest.TestCase):
                 )
                 self.assertIn("一致", done.stdout)
 
-    def test_wuji_skips_imu_instead_of_reporting_red(self):
-        """自由基座不在 0 位 ⇒ IMU 诊断段**如实标不适用**，不许拿它当"不一致"。"""
-        done = _run("--robot", "wuji_hand", "--policy", "wuji-reorient")
-        self.assertEqual(0, done.returncode, done.stdout[-2000:])
-        self.assertIn("不适用", done.stdout)
-        self.assertIn("qpos[0:7] 不是浮动基座", done.stdout)
+    # 原 ``test_wuji_skips_imu_instead_of_reporting_red`` 已随 wuji_hand 出库删除
+    # （family-arch 收敛，2026-09）：它钉的是"自由关节不在 qpos[0] ⇒ IMU 诊断段如实
+    # 标不适用"这一机制；保留的 8 机型浮动基座全在 qpos[0:7]，该分支没有可重锚的
+    # 真机数据（工具侧实现与其语义保持不变，仅测试对象随产品清单收敛）。
 
     def test_blocked_entry_without_layout_is_reported_not_green(self):
         """`sim_ready:false` **且没有布局** ⇒ 报"不适用"，既不绿也不红。

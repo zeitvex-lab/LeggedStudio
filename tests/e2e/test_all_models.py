@@ -1,4 +1,4 @@
-"""逐机型浏览器实测 sweep —— G1「14 机型即点即玩」的逐机型证据链。
+"""逐机型浏览器实测 sweep —— G1「8 机型即点即玩」的逐机型证据链。
 
 对每个内置机器人包（assets/robots/<id>，与 /api/robots/presets 一一对应）：
     打开基础仿真页 ?debug=1&robot=<id>&policy=<首条基础策略>
@@ -12,10 +12,10 @@
     默认（CI）      只跑 smoke 机型（首个「声明策略能被 browser-config 真实下发」的机型，
                     当前为 deeprobotics_m20；browser_default 的 unitree_go2 因 G1 缺陷
                     —— 声明策略被 browser-config 丢弃 —— 只进 sweep 档，见下）
-    --sweep / 环境变量 LEGGED_STUDIO_E2E_SWEEP=1   14 机型全量（手动/夜跑工具档）
+    --sweep / 环境变量 LEGGED_STUDIO_E2E_SWEEP=1   8 机型全量（手动/夜跑工具档）
     sweep 模式结束时把实测矩阵写进 tools/baselines/browser_model_sweep.json
     （provenance 对齐 sim2sim_headless 基线：生成时间 / git commit+dirty / 平台 / 运行参数）。
-    smoke 模式不写基线，避免 1 条冒烟覆盖 14 条全量证据。
+    smoke 模式不写基线，避免 1 条冒烟覆盖 8 条全量证据。
 
 策略口径：每包**第一条基础策略**（simulation/config.json 里 sim_surface != "advanced"
 的第一条），与 app.js 基础仿真的下拉过滤同口径。注意浏览器实际下发的策略清单来自
@@ -28,7 +28,7 @@ policy_offered 字段区分「下发缺失」与「下发正确但页面没选�
 
 运行：
     uv run --no-sync python -m pytest tests/e2e/test_all_models.py -v            # 冒烟 1 机型
-    uv run --no-sync python -m pytest tests/e2e/test_all_models.py -v --sweep    # 全量 14 机型
+    uv run --no-sync python -m pytest tests/e2e/test_all_models.py -v --sweep    # 全量 8 机型
 """
 
 from __future__ import annotations

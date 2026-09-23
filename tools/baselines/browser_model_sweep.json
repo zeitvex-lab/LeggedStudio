@@ -16,12 +16,13 @@
     "run_params": {
       "ready_timeout_s": 120.0,
       "observe_ms": 2500
-    }
+    },
+    "scope_note": "2026-09-23 族架构收敛（只留 8 机型）：14 → 8；已删除机型的行在此文件中移除（未重跑测量，其余行是原测量值）。"
   },
   "summary": {
-    "total": 14,
-    "started": 14,
-    "ok": 14,
+    "total": 8,
+    "started": 8,
+    "ok": 8,
     "failed": 0
   },
   "results": [
@@ -62,78 +63,6 @@
       "screenshot": "workspace/e2e-screenshots/all-models/deeprobotics_m20.png"
     },
     {
-      "robot": "limx_tron1_pf",
-      "policy_id": "pf-velocity",
-      "started": true,
-      "policy_loaded": true,
-      "policy_offered": true,
-      "sim_running": true,
-      "ok": true,
-      "base_z": 0.6776,
-      "fps": 12,
-      "ready_ms": 1625,
-      "total_ms": 4984,
-      "first_error": null,
-      "page_errors": [],
-      "console_errors": [],
-      "resource_errors": [],
-      "screenshot": "workspace/e2e-screenshots/all-models/limx_tron1_pf.png"
-    },
-    {
-      "robot": "limx_tron1_sf",
-      "policy_id": "sf-velocity",
-      "started": true,
-      "policy_loaded": true,
-      "policy_offered": true,
-      "sim_running": true,
-      "ok": true,
-      "base_z": 0.7509,
-      "fps": 11,
-      "ready_ms": 1750,
-      "total_ms": 5156,
-      "first_error": null,
-      "page_errors": [],
-      "console_errors": [],
-      "resource_errors": [],
-      "screenshot": "workspace/e2e-screenshots/all-models/limx_tron1_sf.png"
-    },
-    {
-      "robot": "limx_tron1_wf",
-      "policy_id": "wf-velocity",
-      "started": true,
-      "policy_loaded": true,
-      "policy_offered": true,
-      "sim_running": true,
-      "ok": true,
-      "base_z": 0.7976,
-      "fps": 11,
-      "ready_ms": 1734,
-      "total_ms": 5109,
-      "first_error": null,
-      "page_errors": [],
-      "console_errors": [],
-      "resource_errors": [],
-      "screenshot": "workspace/e2e-screenshots/all-models/limx_tron1_wf.png"
-    },
-    {
-      "robot": "microduck",
-      "policy_id": "microduck-walking",
-      "started": true,
-      "policy_loaded": true,
-      "policy_offered": true,
-      "sim_running": true,
-      "ok": true,
-      "base_z": 0.1164,
-      "fps": 6,
-      "ready_ms": 2140,
-      "total_ms": 5984,
-      "first_error": null,
-      "page_errors": [],
-      "console_errors": [],
-      "resource_errors": [],
-      "screenshot": "workspace/e2e-screenshots/all-models/microduck.png"
-    },
-    {
       "robot": "unitree_b2",
       "policy_id": "b2-velocity-benchmark",
       "started": true,
@@ -168,24 +97,6 @@
       "console_errors": [],
       "resource_errors": [],
       "screenshot": "workspace/e2e-screenshots/all-models/unitree_b2w.png"
-    },
-    {
-      "robot": "unitree_g1",
-      "policy_id": "g1-velocity",
-      "started": true,
-      "policy_loaded": true,
-      "policy_offered": true,
-      "sim_running": true,
-      "ok": true,
-      "base_z": 0.7845,
-      "fps": 11,
-      "ready_ms": 1860,
-      "total_ms": 5250,
-      "first_error": null,
-      "page_errors": [],
-      "console_errors": [],
-      "resource_errors": [],
-      "screenshot": "workspace/e2e-screenshots/all-models/unitree_g1.png"
     },
     {
       "robot": "unitree_go1",
@@ -240,24 +151,6 @@
       "console_errors": [],
       "resource_errors": [],
       "screenshot": "workspace/e2e-screenshots/all-models/unitree_go2w.png"
-    },
-    {
-      "robot": "wuji_hand",
-      "policy_id": "wuji-reorient",
-      "started": true,
-      "policy_loaded": true,
-      "policy_offered": true,
-      "sim_running": true,
-      "ok": true,
-      "base_z": -0.0295,
-      "fps": 27,
-      "ready_ms": 1250,
-      "total_ms": 4328,
-      "first_error": null,
-      "page_errors": [],
-      "console_errors": [],
-      "resource_errors": [],
-      "screenshot": "workspace/e2e-screenshots/all-models/wuji_hand.png"
     },
     {
       "robot": "zex-w",

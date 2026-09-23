@@ -78,3 +78,27 @@ native_worker_output/
 
 .tmp_b8_batch2/
 .go2_scan.json
+
+# 00_resources 参考库体积红线与省略规则（_SPEC.md §3）：
+# `quadruped-robotics-stack` 单项目 405.2 MB 超 400MB 红线 ⇒ 本地参考、不进库；
+# 其余为「媒体 / 二进制 / 归档」类文件，保留在磁盘但不纳入版本。
+# 清单与来源快照见各项目 `_SOURCE.md`（登记 URL / 提交 / 抓取日期 / 许可结论）。
+/00_resources/quadruped-robotics-stack/
+/00_resources/T2QRM/demo/
+/00_resources/Awesome_Quadrupedal_Robots/assets/*.png
+/00_resources/Learn-It-All-deployment-sim2real/**/*.dll
+/00_resources/Learn-It-All-deployment-sim2real/**/*.so
+/00_resources/Learn-It-All-deployment-sim2real/**/*.dylib
+/00_resources/Learn-It-All-deployment-sim2real/**/*.png
+/00_resources/Learn-It-All-deployment-sim2real/**/*.jpg
+/00_resources/motion-imitation/motion_imitation/data/*.png
+/00_resources/motion-imitation/motion_imitation/data/*.gif
+/00_resources/motion-imitation/motion_imitation/data/policies/*.zip
+/00_resources/motion-imitation/third_party/**/*.so
+/00_resources/motion-imitation/third_party/**/*.png
+/00_resources/motion-imitation/third_party/**/*.svg
+
+# 例外：Learn-It-All 的 `dog_feetch/runtime/` 是**项目源码目录**（onnx_infer / position_hwi / rl_utils …），
+# 被上面的通用 `runtime/` 规则误伤 ⇒ 显式重新包含（否定规则必须写在被否定规则之后）。
+!00_resources/Learn-It-All-deployment-sim2real/dog_feetch/runtime/
+!00_resources/Learn-It-All-deployment-sim2real/dog_feetch/runtime/**

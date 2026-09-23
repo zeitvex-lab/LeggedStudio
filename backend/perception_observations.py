@@ -170,7 +170,7 @@ PERCEPTION_ITEMS: dict[str, PerceptionObservationItem] = {
             "kind": "joint",
             "joint_pattern": ".*_wheel_joint",
             "unit": "rad/s",
-            "applies_to": ["unitree_go2w", "unitree_b2w", "deeprobotics_m20", "limx_tron1_wf", "zex-w"],
+            "applies_to": ["unitree_go2w", "unitree_b2w", "deeprobotics_m20", "zex-w"],
         },
     ),
     "base_lin_vel": PerceptionObservationItem(

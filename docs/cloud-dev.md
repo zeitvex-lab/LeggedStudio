@@ -289,7 +289,7 @@ CI runner 每次现装（换来的是依赖版本零漂移 —— 改了 `requir
 | `syntax-check` | `python:3.12` | 平台默认（不声明 `cpus` ⇒ 8 核 / 16 GiB） | `py_compile` + 契约产物漂移；**不装任何 pip 包** |
 | `backend-test` / `backend-test-pr` | `python:3.12` | 平台默认 | 单测、**openapi 契约冒烟**、移植准入、Pack 校验、全部审计工具 |
 | `cpu-training-smoke`（+PR 侧） | 默认 runner + `dev-env-bootstrap` 供应 | 平台默认 | CPU 训练冒烟：16 envs × 5 iters 真实 PPO + 报告断言；**仅训练相关路径变更才触发**（`ifModify`，见 `.cpu-training-paths`） |
-| `headless-sim2sim-gate` | 默认 runner + `dev-env-bootstrap` 供应 | 平台默认 | 包内声明策略全量的 CPU 无头验收（当前 58 条可执行），对照基线只拦**新增退化** |
+| `headless-sim2sim-gate` | 默认 runner + `dev-env-bootstrap` 供应 | 平台默认 | 包内声明策略全量的 CPU 无头验收（当前 42 条可执行），对照基线只拦**新增退化** |
 | `frontend-check` | `node:20` | 平台默认 | web JS 语法 + vendor 资产冒烟 |
 
 三条要点：

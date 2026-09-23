@@ -18,15 +18,29 @@ class RobotPresetTests(unittest.TestCase):
         self.assertEqual(presets["unitree_go2"]["contract"]["locomotion_type"], "P")
         self.assertEqual(presets["zex-w"]["contract"]["locomotion_type"], "W")
 
-    def test_microduck_is_a_complete_package_not_a_placeholder(self):
-        microduck = next(item for item in list_robot_presets() if item["robot_id"] == "microduck")
-        self.assertEqual(microduck["dof"], 14)
-        # 2026-09-13：带轮（rollers/spin/swizzle）那 6 个 profile 属**另一套形态**的
-        # 策略，已从本包移出（本包 = 双腿行走 biped/sole），故 18 → 12。
-        self.assertEqual(len(microduck["training_profiles"]), 12)
-        self.assertEqual(microduck["runtime_requirements"]["mjlab"], ">=1.6,<2.0")
-        self.assertTrue(microduck["robot_package"].get("extension_entrypoint"))
-        self.assertTrue(Path(microduck["robot_package"]["package_root"]).joinpath("model", "robot.xml").exists())
+    def test_every_preset_package_is_complete_not_a_placeholder(self):
+        """通用机制重锚（原 microduck 专项用例已随该包出库删除）：preset 的
+        robot_package 必须指向真实在盘的 model/robot.xml，占位包不算完整包。"""
+        presets = list_robot_presets()
+        self.assertEqual(
+            [
+                "deeprobotics_lite3",
+                "deeprobotics_m20",
+                "unitree_b2",
+                "unitree_b2w",
+                "unitree_go1",
+                "unitree_go2",
+                "unitree_go2w",
+                "zex-w",
+            ],
+            sorted(item["robot_id"] for item in presets),
+        )
+        for item in presets:
+            root = Path(item["robot_package"]["package_root"])
+            self.assertTrue(
+                root.joinpath("model", "robot.xml").exists(),
+                f"{item['robot_id']} 的 robot_package 未指向真实 model/robot.xml",
+            )
 
     def test_all_robot_packages_share_layout(self):
         for item in list_robot_presets():

@@ -1,5 +1,0 @@
-{
-  "robot_id": "unitree_g1",
-  "contract_path": "assets/robots/unitree_g1/contract.json",
-  "profile_id": "g1-velocity-flat"
-}

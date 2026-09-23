@@ -1,7 +1,7 @@
 """B37：观测组名 / mjlab API 残留门禁的契约。
 
 守三件事：
-1. **真仓 14 个机型包全绿**（残留已清）；
+1. **真仓 8 个机型包全绿**（family-arch 收敛后的清单；残留已清）；
 2. **门禁不是摆设**：注入"断链配置"必须判红、注入"已删符号"必须判红；
 3. **自洽写法不许误判**：`obs_groups={"actor": ("policy",)}` + env 定义了 `"policy"` 组是**能跑的**，
    判红就是误报 —— 门禁第一版正是这么错的，所以这条要钉死。
@@ -36,9 +36,20 @@ class RealRepoIsCleanTest(unittest.TestCase):
     def test_all_robot_packages_are_clean(self):
         report = gate.audit()
         self.assertTrue(report["ok"], report["errors"])
-        self.assertGreaterEqual(len(report["packages"]), 14, "机型包数量不对（门禁可能找错了目录）")
-        self.assertIn("microduck", report["packages"])
-        self.assertIn("zex-w", report["packages"])
+        self.assertEqual(
+            [
+                "deeprobotics_lite3",
+                "deeprobotics_m20",
+                "unitree_b2",
+                "unitree_b2w",
+                "unitree_go1",
+                "unitree_go2",
+                "unitree_go2w",
+                "zex-w",
+            ],
+            sorted(report["packages"]),
+            "机型包清单须恰为 family-arch 收敛后的 8 机型（门禁目录口径随之对应）",
+        )
 
     def test_gate_says_it_does_not_run_mjlab(self):
         """边界要写在报告里：静态扫描 ≠ 任务能跑。"""
@@ -92,10 +103,15 @@ class InjectedCounterExampleTest(unittest.TestCase):
 
 
 class LandedFixesTest(unittest.TestCase):
-    """三处 B37 修复必须真在文件里（防回退）。"""
+    """B37 修复必须真在文件里（防回退）；microduck 专属条目已随包出库，
+    保留的一条重锚到 deeprobotics_m20（见各用例 docstring）。"""
 
-    def test_microduck_uses_actor_group_and_new_api(self):
-        path = ROOT / "assets/robots/microduck/training/source/mjlab_microduck/tasks/testbench_env_cfg.py"
+    def test_retained_package_uses_actor_group_and_new_api(self):
+        """重锚说明（原 microduck 专项用例已随该包出库删除）：保留机型代表
+        deeprobotics_m20 的 env 配置同守 B37 修复——观测组名用 ``"actor"``、
+        模型配置走 mjlab 1.6 新 API（``RslRlModelCfg``），代码里不得复活
+        ``RslRlPpoActorCriticCfg``。"""
+        path = ROOT / "assets/robots/deeprobotics_m20/training/source/m20_dreamwaq/config.py"
         text = path.read_text(encoding="utf-8")
         # 只查**代码行**：注释里提到"某类已不存在"是正常的（门禁也是这个口径）
         code_lines = [line for line in text.splitlines() if not line.strip().startswith("#")]
@@ -120,11 +136,9 @@ class LandedFixesTest(unittest.TestCase):
         )
         self.assertEqual(residue, [], f"zex-w 的 rsl_rl 已整棵清理，不许再有 py：{residue}")
 
-    def test_microduck_symmetry_docstring_says_actor(self):
-        path = ROOT / "assets/robots/microduck/training/source/mjlab_microduck/tasks/symmetry.py"
-        text = path.read_text(encoding="utf-8")
-        self.assertIn('keys ``"actor"`` and ``"critic"``', text)
-        self.assertNotIn('keys ``"policy"`` and ``"critic"``', text)
+    # 原 ``test_microduck_symmetry_docstring_says_actor`` 已随 microduck 出库删除
+    # （2026-09 family-arch 收敛）：该 docstring 修复只存在于已删包的 symmetry.py，
+    # 保留机型无同位文件，无可重锚对象。
 
 
 if __name__ == "__main__":

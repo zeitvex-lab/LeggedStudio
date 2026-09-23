@@ -14,7 +14,7 @@
 
 | 环节 | 能力 |
 |---|---|
-| 资产管理 | 内置 14 个标准化机器人包（宇树 Go1/Go2/Go2W/B2/G1、云深处 Lite3/M20、逐际 TRON1 三形态、自研 ZEX-W 轮足、Wuji 五指灵巧手等），统一契约描述；随仓附带参考资源库 [`00_resources/`](00_resources/README.md)（按来源项目组织，含项目×机型矩阵与机型反查） |
+| 资产管理 | 内置 8 个标准化机器人包（四足：宇树 Go1/Go2/B2、云深处 Lite3；轮足：云深处 M20、宇树 Go2W/B2W、自研 ZEX-W），统一契约描述；**2026-09-23 族架构收敛**：每族一套通用架构，非四足/轮足机型不再保留；随仓附带参考资源库 [`00_resources/`](00_resources/README.md)（按来源项目组织，含项目×机型矩阵与机型反查） |
 | 模型检查 | URDF/MJCF 校验、3D 可视化检查器、契约合规校验 |
 | RL 训练 | 通过隔离子进程调用 MJLab（MuJoCo Warp + PyTorch）训练后端，PPO / off-policy 算法，训练任务创建、监控、事件流 |
 | 策略导出 | 导出 ONNX 部署策略，导出门禁（export gate）校验 |
@@ -50,7 +50,7 @@
 ┌────▼─────────┐  ┌─────▼───────┐   ┌───────▼───────────────────┐
 │ contracts/   │  │ assets/     │   │ adapters/mjlab/ worker     │
 │ 数据契约      │  │ robots/     │   │ MJLab + torch(cu128/cpu)   │
-│ Schema/校验/ │  │ 14 机器人包  │   │ PPO / off-policy           │
+│ Schema/校验/ │  │ 8 机器人包   │   │ PPO / off-policy           │
 │ 角色解析      │  │ + 资产清单   │   │ ──► ONNX 导出              │
 │ （零依赖）    │  └─────────────┘   └───────┬───────────────────┘
 └──────────────┘                            │ policy.onnx + 部署元数据
@@ -76,7 +76,7 @@ legged_studio/
 ├── contracts/             # 稳定数据契约（JSON Schema + Pydantic 模型，零仿真依赖）
 ├── adapters/              # 训练后端插件层
 │   └── mjlab/             # 当前唯一实现：MJLab 训练后端（隔离 venv）
-├── assets/robots/         # 14 个标准化机器人包（契约 + MJCF/URDF + 训练配置）
+├── assets/robots/         # 8 个标准化机器人包（契约 + MJCF/URDF + 训练配置；2026-09-23 族架构收敛）
 ├── web/                   # 纯静态前端（无构建），由 FastAPI 挂载到 /web
 │   └── sim2sim/           # 浏览器内 sim2sim（MuJoCo WASM + ONNX Runtime Web）
 ├── scripts/               # 启动器、CLI、Windows 运行时下载与打包脚本
@@ -190,7 +190,7 @@ playwright install chromium
 pytest tests/e2e -v
 ```
 
-无头 CPU sim2sim 验收（包内声明的策略全量，当前 58 条可执行，对照基线只拦新增退化）：
+无头 CPU sim2sim 验收（包内声明的策略全量，当前 42 条可执行，对照基线只拦新增退化）：
 
 ```bash
 python tools/sim2sim_headless.py --seconds 3 \
