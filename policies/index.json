@@ -1747,9 +1747,9 @@
       "contract": {
         "action_dim": 12,
         "obs_dim": 270,
-        "observation_kind": "unknown"
+        "observation_kind": "himloco_45_hist6"
       },
-      "contract_digest": "017801b76701817032c472bc213a9b6a2b682418fbf4e440ea09ab1a361758cb",
+      "contract_digest": "6a272c448200a231e76ac772f003c032dc73f5ad9eb6ce943cc7f5e8676a0db5",
       "installed": {
         "package_path": "simulation/policies/unitree_go2-trained-20260919-143025.onnx",
         "policy_id": "unitree_go2-trained-20260919-143025",
@@ -1759,7 +1759,7 @@
       "kind": "produced",
       "obs_dim": 270,
       "obs_dim_source": "onnx",
-      "observation_kind": "unknown",
+      "observation_kind": "himloco_45_hist6",
       "onnx_bytes": 981615,
       "onnx_sha256": "3122d168f80340084fc85ad391618d43d2b21e181f3d72f8c6c0ef65ee8056c4",
       "policy_id": "unitree_go2-trained-20260919-143025",
