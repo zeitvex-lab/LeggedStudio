@@ -22,7 +22,7 @@ a) **浏览器下发的每机型执行器增益 == 契约真值 逐关节展开*
 b) **各包 ``simulation/config.json`` 无 B3 废弃物理键残留**（B3 口径 =
    ``LEGACY_CONFIG_PHYSICS_KEYS``，顶层键）。嵌套 ``control.stiffness`` 类死数据
    不判红（B3 口径之外、无任何消费者），但逐条列入报告。
-c) **D8 电机参数卡数据源（``backend/robot_packages._physics_view``）与浏览器载荷
+c) **D8 电机参数卡数据源（``backend/package_records.package_contract_views``）与浏览器载荷
    同形状同值**。
 d) **端点白名单接线静态钉住**：审计不 import ``simulation_api``（它拉 mujoco），
    而是用同一批原语重建载荷； therefore 必须钉住端点源码仍按
@@ -477,11 +477,11 @@ def check_package(root: Path) -> dict:
                         "增益消费链已全部改读契约真值）——建议随下次保存链清理",
         })
 
-    # c) D8 电机参数卡数据源 == 浏览器载荷（backend/robot_packages._physics_view）
+    # c) D8 电机参数卡数据源 == 浏览器载荷（backend/package_records.package_contract_views）
     try:
-        from backend.robot_packages import _physics_view
+        from backend.package_records import package_contract_views
 
-        view = _physics_view(root)
+        view = package_contract_views(root)["physics"]
         expected = dict(payload)
         expected["source"] = facts.get("source")
         expected["needs_migration"] = bool(facts.get("needs_migration"))
@@ -489,10 +489,10 @@ def check_package(root: Path) -> dict:
             differing = sorted(k for k in set(view) | set(expected) if view.get(k) != expected.get(k))
             problem(
                 "D8 电机参数卡 == 浏览器载荷",
-                f"robot_packages._physics_view 与 payload_physics_view 在 {differing[:6]} 上不一致",
+                f"package_records.package_contract_views 与 payload_physics_view 在 {differing[:6]} 上不一致",
             )
     except Exception as exc:  # noqa: BLE001
-        problem("D8 电机参数卡 == 浏览器载荷", f"_physics_view 调用失败：{exc}")
+        problem("D8 电机参数卡 == 浏览器载荷", f"package_contract_views 调用失败：{exc}")
 
     # 滤波参考（H23 的 lpf 一侧）：端点从包配置下发 action_filter_cutoffs
     cutoffs = config.get("action_filter_cutoffs")

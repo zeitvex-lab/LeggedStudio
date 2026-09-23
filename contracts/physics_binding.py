@@ -51,6 +51,7 @@ __all__ = [
     "format_tn_curve_text",
     "dc_params_from_t_n_curve",
     "t_n_curve_facts",
+    "t_n_curve_facts_from_contract",
     "payload_t_n_curve_view",
     "dc_actuator_settings",
     "apply_t_n_curves",
@@ -501,6 +502,11 @@ def t_n_curve_facts(package_dir: str | Path) -> dict[str, Any]:
     if not contract_path.exists():
         return empty
     contract_truth = json.loads(contract_path.read_text(encoding="utf-8-sig"))
+    return t_n_curve_facts_from_contract(contract_truth)
+
+
+def t_n_curve_facts_from_contract(contract_truth: dict[str, Any]) -> dict[str, Any]:
+    """从已读取的契约快照派生 T-N 事实，不再访问文件系统。"""
     profile = contract_truth.get("actuator_profile") or {}
     default_points = _normalize_tn_curve_points((profile.get("default") or {}).get(TN_CURVE_KEY))
     by_role = {

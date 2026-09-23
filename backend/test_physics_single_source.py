@@ -25,7 +25,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from backend.robot_packages import _physics_view
+from backend.package_records import package_contract_views
 from contracts.physics_binding import (
     LEGACY_CONFIG_PHYSICS_KEYS,
     apply_t_n_curves,
@@ -227,7 +227,7 @@ class WorkbenchPhysicsViewTests(unittest.TestCase):
     def test_physics_view_covers_all_packages(self):
         for package in package_dirs():
             with self.subTest(package=package.name):
-                view = _physics_view(package)
+                view = package_contract_views(package)["physics"]
                 self.assertEqual(view.get("source"), "contract")
                 for key in ("stiffness", "damping", "torque_limits", "armature", "frictionloss"):
                     self.assertIn(key, view, f"{package.name} 缺 {key}")
@@ -238,14 +238,14 @@ class WorkbenchPhysicsViewTests(unittest.TestCase):
         for package in package_dirs():
             with self.subTest(package=package.name):
                 expected = payload_physics_view(physics_facts(package))
-                actual = _physics_view(package)
+                actual = package_contract_views(package)["physics"]
                 for key in ("stiffness", "damping", "torque_limits", "armature", "frictionloss"):
                     self.assertEqual(actual[key], expected[key], f"{package.name} 的 {key} 与浏览器载荷不一致")
 
     def test_missing_contract_marks_source_missing(self):
         """无契约的目录显式标 ``source=missing``（面板据此提示"未声明"），不是静默空值。"""
         with tempfile.TemporaryDirectory() as tmp:
-            view = _physics_view(Path(tmp))
+            view = package_contract_views(Path(tmp))["physics"]
             self.assertEqual(view.get("source"), "missing")
             self.assertTrue(view.get("needs_migration"))
             self.assertEqual(view["armature"], {})

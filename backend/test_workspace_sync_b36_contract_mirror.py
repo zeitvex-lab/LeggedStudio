@@ -28,6 +28,7 @@ import unittest
 from pathlib import Path
 
 from backend import robot_packages
+from backend.package_sync import SYNC_REVISION
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -177,7 +178,7 @@ class WorkspaceSyncB36ContractMirrorTests(unittest.TestCase):
         meta_path = robot_packages._index_meta_path()
         old_meta = _read_json(meta_path)
         old_meta["signature"] = old_meta["signature"].replace(
-            f"sync_rev:{robot_packages.SYNC_REVISION}", "sync_rev:4", 1,
+            f"sync_rev:{SYNC_REVISION}", "sync_rev:4", 1,
         )
         _write_json(meta_path, old_meta)
         self.assertTrue(robot_packages._index_is_stale(), "sync_rev 变更未触发既有安装重建")

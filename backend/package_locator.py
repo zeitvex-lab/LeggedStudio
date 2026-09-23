@@ -208,7 +208,7 @@ def robot_definition(robot_id: str) -> dict[str, Any] | None:
                 "robot_id": str(contract.get("robot_id") or package_dir.name),
                 "family": contract.get("family") or package_dir.name,
                 "contract": contract,
-                # 与 ``robot_packages._build_record`` 的 ``asset_path`` 同口径（**绝对路径**）：
+                # 与 ``package_records.build_package_record`` 的 ``asset_path`` 同口径（**绝对路径**）：
                 # 它表示"模型文件在哪"，相对路径是半个答案（cwd 一变就错）。
                 "asset_path": str((package_dir / declared).resolve()) if declared else "",
             }
