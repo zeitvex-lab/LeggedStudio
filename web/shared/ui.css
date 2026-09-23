@@ -1,18 +1,23 @@
-/* Legged Studio 前端共享设计基座（第 1 批：壳与导航统一）。
+/* Legged Studio 前端共享设计基座（第 1 批：壳与导航统一；第 2 批：旧仪表盘样式退役）。
  *
- * 定位：**唯一样式基座**。纯静态 CSS、零依赖、可离线；所有类名 `ls-` 前缀，
- * 与 workbench.css / dashboard.css / play-overrides.css 既有的 .button/.panel/
- * .badge/.empty-state **零冲突**（那些是页面在用的旧件，本批不动）。
+ * 定位：**唯一样式基座**。纯静态 CSS、零依赖、可离线；自有组件一律 `ls-` 前缀。
+ * 第 2 批把旧仪表盘样式表（已删除）的 6 个消费页迁来本文件：
+ *   · 旧 token 名 → `--ls-*` 别名（见"第 2 批：旧 token 别名"一节）；
+ *   · 旧组件类 .btn / .panel / .page-* / .empty 按 .ls-* 观感补齐（见文件尾兼容层）；
+ *   · 该样式表曾被依赖的全局底座（盒模型 / 正文排版 / 重置）由"基础层"承接。
  *
- * 两条硬约定：
- *   1. 只定义 `--ls-*` 变量，**绝不重定义** --bg/--surface/--text/--cyan 等既有
- *      共享变量 —— 否则会改动仍在使用旧变量的页面观感；
+ * 三条约定：
+ *   1. `--ls-*` 是唯一自有色名；旧名只做指向 `--ls-*` 的别名（或保持上游样式表
+ *      已定义的原值），**不新造任何取值**；
  *   2. 颜色一律取自仓库既有的浅色板（workbench.css 亮色 :root / play-overrides.css
- *      / dashboard.css 的同族色），语义色只做"浅底深字（默认）+ 实底白字（--solid）"
- *      两种对比，正反底都按 WCAG AA（≥4.5:1）挑过。
+ *      / 旧仪表盘样式表的同族色），语义色只做"浅底深字（默认）+ 实底白字（--solid）"
+ *      两种对比，正反底都按 WCAG AA（≥4.5:1）挑过；
+ *   3. 基础层 / 重置只收编"旧页确实依赖"的默认值（盒模型、正文排版、UA 重置），
+ *      且尽量用零权重 / 条件选择器：未迁移的 workbench 深壳页（.app-shell）观感不变。
  */
 
 :root {
+  color-scheme: light;
   /* ---------- 亮色版面（页面主体） ---------- */
   --ls-bg: #f4f6f8;
   --ls-surface: #ffffff;
@@ -21,7 +26,7 @@
   --ls-line: #d9e0e7;
   --ls-line-soft: #e8edf2;
   --ls-text: #1f2933;
-  --ls-ink: #334155;            /* 按钮正文（比 --ls-text 略浅，沿用 dashboard.css .btn） */
+  --ls-ink: #334155;            /* 按钮正文（比 --ls-text 略浅，沿用旧仪表盘 .btn） */
   --ls-muted: #5f6c79;
 
   /* ---------- 强调色（蓝） ---------- */
@@ -80,9 +85,62 @@
 }
 
 /* =========================================================================
-   按钮 .ls-btn
+   第 2 批：旧 token 别名（名映射，不是第二套色板）
+   —— 旧仪表盘样式表给 6 个消费页一套 --surface/--border/--muted/… 名字，文件退役后
+   由本块承接，取值全部指向 --ls-*（与 play-overrides.css 对训练三页的覆盖同值，
+   故不改动它们的观感；只有 --radius / --surface-soft / --border 此前在训练三页
+   未定义，这里按 ui.css 同族值兜底）。第 3 批（workbench 收敛）后若无人引用，整块可删。
    ========================================================================= */
-.ls-btn {
+:root {
+  --bg: var(--ls-bg);
+  --surface: var(--ls-surface);
+  --surface-raised: var(--ls-surface-raised);
+  --surface-soft: var(--ls-surface-soft);
+  --surface-input: var(--ls-surface);
+  --border: var(--ls-line);
+  --border-soft: var(--ls-line-soft);
+  --text: var(--ls-text);
+  --muted: var(--ls-muted);
+  --accent: var(--ls-accent);
+  --radius: var(--ls-radius);
+}
+
+/* =========================================================================
+   基础层：全局底座（盒模型 / 页面底色 / 正文排版 / 重置）
+   —— 同样是旧仪表盘样式表"退役前被 6 页依赖"的部分；取值与 workbench.css 系一致，
+   训练三页因此不受影响（正文 line-height 由 normal 变为 1.5 是唯一可见差异）。
+   ========================================================================= */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { background: var(--ls-bg); }
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--ls-bg);
+  color: var(--ls-text);
+  font-family: var(--ls-font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 裸控件点击目标下限（旧仪表盘样式表的同一门禁项：小按钮/小下拉实测只有
+   17~19px 高，鼠标点不准；见 tests/e2e/test_ui_metrics_gate.py）。
+   `:where()` 零权重 = 纯兜底：页面或上游样式表已给的高度（如 .button 的 32px）
+   照旧优先，只有"没人给高度"的原生控件才抬到 26px。 */
+:where(.button, .text-button, .icon-btn, select) { min-height: var(--ls-tap-sm); }
+
+/* `* { margin:0; padding:0 }` 的等价物：只对"没有 workbench 深壳（.app-shell）"的
+   页面生效 —— 训练三页是照着"无全局重置"写的，一并重置会重排它们的间距。
+   :where() 保持零权重：页面自己的 margin / padding 声明照旧优先。 */
+:where(body:not(:has(.app-shell))) * { margin: 0; padding: 0; }
+
+/* =========================================================================
+   按钮 .ls-btn（第 2 批兼容名 .btn —— 与 .ls-btn 同观感，旧页类名不改）
+   ========================================================================= */
+.ls-btn,
+.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -101,12 +159,17 @@
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.ls-btn:hover { border-color: var(--ls-accent-line); background: var(--ls-surface-soft); color: var(--ls-accent); }
-.ls-btn:focus-visible { outline: 2px solid var(--ls-accent); outline-offset: 1px; }
-.ls-btn:disabled, .ls-btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
+.ls-btn:hover,
+.btn:hover { border-color: var(--ls-accent-line); background: var(--ls-surface-soft); color: var(--ls-accent); }
+.ls-btn:focus-visible,
+.btn:focus-visible { outline: 2px solid var(--ls-accent); outline-offset: 1px; }
+.ls-btn:disabled, .ls-btn[aria-disabled="true"],
+.btn:disabled, .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
 
-.ls-btn--primary { border-color: var(--ls-accent); background: var(--ls-accent); color: #ffffff; }
-.ls-btn--primary:hover { border-color: var(--ls-accent-strong); background: var(--ls-accent-strong); color: #ffffff; }
+.ls-btn--primary,
+.btn.primary { border-color: var(--ls-accent); background: var(--ls-accent); color: #ffffff; }
+.ls-btn--primary:hover,
+.btn.primary:hover { border-color: var(--ls-accent-strong); background: var(--ls-accent-strong); color: #ffffff; }
 
 .ls-btn--ghost { border-color: transparent; background: transparent; color: var(--ls-muted); }
 .ls-btn--ghost:hover { border-color: var(--ls-line); background: var(--ls-surface-soft); color: var(--ls-accent); }
@@ -117,15 +180,18 @@
 .ls-btn--small { min-height: var(--ls-tap-sm); padding: 0 var(--ls-space-2); font-size: var(--ls-font-xs); }
 
 /* =========================================================================
-   面板 / 卡片
+   面板 / 卡片（第 2 批兼容名 .panel ≈ .ls-panel + 旧页自带的下外边距）
    ========================================================================= */
-.ls-panel {
+.ls-panel,
+.panel {
   padding: var(--ls-space-5);
   border: 1px solid var(--ls-line-soft);
   border-radius: var(--ls-radius);
   background: var(--ls-surface);
   color: var(--ls-text);
 }
+
+.panel { margin-bottom: var(--ls-space-6); }
 
 .ls-card {
   padding: var(--ls-space-3);
@@ -241,9 +307,11 @@
 .ls-field-error { color: var(--ls-err); font-size: var(--ls-font-xs); }
 
 /* =========================================================================
-   空态 .ls-empty
+   空态 .ls-empty（第 2 批兼容名 .empty / .empty-state ≈ .ls-empty）
    ========================================================================= */
-.ls-empty {
+.ls-empty,
+.empty,
+.empty-state {
   padding: var(--ls-space-7) var(--ls-space-4);
   border: 1px dashed var(--ls-line);
   border-radius: var(--ls-radius);
@@ -253,7 +321,9 @@
   text-align: center;
 }
 
-.ls-empty p { margin: 0 0 var(--ls-space-4); }
+.ls-empty p,
+.empty p,
+.empty-state p { margin: 0 0 var(--ls-space-4); }
 
 /* =========================================================================
    提示条 .ls-toast（容器 + 显示态 + 语义色）
@@ -384,4 +454,34 @@ body.embedded .ls-topnav { display: none; }
   .ls-brand-text small { display: none; }
   .ls-nav-item { padding: 0 var(--ls-space-2); }
   .ls-topnav-status span { display: none; }
+}
+
+/* =========================================================================
+   第 2 批兼容层：页头 .page-header / .page-kicker / .page-actions
+   —— 旧仪表盘样式表的页头语义；训练列表此前也用了 .page-header 但"已加载的
+   样式表里没有定义"（实测缺陷：flex/标题字号/间距全没生效），一并在此补齐。
+   ========================================================================= */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ls-space-5);
+  margin-bottom: var(--ls-space-7);
+}
+
+.page-header h1 { margin: var(--ls-space-2) 0; font-size: 32px; font-weight: 700; color: var(--ls-text); }
+.page-header p { margin: 0; color: var(--ls-muted); font-size: 14px; }
+
+.page-kicker {
+  color: var(--ls-accent);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.page-actions { display: flex; align-items: center; gap: 10px; }
+
+@media (max-width: 768px) {
+  .page-header { flex-direction: column; }
 }

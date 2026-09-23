@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>包管理 - Legged Studio</title>
-  <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="shared/ui.css">
   <style>
     .packages-shell{max-width:1320px;margin:0 auto;padding:32px 24px}
     .package-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-top:22px}
@@ -17,14 +17,15 @@
     .package-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
     .package-actions{display:flex;gap:8px;margin-top:15px;flex-wrap:wrap}
     .badge{display:inline-flex;padding:3px 8px;border-radius:99px;background:var(--surface-raised);color:var(--accent);font-size:11px}
-    .badge.ok{background:rgba(46,160,67,.15);color:#217a37}
-    .badge.warn{background:rgba(216,137,34,.15);color:#8a5a12}
+    .badge.ok{background:var(--ls-ok-soft);color:var(--ls-ok)}
+    .badge.warn{background:var(--ls-warn-soft);color:var(--ls-warn)}
     .badge.readonly{background:var(--surface-raised);color:var(--muted)}
     .empty{padding:60px;text-align:center;color:var(--muted);border:1px dashed var(--border-soft)}
     .import-bar{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
     .import-bar input{flex:1;min-width:280px;padding:9px 12px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:12px}
     .btn.primary{background:var(--accent);color:#ffffff;border-color:var(--accent)}
-    .btn.danger{color:#f85149;border-color:rgba(248,81,73,.4)}
+    /* 删除按钮：旧 #f85149 在浅底上只有 3.35:1（实测门禁红），改用 ui.css 语义红 */
+    .btn.danger{color:var(--ls-err);border-color:var(--ls-err-line)}
     .profile-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
     .profile-chips .badge{font-size: 11px}
     .toolbar-note{margin-top:10px;color:var(--muted);font-size:11px}
