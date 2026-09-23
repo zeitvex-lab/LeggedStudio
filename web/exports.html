@@ -106,6 +106,7 @@
     </section>
   </main>
 
+  <script src="shared/api.js"></script>
   <script src="shared/topnav.js"></script>
   <script>
     window.LSTopNav.render('lsTopNav');
@@ -118,15 +119,9 @@
       }[char]));
     }
 
-    async function jsonFetch(url, options) {
-      const response = await fetch(url, { cache: "no-store", ...options });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const detail = payload.detail;
-        throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail || payload));
-      }
-      return payload;
-    }
+    // 本页所有 JSON 请求统一走 shared/api.js（唯一实现）：HTTP 错误 / 超时 / 非 JSON 响应都在那里处理。
+    // 保留本页原有的 `cache: "no-store"`（打包/校验结论必须现读现算，不吃浏览器缓存）。
+    const jsonFetch = (url, options) => LSApi.fetchJson(url, { cache: "no-store", ...options });
 
     async function loadMaps() {
       try {

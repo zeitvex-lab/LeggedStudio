@@ -429,7 +429,7 @@
 .pill.ok { color: var(--green); border-color: rgba(105, 224, 169, 0.35); background: rgba(105, 224, 169, 0.08); }
 .pill.no { color: var(--faint); }
 
-/* ========== 缺少 ID / Toast ========== */
+/* ========== 缺少 ID ========== */
 .missing-id {
   margin: 80px auto;
   max-width: 480px;
@@ -439,25 +439,6 @@
   text-align: center;
 }
 .missing-id p { color: var(--muted); margin: 0 0 16px; }
-
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 56px;
-  transform: translateX(-50%) translateY(8px);
-  padding: 12px 20px;
-  border-radius: 6px;
-  background: var(--cyan-dim);
-  border: 1px solid rgba(55, 214, 198, 0.4);
-  color: var(--cyan);
-  font-size: 13px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  z-index: 100;
-}
-
-.toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ========== 5) 底部状态栏 ========== */
 .bottom-status-bar {

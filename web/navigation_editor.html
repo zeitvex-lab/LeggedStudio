@@ -36,7 +36,6 @@
     .swatch.wp{background:#2dd4bf}
     .swatch.route{background:#d29922}
     .swatch.start{background:#2ea043}
-    .toast{position:fixed;bottom:18px;right:18px;padding:12px 16px;border-radius:var(--radius);background:var(--surface-raised);border:1px solid var(--border);color:var(--text);font-size:12px;z-index:50}
   
   body.embedded{padding:0}
   body.embedded .editor-shell{padding:16px 20px 40px}
@@ -87,16 +86,14 @@
       </aside>
     </div>
   </main>
-  <div class="toast" id="toast" hidden></div>
+  <script src="shared/api.js"></script>
+  <script src="shared/feedback.js"></script>
   <script>
     const API = window.location.origin, $ = s => document.querySelector(s);
     let maps = [], currentMap = null, bounds = [-5,5,-5,5];
     let obstacles = [], waypoints = [];
     let tool = 'obstacle', route = [], planMeta = null, review = null;
     let canvas, ctx, scaleX, scaleY, offsetX, offsetY;
-
-    function toast(msg, type='success'){ const t=$('#toast'); t.textContent=msg; t.hidden=false; t.style.borderColor=type==='danger'?'rgba(248,81,73,.5)':'var(--border)'; clearTimeout(t._timer); t._timer=setTimeout(()=>t.hidden=true,2600); }
-    async function api(path, opts){ const r=await fetch(API+path, opts); const d=await r.json().catch(()=>({})); if(!r.ok){ throw new Error(d.detail||d.error||r.status); } return d; }
 
     function computeTransform(){
       const rect = canvas.getBoundingClientRect();
@@ -182,14 +179,18 @@
     }
 
     async function loadMaps(){
-      const data = await api('/api/navigation/maps');
+      let data;
+      try{ data = await LSApi.fetchJson(API + '/api/navigation/maps'); }
+      catch(e){ LSFeedback.error('地图列表读取失败：' + e.message); return; }
       maps = data.maps;
       $('#mapSelect').innerHTML = maps.map(m=>`<option value="${m.id}">${m.label}</option>`).join('');
       if(maps.length){ await selectMap(maps[0].id); }
     }
 
     async function selectMap(id){
-      const data = await api('/api/navigation/maps/'+encodeURIComponent(id));
+      let data;
+      try{ data = await LSApi.fetchJson(API + '/api/navigation/maps/' + encodeURIComponent(id)); }
+      catch(e){ LSFeedback.error('地图读取失败：' + e.message); return; }
       const m = data.map;
       currentMap = m; bounds = m.bounds; obstacles = (m.obstacles||[]).map(o=>Array.isArray(o)?[...o]:[o[0],o[1],o[2],o[3]]);
       waypoints = (m.waypoints||[]).map(w=>[...w]);
@@ -199,9 +200,9 @@
     }
 
     async function plan(){
-      if(waypoints.length<2){ toast('至少设置两个航点','danger'); return; }
+      if(waypoints.length<2){ LSFeedback.error('至少设置两个航点'); return; }
       try{
-        const data = await api('/api/navigation/maps/plan',{
+        const data = await LSApi.fetchJson(API + '/api/navigation/maps/plan',{
           method:'POST', headers:{'Content-Type':'application/json'},
           body:JSON.stringify({ map_id:currentMap.id, obstacles, waypoints, algorithm:$('#algorithm').value })
         });
@@ -220,18 +221,18 @@
         $('#routeOutput').textContent = lines.join('\n');
         $('#status').textContent = '规划完成 · '+seg.length+' 段 · '+data.total_cost_m+' m'
           + (s ? ' · 净空最差 '+s.worst_status + (s.blocked ? '（拒绝下发）' : '') : '');
-        if(s && s.blocked) toast('路径净空违规，已拒绝下发','danger');
-      }catch(e){ toast('规划失败：'+e.message,'danger'); $('#routeOutput').textContent=''; }
+        if(s && s.blocked) LSFeedback.error('路径净空违规，已拒绝下发');
+      }catch(e){ LSFeedback.error('规划失败：'+e.message); $('#routeOutput').textContent=''; }
     }
 
     async function saveMap(){
       try{
-        await api('/api/navigation/maps/'+encodeURIComponent(currentMap.id),{
+        await LSApi.fetchJson(API + '/api/navigation/maps/' + encodeURIComponent(currentMap.id),{
           method:'PUT', headers:{'Content-Type':'application/json'},
           body:JSON.stringify({ map_id:currentMap.id, obstacles, waypoints })
         });
-        toast('地图已保存');
-      }catch(e){ toast('保存失败：'+e.message,'danger'); }
+        LSFeedback.toast('地图已保存', { type:'ok' });
+      }catch(e){ LSFeedback.error('保存失败：'+e.message); }
     }
 
     window.addEventListener('resize', ()=>{ computeTransform(); draw(); });
@@ -241,7 +242,12 @@
     $('#btnWaypoint').onclick=()=>{ tool='waypoint'; setActive('#btnWaypoint'); };
     $('#btnMove').onclick=()=>{ tool='move'; setActive('#btnMove'); };
     $('#btnErase').onclick=()=>{ tool='erase'; setActive('#btnErase'); };
-    $('#btnClear').onclick=()=>{ obstacles=[]; waypoints=[]; route=[]; draw(); toast('已清空'); };
+    $('#btnClear').onclick=async ()=>{
+      // 破坏性动作：清空当前地图上的全部障碍与航点（未保存的改动不可恢复），必须显式确认。
+      const ok = await LSFeedback.confirm('确定要清空当前地图上的全部障碍与航点吗？未保存的编辑将丢失。', { title:'清空编辑内容', danger:true });
+      if(!ok) return;
+      obstacles=[]; waypoints=[]; route=[]; draw(); LSFeedback.toast('已清空');
+    };
     $('#btnPlan').onclick=plan;
     $('#btnSave').onclick=saveMap;
     $('#algorithm').onchange=()=>{ if(waypoints.length>=2) plan(); };
