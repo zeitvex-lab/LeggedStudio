@@ -1,5 +1,19 @@
 observation_kind: go2_mjlab_actor_48
 obs_dim: 48
 action_dim: 12
+default_joint_angles:
+  fl_hip_joint: -0.1
+  fl_thigh_joint: 0.8
+  fl_calf_joint: -1.5
+  fr_hip_joint: 0.1
+  fr_thigh_joint: 0.8
+  fr_calf_joint: -1.5
+  rl_hip_joint: -0.1
+  rl_thigh_joint: 0.8
+  rl_calf_joint: -1.5
+  rr_hip_joint: 0.1
+  rr_thigh_joint: 0.8
+  rr_calf_joint: -1.5
+action_scale: 0.25
 robot: unitree_b2
 policy_id: unitree_b2-trained-20260918-015414

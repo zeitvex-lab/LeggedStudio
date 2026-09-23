@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-lainlab-dreamwaq",
   "aux_blobs": [],
-  "contract_digest": "f3dc3f6173f82042b97e24aaf3e7602fccba95f634a0129f023001b1183b4cd6",
+  "contract_digest": "923f9c6ce707da511e28e4655f615ac277b0db11ab2851c4fdbe7533ea04ea47",
   "declared_source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/dreamwaq",
   "history_len": 6,
   "kind": "policies",

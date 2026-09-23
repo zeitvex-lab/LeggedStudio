@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_g1__g1-velocity-mjswan",
   "aux_blobs": [],
-  "contract_digest": "6235d1f9dacdf4f69fc7a0b5627979ca9eb3042168933df6f36ff0b8278e2052",
+  "contract_digest": "34d9432a3330bdef22576c96a8cb357030e3c49abdb887a2e71e4e2004fae35f",
   "declared_source": "mjswan examples/demo（mjlab G1 velocity，99 维观测）",
   "history_len": 1,
   "kind": "policies",

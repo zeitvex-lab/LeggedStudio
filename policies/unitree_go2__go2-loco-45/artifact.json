@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-loco-45",
   "aux_blobs": [],
-  "contract_digest": "17c072e282b5cd916399bb4494f27ae1849fca2cb782b3c47e7e0eb01296f45c",
+  "contract_digest": "ab9cf69c7bbf1957507b16fab35fbafb19cfa572454a697e8d05ea5c695a74ff",
   "declared_source": "LeggedSkillDeploy go2_loco（第三方，无 LICENSE；仅内部研究）",
   "history_len": 1,
   "kind": "policies",

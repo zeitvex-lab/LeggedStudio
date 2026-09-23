@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-kaiwu-moe-cts-124k",
   "aux_blobs": [],
-  "contract_digest": "a1b90a02a0c11a7d2c16454d1c461313e771ae0fbdad51e071b1c1e2a515fd74",
+  "contract_digest": "1f44d6b8fb3c8a0dfd69a62f2f99e095d52029df567b330dd94969b1d504a004",
   "declared_source": "kaiwu_rl RoboGauge 发布策略（训练源 go2_rl_gym legged_gym go2）",
   "history_len": 5,
   "kind": "policies",

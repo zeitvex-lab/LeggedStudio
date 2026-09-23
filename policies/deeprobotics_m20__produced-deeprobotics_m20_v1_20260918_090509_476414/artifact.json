@@ -8,7 +8,7 @@
     "obs_dim": 57,
     "observation_kind": "unknown"
   },
-  "contract_digest": "689cd6ea17b328c090de7d0701a4e46912c740ebaaade0b573744a0cca5c233b",
+  "contract_digest": "bb9266f15f1f54a34484da00a58dbaa14736c4a614f95ec0e788632b1dafe683",
   "declared_source": null,
   "history_len": null,
   "installed": {

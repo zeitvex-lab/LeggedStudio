@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_b2__b2-velocity-benchmark",
   "aux_blobs": [],
-  "contract_digest": "dfc6f91b588b798975d440212e36e0bc845b5f07532b30c614578fd11e2e4e94",
+  "contract_digest": "ac719b76bec5b08c8af5a8e68e881f4af7b7973a5f03b155a014f65a5425abea",
   "declared_source": "rl_sar（Apache-2.0，社区训练基准）",
   "history_len": 1,
   "kind": "policies",

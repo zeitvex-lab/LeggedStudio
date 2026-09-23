@@ -30,5 +30,13 @@ default_joint_angles:
   RR_thigh_joint: 1.0
   RR_calf_joint: -1.5
 action_scale: 0.25
+scales:
+  ang_vel: 0.25
+  dof_pos: 1.0
+  dof_vel: 0.05
+  command:
+    - 2.0
+    - 2.0
+    - 0.25
 robot: unitree_go2
 policy_id: go2-lainlab-rear-stand
