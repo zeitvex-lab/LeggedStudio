@@ -7,7 +7,7 @@
   2. 本地训练产物：pretrained_models/*/artifact.json（若存在，按 id 合并、
      指标优先）——scripts/generate_pretrained_models.py 训练出的模型。
 
-产出字段与 /api/pretrained/* 的消费者对齐（dashboard quickDemo、首页 demo 卡）：
+产出字段与 /api/pretrained/* 的消费者对齐（工作台首页 demo 卡）：
   id / name / robot / algorithm / success_rate / avg_reward / path / url / play_url
 """
 from __future__ import annotations

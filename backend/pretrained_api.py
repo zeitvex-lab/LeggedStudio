@@ -154,7 +154,7 @@ async def run_pretrained_demo(model_id: str, num_episodes: int = 5):
     （"临时：模拟结果"）——本仓的原则是"没有评估报告就不算通过"，返回编造数比
     404 更坏（404 让人去找原因，假 200 让人相信不存在的 rollout）。真实现需要
     加载模型 + 创建环境 + 跑 episode，那是评测矩阵（`/api/evaluation/run`）的职责，
-    不该在这里造一份低保真副本。前端无消费方（dashboard.js 明确"不造假卡"）。
+    不该在这里造一份低保真副本。前端无消费方（旧 dashboard.js 明确"不造假卡"，该页已删除）。
     """
     index_file = PRETRAINED_DIR / "index.json"
     if not index_file.exists():

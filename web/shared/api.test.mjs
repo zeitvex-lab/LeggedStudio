@@ -145,7 +145,10 @@ async function expectApiError(promise, message) {
 {
   const { readdirSync, readFileSync, statSync } = await import("node:fs");
   const { join } = await import("node:path");
-  const root = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
+  // Windows 上 `new URL(...).pathname` 是 "/C:/..."，拼出来的路径会被当成
+  // 相对盘符（C:\C:\...）直接 ENOENT —— 用 fileURLToPath 取本机路径。
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL(".", import.meta.url)).replace(/[\\/]$/, "");
   const webRoot = join(root, "..");
 
   function walk(dir, out = []) {

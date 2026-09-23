@@ -76,9 +76,11 @@ Web 程序是 Legged Studio 的核心功能层，由两部分组成：
 
 ### 功能页面
 
+> 旧 `dashboard.html` 控制台已于 2026-09-23 并入 `workbench.html#home`（老地址 302 重定向），
+> 其“快速体验 / 最近训练 / 系统状态”由工作台首页的 `#homeDemos` / `#homeRuns` / `#homeCapabilities` 承接。
+
 | 页面 | 作用 |
 |---|---|
-| `dashboard` | 总览仪表盘 |
 | `training_create` / `training_list` / `training_monitor` | 训练创建（大表单，含 recipe schema 驱动）、任务列表、实时监控 |
 | `deploy` | 部署包配置与打包 |
 | `evaluation` | 策略评估 |
