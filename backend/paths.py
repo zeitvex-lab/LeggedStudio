@@ -69,7 +69,7 @@ def data_dir(*, default: Path | None = None) -> Path:
     此前三处实现各缺一样，同一个环境变量在不同入口落到不同路径：
 
     * ``model_api``：默认值 ``Path("workspace").resolve()`` —— **相对 cwd**（换个目录启动，白名单范围就变了）；
-    * ``episode_api``：不 strip、不 expanduser、不绝对化；
+    * ``episode_api``（2026-09-23 已删除）：不 strip、不 expanduser、不绝对化；
     * ``settings_api``：``.strip()`` 了但没 ``resolve``。
 
     **默认值刻意留给调用方**（``default=``）：它表达的是"这类数据的家在哪儿"

@@ -7283,19 +7283,10 @@ function renderScenarioPanel(message = "", failed = false) {
   lines.push(`  度量: ${summary.metrics.distanceM}m / ${summary.metrics.durationS}s / 最大 roll ${summary.metrics.maxRollDeg}°`
     + ` / 摔倒 ${summary.metrics.fell ? "是" : "否"}`);
   if (summary.artifacts.length) lines.push(`  记录器产物: ${summary.artifacts.join(", ")}`);
-  if (run.episode?.dir) {
-    lines.push(`  episode 已落档: ${run.episode.dir}`);
-    lines.push(`  回放: ${run.episode.replay_url}`);
-  }
   panel.textContent = lines.join("\n");
 }
 
-/** 收尾一趟场景运行：求判据、出摘要、按声明产记录器文件、面板显示。
- *
- *  B4：若场景声明了 `trajectory` 记录器，就把这一趟**上报成 episode**（POST
- *  /api/episode/import）—— 此前 `EpisodeRecorder` 只在测试里实例化，回放页结构上恒空。
- *  上报失败**不阻断收尾**（摘要已在面板上），但要在控制台如实说失败原因。
- */
+/** 收尾一趟场景运行：求判据、出摘要、按声明产记录器文件、面板显示。 */
 async function finishScenarioRun(reason) {
   const run = sim.scenarioRun;
   if (!run.active || !sim.scenario) return;
@@ -7309,72 +7300,6 @@ async function finishScenarioRun(reason) {
   if (Object.keys(artifacts).length) {
     console.info("[sim2sim] recorder artifacts ready", Object.keys(artifacts));
   }
-  if (!run.summary.recorders.includes("trajectory")) return;
-  try {
-    const response = await fetch("/api/episode/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildEpisodeImportPayload(reason)),
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(payload?.detail || `HTTP ${response.status}`);
-    }
-    run.episode = payload;
-    renderScenarioPanel();
-    console.info("[sim2sim] episode recorded", payload);
-  } catch (error) {
-    console.warn("[sim2sim] episode upload failed", error?.message || error);
-  }
-}
-
-/** 轨迹 → episode 记录（LightNav 语义：`waypoints` = 该步**指令**位置，`pointing.actual` = 实测）。
- *
- *  指令位置由轨迹里的 vx/vy **积分**得到（世界系）—— 于是回放页的"预测 vs 实际"
- *  实际是"指令积分 vs 实测轨迹"，这正是本仓要对齐的那条比较。
- */
-function buildEpisodeImportPayload(reason) {
-  const run = sim.scenarioRun;
-  const scenario = sim.scenario;
-  const records = [];
-  let cmdX = 0;
-  let cmdY = 0;
-  let previousT = null;
-  for (const point of run.trace) {
-    const dt = previousT === null ? 0 : Math.max(0, point.t - previousT);
-    previousT = point.t;
-    cmdX += point.vx * dt;
-    cmdY += point.vy * dt;
-    records.push({
-      step: records.length,
-      seq: records.length,
-      waypoints: [[Number(cmdX.toFixed(4)), Number(cmdY.toFixed(4))]],
-      pointing: { actual: [Number(point.x.toFixed(4)), Number(point.y.toFixed(4))] },
-      stop: point.fallen,
-      extra: { t: point.t, yawDeg: point.yawDeg, rollDeg: point.rollDeg, pitchDeg: point.pitchDeg },
-    });
-  }
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  return {
-    run: `${scenario.scenario_id}-${stamp}`,
-    conn: "browser-wasm",
-    episode: 1,
-    manifest: {
-      task: "scenario",
-      instruction: scenario.scenario_id,
-      model_path: String(elements.policySelect?.value || ""),
-      waypoint_dt_s: 0.02,
-      extra: {
-        scenario_id: scenario.scenario_id,
-        command_source: scenario.command_source,
-        episode_length_s: scenario.episode_length_s,
-        finish_reason: reason,
-        checks: run.summary.checks,
-        metrics: run.summary.metrics,
-      },
-    },
-    records,
-  };
 }
 
 async function initNavigationFromUrl() {

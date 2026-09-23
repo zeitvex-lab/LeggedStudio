@@ -11,8 +11,6 @@
         canvas 视口尺寸自适应（1280×720 / 1920×1080 / 窗口拉伸）
       · 高级仿真页（直连 URL 与 embedded iframe 两路）：加载健康、传感器坞九来源
         逐个切换（无 console error、无空白面板）、插件勾选联动
-      · 回放页：episode 数据缺失空态（明确空态文案而非白屏/JS 错误）；
-        workspace 有真实 episode 时真跑一遍回放（动态跳过：无数据是环境事实）
       · 外观：布局错位/水平溢出、中文文案、canvas 与 DOM 控件叠层
         （悬浮窗不与品牌/工具栏重叠、不随面板滚动）
 
@@ -570,110 +568,5 @@ def test_advanced_dock_layout_layering(audit_browser, base_url):
         )
 
         assert watched["page_errors"] == [], f"页面 JS 异常：{watched['page_errors']}"
-    finally:
-        context.close()
-
-
-# ---------------------------------------------------------------------------
-# 3) 回放页 —— episode 缺失空态 / 有数据真回放
-# ---------------------------------------------------------------------------
-
-def test_episode_replay_empty_state(audit_browser, base_url):
-    """无 episode 数据时的空态：明确中文空态文案 + 控件在位，绝不能白屏或 JS 报错。"""
-    context = audit_browser.new_context(viewport={"width": 1280, "height": 720}, device_scale_factor=1)
-    page = context.new_page()
-    watched = _watch(page)
-    try:
-        page.goto(f"{base_url}/web/sim2sim/episode_replay.html", wait_until="domcontentloaded")
-        page.wait_for_function(
-            """() => {
-              const t = document.querySelector('#statusText')?.textContent || '';
-              return t && !t.includes('正在读取');
-            }""",
-            timeout=20_000,
-        )
-        status = page.inner_text("#statusText")
-        listing = page.request.get(f"{base_url}/api/episode/list").json()
-        if not listing.get("count"):
-            # 空库：文案必须说清「还没有 episode」而不是报错糊脸
-            assert "还没有" in status or "记录目录" in status, f"空态文案不明确：{status}"
-            assert page.eval_on_selector("#episodeSelect", "el => el.options.length") == 0
-        else:
-            assert "共" in status and "集" in status, f"有数据却显示空态文案：{status}"
-        # 空态下点「载入并回放」要有反馈而非异常
-        page.click("#loadButton")
-        page.wait_for_timeout(200)
-        assert "还没有可载入" in page.inner_text("#statusText") or listing.get("count"), (
-            f"空态点载入无反馈：{page.inner_text('#statusText')}"
-        )
-        assert watched["page_errors"] == [], f"页面 JS 异常：{watched['page_errors']}"
-        assert watched["console_errors"] == [], f"console error：{watched['console_errors']}"
-        _shot(page, "episode-replay-empty.png")
-    finally:
-        context.close()
-
-
-def test_episode_replay_with_real_data(audit_browser, base_url):
-    """有真实 episode 数据时真跑一遍回放：下拉有项、画布真画出两条轨迹、状态注明偏移标定。
-
-    无数据时 skip —— 回放页是只读消费方，「跑一次导航才会有数据」是环境事实不是页面缺陷
-    （空态行为由上一个用例守住）。本用例只在数据存在时提供真回放证据。
-    """
-    context = audit_browser.new_context(viewport={"width": 1280, "height": 720}, device_scale_factor=1)
-    page = context.new_page()
-    watched = _watch(page)
-    try:
-        listing = page.request.get(f"{base_url}/api/episode/list").json()
-        if not listing.get("count"):
-            pytest.skip(f"workspace 无 episode 数据（root={listing.get('root')}），只验空态档")
-        page.goto(f"{base_url}/web/sim2sim/episode_replay.html", wait_until="domcontentloaded")
-        page.wait_for_selector("#episodeSelect option", timeout=20_000)
-        assert "共" in page.inner_text("#statusText")
-
-        page.select_option("#episodeSelect", index=0)
-        page.click("#loadButton")
-        page.wait_for_function(
-            """() => {
-              const t = document.querySelector('#statusText')?.textContent || '';
-              return t.includes('预测') && t.includes('实际');
-            }""",
-            timeout=20_000,
-        )
-        status = page.inner_text("#statusText")
-        assert "预测" in status and "实际" in status, f"回放状态未呈现两轨迹点数：{status}"
-        # 偏移标定口径必须如实呈现（已标定给出数值 / 未标定给警示）
-        assert ("已标定" in status) ^ ("未标定" not in status) or "未标定" in status or "已标定" in status, (
-            f"前向偏移标定状态缺失：{status}"
-        )
-        # 画布非空白：至少预测/实际两条线之一被画出（取样有非背景像素）
-        painted = page.evaluate(
-            """() => {
-              const canvas = document.querySelector('#overlayCanvas');
-              const ctx = canvas.getContext('2d');
-              const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-              for (let i = 0; i < data.length; i += 4) {
-                if (data[i + 3] !== 0 && !(data[i] === 17 && data[i+1] === 26 && data[i+2] === 43)) return true;
-              }
-              return false;
-            }"""
-        )
-        assert painted, "回放画布全空白（两条轨迹都没画出来）"
-        _shot(page, "episode-replay-real.png")
-        assert watched["page_errors"] == [], f"页面 JS 异常：{watched['page_errors']}"
-    finally:
-        context.close()
-
-
-# ---------------------------------------------------------------------------
-# 4) 回放页 1920 破版检测（轻量，与仿真页分档）
-# ---------------------------------------------------------------------------
-
-def test_episode_replay_no_break_1920(audit_browser, base_url):
-    context = audit_browser.new_context(viewport={"width": 1920, "height": 1080}, device_scale_factor=1)
-    page = context.new_page()
-    try:
-        page.goto(f"{base_url}/web/sim2sim/episode_replay.html", wait_until="domcontentloaded")
-        page.wait_for_timeout(600)
-        assert _overflow_px(page) <= 2, f"1920 档水平溢出 {_overflow_px(page)}px"
     finally:
         context.close()

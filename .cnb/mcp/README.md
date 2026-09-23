@@ -18,8 +18,8 @@
 | MCP | 解决什么 | 本仓落点 |
 |---|---|---|
 | `filesystem` | 工作区文件读写 | `backend/settings_api.py` 的工作区解析；`assets/robots/*` 契约与模型批量核对 |
-| `git` | diff / log / blame | 云原生开发里全靠手敲；PR 与 `00_know/01_任务清单.md` 需要真实提交证据 |
-| `github` | 上游项目检索 | `tools/sync_resources.py::PROJECTS` 的 77 个项目溯源；`registry/porting_evidence.json` |
+| `git` | diff / log / blame | 云原生开发里全靠手敲；PR 与 `00_know/05_任务清单.md` 需要真实提交证据 |
+| `github` | 上游项目检索 | `tools/sync_resources.py::PROJECTS` 的 89 个项目溯源；`registry/porting_evidence.json` |
 | `fetch` | 抓上游文档 | 官方部署协议/README 真值核对（进度流水里反复出现的「以官方仓为权威」） |
 | `playwright` | **本仓最刚需** | `web/sim2sim` 的全部结论都是浏览器实测（lite3 yaw −0.25°、m20 前进 3.9 m）；镜像已预装 Chromium |
 | `sqlite` | run 元数据查询 | `backend/training/artifacts.py` 的 `runs/<id>/`；`workspace/` 产物 |
@@ -30,7 +30,7 @@
 |---|---|---|
 | `tensorboard` | 训练诊断曲线 | `backend/tb_events.py`、`web/training_monitor.html` 五大仪表盘 |
 | `mujoco` | 加载 MJCF / 查关节序 / 跑无头稳定测试 | `tools/sim2sim_headless.py`、`adapters/mjlab/scene_builder.py` |
-| `onnx` | 查模型输入输出维 / 单帧推理对拍 | `tools/evaluator.py`、45 条 `sim_policies_onnx` 契约核验 |
+| `onnx` | 查模型输入输出维 / 单帧推理对拍 | `tools/evaluator.py`、60 份 `sim_policies_onnx`（59 条策略声明）契约核验 |
 | `resources` | `00_resources` 跨库检索 | `00_resources/README.md`、`tools/sync_resources.py` |
 | `contracts` | 契约真值 查询与校验 | `contracts/`、`backend/pack_catalog.py`、`assets/robots/*/contract.json` |
 

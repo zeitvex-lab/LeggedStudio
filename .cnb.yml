@@ -204,7 +204,7 @@ syntax-check: &syntax-check
       # 但 /openapi.json 500，且 /api/training/create 字段解析失败——CI 盲区。
       python -m unittest backend.test_api_complete 2>&1 | tail -20
       echo "== full backend suite (与 npm test 同口径) =="
-      # B16：backend 共有 24 个 test_*.py，此前 CI 只挑 6 个显式模块跑，导致
+      # B16：当时 backend 有 24 个 test_*.py（现为 126），此前 CI 只挑 6 个显式模块跑，导致
       # backend/test_model_api.py 的两处失败（离屏渲染环境前提 + go2 契约里的
       # 陈旧 workspace 路径）长期只在本地 `npm test` 暴露。这里补一条全量
       # discover，口径与 package.json 的 `npm test` 完全一致，不再留盲区。

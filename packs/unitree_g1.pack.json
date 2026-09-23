@@ -105,7 +105,7 @@
   "morphology_ref": {
     "id": "unitree_g1",
     "path": "assets/robots/unitree_g1/contract.json",
-    "sha256": "ffbfe5edff97d7eeaf0ca3a5d74c7f34e6343ee4a394d9b8464cdea913457e01"
+    "sha256": "4abc51c0005e7e318aaf352161d2e14ab65fc1e223e3660f1577727d7b2efdf4"
   },
   "skill_ref": {
     "id": "velocity_base",
