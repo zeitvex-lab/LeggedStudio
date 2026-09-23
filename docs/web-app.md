@@ -48,13 +48,17 @@ Web 程序是 Legged Studio 的核心功能层，由两部分组成：
 | `/api/evaluation` | `evaluation_api.py` | 策略评估 |
 | `/api/simulation` | `simulation_api.py` | 服务端 MuJoCo 仿真（可选栈） |
 | `/api/navigation` | `navigation_api.py` + `map_editor_api.py` | 导航/路径规划与地图编辑 |
-| `/api/models` | `model_api.py` | 模型资产管理 |
+| `/api/models` | `model_api.py`（准入编排在 `package_import.py` / 模型检查在 `model_validation.py`） | 模型校验、预览、上传导入（领域逻辑不入路由） |
 | `/api/pretrained` | `pretrained_api.py` | 预训练策略管理 |
 | `/api/terrain` | `terrain_api.py` + `terrain_gen/` | 地形生成（输出 MJCF XML） |
 | `/api/health` | `health_api.py` + `health_cards.py` | 健康检查与能力卡片 |
 | `/api/project` | `project_api.py` | 项目管理 |
 | `/api/settings` | `settings_api.py` | 设置 |
 | `/api/perception` | `perception_observations.py` | 感知观测配置 |
+
+> 上表只列常用前缀（完整清单以 `GET /openapi.json` 为准，CI 有 openapi 契约冒烟守着）。
+> 路由层只做 DTO 与错误映射：模型准入（`package_import.py` / `model_validation.py`）与机器人包管理
+> （`robot_packages.py` / `package_sync.py` / `package_records.py`）是可直接被 CLI 与离线工具复用的领域服务。
 
 ## 前端：工作台与独立页面
 

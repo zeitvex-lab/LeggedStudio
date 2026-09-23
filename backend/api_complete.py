@@ -100,7 +100,6 @@ from backend.perception_api import router as perception_api_router
 from backend.height_scan import router as height_scan_router
 from backend.camera_projection import router as camera_projection_router
 from backend.limits_api import router as limits_router
-from backend.episode_api import router as episode_router
 from backend.pack_catalog import router as pack_catalog_router
 
 def _shutdown_training_workers() -> None:
@@ -191,7 +190,6 @@ app.include_router(height_scan_router)
 app.include_router(pack_catalog_router)
 app.include_router(camera_projection_router)
 app.include_router(limits_router)
-app.include_router(episode_router)
 if simulation_router is not None:
     app.include_router(simulation_router)
 

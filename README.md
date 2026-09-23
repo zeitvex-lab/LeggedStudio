@@ -1,6 +1,8 @@
 # Legged Studio
 
-**腿足机器人强化学习工作室** —— 覆盖「资产盘点 → 工作台（模型检查与调整 + 契约校准）→ RL 训练 → 策略导出 → 仿真验证（浏览器 sim2sim + 验收基准）→ 部署打包」全流程的全栈工具；并在仿真内提供**感知导航**：传感器可外挂，感知可入观测（A 类）或置于策略之外（B 类），在场景任务中自动完成「目标判定 → 规划 → 到达」闭环（**导航闭环进行中**，见任务清单 H2/H3）。
+**腿足机器人强化学习工作室** —— 一款把腿足机器人**从模型到实机的整条链路收进一个产品**的桌面 + 浏览器工作台：资产管理 → 模型检查与契约校准 → RL 训练 → 策略导出 → **基础仿真** → **高级仿真** → 部署打包，全程使用者不需要懂命令行。
+
+产品对外是三种形态、**同一份后端能力**：桌面壳负责运行时供应与后端生命周期，Web 工作台是全部业务界面（含浏览器内 sim2sim），CLI 面向自动化与 CI；三者共用同一份接口契约（详见下文「整体架构」与「详细文档」）。
 
 - 版本：`0.62.0`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
 - 许可：MIT
@@ -12,12 +14,12 @@
 
 | 环节 | 能力 |
 |---|---|
-| 资产管理 | 内置 14 个标准化机器人包（宇树 Go1/Go2/Go2W/B2/G1、云深处 Lite3/M20、逐际 TRON1 三形态、自研 ZEX-W 轮足、Wuji 五指灵巧手等），统一契约描述；随仓附带 14 机型参考资源库 [`00_resources/`](00_resources/README.md) |
+| 资产管理 | 内置 14 个标准化机器人包（宇树 Go1/Go2/Go2W/B2/G1、云深处 Lite3/M20、逐际 TRON1 三形态、自研 ZEX-W 轮足、Wuji 五指灵巧手等），统一契约描述；随仓附带参考资源库 [`00_resources/`](00_resources/README.md)（按来源项目组织，含项目×机型矩阵与机型反查） |
 | 模型检查 | URDF/MJCF 校验、3D 可视化检查器、契约合规校验 |
 | RL 训练 | 通过隔离子进程调用 MJLab（MuJoCo Warp + PyTorch）训练后端，PPO / off-policy 算法，训练任务创建、监控、事件流 |
 | 策略导出 | 导出 ONNX 部署策略，导出门禁（export gate）校验 |
-| 仿真验证 | 浏览器内直接跑 MuJoCo WASM + ONNX Runtime Web（完全离线）；另有服务端无头基准/验收口径（`tools/sim2sim_headless.py` + baseline 门禁）。**确定性回放判据仍未落地**（见任务清单 L1/G2） |
-| 感知导航 | 传感器可外挂（`perception.mount`）；感知分层 A 类（`route=obs`，策略吃传感器）/ B 类（`route=external`，RL 只负责运动、外挂感知与规划决策）；地图与航点 + 服务端 A*/Dijkstra 规划 + 到达判据单一真值（`registry/arrival_criteria.json`）；浏览器与服务端跑**同一份** Scenario 计划。**导航闭环（局部规划/跟随状态机）进行中**（H2） |
+| 基础仿真 | 浏览器内直接跑 MuJoCo WASM + ONNX Runtime Web（完全离线），播放包内声明的策略（加载即校验 ONNX metadata）；另有服务端无头基准/验收口径（`tools/sim2sim_headless.py` + baseline 门禁）作为同一件事的 CI 判据 |
+| 高级仿真 | 在基础仿真之上叠加：传感器坞（里程/IMU/测距/深度/高度扫描/LiDAR/点云/RGB，可外挂）；Scenario（World × Mode × Sensors × CommandSource × Checks，浏览器与服务端跑**同一份**计划）；导航闭环（`?nav=<map>`，服务端 A*/Dijkstra 规划 + 浏览器跟随，到达判据单一真值 `registry/arrival_criteria.json`）；感知分层 A 类（`route=obs`，策略吃传感器）/ B 类（`route=external`，RL 只负责运动）。**导航闭环（局部规划/跟随状态机）进行中**（H2） |
 | 物理真值 / 契约校准 | 14 包 MJCF 由契约固化（`tools/bake_mjcf_physics.py`）+ 校验器守门（`tools/validate_mjcf_contract.py`）；训练/验收/浏览器三方物理口径同源，"不许训一套跑另一套" |
 | 部署 | 部署契约校验 + 部署包打包，衔接真机 sim2real |
 
@@ -53,11 +55,11 @@
 │ （零依赖）    │  └─────────────┘   └───────┬───────────────────┘
 └──────────────┘                            │ policy.onnx + 部署元数据
                                             ▼
-                        web/sim2sim（浏览器 WASM 验证）
+                        web/sim2sim（基础仿真 / 高级仿真）
                         ──► deploy_pack 部署包 ──► 真机
 ```
 
-**数据流主线**：机器人包（`assets/robots` + contract v3）→ 工作台检查与参数校准（电机参数卡 / 契约固化与校验）→ 训练创建（training API → training_manager → mjlab launcher → 隔离 worker）→ ONNX 导出（export gate 校验）→ 仿真验证（浏览器 sim2sim + 无头基准/验收）→ **感知导航**（Scenario：地图/航点 + `CommandSource: planner\|perception` + 到达判据，`/api/navigation/plan` 装配、浏览器跟随）→ 部署包打包。
+**数据流主线**：机器人包（`assets/robots` + contract v3）→ 工作台检查与参数校准（电机参数卡 / 契约固化与校验）→ 训练创建（training API → training_manager → mjlab launcher → 隔离 worker）→ ONNX 导出（export gate 校验）→ **基础仿真**（浏览器 sim2sim + 无头基准/验收）→ **高级仿真**（传感器坞 + Scenario：地图/航点 + `CommandSource: planner\|perception` + 到达判据，`/api/navigation/plan` 装配、浏览器跟随）→ 部署包打包。
 
 ---
 
@@ -69,7 +71,8 @@ legged_studio/
 ├── backend/               # FastAPI 控制面（纯控制面，不含训练栈）
 │   ├── training/          # 训练 API 子包（create/monitor/artifacts/events/schema）
 │   ├── terrain_gen/       # 地形生成（MJCF XML 输出）
-│   └── *_api.py           # deploy/export/evaluation/navigation/terrain 等路由
+│   ├── *_api.py           # deploy/export/evaluation/navigation/terrain 等路由
+│   └── package_*.py       # 机器人包与模型准入的领域服务（索引/同步/记录/准入，路由只做薄壳）
 ├── contracts/             # 稳定数据契约（JSON Schema + Pydantic 模型，零仿真依赖）
 ├── adapters/              # 训练后端插件层
 │   └── mjlab/             # 当前唯一实现：MJLab 训练后端（隔离 venv）
@@ -100,7 +103,7 @@ legged_studio/
 | 浏览器 sim2sim | MuJoCo WASM（pthread）+ ONNX Runtime Web 1.23.2 + Three.js，全部离线 vendor |
 | 数据契约 | JSON Schema ×8 + 生成的 Pydantic 模型 |
 | 资产准入 | 移植准入审计（训练/仿真须有 00_resources 上游训练源码佐证，包自包含与策略↔onnx 一致性检查），见 `tools/audit_porting_admission.py` |
-| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测（backend 全量 24 模块）、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、Capability Pack 校验、**文档数字对账**、前端 vendor 冒烟 |
+| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测（backend 全量 126 模块）、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、Capability Pack 校验、**文档数字对账**、前端 vendor 冒烟 |
 | 云原生开发 | **CNB 默认镜像** + `.cnb.yml` 的 `vscode` 事件，一键起环境（依赖与 **mjlab CPU 训练栈**在启动阶段按需供应，浏览器 sim2sim 开箱可用）→ `docs/cloud-dev.md` |
 | 开发期 MCP | `.cnb/mcp/servers.json` 11 条（通用 6 + 机器人专用 5）+ `tools/mcp/` 4 个自研 server（契约 / MuJoCo / onnx / 资源库，零新增依赖）→ `.cnb/mcp/README.md` |
 
@@ -174,7 +177,7 @@ runner）**7:55，18 ok / 0 skipped / 0 failed**；128×20 **6:13**（≈18 s/it
 ### 测试
 
 ```powershell
-npm test           # 后端 unittest（控制面纯逻辑测试，全量 24 个 test_*.py）
+npm test           # 后端 unittest（控制面纯逻辑测试，全量 126 个 test_*.py）
 npm run test:obs   # 浏览器观测构建器的 node 单测
 npm run check:docs # 文档数字 vs 仓库实测对账（版本号/包数/策略数/资源库项目数）
 ```
