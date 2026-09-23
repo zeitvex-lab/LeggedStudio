@@ -35,7 +35,10 @@
     body.embedded .page-actions a[href^="workbench"]{display:none}
   </style>
 </head>
+<body>
 <script>if(new URLSearchParams(location.search).get("embedded")==="1"){document.body.classList.add("embedded");}</script>
+  <!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css） -->
+  <header id="lsTopNav"></header>
   <main class="packages-shell">
     <header class="page-header">
       <div><span class="page-kicker">Package Manager</span><h1>包管理</h1><p>统一管理机器人包：内置包与工作区包自动合并展示，新增/修改会自动同步到训练配置与仿真页。支持从本地路径导入、导出与删除。</p></div>
@@ -50,7 +53,13 @@
   </main>
   <script src="shared/api.js"></script>
   <script src="shared/feedback.js"></script>
+  <script src="shared/topnav.js"></script>
   <script>
+    window.LSTopNav.render('lsTopNav', 'robot');
+
+    // 契约代号本地化（与 workbench 首页资产卡片同一口径）：未知值回退原字符。
+    const SIZE_LABEL={S:'小型',M:'中型',L:'大型'};
+    const LOCOMOTION_LABEL={P:'四足点足',W:'轮足',B:'双足',H:'手部'};
     const API=window.location.origin,$=s=>document.querySelector(s);
     function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
     async function load(){
@@ -73,7 +82,7 @@
           return `<article class="package-card" data-robot="${esc(item.robot_id)}">
             <div class="package-head"><div><h3>${esc(item.family||item.robot_id)}</h3><span class="badge">${esc(item.robot_id)}</span></div>
             <span class="badge ${isWorkspace?'':'readonly'}">${isWorkspace?'工作区':'内置'}</span></div>
-            <p>${esc(item.dof??'-')} 自由度 · ${Number(item.mass_kg||0).toFixed(2)} kg · ${esc(item.size_class||'-')}/${esc(item.locomotion_type||'-')} · ${profiles.length} 个训练档案</p>
+            <p title="形态口径：S/M/L=小型/中型/大型；P=四足点足 W=轮足 B=双足 H=手部">${esc(item.dof??'-')} 自由度 · ${Number(item.mass_kg||0).toFixed(2)} kg · ${esc(SIZE_LABEL[item.size_class]||item.size_class||'-')} / ${esc(LOCOMOTION_LABEL[item.locomotion_type]||item.locomotion_type||'-')} · ${profiles.length} 个训练档案</p>
             ${morphLine}
             ${profileChips}
             <code>${esc(root||'-')}</code>${actions}

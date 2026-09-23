@@ -135,6 +135,10 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 }
 
+// 契约枚举的中文口径（P=四足点足/W=轮足/B=双足/H=手部；S/M/L=按质量分档）。
+const SIZE_LABEL = { S: '小型', M: '中型', L: '大型' };
+const LOCOMOTION_LABEL = { P: '四足点足', W: '轮足', B: '双足', H: '手部' };
+
 const INSPECTION_BADGES = { pass: '✅', warn: '⚠', fail: '❌' };
 const INSPECTION_TITLES = { mass: '质量', collision: '碰撞', inertia: '惯量', motor: '电机参数', joints: '关节' };
 
@@ -719,6 +723,8 @@ async function applyPreset(preset) {
   let cachedXmlText = null;
   if (packageId && modelPath) {
     try {
+      // 保留裸 fetch：读的是模型源文件（URDF/MJCF）的**原始文本**而非 JSON——这不是
+      // LSApi（JSON 请求唯一实现）的职责边界，接过去反而要绕过它的非 JSON 报错。
       const resp = await fetch(`/api/robots/presets/${encodeURIComponent(packageId)}/files/${modelPath}`, { cache: 'no-cache' });
       if (resp.ok) cachedXmlText = await resp.text();
     } catch (_) {}
@@ -756,6 +762,7 @@ async function loadJointMetadata(preset, cachedXmlText) {
   try {
     let xmlText = cachedXmlText;
     if (!xmlText) {
+      // 同上：模型 XML 是原始文本（非 JSON），保持裸 fetch。
       const response = await fetch(`/api/robots/presets/${encodeURIComponent(packageId)}/files/${modelPath}`, { cache: 'no-cache' });
       if (!response.ok) return;
       xmlText = await response.text();
@@ -809,6 +816,7 @@ async function loadPresetModelSource(preset, modelFormat, cachedXmlText) {
   const baseUrl = `/api/robots/presets/${encodeURIComponent(packageId)}/files`;
   let content = cachedXmlText;
   if (!content) {
+    // 同上：模型 XML 是原始文本（非 JSON），保持裸 fetch。
     const response = await fetch(`/api/robots/presets/${encodeURIComponent(packageId)}/files/${modelPath}`, { cache: 'no-cache' });
     if (!response.ok) throw new Error(`模型文件读取失败 (HTTP ${response.status})`);
     content = await response.text();
@@ -852,7 +860,7 @@ function renderAssetLibrary() {
       : '<span class="asset-meta">无训练档案</span>';
     return `<article class="asset-card" data-robot="${escapeHtml(id)}">
       <div class="asset-card-head"><strong title="${escapeHtml(family)}">${escapeHtml(family)}</strong><span class="badge ${workspace ? 'ok' : ''}">${workspace ? '工作区' : '内置'}</span></div>
-      <span class="asset-meta">${Number(item.dof || 0)} 自由度 · ${Number(item.mass_kg || 0).toFixed(2)} kg · ${escapeHtml(item.size_class || '-')} / ${escapeHtml(item.locomotion_type || '-')}</span>
+      <span class="asset-meta" title="形态口径：S/M/L=小型/中型/大型；P=四足点足 W=轮足 B=双足 H=手部">${Number(item.dof || 0)} 自由度 · ${Number(item.mass_kg || 0).toFixed(2)} kg · ${escapeHtml(SIZE_LABEL[item.size_class] || item.size_class || '-')} · ${escapeHtml(LOCOMOTION_LABEL[item.locomotion_type] || item.locomotion_type || '-')}</span>
       ${chips}
       <code title="${escapeHtml(item.asset_path || '')}">${escapeHtml(item.asset_path || '-')}</code>
       <div class="asset-actions">
@@ -896,7 +904,9 @@ async function importAssetPackage() {
 }
 
 async function deleteAssetPackage(robotId) {
-  if (!robotId || !confirm(`确认删除工作区包 ${robotId}？（内置包不受影响）`)) return;
+  // 确认走共享反馈（LSFeedback.confirm）：危险动作红色确认键 + 初始焦点在「取消」；
+  // 原生 confirm 会阻塞整个页面（轮询/渲染全停），且样式与措辞无从收敛。
+  if (!robotId || !(await LSFeedback.confirm(`确认删除工作区包 ${robotId}？（内置包不受影响）`, { danger: true }))) return;
   try {
     await jsonFetch(`/api/robots/packages/${encodeURIComponent(robotId)}`, { method: 'DELETE' });
     await loadPresets();
@@ -1160,7 +1170,7 @@ function bindEvents() {
   });
   document.querySelectorAll('[data-robot-tab]').forEach((tab) => tab.addEventListener('click', () => { document.querySelectorAll('.robot-tab').forEach((x) => x.classList.toggle('active', x === tab)); document.querySelectorAll('[data-robot-pane]').forEach((pane) => pane.classList.toggle('active-pane', pane.dataset.robotPane === tab.dataset.robotTab)); }));
   $('runInspection')?.addEventListener('click', runPackageInspection);
-  $('saveRobotPackage')?.addEventListener('click', saveRobotPackage); $('refreshRobotPackages')?.addEventListener('click', () => loadPresets(selectedPreset?.robot_id)); $('deleteRobotPackage')?.addEventListener('click', async () => { if (!selectedPreset || selectedPreset.source !== 'workspace') return; if (!confirm('删除当前机器人包？')) return; await jsonFetch('/api/project/packages/' + encodeURIComponent(selectedPreset.robot_id), { method: 'DELETE' }); selectedPreset = null; await loadPresets(); });
+  $('saveRobotPackage')?.addEventListener('click', saveRobotPackage); $('refreshRobotPackages')?.addEventListener('click', () => loadPresets(selectedPreset?.robot_id)); $('deleteRobotPackage')?.addEventListener('click', async () => { if (!selectedPreset || selectedPreset.source !== 'workspace') return; if (!(await LSFeedback.confirm('删除当前机器人包？', { danger: true }))) return; await jsonFetch('/api/project/packages/' + encodeURIComponent(selectedPreset.robot_id), { method: 'DELETE' }); selectedPreset = null; await loadPresets(); });
   $('validateBtn').addEventListener('click', validateModel); $('startSimulation')?.addEventListener('click', startSimulation); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
 }
 document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home','robot','config','training','simulation','navmap','deploy','artifacts'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });
