@@ -13,7 +13,7 @@ import pathlib
 import tempfile
 import unittest
 
-from backend import robot_packages as rp
+from backend import package_sync as rp
 
 
 class SyncReferencedBlobsTest(unittest.TestCase):

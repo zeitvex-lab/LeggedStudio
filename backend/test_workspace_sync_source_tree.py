@@ -18,9 +18,11 @@
 
 import json
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from backend import robot_packages
 
@@ -92,6 +94,24 @@ class WorkspaceSyncSourceTreeTests(unittest.TestCase):
 
     def _copy_source(self) -> Path:
         return self._target / "training" / "source" / "pkg"
+
+    def test_scan_and_sync_use_the_same_configured_roots(self):
+        alternate = Path(self._tmp.name) / "alternate_library"
+        shutil.copytree(self.assets_root, alternate)
+        self._write(alternate / "acme_bot/training/source/pkg/keep.py", "VALUE = 12345\n")
+        contract = {**CONTRACT, "family": "Alternate library"}
+        _write_json(alternate / "acme_bot/contract_legacy_v2.json", contract)
+        roots = [self.workspace_root / "packages", alternate]
+        with mock.patch.object(robot_packages, "_package_roots", return_value=roots):
+            records = robot_packages.list_robot_packages()
+        self.assertEqual("Alternate library", records[0]["family"])
+        self.assertEqual("VALUE = 12345\n", (self._copy_source() / "keep.py").read_text(encoding="utf-8"))
+        self.assertEqual("VALUE = 1\n", (self._shipped_source() / "keep.py").read_text(encoding="utf-8"))
+
+    def test_explicit_refresh_stays_fresh_after_cache_invalidation(self):
+        robot_packages.rebuild_package_index()
+        robot_packages.invalidate_package_cache()
+        self.assertFalse(robot_packages._index_is_stale())
 
     def test_stale_copy_file_absent_from_source_is_pruned(self):
         """源树没有、副本有的文件（历史残留）必须被清除——副本与源树内容集合一致。"""

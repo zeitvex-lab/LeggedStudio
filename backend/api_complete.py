@@ -611,9 +611,10 @@ async def update_robot_package(robot_id: str, payload: dict[str, Any]) -> dict[s
             descriptor["content_sha256"] = normalized_sha256(contract_path.read_bytes())
             descriptor_path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         upsert_package(target)
-        from backend import robot_packages as _packages
+        from backend.package_records import package_contract_views
 
-        return {"success": True, "robot_id": robot_id, "package_root": str(target), "contract": contract, "simulation": merged_simulation, "physics": _packages._physics_view(target), "action_scale": _packages._action_scale_view(target), "t_n_curve": _packages._t_n_curve_view(target), "diagnostics": {"valid": True, "writable_root": str(target), "v3_sync": v3_note, "v3_gains": v3_gains, "v3_t_n_curves": v3_t_n_curves, "control_rates": control_rates}}
+        views = package_contract_views(target)
+        return {"success": True, "robot_id": robot_id, "package_root": str(target), "contract": contract, "simulation": merged_simulation, "physics": views["physics"], "action_scale": views["action_scale"], "t_n_curve": views["t_n_curve"], "diagnostics": {"valid": True, "writable_root": str(target), "v3_sync": v3_note, "v3_gains": v3_gains, "v3_t_n_curves": v3_t_n_curves, "control_rates": control_rates}}
     except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

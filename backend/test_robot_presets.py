@@ -3,9 +3,10 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from backend.robot_presets import list_robot_presets
-from backend.robot_packages import validate_training_profile
+from backend.package_records import validate_training_profile
 
 
 class RobotPresetTests(unittest.TestCase):
@@ -99,6 +100,40 @@ class RobotPresetTests(unittest.TestCase):
             self.assertEqual(len(matches), 1)
             self.assertEqual(matches[0]["family"], "Canonical Acme")
             self.assertEqual(Path(matches[0]["asset_path"]), packages / "acme" / "model" / "robot.xml")
+
+    def test_package_views_share_a_contract_snapshot_during_an_edit(self):
+        from backend import robot_packages
+
+        truth = json.loads((Path(__file__).resolve().parents[1] / "assets/robots/unitree_go2/contract.json").read_text(encoding="utf-8-sig"))
+        truth["action"]["action_scale"] = 0.125
+        truth["morphology"]["version_marker"] = "first"
+        changed = json.loads(json.dumps(truth))
+        changed["action"]["action_scale"] = 0.875
+        changed["morphology"]["version_marker"] = "second"
+        with tempfile.TemporaryDirectory() as tmp:
+            package = Path(tmp) / "packages" / "acme"
+            package.mkdir(parents=True)
+            contract_path = package / "contract.json"
+            contract_path.write_text(json.dumps(truth), encoding="utf-8")
+            (package / "contract_legacy_v2.json").write_text(json.dumps({"robot_id": "acme", "joints": {"actuated_joints": []}}), encoding="utf-8")
+            (package / "robot_package.json").write_text(json.dumps({"package_id": "acme"}), encoding="utf-8")
+            original_read = Path.read_text
+
+            def read_then_edit(path, *args, **kwargs):
+                text = original_read(path, *args, **kwargs)
+                if path == contract_path:
+                    contract_path.write_text(json.dumps(changed), encoding="utf-8")
+                return text
+
+            with mock.patch.dict(os.environ, {"LEGGED_STUDIO_WORKSPACE": tmp}):
+                try:
+                    with mock.patch.object(Path, "read_text", new=read_then_edit):
+                        robot_packages.upsert_package(package)
+                    record = robot_packages.list_robot_packages()[0]
+                finally:
+                    robot_packages.invalidate_package_cache()
+            self.assertEqual(0.125, record["action_scale"]["action_scale"])
+            self.assertEqual("first", record["morphology"]["version_marker"])
 
     def test_profile_validation_is_robot_neutral(self):
         profile = {"schema_version": "training-profile-1.0", "profile_id": "custom-task", "backend": "future_backend", "entrypoints": {"env": "custom.env:create", "runner": "custom.runner:create"}}
