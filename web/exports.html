@@ -54,7 +54,8 @@
     }
   </script>
   <!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css）。
-       本页（打包与分发）不在 8 项目录内，故不传 current、不高亮任何项。 -->
+       本页（打包与分发）不在 8 项目录内，但属「部署」链路的出口（deploy.html 有入口
+       互链），故按「部署」高亮——让"从哪来"一眼可循。 -->
   <header id="lsTopNav"></header>
 
   <main class="wrap">
@@ -109,7 +110,7 @@
   <script src="shared/api.js"></script>
   <script src="shared/topnav.js"></script>
   <script>
-    window.LSTopNav.render('lsTopNav');
+    window.LSTopNav.render('lsTopNav', 'deploy');
 
     const $ = (id) => document.getElementById(id);
 

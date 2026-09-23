@@ -44,6 +44,8 @@
 </head>
 <body>
   <script>if(new URLSearchParams(location.search).get("embedded")==="1"){document.body.classList.add("embedded");}</script>
+  <!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css） -->
+  <header id="lsTopNav"></header>
   <main class="editor-shell">
     <header class="page-header">
       <div><span class="page-kicker">Navigation Map Editor</span><h1>导航地图编辑器</h1><p>绘制障碍与航点，A*/Dijkstra 自动求路；与场景/地图库打通，可保存编辑。</p></div>
@@ -88,7 +90,10 @@
   </main>
   <script src="shared/api.js"></script>
   <script src="shared/feedback.js"></script>
+  <script src="shared/topnav.js"></script>
   <script>
+    window.LSTopNav.render('lsTopNav', 'navmap');
+
     const API = window.location.origin, $ = s => document.querySelector(s);
     let maps = [], currentMap = null, bounds = [-5,5,-5,5];
     let obstacles = [], waypoints = [];

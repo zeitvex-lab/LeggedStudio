@@ -100,6 +100,9 @@
       document.body.classList.add("embedded");
     }
   </script>
+  <!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css）。
+       嵌入态（workbench iframe，?embedded=1）由 ui.css 的 body.embedded 规则整体隐藏。 -->
+  <header id="lsTopNav"></header>
   <div class="adv-bar">
     <strong>高级仿真</strong>
     <span class="hint" id="scSummary">（尚未生成场景）</span>
@@ -230,6 +233,8 @@
        与 web/shared/api.test.mjs 的源码面守卫同一条口径。普通脚本先于模块执行，
        所以下面的 module 里读 `LSApi` 一定有值。 -->
   <script src="shared/api.js"></script>
+  <script src="shared/topnav.js"></script>
+  <script>window.LSTopNav.render('lsTopNav', 'navmap');</script>
   <script type="module" src="sim2sim/scenario_editor_ui.js"></script>
 </body>
 </html>

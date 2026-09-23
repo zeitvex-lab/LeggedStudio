@@ -12,7 +12,7 @@
 .hint{color:var(--muted);font-size:12px;margin-top:10px}
 .hint li{margin:4px 0}
 /* U14：页头即声明双入口，①② 两块各自带端点与判据说明，防止把两套分数混为一谈。 */
-</style></head><body><main class="eval-shell"><header class="page-header"><div><span class="page-kicker">Evaluation</span><h1>策略验证</h1><p>本页两套<b>独立</b>入口——① Sim2Sim 验证（确定性回放）② 质量矩阵（B11 八指标）。判据互不替代，混用分数 = 自欺。</p></div><div class="page-actions"><a class="btn" href="workbench.html#home">返回</a></div></header>
+</style></head><body><!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css） --><header id="lsTopNav"></header><main class="eval-shell"><header class="page-header"><div><span class="page-kicker">Evaluation</span><h1>策略验证</h1><p>本页两套<b>独立</b>入口——① Sim2Sim 验证（确定性回放）② 质量矩阵（B11 八指标）。判据互不替代，混用分数 = 自欺。</p></div><div class="page-actions"><a class="btn" href="workbench.html#home">返回</a></div></header>
 <section class="block-head" id="sim2sim-block"><h2>① Sim2Sim 验证 · 确定性回放</h2><p class="hint">端点 <code>/api/evaluation/run</code>：训练产物在隔离的 native MJLab 环境逐回合确定性回放，产出奖励 / 前进速度 / 成功率。</p></section>
 <section class="eval-form"><label>训练产物<select id="task"><option>加载中...</option></select></label><label>回放回合<input id="episodes" type="number" value="5" min="1" max="100"></label><button class="btn primary" id="run">运行验证</button></section><section class="result" id="result"><div class="empty-state">选择已完成任务后开始验证</div></section>
 <section class="result" id="quality">
@@ -37,7 +37,8 @@
   <div id="q-out"><div class="empty-state">未评测</div></div>
   <h3>历史报告</h3>
   <div id="q-list"><div class="empty-state">加载中...</div></div>
-</section></main><script src="shared/api.js"></script><script src="shared/feedback.js"></script><script>
+</section></main><script src="shared/api.js"></script><script src="shared/feedback.js"></script><script src="shared/topnav.js"></script><script>
+window.LSTopNav.render('lsTopNav', 'navmap');
 const API=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://127.0.0.1:8765',taskEl=document.querySelector('#task'),resultEl=document.querySelector('#result');
 async function load(){
   try{

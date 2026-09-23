@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>部署向导 · Legged Studio</title>
   <link rel="stylesheet" href="workbench.css">
+  <!-- 共享样式基座：顶栏 .ls-topnav / .ls-btn 的样式从这里来（本页自有 <style> 在其后，观感照旧） -->
+  <link rel="stylesheet" href="shared/ui.css">
   <style>
     body { background: #eef3f7; color: #1d2935; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; margin: 0; }
     .wizard-shell { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
@@ -36,10 +38,14 @@
 </head>
 <body>
   <script>if(new URLSearchParams(location.search).get("embedded")==="1"){document.body.classList.add("embedded");}</script>
+  <!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css） -->
+  <header id="lsTopNav"></header>
   <div class="wizard-shell">
     <div class="wizard-title">
       <h1>部署向导</h1>
       <p>唯一用向导的区——gate 必须按序过。一键生成 ≠ 一键上机。</p>
+      <!-- 出口互链：本页只负责"生成包"，导出物清单与场景打包在 exports.html（否则该页无入口）。 -->
+      <a class="ls-btn" href="exports.html">导出与分发 →</a>
     </div>
 
     <div class="steps">
@@ -91,7 +97,10 @@
   </div>
 
   <script src="shared/api.js"></script>
+  <script src="shared/topnav.js"></script>
   <script>
+    window.LSTopNav.render('lsTopNav', 'deploy');
+
     const $ = (id) => document.getElementById(id);
     let currentRobot = '';
 
