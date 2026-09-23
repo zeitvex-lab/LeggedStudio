@@ -1,0 +1,93 @@
+{
+  "schema_version": "family-1.0",
+  "family_id": "wheel_leg",
+  "display_name": "轮足",
+  "note": "族级约定的**唯一真值**：族内任一机型据此复用同一套技能训练配方。成员与关节角色不在这里硬编码——成员由各契约的 morphology.id 派生，本文件声明的是约定（角色骨架、控制率、技能矩阵），audit_families.py 逐台核对。",
+  "morphology_ids": [
+    "wheel_leg_16dof"
+  ],
+  "locomotion_type": "W",
+  "legs": 4,
+  "joint_roles": [
+    "hip_abduction",
+    "hip_pitch",
+    "knee",
+    "wheel"
+  ],
+  "role_aliases": {
+    "hip_abduction": [
+      "hip",
+      "hipx",
+      "hip_abduction"
+    ],
+    "hip_pitch": [
+      "thigh",
+      "hipy",
+      "hip_pitch"
+    ],
+    "knee": [
+      "calf",
+      "knee"
+    ],
+    "wheel": [
+      "wheel"
+    ]
+  },
+  "control_hz": 50,
+  "members": [
+    "deeprobotics_m20",
+    "unitree_b2w",
+    "unitree_go2w",
+    "zex-w"
+  ],
+  "skills": [
+    {
+      "skill_id": "velocity",
+      "display_name": "速度跟踪",
+      "status": "generic",
+      "summary": "族级通用：轮足 Kit（mdp/ + velocity_env_cfg）承载框架层，任务变体表来自 registry/skills/velocity_base.json，任一成员可直接训。",
+      "task_names": [
+        "velocity",
+        "velocity_rough",
+        "forward_walk",
+        "rough_terrain",
+        "stairs",
+        "go2w_velocity_flat",
+        "go2w_velocity_rough",
+        "Unitree-M20-DreamWaQ-Rough"
+      ],
+      "task_variants_ref": "registry/skills/velocity_base.json#tasks",
+      "note": "M20 的 DreamWaQ 与 zex-w 的 crawl 档同归此技能（同技能的算法/步态变体，不另立技能类）。"
+    },
+    {
+      "skill_id": "traversal",
+      "display_name": "越障",
+      "status": "missing",
+      "summary": "轮足族暂无越障配方——四足族的 PIE parkour 依赖足式步态与足端接触，不能直接搬到轮足。",
+      "task_names": [],
+      "members_with_recipe": [],
+      "gap": "族级化需要：轮足越障的配方立项（轮-足混合越障的观测/课程/奖励与验收器都不存在）。"
+    },
+    {
+      "skill_id": "imitation",
+      "display_name": "动作模仿",
+      "status": "missing",
+      "summary": "轮足族暂无动作模仿配方。",
+      "task_names": [],
+      "members_with_recipe": [],
+      "requires": [
+        "motions"
+      ],
+      "gap": "族级化需要：动作库补齐轮足参考动作 + AMP 配方按族登记（当前 motions 与 AMP 档案均以四足 go2 为唯一来源）。"
+    },
+    {
+      "skill_id": "stunt",
+      "display_name": "特技",
+      "status": "missing",
+      "summary": "轮足族暂无特技配方。",
+      "task_names": [],
+      "members_with_recipe": [],
+      "gap": "族级化需要：先明确轮足特技的定义与判据（轮足能做哪些极限动作），再立项配方。"
+    }
+  ]
+}

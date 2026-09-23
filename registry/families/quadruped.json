@@ -1,0 +1,108 @@
+{
+  "schema_version": "family-1.0",
+  "family_id": "quadruped",
+  "display_name": "四足",
+  "note": "族级约定的**唯一真值**：族内任一机型据此复用同一套技能训练配方。成员与关节角色不在这里硬编码——成员由各契约的 morphology.id 派生，本文件声明的是约定（角色骨架、控制率、技能矩阵），audit_families.py 逐台核对。",
+  "morphology_ids": [
+    "quadruped_12dof"
+  ],
+  "locomotion_type": "P",
+  "legs": 4,
+  "joint_roles": [
+    "hip_abduction",
+    "hip_pitch",
+    "knee"
+  ],
+  "role_aliases": {
+    "hip_abduction": [
+      "hip",
+      "hipx"
+    ],
+    "hip_pitch": [
+      "thigh",
+      "hipy"
+    ],
+    "knee": [
+      "calf"
+    ]
+  },
+  "control_hz": 50,
+  "members": [
+    "unitree_go2",
+    "unitree_go1",
+    "unitree_b2",
+    "deeprobotics_lite3"
+  ],
+  "skills": [
+    {
+      "skill_id": "velocity",
+      "display_name": "速度跟踪",
+      "status": "generic",
+      "summary": "族级通用：任务变体表来自 registry/skills/velocity_base.json，奖励预设与观测由 Kit 与契约数据装配，任一成员可直接训。",
+      "task_names": [
+        "velocity",
+        "velocity_rough",
+        "forward_walk",
+        "rough_terrain",
+        "stairs",
+        "trot",
+        "Unitree-Go2-WTW",
+        "Mjlab-CTS-Rough-Unitree-Go2",
+        "Mjlab-TS-Rough-Unitree-Go2",
+        "Mjlab-TS-Student-Rough-Unitree-Go2",
+        "Mjlab-HIM-Rough-Unitree-Go2",
+        "Unitree-Go2-DreamWaQ-Rough"
+      ],
+      "task_variants_ref": "registry/skills/velocity_base.json#tasks",
+      "note": "Mjlab-CTS/TS/HIM 与 DreamWaQ 四族的 task_name 亦归此技能——它们是**同技能的算法变体**（算法轴由 profile 的 backend/算法插件决定，不另立技能类）。"
+    },
+    {
+      "skill_id": "traversal",
+      "display_name": "越障",
+      "status": "robot-specific",
+      "summary": "深度感知越障（PIE parkour）：配方与验收器已就位，但目前只有 go2 的训练源与档案。",
+      "task_names": [
+        "parkour"
+      ],
+      "members_with_recipe": [
+        "unitree_go2"
+      ],
+      "gap": "族级化需要：把 PIE 深度契约与地形课程从 go2 档案提为族级配方，并在另一台成员上跑通冒烟。"
+    },
+    {
+      "skill_id": "imitation",
+      "display_name": "动作模仿",
+      "status": "robot-specific",
+      "summary": "AMP 系（动作先验 / 并发教师-学生 / 蒸馏）：目前只有 go2 档案，且依赖参考动作数据。",
+      "task_names": [
+        "Mjlab-AMP-CTS-Rough-Unitree-Go2",
+        "Unitree-Go2-AMP-DreamWaQ-Rough",
+        "Mjlab-AMP-TS-Rough-Unitree-Go2"
+      ],
+      "members_with_recipe": [
+        "unitree_go2"
+      ],
+      "requires": [
+        "motions"
+      ],
+      "gap": "族级化需要：动作库按族登记（registry/motions 目前以 go2 为唯一来源）+ 族内另一台机型的动作重定向或数据补齐。"
+    },
+    {
+      "skill_id": "stunt",
+      "display_name": "特技",
+      "status": "robot-specific",
+      "summary": "特技/极限姿态（后空翻、跳跃、弹簧跳、倒立、三足站立）：目前只有 go2 档案。",
+      "task_names": [
+        "backflip",
+        "handstand",
+        "jump",
+        "leggedstand",
+        "spring_jump"
+      ],
+      "members_with_recipe": [
+        "unitree_go2"
+      ],
+      "gap": "族级化需要：把特技的课程/终止/奖励项从 go2 档案提为族级配方；动作类特技还依赖 motions。"
+    }
+  ]
+}

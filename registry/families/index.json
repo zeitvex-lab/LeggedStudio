@@ -1,0 +1,19 @@
+{
+  "schema": "family-index-1.0",
+  "generated_at": "2026-09-23",
+  "note": "族注册显式清单。**清单是权威**：新增族 = 在此登记一行 + 放入文件；文件存在但未登记即未注册（由未登记检查报出）。path 相对本文件所在目录。族成员不在此硬编码——成员由各契约的 morphology.id 派生，audit_families.py 逐台核对约定（关节角色骨架 / 控制率 / 技能矩阵）。",
+  "families": [
+    {
+      "family_id": "quadruped",
+      "path": "quadruped.json",
+      "display_name": "四足",
+      "summary": "四足族（unitree_go2 / unitree_go1 / unitree_b2 / deeprobotics_lite3）：12 关节 = 4 腿 × （髋外展 · 髋俯仰 · 膝）。"
+    },
+    {
+      "family_id": "wheel_leg",
+      "path": "wheel_leg.json",
+      "display_name": "轮足",
+      "summary": "轮足族（deeprobotics_m20 / unitree_b2w / unitree_go2w / zex-w）：16 关节 = 4 腿 × （髋外展 · 髋俯仰 · 膝 · 轮）。"
+    }
+  ]
+}
