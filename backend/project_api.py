@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from backend.version import get_version
 from backend.robot_packages import package_for_contract
 from contracts.validator import normalized_sha256, package_digest  # 内容摘要唯一实现
-from backend.model_api import _validate, ModelValidationRequest
+from backend.model_validation import validate_model
 from backend.package_import import draft_model_contract
 
 
@@ -232,7 +232,7 @@ def _normalise_robot_packages(imported_root: Path, manifest: dict[str, Any]) -> 
     for model in candidates:
         relative = _api_path(model)
         fmt = "urdf" if model.suffix.lower() == ".urdf" else "mjcf"
-        report = _validate(ModelValidationRequest(path=relative, filename=model.name, format=fmt))
+        report = validate_model(path=relative, filename=model.name, model_format=fmt)
         if not report.get("valid"):
             continue
         # 归一摘要（CRLF → LF）：这个值会写进契约的 ``urdf.hash``，而契约校验

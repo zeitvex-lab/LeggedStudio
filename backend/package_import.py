@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from backend.jsonio import write_json
-from backend.paths import api_path
+from backend.model_validation import validate_model
+from backend.paths import api_path, packages_root as workspace_packages_root
 from backend.robot_packages import upsert_package
+from contracts.validator import package_digest
+
+
+_PACKAGE_COPY_SKIP_DIRS = frozenset({".git", "__pycache__", ".venv", "node_modules", ".idea", ".vscode"})
+_PACKAGE_COPY_MAX_FILES = 2000
+_PACKAGE_COPY_MAX_BYTES = 512 * 1024 * 1024
+_MODEL_SUFFIXES = (".urdf", ".xml", ".mjcf")
 
 
 def draft_model_contract(model_path: Path, model_format: str, inspection: dict[str, Any], digest: str) -> dict[str, Any]:
@@ -96,3 +105,161 @@ def persist_model_package(
 
     upsert_package(package_root, source="workspace")
     return {"generated": contract_note is not None and contract_note.startswith("generated"), "note": contract_note}
+
+
+def safe_import_relative_path(value: str) -> Path:
+    normalized = value.replace("\\", "/").lstrip("/")
+    candidate = Path(normalized)
+    if not normalized or candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError(f"invalid asset path: {value}")
+    return candidate
+
+
+def _list_package_tree(source_dir: Path) -> tuple[list[Path], list[str]]:
+    files: list[Path] = []
+    skipped: list[str] = []
+    for child in sorted(source_dir.rglob("*")):
+        if child.is_dir():
+            if child.name in _PACKAGE_COPY_SKIP_DIRS:
+                skipped.append(child.relative_to(source_dir).as_posix())
+            continue
+        if any(part in _PACKAGE_COPY_SKIP_DIRS for part in child.relative_to(source_dir).parts):
+            continue
+        if child.is_file():
+            files.append(child.relative_to(source_dir))
+    return files, skipped
+
+
+def _stage_package_tree(source_dir: Path, staging: Path) -> dict[str, Any]:
+    relative_files, skipped = _list_package_tree(source_dir)
+    if not relative_files:
+        raise ValueError(f"目录里没有文件: {source_dir}")
+    if len(relative_files) > _PACKAGE_COPY_MAX_FILES:
+        raise ValueError(f"目录文件数 {len(relative_files)} 超过上限 {_PACKAGE_COPY_MAX_FILES}（疑似指错了目录）")
+
+    total_bytes = 0
+    staged: list[tuple[Path, bytes]] = []
+    for relative in relative_files:
+        safe = safe_import_relative_path(relative.as_posix())
+        data = (source_dir / relative).read_bytes()
+        total_bytes += len(data)
+        if total_bytes > _PACKAGE_COPY_MAX_BYTES:
+            raise ValueError(f"目录体积超过上限 {_PACKAGE_COPY_MAX_BYTES // (1024 * 1024)} MB（疑似指错了目录）")
+        target = staging / safe
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        staged.append((safe, data))
+    return {"staged": staged, "skipped_dirs": skipped, "total_bytes": total_bytes}
+
+
+def _pick_model_file(files: Iterable[Path], explicit: str | None = None) -> Path:
+    if explicit:
+        candidate = safe_import_relative_path(explicit)
+        if candidate not in set(files):
+            raise ValueError(f"指定的模型文件不在目录里: {explicit}")
+        return candidate
+    models = [item for item in files if item.suffix.lower() in _MODEL_SUFFIXES]
+    if not models:
+        raise ValueError("目录里找不到 URDF/MJCF 模型文件（后缀 .urdf/.xml/.mjcf）")
+    if len(models) > 1:
+        listed = ", ".join(item.as_posix() for item in sorted(models)[:12])
+        raise ValueError(f"目录里有 {len(models)} 个候选模型文件，请用 --model 指定：{listed}")
+    return models[0]
+
+
+def import_staged_package(
+    staging: Path, *, model_relative: Path, model_format: str,
+    content_hash: str, packages_root: Path,
+) -> dict[str, Any]:
+    staged_model = staging / model_relative
+    validation = validate_model(path=str(staged_model), filename=staged_model.name, model_format=model_format)
+    if not validation.get("valid"):
+        validation.update({"imported": False, "import_root": None, "model_path": None})
+        return validation
+
+    package_root, contract, descriptor = prepare_model_package(
+        model_relative=model_relative, model_format=model_format,
+        validation=validation, content_hash=content_hash, packages_root=packages_root,
+    )
+    contract_status = persist_model_package(staging, package_root, contract, descriptor)
+    validation.update({
+        "imported": True,
+        "package_id": contract["robot_id"],
+        "import_root": api_path(package_root),
+        "package_root": api_path(package_root),
+        "model_path": contract["urdf"]["path"],
+        "contract_draft": contract,
+        "contract": contract_status,
+    })
+    return validation
+
+
+def _preview_staged_package(
+    staging: Path, *, model_relative: Path, model_format: str,
+    content_hash: str, packages_root: Path,
+) -> dict[str, Any]:
+    staged_model = staging / model_relative
+    validation = validate_model(path=str(staged_model), filename=staged_model.name, model_format=model_format)
+    preview: dict[str, Any] = {
+        "preview": True,
+        "valid": bool(validation.get("valid")),
+        "format": validation.get("format", model_format),
+        "errors": list(validation.get("errors") or []),
+        "warnings": list(validation.get("warnings") or []),
+        "stats": validation.get("stats"),
+        "sha256": validation.get("sha256"),
+    }
+    if not validation.get("valid"):
+        return preview
+    package_root, contract, _ = prepare_model_package(
+        model_relative=model_relative, model_format=model_format,
+        validation=validation, content_hash=content_hash, packages_root=packages_root,
+    )
+    preview.update({
+        "package_id": contract["robot_id"],
+        "package_root": api_path(package_root),
+        "content_sha256": content_hash,
+        "contract_draft": contract,
+    })
+    try:
+        from backend.contract_migration import migrate_contract_dict
+
+        preview["contract_preview"] = migrate_contract_dict(contract, None, generic_defaults=True)
+    except Exception as exc:
+        preview["contract_preview"] = None
+        preview["warnings"].append(f"contract_truth 预览生成失败: {exc}")
+    return preview
+
+
+def onboard_package(
+    source_dir: Path | str, *, write: bool = False,
+    model_filename: str | None = None, model_format: str = "auto",
+    packages_root: Path | None = None,
+) -> dict[str, Any]:
+    """检查整个模型目录，默认预演；显式 write 才持久化并登记包。"""
+    source_dir = Path(source_dir).expanduser().resolve()
+    if not source_dir.is_dir():
+        raise ValueError(f"目录不存在: {source_dir}")
+    packages_root = Path(packages_root) if packages_root else workspace_packages_root()
+    packages_root.mkdir(parents=True, exist_ok=True)
+    prefix = ".staging-" if write else ".staging-preview-"
+    # 校验只接受项目或工作区内路径，因此临时目录也必须位于工作区。
+    with tempfile.TemporaryDirectory(prefix=prefix, dir=packages_root) as staging_value:
+        staging = Path(staging_value)
+        staged = _stage_package_tree(source_dir, staging)
+        files = [relative for relative, _data in staged["staged"]]
+        model_relative = _pick_model_file(files, model_filename)
+        resolved_format = model_format if model_format != "auto" else ("urdf" if model_relative.suffix.lower() == ".urdf" else "mjcf")
+        runner = import_staged_package if write else _preview_staged_package
+        result = runner(
+            staging, model_relative=model_relative, model_format=resolved_format,
+            content_hash=package_digest(staged["staged"]), packages_root=packages_root,
+        )
+        result.update({
+            "source_dir": str(source_dir),
+            "model_file": model_relative.as_posix(),
+            "file_count": len(files),
+            "staged_bytes": staged["total_bytes"],
+            "skipped_dirs": staged["skipped_dirs"],
+        })
+        return result

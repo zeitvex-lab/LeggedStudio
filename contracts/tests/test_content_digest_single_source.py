@@ -110,8 +110,7 @@ class PackageDigestTest(unittest.TestCase):
 class ExistingArtifactsAgreeTest(unittest.TestCase):
     """既有资产上"两个域"现在必须同判 —— 这是缺陷已修的活证据。"""
 
-    def test_robot_packages_agree_between_import_and_export_digests(self) -> None:
-        from backend.model_api import _content_hash
+    def test_robot_packages_agree_between_directory_and_entry_digests(self) -> None:
         from backend.project_api import _tree_hash
 
         robots = REPO / "assets" / "robots"
@@ -124,7 +123,6 @@ class ExistingArtifactsAgreeTest(unittest.TestCase):
                     for path in sorted(package.rglob("*"))
                     if path.is_file()
                 ]
-                self.assertEqual(package_digest(entries), _content_hash(entries))
                 self.assertEqual(package_digest(entries), _tree_hash(package))
 
 
