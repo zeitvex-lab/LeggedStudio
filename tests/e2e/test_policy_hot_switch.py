@@ -13,8 +13,7 @@
 顺带验证「切的是不同的策略」：A/B 两策略快进同长仿真时间后采样 baseZ / quat /
 policyMode / policyInputs —— 至少一项应有可观测差异。
 
-机型选择：unitree_go2（browser-config 实测下发 12 条策略，其中 11 条包内基础策略；
-unitree_g1 仅 5 条）。策略对取 go2-moe-cts / go2-arenax-velocity（均为基础速度型，
+机型选择：unitree_go2（browser-config 实测下发 12 条策略，其中 11 条包内基础策略）。策略对取 go2-moe-cts / go2-arenax-velocity（均为基础速度型，
 行为稳定；moe-cts 走 MoE 权重输出，arenax 为普通 history 策略，policyMode 有别）。
 
 运行：

@@ -5,7 +5,7 @@
 B22 事故：microduck 的 12 个 profile 声明了 entrypoints，但工作树源码被截断、包根本
 import 不了——静态审计缺位让「14 机型可训练」（B14）虚盖了很久。本文件钉三件事：
 
-1. **全仓不变量**：14 个内置包所有 profile 的 entrypoints（env / runner / 及
+1. **全仓不变量**：8 个内置包所有 profile 的 entrypoints（env / runner / 及
    runner_class / configure，若存在）必须静态可解析——不 import 包代码、不 import
    mjlab/torch，纯 AST + 文件系统；失败信息列出 {包/profile/entrypoint/原因} 明细；
 2. **external 白名单**：顶层段不在 source_root 下的目标（安装的第三方依赖，零依赖
@@ -42,7 +42,7 @@ KNOWN_EXTERNAL_MODULES = {"mjlab.tasks.velocity.rl", "mjlab.rl"}
 
 
 class RepoEntrypointInvariantTest(unittest.TestCase):
-    """全仓不变量：14 包所有 profile 的 entrypoints 静态可解析，无例外。"""
+    """全仓不变量：8 包所有 profile 的 entrypoints 静态可解析，无例外。"""
 
     def _builtin_robots(self) -> list[str]:
         return sorted(
@@ -50,12 +50,25 @@ class RepoEntrypointInvariantTest(unittest.TestCase):
             if d.is_dir() and (d / "training" / "profiles").is_dir()
         )
 
-    def test_14_builtin_packages_present(self):
-        """内置包清单钉在 14（B1 口径）；增删包是有意动作，须连同本测试一起改。"""
-        self.assertEqual(14, len(self._builtin_robots()))
+    def test_8_builtin_packages_present(self):
+        """内置包清单钉在 8（family-arch 收敛口径：4 四足 + 4 轮足）；
+        增删包是有意动作，须连同本测试一起改。"""
+        self.assertEqual(
+            [
+                "deeprobotics_lite3",
+                "deeprobotics_m20",
+                "unitree_b2",
+                "unitree_b2w",
+                "unitree_go1",
+                "unitree_go2",
+                "unitree_go2w",
+                "zex-w",
+            ],
+            self._builtin_robots(),
+        )
 
     def test_all_entrypoints_statically_resolvable(self):
-        """14 包所有 profile：entrypoints.env / runner（及 runner_class / configure）
+        """8 包所有 profile：entrypoints.env / runner（及 runner_class / configure）
         静态可解析；失败信息列出 {包/profile/entrypoint/原因} 全部明细。"""
         report = audit()
         detail = "\n".join(

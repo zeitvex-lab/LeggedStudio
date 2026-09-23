@@ -1033,6 +1033,16 @@ async function loadDemos() {
     host.innerHTML = `<div class="empty-state">内置策略读取失败：${escapeHtml(error.message)}</div>`;
   }
 }
+const RUN_STATUS_LABELS = { pending: '等待中', running: '运行中', completed: '已完成', failed: '失败', stopped: '已停止' };
+/** 与 training-common.js 的 statusInfo 同口径：旧 worker 会写 train_completed 这类状态名。 */
+function runStatusLabel(status) {
+  const key = String(status || '').toLowerCase();
+  if (RUN_STATUS_LABELS[key]) return RUN_STATUS_LABELS[key];
+  if (key.endsWith('completed')) return '已完成';
+  if (key.includes('fail') || key.includes('error')) return '失败';
+  if (key.includes('stop') || key.includes('cancel')) return '已停止';
+  return String(status || '-');
+}
 async function loadRuns() {
   try {
     const payload = await jsonFetch('/api/training/list');
@@ -1041,7 +1051,7 @@ async function loadRuns() {
     Object.assign(nextStepState, { runs: tasks });
     renderNextStep();
     // C2：每行可点——一键跳到该 Run 的档案页（training_monitor）。
-    $('homeRuns').innerHTML = tasks.length ? tasks.slice(0, 8).map((item) => `<button class="run-row" type="button" data-run-id="${escapeHtml(item.task_id || '')}" title="打开 Run 档案"><div><strong>${escapeHtml(item.robot || '-')}</strong><small>${escapeHtml(item.task_id || '')}</small></div><span class="run-metric">${escapeHtml(item.algorithm || 'PPO')}</span><span class="run-metric">${escapeHtml(item.status)}</span><span class="run-metric">${(Number(item.progress || 0) * 100).toFixed(1)}%</span></button>`).join('') : '<div class="empty-state">No training runs</div>';
+    $('homeRuns').innerHTML = tasks.length ? tasks.slice(0, 8).map((item) => `<button class="run-row" type="button" data-run-id="${escapeHtml(item.task_id || '')}" title="打开 Run 档案"><div><strong>${escapeHtml(item.robot || '-')}</strong><small>${escapeHtml(item.task_id || '')}</small></div><span class="run-metric">${escapeHtml(item.algorithm || 'PPO')}</span><span class="run-metric">${escapeHtml(runStatusLabel(item.status))}</span><span class="run-metric">${(Number(item.progress || 0) * 100).toFixed(1)}%</span></button>`).join('') : '<div class="empty-state">暂无训练任务</div>';
     $('homeRuns').querySelectorAll('[data-run-id]').forEach((row) => row.addEventListener('click', () => {
       if (!row.dataset.runId) return;
       setView('training', { task_id: row.dataset.runId });

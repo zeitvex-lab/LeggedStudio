@@ -1,6 +1,0 @@
-{
-  "robot_id": "microduck",
-  "contract_path": "assets/robots/microduck/contract.json",
-  "profile_id": "microduck-velocity-flat",
-  "backend": "native_mjlab"
-}

@@ -1,8 +1,9 @@
-"""B1 剩余项的 DoD：14 份 Capability Pack 全过校验、目录可列出、坏 Pack 能被抓住。
+"""B1 剩余项的 DoD：8 份 Capability Pack 全过校验、目录可列出、坏 Pack 能被抓住。
 
-2026-09-12 实测：schema 与 14 份 Pack 已在位，缺的是「校验 + 列出」入口。本测试
+2026-09-12 实测：schema 与 Pack 已在位，缺的是「校验 + 列出」入口。本测试
 同时守住 schema 与本模块校验器的漂移——合成用例逐条对应 schema 的
 ``required`` / ``pattern`` / ``enum`` / ``additionalProperties``。
+（Pack 清单随 family-arch 收敛钉到 8：assets/robots 每个内置机型恰有一份默认 Pack。）
 """
 
 from __future__ import annotations
@@ -22,7 +23,17 @@ from backend.pack_catalog import (
     validate_pack,
 )
 
-EXPECTED_MIN_PACKS = 14  # assets/robots 的 14 个内置机型各一份默认 Pack
+# assets/robots 的 8 个内置机型（family-arch 收敛：4 四足 + 4 轮足）各一份默认 Pack。
+EXPECTED_PACK_IDS = (
+    "deeprobotics_lite3-velocity",
+    "deeprobotics_m20-velocity",
+    "unitree_b2-velocity",
+    "unitree_b2w-velocity",
+    "unitree_go1-velocity",
+    "unitree_go2-velocity",
+    "unitree_go2w-velocity",
+    "zex-w-velocity",
+)
 
 
 def _base_pack(**overrides) -> dict:
@@ -41,7 +52,11 @@ def _base_pack(**overrides) -> dict:
 class BuiltinPacksTest(unittest.TestCase):
     def test_all_packs_pass_validation(self) -> None:
         entries = load_packs()
-        self.assertGreaterEqual(len(entries), EXPECTED_MIN_PACKS)
+        # 强度不低于原 "≥N"：清单精确相等（每个内置机型恰有一份 Pack，且无多余）
+        self.assertEqual(
+            sorted(EXPECTED_PACK_IDS),
+            sorted(entry["pack_id"] for entry in entries),
+        )
         for entry in entries:
             with self.subTest(pack=entry["pack_id"]):
                 self.assertTrue(entry["valid"], f"{entry['file']}: {entry['errors']}")

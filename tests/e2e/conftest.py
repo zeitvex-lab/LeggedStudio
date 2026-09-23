@@ -5,6 +5,9 @@
     sim2sim 依赖 SharedArrayBuffer，后端中间件给 /web/sim2sim/* 加了
     COOP/COEP 头（backend/api_complete.py），file:// 下没有这些头，WASM 起不来。
   - 就绪判定用轮询 /health，不用固定 sleep（冷启动时间随机器差异很大）。
+  - 子进程日志必须重定向到**文件**，绝不能用 `subprocess.PIPE` 后不读：
+    启动期就有数 KB 输出，管道缓冲写满会把整个服务阻塞成"页面全部超时"
+    （曾被误判为机器争抢/假红），排查时看这里落盘的日志即可。
 """
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -27,7 +31,7 @@ def _free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def _wait_healthy(base_url: str, timeout_s: float = 90.0) -> None:
+def _wait_healthy(base_url: str, timeout_s: float = 90.0, log_path: Path | None = None) -> None:
     import urllib.error
     import urllib.request
 
@@ -41,7 +45,11 @@ def _wait_healthy(base_url: str, timeout_s: float = 90.0) -> None:
         except (urllib.error.URLError, OSError, TimeoutError) as exc:  # server still warming up
             last_error = exc
         time.sleep(0.5)
-    raise RuntimeError(f"control plane not healthy within {timeout_s}s: {last_error}")
+    tail = ""
+    if log_path and log_path.exists():
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        tail = "\n--- server log tail ---\n" + "\n".join(lines[-20:])
+    raise RuntimeError(f"control plane not healthy within {timeout_s}s: {last_error}{tail}")
 
 
 @pytest.fixture(scope="session")
@@ -57,14 +65,16 @@ def base_url() -> str:
     url = f"http://127.0.0.1:{port}"
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
+    log_path = Path(tempfile.gettempdir()) / f"legged-studio-e2e-{port}.log"
+    log_file = log_path.open("w", encoding="utf-8")
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "backend.api_complete:app",
          "--host", "127.0.0.1", "--port", str(port), "--log-level", "warning"],
         cwd=str(ROOT), env=env,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        stdout=log_file, stderr=subprocess.STDOUT, text=True,
     )
     try:
-        _wait_healthy(url)
+        _wait_healthy(url, log_path=log_path)
         yield url
     finally:
         proc.terminate()
@@ -72,6 +82,7 @@ def base_url() -> str:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
+        log_file.close()
 
 
 def pytest_addoption(parser) -> None:

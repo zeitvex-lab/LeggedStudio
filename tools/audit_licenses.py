@@ -57,19 +57,17 @@ _LICENSE_NAME = re.compile(r"^(licen[cs]e|copying)(\.(md|txt|rst|html))?$", re.I
 #: 自产打包许可的出处（我们自己的代码与打包，不是上游资产）。
 PACKAGING_LICENSE = {"spdx": "MIT", "source": "package.json#license"}
 
-#: **已登记**的取证缺口（2026-09-16 实测）。登记 ≠ 放行：报告里照样列出来，只是不再判红，
-#: 这样"缺口"是可枚举、可追溯的一小串，而不是一片静默。**新增**缺口一律判红。
+#: **已登记**的取证缺口（2026-09-16 实测；2026-09-23 族架构收敛后随 microduck / unitree_g1
+#: 两个机型的删除同步核销 —— 这两条缺口已随机器人退场，不再是本仓的开放项）。
+#: 登记 ≠ 放行：报告里照样列出来，只是不再判红，这样"缺口"是可枚举、可追溯的一小串，
+#: 而不是一片静默。**新增**缺口一律判红。
 #: 后续动作（属 I5 收尾，需人/上游动作，不在代码里猜）：
 #:   * zex-w ← rc_old：`rc_old/RC_WheelLeg` 树内没有该来源的许可文件（仅 vendored mjlab
 #:     与 odin 驱动各有自己的 LICENSE，不属于 `rc_mjlab/src/robot`）；需向上游取许可或明确口径；
-#:   * microduck ← microduck_all：同快照里其它子仓有 LICENSE，但证据文件所在子目录没有；
-#:   * unitree_go2 ← parkour_mjlab：该快照整棵树没有许可文件；
-#:   * unitree_g1 ← AMP_mjlab：许可放在 `rsl_rl/licenses/` 目录里（线索），不在证据文件祖先链上。
+#:   * unitree_go2 ← parkour_mjlab：该快照整棵树没有许可文件。
 EXPECTED_UNRESOLVED: frozenset[tuple[str, str]] = frozenset({
     ("zex-w", "rc_old"),
-    ("microduck", "microduck_all"),
     ("unitree_go2", "parkour_mjlab"),
-    ("unitree_g1", "AMP_mjlab"),
 })
 
 #: **一条许可依据都取不到**的包（须显式登记，否则判红）。理由见上：zex-w 的上游快照里

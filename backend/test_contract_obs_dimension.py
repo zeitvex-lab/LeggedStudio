@@ -1,4 +1,4 @@
-"""B32 收口：v2 ``observation.dimension`` 必须是 v3 真值的**派生视图**（14 包 14/14 一致，无例外）。
+"""B32 收口：v2 ``observation.dimension`` 必须是 v3 真值的**派生视图**（8 包 8/8 一致，无例外）。
 
 ## 这组测试守的是什么
 
@@ -8,13 +8,14 @@ tron1 三包是旧「全帧和」口径（pf=135 / sf=330 / wf=165），其余�
 兼容视图必须跟着 v3 走。B32 已把 7 个漂移包逐一对齐（wuji_hand=69 更早上轮已修），
 本文件把全仓不变量钉死：
 
-1. **全仓不变量**：14 个内置包 v2 ``observation.dimension`` == v3 ``observation.dimension``，
+1. **全仓不变量**：8 个内置包 v2 ``observation.dimension`` == v3 ``observation.dimension``，
    **无任何豁免**；失败信息列出 {包: (v2, v3)}；
-2. **包清单钉死**：内置包数量钉在 14；增删包是有意动作，须连同本测试一起改；
-3. **v3 真值表钉死**：逐包钉 v3 基数。特别注意 tron1 三包的 30/36/28 是
-   **encoder 架构单帧宽度**（E4 裁决：encoder 输入 = 单帧 × 10 帧历史，策略输入 =
-   单帧 + 3 维 latent + 3 维 command），与 v2 旧值 135/330/165 的「全帧和」是两种
-   算法、两种语义——对齐就是以 v3 为准，**不要**试图用旧口径「调和」出新数字。
+2. **包清单钉死**：内置包数量钉在 8；增删包是有意动作，须连同本测试一起改；
+3. **v3 真值表钉死**：逐包钉 v3 基数。
+
+   **2026-09-23 族架构收敛（只留 8 机型）**：tron1 三包（30/36/28 = encoder 架构单帧宽度）、
+   microduck（61）、unitree_g1（98）、wuji_hand（69）四类条目随机器人删除，真值表同步收缩；
+   被删机型的旧值留在本段历史里（上方 tron1 的 135/330/165 即是），不再参与校验。
 
 风格：纯 pytest 兼容的 unittest.TestCase（CI 的 ``unittest discover`` 与本地
 ``python -m pytest`` 双口径可跑）、仅标准库、直读文件。
@@ -34,18 +35,11 @@ ROBOTS = ROOT / "assets" / "robots"
 V3_DIMENSION_TRUTH = {
     "deeprobotics_lite3": 45,
     "deeprobotics_m20": 57,
-    # tron1 三包：encoder 架构单帧宽度（E4 裁决），非全帧和。
-    "limx_tron1_pf": 30,
-    "limx_tron1_sf": 36,
-    "limx_tron1_wf": 28,
-    "microduck": 61,
     "unitree_b2": 45,
     "unitree_b2w": 57,
-    "unitree_g1": 98,
     "unitree_go1": 48,
     "unitree_go2": 45,
     "unitree_go2w": 57,
-    "wuji_hand": 69,
     "zex-w": 53,
 }
 
@@ -66,14 +60,14 @@ def _obs_dimension(robot: str, filename: str) -> int:
 
 
 class RepoObsDimensionInvariantTest(unittest.TestCase):
-    """全仓不变量：14 包 v2 dimension == v3 dimension，无任何例外。"""
+    """全仓不变量：8 包 v2 dimension == v3 dimension，无任何例外。"""
 
-    def test_14_builtin_packages_present(self):
-        """内置包清单钉在 14（B1 口径）；增删包是有意动作，须连同本测试一起改。"""
-        self.assertEqual(14, len(_builtin_robots()))
+    def test_8_builtin_packages_present(self):
+        """内置包清单钉在 8（族架构收敛口径）；增删包是有意动作，须连同本测试一起改。"""
+        self.assertEqual(8, len(_builtin_robots()))
 
     def test_v2_dimension_is_derived_view_of_v3(self):
-        """14 包全部：v2 observation.dimension == v3 observation.dimension，无例外。"""
+        """8 包全部：v2 observation.dimension == v3 observation.dimension，无例外。"""
         drift: dict[str, tuple[int, int]] = {}
         for robot in _builtin_robots():
             v2 = _obs_dimension(robot, "contract_legacy_v2.json")
@@ -83,7 +77,7 @@ class RepoObsDimensionInvariantTest(unittest.TestCase):
         self.assertEqual(
             {}, drift,
             "这些包的 v2 observation.dimension 漂离 v3 真值 {包: (v2, v3)}——"
-            "v2 是 v3 的派生视图，应以 v3 为准对齐（tron1 三包 = encoder 单帧宽度口径）",
+            "v2 是 v3 的派生视图，应以 v3 为准对齐",
         )
 
 

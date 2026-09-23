@@ -376,6 +376,64 @@ PROJECTS: dict[str, dict] = {
                              "参考动作）；EngineAI RL Workspace 自述其 reward 与 terrain 生成部分"
                              "受该库启发 ⇒ 人形任务的奖励/地形写法对照源",
                      "kind": "人形训练上游参考（humanoid_gym；reward / terrain 组织）"},
+    # ---- 四足动作/基模方向的外部快照（2026-09-23 纳入；来源与许可详见各目录 _SOURCE.md）----
+    "QuadFM": {"robots": [],
+               "desc": "GaoLii/QuadFM：四足运动基座模型项目快照——上游仅发布 README 与 Apache-2.0 许可、"
+                       "声明「released soon」，数据集未发布；占位登记",
+               "license": "apache-2.0", "repo": "https://github.com/GaoLii/QuadFM",
+               "source": "https://github.com/GaoLii/QuadFM @ c5b6716c82e57e5e06a3bdfd94576bb46ab45d67",
+               "commit": "c5b6716c82e57e5e06a3bdfd94576bb46ab45d67", "fetched": "2026-09-23",
+               "note": "数据集未发布", "in_git": True},
+    "Quad-Imaginarium": {"robots": ["unitree_go2"],
+                         "desc": "GaoLii/Quad-Imaginarium（arXiv 2606.28237）：7488 段语言标注四足动作、"
+                                 "18.5h@24fps、19 维状态；数据集待论文接收后发布（本快照仅 README）",
+                         "license": "unknown", "repo": "https://github.com/GaoLii/Quad-Imaginarium",
+                         "source": "https://github.com/GaoLii/Quad-Imaginarium @ 9ace039764d53882af0015b1ef2a4903fb0d76d3",
+                         "commit": "9ace039764d53882af0015b1ef2a4903fb0d76d3", "fetched": "2026-09-23",
+                         "note": "7488 段 Go2 动作声明未发布", "in_git": True},
+    "T2QRM": {"robots": [],
+              "desc": "SCUT-BIP-Lab/T2QRM（ACM MM Asia 2024）：文本驱动四足动作生成；配套 DogML "
+                      "8048 段 / 12072 条文本；代码与数据集均未发布（快照仅 README + demo）",
+              "license": "unknown", "repo": "https://github.com/SCUT-BIP-Lab/T2QRM",
+              "source": "https://github.com/SCUT-BIP-Lab/T2QRM @ b74418fa424484dc72b4ad2e4d05f7ee3c339062",
+              "commit": "b74418fa424484dc72b4ad2e4d05f7ee3c339062", "fetched": "2026-09-23",
+              "note": "DogML 经 Google Drive，未发布", "in_git": True},
+    "quadruped-robotics-stack": {"robots": ["unitree_go2"],
+                                 "desc": "darshmenon/quadruped-robotics-stack：ROS2 + Gazebo + MuJoCo 四足"
+                                         "工作区（PPO / CHAMP / NMPC 三后端，Go2 完整可用）；**本地参考，"
+                                         "未纳入版本：405.2MB 超 400MB 红线**",
+                                 "license": "unknown", "repo": "https://github.com/darshmenon/quadruped-robotics-stack",
+                                 "source": "https://github.com/darshmenon/quadruped-robotics-stack @ fe3c2e7457f9caaaa30b5669daba184394173a5f",
+                                 "commit": "fe3c2e7457f9caaaa30b5669daba184394173a5f", "fetched": "2026-09-23",
+                                 "note": "badge 声明 MIT，未见许可文件；Gazebo/ROS2 栈", "in_git": False},
+    "Learn-It-All-deployment-sim2real": {"robots": [],
+                                         "desc": "youngboss2026/Learn-It-All 真机部署部分：Feetech 舵机四足上跑 "
+                                                 "ONNX 策略与开环步态（vendor 为舵机/IMU 支持库，GPL-3.0）",
+                                         "license": "mit", "repo": "https://github.com/youngboss2026/Learn-It-All-deployment-sim2real",
+                                         "source": "https://github.com/youngboss2026/Learn-It-All-deployment-sim2real @ 09defd0ae1e252e21c4fa963a81ea634f6e7fcdc",
+                                         "commit": "09defd0ae1e252e21c4fa963a81ea634f6e7fcdc", "fetched": "2026-09-23",
+                                         "note": "vendor 目录 GPL-3.0", "in_git": True},
+    "motion-imitation": {"robots": [],
+                         "desc": "wq-win/motion-imitation（Xue Bin Peng 等动物模仿行走的复现分支）：四足动作模仿 "
+                                 "Gym 环境与 mocap/重定向数据、MPC 控制器；代码 Apache-2.0，**mocap 数据 CC BY-NC 4.0（非商用）**",
+                         "license": "restricted-noncommercial", "repo": "https://github.com/wq-win/motion-imitation",
+                         "source": "https://github.com/wq-win/motion-imitation @ 3f7f2f44cdad86e5e4aca42558764154a1695c40",
+                         "commit": "3f7f2f44cdad86e5e4aca42558764154a1695c40", "fetched": "2026-09-23",
+                         "note": "mocap 部分非商用", "in_git": True},
+    "Awesome_Quadrupedal_Robots": {"robots": [],
+                                   "desc": "curieuxjy/Awesome_Quadrupedal_Robots：四足资源清单"
+                                           "（平台/仿真器/数据集/论文/公司分类，纯链接集合）",
+                                   "license": "unknown", "repo": "https://github.com/curieuxjy/Awesome_Quadrupedal_Robots",
+                                   "source": "https://github.com/curieuxjy/Awesome_Quadrupedal_Robots @ b1569acc9f55d99746edfe95edabe1c10773c68a",
+                                   "commit": "b1569acc9f55d99746edfe95edabe1c10773c68a", "fetched": "2026-09-23",
+                                   "note": "纯清单", "in_git": True},
+    "quadruped-locomotion-policy": {"robots": ["unitree_go2", "unitree_go1"],
+                                    "desc": "HuggingFace Kyu3224：Isaac Lab 训练的四足策略集合（平 48 维 / 崎岖 "
+                                            "235 维观测，12 维力矩动作；覆盖 go1/go2/anymal/spot/hound）；LFS 指针未拉",
+                                    "license": "unknown", "repo": "https://huggingface.co/Kyu3224/quadruped-locomotion-policy",
+                                    "source": "https://huggingface.co/Kyu3224/quadruped-locomotion-policy @ 80bed8c5410c65d16eaed9cbc75f62200ee80fd6",
+                                    "commit": "80bed8c5410c65d16eaed9cbc75f62200ee80fd6", "fetched": "2026-09-23",
+                                    "note": "ONNX/PT 为 LFS 指针", "in_git": True},
 }
 
 # 非机型知识库：单独放在 00_resources/knowledge_base/<名称>/
@@ -921,9 +979,14 @@ def write_index_json(project_stats: dict[str, ProjectStat], kb_stats: dict[str, 
         },
         "projects": {
             name: {
-                "source": f"00_open/{st.src_rel}",
+                "source": PROJECTS.get(name, {}).get("source")
+                          or f"00_open/{st.src_rel}",
                 "robots": PROJECTS.get(name, {}).get("robots", []),
                 "desc": PROJECTS.get(name, {}).get("desc", ""),
+                # 外部快照的可选血缘/许可元数据（2026-09-23 起支持透传，reindex 不再丢）
+                **{k: PROJECTS.get(name, {})[k]
+                   for k in ("license", "repo", "commit", "fetched", "note", "in_git")
+                   if k in PROJECTS.get(name, {})},
                 "kept": len(st.kept),
                 "kept_bytes": st.kept_bytes,
                 "omitted": st.omitted_n,

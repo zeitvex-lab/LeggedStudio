@@ -201,7 +201,9 @@ class RepoWideGainInvariantTest(unittest.TestCase):
                             msg=f"{pkg_dir.name}/{entry['id']} damping {joint}",
                         )
                     checked += 1
-        self.assertGreater(checked, 50, "对账样本太少，覆盖面不足")
+        # family-arch 收敛（14 → 8 机型）后真实对账样本为 43 条策略；下限随实际收敛
+        # 重标定，仍保留"样本太少 ⇒ 循环没跑全"的守卫意图。
+        self.assertGreater(checked, 40, "对账样本太少（8 机型实际 43 条），覆盖面不足")
 
     def test_all_declared_policies_resolve_gains(self):
         bad = []

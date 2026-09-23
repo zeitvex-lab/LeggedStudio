@@ -37,7 +37,7 @@ class RegistryMatchesEvidenceTest(unittest.TestCase):
     def test_audit_passes(self):
         report = al.audit()
         self.assertTrue(report["ok"], report["problems"])
-        self.assertEqual(14, report["packages"])
+        self.assertEqual(8, report["packages"])
 
     def test_every_builtin_robot_is_recorded(self):
         recorded = json.loads(al.REGISTRY_PATH.read_text(encoding="utf-8"))

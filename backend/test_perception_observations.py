@@ -248,7 +248,7 @@ class ActuatorObservationsTests(unittest.TestCase):
         wheel = items["wheel_vel"]
         self.assertEqual(wheel["width"], 4)
         self.assertEqual(wheel["meta"]["joint_pattern"], ".*_wheel_joint")
-        for robot in ("unitree_go2w", "unitree_b2w", "deeprobotics_m20", "limx_tron1_wf", "zex-w"):
+        for robot in ("unitree_go2w", "unitree_b2w", "deeprobotics_m20", "zex-w"):
             self.assertIn(robot, wheel["meta"]["applies_to"])
 
 

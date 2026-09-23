@@ -1,8 +1,0 @@
-{
-  "action_scale": 0.5,
-  "ema_alpha": 0.5,
-  "warmup_time_s": 0.4,
-  "control_mode": "absolute",
-  "ctrl_dt": 0.05,
-  "history_len": 3
-}

@@ -11,20 +11,27 @@
 
 * ``fps`` / ``dof_dim`` —— 直接读文件（pkl 的 ``fps`` / ``dof_pos``、npz 的 ``fps`` / ``joint_pos``）；
 * ``dof_layout`` —— 由 dof 宽度命名（``unitree_dds_29``），依据是加载器的字段契约
-  （`g1_tracking/.../motion_loader.py` 文档串明写 "dof_pos (F, 29) joint angles, robot (DDS)
+  （tracking 侧的加载器文档串明写 "dof_pos (F, 29) joint angles, robot (DDS)
   joint order"）；
 * ``lineage`` —— 出处与转换链（tracking 的 pkl 由 `LeggedGym-Ex` retarget 管线产出，
-  本仓 `tools/convert_raw_motion_pkls.py` 做过 raw → tracking schema 的转换；**raw 原文件不在仓**，
-  如实登记）；
+  raw 原文件不在仓，如实登记）；
 * ``license`` —— 与 I5 同口径：**没有许可记录的 motion 不得进注册表**；许可确未取证时
   必须**显式登记**（``status: unresolved`` + 原因 + 依据），不许留空、也不许编一个。
 
-## 三种布局（派生规则，写死在这里而不是散在各处）
+**2026-09-23 族架构收敛（只留 8 机型）后的仓内实况**：`unitree_g1` 包整包删除，随它退场的
+tracking（pkl，逐引擎变体）与 amp（npz）两侧数据**在仓内已一份不剩** —— 现存的 motion 数据
+只有浏览器侧 CSV（`<包>/simulation/policies/*_motion.csv`）。两类训练侧布局的派生规则与
+出处模板**作为机制保留**（重新引入参考动作库时直接复用），但出处指向 `00_resources` 里的
+上游快照，不再指向已删除的包内路径。
+
+## 布局（派生规则，写死在这里而不是散在各处）
 
 1. ``tracking-variants``：``*_stageii{,.rawconv,_genesis,_isaacgym,_isaaclab}.pkl``
    —— 同一个动作的 raw 转换产物 + 逐仿真引擎重定向产物（**血缘就在这里**）；
 2. ``amp-dirs``：``<...>/motions/<robot>/amp/<Group>/<name>.npz`` —— variant = 分组目录名；
-3. ``flat``：其余（兜底，variant = ``default``）。
+3. ``browser-csv``：``<包>/simulation/policies/*_motion.csv`` —— 浏览器侧变体
+   （variant = ``browser``，由 ``web/sim2sim/motion_loader.js`` 消费）；
+4. ``flat``：其余（兜底，variant = ``default``）。
 
 风格：纯 stdlib（numpy 仅按需 import，供读 npz）。
 """
@@ -61,15 +68,17 @@ TRACKING_VARIANTS = {
 }
 _TRACKING_STEM = re.compile(r"^(?P<clip>.+)_stageii(?:\.rawconv|_genesis|_isaacgym|_isaaclab)?\.pkl$")
 
-#: 出处（可复核的原文位置 + 本仓转换脚本）。tracking 的 pkl 出处写在这两个文件里。
+#: 出处（可复核的原文位置 + 本仓转换脚本）。**2026-09-23 族架构收敛**：tracking 侧的数据
+#: （连同包内证据文件与 `tools/convert_raw_motion_pkls.py` 这个一次性转换脚本）随
+#: `unitree_g1` 包一起删除，所以出处改指 `00_resources` 里的上游快照；重新引入 tracking
+#: 数据时按实测重填 evidence / conversion_script，不要照抄这段。
 _TRACKING_LINEAGE = {
     "pipeline": "LeggedGym-Ex retarget（BSD-3-Clause）",
     "raw": None,
-    "raw_note": "raw（AMASS stage-II）原文件不在仓内，仓内只有转换产物与逐引擎重定向产物",
-    "conversion_script": "tools/convert_raw_motion_pkls.py",
+    "raw_note": "raw（AMASS stage-II）原文件不在仓内；仓内曾有的转换产物与逐引擎重定向产物已随 unitree_g1 包删除（2026-09-23）",
+    "conversion_script": None,
     "evidence": [
-        "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/motion_loader.py",
-        "assets/robots/unitree_g1/training/source/g1_tracking/src/tasks/tracking/config/g1/env_cfgs.py",
+        "00_resources/LeggedGym-Ex/legged_gym/utils/motion_loader.py",
     ],
 }
 
@@ -78,10 +87,18 @@ _TRACKING_CONVENTIONS = {
     "root_pos": "world",
     "root_rot": "xyzw",
     "dof_order": "unitree DDS joint order",
-    "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 motion_loader.py 文档串）",
+    "note": "mjlab / MuJoCo 用 wxyz，加载时换序（见 tracking 侧 motion_loader.py 文档串）",
 }
+#: AMP（npz）布局的约定：键名带 `_w` 后缀 = world 系；四元数序未取证（**仓内当前无此类数据**，
+#: 随 unitree_g1 包删除；模板保留供重新引入时使用）。
 _AMP_CONVENTIONS = {
     "note": "键名带 `_w` 后缀 = world 系；**四元数序未取证**（`body_quat_w` 不含序信息，不猜）",
+}
+#: 浏览器侧 CSV（现存唯一的 motion 布局）：列布局与坐标系以**包内声明**为准，不在这里写死
+#: 一份（`motion_params.csv_layout` / `ref_axis`，见 :func:`_declared_browser_sources`）。
+_BROWSER_CONVENTIONS = {
+    "note": "无表头的逐帧 CSV（root 位姿 + 关节角）；列布局 / 参考系 / 四元数序以包内策略声明的 "
+            "`motion_params`（`csv_layout` / `ref_axis`）为准 —— 本模块不替它猜",
 }
 
 #: 许可：与 I5 的许可门同口径。
@@ -96,15 +113,24 @@ _TRACKING_LICENSE = {
         "reason": "上游数据集许可是独立的（AMASS 系通常限学术/非商用），本仓未取证 —— 不含在 BSD-3 之内",
     },
 }
+#: AMP npz 布局的出处模板（**仓内当前无此类数据**；出处指向 00_resources 的上游快照）。
+_AMP_LINEAGE = {
+    "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
+    "raw": None,
+    "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源；含此类数据的 unitree_g1 包已于 2026-09-23 删除",
+    "conversion_script": None,
+    "evidence": [
+        "00_resources/AMP_mjlab/src/tasks/amp_loco/config/g1/rl_cfg.py",
+    ],
+}
+#: AMP npz 布局的许可模板（**仓内当前无此类数据**；出处指向 00_resources 的上游快照）。
 _AMP_LICENSE = {
     "status": "unresolved",
     "spdx": None,
-    "reason": "g1_amp 源码注释只声明其 rsl_rl 分支为 BSD-3-Clause，**动作 npz 数据本身的出处与许可未取证**"
-              "（`rl_cfg.py` 只写 'AMP motion data directory'）；对应上游项目 AMP_mjlab 的许可亦未取证"
-              "（已登记在 registry/licenses.json 的缺口表）",
+    "reason": "AMP 动作 npz 数据本身的出处与许可未取证（上游 `AMP_mjlab` 源码注释只声明其 rsl_rl "
+              "分支为 BSD-3-Clause，数据本身没写）；含此类数据的 unitree_g1 包已于 2026-09-23 删除",
     "evidence": [
-        "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
-        "registry/licenses.json",
+        "00_resources/AMP_mjlab/src/tasks/amp_loco/config/g1/rl_cfg.py",
     ],
 }
 
@@ -269,7 +295,7 @@ def _source_of(path: Path) -> str:
 
 
 def _source_short(robot: str, source: str) -> str:
-    """给 id 用的短名：去掉与机型重复的前缀（``unitree_g1`` + ``g1_amp`` → ``amp``）。
+    """给 id 用的短名：去掉与机型重复的前缀（``unitree_go2`` + ``go2_amp`` → ``amp``）。
 
     纯粹是可读性；``source`` 字段仍记**完整包名**（真值不缩短），所以不会出现"id 好看了但真值丢了"。
     """
@@ -282,9 +308,31 @@ def _source_short(robot: str, source: str) -> str:
     return source
 
 
+def _declared_browser_sources() -> dict[tuple[str, str], str]:
+    """``(包名, motion_csv 文件名) → 声明该 motion 的策略 ``source`` 文字``。
+
+    真值来自**包内** ``simulation/config.json``（与 :func:`declared_browser_motions` 同一处），
+    这样浏览器侧条目的出处/许可是从声明读出来的，而不是在派生代码里替它编一段。
+    """
+
+    sources: dict[tuple[str, str], str] = {}
+    for package in sorted(ROBOTS_DIR.iterdir()) if ROBOTS_DIR.is_dir() else []:
+        payload = _read_json(package / "simulation" / "config.json")
+        if not isinstance(payload, dict):
+            continue
+        for policy in payload.get("policies") or []:
+            if not isinstance(policy, dict):
+                continue
+            motion = policy.get("motion_params") or (policy.get("contract") or {}).get("motion_params") or {}
+            csv_value = (motion or {}).get("motion_csv")
+            if not csv_value:
+                continue
+            sources[(package.name, Path(str(csv_value)).name)] = str(policy.get("source") or "")
+    return sources
+
+
 def derive() -> dict[str, Any]:
     """从磁盘派生注册表内容（**纯派生**，不读已有 index）。"""
-
     clips: dict[tuple[str, str, str], dict[str, Any]] = {}
     for path in iter_motion_files():
         layout, variant, clip = _layout_of(path)
@@ -323,20 +371,41 @@ def derive() -> dict[str, Any]:
             entry["dof_dim"] = meta["dof_dim"]
             entry["dof_layout"] = f"unitree_dds_{meta['dof_dim']}"
 
+    declared_sources = _declared_browser_sources()
     for entry in clips.values():
         entry["files"] = {key: entry["files"][key] for key in sorted(entry["files"])}
-        tracking = entry["layout"] == "tracking-variants"
-        entry["conventions"] = dict(_TRACKING_CONVENTIONS if tracking else _AMP_CONVENTIONS)
-        entry["lineage"] = dict(_TRACKING_LINEAGE) if tracking else {
-            "pipeline": "AMP（HumanoidVerse / AMP_mjlab 系）",
-            "raw": None,
-            "raw_note": "数据直接以 npz 形式入库，仓内无更上游的原始来源",
-            "conversion_script": None,
-            "evidence": [
-                "assets/robots/unitree_g1/training/source/g1_amp/src/tasks/amp_loco/config/g1/rl_cfg.py",
-            ],
-        }
-        entry["license"] = dict(_TRACKING_LICENSE) if tracking else dict(_AMP_LICENSE)
+        layout = entry["layout"]
+        if layout == "tracking-variants":
+            entry["conventions"] = dict(_TRACKING_CONVENTIONS)
+            entry["lineage"] = dict(_TRACKING_LINEAGE)
+            entry["license"] = dict(_TRACKING_LICENSE)
+        elif layout == "browser-csv":
+            # 浏览器侧 CSV：出处/许可**不许在这里编** —— 真值是包内策略声明的 `source`
+            # （`motion_params.motion_csv` 所在的那条策略），evidence 指回声明文件本身。
+            csv_name = next(iter(entry["files"].values()))["path"].rsplit("/", 1)[-1]
+            declared = declared_sources.get((entry["robot"], csv_name)) or ""
+            config_path = f"assets/robots/{entry['robot']}/simulation/config.json"
+            entry["conventions"] = dict(_BROWSER_CONVENTIONS)
+            entry["lineage"] = {
+                "pipeline": "浏览器侧随包 demo 动作（`simulation/policies/*_motion.csv`，"
+                            "由 `web/sim2sim/motion_loader.js` 消费）",
+                "raw": None,
+                "raw_note": "数据以 CSV 形式直接入库，仓内无更上游的原始来源",
+                "conversion_script": None,
+                "evidence": [config_path],
+            }
+            entry["license"] = {
+                "status": "unresolved",
+                "spdx": None,
+                "reason": "随包 demo 动作数据：出处见包内策略声明的 source"
+                          + (f"（{declared}）" if declared else "（包内声明未写 source）")
+                          + "，**该动作数据本身的许可与再分发条件未取证**",
+                "evidence": [config_path],
+            }
+        else:
+            entry["conventions"] = dict(_AMP_CONVENTIONS)
+            entry["lineage"] = dict(_AMP_LINEAGE)
+            entry["license"] = dict(_AMP_LICENSE)
         if "frames_max" not in entry:
             entry["frames_max"] = entry["frames_min"]
 
@@ -458,7 +527,7 @@ def audit() -> dict[str, Any]:
 #:                     ``motion_params.motion_csv`` 声明并被打包接口服务
 CONSUMER_LABELS = {
     "tracking": "训练侧 tracking（motion_loader.py 的 glob *.pkl）",
-    "amp": "训练侧 amp（g1_amp 的 _MOTION_DATA_DIR）",
+    "amp": "训练侧 amp（`<包>/training/source/**/motions/**` 下的 npz）",
     "browser": "浏览器侧（web/sim2sim/motion_loader.js 的 CSV）",
 }
 

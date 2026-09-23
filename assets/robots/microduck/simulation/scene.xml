@@ -1,9 +1,0 @@
-<mujoco model="microduck_scene">
-  <include file="../model/robot.xml"/>
-  <compiler meshdir="../model/assets"/>
-  <!-- 物理真值已固化进 model/robot.xml（<include> 的 <option> 实测生效，此处不再重复声明） -->
-  
-  <visual><headlight diffuse="0.82 0.86 0.9" ambient="0.42 0.48 0.54" specular="0.16 0.16 0.18"/><global azimuth="140" elevation="-20"/></visual>
-  <asset><texture name="ground" type="2d" builtin="checker" width="128" height="128" rgb1="0.28 0.38 0.46" rgb2="0.18 0.25 0.32" markrgb="0.52 0.62 0.68"/><material name="ground" texture="ground" texrepeat="8 8" reflectance="0.12"/></asset>
-  <worldbody><light pos="2 -2 4" dir="-1 1 -2" directional="true"/><geom name="floor" type="plane" size="0 0 0.05" material="ground"/></worldbody>
-</mujoco>

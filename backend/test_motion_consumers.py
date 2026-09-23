@@ -12,6 +12,12 @@ M2 的判据不是"同一个文件"（两侧格式本就不同：训练侧 pkl/n
 3. **消费的必须在册 / 声明的必须存在**：三侧实际存在的文件都要在注册表里；包内契约声明的
    `motion_csv` 必须真的存在（否则浏览器侧启动即 404，而页面只 `console.warn` 一句，静默失败）；
 4. **对账本身要能红**：注入一份"手册外"的文件或一条"指向不存在文件"的声明，必须报出问题。
+
+## 2026-09-23 族架构收敛（只留 8 机型）之后的实况
+
+`unitree_g1` 整包删除 ⇒ 训练侧 tracking / amp 两侧的数据在仓内一份不剩，浏览器侧只剩
+`unitree_go2` 自带的三条 CSV。第 3 条的计数因此**如实钉成 0 / 0 / 3**：两侧数据重新入库时
+对应断言会红，逼着人把口径与注册表一起改 —— 留着 `> 0` 只会制造假绿。
 """
 
 from __future__ import annotations
@@ -43,19 +49,24 @@ class BrowserVariantTest(unittest.TestCase):
             self.assertIn("simulation/policies", path)
 
     def test_csv_fps_is_a_cited_default_not_a_measurement(self):
-        """CSV 无 fps 元信息 ⇒ 记的是 loader 缺省，且必须写明出处。"""
+        """CSV 无 fps 元信息 ⇒ 记的是 loader 缺省，且必须写明出处。
+
+        列数按**实测**：现存唯一一份来源（unitree_go2）的 CSV 布局是
+        `root_pos3,quat_xyzw4,dof_pos12` = 19 列 / 12 dof（此前这条断言写着 g1 的 36 列 / 29 dof，
+        在 g1 删除前就已是既有失败 —— 2026-09-23 一并按实测校正）。
+        """
 
         sample = next(path for path in mr.iter_motion_files() if path.suffix == ".csv")
         meta = mr._read_motion_meta(sample)
         self.assertEqual(50.0, meta["fps"])
         self.assertIn("motion_loader.js", meta["fps_note"])
-        self.assertEqual(36, meta["columns"], "浏览器 CSV 布局 = root_pos(3)+quat(4)+dof(29)")
-        self.assertEqual(29, meta["dof_dim"])
+        self.assertEqual(19, meta["columns"], "浏览器 CSV 布局 = root_pos(3)+quat(4)+dof(12)")
+        self.assertEqual(12, meta["dof_dim"])
 
     def test_layout_classification(self):
-        path = ROOT / "assets" / "robots" / "unitree_g1" / "simulation" / "policies" / "dance_102_motion.csv"
+        path = ROOT / "assets" / "robots" / "unitree_go2" / "simulation" / "policies" / "backflip_motion.csv"
         layout, variant, clip = mr._layout_of(path)
-        self.assertEqual(("browser-csv", "browser", "dance_102"), (layout, variant, clip))
+        self.assertEqual(("browser-csv", "browser", "backflip"), (layout, variant, clip))
 
     def test_scan_rule_documents_the_browser_location(self):
         """`load_index()` 只返回条目字典，所以这条读**原始文档**：scan 规则必须写明浏览器位置，
@@ -67,11 +78,13 @@ class BrowserVariantTest(unittest.TestCase):
 
 class ConsumerAuditTest(unittest.TestCase):
     def test_three_sides_are_accounted_for(self):
+        """三侧都在对账口径里，计数按实况钉死：训练侧两侧已随 g1 包删除 ⇒ 0 / 0 / 3。"""
+
         report = mr.consumer_audit()
         self.assertTrue(report["ok"], report["problems"])
-        self.assertGreater(report["counts"]["tracking"], 0)
-        self.assertGreater(report["counts"]["amp"], 0)
-        self.assertGreater(report["counts"]["browser"], 0)
+        self.assertEqual(0, report["counts"]["tracking"], "仓内已无 tracking 侧 pkl（随 unitree_g1 删除）")
+        self.assertEqual(0, report["counts"]["amp"], "仓内已无 amp 侧 npz（随 unitree_g1 删除）")
+        self.assertEqual(3, report["counts"]["browser"])
 
     def test_declared_browser_motions_exist(self):
         """包内契约声明的 `motion_csv` 必须真的存在（否则浏览器侧静默 404）。"""
@@ -92,7 +105,7 @@ class ConsumerAuditTest(unittest.TestCase):
         """注入一份"手册外"的文件 ⇒ 必须报"不在注册表里"（对账不能只会说 ok）。"""
 
         original = mr.iter_motion_files
-        ghost = ROOT / "assets" / "robots" / "unitree_g1" / "training" / "source" / "g1_amp" / "src" / "assets" / "motions" / "g1" / "amp" / "ghost.npz"
+        ghost = ROOT / "assets" / "robots" / "unitree_go2" / "training" / "source" / "ghost_motions" / "ghost.npz"
         try:
             mr.iter_motion_files = lambda: [*original(), ghost]
             report = mr.consumer_audit()
@@ -105,7 +118,7 @@ class ConsumerAuditTest(unittest.TestCase):
         original = mr.declared_browser_motions
         try:
             mr.declared_browser_motions = lambda: [
-                {"package": "unitree_g1", "policy_id": "demo", "motion_csv": "simulation/policies/missing_motion.csv", "exists": False}
+                {"package": "unitree_go2", "policy_id": "demo", "motion_csv": "simulation/policies/missing_motion.csv", "exists": False}
             ]
             report = mr.consumer_audit()
             self.assertFalse(report["ok"])
