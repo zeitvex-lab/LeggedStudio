@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "deeprobotics_m20__m20-velocity-57",
   "aux_blobs": [],
-  "contract_digest": "adbc2b2283abed5a7d82cb731663b546df276c10598a9fe1be1e67602fddae6c",
+  "contract_digest": "941299ab98ec4b7049ba1407f07e83f52fb098b8db96cd868b1a6e83933cc547",
   "declared_source": "m20_rl_isaacsim exported/m20_new_policy.onnx（BSD-3，官方 checkpoint 导出，元数据内嵌）",
   "history_len": 1,
   "kind": "policies",

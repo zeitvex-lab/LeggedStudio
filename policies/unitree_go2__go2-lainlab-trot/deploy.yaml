@@ -17,17 +17,17 @@ action_joint_order:
   - RR_thigh_joint
   - RR_calf_joint
 default_joint_angles:
-  FL_hip_joint: 0.1
+  FL_hip_joint: 0.0
   FL_thigh_joint: 0.8
   FL_calf_joint: -1.5
-  FR_hip_joint: -0.1
+  FR_hip_joint: 0.0
   FR_thigh_joint: 0.8
   FR_calf_joint: -1.5
-  RL_hip_joint: 0.1
-  RL_thigh_joint: 1.0
+  RL_hip_joint: 0.0
+  RL_thigh_joint: 0.8
   RL_calf_joint: -1.5
-  RR_hip_joint: -0.1
-  RR_thigh_joint: 1.0
+  RR_hip_joint: 0.0
+  RR_thigh_joint: 0.8
   RR_calf_joint: -1.5
 action_scale: 0.25
 robot: unitree_go2

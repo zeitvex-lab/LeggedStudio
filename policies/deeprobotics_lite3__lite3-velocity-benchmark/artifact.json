@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "deeprobotics_lite3__lite3-velocity-benchmark",
   "aux_blobs": [],
-  "contract_digest": "1fe1c1651e0462a5b8dc71e94efad6b1cd901e20f9c01020435f1b5558ccd906",
+  "contract_digest": "360a3463f0ecff98f3b4e536563621e99739055dcb0be227b59a5f0d695ee855",
   "declared_source": "rl_sar（Apache-2.0，社区训练基准）",
   "history_len": 6,
   "kind": "policies",

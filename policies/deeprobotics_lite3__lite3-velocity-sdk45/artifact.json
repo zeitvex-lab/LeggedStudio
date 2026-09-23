@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "deeprobotics_lite3__lite3-velocity-sdk45",
   "aux_blobs": [],
-  "contract_digest": "22e7e149fe2f10e02454eb7ed043b2a3df4bc09d98466a45554e2466dad5b276",
+  "contract_digest": "89d8ceea6b8b590ef633e79b73561d786d854dd710e824fc928ff2bcd25f7b65",
   "declared_source": "rl_sar himloco 权重 + DeepRoboticsLab sdk_deploy 官方部署参数（BSD-3）",
   "history_len": 6,
   "kind": "policies",

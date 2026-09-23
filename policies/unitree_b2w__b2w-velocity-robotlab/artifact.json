@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_b2w__b2w-velocity-robotlab",
   "aux_blobs": [],
-  "contract_digest": "05b2a13b8c6f3511f59dd8ed61885f6a96224acfc2ff3bb05decfc4032bee91f",
+  "contract_digest": "392b6a4159c17a1750bdb298b800396fe0183f9f30bbf79c1d623d1b941ec826",
   "declared_source": "rl_sar policy/b2w/robot_lab（Apache-2.0，社区 IsaacLab 系训练基准）",
   "history_len": 1,
   "kind": "policies",

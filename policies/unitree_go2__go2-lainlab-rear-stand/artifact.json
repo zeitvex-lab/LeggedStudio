@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-lainlab-rear-stand",
   "aux_blobs": [],
-  "contract_digest": "3ec0e037706e71b6f5e6202a4c19b5863a0050ae998ee3e4dd27505460e27332",
+  "contract_digest": "0b36f46e4bf24cb1319f76c0f8ddeaa4174373ee19544229bcefe9f523609d7f",
   "declared_source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/rear_stand",
   "history_len": 1,
   "kind": "policies",

@@ -1,5 +1,6 @@
 observation_kind: unknown
 obs_dim: 57
 action_dim: 16
+action_scale: 0.5
 robot: unitree_go2w
 policy_id: unitree_go2w-trained-20260918-093550

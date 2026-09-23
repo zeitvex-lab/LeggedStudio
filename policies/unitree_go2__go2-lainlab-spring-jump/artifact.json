@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-lainlab-spring-jump",
   "aux_blobs": [],
-  "contract_digest": "1b3b6208db841df5b5e593ffb78f7ef054d511c6653bd578efb82c19afd23119",
+  "contract_digest": "a77ac0a341b90237603e94a490e616dd2f145dfc7ebe323eef8b59789b946575",
   "declared_source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/spring_jump",
   "history_len": 10,
   "kind": "policies",

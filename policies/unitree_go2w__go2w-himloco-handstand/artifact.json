@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_go2w__go2w-himloco-handstand",
   "aux_blobs": [],
-  "contract_digest": "33c6af2ffb5ee68122af8bff26fa4516ff135036c134950ca1c3fc7c5e16a8ac",
+  "contract_digest": "225972232fb933af93f99dd96c36fe39fca4483dfd629931ae57e1fe5abcfd3d",
   "declared_source": "LeggedSkillDeploy policy/issacgym/go2w/go2w_himloco（第三方，无 LICENSE；仅内部研究）——对应 HIMLoco 训练工程",
   "history_len": 6,
   "kind": "policies",

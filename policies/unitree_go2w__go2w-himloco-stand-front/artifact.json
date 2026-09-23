@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_go2w__go2w-himloco-stand-front",
   "aux_blobs": [],
-  "contract_digest": "391edc7faf6c55edcd2553ad81d5dbc22151205d3c381d30959984d7a1bea030",
+  "contract_digest": "29387c619cb1d182a89a08b56e33a3d7fb863bb0d067e90f04b00180db6db71c",
   "declared_source": "LeggedSkillDeploy policy/issacgym/go2w/go2w_himloco（第三方，无 LICENSE；仅内部研究）——对应 HIMLoco 训练工程",
   "history_len": 6,
   "kind": "policies",

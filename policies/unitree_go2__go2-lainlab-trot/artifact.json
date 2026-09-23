@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-lainlab-trot",
   "aux_blobs": [],
-  "contract_digest": "109f05771be1be8cf7d7a214c48a06ccc90138b53f9b76fe7aec892c4babd5a7",
+  "contract_digest": "f8e9a206197e75e048f6ae7194178cff587abcbef44ddb6a8e11a09107823eed",
   "declared_source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/trot",
   "history_len": 10,
   "kind": "policies",

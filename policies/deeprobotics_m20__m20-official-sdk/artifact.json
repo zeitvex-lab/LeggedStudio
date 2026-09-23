@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "deeprobotics_m20__m20-official-sdk",
   "aux_blobs": [],
-  "contract_digest": "3aaf7f078ef0717d0a9012065c1ba89f0ea63b4780602dc0f5735c8d0f5f7b2d",
+  "contract_digest": "f12d33df55d9560dbf70ab988de1a1adc47c64cbbbb894c61610527567342821",
   "declared_source": "00_resources/sdk_deploy/src/M20_sdk_deploy/policy/policy.onnx（云深处官方部署包）；官方 run_policy/m20_policy_runner.hpp 为部署协议权威（轮位 obs 清零 policy 序 [12..15]、轮=速度动作 ×5）",
   "history_len": 1,
   "kind": "policies",

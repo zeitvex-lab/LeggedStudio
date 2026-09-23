@@ -3,7 +3,7 @@
   "algorithm": null,
   "artifact_id": "unitree_go2__go2-lainlab-handstand",
   "aux_blobs": [],
-  "contract_digest": "6f41c7e7232e9b91094c1242a6b6ffe8d10d1068e29318388ef5bd1e00ed812f",
+  "contract_digest": "ed86c0bd9d9370e13adba19401a4ccbe2698fca4ca58a22abead8ba616a2a0e7",
   "declared_source": "LainLab playground（Apache-2.0，mjlab 1.6）——训练源 00_resources/LainLab/src/tasks/robots/go2/skills/hand_stand",
   "history_len": 1,
   "kind": "policies",
