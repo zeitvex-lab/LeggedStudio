@@ -529,3 +529,88 @@ body.embedded .ls-topnav { display: none; }
 @media (max-width: 768px) {
   .page-header { flex-direction: column; }
 }
+
+/* =========================================================================
+   第 4 批：折叠组件 .ls-fold（原生 <details>，零 JS 框架）+ 点击目标 .ls-check
+   —— 训练配置页 IA 重做新增。**纯新增类，不改动本文件任何既有规则**：
+      · .ls-fold   默认收起的"通用参数"面板：一行摘要（标题 + 摘要值 + 备注），
+                   展开才逐项；summary 自身 ≥44px 高（可量门禁点击目标）。
+      · .ls-check  复选框/单选框的 26px 命中盒 + 16px 视觉框（原生 accent-color
+                   渲染只有 13~15px，过不了 ≥24px 的点击目标门禁）。
+   ========================================================================= */
+.ls-fold {
+  margin: 10px 0 14px;
+  border: 1px solid var(--ls-line-soft);
+  border-radius: var(--ls-radius);
+  background: var(--ls-surface);
+}
+
+.ls-fold > summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: var(--ls-radius);
+  color: var(--ls-text);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.ls-fold > summary::-webkit-details-marker { display: none; }
+.ls-fold > summary::marker { content: ''; }
+.ls-fold > summary:focus-visible { outline: 2px solid var(--ls-accent); outline-offset: 1px; }
+.ls-fold[open] > summary {
+  border-bottom: 1px solid var(--ls-line-soft);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.ls-fold-chev {
+  color: var(--ls-accent);
+  font-size: var(--ls-font-xs);
+  line-height: 1;
+  transition: transform 0.16s ease;
+}
+
+.ls-fold:not([open]) .ls-fold-chev { transform: rotate(-90deg); }
+
+.ls-fold-title { color: var(--ls-text); font-size: var(--ls-font-sm); font-weight: 700; white-space: nowrap; }
+
+.ls-fold-values {
+  color: var(--ls-muted);
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-font-xs);
+  overflow-wrap: anywhere;
+}
+
+.ls-fold-note { margin-left: auto; color: var(--ls-muted); font-size: var(--ls-font-xs); }
+
+.ls-fold-body { padding: 12px 14px 14px; }
+.ls-fold-body > :last-child { margin-bottom: 0; }
+
+/* 复选框 / 单选框：26px 命中盒 + 16px 视觉框（默认态 + 选中态两张内联 SVG） */
+.ls-check {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent center / 16px 16px no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='14' height='14' rx='3' fill='%23ffffff' stroke='%23cbd5df' stroke-width='1.5'/%3E%3C/svg%3E");
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.ls-check:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='14' height='14' rx='3' fill='%231769a9' stroke='%231769a9' stroke-width='1'/%3E%3Cpath d='M4.2 8.3l2.6 2.6 5-5.6' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.ls-check:disabled { opacity: 0.5; cursor: not-allowed; }
+.ls-check:focus-visible { outline: 2px solid var(--ls-accent); outline-offset: 2px; }

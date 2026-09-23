@@ -271,7 +271,7 @@
     .param-row.overridden { background: #f4f9ff; box-shadow: inset 2px 0 0 rgba(37, 136, 223, 0.55); }
     .param-row.adv { opacity: 0.72; }
     .param-main { min-width: 0; }
-    .param-label { display: block; font-size: 12px; font-weight: 600; color: var(--text); }
+    .param-label { display: block; font-size: 12px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
     .param-label small { color: var(--faint); font-weight: 400; margin-left: 3px; }
     .param-hint {
       display: block;
@@ -305,7 +305,8 @@
       font: 12px Consolas, monospace;
     }
     .param-row input:focus { outline: none; border-color: var(--cyan, #2588df); }
-    .param-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--cyan); cursor: pointer; justify-self: start; }
+    /* 复选框命中盒（26px）走 ui.css 的 .ls-check；这里只管对齐 */
+    .param-row input[type="checkbox"] { justify-self: start; }
     .ovr-status { color: var(--muted); font-size: 11px; }
 
     /* ========== 奖励四层看板（跟踪 / 正则化 / 风格 / 接触安全） ========== */
@@ -333,13 +334,24 @@
     .reward-layer[data-layer="style"] .l-tag { color: var(--cyan); background: var(--cyan-dim); }
     .reward-layer[data-layer="safety"] .l-tag { color: var(--amber, #d88922); background: rgba(216, 137, 34, 0.12); }
 
-    .reward-layer-head .l-name { font-size: 12px; font-weight: 700; }
     .reward-layer-head .l-desc { font-size: 11px; color: var(--faint); }
     .reward-layer-head .l-sum { margin-left: auto; font: 11px Consolas, monospace; color: var(--muted); flex-shrink: 0; }
 
+    /* 紧凑表格：奖励项 / 当前权重（无量纲）/ 单位与参数 */
+    .reward-table-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 118px minmax(120px, 0.8fr);
+      gap: 10px;
+      align-items: center;
+      padding: 4px 12px;
+      border-bottom: 1px solid var(--line-soft);
+      color: var(--muted);
+      font-size: 11px;
+    }
+
     .reward-term {
       display: grid;
-      grid-template-columns: 96px minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) 118px minmax(120px, 0.8fr);
       gap: 10px;
       align-items: center;
       padding: 6px 12px;
@@ -350,7 +362,7 @@
     .reward-term.off { opacity: 0.45; }
 
     .reward-term .rt-weight input {
-      min-height: 27px; width: 100%; box-sizing: border-box;
+      min-height: 28px; width: 100%; box-sizing: border-box;
       border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px;
       background: var(--surface-input); color: var(--text); font: 12px Consolas, monospace;
       text-align: right;
@@ -358,12 +370,12 @@
     .reward-term .rt-weight input:focus { outline: none; border-color: var(--cyan); }
 
     .reward-term .rt-main { min-width: 0; }
-    .reward-term .rt-name { font-size: 12px; font-weight: 600; color: var(--text); word-break: break-all; }
+    .reward-term .rt-name { font-size: 12px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
     .reward-term-unsupported { opacity: 0.5; }
 .reward-term-unsupported .rt-name { color: var(--red, #b91c1c); }
 .rt-uns-tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px;
   font-size: 11px; color: var(--red, #b91c1c); border: 1px solid rgba(185, 28, 28, 0.35); }
-.reward-term .rt-path { display: block; font: 11px Consolas, monospace; color: var(--faint); word-break: break-all; }
+.reward-term .rt-path { display: block; font: 11px Consolas, monospace; color: var(--faint); overflow-wrap: anywhere; }
     .reward-term .rt-bar {
       display: block;
       height: 4px;
@@ -376,17 +388,18 @@
     .reward-term .rt-bar i.pos { background: var(--green); }
     .reward-term .rt-bar i.neg { background: var(--red); }
 
-    .reward-term .rt-side { display: flex; align-items: center; gap: 8px; }
-    .reward-term .rt-side input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--cyan); cursor: pointer; }
+    .reward-term .rt-side { display: flex; align-items: center; justify-content: flex-end; gap: 8px; font-size: 11px; color: var(--muted); min-width: 0; }
+    .reward-term .rt-unit { overflow-wrap: anywhere; }
 
-    .reward-term details.rt-params { grid-column: 1 / -1; margin: 0 0 6px; }
+    /* 逐项参数：作为表格的一整行铺开（原实现嵌在窄侧栏里，标签被挤到 44px 硬裁） */
+    .reward-term details.rt-params { grid-column: 1 / -1; margin: 2px 0 4px; }
     .reward-term details.rt-params > summary {
       cursor: pointer; user-select: none; list-style: none;
       font: 11px Consolas, monospace; color: var(--cyan);
     }
     .reward-term details.rt-params > summary::-webkit-details-marker { display: none; }
     .reward-term details.rt-params .param-rows { margin-top: 4px; border: 1px solid var(--line-soft); border-radius: 6px; }
-    .reward-term details.rt-params .param-row { grid-template-columns: minmax(140px, 1.2fr) minmax(70px, 110px) minmax(110px, 1fr); padding: 5px 10px; }
+    .reward-term details.rt-params .param-row { grid-template-columns: minmax(160px, 1.2fr) minmax(80px, 120px) minmax(120px, 1fr); padding: 5px 10px; }
 
     .reward-top-params { margin-top: 10px; }
 
@@ -505,7 +518,7 @@
       border-radius: 6px;
       background: var(--surface-raised);
     }
-    .obs-lib-item .name { font: 600 12px Consolas, monospace; color: var(--text); }
+    .obs-lib-item .name { font: 600 12px Consolas, monospace; color: var(--text); overflow-wrap: anywhere; }
     .obs-lib-item .name small { display: block; color: var(--faint); font-weight: 400; font-size: 11px; }
     .obs-lib-item .dim { color: var(--faint); font-size: 11px; font-family: Consolas, monospace; }
     .obs-lib-item button {
@@ -514,6 +527,7 @@
       color: var(--text);
       border-radius: 6px;
       padding: 4px 8px;
+      min-height: 26px;
       font-size: 11px;
       cursor: pointer;
     }
@@ -536,8 +550,8 @@
       margin-bottom: 4px;
       cursor: move;
     }
-    .obs-slot-item .name { font: 600 12px Consolas, monospace; color: var(--text); }
-    .obs-slot-item .path { display: block; color: var(--faint); font-size: 11px; font-family: Consolas, monospace; }
+    .obs-slot-item .name { font: 600 12px Consolas, monospace; color: var(--text); overflow-wrap: anywhere; }
+    .obs-slot-item .path { display: block; color: var(--faint); font-size: 11px; font-family: Consolas, monospace; word-break: break-all; }
     .obs-slot-item .dim { color: var(--faint); font-size: 11px; font-family: Consolas, monospace; }
     .obs-slot-item button {
       border: 1px solid var(--ls-err-line);
@@ -545,6 +559,7 @@
       color: var(--ls-err);
       border-radius: 6px;
       padding: 3px 7px;
+      min-height: 26px;
       font-size: 11px;
       cursor: pointer;
     }
@@ -569,7 +584,7 @@
     .obs-src-opts { display: flex; gap: 6px; flex-wrap: wrap; }
     .obs-src-opt {
       font: 600 11px sans-serif; color: var(--text); background: var(--panel, #fff);
-      border: 1px solid var(--border, #d8dee6); border-radius: 4px; padding: 2px 8px; cursor: pointer;
+      border: 1px solid var(--border, #d8dee6); border-radius: 4px; padding: 2px 8px; min-height: 26px; cursor: pointer;
     }
     .obs-src-opt.sel { border-color: var(--cyan, #2588df); color: var(--cyan, #2588df); background: rgba(37,136,223,0.08); }
     .obs-src-hint { font: 11px sans-serif; color: var(--faint); }
@@ -654,7 +669,7 @@
     .hw-badge.warn { border-color: rgba(242, 189, 108, 0.3); color: #8a5a12; }
     .hw-badge.warn .dot { background: var(--amber); box-shadow: none; }
 
-    /* ========== 右侧上下文栏 ========== */
+    /* ========== 右侧上下文栏（三项合并为一个「推导与检查」折叠面板） ========== */
     .context-rail {
       position: sticky;
       top: calc(var(--header-h) + 14px);
@@ -663,6 +678,10 @@
       flex-direction: column;
       gap: 10px;
     }
+
+    .context-rail .ls-fold { margin: 0; }
+    .context-rail .ls-fold-body { display: flex; flex-direction: column; gap: 10px; }
+    .context-rail .ls-fold-values { font-family: inherit; }
 
     .ctx-block {
       border: 1px solid var(--line-soft);
@@ -745,7 +764,12 @@
     .preview-toolbar input:focus { outline: none; border-color: var(--cyan); }
     .preview-status { font-size: 11px; color: var(--muted); white-space: nowrap; }
     .preview-list-wrap { max-height: 420px; overflow: auto; padding: 8px 16px 16px; }
-    .preview-empty { padding: 26px 0; text-align: center; color: var(--faint); font-size: 12px; }
+    /* workbench.css 里 .preview-empty 是"模型预览占位"（absolute + grid 铺满视口），
+       本页只把它当列表空态用 —— 必须重置定位/显示，否则 hidden 时仍会浮在页面正中。
+       同族：[hidden] 会被 .button / .valid-chip 的 display 盖掉（author 规则赢 UA），
+       该显示时才显示（覆盖 0 项 / 清除覆盖）。 */
+    .preview-empty { position: static; inset: auto; display: block; padding: 26px 0; text-align: center; color: var(--faint); font-size: 12px; }
+    .preview-empty[hidden], #overrideChip[hidden], #clearOverrides[hidden] { display: none !important; }
 
     /* 底部粘性摘要条 */
     .sticky-bar {
@@ -815,11 +839,11 @@
     <main class="content">
       <div class="view-heading compact">
         <div>
-          <span class="eyebrow">03 / TRAINING CREATE</span>
           <h1>创建训练任务</h1>
-          <p>规格书工作台 · 章节对齐 mjlab / Isaac Lab 规范配置骨架 · 配方全量参数按章节列出，直接修改即以点路径覆盖写入</p>
+          <p>规格书工作台：选机器人 / 训练档案 / 设备，改关键参数后启动训练；通用与极少改动的参数默认折叠，展开即可编辑。</p>
         </div>
         <div class="heading-actions">
+          <button class="button" id="foldAllBtn" type="button" title="展开 / 收起页面内全部折叠区">全部展开</button>
           <button class="button" id="importBtn" type="button" title="从 JSON 文件导入此前导出的训练配置">导入配置</button>
           <button class="button" id="exportBtn" type="button" title="将当前表单导出为 JSON，便于对比与复现">保存配置 JSON</button>
           <a class="button" href="training_list.html?v=0.44.0">任务列表</a>
@@ -848,13 +872,12 @@
             <option value="">加载中...</option>
           </select>
         </label>
-        <span class="badge" id="taskBadge" title="任务由所选训练档案派生或由下方任务预设决定">task: -</span>
+        <span class="badge" id="taskBadge" title="任务由所选训练档案派生，或由 01 环境与仿真里的任务预设决定">任务：-</span>
         <label class="head-field" for="device">设备
           <select id="device" title="auto 会优先使用 CUDA，无 GPU 时回退 CPU">
-            <option value="auto">auto</option>
+            <option value="auto">auto（自动选择）</option>
           </select>
         </label>
-        <button class="button primary" type="submit" form="trainingForm" id="submitTop">启动训练</button>
       </section>
 
       <input type="file" id="importFile" accept="application/json,.json" hidden>
@@ -866,100 +889,103 @@
           <div class="config-tabs">
             <button type="button" class="toc-item active" data-target="ch-sim">
               <span class="index">01</span>
-              <span><span class="cat-name">环境与仿真</span><span class="cat-sub">Sim · Scene · Terrain</span></span>
+              <span><span class="cat-name">环境与仿真</span><span class="cat-sub">仿真 · 场景 · 地形</span></span>
               <span class="toc-edits" id="tocEdits-sim" hidden>0</span>
               <span class="dot" id="dot-sim"></span>
             </button>
             <button type="button" class="toc-item" data-target="ch-iface">
               <span class="index">02</span>
-              <span><span class="cat-name">接口</span><span class="cat-sub">Obs · Action · Command</span></span>
+              <span><span class="cat-name">接口</span><span class="cat-sub">观测 · 动作 · 指令</span></span>
               <span class="toc-edits" id="tocEdits-iface" hidden>0</span>
               <span class="dot" id="dot-iface"></span>
             </button>
             <button type="button" class="toc-item" data-target="ch-goal">
               <span class="index">03</span>
-              <span><span class="cat-name">目标</span><span class="cat-sub">Rewards · Terminations</span></span>
+              <span><span class="cat-name">目标</span><span class="cat-sub">奖励（四层）· 终止条件</span></span>
               <span class="toc-edits" id="tocEdits-goal" hidden>0</span>
               <span class="dot" id="dot-goal"></span>
             </button>
             <button type="button" class="toc-item" data-target="ch-robust">
               <span class="index">04</span>
-              <span><span class="cat-name">鲁棒性与课程</span><span class="cat-sub">Events · Curriculum</span></span>
+              <span><span class="cat-name">鲁棒性与课程</span><span class="cat-sub">域随机化事件 · 课程</span></span>
               <span class="toc-edits" id="tocEdits-robust" hidden>0</span>
               <span class="dot" id="dot-robust"></span>
             </button>
             <button type="button" class="toc-item" data-target="ch-train">
               <span class="index">05</span>
-              <span><span class="cat-name">训练器</span><span class="cat-sub">PPO · Network</span></span>
+              <span><span class="cat-name">训练器</span><span class="cat-sub">PPO 算法 · 网络结构</span></span>
               <span class="toc-edits" id="tocEdits-train" hidden>0</span>
               <span class="dot" id="dot-train"></span>
             </button>
             <button type="button" class="toc-item" data-target="panel-preview">
-              <span class="index">KV</span>
-              <span><span class="cat-name">配置预览</span><span class="cat-sub">Resolved recipe</span></span>
+              <span class="index">预览</span>
+              <span><span class="cat-name">配置预览</span><span class="cat-sub">解析后的完整配方</span></span>
             </button>
           </div>
           <div class="nav-foot">
-            章节结构 = mjlab / Isaac Lab 规范配置骨架（sim → scene → obs / action / command → reward / termination → event / curriculum → runner）。<br>
-            所有参数读取自训练配方内省树；「高级参数」折叠区收纳实体绑定、观测底层、接线、求解器等几乎不改的项，展开即可修改；修改以点路径写入 overrides，worker 在配方之后应用（用户修改优先）。
+            章节结构 = 规范配置骨架（仿真 → 场景 → 观测 / 动作 / 指令 → 奖励 / 终止 → 事件 / 课程 → 训练器 runner），对齐 mjlab / Isaac Lab。<br>
+            所有参数读取自训练配方内省树；「高级参数」与「配方参数」折叠区收纳极少改动的项（实体绑定、观测底层、接线、求解器等），展开即可修改；修改以点路径写入覆盖层（overrides），由训练进程（worker）在配方之后应用（用户修改优先）。
           </div>
         </aside>
 
         <!-- ========== 中间：章节文档 ========== -->
         <div class="config-main">
           <form id="trainingForm" novalidate>
-            <!-- ============ 第一段：物理（只读） ============
+            <!-- ============ 物理（只读，默认折叠） ============
                  物理真值属于机器人契约与训练栈，**不在本页编辑**；这里只把它摊开给人看，
                  并如实列出"哪些字段是只读的、为什么"（数据来自 /api/training/config-preview
-                 的 simulator / embodiment / editable_vs_readonly 三类）。 -->
+                 的 simulator / embodiment / editable_vs_readonly 三类）。
+                 默认收起：summary 一行给出控制频率 / 物理频率 / 动作延迟 / 关节序摘要。 -->
             <section class="layer-block" id="layer-physics" data-layer="physics">
-              <div class="layer-head">
-                <span class="layer-index">第一段</span>
-                <h2>物理（只读）</h2>
-                <span class="layer-note">真值来自机器人契约 / 训练栈 · 本页不编辑</span>
-              </div>
-              <p class="section-hint">关节与默认姿、动作维度、物理频率与仿真步长。要改物理请改机器人包（契约 + MJCF），改在这里会被校验器报为漂移。</p>
-              <div id="physicsReadonly" class="spec-groups">
-                <div class="ro-note">选择训练档案后，此处列出物理层只读事实与只读理由。</div>
-              </div>
+              <details class="ls-fold" id="physicsFold" data-fold>
+                <summary>
+                  <span class="ls-fold-chev" aria-hidden="true">▾</span>
+                  <span class="ls-fold-title">物理（只读）</span>
+                  <span class="ls-fold-values" id="physicsSummary">选择训练档案后显示物理真值摘要</span>
+                  <span class="ls-fold-note">真值来自机器人契约 / 训练栈 · 本页不编辑</span>
+                </summary>
+                <div class="ls-fold-body">
+                  <p class="section-hint">关节与默认姿、动作维度、物理频率与仿真步长。要改物理请改机器人包（契约 + MJCF），改在这里会被校验器报为漂移。</p>
+                  <div id="physicsReadonly" class="spec-groups">
+                    <div class="ro-note">选择训练档案后，此处列出物理层只读事实与只读理由。</div>
+                  </div>
+                </div>
+              </details>
             </section>
 
-            <!-- ============ 第二段：任务（Recipe） ============
-                 "机器人学什么"：环境/接口/目标/鲁棒性四章都属这一层，来源是 registry/skills
-                 的 SkillRecipe（基座 + 覆盖）。 -->
+            <!-- ============ 任务分区标记（任务配置 = 机器人学什么） ============
+                 环境 / 接口 / 目标 / 鲁棒性四章都属这一层，来源是技能配方（基座 + 机器人覆盖）。 -->
             <div class="layer-block" id="layer-task" data-layer="task">
               <div class="layer-head">
-                <span class="layer-index">第二段</span>
-                <h2>任务（Recipe）</h2>
-                <span class="layer-note">来源：registry/skills · 基座 + 机器人覆盖</span>
+                <h2>任务配置（技能配方）</h2>
+                <span class="layer-note">机器人学什么 · 来源：技能配方 = 基座 + 机器人覆盖</span>
               </div>
-              <p class="section-hint">机器人学什么：环境与地形、观测/动作/命令、奖励与终止、鲁棒性与课程。这一层的每一项都来自技能配方，改的是"任务"而不是"运行次数"。</p>
             </div>
 
             <!-- 01 环境与仿真 -->
             <section class="cat-panel form-panel" id="ch-sim" data-chapter="sim">
               <div class="panel-title">
-                <div><span class="eyebrow">01 / SIMULATION &amp; ENVIRONMENT</span><h2>环境与仿真</h2></div>
-                <span class="panel-meta">Sim · Scene · Terrain</span>
+                <div><span class="eyebrow">01</span><h2>环境与仿真</h2></div>
+                <span class="panel-meta">仿真 · 场景 · 地形</span>
               </div>
-              <p class="section-hint">物理引擎、并行环境、回合长度与地形。对应配置骨架 sim → scene → terrain。
-                <span class="kb-src">骨架来源：ManagerBasedRlEnvCfg（Ch03/Ch04）</span></p>
+              <p class="section-hint">物理引擎、并行环境、回合长度与地形。对应配置骨架：仿真 → 场景 → 地形。
+                <span class="kb-src">骨架来源：环境配置类 ManagerBasedRlEnvCfg（Ch03/Ch04）</span></p>
               <div class="runtime-hint mode-hint" id="profileModeHint">
                 档案模式：下方表单为顶层运行参数；所选档案的配方全量参数已按模块分组列出，直接修改即以点路径覆盖写入训练配置。
               </div>
               <div class="field-row" style="margin-top: 14px;">
                 <div class="field-label">
                   <label for="terrainType">地形类型</label>
-                  <select id="terrainType" title="通用任务模式支持 plane / rough；档案模式保留配方地形">
+                  <select id="terrainType" title="通用任务模式支持 平地 / 崎岖；档案模式保留配方地形">
                     <option value="plane">plane · 平地</option>
                     <option value="rough">rough · 崎岖</option>
                   </select>
-                  <small class="field-hint" id="terrainHint">worker 仅应用 plane / rough；其余由配方内部实现</small>
+                  <small class="field-hint" id="terrainHint">训练进程（worker）仅应用 plane（平地）/ rough（崎岖）两种地形；其余地形由配方内部实现</small>
                 </div>
                 <div class="field-label">
-                  <label for="episodeLength">Episode 长度 (秒)</label>
+                  <label for="episodeLength">回合长度（episode，秒）</label>
                   <input type="number" id="episodeLength" value="20" min="5" max="60" step="1"
-                         title="单个回合的仿真时长（秒）。过长会拖慢早期探索，过短影响信用分配">
+                         title="单个回合（episode）的仿真时长（秒）。过长会拖慢早期探索，过短影响信用分配">
                   <small class="field-hint">5 - 60 秒 · 推荐 20s</small>
                 </div>
               </div>
@@ -968,66 +994,76 @@
               <div class="spec-groups" data-chapter-groups="sim"><div class="ro-note">选择训练档案后，此处列出仿真 / 场景 / 地形的配方参数。</div></div>
             </section>
 
-            <!-- 02 接口：观测 · 动作 · 命令（第二段：任务） -->
-
+            <!-- 02 接口：观测 · 动作 · 指令 -->
             <section class="cat-panel form-panel" id="ch-iface" data-chapter="iface">
               <div class="panel-title">
-                <div><span class="eyebrow">02 / INTERFACE</span><h2>接口：观测 · 动作 · 命令</h2></div>
-                <span class="panel-meta">Observations · Actions · Commands</span>
+                <div><span class="eyebrow">02</span><h2>接口</h2></div>
+                <span class="panel-meta">观测 · 动作 · 指令</span>
               </div>
               <p class="section-hint">策略看到什么（观测组与噪声）、执行什么（动作缩放与偏移）、被要求做什么（速度指令范围）。
-                <span class="kb-src">观测/动作设计（Ch05）· 命令配置（Ch04）</span></p>
-              <div class="ro-block">
-                <div class="ro-head"><span class="lock-glyph" data-lock></span><b>机器人契约（02 页维护）</b><span id="robotMeta">-</span></div>
-                <div id="embodWrap"></div>
-              </div>
-              <div class="sub-block-title editable">速度指令范围 command_ranges</div>
+                <span class="kb-src">观测 / 动作设计（Ch05）· 指令配置（Ch04）</span></p>
+              <div class="sub-block-title editable">速度指令范围（command_ranges）</div>
               <div class="cmd-grid" id="cmdGrid">
                 <div class="cmd-row" data-cmd="lin_vel_x">
-                  <span class="cmd-name">lin_vel_x<small>X 线速度 (m/s)</small></span>
+                  <span class="cmd-name">X 线速度<small>lin_vel_x · m/s</small></span>
                   <span class="cmd-pair">
-                    <input type="number" step="0.05" data-bound="min" title="最小值" placeholder="min">
-                    <input type="number" step="0.05" data-bound="max" title="最大值" placeholder="max">
+                    <input type="number" step="0.05" data-bound="min" title="X 线速度下限（m/s）" placeholder="最小">
+                    <input type="number" step="0.05" data-bound="max" title="X 线速度上限（m/s）" placeholder="最大">
                   </span>
                 </div>
                 <div class="cmd-row" data-cmd="lin_vel_y">
-                  <span class="cmd-name">lin_vel_y<small>Y 线速度 (m/s)</small></span>
+                  <span class="cmd-name">Y 线速度<small>lin_vel_y · m/s</small></span>
                   <span class="cmd-pair">
-                    <input type="number" step="0.05" data-bound="min" title="最小值" placeholder="min">
-                    <input type="number" step="0.05" data-bound="max" title="最大值" placeholder="max">
+                    <input type="number" step="0.05" data-bound="min" title="Y 线速度下限（m/s）" placeholder="最小">
+                    <input type="number" step="0.05" data-bound="max" title="Y 线速度上限（m/s）" placeholder="最大">
                   </span>
                 </div>
                 <div class="cmd-row" data-cmd="ang_vel_z">
-                  <span class="cmd-name">ang_vel_z<small>偏航角速度 (rad/s)</small></span>
+                  <span class="cmd-name">偏航角速度<small>ang_vel_z · rad/s</small></span>
                   <span class="cmd-pair">
-                    <input type="number" step="0.05" data-bound="min" title="最小值" placeholder="min">
-                    <input type="number" step="0.05" data-bound="max" title="最大值" placeholder="max">
+                    <input type="number" step="0.05" data-bound="min" title="偏航角速度下限（rad/s）" placeholder="最小">
+                    <input type="number" step="0.05" data-bound="max" title="偏航角速度上限（rad/s）" placeholder="最大">
                   </span>
                 </div>
               </div>
-              <div class="sub-block-title editable">观测 / 动作映射板</div>
-              <p class="section-hint">左边是标准观测库（内置观测项 + 宽度/scale），右侧是策略输入槽位；把库项接入槽位即可改动观测组合，维度自动校验。高级模式下可用点路径（dot-path）直接改写。</p>
-              <div id="obsMapBoard" class="obs-map-board">
-                <div class="obs-map-library">
-                  <div class="obs-map-head">标准观测库<small>宽度 · scale</small></div>
-                  <div id="obsLibrary" class="obs-library-list"><div class="ro-note">选择训练档案后列出可用的标准观测项。</div></div>
+              <!-- 契约只读摘要 + 观测/动作映射逐项板：默认收成一行摘要，展开才逐项 -->
+              <details class="ls-fold" id="ifaceFold" data-fold>
+                <summary>
+                  <span class="ls-fold-chev" aria-hidden="true">▾</span>
+                  <span class="ls-fold-title">机器人契约与观测 / 动作映射</span>
+                  <span class="ls-fold-values" id="ifaceFoldSummary">选择训练档案后显示观测 / 动作维度与映射概览</span>
+                  <span class="ls-fold-note">逐项映射 · 默认沿用配方</span>
+                </summary>
+                <div class="ls-fold-body">
+                  <div class="ro-block">
+                    <div class="ro-head"><span class="lock-glyph" data-lock></span><b>机器人契约（只读摘要，由机器人包维护）</b><span id="robotMeta">-</span></div>
+                    <div id="embodWrap"></div>
+                  </div>
+                  <div class="sub-block-title editable">观测 / 动作映射板</div>
+                  <p class="section-hint">左边是标准观测库（内置观测项 + 宽度 / 缩放），右侧是策略输入槽位；把库项映射进槽位即可改动观测组合，维度自动校验。专家模式下可用点路径（dot-path）直接改写。</p>
+                  <div id="obsMapBoard" class="obs-map-board">
+                    <div class="obs-map-library">
+                      <div class="obs-map-head">标准观测库<small>宽度 · 缩放</small></div>
+                      <div id="obsLibrary" class="obs-library-list"><div class="ro-note">选择训练档案后列出可用的标准观测项。</div></div>
+                    </div>
+                    <div class="obs-map-slots">
+                      <div class="obs-map-head">策略输入槽位<small>观测组 → 观测项</small></div>
+                      <div id="obsSlots" class="obs-slots-list"><div class="ro-note">选择训练档案后列出观测组与成员。</div></div>
+                      <div id="obsDimCheck" class="obs-dim-check"></div>
+                    </div>
+                  </div>
                 </div>
-                <div class="obs-map-slots">
-                  <div class="obs-map-head">策略输入槽位<small>观测组 → 观测项</small></div>
-                  <div id="obsSlots" class="obs-slots-list"><div class="ro-note">选择训练档案后列出观测组与成员。</div></div>
-                  <div id="obsDimCheck" class="obs-dim-check"></div>
-                </div>
-              </div>
-              <div class="spec-groups" data-chapter-groups="iface"><div class="ro-note">选择训练档案后，此处列出观测 / 动作 / 命令的配方参数（含动作缩放、噪声、历史帧等）。</div></div>
+              </details>
+              <div class="spec-groups" data-chapter-groups="iface"><div class="ro-note">选择训练档案后，此处列出观测 / 动作 / 指令的配方参数（含动作缩放、噪声、历史帧等）。</div></div>
             </section>
 
             <!-- 03 目标：奖励与终止 -->
             <section class="cat-panel form-panel" id="ch-goal" data-chapter="goal">
               <div class="panel-title">
-                <div><span class="eyebrow">03 / OBJECTIVE</span><h2>目标：奖励与终止</h2></div>
-                <span class="panel-meta">Rewards (4 layers) · Terminations</span>
+                <div><span class="eyebrow">03</span><h2>目标</h2></div>
+                <span class="panel-meta">奖励（四层）· 终止条件</span>
               </div>
-              <p class="section-hint">奖励按四层组织：跟踪（任务目标，正）/ 正则化（平滑与能耗，负）/ 风格（步态品质）/ 接触安全（红线）。
+              <p class="section-hint">奖励按四层组织：跟踪（任务目标，正权重）/ 正则化（平滑与能耗，负权重）/ 风格（步态品质）/ 接触安全（红线）。
                 比较权重大小时请看每层的贡献，跟踪贡献应大于全部惩罚之和。
                 <span class="kb-src">奖励四层框架（Ch06/Ch13 附录A）· 终止与 time_out 语义（Ch06/Ch25）</span></p>
               <div class="reward-head">
@@ -1041,29 +1077,38 @@
               <div class="spec-groups" data-chapter-groups="goal" style="margin-top: 14px;"><div class="ro-note">选择训练档案后，此处列出终止条件配方参数。</div></div>
             </section>
 
-            <!-- 04 鲁棒性与课程 -->
+            <!-- 04 鲁棒性与课程（DR 事件 / 课程：默认折叠成一行摘要） -->
             <section class="cat-panel form-panel" id="ch-robust" data-chapter="robust">
               <div class="panel-title">
-                <div><span class="eyebrow">04 / ROBUSTNESS &amp; CURRICULUM</span><h2>鲁棒性与课程</h2></div>
-                <span class="panel-meta">Events (DR) · Curriculum</span>
+                <div><span class="eyebrow">04</span><h2>鲁棒性与课程</h2></div>
+                <span class="panel-meta">域随机化事件 · 课程</span>
               </div>
-              <p class="section-hint">域随机化事件按四种模式组织：startup（出厂差异：质量/惯量）、reset（每回合：摩擦/PD/初始姿态）、interval（间歇推扰）、step（逐步，建议改用观测噪声）。
+              <p class="section-hint">域随机化（DR）事件按四种模式组织：startup（出厂差异：质量 / 惯量）、reset（每回合：摩擦 / PD 增益 / 初始姿态）、interval（间歇推扰）、step（逐步，建议改用观测噪声）。
                 课程有三条轴：地形难度 / 指令范围 / 奖励严格度，不可同时推进。
                 <span class="kb-src">事件模式决策树与推荐范围（Ch08）· 课程三轴（Ch06）</span></p>
-              <div class="spec-groups" data-chapter-groups="robust"><div class="ro-note">选择训练档案后，此处列出域随机化事件与课程配方参数。</div></div>
+              <details class="ls-fold" id="robustFold" data-fold>
+                <summary>
+                  <span class="ls-fold-chev" aria-hidden="true">▾</span>
+                  <span class="ls-fold-title">域随机化事件与课程参数</span>
+                  <span class="ls-fold-values" id="robustFoldSummary">选择训练档案后显示事件与课程数量</span>
+                  <span class="ls-fold-note">默认沿用配方值 · 展开即可修改</span>
+                </summary>
+                <div class="ls-fold-body">
+                  <div class="spec-groups" data-chapter-groups="robust"><div class="ro-note">选择训练档案后，此处列出域随机化事件与课程配方参数。</div></div>
+                </div>
+              </details>
             </section>
 
-            <!-- ============ 第三段：运行参数 ============
+            <!-- ============ 运行参数（默认可见） ============
                  这一层只影响"这次跑多大 / 跑多久 / 在哪跑"，不影响"机器人学什么"。
-                 它们原先被混在 01 环境与仿真里 —— 那正是三段化要消除的混装
+                 它们原先被混在 01 环境与仿真里 —— 那正是分区要消除的混装
                  （运行参数混进任务层，会让人误以为改环境数就是改任务）。 -->
             <div class="layer-block" id="layer-runtime" data-layer="runtime">
               <div class="layer-head">
-                <span class="layer-index">第三段</span>
                 <h2>运行参数</h2>
                 <span class="layer-note">这一次跑多大 · 跑多久 · 在哪跑</span>
               </div>
-              <p class="section-hint">只影响本次 Run 的资源与时长，不改变任务定义。这些值会进 Run 档案（改动即派生新 Run，见 B9 可复现四件套）。</p>
+              <p class="section-hint">只影响本次运行（Run）的资源与时长，不改变任务定义。这些值会进运行档案（改动即派生新 Run，见 B9 可复现四件套）。</p>
               <div class="field-grid three">
                 <div class="field-label">
                   <label for="numEnvs">并行环境数量</label>
@@ -1078,11 +1123,11 @@
                   <small class="field-hint">相同种子 + 相同配置可复现</small>
                 </div>
                 <div class="field-label">
-                  <label for="deviceMirror">运行设备（顶部同步）</label>
+                  <label for="deviceMirror">运行设备（与顶部工具条同步）</label>
                   <select id="deviceMirror" disabled title="在页面顶部工具条切换运行设备">
-                    <option value="auto">auto</option>
+                    <option value="auto">auto（自动选择）</option>
                   </select>
-                  <small class="field-hint">与顶部工具条联动</small>
+                  <small class="field-hint">与顶部设备选择联动</small>
                 </div>
               </div>
             </div>
@@ -1092,17 +1137,18 @@
                  且**整批拒绝** —— 不会出现"改了一半、另一半被静默丢掉"。 -->
             <section class="layer-block" id="layer-expert" data-layer="expert">
               <div class="layer-head">
-                <span class="layer-index">逃生门</span>
-                <h2>专家模式：点路径覆盖</h2>
-                <span class="layer-note">任意参数可改 · 越界/只读/类型不符当场拒</span>
+                <h2>专家模式：点路径覆盖（dot-path）</h2>
+                <span class="layer-note">任意参数可改 · 越界 / 只读 / 类型不符当场拒</span>
               </div>
-              <p class="section-hint">直接写 dot-path 覆盖（JSON 对象，一次可写多条）。**物理与契约类**
-                （stiffness / damping / timestep / decimation / joint_order / default_pose …）是只读的 ——
+              <p class="section-hint">直接写点路径（dot-path）覆盖（JSON 对象，一次可写多条）。**物理与契约类**
+                （关节刚度 stiffness / 阻尼 damping / 物理步长 timestep / 动作延迟 decimation /
+                关节顺序 joint_order / 默认姿态 default_pose …）是只读的 ——
                 它们属于机器人包（契约 + MJCF），改在这里不会生效，所以这里会直接拒掉。</p>
               <textarea id="expertOverrides" aria-label="专家覆盖（JSON）" rows="4" spellcheck="false"
                 placeholder='{ "runner.algorithm.learning_rate": 0.0005 }'></textarea>
               <div class="field-row" style="margin-top: 8px;">
                 <button type="button" id="expertValidate">校验覆盖</button>
+                <button type="button" class="button small" id="clearOverrides" hidden title="清除全部覆盖，恢复配方默认">清除覆盖</button>
                 <small class="field-hint">先校验再提交：未过校验的覆盖不会写进训练配置</small>
               </div>
               <div id="expertDetails" class="spec-groups">
@@ -1110,25 +1156,19 @@
               </div>
             </section>
 
-            <!-- 05 训练器（第三段：运行参数） -->
+            <!-- 05 训练器：通用超参收进「高级（默认即可）」折叠，可见的只留 算法 / 最大迭代 -->
             <section class="cat-panel form-panel" id="ch-train" data-chapter="train">
               <div class="panel-title">
-                <div><span class="eyebrow">05 / TRAINER</span><h2>训练器</h2></div>
-                <span class="panel-meta">Runner · PPO · Network</span>
+                <div><span class="eyebrow">05</span><h2>训练器</h2></div>
+                <span class="panel-meta">PPO 算法 · 网络结构</span>
               </div>
               <p class="section-hint">90% 的训练失败根因在奖励 / 观测 / 动作配置，而非 PPO 超参数——优先调整前四章，最后才动这里。
                 <span class="kb-src">PPO 超参表与调参优先级阶梯（Ch07/Ch25）</span></p>
-              <div class="field-grid four">
+              <div class="field-grid">
                 <div class="field-label">
                   <label for="algorithm">算法</label>
                   <select id="algorithm" title="native MJLab 当前仅开放 PPO 训练"></select>
                   <small class="field-hint">MJLab 当前仅开放 PPO；其余算法接入后自动开放</small>
-                </div>
-                <div class="field-label">
-                  <label for="learningRate">学习率（初始）</label>
-                  <input type="number" id="learningRate" value="0.0003" min="0.00001" max="0.01" step="0.00001"
-                         title="PPO 的优化步长。过大容易发散（奖励崩溃），过小收敛缓慢；自适应调度以 KL=desired_kl 为目标自动调节">
-                  <small class="field-hint">(0, 0.01] · 推荐 3e-4 · 自适应调度看 KL</small>
                 </div>
                 <div class="field-label">
                   <label for="maxIterations">最大迭代数</label>
@@ -1136,63 +1176,81 @@
                          title="训练迭代上限。平地行走约 1000 轮收敛，崎岖地形通常需要 2000+ 轮">
                   <small class="field-hint">10 - 10000 · 崎岖地形 2000+</small>
                 </div>
-                <div class="field-label">
-                  <label for="saveInterval">保存间隔</label>
-                  <input type="number" id="saveInterval" value="100" min="10" max="500" step="10"
-                         title="每 N 次迭代保存一个 model_<iter>.pt 检查点">
-                  <small class="field-hint">每 N 次迭代保存检查点</small>
-                </div>
-                <div class="field-label">
-                  <label for="numSteps">每环境采样步数</label>
-                  <input type="number" id="numSteps" value="24" min="4" max="4096" step="1"
-                         title="每次更新前每个环境收集的步数（num_steps_per_env）。24 步 × 0.02s ≈ 0.48s，约 1-2 个步态周期">
-                  <small class="field-hint">4 - 4096 · 默认 24（≈1-2 步态周期）</small>
-                </div>
-                <div class="field-label">
-                  <label for="numMinibatches">小批量数</label>
-                  <input type="number" id="numMinibatches" value="4" min="1" max="64" step="1"
-                         title="每次更新把 rollout 数据切成的 minibatch 数（num_mini_batches）">
-                  <small class="field-hint">1 - 64 · 默认 4</small>
-                </div>
-                <div class="field-label">
-                  <label for="gamma">折扣因子 γ</label>
-                  <input type="number" id="gamma" value="0.99" min="0.9" max="0.9999" step="0.0001"
-                         title="未来奖励的折扣率。越接近 1 越重视长期稳定行走">
-                  <small class="field-hint">(0, 1) · 默认 0.99</small>
-                </div>
-                <div class="field-label">
-                  <label for="gaeLambda">GAE λ</label>
-                  <input type="number" id="gaeLambda" value="0.95" min="0.1" max="1" step="0.01"
-                         title="优势估计的偏差-方差折中">
-                  <small class="field-hint">(0, 1] · 默认 0.95</small>
-                </div>
-                <div class="field-label">
-                  <label for="clipParam">裁剪范围 ε</label>
-                  <input type="number" id="clipParam" value="0.2" min="0.05" max="0.5" step="0.01"
-                         title="PPO 策略比率裁剪范围，限制单次更新幅度">
-                  <small class="field-hint">(0, 1) · 默认 0.2</small>
-                </div>
-                <div class="field-label">
-                  <label for="entropyCoef">熵正则系数</label>
-                  <input type="number" id="entropyCoef" value="0.01" min="0" max="0.2" step="0.001"
-                         title="鼓励探索。奖励过早坍缩（突然下跌）时可适当调大">
-                  <small class="field-hint">≥ 0 · 默认 0.01</small>
-                </div>
               </div>
-              <div class="spec-groups" data-chapter-groups="train"><div class="ro-note">选择训练档案后，此处列出 runner 配方参数（网络结构、归一化、KL 目标等）。</div></div>
+              <details class="ls-fold" id="trainAdvFold" data-fold>
+                <summary>
+                  <span class="ls-fold-chev" aria-hidden="true">▾</span>
+                  <span class="ls-fold-title">高级（默认即可）</span>
+                  <span class="ls-fold-values">学习率 · 折扣因子 γ · GAE λ · 裁剪范围 ε · 熵正则 · 小批量数 · 采样轮步数 · 保存间隔（8 项）</span>
+                  <span class="ls-fold-note">通用超参不改也能跑通 · 展开即可修改</span>
+                </summary>
+                <div class="ls-fold-body">
+                  <div class="field-grid four">
+                    <div class="field-label">
+                      <label for="learningRate">学习率（初始）</label>
+                      <input type="number" id="learningRate" value="0.0003" min="0.00001" max="0.01" step="0.00001"
+                             title="PPO 的优化步长。过大容易发散（奖励崩溃），过小收敛缓慢；自适应调度以目标 KL 散度 desired_kl 自动调节">
+                      <small class="field-hint">(0, 0.01] · 推荐 3e-4 · 自适应调度看目标 KL 散度</small>
+                    </div>
+                    <div class="field-label">
+                      <label for="saveInterval">保存间隔</label>
+                      <input type="number" id="saveInterval" value="100" min="10" max="500" step="10"
+                             title="每 N 次迭代保存一个 model_<iter>.pt 检查点">
+                      <small class="field-hint">每 N 次迭代保存检查点</small>
+                    </div>
+                    <div class="field-label">
+                      <label for="numSteps">采样轮步数（每环境）</label>
+                      <input type="number" id="numSteps" value="24" min="4" max="4096" step="1"
+                             title="每次更新前每个环境收集的步数（num_steps_per_env），即一个采样轮（rollout）的长度。24 步 × 0.02s ≈ 0.48s，约 1-2 个步态周期">
+                      <small class="field-hint">4 - 4096 · 默认 24（≈1-2 个步态周期）</small>
+                    </div>
+                    <div class="field-label">
+                      <label for="numMinibatches">小批量数</label>
+                      <input type="number" id="numMinibatches" value="4" min="1" max="64" step="1"
+                             title="每次更新把采样轮数据切成的 minibatch 数（num_mini_batches）">
+                      <small class="field-hint">1 - 64 · 默认 4</small>
+                    </div>
+                    <div class="field-label">
+                      <label for="gamma">折扣因子 γ</label>
+                      <input type="number" id="gamma" value="0.99" min="0.9" max="0.9999" step="0.0001"
+                             title="未来奖励的折扣率。越接近 1 越重视长期稳定行走">
+                      <small class="field-hint">(0, 1) · 默认 0.99</small>
+                    </div>
+                    <div class="field-label">
+                      <label for="gaeLambda">GAE λ（优势估计折中）</label>
+                      <input type="number" id="gaeLambda" value="0.95" min="0.1" max="1" step="0.01"
+                             title="广义优势估计（GAE）的偏差-方差折中系数">
+                      <small class="field-hint">(0, 1] · 默认 0.95</small>
+                    </div>
+                    <div class="field-label">
+                      <label for="clipParam">裁剪范围 ε</label>
+                      <input type="number" id="clipParam" value="0.2" min="0.05" max="0.5" step="0.01"
+                             title="PPO 策略比率裁剪范围，限制单次更新幅度">
+                      <small class="field-hint">(0, 1) · 默认 0.2</small>
+                    </div>
+                    <div class="field-label">
+                      <label for="entropyCoef">熵正则系数</label>
+                      <input type="number" id="entropyCoef" value="0.01" min="0" max="0.2" step="0.001"
+                             title="鼓励探索。奖励过早坍缩（突然下跌）时可适当调大">
+                      <small class="field-hint">≥ 0 · 默认 0.01</small>
+                    </div>
+                  </div>
+                  <div class="spec-groups" data-chapter-groups="train" style="margin-top: 12px;"><div class="ro-note">选择训练档案后，此处列出训练器（runner）配方参数：网络结构、归一化、目标 KL 散度等。</div></div>
+                </div>
+              </details>
             </section>
 
-            <!-- 配置预览 -->
-            <details class="advanced preview-drawer" id="panel-preview">
+            <!-- 配置预览（默认折叠） -->
+            <details class="advanced preview-drawer" id="panel-preview" data-fold>
               <summary>
                 <span style="display: inline-flex; align-items: center; gap: 10px;">
-                  <span class="chevron">▾</span>配置预览 <span class="panel-meta" id="previewCount"></span>
+                  <span class="chevron">▾</span>配置预览：解析后的完整配方 <span class="panel-meta" id="previewCount"></span>
                 </span>
                 <span class="preview-status" id="previewStatus">等待配置解析...</span>
               </summary>
               <div class="preview-toolbar">
-                <input type="search" id="previewFilter" placeholder="过滤键名 / 值，例如 gamma、terrain、reward..." title="对扁平化后的键与值做子串过滤">
-                <span class="preview-status">配方来自 POST /api/training/resolve-recipe + config-preview，扁平化为点号键</span>
+                <input type="search" id="previewFilter" placeholder="过滤键名 / 值，例如 gamma（折扣因子）、terrain（地形）、reward（奖励）..." title="对扁平化后的键与值做子串过滤">
+                <span class="preview-status">配方来自接口 /api/training/resolve-recipe 与 config-preview，键以点号展开</span>
               </div>
               <div class="preview-list-wrap">
                 <div class="kv-list" id="previewList"></div>
@@ -1200,39 +1258,46 @@
               </div>
             </details>
 
-            <!-- 粘性提交栏 -->
+            <!-- 粘性提交栏：只留档案摘要 + 覆盖状态 + 唯一主 CTA（启动训练） -->
             <div class="sticky-bar view-footer">
               <div class="sticky-summary" id="stickySummary">-</div>
               <div class="heading-actions">
-                <span class="valid-chip" id="overrideChip" hidden title="点路径覆盖将写入训练配置 overrides，启动训练时由 worker 应用到配方对象">覆盖 0 项</span>
-                <button type="button" class="button small" id="clearOverrides" hidden title="清除全部覆盖，恢复配方默认">清除覆盖</button>
-                <a class="button" href="training_list.html?v=0.44.0">取消</a>
+                <span class="valid-chip" id="overrideChip" hidden title="点路径覆盖将写入训练配置的覆盖层（overrides），启动训练时由训练进程（worker）应用到配方对象">覆盖 0 项</span>
                 <button type="submit" class="button primary" id="submitBtn">启动训练</button>
               </div>
             </div>
           </form>
         </div>
 
-        <!-- ========== 右侧上下文栏 ========== -->
-        <aside class="context-rail" id="contextRail" aria-label="派生量与依赖检查">
-          <div class="ctx-block">
-            <h4>派生量</h4>
-            <dl class="ctx-dl" id="derivedList">
-              <div><dt>—</dt><dd>—</dd></div>
-            </dl>
-          </div>
-          <div class="ctx-block">
-            <h4>依赖检查</h4>
-            <ul class="ctx-warns" id="depWarnings">
-              <li class="none">选择训练档案后显示耦合规则检查。</li>
-            </ul>
-          </div>
-          <div class="ctx-block">
-            <h4>运行时</h4>
-            <div class="hw-badges" id="hwBadges">
-              <span class="hw-badge"><span class="dot"></span>正在探测运行环境...</span>
+        <!-- ========== 右侧上下文栏：派生量 / 依赖检查 / 运行时环境合并为一个折叠面板 ========== -->
+        <aside class="context-rail" id="contextRail" aria-label="推导与检查">
+          <details class="ls-fold rail-fold" id="railFold" data-fold>
+            <summary>
+              <span class="ls-fold-chev" aria-hidden="true">▾</span>
+              <span class="ls-fold-title">推导与检查</span>
+              <span class="ls-fold-values" id="railSummary">派生量 · 依赖检查 · 运行时环境</span>
+            </summary>
+            <div class="ls-fold-body">
+              <div class="ctx-block">
+                <h4>派生量（由配方换算）</h4>
+                <dl class="ctx-dl" id="derivedList">
+                  <div><dt>—</dt><dd>—</dd></div>
+                </dl>
+              </div>
+              <div class="ctx-block">
+                <h4>依赖检查（耦合规则）</h4>
+                <ul class="ctx-warns" id="depWarnings">
+                  <li class="none">选择训练档案后显示耦合规则检查。</li>
+                </ul>
+              </div>
+              <div class="ctx-block">
+                <h4>运行时环境</h4>
+                <div class="hw-badges" id="hwBadges">
+                  <span class="hw-badge"><span class="dot"></span>正在探测运行环境...</span>
+                </div>
+              </div>
             </div>
-          </div>
+          </details>
         </aside>
       </div>
     </main>
@@ -1279,6 +1344,36 @@
       { id: 'robust', label: '鲁棒性与课程' },
       { id: 'train',  label: '训练器' },
     ];
+
+    // ---------- 术语中文名（裸英文 / 缩写补中文，标识符保留原名做括注） ----------
+    const TASK_LABELS = {
+      velocity: '速度跟踪', forward_walk: '直行行走', trot: '小跑（trot）', rough_terrain: '崎岖地形',
+      stairs: '上下楼梯', stand: '站立', flat: '平地行走', walk: '行走',
+    };
+    function taskLabel(id) {
+      const key = String(id || '');
+      return TASK_LABELS[key] || (state.tasks.find((task) => task.id === key) || {}).label || key;
+    }
+    const OBS_GROUP_LABELS = { actor: '策略网络', critic: '评价网络', history: '历史帧' };
+    function groupLabel(group) { return OBS_GROUP_LABELS[group] || group; }
+    // 只读分类（后端 readonly_categories 的英文键）→ 中文名
+    const CATEGORY_LABELS = {
+      simulator: '仿真器', environment: '环境', embodiment: '机器人', learning: '算法', robustness: '鲁棒性',
+    };
+    function categoryLabel(category) { return CATEGORY_LABELS[category] || category; }
+    // 域随机化事件模式（DR 模式决策树，Ch08）：标识符统一带中文括注
+    const EVENT_MODE_LABELS = {
+      startup: 'startup（出厂差异）', reset: 'reset（每回合）',
+      interval: 'interval（间歇推扰）', step: 'step（逐步）',
+    };
+    const LOCOMOTION_LABELS = {
+      p: '点足式（P）', b: '点足式（B）', w: '轮足式（W）', h: '人形（H）',
+      quadruped: '四足', biped: '双足', wheeled: '轮式', humanoid: '人形', quadruped_wheeled: '四足轮式',
+    };
+    function locomotionLabel(value) {
+      const key = String(value || '').toLowerCase();
+      return LOCOMOTION_LABELS[key] || value || '';
+    }
 
     // 章节 ↔ 配方树子树映射（路径相对 dump 根：environment.* / runner.*）
     const CHAPTER_NODE_PREFIXES = {
@@ -1378,10 +1473,10 @@
       state.tasks = (optionsData.tasks && optionsData.tasks.length)
         ? optionsData.tasks.map((task) => ({ id: task.id, label: task.label || task.id, terrain: task.terrain || 'plane' }))
         : [
-            { id: 'forward_walk', label: 'Forward walk', terrain: 'plane' },
-            { id: 'trot', label: 'Trot', terrain: 'plane' },
-            { id: 'rough_terrain', label: 'Rough terrain', terrain: 'rough' },
-            { id: 'stairs', label: 'Stairs', terrain: 'rough' },
+            { id: 'forward_walk', label: '直行行走', terrain: 'plane' },
+            { id: 'trot', label: '小跑（trot）', terrain: 'plane' },
+            { id: 'rough_terrain', label: '崎岖地形', terrain: 'rough' },
+            { id: 'stairs', label: '上下楼梯', terrain: 'rough' },
           ];
       if (!state.tasks.some((task) => task.id === state.task.id)) state.task = { id: state.tasks[0].id, terrain: state.tasks[0].terrain };
       renderTaskChips();
@@ -1391,7 +1486,7 @@
       const device = $('device');
       const previous = device.value;
       device.innerHTML = supported.map((item) => {
-        const label = item === 'auto' ? 'auto (自动选择)' : item.startsWith('cuda') ? `GPU (${item})` : item.toUpperCase();
+        const label = item === 'auto' ? 'auto（自动选择）' : item.startsWith('cuda') ? `GPU（${item}）` : item.toUpperCase();
         return `<option value="${escapeHtml(item)}">${escapeHtml(label)}</option>`;
       }).join('');
       device.value = supported.includes(previous) ? previous : 'auto';
@@ -1446,7 +1541,7 @@
       }
       container.innerHTML = state.tasks.map((task) => `
         <button type="button" class="task-chip ${task.id === state.task.id ? 'selected' : ''}" data-task="${escapeHtml(task.id)}" data-terrain="${escapeHtml(task.terrain)}" title="任务 ${escapeHtml(task.id)} · 注册表地形 ${escapeHtml(task.terrain)}">
-          <strong>${escapeHtml(task.label)}</strong>
+          <strong>${escapeHtml(taskLabel(task.id))}</strong>
           <small>${escapeHtml(task.id)}</small>
         </button>
       `).join('');
@@ -1459,13 +1554,13 @@
       }));
     }
 
-    // ---------- 奖励四层看板 ----------
+    // ---------- 奖励四层看板（紧凑表格：奖励项 / 当前权重 / 单位与参数） ----------
     // 层划分依据知识库四层框架：跟踪（正）/ 正则化（负）/ 风格（步态）/ 接触安全（红线）
     const REWARD_LAYERS = [
-      { id: 'tracking', tag: 'TRACK', name: '跟踪', desc: '任务目标 · exp 核 · 正向', hint: 'track / command 类项；跟踪贡献应大于全部惩罚之和（Ch06）' },
-      { id: 'regularization', tag: 'REG', name: '正则化', desc: '平滑 · 能耗 · 负权重', hint: 'action_rate / torque / 加速度 / 限位类惩罚' },
-      { id: 'style', tag: 'STYLE', name: '风格', desc: '步态品质 · 姿态', hint: '姿态 / 高度 / 空中时间 / 站立类项' },
-      { id: 'safety', tag: 'SAFETY', name: '接触安全', desc: '红线惩罚', hint: '接触 / 打滑 / 清空高度 / 碰撞类项' },
+      { id: 'tracking', tag: '跟踪', name: '跟踪', desc: '任务目标 · 指数核 · 正权重', hint: 'track / command 类项；跟踪贡献应大于全部惩罚之和（Ch06）' },
+      { id: 'regularization', tag: '正则', name: '正则化', desc: '平滑 · 能耗 · 负权重', hint: 'action_rate / torque / 加速度 / 限位类惩罚' },
+      { id: 'style', tag: '风格', name: '风格', desc: '步态品质 · 姿态', hint: '姿态 / 高度 / 空中时间 / 站立类项' },
+      { id: 'safety', tag: '安全', name: '接触安全', desc: '红线惩罚', hint: '接触 / 打滑 / 清空高度 / 碰撞类项' },
     ];
 
     function rewardLayer(name, declaredLayer) {
@@ -1496,7 +1591,7 @@
     }
 
     function rewardWeightInputHtml(path, value) {
-      return `<span class="rt-weight"><input type="number" step="any" data-ovr-path="${escapeHtml(path)}" data-kind="number" data-reward-weight-path="${escapeHtml(path)}" value="${escapeHtml(String(value))}" title="权重（负值为惩罚）；留空即恢复配方值"></span>`;
+      return `<span class="rt-weight"><input type="number" step="any" data-ovr-path="${escapeHtml(path)}" data-kind="number" data-reward-weight-path="${escapeHtml(path)}" value="${escapeHtml(String(value))}" title="权重（无量纲，负值为惩罚）；留空即恢复配方值"></span>`;
     }
 
     function rewardBarHtml(weight, extraClass = '') {
@@ -1550,7 +1645,11 @@
           <div class="param-rows">${adv.map((leaf) => overrideRowInnerHtml(leaf)).join('')}</div>
         </details>`;
       }
-      return `<details class="rt-params"><summary>${escapeHtml(label)} ▾</summary>${inner}</details>`;
+      return `<details class="rt-params"><summary>${escapeHtml(label)} ▾（展开逐项修改）</summary>${inner}</details>`;
+    }
+
+    function rewardTableHeadHtml() {
+      return '<div class="reward-table-head"><span>奖励项</span><span>当前权重（无量纲）</span><span>单位 · 启用 / 参数</span></div>';
     }
 
     function rewardBoardHtml() {
@@ -1572,24 +1671,26 @@
           html += `<div class="reward-layer" data-layer="${layer.id}">
             <div class="reward-layer-head" title="${escapeHtml(layer.hint)}">
               <span class="l-tag">${layer.tag}</span>
-              <span class="l-name">${layer.name}</span>
               <span class="l-desc">${layer.desc}</span>
-              <span class="l-sum">Σw = ${fmtNum(sum, 3)}</span>
+              <span class="l-sum">Σ权重 = ${fmtNum(sum, 3)}</span>
             </div>
+            ${rewardTableHeadHtml()}
             ${items.map((term) => {
               const weightPath = `${term.path}.weight`;
               const weight = rewardWeightValue(weightPath, term.cfg?.weight);
               const subLeaves = flattenRewardSubLeaves(term.cfg, term.path);
+              const paramCount = subLeaves.length;
               return `<div class="reward-term" data-reward-term="${escapeHtml(term.path)}" data-reward-layer="${layer.id}">
-                ${rewardWeightInputHtml(weightPath, weight)}
                 <div class="rt-main">
                   <span class="rt-name">${escapeHtml(term.name)}</span>
                   <span class="rt-path">${escapeHtml(term.path)}</span>
                   ${rewardBarHtml(weight)}
                 </div>
+                ${rewardWeightInputHtml(weightPath, weight)}
                 <div class="rt-side">
-                  ${renderTermParamsDetails(subLeaves)}
+                  <span class="rt-unit">无量纲权重${paramCount ? ` · 参数 ${paramCount} 项` : ''}</span>
                 </div>
+                ${renderTermParamsDetails(subLeaves)}
               </div>`;
             }).join('')}
           </div>`;
@@ -1620,23 +1721,26 @@
         html += `<div class="reward-layer" data-layer="${layer.id}">
           <div class="reward-layer-head" title="${escapeHtml(layer.hint)}">
             <span class="l-tag">${layer.tag}</span>
-            <span class="l-name">${layer.name}</span>
             <span class="l-desc">${layer.desc}</span>
             <span class="l-sum">${items.length} 项</span>
           </div>
+          ${rewardTableHeadHtml()}
           ${items.map(([id, term]) => {
             const weight = Number(term.default) || 0;
             // 能力矩阵（清单 ⑬）：后端声明不支持的奖励项置灰禁用，并给出原因
             const unsupported = term.supported === false;
             const reason = escapeHtml(unsupported ? (term.reason || '通用任务尚未实现该项') : (term.description || ''));
             return `<label class="reward-term ${unsupported ? 'reward-term-unsupported' : ''}" data-reward-row="${escapeHtml(id)}" data-reward-layer="${layer.id}" title="${reason}">
-              <span class="rt-weight"><input type="number" step="0.0001" data-reward-weight="${escapeHtml(id)}" value="${weight}" ${unsupported ? 'disabled' : ''} title="${unsupported ? '通用任务暂不支持该项' : '权重（负值为惩罚）'}"></span>
               <div class="rt-main">
                 <span class="rt-name">${escapeHtml(term.label || id)}${unsupported ? ' <span class="rt-uns-tag" title="' + reason + '">未实现</span>' : ''}</span>
                 <span class="rt-path">${escapeHtml(id)}</span>
                 ${rewardBarHtml(weight)}
               </div>
-              <div class="rt-side"><input type="checkbox" data-reward-id="${escapeHtml(id)}" ${unsupported ? 'disabled' : 'checked'} title="${unsupported ? '通用任务暂不支持该项' : '启用 / 禁用该项（禁用按 0 计）'}"></div>
+              <span class="rt-weight"><input type="number" step="0.0001" data-reward-weight="${escapeHtml(id)}" value="${weight}" ${unsupported ? 'disabled' : ''} title="${unsupported ? '通用任务暂不支持该项' : '权重（无量纲，负值为惩罚）'}"></span>
+              <div class="rt-side">
+                <span class="rt-unit">${escapeHtml(term.description || '无量纲权重')}</span>
+                <input type="checkbox" class="ls-check" data-reward-id="${escapeHtml(id)}" ${unsupported ? 'disabled' : 'checked'} title="${unsupported ? '通用任务暂不支持该项' : '启用 / 禁用该项（禁用按 0 计）'}">
+              </div>
             </label>`;
           }).join('')}
         </div>`;
@@ -1739,11 +1843,11 @@
       const sizeLabel = { S: '小型', M: '中型', L: '大型' }[preset.size_class] || preset.size_class || '';
       const parts = [
         `<b>${escapeHtml(preset.family || preset.robot_id)}</b>`,
-        `<span>${escapeHtml(String(preset.dof ?? '-'))} DOF</span>`,
+        `<span>${escapeHtml(String(preset.dof ?? '-'))} 自由度（DOF）</span>`,
         `<span>${Number(preset.mass_kg || 0).toFixed(1)} kg</span>`,
       ];
       if (sizeLabel) parts.push(`<span>${escapeHtml(sizeLabel)}</span>`);
-      if (preset.locomotion_type) parts.push(`<span>${escapeHtml(preset.locomotion_type)}</span>`);
+      if (preset.locomotion_type) parts.push(`<span>${escapeHtml(locomotionLabel(preset.locomotion_type))}</span>`);
       box.innerHTML = parts.join('<span class="sep">·</span>');
     }
 
@@ -1825,8 +1929,8 @@
       setValue('terrainType', ['plane', 'rough'].includes(terrain) ? terrain : 'plane');
       $('terrainType').disabled = !!state.profileId;
       $('terrainHint').textContent = state.profileId
-        ? '档案模式：地形由训练配方保留，此选择不生效（worker 跳过地形覆盖）'
-        : 'worker 仅应用 plane / rough；其余由配方内部实现';
+        ? '档案模式：地形由训练配方保留，此选择不生效（训练进程跳过地形覆盖）'
+        : '训练进程仅应用 plane（平地）/ rough（崎岖）两种地形；其余地形由配方内部实现';
       renderTaskChips();
     }
 
@@ -1839,22 +1943,30 @@
       const sim = preview.simulator || {};
       const body = preview.embodiment || {};
       const locked = ((preview.editable_vs_readonly || {}).readonly_categories) || [];
+      const jointCount = (body.joint_order || []).length;
       const rows = [
-        ['物理步长 timestep (s)', sim.timestep],
-        ['控制频率 control_hz', sim.control_hz],
-        ['物理频率 physics_hz', sim.physics_hz],
-        ['decimation', sim.decimation],
-        ['动作维度', (body.joint_order || []).length || null],
+        ['物理步长 timestep（秒）', sim.timestep],
+        ['控制频率 control_hz（策略执行频率，Hz）', sim.control_hz],
+        ['物理频率 physics_hz（仿真步频率，Hz）', sim.physics_hz],
+        ['动作延迟 decimation（每 N 个物理步执行一次动作）', sim.decimation],
+        ['动作维度（关节数）', jointCount || null],
         ['关节顺序', (body.joint_order || []).join(' · ') || null],
       ];
       const reasons = locked.length
         ? `<div class="ro-note">只读理由：${locked.map(item =>
-            `${escapeHtml(item.category || item.name || item.id || '')}：${escapeHtml(item.reason || '')}`
+            `${escapeHtml(categoryLabel(item.category || item.name || item.id || ''))}：${escapeHtml(item.reason || '')}`
           ).join('；')}</div>`
         : '';
       setInner('physicsReadonly',
         kvRows(rows) + reasons +
         '<div class="ro-note">要改物理请改机器人包（契约 + MJCF）；直接改这里会被校验器报为漂移（bake --check / validate_mjcf_contract）。</div>');
+      // 折叠态摘要：control_hz / physics_hz / decimation / 关节序
+      const summary = [];
+      if (Number.isFinite(Number(sim.control_hz))) summary.push(`控制频率 ${fmtNum(sim.control_hz, 0)} Hz`);
+      if (Number.isFinite(Number(sim.physics_hz))) summary.push(`物理频率 ${fmtNum(sim.physics_hz, 0)} Hz`);
+      if (Number.isFinite(Number(sim.decimation))) summary.push(`动作延迟 ${fmtNum(sim.decimation, 0)} 步`);
+      if (jointCount) summary.push(`关节序已就绪（${jointCount} 关节）`);
+      setInner('physicsSummary', summary.length ? escapeHtml(summary.join(' · ')) : '当前档案未提供物理摘要');
     }
 
     // ---------- E6：专家模式（点路径逃生门）----------
@@ -1917,6 +2029,7 @@
       }
       renderReadonlyBlocks();
       renderPhysicsReadonly();
+      renderObsMappingBoard();   // 观测/动作维度摘要依赖 config-preview（关节序），到齐后再算一次
       scheduleResolve();
     }
 
@@ -1955,7 +2068,7 @@
         <div style="margin-top:10px;">${kvRows(bodyEntries)}</div>`);
 
       const meta = state.preset
-        ? `${escapeHtml(state.preset.family)} · ${escapeHtml(String(state.preset.dof ?? '-'))} DOF · ${Number(state.preset.mass_kg || 0).toFixed(1)} kg · ${escapeHtml(state.preset.contract_id || '')}`
+        ? `${escapeHtml(state.preset.family)} · ${escapeHtml(String(state.preset.dof ?? '-'))} 自由度（DOF）· ${Number(state.preset.mass_kg || 0).toFixed(1)} kg · ${escapeHtml(state.preset.contract_id || '')}`
         : '-';
       setInner('robotMeta', meta);
       updateTaskBadge();
@@ -1964,10 +2077,10 @@
     function updateTaskBadge() {
       const badge = $('taskBadge');
       const taskId = derivedTaskId();
-      const taskLabel = (state.tasks.find((task) => task.id === taskId) || {}).label || taskId;
+      const labelText = taskLabel(taskId);
       badge.innerHTML = state.profileId
-        ? `task: ${escapeHtml(taskId)} <small>由档案派生</small>`
-        : `task: ${escapeHtml(taskId)} <small>${escapeHtml(taskLabel)}</small>`;
+        ? `任务：${escapeHtml(labelText)} <small>${escapeHtml(taskId)} · 由档案派生</small>`
+        : `任务：${escapeHtml(labelText)} <small>${escapeHtml(taskId)}</small>`;
     }
 
     function derivedTaskId() {
@@ -1988,7 +2101,7 @@
       const seq = ++resolveSeq;
       const payload = collectConfig();
       delete payload.robot_id;
-      delete payload.overrides; // 覆盖由 worker 应用，不参与配方校验预览
+      delete payload.overrides; // 覆盖由训练进程（worker）应用，不参与配方校验预览
       try {
         const data = await fetchJson('/api/training/resolve-recipe', {
           method: 'POST',
@@ -2103,7 +2216,7 @@
       if (param.readonly) return '<span class="ovr-status">只读</span>';
       if (param.type === 'bool') {
         const checked = overridden ? !!state.overrides[path] : !!param.value;
-        return `<input type="checkbox" data-ovr-path="${escapeHtml(path)}" data-kind="bool" title="勾选 = true，取消 = false（配方值：${param.value ? 'true' : 'false'}）" ${checked ? 'checked' : ''}>`;
+        return `<input type="checkbox" class="ls-check" data-ovr-path="${escapeHtml(path)}" data-kind="bool" title="勾选 = true，取消 = false（配方值：${param.value ? 'true' : 'false'}）" ${checked ? 'checked' : ''}>`;
       }
       if (param.type === 'list') {
         const pair = (overridden && Array.isArray(state.overrides[path])) ? state.overrides[path] : param.value;
@@ -2186,11 +2299,30 @@
       </div>`;
     }
 
+    // 模块级分组标题的补译（后端 label_for 未收录的裸英文段名；奖励 / 事件 / 终止的项级名字
+    // 是配方标识符，保持原名不做翻译，避免与点路径对不上）
+    const GROUP_TITLE_LABELS = {
+      'mujoco': 'MuJoCo 物理引擎',
+      'broadphase_filter': '宽相位过滤',
+      'terrain': '地形',
+      'entities': '场景实体',
+      'sensors': '传感器',
+      'twist': '速度指令（twist）',
+      'joint_pos': '关节位置（动作）',
+      'runner': '训练器（runner）',
+      'algorithm': 'PPO 算法',
+      'actor': '策略网络（actor）观测',
+      'critic': '评价网络（critic）观测',
+      'history': '历史帧（history）观测',
+      'policy': '策略观测（policy）',
+    };
+    function groupTitle(title) { return GROUP_TITLE_LABELS[title] || title; }
+
     function renderGroupCard(title, node, params) {
       const edited = params.filter((param) => Object.prototype.hasOwnProperty.call(state.overrides, param.path)).length;
       return `<div class="param-group">
         <div class="param-group-head">
-          <span class="g-title">${escapeHtml(title)}</span>
+          <span class="g-title">${escapeHtml(groupTitle(title))}</span>
           <span class="g-path">${escapeHtml(node)}</span>
           ${edited ? `<span class="g-edited">已调 ${edited}</span>` : ''}
           <span class="g-count">${params.length} 项</span>
@@ -2262,6 +2394,22 @@
       CHAPTERS.forEach((chapter) => renderChapterGroups(chapter.id));
       renderRewardBoard();
       renderObsMappingBoard();
+      updateFoldSummaries();
+    }
+
+    // ---------- 折叠摘要（收起态也要回答问题：收的是什么、量有多大） ----------
+    function updateFoldSummaries() {
+      const ready = state.schemaStatus === 'ready' && state.schema;
+      if (ready) {
+        const events = schemaGet('environment.events') || {};
+        const eventCount = Object.keys(events).filter((k) => k !== '__type__').length;
+        const curriculumKeys = Object.keys(schemaGet('environment.curriculum') || {}).filter((k) => k !== '__type__');
+        setInner('robustFoldSummary', `域随机化（DR）事件 ${eventCount} 项 · 课程 ${curriculumKeys.length} 条`);
+      } else if (!state.profileId) {
+        setInner('robustFoldSummary', '通用任务模式：无域随机化事件与课程（选择训练档案后显示）');
+      } else if (state.schemaStatus === 'loading') {
+        setInner('robustFoldSummary', '正在解析训练配方…');
+      }
     }
 
     // ---------- 观测 / 动作映射板（Feature 3） ----------
@@ -2314,34 +2462,120 @@
         // No perception catalog available; fall back to built-in library.
       }
     }
-    function collectObsGroupMembers() {
-      // 从参数树提取「观测组 → 观测项名称」映射（路径形如 environment.observations.<group>.terms.<name>...）
-      const groups = {};
-      const prefixRe = /^environment\.observations\.([^.]+)\.terms\.([^.]+)(\..*)?$/;
-      (state.params || []).forEach((param) => {
-        const m = String(param.path || '').match(prefixRe);
+    const OBS_GROUP_ORDER = ['actor', 'critic', 'history'];
+    const OBS_TERM_PATH_RE = /^environment\.observations\.([^.]+)\.terms\.([^.]+)(\..*)?$/;
+    function addObsTermsFromPaths(paths, groups) {
+      // 把一组点路径里的 environment.observations.<组>.terms.<项> 收进「组 → 项」表
+      let added = false;
+      (paths || []).forEach((path) => {
+        const m = String(path || '').match(OBS_TERM_PATH_RE);
         if (!m) return;
         const group = m[1], term = m[2];
-        if (['actor', 'critic', 'history'].includes(group) && !/^__type__$/.test(term)) {
-          groups[group] = groups[group] || [];
-          if (!groups[group].includes(term)) groups[group].push(term);
-        }
+        if (!OBS_GROUP_ORDER.includes(group) || /^__type__$/.test(term)) return;
+        groups[group] = groups[group] || [];
+        if (!groups[group].includes(term)) { groups[group].push(term); added = true; }
+      });
+      return added;
+    }
+    function collectObsGroupMembers() {
+      // 观测组 → 观测项：三级来源，全部来自**同一份 profile-schema 响应**（不新增请求）——
+      //   ① state.params 精选参数目录（若收录观测路径直接命中）
+      //   ② state.groupsCache 分组树里的 environment.observations.* 全路径
+      //      —— 包扩展档案（lite3-velocity / go2 CTS 等）的观测路径也在这份树里，
+      //         这是「摘要显示不全」的主回退
+      //   ③ state.schema 配方内省树的 terms 键（更粗粒度，仅名字）
+      const groups = {};
+      if (addObsTermsFromPaths((state.params || []).map((param) => param && (param.path || param.id)), groups)) {
+        return groups;
+      }
+      const groupPaths = [];
+      ((state.groupsCache && state.groupsCache.embodiment) || []).forEach((item) => {
+        (item.params || []).forEach((param) => groupPaths.push(param && (param.path || param.id)));
+      });
+      if (addObsTermsFromPaths(groupPaths, groups)) return groups;
+      const obs = schemaGet('environment.observations') || {};
+      Object.entries(obs).forEach(([group, node]) => {
+        if (!OBS_GROUP_ORDER.includes(group)) return;
+        const terms = node && typeof node === 'object' ? node.terms : null;
+        if (!terms || typeof terms !== 'object') return;
+        const names = Object.keys(terms).filter((name) => name !== '__type__');
+        if (names.length) groups[group] = names;
       });
       return groups;
     }
-    function obsTermWidth(param, name) {
-      // 尝试从参数值推断观测项宽度（优先约定字段，其次凑数）。
-      const node = state.schema && state.schema.environment && state.schema.environment.observations;
-      let termNode = node;
-      for (const part of (name || '').split('.')) {
-        if (termNode && typeof termNode === 'object') termNode = termNode[part];
+    function contractObsInfo() {
+      // 机器人契约（随 /api/robots/presets 一次加载，preset.contract）里的观测 / 动作声明：
+      // dimension 是权威维度；包扩展档案的配方树缺观测项时靠它兜底。
+      const contract = (state.preset && state.preset.contract) || {};
+      const obs = contract.observation || {};
+      const components = (Array.isArray(obs.components) ? obs.components : [])
+        .map((item) => (item && typeof item === 'object') ? (item.id || item.name) : item)
+        .filter((name) => typeof name === 'string' && name);
+      const action = contract.action || {};
+      const actionDim = Number.isFinite(Number(action.dimension)) ? Number(action.dimension)
+        : (Array.isArray(action.joint_order) && action.joint_order.length ? action.joint_order.length : null);
+      return {
+        dimension: Number.isFinite(Number(obs.dimension)) ? Number(obs.dimension) : null,
+        components,
+        actionDim,
+      };
+    }
+    function normalizeObsName(name) {
+      // 观测项名称归一：last_action(s) / actions 视为同一项，command(s)、joint_pos(_rel) 亦然
+      return String(name || '').toLowerCase()
+        .replace(/^noisy_/, '').replace(/^last_/, '').replace(/_rel$/, '').replace(/s$/, '');
+    }
+    function obsTermWidth(name) {
+      // 宽度按标准观测库条目推断（名称归一后匹配）；库外项宽度未收录 → null（如实展示，不猜数）。
+      const key = normalizeObsName(name);
+      const lib = OBS_LIBRARY.find((item) => normalizeObsName(item.name) === key);
+      return lib ? lib.width : null;
+    }
+    function obsWidthSummary(names) {
+      // 宽度只累计标准库收录的项；库外项单独计数（宽度未收录，不假装算得出来）
+      const matched = obsMatchedLibrary(names);
+      return {
+        matched,
+        dim: matched.reduce((acc, item) => acc + item.width, 0),
+        unknown: [...names].filter((name) => obsMatchedLibrary([name]).length === 0).length,
+      };
+    }
+    function obsMatchedLibrary(names) {
+      const normalized = new Set([...names].map(normalizeObsName));
+      return OBS_LIBRARY.filter((item) => normalized.has(normalizeObsName(item.name)));
+    }
+    function updateIfaceFoldSummary() {
+      // 折叠态摘要（收起态唯一口径）：观测 N 维 · 动作 M 维 · 映射已接入 x/y。
+      // 观测维度：契约标注（权威）→ 空则按标准库估算（库外项不计）；动作维度：config-preview
+      // 关节序 → 契约动作维度 → 包元数据 DOF。schema 未就绪时也出数（不阻塞入口一致性）。
+      const groups = collectObsGroupMembers();
+      const groupKeys = Object.keys(groups);
+      const contractInfo = contractObsInfo();
+      const names = new Set();
+      groupKeys.forEach((g) => (groups[g] || []).forEach((name) => names.add(name)));
+      contractInfo.components.forEach((name) => names.add(name));
+      if (!state.preset) {
+        setInner('ifaceFoldSummary', '选择训练档案后显示观测 / 动作维度与映射概览');
+        return;
       }
-      if (termNode && typeof termNode === 'object') {
-        const w = termNode.width ?? termNode.dim ?? termNode.size ?? null;
-        if (Number.isFinite(Number(w))) return Number(w);
+      if (!groupKeys.length && contractInfo.dimension === null && !contractInfo.components.length) {
+        setInner('ifaceFoldSummary', state.schemaStatus === 'loading'
+          ? '正在解析训练配方…'
+          : '当前档案未提供观测路径与契约观测声明（展开可见详情）');
+        return;
       }
-      const lib = OBS_LIBRARY.find((item) => item.name === name);
-      return lib ? lib.width : 1;
+      const estimatedDim = obsWidthSummary([...(groups.actor || []), ...contractInfo.components]).dim;
+      const observedDim = contractInfo.dimension !== null ? contractInfo.dimension : (estimatedDim || null);
+      const actionDim = ((state.preview && state.preview.embodiment && state.preview.embodiment.joint_order) || []).length
+        || contractInfo.actionDim
+        || Number(state.preset.dof)
+        || null;
+      const usedCount = obsMatchedLibrary(names).length;
+      const parts = [];
+      parts.push(observedDim !== null ? `观测 ${observedDim} 维` : '观测维度未标注');
+      parts.push(actionDim ? `动作 ${actionDim} 维` : '动作维度未标注');
+      parts.push(`映射已接入 ${usedCount}/${OBS_LIBRARY.length}${state.profileId ? '' : '（通用任务按契约声明）'}`);
+      setInner('ifaceFoldSummary', parts.join(' · '));
     }
     function renderObsMappingBoard() {
       const board = document.getElementById('obsMapBoard');
@@ -2354,13 +2588,20 @@
         libEl.innerHTML = '<div class="ro-note">选择训练档案后列出可用的标准观测项。</div>';
         slotsEl.innerHTML = '<div class="ro-note">选择训练档案后列出观测组与成员。</div>';
         dimEl.innerHTML = '';
+        updateIfaceFoldSummary();   // schema 未就绪 / 失败也如实给观测 / 动作维度（契约兜底）
         return;
       }
       const groups = collectObsGroupMembers();
       const groupKeys = Object.keys(groups);
+      const contractInfo = contractObsInfo();
+      // 「已接入」判定口径：配方观测项 ∪ 契约组件（名称归一后去重）——契约组件补上
+      // 配方树里看不到的标准项（如包扩展档案只声明一个组合观测项 history 的情况）。
+      const connectedNames = new Set();
+      groupKeys.forEach((g) => (groups[g] || []).forEach((name) => connectedNames.add(normalizeObsName(name))));
+      contractInfo.components.forEach((name) => connectedNames.add(normalizeObsName(name)));
       // 左侧：标准观测库（内置 + 当前已接入项标记）
       libEl.innerHTML = OBS_LIBRARY.map((item) => {
-        const inUse = groupKeys.some((g) => (groups[g] || []).includes(item.name));
+        const inUse = connectedNames.has(normalizeObsName(item.name));
         // Feature 11: three-way obs_source wizard for items that declare one.
         let obsSrcHtml = '';
         if (item.obs_source) {
@@ -2378,49 +2619,70 @@
         }
         return `<div class="obs-lib-item" data-lib="${escapeHtml(item.name)}">
           <span class="name">${escapeHtml(item.name)}<small>${escapeHtml(item.desc)}</small></span>
-          <span class="dim">${item.width}D · ×${item.scale}</span>
-          <span class="dim">${inUse ? '<span style="color:var(--ls-ok)">接入</span>' : '未接入'}</span>
-          <button data-add-obs="${escapeHtml(item.name)}" ${inUse ? 'disabled' : ''}>接入</button>
+          <span class="dim">${item.width} 维 · ×${item.scale}</span>
+          <span class="dim">${inUse ? '<span style="color:var(--ls-ok)">已接入</span>' : '未接入'}</span>
+          <button data-add-obs="${escapeHtml(item.name)}" ${inUse ? 'disabled' : ''} title="${inUse ? `观测项 ${escapeHtml(item.name)} 已在配方中接入` : `把观测项 ${escapeHtml(item.name)} 映射进策略输入（写入点路径覆盖）`}">补齐映射</button>
           ${obsSrcHtml}
         </div>`;
       }).join('');
       // 右侧：策略输入槽位（观测组 → 成员）
       if (!groupKeys.length) {
-        slotsEl.innerHTML = '<div class="ro-note">当前档案的观测组内没有可识别的观测项术语。</div>';
+        slotsEl.innerHTML = '<div class="ro-note">当前档案的观测组内没有可识别的观测项术语（观测维度以契约标注为准）。</div>';
       } else {
-        slotsEl.innerHTML = groupKeys.map((group) => `
-          <div class="obs-slot-group">
-            <div class="obs-slot-group-title">${escapeHtml(group)} 组 · ${groups[group].length} 项 · ${groups[group].reduce((acc, n) => acc + obsTermWidth(null, n), 0)}D</div>
+        slotsEl.innerHTML = groupKeys.map((group) => {
+          const groupWidth = obsWidthSummary(groups[group]);
+          const groupDim = groupWidth.dim
+            ? `${groupWidth.dim} 维${groupWidth.unknown ? ` + ${groupWidth.unknown} 项宽度未收录` : ''}`
+            : `${groupWidth.unknown} 项宽度未收录`;
+          return `<div class="obs-slot-group">
+            <div class="obs-slot-group-title">${escapeHtml(groupLabel(group))}（${escapeHtml(group)}）组 · ${groups[group].length} 项 · ${groupDim}</div>
             ${groups[group].map((term) => {
-              const w = obsTermWidth(null, term);
+              const w = obsTermWidth(term);
               return `<div class="obs-slot-item" data-slot-group="${escapeHtml(group)}" data-term="${escapeHtml(term)}">
                 <span class="name">${escapeHtml(term)}<span class="path">${escapeHtml('environment.observations.' + group + '.terms.' + term)}</span></span>
-                <span class="dim">${w}D</span>
-                <button data-remove-obs="${escapeHtml(group)}" data-term="${escapeHtml(term)}">移除</button>
+                <span class="dim">${w === null ? '宽度未收录' : `${w} 维`}</span>
+                <button data-remove-obs="${escapeHtml(group)}" data-term="${escapeHtml(term)}" title="把观测项 ${escapeHtml(term)} 从 ${escapeHtml(group)} 组移除（删除点路径覆盖）">移除映射</button>
               </div>`;
             }).join('')}
-          </div>`).join('');
+          </div>`;
+        }).join('');
       }
-      // 维度自动校验：actor 观测总量与当前契约/网络一致性的软检查
-      const actorTerms = groups.actor || [];
-      const actorDim = actorTerms.reduce((acc, n) => acc + obsTermWidth(null, n), 0);
+      // 维度自动校验：策略网络（actor）观测总量与契约 / 网络标注一致性的软检查。
+      // 宽度只累计标准观测库收录的项（库外项宽度未知、不计）——权威值看契约标注 / 配方。
+      const actorWidth = obsWidthSummary([...(groups.actor || []), ...contractInfo.components]);
+      const actorDim = actorWidth.dim;
       const criticTerms = groups.critic || [];
-      const criticDim = criticTerms.reduce((acc, n) => acc + obsTermWidth(null, n), 0);
+      const criticWidth = obsWidthSummary(criticTerms);
+      const widthNote = actorWidth.unknown ? `，另有 ${actorWidth.unknown} 项非标准观测项（宽度未收录）` : '';
       const checks = [];
-      if (actorTerms.length) checks.push(`<span class="ok">actor ${actorTerms.length} 项 · ${actorDim}D</span>`);
-      if (criticTerms.length) checks.push(`<span class="ok">critic ${criticTerms.length} 项 · ${criticDim}D</span>`);
+      const fmtObsEstimate = (width) => width.dim
+        ? `${width.dim} 维（标准库估算${width.unknown ? `，另 ${width.unknown} 项未收录` : ''}）`
+        : '宽度未收录（库外观测项）';
+      if (groups.actor && groups.actor.length) {
+        checks.push(`<span class="ok">策略网络（actor）${groups.actor.length} 项 · ${fmtObsEstimate(actorWidth)}</span>`);
+      }
+      if (criticTerms.length) {
+        checks.push(`<span class="ok">评价网络（critic）${criticTerms.length} 项 · ${fmtObsEstimate(criticWidth)}</span>`);
+      }
       const refDim = Number(schemaScalar(['runner.algorithm.actor_obs_dim', 'runner.actor_obs_dim']));
       if (Number.isFinite(refDim)) {
         checks.push(refDim === actorDim
-          ? `<span class="ok">与网络标注一致 ${actorDim}D</span>`
-          : `<span class="warn">与网络标注 ${refDim}D 不一致（实际 ${actorDim}D）</span>`);
+          ? `<span class="ok">与网络标注一致（${actorDim} 维）</span>`
+          : `<span class="warn">与网络标注 ${refDim} 维不一致（标准库估算 ${actorDim} 维${widthNote}）</span>`);
+      } else if (contractInfo.dimension !== null) {
+        checks.push(contractInfo.dimension === actorDim
+          ? `<span class="ok">与契约标注一致（${contractInfo.dimension} 维）</span>`
+          : `<span class="warn">契约标注 ${contractInfo.dimension} 维 · 标准库估算 ${actorDim} 维${widthNote}（以契约 / 配方为准）</span>`);
       } else {
         checks.push('<span class="ok">维度以配方内省为准</span>');
       }
       dimEl.innerHTML = checks.join(' · ');
+      // 折叠态摘要：观测 N 维 · 动作 M 维 · 映射已接入 x/y
+      // 唯口径入口：加载档案（loadProfileSchema）与 config-preview 到齐都走 renderObsMappingBoard
+      updateIfaceFoldSummary();
       // 专家模式：点路径改写
       if (!document.getElementById('obsExpertToggle')) {
-        board.insertAdjacentHTML('beforeend', `<label class="obs-expert-toggle"><input type="checkbox" id="obsExpertToggle"><span>专家模式（点路径改写）</span></label>
+        board.insertAdjacentHTML('beforeend', `<label class="obs-expert-toggle"><input type="checkbox" class="ls-check" id="obsExpertToggle"><span>专家模式（点路径改写）</span></label>
           <textarea id="obsDotPathInput" class="obs-dotpath-input" placeholder="点路径 / 值（例如 environment.observations.actor.terms.commands.scale 0.5）" style="display:none"></textarea>`);
         const toggle = document.getElementById('obsExpertToggle');
         toggle.addEventListener('change', () => {
@@ -2625,7 +2887,8 @@
 
       if (!state.schema) {
         list.innerHTML = '<div><dt>控制频率</dt><dd>50 Hz<small>通用任务默认</small></dd></div>';
-        warns.innerHTML = '<li class="none">选择训练档案后显示派生量与耦合规则检查（decimation 耦合 / 观测噪声作用域 / 奖励贡献比 / 课程轴）。</li>';
+        warns.innerHTML = '<li class="none">选择训练档案后显示派生量与耦合规则检查（动作延迟 decimation 耦合 / 观测噪声作用域 / 奖励贡献比 / 课程轴）。</li>';
+        setInner('railSummary', '派生量 · 依赖检查 · 运行时环境（选择档案后更新）');
         return;
       }
 
@@ -2640,8 +2903,14 @@
       const numSteps = Number(schemaScalar(['runner.num_steps_per_env']));
       const kl = Number(schemaScalar(['runner.algorithm.desired_kl']));
       const obs = schemaGet('environment.observations') || {};
-      const actorTerms = obs.actor && typeof obs.actor === 'object' ? Object.keys(obs.actor).filter((k) => k !== '__type__').length : undefined;
-      const criticTerms = obs.critic && typeof obs.critic === 'object' ? Object.keys(obs.critic).filter((k) => k !== '__type__').length : undefined;
+      const obsTermCount = (group) => {
+        const node = obs[group];
+        const terms = node && typeof node === 'object' ? node.terms : null;
+        return terms && typeof terms === 'object'
+          ? Object.keys(terms).filter((k) => k !== '__type__').length : undefined;
+      };
+      const actorTerms = obsTermCount('actor');
+      const criticTerms = obsTermCount('critic');
       const { terms: rewardTerms } = schemaRewardTermEntries();
       const rewardActive = rewardTerms.filter((term) => rewardWeightValue(`${term.path}.weight`, term.cfg?.weight) !== 0).length;
       const events = schemaGet('environment.events') || {};
@@ -2650,17 +2919,17 @@
       const termCount = Object.keys(terminations).filter((k) => k !== '__type__').length;
 
       const rows = [];
-      if (Number.isFinite(timestep)) rows.push(['物理步长', `${fmtNum(timestep, 4)} s`]);
-      if (Number.isFinite(decimation)) rows.push(['decimation', fmtNum(decimation, 0)]);
-      if (Number.isFinite(stepDt)) rows.push(['step_dt（控制周期）', `${fmtNum(stepDt, 4)} s`, `≈ ${fmtNum(1 / stepDt, 1)} Hz`]);
+      if (Number.isFinite(timestep)) rows.push(['物理步长（timestep）', `${fmtNum(timestep, 4)} s`]);
+      if (Number.isFinite(decimation)) rows.push(['动作延迟（decimation）', `${fmtNum(decimation, 0)} 步（每 N 个物理步执行一次动作）`]);
+      if (Number.isFinite(stepDt)) rows.push(['控制周期（step_dt）', `${fmtNum(stepDt, 4)} s`, `≈ ${fmtNum(1 / stepDt, 1)} Hz`]);
       if (Number.isFinite(episodeS)) rows.push(['回合长度', `${fmtNum(episodeS, 1)} s`, Number.isFinite(stepDt) ? `≈ ${fmtNum(episodeS / stepDt, 0)} 步` : undefined]);
       if (numEnvs !== undefined) rows.push(['并行环境', String(numEnvs)]);
-      if (Number.isFinite(numSteps) && Number.isFinite(stepDt)) rows.push(['rollout 时长', `${fmtNum(numSteps * stepDt, 2)} s`, `${numSteps} 步 / 更新`]);
-      if (actorTerms !== undefined) rows.push(['观测组 actor', `${actorTerms} 项`, criticTerms !== undefined ? `critic ${criticTerms} 项` : undefined]);
+      if (Number.isFinite(numSteps) && Number.isFinite(stepDt)) rows.push(['采样轮（rollout）时长', `${fmtNum(numSteps * stepDt, 2)} s`, `${numSteps} 步 / 更新`]);
+      if (actorTerms !== undefined) rows.push(['观测组：策略网络（actor）', `${actorTerms} 项`, criticTerms !== undefined ? `评价网络（critic）${criticTerms} 项` : undefined]);
       rows.push(['奖励项', `${rewardActive} / ${rewardTerms.length} 启用`]);
-      if (eventCount) rows.push(['DR 事件', `${eventCount} 项`]);
+      if (eventCount) rows.push(['域随机化事件（DR）', `${eventCount} 项`]);
       if (termCount) rows.push(['终止条件', `${termCount} 项`]);
-      if (Number.isFinite(kl)) rows.push(['目标 KL', fmtNum(kl, 3), '健康区间 0.005 - 0.02']);
+      if (Number.isFinite(kl)) rows.push(['目标 KL 散度', fmtNum(kl, 3), '健康区间 0.005 - 0.02']);
       list.innerHTML = rows.map(([k, v, small]) =>
         `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}${small ? `<small>${escapeHtml(small)}</small>` : ''}</dd></div>`
       ).join('') || '<div><dt>—</dt><dd>—</dd></div>';
@@ -2668,7 +2937,7 @@
       // 依赖检查（知识库耦合规则，值感知）
       const items = [];
       if (Number.isFinite(timestep) && Number.isFinite(decimation)) {
-        items.push(['info', 'decimation 耦合', `step_dt = 物理步长 × decimation = ${fmtNum(stepDt, 4)} s。修改 decimation 会同步改变动作延迟换算、action_rate 物理含义，并约成正比改变仿真开销（Ch05 耦合表）。`]);
+        items.push(['info', '动作延迟（decimation）耦合', `step_dt（控制周期）= 物理步长 × decimation = ${fmtNum(stepDt, 4)} s。修改 decimation 会同步改变动作延迟换算、action_rate 物理含义，并约成正比改变仿真开销（Ch05 耦合表）。`]);
       }
       let criticCorrupt = false;
       const walkCorruption = (node) => {
@@ -2678,7 +2947,7 @@
       };
       if (obs.critic) walkCorruption(obs.critic);
       if (criticCorrupt) {
-        items.push(['warn', 'critic 观测含噪声', 'critic 观测组存在 enable_corruption=true：观测噪声只应作用于 actor，critic 噪声会污染价值目标（Ch08）。']);
+        items.push(['warn', '评价网络（critic）观测含噪声', 'critic 观测组存在 enable_corruption=true：观测噪声只应作用于策略网络 actor，critic 噪声会污染价值目标（Ch08）。']);
       }
       if (rewardTerms.length) {
         const trackingSum = rewardTerms.filter((t) => rewardLayer(t.name) === 'tracking')
@@ -2699,13 +2968,14 @@
         const mode = String(cfg.mode || '未知');
         eventModes[mode] = (eventModes[mode] || 0) + 1;
       });
-      const modeText = Object.entries(eventModes).map(([mode, count]) => `${mode} ${count}`).join(' · ');
+      const modeText = Object.entries(eventModes).map(([mode, count]) => `${EVENT_MODE_LABELS[mode] || mode} ${count} 项`).join(' · ');
       if (modeText) {
-        items.push(['info', 'DR 模式分布', `${modeText}。质量/惯量类扰动应在 startup/reset 模式；interval 用于间歇推扰；step 模式建议改用观测噪声（Ch08 模式决策树）。`]);
+        items.push(['info', '域随机化（DR）模式分布', `${modeText}。质量 / 惯量类扰动应在 startup（出厂差异）/ reset（每回合）模式；interval（间歇）用于间歇推扰；step（逐步）模式建议改用观测噪声（Ch08 模式决策树）。`]);
       }
       warns.innerHTML = items.length
         ? items.map(([kind, title, body]) => `<li class="${kind}"><b>${escapeHtml(title)}</b>${escapeHtml(body)}</li>`).join('')
         : '<li class="none">未发现耦合规则冲突。</li>';
+      setInner('railSummary', `派生量 ${rows.length} 项 · 检查 ${items.length} 条 · 运行时环境就绪`);
     }
 
     // ---------- 配置收集 / 导入导出 ----------
@@ -2856,7 +3126,7 @@
         if (!inRange(intValue('numEnvs'), 64, 8192)) return '并行环境数量需在 64 - 8192 之间';
         if (!inRange(intValue('seed'), 0, 2147483647)) return '随机种子需在 0 - 2147483647 之间';
         const episode = numValue('episodeLength');
-        if (!inRange(episode, 5, 60)) return 'Episode 长度需在 5 - 60 秒之间';
+        if (!inRange(episode, 5, 60)) return '回合长度（episode）需在 5 - 60 秒之间';
         return null;
       },
       iface() {
@@ -2886,7 +3156,7 @@
         if (!Number.isFinite(lr) || lr <= 0 || lr > 0.01) return '学习率需在 (0, 0.01] 之间';
         if (!inRange(intValue('maxIterations'), 10, 10000)) return '最大迭代数需在 10 - 10000 之间';
         if (!inRange(intValue('saveInterval'), 1, 10000)) return '保存间隔需在 1 - 10000 之间';
-        if (!inRange(intValue('numSteps'), 4, 4096)) return 'Rollout 步数需在 4 - 4096 之间';
+        if (!inRange(intValue('numSteps'), 4, 4096)) return '采样轮步数（num_steps）需在 4 - 4096 之间';
         if (!inRange(intValue('numMinibatches'), 1, 64)) return '小批次数量需在 1 - 64 之间';
         const gamma = numValue('gamma');
         if (!Number.isFinite(gamma) || gamma <= 0 || gamma >= 1) return '折扣因子 γ 需在 (0, 1) 之间';
@@ -2927,10 +3197,11 @@
       const parts = [];
       if (state.preset) parts.push(`<b>${escapeHtml(state.preset.family)}</b>`);
       parts.push(state.profileId ? `档案 ${escapeHtml(state.profileId)}` : '通用任务');
-      parts.push(escapeHtml(derivedTaskId()));
-      parts.push(`${intValue('numEnvs') || '-'} envs`);
-      parts.push(`${intValue('maxIterations') || '-'} iter`);
-      parts.push(`${escapeHtml($('device').value)}`);
+      parts.push(escapeHtml(taskLabel(derivedTaskId())));
+      parts.push(`${intValue('numEnvs') || '-'} 个并行环境`);
+      parts.push(`${intValue('maxIterations') || '-'} 次迭代`);
+      const deviceOption = $('device').selectedOptions && $('device').selectedOptions[0];
+      parts.push(escapeHtml((deviceOption && deviceOption.textContent) || $('device').value));
       const invalid = validate();
       $('stickySummary').innerHTML = parts.join(' · ')
         + `<span class="valid-chip ${invalid ? 'bad' : 'ok'}">${invalid ? '待完善' : '校验通过'}</span>`;
@@ -2948,7 +3219,7 @@
       const gb = (envs / 4096) * 8; // 以 4096 envs≈8GB 为粗基准
       const mode = (document.getElementById('device')?.value || 'auto');
       const gpu = mode === 'cpu' ? 'CPU' : 'GPU';
-      hint.textContent = `${envs} envs · 约 ${gb.toFixed(1)}GB(粗估) · ${gpu} 档`;
+      hint.textContent = `${envs} 个并行环境 · 约 ${gb.toFixed(1)}GB（粗估）· ${gpu} 档`;
     }
     function updateAll() {
       syncHeaderOffset();
@@ -3042,6 +3313,19 @@
     });
 
     // ---------- 导航交互 ----------
+    // 全部展开 / 全部收起：一个按钮切换页面内所有折叠区（原生 <details>，无新框架）
+    const foldAllButton = $('foldAllBtn');
+    if (foldAllButton) {
+      foldAllButton.addEventListener('click', () => {
+        const folds = [...document.querySelectorAll('details')];
+        if (!folds.length) return;
+        const collapse = folds.every((fold) => fold.open);
+        folds.forEach((fold) => { fold.open = !collapse; });
+        foldAllButton.textContent = collapse ? '全部展开' : '全部收起';
+        foldAllButton.setAttribute('aria-expanded', collapse ? 'false' : 'true');
+      });
+    }
+
     document.querySelectorAll('.toc-item[data-target]').forEach((item) => {
       item.addEventListener('click', () => {
         document.querySelectorAll('.toc-item').forEach((entry) => entry.classList.remove('active'));
