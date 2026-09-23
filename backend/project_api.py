@@ -17,7 +17,8 @@ from pydantic import BaseModel, Field
 from backend.version import get_version
 from backend.robot_packages import package_for_contract
 from contracts.validator import normalized_sha256, package_digest  # 内容摘要唯一实现
-from backend.model_api import _validate, ModelValidationRequest, _contract_draft
+from backend.model_api import _validate, ModelValidationRequest
+from backend.package_import import draft_model_contract
 
 
 router = APIRouter(prefix="/api/project", tags=["project"])
@@ -239,7 +240,7 @@ def _normalise_robot_packages(imported_root: Path, manifest: dict[str, Any]) -> 
         # sha256，于是 CRLF 模型文件导入后**立刻**校验失败（hash mismatch）。
         digest = normalized_sha256(model.read_bytes())
         package_id = "imported_" + "".join(c.lower() if c.isalnum() else "_" for c in model.stem).strip("_")[:40]
-        contract = _contract_draft(Path(relative), fmt, report.get("inspection", {}), digest)
+        contract = draft_model_contract(Path(relative), fmt, report.get("inspection", {}), digest)
         contract.update({"robot_id": package_id or "imported_robot", "contract_id": f"{package_id}_contract_v1", "source": "legged_studio_project_import", "tags": ["imported", "project_package"]})
         (imported_root / "contract.json").write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         package = {"schema_version": "robot-package-1.0", "package_id": package_id, "task_kind": "generic", "capabilities": ["generic_mjlab", "mujoco_sim"], "model_path": relative}

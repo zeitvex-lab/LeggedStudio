@@ -65,10 +65,18 @@ def normalize_robot_id(value: str) -> str:
     return str(value or "").strip().lower().translate(_ALIAS_SEPARATORS)
 
 
-def _preset_entries() -> list[dict[str, Any]]:
-    from backend.robot_presets import list_robot_presets
+def _find_preset(robot_id: str) -> dict[str, Any] | None:
+    from backend.robot_presets import get_robot_preset, list_robot_presets
 
-    return [item for item in list_robot_presets() if isinstance(item, dict)]
+    preset = get_robot_preset(robot_id)
+    if preset is not None:
+        return preset
+    normalized = normalize_robot_id(robot_id)
+    return next(
+        (item for item in list_robot_presets()
+         if isinstance(item, dict) and normalize_robot_id(str(item.get("robot_id") or "")) == normalized),
+        None,
+    )
 
 
 def resolve_package_entry(robot_id: str) -> tuple[str, Path, dict[str, Any]]:
@@ -82,20 +90,11 @@ def resolve_package_entry(robot_id: str) -> tuple[str, Path, dict[str, Any]]:
     4. 否则回落 ``assets/robots/<robot_id>``，并再试一遍归一后的目录名（磁盘上真实存在者为准）。
     """
 
-    from backend.robot_presets import get_robot_preset
-
     wanted = str(robot_id or "").strip()
     if not wanted:
         raise RobotPackageNotFound(robot_id, ["robot_id 为空"])
 
-    preset = get_robot_preset(wanted)
-    if not preset:
-        normalized = normalize_robot_id(wanted)
-        preset = next(
-            (item for item in _preset_entries() if normalize_robot_id(str(item.get("robot_id") or "")) == normalized),
-            None,
-        )
-
+    preset = _find_preset(wanted)
     tried: list[str] = []
     if preset:
         canonical = str(preset.get("robot_id") or wanted)
@@ -185,19 +184,12 @@ def robot_definition(robot_id: str) -> dict[str, Any] | None:
     """
 
     from backend.paths import packages_root
-    from backend.robot_presets import get_robot_preset
 
     wanted = str(robot_id or "").strip()
     if not wanted:
         return None
 
-    preset = get_robot_preset(wanted)
-    if preset is None:
-        normalized = normalize_robot_id(wanted)
-        preset = next(
-            (item for item in _preset_entries() if normalize_robot_id(str(item.get("robot_id") or "")) == normalized),
-            None,
-        )
+    preset = _find_preset(wanted)
     if preset is not None:
         return preset
 

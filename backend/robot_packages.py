@@ -17,7 +17,6 @@ from __future__ import annotations
 import json
 import os
 import threading
-import time
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +35,7 @@ _INDEX_CACHE_LOCK = threading.Lock()
 
 # 委托到唯一实现（本模块内有局部变量叫 workspace_root，故沿用私有名，避免 LEGB 遮蔽）。
 from backend.paths import workspace_root as _workspace_root
-from backend.jsonio import read_json, load_json  # JSON 读取唯一实现
+from backend.jsonio import read_json  # JSON 读取唯一实现
 
 
 
@@ -134,39 +133,17 @@ def package_for_contract(contract: dict[str, Any]) -> dict[str, Any]:
 
 
 def robot_package_root(robot_id: str) -> Path:
-    """机器人包根：优先取预设里登记的 `package_root`，退回内置 `assets/robots/<id>`。
-
-    单一实现（此前只在 `backend/bundle_export.py` 里）：包根的解析规则只能有一处，
-    否则"导出带的包"与"训练安装进的包"可能是两份不同目录。
-    """
+    """宽容定位：沿用统一解析规则，失败时返回内置候选路径，由调用方判断是否存在。"""
 
     try:
-        from backend.robot_presets import get_robot_preset
+        from backend.package_locator import resolve_package_root
 
-        preset = get_robot_preset(robot_id) or {}
-        root_value = str(((preset.get("robot_package") or {}).get("package_root") or ""))
-        if root_value:
-            candidate = Path(root_value)
-            if candidate.is_dir():
-                return candidate
-    except Exception:  # 预设不可用时退回内置目录（不因预设问题阻断调用方）
+        candidate = resolve_package_root(robot_id)
+        if candidate.is_dir():
+            return candidate
+    except Exception:  # 预设不可用时仍保留调用方的目录级回退。
         pass
     return ROOT / "assets" / "robots" / robot_id
-
-
-def write_package_manifest(package_root: Path, *, package_id: str, task_kind: str = "generic", native_task_id: str | None = None, extension_root: str | None = None) -> Path:
-    package_root.mkdir(parents=True, exist_ok=True)
-    path = package_root / "robot_package.json"
-    payload = {
-        "schema_version": "robot-package-1.0",
-        "package_id": package_id,
-        "task_kind": task_kind,
-        "native_task_id": native_task_id,
-        "extension_root": extension_root,
-        "capabilities": ["generic_mjlab"] + (["package_extension"] if native_task_id else []),
-    }
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return path
 
 
 # ---------------------------------------------------------------------------

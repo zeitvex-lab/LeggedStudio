@@ -81,8 +81,6 @@ class DeployPackTest(unittest.TestCase):
             self.assertIn(keyword, checklist)
 
     def test_degraded_preset_scales_effort(self) -> None:
-        import json as _json
-
         response = self.client.post("/api/deploy/package", json={"robot_id": "unitree_go2", "degraded": True})
         self.assertEqual(response.status_code, 200)
         with zipfile.ZipFile(response.json()["path"]) as zf:
@@ -136,7 +134,7 @@ class DeployPackagePolicyTest(unittest.TestCase):
             json={"robot_id": "unitree_go2", "policy_onnx_path": "/no/such/policy.onnx"},
         )
         self.assertEqual(404, response.status_code, response.text)
-        self.assertIn("/no/such/policy.onnx", response.json()["detail"])
+        self.assertIn(str(Path("/no/such/policy.onnx")), response.json()["detail"])
 
 
 class DeployGateParityTest(unittest.TestCase):

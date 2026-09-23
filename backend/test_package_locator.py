@@ -173,7 +173,7 @@ class WorkspaceRootSingleSourceTest(unittest.TestCase):
             }
         resolved = {name: str(value) for name, value in values.items()}
         self.assertEqual(1, len(set(resolved.values())), f"工作区根解析仍有分叉：{resolved}")
-        self.assertEqual(Path("/tmp/unified-ws"), values["paths"])
+        self.assertEqual(Path("/tmp/unified-ws").resolve(), values["paths"])
 
     def test_relative_env_is_absolutised(self) -> None:
         """相对路径形态必须绝对化：否则"同一根"会以多个字符串出现，缓存键与前缀判断失配。"""
@@ -190,7 +190,7 @@ class WorkspaceRootSingleSourceTest(unittest.TestCase):
         from scripts.legged_studio_cli import _workspace_root as cli_root
 
         with mock.patch.dict(os.environ, {WORKSPACE_ENV: "/tmp/env-ws"}):
-            self.assertEqual(Path("/tmp/flag-ws"), cli_root("/tmp/flag-ws"))
+            self.assertEqual(Path("/tmp/flag-ws").resolve(), cli_root("/tmp/flag-ws"))
 
     def test_no_second_implementation_in_product_code(self) -> None:
         """源码级防回归：产品代码里只允许 ``backend/paths.py`` **读取**这两个环境变量。
@@ -265,7 +265,34 @@ class RobotDefinitionLookupTest(unittest.TestCase):
         self.assertEqual("Acme", found["family"])
         # 与 preset 分支同口径：绝对路径（相对路径 cwd 一变就错）
         self.assertTrue(Path(found["asset_path"]).is_absolute(), found["asset_path"])
-        self.assertTrue(found["asset_path"].endswith("model/robot.xml"), found["asset_path"])
+        self.assertEqual(("model", "robot.xml"), Path(found["asset_path"]).parts[-2:])
+
+    def test_root_helpers_agree_on_registered_workspace_alias(self) -> None:
+        from backend import robot_packages
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            package = self._make_workspace_package(root, "acme-quadruped")
+            with mock.patch.dict(os.environ, {WORKSPACE_ENV: tmp}):
+                try:
+                    robot_packages.upsert_package(package)
+                    self.assertEqual(package, resolve_package_root("acme_quadruped"))
+                    self.assertEqual(package, robot_packages.robot_package_root("acme_quadruped"))
+                finally:
+                    robot_packages.invalidate_package_cache()
+
+    def test_missing_root_preserves_strict_and_quiet_boundaries(self) -> None:
+        from backend import robot_packages
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {WORKSPACE_ENV: tmp}):
+                with self.assertRaises(RobotPackageNotFound):
+                    resolve_package_root("no_such_robot_at_all")
+                self.assertEqual(
+                    ROOT / "assets" / "robots" / "no_such_robot_at_all",
+                    robot_packages.robot_package_root("no_such_robot_at_all"),
+                )
+                self.assertIsNone(robot_definition("no_such_robot_at_all"))
 
     def test_registered_package_still_wins(self) -> None:
         found = robot_definition("unitree_go2")
