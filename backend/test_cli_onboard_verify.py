@@ -7,7 +7,7 @@ DoD #2：「新机器人 = 1 目录 + 3 JSON + 模型文件；``onboard → veri
 
 1. **两条入口 = 同一件事**：CLI ``onboard <dir>``（目录拷贝）与 Web
    ``POST /api/models/import``（base64 上传）必须给出**同一个 ``package_id``** ——
-   两边的内容摘要由同一 :func:`backend.model_api._content_hash` 从同样的字节算出。
+   两边的内容摘要由同一 :func:`contracts.validator.package_digest` 从同样的字节算出。
    这条一旦破了，"同一台机器人"会变成两个包，且没有任何东西会报错。
 2. **默认预演、写才落盘、校验不过一字节不写**（与 ``tools/skill_pack.py import`` 同惯例）：
    坏模型必须 exit 1 且包目录不存在；好模型预演后同样不存在。
@@ -83,6 +83,34 @@ def make_robot_dir(base: Path, *, urdf: str = VALID_URDF, mesh: bool = True) -> 
 
 class OnboardTest(unittest.TestCase):
     """``onboard``：预演 / 落盘 / fail-closed / 多候选模型。"""
+
+    def test_offline_onboard_does_not_require_http_framework(self):
+        script = "import runpy, sys; sys.modules['fastapi'] = None; runpy.run_path(sys.argv.pop(1), run_name='__main__')"
+        with tempfile.TemporaryDirectory() as tmp:
+            source = make_robot_dir(Path(tmp))
+            for write in (False, True):
+                with self.subTest(write=write):
+                    workspace = Path(tmp) / ("write" if write else "preview")
+                    args = [PYTHON, "-c", script, str(CLI), "--json", "onboard", str(source), "--workspace", str(workspace)]
+                    if write:
+                        args.append("--write")
+                    proc = subprocess.run(
+                        args, cwd=ROOT, env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+                        capture_output=True, text=True, encoding="utf-8", timeout=180,
+                    )
+                    self.assertEqual(0, proc.returncode, proc.stderr)
+                    report = json.loads(proc.stdout)
+                    self.assertTrue(report["valid"], report)
+                    package = Path(report["package_root"])
+                    if write:
+                        self.assertTrue(report["imported"], report)
+                        for name in ("contract.json", "contract_legacy_v2.json", "robot_package.json"):
+                            self.assertTrue((package / name).is_file(), name)
+                        self.assertTrue((workspace / "package_index.json").is_file())
+                    else:
+                        self.assertTrue(report["preview"], report)
+                        self.assertFalse(package.exists())
+                        self.assertFalse((workspace / "package_index.json").exists())
 
     def test_dry_run_writes_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -214,7 +242,7 @@ class BothEntriesShareOnePackageIdTest(unittest.TestCase):
         from fastapi.testclient import TestClient
 
         from backend.api_complete import app
-        from backend.model_api import import_package_directory
+        from backend.package_import import onboard_package
 
         with tempfile.TemporaryDirectory() as tmp:
             previous = os.environ.get("LEGGED_STUDIO_WORKSPACE")
@@ -234,7 +262,7 @@ class BothEntriesShareOnePackageIdTest(unittest.TestCase):
                 self.assertTrue(uploaded["imported"], uploaded)
 
                 # 目录入口：同一个目录、同一份内容 → 必须是同一个包（幂等复用，而不是新建）
-                by_directory = import_package_directory(directory, model_filename="model.urdf")
+                by_directory = onboard_package(directory, model_filename="model.urdf", write=True)
                 self.assertTrue(by_directory["imported"], by_directory)
                 self.assertEqual(uploaded["package_id"], by_directory["package_id"])
                 self.assertEqual(uploaded["package_root"], by_directory["package_root"])
@@ -250,12 +278,13 @@ class BothEntriesShareOnePackageIdTest(unittest.TestCase):
     def test_base64_and_directory_bytes_hash_identically(self):
         """更直接的一条：同一份字节，两条入口的摘要函数必须给出同一个数。"""
 
-        from backend.model_api import _content_hash, _package_content_hash, ModelImportRequest
+        from backend.model_api import _package_content_hash, ModelImportRequest
+        from contracts.validator import package_digest
 
         with tempfile.TemporaryDirectory() as tmp:
             directory = make_robot_dir(Path(tmp))
             raw = (directory / "model.urdf").read_bytes()
-            from_directory = _content_hash({Path("model.urdf"): raw}.items())
+            from_directory = package_digest({Path("model.urdf"): raw}.items())
             request = ModelImportRequest(**{
                 "files": [{"path": "model.urdf", "content": base64.b64encode(raw).decode("ascii"), "encoding": "base64"}],
                 "model_filename": "model.urdf",
@@ -277,15 +306,15 @@ class ImportPreviewConsistencyTest(unittest.TestCase):
         self.addCleanup(invalidate_package_cache)
 
     def test_preview_matches_persisted_contracts_without_writing_a_package(self):
-        from backend.model_api import import_package_directory, preview_package_import
+        from backend.package_import import onboard_package
 
         source = make_robot_dir(Path(self.tmp.name))
-        preview = preview_package_import(source)
+        preview = onboard_package(source)
         self.assertTrue(preview["valid"], preview)
         self.assertEqual([], list((self.workspace / "packages").iterdir()))
         self.assertFalse((self.workspace / "package_index.json").exists())
 
-        imported = import_package_directory(source)
+        imported = onboard_package(source, write=True)
         self.assertTrue(imported["imported"], imported)
         self.assertEqual(imported["package_id"], preview["package_id"])
         self.assertEqual(imported["package_root"], preview["package_root"])
@@ -299,10 +328,10 @@ class ImportPreviewConsistencyTest(unittest.TestCase):
         self.assertEqual(["fl_hip", "fl_knee"], persisted_v2["action"]["joint_order"])
 
     def test_reimport_preserves_existing_contracts_and_manifest(self):
-        from backend.model_api import import_package_directory
+        from backend.package_import import onboard_package
 
         source = make_robot_dir(Path(self.tmp.name))
-        imported = import_package_directory(source)
+        imported = onboard_package(source, write=True)
         self.assertTrue(imported["contract"]["generated"], imported)
         package = Path(imported["package_root"])
         truth_path = package / "contract.json"
@@ -313,7 +342,7 @@ class ImportPreviewConsistencyTest(unittest.TestCase):
             "contract.json", "contract_legacy_v2.json", "robot_package.json",
         )}
 
-        repeated = import_package_directory(source)
+        repeated = onboard_package(source, write=True)
         self.assertTrue(repeated["imported"], repeated)
         self.assertEqual(imported["package_id"], repeated["package_id"])
         self.assertEqual({"generated": False, "note": None}, repeated["contract"])
@@ -322,10 +351,10 @@ class ImportPreviewConsistencyTest(unittest.TestCase):
         self.assertEqual([imported["package_id"]], [item["robot_id"] for item in index])
 
     def test_invalid_preview_leaves_no_package_or_index(self):
-        from backend.model_api import preview_package_import
+        from backend.package_import import onboard_package
 
         source = make_robot_dir(Path(self.tmp.name), urdf=INVALID_URDF)
-        preview = preview_package_import(source)
+        preview = onboard_package(source)
         self.assertFalse(preview["valid"])
         self.assertTrue(preview["errors"])
         self.assertNotIn("package_id", preview)

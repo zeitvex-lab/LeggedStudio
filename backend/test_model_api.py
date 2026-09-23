@@ -59,6 +59,45 @@ class ModelInspectionTests(unittest.TestCase):
         self.assertTrue(any("missing limit" in item for item in payload["errors"]))
         self.assertIn("inertial", payload["inspection"])
 
+    def test_validation_rejects_a_model_outside_allowed_roots(self):
+        with tempfile.TemporaryDirectory(prefix="outside-model-") as outside:
+            model = Path(outside) / "model.urdf"
+            model.write_text("<robot name='outside'><link name='base'/></robot>", encoding="utf-8")
+            response = self.client.post("/api/models/validate", json={"path": str(model)})
+        self.assertEqual(200, response.status_code)
+        payload = response.json()
+        self.assertFalse(payload["valid"], payload)
+        self.assertEqual(["model path must be inside the Legged Studio project or workspace"], payload["errors"])
+
+    def test_validation_prefers_content_and_cleans_its_temporary_source(self):
+        payload = self.client.post("/api/models/validate", json={
+            "path": "missing.urdf", "filename": "uploaded.urdf", "format": "auto",
+            "content": "<robot name='uploaded'><link name='base'/></robot>",
+        }).json()
+        self.assertTrue(payload["valid"], payload)
+        self.assertEqual("urdf", payload["format"])
+        self.assertEqual("uploaded.urdf", payload["filename"])
+        self.assertFalse(Path(payload["source_path"]).exists())
+
+    def test_missing_input_and_invalid_format_keep_distinct_error_contracts(self):
+        missing = self.client.post("/api/models/validate", json={})
+        self.assertEqual(200, missing.status_code)
+        self.assertEqual({"valid": False, "errors": ["provide either path or content"], "warnings": []}, missing.json())
+        invalid = self.client.post("/api/models/validate", json={"content": "<robot/>", "format": "unknown"})
+        self.assertEqual(422, invalid.status_code)
+
+    def test_upload_rejects_parent_paths_without_persisting_files(self):
+        for path in ("../model.urdf", "nested/../../model.urdf", r"..\model.urdf"):
+            with self.subTest(path=path):
+                payload = self.client.post("/api/models/import", json={
+                    "files": [{"path": path, "content": "<robot><link name='base'/></robot>"}],
+                }).json()
+                self.assertFalse(payload["imported"], payload)
+                self.assertTrue(payload["errors"], payload)
+        workspace = Path(self.workspace_temp.name)
+        self.assertEqual([], list((workspace / "packages").iterdir()))
+        self.assertFalse((workspace / "package_index.json").exists())
+
     def test_uploaded_urdf_has_real_topology_preview(self):
         urdf = """<robot name='fixture'><link name='base'/><link name='foot'/><joint name='hip' type='revolute'><parent link='base'/><child link='foot'/></joint></robot>"""
         response = self.client.post("/api/models/preview", json={"content": urdf, "filename": "fixture.urdf", "format": "urdf"})
@@ -119,6 +158,37 @@ class ModelInspectionTests(unittest.TestCase):
         self.assertEqual(payload["training_config"]["algorithm"], "PPO")
         self.assertEqual(payload["scenario"]["map_id"], "warehouse")
         self.assertFalse((Path(self.workspace_temp.name) / "imports").exists())
+
+    def test_project_router_imports_raw_models_without_model_router(self):
+        import subprocess
+        import sys
+
+        script = """
+import base64, io, json, sys, zipfile
+sys.modules['backend.model_api'] = None
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from backend.project_api import router
+app = FastAPI()
+app.include_router(router)
+stream = io.BytesIO()
+with zipfile.ZipFile(stream, 'w') as archive:
+    archive.writestr('robots/demo.urdf', "<robot name='demo'><link name='base'/></robot>")
+response = TestClient(app).post('/api/project/import', json={'archive_base64': base64.b64encode(stream.getvalue()).decode('ascii')})
+print(json.dumps(response.json()))
+"""
+        proc = subprocess.run(
+            [sys.executable, "-c", script], cwd=Path(__file__).resolve().parents[1],
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+            capture_output=True, text=True, encoding="utf-8", timeout=60,
+        )
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        import json
+
+        report = json.loads(proc.stdout)
+        self.assertTrue(report["success"], report)
+        self.assertEqual(["imported_demo"], report["package_ids"])
+        self.assertTrue(Path(report["robots"][0]["asset_path"]).is_file())
 
     def test_raw_project_archive_import_list_and_export(self):
         import base64

@@ -7,7 +7,7 @@ for native MJLab/Isaac adapters later.
 
 离线子命令（I1）不连控制面，直接读仓库数据，并且**复用 backend/ 的同一实现**（单一真值来源）：
 
-* ``onboard <目录>``    → :func:`backend.model_api.import_package_directory` / ``preview_package_import``
+* ``onboard <目录>``    → :func:`backend.package_import.onboard_package`
   —— 新机器人 = 1 目录 + 模型 → 校验 → 生成三件 JSON（contract.json / robot_package.json /
   contract.json）→ 落 ``workspace/packages/`` → 登记索引；**默认预演**，``--write`` 落盘，
   校验不过一字节不写（与 Web 的 ``POST /api/models/import`` 共用同一份编排与内容摘要）；
@@ -304,7 +304,7 @@ def _cmd_artifact_list(as_json: bool, out_dir: str | None) -> int:
 def _cmd_onboard(args: argparse.Namespace) -> int:
     """``onboard <目录>``：把一个机器人目录导入为机器人包（离线命令，无需后端）。
 
-    与 Web 的 ``POST /api/models/import`` **共用同一份编排**（``backend.model_api``）：
+    与 Web 的 ``POST /api/models/import`` **共用同一份编排**（``backend.package_import``）：
     校验模型 → 生成三件 JSON（``contract.json`` / ``robot_package.json`` /
     ``contract_legacy_v2.json``）→ 落 ``workspace/packages/<package_id>/`` → 登记索引。
     两条入口的 ``package_id`` 由同一份内容摘要算出，所以"同一份资产"不会变成两个包。
@@ -313,19 +313,19 @@ def _cmd_onboard(args: argparse.Namespace) -> int:
     ``--write`` 才真写；校验不过**一个字节都不写**（fail-closed）。
     """
 
-    from backend.model_api import import_package_directory, preview_package_import
+    from backend.package_import import onboard_package
 
     workspace = _workspace_root(args.workspace)
     if args.workspace:
-        # `--workspace` 是"**这个进程**的 workspace"：同步到环境变量，让下游（model_api 的
+        # `--workspace` 是"**这个进程**的 workspace"：同步到环境变量，让下游（模型服务的
         # workspace 解析与模型路径守卫）看到同一处。只在 CLI 里传 packages_root 会造成
         # "包落在 A、路径守卫按 B 判"——两处不一致时该报的错会变成莫名其妙的越界拒绝。
         os.environ["LEGGED_STUDIO_WORKSPACE"] = str(workspace)
     packages_root = workspace / "packages"
-    runner = import_package_directory if args.write else preview_package_import
     try:
-        report = runner(
+        report = onboard_package(
             args.directory,
+            write=args.write,
             model_filename=args.model,
             model_format=args.format,
             packages_root=packages_root,
