@@ -665,13 +665,6 @@ async def serve_dashboard():
     """旧控制台已并入工作台首页（2026-09-23 用户裁决）：老地址 302 到 workbench#home。"""
     return RedirectResponse(url="/web/workbench.html#home", status_code=302)
 
-@app.get("/web/dashboard.css", include_in_schema=False)
-async def serve_css():
-    css_path = WEB_DIR / "dashboard.css"
-    if css_path.exists():
-        return FileResponse(css_path, media_type="text/css")
-    return {"error": "CSS not found"}
-
 
 @app.get("/web/sim2sim/vendor/onnxruntime-web/dist/ort.wasm.min.mjs", include_in_schema=False)
 async def serve_onnx_runtime_module():

@@ -44,19 +44,23 @@
 
 .meta-sep { color: var(--faint); }
 
-/* 状态徽标（状态机与 training-common.js 的 statusInfo 对齐） */
-.badge.running { border-color: rgba(55, 214, 198, 0.45); color: var(--cyan); }
-.badge.completed { border-color: rgba(138, 180, 255, 0.45); color: var(--blue); }
-.badge.failed { border-color: rgba(255, 128, 120, 0.45); color: var(--red); }
-.badge.stopped, .badge.pending, .badge.unknown { color: var(--muted); }
+/* 状态徽标：语义与训练列表（shared/ui.css 的 ls-badge--*）对齐 ——
+   运行中=蓝（accent）/ 等待中=琥珀（warn）/ 已完成=绿（ok）/ 失败=红（err）/ 已停止=灰（muted）。
+   旧色把"已完成"画成 var(--blue)（蓝），与列表页"完成=绿"自相矛盾，本批纠正。 */
+.badge.running { border-color: var(--ls-accent-line); color: var(--ls-accent); }
+.badge.pending { border-color: var(--ls-warn-line); color: var(--ls-warn); }
+.badge.completed { border-color: var(--ls-ok-line); color: var(--ls-ok); }
+.badge.failed { border-color: var(--ls-err-line); color: var(--ls-err); }
+.badge.stopped, .badge.unknown { border-color: var(--ls-muted-line); color: var(--ls-muted); }
 
-/* 状态点配色对齐共享 tokens（覆盖 training-common.js 注入的默认色，
+/* 状态点配色与徽标同源（覆盖 training-common.js 注入的默认色，
    双写类名以保证优先级高于运行时注入的 <style>） */
-.tsui-dot.tsui-dot.running { background: var(--cyan); }
-.tsui-dot.tsui-dot.completed { background: var(--blue); }
-.tsui-dot.tsui-dot.failed { background: var(--red); }
-.tsui-dot.tsui-dot.stopped, .tsui-dot.tsui-dot.pending,
-.tsui-dot.tsui-dot.unknown, .tsui-dot.tsui-dot.idle { background: var(--faint); }
+.tsui-dot.tsui-dot.running { background: var(--ls-accent); }
+.tsui-dot.tsui-dot.pending { background: var(--ls-warn); }
+.tsui-dot.tsui-dot.completed { background: var(--ls-ok); }
+.tsui-dot.tsui-dot.failed { background: var(--ls-err); }
+.tsui-dot.tsui-dot.stopped, .tsui-dot.tsui-dot.unknown,
+.tsui-dot.tsui-dot.idle { background: var(--ls-muted); }
 
 .error-banner {
   display: none;

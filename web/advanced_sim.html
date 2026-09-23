@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>高级仿真 · Legged Studio</title>
-  <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="shared/ui.css">
   <style>
     /* S5：本页从"只铺满 iframe 的壳"升级为 **Scenario 编辑器**（地图 / 传感器 / 任务 / 判据），
        视口仍是同一个仿真内核（右侧 iframe），编辑器按场景契约生成参数后重写它的 URL。
@@ -86,9 +86,10 @@
     #scReport { margin-top: 8px; line-height: 1.6; }
     #scReport ul { margin: 4px 0 4px 18px; padding: 0; }
     #scReport pre { white-space: pre-wrap; font-size: 11px; }
-    .sc-ok { color: #217a37; }
-    .sc-bad { color: #e2725b; }
-    .sc-warn { color: #d8a657; }
+    /* 校验结论三色：旧 #e2725b 在浅底上只有 3.2:1（12px 正文判不可读），改用 ui.css 语义 token */
+    .sc-ok { color: var(--ls-ok); }
+    .sc-bad { color: var(--ls-err); }
+    .sc-warn { color: var(--ls-warn); }
     .adv-frame-wrap { position: relative; flex: 1 1 auto; min-height: 0; }
     iframe#advSimFrame { width: 100%; height: 100%; border: 0; display: block; }
   </style>
