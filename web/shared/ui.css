@@ -354,6 +354,50 @@ body {
 .ls-toast--err { border-color: var(--ls-err-line); color: var(--ls-err); }
 
 /* =========================================================================
+   第 3 批：确认对话框 .ls-confirm（由 shared/feedback.js 渲染，`<dialog>` 模态）
+   —— 破坏性动作（删除 / 清空 / 停止）走这里，替代会阻塞页面的 window.confirm。
+   遮罩色 = --ls-text(#1f2933) 的 45% 透明版；不引入新色系。
+   ========================================================================= */
+.ls-confirm {
+  width: min(92vw, 420px);
+  padding: var(--ls-space-5);
+  border: 1px solid var(--ls-line);
+  border-radius: var(--ls-radius);
+  background: var(--ls-surface);
+  color: var(--ls-text);
+  box-shadow: var(--ls-shadow);
+  font-family: var(--ls-font);
+}
+
+.ls-confirm::backdrop { background: rgba(31, 41, 51, 0.45); }
+
+.ls-confirm .ls-confirm-title {
+  margin: 0 0 var(--ls-space-2);
+  font-size: var(--ls-font-lg);
+  font-weight: 700;
+  color: var(--ls-text);
+}
+
+.ls-confirm--danger .ls-confirm-title { color: var(--ls-err); }
+
+.ls-confirm .ls-confirm-message {
+  margin: 0 0 var(--ls-space-5);
+  color: var(--ls-muted);
+  font-size: var(--ls-font-md);
+  line-height: 1.6;
+  white-space: pre-line;   /* 文案里的换行照实展示（如"仅移除任务记录，不会删除工作区文件"） */
+  overflow-wrap: anywhere;
+}
+
+.ls-confirm .ls-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ls-space-2);
+}
+
+.ls-confirm .ls-btn { min-width: 76px; }
+
+/* =========================================================================
    顶栏 .ls-topnav（由 shared/topnav.js 渲染）
    窄窗：导航条自身横向滚动，品牌与状态不挤压、页面不横向破版。
    ========================================================================= */

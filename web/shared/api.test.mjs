@@ -141,7 +141,16 @@ async function expectApiError(promise, message) {
 //
 // 判据是"函数体里直接 `await fetch(`"——委托型（`return LSApi.fetchJson(...)`）不含它，
 // 所以薄封装可以有很多个，实现只能有一个。这条扫的是 2026-09-19 的三份历史实现
-// （training-common.js / workbench.js / dashboard 的散点）。
+// （training-common.js / workbench.js / dashboard 的散点）；第 3 批起把**内联脚本**
+// （`.html` 里不带 src 的 `<script>` 块）也纳入扫描 —— 此前只扫 `.js` 文件，
+// exports.html 的自建 `jsonFetch` 就躲在 HTML 里，扫不到。
+//
+// **显式豁免**（每一条都写明理由，不参与本断言）：
+//   · `web/shared/api.js`    —— 唯一实现本体（本文件的被测对象）；
+//   · `web/sim2sim/**`       —— 独立 ES module 世界（`import { fetchJson } from '../shared/api.js'`），
+//                               其封装形态与普通脚本不同，由 sim2sim 目录自己的 *.test.mjs 守；
+//   · `vendor/`、`node_modules/` —— 第三方代码，不属本仓风格约束；
+//   · `*.test.mjs`           —— 测试自带的 stub fetch 不是页面实现。
 {
   const { readdirSync, readFileSync, statSync } = await import("node:fs");
   const { join } = await import("node:path");
@@ -151,25 +160,45 @@ async function expectApiError(promise, message) {
   const root = fileURLToPath(new URL(".", import.meta.url)).replace(/[\\/]$/, "");
   const webRoot = join(root, "..");
 
+  const SKIP_DIRS = new Set([
+    "vendor",        // 第三方
+    "node_modules",  // 第三方
+    "sim2sim",       // 独立 module 世界，豁免见上
+  ]);
+
   function walk(dir, out = []) {
     for (const entry of readdirSync(dir)) {
-      if (entry === "vendor" || entry === "node_modules") continue;
+      if (SKIP_DIRS.has(entry)) continue;
       const full = join(dir, entry);
       if (statSync(full).isDirectory()) walk(full, out);
-      else if (entry.endsWith(".js") && !entry.endsWith(".test.mjs")) out.push(full);
+      else if ((entry.endsWith(".js") && !entry.endsWith(".test.mjs")) || entry.endsWith(".html")) out.push(full);
     }
     return out;
   }
 
+  //: 自建封装启发式：函数名里带 fetch，且函数体开头（900 字符内）直接 `await fetch(`。
+  const FETCH_FN = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*[Ff]etch[\w$]*)\s*\(/g;
   const offenders = [];
-  for (const file of walk(webRoot)) {
-    if (file === join(root, "api.js")) continue;
-    const text = readFileSync(file, "utf8");
-    const re = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*[Ff]etch[\w$]*)\s*\(/g;
+  function scanSource(file, text) {
     let match;
-    while ((match = re.exec(text))) {
+    FETCH_FN.lastIndex = 0;
+    while ((match = FETCH_FN.exec(text))) {
       const body = text.slice(match.index, match.index + 900);
-      if (body.includes("await fetch(")) offenders.push(file.replace(webRoot, "web") + "::" + match[1]);
+      if (body.includes("await fetch(")) {
+        offenders.push(file.replace(webRoot, "web") + "::" + match[1]);
+      }
+    }
+  }
+
+  for (const file of walk(webRoot)) {
+    if (file === join(root, "api.js")) continue;   // 唯一实现本体
+    const text = readFileSync(file, "utf8");
+    scanSource(file, text);
+    if (file.endsWith(".html")) {
+      // 内联脚本：只取不带 src 的 <script> 块（src 引用的外部文件上面已单独扫过）。
+      const inlineRe = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+      let block;
+      while ((block = inlineRe.exec(text))) scanSource(file, block[1]);
     }
   }
   assert.deepEqual(offenders, [], "JSON fetch 封装应只在 web/shared/api.js：" + offenders.join(", "));

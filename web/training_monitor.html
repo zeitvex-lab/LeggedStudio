@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="play-overrides.css">
   <link rel="stylesheet" href="training-monitor.css">
   <link rel="stylesheet" href="shared/ui.css">
+  <!-- 本页有 34px 高的固定底部状态栏：共享 toast 默认贴底 24px 会压在状态栏上，
+       本页局部抬到状态栏之上（= 原自建 toast 的 56px 位置）。 -->
+  <style>.ls-toast { bottom: 56px; }</style>
 </head>
 <body>
   <script>if (new URLSearchParams(location.search).get('embedded') === '1') document.body.classList.add('embedded');</script>
@@ -233,9 +236,8 @@
     <div class="bs-right" id="pollHint">状态 3s · 日志 4s · 指标 5s · 检查点 15s · 页面隐藏时暂停</div>
   </footer>
 
-  <div class="toast" id="toast"></div>
-
   <script src="shared/api.js"></script>
+  <script src="shared/feedback.js"></script>
   <script src="training-common.js"></script>
   <script src="shared/topnav.js"></script>
   <script>
@@ -282,13 +284,6 @@
       $('pollHint').textContent = '无轮询';
     }
 
-    function showToast(message) {
-      const toast = $('toast');
-      toast.textContent = message;
-      toast.classList.add('visible');
-      setTimeout(() => toast.classList.remove('visible'), 1800);
-    }
-
     function loadAllNow() {
       loadTrainingStatus();
       loadTrainingLogs();
@@ -299,7 +294,7 @@
 
     // ---------- 复制工具 ----------
     function copyText(text) {
-      const done = () => showToast('已复制到剪贴板');
+      const done = () => LSFeedback.toast('已复制到剪贴板');
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
       } else {
@@ -1012,10 +1007,10 @@
           body: JSON.stringify({}),
         });
         const art = data.artifact || {};
-        showToast(`已入库：${art.artifact_id}（sha ${String(art.onnx_sha256 || '').slice(0, 10)}…）`);
+        LSFeedback.toast(`已入库：${art.artifact_id}（sha ${String(art.onnx_sha256 || '').slice(0, 10)}…）`, { type: 'ok' });
         loadRunArchive();
       } catch (error) {
-        alert('入库失败: ' + error.message + '\n（判据全取自 Run 档案：未完成 / 缺 exported/policy.onnx 均会如实拒绝）');
+        LSFeedback.error('入库失败: ' + error.message + '\n（判据全取自 Run 档案：未完成 / 缺 exported/policy.onnx 均会如实拒绝）');
       } finally {
         btn.disabled = false;
         btn.textContent = '入库到产物库';
@@ -1025,15 +1020,16 @@
     // ---------- 停止 ----------
     async function stopTraining() {
       if (!taskId) return;
-      if (!confirm(`确定要停止训练任务 ${taskId} 吗？`)) return;
+      const confirmed = await LSFeedback.confirm(`确定要停止训练任务 ${taskId} 吗？`, { title: '停止训练任务', danger: true });
+      if (!confirmed) return;
       try {
         const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/stop`, { method: 'POST' });
         if (data.success) {
-          showToast('训练已停止');
+          LSFeedback.toast('训练已停止');
           loadTrainingStatus();
         }
       } catch (error) {
-        alert('停止失败: ' + error.message);
+        LSFeedback.error('停止失败: ' + error.message);
       }
     }
 
@@ -1047,7 +1043,7 @@
 
     $('refreshBtn').addEventListener('click', () => {
       loadAllNow();
-      showToast('已刷新');
+      LSFeedback.toast('已刷新');
     });
 
     $('copyIdBtn').addEventListener('click', () => {

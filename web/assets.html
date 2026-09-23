@@ -48,13 +48,15 @@
     <p class="toolbar-note">索引具备自动同步：任何包新增/修改/删除都会在下一次读取时被检测并重建，无需手动刷新。内置包（assets/robots）为只读。</p>
     <section id="packageList" class="package-grid"><div class="empty">正在读取机器人包...</div></section>
   </main>
+  <script src="shared/api.js"></script>
+  <script src="shared/feedback.js"></script>
   <script>
     const API=window.location.origin,$=s=>document.querySelector(s);
     function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
     async function load(){
       const list=$('#packageList');list.innerHTML='<div class="empty">正在读取机器人包...</div>';
       try{
-        const r=await fetch(API+'/api/robots/presets');const data=await r.json();
+        const data=await LSApi.fetchJson(API+'/api/robots/presets');
         const packages=(data.presets||[]).slice().sort((a,b)=>String(a.robot_id).localeCompare(String(b.robot_id)));
         list.innerHTML=packages.length?packages.map(item=>{
           const pkg=item.robot_package||{},root=pkg.package_root||'';
@@ -77,30 +79,34 @@
             <code>${esc(root||'-')}</code>${actions}
           </article>`}).join(''):'<div class="empty">没有机器人包。可在上方输入路径导入，或将包放入工作区 packages/ 目录。</div>';
         list.querySelectorAll('[data-delete]').forEach(button=>button.onclick=async()=>{
-          if(!confirm('确认删除该工作区包？（内置包不受影响）'))return;
-          const r=await fetch(API+'/api/robots/packages/'+encodeURIComponent(button.dataset.delete),{method:'DELETE'});
-          const d=await r.json().catch(()=>({}));
-          if(!r.ok||d.success===false){alert('删除失败：'+(d.error||d.detail||r.status));}
+          if(!await LSFeedback.confirm('确认删除该工作区包？（内置包不受影响）',{title:'删除工作区包',danger:true}))return;
+          try{
+            await LSApi.fetchJson(API+'/api/robots/packages/'+encodeURIComponent(button.dataset.delete),{method:'DELETE'});
+            LSFeedback.toast('已删除工作区包：'+button.dataset.delete,{type:'ok'});
+          }catch(error){
+            LSFeedback.error('删除失败：'+error.message);
+          }
           load();
         });
       }catch(error){list.innerHTML='<div class="empty">包列表读取失败：'+esc(error.message)+'</div>';}
     }
     $('#refresh').onclick=async()=>{
       const btn=$('#refresh');btn.disabled=true;const old=btn.textContent;btn.textContent='重建中...';
-      try{const r=await fetch(API+'/api/robots/packages/refresh',{method:'POST'});const d=await r.json();
-        btn.textContent=`已同步 ${d.count||0} 个`;}catch(e){btn.textContent='刷新失败';}
+      try{const d=await LSApi.fetchJson(API+'/api/robots/packages/refresh',{method:'POST'});
+        btn.textContent=`已同步 ${d.count||0} 个`;}catch(error){btn.textContent='刷新失败';LSFeedback.error('刷新失败：'+error.message);}
       setTimeout(()=>{btn.disabled=false;btn.textContent=old;load();},900);
     };
     $('#importBtn').onclick=async()=>{
       const input=$('#importPath');const path=input.value.trim();
-      if(!path){alert('请先输入机器人包目录的绝对路径');return;}
+      if(!path){LSFeedback.error('请先输入机器人包目录的绝对路径');return;}
       const btn=$('#importBtn');btn.disabled=true;const old=btn.textContent;btn.textContent='导入中...';
       try{
-        const r=await fetch(API+'/api/robots/packages/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
-        const d=await r.json().catch(()=>({}));
-        if(!r.ok||d.success===false){alert('导入失败：'+(d.detail||d.error||r.status));}
-        else{input.value='';alert(`已导入 ${d.robot_id}\n档案：${(d.record_summary&&d.record_summary.profiles||[]).join(', ')||'无'}`);}
-      }catch(e){alert('导入失败：'+e.message);}
+        const d=await LSApi.fetchJson(API+'/api/robots/packages/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
+        input.value='';
+        LSFeedback.toast(`已导入 ${d.robot_id}\n档案：${(d.record_summary&&d.record_summary.profiles||[]).join(', ')||'无'}`,{type:'ok'});
+      }catch(error){
+        LSFeedback.error('导入失败：'+error.message);
+      }
       btn.disabled=false;btn.textContent=old;load();
     };
     load();

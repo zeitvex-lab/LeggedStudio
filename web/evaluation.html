@@ -37,8 +37,30 @@
   <div id="q-out"><div class="empty-state">未评测</div></div>
   <h3>历史报告</h3>
   <div id="q-list"><div class="empty-state">加载中...</div></div>
-</section></main><script>
-const API=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://127.0.0.1:8765',taskEl=document.querySelector('#task'),resultEl=document.querySelector('#result');async function load(){const r=await fetch(API+'/api/evaluation/list');const d=await r.json();taskEl.innerHTML=(d.tasks||[]).map(x=>`<option value="${x.task_id}">${x.robot} · ${x.task_id}</option>`).join('')||'<option value="">暂无可评估产物</option>'}async function run(){if(!taskEl.value)return;resultEl.innerHTML='<div class="empty-state">评估运行中...</div>';const r=await fetch(API+'/api/evaluation/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:taskEl.value,episodes:Number(document.querySelector('#episodes').value)})});const d=await r.json();if(!r.ok){resultEl.innerHTML=`<div class="empty-state">${d.detail||'评估失败'}</div>`;return}const x=d.result;resultEl.innerHTML=`<h2>${x.robot}</h2><p>${x.evaluated_env} · ${x.episodes} episodes</p><div class="result-grid"><div class="metric"><span>平均奖励</span><strong>${x.avg_reward.toFixed(3)}</strong></div><div class="metric"><span>奖励标准差</span><strong>${x.std_reward.toFixed(3)}</strong></div><div class="metric"><span>平均前进速度</span><strong>${x.avg_forward_velocity.toFixed(3)}</strong></div><div class="metric"><span>成功率</span><strong>${(x.success_rate*100).toFixed(1)}%</strong></div></div>`}document.querySelector('#run').onclick=run;load();
+</section></main><script src="shared/api.js"></script><script src="shared/feedback.js"></script><script>
+const API=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://127.0.0.1:8765',taskEl=document.querySelector('#task'),resultEl=document.querySelector('#result');
+async function load(){
+  try{
+    const d=await LSApi.fetchJson(API+'/api/evaluation/list');
+    taskEl.innerHTML=(d.tasks||[]).map(x=>`<option value="${x.task_id}">${x.robot} · ${x.task_id}</option>`).join('')||'<option value="">暂无可评估产物</option>';
+  }catch(error){
+    // 读取失败不得伪装成"暂无可评估产物"（故障 ≠ 空数据）。
+    taskEl.innerHTML='<option value="">可评估产物读取失败</option>';
+    LSFeedback.error('可评估产物读取失败：'+error.message);
+  }
+}
+async function run(){
+  if(!taskEl.value)return;
+  resultEl.innerHTML='<div class="empty-state">评估运行中...</div>';
+  try{
+    const d=await LSApi.fetchJson(API+'/api/evaluation/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:taskEl.value,episodes:Number(document.querySelector('#episodes').value)})});
+    const x=d.result;
+    resultEl.innerHTML=`<h2>${x.robot}</h2><p>${x.evaluated_env} · ${x.episodes} episodes</p><div class="result-grid"><div class="metric"><span>平均奖励</span><strong>${x.avg_reward.toFixed(3)}</strong></div><div class="metric"><span>奖励标准差</span><strong>${x.std_reward.toFixed(3)}</strong></div><div class="metric"><span>平均前进速度</span><strong>${x.avg_forward_velocity.toFixed(3)}</strong></div><div class="metric"><span>成功率</span><strong>${(x.success_rate*100).toFixed(1)}%</strong></div></div>`;
+  }catch(error){
+    resultEl.innerHTML=`<div class="empty-state">${error.message||'评估失败'}</div>`;
+  }
+}
+document.querySelector('#run').onclick=run;load();
 </script>
 <script>
 // E 组：质量矩阵（B11 八指标 / 四档）。
@@ -129,13 +151,14 @@ async function runQuality() {
     magnitudes: qEl("q-magnitudes").value,
     save: true,
   };
-  const response = await fetch(API + "/api/evaluation/quality/run", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
-  });
-  const data = await response.json();
-  if (!response.ok) {
+  let data;
+  try {
+    data = await LSApi.fetchJson(API + "/api/evaluation/quality/run", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+  } catch (error) {
     // 501 = 环境没准备好（缺适配器 venv）；页面如实说，不显示"评测失败"这种查不出原因的话。
-    qOut.innerHTML = `<div class="empty-state">${escapeHtml(data.detail || "评测未启动")}</div>`;
+    qOut.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
     return;
   }
   renderQuality(data.report, data.verdict);
@@ -143,8 +166,15 @@ async function runQuality() {
 }
 
 async function loadQualityReports() {
-  const response = await fetch(API + "/api/evaluation/quality/list");
-  const data = await response.json();
+  let data;
+  try {
+    data = await LSApi.fetchJson(API + "/api/evaluation/quality/list");
+  } catch (error) {
+    // 读取失败不能显示成"还没有质量报告"（读取失败 ≠ 未评测）。
+    qReportList.innerHTML = `<div class="empty-state">历史报告读取失败：${escapeHtml(error.message)}</div>`;
+    LSFeedback.error('历史报告读取失败：' + error.message);
+    return;
+  }
   const reports = data.reports || [];
   qReportList.innerHTML = reports.length
     ? `<table class="quality-table"><thead><tr><th>报告</th><th>策略</th><th>档位</th><th>分数</th><th>时间</th></tr></thead><tbody>${
@@ -156,9 +186,7 @@ async function loadQualityReports() {
 }
 
 async function loadQualityRobots() {
-  const response = await fetch(API + "/api/robots/presets?summary=1");
-  if (!response.ok) throw new Error(`robots/presets ${response.status}`);
-  const data = await response.json();
+  const data = await LSApi.fetchJson(API + "/api/robots/presets?summary=1");
   const presets = data.presets || [];
   qEl("q-robot").innerHTML = presets.length
     ? '<option value="">选择机器人…</option>' + presets.map((item) =>
@@ -170,9 +198,14 @@ async function loadQualityPolicies() {
   const robot = qEl("q-robot").value;
   if (!robot) { qEl("q-policy").innerHTML = '<option value="">先选机器人</option>'; return; }
   qEl("q-policy").innerHTML = '<option>加载中...</option>';
-  const response = await fetch(API + `/api/robots/presets/${encodeURIComponent(robot)}`);
-  if (!response.ok) { qEl("q-policy").innerHTML = '<option value="">策略清单不可用</option>'; return; }
-  const preset = await response.json();
+  let preset;
+  try {
+    preset = await LSApi.fetchJson(API + `/api/robots/presets/${encodeURIComponent(robot)}`);
+  } catch (error) {
+    qEl("q-policy").innerHTML = '<option value="">策略清单不可用</option>';
+    LSFeedback.error('策略清单读取失败：' + error.message);
+    return;
+  }
   // 与 browser-config 同口径：读包内 simulation/config.json 声明的策略 id
   const policies = ((preset.simulation_config || {}).policies || []).filter((item) => item && item.id);
   qEl("q-policy").innerHTML = policies.length
@@ -184,5 +217,6 @@ qEl("q-robot").addEventListener("change", loadQualityPolicies);
 qEl("q-run").addEventListener("click", runQuality);
 loadQualityRobots().then(loadQualityReports).catch((error) => {
   qOut.innerHTML = `<div class="empty-state">${escapeHtml(error?.message || error)}</div>`;
+  LSFeedback.error('质量矩阵初始化失败：' + (error?.message || error));
 });
 </script></body></html>

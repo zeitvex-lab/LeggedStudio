@@ -90,13 +90,14 @@
     </div>
   </div>
 
+  <script src="shared/api.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let currentRobot = '';
 
     async function loadRobots() {
       try {
-        const data = await fetch('/api/robots/presets').then((r) => r.json());
+        const data = await LSApi.fetchJson('/api/robots/presets');
         const presets = Array.isArray(data) ? data : data.presets || [];
         const select = $('robotSelect');
         select.innerHTML = '<option value="">选择机器人…</option>' + presets
@@ -128,7 +129,7 @@
       $('runGate').textContent = '校验中…';
       try {
         // gate A：契约一致性（服务端 v3 vs v2 层间快检；导出侧另有训练快照强校验）
-        const report = await fetch(`/api/deploy/gate/${encodeURIComponent(currentRobot)}`).then((r) => r.json());
+        const report = await LSApi.fetchJson(`/api/deploy/gate/${encodeURIComponent(currentRobot)}`);
         const rows = [];
         // U13：包里没有 contract.json 时，服务端 v3={} 会让每个 DENYLIST 字段都报
         // 「源侧未声明 → 不对称 fail-closed」——那是「没有 真值契约可校验」，不是逐字段「校验不通过」。
@@ -171,11 +172,11 @@
       $('genPack').disabled = true;
       $('genPack').textContent = '生成中…';
       try {
-        const report = await fetch('/api/deploy/package', {
+        const report = await LSApi.fetchJson('/api/deploy/package', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ robot_id: currentRobot, degraded: $('degradedToggle').checked, target_platform: $('platformSelect').value, bench_mode: $('benchToggle').checked }),
-        }).then((r) => r.json());
+        });
         if (!report.success) throw new Error(report.detail || '生成失败');
         $('packResult').innerHTML = `
           ✅ 部署包已生成：<a href="${report.download_url}">下载 ${report.robot_id} 部署包</a>

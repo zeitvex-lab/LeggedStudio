@@ -786,23 +786,6 @@
     }
     .inline-error.visible { display: block; }
 
-    .toast {
-      position: fixed;
-      left: 50%; bottom: 32px;
-      transform: translateX(-50%) translateY(8px);
-      padding: 12px 20px;
-      border-radius: 6px;
-      background: var(--cyan-dim);
-      border: 1px solid rgba(55, 214, 198, 0.4);
-      color: var(--cyan);
-      font-size: 13px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s ease, transform 0.2s ease;
-      z-index: 100;
-    }
-    .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-
     .retry-link { color: var(--cyan); cursor: pointer; text-decoration: underline; background: none; border: none; font: inherit; }
 
     @media (max-width: 1280px) {
@@ -1255,9 +1238,8 @@
     </main>
   </div>
 
-  <div class="toast" id="toast"></div>
-
   <script src="shared/api.js"></script>
+  <script src="shared/feedback.js"></script>
   <script src="training-common.js"></script>
   <script src="shared/topnav.js"></script>
   <script>
@@ -1308,15 +1290,7 @@
     };
 
     // ---------- 通用小工具 ----------
-    let toastTimer = null;
-    function showToast(message) {
-      const toast = $('toast');
-      toast.textContent = message;
-      toast.classList.add('visible');
-      if (toastTimer) clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => toast.classList.remove('visible'), 2200);
-    }
-
+    // toast 统一走 shared/feedback.js（LSFeedback.toast）；本页只保留表单内联错误框。
     function showError(message) {
       const box = $('formError');
       if (!message) { box.classList.remove('visible'); box.textContent = ''; return; }
@@ -1727,7 +1701,7 @@
         });
         renderSchemaViews();
         updateAll();
-        showToast('已恢复配方奖励权重');
+        LSFeedback.toast('已恢复配方奖励权重', { type: 'ok' });
         return;
       }
       Object.entries(state.rewardDefaults).forEach(([id, weight]) => {
@@ -1906,17 +1880,13 @@
       }
       setInner('expertDetails', '<div class="ro-note">校验中…</div>');
       try {
-        const response = await fetch('/api/training/validate-overrides', {
+        const report = await fetchJson('/api/training/validate-overrides', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             robot_id: preset.robot_id, profile_id: state.profileId, overrides: edits,
           }),
         });
-        const report = await response.json();
-        if (!response.ok) {
-          throw new Error((report && report.detail) ? String(report.detail) : `HTTP ${response.status}`);
-        }
         const rows = (report.details || []).map(item => [item.path, item.value]);
         const head = report.ok
           ? `<div class="ro-note">✓ 通过 ${rows.length} 条（目录：${escapeHtml(report.catalog)}）</div>`
@@ -2464,11 +2434,11 @@
           if (!raw) return;
           const [path, ...rest] = raw.split(/\s+/);
           const value = rest.join(' ');
-          if (value === '' || path === '') { showToast('点路径改写格式：路径 值'); return; }
+          if (value === '' || path === '') { LSFeedback.error('点路径改写格式：路径 值'); return; }
           const num = Number(value);
           state.overrides[path] = Number.isFinite(num) ? num : value;
           updateOverrideUI(); renderObsMappingBoard();
-          showToast('已写入覆盖：' + path);
+          LSFeedback.toast('已写入覆盖：' + path, { type: 'ok' });
         });
       }
     }
@@ -2483,14 +2453,14 @@
         if (input && obsExpertMode) {
           input.value = item.path + ' ';
           input.focus();
-          showToast('已填入库项点路径：' + name + '（在值位置键入后回车写入覆盖）');
+          LSFeedback.toast('已填入库项点路径：' + name + '（在值位置键入后回车写入覆盖）');
         } else {
           const toggle = document.getElementById('obsExpertToggle');
           if (toggle) toggle.checked = true; obsExpertMode = true;
           input.style.display = 'block';
           input.value = item.path + ' ';
           input.focus();
-          showToast('已开启专家模式并填入库项点路径：' + name);
+          LSFeedback.toast('已开启专家模式并填入库项点路径：' + name);
         }
         return;
       }
@@ -2500,7 +2470,7 @@
         const term = removeBtn.dataset.term;
         const path = `environment.observations.${group}.terms.${term}`;
         delete state.overrides[path];
-        showToast('已移除观测项：' + term);
+        LSFeedback.toast('已移除观测项：' + term);
         renderObsMappingBoard();
         return;
       }
@@ -2515,7 +2485,7 @@
         state.overrides[item.obs_source_path] = val;
         updateOverrideUI();
         renderObsMappingBoard();
-        showToast(`${name} 观测来源 → ${val}`);
+        LSFeedback.toast(`${name} 观测来源 → ${val}`);
         return;
       }
     });
@@ -2607,7 +2577,7 @@
       renderSchemaViews();
       updateOverrideUI();
       updateTocBadges();
-      showToast('已清除全部覆盖，恢复配方默认');
+      LSFeedback.toast('已清除全部覆盖，恢复配方默认');
     });
 
     function chapterOverrideCount(chapter) {
@@ -2796,7 +2766,7 @@
       const config = collectConfig();
       const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       downloadText(`training-config-${config.task_name || 'task'}-${stamp}.json`, JSON.stringify(config, null, 2) + '\n');
-      showToast('配置已导出为 JSON');
+      LSFeedback.toast('配置已导出为 JSON');
     });
 
     $('importBtn').addEventListener('click', () => $('importFile').click());
@@ -2809,7 +2779,7 @@
       reader.onload = () => {
         try {
           applyConfig(JSON.parse(String(reader.result)));
-          showToast('配置已导入');
+          LSFeedback.toast('配置已导入', { type: 'ok' });
           showError('');
         } catch (error) {
           showError(`导入失败：${error.message}`);
@@ -3049,14 +3019,14 @@
         });
 
         if (data.idempotent_replay) {
-          showToast(`复用已有训练任务：${data.task_id}`);
+          LSFeedback.toast(`复用已有训练任务：${data.task_id}`, { type: 'ok' });
           setTimeout(() => { window.location.href = `training_monitor.html?task_id=${encodeURIComponent(data.task_id)}`; }, 500);
           return;
         }
 
         if (!data.success) throw new Error(data.detail || '创建失败');
 
-        showToast(`训练任务已创建：${data.task_id}`);
+        LSFeedback.toast(`训练任务已创建：${data.task_id}`, { type: 'ok' });
         setTimeout(() => { window.location.href = `training_monitor.html?task_id=${encodeURIComponent(data.task_id)}`; }, 500);
       } catch (error) {
         showError(`创建训练失败：${error.message}`);

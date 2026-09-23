@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="shared/ui.css">
   <style>
     body.embedded .list-container, body.embedded .content { padding-top: 14px; }
+  /* 行可键盘打开（Enter/空格）：焦点必须看得见 */
+  .table-row:focus-visible { outline: 2px solid var(--ls-accent, #2478c5); outline-offset: -2px; }
   
     .list-container {
       max-width: 1280px;
@@ -268,17 +270,7 @@
       .col-algo, .head-algo { display: none; }
     }
   </style>
-</head>
-<body>
-  <script>if (new URLSearchParams(location.search).get('embedded') === '1') document.body.classList.add('embedded');</script>
-  <div class="app-shell">
-    <!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css） -->
-    <header id="lsTopNav"></header>
-  <main class="content">
-  <div class="list-container">
-    <!-- T2.5：模块化资源包（模仿学习三线为对标两家均无的独有优势） -->
-    <section class="pack-strip" id="packStrip" aria-label="模块化资源包"></section>
-    <style>
+  <style>
       .pack-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin: 12px 0; }
       .pack-card { border: 1px solid var(--line-soft, #e8eff4); border-radius: 8px; background: #fff; padding: 10px 12px; }
       .pack-card strong { display: block; margin-bottom: 4px; color: #1d2935; }
@@ -289,7 +281,17 @@
       .pack-card .pack-manifest code { color: #2478c5; font-size: 11px; }
       .pack-card .pack-manifest em { color: #8a5a12; font-style: normal; }
       .pack-card .pack-manifest b { margin-left: auto; color: #687582; font-family: Consolas, monospace; font-size: 11px; font-weight: 500; }
-    </style>
+  </style>
+</head>
+<body>
+  <script>if (new URLSearchParams(location.search).get('embedded') === '1') document.body.classList.add('embedded');</script>
+  <div class="app-shell">
+    <!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css） -->
+    <header id="lsTopNav"></header>
+  <main class="content">
+  <div class="list-container">
+    <!-- T2.5：模块化资源包（模仿学习三线为对标两家均无的独有优势） -->
+    <section class="pack-strip" id="packStrip" aria-label="模块化资源包"></section>
     <!-- 页面头部 -->
     <header class="page-header">
       <div>
@@ -348,6 +350,7 @@
   </div>
 
   <script src="shared/api.js"></script>
+  <script src="shared/feedback.js"></script>
   <script src="training-common.js"></script>
   <script src="shared/topnav.js"></script>
   <script>
@@ -409,21 +412,26 @@
     }
 
     // F1：Run 档案徽章 —— 列表直接回答"这份 Run 可复现吗 / 入库了吗"。
-    // 与质量徽章同模式：失败静默（缺徽章只影响信息密度），完成/停止态才拉取。
+    // 与质量徽章同模式：完成/停止态才拉取；**失败不再静默**——徽章拉不到时
+    // 用共享 toast 报出 LSApi 的错误原话（轮询页同一文案由 feedback.js 去重）。
     let runByTask = {};
     let runSeq = 0;
     async function loadRunBadges() {
       const seq = ++runSeq;
       const targets = allTasks.filter((t) => ['completed', 'stopped'].includes(String(t.status || '')));
+      const failures = [];
       await Promise.all(targets.map(async (task) => {
         try {
-          const res = await fetch(`/api/training/${encodeURIComponent(task.task_id)}/run?summary=1`);
-          if (!res.ok) return;
-          const data = await res.json();
+          const data = await fetchJson(`/api/training/${encodeURIComponent(task.task_id)}/run?summary=1`);
           if (seq === runSeq) runByTask[task.task_id] = data;
-        } catch (_) { /* ignore */ }
+        } catch (error) { failures.push(error.message); }
       }));
-      if (seq === runSeq) render();
+      if (seq === runSeq) {
+        if (failures.length) {
+          LSFeedback.error(`Run 档案徽章读取失败（${failures.length} 项）：${failures[0]}`);
+        }
+        render();
+      }
     }
 
     function runBadges(taskId) {
@@ -447,21 +455,25 @@
     }
 
     // 质量徽章（清单 ⑥⑧）：并行拉每个任务的 preflight 探针 / ONNX 验收结论。
-    // 失败静默——徽章缺失只影响信息密度，不影响列表可用性。
+    // 失败不再静默：读不到就如实 toast（否则"没有徽章"与"没达标"看起来一样）。
     let qualityByTask = {};
     let qualitySeq = 0;
     async function loadQualityBadges() {
       const seq = ++qualitySeq;
       const targets = allTasks.filter((t) => ['completed', 'stopped'].includes(String(t.status || '')));
+      const failures = [];
       await Promise.all(targets.map(async (task) => {
         try {
-          const res = await fetch(`/api/training/${encodeURIComponent(task.task_id)}/quality`);
-          if (!res.ok) return;
-          const data = await res.json();
+          const data = await fetchJson(`/api/training/${encodeURIComponent(task.task_id)}/quality`);
           if (seq === qualitySeq) qualityByTask[task.task_id] = data.badges || {};
-        } catch (_) { /* ignore */ }
+        } catch (error) { failures.push(error.message); }
       }));
-      if (seq === qualitySeq) render();
+      if (seq === qualitySeq) {
+        if (failures.length) {
+          LSFeedback.error(`质量徽章读取失败（${failures.length} 项）：${failures[0]}`);
+        }
+        render();
+      }
     }
 
     function qualityBadges(taskId) {
@@ -582,7 +594,7 @@
             <span style="display:block; font-size: 11px; color: var(--faint); margin-top:4px;">${escapeHtml(meta.speedText)}</span>
           </div>`;
         return `
-          <div class="table-row" onclick="viewTask('${escapeHtml(task.task_id)}')" title="点击查看监控页面">
+          <div class="table-row" onclick="viewTask('${escapeHtml(task.task_id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();viewTask('${escapeHtml(task.task_id)}')}" role="link" tabindex="0" title="点击查看监控页面（Enter 打开）">
             <div class="task-info">
               <strong title="${escapeHtml(task.task_id)}">${escapeHtml(task.task_id)}</strong>
               <span>${escapeHtml(taskSubtitle(task))}${qualityBadges(task.task_id)}${runBadges(task.task_id)}</span>
@@ -626,25 +638,38 @@
     }
 
     async function stopTask(taskId) {
-      if (!confirm(`确定要停止训练任务 ${taskId} 吗？`)) return;
+      const confirmed = await LSFeedback.confirm(`确定要停止训练任务 ${taskId} 吗？`, { title: '停止训练任务', danger: true });
+      if (!confirmed) return;
       try {
         const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}/stop`, { method: 'POST' });
-        if (data.success) loadTrainingList();
+        if (data.success) {
+          LSFeedback.toast(`已停止训练任务 ${taskId}`);
+          loadTrainingList();
+        } else {
+          LSFeedback.error('停止失败：后端未确认停止成功');
+        }
       } catch (error) {
-        alert('停止失败: ' + error.message);
+        LSFeedback.error('停止失败: ' + error.message);
       }
     }
 
     async function deleteTask(taskId) {
-      if (!confirm(`确定要从列表删除任务 ${taskId} 吗？\n（仅移除任务记录，不会删除工作区文件）`)) return;
+      const confirmed = await LSFeedback.confirm(
+        `确定要从列表删除任务 ${taskId} 吗？\n（仅移除任务记录，不会删除工作区文件）`,
+        { title: '删除任务记录', danger: true },
+      );
+      if (!confirmed) return;
       try {
         const data = await fetchJson(`/api/training/${encodeURIComponent(taskId)}`, { method: 'DELETE' });
         if (data.success) {
           rateTrackers.delete(taskId);
+          LSFeedback.toast('已删除任务记录：' + taskId);
           loadTrainingList();
+        } else {
+          LSFeedback.error('删除失败：后端未确认删除成功');
         }
       } catch (error) {
-        alert('删除失败: ' + error.message);
+        LSFeedback.error('删除失败: ' + error.message);
       }
     }
 
