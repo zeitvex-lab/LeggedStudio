@@ -5,35 +5,8 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field
-from starlette.concurrency import run_in_threadpool
-from typing import Any, List, Optional, Literal
-from datetime import datetime
-from pathlib import Path
-import json
-import os
-import subprocess
-import sys
-import tempfile
-
-from backend.training_config_helpers import (  # noqa: F401
-    _terrain_mixes, _observation_summary, _terminations_summary,
-    _domain_randomization, _schema_workspace, _schema_cache_path,
-    _schema_interpreter, _read_profile_mtime, _dump_schema_via_worker,
-)
-from backend.training_manager import get_training_manager
-from backend.robot_presets import get_robot_preset
-from backend.robot_packages import package_for_contract
-from contracts.contract_legacy_v2 import ContractLegacyV2
-from adapters.mjlab.env_factory import get_reward_terms
-from adapters.mjlab.algorithms.registry import list_algorithms
-from adapters.mjlab.recipe_registry import list_tasks, resolve_recipe
-from adapters.backend_adapter import list_backend_descriptors
-
-
-router = APIRouter(prefix="/api/training", tags=["training"])
-
+from typing import Any
 
 
 class CreateTrainingRequest(BaseModel):

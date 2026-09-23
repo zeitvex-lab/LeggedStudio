@@ -41,7 +41,7 @@ from unittest import mock  # noqa: E402
 
 from adapters.mjlab import native_adapter  # noqa: E402
 
-CREATE_PY = ROOT / "backend" / "training" / "create.py"
+CREATE_PY = ROOT / "backend" / "training" / "service.py"
 
 #: 源码 checkout 的"完整"标志文件（与 native_adapter 的判据同源，不另立清单）
 _CHECKOUT_FILES = (

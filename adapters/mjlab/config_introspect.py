@@ -13,12 +13,7 @@ unit-test this module without mjlab or torch, and the worker's
 
 from __future__ import annotations
 
-import copy
 import enum
-import importlib
-import inspect
-import os
-import sys
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -216,48 +211,47 @@ def iter_leaves(obj: Any, prefix: str = "") -> Iterator[tuple[str, Any]]:
             yield prefix, _leaf_value(obj)
 
 
-def _resolve_entrypoint_attr(entrypoint: str) -> Any:
-    """Resolve a ``module:attr`` entrypoint to a config instance.
+def build_training_preview(config: dict, contract: dict) -> dict:
+    from adapters.mjlab.task_config import assemble_training_config, find_training_profile
 
-    Callable attributes (factories) are invoked with no arguments — package
-    env factories use ``play=False`` defaults, so this yields the training
-    config; plain config objects are deep-copied so callers can mutate freely.
-    """
-    module_name, separator, attr_name = str(entrypoint).partition(":")
-    if not separator or not module_name or not attr_name:
-        raise ValueError(f"invalid entrypoint: {entrypoint!r}; expected module:attr")
-    attr = getattr(importlib.import_module(module_name), attr_name, None)
-    if attr is None:
-        raise AttributeError(f"entrypoint attribute not found: {entrypoint}")
-    if callable(attr):
-        return attr()
-    return copy.deepcopy(attr)
+    package = config.get("robot_package") or {}
+    profile = find_training_profile(package, config.get("profile_id"))
+    if profile:
+        config = {**config, "package_profile": profile}
+        source = Path(package["package_root"]) / profile.get("source_root", "training/source")
+        return build_profile_schema(
+            source, profile["entrypoints"], profile["profile_id"],
+            config=config, profile=profile, package=package,
+        )
+    from adapters.mjlab.generic_task_builder import build_generic_task
+    from contracts.contract_legacy_v2 import ContractLegacyV2
+
+    bundle = build_generic_task(
+        ContractLegacyV2(**contract), config.get("resolved_recipe") or config,
+        asset_root=package.get("package_root") or Path(__file__).resolve().parents[2],
+        task_id=str(config.get("native_task_id") or "") or None,
+    )
+    assembled = assemble_training_config(bundle.env_cfg, bundle.rl_cfg, config)
+    return {**assembled.snapshot, "profile_id": None, "assembly": assembled.report}
 
 
-def build_profile_schema(source_root: Path | str, entrypoints: dict, profile_id: str | None = None) -> dict:
-    """Dump the full env + runner config trees declared by a training profile.
+def build_profile_schema(
+    source_root: Path | str, entrypoints: dict, profile_id: str | None = None,
+    *, config: dict | None = None, profile: dict | None = None,
+    package: dict | None = None,
+) -> dict:
+    from adapters.mjlab.task_config import assemble_training_config, load_profile_bundle
 
-    Imports the package-owned entrypoints with ``source_root`` on ``sys.path``
-    (and as CWD for relative asset loading), so this runs inside the isolated
-    adapter interpreter, never the control plane.
-    """
-    source_root = Path(source_root)
-    if not source_root.exists():
-        raise FileNotFoundError(f"profile source root not found: {source_root}")
-    source_str = str(source_root)
-    if source_str not in sys.path:
-        sys.path.insert(0, source_str)
-    os.chdir(source_root)
-    entrypoints = dict(entrypoints or {})
-    env_entrypoint = entrypoints.get("env")
-    runner_entrypoint = entrypoints.get("runner")
-    if not env_entrypoint or not runner_entrypoint:
-        raise ValueError(f"profile {profile_id!r} must declare entrypoints.env and entrypoints.runner")
-    env_cfg = _resolve_entrypoint_attr(env_entrypoint)
-    runner_cfg = _resolve_entrypoint_attr(runner_entrypoint)
+    source_root = Path(source_root).resolve()
+    profile = {**(profile or {}), "profile_id": profile_id,
+               "source_root": str(source_root), "entrypoints": dict(entrypoints or {})}
+    package = package or {"package_root": str(source_root)}
+    config = {"mode": "train", **(config or {})}
+    env_cfg, _, runner_cfg = load_profile_bundle(profile, package, config)
+    assembled = assemble_training_config(env_cfg, runner_cfg, config, profile=profile)
     return {
+        **assembled.snapshot,
         "profile_id": profile_id,
-        "environment": dump_config_tree(env_cfg),
-        "runner": dump_config_tree(runner_cfg),
-        "entrypoints": entrypoints,
+        "entrypoints": profile["entrypoints"],
+        "assembly": assembled.report,
     }

@@ -105,6 +105,21 @@ def coerce_value(raw: Any, type_name: str) -> tuple[Any, str | None]:
     return raw, None                              # 未登记的类型原样放行，不编规则
 
 
+def validate_override_policy(edits: Mapping[str, Any]) -> dict[str, Any]:
+    problems = []
+    for path in edits:
+        parts = str(path).split(".")
+        if not is_addressable(str(path)) or any(not part for part in parts):
+            problems.append(f"{path}: 不是可寻址的参数路径")
+        elif parts[0] not in {"environment", "runner"}:
+            problems.append(f"{path}: 路径必须以 environment 或 runner 开头")
+        elif any(part in STATIC_READONLY for part in parts):
+            problems.append(f"{path}: 只读参数必须在契约或任务配方中修改")
+    return {"ok": not problems, "applied": dict(edits) if not problems else {},
+            "details": [], "problems": problems, "catalog_size": 0,
+            "addressable": 0}
+
+
 def validate_edits(
     edits: Mapping[str, Any] | None,
     *,

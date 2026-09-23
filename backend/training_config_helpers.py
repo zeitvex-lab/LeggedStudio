@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from fastapi import HTTPException
+from backend.training.config_cache import schema_cache_path
 
 _ROOT = Path(__file__).resolve().parents[1]
 _SCHEMA_TIMEOUT_S = 60
@@ -81,12 +82,6 @@ def schema_workspace() -> Path:
     return workspace_root()
 
 
-def schema_cache_path(profile_id: str) -> Path:
-    """Resolve the per-profile schema cache file path."""
-    safe = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in str(profile_id)) or "profile"
-    return schema_workspace() / "schema_cache" / f"{safe}.json"
-
-
 def schema_interpreter() -> Optional[Path]:
     """Pick an interpreter able to import the profile's source dependencies."""
     from contracts.path_bootstrap import adapter_python
@@ -129,7 +124,10 @@ def read_profile_mtime(profile: dict) -> Optional[float]:
         return None
 
 
-def dump_schema_via_worker(robot_id: str, profile_id: str, profile: dict, package_root: str) -> dict:
+def dump_schema_via_worker(
+    robot_id: str, profile_id: str, profile: dict, package_root: str,
+    *, training_config: dict | None = None, contract: dict | None = None,
+) -> dict:
     """Spawn the adapter interpreter in --dump-schema mode and parse its JSON."""
     interpreter = schema_interpreter()
     if interpreter is None:
@@ -143,7 +141,10 @@ def dump_schema_via_worker(robot_id: str, profile_id: str, profile: dict, packag
         "package_root": package_root,
         "source_root": source_root,
         "entrypoints": profile.get("entrypoints") or {},
+        "profile": profile,
     }
+    if training_config is not None:
+        dump_config = {"training_config": training_config, "contract": contract}
     tmp = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
     schema_out = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
     try:

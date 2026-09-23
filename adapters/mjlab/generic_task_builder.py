@@ -250,7 +250,8 @@ def _build_observations(contract: Any):
 def _build_commands(environment: dict[str, Any], observation_terms: list[str]):
     if "command" not in observation_terms:
         return {}
-    from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
+    from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
+
     ranges = environment.get("command_ranges", {}) or {}
     def pair(name: str, default: tuple[float, float]):
         value = ranges.get(name)
@@ -258,21 +259,40 @@ def _build_commands(environment: dict[str, Any], observation_terms: list[str]):
             aliases = {"lin_vel_x": "vx", "lin_vel_y": "vy", "ang_vel_z": "wz"}
             value = ranges.get(aliases[name])
         return tuple(float(item) for item in value) if value is not None else default
-    return {
-        "twist": UniformVelocityCommandCfg(
-            entity_name="robot",
-            ranges=UniformVelocityCommandCfg.Ranges(
-                lin_vel_x=pair("lin_vel_x", (-1.0, 1.0)),
-                lin_vel_y=pair("lin_vel_y", (-1.0, 1.0)),
-                ang_vel_z=pair("ang_vel_z", (-1.0, 1.0)),
-                heading=(-math.pi, math.pi),
-            ),
-            debug_vis=False,
-        )
-    }
+    # Mirror MJLab's own velocity task (heading_command / resampling / rel_* envs are
+    # version-owned truth); only the user-facing velocity ranges get overridden.
+    command = deepcopy(make_velocity_env_cfg().commands["twist"])
+    command.debug_vis = False
+    command.ranges.lin_vel_x = pair("lin_vel_x", command.ranges.lin_vel_x)
+    command.ranges.lin_vel_y = pair("lin_vel_y", command.ranges.lin_vel_y)
+    command.ranges.ang_vel_z = pair("ang_vel_z", command.ranges.ang_vel_z)
+    return {"twist": command}
 
 
-def _build_rewards(recipe: Any, has_commands: bool):
+def _xml_root_body(xml_path: Path) -> str | None:
+    """Name of the robot's root body (first body under worldbody)."""
+    import mujoco
+
+    spec = mujoco.MjSpec.from_file(str(xml_path))
+    bodies = list(spec.worldbody.bodies)
+    return str(bodies[0].name) if bodies and bodies[0].name else None
+
+
+def _base_asset_cfg(root_body: str | None):
+    """Scope a base-attitude reward to the root body only.
+
+    MJLab's velocity task leaves ``body_names=()`` for each robot to fill; without
+    that scope the whole-entity body slice reaches ``upright`` and breaks its
+    [B, 4] quaternion math (2026-09-23 generic path: 2 envs x 13 bodies = 26).
+    """
+    from mjlab.managers.scene_entity_config import SceneEntityCfg
+
+    if root_body:
+        return SceneEntityCfg("robot", body_names=(root_body,))
+    return SceneEntityCfg("robot", body_ids=[0])
+
+
+def _build_rewards(recipe: Any, has_commands: bool, root_body: str | None = None):
     from mjlab.envs import mdp
     from mjlab.tasks.velocity import mdp as velocity_mdp
     from mjlab.managers.reward_manager import RewardTermCfg
@@ -283,6 +303,7 @@ def _build_rewards(recipe: Any, has_commands: bool):
         "tracking_lin_vel": "track_linear_velocity",
         "tracking_ang_vel": "track_angular_velocity",
         "orientation": "upright",
+        "body_orientation_l2": "upright",
         "torques": "joint_torques_l2",
         "dof_vel": "joint_vel_l2",
         "dof_acc": "joint_acc_l2",
@@ -290,9 +311,9 @@ def _build_rewards(recipe: Any, has_commands: bool):
         "joint_pos_limits": "joint_pos_limits",
     }
     funcs = {
-        "track_linear_velocity": (velocity_mdp.track_linear_velocity, {"std": 0.5, "command_name": "twist", "asset_cfg": SceneEntityCfg("robot")}),
-        "track_angular_velocity": (velocity_mdp.track_angular_velocity, {"std": 0.7, "command_name": "twist", "asset_cfg": SceneEntityCfg("robot")}),
-        "upright": (velocity_mdp.upright, {"std": math.sqrt(0.2), "asset_cfg": SceneEntityCfg("robot")}),
+        "track_linear_velocity": (velocity_mdp.track_linear_velocity, {"std": 0.5, "command_name": "twist"}),
+        "track_angular_velocity": (velocity_mdp.track_angular_velocity, {"std": 0.7, "command_name": "twist"}),
+        "upright": (velocity_mdp.upright, {"std": math.sqrt(0.2), "asset_cfg": _base_asset_cfg(root_body)}),
         "joint_torques_l2": (mdp.joint_torques_l2, {"asset_cfg": asset}),
         "joint_vel_l2": (mdp.joint_vel_l2, {"asset_cfg": asset}),
         "joint_acc_l2": (mdp.joint_acc_l2, {"asset_cfg": asset}),
@@ -347,7 +368,7 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
     entity, joint_order, actuator_report = _build_entity(contract, xml_path)
     observations, observation_terms, unsupported_obs = _build_observations(contract)
     commands = _build_commands(environment, observation_terms)
-    rewards, skipped_rewards = _build_rewards(recipe, bool(commands))
+    rewards, skipped_rewards = _build_rewards(recipe, bool(commands), _xml_root_body(xml_path))
     terrain_type = str(environment.get("terrain_type", "plane")).lower()
     if terrain_type not in {"plane", "rough"}:
         raise ValueError(f"generic MJLab terrain supports plane or rough, got {terrain_type!r}")

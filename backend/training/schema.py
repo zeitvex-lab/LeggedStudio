@@ -30,6 +30,9 @@ from adapters.mjlab.env_factory import get_reward_terms
 from adapters.mjlab.algorithms.registry import list_algorithms
 from adapters.mjlab.recipe_registry import list_tasks, resolve_recipe
 from adapters.backend_adapter import list_backend_descriptors
+from backend.training.models import CreateTrainingRequest
+from backend.training.service import prepare_training_config, TrainingServiceError
+from backend.training.config_cache import cached_param_catalog, EFFECTIVE_CONFIG_SCHEMA
 
 
 router = APIRouter(prefix="/api/training", tags=["training"])
@@ -49,6 +52,25 @@ EDITABLE_CREATE_KEYS = [
     "num_steps", "num_minibatches", "gamma", "gae_lambda", "clip_param",
     "entropy_coef", "seed",
 ]
+
+@router.post("/config-preview")
+async def preview_effective_training_config(request: CreateTrainingRequest):
+    try:
+        contract, config = await run_in_threadpool(prepare_training_config, request)
+    except TrainingServiceError as exc:
+        status = {"invalid_request": 400, "invalid_overrides": 422, "unsupported": 501}[exc.kind]
+        raise HTTPException(status_code=status, detail=exc.detail) from exc
+    package = config["robot_package"]
+    snapshot = await run_in_threadpool(
+        _dump_schema_via_worker, contract.robot_id, request.profile_id or "", {},
+        package["package_root"], training_config=config, contract=contract.model_dump(mode="json"),
+    )
+    return {
+        "success": True,
+        "request_config": request.model_dump(mode="json", exclude_unset=True),
+        "effective_config": snapshot,
+    }
+
 
 @router.get("/config-preview")
 async def training_config_preview(robot_id: str, profile_id: Optional[str] = None):
@@ -187,7 +209,9 @@ async def training_profile_schema(robot_id: str, profile_id: str):
             cached = json.loads(cache_path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError):
             cached = None
-        if isinstance(cached, dict) and cached.get("profile_mtime") == mtime and isinstance(cached.get("schema"), dict):
+        if (isinstance(cached, dict) and cached.get("profile_mtime") == mtime
+                and isinstance(cached.get("schema"), dict)
+                and cached["schema"].get("schema") == EFFECTIVE_CONFIG_SCHEMA):
             schema = cached["schema"]
             return {
                 "robot_id": robot_id,
@@ -226,29 +250,6 @@ async def training_profile_schema(robot_id: str, profile_id: str):
     }
 
 
-def cached_param_catalog(profile_id: str) -> list[dict[str, Any]] | None:
-    """从 schema 缓存取参数目录；**没有缓存返回 None**（不在这里触发 dump）。
-
-    E6 的门需要目录才能判"未知路径"，但**不能把一次请求变成几十秒的阻塞**
-    （dump 要起 worker 进程）。所以：有缓存就严判，没缓存就退回静态只读表
-    （见 `backend/training/dot_path.py` 的 ``STATIC_READONLY``）——"不能改物理"
-    这条事实不依赖目录。
-    """
-    try:
-        cached = json.loads(_schema_cache_path(profile_id).read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    schema = cached.get("schema") if isinstance(cached, dict) else None
-    if not isinstance(schema, dict):
-        return None
-    try:
-        from adapters.mjlab.param_descriptors import resolve_params
-
-        return resolve_params(schema)
-    except Exception:  # noqa: BLE001  adapter 不可用不该让门变成 500
-        return None
-
-
 @router.post("/validate-overrides")
 async def validate_training_overrides(payload: dict[str, Any]) -> dict[str, Any]:
     """**E6 专家模式**：校验一批点路径覆盖 —— 未知路径 / 只读项 / 类型不符 **一律拒**。
@@ -265,10 +266,11 @@ async def validate_training_overrides(payload: dict[str, Any]) -> dict[str, Any]
     if not robot_id or not profile_id:
         raise HTTPException(status_code=400, detail="需要 robot_id 与 profile_id（参数目录按档案解析）")
 
-    from backend.training.dot_path import validate_edits
+    from backend.training.dot_path import validate_edits, validate_override_policy
 
     catalog = cached_param_catalog(profile_id)
-    report = validate_edits(edits, catalog=catalog)
+    report = (validate_edits(edits, catalog=catalog) if catalog is not None
+              else validate_override_policy(edits))
     return {
         "success": True,
         **report,

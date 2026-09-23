@@ -131,6 +131,7 @@ async def get_training_run(task_id: str, summary: bool = False):
 
     payload["resolved_config"] = _read(RESOLVED_CONFIG_NAME)
     payload["environment_lock"] = _read(ENVIRONMENT_LOCK_NAME)
+    payload["effective_config"] = _read("effective-config.json")
     return payload
 
 
