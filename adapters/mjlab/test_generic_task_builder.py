@@ -34,6 +34,27 @@ class GenericTaskBuilderTests(unittest.TestCase):
         self.assertEqual(bundle.env_cfg.actions["joint_pos"].actuator_names, ("slider",))
         self.assertEqual(bundle.diagnostics["xml_actuated_joints"], ["slider"])
 
+    def test_preset_reward_names_map_to_mjlab_terms(self):
+        bundle = build_generic_task(
+            _cartpole_contract(self.xml),
+            {"environment": {"terrain_type": "plane"}, "reward_scales": {"body_orientation_l2": -2.0}},
+        )
+        self.assertIn("upright", bundle.env_cfg.rewards)
+        self.assertEqual(bundle.env_cfg.rewards["upright"].weight, -2.0)
+        self.assertNotIn("body_orientation_l2", bundle.diagnostics["skipped_rewards"])
+
+    def test_command_cfg_mirrors_mjlab_velocity_defaults(self):
+        contract = _cartpole_contract(self.xml)
+        contract["observation"]["components"].append("command")
+        bundle = build_generic_task(
+            contract,
+            {"environment": {"terrain_type": "plane", "command_ranges": {"vx": (-0.4, 0.4)}}},
+        )
+        twist = bundle.env_cfg.commands["twist"]
+        self.assertTrue(twist.heading_command)
+        self.assertEqual(twist.ranges.lin_vel_x, (-0.4, 0.4))
+        self.assertFalse(twist.debug_vis)
+
     def test_rejects_robot_specific_unknown_observation(self):
         contract = _cartpole_contract(self.xml)
         contract["observation"]["components"].append("foot_contact")

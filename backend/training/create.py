@@ -6,31 +6,12 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Header
-from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
-from typing import Any, List, Optional, Literal
-from datetime import datetime
-from pathlib import Path
-import json
-import os
-import subprocess
-import sys
-import tempfile
 
-from backend.training.models import (  # noqa: F401
-    CreateTrainingRequest, CompareTrainingRequest,
-)
-from backend.training_config_helpers import (  # noqa: F401
-    _terrain_mixes, _observation_summary, _terminations_summary,
-    _domain_randomization, _schema_workspace, _schema_cache_path,
-    _schema_interpreter, _read_profile_mtime, _dump_schema_via_worker,
-)
-from backend.training_manager import get_training_manager
-from backend.robot_presets import get_robot_preset
-from backend.robot_packages import package_for_contract
-from contracts.contract_legacy_v2 import ContractLegacyV2
+from backend.training.models import CreateTrainingRequest, CompareTrainingRequest
+from backend.training.service import create_training_run, TrainingServiceError
 from adapters.mjlab.env_factory import get_reward_terms
-from adapters.mjlab.algorithms.registry import list_algorithms, resolve_algorithm
+from adapters.mjlab.algorithms.registry import list_algorithms
 from adapters.mjlab.recipe_registry import list_tasks, resolve_recipe
 from adapters.backend_adapter import list_backend_descriptors
 
@@ -83,208 +64,19 @@ async def create_training(
     resume_from 字段提供 checkpoint 路径时从该检查点继续训练（Feature 13）。
     """
     try:
-        # Idempotency guard (Feature 13): replay of the same creation key short-circuits.
-        if x_idempotency_key:
-            manager = get_training_manager()
-            replayed = manager.resolve_idempotency(x_idempotency_key)
-            if replayed and manager.get_task(replayed):
-                return {
-                    "success": True,
-                    "task_id": replayed,
-                    "idempotent_replay": True,
-                    "message": "Idempotent replay: returning existing task",
-                }
-
-        # 算法裁决**单一来源**（adapters.mjlab.algorithms.registry）：
-        # 未登记 → 400（列出全部词汇）；登记但产品内未开放 → 501（说清是哪一类原因，
-        # 而不是"反正不是 PPO"）。三个"能"的分野见该模块头：registered / native_supported / product_open。
-        try:
-            algorithm_entry = resolve_algorithm(request.algorithm)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        algorithm = str(algorithm_entry["id"])
-        if not algorithm_entry["product_open"]:
-            raise HTTPException(
-                status_code=501,
-                detail={
-                    "message": f"算法 {algorithm} 已登记，但产品内未开放训练",
-                    "kind": algorithm_entry["kind"],
-                    "native_supported": algorithm_entry["native_supported"],
-                    "reason": (
-                        "插件路径：协议与 class_name 绑定已就绪（profile 里 algorithm_plugin 可启用），"
-                        "但尚未经真训练验证，产品内不开放"
-                        if algorithm_entry["kind"] == "plugin"
-                        else "内置路径：off-policy（SAC/TD3）尚未接入 runner"
-                    ),
-                    "open_algorithms": [
-                        item["id"] for item in list_algorithms() if item.get("product_open")
-                    ],
-                },
-            )
-        # 解析 Contract
-        contract = ContractLegacyV2(**request.contract)
-
-        # 验证 Contract
-        from contracts.validator import validate_contract
-        validation = validate_contract(contract)
-        if not validation.valid:
-            errors = [e.message for e in validation.errors]
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid contract: {', '.join(errors)}"
-            )
-
-        # 冒烟档（T2.3）：先 64 envs × 5 iters 验证链路，冒烟绿再放行长训练
-        num_envs = request.num_envs
-        max_iterations = request.max_iterations
-        if request.smoke:
-            from backend.training import smoke_gate
-
-            # 常量与冒烟前置门**同源**（smoke_gate.SMOKE_MAX_*）：两处各自写字面量
-            # 迟早会漂成"冒烟档定义了 64×5、门却按别的规模判"。
-            num_envs = min(num_envs, smoke_gate.SMOKE_MAX_ENVS)
-            max_iterations = min(max_iterations, smoke_gate.SMOKE_MAX_ITERS)
-
-        # 准备配置
-        config = {
-            "algorithm": algorithm,
-            "smoke_preset": request.smoke,
-            "num_envs": num_envs,
-            "max_iterations": max_iterations,
-            "learning_rate": request.learning_rate,
-            "save_interval": request.save_interval,
-            # B23：保持键存在但值可为 None（config 组装惯例同 resume_from / profile_id）；
-            # None = 请求省略 → 下游 recipe_registry 不写键、worker 守卫保留任务真值。
-            "episode_length_s": request.episode_length_s,
-            "task_name": request.task_name,
-            "profile_id": request.profile_id,
-            "terrain_type": request.terrain_type,
-            "device": request.device,
-            "reward_scales": request.reward_scales,
-            "reward_overrides": request.reward_overrides,
-            "reward_params": request.reward_params,
-            "terrain": request.terrain,
-            "command_ranges": request.command_ranges,
-            "noise": request.noise,
-            "curriculum": request.curriculum,
-            "num_steps": request.num_steps,
-            "num_minibatches": request.num_minibatches,
-            "gamma": request.gamma,
-            "gae_lambda": request.gae_lambda,
-            "clip_param": request.clip_param,
-            "entropy_coef": request.entropy_coef,
-            "tau": request.tau,
-            "batch_size": request.batch_size,
-            "replay_size": request.replay_size,
-            "alpha": request.alpha,
-            "policy_delay": request.policy_delay,
-            "exploration_noise": request.exploration_noise,
-            "seed": request.seed,
-            "overrides": request.overrides,
-            "backend": request.backend,
-            "resume_from": request.resume_from,
-        }
-        try:
-            resolved_recipe = resolve_recipe(config)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        config["resolved_recipe"] = resolved_recipe.model_dump(mode="json")
-        if request.backend not in ("native_mjlab", ""):
-            raise HTTPException(status_code=501, detail={"message": f"backend '{request.backend}' is reserved for a future framework and is not wired yet"})
-        if request.backend == "native_mjlab":
-            config["mode"] = "train"
-            package = package_for_contract(contract.model_dump(mode="json"))
-            config["robot_package"] = package
-            config["generic_task"] = True
-            from adapters.mjlab.native_adapter import DEFAULT_EXTENSION, DEFAULT_SOURCE, package_runtime_diagnostics, preflight
-            # Training launch is the one path that must really probe torch —
-            # waiting here is acceptable, and the cached report makes repeats instant.
-            native = await run_in_threadpool(preflight, DEFAULT_SOURCE, True)
-            # 就绪判据**只读报告**（V4 单一真值）。报告已把「源码树是否存在/是否完整」与
-            # 「候选 worker 解释器能否 import mjlab」合并裁决（native_adapter._preflight_uncached）。
-            # 旧写法在这里自己重拼 `exists ∧ manager_env_available ∧ runtime.available`，
-            # 等于把"必须有 mjlab 源码 checkout"当成产品前提 —— 而 mjlab 已是 pyproject 钉住的
-            # 依赖（mjlab==1.6.0），云开发容器/服务端没有 vendor/mjlab，于是点"开始训练"恒 501
-            # （任务清单 A5，2026-09-16 收口）。两份判据并存正是"判据会分叉"的来源。
-            if not native.get("execution_ready"):
-                raise HTTPException(status_code=501, detail={
-                    "message": native.get("not_ready_reason") or "native MJLab adapter is not ready",
-                    "preflight": native,
-                })
-            compatibility = package_runtime_diagnostics(package, native)
-            native["package_compatibility"] = compatibility
-            if compatibility["status"] == "incompatible":
-                raise HTTPException(status_code=501, detail={"message": "selected robot package is incompatible with the active MJLab runtime", "compatibility": compatibility, "preflight": native})
-            if compatibility["status"] == "unknown":
-                raise HTTPException(status_code=501, detail={"message": "active MJLab runtime version could not be verified for the selected robot package", "compatibility": compatibility, "preflight": native})
-
-        # **E6 护栏**：专家模式的点路径覆盖必须过校验 —— 未知路径 / 只读项 / 类型不符
-        # **整批拒绝**（不是"应用一半"）。目录优先用 schema 缓存；缓存冷时退回静态只读表
-        # （"不能改物理"这条事实不依赖目录）。通过后**用转好类型的值覆盖** `config["overrides"]`，
-        # 保证"校验过的才算数"。
-        if request.overrides:
-            from backend.training.dot_path import validate_edits
-            from backend.training.schema import cached_param_catalog
-
-            catalog = cached_param_catalog(str(request.profile_id)) if request.profile_id else None
-            point_report = validate_edits(request.overrides, catalog=catalog)
-            if not point_report["ok"]:
-                raise HTTPException(
-                    status_code=422,
-                    detail={
-                        "message": "点路径覆盖未通过校验（整批拒绝，一个都不会写入）",
-                        "problems": point_report["problems"],
-                        "catalog": "full" if catalog else "static_only",
-                    },
-                )
-            config["overrides"] = point_report["applied"]
-
-        # **E8 冒烟前置门**：未过冒烟不能长训。证据＝同配置（除规模三元组外逐键
-        # 一致，规范化摘要比对）的已完成冒烟 Run（见 backend/training/smoke_gate.py）。
-        # 放在请求层而非 create_task：`smoke_preset` 的语义只在这里存在，且直接调
-        # manager 的调用方（测试/脚本）不该被门拦住。
-        from backend.training import smoke_gate
-        from backend.training.runs import run_inputs_from_task
-
-        manager = get_training_manager()
-        contract_hash = (
-            contract.compute_hash() if hasattr(contract, "compute_hash") else str(contract)
+        return await run_in_threadpool(
+            create_training_run, request, idempotency_key=x_idempotency_key,
         )
-        run_inputs = run_inputs_from_task(contract_hash=contract_hash, config=config)
-        smoke = smoke_gate.check(
-            inputs=run_inputs, config=config,
-            # 证据的权威事实在磁盘（status.json）：TrainingTask.status 属性只在创建时
-            # 置 running，worker 完成后无人回写 —— 同进程里刚跑完的冒烟会被 stale
-            # 属性误判成 running，门就永远找不到证据。读盘为准，内存值兜底（无档案时）。
-            candidates=[
-                (task.get_status_info().get("status") or task.status, task.task_dir)
-                for task in manager.tasks.values()
-            ],
-        )
-        if smoke["required"] and not smoke["ok"]:
-            raise HTTPException(
-                status_code=409,
-                detail={"message": smoke["reason"], "smoke_gate": smoke},
-            )
-
-        # 创建任务
-        task_id = manager.create_task(
-            contract=contract,
-            config=config,
-            idempotency_key=x_idempotency_key,
-        )
-
-        return {
-            "success": True,
-            "task_id": task_id,
-            "smoke_gate": smoke,
-            "message": "Training task created successfully"
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except TrainingServiceError as exc:
+        status = {
+            "invalid_request": 400,
+            "smoke_required": 409,
+            "invalid_overrides": 422,
+            "unsupported": 501,
+        }[exc.kind]
+        raise HTTPException(status_code=status, detail=exc.detail) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 @router.post("/compare")
 async def create_comparison(request: CompareTrainingRequest):
@@ -295,7 +87,7 @@ async def create_comparison(request: CompareTrainingRequest):
     tasks = []
     for algorithm in algorithms:
         single = request.model_copy(update={"algorithm": algorithm})
-        result = await create_training(single)
+        result = await create_training(single, x_idempotency_key=None)
         tasks.append({"algorithm": algorithm, "task_id": result["task_id"]})
     return {"success": True, "count": len(tasks), "tasks": tasks, "session_config": request.model_dump(mode="json")}
 

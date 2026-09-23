@@ -40,7 +40,7 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from adapters.mjlab.native_worker import apply_training_recipe  # noqa: E402
+from adapters.mjlab.task_config import apply_training_recipe  # noqa: E402
 from adapters.mjlab.recipe_registry import resolve_recipe  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

@@ -19,8 +19,9 @@ import unittest
 from pydantic import ValidationError
 
 from backend.training.models import CreateTrainingRequest
+from backend.training.service import build_training_config
 from adapters.mjlab.recipe_registry import resolve_recipe
-from adapters.mjlab.native_worker import apply_training_recipe
+from adapters.mjlab.task_config import apply_training_recipe
 
 
 def _request(**overrides) -> CreateTrainingRequest:
@@ -83,16 +84,15 @@ class RequestModelDefaultsTest(unittest.TestCase):
 class CreatePayloadTest(unittest.TestCase):
     """create.py：config["episode_length_s"] 恒存在，值 = 请求值（省略 → None）。
 
-    create.py 的 config 组装内联在 async 端点里，不便直接单测；这里用
-    ``model_dump()`` 精确复现它写入 config 的那一行（``request.episode_length_s``）。
+    直接调用共享配置构建服务，验证真实创建配置。
     """
 
     def test_omitted_maps_to_none(self):
-        self.assertIsNone(_request().model_dump()["episode_length_s"])
+        self.assertIsNone(build_training_config(_request())["episode_length_s"])
 
     def test_explicit_maps_to_float(self):
         # UI 路径：预填 profile 真值、显式提交 10 → config 里是 10.0
-        self.assertEqual(_request(episode_length_s=10).model_dump()["episode_length_s"], 10.0)
+        self.assertEqual(build_training_config(_request(episode_length_s=10))["episode_length_s"], 10.0)
 
 
 class ResolveRecipeTest(unittest.TestCase):
