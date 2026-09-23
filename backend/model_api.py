@@ -8,7 +8,6 @@ MuJoCo compilation. It does not import or duplicate the URDF Studio viewer.
 from __future__ import annotations
 
 import base64
-import json
 import os
 import tempfile
 import io
@@ -22,7 +21,7 @@ from pydantic import BaseModel, Field
 from contracts.asset_paths import resolve_asset_path
 from contracts.validator import normalized_sha256, package_digest
 from backend.gl_env import ensure_headless_gl, render_error_hint
-from backend.robot_packages import write_package_manifest
+from backend.package_import import prepare_model_package, persist_model_package
 
 
 router = APIRouter(prefix="/api/models", tags=["models"])
@@ -176,55 +175,19 @@ def import_staged_package(
         validation.update({"imported": False, "import_root": None, "model_path": None})
         return validation
 
-    provisional = _contract_draft(staged_model, validation.get("format", model_format), validation.get("inspection", {}), validation.get("sha256", ""))
-    package_id = f"{provisional['robot_id']}_{content_hash[:10]}"
-    package_root = packages_root / package_id
-    final_model = package_root / model_relative
-    final_model_value = _api_path(final_model)
-    contract = _contract_draft(Path(final_model_value), validation.get("format", model_format), validation.get("inspection", {}), validation.get("sha256", ""))
-    contract["robot_id"] = package_id
-    contract["contract_id"] = f"{package_id}_contract_v1"
-
-    if not package_root.exists():
-        (staging / "contract_legacy_v2.json").write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        write_package_manifest(staging, package_id=package_id, task_kind="generic")
-        descriptor = json.loads((staging / "robot_package.json").read_text(encoding="utf-8-sig"))
-        descriptor.update({
-            "model": {"format": model_format, "path": model_relative.as_posix(), "assets_path": str(model_relative.parent).replace("\\", "/")},
-            "contract_path": "contract_legacy_v2.json",
-            "content_sha256": content_hash,
-        })
-        descriptor_path = staging / "robot_package.json"
-        descriptor_path.write_text(json.dumps(descriptor, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        staging.rename(package_root)
-
-    # T1.3 导入闭环：导入即生成契约真值 sidecar（外部裸模型无仿真配置 →
-    # 通用执行器默认值并在 description 标注"待校准"；失败不阻断导入）
-    contract_note = None
-    if package_root.exists() and not (package_root / "contract.json").exists():
-        try:
-            from backend.contract_migration import migrate_contract_dict
-
-            draft_v3 = migrate_contract_dict(contract, None, generic_defaults=True)
-            (package_root / "contract.json").write_text(
-                json.dumps(draft_v3, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-            )
-            contract_note = "generated（通用执行器默认值，训练前请校准）"
-        except Exception as exc:
-            contract_note = f"skipped: {exc}"
-
-    from backend.robot_packages import upsert_package
-
-    upsert_package(package_root, source="workspace")
-
+    package_root, contract, descriptor = prepare_model_package(
+        model_relative=model_relative, model_format=model_format,
+        validation=validation, content_hash=content_hash, packages_root=packages_root,
+    )
+    contract_status = persist_model_package(staging, package_root, contract, descriptor)
     validation.update({
         "imported": True,
-        "package_id": package_id,
+        "package_id": contract["robot_id"],
         "import_root": _api_path(package_root),
         "package_root": _api_path(package_root),
-        "model_path": final_model_value,
+        "model_path": contract["urdf"]["path"],
         "contract_draft": contract,
-        "contract": {"generated": contract_note is not None and contract_note.startswith("generated"), "note": contract_note},
+        "contract": contract_status,
     })
     return validation
 
@@ -260,41 +223,6 @@ def _safe_import_relative_path(value: str) -> Path:
     if not normalized or candidate.is_absolute() or ".." in candidate.parts:
         raise ValueError(f"invalid asset path: {value}")
     return candidate
-
-
-def _contract_draft(model_path: Path, model_format: str, inspection: dict[str, Any], digest: str) -> dict[str, Any]:
-    joints = inspection.get("joints", [])
-    joint_names = [item.get("name") for item in joints if item.get("name")]
-    actuated = [item for item in joints if item.get("type") not in {"fixed", "floating", "planar"}]
-    actuated_names = [item.get("name") for item in actuated if item.get("name")]
-    if model_format == "mjcf":
-        targets = inspection.get("actuators", {}).get("targets", [])
-        actuated_names = [name for name in targets if name in joint_names]
-        if not actuated_names:
-            actuated_names = joint_names
-    wheel = any("wheel" in name.lower() for name in joint_names)
-    robot_name = inspection.get("root_name") or model_path.stem
-    robot_id = "imported_" + "".join(char.lower() if char.isalnum() else "_" for char in model_path.stem).strip("_")
-    robot_id = robot_id[:48] or "imported_robot"
-    mass = inspection.get("inertial", {}).get("total_mass_kg")
-    return {
-        "schema_version": "robot-contract-2.0",
-        "contract_id": f"{robot_id}_contract_v1",
-        "robot_id": robot_id,
-        "family": str(robot_name),
-        "size_class": "M",
-        "locomotion_type": "W" if wheel else "P",
-        "urdf": {"path": str(model_path).replace("\\", "/"), "hash": digest, "total_mass_kg": float(mass or 0.0), "mass_source": "urdf_inertial", "mesh_files": inspection.get("mesh_files", [])},
-        "joints": {"actuated_joints": actuated_names, "passive_joints": [name for name in joint_names if name not in actuated_names], "default_pose": [0.0] * len(actuated_names)},
-        "observation": {"dimension": max(1, 9 + len(actuated_names) * 3), "components": ["base_lin_vel", "base_ang_vel", "projected_gravity", "joint_pos", "joint_vel", "last_action"]},
-        "action": {"dimension": len(actuated_names), "joint_order": actuated_names, "action_scale": 0.25},
-        "control": {"control_hz": 50, "physics_hz": 1000, "decimation": 20},
-        "description": "Imported robot asset draft generated by Legged Studio validation.",
-        "tags": ["imported", model_format],
-        "source": "legged_studio_asset_import",
-        "min_mjlab_version": "1.6.0",
-        "python_version": "3.12",
-    }
 
 
 def _resolve_resource(raw_value: str, source_path: Path) -> Path:
@@ -700,8 +628,7 @@ def preview_package_import(
 ) -> dict[str, Any]:
     """**预演**：校验 + 出三件 JSON 的内容 + 算出会落在哪里，但**不写任何东西**。
 
-    预演与真导入必须给出同一份 JSON，所以这里复用同一组原语（``pick_model_file`` /
-    ``_validate`` / ``_contract_draft`` / ``_content_hash``），区别只在**不落盘、不登记**。
+    预演与真导入共用 ``prepare_model_package`` 生成最终路径和元数据，不持久化包或登记索引。
 
     落点说明（诚实边界）：staging 目录建在 ``packages/`` 下而不是系统临时目录 —— 模型校验
     （``_safe_path``）只接受"项目内 / workspace 内"的路径，系统临时目录会被拒。因此预演会
@@ -738,14 +665,14 @@ def preview_package_import(
         }
         if not validation.get("valid"):
             return preview
-        contract = _contract_draft(staged_model, preview["format"], validation.get("inspection", {}), validation.get("sha256", ""))
         content_hash = _content_hash(staged["staged"])
-        package_id = f"{contract['robot_id']}_{content_hash[:10]}"
-        contract["robot_id"] = package_id
-        contract["contract_id"] = f"{package_id}_contract_v1"
+        package_root, contract, _ = prepare_model_package(
+            model_relative=model_relative, model_format=resolved_format,
+            validation=validation, content_hash=content_hash, packages_root=packages_root,
+        )
         preview.update({
-            "package_id": package_id,
-            "package_root": _api_path(Path(packages_root) / package_id if packages_root else _workspace_root() / "packages" / package_id),
+            "package_id": contract["robot_id"],
+            "package_root": _api_path(package_root),
             "content_sha256": content_hash,
             "contract_draft": contract,
         })

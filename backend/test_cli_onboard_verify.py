@@ -28,6 +28,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -261,6 +262,75 @@ class BothEntriesShareOnePackageIdTest(unittest.TestCase):
                 "format": "auto",
             })
             self.assertEqual(from_directory, _package_content_hash(request))
+
+
+class ImportPreviewConsistencyTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix="legged-studio-import-preview-")
+        self.addCleanup(self.tmp.cleanup)
+        self.workspace = Path(self.tmp.name) / "ws"
+        patcher = mock.patch.dict(os.environ, {"LEGGED_STUDIO_WORKSPACE": str(self.workspace)})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        from backend.robot_packages import invalidate_package_cache
+
+        self.addCleanup(invalidate_package_cache)
+
+    def test_preview_matches_persisted_contracts_without_writing_a_package(self):
+        from backend.model_api import import_package_directory, preview_package_import
+
+        source = make_robot_dir(Path(self.tmp.name))
+        preview = preview_package_import(source)
+        self.assertTrue(preview["valid"], preview)
+        self.assertEqual([], list((self.workspace / "packages").iterdir()))
+        self.assertFalse((self.workspace / "package_index.json").exists())
+
+        imported = import_package_directory(source)
+        self.assertTrue(imported["imported"], imported)
+        self.assertEqual(imported["package_id"], preview["package_id"])
+        self.assertEqual(imported["package_root"], preview["package_root"])
+        package = Path(imported["package_root"])
+        persisted_v2 = json.loads((package / "contract_legacy_v2.json").read_text(encoding="utf-8"))
+        persisted_truth = json.loads((package / "contract.json").read_text(encoding="utf-8"))
+        self.assertEqual(persisted_v2, preview["contract_draft"])
+        self.assertEqual(persisted_truth, preview["contract_preview"])
+        self.assertEqual(persisted_v2, imported["contract_draft"])
+        self.assertEqual("demo_quad", persisted_v2["family"])
+        self.assertEqual(["fl_hip", "fl_knee"], persisted_v2["action"]["joint_order"])
+
+    def test_reimport_preserves_existing_contracts_and_manifest(self):
+        from backend.model_api import import_package_directory
+
+        source = make_robot_dir(Path(self.tmp.name))
+        imported = import_package_directory(source)
+        self.assertTrue(imported["contract"]["generated"], imported)
+        package = Path(imported["package_root"])
+        truth_path = package / "contract.json"
+        truth = json.loads(truth_path.read_text(encoding="utf-8"))
+        truth["description"] = "user calibration"
+        truth_path.write_text(json.dumps(truth), encoding="utf-8")
+        before = {name: (package / name).read_bytes() for name in (
+            "contract.json", "contract_legacy_v2.json", "robot_package.json",
+        )}
+
+        repeated = import_package_directory(source)
+        self.assertTrue(repeated["imported"], repeated)
+        self.assertEqual(imported["package_id"], repeated["package_id"])
+        self.assertEqual({"generated": False, "note": None}, repeated["contract"])
+        self.assertEqual(before, {name: (package / name).read_bytes() for name in before})
+        index = json.loads((self.workspace / "package_index.json").read_text(encoding="utf-8"))
+        self.assertEqual([imported["package_id"]], [item["robot_id"] for item in index])
+
+    def test_invalid_preview_leaves_no_package_or_index(self):
+        from backend.model_api import preview_package_import
+
+        source = make_robot_dir(Path(self.tmp.name), urdf=INVALID_URDF)
+        preview = preview_package_import(source)
+        self.assertFalse(preview["valid"])
+        self.assertTrue(preview["errors"])
+        self.assertNotIn("package_id", preview)
+        self.assertEqual([], list((self.workspace / "packages").iterdir()))
+        self.assertFalse((self.workspace / "package_index.json").exists())
 
 
 class VerifyRunTest(unittest.TestCase):

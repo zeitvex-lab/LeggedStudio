@@ -120,6 +120,37 @@ class ModelInspectionTests(unittest.TestCase):
         self.assertEqual(payload["scenario"]["map_id"], "warehouse")
         self.assertFalse((Path(self.workspace_temp.name) / "imports").exists())
 
+    def test_raw_project_archive_import_list_and_export(self):
+        import base64
+        import io
+        import json
+        import zipfile
+
+        stream = io.BytesIO()
+        urdf = "<robot name='demo'><link name='base'><inertial><mass value='2'/></inertial></link></robot>"
+        with zipfile.ZipFile(stream, "w") as archive:
+            archive.writestr("manifest.json", json.dumps({"model_path": "robots/demo.urdf"}))
+            archive.writestr("robots/demo.urdf", urdf)
+        response = self.client.post(
+            "/api/project/import",
+            json={"archive_base64": base64.b64encode(stream.getvalue()).decode("ascii")},
+        )
+        self.assertEqual(200, response.status_code)
+        payload = response.json()
+        self.assertTrue(payload["success"], payload)
+        self.assertEqual(["imported_demo"], payload["package_ids"])
+        robot = payload["robots"][0]
+        self.assertEqual("legged_studio_project_import", robot["contract"]["source"])
+        self.assertEqual(["imported", "project_package"], robot["contract"]["tags"])
+        self.assertEqual(urdf, Path(robot["asset_path"]).read_text(encoding="utf-8"))
+        listed = self.client.get("/api/project/packages").json()
+        self.assertEqual(1, listed["count"])
+        self.assertEqual("imported_demo", listed["packages"][0]["package_id"])
+        exported = self.client.post("/api/project/export", json={"import_ids": ["imported_demo"]})
+        self.assertEqual(200, exported.status_code)
+        with zipfile.ZipFile(io.BytesIO(exported.content)) as archive:
+            self.assertEqual(urdf.encode("utf-8"), archive.read("robots/imported_demo/robots/demo.urdf"))
+
 
 if __name__ == "__main__":
     unittest.main()
