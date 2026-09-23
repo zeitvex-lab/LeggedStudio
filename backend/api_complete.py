@@ -662,10 +662,8 @@ async def browser_sim2sim_redirect():
 
 @app.get("/web/dashboard.html", include_in_schema=False)
 async def serve_dashboard():
-    dashboard_path = WEB_DIR / "dashboard.html"
-    if dashboard_path.exists():
-        return FileResponse(dashboard_path, media_type="text/html")
-    return {"error": "Dashboard not found"}
+    """旧控制台已并入工作台首页（2026-09-23 用户裁决）：老地址 302 到 workbench#home。"""
+    return RedirectResponse(url="/web/workbench.html#home", status_code=302)
 
 @app.get("/web/dashboard.css", include_in_schema=False)
 async def serve_css():
@@ -673,13 +671,6 @@ async def serve_css():
     if css_path.exists():
         return FileResponse(css_path, media_type="text/css")
     return {"error": "CSS not found"}
-
-@app.get("/web/dashboard.js", include_in_schema=False)
-async def serve_js():
-    js_path = WEB_DIR / "dashboard.js"
-    if js_path.exists():
-        return FileResponse(js_path, media_type="application/javascript")
-    return {"error": "JS not found"}
 
 
 @app.get("/web/sim2sim/vendor/onnxruntime-web/dist/ort.wasm.min.mjs", include_in_schema=False)

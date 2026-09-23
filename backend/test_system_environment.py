@@ -1,6 +1,6 @@
 """U11：/api/system/environment 数据真值化的验收测试。
 
-背景（00_know/05_任务清单.md §U 行 11）：dashboard 系统状态的 Python/CUDA/MJLab
+背景（00_know/05_任务清单.md §U 行 11）：工作台首页系统状态（原 dashboard）的 Python/CUDA/MJLab
 行是展示层硬编码假值，因为端点只返回 control_plane.python_version + adapters。
 修复后端点新增 ``gpu``（与 /api/health/layers L0 同源的 gpu_probe 三态）与
 ``adapters.mjlab.version``（dist-info 实装版本，复用 training/runs.venv_package_versions）。

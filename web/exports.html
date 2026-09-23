@@ -5,24 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>打包与分发 · Legged Studio</title>
   <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="shared/ui.css">
   <style>
     /* 序 10「发得出去」的 Web 入口。三件事，一页读完：
          ① 我有哪些导出物、**是不是好的**（逐项 verify 结论，坏包必须显眼）；
          ② 怎么打包（场景 / Bundle）；
          ③ 收到别人的包怎么收下（校验通过才给载荷）。
-       判据与打包全部委托后端 `/api/exports`（与 CLI `export` 同一实现），本页不自己算。 */
-    html, body { height: 100%; margin: 0; }
+       判据与打包全部委托后端 `/api/exports`（与 CLI `export` 同一实现），本页不自己算。
+       顶栏已收敛为 shared/topnav.js + shared/ui.css（本页不再自写导航样式）。 */
+    /* min-height（而非 height:100%）是粘性顶栏的前提：body 盒高被钉在视口高时，
+       共享顶栏的粘性范围只够第一屏，滚过之后会脱粘。 */
+    html, body { min-height: 100%; margin: 0; }
     body { background: var(--bg, #0b1319); color: var(--text, #e6eef4); }
-    body.embedded .page-header { display: none; }
     .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 20px 40px; }
-    .page-header { display: flex; align-items: center; gap: 14px; padding: 10px 20px;
-      border-bottom: 1px solid var(--border-soft, #23303a); background: var(--surface, #101a22); }
-    .main-nav { display: flex; gap: 6px; flex-wrap: wrap; }
-    .nav-item { padding: 5px 9px; border-radius: 6px; font-size: 12px; text-decoration: none;
-      color: var(--muted, #8ea1ae); border: 1px solid transparent; }
-    .nav-item:hover { border-color: var(--border, #2c3a45); color: var(--text); }
-    .nav-item.active { color: var(--text); border-color: var(--accent, #2588df); background: var(--surface-raised, #16222b); }
-    .nav-index { opacity: .6; margin-right: 4px; }
     h1 { font-size: 20px; margin: 4px 0 2px; }
     h2 { font-size: 14px; margin: 0 0 8px; }
     .sub { color: var(--muted, #8ea1ae); font-size: 12px; margin: 0 0 16px; }
@@ -41,11 +36,12 @@
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border-soft, #23303a); }
     th { color: var(--muted, #8ea1ae); font-weight: 500; }
-    tr.bad td { color: #e2725b; }
+    tr.bad td { color: var(--ls-err); }
     tr.clickable { cursor: pointer; }
     tr.clickable:hover td { background: var(--surface-raised, #16222b); }
-    .ok { color: #217a37; }
-    .bad { color: #e2725b; }
+    .ok { color: var(--ls-ok); }
+    /* 坏包标红：#e2725b 在浅底上只有 3.1:1（12px 正文判不可读），改用 ui.css 语义红 */
+    .bad { color: var(--ls-err); }
     .muted { color: var(--muted, #8ea1ae); }
     pre { white-space: pre-wrap; font-size: 11px; margin: 6px 0 0; }
     .hint { color: var(--muted, #8ea1ae); font-size: 11px; line-height: 1.6; margin-top: 8px; }
@@ -58,16 +54,9 @@
       document.body.classList.add("embedded");
     }
   </script>
-  <header class="page-header">
-    <nav class="main-nav" aria-label="主功能">
-      <a class="nav-item" href="dashboard.html"><span class="nav-index">01</span>首页</a>
-      <a class="nav-item" href="workbench.html#robot"><span class="nav-index">02</span>验证</a>
-      <a class="nav-item" href="training_create.html"><span class="nav-index">03</span>训练配置</a>
-      <a class="nav-item" href="training_list.html"><span class="nav-index">04</span>训练</a>
-      <a class="nav-item" href="workbench.html#simulation"><span class="nav-index">05</span>仿真</a>
-      <a class="nav-item active" href="exports.html"><span class="nav-index">06</span>打包分发</a>
-    </nav>
-  </header>
+  <!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css）。
+       本页（打包与分发）不在 8 项目录内，故不传 current、不高亮任何项。 -->
+  <header id="lsTopNav"></header>
 
   <main class="wrap">
     <h1>打包与分发</h1>
@@ -118,7 +107,10 @@
     </section>
   </main>
 
+  <script src="shared/topnav.js"></script>
   <script>
+    window.LSTopNav.render('lsTopNav');
+
     const $ = (id) => document.getElementById(id);
 
     function escapeHtml(value) {

@@ -2,7 +2,6 @@
 
 覆盖页面（与 /web 静态挂载一一对应，均由真实 uvicorn 控制面伺服）：
     workbench.html      首页工作台（侧边栏导航 + 首页四区 + 内嵌 iframe 页）
-    dashboard.html      控制台（旧版多页入口，仍从顶栏 brand 可达）
     assets.html         包管理 / 机器人工作台入口
     training_create.html训练配置页（机型/档案/三段分区/章节导航）
     training_list.html  训练列表（汇总卡 / 过滤栏 / 表格 / 空态）
@@ -64,23 +63,6 @@ PAGE_SPECS: list[dict] = [
             "#homeDemos",
             "#homeRuns",
             "#assetLibraryGrid",
-        ],
-    },
-    {
-        "name": "dashboard",
-        "url": "/web/dashboard.html",
-        "required": [
-            ".page-header h1",                # 页头
-            "#quickList",                     # 快速体验卡
-            "#systemRows",                    # 系统状态
-            "#statsGrid",                     # 训练统计
-            ".workflow-grid",                 # 工作流步骤
-            "#trainingList",                  # 最近训练
-        ],
-        "settle": [
-            "#systemRows",
-            "#statsGrid",
-            "#trainingList",
         ],
     },
     {
@@ -271,6 +253,26 @@ def test_page_no_break_1920(audit_browser, base_url, spec):
     assert result["overflow_px"] <= 2, (
         f"{result['name']}: 1920 档水平溢出 {result['overflow_px']}px（截图 {result['screenshot'].name}）"
     )
+
+
+# ---------------------------------------------------------------------------
+# 旧控制台地址重定向（2026-09-23 双首页收敛：dashboard 并入 workbench#home）
+# ---------------------------------------------------------------------------
+
+@pytest.mark.e2e
+def test_dashboard_redirects_to_workbench_home(audit_browser, base_url):
+    """老地址必须 302 到 workbench#home，且首页默认激活（不是白屏/旧页残留）。"""
+    context = audit_browser.new_context(viewport={"width": 1280, "height": 720}, device_scale_factor=1)
+    page = context.new_page()
+    page_errors: list[str] = []
+    page.on("pageerror", lambda exc: page_errors.append(str(exc)))
+    try:
+        page.goto(f"{base_url}/web/dashboard.html", wait_until="domcontentloaded")
+        page.wait_for_selector("#home.active-view", timeout=20_000)
+        assert page.url.endswith("/web/workbench.html#home"), f"dashboard 未重定向到工作台首页：{page.url}"
+        assert page_errors == [], f"重定向落地页有 JS 错误：{page_errors}"
+    finally:
+        context.close()
 
 
 # ---------------------------------------------------------------------------

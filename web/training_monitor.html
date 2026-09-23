@@ -7,25 +7,14 @@
   <link rel="stylesheet" href="workbench.css">
   <link rel="stylesheet" href="play-overrides.css">
   <link rel="stylesheet" href="training-monitor.css">
+  <link rel="stylesheet" href="shared/ui.css">
 </head>
 <body>
   <script>if (new URLSearchParams(location.search).get('embedded') === '1') document.body.classList.add('embedded');</script>
   <div class="app-shell" id="monitorBody">
-    <!-- 原生顶栏 -->
-    <header class="topbar">
-      <a class="brand" href="dashboard.html" aria-label="Legged Studio 首页">
-        <span class="brand-mark">LS</span>
-        <span><strong>Legged Studio</strong><small>Training Console</small></span>
-      </a>
-      <nav class="main-nav" aria-label="主功能">
-        <a class="nav-item" href="dashboard.html"><span class="nav-index">01</span>首页</a>
-        <a class="nav-item" href="workbench.html#robot"><span class="nav-index">02</span>验证</a>
-        <a class="nav-item" href="training_create.html?v=0.44.0"><span class="nav-index">03</span>训练配置</a>
-        <a class="nav-item active" href="training_list.html?v=0.44.0"><span class="nav-index">04</span>训练</a>
-        <a class="nav-item" href="workbench.html#simulation"><span class="nav-index">05</span>仿真</a>
-      </nav>
-      <div class="top-status"><span id="backendState" class="status-dot pending"><i></i>Control plane…</span></div>
-    </header>
+    <!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css）。
+         放 #monitorBody 内与旧顶栏同位：缺 task_id 时随主界面一起隐藏。 -->
+    <header id="lsTopNav"></header>
 
     <main class="content">
 
@@ -52,7 +41,7 @@
           <button class="button" id="refreshBtn" title="立即刷新全部数据">刷新</button>
           <button class="button" id="copyIdBtn" title="复制 task_id 到剪贴板">复制 task_id</button>
           <a class="button" href="training_list.html?v=0.44.0">任务列表</a>
-          <a class="button" href="dashboard.html">返回</a>
+          <a class="button" href="workbench.html#home">返回</a>
         </div>
       </header>
 
@@ -248,28 +237,16 @@
 
   <script src="shared/api.js"></script>
   <script src="training-common.js"></script>
+  <script src="shared/topnav.js"></script>
   <script>
+    // 统一顶栏：本页是训练任务的详情页，按同一套分类高亮「训练任务」
+    window.LSTopNav.render('lsTopNav', 'training_list.html');
+
     const {
       escapeHtml, stripAnsi, fetchJson, fmtMetric, fmtDuration, fmtRelativeTime,
       fmtDateTime, fmtBytes, statusInfo, smoothSeries, TrainingChart, RateTracker,
       CHART_COLORS, runColor, flattenDict,
     } = window.TrainingUI;
-
-    // ---------- 顶部控制面状态（与工作台一致：/health 探测） ----------
-    (async () => {
-      const dot = document.getElementById('backendState');
-      if (!dot) return;
-      try {
-        const base = window.TrainingUI && window.TrainingUI.API_BASE ? window.TrainingUI.API_BASE : '';
-        const response = await fetch(`${base}/health`);
-        if (!response.ok) throw new Error(String(response.status));
-        dot.className = 'status-dot ok';
-        dot.innerHTML = '<i></i>Control plane online';
-      } catch (error) {
-        dot.className = 'status-dot error';
-        dot.innerHTML = '<i></i>Control plane offline';
-      }
-    })();
 
     const urlParams = new URLSearchParams(window.location.search);
     const taskId = urlParams.get('task_id');

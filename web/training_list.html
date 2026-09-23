@@ -6,8 +6,8 @@
   <title>训练任务 - Legged Studio</title>
   <link rel="stylesheet" href="workbench.css">
   <link rel="stylesheet" href="play-overrides.css">
+  <link rel="stylesheet" href="shared/ui.css">
   <style>
-    body.embedded .topbar, body.embedded .app-shell > .topbar { display: none; }
     body.embedded .list-container, body.embedded .content { padding-top: 14px; }
   
     .list-container {
@@ -37,7 +37,7 @@
     }
 
     .summary-card:hover { border-color: var(--line); background: var(--surface-raised); }
-    .summary-card.active { border-color: rgba(45, 212, 191, 0.55); background: rgba(45, 212, 191, 0.08); }
+    .summary-card.active { border-color: var(--ls-accent-line); background: var(--ls-accent-soft); }
 
     .summary-card .value {
       font-size: 26px;
@@ -46,9 +46,10 @@
       color: var(--text);
     }
 
-    .summary-card.running .value { color: var(--cyan); }
-    .summary-card.completed .value { color: #217a37; }
-    .summary-card.failed .value { color: var(--red); }
+    /* 汇总卡与状态徽标同源：运行中=蓝 / 已完成=绿 / 失败=红（token 见 shared/ui.css） */
+    .summary-card.running .value { color: var(--ls-accent); }
+    .summary-card.completed .value { color: var(--ls-ok); }
+    .summary-card.failed .value { color: var(--ls-err); }
 
     .summary-card .label {
       font-size: 12px;
@@ -67,9 +68,9 @@
     .filter-bar select {
       min-height: 36px;
       padding: 0 10px;
-      background: #111922;
-      color: var(--text);
-      border: 1px solid var(--line);
+      background: var(--ls-surface);
+      color: var(--ls-text);
+      border: 1px solid var(--ls-line);
       border-radius: var(--radius);
       font-size: 13px;
     }
@@ -82,8 +83,8 @@
       gap: 8px;
       min-height: 36px;
       padding: 0 12px;
-      background: #111922;
-      border: 1px solid var(--line);
+      background: var(--ls-surface);
+      border: 1px solid var(--ls-line);
       border-radius: var(--radius);
     }
 
@@ -92,7 +93,7 @@
       background: none;
       border: none;
       outline: none;
-      color: var(--text);
+      color: var(--ls-text);
       font-size: 13px;
       min-height: 34px;
     }
@@ -202,17 +203,10 @@
       flex-wrap: wrap;
     }
 
-    .btn-small {
-      padding: 5px 10px;
-      font-size: 12px;
-      min-height: 26px;
-      min-width: 0;
-    }
-
-    .btn-small.danger { color: #fecaca; border-color: rgba(248, 113, 113, 0.35); }
-    .btn-small.danger:hover { background: rgba(127, 29, 29, 0.25); border-color: rgba(248, 113, 113, 0.6); }
-
-    /* 状态徽标（全部状态） */
+    /* 状态徽标：配色统一取自 shared/ui.css 的语义 token，且与汇总卡同源
+       （运行中=蓝 / 已完成=绿 / 失败=红 / 已停止=灰 / 等待中=琥珀）。
+       此前同一页里 running 是"蓝字 + 青底 + 青点"三色混装，pending/stopped 用
+       #cbd5e1/#fde68a 浅字放在浅底上（≈1.4:1，基本看不见）—— 都在这里收敛掉。 */
     .status-badge {
       display: inline-flex;
       align-items: center;
@@ -221,42 +215,37 @@
       border-radius: 999px;
       font-size: 11px;
       font-weight: 600;
-      border: 1px solid var(--line);
-      color: var(--muted);
-      background: var(--surface-raised);
+      border: 1px solid var(--ls-muted-line);
+      color: var(--ls-muted);
+      background: var(--ls-muted-soft);
       white-space: nowrap;
     }
 
+    /* 点与文字同色（currentColor）：徽标换语义色时点不会掉队 */
     .status-badge .status-dot {
       width: 7px;
       height: 7px;
       border-radius: 50%;
-      background: var(--faint);
+      background: currentColor;
       flex-shrink: 0;
     }
 
-    .status-badge.running { background: rgba(45, 212, 191, 0.12); color: var(--cyan); border-color: rgba(45, 212, 191, 0.35); }
-    .status-badge.running .status-dot { background: var(--cyan); animation: tsui-breathe 1.5s ease-in-out infinite; }
-    .status-badge.pending { color: #cbd5e1; }
+    .status-badge.running { background: var(--ls-accent-soft); color: var(--ls-accent); border-color: var(--ls-accent-line); }
+    .status-badge.running .status-dot { animation: tsui-breathe 1.5s ease-in-out infinite; }
+    .status-badge.pending { background: var(--ls-warn-soft); color: var(--ls-warn); border-color: var(--ls-warn-line); }
     .status-badge.pending .status-dot { animation: tsui-breathe 1.5s ease-in-out infinite; }
-    .status-badge.completed { background: rgba(94, 234, 212, 0.1); color: #217a37; border-color: rgba(94, 234, 212, 0.3); }
-    .status-badge.completed .status-dot { background: var(--green); }
-    .status-badge.failed { background: rgba(248, 113, 113, 0.12); color: var(--red); border-color: rgba(248, 113, 113, 0.35); }
-    .status-badge.failed .status-dot { background: var(--red); }
-    .status-badge.stopped { color: #fde68a; border-color: rgba(251, 191, 36, 0.3); }
-    .status-badge.stopped .status-dot { background: #fbbf24; }
-    .quality-chip { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
-      font-size: 11px; vertical-align: 1px; border: 1px solid; }
-    .quality-chip.q-ok { color: #217a37; border-color: rgba(94, 234, 212, 0.3); background: rgba(94, 234, 212, 0.08); }
-    .quality-chip.q-warn { color: #fbbf24; border-color: rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.08); }
-    .quality-chip.q-bad { color: var(--red); border-color: rgba(248, 113, 113, 0.35); background: rgba(248, 113, 113, 0.1); }
-    .quality-chip.q-mute { color: #94a3b8; border-color: rgba(148, 163, 184, 0.3); background: rgba(148, 163, 184, 0.08); }
+    .status-badge.completed { background: var(--ls-ok-soft); color: var(--ls-ok); border-color: var(--ls-ok-line); }
+    .status-badge.failed { background: var(--ls-err-soft); color: var(--ls-err); border-color: var(--ls-err-line); }
+    .status-badge.stopped { background: var(--ls-muted-soft); color: var(--ls-muted); border-color: var(--ls-muted-line); }
 
     /* 与 training-common.js 注入的共享状态点动画保持一致（1.5s 呼吸） */
     @keyframes tsui-breathe {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.35; }
     }
+
+    /* 任务行内的质量 / Run 徽标：ls-badge 的紧凑内联位（保持原行高密度） */
+    .task-info .ls-badge { margin-left: 6px; padding: 1px 7px; line-height: 1.5; vertical-align: 1px; }
 
     .empty-state p { margin-bottom: 16px; }
     .error-state { color: var(--red); }
@@ -283,20 +272,8 @@
 <body>
   <script>if (new URLSearchParams(location.search).get('embedded') === '1') document.body.classList.add('embedded');</script>
   <div class="app-shell">
-    <header class="topbar">
-      <a class="brand" href="dashboard.html" aria-label="Legged Studio 首页">
-        <span class="brand-mark">LS</span>
-        <span><strong>Legged Studio</strong><small>Training Console</small></span>
-      </a>
-      <nav class="main-nav" aria-label="主功能">
-        <a class="nav-item" href="dashboard.html"><span class="nav-index">01</span>首页</a>
-        <a class="nav-item" href="workbench.html#robot"><span class="nav-index">02</span>验证</a>
-        <a class="nav-item" href="training_create.html?v=0.44.0"><span class="nav-index">03</span>训练配置</a>
-        <a class="nav-item active" href="training_list.html?v=0.44.0"><span class="nav-index">04</span>训练</a>
-        <a class="nav-item" href="workbench.html#simulation"><span class="nav-index">05</span>仿真</a>
-      </nav>
-      <div class="top-status"><span class="status-dot" id="planeDot"><i></i>Control plane</span></div>
-    </header>
+    <!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css） -->
+    <header id="lsTopNav"></header>
   <main class="content">
   <div class="list-container">
     <!-- T2.5：模块化资源包（模仿学习三线为对标两家均无的独有优势） -->
@@ -323,7 +300,7 @@
       <div class="page-actions">
         <a class="button primary" href="training_create.html?v=0.44.0">新建训练</a>
         <button class="button" onclick="refreshList()">刷新</button>
-        <a class="button" href="dashboard.html">返回</a>
+        <a class="button" href="workbench.html#home">返回</a>
       </div>
     </header>
 
@@ -372,7 +349,10 @@
 
   <script src="shared/api.js"></script>
   <script src="training-common.js"></script>
+  <script src="shared/topnav.js"></script>
   <script>
+    window.LSTopNav.render('lsTopNav', 'training_list.html');
+
     const {
       escapeHtml, fetchJson, statusBadge, fmtRelativeTime, fmtMetric, fmtDuration,
       statusInfo, RateTracker,
@@ -454,14 +434,14 @@
       const digest = String(run.inputs_digest || '').slice(0, 8);
       let html = '';
       if (verify.ok) {
-        html += `<span class="quality-chip q-ok" title="B9 四件套对账通过（inputs_digest ${digest}…）">档案✓ seed=${run.seed ?? '-'}</span>`;
+        html += `<span class="ls-badge ls-badge--ok" title="B9 四件套对账通过（inputs_digest ${digest}…）">档案✓ seed=${run.seed ?? '-'}</span>`;
       } else {
         const n = (verify.problems || []).length;
-        html += `<span class="quality-chip q-bad" title="${(verify.problems || []).join('；') || '四件套对账未通过'}">档案✗ ${n} 项</span>`;
+        html += `<span class="ls-badge ls-badge--err" title="${(verify.problems || []).join('；') || '四件套对账未通过'}">档案✗ ${n} 项</span>`;
       }
       const produced = data.produced || [];
       if (produced.length) {
-        html += `<span class="quality-chip q-ok" title="${produced.map((p) => `${p.artifact_id} (${String(p.onnx_sha256 || '').slice(0, 12)}…)`).join('\n')}">已入库×${produced.length}</span>`;
+        html += `<span class="ls-badge ls-badge--ok" title="${produced.map((p) => `${p.artifact_id} (${String(p.onnx_sha256 || '').slice(0, 12)}…)`).join('\n')}">已入库×${produced.length}</span>`;
       }
       return html;
     }
@@ -487,15 +467,16 @@
     function qualityBadges(taskId) {
       const badges = qualityByTask[taskId];
       if (!badges) return '';
-      const chip = (cls, text, title) =>
-        `<span class="quality-chip ${cls}" title="${title}">${text}</span>`;
+      // 语义色与状态徽标同源（ok/warn/err/muted，见 shared/ui.css）
+      const chip = (tone, text, title) =>
+        `<span class="ls-badge ls-badge--${tone}" title="${title}">${text}</span>`;
       let html = '';
-      if (badges.preflight === 'pass') html += chip('q-ok', '预检', '训练前物理可达性预检通过（开环动作包络扫描）');
-      else if (badges.preflight === 'warn') html += chip('q-warn', '预检', '预检警告：部分动作幅值下姿态/高度接近边界');
-      else if (badges.preflight === 'error') html += chip('q-bad', '预检', '预检执行失败（详见 native_preflight.json）');
-      if (badges.acceptance === 'pass') html += chip('q-ok', '验收', 'ONNX 策略验收全部指令模式通过');
-      else if (badges.acceptance === 'fail') html += chip('q-bad', '验收', 'ONNX 策略验收存在未通过指令模式');
-      else if (badges.acceptance === 'not_evaluated') html += chip('q-mute', '验收', '已导出 ONNX，尚未运行验收评估');
+      if (badges.preflight === 'pass') html += chip('ok', '预检', '训练前物理可达性预检通过（开环动作包络扫描）');
+      else if (badges.preflight === 'warn') html += chip('warn', '预检', '预检警告：部分动作幅值下姿态/高度接近边界');
+      else if (badges.preflight === 'error') html += chip('err', '预检', '预检执行失败（详见 native_preflight.json）');
+      if (badges.acceptance === 'pass') html += chip('ok', '验收', 'ONNX 策略验收全部指令模式通过');
+      else if (badges.acceptance === 'fail') html += chip('err', '验收', 'ONNX 策略验收存在未通过指令模式');
+      else if (badges.acceptance === 'not_evaluated') html += chip('muted', '验收', '已导出 ONNX，尚未运行验收评估');
       return html;
     }
 
@@ -612,9 +593,9 @@
             ${progressCell}
             <div class="cell-mono col-reward" title="最近一次汇报的平均奖励">${escapeHtml(fmtMetric(task.reward))}</div>
             <div class="table-actions" onclick="event.stopPropagation()">
-              <button class="btn btn-small" onclick="viewTask('${escapeHtml(task.task_id)}')">查看</button>
-              ${canStop ? `<button class="btn btn-small" onclick="stopTask('${escapeHtml(task.task_id)}')">停止</button>` : ''}
-              ${canDelete ? `<button class="btn btn-small danger" onclick="deleteTask('${escapeHtml(task.task_id)}')" title="从列表移除该任务记录">删除</button>` : ''}
+              <button class="ls-btn ls-btn--ghost ls-btn--small" onclick="viewTask('${escapeHtml(task.task_id)}')">查看</button>
+              ${canStop ? `<button class="ls-btn ls-btn--small" onclick="stopTask('${escapeHtml(task.task_id)}')">停止</button>` : ''}
+              ${canDelete ? `<button class="ls-btn ls-btn--danger ls-btn--small" onclick="deleteTask('${escapeHtml(task.task_id)}')" title="从列表移除该任务记录">删除</button>` : ''}
             </div>
           </div>`;
       }).join('');
@@ -681,8 +662,5 @@
   </div>
   </main>
   </div>
-<script>
-    fetch('/health').then((r) => { const dot = document.getElementById('planeDot'); if (dot) dot.classList.add(r.ok ? 'ok' : 'error'); }).catch(() => { const dot = document.getElementById('planeDot'); if (dot) dot.classList.add('error'); });
-  </script>
 </body>
 </html>

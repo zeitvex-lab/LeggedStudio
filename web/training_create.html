@@ -6,14 +6,14 @@
   <title>创建训练 - Legged Studio</title>
   <link rel="stylesheet" href="workbench.css">
   <link rel="stylesheet" href="play-overrides.css">
+  <link rel="stylesheet" href="shared/ui.css">
   <style>
-    body.embedded .topbar, body.embedded .app-shell > .topbar { display: none; }
     body.embedded .list-container, body.embedded .content { padding-top: 14px; }
     body.embedded .content { width: min(100% - 28px, 1560px); padding-top: 12px; }
 
     /* 页面局部样式：仅布局与原生 workbench.css 未覆盖的细节。
        颜色一律来自 workbench.css 的设计变量（--cyan/--line/--surface-*/…）。 */
-    :root { --header-h: 66px; }
+    :root { --header-h: var(--ls-topnav-h, 54px); }
 
     /* ========== 顶部选择条（机器人 / 档案 / 任务 / 设备） ========== */
     .selector-bar { flex-wrap: wrap; align-items: flex-end; gap: 14px 16px; }
@@ -540,18 +540,20 @@
     .obs-slot-item .path { display: block; color: var(--faint); font-size: 11px; font-family: Consolas, monospace; }
     .obs-slot-item .dim { color: var(--faint); font-size: 11px; font-family: Consolas, monospace; }
     .obs-slot-item button {
-      border: 1px solid rgba(248,81,73,.35);
+      border: 1px solid var(--ls-err-line);
       background: transparent;
-      color: #f85149;
+      color: var(--ls-err);
       border-radius: 6px;
       padding: 3px 7px;
       font-size: 11px;
       cursor: pointer;
     }
+    /* 观测维度自检结论：原为 GitHub 深色板的 #2ea043/#d29922/#f85149，
+       放在浅底上只有 2.5~3.4:1；改用 ui.css 语义 token（同色系、可读） */
     .obs-dim-check { margin-top: 10px; font: 12px Consolas, monospace; }
-    .obs-dim-check .ok { color: #2ea043; }
-    .obs-dim-check .warn { color: #d29922; }
-    .obs-dim-check .bad { color: #f85149; }
+    .obs-dim-check .ok { color: var(--ls-ok); }
+    .obs-dim-check .warn { color: var(--ls-warn); }
+    .obs-dim-check .bad { color: var(--ls-err); }
     .obs-src-wizard {
       grid-column: 1 / -1;
       margin-top: 6px;
@@ -824,21 +826,8 @@
 <body>
   <script>if (new URLSearchParams(location.search).get('embedded') === '1') document.body.classList.add('embedded');</script>
   <div class="app-shell">
-    <!-- ========== 原生顶栏 ========== -->
-    <header class="topbar">
-      <a class="brand" href="dashboard.html" aria-label="Legged Studio 首页">
-        <span class="brand-mark">LS</span>
-        <span><strong>Legged Studio</strong><small>Training Console</small></span>
-      </a>
-      <nav class="main-nav" aria-label="主功能">
-        <a class="nav-item" href="dashboard.html"><span class="nav-index">01</span>首页</a>
-        <a class="nav-item" href="workbench.html#robot"><span class="nav-index">02</span>验证</a>
-        <a class="nav-item active" href="training_create.html?v=0.44.0"><span class="nav-index">03</span>训练配置</a>
-        <a class="nav-item" href="training_list.html?v=0.44.0"><span class="nav-index">04</span>训练</a>
-        <a class="nav-item" href="workbench.html#simulation"><span class="nav-index">05</span>仿真</a>
-      </nav>
-      <div class="top-status"><span id="backendState" class="status-dot pending"><i></i>Control plane…</span></div>
-    </header>
+    <!-- 统一顶栏：内容由 shared/topnav.js 渲染（样式在 shared/ui.css） -->
+    <header id="lsTopNav"></header>
 
     <main class="content">
       <div class="view-heading compact">
@@ -1270,24 +1259,11 @@
 
   <script src="shared/api.js"></script>
   <script src="training-common.js"></script>
+  <script src="shared/topnav.js"></script>
   <script>
-    const { escapeHtml, fetchJson, downloadText } = window.TrainingUI;
+    window.LSTopNav.render('lsTopNav', 'training_create.html');
 
-    // ---------- 顶部控制面状态（与工作台一致：/health 探测） ----------
-    (async () => {
-      const dot = document.getElementById('backendState');
-      if (!dot) return;
-      try {
-        const base = window.TrainingUI && window.TrainingUI.API_BASE ? window.TrainingUI.API_BASE : '';
-        const response = await fetch(`${base}/health`);
-        if (!response.ok) throw new Error(String(response.status));
-        dot.className = 'status-dot ok';
-        dot.innerHTML = '<i></i>Control plane online';
-      } catch (error) {
-        dot.className = 'status-dot error';
-        dot.innerHTML = '<i></i>Control plane offline';
-      }
-    })();
+    const { escapeHtml, fetchJson, downloadText } = window.TrainingUI;
 
     const LOCK_SVG = '<svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V6H4a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 4 15h8a1.5 1.5 0 0 0 1.5-1.5v-6A1.5 1.5 0 0 0 12 6h-.5V4.5A3.5 3.5 0 0 0 8 1Zm2 5H6V4.5a2 2 0 1 1 4 0V6Z"/></svg>';
 
@@ -2433,7 +2409,7 @@
         return `<div class="obs-lib-item" data-lib="${escapeHtml(item.name)}">
           <span class="name">${escapeHtml(item.name)}<small>${escapeHtml(item.desc)}</small></span>
           <span class="dim">${item.width}D · ×${item.scale}</span>
-          <span class="dim">${inUse ? '<span style="color:#2ea043">接入</span>' : '未接入'}</span>
+          <span class="dim">${inUse ? '<span style="color:var(--ls-ok)">接入</span>' : '未接入'}</span>
           <button data-add-obs="${escapeHtml(item.name)}" ${inUse ? 'disabled' : ''}>接入</button>
           ${obsSrcHtml}
         </div>`;
@@ -3116,11 +3092,14 @@
     }, { rootMargin: '-45% 0px -50% 0px' }) : null;
 
     function syncHeaderOffset() {
-      const bar = document.querySelector('.topbar');
+      // 统一顶栏（shared/topnav.js 渲染）实测高度；嵌进 workbench iframe 时顶栏隐藏，
+      // offsetHeight 为 0 —— 章节导航/粘性栏随之贴住帧顶，正是嵌入态想要的效果。
+      const bar = document.querySelector('.ls-topnav');
       if (!bar) return;
       document.documentElement.style.setProperty('--header-h', `${bar.offsetHeight}px`);
     }
     window.addEventListener('resize', syncHeaderOffset);
+    syncHeaderOffset();
 
     // ---------- 事件绑定 ----------
     $('profileSelect').addEventListener('change', (event) => {
