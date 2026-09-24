@@ -30,8 +30,15 @@ def _profiles() -> list[tuple[str, Path]]:
 
 
 def _contract_order(robot: str) -> list[str]:
+    """动作接口的真值字段 = 契约 `action.joint_order`。
+
+    **不要用 `joints.actuated`**：那是关节清单（按 MJCF 序），两者在 go2w 上不同
+    （清单是逐腿混排、动作序是腿先轮后）。2026-09-24 第一版本测试就比错了字段，
+    把 go2w 误判成"腿序写反"——这条注释就是防复发。
+    """
+
     data = json.loads((ROOT / "assets" / "robots" / robot / "contract.json").read_text(encoding="utf-8-sig"))
-    return [str(item["name"]) for item in data["joints"]["actuated"]]
+    return [str(item) for item in (data.get("action") or {}).get("joint_order") or []]
 
 
 def _is_pattern(item: str) -> bool:
@@ -61,12 +68,11 @@ def _action_interface_order(cfg) -> tuple[list[str], bool]:
     return order, literal
 
 
-#: 已登记的**动作序偏离**（必须写清为什么、以及谁来裁决）。空 = 全族一致；
+#: 已登记的**动作序偏离**（必须写清为什么、以及谁来裁决）。空 = 全族与契约一致。
 #: 登记了却已一致也判红（防登记表变谎言），新出现的偏离照样判红。
-KNOWN_ORDER_DEVIATIONS: dict[str, str] = {
-    "go2w-flat": "契约用官方 SDK 的逐腿混排序（FL,FR,RL,RR 各腿带轮），训练沿用上游 mjlab go2w 的 FR,FL,RR,RL —— 两侧都有上游背书（上游=unitree_rl_mjlab_go2w，契约=SDK 部署约定），权威序待裁决（registry/porting_references.json: go2w-flat）",
-    "go2w-rough": "同 go2w-flat",
-}
+#: 2026-09-24：go2w 一条曾登记于此，后查明是**本测试比错了参照字段**（`joints.actuated` ≠
+#: `action.joint_order`）——参照已修正，登记随之撤销。
+KNOWN_ORDER_DEVIATIONS: dict[str, str] = {}
 
 
 class ActionOrderInvariantTest(unittest.TestCase):
