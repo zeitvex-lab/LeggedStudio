@@ -241,6 +241,8 @@ def _normalise_robot_packages(imported_root: Path, manifest: dict[str, Any]) -> 
         digest = normalized_sha256(model.read_bytes())
         package_id = "imported_" + "".join(c.lower() if c.isalnum() else "_" for c in model.stem).strip("_")[:40]
         contract = draft_model_contract(Path(relative), fmt, report.get("inspection", {}), digest)
+        # 判族结论只服务于导入报告；契约文件只放 schema 字段（与 package_import 两条路径同口径）。
+        contract.pop("family_judgement", None)
         contract.update({"robot_id": package_id or "imported_robot", "contract_id": f"{package_id}_contract_v1", "source": "legged_studio_project_import", "tags": ["imported", "project_package"]})
         (imported_root / "contract.json").write_text(json.dumps(contract, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         package = {"schema_version": "robot-package-1.0", "package_id": package_id, "task_kind": "generic", "capabilities": ["generic_mjlab", "mujoco_sim"], "model_path": relative}

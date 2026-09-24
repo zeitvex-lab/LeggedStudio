@@ -14,6 +14,19 @@ import mujoco
 from mjlab.actuator import BuiltinPositionActuatorCfg, BuiltinVelocityActuatorCfg
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 
+# 仓库根自举（与 m20_velocity / b2w / go2w 的包内 stub 同一手法）：worker / 冒烟 /
+# schema-dump 三种运行环境只把 ``training/source`` 放进 sys.path，Kit 与仓库级工具
+# （``adapters.mjlab.*``）得靠沿目录向上找 ``adapters/mjlab`` 才能 import 到。
+import sys  # noqa: E402
+
+for _parent in Path(__file__).resolve().parents:
+  if (_parent / "adapters" / "mjlab").is_dir():
+    if str(_parent) not in sys.path:
+      sys.path.insert(0, str(_parent))
+    break
+
+from adapters.mjlab.spec_utils import name_unnamed_sensors  # noqa: E402
+
 ##
 # MJCF (package-level model; matches contract.json joint order).
 ##
@@ -78,7 +91,19 @@ OBS_NOISE_DOF_VEL: float = 0.075
 def get_spec() -> mujoco.MjSpec:
   if not M20_XML.exists():
     raise FileNotFoundError(f"M20 MJCF not found at {M20_XML}.")
-  return mujoco.MjSpec.from_file(str(M20_XML))
+  spec = mujoco.MjSpec.from_file(str(M20_XML))
+  # 包级 MJCF 自带 16 个与关节同名的 <position>/<velocity> 执行器；本模块的
+  # ``M20_ARTICULATION`` 又声明了覆盖同一批关节的 builtin 组 ⇒ mjlab 生成同名执行器时抛
+  # ``repeated name 'fl_hipx_joint' in actuator``（2026-09-24 冒烟红即此）。
+  # 这里撤掉 XML 执行器，改由 cfg 声明——逐值等价：XML kp=80/kv=2/±76.4 与
+  # LEG_ACTUATOR 的 stiffness/damping/effort_limit 一致，轮子 kv=0.6/±21.6 与
+  # WHEEL_ACTUATOR 一致；armature=0.01 本就在**关节**上（robot.xml 各 <joint>）。
+  for actuator in list(spec.actuators):
+    spec.delete(actuator)
+  # 同一份 MJCF 还带无名的 <gyro>/<accelerometer>：mjlab 的 scene 按名包装传感器时
+  # ``mj_model.sensor('')`` → ``KeyError: Invalid name ''``。补名实现与通用任务路径共一份。
+  name_unnamed_sensors(spec)
+  return spec
 
 
 INIT_STATE = EntityCfg.InitialStateCfg(
