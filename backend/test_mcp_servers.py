@@ -82,7 +82,7 @@ class McpSelfHostedServerTest(unittest.TestCase):
         from tools.mcp import resources_server
 
         robots = resources_server.list_robots()
-        self.assertGreaterEqual(robots["count"], 14)
+        self.assertEqual(robots["count"], 8, "8 个内置机型都应在资源库里可检索（2026-09-23 族架构收敛）")
         hits = resources_server.search_projects(robot="zex-w")
         self.assertGreaterEqual(hits["matched"], 1, "zex-w 的移植准入证据必须可检索到")
 

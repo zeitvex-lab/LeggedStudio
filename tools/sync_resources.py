@@ -77,7 +77,7 @@ CATEGORY_HELP = {
 }
 
 # --------------------------------------------------------------------------
-# 目标机型（14）
+# 目标机型（8，2026-09-23 收敛口径：四足 4 + 轮足 4）
 # --------------------------------------------------------------------------
 ROBOT_LABEL = {
     "unitree_go1": "宇树 Go1 四足",
@@ -85,15 +85,21 @@ ROBOT_LABEL = {
     "unitree_go2w": "宇树 Go2W 轮足",
     "unitree_b2": "宇树 B2 四足",
     "unitree_b2w": "宇树 B2W 轮足",
-    "unitree_g1": "宇树 G1 人形",
     "deeprobotics_lite3": "云深处 Lite3 四足",
     "deeprobotics_m20": "云深处 M20 轮足",
-    "limx_tron1_pf": "逐际动力 TRON1-PF",
-    "limx_tron1_sf": "逐际动力 TRON1-SF",
-    "limx_tron1_wf": "逐际动力 TRON1-WF",
-    "microduck": "MicroDuck 双足",
-    "wuji_hand": "无极灵巧手",
     "zex-w": "ZEX-W 轮足",
+}
+
+#: **已删除机型**（2026-09-23 收敛时删掉，参考项目仍留在资源库作档案）：
+#: 它们**不进「机型 → 项目反查」表**（反查表回答的是"在役机型有哪些可参考的项目"），
+#: 但只要某个项目仍关联这些机型，项目清单条目里照旧如实标注。
+ARCHIVED_ROBOT_LABEL = {
+    "unitree_g1": "宇树 G1 人形（已删除机型）",
+    "limx_tron1_pf": "逐际动力 TRON1-PF（已删除机型）",
+    "limx_tron1_sf": "逐际动力 TRON1-SF（已删除机型）",
+    "limx_tron1_wf": "逐际动力 TRON1-WF（已删除机型）",
+    "microduck": "MicroDuck 双足（已删除机型）",
+    "wuji_hand": "无极灵巧手（已删除机型）",
 }
 ROBOTS = list(ROBOT_LABEL)
 

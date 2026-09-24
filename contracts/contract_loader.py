@@ -180,3 +180,30 @@ def load_training_contract(package_dir: Path) -> dict[str, Any]:
     if v3 is None and v2 is None:
         raise ContractLoadError(f"No contract found in {package_dir}")
     return merge_legacy_over_contract(v3, v2)
+
+
+def project_observation_to_legacy(v3: dict[str, Any] | None, legacy: dict[str, Any]) -> dict[str, Any]:
+    """把 v2 的观测段退化为 v3 投影：组件名（按 v3 顺序）+ 维度。
+
+    同一个"参数单一家"裁决（B2）：能表达字段级表述的 v3 是真值，v2 只保留投影。
+    此前 v2 的观测段是各自手写的，实测已与 v3 分家——go2 缺 ``commands`` 多
+    ``base_lin_vel``、go1 少 ``base_lin_vel``（且名字和 45 ≠ 声明 48）、go2w 用旧项名、
+    zex-w 缺 ``wheel_vel``；而 v2 正是 create 校验链与预设记录的输入 ⇒ 陈旧值会
+    盖着真值出现在训练配置页。
+
+    v3 没有组件（v2 迁移的历史/视觉观测无法机械定宽）时**原样返回**：这种情况
+    下 v2 仍是唯一表述，投影无从谈起。
+    """
+    v3_components = ((v3 or {}).get("observation") or {}).get("components") or []
+    if not v3_components:
+        return legacy
+    names = [str(item.get("name")) for item in v3_components if isinstance(item, dict) and item.get("name")]
+    if len(names) != len(v3_components):
+        return legacy
+    total = sum(int(item.get("width") or 0) for item in v3_components)
+    projected = dict(legacy)
+    observation = dict(legacy.get("observation") or {})
+    observation["components"] = names
+    observation["dimension"] = total
+    projected["observation"] = observation
+    return projected

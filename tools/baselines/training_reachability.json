@@ -1,6 +1,6 @@
 {
  "schema": "training-reachability-1.0",
- "generated_at": "2026-09-23T15:25:19+00:00",
+ "generated_at": "2026-09-23T18:43:35+00:00",
  "note": "「可达性」判据见 tools/audit_training_reachability.py 头部 docstring；deletable 只是候选，删前仍需 audit_porting_admission + 逐 profile 冒烟。",
  "robots": {
   "deeprobotics_lite3": {
@@ -61,11 +61,12 @@
    ],
    "seed_modules": [
     "b2w_velocity.env_cfgs",
-    "b2w_velocity.rl_cfg"
+    "b2w_velocity.rl_cfg",
+    "b2w_velocity.traversal_env_cfg"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 7,
-   "reachable_count": 7,
+   "module_count": 8,
+   "reachable_count": 8,
    "unreachable_count": 0,
    "protected_ancestors": [],
    "deletable": [],
@@ -77,11 +78,13 @@
     "assets/robots/unitree_go1/training/source"
    ],
    "seed_modules": [
+    "go1_amp.config",
+    "go1_jump.config",
     "go1_velocity.env_cfg"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 3,
-   "reachable_count": 3,
+   "module_count": 9,
+   "reachable_count": 9,
    "unreachable_count": 0,
    "protected_ancestors": [],
    "deletable": [],
@@ -111,8 +114,8 @@
     "local_tasks.robots.unitree.go2.training.runner"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 159,
-   "reachable_count": 159,
+   "module_count": 151,
+   "reachable_count": 151,
    "unreachable_count": 0,
    "protected_ancestors": [],
    "deletable": [],
