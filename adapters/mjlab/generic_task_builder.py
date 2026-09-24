@@ -102,6 +102,33 @@ def _recipe_rewards(recipe: Any) -> dict[str, float]:
     return {str(key): float(value) for key, value in values.items() if value is not None}
 
 
+def _name_unnamed_sensors(spec: Any) -> None:
+    """给 MJCF 里**无 name 的传感器**补稳定名（类型/挂载点/语义都不动）。
+
+    MuJoCo 接受无名传感器，但 mjlab 的 scene 会把每个 spec 传感器按名包成
+    ``BuiltinSensor``（`mj_model.sensor('')` → ``KeyError: Invalid name ''``），环境直接
+    建不起来——lite3 / m20 的 MJCF 就带无名 ``<gyro>``/``<accelerometer>``。
+    """
+    import mujoco
+
+    fallback = {
+        int(mujoco.mjtSensor.mjSENS_ACCELEROMETER): "imu_accelerometer",
+        int(mujoco.mjtSensor.mjSENS_GYRO): "imu_gyro",
+    }
+    taken = {sensor.name for sensor in spec.sensors if sensor.name}
+    for sensor in spec.sensors:
+        if sensor.name:
+            continue
+        base = fallback.get(int(sensor.type), f"sensor_type{int(sensor.type)}")
+        name = base
+        suffix = 0
+        while name in taken:
+            suffix += 1
+            name = f"{base}_{suffix}"
+        sensor.name = name
+        taken.add(name)
+
+
 def _make_spec_fn(xml_path: Path, *, strip_actuators: bool = False):
     import mujoco
 
@@ -110,9 +137,38 @@ def _make_spec_fn(xml_path: Path, *, strip_actuators: bool = False):
         if strip_actuators:
             for actuator in list(spec.actuators):
                 actuator.delete()
+        _name_unnamed_sensors(spec)
         return spec
 
     return get_spec
+
+
+#: 模型带非零接触余量时必须关掉的 warp CCD 开关（顺序即写入顺序）。
+_CCD_UNSUPPORTED_FLAGS = ("multiccd", "nativeccd")
+
+
+def _ccd_disable_flags(xml_path: Path) -> tuple[str, ...]:
+    """模型带非零 geom/pair margin 时禁用 MULTICCD + NATIVECCD。
+
+    ``mujoco_warp._src.io._check_margin``：BOX/MESH 成对且任一 margin≠0 时，MULTICCD
+    （该构建里**默认开启**）直接 ``NotImplementedError``；把 MULTICCD 关掉还有 NATIVECCD
+    那一关（BOX-BOX 同样抛），所以两个都要关。另一条出路是把 margin 抹平——那是动物理参数
+    （接触检测距离），不做。无 margin 的模型原样不动（"不修改就不起作用"）。
+    """
+    import mujoco
+
+    try:
+        model = mujoco.MjSpec.from_file(str(xml_path)).compile()
+    except Exception:  # noqa: BLE001 —— 资产缺件等问题交给后续建环境时报真错
+        return ()
+    box_or_mesh = {int(mujoco.mjtGeom.mjGEOM_BOX), int(mujoco.mjtGeom.mjGEOM_MESH)}
+    for geom in range(model.ngeom):
+        if int(model.geom_type[geom]) in box_or_mesh and float(model.geom_margin[geom]) > 0:
+            return _CCD_UNSUPPORTED_FLAGS
+    for pair in range(model.npair):
+        if float(model.pair_margin[pair]) > 0:
+            return _CCD_UNSUPPORTED_FLAGS
+    return ()
 
 
 def _xml_actuated_targets(xml_path: Path) -> tuple[set[str], dict[str, str], set[str], dict[str, str]]:
@@ -401,6 +457,7 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
     # 不放任务字段；否决「强制显式提供」：generic 路径的存在意义就是零配置可跑（V7）。
     episode_length = _episode_length_s(environment)
     decimation = max(1, int(_contract_value(contract, "control.decimation", 1)))
+    ccd_disable_flags = _ccd_disable_flags(xml_path)
     env_cfg = ManagerBasedRlEnvCfg(
         decimation=decimation,
         scene=SceneCfg(terrain=terrain, entities={"robot": entity}, num_envs=num_envs, extent=2.0),
@@ -414,7 +471,7 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
         terminations={"time_out": TerminationTermCfg(func=mdp.time_out, time_out=True)},
         commands=commands,
         seed=int(_get(recipe, "seed", 0) or 0),
-        sim=SimulationCfg(mujoco=MujocoCfg(timestep=1.0 / max(1, int(_contract_value(contract, "control.physics_hz", 1000))))),
+        sim=SimulationCfg(mujoco=MujocoCfg(timestep=1.0 / max(1, int(_contract_value(contract, "control.physics_hz", 1000))), disableflags=ccd_disable_flags)),
         episode_length_s=episode_length,
     )
     play_cfg = deepcopy(env_cfg)
@@ -444,6 +501,7 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
         "reward_terms": sorted(rewards),
         "skipped_rewards": skipped_rewards,
         "unsupported_observations": unsupported_obs,
+        "mujoco_disableflags": list(ccd_disable_flags),
         **actuator_report,
     }
     return GenericTaskBundle(generated_id, env_cfg, play_cfg, rl_cfg, diagnostics)

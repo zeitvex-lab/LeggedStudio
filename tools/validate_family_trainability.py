@@ -67,7 +67,8 @@ def run_one(robot_id: str, terrain: str) -> dict:
         return {"robot": robot_id, "terrain": terrain, "ok": True, "skipped": True,
                 "reason": "该地形档由族 Kit 提供（通用任务路径无任务载体），跳过",
                 "returncode": None, "effective_matches_preview": None,
-                "onnx_exported": None, "resolved_terrain": None, "tail": ""}
+                "onnx_exported": None, "resolved_terrain": None,
+                "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "tail": ""}
     from adapters.mjlab.native_adapter import DEFAULT_SOURCE
     from backend.training.models import CreateTrainingRequest
     from backend.training.service import prepare_training_config
@@ -108,8 +109,37 @@ def run_one(robot_id: str, terrain: str) -> dict:
             "onnx_exported": (out / "exported" / "policy.onnx").is_file(),
             "resolved_terrain": resolved,
             "ok": result.returncode == 0 and resolved == terrain,
+            "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "tail": "" if result.returncode == 0 else (result.stdout + result.stderr)[-600:],
         }
+
+
+def merge_baseline(results: list[dict]) -> tuple[list[dict], int]:
+    """把本次跑出的行并入既有基线：本次覆盖到的 (机型, 地形档) 换新，其余原样保留。
+
+    单机型复跑（`--robot X`，例如新导入一台机器后）不该把别的机型行抹掉——否则基线会退化成
+    "最后一次跑的子集"，而它承担的是"全族 8 台逐档能不能训"的对照真值。保留行带各自
+    `checked_at`，陈旧一眼可见（行数也打印出来）。返回 (全部行, 本次刷新的行数)。
+    """
+    merged: dict[tuple[str, str], dict] = {}
+    if BASELINE.is_file():
+        try:
+            previous = json.loads(BASELINE.read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError):
+            previous = {}
+        for row in previous.get("results") or []:
+            key = (str(row.get("robot")), str(row.get("terrain")))
+            merged[key] = {**row, "checked_at": row.get("checked_at") or previous.get("generated_at")}
+    refreshed = 0
+    for row in results:
+        key = (str(row["robot"]), str(row["terrain"]))
+        refreshed += 1
+        merged[key] = {k: v for k, v in row.items() if k != "tail"}
+    order = {robot: index for index, robot in enumerate(ALL_ROBOTS)}
+    fallback_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    ordered = [merged[key] for key in sorted(merged, key=lambda item: (order.get(item[0], 99), item[1]))]
+    # 每行都要有日期：留着"没有 checked_at"的行，等于让读者分不清新证据与陈年行。
+    return [{**row, "checked_at": row.get("checked_at") or fallback_date} for row in ordered], refreshed
 
 
 def main() -> int:
@@ -142,15 +172,21 @@ def main() -> int:
                 break
 
     failed = [row for row in results if not row["ok"]]
+    skipped = [row for row in results if row.get("skipped")]
+    rows, refreshed = merge_baseline(results)
     BASELINE.parent.mkdir(parents=True, exist_ok=True)
     BASELINE.write_text(json.dumps({
         "schema": "family-trainability-1.0",
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "scope": {"robots": list(robots), "terrains": pinned or "各机型本族 ready 档"},
         "note": "通用任务路径（不带档案）逐（机型 × 地形档）真跑矩阵；判据见本工具 docstring。"
-                "规模 = smoke（2 envs × 1 iter），只作「能不能训」的证据，不代表训练质量。",
-        "results": [{k: v for k, v in row.items() if k != "tail"} for row in results],
+                "规模 = smoke（2 envs × 1 iter），只作「能不能训」的证据，不代表训练质量。"
+                "行按 (机型, 地形档) 合并：本次没跑到的行原样保留，其 checked_at 即上次实测日期。",
+        "results": rows,
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"\n矩阵：{len(results) - len(failed)}/{len(results)} 格通过；基线已落 {BASELINE.relative_to(ROOT)}")
+    graded = len(results) - len(skipped)
+    print(f"\n矩阵：真跑 {graded - len(failed)}/{graded} 格通过，跳过 {len(skipped)} 格（族 Kit 档，"
+          f"通用任务路径无载体）；基线 {BASELINE.relative_to(ROOT)} 更新 {refreshed} 行 / 共 {len(rows)} 行")
     return 0 if not failed else 1
 
 
