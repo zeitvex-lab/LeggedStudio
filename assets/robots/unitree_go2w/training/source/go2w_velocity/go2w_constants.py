@@ -71,7 +71,11 @@ def get_spec() -> mujoco.MjSpec:
       f"Go2-W MJCF not found at {GO2W_XML}. "
       "Place your converted go2w.xml and meshes under this package."
     )
-  return mujoco.MjSpec.from_file(str(GO2W_XML))
+  from adapters.mjlab.spec_utils import normalize_for_training
+
+  spec = mujoco.MjSpec.from_file(str(GO2W_XML))
+  normalize_for_training(spec)
+  return spec
 
 
 ##

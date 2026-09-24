@@ -68,31 +68,11 @@ JOINT_GROUPS = {
 ALL_JOINTS = JOINT_GROUPS["hipx"] + JOINT_GROUPS["hipy"] + JOINT_GROUPS["knee"]
 
 
-def _lite3_robot_cfg_with_named_sensors():
-    """Lite3 robot EntityCfg with all MJCF sensors named.
-
-    ``robot.xml`` 里有无名 ``<gyro>``/``<accelerometer>``：mjlab 的 scene 会把每个 spec 传感器
-    按名包成 ``BuiltinSensor``，无名即 ``KeyError: Invalid name ''``（建环境时炸）。
-    补名逻辑与通用任务路径**共用一份**（``adapters/mjlab/spec_utils.py::normalize_spec``，
-    2026-09-24 收敛；此前这里是第二份拷贝）。
-    """
-    from adapters.mjlab.spec_utils import normalize_spec
-
-    robot_cfg = get_lite3_robot_cfg()
-    base_spec_fn = robot_cfg.spec_fn
-
-    def spec_fn():
-        spec = base_spec_fn()
-        normalize_spec(spec)
-        return spec
-
-    robot_cfg.spec_fn = spec_fn
-    return robot_cfg
-
-
 def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Lite3 rough-terrain configuration (official reward recipe)."""
-    cfg = kit.new_velocity_env_cfg(_lite3_robot_cfg_with_named_sensors())
+    # 传感器规范化（补名 + 只留消费集）已由 `kit.package_mjcf` 的 get_spec 承担——
+    # 唯一入口 adapters/mjlab/spec_utils.py，包内不再各写一层。
+    cfg = kit.new_velocity_env_cfg(get_lite3_robot_cfg())
     # B31 裁决:足端高度扫描改用足端 body 帧(MJCF robot.xml:68/92/115/138 的
     # FL/FR/HL/HR_FOOT;site 不存在故用 body,射线原点仍在足端,语义不变)。
     kit.repoint_height_scan_sensors(

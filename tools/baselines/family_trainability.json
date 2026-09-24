@@ -3,7 +3,14 @@
   "generated_at": "2026-09-24",
   "scope": {
     "robots": [
-      "deeprobotics_lite3"
+      "unitree_go2",
+      "unitree_go1",
+      "unitree_b2",
+      "deeprobotics_lite3",
+      "deeprobotics_m20",
+      "unitree_b2w",
+      "unitree_go2w",
+      "zex-w"
     ],
     "terrains": "各机型本族 ready 档"
   },

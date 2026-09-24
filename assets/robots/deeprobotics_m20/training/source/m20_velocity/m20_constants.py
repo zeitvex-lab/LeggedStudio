@@ -79,7 +79,19 @@ def get_spec() -> mujoco.MjSpec:
     raise FileNotFoundError(
       f"M20 MJCF not found at {M20_XML}."
     )
-  return mujoco.MjSpec.from_file(str(M20_XML))
+  # 训练口径：补传感器名 + 传感器只留消费集（唯一入口 adapters/mjlab/spec_utils.py）。
+  import sys as _sys
+
+  for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+      if str(_parent) not in _sys.path:
+        _sys.path.insert(0, str(_parent))
+      break
+  from adapters.mjlab.spec_utils import normalize_for_training
+
+  spec = mujoco.MjSpec.from_file(str(M20_XML))
+  normalize_for_training(spec)
+  return spec
 
 
 ##
