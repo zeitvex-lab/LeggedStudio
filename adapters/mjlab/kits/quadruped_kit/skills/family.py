@@ -48,6 +48,14 @@ def _repo_root() -> Path:
     )
 
 
+def repo_root() -> Path:
+    """仓库根（族声明与 `registry/*.json` 声明的所在处）。
+
+    技能层读任何声明文件（族声明、相机档位……）都走这里，保证"声明的根"只有一处实现。
+    """
+    return _repo_root()
+
+
 @lru_cache(maxsize=8)
 def load_family(family_id: str = DEFAULT_FAMILY_ID) -> dict:
     """读族声明（唯一真值）。`lru_cache` 只在进程内缓存文件内容。"""

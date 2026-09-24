@@ -1,4 +1,6 @@
-"""RSL-RL actor implementing the PIE implicit-explicit estimator."""
+"""RSL-RL actor implementing the PIE implicit-explicit estimator.
+
+来源：`local_tasks/robots/unitree/go2/tasks/parkour/rl/pie_model.py`（逐字上移，2026-09-25 四足「越障」族级化；包内同路径已改为薄委托）。"""
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
-"""Procedural terrain set owned by the standalone PIE task."""
+"""Procedural terrain set owned by the standalone PIE task.
+
+来源：`local_tasks/robots/unitree/go2/tasks/parkour/terrains.py`（逐字上移，2026-09-25 四足「越障」族级化；包内同路径已改为薄委托）。"""
 
 from mjlab.terrains import (
     BoxFlatTerrainCfg,

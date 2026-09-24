@@ -1,4 +1,6 @@
-"""Configuration dataclasses for PIE training."""
+"""Configuration dataclasses for PIE training.
+
+来源：`local_tasks/robots/unitree/go2/tasks/parkour/rl/config.py`（逐字上移，2026-09-25 四足「越障」族级化；包内同路径已改为薄委托）。"""
 
 from dataclasses import dataclass
 
