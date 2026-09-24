@@ -7,7 +7,7 @@
   "locomotion_type": "P",
   "urdf": {
     "path": "assets/robots/unitree_go2/model/robot.xml",
-    "hash": "",
+    "hash": "6f72fbe1813e63f61d80e146fea9de46246a69e8e697ed2fdee805bfa4b11264",
     "total_mass_kg": 15.206408,
     "mass_source": "mjcf_compiled"
   },

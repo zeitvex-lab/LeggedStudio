@@ -7,7 +7,7 @@
   "locomotion_type": "P",
   "urdf": {
     "path": "assets/robots/deeprobotics_lite3/model/robot.xml",
-    "hash": "",
+    "hash": "ca29c2397f8bd5aa418856d5542f7ab894563501149ec1c601121cd21bc98006",
     "total_mass_kg": 6.252,
     "mass_source": "mjcf_compiled"
   },

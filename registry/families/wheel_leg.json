@@ -144,7 +144,11 @@
       "imu_lin_vel",
       "root_angmom"
     ],
-    "sensor_policy_note": "training_only = 训练/仿真**按名消费**的 XML 传感器才留（`mdp.builtin_sensor` 的三处引用），其余声明全撤——撤掉的是没人读的 sensordata 声明，物理量不动；无名传感器也一并撤。实现：adapters/mjlab/spec_utils.py::normalize_for_training（两条训练路径与族 Kit 共用一个入口）。"
+    "sensor_policy_note": "training_only = 训练/仿真**按名消费**的 XML 传感器才留（`mdp.builtin_sensor` 的三处引用），其余声明全撤——撤掉的是没人读的 sensordata 声明，物理量不动；无名传感器也一并撤。实现：adapters/mjlab/spec_utils.py::normalize_for_training（两条训练路径与族 Kit 共用一个入口）。",
+    "naming": {
+      "root_body": "base_link",
+      "note": "**body 命名统一为 `base_link`**（2026-09-24 起点：契约资产里 go2 原为 `base`、lite3 原为 `TORSO`，其余 6 台已是 `base_link`；两处已随族约定改名并重签契约 `urdf.hash`）。joint / geom / site / sensor 名沿用上游资产（角色语义由契约 `action.joint_order` 与族 `role_aliases` 承载，碰撞具名由 CollisionCfg 按正则重建）——**不追求字符串一致，只统一被语义引用的名字**。"
+    }
   },
   "mjcf_deviations": {
     "unitree_b2w": {

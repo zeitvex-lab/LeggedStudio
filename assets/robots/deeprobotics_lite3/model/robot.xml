@@ -44,7 +44,7 @@
   <worldbody>
     <light directional="true" pos="-0.5 0.5 3" dir="0 0 -1"/>
 
-    <body name="TORSO" pos="0 0. 1." quat="1 0 0 0" childclass="robot">
+    <body name="base_link" pos="0 0. 1." quat="1 0 0 0" childclass="robot">
       <freejoint name="floating_base" />
       <site name="imu_site" pos="0 0 0" size="0.005" rgba="1 0 0 1"/>
       <inertial pos="0 0 0" mass="5.6056" diaginertia="0.02456 0.05518 0.07016"/>
@@ -165,19 +165,19 @@
   </actuator>
 
   <contact>
-    <exclude body1="TORSO" body2="FL_HIP" />
+    <exclude body1="base_link" body2="FL_HIP" />
     <exclude body1="FL_HIP" body2="FL_THIGH" />
     <exclude body1="FL_THIGH" body2="FL_SHANK" />
     <exclude body1="FL_SHANK" body2="FL_FOOT" />
-    <exclude body1="TORSO" body2="FR_HIP" />
+    <exclude body1="base_link" body2="FR_HIP" />
     <exclude body1="FR_HIP" body2="FR_THIGH" />
     <exclude body1="FR_THIGH" body2="FR_SHANK" />
     <exclude body1="FR_SHANK" body2="FR_FOOT" />
-    <exclude body1="TORSO" body2="HL_HIP" />
+    <exclude body1="base_link" body2="HL_HIP" />
     <exclude body1="HL_HIP" body2="HL_THIGH" />
     <exclude body1="HL_THIGH" body2="HL_SHANK" />
     <exclude body1="HL_SHANK" body2="HL_FOOT" />
-    <exclude body1="TORSO" body2="HR_HIP" />
+    <exclude body1="base_link" body2="HR_HIP" />
     <exclude body1="HR_HIP" body2="HR_THIGH" />
     <exclude body1="HR_THIGH" body2="HR_SHANK" />
     <exclude body1="HR_SHANK" body2="HR_FOOT" />

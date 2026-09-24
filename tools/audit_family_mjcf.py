@@ -189,6 +189,13 @@ def check_conventions(summary: dict, conventions: dict, registered: dict, proble
     """
 
     label = f"{summary.get('family')}/{summary.get('robot_id')}"
+    declared_root = (conventions.get("naming") or {}).get("root_body")
+    actual_root = (summary.get("roots") or [None])[0]
+    if declared_root and actual_root != declared_root:
+        problems.append(
+            f"{label}: 根 body 实测 {actual_root!r} ≠ 族命名约定 {declared_root!r}"
+            "（族内命名统一是「基准可比」的前提；要改就改资产并重签契约 hash）"
+        )
     for key, entry in registered.items():
         if key not in _KNOWN_DEVIATION_KEYS:
             problems.append(f"{label}: mjcf_deviations 里出现未知键 {key!r}")

@@ -23,7 +23,7 @@
       "joints_total": 12,
       "joints_actuated": 12,
       "roots": [
-        "base"
+        "base_link"
       ],
       "geoms_named": "23/56",
       "meshes": 16,
@@ -121,7 +121,7 @@
       "joints_total": 12,
       "joints_actuated": 12,
       "roots": [
-        "TORSO"
+        "base_link"
       ],
       "geoms_named": "34/34",
       "meshes": 13,
