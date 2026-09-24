@@ -254,17 +254,29 @@ class RealRepoFamilyTest(unittest.TestCase):
             generic |= {(family["family_id"], skill["skill_id"]) for skill in family["skills"] if skill["status"] == "generic"}
         self.assertEqual({("quadruped", "velocity"), ("wheel_leg", "velocity")}, generic)
 
-    def test_observation_deviations_are_exactly_go1_and_zexw_today(self):
-        """诚实边界：族内观测骨架今天有两处**已登记**偏差，且不再多也不再少。
+    def test_observation_deviations_are_empty_after_unification(self):
+        """**族内观测已统一**（2026-09-24 用户裁决）：今天两族的 `deviations` 必须为空。
 
-        go1 多 base_lin_vel(48 维)、zex-w 轮速单列(53 维)；两者都属"改宽会动到存量策略"
-        的迁移，须单独裁决 —— 这条断言保证它们不会被静默统一，也不会被静默扩大。
+        历史上登记过两处（go1 的 `base_lin_vel` 48 维、zex-w 的轮速单列 53 维），统一后
+        两者都归到族骨架（45 / 57）。分支前训练的上游策略仍按各自声明布局运行——门禁把
+        "策略级声明能解释的差异"归 `policy_explained`，不算包级错。
+        这条断言保证：既不会有人把偏差悄悄加回来，也不会有人把统一又拆开。
         """
         declared = {}
         for entry in json.loads((ROOT / "registry" / "families" / "index.json").read_text(encoding="utf-8"))["families"]:
             family = json.loads((ROOT / "registry" / "families" / entry["path"]).read_text(encoding="utf-8"))
             declared[family["family_id"]] = sorted((family.get("observation_skeleton") or {}).get("deviations") or {})
-        self.assertEqual({"quadruped": ["unitree_go1"], "wheel_leg": ["zex-w"]}, declared)
+        self.assertEqual({"quadruped": [], "wheel_leg": []}, declared)
+
+    def test_unified_skeleton_matches_every_member(self):
+        """统一的落地判据：每台成员的 actor 观测项与族骨架**逐项相同**（含项序）。"""
+        for entry in json.loads((ROOT / "registry" / "families" / "index.json").read_text(encoding="utf-8"))["families"]:
+            family = json.loads((ROOT / "registry" / "families" / entry["path"]).read_text(encoding="utf-8"))
+            expected = list((family.get("observation_skeleton") or {}).get("actor") or [])
+            for robot_id in family["members"]:
+                contract = json.loads((ROOT / "assets" / "robots" / robot_id / "contract.json").read_text(encoding="utf-8-sig"))
+                observed = [item["name"] for item in contract["observation"]["components"] if item.get("role", "actor") == "actor"]
+                self.assertEqual(expected, observed, f"{robot_id} 的 actor 观测项与族骨架不一致")
 
 
 if __name__ == "__main__":

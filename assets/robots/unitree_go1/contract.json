@@ -155,16 +155,6 @@
   "observation": {
     "components": [
       {
-        "name": "base_lin_vel",
-        "width": 3,
-        "source": "sim_state",
-        "role": "actor",
-        "history": 1,
-        "encoder": null,
-        "deployment_available": false,
-        "note": "仿真状态量加噪（playground _get_obs 的 noisy_linvel）；真机 IMU 给不出线速度，部署侧必须由状态估计补"
-      },
-      {
         "name": "base_ang_vel",
         "width": 3,
         "source": "imu",
@@ -177,6 +167,15 @@
         "name": "projected_gravity",
         "width": 3,
         "source": "imu",
+        "role": "actor",
+        "history": 1,
+        "encoder": null,
+        "deployment_available": true
+      },
+      {
+        "name": "commands",
+        "width": 3,
+        "source": "cmd",
         "role": "actor",
         "history": 1,
         "encoder": null,
@@ -208,18 +207,9 @@
         "history": 1,
         "encoder": null,
         "deployment_available": true
-      },
-      {
-        "name": "commands",
-        "width": 3,
-        "source": "cmd",
-        "role": "actor",
-        "history": 1,
-        "encoder": null,
-        "deployment_available": true
       }
     ],
-    "dimension": 48
+    "dimension": 45
   },
   "control": {
     "control_hz": 50,
@@ -238,8 +228,7 @@
     "package",
     "unitree_go1"
   ],
-  "source": "legged_skill_deploy_import"
-,
+  "source": "legged_skill_deploy_import",
   "physics_domain": {
     "contact": {
       "authority": "training_domain",

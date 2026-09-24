@@ -28,7 +28,7 @@
   },
   "control_hz": 50,
   "observation_skeleton": {
-    "note": "族级观测骨架：actor 的**项序列**按此为准（顺序即布局，策略输入据此定宽）。宽度不写死——关节类项的宽度随族关节数（12）派生，其余为常量。critic_only 项只进评价网络（特权信息），不进 actor。",
+    "note": "族级观测骨架：actor 的**项序列**按此为准（顺序即布局，策略输入据此定宽）。宽度不写死——关节类项的宽度随族关节数（12）派生，其余为常量。critic_only 项只进评价网络（特权信息），不进 actor。（2026-09-24：族内观测已**统一**，原先登记的两处偏差（go1 的 base_lin_vel、zex-w 的轮速单列）已随统一消除——分支前训练的上游策略仍按各自声明布局运行（门禁归 `policy_explained`，不算包级错）。）",
     "actor": [
       "base_ang_vel",
       "projected_gravity",
@@ -48,9 +48,7 @@
       "joint_vel": "同 joint_pos",
       "last_action": "动作维 = 关节数（四足 = 12）"
     },
-    "deviations": {
-      "unitree_go1": "actor 多 base_lin_vel(3) ⇒ 48 维，且项序把它排在首位（契约自述「真机 IMU 给不出线速度、部署侧必须状态估计补」、deployment_available=false）。**未裁决**：是否降为 critic_only（降则 48→45，会动到存量策略，须单独裁决）。"
-    }
+    "deviations": {}
   },
   "members": [
     "unitree_go2",
