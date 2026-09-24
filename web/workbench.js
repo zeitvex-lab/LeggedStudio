@@ -168,6 +168,25 @@ async function runPackageInspection() {
     const readyBadge = readiness.verdict === 'ready' ? '✅' : (readiness.verdict === 'not_ready' ? '❌' : '⚠');
     const blocked = (readiness.checks || []).filter((item) => item.status !== 'pass');
     const terrains = (readiness.trainable_terrain_profiles || []).join(' / ') || '（无可训档）';
+    // 实测可训：静态就绪之外，用真跑 1 iter 背书的结论（导入后自动跑，落包内 trainability.json）。
+    const trainability = report.trainability || { status: 'untested' };
+    const TRAINABILITY_LABEL = {
+      passed: '✅ 实测可训',
+      failed: '❌ 实测未过',
+      not_ready: '⚠ 未实测（静态未过）',
+      pending: '⏳ 冒烟中',
+      untested: '· 未实测',
+      unknown: '· 未实测',
+    };
+    const trainabilityLine = (() => {
+      const label = TRAINABILITY_LABEL[trainability.status] || escapeHtml(trainability.status);
+      if (trainability.status === 'passed') {
+        return `${label}：${escapeHtml(trainability.terrain || '')} 档真训 1 iter 通过` +
+          `（${escapeHtml(trainability.checked_at || '')}，${Math.round(trainability.duration_s || 0)}s）`;
+      }
+      const reason = trainability.reason || trainability.note || '';
+      return reason ? `${label}：${escapeHtml(reason)}` : label;
+    })();
     const readinessBlock = `
       <div class="inspection-card status-${readiness.verdict === 'ready' ? 'pass' : 'fail'}">
         <div class="inspection-card-head"><span class="inspection-badge">${readyBadge}</span><strong>族通用就绪</strong>
@@ -177,6 +196,7 @@ async function runPackageInspection() {
         ${readiness.verdict === 'ready' ? `<div class="inspection-diff">${(readiness.trainable_terrain_profiles || []).map((terrain) =>
           `<button type="button" class="button small" data-train-terrain="${escapeHtml(terrain)}">一键开训 · ${escapeHtml(terrain)}</button>`).join(' ')}</div>` : ''}
         ${blocked.length ? `<div class="inspection-diff">${blocked.map((item) => `${INSPECTION_BADGES[item.status] || '·'} ${escapeHtml(item.id)}：${escapeHtml(item.summary)}`).join('<br>')}</div>` : ''}
+        <div class="inspection-diff">${trainabilityLine}</div>
       </div>`;
     container.innerHTML = `<div class="inspection-overall status-${escapeHtml(report.overall)}">整体：${INSPECTION_BADGES[report.overall] || '·'} ${escapeHtml(report.overall)}</div>${readinessBlock}${cards}`;
     // 「一键开训」：把机型 + 地形档（+ 该档的任务）带进训练页，落点即"选好档、改了就能起训"。

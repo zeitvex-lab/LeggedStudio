@@ -69,49 +69,24 @@ def run_one(robot_id: str, terrain: str) -> dict:
                 "returncode": None, "effective_matches_preview": None,
                 "onnx_exported": None, "resolved_terrain": None,
                 "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "tail": ""}
-    from adapters.mjlab.native_adapter import DEFAULT_SOURCE
-    from backend.training.models import CreateTrainingRequest
-    from backend.training.service import prepare_training_config
-    from backend.training_config_helpers import dump_schema_via_worker
-    from contracts.path_bootstrap import adapter_python
+    # 判据链的**唯一实现**在 backend/trainability_check.py（导入后自动冒烟也调它）；
+    # 本工具只是逐格调用并把结论摊成矩阵。`write_record=False`：别往 assets 源树里写记录。
+    from backend import trainability_check
 
-    contract_data = json.loads(
-        (ROOT / "assets" / "robots" / robot_id / "contract_legacy_v2.json").read_text(encoding="utf-8-sig"))
-    with tempfile.TemporaryDirectory(prefix=f"ls-trainability-{robot_id}-{terrain}-") as tmp:
-        out = Path(tmp)
-        request = CreateTrainingRequest(
-            contract=contract_data, profile_id=None, task_name=task, terrain_type=terrain,
-            smoke=True, num_envs=2, max_iterations=1, num_steps=4, num_minibatches=1,
-            device="auto", overrides={"runner.num_steps_per_env": 8},
-        )
-        contract, config = prepare_training_config(request)
-        package = config["robot_package"]
-        preview = dump_schema_via_worker(
-            contract.robot_id, "", {}, package["package_root"],
-            training_config=config, contract=contract.model_dump(mode="json"))
-        (out / "request.json").write_text(json.dumps(config), encoding="utf-8")
-        contract.to_json_file(str(out / "contract.json"))
-        env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
-        result = subprocess.run(
-            [str(adapter_python()), "-m", "adapters.mjlab.native_worker",
-             "--source", str(DEFAULT_SOURCE), "--config", str(out / "request.json"),
-             "--contract", str(out / "contract.json"), "--output", str(out)],
-            cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=1200)
-        effective = None
-        if (out / "effective-config.json").is_file():
-            effective = json.loads((out / "effective-config.json").read_text(encoding="utf-8-sig"))
-        resolved = ((config.get("resolved_recipe") or {}).get("environment") or {}).get("terrain_type")
-        return {
-            "robot": robot_id, "terrain": terrain, "task": task, "skipped": False,
-            "returncode": result.returncode,
-            "effective_matches_preview": bool(effective) and effective.get("environment") == preview.get("environment"),
-            "onnx_exported": (out / "exported" / "policy.onnx").is_file(),
-            "resolved_terrain": resolved,
-            "ok": result.returncode == 0 and resolved == terrain,
-            "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "tail": "" if result.returncode == 0 else (result.stdout + result.stderr)[-600:],
-        }
+    record = trainability_check.check(
+        ROOT / "assets" / "robots" / robot_id, terrain=terrain, task=task,
+        timeout_s=1200, write_record=False,
+    )
+    return {
+        "robot": robot_id, "terrain": terrain, "task": task, "skipped": False,
+        "returncode": record["returncode"],
+        "effective_matches_preview": record["effective_matches_preview"],
+        "onnx_exported": record["onnx_exported"],
+        "resolved_terrain": record["resolved_terrain"],
+        "ok": record["status"] == "passed",
+        "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "tail": record.get("tail", ""),
+    }
 
 
 def merge_baseline(results: list[dict]) -> tuple[list[dict], int]:
