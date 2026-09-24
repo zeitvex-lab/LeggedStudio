@@ -85,14 +85,14 @@
       "skill_id": "traversal",
       "display_name": "越障",
       "status": "robot-specific",
-      "summary": "深度感知越障（PIE parkour）：配方与验收器已就位，但目前只有 go2 的训练源与档案。",
+      "summary": "深度感知越障（PIE parkour）：实现已上移为族级技能 —— `quadruped_kit/skills/parkour/`（场景/观测/奖励/课程/命令装配、PIE 模型与 PPO 扩展、专用 runner、地形集，逐字迁移）；相机与深度观测项改为消费 registry/cameras.json 的档位声明（name/parent_body/pos/quat/fovy/width/height 与观测项参数全来自声明，缺字段 fail-closed，技能层零相机字面量）。2026-09-25：go2 侧改薄委托且行为等价（迁移前后 env/runner 全字段 dump 逐项 0 差异，含可调用对象与字符串里的模块路径），go2-parkour 冒烟 + 真训 2 步通过（PIE-PPO 走族级类路径）。",
       "task_names": [
         "parkour"
       ],
       "members_with_recipe": [
         "unitree_go2"
       ],
-      "gap": "族级化需要：把 PIE 深度契约与地形课程从 go2 档案提为族级配方，并在另一台成员上跑通冒烟。"
+      "gap": "剩余缺口：①只有 go2 有档案 —— 第二台机型复用缺两样机器事实：(a) 它自己的深度相机档位声明（位姿/内参没有标定就不许编，声明缺项一律 fail-closed），(b) 足端 site（本配方的滑移惩罚与支撑高度按足端 site 取速度与位置；go1 的 MJCF 只有 imu 一个 site，缺失即能力缺失，不静默换口径）；②足端槽位序沿用 PIE 源配方的对角交织序（FR/FL/RR/RL，与契约腿序 FL/FR/RL/RR 不同），新机型接入按「必须是本机型腿标记的一个排列」校验，不符即报错；③b2 / lite3 未评估。"
     },
     {
       "skill_id": "imitation",

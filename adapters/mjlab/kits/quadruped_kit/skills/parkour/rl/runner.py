@@ -1,4 +1,6 @@
-"""Runner and ONNX export support for PIE."""
+"""Runner and ONNX export support for PIE.
+
+来源：`local_tasks/robots/unitree/go2/tasks/parkour/rl/runner.py`（逐字上移，2026-09-25 四足「越障」族级化；包内同路径已改为薄委托）。"""
 
 import os
 

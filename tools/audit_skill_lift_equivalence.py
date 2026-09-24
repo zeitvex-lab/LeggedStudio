@@ -27,6 +27,11 @@
 * **模块路径归一**（`--diff` 时）：技能实现从 `go2_skills.*` 搬到
   `quadruped_kit/skills/*` 属计划的搬迁，归一表见 `_canon()`；
   归一前后**两份 diff 都打印**，不藏原始差异。
+* 归一同时作用于**字符串值里的模块路径**：rsl_rl 的 `actor.class_name` /
+  `algorithm.class_name` 就是"模块:符号"字符串，搬迁后必然改名（2026-09-25
+  parkour 上移实况）。值是"从类对象派生"的，故归一而不是重新发明一个字面量。
+* job 的模块项默认按 go2 技能包（`go2_skills/<rel>`）解析；技能不在 `go2_skills/`
+  下时（如 parkour 在 `...go2/tasks/parkour/...`）以 `local_tasks.` 开头写**绝对模块路径**。
 """
 
 from __future__ import annotations
@@ -50,13 +55,22 @@ _JOBS = (
 )
 
 _OLD = "local_tasks.robots.unitree.go2.tasks.go2_skills."
+_OLD_PARKOUR = "local_tasks.robots.unitree.go2.tasks.parkour."
 _NEW = "adapters.mjlab.kits.quadruped_kit.skills."
+_NEW_PARKOUR = "adapters.mjlab.kits.quadruped_kit.skills.parkour."
+#: parkour 的**包内入口 stub 不搬迁**（profile 的 entrypoints 指向它），故单独标出：
+#: 归一后两侧都是 `ENTRY.parkour.config.*`，差异只剩"真搬走的那几段"。
+_ENTRY_PARKOUR = "local_tasks.robots.unitree.go2.tasks.parkour.config."
 
 
 def _canon(module: str) -> str:
     """模块路径归一表（只归一**计划中的搬迁**，不改任何值）。"""
     text = str(module or "")
+    text = text.replace(_ENTRY_PARKOUR, "ENTRY.parkour.config.")
     text = text.replace(_OLD, "SKILL.").replace(_NEW, "SKILL.")
+    # parkour（越障）上移：装配/模型/地形从包内 `...tasks.parkour.*` 搬到族级
+    # `...skills.parkour.*`（`config/` 是薄委托，不在此列）。
+    text = text.replace(_OLD_PARKOUR, "SKILL.parkour.").replace(_NEW_PARKOUR, "SKILL.parkour.")
     # 技能内 mdp 包：旧 `trot/mdp/*`、`jump/mdp/*` → 新统一 `skills/mdp/*`
     text = (
         text.replace("SKILL.trot.mdp.rewards", "SKILL.rewards.trot")
@@ -99,11 +113,23 @@ def _dump(value, *, owner: str | None = None):
     return {"__repr__": f"{type(value).__name__}:{value!r}"}
 
 
+def _module_name(rel_module: str) -> str:
+    """job 的模块项 → 可导入的模块名。
+
+    默认按 go2 技能包解析（`jump/config.py` → `...go2_skills.jump.config`）；
+    以 `local_tasks.` 开头时按**绝对模块路径**解析（技能不在 `go2_skills/` 下的情形，如
+    parkour：`...go2/tasks/parkour/config/go2/env_cfgs.py`）。
+    """
+    dotted = rel_module.replace("/", ".").removesuffix(".py")
+    if dotted.startswith("local_tasks."):
+        return dotted
+    return f"local_tasks.robots.unitree.go2.tasks.go2_skills.{dotted}"
+
+
 def _load_callable(source_root: Path, rel_module: str, name: str):
     import importlib
 
-    module_name = f"local_tasks.robots.unitree.go2.tasks.go2_skills.{rel_module.replace('/', '.').removesuffix('.py')}"
-    module = importlib.import_module(module_name)
+    module = importlib.import_module(_module_name(rel_module))
     return getattr(module, name)
 
 
@@ -134,7 +160,7 @@ def run(package_root: Path, source_root: Path, out: Path, *, jobs: tuple = _JOBS
     dump = {}
     for label, module_rel, factory, kwargs in jobs:
         func = _load_callable(source_root, module_rel, factory)
-        dump[label] = {"entry": f"go2_skills.{module_rel}:{factory}", "value": _dump(func(**kwargs))}
+        dump[label] = {"entry": f"{_module_name(module_rel)}:{factory}", "value": _dump(func(**kwargs))}
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(dump, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {out}")
@@ -165,6 +191,9 @@ def _flatten(value, prefix: str = "", *, joint_order: tuple[str, ...] = ()) -> d
         for index, item in enumerate(value):
             flat.update(_flatten(item, f"{prefix}[{index}]", joint_order=joint_order))
         return flat
+    if isinstance(value, str):
+        # 字符串里的模块路径同表归一（rsl_rl 的 class_name 是"模块:符号"字符串）。
+        value = _canon(value)
     flat[prefix] = json.dumps(value, ensure_ascii=False, sort_keys=True)
     return flat
 
@@ -212,12 +241,21 @@ def self_test() -> int:
          "adapters.mjlab.kits.quadruped_kit.skills.jump.rewards"),
         ("local_tasks.robots.unitree.go2.tasks.go2_skills.shared.actions",
          "adapters.mjlab.kits.quadruped_kit.skills.mdp.actions"),
+        # parkour：包内 `...tasks.parkour.mdp` ↔ 族级 `...skills.parkour.mdp`
+        ("local_tasks.robots.unitree.go2.tasks.parkour.mdp.rewards",
+         "adapters.mjlab.kits.quadruped_kit.skills.parkour.mdp.rewards"),
+        ("local_tasks.robots.unitree.go2.tasks.parkour.rl.pie_model:PIEActorModel",
+         "adapters.mjlab.kits.quadruped_kit.skills.parkour.rl.pie_model:PIEActorModel"),
     ]
     for old, new in pairs:
         if _canon(old) != _canon(new):
             problems.append(f"归一失效：{old} → {_canon(old)}，{new} → {_canon(new)}")
     if _resolve_pose({".*calf_joint": 0.3}, "FL_calf_joint") != 0.3:
         problems.append("姿态正则解析失效（`.*calf_joint` 应能解析到 FL_calf_joint）")
+    if _module_name("local_tasks.a.b.py") != "local_tasks.a.b":
+        problems.append("绝对模块路径解析失效（以 local_tasks. 开头时不该再拼 go2_skills 前缀）")
+    if _module_name("jump/config.py") != "local_tasks.robots.unitree.go2.tasks.go2_skills.jump.config":
+        problems.append("默认 job 模块解析失效（相对项应拼到 go2_skills 命名空间）")
 
     with tempfile.TemporaryDirectory() as tmp:
         same_a, same_b, changed = (Path(tmp) / name for name in ("a.json", "b.json", "c.json"))

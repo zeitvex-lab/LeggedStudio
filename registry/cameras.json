@@ -86,6 +86,35 @@
         "symbols": "/camera/depth/image_rect_raw（16UC1 in mm）/ /camera/depth/camera_info",
         "note": "深度图为整流输出；fov 87.0° 为 D435i 深度模组标称水平视场"
       }
+    },
+    {
+      "id": "pie-front-depth-106x60",
+      "label": "PIE 前视深度 106×60（Go2 parkour 训练口径；两侧各裁 10 列）",
+      "scope": "unitree_go2",
+      "kind": "depth",
+      "model": "pinhole",
+      "resolution": { "width": 106, "height": 60 },
+      "fov_deg": 87.0,
+      "intrinsics": { "fx": 0.0, "fy": 0.0, "cx": -1.0, "cy": -1.0 },
+      "distortion": [],
+      "pose": {
+        "parent_body": "robot/base_link",
+        "pos": [0.345, 0.0, 0.07],
+        "quat": [0.579228, 0.4055798, -0.4055798, -0.579228]
+      },
+      "training_observation": {
+        "sensor_name": "front_depth",
+        "cutoff_distance": 3.0,
+        "crop_left": 10,
+        "crop_right": 10,
+        "gaussian_blur": [3, 1.0],
+        "frame_history_length": 2,
+        "update_period_steps": 5
+      },
+      "evidence": {
+        "source": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/tasks/parkour/config/go2/env_cfgs.py:186（CameraSensorCfg front_depth）+ :218（DepthHistory 观测项）",
+        "note": "fov_deg 是**水平**视场（PIE 源规格 87°）；MuJoCo 取垂直 FOV：训练域按**连续像平面**纵横比 H/W 换算（消费方 `quadruped_kit/skills/parkour/camera.py`，实测 56.4849°）；成像域另有一套像素质心口径 (H-1)/(W-1)（`backend/camera_projection.resolve_intrinsics`），两口径差约 0.4°，别混用。位姿四元数即 PIE 前视相机变换（与 00_know 图像方向统一同轮结论同源）。本档是**训练域**声明（深度相机档首次提升为声明，服务四足越障族级化）；真机标定档另见 go2-front-fisheye-1920x1080"
+      }
     }
   ],
   "comparisons": [

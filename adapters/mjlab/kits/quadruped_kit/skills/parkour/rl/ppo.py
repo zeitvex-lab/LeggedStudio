@@ -1,4 +1,6 @@
-"""PPO extension for the PIE estimator objectives."""
+"""PPO extension for the PIE estimator objectives.
+
+来源：`local_tasks/robots/unitree/go2/tasks/parkour/rl/ppo.py`（逐字上移，2026-09-25 四足「越障」族级化；包内同路径已改为薄委托）。"""
 
 from __future__ import annotations
 

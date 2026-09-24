@@ -1,6 +1,6 @@
 {
  "schema": "training-reachability-1.0",
- "generated_at": "2026-09-23T18:43:35+00:00",
+ "generated_at": "2026-09-24T00:46:21+00:00",
  "note": "「可达性」判据见 tools/audit_training_reachability.py 头部 docstring；deletable 只是候选，删前仍需 audit_porting_admission + 逐 profile 冒烟。",
  "robots": {
   "deeprobotics_lite3": {
@@ -114,8 +114,8 @@
     "local_tasks.robots.unitree.go2.training.runner"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 151,
-   "reachable_count": 151,
+   "module_count": 142,
+   "reachable_count": 142,
    "unreachable_count": 0,
    "protected_ancestors": [],
    "deletable": [],

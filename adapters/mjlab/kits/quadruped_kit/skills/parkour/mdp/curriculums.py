@@ -1,4 +1,6 @@
-"""PIE-specific terrain curriculum diagnostics."""
+"""PIE-specific terrain curriculum diagnostics.
+
+来源：`local_tasks/robots/unitree/go2/tasks/parkour/mdp/curriculums.py`（逐字上移，2026-09-25 四足「越障」族级化；包内同路径已改为薄委托）。"""
 
 from __future__ import annotations
 

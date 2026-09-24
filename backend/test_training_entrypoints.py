@@ -40,6 +40,14 @@ ROBOTS = ROOT / "assets" / "robots"
 #: 已知 external 白名单：这些顶层模块是安装的第三方依赖（不在任何包的 source_root 下）。
 KNOWN_EXTERNAL_MODULES = {"mjlab.tasks.velocity.rl", "mjlab.rl"}
 
+#: **族 Kit shim 白名单**：这些 `runner_class` 指向包内薄转出模块，而该模块的再导出链
+#: 走出 source_root 进入族 Kit（`adapters.mjlab.kits.*`）——静态审计按"顶层段不在
+#: source_root 下"归 external，但它们是**本仓第一方**，只是审计看不到。
+#: 判定依据是运行时真的能把类取出来：go2-parkour 的 rollout 与 train 两种模式冒烟均 ok
+#: （workspace/validation/go2-parkour-lift-{smoke,train}.json），且包内 `rl/__init__.py`
+#: 导出的 `PIEOnPolicyRunner` 与 Kit 那份是**同一个类对象**（不是副本）。
+KNOWN_KIT_SHIM_MODULES = {"local_tasks.robots.unitree.go2.tasks.parkour.rl"}
+
 
 class RepoEntrypointInvariantTest(unittest.TestCase):
     """全仓不变量：8 包所有 profile 的 entrypoints 静态可解析，无例外。"""
@@ -83,16 +91,20 @@ class RepoEntrypointInvariantTest(unittest.TestCase):
         )
 
     def test_externals_are_only_known_third_party_modules(self):
-        """external（顶层段不在 source_root 下）只允许已知 mjlab 模块；
-        新 external 出现 = 有意动作，须连同本测试一起扩充白名单。"""
+        """external（顶层段不在 source_root 下）只允许：① 已知 mjlab 模块；
+        ② 已登记的**族 Kit shim**（包内薄转出、再导出链进 `adapters.mjlab.kits.*`，
+        本仓第一方但静态审计看不到）。新 external = 有意动作，须连同本测试登记。"""
         report = audit()
         unexpected = sorted(
-            {row["module"] for row in report["external"]} - KNOWN_EXTERNAL_MODULES
+            {row["module"] for row in report["external"]}
+            - KNOWN_EXTERNAL_MODULES
+            - KNOWN_KIT_SHIM_MODULES
         )
         self.assertEqual(
             [], unexpected,
             "出现白名单外的 external entrypoint（零依赖静态审计无法验证的第三方顶层"
-            f"模块）：{unexpected}；确认确为第三方依赖后请更新 KNOWN_EXTERNAL_MODULES",
+            f"模块）：{unexpected}；确为第三方依赖请更新 KNOWN_EXTERNAL_MODULES，"
+            "若为族 Kit shim 则更新 KNOWN_KIT_SHIM_MODULES（注释里写明运行时取证）",
         )
 
 

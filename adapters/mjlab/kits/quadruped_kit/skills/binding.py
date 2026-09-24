@@ -123,6 +123,24 @@ class QuadrupedSkillBinding:
                 picked.append(name)
         return tuple(picked)
 
+    def role_joint_pattern(self, role: str) -> tuple[str, ...]:
+        """角色的关节名正则：**同角色各腿同尾段 ⇒ 压成 `.*_<尾段>`**，否则逐关节写全名。
+
+        用途：奖励项按角色选关节（如"髋偏离"`.*_hip_joint`）。紧凑写法与源配方字面量同形，
+        但它是**从契约关节名派生**的 —— 技能层不需要知道任何机型关节名的拼法；
+        换了腿前缀分隔符或角色词表的机型同样对（尾段按契约 `leg_ids` 去掉前缀得到）。
+        """
+        indices = self.role_joint_indices(role)
+        if not indices:
+            raise ValueError(
+                f"{self.robot_id}: 关节序 {self.joint_order} 里找不到族角色 {role!r} 的关节"
+            )
+        names = [self.joint_order[index] for index in indices]
+        suffixes = {role_suffix(name, self.leg_ids) for name in names}
+        if len(suffixes) == 1:
+            return (f".*_{next(iter(suffixes))}",)
+        return tuple(names)
+
     def pose_map(self) -> dict[str, float]:
         """默认姿映射（与契约 `joint_order` 对齐的 12 个值）。
 
