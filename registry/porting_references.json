@@ -1,0 +1,455 @@
+{
+  "schema": "porting-references-1.0",
+  "generated_at": "2026-09-24",
+  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉一条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。",
+  "entries": [
+    {
+      "profile_id": "go2-trot",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/trot/config.py", "role": "trot 任务源"}],
+      "verification": {
+        "method": "rewards/events 逐值 + 上移后等价 dump",
+        "conclusion": "aligned",
+        "evidence": ["port .../trot/config.py（仅 import 路径不同）↔ 上游 config.py:75-291"]
+      }
+    },
+    {
+      "profile_id": "go2-jump",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/jump/config.py", "role": "jump 任务源"}],
+      "verification": {
+        "method": "rewards 18/18、terminations 2/2、runner 50k 逐值",
+        "conclusion": "aligned",
+        "evidence": ["kit skills/jump/config.py ↔ 上游 jump/config.py:166-215"]
+      }
+    },
+    {
+      "profile_id": "go2-spring-jump",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/spring_jump/config.py", "role": "spring_jump 源"}],
+      "verification": {
+        "method": "rewards 22/22 权重相同",
+        "conclusion": "aligned",
+        "evidence": ["port spring_jump/config.py ↔ 上游（差异仅 symmetry 类路径前缀）"]
+      }
+    },
+    {
+      "profile_id": "go2-backflip",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/backflip/config.py", "role": "backflip 源"}],
+      "verification": {
+        "method": "归一化 diff（仅 import 前缀）+ runner lr 1e-5 / 50k",
+        "conclusion": "aligned",
+        "evidence": ["port backflip/config.py ↔ 上游 backflip/config.py"]
+      }
+    },
+    {
+      "profile_id": "go2-handstand",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/hand_stand/config.py", "role": "handstand 源"}],
+      "verification": {
+        "method": "diff 仅 import 前缀",
+        "conclusion": "aligned",
+        "evidence": ["port hand_stand/config.py:16-17"]
+      }
+    },
+    {
+      "profile_id": "go2-leggedstand",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/rear_stand/config.py", "role": "rear_stand 源"}],
+      "verification": {
+        "method": "diff 仅 symmetry 类名",
+        "conclusion": "aligned",
+        "evidence": ["port rear_stand/config.py ↔ 上游 rear_stand/config.py"]
+      }
+    },
+    {
+      "profile_id": "go1-jump",
+      "robot": "unitree_go1",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/jump/profile.py", "role": "jump 常量源（go1 只填身份）"}],
+      "verification": {
+        "method": "kit jump 常量 = 上游 14 项默认值",
+        "conclusion": "aligned",
+        "evidence": ["kit skills/jump/profile.py ↔ 上游 jump/profile.py"]
+      }
+    },
+    {
+      "profile_id": "go2-parkour",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "parkour_mjlab", "path": "src/tasks/pie", "role": "PIE 正向越障任务源（含相机规格）"}],
+      "verification": {
+        "method": "rewards 23/24 + runner 逐值 + 相机档声明核对",
+        "conclusion": "aligned",
+        "evidence": [
+          "kit skills/parkour/config.py:702-704；registry/cameras.json::pie-front-depth-106x60",
+          "上游 env_cfgs.py:45-70,186-220,436-444 与 rl_cfg.py:44-97"
+        ]
+      }
+    },
+    {
+      "profile_id": "go2-amp-dreamwaq",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [
+        {"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/amp_dreamwaq", "role": "AMP DreamWaQ 宿主源"},
+        {"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/dreamwaq", "role": "奖励宿主源"}
+      ],
+      "verification": {
+        "method": "AMP 项逐值（weight/bound/sensor/dt/超参）+ 宿主级 delta 逐条对源",
+        "conclusion": "intentional",
+        "why": "族级上移（共用 quadruped_kit.skills.imitation），语义等价；宿主差异留在包内 _host_delta",
+        "evidence": ["kit skills/imitation/config.py:45-67 + profile.py ↔ 上游 amp_dreamwaq 与 dreamwaq"]
+      }
+    },
+    {
+      "profile_id": "go1-amp-rough",
+      "robot": "unitree_go1",
+      "checked_at": "2026-09-24",
+      "references": [
+        {"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/dreamwaq", "role": "imitation 宿主源"},
+        {"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/amp_dreamwaq/mdp.py", "role": "专家状态构造（AMP state）"}
+      ],
+      "verification": {
+        "method": "AMP 项参数（kit 默认）逐值",
+        "conclusion": "unverifiable",
+        "evidence": ["port go1_amp/config.py:87-108 ↔ kit skills/imitation/profile.py"]
+      },
+      "gaps": [
+        "go1 无上游 AMP 配置：专家动作借用 go2 的 LLoco 数据，宿主 Δ 无 go1 对照物；新增 go1 专属 AMP 数值（如 hip 权重）时无法回上游核对，须在 profile 里写明出处"
+      ]
+    },
+    {
+      "profile_id": "go2-dreamwaq",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/dreamwaq", "role": "DreamWaQ 奖励/终止源"}],
+      "verification": {
+        "method": "rewards 20/20 权重 + 逐项复核（含本轮修正）",
+        "conclusion": "suspect",
+        "evidence": ["port dreamwaq/mdp/rewards.py:32-38（已按上游改中央 3×3）↔ 上游 rewards.py:32-36"]
+      },
+      "gaps": [
+        "已修：base_height 原为整张 187 点平均（上游注释明确警告「斜坡上会错误地奖励下蹲」），本轮按上游改为中央 3×3，并加行为级回归锁 adapters/mjlab/test_go2_dreamwaq_base_height.py",
+        "F3：foot_clearance 去掉机体系旋转（port mdp/rewards.py:106-113 已注释为 mjlab API 限制）⇒ 横滚/俯仰会漏入该项，待裁决是否补回",
+        "F4：VAE loss 新增 live_batch(dones) 掩码（port mdp/rl.py），注释称对齐 DreamWaQ 公式，但库内无对照物"
+      ]
+    },
+    {
+      "profile_id": "go2-cts",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [
+        {"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/cts", "role": "数值实源（与移植逐值一致）"},
+        {"repo": "leggedgym-ex", "path": "legged_gym/envs/go2", "role": "registry 原标的上游（框架级参考）"}
+      ],
+      "verification": {
+        "method": "tracking/height/friction/push/com/runner 逐值对两侧",
+        "conclusion": "suspect",
+        "evidence": [
+          "port locomotion/variants.py:153-196,229-282,300,322 ↔ LLoco cts/config.py:112-118,53",
+          "对照 LeggedGym-Ex go2_cts_config.py:36-44 有系统性差异"
+        ]
+      },
+      "gaps": [
+        "F1：profile/registry 标注上游为 LeggedGym-Ex，但数值与 LLoco cts 一致（tracking 1.5/0.75 vs 1.0/0.5、lin_vel_z -1.0 vs -2.0、friction (0.2,1.0) vs [0.2,1.7]、命令域 (-1,1) vs (-0.5,0.5)、max_iter 20000 vs 5000）⇒ 先定「谁是权威上游」，再决定是否改数"
+      ]
+    },
+    {
+      "profile_id": "go2-amp-cts",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [
+        {"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/cts", "role": "数值实源"},
+        {"repo": "leggedgym-ex", "path": "legged_gym/envs/go2", "role": "registry 原标的上游"}
+      ],
+      "verification": {"method": "同 go2-cts", "conclusion": "suspect", "evidence": ["同 go2-cts"]},
+      "gaps": ["同 go2-cts F1；amp 变体在 LeggedGym-Ex go2 无对应配置"]
+    },
+    {
+      "profile_id": "go2-ts",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [
+        {"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/ts", "role": "数值实源"},
+        {"repo": "leggedgym-ex", "path": "legged_gym/envs/go2", "role": "registry 原标的上游（ts max_iterations=3000）"}
+      ],
+      "verification": {"method": "同 go2-cts + lr/steps", "conclusion": "suspect", "evidence": ["同 go2-cts"]},
+      "gaps": ["同 go2-cts F1"]
+    },
+    {
+      "profile_id": "go2-amp-ts",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [
+        {"repo": "lain_job", "path": "LLoco/src/lloco/tasks/go2_skills/ts", "role": "数值实源"},
+        {"repo": "leggedgym-ex", "path": "legged_gym/envs/go2", "role": "registry 原标的上游"}
+      ],
+      "verification": {"method": "同 go2-cts", "conclusion": "suspect", "evidence": ["同 go2-cts"]},
+      "gaps": ["同 go2-cts F1；LeggedGym-Ex 无 amp_ts 变体配置"]
+    },
+    {
+      "profile_id": "go2-ts-student",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "leggedgym-ex", "path": "legged_gym/envs/base/template_cfgs.py", "role": "学生侧配置参考"}],
+      "verification": {
+        "method": "num_steps_per_env 50 / std clamp 逐值",
+        "conclusion": "suspect",
+        "evidence": ["port training/config.py:109-129 ↔ 上游 template_cfgs.py:58-79"]
+      },
+      "gaps": [
+        "go2 在 LeggedGym-Ex 无独立学生 cfg（学生侧配置在 CTS/TS runner 内）⇒ 逐关节 std 下限 (0.10472,0.253075,0.094247)×4 无同形对照物；须确认这三处 legacy 口径出处，否则应改标包内自研"
+      ]
+    },
+    {
+      "profile_id": "go2-him",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [
+        {"repo": "HIMLoco", "path": "legged_gym/legged_gym/envs/base/legged_robot_config.py", "role": "PPO 超参基座"},
+        {"repo": "unilab_new", "path": "UniLab/src/unilab", "role": "him_ppo 算法落点（go2 无上游配置）"}
+      ],
+      "verification": {
+        "method": "lr/gamma/lam/clip/entropy/epochs/minibatches 逐值",
+        "conclusion": "suspect",
+        "evidence": ["port training/config.py:156-177 ↔ HIMLoco legged_robot_config.py:238-271"]
+      },
+      "gaps": [
+        "F5：采样/迭代量与 HIMLoco 差一个数量级（num_steps 24 vs 100、max_iter 20000 vs 200000、save 100 vs 20）⇒ 需确认是有意的 MJLab 预算还是漏改；HIMLoco 本无 go2 配置"
+      ]
+    },
+    {
+      "profile_id": "go2-wtw",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "leggedgym-ex", "path": "legged_gym/envs/go2/go2_wtw_config.py", "role": "Walk These Ways 源"}],
+      "verification": {
+        "method": "theta 表/行为范围/奖励表逐值 + runner",
+        "conclusion": "suspect",
+        "evidence": ["port locomotion/wtw.py:107,125,128,244-246 ↔ 上游 go2_wtw_config.py:38-96,120-127"]
+      },
+      "gaps": [
+        "F7：tracking 核 std 0.425/0.7854（mjlab exp(-err/std²) 口径）等效 sigma 0.181/0.617，上游 tracking_sigma=0.25；命令重采样 10s vs 8s；save/max_iter 100/10000 vs 500/5000",
+        "两处需裁决：核尺度按 mjlab 惯例换算是否等价（建议实测曲线对照）；预算差是否有意"
+      ]
+    },
+    {
+      "profile_id": "go2-velocity-flat",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "unitree_rl_mjlab", "path": "src/tasks/velocity/config/go2/env_cfgs.py", "role": "官方 mjlab go2 配置"}],
+      "verification": {
+        "method": "逐项对官方 go2 env_cfgs",
+        "conclusion": "suspect",
+        "evidence": ["port locomotion/velocity.py:183-194,203-244 ↔ 上游 env_cfgs.py:88-108,120-124"]
+      },
+      "gaps": [
+        "F6：pose 分档 std（hip|thigh 0.05/calf 0.1；动 0.3/0.6）vs 官方（0.05/0.1/0.15；0.15/0.35/0.5）；多出自碰撞/shank/trunk -0.1 与 dof_power_abs -0.001；删 foot_gait offset；illegal_contact 改 thigh 传感器且无 force_threshold=10；play 命令域比官方宽；save_interval 50 vs 100",
+        "档案自称 package-local（非官方复刻）⇒ 需裁决是否以官方为基准"
+      ]
+    },
+    {
+      "profile_id": "go2-velocity-rough",
+      "robot": "unitree_go2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "unitree_rl_mjlab", "path": "src/tasks/velocity/config/go2/env_cfgs.py", "role": "官方 mjlab go2 配置"}],
+      "verification": {"method": "同 go2-velocity-flat", "conclusion": "suspect", "evidence": ["同上"]},
+      "gaps": ["同 go2-velocity-flat F6"]
+    },
+    {
+      "profile_id": "go1-velocity",
+      "robot": "unitree_go1",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "HIMLoco", "path": "legged_gym/legged_gym/envs/go1/go1_config.py", "role": "go1 配置（port docstring 自述来源）"}],
+      "verification": {
+        "method": "docstring 数值 vs 上游",
+        "conclusion": "suspect",
+        "evidence": ["port go1_velocity/env_cfg.py:10-12,100-118 ↔ 上游 go1_config.py:86-117"]
+      },
+      "gaps": [
+        "F9：docstring 陈旧（称 foot_clearance -0.5，上游实为 -0.01，且代码已删该项）——仅注释问题"
+      ]
+    },
+    {
+      "profile_id": "go1-velocity-rough",
+      "robot": "unitree_go1",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "HIMLoco", "path": "legged_gym/legged_gym/envs/go1/go1_config.py", "role": "Go1RoughCfg 源"}],
+      "verification": {
+        "method": "rewards/termination/常量逐项",
+        "conclusion": "suspect",
+        "evidence": ["port go1_velocity/env_cfg.py:100-118,190-208 ↔ 上游 go1_config.py:86-117,64-74"]
+      },
+      "gaps": [
+        "F8：缺上游 6 项惩罚（lin_vel_z -2.0 / base_height -1.0 / joint_power -2e-5 / dof_acc -2.5e-7 / orientation -0.2 / foot_clearance -0.01）；新增 dof_pos_limits -2.0（上游 -0.0 即关闭）；终止用 nonfoot 接触 vs 上游 terminate_after_contacts_on=['base'] ⇒ 需逐条裁决（有意加严还是漏搬）"
+      ]
+    },
+    {
+      "profile_id": "b2-velocity",
+      "robot": "unitree_b2",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "robot_lab", "path": "source/robot_lab/robot_lab/tasks/manager_based/locomotion/velocity/config/quadruped/unitree_b2/rough_env_cfg.py", "role": "IsaacLab B2 参考（异框架）"}],
+      "verification": {
+        "method": "rewards/命令/终止；上游为 IsaacLab 口径",
+        "conclusion": "unverifiable",
+        "evidence": ["port b2_velocity/env_cfg.py:68-138 ↔ 上游 rough_env_cfg.py:82-144（tracking 3.0/1.5）"]
+      },
+      "gaps": [
+        "我方为 MJLab 自研装配（registry 仅列 robot_lab，属另一框架、无同形上游）⇒ 数值无法逐项回核；若要复刻效果需先指定一个基准（官方 legged_gym 或 robot_lab）"
+      ]
+    },
+    {
+      "profile_id": "lite3-velocity",
+      "robot": "deeprobotics_lite3",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "deep_rl", "path": "rl_training/source/rl_training/rl_training/tasks/manager_based/locomotion/velocity/config/quadruped/deeprobotics_lite3/rough_env_cfg.py", "role": "lite3 训练源"}],
+      "verification": {
+        "method": "奖励表逐值（hipx/hipy/knee/动作缩放/命令域）",
+        "conclusion": "suspect",
+        "evidence": ["port lite3_velocity/env_cfg.py:201-204,304-330 ↔ 上游 rough_env_cfg.py:71,158-197,213-216"]
+      },
+      "gaps": [
+        "F10：tracking 核 std=0.425（两截面同值）vs 上游 std=math.sqrt(0.5)≈0.707；其余权重（4.0/1.5）、hipx -0.4/hipy -0.0/knee -2.0、动作缩放、命令域全部一致 ⇒ 需确认 0.425 是否有意（更锐的跟踪）"
+      ]
+    },
+    {
+      "profile_id": "m20-velocity",
+      "robot": "deeprobotics_m20",
+      "checked_at": "2026-09-24",
+      "references": [
+        {"repo": "m20_rl_isaacsim", "path": "source/rl_training/rl_training/tasks/manager_based/locomotion/velocity/config/wheeled/deeprobotics_m20/rough_env_cfg.py", "role": "官方 IsaacSim M20 源"},
+        {"repo": "robot_lab", "path": "source/robot_lab/robot_lab/tasks/manager_based/locomotion/velocity/config/wheeled/deeprobotics_m20/rough_env_cfg.py", "role": "第二对照"},
+        {"repo": "deep_rl", "path": "rl_training/source/rl_training/rl_training/tasks/manager_based/locomotion/velocity/config/wheeled/deeprobotics_m20", "role": "第三对照（与 rl_training 同 md5 a2925a1b）"}
+      ],
+      "verification": {
+        "method": "逐值对三个可读上游 + ONNX/contract/scales 交叉",
+        "conclusion": "suspect",
+        "evidence": [
+          "port m20_velocity/env_cfgs.py:145-170,176-278；m20_constants.py:28-51；rl_cfg.py:65-77",
+          "assets/robots/deeprobotics_m20/simulation/config.json（policies[].scales: ang_vel 0.25 / dof_pos 1.0 / dof_vel 0.05）"
+        ]
+      },
+      "gaps": [
+        "F1：观测缩放整段缺失——档案/仿真配置声明 ang_vel×0.25、dof_vel×0.05，训练实现无 scale ⇒ 训练观测与声明/部署口径不一致（建议 tools/obs_crosscheck.py 打值：ang_vel 段应差 4×、dq 段差 20×）",
+        "F2：动作/关节序为 FR,FL,HR,HL（m20_constants.py:30-51，注释称「SDK 命令序」），而契约 action.joint_order 为 fl,fr,hl,hr ⇒ 训练序与契约/导出元数据相反，须定权威序（对拍 + sim2sim 验证）",
+        "F3：奖励表与三个可读上游全不等（joint_acc -2e-7、stand_still -2.0、hip/thigh/knee -0.4/-0.1/-0.1、track_ang 1.0、缺 body_lin_acc_l2 等）；档案声称的 logs/.../params/env.yaml 在 00_resources 不存在",
+        "F4：runner 是 go2w 残留（init_std 0.6 / lr 5e-4 / entropy 0.005 / obs_normalization True / save 1000 / max_iter 10001）vs 官方 M20（1.0 / 1e-3 / 0.01 / False / 100 / 20000）"
+      ]
+    },
+    {
+      "profile_id": "m20-dreamwaq",
+      "robot": "deeprobotics_m20",
+      "checked_at": "2026-09-24",
+      "references": [
+        {"repo": "Dreamwaq", "path": "legged_gym/envs/M20/m20_config.py", "role": "M20 DreamWaQ 源"},
+        {"repo": "Dreamwaq", "path": "rsl_rl", "role": "算法源"}
+      ],
+      "verification": {
+        "method": "obs 57/247、VAE 结构、动作/PD、奖励表、终止、事件、terrain 逐值",
+        "conclusion": "suspect",
+        "evidence": ["port config.py:231-275,344-350 ↔ 上游 m20_config.py:136-161,238-239"]
+      },
+      "gaps": [
+        "F5：上游在 only_positive 截零之后对非超时终止追加 -0.8（乘 dt）的终止惩罚，移植无此项（docstring 只声明了 only_positive 缺失）",
+        "F6：runner 预算 500/20000 vs 上游 100/300000（确认预算意图）",
+        "F9 小项：reset xy ±1.0 vs 上游 ±0.5；地形混合沿用 mjlab 默认而非源 [0.1,0.1,0.3,0.3,0.1]（无法逐类对齐）",
+        "已核实无须改：base_height 与终止判据的整张扫描平均与上游 m20.py:857-860、:122 一致（与 go2 的 3×3 口径不同，是两台各自上游的差异）"
+      ]
+    },
+    {
+      "profile_id": "b2w-velocity",
+      "robot": "unitree_b2w",
+      "checked_at": "2026-09-24",
+      "references": [
+        {"repo": "unitree_rl_mjlab_go2w", "path": "mjlab/tasks/robots/unitree_go2w/velocity", "role": "实际按其模式移植的源（同族复用）"},
+        {"repo": "robot_lab", "path": "source/robot_lab/robot_lab/tasks/manager_based/locomotion/velocity/config/wheeled/unitree_b2w", "role": "registry 列出的 IsaacLab B2-W（口径不同）"}
+      ],
+      "verification": {
+        "method": "与 go2w 版逐字节 diff + B2-W 常量/合同/MJCF 复核",
+        "conclusion": "intentional",
+        "why": "包内自述「由 go2w_velocity 模式移植」，奖励表/runner/归一化全取 go2w mjlab 配方（同族复用），非 robot_lab 口径",
+        "evidence": ["b2w_velocity/env_cfgs.py 与 go2w_velocity/env_cfgs.py diff 为空"]
+      },
+      "gaps": [
+        "F7：轮几何常量沿用 go2w（wheel_radius 0.09 / track 0.19），B2-W 真值（MJCF FL_wheel_link y=±0.1916 ⇒ track≈0.383、轮半径≈0.113）⇒ 纯转向命令目标轮速被压低约 2×（建议断言 cmd=(0,0,1) 时 ±1.69 vs 现 ±1.06 rad/s）",
+        "档案写 calf 300、MJCF/运行时 320（b2w_constants.py 已注明）⇒ 仅档案陈旧"
+      ]
+    },
+    {
+      "profile_id": "b2w-traversal",
+      "robot": "unitree_b2w",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "rc_old", "path": "RC_WheelLeg/05_software/train/rc_mjlab/src/robot", "role": "竞赛地形 + 障碍释放课程源（库外工程）", "outside_library": true}],
+      "verification": {
+        "method": "课程四函数与上游逐字节比对 + 释放步逐值",
+        "conclusion": "aligned",
+        "evidence": ["kit/mdp/terrain_curriculums.py:241-310 == 上游 curriculums.py:261-542（逐字节）；释放步 4800/12000/16800"]
+      },
+      "gaps": ["继承 b2w-velocity 的 F7（机型侧轮几何）"]
+    },
+    {
+      "profile_id": "go2w-flat",
+      "robot": "unitree_go2w",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "unitree_rl_mjlab_go2w", "path": "mjlab/tasks/robots/unitree_go2w/velocity", "role": "go2w 官方 mjlab 源"}],
+      "verification": {
+        "method": "env_cfgs / velocity_env_cfg / mdp 全文件 diff",
+        "conclusion": "aligned",
+        "evidence": ["port go2w_velocity/env_cfgs.py ↔ 上游 env_cfgs.py（diff 仅 policy→actor 改名 5 行）"]
+      }
+    },
+    {
+      "profile_id": "go2w-rough",
+      "robot": "unitree_go2w",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "unitree_rl_mjlab_go2w", "path": "mjlab/tasks/robots/unitree_go2w/velocity", "role": "go2w 官方 mjlab 源"}],
+      "verification": {
+        "method": "同上 + 命令课程/地形覆盖/轮奖励逐值",
+        "conclusion": "aligned",
+        "evidence": ["上游 env_cfgs.py:52-80（地形）、145-177（轮奖励）、82-105（obs 插轮段）"]
+      }
+    },
+    {
+      "profile_id": "zex-w-flat",
+      "robot": "zex-w",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "rc_old", "path": "RC_WheelLeg/05_software/train/rc_mjlab/src/robot", "role": "rc_mjlab 训练工程（包外）", "outside_library": true}],
+      "verification": {
+        "method": "全文件 diff（env_cfgs 仅地形+课程上移；mdp 逐字节）",
+        "conclusion": "aligned",
+        "evidence": ["robot/config/env_cfgs.py:384-393；mdp/rewards.py diff=0；rl_cfg.py:40-53"]
+      }
+    },
+    {
+      "profile_id": "zex-w-rough",
+      "robot": "zex-w",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "rc_old", "path": "RC_WheelLeg/05_software/train/rc_mjlab/src/robot", "role": "rc_mjlab（地形/课程已上移 Kit）", "outside_library": true}],
+      "verification": {
+        "method": "释放步等价性 + 比例逐值",
+        "conclusion": "aligned",
+        "evidence": ["kit/traversal_env_cfg.py:38-57,64-96；env_cfgs.py:410,414；robot_cfg.py（kp50/kd1.5/17.0/多段缩放）"]
+      },
+      "gaps": ["课程注释写 0.33×30s、实际按 20s 档运行（与上游同款）⇒ 仅注释陈旧"]
+    },
+    {
+      "profile_id": "zex-w-crawl",
+      "robot": "zex-w",
+      "checked_at": "2026-09-24",
+      "references": [{"repo": "rc_old", "path": "RC_WheelLeg/05_software/train/rc_mjlab/src/robot", "role": "rc_mjlab（包外）", "outside_library": true}],
+      "verification": {
+        "method": "地形 4 类 + 比例、init 姿态、终止 80°、episode 30s、奖励 15 项全量对拍",
+        "conclusion": "aligned",
+        "evidence": ["env_cfgs.py:730-742,748-752,757,781-838"]
+      }
+    }
+  ]
+}
