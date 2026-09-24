@@ -27,27 +27,33 @@ from mjlab.utils.spec_config import CollisionCfg
 
 M20_XML: Path = Path(__file__).resolve().parent / "xmls" / "M20.xml"
 
-# Requested action/joint order (matches the DeepRobotics SDK command order:
-# FR, FL, HR, HL leg groups).
+# Action/joint order = **FL, FR, HL, HR**（腿先、轮后），与上游与契约一致：
+#   * 上游 `00_resources/m20_rl_isaacsim/.../deeprobotics_m20/rough_env_cfg.py:64-67`
+#     正是 `fl_, fr_, hl_, hr_`；
+#   * 本仓契约 `action.joint_order` 同为 fl,fr,hl,hr；
+#   * 官方 SDK 部署策略的 ONNX 元数据（`...trained-*.onnx`）也是 FL 优先。
+# 2026-09-24 移植核对 F2：本文件原写 FR,FL,HR,HL（注释称「SDK 命令序」），于是
+# **训练用的动作向量序与契约/上游相反**，而导出时盖的元数据取自实体序（FL 优先）
+# ⇒ 产物元数据与它训练时的动作序不符（真错标）。已按上游改正。
 M20_LEG_JOINT_NAMES: tuple[str, ...] = (
-  "fr_hipx_joint",
-  "fr_hipy_joint",
-  "fr_knee_joint",
   "fl_hipx_joint",
   "fl_hipy_joint",
   "fl_knee_joint",
-  "hr_hipx_joint",
-  "hr_hipy_joint",
-  "hr_knee_joint",
+  "fr_hipx_joint",
+  "fr_hipy_joint",
+  "fr_knee_joint",
   "hl_hipx_joint",
   "hl_hipy_joint",
   "hl_knee_joint",
+  "hr_hipx_joint",
+  "hr_hipy_joint",
+  "hr_knee_joint",
 )
 M20_WHEEL_JOINT_NAMES: tuple[str, ...] = (
-  "fr_wheel_joint",
   "fl_wheel_joint",
-  "hr_wheel_joint",
+  "fr_wheel_joint",
   "hl_wheel_joint",
+  "hr_wheel_joint",
 )
 M20_ALL_JOINT_NAMES: tuple[str, ...] = M20_LEG_JOINT_NAMES + M20_WHEEL_JOINT_NAMES
 

@@ -1,7 +1,7 @@
 {
   "schema": "porting-references-1.0",
   "generated_at": "2026-09-24",
-  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉一条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。",
+  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**族级事实（2026-09-24 补测）**：轮足族四条契约的 `action.joint_order` 目前三套口径并存——m20（腿先轮后，fl,fr,hl,hr）、b2w（腿先轮后，FR,FL,RR,RL）、zex-w（腿先轮后，fl,fr,rl,rr）、go2w（**逐腿混排**，FL,FR,RL,RR）；训练侧与契约在 m20（已按契约/上游改正）与 go2w（已登记偏离，权威序待裁决）上有分歧。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。",
   "entries": [
     {
       "profile_id": "go2-trot",
@@ -338,8 +338,9 @@
         ]
       },
       "gaps": [
-        "F1：观测缩放整段缺失——档案/仿真配置声明 ang_vel×0.25、dof_vel×0.05，训练实现无 scale ⇒ 训练观测与声明/部署口径不一致（建议 tools/obs_crosscheck.py 打值：ang_vel 段应差 4×、dq 段差 20×）",
-        "F2：动作/关节序为 FR,FL,HR,HL（m20_constants.py:30-51，注释称「SDK 命令序」），而契约 action.joint_order 为 fl,fr,hl,hr ⇒ 训练序与契约/导出元数据相反，须定权威序（对拍 + sim2sim 验证）",
+        "已修 F1（观测缩放整段缺失）：训练项按上游 rough_env_cfg.py:104-107 补上 scale —— base_ang_vel 0.25 / joint_pos 1.0 / joint_vel 0.05，与 simulation/config.json 的 policies[].scales 声明一致",
+        "已修 F2（动作序与契约相反）：m20_constants.py 的 M20_LEG_JOINT_NAMES / M20_WHEEL_JOINT_NAMES 原本 FR,FL,HR,HL，改为契约与上游同序的 FL,FR,HL,HR（上游 m20_rl_isaacsim/.../rough_env_cfg.py:64-67 即此序；官方 SDK 部署 ONNX 元数据亦然）⇒ 导出时盖的元数据（取自实体序）与训练动作序不再互相错标",
+        "**存量产物需重导/重训**：`simulation/policies/m20_velocity_57.onnx` 是修复前训练的（动作序 FR 优先），其元数据按实体序写的是 FL 优先 ⇒ 用它对拍/sim2sim 会错序；要么重训该档，要么按旧序标注该产物",
         "F3：奖励表与三个可读上游全不等（joint_acc -2e-7、stand_still -2.0、hip/thigh/knee -0.4/-0.1/-0.1、track_ang 1.0、缺 body_lin_acc_l2 等）；档案声称的 logs/.../params/env.yaml 在 00_resources 不存在",
         "F4：runner 是 go2w 残留（init_std 0.6 / lr 5e-4 / entropy 0.005 / obs_normalization True / save 1000 / max_iter 10001）vs 官方 M20（1.0 / 1e-3 / 0.01 / False / 100 / 20000）"
       ]
@@ -404,7 +405,10 @@
         "method": "env_cfgs / velocity_env_cfg / mdp 全文件 diff",
         "conclusion": "aligned",
         "evidence": ["port go2w_velocity/env_cfgs.py ↔ 上游 env_cfgs.py（diff 仅 policy→actor 改名 5 行）"]
-      }
+      },
+      "gaps": [
+        "F12（2026-09-24 动作序不变式抓出，已登记为偏离）：契约用官方 SDK 的**逐腿混排序**（FL,FR,RL,RR 各腿带轮），训练沿用上游 mjlab go2w 的 FR,FL,RR,RL + 腿先轮后 ⇒ 两侧都有上游背书（上游=unitree_rl_mjlab_go2w，契约=SDK 部署约定）。登记在 adapters/mjlab/test_action_order_matches_contract.py 的 KNOWN_ORDER_DEVIATIONS，**权威序待裁决**"
+      ]
     },
     {
       "profile_id": "go2w-rough",
@@ -415,7 +419,8 @@
         "method": "同上 + 命令课程/地形覆盖/轮奖励逐值",
         "conclusion": "aligned",
         "evidence": ["上游 env_cfgs.py:52-80（地形）、145-177（轮奖励）、82-105（obs 插轮段）"]
-      }
+      },
+      "gaps": ["同 go2w-flat 的 F12（动作序：契约逐腿混排 vs 训练腿先轮后，权威序待裁决）"]
     },
     {
       "profile_id": "zex-w-flat",
