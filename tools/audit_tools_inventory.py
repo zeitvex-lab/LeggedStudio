@@ -66,7 +66,6 @@ EXPECTED_UNREFERENCED: frozenset[str] = frozenset({
     "generate_asset_inventory.py",
     "migrate_contract.py",
     "stl_volume.py",
-    "urdf_to_mjcf.py",
     "urdf_validator.py",
 })
 
