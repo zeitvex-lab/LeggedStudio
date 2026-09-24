@@ -142,6 +142,17 @@ class GenericTaskBuilderTests(unittest.TestCase):
         self.assertEqual((), tuple(bundle.env_cfg.sim.mujoco.disableflags))
         self.assertEqual([], bundle.diagnostics["mujoco_disableflags"])
 
+    def test_strip_actuators_removes_xml_actuators(self):
+        """撤 XML 执行器的分支（mjlab 认不出的执行器会走它）必须真能撤掉。"""
+        from adapters.mjlab.generic_task_builder import _make_spec_fn
+
+        with tempfile.TemporaryDirectory() as tmp:
+            xml = Path(tmp) / "robot.xml"
+            xml.write_text(_MARGIN_XML, encoding="utf-8")
+            spec = _make_spec_fn(xml, strip_actuators=True)()
+            self.assertEqual([], [actuator.name for actuator in spec.actuators])
+            self.assertEqual(0, spec.compile().nu)
+
 
 if __name__ == "__main__":
     unittest.main()

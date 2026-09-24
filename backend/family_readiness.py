@@ -19,14 +19,19 @@
 
 输出还带 **`trainable_terrain_profiles`**：本族 `ready` 的地形档 id 清单（见
 `registry/terrains`）——这就是"导入后一键开训"能选的那些档。
+
+**导入侧另有两只手**（同一份族声明的另一面，2026-09-24 补）：`judge_family`（按族注册表
+判定「这批执行关节属于哪个族」，判不出就如实说不判）与 `family_observation_components`
+（取族 actor 观测项序列）——导入那一刻据此决定「按族骨架落观测」还是「如实标非族成员」。
 """
 
 from __future__ import annotations
 
 import json
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 #: MuJoCo actuator 元素标签 → mjlab 认得的命令域（与 `detect_command_field` 同口径）。
 _ACTUATOR_TAGS = {"position": "position", "velocity": "velocity", "motor": "effort"}
@@ -87,8 +92,9 @@ def _pd_for(joint: str, actuator_profile: dict) -> dict | None:
     return fallback if isinstance(fallback, dict) else None
 
 
-def _families_index() -> dict[str, dict]:
-    families_dir = Path(__file__).resolve().parents[1] / "registry" / "families"
+def _families(families_dir: Path | None = None) -> dict[str, dict]:
+    """按 `registry/families/index.json` 读全部族声明（`families_dir` 仅供测试注入）。"""
+    families_dir = Path(families_dir) if families_dir else Path(__file__).resolve().parents[1] / "registry" / "families"
     index = _load(families_dir / "index.json") or {}
     out: dict[str, dict] = {}
     for entry in index.get("families") or []:
@@ -96,6 +102,97 @@ def _families_index() -> dict[str, dict]:
         if declared:
             out[str(declared.get("family_id"))] = declared
     return out
+
+
+def _families_index() -> dict[str, dict]:
+    return _families()
+
+
+def _morphology_dof(morphology_id: str) -> int | None:
+    """``quadruped_12dof`` → 12（形态 id 里的自由度数是与族声明对账的锚点）。"""
+    match = re.search(r"(\d+)dof$", morphology_id)
+    return int(match.group(1)) if match else None
+
+
+def judge_family(actuated_joints: Sequence[str], *, families_dir: Path | None = None) -> dict[str, Any]:
+    """按**族注册表**判定这批执行关节属于哪个族；判不出就如实说判不出（不猜）。
+
+    与 `backend.contract_migration.guess_morphology_id` 的分工：那个只按命名**猜**一个形态 id；
+    这里把结论回注册表对账——腿数 == 族声明 `legs`；每腿角色（经 `role_aliases` 归一）恰好
+    覆盖族 `joint_roles` 且**各腿顺序一致**；形态 id 必须在该族 `morphology_ids` 里、且与
+    "腿数 × 角色数" 相符。导入侧据此决定"按族骨架落观测"还是"如实标非族成员"。
+
+    返回 `{family, morphology_id, legs, roles_by_leg, reason}`；判不出时 `family` 为 None
+    且 `reason` 写清差在哪一步。
+    """
+    from backend.contract_migration import split_joint  # 角色切词的真值只有这一份
+
+    roles_by_leg: dict[str, list[str]] = {}
+    unparsed: list[str] = []
+    for raw in actuated_joints:
+        leg, role_token = split_joint(str(raw))
+        if leg is None or not role_token:
+            unparsed.append(str(raw))
+            continue
+        roles_by_leg.setdefault(leg, []).append(role_token)
+    if unparsed:
+        return {"family": None, "morphology_id": None, "legs": [], "roles_by_leg": {},
+                "reason": f"{len(unparsed)} 个关节名切不出「腿_角色」结构（如 {unparsed[0]}）"}
+    if not roles_by_leg:
+        return {"family": None, "morphology_id": None, "legs": [], "roles_by_leg": {},
+                "reason": "没有可判的执行关节"}
+
+    blockers: list[str] = []
+    for family_id, doc in _families(families_dir).items():
+        declared_roles = [str(role) for role in doc.get("joint_roles") or []]
+        aliases = {str(role): [str(x) for x in (values or [])]
+                   for role, values in (doc.get("role_aliases") or {}).items()}
+        canonical = {alias: role for role in declared_roles for alias in [role, *aliases.get(role, [])]}
+        legs = list(roles_by_leg)
+        if len(legs) != int(doc.get("legs") or 0):
+            blockers.append(f"{family_id}: 腿数 {len(legs)} ≠ 声明 {doc.get('legs')}")
+            continue
+        mapped: dict[str, list[str]] = {}
+        unknown: list[str] = []
+        for leg, tokens in roles_by_leg.items():
+            mapped[leg] = []
+            for token in tokens:
+                role = canonical.get(token)
+                if role is None:
+                    unknown.append(f"{leg}:{token}")
+                else:
+                    mapped[leg].append(role)
+        if unknown:
+            blockers.append(f"{family_id}: 角色未登记（{', '.join(unknown[:4])}）")
+            continue
+        first = mapped[legs[0]]
+        if set(first) != set(declared_roles) or len(first) != len(declared_roles):
+            blockers.append(f"{family_id}: 每腿角色 {first} ≠ 声明 {declared_roles}")
+            continue
+        if any(mapped[leg] != first for leg in legs):
+            blockers.append(f"{family_id}: 各腿角色顺序不一致")
+            continue
+        expected_dof = len(legs) * len(first)
+        candidates = [str(item) for item in doc.get("morphology_ids") or []
+                      if _morphology_dof(str(item)) == expected_dof]
+        if len(candidates) != 1:
+            blockers.append(f"{family_id}: 形态 id 与腿×角色（{expected_dof}）对不上："
+                            f"{list(doc.get('morphology_ids') or [])}")
+            continue
+        return {"family": family_id, "morphology_id": candidates[0], "legs": legs,
+                "roles_by_leg": mapped, "reason": ""}
+    return {"family": None, "morphology_id": None, "legs": [], "roles_by_leg": {},
+            "reason": "不匹配任何族声明（" + "；".join(blockers) + "）"}
+
+
+def family_observation_components(family_id: str, *, families_dir: Path | None = None) -> list[str] | None:
+    """族声明的 actor 观测**项序列**（顺序即布局）；族未登记或未声明骨架时返回 None。"""
+    doc = _families(families_dir).get(str(family_id))
+    if not doc:
+        return None
+    actor = ((doc.get("observation_skeleton") or {}).get("actor")) or []
+    names = [str(item) for item in actor]
+    return names or None
 
 
 def _terrain_profiles_ready(family: str) -> list[str]:

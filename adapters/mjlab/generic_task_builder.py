@@ -102,42 +102,22 @@ def _recipe_rewards(recipe: Any) -> dict[str, float]:
     return {str(key): float(value) for key, value in values.items() if value is not None}
 
 
-def _name_unnamed_sensors(spec: Any) -> None:
-    """给 MJCF 里**无 name 的传感器**补稳定名（类型/挂载点/语义都不动）。
-
-    MuJoCo 接受无名传感器，但 mjlab 的 scene 会把每个 spec 传感器按名包成
-    ``BuiltinSensor``（`mj_model.sensor('')` → ``KeyError: Invalid name ''``），环境直接
-    建不起来——lite3 / m20 的 MJCF 就带无名 ``<gyro>``/``<accelerometer>``。
-    """
-    import mujoco
-
-    fallback = {
-        int(mujoco.mjtSensor.mjSENS_ACCELEROMETER): "imu_accelerometer",
-        int(mujoco.mjtSensor.mjSENS_GYRO): "imu_gyro",
-    }
-    taken = {sensor.name for sensor in spec.sensors if sensor.name}
-    for sensor in spec.sensors:
-        if sensor.name:
-            continue
-        base = fallback.get(int(sensor.type), f"sensor_type{int(sensor.type)}")
-        name = base
-        suffix = 0
-        while name in taken:
-            suffix += 1
-            name = f"{base}_{suffix}"
-        sensor.name = name
-        taken.add(name)
-
-
 def _make_spec_fn(xml_path: Path, *, strip_actuators: bool = False):
     import mujoco
+
+    from adapters.mjlab.spec_utils import name_unnamed_sensors
 
     def get_spec():
         spec = mujoco.MjSpec.from_file(str(xml_path))
         if strip_actuators:
+            # MuJoCo 3.x 的 MjsActuator **没有** `.delete()`；删元素走 spec.delete(元素)。
+            # 此前写成 actuator.delete() ⇒ 一旦真走到这条分支就 AttributeError（只有
+            # XML 里存在 mjlab 认不出的执行器时才走，2026-09-24 才发现）。
             for actuator in list(spec.actuators):
-                actuator.delete()
-        _name_unnamed_sensors(spec)
+                spec.delete(actuator)
+        # 无名传感器必须补名（mjlab scene 按名包装时 KeyError: Invalid name ''），
+        # 与包内档案共用同一份实现：adapters/mjlab/spec_utils.py。
+        name_unnamed_sensors(spec)
         return spec
 
     return get_spec

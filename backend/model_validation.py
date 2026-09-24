@@ -216,8 +216,15 @@ def validate_model(
             try:
                 import mujoco
 
-                mujoco.MjModel.from_xml_path(str(source_path))
+                compiled = mujoco.MjModel.from_xml_path(str(source_path))
                 mujoco_loadable = True
+                # MJCF 的质量**只能编译后才知道**（URDF 从 <inertial> 直读）。导入契约的
+                # `urdf.total_mass_kg` 与族通用就绪里的"质量非零"判据都读它——不补这一步，
+                # 导入的 MJCF 机型质量为 0 ⇒ 就绪判红 ⇒ "一键导入"到了"一键开训"前一步断掉。
+                total_mass = float(sum(float(mass) for mass in compiled.body_mass))
+                if total_mass > 0:
+                    stats["total_mass_kg"] = round(total_mass, 6)
+                    inspection["inertial"]["total_mass_kg"] = round(total_mass, 6)
             except Exception as exc:
                 mujoco_error = str(exc)
                 errors.append(f"MuJoCo compilation failed: {exc}")
