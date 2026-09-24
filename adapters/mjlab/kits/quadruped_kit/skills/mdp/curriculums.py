@@ -1,4 +1,9 @@
-"""Go2 curricula."""
+"""族级技能的命令课程（trot / jump 共用）。
+
+来源：`go2_skills/trot/mdp/curriculums.py`（与 `.../jump/mdp/curriculums.py` 逐字相同）。
+本文件无机型常量：`tracking_lin_vel` 是技能自己的奖励项名，"按平均跟踪奖励涨 X 速度区间"
+是技能级课程口径。
+"""
 
 import torch
 

@@ -9,11 +9,15 @@
 
 包侧 stub 经 ``kit.mdp`` / ``kit.velocity_env_cfg`` / ``kit.ppo_runner_cfg_ex``
 取用，所以本文件把三者都提到包命名空间。
+
+越障技能族级化（2026-09-25）追加两项：``kit.terrains``（竞赛地形定义）与
+``kit.traversal_env_cfg``（族级越障课程：竞赛地形集 + 障碍释放课程）。
+包侧取用方式与前三者同（见 ``traversal_env_cfg.py`` 头注）。
 """
 
-from . import mdp, velocity_env_cfg  # noqa: F401  (包侧 stub 经 `kit.mdp` / `kit.velocity_env_cfg` 取用)
+from . import mdp, terrains, traversal_env_cfg, velocity_env_cfg  # noqa: F401
 
-__all__ = ["mdp", "velocity_env_cfg", "ppo_runner_cfg_ex"]
+__all__ = ["mdp", "terrains", "traversal_env_cfg", "velocity_env_cfg", "ppo_runner_cfg_ex"]
 
 
 def ppo_runner_cfg_ex(

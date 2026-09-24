@@ -1,24 +1,20 @@
-"""Immutable constants for the Trot task."""
+"""Go2 侧薄委托：族级 Trot 的不可变常量。
 
-from dataclasses import dataclass
+族级声明在 `.../quadruped_kit/skills/trot/profile.py`；本模块只填**机型身份**
+（task_id / experiment_name），其余（周期、目标足高、帧数、PPO 超参）与源实现逐值相同。
+"""
 
+from __future__ import annotations
 
-@dataclass(frozen=True)
-class TrotProfile:
-  task_id: str = "Unitree-Go2-Trot-Flat"
-  experiment_name: str = "go2_trot"
-  num_envs: int = 4096
-  episode_length_s: float = 24.0
-  physics_dt: float = 0.005
-  decimation: int = 4
-  action_scale: float = 0.25
-  actor_frame_dim: int = 47
-  actor_history: int = 10
-  critic_frame_dim: int = 68
-  critic_history: int = 3
-  cycle_time: float = 0.5
-  target_foot_height: float = 0.06
-  base_height_target: float = 0.29
+import sys
+from pathlib import Path
 
+for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+        if str(_parent) not in sys.path:
+            sys.path.insert(0, str(_parent))
+        break
 
-TROT = TrotProfile()
+from adapters.mjlab.kits.quadruped_kit.skills.trot.profile import TrotProfile  # noqa: E402
+
+TROT = TrotProfile(task_id="Unitree-Go2-Trot-Flat", experiment_name="go2_trot")

@@ -7,6 +7,18 @@ for flat ground, rough terrains, and crawling tasks.
 """
 
 import math
+import sys
+from pathlib import Path
+
+# 仓库根自举（见 kits/wheel_leg_kit 模块注释）：worker / schema-dump / 冒烟三种运行
+# 环境都只把 ``training/source``（或包根）放进 sys.path；沿目录向上找 ``adapters/mjlab``
+# 对 assets 源树与 workspace 镜像副本两种深度都成立。
+for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+        if str(_parent) not in sys.path:
+            sys.path.insert(0, str(_parent))
+        break
+
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as envs_mdp
 from mjlab.envs.mdp import dr as envs_dr
@@ -34,14 +46,16 @@ from mjlab.terrains import (
     TerrainEntityCfg,
     TerrainGeneratorCfg,
     BoxFlatTerrainCfg,
-    BoxPyramidStairsTerrainCfg,
-    BoxInvertedPyramidStairsTerrainCfg,
     BoxRandomGridTerrainCfg,
-    HfRandomUniformTerrainCfg,
     HfPerlinNoiseTerrainCfg,
-    HfPyramidSlopedTerrainCfg,
 )
-from ..terrains import RCWallTerrainCfg, RCLowBarTerrainCfg
+# 越障课程（族级，2026-09-25）：竞赛地形集与障碍释放课程取轮足族 Kit 的唯一真值
+# （原先内联在 rough_env_cfg 里的课程数值已逐字上移；命令课程仍留包）。
+from adapters.mjlab.kits.wheel_leg_kit.traversal_env_cfg import (  # noqa: E402
+    make_obstacle_course_terrain,
+    make_obstacle_release_curriculum,
+)
+from ..terrains import RCLowBarTerrainCfg
 from mjlab.utils.noise import UniformNoiseCfg as Unoise
 from mjlab.viewer import ViewerConfig
 
@@ -107,9 +121,6 @@ from ..mdp.rewards import (
 from ..mdp.curriculums import (
     command_axis_levels_vel,
     command_levels_adaptive,
-    terrain_levels_obstacle_release,
-    terrain_levels_ramp_strict,
-    terrain_levels_vel_strict,
 )
 from ..mdp.commands import UniformThresholdVelocityCommandCfg
 
@@ -392,43 +403,15 @@ def rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     # ------------------
     # Terrain Generator & Curriculum
     # ------------------
-    cfg.scene.terrain = TerrainEntityCfg(
-        terrain_type="generator",
-        terrain_generator=TerrainGeneratorCfg(
-            size=(8.0, 8.0), border_width=20.0, num_rows=10, num_cols=20, curriculum=True,
-            sub_terrains={
-                "flat": BoxFlatTerrainCfg(proportion=0.15, size=(8.0, 8.0)),
-                "pyramid_stairs": BoxPyramidStairsTerrainCfg(proportion=0.05, step_height_range=(0.0, 0.20), step_width=0.30, size=(8.0, 8.0)),
-                "pyramid_stairs_inv": BoxInvertedPyramidStairsTerrainCfg(proportion=0.35, step_height_range=(0.0, 0.20), step_width=0.30, size=(8.0, 8.0)),
-                "random_grid": BoxRandomGridTerrainCfg(proportion=0.27, grid_width=0.45, grid_height_range=(0.0, 0.20), size=(8.0, 8.0)),
-                "random_rough": HfRandomUniformTerrainCfg(proportion=0.01, noise_range=(0.0, 0.06), noise_step=0.01, horizontal_scale=0.20, downsampled_scale=0.20, border_width=0.25, base_thickness_ratio=100.0, size=(8.0, 8.0)),
-                "perlin_noise": HfPerlinNoiseTerrainCfg(proportion=0.01, height_range=(0.0, 0.06), octaves=2, persistence=0.4, lacunarity=2.0, horizontal_scale=0.20, resolution=0.20, border_width=0.50, base_thickness_ratio=100.0, size=(8.0, 8.0)),
-                "rc_wall": RCWallTerrainCfg(
-                    proportion=0.15,
-                    wall_height_range=(0.10, 0.35),
-                    wall_centers_x=(2.1, 3.2, 4.3, 5.4, 6.5),
-                    size=(8.0, 8.0),
-                ),
-                "sloped_terrain": HfPyramidSlopedTerrainCfg(proportion=0.01, slope_range=(0.052, 0.325), platform_width=2.0, border_width=0.25, base_thickness_ratio=100.0, horizontal_scale=0.20, size=(8.0, 8.0)),
-            },
-        ),
-        max_init_terrain_level=5,
-    )
+    # 越障课程（族级唯一真值 = kits/wheel_leg_kit/traversal_env_cfg.py，2026-09-25 上移）：
+    # 竞赛地形集（flat / pyramid_stairs / pyramid_stairs_inv / random_grid / random_rough /
+    # perlin_noise / rc_wall / sloped_terrain）与起始难度行都在 Kit 的课程工厂里，
+    # 包侧不再持有课程数值 —— 族内其它机型（如 b2w 越障档案）取的是同一个函数。
+    cfg.scene.terrain = make_obstacle_course_terrain()
 
     # Keep the custom terrain set, but align command/curriculum behavior with go2w rough.
     cfg.curriculum.pop("command_vel", None)
-    cfg.curriculum["terrain_levels"] = CurriculumTermCfg(
-        func=terrain_levels_obstacle_release,
-        params={
-            "command_name": "twist",
-            "initial_terrain_names": ("flat", "random_rough", "perlin_noise", "sloped_terrain", "pyramid_stairs"),
-            "release_schedule": (
-                (200 * 24, ("random_grid",)),
-                (500 * 24, ("pyramid_stairs_inv",)),
-                (700 * 24, ("rc_wall",)),
-            ),
-        },
-    )
+    cfg.curriculum["terrain_levels"] = make_obstacle_release_curriculum(command_name="twist")
     cfg.curriculum["command_x_levels"] = CurriculumTermCfg(
         func=command_levels_adaptive,
         params={

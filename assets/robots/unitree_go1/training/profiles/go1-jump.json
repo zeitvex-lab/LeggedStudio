@@ -1,0 +1,21 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "go1-jump",
+  "display_name": "Go1 Jump / Family Skill (quadruped Kit)",
+  "source": "族级技能（quadruped_kit/skills/jump）+ 包内机型绑定",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "go1_jump.config:make_go1_jump_env_cfg",
+    "runner": "go1_jump.config:make_go1_jump_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "jump",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 24.0,
+  "history_length": 10,
+  "sort_order": 30,
+  "max_iterations": 250
+}

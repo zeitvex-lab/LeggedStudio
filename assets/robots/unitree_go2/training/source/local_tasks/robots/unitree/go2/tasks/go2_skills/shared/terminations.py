@@ -1,11 +1,11 @@
-"""Termination terms shared by Go2 skills."""
+"""Go2 侧薄委托：终止项。
 
-import torch
-from mjlab.sensor import ContactSensor
+族级实现在 `.../quadruped_kit/skills/mdp/terminations.py`（逐字上移，无机型常量）。
+包内未上移的技能按老路径 `shared.terminations.base_contact` 继续导入。
+"""
 
+from __future__ import annotations
 
-def base_contact(env, sensor_name: str, force_threshold: float = 1.0) -> torch.Tensor:
-  sensor: ContactSensor = env.scene[sensor_name]
-  force = sensor.data.force
-  assert force is not None
-  return torch.linalg.vector_norm(force, dim=-1).amax(dim=1) > force_threshold
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.terminations import base_contact
+
+__all__ = ["base_contact"]

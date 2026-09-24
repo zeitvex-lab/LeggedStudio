@@ -34,6 +34,31 @@
     ]
   },
   "control_hz": 50,
+  "observation_skeleton": {
+    "note": "族级观测骨架：actor 的**项序列**按此为准（顺序即布局，策略输入据此定宽）。宽度不写死——关节类项的宽度随族关节数（16 = 4 腿 × 4 角色）派生，其余为常量。critic_only 项只进评价网络（特权信息），不进 actor。",
+    "actor": [
+      "base_ang_vel",
+      "projected_gravity",
+      "commands",
+      "joint_pos",
+      "joint_vel",
+      "last_action"
+    ],
+    "critic_only": [
+      "base_lin_vel"
+    ],
+    "width_source": {
+      "base_ang_vel": 3,
+      "projected_gravity": 3,
+      "commands": 3,
+      "joint_pos": "legs × 每腿角色数（轮足 = 16，含轮）",
+      "joint_vel": "同 joint_pos",
+      "last_action": "动作维 = 关节数（轮足 = 16）"
+    },
+    "deviations": {
+      "zex-w": "结构不同构：命令项名 `command`、`joint_pos`/`joint_vel` **仅腿**（12）而轮速单列 `wheel_vel`(4)、且多出的项位序不同 ⇒ 53 维（其余三台为 16 维腿轮混排的 57 维）。**未裁决**：是否并入族骨架（并入 = 重排观测布局，会动到存量策略，须单独裁决）。"
+    }
+  },
   "members": [
     "deeprobotics_m20",
     "unitree_b2w",
@@ -57,16 +82,22 @@
         "Unitree-M20-DreamWaQ-Rough"
       ],
       "task_variants_ref": "registry/skills/velocity_base.json#tasks",
+      "evidence": "2026-09-24 族内全员真跑冒烟通过（4/4）：`python tools/validate_training_smoke.py --robot <id> --profile <velocity 档>` —— m20-velocity / b2w-velocity / go2w-flat / zex-w-flat 各 1 ok。",
       "note": "M20 的 DreamWaQ 与 zex-w 的 crawl 档同归此技能（同技能的算法/步态变体，不另立技能类）。"
     },
     {
       "skill_id": "traversal",
       "display_name": "越障",
-      "status": "missing",
-      "summary": "轮足族暂无越障配方——四足族的 PIE parkour 依赖足式步态与足端接触，不能直接搬到轮足。",
-      "task_names": [],
-      "members_with_recipe": [],
-      "gap": "族级化需要：轮足越障的配方立项（轮-足混合越障的观测/课程/奖励与验收器都不存在）。"
+      "status": "robot-specific",
+      "summary": "族级越障课程（竞赛地形集 + 障碍释放课程）已是**族级模块**：`adapters/mjlab/kits/wheel_leg_kit/traversal_env_cfg.py`（地形定义在 kit `terrains/`，课程项在 kit `mdp/terrain_curriculums.py`）；档案侧按机型装配，课程不再是某一台的包内实现。",
+      "task_names": [
+        "traversal_obstacle_release"
+      ],
+      "members_with_recipe": [
+        "unitree_b2w"
+      ],
+      "gap": "族级化需要：①其余三台（deeprobotics_m20 / unitree_go2w / zex-w）各出一份越障档案 —— 课程与地形已族级（直接调用 Kit 工厂即可），差的是各机型的机器人侧装配（实体/动作/奖励）与越障调参；②越障的**验收器**（判定「过了障碍」而非仅「奖励有限」）仍缺族级版本；③`zex-w-rough` 的奖励仍是速度跟踪（task_name=rough_terrain 归速度跟踪技能），它的课程已改为薄委托族级模块。",
+      "partial_evidence": "真跑背书（2026-09-25）：`unitree_b2w--b2w-traversal` 冒烟通过 —— 与 `zex-w-rough` 用的是**同一套族级课程**（同一个课程工厂函数 + 同一组释放日程 4800/12000/16800 env steps + 同一份竞赛地形集），包内不复制课程数值；zex-w 侧等价性有逐项对拍证据（`workspace/validation/zexw-traversal-equivalence.json`，terrain+curriculum 0 差异）。"
     },
     {
       "skill_id": "imitation",

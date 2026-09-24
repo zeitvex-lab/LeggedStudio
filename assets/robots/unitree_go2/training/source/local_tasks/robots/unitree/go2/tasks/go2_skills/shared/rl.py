@@ -1,99 +1,37 @@
-"""Shared RL runner construction and Go2 reward primitives."""
+"""Go2 侧薄委托：族级奖励原语 + 族级 PPO runner 构造。
 
-import torch
-from mjlab.entity import Entity
-from mjlab.managers import RewardTermCfg
+族级实现在 `.../quadruped_kit/skills/mdp/rl.py`。本模块把 go2 的绑定绑到需要
+关节序的原语上，并原样转出与机型无关的那些 —— 包内未上移的技能
+（backflip / hand_stand / rear_stand / dreamwaq / amp_dreamwaq）继续按老签名调用。
 
-from ..upstream.rl import make_ppo_runner_cfg as _make_ppo_runner_cfg
+`make_ppo_runner_cfg` 是**族级唯一真值**（含 `symmetry_cfg` 扩展的算法配置类），
+原先住在 `go2_skills/upstream/rl.py`。
+"""
 
-from .contacts import joint_ids, source_contact
+from __future__ import annotations
 
+from adapters.mjlab.kits.quadruped_kit.skills.mdp import rl as _kit_rl
 
-def make_ppo_runner_cfg(*args, **kwargs):
-  return _make_ppo_runner_cfg(*args, **kwargs)
+from ..binding import GO2
 
-
-def command(env, command_name: str) -> torch.Tensor:
-  value = env.command_manager.get_command(command_name)
-  assert value is not None
-  return value
-
-
-def moving(env, command_name: str) -> torch.Tensor:
-  return torch.linalg.vector_norm(command(env, command_name)[:, :3], dim=1) > 0.1
-
-
-def lin_vel_z_squared(env) -> torch.Tensor:
-  return torch.square(env.scene["robot"].data.root_link_lin_vel_b[:, 2])
-
-
-def ang_vel_xy_squared(env) -> torch.Tensor:
-  return torch.square(env.scene["robot"].data.root_link_ang_vel_b[:, :2]).sum(dim=1)
+#: 与机型无关的原语：直接转出（族级实现即唯一真值）。
+RslRlPpoWithSymmetryAlgorithmCfg = _kit_rl.RslRlPpoWithSymmetryAlgorithmCfg
+make_ppo_runner_cfg = _kit_rl.make_ppo_runner_cfg
+command = _kit_rl.command
+moving = _kit_rl.moving
+lin_vel_z_squared = _kit_rl.lin_vel_z_squared
+ang_vel_xy_squared = _kit_rl.ang_vel_xy_squared
+orientation_squared = _kit_rl.orientation_squared
+collision = _kit_rl.collision
+action_rate = _kit_rl.action_rate
+contact_without_command = _kit_rl.contact_without_command
+terminal_cost = _kit_rl.terminal_cost
 
 
-def orientation_squared(env) -> torch.Tensor:
-  return torch.square(env.scene["robot"].data.projected_gravity_b[:, :2]).sum(dim=1)
-
-
-def torques_squared(env) -> torch.Tensor:
-  robot: Entity = env.scene["robot"]
-  return torch.square(robot.data.qfrc_actuator[:, joint_ids(robot)]).sum(dim=1)
-
-
-def absolute_torques(env) -> torch.Tensor:
-  robot: Entity = env.scene["robot"]
-  return torch.abs(robot.data.qfrc_actuator[:, joint_ids(robot)]).sum(dim=1)
-
-
-class DofAcceleration:
-  def __init__(self, cfg: RewardTermCfg, env) -> None:
-    del cfg
-    self._last_velocity = torch.zeros(
-      env.num_envs, len(joint_ids(env.scene["robot"])), device=env.device
-    )
-
-  def __call__(self, env) -> torch.Tensor:
-    robot: Entity = env.scene["robot"]
-    velocity = robot.data.joint_vel[:, joint_ids(robot)]
-    value = torch.square((self._last_velocity - velocity) / env.step_dt).sum(dim=1)
-    self._last_velocity.copy_(velocity)
-    return value
-
-  def reset(self, env_ids=None) -> None:
-    self._last_velocity[env_ids] = 0.0
-
-
-def collision(env, sensor_name: str) -> torch.Tensor:
-  force = env.scene[sensor_name].data.force
-  assert force is not None
-  return (torch.linalg.vector_norm(force, dim=-1) > 0.1).float().sum(dim=1)
-
-
-def action_rate(env) -> torch.Tensor:
-  return torch.square(env.action_manager.prev_action - env.action_manager.action).sum(1)
-
-
-def stand_still(env, command_name: str) -> torch.Tensor:
-  robot: Entity = env.scene["robot"]
-  ids = joint_ids(robot)
-  return torch.abs(
-    robot.data.joint_pos[:, ids] - robot.data.default_joint_pos[:, ids]
-  ).sum(dim=1) * ~moving(env, command_name)
-
-
-def default_pos(env) -> torch.Tensor:
-  robot: Entity = env.scene["robot"]
-  ids = joint_ids(robot)
-  return torch.abs(
-    robot.data.joint_pos[:, ids] - robot.data.default_joint_pos[:, ids]
-  ).sum(dim=1)
-
-
-def contact_without_command(env, sensor_name: str, command_name: str) -> torch.Tensor:
-  return (source_contact(env.scene[sensor_name], 0.1).sum(dim=1) == 4) * ~moving(
-    env, command_name
-  )
-
-
-def terminal_cost(env) -> torch.Tensor:
-  return env.termination_manager.terminated.float() / env.step_dt
+#: 需要关节序的项：族级实现从动作项（`joint_pos`，go2 的序 = 契约序）取 id，
+#: 故这里也只是转出 —— 包内未上移的技能用的动作项名与顺序都与之一致。
+DofAcceleration = _kit_rl.DofAcceleration
+torques_squared = _kit_rl.torques_squared
+absolute_torques = _kit_rl.absolute_torques
+stand_still = _kit_rl.stand_still
+default_pos = _kit_rl.default_pos

@@ -1,56 +1,18 @@
-"""Action terms shared by Go2 skills."""
+"""Go2 侧薄委托：族级动作项。
 
-from dataclasses import dataclass
+族级实现在 `.../quadruped_kit/skills/mdp/actions.py`（逐字上移）。
+这里原样转出两个符号，包内未上移的技能（backflip / hand_stand / rear_stand / spring_jump）
+继续按 `shared.actions.EpisodeDelayedJointPositionActionCfg` 调用。
+"""
 
-import torch
-from mjlab.envs.mdp.actions import JointPositionAction, JointPositionActionCfg
-from mjlab.utils.buffers import DelayBuffer
+from __future__ import annotations
 
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.actions import (
+    EpisodeDelayedJointPositionAction,
+    EpisodeDelayedJointPositionActionCfg,
+)
 
-class EpisodeDelayedJointPositionAction(JointPositionAction):
-  """Per-environment action delay with Gym-compatible reset history."""
-
-  def __init__(self, cfg: "EpisodeDelayedJointPositionActionCfg", env) -> None:
-    super().__init__(cfg, env)
-    self._source_delay = DelayBuffer(
-      min_lag=cfg.delay_min_lag,
-      max_lag=cfg.delay_max_lag,
-      batch_size=env.num_envs,
-      device=env.device,
-      per_env=True,
-      update_period=cfg.delay_update_period,
-      per_env_phase=False,
-    )
-
-  def apply_actions(self) -> None:
-    self._source_delay.append(self._processed_actions)
-    target = self._source_delay.compute()
-    encoder_bias = self._entity.data.encoder_bias[:, self._target_ids]
-    self._entity.set_joint_position_target(
-      target + encoder_bias, joint_ids=self._target_ids
-    )
-
-  def reset(self, env_ids=None) -> None:
-    super().reset(env_ids)
-    self._source_delay.reset(batch_ids=env_ids)
-    zeros = torch.zeros_like(self._processed_actions)
-    if not self._source_delay.is_initialized:
-      self._source_delay.append(zeros)
-      return
-    if env_ids is None:
-      ids = torch.arange(self.num_envs, device=self.device)
-    elif isinstance(env_ids, slice):
-      ids = torch.arange(self.num_envs, device=self.device)[env_ids]
-    else:
-      ids = env_ids
-    self._source_delay.backfill(zeros, ids)
-
-
-@dataclass(kw_only=True)
-class EpisodeDelayedJointPositionActionCfg(JointPositionActionCfg):
-  delay_min_lag: int = 1
-  delay_max_lag: int = 3
-  delay_update_period: int = 2**30
-
-  def build(self, env) -> EpisodeDelayedJointPositionAction:
-    return EpisodeDelayedJointPositionAction(self, env)
+__all__ = [
+    "EpisodeDelayedJointPositionAction",
+    "EpisodeDelayedJointPositionActionCfg",
+]

@@ -1,22 +1,38 @@
-"""AMP-DreamWaQ environment config layered on source-faithful DreamWaQ."""
+"""Go2 侧薄委托：AMP-DreamWaQ 环境/运行器（族级实现在 `quadruped_kit/skills/imitation/`）。
 
-from copy import deepcopy
+## 这个文件为什么这么短
+
+族级 imitation 技能层承接了 AMP 的全部实现：判别器状态观测、后腿髋限位、
+终止态记录器、判别器/回放/归一化、AMP 奖励整形与更新次序、专家动作加载器。
+本文件只留三样**机型/宿主事实**：
+
+1. **入口符号**（`make_amp_dreamwaq_env_cfg` / `make_amp_dreamwaq_runner_cfg`）——
+   profile 的 `entrypoints` 指向的就是它们，迁移没有动路径；
+2. **宿主**：`host_env_fn=make_dreamwaq_env_cfg`（DreamWaQ 环境，仍是 go2 的包内实现）；
+3. **宿主的源配方差异**（`_host_delta`）：命令采样器换成 AMP 版、奖励权重/目标高、
+   base_mass 范围、0.01 关节位置观测噪声、`alive`/`termination` 两项 MuJoCo 后端适配 ——
+   这些是**源配方数字**（`AmpDreamWaQAlgorithmCfg` 同源），不是族级 AMP 定义，
+   故留在机型侧并逐条取证。
+
+AMP 算法类仍解析到本包的 `rl:AmpDreamWaQPPO`（族级混入 + DreamWaQ 宿主）。
+"""
+
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from mjlab.envs import mdp as env_mdp
-from mjlab.managers import (
-  ObservationGroupCfg,
-  ObservationTermCfg,
-  RecorderTermCfg,
-  RewardTermCfg,
-)
+from mjlab.managers import RewardTermCfg
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
 
-from ..upstream.rl import RslRlPpoWithSymmetryAlgorithmCfg
+from adapters.mjlab.kits.quadruped_kit.skills.imitation import config as kit_amp
 
+from ..binding import GO2
 from ..dreamwaq.config import make_dreamwaq_env_cfg, make_dreamwaq_runner_cfg
 from ..shared import rl as shared_rl
-from . import commands, mdp
+from ..upstream.rl import RslRlPpoWithSymmetryAlgorithmCfg
+from . import commands
+from .profile import GO2_AMP_DREAMWAQ
 
 
 @dataclass
@@ -28,9 +44,9 @@ class AmpDreamWaQAlgorithmCfg(RslRlPpoWithSymmetryAlgorithmCfg):
   min_normalized_std: float = .05
 
 
-def make_amp_dreamwaq_env_cfg(*, play: bool = False):
-  cfg = make_dreamwaq_env_cfg(play=play)
-  cfg = deepcopy(cfg)
+def _host_delta(cfg, binding, profile) -> None:
+  """Go2 AMP-DreamWaQ 的宿主级源配方差异（逐条对照源 Gym 任务）。"""
+  del binding, profile
   # Source AMP differs from DreamWaQ in lateral command range, task rewards,
   # base-mass range and 0.01 joint-position observation noise.
   cfg.commands["twist"] = commands.AmpDreamWaQVelocityCommandCfg(
@@ -48,7 +64,6 @@ def make_amp_dreamwaq_env_cfg(*, play: bool = False):
   cfg.rewards["lin_vel_z"].weight = -2.
   cfg.rewards["torques"].weight = -1.e-5
   cfg.rewards["base_height"].params["target_height"] = .35
-  cfg.rewards["rear_hip_limit"] = RewardTermCfg(func=mdp.rear_hip_limit, weight=-1.)
   # In MuJoCo the random AMP policy can terminate after ~15 steps and avoid
   # the source task's net-negative shaping return.  The Gym task assigns zero
   # terminal cost and happens not to fall into this basin under PhysX.  These
@@ -61,20 +76,24 @@ def make_amp_dreamwaq_env_cfg(*, play: bool = False):
   cfg.rewards["termination"] = RewardTermCfg(
     func=shared_rl.terminal_cost, weight=-5.
   )
-  cfg.observations["amp"] = ObservationGroupCfg(
-    terms={"state": ObservationTermCfg(func=mdp.amp_state)}, enable_corruption=False
-  )
   cfg.observations["actor"].terms["frame"].params["joint_position_noise"] = .01
-  cfg.recorders["amp_terminal_state"] = RecorderTermCfg(
-    func=mdp.AmpTerminalStateRecorder
+
+
+def make_amp_dreamwaq_env_cfg(*, play: bool = False):
+  """族级 imitation 技能 + go2/DreamWaQ 宿主（入口签名与族级工厂一致）。"""
+  return kit_amp.make_env_cfg(
+    GO2,
+    GO2_AMP_DREAMWAQ,
+    host_env_fn=make_dreamwaq_env_cfg,
+    host_delta=_host_delta,
+    play=play,
   )
-  return cfg
 
 
 def make_amp_dreamwaq_runner_cfg():
   # The dedicated AMP PPO class is installed by this task, not the source fork.
   cfg = make_dreamwaq_runner_cfg()
-  cfg.experiment_name = "go2_amp_dreamwaq"
+  cfg.experiment_name = GO2_AMP_DREAMWAQ.experiment_name
   cfg.max_iterations = 20_000
   cfg.save_interval = 500
   cfg.algorithm = AmpDreamWaQAlgorithmCfg(**vars(cfg.algorithm))

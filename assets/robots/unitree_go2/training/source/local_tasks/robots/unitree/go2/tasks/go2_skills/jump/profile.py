@@ -1,24 +1,20 @@
-"""Immutable constants for the Jump task."""
+"""Go2 侧薄委托：族级 Jump 的不可变常量。
 
-from dataclasses import dataclass
+族级声明在 `.../quadruped_kit/skills/jump/profile.py`；本模块只填**机型身份**
+（task_id / experiment_name），其余（周期、目标足高、帧数、PPO 超参）与源实现逐值相同。
+"""
 
+from __future__ import annotations
 
-@dataclass(frozen=True)
-class JumpProfile:
-  task_id: str = "Unitree-Go2-Jump-Flat"
-  experiment_name: str = "go2_jump"
-  num_envs: int = 4096
-  episode_length_s: float = 24.0
-  physics_dt: float = 0.005
-  decimation: int = 4
-  action_scale: float = 0.25
-  actor_frame_dim: int = 47
-  actor_history: int = 10
-  critic_frame_dim: int = 70
-  critic_history: int = 3
-  cycle_time: float = 1.5
-  target_foot_height: float = 0.05
-  base_height_target: float = 0.3
+import sys
+from pathlib import Path
 
+for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+        if str(_parent) not in sys.path:
+            sys.path.insert(0, str(_parent))
+        break
 
-JUMP = JumpProfile()
+from adapters.mjlab.kits.quadruped_kit.skills.jump.profile import JumpProfile  # noqa: E402
+
+JUMP = JumpProfile(task_id="Unitree-Go2-Jump-Flat", experiment_name="go2_jump")
