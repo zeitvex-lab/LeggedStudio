@@ -72,6 +72,49 @@ async def preview_effective_training_config(request: CreateTrainingRequest):
     }
 
 
+@router.get("/terrain-profiles")
+async def training_terrain_profiles(robot_id: Optional[str] = None) -> dict[str, Any]:
+    """地形档清单：训练地形是**轴**（越障 = 障碍类地形档，不是某个技能名）。
+
+    返回每个档位的 id / 名称 / 归类 / 说明，以及（给了 robot_id 时）该机型所属族的
+    就绪状态；`ready_only=true` 时只留本族可用的档。纯读 registry/terrains，不碰训练栈。
+    """
+    from adapters.mjlab import terrain_profiles as profiles_api
+
+    family = None
+    if robot_id:
+        preset = get_robot_preset(robot_id)
+        if preset is None:
+            raise HTTPException(status_code=404, detail=f"Unknown robot package: {robot_id}")
+        # 构型 id 取 **v3 契约**（`contract.json`）：预设记录里的 contract 是 legacy v2，
+        # 它的 morphology 段可能不带 id（2026-09-24 实测 b2w 因此被误判成四足）。
+        root = Path(str((preset.get("robot_package") or {}).get("package_root") or ""))
+        morphology_id = ""
+        if root.is_dir():
+            try:
+                from contracts.contract_loader import load_contract
+
+                morphology_id = str((((load_contract(root) or {}).get("morphology") or {}).get("id")) or "")
+            except Exception:  # noqa: BLE001 — 读不到就退回 v2 段，判不了的族一律 None
+                morphology_id = ""
+        if not morphology_id:
+            morphology_id = str(((preset.get("contract") or {}).get("morphology") or {}).get("id") or "")
+        family = profiles_api.family_for_morphology(morphology_id)
+
+    items = []
+    for profile_id, entry in profiles_api.profiles().items():
+        status = profiles_api.availability(profile_id, family) if family else None
+        items.append({
+            "profile_id": profile_id,
+            "display_name": entry.get("display_name") or profile_id,
+            "class": entry.get("class"),
+            "summary": entry.get("summary"),
+            "availability": entry.get("availability") or {},
+            "ready_for_family": status,
+        })
+    return {"family": family, "count": len(items), "profiles": items}
+
+
 @router.get("/config-preview")
 async def training_config_preview(robot_id: str, profile_id: Optional[str] = None):
     """Five-category structured preview of the training configuration.

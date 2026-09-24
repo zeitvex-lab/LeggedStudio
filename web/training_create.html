@@ -976,11 +976,10 @@
               <div class="field-row" style="margin-top: 14px;">
                 <div class="field-label">
                   <label for="terrainType">地形类型</label>
-                  <select id="terrainType" title="通用任务模式支持 平地 / 崎岖；档案模式保留配方地形">
+                  <select id="terrainType" title="地形档清单来自 registry/terrains；越障 = 障碍类地形档（台阶 / 障碍释放 / 竞赛），不是某个技能名">
                     <option value="plane">plane · 平地</option>
-                    <option value="rough">rough · 崎岖</option>
                   </select>
-                  <small class="field-hint" id="terrainHint">训练进程（worker）仅应用 plane（平地）/ rough（崎岖）两种地形；其余地形由配方内部实现</small>
+                  <small class="field-hint" id="terrainHint">地形档来自 registry/terrains（按机型所属族判就绪）；切换机器人会自动刷新本族可用的档</small>
                 </div>
                 <div class="field-label">
                   <label for="episodeLength">回合长度（episode，秒）</label>
@@ -1458,6 +1457,36 @@
     }
 
     // ---------- 选项加载（算法 / 任务 / 硬件 / 默认奖励权重） ----------
+    /** 地形档：把"训练用什么地形"从写死的 plane/rough 换成 registry/terrains 的档位清单。 */
+    async function loadTerrainProfiles(robotId) {
+      const select = $('terrainType');
+      if (!select) return;
+      const query = robotId ? `?robot_id=${encodeURIComponent(robotId)}` : '';
+      try {
+        const payload = await fetchJson(`/api/training/terrain-profiles${query}`);
+        const profiles = payload.profiles || [];
+        const previous = select.value;
+        select.innerHTML = profiles.map((item) => {
+          const blocked = item.ready_for_family === 'missing';
+          const label = `${item.profile_id} · ${item.display_name}${blocked ? '（本族未就绪）' : ''}`;
+          return `<option value="${escapeHtml(item.profile_id)}" ${blocked ? 'disabled' : ''}>${escapeHtml(label)}</option>`;
+        }).join('') || '<option value="plane">plane · 平地</option>';
+        if (previous && profiles.some((item) => item.profile_id === previous)) select.value = previous;
+      } catch (error) {
+        $('terrainType').innerHTML = '<option value="plane">plane · 平地</option>';
+        LSFeedback.error(`地形档清单读取失败，已退回平地：${error.message}`);
+      }
+    }
+
+    /** 只在选项存在时切换地形档（档位清单尚未加载完时不要误设成空）。 */
+    function selectTerrainIfAvailable(profileId) {
+      const value = String(profileId || '');
+      if (!value) return;
+      const select = $('terrainType');
+      if (!select || ![...select.options].some((option) => option.value === value)) return;
+      select.value = value;
+    }
+
     async function loadOptions() {
       state.options = await fetchJson('/api/training/options');
       const optionsData = state.options;
@@ -1549,7 +1578,7 @@
         state.task = { id: chip.dataset.task, terrain: chip.dataset.terrain };
         container.querySelectorAll('.task-chip').forEach((c) => c.classList.remove('selected'));
         chip.classList.add('selected');
-        if (['plane', 'rough'].includes(state.task.terrain)) setValue('terrainType', state.task.terrain);
+        selectTerrainIfAvailable(state.task.terrain);
         updateAll();
       }));
     }
@@ -1926,11 +1955,16 @@
         row.querySelector('[data-bound="max"]').value = pair && Number.isFinite(Number(pair[1])) ? Number(pair[1]) : '';
       });
       const terrain = pick(profile.terrain_type, (tc.terrain || {}).terrain_type, 'plane');
-      setValue('terrainType', ['plane', 'rough'].includes(terrain) ? terrain : 'plane');
+      if (state.preset && state.terrainProfilesFor !== state.preset.robot_id) {
+        state.terrainProfilesFor = state.preset.robot_id;
+        loadTerrainProfiles(state.preset.robot_id).then(() => selectTerrainIfAvailable(terrain));
+      } else {
+        selectTerrainIfAvailable(terrain);
+      }
       $('terrainType').disabled = !!state.profileId;
       $('terrainHint').textContent = state.profileId
         ? '档案模式：地形由训练配方保留，此选择不生效（训练进程跳过地形覆盖）'
-        : '训练进程仅应用 plane（平地）/ rough（崎岖）两种地形；其余地形由配方内部实现';
+        : '地形档来自 registry/terrains —— 越障就是选障碍地形档（台阶 / 障碍释放 / 竞赛）；未就绪档已标注并禁用';
       renderTaskChips();
     }
 

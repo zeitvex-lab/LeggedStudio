@@ -115,13 +115,21 @@ def _make_spec_fn(xml_path: Path, *, strip_actuators: bool = False):
     return get_spec
 
 
-def _xml_actuated_targets(xml_path: Path) -> tuple[set[str], dict[str, str], set[str]]:
-    """Return joint names and the XML actuator selected for each joint."""
+def _xml_actuated_targets(xml_path: Path) -> tuple[set[str], dict[str, str], set[str], dict[str, str]]:
+    """Return joint names, the XML actuator per joint, unsupported joints, and each
+    joint's **command field**（`position` / `velocity` / `effort`）。
+
+    为什么要带出 command field：XML 里同一台机器人可能**混用**执行器类型（轮足的腿是
+    position、轮是 velocity），而 mjlab 的 `XmlActuatorCfg` 一组只允许一种类型——不分组
+    就会在建环境时抛 "Mixed XML actuator types"。分组依据必须来自 XML 本身，不能靠关节
+    名字里有没有 "wheel" 猜。
+    """
     import mujoco
 
     spec = mujoco.MjSpec.from_file(str(xml_path))
     joints = {str(item.name) for item in spec.joints if item.name}
     targets: dict[str, str] = {}
+    fields: dict[str, str] = {}
     unsupported: set[str] = set()
     for actuator in spec.actuators:
         target = getattr(actuator, "target", None)
@@ -129,10 +137,10 @@ def _xml_actuated_targets(xml_path: Path) -> tuple[set[str], dict[str, str], set
             targets.setdefault(str(target), str(actuator.name))
             try:
                 from mjlab.utils.mujoco import detect_command_field
-                detect_command_field(actuator)
+                fields[str(target)] = str(detect_command_field(actuator))
             except (ValueError, TypeError):
                 unsupported.add(str(target))
-    return joints, targets, unsupported
+    return joints, targets, unsupported, fields
 
 
 def _build_entity(contract: Any, xml_path: Path):
@@ -146,7 +154,7 @@ def _build_entity(contract: Any, xml_path: Path):
     if not joint_order:
         raise ValueError("generic MJLab task requires at least one actuated joint")
 
-    _, xml_targets, unsupported_targets = _xml_actuated_targets(xml_path)
+    _, xml_targets, unsupported_targets, xml_fields = _xml_actuated_targets(xml_path)
     xml_names = tuple(item for item in joint_order if item in xml_targets and item not in unsupported_targets)
     generated_names = tuple(item for item in joint_order if item not in xml_targets or item in unsupported_targets)
     actuators = []
@@ -168,7 +176,17 @@ def _build_entity(contract: Any, xml_path: Path):
         for joint, settings in dc_settings.items():
             actuators.append(DcMotorActuatorCfg(target_names_expr=(joint,), **settings))
     if xml_names:
-        actuators.append(XmlActuatorCfg(target_names_expr=xml_names))
+        # **按 XML 执行器类型分组**：一台机器人的 XML 可以混用（轮足 = 腿 position + 轮
+        # velocity），而 mjlab 一组只允许一种 command_field。分组依据取 XML 实测的
+        # detect_command_field，不靠关节名猜——否则换台命名的机型就会静默走错分支。
+        grouped: dict[str, list[str]] = {}
+        for name in xml_names:
+            grouped.setdefault(xml_fields.get(name, ""), []).append(name)
+        for field_name in sorted(grouped):
+            actuators.append(XmlActuatorCfg(
+                target_names_expr=tuple(grouped[field_name]),
+                command_field=field_name or None,
+            ))
     if generated_names:
         # A conservative generic PD actuator makes MJCF files without an
         # actuator section trainable while preserving XML actuator semantics.
@@ -360,8 +378,6 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
     from mjlab.rl import RslRlOnPolicyRunnerCfg
     from mjlab.scene import SceneCfg
     from mjlab.sim import MujocoCfg, SimulationCfg
-    from mjlab.terrains import TerrainEntityCfg
-    from mjlab.terrains.config import ROUGH_TERRAINS_CFG
     from dataclasses import replace
 
     environment = _recipe_environment(recipe)
@@ -370,9 +386,12 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
     commands = _build_commands(environment, observation_terms)
     rewards, skipped_rewards = _build_rewards(recipe, bool(commands), _xml_root_body(xml_path))
     terrain_type = str(environment.get("terrain_type", "plane")).lower()
-    if terrain_type not in {"plane", "rough"}:
-        raise ValueError(f"generic MJLab terrain supports plane or rough, got {terrain_type!r}")
-    terrain = TerrainEntityCfg(terrain_type="plane") if terrain_type == "plane" else TerrainEntityCfg(terrain_type="generator", terrain_generator=replace(ROUGH_TERRAINS_CFG))
+    # 地形一律按**档位 id**装配（registry/terrains）：此前这里硬编码 {plane, rough}，
+    # 于是技能表宣称的 stairs 档在通用路径上直接报错——"同族换机型能不能训同一档"
+    # 没有单一真值。现在未知档/未就绪档由 terrain_profiles 统一 fail-closed 并列出可用档。
+    from adapters.mjlab import terrain_profiles as _terrain_profiles
+
+    terrain = _terrain_profiles.build_terrain_entity(terrain_type)
     num_envs = max(1, int(environment.get("num_envs", 1)))
     # B24 裁决：这里的 20.0 是**构建缺省**（非覆盖真值）——generic 路径服务于用户导入、
     # 无训练源码/无 profile 的包，没有任务真值层可沿用，20.0 是唯一显式来源，且被显式

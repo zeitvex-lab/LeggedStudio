@@ -133,7 +133,7 @@ def resolve_recipe(config: dict[str, Any]) -> TrainingRecipe:
             raise ValueError(f"reward terms not supported by the generic mjlab task — {_reasons}")
         environment = {
             "num_envs": int(config.get("num_envs", 4096)),
-            "terrain_type": str(config.get("terrain_type", TASKS[task_name]["terrain"])),
+            "terrain_type": str(config.get("terrain_type") or TASKS[task_name]["terrain"]),
             "terrain": dict(config.get("terrain", {})),
             "command_ranges": dict(config.get("command_ranges", {})),
             "noise": dict(config.get("noise", {})),

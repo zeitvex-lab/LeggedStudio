@@ -1,0 +1,37 @@
+{
+  "schema": "terrain-index-1.0",
+  "generated_at": "2026-09-24",
+  "note": "地形档显式清单。**清单是权威**：新增地形档 = 在此登记一行 + 写进 profiles.json；未登记的档位 id 一律解析失败（fail-closed）。地形是训练环境的**轴**——「越障」指的就是障碍类地形档，而不是某个叫 parkour 的技能；技能 = 地形档 × 奖励档（× 动作先验档）的组合。path 相对本文件所在目录。",
+  "profiles": [
+    {
+      "profile_id": "plane",
+      "path": "profiles.json#plane",
+      "class": "basic",
+      "summary": "平地：退化的地形档（无起伏），速度跟踪的默认档。"
+    },
+    {
+      "profile_id": "rough",
+      "path": "profiles.json#rough",
+      "class": "rough",
+      "summary": "崎岖：mjlab 官方 ROUGH_TERRAINS_CFG 全族地形（含随机粗糙/坡面/波浪/台阶）。"
+    },
+    {
+      "profile_id": "stairs",
+      "path": "profiles.json#stairs",
+      "class": "stairs",
+      "summary": "台阶：金字塔台阶（上/下）——**越障的最小可判地形档**，两族共用同一构造。"
+    },
+    {
+      "profile_id": "obstacle_release",
+      "path": "profiles.json#obstacle_release",
+      "class": "obstacle",
+      "summary": "障碍释放课程：按训练步数逐步放出新地形（轮足族已在用：random_grid / pyramid_stairs_inv / rc_wall）。"
+    },
+    {
+      "profile_id": "competition",
+      "path": "profiles.json#competition",
+      "class": "competition",
+      "summary": "竞赛地形：RC 赛场构件（墙 / 网格 / 桥 / 砾石），轮足族 Kit 已上移。"
+    }
+  ]
+}

@@ -223,8 +223,8 @@ def _joint_order() -> tuple[str, ...]:
 
 def diff(before_path: Path, after_path: Path) -> int:
     order = _joint_order()
-    before = _flatten(json.loads(before_path.read_text(encoding="utf-8")), joint_order=order)
-    after = _flatten(json.loads(after_path.read_text(encoding="utf-8")), joint_order=order)
+    before = _flatten(json.loads(before_path.read_text(encoding="utf-8-sig")), joint_order=order)
+    after = _flatten(json.loads(after_path.read_text(encoding="utf-8-sig")), joint_order=order)
     keys = sorted(set(before) | set(after))
     raw_changed = [(key, before.get(key, "<缺>"), after.get(key, "<缺>")) for key in keys if before.get(key) != after.get(key)]
     print(f"字段总数（归一后）：{len(keys)}；不一致：{len(raw_changed)}")

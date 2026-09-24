@@ -1,0 +1,86 @@
+{
+  "schema_version": "terrain-profile-1.0",
+  "note": "地形档真值表。每条声明：怎么造（builder）、哪些族可用（availability，ready=已能装配/missing=还没有）、依据在哪（evidence）。**availability 是断言**：标 ready 的族必须能被 `adapters/mjlab/terrain_profiles.py` 装配出 TerrainEntityCfg（门禁 tools/audit_terrain_profiles.py 逐条验），标 missing 的不许被任何技能声明引用。",
+  "profiles": [
+    {
+      "profile_id": "plane",
+      "display_name": "平地",
+      "class": "basic",
+      "summary": "无起伏退化的地形档；速度跟踪与特技（跳跃类）的默认档。",
+      "builder": { "kind": "flat" },
+      "availability": { "quadruped": "ready", "wheel_leg": "ready" },
+      "evidence": {
+        "source": "adapters/mjlab/generic_task_builder.py（TerrainEntityCfg(terrain_type='plane')）",
+        "note": "两族通用路径实测通过（8/8 机型装配 + b2 真 worker 1 iter，见 workspace/validation/）"
+      }
+    },
+    {
+      "profile_id": "rough",
+      "display_name": "崎岖",
+      "class": "rough",
+      "summary": "随机粗糙 / 坡面 / 波浪 / 台阶混合的官方崎岖地形；速度跟踪-崎岖档的载体。",
+      "builder": {
+        "kind": "mjlab_generator",
+        "cfg": "mjlab.terrains.config.ROUGH_TERRAINS_CFG"
+      },
+      "availability": { "quadruped": "ready", "wheel_leg": "ready" },
+      "evidence": {
+        "source": "adapters/mjlab/generic_task_builder.py:375（replace(ROUGH_TERRAINS_CFG)）",
+        "note": "子地形实测：flat / pyramid_stairs / pyramid_stairs_inv / hf_pyramid_slope(_inv) / random_rough / wave_terrain"
+      }
+    },
+    {
+      "profile_id": "stairs",
+      "display_name": "台阶",
+      "class": "stairs",
+      "summary": "金字塔台阶（上/下）——越障的最小可判地形档；两族共用同一构造，不看技能叫什么名字。",
+      "builder": {
+        "kind": "mjlab_generator",
+        "sub_terrains": ["pyramid_stairs", "pyramid_stairs_inv"],
+        "cfg": "mjlab.terrains.config.ROUGH_TERRAINS_CFG"
+      },
+      "availability": { "quadruped": "ready", "wheel_leg": "ready" },
+      "evidence": {
+        "source": "mjlab.terrains：BoxPyramidStairsTerrainCfg / BoxInvertedPyramidStairsTerrainCfg；四足 parkour 亦用同名台阶族（quadruped_kit/skills/parkour/terrains.py）",
+        "note": "轮足族 zex-w-rough 的 course 里本就含 pyramid_stairs（initial_terrains）"
+      }
+    },
+    {
+      "profile_id": "obstacle_release",
+      "display_name": "障碍释放课程",
+      "class": "obstacle",
+      "summary": "按训练步数逐步放出新地形的课程档（轮足族在用：4800→random_grid、12000→pyramid_stairs_inv、16800→rc_wall）。",
+      "builder": {
+        "kind": "family_kit",
+        "wheel_leg": {
+          "terrain_factory": "adapters.mjlab.kits.wheel_leg_kit.terrains.competition_terrains",
+          "curriculum": "adapters.mjlab.kits.wheel_leg_kit.mdp.terrain_curriculums.terrain_levels_obstacle_release",
+          "env_cfg": "adapters.mjlab.kits.wheel_leg_kit.traversal_env_cfg"
+        }
+      },
+      "availability": { "quadruped": "missing", "wheel_leg": "ready" },
+      "evidence": {
+        "source": "workspace/validation/zexw-traversal-equivalence.json（上移等价 + 真环境课程按 4800/12000/16800 步释放 5→6→7→8）；b2w-traversal 冒烟 ok",
+        "note": "四足族的对应物（parkour 的地形课程）尚未接入本档"
+      }
+    },
+    {
+      "profile_id": "competition",
+      "display_name": "竞赛地形",
+      "class": "competition",
+      "summary": "RC 赛场构件（墙 / 网格 / 台阶倒置 / 砾石），轮足族 Kit 已上移为族级地形模块。",
+      "builder": {
+        "kind": "family_kit",
+        "wheel_leg": {
+          "terrain_factory": "adapters.mjlab.kits.wheel_leg_kit.terrains.competition_terrains",
+          "env_cfg": "adapters.mjlab.kits.wheel_leg_kit.traversal_env_cfg"
+        }
+      },
+      "availability": { "quadruped": "missing", "wheel_leg": "ready" },
+      "evidence": {
+        "source": "adapters/mjlab/kits/wheel_leg_kit/terrains/competition_terrains.py（自 zex-w 包内上移，上移等价已对拍）",
+        "note": "地图侧另有 assets/maps/robocon_dual_track.xml（整场导入，属场景层）"
+      }
+    }
+  ]
+}
