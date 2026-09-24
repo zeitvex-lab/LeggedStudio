@@ -64,6 +64,11 @@
       "display_name": "速度跟踪",
       "status": "generic",
       "summary": "族级通用：任务变体表来自 registry/skills/velocity_base.json，奖励预设与观测由 Kit 与契约数据装配，任一成员可直接训。",
+      "terrain_profiles": [
+        "plane",
+        "rough",
+        "stairs"
+      ],
       "task_names": [
         "velocity",
         "velocity_rough",
@@ -86,19 +91,31 @@
       "display_name": "越障",
       "status": "robot-specific",
       "summary": "深度感知越障（PIE parkour）：实现已上移为族级技能 —— `quadruped_kit/skills/parkour/`（场景/观测/奖励/课程/命令装配、PIE 模型与 PPO 扩展、专用 runner、地形集，逐字迁移）；相机与深度观测项改为消费 registry/cameras.json 的档位声明（name/parent_body/pos/quat/fovy/width/height 与观测项参数全来自声明，缺字段 fail-closed，技能层零相机字面量）。2026-09-25：go2 侧改薄委托且行为等价（迁移前后 env/runner 全字段 dump 逐项 0 差异，含可调用对象与字符串里的模块路径），go2-parkour 冒烟 + 真训 2 步通过（PIE-PPO 走族级类路径）。",
+      "terrain_profiles": [
+        "stairs",
+        "obstacle_release",
+        "competition"
+      ],
       "task_names": [
         "parkour"
       ],
       "members_with_recipe": [
         "unitree_go2"
       ],
-      "gap": "剩余缺口：①只有 go2 有档案 —— 第二台机型复用缺两样机器事实：(a) 它自己的深度相机档位声明（位姿/内参没有标定就不许编，声明缺项一律 fail-closed），(b) 足端 site（本配方的滑移惩罚与支撑高度按足端 site 取速度与位置；go1 的 MJCF 只有 imu 一个 site，缺失即能力缺失，不静默换口径）；②足端槽位序沿用 PIE 源配方的对角交织序（FR/FL/RR/RL，与契约腿序 FL/FR/RL/RR 不同），新机型接入按「必须是本机型腿标记的一个排列」校验，不符即报错；③b2 / lite3 未评估。"
+      "gap": "剩余缺口：①只有 go2 有档案 —— 第二台机型复用缺两样机器事实：(a) 它自己的深度相机档位声明（位姿/内参没有标定就不许编，声明缺项一律 fail-closed），(b) 足端 site（本配方的滑移惩罚与支撑高度按足端 site 取速度与位置；go1 的 MJCF 只有 imu 一个 site，缺失即能力缺失，不静默换口径）；②足端槽位序沿用 PIE 源配方的对角交织序（FR/FL/RR/RL，与契约腿序 FL/FR/RL/RR 不同），新机型接入按「必须是本机型腿标记的一个排列」校验，不符即报错；③b2 / lite3 未评估。",
+      "terrain_pending": [
+        "obstacle_release",
+        "competition"
+      ]
     },
     {
       "skill_id": "imitation",
       "display_name": "动作模仿",
       "status": "robot-specific",
       "summary": "族级：AMP 判别器接线与专家动作加载器已上移为族级技能（`quadruped_kit/skills/imitation`：判别器/回放/归一化、AMP-PPO 更新、41→31 维状态切分、终止态记录器），可叠在任一速度跟踪宿主上且不含机型名/数值（关节序/髋关节名走契约绑定）。2026-09-24：go2 侧改薄委托且行为等价（迁移前后 env_cfg/runner_cfg 全字段 dump 逐项对比）；go1 以同关节序借用 go2 的 LLoco 数据在族内第二台机型上跑通。",
+      "terrain_profiles": [
+        "rough"
+      ],
       "task_names": [
         "Mjlab-AMP-CTS-Rough-Unitree-Go2",
         "Unitree-Go2-AMP-DreamWaQ-Rough",
@@ -119,6 +136,9 @@
       "display_name": "特技",
       "status": "robot-specific",
       "summary": "特技/极限姿态（后空翻、跳跃、弹簧跳、倒立、三足站立）：**jump（跳跃）已族级化** ——实现上移为族级技能层（`adapters/mjlab/kits/quadruped_kit/skills/`：shared + trot + jump），go2 与 go1 各有档案（go1 为 2026-09-24 新增，同一实现 + 各自契约绑定）；其余四项（backflip / handstand / leggedstand / spring_jump）仍只有 go2 档案。",
+      "terrain_profiles": [
+        "plane"
+      ],
       "task_names": [
         "backflip",
         "handstand",

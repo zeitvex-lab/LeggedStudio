@@ -204,6 +204,28 @@ class FamilyAuditTest(unittest.TestCase):
         self.write_family(family)
         self.assertCaught("自相矛盾")
 
+    def _with_velocity_terrain(self, **fields):
+        family = _family()
+        next(s for s in family["skills"] if s["skill_id"] == "velocity").update(fields)
+        self.write_family(family)
+
+    def test_skill_unknown_terrain_is_caught(self):
+        self._with_velocity_terrain(terrain_profiles=["moon"])
+        self.assertCaught("不在 registry/terrains")
+
+    def test_skill_missing_terrain_without_pending_is_caught(self):
+        # competition 在四足族是 missing（见 registry/terrains），声明覆盖它就必须挂 terrain_pending
+        self._with_velocity_terrain(terrain_profiles=["plane", "competition"])
+        self.assertCaught("必须列进 terrain_pending")
+
+    def test_skill_ready_terrain_left_in_pending_is_caught(self):
+        self._with_velocity_terrain(terrain_profiles=["plane"], terrain_pending=["plane"])
+        self.assertCaught("却仍挂在 terrain_pending")
+
+    def test_skill_pending_that_is_not_declared_is_caught(self):
+        self._with_velocity_terrain(terrain_profiles=["plane"], terrain_pending=["rough"])
+        self.assertCaught("不在 terrain_profiles 清单内")
+
     def test_registered_but_missing_family_file_is_caught(self):
         self.write_index(["quadruped.json", "humanoid.json"])
         self.assertCaught("但文件不存在")
