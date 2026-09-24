@@ -1,0 +1,239 @@
+{
+  "schema": "family-mjcf-1.0",
+  "generated_at": "2026-09-24",
+  "note": "族内 MJCF **规范化后**的实测摘要（规范化 = adapters/mjlab/spec_utils.normalize_spec）。口径类偏离登记在 registry/families/*.json 的 mjcf_deviations；结构事实类只登记不抹平。",
+  "results": [
+    {
+      "robot_id": "unitree_go2",
+      "actuator_binding": "cfg_declared",
+      "sensors_total": 15,
+      "sensors_unnamed_before": 0,
+      "sensors_named_after": true,
+      "actuator_domains": [
+        "motor"
+      ],
+      "keys_with_ctrl": [],
+      "strip_compiles": true,
+      "margins_nonzero": [
+        0.001
+      ],
+      "margin_policy": "warp_ccd_off",
+      "joints_total": 12,
+      "joints_actuated": 12,
+      "roots": [
+        "base"
+      ],
+      "geoms_named": "23/56",
+      "meshes": 16,
+      "normalize_report": {
+        "sensors_named": [],
+        "actuators_deleted": 0,
+        "keys_removed": []
+      },
+      "family": "quadruped"
+    },
+    {
+      "robot_id": "unitree_go1",
+      "actuator_binding": "cfg_declared",
+      "sensors_total": 5,
+      "sensors_unnamed_before": 0,
+      "sensors_named_after": true,
+      "actuator_domains": [
+        "position"
+      ],
+      "keys_with_ctrl": [],
+      "strip_compiles": true,
+      "margins_nonzero": [],
+      "margin_policy": "zero",
+      "joints_total": 12,
+      "joints_actuated": 12,
+      "roots": [
+        "base_link"
+      ],
+      "geoms_named": "31/31",
+      "meshes": 6,
+      "normalize_report": {
+        "sensors_named": [],
+        "actuators_deleted": 0,
+        "keys_removed": []
+      },
+      "family": "quadruped"
+    },
+    {
+      "robot_id": "unitree_b2",
+      "actuator_binding": "mjcf_wrapped",
+      "sensors_total": 43,
+      "sensors_unnamed_before": 0,
+      "sensors_named_after": true,
+      "actuator_domains": [
+        "position"
+      ],
+      "keys_with_ctrl": [
+        "home"
+      ],
+      "strip_compiles": true,
+      "margins_nonzero": [],
+      "margin_policy": "zero",
+      "joints_total": 12,
+      "joints_actuated": 12,
+      "roots": [
+        "base_link"
+      ],
+      "geoms_named": "4/63",
+      "meshes": 31,
+      "normalize_report": {
+        "sensors_named": [],
+        "actuators_deleted": 0,
+        "keys_removed": []
+      },
+      "family": "quadruped"
+    },
+    {
+      "robot_id": "deeprobotics_lite3",
+      "actuator_binding": "mjcf_wrapped",
+      "sensors_total": 7,
+      "sensors_unnamed_before": 2,
+      "sensors_named_after": true,
+      "actuator_domains": [
+        "position"
+      ],
+      "keys_with_ctrl": [],
+      "strip_compiles": true,
+      "margins_nonzero": [],
+      "margin_policy": "zero",
+      "joints_total": 12,
+      "joints_actuated": 12,
+      "roots": [
+        "TORSO"
+      ],
+      "geoms_named": "34/34",
+      "meshes": 13,
+      "normalize_report": {
+        "sensors_named": [
+          "imu_accelerometer",
+          "imu_gyro"
+        ],
+        "actuators_deleted": 0,
+        "keys_removed": []
+      },
+      "family": "quadruped"
+    },
+    {
+      "robot_id": "deeprobotics_m20",
+      "actuator_binding": "cfg_declared",
+      "sensors_total": 3,
+      "sensors_unnamed_before": 2,
+      "sensors_named_after": true,
+      "actuator_domains": [
+        "position",
+        "velocity"
+      ],
+      "keys_with_ctrl": [],
+      "strip_compiles": true,
+      "margins_nonzero": [],
+      "margin_policy": "zero",
+      "joints_total": 16,
+      "joints_actuated": 16,
+      "roots": [
+        "base_link"
+      ],
+      "geoms_named": "0/44",
+      "meshes": 17,
+      "normalize_report": {
+        "sensors_named": [
+          "imu_accelerometer",
+          "imu_gyro"
+        ],
+        "actuators_deleted": 0,
+        "keys_removed": []
+      },
+      "family": "wheel_leg"
+    },
+    {
+      "robot_id": "unitree_b2w",
+      "actuator_binding": "mjcf_wrapped",
+      "sensors_total": 53,
+      "sensors_unnamed_before": 0,
+      "sensors_named_after": true,
+      "actuator_domains": [
+        "position",
+        "velocity"
+      ],
+      "keys_with_ctrl": [],
+      "strip_compiles": true,
+      "margins_nonzero": [],
+      "margin_policy": "zero",
+      "joints_total": 16,
+      "joints_actuated": 16,
+      "roots": [
+        "base_link"
+      ],
+      "geoms_named": "0/63",
+      "meshes": 35,
+      "normalize_report": {
+        "sensors_named": [],
+        "actuators_deleted": 0,
+        "keys_removed": []
+      },
+      "family": "wheel_leg"
+    },
+    {
+      "robot_id": "unitree_go2w",
+      "actuator_binding": "cfg_declared",
+      "sensors_total": 49,
+      "sensors_unnamed_before": 0,
+      "sensors_named_after": true,
+      "actuator_domains": [
+        "position",
+        "velocity"
+      ],
+      "keys_with_ctrl": [],
+      "strip_compiles": true,
+      "margins_nonzero": [
+        0.001
+      ],
+      "margin_policy": "warp_ccd_off",
+      "joints_total": 16,
+      "joints_actuated": 16,
+      "roots": [
+        "base_link"
+      ],
+      "geoms_named": "0/53",
+      "meshes": 19,
+      "normalize_report": {
+        "sensors_named": [],
+        "actuators_deleted": 0,
+        "keys_removed": []
+      },
+      "family": "wheel_leg"
+    },
+    {
+      "robot_id": "zex-w",
+      "actuator_binding": "cfg_declared",
+      "sensors_total": 0,
+      "sensors_unnamed_before": 0,
+      "sensors_named_after": true,
+      "actuator_domains": [
+        "position",
+        "velocity"
+      ],
+      "keys_with_ctrl": [],
+      "strip_compiles": true,
+      "margins_nonzero": [],
+      "margin_policy": "zero",
+      "joints_total": 16,
+      "joints_actuated": 16,
+      "roots": [
+        "base_link"
+      ],
+      "geoms_named": "0/38",
+      "meshes": 17,
+      "normalize_report": {
+        "sensors_named": [],
+        "actuators_deleted": 0,
+        "keys_removed": []
+      },
+      "family": "wheel_leg"
+    }
+  ]
+}

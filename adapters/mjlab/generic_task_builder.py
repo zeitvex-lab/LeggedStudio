@@ -105,19 +105,13 @@ def _recipe_rewards(recipe: Any) -> dict[str, float]:
 def _make_spec_fn(xml_path: Path, *, strip_actuators: bool = False):
     import mujoco
 
-    from adapters.mjlab.spec_utils import name_unnamed_sensors
+    from adapters.mjlab.spec_utils import normalize_spec
 
     def get_spec():
         spec = mujoco.MjSpec.from_file(str(xml_path))
-        if strip_actuators:
-            # MuJoCo 3.x 的 MjsActuator **没有** `.delete()`；删元素走 spec.delete(元素)。
-            # 此前写成 actuator.delete() ⇒ 一旦真走到这条分支就 AttributeError（只有
-            # XML 里存在 mjlab 认不出的执行器时才走，2026-09-24 才发现）。
-            for actuator in list(spec.actuators):
-                spec.delete(actuator)
-        # 无名传感器必须补名（mjlab scene 按名包装时 KeyError: Invalid name ''），
-        # 与包内档案共用同一份实现：adapters/mjlab/spec_utils.py。
-        name_unnamed_sensors(spec)
+        # 规范化唯一入口（补传感器名 + 按需撤 XML 执行器并修 ctrl 型 keyframe）：
+        # 与包内档案同一份实现，见 adapters/mjlab/spec_utils.py。
+        normalize_spec(spec, strip_actuators=strip_actuators)
         return spec
 
     return get_spec
