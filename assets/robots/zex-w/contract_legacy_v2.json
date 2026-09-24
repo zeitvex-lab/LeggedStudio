@@ -70,14 +70,13 @@
     ]
   },
   "observation": {
-    "dimension": 53,
+    "dimension": 57,
     "components": [
       "base_ang_vel",
       "projected_gravity",
-      "command",
+      "commands",
       "joint_pos",
       "joint_vel",
-      "wheel_vel",
       "last_action"
     ]
   },

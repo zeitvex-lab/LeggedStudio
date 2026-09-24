@@ -93,15 +93,14 @@
     }
   },
   "observation": {
-    "dimension": 48,
+    "dimension": 45,
     "components": [
-      "base_lin_vel",
       "base_ang_vel",
       "projected_gravity",
+      "commands",
       "joint_pos",
       "joint_vel",
-      "last_action",
-      "commands"
+      "last_action"
     ]
   },
   "action": {

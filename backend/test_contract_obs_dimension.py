@@ -32,15 +32,20 @@ ROBOTS = ROOT / "assets" / "robots"
 
 # v3 真值表（B32 时的实测基数）。v3 变更是有意动作：先改 contract.json 并在此
 # 登记新真值，再让 v2 跟上——两处都动、测试才绿。
+# 2026-09-24 **族内观测统一**（用户裁决）：go1 48→45（砍掉 actor 侧 `base_lin_vel`，
+# 归族骨架，特权项只进 critic）、zex-w 53→57（轮速并入 16 维腿轮混排、命令项改名
+# `commands`）——如今**两族各自的四台成员观测维度完全一致**（四足 45 / 轮足 57）。
+# 分支前训练的上游策略仍按其自身声明布局运行（`audit_policy_obs_width` 归
+# `policy_explained`，不算包级错）。
 V3_DIMENSION_TRUTH = {
     "deeprobotics_lite3": 45,
     "deeprobotics_m20": 57,
     "unitree_b2": 45,
     "unitree_b2w": 57,
-    "unitree_go1": 48,
+    "unitree_go1": 45,
     "unitree_go2": 45,
     "unitree_go2w": 57,
-    "zex-w": 53,
+    "zex-w": 57,
 }
 
 

@@ -199,8 +199,7 @@
         "role": "actor",
         "history": 1,
         "encoder": null,
-        "deployment_available": true,
-        "note": "上游 scale=0.25（env_cfgs.py:180）"
+        "deployment_available": true
       },
       {
         "name": "projected_gravity",
@@ -212,44 +211,31 @@
         "deployment_available": true
       },
       {
-        "name": "command",
+        "name": "commands",
         "width": 3,
         "source": "cmd",
         "role": "actor",
         "history": 1,
         "encoder": null,
-        "deployment_available": true,
-        "note": "twist 命令（generated_commands, command_name=twist）"
+        "deployment_available": true
       },
       {
         "name": "joint_pos",
-        "width": 12,
+        "width": 16,
         "source": "actuated",
         "role": "actor",
         "history": 1,
         "encoder": null,
-        "deployment_available": true,
-        "note": "**仅腿**（SceneEntityCfg joint_names 限 hip_abduction/hip_pitch/knee，env_cfgs.py:194-196）——不含轮"
+        "deployment_available": true
       },
       {
         "name": "joint_vel",
-        "width": 12,
+        "width": 16,
         "source": "actuated",
         "role": "actor",
         "history": 1,
         "encoder": null,
-        "deployment_available": true,
-        "note": "同上，仅腿（scale=0.05）"
-      },
-      {
-        "name": "wheel_vel",
-        "width": 4,
-        "source": "actuated",
-        "role": "actor",
-        "history": 1,
-        "encoder": null,
-        "deployment_available": true,
-        "note": "**轮速单列一项**（joint_names=.*_wheel_joint，env_cfgs.py:206-209）—— 正是「六项猜 3+3+3+12+16+16」漏掉的结构：轮不在 joint_pos/vel 里，也不与腿混排"
+        "deployment_available": true
       },
       {
         "name": "last_action",
@@ -258,11 +244,10 @@
         "role": "actor",
         "history": 1,
         "encoder": null,
-        "deployment_available": true,
-        "note": "含轮（动作维 16 = 12 腿 + 4 轮）；base_lin_vel 仅进 critic（特权项，不在 actor）"
+        "deployment_available": true
       }
     ],
-    "dimension": 53
+    "dimension": 57
   },
   "control": {
     "control_hz": 50,
@@ -279,8 +264,7 @@
     "package",
     "zex-w"
   ],
-  "source": "legged_studio_project_import"
-,
+  "source": "legged_studio_project_import",
   "physics_domain": {
     "contact": {
       "authority": "training_domain",

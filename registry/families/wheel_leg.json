@@ -35,7 +35,7 @@
   },
   "control_hz": 50,
   "observation_skeleton": {
-    "note": "族级观测骨架：actor 的**项序列**按此为准（顺序即布局，策略输入据此定宽）。宽度不写死——关节类项的宽度随族关节数（16 = 4 腿 × 4 角色）派生，其余为常量。critic_only 项只进评价网络（特权信息），不进 actor。",
+    "note": "族级观测骨架：actor 的**项序列**按此为准（顺序即布局，策略输入据此定宽）。宽度不写死——关节类项的宽度随族关节数（16 = 4 腿 × 4 角色）派生，其余为常量。critic_only 项只进评价网络（特权信息），不进 actor。（2026-09-24：族内观测已**统一**，原先登记的两处偏差（go1 的 base_lin_vel、zex-w 的轮速单列）已随统一消除——分支前训练的上游策略仍按各自声明布局运行（门禁归 `policy_explained`，不算包级错）。）",
     "actor": [
       "base_ang_vel",
       "projected_gravity",
@@ -55,9 +55,7 @@
       "joint_vel": "同 joint_pos",
       "last_action": "动作维 = 关节数（轮足 = 16）"
     },
-    "deviations": {
-      "zex-w": "结构不同构：命令项名 `command`、`joint_pos`/`joint_vel` **仅腿**（12）而轮速单列 `wheel_vel`(4)、且多出的项位序不同 ⇒ 53 维（其余三台为 16 维腿轮混排的 57 维）。**未裁决**：是否并入族骨架（并入 = 重排观测布局，会动到存量策略，须单独裁决）。"
-    }
+    "deviations": {}
   },
   "members": [
     "deeprobotics_m20",
