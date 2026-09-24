@@ -174,9 +174,20 @@ async function runPackageInspection() {
           <span class="inspection-summary">${escapeHtml(readiness.verdict === 'ready'
             ? `可用 ${readiness.family || '本族'} 通用架构训练；可训地形档：${terrains}`
             : `未就绪${blocked.length ? '：' + blocked.map((item) => item.id).join('、') : ''}`)}</span></div>
+        ${readiness.verdict === 'ready' ? `<div class="inspection-diff">${(readiness.trainable_terrain_profiles || []).map((terrain) =>
+          `<button type="button" class="button small" data-train-terrain="${escapeHtml(terrain)}">一键开训 · ${escapeHtml(terrain)}</button>`).join(' ')}</div>` : ''}
         ${blocked.length ? `<div class="inspection-diff">${blocked.map((item) => `${INSPECTION_BADGES[item.status] || '·'} ${escapeHtml(item.id)}：${escapeHtml(item.summary)}`).join('<br>')}</div>` : ''}
       </div>`;
     container.innerHTML = `<div class="inspection-overall status-${escapeHtml(report.overall)}">整体：${INSPECTION_BADGES[report.overall] || '·'} ${escapeHtml(report.overall)}</div>${readinessBlock}${cards}`;
+    // 「一键开训」：把机型 + 地形档（+ 该档的任务）带进训练页，落点即"选好档、改了就能起训"。
+    // 任务映射与 `registry/skills/velocity_base.json#tasks` 的 `terrain` 保持一致；未知档不传任务。
+    const TASK_FOR_TERRAIN = { plane: 'forward_walk', rough: 'rough_terrain', stairs: 'stairs' };
+    container.querySelectorAll('[data-train-terrain]').forEach((button) => button.addEventListener('click', () => {
+      const terrain = button.dataset.trainTerrain;
+      const query = new URLSearchParams({ robot: selectedPreset.robot_id, terrain });
+      if (TASK_FOR_TERRAIN[terrain]) query.set('task', TASK_FOR_TERRAIN[terrain]);
+      window.location.href = `/web/training_create.html?${query.toString()}`;
+    }));
   } catch (error) {
     container.innerHTML = `<div class="empty-state">体检失败：${escapeHtml(error.message)}——确认后端已启动后重试</div>`;
   }
