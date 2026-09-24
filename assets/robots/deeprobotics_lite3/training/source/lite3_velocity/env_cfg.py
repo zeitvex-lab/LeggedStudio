@@ -50,10 +50,10 @@ from adapters.mjlab.kits import quadruped_kit as kit  # noqa: E402
 from . import lite3_rewards as lite3_mdp
 from .robot_constants import get_lite3_robot_cfg
 
-# Root body name must match the MJCF root body (robot.xml:47 <body name="TORSO">);
-# "base_link" does not exist in the MJCF and breaks mjlab raycast sensor init
-# (ValueError: Invalid name 'robot/base_link').
-_ROOT_BODY = "TORSO"
+# 根 body 名必须与 MJCF 一致（robot.xml 的 `<body name="base_link">`）：写错会让 mjlab 的
+# 射线传感器初始化直接崩（ValueError: Invalid name 'robot/<名字>'）。
+# 2026-09-24 族内命名统一：本机原为 `TORSO`，随族约定改为 `base_link`（同族 8 台一致）。
+_ROOT_BODY = "base_link"
 FOOT_PATTERN = r".*_SHANK"
 FOOT_BODIES = [f"{lr}_SHANK" for lr in ("FL", "FR", "HL", "HR")]
 # 足端高度扫描的帧 = 足端 body（B31；与接触传感器的 SHANK 帧是两回事）。
