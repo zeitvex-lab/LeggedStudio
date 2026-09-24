@@ -202,13 +202,29 @@ async def import_model(request: ModelImportRequest) -> dict[str, Any]:
                 raise ValueError("no URDF/MJCF model file found in import")
             staged_model = staging / model_relative
             model_format = request.format if request.format != "auto" else ("urdf" if staged_model.suffix.lower() == ".urdf" else "mjcf")
-            return import_staged_package(
+            result = import_staged_package(
                 staging,
                 model_relative=model_relative,
                 model_format=model_format,
                 content_hash=content_hash,
                 packages_root=packages_root,
             )
+            # 导入成功即起**后台冒烟**（1 iter / 2 envs，约 1~2 分钟）：静态就绪之外的"实测可训"
+            # 由真跑背书，结论落包内 trainability.json，供就绪卡显示。失败不影响导入本身。
+            if result.get("imported") and result.get("package_root"):
+                try:
+                    from backend import trainability_check
+                    from backend.paths import REPO_ROOT
+
+                    # 导入结果里的 package_root 是**仓库相对 posix 路径**（api_path 口径）
+                    target = Path(str(result["package_root"]))
+                    if not target.is_absolute():
+                        target = REPO_ROOT / target
+                    trainability_check.schedule(target)
+                    result["trainability"] = {"status": "pending", "note": "已在后台起冒烟，稍后刷新查看"}
+                except Exception as exc:  # noqa: BLE001 — 冒烟起不来不该把导入判失败
+                    result["trainability"] = {"status": "unknown", "reason": f"{type(exc).__name__}: {exc}"}
+            return result
     except Exception as exc:
         return {"valid": False, "imported": False, "errors": [str(exc)], "warnings": []}
 

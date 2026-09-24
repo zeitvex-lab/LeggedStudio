@@ -243,7 +243,18 @@ def inspect_package(root: Path) -> dict:
         "cards": cards,
         # 族通用就绪（"能不能用族架构训、能训哪几档"）：与五卡并列，供导入流程/页面直接判
         "family_readiness": _family_readiness(root),
+        # 实测可训（后台冒烟结论；"没测过"与"测失败"分开报）
+        "trainability": _trainability(root),
     }
+
+
+def _trainability(root: Path) -> dict:
+    from backend.trainability_check import RECORD_NAME, load
+
+    record = load(root)
+    if record is None:
+        return {"status": "untested", "note": f"没测过（包内没有 {RECORD_NAME}）"}
+    return record
 
 
 def _family_readiness(root: Path) -> dict:
