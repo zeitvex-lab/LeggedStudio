@@ -71,6 +71,11 @@
       "display_name": "速度跟踪",
       "status": "generic",
       "summary": "族级通用：轮足 Kit（mdp/ + velocity_env_cfg）承载框架层，任务变体表来自 registry/skills/velocity_base.json，任一成员可直接训。",
+      "terrain_profiles": [
+        "plane",
+        "rough",
+        "stairs"
+      ],
       "task_names": [
         "velocity",
         "velocity_rough",
@@ -90,6 +95,11 @@
       "display_name": "越障",
       "status": "robot-specific",
       "summary": "族级越障课程（竞赛地形集 + 障碍释放课程）已是**族级模块**：`adapters/mjlab/kits/wheel_leg_kit/traversal_env_cfg.py`（地形定义在 kit `terrains/`，课程项在 kit `mdp/terrain_curriculums.py`）；档案侧按机型装配，课程不再是某一台的包内实现。",
+      "terrain_profiles": [
+        "stairs",
+        "obstacle_release",
+        "competition"
+      ],
       "task_names": [
         "traversal_obstacle_release"
       ],
@@ -104,6 +114,7 @@
       "display_name": "动作模仿",
       "status": "missing",
       "summary": "轮足族暂无动作模仿配方。",
+      "terrain_profiles": [],
       "task_names": [],
       "members_with_recipe": [],
       "requires": [
@@ -116,6 +127,7 @@
       "display_name": "特技",
       "status": "missing",
       "summary": "轮足族暂无特技配方。",
+      "terrain_profiles": [],
       "task_names": [],
       "members_with_recipe": [],
       "gap": "族级化需要：先明确轮足特技的定义与判据（轮足能做哪些极限动作），再立项配方。"

@@ -215,6 +215,37 @@ def _check_observation_skeleton(family: dict, robots_dir: Path, members: list[st
             problems.append(f"{where}/{robot_id}: 偏差登记为空说明")
 
 
+def _check_skill_terrains(family: dict, skill: dict, problems: list[str]) -> None:
+    """技能的**地形轴**（用户口径：越障看训练地形，不看技能叫什么名字）。
+
+    技能可以声明 `terrain_profiles`（该技能覆盖哪些地形档，id 见 `registry/terrains`）。判据双向：
+    * 档位 id 必须真实存在（未登记即判红）；
+    * 本族**已就绪**的档不许再挂在 `terrain_pending`（登记要跟着事实走）；
+    * 本族**未就绪**的档必须显式列进 `terrain_pending`（缺口诚实留痕，同 gap 的精神）。
+    """
+    where = family["family_id"]
+    skill_id = skill.get("skill_id")
+    terrains = skill.get("terrain_profiles")
+    if terrains is None:
+        return
+    from adapters.mjlab import terrain_profiles as _terrain_profiles
+
+    pending = [str(x) for x in skill.get("terrain_pending") or []]
+    for profile_id in [str(x) for x in terrains]:
+        try:
+            status = _terrain_profiles.availability(profile_id, where)
+        except _terrain_profiles.TerrainProfileError as exc:
+            problems.append(f"{where}/{skill_id}: 地形档 {profile_id!r} 不在 registry/terrains（{exc}）")
+            continue
+        if status == "ready" and profile_id in pending:
+            problems.append(f"{where}/{skill_id}: 地形档 {profile_id} 在本族已就绪，却仍挂在 terrain_pending（登记没跟着事实走）")
+        if status == "missing" and profile_id not in pending:
+            problems.append(f"{where}/{skill_id}: 地形档 {profile_id} 在本族未就绪，必须列进 terrain_pending（缺口要留痕）")
+    for profile_id in pending:
+        if profile_id not in terrains:
+            problems.append(f"{where}/{skill_id}: terrain_pending 里的 {profile_id} 不在 terrain_profiles 清单内")
+
+
 def _check_skills(family: dict, robots_dir: Path, members: list[str], problems: list[str]) -> dict[str, set[str]]:
     skills = family.get("skills") or []
     where = family["family_id"]
@@ -248,6 +279,7 @@ def _check_skills(family: dict, robots_dir: Path, members: list[str], problems: 
         skill_id = skill.get("skill_id")
         declared = set(members) if skill.get("status") == "generic" else set(skill.get("members_with_recipe") or [])
         seen = observed.get(skill_id, set())
+        _check_skill_terrains(family, skill, problems)
         if skill.get("status") == "generic":
             if not seen:
                 problems.append(f"{where}/{skill_id}: 标为族级通用，但没有一台成员有对应档案")

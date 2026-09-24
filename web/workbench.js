@@ -163,7 +163,20 @@ async function runPackageInspection() {
         <div class="inspection-card-head"><span class="inspection-badge">${INSPECTION_BADGES[card.status] || '·'}</span><strong>${INSPECTION_TITLES[key] || escapeHtml(key)}</strong><span class="inspection-summary">${escapeHtml(card.summary)}</span></div>
         ${renderInspectionDiffDetails(card)}
       </div>`).join('');
-    container.innerHTML = `<div class="inspection-overall status-${escapeHtml(report.overall)}">整体：${INSPECTION_BADGES[report.overall] || '·'} ${escapeHtml(report.overall)}</div>${cards}`;
+    // 族通用就绪：导入/选中一台包后，直接回答"能不能用族架构训、能训哪几档"
+    const readiness = report.family_readiness || {};
+    const readyBadge = readiness.verdict === 'ready' ? '✅' : (readiness.verdict === 'not_ready' ? '❌' : '⚠');
+    const blocked = (readiness.checks || []).filter((item) => item.status !== 'pass');
+    const terrains = (readiness.trainable_terrain_profiles || []).join(' / ') || '（无可训档）';
+    const readinessBlock = `
+      <div class="inspection-card status-${readiness.verdict === 'ready' ? 'pass' : 'fail'}">
+        <div class="inspection-card-head"><span class="inspection-badge">${readyBadge}</span><strong>族通用就绪</strong>
+          <span class="inspection-summary">${escapeHtml(readiness.verdict === 'ready'
+            ? `可用 ${readiness.family || '本族'} 通用架构训练；可训地形档：${terrains}`
+            : `未就绪${blocked.length ? '：' + blocked.map((item) => item.id).join('、') : ''}`)}</span></div>
+        ${blocked.length ? `<div class="inspection-diff">${blocked.map((item) => `${INSPECTION_BADGES[item.status] || '·'} ${escapeHtml(item.id)}：${escapeHtml(item.summary)}`).join('<br>')}</div>` : ''}
+      </div>`;
+    container.innerHTML = `<div class="inspection-overall status-${escapeHtml(report.overall)}">整体：${INSPECTION_BADGES[report.overall] || '·'} ${escapeHtml(report.overall)}</div>${readinessBlock}${cards}`;
   } catch (error) {
     container.innerHTML = `<div class="empty-state">体检失败：${escapeHtml(error.message)}——确认后端已启动后重试</div>`;
   }

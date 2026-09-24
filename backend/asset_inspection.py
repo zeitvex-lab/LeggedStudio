@@ -241,4 +241,16 @@ def inspect_package(root: Path) -> dict:
         "package_root": str(root),
         "overall": worst,
         "cards": cards,
+        # 族通用就绪（"能不能用族架构训、能训哪几档"）：与五卡并列，供导入流程/页面直接判
+        "family_readiness": _family_readiness(root),
     }
+
+
+def _family_readiness(root: Path) -> dict:
+    try:
+        from backend.family_readiness import readiness
+
+        return readiness(root)
+    except Exception as exc:  # noqa: BLE001 — 就绪判定失败不该拖垮整个体检
+        return {"verdict": "unknown", "family": None, "checks": [], "trainable_terrain_profiles": [],
+                "error": f"{type(exc).__name__}: {exc}"}
