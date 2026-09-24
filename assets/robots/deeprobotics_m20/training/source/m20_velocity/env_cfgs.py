@@ -147,8 +147,13 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ##
     for group_name in ("actor", "critic"):
         cfg.observations[group_name].terms = {
+            # 观测缩放按上游 rough_env_cfg.py:104-107（base_ang_vel 0.25 / joint_pos 1.0 /
+            # joint_vel 0.05）——2026-09-24 移植核对 F1：这三项此前整段缺失，而
+            # simulation/config.json 的 policies[].scales 早已声明，导致训练口径与声明/部署不一致。
             "base_ang_vel": ObservationTermCfg(
-                func=envs_mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2) if group_name == "actor" else None
+                func=envs_mdp.base_ang_vel,
+                scale=0.25,
+                noise=Unoise(n_min=-0.2, n_max=0.2) if group_name == "actor" else None,
             ),
             "projected_gravity": ObservationTermCfg(
                 func=envs_mdp.projected_gravity,
@@ -158,11 +163,13 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             "joint_pos_rel": ObservationTermCfg(
                 func=mdp.joint_pos_rel_zero_wheel,
                 params={"all_cfg": all_joint_cfg, "wheel_cfg": wheel_joint_cfg},
+                scale=1.0,
                 noise=Unoise(n_min=-0.01, n_max=0.01) if group_name == "actor" else None,
             ),
             "joint_vel_rel": ObservationTermCfg(
                 func=envs_mdp.joint_vel_rel,
                 params={"asset_cfg": all_joint_cfg},
+                scale=0.05,
                 noise=Unoise(n_min=-1.5, n_max=1.5) if group_name == "actor" else None,
             ),
             "actions": ObservationTermCfg(func=envs_mdp.last_action),
