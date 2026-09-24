@@ -150,5 +150,31 @@
       ],
       "gap": "剩余缺口：①动作类特技（backflip / handstand / leggedstand / spring_jump）仍只有 go2 档案，族级化需要把它们的课程/终止/奖励项从 go2 档案提为族级配方，动作类还依赖 motions；②jump 虽已在 go1 跑通冒烟，但 go1 的 contract.default_pose 与它 velocity 任务的初始姿（HIMLoco 口径）符号相反，属未裁决项；③族内另两台（b2 / lite3）尚未接 jump 配方。"
     }
-  ]
+  ],
+  "mjcf_conventions": {
+    "note": "族内 MJCF 约定（**规范化后**必须成立的口径；偏离逐条登记在 mjcf_deviations，登记了又与实测一致也判红——防静默统一/静默放宽）。摘要与基线落 tools/baselines/family_mjcf.json。",
+    "actuator_binding": "mjcf_wrapped",
+    "actuator_binding_note": "执行器声明归属：mjcf_wrapped = MJCF 为准、cfg 只包装（quadruped_kit.position_actuator_trio 的 XmlActuatorCfg，B28/B35 裁决）；cfg_declared = MJCF 不带执行器或一律撤掉、由 cfg/Kit 声明 builtin 组。",
+    "sensors_named": true,
+    "margin_policy": "zero",
+    "margin_policy_note": "zero = 模型不带非零 geom margin；带非零的由通用路径条件关 MULTICCD/NATIVECCD（登记为 warp_ccd_off），不抹 margin（那是物理参数）。"
+  },
+  "mjcf_deviations": {
+    "unitree_go1": {
+      "actuator_binding": {
+        "value": "cfg_declared",
+        "why": "上游 HIMLoco 执行器口径（BuiltinPositionActuatorCfg 注入 PD，非 XmlActuatorCfg 包装）；装配骨架未上 Kit —— P8 步 1 的既有裁决，未收口"
+      }
+    },
+    "unitree_go2": {
+      "actuator_binding": {
+        "value": "cfg_declared",
+        "why": "go2 装配骨架在包内 local_tasks（P8 步 3 未迁）；执行器走 Builtin* 组，非 Kit 包装"
+      },
+      "margin_policy": {
+        "value": "warp_ccd_off",
+        "why": "model/robot.xml 的 default class 上 margin=0.001（上游资产），不抹物理量，由通用路径条件关 CCD 开关"
+      }
+    }
+  }
 }

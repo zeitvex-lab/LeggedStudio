@@ -71,29 +71,19 @@ ALL_JOINTS = JOINT_GROUPS["hipx"] + JOINT_GROUPS["hipy"] + JOINT_GROUPS["knee"]
 def _lite3_robot_cfg_with_named_sensors():
     """Lite3 robot EntityCfg with all MJCF sensors named.
 
-    robot.xml:192-193 defines an unnamed <accelerometer>/<gyro> on imu_site.
-    Scene._add_sensors auto-wraps every spec sensor via
-    BuiltinSensor.from_existing(sns.name); an unnamed sensor yields '' and
-    env construction dies at mj_model.sensor('') (KeyError: Invalid name '').
-    Fix here (only env_cfg.py is editable): give unnamed sensors stable names
-    (robot/imu_accelerometer, robot/imu_gyro after entity prefixing). Sensor
-    type/site/semantics unchanged.
+    ``robot.xml`` 里有无名 ``<gyro>``/``<accelerometer>``：mjlab 的 scene 会把每个 spec 传感器
+    按名包成 ``BuiltinSensor``，无名即 ``KeyError: Invalid name ''``（建环境时炸）。
+    补名逻辑与通用任务路径**共用一份**（``adapters/mjlab/spec_utils.py::normalize_spec``，
+    2026-09-24 收敛；此前这里是第二份拷贝）。
     """
+    from adapters.mjlab.spec_utils import normalize_spec
+
     robot_cfg = get_lite3_robot_cfg()
     base_spec_fn = robot_cfg.spec_fn
 
-    _TYPE_NAMES = {
-        int(mujoco.mjtSensor.mjSENS_ACCELEROMETER): "imu_accelerometer",
-        int(mujoco.mjtSensor.mjSENS_GYRO): "imu_gyro",
-    }
-
     def spec_fn():
         spec = base_spec_fn()
-        for sensor in spec.sensors:
-            if not sensor.name:
-                sensor.name = _TYPE_NAMES.get(
-                    int(sensor.type), f"imu_sensor_{int(sensor.type)}"
-                )
+        normalize_spec(spec)
         return spec
 
     robot_cfg.spec_fn = spec_fn

@@ -130,5 +130,27 @@
       "members_with_recipe": [],
       "gap": "族级化需要：先明确轮足特技的定义与判据（轮足能做哪些极限动作），再立项配方。"
     }
-  ]
+  ],
+  "mjcf_conventions": {
+    "note": "族内 MJCF 约定（**规范化后**必须成立的口径；偏离逐条登记在 mjcf_deviations，登记了又与实测一致也判红——防静默统一/静默放宽）。摘要与基线落 tools/baselines/family_mjcf.json。",
+    "actuator_binding": "cfg_declared",
+    "actuator_binding_note": "执行器声明归属：mjcf_wrapped = MJCF 为准、cfg 只包装（quadruped_kit.position_actuator_trio 的 XmlActuatorCfg，B28/B35 裁决）；cfg_declared = MJCF 不带执行器或一律撤掉、由 cfg/Kit 声明 builtin 组。",
+    "sensors_named": true,
+    "margin_policy": "zero",
+    "margin_policy_note": "zero = 模型不带非零 geom margin；带非零的由通用路径条件关 MULTICCD/NATIVECCD（登记为 warp_ccd_off），不抹 margin（那是物理参数）。"
+  },
+  "mjcf_deviations": {
+    "unitree_b2w": {
+      "actuator_binding": {
+        "value": "mjcf_wrapped",
+        "why": "包内自建 XmlActuatorCfg 包装 MJCF 真值（b2w_constants.py），与四足口径一致但未走族 Kit —— 待收口"
+      }
+    },
+    "unitree_go2w": {
+      "margin_policy": {
+        "value": "warp_ccd_off",
+        "why": "model/robot.xml 的 default class 上 margin=0.001（上游资产），不抹物理量，由通用路径条件关 CCD 开关"
+      }
+    }
+  }
 }
