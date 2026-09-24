@@ -105,13 +105,13 @@ def _recipe_rewards(recipe: Any) -> dict[str, float]:
 def _make_spec_fn(xml_path: Path, *, strip_actuators: bool = False):
     import mujoco
 
-    from adapters.mjlab.spec_utils import normalize_spec
+    from adapters.mjlab.spec_utils import normalize_for_training
 
     def get_spec():
         spec = mujoco.MjSpec.from_file(str(xml_path))
-        # 规范化唯一入口（补传感器名 + 按需撤 XML 执行器并修 ctrl 型 keyframe）：
-        # 与包内档案同一份实现，见 adapters/mjlab/spec_utils.py。
-        normalize_spec(spec, strip_actuators=strip_actuators)
+        # 训练口径规范化唯一入口（补传感器名 + 传感器只留消费集 + 按需撤 XML 执行器并修
+        # ctrl 型 keyframe）：与包内档案/族 Kit 同一份实现，见 adapters/mjlab/spec_utils.py。
+        normalize_for_training(spec, strip_actuators=strip_actuators)
         return spec
 
     return get_spec

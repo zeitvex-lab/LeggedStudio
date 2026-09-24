@@ -42,6 +42,8 @@ BASELINE = ROOT / "tools" / "baselines" / "family_mjcf.json"
 
 _KNOWN_DEVIATION_KEYS = ("actuator_binding", "margin_policy")
 
+from adapters.mjlab.spec_utils import KEEP_SENSORS as _KEEP_SENSORS  # noqa: E402
+
 
 def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8-sig"))
@@ -60,7 +62,7 @@ def _member_summary(robot_id: str, problems: list[str]) -> dict | None:
     """实测一个成员的 MJCF 事实（规范化前后都记），供核对与 diff。"""
     import mujoco
 
-    from adapters.mjlab.spec_utils import normalize_spec
+    from adapters.mjlab.spec_utils import KEEP_SENSORS, normalize_for_training, normalize_spec
 
     package = ROBOTS_DIR / robot_id
     contract_path = package / "contract.json"
@@ -86,6 +88,14 @@ def _member_summary(robot_id: str, problems: list[str]) -> dict | None:
     unnamed_after = sum(1 for sensor in normalized.sensors if not sensor.name)
     compiled = normalized.compile()
     margins = sorted({round(float(compiled.geom_margin[index]), 6) for index in range(compiled.ngeom)} - {0.0})
+
+    # 训练口径下的传感器集合（只留消费集）：门禁核对"留的都在消费集里"
+    training = mujoco.MjSpec.from_file(str(xml_path))
+    training_report = normalize_for_training(training)
+    kept = [str(sensor.name) for sensor in training.sensors]
+    outside_keep = [name for name in kept if name not in KEEP_SENSORS]
+    if outside_keep:
+        problems.append(f"{robot_id}: 训练口径下留下了消费集外的传感器 {outside_keep}")
 
     strip_ok, strip_error = True, ""
     try:
@@ -121,6 +131,8 @@ def _member_summary(robot_id: str, problems: list[str]) -> dict | None:
         "sensors_unnamed_before": unnamed_before,
         # 没有传感器 ≠ 有无名传感器（zex-w 的 MJCF 一个传感器都没有，规范仍然成立）
         "sensors_named_after": not unnamed_after,
+        "sensors_kept_training_only": kept,
+        "sensors_deleted_by_policy": len(training_report.sensors_deleted),
         "actuator_domains": domains,
         "keys_with_ctrl": keys_with_ctrl,
         "strip_compiles": strip_ok,
@@ -205,6 +217,12 @@ def audit() -> tuple[list[dict], list[str]]:
         if not conventions:
             problems.append(f"{family_id}: 族声明缺 mjcf_conventions")
             continue
+        keep_declared = conventions.get("sensors_keep")
+        if keep_declared is not None and list(keep_declared) != list(_KEEP_SENSORS):
+            problems.append(
+                f"{family_id}: 族声明 sensors_keep {keep_declared} ≠ 唯一入口常量 {list(_KEEP_SENSORS)}"
+                "（二者必须一致，否则'留什么'有两个真值）"
+            )
         deviations = family.get("mjcf_deviations") or {}
         for robot_id in family.get("members") or []:
             summary = _member_summary(str(robot_id), problems)
@@ -222,14 +240,14 @@ def main() -> int:
     args = parser.parse_args()
 
     rows, problems = audit()
-    print("[mjcf] 规范化后摘要（family / robot / 执行器归属 / 根 body / margin / 具名 geom / 被动关节）")
+    print("[mjcf] 规范化后摘要（family / robot / 执行器归属 / 根 body / margin / 具名 geom / 被动关节 / 传感器）")
     for row in rows:
         passive = row["joints_total"] - row["joints_actuated"]
         print(f"  {row['family']:9s} {row['robot_id']:22s} {row['actuator_binding']:13s} "
               f"root={str(row['roots'][0] if row['roots'] else '?'):10s} "
               f"margin={row['margins_nonzero'] or 0} geom={row['geoms_named']:>7s} "
-              f"被动={passive} 传感器={row['sensors_total']}(补名 {row['sensors_unnamed_before']}) "
-              f"keyframes={row['keys_with_ctrl'] or 0}")
+              f"被动={passive} 传感器={row['sensors_total']}→训练留 {len(row['sensors_kept_training_only'])}"
+              f"(补名 {row['sensors_unnamed_before']}) keyframes={row['keys_with_ctrl'] or 0}")
     if problems:
         print(f"\n[mjcf] 判红 {len(problems)} 处：")
         for item in problems:

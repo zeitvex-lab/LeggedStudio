@@ -19,7 +19,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Sequence
 
 #: 常见 IMU 传感器的补充名（按 MuJoCo 传感器类型编号）。
 _IMU_SENSOR_NAMES = {
@@ -28,17 +28,30 @@ _IMU_SENSOR_NAMES = {
 }
 
 
+#: 训练/仿真**按名消费**的 MJCF 传感器（`robot/<name>` 字面量出现在配置里）。
+#: 依据：`mdp.builtin_sensor(sensor_name=...)` 的三处引用——parkour 与轮足 Kit 的
+#: `robot/imu_ang_vel` / `robot/imu_lin_vel`（轮足侧多被各档案改写成 `mdp.base_lin_vel`，
+#: 但保留声明不会有副作用）、轮足 Kit 的 `robot/root_angmom`。
+#: 不在这个集合里的 XML 传感器**没有任何消费者**（2026-09-24 全仓按名扫描：
+#: backend / adapters / web / tools / contracts / 各包 deploy 与 simulation 均无引用），
+#: 却要 MuJoCo 每步填 `sensordata`、mjlab 还会逐个包成 BuiltinSensor ⇒ 统一撤掉。
+#: 门禁 `tools/audit_family_mjcf.py` 核对本常量与族声明 `mjcf_conventions.sensors_keep` 一致。
+KEEP_SENSORS = ("imu_ang_vel", "imu_lin_vel", "root_angmom")
+
+
 @dataclass
 class NormalizeReport:
     """规范化动了什么（进诊断/取证，不猜）。"""
 
     sensors_named: list[str] = field(default_factory=list)
+    sensors_deleted: list[str] = field(default_factory=list)
     actuators_deleted: int = 0
     keys_removed: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "sensors_named": list(self.sensors_named),
+            "sensors_deleted": list(self.sensors_deleted),
             "actuators_deleted": self.actuators_deleted,
             "keys_removed": list(self.keys_removed),
         }
@@ -87,8 +100,18 @@ def _drop_ctrl_keys(spec: Any, report: NormalizeReport) -> None:
         spec.delete(key)
 
 
-def normalize_spec(spec: Any, *, strip_actuators: bool = False) -> NormalizeReport:
-    """就地规范化一个 ``mujoco.MjSpec``；返回 :class:`NormalizeReport`。"""
+def normalize_spec(
+    spec: Any, *, strip_actuators: bool = False, sensor_policy: str = "keep",
+    keep_sensors: Sequence[str] | None = None,
+) -> NormalizeReport:
+    """就地规范化一个 ``mujoco.MjSpec``；返回 :class:`NormalizeReport`。
+
+    * ``strip_actuators``：撤掉 XML 执行器（并修引用 ctrl 的 keyframe）；
+    * ``sensor_policy="keep"``（默认）：只补名，一个传感器都不删；
+    * ``sensor_policy="training_only"``：**只留** ``keep_sensors``（默认 :data:`KEEP_SENSORS`，
+      即全仓按名消费的那几个），其余全撤——无名传感器也一并撤掉（撤名无意义）。
+      这一步是"同族传感器基准"的落点：撤掉的是没人读的声明，物理量不动。
+    """
 
     report = NormalizeReport()
     if strip_actuators:
@@ -98,7 +121,32 @@ def normalize_spec(spec: Any, *, strip_actuators: bool = False) -> NormalizeRepo
         if report.actuators_deleted:
             _drop_ctrl_keys(spec, report)
     report.sensors_named = name_unnamed_sensors(spec)
+    if sensor_policy == "training_only":
+        keep = set(keep_sensors if keep_sensors is not None else KEEP_SENSORS)
+        for sensor in list(spec.sensors):
+            if str(sensor.name) in keep:
+                continue
+            report.sensors_deleted.append(str(sensor.name))
+            spec.delete(sensor)
+    elif sensor_policy != "keep":
+        raise ValueError(f"未知 sensor_policy: {sensor_policy!r}（可选 keep / training_only）")
     return report
 
 
-__all__ = ["NormalizeReport", "name_unnamed_sensors", "normalize_spec"]
+def normalize_for_training(spec: Any, *, strip_actuators: bool = False) -> NormalizeReport:
+    """**训练路径默认口径**：补传感器名 + 传感器只留消费集（+ 按需撤 XML 执行器）。
+
+    训练/仿真两条路径（通用任务路径、包内档案、族 Kit 的 `package_mjcf`）都调这一个函数——
+    "同族同一基准"就落在这一行上。
+    """
+
+    return normalize_spec(spec, strip_actuators=strip_actuators, sensor_policy="training_only")
+
+
+__all__ = [
+    "KEEP_SENSORS",
+    "NormalizeReport",
+    "name_unnamed_sensors",
+    "normalize_for_training",
+    "normalize_spec",
+]

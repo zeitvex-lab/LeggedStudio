@@ -28,6 +28,7 @@ _NAMELESS_SENSOR_XML = """<mujoco model="unnamed_sensor_fixture">
     </body>
   </worldbody>
   <sensor>
+    <velocimeter name="imu_lin_vel" site="imu_site"/>
     <gyro site="imu_site"/>
     <accelerometer site="imu_site"/>
     <framepos name="base_pos" objtype="site" objname="imu_site"/>
@@ -100,8 +101,12 @@ class GenericTaskBuilderTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unsupported generic observation"):
             build_generic_task(contract, {"environment": {"terrain_type": "plane"}})
 
-    def test_unnamed_mjcf_sensors_get_stable_names(self):
-        """MJCF 里的无名传感器必须被补名——否则 mjlab scene 按名包装时 KeyError。"""
+    def test_generic_spec_keeps_consumed_sensors_only(self):
+        """通用路径的传感器口径：只留被消费的（`imu_lin_vel` 等），其余连同无名的一起撤掉。
+
+        于是 mjlab scene 永远不会去按名包装一个无名传感器（`Invalid name ''`），也不会为没人读的
+        声明每步填 sensordata。留一个 keep 集里的传感器在夹具里，证明"保留"这条腿也在工作。
+        """
         import mujoco
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -113,14 +118,12 @@ class GenericTaskBuilderTests(unittest.TestCase):
             )
             spec = bundle.env_cfg.scene.entities["robot"].spec_fn()
             names = [sensor.name for sensor in spec.sensors]
-            self.assertTrue(all(names), f"仍有无名传感器：{names}")
-            self.assertIn("base_pos", names)
+            self.assertEqual(["imu_lin_vel"], names)
             compiled = spec.compile()
-            for name in names:
-                self.assertNotEqual(
-                    -1, mujoco.mj_name2id(compiled, mujoco.mjtObj.mjOBJ_SENSOR, name),
-                    f"补出来的名字在编译模型里查不到：{name}",
-                )
+            self.assertNotEqual(
+                -1, mujoco.mj_name2id(compiled, mujoco.mjtObj.mjOBJ_SENSOR, "imu_lin_vel"),
+                "保留的传感器在编译模型里查不到",
+            )
 
     def test_geom_margin_disables_warp_ccd_flags(self):
         """模型带非零 geom margin 时，通用路径须关掉 MULTICCD/NATIVECCD（warp 不支持该组合）。"""

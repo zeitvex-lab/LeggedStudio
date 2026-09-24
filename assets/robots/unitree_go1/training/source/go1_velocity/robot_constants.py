@@ -29,9 +29,19 @@ def get_spec() -> mujoco.MjSpec:
     via ``BuiltinPositionActuatorCfg``, so the XML ones must be removed first
     (otherwise mjlab reports a repeated actuator name).
     """
+    # 撤 XML 执行器 + 补传感器名 + 传感器只留消费集：唯一入口 adapters/mjlab/spec_utils.py
+    # （此前撤执行器在这里与 zex-w / m20 各写一份，2026-09-24 收敛）。
+    import sys as _sys
+
+    for _parent in Path(__file__).resolve().parents:
+        if (_parent / "adapters" / "mjlab").is_dir():
+            if str(_parent) not in _sys.path:
+                _sys.path.insert(0, str(_parent))
+            break
+    from adapters.mjlab.spec_utils import normalize_for_training
+
     spec = mujoco.MjSpec.from_file(str(GO1_XML))
-    for act in list(spec.actuators):
-        spec.delete(act)
+    normalize_for_training(spec, strip_actuators=True)
     return spec
 
 

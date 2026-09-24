@@ -9,6 +9,8 @@
       "sensors_total": 15,
       "sensors_unnamed_before": 0,
       "sensors_named_after": true,
+      "sensors_kept_training_only": [],
+      "sensors_deleted_by_policy": 15,
       "actuator_domains": [
         "motor"
       ],
@@ -27,6 +29,7 @@
       "meshes": 16,
       "normalize_report": {
         "sensors_named": [],
+        "sensors_deleted": [],
         "actuators_deleted": 0,
         "keys_removed": []
       },
@@ -38,6 +41,11 @@
       "sensors_total": 5,
       "sensors_unnamed_before": 0,
       "sensors_named_after": true,
+      "sensors_kept_training_only": [
+        "imu_ang_vel",
+        "imu_lin_vel"
+      ],
+      "sensors_deleted_by_policy": 3,
       "actuator_domains": [
         "position"
       ],
@@ -54,6 +62,7 @@
       "meshes": 6,
       "normalize_report": {
         "sensors_named": [],
+        "sensors_deleted": [],
         "actuators_deleted": 0,
         "keys_removed": []
       },
@@ -65,6 +74,11 @@
       "sensors_total": 43,
       "sensors_unnamed_before": 0,
       "sensors_named_after": true,
+      "sensors_kept_training_only": [
+        "imu_lin_vel",
+        "imu_ang_vel"
+      ],
+      "sensors_deleted_by_policy": 41,
       "actuator_domains": [
         "position"
       ],
@@ -83,6 +97,7 @@
       "meshes": 31,
       "normalize_report": {
         "sensors_named": [],
+        "sensors_deleted": [],
         "actuators_deleted": 0,
         "keys_removed": []
       },
@@ -94,6 +109,8 @@
       "sensors_total": 7,
       "sensors_unnamed_before": 2,
       "sensors_named_after": true,
+      "sensors_kept_training_only": [],
+      "sensors_deleted_by_policy": 7,
       "actuator_domains": [
         "position"
       ],
@@ -113,6 +130,7 @@
           "imu_accelerometer",
           "imu_gyro"
         ],
+        "sensors_deleted": [],
         "actuators_deleted": 0,
         "keys_removed": []
       },
@@ -124,6 +142,8 @@
       "sensors_total": 3,
       "sensors_unnamed_before": 2,
       "sensors_named_after": true,
+      "sensors_kept_training_only": [],
+      "sensors_deleted_by_policy": 3,
       "actuator_domains": [
         "position",
         "velocity"
@@ -144,6 +164,7 @@
           "imu_accelerometer",
           "imu_gyro"
         ],
+        "sensors_deleted": [],
         "actuators_deleted": 0,
         "keys_removed": []
       },
@@ -155,6 +176,8 @@
       "sensors_total": 53,
       "sensors_unnamed_before": 0,
       "sensors_named_after": true,
+      "sensors_kept_training_only": [],
+      "sensors_deleted_by_policy": 53,
       "actuator_domains": [
         "position",
         "velocity"
@@ -172,6 +195,7 @@
       "meshes": 35,
       "normalize_report": {
         "sensors_named": [],
+        "sensors_deleted": [],
         "actuators_deleted": 0,
         "keys_removed": []
       },
@@ -183,6 +207,8 @@
       "sensors_total": 49,
       "sensors_unnamed_before": 0,
       "sensors_named_after": true,
+      "sensors_kept_training_only": [],
+      "sensors_deleted_by_policy": 49,
       "actuator_domains": [
         "position",
         "velocity"
@@ -202,6 +228,7 @@
       "meshes": 19,
       "normalize_report": {
         "sensors_named": [],
+        "sensors_deleted": [],
         "actuators_deleted": 0,
         "keys_removed": []
       },
@@ -213,6 +240,8 @@
       "sensors_total": 0,
       "sensors_unnamed_before": 0,
       "sensors_named_after": true,
+      "sensors_kept_training_only": [],
+      "sensors_deleted_by_policy": 0,
       "actuator_domains": [
         "position",
         "velocity"
@@ -230,6 +259,7 @@
       "meshes": 17,
       "normalize_report": {
         "sensors_named": [],
+        "sensors_deleted": [],
         "actuators_deleted": 0,
         "keys_removed": []
       },

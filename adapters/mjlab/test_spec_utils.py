@@ -100,9 +100,52 @@ class NormalizeSpecTest(unittest.TestCase):
     def test_report_is_json_shaped(self):
         report = normalize_spec(_spec(_NAMELESS_SENSORS))
         self.assertEqual(
-            {"sensors_named": ["imu_gyro", "imu_accelerometer"], "actuators_deleted": 0, "keys_removed": []},
+            {"sensors_named": ["imu_gyro", "imu_accelerometer"], "sensors_deleted": [],
+             "actuators_deleted": 0, "keys_removed": []},
             report.as_dict(),
         )
+
+
+class SensorPolicyTest(unittest.TestCase):
+    """传感器策略：`keep` 只补名；`training_only` 只留全仓按名消费的那几个。"""
+
+    _MIXED = """<mujoco model="sensor_policy_fixture">
+  <worldbody>
+    <body name="base" pos="0 0 0.2">
+      <freejoint name="root"/>
+      <geom name="base_geom" type="box" size="0.1 0.1 0.1"/>
+      <site name="imu_site" pos="0 0 0.02"/>
+    </body>
+  </worldbody>
+  <sensor>
+    <velocimeter name="imu_lin_vel" site="imu_site"/>
+    <gyro site="imu_site"/>
+    <framequat name="base_quat" objtype="site" objname="imu_site"/>
+    <jointpos name="leg_joint_pos" joint="root"/>
+  </sensor>
+</mujoco>
+"""
+
+    def test_training_only_keeps_only_consumed_names(self):
+        spec = _spec(self._MIXED)
+        report = normalize_spec(spec, sensor_policy="training_only")
+        self.assertEqual(["imu_lin_vel"], [sensor.name for sensor in spec.sensors])
+        self.assertEqual(["imu_gyro", "base_quat", "leg_joint_pos"], report.sensors_deleted)
+
+    def test_keep_policy_deletes_nothing(self):
+        spec = _spec(self._MIXED)
+        report = normalize_spec(spec)
+        self.assertEqual(4, len(list(spec.sensors)))
+        self.assertEqual([], report.sensors_deleted)
+
+    def test_unknown_policy_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "未知 sensor_policy"):
+            normalize_spec(_spec(self._MIXED), sensor_policy="whatever")
+
+    def test_default_keep_set_is_the_three_consumed_names(self):
+        from adapters.mjlab.spec_utils import KEEP_SENSORS
+
+        self.assertEqual(("imu_ang_vel", "imu_lin_vel", "root_angmom"), KEEP_SENSORS)
 
 
 if __name__ == "__main__":

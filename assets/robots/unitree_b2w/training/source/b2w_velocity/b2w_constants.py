@@ -71,7 +71,12 @@ def get_spec() -> mujoco.MjSpec:
       f"Go2-W MJCF not found at {GO2W_XML}. "
       "Place your converted go2w.xml and meshes under this package."
     )
-  return mujoco.MjSpec.from_file(str(GO2W_XML))
+  from adapters.mjlab.spec_utils import normalize_for_training
+
+  spec = mujoco.MjSpec.from_file(str(GO2W_XML))
+  # 训练口径：补传感器名 + 传感器只留消费集（执行器走本文件的 XmlActuatorCfg 包装，不撤）。
+  normalize_for_training(spec)
+  return spec
 
 
 ##

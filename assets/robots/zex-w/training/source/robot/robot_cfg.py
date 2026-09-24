@@ -22,10 +22,19 @@ ALL_JOINT_PATTERNS = LEG_JOINT_PATTERNS + WHEEL_JOINT_PATTERNS
 
 
 def get_spec() -> mujoco.MjSpec:
+    # 撤 XML 执行器（执行器由 cfg 声明）+ 补传感器名 + 传感器只留消费集：
+    # 唯一入口见 adapters/mjlab/spec_utils.py（此前这里是第三份拷贝）。
+    import sys
+
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "adapters" / "mjlab").is_dir():
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            break
+    from adapters.mjlab.spec_utils import normalize_for_training
+
     spec = mujoco.MjSpec.from_file(str(ROBOT_XML))
-    actuators_to_delete = list(spec.actuators)
-    for act in actuators_to_delete:
-        spec.delete(act)
+    normalize_for_training(spec, strip_actuators=True)
     return spec
 
 

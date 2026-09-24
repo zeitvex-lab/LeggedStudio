@@ -78,7 +78,13 @@ def package_mjcf(
     assert xml_path.exists()
 
     def get_spec() -> mujoco.MjSpec:
-        return mujoco.MjSpec.from_file(str(xml_path))
+        # 训练口径规范化（补传感器名 + 只留被消费的传感器）：唯一入口见
+        # adapters/mjlab/spec_utils.py；执行器不撤——四足口径是 XmlActuatorCfg 包装 MJCF 真值。
+        from adapters.mjlab.spec_utils import normalize_for_training
+
+        spec = mujoco.MjSpec.from_file(str(xml_path))
+        normalize_for_training(spec)
+        return spec
 
     return xml_path, get_spec
 

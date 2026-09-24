@@ -25,7 +25,7 @@ for _parent in Path(__file__).resolve().parents:
       sys.path.insert(0, str(_parent))
     break
 
-from adapters.mjlab.spec_utils import normalize_spec  # noqa: E402
+from adapters.mjlab.spec_utils import normalize_for_training  # noqa: E402
 
 ##
 # MJCF (package-level model; matches contract.json joint order).
@@ -99,7 +99,7 @@ def get_spec() -> mujoco.MjSpec:
   # （``adapters/mjlab/spec_utils.py::normalize_spec``）做，与通用任务路径同口径。
   # 逐值等价：XML kp=80/kv=2/±76.4 与 LEG_ACTUATOR 一致，轮子 kv=0.6/±21.6 与 WHEEL_ACTUATOR
   # 一致；armature=0.01 本就在**关节**上（robot.xml 各 <joint>）。
-  normalize_spec(spec, strip_actuators=True)
+  normalize_for_training(spec, strip_actuators=True)
   return spec
 
 
