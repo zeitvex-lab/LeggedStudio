@@ -1,0 +1,21 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "go1-amp-rough",
+  "display_name": "Go1 AMP Rough / Family Skill (quadruped Kit)",
+  "source": "族级技能（quadruped_kit/skills/imitation）+ go1 rough velocity 宿主 + 契约绑定",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "go1_amp.config:make_go1_amp_env_cfg",
+    "runner": "go1_amp.config:make_go1_amp_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "Unitree-Go1-AMP-Rough",
+  "terrain_type": "rough",
+  "algorithm": "AMP",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "history_length": 5,
+  "sort_order": 40,
+  "max_iterations": 250
+}

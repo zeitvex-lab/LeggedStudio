@@ -13,6 +13,7 @@
 from mjlab.envs.mdp import *  # noqa: F401, F403
 
 from .curriculums import *  # noqa: F403
+from .terrain_curriculums import *  # noqa: F403  越障技能族级化：地形级课程（含障碍释放课程）
 from .feet_rewards import *  # noqa: F403
 from .observations import *  # noqa: F403
 from .posture_rewards import *  # noqa: F403

@@ -27,6 +27,31 @@
     ]
   },
   "control_hz": 50,
+  "observation_skeleton": {
+    "note": "族级观测骨架：actor 的**项序列**按此为准（顺序即布局，策略输入据此定宽）。宽度不写死——关节类项的宽度随族关节数（12）派生，其余为常量。critic_only 项只进评价网络（特权信息），不进 actor。",
+    "actor": [
+      "base_ang_vel",
+      "projected_gravity",
+      "commands",
+      "joint_pos",
+      "joint_vel",
+      "last_action"
+    ],
+    "critic_only": [
+      "base_lin_vel"
+    ],
+    "width_source": {
+      "base_ang_vel": 3,
+      "projected_gravity": 3,
+      "commands": 3,
+      "joint_pos": "legs × 每腿角色数（四足 = 12）",
+      "joint_vel": "同 joint_pos",
+      "last_action": "动作维 = 关节数（四足 = 12）"
+    },
+    "deviations": {
+      "unitree_go1": "actor 多 base_lin_vel(3) ⇒ 48 维，且项序把它排在首位（契约自述「真机 IMU 给不出线速度、部署侧必须状态估计补」、deployment_available=false）。**未裁决**：是否降为 critic_only（降则 48→45，会动到存量策略，须单独裁决）。"
+    }
+  },
   "members": [
     "unitree_go2",
     "unitree_go1",
@@ -73,25 +98,27 @@
       "skill_id": "imitation",
       "display_name": "动作模仿",
       "status": "robot-specific",
-      "summary": "AMP 系（动作先验 / 并发教师-学生 / 蒸馏）：目前只有 go2 档案，且依赖参考动作数据。",
+      "summary": "族级：AMP 判别器接线与专家动作加载器已上移为族级技能（`quadruped_kit/skills/imitation`：判别器/回放/归一化、AMP-PPO 更新、41→31 维状态切分、终止态记录器），可叠在任一速度跟踪宿主上且不含机型名/数值（关节序/髋关节名走契约绑定）。2026-09-24：go2 侧改薄委托且行为等价（迁移前后 env_cfg/runner_cfg 全字段 dump 逐项对比）；go1 以同关节序借用 go2 的 LLoco 数据在族内第二台机型上跑通。",
       "task_names": [
         "Mjlab-AMP-CTS-Rough-Unitree-Go2",
         "Unitree-Go2-AMP-DreamWaQ-Rough",
+        "Unitree-Go1-AMP-Rough",
         "Mjlab-AMP-TS-Rough-Unitree-Go2"
       ],
       "members_with_recipe": [
-        "unitree_go2"
+        "unitree_go2",
+        "unitree_go1"
       ],
       "requires": [
         "motions"
       ],
-      "gap": "族级化需要：动作库按族登记（registry/motions 目前以 go2 为唯一来源）+ 族内另一台机型的动作重定向或数据补齐。"
+      "gap": "剩余缺口：①动作库仍以 go2 为唯一来源（registry/motions 未登记这批 .txt 数据；go1 本轮是借用 go2 的 LLoco 动作验证「关节名与序相同 ⇒ 数据可复用」，go1 自有风格动作与族级动作库是后续工作）；②go1 的 AMP 档案目前是「rough velocity 宿主 + AMP 风格先验」，DreamWaQ 宿主（VAE）与 CTS/TS 变体仍只有 go2 档案，族级化需要把它们的宿主/教师-学生课程也提到 Kit；③b2 / lite3 尚未接 AMP 配方。"
     },
     {
       "skill_id": "stunt",
       "display_name": "特技",
       "status": "robot-specific",
-      "summary": "特技/极限姿态（后空翻、跳跃、弹簧跳、倒立、三足站立）：目前只有 go2 档案。",
+      "summary": "特技/极限姿态（后空翻、跳跃、弹簧跳、倒立、三足站立）：**jump（跳跃）已族级化** ——实现上移为族级技能层（`adapters/mjlab/kits/quadruped_kit/skills/`：shared + trot + jump），go2 与 go1 各有档案（go1 为 2026-09-24 新增，同一实现 + 各自契约绑定）；其余四项（backflip / handstand / leggedstand / spring_jump）仍只有 go2 档案。",
       "task_names": [
         "backflip",
         "handstand",
@@ -100,9 +127,10 @@
         "spring_jump"
       ],
       "members_with_recipe": [
-        "unitree_go2"
+        "unitree_go2",
+        "unitree_go1"
       ],
-      "gap": "族级化需要：把特技的课程/终止/奖励项从 go2 档案提为族级配方；动作类特技还依赖 motions。"
+      "gap": "剩余缺口：①动作类特技（backflip / handstand / leggedstand / spring_jump）仍只有 go2 档案，族级化需要把它们的课程/终止/奖励项从 go2 档案提为族级配方，动作类还依赖 motions；②jump 虽已在 go1 跑通冒烟，但 go1 的 contract.default_pose 与它 velocity 任务的初始姿（HIMLoco 口径）符号相反，属未裁决项；③族内另两台（b2 / lite3）尚未接 jump 配方。"
     }
   ]
 }
