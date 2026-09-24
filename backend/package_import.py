@@ -99,11 +99,15 @@ def prepare_model_package(
     validation: dict[str, Any],
     content_hash: str,
     packages_root: Path,
+    conversion_note: str = "",
 ) -> tuple[Path, dict[str, Any], dict[str, Any]]:
     contract = draft_model_contract(
         model_relative, validation.get("format", model_format),
         validation.get("inspection", {}), validation.get("sha256", ""),
     )
+    if conversion_note:
+        contract["description"] = (contract.get("description", "") + "；" + conversion_note).strip("；")
+        contract.setdefault("tags", []).append("urdf-converted")
     package_id = f"{contract['robot_id']}_{content_hash[:10]}"
     package_root = packages_root / package_id
     contract.update({"robot_id": package_id, "contract_id": f"{package_id}_contract_v1"})
@@ -205,6 +209,47 @@ def _pick_model_file(files: Iterable[Path], explicit: str | None = None) -> Path
     return models[0]
 
 
+
+def _convert_urdf_to_mjcf(staged_model: Path) -> tuple[Path | None, str]:
+    """URDF → MJCF（训练用模型）。返回 `(转换后的相对路径, 说明)`；转不了就 `(None, 原因)`。
+
+    为什么在导入侧转：通用训练路径只吃 MJCF（`build_generic_task` 明确拒绝 URDF），
+    而这台机器人的"训练模型"在契约里就是 `urdf.path` 指向的那份文件——8 台内置机型的
+    `urdf.path` 也都是 `model/robot.xml`（MJCF）。转换用 MuJoCo 自己的 URDF 解析
+    （`MjSpec.from_file`），**不改任何物理量**；转出来的文件与源 URDF 同目录，源文件原样保留。
+    """
+    try:
+        import mujoco
+
+        spec = mujoco.MjSpec.from_file(str(staged_model))
+        spec.compile()  # `to_file` 只接受编译过的 spec
+        target = staged_model.with_suffix(".xml")
+        spec.to_file(str(target))
+        return target, f"由 {staged_model.name} 自动转换为 {target.name}（MuJoCo MjSpec，物理量未改）"
+    except Exception as exc:  # noqa: BLE001 — 转不了就如实回原因，导入本身照常（资产仍是 URDF）
+        return None, f"URDF 自动转换失败（{type(exc).__name__}: {exc}）；导入按 URDF 原样继续"
+
+
+def _effective_model(
+    staging: Path, model_relative: Path, model_format: str, validation: dict[str, Any],
+) -> tuple[Path, str, dict[str, Any], str]:
+    """确定**训练用模型**（URDF 会被转成 MJCF 并重新校验）。写盘与预览共用这一份判据。"""
+
+    if model_format != "urdf" or not validation.get("valid"):
+        return model_relative, model_format, validation, ""
+    converted, note = _convert_urdf_to_mjcf(staging / model_relative)
+    if converted is None:
+        # 转换没成：按 URDF 原样继续，原因进 warnings；**不返回 conversion note**
+        # （返回它会让契约被标成 urdf-converted——"没转"不许看起来像"转过了"）。
+        validation.setdefault("warnings", []).append(note)
+        return model_relative, model_format, validation, ""
+    converted_rel = converted.relative_to(staging)
+    converted_validation = validate_model(
+        path=str(converted), filename=converted.name, model_format="mjcf")
+    converted_validation.setdefault("warnings", []).insert(0, note)
+    return converted_rel, "mjcf", converted_validation, note
+
+
 def import_staged_package(
     staging: Path, *, model_relative: Path, model_format: str,
     content_hash: str, packages_root: Path,
@@ -214,11 +259,14 @@ def import_staged_package(
     if not validation.get("valid"):
         validation.update({"imported": False, "import_root": None, "model_path": None})
         return validation
+    model_relative, model_format, validation, conversion_note = _effective_model(
+        staging, model_relative, model_format, validation)
 
     package_root, contract, descriptor = prepare_model_package(
         model_relative=model_relative, model_format=model_format,
         validation=validation, content_hash=content_hash, packages_root=packages_root,
     )
+
     # 判族结论不落进契约文件（契约只放 schema 字段），只回给调用方进报告。
     family_judgement = contract.pop("family_judgement", None)
     contract_status = persist_model_package(staging, package_root, contract, descriptor)
@@ -241,6 +289,8 @@ def _preview_staged_package(
 ) -> dict[str, Any]:
     staged_model = staging / model_relative
     validation = validate_model(path=str(staged_model), filename=staged_model.name, model_format=model_format)
+    model_relative, model_format, validation, conversion_note = _effective_model(
+        staging, model_relative, model_format, validation)
     preview: dict[str, Any] = {
         "preview": True,
         "valid": bool(validation.get("valid")),
@@ -250,11 +300,14 @@ def _preview_staged_package(
         "stats": validation.get("stats"),
         "sha256": validation.get("sha256"),
     }
+    if conversion_note:
+        preview["conversion"] = conversion_note
     if not validation.get("valid"):
         return preview
     package_root, contract, _ = prepare_model_package(
         model_relative=model_relative, model_format=model_format,
         validation=validation, content_hash=content_hash, packages_root=packages_root,
+        conversion_note=conversion_note,
     )
     family_judgement = contract.pop("family_judgement", None)
     preview.update({
