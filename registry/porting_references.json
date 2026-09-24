@@ -1,7 +1,7 @@
 {
   "schema": "porting-references-1.0",
   "generated_at": "2026-09-24",
-  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**族级事实（2026-09-24 补测）**：轮足族四条契约的 `action.joint_order` 目前三套口径并存——m20（腿先轮后，fl,fr,hl,hr）、b2w（腿先轮后，FR,FL,RR,RL）、zex-w（腿先轮后，fl,fr,rl,rr）、go2w（**逐腿混排**，FL,FR,RL,RR）；训练侧与契约在 m20（已按契约/上游改正）与 go2w（已登记偏离，权威序待裁决）上有分歧。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。",
+  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 补测）**：轮足族四条契约的 `action.joint_order` 目前三套口径并存——m20（腿先轮后，fl,fr,hl,hr）、b2w（腿先轮后，FR,FL,RR,RL）、zex-w（腿先轮后，fl,fr,rl,rr）、go2w（**逐腿混排**，FL,FR,RL,RR）；训练侧与契约在 m20（已按契约/上游改正）与 go2w（已登记偏离，权威序待裁决）上有分歧。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。",
   "entries": [
     {
       "profile_id": "go2-trot",

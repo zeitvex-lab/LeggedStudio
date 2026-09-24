@@ -38,6 +38,31 @@ def _ensure_on_path(path) -> None:
         sys.path.insert(0, normalized)
 
 
+def action_joint_order(env, contract=None) -> list[str]:
+    """**动作接口序**（策略输入/输出的关节顺序），按动作项顺序拼接解析后的目标名。
+
+    为什么不能用实体序：`scene["robot"].joint_names` 是 MJCF 的关节序，而策略的动作向量是
+    **动作项**拼出来的（如轮足 = `joint_pos` 腿 + `wheel_vel` 轮，腿先轮后）。两者在轮足上不一致
+    （m20 的 MJCF 是逐腿混排），拿实体序盖章会让产物元数据与策略实际动作序互相错标
+    （2026-09-24 移植核对 F2 的根因）。顺序取不到时回退契约 `action.joint_order`，再回退实体序。
+    """
+
+    names: list[str] = []
+    manager = getattr(env, "action_manager", None)
+    for term_name in (getattr(manager, "active_terms", None) or []):
+        try:
+            term = manager.get_term(term_name)
+        except Exception:  # noqa: BLE001
+            continue
+        for item in getattr(term, "target_names", None) or []:
+            if isinstance(item, str) and item not in names:
+                names.append(item)
+    if names:
+        return names
+    if contract is not None:
+        return [joint.name for joint in contract.joints.actuated_joints]
+    return list(getattr(env.scene["robot"], "joint_names", []) or [])
+
 def build_deploy_metadata(env, rl_cfg, joint_names: list[str]) -> dict:
     """从 mjlab env 提取部署契约元数据（键与 onnx_exporter/浏览器校验对齐）。"""
     import mujoco
@@ -129,10 +154,8 @@ def export_runner_policy_onnx(report: dict, env, runner, wrapped, rl_cfg, output
         from contracts.contract_legacy_v2 import ContractLegacyV2
         contract = ContractLegacyV2.from_json_file(str(contract_path))
 
-    robot = env.scene["robot"]
-    joint_names = list(getattr(robot, "joint_names", []) or [])
-    if not joint_names and contract is not None:
-        joint_names = [joint.name for joint in contract.joints.actuated_joints]
+    # 动作接口序（不是实体序）——见 action_joint_order 的说明
+    joint_names = action_joint_order(env, contract)
 
     export_path = Path(output) / "exported" / "policy.onnx"
     export_path.parent.mkdir(parents=True, exist_ok=True)
@@ -452,11 +475,11 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
             runner_type = load_runner_cls(task_id) or MjlabOnPolicyRunner
 
             def _checkpoint_metadata(r, _rl_cfg=rl_cfg, _cp=contract_path):
-                joint_names = list(getattr(r.env.unwrapped.scene["robot"], "joint_names", []) or [])
-                if not joint_names and _cp:
+                _contract = None
+                if _cp:
                     from contracts.contract_legacy_v2 import ContractLegacyV2
-                    loaded = ContractLegacyV2.from_json_file(str(_cp))
-                    joint_names = [joint.name for joint in loaded.joints.actuated_joints]
+                    _contract = ContractLegacyV2.from_json_file(str(_cp))
+                joint_names = action_joint_order(r.env.unwrapped, _contract)
                 return build_deploy_metadata(r.env.unwrapped, _rl_cfg, joint_names)
 
             runner_type = wrap_runner_with_checkpoint_export(runner_type, _checkpoint_metadata)
