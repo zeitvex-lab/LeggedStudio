@@ -26,10 +26,14 @@ def tracking_ang_vel(env, command_name: str, sigma: float) -> torch.Tensor:
 
 
 def base_height(env, target_height: float) -> torch.Tensor:
-  # The source averages a 3x3 terrain probe below the base.  mjlab's terrain
-  # ray data is the same terrain surface at the root frame for this task.
+  # 上游（IsaacGym CTS / LLoco dreamwaq）取扫描网格的**中央 3×3**：
+  #   "The available 17x11 ray grid is spaced at 0.1 m, so its central 3x3 samples are the
+  #    closest equivalent; averaging the entire 1.6x1.0 m scan incorrectly rewards a
+  #    crouched robot on slopes."（LLoco .../dreamwaq/mdp/rewards.py:32-36）
+  # 本移植曾写成整张平均（注释还写着 3×3，代码却没做）——2026-09-24 移植核对 F2 抓出并按上游改正。
   scan = env.scene["terrain_scan"].data
-  terrain_z = scan.hit_pos_w[..., 2].mean(1)
+  hits = scan.hit_pos_w[..., 2].reshape(env.num_envs, 17, 11)
+  terrain_z = hits[:, 7:10, 4:7].mean((1, 2))
   return torch.square(env.scene["robot"].data.root_link_pos_w[:, 2] - terrain_z - target_height)
 
 
