@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-09-23T23:30:16",
+ "generated_at": "2026-09-24T02:07:28",
  "spec": "_SPEC.md",
  "policy": {
   "keep": "源码/配置/文档/数据/URDF·MJCF/推理策略文件",
@@ -4001,47 +4001,6 @@
     "Gymnasium"
    ]
   },
-  "unitree_g1": {
-   "label": "宇树 G1 人形",
-   "projects": [
-    "unitree_rl_mjlab",
-    "unitree_rl_mjlab_go2w",
-    "unitree_mujoco",
-    "LeggedGym-Ex",
-    "gym_ex",
-    "mjlab_new",
-    "unilab_new",
-    "uni_rl",
-    "lain_job",
-    "LainLab",
-    "kaiwu_rl",
-    "mjswan",
-    "mujoco_playground",
-    "parkour_mjlab",
-    "LeggedSkillDeploy",
-    "robot_lab",
-    "fan_robotlab",
-    "rl_sar",
-    "rl_sar_zoo",
-    "fan_rlsar",
-    "robot_mujoco",
-    "robo_re",
-    "InstinctMJ",
-    "AMP_mjlab",
-    "humanoid-motion-planning",
-    "legged_sim",
-    "g1-manipulation-challenge",
-    "UFO",
-    "g1-mujoco-ros2-nav-sim-G1-MuJoCo-ROS2-",
-    "g1_spinkick_example",
-    "wbc-mjlab",
-    "Gymnasium",
-    "robosuite_new",
-    "rc_old",
-    "matrix_zsibot",
-    "genesislab"
-   ]
-  },
   "deeprobotics_lite3": {
    "label": "云深处 Lite3 四足",
    "projects": [
@@ -4078,72 +4037,6 @@
     "rl_training",
     "m20_rl_isaacsim",
     "Gymnasium"
-   ]
-  },
-  "limx_tron1_pf": {
-   "label": "逐际动力 TRON1-PF",
-   "projects": [
-    "LeggedGym-Ex",
-    "gym_ex",
-    "tron1-robot-description",
-    "tron1-rl-isaaclab",
-    "tron1-rl-deploy-python",
-    "tron1-rl-deploy-ros2",
-    "limxsdk-lowlevel",
-    "robot-joystick",
-    "tdt-nav-kit",
-    "Gymnasium",
-    "habitat-sim"
-   ]
-  },
-  "limx_tron1_sf": {
-   "label": "逐际动力 TRON1-SF",
-   "projects": [
-    "LeggedGym-Ex",
-    "gym_ex",
-    "tron1-robot-description",
-    "tron1-rl-isaaclab",
-    "tron1-rl-deploy-python",
-    "tron1-rl-deploy-ros2",
-    "limxsdk-lowlevel",
-    "robot-joystick",
-    "tdt-nav-kit",
-    "Gymnasium",
-    "habitat-sim"
-   ]
-  },
-  "limx_tron1_wf": {
-   "label": "逐际动力 TRON1-WF",
-   "projects": [
-    "tron1-robot-description",
-    "tron1-rl-isaaclab",
-    "tron1-rl-deploy-python",
-    "tron1-rl-deploy-ros2",
-    "limxsdk-lowlevel",
-    "robot-joystick",
-    "tdt-nav-kit",
-    "Gymnasium",
-    "habitat-sim"
-   ]
-  },
-  "microduck": {
-   "label": "MicroDuck 双足",
-   "projects": [
-    "unilab_new",
-    "Gymnasium",
-    "microduck_all",
-    "microduck_rl",
-    "microduck-simulator",
-    "microduck-studio"
-   ]
-  },
-  "wuji_hand": {
-   "label": "无极灵巧手",
-   "projects": [
-    "wuji-mjlab",
-    "Gymnasium",
-    "robosuite_new",
-    "Gymnasium-Robotics"
    ]
   },
   "zex-w": {

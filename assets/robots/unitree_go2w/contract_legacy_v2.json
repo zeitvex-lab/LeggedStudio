@@ -80,12 +80,10 @@
     "components": [
       "base_ang_vel",
       "projected_gravity",
-      "command",
+      "commands",
       "joint_pos",
       "joint_vel",
-      "wheel_joint_pos_rel",
-      "wheel_joint_vel_rel",
-      "actions"
+      "last_action"
     ]
   },
   "action": {

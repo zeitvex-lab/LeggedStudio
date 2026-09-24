@@ -232,6 +232,10 @@ syntax-check: &syntax-check
       python tools/audit_resource_licenses.py
       # 族架构：同族机型可复用同一套技能训练（成员/族约定/技能覆盖/缺口留痕）
       python tools/audit_families.py
+      # v2 契约（create 校验链与预设记录的输入）观测段 == v3 投影
+      python tools/sync_legacy_observation.py
+      # 技能上移等价性取证工具的自检（归一有效 / 真差异必抓 / 同值不误报；不碰训练栈）
+      python tools/audit_skill_lift_equivalence.py --self-test
       # N6 验收判据可查性（文本级，守回归）
       python tools/audit_acceptance_verifiability.py
       # N7 tools/ 孤儿工具登记（文本级引用检测）

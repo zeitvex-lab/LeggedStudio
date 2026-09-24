@@ -29,6 +29,8 @@ import audit_families  # noqa: E402
 ROLES = ["hip_abduction", "hip_pitch", "knee"]
 ALIASES = {"hip_abduction": ["hip", "hipx"], "hip_pitch": ["thigh", "hipy"], "knee": ["calf"]}
 JOINTS = ["hip", "thigh", "calf", "hip", "thigh", "calf", "hip", "thigh", "calf", "hip", "thigh", "calf"]
+ACTOR_OBS = [("base_ang_vel", 3), ("projected_gravity", 3), ("commands", 3),
+             ("joint_pos", 12), ("joint_vel", 12), ("last_action", 12)]
 
 
 def _contract(robot_id: str) -> dict:
@@ -38,6 +40,10 @@ def _contract(robot_id: str) -> dict:
         "locomotion_type": "P",
         "control": {"control_hz": 50, "physics_hz": 200, "decimation": 4},
         "action": {"joint_order": list(JOINTS)},
+        "observation": {
+            "components": [{"name": name, "width": width, "role": "actor"} for name, width in ACTOR_OBS],
+            "dimension": sum(width for _, width in ACTOR_OBS),
+        },
     }
 
 
@@ -61,6 +67,13 @@ def _family() -> dict:
         "joint_roles": list(ROLES),
         "role_aliases": copy.deepcopy(ALIASES),
         "control_hz": 50,
+        "observation_skeleton": {
+            "note": "夹具骨架",
+            "actor": [name for name, _ in ACTOR_OBS],
+            "critic_only": ["base_lin_vel"],
+            "width_source": {"joint_pos": "12"},
+            "deviations": {},
+        },
         "members": ["r1", "r2"],
         "skills": [
             _skill("velocity", "generic", ["velocity"], []),
@@ -162,6 +175,35 @@ class FamilyAuditTest(unittest.TestCase):
         (self.families / "humanoid.json").write_text(json.dumps(_family()), encoding="utf-8")
         self.assertCaught("未在 index.json 登记")
 
+    def test_missing_observation_skeleton_is_caught(self):
+        family = _family()
+        family.pop("observation_skeleton")
+        self.write_family(family)
+        self.assertCaught("缺 observation_skeleton")
+
+    def test_observation_deviation_must_be_declared(self):
+        contract = _contract("r2")
+        contract["observation"]["components"] = [
+            {"name": "base_lin_vel", "width": 3, "role": "actor"},
+            *contract["observation"]["components"],
+        ]
+        contract["observation"]["dimension"] += 3
+        path = self.robots / "r2" / "contract.json"
+        path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+        self.assertCaught("未登记偏差")
+
+    def test_stale_observation_deviation_is_caught(self):
+        family = _family()
+        family["observation_skeleton"]["deviations"] = {"r1": "其实已经一致了"}
+        self.write_family(family)
+        self.assertCaught("偏差登记还在")
+
+    def test_self_contradicting_skeleton_is_caught(self):
+        family = _family()
+        family["observation_skeleton"]["critic_only"].append("commands")
+        self.write_family(family)
+        self.assertCaught("自相矛盾")
+
     def test_registered_but_missing_family_file_is_caught(self):
         self.write_index(["quadruped.json", "humanoid.json"])
         self.assertCaught("但文件不存在")
@@ -189,6 +231,18 @@ class RealRepoFamilyTest(unittest.TestCase):
             family = json.loads((ROOT / "registry" / "families" / entry["path"]).read_text(encoding="utf-8"))
             generic |= {(family["family_id"], skill["skill_id"]) for skill in family["skills"] if skill["status"] == "generic"}
         self.assertEqual({("quadruped", "velocity"), ("wheel_leg", "velocity")}, generic)
+
+    def test_observation_deviations_are_exactly_go1_and_zexw_today(self):
+        """诚实边界：族内观测骨架今天有两处**已登记**偏差，且不再多也不再少。
+
+        go1 多 base_lin_vel(48 维)、zex-w 轮速单列(53 维)；两者都属"改宽会动到存量策略"
+        的迁移，须单独裁决 —— 这条断言保证它们不会被静默统一，也不会被静默扩大。
+        """
+        declared = {}
+        for entry in json.loads((ROOT / "registry" / "families" / "index.json").read_text(encoding="utf-8"))["families"]:
+            family = json.loads((ROOT / "registry" / "families" / entry["path"]).read_text(encoding="utf-8"))
+            declared[family["family_id"]] = sorted((family.get("observation_skeleton") or {}).get("deviations") or {})
+        self.assertEqual({"quadruped": ["unitree_go1"], "wheel_leg": ["zex-w"]}, declared)
 
 
 if __name__ == "__main__":

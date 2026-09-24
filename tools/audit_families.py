@@ -13,6 +13,7 @@
 | 族约定 | 每台成员：腿数、locomotion_type、关节数 = 腿数 × 角色数、`leg_pattern` 能按别名映射到族角色、`control_hz` 同族 | 族内出现"其实不同构"的机型（通用性前提被破坏） |
 | 技能覆盖 | 每个 profile 的 `task_name` **有且只有一个**技能声明它；反向：每个技能的声明覆盖 == 实测有档案的成员 | 游离任务（没人认领的新技能）+ 声明与事实漂移 |
 | 缺口留痕 | 非 `generic` 技能必须写明 `gap`，且声明任务必须真有档案在用；`generic` 技能必须覆盖全族 | 缺口被悄悄"忘记"、通用性被高估，或"声称有能力、实际没有" |
+| Kit 委派 | ① 每台成员的训练源码必须引用本族 Kit（`<family_id>_kit`）；② 族 Kit 里**不得 import** 机型包（`assets.robots` / `local_tasks`） | 成员自带一套框架副本（名义复用）；或 Kit 被写成某机型的专属库（方向搞反） |
 
 **通用技能的 task_names 允许是超集**（`stairs` / `trot` 这类走通用任务路径，不依赖某台机型的档案）；
 非通用技能反过来必须"声明 == 实测"，这条不对称是刻意的。
@@ -26,6 +27,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -36,7 +38,9 @@ REQUIRED_SKILLS = ("velocity", "traversal", "imitation", "stunt")
 
 
 def _load(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
+    # 编码口径跟仓库守卫 `backend/test_jsonio_single_source.py` 一致：读 JSON 必须吃 BOM
+    # （`utf-8-sig` 同时吃带 BOM 与不带 BOM 的文件）。
+    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 def _contract(robots_dir: Path, robot_id: str) -> dict | None:
@@ -108,6 +112,109 @@ def _check_member(family: dict, robots_dir: Path, robot_id: str, problems: list[
         problems.append(f"{where}: control_hz={control.get('control_hz')} 与族约定 {family['control_hz']} 不符（族内控制率必须同口径）")
 
 
+def _actor_skeleton(robots_dir: Path, robot_id: str) -> list[str] | None:
+    """该机型 v3 契约里的 actor 观测项序列（顺序即布局）。
+
+    直接读声明数据，不走契约加载器：本工具核对的是"声明 vs 事实"，schema 校验是别处的
+    职责（加载器要求整份契约齐备，而这里只需要 observation.components 这一段）。
+    """
+    path = robots_dir / robot_id / "contract.json"
+    if not path.exists():
+        return None
+    try:
+        components = ((_load(path).get("observation") or {}).get("components")) or []
+    except json.JSONDecodeError:
+        return None
+    names = [str(item.get("name")) for item in components
+             if isinstance(item, dict) and item.get("role", "actor") == "actor" and item.get("name")]
+    return names or None
+
+
+def _kit_name(family_id: str) -> str:
+    """族 → 本族 Kit 模块名（`quadruped` → `quadruped_kit`）。不写进族声明：由族名派生，避免第二处真值。"""
+    return f"{family_id}_kit"
+
+
+def _python_files(root: Path) -> list[Path]:
+    return [p for p in root.rglob("*.py") if "__pycache__" not in p.parts]
+
+
+def _check_kit_delegation(family: dict, robots_dir: Path, kits_dir: Path, members: list[str], problems: list[str]) -> None:
+    """两条方向相反的不变量（2026-09-24 手工核对后固化为门禁）：
+
+    1. **成员 → 族 Kit**：每台机型的训练源码至少要引用本族 Kit 一次（否则它自带一套框架副本，
+       "同族复用"就只是名义上的）；
+    2. **族 Kit → 不得反向依赖机型包**：Kit 里出现 `import` 机型包（`assets.robots` / `local_tasks`）
+       就是方向搞反了 —— 那会让 Kit 变成"某机型的专属库"，别的成员再也复不了。
+
+    注意：只查 **import 语句**；注释/docstring 里提来源路径是合法且必要的（出处说明）。
+    """
+    kit = _kit_name(str(family["family_id"]))
+    kit_root = kits_dir / kit
+    if not kit_root.exists():
+        problems.append(f"{family['family_id']}: 本族 Kit {kit_root} 不存在")
+        return
+    for robot_id in members:
+        source_root = robots_dir / robot_id / "training" / "source"
+        if not source_root.exists():
+            continue
+        hits = [p for p in _python_files(source_root) if kit in p.read_text(encoding="utf-8", errors="ignore")]
+        if not hits:
+            problems.append(
+                f"{family['family_id']}/{robot_id}: 训练源码里找不到对本族 Kit `{kit}` 的任何引用"
+                f"（要么自带了一套框架副本，要么入口没接 Kit）")
+    import_re = re.compile(r"^\s*(?:from|import)\s+[^\n]*?(assets\.robots|local_tasks)")
+    for path in _python_files(kit_root):
+        for lineno, line in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines(), start=1):
+            if import_re.search(line):
+                problems.append(
+                    f"{kit}/{path.relative_to(kit_root)}:{lineno}: Kit 反向 import 了机型包代码：{line.strip()[:80]}"
+                    f"（Kit 必须与机型无关；机型差异走契约或调用方传入）")
+                break
+
+
+def _check_observation_skeleton(family: dict, robots_dir: Path, members: list[str], problems: list[str]) -> None:
+    """族级观测骨架：actor 项序列按族声明；偏差必须显式登记（登记了又不符合也不行）。
+
+    为什么不做"自动归一"：项序就是策略输入布局，改宽/重排会让存量策略失效，
+    属需单独裁决的迁移。本检查只保证**分歧可见**——不登记就判红，登记了就不再是暗坑。
+    """
+    skeleton = family.get("observation_skeleton")
+    where = family["family_id"]
+    if not skeleton:
+        problems.append(f"{where}: 缺 observation_skeleton —— 同族观测骨架没有真值，分歧只能靠人记")
+        return
+    expected = list(skeleton.get("actor") or [])
+    if not expected:
+        problems.append(f"{where}: observation_skeleton.actor 为空")
+        return
+    overlap = sorted(set(expected) & set(skeleton.get("critic_only") or []))
+    if overlap:
+        problems.append(f"{where}: 观测骨架自相矛盾——{overlap} 同时出现在 actor 与 critic_only")
+
+    deviations = dict(skeleton.get("deviations") or {})
+    for robot_id in deviations:
+        if robot_id not in members:
+            problems.append(f"{where}: 观测偏差登记了非本族成员 {robot_id}")
+    for robot_id in members:
+        observed = _actor_skeleton(robots_dir, robot_id)
+        if observed is None:
+            continue
+        declared = deviations.get(robot_id)
+        if observed == expected:
+            if declared:
+                problems.append(f"{where}/{robot_id}: 已与族骨架一致，但偏差登记还在（登记要跟着事实走，请删除）")
+            continue
+        if not declared:
+            problems.append(
+                f"{where}/{robot_id}: actor 观测骨架与族约定不一致且未登记偏差\n"
+                f"    族骨架: {expected}\n"
+                f"    实测  : {observed}"
+            )
+        elif not str(declared).strip():
+            problems.append(f"{where}/{robot_id}: 偏差登记为空说明")
+
+
 def _check_skills(family: dict, robots_dir: Path, members: list[str], problems: list[str]) -> dict[str, set[str]]:
     skills = family.get("skills") or []
     where = family["family_id"]
@@ -160,8 +267,11 @@ def _check_skills(family: dict, robots_dir: Path, members: list[str], problems: 
     return observed
 
 
-def audit(families_dir: Path = FAMILIES_DIR, robots_dir: Path = ROBOTS_DIR) -> dict:
+def audit(families_dir: Path = FAMILIES_DIR, robots_dir: Path = ROBOTS_DIR,
+          kits_dir: Path | None = None) -> dict:
     """只读核验：返回 {ok, problems, matrix, families}。"""
+    if kits_dir is None:
+        kits_dir = ROOT / "adapters" / "mjlab" / "kits"
     problems: list[str] = []
     index_path = families_dir / "index.json"
     if not index_path.exists():
@@ -195,6 +305,8 @@ def audit(families_dir: Path = FAMILIES_DIR, robots_dir: Path = ROBOTS_DIR) -> d
                 f"（新增/移除机型时要同步族声明）")
         for robot_id in declared_members:
             _check_member(family, robots_dir, robot_id, problems)
+        _check_kit_delegation(family, robots_dir, kits_dir, members, problems)
+        _check_observation_skeleton(family, robots_dir, members, problems)
         observed = _check_skills(family, robots_dir, members, problems)
         for skill in family.get("skills") or []:
             matrix.append((family_id, skill.get("skill_id"), len(observed.get(skill.get("skill_id"), set())), len(members)))
