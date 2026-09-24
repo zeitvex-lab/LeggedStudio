@@ -30,16 +30,26 @@ def apply_training_recipe(env_cfg, rl_cfg, config: dict, *, preserve_profile: bo
         rewards = explicit_rewards if config.get("reward_overrides", False) else {}
     else:
         rewards = recipe_rewards or explicit_rewards
-    terrain_type = str(environment.get("terrain_type", config.get("terrain_type", "plane"))).lower()
-    if not preserve_profile and terrain_type not in {"plane", "rough"}:
-        raise ValueError(f"native MJLab training supports terrain_type plane or rough; got {terrain_type!r}")
+    terrain_type = str(environment.get("terrain_type") or config.get("terrain_type") or "plane").lower()
     terrain = getattr(getattr(env_cfg, "scene", None), "terrain", None)
     if terrain is not None and not preserve_profile:
-        if terrain_type == "plane":
+        # 地形一律按**档位 id**装配（registry/terrains）：此前这里硬编码 {plane, rough}，
+        # 于是技能表声明的 stairs / obstacle_release 等档在装配期直接报错。未知档、以及
+        # 由族 Kit 提供的档（竞赛 / 释放课程）都会由解析器给出明确原因，不静默退回平地。
+        from adapters.mjlab import terrain_profiles as _terrain_profiles
+
+        entity = _terrain_profiles.build_terrain_entity(terrain_type)
+        if isinstance(entity, dict):  # family_kit：构造在族 Kit 的 env cfg 里，通用配方接不了
+            raise ValueError(
+                f"地形档 {terrain_type!r} 由族 Kit 提供（{entity.get('family')}），"
+                "通用配方路径不支持——请用该族的档案（profile）训练"
+            )
+        if entity.terrain_type == "plane":
             terrain.terrain_type = "plane"
             terrain.terrain_generator = None
-        elif terrain.terrain_generator is None:
-            raise ValueError("rough terrain recipe requires an MJLab terrain generator")
+        else:
+            terrain.terrain_type = "generator"
+            terrain.terrain_generator = entity.terrain_generator
 
     aliases = {
         "tracking_lin_vel": "track_linear_velocity", "tracking_ang_vel": "track_angular_velocity",

@@ -23,7 +23,10 @@ class CreateTrainingRequest(BaseModel):
     episode_length_s: float | None = Field(default=None, gt=0.0)
     task_name: str = "forward_walk"
     profile_id: str | None = None
-    terrain_type: str = "plane"
+    # B23 口径（同 episode_length_s）：None = 请求未提供 → **技能表/档案声明的地形生效**
+    # （`registry/skills/*.json` 的 tasks[].terrain，如 stairs 档）；只有显式提供才覆盖。
+    # 此前默认写死 "plane"，把技能声明的地形静默盖掉了——"越障看地形"因此落不了地。
+    terrain_type: str | None = None
     device: str = Field(default="auto", pattern=r"^(auto|cpu|cuda(?::\d+)?)$")
     smoke: bool = False  # 冒烟档：64 envs × 5 iters（microduck-studio smoke_argv 模式，报告 4 §4）
     reward_scales: dict[str, float] = Field(default_factory=dict)
