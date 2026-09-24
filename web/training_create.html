@@ -1487,6 +1487,35 @@
       select.value = value;
     }
 
+    /** 深链：`?robot=<id>&terrain=<地形档>&task=<任务>` —— "一键开训"的落点。
+     *
+     * 来自工作台的「族通用就绪」卡：带上地形档就把页面切到**通用任务模式**
+     * （档案模式地形由配方保留，选择不生效），并选中该地形档与任务卡。
+     * 未知/未就绪的档不静默替换：交给 `selectTerrainIfAvailable` 判存在性，缺了就保持默认。
+     */
+    async function applyDeepLinkParams() {
+      const params = new URLSearchParams(window.location.search);
+      const terrain = params.get('terrain');
+      const task = params.get('task');
+      if (!terrain && !task) return;
+      if (terrain) {
+        setValue('profileSelect', '');   // 切到通用任务（地形档只在通用模式生效）
+        state.profileId = null;
+        await loadTerrainProfiles(state.preset ? state.preset.robot_id : '');
+        selectTerrainIfAvailable(terrain);
+      }
+      if (task) {
+        const chip = document.querySelector(`.task-chip[data-task="${CSS.escape(task)}"]`);
+        if (chip) {
+          state.task = { id: chip.dataset.task, terrain: chip.dataset.terrain };
+          document.querySelectorAll('.task-chip').forEach((item) => item.classList.remove('selected'));
+          chip.classList.add('selected');
+          selectTerrainIfAvailable(chip.dataset.terrain);
+        }
+      }
+      updateAll();
+    }
+
     async function loadOptions() {
       state.options = await fetchJson('/api/training/options');
       const optionsData = state.options;
@@ -3405,6 +3434,7 @@
       updateAll();
       try {
         await Promise.all([loadOptions(), loadPresets()]);
+        await applyDeepLinkParams();
         enrichObsLibraryFromPerception();
         syncHeaderOffset();
         if (panelObserver) {
