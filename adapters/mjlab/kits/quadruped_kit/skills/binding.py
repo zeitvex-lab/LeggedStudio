@@ -629,6 +629,7 @@ def from_contract(
         action_scale=default_action_scale,
         geom_names=geom_names,
         site_names=site_names,
+        body_names=body_names,
         root_collision_geoms=root_collision_geoms,
     )
 

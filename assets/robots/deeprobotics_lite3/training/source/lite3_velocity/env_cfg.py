@@ -1,41 +1,26 @@
-"""Deeprobotics Lite3 velocity environment configurations.
+"""Deeprobotics Lite3 velocity environment configurations（薄委托：族级 velocity 技能）。
 
-Rewritten against the official DeepRoboticsLab training configuration
-(``rl_training .../config/quadruped/deeprobotics_lite3/rough_env_cfg.py``,
-BSD-3-Clause).  Differences from the generic B2-style base:
+族级实现在 `adapters/mjlab/kits/quadruped_kit/skills/velocity/`。本模块只剩三样 lite3 事实：
 
-- foot contact sensors on the shank bodies (Lite3 has no dedicated foot
-  link; the shank tip sphere is the contact point),
-- gait_level curriculum scalar fed by the terrain curriculum and gating
-  several rewards,
-- official reward table (24 terms incl. Bezier swing tracking, trot gait
-  sync, command-gated air times, foot impact velocity),
-- push / external-force / COM randomization disabled (source Lite3 cfg),
-- illegal-contact termination disabled (bad_orientation kept).
+1. **机型绑定** `LITE3_VELOCITY`（`binding.py`：契约 + `model/robot.xml` 真值 + 本机型训练实体，
+   `XmlActuatorCfg` 包装 MJCF 执行器 —— 族声明的 `actuator_binding="mjcf_wrapped"` 口径）；
+2. **任务数值与机型配方** `LITE3_VELOCITY`（`profile.py`：`VelocityProfile` + recipe ——
+   45 维 rl_sdk 观测、官方 24 项奖励表、两组接触传感器、事件/终止/命令/地形子项）；
+3. **入口函数**（公开名不动：`lite3_flat_env_cfg` / `lite3_rough_env_cfg` / `lite3_runner_cfg`，
+   profile 的 `entrypoints` 与冒烟/训练链照旧解析到这里）。
 
-B8 训练去包化（试点轮）：与 unitree_b2 逐字重复的装配骨架（sim 上限 / 高度
-扫描重指 / viewer / play 与 flat 收尾 / PPO runner）上移到
-``adapters/mjlab/kits/quadruped_kit``；本文件只留 Lite3 专属 wiring 与入口
-stub（entrypoint 符号仍在原模块原符号名，静态解析与运行时加载不受影响）。
+原先本文件里的接线（装配骨架 + 高度扫描重指 + 接触传感器 + 观测重排 + 奖励表 + 事件与
+终止 + 命令档 + play/flat 收尾）已上移：族级机制在 Kit，机型专属那几样在 `profile.py` 的
+recipe（同包数据面）。**足端高度扫描**改由绑定能力表达（本机型无足端 site ⇒ body 帧
+`<LR>_FOOT`，见 `profile.py` 的口径登记）。
 """
 
 from __future__ import annotations
 
-import math
 import sys
 from pathlib import Path
 
-import mujoco
 from mjlab.envs import ManagerBasedRlEnvCfg
-from mjlab.envs import mdp as envs_mdp
-from mjlab.envs.mdp.actions import JointPositionActionCfg
-from mjlab.managers.reward_manager import RewardTermCfg
-from mjlab.managers.scene_entity_config import SceneEntityCfg
-from mjlab.managers.observation_manager import ObservationTermCfg
-from mjlab.sensor import ContactMatch, ContactSensorCfg
-from mjlab.tasks.velocity import mdp as velocity_mdp
-from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
-from mjlab.utils.noise import UniformNoiseCfg as Unoise
 
 # 仓库根自举（见 kits/quadruped_kit 模块注释）：worker / schema-dump / 冒烟三种
 # 运行环境都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab
@@ -47,307 +32,32 @@ for _parent in Path(__file__).resolve().parents:
         break
 
 from adapters.mjlab.kits import quadruped_kit as kit  # noqa: E402
+from adapters.mjlab.kits.quadruped_kit.skills.velocity import config as kit_velocity  # noqa: E402
 
-from . import lite3_rewards as lite3_mdp
-from .robot_constants import get_lite3_robot_cfg
-
-# 根 body 名必须与 MJCF 一致（robot.xml 的 `<body name="base_link">`）：写错会让 mjlab 的
-# 射线传感器初始化直接崩（ValueError: Invalid name 'robot/<名字>'）。
-# 2026-09-24 族内命名统一：本机原为 `TORSO`，随族约定改为 `base_link`（同族 8 台一致）。
-_ROOT_BODY = "base_link"
-FOOT_PATTERN = r".*_SHANK"
-FOOT_BODIES = [f"{lr}_SHANK" for lr in ("FL", "FR", "HL", "HR")]
-# 足端高度扫描的帧 = 足端 body（B31；与接触传感器的 SHANK 帧是两回事）。
-FOOT_SCAN_BODIES = [f"{lr}_FOOT" for lr in ("FL", "FR", "HL", "HR")]
-NON_FOOT_PATTERN = r"^(?!.*_SHANK).*"
-
-JOINT_GROUPS = {
-    "hipx": [f"{lr}_HipX_joint" for lr in ("FL", "FR", "HL", "HR")],
-    "hipy": [f"{lr}_HipY_joint" for lr in ("FL", "FR", "HL", "HR")],
-    "knee": [f"{lr}_Knee_joint" for lr in ("FL", "FR", "HL", "HR")],
-}
-ALL_JOINTS = JOINT_GROUPS["hipx"] + JOINT_GROUPS["hipy"] + JOINT_GROUPS["knee"]
+from .binding import LITE3_VELOCITY as BINDING  # noqa: E402
+from .profile import LITE3_VELOCITY as PROFILE  # noqa: E402
 
 
-def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """Lite3 rough-terrain configuration (official reward recipe)."""
-    # 传感器规范化（补名 + 只留消费集）已由 `kit.package_mjcf` 的 get_spec 承担——
-    # 唯一入口 adapters/mjlab/spec_utils.py，包内不再各写一层。
-    cfg = kit.new_velocity_env_cfg(get_lite3_robot_cfg())
-    # B31 裁决:足端高度扫描改用足端 body 帧(MJCF robot.xml:68/92/115/138 的
-    # FL/FR/HL/HR_FOOT;site 不存在故用 body,射线原点仍在足端,语义不变)。
-    kit.repoint_height_scan_sensors(
-        cfg, root_body=_ROOT_BODY, foot_frames=FOOT_SCAN_BODIES, frame_type="body"
-    )
+def make_lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Rough-terrain Lite3 velocity configuration (official reward recipe)."""
+    return kit_velocity.make_env_cfg(BINDING, PROFILE, terrain_profile="rough", play=play)
 
-    all_joint_cfg = SceneEntityCfg("robot", joint_names=list(ALL_JOINTS), preserve_order=True)
-    hipx_cfg = SceneEntityCfg("robot", joint_names=list(JOINT_GROUPS["hipx"]), preserve_order=True)
-    hipy_cfg = SceneEntityCfg("robot", joint_names=list(JOINT_GROUPS["hipy"]), preserve_order=True)
-    knee_cfg = SceneEntityCfg("robot", joint_names=list(JOINT_GROUPS["knee"]), preserve_order=True)
-    foot_cfg = SceneEntityCfg("robot", body_names=FOOT_BODIES)
-    # Reward functions look up contact sensors through ContactSensorRef.
-    feet_sensor = lite3_mdp.ContactSensorRef("foot_contact", (0, 1, 2, 3))
-    non_foot_sensor = lite3_mdp.ContactSensorRef("full_contact", None)
-    non_foot_cfg = SceneEntityCfg("robot", body_names=[NON_FOOT_PATTERN])
 
-    ##
-    # Actions: position targets on all 12 joints
-    ##
-    cfg.actions["joint_pos"] = JointPositionActionCfg(
-        entity_name="robot",
-        actuator_names=r".*",
-        preserve_order=True,
-        scale={
-            "FL_HipX_joint": 0.125, "FR_HipX_joint": 0.125,
-            "HL_HipX_joint": 0.125, "HR_HipX_joint": 0.125,
-            "FL_HipY_joint": 0.25, "FR_HipY_joint": 0.25,
-            "HL_HipY_joint": 0.25, "HR_HipY_joint": 0.25,
-            "FL_Knee_joint": 0.25, "FR_Knee_joint": 0.25,
-            "HL_Knee_joint": 0.25, "HR_Knee_joint": 0.25,
-        },
-        use_default_offset=True,
-    )
-
-    ##
-    # Sensors: shank contact (air time) + full-body contact forces
-    ##
-    foot_contact = ContactSensorCfg(
-        name="foot_contact",
-        primary=ContactMatch(mode="body", pattern=FOOT_PATTERN, entity="robot"),
-        secondary=ContactMatch(mode="body", pattern="terrain"),
-        fields=("force",),
-        reduce="netforce",
-        num_slots=1,
-        track_air_time=True,
-    )
-    full_contact = ContactSensorCfg(
-        name="full_contact",
-        primary=ContactMatch(mode="body", pattern=r".*", entity="robot"),
-        secondary=ContactMatch(mode="body", pattern="terrain"),
-        fields=("force",),
-        reduce="netforce",
-        num_slots=1,
-    )
-    cfg.scene.sensors = (cfg.scene.sensors or ()) + (foot_contact, full_contact)
-
-    ##
-    # Terrain: random rough 0.4 + pyramid slopes 0.3/0.3 (boxes/stairs off)
-    ##
-    if cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
-        tg = cfg.scene.terrain.terrain_generator
-        tg.curriculum = True
-        tg.sub_terrains["random_rough"].proportion = 0.4
-        tg.sub_terrains["random_rough"].noise_range = (0.01, 0.06)
-        tg.sub_terrains["random_rough"].noise_step = 0.01
-        if "hf_pyramid_slope" in tg.sub_terrains:
-            tg.sub_terrains["hf_pyramid_slope"].proportion = 0.3
-        if "hf_pyramid_slope_inv" in tg.sub_terrains:
-            tg.sub_terrains["hf_pyramid_slope_inv"].proportion = 0.3
-        for key in ("boxes", "pyramid_stairs", "pyramid_stairs_inv"):
-            if key in tg.sub_terrains:
-                tg.sub_terrains[key].proportion = 0.0
-
-    ##
-    # Commands
-    ##
-    twist_cmd = cfg.commands["twist"]
-    assert isinstance(twist_cmd, UniformVelocityCommandCfg)
-    twist_cmd.heading_command = True
-    twist_cmd.resampling_time_range = (10.0, 10.0)
-    twist_cmd.ranges.lin_vel_x = (-1.5, 1.5)
-    twist_cmd.ranges.lin_vel_y = (-0.8, 0.8)
-    twist_cmd.ranges.ang_vel_z = (-0.8, 0.8)
-    twist_cmd.ranges.heading = (-3.14, 3.14)
-
-    ##
-    # Observations: 45-dim rl_sdk layout (no lin_vel, no height scan)
-    ##
-    for group_name in ("actor", "critic"):
-        cfg.observations[group_name].terms = {
-            "base_ang_vel": ObservationTermCfg(
-                func=envs_mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2) if group_name == "actor" else None
-            ),
-            "projected_gravity": ObservationTermCfg(
-                func=envs_mdp.projected_gravity,
-                noise=Unoise(n_min=-0.05, n_max=0.05) if group_name == "actor" else None,
-            ),
-            "command": ObservationTermCfg(func=envs_mdp.generated_commands, params={"command_name": "twist"}),
-            "joint_pos_rel": ObservationTermCfg(
-                func=envs_mdp.joint_pos_rel,
-                params={"asset_cfg": all_joint_cfg},
-                noise=Unoise(n_min=-0.01, n_max=0.01) if group_name == "actor" else None,
-            ),
-            "joint_vel_rel": ObservationTermCfg(
-                func=envs_mdp.joint_vel_rel,
-                params={"asset_cfg": all_joint_cfg},
-                noise=Unoise(n_min=-1.5, n_max=1.5) if group_name == "actor" else None,
-            ),
-            "actions": ObservationTermCfg(func=envs_mdp.last_action),
-        }
-
-    ##
-    # Events: Lite3 disables push / external force / COM randomization
-    ##
-    cfg.events.pop("push_robot", None)
-    cfg.events.pop("randomize_apply_external_force_torque", None)
-    cfg.events.pop("base_com", None)
-    if "randomize_actuator_gains" in cfg.events:
-        cfg.events["randomize_actuator_gains"].params["asset_cfg"].joint_names = list(ALL_JOINTS)
-
-    ##
-    # Rewards: official table
-    ##
-    cfg.rewards = {
-        # std 取上游 deep_rl 的 math.sqrt(0.5)（velocity_env_cfg.py:589-594）：此前写死的 0.425
-        # 在任何上游里都找不到出处（核更锐、奖励衰减更快），2026-09-24 移植核对按上游订正。
-        "track_lin_vel_xy_exp": RewardTermCfg(
-            func=velocity_mdp.track_linear_velocity, weight=4.0,
-            params={"command_name": "twist", "std": math.sqrt(0.5)},
-        ),
-        "track_ang_vel_z_exp": RewardTermCfg(
-            func=velocity_mdp.track_angular_velocity, weight=1.5,
-            params={"command_name": "twist", "std": math.sqrt(0.5)},
-        ),
-        "feet_air_time_lin_xy": RewardTermCfg(
-            func=lite3_mdp.feet_air_time_lin_xy_cmd,
-            weight=5.0,
-            params={"command_name": "twist", "threshold": 0.5, "sensor_cfg": feet_sensor},
-        ),
-        "feet_air_time_ang_z": RewardTermCfg(
-            func=lite3_mdp.feet_air_time_ang_z_cmd_lite3,
-            weight=5.0,
-            params={"command_name": "twist", "threshold": 0.5, "sensor_cfg": feet_sensor},
-        ),
-        "feet_gait": RewardTermCfg(
-            func=lite3_mdp.feet_gait,
-            weight=0.5,
-            params={
-                "command_name": "twist",
-                "std": 0.5,
-                "max_err": 0.5,
-                "velocity_threshold": 0.5,
-                "command_threshold": 0.1,
-                "sensor_cfg": feet_sensor,
-                "synced_feet_pair_names": [["FL_SHANK", "HR_SHANK"], ["FR_SHANK", "HL_SHANK"]],
-            },
-        ),
-        "phase_foot_trajectory_exp": RewardTermCfg(
-            func=lite3_mdp.phase_foot_trajectory_exp,
-            weight=2.0,
-            params={
-                "command_name": "twist",
-                "asset_cfg": foot_cfg,
-                "cycle_time": 0.425,
-                "phase_offsets": (0.0, 1.0, 1.0, 0.0),
-            },
-        ),
-        "feet_slide": RewardTermCfg(
-            func=lite3_mdp.feet_slide, weight=-0.05, params={"sensor_cfg": feet_sensor, "asset_cfg": foot_cfg}
-        ),
-        "foot_impact_velocity": RewardTermCfg(
-            func=lite3_mdp.foot_impact_velocity,
-            weight=-2.0,
-            params={"sensor_cfg": feet_sensor, "asset_cfg": foot_cfg},
-        ),
-        "stand_still": RewardTermCfg(
-            func=lite3_mdp.stand_still_joint_deviation_l1,
-            weight=-0.5,
-            params={"command_name": "twist", "command_threshold": 0.1, "asset_cfg": all_joint_cfg},
-        ),
-        "feet_contact_without_cmd": RewardTermCfg(
-            func=lite3_mdp.feet_contact_without_cmd,
-            weight=0.1,
-            params={"command_name": "twist", "sensor_cfg": feet_sensor},
-        ),
-        "contact_forces": RewardTermCfg(
-            func=lite3_mdp.contact_forces, weight=-0.1, params={"sensor_cfg": feet_sensor, "threshold": 100.0}
-        ),
-        "lin_vel_z_l2": RewardTermCfg(func=lite3_mdp.lin_vel_z_l2, weight=-20.0),
-        "ang_vel_xy_l2": RewardTermCfg(func=lite3_mdp.ang_vel_xy_l2, weight=-0.25),
-        "flat_orientation_l2": RewardTermCfg(func=lite3_mdp.flat_orientation_l2, weight=-20.0),
-        "base_height_l2": RewardTermCfg(
-            func=lite3_mdp.base_height_l2, weight=-50.0, params={"target_height": 0.55}
-        ),
-        "undesired_contacts": RewardTermCfg(
-            func=lite3_mdp.undesired_contacts,
-            weight=-0.5,
-            params={"sensor_cfg": non_foot_sensor, "threshold": 1.0},
-        ),
-        "joint_torques_l2": RewardTermCfg(
-            func=envs_mdp.joint_torques_l2, weight=-2.5e-4, params={"asset_cfg": all_joint_cfg}
-        ),
-        "joint_acc_l2": RewardTermCfg(
-            func=envs_mdp.joint_acc_l2, weight=-1e-8, params={"asset_cfg": all_joint_cfg}
-        ),
-        "joint_power": RewardTermCfg(
-            func=lite3_mdp.joint_power, weight=-8e-4, params={"asset_cfg": all_joint_cfg}
-        ),
-        "joint_pos_limits": RewardTermCfg(
-            func=envs_mdp.joint_pos_limits, weight=-5.0, params={"asset_cfg": all_joint_cfg}
-        ),
-        "joint_mirror": RewardTermCfg(
-            func=lite3_mdp.joint_mirror,
-            weight=-0.05,
-            params={
-                "asset_cfg": all_joint_cfg,
-                "mirror_joints": [
-                    ["FL_(HipX|HipY|Knee).*", "HR_(HipX|HipY|Knee).*"],
-                    ["FR_(HipX|HipY|Knee).*", "HL_(HipX|HipY|Knee).*"],
-                ],
-            },
-        ),
-        "hipx_joint_pos_penalty": RewardTermCfg(
-            func=lite3_mdp.joint_pos_penalty,
-            weight=-0.4,
-            params={
-                "command_name": "twist",
-                "asset_cfg": hipx_cfg,
-                "stand_still_scale": 5.0,
-                "velocity_threshold": 0.5,
-                "command_threshold": 0.1,
-            },
-        ),
-        "hipy_joint_pos_penalty": RewardTermCfg(
-            func=lite3_mdp.joint_pos_penalty,
-            weight=0.0,
-            params={
-                "command_name": "twist",
-                "asset_cfg": hipy_cfg,
-                "stand_still_scale": 5.0,
-                "velocity_threshold": 0.5,
-                "command_threshold": 0.1,
-            },
-        ),
-        "knee_joint_pos_penalty": RewardTermCfg(
-            func=lite3_mdp.joint_pos_penalty,
-            weight=-2.0,
-            params={
-                "command_name": "twist",
-                "asset_cfg": knee_cfg,
-                "stand_still_scale": 5.0,
-                "velocity_threshold": 0.5,
-                "command_threshold": 0.1,
-            },
-        ),
-    }
-
-    kit.set_viewer(cfg, body_name=_ROOT_BODY)
-
-    cfg.terminations.pop("illegal_contact", None)
-    cfg.curriculum.pop("command_vel", None)
-
-    if play:
-        kit.apply_play_postlude(cfg)
-    return cfg
+def make_lite3_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Flat-ground Lite3 velocity configuration."""
+    return kit_velocity.make_env_cfg(BINDING, PROFILE, terrain_profile="flat", play=play)
 
 
 def lite3_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """Lite3 flat-ground variant."""
-    cfg = lite3_rough_env_cfg(play=play)
-    kit.apply_flat_postlude(cfg)
-    return cfg
+    """Flat-ground Lite3 velocity configuration（profile 声明的 env 入口）。"""
+    return make_lite3_flat_env_cfg(play=play)
+
+
+def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Rough-terrain Lite3 velocity configuration."""
+    return make_lite3_rough_env_cfg(play=play)
 
 
 def lite3_runner_cfg():
-    """Official Lite3 PPO runner config (rl_training rsl_rl_ppo_cfg)."""
+    """Official Lite3 PPO runner config —— **委托** `kits/quadruped_kit.ppo_runner_cfg`。"""
     return kit.ppo_runner_cfg("lite3_velocity")

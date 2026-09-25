@@ -18,7 +18,7 @@ LEGS_ONLY = replace(FLAT, ..., legs_only=LegsOnlyRecipe(...))   # 纯腿档换�
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -181,3 +181,216 @@ class VelocityProfile:
     leg_motion_min_penalty_scale: float = 0.2
     # --- 纯腿变体专属数值（不给 = 该档不可用，配置工厂会判红） ----------------------
     legs_only: LegsOnlyRecipe | None = None
+
+
+# ------------------------------------------------------------------------------
+# 第三配方（竞赛）：阈值命令 + 延时低通动作 + 逐档奖励表
+#
+# 与 reference（config.py）/ 官方（official.py）两份配方的分野不是数值而是**结构**：
+# 动作项是"延时 + 一阶低通"的机型实现（技能层不 import 机型包，类随 profile 注入）、
+# 命令是带死区与地形自适应的阈值类（同样注入）、奖励表**逐档不同**（平地 16 项 /
+# 越障 25 项，两侧的跟踪核与惩罚核也不同）、观测里轮速单列一项、critic 多两组特权观测
+# （足接触 + 高度扫描）。故这里是一份独立的数据类，不与前两份混用。
+#
+# 边界同前：**只放数**（采样区间 / 噪声 / 权重 / 阈值 / 课程数值 / 机型 link 命名事实），
+# 装配结构（哪些奖励项、动作怎么切段、传感器怎么建）在 `competition.py`。
+# ------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CompetitionSimSpec:
+    """竞赛配方的 sim 档（两档各自的源配方字面值；`None` = 不写这一项）。"""
+
+    timestep: float
+    impratio: float
+    cone: str
+    contact_sensor_maxmatch: int | None = None
+    ccd_iterations: int | None = None
+
+
+@dataclass(frozen=True)
+class CompetitionActionSpec:
+    """延时 + 一阶低通的一个动作段：控制/截止频率与延时步数。
+
+    动作项**类**由 `CompetitionVelocityProfile.position_action_cls` /
+    `velocity_action_cls` 注入（机型自己的实现）—— 本数据类只描述数值。
+    """
+
+    control_frequency: float
+    cut_off_frequency: float
+    min_delay: int
+    max_delay: int
+
+
+@dataclass(frozen=True)
+class CompetitionObservationSpec:
+    """观测项的缩放与噪声（源配方 actor / critic 两组的字面值）。"""
+
+    base_ang_vel_scale: float
+    base_ang_vel_noise: float
+    projected_gravity_noise: float
+    joint_pos_noise: float
+    joint_vel_scale: float
+    joint_vel_noise: float
+    wheel_vel_scale: float
+    wheel_vel_noise: float
+    critic_base_lin_vel_scale: float
+    height_scan_clip: tuple[float, float]
+
+
+@dataclass(frozen=True)
+class CompetitionEventSpec:
+    """域随机化事件的采样区间（源配方两档各自的字面值）。
+
+    `reset_joints_position_range=None` = 该档不建 reset_joints 事件；两个 range 表
+    直接按轴给（源实现的字面表）。
+    """
+
+    reset_pose_range: Mapping[str, tuple[float, float]]
+    reset_velocity_range: Mapping[str, tuple[float, float]]
+    reset_joints_position_range: tuple[float, float] | None
+    push_interval_range_s: tuple[float, float]
+    push_velocity_range: Mapping[str, tuple[float, float]]
+    com_offset_range: tuple[float, float]
+    friction_range: tuple[float, float]
+    actuator_gain_scale_range: tuple[float, float]
+    base_mass_range: tuple[float, float]
+
+
+@dataclass(frozen=True)
+class CompetitionCommandSpec:
+    """阈值速度命令的数值（命令类由 `CompetitionVelocityProfile.command_cls` 注入）。"""
+
+    resampling_time_range: tuple[float, float]
+    heading_command: bool
+    heading_control_stiffness: float
+    rel_heading_envs: float
+    rel_standing_envs: float
+    rel_forward_envs: float
+    rel_lateral_envs: float
+    rel_yaw_envs: float
+    ranges: CommandRanges
+    heading_range: tuple[float, float]
+
+
+@dataclass(frozen=True)
+class CompetitionRewardSpec:
+    """竞赛配方的奖励数值（表结构与核在 `competition.py`，权重与阈值在这里）。
+
+    `weights` 的键集合**就是该档的奖励项集合**：结构里定义了但权重表没给的项，
+    该档不装配（源配方里就是"平地档没有越障项、越障档 pop 掉轮奖励"）。权重表里
+    出现而结构里没定义的键会判红（防静默写错名字）。
+    """
+
+    weights: Mapping[str, float]
+    # --- 跟踪 / 姿态 ---------------------------------------------------------
+    tracking_std: float
+    upright_std: float
+    base_height_target: float
+    #: 高度惩罚是否走高度扫描传感器（越障档 True / 平地档 False）。
+    base_height_uses_height_scan: bool
+    # --- 轮几何（轮滚跟踪奖励用；机型物理量） ---------------------------------
+    wheel_radius: float
+    wheel_track: float
+    wheel_roll_tracking_std: float
+    # --- 激活阈值 ------------------------------------------------------------
+    air_time_thresholds: tuple[float, float]
+    air_time_velocity_threshold: float
+    command_threshold: float
+    leg_motion_command_threshold: float
+    leg_motion_tilt_relax_start: float
+    leg_motion_tilt_relax_end: float
+    leg_motion_contact_target: float
+    leg_motion_min_penalty_scale: float
+    joint_pos_penalty_stand_still_scale: float
+    joint_pos_penalty_velocity_threshold: float
+    undesired_contacts_threshold: float
+    contact_forces_threshold: float
+    # --- 地形相关惩罚（地形名取族级竞赛课程的子地形） ---------------------------
+    drift_terrain_names: tuple[str, ...]
+    drift_y_scale: float
+    drift_yaw_scale: float
+    # --- 镜像关节对（对角 / 同侧由**腿序索引**给；关节模式由绑定派生） ----------
+    mirror_roles: tuple[str, ...]
+    mirror_leg_pairs: tuple[tuple[int, int], ...]
+    abduction_mirror_role: str
+    abduction_mirror_leg_pairs: tuple[tuple[int, int], ...]
+
+
+@dataclass(frozen=True)
+class CompetitionCommandLevel:
+    """自适应命令课程的一轴（x / y / yaw）：项名 + 注入类名 + 该轴数值。"""
+
+    term_name: str
+    func_name: str
+    axis: str
+    reward_term_name: str
+    initial_range: tuple[float, float]
+    delta_command: float
+    target_ratio: float
+    ema_alpha: float
+
+
+@dataclass(frozen=True)
+class CompetitionMetric:
+    """附加诊断指标：注入名称空间里的函数名 + 参数（指标不影响训练行为）。"""
+
+    func_name: str
+    params: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class CompetitionVelocityProfile:
+    """**竞赛**速度配方的源配方数据（一机型一档一份）。
+
+    与 `VelocityProfile` / `OfficialVelocityProfile` 互不混用：三份描述的是三份不同的
+    任务（动作接口 / 观测布局 / 命令口径 / 奖励表都不同），工厂按 `variant` 分流。
+
+    机型侧注入件（技能层不许 import 机型包，故随 profile 带入）：
+
+    * `command_cls` —— 阈值速度命令类（子类化 `UniformVelocityCommandCfg`）；
+    * `position_action_cls` / `velocity_action_cls` —— 延时 + 低通的动作项类；
+    * `terms` —— 该机型的 mdp 名称空间（奖励核 + 课程类 + 特权观测核）；
+    * `setup_hook` —— 装配前的机型侧全局开关（如 HIMLoco 式"总奖励裁剪到 ≥0"）。
+    """
+
+    # --- 任务装配（场景 / 仿真 / 时长） ----------------------------------------
+    init_base_height: float
+    num_envs: int
+    env_spacing: float
+    decimation: int
+    episode_length_s: float
+    seed: int | None
+    sim: CompetitionSimSpec
+    #: 过倾终止阈值（弧度）。
+    bad_orientation_limit_angle: float
+    # --- 地形（平地档 = 只含平地的地块生成器；越障档 = 族级竞赛课程） -------------
+    terrain_flat_tile_size: tuple[float, float]
+    terrain_flat_border_width: float
+    terrain_flat_num_rows: int
+    terrain_flat_num_cols: int
+    #: 族级竞赛课程的起始难度行。
+    terrain_max_init_terrain_level: int
+    # --- 命令 / 动作（类注入） --------------------------------------------------
+    command_cls: type
+    command: CompetitionCommandSpec
+    position_action_cls: type
+    velocity_action_cls: type
+    leg_action: CompetitionActionSpec
+    wheel_action: CompetitionActionSpec
+    # --- 观测 / 传感器 ---------------------------------------------------------
+    observations: CompetitionObservationSpec
+    height_scan_resolution: float
+    height_scan_size: tuple[float, float]
+    height_scan_max_distance: float
+    #: 机身碰撞监督的几何匹配（该机型 link 命名事实：腿杆各段，不含轮）。
+    body_collision_patterns: tuple[str, ...]
+    # --- 事件 / 奖励 -----------------------------------------------------------
+    events: CompetitionEventSpec
+    rewards: CompetitionRewardSpec
+    # --- 课程 / 指标（越障档附加；平地档为空） ----------------------------------
+    command_levels: tuple[CompetitionCommandLevel, ...] = ()
+    extra_metrics: tuple[tuple[str, CompetitionMetric], ...] = ()
+    # --- 机型侧注入件 ----------------------------------------------------------
+    terms: Any = None
+    setup_hook: Callable[[], None] | None = None

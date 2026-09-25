@@ -10,7 +10,7 @@
 * 根 body / 腿-轮关节选择器 / 姿态 std 表键：源写死 → 绑定 + profile 派生；
 * 全部数值（出生高、地形档、命令范围、轮几何、噪声、权重、课程分段）→ profile 数据。
 
-## 四个变体是**同一份实现**的具名分支
+## 四条变体是**同一份实现**的具名分支
 
 `variant` 只决定结构（地形生成器开不开、动作含不含轮、奖励表换不换、有没有低落终止），
 数值一律来自 profile：
@@ -21,6 +21,10 @@
 | `flat` | 平面 | 腿位置 + 轮速度 | 平惩罚（`leg_motion_penalty`） | 同上 |
 | `flat_legs_only` | 平面 | **仅**腿位置 | 无 | 轮速限幅/身高/站立 |
 | `flat_legs_only_omni` | 平面 | 仅腿位置 | 无 | 同 `flat_legs_only`（全向命令） |
+
+另两条配方各有自己的具名变体（分流在本模块的族级入口）：
+`official_rough` / `official_flat`（`official.py` 官方配方）与
+`competition_flat` / `competition_rough`（`competition.py` 竞赛配方）。
 """
 
 from __future__ import annotations
@@ -54,9 +58,16 @@ from ...mdp import (
     wheel_speed_limit_penalty,
 )
 from ..binding import WheelLegSkillBinding
+from .competition import VARIANTS as COMPETITION_VARIANTS
+from .competition import make_env_cfg as competition_make_env_cfg
 from .official import VARIANTS as OFFICIAL_VARIANTS
 from .official import make_env_cfg as official_make_env_cfg
-from .profile import LegsOnlyRecipe, OfficialVelocityProfile, VelocityProfile
+from .profile import (
+    CompetitionVelocityProfile,
+    LegsOnlyRecipe,
+    OfficialVelocityProfile,
+    VelocityProfile,
+)
 
 VARIANTS: tuple[str, ...] = (
     "rough",
@@ -399,22 +410,26 @@ def make_env_cfg(
 ) -> ManagerBasedRlEnvCfg:
     """装配族级 velocity 环境（族级入口：按 variant 分流到对应配方）。
 
-    两条配方共用绑定与族级不变量（动作接口序 = 契约 `action.joint_order`）：
+    三条配方共用绑定与族级不变量（动作接口序 = 契约 `action.joint_order`）：
 
     * reference 配方（本模块）：`rough` | `flat` | `flat_legs_only` | `flat_legs_only_omni`；
-    * 官方配方（`official.py`）：`official_rough` | `official_flat`。
+    * 官方配方（`official.py`）：`official_rough` | `official_flat`；
+    * 竞赛配方（`competition.py`）：`competition_flat` | `competition_rough`。
 
     Args:
         binding: 该机型的绑定（契约 + MJCF 派生；见 `skills/binding.py`）。
-        profile: 该机型该档的源配方数据（`velocity/profile.py` 的两种 profile）。
-        variant: 见上（reference 四变体 / 官方两变体）。
+        profile: 该机型该档的源配方数据（`velocity/profile.py` 的三种 profile）。
+        variant: 见上（reference 四变体 / 官方两变体 / 竞赛两变体）。
         play: 播放口径（无限时长、关噪声、去推扰）。
     """
     if variant in OFFICIAL_VARIANTS:
         return official_make_env_cfg(binding, profile, variant=variant, play=play)
+    if variant in COMPETITION_VARIANTS:
+        return competition_make_env_cfg(binding, profile, variant=variant, play=play)
     if variant not in VARIANTS:
         raise ValueError(
-            f"未知变体 {variant!r}（reference 只认 {VARIANTS}，官方只认 {OFFICIAL_VARIANTS}）"
+            f"未知变体 {variant!r}（reference 只认 {VARIANTS}，官方只认 {OFFICIAL_VARIANTS}，"
+            f"竞赛只认 {COMPETITION_VARIANTS}）"
         )
     if not isinstance(binding, WheelLegSkillBinding):
         raise TypeError(f"binding 必须是 WheelLegSkillBinding，收到 {type(binding).__name__}")

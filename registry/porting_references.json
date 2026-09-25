@@ -1,7 +1,7 @@
 {
   "schema": "porting-references-1.0",
   "generated_at": "2026-09-24",
-  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。 **补充（2026-09-25 第三段）**：族级 velocity 上移到四足 go1/b2 与轮足 m20/b2w 后，**动作维解析序**又改了三台（go1/b2/b2w；m20 的解析序本就与契约一致）——详见各档案 F14。核对动作序要看运行期 `env.action_manager.get_term(<名>).target_ids`，字面序（`actuator_names`）只是意图。",
+  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。 **补充（2026-09-25 第三段）**：族级 velocity 上移到四足 go1/b2 与轮足 m20/b2w 后，**动作维解析序**又改了三台（go1/b2/b2w；m20 的解析序本就与契约一致）——详见各档案 F14。核对动作序要看运行期 `env.action_manager.get_term(<名>).target_ids`，字面序（`actuator_names`）只是意图。 **补充（2026-09-25 第四段）**：速度跟踪的族级化已覆盖 **8/8 台**（四足 go2/go1/b2/lite3、轮足 go2w/b2w/m20/zex-w）。动作维解析序被修正的是**四台**（go2w/go1/b2/b2w，见各档案 F12/F14）；go2、lite3、m20 本就一致（go2 在 F 段第一次上移时运行期对拍 0 差异，lite3 见 F19）。",
   "entries": [
     {
       "profile_id": "go2-trot",
@@ -553,7 +553,8 @@
         ]
       },
       "gaps": [
-        "已修 F10（跟踪核 std）：port 写死的 0.425 在任何上游都无出处，已按上游 deep_rl 的 math.sqrt(0.5)（velocity_env_cfg.py:589-594）订正两个跟踪项；其余数值（4.0/1.5、hipx -0.4/hipy -0.0/knee -2.0、动作缩放、命令域）本就与上游一致。档案冒烟复跑通过"
+        "已修 F10（跟踪核 std）：port 写死的 0.425 在任何上游都无出处，已按上游 deep_rl 的 math.sqrt(0.5)（velocity_env_cfg.py:589-594）订正两个跟踪项；其余数值（4.0/1.5、hipx -0.4/hipy -0.0/knee -2.0、动作缩放、命令域）本就与上游一致。档案冒烟复跑通过",
+        "F19（同轮）：**纯上移，无行为变更** —— 运行期解析对拍 **0 差异**；动作维解析序本来就等于契约 `action.joint_order`（lite3 的 MJCF 执行器序与契约同序），无需登记动作序变更（与 go1/b2/b2w/go2w 那四台不同）。"
       ]
     },
     {
@@ -744,7 +745,11 @@
         "evidence": [
           "robot/config/env_cfgs.py:384-393；mdp/rewards.py diff=0；rl_cfg.py:40-53"
         ]
-      }
+      },
+      "gaps": [
+        "F18（2026-09-25，族级 velocity 上移时实测）：**纯上移，无行为变更**。运行期解析对拍 10 项差异全部是同一件事——腿执行器从「一条组覆盖 12 关节」拆成「按角色三组（hip_abduction / hip_pitch / knee）」，轮组不变；逐关节参数（stiffness 50 / damping 1.5 / effort 17 / armature）取集合口径比对 **0 差异**（`armature: None → 0.0042` 是显式化，MJCF 每个关节本就声明 0.0042 ⇒ 等价）。动作序、观测、奖励、传感器、命令全部 0 差异。",
+        "F20（同轮，族层口径修正）：轮足族的**角色别名命中口径**改为按 token 段对齐 + 最长别名优先（`skills/family.py::_alias_hits_joint` / `role_of_joint`）：zex-w 的关节叫 `fl_hip_pitch_joint`，旧口径只看得见 `hip`，把**髋俯仰**判成了**髋外展**。已核对：该口径对 go2w / b2w / m20 的命名（hip / thigh / calf / hipx / hipy）与旧口径逐名同解（四台冒烟 + 运行期对拍均无差异）。"
+      ]
     },
     {
       "profile_id": "zex-w-rough",
@@ -766,7 +771,9 @@
         ]
       },
       "gaps": [
-        "课程注释 0.33×30s 与实际 20s 档不符（与上游同款）——刻意不改：该文件与上游 curriculums.py 逐字节相同是忠实搬运的证据，改注释会破坏逐字节等价；若需说明请在 Kit 模块头另加"
+        "课程注释 0.33×30s 与实际 20s 档不符（与上游同款）——刻意不改：该文件与上游 curriculums.py 逐字节相同是忠实搬运的证据，改注释会破坏逐字节等价；若需说明请在 Kit 模块头另加",
+        "F18（2026-09-25，族级 velocity 上移时实测）：**纯上移，无行为变更**。运行期解析对拍 10 项差异全部是同一件事——腿执行器从「一条组覆盖 12 关节」拆成「按角色三组（hip_abduction / hip_pitch / knee）」，轮组不变；逐关节参数（stiffness 50 / damping 1.5 / effort 17 / armature）取集合口径比对 **0 差异**（`armature: None → 0.0042` 是显式化，MJCF 每个关节本就声明 0.0042 ⇒ 等价）。动作序、观测、奖励、传感器、命令全部 0 差异。",
+        "F20（同轮，族层口径修正）：轮足族的**角色别名命中口径**改为按 token 段对齐 + 最长别名优先（`skills/family.py::_alias_hits_joint` / `role_of_joint`）：zex-w 的关节叫 `fl_hip_pitch_joint`，旧口径只看得见 `hip`，把**髋俯仰**判成了**髋外展**。已核对：该口径对 go2w / b2w / m20 的命名（hip / thigh / calf / hipx / hipy）与旧口径逐名同解（四台冒烟 + 运行期对拍均无差异）。"
       ]
     },
     {

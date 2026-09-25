@@ -86,14 +86,48 @@ def joint_tokens(joint_name: str) -> tuple[str, ...]:
     return tuple(part.lower() for part in str(joint_name).replace("-", "_").split("_") if part)
 
 
+def _alias_hits_joint(alias: str, joint_name: str) -> bool:
+    """别名是否命中关节名：按**token 段**对齐，不是任意子串。
+
+    * 单 token 别名（`hip`）＝ 该 token 出现在关节名里；
+    * 多 token 别名（`hip_pitch` / `hip_abduction`）＝ 这些 token 在关节名里**连续**出现
+      （`fl_hip_pitch_joint` 命中；`fl_hip_pitch_link_joint` 不命中）。
+
+    族声明里 `hip_abduction` / `hip_pitch` 这类"角色全名"别名只有在按 token 段对齐时
+    才有意义 —— 关节名是按 `_` 分词的，全名永远不是单个 token（2026-09-25 zex-w 上移
+    实况：zex-w 的关节就叫 `fl_hip_pitch_joint`，旧口径只能看见 `hip`，把髋俯仰关节
+    判成了髋外展）。该口径对 go2w / b2w / m20 的命名（hip / thigh / calf / hipx / hipy）
+    与旧口径逐名同解。
+    """
+    alias_tokens = joint_tokens(alias)
+    if not alias_tokens:
+        return False
+    tokens = joint_tokens(joint_name)
+    width = len(alias_tokens)
+    return any(
+        tuple(tokens[index : index + width]) == alias_tokens
+        for index in range(len(tokens) - width + 1)
+    )
+
+
 def role_of_joint(joint_name: str, family_id: str = DEFAULT_FAMILY_ID) -> str | None:
-    """按族别名把关节名映射回族角色；映射不到返回 None（调用方决定是否判红）。"""
-    tokens = set(joint_tokens(joint_name))
+    """按族别名把关节名映射回族角色；映射不到返回 None（调用方决定是否判红）。
+
+    命中口径见 `_alias_hits_joint`；多个角色都命中时**最长的别名优先**：
+    `fl_hip_pitch_joint` 同时含 `hip`（髋外展的别名）与 `hip_pitch`（髋俯仰的别名），
+    按最长优先判给髋俯仰 —— 按短别名先到先得会把髋俯仰关节判成髋外展（族内"关节名含
+    角色全名"的机型会中招，而别名表里本来就登记了这两个全名）。
+    """
+    best_role: str | None = None
+    best_width = 0
     for role, names in role_aliases(family_id).items():
-        # 完全相等的别名（`knee` ↔ "knee"）与 token 相交（`hip` ∈ FL_hip_joint）都算命中。
-        if any(name in tokens for name in names):
-            return role
-    return None
+        for name in names:
+            width = len(joint_tokens(name))
+            if width < best_width or width == 0:
+                continue
+            if _alias_hits_joint(name, joint_name) and width > best_width:
+                best_role, best_width = role, width
+    return best_role
 
 
 def joint_indices_by_role(
@@ -105,16 +139,18 @@ def joint_indices_by_role(
 
     与"每 4 个取 1 个"这种位置假设不同：**位置假设会随腿/角色数变化而错位**，
     而按名字 + 族别名选是声明驱动的 —— 换机型、换角色词表都不用改技能层。
+
+    判据是**解析出来的角色**等于请求的角色（`role_of_joint` 的同一份口径，含"最长别名
+    优先"消歧）—— 只看"某别名命中"会把同时含短别名的关节重复挑进两个角色
+    （`fl_hip_pitch_joint` 含 `hip`，会同时落进髋外展与髋俯仰）。
     """
-    names = role_aliases(family_id).get(role)
-    if names is None:
+    if role not in role_aliases(family_id):
         raise KeyError(f"族 {family_id} 未声明角色 {role}")
-    picked = []
-    for index, joint in enumerate(joint_order):
-        tokens = set(joint_tokens(joint))
-        if any(name in tokens for name in names):
-            picked.append(index)
-    return tuple(picked)
+    return tuple(
+        index
+        for index, joint in enumerate(joint_order)
+        if role_of_joint(joint, family_id) == role
+    )
 
 
 def leg_of_joint(joint_name: str, leg_ids: tuple[str, ...] | list[str]) -> str | None:

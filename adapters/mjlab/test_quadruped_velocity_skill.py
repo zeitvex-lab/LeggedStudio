@@ -289,6 +289,14 @@ _ROBOT_CASES = {
             "flat": "b2-velocity",
         },
     },
+    "deeprobotics_lite3": {
+        "package": ROOT / "assets" / "robots" / "deeprobotics_lite3",
+        "root_package": None,
+        "source_dir": "training/source",
+        "profiles": {
+            "flat": "lite3-velocity",
+        },
+    },
 }
 
 
@@ -394,6 +402,58 @@ class _RobotVelocityMixin:
                 for joint in order:
                     self.assertIsInstance(_resolve_scale(term.scale, joint), float)
 
+    def test_every_derived_pattern_resolves_against_the_compiled_mjcf(self):
+        """建出的 cfg 里每一个派生模式都必须命中真实编译 MJCF 的 ≥1 个名字。
+
+        模式空匹配是经典静默失效（传感器/帧全空也不报错，训练照跑、奖励恒零）；
+        这条对**每台已接机型逐档**核，`lite3` 的 body 帧口径也走同一判据。
+        """
+        model = self._model()
+        geoms = {model.geom(i).name for i in range(model.ngeom) if model.geom(i).name}
+        sites = {model.site(i).name for i in range(model.nsite) if model.site(i).name}
+        bodies = {model.body(i).name for i in range(model.nbody) if model.body(i).name}
+        for variant, factory in self.env_factories.items():
+            cfg = factory()
+            for sensor in cfg.scene.sensors or ():
+                with self.subTest(variant=variant, sensor=sensor.name):
+                    self._assert_sensor_targets_resolve(sensor, geoms, sites, bodies)
+
+    def _assert_sensor_targets_resolve(self, sensor, geoms, sites, bodies) -> None:
+        from mjlab.sensor import (
+            ContactSensorCfg,
+            RayCastSensorCfg,
+            TerrainHeightSensorCfg,
+        )
+
+        if isinstance(sensor, ContactSensorCfg):
+            match = sensor.primary
+            pool = {"geom": geoms, "body": bodies, "subtree": bodies}[match.mode]
+            patterns = (
+                (match.pattern,) if isinstance(match.pattern, str) else tuple(match.pattern)
+            )
+            if not patterns:
+                return  # 空模式 = 基座"按名不配"的占位（`foot_friction` 那类），跳过
+            excluded = set(match.exclude or ())
+            hits = [
+                name
+                for name in pool
+                if name not in excluded
+                and any(re.fullmatch(pattern, name) for pattern in patterns)
+            ]
+            self.assertGreaterEqual(
+                len(hits), 1, f"传感器 {sensor.name} 的主模式 {patterns} 空匹配"
+            )
+        elif isinstance(sensor, TerrainHeightSensorCfg):
+            frames = sensor.frame if isinstance(sensor.frame, tuple) else (sensor.frame,)
+            self.assertTrue(frames, f"{sensor.name} 没有足端帧")
+            for frame in frames:
+                pool = sites if frame.type == "site" else bodies
+                self.assertIn(
+                    frame.name, pool, f"{sensor.name} 的 {frame.type} 帧 {frame.name!r} 不在 MJCF 里"
+                )
+        elif isinstance(sensor, RayCastSensorCfg):
+            self.assertIn(sensor.frame.name, bodies, f"{sensor.name} 的帧不在 MJCF 里")
+
     def test_runtime_action_order_and_reset_step(self):
         import torch
         from mjlab.envs import ManagerBasedRlEnv
@@ -445,6 +505,77 @@ class Go1VelocityRobotTests(_RobotVelocityMixin, unittest.TestCase):
             terms = cfg.observations[group].terms
             for name in ("foot_height", "foot_air_time", "foot_contact"):
                 self.assertNotIn(name, terms)
+
+
+class Lite3VelocityRobotTests(_RobotVelocityMixin, unittest.TestCase):
+    """lite3：无足端 **site**、足端是 `<LR>_FOOT` **body**（body 帧口径的回归锁）。"""
+
+    ROBOT_ID = "deeprobotics_lite3"
+    SPEC_FACTORY = ("lite3_velocity.binding", "LITE3_VELOCITY")
+
+    def test_foot_scan_uses_body_frames_and_flat_keeps_the_terrain_scan(self):
+        """能力判据：无足端 site（取即报错）但足端 body 齐 ⇒ 扫描帧回退 body。
+
+        另锁 flat 档口径：源配方**保留** `terrain_scan` 传感器、45 维 rl_sdk 观测里
+        没有 `height_scan` 项（族级默认撤 sensor/obs，本档案靠 profile 两项开关关掉）。
+        """
+        self.assertFalse(self.binding.has_foot_sites())
+        with self.assertRaises(RuntimeError):
+            self.binding.foot_sites()
+        model = self._model()
+        bodies = {model.body(i).name for i in range(model.nbody) if model.body(i).name}
+        scan_bodies = [f"{leg}_FOOT" for leg in self.binding.leg_ids]
+        self.assertEqual(
+            tuple(("body", name) for name in scan_bodies), self.binding.foot_scan_frames()
+        )
+        for name in scan_bodies:
+            self.assertIn(name, bodies, f"足端 body {name} 不在 MJCF 里")
+
+        cfg = self.env_factories["flat"]()
+        sensors = {sensor.name: sensor for sensor in cfg.scene.sensors}
+        self.assertEqual(
+            ["terrain_scan", "foot_height_scan", "foot_contact", "full_contact"],
+            [sensor.name for sensor in cfg.scene.sensors],
+        )
+        scan = sensors["foot_height_scan"]
+        self.assertEqual(
+            tuple(scan_bodies), tuple(frame.name for frame in scan.frame)
+        )
+        self.assertEqual("body", scan.frame[0].type)
+        self.assertIn("terrain_scan", sensors)  # flat 档不撤（源配方）
+        for group in ("actor", "critic"):
+            self.assertNotIn("height_scan", cfg.observations[group].terms)
+        # 接触表：足端接触面是 shank body（不是足端几何），全身接触带全部 body
+        self.assertEqual(".*_SHANK", sensors["foot_contact"].primary.pattern)
+        self.assertEqual("body", sensors["foot_contact"].primary.mode)
+        self.assertEqual(".*", sensors["full_contact"].primary.pattern)
+
+    def test_runtime_foot_bodies_and_reward_ids_resolve(self):
+        """真环境里：足端 body 帧/接触面/奖励 body ids 全部解析到真实实体上。"""
+        import torch
+        from mjlab.envs import ManagerBasedRlEnv
+
+        cfg = self.env_factories["flat"]()
+        cfg.scene.num_envs = 1
+        env = ManagerBasedRlEnv(cfg, device="cpu")
+        try:
+            env.reset()
+            robot = env.scene["robot"]
+            for name in (f"{leg}_FOOT" for leg in self.binding.leg_ids):
+                self.assertIn(name, robot.body_names)
+            resolved = env.reward_manager.get_term_cfg("phase_foot_trajectory_exp")
+            foot_ids = resolved.params["asset_cfg"].body_ids
+            self.assertEqual(len(self.binding.leg_ids), len(foot_ids))
+            for body_id in foot_ids:
+                self.assertIn("_SHANK", robot.body_names[int(body_id)])
+            action = torch.full(
+                (env.num_envs, env.action_manager.total_action_dim), 0.1, device=env.device
+            )
+            obs, reward, terminated, truncated, _ = env.step(action)
+            self.assertTrue(torch.isfinite(reward).all())
+            self.assertTrue(torch.isfinite(obs["actor"]).all())
+        finally:
+            env.close()
 
 
 # --- 第二个绑定：合成机型（换腿名/腿序/根 body 名），Kit 代码零改动 -----------------

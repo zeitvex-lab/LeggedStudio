@@ -16,14 +16,17 @@
   "role_aliases": {
     "hip_abduction": [
       "hip",
-      "hipx"
+      "hipx",
+      "hip_abduction"
     ],
     "hip_pitch": [
       "thigh",
-      "hipy"
+      "hipy",
+      "hip_pitch"
     ],
     "knee": [
-      "calf"
+      "calf",
+      "knee"
     ]
   },
   "control_hz": 50,
