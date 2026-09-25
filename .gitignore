@@ -102,3 +102,6 @@ native_worker_output/
 # 被上面的通用 `runtime/` 规则误伤 ⇒ 显式重新包含（否定规则必须写在被否定规则之后）。
 !00_resources/Learn-It-All-deployment-sim2real/dog_feetch/runtime/
 !00_resources/Learn-It-All-deployment-sim2real/dog_feetch/runtime/**
+
+# IDE / 工具元数据（Qoder 会话与知识缓存，不进仓库）
+/.qoder/

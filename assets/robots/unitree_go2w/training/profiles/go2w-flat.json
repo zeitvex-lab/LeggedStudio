@@ -43,7 +43,7 @@
     "num_learning_epochs": 5,
     "num_mini_batches": 4,
     "num_steps_per_env": 24,
-    "max_iterations": 10000,
+    "max_iterations": 10001,
     "save_interval": 1000
   },
   "sort_order": 10

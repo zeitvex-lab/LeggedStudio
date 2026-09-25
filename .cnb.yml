@@ -234,6 +234,11 @@ syntax-check: &syntax-check
       python tools/audit_families.py
       # 地形档：声明（哪些族可用）vs 事实（能不能真装配出地形实体）
       python tools/audit_terrain_profiles.py
+      # 族 MJCF 约定：规范化后逐台核对（执行器归属 / 根 body 命名 / margin 政策 / 无名传感器，
+      # 偏离必须登记在族声明的 mjcf_deviations）
+      python tools/audit_family_mjcf.py --check
+      # 逐档案上游参考对照与移植核对结论（参考仓必须在 00_resources 下；疑点必须带处置）
+      python tools/audit_porting_references.py
       # v2 契约（create 校验链与预设记录的输入）观测段 == v3 投影
       python tools/sync_legacy_observation.py
       # 技能上移等价性取证工具的自检（归一有效 / 真差异必抓 / 同值不误报；不碰训练栈）

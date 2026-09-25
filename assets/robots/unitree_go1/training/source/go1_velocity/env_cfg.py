@@ -7,8 +7,11 @@ mjlab's shared velocity base, adapted from HIMLoco ``legged_gym/envs/go1``
 - Policy observation (history_length=5): command(3) + projected_gravity(3)
   + base_ang_vel(3) + joint_pos(12) + joint_vel(12) + last_action(12).
 - Command ranges: lin_vel_x +-1.0, lin_vel_y +-1.0, ang_vel_z +-3.14 (heading).
-- Rewards (source Go1RoughCfg.rewards.scales): tracking_lin 1.0,
-  tracking_ang 0.5, ang_vel_xy -0.05, action_rate -0.01, foot_clearance -0.5.
+- Rewards（与 `_configure_rewards` 的实际取值一致；2026-09-24 订正过陈旧描述）：
+  tracking_lin 1.0、tracking_ang 0.5、ang_vel_xy -0.05、action_rate -0.01、
+  dof_pos_limits -2.0、air_time 0.0；**足端类项（foot_clearance / foot_swing_height /
+  soft_landing / foot_slip）整项撤销**——go1 没有专用足端 site（足端就是 calf 体），
+  依赖足端扫描的项无法成立（上游 Go1RoughCfg 的 foot_clearance 权重实为 -0.01）。
 - Terminations: non-foot body contact, bad orientation (70 deg), timeout.
 """
 
