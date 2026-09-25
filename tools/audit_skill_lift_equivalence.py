@@ -107,16 +107,18 @@ def _canon(module: str) -> str:
         .replace("SKILL.jump.rewards", "SKILL.rewards.jump")
     )
     text = text.replace("SKILL.upstream.rl", "SKILL.mdp.rl").replace("SKILL.shared.", "SKILL.mdp.")
-    # backflip（特技）上移：`backflip/mdp/*` 三个模块摊平到 `skills/backflip/*`
-    # （命令/观测/奖励各自成模块，与 trot/jump 的 `mdp/` 层级不同，故单独归一）。
-    for mod in ("commands", "observations", "rewards", "events", "terminations"):
-        text = text.replace(f"SKILL.backflip.mdp.{mod}", f"SKILL.backflip.{mod}")
-    text = text.replace("SKILL.backflip.mdp.", "SKILL.backflip.")
-    # backflip 的摩擦分桶核改用族级共享实现（同一函数，原先在包内 backflip/mdp/events.py）
-    text = text.replace(
-        "SKILL.backflip.events:source_friction_buckets",
-        "SKILL.mdp.events:source_friction_buckets",
-    )
+    # 特技上移：`<技能>/mdp/*` 摊平到 `skills/<技能>/*`（命令/观测/奖励各自成模块，
+    # 与 trot/jump 的 `mdp/` 层级不同，故逐技能归一）。
+    for skill in ("backflip", "spring_jump"):
+        for mod in ("commands", "observations", "rewards", "events", "terminations", "symmetry"):
+            text = text.replace(f"SKILL.{skill}.mdp.{mod}", f"SKILL.{skill}.{mod}")
+        text = text.replace(f"SKILL.{skill}.mdp.", f"SKILL.{skill}.")
+    # 特技的摩擦分桶核改用族级共享实现（同一函数，原先在包内 <技能>/mdp/events.py）
+    for skill in ("backflip", "spring_jump"):
+        text = text.replace(
+            f"SKILL.{skill}.events:source_friction_buckets",
+            "SKILL.mdp.events:source_friction_buckets",
+        )
     for skill in ("trot", "jump"):
         for mod in ("observations", "commands", "curriculums", "events"):
             text = text.replace(f"SKILL.{skill}.mdp.{mod}", f"SKILL.mdp.{mod}")
