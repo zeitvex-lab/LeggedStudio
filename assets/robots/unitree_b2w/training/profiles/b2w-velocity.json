@@ -16,5 +16,5 @@
   "num_envs": 4096,
   "episode_length_s": 20.0,
   "sort_order": 10,
-  "notes": "训练任务 b2w_velocity（由 go2w_velocity 模式移植：12 腿位置 + 4 轮速度），常量已按 B2-W 质量与电机参数（hip/thigh 200、calf 300、wheel 20）实例化。"
+  "notes": "训练任务 b2w_velocity（由 go2w_velocity 模式移植：12 腿位置 + 4 轮速度），常量已按 B2-W 质量与电机参数（hip/thigh 200、calf 320、wheel 20）实例化（calf 力矩上限以 MJCF 与契约为准，早期写的 300 是 go2w 移植残留）。"
 }

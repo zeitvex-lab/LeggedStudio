@@ -1,6 +1,6 @@
 {
   "schema": "family-mjcf-1.0",
-  "generated_at": "2026-09-24",
+  "generated_at": "2026-09-25",
   "note": "族内 MJCF **规范化后**的实测摘要（规范化 = adapters/mjlab/spec_utils.normalize_spec）。口径类偏离登记在 registry/families/*.json 的 mjcf_deviations；结构事实类只登记不抹平。",
   "results": [
     {

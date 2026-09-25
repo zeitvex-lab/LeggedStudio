@@ -21,6 +21,7 @@ stub（entrypoint 符号仍在原模块原符号名，静态解析与运行时�
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
@@ -197,11 +198,15 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     # Rewards: official table
     ##
     cfg.rewards = {
+        # std 取上游 deep_rl 的 math.sqrt(0.5)（velocity_env_cfg.py:589-594）：此前写死的 0.425
+        # 在任何上游里都找不到出处（核更锐、奖励衰减更快），2026-09-24 移植核对按上游订正。
         "track_lin_vel_xy_exp": RewardTermCfg(
-            func=velocity_mdp.track_linear_velocity, weight=4.0, params={"command_name": "twist", "std": 0.425}
+            func=velocity_mdp.track_linear_velocity, weight=4.0,
+            params={"command_name": "twist", "std": math.sqrt(0.5)},
         ),
         "track_ang_vel_z_exp": RewardTermCfg(
-            func=velocity_mdp.track_angular_velocity, weight=1.5, params={"command_name": "twist", "std": 0.425}
+            func=velocity_mdp.track_angular_velocity, weight=1.5,
+            params={"command_name": "twist", "std": math.sqrt(0.5)},
         ),
         "feet_air_time_lin_xy": RewardTermCfg(
             func=lite3_mdp.feet_air_time_lin_xy_cmd,

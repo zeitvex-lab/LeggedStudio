@@ -15,10 +15,13 @@ field-verified on the physical M20:
 
 Known deviations from the source (documented inline): the
 ``only_positive_rewards`` step-sum clip is not reproduced (mjlab 1.6's
-RewardManager has no per-step sum hook), restitution DR is PhysX-only and
-is dropped, the command-latency DR uses 50 Hz control steps (0-20 ms) instead
-of 200 Hz sim steps (0-15 ms), and joint slots follow the package contract
-order (12 legs then 4 wheels) rather than the IsaacGym per-leg interleave.
+RewardManager has no per-step sum hook), the source's **terminal penalty**
+(−0.8, applied on non-timeout termination *after* that clip; 源
+``Dreamwaq/legged_gym/envs/M20/m20_config.py:138`` + ``m20.py:192-198``) is
+likewise not landed, restitution DR is PhysX-only and is dropped, the
+command-latency DR uses 50 Hz control steps (0-20 ms) instead of 200 Hz sim
+steps (0-15 ms), and joint slots follow the package contract order (12 legs
+then 4 wheels) rather than the IsaacGym per-leg interleave.
 """
 
 from copy import deepcopy
@@ -136,7 +139,10 @@ def _events(cfg: ManagerBasedRlEnvCfg) -> None:
       func=envs_mdp.reset_root_state_uniform,
       mode="reset",
       params={
-        "pose_range": {"x": (-1.0, 1.0), "y": (-1.0, 1.0)},
+        # 上游在每次 reset 时把 base 的 xy 撒在中心 ±0.5 m 内
+        # （Dreamwaq/legged_gym/envs/M20/m20.py:409 注释即 "xy position within 1m of the center"）；
+        # 移植曾写 ±1.0（2 m 跨度、未注释），2026-09-24 移植核对按上游订正。
+        "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)},
         "velocity_range": {
           "x": (-0.5, 0.5),
           "y": (-0.5, 0.5),
