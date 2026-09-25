@@ -211,6 +211,7 @@ def apply_play_postlude(
     *,
     drop_push_event: bool = False,
     add_randomize_terrain: bool = False,
+    showroom_terrain: bool = True,
 ) -> None:
     """play 变体收尾（评估态：无限长 episode、关噪声、平地形展厅）。
 
@@ -218,6 +219,8 @@ def apply_play_postlude(
     拉满、actor 噪声关闭、curriculum 清空、地形 5×5 + 10 m 边界并关 curriculum。
     差异参数化：b2 的 play 还会撤 push 事件并补 ``randomize_terrain``（展厅重建
     地形），lite3 不做 —— 用两个开关表达，默认（False/False）即 lite3 行为。
+    ``showroom_terrain=False`` 保留调用方自己的地形生成器设置（不换成 5×5 展厅、
+    不动 curriculum 开关）；默认 True = lite3 / b2 / 族级默认行为。
     """
     cfg.episode_length_s = int(1e9)
     cfg.observations["actor"].enable_corruption = False
@@ -230,7 +233,7 @@ def apply_play_postlude(
             params={},
         )
     cfg.curriculum = {}
-    if cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
+    if showroom_terrain and cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
         terrain = cfg.scene.terrain.terrain_generator
         terrain.curriculum = False
         terrain.num_cols = 5
@@ -243,15 +246,18 @@ def apply_flat_postlude(
     *,
     drop_terrain_scan_sensor: bool = False,
     drop_height_scan_obs: bool = False,
+    njmax: int | None = 300,
 ) -> None:
     """flat 变体收尾（平地 + 轻 sim 上限 + 撤地形课程）。
 
     来源：lite3 env_cfg.py L390-398 / b2 env_cfg.py L154-167（共同八项逐字相同）。
     差异参数化：b2 还要从场景撤 ``terrain_scan`` 传感器并从 actor/critic 观测撤
     ``height_scan``（其基座观测含高度扫描；lite3 的 45 维 rl_sdk 观测本就无此项、
-    传感器保留），默认 False 即 lite3 行为。
+    传感器保留），默认 False 即 lite3 行为。``njmax=None`` 保留基座默认（go1 源配方
+    没设这一项；b2 / lite3 是 300）。
     """
-    cfg.sim.njmax = 300
+    if njmax is not None:
+        cfg.sim.njmax = njmax
     cfg.sim.mujoco.ccd_iterations = 50
     cfg.sim.contact_sensor_maxmatch = 64
     cfg.sim.nconmax = None

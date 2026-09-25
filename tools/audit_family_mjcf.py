@@ -160,16 +160,22 @@ def _actuator_domains(xml_path: Path) -> list[str]:
 
 
 def _actuator_binding(package: Path) -> str:
-    """实测执行器声明归属（**文本级**，认两种写法，与 `audit_*` 家族同口径）。
+    """实测执行器声明归属（**文本级**，认三种写法，与 `audit_*` 家族同口径）。
 
-    `mjcf_wrapped` = 包内直接构造 `XmlActuatorCfg(...)`，或调族 Kit 的
-    `position_actuator_trio(...)`（该工厂返回的就是 `XmlActuatorCfg` 组）；
+    `mjcf_wrapped` = 包内直接构造 `XmlActuatorCfg(...)`、调族 Kit 的
+    `position_actuator_trio(...)`（该工厂返回的就是 `XmlActuatorCfg` 组），
+    或把该事实**声明**给族 Kit（`from_contract(..., actuator_binding="mjcf_wrapped")`，
+    轮足 Kit 的按角色执行器组据此走 XmlActuatorCfg 包装）；
     `cfg_declared` = 都没有（执行器由 cfg 的 builtin 组声明，MJCF 那份要撤）。
     实体级对账（真建出来看执行器类）在 `adapters/mjlab/test_package_entity_build.py`。
     """
 
     source = package / "training" / "source"
-    patterns = (re.compile(r"\bXmlActuatorCfg\s*\("), re.compile(r"\bposition_actuator_trio\s*\("))
+    patterns = (
+        re.compile(r"\bXmlActuatorCfg\s*\("),
+        re.compile(r"\bposition_actuator_trio\s*\("),
+        re.compile(r"actuator_binding\s*=\s*[\"']mjcf_wrapped[\"']"),
+    )
     for path in sorted(source.rglob("*.py")):
         if "__pycache__" in path.parts:
             continue

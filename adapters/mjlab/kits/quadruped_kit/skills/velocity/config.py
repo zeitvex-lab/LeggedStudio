@@ -83,7 +83,19 @@ def _repoint_terrain_scan(cfg: ManagerBasedRlEnvCfg, binding: QuadrupedSkillBind
 def _wire_foot_height_scan(
     cfg: ManagerBasedRlEnvCfg, binding: QuadrupedSkillBinding
 ) -> None:
-    """足端高度扫描挂到本机型的足端 site（族约定：site 与足端几何同腿前缀）。"""
+    """足端高度扫描挂到本机型的足端 site（族约定：site 与足端几何同腿前缀）。
+
+    **能力缺口**：没有足端 site 的机型（go1 的 MJCF 只有 imu 一个 site；足端就是
+    calf 体）不装配这一传感器 —— 依赖它的项（足端高度扫描观测 / 足端高度与滑移奖励）
+    一并按能力撤掉（见 `_drop_site_dependent_items`），不静默换口径、也不判死整个技能。
+    """
+    if not binding.has_foot_sites():
+        cfg.scene.sensors = tuple(
+            sensor
+            for sensor in (cfg.scene.sensors or ())
+            if sensor.name != FOOT_HEIGHT_SCAN
+        )
+        return
     for sensor in cfg.scene.sensors or ():
         if sensor.name == FOOT_HEIGHT_SCAN:
             assert isinstance(sensor, TerrainHeightSensorCfg)
@@ -94,14 +106,35 @@ def _wire_foot_height_scan(
             sensor.pattern = RingPatternCfg.single_ring(radius=0.04, num_samples=4)
 
 
-def _contact_sensors(binding: QuadrupedSkillBinding) -> tuple[ContactSensorCfg, ...]:
-    """rough 档的五组接触传感器（足端 + 自碰撞 + 大腿/小腿/躯干触地）。
+def _drop_site_dependent_items(cfg: ManagerBasedRlEnvCfg) -> None:
+    """撤掉**依赖足端 site** 的项（能力缺口机型）：四项足端奖励 + 三项足端观测。
+
+    与 go1 现行的处置逐项同构（`go1_velocity.env_cfg::_configure_rewards` 的四项与
+    `_restructure_actor_obs` 的三项）：go1 的足端就是 calf 体、没有专用 site，
+    这些项在它身上不成立。判据是**绑定能力**（`binding.has_foot_sites()`），
+    不是机型名。
+    """
+    for name in ("foot_clearance", "foot_swing_height", "soft_landing", "foot_slip"):
+        cfg.rewards.pop(name, None)
+    for group in ("actor", "critic"):
+        terms = cfg.observations[group].terms
+        for name in ("foot_height", "foot_air_time", "foot_contact"):
+            terms.pop(name, None)
+
+
+def _contact_sensors(
+    binding: QuadrupedSkillBinding, profile: VelocityProfile
+) -> tuple[ContactSensorCfg, ...]:
+    """足端接触传感器 + 族级**接触监看块**（rough 档的四组：自碰撞 / 大腿 / 小腿 / 躯干）。
 
     腿杆传感器按**族角色**选（髋以外的那两根：hip_pitch / knee），几何名由绑定按本机型
     的契约角色词与 MJCF 清单派生 —— 换机型不需要改这里。
+
+    `profile.contact_supervision=False` 时只装配足端传感器：机型自备那四组的判据
+    （传感器表 / 终止 / 摩擦事件与它配套），Kit 不替它装配（见 `VelocityProfile` 注释）。
     """
     terrain = ContactMatch(mode="body", pattern="terrain")
-    return (
+    sensors: tuple[ContactSensorCfg, ...] = (
         ContactSensorCfg(
             name=FEET_SENSOR,
             primary=ContactMatch(mode="geom", pattern=binding.foot_geoms, entity="robot"),
@@ -111,6 +144,10 @@ def _contact_sensors(binding: QuadrupedSkillBinding) -> tuple[ContactSensorCfg, 
             num_slots=1,
             track_air_time=True,
         ),
+    )
+    if not profile.contact_supervision:
+        return sensors
+    return sensors + (
         ContactSensorCfg(
             name=SELF_COLLISION_SENSOR,
             primary=ContactMatch(mode="subtree", pattern=binding.root_body, entity="robot"),
@@ -172,48 +209,73 @@ def _role_for_ground_touch(binding: QuadrupedSkillBinding, family_role: str) -> 
     )
 
 
+def _action_scale_table(
+    binding: QuadrupedSkillBinding, profile: VelocityProfile
+) -> dict[str, float]:
+    """逐关节动作缩放：契约角色缩放 × 实体执行器谱；profile 的按角色口径优先。
+
+    契约 `action_scale` 的口径在某机型上可能不是"归一化值"（go1 / b2 的源配方声明的是
+    实际缩放，见 `VelocityProfile.action_scale_by_role`）——此时 profile 给值，Kit 只做
+    "族角色 → 本机型关节名"的翻译，不含任何机型判断。
+    """
+    derived = binding.action_scale_by_joint()
+    if not profile.action_scale_by_role:
+        return derived
+    table: dict[str, float] = {}
+    for joint, value in derived.items():
+        role = binding.family_role(binding.contract_role_of_joint(joint))
+        table[joint] = float(profile.action_scale_by_role.get(role, value))
+    return table
+
+
 def _configure_events(
     cfg: ManagerBasedRlEnvCfg, binding: QuadrupedSkillBinding, profile: VelocityProfile
 ) -> None:
-    """足端摩擦按轴随机化 + 基座质心随机化的机型侧接线（名/值分别来自绑定与 profile）。"""
-    geom_names = binding.foot_geoms
-    # 基座 foot_friction 是单轴口径；源配方按 condim=6 的三轴分别在启动期随机化。
-    cfg.events.pop("foot_friction", None)
-    cfg.events["foot_friction_slide"] = EventTermCfg(
-        mode="startup",
-        func=dr.geom_friction,
-        params={
-            "asset_cfg": SceneEntityCfg("robot", geom_names=geom_names),
-            "operation": "abs",
-            "axes": [0],
-            "ranges": profile.foot_friction_slide,
-            "shared_random": True,
-        },
-    )
-    cfg.events["foot_friction_spin"] = EventTermCfg(
-        mode="startup",
-        func=dr.geom_friction,
-        params={
-            "asset_cfg": SceneEntityCfg("robot", geom_names=geom_names),
-            "operation": "abs",
-            "distribution": "log_uniform",
-            "axes": [1],
-            "ranges": profile.foot_friction_spin,
-            "shared_random": True,
-        },
-    )
-    cfg.events["foot_friction_roll"] = EventTermCfg(
-        mode="startup",
-        func=dr.geom_friction,
-        params={
-            "asset_cfg": SceneEntityCfg("robot", geom_names=geom_names),
-            "operation": "abs",
-            "distribution": "log_uniform",
-            "axes": [2],
-            "ranges": profile.foot_friction_roll,
-            "shared_random": True,
-        },
-    )
+    """足端摩擦按轴随机化 + 基座质心随机化的机型侧接线（名/值分别来自绑定与 profile）。
+
+    `profile.contact_supervision=False` 时**不动**足端摩擦事件（基座的单项
+    `foot_friction` 原样留着）——机型自己的源配方口径（go1 的单项事件 / b2 的撤项）
+    由机型 recipe 负责，Kit 不替它决定。
+    """
+    if profile.contact_supervision:
+        geom_names = binding.foot_geoms
+        # 基座 foot_friction 是单轴口径；源配方按 condim=6 的三轴分别在启动期随机化。
+        cfg.events.pop("foot_friction", None)
+        cfg.events["foot_friction_slide"] = EventTermCfg(
+            mode="startup",
+            func=dr.geom_friction,
+            params={
+                "asset_cfg": SceneEntityCfg("robot", geom_names=geom_names),
+                "operation": "abs",
+                "axes": [0],
+                "ranges": profile.foot_friction_slide,
+                "shared_random": True,
+            },
+        )
+        cfg.events["foot_friction_spin"] = EventTermCfg(
+            mode="startup",
+            func=dr.geom_friction,
+            params={
+                "asset_cfg": SceneEntityCfg("robot", geom_names=geom_names),
+                "operation": "abs",
+                "distribution": "log_uniform",
+                "axes": [1],
+                "ranges": profile.foot_friction_spin,
+                "shared_random": True,
+            },
+        )
+        cfg.events["foot_friction_roll"] = EventTermCfg(
+            mode="startup",
+            func=dr.geom_friction,
+            params={
+                "asset_cfg": SceneEntityCfg("robot", geom_names=geom_names),
+                "operation": "abs",
+                "distribution": "log_uniform",
+                "axes": [2],
+                "ranges": profile.foot_friction_roll,
+                "shared_random": True,
+            },
+        )
     cfg.events["base_com"].params["asset_cfg"].body_names = (binding.root_body,)
 
 
@@ -252,30 +314,35 @@ def _configure_rewards(
     cfg.rewards["upright"].params["asset_cfg"].body_names = (binding.root_body,)
     cfg.rewards["upright"].params["terrain_sensor_names"] = (TERRAIN_SCAN,)
     cfg.rewards["body_ang_vel"].params["asset_cfg"].body_names = (binding.root_body,)
-    for reward_name in ("foot_clearance", "foot_slip"):
-        cfg.rewards[reward_name].params["asset_cfg"].site_names = binding.foot_sites()
+    if binding.has_foot_sites():
+        for reward_name in ("foot_clearance", "foot_slip"):
+            cfg.rewards[reward_name].params["asset_cfg"].site_names = binding.foot_sites()
+    else:
+        # 能力缺口机型：四项依赖足端 site 的奖励整项撤销（不是静默改成别的口径）。
+        _drop_site_dependent_items(cfg)
 
     # 源配方的奖励契约里没有这三项（静音，不是删除：日志/清单仍可见）。
     cfg.rewards["body_ang_vel"].weight = profile.body_ang_vel_weight
     cfg.rewards["angular_momentum"].weight = profile.angular_momentum_weight
     cfg.rewards["air_time"].weight = profile.air_time_weight
 
-    # 按身体分组的碰撞惩罚（只进 rough 档）。
-    cfg.rewards["self_collisions"] = RewardTermCfg(
-        func=velocity_mdp.self_collision_cost,
-        weight=profile.collision_penalty_weight,
-        params={"sensor_name": SELF_COLLISION_SENSOR},
-    )
-    cfg.rewards["shank_collision"] = RewardTermCfg(
-        func=velocity_mdp.self_collision_cost,
-        weight=profile.collision_penalty_weight,
-        params={"sensor_name": SHANK_SENSOR},
-    )
-    cfg.rewards["trunk_head_collision"] = RewardTermCfg(
-        func=velocity_mdp.self_collision_cost,
-        weight=profile.collision_penalty_weight,
-        params={"sensor_name": TRUNK_SENSOR},
-    )
+    # 按身体分组的碰撞惩罚（只进 rough 档；机型自备接触监看块时不装配）。
+    if profile.contact_supervision:
+        cfg.rewards["self_collisions"] = RewardTermCfg(
+            func=velocity_mdp.self_collision_cost,
+            weight=profile.collision_penalty_weight,
+            params={"sensor_name": SELF_COLLISION_SENSOR},
+        )
+        cfg.rewards["shank_collision"] = RewardTermCfg(
+            func=velocity_mdp.self_collision_cost,
+            weight=profile.collision_penalty_weight,
+            params={"sensor_name": SHANK_SENSOR},
+        )
+        cfg.rewards["trunk_head_collision"] = RewardTermCfg(
+            func=velocity_mdp.self_collision_cost,
+            weight=profile.collision_penalty_weight,
+            params={"sensor_name": TRUNK_SENSOR},
+        )
     if profile.dof_power_weight is not None:
         cfg.rewards["dof_power_abs"] = RewardTermCfg(
             func=shared_rewards.dof_power_penalty,
@@ -300,15 +367,18 @@ def make_env_cfg(
     cfg = make_velocity_env_cfg()
 
     cfg.sim.mujoco.ccd_iterations = 500
-    cfg.sim.mujoco.impratio = 10
-    cfg.sim.mujoco.cone = "elliptic"
+    if profile.mujoco_solver_tuning:
+        cfg.sim.mujoco.impratio = 10
+        cfg.sim.mujoco.cone = "elliptic"
     cfg.sim.contact_sensor_maxmatch = 500
+    if profile.contact_sensor_headroom:
+        cfg.sim.nconmax = None  # full-body contact sensors need headroom
 
     cfg.scene.entities = {"robot": binding.base_entity_cfg()}
 
     _repoint_terrain_scan(cfg, binding)
     _wire_foot_height_scan(cfg, binding)
-    cfg.scene.sensors = (cfg.scene.sensors or ()) + _contact_sensors(binding)
+    cfg.scene.sensors = (cfg.scene.sensors or ()) + _contact_sensors(binding, profile)
 
     if cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
         cfg.scene.terrain.terrain_generator.curriculum = profile.terrain_curriculum
@@ -316,7 +386,7 @@ def make_env_cfg(
     cfg.actions = build_joint_actions(
         joint_order=binding.joint_order,
         control_modes=binding.control_modes(),
-        scale=binding.action_scale_by_joint(),
+        scale=_action_scale_table(binding, profile),
         term_names=("joint_pos",),
     )
     cfg.episode_length_s = profile.episode_length_s
@@ -331,27 +401,43 @@ def make_env_cfg(
 
     # 源实现：rough 档不按朝向单独终止（地形上倾斜是常态，交给越界终止）。
     cfg.terminations.pop("fell_over", None)
-    cfg.terminations["illegal_contact"] = TerminationTermCfg(
-        func=velocity_mdp.illegal_contact,
-        params={"sensor_name": THIGH_SENSOR},
-    )
+    if profile.contact_supervision:
+        cfg.terminations["illegal_contact"] = TerminationTermCfg(
+            func=velocity_mdp.illegal_contact,
+            params={"sensor_name": THIGH_SENSOR},
+        )
 
     if terrain_profile == "flat":
         _apply_flat_branch(cfg, profile)
 
     if play:
         _apply_play_branch(cfg, profile, terrain_profile=terrain_profile)
+
+    # 机型侧任务配方（观测布局 / 奖励表 / 传感器表 / 终止 / 事件 / 命令 / 地形子项）：
+    # 族级装配全部完成之后调用，机型配方的最后一句 —— 族级默认配方的机型传 None。
+    if profile.recipe is not None:
+        profile.recipe(
+            cfg, binding, profile, terrain_profile=terrain_profile, play=play
+        )
     return cfg
 
 
 def _apply_flat_branch(cfg: ManagerBasedRlEnvCfg, profile: VelocityProfile) -> None:
     """flat 档：公共平地收尾（轻 sim 上限/平地形/撤高度扫描）+ 源实现的撤项与 70° 终止。"""
-    apply_flat_postlude(cfg, drop_terrain_scan_sensor=True, drop_height_scan_obs=True)
+    apply_flat_postlude(
+        cfg,
+        drop_terrain_scan_sensor=profile.flat_drop_terrain_scan,
+        drop_height_scan_obs=profile.flat_drop_height_scan,
+        njmax=profile.flat_sim_njmax,
+    )
 
+    dropped = tuple(
+        name
+        for name in _FLAT_DROPPED_SENSORS
+        if name != TERRAIN_SCAN or profile.flat_drop_terrain_scan
+    )
     cfg.scene.sensors = tuple(
-        sensor
-        for sensor in (cfg.scene.sensors or ())
-        if sensor.name not in _FLAT_DROPPED_SENSORS
+        sensor for sensor in (cfg.scene.sensors or ()) if sensor.name not in dropped
     )
     cfg.rewards["upright"].params.pop("terrain_sensor_names", None)
     for key in ("self_collisions", "shank_collision", "trunk_head_collision"):
@@ -368,7 +454,12 @@ def _apply_play_branch(
     cfg: ManagerBasedRlEnvCfg, profile: VelocityProfile, *, terrain_profile: TerrainProfile
 ) -> None:
     """play 档：公共展厅收尾（无限长回合/关噪声/撤扰动/5×5 地形）+ flat 档命令放宽。"""
-    apply_play_postlude(cfg, drop_push_event=True, add_randomize_terrain=True)
+    apply_play_postlude(
+        cfg,
+        drop_push_event=profile.play_drop_push,
+        add_randomize_terrain=profile.play_randomize_terrain,
+        showroom_terrain=profile.play_showroom_terrain,
+    )
     cfg.terminations.pop("out_of_terrain_bounds", None)
 
     if terrain_profile == "flat":

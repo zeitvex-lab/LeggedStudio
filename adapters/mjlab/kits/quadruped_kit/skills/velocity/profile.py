@@ -12,8 +12,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:  # pragma: no cover - 只为注解，运行期不导入（避免 Kit↔包循环）
+    from mjlab.envs import ManagerBasedRlEnvCfg
+
+    from ..binding import QuadrupedSkillBinding
 
 
 def _standing_std() -> dict[str, float]:
@@ -26,6 +32,45 @@ def _moving_std() -> dict[str, float]:
 
 @dataclass(frozen=True)
 class VelocityProfile:
+    # --- 族级装配开关（默认 = 族级默认配方） ---------------------------------------
+    #: rough 档的**族级接触监看块**：四组接触传感器（自碰撞 / 大腿 / 小腿 / 躯干）
+    #: + 三项碰撞惩罚 + 足端摩擦三轴 startup DR + 大腿非法接触终止。
+    #: `False` = 本机型自备这几样（传感器/事件/终止由机型 recipe 给，Kit 不装配）——
+    #: 缺哪一样是**机型能力/配方决定**，不是机型名判断。
+    contact_supervision: bool = True
+    #: MuJoCo 求解器调优（`impratio 10` + `cone elliptic`，go2 配方）。`False` = 不碰这两项
+    #: （保持基座/引擎默认）——机型按自己的源配方决定。
+    mujoco_solver_tuning: bool = True
+    #: 接触传感器留头（`sim.nconmax = None`）：机型的源装配骨架
+    #: （`quadruped_kit.new_velocity_env_cfg`）统一给的一项（全身接触传感器需要余量）。
+    #: 族级默认（go2 配方）不碰该项；`True` = 显式置 None。
+    contact_sensor_headroom: bool = False
+    #: flat 档的求解器内存上限（`sim.njmax`）。族级默认 300（b2 / lite3 源配方）；
+    #: `None` = 保留基座默认（go1 源配方没设这一项）。
+    flat_sim_njmax: int | None = 300
+    #: flat 档是否撤 `terrain_scan` 传感器（族级默认撤；观测里没有高度扫描的机型保留）。
+    flat_drop_terrain_scan: bool = True
+    #: flat 档是否撤 actor/critic 的 `height_scan` 观测项（族级默认撤）。
+    flat_drop_height_scan: bool = True
+    #: **play 档三开关**（默认 = 族级/ go2 配方）：
+    #: `play_drop_push` 撤扰动事件；`play_randomize_terrain` 补展厅重建地形事件；
+    #: `play_showroom_terrain` 把地形生成器换成 5×5 + 10 m 边界的展厅档（False = 保留
+    #: 训练档地形设置，只把回合拉满、关噪声、清课程）。
+    play_drop_push: bool = True
+    play_randomize_terrain: bool = True
+    play_showroom_terrain: bool = True
+    #: 机型侧**任务配方**（Kit 装不出来的那几样：观测布局 / 奖励表 / 传感器表 / 终止 /
+    #: 事件 / 命令 / 地形子项）。签名 `(cfg, binding, profile, *, terrain_profile, play) -> None`，
+    #: 在族级装配全部完成（含 flat / play 档）之后调用 —— 机型配方的最后一句。
+    #: `None` = 族级默认配方。
+    recipe: Callable[..., None] | None = None
+    #: 逐**族角色**的动作缩放（`{"hip_abduction": 0.25, ...}`）。
+    #: 契约 `action_scale` 有两种口径：go2 / lite3 声明的是**归一化**缩放（实际缩放 =
+    #: 契约值 × 实体 effort/stiffness，见 `binding.action_scale_by_joint()`）；go1 / b2 的
+    #: 源配方与 sim2sim 声明的是**实际**缩放（0.25，与实体谱无关）。口径不同的机型在此
+    #: 显式给值（数据，不是 Kit 里的机型判断），缺省 = 用契约派生值。
+    action_scale_by_role: Mapping[str, float] = field(default_factory=dict)
+
     # --- 回合 / 命令 ---------------------------------------------------------------
     #: 基座已经是 20.0；显式声明让"改回合长度"成为机型 profile 可覆盖的数据。
     episode_length_s: float = 20.0

@@ -27,13 +27,25 @@ from __future__ import annotations
 
 from .binding import ActuatorGroup, WheelLegSkillBinding, from_contract
 from .velocity.config import VARIANTS, make_env_cfg as make_velocity_env_cfg
-from .velocity.profile import CommandRanges, LegsOnlyRecipe, VelocityProfile
+from .velocity.official import VARIANTS as OFFICIAL_VARIANTS
+from .velocity.profile import (
+    UNSET,
+    CommandRanges,
+    LegsOnlyRecipe,
+    OfficialVelocityProfile,
+    SimOverride,
+    VelocityProfile,
+)
 
 __all__ = [
+    "OFFICIAL_VARIANTS",
+    "UNSET",
     "VARIANTS",
     "ActuatorGroup",
     "CommandRanges",
     "LegsOnlyRecipe",
+    "OfficialVelocityProfile",
+    "SimOverride",
     "VelocityProfile",
     "WheelLegSkillBinding",
     "from_contract",

@@ -100,6 +100,9 @@ class QuadrupedSkillBinding:
     #: 个数与命名由机型资产决定（挑不到就报错，不静默换口径）。
     geom_names: tuple[str, ...] = ()
     site_names: tuple[str, ...] = ()
+    #: **MJCF 真值**：编译后的全部 body 名（按模型序）。足端帧的回退口径要用它
+    #: （lite3 无足端 site、足端是 `*_FOOT` body —— 见 `foot_scan_frames()`）。
+    body_names: tuple[str, ...] = ()
     #: **MJCF 真值**：根 body 名下的 `_collision` 几何（躯干触地惩罚的匹配集合）。
     root_collision_geoms: tuple[str, ...] = ()
 
@@ -312,6 +315,57 @@ class QuadrupedSkillBinding:
             picked.append(sorted(prefixed)[0])
         return tuple(picked)
 
+    def has_foot_sites(self) -> bool:
+        """**能力查询**：本机型的 MJCF 是否有全套按腿的足端 site。
+
+        `foot_sites()` 在缺 site 时抛错（"需要 site 的技能在这里是能力缺口"），但那
+        对**只有部分技能**依赖 site 的机型不成立 —— 技能层需要一个"先问再取"的入口：
+        False 时把依赖足端 site 的项（足端高度扫描 / 足端高度与滑移奖励）**按能力撤掉**，
+        而不是拿机型名判断（go1 没有足端 site，足端就是 calf 体）。
+        纯 MJCF 事实：逐腿按 `foot_sites()` 的同一口径找，全中即 True。
+        """
+        try:
+            self.foot_sites()
+        except RuntimeError:
+            return False
+        return True
+
+    def foot_bodies(self) -> tuple[str, ...]:
+        """按契约腿序的足端 **body** 名（`<腿>_<名含 foot token>`，如 lite3 的 `FL_FOOT`）。
+
+        与 `foot_sites()` 同一约定，只是元素类型是 body：lite3 的 MJCF 没有足端 site，
+        足端是 `*_FOOT` body（B31 裁决：扫描帧改用 body，射线原点仍在足端，语义不变）。
+        找不到即报错（调用方要先问 `foot_scan_frames()`）。
+        """
+        picked: list[str] = []
+        for leg in self.leg_ids:
+            hits = [
+                name
+                for name in self.body_names
+                if name.lower().startswith(f"{str(leg).lower()}{_LEG_PREFIX_SEPARATOR}")
+                and family_roles.FOOT_TOKEN in name.lower()
+            ]
+            if not hits:
+                raise RuntimeError(
+                    f"{self.robot_id}: 腿 {leg} 找不到足端 body（族约定：<腿>_ 前缀且名含 "
+                    f"{family_roles.FOOT_TOKEN!r} 的 body）—— 可用 body：{sorted(self.body_names)}"
+                )
+            picked.append(sorted(hits)[0])
+        return tuple(picked)
+
+    def foot_scan_frames(self) -> tuple[tuple[str, str], ...]:
+        """足端高度扫描的帧（按契约腿序）：**优先 site，其次足端 body，都没有即空**。
+
+        "空" = 能力缺口（go1 的足端就是 calf 体：既无 site 也无 `*_foot*` body）——
+        需要它的技能按能力撤项，不静默换成别的口径。返回 `((帧类型, 名字), ...)`。
+        """
+        if self.has_foot_sites():
+            return tuple(("site", name) for name in self.foot_sites())
+        try:
+            return tuple(("body", name) for name in self.foot_bodies())
+        except RuntimeError:
+            return ()
+
     def pose_map(self) -> dict[str, float]:
         """默认姿映射（与契约 `joint_order` 对齐的 12 个值）。
 
@@ -383,12 +437,15 @@ def role_suffix(joint_name: str, leg_ids: Sequence[str]) -> str:
     return text
 
 
-def _spec_inventory(spec_fn: Callable[[], mujoco.MjSpec]) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """编译一次 spec，取 (几何名, site 名) 两份清单（按模型序）——技能层挑选几何/site 的真值。"""
+def _spec_inventory(
+    spec_fn: Callable[[], mujoco.MjSpec],
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """编译一次 spec，取 (几何名, site 名, body 名) 三份清单（按模型序）——挑选的真值。"""
     model = spec_fn().compile()
     geoms = tuple(model.geom(i).name or "" for i in range(model.ngeom))
     sites = tuple(model.site(i).name or "" for i in range(model.nsite))
-    return geoms, sites
+    bodies = tuple(model.body(i).name or "" for i in range(model.nbody))
+    return geoms, sites, bodies
 
 
 def _spec_root_collision_geoms(spec_fn: Callable[[], mujoco.MjSpec], root_body: str) -> tuple[str, ...]:
@@ -545,7 +602,7 @@ def from_contract(
         raise ValueError(f"{robot_id}: 契约 leg_pattern 里找不到髋以外的腿杆角色，无法派生惩罚几何正则")
     penalized = ".*_(" + "|".join(dict.fromkeys(penalized_tokens)) + ")_collision"
 
-    geom_names, site_names = _spec_inventory(spec_fn)
+    geom_names, site_names, body_names = _spec_inventory(spec_fn)
     foot_geoms = family_roles.foot_geoms_for_legs(geom_names, leg_ids, foot_token)
     foot_legs = tuple(name.split("_")[0] for name in foot_geoms)
     root_body = _spec_root_body(spec_fn)

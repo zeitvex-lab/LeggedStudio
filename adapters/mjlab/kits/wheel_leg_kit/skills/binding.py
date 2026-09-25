@@ -45,6 +45,7 @@ from mjlab.actuator import (
     ActuatorCfg,
     BuiltinPositionActuatorCfg,
     BuiltinVelocityActuatorCfg,
+    XmlActuatorCfg,
 )
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.managers import SceneEntityCfg
@@ -55,6 +56,13 @@ from . import family as family_roles
 _POSITION_MODE = "position"
 _VELOCITY_MODE = "velocity"
 _MODES = (_POSITION_MODE, _VELOCITY_MODE)
+
+#: 执行器声明归属（与族声明 `mjcf_conventions.actuator_binding` 同词表）：
+#: `cfg_declared` = 由 cfg 声明 builtin 组（多数机型；MJCF 不带执行器或一律撤掉）；
+#: `mjcf_wrapped` = MJCF **已带**执行器（gains/limits 是资产真值），cfg 只包装。
+_CFG_DECLARED = "cfg_declared"
+_MJCF_WRAPPED = "mjcf_wrapped"
+_ACTUATOR_BINDINGS = (_CFG_DECLARED, _MJCF_WRAPPED)
 
 
 @dataclass(frozen=True)
@@ -68,13 +76,28 @@ class ActuatorGroup:
     damping: float
     effort_limit: float
     armature: float | None = None
+    #: 声明归属：`cfg_declared`（默认，builtin 组）| `mjcf_wrapped`（包装 MJCF 真值）。
+    actuator_binding: str = _CFG_DECLARED
 
     def to_cfg(self) -> ActuatorCfg:
         """按契约 `mode` 选 mjlab 的**内置**执行器（position → `<position>`、velocity → `<velocity>`）。
 
         内置 vs 理想 PD 是两种控制律（内置写进 MJCF、由求解器算力；理想 PD 在 Python 里算力矩），
         必须照契约声明选——选错是物理行为变更，不是写法差异。
+
+        `mjcf_wrapped` 机型（MJCF 自己带 `<actuator>` 段，gains/limits 是资产真值）走
+        `XmlActuatorCfg` 包装：**不**新增执行器、不覆盖任何参数，只按契约声明的模式转发目标。
         """
+        if self.actuator_binding == _MJCF_WRAPPED:
+            return XmlActuatorCfg(
+                target_names_expr=self.target_names_expr,
+                command_field=self.mode,
+            )
+        if self.actuator_binding != _CFG_DECLARED:
+            raise ValueError(
+                f"角色 {self.role!r} 的执行器声明归属 {self.actuator_binding!r} 不支持"
+                f"（只认 {_ACTUATOR_BINDINGS}）"
+            )
         if self.mode == _VELOCITY_MODE:
             return BuiltinVelocityActuatorCfg(
                 target_names_expr=self.target_names_expr,
@@ -217,6 +240,21 @@ class WheelLegSkillBinding:
         """腿关节选择器（动作序，契约真值）。"""
         return SceneEntityCfg("robot", joint_names=self.leg_joint_order, preserve_order=True)
 
+    def role_scene_entity_cfg(self, role: str, *, as_list: bool = False) -> SceneEntityCfg:
+        """按**族角色**选关节的选择器（契约动作序，保序）。
+
+        用途：奖励项按角色挑关节（`hip_abduction` / `hip_pitch` / `knee` / `wheel`）。
+        关节名的拼法不进入技能层 —— 由契约关节序 + 族别名派生。
+
+        `as_list=True` 保持源配方"字面名列表"的容器写法（cfg 逐字段对拍用；解析结果相同）。
+        """
+        names = [self.action_joint_order[index] for index in self.role_joint_indices(role)]
+        return SceneEntityCfg(
+            "robot",
+            joint_names=list(names) if as_list else tuple(names),
+            preserve_order=True,
+        )
+
     def wheel_joint_cfg(self) -> SceneEntityCfg:
         """轮关节选择器（动作序，契约真值）。"""
         return SceneEntityCfg("robot", joint_names=self.wheel_joint_order, preserve_order=True)
@@ -272,12 +310,27 @@ def from_contract(
     base_entity_cfg: Callable[[], EntityCfg],
     init_base_height: float,
     family_id: str = family_roles.DEFAULT_FAMILY_ID,
+    actuator_binding: str = _CFG_DECLARED,
+    default_pose: Mapping[str, float] | None = None,
+    action_scale_override: Mapping[str, float] | None = None,
 ) -> WheelLegSkillBinding:
     """由契约 + MJCF 真值构造绑定。
 
     参数里**没有**任何机型的名字：`spec_fn` / `base_entity_cfg` 是该机型包自己的
     资产入口，`init_base_height` 是源配方的任务级参数。
+
+    `actuator_binding` = 该机型的执行器声明归属（族声明 `mjcf_conventions.actuator_binding`
+    的同一词表；b2w 这类"MJCF 自带执行器"的机型传 `mjcf_wrapped`）。
+
+    `default_pose` / `action_scale_override` = **机型侧登记的契约偏离**（默认 `None` = 全用契约）。
+    仅当契约声明与训练真值不一致、且该差异要按"纯搬运"保留原行为时才传：传了就是
+    "这两项以机型侧为准"，与契约的差异必须在机型侧登记并在报告里说明（不静默）。
+    两项都逐项校验键集 = 动作序。
     """
+    if actuator_binding not in _ACTUATOR_BINDINGS:
+        raise ValueError(
+            f"执行器声明归属 {actuator_binding!r} 不支持（只认 {_ACTUATOR_BINDINGS}）"
+        )
     robot_id = str(contract.get("robot_id") or "?")
     morphology = contract.get("morphology") or {}
     leg_ids = tuple(str(x) for x in (morphology.get("leg_ids") or ()))
@@ -329,12 +382,22 @@ def from_contract(
             f"{robot_id}: joints.actuated 与 action.joint_order 的关节集合不一致"
             "（默认姿/动作序必须描述同一批关节）"
         )
-    default_pose = dict(zip(actuated_names, pose_values, strict=True))
+    pose_by_name = dict(zip(actuated_names, pose_values, strict=True))
+    if default_pose is not None:
+        # 机型侧登记的偏离：键集必须与动作序一致（缺/多都判红，不静默补零）。
+        override = {str(name): float(value) for name, value in default_pose.items()}
+        if set(override) != set(joint_order):
+            missing = sorted(set(joint_order) - set(override))
+            extra = sorted(set(override) - set(joint_order))
+            raise ValueError(
+                f"{robot_id}: 机型侧默认姿与动作序的关节集不一致（缺 {missing} / 多 {extra}）"
+            )
+        pose_by_name = override
 
     # --- 执行器谱与动作缩放：逐角色取契约值 --------------------------------------
     by_role = (contract.get("actuator_profile") or {}).get("by_role") or {}
     groups: list[ActuatorGroup] = []
-    action_scales: dict[str, float] = {}
+    contract_scales: dict[str, float] = {}
     control_modes: dict[str, str] = {}
     for role in leg_pattern:
         values = by_role.get(role)
@@ -361,15 +424,31 @@ def from_contract(
                 damping=float(values["damping"]),
                 effort_limit=float(values["effort"]),
                 armature=None if armature is None else float(armature),
+                actuator_binding=actuator_binding,
             )
         )
         for joint in role_joints:
-            action_scales[joint] = float(values["action_scale"])
+            contract_scales[joint] = float(values["action_scale"])
             control_modes[joint] = mode
 
-    if set(action_scales) != set(joint_order):
-        missing = sorted(set(joint_order) - set(action_scales))
+    if set(contract_scales) != set(joint_order):
+        missing = sorted(set(joint_order) - set(contract_scales))
         raise ValueError(f"{robot_id}: 这些关节没有从契约拿到 action_scale/控制模式：{missing}")
+
+    action_scales: dict[str, float] = dict(contract_scales)
+    if action_scale_override is not None:
+        # 机型侧登记的缩放偏离（控制模式仍来自契约模式词表 —— 只换数值，不换控制律）。
+        scale_override = {
+            str(name): float(value) for name, value in action_scale_override.items()
+        }
+        if set(scale_override) != set(joint_order):
+            missing = sorted(set(joint_order) - set(scale_override))
+            extra = sorted(set(scale_override) - set(joint_order))
+            raise ValueError(
+                f"{robot_id}: 机型侧动作缩放与动作序的关节集不一致（缺 {missing} / 多 {extra}）"
+            )
+        for joint in joint_order:
+            action_scales[joint] = scale_override[joint]
 
     return WheelLegSkillBinding(
         robot_id=robot_id,
@@ -377,7 +456,7 @@ def from_contract(
         leg_joint_order=tuple(legs),
         wheel_joint_order=tuple(wheels),
         action_joint_order=joint_order,
-        default_pose=default_pose,
+        default_pose=pose_by_name,
         leg_ids=leg_ids,
         leg_pattern=leg_pattern,
         actuator_groups=tuple(groups),
