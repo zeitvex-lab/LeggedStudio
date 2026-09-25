@@ -23,13 +23,14 @@ from ..constants import (
   LIN_VEL_SCALE,
   M20_ALL_JOINT_NAMES,
   M20_LEG_JOINT_NAMES,
+  OBS_FRAME_DIM,
   OBS_NOISE_ANG_VEL,
   OBS_NOISE_DOF_POS,
   OBS_NOISE_DOF_VEL,
   OBS_NOISE_GRAVITY,
 )
 
-_FRAME_DIM = 57
+_FRAME_DIM = OBS_FRAME_DIM
 
 
 def _joint_ids(robot: Entity) -> list[int]:

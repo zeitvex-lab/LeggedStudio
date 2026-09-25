@@ -241,7 +241,21 @@ def _build_entity(contract: Any, xml_path: Path):
         articulation=EntityArticulationInfoCfg(actuators=tuple(actuators)),
     )
     action_actuator_names = tuple(xml_targets[item] for item in xml_names) + generated_names
+    # Only supported XML position/velocity fields change action routing here.
+    # Keep the existing position-input interface for generated/DC/effort joints.
+    # XmlActuator(effort) itself does NOT synthesize PD: that pre-existing gap is
+    # reported below, not silently changed into a torque policy or new gains.
+    action_modes = {name: "position" for name in joint_order}
+    for name in xml_names:
+        field = xml_fields[name]
+        if field in ("position", "velocity"):
+            action_modes[name] = field
+        elif field != "effort":
+            raise ValueError(f"Unsupported XML command field for {name!r}: {field!r}")
     return entity, joint_order, {
+        "xml_command_fields": xml_fields,
+        "action_control_modes": action_modes,
+        "legacy_effort_position_joints": [name for name in xml_names if xml_fields[name] == "effort"],
         "xml_actuated_joints": list(xml_names),
         "generated_actuated_joints": list(generated_names),
         "action_actuator_names": list(action_actuator_names),
@@ -255,7 +269,7 @@ def _build_observations(contract: Any):
     from mjlab.managers.scene_entity_config import SceneEntityCfg
 
     joint_names = tuple(str(item) for item in _contract_value(contract, "action.joint_order", []))
-    joint_cfg = SceneEntityCfg("robot", joint_names=joint_names or (".*",))
+    joint_cfg = SceneEntityCfg("robot", joint_names=joint_names or (".*",), preserve_order=True)
     aliases = {
         "base_linear_velocity": "base_lin_vel",
         "linear_velocity": "base_lin_vel",
@@ -412,6 +426,16 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
 
     environment = _recipe_environment(recipe)
     entity, joint_order, actuator_report = _build_entity(contract, xml_path)
+    from adapters.mjlab.kits.joint_actions import build_joint_actions
+
+    actions = build_joint_actions(
+        joint_order=joint_order, control_modes=actuator_report["action_control_modes"],
+        scale=_action_scale_for(contract))
+    actuator_report["action_segments"] = [
+        {"name": name, "mode": actuator_report["action_control_modes"][term.actuator_names[0]],
+         "joint_order": list(term.actuator_names)}
+        for name, term in actions.items()
+    ]
     observations, observation_terms, unsupported_obs = _build_observations(contract)
     commands = _build_commands(environment, observation_terms)
     rewards, skipped_rewards = _build_rewards(recipe, bool(commands), _xml_root_body(xml_path))
@@ -439,7 +463,7 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
         # MJLab action selectors are transmission targets (joint names), not
         # MuJoCo actuator element names. This remains stable for XML and
         # generated actuator groups alike.
-        actions={"joint_pos": __import__("mjlab.envs.mdp.actions", fromlist=["JointPositionActionCfg"]).JointPositionActionCfg(entity_name="robot", actuator_names=tuple(joint_order), scale=_action_scale_for(contract), use_default_offset=True)},
+        actions=actions,
         events={"reset_scene_to_default": EventTermCfg(func=mdp.reset_scene_to_default, mode="reset")},
         rewards=rewards,
         terminations={"time_out": TerminationTermCfg(func=mdp.time_out, time_out=True)},
