@@ -148,6 +148,10 @@ class HandstandVelocityCommand(UniformVelocityCommand):
     def _update_command(self, env_ids: torch.Tensor | None = None) -> None:
         UniformVelocityCommand._update_command(self, env_ids)
 
+    # 源的 Handstand 版 `create_gui` 与 RearStand 版**只差写法**（文档串/局部变量名），
+    # 语义相同 ⇒ 复用同一份实现，不再抄一遍。
+    create_gui = RearStandVelocityCommand.create_gui
+
 
 @dataclass(kw_only=True)
 class HandstandVelocityCommandCfg(UniformVelocityCommandCfg):
