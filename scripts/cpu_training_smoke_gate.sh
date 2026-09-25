@@ -54,6 +54,18 @@ print(f"torch={torch.__version__} cuda_available={cuda} MUJOCO_GL=disabled")
 assert not cuda, "本门禁要求纯 CPU（CUDA 可用会让判据失去意义）"
 PY
 
+echo "== 训练栈适配器测试（adapters/mjlab，纯 CPU、1~2 环境） =="
+# 为什么把这几条显式列进来：`backend` 的 discover 扫不到 `adapters/`，
+# 而 `.cnb.yml` 里原先只登记了 adapters.github —— 于是**族架构的核心不变量
+# （动作接口序 = 契约动作序）与族级技能工厂的回归锁一直"存在但 CI 看不见"**，
+# 正是 B16 记过的那个坑。这里随训练栈一起跑（它们只用 cpu device + 1~2 环境，
+# 不依赖 GPU）。新增族级技能时把对应 test 模块补进这一行。
+"$PY" -m unittest \
+    adapters.mjlab.test_action_order_matches_contract \
+    adapters.mjlab.test_joint_actions \
+    adapters.mjlab.test_quadruped_velocity_skill \
+    adapters.mjlab.test_wheel_leg_velocity_skill
+
 echo "== 真实 CPU 训练冒烟：${NUM_ENVS} envs x ${ITERS} iters PPO =="
 # 用训练 venv 的解释器跑工具：它同时具备控制面依赖与训练栈（本地/CI 一致）。
 "$PY" tools/validate_training_smoke.py \
