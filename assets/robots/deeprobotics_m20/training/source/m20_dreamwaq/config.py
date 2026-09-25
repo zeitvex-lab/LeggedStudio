@@ -5,7 +5,7 @@ field-verified on the physical M20:
 
 - 57-field actor: command x(2,2,0.25), ang_vel x0.25, projected gravity,
   joint_pos error (wheel slots zeroed), joint_vel x0.05, raw 16-action.
-- 5 x 57 = 225 observation history feeding a 16+3 VAE (actor sees the code).
+- 5 x 57 = 285 observation history feeding a 16+3 VAE (actor sees the code).
 - 247-field privileged critic: base_lin_vel x2.0, 17x11 height scan x5.0,
   clean actor frame.
 - Leg position actions (scale 0.25, PD 80/2.0) + wheel velocity actions

@@ -83,6 +83,14 @@ OBS_NOISE_GRAVITY: float = 0.05
 OBS_NOISE_DOF_POS: float = 0.01
 OBS_NOISE_DOF_VEL: float = 0.075
 
+# Observation frame / VAE history widths (source ``num_observations``,
+# ``num_obs_hist`` and the derived ``num_history_obs``).  The VAE encoder's
+# input width is these two multiplied: keeping the product declared here is
+# what stops the encoder and the history group from drifting apart.
+OBS_FRAME_DIM: int = 57
+HISTORY_LENGTH: int = 5
+HISTORY_OBS_DIM: int = HISTORY_LENGTH * OBS_FRAME_DIM
+
 ##
 # Robot configuration.
 ##

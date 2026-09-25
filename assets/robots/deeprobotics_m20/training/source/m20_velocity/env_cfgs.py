@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as envs_mdp
-from mjlab.envs.mdp.actions import JointPositionActionCfg, JointVelocityActionCfg
+from adapters.mjlab.kits.joint_actions import build_joint_actions
 from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
@@ -87,21 +87,15 @@ def m20_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ##
     # Actions: legs position + wheels velocity
     ##
-    cfg.actions["joint_pos"] = JointPositionActionCfg(
-        entity_name="robot",
-        actuator_names=M20_LEG_JOINT_NAMES,
-        preserve_order=True,
-        scale=_ACTION_SCALES,
-        use_default_offset=True,
-    )
-    cfg.actions["wheel_vel"] = JointVelocityActionCfg(
-        entity_name="robot",
-        actuator_names=M20_WHEEL_JOINT_NAMES,
-        preserve_order=True,
-        scale=5.0,
-        offset=0.0,
-        use_default_offset=False,
-    )
+    cfg.actions.update(build_joint_actions(
+        joint_order=(*M20_LEG_JOINT_NAMES, *M20_WHEEL_JOINT_NAMES),
+        control_modes={
+            **dict.fromkeys(M20_LEG_JOINT_NAMES, "position"),
+            **dict.fromkeys(M20_WHEEL_JOINT_NAMES, "velocity"),
+        },
+        scale={**_ACTION_SCALES, **dict.fromkeys(M20_WHEEL_JOINT_NAMES, 5.0)},
+        term_names=("joint_pos", "wheel_vel"),
+    ))
 
     ##
     # Sensors

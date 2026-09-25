@@ -1,6 +1,7 @@
 """DreamWaQ VAE actor and PPO extension on the installed rsl_rl 5.4.2 API.
 
-Dimensions follow the M20 source: 5 x 57 = 225 history fields into the VAE,
+Dimensions follow the M20 source: 5 x 57 = 285 history fields into the VAE
+(the source derives this as ``num_obs_hist * num_observations``),
 16 stochastic latent dims + 3 explicit velocity dims, a 57-field decoder, and
 a 57 + 19 = 76-field actor input.
 """
@@ -13,11 +14,26 @@ from rsl_rl.models import MLPModel
 from rsl_rl.storage import RolloutStorage
 from tensordict import TensorDict
 
+from ..constants import HISTORY_OBS_DIM, OBS_FRAME_DIM
+
 
 class _VAE(torch.nn.Module):
-  """The source's 225->(3+16) VAE with a 57-field decoder."""
+  """The source's 285->(3+16) VAE with a 57-field decoder.
 
-  def __init__(self, in_dim: int = 225, latent_dim: int = 16, explicit_dim: int = 3, decode_dim: int = 57) -> None:
+  Widths come from :mod:`m20_dreamwaq.constants` (帧宽 × 历史长), never from a
+  literal: the encoder and the history observation group must agree by
+  construction.  A hard-coded 225 (the upstream VAE's *default* for a 45-field
+  frame) silently mismatched this robot's 57-field frame and crashed the first
+  PPO update.
+  """
+
+  def __init__(
+    self,
+    in_dim: int = HISTORY_OBS_DIM,
+    latent_dim: int = 16,
+    explicit_dim: int = 3,
+    decode_dim: int = OBS_FRAME_DIM,
+  ) -> None:
     super().__init__()
     self.encoder = torch.nn.Sequential(
       torch.nn.Linear(in_dim, 128), torch.nn.ELU(), torch.nn.Linear(128, 64), torch.nn.ELU()
