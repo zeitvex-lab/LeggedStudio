@@ -12,7 +12,14 @@ from mjlab.envs.mdp.actions import (
 from mjlab.utils.lab_api.string import resolve_matching_names
 
 
-class _OrderedTargets:
+class OrderedTargets:
+    """接口序混入：把 mjlab 动作项的解析目标序恢复成 cfg 声明的序。
+
+    用途不止本模块的两个基类：族级技能里"按源配方换掉动作项实现"的变体
+    （`skills/mdp/actions.DelayedJointPositionAction`）也要它 —— 否则"换实现"会
+    静默把动作维退回**模型序**，与契约 `action.joint_order` 错位。
+    """
+
     def _find_targets(self, cfg):
         # MJLab's joint branch currently ignores BaseActionCfg.preserve_order.
         # Retain its actuated-target validation, then restore the requested order.
@@ -22,11 +29,11 @@ class _OrderedTargets:
         return [ids[i] for i in order], ordered_names
 
 
-class _OrderedPositionAction(_OrderedTargets, JointPositionAction):
+class _OrderedPositionAction(OrderedTargets, JointPositionAction):
     pass
 
 
-class _OrderedVelocityAction(_OrderedTargets, JointVelocityAction):
+class _OrderedVelocityAction(OrderedTargets, JointVelocityAction):
     pass
 
 

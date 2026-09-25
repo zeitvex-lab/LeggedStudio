@@ -82,7 +82,8 @@
         "Mjlab-TS-Rough-Unitree-Go2",
         "Mjlab-TS-Student-Rough-Unitree-Go2",
         "Mjlab-HIM-Rough-Unitree-Go2",
-        "Unitree-Go2-DreamWaQ-Rough"
+        "Unitree-Go2-DreamWaQ-Rough",
+        "Unitree-B2-WTW"
       ],
       "task_variants_ref": "registry/skills/velocity_base.json#tasks",
       "note": "Mjlab-CTS/TS/HIM 与 DreamWaQ 四族的 task_name 亦归此技能——它们是**同技能的算法变体**（算法轴由 profile 的 backend/算法插件决定，不另立技能类）。"

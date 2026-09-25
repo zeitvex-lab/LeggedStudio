@@ -1,3 +1,12 @@
+"""Go2 机型专属的奖励核（薄 shim + 未上移的那几项）。
+
+被**速度跟踪算法变体**（CTS / AMP-CTS / TS / AMP-TS / TS-学生 / HIM / DreamWaQ /
+AMP-DreamWaQ）消费的核已上移到族级
+`adapters/mjlab/kits/quadruped_kit/skills/mdp/rewards.py`：本模块把族级实现
+**按原函数名再导出**（入口字符串与既有调用方一律不动），只保留机型专属的核
+（trot / jump / stand / backflip / spring_jump 的奖励项与它们的局部助手）。
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -9,6 +18,52 @@ from mjlab.sensor import ContactSensor
 from mjlab.sensor.raycast_sensor import RayCastSensor
 from mjlab.utils.lab_api.math import euler_xyz_from_quat, quat_apply_inverse
 
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    action_smoothness_penalty as go2_action_smoothness_penalty,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    angular_velocity_xy_penalty as go2_angular_velocity_xy_penalty,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    base_height_penalty as go2_base_height_penalty,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    collision_penalty as go2_special_collision_penalty,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    hip_position_squared_penalty as go2_hip_position_squared_penalty,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    joint_acceleration_penalty as go2_joint_acceleration_penalty,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    linear_velocity_z_penalty as go2_linear_velocity_z_penalty,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    orientation_penalty as go2_orientation_penalty,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    rear_hip_limit_penalty as go2_rear_hip_limit_penalty,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    reward_contact_mask as _go2_reward_contact_mask,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    source_feet_air_time_reward as go2_source_feet_air_time_reward,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    source_foot_clearance_penalty as go2_source_foot_clearance_penalty,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    source_tracking_angular_velocity as go2_source_tracking_angular_velocity,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    source_tracking_linear_velocity as go2_source_tracking_linear_velocity,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards import (
+    stumble_penalty as go2_stumble_penalty,
+)
+
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
 
@@ -16,24 +71,6 @@ if TYPE_CHECKING:
 _DEFAULT_ASSET_CFG = SceneEntityCfg("robot")
 
 
-def _go2_reward_contact_mask(
-  sensor: ContactSensor,
-  threshold: float,
-  vertical_only: bool = False,
-) -> torch.Tensor:
-  """Return source-style foot contacts, preferring measured force fields."""
-  force = sensor.data.force
-  if force is not None:
-    if force.ndim != 3 or force.shape[-1] != 3:
-      raise ValueError(f"Contact force must be [B, feet, 3], got {tuple(force.shape)}")
-    magnitude = (
-      force[..., 2].abs() if vertical_only else torch.linalg.vector_norm(force, dim=-1)
-    )
-    return magnitude > threshold
-  found = sensor.data.found
-  if found is None:
-    raise ValueError("ContactSensor must expose either force or found fields")
-  return found > 0
 
 
 def _go2_trigger_state(
@@ -95,7 +132,7 @@ def go2_trot_phase_reward(
   # the phase condition here so the following tracking terms see the same
   # readiness gate.
   moving_gate = (diagonal & phase_match).to(torch.float32).mean() > 0.7
-  env.__dict__["_go2_trot_ready"] = torch.where(moving, moving_gate, idle_contact)
+  env.__dict__["_source_trot_ready"] = torch.where(moving, moving_gate, idle_contact)
   return (diagonal & phase_match & moving).to(torch.float32)
 
 
@@ -140,48 +177,8 @@ def go2_contact_without_command(
   return (all_contact & idle).to(torch.float32)
 
 
-def go2_source_tracking_linear_velocity(
-  env: ManagerBasedRlEnv,
-  command_name: str = "twist",
-  sigma: float = 0.25,
-  trot_gate: bool = False,
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Source tracking kernel over commanded planar velocity only."""
-  asset: Entity = env.scene[asset_cfg.name]
-  command = env.command_manager.get_command(command_name)
-  assert command is not None
-  error = torch.sum(
-    torch.square(command[:, :2] - asset.data.root_link_lin_vel_b[:, :2]), dim=-1
-  )
-  reward = torch.exp(-error / sigma)
-  if trot_gate:
-    ready = getattr(env, "_go2_trot_ready", None)
-    if ready is None:
-      ready = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-    reward = reward * ready.to(reward.dtype)
-  return reward
 
 
-def go2_source_tracking_angular_velocity(
-  env: ManagerBasedRlEnv,
-  command_name: str = "twist",
-  sigma: float = 0.25,
-  trot_gate: bool = False,
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Source tracking kernel over yaw rate only."""
-  asset: Entity = env.scene[asset_cfg.name]
-  command = env.command_manager.get_command(command_name)
-  assert command is not None
-  error = torch.square(command[:, 2] - asset.data.root_link_ang_vel_b[:, 2])
-  reward = torch.exp(-error / sigma)
-  if trot_gate:
-    ready = getattr(env, "_go2_trot_ready", None)
-    if ready is None:
-      ready = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-    reward = reward * ready.to(reward.dtype)
-  return reward
 
 
 def go2_jump_tracking_linear_velocity(
@@ -309,32 +306,6 @@ def go2_stand_zero_angular_velocity_penalty(
   )
 
 
-def go2_special_collision_penalty(
-  env: ManagerBasedRlEnv,
-  sensor_names: tuple[str, ...],
-) -> torch.Tensor:
-  """Aggregate non-foot contacts into the source count-based term.
-
-  Isaac Gym sums every penalized body contact whose force exceeds ``0.1``;
-  preserve that count rather than reducing each sensor to a single boolean.
-  """
-  penalty = torch.zeros(env.num_envs, device=env.device)
-  for sensor_name in sensor_names:
-    sensor: ContactSensor = env.scene[sensor_name]
-    force = sensor.data.force
-    if force is not None:
-      if force.shape[-1] != 3:
-        raise ValueError(
-          f"{sensor_name} force must end in XYZ, got {tuple(force.shape)}"
-        )
-      penalty = penalty + (torch.linalg.vector_norm(force, dim=-1) > 0.1).to(
-        torch.float32
-      ).reshape(env.num_envs, -1).sum(dim=-1)
-      continue
-    found = sensor.data.found
-    assert found is not None
-    penalty = penalty + found.to(torch.float32).reshape(env.num_envs, -1).sum(dim=-1)
-  return penalty
 
 
 def go2_trot_feet_clearance_reward(
@@ -383,90 +354,16 @@ def go2_trot_feet_clearance_reward(
   return (pair_left + pair_right) * moving
 
 
-def go2_linear_velocity_z_penalty(
-  env: ManagerBasedRlEnv,
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Squared vertical base velocity from the source locomotion reward."""
-  asset: Entity = env.scene[asset_cfg.name]
-  return torch.square(asset.data.root_link_lin_vel_b[:, 2])
 
 
-def go2_angular_velocity_xy_penalty(
-  env: ManagerBasedRlEnv,
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Squared roll/pitch angular velocity from the source reward."""
-  asset: Entity = env.scene[asset_cfg.name]
-  return torch.sum(torch.square(asset.data.root_link_ang_vel_b[:, :2]), dim=-1)
 
 
-def go2_orientation_penalty(
-  env: ManagerBasedRlEnv,
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Squared projected-gravity tilt penalty used by source rough tasks."""
-  asset: Entity = env.scene[asset_cfg.name]
-  return torch.sum(torch.square(asset.data.projected_gravity_b[:, :2]), dim=-1)
 
 
-def go2_base_height_penalty(
-  env: ManagerBasedRlEnv,
-  target_height: float = 0.4,
-  sensor_name: str = "terrain_scan",
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Track base height above the local raycast terrain, like Isaac Gym."""
-  asset: Entity = env.scene[asset_cfg.name]
-  root_z = asset.data.root_link_pos_w[:, 2]
-  try:
-    sensor = env.scene[sensor_name]
-  except KeyError:
-    sensor = None
-  if isinstance(sensor, RayCastSensor):
-    hit_z = sensor.data.hit_pos_w[..., 2]
-    distances = sensor.data.distances
-    valid_hit_z = torch.where(distances < 0.0, root_z.unsqueeze(-1), hit_z)
-    local_height = root_z - valid_hit_z.mean(dim=-1)
-  else:
-    local_height = root_z - env.scene.env_origins[:, 2]
-  return torch.square(local_height - target_height)
 
 
-def go2_joint_acceleration_penalty(
-  env: ManagerBasedRlEnv,
-  divide_by_dt: bool = True,
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Source finite-difference joint-velocity penalty.
-
-  Isaac Gym stores the velocity from the preceding policy step and normally
-  divides the difference by the policy ``dt``.  Jump is the one source task
-  that intentionally omits that division.
-  """
-  asset: Entity = env.scene[asset_cfg.name]
-  current = asset.data.joint_vel[:, asset_cfg.joint_ids]
-  previous = getattr(env, "_go2_previous_joint_velocity", None)
-  if previous is None or previous.shape != current.shape:
-    previous = torch.zeros_like(current)
-  # The source explicitly clears ``last_dof_vel`` during every environment
-  # reset.  At the first post-reset reward step, reproduce that zero state.
-  first_step = env.episode_length_buf <= 1
-  previous = torch.where(first_step.unsqueeze(-1), torch.zeros_like(previous), previous)
-  delta = previous - current
-  env.__dict__["_go2_previous_joint_velocity"] = current.clone()
-  if divide_by_dt:
-    delta = delta / env.step_dt
-  return torch.sum(torch.square(delta), dim=-1)
 
 
-def go2_action_smoothness_penalty(env: ManagerBasedRlEnv) -> torch.Tensor:
-  """Second-order raw-action smoothness penalty from the source runner."""
-  action = env.action_manager.action
-  previous = env.action_manager.prev_action
-  previous_previous = env.action_manager.prev_prev_action
-  acceleration = action - 2.0 * previous + previous_previous
-  return torch.sum(torch.square(acceleration), dim=-1)
 
 
 def go2_base_height_error(
@@ -536,98 +433,10 @@ def go2_any_foot_contact(
   return contact.any(dim=1).to(torch.float32)
 
 
-def go2_stumble_penalty(
-  env: ManagerBasedRlEnv,
-  sensor_name: str = "feet_ground_contact",
-  horizontal_ratio: float = 5.0,
-) -> torch.Tensor:
-  """Detect a foot striking a near-vertical surface.
-
-  This is the source Go2 ``_reward_stumble`` kernel: a foot is considered to
-  stumble when its horizontal contact force is more than five times its
-  vertical force.  ContactSensor keeps the same per-foot XYZ force layout, so
-  the term can be shared by CTS, DreamWaQ and TS variants without duplicating
-  task directories.
-  """
-  sensor: ContactSensor = env.scene[sensor_name]
-  force = sensor.data.force
-  if force is None:
-    return torch.zeros(env.num_envs, device=env.device)
-  if force.ndim != 3 or force.shape[-1] != 3:
-    raise ValueError(
-      f"{sensor_name} force must have shape [B, feet, 3], got {tuple(force.shape)}"
-    )
-  horizontal = torch.linalg.vector_norm(force[..., :2], dim=-1)
-  vertical = force[..., 2].abs()
-  return (horizontal > horizontal_ratio * vertical).any(dim=-1).to(force.dtype)
 
 
-def go2_source_feet_air_time_reward(
-  env: ManagerBasedRlEnv,
-  sensor_name: str = "feet_ground_contact",
-  offset: float = 0.5,
-  command_name: str = "twist",
-  command_dimensions: int = 3,
-  contact_threshold: float = 1.0,
-) -> torch.Tensor:
-  """Reproduce the source first-contact air-time accumulator.
-
-  The generic mjlab term rewards every frame inside a bounded air-time
-  interval.  The source instead emits ``air_time-offset`` only on the first
-  filtered landing frame, using a vertical-force threshold and a one-frame
-  contact history.
-  """
-  sensor: ContactSensor = env.scene[sensor_name]
-  contact = _go2_reward_contact_mask(
-    sensor, threshold=contact_threshold, vertical_only=True
-  )
-  air_time = getattr(env, "_go2_source_feet_air_time", None)
-  last_contact = getattr(env, "_go2_source_last_foot_contact", None)
-  if air_time is None or air_time.shape != contact.shape:
-    air_time = torch.zeros_like(contact, dtype=torch.float32)
-  if last_contact is None or last_contact.shape != contact.shape:
-    last_contact = torch.zeros_like(contact)
-  first_step = env.episode_length_buf <= 1
-  air_time = torch.where(first_step.unsqueeze(-1), torch.zeros_like(air_time), air_time)
-  last_contact = torch.where(
-    first_step.unsqueeze(-1), torch.zeros_like(last_contact), last_contact
-  )
-  contact_filtered = contact | last_contact
-  first_contact = (air_time > 0.0) & contact_filtered
-  air_time = air_time + env.step_dt
-  reward = ((air_time - offset) * first_contact.to(air_time.dtype)).sum(dim=-1)
-  command = env.command_manager.get_command(command_name)
-  assert command is not None
-  moving = torch.linalg.vector_norm(command[:, :command_dimensions], dim=-1) > 0.1
-  env.__dict__["_go2_source_feet_air_time"] = air_time * (~contact_filtered).to(
-    air_time.dtype
-  )
-  env.__dict__["_go2_source_last_foot_contact"] = contact
-  return reward * moving
 
 
-def go2_source_foot_clearance_penalty(
-  env: ManagerBasedRlEnv,
-  target_height: float,
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Source body-frame foot-clearance cost weighted by lateral foot speed."""
-  asset: Entity = env.scene[asset_cfg.name]
-  positions = asset.data.site_pos_w[:, asset_cfg.site_ids]
-  velocities = asset.data.site_lin_vel_w[:, asset_cfg.site_ids]
-  num_feet = positions.shape[1]
-  quaternion = asset.data.root_link_quat_w[:, None, :].expand(-1, num_feet, -1)
-  position_b = quat_apply_inverse(
-    quaternion.reshape(-1, 4),
-    (positions - asset.data.root_link_pos_w.unsqueeze(1)).reshape(-1, 3),
-  ).reshape_as(positions)
-  velocity_b = quat_apply_inverse(
-    quaternion.reshape(-1, 4),
-    (velocities - asset.data.root_link_lin_vel_w.unsqueeze(1)).reshape(-1, 3),
-  ).reshape_as(velocities)
-  height_error = torch.square(position_b[..., 2] - target_height)
-  lateral_speed = torch.linalg.vector_norm(velocity_b[..., :2], dim=-1)
-  return torch.sum(height_error * lateral_speed, dim=-1)
 
 
 def go2_base_height_phase_reward(
@@ -801,26 +610,8 @@ def go2_hip_position_penalty(
   return torch.abs(joints[:, 0::3] - default[:, 0::3]).sum(dim=-1)
 
 
-def go2_hip_position_squared_penalty(
-  env: ManagerBasedRlEnv,
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Squared abduction-joint error used by the source CTS reward."""
-  asset: Entity = env.scene[asset_cfg.name]
-  joints = asset.data.joint_pos[:, asset_cfg.joint_ids]
-  default = asset.data.default_joint_pos[:, asset_cfg.joint_ids]
-  return torch.square(joints - default).sum(dim=-1)
 
 
-def go2_rear_hip_limit_penalty(
-  env: ManagerBasedRlEnv,
-  limit: float = 0.4,
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Count a source AMP-DreamWaQ penalty when either rear hip exceeds ``limit``."""
-  asset: Entity = env.scene[asset_cfg.name]
-  joints = asset.data.joint_pos[:, asset_cfg.joint_ids]
-  return ((joints.abs() > limit).any(dim=-1)).to(torch.float32)
 
 
 def go2_line_velocity_stance_penalty(

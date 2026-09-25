@@ -1,0 +1,20 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "b2-wtw",
+  "display_name": "Unitree B2 Walk-These-Ways (periodic gait)",
+  "source": "package-local periodic reward framework task",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "b2_wtw.env_cfg:b2_wtw_env_cfg",
+    "runner": "b2_wtw.env_cfg:b2_wtw_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "Unitree-B2-WTW",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "sort_order": 20,
+  "max_iterations": 250
+}

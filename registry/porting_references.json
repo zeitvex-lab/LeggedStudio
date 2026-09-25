@@ -419,6 +419,31 @@
       ]
     },
     {
+      "profile_id": "b2-wtw",
+      "robot": "unitree_b2",
+      "checked_at": "2026-09-25",
+      "references": [
+        {
+          "repo": "leggedgym-ex",
+          "path": "legged_gym/envs/go2/go2_wtw_config.py",
+          "role": "Walk These Ways 源（与 go2-wtw 同一份上游配方）"
+        }
+      ],
+      "verification": {
+        "method": "**复用证明档案**（2026-09-25 族级化）：本仓没有 b2 专属 WTW 上游，数值逐项取自 go2-wtw 的上游配方；机型相关项按 b2 自己的契约/几何取（足序来自 `leg_ids`、站姿高按 b2 的出生高）。验收方式是**真跑**：同一份族级实现 + 只换绑定与 profile 数据，`b2-wtw` 训 2 iter 通过。",
+        "conclusion": "aligned",
+        "evidence": [
+          "族实现 adapters/mjlab/kits/quadruped_kit/skills/wtw/** ↔ 源包内 locomotion/wtw.py + wtw_mdp.py（已删）",
+          "运行期解析对拍（go2-wtw before/after）：0 不一致"
+        ]
+      },
+      "gaps": [
+        "继承 go2-wtw 的 F7（tracking 核尺度换算、命令重采样 10s vs 8s、预算 100/10000 vs 500/5000）—— 那是**配方**层面的待裁决，本档案按同配方照搬",
+        "b2 的 WTW 数值未做机型标定（站姿高/足端几何已按本机取，但步态参数是 go2 配方）⇒ **能训 ≠ 训得好**；要当正式技能用需按 b2 标定一轮",
+        "**算法变体（CTS/TS/HIM）的第二台机型档案仍未建**：族级环境装配已就绪（go2 九档解析级 0 差异），但新增一台要动算法插件注册链（`adapters/mjlab/algorithms/registry.json`）、runner 类与档案 catalog —— 属独立切片，未在本轮内完成"
+      ]
+    },
+    {
       "profile_id": "go2-velocity-flat",
       "robot": "unitree_go2",
       "checked_at": "2026-09-24",

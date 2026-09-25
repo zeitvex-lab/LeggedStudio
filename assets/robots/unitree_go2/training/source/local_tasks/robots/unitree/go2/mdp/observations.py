@@ -1,3 +1,15 @@
+"""Go2 机型专属的观测帧（薄 shim + 未上移的那几帧）。
+
+被**速度跟踪算法变体**（CTS / AMP-CTS / TS / AMP-TS / TS-学生 / HIM / DreamWaQ /
+AMP-DreamWaQ）消费的帧、历史类与域随机化标签助手已上移到族级
+`adapters/mjlab/kits/quadruped_kit/skills/mdp/observations.py`：本模块把族级实现
+**按原函数名再导出**（入口字符串与既有调用方一律不动），只保留机型专属的帧
+（trot / jump / stand / backflip / spring_jump 的特权帧与动作观测帧）。
+
+与族级实现共用的还有 `_go2_delayed_policy_state`（延时动作项的观测旁路）与
+`_go2_terrain_heights`（地形高度扫描）—— 同一份实现，不再各写一份。
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -9,7 +21,59 @@ from mjlab.sensor import ContactSensor
 from mjlab.sensor.raycast_sensor import RayCastSensor
 from mjlab.utils.lab_api.math import euler_xyz_from_quat
 
-from .actions import Go2DelayedJointPositionAction
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    HimHistory as Go2HimHistory,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    SourceActorFrame as Go2SourceStandActor,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    SourceActorHistory as Go2SourceStandHistory,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    _delayed_policy_state as _go2_delayed_policy_state,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    amp_state_frame as go2_amp_observation,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    cts_critic_frame as go2_source_cts_critic_observation,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    cts_privileged_frame as go2_source_cts_privileged_observation,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    cts_teacher_mask as go2_cts_teacher_mask,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    dreamwaq_privileged_frame as go2_source_dreamwaq_privileged_observation,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    dreamwaq_velocity_target as go2_dreamwaq_velocity_target,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    him_privileged_frame as go2_him_privileged_observation,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    source_foot_contact_bits,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    source_stand_frame as go2_source_stand_observation,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    source_terrain_heights as go2_source_terrain_heights,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    terrain_heights as _go2_terrain_heights,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    ts_critic_frame as go2_source_ts_critic_observation,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.mdp.observations import (
+    ts_privileged_frame as go2_source_ts_privileged_observation,
+)
+
+from .actions import Go2DelayedJointPositionAction  # noqa: F401  (延时动作项的类型契约)
 
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
@@ -17,133 +81,28 @@ if TYPE_CHECKING:
 
 _DEFAULT_ASSET_CFG = SceneEntityCfg("robot")
 
-
-def _go2_contact_mask(sensor: ContactSensor, threshold: float) -> torch.Tensor:
-  """Return source-style vertical-force contact bits for a feet sensor."""
-  force = sensor.data.force
-  if force is not None:
-    return (force[..., 2] > threshold).to(torch.float32)
-  found = sensor.data.found
-  assert found is not None
-  return (found > 0).to(torch.float32)
+#: 源观测契约的足序（源实现按 `(1, 0, 3, 2)` 重排共享传感器槽位 —— 等价于本机型
+#: 观测缓冲的足序是 FR, FL, RR, RL）。族级实现按"契约足序"取位，故这里是数据。
+_CONTRACT_CONTACT_ORDER = ("FR", "FL", "RR", "RL")
 
 
 def _go2_source_contact_mask(sensor: ContactSensor, threshold: float) -> torch.Tensor:
-  """Return four-foot contacts in source ``FL, FR, RL, RR`` order."""
-  contact = _go2_contact_mask(sensor, threshold)
-  if contact.shape[-1] != 4:
-    raise ValueError(f"Expected four foot contacts, got shape {tuple(contact.shape)}")
-  # Shared mjlab sensor order is FR, FL, RR, RL; source buffers use FL, FR, RL, RR.
-  return contact[:, (1, 0, 3, 2)]
+  """源口径的足端接触位（按本机型观测契约的足序）—— 由族级实现代跑。"""
+  return source_foot_contact_bits(sensor, threshold, _CONTRACT_CONTACT_ORDER)
 
 
-def _go2_delayed_policy_state(
-  env: ManagerBasedRlEnv,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
-  """Read optional source-style delayed motor and IMU observations.
-
-  The buffers live on the Go2 action term and are updated after every MuJoCo
-  substep.  Keeping this helper optional preserves ordinary mjlab behavior for
-  tasks that do not enable latency randomization.
-  """
-  try:
-    action_term = env.action_manager.get_term("joint_pos")
-    if not isinstance(action_term, Go2DelayedJointPositionAction):
-      return None
-    motor = action_term.get_delayed_motor_observation()
-    imu = action_term.get_delayed_imu_observation()
-  except (AttributeError, KeyError, RuntimeError):
-    return None
-  if motor is None or imu is None:
-    return None
-  return motor[0], motor[1], imu
 
 
-def go2_cts_teacher_mask(env: ManagerBasedRlEnv) -> torch.Tensor:
-  """Return the source CTS teacher/student split for each environment.
-
-  The legacy runner reserves three environments for the privileged teacher and
-  every fourth environment for the history-only student.  Keeping this as an
-  observation group makes the split part of the rollout (and therefore stable
-  during PPO minibatch shuffling) without changing the actor input dimension.
-  A non-multiple-of-four environment count is accepted for small smoke runs;
-  it simply follows the same repeating pattern.
-  """
-  env_ids = torch.arange(env.num_envs, device=env.device)
-  return (env_ids.remainder(4) != 0).to(dtype=torch.float32).unsqueeze(-1)
 
 
-def _go2_terrain_heights(env: ManagerBasedRlEnv, sensor_name: str) -> torch.Tensor:
-  sensor: RayCastSensor = env.scene[sensor_name]
-  data = sensor.data
-  frame_count, ray_count = sensor.num_frames, sensor.num_rays_per_frame
-  batch = data.distances.shape[0]
-  frame_z = data.frame_pos_w[:, :, 2:3]
-  hit_z = data.hit_pos_w[..., 2].view(batch, frame_count, ray_count)
-  heights = (frame_z - hit_z).view(batch, frame_count * ray_count)
-  heights = torch.where(
-    data.distances < 0,
-    torch.full_like(heights, sensor.cfg.max_distance),
-    heights,
-  )
-  # Isaac Gym's source privileged observations use
-  # clip(base_height - measured_height - 0.5, -1, 1) * 5.  With a raycast
-  # frame attached to base_link, ``heights`` is already base_height minus the
-  # hit height, so apply the same offset/scale here.
-  return (heights - 0.5).clamp(-1.0, 1.0) * 5.0
 
 
-def go2_source_terrain_heights(
-  env: ManagerBasedRlEnv,
-  sensor_name: str = "terrain_scan",
-) -> torch.Tensor:
-  """Expose the source TS teacher's clipped and scaled 187-D height scan."""
-  return _go2_terrain_heights(env, sensor_name)
 
 
-def _go2_domain_randomization_fields(
-  env: ManagerBasedRlEnv,
-  *,
-  include_mass_com: bool,
-) -> torch.Tensor:
-  """Expose the MuJoCo fields randomized by the Go2 source configurations."""
-  asset: Entity = env.scene["robot"]
-  size = 42 if include_mass_com else 26
-  zeros = torch.zeros((env.num_envs, size), device=env.device)
-  try:
-    model = env.sim.model
-    default_gain = env.sim.get_default_field("actuator_gainprm")
-    default_bias = env.sim.get_default_field("actuator_biasprm")
-    ctrl_ids = asset.indexing.ctrl_ids
-    kp = getattr(env, "_go2_pd_kp_multiplier", None)
-    kd = getattr(env, "_go2_pd_kd_multiplier", None)
-    if kp is None or kd is None:
-      kp = model.actuator_gainprm[:, ctrl_ids, 0] / default_gain[ctrl_ids, 0].clamp_min(
-        1e-6
-      )
-      kd = (-model.actuator_biasprm[:, ctrl_ids, 2]) / (
-        -default_bias[ctrl_ids, 2]
-      ).clamp_min(1e-6)
-    if kp.shape[-1] != 12 or kd.shape[-1] != 12:
-      return zeros
-    # The source buffers store the sampled coefficient itself (not a ratio to
-    # the XML default), so keep the MuJoCo value in the same units.
-    friction = model.geom_friction[:, asset.indexing.geom_ids, 0].mean(
-      dim=-1, keepdim=True
-    )
-    restitution = torch.zeros_like(friction)
-    if include_mass_com:
-      body_id = asset.indexing.body_ids[0]
-      default_mass = env.sim.get_default_field("body_mass")[body_id].clamp_min(1e-6)
-      # ``added_base_masses`` in the source is an additive kilogram offset.
-      mass = model.body_mass[:, body_id : body_id + 1] - default_mass
-      default_ipos = env.sim.get_default_field("body_ipos")[body_id]
-      com = model.body_ipos[:, body_id] - default_ipos
-      torque = getattr(env, "_go2_torque_multiplier", torch.ones_like(kp))
-      return torch.cat((friction, restitution, mass, com, kp, kd, torque), dim=-1)
-    return torch.cat((friction, restitution, kp, kd), dim=-1)
-  except (AttributeError, IndexError, RuntimeError, TypeError):
-    return zeros
+
+
+
+
 
 
 def _go2_stand_randomization_fields(env: ManagerBasedRlEnv) -> torch.Tensor:
@@ -435,44 +394,8 @@ def go2_source_stand_privileged_observation(
   return torch.cat((asset.data.root_link_lin_vel_b, actor, reserved, contact), dim=-1)
 
 
-def go2_amp_observation(
-  env: ManagerBasedRlEnv,
-  sensor_name: str = "terrain_scan",
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Build the 31-D AMP discriminator input used by the source project.
-
-  AMP deliberately uses unscaled absolute joint positions and the terrain-
-  relative base height, unlike the policy's 45-D normalized observation.
-  """
-  asset: Entity = env.scene[asset_cfg.name]
-  # Source ``_get_base_heights`` averages root-height minus nearby terrain
-  # samples.  Recover the equivalent scalar from the raycast heights when the
-  # sensor is available; flat scenes naturally reduce to the root height.
-  try:
-    terrain = _go2_terrain_heights(env, sensor_name)
-    base_height = (terrain / 5.0 + 0.5).mean(dim=-1, keepdim=True)
-  except (KeyError, AttributeError, RuntimeError, TypeError):
-    base_height = asset.data.root_link_pos_w[:, 2:3] - env.scene.env_origins[:, 2:3]
-  return torch.cat(
-    (
-      asset.data.joint_pos,
-      asset.data.root_link_lin_vel_b,
-      asset.data.root_link_ang_vel_b,
-      asset.data.joint_vel,
-      base_height,
-    ),
-    dim=-1,
-  )
 
 
-def go2_dreamwaq_velocity_target(
-  env: ManagerBasedRlEnv,
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Return the 3-D body-frame velocity label used by DreamWaQ's VAE."""
-  asset: Entity = env.scene[asset_cfg.name]
-  return asset.data.root_link_lin_vel_b
 
 
 def go2_source_spring_jump_observation(
@@ -549,297 +472,19 @@ def go2_source_spring_jump_privileged_observation(
   )
 
 
-def go2_source_dreamwaq_privileged_observation(
-  env: ManagerBasedRlEnv,
-  command_name: str = "twist",
-  sensor_name: str = "terrain_scan",
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Build the 261-D DreamWaQ privileged frame."""
-  asset: Entity = env.scene[asset_cfg.name]
-  command = env.command_manager.get_command(command_name)
-  assert command is not None, f"Command '{command_name}' not found."
-  terrain = _go2_terrain_heights(env, sensor_name)
-  zeros = _go2_domain_randomization_fields(env, include_mass_com=False).to(
-    terrain.dtype
-  )
-  return torch.cat(
-    (
-      terrain,
-      asset.data.root_link_lin_vel_b,
-      zeros,
-      command[:, :3] * torch.tensor((2.0, 2.0, 0.25), device=env.device),
-      asset.data.root_link_ang_vel_b * 0.25,
-      asset.data.projected_gravity_b,
-      asset.data.joint_pos - asset.data.default_joint_pos,
-      asset.data.joint_vel * 0.05,
-      env.action_manager.action,
-    ),
-    dim=-1,
-  )
 
 
-def go2_source_cts_privileged_observation(
-  env: ManagerBasedRlEnv,
-  sensor_name: str = "terrain_scan",
-  contact_sensor_name: str = "feet_ground_contact",
-) -> torch.Tensor:
-  """Build the 233-D CTS encoder input (42 randomization + contacts + terrain)."""
-  terrain = _go2_terrain_heights(env, sensor_name)
-  sensor: ContactSensor = env.scene[contact_sensor_name]
-  reserved = _go2_domain_randomization_fields(env, include_mass_com=True).to(
-    terrain.dtype
-  )
-  return torch.cat(
-    (
-      reserved,
-      _go2_source_contact_mask(sensor, threshold=1.0).to(terrain.dtype),
-      terrain,
-    ),
-    dim=-1,
-  )
 
 
-def go2_source_ts_privileged_observation(
-  env: ManagerBasedRlEnv,
-  contact_sensor_name: str = "feet_ground_contact",
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Build the 74-D terrain-independent TS teacher encoder input.
-
-  The legacy TS environments expose ``privileged_buf`` separately from the
-  309-D critic observation.  It contains the 70 source domain-randomization
-  fields followed by a four-foot contact mask; terrain heights and base linear
-  velocity stay in the critic-only path.  Keep this group separate in mjlab so
-  the teacher encoder receives the same contract as the source runner.
-  """
-  asset: Entity = env.scene[asset_cfg.name]
-  sensor: ContactSensor = env.scene[contact_sensor_name]
-
-  # The shared helper provides the scalar friction/restitution, base mass and
-  # COM, PD-gain and torque fields.  The source additionally stores 28 link
-  # mass ratios between base mass and COM.  MuJoCo assets do not expose the
-  # exact Isaac-Gym link ordering.  Fixed URDF children are collapsed into the
-  # moving parents, so their unavailable ratios remain at the neutral value 1
-  # and represented links are placed in their original 28-field slots.
-  base_fields = _go2_domain_randomization_fields(env, include_mass_com=True)
-  link_mass = torch.ones((env.num_envs, 28), device=env.device, dtype=base_fields.dtype)
-  try:
-    model = env.sim.model
-    body_ids = asset.indexing.body_ids
-    source_slots = {
-      f"{leg}_{link}": 2 + leg_index * 6 + link_index
-      for leg_index, leg in enumerate(("FL", "FR", "RL", "RR"))
-      for link_index, link in enumerate(("hip", "thigh", "calf"))
-    }
-    default_mass = env.sim.get_default_field("body_mass")
-    for local_index, body_name in enumerate(asset.body_names):
-      source_index = source_slots.get(body_name)
-      if source_index is None:
-        continue
-      body_id = body_ids[local_index]
-      link_mass[:, source_index] = model.body_mass[:, body_id] / default_mass[
-        body_id
-      ].clamp_min(1.0e-6)
-  except (AttributeError, IndexError, RuntimeError, TypeError):
-    pass
-
-  # Reorder the 42-D shared block to match the source layout:
-  # friction, restitution, base mass, link masses, COM, kp, kd, torque.
-  base_mass = base_fields[:, 2:3]
-  com = base_fields[:, 3:6]
-  gains_and_torque = base_fields[:, 6:]
-  domain = torch.cat(
-    (base_fields[:, :2], base_mass, link_mass, com, gains_and_torque), dim=-1
-  )
-  contact = _go2_source_contact_mask(sensor, threshold=1.0).to(domain.dtype)
-  return torch.cat((domain, contact), dim=-1)
 
 
-def go2_source_cts_critic_observation(
-  env: ManagerBasedRlEnv,
-  sensor_name: str = "terrain_scan",
-  contact_sensor_name: str = "feet_ground_contact",
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-  include_lin_vel: bool = False,
-) -> torch.Tensor:
-  """Build the 278/281-D CTS value input from actor and privileged fields."""
-  asset: Entity = env.scene[asset_cfg.name]
-  actor = go2_source_stand_observation(env, asset_cfg=asset_cfg, command_first=True)
-  privileged = go2_source_cts_privileged_observation(
-    env, sensor_name, contact_sensor_name
-  )
-  if include_lin_vel:
-    return torch.cat((actor, privileged, asset.data.root_link_lin_vel_b), dim=-1)
-  return torch.cat((actor, privileged), dim=-1)
 
 
-def go2_source_ts_critic_observation(
-  env: ManagerBasedRlEnv,
-  sensor_name: str = "terrain_scan",
-  contact_sensor_name: str = "feet_ground_contact",
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Build the 309-D TS value input in the source concatenation order.
-
-  The legacy ``LeggedRobotAMP_TS`` critic buffer is
-  ``base_lin_vel || actor_obs || domain(70) || contacts(4) || terrain(187)``.
-  Keep the velocity prefix (unlike CTS, which appends it for AMP-CTS) because
-  trained TS checkpoints and the value network depend on this ordering.
-  """
-  asset: Entity = env.scene[asset_cfg.name]
-  actor = go2_source_stand_observation(env, asset_cfg=asset_cfg, command_first=True)
-  ts_privileged = go2_source_ts_privileged_observation(
-    env,
-    contact_sensor_name=contact_sensor_name,
-    asset_cfg=asset_cfg,
-  )
-  domain = ts_privileged[:, :70]
-  contact = ts_privileged[:, 70:]
-  terrain = _go2_terrain_heights(env, sensor_name).to(actor.dtype)
-  return torch.cat(
-    (asset.data.root_link_lin_vel_b, actor, domain, contact, terrain), dim=-1
-  )
 
 
-class Go2SourceStandActor:
-  """45-D actor frame, cached so the history group reuses the identical sample.
-
-  mjlab's current ``ObservationTermCfg`` has no ``history_source`` hook, so the
-  source ``obs_hist_buf`` (which repeats the *processed* actor frame including
-  its policy-noise sample) is reproduced here: the actor term samples noise
-  internally and stores the result for :class:`Go2SourceStandHistory`.
-  """
-
-  def __init__(self, cfg, env) -> None:
-    params = getattr(cfg, "params", {}) or {}
-    self._command_name = str(params.get("command_name", "twist"))
-    self._command_first = bool(params.get("command_first", False))
-    self._add_noise = bool(params.get("add_noise", True))
-    self._noise = params.get("noise")
-    self._frame = torch.zeros((env.num_envs, 45), device=env.device)
-    env._go2_source_actor_term = self
-
-  def __call__(self, env, **_kwargs) -> torch.Tensor:
-    frame = go2_source_stand_observation(
-      env, self._command_name, command_first=self._command_first
-    )
-    if self._add_noise and self._noise is not None:
-      low = torch.as_tensor(self._noise.n_min, device=env.device, dtype=frame.dtype)
-      high = torch.as_tensor(self._noise.n_max, device=env.device, dtype=frame.dtype)
-      frame = frame + low + (high - low) * torch.rand_like(frame)
-    self._frame.copy_(frame)
-    return self._frame
-
-  def reset(self, env_ids=None) -> None:
-    if env_ids is None:
-      self._frame.zero_()
-    else:
-      self._frame[env_ids] = 0.0
 
 
-class Go2SourceStandHistory:
-  """Frame-major (oldest→newest) actor history ending at the current frame.
-
-  ``length`` should be the source frame count plus one (mjlab history includes
-  the current frame); the conditional models drop the newest 45-D block to
-  recover the source's preceding-frame window.
-  """
-
-  def __init__(self, cfg, env) -> None:
-    params = getattr(cfg, "params", {}) or {}
-    self._length = max(1, int(params.get("length", 1)))
-    self._buf = torch.zeros((env.num_envs, self._length, 45), device=env.device)
-    env._go2_source_history_term = self
-
-  def __call__(self, env, **_kwargs) -> torch.Tensor:
-    out = self._buf.reshape(env.num_envs, -1).clone()
-    actor = getattr(env, "_go2_source_actor_term", None)
-    self._buf = torch.roll(self._buf, shifts=-1, dims=1)
-    if actor is not None:
-      self._buf[:, -1] = actor._frame
-    return out
-
-  def reset(self, env_ids=None) -> None:
-    if env_ids is None:
-      self._buf.zero_()
-    else:
-      self._buf[env_ids] = 0.0
 
 
-class Go2HimHistory:
-  """HIMLoco ``obs_hist_buf``: 45-D frames stacked newest first.
-
-  HIM feeds the estimator and the actor the full stacked history
-  ``cat(current_frame, older_frames)`` (source:
-  ``obs_buf = cat(current_obs[:, :45], obs_buf[:, :-45])``), unlike the
-  CTS/DreamWaQ history encoders that consume only frames preceding the current
-  one. The term samples the observation noise itself and caches the processed
-  (noisy) current frame so :func:`go2_him_privileged_observation` can reuse the
-  identical frame, mirroring how the source privileged buffer shares the noisy
-  ``current_obs`` prefix.
-  """
-
-  def __init__(self, cfg, env) -> None:
-    params = getattr(cfg, "params", {}) or {}
-    self._command_name = str(params.get("command_name", "twist"))
-    self._command_first = bool(params.get("command_first", True))
-    self._add_noise = bool(params.get("add_noise", True))
-    self._noise = params.get("noise")
-    self._length = max(1, int(params.get("length", 6)))
-    self._frame_dim = 45
-    self._frame = torch.zeros((env.num_envs, self._frame_dim), device=env.device)
-    self._buf = torch.zeros(
-      (env.num_envs, self._length, self._frame_dim), device=env.device
-    )
-    env._go2_him_history_term = self
-
-  def __call__(self, env, **_kwargs) -> torch.Tensor:
-    frame = go2_source_stand_observation(
-      env, self._command_name, command_first=self._command_first
-    )
-    if self._add_noise and self._noise is not None:
-      low = torch.as_tensor(self._noise.n_min, device=env.device, dtype=frame.dtype)
-      high = torch.as_tensor(self._noise.n_max, device=env.device, dtype=frame.dtype)
-      frame = frame + low + (high - low) * torch.rand_like(frame)
-    self._frame.copy_(frame)
-    # Source stacking keeps the newest frame at offset 0; older frames follow
-    # in recency order so ``history[:, :45]`` is the current observation.
-    self._buf = torch.roll(self._buf, shifts=1, dims=1)
-    self._buf[:, 0] = frame
-    return self._buf.reshape(env.num_envs, -1)
-
-  def reset(self, env_ids=None) -> None:
-    if env_ids is None:
-      self._frame.zero_()
-      self._buf.zero_()
-    else:
-      self._frame[env_ids] = 0.0
-      self._buf[env_ids] = 0.0
 
 
-def go2_him_privileged_observation(
-  env: ManagerBasedRlEnv,
-  command_name: str = "twist",
-  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
-) -> torch.Tensor:
-  """Build the 48-D HIM privileged frame: ``noisy_frame45 || base_lin_vel * 2``.
-
-  HIMLoco's per-step privileged frame shares the noisy ``current_obs`` prefix
-  and appends the clean base linear velocity scaled by
-  ``obs_scales.lin_vel = 2.0`` at offset 45 — the estimator's velocity ground
-  truth slice (``next_critic_obs[:, 45:48]``). Its contrastive target slice
-  (``[:, 3:48]``) reads the same frame minus the command prefix plus the
-  velocity, so a 48-D frame reproduces both upstream estimator slices exactly.
-  The perceptive variant's additional disturbance and height-scan dimensions
-  are omitted for this blind Go2 task (the estimator never indexes them and the
-  value network width is not part of the deployment contract).
-  """
-  asset: Entity = env.scene[asset_cfg.name]
-  history = getattr(env, "_go2_him_history_term", None)
-  if history is not None:
-    frame = history._frame.clone()
-  else:
-    frame = go2_source_stand_observation(env, command_name, command_first=True)
-  lin_vel = asset.data.root_link_lin_vel_b * 2.0
-  return torch.cat((frame, lin_vel), dim=-1)

@@ -330,6 +330,88 @@ class QuadrupedSkillBinding:
             return False
         return True
 
+    def family_role_token(self, family_role: str) -> str:
+        """族角色 → 本机型名字里的词干（`knee` → `calf`）。
+
+        契约角色词与族角色名可以不同（四足族 `leg_pattern` 写的是 `calf`，族角色是
+        `knee`）；"按角色取几何/body 词干"的项走这里，技能层不写任何机型词。
+        """
+        for role in self.leg_pattern:
+            if self.family_role(role) == family_role:
+                return self._role_geom_token(role)
+        raise ValueError(
+            f"{self.robot_id}: 契约 leg_pattern {self.leg_pattern} 里找不到族角色 {family_role!r}"
+        )
+
+    def leg_bodies_pattern(self) -> str:
+        """**腿杆 body** 的紧凑正则：`(?:<腿1>|<腿2>|…)_(?:<角色1>|…)`。
+
+        契约事实派生（腿标记序 × 契约角色词序）—— 源配方写死
+        `(?:FL|FR|RL|RR)_(?:hip|thigh|calf)`，同族同构机型得到同一串。
+        用途：按 body 名给腿杆挂质量随机化这类"整腿若干 body"的项。
+        """
+        legs = "|".join(str(leg) for leg in self.leg_ids)
+        roles = "|".join(str(role) for role in self.leg_pattern)
+        pattern = f"(?:{legs})_(?:{roles})"
+        resolved = {
+            name for name in self.body_names if re.fullmatch(pattern, name) is not None
+        }
+        if not resolved:
+            raise RuntimeError(
+                f"{self.robot_id}: 腿杆 body 模式 {pattern!r} 在 MJCF body 清单里空匹配 —— "
+                f"可用 body：{sorted(self.body_names)}"
+            )
+        return pattern
+
+    def leg_link_body_pattern(self, family_role: str) -> str:
+        """腿杆 **body** 的匹配正则（族角色 → 本机型 body 词干，`knee` → `.*_calf`）。
+
+        用途：**碰撞几何未命名**的机型（碰撞几何由机型 `CollisionCfg` 在实体构建期
+        重建、MJCF 里没有名字）没法按几何名装"腿杆/躯干触地"传感器 —— 这时按 body 名
+        匹配，语义相同（"这根腿杆与地形的接触"），词干仍从契约派生。
+        家族 MJCF 约定是"可碰撞几何名以 `_collision` 结尾"，本方法只服务偏离该约定的
+        资产的同一语义表达，不判死任何技能。
+        """
+        token = self.family_role_token(family_role)
+        resolved = {
+            name
+            for name in self.body_names
+            if name.lower().endswith(f"_{token.lower()}")
+        }
+        if not resolved:
+            raise RuntimeError(
+                f"{self.robot_id}: 族角色 {family_role!r}（词干 {token!r}）在 MJCF body 清单里"
+                f"找不到匹配（`*_{token}`）—— 该资产既没有命名碰撞几何、也没有可辨认的腿杆 body，"
+                "需要腿杆触地传感器的技能在这里是能力缺口"
+            )
+        return f".*_{token}"
+
+    def non_foot_body_pattern(self) -> str:
+        """"非足端 body" 的匹配正则：`^(?!.*_<膝词干>).*`。
+
+        来源：WTW 的 `nonfoot_ground_touch` 传感器写死 `^(?!.*_calf).*`（"除小腿/足端
+        链接以外的任何 body 触地都算不期望接触"）。族级从契约派生词干 —— 四足族两者
+        都得到 `calf`，但技能层不需要知道任何机型的拼法。
+        """
+        return rf"^(?!.*_{self.family_role_token('knee')}).*"
+
+    def foot_link_bodies(self) -> tuple[str, ...]:
+        """按契约腿序的**足端链接 body**（足端几何自己的父 body）。
+
+        有些机型的足端链接有自己的 body（`<腿>_calf` 之外的 `<腿>_foot`），有些机型
+        的足端就是小腿本体 —— 两种都从 MJCF 真值派生：**足端几何按定义挂在足端链接上**。
+        找不到即报错（不静默换口径）。
+        """
+        model = self.base_entity_cfg().spec_fn().compile()
+        by_name = {(model.geom(i).name or ""): i for i in range(model.ngeom)}
+        picked: list[str] = []
+        for geom in self.foot_geoms:
+            index = by_name.get(geom)
+            if index is None:
+                raise RuntimeError(f"{self.robot_id}: 足端几何 {geom!r} 不在编译后的 MJCF 里")
+            picked.append(str(model.body(int(model.geom_bodyid[index])).name))
+        return tuple(picked)
+
     def foot_bodies(self) -> tuple[str, ...]:
         """按契约腿序的足端 **body** 名（`<腿>_<名含 foot token>`，如 lite3 的 `FL_FOOT`）。
 

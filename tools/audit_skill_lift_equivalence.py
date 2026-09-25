@@ -76,6 +76,12 @@ _NEW_DOF_POWER = (
 )
 _CANON_DOF_POWER = "SKILL.mdp.rewards:dof_power_penalty"
 
+#: WTW（周期步态先验）上移：包内 `...tasks.locomotion.wtw_mdp` 整段搬到族级
+#: `...skills.wtw.mdp`（同名函数，机器事实改走绑定派生）。
+_OLD_WTW_MDP = "local_tasks.robots.unitree.go2.tasks.locomotion.wtw_mdp"
+_NEW_WTW_MDP = "adapters.mjlab.kits.quadruped_kit.skills.wtw.mdp"
+_CANON_WTW_MDP = "SKILL.wtw.mdp"
+
 
 def _canon(module: str) -> str:
     """模块路径归一表（只归一**计划中的搬迁**，不改任何值）。"""
@@ -85,6 +91,10 @@ def _canon(module: str) -> str:
     # velocity 上移的功率核：包内名字 → 族级名字（同一实现，见 skills/mdp/rewards.py）
     text = text.replace(_OLD_DOF_POWER, _CANON_DOF_POWER).replace(
         _NEW_DOF_POWER, _CANON_DOF_POWER
+    )
+    # WTW 上移：包内 wtw_mdp → 族级 skills/wtw/mdp.py（同一实现）
+    text = text.replace(_OLD_WTW_MDP, _CANON_WTW_MDP).replace(
+        _NEW_WTW_MDP, _CANON_WTW_MDP
     )
     # parkour（越障）上移：装配/模型/地形从包内 `...tasks.parkour.*` 搬到族级
     # `...skills.parkour.*`（`config/` 是薄委托，不在此列）。
@@ -291,6 +301,9 @@ def self_test() -> int:
          "adapters.mjlab.kits.quadruped_kit.skills.parkour.mdp.rewards"),
         ("local_tasks.robots.unitree.go2.tasks.parkour.rl.pie_model:PIEActorModel",
          "adapters.mjlab.kits.quadruped_kit.skills.parkour.rl.pie_model:PIEActorModel"),
+        # WTW：包内 `...locomotion.wtw_mdp` ↔ 族级 `...skills.wtw.mdp`
+        ("local_tasks.robots.unitree.go2.tasks.locomotion.wtw_mdp:quad_periodic_gait",
+         "adapters.mjlab.kits.quadruped_kit.skills.wtw.mdp:quad_periodic_gait"),
     ]
     for old, new in pairs:
         if _canon(old) != _canon(new):
