@@ -56,6 +56,13 @@ from mjlab.managers import (
 )
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
 from mjlab.tasks.velocity.mdp.terminations import illegal_contact as _illegal_contact
+from mjlab.terrains.config import (
+    discrete_obstacles,
+    hf_pyramid_slope,
+    pyramid_stairs,
+    pyramid_stairs_inv,
+    random_rough,
+)
 from mjlab.terrains.terrain_generator import TerrainGeneratorCfg
 from mjlab.utils.noise.noise_cfg import UniformNoiseCfg
 
@@ -688,8 +695,51 @@ def make_variant_env_cfg(
     return cfg
 
 
+#: 变体档的**族级默认地形配方** —— 源 CTS/TS 上游的五类地块（比例/坡度/噪声/台阶尺寸
+#: 全是算法配方的常量）。逐档真正不同的只有 `spec.terrain_border_width`（生成器边界），
+#: 故这里是默认、由 spec 覆盖；机型侧要用别的配方（例如另一份上游）可自行传 `terrain=`。
+SOURCE_VARIANT_TERRAIN = VariantTerrain(
+    size=(8.0, 8.0),
+    num_rows=10,
+    num_cols=20,
+    curriculum=True,
+    add_lights=True,
+    border_width=25.0,
+    sub_terrains={
+        "smooth_slope": hf_pyramid_slope(
+            proportion=0.15, slope_range=(0.0, 0.4), platform_width=3.0, border_width=1.0
+        ),
+        "rough_slope": random_rough(
+            proportion=0.15, noise_range=(0.02, 0.10), noise_step=0.02, border_width=1.0
+        ),
+        "stairs_up": pyramid_stairs(
+            proportion=0.30,
+            step_height_range=(0.0, 0.1),
+            step_width=0.31,
+            platform_width=3.0,
+            border_width=1.0,
+        ),
+        "stairs_down": pyramid_stairs_inv(
+            proportion=0.30,
+            step_height_range=(0.0, 0.1),
+            step_width=0.31,
+            platform_width=3.0,
+            border_width=1.0,
+        ),
+        "discrete": discrete_obstacles(
+            proportion=0.10,
+            obstacle_width_range=(0.3, 1.0),
+            obstacle_height_range=(0.05, 0.25),
+            num_obstacles=40,
+            border_width=1.0,
+        ),
+    },
+)
+
+
 __all__ = [
     "FAMILIES",
+    "SOURCE_VARIANT_TERRAIN",
     "VariantSpec",
     "VariantTerrain",
     "make_variant_env_cfg",

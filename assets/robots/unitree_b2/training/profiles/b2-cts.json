@@ -1,0 +1,23 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "b2-cts",
+  "display_name": "B2 CTS (并发教师-学生) — 族级算法变体复用证明",
+  "source": "**族级复用证明档案**：本仓没有 b2 专属 CTS 上游。环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/velocity/{variants,runner}.py`），数值取 unitree_go2 的 cts 档（CTS 上游 = 00_resources/LeggedGym-Ex 的 go2 CTS/TS 族）；仅 `contact_order` 与 `base_height_target` 按 b2 自己的腿序与站姿取。**未按 b2 标定** —— 能训不等于训得好，详见 registry/porting_references.json 的 b2-cts 条目",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "b2_cts.config:b2_cts_env_cfg",
+    "runner": "b2_cts.config:b2_cts_runner_cfg",
+    "runner_class": "adapters.mjlab.kits.quadruped_kit.skills.velocity.runner:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "Mjlab-CTS-Rough-Unitree-B2",
+  "terrain_type": "rough",
+  "algorithm": "CTS/TS",
+  "algorithm_plugin": "cts",
+  "algorithm_plugin_registry": "adapters/mjlab/algorithms/registry.json",
+  "num_envs": 1024,
+  "episode_length_s": 20.0,
+  "history_length": 5,
+  "sort_order": 110,
+  "max_iterations": 250
+}
