@@ -1,69 +1,47 @@
-"""Shared helpers for source-compatible Go2 task factories."""
+"""Go2 源兼容任务工厂的共享助手（薄 shim）。
+
+族级实现：`adapters/mjlab/kits/quadruped_kit/skills/velocity/config.py` 的三个源配方
+收尾（观测裁剪 / 共享摩擦采样 / 帧噪声向量）。本模块按**原函数名**再导出，
+包内未上移的任务（trot / 特技与站姿）与既有调用方一律不动。
+
+只留在包内的一样：`_go2_source_47_noise_cfg` —— 47 维相位帧的逐段噪声幅度是
+**特技/站姿任务的帧布局**（相位 5 + 角速度 3 + 欧拉 3 + 关节 3×12），
+不属速度跟踪族的时间口径，未上移。
+"""
+
+from __future__ import annotations
 
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.utils.noise.noise_cfg import UniformNoiseCfg
 
+from adapters.mjlab.kits.quadruped_kit.skills.velocity.config import (
+  apply_source_geom_friction as _go2_source_geom_friction,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.velocity.config import (
+  apply_source_observation_clipping as _go2_source_observation_clipping,
+)
+from adapters.mjlab.kits.quadruped_kit.skills.velocity.config import (
+  source_frame_noise,
+)
 
-def _go2_source_observation_clipping(cfg: ManagerBasedRlEnvCfg) -> None:
-  """Apply the source environment's final [-100, 100] observation clip."""
-  for group in cfg.observations.values():
-    for term in group.terms.values():
-      term.clip = (-100.0, 100.0)
-
-
-def _go2_source_geom_friction(
-  cfg: ManagerBasedRlEnvCfg,
-  ranges: tuple[float, float],
-) -> None:
-  """Match Isaac Gym's shared friction sample across every Go2 shape.
-
-  The source ``_process_rigid_shape_props`` callback assigns one scalar
-  coefficient to every rigid shape in an environment.  MuJoCo's first geom
-  friction component is the closest equivalent.  Do not retain the generic
-  torsional/rolling randomizers here: those are useful for the public mjlab
-  baseline, but are not sampled by the Go2 source tasks.
-  """
-  event = cfg.events.get("foot_friction_slide")
-  if event is None:
-    return
-  asset_cfg = event.params["asset_cfg"]
-  asset_cfg.geom_names = (r".*",)
-  event.params.update(
-    {
-      "ranges": ranges,
-      "axes": [0],
-      "shared_random": True,
-    }
-  )
-  cfg.events.pop("foot_friction_spin", None)
-  cfg.events.pop("foot_friction_roll", None)
+#: 47 维相位帧的关节数（特技/站姿任务的帧布局常量）。
+_SOURCE_47_JOINT_COUNT = 12
 
 
 def _go2_source_noise_cfg(
   *, command_first: bool, dof_pos_noise: float = 0.01, ang_vel_noise: float = 0.2
 ) -> UniformNoiseCfg:
-  """Return the source uniform observation-noise vector for a 45-D frame."""
-  # Source noise is sampled in [-scale, scale].  The stand tasks place IMU,
-  # gravity, then command; CTS/DreamWaQ/TS place command first.
-  imu = [ang_vel_noise * 0.25] * 3
-  gravity = [0.05] * 3
-  command = [0.0] * 3
-  q = [dof_pos_noise] * 12
-  dq = [1.5 * 0.05] * 12
-  actions = [0.0] * 12
-  values = (
-    command + imu + gravity + q + dq + actions
-    if command_first
-    else imu + gravity + command + q + dq + actions
-  )
-  return UniformNoiseCfg(
-    n_min=tuple(-value for value in values),
-    n_max=tuple(values),
+  """返回 45 维帧的源噪声向量（族级实现；本机型关节数 = 12）。"""
+  return source_frame_noise(
+    joint_count=_SOURCE_47_JOINT_COUNT,
+    command_first=command_first,
+    dof_pos_noise=dof_pos_noise,
+    ang_vel_noise=ang_vel_noise,
   )
 
 
 def _go2_source_47_noise_cfg() -> UniformNoiseCfg:
-  """Return the source uniform noise vector for phase-based 47-D frames."""
+  """返回相位式 47 维帧的源噪声向量。"""
   values = (
     [0.0] * 5
     + [0.2 * 0.25] * 3
@@ -73,3 +51,12 @@ def _go2_source_47_noise_cfg() -> UniformNoiseCfg:
     + [0.0] * 12
   )
   return UniformNoiseCfg(n_min=tuple(-value for value in values), n_max=tuple(values))
+
+
+__all__ = [
+  "_go2_source_47_noise_cfg",
+  "_go2_source_geom_friction",
+  "_go2_source_noise_cfg",
+  "_go2_source_observation_clipping",
+  "ManagerBasedRlEnvCfg",
+]

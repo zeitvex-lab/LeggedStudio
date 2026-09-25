@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:  # pragma: no cover - 只为注解，运行期不导入（避免 Kit↔包循环）
     from mjlab.envs import ManagerBasedRlEnvCfg
@@ -106,3 +106,146 @@ class VelocityProfile:
     # --- 终止 ---------------------------------------------------------------------
     #: flat 档 `fell_over` 的倾角上限（度）。
     flat_tilt_limit_degrees: float = 70.0
+
+
+# ---------------------------------------------------------------------------
+# 算法变体档（`variants.py` 的输入数据）
+#
+# 速度跟踪的**算法轴**（CTS / AMP-CTS / TS / AMP-TS / TS-学生 / HIM / DreamWaQ /
+# AMP-DreamWaQ）是同一技能的配方分支：机制（装哪些观测组、换哪些奖励核、动作项换成
+# 带延时的实现……）在 `variants.py`，**逐项数值**在这里 —— 于是"换机型只换数据"。
+# 全部数值无默认值（除结构性开关），由机型侧 profile 模块逐项给出：
+# 默认值 = 源配方数值会违反"Kit 内不得出现机型数值"。
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class VariantTerrain:
+    """变体档地形生成器（源配方五类地块）。`sub_terrains` 的值是 mjlab 地块 cfg。"""
+
+    size: tuple[float, float]
+    num_rows: int
+    num_cols: int
+    curriculum: bool
+    add_lights: bool
+    border_width: float
+    sub_terrains: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class VariantSpec:
+    """一个算法变体的逐项数值。
+
+    `family` 是**观测族**（决定特权/critic/历史组的形状）：
+    `dreamwaq` / `cts` / `him` / `ts`。
+    """
+
+    family: str
+    #: 是否装 AMP 判别器观测组。
+    amp: bool
+    #: 接触监看块的匹配口径：`geom` = 按几何名（家族约定 `<腿>_<角色>_collision`，
+    #: 从绑定派生）；`body` = 按 body 名（资产的碰撞几何未命名、但 body 有名字时
+    #: 用这一档，词干同样从绑定派生）。两种口径解析到的**语义集合**相同
+    #: （"这些腿杆/躯干与地形的接触"），差别只在资产命名。
+    contact_match: Literal["geom", "body"]
+
+    # --- 复位 / 场景 ---------------------------------------------------------------
+    reset_scale_range: tuple[float, float]
+    reset_pose_range: Mapping[str, tuple[float, float]]
+    reset_velocity_range: Mapping[str, tuple[float, float]]
+    terrain_border_width: float
+    clip_rewards_to_positive: bool
+    #: AMP-CTS 的镜像外展预载（腿标记 → 角度）；空 = 初始姿照契约默认姿。
+    hip_preload_by_leg: Mapping[str, float]
+
+    # --- 启动期域随机化 -------------------------------------------------------------
+    encoder_bias_range: tuple[float, float]
+    geom_friction_range: tuple[float, float]
+    com_extent: float
+    base_mass_range: tuple[float, float]
+    link_mass_range: tuple[float, float]
+    pd_gain_range: tuple[float, float]
+    torque_multiplier_range: tuple[float, float]
+
+    # --- 区间扰动 ------------------------------------------------------------------
+    push_interval_s: float
+    push_linear: float
+    push_angular: float
+
+    # --- 观测 ---------------------------------------------------------------------
+    #: 历史组的帧数（源 = 前置帧数 + 1；`None` = 不装历史组，HIM 用堆叠历史当 actor）。
+    history_frame_count: int | None
+    #: 观测契约声明的足序（腿标记）；空 = 用足端传感器槽位序。
+    contact_order: tuple[str, ...]
+
+    # --- 观测噪声 ------------------------------------------------------------------
+    dof_pos_noise: float
+    ang_vel_noise: float
+
+    # --- 奖励 ---------------------------------------------------------------------
+    track_sigma: float
+    tracking_linear_weight: float
+    tracking_angular_weight: float
+    orientation_weight: float
+    angular_velocity_xy_weight: float
+    linear_velocity_z_weight: float
+    base_height_weight: float
+    base_height_target: float
+    torque_weight: float
+    joint_acceleration_weight: float
+    action_smoothness_weight: float
+    dof_pos_limits_weight: float
+    action_rate_weight: float
+    collision_weight: float
+    #: 碰撞惩罚监看的传感器组（`thigh` / `shank` / `trunk`）。
+    collision_groups: tuple[str, ...]
+    foot_clearance_weight: float
+    foot_clearance_target: float
+    stumble_weight: float
+    air_time_weight: float
+    air_time_offset: float
+    #: 髋偏离惩罚（源 CTS）；`None` = 不注册。
+    hip_position_weight: float | None
+    #: 后髋限位惩罚（源 AMP-DreamWaQ）；`None` = 不注册。
+    rear_hip_limit_weight: float | None
+    rear_hip_limit_bound: float
+
+    # --- 命令 ---------------------------------------------------------------------
+    command_resample_s: float
+    lin_vel_y_range: tuple[float, float]
+    yaw_range: tuple[float, float]
+    command_min_lin_norm: float
+    zero_command_prob: float
+    zero_xy_prob: float
+    drop_command_curriculum: bool
+
+    # --- sim ----------------------------------------------------------------------
+    broadphase: str
+    nconmax: int
+
+
+@dataclass(frozen=True)
+class VariantRunnerProfile:
+    """算法变体的 runner 数值与**算法侧符号**（符号串是数据，技能层不 import 机型包）。
+
+    `base_runner_cfg` 是机型侧基座（PPO 超参 + 该技能的历史口径），本工厂只做
+    "变体覆盖"（源实现同序：先取 source-PPO 基座，再逐项改）。
+    """
+
+    experiment_name: str
+    learning_rate: float
+    max_iterations: int
+    save_interval: int
+    seed: int
+    algorithm_class: str
+    actor_class: str
+    #: 观测不做 running 归一化（源策略直接吃环境的 scaled/clipped 观测）。
+    obs_normalization: bool = False
+    #: 动作裁剪上限（源策略不做动作裁剪）。
+    clip_actions: float | None = 100.0
+    critic_class: str | None = None
+    #: 换掉 actor 分布（源把 std 下限按各关节完整位置幅值折算）。
+    distribution_class: str | None = None
+    min_std: tuple[float, ...] | None = None
+    #: 学生任务的 rollout 帧数（源学生 LSTM 按更长 rollout 训练）。
+    num_steps_per_env: int | None = None

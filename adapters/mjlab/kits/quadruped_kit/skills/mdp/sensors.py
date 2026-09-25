@@ -16,6 +16,15 @@ FEET_SENSOR = "feet_ground_contact"
 PENALIZED_SENSOR = "thigh_calf_ground_contact"
 BASE_SENSOR = "base_ground_contact"
 
+#: 速度跟踪族（`skills/velocity/`）的传感器名 —— 一族一套固定名，四足族各机型同值：
+#: 奖励/终止/观测按名引用它们（`velocity/config.py` 从这里再导出）。
+TERRAIN_SCAN = "terrain_scan"
+FOOT_HEIGHT_SCAN = "foot_height_scan"
+SELF_COLLISION_SENSOR = "self_collision"
+THIGH_SENSOR = "thigh_ground_touch"
+SHANK_SENSOR = "shank_ground_touch"
+TRUNK_SENSOR = "trunk_ground_touch"
+
 
 def replace_sensors(cfg: ManagerBasedRlEnvCfg, binding: QuadrupedSkillBinding) -> None:
     terrain = ContactMatch(mode="body", pattern="terrain")

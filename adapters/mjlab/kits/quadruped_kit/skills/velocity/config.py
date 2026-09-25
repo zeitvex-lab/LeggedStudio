@@ -44,6 +44,7 @@ from mjlab.sensor import (
 from mjlab.tasks.velocity import mdp as velocity_mdp
 from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
 from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
+from mjlab.utils.noise.noise_cfg import UniformNoiseCfg
 
 from ....joint_actions import build_joint_actions
 from ... import apply_flat_postlude, apply_play_postlude
@@ -164,6 +165,17 @@ def _contact_sensors(
             num_slots=1,
             history_length=4,
         ),
+    ) + supervision_sensors(binding)
+
+
+def supervision_sensors(binding: QuadrupedSkillBinding) -> tuple[ContactSensorCfg, ...]:
+    """族级接触监看块的三条腿杆/躯干传感器（按**几何名**派生）。
+
+    与 `ensure_contact_supervision` 配套：算法变体档按名引用这三条，故即使基座 profile
+    关闭了族级接触监看（`contact_supervision=False`），变体装配也会把它们补上。
+    """
+    terrain = ContactMatch(mode="body", pattern="terrain")
+    return (
         _ground_touch_sensor(
             binding, THIGH_SENSOR, _role_for_ground_touch(binding, "hip_pitch"), terrain
         ),
@@ -182,6 +194,75 @@ def _contact_sensors(
             history_length=4,
         ),
     )
+
+
+def ensure_contact_supervision(
+    cfg: ManagerBasedRlEnvCfg, binding: QuadrupedSkillBinding
+) -> None:
+    """确保三条腿杆/躯干触地传感器在场（缺哪条补哪条，已在场的原样不动）。
+
+    `ensure_supervision_bodies` 的几何名版本；两种口径都从绑定派生词干，
+    只有"资产的碰撞几何有没有名字"这一条资产事实不同。
+    """
+    names = {sensor.name for sensor in (cfg.scene.sensors or ())}
+    missing = tuple(
+        sensor for sensor in supervision_sensors(binding) if sensor.name not in names
+    )
+    if missing:
+        cfg.scene.sensors = tuple(cfg.scene.sensors or ()) + missing
+
+
+def ensure_supervision_bodies(
+    cfg: ManagerBasedRlEnvCfg, binding: QuadrupedSkillBinding
+) -> None:
+    """同 `ensure_contact_supervision`，但按 **body 名**匹配（几何未命名的资产）。
+
+    语义相同（"这些腿杆/躯干与地形的接触"），差别只在资产命名：家族 MJCF 约定要求
+    可碰撞几何名以 `_collision` 结尾，几何未命名的机型（碰撞几何由 `CollisionCfg`
+    在实体构建期重建）只能按 body 匹配。词干仍从绑定派生（`<腿>_<角色>` / 根 body）。
+    """
+    terrain = ContactMatch(mode="body", pattern="terrain")
+    sensors: tuple[ContactSensorCfg, ...] = (
+        ContactSensorCfg(
+            name=THIGH_SENSOR,
+            primary=ContactMatch(
+                mode="body",
+                entity="robot",
+                pattern=binding.leg_link_body_pattern("hip_pitch"),
+            ),
+            secondary=terrain,
+            fields=("found", "force"),
+            reduce="none",
+            num_slots=1,
+            history_length=4,
+        ),
+        ContactSensorCfg(
+            name=SHANK_SENSOR,
+            primary=ContactMatch(
+                mode="body",
+                entity="robot",
+                pattern=binding.leg_link_body_pattern("knee"),
+            ),
+            secondary=terrain,
+            fields=("found", "force"),
+            reduce="none",
+            num_slots=1,
+            history_length=4,
+        ),
+        ContactSensorCfg(
+            name=TRUNK_SENSOR,
+            primary=ContactMatch(mode="body", entity="robot", pattern=binding.root_body),
+            secondary=terrain,
+            fields=("found", "force"),
+            reduce="none",
+            num_slots=1,
+            history_length=4,
+        ),
+    )
+    names = {sensor.name for sensor in (cfg.scene.sensors or ())}
+    missing = tuple(sensor for sensor in sensors if sensor.name not in names)
+    if missing:
+        cfg.scene.sensors = tuple(cfg.scene.sensors or ()) + missing
 
 
 def _ground_touch_sensor(
@@ -474,3 +555,78 @@ def _apply_play_branch(
         assert isinstance(twist_cmd, UniformVelocityCommandCfg)
         twist_cmd.ranges.lin_vel_x = profile.play_flat_lin_vel_x
         twist_cmd.ranges.ang_vel_z = profile.play_flat_ang_vel_z
+
+
+# ---------------------------------------------------------------------------
+# 源配方的公共收尾（来源：包内 `...go2/tasks/common.py` 的三个 `_go2_source_*` helper
+# 与 `velocity/config.py` 的接线；三个 helper 与速度跟踪的算法变体同源，故一并上移）
+#
+# 去机型化：不再引用任何几何/关节字面量 —— 几何范围由调用方给（机型 profile 数据），
+# 帧宽按实际关节数展开。
+# ---------------------------------------------------------------------------
+
+
+def apply_source_observation_clipping(cfg: ManagerBasedRlEnvCfg) -> None:
+    """源环境最后的观测裁剪（`[-100, 100]`，作用于全部观测项）。"""
+    for group in cfg.observations.values():
+        for term in group.terms.values():
+            term.clip = (-100.0, 100.0)
+
+
+def apply_source_geom_friction(
+    cfg: ManagerBasedRlEnvCfg,
+    ranges: tuple[float, float],
+) -> None:
+    """把共享摩擦采样放到**每一个刚体形状**上（源 `_process_rigid_shape_props` 口径）。
+
+    源回调给一个环境里的每个刚体形状赋同一个标量系数；MuJoCo 侧取 geom friction 的
+    第一分量。**同步撤掉通用三轴随机化**（`foot_friction_spin` / `foot_friction_roll`）：
+    它们对公共 mjlab 基座有用，但源任务不采样这两个轴。
+
+    几何集合由绑定按本机型给出（`geom_names=(.*)` + 实体的 geom 清单），
+    故这里只改数值与轴，不写任何几何名。
+    """
+    event = cfg.events.get("foot_friction_slide")
+    if event is None:
+        return
+    asset_cfg = event.params["asset_cfg"]
+    asset_cfg.geom_names = (r".*",)
+    event.params.update(
+        {
+            "ranges": ranges,
+            "axes": [0],
+            "shared_random": True,
+        }
+    )
+    cfg.events.pop("foot_friction_spin", None)
+    cfg.events.pop("foot_friction_roll", None)
+
+
+def source_frame_noise(
+    *,
+    joint_count: int,
+    command_first: bool,
+    dof_pos_noise: float = 0.01,
+    ang_vel_noise: float = 0.2,
+) -> UniformNoiseCfg:
+    """源观测噪声向量（按帧布局：命令 / IMU / 重力 / 关节位置 / 关节速度 / 动作）。
+
+    来源噪声在 `[-scale, scale]` 上均匀采样。站姿类任务把 IMU、重力放前面再放命令，
+    CTS/DreamWaQ/TS 把命令放最前 —— `command_first` 表达两种契约。
+    帧宽不再写死 12 个关节：关节段按**实际关节数**展开（换关节数不会静默错位）。
+    """
+    imu = [ang_vel_noise * 0.25] * 3
+    gravity = [0.05] * 3
+    command = [0.0] * 3
+    q = [dof_pos_noise] * int(joint_count)
+    dq = [1.5 * 0.05] * int(joint_count)
+    actions = [0.0] * int(joint_count)
+    values = (
+        command + imu + gravity + q + dq + actions
+        if command_first
+        else imu + gravity + command + q + dq + actions
+    )
+    return UniformNoiseCfg(
+        n_min=tuple(-value for value in values),
+        n_max=tuple(values),
+    )

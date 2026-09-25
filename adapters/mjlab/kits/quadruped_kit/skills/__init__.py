@@ -14,7 +14,7 @@
 
 * `family.py`  —— 族角色/命名解析（读 `registry/families/<族>.json`，机型名不出现）；
 * `binding.py` —— 机型绑定：契约 + MJCF 真值 → 技能层要的形状（**唯一的机型入口**）；
-* `mdp/`、`velocity/`、`trot/`、`jump/`、`parkour/` —— 技能实现：关节序从动作项取、足端从足端传感器取、
+* `mdp/`、`velocity/`、`trot/`、`jump/`、`parkour/`、`wtw/` —— 技能实现：关节序从动作项取、足端从足端传感器取、
   髋等角色从族别名取，**不含任何机型的名字或数值**（相机走 `registry/cameras.json` 声明）。
 
 ## 关节序真值怎么传（关键设计）
@@ -44,6 +44,10 @@ from .trot.profile import TrotProfile
 from .velocity.config import TerrainProfile as VelocityTerrainProfile
 from .velocity.config import make_env_cfg as make_velocity_env_cfg
 from .velocity.profile import VelocityProfile
+from .wtw.config import TerrainProfile as WtwTerrainProfile
+from .wtw.config import make_env_cfg as make_wtw_env_cfg
+from .wtw.config import make_runner_cfg as make_wtw_runner_cfg
+from .wtw.profile import WtwProfile
 
 __all__ = [
     "ActuatorGroup",
@@ -55,6 +59,8 @@ __all__ = [
     "TrotProfile",
     "VelocityProfile",
     "VelocityTerrainProfile",
+    "WtwProfile",
+    "WtwTerrainProfile",
     "from_contract",
     "make_imitation_env_cfg",
     "make_imitation_runner_cfg",
@@ -65,4 +71,6 @@ __all__ = [
     "make_trot_env_cfg",
     "make_trot_runner_cfg",
     "make_velocity_env_cfg",
+    "make_wtw_env_cfg",
+    "make_wtw_runner_cfg",
 ]
