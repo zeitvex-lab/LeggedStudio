@@ -20,7 +20,86 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
+
+
+class UnsetType(Enum):
+    """哨兵：`SimOverride` 里"这一项**不改**"。
+
+    与显式的 `None` 区分开 —— 官方配方平地档的 `nconmax=None` 是一个**真值**
+    （交给 warp 自适应），不是"不动这一项"。
+    """
+
+    UNSET = "unset"
+
+
+UNSET = UnsetType.UNSET
+
+
+@dataclass(frozen=True)
+class SimOverride:
+    """sim 档覆盖（官方配方 rough / flat 两档各自的 sim 真值）。"""
+
+    #: MuJoCo CCD 迭代上限（`cfg.sim.mujoco.ccd_iterations`）。
+    ccd_iterations: int
+    #: 接触传感器最大匹配数（`cfg.sim.contact_sensor_maxmatch`）。
+    contact_sensor_maxmatch: int
+    #: 约束数上限；`UNSET` = 不动这一项（继承基座值），`None` = 显式设为 None。
+    nconmax: int | None | UnsetType = UNSET
+    #: 雅可比上限；`UNSET` = 不动这一项。
+    njmax: int | None | UnsetType = UNSET
+
+
+@dataclass(frozen=True)
+class OfficialVelocityProfile:
+    """**官方（上游）**速度配方的源配方数据（一机型一档一份）。
+
+    与 `VelocityProfile`（reference 配方）互不混用：两者描述的是两份不同的任务
+    （奖励表/观测布局/命令口径都不同），工厂按 `variant` 分流。
+
+    `command_cls` 与 `terms` 是**机型侧注入件**：官方配方的阈值命令类与几个上游专属
+    mdp 奖励核住在机型包里（技能层不许 import 机型包），故随 profile 带入 ——
+    它们是该机型自己的上游术语，不是技能结构。
+    """
+
+    #: 出生高（任务级参数）。
+    init_base_height: float
+    #: 命令重采样区间（官方口径：固定 10 s）。
+    command_resampling_time_range: tuple[float, float]
+    #: 命令采样范围。
+    command_ranges: CommandRanges
+    #: 朝向命令范围（官方档写死 ±3.14，不是 ±π）。
+    heading_range: tuple[float, float]
+    #: 观测缩放与噪声（官方 rl_sdk 布局）。
+    base_ang_vel_scale: float
+    base_ang_vel_noise: float
+    projected_gravity_noise: float
+    joint_pos_scale: float
+    joint_pos_noise: float
+    joint_vel_scale: float
+    joint_vel_noise: float
+    #: 奖励里的阈值与目标（权重表见 `reward_weights`）。
+    base_height_target: float
+    tracking_std: float
+    joint_pos_penalty_stand_still_scale: float
+    joint_pos_penalty_velocity_threshold: float
+    joint_pos_penalty_command_threshold: float
+    undesired_contacts_threshold: float
+    contact_forces_threshold: float
+    #: 奖励项名 → 权重（表结构在工厂里，数值在这里）。
+    reward_weights: Mapping[str, float]
+    #: rough 档地形课程的初始等级。
+    terrain_max_init_terrain_level: int
+    #: 两档 sim 值。
+    rough_sim: SimOverride
+    flat_sim: SimOverride
+    #: 镜像关节对的腿序索引（按 `leg_ids` 的位置；对角腿对 = 源实现写死的配对）。
+    mirror_leg_pairs: tuple[tuple[int, int], ...]
+    #: 该机型的阈值速度命令类（子类化 `mjlab.tasks.velocity.mdp.UniformVelocityCommandCfg`）。
+    command_cls: type
+    #: 该机型的上游专属 mdp 名称空间（奖励核 + `ContactSensorRef`）。
+    terms: Any
 
 
 @dataclass(frozen=True)

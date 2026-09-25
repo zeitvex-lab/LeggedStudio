@@ -54,7 +54,9 @@ from ...mdp import (
     wheel_speed_limit_penalty,
 )
 from ..binding import WheelLegSkillBinding
-from .profile import LegsOnlyRecipe, VelocityProfile
+from .official import VARIANTS as OFFICIAL_VARIANTS
+from .official import make_env_cfg as official_make_env_cfg
+from .profile import LegsOnlyRecipe, OfficialVelocityProfile, VelocityProfile
 
 VARIANTS: tuple[str, ...] = (
     "rough",
@@ -390,21 +392,30 @@ def _apply_play(cfg: ManagerBasedRlEnvCfg) -> None:
 
 def make_env_cfg(
     binding: WheelLegSkillBinding,
-    profile: VelocityProfile,
+    profile: VelocityProfile | OfficialVelocityProfile,
     *,
     variant: str = _WHEEL_RECIPE,
     play: bool = False,
 ) -> ManagerBasedRlEnvCfg:
-    """装配族级 velocity 环境（四变体同一份实现）。
+    """装配族级 velocity 环境（族级入口：按 variant 分流到对应配方）。
+
+    两条配方共用绑定与族级不变量（动作接口序 = 契约 `action.joint_order`）：
+
+    * reference 配方（本模块）：`rough` | `flat` | `flat_legs_only` | `flat_legs_only_omni`；
+    * 官方配方（`official.py`）：`official_rough` | `official_flat`。
 
     Args:
         binding: 该机型的绑定（契约 + MJCF 派生；见 `skills/binding.py`）。
-        profile: 该机型该档的源配方数据（见 `velocity/profile.py`）。
-        variant: `rough` | `flat` | `flat_legs_only` | `flat_legs_only_omni`。
+        profile: 该机型该档的源配方数据（`velocity/profile.py` 的两种 profile）。
+        variant: 见上（reference 四变体 / 官方两变体）。
         play: 播放口径（无限时长、关噪声、去推扰）。
     """
+    if variant in OFFICIAL_VARIANTS:
+        return official_make_env_cfg(binding, profile, variant=variant, play=play)
     if variant not in VARIANTS:
-        raise ValueError(f"未知变体 {variant!r}（只认 {VARIANTS}）")
+        raise ValueError(
+            f"未知变体 {variant!r}（reference 只认 {VARIANTS}，官方只认 {OFFICIAL_VARIANTS}）"
+        )
     if not isinstance(binding, WheelLegSkillBinding):
         raise TypeError(f"binding 必须是 WheelLegSkillBinding，收到 {type(binding).__name__}")
     if not isinstance(profile, VelocityProfile):

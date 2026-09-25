@@ -1,7 +1,7 @@
 {
   "schema": "porting-references-1.0",
   "generated_at": "2026-09-24",
-  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。",
+  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。 **补充（2026-09-25 第三段）**：族级 velocity 上移到四足 go1/b2 与轮足 m20/b2w 后，**动作维解析序**又改了三台（go1/b2/b2w；m20 的解析序本就与契约一致）——详见各档案 F14。核对动作序要看运行期 `env.action_manager.get_term(<名>).target_ids`，字面序（`actuator_names`）只是意图。",
   "entries": [
     {
       "profile_id": "go2-trot",
@@ -482,7 +482,8 @@
         ]
       },
       "gaps": [
-        "已修 F9（docstring 陈旧）：改为与 `_configure_rewards` 实际取值一致，并写明足端类四项（foot_clearance / foot_swing_height / soft_landing / foot_slip）因 go1 无足端 site 而整项撤销"
+        "已修 F9（docstring 陈旧）：改为与 `_configure_rewards` 实际取值一致，并写明足端类四项（foot_clearance / foot_swing_height / soft_landing / foot_slip）因 go1 无足端 site 而整项撤销",
+        "F14（2026-09-25，族级 velocity 上移时实测）：**动作维顺序改了** —— 动作项原先写的是契约序 + `preserve_order=True`，但 mjlab 的关节动作分支忽略该参数，运行期 `target_ids` 实际是 **MJCF 序**；上移后走 `Ordered*ActionCfg`，解析序 = 契约 `action.joint_order`。这是**行为变更**（策略动作维的语义变了，`use_default_offset` 的默认姿偏移同步对齐）：存量产物须按新序重导/重训，或按当初的训练序（MJCF 序）部署。同一条也适用于 go2w（见其 F12 二次更正）与 b2w（同一 bug 类）。"
       ]
     },
     {
@@ -504,7 +505,9 @@
         ]
       },
       "gaps": [
-        "F8：缺上游 6 项惩罚（lin_vel_z -2.0 / base_height -1.0 / joint_power -2e-5 / dof_acc -2.5e-7 / orientation -0.2 / foot_clearance -0.01）；新增 dof_pos_limits -2.0（上游 -0.0 即关闭）；终止用 nonfoot 接触 vs 上游 terminate_after_contacts_on=['base'] ⇒ 需逐条裁决（有意加严还是漏搬）"
+        "F8：缺上游 6 项惩罚（lin_vel_z -2.0 / base_height -1.0 / joint_power -2e-5 / dof_acc -2.5e-7 / orientation -0.2 / foot_clearance -0.01）；新增 dof_pos_limits -2.0（上游 -0.0 即关闭）；终止用 nonfoot 接触 vs 上游 terminate_after_contacts_on=['base'] ⇒ 需逐条裁决（有意加严还是漏搬）",
+        "F14（2026-09-25，族级 velocity 上移时实测）：**动作维顺序改了** —— 动作项原先写的是契约序 + `preserve_order=True`，但 mjlab 的关节动作分支忽略该参数，运行期 `target_ids` 实际是 **MJCF 序**；上移后走 `Ordered*ActionCfg`，解析序 = 契约 `action.joint_order`。这是**行为变更**（策略动作维的语义变了，`use_default_offset` 的默认姿偏移同步对齐）：存量产物须按新序重导/重训，或按当初的训练序（MJCF 序）部署。同一条也适用于 go2w（见其 F12 二次更正）与 b2w（同一 bug 类）。",
+        "F15（同轮，形式变更、无数值差异）：动作缩放从「每关节同值向量」（12×0.25）写成标量 0.25 —— 运行期解析后逐关节取值相同（对拍已证）。"
       ]
     },
     {
@@ -526,7 +529,9 @@
         ]
       },
       "gaps": [
-        "我方为 MJLab 自研装配（registry 仅列 robot_lab，属另一框架、无同形上游）⇒ 数值无法逐项回核；若要复刻效果需先指定一个基准（官方 legged_gym 或 robot_lab）"
+        "我方为 MJLab 自研装配（registry 仅列 robot_lab，属另一框架、无同形上游）⇒ 数值无法逐项回核；若要复刻效果需先指定一个基准（官方 legged_gym 或 robot_lab）",
+        "F14（2026-09-25，族级 velocity 上移时实测）：**动作维顺序改了** —— 动作项原先写的是契约序 + `preserve_order=True`，但 mjlab 的关节动作分支忽略该参数，运行期 `target_ids` 实际是 **MJCF 序**；上移后走 `Ordered*ActionCfg`，解析序 = 契约 `action.joint_order`。这是**行为变更**（策略动作维的语义变了，`use_default_offset` 的默认姿偏移同步对齐）：存量产物须按新序重导/重训，或按当初的训练序（MJCF 序）部署。同一条也适用于 go2w（见其 F12 二次更正）与 b2w（同一 bug 类）。",
+        "F15（同轮，形式变更、无数值差异）：动作缩放从「每关节同值向量」（12×0.25）写成标量 0.25 —— 运行期解析后逐关节取值相同（对拍已证）。"
       ]
     },
     {
@@ -585,7 +590,8 @@
         "已修 F2（动作序与契约相反）：m20_constants.py 的 M20_LEG_JOINT_NAMES / M20_WHEEL_JOINT_NAMES 原本 FR,FL,HR,HL，改为契约与上游同序的 FL,FR,HL,HR（上游 m20_rl_isaacsim/.../rough_env_cfg.py:64-67 即此序；官方 SDK 部署 ONNX 元数据亦然）⇒ 导出时盖的元数据（取自实体序）与训练动作序不再互相错标",
         "**存量产物需重导/重训**：`simulation/policies/m20_velocity_57.onnx` 是修复前训练的（动作序 FR 优先），其元数据按实体序写的是 FL 优先 ⇒ 用它对拍/sim2sim 会错序；要么重训该档，要么按旧序标注该产物",
         "F3：奖励表与三个可读上游全不等（joint_acc -2e-7、stand_still -2.0、hip/thigh/knee -0.4/-0.1/-0.1、track_ang 1.0、缺 body_lin_acc_l2 等）；档案声称的 logs/.../params/env.yaml 在 00_resources 不存在",
-        "F4：runner 是 go2w 残留（init_std 0.6 / lr 5e-4 / entropy 0.005 / obs_normalization True / save 1000 / max_iter 10001）vs 官方 M20（1.0 / 1e-3 / 0.01 / False / 100 / 20000）"
+        "F4：runner 是 go2w 残留（init_std 0.6 / lr 5e-4 / entropy 0.005 / obs_normalization True / save 1000 / max_iter 10001）vs 官方 M20（1.0 / 1e-3 / 0.01 / False / 100 / 20000）",
+        "F16（同轮，未修）：`m20_rough_env_cfg` **建不起环境** —— 基座 sim `nconmax=35` 小于该机型实际约束数 76（`ValueError: nconmax overflow`）。在 HEAD 上一模一样 ⇒ **存量缺陷，非本轮引入**；两个档案都走 flat，故一直没暴露。要启用该档需先定 nconmax（属机型 sim 参数，不是技能结构）。"
       ]
     },
     {
@@ -645,7 +651,10 @@
       },
       "gaps": [
         "F7：轮几何常量沿用 go2w（wheel_radius 0.09 / track 0.19），B2-W 真值（MJCF FL_wheel_link y=±0.1916 ⇒ track≈0.383、轮半径≈0.113）⇒ 纯转向命令目标轮速被压低约 2×（建议断言 cmd=(0,0,1) 时 ±1.69 vs 现 ±1.06 rad/s）",
-        "已修：档案 notes 的 calf 力矩上限改为 320（与 MJCF/契约一致，早期 300 是 go2w 移植残留）"
+        "已修：档案 notes 的 calf 力矩上限改为 320（与 MJCF/契约一致，早期 300 是 go2w 移植残留）",
+        "F14（2026-09-25，族级 velocity 上移时实测）：**动作维顺序改了** —— 动作项原先写的是契约序 + `preserve_order=True`，但 mjlab 的关节动作分支忽略该参数，运行期 `target_ids` 实际是 **MJCF 序**；上移后走 `Ordered*ActionCfg`，解析序 = 契约 `action.joint_order`。这是**行为变更**（策略动作维的语义变了，`use_default_offset` 的默认姿偏移同步对齐）：存量产物须按新序重导/重训，或按当初的训练序（MJCF 序）部署。同一条也适用于 go2w（见其 F12 二次更正）与 b2w（同一 bug 类）。",
+        "F15（同轮，形式变更、无数值差异）：动作缩放从「每关节同值向量」（12×0.25）写成标量 0.25 —— 运行期解析后逐关节取值相同（对拍已证）。",
+        "F17（同轮，待裁决）：b2w 的**契约与训练口径不一致** —— 契约是 robot_lab 基线（`action_scale` 0.125/0.25/5.0，姿态 髋 0 / 前腿大腿 0.5），而训练装配与其自带策略 `policies[1]` 用的是 go2w 同款（0.5/35.0，姿态 ±0.1/0.8/−1.5）。本轮按「纯上移」保留**训练值**（写在 b2w 的 `profile.py` 覆盖里），契约未动 ⇒ 契约仍不描述它的训练。要不要把契约改成训练真值（并重签 hash、连带 pack/morphology_ref 哈希）属单独裁决。另：轮几何沿用 go2w（F7：0.09/0.19 vs 真值 ≈0.113/≈0.383）仍未改。"
       ]
     },
     {

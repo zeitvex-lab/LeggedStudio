@@ -1,18 +1,16 @@
-"""Unitree Go1 velocity environment configuration (package-local).
+"""Unitree Go1 velocity environment configuration（薄委托：族级 velocity 技能）。
 
-Flat-ground velocity task built from the package-local robot constants and
-mjlab's shared velocity base, adapted from HIMLoco ``legged_gym/envs/go1``
-(``Go1RoughCfg``) and walk-these-ways ``go1_gym``:
+族级实现在 `adapters/mjlab/kits/quadruped_kit/skills/velocity/`。本模块只剩三样 go1 事实：
 
-- Policy observation (history_length=5): command(3) + projected_gravity(3)
-  + base_ang_vel(3) + joint_pos(12) + joint_vel(12) + last_action(12).
-- Command ranges: lin_vel_x +-1.0, lin_vel_y +-1.0, ang_vel_z +-3.14 (heading).
-- Rewards（与 `_configure_rewards` 的实际取值一致；2026-09-24 订正过陈旧描述）：
-  tracking_lin 1.0、tracking_ang 0.5、ang_vel_xy -0.05、action_rate -0.01、
-  dof_pos_limits -2.0、air_time 0.0；**足端类项（foot_clearance / foot_swing_height /
-  soft_landing / foot_slip）整项撤销**——go1 没有专用足端 site（足端就是 calf 体），
-  依赖足端扫描的项无法成立（上游 Go1RoughCfg 的 foot_clearance 权重实为 -0.01）。
-- Terminations: non-foot body contact, bad orientation (70 deg), timeout.
+1. **机型绑定** `GO1_VELOCITY`（`binding.py`：契约 + `model/robot.xml` 真值 + 本机型训练实体）；
+2. **任务数值与机型配方** `GO1_VELOCITY`（`profile.py`：`VelocityProfile` + recipe ——
+   HIMLoco / walk-these-ways 的任务数值、观测布局、奖励权重、事件与终止）；
+3. **入口函数**（公开名不动：`go1_flat_env_cfg` / `go1_rough_env_cfg` / `make_go1_*` /
+   `go1_runner_cfg`，profiles 与训练链照旧解析到这里）。
+
+原先本文件里的 255 行接线（sim 上限 / 高度扫描重指 / 两组接触传感器 /
+观测重排 / 奖励权重 / 事件与终止 / 命令档 / play 收尾）已全部上移：
+族级机制在 Kit，机型专属那几样在 `profile.py` 的 recipe（同包数据面）。
 """
 
 from __future__ import annotations
@@ -21,12 +19,6 @@ import sys
 from pathlib import Path
 
 from mjlab.envs import ManagerBasedRlEnvCfg
-from mjlab.envs.mdp.actions import JointPositionActionCfg
-from mjlab.managers import TerminationTermCfg
-from mjlab.sensor import ContactMatch, ContactSensorCfg
-from mjlab.tasks.velocity import mdp
-from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
-from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
 
 # 仓库根自举（见 kits/quadruped_kit 模块注释）：worker / schema-dump / 冒烟三种
 # 运行环境都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab
@@ -38,190 +30,26 @@ for _parent in Path(__file__).resolve().parents:
         break
 
 from adapters.mjlab.kits import quadruped_kit as kit  # noqa: E402
+from adapters.mjlab.kits.quadruped_kit.skills.velocity import config as kit_velocity  # noqa: E402
 
-from .robot_constants import GO1_ACTION_SCALE, get_go1_robot_cfg
-
-_FOOT_GEOMS = ("FR_foot_collision", "FL_foot_collision", "RL_foot_collision", "RR_foot_collision")
-_ROOT_BODY = "base_link"
-
-_HISTORY_LEN = 5
-
-
-def _contact_sensors() -> tuple[ContactSensorCfg, ContactSensorCfg]:
-    feet = ContactSensorCfg(
-        name="feet_ground_contact",
-        primary=ContactMatch(mode="geom", pattern=_FOOT_GEOMS, entity="robot"),
-        fields=("found", "force"),
-        reduce="netforce",
-        num_slots=1,
-        track_air_time=True,
-    )
-    other = ContactSensorCfg(
-        name="nonfoot_ground_touch",
-        primary=ContactMatch(
-            mode="geom", pattern=".*_collision", entity="robot", exclude=_FOOT_GEOMS
-        ),
-        fields=("found", "force"),
-        reduce="netforce",
-        num_slots=1,
-        track_air_time=True,
-    )
-    return feet, other
-
-
-def _restructure_actor_obs(cfg: ManagerBasedRlEnvCfg) -> None:
-    """Actor group: cmd, projected_gravity, ang_vel, joint_pos, joint_vel, action."""
-    actor = cfg.observations["actor"]
-    terms = dict(actor.terms)
-
-    command = terms.pop("command")
-    gravity = terms.pop("projected_gravity")
-    ang_vel = terms.pop("base_ang_vel")
-    ang_vel.scale = 0.25  # source obs_scales.ang_vel
-    joint_pos = terms.pop("joint_pos")
-    joint_vel = terms.pop("joint_vel")
-    joint_vel.scale = 0.05  # source obs_scales.dof_vel
-    actions = terms.pop("actions")
-    for drop in ("base_lin_vel", "height_scan", "foot_height", "foot_air_time", "foot_contact"):
-        terms.pop(drop, None)
-
-    actor.terms = {
-        "command": command,
-        "projected_gravity": gravity,
-        "base_ang_vel": ang_vel,
-        "joint_pos": joint_pos,
-        "joint_vel": joint_vel,
-        "actions": actions,
-    }
-    actor.history_length = _HISTORY_LEN
-    critic = cfg.observations["critic"]
-    critic.history_length = _HISTORY_LEN
-    for drop in ("height_scan", "foot_height", "foot_air_time", "foot_contact"):
-        critic.terms.pop(drop, None)
-
-
-def _configure_rewards(cfg: ManagerBasedRlEnvCfg) -> None:
-    cfg.rewards["track_linear_velocity"].weight = 1.0  # tracking_lin_vel
-    cfg.rewards["track_angular_velocity"].weight = 0.5  # tracking_ang_vel
-    cfg.rewards["body_ang_vel"].weight = -0.05  # ang_vel_xy
-    cfg.rewards["action_rate_l2"].weight = -0.01  # action_rate
-    cfg.rewards["dof_pos_limits"].weight = -2.0
-    cfg.rewards["air_time"].weight = 0.0  # feet_air_time (source 0.0)
-    # go1's feet are the calf bodies (no dedicated foot sites), so every term
-    # that depends on the foot height scan / foot sites is removed.
-    for name in ("foot_clearance", "foot_swing_height", "soft_landing", "foot_slip"):
-        cfg.rewards.pop(name, None)
-    cfg.rewards["pose"].params["std_standing"] = {r".*_joint": 0.05}
-    moving = {
-        r".*_hip_joint": 0.15,
-        r".*_thigh_joint": 0.3,
-        r".*_calf_joint": 0.35,
-    }
-    cfg.rewards["pose"].params["std_walking"] = moving
-    cfg.rewards["pose"].params["std_running"] = moving
+from .binding import GO1_VELOCITY as BINDING  # noqa: E402
+from .profile import GO1_VELOCITY as PROFILE  # noqa: E402
 
 
 def make_go1_env_cfg(play: bool = False, *, rough: bool = False) -> ManagerBasedRlEnvCfg:
     """Go1 velocity configuration (flat or rough).
 
     ``rough`` keeps mjlab's rough terrain generator, the root-body terrain scan
-    sensor and the height-scan termination/observation (source HIMLoco
-    ``Go1RoughCfg``, ``terrain.measure_heights = True``); ``flat`` drops them
-    (source walk-these-ways / flat evaluation).
+    sensor and the height-scan termination (source HIMLoco ``Go1RoughCfg``,
+    ``terrain.measure_heights = True``); ``flat`` drops them (source
+    walk-these-ways / flat evaluation).
     """
-    cfg = make_velocity_env_cfg()
-    cfg.sim.mujoco.ccd_iterations = 500 if rough else 50
-    cfg.sim.contact_sensor_maxmatch = 500 if rough else 64
-    cfg.sim.nconmax = None
-    if rough and cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
-        cfg.scene.terrain.terrain_generator.curriculum = True
-    cfg.scene.entities = {"robot": get_go1_robot_cfg()}
-
-    feet_sensor, other_sensor = _contact_sensors()
-    cfg.scene.sensors = (cfg.scene.sensors or ()) + (feet_sensor, other_sensor)
-
-    assert cfg.scene.terrain is not None
-    if not rough:
-        cfg.scene.terrain.terrain_type = "plane"
-        cfg.scene.terrain.terrain_generator = None
-    # go1 has no dedicated foot sites, so the site-based foot height scan is
-    # always dropped; the root-body terrain scan is kept for rough only.
-    drop_sensors = ("foot_height_scan",) if rough else ("terrain_scan", "foot_height_scan")
-    cfg.scene.sensors = tuple(
-        sensor for sensor in (cfg.scene.sensors or ())
-        if sensor.name not in drop_sensors
+    return kit_velocity.make_env_cfg(
+        BINDING,
+        PROFILE,
+        terrain_profile="rough" if rough else "flat",
+        play=play,
     )
-    if rough:
-        # 序 15（2026-09-20 修）：`terrain_scan` 是 mjlab velocity 基座自带的通用传感器，
-        # 它的默认 frame 是 ``ObjRef(entity="robot", name="")`` → 解析成 ``robot/``（**空 body 名**），
-        # Scene 初始化时 ``mj_model.body("robot/")`` 直接 KeyError。lite3 / b2 都靠
-        # ``kit.repoint_height_scan_sensors(..., root_body=...)`` 重指到本机型根 body；
-        # **go1 此前从未重指**，而 flat 又把 terrain_scan 整个丢掉 ⇒ 只有 rough 会炸，
-        # 且自该 profile 引入（1726423a）起就无法建环境（漏实现，非回归）。
-        # go1 无足端 site（site 级 foot_height_scan 恒被丢弃），故只重指根 body。
-        kit.repoint_height_scan_sensors(cfg, root_body=_ROOT_BODY)
-
-    action = cfg.actions["joint_pos"]
-    assert isinstance(action, JointPositionActionCfg)
-    action.scale = GO1_ACTION_SCALE
-
-    cfg.viewer.body_name = _ROOT_BODY
-    cfg.viewer.distance = 2.0
-    cfg.viewer.elevation = -10.0
-
-    command = cfg.commands["twist"]
-    assert isinstance(command, UniformVelocityCommandCfg)
-    command.resampling_time_range = (10.0, 10.0)
-    command.ranges.lin_vel_x = (-1.0, 1.0)
-    command.ranges.lin_vel_y = (-1.0, 1.0)
-    command.ranges.ang_vel_z = (-3.14, 3.14)
-    command.ranges.heading = (-3.14, 3.14)
-    command.viz.z_offset = 0.5
-
-    cfg.events["foot_friction"].params["asset_cfg"].geom_names = _FOOT_GEOMS
-    cfg.events["foot_friction"].params["ranges"] = (0.5, 1.25)
-    cfg.events["base_com"].params["asset_cfg"].body_names = (_ROOT_BODY,)
-    cfg.events["base_com"].params["ranges"] = {
-        0: (-0.03, 0.03),
-        1: (-0.03, 0.03),
-        2: (-0.03, 0.03),
-    }
-    # interval_range_s 是 EventTermCfg 的字段，不是 params——params 会被 mjlab 当 kwargs
-    # 传给 push_by_setting_velocity（其签名只收 velocity_range/asset_cfg），首次区间
-    # 事件触发即 TypeError（L7 go1 试跑实测：约 3.5 迭代崩）。写法对齐 mjlab 内置
-    # velocity_env_cfg 的 push_robot 项。
-    cfg.events["push_robot"].interval_range_s = (10.0, 10.0)
-    cfg.events["push_robot"].params["velocity_range"] = {
-        "x": (-1.0, 1.0), "y": (-1.0, 1.0), "z": (-0.4, 0.4),
-    }
-
-    _configure_rewards(cfg)
-    cfg.rewards["upright"].params["asset_cfg"].body_names = (_ROOT_BODY,)
-    cfg.rewards["body_ang_vel"].params["asset_cfg"].body_names = (_ROOT_BODY,)
-
-    _restructure_actor_obs(cfg)
-    if not rough:
-        cfg.observations["critic"].terms.pop("height_scan", None)
-
-    if not rough:
-        cfg.terminations.pop("out_of_terrain_bounds", None)
-    cfg.terminations["illegal_contact"] = TerminationTermCfg(
-        func=mdp.illegal_contact,
-        params={"sensor_name": other_sensor.name, "force_threshold": 10.0},
-    )
-
-    if not rough:
-        cfg.curriculum.pop("terrain_levels", None)
-    cfg.curriculum.pop("command_vel", None)
-
-    if play:
-        cfg.episode_length_s = int(1e9)
-        cfg.observations["actor"].enable_corruption = False
-        cfg.events.pop("push_robot", None)
-        cfg.events.pop("foot_friction", None)
-        cfg.curriculum = {}
-
-    return cfg
 
 
 def make_go1_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:

@@ -30,7 +30,20 @@ GO2W_ROOT = ROOT / "assets" / "robots" / "unitree_go2w"
 GO2W_SOURCE = GO2W_ROOT / "training" / "source"
 SKILLS_DIR = ROOT / "adapters" / "mjlab" / "kits" / "wheel_leg_kit" / "skills"
 
-for _path in (str(ROOT), str(GO2W_ROOT), str(GO2W_SOURCE)):
+M20_ROOT = ROOT / "assets" / "robots" / "deeprobotics_m20"
+M20_SOURCE = M20_ROOT / "training" / "source"
+B2W_ROOT = ROOT / "assets" / "robots" / "unitree_b2w"
+B2W_SOURCE = B2W_ROOT / "training" / "source"
+
+for _path in (
+    str(ROOT),
+    str(GO2W_ROOT),
+    str(GO2W_SOURCE),
+    str(M20_ROOT),
+    str(M20_SOURCE),
+    str(B2W_ROOT),
+    str(B2W_SOURCE),
+):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
@@ -684,6 +697,309 @@ class Go2wClientEntrypointsTest(unittest.TestCase):
             (GO2W_SOURCE / "go2w_velocity" / "base.py").exists(),
             "base.py 已被绑定取代，不应保留重复 helper",
         )
+
+
+class M20OfficialRecipeTest(unittest.TestCase):
+    """第二台客户 + 第二个配方（官方/上游口径）：deeprobotics_m20。
+
+    与 go2w 的差异面正是"族级化要覆盖的东西"：另一套腿序（`fl,fr,hl,hr`）、
+    另一套角色词（`hipx/hipy/knee`）、另一份奖励表与观测布局 —— 全部只体现在
+    绑定与 profile 数据里，Kit 一行未改（配方分支在 Kit 侧是结构，不含机型事实）。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skills = _skills_module()
+        cls.env_cfgs = importlib.import_module("m20_velocity.env_cfgs")
+        cls.binding = importlib.import_module("m20_velocity.binding").M20
+        cls.profile = importlib.import_module("m20_velocity.profile").OFFICIAL
+        cls.contract = json.loads((M20_ROOT / "contract.json").read_text(encoding="utf-8-sig"))
+
+    def test_binding_is_contract_derived(self):
+        order = tuple(self.contract["action"]["joint_order"])
+        # 契约序 = fl,fr,hl,hr 腿先轮后（上游口径，2026-09-24 移植核对 F2 的改正值）
+        self.assertEqual(order, self.binding.leg_joint_order + self.binding.wheel_joint_order)
+        self.assertEqual(
+            ("fl", "fr", "hl", "hr"), tuple(self.binding.leg_ids)
+        )
+        self.assertEqual(12, len(self.binding.leg_joint_order))
+        self.assertEqual(4, len(self.binding.wheel_joint_order))
+        self.assertEqual("base_link", self.binding.root_body)
+        self.assertEqual(order, tuple(self.binding.action_joint_order))
+        # 默认姿按 `joints.actuated` 与 `default_pose` 配对（前腿 hipy -0.6 / 后腿镜像）
+        self.assertAlmostEqual(-0.6, self.binding.default_pose["fl_hipy_joint"])
+        self.assertAlmostEqual(0.6, self.binding.default_pose["hl_hipy_joint"])
+        self.assertAlmostEqual(1.0, self.binding.default_pose["fr_knee_joint"])
+        self.assertAlmostEqual(-1.0, self.binding.default_pose["hr_knee_joint"])
+        cfg = self.binding.robot_cfg()
+        self.assertEqual((0.0, 0.0, 0.4), cfg.init_state.pos)
+        self.assertEqual(r".*(fl|fr|hl|hr)_(wheel|foot).*", self.binding.wheel_contact_pattern)
+
+    def test_action_scales_and_modes_come_from_contract(self):
+        by_role = self.contract["actuator_profile"]["by_role"]
+        # 上游动作缩放：hipx 0.125 / hipy·knee 0.25 / 轮 5.0（契约逐角色值）
+        self.assertEqual(
+            {0.125, 0.25}, {by_role[r]["action_scale"] for r in ("hipx", "hipy", "knee")}
+        )
+        for joint in self.binding.leg_joint_order:
+            role = next(r for r in ("hipx", "hipy", "knee") if f"_{r}_joint" in joint)
+            self.assertEqual("position", self.binding.control_modes[joint])
+            self.assertAlmostEqual(by_role[role]["action_scale"], self.binding.action_scales[joint])
+        for joint in self.binding.wheel_joint_order:
+            self.assertEqual("velocity", self.binding.control_modes[joint])
+            self.assertAlmostEqual(5.0, self.binding.action_scales[joint], msg=joint)
+        # 执行器谱：三条腿角色（80/2/76.4）+ 轮（kd 0.6 / 21.6），目标名按角色派生
+        actuators = self.binding.robot_cfg().articulation.actuators
+        self.assertEqual(4, len(actuators))
+        self.assertEqual(
+            [".*_hipx_joint", ".*_hipy_joint", ".*_knee_joint", ".*_wheel_joint"],
+            [a.target_names_expr[0] for a in actuators],
+        )
+        self.assertAlmostEqual(76.4, actuators[0].effort_limit)
+        self.assertAlmostEqual(21.6, actuators[3].effort_limit)
+        self.assertAlmostEqual(0.6, actuators[3].damping)
+
+    def test_client_entrypoints_are_thin_and_keep_public_names(self):
+        """客户端只剩两个入口 + 装配；公开名不动（档案按名引用）。"""
+        text = (M20_SOURCE / "m20_velocity" / "env_cfgs.py").read_text(encoding="utf-8")
+        self.assertNotIn("RewardTermCfg(", text, "m20 客户端仍在自建奖励表（应为薄委托）")
+        self.assertNotIn("ContactSensorCfg(", text, "m20 客户端仍在自建传感器（应为薄委托）")
+        self.assertFalse(
+            (M20_SOURCE / "m20_velocity" / "base.py").exists(),
+            "base.py 已被绑定取代，不应保留重复 helper",
+        )
+        for name in ("m20_rough_env_cfg", "m20_flat_env_cfg", "m20_ppo_runner_cfg"):
+            self.assertTrue(hasattr(self.env_cfgs, name), f"入口 {name} 丢失")
+        # 档案声明的入口仍解析到同一符号（m20-velocity → m20_flat_env_cfg）
+        velocity_record = json.loads(
+            (M20_ROOT / "training" / "profiles" / "m20-velocity.json").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        self.assertEqual("m20_velocity.env_cfgs:m20_flat_env_cfg", velocity_record["entrypoints"]["env"])
+        self.assertTrue(callable(self.env_cfgs.m20_flat_env_cfg))
+        # 隔壁档案（m20-dreamwaq）仍能 import 本包的基座 stub 与阈值命令类
+        dreamwaq_config = importlib.import_module("m20_dreamwaq.config")
+        self.assertTrue(callable(dreamwaq_config.make_m20_dreamwaq_env_cfg))
+
+    def test_official_variants_keep_source_structure(self):
+        # m20-dreamwaq 的基座 stub 仍可用（它 import 本包的 velocity_env_cfg 与 mdp）
+        base_stub = importlib.import_module("m20_velocity.velocity_env_cfg")
+        self.assertEqual("generator", base_stub.make_velocity_env_cfg().scene.terrain.terrain_type)
+        rough = self.env_cfgs.m20_rough_env_cfg()
+        flat = self.env_cfgs.m20_flat_env_cfg()
+        self.assertEqual("generator", rough.scene.terrain.terrain_type)
+        self.assertTrue(rough.scene.terrain.terrain_generator.curriculum)
+        self.assertEqual(5, rough.scene.terrain.max_init_terrain_level)
+        self.assertEqual("plane", flat.scene.terrain.terrain_type)
+        self.assertIsNone(flat.scene.terrain.terrain_generator)
+        self.assertNotIn("terrain_levels", flat.curriculum)
+        # 观测/奖励/传感器：官方布局与 21 项表（与 go2w 的 reference 配方不同表）
+        terms = list(rough.observations["actor"].terms)
+        self.assertEqual(
+            ["base_ang_vel", "projected_gravity", "command", "joint_pos_rel", "joint_vel_rel", "actions"],
+            terms,
+        )
+        self.assertEqual(21, len(rough.rewards))
+        self.assertEqual(
+            ["wheel_ground_contact", "wheel_contact_forces", "non_wheel_contact"],
+            [s.name for s in rough.scene.sensors],
+        )
+        self.assertAlmostEqual(-2.0, rough.rewards["lin_vel_z_l2"].weight)
+        self.assertAlmostEqual(2.0, rough.rewards["track_lin_vel_xy_exp"].weight)
+        self.assertAlmostEqual(0.4, rough.rewards["base_height_l2"].params["target_height"])
+        self.assertAlmostEqual(100.0, rough.rewards["contact_forces"].params["threshold"])
+        # 命令：阈值类 + 10 s 重采样 + ±3.14 朝向
+        twist = rough.commands["twist"]
+        self.assertEqual("UniformThresholdVelocityCommandM20", twist.class_type.__name__)
+        self.assertEqual((10.0, 10.0), tuple(twist.resampling_time_range))
+        self.assertEqual((-2.0, 2.0), tuple(twist.ranges.lin_vel_x))
+        self.assertEqual((-3.14, 3.14), tuple(twist.ranges.heading))
+        # sim 档：rough 500/500，flat 50/64 + nconmax 交给 warp
+        self.assertEqual(500, rough.sim.mujoco.ccd_iterations)
+        self.assertEqual(50, flat.sim.mujoco.ccd_iterations)
+        self.assertEqual(64, flat.sim.contact_sensor_maxmatch)
+        self.assertIsNone(flat.sim.nconmax)
+        # 镜像对：对角腿（fl↔hr / fr↔hl），角色候选串由契约派生
+        mirror = rough.rewards["joint_mirror"].params["mirror_joints"]
+        self.assertEqual(
+            [["fl_(hipx|hipy|knee).*", "hr_(hipx|hipy|knee).*"],
+             ["fr_(hipx|hipy|knee).*", "hl_(hipx|hipy|knee).*"]],
+            mirror,
+        )
+
+    def test_runtime_action_order_is_contract_order(self):
+        """真跑：建环境 + reset + step；动作项运行时目标序 = 契约动作序。"""
+        import torch
+        from mjlab.envs import ManagerBasedRlEnv
+
+        contract_order = list(self.contract["action"]["joint_order"])
+        cfg = self.env_cfgs.m20_flat_env_cfg()
+        cfg.scene.num_envs = 2
+        cfg.sim.nconmax = 512
+        cfg.sim.njmax = 1024
+        env = ManagerBasedRlEnv(cfg, device="cpu")
+        try:
+            env.reset()
+            observed = [
+                j
+                for name in env.action_manager.active_terms
+                for j in env.action_manager.get_term(name).target_names
+            ]
+            self.assertEqual(contract_order, observed, "动作项运行时目标序必须 = 契约动作序")
+            self.assertEqual(["joint_pos", "wheel_vel"], list(env.action_manager.active_terms))
+            action = torch.full(
+                (env.num_envs, env.action_manager.total_action_dim), 0.1, device="cpu"
+            )
+            obs, reward, _, _, _ = env.step(action)
+            self.assertTrue(torch.isfinite(obs["actor"]).all())
+            self.assertTrue(torch.isfinite(obs["critic"]).all())
+            self.assertTrue(torch.isfinite(reward).all())
+            # 官方布局：16 关节位置（轮槽置零）+ 16 关节速度 + 原始动作 16 维
+            self.assertEqual(57, obs["actor"].shape[-1])
+            self.assertEqual(57, obs["critic"].shape[-1])
+        finally:
+            env.close()
+
+
+class B2wReferenceClientTest(unittest.TestCase):
+    """第三台客户（reference 配方，MJCF 自带执行器 + 两处登记的契约偏离）。
+
+    这台机型的价值在于它**专门**打族层的两个非默认路径：
+    ① `actuator_binding="mjcf_wrapped"`（MJCF 自带 `<actuator>`，cfg 只包装）；
+    ② 契约与训练真值不一致时的**显式**登记（默认姿 / 动作缩放）。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skills = _skills_module()
+        cls.env_cfgs = importlib.import_module("b2w_velocity.env_cfgs")
+        cls.binding = importlib.import_module("b2w_velocity.binding").B2W
+        cls.profiles = importlib.import_module("b2w_velocity.profile")
+        cls.contract = json.loads((B2W_ROOT / "contract.json").read_text(encoding="utf-8-sig"))
+
+    def test_binding_keeps_training_truth_for_registered_deviations(self):
+        order = tuple(self.contract["action"]["joint_order"])
+        self.assertEqual(order, self.binding.leg_joint_order + self.binding.wheel_joint_order)
+        self.assertEqual(order, tuple(self.binding.action_joint_order))
+        self.assertEqual("base_link", self.binding.root_body)
+        # 登记偏离 1：默认姿 = 训练真值（不是契约的 0.0/0.5）
+        pose = self.binding.default_pose
+        self.assertAlmostEqual(0.1, pose["FR_hip_joint"])
+        self.assertAlmostEqual(-0.1, pose["FL_hip_joint"])
+        self.assertAlmostEqual(0.8, pose["FR_thigh_joint"])
+        self.assertAlmostEqual(-1.5, pose["FR_calf_joint"])
+        self.assertNotEqual(
+            pose["FR_thigh_joint"], self.contract["joints"]["default_pose"][1],
+            "契约的 0.5 前腿大腿角与训练真值 0.8 不同 —— 这台机型是登记的偏离",
+        )
+        # 登记偏离 2：动作缩放 = 训练真值（腿 0.5 / 轮 35.0，不是契约的 0.125/0.25/5.0）
+        self.assertAlmostEqual(0.5, self.binding.action_scales["FR_hip_joint"])
+        self.assertAlmostEqual(0.5, self.binding.action_scales["FR_calf_joint"])
+        self.assertAlmostEqual(35.0, self.binding.action_scales["FR_wheel_joint"])
+        by_role = self.contract["actuator_profile"]["by_role"]
+        self.assertNotEqual(by_role["hip"]["action_scale"], self.binding.action_scales["FR_hip_joint"])
+        # 控制模式仍来自契约（只换数值，不换控制律）
+        self.assertEqual("position", self.binding.control_modes["FR_hip_joint"])
+        self.assertEqual("velocity", self.binding.control_modes["FR_wheel_joint"])
+
+    def test_actuators_are_mjcf_wrapped_not_builtin(self):
+        # 这台机型的"执行器归属"事实在族 MJCF 门禁里按文本级口径认：包装/声明两种写法
+        # 都必须被认成 mjcf_wrapped（`tools/audit_family_mjcf.py::_actuator_binding`）。
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "_audit_family_mjcf", ROOT / "tools" / "audit_family_mjcf.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules.setdefault("_audit_family_mjcf", module)
+        spec.loader.exec_module(module)
+        self.assertEqual("mjcf_wrapped", module._actuator_binding(B2W_ROOT))
+        cfg = self.binding.robot_cfg()
+        actuators = cfg.articulation.actuators
+        self.assertEqual(4, len(actuators))
+        self.assertEqual(
+            ["XmlActuatorCfg"] * 4, [type(a).__name__ for a in actuators],
+            "MJCF 自带执行器的机型必须走包装，不得重注册 builtin 组（同名会崩）",
+        )
+        self.assertEqual(
+            [".*_hip_joint", ".*_thigh_joint", ".*_calf_joint", ".*_wheel_joint"],
+            [a.target_names_expr[0] for a in actuators],
+        )
+        self.assertEqual(
+            ["position", "position", "position", "velocity"],
+            [a.command_field for a in actuators],
+        )
+        self.assertAlmostEqual(0.9, cfg.articulation.soft_joint_pos_limit_factor)
+
+    def test_client_is_thin_and_traversal_still_works(self):
+        text = (B2W_SOURCE / "b2w_velocity" / "env_cfgs.py").read_text(encoding="utf-8")
+        self.assertNotIn("RewardTermCfg(", text, "b2w 客户端仍在自建奖励表（应为薄委托）")
+        self.assertFalse(
+            (B2W_SOURCE / "b2w_velocity" / "base.py").exists(),
+            "base.py 已被绑定取代，不应保留重复 helper",
+        )
+        # 越障档案按名调用 rough 入口 + 族级课程：两条链都必须活
+        traversal = importlib.import_module("b2w_velocity.traversal_env_cfg")
+        cfg = traversal.b2w_traversal_env_cfg()
+        self.assertEqual("generator", cfg.scene.terrain.terrain_type)
+        self.assertIn("terrain_levels", cfg.curriculum)
+        # 档案声明的入口名不动（b2w 沿用 go2w 模式的入口命名）
+        for profile_id, attr in (
+            ("b2w-velocity", "unitree_go2w_flat_env_cfg"),
+            ("b2w-traversal", "b2w_traversal_env_cfg"),
+        ):
+            record = json.loads(
+                (B2W_ROOT / "training" / "profiles" / f"{profile_id}.json").read_text(
+                    encoding="utf-8-sig"
+                )
+            )
+            self.assertTrue(record["entrypoints"]["env"].endswith(f":{attr}"))
+        self.assertEqual(-0.08, self.profiles.ROUGH.leg_motion_penalty_weight)
+        # F7（登记的轮几何偏差，纯搬运保留）：仍是 go2w 的 0.09 / 0.19
+        self.assertAlmostEqual(0.09, self.profiles.ROUGH.wheel_radius)
+        self.assertAlmostEqual(0.19, self.profiles.ROUGH.wheel_track)
+
+    def test_runtime_action_order_is_contract_order(self):
+        """真跑：动作项运行时目标序 = 契约序，且默认偏移也按契约序排列。
+
+        这一条正是上移修掉的实况：上移前 cfg 写契约序 + `preserve_order=True`，但
+        mjlab 的关节动作忽略该参数，运行期 offset/目标实际是 **MJCF 树序**
+        （本机型的 MJCF 是 FL,FR,RL,RR）⇒ 策略动作维语义与其声明不符。
+        """
+        import torch
+        from mjlab.envs import ManagerBasedRlEnv
+
+        contract_order = list(self.contract["action"]["joint_order"])
+        cfg = self.env_cfgs.unitree_go2w_flat_env_cfg()
+        cfg.scene.num_envs = 2
+        cfg.sim.nconmax = 256
+        cfg.sim.njmax = 1024
+        env = ManagerBasedRlEnv(cfg, device="cpu")
+        try:
+            env.reset()
+            observed = [
+                j
+                for name in env.action_manager.active_terms
+                for j in env.action_manager.get_term(name).target_names
+            ]
+            self.assertEqual(contract_order, observed, "动作项运行时目标序必须 = 契约动作序")
+            term = env.action_manager.get_term("joint_pos")
+            offset = term.offset
+            if hasattr(offset, "tolist"):
+                offset = offset.tolist()[0] if offset.ndim > 1 else offset.tolist()
+            expected = [self.binding.default_pose[j] for j in self.binding.leg_joint_order]
+            self.assertEqual(len(expected), len(offset))
+            for got, want in zip(offset, expected):
+                self.assertAlmostEqual(want, got, places=5)
+            action = torch.full(
+                (env.num_envs, env.action_manager.total_action_dim), 0.1, device="cpu"
+            )
+            obs, reward, _, _, _ = env.step(action)
+            self.assertTrue(torch.isfinite(obs["actor"]).all())
+            self.assertTrue(torch.isfinite(reward).all())
+        finally:
+            env.close()
 
 
 if __name__ == "__main__":

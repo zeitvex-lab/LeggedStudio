@@ -1,15 +1,14 @@
-"""Unitree B2 velocity environment configurations.
+"""Unitree B2 velocity environment configurations（薄委托：族级 velocity 技能）。
 
-Quadruped flat/rough velocity tasks built from the package-local robot
-constants and mjlab's shared velocity base.  The wiring mirrors the A2
-tuning documented in the package manifest (root body ``base_link``, four
-leg feet, 0.5 m command z-offset) so the trained policy matches the
-deployed sim2sim contract.
+族级实现在 `adapters/mjlab/kits/quadruped_kit/skills/velocity/`。本模块只剩三样 b2 事实：
 
-B8 训练去包化（试点轮）：与 deeprobotics_lite3 逐字重复的装配骨架（sim 上限 /
-高度扫描重指 / viewer / play 与 flat 收尾 / PPO runner）上移到
-``adapters/mjlab/kits/quadruped_kit``；本文件只留 B2 专属 wiring 与入口
-stub（entrypoint 符号仍在原模块原符号名，静态解析与运行时加载不受影响）。
+1. **机型绑定** `B2_VELOCITY`（`binding.py`：契约 + `model/robot.xml` 真值 + 本机型训练实体）；
+2. **任务数值与机型配方** `B2_VELOCITY`（`profile.py`：`VelocityProfile` + recipe）；
+3. **入口函数**（公开名不动，profile 的 `entrypoints` 与冒烟/训练链照旧解析到这里）。
+
+原先本文件里的接线（`kit.new_velocity_env_cfg` 装配骨架 + 两组接触传感器 + 非足端
+终止 + 事件撤项 + 命令 viz/展厅档 + 姿态 std 表 + 足端 site 表）已上移：装配骨架与
+族级机制在 Kit，机型专属那几样在 `profile.py` 的 recipe（同包数据面）。
 """
 
 from __future__ import annotations
@@ -18,11 +17,6 @@ import sys
 from pathlib import Path
 
 from mjlab.envs import ManagerBasedRlEnvCfg
-from mjlab.envs.mdp.actions import JointPositionActionCfg
-from mjlab.managers import TerminationTermCfg
-from mjlab.sensor import ContactMatch, ContactSensorCfg
-from mjlab.tasks.velocity import mdp
-from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
 
 # 仓库根自举（见 kits/quadruped_kit 模块注释）：worker / schema-dump / 冒烟三种
 # 运行环境都只把 training/source 或包根放进 sys.path；沿目录向上找 adapters/mjlab
@@ -34,108 +28,24 @@ for _parent in Path(__file__).resolve().parents:
         break
 
 from adapters.mjlab.kits import quadruped_kit as kit  # noqa: E402
+from adapters.mjlab.kits.quadruped_kit.skills.velocity import config as kit_velocity  # noqa: E402
 
-from .robot_constants import B2_ACTION_SCALE, get_b2_robot_cfg
-
-_QUAD_FEET = ("FR", "FL", "RR", "RL")
-_QUAD_GEOMS = tuple(f"{name}_foot_collision" for name in _QUAD_FEET)
-_ROOT_BODY = "base_link"
-
-
-def _contact_sensors() -> tuple[ContactSensorCfg, ContactSensorCfg]:
-    feet = ContactSensorCfg(
-        name="feet_ground_contact",
-        primary=ContactMatch(
-            mode="geom", pattern=_QUAD_GEOMS, entity="robot"
-        ),
-        secondary=ContactMatch(mode="body", pattern="terrain"),
-        fields=("found", "force"),
-        reduce="netforce",
-        num_slots=1,
-        track_air_time=True,
-    )
-    other = ContactSensorCfg(
-        name="nonfoot_ground_touch",
-        primary=ContactMatch(mode="geom", pattern=".*_collision", entity="robot"),
-        secondary=ContactMatch(mode="body", pattern="terrain"),
-        fields=("found", "force"),
-        reduce="netforce",
-        num_slots=1,
-        track_air_time=True,
-    )
-    return feet, other
-
-
-def _configure_posture(cfg: ManagerBasedRlEnvCfg) -> None:
-    cfg.rewards["pose"].params["std_standing"] = {
-        r".*_(hip|thigh)_joint.*": 0.05,
-        r".*_calf_joint.*": 0.1,
-    }
-    moving = {
-        r".*_(hip|thigh)_joint.*": 0.3,
-        r".*_calf_joint.*": 0.6,
-    }
-    cfg.rewards["pose"].params["std_walking"] = moving
-    cfg.rewards["pose"].params["std_running"] = moving
+from .binding import B2_VELOCITY as BINDING  # noqa: E402
+from .profile import B2_VELOCITY as PROFILE  # noqa: E402
 
 
 def make_b2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Rough-terrain A2 velocity configuration."""
-    cfg = kit.new_velocity_env_cfg(get_b2_robot_cfg())
-    # 足端高度扫描沿用基座的 site 帧（B2 MJCF 四腿有命名 site，与 lite3 的
-    # body 帧裁决 B31 不同源，见 kit.repoint_height_scan_sensors 注释）。
-    kit.repoint_height_scan_sensors(
-        cfg, root_body=_ROOT_BODY, foot_frames=_QUAD_FEET, frame_type="site"
+    return kit_velocity.make_env_cfg(
+        BINDING, PROFILE, terrain_profile="rough", play=play
     )
-    feet_sensor, other_sensor = _contact_sensors()
-    cfg.scene.sensors = (cfg.scene.sensors or ()) + (feet_sensor, other_sensor)
-
-    if cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
-        cfg.scene.terrain.terrain_generator.curriculum = True
-
-    action = cfg.actions["joint_pos"]
-    assert isinstance(action, JointPositionActionCfg)
-    action.scale = B2_ACTION_SCALE
-
-    # The base foot_friction event references geom names that do not exist
-    # on this robot (its MJCF geoms are unnamed); drop it.
-    cfg.events.pop("foot_friction", None)
-
-    kit.set_viewer(cfg, body_name=_ROOT_BODY)
-    command = cfg.commands["twist"]
-    assert isinstance(command, UniformVelocityCommandCfg)
-    command.viz.z_offset = 0.5
-
-    cfg.events["base_com"].params["asset_cfg"].body_names = (_ROOT_BODY,)
-    _configure_posture(cfg)
-    cfg.rewards["upright"].params["asset_cfg"].body_names = (_ROOT_BODY,)
-    cfg.rewards["body_ang_vel"].params["asset_cfg"].body_names = (_ROOT_BODY,)
-    for name in ("foot_clearance", "foot_slip"):
-        cfg.rewards[name].params["asset_cfg"].site_names = _QUAD_FEET
-
-    cfg.terminations.pop("fell_over", None)
-    cfg.terminations["illegal_contact"] = TerminationTermCfg(
-        func=mdp.illegal_contact,
-        params={"sensor_name": other_sensor.name, "force_threshold": 10.0},
-    )
-
-    if play:
-        kit.apply_play_postlude(cfg, drop_push_event=True, add_randomize_terrain=True)
-        cfg.terminations.pop("out_of_terrain_bounds", None)
-    return cfg
 
 
 def make_b2_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     """Flat-ground A2 velocity configuration."""
-    cfg = make_b2_rough_env_cfg(play=play)
-    kit.apply_flat_postlude(cfg, drop_terrain_scan_sensor=True, drop_height_scan_obs=True)
-    if play:
-        command = cfg.commands["twist"]
-        assert isinstance(command, UniformVelocityCommandCfg)
-        command.ranges.lin_vel_x = (-1.0, 1.5)
-        command.ranges.lin_vel_y = (-0.5, 0.5)
-        command.ranges.ang_vel_z = (-0.7, 0.7)
-    return cfg
+    return kit_velocity.make_env_cfg(
+        BINDING, PROFILE, terrain_profile="flat", play=play
+    )
 
 
 def b2_flat_env_cfg(*, play: bool = False):

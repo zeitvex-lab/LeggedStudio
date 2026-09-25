@@ -1,91 +1,44 @@
-"""Deeprobotics M20 constants.
+"""DeepRobotics M20 的资产与基座实体配置（机型侧真值）。
 
-Evidence chain (all three agree):
-  * joint names / kinematics: official ``deep_robotics_model/M20/mjcf/M20.xml``
-    (fl/fr/hl/hr x hipx/hipy/knee/wheel) == contract.json ``joints.actuated``;
-  * PD gains / effort: contract ``actuator_profile.by_role`` ==
-    DreamWaQ ``deploy_mujoco/configs/m20.yaml`` (kps 80/80/80, wheel kd 0.6)
-    with effort limits from the official MJCF ``actuatorfrcrange``
-    (legs 76.4, wheels 21.6);
-  * initial pose: DreamWaQ ``m20.yaml`` ``default_angles`` (front legs hipy -0.6 /
-    knee 1.0, rear legs mirrored; order fl,fr,hl,hr per its MJCF);
-  * meshes: package ``model/assets`` (single copy, byte-identical to official
-    ``M20/meshes`` STLs — verified by sha256).
+官方（上游）velocity 配方族级化（2026-09-25）后本模块只剩**族级绑定不覆盖的机型事实**：
+
+* MJCF 来源（``training/source/m20_velocity/xmls/M20.xml`` + 训练域规范化）；
+* 碰撞方案（``FULL_COLLISION``：轮与机身不同的 condim/friction 那一份）；
+* 柔性关节限位系数（0.9）。
+
+**不在这里**：关节名/序、默认姿、PD 谱、动作缩放、出生高 —— 这些来自契约
+（``binding.py`` 经族 Kit 派生）。在这里再写一份就是第二处真值（历史上
+``M20_LEG_JOINT_NAMES`` / ``M20_ACTUATOR_*`` 等字面元组就是这样长出来的，已随上移删除）。
+
+证据链（与删除前的注释一致，全部三方一致）：关节名/运动学 = 官方 ``M20.xml``；
+PD/力矩 = 契约 ``actuator_profile.by_role`` == DreamWaQ ``m20.yaml``（kps 80/80/80、
+wheel kd 0.6）+ 官方 MJCF ``actuatorfrcrange``（腿 76.4 / 轮 21.6）；初始姿 = DreamWaQ
+``m20.yaml`` ``default_angles``（前腿 hipy -0.6 / knee 1.0、后腿镜像；序 fl,fr,hl,hr）。
 """
 
 from pathlib import Path
 
 import mujoco
 
-from mjlab.actuator import BuiltinPositionActuatorCfg, BuiltinVelocityActuatorCfg
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.utils.spec_config import CollisionCfg
+
+_PACKAGE_DIR = Path(__file__).resolve().parent
 
 ##
 # MJCF and assets.
 ##
 
-M20_XML: Path = Path(__file__).resolve().parent / "xmls" / "M20.xml"
-
-# Action/joint order = **FL, FR, HL, HR**（腿先、轮后），与上游与契约一致：
-#   * 上游 `00_resources/m20_rl_isaacsim/.../deeprobotics_m20/rough_env_cfg.py:64-67`
-#     正是 `fl_, fr_, hl_, hr_`；
-#   * 本仓契约 `action.joint_order` 同为 fl,fr,hl,hr；
-#   * 官方 SDK 部署策略的 ONNX 元数据（`...trained-*.onnx`）也是 FL 优先。
-# 2026-09-24 移植核对 F2：本文件原写 FR,FL,HR,HL（注释称「SDK 命令序」），于是
-# **训练用的动作向量序与契约/上游相反**，而导出时盖的元数据取自实体序（FL 优先）
-# ⇒ 产物元数据与它训练时的动作序不符（真错标）。已按上游改正。
-M20_LEG_JOINT_NAMES: tuple[str, ...] = (
-  "fl_hipx_joint",
-  "fl_hipy_joint",
-  "fl_knee_joint",
-  "fr_hipx_joint",
-  "fr_hipy_joint",
-  "fr_knee_joint",
-  "hl_hipx_joint",
-  "hl_hipy_joint",
-  "hl_knee_joint",
-  "hr_hipx_joint",
-  "hr_hipy_joint",
-  "hr_knee_joint",
-)
-M20_WHEEL_JOINT_NAMES: tuple[str, ...] = (
-  "fl_wheel_joint",
-  "fr_wheel_joint",
-  "hl_wheel_joint",
-  "hr_wheel_joint",
-)
-M20_ALL_JOINT_NAMES: tuple[str, ...] = M20_LEG_JOINT_NAMES + M20_WHEEL_JOINT_NAMES
-
-M20_HIPX_JOINT_NAMES: tuple[str, ...] = (
-  "fr_hipx_joint",
-  "fl_hipx_joint",
-  "hr_hipx_joint",
-  "hl_hipx_joint",
-)
-M20_HIPY_JOINT_NAMES: tuple[str, ...] = (
-  "fr_hipy_joint",
-  "fl_hipy_joint",
-  "hr_hipy_joint",
-  "hl_hipy_joint",
-)
-M20_KNEE_JOINT_NAMES: tuple[str, ...] = (
-  "fr_knee_joint",
-  "fl_knee_joint",
-  "hr_knee_joint",
-  "hl_knee_joint",
-)
-
-M20_LEG_JOINT_REGEX: str = r"^(fr|fl|hr|hl)_(hipx|hipy|knee)_joint$"
-M20_WHEEL_JOINT_REGEX: str = r"^(fr|fl|hr|hl)_wheel_joint$"
+M20_XML: Path = _PACKAGE_DIR / "xmls" / "M20.xml"
 
 
 def get_spec() -> mujoco.MjSpec:
+  """训练模型的 MJCF 真值（含训练域规范化）。"""
   if not M20_XML.exists():
     raise FileNotFoundError(
-      f"M20 MJCF not found at {M20_XML}."
+      f"M20 MJCF not found at {M20_XML}. "
+      "Place your converted M20.xml and meshes under this package."
     )
-  # 训练口径：补传感器名 + 传感器只留消费集（唯一入口 adapters/mjlab/spec_utils.py）。
   import sys as _sys
 
   for _parent in Path(__file__).resolve().parents:
@@ -101,66 +54,6 @@ def get_spec() -> mujoco.MjSpec:
 
 
 ##
-# Actuator config (contract actuator_profile.by_role / DreamWaQ m20.yaml).
-##
-
-M20_ACTUATOR_HIPX = BuiltinPositionActuatorCfg(
-  target_names_expr=M20_HIPX_JOINT_NAMES,
-  stiffness=80.0,
-  damping=2.0,
-  effort_limit=76.4,
-  armature=0.01,
-)
-M20_ACTUATOR_HIPY = BuiltinPositionActuatorCfg(
-  target_names_expr=M20_HIPY_JOINT_NAMES,
-  stiffness=80.0,
-  damping=2.0,
-  effort_limit=76.4,
-  armature=0.01,
-)
-M20_ACTUATOR_KNEE = BuiltinPositionActuatorCfg(
-  target_names_expr=M20_KNEE_JOINT_NAMES,
-  stiffness=80.0,
-  damping=2.0,
-  effort_limit=76.4,
-  armature=0.01,
-)
-M20_ACTUATOR_WHEEL = BuiltinVelocityActuatorCfg(
-  target_names_expr=M20_WHEEL_JOINT_NAMES,
-  damping=0.6,
-  effort_limit=21.6,
-  armature=0.01,
-)
-
-##
-# Keyframes (DreamWaQ m20.yaml default_angles; joint order fl,fr,hl,hr:
-# front legs hipy -0.6 / knee 1.0, rear legs mirrored).
-##
-
-INIT_STATE = EntityCfg.InitialStateCfg(
-  pos=(0.0, 0.0, 0.4),
-  joint_pos={
-    "fl_hipx_joint": 0.0,
-    "fl_hipy_joint": -0.6,
-    "fl_knee_joint": 1.0,
-    "fr_hipx_joint": 0.0,
-    "fr_hipy_joint": -0.6,
-    "fr_knee_joint": 1.0,
-    "hl_hipx_joint": 0.0,
-    "hl_hipy_joint": 0.6,
-    "hl_knee_joint": -1.0,
-    "hr_hipx_joint": 0.0,
-    "hr_hipy_joint": 0.6,
-    "hr_knee_joint": -1.0,
-    "fl_wheel_joint": 0.0,
-    "fr_wheel_joint": 0.0,
-    "hl_wheel_joint": 0.0,
-    "hr_wheel_joint": 0.0,
-  },
-  joint_vel={".*": 0.0},
-)
-
-##
 # Collision config.
 ##
 
@@ -174,25 +67,25 @@ FULL_COLLISION = CollisionCfg(
 )
 
 ##
-# Final config.
+# Base entity config (binding 不覆盖的那部分).
 ##
 
-M20_ARTICULATION = EntityArticulationInfoCfg(
-  actuators=(
-    M20_ACTUATOR_HIPX,
-    M20_ACTUATOR_HIPY,
-    M20_ACTUATOR_KNEE,
-    M20_ACTUATOR_WHEEL,
-  ),
-  soft_joint_pos_limit_factor=0.9,
-)
+#: 柔性关节限位系数（机型真值：执行器谱由契约给，这一项契约不声明）。
+SOFT_JOINT_POS_LIMIT_FACTOR = 0.9
 
 
-def get_m20_robot_cfg() -> EntityCfg:
-  """Get a fresh DeepRobotics M20 robot configuration instance."""
+def get_m20_base_entity_cfg() -> EntityCfg:
+  """M20 的基座实体配置。
+
+  只带族级绑定**不覆盖**的机型事实：MJCF 来源、碰撞、柔性限位系数。出生高 / 默认姿 /
+  执行器谱由 `m20_velocity.binding.M20.robot_cfg()` 按契约填上（见族 Kit 的
+  `skills/binding.py` 的 "只覆盖三项" 口径）。
+  """
   return EntityCfg(
-    init_state=INIT_STATE,
     collisions=(FULL_COLLISION,),
     spec_fn=get_spec,
-    articulation=M20_ARTICULATION,
+    articulation=EntityArticulationInfoCfg(
+      actuators=(),
+      soft_joint_pos_limit_factor=SOFT_JOINT_POS_LIMIT_FACTOR,
+    ),
   )

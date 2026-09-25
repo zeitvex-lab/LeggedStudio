@@ -268,6 +268,185 @@ class VelocityRuntimeTests(unittest.TestCase):
         self.assertGreater(float((targets - default).abs().max()), 0.0)
 
 
+# --- 已接到族工厂的机型：绑定派生 + 动作序 + 真跑（一机型一条） ---------------------
+
+#: 每台已接机型：包目录 + 源码根 + profile 声明（entrypoint 从 profile JSON 读 ——
+#: 顺带锁住"公开入口名不动"）。新接一台 = 加一条。
+_ROBOT_CASES = {
+    "unitree_go1": {
+        "package": ROOT / "assets" / "robots" / "unitree_go1",
+        "source_dir": "training/source",
+        "profiles": {
+            "flat": "go1-velocity",
+            "rough": "go1-velocity-rough",
+        },
+    },
+    "unitree_b2": {
+        "package": ROOT / "assets" / "robots" / "unitree_b2",
+        "root_package": None,
+        "source_dir": "training/source",
+        "profiles": {
+            "flat": "b2-velocity",
+        },
+    },
+}
+
+
+def _profile_entrypoint(package: Path, profile_id: str) -> str:
+    """profile JSON 的 `entrypoints.env`（`module:factory`）——入口名由档案锁住。"""
+    path = package / "training" / "profiles" / f"{profile_id}.json"
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    return str(data["entrypoints"]["env"])
+
+
+class _RobotVelocityMixin:
+    """机型公共判据：绑定派生能在真实 MJCF 上解析 / 动作序 = 契约序 / 真 reset+step。"""
+
+    ROBOT_ID: str = ""
+    SPEC_FACTORY: tuple[str, str] = ("", "")
+
+    @classmethod
+    def setUpClass(cls):
+        case = _ROBOT_CASES[cls.ROBOT_ID]
+        cls.package: Path = case["package"]
+        cls.source_root: Path = cls.package / case["source_dir"]
+        for entry in (str(cls.source_root), str(cls.package), str(ROOT)):
+            if entry not in sys.path:
+                sys.path.insert(0, entry)
+        import importlib
+
+        binding_module, binding_attr = cls.SPEC_FACTORY
+        cls.binding = getattr(importlib.import_module(binding_module), binding_attr)
+        cls.contract = json.loads(
+            (cls.package / "contract.json").read_text(encoding="utf-8-sig")
+        )
+        cls.env_factories = {}
+        for variant, profile_id in case["profiles"].items():
+            module_name, _, factory_name = _profile_entrypoint(
+                cls.package, profile_id
+            ).partition(":")
+            cls.env_factories[variant] = getattr(
+                importlib.import_module(module_name), factory_name
+            )
+
+    def _model(self):
+        return self.binding.base_entity_cfg().spec_fn().compile()
+
+    def test_binding_patterns_resolve_on_the_compiled_mjcf(self):
+        model = self._model()
+        geoms = {model.geom(i).name for i in range(model.ngeom) if model.geom(i).name}
+        sites = {model.site(i).name for i in range(model.nsite) if model.site(i).name}
+        binding = self.binding
+        # 足端几何：按契约腿序一一对上（能力缺口机型没有足端 site，几何本身仍在）
+        self.assertEqual(len(binding.leg_ids), len(binding.foot_geoms))
+        for name in binding.foot_geoms:
+            self.assertIn(name, geoms, f"足端几何 {name} 不在 MJCF 里")
+        if binding.has_foot_sites():
+            foot_sites = binding.foot_sites()
+            self.assertEqual(len(binding.leg_ids), len(foot_sites))
+            for name in foot_sites:
+                self.assertIn(name, sites, f"足端 site {name} 不在 MJCF 里")
+        else:  # 能力缺口：取即报错（不是静默给空表）
+            with self.assertRaises(RuntimeError):
+                binding.foot_sites()
+        # 逐族角色：关节模式必须命中真实关节（同角色各腿同尾段 ⇒ 紧凑写法）
+        for role in binding.leg_pattern:
+            family_role = binding.family_role(role)
+            patterns = binding.role_joint_pattern(family_role)
+            for pattern in patterns:
+                hits = [j for j in binding.joint_order if re.fullmatch(pattern, j)]
+                self.assertGreaterEqual(len(hits), 1, f"关节模式 {pattern} 空匹配")
+        # 腿杆碰撞几何：按契约腿序枚举 MJCF 清单（个数不预设）；
+        # 躯干几何按"根 body 自己的 `_collision` 几何"派生 —— 没有即能力缺口（报错，不空匹配）。
+        for role in binding.leg_pattern:
+            family_role = binding.family_role(role)
+            if family_role == "hip_abduction":
+                continue  # 髋不参与触地惩罚（源配方口径）
+            try:
+                per_leg = binding.collision_geoms_for_role(role)
+            except RuntimeError:
+                # 能力缺口：本机型 MJCF 的碰撞几何**无名**（碰撞方案由 CollisionCfg 按正则
+                # 在实体层重建，go2/lite3 的具名几何只是资产的偶然）⇒ 族级按名枚举取不到。
+                # 断言这确实是"无名"（找不到含角色词的具名几何），不是挑错了名字。
+                self.assertEqual(
+                    [name for name in geoms if role.lower() in name.lower()], []
+                )
+                continue
+            self.assertGreaterEqual(len(per_leg), len(binding.leg_ids))
+            for name in per_leg:
+                self.assertIn(name, geoms)
+        if binding.root_collision_geoms:
+            pattern = binding.trunk_collision_pattern()
+            hits = [name for name in geoms if re.fullmatch(pattern, name)]
+            self.assertGreaterEqual(len(hits), 1, f"躯干模式 {pattern} 空匹配")
+        else:
+            with self.assertRaises(RuntimeError):
+                binding.trunk_collision_pattern()
+
+    def test_cfg_action_order_is_the_contract_order(self):
+        order = tuple(self.contract["action"]["joint_order"])
+        for variant, factory in self.env_factories.items():
+            with self.subTest(variant=variant):
+                cfg = factory()
+                term = cfg.actions["joint_pos"]
+                self.assertEqual(order, tuple(term.actuator_names))
+                self.assertTrue(term.preserve_order)
+                for joint in order:
+                    self.assertIsInstance(_resolve_scale(term.scale, joint), float)
+
+    def test_runtime_action_order_and_reset_step(self):
+        import torch
+        from mjlab.envs import ManagerBasedRlEnv
+
+        order = tuple(self.contract["action"]["joint_order"])
+        cfg = next(iter(self.env_factories.values()))()
+        cfg.scene.num_envs = 1
+        env = ManagerBasedRlEnv(cfg, device="cpu")
+        try:
+            env.reset()
+            action = torch.full(
+                (env.num_envs, env.action_manager.total_action_dim),
+                0.1,
+                device=env.device,
+            )
+            obs, reward, terminated, truncated, _ = env.step(action)
+            self.assertTrue(torch.isfinite(obs["actor"]).all())
+            self.assertTrue(torch.isfinite(reward).all())
+            term = env.action_manager.get_term("joint_pos")
+            self.assertEqual(order, tuple(term.target_names))
+            targets = env.scene["robot"].data.joint_pos_target[:, term.target_ids]
+            default = env.scene["robot"].data.default_joint_pos[:, term.target_ids]
+            self.assertGreater(float((targets - default).abs().max()), 0.0)
+        finally:
+            env.close()
+
+
+class B2VelocityRobotTests(_RobotVelocityMixin, unittest.TestCase):
+    ROBOT_ID = "unitree_b2"
+    SPEC_FACTORY = ("b2_velocity.binding", "B2_VELOCITY")
+
+
+class Go1VelocityRobotTests(_RobotVelocityMixin, unittest.TestCase):
+    ROBOT_ID = "unitree_go1"
+    SPEC_FACTORY = ("go1_velocity.binding", "GO1_VELOCITY")
+
+    def test_site_less_capability_drops_the_foot_terms(self):
+        """无足端 site 的机型：足端高度扫描与四项依赖 site 的奖励/三项观测整项撤掉。
+
+        （go1 的 MJCF 只有 imu 一个 site；源配方对这四项也是整项撤销 —— 能力判据是
+        `binding.has_foot_sites()`，不是机型名。）
+        """
+        self.assertFalse(self.binding.has_foot_sites())
+        cfg = self.env_factories["rough"]()
+        self.assertNotIn("foot_height_scan", [s.name for s in cfg.scene.sensors])
+        for name in ("foot_clearance", "foot_swing_height", "soft_landing", "foot_slip"):
+            self.assertNotIn(name, cfg.rewards)
+        for group in ("actor", "critic"):
+            terms = cfg.observations[group].terms
+            for name in ("foot_height", "foot_air_time", "foot_contact"):
+                self.assertNotIn(name, terms)
+
+
 # --- 第二个绑定：合成机型（换腿名/腿序/根 body 名），Kit 代码零改动 -----------------
 
 _SYNTHETIC_LEGS = ("r2", "l1", "r1", "l2")  # 契约腿序：既非字典序，也非 MJCF 序
