@@ -257,7 +257,8 @@
         ]
       },
       "gaps": [
-        "F1：profile/registry 标注上游为 LeggedGym-Ex，但数值与 LLoco cts 一致（tracking 1.5/0.75 vs 1.0/0.5、lin_vel_z -1.0 vs -2.0、friction (0.2,1.0) vs [0.2,1.7]、命令域 (-1,1) vs (-0.5,0.5)、max_iter 20000 vs 5000）⇒ 先定「谁是权威上游」，再决定是否改数"
+        "F1：profile/registry 标注上游为 LeggedGym-Ex，但数值与 LLoco cts 一致（tracking 1.5/0.75 vs 1.0/0.5、lin_vel_z -1.0 vs -2.0、friction (0.2,1.0) vs [0.2,1.7]、命令域 (-1,1) vs (-0.5,0.5)、max_iter 20000 vs 5000）⇒ 先定「谁是权威上游」，再决定是否改数",
+        "已修（标注）：档案 source 原只写 LeggedGym-Ex，已改为「方法/框架参考 LeggedGym-Ex + 数值与 LLoco go2_skills 逐值一致」——数值实源写清楚，避免下次又按 LeggedGym-Ex 对不上而误判"
       ]
     },
     {
@@ -284,7 +285,8 @@
         ]
       },
       "gaps": [
-        "同 go2-cts F1；amp 变体在 LeggedGym-Ex go2 无对应配置"
+        "同 go2-cts F1；amp 变体在 LeggedGym-Ex go2 无对应配置",
+        "已修（标注）：档案 source 原只写 LeggedGym-Ex，已改为「方法/框架参考 LeggedGym-Ex + 数值与 LLoco go2_skills 逐值一致」——数值实源写清楚，避免下次又按 LeggedGym-Ex 对不上而误判"
       ]
     },
     {
@@ -311,7 +313,8 @@
         ]
       },
       "gaps": [
-        "同 go2-cts F1"
+        "同 go2-cts F1",
+        "已修（标注）：档案 source 原只写 LeggedGym-Ex，已改为「方法/框架参考 LeggedGym-Ex + 数值与 LLoco go2_skills 逐值一致」——数值实源写清楚，避免下次又按 LeggedGym-Ex 对不上而误判"
       ]
     },
     {
@@ -338,7 +341,8 @@
         ]
       },
       "gaps": [
-        "同 go2-cts F1；LeggedGym-Ex 无 amp_ts 变体配置"
+        "同 go2-cts F1；LeggedGym-Ex 无 amp_ts 变体配置",
+        "已修（标注）：档案 source 原只写 LeggedGym-Ex，已改为「方法/框架参考 LeggedGym-Ex + 数值与 LLoco go2_skills 逐值一致」——数值实源写清楚，避免下次又按 LeggedGym-Ex 对不上而误判"
       ]
     },
     {
@@ -360,7 +364,8 @@
         ]
       },
       "gaps": [
-        "go2 在 LeggedGym-Ex 无独立学生 cfg（学生侧配置在 CTS/TS runner 内）⇒ 逐关节 std 下限 (0.10472,0.253075,0.094247)×4 无同形对照物；须确认这三处 legacy 口径出处，否则应改标包内自研"
+        "go2 在 LeggedGym-Ex 无独立学生 cfg（学生侧配置在 CTS/TS runner 内）⇒ 逐关节 std 下限 (0.10472,0.253075,0.094247)×4 无同形对照物；须确认这三处 legacy 口径出处，否则应改标包内自研",
+        "已修（标注）：档案 source 原只写 LeggedGym-Ex，已改为「方法/框架参考 LeggedGym-Ex + 数值与 LLoco go2_skills 逐值一致」——数值实源写清楚，避免下次又按 LeggedGym-Ex 对不上而误判"
       ]
     },
     {

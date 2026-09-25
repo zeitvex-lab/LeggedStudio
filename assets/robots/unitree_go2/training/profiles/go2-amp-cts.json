@@ -2,7 +2,7 @@
   "schema_version": "training-profile-1.0",
   "profile_id": "go2-amp-cts",
   "display_name": "Go2 AMP-CTS (动作先验 + 并发教师-学生)",
-  "source": "00_resources/LeggedGym-Ex go2 CTS/TS（并发教师-学生 / 教师-学生框架）",
+  "source": "方法/框架参考 00_resources/LeggedGym-Ex 的 go2 CTS/TS；**本仓数值与 00_resources/lain_job/LLoco 的 go2_skills/{cts,ts} 重导逐值一致**（2026-09-24 移植核对：对 LLoco 逐值相符、对 LeggedGym-Ex 有系统性差异，见 registry/porting_references.json）",
   "source_root": "training/source",
   "entrypoints": {
     "env": "local_tasks.robots.unitree.go2.tasks.locomotion.variants:unitree_go2_amp_cts_env_cfg",
