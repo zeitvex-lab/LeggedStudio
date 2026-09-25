@@ -83,6 +83,7 @@
         "Mjlab-TS-Student-Rough-Unitree-Go2",
         "Mjlab-HIM-Rough-Unitree-Go2",
         "Unitree-Go2-DreamWaQ-Rough",
+        "Mjlab-CTS-Rough-Unitree-B2",
         "Unitree-B2-WTW"
       ],
       "task_variants_ref": "registry/skills/velocity_base.json#tasks",

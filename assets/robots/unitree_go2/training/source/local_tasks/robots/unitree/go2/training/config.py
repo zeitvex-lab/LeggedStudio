@@ -54,23 +54,19 @@ def unitree_go2_source_ppo_runner_cfg(
 
   源策略直接消费环境已经 scaled/clipped 的观测，不做 running 归一化；也不裁动作。
   `local_tasks.robot_profiles` 的八个档位与七个算法变体都从这里起步。
+
+  **机制在族级**（`skills/velocity/runner.py::make_source_ppo_runner_cfg`）：本函数只
+  把 go2 的基座（`unitree_go2_ppo_runner_cfg`）与超参交上去 —— 第二台机型接 CTS/TS 时
+  不必再抄一份这套口径。
   """
-  cfg = unitree_go2_ppo_runner_cfg()
-  cfg.actor.obs_normalization = False
-  cfg.critic.obs_normalization = False
-  cfg.clip_actions = 100.0
-  cfg.algorithm.learning_rate = learning_rate
-  cfg.max_iterations = max_iterations
-  cfg.save_interval = save_interval
-  cfg.seed = seed
-  if symmetry_func is not None:
-    cfg.algorithm.symmetry_cfg = {
-      "data_augmentation_func": symmetry_func,
-      "use_data_augmentation": False,
-      "use_mirror_loss": True,
-      "mirror_loss_coeff": 1.0,
-    }
-  return cfg
+  return kit_runner.make_source_ppo_runner_cfg(
+    unitree_go2_ppo_runner_cfg(),
+    learning_rate=learning_rate,
+    max_iterations=max_iterations,
+    save_interval=save_interval,
+    seed=seed,
+    symmetry_func=symmetry_func,
+  )
 
 
 def unitree_go2_custom_runner_cfg(kind: str) -> RslRlOnPolicyRunnerCfg:

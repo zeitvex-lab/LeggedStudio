@@ -25,50 +25,18 @@ from mjlab.terrains.config import (
     random_rough,
 )
 
+from adapters.mjlab.kits.quadruped_kit.skills.velocity.variants import (
+    SOURCE_VARIANT_TERRAIN,
+)
 from adapters.mjlab.kits.quadruped_kit.skills.velocity.profile import (
     VariantRunnerProfile,
     VariantSpec,
     VariantTerrain,
 )
 
-#: 九种变体的源地形配方（五类地块，逐变体只差边界宽度）。
-VARIANT_TERRAIN = VariantTerrain(
-    size=(8.0, 8.0),
-    num_rows=10,
-    num_cols=20,
-    curriculum=True,
-    add_lights=True,
-    border_width=25.0,
-    sub_terrains={
-        "smooth_slope": hf_pyramid_slope(
-            proportion=0.15, slope_range=(0.0, 0.4), platform_width=3.0, border_width=1.0
-        ),
-        "rough_slope": random_rough(
-            proportion=0.15, noise_range=(0.02, 0.10), noise_step=0.02, border_width=1.0
-        ),
-        "stairs_up": pyramid_stairs(
-            proportion=0.30,
-            step_height_range=(0.0, 0.1),
-            step_width=0.31,
-            platform_width=3.0,
-            border_width=1.0,
-        ),
-        "stairs_down": pyramid_stairs_inv(
-            proportion=0.30,
-            step_height_range=(0.0, 0.1),
-            step_width=0.31,
-            platform_width=3.0,
-            border_width=1.0,
-        ),
-        "discrete": discrete_obstacles(
-            proportion=0.10,
-            obstacle_width_range=(0.3, 1.0),
-            obstacle_height_range=(0.05, 0.25),
-            num_obstacles=40,
-            border_width=1.0,
-        ),
-    },
-)
+#: 九种变体的源地形配方 —— **族级默认**（`skills/velocity/variants.SOURCE_VARIANT_TERRAIN`）。
+#: 2026-09-25 上移：五类地块是算法配方的常量，第二台机型不该再抄一份。
+VARIANT_TERRAIN = SOURCE_VARIANT_TERRAIN
 
 #: 九种变体共用的复位档（源实现逐 kind 同值）。
 _RESET_POSE_RANGE = {

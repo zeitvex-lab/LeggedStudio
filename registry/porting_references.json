@@ -1,7 +1,7 @@
 {
   "schema": "porting-references-1.0",
   "generated_at": "2026-09-24",
-  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。 **补充（2026-09-25 第三段）**：族级 velocity 上移到四足 go1/b2 与轮足 m20/b2w 后，**动作维解析序**又改了三台（go1/b2/b2w；m20 的解析序本就与契约一致）——详见各档案 F14。核对动作序要看运行期 `env.action_manager.get_term(<名>).target_ids`，字面序（`actuator_names`）只是意图。 **补充（2026-09-25 第四段）**：速度跟踪的族级化已覆盖 **8/8 台**（四足 go2/go1/b2/lite3、轮足 go2w/b2w/m20/zex-w）。动作维解析序被修正的是**四台**（go2w/go1/b2/b2w，见各档案 F12/F14）；go2、lite3、m20 本就一致（go2 在 F 段第一次上移时运行期对拍 0 差异，lite3 见 F19）。",
+  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。 **补充（2026-09-25 第三段）**：族级 velocity 上移到四足 go1/b2 与轮足 m20/b2w 后，**动作维解析序**又改了三台（go1/b2/b2w；m20 的解析序本就与契约一致）——详见各档案 F14。核对动作序要看运行期 `env.action_manager.get_term(<名>).target_ids`，字面序（`actuator_names`）只是意图。 **补充（2026-09-25 第四段）**：速度跟踪的族级化已覆盖 **8/8 台**（四足 go2/go1/b2/lite3、轮足 go2w/b2w/m20/zex-w）。动作维解析序被修正的是**四台**（go2w/go1/b2/b2w，见各档案 F12/F14）；go2、lite3、m20 本就一致（go2 在 F 段第一次上移时运行期对拍 0 差异，lite3 见 F19）。 **补充（2026-09-25 第五段）**：算法变体的**复用证明**已补上 —— `b2-cts` 用族级实现 + 只换数据即训得起来（`algorithm_plugin` 经平台注册表绑类，不经机型包）。",
   "entries": [
     {
       "profile_id": "go2-trot",
@@ -441,6 +441,31 @@
         "继承 go2-wtw 的 F7（tracking 核尺度换算、命令重采样 10s vs 8s、预算 100/10000 vs 500/5000）—— 那是**配方**层面的待裁决，本档案按同配方照搬",
         "b2 的 WTW 数值未做机型标定（站姿高/足端几何已按本机取，但步态参数是 go2 配方）⇒ **能训 ≠ 训得好**；要当正式技能用需按 b2 标定一轮",
         "**算法变体（CTS/TS/HIM）的第二台机型档案仍未建**：族级环境装配已就绪（go2 九档解析级 0 差异），但新增一台要动算法插件注册链（`adapters/mjlab/algorithms/registry.json`）、runner 类与档案 catalog —— 属独立切片，未在本轮内完成"
+      ]
+    },
+    {
+      "profile_id": "b2-cts",
+      "robot": "unitree_b2",
+      "checked_at": "2026-09-25",
+      "references": [
+        {
+          "repo": "leggedgym-ex",
+          "path": "legged_gym/envs/go2/go2_cts_config.py",
+          "role": "CTS 方法/框架参考（与 go2-cts 同一份上游；本仓没有 b2 专属 CTS 上游）"
+        }
+      ],
+      "verification": {
+        "method": "**算法轴复用证明档案**（2026-09-25）：环境装配与 runner 全部来自族级 Kit （`quadruped_kit/skills/velocity/{variants,runner}.py`），数值取 go2 的 cts 档，只改两项机型相关值（`contact_order` 用 b2 腿序、`base_height_target` 用 b2 站姿 0.54）。验收方式是**真跑**：`--mode train --iters 2` 通过；算法侧由档案的 `algorithm_plugin: cts` 经平台注册表绑类，**不经任何机型包**。",
+        "conclusion": "aligned",
+        "evidence": [
+          "族实现 `quadruped_kit/skills/velocity/{variants,runner}.py` ↔ go2 的 `_go2_custom_algorithm_env_cfg`（已上移）",
+          "本档案对 Kit 的**唯一**要求是既有机制：接触监看按 body 匹配（b2 的腿杆碰撞几何无名）——`spec.contact_match=\"body\"` 是数据选择，Kit 未加机型分支"
+        ]
+      },
+      "gaps": [
+        "**未按 b2 标定**：除 `contact_order` / `base_height_target` 外的数值（命令范围、DR 档、奖励权重与阈值、地形档）是 go2 配方原样搬运 ⇒ **能训 ≠ 训得好**；要当正式技能用需按 b2 标定一轮并登记对照",
+        "本轮为它从 go2 包内**上移**了两处族级机制（非 b2 特判）：`runner.make_source_ppo_runner_cfg`（源配方 PPO 档）与 `variants.SOURCE_VARIANT_TERRAIN`（五类地块地形配方默认）—— go2 侧改为复用，等价性已用字段级对拍复核（runner 0 差异）",
+        "`num_envs` / `max_iterations` 沿用 go2 档案量级（1024 / 250），未按 b2 显存与预算标定"
       ]
     },
     {

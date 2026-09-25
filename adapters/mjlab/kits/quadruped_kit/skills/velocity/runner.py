@@ -485,9 +485,42 @@ def make_variant_runner_cfg(
     return cfg
 
 
+def make_source_ppo_runner_cfg(
+    base: RslRlOnPolicyRunnerCfg,
+    *,
+    learning_rate: float,
+    max_iterations: int,
+    save_interval: int,
+    seed: int,
+    symmetry_func: str | None = None,
+) -> RslRlOnPolicyRunnerCfg:
+    """在机型基座 runner 之上套「源配方 PPO」档 —— CTS/TS/DreamWaQ/AMP 那一族的共同口径。
+
+    **这是技能机制、不是机型差异**：源策略直接消费环境已 scaled/clipped 的观测，不做
+    running 归一化，也不裁动作。原先只写在 `unitree_go2` 的 `training/config.py` 里，
+    第二台机型要用就得抄一份 —— 上移后机型侧只交自己的基座与超参。
+    """
+    base.actor.obs_normalization = False
+    base.critic.obs_normalization = False
+    base.clip_actions = 100.0
+    base.algorithm.learning_rate = float(learning_rate)
+    base.max_iterations = int(max_iterations)
+    base.save_interval = int(save_interval)
+    base.seed = int(seed)
+    if symmetry_func is not None:
+        base.algorithm.symmetry_cfg = {
+            "data_augmentation_func": symmetry_func,
+            "use_data_augmentation": False,
+            "use_mirror_loss": True,
+            "mirror_loss_coeff": 1.0,
+        }
+    return base
+
+
 __all__ = [
     "PolicyMetadataFn",
     "VelocityDistillationRunner",
     "VelocityOnPolicyRunner",
+    "make_source_ppo_runner_cfg",
     "make_variant_runner_cfg",
 ]
