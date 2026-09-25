@@ -83,13 +83,21 @@ def _repoint_terrain_scan(cfg: ManagerBasedRlEnvCfg, binding: QuadrupedSkillBind
 def _wire_foot_height_scan(
     cfg: ManagerBasedRlEnvCfg, binding: QuadrupedSkillBinding
 ) -> None:
-    """足端高度扫描挂到本机型的足端 site（族约定：site 与足端几何同腿前缀）。
+    """足端高度扫描挂到本机型的**足端帧**（绑定按能力给：优先 site，其次足端 body）。
 
-    **能力缺口**：没有足端 site 的机型（go1 的 MJCF 只有 imu 一个 site；足端就是
-    calf 体）不装配这一传感器 —— 依赖它的项（足端高度扫描观测 / 足端高度与滑移奖励）
-    一并按能力撤掉（见 `_drop_site_dependent_items`），不静默换口径、也不判死整个技能。
+    帧的两种口径都由 `binding.foot_scan_frames()` 表达（数据，不是 Kit 里的机型判断）：
+
+    * go2 这类有足端 site 的机型 → `("site", "FL")` 一类的帧（与源实现逐项同构）；
+    * **lite3 这类没有足端 site、足端是 `*_FOOT` body** 的机型 → `("body", "FL_FOOT")`
+      帧（B31 裁决：射线原点仍在足端，语义不变；源配方即如此装配）；
+    * **一台足端帧都没有的机型**（go1 的足端就是 calf 体：既无 site 也无
+      `*_foot*` body）→ 不装配这一传感器。足端**site** 版奖励与三项足端观测另按
+      `has_foot_sites()` 撤掉（`_drop_site_dependent_items`；lite3 这类"无 site、有
+      body 帧"的机型由机型配方的观测/奖励整表接管，不受影响）—— 不静默换口径、
+      也不判死整个技能。
     """
-    if not binding.has_foot_sites():
+    frames = binding.foot_scan_frames()
+    if not frames:
         cfg.scene.sensors = tuple(
             sensor
             for sensor in (cfg.scene.sensors or ())
@@ -100,8 +108,7 @@ def _wire_foot_height_scan(
         if sensor.name == FOOT_HEIGHT_SCAN:
             assert isinstance(sensor, TerrainHeightSensorCfg)
             sensor.frame = tuple(
-                ObjRef(type="site", name=name, entity="robot")
-                for name in binding.foot_sites()
+                ObjRef(type=kind, name=name, entity="robot") for kind, name in frames
             )
             sensor.pattern = RingPatternCfg.single_ring(radius=0.04, num_samples=4)
 

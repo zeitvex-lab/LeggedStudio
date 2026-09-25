@@ -34,6 +34,8 @@ M20_ROOT = ROOT / "assets" / "robots" / "deeprobotics_m20"
 M20_SOURCE = M20_ROOT / "training" / "source"
 B2W_ROOT = ROOT / "assets" / "robots" / "unitree_b2w"
 B2W_SOURCE = B2W_ROOT / "training" / "source"
+ZEXW_ROOT = ROOT / "assets" / "robots" / "zex-w"
+ZEXW_SOURCE = ZEXW_ROOT / "training" / "source"
 
 for _path in (
     str(ROOT),
@@ -43,6 +45,8 @@ for _path in (
     str(M20_SOURCE),
     str(B2W_ROOT),
     str(B2W_SOURCE),
+    str(ZEXW_ROOT),
+    str(ZEXW_SOURCE),
 ):
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -88,7 +92,7 @@ class KitIsRobotAgnosticTest(unittest.TestCase):
 
     #: 机型身份词（出现在**代码面**即判红；docstring/注释里的出处说明合法，与
     #: `tools/audit_families.py` 的 Kit 方向判据同口径）。
-    FORBIDDEN_WORDS = ("go2w", "unitree")
+    FORBIDDEN_WORDS = ("go2w", "unitree", "zex")
     #: 机型数值字面量：轮半径/轮距/动作缩放/并行环境数——必须由契约或 profile 传入。
     FORBIDDEN_NUMBERS = ("0.09", "0.19", "35.0", "4096")
     #: 腿标记（go2w = FL/FR/RL/RR；族层只认契约给的 leg_ids）。
@@ -1000,6 +1004,287 @@ class B2wReferenceClientTest(unittest.TestCase):
             self.assertTrue(torch.isfinite(reward).all())
         finally:
             env.close()
+
+
+class ZexwCompetitionRecipeTest(unittest.TestCase):
+    """第四台客户 + **第三个配方**（竞赛口径）：zex-w。
+
+    这台机型的价值在于它专门打族层的另外几条路径：
+
+    ① 动作接口是**延时 + 一阶低通**的机型动作项（另两份配方是共享动作工厂的两段）；
+    ② 命令是**阈值 + 单轴采样 + 地形自适应**的机型命令类（死区 0.2、爬坡地形强制前进）；
+    ③ 奖励表**逐档不同**（平地 16 项 / 越障 24 项，跟踪核与惩罚核两侧都不一样）；
+    ④ 观测里轮速单列一项、critic 多足接触与高度扫描两组特权项；
+    ⑤ 机型侧注入件多两样：课程类（自适应命令区间）+ 进程级全局开关（总奖励裁剪）。
+    全部只体现在绑定 / profile 数据 / 注入件里，Kit 一份实现吃下两档。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skills = _skills_module()
+        cls.env_cfgs = importlib.import_module("robot.config.env_cfgs")
+        cls.binding = importlib.import_module("robot.velocity.binding").ZEXW
+        cls.vel_profile = importlib.import_module("robot.velocity.profile")
+        cls.contract = json.loads((ZEXW_ROOT / "contract.json").read_text(encoding="utf-8-sig"))
+        cls.family = importlib.import_module(
+            "adapters.mjlab.kits.wheel_leg_kit.skills.family"
+        )
+
+    def _mjcf(self):
+        """"该机型训练口径的 MJCF（规范化后）——派生模式的解析真值。"""
+        model = self.binding.base_entity_cfg().spec_fn().compile()
+        joints = [model.joint(i).name for i in range(model.njnt) if model.joint(i).name]
+        bodies = [model.body(i).name for i in range(model.nbody) if model.body(i).name]
+        return joints, bodies
+
+    # --- 绑定 = 契约 + MJCF 真值 -------------------------------------------------
+
+    def test_binding_is_contract_derived(self):
+        order = tuple(self.contract["action"]["joint_order"])
+        self.assertEqual(order, self.binding.leg_joint_order + self.binding.wheel_joint_order)
+        self.assertEqual(order, tuple(self.binding.action_joint_order))
+        self.assertEqual(("fl", "fr", "rl", "rr"), tuple(self.binding.leg_ids))
+        self.assertEqual("base_link", self.binding.root_body)
+        self.assertEqual(r".*(fl|fr|rl|rr)_(wheel|foot).*", self.binding.wheel_contact_pattern)
+        # 默认姿 = 契约 `joints.default_pose`（与本体 INIT_STATE 的字面值一致，无登记偏离）
+        contract_pose = dict(
+            zip(
+                [item["name"] for item in self.contract["joints"]["actuated"]],
+                self.contract["joints"]["default_pose"],
+            )
+        )
+        self.assertEqual(contract_pose, dict(self.binding.default_pose))
+        self.assertAlmostEqual(0.55, self.binding.default_pose["fl_hip_pitch_joint"])
+        self.assertAlmostEqual(-1.125, self.binding.default_pose["fl_knee_joint"])
+        # 控制模式与动作缩放来自契约 `actuator_profile.by_role`
+        for joint in self.binding.leg_joint_order:
+            self.assertEqual("position", self.binding.control_modes[joint])
+        for joint in self.binding.wheel_joint_order:
+            self.assertEqual("velocity", self.binding.control_modes[joint])
+        self.assertAlmostEqual(0.125, self.binding.action_scales["fl_hip_abduction_joint"])
+        self.assertAlmostEqual(0.25, self.binding.action_scales["fl_hip_pitch_joint"])
+        self.assertAlmostEqual(5.0, self.binding.action_scales["fl_wheel_joint"])
+        cfg = self.binding.robot_cfg()
+        self.assertEqual((0.0, 0.0, 0.42), cfg.init_state.pos)
+        for joint, value in contract_pose.items():
+            self.assertAlmostEqual(value, _resolve_pose(cfg.init_state.joint_pos, joint), msg=joint)
+
+    def test_derived_patterns_resolve_on_the_real_mjcf(self):
+        """派生的名字模式对着**真编译的 MJCF** 解析：镜像对 / 角色选择器 / 轮-地接触。"""
+        joints, bodies = self._mjcf()
+        match = lambda pattern, pool: sorted(n for n in pool if re.fullmatch(pattern, n))  # noqa: E731
+        # 轮-地接触：源实现写死四条 wheel body，族口径是族角色别名派生的正则 —— 同一集合
+        self.assertEqual(
+            ["fl_wheel_Link", "fr_wheel_Link", "rl_wheel_Link", "rr_wheel_Link"],
+            match(self.binding.wheel_contact_pattern, bodies),
+        )
+        # 按角色选关节（奖励项用）：腿段 12 + 轮段 4 且互不重叠
+        for role, expected in (
+            ("hip_abduction", 4),
+            ("hip_pitch", 4),
+            ("knee", 4),
+            ("wheel", 4),
+        ):
+            indices = self.binding.role_joint_indices(role)
+            self.assertEqual(expected, len(indices), f"角色 {role} 的关节数不对")
+            pattern = self.binding.role_joint_pattern(role)
+            self.assertEqual(
+                [self.binding.action_joint_order[i] for i in indices],
+                match(pattern, list(self.binding.action_joint_order)),
+            )
+        # 全名角色词（`fl_hip_pitch_joint`）不许被短别名 `hip` 抢走（hip_abduction）
+        self.assertEqual("hip_pitch", self.family.role_of_joint("fl_hip_pitch_joint"))
+        self.assertEqual("hip_abduction", self.family.role_of_joint("fl_hip_abduction_joint"))
+        # 镜像对（源写死 `fl_(hip_pitch|knee)_joint` 一类字面正则）：派生串逐字相同、解析成对
+        rough = self.env_cfgs.rough_env_cfg()
+        derived = rough.rewards["joint_mirror"].params["mirror_joints"]
+        self.assertEqual(
+            [["fl_(hip_pitch|knee)_joint", "rr_(hip_pitch|knee)_joint"],
+             ["fr_(hip_pitch|knee)_joint", "rl_(hip_pitch|knee)_joint"]],
+            derived,
+        )
+        for left, right in derived:
+            self.assertEqual(2, len(match(left, joints)))
+            self.assertEqual(2, len(match(right, joints)))
+        self.assertEqual(
+            [["fl_hip_abduction_joint", "rl_hip_abduction_joint"],
+             ["fr_hip_abduction_joint", "rr_hip_abduction_joint"]],
+            rough.rewards["abduction_mirror"].params["mirror_joints"],
+        )
+        # 碰撞监督的几何：该机型的 link 命名事实（profile 给），腿杆三段各 4 条、不含轮
+        collision = [
+            s for s in rough.scene.sensors if s.name == "body_collision"
+        ][0]
+        collision_bodies = sorted(
+            {body for pattern in collision.primary.pattern for body in match(pattern, bodies)}
+        )
+        self.assertEqual(12, len(collision_bodies))
+        self.assertEqual([], [body for body in collision_bodies if re.fullmatch(".*_wheel_Link", body)])
+
+    # --- 客户端：速度两档是薄委托，crawl 是另一条任务（原样保留） -----------------
+
+    def test_client_is_thin_and_crawl_kept(self):
+        text = (ZEXW_SOURCE / "robot" / "config" / "env_cfgs.py").read_text(encoding="utf-8")
+        # 速度两档（flat / rough 入口）里不许再自建表 —— 那两段是薄委托
+        velocity_part = text.split("def flat_env_cfg", 1)[1].split("def crawl_env_cfg", 1)[0]
+        self.assertNotIn("RewardTermCfg(", velocity_part, "速度两档仍在自建奖励表（应为薄委托）")
+        self.assertNotIn("EventTermCfg(", velocity_part, "速度两档仍在自建事件表（应为薄委托）")
+        self.assertIn('variant="competition_flat"', velocity_part)
+        self.assertIn('variant="competition_rough"', velocity_part)
+        # crawl 是**另一条任务**（趴姿越障：自己的实体/地形/奖励/课程），不许被并入速度配方
+        crawl = self.env_cfgs.crawl_env_cfg()
+        self.assertEqual(15, len(crawl.rewards))
+        self.assertEqual(
+            ["flat", "rc_low_bar", "random_grid", "perlin_noise"],
+            list(crawl.scene.terrain.terrain_generator.sub_terrains),
+        )
+        self.assertIn("terrain_levels", crawl.curriculum)
+        self.assertEqual(30.0, crawl.episode_length_s)
+        self.assertTrue(self.vel_profile.ROUGH.setup_hook is not None)
+        self.assertIsNone(self.vel_profile.FLAT.setup_hook, "平地档不该开总奖励裁剪（源实现只在 rough/crawl 开）")
+
+    # --- 配方：两档结构与数值落点 -------------------------------------------------
+
+    def test_competition_variants_keep_source_structure(self):
+        flat = self.skills.make_velocity_env_cfg(self.binding, self.vel_profile.FLAT, variant="competition_flat")
+        rough = self.env_cfgs.rough_env_cfg()
+        self.assertEqual(["leg_joint_pos", "wheel_joint_vel"], list(flat.actions))
+        self.assertEqual(list(flat.actions), list(rough.actions))
+        # 动作项 = 机型注入的延时低通类；腿段用契约默认姿偏移、轮段零偏移
+        legs, wheels = flat.actions["leg_joint_pos"], flat.actions["wheel_joint_vel"]
+        self.assertEqual("JointPositionDelayedLowPassActionCfg", type(legs).__name__)
+        self.assertEqual("JointVelocityDelayedLowPassActionCfg", type(wheels).__name__)
+        self.assertEqual(0.0, wheels.offset)
+        self.assertFalse(wheels.use_default_offset)
+        self.assertTrue(legs.use_default_offset)
+        self.assertAlmostEqual(5.0, wheels.scale)
+        self.assertAlmostEqual(0.125, legs.scale["fl_hip_abduction_joint"])
+        self.assertAlmostEqual(0.25, legs.scale["fl_hip_pitch_joint"])
+        self.assertAlmostEqual(5.0, legs.cut_off_frequency)
+        self.assertAlmostEqual(15.0, wheels.cut_off_frequency)
+        for cfg in (flat, rough):
+            self.assertAlmostEqual(2, cfg.actions["leg_joint_pos"].max_delay)
+            self.assertAlmostEqual(0, cfg.actions["leg_joint_pos"].min_delay)
+        # 命令：阈值类 + profile 的单轴采样比与区间
+        for variant, cfg, spec in (
+            ("flat", flat, self.vel_profile.FLAT.command),
+            ("rough", rough, self.vel_profile.ROUGH.command),
+        ):
+            with self.subTest(variant=variant):
+                twist = cfg.commands["twist"]
+                self.assertEqual("UniformThresholdVelocityCommand", twist.class_type.__name__)
+                self.assertEqual(tuple(spec.ranges.lin_vel_x), tuple(twist.ranges.lin_vel_x))
+                self.assertEqual(tuple(spec.ranges.lin_vel_y), tuple(twist.ranges.lin_vel_y))
+                self.assertAlmostEqual(spec.rel_lateral_envs, twist.rel_lateral_envs)
+                self.assertAlmostEqual(spec.rel_yaw_envs, twist.rel_yaw_envs)
+                self.assertAlmostEqual(spec.rel_standing_envs, twist.rel_standing_envs)
+        self.assertAlmostEqual(0.20, rough.commands["twist"].rel_lateral_envs)
+        self.assertEqual((10.0, 10.0), tuple(rough.commands["twist"].resampling_time_range))
+        # 奖励表：权重表的键集合 == 实际装配的项集合（两档各自成立）
+        for cfg, profile in ((flat, self.vel_profile.FLAT), (rough, self.vel_profile.ROUGH)):
+            self.assertEqual(set(profile.rewards.weights), set(cfg.rewards))
+        self.assertEqual(16, len(flat.rewards))
+        self.assertEqual(24, len(rough.rewards))
+        self.assertIn("wheel_roll_tracking", flat.rewards)
+        self.assertNotIn("wheel_roll_tracking", rough.rewards)
+        self.assertAlmostEqual(-2.0, flat.rewards["base_height_l2"].weight)
+        self.assertAlmostEqual(0.36, flat.rewards["base_height_l2"].params["target_height"])
+        self.assertNotIn("sensor_cfg", flat.rewards["base_height_l2"].params)
+        self.assertAlmostEqual(0.0, rough.rewards["base_height_l2"].weight)
+        self.assertAlmostEqual(0.42, rough.rewards["base_height_l2"].params["target_height"])
+        self.assertEqual("height_scanner", rough.rewards["base_height_l2"].params["sensor_cfg"].name)
+        self.assertAlmostEqual(-1.0, rough.rewards["joint_pos_penalty_ab"].weight)
+        self.assertAlmostEqual(-0.3, rough.rewards["joint_pos_penalty_sagittal"].weight)
+        self.assertAlmostEqual(100.0, rough.rewards["contact_forces"].params["threshold"])
+        # 地形：平地档 = 只含平地的地块生成器；越障档 = 族级竞赛课程（障碍释放）
+        self.assertEqual("generator", flat.scene.terrain.terrain_type)
+        self.assertEqual(["flat"], list(flat.scene.terrain.terrain_generator.sub_terrains))
+        self.assertEqual({}, dict(flat.curriculum))
+        self.assertEqual(
+            ["flat", "pyramid_stairs", "pyramid_stairs_inv", "random_grid",
+             "random_rough", "perlin_noise", "rc_wall", "sloped_terrain"],
+            list(rough.scene.terrain.terrain_generator.sub_terrains),
+        )
+        self.assertEqual(
+            ["command_x_levels", "command_y_levels", "command_yaw_levels", "terrain_levels"],
+            sorted(rough.curriculum),
+        )
+        self.assertEqual("command_levels_adaptive", rough.curriculum["command_x_levels"].func.__name__)
+        self.assertEqual("terrain_levels_obstacle_release", rough.curriculum["terrain_levels"].func.__name__)
+        # 指标：基座 1 项；越障档 30 项（29 项机型诊断）
+        self.assertEqual(["mean_leg_action_acc"], list(flat.metrics))
+        self.assertEqual(30, len(rough.metrics))
+        # 观测：腿 12 + 轮 4 分列 + 原始动作，critic 多三组特权项（源实现的 53 / 333 布局）
+        self.assertEqual(
+            ["base_ang_vel", "projected_gravity", "command", "joint_pos", "joint_vel",
+             "wheel_vel", "actions"],
+            list(flat.observations["actor"].terms),
+        )
+        self.assertEqual(
+            ["base_ang_vel", "projected_gravity", "command", "joint_pos", "joint_vel",
+             "wheel_vel", "actions", "base_lin_vel", "foot_contact", "height_scan"],
+            list(rough.observations["critic"].terms),
+        )
+        self.assertEqual("safe_height_scan", rough.observations["critic"].terms["height_scan"].func.__name__)
+        self.assertEqual(
+            ["feet_ground_contact", "base_ground_contact", "body_collision", "height_scanner"],
+            [s.name for s in rough.scene.sensors],
+        )
+        # play 口径：无限时长 + 关噪声 + 清课程（越障档把生成器退成固定小场）
+        play = self.env_cfgs.rough_env_cfg(play=True)
+        self.assertGreater(play.episode_length_s, rough.episode_length_s)
+        self.assertFalse(play.observations["actor"].enable_corruption)
+        self.assertEqual({}, dict(play.curriculum))
+        self.assertEqual(5, play.scene.terrain.terrain_generator.num_rows)
+        self.assertFalse(play.scene.terrain.terrain_generator.curriculum)
+
+    # --- 真跑：动作接口序 = 契约序（含延时低通动作项） ---------------------------
+
+    def test_runtime_action_order_is_contract_order(self):
+        import torch
+        from mjlab.envs import ManagerBasedRlEnv
+
+        contract_order = list(self.contract["action"]["joint_order"])
+        for variant, cfg in (
+            ("competition_flat", self.env_cfgs.flat_env_cfg()),
+            ("competition_rough", self.env_cfgs.rough_env_cfg()),
+        ):
+            with self.subTest(variant=variant):
+                cfg.scene.num_envs = 4
+                cfg.sim.nconmax = 512
+                cfg.sim.njmax = 2048
+                env = ManagerBasedRlEnv(cfg, device="cpu")
+                try:
+                    env.reset()
+                    self.assertEqual(
+                        ["leg_joint_pos", "wheel_joint_vel"],
+                        list(env.action_manager.active_terms),
+                    )
+                    self.assertEqual(
+                        ["JointPositionDelayedLowPassAction", "JointVelocityDelayedLowPassAction"],
+                        [type(env.action_manager.get_term(t)).__name__
+                         for t in env.action_manager.active_terms],
+                    )
+                    observed = [
+                        j for name in env.action_manager.active_terms
+                        for j in env.action_manager.get_term(name).target_names
+                    ]
+                    self.assertEqual(contract_order, observed, "动作项运行时目标序必须 = 契约动作序")
+                    action = torch.full(
+                        (env.num_envs, env.action_manager.total_action_dim), 0.1, device="cpu"
+                    )
+                    obs, reward, _, _, _ = env.step(action)
+                    self.assertTrue(torch.isfinite(obs["actor"]).all())
+                    self.assertTrue(torch.isfinite(obs["critic"]).all())
+                    self.assertTrue(torch.isfinite(reward).all())
+                    # 训练真值的观测宽度（actor 53 = 3+3+3+12+12+4+16；critic 333 含
+                    # 足接触 4 + 高度扫描 273）。契约声明的 57 维统一布局与此不符，属
+                    # **已登记的既有事实**（见 robot/velocity/profile.py 头注释），本测试
+                    # 钉的是"上移前后一致"，不是"与契约一致"。
+                    self.assertEqual(53, obs["actor"].shape[-1])
+                    self.assertEqual(333, obs["critic"].shape[-1])
+                finally:
+                    env.close()
 
 
 if __name__ == "__main__":

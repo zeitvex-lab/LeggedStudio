@@ -1,9 +1,16 @@
-"""Robot Environment Configurations for RL Locomotion Training.
+"""ZEX-W 训练配置入口：flat / rough 是族级竞赛配方的薄委托，crawl 仍是本包自己的任务。
 
-This module defines the Manager-Based RL Environment Configurations for unitree robots
-equipped with actuated wheels and leg joints. It handles sensors, actuators, command
-generators, observation/critic terms, event randomizations, rewards, and terminations
-for flat ground, rough terrains, and crawling tasks.
+* `flat_env_cfg` / `rough_env_cfg`（2026-09-25 技能族级化）：装配真值在轮足族 Kit 的
+  `adapters/mjlab/kits/wheel_leg_kit/skills/velocity/competition.py`（**竞赛配方**——
+  延时低通动作 + 阈值命令 + 逐档奖励表，与 reference / 官方两份配方是三条不同的任务）。
+  本模块只把绑定的机器人装配（`robot.velocity.binding.ZEXW`）与该档数据
+  （`robot.velocity.profile` 的 `FLAT` / `ROUGH`）接上去，入口名与签名一字不动。
+* `crawl_env_cfg`：**另一条任务**（趴姿越障：自己的实体配置 `get_robot_crawl_cfg`、
+  自己的奖励表/终止口径、`rc_low_bar` 地形与 `terrain_levels_vel` 课程），不属于速度
+  跟踪技能，故**不并入**竞赛配方，与 `_make_base_env_cfg` 一起原样保留在本模块。
+
+`_make_base_env_cfg` 因此只服务 crawl（族级化之前它是三档共用的基座）。两处刻意不互相
+引用：crawl 的数值与竞赛配方的数值各自独立，改一边不会牵动另一边。
 """
 
 import math
@@ -49,80 +56,37 @@ from mjlab.terrains import (
     BoxRandomGridTerrainCfg,
     HfPerlinNoiseTerrainCfg,
 )
-# 越障课程（族级，2026-09-25）：竞赛地形集与障碍释放课程取轮足族 Kit 的唯一真值
-# （原先内联在 rough_env_cfg 里的课程数值已逐字上移；命令课程仍留包）。
-from adapters.mjlab.kits.wheel_leg_kit.traversal_env_cfg import (  # noqa: E402
-    make_obstacle_course_terrain,
-    make_obstacle_release_curriculum,
-)
+# 族级竞赛配方（技能实现 + 本机型的绑定与数据）：flat / rough 两个入口的装配真值。
+# 2026-09-25 技能族级化：原先内联在本文件里的"基座 + flat + rough"三段已上移为
+# `kits/wheel_leg_kit/skills/velocity/competition.py`（逐字对拍等价），本文件只留
+# crawl 的基座与入口。
+from adapters.mjlab.kits.wheel_leg_kit.skills import make_velocity_env_cfg  # noqa: E402
 from ..terrains import RCLowBarTerrainCfg
 from mjlab.utils.noise import UniformNoiseCfg as Unoise
 from mjlab.viewer import ViewerConfig
 
-from ..robot_cfg import get_robot_cfg, get_robot_crawl_cfg, LEG_POS_SCALE, WHEEL_VEL_SCALE
+from ..robot_cfg import get_robot_crawl_cfg
 from ..mdp.lowpass_actions import JointPositionDelayedLowPassActionCfg, JointVelocityDelayedLowPassActionCfg
-from ..mdp.disturbances import apply_continuous_disturbance
 from ..mdp.only_positive_rewards import enable_only_positive_rewards
 from ..mdp.rewards import (
     track_linear_velocity,
-    track_linear_velocity_l1,
-    track_linear_velocity_x,
-    track_linear_velocity_y,
     track_angular_velocity,
-    track_angular_velocity_z,
-    stair_lateral_yaw_drift_l2,
     base_height_l2,
     safe_base_lin_vel,
     safe_foot_contact,
     safe_height_scan,
     wheel_roll_tracking,
     adaptive_leg_motion_penalty,
-    leg_symmetry,
     contact_fraction_reward,
     stand_still,
-    hip_deviation,
     joint_deviation_l2,
     flat_orientation_l2,
     lin_vel_z_l2,
     crawl_height_reward,
-    terrain_level_bonus,
-    action_rate_curriculum_l2,
-    variable_posture,
-    joint_pos_penalty,
-    joint_mirror,
-    feet_contact_without_cmd,
-    upright_roll_only,
-    upward,
-    joint_power,
-    ang_vel_xy_l2,
-    undesired_contacts,
-    contact_forces,
-    tracking_lin_vel_error,
-    tracking_yaw_vel_error,
-    tracking_lin_vel_x_error,
-    tracking_lin_vel_y_error,
-    tracking_lin_vel_along_command_error,
-    actual_lin_vel_orthogonal_command_mean,
-    command_lin_vel_mean,
-    command_yaw_vel_abs_mean,
-    actual_lin_vel_mean,
-    tracking_lin_vel_error_band_mean,
-    tracking_lin_vel_axis_error_band_mean,
-    command_band_active,
-    wheel_raw_action_abs_mean,
-    wheel_target_vel_abs_mean,
-    wheel_actual_vel_abs_mean,
-    wheel_target_actual_vel_error_mean,
-    wheel_actual_to_target_vel_ratio_mean,
-    wheel_target_actual_sign_agreement,
-    upright_metric,
-    base_ground_contact_metric,
-)
-from ..mdp.curriculums import (
-    command_axis_levels_vel,
-    command_levels_adaptive,
 )
 from ..mdp.commands import UniformThresholdVelocityCommandCfg
+from ..velocity import FLAT, ROUGH
+from ..velocity.binding import ZEXW
 
 # Constant Definitions
 WHEEL_NAMES = ("fl", "fr", "rl", "rr")
@@ -382,339 +346,18 @@ def _make_base_env_cfg() -> ManagerBasedRlEnvCfg:
 
 
 def flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """Flat ground training and evaluation configuration."""
-    cfg = _make_base_env_cfg()
-    cfg.scene.entities = {"robot": get_robot_cfg()}
-    if play:
-        cfg.episode_length_s = int(1e9)
-        cfg.observations["actor"].enable_corruption = False
-        cfg.events.pop("push_robot", None)
-        cfg.curriculum = {}
-    return cfg
+    """平地档（族级竞赛配方 `competition_flat`：只含平地的地块生成器 + 基座奖励表）。"""
+    return make_velocity_env_cfg(ZEXW, FLAT, variant="competition_flat", play=play)
 
 
 def rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """Rough terrains configuration for general wheel-legged navigation."""
-    enable_only_positive_rewards()
+    """越障档（族级竞赛配方 `competition_rough`：族级竞赛课程 + 越障奖励表 + 命令课程）。
 
-    cfg = _make_base_env_cfg()
-    cfg.scene.entities = {"robot": get_robot_cfg()}
-
-    # ------------------
-    # Terrain Generator & Curriculum
-    # ------------------
-    # 越障课程（族级唯一真值 = kits/wheel_leg_kit/traversal_env_cfg.py，2026-09-25 上移）：
-    # 竞赛地形集（flat / pyramid_stairs / pyramid_stairs_inv / random_grid / random_rough /
-    # perlin_noise / rc_wall / sloped_terrain）与起始难度行都在 Kit 的课程工厂里，
-    # 包侧不再持有课程数值 —— 族内其它机型（如 b2w 越障档案）取的是同一个函数。
-    cfg.scene.terrain = make_obstacle_course_terrain()
-
-    # Keep the custom terrain set, but align command/curriculum behavior with go2w rough.
-    cfg.curriculum.pop("command_vel", None)
-    cfg.curriculum["terrain_levels"] = make_obstacle_release_curriculum(command_name="twist")
-    cfg.curriculum["command_x_levels"] = CurriculumTermCfg(
-        func=command_levels_adaptive,
-        params={
-            "command_name": "twist",
-            "reward_term_name": "track_lin_vel_x_exp",
-            "axis": "x",
-            "initial_range": (-0.5, 0.5),
-            "delta_command": 0.05,
-            "target_ratio": 0.8,
-            "ema_alpha": 0.5,
-        },
-    )
-    cfg.curriculum["command_y_levels"] = CurriculumTermCfg(
-        func=command_levels_adaptive,
-        params={
-            "command_name": "twist",
-            "reward_term_name": "track_lin_vel_y_exp",
-            "axis": "y",
-            "initial_range": (-0.5, 0.5),
-            "delta_command": 0.05,
-            "target_ratio": 0.8,
-            "ema_alpha": 0.5,
-        },
-    )
-    cfg.curriculum["command_yaw_levels"] = CurriculumTermCfg(
-        func=command_levels_adaptive,
-        params={
-            "command_name": "twist",
-            "reward_term_name": "track_ang_vel_z_exp",
-            "axis": "yaw",
-            "initial_range": (-0.5, 0.5),
-            "delta_command": 0.05,
-            "target_ratio": 0.8,
-            "ema_alpha": 0.5,
-        },
-    )
-
-    cfg.commands["twist"].heading_command = True
-    cfg.commands["twist"].rel_heading_envs = 1.0
-    cfg.commands["twist"].heading_control_stiffness = 0.5
-    cfg.commands["twist"].ranges.heading = (-math.pi, math.pi)
-    cfg.commands["twist"].rel_standing_envs = 0.02
-    cfg.commands["twist"].rel_forward_envs = 0.30
-    cfg.commands["twist"].rel_lateral_envs = 0.20
-    cfg.commands["twist"].rel_yaw_envs = 0.20
-    cfg.commands["twist"].ranges.lin_vel_x = (-1.0, 1.0)
-    cfg.commands["twist"].ranges.lin_vel_y = (-1.0, 1.0)
-    cfg.commands["twist"].ranges.ang_vel_z = (-1.0, 1.0)
-
-    # ------------------
-    # Startup & Reset Randomizations
-    # ------------------
-    cfg.events.pop("joint_friction", None)
-    cfg.events["reset_joints"] = EventTermCfg(func=envs_mdp.reset_joints_by_offset, mode="reset", params={"position_range": (0.0, 0.0), "velocity_range": (0.0, 0.0), "asset_cfg": SceneEntityCfg("robot", joint_names=(".*",))})
-    
-    cfg.events["reset_base"] = EventTermCfg(
-        func=envs_mdp.reset_root_state_uniform, mode="reset",
-        params={
-            "pose_range": {"z": (0.42, 0.42), "yaw": (-math.pi, math.pi)},
-            "velocity_range": {"x": (-0.2, 0.2), "y": (-0.1, 0.1), "yaw": (-0.2, 0.2)},
-            "asset_cfg": SceneEntityCfg("robot"),
-        },
-    )
-    cfg.events["push_robot"] = EventTermCfg(
-        func=envs_mdp.push_by_setting_velocity, mode="interval",
-        interval_range_s=(5.0, 10.0),
-        params={"velocity_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5)}, "asset_cfg": SceneEntityCfg("robot")},
-    )
-
-    # ------------------
-    # Rewards Integration
-    # ------------------
-    cfg.rewards.pop("track_lin_vel", None)
-    cfg.rewards.pop("track_ang_vel", None)
-    cfg.rewards["track_lin_vel_x_exp"] = RewardTermCfg(
-        func=track_linear_velocity_x,
-        weight=1.0,
-        params={"std": 0.25, "command_name": "twist"},
-    )
-    cfg.rewards["track_lin_vel_y_exp"] = RewardTermCfg(
-        func=track_linear_velocity_y,
-        weight=1.0,
-        params={"std": 0.25, "command_name": "twist"},
-    )
-    cfg.rewards["track_ang_vel_z_exp"] = RewardTermCfg(
-        func=track_angular_velocity_z,
-        weight=1.0,
-        params={"std": 0.25, "command_name": "twist"},
-    )
-    cfg.rewards["stair_lateral_yaw_drift"] = RewardTermCfg(
-        func=stair_lateral_yaw_drift_l2,
-        weight=-1.0,
-        params={
-            "terrain_names": ("pyramid_stairs", "pyramid_stairs_inv", "random_grid"),
-            "y_scale": 1.0,
-            "yaw_scale": 1.0,
-            "asset_cfg": SceneEntityCfg("robot"),
-        },
-    )
-    
-    cfg.rewards["lin_vel_z"] = RewardTermCfg(func=lin_vel_z_l2, weight=-2.0)
-    cfg.rewards["ang_vel_xy"] = RewardTermCfg(func=ang_vel_xy_l2, weight=-0.05, params={"asset_cfg": SceneEntityCfg("robot")})
-
-    cfg.rewards.pop("upright", None)
-    cfg.rewards.pop("roll_penalty", None)
-
-    # 🌟 限制俯仰角死区（Pitch Dead-zone）：允许正常爬坡时有最大 29 度（0.50 rad）的仰角，但严厉惩罚超过该仰角的“前轮悬空暴冲/后翻”
-    # 动态课程奖励与动作惩罚衰减
-    cfg.rewards.pop("terrain_level_bonus", None)
-    cfg.rewards.pop("action_rate_curriculum", None)
-    cfg.rewards["action_rate"].weight = -0.01
-
-    cfg.rewards["joint_torques"].weight = -2.5e-5
-    cfg.rewards["joint_power"] = RewardTermCfg(func=joint_power, weight=-2.0e-5)
-    cfg.rewards.pop("joint_acc", None)
-    cfg.rewards["leg_joint_acc_l2"] = RewardTermCfg(func=envs_mdp.joint_acc_l2, weight=-2.5e-7, params={"asset_cfg": SceneEntityCfg("robot", joint_names=(".*_hip_abduction_joint", ".*_hip_pitch_joint", ".*_knee_joint"))})
-    cfg.rewards["wheel_joint_acc_l2"] = RewardTermCfg(func=envs_mdp.joint_acc_l2, weight=-2.5e-9, params={"asset_cfg": SceneEntityCfg("robot", joint_names=(".*_wheel_joint",))})
-
-
-    cfg.rewards["joint_pos_limits"].weight = -5.0
-    cfg.rewards.pop("leg_motion_penalty", None)
-    cfg.rewards["is_terminated"].weight = 0.0
-    cfg.rewards.pop("leg_symmetry", None)
-    cfg.rewards["joint_mirror"] = RewardTermCfg(
-        func=joint_mirror, 
-        weight=-0.05, 
-        params={
-            "mirror_joints": [
-                ["fl_(hip_pitch|knee)_joint", "rr_(hip_pitch|knee)_joint"],
-                ["fr_(hip_pitch|knee)_joint", "rl_(hip_pitch|knee)_joint"]
-            ], 
-            "asset_cfg": SceneEntityCfg("robot")
-        }
-    )
-
-    # 移除 variable_posture 及其产生的静止奖励陷阱，换用极轻微的偏离惩罚
-    cfg.rewards.pop("stand_still", None)
-    cfg.rewards["stand_still"] = RewardTermCfg(func=stand_still, weight=-2.0, params={"command_name": "twist", "command_threshold": 0.1})
-
-    cfg.rewards.pop("hip_deviation", None)
-    cfg.rewards.pop("variable_posture", None)
-
-    cfg.rewards.pop("joint_deviation_l2", None)
-
-    # 针对 ab 关节施加较严厉的惩罚，防止在 yaw 时乱撇腿
-    cfg.rewards["joint_pos_penalty_ab"] = RewardTermCfg(
-        func=joint_pos_penalty,
-        weight=-1.0,
-        params={
-            "stand_still_scale": 5.0,
-            "velocity_threshold": 0.5,
-            "command_threshold": 0.1,
-            "asset_cfg": SceneEntityCfg("robot", joint_names=(".*_hip_abduction_joint",)),
-            "command_name": "twist"
-        }
-    )
-
-    # 针对 pitch 和 knee 关节施加较宽松的惩罚，保留跨越障碍的抬腿自由度
-    cfg.rewards["joint_pos_penalty_sagittal"] = RewardTermCfg(
-        func=joint_pos_penalty,
-        weight=-0.3,
-        params={
-            "stand_still_scale": 5.0,
-            "velocity_threshold": 0.5,
-            "command_threshold": 0.1,
-            "asset_cfg": SceneEntityCfg("robot", joint_names=(".*_hip_pitch_joint", ".*_knee_joint")),
-            "command_name": "twist"
-        }
-    )
-
-    # 🌟 强力约束同侧外展关节平行对称，消除转向时的前后剪刀式摆动
-    cfg.rewards["abduction_mirror"] = RewardTermCfg(
-        func=joint_mirror,
-        weight=-0.5,  # 施加合理惩罚，限制前后腿同侧外展关节反向运动
-        params={
-            "mirror_joints": [
-                ["fl_hip_abduction_joint", "rl_hip_abduction_joint"],
-                ["fr_hip_abduction_joint", "rr_hip_abduction_joint"]
-            ],
-            "asset_cfg": SceneEntityCfg("robot")
-        }
-    )
-
-    cfg.rewards["feet_contact_without_cmd"] = RewardTermCfg(
-        func=feet_contact_without_cmd,
-        weight=0.1,
-        params={"command_name": "twist", "sensor_name": "feet_ground_contact"}
-    )
-    cfg.rewards["feet_air_time"].weight = 0.15
-    cfg.rewards["upward"] = RewardTermCfg(func=upward, weight=0.5)
-    
-    cfg.rewards["base_height_l2"].weight = 0.0
-    cfg.rewards["base_height_l2"].params["target_height"] = 0.42
-    cfg.rewards["base_height_l2"].params["sensor_cfg"] = SceneEntityCfg("height_scanner")
-
-    # 恢复机身碰撞惩罚为-1.0，逼迫机器人高抬腿跨越障碍，防止拖地
-    cfg.rewards.pop("body_collision", None)
-    cfg.rewards["undesired_contacts"] = RewardTermCfg(func=undesired_contacts, weight=-1.0, params={"sensor_name": "body_collision", "threshold": 1.0})
-    cfg.rewards["contact_forces"] = RewardTermCfg(func=contact_forces, weight=-1.5e-4, params={"sensor_name": "feet_ground_contact", "threshold": 100.0})
-
-    # 🌟 严厉惩罚机身/胸部碰撞（防止硬撞高墙），逼迫机器人学会用前轮触墙并主动抬腿攀爬的“触觉反射”
-    # 该配置不加入 flat_orientation 奖励，允许机器人在攀爬时主动抬头。
-    # 使用 pop 保持对继承配置的兼容；当前基础奖励表中通常没有此项。
-    cfg.rewards.pop("flat_orientation", None)
-
-    # Remove non-applicable rewards
-    for key in ("wheel_roll_tracking", "wheel_contact_bonus", "body_ang_vel", "terrain_level_bonus", "action_rate_curriculum"):
-        cfg.rewards.pop(key, None)
-
-    cfg.episode_length_s = 20.0
-    cfg.sim = SimulationCfg(contact_sensor_maxmatch=128, mujoco=MujocoCfg(timestep=0.005, impratio=100, cone="elliptic", ccd_iterations=80))
-
-    # 移除 orientation 终止，允许机器人翻倒以学习回复
-    cfg.seed = 42
-    if cfg.scene.terrain is not None:
-        cfg.scene.terrain.num_envs = 2048
-        cfg.scene.terrain.env_spacing = 2.5
-
-    cfg.metrics.update(
-        {
-            "tracking_lin_vel_error": MetricsTermCfg(func=tracking_lin_vel_error, params={"command_name": "twist"}),
-            "tracking_lin_vel_x_error": MetricsTermCfg(func=tracking_lin_vel_x_error, params={"command_name": "twist"}),
-            "tracking_lin_vel_y_error": MetricsTermCfg(func=tracking_lin_vel_y_error, params={"command_name": "twist"}),
-            "tracking_lin_vel_along_cmd_error": MetricsTermCfg(
-                func=tracking_lin_vel_along_command_error, params={"command_name": "twist"}
-            ),
-            "actual_lin_vel_orthogonal_cmd": MetricsTermCfg(
-                func=actual_lin_vel_orthogonal_command_mean, params={"command_name": "twist"}
-            ),
-            "tracking_yaw_vel_error": MetricsTermCfg(func=tracking_yaw_vel_error, params={"command_name": "twist"}),
-            "cmd_lin_vel": MetricsTermCfg(func=command_lin_vel_mean, params={"command_name": "twist"}),
-            "cmd_yaw_vel": MetricsTermCfg(func=command_yaw_vel_abs_mean, params={"command_name": "twist"}),
-            "actual_lin_vel": MetricsTermCfg(func=actual_lin_vel_mean),
-            "tracking_lin_vel_error_cmd_0_03": MetricsTermCfg(
-                func=tracking_lin_vel_error_band_mean,
-                params={"command_name": "twist", "min_speed": 0.0, "max_speed": 0.3},
-            ),
-            "tracking_lin_vel_error_cmd_03_07": MetricsTermCfg(
-                func=tracking_lin_vel_error_band_mean,
-                params={"command_name": "twist", "min_speed": 0.3, "max_speed": 0.7},
-            ),
-            "tracking_lin_vel_error_cmd_07_up": MetricsTermCfg(
-                func=tracking_lin_vel_error_band_mean,
-                params={"command_name": "twist", "min_speed": 0.7, "max_speed": 10.0},
-            ),
-            "tracking_lin_vel_x_error_cmd_0_03": MetricsTermCfg(
-                func=tracking_lin_vel_axis_error_band_mean,
-                params={"axis": 0, "command_name": "twist", "min_speed": 0.0, "max_speed": 0.3},
-            ),
-            "tracking_lin_vel_x_error_cmd_03_07": MetricsTermCfg(
-                func=tracking_lin_vel_axis_error_band_mean,
-                params={"axis": 0, "command_name": "twist", "min_speed": 0.3, "max_speed": 0.7},
-            ),
-            "tracking_lin_vel_x_error_cmd_07_up": MetricsTermCfg(
-                func=tracking_lin_vel_axis_error_band_mean,
-                params={"axis": 0, "command_name": "twist", "min_speed": 0.7, "max_speed": 10.0},
-            ),
-            "tracking_lin_vel_y_error_cmd_0_03": MetricsTermCfg(
-                func=tracking_lin_vel_axis_error_band_mean,
-                params={"axis": 1, "command_name": "twist", "min_speed": 0.0, "max_speed": 0.3},
-            ),
-            "tracking_lin_vel_y_error_cmd_03_07": MetricsTermCfg(
-                func=tracking_lin_vel_axis_error_band_mean,
-                params={"axis": 1, "command_name": "twist", "min_speed": 0.3, "max_speed": 0.7},
-            ),
-            "tracking_lin_vel_y_error_cmd_07_up": MetricsTermCfg(
-                func=tracking_lin_vel_axis_error_band_mean,
-                params={"axis": 1, "command_name": "twist", "min_speed": 0.7, "max_speed": 10.0},
-            ),
-            "cmd_band_0_03": MetricsTermCfg(
-                func=command_band_active, params={"command_name": "twist", "min_speed": 0.0, "max_speed": 0.3}
-            ),
-            "cmd_band_03_07": MetricsTermCfg(
-                func=command_band_active, params={"command_name": "twist", "min_speed": 0.3, "max_speed": 0.7}
-            ),
-            "cmd_band_07_up": MetricsTermCfg(
-                func=command_band_active, params={"command_name": "twist", "min_speed": 0.7, "max_speed": 10.0}
-            ),
-            "wheel_raw_action_abs": MetricsTermCfg(func=wheel_raw_action_abs_mean),
-            "wheel_target_vel_abs": MetricsTermCfg(func=wheel_target_vel_abs_mean),
-            "wheel_actual_vel_abs": MetricsTermCfg(func=wheel_actual_vel_abs_mean),
-            "wheel_target_actual_vel_error": MetricsTermCfg(func=wheel_target_actual_vel_error_mean),
-            "wheel_actual_to_target_vel_ratio": MetricsTermCfg(func=wheel_actual_to_target_vel_ratio_mean),
-            "wheel_target_actual_sign_agreement": MetricsTermCfg(func=wheel_target_actual_sign_agreement),
-            "upright": MetricsTermCfg(func=upright_metric),
-            "base_ground_contact_rate": MetricsTermCfg(
-                func=base_ground_contact_metric, params={"sensor_name": "base_ground_contact"}
-            ),
-        }
-    )
-
-    if play:
-        cfg.episode_length_s = int(1e9)
-        cfg.observations["actor"].enable_corruption = False
-        cfg.events.pop("push_robot", None)
-        cfg.curriculum = {}
-        if cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
-            cfg.scene.terrain.terrain_generator.curriculum = False
-            cfg.scene.terrain.terrain_generator.num_cols = 5
-            cfg.scene.terrain.terrain_generator.num_rows = 5
-            cfg.scene.terrain.terrain_generator.border_width = 10.0
-
-    return cfg
+    原先 ~320 行的手写覆盖（地形/课程/命令/事件/奖励/指标）已逐字上移为族级配方的具名
+    分支；本档的数值与结构现在分别住在 `robot.velocity.profile.ROUGH` 与
+    `kits/wheel_leg_kit/skills/velocity/competition.py`。
+    """
+    return make_velocity_env_cfg(ZEXW, ROUGH, variant="competition_rough", play=play)
 
 
 def crawl_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:

@@ -26,11 +26,21 @@ MJCF 序（按腿混排）与契约序（腿先轮后）本就不同，从 MJCF 
 from __future__ import annotations
 
 from .binding import ActuatorGroup, WheelLegSkillBinding, from_contract
+from .velocity.competition import VARIANTS as COMPETITION_VARIANTS
 from .velocity.config import VARIANTS, make_env_cfg as make_velocity_env_cfg
 from .velocity.official import VARIANTS as OFFICIAL_VARIANTS
 from .velocity.profile import (
     UNSET,
     CommandRanges,
+    CompetitionActionSpec,
+    CompetitionCommandLevel,
+    CompetitionCommandSpec,
+    CompetitionEventSpec,
+    CompetitionMetric,
+    CompetitionObservationSpec,
+    CompetitionRewardSpec,
+    CompetitionSimSpec,
+    CompetitionVelocityProfile,
     LegsOnlyRecipe,
     OfficialVelocityProfile,
     SimOverride,
@@ -38,11 +48,21 @@ from .velocity.profile import (
 )
 
 __all__ = [
+    "COMPETITION_VARIANTS",
     "OFFICIAL_VARIANTS",
     "UNSET",
     "VARIANTS",
     "ActuatorGroup",
     "CommandRanges",
+    "CompetitionActionSpec",
+    "CompetitionCommandLevel",
+    "CompetitionCommandSpec",
+    "CompetitionEventSpec",
+    "CompetitionMetric",
+    "CompetitionObservationSpec",
+    "CompetitionRewardSpec",
+    "CompetitionSimSpec",
+    "CompetitionVelocityProfile",
     "LegsOnlyRecipe",
     "OfficialVelocityProfile",
     "SimOverride",
