@@ -22,7 +22,7 @@ FORBIDDEN_PREFIXES = (
     "contracts",
 )
 
-#: B8 框架上移的**共享任务 kit**（训练栈侧纯 mjlab 级 helper，不 import backend/控制面）：
+#: B8 框架上移的**共享框架层模块**（训练栈侧纯 mjlab 级 helper，不 import backend/控制面）：
 #: 包内 stub 允许且应当引用它——这正是"框架层上移、任务特有留包"的载体。
 #: 它是显式列名的白名单（而不是放行整个 adapters），边界守卫对其余 adapters 模块照旧生效。
 SANCTIONED_SHARED_KITS = (
@@ -30,6 +30,14 @@ SANCTIONED_SHARED_KITS = (
     # 仍是**显式列名**——新增形态 Kit 时须在此登记（一次人工确认，胜过放行整个 kits/）。
     "adapters.mjlab.kits.quadruped_kit",
     "adapters.mjlab.kits.wheel_leg_kit",
+    # 2026-09-25 族架构「同技能同实现」补登两项 —— 都是**跨族共享**的框架层单点，
+    # 不挂在任一形态 Kit 下，故只能在此具名放行：
+    #   * spec_utils        —— MJCF 训练口径规范化唯一入口（补传感器名 / 收窄传感器集）；
+    #   * kits.joint_actions —— 动作装配工厂（按动作序切控制模式段），通用入口与各档案共用。
+    # 注意本守卫此前**一直是红的**（spec_utils 那条自引入起未登记）——CI 的
+    # `discover -s backend` 会跑到它，登记即是修复，不是放水。
+    "adapters.mjlab.spec_utils",
+    "adapters.mjlab.kits.joint_actions",
 )
 
 # 扩展入口（extension_entrypoint）白名单前缀：平台按契约显式加载它们，

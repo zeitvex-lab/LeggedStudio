@@ -31,7 +31,12 @@
   `algorithm.class_name` 就是"模块:符号"字符串，搬迁后必然改名（2026-09-25
   parkour 上移实况）。值是"从类对象派生"的，故归一而不是重新发明一个字面量。
 * job 的模块项默认按 go2 技能包（`go2_skills/<rel>`）解析；技能不在 `go2_skills/`
-  下时（如 parkour 在 `...go2/tasks/parkour/...`）以 `local_tasks.` 开头写**绝对模块路径**。
+  下时（如 parkour 在 `...go2/tasks/parkour/...`）以 `local_tasks.` 开头写**绝对模块路径**；
+  纯点路径（无 `/`，如 `go2w_velocity.env_cfgs`，2026-09-25 go2w 技能上移实况）同样
+  按**绝对模块路径**解析——包侧源码根已在 `--source-root` 里，模块名即入口声明名。
+* 姿态归一（`/init_state/joint_pos` 的 `@resolved`）默认用 go2 契约的关节序；其它机型
+  用 `--joint-order`（`robot:<robot_id>` 从该机型契约 `action.joint_order` 读，或直接给
+  JSON 列表）。默认值保持历史行为，未传时结论只对 go2 同序关节有意义。
 """
 
 from __future__ import annotations
@@ -61,6 +66,15 @@ _NEW_PARKOUR = "adapters.mjlab.kits.quadruped_kit.skills.parkour."
 #: parkour 的**包内入口 stub 不搬迁**（profile 的 entrypoints 指向它），故单独标出：
 #: 归一后两侧都是 `ENTRY.parkour.config.*`，差异只剩"真搬走的那几段"。
 _ENTRY_PARKOUR = "local_tasks.robots.unitree.go2.tasks.parkour.config."
+#: velocity 上移：机械功率核从包内 mdp 搬到族级 mdp 并去掉机型前缀
+#: （`go2_dof_power_penalty` → `dof_power_penalty`）。两侧归一成同一串。
+_OLD_DOF_POWER = (
+    "local_tasks.robots.unitree.go2.mdp.rewards:go2_dof_power_penalty"
+)
+_NEW_DOF_POWER = (
+    "adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards:dof_power_penalty"
+)
+_CANON_DOF_POWER = "SKILL.mdp.rewards:dof_power_penalty"
 
 
 def _canon(module: str) -> str:
@@ -68,6 +82,10 @@ def _canon(module: str) -> str:
     text = str(module or "")
     text = text.replace(_ENTRY_PARKOUR, "ENTRY.parkour.config.")
     text = text.replace(_OLD, "SKILL.").replace(_NEW, "SKILL.")
+    # velocity 上移的功率核：包内名字 → 族级名字（同一实现，见 skills/mdp/rewards.py）
+    text = text.replace(_OLD_DOF_POWER, _CANON_DOF_POWER).replace(
+        _NEW_DOF_POWER, _CANON_DOF_POWER
+    )
     # parkour（越障）上移：装配/模型/地形从包内 `...tasks.parkour.*` 搬到族级
     # `...skills.parkour.*`（`config/` 是薄委托，不在此列）。
     text = text.replace(_OLD_PARKOUR, "SKILL.parkour.").replace(_NEW_PARKOUR, "SKILL.parkour.")
@@ -117,11 +135,13 @@ def _module_name(rel_module: str) -> str:
     """job 的模块项 → 可导入的模块名。
 
     默认按 go2 技能包解析（`jump/config.py` → `...go2_skills.jump.config`）；
-    以 `local_tasks.` 开头时按**绝对模块路径**解析（技能不在 `go2_skills/` 下的情形，如
-    parkour：`...go2/tasks/parkour/config/go2/env_cfgs.py`）。
+    以 `local_tasks.` 开头、或是**纯点路径**（无 `/`，如 `go2w_velocity.env_cfgs`）
+    时按**绝对模块路径**解析（技能不在 `go2_skills/` 下的情形，如 parkour：
+    `...go2/tasks/parkour/config/go2/env_cfgs.py`；go2w：
+    `go2w_velocity.env_cfgs`，包侧源码根由 `--source-root` 提供）。
     """
     dotted = rel_module.replace("/", ".").removesuffix(".py")
-    if dotted.startswith("local_tasks."):
+    if dotted.startswith("local_tasks.") or ("/" not in rel_module and "." in rel_module):
         return dotted
     return f"local_tasks.robots.unitree.go2.tasks.go2_skills.{dotted}"
 
@@ -182,6 +202,12 @@ def _flatten(value, prefix: str = "", *, joint_order: tuple[str, ...] = ()) -> d
         if "__type__" in value:
             flat[f"{prefix}/@type"] = value["__type__"]
             flat[f"{prefix}/@module"] = value["__module__"]
+        if "__callable__" in value:
+            # 函数/类以（归一后的）"模块:限定名"参与比对：**同名搬迁**由 `_canon()` 归一，
+            # 真搬迁（如 go2 的功率核上移到族级 mdp）在归一表里成对登记 —— 漏登记就判红，
+            # 不会被"__ 开头一律跳过"静默吞掉。
+            flat[f"{prefix}/@callable"] = _canon(str(value["__callable__"]))
+            return flat
         for key, item in value.items():
             if key.startswith("__"):
                 continue
@@ -214,15 +240,31 @@ def _resolve_pose(pose: dict, joint: str):
     return None
 
 
-def _joint_order() -> tuple[str, ...]:
+def _joint_order(raw: str | None = None) -> tuple[str, ...]:
+    """姿态归一用的关节序。
+
+    不传 = 历史行为（go2 契约 `action.joint_order`）；`robot:<robot_id>` 从
+    `assets/robots/<robot_id>/contract.json` 的 `action.joint_order` 读；其它字符串
+    按 JSON 列表解析。机型入口上移时用 `--joint-order robot:<机型>` 让
+    `/init_state/joint_pos/@resolved` 覆盖**该机型自己的全部关节**（默认 go2 序只覆盖
+    go2 的 12 个关节名，对轮足等异序机型会漏掉轮关节的姿态比对）。
+    """
+    if raw:
+        if raw.startswith("robot:"):
+            robot_id = raw.split(":", 1)[1]
+            contract = json.loads(
+                (ROOT / "assets" / "robots" / robot_id / "contract.json").read_text(encoding="utf-8-sig")
+            )
+            return tuple(str(name) for name in contract["action"]["joint_order"])
+        return tuple(str(name) for name in json.loads(raw))
     contract = json.loads(
         (ROOT / "assets" / "robots" / "unitree_go2" / "contract.json").read_text(encoding="utf-8-sig")
     )
     return tuple(contract["action"]["joint_order"])
 
 
-def diff(before_path: Path, after_path: Path) -> int:
-    order = _joint_order()
+def diff(before_path: Path, after_path: Path, *, joint_order: str | None = None) -> int:
+    order = _joint_order(joint_order)
     before = _flatten(json.loads(before_path.read_text(encoding="utf-8-sig")), joint_order=order)
     after = _flatten(json.loads(after_path.read_text(encoding="utf-8-sig")), joint_order=order)
     keys = sorted(set(before) | set(after))
@@ -241,6 +283,9 @@ def self_test() -> int:
          "adapters.mjlab.kits.quadruped_kit.skills.jump.rewards"),
         ("local_tasks.robots.unitree.go2.tasks.go2_skills.shared.actions",
          "adapters.mjlab.kits.quadruped_kit.skills.mdp.actions"),
+        # velocity：功率核 `go2_dof_power_penalty` → 族级 `dof_power_penalty`（同实现）
+        ("local_tasks.robots.unitree.go2.mdp.rewards:go2_dof_power_penalty",
+         "adapters.mjlab.kits.quadruped_kit.skills.mdp.rewards:dof_power_penalty"),
         # parkour：包内 `...tasks.parkour.mdp` ↔ 族级 `...skills.parkour.mdp`
         ("local_tasks.robots.unitree.go2.tasks.parkour.mdp.rewards",
          "adapters.mjlab.kits.quadruped_kit.skills.parkour.mdp.rewards"),
@@ -285,13 +330,18 @@ def main() -> int:
     parser.add_argument("--diff", nargs=2, type=Path, metavar=("BEFORE", "AFTER"))
     parser.add_argument("--jobs", type=str,
                         help="覆盖默认 job 条目（JSON：[[label, module_rel, factory, kwargs], ...]）——"
-                             "默认是 go2 的 trot/jump，其它技能上移时用它指定")
+                             "默认是 go2 的 trot/jump，其它技能上移时用它指定；module_rel 支持"
+                             "路径形式（`jump/config.py`，按 go2_skills 命名空间解析）与绝对模块名"
+                             "（`go2w_velocity.env_cfgs`）两种写法")
+    parser.add_argument("--joint-order", type=str, default=None,
+                        help="姿态归一用的关节序：`robot:<robot_id>` 从该机型契约 action.joint_order "
+                             "读，或直接给 JSON 列表；默认 go2（历史行为）")
     parser.add_argument("--self-test", action="store_true", help="自检归一与 diff 判据（不碰训练栈）")
     args = parser.parse_args()
     if args.self_test:
         return self_test()
     if args.diff:
-        return diff(*args.diff)
+        return diff(*args.diff, joint_order=args.joint_order)
     if not (args.package_root and args.source_root and args.out):
         parser.error("需要 --package-root / --source-root / --out，或 --diff BEFORE AFTER")
     jobs = _parse_jobs(args.jobs) if args.jobs else _JOBS

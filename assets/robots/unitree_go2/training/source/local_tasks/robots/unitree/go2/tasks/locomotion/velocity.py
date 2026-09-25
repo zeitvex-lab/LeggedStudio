@@ -1,327 +1,62 @@
-"""Go2 locomotion environment factory support."""
+"""Go2 locomotion environment factory support（薄委托：族级 velocity 技能）。
 
-import math
-from typing import Literal
+族级实现在 `adapters/mjlab/kits/quadruped_kit/skills/velocity/`。本模块只剩三样 go2 事实：
 
-from local_tasks.mjlab_extension import GO2_ACTION_SCALE, get_go2_robot_cfg
-from mjlab.envs import ManagerBasedRlEnvCfg
-from mjlab.envs import mdp as envs_mdp
-from mjlab.envs.mdp.actions import JointPositionActionCfg
-from mjlab.managers import TerminationTermCfg
-from mjlab.managers.event_manager import EventTermCfg
-from mjlab.managers.reward_manager import RewardTermCfg
-from mjlab.managers.scene_entity_config import SceneEntityCfg
-from mjlab.sensor import (
-  ContactMatch,
-  ContactSensorCfg,
-  ObjRef,
-  RayCastSensorCfg,
-  RingPatternCfg,
-  TerrainHeightSensorCfg,
+1. **机型绑定** `GO2_VELOCITY`（`locomotion/binding.py`：契约 + `training.xml` 真值 +
+   本机型训练实体）——足端几何/site、腿杆与躯干碰撞几何、根 body、关节序、逐关节动作缩放
+   全部由 Kit 从它派生；
+2. **任务数值** `VELOCITY`（`VelocityProfile`：命令/地形/DR/奖励权重/终止阈值）；
+3. **入口函数**（公开名不动，profile 的 `entrypoints` 照旧解析到这里）。
+
+原先本文件里的 327 行实现（写死 `FR/FL/RR/RL` 腿序、`base_link`、`<leg>_thigh_collision` /
+`<leg>_calf{i}_collision` / `base.*_collision`、足端 site 表、`pose` std 表的 `FR|FL|RR|RL`
+键、逐关节动作缩放表）已全部上移为族级派生，机型侧零字面量。
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+# 仓库根自举（与 go2_skills/binding.py 同一约定）：worker / schema-dump / 冒烟三种运行
+# 环境都只把 training/source（或包根）放进 sys.path，不保证仓库根在场；沿目录向上找
+# adapters/mjlab 对 assets 源树与 workspace 镜像副本两种深度都成立。
+for _parent in Path(__file__).resolve().parents:
+    if (_parent / "adapters" / "mjlab").is_dir():
+        if str(_parent) not in sys.path:
+            sys.path.insert(0, str(_parent))
+        break
+
+from mjlab.envs import ManagerBasedRlEnvCfg  # noqa: E402
+
+from adapters.mjlab.kits.quadruped_kit.skills.velocity import (  # noqa: E402
+    TerrainProfile as TerrainProfile,
 )
-from mjlab.tasks.velocity.mdp import UniformVelocityCommandCfg
-from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
+from adapters.mjlab.kits.quadruped_kit.skills.velocity import config as kit_velocity
+from adapters.mjlab.kits.quadruped_kit.skills.velocity import (
+    profile as kit_velocity_profile,
+)
 
-from ... import mdp
+from .binding import GO2_VELOCITY
 
-TerrainProfile = Literal["rough", "flat"]
-
-
-def _unitree_go2_velocity_env_cfg(
-  terrain_profile: TerrainProfile,
-  play: bool = False,
-) -> ManagerBasedRlEnvCfg:
-  """Compose the shared Unitree Go2 velocity configuration explicitly."""
-  cfg = make_velocity_env_cfg()
-
-  cfg.sim.mujoco.ccd_iterations = 500
-  cfg.sim.mujoco.impratio = 10
-  cfg.sim.mujoco.cone = "elliptic"
-  cfg.sim.contact_sensor_maxmatch = 500
-
-  cfg.scene.entities = {"robot": get_go2_robot_cfg()}
-
-  # Set raycast sensor frame to the Go2 base link.
-  for sensor in cfg.scene.sensors or ():
-    if sensor.name == "terrain_scan":
-      assert isinstance(sensor, RayCastSensorCfg)
-      assert isinstance(sensor.frame, ObjRef)
-      sensor.frame.name = "base_link"
-
-  foot_names = ("FR", "FL", "RR", "RL")
-  site_names = ("FR", "FL", "RR", "RL")
-  geom_names = tuple(f"{name}_foot_collision" for name in foot_names)
-
-  # Wire foot height scan to per-foot sites.
-  for sensor in cfg.scene.sensors or ():
-    if sensor.name == "foot_height_scan":
-      assert isinstance(sensor, TerrainHeightSensorCfg)
-      sensor.frame = tuple(
-        ObjRef(type="site", name=s, entity="robot") for s in site_names
-      )
-      sensor.pattern = RingPatternCfg.single_ring(radius=0.04, num_samples=4)
-
-  feet_ground_cfg = ContactSensorCfg(
-    name="feet_ground_contact",
-    primary=ContactMatch(mode="geom", pattern=geom_names, entity="robot"),
-    secondary=ContactMatch(mode="body", pattern="terrain"),
-    fields=("found", "force"),
-    reduce="netforce",
-    num_slots=1,
-    track_air_time=True,
-  )
-  self_collision_cfg = ContactSensorCfg(
-    name="self_collision",
-    primary=ContactMatch(mode="subtree", pattern="base_link", entity="robot"),
-    secondary=ContactMatch(mode="subtree", pattern="base_link", entity="robot"),
-    fields=("found", "force"),
-    reduce="none",
-    num_slots=1,
-    history_length=4,
-  )
-  thigh_geom_names = tuple(f"{leg}_thigh_collision" for leg in foot_names)
-  thigh_ground_cfg = ContactSensorCfg(
-    name="thigh_ground_touch",
-    primary=ContactMatch(
-      mode="geom",
-      entity="robot",
-      pattern=thigh_geom_names,
-    ),
-    secondary=ContactMatch(mode="body", pattern="terrain"),
-    fields=("found", "force"),
-    reduce="none",
-    num_slots=1,
-    history_length=4,
-  )
-  calf_geom_names = tuple(
-    f"{leg}_calf{i}_collision" for leg in foot_names for i in (1, 2)
-  )
-  shank_ground_cfg = ContactSensorCfg(
-    name="shank_ground_touch",
-    primary=ContactMatch(
-      mode="geom",
-      entity="robot",
-      pattern=calf_geom_names,
-    ),
-    secondary=ContactMatch(mode="body", pattern="terrain"),
-    fields=("found", "force"),
-    reduce="none",
-    num_slots=1,
-    history_length=4,
-  )
-  trunk_head_ground_cfg = ContactSensorCfg(
-    name="trunk_ground_touch",
-    primary=ContactMatch(
-      mode="geom",
-      entity="robot",
-      pattern=r"base.*_collision",
-    ),
-    secondary=ContactMatch(mode="body", pattern="terrain"),
-    fields=("found", "force"),
-    reduce="none",
-    num_slots=1,
-    history_length=4,
-  )
-  cfg.scene.sensors = (cfg.scene.sensors or ()) + (
-    feet_ground_cfg,
-    self_collision_cfg,
-    thigh_ground_cfg,
-    shank_ground_cfg,
-    trunk_head_ground_cfg,
-  )
-
-  if cfg.scene.terrain is not None and cfg.scene.terrain.terrain_generator is not None:
-    cfg.scene.terrain.terrain_generator.curriculum = True
-
-  joint_pos_action = cfg.actions["joint_pos"]
-  assert isinstance(joint_pos_action, JointPositionActionCfg)
-  joint_pos_action.scale = GO2_ACTION_SCALE
-
-  cfg.viewer.body_name = "base_link"
-  cfg.viewer.distance = 1.5
-  cfg.viewer.elevation = -10.0
-
-  # Replace the base foot_friction with per-axis friction events for condim 6.
-  del cfg.events["foot_friction"]
-  cfg.events["foot_friction_slide"] = EventTermCfg(
-    mode="startup",
-    func=envs_mdp.dr.geom_friction,
-    params={
-      "asset_cfg": SceneEntityCfg("robot", geom_names=geom_names),
-      "operation": "abs",
-      "axes": [0],
-      "ranges": (0.3, 1.5),
-      "shared_random": True,
-    },
-  )
-  cfg.events["foot_friction_spin"] = EventTermCfg(
-    mode="startup",
-    func=envs_mdp.dr.geom_friction,
-    params={
-      "asset_cfg": SceneEntityCfg("robot", geom_names=geom_names),
-      "operation": "abs",
-      "distribution": "log_uniform",
-      "axes": [1],
-      "ranges": (1e-4, 2e-2),
-      "shared_random": True,
-    },
-  )
-  cfg.events["foot_friction_roll"] = EventTermCfg(
-    mode="startup",
-    func=envs_mdp.dr.geom_friction,
-    params={
-      "asset_cfg": SceneEntityCfg("robot", geom_names=geom_names),
-      "operation": "abs",
-      "distribution": "log_uniform",
-      "axes": [2],
-      "ranges": (1e-5, 5e-3),
-      "shared_random": True,
-    },
-  )
-  cfg.events["base_com"].params["asset_cfg"].body_names = ("base_link",)
-
-  cfg.rewards["pose"].params["std_standing"] = {
-    r".*(FR|FL|RR|RL)_(hip|thigh)_joint.*": 0.05,
-    r".*(FR|FL|RR|RL)_calf_joint.*": 0.1,
-  }
-  cfg.rewards["pose"].params["std_walking"] = {
-    r".*(FR|FL|RR|RL)_(hip|thigh)_joint.*": 0.3,
-    r".*(FR|FL|RR|RL)_calf_joint.*": 0.6,
-  }
-  cfg.rewards["pose"].params["std_running"] = {
-    r".*(FR|FL|RR|RL)_(hip|thigh)_joint.*": 0.3,
-    r".*(FR|FL|RR|RL)_calf_joint.*": 0.6,
-  }
-
-  cfg.rewards["upright"].params["asset_cfg"].body_names = ("base_link",)
-  cfg.rewards["upright"].params["terrain_sensor_names"] = ("terrain_scan",)
-  cfg.rewards["body_ang_vel"].params["asset_cfg"].body_names = ("base_link",)
-
-  for reward_name in ["foot_clearance", "foot_slip"]:
-    cfg.rewards[reward_name].params["asset_cfg"].site_names = site_names
-
-  cfg.rewards["body_ang_vel"].weight = 0.0
-  cfg.rewards["angular_momentum"].weight = 0.0
-  cfg.rewards["air_time"].weight = 0.0
-
-  # Per-body-group collision penalties.
-  cfg.rewards["self_collisions"] = RewardTermCfg(
-    func=mdp.self_collision_cost,
-    weight=-0.1,
-    params={"sensor_name": self_collision_cfg.name},
-  )
-  cfg.rewards["shank_collision"] = RewardTermCfg(
-    func=mdp.self_collision_cost,
-    weight=-0.1,
-    params={"sensor_name": shank_ground_cfg.name},
-  )
-  cfg.rewards["trunk_head_collision"] = RewardTermCfg(
-    func=mdp.self_collision_cost,
-    weight=-0.1,
-    params={"sensor_name": trunk_head_ground_cfg.name},
-  )
-
-  # 结构层攻关收口（任务清单 §2.1 序 1，2026-09-18 六组同批实验后定格）：
-  # 保留 V1（dof_power 型功率惩罚，-0.001 保守档）为默认任务结构——六组中唯一
-  # 不劣于 CTRL 的变体（0.211 vs CTRL 0.189，其余变体见
-  # tools/baselines/reward_shaping_experiments.json v2 段）。功率 early-termination
-  # （mdp/terminations.py::go2_power_runaway）经 V2（1500/900 零触发）/V3（120/60
-  # 咬死步态，0.034）/V4（250/100，0.179）三档标定后**不进默认任务**：训练侧
-  # |tau*v| 量级比评测侧低一个量级，训练侧截断无法转化为评测侧 dof_power 收益。
-  cfg.rewards["dof_power_abs"] = RewardTermCfg(
-    func=mdp.go2_dof_power_penalty,
-    weight=-0.001,
-    params={"asset_cfg": SceneEntityCfg("robot"), "kernel": "mean_abs"},
-  )
-
-  # On rough terrain the quadruped tilts significantly; don't terminate on
-  # orientation alone. Let out_of_terrain_bounds handle resets.
-  cfg.terminations.pop("fell_over", None)
-
-  cfg.terminations["illegal_contact"] = TerminationTermCfg(
-    func=mdp.illegal_contact,
-    params={"sensor_name": thigh_ground_cfg.name},
-  )
-
-  # 功率超限 early-termination（V2/V3/V4 已实验，默认不启用）：mdp/terminations.py
-  # ::go2_power_runaway 提供逐关节 |tau*v| 瞬时峰值 + EMA 均值两线截断。经三档
-  # 标定（1500/900 零触发 → 120/60 咬死步态 → 250/100 无净收益），训练侧功率
-  # 量级与评测侧 dof_power 指标差一个量级，训练侧截断不转化为评测侧收益——
-  # 默认任务不注册本项，留作后续（阈值课程化/sim2sim 对齐后）复用。
-
-  if terrain_profile == "flat":
-    cfg.sim.njmax = 300
-    cfg.sim.mujoco.ccd_iterations = 50
-    cfg.sim.contact_sensor_maxmatch = 64
-    cfg.sim.nconmax = None
-
-    assert cfg.scene.terrain is not None
-    cfg.scene.terrain.terrain_type = "plane"
-    cfg.scene.terrain.terrain_generator = None
-
-    remove_sensors = {
-      "terrain_scan",
-      "self_collision",
-      "thigh_ground_touch",
-      "shank_ground_touch",
-      "trunk_ground_touch",
-    }
-    cfg.scene.sensors = tuple(
-      sensor
-      for sensor in (cfg.scene.sensors or ())
-      if sensor.name not in remove_sensors
-    )
-    del cfg.observations["actor"].terms["height_scan"]
-    del cfg.observations["critic"].terms["height_scan"]
-    cfg.rewards["upright"].params.pop("terrain_sensor_names", None)
-
-    for key in ("self_collisions", "shank_collision", "trunk_head_collision"):
-      cfg.rewards.pop(key, None)
-
-    cfg.terminations.pop("illegal_contact", None)
-    cfg.terminations.pop("out_of_terrain_bounds", None)
-    cfg.terminations["fell_over"] = TerminationTermCfg(
-      func=mdp.bad_orientation,
-      params={"limit_angle": math.radians(70.0)},
-    )
-    cfg.curriculum.pop("terrain_levels", None)
-
-  # Apply play mode overrides.
-  if play:
-    # Effectively infinite episode length.
-    cfg.episode_length_s = int(1e9)
-
-    cfg.observations["actor"].enable_corruption = False
-    cfg.events.pop("push_robot", None)
-    cfg.terminations.pop("out_of_terrain_bounds", None)
-    cfg.curriculum = {}
-    cfg.events["randomize_terrain"] = EventTermCfg(
-      func=envs_mdp.randomize_terrain,
-      mode="reset",
-      params={},
-    )
-
-    if cfg.scene.terrain is not None:
-      if cfg.scene.terrain.terrain_generator is not None:
-        cfg.scene.terrain.terrain_generator.curriculum = False
-        cfg.scene.terrain.terrain_generator.num_cols = 5
-        cfg.scene.terrain.terrain_generator.num_rows = 5
-        cfg.scene.terrain.terrain_generator.border_width = 10.0
-
-    if terrain_profile == "flat":
-      twist_cmd = cfg.commands["twist"]
-      assert isinstance(twist_cmd, UniformVelocityCommandCfg)
-      twist_cmd.ranges.lin_vel_x = (-1.5, 2.0)
-      twist_cmd.ranges.ang_vel_z = (-0.7, 0.7)
-
-  return cfg
+#: go2 的 velocity 任务数值。**唯一与族级默认不同的一项**是机械功率惩罚
+#: （`dof_power_abs`，权重 -0.001）——结构层攻关收口（任务清单 §2.1 序 1，2026-09-18
+#: 六组同批实验后定格）：保留 V1（dof_power 型功率惩罚，-0.001 保守档）为默认任务
+#: 结构——六组中唯一不劣于 CTRL 的变体（0.211 vs CTRL 0.189，其余变体见
+#: tools/baselines/reward_shaping_experiments.json v2 段）。功率 early-termination
+#: （源包 `mdp/terminations.py::go2_power_runaway`）经 V2（1500/900 零触发）/V3
+#: （120/60 咬死步态，0.034）/V4（250/100，0.179）三档标定后**不进默认任务**：训练侧
+#: |tau*v| 量级比评测侧低一个量级，训练侧截断无法转化为评测侧 dof_power 收益。
+#: 其余数值（命令档/地形档/DR 档/奖励静音位/70° 平地倾角）与族级默认逐值相同，
+#: 不在此重复声明 —— 需要覆盖时按字段名加进来即可。
+VELOCITY = kit_velocity_profile.VelocityProfile(dof_power_weight=-0.001)
 
 
 def unitree_go2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   """Create Unitree Go2 rough terrain velocity configuration."""
-  return _unitree_go2_velocity_env_cfg("rough", play=play)
+  return kit_velocity.make_env_cfg(GO2_VELOCITY, VELOCITY, terrain_profile="rough", play=play)
 
 
 def unitree_go2_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   """Create Unitree Go2 flat terrain velocity configuration."""
-  return _unitree_go2_velocity_env_cfg("flat", play=play)
+  return kit_velocity.make_env_cfg(GO2_VELOCITY, VELOCITY, terrain_profile="flat", play=play)
