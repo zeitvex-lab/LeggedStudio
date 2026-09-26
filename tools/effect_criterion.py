@@ -60,6 +60,13 @@ def ratio_of(entry: dict, value: float | None) -> float | None:
     return float(value) / reference_value
 
 
+def budget_text(entry: dict, budget: dict) -> str:
+    """预算文案：训练预算与"不来自训练预算"的档要分开说，别把 n/a 说成未声明。"""
+    if not budget and (entry.get("budget") or {}).get("num_envs") is None:
+        return "该档度量不来自训练预算（见 budget_note）"
+    return f"预算 {budget or '未声明'}"
+
+
 def report(payload: dict) -> tuple[list[dict], list[str], list[str]]:
     defaults = payload.get("defaults") or {}
     pass_ratio = float(defaults.get("pass_ratio", 0.8))
@@ -86,7 +93,7 @@ def report(payload: dict) -> tuple[list[dict], list[str], list[str]]:
                 "budget": budget,
             }
             if value is None:
-                untested.append(f"{tier} / {robot}: 未测（预算 {budget or '未声明'}）")
+                untested.append(f"{tier} / {robot}: 未测（{budget_text(entry, budget)}）")
                 row["verdict"] = "untested"
             elif reference_value is None:
                 row["verdict"] = "no_reference"
@@ -101,7 +108,7 @@ def report(payload: dict) -> tuple[list[dict], list[str], list[str]]:
                 if row["verdict"] == "fail":
                     failures.append(
                         f"{tier} / {robot}: 效果 {value} vs 参考 {reference_value} "
-                        f"= {row['ratio']} < {pass_ratio}（预算 {budget}）"
+                        f"= {row['ratio']} < {pass_ratio}（{budget_text(entry, budget)}）"
                     )
             rows.append(row)
     return rows, failures, untested
@@ -151,6 +158,11 @@ def main() -> int:
             print("[effect] 未测/无参考（**不算通过**）：")
             for item in untested:
                 print(f"  · {item}")
+        pending = payload.get("pending") or []
+        if pending:
+            print("[effect] 还没有可比值量的档（如实留痕，未接入）：")
+            for item in pending:
+                print(f"  · {item['tier']}：{item['why']}")
     if args.check:
         if failures:
             print(f"\n[effect] 判红 {len(failures)} 处：")
