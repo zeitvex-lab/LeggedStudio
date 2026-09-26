@@ -29,8 +29,7 @@ BACKFLIP = BackflipProfile(
     below_reset_height=0.1,
     base_contact_force_threshold=1.0,
     max_contact_force=150.0,
-    # 镜像腿对：go2 腿序 FL,FR,RL,RR ⇒ 右侧腿是 1、3（原 rewards.py 写死）
-    mirror_leg_indices=(1, 3),
+    # 镜像腿对不在此声明：由绑定从腿标记派生（go2 腿序 FL,FR,RL,RR ⇒ (1,3)，与源写死值一致）
     # 命令重采样 5 s、起跳帧 50~60（原 config.py 写死）
     command_resample_s=5.0,
     takeoff_frame_range=(50, 60),

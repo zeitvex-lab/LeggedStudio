@@ -1,10 +1,11 @@
 """族级技能的接触传感器装配。
 
 来源：`go2_skills/shared/sensors.py`（逐字上移）。三处机型常量改为绑定参数：
-足端几何名（`binding.foot_geoms`，按契约腿序）、腿杆惩罚正则
-（`binding.penalized_geom_pattern`，族角色派生）、根 body 名（`binding.root_body`，MJCF 真值）。
-传感器名（`FEET_SENSOR` / `PENALIZED_SENSOR` / `BASE_SENSOR`）是**技能级**常量，
-同族所有机型一致 —— 奖励/终止项按名引用它们。
+足端几何名（`binding.foot_geoms`，按契约腿序，走 geom 匹配）、腿杆惩罚的匹配
+（`binding.penalized_contact_match()`：几何具名走 geom、未具名走 body，**由资产事实选**）、
+根 body 名（`binding.root_body`，MJCF 真值，走 body 匹配）。除腿杆那一项外，匹配面
+与源配方同一口径、同族各机型同写法。传感器名（`FEET_SENSOR` / `PENALIZED_SENSOR` /
+`BASE_SENSOR`）是**技能级**常量，同族所有机型一致 —— 奖励/终止项按名引用它们。
 """
 
 from mjlab.envs import ManagerBasedRlEnvCfg
@@ -40,10 +41,11 @@ def replace_sensors(cfg: ManagerBasedRlEnvCfg, binding: QuadrupedSkillBinding) -
         reduce="netforce",
         num_slots=1,
     )
+    penalized_mode, penalized_pattern = binding.penalized_contact_match()
     penalized = ContactSensorCfg(
         name=PENALIZED_SENSOR,
         primary=ContactMatch(
-            mode="geom", pattern=binding.penalized_geom_pattern, entity="robot"
+            mode=penalized_mode, pattern=penalized_pattern, entity="robot"
         ),
         secondary=terrain,
         fields=("found", "force"),

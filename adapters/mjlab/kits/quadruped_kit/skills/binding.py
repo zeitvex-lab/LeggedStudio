@@ -39,7 +39,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 import mujoco
-from mjlab.actuator import IdealPdActuatorCfg
+from mjlab.actuator import IdealPdActuatorCfg, XmlActuatorCfg
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 
 from . import family as family_roles
@@ -95,6 +95,11 @@ class QuadrupedSkillBinding:
     actuator_type: str = ""
     #: 契约 `action.action_scale`（机型级默认；角色级覆盖见 `ActuatorGroup.action_scale`）。
     action_scale: float = 1.0
+    #: 执行真值在哪：`contract` = 由契约 `actuator_profile.by_role` 重建理想 PD；
+    #: `asset` = 沿用机型实体自带的执行器（MJCF 是执行真值、cfg 只包装，B28/B35 口径）。
+    #: 判据是**资产事实**（基座实体的执行器是不是 `XmlActuatorCfg`），不是机型名 ——
+    #: 执行器写在 MJCF 里的机型没法再注入同名执行器（重名即崩），必须只包装。
+    actuator_source: str = "contract"
     #: **MJCF 真值**：编译后的全部几何名 / site 名（按模型序）。腿杆/躯干/足端几何与足端
     #: site 都从这里挑 —— 技能层不预设"小腿只有一个几何""足端必须有 site"这类假设，
     #: 个数与命名由机型资产决定（挑不到就报错，不静默换口径）。
@@ -268,6 +273,50 @@ class QuadrupedSkillBinding:
             picked.extend(hits)
         return tuple(picked)
 
+    def penalized_contact_match(self) -> tuple[str, str]:
+        """腿杆惩罚接触的（匹配模式, 正则）：几何具名走 geom，未命名走 body。
+
+        族 MJCF 约定要求可碰撞几何以 `_collision` 结尾；不满足该约定的资产
+        （碰撞几何由机型 `CollisionCfg` 在实体构建期重建、MJCF 里只有足端几何具名）
+        没法按几何名匹配。这时按 **body 名**匹配同一批腿杆 —— 语义不变
+        （"大腿/小腿与地形的接触"），只是匹配面换一维。判据是**资产事实**（几何清单
+        里有没有这批名字），不是机型名；两台机型因此可以共用同一段传感器装配。
+        """
+        if any(
+            re.fullmatch(self.penalized_geom_pattern, name)
+            for name in self.geom_names
+            if name
+        ):
+            return ("geom", self.penalized_geom_pattern)
+        return ("body", self.penalized_body_pattern())
+
+    def penalized_body_pattern(self) -> str:
+        """髋以外腿杆的 **body** 紧凑正则（腿序 × 契约角色词序，词同 `leg_bodies_pattern`）。
+
+        与 `penalized_geom_pattern` 同一挑选规则（契约 `leg_pattern` 里族角色不是
+        `hip_abduction` 的那些角色），只是匹配面从几何名换成 body 名。
+        """
+        tokens = [
+            role
+            for role in self.leg_pattern
+            if self.family_role(role) != "hip_abduction"
+        ]
+        if not tokens:
+            raise ValueError(
+                f"{self.robot_id}: 契约 leg_pattern {self.leg_pattern} 里找不到髋以外角色"
+            )
+        legs = "|".join(str(leg) for leg in self.leg_ids)
+        pattern = f"(?:{legs})_(?:{'|'.join(str(token) for token in tokens)})"
+        resolved = {
+            name for name in self.body_names if re.fullmatch(pattern, name) is not None
+        }
+        if not resolved:
+            raise RuntimeError(
+                f"{self.robot_id}: 腿杆 body 模式 {pattern!r} 在 MJCF body 清单里空匹配 —— "
+                f"可用 body：{sorted(self.body_names)}"
+            )
+        return pattern
+
     def trunk_collision_pattern(self) -> str:
         """躯干碰撞几何正则：由**根 body 自己的几何清单**派生（紧凑写法，解析集合等于清单）。
 
@@ -285,6 +334,28 @@ class QuadrupedSkillBinding:
                 "需要躯干碰撞几何的技能无法在族级装配"
             )
         return _compact_collision_pattern(geoms)
+
+    def right_leg_indices(self) -> tuple[int, ...]:
+        """腿序里**右侧腿**的位置（镜像/对称项用）。
+
+        规则来自族内腿标记的命名约定：**含 `R` 且不含 `L`** 的是右腿。
+        两个字母的腿标记里侧别字母位置不定（`FL/FR` 在末位、`RF/RH` 在首位），所以判据
+        必须同时看两个字母：`RR`/`FR`/`RF` 是右腿，`RL`（后左）与 `FL` 不是。
+        **不从"相邻成对、取奇数位"推** —— 那假设了腿序以左腿开头，而 b2 的契约腿序是
+        `FR,FL,RR,RL`（右腿在 0、2 位），照搬 go2 的 (1,3) 会把左右镜像做反。
+        挑不到右腿（腿标记另立词表）即报错，不静默给空。
+        """
+        picked = tuple(
+            index
+            for index, leg in enumerate(self.leg_ids)
+            if "r" in str(leg).lower() and "l" not in str(leg).lower()
+        )
+        if not picked:
+            raise RuntimeError(
+                f"{self.robot_id}: 腿标记 {self.leg_ids} 里认不出右腿"
+                "（族约定：含 'R' 的是右腿）—— 镜像/对称项无法派生"
+            )
+        return picked
 
     def foot_sites(self) -> tuple[str, ...]:
         """按契约腿序的足端 site 名（从 MJCF site 清单里挑）。
@@ -490,10 +561,16 @@ class QuadrupedSkillBinding:
         设计要点：**基座实体配置只被"覆盖"三项**（出生高 / 默认姿 / 执行器谱），
         碰撞、MJCF 来源、柔性限位系数等一律沿用该机型自己的基座配置
         （`base_entity_cfg()`）—— 技能层不重造物理，只改技能关心的那几项。
+
+        **执行器谱只在 `actuator_source == "contract"` 时覆盖**：执行真值写在 MJCF 里的
+        机型（契约 `actuator_profile` 只作声明、实体用 `XmlActuatorCfg` 包装）沿用自带执行器 ——
+        按契约重建会往同一批关节再注入一次同名执行器，实体构建即崩。
         """
         cfg = deepcopy(self.base_entity_cfg())
         cfg.init_state.pos = (0.0, 0.0, float(self.init_base_height))
         cfg.init_state.joint_pos = dict(self.pose_map())
+        if self.actuator_source != "contract":
+            return cfg
         articulation = cfg.articulation
         limit_factor = (
             articulation.soft_joint_pos_limit_factor
@@ -557,6 +634,21 @@ def _spec_root_body(spec_fn: Callable[[], mujoco.MjSpec]) -> str:
     if not bodies:
         raise RuntimeError("MJCF 里 worldbody 没有子 body —— 无法确定根 body")
     return str(bodies[0].name)
+
+
+def _actuator_source(base_entity_cfg: Callable[[], EntityCfg]) -> str:
+    """执行真值在哪：基座实体的执行器**全是** `XmlActuatorCfg`（只包装 MJCF 既有执行器）
+    即 `asset`，否则 `contract`（由契约 `actuator_profile` 重建理想 PD）。
+
+    "全是"是刻意的：混用（一部分包装、一部分重建）说明这台机型的执行器谱是两处真值，
+    族级技能层不做仲裁 —— 落到 `contract` 分支，行为与原先一致。
+    """
+    entity_cfg = base_entity_cfg()
+    articulation = entity_cfg.articulation
+    actuators = () if articulation is None else articulation.actuators
+    if actuators and all(isinstance(item, XmlActuatorCfg) for item in actuators):
+        return "asset"
+    return "contract"
 
 
 def _common_prefix(names: Sequence[str]) -> str:
@@ -645,6 +737,14 @@ def from_contract(
     profile = contract.get("actuator_profile") or {}
     by_role = profile.get("by_role") or {}
     default_action_scale = float((contract.get("action") or {}).get("action_scale") or 1.0)
+    actuator_source = _actuator_source(base_entity_cfg)
+    if actuator_source == "asset" and armature_override is not None:
+        # 执行真值在 MJCF 的机型没有"重建执行器"这一步，`armature_override` 无处落地 ——
+        # 静默忽略会把调用方声明的物理量丢掉，故显式判红。
+        raise ValueError(
+            f"{robot_id}: 该机型执行器写在 MJCF 里（XmlActuatorCfg 包装），"
+            "armature_override 无处生效 —— armature 要在机型 MJCF 里改"
+        )
     groups: list[ActuatorGroup] = []
     for role in leg_pattern:
         values = by_role.get(role)
@@ -709,6 +809,7 @@ def from_contract(
         base_entity_cfg=base_entity_cfg,
         actuator_type=actuator_type,
         action_scale=default_action_scale,
+        actuator_source=actuator_source,
         geom_names=geom_names,
         site_names=site_names,
         body_names=body_names,

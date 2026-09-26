@@ -41,7 +41,8 @@ class BackflipProfile:
     base_contact_force_threshold: float = 1.0
     max_contact_force: float = 150.0
     #: 镜像腿对（腿序里的"右侧"下标）：对称关节奖励按这些腿取反髋外展。
-    mirror_leg_indices: tuple[int, ...] = (1, 3)
+    #: `None` = **由绑定派生**（族约定：含 R 不含 L 的是右腿）；显式给值则覆盖。
+    mirror_leg_indices: tuple[int, ...] | None = None
     # --- 命令（一次性触发） --------------------------------------------------------
     command_resample_s: float = 5.0
     takeoff_frame_range: tuple[int, int] = (50, 60)

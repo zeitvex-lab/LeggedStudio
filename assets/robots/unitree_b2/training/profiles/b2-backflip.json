@@ -1,0 +1,21 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "b2-backflip",
+  "display_name": "B2 Backflip (特技族复用证明)",
+  "source": "**族级复用证明档案**：本仓没有 b2 专属的后空翻上游。环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/backflip/**`），数值即该技能的源配方默认值（上游 = 00_resources 里 Gym 包的 go2_backflip）；b2 侧只换机型身份，镜像腿对由绑定从腿标记派生（FR,FL,RR,RL ⇒ 0/2 位）。**未按 b2 标定** —— 能训不等于训得好，详见 registry/porting_references.json 的 b2-backflip 条目",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "b2_backflip.config:b2_backflip_env_cfg",
+    "runner": "b2_backflip.config:b2_backflip_runner_cfg",
+    "runner_class": "adapters.mjlab.kits.quadruped_kit.skills.velocity.runner:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "backflip",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "num_envs": 1024,
+  "episode_length_s": 4.0,
+  "history_length": 10,
+  "sort_order": 61,
+  "max_iterations": 250
+}
