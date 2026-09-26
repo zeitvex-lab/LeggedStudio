@@ -1,7 +1,7 @@
 {
   "schema": "porting-references-1.0",
   "generated_at": "2026-09-24",
-  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。 **补充（2026-09-25 第三段）**：族级 velocity 上移到四足 go1/b2 与轮足 m20/b2w 后，**动作维解析序**又改了三台（go1/b2/b2w；m20 的解析序本就与契约一致）——详见各档案 F14。核对动作序要看运行期 `env.action_manager.get_term(<名>).target_ids`，字面序（`actuator_names`）只是意图。 **补充（2026-09-25 第四段）**：速度跟踪的族级化已覆盖 **8/8 台**（四足 go2/go1/b2/lite3、轮足 go2w/b2w/m20/zex-w）。动作维解析序被修正的是**四台**（go2w/go1/b2/b2w，见各档案 F12/F14）；go2、lite3、m20 本就一致（go2 在 F 段第一次上移时运行期对拍 0 差异，lite3 见 F19）。 **补充（2026-09-25 第五段）**：算法变体的**复用证明**已补上 —— `b2-cts` 用族级实现 + 只换数据即训得起来（`algorithm_plugin` 经平台注册表绑类，不经机型包）。 **补充（2026-09-25 第六段）**：特技 skill 族级化续做 —— `backflip` 已上移（逐档等价 + 真跑通过）。余项：`spring_jump` / `hand_stand` / `rear_stand` 仍只有 go2。 **补充（2026-09-25 第七段）**：特技族级化再进一台 —— `spring_jump` 已上移（逐档等价 + 真跑通过，含族级镜像损失）。余项：`hand_stand` / `rear_stand`。 **补充（2026-09-26）**：站姿类（handstand / rear_stand）已族级化收口 —— 内核 + 装配 + 对称表全部族级，两档共用一套机制、按奖励档分数据。 **补充（2026-09-26 第二段）**：特技轴补上**第二台机型的复用证明** —— `b2-backflip`（族级实现 + 只换数据，真跑 rollout + train 均通过）。为它修的是族级 Kit 里两处**按资产事实选路**的能力缺口（不是 b2 特判）：①腿杆惩罚的碰撞匹配面（几何具名走 geom、未具名走 body，`sensors.replace_sensors` 经 `binding.penalized_contact_match()`；足端与躯干的匹配面两台同写法，未动）；②执行器来源（MJCF 为执行真值的机型沿用自带 `XmlActuatorCfg`，`binding.actuator_source`）—— go2/go1 两台的解析结果与行为不变。",
+  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。 **补充（2026-09-25 第三段）**：族级 velocity 上移到四足 go1/b2 与轮足 m20/b2w 后，**动作维解析序**又改了三台（go1/b2/b2w；m20 的解析序本就与契约一致）——详见各档案 F14。核对动作序要看运行期 `env.action_manager.get_term(<名>).target_ids`，字面序（`actuator_names`）只是意图。 **补充（2026-09-25 第四段）**：速度跟踪的族级化已覆盖 **8/8 台**（四足 go2/go1/b2/lite3、轮足 go2w/b2w/m20/zex-w）。动作维解析序被修正的是**四台**（go2w/go1/b2/b2w，见各档案 F12/F14）；go2、lite3、m20 本就一致（go2 在 F 段第一次上移时运行期对拍 0 差异，lite3 见 F19）。 **补充（2026-09-25 第五段）**：算法变体的**复用证明**已补上 —— `b2-cts` 用族级实现 + 只换数据即训得起来（`algorithm_plugin` 经平台注册表绑类，不经机型包）。 **补充（2026-09-25 第六段）**：特技 skill 族级化续做 —— `backflip` 已上移（逐档等价 + 真跑通过）。余项：`spring_jump` / `hand_stand` / `rear_stand` 仍只有 go2。 **补充（2026-09-25 第七段）**：特技族级化再进一台 —— `spring_jump` 已上移（逐档等价 + 真跑通过，含族级镜像损失）。余项：`hand_stand` / `rear_stand`。 **补充（2026-09-26）**：站姿类（handstand / rear_stand）已族级化收口 —— 内核 + 装配 + 对称表全部族级，两档共用一套机制、按奖励档分数据。 **补充（2026-09-26 第二段）**：特技轴补上**第二台机型的复用证明** —— `b2-backflip`（族级实现 + 只换数据，真跑 rollout + train 均通过）。为它修的是族级 Kit 里两处**按资产事实选路**的能力缺口（不是 b2 特判）：①腿杆惩罚的碰撞匹配面（几何具名走 geom、未具名走 body，`sensors.replace_sensors` 经 `binding.penalized_contact_match()`；足端与躯干的匹配面两台同写法，未动）；②执行器来源（MJCF 为执行真值的机型沿用自带 `XmlActuatorCfg`，`binding.actuator_source`）—— go2/go1 两台的解析结果与行为不变。 **补充（2026-09-26 第三段）**：特技/步态/站姿轴补齐第二至第四台机型的**复用档**（b2：jump / trot / spring_jump / handstand / leggedstand；go1：backflip；lite3：jump / backflip），全部「族级实现 + 只换数据 + 真跑 rollout 与 train 2 iter 通过」。为它们修掉族级 Kit 三处**只在真跑时暴露**的能力缺口：①腿杆惩罚的匹配面（几何未具名走 body，且**结构派生** —— lite3 的角色词与 body 词表无共同 token）；②执行器来源（MJCF 为执行真值的机型沿用自带执行器）；③站姿类 critic 帧的域随机化段（足端几何名 / 根 body 名由绑定派生，增益倍率按执行器种类读）。 **等价性取证口径更正（2026-09-26）**：此前 before/after 字段级对拍用的 `--package-root` 指向 `git archive` 出来的旧树，但适配器 venv 的可编辑安装把 `adapters` 解析回**工作树** ⇒ 两次 dump 实际都跑的工作树代码（自比，**证据无效**）。正确做法是把要对比的文件**临时还原到旧提交**（`git show <rev>:<path> > <path>`，先备份工作副本）再 dump。按此重取的真实证据：b2 / go1 / lite3 的 velocity cfg **2250 / 824 / 1318 字段 0 差异**；go2 五项特技 cfg **3274 字段 4 项差异，全部是「写死→显式」且取值与源字面量逐字相同**（`FL_foot_collision` / `base_link`）；go2 站姿两档同批 4 项。",
   "entries": [
     {
       "profile_id": "go2-trot",
@@ -891,6 +891,189 @@
           "env_cfgs.py:730-742,748-752,757,781-838"
         ]
       }
+    },
+    {
+      "profile_id": "go1-backflip",
+      "robot": "unitree_go1",
+      "checked_at": "2026-09-26",
+      "references": [
+        {
+          "repo": "lain_job",
+          "path": "LLoco/src/lloco/tasks/go2_skills/backflip/config.py",
+          "role": "backflip 源（与 go2-backflip 同一份上游；本仓没有该机型专属后空翻上游）"
+        }
+      ],
+      "verification": {
+        "method": "**特技轴复用档**（2026-09-26）：环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/backflip/**`），go1 侧只换机型身份；验收方式是**真跑** `--mode rollout` 与 `--mode train --iters 2` 均通过。",
+        "conclusion": "aligned",
+        "evidence": [
+          "族实现 `quadruped_kit/skills/backflip/**` ↔ go2 的 `go2_skills/backflip/**`（已上移，见 go2-backflip 条目）",
+          "go1 站姿高 0.42 m 与源配方**同值** ⇒ 几何目标高（飞行 0.6 / 站姿 0.35 / 落地判定 0.1）本档不需要按机身缩放（同族同构的巧合，不是标定）",
+          "镜像腿对由绑定派生：go1 契约腿序 `FL,FR,RL,RR` ⇒ (1,3)，与 go2 同值；执行器走**契约重建**（`actuator_source == contract`）；腿杆惩罚按几何名匹配（go1 碰撞几何具名）；go1 无足端 site 不影响本技能"
+        ]
+      },
+      "gaps": [
+        "**未按本机型标定**：配方数值（高度类目标 / 接触力与速度阈值 / 启动 DR 区间）取自 go2 几何（站姿 0.42 m）与质量量级 ⇒ **能训 ≠ 训得好**；要当正式技能用需按本机型标定一轮并登记对照"
+      ]
+    },
+    {
+      "profile_id": "lite3-jump",
+      "robot": "deeprobotics_lite3",
+      "checked_at": "2026-09-26",
+      "references": [
+        {
+          "repo": "lain_job",
+          "path": "LLoco/src/lloco/tasks/go2_skills/jump/config.py",
+          "role": "jump 源（与 go2-jump / go1-jump 同一份上游；本仓没有该机型专属跳跃上游）"
+        }
+      ],
+      "verification": {
+        "method": "**族级复用档**（2026-09-26）：环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/jump/**`）；验收方式是**真跑** `--mode rollout` 与 `--mode train --iters 2` 均通过。",
+        "conclusion": "aligned",
+        "evidence": [
+          "本档**暴露并修掉**族级 Kit 一处能力缺口：lite3 的契约角色词（`hipx/hipy/knee`）与 body 词表（`*_HIP/THIGH/SHANK/FOOT`）**没有共同 token**，按角色词拼的腿杆惩罚正则在它身上空匹配 ⇒ `binding.penalized_contact_match()` 改为**结构派生**（腿身 body 去掉髋外展与足端 ⇒ `(?:FL|FR|HL|HR)_(?:THIGH|SHANK)`），并按契约腿序排序",
+          "回归锁 `adapters/mjlab/test_quadruped_velocity_skill.py::RoleVocabularyMismatchTests`（合成 lite3 式资产）"
+        ]
+      },
+      "gaps": [
+        "**未按本机型标定**：配方数值（高度类目标 / 接触力与速度阈值 / 启动 DR 区间）取自 go2 几何（站姿 0.42 m）与质量量级 ⇒ **能训 ≠ 训得好**；要当正式技能用需按本机型标定一轮并登记对照；`base_height_target` 0.3 m 相对 lite3 站姿（0.3 m）等于「不下蹲」的目标，需按本机型重标"
+      ]
+    },
+    {
+      "profile_id": "lite3-backflip",
+      "robot": "deeprobotics_lite3",
+      "checked_at": "2026-09-26",
+      "references": [
+        {
+          "repo": "lain_job",
+          "path": "LLoco/src/lloco/tasks/go2_skills/backflip/config.py",
+          "role": "backflip 源（与 go2-backflip 同一份上游；本仓没有该机型专属后空翻上游）"
+        }
+      ],
+      "verification": {
+        "method": "**特技轴复用档**（2026-09-26）：环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/backflip/**`）；验收方式是**真跑** `--mode rollout` 与 `--mode train --iters 2` 均通过。",
+        "conclusion": "aligned",
+        "evidence": [
+          "镜像腿对由绑定派生：lite3 契约腿序 `FL,FR,HL,HR` ⇒ (1,3)（「含 R 不含 L」的族约定；后腿名含 H，按尾字母判侧别会判错）",
+          "腿杆惩罚走结构派生（见 lite3-jump 条目）；执行器走 MJCF 包装（`actuator_source == asset`）；无足端 site 不影响本技能"
+        ]
+      },
+      "gaps": [
+        "**未按本机型标定**：配方数值（高度类目标 / 接触力与速度阈值 / 启动 DR 区间）取自 go2 几何（站姿 0.42 m）与质量量级 ⇒ **能训 ≠ 训得好**；要当正式技能用需按本机型标定一轮并登记对照；lite3 站姿 0.3 m 比 go2 低 ⇒ 飞行/站姿目标相对偏高"
+      ]
+    },
+    {
+      "profile_id": "b2-jump",
+      "robot": "unitree_b2",
+      "checked_at": "2026-09-26",
+      "references": [
+        {
+          "repo": "lain_job",
+          "path": "LLoco/src/lloco/tasks/go2_skills/jump/config.py",
+          "role": "jump 源（与 go2-jump / go1-jump 同一份上游；本仓没有该机型专属跳跃上游）"
+        }
+      ],
+      "verification": {
+        "method": "**族级复用档**（2026-09-26）：环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/jump/**`）；验收方式是**真跑** `--mode rollout` 与 `--mode train --iters 2` 均通过。",
+        "conclusion": "aligned",
+        "evidence": [
+          "b2 侧只交绑定（复用 `b2_velocity.binding.B2_VELOCITY`）+ 机型身份；腿序 `FR,FL,RR,RL`、MJCF 包装执行器、腿杆惩罚结构派生三项全部由绑定吸收"
+        ]
+      },
+      "gaps": [
+        "**未按本机型标定**：配方数值（高度类目标 / 接触力与速度阈值 / 启动 DR 区间）取自 go2 几何（站姿 0.42 m）与质量量级 ⇒ **能训 ≠ 训得好**；要当正式技能用需按本机型标定一轮并登记对照"
+      ]
+    },
+    {
+      "profile_id": "b2-trot",
+      "robot": "unitree_b2",
+      "checked_at": "2026-09-26",
+      "references": [
+        {
+          "repo": "lain_job",
+          "path": "LLoco/src/lloco/tasks/go2_skills/trot/config.py",
+          "role": "trot 源（与 go2-trot 同一份上游；本仓没有 b2 专属小跑步态上游）"
+        }
+      ],
+      "verification": {
+        "method": "**族级复用档**（2026-09-26）：环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/trot/**`）；验收方式是**真跑** `--mode rollout` 与 `--mode train --iters 2` 均通过。",
+        "conclusion": "aligned",
+        "evidence": [
+          "初始姿与源配方（髋归零 + 四腿同姿 0.8 / -1.5）**正好相同** —— b2 契约 `joints.default_pose` 即此，故不需要 go2 那样的 `with_pose_roles` 覆写（少一层机型侧改动）"
+        ]
+      },
+      "gaps": [
+        "**未按本机型标定**：配方数值（高度类目标 / 接触力与速度阈值 / 启动 DR 区间）取自 go2 几何（站姿 0.42 m）与质量量级 ⇒ **能训 ≠ 训得好**；要当正式技能用需按本机型标定一轮并登记对照"
+      ]
+    },
+    {
+      "profile_id": "b2-spring-jump",
+      "robot": "unitree_b2",
+      "checked_at": "2026-09-26",
+      "references": [
+        {
+          "repo": "lain_job",
+          "path": "LLoco/src/lloco/tasks/go2_skills/spring_jump/config.py",
+          "role": "spring_jump 源（与 go2-spring-jump 同一份上游；本仓没有 b2 专属弹簧跳上游）"
+        }
+      ],
+      "verification": {
+        "method": "**族级复用档**（2026-09-26）：环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/spring_jump/**`，含族级镜像损失）；验收方式是**真跑** `--mode rollout` 与 `--mode train --iters 2` 均通过。",
+        "conclusion": "aligned",
+        "evidence": [
+          "本技能**需要足端 site**（`binding.foot_sites()`）；b2 的 MJCF 有 `FL/FR/RL/RR` 四个足端 site ⇒ 无能力缺口（go1/lite3 在这项技能上是缺口，属如实登记的能力差异）",
+          "族级镜像置换由 `leg_pair_mirror` / `frame_mirror` 按 4 腿 3 角色派生（见 go2-spring-jump 条目）"
+        ]
+      },
+      "gaps": [
+        "**未按本机型标定**：配方数值（高度类目标 / 接触力与速度阈值 / 启动 DR 区间）取自 go2 几何（站姿 0.42 m）与质量量级 ⇒ **能训 ≠ 训得好**；要当正式技能用需按本机型标定一轮并登记对照"
+      ]
+    },
+    {
+      "profile_id": "b2-handstand",
+      "robot": "unitree_b2",
+      "checked_at": "2026-09-26",
+      "references": [
+        {
+          "repo": "lain_job",
+          "path": "LLoco/src/lloco/tasks/go2_skills/hand_stand/config.py",
+          "role": "站姿类源（hand_stand / rear_stand 两档同一上游；本仓没有 b2 专属站姿上游）"
+        }
+      ],
+      "verification": {
+        "method": "**族级复用档**（2026-09-26）：环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/stance/**`，一份机制 + 两个奖励档）；验收方式是**真跑** `--mode rollout` 与 `--mode train --iters 2` 均通过。",
+        "conclusion": "aligned",
+        "evidence": [
+          "本档**暴露并修掉**族级 Kit 一处写死：站姿类 critic 帧的域随机化段原写死 go2 的 `FL_foot_collision` / `base_link` 且只认 `IdealPdActuator` ⇒ 改为**由绑定派生名字** + 按执行器种类读增益倍率（IdealPd 读自身张量；MJCF position 包装读模型 `gainprm` / `biasprm` 与其默认值之比）。go2 侧名字与原字面量**逐字相同**、其余取值不变（字段级对拍 1743 字段 4 项「写死→显式」）",
+          "回归锁 `adapters/mjlab/test_quadruped_stance_skill.py`（go2 仍是源字面量 / b2 派生为 `FR_foot_collision` / 执行器来源判定）"
+        ]
+      },
+      "gaps": [
+        "**未按本机型标定**：配方数值（高度类目标 / 接触力与速度阈值 / 启动 DR 区间）取自 go2 几何（站姿 0.42 m）与质量量级 ⇒ **能训 ≠ 训得好**；要当正式技能用需按本机型标定一轮并登记对照"
+      ]
+    },
+    {
+      "profile_id": "b2-leggedstand",
+      "robot": "unitree_b2",
+      "checked_at": "2026-09-26",
+      "references": [
+        {
+          "repo": "lain_job",
+          "path": "LLoco/src/lloco/tasks/go2_skills/hand_stand/config.py",
+          "role": "站姿类源（hand_stand / rear_stand 两档同一上游；本仓没有 b2 专属站姿上游）"
+        }
+      ],
+      "verification": {
+        "method": "**族级复用档**（2026-09-26）：环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/stance/**`）；验收方式是**真跑** `--mode rollout` 与 `--mode train --iters 2` 均通过。",
+        "conclusion": "aligned",
+        "evidence": [
+          "本档的**镜像损失是开的**（源实现如此：仅 rear_stand 档开），b2 侧照源配方取值",
+          "域随机化观测的名字与增益来源修复见 b2-handstand 条目（两档共用同一实现）"
+        ]
+      },
+      "gaps": [
+        "**未按本机型标定**：配方数值（高度类目标 / 接触力与速度阈值 / 启动 DR 区间）取自 go2 几何（站姿 0.42 m）与质量量级 ⇒ **能训 ≠ 训得好**；要当正式技能用需按本机型标定一轮并登记对照"
+      ]
     }
   ]
 }

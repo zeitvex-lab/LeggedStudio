@@ -291,31 +291,83 @@ class QuadrupedSkillBinding:
         return ("body", self.penalized_body_pattern())
 
     def penalized_body_pattern(self) -> str:
-        """髋以外腿杆的 **body** 紧凑正则（腿序 × 契约角色词序，词同 `leg_bodies_pattern`）。
+        """髋与足端以外腿杆的 **body** 紧凑正则（**结构派生**，不看命名词表）。
 
-        与 `penalized_geom_pattern` 同一挑选规则（契约 `leg_pattern` 里族角色不是
-        `hip_abduction` 的那些角色），只是匹配面从几何名换成 body 名。
+        集合怎么定：**腿身 body 去掉髋、去掉足端**（`penalized_link_bodies()`）——
+        "大腿/小腿与地形的接触"这件事在 body 维上的表达。**不按契约角色词拼**：
+        契约角色词与 body 词可以完全不相干（lite3 的角色是 `hipx/hipy/knee`，
+        body 却是 `*_HIP/THIGH/SHANK/FOOT`），照角色词拼会空匹配。
         """
-        tokens = [
-            role
-            for role in self.leg_pattern
-            if self.family_role(role) != "hip_abduction"
-        ]
-        if not tokens:
-            raise ValueError(
-                f"{self.robot_id}: 契约 leg_pattern {self.leg_pattern} 里找不到髋以外角色"
+        bodies = self.penalized_link_bodies()
+        # 词干**保持原大小写**（lite3 的 body 是 `FL_SHANK` 这种大写；正则大小写敏感），
+        # 去重按不区分大小写做 —— 同词干跨腿大小写不一致时下面的覆盖核对会判红。
+        suffixes: list[str] = []
+        seen: set[str] = set()
+        for body in bodies:
+            suffix = role_suffix(body, self.leg_ids)
+            if suffix.lower() not in seen:
+                seen.add(suffix.lower())
+                suffixes.append(suffix)
+        if not suffixes:
+            raise RuntimeError(
+                f"{self.robot_id}: 腿杆惩罚集合为空（腿身 body 只有髋与足端？）—— "
+                f"可用 body：{sorted(self.body_names)}"
             )
         legs = "|".join(str(leg) for leg in self.leg_ids)
-        pattern = f"(?:{legs})_(?:{'|'.join(str(token) for token in tokens)})"
+        tokens = "|".join(suffixes)
+        pattern = f"(?:{legs})_(?:{tokens})"
         resolved = {
             name for name in self.body_names if re.fullmatch(pattern, name) is not None
         }
-        if not resolved:
+        missing = set(bodies) - resolved
+        if missing:
             raise RuntimeError(
-                f"{self.robot_id}: 腿杆 body 模式 {pattern!r} 在 MJCF body 清单里空匹配 —— "
-                f"可用 body：{sorted(self.body_names)}"
+                f"{self.robot_id}: 腿杆 body 模式 {pattern!r} 未覆盖 {sorted(missing)}"
             )
         return pattern
+
+    def penalized_link_bodies(self) -> tuple[str, ...]:
+        """腿杆惩罚的 **body** 集合：腿身 body 去掉**髋**与**足端**。
+
+        两处排除都走结构事实，不走命名：
+        * **髋** = 承载髋族关节（`hip_abduction` / `hip_pitch`）的 body —— 关节挂哪个 body
+          是 MJCF 真值（`jnt_bodyid`），角色词来自契约；
+        * **足端** = 名含足端 token 的 body（`foot_bodies()`；足端触地是常态、不该罚）。
+          go2 这类"足端几何挂在小腿 body 上"的机型没有独立的足端 body，故小腿仍在集合里。
+        """
+        model = self.base_entity_cfg().spec_fn().compile()
+        joint_body = {
+            str(model.joint(index).name): str(model.body(int(model.jnt_bodyid[index])).name)
+            for index in range(model.njnt)
+        }
+        # 只排除**髋外展**（与 `penalized_geom_pattern` 的挑选规则同一条：族角色不是
+        # `hip_abduction` 的都算惩罚项）。注意族别名把 `thigh` 归到 `hip_pitch` ——
+        # 大腿杆**是**惩罚项（源配方的 `.*_(thigh|calf)_collision` 就含它），
+        # 所以这里不能连 `hip_pitch` 一起排除。
+        hip_bodies = {
+            joint_body[joint]
+            for joint in self.joint_order
+            if joint in joint_body
+            and self.family_role(self.contract_role_of_joint(joint)) == "hip_abduction"
+        }
+        try:
+            foot_bodies = set(self.foot_bodies())
+        except RuntimeError:
+            foot_bodies = set()
+        picked = tuple(
+            body
+            for leg in self.leg_ids  # 按**契约腿序**枚举（与足端几何/角色几何同序）
+            for body in self.body_names
+            if body.lower().startswith(f"{str(leg).lower()}{_LEG_PREFIX_SEPARATOR}")
+            and body not in hip_bodies
+            and body not in foot_bodies
+        )
+        if not picked:
+            raise RuntimeError(
+                f"{self.robot_id}: 腿身 body 里除了髋与足端没有别的链接 —— "
+                f"腿杆触地惩罚在这里是能力缺口（可用 body：{sorted(self.body_names)}）"
+            )
+        return picked
 
     def trunk_collision_pattern(self) -> str:
         """躯干碰撞几何正则：由**根 body 自己的几何清单**派生（紧凑写法，解析集合等于清单）。

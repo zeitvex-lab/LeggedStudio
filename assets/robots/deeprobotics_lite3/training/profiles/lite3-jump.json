@@ -1,0 +1,21 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "lite3-jump",
+  "display_name": "Lite3 Jump (特技族复用档)",
+  "source": "**族级复用档**：本仓没有 lite3 专属的跳跃上游。环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/jump/**` = 族级 trot 步态 + 跳跃奖励/终止层），数值即该技能的源配方默认值；lite3 侧只换机型身份（腿序 FL,FR,HL,HR、MJCF 包装执行器、无足端 site 三项都由绑定派生吸收）。**未按 lite3 标定**（站姿 0.3 m vs go2 0.42 ⇒ 高度类目标相对偏高）—— 能训不等于训得好，详见 registry/porting_references.json 的 lite3-jump 条目",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "lite3_jump.config:lite3_jump_env_cfg",
+    "runner": "lite3_jump.config:lite3_jump_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "jump",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "num_envs": 1024,
+  "episode_length_s": 24.0,
+  "history_length": 10,
+  "sort_order": 63,
+  "max_iterations": 250
+}

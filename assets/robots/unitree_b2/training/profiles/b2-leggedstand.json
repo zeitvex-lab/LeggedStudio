@@ -1,0 +1,21 @@
+{
+  "schema_version": "training-profile-1.0",
+  "backend": "native_mjlab",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "source_root": "training/source",
+  "profile_id": "b2-leggedstand",
+  "display_name": "B2 Rear Stand (站姿族复用档)",
+  "source": "**族级复用档**：本仓没有 b2 专属的站姿类上游。环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/stance/**`），数值（含 rear_stand 档的命令口径与**开启的镜像损失**）取 go2 的 rear_stand 档；b2 侧只换机型身份。**未按 b2 标定**（站姿目标高 0.52 m 是 go2 几何下的数）—— 能训不等于训得好，详见 registry/porting_references.json 的 b2-leggedstand 条目",
+  "entrypoints": {
+    "env": "b2_rear_stand.config:b2_rearstand_env_cfg",
+    "runner": "b2_rear_stand.config:b2_rearstand_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "task_name": "leggedstand",
+  "num_envs": 1024,
+  "episode_length_s": 20.0,
+  "history_length": 10,
+  "sort_order": 68,
+  "max_iterations": 250
+}
