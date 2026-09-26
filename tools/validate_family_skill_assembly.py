@@ -159,18 +159,28 @@ def main() -> int:
         print(f"环境缺训练栈：{exc}（请用 adapters/mjlab/.venv 的解释器）")
         return 2
 
-    from adapters.mjlab.family_skill_builder import build_family_skill, family_skill_catalog
+    from adapters.mjlab.family_skill_builder import (
+        build_family_skill,
+        candidate_families,
+        family_skill_catalog,
+    )
 
     package = resolve_package(args.robot)
     contract, contract_name = load_contract(package)
     model = resolve_model(package, contract)
     robot_id = str(contract.get("robot_id") or package.name)
-    catalog = family_skill_catalog("quadruped")
+    # 族**从契约派生**（不看机型名）：形态 id 落在哪个族，就用哪个族的装配表与绑定工厂。
+    families = candidate_families(contract)
+    if not families:
+        raise SystemExit(f"{robot_id}: 契约 morphology.id 不落在任何已登记族里，通用装配无从谈起")
+    family_id = families[0]
+    catalog = family_skill_catalog(family_id)
     report: dict = {
         "robot_id": robot_id,
         "package": str(package.relative_to(ROOT)) if package.is_relative_to(ROOT) else str(package),
         "contract": contract_name,
         "model": str(model.relative_to(ROOT)) if model.is_relative_to(ROOT) else str(model),
+        "family": family_id,
         "catalog_size": len(catalog),
         "skills": {},
     }
@@ -179,7 +189,7 @@ def main() -> int:
         entry: dict = {}
         try:
             assembly = build_family_skill(
-                contract, model, skill, family_id="quadruped",
+                contract, model, skill, family_id=family_id,
                 init_base_height=args.init_base_height,
             )
             entry["status"] = "assembled"
