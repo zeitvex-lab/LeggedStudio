@@ -1,0 +1,34 @@
+{
+  "schema": "effect-criterion-1.0",
+  "note": "同档、同预算、同度量的跨机型效果对照：**新机型的效果 ≥ 参考机型的 80%（好：90%）** 即视为达到口径（用户定的 8–9 成）。本文件只存**声明与实测**，不发明数字：metric/budget/reference 是声明，observed 由工具（验收器/冒烟/仿真验收）写入；没测过的条目一律写 null 并在 --check 里单列，不当作通过。",
+  "defaults": {
+    "pass_ratio": 0.8,
+    "good_ratio": 0.9
+  },
+  "entries": [
+    {
+      "tier": "traversal_obstacle_release",
+      "metric": "progress_env_ratio",
+      "metric_meaning": "越过半个地块（= 课程晋级线 4.0 m）的环境占比；由越障验收器给出",
+      "producer": "tools/validate_traversal_progress.py",
+      "budget": {
+        "num_envs": 1024,
+        "iters": 2000
+      },
+      "budget_note": "族默认预算（1024 环境 × 2000 迭代，约 47 分钟@当前吞吐 1.4 s/迭代）；跑训练+验收一条命令：--train-iters 2000",
+      "reference_profile": "zex-w-rough",
+      "reference_note": "参考取**该档来源机型**（zex-w 的竞赛地形 + 障碍释放课程是本族该档的上游）——但它的历史策略是 53 维旧观测布局，不能直接喂当前环境 ⇒ 参考值同样要用本口径跑一轮才算数",
+      "reference": null,
+      "observed": {
+        "unitree_b2w": null,
+        "unitree_go2w": null,
+        "deeprobotics_m20": null
+      },
+      "demonstrated": {
+        "note": "验收器会判红（不是橡皮章）：300 迭代 × 1024 环境的欠训策略被判 fail —— 20 s 位移均值 0.47 m / 最大 0.70 m（判据线 4.0 m）；这一条**不是效果对照**，只是判据有效性的证据",
+        "report": "workspace/validation/traversal-b2w-acceptance.json",
+        "checked_at": "2026-09-26"
+      }
+    }
+  ]
+}
