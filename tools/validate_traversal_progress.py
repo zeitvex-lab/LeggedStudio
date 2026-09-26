@@ -117,11 +117,42 @@ def course_side(env, profile: dict) -> dict:
     }
 
 
+def _runner_and_wrapper(env, entry: dict):
+    """按档案声明的 runner 类建 runner 与 wrapper（与产品训练路径同口径）。"""
+    from dataclasses import asdict
+
+    from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
+
+    module_name, _, attr = str(entry["runner"]).partition(":")
+    rl_cfg = getattr(__import__(module_name, fromlist=[attr]), attr)()
+    class_path = str(entry.get("runner_class") or "")
+    if class_path:
+        class_module, _, class_attr = class_path.partition(":")
+        runner_cls = getattr(__import__(class_module, fromlist=[class_attr]), class_attr)
+    else:
+        runner_cls = MjlabOnPolicyRunner
+    wrapped = RslRlVecEnvWrapper(env, clip_actions=getattr(rl_cfg, "clip_actions", None))
+    return wrapped, runner_cls, rl_cfg, asdict
+
+
+def train_checkpoint(env, entry: dict, iters: int, output_dir: Path) -> Path:
+    """训一轮并把 checkpoint 落盘（给策略侧验收用；不训就无法判"过了障碍"）。"""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    wrapped, runner_cls, rl_cfg, asdict = _runner_and_wrapper(env, entry)
+    rl_cfg.max_iterations = int(iters)
+    rl_cfg.save_interval = max(1, int(iters))
+    rl_cfg.logger = "tensorboard"  # 离线默认：wandb 无网/未登录会中断
+    runner = runner_cls(wrapped, asdict(rl_cfg), str(output_dir), env.device)
+    runner.learn(num_learning_iterations=int(iters))
+    checkpoints = sorted(output_dir.glob("model_*.pt"), key=lambda p: p.stat().st_mtime)
+    if not checkpoints:
+        raise SystemExit(f"训练跑完但 {output_dir} 里没有 model_*.pt")
+    return checkpoints[-1]
+
+
 def policy_side(env, cfg, entry: dict, checkpoint: Path, seconds: float, profile: dict) -> dict:
     """加载 checkpoint 滚一段，量每条环境从出生点的位移（判据 = 半地块）。"""
     import torch
-    from dataclasses import asdict
-    from mjlab.rl import MjlabOnPolicyRunner, RslRlVecEnvWrapper
 
     generator = cfg.scene.terrain.terrain_generator
     half_tile = float(generator.size[0]) / 2.0 if generator is not None else 4.0
@@ -129,11 +160,11 @@ def policy_side(env, cfg, entry: dict, checkpoint: Path, seconds: float, profile
     progress_min_m = float(criteria.get("progress_min_m", half_tile))
     ratio_min = float(criteria.get("progress_env_ratio_min", 0.5))
 
-    module_name, _, attr = str(entry["runner"]).partition(":")
-    rl_cfg = getattr(__import__(module_name, fromlist=[attr]), attr)()
+    wrapped, runner_cls, rl_cfg, asdict = _runner_and_wrapper(env, entry)
     steps = max(1, int(seconds / (cfg.decimation * cfg.sim.mujoco.timestep)))
-    wrapped = RslRlVecEnvWrapper(env, clip_actions=rl_cfg.clip_actions)
-    runner = MjlabOnPolicyRunner(wrapped, asdict(rl_cfg), str(ROOT / "workspace" / "validation"), env.device)
+    runner = runner_cls(
+        wrapped, asdict(rl_cfg), str(ROOT / "workspace" / "validation"), env.device
+    )
     runner.load(str(checkpoint), load_cfg={"actor": True}, strict=True, map_location=env.device)
     policy = runner.get_inference_policy(device=env.device)
 
@@ -168,6 +199,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", required=True, help="越障档案 profile_id（如 b2w-traversal）")
     parser.add_argument("--checkpoint", type=Path, default=None, help="策略 checkpoint（.pt）；不给则只测课程侧")
+    parser.add_argument(
+        "--train-iters",
+        type=int,
+        default=0,
+        help="先按档案的 runner 训 N 轮，用训出的 checkpoint 跑策略侧（0 = 不训，必须给 --checkpoint）",
+    )
     parser.add_argument("--num-envs", type=int, default=64)
     parser.add_argument("--seconds", type=float, default=20.0)
     parser.add_argument("--output", type=Path, default=None)
@@ -183,11 +220,17 @@ def main() -> int:
     }
     try:
         report["course"] = course_side(env, profile)
-        if args.checkpoint is None:
-            report["policy"] = {"status": "not_tested", "why": "未给 --checkpoint（策略级未测）"}
+        checkpoint = args.checkpoint
+        if args.train_iters:
+            output_dir = ROOT / "workspace" / "validation" / f"traversal-{args.profile}-train"
+            report["train_iters"] = int(args.train_iters)
+            report["train_dir"] = str(output_dir.relative_to(ROOT))
+            checkpoint = train_checkpoint(env, entry, args.train_iters, output_dir)
+        if checkpoint is None:
+            report["policy"] = {"status": "not_tested", "why": "未给 --checkpoint / --train-iters（策略级未测）"}
             report["verdict"] = "course_only"
         else:
-            report["policy"] = policy_side(env, cfg, entry, args.checkpoint.resolve(), args.seconds, profile)
+            report["policy"] = policy_side(env, cfg, entry, Path(checkpoint).resolve(), args.seconds, profile)
             report["verdict"] = "pass" if (report["course"]["ok"] and report["policy"]["ok"]) else "fail"
     finally:
         env.close()
