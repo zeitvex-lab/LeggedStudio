@@ -147,6 +147,8 @@ def main() -> int:
     parser.add_argument("--robot", required=True, help="机器人 id（内置或导入）或包路径")
     parser.add_argument("--skills", required=True, help="逗号分隔的 task_name（如 jump,velocity,handstand）")
     parser.add_argument("--iterations", type=int, default=0, help="真训轮数（0 = 只建 cfg）")
+    parser.add_argument("--init-base-height", type=float, default=None,
+                        help="显式出生高（不给我们按默认姿 FK 推站立高；对拍逐档档案时用它钉齐）")
     parser.add_argument("--compare-profiles", action="store_true", help="与包内逐档档案对拍 env cfg")
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
@@ -176,7 +178,10 @@ def main() -> int:
     for skill in [item.strip() for item in args.skills.split(",") if item.strip()]:
         entry: dict = {}
         try:
-            assembly = build_family_skill(contract, model, skill, family_id="quadruped")
+            assembly = build_family_skill(
+                contract, model, skill, family_id="quadruped",
+                init_base_height=args.init_base_height,
+            )
             entry["status"] = "assembled"
             entry["diagnostics"] = assembly.diagnostics
             if args.compare_profiles:

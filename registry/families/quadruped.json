@@ -284,6 +284,7 @@
       "足端 site（站姿类 handstand/leggedstand 与 spring_jump 需要；其余技能用足端几何名即可）",
       "腿杆 body 名 `<腿>_<角色>` 或具名腿杆碰撞几何（腿杆触地惩罚二选一，几何未具名时按 body 匹配）"
     ],
-    "verified_on": "b2（8/8 装配，7/7 与逐档档案解析等价）；一批新包（契约 + 标准位置 MJCF，零机型代码）：jump/backflip 装配并真训 1 轮通过，其余项给出具名能力缺口"
+    "verified_on": "b2 八项全部装配成功；把出生高按逐档档案钉齐后，jump / backflip / handstand 与包内档案的**字面差异只有执行器分组写法（1 项）**、**解析集相同**（执行器目标关节集合逐项相等）。一台新包（契约 + 标准位置 MJCF + 标准布局，零机型代码）：jump / backflip 装配并真训 1 轮通过，其余项按体检给出具名能力缺口。",
+    "init_base_height_policy": "**出生高**：通用装配按**默认姿 FK**推（把契约 `joints.default_pose` 灌进模型、量足端最低点到地面的距离 = 站立高），不做任何机型特判；逐档档案可在 `build_family_skill(..., init_base_height=…)` 钉死源配方值（b2 的 FK 站立高 0.5115 vs 逐档档案 0.54 —— 差的那点正是源配方参数）。"
   }
 }

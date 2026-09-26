@@ -350,7 +350,34 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
         register_mjlab_task(profile_task_id, profile_bundle[0], profile_bundle[1], profile_bundle[2], runner_cls=runner_cls)
         config["native_task_id"] = profile_task_id
         config["profile_task"] = True
-    if config.get("generic_task", True) and profile_bundle is None:
+    # **族级技能通用装配**（无档案时的第三支路）：这台机型的形态属于某个族、请求的任务又在
+    # 该族的装配表（`skill_catalog`）里 ⇒ 从契约 + 标准 MJCF 直接装配 —— 新机型（含导入）
+    # 不必写任何机型专属 Python 就能训族级技能。装配**不适用**时返回 None，流程原样往下走。
+    if profile_bundle is None:
+        from adapters.mjlab.family_skill_builder import try_build_family_skill_from_package
+
+        assembly = try_build_family_skill_from_package(
+            package.get("package_root") or Path(config.get("source_root", ".")).parent,
+            str(config.get("task_name") or ""),
+            contract_path=contract_path,
+        )
+        if assembly is not None:
+            from mjlab.tasks.registry import register_mjlab_task
+
+            family_task_id = str(
+                config.get("native_task_id") or f"LeggedStudio-{assembly.family_id}-{assembly.task_name}"
+            )
+            register_mjlab_task(
+                family_task_id, assembly.env_cfg, assembly.play_cfg, assembly.runner_cfg
+            )
+            config["native_task_id"] = family_task_id
+            config["family_skill_task"] = True
+            config["family_skill_diagnostics"] = assembly.diagnostics
+            # 平台下发的迭代数对族级技能也要生效（配置里给了就以它为准；没给就用族级 runner 的预算）。
+            # 档案路径的 runner 预算由档案自己声明，故这条只作用于通用装配出来的任务。
+            if config.get("max_iterations"):
+                assembly.runner_cfg.max_iterations = int(config["max_iterations"])
+    if config.get("generic_task", True) and profile_bundle is None and not config.get("family_skill_task"):
         if not contract_path:
             raise ValueError("generic MJLab task requires contract_path")
         from contracts.contract_legacy_v2 import ContractLegacyV2

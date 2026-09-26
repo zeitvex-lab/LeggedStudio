@@ -23,6 +23,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -108,15 +109,57 @@ def family_skill_catalog(family_id: str) -> dict[str, FamilySkillRecipe]:
 
 
 def _root_body_height(spec_fn: Callable[[], Any]) -> float:
-    """MJCF 根 body 的 `pos[2]`（标准 MJCF 对"站立高"最直接的表达）。"""
+    """MJCF 根 body 的 `pos[2]`（**建模基准**，不是站立高；只作最后的兜底并如实标注）。"""
     bodies = list(spec_fn().worldbody.bodies)
     if not bodies:
         raise RuntimeError("MJCF 的 worldbody 没有子 body —— 取不到站立高")
     return float(bodies[0].pos[2])
 
 
+def _standing_height_by_fk(contract: Any, spec_fn: Callable[[], Any]) -> float | None:
+    """**站立高 = 默认姿 FK 后把最低足端放到地面上所需的高度**。
+
+    为什么用这个口径：标准 MJCF 的根 body `pos[2]` 只是建模基准（b2 是 0.8，而它真正的
+    训练出生高是 0.54），契约里也没有出生高字段。把契约 `joints.default_pose` 灌进模型、
+    做一次 FK、量足端最低点到地面的距离 —— 这才是"这台机器人站着多高"的可计算答案，
+    且只用标准 MJCF + 契约（不需要任何机型 Python）。
+    """
+    import mujoco
+
+    joint_order = [str(item) for item in ((contract.get("action") or {}).get("joint_order") or ())]
+    pose = [float(x) for x in ((contract.get("joints") or {}).get("default_pose") or ())]
+    if not joint_order or len(pose) != len(joint_order):
+        return None
+    model = spec_fn().compile()
+    data = mujoco.MjData(model)
+    for name, value in zip(joint_order, pose):
+        address = next(
+            (index for index in range(model.njnt) if model.joint(index).name == name), None
+        )
+        if address is None or model.jnt_type[address] == mujoco.mjtJoint.mjJNT_FREE:
+            continue
+        data.qpos[int(model.jnt_qposadr[address])] = value
+    # 先把根放到 1 m 高处做 FK（保证不穿地），再量足端最低点
+    free = next(
+        (index for index in range(model.njnt) if model.jnt_type[index] == mujoco.mjtJoint.mjJNT_FREE),
+        None,
+    )
+    if free is None:
+        return None
+    data.qpos[int(model.jnt_qposadr[free]) + 2] = 1.0
+    mujoco.mj_forward(model, data)
+    names = [model.geom(index).name for index in range(model.ngeom)]
+    feet = [index for index, name in enumerate(names) if name and "foot" in name.lower()]
+    candidates = feet or list(range(model.ngeom))
+    lowest = min(float(data.geom_xpos[index][2]) for index in candidates)
+    return round(1.0 - lowest, 4)
+
+
 def _initial_height(contract: Any, spec_fn: Callable[[], Any]) -> tuple[float, str]:
-    """出生高：契约写了就用契约的，否则取 MJCF 根 body 的 z（两种都如实标出处）。"""
+    """出生高（按可信度排序，各自如实标出处）。
+
+    ① 契约显式声明 → ② **默认姿 FK 的站立高**（主口径）→ ③ MJCF 根 body `pos[2]`（建模基准，兜底）。
+    """
     for path in ("initial_state.pos", "joints.init_state.pos", "init_state.pos"):
         node: Any = contract
         for part in path.split("."):
@@ -125,7 +168,13 @@ def _initial_height(contract: Any, spec_fn: Callable[[], Any]) -> tuple[float, s
                 break
         if isinstance(node, (list, tuple)) and len(node) >= 3:
             return float(node[2]), f"契约 {path}[2]"
-    return _root_body_height(spec_fn), "MJCF 根 body pos[2]"
+    try:
+        standing = _standing_height_by_fk(contract, spec_fn)
+    except Exception:  # noqa: BLE001 - FK 失败就落到兜底，不阻断装配
+        standing = None
+    if standing:
+        return float(standing), "默认姿 FK：把最低足端放到地面（站立高）"
+    return _root_body_height(spec_fn), "MJCF 根 body pos[2]（建模基准，**未标定**）"
 
 
 def build_family_skill(
@@ -135,6 +184,7 @@ def build_family_skill(
     *,
     family_id: str = "quadruped",
     profile_overrides: dict[str, Any] | None = None,
+    init_base_height: float | None = None,
     play: bool = False,
 ) -> FamilySkillAssembly:
     """用**契约 + MJCF**装配一个族级技能（不需要任何机型专属 Python 文件）。"""
@@ -183,7 +233,10 @@ def build_family_skill(
             f"`mjcf_conventions.actuator_binding`）。标准 MJCF 把执行器写成 "
             f"`<position joint=... kp=... kv=.../>` 即可通过；effort 模式的资产需要另立动作档。"
         )
-    init_height, height_source = _initial_height(contract, spec_fn)
+    if init_base_height is not None:
+        init_height, height_source = float(init_base_height), "调用方显式给定"
+    else:
+        init_height, height_source = _initial_height(contract, spec_fn)
     binding = from_contract(
         contract,
         spec_fn=spec_fn,
@@ -355,10 +408,101 @@ def robot_capabilities(contract: dict, model_path: str | Path, *, family_id: str
         },
     }
 
+
+def candidate_families(contract: dict) -> tuple[str, ...]:
+    """这台机型的形态落在哪些族里（按契约 `morphology.id` 对族注册表的 `morphology_ids`）。
+
+    与 `audit_families` 的成员判定同一条口径：**从契约派生**，不看机型名。
+    """
+    from .kits.quadruped_kit.skills import family as family_roles
+
+    morphology = str((contract.get("morphology") or {}).get("id") or "")
+    if not morphology:
+        return ()
+    root = family_roles.repo_root() / family_roles.FAMILY_DIR_NAME[0] / family_roles.FAMILY_DIR_NAME[1]
+    index = json.loads((root / "index.json").read_text(encoding="utf-8-sig"))
+    found: list[str] = []
+    for entry in index.get("families") or ():
+        path = root / str(entry.get("path"))
+        if not path.is_file():
+            continue
+        document = json.loads(path.read_text(encoding="utf-8-sig"))
+        family_id = str(document.get("family_id") or "")
+        if morphology in {str(item) for item in (document.get("morphology_ids") or ())}:
+            found.append(family_id)
+    return tuple(found)
+
+
+def resolve_package_assets(package_root: str | Path, contract_path: str | Path | None = None) -> tuple[dict, Path, str]:
+    """从**包目录**解析 (契约, MJCF 路径, 用了哪份契约)。
+
+    与 `tools/validate_family_skill_assembly.py` 同一口径：v3 契约优先、导入包常只有
+    `contract_legacy_v2.json`；MJCF 依次看包清单 `model.path` → 契约 `urdf.path` →
+    标准布局 `model/robot.xml` / `robot.xml`。
+    """
+    package = Path(package_root)
+    contracts = [Path(contract_path)] if contract_path else []
+    contracts += [package / "contract.json", package / "contract_legacy_v2.json"]
+    for candidate in contracts:
+        if candidate.is_file():
+            contract = json.loads(candidate.read_text(encoding="utf-8-sig"))
+            used = candidate.name
+            break
+    else:
+        raise FileNotFoundError(f"{package} 里没有契约（contract.json / contract_legacy_v2.json）")
+
+    manifest = package / "robot_package.json"
+    if manifest.is_file():
+        model = (json.loads(manifest.read_text(encoding="utf-8-sig")).get("model") or {}).get("path")
+        if model and (package / model).is_file():
+            return contract, (package / model).resolve(), used
+    raw = str(((contract.get("urdf") or {}).get("path") or "")).strip()
+    if raw:
+        for candidate in (Path(raw), package / raw):
+            if candidate.is_file():
+                return contract, candidate.resolve(), used
+    for candidate in (package / "model" / "robot.xml", package / "robot.xml"):
+        if candidate.is_file():
+            return contract, candidate.resolve(), used
+    raise FileNotFoundError(f"{package} 里找不到 MJCF（清单/契约/标准布局都没命中）")
+
+
+def try_build_family_skill_from_package(
+    package_root: str | Path,
+    task_name: str,
+    *,
+    contract_path: str | Path | None = None,
+    profile_overrides: dict[str, Any] | None = None,
+) -> FamilySkillAssembly | None:
+    """**训练服务的入口**：无档案时按族装配表把任务建出来；不适用则返回 None（不干预既有流程）。
+
+    "不适用"= 解析不出契约/MJCF、或该形态的族里没有这个任务 —— 这两种情况都**不抛错**，
+    交给调用方走它原来的分支（generic 路径 / 报"任务不存在"）。**装配过程中的真错照抛**
+    （缺能力/缺资产），因为它们正是要让人看见的结论。
+    """
+    try:
+        contract, model, _used = resolve_package_assets(package_root, contract_path)
+    except FileNotFoundError:
+        return None
+    for family_id in candidate_families(contract):
+        try:
+            recipes = family_skill_catalog(family_id)
+        except ValueError:
+            continue
+        if task_name in recipes:
+            return build_family_skill(
+                contract, model, task_name,
+                family_id=family_id, profile_overrides=profile_overrides,
+            )
+    return None
+
 __all__ = [
     "FamilySkillAssembly",
     "FamilySkillRecipe",
     "build_family_skill",
     "family_skill_catalog",
+    "candidate_families",
+    "resolve_package_assets",
     "robot_capabilities",
+    "try_build_family_skill_from_package",
 ]

@@ -63,7 +63,7 @@ echo "== 训练栈适配器测试（adapters/mjlab，纯 CPU、1~2 环境） =="
 "$PY" -m unittest \
     adapters.mjlab.test_action_order_matches_contract \
     adapters.mjlab.test_joint_actions \
-    adapters.mjlab.test_quadruped_velocity_skill \
+    adapters.mjlab.test_family_skill_assembly \n    adapters.mjlab.test_quadruped_velocity_skill \
     adapters.mjlab.test_quadruped_stance_skill \
     adapters.mjlab.test_wheel_leg_velocity_skill
 
