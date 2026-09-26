@@ -166,12 +166,6 @@ def base_height(env, target_height: float) -> torch.Tensor:
   return torch.square(robot.data.root_link_pos_w[:, 2] - target_height)
 
 
-def default_hip_pos(env) -> torch.Tensor:
-  robot: Entity = env.scene["robot"]
-  pos = robot.data.joint_pos[:, joint_ids(env)]
-  return torch.abs(pos[:, (0, 3, 6, 9)]).sum(dim=1)
-
-
 def default_pos(env) -> torch.Tensor:
   robot: Entity = env.scene["robot"]
   ids = joint_ids(env)
@@ -184,31 +178,6 @@ def contact_without_command(env, sensor_name: str, command_name: str) -> torch.T
   sensor: ContactSensor = env.scene[sensor_name]
   all_contact = source_contact(sensor, 0.1).sum(dim=1) == 4
   return all_contact * ~moving(env, command_name)
-
-
-def feet_clearance(
-  env, command_name: str, cycle_time: float, target_foot_height: float
-) -> torch.Tensor:
-  robot: Entity = env.scene["robot"]
-  site_ids, names = robot.find_sites(("FL", "FR", "RL", "RR"), preserve_order=True)
-  if tuple(names) != ("FL", "FR", "RL", "RR"):
-    raise RuntimeError(f"Go2 foot site order mismatch: {names}")
-  height = robot.data.site_pos_w[:, site_ids, 2] - 0.02
-  diagonal_a = height[:, (0, 3)]
-  diagonal_b = height[:, (1, 2)]
-  swing = 1.0 - stance_mask(env, cycle_time)
-  target = (
-    (torch.abs(torch.sin(2.0 * torch.pi * phase(env, cycle_time))) * target_foot_height)
-    .unsqueeze(1)
-    .repeat(1, 2)
-  )
-  reward = torch.exp(
-    -10.0 * (torch.abs(diagonal_a - target) * swing[:, 0:1]).sum(dim=1)
-  )
-  reward += torch.exp(
-    -10.0 * (torch.abs(diagonal_b - target) * swing[:, 1:2]).sum(dim=1)
-  )
-  return reward * moving(env, command_name)
 
 
 # Jump uses a different family of reward equations despite sharing names with Trot.
@@ -304,27 +273,6 @@ def jump_contact_match(
   )
   expected = jump_stance_mask(env, cycle_time)[:, 0].bool()
   return all_equal & (contact[:, 3] == expected) & moving(env, command_name)
-
-
-def jump_feet_clearance(
-  env, command_name: str, cycle_time: float, max_height: float
-) -> torch.Tensor:
-  robot: Entity = env.scene["robot"]
-  site_ids, names = robot.find_sites(("FL", "FR", "RL", "RR"), preserve_order=True)
-  if tuple(names) != ("FL", "FR", "RL", "RR"):
-    raise RuntimeError(f"Go2 foot site order mismatch: {names}")
-  feet_height = (robot.data.site_pos_w[:, site_ids, 2] - 0.02).clamp(
-    min=0.0, max=max_height
-  )
-  swing = 1.0 - jump_stance_mask(env, cycle_time)[:, :1]
-  return (feet_height * swing).sum(dim=1) * moving(env, command_name)
-
-
-def jump_default_hip_pos(env) -> torch.Tensor:
-  robot: Entity = env.scene["robot"]
-  pos = robot.data.joint_pos[:, joint_ids(env)]
-  hip_error = torch.abs(pos[:, (0, 3, 6, 9)]).sum(dim=1)
-  return torch.exp(-4.0 * hip_error)
 
 
 # Rear Stand intentionally retains its source's positive exponential "penalties"
@@ -426,19 +374,22 @@ def rear_stand_default_pos_reward(env) -> torch.Tensor:
   return torch.exp(-error[:, :6].sum(dim=1)) * rear_stand_gate(env)
 
 
-def rear_stand_default_hip_pos(env) -> torch.Tensor:
+def rear_stand_default_hip_pos(env, hip_columns: tuple[int, ...]) -> torch.Tensor:
   robot: Entity = env.scene["robot"]
   pos = robot.data.joint_pos[:, joint_ids(env)]
-  return torch.abs(pos[:, (0, 3, 6, 9)]).sum(dim=1)
+  return torch.abs(pos[:, hip_columns]).sum(dim=1)
 
 
 def rear_stand_feet_clearance(
-  env, cycle_time: float, target_foot_height: float
+  env,
+  cycle_time: float,
+  target_foot_height: float,
+  foot_sites: tuple[str, ...],
 ) -> torch.Tensor:
   robot: Entity = env.scene["robot"]
-  site_ids, names = robot.find_sites(("FL", "FR", "RL", "RR"), preserve_order=True)
-  if tuple(names) != ("FL", "FR", "RL", "RR"):
-    raise RuntimeError(f"Go2 foot site order mismatch: {names}")
+  site_ids, names = robot.find_sites(foot_sites, preserve_order=True)
+  if tuple(names) != tuple(foot_sites):
+    raise RuntimeError(f"foot site order mismatch: {names}")
   rear_height = robot.data.site_pos_w[:, site_ids[2:4], 2] - 0.02
   gait_phase = phase(env, cycle_time)
   swing = 1.0 - stance_mask(env, cycle_time)
@@ -459,11 +410,17 @@ def rear_stand_rear_contact(env, sensor_name: str) -> torch.Tensor:
   return (contact.sum(dim=1) == 1) * rear_stand_gate(env)
 
 
-def rear_stand_symmetric_joints(env) -> torch.Tensor:
+def rear_stand_symmetric_joints(
+  env,
+  legs: int,
+  roles: int,
+  abduction_column: int,
+  mirror_leg_indices: tuple[int, ...],
+) -> torch.Tensor:
   robot: Entity = env.scene["robot"]
-  dof = robot.data.joint_pos[:, joint_ids(env)].clone().view(env.num_envs, 4, 3)
-  dof[:, 1, 0] *= -1.0
-  dof[:, 3, 0] *= -1.0
+  dof = robot.data.joint_pos[:, joint_ids(env)].clone().view(env.num_envs, legs, roles)
+  for index in mirror_leg_indices:
+    dof[:, index, abduction_column] *= -1.0
   error = torch.abs(dof[:, 0] - dof[:, 1]).sum(dim=1)
   error += torch.abs(dof[:, 2] - dof[:, 3]).sum(dim=1)
   return error * rear_stand_gate(env)
@@ -474,17 +431,19 @@ def rear_stand_orientation_symmetry(env) -> torch.Tensor:
   return torch.square(robot.data.projected_gravity_b[:, 1])
 
 
-def rear_stand_feet_height_symmetry(env) -> torch.Tensor:
+def rear_stand_feet_height_symmetry(env, foot_sites: tuple[str, ...]) -> torch.Tensor:
   robot: Entity = env.scene["robot"]
-  site_ids, _ = robot.find_sites(("FL", "FR"), preserve_order=True)
+  site_ids, _ = robot.find_sites(foot_sites, preserve_order=True)
+  site_ids = site_ids[:2]
   return torch.abs(
     robot.data.site_pos_w[:, site_ids[0], 2] - robot.data.site_pos_w[:, site_ids[1], 2]
   )
 
 
-def rear_stand_front_feet_height_exp(env) -> torch.Tensor:
+def rear_stand_front_feet_height_exp(env, foot_sites: tuple[str, ...]) -> torch.Tensor:
   robot: Entity = env.scene["robot"]
-  site_ids, _ = robot.find_sites(("FL", "FR"), preserve_order=True)
+  site_ids, _ = robot.find_sites(foot_sites, preserve_order=True)
+  site_ids = site_ids[:2]
   error = torch.abs(robot.data.site_pos_w[:, site_ids, 2] - 0.67).sum(dim=1)
   return torch.exp(-10.0 * error)
 
@@ -519,6 +478,7 @@ def handstand_from_zero_guidance(
   target_foot_height: float,
   initial_base_height: float,
   target_base_height: float,
+  foot_sites: tuple[str, ...],
 ) -> torch.Tensor:
   """Dense moving-target curriculum that vanishes at the final objective."""
   step = float(env.common_step_counter)
@@ -538,9 +498,10 @@ def handstand_from_zero_guidance(
   )
   orientation_reward = torch.exp(-2.0 * orientation_error)
 
-  site_ids, names = robot.find_sites(("RL", "RR"), preserve_order=True)
-  if tuple(names) != ("RL", "RR"):
-    raise RuntimeError(f"Go2 rear-foot site order mismatch: {names}")
+  site_ids, names = robot.find_sites(foot_sites, preserve_order=True)
+  if tuple(names) != tuple(foot_sites):
+    raise RuntimeError(f"foot site order mismatch: {names}")
+  site_ids = site_ids[-2:]
   height_target = initial_foot_height + target_progress * (
     target_foot_height - initial_foot_height
   )
@@ -656,20 +617,24 @@ def handstand_default_pos_reward(env) -> torch.Tensor:
   return torch.exp(-error[:, 6:].sum(dim=1)) * handstand_gate(env)
 
 
-def handstand_default_hip_pos(env) -> torch.Tensor:
+def handstand_default_hip_pos(env, hip_columns: tuple[int, ...]) -> torch.Tensor:
   robot: Entity = env.scene["robot"]
-  return torch.abs(robot.data.joint_pos[:, joint_ids(env)][:, (0, 3, 6, 9)]).sum(
+  return torch.abs(robot.data.joint_pos[:, joint_ids(env)][:, hip_columns]).sum(
     dim=1
   )
 
 
 def handstand_feet_clearance(
-  env, cycle_time: float, target_foot_height: float
+  env,
+  cycle_time: float,
+  target_foot_height: float,
+  foot_sites: tuple[str, ...],
 ) -> torch.Tensor:
   robot: Entity = env.scene["robot"]
-  site_ids, names = robot.find_sites(("FL", "FR"), preserve_order=True)
-  if tuple(names) != ("FL", "FR"):
-    raise RuntimeError(f"Go2 front-foot site order mismatch: {names}")
+  site_ids, names = robot.find_sites(foot_sites, preserve_order=True)
+  if tuple(names) != tuple(foot_sites):
+    raise RuntimeError(f"foot site order mismatch: {names}")
+  site_ids = site_ids[:2]
   height = robot.data.site_pos_w[:, site_ids, 2] - 0.02
   gait_phase = phase(env, cycle_time)
   swing = 1.0 - stance_mask(env, cycle_time)
@@ -690,20 +655,27 @@ def handstand_front_contact(env, sensor_name: str) -> torch.Tensor:
   return (contact.sum(dim=1) == 1) * handstand_gate(env)
 
 
-def handstand_symmetric_joints(env) -> torch.Tensor:
+def handstand_symmetric_joints(
+  env,
+  legs: int,
+  roles: int,
+  abduction_column: int,
+  mirror_leg_indices: tuple[int, ...],
+) -> torch.Tensor:
   robot: Entity = env.scene["robot"]
-  dof = robot.data.joint_pos[:, joint_ids(env)].clone().view(env.num_envs, 4, 3)
-  dof[:, 1, 0] *= -1.0
-  dof[:, 3, 0] *= -1.0
+  dof = robot.data.joint_pos[:, joint_ids(env)].clone().view(env.num_envs, legs, roles)
+  for index in mirror_leg_indices:
+    dof[:, index, abduction_column] *= -1.0
   error = torch.abs(dof[:, 2] - dof[:, 3]).sum(dim=1)
   return error * handstand_gate(env)
 
 
-def handstand_rear_feet_height_exp(env) -> torch.Tensor:
+def handstand_rear_feet_height_exp(env, foot_sites: tuple[str, ...]) -> torch.Tensor:
   robot: Entity = env.scene["robot"]
-  site_ids, names = robot.find_sites(("RL", "RR"), preserve_order=True)
-  if tuple(names) != ("RL", "RR"):
-    raise RuntimeError(f"Go2 rear-foot site order mismatch: {names}")
+  site_ids, names = robot.find_sites(foot_sites, preserve_order=True)
+  if tuple(names) != tuple(foot_sites):
+    raise RuntimeError(f"foot site order mismatch: {names}")
+  site_ids = site_ids[-2:]
   error = torch.abs(robot.data.site_pos_w[:, site_ids, 2] - 0.67).sum(dim=1)
   return torch.exp(-10.0 * error)
 

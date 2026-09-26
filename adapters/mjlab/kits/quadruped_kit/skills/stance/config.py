@@ -91,13 +91,24 @@ def _command_cfg(profile: StanceProfile) -> UniformVelocityCommandCfg:
     )
 
 
-def _rewards(profile: StanceProfile) -> dict[str, RewardTermCfg]:
+def _rewards(
+  binding: QuadrupedSkillBinding, profile: StanceProfile
+) -> dict[str, RewardTermCfg]:
     """两张奖励表（源 `_handstand_rewards` / `_rear_stand_rewards` 逐项照搬）。
 
     两档共用的项（跟踪 / 姿态 / 力矩 / 落地 / 默认姿 …）在这里只写一次，
     差异项按变体补 —— 这样"两档差在哪"在一处可读。
     """
     r = stance_rewards
+    # 奖励核要用的**机型事实**一律从绑定派生（源实现写死 go2 的名字与下标）：
+    # 足端 site（按契约腿序；没有足端 site 的资产在这里就是能力缺口，不静默换口径）、
+    # 髋外展列、腿数×角色数、镜像腿对（含 R 不含 L）。
+    hip_columns = binding.role_joint_indices("hip_abduction")
+    legs = binding.legs
+    roles = len(binding.leg_pattern)
+    foot_sites = binding.foot_sites()
+    mirror_leg_indices = binding.right_leg_indices()
+    shape = {"legs": legs, "roles": roles, "abduction_column": hip_columns[0] % roles}
     common = {
         "tracking_lin_vel": RewardTermCfg(
             func=getattr(r, f"{profile.variant}_tracking_lin_vel"),
@@ -141,7 +152,9 @@ def _rewards(profile: StanceProfile) -> dict[str, RewardTermCfg]:
             weight=-0.1 if profile.variant == "rear_stand" else -0.05,
         ),
         "default_hip_pos": RewardTermCfg(
-            func=getattr(r, f"{profile.variant}_default_hip_pos"), weight=-0.1
+            func=getattr(r, f"{profile.variant}_default_hip_pos"),
+            weight=-0.1,
+            params={"hip_columns": hip_columns},
         ),
         "feet_clearance": RewardTermCfg(
             func=getattr(r, f"{profile.variant}_feet_clearance"),
@@ -149,6 +162,7 @@ def _rewards(profile: StanceProfile) -> dict[str, RewardTermCfg]:
             params={
                 "cycle_time": profile.cycle_time,
                 "target_foot_height": profile.target_foot_height,
+                "foot_sites": foot_sites,
             },
         ),
         "ang_xz": RewardTermCfg(
@@ -160,11 +174,14 @@ def _rewards(profile: StanceProfile) -> dict[str, RewardTermCfg]:
             params={"sensor_name": FEET_SENSOR},
         ),
         "symmetric_joints": RewardTermCfg(
-            func=getattr(r, f"{profile.variant}_symmetric_joints"), weight=-0.1
+            func=getattr(r, f"{profile.variant}_symmetric_joints"),
+            weight=-0.1,
+            params={**shape, "mirror_leg_indices": mirror_leg_indices},
         ),
         "feet_height_exp": RewardTermCfg(
             func=getattr(r, f"{profile.variant}_{_ENDS[profile.variant]['height_exp']}_feet_height_exp"),
             weight=5.0,
+            params={"foot_sites": foot_sites},
         ),
         "default_pos_reward": RewardTermCfg(
             func=getattr(r, f"{profile.variant}_default_pos_reward"), weight=0.5
@@ -182,7 +199,9 @@ def _rewards(profile: StanceProfile) -> dict[str, RewardTermCfg]:
             func=r.rear_stand_orientation_symmetry, weight=-0.5
         )
         common["feet_height_symmetry"] = RewardTermCfg(
-            func=r.rear_stand_feet_height_symmetry, weight=-0.2
+            func=r.rear_stand_feet_height_symmetry,
+            weight=-0.2,
+            params={"foot_sites": foot_sites},
         )
         common["dof_pos_limits"] = RewardTermCfg(
             func=r.rear_stand_dof_pos_limits, weight=-2.0
@@ -223,6 +242,7 @@ def _rewards(profile: StanceProfile) -> dict[str, RewardTermCfg]:
                 "target_foot_height": 0.67,
                 "initial_base_height": 0.30,
                 "target_base_height": profile.base_height_target,
+                "foot_sites": foot_sites,
             },
         ),
     }
@@ -422,7 +442,7 @@ def make_env_cfg(
             enable_corruption=False,
         ),
     }
-    cfg.rewards = _rewards(profile)
+    cfg.rewards = _rewards(binding, profile)
     _events(cfg, binding, profile)
     cfg.terminations = {
         "time_out": TerminationTermCfg(func=env_mdp.time_out, time_out=True),

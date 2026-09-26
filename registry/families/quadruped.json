@@ -64,7 +64,7 @@
       "skill_id": "velocity",
       "display_name": "速度跟踪",
       "status": "generic",
-      "summary": "族级通用：任务变体表来自 registry/skills/velocity_base.json，奖励预设与观测由 Kit 与契约数据装配，任一成员可直接训。",
+      "summary": "族级通用：任务变体表来自 registry/skills/velocity_base.json，奖励预设与观测由 Kit 与契约数据装配，任一成员可直接训。**2026-09-26**：`trot` 档已铺到四台四足（go2 / go1 / b2 / lite3，均族级 trot 技能 + 各自绑定）。",
       "terrain_profiles": [
         "plane",
         "rough",
@@ -138,7 +138,7 @@
       "skill_id": "stunt",
       "display_name": "特技",
       "status": "robot-specific",
-      "summary": "特技/极限姿态（后空翻、跳跃、弹簧跳、倒立、三足站立）：五项**实现均已族级化**（`adapters/mjlab/kits/quadruped_kit/skills/`：trot + jump + spring_jump + backflip + stance，后两项各含两个变体档）—— 机型侧只剩绑定与数据。**档案覆盖（2026-09-26）**：go2 五项全有；go1 有 jump / backflip；b2 有 jump / spring_jump / backflip / handstand / leggedstand；lite3 有 jump / backflip —— **四台机型都能训族级特技**，且除 go2 外全是「复用档」（未按各自机身标定）。",
+      "summary": "特技/极限姿态（后空翻、跳跃、弹簧跳、倒立、三足站立）：五项**实现均已族级化**（`adapters/mjlab/kits/quadruped_kit/skills/`：trot + jump + spring_jump + backflip + stance，后两项各含两个变体档）—— 机型侧只剩绑定与数据。**档案覆盖（2026-09-26）**：go2 五项全有；go1 有 jump / backflip / trot；b2 有 jump / trot / spring_jump / backflip / handstand / leggedstand；lite3 有 jump / backflip / trot。",
       "terrain_profiles": [
         "plane"
       ],
@@ -155,7 +155,7 @@
         "unitree_b2",
         "deeprobotics_lite3"
       ],
-      "gap": "剩余缺口：①**复用档未标定** —— 除 go2 外各档的高度类目标（飞行 / 站姿 / `base_height_target`）与接触力、速度阈值、启动 DR 区间都取自 go2 几何（站姿 0.42 m）与质量量级：b2 站姿 0.54 m、lite3 0.3 m、go1 0.42 m，**能训 ≠ 训得好**（逐档登记在 `registry/porting_references.json`）；②**能力差异如实留痕**：spring_jump 需要足端 site，go1 / lite3 没有 ⇒ 这两台在这项技能上是能力缺口（b2 有 site，已接档）；③go1 的 `contract.default_pose` 与它 velocity 任务的初始姿（HIMLoco 口径）符号相反，属未裁决项。"
+      "gap": "剩余缺口：①**复用档未标定** —— 除 go2 外各档的高度类目标（飞行 / 站姿 / `base_height_target`）与接触力、速度阈值、启动 DR 区间都取自 go2 几何（站姿 0.42 m）与质量量级，四台站姿各不相同（0.42 / 0.54 / 0.3 / 0.42），**能训 ≠ 训得好**（逐档登记在 `registry/porting_references.json`）；②**能力差异如实留痕**：站姿类（handstand / leggedstand）与 spring_jump 都**需要足端 site**（奖励核按 site 取足端高度）——go1 / lite3 的 MJCF 没有足端 site ⇒ 这两台在这三项技能上是能力缺口（b2 有 site，已接档）；③go1 的 `contract.default_pose` 与它 velocity 任务的初始姿（HIMLoco 口径）符号相反，属未裁决项。"
     }
   ],
   "mjcf_conventions": {
