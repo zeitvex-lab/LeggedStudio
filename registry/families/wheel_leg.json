@@ -170,17 +170,15 @@
     "velocity": {
       "env": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.config:make_env_cfg",
       "runner": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.config:make_runner_cfg",
-      "profile": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.profile:VelocityProfile",
       "derive": [
         "init_base_height",
         "wheel_radius",
         "wheel_track"
       ],
-      "requires": [
-        "imu_sensors"
-      ],
-      "note": "族级轮足 velocity（reference 配方，配方档走 `make_env_cfg` 的默认 variant）；轮足的 profile 需要轮半径/轮距 ⇒ 由装配器从 MJCF 的轮 body（名含 `wheel`）与其几何派生。official / competition 两个配方共用同一个 `make_env_cfg(..., variant=…)`，需要用它们的 profile 数据类（OfficialVelocityProfile / CompetitionVelocityProfile）再挂装配表项。",
-      "verified": "**部分验证（2026-09-26）**：装配表与派生都通了 —— 出生高（默认姿 FK）、轮半径/轮距（从名含 `wheel` 的轮 body 与其几何派生）对四台都算得出，且 b2w 派生的 0.113 / 0.3833 与该机型登记的真值（F7 条目里的约 0.113 / 约 0.383）**一致**。**但端到端装配尚未打通**：卡在「通用路径的 spec/实体对」与「包内 spec/实体对」的差异上 —— 同一份契约与绑定工厂，用 b2w 包内 get_spec + base_entity_cfg 能建成绑定，用通用路径（generic_task_builder.make_spec_fn + build_entity_cfg）则报「几何里找不到腿 FR 的足端几何」（轮足族的接触是「轮 = 足」，而这两台的几何全无名）。下一步：把两边的 spec/实体对逐项对拍，定位是执行器谱还是几何命名口径的差异。"
+      "note": "族级轮足 velocity（reference 配方的**平地档**）：机型只交三样事实（出生高 / 轮半径 / 轮距，`derive` 声明由装配器从契约 + MJCF 派生），其余用参考配方常量（`reference_flat_profile`）。rough / official / competition 等档位按同一先例挂新装配表项即可。",
+      "verified": "**装配四台全通（2026-09-26）**：`unitree_b2w` / `unitree_go2w` / `deeprobotics_m20` / `zex-w` 都只凭契约 + MJCF（标准位置/速度执行器、轮 body 名含 `wheel`）装配出轮足 velocity 的 env/runner，机型侧零 Python；其中 b2w / m20 与包内逐档档案对拍**解析集相同**（字面差异是执行器分组写法），go2w / zex-w 因档案 `task_name` 不是 `velocity` 跳过对拍。派生的事实：出生高（默认姿 FK）、轮半径/轮距（轮 body 与其几何；b2w 得 0.113 / 0.3833，与 F7 记的真值一致）、`actuator_binding`（执行器全在 MJCF ⇒ `mjcf_wrapped`，b2w 正是这一类）。**真训仍卡一处**：`b2w` 真跑 1 轮报 `nconmax overflow (nconmax must be >= 40)` —— 族配方需要按资产声明 sim 规模（`VelocityProfile.sim` 的 SimOverride 口径），下一步把「sim 规模」也纳入装配表声明或派生，再做真训验收。",
+      "requires_note": "**不声明 `requires`**：轮足 velocity 的观测/传感器口径与四足不同，四足那条 `imu_sensors` 是抄来的、在本族被实测证伪（b2w/m20/go2w 都没有按名保留的 imu_lin_vel/imu_ang_vel，却能训）。待把本族的资产能力需求（轮-地接触几何命名等）量清后再声明。",
+      "profile_factory": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.profile:reference_flat_profile"
     }
   },
   "skill_catalog_note": "族级技能的**装配表**（通用装配器 `adapters/mjlab/family_skill_builder.py` 读它）：按 `task_name` 声明env/runner 工厂与 profile 数据类；`derive` 声明「哪些 profile 参数由机型事实派生」（出生高 = 默认姿 FK 的站立高；轮半径/轮距 = 轮 body 与其几何）；`requires` 声明依赖哪些资产能力。新机型（含导入）只要契约 + 标准 MJCF 即可用这些技能，不需要机型专属 Python。"

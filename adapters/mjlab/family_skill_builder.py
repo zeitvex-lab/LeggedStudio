@@ -63,6 +63,7 @@ class FamilySkillRecipe:
     env: str
     runner: str
     profile: str
+    profile_factory: str
     profile_kwargs: dict[str, Any]
     factory_kwargs: dict[str, Any]
     adaptive_switches: dict[str, str]
@@ -105,7 +106,9 @@ def family_skill_catalog(family_id: str) -> dict[str, FamilySkillRecipe]:
     for task_name, item in catalog.items():
         if not isinstance(item, dict):
             raise ValueError(f"{family_id}/{task_name}: 装配表项必须是对象")
-        missing = [key for key in ("env", "runner", "profile") if not item.get(key)]
+        missing = [key for key in ("env", "runner") if not item.get(key)]
+        if not (item.get("profile") or item.get("profile_factory")):
+            missing.append("profile 或 profile_factory")
         if missing:
             raise ValueError(f"{family_id}/{task_name}: 装配表项缺 {missing}")
         recipes[str(task_name)] = FamilySkillRecipe(
@@ -113,7 +116,8 @@ def family_skill_catalog(family_id: str) -> dict[str, FamilySkillRecipe]:
             family_id=family_id,
             env=str(item["env"]),
             runner=str(item["runner"]),
-            profile=str(item["profile"]),
+            profile=str(item.get("profile") or ""),
+            profile_factory=str(item.get("profile_factory") or ""),
             profile_kwargs=dict(item.get("profile_kwargs") or {}),
             factory_kwargs=dict(item.get("factory_kwargs") or {}),
             adaptive_switches=dict(item.get("adaptive_switches") or {}),
@@ -169,6 +173,29 @@ def _standing_height_by_fk(contract: Any, spec_fn: Callable[[], Any]) -> float |
     candidates = feet or list(range(model.ngeom))
     lowest = min(float(data.geom_xpos[index][2]) for index in candidates)
     return round(1.0 - lowest, 4)
+
+
+def contract_actuator_modes(contract: dict, joint_order: Sequence[str]) -> dict[str, str]:
+    """契约声明的**逐关节执行模式**（`actuator_profile.by_role[<角色>].mode`）。
+
+    角色词来自契约 `morphology.leg_pattern`，关节按"名字尾段含该角色词"归属 —— 与族里
+    `contract_role_of_joint` 同一口径，但对**任意族**成立（轮足的角色表多一个 `wheel`）。
+    `mode` 缺省时回落 `morphology.actuator_type`（`hybrid` 这种"多模式"标记不算模式，跳过）。
+    """
+    morphology = contract.get("morphology") or {}
+    pattern = [str(role) for role in (morphology.get("leg_pattern") or ())]
+    by_role = (contract.get("actuator_profile") or {}).get("by_role") or {}
+    fallback = str(morphology.get("actuator_type") or "")
+    modes: dict[str, str] = {}
+    for joint in joint_order:
+        name = str(joint)
+        role = next((r for r in pattern if r.lower() in name.lower()), None)
+        mode = str((by_role.get(role) or {}).get("mode") or "") if role else ""
+        if not mode and fallback and fallback != "hybrid":
+            mode = fallback
+        if mode:
+            modes[name] = mode
+    return modes
 
 
 def _default_pose_fk(contract: Any, spec_fn: Callable[[], Any]):
@@ -326,24 +353,46 @@ def build_family_skill(
     # **前置条件：位置执行器**。族级技能的动作项是位置控制配方（`joint_pos` + 默认姿 offset），
     # 执行器是 effort 模式（MJCF 里写 `<motor>`）的资产在这里就明确拒绝 —— 说清"差什么、怎么补"，
     # 而不是让它跑到 DR 事件里再抛一句看不懂的话。
-    fields = dict(actuator_report.get("xml_command_fields") or {})
-    non_position = {joint: mode for joint, mode in fields.items() if mode != "position"}
-    if non_position:
+    # 前置条件：**契约声明的执行模式必须与 MJCF 实际一致**（不假设"全位置"——轮足族
+    # 本来就是"腿位置 + 轮速度"，契约的 `by_role[<角色>].mode` 说得很清楚）。
+    joint_order = [str(item) for item in ((contract.get("action") or {}).get("joint_order") or ())]
+    declared = contract_actuator_modes(contract, joint_order)
+    actual = dict(actuator_report.get("xml_command_fields") or {})
+    mismatch = {
+        joint: {"契约": declared[joint], "MJCF": actual[joint]}
+        for joint in actual
+        if joint in declared and declared[joint] != actual[joint]
+    }
+    if mismatch:
         raise ValueError(
-            f"{contract.get('robot_id')}: 该资产的执行器不是位置模式"
-            f"（{non_position}）—— 族级技能按**位置控制**装配（见族注册表 "
-            f"`mjcf_conventions.actuator_binding`）。标准 MJCF 把执行器写成 "
-            f"`<position joint=... kp=... kv=.../>` 即可通过；effort 模式的资产需要另立动作档。"
+            f"{contract.get('robot_id')}: 执行器模式**契约声明与 MJCF 实际不一致**（{mismatch}）"
+            "—— 族级技能按契约声明的模式装配（位置控制写 `<position joint=… kp=… kv=…/>`，"
+            "速度控制写 `<velocity joint=… kv=…/>`）。改了 MJCF 就要同步契约，反之亦然。"
         )
     if init_base_height is not None:
         init_height, height_source = float(init_base_height), "调用方显式给定"
     else:
         init_height, height_source = _initial_height(contract, spec_fn)
+    # 绑定工厂的**族特有参数**按签名注入（不硬塞）：轮足族要 `actuator_binding`，
+    # 而它必须**从资产派生**（执行器全在 MJCF 里 ⇒ `mjcf_wrapped`；否则 `cfg_declared`），
+    # 不能按机型写死 —— b2w 是前者、m20/go2w/zex-w 是后者。
+    import inspect
+
+    binding_kwargs: dict[str, Any] = {}
+    if "actuator_binding" in inspect.signature(from_contract).parameters:
+        from mjlab.actuator import XmlActuatorCfg
+
+        actuators = entity_cfg.articulation.actuators if entity_cfg.articulation else ()
+        all_wrapped = bool(actuators) and all(
+            isinstance(item, XmlActuatorCfg) for item in actuators
+        )
+        binding_kwargs["actuator_binding"] = "mjcf_wrapped" if all_wrapped else "cfg_declared"
     binding = from_contract(
         contract,
         spec_fn=spec_fn,
         base_entity_cfg=lambda: entity_cfg,
         init_base_height=init_height,
+        **binding_kwargs,
     )
 
     # **按资产事实自适应**（只在装配表声明了 `adaptive_switches` 时生效）：
@@ -362,7 +411,7 @@ def build_family_skill(
         if missing_roles:
             adaptive["contact_supervision"] = False
     derivable = derive_profile_kwargs(contract, spec_fn, recipe, family_id)
-    profile_class = _load_symbol(recipe.profile)
+    profile_class = _load_symbol(recipe.profile_factory or recipe.profile)
     robot_id = str(contract.get("robot_id") or "robot")
     # 身份字段**只在 profile 声明时注入**：有的 profile 是纯族级开关表（如 `VelocityProfile`），
     # 没有机型身份一说 —— 不硬塞关键字，也不因此判失败。
@@ -381,15 +430,18 @@ def build_family_skill(
         }.items()
         if not accepted or key in accepted
     }
-    profile = profile_class(
-        **{
-            **identity,
-            **recipe.profile_kwargs,
-            **adaptive,
-            **derivable,
-            **(profile_overrides or {}),
-        }
-    )
+    # `profile_factory`：族级参考配方工厂 —— 吃机型事实（`derive` 的产物）并补齐配方常量。
+    # 用了工厂就不再注入身份（工厂自己决定 profile 里有什么）；数据类路径保持原样。
+    shared_kwargs = {
+        **recipe.profile_kwargs,
+        **adaptive,
+        **derivable,
+        **(profile_overrides or {}),
+    }
+    if recipe.profile_factory:
+        profile = profile_class(**shared_kwargs)
+    else:
+        profile = profile_class(**{**identity, **shared_kwargs})
     env_factory = _load_symbol(recipe.env)
     runner_factory = _load_symbol(recipe.runner)
     env_cfg = env_factory(binding, profile, **recipe.factory_kwargs, play=False)
@@ -416,16 +468,26 @@ def build_family_skill(
             "model_path": str(model),
             "init_base_height": init_height,
             "init_height_source": height_source,
-            "binding_root_body": binding.root_body,
-            "binding_joint_order": list(binding.joint_order),
-            "binding_foot_geoms": list(binding.foot_geoms),
-            "binding_actuator_source": binding.actuator_source,
-            "right_leg_indices": list(binding.right_leg_indices()),
+            # 诊断项按**能力**取：两个族的绑定视图名不完全一样（四足 `joint_order`/`foot_geoms`，
+            # 轮足 `leg_joint_order`/`wheel_joint_order`/`action_joint_order`），
+            # 诊断不该因此炸 —— 取到哪写到哪，取不到就如实写 None。
+            "binding_root_body": getattr(binding, "root_body", None),
+            "binding_joint_order": list(
+                getattr(binding, "joint_order", None)
+                or getattr(binding, "action_joint_order", None)
+                or ()
+            ),
+            "binding_foot_geoms": list(getattr(binding, "foot_geoms", ()) or ()),
+            "binding_actuator_source": getattr(binding, "actuator_source", None),
+            "right_leg_indices": list(binding.right_leg_indices())
+            if hasattr(binding, "right_leg_indices")
+            else None,
             "profile_class": recipe.profile,
             "factory_kwargs": recipe.factory_kwargs,
             "recipe_note": recipe.note,
             "adaptive": adaptive,
             "derived_profile_kwargs": derivable,
+            "binding_kwargs": binding_kwargs,
             "capabilities": robot_capabilities(contract, model, family_id=family_id)["items"],
         },
     )
@@ -449,7 +511,9 @@ def robot_capabilities(contract: dict, model_path: str | Path, *, family_id: str
     spec_fn = generic.make_spec_fn(model)
     compiled = spec_fn().compile()
     entity_cfg, _joint_order, actuator_report = generic.build_entity_cfg(contract, model)
-    from .kits.quadruped_kit.skills import from_contract
+    # 绑定工厂按**族**取（与装配器同一条分派）：轮足族的足/轮接触口径与四足不同，
+    # 写死四足会在这里就炸（2026-09-26 实测：b2w 的"几何里找不到足端几何"就是这个原因）。
+    from_contract = _load_symbol(_family_hooks(family_id)["binding_from_contract"])
 
     spec = spec_fn()
     bodies = list(spec.worldbody.bodies)
@@ -463,40 +527,63 @@ def robot_capabilities(contract: dict, model_path: str | Path, *, family_id: str
     collision_named = [name for name in named_geoms if name.endswith("_collision")]
     fields = dict(actuator_report.get("xml_command_fields") or {})
 
-    try:
-        binding.foot_sites()
-        foot_sites = True
-        foot_detail = "齐全"
-    except RuntimeError as exc:
-        foot_sites = False
-        foot_detail = str(exc)[:160]
+    # 足端 site / 腿杆几何 / 惩罚接触这三项是**四足族的绑定视图**；轮足族的接触是"轮-地"，
+    # 没有这些方法。体检按**能力探测**做：视图不存在 ⇒ 该项在本族不适用（ok=True + 说明），
+    # 而不是判成缺口 —— 每个族的需求由装配表的 `requires` 声明，体检只报事实。
+    if hasattr(binding, "foot_sites"):
+        try:
+            binding.foot_sites()
+            foot_sites, foot_detail = True, "齐全"
+        except RuntimeError as exc:
+            foot_sites, foot_detail = False, str(exc)[:160]
+    else:
+        foot_sites, foot_detail = True, f"该族不按足端 site 口径（{type(binding).__name__} 无 foot_sites 视图）"
 
-    link_geom_roles = {}
+    link_geom_roles: dict[str, bool] = {}
     for role in binding.leg_pattern:
         if binding.family_role(role) == "hip_abduction":
             continue
+        if not hasattr(binding, "collision_geoms_for_role"):
+            break
         try:
             binding.collision_geoms_for_role(role)
             link_geom_roles[role] = True
         except RuntimeError:
             link_geom_roles[role] = False
+    if not link_geom_roles:
+        link_geom_roles = {"note": True}  # 占位：该族无此视图，见 detail
 
-    try:
-        binding.penalized_contact_match()
-        penalized = True
-        penalized_detail = "可派生"
-    except RuntimeError as exc:
-        penalized = False
-        penalized_detail = str(exc)[:160]
+    if hasattr(binding, "penalized_contact_match"):
+        try:
+            binding.penalized_contact_match()
+            penalized, penalized_detail = True, "可派生"
+        except RuntimeError as exc:
+            penalized, penalized_detail = False, str(exc)[:160]
+    else:
+        penalized, penalized_detail = True, "该族不按腿杆惩罚接触口径（无 penalized_contact_match 视图）"
 
     return {
         "robot_id": contract.get("robot_id"),
         "family_id": family_id,
         "model_path": str(model),
         "items": {
-            "position_actuators": {
-                "ok": all(mode == "position" for mode in fields.values()) if fields else True,
-                "detail": {joint: mode for joint, mode in fields.items() if mode != "position"} or "全部位置模式",
+            "actuator_modes": {
+                "ok": not {
+                    joint: mode
+                    for joint, mode in fields.items()
+                    if contract_actuator_modes(
+                        contract,
+                        [str(item) for item in ((contract.get("action") or {}).get("joint_order") or ())],
+                    ).get(joint, mode)
+                    != mode
+                },
+                "detail": {
+                    "mjcf": fields,
+                    "contract": contract_actuator_modes(
+                        contract,
+                        [str(item) for item in ((contract.get("action") or {}).get("joint_order") or ())],
+                    ),
+                },
             },
             # 族级观测引用的两个 IMU 名（`base_ang_vel` / `base_lin_vel` 的载体；
             # 证据：b2 的编译产物有这两个名、parkour 与轮足 Kit 也按名引用）。

@@ -145,7 +145,8 @@ class NewPackageTest(unittest.TestCase):
         items = capabilities["items"]
         self.assertFalse(items["foot_sites"]["ok"])       # 该夹具没有足端 site
         self.assertFalse(items["imu_sensors"]["ok"])      # 也没有 IMU 传感器
-        self.assertTrue(items["position_actuators"]["ok"])  # 执行器已按标准写成 position
+        # 执行器模式：契约声明 vs MJCF 实际的**对账**（该夹具已按标准写成 position ⇒ 一致）
+        self.assertTrue(items["actuator_modes"]["ok"])
         # 依赖缺失能力的任务要报**具名**错（含缺哪条）
         with self.assertRaises(ValueError) as ctx:
             builder.build_family_skill(
