@@ -394,3 +394,40 @@ class CompetitionVelocityProfile:
     # --- 机型侧注入件 ----------------------------------------------------------
     terms: Any = None
     setup_hook: Callable[[], None] | None = None
+
+
+def reference_flat_profile(
+    *,
+    init_base_height: float,
+    wheel_radius: float,
+    wheel_track: float,
+    **overrides: Any,
+) -> VelocityProfile:
+    """**族级参考配方的平地档**：只吃三样机型事实（出生高 / 轮半径 / 轮距），其余用参考配方常量。
+
+    用途：无档案的新机型（含导入）经通用装配直接开训轮足 velocity —— 参考配方的数在这里、
+    机型事实由装配器派生（`derive` 声明），所以**不需要机型专属 Python**。
+    数值出处：参考配方的客户端（`assets/robots/unitree_go2w/.../go2w_velocity/profile.py`
+    的 FLAT 档），逐值照抄；机型侧要偏离时照旧用自己的 profile 覆盖。
+    """
+    values: dict[str, Any] = {
+        "init_base_height": init_base_height,
+        "wheel_radius": wheel_radius,
+        "wheel_track": wheel_track,
+        "command_ranges": CommandRanges(
+            lin_vel_x=(-0.5, 1.0),
+            lin_vel_y=(0.0, 0.0),
+            ang_vel_z=(-1.0, 1.0),
+        ),
+        "command_vel_stages": (
+            {"step": 0, "lin_vel_x": (-0.3, 0.8), "ang_vel_z": (-0.8, 0.8)},
+            {"step": 5000 * 24, "lin_vel_x": (-0.8, 1.5), "ang_vel_z": (-1.0, 1.0)},
+        ),
+        "pose_std_standing": {"hip": 0.05, "thigh": 0.1, "calf": 0.15},
+        "pose_std_walking": {"hip": 0.15, "thigh": 0.35, "calf": 0.5},
+        "pose_std_running": {"hip": 0.15, "thigh": 0.35, "calf": 0.5},
+        "terrain_max_init_terrain_level": 2,
+        "terrain_difficulty_range": (0.0, 0.45),
+    }
+    values.update(overrides)
+    return VelocityProfile(**values)
