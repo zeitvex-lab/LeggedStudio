@@ -73,6 +73,25 @@ class StanceDomainRandomizationNamesTests(unittest.TestCase):
         self.assertEqual("asset", B2_VELOCITY.actuator_source)
         self.assertEqual("contract", GO2.actuator_source)
 
+    def test_reward_kernels_get_their_facts_from_the_binding(self):
+        """奖励核的机型事实（足端 site / 髋列 / 腿×角色 / 镜像腿）由绑定派生。
+
+        go2 的派生值必须**逐项等于源实现里的字面量**（等价性）；
+        b2 的镜像腿对必须是它自己的 (0,2)（源里写死的 (1,3) 是 go2 的腿序下的答案）。
+        """
+        go2 = self.go2.rewards
+        self.assertEqual(("FL", "FR", "RL", "RR"), tuple(go2["feet_clearance"].params["foot_sites"]))
+        self.assertEqual((0, 3, 6, 9), tuple(go2["default_hip_pos"].params["hip_columns"]))
+        self.assertEqual((1, 3), tuple(go2["symmetric_joints"].params["mirror_leg_indices"]))
+        self.assertEqual(4, go2["symmetric_joints"].params["legs"])
+        self.assertEqual(3, go2["symmetric_joints"].params["roles"])
+        self.assertEqual(0, go2["symmetric_joints"].params["abduction_column"])
+
+        b2 = self.b2.rewards
+        # b2 契约腿序 FR,FL,RR,RL ⇒ 右腿在 0、2 位；足端 site 也按契约腿序
+        self.assertEqual((0, 2), tuple(b2["symmetric_joints"].params["mirror_leg_indices"]))
+        self.assertEqual(("FR", "FL", "RR", "RL"), tuple(b2["feet_clearance"].params["foot_sites"]))
+
 
 if __name__ == "__main__":
     unittest.main()

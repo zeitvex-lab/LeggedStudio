@@ -1,0 +1,21 @@
+{
+  "schema_version": "training-profile-1.0",
+  "backend": "native_mjlab",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "source_root": "training/source",
+  "profile_id": "go1-trot",
+  "display_name": "Go1 Trot (族级步态档)",
+  "source": "**族级复用档**：本仓没有 Go1 专属的小跑步态上游。环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/trot/**`），数值即该技能的源配方默认值；go1 侧只换机型身份。初始姿与源配方（髋归零 + 四腿同姿 0.8 / -1.5）**正好相同**（go1 契约 default_pose 即此），故不需要 go2 那样的 `with_pose_roles` 覆写。**未按 go1 标定**（`base_height_target` 0.29 m 是 go2 几何下的数，go1 站姿 0.42 m）—— 能训不等于训得好，详见 registry/porting_references.json 的 go1-trot 条目",
+  "entrypoints": {
+    "env": "go1_trot.config:go1_trot_env_cfg",
+    "runner": "go1_trot.config:go1_trot_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "task_name": "trot",
+  "num_envs": 1024,
+  "episode_length_s": 24.0,
+  "history_length": 10,
+  "sort_order": 72,
+  "max_iterations": 250
+}

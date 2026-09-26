@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 
 import torch
-from mjlab.actuator import IdealPdActuator, XmlActuator
+from mjlab.actuator import BuiltinPositionActuator, IdealPdActuator, XmlActuator
 from mjlab.entity import Entity
 from mjlab.managers import ObservationTermCfg
 from mjlab.sensor import ContactSensor
@@ -394,8 +394,9 @@ def rear_stand_domain_randomization_info(
   kd_multiplier = torch.zeros_like(kp_multiplier)
   for actuator in robot.actuators:
     # 增益倍率的**真值位置**按执行器种类分：`IdealPdActuator` 的 PD 律由它自己算
-    # （`pd_gains` 改的就是它自己的张量）；MJCF 包装的 position 执行器则由 `pd_gains`
-    # 直接写进模型的 `gainprm/biasprm`。两种各读各自的那一处，不猜也不换算。
+    # （`pd_gains` 改的就是它自己的张量）；其余执行器由 `pd_gains` 直接写进模型的
+    # `gainprm/biasprm`（MuJoCo 内置 position 与 MJCF 包装的 position 都是这样）——
+    # 判据与 `mjlab.envs.mdp.dr.pd_gains` 的分支**逐字一致**，保证"谁写谁读"。
     if isinstance(actuator, IdealPdActuator):
       assert actuator.stiffness is not None
       assert actuator.damping is not None
@@ -408,7 +409,9 @@ def rear_stand_domain_randomization_info(
         actuator.damping / actuator.default_damping
       )
       continue
-    if isinstance(actuator, XmlActuator) and actuator.command_field == "position":
+    if isinstance(actuator, BuiltinPositionActuator) or (
+      isinstance(actuator, XmlActuator) and actuator.command_field == "position"
+    ):
       ctrl = actuator.global_ctrl_ids
       kp_multiplier[:, actuator.target_ids] = (
         env.sim.model.actuator_gainprm[:, ctrl, 0]
@@ -421,7 +424,7 @@ def rear_stand_domain_randomization_info(
       continue
     raise TypeError(
       f"站姿类域随机化观测不支持执行器类型 {type(actuator).__name__}"
-      "（需 IdealPdActuator 或 MJCF position 包装的 XmlActuator）"
+      "（需 IdealPdActuator / BuiltinPositionActuator / MJCF position 包装的 XmlActuator）"
     )
 
   dof_ids = robot.indexing.joint_v_adr[ids]
