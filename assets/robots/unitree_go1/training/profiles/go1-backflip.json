@@ -1,0 +1,21 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "go1-backflip",
+  "display_name": "Go1 Backflip (特技族复用档)",
+  "source": "**族级复用档**：本仓没有 go1 专属的后空翻上游。环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/backflip/**`），数值即该技能的源配方默认值（上游 = 00_resources 里 Gym 包的 go2_backflip）；go1 侧只换机型身份，镜像腿对由绑定从腿标记派生（FL,FR,RL,RR ⇒ 1/3）。go1 站姿 0.42 m 与源配方同值 ⇒ 几何目标高不需缩放；接触力/速度阈值与 DR 区间**未按 go1 标定**，详见 registry/porting_references.json 的 go1-backflip 条目",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "go1_backflip.config:go1_backflip_env_cfg",
+    "runner": "go1_backflip.config:go1_backflip_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "backflip",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "num_envs": 1024,
+  "episode_length_s": 4.0,
+  "history_length": 10,
+  "sort_order": 62,
+  "max_iterations": 250
+}

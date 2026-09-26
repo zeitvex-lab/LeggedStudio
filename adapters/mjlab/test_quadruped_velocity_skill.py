@@ -993,5 +993,159 @@ class AssetNamingFactTests(unittest.TestCase):
         self.assertEqual((1, 3), GO2.right_leg_indices())  # FL,FR,RL,RR
 
 
+# --- 第四份资产：**契约角色词与 body 词表不相干**（lite3 实况） ---------------------------
+#
+# 真例：lite3 的契约角色是 `hipx / hipy / knee`（关节名 `*_HipX_joint` 等），
+# 但 MJCF 的 body 叫 `*_HIP / *_THIGH / *_SHANK / *_FOOT` —— **两套词表没有共同 token**。
+# 于是"腿杆惩罚"那套按角色词拼的写法（`(?:<腿>)_(?:knee)`）在它身上空匹配，
+# 而按**结构**派生（腿身 body 去掉髋外展与足端）得到 `THIGH + SHANK` ✓。
+# 这条锁住的是：派生走结构、不走词表。
+
+_SYNTHETIC_ROLEWORD_JOINTS = ("HipX", "HipY", "Knee")
+_SYNTHETIC_ROLEWORD_XML = """<mujoco model="synthetic_quad_roleword">
+  <default>
+    <geom type="capsule" size="0.02 0.05" rgba="0.6 0.6 0.6 1"/>
+    <joint axis="0 1 0" damping="0.1"/>
+  </default>
+  <worldbody>
+    <body name="chassis" pos="0 0 0.4">
+      <freejoint name="chassis_free"/>
+      <geom type="box" size="0.2 0.08 0.05"/>
+      <site name="imu" pos="0 0 0" size="0.01"/>
+{legs}
+    </body>
+  </worldbody>
+  <actuator>
+{actuators}
+  </actuator>
+  <sensor>
+    <gyro name="imu_ang_vel" site="imu"/>
+    <velocimeter name="imu_lin_vel" site="imu"/>
+    <subtreeangmom name="root_angmom" body="chassis"/>
+  </sensor>
+</mujoco>
+"""
+
+#: lite3 式腿：**body 词表**（HIP/THIGH/SHANK/FOOT）与**角色词表**（HipX/HipY/Knee）无关。
+_SYNTHETIC_ROLEWORD_LEG = """            <body name="{leg}_HIP" pos="0.15 {side}0.06 0">
+              <joint name="{leg}_HipX_joint" axis="0 0 1"/>
+              <joint name="{leg}_HipY_joint" axis="0 1 0"/>
+              <geom name="{leg}_HIP_collision" fromto="0 0 0 0 0 -0.06"/>
+              <body name="{leg}_THIGH" pos="0 0 -0.06">
+                <joint name="{leg}_Knee_joint" axis="0 1 0"/>
+                <geom name="{leg}_THIGH_collision" fromto="0 0 0 0 0 -0.12"/>
+                <body name="{leg}_SHANK" pos="0 0 -0.12">
+                  <geom name="{leg}_SHANK_collision" fromto="0 0 0 0 0 -0.12"/>
+                  <body name="{leg}_FOOT" pos="0 0 -0.12">
+                    <geom name="{leg}_foot_collision" type="sphere" size="0.02"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+"""
+
+
+def _synthetic_roleword_xml() -> str:
+    legs = "\n".join(
+        _SYNTHETIC_ROLEWORD_LEG.format(leg=leg, side="-" if leg.startswith("r") else "")
+        for leg in _SYNTHETIC_MODEL_ORDER
+    )
+    actuators = "\n".join(
+        f'    <position name="{leg}_{joint}_joint" joint="{leg}_{joint}_joint" kp="40" kv="1"/>'
+        for leg in _SYNTHETIC_LEGS
+        for joint in _SYNTHETIC_ROLEWORD_JOINTS
+    )
+    return _SYNTHETIC_ROLEWORD_XML.format(legs=legs, actuators=actuators)
+
+
+def _synthetic_roleword_spec() -> mujoco.MjSpec:
+    return mujoco.MjSpec.from_string(_synthetic_roleword_xml())
+
+
+def _synthetic_roleword_contract() -> dict:
+    leg_pattern = ["hipx", "hipy", "knee"]
+    contract = _synthetic_contract()
+    contract["robot_id"] = "synthetic_roleword_quad"
+    contract["morphology"] = {
+        **contract["morphology"],
+        "leg_pattern": leg_pattern,
+    }
+    contract["action"] = {
+        **contract["action"],
+        "joint_order": [
+            f"{leg}_{joint}_joint" for leg in _SYNTHETIC_LEGS for joint in _SYNTHETIC_ROLEWORD_JOINTS
+        ],
+    }
+    contract["actuator_profile"] = {
+        "by_role": {
+            role: {"stiffness": 40.0, "damping": 1.0, "effort": 60.0, "action_scale": 0.25}
+            for role in leg_pattern
+        }
+    }
+    return contract
+
+
+def _synthetic_roleword_entity_cfg():
+    from mjlab.actuator import XmlActuatorCfg
+    from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
+    from mjlab.utils.spec_config import CollisionCfg
+
+    return EntityCfg(
+        init_state=EntityCfg.InitialStateCfg(pos=(0.0, 0.0, 0.4)),
+        collisions=(
+            CollisionCfg(
+                geom_names_expr=(".*",),
+                contype=1,
+                conaffinity=0,
+                condim={".*foot.*": 3, ".*": 1},
+                priority={".*foot.*": 1, ".*": 0},
+            ),
+        ),
+        spec_fn=_synthetic_roleword_spec,
+        articulation=EntityArticulationInfoCfg(
+            actuators=tuple(
+                XmlActuatorCfg(target_names_expr=(f".*_{joint}_joint",), command_field="position")
+                for joint in _SYNTHETIC_ROLEWORD_JOINTS
+            ),
+            soft_joint_pos_limit_factor=0.9,
+        ),
+    )
+
+
+class RoleVocabularyMismatchTests(unittest.TestCase):
+    """契约角色词与 body 词表不相干的资产：惩罚集合按**结构**派生。"""
+
+    @classmethod
+    def setUpClass(cls):
+        from adapters.mjlab.kits.quadruped_kit.skills import from_contract
+
+        cls.binding = from_contract(
+            _synthetic_roleword_contract(),
+            spec_fn=_synthetic_roleword_spec,
+            base_entity_cfg=_synthetic_roleword_entity_cfg,
+            init_base_height=0.4,
+        )
+
+    def test_penalized_links_come_from_structure_not_vocabulary(self):
+        # 角色词（hipx/hipy/knee）与 body 词（HIP/THIGH/SHANK/FOOT）无共同 token：
+        # 髋外展关节挂在 `<腿>_HIP` 上 ⇒ 该 body 排除；足端 body 排除；余下 THIGH + SHANK。
+        self.assertEqual(
+            ("r2_THIGH", "r2_SHANK", "l1_THIGH", "l1_SHANK", "r1_THIGH", "r1_SHANK",
+             "l2_THIGH", "l2_SHANK"),
+            self.binding.penalized_link_bodies(),
+        )
+        self.assertEqual(
+            ("body", r"(?:r2|l1|r1|l2)_(?:THIGH|SHANK)"),
+            self.binding.penalized_contact_match(),
+        )
+        # 角色词拼出来的几何模式在它身上空匹配（正是走 body 的理由）
+        resolved = {
+            name
+            for name in self.binding.geom_names
+            if re.fullmatch(self.binding.penalized_geom_pattern, name)
+        }
+        self.assertEqual(set(), resolved)
+
+
 if __name__ == "__main__":
     unittest.main()

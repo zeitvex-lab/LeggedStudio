@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 
 import torch
-from mjlab.actuator import IdealPdActuator
+from mjlab.actuator import IdealPdActuator, XmlActuator
 from mjlab.entity import Entity
 from mjlab.managers import ObservationTermCfg
 from mjlab.sensor import ContactSensor
@@ -359,22 +359,31 @@ def rear_stand_domain_randomization_info(
   restitution_attribute: str = "_rear_stand_restitution",
   joint_friction_attribute: str | None = None,
   joint_damping_attribute: str | None = None,
+  foot_geom: str | None = None,
+  root_body: str | None = None,
 ) -> torch.Tensor:
-  """The source's 34 privileged domain-randomization labels, in source order."""
+  """The source's 34 privileged domain-randomization labels, in source order.
+
+  `foot_geom` / `root_body` 由技能配置从**绑定**派生传入（源实现写死 go2 的名字）；
+  帧宽与项序不变 —— 只把"读哪一个足端几何 / 根 body"变成数据。
+  """
   robot: Entity = env.scene["robot"]
   ids = joint_ids(env)
 
-  foot_geom_ids, foot_names = robot.find_geoms(
-    ("FL_foot_collision",), preserve_order=True
-  )
-  if tuple(foot_names) != ("FL_foot_collision",):
-    raise RuntimeError(f"Go2 foot geom lookup mismatch: {foot_names}")
+  if not foot_geom or not root_body:
+    raise ValueError(
+      "域随机化观测需要足端几何名与根 body 名（由 stance/config 从绑定派生传入）"
+    )
+
+  foot_geom_ids, foot_names = robot.find_geoms((foot_geom,), preserve_order=True)
+  if tuple(foot_names) != (foot_geom,):
+    raise RuntimeError(f"foot geom lookup mismatch: {foot_names}")
   friction_id = robot.indexing.geom_ids[foot_geom_ids[0]]
   friction = robot.data.model.geom_friction[:, friction_id, 0:1]
 
-  base_ids, base_names = robot.find_bodies(("base_link",), preserve_order=True)
-  if tuple(base_names) != ("base_link",):
-    raise RuntimeError(f"Go2 base lookup mismatch: {base_names}")
+  base_ids, base_names = robot.find_bodies((root_body,), preserve_order=True)
+  if tuple(base_names) != (root_body,):
+    raise RuntimeError(f"base lookup mismatch: {base_names}")
   base_id = robot.indexing.body_ids[base_ids[0]]
   default_mass = env.sim.get_default_field("body_mass")[base_id]
   added_mass = robot.data.model.body_mass[:, base_id : base_id + 1] - default_mass
@@ -384,16 +393,36 @@ def rear_stand_domain_randomization_info(
   kp_multiplier = torch.zeros((env.num_envs, len(ids)), device=env.device)
   kd_multiplier = torch.zeros_like(kp_multiplier)
   for actuator in robot.actuators:
-    if not isinstance(actuator, IdealPdActuator):
-      raise TypeError("Rear Stand source parity requires IdealPdActuator")
-    assert actuator.stiffness is not None
-    assert actuator.damping is not None
-    assert actuator.default_stiffness is not None
-    assert actuator.default_damping is not None
-    kp_multiplier[:, actuator.target_ids] = (
-      actuator.stiffness / actuator.default_stiffness
+    # 增益倍率的**真值位置**按执行器种类分：`IdealPdActuator` 的 PD 律由它自己算
+    # （`pd_gains` 改的就是它自己的张量）；MJCF 包装的 position 执行器则由 `pd_gains`
+    # 直接写进模型的 `gainprm/biasprm`。两种各读各自的那一处，不猜也不换算。
+    if isinstance(actuator, IdealPdActuator):
+      assert actuator.stiffness is not None
+      assert actuator.damping is not None
+      assert actuator.default_stiffness is not None
+      assert actuator.default_damping is not None
+      kp_multiplier[:, actuator.target_ids] = (
+        actuator.stiffness / actuator.default_stiffness
+      )
+      kd_multiplier[:, actuator.target_ids] = (
+        actuator.damping / actuator.default_damping
+      )
+      continue
+    if isinstance(actuator, XmlActuator) and actuator.command_field == "position":
+      ctrl = actuator.global_ctrl_ids
+      kp_multiplier[:, actuator.target_ids] = (
+        env.sim.model.actuator_gainprm[:, ctrl, 0]
+        / env.sim.get_default_field("actuator_gainprm")[ctrl, 0]
+      )
+      kd_multiplier[:, actuator.target_ids] = (
+        env.sim.model.actuator_biasprm[:, ctrl, 2]
+        / env.sim.get_default_field("actuator_biasprm")[ctrl, 2]
+      )
+      continue
+    raise TypeError(
+      f"站姿类域随机化观测不支持执行器类型 {type(actuator).__name__}"
+      "（需 IdealPdActuator 或 MJCF position 包装的 XmlActuator）"
     )
-    kd_multiplier[:, actuator.target_ids] = actuator.damping / actuator.default_damping
 
   dof_ids = robot.indexing.joint_v_adr[ids]
   armature = robot.data.model.dof_armature[:, dof_ids[0] : dof_ids[0] + 1]
@@ -445,7 +474,9 @@ class RearStandCriticObservation:
   def __init__(self, cfg: ObservationTermCfg, env) -> None:
     del cfg, env
 
-  def __call__(self, env, sensor_name: str) -> torch.Tensor:
+  def __call__(
+    self, env, sensor_name: str, foot_geom: str, root_body: str
+  ) -> torch.Tensor:
     robot: Entity = env.scene["robot"]
     actor_frame = getattr(env, "_rear_stand_actor_frame", None)
     if actor_frame is None:
@@ -455,7 +486,9 @@ class RearStandCriticObservation:
       (
         robot.data.root_link_lin_vel_b * 2.0,
         actor_frame,
-        rear_stand_domain_randomization_info(env),
+        rear_stand_domain_randomization_info(
+          env, foot_geom=foot_geom, root_body=root_body
+        ),
         source_vertical_contact(sensor, 1.0).float(),
       ),
       dim=1,
@@ -486,7 +519,9 @@ class HandstandCriticObservation:
   def __init__(self, cfg: ObservationTermCfg, env) -> None:
     del cfg, env
 
-  def __call__(self, env, sensor_name: str) -> torch.Tensor:
+  def __call__(
+    self, env, sensor_name: str, foot_geom: str, root_body: str
+  ) -> torch.Tensor:
     robot: Entity = env.scene["robot"]
     actor_frame = getattr(env, "_handstand_actor_frame", None)
     if actor_frame is None:
@@ -501,6 +536,8 @@ class HandstandCriticObservation:
           "_handstand_restitution",
           "_handstand_joint_friction",
           "_handstand_joint_damping",
+          foot_geom=foot_geom,
+          root_body=root_body,
         ),
         source_vertical_contact(sensor, 1.0).float(),
       ),

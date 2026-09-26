@@ -1,0 +1,21 @@
+{
+  "schema_version": "training-profile-1.0",
+  "backend": "native_mjlab",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "source_root": "training/source",
+  "profile_id": "b2-spring-jump",
+  "display_name": "B2 Spring Jump (特技族复用档)",
+  "source": "**族级复用档**：本仓没有 b2 专属的弹簧跳上游。环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/spring_jump/**`，含族级镜像损失），数值即该技能的源配方默认值；b2 侧只换机型身份。本技能**需要足端 site**（`binding.foot_sites()`），b2 的 MJCF 有 FL/FR/RL/RR 四个足端 site ⇒ 无能力缺口。**未按 b2 标定**（出生高 0.39 / 飞行 0.47 / 站姿 0.35 都是 go2 几何下的数）—— 能训不等于训得好，详见 registry/porting_references.json 的 b2-spring-jump 条目",
+  "entrypoints": {
+    "env": "b2_spring_jump.config:b2_spring_jump_env_cfg",
+    "runner": "b2_spring_jump.config:b2_spring_jump_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "task_name": "spring_jump",
+  "num_envs": 1024,
+  "episode_length_s": 5.0,
+  "history_length": 10,
+  "sort_order": 66,
+  "max_iterations": 250
+}

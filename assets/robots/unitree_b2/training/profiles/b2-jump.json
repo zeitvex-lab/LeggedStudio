@@ -1,0 +1,21 @@
+{
+  "schema_version": "training-profile-1.0",
+  "backend": "native_mjlab",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "source_root": "training/source",
+  "profile_id": "b2-jump",
+  "display_name": "B2 Jump (特技族复用档)",
+  "source": "**族级复用档**：本仓没有 b2 专属的跳跃上游。环境装配与 runner 全部来自族级 Kit（`quadruped_kit/skills/jump/**` = 族级 trot 步态 + 跳跃奖励/终止层），数值即该技能的源配方默认值；b2 侧只换机型身份（腿序 FR,FL,RR,RL、MJCF 包装执行器、腿杆惩罚按结构派生三项都由绑定吸收）。**未按 b2 标定**（站姿 0.54 m vs go2 0.42 ⇒ 高度类目标需重标）—— 能训不等于训得好，详见 registry/porting_references.json 的 b2-jump 条目",
+  "entrypoints": {
+    "env": "b2_jump.config:b2_jump_env_cfg",
+    "runner": "b2_jump.config:b2_jump_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "task_name": "jump",
+  "num_envs": 1024,
+  "episode_length_s": 24.0,
+  "history_length": 10,
+  "sort_order": 64,
+  "max_iterations": 250
+}

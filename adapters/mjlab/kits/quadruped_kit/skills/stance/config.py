@@ -410,7 +410,12 @@ def make_env_cfg(
             terms={
                 "frame": ObservationTermCfg(
                     func=critic_func,
-                    params={"sensor_name": FEET_SENSOR},
+                    params={
+                        "sensor_name": FEET_SENSOR,
+                        # 域随机化观测读的足端几何 / 根 body 由绑定派生（源实现写死 go2 名字）
+                        "foot_geom": binding.foot_geoms[0],
+                        "root_body": binding.root_body,
+                    },
                     clip=(-100.0, 100.0),
                 )
             },
