@@ -78,12 +78,17 @@ class BrowserVariantTest(unittest.TestCase):
 
 class ConsumerAuditTest(unittest.TestCase):
     def test_three_sides_are_accounted_for(self):
-        """三侧都在对账口径里，计数按实况钉死：训练侧两侧已随 g1 包删除 ⇒ 0 / 0 / 3。"""
+        """三侧都在对账口径里，计数按实况钉死。
+
+        2026-09-26 起 amp 侧不再为 0：go2 包内那 13 条 LLoco 专家动作（JSON-in-txt）
+        纳入扫描口径并归到 amp 侧（go1 的 AMP 档案复用同一批）；tracking 侧 pkl 仍为 0
+        （随 unitree_g1 包删除，机制保留）。
+        """
 
         report = mr.consumer_audit()
         self.assertTrue(report["ok"], report["problems"])
         self.assertEqual(0, report["counts"]["tracking"], "仓内已无 tracking 侧 pkl（随 unitree_g1 删除）")
-        self.assertEqual(0, report["counts"]["amp"], "仓内已无 amp 侧 npz（随 unitree_g1 删除）")
+        self.assertEqual(13, report["counts"]["amp"], "amp 侧 = go2 的 13 条 AMP 专家动作（*.txt）")
         self.assertEqual(3, report["counts"]["browser"])
 
     def test_declared_browser_motions_exist(self):

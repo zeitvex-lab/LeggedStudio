@@ -2,15 +2,600 @@
   "schema_version": "motion-registry-1.0",
   "generated_by": "tools/audit_motions.py --apply",
   "rules": {
-    "scan": "assets/robots/<package>/**/motions/** 下的 .pkl/.npz（训练侧） + assets/robots/<package>/simulation/policies/*_motion.csv（浏览器侧，M2 补）",
+    "scan": "assets/robots/<package>/**/motions/** 下的 .pkl/.npz（训练侧） + <...>/motions/<robot>_amp/*.txt（AMP 专家动作，2026-09-26 补） + assets/robots/<package>/simulation/policies/*_motion.csv（浏览器侧，M2 补）",
     "derive": "fps / dof_dim / frames 从文件本身读出；dof_layout 由 dof 宽度命名",
     "license": "与 I5 同口径：缺许可记录不得进注册表；确未取证须显式 status=unresolved + 依据"
   },
   "counts": {
-    "clips": 3,
-    "files": 3
+    "clips": 16,
+    "files": 16
   },
   "motions": [
+    {
+      "id": "unitree-go2-local-tasks-backward",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 50,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 240,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/backward.txt",
+          "sha256": "660d232cac445f213bf4f6768a70a9baed92f14c6af7fb968a90c5a827e077ab",
+          "bytes": 125662,
+          "frames": 240
+        }
+      },
+      "frames_max": 240,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-forward",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 300,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/forward.txt",
+          "sha256": "4588767951324137abb35237638e20c2cea3aa70e5f479e1f18c8bc649f5b7fc",
+          "bytes": 155674,
+          "frames": 300
+        }
+      },
+      "frames_max": 300,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-forward-left",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 246,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/forward_left.txt",
+          "sha256": "438c5deb01c251766e33c1e779b1b40e12965900f6b38f66309166e7b3481953",
+          "bytes": 128347,
+          "frames": 246
+        }
+      },
+      "frames_max": 246,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-forward-right",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 180,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/forward_right.txt",
+          "sha256": "64d1783f59071c243fc39d001371801f582c5df3b838fe451a87c99e2abe42de",
+          "bytes": 94040,
+          "frames": 180
+        }
+      },
+      "frames_max": 180,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-left",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 150,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/left.txt",
+          "sha256": "e3862f0930962c6fb65ff89aa51bf8f5c24d548280c770e4bfcae98e57380d84",
+          "bytes": 78595,
+          "frames": 150
+        }
+      },
+      "frames_max": 150,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-left-new",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 150,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/left_new.txt",
+          "sha256": "b90b2a3ef948c6f53fa4a5ce5886370e22221f2d8f6fac99ae8593bc4cec2e05",
+          "bytes": 77308,
+          "frames": 150
+        }
+      },
+      "frames_max": 150,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-right",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 150,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/right.txt",
+          "sha256": "8ef93bbcbfa01ead3f3598771f9fea41a6052e8e48218539216a99c892f6733e",
+          "bytes": 78703,
+          "frames": 150
+        }
+      },
+      "frames_max": 150,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-right-new",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 100,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/right_new.txt",
+          "sha256": "3697931c8ba0b300ccf59c1a136a2e792284ebdbcb93b08be23ecb18bb609026",
+          "bytes": 51671,
+          "frames": 100
+        }
+      },
+      "frames_max": 100,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-rotate",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 200,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/rotate.txt",
+          "sha256": "1fb03603850d616245919791fd09018208bd88654d74afc77d64beee67b0e0a8",
+          "bytes": 103328,
+          "frames": 200
+        }
+      },
+      "frames_max": 200,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-rotate-inverse",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 150,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/rotate_inverse.txt",
+          "sha256": "bad49510743588048ab025352413e03a1cf7b28745b3d8520146e70487af9b8a",
+          "bytes": 77672,
+          "frames": 150
+        }
+      },
+      "frames_max": 150,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-stand",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 20,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/stand.txt",
+          "sha256": "4ae2d127fcd1603abe3379fd18256c7a9a111384c94c2bf7ca451354a295d081",
+          "bytes": 10416,
+          "frames": 20
+        }
+      },
+      "frames_max": 20,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-turn-left",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 200,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/turn_left.txt",
+          "sha256": "d2349f440aa19ccf982941842abd060b6a6d387973aa0e859e7e6543c8f65b2f",
+          "bytes": 104350,
+          "frames": 200
+        }
+      },
+      "frames_max": 200,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
+    {
+      "id": "unitree-go2-local-tasks-turn-right",
+      "robot": "unitree_go2",
+      "source": "local_tasks",
+      "format": "txt",
+      "layout": "amp-json",
+      "fps": 25,
+      "dof_dim": 49,
+      "dof_layout": "unitree_dds_49",
+      "frames_min": 200,
+      "files": {
+        "go2_amp": {
+          "path": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/turn_right.txt",
+          "sha256": "2adbe6c661ed45b9f0d87dfefb9d7988dc9539f0ff5f32304bdb2eb5067e7b57",
+          "bytes": 104340,
+          "frames": 200
+        }
+      },
+      "frames_max": 200,
+      "conventions": {
+        "keys": [
+          "Frames",
+          "FrameDuration",
+          "MotionWeight"
+        ],
+        "frame_dim": 49,
+        "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`"
+      },
+      "lineage": {
+        "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+        "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+        "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+        "conversion_script": null,
+        "evidence": [
+          "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md"
+        ]
+      },
+      "license": {
+        "status": "declared",
+        "spdx": "Apache-2.0",
+        "applies_to": "AMP 专家动作数据（13 条 clip）",
+        "evidence": "00_resources/lain_job/LLoco/LICENSE",
+        "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断"
+      }
+    },
     {
       "id": "unitree-go2-unknown-backflip",
       "robot": "unitree_go2",
