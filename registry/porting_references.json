@@ -1,7 +1,7 @@
 {
   "schema": "porting-references-1.0",
   "generated_at": "2026-09-24",
-  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。 **补充（2026-09-25 第三段）**：族级 velocity 上移到四足 go1/b2 与轮足 m20/b2w 后，**动作维解析序**又改了三台（go1/b2/b2w；m20 的解析序本就与契约一致）——详见各档案 F14。核对动作序要看运行期 `env.action_manager.get_term(<名>).target_ids`，字面序（`actuator_names`）只是意图。 **补充（2026-09-25 第四段）**：速度跟踪的族级化已覆盖 **8/8 台**（四足 go2/go1/b2/lite3、轮足 go2w/b2w/m20/zex-w）。动作维解析序被修正的是**四台**（go2w/go1/b2/b2w，见各档案 F12/F14）；go2、lite3、m20 本就一致（go2 在 F 段第一次上移时运行期对拍 0 差异，lite3 见 F19）。 **补充（2026-09-25 第五段）**：算法变体的**复用证明**已补上 —— `b2-cts` 用族级实现 + 只换数据即训得起来（`algorithm_plugin` 经平台注册表绑类，不经机型包）。 **补充（2026-09-25 第六段）**：特技 skill 族级化续做 —— `backflip` 已上移（逐档等价 + 真跑通过）。余项：`spring_jump` / `hand_stand` / `rear_stand` 仍只有 go2。 **补充（2026-09-25 第七段）**：特技族级化再进一台 —— `spring_jump` 已上移（逐档等价 + 真跑通过，含族级镜像损失）。余项：`hand_stand` / `rear_stand`。",
+  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。 **补充（2026-09-25 第三段）**：族级 velocity 上移到四足 go1/b2 与轮足 m20/b2w 后，**动作维解析序**又改了三台（go1/b2/b2w；m20 的解析序本就与契约一致）——详见各档案 F14。核对动作序要看运行期 `env.action_manager.get_term(<名>).target_ids`，字面序（`actuator_names`）只是意图。 **补充（2026-09-25 第四段）**：速度跟踪的族级化已覆盖 **8/8 台**（四足 go2/go1/b2/lite3、轮足 go2w/b2w/m20/zex-w）。动作维解析序被修正的是**四台**（go2w/go1/b2/b2w，见各档案 F12/F14）；go2、lite3、m20 本就一致（go2 在 F 段第一次上移时运行期对拍 0 差异，lite3 见 F19）。 **补充（2026-09-25 第五段）**：算法变体的**复用证明**已补上 —— `b2-cts` 用族级实现 + 只换数据即训得起来（`algorithm_plugin` 经平台注册表绑类，不经机型包）。 **补充（2026-09-25 第六段）**：特技 skill 族级化续做 —— `backflip` 已上移（逐档等价 + 真跑通过）。余项：`spring_jump` / `hand_stand` / `rear_stand` 仍只有 go2。 **补充（2026-09-25 第七段）**：特技族级化再进一台 —— `spring_jump` 已上移（逐档等价 + 真跑通过，含族级镜像损失）。余项：`hand_stand` / `rear_stand`。 **补充（2026-09-26）**：站姿类（handstand / rear_stand）已族级化收口 —— 内核 + 装配 + 对称表全部族级，两档共用一套机制、按奖励档分数据。",
   "entries": [
     {
       "profile_id": "go2-trot",
@@ -101,12 +101,17 @@
         }
       ],
       "verification": {
-        "method": "diff 仅 import 前缀",
+        "method": "族级化后：逐行归一比对 + 运行期解析级对拍 + 真跑 train 2 iter（原：与上游逐项对照）",
         "conclusion": "aligned",
         "evidence": [
-          "port hand_stand/config.py:16-17"
+          "port hand_stand/config.py:16-17",
+          "族实现 `quadruped_kit/skills/stance/**` ↔ 源 `go2_skills/{hand_stand,rear_stand}/**`"
         ]
-      }
+      },
+      "gaps": [
+        "F23（2026-09-26，族级化收口）：装配整段上移 `quadruped_kit/skills/stance/` —— 两档共用同一套内核（observations / rewards / events 1425 行，源里两包**逐字节相同**）与同一套装配机制，差异按**奖励档**（`StanceProfile.variant`）表达：奖励表 25 vs 23 项、命令口径、事件微调、runner 镜像开关、几何目标高。包内 `mdp/` 整目录删除。**等价性**：内核按声明过的三处去机型化反向归一后与源**逐行 0 差异**；两档**运行期解析对拍各 0 差异**；两档真跑 train 2 iter 均通过。",
+        "上移时的两处**核对结论**（都是易错点，留痕）：① 两台的重置机器人在源里**本来就相同**（出生高都是 0.42 + 同一张初始关节表），故用同一个绑定实体即可 —— 与 spring_jump 需要 0.39 的情形不同；② 源里 `replace_sensors` 与 `replace_rear_stand_sensors` **是同一个实现**（后者只多一行注释），族级只用一份。另：源里两档的三个足端项**哪一端在空/着地是相反的**（handstand 是后腿离地、rear_stand 是前腿），上移时用 `_ENDS` 映射显式表达，未改写语义。"
+      ]
     },
     {
       "profile_id": "go2-leggedstand",
@@ -120,12 +125,17 @@
         }
       ],
       "verification": {
-        "method": "diff 仅 symmetry 类名",
+        "method": "族级化后：逐行归一比对 + 运行期解析级对拍 + 真跑 train 2 iter（原：与上游逐项对照）",
         "conclusion": "aligned",
         "evidence": [
-          "port rear_stand/config.py ↔ 上游 rear_stand/config.py"
+          "port rear_stand/config.py ↔ 上游 rear_stand/config.py",
+          "族实现 `quadruped_kit/skills/stance/**` ↔ 源 `go2_skills/{hand_stand,rear_stand}/**`"
         ]
-      }
+      },
+      "gaps": [
+        "F23（2026-09-26，族级化收口）：装配整段上移 `quadruped_kit/skills/stance/` —— 两档共用同一套内核（observations / rewards / events 1425 行，源里两包**逐字节相同**）与同一套装配机制，差异按**奖励档**（`StanceProfile.variant`）表达：奖励表 25 vs 23 项、命令口径、事件微调、runner 镜像开关、几何目标高。包内 `mdp/` 整目录删除。**等价性**：内核按声明过的三处去机型化反向归一后与源**逐行 0 差异**；两档**运行期解析对拍各 0 差异**；两档真跑 train 2 iter 均通过。",
+        "上移时的两处**核对结论**（都是易错点，留痕）：① 两台的重置机器人在源里**本来就相同**（出生高都是 0.42 + 同一张初始关节表），故用同一个绑定实体即可 —— 与 spring_jump 需要 0.39 的情形不同；② 源里 `replace_sensors` 与 `replace_rear_stand_sensors` **是同一个实现**（后者只多一行注释），族级只用一份。另：源里两档的三个足端项**哪一端在空/着地是相反的**（handstand 是后腿离地、rear_stand 是前腿），上移时用 `_ENDS` 映射显式表达，未改写语义。"
+      ]
     },
     {
       "profile_id": "go1-jump",
