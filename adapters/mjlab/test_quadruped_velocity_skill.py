@@ -780,5 +780,218 @@ class SyntheticSecondRobotTests(unittest.TestCase):
             env.close()
 
 
+# --- 第三份资产：**同名不同写法**（腿杆/躯干碰撞几何未具名 + 执行器写在 MJCF） ------------
+#
+# 真例：b2 的 `model/robot.xml` 只给足端几何具名，腿杆与躯干的碰撞几何在实体构建期由
+# `CollisionCfg` 重建；执行器（12 个 `<position>`）也写在 MJCF 里，cfg 只能包装不能重建
+# （重建 = 往同一批关节再注入同名执行器，实体构建即崩）。
+#
+# 这两条都是**资产事实**，族级技能层必须按事实选路而不是按机型名判断：
+#   * 匹配面：几何具名 → 按几何名；未具名 → 按 body 名（语义同为"这根腿杆与地形的接触"）；
+#   * 执行器：MJCF 为执行真值 → 沿用自带执行器；cfg 自带 PD → 按契约重建。
+
+_SYNTHETIC_BODY_ASSET_LEG = """      <body name="{leg}_hip" pos="0.15 {side}0.06 0">
+        <joint name="{leg}_hip_joint" axis="0 0 1"/>
+        <geom fromto="0 0 0 0 0 -0.06"/>
+        <body name="{leg}_thigh" pos="0 0 -0.06">
+          <joint name="{leg}_thigh_joint" axis="0 1 0"/>
+          <geom fromto="0 0 0 0 0 -0.12"/>
+          <body name="{leg}_calf" pos="0 0 -0.12">
+            <joint name="{leg}_calf_joint" axis="0 1 0"/>
+            <geom fromto="0 0 0 0 0 -0.06"/>
+            <geom fromto="0 0 -0.06 0 0 -0.12"/>
+            <geom name="{leg}_foot_collision" type="sphere" size="0.02" pos="0 0 -0.12"/>
+            <site name="{leg}" pos="0 0 -0.12" size="0.02"/>
+          </body>
+        </body>
+      </body>
+"""
+
+
+_SYNTHETIC_BODY_ASSET_XML = """<mujoco model="synthetic_quad_body_asset">
+  <default>
+    <geom type="capsule" size="0.02 0.05" rgba="0.6 0.6 0.6 1"/>
+    <joint axis="0 1 0" damping="0.1"/>
+  </default>
+  <worldbody>
+{body}
+  </worldbody>
+  <actuator>
+{actuators}
+  </actuator>
+  <sensor>
+    <gyro name="imu_ang_vel" site="imu"/>
+    <velocimeter name="imu_lin_vel" site="imu"/>
+    <subtreeangmom name="root_angmom" body="chassis"/>
+  </sensor>
+</mujoco>
+"""
+
+
+def _synthetic_body_asset_xml() -> str:
+    legs = "\n".join(
+        textwrap.indent(
+            _SYNTHETIC_BODY_ASSET_LEG.format(leg=leg, side="-" if leg.startswith("r") else ""),
+            "  ",
+        )
+        for leg in _SYNTHETIC_MODEL_ORDER
+    )
+    actuators = "\n".join(
+        f'    <position name="{leg}_{role}_joint" joint="{leg}_{role}_joint" kp="40" kv="1"/>'
+        for leg in _SYNTHETIC_LEGS
+        for role in ("hip", "thigh", "calf")
+    )
+    # 躯干几何**未具名**（同 b2）：碰撞属性仍由 CollisionCfg 交给全体几何，但没有名字可匹配。
+    body = textwrap.dedent(
+        """\
+        <body name="chassis" pos="0 0 0.4">
+          <freejoint name="chassis_free"/>
+          <geom type="box" size="0.2 0.08 0.05"/>
+          <site name="imu" pos="0 0 0" size="0.01"/>
+{legs}
+        </body>"""
+    ).format(legs=textwrap.indent(legs, "  ").strip())
+    return _SYNTHETIC_BODY_ASSET_XML.format(body=body, actuators=actuators)
+
+
+def _synthetic_body_asset_spec() -> mujoco.MjSpec:
+    return mujoco.MjSpec.from_string(_synthetic_body_asset_xml())
+
+
+def _synthetic_body_asset_entity_cfg():
+    from mjlab.actuator import XmlActuatorCfg
+    from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
+    from mjlab.utils.spec_config import CollisionCfg
+
+    return EntityCfg(
+        init_state=EntityCfg.InitialStateCfg(
+            pos=(0.0, 0.0, 0.4),
+            joint_pos={".*thigh_joint": 0.4, ".*calf_joint": -0.8},
+        ),
+        collisions=(
+            CollisionCfg(
+                geom_names_expr=(".*",),
+                contype=1,
+                conaffinity=0,
+                condim={".*foot.*": 3, ".*": 1},
+                priority={".*foot.*": 1, ".*": 0},
+            ),
+        ),
+        spec_fn=_synthetic_body_asset_spec,
+        articulation=EntityArticulationInfoCfg(
+            actuators=tuple(
+                XmlActuatorCfg(target_names_expr=(expr,), command_field="position")
+                for expr in (".*hip_joint", ".*thigh_joint", ".*calf_joint")
+            ),
+            soft_joint_pos_limit_factor=0.9,
+        ),
+    )
+
+
+class AssetNamingFactTests(unittest.TestCase):
+    """两台合成"机型"逐字段同构，只差**资产写法** —— 技能层代码零分支。"""
+
+    @classmethod
+    def setUpClass(cls):
+        from adapters.mjlab.kits.quadruped_kit.skills import from_contract
+
+        cls.named = from_contract(
+            _synthetic_contract(),
+            spec_fn=_synthetic_spec,
+            base_entity_cfg=_synthetic_entity_cfg,
+            init_base_height=0.4,
+        )
+        cls.body_asset = from_contract(
+            _synthetic_contract(),
+            spec_fn=_synthetic_body_asset_spec,
+            base_entity_cfg=_synthetic_body_asset_entity_cfg,
+            init_base_height=0.4,
+        )
+
+    def test_sensors_pick_the_matching_face_from_the_asset(self):
+        """腿杆惩罚：几何具名 → 几何名；未具名 → body 名（同一语义、两种写法）。
+
+        躯干与足端**不**参与这次选路：躯干按根 body 名匹配（源配方口径，两台机型同写法）、
+        足端按足端几何名（两家资产都给足端几何具名）。
+        """
+        self.assertEqual(("geom", self.named.penalized_geom_pattern), self.named.penalized_contact_match())
+        self.assertEqual(
+            ("body", r"(?:r2|l1|r1|l2)_(?:thigh|calf)"),
+            self.body_asset.penalized_contact_match(),
+        )
+
+        from mjlab.tasks.velocity.velocity_env_cfg import make_velocity_env_cfg
+
+        from adapters.mjlab.kits.quadruped_kit.skills.mdp.sensors import (
+            BASE_SENSOR,
+            FEET_SENSOR,
+            PENALIZED_SENSOR,
+            replace_sensors,
+        )
+
+        cfg = make_velocity_env_cfg()
+        replace_sensors(cfg, self.body_asset)
+        sensors = {sensor.name: sensor for sensor in cfg.scene.sensors}
+        self.assertEqual(
+            ("body", r"(?:r2|l1|r1|l2)_(?:thigh|calf)"),
+            (sensors[PENALIZED_SENSOR].primary.mode, sensors[PENALIZED_SENSOR].primary.pattern),
+        )
+        self.assertEqual(
+            ("body", _SYNTHETIC_ROOT),
+            (sensors[BASE_SENSOR].primary.mode, sensors[BASE_SENSOR].primary.pattern),
+        )
+        self.assertEqual(
+            ("geom", self.body_asset.foot_geoms),
+            (sensors[FEET_SENSOR].primary.mode, sensors[FEET_SENSOR].primary.pattern),
+        )
+
+    def test_actuators_come_from_the_declared_truth(self):
+        """MJCF 为执行真值 → 沿用自带执行器；实体自带 PD → 按契约重建。"""
+        self.assertEqual("contract", self.named.actuator_source)
+        self.assertEqual("asset", self.body_asset.actuator_source)
+
+        rebuilt = self.named.robot_cfg()
+        self.assertEqual(
+            ["IdealPdActuatorCfg"] * 3,
+            [type(a).__name__ for a in rebuilt.articulation.actuators],
+        )
+        self.assertEqual(
+            (40.0, 1.0, 60.0),
+            (
+                rebuilt.articulation.actuators[0].stiffness,
+                rebuilt.articulation.actuators[0].damping,
+                rebuilt.articulation.actuators[0].effort_limit,
+            ),
+        )
+
+        kept = self.body_asset.robot_cfg()
+        self.assertEqual(
+            ["XmlActuatorCfg"] * 3, [type(a).__name__ for a in kept.articulation.actuators]
+        )
+        # 出生高与默认姿仍被覆盖（技能层只改技能关心的那几项）
+        self.assertEqual((0.0, 0.0, 0.4), tuple(kept.init_state.pos))
+        self.assertEqual(
+            {".*hip_joint": 0.0, ".*thigh_joint": 0.0, ".*calf_joint": 0.0},
+            dict(kept.init_state.joint_pos),
+        )
+
+        # armature_override 在执行真值在 MJCF 的机型上无处落地 ⇒ 显式判红，不静默丢
+        from adapters.mjlab.kits.quadruped_kit.skills import from_contract
+
+        with self.assertRaises(ValueError):
+            from_contract(
+                _synthetic_contract(),
+                spec_fn=_synthetic_body_asset_spec,
+                base_entity_cfg=_synthetic_body_asset_entity_cfg,
+                init_base_height=0.4,
+                armature_override=0.0,
+            )
+
+    def test_right_legs_derive_from_the_leg_markers(self):
+        """右腿 = 腿标记含 R 且不含 L（两台腿序不同，派生值跟着各自的腿序走）。"""
+        self.assertEqual((0, 2), self.body_asset.right_leg_indices())  # r2,l1,r1,l2
+        self.assertEqual((1, 3), GO2.right_leg_indices())  # FL,FR,RL,RR
+
+
 if __name__ == "__main__":
     unittest.main()

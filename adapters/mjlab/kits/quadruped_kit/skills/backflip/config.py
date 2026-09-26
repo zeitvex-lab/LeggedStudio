@@ -191,7 +191,14 @@ def make_env_cfg(
                 "legs": indices["legs"],
                 "roles": indices["roles"],
                 "abduction_column": indices["abduction_column"],
-                "mirror_leg_indices": profile.mirror_leg_indices,
+                # 镜像腿对**由绑定派生**（族约定：含 R 不含 L 的是右腿）——
+                # 两台机型腿序不同（go2 = FL,FR,RL,RR ⇒ (1,3)；b2 = FR,FL,RR,RL ⇒ (0,2)），
+                # 照搬一台的常量会把左右镜像做反。profile 显式给值时以 profile 为准。
+                "mirror_leg_indices": (
+                    profile.mirror_leg_indices
+                    if profile.mirror_leg_indices is not None
+                    else binding.right_leg_indices()
+                ),
             },
         ),
         "default_hip_pos": RewardTermCfg(

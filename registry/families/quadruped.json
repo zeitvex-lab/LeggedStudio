@@ -138,7 +138,7 @@
       "skill_id": "stunt",
       "display_name": "特技",
       "status": "robot-specific",
-      "summary": "特技/极限姿态（后空翻、跳跃、弹簧跳、倒立、三足站立）：**jump（跳跃）已族级化** ——实现上移为族级技能层（`adapters/mjlab/kits/quadruped_kit/skills/`：shared + trot + jump），go2 与 go1 各有档案（go1 为 2026-09-24 新增，同一实现 + 各自契约绑定）；其余四项（backflip / handstand / leggedstand / spring_jump）仍只有 go2 档案。",
+      "summary": "特技/极限姿态（后空翻、跳跃、弹簧跳、倒立、三足站立）：五项**实现均已族级化**（`adapters/mjlab/kits/quadruped_kit/skills/`：trot + jump + spring_jump + backflip + stance，后两项各含两个变体档）—— 机型侧只剩绑定与数据。**档案覆盖**：go2 五项全有，go1 有 jump（2026-09-24），b2 有 backflip（2026-09-26，特技轴的跨机型复用证明，未标定）。",
       "terrain_profiles": [
         "plane"
       ],
@@ -151,9 +151,10 @@
       ],
       "members_with_recipe": [
         "unitree_go2",
-        "unitree_go1"
+        "unitree_go1",
+        "unitree_b2"
       ],
-      "gap": "剩余缺口：①动作类特技（backflip / handstand / leggedstand / spring_jump）仍只有 go2 档案，族级化需要把它们的课程/终止/奖励项从 go2 档案提为族级配方，动作类还依赖 motions；②jump 虽已在 go1 跑通冒烟，但 go1 的 contract.default_pose 与它 velocity 任务的初始姿（HIMLoco 口径）符号相反，属未裁决项；③族内另两台（b2 / lite3）尚未接 jump 配方。"
+      "gap": "剩余缺口：①**档案覆盖**仍偏 go2（五项全）—— go1 只有 jump，b2 只有 backflip（复用证明档），lite3 一项没有；其余特技（spring_jump / handstand / leggedstand）在 b2 / lite3 上尚未接档案；②b2-backflip 的几何目标高（飞行 0.6 / 站姿 0.35）与接触力阈值（1.0 / 150.0）是 go2 几何与质量量级下的数，b2 上**未标定**（能训 ≠ 训得好），另 b2 站姿 0.54 m 比 go2 高，目标高需按 b2 重标；③jump 虽已在 go1 跑通冒烟，但 go1 的 contract.default_pose 与它 velocity 任务的初始姿（HIMLoco 口径）符号相反，属未裁决项。"
     }
   ],
   "mjcf_conventions": {
