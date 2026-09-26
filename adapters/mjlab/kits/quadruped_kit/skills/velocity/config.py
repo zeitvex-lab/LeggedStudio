@@ -630,3 +630,14 @@ def source_frame_noise(
         n_min=tuple(-value for value in values),
         n_max=tuple(values),
     )
+
+
+def make_runner_cfg(profile: VelocityProfile) -> RslRlOnPolicyRunnerCfg:
+    """族级 velocity runner（与其余技能同签名 `make_runner_cfg(profile)`）。
+
+    速度跟踪的 PPO 档是**四足组逐字共享**的那一份（`quadruped_kit.ppo_runner_cfg`，唯一差异是
+    `experiment_name`）；名字从 profile 的身份字段来（通用装配注入；缺省 = 族级默认名）。
+    """
+    from ... import ppo_runner_cfg
+
+    return ppo_runner_cfg(profile.experiment_name or "family_velocity")
