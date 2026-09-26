@@ -32,6 +32,9 @@ def _moving_std() -> dict[str, float]:
 
 @dataclass(frozen=True)
 class VelocityProfile:
+    #: 身份（通用装配注入；缺省 = 族级默认名）
+    task_id: str = ""
+    experiment_name: str = "family_velocity"
     # --- 族级装配开关（默认 = 族级默认配方） ---------------------------------------
     #: rough 档的**族级接触监看块**：四组接触传感器（自碰撞 / 大腿 / 小腿 / 躯干）
     #: + 三项碰撞惩罚 + 足端摩擦三轴 startup DR + 大腿非法接触终止。

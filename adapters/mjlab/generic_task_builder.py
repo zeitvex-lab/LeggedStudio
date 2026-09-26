@@ -505,4 +505,17 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
     return GenericTaskBundle(generated_id, env_cfg, play_cfg, rl_cfg, diagnostics)
 
 
-__all__ = ["GenericTaskBundle", "build_generic_task"]
+
+def make_spec_fn(xml_path: str | Path, *, strip_actuators: bool = False):
+    """公开入口：给一份 MJCF，返回可反复调用的 `spec_fn`（族级装配器复用同一套原语）。"""
+    return _make_spec_fn(Path(xml_path), strip_actuators=strip_actuators)
+
+
+def build_entity_cfg(contract: Any, xml_path: str | Path):
+    """公开入口：从契约 + MJCF 建实体配置（族级装配器复用同一套原语）。
+
+    返回三元组 `(entity_cfg, joint_order, actuator_report)`，与内部实现同构。
+    """
+    return _build_entity(contract, Path(xml_path))
+
+__all__ = ["GenericTaskBundle", "build_generic_task", "build_entity_cfg", "make_spec_fn"]
