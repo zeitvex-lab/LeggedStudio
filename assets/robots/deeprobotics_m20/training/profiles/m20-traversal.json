@@ -1,0 +1,73 @@
+{
+  "schema_version": "training-profile-1.0",
+  "backend": "native_mjlab",
+  "source_root": "training/source",
+  "terrain_type": "rough",
+  "algorithm": "PPO",
+  "task_name": "traversal_obstacle_release",
+  "num_envs": 4096,
+  "episode_length_s": 20.0,
+  "terrain": {
+    "type": "generator",
+    "curriculum": true,
+    "tile_size": [
+      8.0,
+      8.0
+    ],
+    "num_rows": 10,
+    "num_cols": 20,
+    "max_init_terrain_level": 5,
+    "sub_terrains": {
+      "flat": 0.15,
+      "pyramid_stairs": 0.05,
+      "pyramid_stairs_inv": 0.35,
+      "random_grid": 0.27,
+      "random_rough": 0.01,
+      "perlin_noise": 0.01,
+      "rc_wall": 0.15,
+      "sloped_terrain": 0.01
+    }
+  },
+  "curriculum": {
+    "terrain_levels": "terrain_levels_obstacle_release",
+    "course_source": "adapters/mjlab/kits/wheel_leg_kit/traversal_env_cfg.py",
+    "initial_terrains": [
+      "flat",
+      "random_rough",
+      "perlin_noise",
+      "sloped_terrain",
+      "pyramid_stairs"
+    ],
+    "terrain_release_env_steps": [
+      [
+        4800,
+        [
+          "random_grid"
+        ]
+      ],
+      [
+        12000,
+        [
+          "pyramid_stairs_inv"
+        ]
+      ],
+      [
+        16800,
+        [
+          "rc_wall"
+        ]
+      ]
+    ],
+    "command_vel": "包内 rough 档命令课程（族级越障课程不改命令层）"
+  },
+  "profile_id": "m20-traversal",
+  "display_name": "M20 越障（族级课程 · 障碍释放）",
+  "source": "package rough base (m20_velocity.env_cfgs, official recipe) + wheel_leg_kit.traversal_env_cfg (family obstacle course)",
+  "entrypoints": {
+    "env": "m20_velocity.traversal_env_cfg:m20_traversal_env_cfg",
+    "runner": "m20_velocity.rl_cfg:m20_rough_ppo_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "sort_order": 22,
+  "notes": "第四台轮足机型的越障档案：课程侧与 zex-w-rough / b2w-traversal / go2w-traversal 同一个工厂；机器人侧是 M20 的**官方配方** rough 档（与 reference 配方不是同一份任务）。**未按 M20 标定**越障档的课程节奏（释放步数是族默认）。"
+}

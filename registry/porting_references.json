@@ -1,7 +1,7 @@
 {
   "schema": "porting-references-1.0",
   "generated_at": "2026-09-24",
-  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。 **补充（2026-09-25 第三段）**：族级 velocity 上移到四足 go1/b2 与轮足 m20/b2w 后，**动作维解析序**又改了三台（go1/b2/b2w；m20 的解析序本就与契约一致）——详见各档案 F14。核对动作序要看运行期 `env.action_manager.get_term(<名>).target_ids`，字面序（`actuator_names`）只是意图。 **补充（2026-09-25 第四段）**：速度跟踪的族级化已覆盖 **8/8 台**（四足 go2/go1/b2/lite3、轮足 go2w/b2w/m20/zex-w）。动作维解析序被修正的是**四台**（go2w/go1/b2/b2w，见各档案 F12/F14）；go2、lite3、m20 本就一致（go2 在 F 段第一次上移时运行期对拍 0 差异，lite3 见 F19）。 **补充（2026-09-25 第五段）**：算法变体的**复用证明**已补上 —— `b2-cts` 用族级实现 + 只换数据即训得起来（`algorithm_plugin` 经平台注册表绑类，不经机型包）。 **补充（2026-09-25 第六段）**：特技 skill 族级化续做 —— `backflip` 已上移（逐档等价 + 真跑通过）。余项：`spring_jump` / `hand_stand` / `rear_stand` 仍只有 go2。 **补充（2026-09-25 第七段）**：特技族级化再进一台 —— `spring_jump` 已上移（逐档等价 + 真跑通过，含族级镜像损失）。余项：`hand_stand` / `rear_stand`。 **补充（2026-09-26）**：站姿类（handstand / rear_stand）已族级化收口 —— 内核 + 装配 + 对称表全部族级，两档共用一套机制、按奖励档分数据。 **补充（2026-09-26 第二段）**：特技轴补上**第二台机型的复用证明** —— `b2-backflip`（族级实现 + 只换数据，真跑 rollout + train 均通过）。为它修的是族级 Kit 里两处**按资产事实选路**的能力缺口（不是 b2 特判）：①腿杆惩罚的碰撞匹配面（几何具名走 geom、未具名走 body，`sensors.replace_sensors` 经 `binding.penalized_contact_match()`；足端与躯干的匹配面两台同写法，未动）；②执行器来源（MJCF 为执行真值的机型沿用自带 `XmlActuatorCfg`，`binding.actuator_source`）—— go2/go1 两台的解析结果与行为不变。 **补充（2026-09-26 第三段）**：特技/步态/站姿轴补齐第二至第四台机型的**复用档**（b2：jump / trot / spring_jump / handstand / leggedstand；go1：backflip；lite3：jump / backflip），全部「族级实现 + 只换数据 + 真跑 rollout 与 train 2 iter 通过」。为它们修掉族级 Kit 三处**只在真跑时暴露**的能力缺口：①腿杆惩罚的匹配面（几何未具名走 body，且**结构派生** —— lite3 的角色词与 body 词表无共同 token）；②执行器来源（MJCF 为执行真值的机型沿用自带执行器）；③站姿类 critic 帧的域随机化段（足端几何名 / 根 body 名由绑定派生，增益倍率按执行器种类读）。 **等价性取证口径更正（2026-09-26）**：此前 before/after 字段级对拍用的 `--package-root` 指向 `git archive` 出来的旧树，但适配器 venv 的可编辑安装把 `adapters` 解析回**工作树** ⇒ 两次 dump 实际都跑的工作树代码（自比，**证据无效**）。正确做法是把要对比的文件**临时还原到旧提交**（`git show <rev>:<path> > <path>`，先备份工作副本）再 dump。按此重取的真实证据：b2 / go1 / lite3 的 velocity cfg **2250 / 824 / 1318 字段 0 差异**；go2 五项特技 cfg **3274 字段 4 项差异，全部是「写死→显式」且取值与源字面量逐字相同**（`FL_foot_collision` / `base_link`）；go2 站姿两档同批 4 项。 **补充（2026-09-26 第四段）**：站姿类奖励核的机型事实也改为**绑定派生**（足端 site / 髋外展列 / 腿×角色 / 镜像腿对；源实现写死 go2 的 `(\"FL\",\"FR\",\"RL\",\"RR\")`、`(0,3,6,9)`、`view(…,4,3)` 与镜像腿 `(1,3)`），顺带**修掉一个对 b2 的真错**：站姿对称项原本固定翻转 1/3 号腿（go2 腿序下的右腿），b2 的右腿是 0/2 号 ⇒ 该奖励在 b2 上罚错了腿（现取 `binding.right_leg_indices()`）。go2 派生值与源字面量**逐项相同**（字段级对拍 1920 字段 42 项全是「写死→显式」）；回归锁 `adapters/mjlab/test_quadruped_stance_skill.py`。 另：**站姿类需要足端 site**（奖励核按 site 取足端高度），go1 / lite3 的 MJCF 没有足端 site ⇒ 这两台在 stand 档上是**能力缺口**（如实留痕，不给档案；profiles 只补了 `go1-trot` / `lite3-trot`）。",
+  "note": "逐档案的上游参考与移植核对结论（2026-09-24：两个只读子代理分四足/轮足核对，主代理复核关键项并修掉两条确认的逻辑问题）。conclusion 口径：aligned 对齐 / intentional 有意偏离（须 why）/ suspect 疑点（须 gaps）/ unverifiable 无法核对。gaps 里的 F 编号是核对清单编号；已修的条目在 gaps 里注明「已修」。**导出处方（2026-09-24 根因修复）**：产物 ONNX 的 `joint_names` 一度取 MJCF 实体序，与策略的动作向量序在轮足上必然不等（m20 的 MJCF 逐腿混排）；已改为按动作项顺序拼 `target_names`（`native_worker.action_joint_order`），回退链=契约 `action.joint_order` → 实体序，并真跑导出复验（m20-velocity 章=契约序）。**存量产物仍按旧序标注**：凡 2026-09-24 之前导出的轮足策略，用前先按当初的训练序核对，或重导。**族级事实（2026-09-24 实测，字段=契约 `action.joint_order`）**：**8 台全是「腿先轮后」**（轮足四台的轮段都在末尾），训练侧逐档核对**全部一致**；差别只在**腿序**——FL 优先 5 台（lite3/m20/go1/go2/zex-w 的各自上游约定）、FR 优先 3 台（b2/b2w/go2w 的 Unitree SDK 约定），按名映射不影响部署，登记为族内差异即可。另：`joints.actuated`（关节清单，按 MJCF 序）与 `action.joint_order` 只在 **go2w** 一台不同（清单逐腿混排、动作序腿先轮后）——核对动作序**必须用 `action.joint_order`**，第一版不变式测试比错字段、把 go2w 误判为腿序写反，当日撤回并写进测试注释防复发。动作序不变式由 `adapters/mjlab/test_action_order_matches_contract.py` 守（全字面序严格相等 / 部分字面走子序列检查 / 登记偏离必须仍然偏离）。 **补充（2026-09-25）**：上表「训练侧逐档核对全部一致」是按 cfg 字面序核对的结论；运行期解析序另有一处反例——go2w 的关节动作分支忽略 `preserve_order`，实际解析成 MJCF 序（已随族级 velocity 上移修好，见 go2w-flat/rough 的 F12 二次更正）。核对动作序要看**运行期 `_target_ids`**，字面序只是意图。 **补充（2026-09-25 第三段）**：族级 velocity 上移到四足 go1/b2 与轮足 m20/b2w 后，**动作维解析序**又改了三台（go1/b2/b2w；m20 的解析序本就与契约一致）——详见各档案 F14。核对动作序要看运行期 `env.action_manager.get_term(<名>).target_ids`，字面序（`actuator_names`）只是意图。 **补充（2026-09-25 第四段）**：速度跟踪的族级化已覆盖 **8/8 台**（四足 go2/go1/b2/lite3、轮足 go2w/b2w/m20/zex-w）。动作维解析序被修正的是**四台**（go2w/go1/b2/b2w，见各档案 F12/F14）；go2、lite3、m20 本就一致（go2 在 F 段第一次上移时运行期对拍 0 差异，lite3 见 F19）。 **补充（2026-09-25 第五段）**：算法变体的**复用证明**已补上 —— `b2-cts` 用族级实现 + 只换数据即训得起来（`algorithm_plugin` 经平台注册表绑类，不经机型包）。 **补充（2026-09-25 第六段）**：特技 skill 族级化续做 —— `backflip` 已上移（逐档等价 + 真跑通过）。余项：`spring_jump` / `hand_stand` / `rear_stand` 仍只有 go2。 **补充（2026-09-25 第七段）**：特技族级化再进一台 —— `spring_jump` 已上移（逐档等价 + 真跑通过，含族级镜像损失）。余项：`hand_stand` / `rear_stand`。 **补充（2026-09-26）**：站姿类（handstand / rear_stand）已族级化收口 —— 内核 + 装配 + 对称表全部族级，两档共用一套机制、按奖励档分数据。 **补充（2026-09-26 第二段）**：特技轴补上**第二台机型的复用证明** —— `b2-backflip`（族级实现 + 只换数据，真跑 rollout + train 均通过）。为它修的是族级 Kit 里两处**按资产事实选路**的能力缺口（不是 b2 特判）：①腿杆惩罚的碰撞匹配面（几何具名走 geom、未具名走 body，`sensors.replace_sensors` 经 `binding.penalized_contact_match()`；足端与躯干的匹配面两台同写法，未动）；②执行器来源（MJCF 为执行真值的机型沿用自带 `XmlActuatorCfg`，`binding.actuator_source`）—— go2/go1 两台的解析结果与行为不变。 **补充（2026-09-26 第三段）**：特技/步态/站姿轴补齐第二至第四台机型的**复用档**（b2：jump / trot / spring_jump / handstand / leggedstand；go1：backflip；lite3：jump / backflip），全部「族级实现 + 只换数据 + 真跑 rollout 与 train 2 iter 通过」。为它们修掉族级 Kit 三处**只在真跑时暴露**的能力缺口：①腿杆惩罚的匹配面（几何未具名走 body，且**结构派生** —— lite3 的角色词与 body 词表无共同 token）；②执行器来源（MJCF 为执行真值的机型沿用自带执行器）；③站姿类 critic 帧的域随机化段（足端几何名 / 根 body 名由绑定派生，增益倍率按执行器种类读）。 **等价性取证口径更正（2026-09-26）**：此前 before/after 字段级对拍用的 `--package-root` 指向 `git archive` 出来的旧树，但适配器 venv 的可编辑安装把 `adapters` 解析回**工作树** ⇒ 两次 dump 实际都跑的工作树代码（自比，**证据无效**）。正确做法是把要对比的文件**临时还原到旧提交**（`git show <rev>:<path> > <path>`，先备份工作副本）再 dump。按此重取的真实证据：b2 / go1 / lite3 的 velocity cfg **2250 / 824 / 1318 字段 0 差异**；go2 五项特技 cfg **3274 字段 4 项差异，全部是「写死→显式」且取值与源字面量逐字相同**（`FL_foot_collision` / `base_link`）；go2 站姿两档同批 4 项。 **补充（2026-09-26 第四段）**：站姿类奖励核的机型事实也改为**绑定派生**（足端 site / 髋外展列 / 腿×角色 / 镜像腿对；源实现写死 go2 的 `(\"FL\",\"FR\",\"RL\",\"RR\")`、`(0,3,6,9)`、`view(…,4,3)` 与镜像腿 `(1,3)`），顺带**修掉一个对 b2 的真错**：站姿对称项原本固定翻转 1/3 号腿（go2 腿序下的右腿），b2 的右腿是 0/2 号 ⇒ 该奖励在 b2 上罚错了腿（现取 `binding.right_leg_indices()`）。go2 派生值与源字面量**逐项相同**（字段级对拍 1920 字段 42 项全是「写死→显式」）；回归锁 `adapters/mjlab/test_quadruped_stance_skill.py`。 另：**站姿类需要足端 site**（奖励核按 site 取足端高度），go1 / lite3 的 MJCF 没有足端 site ⇒ 这两台在 stand 档上是**能力缺口**（如实留痕，不给档案；profiles 只补了 `go1-trot` / `lite3-trot`）。 **补充（2026-09-26 第五段）**：轮足越障补齐 —— 新增 `go2w-traversal` / `m20-traversal` 两档（机器人侧各交自己的 rough 基座，课程侧调用族级同一个工厂），轮足 traversal 档案 **1/4 → 3/4**；`zex-w` 不另立档案并写明理由（它的 `zex-w-rough` 已是同一套课程，只是 task_name 归速度跟踪）。**验收器仍缺**：越障的族级验收器要判「过了障碍」而不是「奖励有限」，属未完成项（写进族注册表 gap）。",
   "entries": [
     {
       "profile_id": "go2-trot",
@@ -1119,6 +1119,56 @@
       },
       "gaps": [
         "**未按本机型标定**：`base_height_target`（0.29 m）与目标足高是 go2 几何（站姿 0.42 m）下的数 ⇒ **能训 ≠ 训得好**；要当正式技能用需按本机型标定一轮并登记对照"
+      ]
+    },
+    {
+      "profile_id": "go2w-traversal",
+      "robot": "unitree_go2w",
+      "checked_at": "2026-09-26",
+      "references": [
+        {
+          "repo": "rc_old",
+          "path": "RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
+          "role": "竞赛地形 + 障碍释放课程源（库外工程；族级课程工厂的上游）",
+          "outside_library": true
+        }
+      ],
+      "verification": {
+        "method": "**族级课程复用档**（2026-09-26）：地形集与障碍释放课程**不是**包内副本 —— 调用轮足族 Kit 的同一个课程工厂（`wheel_leg_kit/traversal_env_cfg.py` 的 `make_obstacle_course_terrain` / `make_obstacle_release_curriculum`，与 `zex-w-rough` / `b2w-traversal` 同源）；验收方式是**真跑** `--mode rollout` 与 `--mode train --iters 2` 均通过。",
+        "conclusion": "aligned",
+        "evidence": [
+          "课程侧与 `zex-w-rough` / `b2w-traversal` 调用**同一个工厂**（不是复制一份改改）",
+          "机器人侧沿用本包 `unitree_go2w_rough_env_cfg`（速度跟踪 rough 档）的实体/动作/奖励/命令装配；与 b2w-traversal 的唯一差别是机型侧那一份装配"
+        ]
+      },
+      "gaps": [
+        "**越障档未各自标定**：课程节奏（释放步数 4800/12000/16800 与地块配比）是族默认，四台共用；要当正式技能用需按本机型标定一轮并登记对照",
+        "**验收器仍缺**：目前的冒烟只证明「训练链路通、奖励有限」，**不证明「真的过了障碍」**（族级越障验收器在 TODO 里，见族注册表的 traversal gap）"
+      ]
+    },
+    {
+      "profile_id": "m20-traversal",
+      "robot": "deeprobotics_m20",
+      "checked_at": "2026-09-26",
+      "references": [
+        {
+          "repo": "rc_old",
+          "path": "RC_WheelLeg/05_software/train/rc_mjlab/src/robot",
+          "role": "竞赛地形 + 障碍释放课程源（库外工程；族级课程工厂的上游）",
+          "outside_library": true
+        }
+      ],
+      "verification": {
+        "method": "**族级课程复用档**（2026-09-26）：地形集与障碍释放课程**不是**包内副本 —— 调用轮足族 Kit 的同一个课程工厂（`wheel_leg_kit/traversal_env_cfg.py` 的 `make_obstacle_course_terrain` / `make_obstacle_release_curriculum`，与 `zex-w-rough` / `b2w-traversal` 同源）；验收方式是**真跑** `--mode rollout` 与 `--mode train --iters 2` 均通过。",
+        "conclusion": "aligned",
+        "evidence": [
+          "课程侧与 `zex-w-rough` / `b2w-traversal` 调用**同一个工厂**（不是复制一份改改）",
+          "机器人侧是 M20 的**官方配方** rough 档（`m20_rough_env_cfg`，与 reference 配方不是同一份任务：观测布局与 21 项奖励表都不同）"
+        ]
+      },
+      "gaps": [
+        "**越障档未各自标定**：课程节奏（释放步数 4800/12000/16800 与地块配比）是族默认，四台共用；要当正式技能用需按本机型标定一轮并登记对照",
+        "**验收器仍缺**：目前的冒烟只证明「训练链路通、奖励有限」，**不证明「真的过了障碍」**（族级越障验收器在 TODO 里，见族注册表的 traversal gap）"
       ]
     }
   ]
