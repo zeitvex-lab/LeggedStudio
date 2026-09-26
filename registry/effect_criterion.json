@@ -29,6 +29,43 @@
         "report": "workspace/validation/traversal-b2w-acceptance.json",
         "checked_at": "2026-09-26"
       }
+    },
+    {
+      "tier": "velocity",
+      "metric": "tracking_ratio",
+      "metric_meaning": "速度跟踪达成率 = 1 −（‖v−v_cmd‖ + 0.3·|ω−ω_cmd|）/‖v_cmd‖，夹到 [0,1]；由仿真验收器按无头 sim2sim 给出（≥0.6 合格 / ≥0.8 更好）",
+      "producer": "tools/sim2sim_headless.py",
+      "budget": {
+        "num_envs": null,
+        "iters": null
+      },
+      "budget_note": "本档的度量**不来自训练预算**，来自既有 onnx 产物在无头 sim2sim 里的滚出 —— 所以登记表里预算记作不适用，用报告里的 --seconds / --seed 记录工况",
+      "reference_profile": "go2-velocity-flat",
+      "reference_note": "参考取该档的**来源机型**（go2 是速度跟踪族级配方的原型）；流程化前需先确认参考产物与当前观测布局一致（历史策略可能按旧布局导出）",
+      "reference": null,
+      "observed": {
+        "unitree_go1": null,
+        "unitree_b2": null,
+        "deeprobotics_lite3": null,
+        "unitree_go2w": null,
+        "unitree_b2w": null,
+        "deeprobotics_m20": null,
+        "zex-w": null
+      }
+    }
+  ],
+  "pending": [
+    {
+      "tier": "stunt_jump / stunt_backflip / stunt_spring_jump / stance_handstand / stance_rear_stand",
+      "why": "**还没有跨机型可比的度量** —— 冒烟给的是累计奖励，量纲随机型与奖励表变，跨机型不可比；要接入效果口径得先有「特技/姿态验收器」（比如跳跃最高机身高度、后空翻落地成功率、站立保持时长），这是下一步的配方工作"
+    },
+    {
+      "tier": "imitation_amp",
+      "why": "同上（缺度量）；另有一层数据缺口：b2 / lite3 没有可用的参考动作数据（go2 的 13 条 Apache-2.0 动作在关节序上只对 go1 直接可用）"
+    },
+    {
+      "tier": "traversal_parkour（四足）",
+      "why": "只有 go2 一台有档案（第二台卡在**相机声明**：没有标定的前视深度外参），没有第二台就没得比 —— 属未被解除的阻塞项"
     }
   ]
 }
