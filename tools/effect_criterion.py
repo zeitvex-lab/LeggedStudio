@@ -114,19 +114,135 @@ def report(payload: dict) -> tuple[list[dict], list[str], list[str]]:
     return rows, failures, untested
 
 
+def _dig(payload: dict, field: str):
+    """按点路径从产出方的报告里取指标（`policy.progress_env_ratio` 这类）。"""
+    node = payload
+    for part in field.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
+
+
+def _adapter_interpreter() -> str:
+    """训练栈所在的解释器（跑产出方用）。
+
+    **不 import `contracts.path_bootstrap`**：那会拉起控制面依赖（pydantic 等），
+    而本工具按设计只依赖标准库（用仓根 `.venv` 的 python 跑）。这里按它的同一口径自己解析：
+    先认显式环境变量，再认 `adapters/mjlab/.venv` 的两种布局，都没有才回落到当前解释器
+    （并在命令行里明说，避免"用错解释器却静默失败"）。
+    """
+    import os
+
+    for name in ("ADAPTER_PYTHON", "LEGGED_STUDIO_ADAPTER_PYTHON", "ADAPTER_PYTHON_ENV"):
+        explicit = (os.environ.get(name) or "").strip()
+        if explicit:
+            return str(Path(explicit).expanduser())
+    venv = ROOT / "adapters" / "mjlab" / ".venv"
+    for candidate in (venv / "Scripts" / "python.exe", venv / "bin" / "python"):
+        if candidate.is_file():
+            return str(candidate)
+    return sys.executable
+
+
+def run_tier(payload: dict, robot: str, tier: str, iters: int | None, num_envs: int | None,
+             seconds: float | None, allow_underbudget: bool) -> int:
+    """一键效果对照：按登记的产出方跑训练+验收，取出指标，**按声明预算**才登记。"""
+    import subprocess
+
+    entry = find_entry(payload, tier)
+    producer = entry.get("producer")
+    metric_field = entry.get("metric_field")
+    profile_id = (entry.get("profiles") or {}).get(robot)
+    if not producer or not metric_field or not profile_id:
+        raise SystemExit(
+            f"{tier} / {robot}: 该档没有登记一键跑的三样（producer / metric_field / profiles）—— "
+            "见 `python tools/effect_criterion.py --list`；速度跟踪档走 sim2sim 验收器自己的 CLI"
+        )
+    declared = entry.get("budget") or {}
+    budget_iters = int(iters or declared.get("iters") or 0)
+    budget_envs = int(num_envs or declared.get("num_envs") or 0)
+    if not budget_iters or not budget_envs:
+        raise SystemExit(f"{tier}: 档案没声明预算（num_envs/iters），用 --iters / --num-envs 显式给")
+
+    report_dir = ROOT / "workspace" / "validation"
+    report_path = report_dir / f"effect-{tier}-{robot}.json"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    interpreter = _adapter_interpreter()
+    command = [
+        interpreter, str(ROOT / producer),
+        "--profile", profile_id,
+        "--train-iters", str(budget_iters),
+        "--num-envs", str(budget_envs),
+        "--output", str(report_path),
+    ]
+    if seconds:
+        command += ["--seconds", str(seconds)]
+    print(f"[effect] 跑 {tier} / {robot}（解释器 {interpreter}）")
+    print(f"[effect] {' '.join(command[1:])}")
+    completed = subprocess.run(command, cwd=str(ROOT), text=True, encoding="utf-8",
+                              errors="replace")
+    if not report_path.is_file():
+        raise SystemExit(f"产出方没有留下报告（退出码 {completed.returncode}）：{report_path}")
+    produced = json.loads(report_path.read_text(encoding="utf-8-sig"))
+    value = _dig(produced, metric_field)
+    verdict = produced.get("verdict")
+    declared_budget = {"num_envs": declared.get("num_envs"), "iters": declared.get("iters")}
+    matches_declared = declared_budget == {"num_envs": budget_envs, "iters": budget_iters}
+    print(f"[effect] 指标 {metric_field} = {value}（产出方判定 {verdict}）")
+    if value is None:
+        raise SystemExit(f"报告里取不到 {metric_field}：{report_path}")
+    if matches_declared:
+        observed = entry.setdefault("observed", {})
+        observed[robot] = {
+            "value": float(value),
+            "budget": {"num_envs": budget_envs, "iters": budget_iters},
+            "checked_at": "2026-09-26",
+            "report": str(report_path.relative_to(ROOT)),
+        }
+        save(payload)
+        print(f"[effect] 已按声明预算登记 {tier} / {robot} = {value}")
+    elif allow_underbudget:
+        observed = entry.setdefault("observed", {})
+        observed[robot] = {
+            "value": float(value),
+            "budget": {"num_envs": budget_envs, "iters": budget_iters},
+            "checked_at": "2026-09-26",
+            "report": str(report_path.relative_to(ROOT)),
+            "note": f"**未按声明预算**（声明 {declared_budget}）—— 只作诊断，不作为效果对照依据",
+        }
+        save(payload)
+        print(f"[effect] 已按**未达声明预算**登记（带注记）{tier} / {robot} = {value}")
+    else:
+        print(
+            f"[effect] 预算 {budget_envs}×{budget_iters} 与声明 {declared_budget} 不一致 ⇒ **不登记**"
+            "（不同预算的数字不可比；要诊断加 --allow-underbudget，它会带注记）"
+        )
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="打印对照表")
     parser.add_argument("--check", action="store_true", help="低于阈值判红；没测的单列（不算通过）")
     parser.add_argument("--record", metavar="ROBOT", help="录入某机型的一次实测（须给 --tier/--value/预算）")
+    parser.add_argument("--run", metavar="ROBOT", help="一键跑：按登记的产出方训练+验收并登记（须给 --tier）")
     parser.add_argument("--tier", default=None)
     parser.add_argument("--value", type=float, default=None)
     parser.add_argument("--num-envs", type=int, default=None)
     parser.add_argument("--iters", type=int, default=None)
+    parser.add_argument("--seconds", type=float, default=None)
+    parser.add_argument("--allow-underbudget", action="store_true",
+                        help="允许把「未达声明预算」的结果登记进去（会带注记，不作对照依据）")
     parser.add_argument("--report", default=None, help="产出该数字的报告文件（登记用）")
     args = parser.parse_args()
 
     payload = load()
+    if args.run:
+        if args.tier is None:
+            raise SystemExit("--run 必须给 --tier")
+        return run_tier(payload, args.run, args.tier, args.iters, args.num_envs,
+                        args.seconds, args.allow_underbudget)
     if args.record:
         if args.tier is None or args.value is None:
             raise SystemExit("--record 必须同时给 --tier 与 --value")

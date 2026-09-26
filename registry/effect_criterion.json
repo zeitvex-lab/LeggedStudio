@@ -25,9 +25,15 @@
         "deeprobotics_m20": null
       },
       "demonstrated": {
-        "note": "验收器会判红（不是橡皮章）：300 迭代 × 1024 环境的欠训策略被判 fail —— 20 s 位移均值 0.47 m / 最大 0.70 m（判据线 4.0 m）；这一条**不是效果对照**，只是判据有效性的证据",
+        "note": "验收器会判红：300 迭代 × 1024 环境与 20 迭代 × 64 环境两次欠训都被判 fail（位移 0.47 m / 0.0 占比，判据线 4.0 m）—— **不是效果对照**，只是判据有效性的证据",
         "report": "workspace/validation/traversal-b2w-acceptance.json",
         "checked_at": "2026-09-26"
+      },
+      "metric_field": "policy.progress_env_ratio",
+      "profiles": {
+        "unitree_b2w": "b2w-traversal",
+        "unitree_go2w": "go2w-traversal",
+        "deeprobotics_m20": "m20-traversal"
       }
     },
     {
@@ -51,7 +57,9 @@
         "unitree_b2w": null,
         "deeprobotics_m20": null,
         "zex-w": null
-      }
+      },
+      "metric_field": null,
+      "profiles": {}
     },
     {
       "tier": "stunt_backflip",
@@ -70,6 +78,12 @@
         "unitree_go1": null,
         "unitree_b2": null,
         "deeprobotics_lite3": null
+      },
+      "metric_field": "metrics.peak_height_ratio",
+      "profiles": {
+        "unitree_go1": "go1-backflip",
+        "unitree_b2": "b2-backflip",
+        "deeprobotics_lite3": "lite3-backflip"
       }
     },
     {
@@ -89,6 +103,12 @@
         "unitree_go1": null,
         "unitree_b2": null,
         "deeprobotics_lite3": null
+      },
+      "metric_field": "metrics.peak_height_ratio",
+      "profiles": {
+        "unitree_go1": "go1-jump",
+        "unitree_b2": "b2-jump",
+        "deeprobotics_lite3": "lite3-jump"
       }
     },
     {
@@ -106,6 +126,10 @@
       "reference": null,
       "observed": {
         "unitree_b2": null
+      },
+      "metric_field": "metrics.peak_height_ratio",
+      "profiles": {
+        "unitree_b2": "b2-spring-jump"
       }
     },
     {
@@ -123,6 +147,10 @@
       "reference": null,
       "observed": {
         "unitree_b2": null
+      },
+      "metric_field": "metrics.hold_ratio",
+      "profiles": {
+        "unitree_b2": "b2-handstand"
       }
     },
     {
@@ -140,6 +168,10 @@
       "reference": null,
       "observed": {
         "unitree_b2": null
+      },
+      "metric_field": "metrics.hold_ratio",
+      "profiles": {
+        "unitree_b2": "b2-leggedstand"
       }
     }
   ],
