@@ -31,6 +31,7 @@
       },
       "metric_field": "policy.progress_env_ratio",
       "profiles": {
+        "zex-w": "zex-w-rough",
         "unitree_b2w": "b2w-traversal",
         "unitree_go2w": "go2w-traversal",
         "deeprobotics_m20": "m20-traversal"
@@ -81,6 +82,7 @@
       },
       "metric_field": "metrics.peak_height_ratio",
       "profiles": {
+        "unitree_go2": "go2-backflip",
         "unitree_go1": "go1-backflip",
         "unitree_b2": "b2-backflip",
         "deeprobotics_lite3": "lite3-backflip"
@@ -106,6 +108,7 @@
       },
       "metric_field": "metrics.peak_height_ratio",
       "profiles": {
+        "unitree_go2": "go2-jump",
         "unitree_go1": "go1-jump",
         "unitree_b2": "b2-jump",
         "deeprobotics_lite3": "lite3-jump"
@@ -129,6 +132,7 @@
       },
       "metric_field": "metrics.peak_height_ratio",
       "profiles": {
+        "unitree_go2": "go2-spring-jump",
         "unitree_b2": "b2-spring-jump"
       }
     },
@@ -150,6 +154,7 @@
       },
       "metric_field": "metrics.hold_ratio",
       "profiles": {
+        "unitree_go2": "go2-handstand",
         "unitree_b2": "b2-handstand"
       }
     },
@@ -171,6 +176,7 @@
       },
       "metric_field": "metrics.hold_ratio",
       "profiles": {
+        "unitree_go2": "go2-leggedstand",
         "unitree_b2": "b2-leggedstand"
       }
     }
