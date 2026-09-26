@@ -52,16 +52,101 @@
         "deeprobotics_m20": null,
         "zex-w": null
       }
+    },
+    {
+      "tier": "stunt_backflip",
+      "metric": "peak_height_ratio / pitch_turns",
+      "metric_meaning": "peak_height_ratio（峰值机身高 / 出生站立高）+ pitch_turns（累积俯仰整圈数）；阈值从**档案自己的目标**推：0.9 × flight_height / 出生高（backflip 的整圈是物理量）",
+      "producer": "tools/validate_stunt_progress.py",
+      "budget": {
+        "num_envs": 1024,
+        "iters": 2000
+      },
+      "budget_note": "族默认预算（1024 环境 × 2000 迭代；本机实测约 0.35 s/迭代@64 环境、1024 环境约 1 s/迭代 ⇒ 单台约 30–40 分钟）。也可 `--checkpoint` 复用已有产物。",
+      "reference_profile": "go2-backflip",
+      "reference_note": "参考取该档的来源机型 go2（后空翻配方原型）",
+      "reference": null,
+      "observed": {
+        "unitree_go1": null,
+        "unitree_b2": null,
+        "deeprobotics_lite3": null
+      }
+    },
+    {
+      "tier": "stunt_jump",
+      "metric": "peak_height_ratio",
+      "metric_meaning": "peak_height_ratio（峰值机身高 / 出生站立高）+ pitch_turns（累积俯仰整圈数）；阈值从**档案自己的目标**推：0.9 × flight_height / 出生高（backflip 的整圈是物理量）；jump 没声明飞行目标 ⇒ **族默认 1.2，待标定**",
+      "producer": "tools/validate_stunt_progress.py",
+      "budget": {
+        "num_envs": 1024,
+        "iters": 2000
+      },
+      "budget_note": "族默认预算（1024 环境 × 2000 迭代；本机实测约 0.35 s/迭代@64 环境、1024 环境约 1 s/迭代 ⇒ 单台约 30–40 分钟）。也可 `--checkpoint` 复用已有产物。",
+      "reference_profile": "go2-jump",
+      "reference_note": "参考取该档的来源机型 go2",
+      "reference": null,
+      "observed": {
+        "unitree_go1": null,
+        "unitree_b2": null,
+        "deeprobotics_lite3": null
+      }
+    },
+    {
+      "tier": "stunt_spring_jump",
+      "metric": "peak_height_ratio",
+      "metric_meaning": "peak_height_ratio（峰值机身高 / 出生站立高）+ pitch_turns（累积俯仰整圈数）；阈值从**档案自己的目标**推：0.9 × flight_height / 出生高（backflip 的整圈是物理量）",
+      "producer": "tools/validate_stunt_progress.py",
+      "budget": {
+        "num_envs": 1024,
+        "iters": 2000
+      },
+      "budget_note": "族默认预算（1024 环境 × 2000 迭代；本机实测约 0.35 s/迭代@64 环境、1024 环境约 1 s/迭代 ⇒ 单台约 30–40 分钟）。也可 `--checkpoint` 复用已有产物。",
+      "reference_profile": "go2-spring-jump",
+      "reference_note": "参考取该档的来源机型 go2（b2 侧已接档）",
+      "reference": null,
+      "observed": {
+        "unitree_b2": null
+      }
+    },
+    {
+      "tier": "stance_handstand",
+      "metric": "hold_ratio / survived_ratio",
+      "metric_meaning": "hold_ratio（高度 ≥ 目标高 0.9 且该档要求的腿在空的步数占比）+ survived_ratio；阈值族默认 0.5，可由档案 criteria.stunt.hold_ratio_min 覆盖",
+      "producer": "tools/validate_stunt_progress.py",
+      "budget": {
+        "num_envs": 1024,
+        "iters": 2000
+      },
+      "budget_note": "族默认预算（1024 环境 × 2000 迭代；本机实测约 0.35 s/迭代@64 环境、1024 环境约 1 s/迭代 ⇒ 单台约 30–40 分钟）。也可 `--checkpoint` 复用已有产物。",
+      "reference_profile": "go2-handstand",
+      "reference_note": "参考取该档的来源机型 go2（倒立档原型；b2 侧已接档）",
+      "reference": null,
+      "observed": {
+        "unitree_b2": null
+      }
+    },
+    {
+      "tier": "stance_rear_stand",
+      "metric": "hold_ratio / survived_ratio",
+      "metric_meaning": "hold_ratio（高度 ≥ 目标高 0.9 且该档要求的腿在空的步数占比）+ survived_ratio；阈值族默认 0.5，可由档案 criteria.stunt.hold_ratio_min 覆盖",
+      "producer": "tools/validate_stunt_progress.py",
+      "budget": {
+        "num_envs": 1024,
+        "iters": 2000
+      },
+      "budget_note": "族默认预算（1024 环境 × 2000 迭代；本机实测约 0.35 s/迭代@64 环境、1024 环境约 1 s/迭代 ⇒ 单台约 30–40 分钟）。也可 `--checkpoint` 复用已有产物。",
+      "reference_profile": "go2-leggedstand",
+      "reference_note": "参考取该档的来源机型 go2（后腿站立档原型；b2 侧已接档）",
+      "reference": null,
+      "observed": {
+        "unitree_b2": null
+      }
     }
   ],
   "pending": [
     {
-      "tier": "stunt_jump / stunt_backflip / stunt_spring_jump / stance_handstand / stance_rear_stand",
-      "why": "**还没有跨机型可比的度量** —— 冒烟给的是累计奖励，量纲随机型与奖励表变，跨机型不可比；要接入效果口径得先有「特技/姿态验收器」（比如跳跃最高机身高度、后空翻落地成功率、站立保持时长），这是下一步的配方工作"
-    },
-    {
       "tier": "imitation_amp",
-      "why": "同上（缺度量）；另有一层数据缺口：b2 / lite3 没有可用的参考动作数据（go2 的 13 条 Apache-2.0 动作在关节序上只对 go1 直接可用）"
+      "why": "缺**跨机型可比**的度量（模仿是「像不像参考动作」，要先定义相似度指标）；另有一层数据缺口：b2 / lite3 没有可用的参考动作数据（go2 的 13 条 Apache-2.0 动作在关节序上只对 go1 直接可用）"
     },
     {
       "tier": "traversal_parkour（四足）",

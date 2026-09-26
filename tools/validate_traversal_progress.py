@@ -135,19 +135,38 @@ def _runner_and_wrapper(env, entry: dict):
     return wrapped, runner_cls, rl_cfg, asdict
 
 
-def train_checkpoint(env, entry: dict, iters: int, output_dir: Path) -> Path:
-    """训一轮并把 checkpoint 落盘（给策略侧验收用；不训就无法判"过了障碍"）。"""
+def train_checkpoint_with(wrapped, runner_cls, asdict, rl_cfg, iters: int, output_dir: Path) -> Path:
+    """用**已经建好的 wrapper** 训一轮并落 checkpoint。
+
+    两个坑都在这里挡掉：
+    * **训完不要二次包装 env**：训练收尾的导出路径会把部分张量置于 InferenceMode，
+      再包一次 `RslRlVecEnvWrapper` 会触发 `env.reset()`，而 reset 里有对推理张量的原地写
+      → `RuntimeError: Inplace update to inference tensor outside InferenceMode`；
+    * **验收跑不需要 ONNX 导出**：runner 类自带 `skip_onnx_export_env_var`（原用途就是
+      "大规模并行验证跑关掉导出、只留 .pt"），这里照它的声明关掉，省时间也避开导出期的
+      InferenceMode 副作用。
+    """
+    import os
+
     output_dir.mkdir(parents=True, exist_ok=True)
-    wrapped, runner_cls, rl_cfg, asdict = _runner_and_wrapper(env, entry)
+    skip_var = getattr(runner_cls, "skip_onnx_export_env_var", None)
+    if skip_var:
+        os.environ[str(skip_var)] = "1"
     rl_cfg.max_iterations = int(iters)
     rl_cfg.save_interval = max(1, int(iters))
     rl_cfg.logger = "tensorboard"  # 离线默认：wandb 无网/未登录会中断
-    runner = runner_cls(wrapped, asdict(rl_cfg), str(output_dir), env.device)
+    runner = runner_cls(wrapped, asdict(rl_cfg), str(output_dir), wrapped.env.device)
     runner.learn(num_learning_iterations=int(iters))
     checkpoints = sorted(output_dir.glob("model_*.pt"), key=lambda p: p.stat().st_mtime)
     if not checkpoints:
         raise SystemExit(f"训练跑完但 {output_dir} 里没有 model_*.pt")
     return checkpoints[-1]
+
+
+def train_checkpoint(env, entry: dict, iters: int, output_dir: Path) -> Path:
+    """训一轮并把 checkpoint 落盘（给策略侧验收用；不训就无法判"过了障碍"）。"""
+    wrapped, runner_cls, rl_cfg, asdict = _runner_and_wrapper(env, entry)
+    return train_checkpoint_with(wrapped, runner_cls, asdict, rl_cfg, iters, output_dir)
 
 
 def policy_side(env, cfg, entry: dict, checkpoint: Path, seconds: float, profile: dict) -> dict:
@@ -168,9 +187,12 @@ def policy_side(env, cfg, entry: dict, checkpoint: Path, seconds: float, profile
     runner.load(str(checkpoint), load_cfg={"actor": True}, strict=True, map_location=env.device)
     policy = runner.get_inference_policy(device=env.device)
 
-    obs, _ = wrapped.reset()
+    # 整个 rollout 跑在推理模式里：训练/推理路径会留下推理张量，只有推理模式内允许
+    # 对它们原地写（如动作延时缓冲的 reset）—— 否则 `wrapped.reset()` 直接抛
+    # `Inplace update to inference tensor outside InferenceMode`。
     best = torch.zeros(env.num_envs, device=env.device)
-    with torch.no_grad():
+    with torch.inference_mode():
+        obs, _ = wrapped.reset()
         for _ in range(steps):
             action = policy(obs)
             obs, _, dones, _ = wrapped.step(action)
