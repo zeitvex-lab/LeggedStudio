@@ -456,3 +456,14 @@ def make_env_cfg(
 
 
 __all__: tuple[str, ...] = ("VARIANTS", "WHEEL_GROUND_SENSOR", "make_env_cfg")
+
+
+def make_runner_cfg(profile, *, experiment_name: str = "") -> RslRlOnPolicyRunnerCfg:
+    """族级轮足 velocity runner（与四足族同一个签名 `make_runner_cfg(profile)`）。
+
+    PPO 档取本族逐字共享的 `wheel_leg_kit.ppo_runner_cfg_ex`；实验名从 profile 的身份字段来
+    （通用装配注入；缺省 = 族级默认名）。这条是给**无档案的新机型**用的：装配表声明它即可。
+    """
+    from ... import ppo_runner_cfg_ex
+
+    return ppo_runner_cfg_ex("family_wheel_velocity")
