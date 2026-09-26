@@ -31,7 +31,9 @@ tracking（pkl，逐引擎变体）与 amp（npz）两侧数据**在仓内已一
 2. ``amp-dirs``：``<...>/motions/<robot>/amp/<Group>/<name>.npz`` —— variant = 分组目录名；
 3. ``browser-csv``：``<包>/simulation/policies/*_motion.csv`` —— 浏览器侧变体
    （variant = ``browser``，由 ``web/sim2sim/motion_loader.js`` 消费）；
-4. ``flat``：其余（兜底，variant = ``default``）。
+4. ``amp-json``：``<...>/motions/<robot>_amp/*.txt`` —— AMP 专家动作（JSON-in-txt，
+   variant = 目录名；每个文件一个 clip）；
+5. ``flat``：其余（兜底，variant = ``default``）。
 
 风格：纯 stdlib（numpy 仅按需 import，供读 npz）。
 """
@@ -57,7 +59,7 @@ REQUIRED_FIELDS = (
     "id", "robot", "source", "format", "fps", "dof_layout", "dof_dim",
     "conventions", "lineage", "license", "files",
 )
-SUPPORTED_FORMATS = ("pkl", "npz", "csv")
+SUPPORTED_FORMATS = ("pkl", "npz", "csv", "txt")
 
 #: tracking 布局的变体后缀 → 语义（`_stageii.rawconv.pkl` 是本仓转换出来的那份）。
 TRACKING_VARIANTS = {
@@ -99,6 +101,34 @@ _AMP_CONVENTIONS = {
 _BROWSER_CONVENTIONS = {
     "note": "无表头的逐帧 CSV（root 位姿 + 关节角）；列布局 / 参考系 / 四元数序以包内策略声明的 "
             "`motion_params`（`csv_layout` / `ref_axis`）为准 —— 本模块不替它猜",
+}
+
+#: AMP「JSON-in-txt」布局（`<...>/assets/motions/<robot>_amp/*.txt`，go2 包内的 LLoco 专家动作）：
+#: 键 `Frames` / `FrameDuration` / `MotionWeight`，帧宽 49（判别器视角只取其中 31 维）。
+_AMP_JSON_CONVENTIONS = {
+    "keys": ["Frames", "FrameDuration", "MotionWeight"],
+    "frame_dim": 49,
+    "note": "帧宽 49 = 判别器 31 维（q 12 + 体线/角速度 6 + dq 12 + 地形相对根高 1）+ 其余字段；"
+            "`FrameDuration` 逐文件不同（0.02 s ⇒ 50 Hz / 0.04 s ⇒ 25 Hz），加载器按**连续时间**插值取样，"
+            "不把相邻帧当转移；出处与格式契约见包内 `assets/motions/go2_amp/README.md`",
+}
+_AMP_JSON_LINEAGE = {
+    "pipeline": "LLoco AMP 专家动作（JSON-in-txt，逐文件一个 clip）",
+    "raw": "00_resources/lain_job/LLoco/src/lloco/assets/motions/go2_amp/",
+    "raw_note": "仓内副本与 `00_resources/LainLab/src/assets/motions/go2_amp/` 逐字节相同（13/13 sha256，2026-09-20 实测）；"
+                "数据随 go2 包入库（go1 的 AMP 档案按 `shared_amp_motion_root()` 复用同一批）",
+    "conversion_script": None,
+    "evidence": [
+        "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/assets/motions/go2_amp/README.md",
+    ],
+}
+#: AMP JSON 布局的许可（包内 README 明写 Apache-2.0 并指到上游 LICENSE）。
+_AMP_JSON_LICENSE = {
+    "status": "declared",
+    "spdx": "Apache-2.0",
+    "applies_to": "AMP 专家动作数据（13 条 clip）",
+    "evidence": "00_resources/lain_job/LLoco/LICENSE",
+    "note": "包内 README 的「出处（可复核）」一节给出上游路径、逐字节校验与许可；本条目照抄，不另作判断",
 }
 
 #: 许可：与 I5 的许可门同口径。
@@ -208,6 +238,15 @@ def _read_motion_meta(path: Path) -> dict[str, Any]:
                     "dof_dim": dof[1] if dof and len(dof) > 1 else None,
                     "frames": frames[0] if frames else None,
                 }
+        if suffix == ".txt":
+            payload = json.loads(path.read_text(encoding="utf-8-sig"))
+            frames = _shape_of(payload.get("Frames"))
+            duration = _scalar(payload.get("FrameDuration"))
+            return {
+                "fps": round(1.0 / duration) if duration else None,
+                "dof_dim": frames[1] if frames and len(frames) > 1 else None,
+                "frames": frames[0] if frames else None,
+            }
         if suffix == ".csv":
             # 浏览器格式：**无表头**，列布局 [root_pos(3), root_quat_xyzw(4), dof_pos(N)]
             # （web/sim2sim/motion_loader.js 的解析口径）。**fps 不在文件里** —— 浏览器的
@@ -250,6 +289,8 @@ def _layout_of(path: Path) -> tuple[str, str, str | None]:
         return "tracking-variants", variant, match.group("clip") + "_stageii"
     if path.parent.parent.name == "amp":
         return "amp-dirs", path.parent.name, path.stem
+    if path.suffix.lower() == ".txt" and path.parent.name.endswith("_amp"):
+        return "amp-json", path.parent.name, path.stem
     # 浏览器侧：`<包>/simulation/policies/*_motion.csv`（`motion_loader.js` 吃的那种）
     if path.suffix.lower() == ".csv" and path.parent.name == "policies":
         return "browser-csv", "browser", path.stem[: -len("_motion")] if path.stem.endswith("_motion") else path.stem
@@ -274,9 +315,14 @@ def iter_motion_files() -> list[Path]:
         if not package.is_dir():
             continue
         for candidate in sorted(package.rglob("*")):
-            if not candidate.is_file() or candidate.suffix.lower() not in (".pkl", ".npz", ".csv"):
+            suffix = candidate.suffix.lower()
+            if not candidate.is_file() or suffix not in (".pkl", ".npz", ".csv", ".txt"):
                 continue
             if "motions" in candidate.parts:
+                if suffix == ".txt" and not candidate.parent.name.endswith("_amp"):
+                    # 只认 AMP 专家动作那种 `<...>/motions/<robot>_amp/*.txt`；
+                    # 包里其它 .txt 不是 motion 数据，不收（结构判定，不靠文件名猜）。
+                    continue
                 found.append(candidate)
             elif candidate.suffix.lower() == ".csv" and candidate.parent.name == "policies" and "simulation" in candidate.parts:
                 found.append(candidate)
@@ -379,6 +425,10 @@ def derive() -> dict[str, Any]:
             entry["conventions"] = dict(_TRACKING_CONVENTIONS)
             entry["lineage"] = dict(_TRACKING_LINEAGE)
             entry["license"] = dict(_TRACKING_LICENSE)
+        elif layout == "amp-json":
+            entry["conventions"] = dict(_AMP_JSON_CONVENTIONS)
+            entry["lineage"] = dict(_AMP_JSON_LINEAGE)
+            entry["license"] = dict(_AMP_JSON_LICENSE)
         elif layout == "browser-csv":
             # 浏览器侧 CSV：出处/许可**不许在这里编** —— 真值是包内策略声明的 `source`
             # （`motion_params.motion_csv` 所在的那条策略），evidence 指回声明文件本身。
@@ -415,6 +465,7 @@ def derive() -> dict[str, Any]:
         "generated_by": "tools/audit_motions.py --apply",
         "rules": {
             "scan": "assets/robots/<package>/**/motions/** 下的 .pkl/.npz（训练侧）"
+                    " + <...>/motions/<robot>_amp/*.txt（AMP 专家动作，2026-09-26 补）"
                     " + assets/robots/<package>/simulation/policies/*_motion.csv（浏览器侧，M2 补）",
             "derive": "fps / dof_dim / frames 从文件本身读出；dof_layout 由 dof 宽度命名",
             "license": "与 I5 同口径：缺许可记录不得进注册表；确未取证须显式 status=unresolved + 依据",
@@ -522,12 +573,13 @@ def audit() -> dict[str, Any]:
 # --------------------------------------------------------------------------------------
 #: 三侧消费方的**结构口径**（不看文件名猜、也不解析源码里的路径字面值）：
 #:   * ``tracking`` —— ``<包>/training/source/**/motions/**`` 下的 pkl（DeepMimic tracking 的参考动作）
-#:   * ``amp``      —— 同上目录下的 npz（AMP 的参考动作；`g1_amp` 的 `_MOTION_DATA_DIR` 指向它）
+#:   * ``amp``      —— 同上目录下的 npz 与 ``<robot>_amp/*.txt``（AMP 的参考动作；
+#:                     go2 包内那 13 条 LLoco 专家动作就是 txt，go1 的 AMP 档案也在用）
 #:   * ``browser``  —— ``<包>/simulation/policies/*_motion.csv``，由包内契约的
 #:                     ``motion_params.motion_csv`` 声明并被打包接口服务
 CONSUMER_LABELS = {
     "tracking": "训练侧 tracking（motion_loader.py 的 glob *.pkl）",
-    "amp": "训练侧 amp（`<包>/training/source/**/motions/**` 下的 npz）",
+    "amp": "训练侧 amp（`<包>/training/source/**/motions/**` 下的 npz + `<robot>_amp/*.txt` 专家动作）",
     "browser": "浏览器侧（web/sim2sim/motion_loader.js 的 CSV）",
 }
 
@@ -535,7 +587,8 @@ CONSUMER_LABELS = {
 def _consumer_of(path: Path) -> str:
     if path.suffix.lower() == ".csv" and "simulation" in path.parts:
         return "browser"
-    if path.suffix.lower() == ".npz":
+    if path.suffix.lower() in (".npz", ".txt"):
+        # `.txt` 只可能是 AMP 专家动作（扫描口径已按 `<robot>_amp/` 目录名收窄）
         return "amp"
     return "tracking"
 

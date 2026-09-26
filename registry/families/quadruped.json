@@ -132,7 +132,7 @@
       "requires": [
         "motions"
       ],
-      "gap": "剩余缺口：①动作库仍以 go2 为唯一来源（registry/motions 未登记这批 .txt 数据；go1 本轮是借用 go2 的 LLoco 动作验证「关节名与序相同 ⇒ 数据可复用」，go1 自有风格动作与族级动作库是后续工作）；②go1 的 AMP 档案目前是「rough velocity 宿主 + AMP 风格先验」，DreamWaQ 宿主（VAE）与 CTS/TS 变体仍只有 go2 档案，族级化需要把它们的宿主/教师-学生课程也提到 Kit；③b2 / lite3 尚未接 AMP 配方。"
+      "gap": "剩余缺口：①**AMP 数据在族内只有一批**（go2 包内的 13 条 LLoco 专家动作，Apache-2.0；2026-09-26 已进 `registry/motions` 资源层并归 amp 侧；go1 按 `shared_amp_motion_root()` 复用同一批——它的关节名与序与 go2 相同）；**b2 / lite3 的关节序不同，需要重定向或另采数据**；②go1 的 AMP 档案是「rough velocity 宿主 + AMP 风格先验」，DreamWaQ 宿主（VAE）与 CTS/TS 变体仍只有 go2 档案；③**数据布局待收口**：这批数据物理上住在 go2 包内、go1 用一条指向它的相对路径读——属「族级资源寄居在某个机型的包里」，要不要搬到族级资源目录由用户裁决（涉及包索引 / 副本同步 / 许可登记三处）。"
     },
     {
       "skill_id": "stunt",

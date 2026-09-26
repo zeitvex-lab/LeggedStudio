@@ -43,10 +43,15 @@ from backend import motion_registry as mr  # noqa: E402
 #  `<包>/simulation/policies/*_motion.csv`）此前**不在扫描口径内**，M2 补上后进册。
 #  2026-09-23：38 → 3 条 / 83 → 3 份 —— g1 包删除（36 条：tracking 15 + amp 18 + 浏览器 3），
 #  剩下 go2 自带的三条浏览器 CSV。
-EXPECTED_CLIPS = 3
-EXPECTED_FILES = 3
-#: 浏览器侧 CSV 变体：`simulation/policies/*_motion.csv`（现存唯一布局）
+#  2026-09-26：3 → 16 条 / 3 → 16 份 —— 把**族内共享的 AMP 专家动作**纳入扫描口径
+#  （`<...>/motions/<robot>_amp/*.txt`，JSON-in-txt，13 条；此前"文件有、资源层无"，
+#  族注册表的 imitation gap 点过这条）。它们同时是 go1 AMP 档案复用的同一批数据。
+EXPECTED_CLIPS = 16
+EXPECTED_FILES = 16
+#: 浏览器侧 CSV 变体：`simulation/policies/*_motion.csv`
 EXPECTED_BROWSER_CLIPS = 3
+#: AMP 专家动作（JSON-in-txt）变体：`<...>/motions/<robot>_amp/*.txt`
+EXPECTED_AMP_JSON_CLIPS = 13
 
 
 class RegistryMatchesDiskTest(unittest.TestCase):
@@ -80,15 +85,16 @@ class RegistryMatchesDiskTest(unittest.TestCase):
     def test_derivation_is_idempotent(self):
         self.assertEqual(mr.derive(), mr.derive(), "同一磁盘状态派生两次结果不同（判据不稳）")
 
-    def test_training_side_layouts_are_gone_with_the_g1_pack(self):
-        """如实钉住当前实况：仓内已无 tracking / amp 两侧数据（机制仍在，数据为 0）。
+    def test_layouts_match_the_current_reality(self):
+        """如实钉住当前实况：现存布局 = 浏览器 CSV + AMP 专家动作（JSON-in-txt）。
 
-        这条不是"跳过"：两侧数据重新入库时它会红，从而强制把上面钉死的计数与
-        tracking/amp 断言一起补回 —— 而不是让新数据静默混进浏览器侧的口径里。
+        `tracking-variants` 与 `amp-dirs`（pkl/npz）随 g1 包删除后仓内已无数据（**机制保留**）；
+        两类训练侧数据重新入库时这条会红，从而强制把钉死的计数与断言一起补回 ——
+        而不是让新数据静默混进别的口径里。
         """
 
         layouts = {entry["layout"] for entry in mr.derive()["motions"]}
-        self.assertEqual({"browser-csv"}, layouts)
+        self.assertEqual({"browser-csv", "amp-json"}, layouts)
 
 
 class EntrySemanticsTest(unittest.TestCase):
@@ -115,7 +121,7 @@ class EntrySemanticsTest(unittest.TestCase):
     def test_browser_lineage_points_at_the_in_package_declaration(self):
         """浏览器侧条目的出处不许是编的：evidence 必须指回包内声明文件，且该文件真实存在。"""
 
-        for entry in self._entries():
+        for entry in [item for item in self._entries() if item["layout"] == "browser-csv"]:
             evidence = entry["lineage"]["evidence"]
             self.assertTrue(evidence, entry["id"])
             for item in evidence:
@@ -125,7 +131,7 @@ class EntrySemanticsTest(unittest.TestCase):
     def test_browser_license_reason_cites_the_declared_source(self):
         """许可未取证时，原因必须引用包内声明的 `source`（真值），而不是一段泛泛的话。"""
 
-        for entry in self._entries():
+        for entry in [item for item in self._entries() if item["layout"] == "browser-csv"]:
             block = entry["license"]
             self.assertEqual("unresolved", block["status"])
             declared = mr._declared_browser_sources().get((entry["robot"], Path(
@@ -199,6 +205,45 @@ class ValidationRejectsBadEntriesTest(unittest.TestCase):
         entry.pop("lineage")
         self.assertTrue(any("lineage" in problem for problem in mr.validate(entry)))
 
+
+
+class AmpJsonClipsTest(unittest.TestCase):
+    """AMP 专家动作（JSON-in-txt）：口径 / 元信息 / 许可能从包内 README 复核。"""
+
+    @classmethod
+    def setUpClass(cls):
+        derived = mr.derive()
+        cls.entries = [e for e in derived["motions"] if e["layout"] == "amp-json"]
+
+    def test_amp_json_group_is_complete(self):
+        self.assertEqual(EXPECTED_AMP_JSON_CLIPS, len(self.entries))
+        self.assertTrue(all(e["robot"] == "unitree_go2" for e in self.entries))
+
+    def test_meta_is_derived_from_the_files(self):
+        """帧宽 49、帧数逐个读出；fps 由 `FrameDuration` 反推（0.02→50 / 0.04→25）。"""
+        for entry in self.entries:
+            self.assertEqual(49, entry["dof_dim"], entry["id"])
+            self.assertGreater(entry["frames_min"], 0, entry["id"])
+            self.assertIn(entry["fps"], (25, 50), entry["id"])
+        self.assertEqual(
+            {"backward", "forward", "forward_left", "forward_right", "left", "left_new",
+             "right", "right_new", "rotate", "rotate_inverse", "stand", "turn_left", "turn_right"},
+            {
+                Path(next(iter(entry["files"].values()))["path"]).stem
+                for entry in self.entries
+            },
+        )
+
+    def test_license_is_apache_with_evidence(self):
+        for entry in self.entries:
+            self.assertEqual("Apache-2.0", entry["license"].get("spdx"), entry["id"])
+            self.assertIn("00_resources/lain_job/LLoco/LICENSE", entry["license"]["evidence"])
+
+    def test_consumers_see_the_amp_clips(self):
+        """消费侧对账：AMP 布局的 13 条必须被认成 amp 消费（不是"无消费方"）。"""
+        report = mr.audit()
+        consumers = report.get("consumers") or {}
+        self.assertEqual(EXPECTED_AMP_JSON_CLIPS, (consumers.get("counts") or {}).get("amp", 0))
 
 if __name__ == "__main__":
     unittest.main()
