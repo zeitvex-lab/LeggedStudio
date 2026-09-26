@@ -102,9 +102,11 @@
         "traversal_obstacle_release"
       ],
       "members_with_recipe": [
-        "unitree_b2w"
+        "unitree_b2w",
+        "unitree_go2w",
+        "deeprobotics_m20"
       ],
-      "gap": "族级化需要：①其余三台（deeprobotics_m20 / unitree_go2w / zex-w）各出一份越障档案 —— 课程与地形已族级（直接调用 Kit 工厂即可），差的是各机型的机器人侧装配（实体/动作/奖励）与越障调参；②越障的**验收器**（判定「过了障碍」而非仅「奖励有限」）仍缺族级版本；③`zex-w-rough` 的奖励仍是速度跟踪（task_name=rough_terrain 归速度跟踪技能），它的课程已改为薄委托族级模块。",
+      "gap": "剩余缺口：①**越障的验收器**（判定「过了障碍」而非仅「奖励有限」）仍缺族级版本；②`zex-w` 没有独立的越障档案 —— 它的 `zex-w-rough` 已经是**同一套族级课程**（竞赛地形集 + 障碍释放，与越障档同源），只是 task_name 仍是 `rough_terrain` 归速度跟踪技能，故不计入本技能的档案集；③四台的越障档都**未各自标定**课程节奏（释放步数与地块配比是族默认）。",
       "partial_evidence": "真跑背书（2026-09-25）：`unitree_b2w--b2w-traversal` 冒烟通过 —— 与 `zex-w-rough` 用的是**同一套族级课程**（同一个课程工厂函数 + 同一组释放日程 4800/12000/16800 env steps + 同一份竞赛地形集），包内不复制课程数值；zex-w 侧等价性有逐项对拍证据（`workspace/validation/zexw-traversal-equivalence.json`，terrain+curriculum 0 差异）。"
     },
     {
