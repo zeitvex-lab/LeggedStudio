@@ -697,8 +697,8 @@ def resolve_package_assets(package_root: str | Path, contract_path: str | Path |
     """从**包目录**解析 (契约, MJCF 路径, 用了哪份契约)。
 
     与 `tools/validate_family_skill_assembly.py` 同一口径：v3 契约优先、导入包常只有
-    `contract_legacy_v2.json`；MJCF 依次看包清单 `model.path` → 契约 `urdf.path` →
-    标准布局 `model/robot.xml` / `robot.xml`。
+    `contract_legacy_v2.json`；MJCF 依次看包清单 `model.training_path` → `model.path` →
+    契约 `urdf.path` → 标准布局 `model/robot.xml` / `robot.xml`。
     """
     package = Path(package_root)
     contracts = [Path(contract_path)] if contract_path else []
@@ -713,9 +713,14 @@ def resolve_package_assets(package_root: str | Path, contract_path: str | Path |
 
     manifest = package / "robot_package.json"
     if manifest.is_file():
-        model = (json.loads(manifest.read_text(encoding="utf-8-sig")).get("model") or {}).get("path")
-        if model and (package / model).is_file():
-            return contract, (package / model).resolve(), used
+        model_section = json.loads(manifest.read_text(encoding="utf-8-sig")).get("model") or {}
+        # **训练资产由包声明**（`model.training_path`）：族 MJCF 约定适用的是"训练用的那份"，
+        # 而上游字节（`model.path`）是忠实搬运的证据、不改名。两份并存时以声明为准；
+        # 没声明就是 `model.path`（新机型只有一份 MJCF，走的就是这条）。
+        for key in ("training_path", "path"):
+            declared = model_section.get(key)
+            if declared and (package / str(declared)).is_file():
+                return contract, (package / str(declared)).resolve(), used
     raw = str(((contract.get("urdf") or {}).get("path") or "")).strip()
     if raw:
         for candidate in (Path(raw), package / raw):

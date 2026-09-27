@@ -162,6 +162,40 @@ class CcdMarginTest(unittest.TestCase):
         self.assertEqual((), tuple(assembly.env_cfg.sim.mujoco.disableflags))
 
 
+class TrainingAssetTest(unittest.TestCase):
+    """训练资产由**包声明**（`model.training_path`），缺省就是 `model.path`。
+
+    go2 包里有两份 MJCF：`model/robot.xml`（上游字节，几何名 `FL_thigh_geom`、无足端 site、
+    default class 带 margin）与 `model/training.xml`（合族约定：`*_collision` 几何 +
+    `FL_foot_collision` + 足端 site）。go2 所有既有训练路径用的都是后者
+    （`local_tasks/mjlab_extension.py: GO2_XML = model/training.xml`），而装配器此前只看
+    `model.path` ⇒ 拿上游那份去撞族约定（足端几何判红）。上游字节不改（那是忠实搬运的证据），
+    改的是"哪份是训练资产"这条**包级声明**。
+    """
+
+    def test_declared_training_asset_wins(self):
+        _contract, model, _used = builder.resolve_package_assets(GO2)
+        self.assertEqual((GO2 / "model" / "training.xml").resolve(), model)
+
+    def test_default_is_the_declared_model(self):
+        _contract, model, _used = builder.resolve_package_assets(B2)
+        self.assertEqual((B2 / "model" / "robot.xml").resolve(), model)
+
+    def test_go2_family_skill_assembles_from_its_training_asset(self):
+        contract, model, _used = builder.resolve_package_assets(GO2)
+        assembly = builder.build_family_skill(contract, model, "velocity", family_id="quadruped")
+        self.assertEqual(
+            ["FL_foot_collision", "FR_foot_collision", "RL_foot_collision", "RR_foot_collision"],
+            assembly.diagnostics["binding_foot_geoms"],
+        )
+
+    def test_go2_capabilities_are_measured_on_the_training_asset(self):
+        contract, model, _used = builder.resolve_package_assets(GO2)
+        items = builder.robot_capabilities(contract, model)["items"]
+        self.assertTrue(items["foot_sites"]["ok"], items["foot_sites"]["detail"])
+        self.assertTrue(items["named_collision_geoms"]["ok"])
+
+
 class NewPackageTest(unittest.TestCase):
     """一台全新包（契约 + 标准位置 MJCF，零机型 Python）：装配得出来、缺能力报得清楚。"""
 

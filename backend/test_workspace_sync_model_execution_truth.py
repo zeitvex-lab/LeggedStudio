@@ -124,6 +124,28 @@ class WorkspaceSyncModelExecutionTruthTests(unittest.TestCase):
             "内容一致的模型被无谓重写（应为内容级比较跳过）",
         )
 
+    def test_declared_training_asset_is_mirrored(self):
+        """训练资产声明（`model.training_path`）是**出厂事实**：副本清单必须跟着声明。
+
+        运行时包根是 workspace 副本，副本清单缺这条声明 ⇒ 训练侧装配退回 `model.path`。
+        go2 就是这个形状：包内两份 MJCF（上游 `robot.xml` + 合族约定的 `training.xml`），
+        拿上游那份去撞族约定会在足端几何上判红（名不含 `foot`）。
+        """
+        robot_packages.rebuild_package_index()
+        manifest = json.loads((self._shipped / "robot_package.json").read_text(encoding="utf-8"))
+        manifest["model"]["training_path"] = "model/training.xml"
+        _write_json(self._shipped / "robot_package.json", manifest)
+        (self._shipped / "model" / "training.xml").write_text(SHIPPED_MJCF, encoding="utf-8")
+        robot_packages.invalidate_package_cache()
+        robot_packages.list_robot_packages()
+        copied = json.loads((self._target / "robot_package.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            "model/training.xml",
+            (copied.get("model") or {}).get("training_path"),
+            "副本清单没有跟着声明训练资产 —— 训练会用第二套（上游）资产",
+        )
+        self.assertTrue((self._target / "model" / "training.xml").is_file())
+
     def test_signature_detects_mjcf_change(self):
         """签名不覆盖 `model/` 就不会触发重扫，镜像等于没接。"""
         robot_packages.list_robot_packages()

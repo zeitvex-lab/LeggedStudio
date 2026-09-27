@@ -25,6 +25,43 @@ class ValidatePackagesTest(unittest.TestCase):
                 self.assertTrue(report["ok"], f"{package_dir.name}: {report['errors']}")
 
 
+class TrainingAssetDeclarationTest(unittest.TestCase):
+    def test_missing_declared_training_asset_is_rejected(self) -> None:
+        """`model.training_path` 是训练侧装配认的那份 MJCF：声明了却不存在必须判红。
+
+        静默退回 `model.path` 会拿"上游那份"去撞族约定（几何/足端命名不符），
+        错在训练时才炸，且看不出是资产选错了。
+        """
+        import json
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = scaffold_package(Path(tmp), "my_robot")
+            manifest_path = path / "robot_package.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["model"]["training_path"] = "model/nope.xml"
+            manifest_path.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            report = validate_package(path)
+            self.assertFalse(report["ok"])
+            self.assertTrue(
+                any("training_path" in error for error in report["errors"]), report["errors"]
+            )
+
+    def test_declared_training_asset_must_exist_for_builtin_packages(self) -> None:
+        for package_dir in sorted(p for p in ROBOTS.iterdir() if (p / "robot_package.json").exists()):
+            with self.subTest(package=package_dir.name):
+                import json
+
+                model = json.loads(
+                    (package_dir / "robot_package.json").read_text(encoding="utf-8-sig")
+                ).get("model") or {}
+                declared = model.get("training_path")
+                if declared:
+                    self.assertTrue((package_dir / str(declared)).is_file(), declared)
+
+
 class ScaffoldRoundtripTest(unittest.TestCase):
     def test_scaffold_then_validate(self) -> None:
         import tempfile

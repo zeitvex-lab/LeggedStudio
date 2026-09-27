@@ -65,6 +65,12 @@ def validate_package(package_root: Path) -> dict[str, Any]:
         errors.append("model.path 缺失")
     elif not (package_root / str(model["path"])).exists():
         errors.append(f"模型文件不存在: {model['path']}")
+    # 训练资产（族 MJCF 约定适用的那份；缺省 = model.path）。声明了就必须存在 ——
+    # 否则训练侧装配会静默退回 model.path，拿上游资产去撞族约定，错到训练时才炸。
+    if isinstance(model, dict) and model.get("training_path") and not (
+        package_root / str(model["training_path"])
+    ).exists():
+        errors.append(f"model.training_path 指向的文件不存在: {model['training_path']}")
 
     for key, required in (("contract_path", True), ("simulation_config_path", False)):
         rel = manifest.get(key)
