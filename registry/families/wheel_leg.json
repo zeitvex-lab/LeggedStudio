@@ -176,10 +176,15 @@
         "wheel_track"
       ],
       "note": "族级轮足 velocity（reference 配方的**平地档**）：机型只交三样事实（出生高 / 轮半径 / 轮距，`derive` 声明由装配器从契约 + MJCF 派生），其余用参考配方常量（`reference_flat_profile`）。rough / official / competition 等档位按同一先例挂新装配表项即可。",
-      "verified": "**装配四台全通（2026-09-26）**：`unitree_b2w` / `unitree_go2w` / `deeprobotics_m20` / `zex-w` 都只凭契约 + MJCF（标准位置/速度执行器、轮 body 名含 `wheel`）装配出轮足 velocity 的 env/runner，机型侧零 Python；其中 b2w / m20 与包内逐档档案对拍**解析集相同**（字面差异是执行器分组写法），go2w / zex-w 因档案 `task_name` 不是 `velocity` 跳过对拍。派生的事实：出生高（默认姿 FK）、轮半径/轮距（轮 body 与其几何；b2w 得 0.113 / 0.3833，与 F7 记的真值一致）、`actuator_binding`（执行器全在 MJCF ⇒ `mjcf_wrapped`，b2w 正是这一类）。**真训仍卡一处**：`b2w` 真跑 1 轮报 `nconmax overflow (nconmax must be >= 40)` —— 族配方需要按资产声明 sim 规模（`VelocityProfile.sim` 的 SimOverride 口径），下一步把「sim 规模」也纳入装配表声明或派生，再做真训验收。",
+      "verified": "**装配 + 真训四台全通（2026-09-27）**：`unitree_b2w` / `unitree_go2w` / `deeprobotics_m20` / `zex-w` 都只凭契约 + MJCF（标准位置/速度执行器、轮 body 名含 `wheel`）装配出轮足 velocity 的 env/runner，机型侧零 Python；四台各自**真跑 1 iter PPO 通过**（`tools/validate_family_skill_assembly.py --iterations 1`，num_envs=1，各产出 model_0.pt）。其中 b2w / m20 与包内逐档档案对拍**解析集相同**（字面差异是执行器分组写法），go2w / zex-w 因档案 `task_name` 不是 `velocity` 跳过对拍。派生的事实：出生高（默认姿 FK）、轮半径/轮距（轮 body 与其几何；b2w 得 0.113 / 0.3833，与 F7 记的真值一致）、`actuator_binding`（执行器全在 MJCF ⇒ `mjcf_wrapped`，b2w 正是这一类）。**真训两处阻断已修（都是族级口径，不是机型胶水）**：① sim 缓冲规模 —— 源配方的 `nconmax=35 / njmax=300` 是按 go2w 手调的，b2w 真跑报 `nconmax overflow (nconmax must be >= 40)`；改为装配表声明 `sim_sizing`（null = 交 mjwarp 按资产启发式）。② 非零 margin 资产的 CCD 开关 —— 族注册表早已把 go2w 登记为 `warp_ccd_off`，但只有 `generic_task_builder` 那条路实现了该口径，族级装配漏了，go2w 真跑报 `NotImplementedError: geom pair (terrain_0, 559) has non-zero margin ((0.0, 0.001)) with MULTICCD enabled`；改为族级装配复用同一个资产判据（`generic_task_builder.ccd_disable_flags`），margin 本身不抹。",
       "requires_note": "**不声明 `requires`**：轮足 velocity 的观测/传感器口径与四足不同，四足那条 `imu_sensors` 是抄来的、在本族被实测证伪（b2w/m20/go2w 都没有按名保留的 imu_lin_vel/imu_ang_vel，却能训）。待把本族的资产能力需求（轮-地接触几何命名等）量清后再声明。",
-      "profile_factory": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.profile:reference_flat_profile"
+      "profile_factory": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.profile:reference_flat_profile",
+      "sim_sizing": {
+        "nconmax": null,
+        "njmax": null
+      },
+      "sim_sizing_note": "sim 缓冲规模交给 mjwarp 按资产启发式定：源配方的 nconmax=35 / njmax=300 是按 go2w 那台资产手调的，换一台就溢出（实测 b2w 真跑 1 轮报 `nconmax overflow (nconmax must be >= 40)`）。缓冲不是物理量，族级装配统一声明 null，新机型无需为此写机型侧数据。"
     }
   },
-  "skill_catalog_note": "族级技能的**装配表**（通用装配器 `adapters/mjlab/family_skill_builder.py` 读它）：按 `task_name` 声明env/runner 工厂与 profile 数据类；`derive` 声明「哪些 profile 参数由机型事实派生」（出生高 = 默认姿 FK 的站立高；轮半径/轮距 = 轮 body 与其几何）；`requires` 声明依赖哪些资产能力。新机型（含导入）只要契约 + 标准 MJCF 即可用这些技能，不需要机型专属 Python。"
+  "skill_catalog_note": "族级技能的**装配表**（通用装配器 `adapters/mjlab/family_skill_builder.py` 读它）：按 `task_name` 声明env/runner 工厂与 profile 数据类；`derive` 声明「哪些 profile 参数由机型事实派生」（出生高 = 默认姿 FK 的站立高；轮半径/轮距 = 轮 body 与其几何）；`requires` 声明依赖哪些资产能力。新机型（含导入）只要契约 + 标准 MJCF 即可用这些技能，不需要机型专属 Python。`sim_sizing` 声明 sim 缓冲规模（nconmax/njmax；null = 交 mjwarp 按资产启发式定，因为源配方手调的缓冲值换一台资产就溢出）；带非零 geom margin 的资产由装配器按同一份资产判据条件关 MULTICCD/NATIVECCD（登记值 `warp_ccd_off`），margin 本身不抹。"
 }

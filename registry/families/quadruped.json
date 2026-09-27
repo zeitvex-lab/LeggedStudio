@@ -274,7 +274,7 @@
       ]
     }
   },
-  "skill_catalog_note": "族级技能的**装配表**（通用装配器 `adapters/mjlab/family_skill_builder.py` 读它）：按 `task_name` 成键，声明该任务用族 Kit 的哪个 env/runner 工厂与哪个 profile 数据类。新机型（含导入）只要契约 + 标准 MJCF，就能用这张表建出这些技能的 env/runner —— **不需要机型专属 Python 文件**；包内逐档档案只是把身份与少量数值钉死而已。未列入的技能：parkour（需要相机声明）、traversal 的轮足课程（在 wheel_leg 族里按其装配表处理）。 每项的 `requires` 声明该任务**依赖哪些资产能力**（体检项见 `robot_capabilities()`）：新机型进场先跑一次体检，就能知道哪些技能直接可用、哪些要先补资产。",
+  "skill_catalog_note": "族级技能的**装配表**（通用装配器 `adapters/mjlab/family_skill_builder.py` 读它）：按 `task_name` 成键，声明该任务用族 Kit 的哪个 env/runner 工厂与哪个 profile 数据类。新机型（含导入）只要契约 + 标准 MJCF，就能用这张表建出这些技能的 env/runner —— **不需要机型专属 Python 文件**；包内逐档档案只是把身份与少量数值钉死而已。未列入的技能：parkour（需要相机声明）、traversal 的轮足课程（在 wheel_leg 族里按其装配表处理）。 每项的 `requires` 声明该任务**依赖哪些资产能力**（体检项见 `robot_capabilities()`）：新机型进场先跑一次体检，就能知道哪些技能直接可用、哪些要先补资产。`sim_sizing` 声明 sim 缓冲规模（nconmax/njmax；null = 交 mjwarp 按资产启发式定，因为源配方手调的缓冲值换一台资产就溢出）；带非零 geom margin 的资产由装配器按同一份资产判据条件关 MULTICCD/NATIVECCD（登记值 `warp_ccd_off`），margin 本身不抹。",
   "member_intake": {
     "note": "**新机型进场（含导入）**：只要契约 + 标准 MJCF 满足族约定，族级技能**无需任何机型专属 Python** 即可装配训练。装配表是 `skill_catalog`（数据），装配器 `adapters/mjlab/family_skill_builder.py`，进场体检与逐技能可用性报告 `tools/validate_family_skill_assembly.py`。",
     "mjcf_requirements": [
