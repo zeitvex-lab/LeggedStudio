@@ -9,6 +9,7 @@
   "model": {
     "format": "mjcf",
     "path": "model/robot.xml",
+    "training_path": "model/training.xml",
     "assets_path": "model/assets"
   },
   "schema_version": "robot-package-1.0",

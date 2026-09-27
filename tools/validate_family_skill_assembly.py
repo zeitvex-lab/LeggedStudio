@@ -38,7 +38,12 @@ def resolve_package(robot: str) -> Path:
 
 
 def load_contract(package: Path) -> tuple[dict, str]:
-    """契约：优先 v3 `contract.json`，导入包常只有 `contract_legacy_v2.json`（运行时那份）。"""
+    """契约：优先 v3 `contract.json`，导入包常只有 `contract_legacy_v2.json`（运行时那份）。
+
+    **资产解析不在这里做**：契约 + MJCF 由 `family_skill_builder.resolve_package_assets`
+    一处实现（训练服务与本验收器必须认同一份资产，尤其是包声明了 `model.training_path`
+    的机型 —— go2 就有两份 MJCF）。
+    """
     for name in ("contract.json", "contract_legacy_v2.json"):
         path = package / name
         if path.is_file():
@@ -47,21 +52,19 @@ def load_contract(package: Path) -> tuple[dict, str]:
 
 
 def resolve_model(package: Path, contract: dict) -> Path:
-    """MJCF：包清单 `model.path` → 契约 `urdf.path` → `model/robot.xml`（标准布局）。"""
-    manifest = package / "robot_package.json"
-    if manifest.is_file():
-        model = (json.loads(manifest.read_text(encoding="utf-8-sig")).get("model") or {}).get("path")
-        if model and (package / model).is_file():
-            return (package / model).resolve()
-    raw = str(((contract.get("urdf") or {}).get("path") or "")).strip()
-    if raw:
-        for candidate in (ROOT / raw, package / raw):
-            if candidate.is_file():
-                return candidate.resolve()
-    for candidate in (package / "model" / "robot.xml", package / "robot.xml"):
-        if candidate.is_file():
-            return candidate.resolve()
-    raise SystemExit(f"{package} 里找不到 MJCF（清单/契约/标准布局都没命中）")
+    """MJCF：**委托给装配器那一份实现**（`resolve_package_assets`）。
+
+    顺序是包清单 `model.training_path` → `model.path` → 契约 `urdf.path` → 标准布局。
+    本工具此前自己抄了一份（只认 `model.path`），于是 go2 拿上游 `robot.xml` 去撞族约定
+    （足端几何名不含 `foot` ⇒ 判红），而它所有既有训练路径用的都是 `model/training.xml`。
+    """
+    from adapters.mjlab.family_skill_builder import resolve_package_assets
+
+    try:
+        _contract, model, _used = resolve_package_assets(package)
+    except FileNotFoundError as exc:
+        raise SystemExit(str(exc)) from exc
+    return model
 
 
 def compare_with_profile(task_name: str, robot_id: str, generic_env_cfg) -> dict:

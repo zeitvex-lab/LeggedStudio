@@ -46,17 +46,36 @@ def _load(path: Path) -> dict | None:
 
 
 def _model_path(root: Path) -> Path | None:
+    """**训练资产**：包声明了 `model.training_path` 就用它，否则 `model.path`。
+
+    就绪判定回答的是"能不能用族架构训"，量必须是训练真正用的那份 MJCF ——
+    go2 包内两份并存（上游 `robot.xml` + 合族约定的 `training.xml`），量错资产
+    得出的结论与实际训练无关。与训练侧装配同一口径
+    （`adapters/mjlab/family_skill_builder.resolve_package_assets`）。
+    """
     manifest = _load(root / "robot_package.json") or {}
-    rel = str((manifest.get("model") or {}).get("path") or "model/robot.xml")
-    path = root / rel
-    return path if path.exists() else None
+    model = manifest.get("model") or {}
+    for key in ("training_path", "path"):
+        rel = str(model.get(key) or "")
+        if rel and (root / rel).exists():
+            return root / rel
+    fallback = root / "model/robot.xml"
+    return fallback if fallback.exists() else None
 
 
-def _xml_actuators(model: Path) -> dict[str, str]:
-    """关节名 → 命令域（position/velocity/effort）；`<include>` 追一层。"""
+def _xml_actuators(model: Path) -> tuple[dict[str, str], int]:
+    """关节名 → 命令域（position/velocity/effort），以及 MJCF 里**执行器元素的个数**。
+
+    个数用来把"没匹配上"分成两种性质完全不同的情况：MJCF 根本不带执行器
+    （⇒ 执行器由契约声明，族口径 `cfg_declared`；go2 的训练资产就是这个形状）
+    与"声明了却对不上"（缺关节、或 `<general>` 这种映射不出命令域的写法）。
+    `<include>` 追一层。
+    """
     found: dict[str, str] = {}
+    declared = 0
 
     def scan(path: Path) -> None:
+        nonlocal declared
         try:
             tree = ET.parse(path)
         except (OSError, ET.ParseError):
@@ -66,6 +85,8 @@ def _xml_actuators(model: Path) -> dict[str, str]:
             nested = (path.parent / str(include.get("file"))).resolve()
             if nested.is_file():
                 scan(nested)
+        for actuator_section in root_el.iter("actuator"):
+            declared += len(list(actuator_section))
         for element in root_el.iter():
             tag = element.tag.lower()
             if tag not in _ACTUATOR_TAGS:
@@ -75,7 +96,7 @@ def _xml_actuators(model: Path) -> dict[str, str]:
                 found.setdefault(str(joint), _ACTUATOR_TAGS[tag])
 
     scan(model)
-    return found
+    return found, declared
 
 
 def _pd_for(joint: str, actuator_profile: dict) -> dict | None:
@@ -236,13 +257,18 @@ def readiness(root: Path, *, contract_v3: dict | None = None) -> dict:
 
     model = _model_path(root)
     if model is None:
-        add("actuators", False, "包内找不到模型文件（robot_package.json 的 model.path）")
+        add("actuators", False, "包内找不到模型文件（robot_package.json 的 model.training_path / model.path）")
     else:
-        actuators = _xml_actuators(model)
+        actuators, declared = _xml_actuators(model)
         missing = [j for j in joint_order if j not in actuators]
-        add("actuators", not missing,
-            f"{len(joint_order) - len(missing)}/{len(joint_order)} 个关节在 MJCF 里有可识别的执行器"
-            + (f"；缺 {missing[:4]}" if missing else ""))
+        if not declared and not actuators:
+            # MJCF 不带执行器 ⇒ 由**契约**声明（族口径 `cfg_declared`，go2 的训练资产即此形状）。
+            # 这不是缺口：PD 覆盖由下面的 `actuator_pd` 项判，混用/映射不出的写法仍会判红。
+            add("actuators", True, f"MJCF 不带执行器 ⇒ 执行器由契约声明（cfg_declared，{model.name}）")
+        else:
+            add("actuators", not missing,
+                f"{len(joint_order) - len(missing)}/{len(joint_order)} 个关节在 MJCF 里有可识别的执行器"
+                + (f"；缺 {missing[:4]}" if missing else ""))
 
     actuator_profile = contract_v3.get("actuator_profile") or {}
     no_pd = [j for j in joint_order if not _pd_for(j, actuator_profile)]

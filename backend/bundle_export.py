@@ -209,15 +209,18 @@ from backend.robot_packages import robot_package_root  # noqa: E402  (模块末�
 
 
 def _model_files(package_root: Path, manifest: dict[str, Any]) -> list[tuple[Path, str]]:
-    """包清单里登记的模型与网格文件（`model.path` 与 `model.assets_path` 两条线索）。"""
+    """包清单里登记的模型与网格文件（`model.path` / `model.training_path` / `model.assets_path`）。"""
 
     model = manifest.get("model") or {}
     found: list[tuple[Path, str]] = []
-    declared = model.get("path")
-    if declared:
-        candidate = package_root / _safe_relative(declared)
-        if candidate.is_file():
-            found.append((candidate, candidate.relative_to(package_root).as_posix()))
+    # 训练资产（族 MJCF 约定适用的那份）也要随包走：漏了它，导出包的清单会声明一个
+    # 不存在的文件，训练侧装配静默退回上游那份（go2 就是两份 MJCF 并存）。
+    for key in ("path", "training_path"):
+        declared = model.get(key)
+        if declared:
+            candidate = package_root / _safe_relative(declared)
+            if candidate.is_file():
+                found.append((candidate, candidate.relative_to(package_root).as_posix()))
     assets_path = model.get("assets_path")
     if assets_path:
         directory = package_root / _safe_relative(assets_path)

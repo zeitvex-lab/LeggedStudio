@@ -8,7 +8,9 @@ from pathlib import Path
 
 from backend.jsonio import dumps, read_json
 
-SYNC_REVISION = "6"
+#: 同步语义版本：改了"副本该跟源树一致的内容集合"就 +1（否则已装副本不会重扫）。
+#: 7 = `model.training_path`（训练资产声明）也要镜像。
+SYNC_REVISION = "7"
 _POLICY_LIST_KEYS = ("policies", "demo_policies")
 
 
@@ -228,6 +230,18 @@ def _merge_manifest(source: Path, target: Path) -> int:
                 else:
                     current[key] = incoming[key]
                 changed = True
+        # **训练资产声明**（`model.training_path`）是出厂事实，与 `extension_*` 同级：
+        # 运行时包根是副本，副本清单缺这条声明 ⇒ 训练侧装配退回 `model.path`，
+        # 拿上游那份 MJCF 去撞族约定（go2：足端几何名不含 `foot` 直接判红）。
+        # 只同步这一个键 —— `model.path` / `assets_path` 仍归副本自己（导入包会改写它们）。
+        incoming_model = incoming.get("model") if isinstance(incoming.get("model"), dict) else {}
+        declared_training = (incoming_model or {}).get("training_path")
+        if isinstance(current.get("model"), dict) and current["model"].get("training_path") != declared_training:
+            if declared_training is None:
+                current["model"].pop("training_path", None)
+            else:
+                current["model"]["training_path"] = declared_training
+            changed = True
         if changed:
             target.write_text(dumps(current), encoding="utf-8")
             return 1

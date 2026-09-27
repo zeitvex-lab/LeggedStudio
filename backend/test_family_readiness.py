@@ -124,6 +124,48 @@ class ReadinessTest(unittest.TestCase):
                         '<general joint="FL_calf_joint"/>'), encoding="utf-8")
         self.assertIn("actuators", self.failures())
 
+    def test_declared_training_asset_is_the_one_measured(self):
+        """量的是**训练资产**（`model.training_path`），不是上游那份 `model.path`。
+
+        go2 包内两份 MJCF：上游 `robot.xml`（几何名 `FL_thigh_geom`、无足端 site）与
+        `training.xml`（合族约定）。就绪判定说的是"能不能用族架构训"，量错资产就会
+        给出与实际训练资产无关的结论。
+        """
+        (self.root / "model" / "robot.xml").write_text(
+            XML.replace('<position joint="FL_calf_joint" kp="20" kv="0.5"/>', ""), encoding="utf-8")
+        (self.root / "model" / "training.xml").write_text(XML, encoding="utf-8")
+        (self.root / "robot_package.json").write_text(
+            json.dumps({
+                "package_id": "fixture_bot",
+                "model": {"path": "model/robot.xml", "training_path": "model/training.xml"},
+            }),
+            encoding="utf-8",
+        )
+        report = readiness(self.root)
+        self.assertEqual("ready", report["verdict"], report["checks"])
+
+    def test_mjcf_without_actuator_section_is_cfg_declared(self):
+        """MJCF **完全不带执行器** = 执行器由契约声明（`cfg_declared`），不是缺口。
+
+        go2 的训练资产 `model/training.xml` 就是这个形状（0 个执行器，PD 全在契约里），
+        而它冒烟绿、族级装配真跑也通过。判红的应该是"声明了却对不上"
+        （缺关节 / `<general>` 这种映射不出命令域的），不是"没声明"。
+        """
+        (self.root / "model" / "robot.xml").write_text(
+            XML.replace("""  <actuator>
+    <position joint="FL_hip_joint" kp="20" kv="0.5"/>
+    <position joint="FL_thigh_joint" kp="20" kv="0.5"/>
+    <position joint="FL_calf_joint" kp="20" kv="0.5"/>
+  </actuator>
+""", ""),
+            encoding="utf-8",
+        )
+        self.assertNotIn("<actuator>", (self.root / "model" / "robot.xml").read_text(encoding="utf-8"))
+        report = readiness(self.root)
+        self.assertEqual("ready", report["verdict"], report["checks"])
+        actuators = next(c for c in report["checks"] if c["id"] == "actuators")
+        self.assertIn("契约", actuators["summary"])
+
     def test_missing_pd_is_caught(self):
         contract = _contract()
         contract["actuator_profile"] = {}

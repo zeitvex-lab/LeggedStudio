@@ -56,6 +56,21 @@ class MorphologyExportTest(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 bx.export_morphology("no_such_robot", Path(tmp) / "morph")
 
+    def test_declared_training_asset_is_exported(self):
+        """包声明了训练资产（`model.training_path`）就得随形态包一起走。
+
+        否则导出包里清单声明的那份文件不存在，训练侧装配静默退回 `model.path`
+        （go2 就是两份 MJCF：上游 `robot.xml` + 合族约定的 `training.xml`）。
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = bx.export_morphology("unitree_go2", Path(tmp) / "morph")
+            paths = [entry["path"] for entry in manifest["entries"]]
+            self.assertTrue(
+                any(path.endswith("model/training.xml") for path in paths), paths
+            )
+            self.assertTrue((Path(tmp) / "morph" / "morphology" / "model" / "training.xml").is_file())
+            self.assertTrue(bx.verify_export(Path(tmp) / "morph")["ok"])
+
 
 class SkillAndScenarioExportTest(unittest.TestCase):
     def test_skill_export_matches_registry_payload(self):
