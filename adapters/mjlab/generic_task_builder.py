@@ -121,7 +121,7 @@ def _make_spec_fn(xml_path: Path, *, strip_actuators: bool = False):
 _CCD_UNSUPPORTED_FLAGS = ("multiccd", "nativeccd")
 
 
-def _ccd_disable_flags(xml_path: Path) -> tuple[str, ...]:
+def ccd_disable_flags(xml_path: Path) -> tuple[str, ...]:
     """模型带非零 geom/pair margin 时禁用 MULTICCD + NATIVECCD。
 
     ``mujoco_warp._src.io._check_margin``：BOX/MESH 成对且任一 margin≠0 时，MULTICCD
@@ -455,7 +455,7 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
     # 不放任务字段；否决「强制显式提供」：generic 路径的存在意义就是零配置可跑（V7）。
     episode_length = _episode_length_s(environment)
     decimation = max(1, int(_contract_value(contract, "control.decimation", 1)))
-    ccd_disable_flags = _ccd_disable_flags(xml_path)
+    ccd_flags = ccd_disable_flags(xml_path)
     env_cfg = ManagerBasedRlEnvCfg(
         decimation=decimation,
         scene=SceneCfg(terrain=terrain, entities={"robot": entity}, num_envs=num_envs, extent=2.0),
@@ -469,7 +469,7 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
         terminations={"time_out": TerminationTermCfg(func=mdp.time_out, time_out=True)},
         commands=commands,
         seed=int(_get(recipe, "seed", 0) or 0),
-        sim=SimulationCfg(mujoco=MujocoCfg(timestep=1.0 / max(1, int(_contract_value(contract, "control.physics_hz", 1000))), disableflags=ccd_disable_flags)),
+        sim=SimulationCfg(mujoco=MujocoCfg(timestep=1.0 / max(1, int(_contract_value(contract, "control.physics_hz", 1000))), disableflags=ccd_flags)),
         episode_length_s=episode_length,
     )
     play_cfg = deepcopy(env_cfg)
@@ -499,7 +499,7 @@ def build_generic_task(contract: Any, recipe: Any, *, asset_root: str | Path | N
         "reward_terms": sorted(rewards),
         "skipped_rewards": skipped_rewards,
         "unsupported_observations": unsupported_obs,
-        "mujoco_disableflags": list(ccd_disable_flags),
+        "mujoco_disableflags": list(ccd_flags),
         **actuator_report,
     }
     return GenericTaskBundle(generated_id, env_cfg, play_cfg, rl_cfg, diagnostics)

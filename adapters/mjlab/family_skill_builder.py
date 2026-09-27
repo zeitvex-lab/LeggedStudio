@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
@@ -69,6 +69,9 @@ class FamilySkillRecipe:
     adaptive_switches: dict[str, str]
     requires: tuple[str, ...]
     derive: tuple[str, ...]
+    #: sim 缓冲规模（`nconmax` / `njmax` …）。**空 = 沿用族 profile 自己的 sim 档**；
+    #: 声明了就在装配后覆盖到 env/play 两份 cfg 上。值为 `null` 表示交给 mjwarp 按资产启发式定。
+    sim_sizing: dict[str, int | None] = field(default_factory=dict)
     note: str = ""
 
 
@@ -123,6 +126,10 @@ def family_skill_catalog(family_id: str) -> dict[str, FamilySkillRecipe]:
             adaptive_switches=dict(item.get("adaptive_switches") or {}),
             requires=tuple(str(name) for name in (item.get("requires") or ())),
             derive=tuple(str(name) for name in (item.get("derive") or ())),
+            sim_sizing={
+                str(key): (None if value is None else int(value))
+                for key, value in (item.get("sim_sizing") or {}).items()
+            },
             note=str(item.get("note") or ""),
         )
     return recipes
@@ -305,6 +312,26 @@ def derive_profile_kwargs(
     return derived
 
 
+def _apply_sim_sizing(cfg: Any, sizing: dict[str, int | None], *, task_name: str) -> None:
+    """把装配表声明的 sim 缓冲规模写到 cfg 上（未声明即不动族 profile 的 sim 档）。"""
+    import dataclasses
+
+    if not sizing:
+        return
+    sim = getattr(cfg, "sim", None)
+    known = (
+        {f.name for f in dataclasses.fields(sim)} if dataclasses.is_dataclass(sim) else set()
+    )
+    unknown = [key for key in sizing if key not in known]
+    if unknown:
+        raise ValueError(
+            f"{task_name}: 装配表的 `sim_sizing` 写了 sim 档没有的字段 {unknown}"
+            f"（可用：{sorted(known)}）—— 写错字段名会静默不生效，这里直接报"
+        )
+    for key, value in sizing.items():
+        setattr(sim, key, value)
+
+
 def build_family_skill(
     contract: dict,
     model_path: str | Path,
@@ -448,6 +475,21 @@ def build_family_skill(
     play_cfg = (
         env_factory(binding, profile, **recipe.factory_kwargs, play=True) if not play else env_cfg
     )
+    # **sim 缓冲规模**：源配方里的 `nconmax=35` / `njmax=300` 是按某一台资产手调的缓冲值，
+    # 换一台（更大、几何更多）就溢出（实测 b2w：`nconmax overflow (nconmax must be >= 40)`）。
+    # 装配表用 `sim_sizing` 声明族级口径；`null` = 交给 mjwarp 按资产启发式定，
+    # 于是"新机型 + 标准 MJCF"不需要为缓冲区大小写任何机型侧数据。
+    for cfg in (env_cfg,) if play_cfg is env_cfg else (env_cfg, play_cfg):
+        _apply_sim_sizing(cfg, recipe.sim_sizing, task_name=str(task_name))
+    # **带非零 margin 的资产**：族注册表登记为 `warp_ccd_off`（margin 是物理量，不抹），
+    # 口径由资产事实触发 —— 与 `generic_task_builder` 同一份判据、同一个 helper。
+    ccd_flags = generic.ccd_disable_flags(model)
+    if ccd_flags:
+        for cfg in (env_cfg,) if play_cfg is env_cfg else (env_cfg, play_cfg):
+            existing = tuple(cfg.sim.mujoco.disableflags or ())
+            cfg.sim.mujoco.disableflags = tuple(
+                dict.fromkeys((*existing, *ccd_flags))
+            )
     # runner 的实验名：**按签名**决定传不传（profile 身份字段是可选口径，不强求每个族的
     # profile 数据类都有它 —— 轮足族的 profile 是几何/命令配方，不该为装配去改数据类）。
     import inspect
@@ -487,6 +529,8 @@ def build_family_skill(
             "recipe_note": recipe.note,
             "adaptive": adaptive,
             "derived_profile_kwargs": derivable,
+            "sim_sizing": dict(recipe.sim_sizing),
+            "mujoco_disableflags": list(ccd_flags),
             "binding_kwargs": binding_kwargs,
             "capabilities": robot_capabilities(contract, model, family_id=family_id)["items"],
         },
@@ -500,7 +544,8 @@ def robot_capabilities(contract: dict, model_path: str | Path, *, family_id: str
     体检项就是族级技能真正依赖的资产事实（都是族注册表 `mjcf_conventions` 的落点）：
     ① 位置执行器；② 族约定保留的传感器（`spec_utils.KEEP_SENSORS`）；
     ③ 可碰撞几何名以 `_collision` 结尾；④ 足端 site（站姿类 / spring_jump 需要）；
-    ⑤ 腿杆 body / 具名腿杆几何（几何未具名时按 body 匹配）。
+    ⑤ 腿杆 body / 具名腿杆几何（几何未具名时按 body 匹配）；⑥ 接触余量口径（margin 非零
+    ⇒ 装配时条件关 warp CCD，如实告知）。
     结论是**如实清单**：缺项不判失败，但要写清缺哪个、影响哪一类技能 —— 新机型进场时
     一条命令就能看到"能用哪些技能、还差什么"。
     """
@@ -610,6 +655,16 @@ def robot_capabilities(contract: dict, model_path: str | Path, *, family_id: str
             "foot_sites": {"ok": foot_sites, "detail": foot_detail},
             "link_collision_geoms_by_role": {"ok": all(link_geom_roles.values()), "detail": link_geom_roles},
             "penalized_contact_match": {"ok": penalized, "detail": penalized_detail},
+            # 非零接触余量的资产（族注册表登记为 `warp_ccd_off`）：装配时条件关 CCD 开关，
+            # margin 本身不抹（那是物理量）。**仅告知**，不是能力缺口。
+            "margin_policy": {
+                "ok": True,
+                "detail": (
+                    "warp_ccd_off（模型带非零 geom margin，装配时关 MULTICCD/NATIVECCD）"
+                    if generic.ccd_disable_flags(model)
+                    else "zero（模型不带非零 geom margin，CCD 开关原样不动）"
+                ),
+            },
         },
     }
 

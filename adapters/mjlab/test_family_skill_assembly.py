@@ -96,6 +96,72 @@ class AssemblyEquivalenceTest(unittest.TestCase):
         self.assertEqual([0, 2], diagnostics["right_leg_indices"])
 
 
+class SimSizingTest(unittest.TestCase):
+    """sim 规模（接触/约束缓冲）是**装配表数据**，不是机型胶水。
+
+    源配方里的 `nconmax=35` 是按 go2w 那台资产手调的缓冲值；换一台资产（b2w）就溢出
+    （`nconmax overflow`）。族级装配声明 `sim_sizing`（None = 交给 mjwarp 按资产启发式定），
+    于是新机型不需要为"缓冲区多大"写任何机型侧代码。
+    """
+
+    def test_wheel_leg_catalog_declares_heuristic_sizing(self):
+        recipe = builder.family_skill_catalog("wheel_leg")["velocity"]
+        self.assertEqual({"nconmax": None, "njmax": None}, recipe.sim_sizing)
+
+    def test_quadruped_catalog_keeps_profile_sizing(self):
+        # 四足族没有声明 ⇒ 沿用族 profile 自己的 sim 档（不被装配器改）
+        for recipe in builder.family_skill_catalog("quadruped").values():
+            self.assertEqual({}, recipe.sim_sizing)
+
+    def test_declared_sizing_reaches_env_and_play_cfg(self):
+        b2w = ROOT / "assets" / "robots" / "unitree_b2w"
+        if not (b2w / "contract.json").is_file():
+            self.skipTest("本机没有 b2w 资产")
+        contract = json.loads((b2w / "contract.json").read_text(encoding="utf-8-sig"))
+        assembly = builder.build_family_skill(
+            contract, b2w / "model" / "robot.xml", "velocity", family_id="wheel_leg"
+        )
+        for cfg in (assembly.env_cfg, assembly.play_cfg):
+            self.assertIsNone(cfg.sim.nconmax)
+            self.assertIsNone(cfg.sim.njmax)
+        self.assertEqual(
+            {"nconmax": None, "njmax": None}, assembly.diagnostics["sim_sizing"]
+        )
+
+
+class CcdMarginTest(unittest.TestCase):
+    """带非零 geom margin 的资产：族级装配也要按已登记口径条件关 MULTICCD/NATIVECCD。
+
+    族注册表把这类资产登记为 `warp_ccd_off`（margin 是物理量，不抹）；此前只有
+    `generic_task_builder` 那条路实现了这个口径，族级装配漏了 ⇒ go2w 真跑直接
+    `NotImplementedError: geom pair (terrain_0, 559) has non-zero margin ... MULTICCD`。
+    """
+
+    def _assembly(self, robot: str, task: str, family: str):
+        package = ROOT / "assets" / "robots" / robot
+        if not (package / "contract.json").is_file():
+            self.skipTest(f"本机没有 {robot} 资产")
+        contract = json.loads((package / "contract.json").read_text(encoding="utf-8-sig"))
+        return builder.build_family_skill(
+            contract, package / "model" / "robot.xml", task, family_id=family
+        )
+
+    def test_margin_asset_disables_ccd_flags(self):
+        assembly = self._assembly("unitree_go2w", "velocity", "wheel_leg")
+        for cfg in (assembly.env_cfg, assembly.play_cfg):
+            flags = tuple(cfg.sim.mujoco.disableflags)
+            self.assertIn("multiccd", flags)
+            self.assertIn("nativeccd", flags)
+        self.assertEqual(
+            ["multiccd", "nativeccd"], assembly.diagnostics["mujoco_disableflags"]
+        )
+
+    def test_zero_margin_asset_is_untouched(self):
+        assembly = self._assembly("unitree_b2w", "velocity", "wheel_leg")
+        self.assertEqual([], assembly.diagnostics["mujoco_disableflags"])
+        self.assertEqual((), tuple(assembly.env_cfg.sim.mujoco.disableflags))
+
+
 class NewPackageTest(unittest.TestCase):
     """一台全新包（契约 + 标准位置 MJCF，零机型 Python）：装配得出来、缺能力报得清楚。"""
 
