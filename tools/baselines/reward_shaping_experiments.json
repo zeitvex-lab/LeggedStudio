@@ -767,6 +767,34 @@
         "workspace/validation/quality-F2-budget-1000-1024x1000.json",
         "workspace/validation/effect-velocity-go2w-retrain/ratio.json"
       ]
+    },
+    "g1_leggedgym_align_20260928": {
+      "design": "按 legged_gym 系上游（基座 + anymal flat 实操）对齐自产 go2 velocity 任务结构——五项：① feet_air_time 0→+1.0（上游学走的主正激励，自产此前静音）；② 足端三罚关停（上游无此三项，基座 clearance -2.0 等压垮早期探索）；③ action_rate -0.1→-0.01（上游同款）；④ dof_power 不注册（上游 torques -1e-5 量级）；⑤ only_positive_rewards=True（legged_gym 基座技巧：负总奖励截 0）。机制落点：VelocityProfile 新增六个覆盖字段 + config 接线（None=基座默认）——不是 go2 私改，是族级可覆盖机制。",
+      "upstream_evidence": "00_resources/legged_gym/legged_gym/envs/base/legged_robot_config.py（scales/only_positive_rewards/tracking_sigma=0.25）+ anymal_c_flat（feet_air_time=2.0 实操）",
+      "training": "1024×1500（约 78 分钟），进行中",
+      "acceptance": "运动档（训练环境内 rollout 位移 + headless tracking_ratio）转正才算修复；eval 见 workspace/validation/effect-velocity-f1 之后的 g1 目录",
+      "result": {
+        "train_reward": 70.17,
+        "in_env_rollout": "cmd vx=0.15 → 实测 vx 0.18–0.30 持续跟随，250 步位移 0.94 m（F2 同测 0.78 且 vx≈0.04 静止）",
+        "headless_tracking_ratio": 0.459,
+        "per_mode": {
+          "vx=0.5": 0.57,
+          "vx=0.8": 0.631,
+          "vy=0.25": 0.176,
+          "wz=0.5": "n/a(零速命令无运动语义)"
+        },
+        "verdict": "**修复成立**：motion 从 0.001 → 0.459（前进档 0.57/0.63，参考 lainlab-trot 同口径 0.585 的 ~78%，已达『参考 8 成』口径）；任务结构确认为根因，五项对齐全部有效。",
+        "residual_gaps": [
+          "侧移 (vy) 0.176 仍弱（课程未覆盖侧移或需要更长预算）",
+          "1500 iter 相对上游 3000+ 仍有空间",
+          "B11 口径未评（放行门判定待补）"
+        ],
+        "evidence": [
+          "workspace/validation/quality-G1-leggedgym-1024x1500.json",
+          "workspace/validation/effect-velocity-g1/ratio.json",
+          "workspace/validation/g1-leggedgym-model1499.onnx"
+        ]
+      }
     }
   }
 }
