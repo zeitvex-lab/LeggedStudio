@@ -319,7 +319,7 @@ CI runner 每次现装（换来的是依赖版本零漂移 —— 改了 `requir
 > 启动时供应」的方向相悖，故保持现状。
 
 基线文件：`tools/baselines/sim2sim_headless_baseline.json`。
-仓库现存 3 条既存失败（go2 特技/跑酷量化判据未过）已记录在基线里，
+仓库现存 **9 条既存失败**（2026-09-28 实测口径：B8 训练产物 4 条——b2 / b2w / go2w 的 20260918 产物与 lite3-sdk45，加 lite3-velocity-benchmark；特技/姿态类 4 条——go2-backflip、lainlab-dreamwaq、lainlab-handstand、go2w-leggedstand）已记录在基线里，
 门禁只守「不许新增失败」。刷新基线：
 
 ```bash
