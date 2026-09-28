@@ -48,16 +48,102 @@
       },
       "budget_note": "本档的度量**不来自训练预算**，来自既有 onnx 产物在无头 sim2sim 里的滚出 —— 所以登记表里预算记作不适用，用报告里的 --seconds / --seed 记录工况",
       "reference_profile": "go2-velocity-flat",
-      "reference_note": "参考取该档的**来源机型**（go2 是速度跟踪族级配方的原型）；流程化前需先确认参考产物与当前观测布局一致（历史策略可能按旧布局导出）",
-      "reference": null,
+      "reference_note": "参考取该档的**来源机型**（go2 是速度跟踪族级配方的原型）；流程化前需先确认参考产物与当前观测布局一致（历史策略可能按旧布局导出）；2026-09-28 定参：lainlab-trot（产线动作卡代表）headless 五模式折算 0.585；第二参照 moe-cts 0.707（--check 的 8-9 成阈值按参考×0.8/0.9 生效）",
+      "reference": {
+        "value": 0.585,
+        "source": "lainlab-trot（产线动作卡代表）headless 五模式折算，2026-09-28",
+        "report": "workspace/validation/sim2sim-headless.json",
+        "second_reference_note": "moe-cts 0.707"
+      },
       "observed": {
-        "unitree_go1": null,
-        "unitree_b2": null,
-        "deeprobotics_lite3": null,
-        "unitree_go2w": null,
-        "unitree_b2w": null,
-        "deeprobotics_m20": null,
-        "zex-w": null
+        "unitree_go1": {
+          "value": 0.8489,
+          "budget": {
+            "num_envs": 0,
+            "iters": 0
+          },
+          "checked_at": "2026-09-28",
+          "report": "workspace/validation/effect-velocity/unitree_go1",
+          "budget_note": "非训练预算：headless sim2sim --seconds 3 五模式折算（该档度量不来自训练）",
+          "policy": "go1-playground-joystick"
+        },
+        "unitree_b2": {
+          "value": 0.594,
+          "budget": {
+            "num_envs": 0,
+            "iters": 0
+          },
+          "checked_at": "2026-09-28",
+          "report": "workspace/validation/effect-velocity/unitree_b2",
+          "budget_note": "非训练预算：headless sim2sim --seconds 3 五模式折算（该档度量不来自训练）",
+          "policy": "b2-velocity-benchmark"
+        },
+        "deeprobotics_lite3": {
+          "value": 0.5501,
+          "budget": {
+            "num_envs": 0,
+            "iters": 0
+          },
+          "checked_at": "2026-09-28",
+          "report": "workspace/validation/effect-velocity/deeprobotics_lite3",
+          "budget_note": "非训练预算：headless sim2sim --seconds 3 五模式折算（该档度量不来自训练）",
+          "policy": "lite3-velocity-benchmark"
+        },
+        "unitree_go2w": {
+          "value": 0.17,
+          "budget": {
+            "num_envs": 0,
+            "iters": 0
+          },
+          "checked_at": "2026-09-28",
+          "report": "workspace/validation/effect-velocity/unitree_go2w",
+          "budget_note": "非训练预算：headless sim2sim --seconds 3 五模式折算（该档度量不来自训练）",
+          "policy": "go2w-velocity-legs",
+          "note": "go2w-velocity-legs 为『legs-only 轮足』旧移植（B8 冒烟轮产物族）；0.17 的低分与既有登记一致——go2w 该产物族历史短板=『站得住不走』（unitree_go2w-trained-20260918-093550 的 sim_blocker 同口径）。go2w 的族级通用任务路径（velocity 通用装配）已真训通过，重训产物入包后应重评本行。"
+        },
+        "unitree_b2w": {
+          "value": 0.8201,
+          "budget": {
+            "num_envs": 0,
+            "iters": 0
+          },
+          "checked_at": "2026-09-28",
+          "report": "workspace/validation/effect-velocity/unitree_b2w",
+          "budget_note": "非训练预算：headless sim2sim --seconds 3 五模式折算（该档度量不来自训练）",
+          "policy": "b2w-velocity-robotlab"
+        },
+        "deeprobotics_m20": {
+          "value": 0.8288,
+          "budget": {
+            "num_envs": 0,
+            "iters": 0
+          },
+          "checked_at": "2026-09-28",
+          "report": "workspace/validation/effect-velocity/deeprobotics_m20",
+          "budget_note": "非训练预算：headless sim2sim --seconds 3 五模式折算（该档度量不来自训练）",
+          "policy": "m20-velocity-57"
+        },
+        "zex-w": {
+          "value": 0.6366,
+          "budget": {
+            "num_envs": 0,
+            "iters": 0
+          },
+          "checked_at": "2026-09-28",
+          "report": "workspace/validation/effect-velocity/zex-w",
+          "budget_note": "非训练预算：headless sim2sim --seconds 3 五模式折算（该档度量不来自训练）",
+          "policy": "zex-w-rough-6800"
+        },
+        "unitree_go2": {
+          "value": 0.585,
+          "budget": {
+            "num_envs": 0,
+            "iters": 0
+          },
+          "checked_at": "2026-09-28",
+          "report": "workspace/validation/sim2sim-headless.json",
+          "budget_note": "非训练预算：headless sim2sim --seconds 3 五模式折算（该档度量不来自训练）"
+        }
       },
       "metric_field": null,
       "profiles": {}
