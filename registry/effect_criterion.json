@@ -135,14 +135,15 @@
           "policy": "zex-w-rough-6800"
         },
         "unitree_go2": {
-          "value": 0.585,
+          "value": 0.212,
           "budget": {
-            "num_envs": 0,
-            "iters": 0
+            "num_envs": 1024,
+            "iters": 750
           },
           "checked_at": "2026-09-28",
-          "report": "workspace/validation/sim2sim-headless.json",
-          "budget_note": "非训练预算：headless sim2sim --seconds 3 五模式折算（该档度量不来自训练）"
+          "report": "workspace/validation/effect-velocity-g-product/ratio.json",
+          "budget_note": "产品全链（冒烟门→1024×750→promote）自产产物；非 lainlab 参照——自产产线代表值",
+          "policy": "unitree_go2-trained-20260928-221851（legged_gym 对齐结构，首条会走自产产物）"
         }
       },
       "metric_field": null,
