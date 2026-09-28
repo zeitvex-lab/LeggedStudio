@@ -50,10 +50,10 @@
       "reference_profile": "go2-velocity-flat",
       "reference_note": "参考取该档的**来源机型**（go2 是速度跟踪族级配方的原型）；流程化前需先确认参考产物与当前观测布局一致（历史策略可能按旧布局导出）；2026-09-28 定参：lainlab-trot（产线动作卡代表）headless 五模式折算 0.585；第二参照 moe-cts 0.707（--check 的 8-9 成阈值按参考×0.8/0.9 生效）",
       "reference": {
-        "value": 0.585,
-        "source": "lainlab-trot（产线动作卡代表）headless 五模式折算，2026-09-28",
+        "value": 0.4203,
+        "source": "lainlab-trot（产线动作卡代表）headless 五模式官方 tracking_ratio（纯线速度三档口径），2026-09-28",
         "report": "workspace/validation/sim2sim-headless.json",
-        "second_reference_note": "moe-cts 0.707"
+        "second_reference_note": "moe-cts 同口径 0.6936（更强参照）；历史值 0.585 系手写脚本含 wz 的 4 档口径，与工具官方口径不一致，已废弃"
       },
       "observed": {
         "unitree_go1": {
@@ -135,15 +135,26 @@
           "policy": "zex-w-rough-6800"
         },
         "unitree_go2": {
-          "value": 0.212,
+          "value": 0.4591,
           "budget": {
             "num_envs": 1024,
-            "iters": 750
+            "iters": 1500
           },
           "checked_at": "2026-09-28",
-          "report": "workspace/validation/effect-velocity-g-product/ratio.json",
-          "budget_note": "产品全链（冒烟门→1024×750→promote）自产产物；非 lainlab 参照——自产产线代表值",
-          "policy": "unitree_go2-trained-20260928-221851（legged_gym 对齐结构，首条会走自产产物）"
+          "report": "workspace/validation/effect-velocity-g1/ratio.json",
+          "budget_note": "legged_gym 对齐结构 + 1500 iter（直接训练链）；官方口径——参考比 109% [good]",
+          "policy": "G1 自产（legged_gym 对齐首条会走产物）",
+          "variants": {
+            "1024x750_直接链": {
+              "value": 0.395,
+              "report": "workspace/validation/effect-velocity-g3/ratio.json"
+            },
+            "1024x750_产品全链_seed7": {
+              "value": 0.212,
+              "report": "workspace/validation/effect-velocity-g-product/ratio.json",
+              "note": "seed/装配差异待控；产品默认档现状"
+            }
+          }
         }
       },
       "metric_field": null,
