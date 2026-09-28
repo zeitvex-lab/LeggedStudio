@@ -871,6 +871,27 @@
         "registry/effect_criterion.json（velocity 条目）",
         "workspace/validation/effect-velocity-g1/ratio.json"
       ]
+    },
+    "g4_curve_point_20260928": {
+      "experiment": "G4：1024×1000（新结构，轮数曲线 1000 档补点）",
+      "train_reward": 70.15,
+      "headless_tracking_ratio_official": 0.3923,
+      "per_mode": {
+        "vx=0.5": 0.444,
+        "vx=0.8": 0.565,
+        "vy=0.25": 0.168
+      },
+      "curve_final": {
+        "250": 0.0,
+        "750": 0.395,
+        "1000": 0.3923,
+        "1500": 0.4591,
+        "note": "750/1000/1500 同带（0.39–0.46），拐点在 ~750；1500 的增量主要在 vx=0.5 档（0.44→0.57）与 vy（0.17→0.18 微增）"
+      },
+      "evidence": [
+        "workspace/validation/quality-G4-1000-1024x1000.json",
+        "workspace/validation/effect-velocity-g4/ratio.json"
+      ]
     }
   }
 }
