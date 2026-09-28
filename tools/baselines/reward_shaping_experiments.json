@@ -892,6 +892,16 @@
         "workspace/validation/quality-G4-1000-1024x1000.json",
         "workspace/validation/effect-velocity-g4/ratio.json"
       ]
+    },
+    "go2w_750_retrain_20260929": {
+      "experiment": "go2w-flat 1024×750 重训（轮足 kit 基座本就 air_time +1.0，无 legged_gym 大项差距）",
+      "train_reward": -1.96,
+      "headless_tracking_ratio_official": 0.0,
+      "verdict": "**仍未走**（err 全额、survival 1.0 站立）——go2w 与 go2 同预算不同命：go2 750 iter 走（0.395）、go2w 不走且 train reward 为负。嫌疑收敛到轮足任务面：① go2w 旧产物族是 legs-only（12 腿）动作面，轮速（4 轮）在训练/评测两侧的接线口径待查；② 轮足 reward 量纲（train reward 负值）与四足不同；③ 需对照在走的 b2w-velocity-robotlab（0.82）与 m20-velocity（0.83）的训练源差异。深排留队列（定时任务下轮）。",
+      "evidence": [
+        "workspace/validation/quality-go2w-align-1024x750.json",
+        "workspace/validation/effect-velocity-go2w-retrain2/ratio.json"
+      ]
     }
   }
 }
