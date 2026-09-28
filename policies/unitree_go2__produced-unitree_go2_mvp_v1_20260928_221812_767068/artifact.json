@@ -1,0 +1,55 @@
+{
+  "artifact_id": "unitree_go2__produced-unitree_go2_mvp_v1_20260928_221812_767068",
+  "contract": {
+    "action_dim": 12,
+    "action_scale_by_joint": {
+      "FL_calf_joint": 0.28125,
+      "FL_hip_joint": 0.29374998807907104,
+      "FL_thigh_joint": 0.29374998807907104,
+      "FR_calf_joint": 0.28125,
+      "FR_hip_joint": 0.29374998807907104,
+      "FR_thigh_joint": 0.29374998807907104,
+      "RL_calf_joint": 0.28125,
+      "RL_hip_joint": 0.29374998807907104,
+      "RL_thigh_joint": 0.29374998807907104,
+      "RR_calf_joint": 0.28125,
+      "RR_hip_joint": 0.29374998807907104,
+      "RR_thigh_joint": 0.29374998807907104
+    },
+    "clip_actions": 100.0,
+    "default_joint_angles": {
+      "FL_calf_joint": -1.7999999523162842,
+      "FL_hip_joint": -0.10000000149011612,
+      "FL_thigh_joint": 0.8999999761581421,
+      "FR_calf_joint": -1.7999999523162842,
+      "FR_hip_joint": 0.10000000149011612,
+      "FR_thigh_joint": 0.8999999761581421,
+      "RL_calf_joint": -1.7999999523162842,
+      "RL_hip_joint": -0.10000000149011612,
+      "RL_thigh_joint": 0.8999999761581421,
+      "RR_calf_joint": -1.7999999523162842,
+      "RR_hip_joint": 0.10000000149011612,
+      "RR_thigh_joint": 0.8999999761581421
+    },
+    "obs_dim": 48,
+    "observation_kind": "go2_mjlab_actor_48"
+  },
+  "contract_digest": "b5ae10495229babbcf65545aecea82e4d5b9de1975f98605351ab01fcd1f1ba5",
+  "installed": {
+    "package_path": "simulation/policies/unitree_go2-trained-20260928-221812.onnx",
+    "policy_id": "unitree_go2-trained-20260928-221812",
+    "repo_path": "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260928-221812.onnx",
+    "robot": "unitree_go2"
+  },
+  "kind": "produced",
+  "obs_dim": 48,
+  "obs_dim_source": "onnx",
+  "observation_kind": "go2_mjlab_actor_48",
+  "onnx_bytes": 765640,
+  "onnx_sha256": "17dac01850c70250cd0d676c64c34981bc3024059a8495b3f7205160d6ca2e5b",
+  "policy_id": "unitree_go2-trained-20260928-221812",
+  "robot": "unitree_go2",
+  "run_id": "unitree_go2_mvp_v1_20260928_221812_767068",
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "simulation/policies/unitree_go2-trained-20260928-221812.onnx"
+}

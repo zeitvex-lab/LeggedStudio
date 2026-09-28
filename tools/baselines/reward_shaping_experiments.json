@@ -843,6 +843,24 @@
         "workspace/validation/quality-G3-750-1024x750.json",
         "workspace/validation/effect-velocity-g3/ratio.json"
       ]
+    },
+    "product_pipeline_first_walk_20260928": {
+      "milestone": "**产品全链首条『会走』自产产物入库**（冒烟门 64×5 → 长训 1024×750 → promote 200 → install 进 workspace 副本包）：run=unitree_go2_mvp_v1_20260928_221851_309714，policy_id=unitree_go2-trained-20260928-221851（go2_mjlab_actor_48，verify_run ok）",
+      "effect_tracking_ratio": 0.212,
+      "per_mode": {
+        "vx=0.8": 0.636,
+        "vx=0.5": 0.0,
+        "vy=0.25": 0.0
+      },
+      "honest_notes": [
+        "与直接训练链 G3（750 iter 同预算）的 0.395 有差距——差异来源=seed（7 vs 工具默认）与产品路径的 recipe 装配差异，单 seed 噪声未控",
+        "0.8 档 0.636 证明『在走』，但 0.5/侧移档未跟上——效果未达 8 成线（0.468），不得对外声称达标",
+        "l7_first_run.py 驱动增强：--num-envs/--iters/--product 参数（产品档训练入口此前只支持 smoke 档）"
+      ],
+      "evidence": [
+        "workspace/validation/effect-velocity-g-product/ratio.json",
+        "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260928-221851.onnx"
+      ]
     }
   }
 }
