@@ -27,19 +27,34 @@ from .profile import ParkourProfile
 #: 族角色：大腿（别名表见 `registry/families/<族>.json`）。
 THIGH_ROLE = "hip_pitch"
 
+#: 腿标记**语义别名**（族命名原则「不追求字符串一致，只统一被语义引用的名字」）：
+#: DeepRobotics 系用 Hind（HL/HR），Unitree 系用 Rear（RL/RR）—— 语义相同（后左/后右）。
+#: 槽位序的校验与映射一律经 ``canonical_leg`` 归一，返回值再翻译回机型腿标记
+#: （site / 几何查找用的是机型自己的名字）。
+LEG_ALIASES = {"hl": "rl", "hr": "rr"}
+
+
+def canonical_leg(leg: str) -> str:
+    """腿标记归一到 Rear 口径（HL→RL、HR→RR；其余原样小写）。"""
+    text = str(leg).lower()
+    return LEG_ALIASES.get(text, text)
+
 
 def foot_slot_order(
     binding: QuadrupedSkillBinding, profile: ParkourProfile
 ) -> tuple[str, ...]:
-    """足端槽位序（校验为腿标记的一个排列；不是就报错，不静默换序）。"""
+    """足端槽位序（按**语义腿名**校验为排列；返回**机型腿标记**序，不是排列就报错）。"""
     order = tuple(str(leg) for leg in profile.foot_slot_order)
     legs = tuple(str(leg) for leg in binding.leg_ids)
-    if sorted(order) != sorted(legs):
+    canon_order = [canonical_leg(leg) for leg in order]
+    canon_legs = [canonical_leg(leg) for leg in legs]
+    if sorted(canon_order) != sorted(canon_legs):
         raise ValueError(
             f"{binding.robot_id}: 配方足端槽位序 {order} 不是本机型腿标记 {legs} 的一个排列 —— "
             "换序会改变接触/射线槽位语义（步态相位、足端奖励），需要单独裁决后更新配方"
         )
-    return order
+    by_canon = {canonical_leg(leg): leg for leg in legs}
+    return tuple(by_canon[canon] for canon in canon_order)
 
 
 def foot_geom_by_leg(binding: QuadrupedSkillBinding) -> dict[str, str]:

@@ -61,6 +61,7 @@
             <geom name="FR_calf_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0 1" mesh="calf"/>
             <geom name="FR_calf_collision" size="0.1065 0.008 0.008" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
             <geom name="FR_foot_collision" size="0.02" pos="0 0 -0.213" rgba="0 0 1 0.55"/>
+            <site name="FR" pos="0 0 -0.213" type="sphere" size="0.02"/>
           </body>
         </body>
       </body>
@@ -83,6 +84,7 @@
             <geom name="FL_calf_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0 1" mesh="calf"/>
             <geom name="FL_calf_collision" size="0.1065 0.008 0.008" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
             <geom name="FL_foot_collision" size="0.02" pos="0 0 -0.213" rgba="0 0 1 0.55"/>
+            <site name="FL" pos="0 0 -0.213" type="sphere" size="0.02"/>
           </body>
         </body>
       </body>
@@ -105,6 +107,7 @@
             <geom name="RL_calf_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0 1" mesh="calf"/>
             <geom name="RL_calf_collision" size="0.1065 0.008 0.008" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
             <geom name="RL_foot_collision" size="0.02" pos="0 0 -0.213" rgba="0 0 1 0.55"/>
+            <site name="RL" pos="0 0 -0.213" type="sphere" size="0.02"/>
           </body>
         </body>
       </body>
@@ -127,6 +130,7 @@
             <geom name="RR_calf_visual" type="mesh" contype="0" conaffinity="0" group="1" rgba="0 0 0 1" mesh="calf"/>
             <geom name="RR_calf_collision" size="0.1065 0.008 0.008" pos="0 0 -0.1065" quat="0.707107 0 0.707107 0" type="box" rgba="0 0 1 0.55"/>
             <geom name="RR_foot_collision" size="0.02" pos="0 0 -0.213" rgba="0 0 1 0.55"/>
+            <site name="RR" pos="0 0 -0.213" type="sphere" size="0.02"/>
           </body>
         </body>
       </body>
