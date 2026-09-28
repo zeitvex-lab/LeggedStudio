@@ -40,45 +40,99 @@
       "id": "A_track_up",
       "name": "跟踪加权（任务指令 a）",
       "hypothesis": "track_linear_velocity ×2（2.0→4.0）+ action_rate_l2 ×2（-0.1→-0.2）双向压",
-      "reward_scales": {"track_linear_velocity": 4.0, "action_rate_l2": -0.2},
+      "reward_scales": {
+        "track_linear_velocity": 4.0,
+        "action_rate_l2": -0.2
+      },
       "smoke_run": "unitree_go2_mvp_v1_20260918_170840_854666",
       "run_id": "unitree_go2_mvp_v1_20260918_170954_466317",
       "wall_seconds": 108.4,
-      "train_reward": {"first": -0.34, "last": -0.78, "track_linear_velocity_last": 0.0067, "action_rate_l2_last": -0.0338},
+      "train_reward": {
+        "first": -0.34,
+        "last": -0.78,
+        "track_linear_velocity_last": 0.0067,
+        "action_rate_l2_last": -0.0338
+      },
       "policy_id": "unitree_go2-trained-20260918-170954",
       "quality_single": 0.03587469998141596,
       "vs_baseline": 1.38,
-      "per_metric": {"lin_vel_err": 0.6271645250492287, "ang_vel_err": 0.011768977992581111, "dof_limits": 0.9304351111256239, "dof_power": 0.0, "orientation_stability": 0.5246574523614335, "torque_smoothness": 0.1576534947158874, "friction_margin": 0.9621753332809817, "zmp_margin": 0.8752307114488171},
+      "per_metric": {
+        "lin_vel_err": 0.6271645250492287,
+        "ang_vel_err": 0.011768977992581111,
+        "dof_limits": 0.9304351111256239,
+        "dof_power": 0.0,
+        "orientation_stability": 0.5246574523614335,
+        "torque_smoothness": 0.1576534947158874,
+        "friction_margin": 0.9621753332809817,
+        "zmp_margin": 0.8752307114488171
+      },
       "report": "workspace/evaluation/unitree_go2__unitree_go2-trained-20260918-170954__single.json"
     },
     {
       "id": "B_smooth",
       "name": "平滑优先（任务指令 b）",
       "hypothesis": "action_rate_l2 ×4（-0.1→-0.4）+ 足端抑制加强（foot_swing_height -0.25→-0.5, foot_slip -0.1→-0.2）",
-      "reward_scales": {"action_rate_l2": -0.4, "foot_swing_height": -0.5, "foot_slip": -0.2},
+      "reward_scales": {
+        "action_rate_l2": -0.4,
+        "foot_swing_height": -0.5,
+        "foot_slip": -0.2
+      },
       "smoke_run": "unitree_go2_mvp_v1_20260918_171456_995067",
       "run_id": "unitree_go2_mvp_v1_20260918_171631_267752",
       "wall_seconds": 108.4,
-      "train_reward": {"first": -0.61, "last": -1.54, "track_linear_velocity_last": 0.0025, "action_rate_l2_last": -0.0663},
+      "train_reward": {
+        "first": -0.61,
+        "last": -1.54,
+        "track_linear_velocity_last": 0.0025,
+        "action_rate_l2_last": -0.0663
+      },
       "policy_id": "unitree_go2-trained-20260918-171631",
       "quality_single": 0.042699937105481145,
       "vs_baseline": 1.64,
-      "per_metric": {"lin_vel_err": 0.6756511626481446, "ang_vel_err": 0.02316853593629852, "dof_limits": 0.929595389158409, "dof_power": 0.0, "orientation_stability": 0.6725254271280755, "torque_smoothness": 0.15505654623510692, "friction_margin": 0.9887682376790733, "zmp_margin": 0.8579121763596268},
+      "per_metric": {
+        "lin_vel_err": 0.6756511626481446,
+        "ang_vel_err": 0.02316853593629852,
+        "dof_limits": 0.929595389158409,
+        "dof_power": 0.0,
+        "orientation_stability": 0.6725254271280755,
+        "torque_smoothness": 0.15505654623510692,
+        "friction_margin": 0.9887682376790733,
+        "zmp_margin": 0.8579121763596268
+      },
       "report": "workspace/evaluation/unitree_go2__unitree_go2-trained-20260918-171631__single.json"
     },
     {
       "id": "C_mixed",
       "name": "混合（任务指令 c：分析后最可能改善三拖后腿指标的组合）",
       "hypothesis": "track_linear_velocity 1.5×（2.0→3.0）+ action_rate_l2 ×5（-0.1→-0.5）+ foot_clearance -2→-3 + foot_slip -0.1→-0.2",
-      "reward_scales": {"track_linear_velocity": 3.0, "action_rate_l2": -0.5, "foot_clearance": -3.0, "foot_slip": -0.2},
+      "reward_scales": {
+        "track_linear_velocity": 3.0,
+        "action_rate_l2": -0.5,
+        "foot_clearance": -3.0,
+        "foot_slip": -0.2
+      },
       "smoke_run": "unitree_go2_mvp_v1_20260918_172011_364699",
       "run_id": "unitree_go2_mvp_v1_20260918_172122_733976",
       "wall_seconds": 98.0,
-      "train_reward": {"first": -0.74, "last": -1.86, "track_linear_velocity_last": 0.0046, "action_rate_l2_last": -0.0819},
+      "train_reward": {
+        "first": -0.74,
+        "last": -1.86,
+        "track_linear_velocity_last": 0.0046,
+        "action_rate_l2_last": -0.0819
+      },
       "policy_id": "unitree_go2-trained-20260918-172122",
       "quality_single": 0.04321358480937052,
       "vs_baseline": 1.66,
-      "per_metric": {"lin_vel_err": 0.6496073761616027, "ang_vel_err": 0.02538232054994177, "dof_limits": 0.9289415697970103, "dof_power": 0.0, "orientation_stability": 0.604995596828267, "torque_smoothness": 0.18367402868970892, "friction_margin": 0.9681215700377525, "zmp_margin": 0.8358342160091451},
+      "per_metric": {
+        "lin_vel_err": 0.6496073761616027,
+        "ang_vel_err": 0.02538232054994177,
+        "dof_limits": 0.9289415697970103,
+        "dof_power": 0.0,
+        "orientation_stability": 0.604995596828267,
+        "torque_smoothness": 0.18367402868970892,
+        "friction_margin": 0.9681215700377525,
+        "zmp_margin": 0.8358342160091451
+      },
       "report": "workspace/evaluation/unitree_go2__unitree_go2-trained-20260918-172122__single.json"
     },
     {
@@ -89,47 +143,137 @@
       "smoke_run": "unitree_go2_mvp_v1_20260918_172712_209381",
       "run_id": "unitree_go2_mvp_v1_20260918_172821_592048",
       "wall_seconds": 93.3,
-      "train_reward": {"first": 0.17, "last": -0.32, "track_linear_velocity_last": 0.0385, "action_rate_l2_last": -0.1346},
+      "train_reward": {
+        "first": 0.17,
+        "last": -0.32,
+        "track_linear_velocity_last": 0.0385,
+        "action_rate_l2_last": -0.1346
+      },
       "policy_id": "unitree_go2-trained-20260918-172821",
       "quality_single": 0.2236735281387788,
       "vs_baseline": 8.6,
-      "per_metric": {"lin_vel_err": 0.694714014468458, "ang_vel_err": 0.039390423389047566, "dof_limits": 0.9476232372573062, "dof_power": 0.003600321994989618, "orientation_stability": 0.8000763618587741, "torque_smoothness": 0.1817324687598455, "friction_margin": 0.9901373480322799, "zmp_margin": 0.8521499259643994},
+      "per_metric": {
+        "lin_vel_err": 0.694714014468458,
+        "ang_vel_err": 0.039390423389047566,
+        "dof_limits": 0.9476232372573062,
+        "dof_power": 0.003600321994989618,
+        "orientation_stability": 0.8000763618587741,
+        "torque_smoothness": 0.1817324687598455,
+        "friction_margin": 0.9901373480322799,
+        "zmp_margin": 0.8521499259643994
+      },
       "report": "workspace/evaluation/unitree_go2__unitree_go2-trained-20260918-172821__single.json"
     },
     {
       "id": "D_pinned",
       "name": "变体 C + 显式钉住被 preset 别名误伤的项（MECH-2 归因修正）",
       "hypothesis": "变体 C 的塑形 + 钉住 track_angular_velocity=2.0 / upright=1.0（任务真值），剔除 preset 叠加副作用后看塑形净效应",
-      "reward_scales": {"track_linear_velocity": 3.0, "track_angular_velocity": 2.0, "upright": 1.0, "action_rate_l2": -0.5, "foot_clearance": -3.0, "foot_slip": -0.2},
+      "reward_scales": {
+        "track_linear_velocity": 3.0,
+        "track_angular_velocity": 2.0,
+        "upright": 1.0,
+        "action_rate_l2": -0.5,
+        "foot_clearance": -3.0,
+        "foot_slip": -0.2
+      },
       "smoke_run": "unitree_go2_mvp_v1_20260918_173145_469381",
       "run_id": "unitree_go2_mvp_v1_20260918_173309_855482",
       "wall_seconds": 100.0,
-      "train_reward": {"first": -0.36, "last": -1.72, "track_linear_velocity_last": 0.0054, "action_rate_l2_last": -0.0896, "upright_last": 0.0053},
+      "train_reward": {
+        "first": -0.36,
+        "last": -1.72,
+        "track_linear_velocity_last": 0.0054,
+        "action_rate_l2_last": -0.0896,
+        "upright_last": 0.0053
+      },
       "policy_id": "unitree_go2-trained-20260918-173309",
       "quality_single": 0.03740863498734175,
       "vs_baseline": 1.44,
-      "per_metric": {"lin_vel_err": 0.6291018285657731, "ang_vel_err": 0.01218132975701947, "dof_limits": 0.9287597280119513, "dof_power": 0.0, "orientation_stability": 0.5831808092221402, "torque_smoothness": 0.1986371167942704, "friction_margin": 0.9686671901348337, "zmp_margin": 0.8768912296405398},
+      "per_metric": {
+        "lin_vel_err": 0.6291018285657731,
+        "ang_vel_err": 0.01218132975701947,
+        "dof_limits": 0.9287597280119513,
+        "dof_power": 0.0,
+        "orientation_stability": 0.5831808092221402,
+        "torque_smoothness": 0.1986371167942704,
+        "friction_margin": 0.9686671901348337,
+        "zmp_margin": 0.8768912296405398
+      },
       "report": "workspace/evaluation/unitree_go2__unitree_go2-trained-20260918-173309__single.json"
     }
   ],
   "score_table": {
-    "columns": ["variant", "quality_single", "vs_baseline_0.026", "dof_power", "torque_smoothness", "lin_vel_err", "train_reward_last"],
+    "columns": [
+      "variant",
+      "quality_single",
+      "vs_baseline_0.026",
+      "dof_power",
+      "torque_smoothness",
+      "lin_vel_err",
+      "train_reward_last"
+    ],
     "rows": [
-      ["baseline(L7 64×800)", 0.0258, "1.00×", 0.0, 0.0025, 0.72, 35.4],
-      ["A_track_up", 0.0359, "1.38×", 0.0, 0.158, 0.63, -0.78],
-      ["B_smooth", 0.0427, "1.64×", 0.0, 0.155, 0.68, -1.54],
-      ["C_mixed", 0.0432, "1.66×", 0.0, 0.184, 0.65, -1.86],
-      ["CTRL_default", 0.2237, "8.60×", 0.0036, 0.182, 0.69, -0.32],
-      ["D_pinned", 0.0374, "1.44×", 0.0, 0.199, 0.63, -1.72]
+      [
+        "baseline(L7 64×800)",
+        0.0258,
+        "1.00×",
+        0.0,
+        0.0025,
+        0.72,
+        35.4
+      ],
+      [
+        "A_track_up",
+        0.0359,
+        "1.38×",
+        0.0,
+        0.158,
+        0.63,
+        -0.78
+      ],
+      [
+        "B_smooth",
+        0.0427,
+        "1.64×",
+        0.0,
+        0.155,
+        0.68,
+        -1.54
+      ],
+      [
+        "C_mixed",
+        0.0432,
+        "1.66×",
+        0.0,
+        0.184,
+        0.65,
+        -1.86
+      ],
+      [
+        "CTRL_default",
+        0.2237,
+        "8.60×",
+        0.0036,
+        0.182,
+        0.69,
+        -0.32
+      ],
+      [
+        "D_pinned",
+        0.0374,
+        "1.44×",
+        0.0,
+        0.199,
+        0.63,
+        -1.72
+      ]
     ]
   },
   "verdict": {
     "headline": "配置层塑形【不成立】为主方向；三变体表面过 1.5× 门（B/C），但对照组（默认权重、同 64×100 规模、无任何 reward_scales）拿到 0.2237 = 8.6× 基线，增益主体来自『64×100 短训 vs 64×800 长训的动力学差异』与 reward_overrides preset 副作用，不是塑形本身——A/B/C/D 四组（全部 reward_overrides=true）无一超过对照组的 1/5。",
     "per_question": {
-      "dof_power": "四组塑形变体全部仍为 0.0（RMS≥100），对照组也仅 0.0036（RMS≈99.6）。短训已把 |τ·v| RMS 从基线 ~700 压到 ~100 量级（-86%），但压到 scaling=100 线下需要结构性手段——纯权重调整未观察到 dof_power 脱离 0 区间。"
-      ,
-      "torque_smoothness": "0.0025 → 0.15-0.20，八指标里改善最显著的一项；但对照组同样达到 0.182，属于短训规模效应而非塑形贡献（B 的 -0.4 action_rate 与 D 的 -0.5 并未显著超过对照组的 -0.1 缺省）。"
-      ,
+      "dof_power": "四组塑形变体全部仍为 0.0（RMS≥100），对照组也仅 0.0036（RMS≈99.6）。短训已把 |τ·v| RMS 从基线 ~700 压到 ~100 量级（-86%），但压到 scaling=100 线下需要结构性手段——纯权重调整未观察到 dof_power 脱离 0 区间。",
+      "torque_smoothness": "0.0025 → 0.15-0.20，八指标里改善最显著的一项；但对照组同样达到 0.182，属于短训规模效应而非塑形贡献（B 的 -0.4 action_rate 与 D 的 -0.5 并未显著超过对照组的 -0.1 缺省）。",
       "lin_vel_err": "0.72 → 0.63-0.69；A/D（含 track 加权）略优（0.627/0.629），但训练侧 error_vel_xy 末值（0.015-0.017 vs CTRL 0.131）与 B11 侧改善不成比例，跟踪奖励加权的净效应在 100 iter 内未兑现。"
     },
     "next_direction": "① 塑形实验的【正交结论】reward_overrides=true 会把通用 preset 的 track_angular_velocity=0.5 / body_orientation_l2→upright=-2.0 叠加进 go2 任务真值——任何后续塑形实验必须显式钉住 track_angular_velocity 与 upright，否则改的与自己以为的不是一个奖励表（MECH-2，建议后续轮把它变成 create 侧护栏或档案模式下要求全表声明）；② dof_power 要过 0.5 门需 RMS≤50，即功率再砍一半：配置层权重已无杠杆，下一轮应改任务结构——在 env_cfg.rewards 加功率型惩罚项（|τ·v| 逐关节 L1，官方 mdp 有 analog 先例）或降 action scale（environment.actions.joint_pos.scale 走 E6 dot-path，同属纯配置但改变动作幅度语义，本轮未动以免与权重实验混淆）；③ 64×100 短训与 64×800 长训的 B11 分差（0.224 vs 0.026）本身是第二轮『规模→质量脱节』的强信号：长训后期策略动力学（episode 988/1000 步贴顶、低速游走）才是 dof_power 崩掉的主因，值得单独立项（如 64×800+塑形组合或 early-stop）。"
@@ -179,9 +323,22 @@
     },
     "calibration_probe": {
       "method": "flat_env_cfg 64 envs，随机动作 [-1,1] × 300 步，读 asset.data.actuator_force×joint_vel（adapters/mjlab/.venv 内跑）",
-      "per_joint_abs_power_percentiles": {"p50": 2.1, "p90": 10.0, "p95": 14.3, "p99": 25.6, "p99.5": 31.2, "p99.9": 49.5},
-      "per_env_joint_mean_percentiles": {"p50": 3.6, "p99": 10.3},
-      "per_env_joint_peak_percentiles": {"p50": 12.9, "p99": 50.1},
+      "per_joint_abs_power_percentiles": {
+        "p50": 2.1,
+        "p90": 10.0,
+        "p95": 14.3,
+        "p99": 25.6,
+        "p99.5": 31.2,
+        "p99.9": 49.5
+      },
+      "per_env_joint_mean_percentiles": {
+        "p50": 3.6,
+        "p99": 10.3
+      },
+      "per_env_joint_peak_percentiles": {
+        "p50": 12.9,
+        "p99": 50.1
+      },
       "overall_joint_rms": 6.8,
       "conclusion": "训练侧 |tau·v| 量级：随机动作 p99.9≈50、RMS≈6.8；训练策略 episode 均值 15-40（训练日志 Episode_Reward/dof_power_abs 反解）。评测侧 dof_power 分数反解 RMS≈100（CTRL 0.0013 → 99.87）——训练/评测之间存在 ~1 个数量级的功率量级缺口。"
     },
@@ -192,9 +349,23 @@
         "smoke_run": "unitree_go2_mvp_v1_20260918_203246_334214",
         "run_id": "unitree_go2_mvp_v1_20260918_203424_157556",
         "policy_id": "unitree_go2-trained-20260918-203424",
-        "train_reward": {"first": 0.17, "last": -0.31, "track_lin_vel_last": 0.0442, "episode_len_last": 107.89},
+        "train_reward": {
+          "first": 0.17,
+          "last": -0.31,
+          "track_lin_vel_last": 0.0442,
+          "episode_len_last": 107.89
+        },
         "quality_single": 0.1893198214579002,
-        "per_metric": {"lin_vel_err": 0.6664649857035354, "ang_vel_err": 0.032607905275429616, "dof_limits": 0.9477405392844664, "dof_power": 0.0012919759816720036, "orientation_stability": 0.8365983627526358, "torque_smoothness": 0.14397370422965453, "friction_margin": 0.985392727370162, "zmp_margin": 0.861800905513282},
+        "per_metric": {
+          "lin_vel_err": 0.6664649857035354,
+          "ang_vel_err": 0.032607905275429616,
+          "dof_limits": 0.9477405392844664,
+          "dof_power": 0.0012919759816720036,
+          "orientation_stability": 0.8365983627526358,
+          "torque_smoothness": 0.14397370422965453,
+          "friction_margin": 0.985392727370162,
+          "zmp_margin": 0.861800905513282
+        },
         "note": "与 v1 CTRL（0.2237）差 -0.034：同请求不同批次/机况的运行间噪声量级参考。"
       },
       {
@@ -204,10 +375,25 @@
         "smoke_run": "unitree_go2_mvp_v1_20260918_204244_659759",
         "run_id": "unitree_go2_mvp_v1_20260918_204329_909417",
         "policy_id": "unitree_go2-trained-20260918-204329",
-        "train_reward": {"first": 0.17, "last": -0.23, "track_lin_vel_last": 0.0507, "dof_power_abs_last": -0.0008, "episode_len_last": 100.2},
+        "train_reward": {
+          "first": 0.17,
+          "last": -0.23,
+          "track_lin_vel_last": 0.0507,
+          "dof_power_abs_last": -0.0008,
+          "episode_len_last": 100.2
+        },
         "quality_single": 0.21104903293999652,
         "vs_ctrl": 1.11,
-        "per_metric": {"lin_vel_err": 0.6864268032239642, "ang_vel_err": 0.03469894149836192, "dof_limits": 0.9480539594388301, "dof_power": 0.004266742514010775, "orientation_stability": 0.8701713948631756, "torque_smoothness": 0.10503484764106404, "friction_margin": 0.9735470677307706, "zmp_margin": 0.8585944718743937},
+        "per_metric": {
+          "lin_vel_err": 0.6864268032239642,
+          "ang_vel_err": 0.03469894149836192,
+          "dof_limits": 0.9480539594388301,
+          "dof_power": 0.004266742514010775,
+          "orientation_stability": 0.8701713948631756,
+          "torque_smoothness": 0.10503484764106404,
+          "friction_margin": 0.9735470677307706,
+          "zmp_margin": 0.8585944718743937
+        },
         "note": "六组中唯一 ≥CTRL 的变体，但 +0.022 在运行间噪声（±0.03）内，不构成方向性证据。"
       },
       {
@@ -217,10 +403,25 @@
         "smoke_run": "unitree_go2_mvp_v1_20260918_204617_386054",
         "run_id": "unitree_go2_mvp_v1_20260918_204657_303338",
         "policy_id": "unitree_go2-trained-20260918-204657",
-        "train_reward": {"first": 0.16, "last": -0.30, "track_lin_vel_last": 0.0054, "dof_power_abs_last": -0.003, "episode_len_last": 21.75},
+        "train_reward": {
+          "first": 0.16,
+          "last": -0.3,
+          "track_lin_vel_last": 0.0054,
+          "dof_power_abs_last": -0.003,
+          "episode_len_last": 21.75
+        },
         "quality_single": 0.15554042146232497,
         "vs_ctrl": 0.82,
-        "per_metric": {"lin_vel_err": 0.6633452314385141, "ang_vel_err": 0.018933982610488773, "dof_limits": 0.9452307594442105, "dof_power": 0.00034452928905878005, "orientation_stability": 0.7242442232416363, "torque_smoothness": 0.2583849059367935, "friction_margin": 0.9912681879617934, "zmp_margin": 0.8696854429982921},
+        "per_metric": {
+          "lin_vel_err": 0.6633452314385141,
+          "ang_vel_err": 0.018933982610488773,
+          "dof_limits": 0.9452307594442105,
+          "dof_power": 0.00034452928905878005,
+          "orientation_stability": 0.7242442232416363,
+          "torque_smoothness": 0.2583849059367935,
+          "friction_margin": 0.9912681879617934,
+          "zmp_margin": 0.8696854429982921
+        },
         "note": "dof_power 分数仍≈0，orientation_stability 掉到 0.724；episode 长度 21.75（vs CTRL 107.89）——纯奖励权重扰动即可使训练轨迹大幅发散（RNG 级），单次对比噪声主导。"
       },
       {
@@ -230,11 +431,25 @@
         "smoke_run": "unitree_go2_mvp_v1_20260918_205148_037035",
         "run_id": "unitree_go2_mvp_v1_20260918_205227_750853",
         "policy_id": "unitree_go2-trained-20260918-205227",
-        "train_reward": {"first": 0.17, "last": -0.29, "track_lin_vel_last": 0.0094, "episode_len_last": 35.3},
+        "train_reward": {
+          "first": 0.17,
+          "last": -0.29,
+          "track_lin_vel_last": 0.0094,
+          "episode_len_last": 35.3
+        },
         "termination_firing": "100/100 iteration Episode_Termination/power_runaway=0.0000（零触发）",
         "quality_single": 0.2045967054518064,
         "vs_ctrl": 1.08,
-        "per_metric": {"lin_vel_err": 0.6889409499285009, "ang_vel_err": 0.025358733534085142, "dof_limits": 0.9462769757079996, "dof_power": 0.002968420715645661, "orientation_stability": 0.7569551504640907, "torque_smoothness": 0.23198400355657112, "friction_margin": 0.99395935350108, "zmp_margin": 0.8588685549302377},
+        "per_metric": {
+          "lin_vel_err": 0.6889409499285009,
+          "ang_vel_err": 0.025358733534085142,
+          "dof_limits": 0.9462769757079996,
+          "dof_power": 0.002968420715645661,
+          "orientation_stability": 0.7569551504640907,
+          "torque_smoothness": 0.23198400355657112,
+          "friction_margin": 0.99395935350108,
+          "zmp_margin": 0.8588685549302377
+        },
         "note": "按『评测 RMS 700 量级』定的阈值在训练环境结构性够不着（训练侧量级低 ~1 个数量级，见 calibration_probe）→ 本组实为又一次种子采样，分数落在 CTRL 噪声带内，与零触发自洽。"
       },
       {
@@ -244,11 +459,26 @@
         "smoke_run": "unitree_go2_mvp_v1_20260918_210104_013571",
         "run_id": "unitree_go2_mvp_v1_20260918_210138_853758",
         "policy_id": "unitree_go2-trained-20260918-210138",
-        "train_reward": {"first": -0.05, "last": 0.09, "track_lin_vel_last": 0.0032, "dof_power_abs_last": -0.0001, "episode_len_last": 9.54},
+        "train_reward": {
+          "first": -0.05,
+          "last": 0.09,
+          "track_lin_vel_last": 0.0032,
+          "dof_power_abs_last": -0.0001,
+          "episode_len_last": 9.54
+        },
         "termination_firing": "全程高频触发（1.6-7.7/s），Mean episode length 全程 ~10 步",
         "quality_single": 0.03444748925430546,
         "vs_ctrl": 0.18,
-        "per_metric": {"lin_vel_err": 0.5470810932989956, "ang_vel_err": 0.009756895356303358, "dof_limits": 0.9320945870138827, "dof_power": 0.0, "orientation_stability": 0.6344490618103573, "torque_smoothness": 0.17097861222169836, "friction_margin": 0.9345250833597237, "zmp_margin": 0.8738955561424487},
+        "per_metric": {
+          "lin_vel_err": 0.5470810932989956,
+          "ang_vel_err": 0.009756895356303358,
+          "dof_limits": 0.9320945870138827,
+          "dof_power": 0.0,
+          "orientation_stability": 0.6344490618103573,
+          "torque_smoothness": 0.17097861222169836,
+          "friction_margin": 0.9345250833597237,
+          "zmp_margin": 0.8738955561424487
+        },
         "note": "截断咬死步态习得：episode 10 步内 tracking 无法兑现（趴在 0.003），策略既学不会走也站不稳；评测侧 dof_power 依然 0。"
       },
       {
@@ -258,23 +488,101 @@
         "smoke_run": "unitree_go2_mvp_v1_20260918_210542_577364",
         "run_id": "unitree_go2_mvp_v1_20260918_210622_462722",
         "policy_id": "unitree_go2-trained-20260918-210622",
-        "train_reward": {"first": 0.1, "last": -0.18, "track_lin_vel_last": 0.0339, "dof_power_abs_last": -0.0008, "episode_len_last": 59.12},
+        "train_reward": {
+          "first": 0.1,
+          "last": -0.18,
+          "track_lin_vel_last": 0.0339,
+          "dof_power_abs_last": -0.0008,
+          "episode_len_last": 59.12
+        },
         "termination_firing": "早期高频、后期衰减到 0.25-0.6/s；episode 末段 ~55-59 步（CTRL 107.9）",
         "quality_single": 0.1791642586469277,
         "vs_ctrl": 0.95,
-        "per_metric": {"lin_vel_err": 0.6161404052686215, "ang_vel_err": 0.01883810715363303, "dof_limits": 0.9468081273802134, "dof_power": 0.0015373450490424028, "orientation_stability": 0.7201897594264366, "torque_smoothness": 0.2812234578000203, "friction_margin": 0.9867653953874922, "zmp_margin": 0.8696292438353672},
+        "per_metric": {
+          "lin_vel_err": 0.6161404052686215,
+          "ang_vel_err": 0.01883810715363303,
+          "dof_limits": 0.9468081273802134,
+          "dof_power": 0.0015373450490424028,
+          "orientation_stability": 0.7201897594264366,
+          "torque_smoothness": 0.2812234578000203,
+          "friction_margin": 0.9867653953874922,
+          "zmp_margin": 0.8696292438353672
+        },
         "note": "『触发但不窒息』窗口存在（步态部分习得、track 0.034），但评测侧 dof_power 依旧钉在 0.0015——训练侧功率压制不转化为评测侧功率收益。"
       }
     ],
     "score_table": {
-      "columns": ["variant", "quality_single", "vs_CTRL_0.1893", "dof_power", "torque_smoothness", "lin_vel_err", "train_episode_len_last", "termination_firing"],
+      "columns": [
+        "variant",
+        "quality_single",
+        "vs_CTRL_0.1893",
+        "dof_power",
+        "torque_smoothness",
+        "lin_vel_err",
+        "train_episode_len_last",
+        "termination_firing"
+      ],
       "rows": [
-        ["CTRL_v2", 0.1893, "1.00×", 0.0013, 0.144, 0.666, 107.9, "-"],
-        ["V1a_power_lo", 0.2110, "1.11×", 0.0043, 0.105, 0.686, 100.2, "-"],
-        ["V1b_power_hi", 0.1555, "0.82×", 0.0003, 0.258, 0.663, 21.8, "-"],
-        ["V2_term_1500/900", 0.2046, "1.08×", 0.0030, 0.232, 0.689, 35.3, "0 次（零触发）"],
-        ["V3_term_120/60", 0.0344, "0.18×", 0.0, 0.171, 0.547, 9.5, "全程 ~10 步/次咬死"],
-        ["V4_term_250/100", 0.1792, "0.95×", 0.0015, 0.281, 0.616, 59.1, "衰减到 0.25-0.6/s"]
+        [
+          "CTRL_v2",
+          0.1893,
+          "1.00×",
+          0.0013,
+          0.144,
+          0.666,
+          107.9,
+          "-"
+        ],
+        [
+          "V1a_power_lo",
+          0.211,
+          "1.11×",
+          0.0043,
+          0.105,
+          0.686,
+          100.2,
+          "-"
+        ],
+        [
+          "V1b_power_hi",
+          0.1555,
+          "0.82×",
+          0.0003,
+          0.258,
+          0.663,
+          21.8,
+          "-"
+        ],
+        [
+          "V2_term_1500/900",
+          0.2046,
+          "1.08×",
+          0.003,
+          0.232,
+          0.689,
+          35.3,
+          "0 次（零触发）"
+        ],
+        [
+          "V3_term_120/60",
+          0.0344,
+          "0.18×",
+          0.0,
+          0.171,
+          0.547,
+          9.5,
+          "全程 ~10 步/次咬死"
+        ],
+        [
+          "V4_term_250/100",
+          0.1792,
+          "0.95×",
+          0.0015,
+          0.281,
+          0.616,
+          59.1,
+          "衰减到 0.25-0.6/s"
+        ]
       ]
     },
     "mechanism_findings": [
@@ -331,5 +639,45 @@
         "随机动作标定探针只代表训练环境初始分布，未覆盖训练中期策略的功率尾部分布（V3 高频触发说明尾部分布远超随机探针）"
       ]
     }
+  },
+  "v3_magnitude_calibration_20260928": {
+    "schema_note": "v3 = 量纲校准轮（2026-09-28）：参照系建立（上游 lainlab-trot 0.922 / moe-cts 0.929）后，把训练侧功率惩罚从 -0.001 提到与评测同量纲（ lainlab dof_power RMS≈10.7 参照），1024×250 GPU 档 A/B",
+    "scale_note": "与 64×N 历史轮不可比（规模 16×→1024×）；对照组 = 2026-09-20 同档 reward 67.97 / 本轮 68.55",
+    "experiments": [
+      {
+        "id": "E1",
+        "weight": -0.01,
+        "profile": "go2-velocity-flat",
+        "scale": "1024x250",
+        "seed": "tool-default",
+        "train_reward": 67.073727,
+        "b11": {
+          "score": 0.9157,
+          "lin_vel_err": 0.85,
+          "dof_power": 0.9922,
+          "torque_smoothness": 0.9912,
+          "orientation_stability": 0.9234,
+          "ang_vel_err": 0.9851
+        },
+        "verdict": "**过放行门（0.5）**：0.9157 与上游参照同档（0.922/0.929）——功率/力矩平滑两塌方项被治好（0.00→0.99/0.99）；量纲校准假设成立",
+        "evidence": [
+          "workspace/validation/quality-E1-power-0.01-1024x250.json",
+          "workspace/validation/b11-e1-power001.json"
+        ],
+        "eval_note": "E1 产物为 mjlab 48 维 actor 布局（无章）→ 用 go2-lainlab-handstand 条目的 48 维 kind 评（--policy 显式路径 + --policy-id 定契约）；复跑 0.9157 一致"
+      }
+    ],
+    "verdict_revision": "**结论修正（同日）**：对照实验揭穿归因——旧权重（-0.001）的 20260918 产线产物（unitree_go2_mvp_v1_20260918_210622_462722，48 维）走**同一条评测路径**（48 维 kind + single 档 + cmd 0.4）= **0.925**，高于 E1/E2。⇒ E1/E2 的『过门』不能归因于权重：单档直评口径下旧产物本就 0.9+；历史 0.02–0.22 与本轮 0.9+ 的差是**评测口径差**（历史=multi 档多命令幅值矩阵+不同 entry 契约；本轮=single 档单命令直评），量纲校准假设**未被证实**（权重对 single 档分数无显著影响：0.909/-0.005 vs 0.916/-0.01 vs 0.925/-0.001，全在噪声带）。下一问：**历史放行门判定用的 multi 档矩阵为何打出 0.02**——排查 multi 档口径（命令幅值 0.5/0.75/1.0、5 方向）下功率项的堆积方式，或确认放行门应按 single 还是 multi 口径（裁决项）。",
+    "control": {
+      "id": "CTRL",
+      "weight": -0.001,
+      "product": "unitree_go2_mvp_v1_20260918_210622_462722/exported/policy.onnx",
+      "b11_same_path": 0.925,
+      "lin_vel_err": 0.8517,
+      "dof_power": 0.9946,
+      "torque_smoothness": 0.996,
+      "evidence": "workspace/validation/b11-ctrl-oldweight.json"
+    },
+    "final_verdict": "**最终结论（2026-09-28 复盘闭环）**：①权重对质量分无显著效应——E1(-0.01)=0.9157 / E2(-0.005)=0.9089 / CTRL(-0.001, 0918 产物)=0.925，同噪声带；默认值回滚 -0.001。②**历史 0.02–0.22 与本轮 0.9+ 的真正分界 = 评测环境**：B11 落地时（0916）go2 的 MJCF 是**力矩 motor 接口**（`<motor forcerange>`），09-24 族规范化改为**位置接口**（`<position kp>`）+ margin/传感器/命名/契约物理绑定全套对齐——旧低分是拿策略跑**力矩接口旧模型**测出的（位置策略在力矩被控对象上功率/平滑/姿态全崩，正是旧报告 dof_power=0、torque_smoothness=0.16、orientation=0.52 的形态），quality_metrics.py 自 B11 起零改动（git diff 实证），变的只是被测对象。③**放行门现状改判**：在当前标准模型上，go2 velocity 产物（新旧权重皆可）single 档直评 0.91–0.93 ≥ 0.5 门，与上游参照（lainlab-trot 0.922 / moe-cts 0.929）同档——『产线出好策略』在**当前模型+single 档口径**下成立，诚实边界相应改写；multi/level/stress 档口径下的门判定需用当前模型重跑后另立结论。④教训：**评测基线必须绑定被测模型版本**——模型规范化后旧基线全部作废，本次 0.02 vs 0.91 的『质量鸿沟』一半是测量环境幻影。"
   }
 }
