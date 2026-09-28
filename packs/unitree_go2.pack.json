@@ -93,7 +93,12 @@
     "sha256": "1d6ff32cf83313c86dea2236f1f28496de54140ada52e44934ea9c9b8a4d410d"
   },
   "scenario_ref": null,
-  "policy_ref": null,
+  "policy_ref": {
+    "id": "unitree_go2__produced-unitree_go2_mvp_v1_20260928_221851_309714",
+    "path": "simulation/policies/unitree_go2-trained-20260928-221851.onnx",
+    "sha256": "b41b165d26295611b93453a1867e95085a4f1760b3cdad388616485255ef87e7",
+    "version": "unitree_go2-trained-20260928-221851"
+  },
   "bindings": {
     "verify": {
       "require_contract_valid": true,

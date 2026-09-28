@@ -48,6 +48,9 @@ def main() -> int:
     parser.add_argument("--key", default=None,
                         help="Idempotency-Key（缺省按 robot+时间生成，即每次运行都是新任务）")
     parser.add_argument("--timeout-min", type=int, default=25, help="轮询总超时分钟数（默认 25）")
+    parser.add_argument("--num-envs", type=int, default=16, help="训练环境数（默认 16 = smoke 档）")
+    parser.add_argument("--iters", type=int, default=5, help="训练迭代数（默认 5 = smoke 档）")
+    parser.add_argument("--product", action="store_true", help="产品档（smoke=False，1024×750 等由 --num-envs/--iters 给）")
     args = parser.parse_args()
 
     base = f"http://127.0.0.1:{args.port}"
@@ -66,14 +69,14 @@ def main() -> int:
     status, resp = call(base, "POST", "/api/training/create", {
         "contract": contract,
         "algorithm": "PPO",
-        "num_envs": 16,
-        "max_iterations": 5,
+        "num_envs": args.num_envs,
+        "max_iterations": args.iters,
         "task_name": "forward_walk",
         "profile_id": args.profile,
         "device": "auto",
-        "smoke": True,
+        "smoke": not args.product,
         "seed": args.seed,
-        "save_interval": 5,
+        "save_interval": 250,  # 冒烟/长训逐键一致（smoke_gate 除规模外逐键比对）
     }, headers={"Idempotency-Key": idem})
     print(f"[create] HTTP {status}: {json.dumps(resp, ensure_ascii=False)[:300]}")
     if status != 200:
