@@ -50,6 +50,9 @@ from .binding import GO2_VELOCITY
 #: 其余数值（命令档/地形档/DR 档/奖励静音位/70° 平地倾角）与族级默认逐值相同，
 #: 不在此重复声明 —— 需要覆盖时按字段名加进来即可。
 VELOCITY = kit_velocity_profile.VelocityProfile(dof_power_weight=-0.001)
+#: 【量纲校准轮结论（2026-09-28，E1/E2 已回滚）】-0.01/-0.005/-0.001 三档在当前标准模型上
+#: single 档直评 0.916/0.909/0.925——同噪声带、无显著效应；历史 0.02–0.22 是规范化前旧模型
+#: （力矩 motor 接口）上测的，与现模型不可比。详见 reward_shaping_experiments.json#v3
 
 
 def unitree_go2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
