@@ -49,7 +49,22 @@ from .binding import GO2_VELOCITY
 #: |tau*v| 量级比评测侧低一个量级，训练侧截断无法转化为评测侧 dof_power 收益。
 #: 其余数值（命令档/地形档/DR 档/奖励静音位/70° 平地倾角）与族级默认逐值相同，
 #: 不在此重复声明 —— 需要覆盖时按字段名加进来即可。
-VELOCITY = kit_velocity_profile.VelocityProfile(dof_power_weight=-0.001, stand_still_weight=None)  # F1 复盘（2026-09-28）：stand_still 单加不减（250 iter 下惩罚主导、reward 68→35、产物仍不走）→ 本机先跑纯预算长训（1024×1000）隔离"欠训练"变量
+#: G1（2026-09-28，legged_gym 系对齐实验）：按上游 legged_gym 基座/anymal flat 实操对齐——
+#: ① feet_air_time +1.0 正激励（上游学走的主正奖励，自产此前静音）；
+#: ② 足端三罚关停（上游无 clearance/swing/slip 项，基座 -2.0/-0.25/-0.1 压垮早期探索）；
+#: ③ action_rate -0.1→-0.01（上游同款）；④ dof_power 不注册（上游 torques 仅 -1e-5 量级）；
+#: ⑤ only_positive_rewards=True（legged_gym 基座技巧：负总奖励截 0）。
+#: F1/F2 证据链（reward_shaping_experiments#v3）：预算与 stand_still 单变量都不成立，任务结构才是根因。
+VELOCITY = kit_velocity_profile.VelocityProfile(
+    dof_power_weight=None,
+    stand_still_weight=None,
+    air_time_weight=1.0,
+    foot_clearance_weight=0.0,
+    foot_swing_height_weight=0.0,
+    foot_slip_weight=0.0,
+    action_rate_weight=-0.01,
+    only_positive_rewards=True,
+)
 #: 【量纲校准轮结论（2026-09-28，E1/E2 已回滚）】-0.01/-0.005/-0.001 三档在当前标准模型上
 #: single 档直评 0.916/0.909/0.925——同噪声带、无显著效应；历史 0.02–0.22 是规范化前旧模型
 #: （力矩 motor 接口）上测的，与现模型不可比。详见 reward_shaping_experiments.json#v3

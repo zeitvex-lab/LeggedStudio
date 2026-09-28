@@ -429,6 +429,18 @@ def _configure_rewards(
             params={"command_name": "twist"},
         )
 
+    # legged_gym 系对齐覆盖（G1，2026-09-28）：None = 保持基座默认，数值 = 覆盖权重。
+    for name, override in (
+        ("foot_clearance", profile.foot_clearance_weight),
+        ("foot_swing_height", profile.foot_swing_height_weight),
+        ("foot_slip", profile.foot_slip_weight),
+        ("action_rate_l2", profile.action_rate_weight),
+    ):
+        if override is not None and name in cfg.rewards:
+            cfg.rewards[name].weight = override
+    # `only_positive_rewards`（legged_gym 基座技巧）：mjlab 的裁剪开关，语义同名。
+    cfg.clip_rewards_to_positive = bool(profile.only_positive_rewards)
+
     # 按身体分组的碰撞惩罚（只进 rough 档；机型自备接触监看块时不装配）。
     if profile.contact_supervision:
         cfg.rewards["self_collisions"] = RewardTermCfg(
