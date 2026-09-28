@@ -42,7 +42,7 @@ Web 程序是 Legged Studio 的核心功能层，由两部分组成：
 
 | 前缀 | 模块 | 职责 |
 |---|---|---|
-| `/api/training` | `backend/training/{create,monitor,artifacts,events,schema}.py` | 训练任务创建、监控、产物、事件流、recipe schema |
+| `/api/training` | `backend/training/`（create / monitor / artifacts / events / runs / schema 等模块，清单以目录为准） | 训练任务创建、监控、产物、事件流、recipe schema |
 | `/api/export` | `export_api.py` + `export_gate.py` | 策略导出 ONNX + 导出门禁校验 |
 | `/api/deploy` | `deploy_api.py` + `deploy_pack.py` | 部署包打包 |
 | `/api/evaluation` | `evaluation_api.py` | 策略评估 |

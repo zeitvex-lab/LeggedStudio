@@ -16,11 +16,11 @@
 |---|---|
 | 资产管理 | 内置 8 个标准化机器人包（四足：宇树 Go1/Go2/B2、云深处 Lite3；轮足：云深处 M20、宇树 Go2W/B2W、自研 ZEX-W），统一契约描述；**2026-09-23 族架构收敛**：每族一套通用架构，非四足/轮足机型不再保留；随仓附带参考资源库 [`00_resources/`](00_resources/README.md)（按来源项目组织，含项目×机型矩阵与机型反查） |
 | 模型检查 | URDF/MJCF 校验、3D 可视化检查器、契约合规校验 |
-| RL 训练 | 通过隔离子进程调用 MJLab（MuJoCo Warp + PyTorch）训练后端，PPO / off-policy 算法，训练任务创建、监控、事件流 |
+| RL 训练 | 通过隔离子进程调用 MJLab（MuJoCo Warp + PyTorch）训练后端，PPO / off-policy 算法，训练任务创建、监控、事件流；**族级 Kit + 通用装配**（2026-09-24~27）：同族机型共用一份技能实现（`adapters/mjlab/kits/{quadruped,wheel_leg}_kit/`），新机型 + 标准 MJCF 即可开训族级技能（装配表 `registry/families/*.json#skill_catalog` + 通用装配器 `adapters/mjlab/family_skill_builder.py`，验收器 `tools/validate_family_skill_assembly.py`）；训练资产由包声明（`robot_package.json` 的 `model.training_path`）；效果口径判据机器（`registry/effect_criterion.json` + `tools/effect_criterion.py`，同档同预算同度量） |
 | 策略导出 | 导出 ONNX 部署策略，导出门禁（export gate）校验 |
 | 基础仿真 | 浏览器内直接跑 MuJoCo WASM + ONNX Runtime Web（完全离线），播放包内声明的策略（加载即校验 ONNX metadata）；另有服务端无头基准/验收口径（`tools/sim2sim_headless.py` + baseline 门禁）作为同一件事的 CI 判据 |
-| 高级仿真 | 在基础仿真之上叠加：传感器坞（里程/IMU/测距/深度/高度扫描/LiDAR/点云/RGB，可外挂）；Scenario（World × Mode × Sensors × CommandSource × Checks，浏览器与服务端跑**同一份**计划）；导航闭环（`?nav=<map>`，服务端 A*/Dijkstra 规划 + 浏览器跟随，到达判据单一真值 `registry/arrival_criteria.json`）；感知分层 A 类（`route=obs`，策略吃传感器）/ B 类（`route=external`，RL 只负责运动）。**导航闭环（局部规划/跟随状态机）进行中**（H2） |
-| 物理真值 / 契约校准 | 14 包 MJCF 由契约固化（`tools/bake_mjcf_physics.py`）+ 校验器守门（`tools/validate_mjcf_contract.py`）；训练/验收/浏览器三方物理口径同源，"不许训一套跑另一套" |
+| 高级仿真 | 在基础仿真之上叠加：传感器坞（里程/IMU/测距/深度/高度扫描/LiDAR/点云/RGB，可外挂）；Scenario（World × Mode × Sensors × CommandSource × Checks，浏览器与服务端跑**同一份**计划）；导航闭环（`?nav=<map>`，服务端 A*/Dijkstra 规划 + 浏览器跟随，到达判据单一真值 `registry/arrival_criteria.json`）；感知分层 A 类（`route=obs`，策略吃传感器）/ B 类（`route=external`，RL 只负责运动）。导航闭环**链路可用**（7 路线零链路缺陷；到达率瓶颈在策略侧，见 `00_know/05` §1.2 诚实边界） |
+| 物理真值 / 契约校准 | 8 包 MJCF 由契约固化（`tools/bake_mjcf_physics.py`）+ 校验器守门（`tools/validate_mjcf_contract.py`）+ 族 MJCF 约定门禁（`tools/audit_family_mjcf.py`：规范化基准 + 逐台偏离登记，登记了又与实测一致也判红）；训练/验收/浏览器三方物理口径同源，"不许训一套跑另一套" |
 | 部署 | 部署契约校验 + 部署包打包，衔接真机 sim2real |
 
 ---
@@ -83,7 +83,7 @@ legged_studio/
 ├── tools/                 # 离线工具链（URDF 校验/转 MJCF、策略转换、契约代码生成、移植准入审计）
 ├── packaging/             # electron-builder 两种发行变体配置
 ├── docs/                  # 产品文档（桌面程序 / Web 程序）
-├── 00_know/               # 知识库与决策文档（价值观 / 参考项目分析 / 盘点 / 标准 / 报告 / 方案）→ 00_know/README.md
+├── 00_know/               # 知识库与决策文档（定位 / 规划 / 参考项目 / 参数标准 / 任务清单 / 统一架构方案）→ 00_know/README.md
 └── 00_resources/          # 参考资源库（按来源项目组织的只读底座）→ 00_resources/README.md
 ```
 
@@ -103,7 +103,7 @@ legged_studio/
 | 浏览器 sim2sim | MuJoCo WASM（pthread）+ ONNX Runtime Web 1.23.2 + Three.js，全部离线 vendor |
 | 数据契约 | JSON Schema ×8 + 生成的 Pydantic 模型 |
 | 资产准入 | 移植准入审计（训练/仿真须有 00_resources 上游训练源码佐证，包自包含与策略↔onnx 一致性检查），见 `tools/audit_porting_admission.py` |
-| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测（backend 全量 126 模块）、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、Capability Pack 校验、**文档数字对账**、前端 vendor 冒烟 |
+| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测（backend 全量 139 模块）、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、Capability Pack 校验、**族架构审计**（`audit_families` + 族 MJCF 约定 + 逐档案上游参考对照）、**文档数字对账**、前端 vendor 冒烟 |
 | 云原生开发 | **CNB 默认镜像** + `.cnb.yml` 的 `vscode` 事件，一键起环境（依赖与 **mjlab CPU 训练栈**在启动阶段按需供应，浏览器 sim2sim 开箱可用）→ `docs/cloud-dev.md` |
 | 开发期 MCP | `.cnb/mcp/servers.json` 11 条（通用 6 + 机器人专用 5）+ `tools/mcp/` 4 个自研 server（契约 / MuJoCo / onnx / 资源库，零新增依赖）→ `.cnb/mcp/README.md` |
 
@@ -144,6 +144,7 @@ CodeBuddy），依赖、Chromium 与 **CPU 训练栈**在环境启动时按需�
 ### 发布（自动上传 GitHub）
 
 `main` 的 push 会把分支与 tag **镜像到 GitHub**（逐 sha 比对，无变更即跳过）；
+**当前唯一开发分支是 `feat/family-arch`**（2026-09-24 起的族架构主线；`main` 保留收敛前的逐机型思路，两线不合并——2026-09-28 用户裁决）；
 `v*` 的 tag_push 还会在**本仓与 GitHub 两侧**各建一个 Release。凭据只从密钥仓库
 [`zeitvex/github-secrets`](https://cnb.cool/zeitvex/github-secrets/-/blob/main/github-secrets.yaml)
 经 `imports` 注入，不落工作区文件；执行体是
@@ -177,7 +178,7 @@ runner）**7:55，18 ok / 0 skipped / 0 failed**；128×20 **6:13**（≈18 s/it
 ### 测试
 
 ```powershell
-npm test           # 后端 unittest（控制面纯逻辑测试，全量 126 个 test_*.py）
+npm test           # 后端 unittest（控制面纯逻辑测试，全量 139 个 test_*.py）
 npm run test:obs   # 浏览器观测构建器的 node 单测
 npm run check:docs # 文档数字 vs 仓库实测对账（版本号/包数/策略数/资源库项目数）
 ```
@@ -243,14 +244,15 @@ npm run build:linux               # Linux AppImage
 
 **知识库与决策文档**（面向维护者，索引见 [`00_know/README.md`](00_know/README.md)）：
 
-- [知识库索引](00_know/README.md) —— 5 份关键文档的导航 + 归档说明
-- [项目定位](00_know/01_项目定位.md) —— 为什么做 / 给谁做 / 做成什么 / 哪里不做（三条需求 + 三种形态 + 边界）
+- [知识库索引](00_know/README.md) —— 6 份关键文档的导航 + 阅读路径 + 归档说明
+- [项目定位](00_know/01_项目定位.md) —— 为什么做 / 给谁做 / 做成什么 / 哪里不做 + **定位裁决块**（主叙事 / 第一用户 / 生态姿态 / 3–6 月锚点）
 - [项目规划](00_know/02_项目规划.md) —— 怎么落地（上游对齐、功能地图、四层架构、模块与路径、关键流程、门禁、阶段计划、指标）
 - [参考项目与资源](00_know/03_参考项目与资源.md) —— 官方源克隆清单、跨源对照方法、MJCF 字段级差异、高级仿真切片
-- [参数真值标准](00_know/04_参数真值标准.md) —— 每个参数只有一个家；14 机型来源对照与选定规则
-- [任务清单](00_know/05_任务清单.md) —— 现在什么状态 + 下一步做什么（P0–P3 + 排期依赖 + DoD + 待决事项）
+- [参数真值标准](00_know/04_参数真值标准.md) —— 每个参数只有一个家；现役 8 机型来源对照与选定规则（已删 6 机型对照保留作历史）
+- [任务清单](00_know/05_任务清单.md) —— 现在什么状态 + 下一步做什么（现状锚点 + 主战场队列 + 活跃与挂账 + DoD；**2026-09-28 重排后只含活清单**，历史 166 行与进度流水在归档 08/09）
+- [统一架构方案](00_know/06_统一架构方案.md) —— 系统一页架构 + 统一什么 / 不统一什么 / 为什么（族架构设计与实证、教程锚点表）
 - [参考资源库](00_resources/README.md) —— 按来源项目组织的参考资源、项目 × 机型矩阵与省略登记
-- 历史文档（已归档，只读）：[`00_know/90_归档/`](00_know/90_归档/) —— 参考项目评估、调研盘点、B 系列专题报告、重构方案、进度流水
+- 历史文档（已归档，只读）：[`00_know/90_归档/`](00_know/90_归档/) —— 参考项目评估、调研盘点、B 系列专题报告、重构方案 + **任务清单历史（08 阶段桶与队列 / 09 进度流水，2026-09-28 移入）**
 
 ---
 
