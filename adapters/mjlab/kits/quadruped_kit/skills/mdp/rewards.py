@@ -29,6 +29,32 @@ from .sensors import FEET_SENSOR, TERRAIN_SCAN
 _DEFAULT_ASSET_CFG = SceneEntityCfg("robot")
 
 
+def stand_still_penalty(
+    env,
+    command_name: str,
+    command_threshold: float = 0.1,
+    asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+    """命令非零时罚"保持默认姿不动"（lainlab trot 同款；2026-09-28 根因修复引入）。
+
+    背景：速度任务的奖励经济学里，若站着也能从 track 核（exp 松 σ）+ pose/upright
+    拿到与走路相当的分，且没有"命令非零却不许站着"的显式罚，"站得住不走"就是
+    优势策略（自产 go2/go2w 产物 motion=0.003 实证，见
+    `tools/baselines/reward_shaping_experiments.json#v3`）。本项在命令幅值 >
+    阈值时按关节与默认姿的绝对偏差之和惩罚，把站着变成亏本策略；命令为零
+    （真站立，`rel_standing_envs` 那部分环境）时不罚，站立能力不受影响。
+    """
+    asset: Entity = env.scene[asset_cfg.name]
+    command = env.command_manager.get_command(command_name)
+    assert command is not None, f"Command '{command_name}' not found."
+    magnitude = torch.norm(command[:, :2], dim=1) + torch.abs(command[:, 2])
+    deviation = (
+        asset.data.joint_pos[:, asset_cfg.joint_ids]
+        - asset.data.default_joint_pos[:, asset_cfg.joint_ids]
+    ).abs().sum(dim=1)
+    return deviation * (magnitude > command_threshold).float()
+
+
 def dof_power_penalty(
     env,
     asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,

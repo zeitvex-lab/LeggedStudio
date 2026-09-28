@@ -414,6 +414,21 @@ def _configure_rewards(
     cfg.rewards["angular_momentum"].weight = profile.angular_momentum_weight
     cfg.rewards["air_time"].weight = profile.air_time_weight
 
+    # 根因修复（2026-09-28，量纲校准轮）：奖励经济学的"站着不动是优势策略"。
+    # lainlab trot 拿不到白站的分靠两道闸：track 核带 gait 门控（不迈步不给分）+
+    # stand_still 罚；通用 velocity 没有 gait 门（步态是 trot 特有概念），故补
+    # stand_still 罚（命令幅值 > 0.1 时按关节与默认姿偏差之和惩罚，lainlab trot
+    # 同款）——自产配方此前缺它，"站得住不走"成为优势策略（自产产物
+    # motion=0.003 实证）。σ 用 profile.track_sigma（族默认 = 基座语义不变）。
+    cfg.rewards["track_linear_velocity"].params["std"] = profile.track_sigma
+    cfg.rewards["track_angular_velocity"].params["std"] = profile.track_sigma
+    if profile.stand_still_weight is not None:
+        cfg.rewards["stand_still"] = RewardTermCfg(
+            func=shared_rewards.stand_still_penalty,
+            weight=profile.stand_still_weight,
+            params={"command_name": "twist"},
+        )
+
     # 按身体分组的碰撞惩罚（只进 rough 档；机型自备接触监看块时不装配）。
     if profile.contact_supervision:
         cfg.rewards["self_collisions"] = RewardTermCfg(
