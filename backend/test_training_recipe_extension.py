@@ -1,6 +1,6 @@
 """U9：包扩展训练档案的配方解析（resolve_recipe 豁免）测试。
 
-背景（00_know/05_任务清单.md §U9）：带 entrypoints 的训练档案（deeprobotics_lite3
+背景（00_know/90_归档/08_任务清单_阶段桶与队列_20260928.md §U9）：带 entrypoints 的训练档案（deeprobotics_lite3
 的 ``lite3-velocity`` 等）由 native_worker 按 ``profile.entrypoints`` 注册
 ``LeggedStudio-<profile_id>`` 的包扩展任务训练；``profile.task_name``（如
 "velocity"）只是产物逻辑名，不在通用 TASKS 表里 —— 此前拿它走

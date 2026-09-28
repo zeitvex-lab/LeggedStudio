@@ -36,6 +36,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TASKLIST = ROOT / "00_know" / "05_任务清单.md"
 
+#: 2026-09-28 结构性重排：历史任务行整体归档至 90_归档/08；统计分**活跃**（活清单里的行）
+#: 与**历史**（归档里的行）两个口径输出——「已完成 N」的长期口径由历史侧延续。
+ARCHIVE = ROOT / "00_know" / "90_归档" / "08_任务清单_阶段桶与队列_20260928.md"
+
 #: 桶判定顺序（先命中先得；``note`` 是兜底）
 _RULES: list[tuple[str, tuple[str, ...]]] = [
     ("done", ("✓", "已完成")),
@@ -60,46 +64,57 @@ def _bucket_for(status: str) -> str:
 
 
 def count() -> dict:
-    """逐条归类，返回分组计数与桶计数。"""
+    """逐条归类，返回「活跃 / 历史」两组的分组计数与桶计数。"""
     if not TASKLIST.is_file():
         raise SystemExit(f"找不到 {TASKLIST}")
-    group: Counter = Counter()
-    buckets: Counter = Counter()
-    note_ids: list[str] = []
 
-    for line in TASKLIST.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("|"):
-            continue
-        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
-        if len(cells) < 3:
-            continue
-        m = re.match(r"^\*\*([A-Z]+)(\d+)\*\*", cells[0])
-        if not m:
-            continue
-        group[m.group(1)] += 1
-        status = cells[2]
-        bucket = _bucket_for(status)
-        buckets[bucket] += 1
-        if bucket == "note":
-            note_ids.append(f"{m.group(1)}{m.group(2)}")
-    return {"group": dict(group), "buckets": dict(buckets), "note_ids": note_ids}
+    def _count_text(text: str) -> dict:
+        group: Counter = Counter()
+        buckets: Counter = Counter()
+        note_ids: list[str] = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                continue
+            cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+            if len(cells) < 3:
+                continue
+            m = re.match(r"^\*\*([A-Z]+)(\d+)\*\*", cells[0])
+            if not m:
+                continue
+            group[m.group(1)] += 1
+            bucket = _bucket_for(cells[2])
+            buckets[bucket] += 1
+            if bucket == "note":
+                note_ids.append(f"{m.group(1)}{m.group(2)}")
+        return {"group": dict(group), "buckets": dict(buckets), "note_ids": note_ids}
+
+    live = _count_text(TASKLIST.read_text(encoding="utf-8"))
+    archive = (
+        _count_text(ARCHIVE.read_text(encoding="utf-8")) if ARCHIVE.is_file()
+        else {"group": {}, "buckets": {}, "note_ids": []}
+    )
+    return {"live": live, "archive": archive}
 
 
-def main() -> int:
-    result = count()
+def _print_side(label: str, result: dict) -> None:
     group = result["group"]
     buckets = result["buckets"]
     order = sorted(group, key=lambda g: (g != "H", g))
     group_text = " / ".join(f"{g} {group[g]}" for g in order)
     total = sum(group.values())
-
-    print(f"条目 {total} 条（{group_text}）")
-    print(f"已完成 {buckets.get('done', 0)} / 部分完成 {buckets.get('partial', 0)}"
+    print(f"{label} {total} 条（{group_text}）")
+    print(f"{label} 已完成 {buckets.get('done', 0)} / 部分完成 {buckets.get('partial', 0)}"
           f" / 未做 {buckets.get('todo', 0)} / 不做 {buckets.get('wontfix', 0)}"
           f" / 已关闭 {buckets.get('closed', 0)} / 记录·参考 {buckets.get('note', 0)}")
-    if result["note_ids"]:
-        print(f"记录·参考类（不计五桶）：{'、'.join(result['note_ids'])}")
+
+
+def main() -> int:
+    result = count()
+    _print_side("活跃", result["live"])
+    _print_side("历史", result["archive"])
+    if result["live"]["note_ids"]:
+        print(f"活跃记录·参考类（不计五桶）：{'、'.join(result['live']['note_ids'])}")
     return 0
 
 
