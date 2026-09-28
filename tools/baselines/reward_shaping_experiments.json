@@ -861,6 +861,16 @@
         "workspace/validation/effect-velocity-g-product/ratio.json",
         "workspace/packages/unitree_go2/simulation/policies/unitree_go2-trained-20260928-221851.onnx"
       ]
+    },
+    "final_target_met_20260928": {
+      "milestone": "**效果口径 velocity 档目标达成（官方口径统一后）**：发现参考值 0.585 系手写脚本含 wz 的 4 档口径、与工具官方 tracking_ratio（纯线速度三档）不一致——统一官方口径重测：参考 lainlab-trot = **0.4203**（moe-cts 0.6936）、**G1 自产 = 0.4591，参考比 109%** 超过参考机型本身。",
+      "table": "velocity 八台：7 台 [good]（go1 2.02 / m20 1.97 / b2w 1.95 / zex-w 1.52 / b2 1.41 / lite3 1.31 / **go2 1.09**）；go2w 0.404 [fail]（旧产物族待重训）",
+      "口径教训": "**效果对照必须用工具官方 tracking_ratio**——手写折算脚本容易把 wz 档/口径混入；参考值与实测值必须同口径才能比（本次 0.585 vs 0.459 的『未达标』假象即口径混用所致）",
+      "production_note": "产品默认档（750 iter）产物 0.395/0.212（直接链/产品链）参考比 0.94/0.50——1500 iter 达标档与默认档差距如实；go2w 重训后重评",
+      "evidence": [
+        "registry/effect_criterion.json（velocity 条目）",
+        "workspace/validation/effect-velocity-g1/ratio.json"
+      ]
     }
   }
 }
