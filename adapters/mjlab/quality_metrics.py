@@ -112,6 +112,21 @@ def ang_vel_err(ang_vel: np.ndarray, cmd: np.ndarray, ang_cmd_limits: np.ndarray
     return 1.0 - error
 
 
+def _motion_err(values: np.ndarray, cmd: np.ndarray, *, weight: float = 1.0) -> np.ndarray:
+    """**运动档**并列口径：`1 − ‖差‖/‖cmd‖`（与 headless 验收器 tracking_ratio 同一数学）。
+
+    与上游原口径（`lin_vel_err`/`ang_vel_err`，按 cmd_limits 归一）的区别只在**归一基准**：
+    cmd_limits 含隐含上限（norm ≥1.732），小命令下"完全没动"也有 ~0.77 的本底分
+    （go2w 重训复验实证）；本口径按实际命令幅值归一，没动就是 0。cmd≈0（站立）时
+    没有运动语义 ⇒ 记 NaN，聚合时剔除（不冒充满分）。
+    """
+    values = np.asarray(values, dtype=np.float64)
+    cmd = np.asarray(cmd, dtype=np.float64)
+    speed = np.linalg.norm(cmd, axis=-1)
+    scale = np.where(speed > 1e-6, speed * weight, np.nan)
+    return 1.0 - np.linalg.norm(values - cmd, axis=-1) / scale
+
+
 def dof_limits(joint_pos: np.ndarray, joint_limits: np.ndarray, *, ratio: float = SOFT_DOF_LIMIT_RATIO) -> np.ndarray:
     """上游 DofLimitsMetric：软限位内为 0，超出量 /range，逐关节 RMS 后 `1 - RMS`。"""
 
@@ -426,6 +441,12 @@ def metrics_from_trace(source: dict[str, Any]) -> dict[str, Any]:
     per_step: dict[str, np.ndarray] = {}
     per_step["lin_vel_err"] = lin_vel_err(trace["lin_vel"], trace["cmd"], source["cmd_limits"])
     per_step["ang_vel_err"] = ang_vel_err(trace["ang_vel"], np.zeros_like(trace["cmd"]), source["cmd_limits"])
+    # **运动档并列口径**（2026-09-28）：按 ‖cmd‖ 归一（headless tracking_ratio 同数学），回答
+    # "到底动没动/跟了多少"——go2w 重训复验实证原口径在小命令下有 ~0.77 的没动本底。
+    # **不进质量分加权**（八指标与放行门语义不变），只并列输出供跨口径对读；
+    # ang_vel 运动档的对照命令是零（上游口径如此），无旋转命令时同样记 NaN 剔除。
+    per_step["lin_vel_err_motion"] = _motion_err(trace["lin_vel"], trace["cmd"])
+    per_step["ang_vel_err_motion"] = _motion_err(trace["ang_vel"], np.zeros_like(trace["cmd"]))
     per_step["dof_limits"] = dof_limits(trace["joint_pos"], source["joint_limits"])
     per_step["dof_power"] = dof_power(trace["joint_torque"], trace["joint_vel"])
     per_step["orientation_stability"] = orientation_stability(trace["base_quat"])
@@ -440,7 +461,9 @@ def metrics_from_trace(source: dict[str, Any]) -> dict[str, Any]:
     per_step["zmp_margin"] = zmp
 
     means = {
-        name: float(np.mean(np.clip(values, 0.0, 1.0))) if len(values) else 0.0
+        # 运动档含 NaN（cmd≈0 的站立步无运动语义）⇒ 用 nanmean 剔除；全 NaN ⇒ 0.0 如实（无运动语义可评）。
+        name: float(np.nanmean(np.clip(np.asarray(values, dtype=np.float64), 0.0, 1.0)))
+        if len(values) and not np.all(np.isnan(np.asarray(values, dtype=np.float64))) else 0.0
         for name, values in per_step.items()
     }
     skipped = []

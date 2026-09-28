@@ -711,6 +711,34 @@
         "workspace/validation/b11-go2w-retrain.json",
         "workspace/validation/effect-velocity-go2w-retrain/ratio.json"
       ]
+    },
+    "motion_metric_added_20260928": {
+      "change": "quality_metrics 新增并列运动档 lin_vel_err_motion / ang_vel_err_motion（1−‖差‖/‖cmd‖，headless tracking_ratio 同数学；cmd≈0 记 NaN 剔除）。**不进质量分加权**，八指标与放行门语义不变。",
+      "motivation": "上游原口径按 cmd_limits（norm≥1.732）归一 ⇒ 小命令下『完全没动』本底 ≈0.77（go2w 复验实证），单看 B11 分数无法区分『在走』与『没动』。",
+      "discrimination_check": {
+        "lainlab-trot": {
+          "lin_vel_err": 0.915,
+          "motion": 0.641,
+          "verdict": "在走（与浏览器实跑位移 7.67m 一致）"
+        },
+        "moe-cts": {
+          "lin_vel_err": 0.898,
+          "motion": 0.599,
+          "verdict": "在走"
+        },
+        "ctrl-0918": {
+          "lin_vel_err": 0.852,
+          "motion": 0.003,
+          "verdict": "**没动**——其 stress 0.923 同样是本底堆出来的，**昨日『放行门四档全过』结论对 ctrl-0918 予以撤回**"
+        },
+        "go2w-250iter": {
+          "lin_vel_err": 0.743,
+          "motion": 0.003,
+          "verdict": "没动（与 headless 一致）"
+        }
+      },
+      "math_check": "合成数据三态：完全跟踪=1.0 / 没动=0.0 / 站立=NaN ✓",
+      "impact": "①ctrl-0918 从『达标产物』改判为『站得住不走』（与 go2w 同类，B8 冒烟轮产物族的共性）；②历史 stress/level 结论只对 lainlab-trot/moe-cts 维持；③对外声称口径收窄：『产线出好策略』的证据目前仅 lainlab-trot/moe-cts（上游移植）——自产产物尚无一通过运动档检验"
     }
   }
 }
