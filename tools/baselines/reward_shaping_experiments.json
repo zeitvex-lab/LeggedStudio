@@ -794,7 +794,55 @@
           "workspace/validation/effect-velocity-g1/ratio.json",
           "workspace/validation/g1-leggedgym-model1499.onnx"
         ]
+      },
+      "b11_four_tiers": {
+        "contract_note": "用 go2_mjlab_actor_48 kind（副本包 170954 条目）——与自产训练布局一致；handstand 条目是 zeros 前缀布局，评自产产物属错配（二次踩坑，方法论记入教训）",
+        "single": {
+          "score": 0.6234,
+          "lin_vel_err": 0.899,
+          "motion": 0.671,
+          "dof_power": 0.66,
+          "torque_smoothness": 0.609
+        },
+        "level": "L1/L2/L3 全 PASS（m=0.5/0.75/1.0）",
+        "stress": {
+          "benchmark": 0.6757,
+          "forward": 0.623,
+          "yaw": 0.794,
+          "diagonal": 0.601
+        },
+        "verdict": "**放行门（0.5）single/level/stress 三档全过**——自产产物首次全口径过门（0.623/0.676 vs 上游参照 0.922/0.929，参考比 ~0.67-0.73，未到 8 成但已过 0.5 门）；motion 0.671 佐证真实行走"
       }
+    },
+    "g2_default_tier_check_20260928": {
+      "experiment": "G2：产品默认档 1024×250（新结构）",
+      "train_reward": 70.49,
+      "motion_tracking_ratio": 0.0,
+      "verdict": "**用户口径实证**：『只有 1024/2048 下的几百上千轮才适合大部分 RL 参数』——250 轮在新结构下仍不走（0.8 档 survival 0.633 还摔），1500 轮走（G1 0.459）⇒ 结构修复把『会走』所需轮数落回**几百上千**区间，但产品默认 250 低于下界。go2 velocity 两档默认 250→**750**（区间中位，~40 min）；其余档待同法逐档确证后调。",
+      "evidence": [
+        "workspace/validation/quality-G2-default-1024x250.json",
+        "workspace/validation/effect-velocity-g2/ratio.json"
+      ]
+    },
+    "g3_midband_20260928": {
+      "experiment": "G3：1024×750（新结构，区间中位）",
+      "train_reward": 70.3,
+      "headless_tracking_ratio": 0.395,
+      "per_mode": {
+        "vx=0.5": 0.562,
+        "vx=0.8": 0.623,
+        "vy=0.25": 0.0
+      },
+      "iters_curve": {
+        "250 (G2)": 0.0,
+        "750 (G3)": 0.395,
+        "1500 (G1)": 0.459
+      },
+      "verdict": "**轮数曲线闭合（用户口径实证）**：『1024/2048 × 几百上千轮』适配大部分 RL 参数——250 低于下界（不走且摔），750 已过拐点（前进档与 1500 基本一致），1500 仅侧移略增。go2 velocity 两档产品默认 250→750 生效（~40 min/条，产品默认档自此产出会走的策略）；侧移改善与 1500+ 上探留给后续（非默认档）。",
+      "evidence": [
+        "workspace/validation/quality-G3-750-1024x750.json",
+        "workspace/validation/effect-velocity-g3/ratio.json"
+      ]
     }
   }
 }
