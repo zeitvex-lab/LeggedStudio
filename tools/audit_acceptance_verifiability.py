@@ -34,15 +34,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TASKLIST = ROOT / "00_know" / "05_任务清单.md"
 
+#: 2026-09-28 结构性重排：历史任务行整体归档至 90_归档/08；门禁的扫描面 = 活清单 + 归档
+#: （证据指针随行搬家，门禁跟着走）。**自定义 path 时只扫该文件**——单文件审计与
+#: 测试语义不变（``test_losing_rows_is_caught`` 仍以"单行文件跌破基线"判红）。
+ARCHIVE_FILES = (
+    ROOT / "00_know" / "90_归档" / "08_任务清单_阶段桶与队列_20260928.md",
+)
+
 ARTIFACT = re.compile(r"(tools/[\w./-]+\.py|test_[\w]+\.py|registry/[\w./-]+\.json|\.cnb\.yml|npm run [\w:]+)")
 VERIFY_WORDS = ("进 CI", "已进 CI", "门禁", "✓", "已达成", "全绿")
 
-#: **冻结基线**：有据可查的条数（2026-09-16 实测）。下降 ⇒ 判红。
-BASELINE_MACHINE_TEXTUAL = 52  # 2026-09-18 重排后重冻：结构性重排压缩巨行、但按行补回证据指针（上一冻结值 43）
+#: **冻结基线**：有据可查的条数。下降 ⇒ 判红。
+BASELINE_MACHINE_TEXTUAL = 58  # 2026-09-28 结构性重排后重冻（活清单+归档合计扫描；上一冻结值 52）
 
-#: **解析覆盖基线**：能解析出的 4 列任务行数（2026-09-16 实测 110）。
-#: 行数掉了 ⇒ 判红（否则"条目被改成别的表形"会让统计静默失真）。
-BASELINE_PARSED_ROWS = 139  # 2026-09-18 重排后重冻：140 条全量 4 列可解析（上一冻结值 110）
+#: **解析覆盖基线**：能解析出的 4 列任务行数。行数掉了 ⇒ 判红（否则"条目被改成别的表形"会让统计静默失真）。
+BASELINE_PARSED_ROWS = 166  # 2026-09-28 结构性重排后重冻（归档 164 + 活跃 L4/L7；上一冻结值 139）
 
 
 def _rows(text: str) -> list[dict]:
@@ -91,10 +97,18 @@ def has_evidence(row: dict) -> tuple[bool, str]:
 
 
 def audit(path: Path | None = None) -> dict:
-    target = path or TASKLIST
-    if not target.is_file():
-        return {"ok": False, "problems": [f"任务清单不存在：{target}"], "text_level_only": True}
-    rows = _rows(target.read_text(encoding="utf-8"))
+    if path is not None:
+        target = Path(path)
+        if not target.is_file():
+            return {"ok": False, "problems": [f"任务清单不存在：{target}"], "text_level_only": True}
+        texts = [target.read_text(encoding="utf-8")]
+    else:
+        target = TASKLIST
+        if not target.is_file():
+            return {"ok": False, "problems": [f"任务清单不存在：{target}"], "text_level_only": True}
+        texts = [target.read_text(encoding="utf-8")]
+        texts += [p.read_text(encoding="utf-8") for p in ARCHIVE_FILES if p.is_file()]
+    rows = _rows("\n".join(texts))
 
     evidenced: list[dict] = []
     unevidenced: list[dict] = []

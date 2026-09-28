@@ -1,6 +1,6 @@
 {
   "schema": "family-mjcf-1.0",
-  "generated_at": "2026-09-25",
+  "generated_at": "2026-09-28",
   "note": "族内 MJCF **规范化后**的实测摘要（规范化 = adapters/mjlab/spec_utils.normalize_spec）。口径类偏离登记在 registry/families/*.json 的 mjcf_deviations；结构事实类只登记不抹平。",
   "results": [
     {
@@ -37,7 +37,7 @@
     },
     {
       "robot_id": "unitree_go1",
-      "actuator_binding": "cfg_declared",
+      "actuator_binding": "mjcf_wrapped",
       "sensors_total": 5,
       "sensors_unnamed_before": 0,
       "sensors_named_after": true,
@@ -106,11 +106,14 @@
     {
       "robot_id": "deeprobotics_lite3",
       "actuator_binding": "mjcf_wrapped",
-      "sensors_total": 7,
-      "sensors_unnamed_before": 2,
+      "sensors_total": 8,
+      "sensors_unnamed_before": 0,
       "sensors_named_after": true,
-      "sensors_kept_training_only": [],
-      "sensors_deleted_by_policy": 7,
+      "sensors_kept_training_only": [
+        "imu_ang_vel",
+        "imu_lin_vel"
+      ],
+      "sensors_deleted_by_policy": 6,
       "actuator_domains": [
         "position"
       ],
@@ -123,13 +126,10 @@
       "roots": [
         "base_link"
       ],
-      "geoms_named": "34/34",
+      "geoms_named": "39/39",
       "meshes": 13,
       "normalize_report": {
-        "sensors_named": [
-          "imu_accelerometer",
-          "imu_gyro"
-        ],
+        "sensors_named": [],
         "sensors_deleted": [],
         "actuators_deleted": 0,
         "keys_removed": []

@@ -49,6 +49,9 @@ CONSUMERS = (
     "00_know/02_项目规划.md",
     "00_know/06_统一架构方案.md",
     "00_know/README.md",
+    # 2026-09-28 结构性重排：任务清单历史行整体归档，工具引用随行搬家——语料面跟着扩
+    "00_know/90_归档/08_任务清单_阶段桶与队列_20260928.md",
+    "00_know/90_归档/09_任务清单_进度流水_20260928.md",
     "docs/cloud-dev.md",
     "docs/desktop-app.md",
     "docs/web-app.md",
@@ -89,6 +92,13 @@ def _tool_files() -> list[Path]:
 #:   ② 标题找不到 ⇒ **直接抛**（fail-closed）。宁可门禁炸掉报出来，也不要静默地什么都没切。
 N_SECTION_HEADING = "## N. 审计登记"
 
+#: 任务清单家族：活清单 + 归档 08（2026-09-28 结构性重排后 §N 随历史行住进归档）。
+#: §N 段可能出现在其中**任一**文件；**全部都没有** ⇒ fail-closed（见 `_corpus` 末尾）。
+N_SECTION_FILES = (
+    "00_know/05_任务清单.md",
+    "00_know/90_归档/08_任务清单_阶段桶与队列_20260928.md",
+)
+
 
 def _without_n_section(text: str) -> str:
     """去掉任务清单的 §N 段（审计自己的登记表，不算"消费者"）。找不到标题即抛。"""
@@ -104,16 +114,25 @@ def _without_n_section(text: str) -> str:
 
 def _corpus() -> dict[str, str]:
     texts: dict[str, str] = {}
+    found_n_section = False
     for relative in CONSUMERS:
         path = ROOT / relative
         if not path.is_file():
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
-        # 任务清单的 §N 段是**审计自己写的登记**（里面就列着孤儿名单），不是"消费者"。
+        # 任务清单家族的 §N 段是**审计自己写的登记**（里面就列着孤儿名单），不是"消费者"。
         # 不切掉它就会自反馈：名单一写进去，9 个孤儿立刻"有人用了"（第一版就这么错的）。
-        if relative.endswith("05_任务清单.md"):
+        # 2026-09-28 重排：§N 随历史行住进归档 08——切除跟着走；单个文件没有 §N 不算错
+        # （活清单已不含），但**家族里一个都没有** ⇒ fail-closed 抛错。
+        if relative in N_SECTION_FILES and N_SECTION_HEADING in text:
+            found_n_section = True
             text = _without_n_section(text)
         texts[relative] = text
+    if not found_n_section:
+        raise ValueError(
+            f"任务清单家族（{N_SECTION_FILES}）里都找不到 §N 标题 {N_SECTION_HEADING!r}"
+            "——切除点过期了。否则 §N 里的名字会把自己算成'有人用'，门禁静默放水。"
+        )
     # 工具之间互相引用也算"有人用"。
     # **但本文件要排除**：它自己存着孤儿冻结名单，名单里的名字会"自己引用自己"，
     # 把 9 个孤儿全变成"有人用"（第一版就这么错了，跑出来"孤儿 0"）。
