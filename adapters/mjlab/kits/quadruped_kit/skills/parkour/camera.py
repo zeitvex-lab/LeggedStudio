@@ -120,14 +120,24 @@ def camera_profiles(*, root=None) -> list[dict]:
 def resolve_depth_declaration(
     profile: ParkourProfile, *, robot_id: str, root=None
 ) -> DepthCameraDeclaration:
-    """按 profile 的档位 id 取声明并逐字段解析；缺项 / 类型不符 / 作用域不符即报错。"""
+    """按 profile 的档位 id 取声明并逐字段解析；缺项 / 类型不符 / 作用域不符即报错。
+
+    **机型作用域回退**（2026-09-28 盲狗补全轮）：装配表给的是族默认档位 id（如 go2 的
+    `pie-front-depth-106x60`）；本机专属档位按命名约定 ``<档位id>-<机型id>`` 登记在
+    注册表（如 ``pie-front-depth-106x60-go1``），存在即自动切换 —— 机型事实（位姿/内参）
+    住注册表，装配表不需要逐机型改数据；两个 id 都没有 / 都不匹配作用域 ⇒ 维持报错。
+    """
     candidates = {str(item.get("id")): item for item in camera_profiles(root=root)}
-    where = f"registry/cameras.json#{profile.camera_profile}"
     if profile.camera_profile not in candidates:
         raise KeyError(
             f"相机档位 {profile.camera_profile!r} 不在声明里（可选：{', '.join(sorted(candidates))}）"
         )
     item = candidates[profile.camera_profile]
+    if str(item.get("scope") or "") != robot_id:
+        machine_scoped_id = f"{profile.camera_profile}-{robot_id}"
+        if machine_scoped_id in candidates:
+            item = candidates[machine_scoped_id]
+    where = f"registry/cameras.json#{item.get('id')}"
     kind = str(item.get("kind") or "")
     if kind != REQUIRED_KIND:
         raise ValueError(f"{where}: 本技能要 {REQUIRED_KIND!r} 相机，声明是 {kind!r}")

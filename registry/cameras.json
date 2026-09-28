@@ -8,11 +8,22 @@
       "help": "无畸变理想针孔：u = fx·(x/z) + cx"
     },
     "brown_conrady": {
-      "params": ["k1", "k2", "p1", "p2", "k3"],
+      "params": [
+        "k1",
+        "k2",
+        "p1",
+        "p2",
+        "k3"
+      ],
       "help": "常规径向+切向畸变（OpenCV plumb-bob）。zeros 表示该码流已整流（如 RealSense 的 image_rect_raw）"
     },
     "fisheye_equidistant": {
-      "params": ["k1", "k2", "k3", "k4"],
+      "params": [
+        "k1",
+        "k2",
+        "k3",
+        "k4"
+      ],
       "help": "Kannala-Brandt 等距鱼眼（OpenCV cv2.fisheye）：θd = θ·(1 + k1θ² + k2θ⁴ + k3θ⁶ + k4θ⁸)"
     }
   },
@@ -23,9 +34,17 @@
       "scope": "generic",
       "kind": "rgb",
       "model": "pinhole",
-      "resolution": { "width": 1920, "height": 1080 },
+      "resolution": {
+        "width": 1920,
+        "height": 1080
+      },
       "fov_deg": 90.0,
-      "intrinsics": { "fx": 0.0, "fy": 0.0, "cx": -1.0, "cy": -1.0 },
+      "intrinsics": {
+        "fx": 0.0,
+        "fy": 0.0,
+        "cx": -1.0,
+        "cy": -1.0
+      },
       "distortion": [],
       "evidence": {
         "source": "backend/sensor_suite.py::_default_sensors（fov 90° 推导口径）",
@@ -38,14 +57,22 @@
       "scope": "unitree_go2",
       "kind": "rgb",
       "model": "fisheye_equidistant",
-      "resolution": { "width": 1920, "height": 1080 },
+      "resolution": {
+        "width": 1920,
+        "height": 1080
+      },
       "intrinsics": {
         "fx": 1248.95099,
         "fy": 1247.94633,
         "cx": 957.862066,
         "cy": 530.821641
       },
-      "distortion": [-0.04634571, -0.21551315, 0.45541731, -0.37792435],
+      "distortion": [
+        -0.04634571,
+        -0.21551315,
+        0.45541731,
+        -0.37792435
+      ],
       "evidence": {
         "source": "00_resources/unitree_go2_edu_movement/trapezoidal_movement/camera_intrinsics.py",
         "symbols": "DOG_K_FISHEYE / DOG_D_FISHEYE / DOG_IMG_W / DOG_IMG_H",
@@ -58,11 +85,25 @@
       "scope": "generic",
       "kind": "rgb",
       "model": "brown_conrady",
-      "resolution": { "width": 640, "height": 480 },
+      "resolution": {
+        "width": 640,
+        "height": 480
+      },
       "fov_deg": 69.4,
       "frequency_hz": 30.0,
-      "intrinsics": { "fx": 0.0, "fy": 0.0, "cx": -1.0, "cy": -1.0 },
-      "distortion": [0.0, 0.0, 0.0, 0.0, 0.0],
+      "intrinsics": {
+        "fx": 0.0,
+        "fy": 0.0,
+        "cx": -1.0,
+        "cy": -1.0
+      },
+      "distortion": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
       "evidence": {
         "source": "00_resources/taggy/go2_bringup/launch/sensors.launch.py",
         "symbols": "/camera/color/image_raw（640x480 @30fps）/ /camera/color/camera_info",
@@ -75,12 +116,30 @@
       "scope": "generic",
       "kind": "depth",
       "model": "brown_conrady",
-      "resolution": { "width": 640, "height": 480 },
+      "resolution": {
+        "width": 640,
+        "height": 480
+      },
       "fov_deg": 87.0,
       "frequency_hz": 30.0,
-      "intrinsics": { "fx": 0.0, "fy": 0.0, "cx": -1.0, "cy": -1.0 },
-      "distortion": [0.0, 0.0, 0.0, 0.0, 0.0],
-      "depth_encoding": { "format": "16UC1", "unit": "mm", "scale_to_m": 0.001 },
+      "intrinsics": {
+        "fx": 0.0,
+        "fy": 0.0,
+        "cx": -1.0,
+        "cy": -1.0
+      },
+      "distortion": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "depth_encoding": {
+        "format": "16UC1",
+        "unit": "mm",
+        "scale_to_m": 0.001
+      },
       "evidence": {
         "source": "00_resources/taggy/go2_bringup/launch/sensors.launch.py",
         "symbols": "/camera/depth/image_rect_raw（16UC1 in mm）/ /camera/depth/camera_info",
@@ -93,27 +152,194 @@
       "scope": "unitree_go2",
       "kind": "depth",
       "model": "pinhole",
-      "resolution": { "width": 106, "height": 60 },
+      "resolution": {
+        "width": 106,
+        "height": 60
+      },
       "fov_deg": 87.0,
-      "intrinsics": { "fx": 0.0, "fy": 0.0, "cx": -1.0, "cy": -1.0 },
+      "intrinsics": {
+        "fx": 0.0,
+        "fy": 0.0,
+        "cx": -1.0,
+        "cy": -1.0
+      },
       "distortion": [],
       "pose": {
         "parent_body": "robot/base_link",
-        "pos": [0.345, 0.0, 0.07],
-        "quat": [0.579228, 0.4055798, -0.4055798, -0.579228]
+        "pos": [
+          0.345,
+          0.0,
+          0.07
+        ],
+        "quat": [
+          0.579228,
+          0.4055798,
+          -0.4055798,
+          -0.579228
+        ]
       },
       "training_observation": {
         "sensor_name": "front_depth",
         "cutoff_distance": 3.0,
         "crop_left": 10,
         "crop_right": 10,
-        "gaussian_blur": [3, 1.0],
+        "gaussian_blur": [
+          3,
+          1.0
+        ],
         "frame_history_length": 2,
         "update_period_steps": 5
       },
       "evidence": {
         "source": "assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/tasks/parkour/config/go2/env_cfgs.py:186（CameraSensorCfg front_depth）+ :218（DepthHistory 观测项）",
         "note": "fov_deg 是**水平**视场（PIE 源规格 87°）；MuJoCo 取垂直 FOV：训练域按**连续像平面**纵横比 H/W 换算（消费方 `quadruped_kit/skills/parkour/camera.py`，实测 56.4849°）；成像域另有一套像素质心口径 (H-1)/(W-1)（`backend/camera_projection.resolve_intrinsics`），两口径差约 0.4°，别混用。位姿四元数即 PIE 前视相机变换（与 00_know 图像方向统一同轮结论同源）。本档是**训练域**声明（深度相机档首次提升为声明，服务四足越障族级化）；真机标定档另见 go2-front-fisheye-1920x1080"
+      }
+    },
+    {
+      "id": "pie-front-depth-106x60-unitree_go1",
+      "label": "PIE 前视深度 106×60（go1 parkour 装配档（作用域=全 robot_id 命名约定））",
+      "scope": "unitree_go1",
+      "kind": "depth",
+      "model": "pinhole",
+      "resolution": {
+        "width": 106,
+        "height": 60
+      },
+      "fov_deg": 87.0,
+      "intrinsics": {
+        "fx": 0.0,
+        "fy": 0.0,
+        "cx": -1.0,
+        "cy": -1.0
+      },
+      "distortion": [],
+      "pose": {
+        "parent_body": "robot/base_link",
+        "pos": [
+          0.34,
+          0.0,
+          0.07
+        ],
+        "quat": [
+          0.579228,
+          0.4055798,
+          -0.4055798,
+          -0.579228
+        ]
+      },
+      "training_observation": {
+        "sensor_name": "front_depth",
+        "cutoff_distance": 3.0,
+        "crop_left": 10,
+        "crop_right": 10,
+        "gaussian_blur": [
+          3,
+          1.0
+        ],
+        "frame_history_length": 2,
+        "update_period_steps": 5
+      },
+      "evidence": {
+        "source": "设计值（无上游 PIE 配置）：内参/观测项/姿态四元数沿 go2 PIE 口径（pie-front-depth-106x60）；位姿 x = 本机前髋 x(0.1881) + go2 PIE 同间隙(0.345-0.1934=0.1516)，z 与 go2 同（0.07）——按本机 MJCF 几何推导，真机标定后替换",
+        "note": "服务 parkour 族级装配（2026-09-28 盲狗补全轮）；标定前的训练域设计值"
+      }
+    },
+    {
+      "id": "pie-front-depth-106x60-deeprobotics_lite3",
+      "label": "PIE 前视深度 106×60（lite3 parkour 装配档（作用域=全 robot_id 命名约定））",
+      "scope": "deeprobotics_lite3",
+      "kind": "depth",
+      "model": "pinhole",
+      "resolution": {
+        "width": 106,
+        "height": 60
+      },
+      "fov_deg": 87.0,
+      "intrinsics": {
+        "fx": 0.0,
+        "fy": 0.0,
+        "cx": -1.0,
+        "cy": -1.0
+      },
+      "distortion": [],
+      "pose": {
+        "parent_body": "robot/base_link",
+        "pos": [
+          0.326,
+          0.0,
+          0.07
+        ],
+        "quat": [
+          0.579228,
+          0.4055798,
+          -0.4055798,
+          -0.579228
+        ]
+      },
+      "training_observation": {
+        "sensor_name": "front_depth",
+        "cutoff_distance": 3.0,
+        "crop_left": 10,
+        "crop_right": 10,
+        "gaussian_blur": [
+          3,
+          1.0
+        ],
+        "frame_history_length": 2,
+        "update_period_steps": 5
+      },
+      "evidence": {
+        "source": "设计值（无上游 PIE 配置）：内参/观测项/姿态四元数沿 go2 PIE 口径（pie-front-depth-106x60）；位姿 x = 本机前髋 x(0.1745) + go2 PIE 同间隙(0.345-0.1934=0.1516)，z 与 go2 同（0.07）——按本机 MJCF 几何推导，真机标定后替换",
+        "note": "服务 parkour 族级装配（2026-09-28 盲狗补全轮）；标定前的训练域设计值"
+      }
+    },
+    {
+      "id": "pie-front-depth-106x60-unitree_b2",
+      "label": "PIE 前视深度 106×60（b2 parkour 装配档（作用域=全 robot_id 命名约定））",
+      "scope": "unitree_b2",
+      "kind": "depth",
+      "model": "pinhole",
+      "resolution": {
+        "width": 106,
+        "height": 60
+      },
+      "fov_deg": 87.0,
+      "intrinsics": {
+        "fx": 0.0,
+        "fy": 0.0,
+        "cx": -1.0,
+        "cy": -1.0
+      },
+      "distortion": [],
+      "pose": {
+        "parent_body": "robot/base_link",
+        "pos": [
+          0.48,
+          0.0,
+          0.07
+        ],
+        "quat": [
+          0.579228,
+          0.4055798,
+          -0.4055798,
+          -0.579228
+        ]
+      },
+      "training_observation": {
+        "sensor_name": "front_depth",
+        "cutoff_distance": 3.0,
+        "crop_left": 10,
+        "crop_right": 10,
+        "gaussian_blur": [
+          3,
+          1.0
+        ],
+        "frame_history_length": 2,
+        "update_period_steps": 5
+      },
+      "evidence": {
+        "source": "设计值（无上游 PIE 配置）：内参/观测项/姿态四元数沿 go2 PIE 口径（pie-front-depth-106x60）；位姿 x = 本机前髋 x(0.3285) + go2 PIE 同间隙(0.345-0.1934=0.1516)，z 与 go2 同（0.07）——按本机 MJCF 几何推导，真机标定后替换",
+        "note": "服务 parkour 族级装配（2026-09-28 盲狗补全轮）；标定前的训练域设计值"
       }
     }
   ],
