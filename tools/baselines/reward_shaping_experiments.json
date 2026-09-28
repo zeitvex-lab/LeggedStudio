@@ -678,6 +678,28 @@
       "torque_smoothness": 0.996,
       "evidence": "workspace/validation/b11-ctrl-oldweight.json"
     },
-    "final_verdict": "**最终结论（2026-09-28 复盘闭环）**：①权重对质量分无显著效应——E1(-0.01)=0.9157 / E2(-0.005)=0.9089 / CTRL(-0.001, 0918 产物)=0.925，同噪声带；默认值回滚 -0.001。②**历史 0.02–0.22 与本轮 0.9+ 的真正分界 = 评测环境**：B11 落地时（0916）go2 的 MJCF 是**力矩 motor 接口**（`<motor forcerange>`），09-24 族规范化改为**位置接口**（`<position kp>`）+ margin/传感器/命名/契约物理绑定全套对齐——旧低分是拿策略跑**力矩接口旧模型**测出的（位置策略在力矩被控对象上功率/平滑/姿态全崩，正是旧报告 dof_power=0、torque_smoothness=0.16、orientation=0.52 的形态），quality_metrics.py 自 B11 起零改动（git diff 实证），变的只是被测对象。③**放行门现状改判**：在当前标准模型上，go2 velocity 产物（新旧权重皆可）single 档直评 0.91–0.93 ≥ 0.5 门，与上游参照（lainlab-trot 0.922 / moe-cts 0.929）同档——『产线出好策略』在**当前模型+single 档口径**下成立，诚实边界相应改写；multi/level/stress 档口径下的门判定需用当前模型重跑后另立结论。④教训：**评测基线必须绑定被测模型版本**——模型规范化后旧基线全部作废，本次 0.02 vs 0.91 的『质量鸿沟』一半是测量环境幻影。"
+    "final_verdict": "**最终结论（2026-09-28 复盘闭环）**：①权重对质量分无显著效应——E1(-0.01)=0.9157 / E2(-0.005)=0.9089 / CTRL(-0.001, 0918 产物)=0.925，同噪声带；默认值回滚 -0.001。②**历史 0.02–0.22 与本轮 0.9+ 的真正分界 = 评测环境**：B11 落地时（0916）go2 的 MJCF 是**力矩 motor 接口**（`<motor forcerange>`），09-24 族规范化改为**位置接口**（`<position kp>`）+ margin/传感器/命名/契约物理绑定全套对齐——旧低分是拿策略跑**力矩接口旧模型**测出的（位置策略在力矩被控对象上功率/平滑/姿态全崩，正是旧报告 dof_power=0、torque_smoothness=0.16、orientation=0.52 的形态），quality_metrics.py 自 B11 起零改动（git diff 实证），变的只是被测对象。③**放行门现状改判**：在当前标准模型上，go2 velocity 产物（新旧权重皆可）single 档直评 0.91–0.93 ≥ 0.5 门，与上游参照（lainlab-trot 0.922 / moe-cts 0.929）同档——『产线出好策略』在**当前模型+single 档口径**下成立，诚实边界相应改写；multi/level/stress 档口径下的门判定需用当前模型重跑后另立结论。④教训：**评测基线必须绑定被测模型版本**——模型规范化后旧基线全部作废，本次 0.02 vs 0.91 的『质量鸿沟』一半是测量环境幻影。",
+    "full_tier_recheck_20260928": {
+      "note": "放行门四档口径补齐（当前标准模型）：level/stress 两档对三条策略重跑；multi 档单策略时与 single 同分（run_multi 单元格即 evaluate），多指令维度由 stress 的 5 方向覆盖",
+      "level": {
+        "lainlab-trot": "L1/L2/L3 全 PASS（m=0.5/0.75/1.0 success_mean=1.00）",
+        "moe-cts": "全 PASS",
+        "ctrl-0918（旧权重产物）": "全 PASS"
+      },
+      "stress": {
+        "lainlab-trot": {
+          "benchmark": 0.8971,
+          "note": "diagonal 最弱 0.868"
+        },
+        "moe-cts": {
+          "benchmark": 0.9143
+        },
+        "ctrl-0918": {
+          "benchmark": 0.9228,
+          "note": "旧权重产物 stress 与上游持平略优"
+        }
+      },
+      "verdict": "**放行门（0.5）在 single/level/stress 三档全口径成立**（multi 单策略=single 同分）；『当前模型上产线出好策略』的声称自此覆盖四档；证据 workspace/validation/tiers-20260928/"
+    }
   }
 }
