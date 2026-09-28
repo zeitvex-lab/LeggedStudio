@@ -228,6 +228,14 @@ GO1_VELOCITY = VelocityProfile(
     play_showroom_terrain=False,
     # flat 档的求解器内存上限：源配方没设这一项（基座默认），族级默认 300 是 b2/lite3 的口径。
     flat_sim_njmax=None,
+    # G1 对齐（2026-09-28，legged_gym 系结构；go2 同款实证 motion 0→0.459）：
+    # feet_air_time 正激励（源配方 air_time 0.0 静音，legged_gym 系 +1~+2 是学走主正奖励）；
+    # action_rate 显式化（源配方 -0.01）；only_positive_rewards（基座技巧：负总奖励截 0）；
+    # stand_still 显式关（族级默认 -1.0 会自动注册，F1 实证短预算下惩罚主导）。
+    air_time_weight=1.0,
+    action_rate_weight=-0.01,
+    only_positive_rewards=True,
+    stand_still_weight=None,
     # 源配方严格按世界 up 算倾角（见 recipe 第 7 条）。
     pose_std_standing={"hip_abduction": 0.05, "hip_pitch": 0.05, "knee": 0.05},
     pose_std_moving={"hip_abduction": 0.15, "hip_pitch": 0.3, "knee": 0.35},
