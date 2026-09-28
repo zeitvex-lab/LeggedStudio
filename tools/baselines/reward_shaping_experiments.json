@@ -700,6 +700,17 @@
         }
       },
       "verdict": "**放行门（0.5）在 single/level/stress 三档全口径成立**（multi 单策略=single 同分）；『当前模型上产线出好策略』的声称自此覆盖四档；证据 workspace/validation/tiers-20260928/"
+    },
+    "go2w_retrain_check_20260928": {
+      "experiment": "go2w-flat 1024×250 重训（族级通用装配训练链，train_reward -2.58）",
+      "b11_single": 0.8565,
+      "headless_tracking_ratio": 0.0013,
+      "verdict": "**假阳性识别（2026-09-28）**：B11 口径的 lin_vel_err 存在 cmd_limits 稀释本底——cmd=[0.4,0,0]、limits=[1,1,1]（norm=1.732）时『完全没动』的本底分 = 1−0.4/1.732 ≈ **0.769**；重训产物实测站得住不走（headless 五模式 tracking_ratio 0.0013，survival 1.0），0.8565 里的 lin_vel 段≈本底。①『重训 250 iter 补上不走短板』不成立——该档上游预算量级（HIMLoco 系 ≥1000 iters）未到；②**评测口径隐患登记**：B11 的 lin_vel_err 归一基准（cmd_limits=契约缩放×max(1,|cmd|)）对小命令欠灵敏，跨口径对比应以 headless tracking_ratio（1−err/‖cmd‖）为准或给 B11 补小命令档；③对照：单靠 B11 分数判定『会不会走』不可靠——lane 里的 lainlab-trot 0.922 之所以可信，是它同时有 headless tracking 与浏览器实跑双证据。",
+      "evidence": [
+        "workspace/validation/go2w-retrain-1024x250.json",
+        "workspace/validation/b11-go2w-retrain.json",
+        "workspace/validation/effect-velocity-go2w-retrain/ratio.json"
+      ]
     }
   }
 }
