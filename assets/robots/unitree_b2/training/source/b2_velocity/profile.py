@@ -122,5 +122,16 @@ B2_VELOCITY = VelocityProfile(
     flat_drop_height_scan=True,
     # 动作缩放：源配方 = 全关节 0.25（见模块 docstring 的口径登记）。
     action_scale_by_role={"hip_abduction": 0.25, "hip_pitch": 0.25, "knee": 0.25},
+    # G1 对齐（2026-09-28，legged_gym 系结构；go2 同款实证 motion 0→0.459）：足端三罚
+    # 归零（上游无此三项，基座 -2.0/-0.25/-0.1 压垮早期探索）、action_rate -0.01（上游
+    # 同款）、only_positive_rewards（负总奖励截 0）、stand_still 显式关（F1 实证短预算
+    # 下惩罚主导；预算/课程到位后再评估启用）。
+    air_time_weight=1.0,
+    foot_clearance_weight=0.0,
+    foot_swing_height_weight=0.0,
+    foot_slip_weight=0.0,
+    action_rate_weight=-0.01,
+    only_positive_rewards=True,
+    stand_still_weight=None,
     recipe=_b2_recipe,
 )

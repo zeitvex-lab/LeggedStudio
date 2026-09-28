@@ -398,5 +398,15 @@ LITE3_VELOCITY = VelocityProfile(
     play_flat_lin_vel_x=(-1.5, 1.5),
     play_flat_ang_vel_z=(-0.8, 0.8),
     # 动作缩放不覆盖：契约逐角色值（0.125 / 0.25 / 0.25）就是源配方表（见模块 docstring）。
+    # G1 对齐（2026-09-28，legged_gym 系结构；go2 同款实证 motion 0→0.459）：feet_air_time
+    # 正激励（源配方 air_time 0.0 静音）、足端三罚归零（上游无此三项）、action_rate -0.01、
+    # only_positive_rewards（负总奖励截 0）、stand_still 显式关（F1 实证短预算下惩罚主导）。
+    air_time_weight=1.0,
+    foot_clearance_weight=0.0,
+    foot_swing_height_weight=0.0,
+    foot_slip_weight=0.0,
+    action_rate_weight=-0.01,
+    only_positive_rewards=True,
+    stand_still_weight=None,
     recipe=_lite3_recipe,
 )
