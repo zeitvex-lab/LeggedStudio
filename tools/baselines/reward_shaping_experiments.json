@@ -902,6 +902,15 @@
         "workspace/validation/quality-go2w-align-1024x750.json",
         "workspace/validation/effect-velocity-go2w-retrain2/ratio.json"
       ]
+    },
+    "go2w_evaluator_semantic_bug_20260929": {
+      "decisive_test": "**go2w 训练环境内 rollout**（训练自己的 obs/action 链，1024×750 产物）：机体**倒退加速狂奔**——250 步位移 123.7 m、vx 加速至 −12 m/s（cmd +0.41）。训练里『会动』且动得很猛，而评测链同产物 motion=0 纹丝不动 ⇒ **评测链与训练链对 go2w 的行为解释矛盾**。",
+      "root_cause_hypothesis": "**评测链执行器语义对轮足错误**：go2w 是 `cfg_declared`（MJCF 无执行器），训练时 cfg 声明混合控制——腿 12 × 位置 + 轮 4 × 速度；评测链（policy_acceptance 按契约重建执行器）疑似把 16 关节全部按**位置伺服**处理 ⇒ 轮被位置目标锁死 ⇒ 机体不动 ⇒ vel_track_err 全额 ⇒ motion=0/0.17 的『站得住』全部是**锁轮假象**。旁证：b2w 是 `mjcf_wrapped`（MJCF 自带 `<velocity>` 轮执行器随模型加载），评测基本正常（0.82）；go2 全位置控制机型评测一致正常。",
+      "impact": "① go2w 历史效果评测（0.17/0.0）全部存疑，须修评测链后重测；② 修法方向 = policy_acceptance 执行器构造按契约 `actuator_profile.by_role[].mode` 分流（wheel=velocity 伺服）；③ 旧产物在真实语义下的水平未知（训练 reward −1.96 也说明 750 iter 训练本身未收敛，倒退方向问题另查：cmd +0.41 vs 速度 −12 的符号/坐标可能也有坑）",
+      "evidence": [
+        "workspace/validation/quality-go2w-align-1024x750.json",
+        "workspace/validation/effect-velocity-go2w-retrain2/ratio.json"
+      ]
     }
   }
 }
