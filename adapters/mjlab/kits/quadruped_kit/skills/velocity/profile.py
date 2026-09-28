@@ -105,6 +105,14 @@ class VelocityProfile:
     #: 机械功率惩罚 `|tau*v|`：None = 不注册（族级默认）；数值 = 注册并给权重。
     dof_power_weight: float | None = None
     dof_power_kernel: str = "mean_abs"
+    #: 跟踪核 σ（`exp(-err²/σ²)`）：族默认 √0.25 ≈ 0.5（= mjlab 基座 `sqrt(0.25)`，
+    #: 与 lainlab trot `exp(-err²/sigma)` sigma=0.25 **数学同核**——不要因写法不同误收紧）。
+    track_sigma: float = 0.25 ** 0.5
+    #: stand_still 罚（命令非零时罚关节与默认姿偏差）：None = 不注册；族默认 -1.0
+    #: （lainlab trot 同款）。自产配方缺它——这是"站得住不走"成为优势策略的成因之一
+    #: （另一成因：lainlab trot 的 track 分带 gait 门控，不迈步就拿不到；通用 velocity 无此门，
+    #: 故必须靠显式罚）——见 `tools/baselines/reward_shaping_experiments.json#v3`。
+    stand_still_weight: float | None = -1.0
 
     # --- 终止 ---------------------------------------------------------------------
     #: flat 档 `fell_over` 的倾角上限（度）。

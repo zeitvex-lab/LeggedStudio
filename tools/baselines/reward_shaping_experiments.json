@@ -739,6 +739,34 @@
       },
       "math_check": "合成数据三态：完全跟踪=1.0 / 没动=0.0 / 站立=NaN ✓",
       "impact": "①ctrl-0918 从『达标产物』改判为『站得住不走』（与 go2w 同类，B8 冒烟轮产物族的共性）；②历史 stress/level 结论只对 lainlab-trot/moe-cts 维持；③对外声称口径收窄：『产线出好策略』的证据目前仅 lainlab-trot/moe-cts（上游移植）——自产产物尚无一通过运动档检验"
+    },
+    "stand_still_fix_20260928": {
+      "root_cause": "『站得住不走』的奖励经济学根因——lainlab trot 拿不到白站的分靠两道闸：① track 核带 gait 门控（`source_trot_gate > 0.7`，不按步态迈步 track 分直接归零）；② stand_still 罚 -1.0（命令非零时按关节与默认姿偏差惩罚）+ rel_standing=0（从不给零速命令）。自产通用 velocity 没有 gait 门（步态是 trot 特有概念）、缺 stand_still、rel_standing=0.1，且足端惩罚（clearance -2.0/swing -0.25/slip -0.1）+ pose 紧核（std 0.05 走路必归零）比上游重——四因子叠加使『站着』成为优势策略（自产/重训产物 motion=0.003 实证）。",
+      "sigma_note": "**写法陷阱（本次踩到）**：lainlab `exp(-err²/sigma)` sigma=0.25 与 mjlab 基座 `exp(-err²/std²)` std=√0.25≈0.5 **数学同核**——记法不同勿误判为『上游核更陡』而收紧 σ。",
+      "fix": {
+        "F1": "quadruped Kit 新增 stand_still_penalty（命令幅值 > 0.1 时罚 Σ|关节−默认姿|，lainlab 同款）+ VelocityProfile 新字段 track_sigma（默认 √0.25=基座语义不变）/ stand_still_weight（默认 -1.0）；装配验证过",
+        "pending_train": "1024×250 真训 + motion metric 检验（转正才算修复）"
+      },
+      "F1_result": {
+        "train_reward": 35.38,
+        "motion_tracking_ratio": 0.0,
+        "verdict": "**F1 未过运动档且训练劣化**：reward 68.6→35.4（stand_still 罚主导优化），产物 motion 仍 0（且已排除评测布局假设：正确 kind go2_mjlab_actor_48 下同样 motion=0）。⇒ 『缺 stand_still』不是充分根因；主假设转为**欠训练**——lainlab-trot 是上游大预算+步态门控的产物，纯 RL velocity 从零到会走需要 >>250 iters。F2 已启动：回滚 stand_still（单变量隔离）+ 1024×1000 长预算（~52 min），motion 转正 ⇒ 预算问题；仍 0 ⇒ 需查命令接线/课程。"
+      }
+    },
+    "f2_budget_and_inenv_rollout_20260928": {
+      "F2": {
+        "budget": "1024×1000（无 stand_still，单变量隔离）",
+        "train_reward": 61.54,
+        "in_env_rollout": "cmd vx=0.577 → 实测 vx≈0.04，位移 250 步仅 0.78 m（初期踉跄）",
+        "verdict": "**预算假设否定**——1000 iters 后训练环境内也不走"
+      },
+      "decisive_test": "**训练环境内 rollout**（训练自己的 obs/action 链，与评测链无关）：F2 策略面对 cmd vx=0.577 实测 vx≈0.04 ⇒ 评测链/观测布局/动作解码全部排除，**训练本身没学会走**。",
+      "root_cause_final": "**任务结构与预算量级**：① lainlab-trot 被当 velocity 上游参照是选错对象——它是步态条件任务（TrotVelocityCommand 步态相位 + gait 门控 track），内置了『怎么走』的先验；② 纯 RL 无步态先验的四足 velocity，上游 legged_gym 系是数千 iters 起步 + 命令课程 + 轻足端罚（自产 foot_clearance -2.0 等四重罚远重于上游），1000 iters 不走是正常现象而非缺陷；③ stand_still 单加在欠预算下惩罚主导（F1 reward 68→35），已按机型覆盖停用（stand_still_weight=None），预算与任务结构对齐上游后再启用。",
+      "next": "质量攻关真正起点 = 按 legged_gym 系上游（unitree_rl/legged_gym go2 velocity）对齐任务结构（足端罚减负 + 命令课程）+ 数千 iter 预算训练；lainlab trot 改归『步态任务上游』不当 velocity 参照",
+      "evidence": [
+        "workspace/validation/quality-F2-budget-1000-1024x1000.json",
+        "workspace/validation/effect-velocity-go2w-retrain/ratio.json"
+      ]
     }
   }
 }
