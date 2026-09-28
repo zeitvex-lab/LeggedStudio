@@ -471,9 +471,16 @@ def build_family_skill(
         profile = profile_class(**{**identity, **shared_kwargs})
     env_factory = _load_symbol(recipe.env)
     runner_factory = _load_symbol(recipe.runner)
-    env_cfg = env_factory(binding, profile, **recipe.factory_kwargs, play=False)
+    # **按签名注入**（与下方 binding_kwargs / experiment_name 同一纪律：查签名、不硬塞）：
+    # `robot_cfg`（如 parkour 的 PIE 相机要挂机型实体上）⇒ 注入装配已建好的实体 cfg 工厂。
+    import inspect as _sig
+
+    env_kwargs = dict(recipe.factory_kwargs)
+    if "robot_cfg" in _sig.signature(env_factory).parameters:
+        env_kwargs["robot_cfg"] = lambda: entity_cfg
+    env_cfg = env_factory(binding, profile, **env_kwargs, play=False)
     play_cfg = (
-        env_factory(binding, profile, **recipe.factory_kwargs, play=True) if not play else env_cfg
+        env_factory(binding, profile, **env_kwargs, play=True) if not play else env_cfg
     )
     # **sim 缓冲规模**：源配方里的 `nconmax=35` / `njmax=300` 是按某一台资产手调的缓冲值，
     # 换一台（更大、几何更多）就溢出（实测 b2w：`nconmax overflow (nconmax must be >= 40)`）。
@@ -497,6 +504,10 @@ def build_family_skill(
     experiment_name = f"{robot_id.replace('.', '_')}_{task_name}"
     if "experiment_name" in inspect.signature(runner_factory).parameters:
         runner_cfg = runner_factory(profile, experiment_name=experiment_name)
+    elif "binding" in inspect.signature(runner_factory).parameters:
+        # 按签名注入（同上纪律）：有的技能 runner 还要机型绑定（如 AMP 的关节序与
+        # 专家动作目录由其 catalog 入口解析）—— binding 是族概念，注入不泄漏技能细节。
+        runner_cfg = runner_factory(binding, profile)
     else:
         runner_cfg = runner_factory(profile)
     return FamilySkillAssembly(
