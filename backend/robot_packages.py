@@ -188,6 +188,13 @@ def list_robot_packages() -> list[dict[str, Any]]:
     if cached is not None and cached[0] == workspace_key:
         return [dict(item) for item in cached[1]]
     records = _read_index()
+    # 索引里可能残留指向已删除包的幽灵条目（运行期清理目录、测试暂存目录被
+    # TemporaryDirectory 回收——2026-09-29 实测 family-import-* 暂存即此形态）：
+    # 契约文件缺席 ⇒ 视索引过期就地重扫，自愈而不是把幽灵端给调用方。
+    if records and any(
+        not (ROOT / str(record.get("contract_path") or "")).is_file() for record in records
+    ):
+        records = []
     signature = _package_signature()
     if not records or _index_is_stale(signature):
         records = _scan_package_records()

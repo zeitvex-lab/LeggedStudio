@@ -17,9 +17,11 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -171,12 +173,16 @@ class ImportedContractArtifactTest(unittest.TestCase):
 
         from backend.package_import import onboard_package
 
+        # 工作区指到临时目录：onboard 会 upsert 真实包索引，不隔离的话暂存目录
+        # 被 TemporaryDirectory 回收后索引里会留下幽灵条目
+        #（2026-09-29 实测：全量跑时污染 package_locator 的预设解析）。
         with tempfile.TemporaryDirectory(prefix="family-import-", dir=ROOT / "workspace") as tmp:
             base = Path(tmp)
             source = base / "robot"
             source.mkdir()
             (source / "robot.xml").write_text(_quadruped_mjcf(), encoding="utf-8")
-            report = onboard_package(source, write=True, packages_root=base / "packages")
+            with mock.patch.dict(os.environ, {"LEGGED_STUDIO_WORKSPACE": str(base)}):
+                report = onboard_package(source, write=True, packages_root=base / "packages")
             self.assertTrue(report.get("valid"), report.get("errors"))
             self.assertEqual("quadruped", (report.get("family_judgement") or {}).get("family"))
             package_root = Path(report["package_root"].replace("\\", "/"))
