@@ -981,6 +981,17 @@
         "00_resources/rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot/config/env_cfgs.py",
         "00_resources/unitree_rl_mjlab_go2w"
       ]
+    },
+    "reference_expansion_20260929": {
+      "milestone": "**参考面扩大完成（用户指令：IsaacLab 同套 API 也可参考）**——go2w 成型训练参考定位：",
+      "references": {
+        "go2w 同源成型任务": "unitree_rl_mjlab_go2w/mjlab/tasks/robots/unitree_go2w/velocity/（946 行完整：env_cfgs 333 + velocity_env_cfg 351 + mdp 六文件）——heading=False、vy=(0,0)、课程 stage 与本地 go2w-flat **逐字一致**，确认本地链源自它",
+        "zex-w 成型训练": "rc_mjlab/src/robot（config/mdp/rsl_rl/terrains 四目录）——命令制度差异已在 go2w_upstream_alignment 登记对比",
+        "go2w 双轮直立特技": "unitree_rl_mjlab/src/tasks/velocity/config/go2w（rear-wheel biped 变体，另一条线）",
+        "IsaacLab 系": "00_resources/tron1-rl-isaaclab（bipedal）、HIMLoco、m20_rl_isaacsim 可并行盘点"
+      },
+      "next": "vendored 参考工程 ↔ 本地 go2w 训练链逐项 diff（同源演化差异点=嫌疑清单）：① obs 布局（vendored 轮独立段 wheel_joint_pos_rel/wheel_joint_vel_rel）② 动作两段参数（低通/延迟/scale）③ 奖励表权重 ④ 事件随机化 ⑤ 终止——diff 结果直接指导 go2w 重训对齐",
+      "note": "之前 NaN/不走攻关的教训：本地链与上游同源但演化分叉——diff 就是找分叉点"
     }
   }
 }
