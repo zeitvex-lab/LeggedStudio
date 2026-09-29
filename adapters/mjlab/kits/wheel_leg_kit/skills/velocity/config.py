@@ -46,6 +46,7 @@ from ...velocity_env_cfg import make_velocity_env_cfg as make_family_base_env_cf
 from ...mdp import (
     adaptive_leg_motion_penalty,
     base_ang_vel,
+    base_height_l2,
     base_height_tracking,
     base_lin_vel,
     contact_fraction_reward,
@@ -352,6 +353,11 @@ def _apply_rewards(
         cfg.rewards["flat_orientation_l2"].weight = recipe.flat_orientation_weight
         cfg.rewards["body_ang_vel"].weight = recipe.body_ang_vel_weight
     else:
+        # 跟踪 economics 对齐（rc_old 源配方 2.5/2.5；None = 基座 1.0 原样）。
+        if profile.track_linear_weight is not None:
+            cfg.rewards["track_linear_velocity"].weight = profile.track_linear_weight
+        if profile.track_angular_weight is not None:
+            cfg.rewards["track_angular_velocity"].weight = profile.track_angular_weight
         cfg.rewards["wheel_roll_tracking"] = RewardTermCfg(
             func=wheel_roll_tracking,
             weight=profile.wheel_roll_tracking_weight,
@@ -363,6 +369,12 @@ def _apply_rewards(
                 "asset_cfg": wheel_cfg,
             },
         )
+        if profile.base_height_target is not None:
+            cfg.rewards["base_height"] = RewardTermCfg(
+                func=base_height_l2,
+                weight=profile.base_height_weight,
+                params={"target_height": profile.base_height_target},
+            )
         cfg.rewards["wheel_contact_bonus"] = RewardTermCfg(
             func=contact_fraction_reward,
             weight=profile.wheel_contact_bonus_weight,
