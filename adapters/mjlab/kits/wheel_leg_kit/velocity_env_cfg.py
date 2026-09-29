@@ -37,6 +37,7 @@ from mjlab.viewer import ViewerConfig
 
 def make_velocity_env_cfg(
     uniform_velocity_command_cfg=None,
+    only_positive_rewards: bool = False,
 ) -> ManagerBasedRlEnvCfg:
   """Create base velocity tracking task configuration.
 
@@ -314,6 +315,12 @@ def make_velocity_env_cfg(
       func=mdp.bad_orientation,
       params={"limit_angle": math.radians(50.0)},
     ),
+    # 上游 rc_mjlab 同款：躯干碰地立刻终止（不给翻滚拖行状态进入物理爆炸区）。
+    # 传感器 base_ground_contact 由 skill 层 _apply_sensors 挂（binding.root_body）。
+    "base_ground_contact": TerminationTermCfg(
+      func=mdp.illegal_contact,
+      params={"sensor_name": "base_ground_contact"},
+    ),
   }
 
   ##
@@ -341,6 +348,11 @@ def make_velocity_env_cfg(
   ##
   # Assemble and return
   ##
+
+  if only_positive_rewards:
+    # 上游 rc_mjlab enable_only_positive_rewards()（mdp/only_positive_rewards.py，kit 内一份实现）：
+    # 负总奖励截 0——防早期罚项主导把策略推向"自摔止损"。幂等，RewardManager.compute 类级 patch。
+    mdp.enable_only_positive_rewards()
 
   return ManagerBasedRlEnvCfg(
     scene=SceneCfg(

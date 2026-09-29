@@ -151,12 +151,22 @@ def _apply_actions(
             control_modes=control_modes,
             scale=scale,
             term_names=term_names,
+            # 上游 rc_mjlab 低通动作（腿 5Hz / 轮 15Hz）：平滑动作跳变，
+            # 是 go2w-traversal 750 轮尾步物理爆炸（obs NaN）的上游防线。
+            low_pass=True,
+            control_frequency=float(cfg.sim.mujoco.timestep) and (
+                1.0 / (float(cfg.sim.mujoco.timestep) * (cfg.decimation or 4))
+            ),
         )
     )
 
 
 def _apply_sensors(cfg: ManagerBasedRlEnvCfg, binding: WheelLegSkillBinding) -> None:
-    """轮-地接触传感器（主匹配由绑定派生：腿标记 + 轮角色别名/通用足端 token）。"""
+    """轮-地 + 机身-地接触传感器（主匹配由绑定派生：腿标记 + 轮角色别名/根 body）。
+
+    base_ground 供 kit 终止项 `base_ground_contact` 消费（上游 rc_mjlab 同款：
+    躯干碰地立刻终止，防翻滚拖行进入物理爆炸区）。
+    """
     cfg.scene.sensors = (
         ContactSensorCfg(
             name=WHEEL_GROUND_SENSOR,
@@ -166,6 +176,15 @@ def _apply_sensors(cfg: ManagerBasedRlEnvCfg, binding: WheelLegSkillBinding) -> 
             reduce="none",
             num_slots=1,
             track_air_time=False,
+        ),
+        ContactSensorCfg(
+            name="base_ground_contact",
+            primary=ContactMatch(mode="body", pattern=binding.root_body, entity="robot"),
+            secondary=ContactMatch(mode="body", pattern="terrain"),
+            fields=("found",),
+            reduce="none",
+            num_slots=1,
+            history_length=4,
         ),
     )
 
@@ -437,7 +456,7 @@ def make_env_cfg(
         raise TypeError(f"profile 必须是 VelocityProfile，收到 {type(profile).__name__}")
     _validate_profile(binding, profile, variant)
 
-    cfg = make_family_base_env_cfg()
+    cfg = make_family_base_env_cfg(only_positive_rewards=getattr(profile, "only_positive_rewards", False))
     cfg.scene.entities = {"robot": binding.robot_cfg()}
     _apply_actions(cfg, binding, profile, variant)
     _apply_sensors(cfg, binding)
