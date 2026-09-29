@@ -379,12 +379,21 @@ class FamilyVelocityConfigTest(unittest.TestCase):
             self.assertEqual("plane", cfg.scene.terrain.terrain_type)
             self.assertIsNone(cfg.scene.terrain.terrain_generator)
             self.assertNotIn("terrain_levels", cfg.curriculum)
-        # 奖励结构：轮变体 = 轮奖励；legs-only = 轮速限幅/身高/站立
+        # 奖励结构：轮变体 = 轮奖励 + 全 dof 档 base_height（2026-09-29 economics 对齐
+        # 补 −2.0@0.36，rc_old 源配方朴素 L2 形）；legs-only = 轮速限幅/身高/站立
         for cfg in (rough, flat):
             for name in ("wheel_roll_tracking", "wheel_contact_bonus", "leg_motion_penalty"):
                 self.assertIn(name, cfg.rewards)
-            for name in ("wheel_spin_limit", "base_height", "stand_still", "low_base_height"):
+            for name in ("wheel_spin_limit", "stand_still", "low_base_height"):
                 self.assertNotIn(name, cfg.rewards)
+            # base_height：全 dof 档按 profile 数据落点（target/weight 来自族字段）
+            self.assertIn("base_height", cfg.rewards)
+            base_target = self.profiles.ROUGH.base_height_target
+            if base_target is not None:
+                self.assertAlmostEqual(
+                    float(base_target),
+                    float(cfg.rewards["base_height"].params["target_height"]),
+                )
             for name in ("foot_air_time", "foot_clearance", "foot_slip", "soft_landing", "angular_momentum"):
                 self.assertNotIn(name, cfg.rewards)
         self.assertEqual("leg_motion_penalty", flat.rewards["leg_motion_penalty"].func.__name__)
@@ -406,13 +415,35 @@ class FamilyVelocityConfigTest(unittest.TestCase):
             [s.name for s in rough.scene.sensors],
         )
         self.assertEqual(self.binding.wheel_contact_pattern, rough.scene.sensors[0].primary.pattern)
+        # 族缺省（rough/混合档）不开腾空计时——feet_air_time 是纯腿学步档的开关
+        self.assertFalse(rough.scene.sensors[0].track_air_time)
+
+    def test_legs_only_feet_air_time_lever(self):
+        """纯腿学步正激励（2026-09-30 杠杆②）：权重非零 ⇒ 奖励项在 + 传感器计时开；
+        族缺省 0 = 静音（rough 档无此项），开关一处声明两处生效（奖励 + 传感器）。"""
+        legs_only = self._variant("flat_legs_only", self.profiles.LEGS_ONLY)
+        weight = self.profiles.LEGS_ONLY.legs_only.feet_air_time_weight
+        if weight:
+            self.assertIn("feet_air_time", legs_only.rewards)
+            term = legs_only.rewards["feet_air_time"]
+            self.assertAlmostEqual(float(weight), term.weight)
+            self.assertEqual("feet_air_time", term.func.__name__)
+            self.assertEqual(
+                "wheel_ground_contact", term.params["sensor_name"])
+            self.assertTrue(legs_only.scene.sensors[0].track_air_time)
+        else:
+            self.assertNotIn("feet_air_time", legs_only.rewards)
 
     def test_wheel_numbers_and_profile_land_where_source_had_them(self):
         cfg = self._variant("rough", self.profiles.ROUGH)
         roll = cfg.rewards["wheel_roll_tracking"]
         self.assertAlmostEqual(0.09, roll.params["wheel_radius"])
-        self.assertAlmostEqual(0.19, roll.params["wheel_track"])
-        self.assertAlmostEqual(8.0, roll.params["std"])
+        # wheel_track 断言跟 profile 走（2026-09-29 economics 对齐改为 MJCF 腿链派生
+        # 真值 0.284；写死旧值 0.19 会随 profile 更新再漂）
+        self.assertAlmostEqual(
+            float(self.profiles.ROUGH.wheel_track), roll.params["wheel_track"])
+        self.assertAlmostEqual(
+            float(self.profiles.ROUGH.wheel_roll_tracking_std), roll.params["std"])
         self.assertAlmostEqual(2.0, roll.weight)
         self.assertAlmostEqual(0.5, cfg.rewards["wheel_contact_bonus"].weight)
         self.assertAlmostEqual(-0.08, cfg.rewards["leg_motion_penalty"].weight)

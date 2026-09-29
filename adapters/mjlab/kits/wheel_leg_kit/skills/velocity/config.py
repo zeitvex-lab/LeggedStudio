@@ -50,6 +50,7 @@ from ...mdp import (
     base_height_tracking,
     base_lin_vel,
     contact_fraction_reward,
+    feet_air_time,
     leg_motion_penalty,
     root_height_below_minimum,
     stand_still,
@@ -162,11 +163,18 @@ def _apply_actions(
     )
 
 
-def _apply_sensors(cfg: ManagerBasedRlEnvCfg, binding: WheelLegSkillBinding) -> None:
+def _apply_sensors(
+    cfg: ManagerBasedRlEnvCfg,
+    binding: WheelLegSkillBinding,
+    *,
+    track_air_time: bool = False,
+) -> None:
     """轮-地 + 机身-地接触传感器（主匹配由绑定派生：腿标记 + 轮角色别名/根 body）。
 
     base_ground 供 kit 终止项 `base_ground_contact` 消费（上游 rc_mjlab 同款：
     躯干碰地立刻终止，防翻滚拖行进入物理爆炸区）。
+    ``track_air_time``：feet_air_time 正激励需要接触/腾空计时（纯腿学步档开启；
+    计时本身不进观测，只为奖励读数，族缺省关）。
     """
     cfg.scene.sensors = (
         ContactSensorCfg(
@@ -176,7 +184,7 @@ def _apply_sensors(cfg: ManagerBasedRlEnvCfg, binding: WheelLegSkillBinding) -> 
             fields=("found", "force"),
             reduce="none",
             num_slots=1,
-            track_air_time=False,
+            track_air_time=track_air_time,
         ),
         ContactSensorCfg(
             name="base_ground_contact",
@@ -352,6 +360,19 @@ def _apply_rewards(
         )
         cfg.rewards["flat_orientation_l2"].weight = recipe.flat_orientation_weight
         cfg.rewards["body_ang_vel"].weight = recipe.body_ang_vel_weight
+        if recipe.feet_air_time_weight:
+            # 学步主正奖励（go2 G1 修复同款）：腿末端=轮，"步态"=轮接触节律。
+            # 传感器计时由 _apply_sensors(track_air_time=True) 按同一开关开启。
+            cfg.rewards["feet_air_time"] = RewardTermCfg(
+                func=feet_air_time,
+                weight=recipe.feet_air_time_weight,
+                params={
+                    "sensor_name": WHEEL_GROUND_SENSOR,
+                    "threshold": recipe.feet_air_time_threshold,
+                    "command_name": "twist",
+                    "command_threshold": recipe.stand_still_command_threshold,
+                },
+            )
     else:
         # 跟踪 economics 对齐（rc_old 源配方 2.5/2.5；None = 基座 1.0 原样）。
         if profile.track_linear_weight is not None:
@@ -506,7 +527,10 @@ def _make_reference_env_cfg(
     cfg = make_family_base_env_cfg(only_positive_rewards=getattr(profile, "only_positive_rewards", False))
     cfg.scene.entities = {"robot": binding.robot_cfg()}
     _apply_actions(cfg, binding, profile, variant)
-    _apply_sensors(cfg, binding)
+    _air_time_on = (
+        _is_legs_only(variant) and _legs_only_recipe(profile, variant).feet_air_time_weight != 0
+    )
+    _apply_sensors(cfg, binding, track_air_time=_air_time_on)
     _apply_terrain(cfg, profile, variant)
     _apply_commands(cfg, profile)
     _apply_curriculum(cfg, profile)

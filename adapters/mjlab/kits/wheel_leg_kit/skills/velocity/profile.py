@@ -133,6 +133,12 @@ class LegsOnlyRecipe:
     wheel_spin_limit_command_threshold: float = 0.05
     flat_orientation_weight: float = -4.0
     body_ang_vel_weight: float = -0.2
+    # --- 学步正激励（2026-09-30，go2 G1 修复同款机制的轮足移植）------------------
+    #: feet_air_time 正激励权重（腿末端=轮，"步态"即轮接触节律；0 = 静音）。
+    #: 1024×2000 对照实证：无此项时 2000 轮 reward+12 全变"站得更稳"，vx 零位移。
+    feet_air_time_weight: float = 0.0
+    #: 步态节律目标（单支撑/摆动相时长目标，秒）。
+    feet_air_time_threshold: float = 0.4
 
 
 @dataclass(frozen=True)
