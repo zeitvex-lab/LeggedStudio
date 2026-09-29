@@ -3,7 +3,7 @@
 ## 为什么只做静态层
 
 "能不能真装配出地形实体"需要 mjlab（训练栈）——那份检查在
-`adapters/mjlab/test_terrain_profiles.py`（用适配器 venv 跑，仓库纪律同
+`adapters/mjlab/test_terrain_profiles_assembly.py`（用适配器 venv 跑，仓库纪律同
 `adapters/mjlab/test_generic_task_env_smoke.py`）。本工具跑在**零依赖**环境（CI 的
 仓库 venv），负责那些不装训练栈也能判的事：
 
@@ -113,7 +113,7 @@ def main() -> int:
             print(f"  - {item}")
         return 1
     print(f"\n[terrains/static] 全部一致：{len({row[0] for row in report['rows']})} 档 × {len(terrain_profiles.FAMILIES)} 族"
-          "（装配层由 adapters/mjlab/test_terrain_profiles.py 用训练栈验）")
+          "（装配层由 adapters/mjlab/test_terrain_profiles_assembly.py 用训练栈验）")
     return 0
 
 

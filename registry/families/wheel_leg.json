@@ -82,10 +82,12 @@
         "stairs",
         "go2w_velocity_flat",
         "go2w_velocity_rough",
+        "go2w_velocity_legs_only",
+        "go2w_velocity_legs_only_omni",
         "Unitree-M20-DreamWaQ-Rough"
       ],
       "task_variants_ref": "registry/skills/velocity_base.json#tasks",
-      "evidence": "2026-09-24 族内全员真跑冒烟通过（4/4）：`python tools/validate_training_smoke.py --robot <id> --profile <velocity 档>` —— m20-velocity / b2w-velocity / go2w-flat / zex-w-flat 各 1 ok。",
+      "evidence": "2026-09-24 族内全员真跑冒烟通过（4/4）：`python tools/validate_training_smoke.py --robot <id> --profile <velocity 档>` —— m20-velocity / b2w-velocity / go2w-flat / zex-w-flat 各 1 ok。2026-09-29 追加：go2w-flat-legs-only / go2w-flat-legs-only-omni 两档 vendored 补登，16×5 训练冒烟各 1 ok（workspace/validation/go2w-legs-only-smoke.json / go2w-legs-omni-smoke.json）。",
       "note": "M20 的 DreamWaQ 与 zex-w 的 crawl 档同归此技能（同技能的算法/步态变体，不另立技能类）。"
     },
     {

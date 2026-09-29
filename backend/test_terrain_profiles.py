@@ -2,7 +2,7 @@
 
 守：真仓静态审计通过；未知档 fail-closed 且列出可用档；未知族报错；`family_kit` 档必须
 指明族；反例注入（未知 kind / family_kit refs 指向不存在的模块）逐条判红。
-**装配层**（ready 必须真能装、missing 必须真装不出）在 `adapters/mjlab/test_terrain_profiles.py`。
+**装配层**（ready 必须真能装、missing 必须真装不出）在 `adapters/mjlab/test_terrain_profiles_assembly.py`。
 """
 
 from __future__ import annotations

@@ -164,7 +164,33 @@
       "source": "rl_sar policy/go2w/robot_lab（Apache-2.0，社区 IsaacLab 系训练基准）",
       "contract": {
         "observation_kind": "go2w_rl_sdk_57",
-        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_pos",
+            "scale": "@contract",
+            "zero_velocity_joints": true
+          },
+          {
+            "source": "joint_vel",
+            "scale": "@contract"
+          },
+          {
+            "source": "action"
+          }
+        ],
         "obs_dim": 57,
         "action_dim": 16,
         "history_len": 1,
@@ -287,7 +313,33 @@
       "source": "LeggedSkillDeploy policy/issacgym/go2w/go2w_himloco（第三方，无 LICENSE；仅内部研究）——对应 HIMLoco 训练工程",
       "contract": {
         "observation_kind": "go2w_himloco_57",
-        "observation_layout": [{"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
+        "observation_layout": [
+          {
+            "source": "cmd",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "ang_vel",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "joint_pos",
+            "scale": "@contract",
+            "zero_velocity_joints": true
+          },
+          {
+            "source": "joint_vel",
+            "scale": "@contract"
+          },
+          {
+            "source": "action"
+          }
+        ],
         "obs_dim": 57,
         "action_dim": 16,
         "history_len": 6,
@@ -452,7 +504,33 @@
       "contract": {
         "steady_height_policy": "self_stability",
         "observation_kind": "go2w_himloco_57",
-        "observation_layout": [{"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
+        "observation_layout": [
+          {
+            "source": "cmd",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "ang_vel",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "joint_pos",
+            "scale": "@contract",
+            "zero_velocity_joints": true
+          },
+          {
+            "source": "joint_vel",
+            "scale": "@contract"
+          },
+          {
+            "source": "action"
+          }
+        ],
         "obs_dim": 57,
         "action_dim": 16,
         "history_len": 6,
@@ -616,7 +694,33 @@
       "source": "LeggedSkillDeploy policy/issacgym/go2w/go2w_himloco（第三方，无 LICENSE；仅内部研究）——对应 HIMLoco 训练工程",
       "contract": {
         "observation_kind": "go2w_himloco_57",
-        "observation_layout": [{"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
+        "observation_layout": [
+          {
+            "source": "cmd",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "ang_vel",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "joint_pos",
+            "scale": "@contract",
+            "zero_velocity_joints": true
+          },
+          {
+            "source": "joint_vel",
+            "scale": "@contract"
+          },
+          {
+            "source": "action"
+          }
+        ],
         "obs_dim": 57,
         "action_dim": 16,
         "history_len": 6,
@@ -781,7 +885,33 @@
       "contract": {
         "steady_height_policy": "self_stability",
         "observation_kind": "go2w_himloco_57",
-        "observation_layout": [{"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
+        "observation_layout": [
+          {
+            "source": "cmd",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "ang_vel",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "joint_pos",
+            "scale": "@contract",
+            "zero_velocity_joints": true
+          },
+          {
+            "source": "joint_vel",
+            "scale": "@contract"
+          },
+          {
+            "source": "action"
+          }
+        ],
         "obs_dim": 57,
         "action_dim": 16,
         "history_len": 6,
@@ -954,11 +1084,160 @@
         "observation_kind": "unknown",
         "obs_dim": 57,
         "action_dim": 16,
-        "observation_layout": [{"source": "ang_vel", "width": 3}, {"source": "gravity"}, {"source": "cmd", "width": 3}, {"source": "joint_pos", "mode": "position", "width": 12}, {"source": "joint_vel", "mode": "position", "width": 12}, {"source": "joint_pos", "mode": "velocity", "width": 4}, {"source": "joint_vel", "mode": "velocity", "width": 4}, {"source": "action"}],
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3
+          },
+          {
+            "source": "joint_pos",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_vel",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_pos",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "joint_vel",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "action"
+          }
+        ],
         "action_scale": 0.5,
         "velocity_scale": 35.0
       },
       "note": "B8 第二批冒烟产物。**2026-09-23 补齐取证（v0.59.0）**：obs 布局自训练源 adapters/mjlab/kits/wheel_leg_kit/velocity_env_cfg.py::policy_terms + 包内 `training/source/go2w_velocity/env_cfgs.py`（同上逐项序）；动作口径同源（腿 0.5、轮 35.0，包级 wheel 缩放是 5.0）；ONNX 元数据默认姿态与包级逐值一致 ⇒ 不重复声明。**行为级实测**：无头验收 5 档命令 **2/5**（存活 5/5、默认门 4/5——唯一短板是**不跟踪**：站得住不走）。"
+    },
+    {
+      "id": "unitree_go2w-uf-1500",
+      "label": "统一框架 1024×1500（go2w velocity 全 dof，家族装配器产物）",
+      "obs_dim": 57,
+      "action_dim": 16,
+      "history_len": 1,
+      "path": "simulation/policies/unitree_go2w-uf-1500.onnx",
+      "sim_ready": true,
+      "provenance": {
+        "origin": "product-training",
+        "note": "wheel_leg_kit velocity 统一框架 1024×1500；布局=ONNX observation_names 八段自证（ang3/grav3/cmd3/腿pos12/腿vel12/轮pos4/轮vel4/action16）；轮速度缩放 35.0=契约 actuator_profile.by_role.wheel.action_scale；效果 motion 0.063（未收敛，如实登记）"
+      },
+      "contract": {
+        "obs_dim": 57,
+        "action_dim": 16,
+        "history_len": 1,
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3
+          },
+          {
+            "source": "joint_pos",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_vel",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_pos",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "joint_vel",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "action"
+          }
+        ],
+        "action_joint_order": [
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "FL_wheel_joint",
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FR_wheel_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint",
+          "RL_wheel_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RR_wheel_joint"
+        ],
+        "default_joint_angles": {
+          "FL_hip_joint": -0.1,
+          "FL_thigh_joint": 0.9,
+          "FL_calf_joint": -1.8,
+          "FL_wheel_joint": 0.0,
+          "FR_hip_joint": 0.1,
+          "FR_thigh_joint": 0.9,
+          "FR_calf_joint": -1.8,
+          "FR_wheel_joint": 0.0,
+          "RL_hip_joint": -0.1,
+          "RL_thigh_joint": 0.9,
+          "RL_calf_joint": -1.8,
+          "RL_wheel_joint": 0.0,
+          "RR_hip_joint": 0.1,
+          "RR_thigh_joint": 0.9,
+          "RR_calf_joint": -1.8,
+          "RR_wheel_joint": 0.0
+        },
+        "action_scale": 0.5,
+        "control": {
+          "velocity_scale": 35.0
+        },
+        "command_dims": 3,
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "command_ranges": [
+          [
+            -0.5,
+            1.0
+          ],
+          [
+            -0.5,
+            0.5
+          ],
+          [
+            -1.0,
+            1.0
+          ]
+        ]
+      }
     }
   ],
   "default_map": "flat",

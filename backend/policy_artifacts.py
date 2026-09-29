@@ -73,6 +73,25 @@ _OBSERVATION_KIND_BY_SHAPE: dict[tuple[str, int], str] = {
     ("unitree_b2", 48): "go2_mjlab_actor_48",
 }
 
+#: 观测布局的**声明式盖章**（与评测器 `_frame_*` 帧构建器逐段同序）：入库时随
+#: contract 一并写进条目，浏览器 sim2sim 的 `applyLayoutSpec`（与 Python
+#: frame_from_spec 同词汇）即可装配观测——没有布局声明时浏览器端没有对应
+#: observation_kind 的 JS builder，会 fail-closed 拒跑（2026-09-29 实测：全部自产
+#: 产物因此"完全不可用"）。段序以评测器帧函数为唯一真值：
+#: go2_mjlab_actor_48 = lin_vel(3), ang_vel(3), gravity(3), q_rel(12), dq(12),
+#: action(12), cmd(3)，各段无缩放（mjlab ObservationTermCfg 默认 1.0）。
+_OBSERVATION_LAYOUT_BY_KIND: dict[str, list[dict[str, Any]]] = {
+    "go2_mjlab_actor_48": [
+        {"source": "base_lin_vel"},
+        {"source": "ang_vel", "width": 3},
+        {"source": "gravity"},
+        {"source": "joint_pos", "width": 12},
+        {"source": "joint_vel", "width": 12},
+        {"source": "action", "width": 12},
+        {"source": "cmd", "width": 3},
+    ],
+}
+
 
 def onnx_obs_dim(onnx_path: Path | str) -> int | None:
     """**ONNX 图输入的实测单帧宽度**（worker 导出时刻的产物自证真值，B44）。
@@ -985,6 +1004,13 @@ def promote_from_run(
             defaults = meta.get("default_joint_pos")
             if defaults and joint_order and len(defaults) == len(joint_order):
                 contract_block["default_joint_angles"] = dict(zip(joint_order, defaults))
+            # 观测布局盖章：kind 命中已取证布局表即随契约下发（浏览器端可跑的前提，
+            # 见 _OBSERVATION_LAYOUT_BY_KIND 注）。已有布局不覆盖（以产物自带为准）。
+            _stamped_layout = _OBSERVATION_LAYOUT_BY_KIND.get(
+                str(deploy.get("observation_kind") or "")
+            )
+            if _stamped_layout is not None and not contract_block.get("observation_layout"):
+                contract_block["observation_layout"] = [dict(seg) for seg in _stamped_layout]
             scales = meta.get("action_scale")
             if scales and joint_order and len(scales) == len(joint_order):
                 contract_block["action_scale_by_joint"] = dict(zip(joint_order, scales))

@@ -38,7 +38,13 @@ ROOT = Path(__file__).resolve().parents[1]
 ROBOTS = ROOT / "assets" / "robots"
 
 #: 已知 external 白名单：这些顶层模块是安装的第三方依赖（不在任何包的 source_root 下）。
-KNOWN_EXTERNAL_MODULES = {"mjlab.tasks.velocity.rl", "mjlab.rl"}
+KNOWN_EXTERNAL_MODULES = {
+    "mjlab.tasks.velocity.rl",
+    "mjlab.rl",
+    # 族 Kit 的四足 runner 出口（第一方，直连 Kit 不经包内 shim；
+    # 2026-09-29 归口：四足族档案 entrypoint 直接指向 Kit 模块，与轮足族同款）
+    "adapters.mjlab.kits.quadruped_kit.skills.velocity.runner",
+}
 
 #: **族 Kit shim 白名单**：这些 `runner_class` 指向包内薄转出模块，而该模块的再导出链
 #: 走出 source_root 进入族 Kit（`adapters.mjlab.kits.*`）——静态审计按"顶层段不在

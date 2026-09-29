@@ -24,7 +24,7 @@
   "morphology_ref": {
     "id": "zex-w",
     "path": "assets/robots/zex-w/contract.json",
-    "sha256": "d91019681daf18090f282e027070686ff0a83741faf67c6aa56e6a74cacd377f"
+    "sha256": "a4b25645fb46c10bedfcd383c6c776106bd4d8882b488bfeb77b90ba83aa6b45"
   },
   "skill_ref": {
     "id": "velocity_base",

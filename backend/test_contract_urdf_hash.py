@@ -47,7 +47,9 @@ ROBOTS = ROOT / "assets" / "robots"
 #: 当前**声明了非空** ``urdf.hash`` 的包（2026-09-16 重签后实测）。
 #: 其余 12 包是空串 = validator 设计性跳过（不算缺口）。新声明一个哈希意味着
 #: "这份模型从此被锁住"，是有意动作：签完请把它加进本集合。
-DECLARED_HASH_ROBOTS = frozenset({"unitree_go2w", "zex-w"})
+DECLARED_HASH_ROBOTS = frozenset(
+    {"unitree_go2w", "zex-w", "unitree_go2", "deeprobotics_lite3"}
+)
 
 
 def _builtin_robots() -> list[str]:
