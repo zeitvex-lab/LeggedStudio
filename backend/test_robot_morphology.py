@@ -62,7 +62,11 @@ class MorphologyViewTest(unittest.TestCase):
 
     def test_morphology_view_matches_on_disk_contract(self):
         # 视图必须等于包内 contract.json 的 morphology 块（不另造真值）。
+        # 口径 = 内置包（v3 契约带 morphology 块）；workspace 导入包只有 v2 契约
+        # （无 morphology 块，视图由关节谱派生，随用户导入增减），不在本测口径内。
         for robot_id, record in self.records.items():
+            if record.get("source") != "bundled":
+                continue
             with self.subTest(robot=robot_id):
                 disk = json.loads(
                     (ROBOTS / robot_id / "contract.json").read_text(encoding="utf-8-sig")
