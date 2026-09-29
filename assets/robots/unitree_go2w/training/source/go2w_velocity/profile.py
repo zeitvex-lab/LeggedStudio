@@ -120,6 +120,9 @@ LEGS_ONLY = replace(
         base_height_std=0.08,
         low_base_height=0.18,
         body_friction_range=(0.8, 1.8),
+        # 学步正激励（2026-09-30 杠杆②，go2 G1 修复同值 +1.0）：1024×2000 对照实证
+        # 无此项时 reward+12 全变站稳、vx 零位移——腿末端=轮，"步态"=轮接触节律。
+        feet_air_time_weight=1.0,
     ),
 )
 
