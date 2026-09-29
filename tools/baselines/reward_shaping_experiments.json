@@ -941,6 +941,28 @@
         "m20/zex-w/b2w 同法重训",
         "评测链与训练链行为差异分叉点（次优先）"
       ]
+    },
+    "go2w_traversal_first_real_20260929": {
+      "milestone": "**盲狗越障首次真实训练+验收闭环**（地面修复后）：1024×750 训练 reward 升至 **+41.19**（正收益，learning）后中途 actor obs NaN 退出（fail-closed 正确拦截）；checkpoint 749 已存并过验收器",
+      "acceptance": {
+        "progress_env_ratio": 0.125,
+        "min_required": 0.5,
+        "progress_mean_m": 2.637,
+        "progress_max_m": 6.816,
+        "terrain_level_mean": 1.047,
+        "verdict": "fail（12.5% 环境过 4m 晋级线）"
+      },
+      "reading": "max 6.8m > 晋级线 4.0m ⇒ 有环境真越障；均值 2.6m + ratio 0.125 ⇒ 整体早期。对照：这是轮足越障**史上第一个真物理数据点**（修复前产物全为假物理自由落体）",
+      "nan_issue": "训练中途 actor obs NaN（check_nan fail-closed 拦截，训练进程如实 failed）——嫌疑：① 障碍课程地形边缘高度扫描采样出界 ② 轮速 × 障碍碰撞数值爆炸。修复后可续训/加长",
+      "next": [
+        "NaN 定位（逐 obs 项插桩）→ 修复 → 长训 1500",
+        "重过验收 → 登 effect_criterion traversal 行"
+      ],
+      "evidence": [
+        "workspace/validation/quality-go2w-traversal-1024x750-v2.json",
+        "workspace/validation/go2w-traversal-model749.pt",
+        "validate_traversal_progress 输出（verdict fail, 数据齐全）"
+      ]
     }
   }
 }
