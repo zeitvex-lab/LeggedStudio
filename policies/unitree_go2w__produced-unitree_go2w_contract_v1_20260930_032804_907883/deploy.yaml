@@ -1,0 +1,56 @@
+robot: unitree_go2w
+policy_id: unitree_go2w__produced-unitree_go2w_contract_v1_20260930_032804_907883
+kind: produced
+run_id: unitree_go2w_contract_v1_20260930_032804_907883
+seed: 7
+source_onnx: product-training（训练→导出→入库链路自产）
+obs_dim: 53
+obs_dim_source: onnx
+observation_kind: go2w_mjlab_legs_53
+action_dim: 12
+action_dim_source: onnx
+action_joint_order:
+  - FR_hip_joint
+  - FR_thigh_joint
+  - FR_calf_joint
+  - FL_hip_joint
+  - FL_thigh_joint
+  - FL_calf_joint
+  - RR_hip_joint
+  - RR_thigh_joint
+  - RR_calf_joint
+  - RL_hip_joint
+  - RL_thigh_joint
+  - RL_calf_joint
+trained_iterations: 2000
+deploy_metadata:
+  default_joint_pos:
+    - -0.10000000149011612
+    - 0.8999999761581421
+    - -1.7999999523162842
+    - 0.0
+    - 0.10000000149011612
+    - 0.8999999761581421
+    - -1.7999999523162842
+    - 0.0
+    - -0.10000000149011612
+    - 0.8999999761581421
+    - -1.7999999523162842
+    - 0.0
+    - 0.10000000149011612
+    - 0.8999999761581421
+    - -1.7999999523162842
+    - 0.0
+  joint_names:
+    - FR_hip_joint
+    - FR_thigh_joint
+    - FR_calf_joint
+    - FL_hip_joint
+    - FL_thigh_joint
+    - FL_calf_joint
+    - RR_hip_joint
+    - RR_thigh_joint
+    - RR_calf_joint
+    - RL_hip_joint
+    - RL_thigh_joint
+    - RL_calf_joint
