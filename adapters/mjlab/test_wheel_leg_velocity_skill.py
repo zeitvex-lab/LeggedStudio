@@ -441,8 +441,10 @@ class FamilyVelocityConfigTest(unittest.TestCase):
             self.assertAlmostEqual(
                 float(override), legs_only.rewards["track_angular_velocity"].weight)
         else:
+            # 未覆盖 = 族基座值 1.0（mjlab velocity 基座默认；rough 档的 2.5 是
+            # economics 对齐在**非纯腿分支**覆盖的，纯腿分支不吃那份覆盖）
             self.assertAlmostEqual(
-                2.5, legs_only.rewards["track_linear_velocity"].weight)
+                1.0, legs_only.rewards["track_linear_velocity"].weight)
 
     def test_wheel_numbers_and_profile_land_where_source_had_them(self):
         cfg = self._variant("rough", self.profiles.ROUGH)
