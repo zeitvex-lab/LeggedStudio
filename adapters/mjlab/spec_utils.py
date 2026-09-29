@@ -47,6 +47,7 @@ class NormalizeReport:
     sensors_deleted: list[str] = field(default_factory=list)
     actuators_deleted: int = 0
     keys_removed: list[str] = field(default_factory=list)
+    collision_geoms_named: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -54,6 +55,7 @@ class NormalizeReport:
             "sensors_deleted": list(self.sensors_deleted),
             "actuators_deleted": self.actuators_deleted,
             "keys_removed": list(self.keys_removed),
+            "collision_geoms_named": list(self.collision_geoms_named),
         }
 
 
@@ -100,6 +102,38 @@ def _drop_ctrl_keys(spec: Any, report: NormalizeReport) -> None:
         spec.delete(key)
 
 
+def name_unnamed_collision_geoms(spec: Any) -> list[str]:
+    """给无 name 且**有碰撞位**（contype/conaffinity 非零）的 geom 补族约定名
+    ``<body>_collision``（重名加序号；轮体名自带 wheel → 族 CollisionCfg 的
+    ``.*(wheel|foot)_collision$`` condim 覆盖可命中）。视觉 geom（碰撞位全零）不动。
+
+    为什么必须有这步：kit 的 ``CollisionCfg(geom_names_expr=(".*_collision",))`` 按**名字**
+    匹配碰撞几何——轮足四台的上游训练 MJCF（``xmls/*.xml``）碰撞 geom 全部未命名
+    （族审计基线 geom=0/53 实证），匹配不到 ⇒ 装配出的实体**零碰撞几何** ⇒ 训练里
+    机器人自由落体（go2w/b2w 实证：出生即穿地，z 5 秒落 −120 m）。四足机型的
+    训练 MJCF 已按族约定具名，本步对它们是 no-op。
+    """
+
+    named: list[str] = []
+    taken = {geom.name for geom in spec.geoms if geom.name}
+    for body in spec.bodies:
+        for geom in body.geoms:
+            if geom.name:
+                continue
+            if not (int(geom.contype) or int(geom.conaffinity)):
+                continue  # 视觉 geom：不参与碰撞，不具名
+            base = f"{body.name}_collision"
+            name = base
+            suffix = 0
+            while name in taken:
+                suffix += 1
+                name = f"{base}_{suffix}"
+            geom.name = name
+            taken.add(name)
+            named.append(name)
+    return named
+
+
 def normalize_spec(
     spec: Any, *, strip_actuators: bool = False, sensor_policy: str = "keep",
     keep_sensors: Sequence[str] | None = None,
@@ -120,6 +154,7 @@ def normalize_spec(
             report.actuators_deleted += 1
         if report.actuators_deleted:
             _drop_ctrl_keys(spec, report)
+    report.collision_geoms_named = name_unnamed_collision_geoms(spec)
     report.sensors_named = name_unnamed_sensors(spec)
     if sensor_policy == "training_only":
         keep = set(keep_sensors if keep_sensors is not None else KEEP_SENSORS)
@@ -146,6 +181,7 @@ def normalize_for_training(spec: Any, *, strip_actuators: bool = False) -> Norma
 __all__ = [
     "KEEP_SENSORS",
     "NormalizeReport",
+    "name_unnamed_collision_geoms",
     "name_unnamed_sensors",
     "normalize_for_training",
     "normalize_spec",
