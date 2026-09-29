@@ -64,14 +64,16 @@ def make_velocity_env_cfg(
   # Observations
   ##
 
+  # 观测出口清洗（上游 rc_mjlab 模式）：终止瞬间的 NaN/Inf 物理态在进策略前清成
+  # 有限值——该 episode 随即被摘除，不会触发 rsl_rl check_nan 整批训练崩溃。
   policy_terms = {
     "base_ang_vel": ObservationTermCfg(
-      func=mdp.builtin_sensor,
+      func=lambda env, sensor_name: mdp.finite_obs(mdp.builtin_sensor(env, sensor_name=sensor_name)),
       params={"sensor_name": "robot/imu_ang_vel"},
       noise=Unoise(n_min=-0.2, n_max=0.2),
     ),
     "projected_gravity": ObservationTermCfg(
-      func=mdp.projected_gravity,
+      func=lambda env: mdp.finite_obs(mdp.projected_gravity(env)),
       noise=Unoise(n_min=-0.05, n_max=0.05),
     ),
     "command": ObservationTermCfg(
@@ -79,11 +81,11 @@ def make_velocity_env_cfg(
       params={"command_name": "twist"},
     ),
     "joint_pos": ObservationTermCfg(
-      func=mdp.joint_pos_rel,
+      func=lambda env, asset_cfg: mdp.finite_obs(mdp.joint_pos_rel(env, asset_cfg=asset_cfg)),
       noise=Unoise(n_min=-0.01, n_max=0.01),
     ),
     "joint_vel": ObservationTermCfg(
-      func=mdp.joint_vel_rel,
+      func=lambda env, asset_cfg: mdp.finite_obs(mdp.joint_vel_rel(env, asset_cfg=asset_cfg)),
       noise=Unoise(n_min=-1.5, n_max=1.5),
     ),
     "actions": ObservationTermCfg(func=mdp.last_action),

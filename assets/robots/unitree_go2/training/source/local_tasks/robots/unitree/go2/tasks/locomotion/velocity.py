@@ -57,12 +57,12 @@ from .binding import GO2_VELOCITY
 #: F1/F2 证据链（reward_shaping_experiments#v3）：预算与 stand_still 单变量都不成立，任务结构才是根因。
 VELOCITY = kit_velocity_profile.VelocityProfile(
     dof_power_weight=None,
-    stand_still_weight=None,
-    air_time_weight=1.0,
-    foot_clearance_weight=0.0,
-    foot_swing_height_weight=0.0,
-    foot_slip_weight=0.0,
-    action_rate_weight=-0.01,
+    
+    air_time_weight=1.0,  # G1 对齐：上游学走主正激励（字段名沿用现有 wire）
+    foot_clearance_override=0.0,
+    foot_swing_height_override=0.0,
+    foot_slip_override=0.0,
+    action_rate_override=-0.01,
     only_positive_rewards=True,
 )
 #: 【量纲校准轮结论（2026-09-28，E1/E2 已回滚）】-0.01/-0.005/-0.001 三档在当前标准模型上

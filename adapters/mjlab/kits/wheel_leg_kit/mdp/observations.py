@@ -20,6 +20,22 @@ if TYPE_CHECKING:
 _DEFAULT_ASSET_CFG = SceneEntityCfg("robot")
 
 
+
+def finite_obs(value: torch.Tensor, nan: float = 0.0, posinf: float = 0.0,
+               neginf: float = 0.0) -> torch.Tensor:
+  """Keep obs/metric reads finite when a terminating env has invalid physics state.
+
+  上游 rc_mjlab mdp/rewards.py::_finite 同款：nan_to_num 出口清洗——物理在某个
+  终止瞬间出现 inf/NaN（轮速 × 障碍深穿透等）时，清洗成有限值，本 episode 随即
+  被 termination 摘除，不会污染策略输入（rsl_rl check_nan 不再误伤整批训练）。
+  """
+
+  import torch as _torch
+
+  return _torch.nan_to_num(value, nan=nan, posinf=posinf, neginf=neginf)
+
+
+
 def foot_height(
   env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG
 ) -> torch.Tensor:
