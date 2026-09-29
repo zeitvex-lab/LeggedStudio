@@ -5602,6 +5602,17 @@ function resetTrail() {
 // ---------------------------------------------------------------------------
 
 function normalizeCommandRanges(value) {
+  // 契约规范形是**字典** {lin_vel_x, lin_vel_y, ang_vel_z: [min,max]}——Python 评测契约
+  // PackageContract 按键读取（2026-09-29 收口，一处形状两端口共用）；数组形
+  // （[[min,max],...] 或扁平 [min0,max0,...]）是历史兼容，按 vx/vy/ωz 轴序解释。
+  if (value && !Array.isArray(value) && typeof value === "object") {
+    const keyed = [value.lin_vel_x, value.lin_vel_y, value.ang_vel_z];
+    if (keyed.every((pair) => Array.isArray(pair) && pair.length === 2
+      && Number.isFinite(Number(pair[0])) && Number.isFinite(Number(pair[1])))) {
+      return keyed.map((pair) => [Number(pair[0]), Number(pair[1])]);
+    }
+    return null;
+  }
   if (!Array.isArray(value) || !value.length) return null;
   let pairs = value;
   // 兼容扁平布局 [min0, max0, min1, max1, ...]

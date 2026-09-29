@@ -8,6 +8,8 @@ from unittest import mock
 from backend.robot_presets import list_robot_presets
 from backend.package_records import validate_training_profile
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
 
 class RobotPresetTests(unittest.TestCase):
     def test_go2_and_zex_w_are_versioned_training_presets(self):
@@ -20,7 +22,10 @@ class RobotPresetTests(unittest.TestCase):
 
     def test_every_preset_package_is_complete_not_a_placeholder(self):
         """通用机制重锚（原 microduck 专项用例已随该包出库删除）：preset 的
-        robot_package 必须指向真实在盘的 model/robot.xml，占位包不算完整包。"""
+        robot_package 必须指向真实在盘的 model/robot.xml，占位包不算完整包。
+
+        内置 8 包钉死；`imported_*`（workspace 运行期导入，随用户操作增减）
+        不进这份名单，但同样要过占位检查。"""
         presets = list_robot_presets()
         self.assertEqual(
             [
@@ -33,9 +38,21 @@ class RobotPresetTests(unittest.TestCase):
                 "unitree_go2w",
                 "zex-w",
             ],
-            sorted(item["robot_id"] for item in presets),
+            sorted(
+                item["robot_id"]
+                for item in presets
+                if not str(item["robot_id"]).startswith("imported_")
+            ),
         )
         for item in presets:
+            if str(item["robot_id"]).startswith("imported_"):
+                # 导入包不保证内置布局（model/robot.xml）：真值锚 record 自带的 asset_path。
+                asset = PROJECT_ROOT / str(item.get("asset_path") or "")
+                self.assertTrue(
+                    asset.exists(),
+                    f"{item['robot_id']} 的 asset_path 未指向真实模型文件",
+                )
+                continue
             root = Path(item["robot_package"]["package_root"])
             self.assertTrue(
                 root.joinpath("model", "robot.xml").exists(),
