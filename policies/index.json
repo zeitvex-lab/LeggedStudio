@@ -1764,11 +1764,113 @@
       "run_id": "unitree_go2w_contract_v1_20260930_021939_678608",
       "schema": "policy-artifact-1.0",
       "source_onnx": "simulation/policies/unitree_go2w-trained-20260930-021939.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_032710_257870",
+      "contract": {
+        "action_dim": 12,
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ],
+        "obs_dim": 53,
+        "observation_kind": "go2w_mjlab_legs_53"
+      },
+      "contract_digest": "4e8a9f9bfa2f7c584cdff6c026eb1bfc59e6c7a748395587f1be877b500b24cf",
+      "installation": {
+        "package_path": "simulation/policies/unitree_go2w-trained-20260930-032710.onnx",
+        "policy_id": "unitree_go2w-trained-20260930-032710",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2w__produced-unitree_go2w_contract_v1_20260930_032710_257870\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/unitree_go2w-trained-20260930-032710.onnx",
+        "policy_id": "unitree_go2w-trained-20260930-032710",
+        "repo_path": "assets/robots/unitree_go2w/simulation/policies/unitree_go2w-trained-20260930-032710.onnx",
+        "robot": "unitree_go2w"
+      },
+      "kind": "produced",
+      "obs_dim": 53,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2w_mjlab_legs_53",
+      "onnx_bytes": 776409,
+      "onnx_sha256": "a78cf9a7df8ede8e585e9203546da23105aab42017bc39695ce08883014d89b9",
+      "pack_ref": {
+        "id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_032710_257870",
+        "path": "simulation/policies/unitree_go2w-trained-20260930-032710.onnx",
+        "sha256": "a78cf9a7df8ede8e585e9203546da23105aab42017bc39695ce08883014d89b9",
+        "version": "unitree_go2w-trained-20260930-032710"
+      },
+      "policy_id": "unitree_go2w-trained-20260930-032710",
+      "robot": "unitree_go2w",
+      "run_id": "unitree_go2w_contract_v1_20260930_032710_257870",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "simulation/policies/unitree_go2w-trained-20260930-032710.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_032804_907883",
+      "contract": {
+        "action_dim": 12,
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ],
+        "obs_dim": 53,
+        "observation_kind": "go2w_mjlab_legs_53"
+      },
+      "contract_digest": "4e8a9f9bfa2f7c584cdff6c026eb1bfc59e6c7a748395587f1be877b500b24cf",
+      "installation": {
+        "package_path": "simulation/policies/unitree_go2w-trained-20260930-032804.onnx",
+        "policy_id": "unitree_go2w-trained-20260930-032804",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2w__produced-unitree_go2w_contract_v1_20260930_032804_907883\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/unitree_go2w-trained-20260930-032804.onnx",
+        "policy_id": "unitree_go2w-trained-20260930-032804",
+        "repo_path": "assets/robots/unitree_go2w/simulation/policies/unitree_go2w-trained-20260930-032804.onnx",
+        "robot": "unitree_go2w"
+      },
+      "kind": "produced",
+      "obs_dim": 53,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2w_mjlab_legs_53",
+      "onnx_bytes": 776409,
+      "onnx_sha256": "7fe85738564bcbbf65243adb7ea1234766113deafc126f1f83338c5c48ecb1b9",
+      "pack_ref": {
+        "id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_032804_907883",
+        "path": "simulation/policies/unitree_go2w-trained-20260930-032804.onnx",
+        "sha256": "7fe85738564bcbbf65243adb7ea1234766113deafc126f1f83338c5c48ecb1b9",
+        "version": "unitree_go2w-trained-20260930-032804"
+      },
+      "policy_id": "unitree_go2w-trained-20260930-032804",
+      "robot": "unitree_go2w",
+      "run_id": "unitree_go2w_contract_v1_20260930_032804_907883",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "simulation/policies/unitree_go2w-trained-20260930-032804.onnx"
     }
   ],
   "blobs": "引用式：onnx 单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目在**安装进包之前**持真副本，安装后转为引用式（见 install_produced_policy）",
-  "count": 81,
-  "generated_at": "2026-09-29T18:47:35+00:00",
+  "count": 83,
+  "generated_at": "2026-09-29T19:53:49+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"
 }
