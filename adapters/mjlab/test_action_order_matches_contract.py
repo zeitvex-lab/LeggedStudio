@@ -68,11 +68,33 @@ def _action_interface_order(cfg) -> tuple[list[str], bool]:
     return order, literal
 
 
+def _is_ordered_subsequence(sub: list[str], full: list[str]) -> bool:
+    """`sub` 是否为 `full` 的**保序子序列**（可跳过、不可换序）。"""
+    cursor = 0
+    for item in sub:
+        while cursor < len(full) and full[cursor] != item:
+            cursor += 1
+        if cursor == len(full):
+            return False
+        cursor += 1
+    return True
+
+
 #: 已登记的**动作序偏离**（必须写清为什么、以及谁来裁决）。空 = 全族与契约一致。
 #: 登记了却已一致也判红（防登记表变谎言），新出现的偏离照样判红。
 #: 2026-09-24：go2w 一条曾登记于此，后查明是**本测试比错了参照字段**（`joints.actuated` ≠
 #: `action.joint_order`）——参照已修正，登记随之撤销。
 KNOWN_ORDER_DEVIATIONS: dict[str, str] = {}
+
+#: 已登记的**有意动作子集**（全字面、顺序与契约一致、但比契约少关节）：任务变体
+#: 有意收窄动作面（如 go2w legs-only 去掉轮速度动作），接口序仍是契约序的**保序
+#: 子序列**——序不变式本身没破，破的只是"面大小 = 契约"这一条。登记制与偏离表
+#: 同款：写清为什么；登记了却与契约全等也判红（防登记表变谎言）；未登记的子集
+#: 照样判红（fail-closed 不放行）。
+KNOWN_ACTION_SUBSETS: dict[str, str] = {
+    "go2w-flat-legs-only": "上游 go2w-flat-legs 变体：纯腿步行，动作面有意去掉 4 轮速度动作（vendored 逐项 diff 2026-09-29）",
+    "go2w-flat-legs-only-omni": "上游 go2w-flat-legs-omni 变体：纯腿全向，同上去掉轮速度动作",
+}
 
 
 class ActionOrderInvariantTest(unittest.TestCase):
@@ -88,6 +110,7 @@ class ActionOrderInvariantTest(unittest.TestCase):
         unresolved: list[str] = []
         partial: list[str] = []
         registered: list[str] = []
+        subsets: list[str] = []
         checked = 0
         for robot, profile_path in _profiles():
             record = json.loads(profile_path.read_text(encoding="utf-8-sig"))
@@ -112,11 +135,27 @@ class ActionOrderInvariantTest(unittest.TestCase):
             contract = _contract_order(robot)
             if literal:
                 checked += 1
+                profile_id = str(record.get("profile_id"))
+                if interface == contract and profile_id in KNOWN_ACTION_SUBSETS:
+                    problems.append(f"{profile_id}: 登记了有意动作子集，但实测与契约全等——登记该撤掉")
+                    continue
                 if interface != contract:
-                    problems.append(
-                        f"{record.get('profile_id')}: 动作接口序与契约不符\n"
-                        f"      训练: {interface}\n      契约: {contract}"
-                    )
+                    if (
+                        profile_id in KNOWN_ACTION_SUBSETS
+                        and _is_ordered_subsequence(interface, contract)
+                    ):
+                        subsets.append(profile_id)  # 有意动作面收窄，序未破——放行
+                    elif profile_id in KNOWN_ACTION_SUBSETS:
+                        problems.append(
+                            f"{profile_id}: 登记了有意动作子集，但接口序不是契约序的保序子序列\n"
+                            f"      训练: {interface}\n      契约: {contract}"
+                        )
+                    else:
+                        problems.append(
+                            f"{profile_id}: 动作接口序与契约不符（若是任务有意收窄动作面，"
+                            f"请在 KNOWN_ACTION_SUBSETS 登记后再放行）\n"
+                            f"      训练: {interface}\n      契约: {contract}"
+                        )
                 continue
             # 只有部分字面（其余是正则）：字面项必须是契约序的**子序列**——
             # 这条能抓住 go2w 那类"腿序写反"（FR,FL,RR,RL 不是契约 FL,FR,RL,RR 的子序列）。
@@ -140,7 +179,8 @@ class ActionOrderInvariantTest(unittest.TestCase):
         for profile_id in KNOWN_ORDER_DEVIATIONS:
             if profile_id in partial and profile_id not in registered:
                 problems.append(f"{profile_id}: 登记了动作序偏离，但实测与契约一致——登记该撤掉")
-        print(f"[action-order] 全字面序核对 {checked} 档；部分字面（子序列检查）{len(partial)} 档"
+        print(f"[action-order] 全字面序核对 {checked} 档（其中有意动作子集 {len(subsets)} 档：{subsets}）；"
+              f"部分字面（子序列检查）{len(partial)} 档"
               f"（其中已登记偏离 {len(registered)} 档：{registered}）；未核（全正则）{len(unresolved)} 档")
         self.assertEqual([], problems, "动作序不变式判红：\n" + "\n".join(problems))
         self.assertGreaterEqual(checked + len(partial), 3, f"实际只核对了 {checked} 个档案，覆盖不足")

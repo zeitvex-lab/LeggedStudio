@@ -34,7 +34,11 @@ GPU_MODE_CPU_ONLY = "cpu-only"  # 无 GPU，但训练栈可用 → 显式 CPU �
 GPU_MODE_UNAVAILABLE = "unavailable"  # 训练栈不可用 → 查环境供应，别硬跑
 
 
-def gpu_probe(*, torch_probe: Callable[[], dict[str, Any]] | None = None) -> dict[str, Any]:
+def gpu_probe(
+    *,
+    torch_probe: Callable[[], dict[str, Any]] | None = None,
+    smi_probe: Callable[[], tuple[list[dict[str, Any]], str | None]] | None = None,
+) -> dict[str, Any]:
     """探测计算设备形态，返回三态 ``mode``（cuda / cpu-only / unavailable）。
 
     只测一次、两条证据：
@@ -44,32 +48,14 @@ def gpu_probe(*, torch_probe: Callable[[], dict[str, Any]] | None = None) -> dic
        没有这条，CPU-only 主机与"压根没供应训练栈"的主机会给出同一个结论，
        排障时必须靠猜。
 
+    两条证据都可注入（``smi_probe`` 返回 ``(devices, reason)``、``torch_probe``
+    返回训练栈探测 dict）——单测在三态间切换不依赖宿主机有没有卡。
+
     返回结构在保留历史布尔 ``available``（= ``mode == "cuda"``）与 ``devices`` 的
     同时，新增 ``mode`` / ``cpu_ready`` / ``action``（中文处置），让调用方不必再
     自己拼装结论。
     """
-    executable = shutil.which("nvidia-smi")
-    gpu_smi_reason: str | None = None
-    devices: list[dict[str, Any]] = []
-    if executable is None:
-        gpu_smi_reason = "nvidia-smi not found"
-    else:
-        command = [
-            executable,
-            "--query-gpu=name,memory.total,driver_version",
-            "--format=csv,noheader,nounits",
-        ]
-        try:
-            result = subprocess.run(command, capture_output=True, text=True, timeout=10, check=True)
-        except (OSError, subprocess.SubprocessError) as exc:
-            gpu_smi_reason = str(exc)
-        else:
-            for line in result.stdout.splitlines():
-                fields = [field.strip() for field in line.split(",")]
-                if len(fields) == 3:
-                    devices.append({"name": fields[0], "memory_mib": fields[1], "driver": fields[2]})
-            if not devices:
-                gpu_smi_reason = "nvidia-smi returned no devices"
+    devices, gpu_smi_reason = (smi_probe or _default_smi_probe)()
 
     # 训练栈可用性：决定 cpu-only 与 unavailable 的分界。
     stack = (torch_probe or _default_torch_probe)()
@@ -102,6 +88,30 @@ def gpu_probe(*, torch_probe: Callable[[], dict[str, Any]] | None = None) -> dic
         "action": action,
         "reason": gpu_smi_reason or (f"{len(devices)} device(s)" if devices else None),
     }
+
+
+def _default_smi_probe() -> tuple[list[dict[str, Any]], str | None]:
+    """真 nvidia-smi 探测（设备列表 + 失败原因）。测试经 ``smi_probe`` 注入替身。"""
+    executable = shutil.which("nvidia-smi")
+    if executable is None:
+        return [], "nvidia-smi not found"
+    command = [
+        executable,
+        "--query-gpu=name,memory.total,driver_version",
+        "--format=csv,noheader,nounits",
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=10, check=True)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return [], str(exc)
+    devices: list[dict[str, Any]] = []
+    for line in result.stdout.splitlines():
+        fields = [field.strip() for field in line.split(",")]
+        if len(fields) == 3:
+            devices.append({"name": fields[0], "memory_mib": fields[1], "driver": fields[2]})
+    if not devices:
+        return [], "nvidia-smi returned no devices"
+    return devices, None
 
 
 def _default_torch_probe() -> dict[str, Any]:

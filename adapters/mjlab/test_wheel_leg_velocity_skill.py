@@ -399,8 +399,12 @@ class FamilyVelocityConfigTest(unittest.TestCase):
         self.assertAlmostEqual(-3.5, omni.rewards["flat_orientation_l2"].weight)
         self.assertAlmostEqual(-0.1, omni.rewards["stand_still"].weight)
         self.assertNotIn("low_base_height", rough.terminations)
-        # 传感器：轮-地接触（名字与主匹配都从绑定/族约定派生）
-        self.assertEqual(["wheel_ground_contact"], [s.name for s in rough.scene.sensors])
+        # 传感器：轮-地 + 机身-地（名字与主匹配都从绑定/族约定派生；base 由 kit
+        # _apply_sensors 挂，供族基座终止项 base_ground_contact 消费——防翻滚拖行）
+        self.assertEqual(
+            ["wheel_ground_contact", "base_ground_contact"],
+            [s.name for s in rough.scene.sensors],
+        )
         self.assertEqual(self.binding.wheel_contact_pattern, rough.scene.sensors[0].primary.pattern)
 
     def test_wheel_numbers_and_profile_land_where_source_had_them(self):
@@ -463,7 +467,8 @@ class FamilyVelocityConfigTest(unittest.TestCase):
         self.assertFalse(twist.heading_command)
         self.assertIsNone(twist.ranges.heading)
         self.assertEqual(self.profiles.ROUGH.command_ranges.lin_vel_x, tuple(twist.ranges.lin_vel_x))
-        self.assertEqual((0.0, 0.0), tuple(twist.ranges.lin_vel_y))
+        # lin_vel_y 断言跟 profile 数据走（2026-09-29 用户指令放宽后非零；写死 (0,0) 会再漂）
+        self.assertEqual(self.profiles.ROUGH.command_ranges.lin_vel_y, tuple(twist.ranges.lin_vel_y))
         self.assertAlmostEqual(self.profiles.ROUGH.rel_standing_envs, twist.rel_standing_envs)
         self.assertEqual(
             [dict(stage) for stage in self.profiles.ROUGH.command_vel_stages],
@@ -805,8 +810,10 @@ class M20OfficialRecipeTest(unittest.TestCase):
             terms,
         )
         self.assertEqual(21, len(rough.rewards))
+        # 传感器三组 + base_ground_contact（族基座终止项消费；官方分支同挂——
+        # 缺了它，官方配方继承族基座 terminations 后运行期 KeyError，2026-09-29 实测）
         self.assertEqual(
-            ["wheel_ground_contact", "wheel_contact_forces", "non_wheel_contact"],
+            ["wheel_ground_contact", "wheel_contact_forces", "non_wheel_contact", "base_ground_contact"],
             [s.name for s in rough.scene.sensors],
         )
         self.assertAlmostEqual(-2.0, rough.rewards["lin_vel_z_l2"].weight)

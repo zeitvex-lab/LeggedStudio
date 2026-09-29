@@ -41,6 +41,12 @@ def _no_gpu() -> dict:
     return {"available": False, "devices": [], "reason": "nvidia-smi not found"}
 
 
+def _no_smi():
+    """smi_probe 替身：宿主机无卡。不注入时 gpu_probe 走真 nvidia-smi，
+    带卡开发机上"无 GPU"两态根本进不去（2026-09-29 实测判红）。"""
+    return [], "nvidia-smi not found"
+
+
 class GpuProbeTriStateTest(unittest.TestCase):
     """gpu_probe 的三态：cuda / cpu-only / unavailable。
 
@@ -49,7 +55,7 @@ class GpuProbeTriStateTest(unittest.TestCase):
     """
 
     def test_stack_ready_without_gpu_is_cpu_only(self):
-        probe = gpu_probe(torch_probe=lambda: {"available": True})
+        probe = gpu_probe(torch_probe=lambda: {"available": True}, smi_probe=_no_smi)
         self.assertEqual(probe["mode"], GPU_MODE_CPU_ONLY)
         self.assertFalse(probe["available"])
         self.assertTrue(probe["cpu_ready"])
@@ -58,7 +64,7 @@ class GpuProbeTriStateTest(unittest.TestCase):
         self.assertIn("GPU", probe["action"])
 
     def test_missing_stack_without_gpu_is_unavailable(self):
-        probe = gpu_probe(torch_probe=lambda: {"available": False})
+        probe = gpu_probe(torch_probe=lambda: {"available": False}, smi_probe=_no_smi)
         self.assertEqual(probe["mode"], GPU_MODE_UNAVAILABLE)
         self.assertFalse(probe["cpu_ready"])
         # 处置必须指向环境供应，而不是含糊地"回退 CPU"。
@@ -66,8 +72,17 @@ class GpuProbeTriStateTest(unittest.TestCase):
 
     def test_no_bool_only_contract(self):
         """三态必须自带历史布尔 available 的兼容映射（= mode == cuda）。"""
-        probe = gpu_probe(torch_probe=lambda: {"available": True})
+        probe = gpu_probe(torch_probe=lambda: {"available": True}, smi_probe=_no_smi)
         self.assertEqual(probe["available"], probe["mode"] == GPU_MODE_CUDA)
+
+    def test_gpu_host_is_cuda(self):
+        """smi_probe 给出设备 ⇒ cuda（注入正例，反例由上面两态覆盖）。"""
+        probe = gpu_probe(
+            torch_probe=lambda: {"available": True},
+            smi_probe=lambda: ([{"name": "RTX 4060", "memory_mib": "8188", "driver": "566"}], None),
+        )
+        self.assertEqual(probe["mode"], GPU_MODE_CUDA)
+        self.assertTrue(probe["available"])
 
 
 if __name__ == "__main__":

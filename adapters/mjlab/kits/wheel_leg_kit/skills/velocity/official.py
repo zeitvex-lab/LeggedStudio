@@ -145,9 +145,21 @@ def _apply_sensors(cfg: ManagerBasedRlEnvCfg, binding: WheelLegSkillBinding) -> 
         reduce="netforce",
         num_slots=1,
     )
+    base_ground_contact = ContactSensorCfg(
+        name="base_ground_contact",
+        # 族基座终止项 `base_ground_contact`（防翻滚拖行）的消费对象；主匹配 =
+        # 绑定根 body——与 reference 配方（config.py::_apply_sensors）同一口径。
+        # 缺了它，官方分支继承族基座 terminations 后运行期直接 KeyError。
+        primary=ContactMatch(mode="body", pattern=binding.root_body, entity="robot"),
+        secondary=ContactMatch(mode="body", pattern="terrain"),
+        fields=("found",),
+        reduce="none",
+        num_slots=1,
+        history_length=4,
+    )
     cfg.scene.sensors = (
         (cfg.scene.sensors or ())
-        + (wheel_ground_cfg, wheel_contact_forces, non_wheel_contact)
+        + (wheel_ground_cfg, wheel_contact_forces, non_wheel_contact, base_ground_contact)
     )
 
 
