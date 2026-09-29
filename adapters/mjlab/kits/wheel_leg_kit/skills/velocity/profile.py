@@ -139,6 +139,9 @@ class LegsOnlyRecipe:
     feet_air_time_weight: float = 0.0
     #: 步态节律目标（单支撑/摆动相时长目标，秒）。
     feet_air_time_threshold: float = 0.4
+    #: 线/角速度跟踪权重覆盖（None = 族基座 2.5 原样）。学步第二杠杆（2026-09-30）：
+    #: 原地节律在"吃"跟踪差价（exp 核下不动也有 ~0.37 底分）——把位移报酬拉上去。
+    track_weight_override: float | None = None
 
 
 @dataclass(frozen=True)

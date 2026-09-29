@@ -360,6 +360,10 @@ def _apply_rewards(
         )
         cfg.rewards["flat_orientation_l2"].weight = recipe.flat_orientation_weight
         cfg.rewards["body_ang_vel"].weight = recipe.body_ang_vel_weight
+        if recipe.track_weight_override is not None:
+            # 学步第二杠杆：跟踪权重覆盖（线/角同值）——原地节律的报酬差价被拉开。
+            cfg.rewards["track_linear_velocity"].weight = recipe.track_weight_override
+            cfg.rewards["track_angular_velocity"].weight = recipe.track_weight_override
         if recipe.feet_air_time_weight:
             # 学步主正奖励（go2 G1 修复同款）：腿末端=轮，"步态"=轮接触节律。
             # 传感器计时由 _apply_sensors(track_air_time=True) 按同一开关开启。
