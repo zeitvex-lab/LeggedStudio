@@ -158,3 +158,20 @@ def base_height_tracking(
   error = torch.square(base_height - target_height)
   env.extras["log"]["Metrics/base_height_mean"] = torch.mean(base_height)
   return torch.exp(-error / (std**2))
+
+
+def base_height_l2(
+  env: ManagerBasedRlEnv,
+  target_height: float,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """定高朴素 L2 惩罚（rc_old 源配方同形：`-(z-target)²`，非 exp 核）。
+
+  与 `base_height_tracking`（exp 核、正奖励形）的分野：economics 对齐轮以源配方
+  形状为准——rc 全 dof 档 `base_height_l2 weight=-2.0 target=0.36`。
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  base_height = asset.data.root_link_pos_w[:, 2] - env.scene.env_origins[:, 2]
+  error = torch.square(base_height - target_height)
+  env.extras["log"]["Metrics/base_height_mean"] = torch.mean(base_height)
+  return error

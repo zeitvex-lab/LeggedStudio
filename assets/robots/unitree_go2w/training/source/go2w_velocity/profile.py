@@ -39,7 +39,9 @@ INIT_BASE_HEIGHT = 0.4
 ROUGH = VelocityProfile(
     init_base_height=INIT_BASE_HEIGHT,
     wheel_radius=0.09,
-    wheel_track=0.19,
+    #: 轮距 = 左右轮 y 跨距，从包内 MJCF 腿链派生：hip_y 0.0465 + thigh_y 0.0955
+    #: = 0.142/侧 ⇒ 0.284（2026-09-29 订正：旧值 0.19 无出处，yaw 项贡献算错 33%）。
+    wheel_track=0.284,
     # 源配方 rough 档**没改**静态命令范围（沿用基座默认 x(-0.5,1.0) / z(-1.0,1.0)），
     # 训练时的实际范围由课程 stage 覆盖（stage-0 = x(-0.3,0.8) / z(-0.8,0.8)，
     # 只影响 t=0 的那一次采样）——按"迁移不改行为"照原样保留。
@@ -54,6 +56,15 @@ ROUGH = VelocityProfile(
         {"step": 0, "lin_vel_x": (-0.6, 0.9), "lin_vel_y": (-0.3, 0.3), "ang_vel_z": (-0.8, 0.8)},
         {"step": 5000 * 24, "lin_vel_x": (-1.0, 1.5), "lin_vel_y": (-0.5, 0.5), "ang_vel_z": (-1.0, 1.0)},
     ),
+    # 轮足 economics 对齐（2026-09-29，rc_old vendored 入口逐项对照）：
+    #   轮滚跟踪核 std 8.0→3.0（rc 实证 3.0；8.0 时 exp(-err²/64) 近似平的，信号弱）；
+    #   track 1.0→2.5（rc 同款——基座 1.0 把跟踪信号稀释 2.5 倍）；
+    #   补 base_height_l2 −2.0 @ 0.36（rc 同款——全 dof 档此前没有定高项）。
+    wheel_roll_tracking_std=3.0,
+    track_linear_weight=2.5,
+    track_angular_weight=2.5,
+    base_height_target=0.36,
+    base_height_weight=-2.0,
     pose_std_standing={"hip": 0.05, "thigh": 0.1, "calf": 0.15},
     pose_std_walking={"hip": 0.15, "thigh": 0.35, "calf": 0.5},
     pose_std_running={"hip": 0.15, "thigh": 0.35, "calf": 0.5},

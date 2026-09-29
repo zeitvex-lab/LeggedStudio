@@ -57,13 +57,21 @@ from .binding import GO2_VELOCITY
 #: F1/F2 证据链（reward_shaping_experiments#v3）：预算与 stand_still 单变量都不成立，任务结构才是根因。
 VELOCITY = kit_velocity_profile.VelocityProfile(
     dof_power_weight=None,
-    
+
     air_time_weight=1.0,  # G1 对齐：上游学走主正激励（字段名沿用现有 wire）
     foot_clearance_override=0.0,
     foot_swing_height_override=0.0,
     foot_slip_override=0.0,
     action_rate_override=-0.01,
     only_positive_rewards=True,
+    # 姿态/定高对齐（G2→G3，2026-09-29）：lainlab trot 参照系同款项，但权重降档——
+    # G2 实验（原值 -5/-2 + only_positive，750 轮）：runner 同链推理 0.5 命令位移仅
+    # 0.09m（旧结构 750 轮 0.395 能走）⇒ lainlab 的数值在其整套 economics
+    # （无 only_positive + 步态整形 + 3000+ 轮）下成立，直接搬进 G1 组合过重，
+    # 早期负项压垮行走学习。降档 −1.0/−0.5 保 750 轮先学会走，再观定高趋势。
+    base_height_target=0.29,
+    base_height_weight=-1.0,
+    orientation_weight=-0.5,
 )
 #: 【量纲校准轮结论（2026-09-28，E1/E2 已回滚）】-0.01/-0.005/-0.001 三档在当前标准模型上
 #: single 档直评 0.916/0.909/0.925——同噪声带、无显著效应；历史 0.02–0.22 是规范化前旧模型

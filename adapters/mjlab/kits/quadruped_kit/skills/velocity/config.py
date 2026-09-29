@@ -430,6 +430,25 @@ def _configure_rewards(
     # `only_positive_rewards`（legged_gym 基座技巧）：mjlab 的裁剪开关，语义同名。
     cfg.clip_rewards_to_positive = bool(profile.only_positive_rewards)
 
+    # 姿态/定高对齐（lainlab trot 参照系同款；None = 不注册，基座保持原样）。
+    # 蹲走根因：基座奖励表没有 base_height 项，纯速度奖励下「蹲低小碎步」是合法解
+    # （2026-09-29 探针实证：G1 产物定高 0.17–0.20 vs 名义 0.29）。
+    if profile.base_height_target is not None:
+        cfg.rewards["base_height"] = RewardTermCfg(
+            func=shared_rewards.base_height_penalty,
+            weight=profile.base_height_weight,
+            params={
+                "target_height": profile.base_height_target,
+                "sensor_name": TERRAIN_SCAN,
+            },
+        )
+    if profile.orientation_weight is not None:
+        cfg.rewards["orientation"] = RewardTermCfg(
+            func=shared_rewards.orientation_penalty,
+            weight=profile.orientation_weight,
+            params={},
+        )
+
     # 按身体分组的碰撞惩罚（只进 rough 档；机型自备接触监看块时不装配）。
     if profile.contact_supervision:
         cfg.rewards["self_collisions"] = RewardTermCfg(

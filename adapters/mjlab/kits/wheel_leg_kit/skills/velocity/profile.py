@@ -177,6 +177,14 @@ class VelocityProfile:
     wheel_roll_tracking_weight: float = 2.0
     wheel_roll_tracking_std: float = 8.0
     wheel_contact_bonus_weight: float = 0.5
+    # --- 跟踪/定高 economics 对齐（2026-09-29，rc_old vendored 入口逐项对照）--------
+    #: rc 源配方：track 2.5/2.5（我们基座 1.0——跟踪信号被稀释 2.5 倍）；
+    #: base_height_l2 −2.0 @ target 0.36（全 dof 档此前**没有**定高项）。
+    #: None = 保持基座默认/不注册。
+    track_linear_weight: float | None = None
+    track_angular_weight: float | None = None
+    base_height_target: float | None = None
+    base_height_weight: float = -2.0
     # --- 轮腿档的机身姿态权重（纯腿档由 LegsOnlyRecipe 覆盖） ----------------------
     flat_orientation_weight: float = -2.5
     body_ang_vel_weight: float = -0.1

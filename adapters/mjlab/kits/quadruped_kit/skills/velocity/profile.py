@@ -120,6 +120,15 @@ class VelocityProfile:
     action_rate_override: float | None = None
     #: only_positive_rewards（legged_gym 基座技巧：负总奖励截 0）。
     only_positive_rewards: bool = False
+    # --- 姿态/定高对齐（2026-09-29，lainlab trot 参照系实证 B11 0.922 同款）---------
+    #: 基座定高目标（米）。None = 不注册 base_height 项；数值 = 注册
+    #: `shared_rewards.base_height_penalty`（‖z−target‖² 平方惩罚，地形相对口径，
+    #: flat 档无射线传感器时回落 env_origins）。lainlab trot 参照：target 0.29 / 权重 −5.0。
+    base_height_target: float | None = None
+    base_height_weight: float = -5.0
+    #: 投影重力倾斜平方惩罚（`shared_rewards.orientation_penalty`，lainlab trot
+    #: 参照：权重 −2.0）。None = 不注册（保留基座 `upright` 1.0 原样）。
+    orientation_weight: float | None = None
     # --- 终止 ---------------------------------------------------------------------
     #: flat 档 `fell_over` 的倾角上限（度）。
     flat_tilt_limit_degrees: float = 70.0
