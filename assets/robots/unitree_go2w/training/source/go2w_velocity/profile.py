@@ -43,14 +43,16 @@ ROUGH = VelocityProfile(
     # 源配方 rough 档**没改**静态命令范围（沿用基座默认 x(-0.5,1.0) / z(-1.0,1.0)），
     # 训练时的实际范围由课程 stage 覆盖（stage-0 = x(-0.3,0.8) / z(-0.8,0.8)，
     # 只影响 t=0 的那一次采样）——按"迁移不改行为"照原样保留。
+    # 2026-09-29 命令范围放宽（用户指令）：越障需要全向机动（侧移避障/倒退调整）；
+    # 此前 vy=(0,0) 零采样是侧移档 0 分的直接原因。
     command_ranges=CommandRanges(
-        lin_vel_x=(-0.5, 1.0),
-        lin_vel_y=(0.0, 0.0),
+        lin_vel_x=(-1.0, 1.0),
+        lin_vel_y=(-0.5, 0.5),
         ang_vel_z=(-1.0, 1.0),
     ),
     command_vel_stages=(
-        {"step": 0, "lin_vel_x": (-0.3, 0.8), "ang_vel_z": (-0.8, 0.8)},
-        {"step": 5000 * 24, "lin_vel_x": (-0.8, 1.5), "ang_vel_z": (-1.0, 1.0)},
+        {"step": 0, "lin_vel_x": (-0.6, 0.9), "lin_vel_y": (-0.3, 0.3), "ang_vel_z": (-0.8, 0.8)},
+        {"step": 5000 * 24, "lin_vel_x": (-1.0, 1.5), "lin_vel_y": (-0.5, 0.5), "ang_vel_z": (-1.0, 1.0)},
     ),
     pose_std_standing={"hip": 0.05, "thigh": 0.1, "calf": 0.15},
     pose_std_walking={"hip": 0.15, "thigh": 0.35, "calf": 0.5},
@@ -76,13 +78,13 @@ ROUGH = VelocityProfile(
 FLAT = replace(
     ROUGH,
     command_ranges=CommandRanges(
-        lin_vel_x=(-0.5, 1.0),
-        lin_vel_y=(0.0, 0.0),
+        lin_vel_x=(-1.0, 1.0),
+        lin_vel_y=(-0.5, 0.5),
         ang_vel_z=(-1.0, 1.0),
     ),
     command_vel_stages=(
-        {"step": 0, "lin_vel_x": (-0.5, 1.0), "ang_vel_z": (-1.0, 1.0)},
-        {"step": 5000 * 24, "lin_vel_x": (-1.0, 2.0), "ang_vel_z": (-1.2, 1.2)},
+        {"step": 0, "lin_vel_x": (-0.7, 1.0), "lin_vel_y": (-0.3, 0.3), "ang_vel_z": (-1.0, 1.0)},
+        {"step": 5000 * 24, "lin_vel_x": (-1.0, 2.0), "lin_vel_y": (-0.5, 0.5), "ang_vel_z": (-1.2, 1.2)},
     ),
     leg_motion_penalty_weight=-0.15,
 )

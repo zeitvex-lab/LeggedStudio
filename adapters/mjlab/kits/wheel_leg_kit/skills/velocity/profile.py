@@ -165,6 +165,14 @@ class VelocityProfile:
     # --- 观测噪声（传感器模型量：机型侧给，默认用源配方公共口径） -------------------
     wheel_joint_pos_noise: float = 0.01
     wheel_joint_vel_noise: float = 1.0
+    # --- 统一框架开关（2026-09-29：上游 rc_mjlab 三道防线收敛为 profile 数据） -----
+    #: 低通动作（腿 5Hz / 轮 15Hz IIR）：平滑策略输出跳变——go2w-traversal 750 轮尾步
+    #: 物理爆炸（obs NaN）的上游防线；zex-w 0.64 产物即由本实现训练。
+    low_pass_enabled: bool = True
+    #: 躯干碰地终止（base_ground_contact，传感器与终止由 config 接线）：防翻滚拖行。
+    base_contact_termination: bool = True
+    #: only_positive_rewards：负总奖励截 0（防"自摔止损"死亡螺旋，HIMLoco 系同款）。
+    only_positive_rewards: bool = True
     # --- 轮奖励（权重是技能配方、几何来自上面两行） --------------------------------
     wheel_roll_tracking_weight: float = 2.0
     wheel_roll_tracking_std: float = 8.0

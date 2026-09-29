@@ -30,3 +30,7 @@ from mjlab.envs.mdp.rewards import (  # noqa: F401
     joint_acc_l2,
 )
 from mjlab.envs.mdp.dr.joint import encoder_bias as randomize_encoder_bias  # noqa: F401
+from .only_positive_rewards import (  # noqa: F401
+    disable_only_positive_rewards,
+    enable_only_positive_rewards,
+)
