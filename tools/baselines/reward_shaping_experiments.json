@@ -1047,5 +1047,34 @@
         "workspace/validation/effect-velocity-go2w-uf1500/ratio.json"
       ]
     }
+  },
+  "legs_only_learning_series_20260930": {
+    "note": "go2w legs-only 学步对照（1024×2000 同预算四组，2026-09-30 收口；评测=sim2sim_headless velocity 5 命令×5s）",
+    "base": {
+      "config": "基座跟踪 2.5，无 feet_air_time",
+      "train_reward": 73.7,
+      "eval": "全命令生存 1.0；vx 零位移（vel_err 0.499/0.8 全量）；vx0.8 滚翻 roll 89.8°；ωz 达标 0.151",
+      "verdict": "pass（唯一整体 pass 前）"
+    },
+    "feet_air_time_1_0": {
+      "config": "基座 + fat 1.0（轮接触节律正激励，传感器计时同开关）",
+      "train_reward": 73.5,
+      "eval": "全命令生存 1.0；ωz 高滚转 76.3°→1.8° 全消；五命令 roll ≤1.8°；vx 仍零位移",
+      "verdict": "pass（唯一整体 pass；步态出现、位移没有）"
+    },
+    "track_5_0": {
+      "config": "基座 + fat 1.0 + track 5.0",
+      "train_reward": 213.0,
+      "eval": "生存崩 0.19–0.54（仅 ωz 存活）",
+      "verdict": "判负"
+    },
+    "track_3_5": {
+      "config": "基座 + fat 1.0 + track 3.5",
+      "train_reward": 160.2,
+      "eval": "生存崩 0.19–0.25（vx/ωz 全摔，仅站立/侧移存活）",
+      "verdict": "判负"
+    },
+    "conclusion": "2000 轮预算下权重维已扫完：任何高于基座的跟踪压都越过稳定/探索阈值；判别变量是预算（或权重随迭代爬升的课程机制）。预算维实验进行中：唯一 pass 组合 × 20000 轮（run 062231）",
+    "mechanism": "feet_air_time/track_weight_override 均为族字段（LegsOnlyRecipe），0/None = 静音缺省；见 wheel_leg_kit/skills/velocity/{profile,config}.py"
   }
 }
