@@ -1,0 +1,51 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "go2w-flat-legs-only",
+  "display_name": "Go2-W Flat Legs-Only（纯腿步行）",
+  "source": "vendored unitree_rl_mjlab_go2w go2w-flat-legs 任务（2026-09-29 逐项 diff 补登）",
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "go2w_velocity:unitree_go2w_flat_legs_only_env_cfg",
+    "runner": "go2w_velocity:unitree_go2w_flat_legs_only_ppo_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "backend": "native_mjlab",
+  "task_name": "go2w_velocity_legs_only",
+  "terrain_type": "plane",
+  "algorithm": "PPO",
+  "num_envs": 2048,
+  "episode_length_s": 20.0,
+  "command_ranges": {
+    "lin_vel_x": [
+      -0.2,
+      0.5
+    ],
+    "lin_vel_y": [
+      0.0,
+      0.0
+    ],
+    "ang_vel_z": [
+      -0.5,
+      0.5
+    ]
+  },
+  "runner": {
+    "hidden_dims": [
+      512,
+      256,
+      128
+    ],
+    "learning_rate": 0.0005,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_param": 0.2,
+    "entropy_coef": 0.003,
+    "num_learning_epochs": 5,
+    "num_mini_batches": 4,
+    "num_steps_per_env": 24,
+    "max_iterations": 20001,
+    "save_interval": 1000
+  },
+  "sort_order": 30,
+  "notes": "上游 velocity_legs_only 档（vendored 工程唯一随包携带训练产物的 go2w 变体：deploy/robots/go2w/.../velocity_legs_only/v0/policy.onnx）。动作面去掉 wheel_vel、动作缩放 0.35，加 wheel_spin_limit / base_height / stand_still 与 low_base_height(0.18) 终止；runner 噪声 0.4、2 万迭代口径与上游 rl_cfg 一致。num_envs=2048 按训练规模指令（保底 1024–2048）。"
+}
