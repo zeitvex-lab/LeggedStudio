@@ -963,6 +963,24 @@
         "workspace/validation/go2w-traversal-model749.pt",
         "validate_traversal_progress 输出（verdict fail, 数据齐全）"
       ]
+    },
+    "go2w_upstream_alignment_20260929": {
+      "pivot": "**方法转向（用户指正）**：go2w/zex-w 有成型训练源（rc_mjlab src/robot 四目录 + unitree_rl_mjlab_go2w 完整 mjlab 参考工程），不自己发明——逐表 diff 上游成型配方后照抄对齐。",
+      "first_divergence_found": {
+        "item": "命令制度",
+        "upstream_rc_mjlab": "heading_command=True + rel_heading_envs=1.0 + rel_forward_envs=0.40 + rel_standing_envs=0.15 + resampling (10,10)s + UniformThresholdVelocityCommandCfg + heading_control_stiffness 0.6",
+        "local_go2w_flat": "heading_command=False + rel_standing_envs=0.05 + resampling (3,8)s + UniformVelocityCommandCfg",
+        "meaning": "本地训练的『任务定义』与成型上游根本不同——策略学的不是同一件事；此前 750/1500 轮的『不走』是学了个无 heading 制度的别的任务"
+      },
+      "next": [
+        "逐表 diff：命令/动作（含延迟低通参数）/奖励权重表/观测段/事件随机化/终止 六张表",
+        "对齐照抄 → 1024×750 重训 → 运动档检验",
+        "unitree_rl_mjlab_go2w 参考工程并行核对（mjlab envs/actions/observations/rewards）"
+      ],
+      "evidence": [
+        "00_resources/rc_old/RC_WheelLeg/05_software/train/rc_mjlab/src/robot/config/env_cfgs.py",
+        "00_resources/unitree_rl_mjlab_go2w"
+      ]
     }
   }
 }
