@@ -924,6 +924,23 @@
         "workspace/validation/quality-go2w-align-1024x750.json",
         "workspace/validation/effect-velocity-go2w-retrain2/ratio.json"
       ]
+    },
+    "wheel_leg_ground_fix_20260929": {
+      "milestone": "**wheel_leg 训练管线首次真实可用**：normalize_for_training 补未命名碰撞 geom（〈body〉_collision，视觉不动）后，go2w/b2w 训练 env 不再自由落体（实证站立 z 稳定）；此前轮足四台的包内档案训练（含所有 G 轮之前的 go2w 实验）全部是在无碰撞物理上跑的假训练。",
+      "evidence_chain": [
+        "审计基线 geom=0/53（轮足四台全部）——早就有数据，被当成『结构事实』漏掉了物理含义",
+        "站立测试：修复前 z 5s 落 −120 m（自由落体）；修复后 go2w 稳定 0.267 / b2w 0.48"
+      ],
+      "go2w_750_fixed": {
+        "train_reward": -4.41,
+        "motion": 0.03,
+        "note": "训练真实化后的起步值；罚项仍主导，750 轮对轮足不够——1500 轮进行中"
+      },
+      "open_items": [
+        "1500 轮结果",
+        "m20/zex-w/b2w 同法重训",
+        "评测链与训练链行为差异分叉点（次优先）"
+      ]
     }
   }
 }
