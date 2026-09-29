@@ -1591,10 +1591,30 @@
       "run_id": "unitree_go2_mvp_v1_20260928_221851_309714",
       "schema": "policy-artifact-1.0",
       "source_onnx": "simulation/policies/unitree_go2-trained-20260928-221851.onnx"
+    },
+    {
+      "schema": "policy-artifact-1.0",
+      "kind": "policies",
+      "artifact_id": "unitree_go2w__unitree_go2w-uf-1500",
+      "policy_id": "unitree_go2w-uf-1500",
+      "robot": "unitree_go2w",
+      "label": "统一框架 1024×1500（go2w velocity 全 dof，家族装配器产物）",
+      "obs_dim": 57,
+      "action_dim": 16,
+      "history_len": 1,
+      "algorithm": null,
+      "declared_source": "wheel_leg_kit velocity 统一框架 1024×1500（家族装配器产物，2026-09-29）",
+      "contract_digest": "03e851918538c550b529d0507a9287ea99bc3917db75824a98b3843223cb6330",
+      "onnx_bytes": 786965,
+      "onnx_sha256": "609513e4bc23fcdb873217fb52978a80eb400023a9603b8800725ddccee2616e",
+      "source_onnx": "assets/robots/unitree_go2w/simulation/policies/unitree_go2w-uf-1500.onnx",
+      "aux_blobs": [],
+      "run_id": null,
+      "task_type": null
     }
   ],
   "blobs": "引用式：onnx 单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目在**安装进包之前**持真副本，安装后转为引用式（见 install_produced_policy）",
-  "count": 77,
+  "count": 78,
   "generated_at": "2026-09-28T14:29:26+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"

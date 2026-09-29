@@ -24,7 +24,6 @@ for _parent in Path(__file__).resolve().parents:
 
 from mjlab.envs import ManagerBasedRlEnvCfg  # noqa: E402
 
-from adapters.mjlab.generic_task_builder import ccd_disable_flags  # noqa: E402
 from adapters.mjlab.kits.wheel_leg_kit.traversal_env_cfg import (  # noqa: E402
   make_obstacle_course_terrain,
   make_obstacle_release_curriculum,
@@ -45,15 +44,10 @@ def unitree_go2w_traversal_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   cfg.scene.terrain = make_obstacle_course_terrain()
   cfg.curriculum["terrain_levels"] = make_obstacle_release_curriculum(command_name="twist")
 
-  # ---- go2w 登记偏差 warp_ccd_off（base_link margin=0.001，上游资产不抹）----
-  # BOX 竞赛地形 × MULTICCD 会直接 NotImplementedError（velocity flat 的 PLANE 地形
-  # 不触发所以此前没暴露）；与通用路径同一处理：按装配模型关 MULTICCD/NATIVECCD。
-  _model_xml = Path(__file__).resolve().parents[1] / "go2w_velocity" / "xmls" / "go2w.xml"
-  _flags = ccd_disable_flags(_model_xml)
-  if _flags:
-    cfg.sim.mujoco.disableflags = tuple(
-      dict.fromkeys((*(cfg.sim.mujoco.disableflags or ()), *_flags))
-    )
+  # warp_ccd_off（base_link margin=0.001 × BOX 竞赛地形会 MULTICCD
+  # NotImplementedError）：不再在此手工关——族 Kit 的 ``make_env_cfg`` 出口统一
+  # ``_apply_warp_ccd_flags``（本文件调用的 rough 基座已带 flags，2026-09-29 起），
+  # 包源码因此不再 import 平台内部（包边界门禁口径）。
 
   if play:
     # 与包内其它档的 play 口径一致：课程项停用、地形网格收小（观众/预览用）。
