@@ -121,6 +121,27 @@ def _make_spec_fn(xml_path: Path, *, strip_actuators: bool = False):
 _CCD_UNSUPPORTED_FLAGS = ("multiccd", "nativeccd")
 
 
+def ccd_disable_flags_spec(spec) -> tuple[str, ...]:
+    """`ccd_disable_flags` 的 spec 版：调用方手里已有 MjSpec 时免二次读盘。
+
+    判据与路径版逐字同一份（BOX/MESH geom 或任一 pair 带非零 margin）。
+    """
+    import mujoco
+
+    try:
+        model = spec.compile()
+    except Exception:  # noqa: BLE001 —— 资产缺件等问题交给后续建环境时报真错
+        return ()
+    box_or_mesh = {int(mujoco.mjtGeom.mjGEOM_BOX), int(mujoco.mjtGeom.mjGEOM_MESH)}
+    for geom in range(model.ngeom):
+        if int(model.geom_type[geom]) in box_or_mesh and float(model.geom_margin[geom]) > 0:
+            return _CCD_UNSUPPORTED_FLAGS
+    for pair in range(model.npair):
+        if float(model.pair_margin[pair]) > 0:
+            return _CCD_UNSUPPORTED_FLAGS
+    return ()
+
+
 def ccd_disable_flags(xml_path: Path) -> tuple[str, ...]:
     """模型带非零 geom/pair margin 时禁用 MULTICCD + NATIVECCD。
 
@@ -132,17 +153,10 @@ def ccd_disable_flags(xml_path: Path) -> tuple[str, ...]:
     import mujoco
 
     try:
-        model = mujoco.MjSpec.from_file(str(xml_path)).compile()
+        spec = mujoco.MjSpec.from_file(str(xml_path))
     except Exception:  # noqa: BLE001 —— 资产缺件等问题交给后续建环境时报真错
         return ()
-    box_or_mesh = {int(mujoco.mjtGeom.mjGEOM_BOX), int(mujoco.mjtGeom.mjGEOM_MESH)}
-    for geom in range(model.ngeom):
-        if int(model.geom_type[geom]) in box_or_mesh and float(model.geom_margin[geom]) > 0:
-            return _CCD_UNSUPPORTED_FLAGS
-    for pair in range(model.npair):
-        if float(model.pair_margin[pair]) > 0:
-            return _CCD_UNSUPPORTED_FLAGS
-    return ()
+    return ccd_disable_flags_spec(spec)
 
 
 def _xml_actuated_targets(xml_path: Path) -> tuple[set[str], dict[str, str], set[str], dict[str, str]]:

@@ -101,7 +101,7 @@ class NormalizeSpecTest(unittest.TestCase):
         report = normalize_spec(_spec(_NAMELESS_SENSORS))
         self.assertEqual(
             {"sensors_named": ["imu_gyro", "imu_accelerometer"], "sensors_deleted": [],
-             "actuators_deleted": 0, "keys_removed": []},
+             "actuators_deleted": 0, "keys_removed": [], "collision_geoms_named": []},
             report.as_dict(),
         )
 

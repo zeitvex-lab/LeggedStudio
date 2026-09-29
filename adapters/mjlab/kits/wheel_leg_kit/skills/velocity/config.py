@@ -442,9 +442,44 @@ def make_env_cfg(
         play: 播放口径（无限时长、关噪声、去推扰）。
     """
     if variant in OFFICIAL_VARIANTS:
-        return official_make_env_cfg(binding, profile, variant=variant, play=play)
-    if variant in COMPETITION_VARIANTS:
-        return competition_make_env_cfg(binding, profile, variant=variant, play=play)
+        cfg = official_make_env_cfg(binding, profile, variant=variant, play=play)
+    elif variant in COMPETITION_VARIANTS:
+        cfg = competition_make_env_cfg(binding, profile, variant=variant, play=play)
+    else:
+        cfg = _make_reference_env_cfg(binding, profile, variant=variant, play=play)
+    _apply_warp_ccd_flags(cfg, binding)
+    return cfg
+
+
+def _apply_warp_ccd_flags(cfg: ManagerBasedRlEnvCfg, binding: WheelLegSkillBinding) -> None:
+    """模型带非零 geom/pair margin 时关 MULTICCD/NATIVECCD（三条配方共同出口）。
+
+    margin 是物理量（接触检测距离），不抹——判据与 family_skill_builder /
+    generic_task_builder 同一份 helper。不关的话，mujoco_warp 在"生成地形（MESH）×
+    带 margin 碰撞体"成对检查处直接 NotImplementedError（go2w rough 实测）。
+    无 margin 的模型原样不动（"不修改就不起作用"）。
+    """
+    from adapters.mjlab.generic_task_builder import ccd_disable_flags_spec
+
+    try:
+        spec_fn = binding.base_entity_cfg().spec_fn
+        ccd_flags = ccd_disable_flags_spec(spec_fn())
+    except Exception:  # noqa: BLE001 —— 资产缺件等问题交给后续建环境时报真错
+        return
+    if ccd_flags:
+        cfg.sim.mujoco.disableflags = tuple(
+            dict.fromkeys((*(cfg.sim.mujoco.disableflags or ()), *ccd_flags))
+        )
+
+
+def _make_reference_env_cfg(
+    binding: WheelLegSkillBinding,
+    profile: VelocityProfile,
+    *,
+    variant: str,
+    play: bool,
+) -> ManagerBasedRlEnvCfg:
+    """reference 配方（原 make_env_cfg 主体，见模块头注释的迁移史）。"""
     if variant not in VARIANTS:
         raise ValueError(
             f"未知变体 {variant!r}（reference 只认 {VARIANTS}，官方只认 {OFFICIAL_VARIANTS}，"
