@@ -1001,6 +1001,51 @@
         "registry/terrains/profiles.json",
         "两份 go2w.xml 编译物理量对照（本轮实测）"
       ]
+    },
+    "g_series_training_matrix_20260929": {
+      "note": "G 系列训练矩阵汇总（go2w 全部在地面修复后真物理；go2 全部在 legged_gym 对齐结构）",
+      "go2_leggedgym_aligned": {
+        "250": {
+          "train_reward": 70.49,
+          "motion": 0.0
+        },
+        "750": {
+          "train_reward": 70.3,
+          "motion": 0.395,
+          "b11": "single 0.623 / level PASS / stress 0.676"
+        },
+        "1000": {
+          "train_reward": 70.15,
+          "motion": 0.3923
+        },
+        "1500": {
+          "train_reward": 70.17,
+          "motion": 0.4591,
+          "参考比": "109%（官方口径）"
+        },
+        "curve_note": "拐点 ~750；1500 增量在 vx=0.5 档与侧移"
+      },
+      "go2w_wheel_leg": {
+        "750_unfixed_physics": "假物理（自由落体），无效",
+        "750_fixed": {
+          "train_reward": -4.41,
+          "motion": 0.03
+        },
+        "1500_fixed": "进行中（统一框架完整组合）"
+      },
+      "product_pipeline": {
+        "go2_1024x750_promote": "unitree_go2-trained-20260928-221851 已入库，效果 0.212（seed/装配差异待控）"
+      }
+    },
+    "go2w_uf1500_20260929": {
+      "experiment": "go2w 统一框架完整组合 1024×1500（低通+碰地终止+only_positive+命令放宽，真物理）",
+      "train_reward": -9.03,
+      "motion_tracking_ratio": 0.063,
+      "verdict": "**1500 轮仍 motion 0.06**——三道防线+命令放宽全部到位后轮足训练仍不收敛（train reward 持续负值）。**轮足训练收敛是独立于框架的深问题**：训练侧奖励曲线健康（wheel_roll 1.94/2.0、track 0.95）但未见行为改善，嫌疑=① 奖励 economics（track 权重 2.0 vs 罚项总量的平衡）② 轮速动作语义在 sim2sim 评测的还原 ③ 需上游 vendored 工程训练入口直接跑对照",
+      "evidence": [
+        "workspace/validation/quality-go2w-uf-1024x1500.json",
+        "workspace/validation/effect-velocity-go2w-uf1500/ratio.json"
+      ]
     }
   }
 }
