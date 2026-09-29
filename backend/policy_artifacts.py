@@ -56,7 +56,8 @@ _URL_PREFIX = re.compile(rf"^{re.escape(BROWSER_PACKAGE_URL_PREFIX)}/[^/]+/")
 #: ``obs_dim_source``（B44）：obs_dim 的真值来源（``onnx``＝导出时刻实测，``contract_snapshot``
 #: ＝实测不到时回退快照）——如实标注而不是让读者猜部署视图和训练视图哪个赢了。
 _DEPLOY_FIELDS = (
-    "observation_kind", "obs_dim", "obs_dim_source", "action_dim", "history_len",
+    "observation_kind", "obs_dim", "obs_dim_source", "action_dim", "action_dim_source",
+    "history_len",
     "command_dims", "default_command", "action_joint_order",
     "default_joint_angles", "action_scale", "scales",
 )
@@ -71,6 +72,13 @@ _OBSERVATION_KIND_BY_SHAPE: dict[tuple[str, int], str] = {
     ("unitree_go2", 48): "go2_mjlab_actor_48",
     ("unitree_go2", 270): "himloco_45_hist6",  # HIM 45D×6 帧历史堆叠（2026-09-19 三十九轮移植）
     ("unitree_b2", 48): "go2_mjlab_actor_48",
+    # go2w legs-only（纯腿步行/全向，2026-09-30 vendored 补登档 1024×300 首训实测 53）。
+    # kind 路由到**既有专用构建器对**：Python `FRAME_BUILDERS["go2w_mjlab_legs_53"]`
+    # （policy_acceptance）+ JS 同名 builder（web/sim2sim/obs/observation_builders.js）。
+    # 注意**不**在 _OBSERVATION_LAYOUT_BY_KIND 里给它盖声明式布局——declared 规格
+    # 会压过专用构建器走通用解释器，而本策略契约的 action_joint_order 是 12 腿
+    # （动作面收窄），轮段按名取关节在 12 名序里必然越界（2026-09-30 实测 IndexError）。
+    ("unitree_go2w", 53): "go2w_mjlab_legs_53",
 }
 
 #: 观测布局的**声明式盖章**（与评测器 `_frame_*` 帧构建器逐段同序）：入库时随
@@ -124,6 +132,44 @@ def onnx_obs_dim(onnx_path: Path | str) -> int | None:
     shape: list[int] | None = None
     for name, dims in inputs:
         if name == "obs":
+            shape = dims
+            break
+        if shape is None and dims:
+            shape = dims
+    if not shape:
+        return None
+    width = int(shape[-1])
+    return width if width > 0 else None
+
+
+def onnx_action_dim(onnx_path: Path | str) -> int | None:
+    """**ONNX 图输出的实测动作宽度**（`onnx_obs_dim` 的输出侧对称，B44 同思路）。
+
+    为什么不信契约快照：快照的 ``action.dimension`` 是**包级动作面**（go2w 混合档
+    = 12 腿 + 4 轮），而 legs-only 这类**动作面收窄**的任务变体导出的 actor 只吐
+    12 维——照抄快照就把 12 维策略配上 16 维动作面，评测器 last_action 按 16 衬
+    （帧宽 57 ≠ 53 直接拒）。图输出宽度是导出时刻唯一可靠的执行面真值。
+
+    只读模型头；onnx 包缺失或不可解析时返回 ``None``——调用方按快照 fallback 并
+    如实标注来源（``action_dim_source``），不静默。
+    """
+    try:
+        import onnx
+    except ImportError:
+        return None
+    try:
+        model = onnx.load(str(onnx_path), load_external_data=False)
+        outputs = [
+            (o.name, [d.dim_value for d in o.type.tensor_type.shape.dim])
+            for o in model.graph.output
+        ]
+    except Exception:
+        return None
+    # 优先名为 action 的输出（native_worker 导出约定），兜底第一个输出；
+    # 取最后一维（batch 维在前），动态维（0）不可信 ⇒ None。
+    shape: list[int] | None = None
+    for name, dims in outputs:
+        if name == "action":
             shape = dims
             break
         if shape is None and dims:
@@ -195,6 +241,12 @@ def onnx_deploy_metadata(onnx_path: Path | str) -> dict[str, Any] | None:
     clip = _floats("clip_actions")
     if clip and len(clip) == 1:
         out["clip_actions"] = clip[0]
+    # 执行关节序真值（legs-only=12 腿 ≠ 包级 16 混合序）：worker 按动作面盖章。
+    joint_names_raw = str(props.get("joint_names") or "")
+    if joint_names_raw:
+        names = [x.strip() for x in joint_names_raw.split(",") if x.strip()]
+        if names:
+            out["joint_names"] = names
     return out or None
 
 
@@ -957,11 +1009,15 @@ def promote_from_run(
     elif isinstance(observation, Mapping) and observation.get("dimension") is not None:
         deploy["obs_dim"] = observation["dimension"]
         deploy["obs_dim_source"] = "contract_snapshot"
-    if isinstance(action, Mapping):
-        if action.get("dimension") is not None:
-            deploy["action_dim"] = action["dimension"]
-        if action.get("joint_order"):
-            deploy["action_joint_order"] = list(action["joint_order"])
+    measured_action_dim = onnx_action_dim(onnx)
+    if measured_action_dim is not None:
+        deploy["action_dim"] = measured_action_dim
+        deploy["action_dim_source"] = "onnx"
+    elif isinstance(action, Mapping) and action.get("dimension") is not None:
+        deploy["action_dim"] = action["dimension"]
+        deploy["action_dim_source"] = "contract_snapshot"
+    if isinstance(action, Mapping) and action.get("joint_order"):
+        deploy["action_joint_order"] = list(action["joint_order"])
     if isinstance(status, Mapping) and status.get("max_iterations") is not None:
         deploy["trained_iterations"] = status["max_iterations"]
     # B11-GAP-1 产品侧修复（2026-09-20 机理核验后落地）：导出时盖章进 ONNX
@@ -974,6 +1030,15 @@ def promote_from_run(
     metadata_truth = onnx_deploy_metadata(onnx)
     if metadata_truth:
         deploy["deploy_metadata"] = metadata_truth
+        # ONNX metadata 的 joint_names 是导出时刻的**执行关节序真值**（legs-only=12 腿
+        # ≠ 包级 16 混合序）：长度与实测动作宽一致才采信，防错位。
+        meta_joint_names = metadata_truth.get("joint_names")
+        if (
+            meta_joint_names
+            and deploy.get("action_dim") is not None
+            and len(meta_joint_names) == int(deploy["action_dim"])
+        ):
+            deploy["action_joint_order"] = list(meta_joint_names)
 
     artifact = promote_produced_policy(
         artifact_id=final_id, onnx=onnx, deploy=deploy, run_id=record.run_id, out_dir=out_dir,
@@ -1001,6 +1066,11 @@ def promote_from_run(
             }
             meta = deploy.get("deploy_metadata") or {}
             joint_order = deploy.get("action_joint_order") or []
+            # 执行关节序随契约下发（legs-only=12 腿 ≠ 包级 16 混合序）：评测器的
+            # actuate/帧构建器按它对动作槽——缺了它就回退包级序，12 维动作映射
+            # 16 关节必然越界（2026-09-30 go2w legs-only 首评实测）。
+            if joint_order:
+                contract_block["action_joint_order"] = list(joint_order)
             defaults = meta.get("default_joint_pos")
             if defaults and joint_order and len(defaults) == len(joint_order):
                 contract_block["default_joint_angles"] = dict(zip(joint_order, defaults))
