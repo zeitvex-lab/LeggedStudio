@@ -39,6 +39,9 @@ def call(base: str, method: str, path: str, payload: dict | None = None, *,
             return exc.code, {"raw": body}
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="L7 产品内 训练→导出→入库 冒烟驱动（单机型一次）")
     parser.add_argument("--robot", default="unitree_go2", help="机型 robot_id（默认 unitree_go2）")
@@ -91,7 +94,24 @@ def main() -> int:
         if isinstance(st.get("status"), dict):
             st = st["status"]
         final = st
-        line = f"status={st.get('status')} iter={st.get('current_iteration')}/{st.get('max_iterations')} reward={st.get('reward')}"
+        it, rew = st.get("current_iteration"), st.get("reward")
+        # /status 的进度字段是任务级快照（worker 完成时才刷新，长训全程恒 0——
+        # 2026-09-30 实测 20000 轮全程 0/20000）。真进度在 run 目录的 training.log
+        #（与 task_id 同名），tail 末条 `Learning iteration N/M` + `Mean reward` 兜底。
+        run_log = ROOT / "workspace" / str(task_id) / "training.log"
+        if run_log.is_file():
+            try:
+                tail = run_log.read_text(encoding="utf-8", errors="ignore").splitlines()[-40:]
+                iters = [ln for ln in tail if "Learning iteration" in ln]
+                rewards = [ln for ln in tail if "Mean reward" in ln]
+                ansi = __import__("re").compile(r"\x1b\[[0-9;]*m")
+                if iters:
+                    it = ansi.sub("", iters[-1].split("Learning iteration")[-1]).strip()
+                if rewards:
+                    rew = ansi.sub("", rewards[-1].split("Mean reward:")[-1]).strip()
+            except OSError:
+                pass  # 日志被轮转/删了就回退 API 快照，如实显示
+        line = f"status={st.get('status')} iter={it}/{st.get('max_iterations')} reward={rew}"
         print(f"[poll] {line}", flush=True)
         if st.get("status") in ("completed", "train_completed", "failed", "error", "stopped"):
             break
