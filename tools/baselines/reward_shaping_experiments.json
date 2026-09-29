@@ -992,6 +992,15 @@
       },
       "next": "vendored 参考工程 ↔ 本地 go2w 训练链逐项 diff（同源演化差异点=嫌疑清单）：① obs 布局（vendored 轮独立段 wheel_joint_pos_rel/wheel_joint_vel_rel）② 动作两段参数（低通/延迟/scale）③ 奖励表权重 ④ 事件随机化 ⑤ 终止——diff 结果直接指导 go2w 重训对齐",
       "note": "之前 NaN/不走攻关的教训：本地链与上游同源但演化分叉——diff 就是找分叉点"
+    },
+    "vendored_diff_20260929": {
+      "五表 diff 结论": "**任务定义层无分叉**——vendored go2w velocity_env_cfg 与本地 wheel_leg_kit 五表逐字一致（actions==/rewards==；commands 组名与工厂形态差异非语义；observations 组名 actor/policy 差异非语义；terminations 唯一差异=本地多 base_ground_contact 本轮新增；events=显式化声明）",
+      "MJCF 对比": "本地训练 xmls/go2w.xml 编译 nu=**0**（cfg_declared：执行器由 kit 按契约组建 BuiltinPosition/Velocity，kp20/kv0.5 与评测 XML 等价）；vendored asset_zoo go2w.xml 与本地 model/robot.xml 同源（nu=16 XML 内建执行器）。**训练/评测物理等价性验证通过**——PD 语义、质量 19.13kg、integrator、timestep 全一致。",
+      "结论收敛": "排除法完成：任务定义/物理/MJCF/评测链全部无分叉。go2w 与 go2 的差异只剩**任务固有难度**（轮足 16 dof + 轮速控制 + 网格障碍释放课程）。750 轮 motion 0.03 是早期正常值——需 1500~3000 轮区间（轮足任务量级），NaN 需 low_pass+碰地终止+正奖励截断已到位后观察是否复发",
+      "evidence": [
+        "registry/terrains/profiles.json",
+        "两份 go2w.xml 编译物理量对照（本轮实测）"
+      ]
     }
   }
 }
