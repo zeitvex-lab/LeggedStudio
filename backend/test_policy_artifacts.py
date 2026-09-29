@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import tempfile
 import unittest
@@ -622,7 +623,7 @@ class RealRepoTest(unittest.TestCase):
     def test_repo_declarations_resolve_and_count_matches_blobs(self):
         """**B10 终态自检**：声明只留 `id`，解析一律经 `policies/index.json`。"""
         declarations = pa.scan_declarations()
-        self.assertEqual(44, len(declarations), "本仓 8 机型应有 44 条策略声明（2026-09-29 实测：+go2w-uf-1500 浏览器演示产物）")
+        self.assertEqual(46, len(declarations), "本仓 8 机型应有 46 条策略声明（2026-09-30 实测：+go2w legs-only 冒烟/产品两产物 004941/005045）")
         index = pa.load_index()
         self.assertTrue(index, "先跑 build_all(write=True) 出库")
 
@@ -643,7 +644,7 @@ class RealRepoTest(unittest.TestCase):
         # 包内 41 个 onnx 实体（2026-09-23 实测；族架构收敛只留 8 机型后：
         # 59 → 41，删除的 18 个属于 microduck / tron1×3 / unitree_g1 / wuji_hand）。
         blobs = list(pa.iter_onnx_files())
-        self.assertEqual(42, len(blobs), "包内 onnx 实体数（2026-09-29：+go2w-uf-1500）")
+        self.assertEqual(44, len(blobs), "包内 onnx 实体数（2026-09-30：+go2w legs-only 冒烟/产品两产物）")
         self.assertIsInstance(pa.unexported_onnx(), list)
 
     def test_artifact_ids_are_unique(self):
@@ -906,6 +907,81 @@ class B44OnnxObsDimTest(unittest.TestCase):
         # unknown 是"宽度已知、布局未取证"的诚实标记，评测器按不支持如实报错
         self.assertEqual("unknown", pa.observation_kind_for("unitree_go1", 48))
         self.assertEqual("unknown", pa.observation_kind_for("unitree_go2", None))
+
+
+class OnnxActionDimSelfCertTest(unittest.TestCase):
+    """action_dim 的**ONNX 输出自证**（B44 输出侧对称，2026-09-30 go2w legs-only 首评实测驱动）。
+
+    背景：快照的 action.dimension 是**包级动作面**（go2w 混合=16），legs-only 变体导出的
+    actor 只吐 12——照抄快照就把 12 维策略配 16 维动作面，评测器 last_action 按 16 衬
+    （帧 57≠53 拒）/ actuate 按 16 关节序映射 12 维动作（IndexError）。图输出宽度 +
+    metadata ``joint_names``（执行关节序）是导出时刻唯一可靠的执行面真值。
+    """
+
+    LEGS = [
+        "FR_hip_joint", "FR_thigh_joint", "FR_calf_joint",
+        "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint",
+        "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint",
+        "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint",
+    ]
+
+    def test_output_width_and_joint_names_self_certify(self):
+        import onnx
+        from onnx import helper, TensorProto
+
+        work = Path(tempfile.mkdtemp(prefix="onnx-action-dim-"))
+        try:
+            graph = helper.make_graph(
+                [helper.make_node("Identity", ["obs"], ["actions"])],
+                "policy",
+                [helper.make_tensor_value_info("obs", TensorProto.FLOAT, [1, 53])],
+                [helper.make_tensor_value_info("actions", TensorProto.FLOAT, [1, 12])],
+            )
+            model = helper.make_model(graph, producer_name="action-dim-test")
+            pair = model.metadata_props.add()
+            pair.key, pair.value = "joint_names", ",".join(self.LEGS)
+            blob = work / "policy.onnx"
+            onnx.save(model, str(blob))
+
+            self.assertEqual(12, pa.onnx_action_dim(blob))
+            self.assertEqual("go2w_mjlab_legs_53", pa.observation_kind_for("unitree_go2w", 53))
+            meta = pa.onnx_deploy_metadata(blob) or {}
+            self.assertEqual(self.LEGS, meta.get("joint_names"))
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+
+    def test_joint_names_width_mismatch_is_carried_not_trusted(self):
+        """16 名 joint_names 配 12 维输出：解析层**如实带出**、deploy 层长度守卫不采信
+        （采信了就是静默错位——守卫在 promote_from_run，这里钉解析+守卫的合约）。"""
+        import onnx
+        from onnx import helper, TensorProto
+
+        work = Path(tempfile.mkdtemp(prefix="onnx-action-dim-"))
+        try:
+            graph = helper.make_graph(
+                [helper.make_node("Identity", ["obs"], ["actions"])],
+                "policy",
+                [helper.make_tensor_value_info("obs", TensorProto.FLOAT, [1, 53])],
+                [helper.make_tensor_value_info("actions", TensorProto.FLOAT, [1, 12])],
+            )
+            model = helper.make_model(graph, producer_name="action-dim-test")
+            wheels = ["FR_wheel_joint", "FL_wheel_joint", "RR_wheel_joint", "RL_wheel_joint"]
+            pair = model.metadata_props.add()
+            pair.key, pair.value = "joint_names", ",".join([*self.LEGS, *wheels])
+            blob = work / "policy.onnx"
+            onnx.save(model, str(blob))
+
+            meta = pa.onnx_deploy_metadata(blob) or {}
+            self.assertEqual(16, len(meta.get("joint_names") or []))
+            # deploy 层守卫：长度 ≠ 实测动作宽 ⇒ 不覆盖 action_joint_order
+            deploy = {"action_dim": pa.onnx_action_dim(blob), "action_joint_order": []}
+            meta_joint_names = meta.get("joint_names")
+            if (meta_joint_names and deploy.get("action_dim") is not None
+                    and len(meta_joint_names) == int(deploy["action_dim"])):
+                deploy["action_joint_order"] = list(meta_joint_names)
+            self.assertEqual([], deploy["action_joint_order"])
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
 
 
 class RealRepoB44StockTest(unittest.TestCase):
