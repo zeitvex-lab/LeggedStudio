@@ -1,6 +1,6 @@
 {
   "schema": "family-mjcf-1.0",
-  "generated_at": "2026-09-28",
+  "generated_at": "2026-09-29",
   "note": "族内 MJCF **规范化后**的实测摘要（规范化 = adapters/mjlab/spec_utils.normalize_spec）。口径类偏离登记在 registry/families/*.json 的 mjcf_deviations；结构事实类只登记不抹平。",
   "results": [
     {
@@ -31,7 +31,8 @@
         "sensors_named": [],
         "sensors_deleted": [],
         "actuators_deleted": 0,
-        "keys_removed": []
+        "keys_removed": [],
+        "collision_geoms_named": []
       },
       "family": "quadruped"
     },
@@ -64,7 +65,8 @@
         "sensors_named": [],
         "sensors_deleted": [],
         "actuators_deleted": 0,
-        "keys_removed": []
+        "keys_removed": [],
+        "collision_geoms_named": []
       },
       "family": "quadruped"
     },
@@ -93,13 +95,43 @@
       "roots": [
         "base_link"
       ],
-      "geoms_named": "4/63",
+      "geoms_named": "32/63",
       "meshes": 31,
       "normalize_report": {
         "sensors_named": [],
         "sensors_deleted": [],
         "actuators_deleted": 0,
-        "keys_removed": []
+        "keys_removed": [],
+        "collision_geoms_named": [
+          "base_link_collision",
+          "base_link_collision_1",
+          "base_link_collision_2",
+          "base_link_collision_3",
+          "FL_hip_collision",
+          "FL_thigh_collision",
+          "FL_calf_collision",
+          "FL_calf_collision_1",
+          "FL_calf_collision_2",
+          "FL_calf_collision_3",
+          "FR_hip_collision",
+          "FR_thigh_collision",
+          "FR_calf_collision",
+          "FR_calf_collision_1",
+          "FR_calf_collision_2",
+          "FR_calf_collision_3",
+          "RL_hip_collision",
+          "RL_thigh_collision",
+          "RL_calf_collision",
+          "RL_calf_collision_1",
+          "RL_calf_collision_2",
+          "RL_calf_collision_3",
+          "RR_hip_collision",
+          "RR_thigh_collision",
+          "RR_calf_collision",
+          "RR_calf_collision_1",
+          "RR_calf_collision_2",
+          "RR_calf_collision_3"
+        ]
       },
       "family": "quadruped"
     },
@@ -132,7 +164,8 @@
         "sensors_named": [],
         "sensors_deleted": [],
         "actuators_deleted": 0,
-        "keys_removed": []
+        "keys_removed": [],
+        "collision_geoms_named": []
       },
       "family": "quadruped"
     },
@@ -157,7 +190,7 @@
       "roots": [
         "base_link"
       ],
-      "geoms_named": "0/44",
+      "geoms_named": "27/44",
       "meshes": 17,
       "normalize_report": {
         "sensors_named": [
@@ -166,7 +199,36 @@
         ],
         "sensors_deleted": [],
         "actuators_deleted": 0,
-        "keys_removed": []
+        "keys_removed": [],
+        "collision_geoms_named": [
+          "base_link_collision",
+          "base_link_collision_1",
+          "base_link_collision_2",
+          "fl_hipx_collision",
+          "fl_hipy_collision",
+          "fl_hipy_collision_1",
+          "fl_knee_collision",
+          "fl_knee_collision_1",
+          "fl_wheel_collision",
+          "fr_hipx_collision",
+          "fr_hipy_collision",
+          "fr_hipy_collision_1",
+          "fr_knee_collision",
+          "fr_knee_collision_1",
+          "fr_wheel_collision",
+          "hl_hipx_collision",
+          "hl_hipy_collision",
+          "hl_hipy_collision_1",
+          "hl_knee_collision",
+          "hl_knee_collision_1",
+          "hl_wheel_collision",
+          "hr_hipx_collision",
+          "hr_hipy_collision",
+          "hr_hipy_collision_1",
+          "hr_knee_collision",
+          "hr_knee_collision_1",
+          "hr_wheel_collision"
+        ]
       },
       "family": "wheel_leg"
     },
@@ -191,13 +253,47 @@
       "roots": [
         "base_link"
       ],
-      "geoms_named": "0/63",
+      "geoms_named": "32/63",
       "meshes": 35,
       "normalize_report": {
         "sensors_named": [],
         "sensors_deleted": [],
         "actuators_deleted": 0,
-        "keys_removed": []
+        "keys_removed": [],
+        "collision_geoms_named": [
+          "base_link_collision",
+          "base_link_collision_1",
+          "base_link_collision_2",
+          "base_link_collision_3",
+          "FL_hip_collision",
+          "FL_thigh_collision",
+          "FL_calf_collision",
+          "FL_calf_collision_1",
+          "FL_calf_collision_2",
+          "FL_calf_collision_3",
+          "FL_wheel_link_collision",
+          "FR_hip_collision",
+          "FR_thigh_collision",
+          "FR_calf_collision",
+          "FR_calf_collision_1",
+          "FR_calf_collision_2",
+          "FR_calf_collision_3",
+          "FR_wheel_link_collision",
+          "RL_hip_collision",
+          "RL_thigh_collision",
+          "RL_calf_collision",
+          "RL_calf_collision_1",
+          "RL_calf_collision_2",
+          "RL_calf_collision_3",
+          "RL_wheel_link_collision",
+          "RR_hip_collision",
+          "RR_thigh_collision",
+          "RR_calf_collision",
+          "RR_calf_collision_1",
+          "RR_calf_collision_2",
+          "RR_calf_collision_3",
+          "RR_wheel_link_collision"
+        ]
       },
       "family": "wheel_leg"
     },
@@ -224,13 +320,38 @@
       "roots": [
         "base_link"
       ],
-      "geoms_named": "0/53",
+      "geoms_named": "23/53",
       "meshes": 19,
       "normalize_report": {
         "sensors_named": [],
         "sensors_deleted": [],
         "actuators_deleted": 0,
-        "keys_removed": []
+        "keys_removed": [],
+        "collision_geoms_named": [
+          "base_link_collision",
+          "base_link_collision_1",
+          "base_link_collision_2",
+          "FL_hip_collision",
+          "FL_thigh_collision",
+          "FL_calf_collision",
+          "FL_calf_collision_1",
+          "FL_wheel_link_collision",
+          "FR_hip_collision",
+          "FR_thigh_collision",
+          "FR_calf_collision",
+          "FR_calf_collision_1",
+          "FR_wheel_link_collision",
+          "RL_hip_collision",
+          "RL_thigh_collision",
+          "RL_calf_collision",
+          "RL_calf_collision_1",
+          "RL_wheel_link_collision",
+          "RR_hip_collision",
+          "RR_thigh_collision",
+          "RR_calf_collision",
+          "RR_calf_collision_1",
+          "RR_wheel_link_collision"
+        ]
       },
       "family": "wheel_leg"
     },
@@ -255,13 +376,36 @@
       "roots": [
         "base_link"
       ],
-      "geoms_named": "0/38",
+      "geoms_named": "21/38",
       "meshes": 17,
       "normalize_report": {
         "sensors_named": [],
         "sensors_deleted": [],
         "actuators_deleted": 0,
-        "keys_removed": []
+        "keys_removed": [],
+        "collision_geoms_named": [
+          "base_link_collision",
+          "fl_hip_pitch_Link_collision",
+          "fl_hip_pitch_Link_collision_1",
+          "fl_knee_Link_collision",
+          "fl_knee_Link_collision_1",
+          "fl_wheel_Link_collision",
+          "fr_hip_pitch_Link_collision",
+          "fr_hip_pitch_Link_collision_1",
+          "fr_knee_Link_collision",
+          "fr_knee_Link_collision_1",
+          "fr_wheel_Link_collision",
+          "rl_hip_pitch_Link_collision",
+          "rl_hip_pitch_Link_collision_1",
+          "rl_knee_Link_collision",
+          "rl_knee_Link_collision_1",
+          "rl_wheel_Link_collision",
+          "rr_hip_pitch_Link_collision",
+          "rr_hip_pitch_Link_collision_1",
+          "rr_knee_Link_collision",
+          "rr_knee_Link_collision_1",
+          "rr_wheel_Link_collision"
+        ]
       },
       "family": "wheel_leg"
     }
