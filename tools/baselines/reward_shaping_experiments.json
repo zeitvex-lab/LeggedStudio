@@ -1075,6 +1075,15 @@
       "verdict": "判负"
     },
     "conclusion": "2000 轮预算下权重维已扫完：任何高于基座的跟踪压都越过稳定/探索阈值；判别变量是预算（或权重随迭代爬升的课程机制）。预算维实验进行中：唯一 pass 组合 × 20000 轮（run 062231）",
-    "mechanism": "feet_air_time/track_weight_override 均为族字段（LegsOnlyRecipe），0/None = 静音缺省；见 wheel_leg_kit/skills/velocity/{profile,config}.py"
+    "mechanism": "feet_air_time/track_weight_override 均为族字段（LegsOnlyRecipe），0/None = 静音缺省；见 wheel_leg_kit/skills/velocity/{profile,config}.py",
+    "budget_20000_midrun": {
+      "run": "062231",
+      "progress": "6880/20000（中程判定，实验继续跑完）",
+      "reward_curve": "2000 轮峰 73.6 → 4000-6000 段 68.3-70.6（平中略降）",
+      "episode_length": "全程 1000.0 平线（零摔 = 零探索位移）",
+      "noise_std": "actor 分布 std 0.239@250 轮 → 0.138@6750 轮（-42% 塌缩）",
+      "verdict": "卡死判定成立（三证据）：策略收敛死在『站立』局部最优，剩余轮次只会探索更少——预算假设中程不支持",
+      "next_lever": "探索侧：init_noise_std 上调（legs-only runner 0.4→0.8）或 is_terminated 减惧（-200→-100）或 entropy_coef 上调——非预算、非跟踪权重"
+    }
   }
 }
