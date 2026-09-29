@@ -433,6 +433,16 @@ class FamilyVelocityConfigTest(unittest.TestCase):
             self.assertTrue(legs_only.scene.sensors[0].track_air_time)
         else:
             self.assertNotIn("feet_air_time", legs_only.rewards)
+        # 学步第二杠杆：跟踪权重覆盖（None = 基座 2.5 原样；数值 = 线/角同值覆盖）
+        override = self.profiles.LEGS_ONLY.legs_only.track_weight_override
+        if override is not None:
+            self.assertAlmostEqual(
+                float(override), legs_only.rewards["track_linear_velocity"].weight)
+            self.assertAlmostEqual(
+                float(override), legs_only.rewards["track_angular_velocity"].weight)
+        else:
+            self.assertAlmostEqual(
+                2.5, legs_only.rewards["track_linear_velocity"].weight)
 
     def test_wheel_numbers_and_profile_land_where_source_had_them(self):
         cfg = self._variant("rough", self.profiles.ROUGH)
