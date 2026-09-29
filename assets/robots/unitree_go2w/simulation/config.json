@@ -1304,6 +1304,39 @@
         ]
       },
       "observation_kind": "go2w_mjlab_legs_53"
+    },
+    {
+      "id": "unitree_go2w-trained-20260930-021939",
+      "path": "simulation/policies/unitree_go2w-trained-20260930-021939.onnx",
+      "provenance": {
+        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_021939_678608",
+        "run_id": "unitree_go2w_contract_v1_20260930_021939_678608",
+        "origin": "product-training",
+        "installed_at": "2026-09-29T18:47:35+00:00"
+      },
+      "label": "训练产物（run unitree_go2w_contract_v1_20260930_021939_678608）",
+      "obs_dim": 53,
+      "action_dim": 12,
+      "contract": {
+        "obs_dim": 53,
+        "action_dim": 12,
+        "observation_kind": "go2w_mjlab_legs_53",
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ]
+      },
+      "observation_kind": "go2w_mjlab_legs_53"
     }
   ],
   "default_map": "flat",
