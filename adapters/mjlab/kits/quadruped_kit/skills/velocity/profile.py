@@ -108,24 +108,18 @@ class VelocityProfile:
     #: 跟踪核 σ（`exp(-err²/σ²)`）：族默认 √0.25 ≈ 0.5（= mjlab 基座 `sqrt(0.25)`，
     #: 与 lainlab trot `exp(-err²/sigma)` sigma=0.25 **数学同核**——不要因写法不同误收紧）。
     track_sigma: float = 0.25 ** 0.5
-    #: stand_still 罚（命令非零时罚关节与默认姿偏差）：None = 不注册；族默认 -1.0
-    #: （lainlab trot 同款）。自产配方缺它——这是"站得住不走"成为优势策略的成因之一
-    #: （另一成因：lainlab trot 的 track 分带 gait 门控，不迈步就拿不到；通用 velocity 无此门，
-    #: 故必须靠显式罚）——见 `tools/baselines/reward_shaping_experiments.json#v3`。
-    stand_still_weight: float | None = -1.0
-    #: --- legged_gym 系对齐覆盖（2026-09-28，G1）：None/False = 保持 mjlab 基座默认 ---
-    #: 足端三罚覆盖（基座 clearance -2.0 / swing -0.25 / slip -0.1）：上游 legged_gym 系
-    #: **没有**这三项（学走靠 feet_air_time 正激励 + only_positive_rewards），重罚会压垮
-    #: 早期探索。None = 基座默认；数值 = 覆盖（0.0 = 关掉该项）。
-    foot_clearance_weight: float | None = None
-    foot_swing_height_weight: float | None = None
-    foot_slip_weight: float | None = None
+    # --- G1 对齐（2026-09-28，legged_gym 系结构；go2 实证 motion 0→0.459）-----------
+    #: feet_air_time 正激励权重（上游学走主正奖励；0 = 静音）。
+    air_time_override: float | None = None
+    #: 足端三罚覆盖（基座 clearance -2.0 / swing -0.25 / slip -0.1）：上游无此三项，
+    #: 重罚压垮早期探索。None = 基座默认；数值 = 覆盖（0.0 = 关掉）。
+    foot_clearance_override: float | None = None
+    foot_swing_height_override: float | None = None
+    foot_slip_override: float | None = None
     #: action_rate 覆盖（基座 -0.1；上游 -0.01）。
-    action_rate_weight: float | None = None
-    #: `only_positive_rewards`（legged_gym 基座 True 的关键技巧：负总奖励截 0，
-    #: 防止早期摔倒的负奖励把策略推进死角）。
+    action_rate_override: float | None = None
+    #: only_positive_rewards（legged_gym 基座技巧：负总奖励截 0）。
     only_positive_rewards: bool = False
-
     # --- 终止 ---------------------------------------------------------------------
     #: flat 档 `fell_over` 的倾角上限（度）。
     flat_tilt_limit_degrees: float = 70.0

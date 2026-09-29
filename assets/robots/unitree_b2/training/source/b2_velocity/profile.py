@@ -127,11 +127,10 @@ B2_VELOCITY = VelocityProfile(
     # 同款）、only_positive_rewards（负总奖励截 0）、stand_still 显式关（F1 实证短预算
     # 下惩罚主导；预算/课程到位后再评估启用）。
     air_time_weight=1.0,
-    foot_clearance_weight=0.0,
-    foot_swing_height_weight=0.0,
-    foot_slip_weight=0.0,
-    action_rate_weight=-0.01,
+    foot_clearance_override=0.0,
+    foot_swing_height_override=0.0,
+    foot_slip_override=0.0,
+    action_rate_override=-0.01,
     only_positive_rewards=True,
-    stand_still_weight=None,
     recipe=_b2_recipe,
 )

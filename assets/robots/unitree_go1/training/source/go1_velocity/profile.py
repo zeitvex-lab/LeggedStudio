@@ -233,9 +233,11 @@ GO1_VELOCITY = VelocityProfile(
     # action_rate 显式化（源配方 -0.01）；only_positive_rewards（基座技巧：负总奖励截 0）；
     # stand_still 显式关（族级默认 -1.0 会自动注册，F1 实证短预算下惩罚主导）。
     air_time_weight=1.0,
-    action_rate_weight=-0.01,
+    foot_clearance_override=0.0,
+    foot_swing_height_override=0.0,
+    foot_slip_override=0.0,
+    action_rate_override=-0.01,
     only_positive_rewards=True,
-    stand_still_weight=None,
     # 源配方严格按世界 up 算倾角（见 recipe 第 7 条）。
     pose_std_standing={"hip_abduction": 0.05, "hip_pitch": 0.05, "knee": 0.05},
     pose_std_moving={"hip_abduction": 0.15, "hip_pitch": 0.3, "knee": 0.35},
