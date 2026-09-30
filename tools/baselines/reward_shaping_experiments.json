@@ -1084,6 +1084,11 @@
       "noise_std": "actor 分布 std 0.239@250 轮 → 0.138@6750 轮（-42% 塌缩）",
       "verdict": "卡死判定成立（三证据）：策略收敛死在『站立』局部最优，剩余轮次只会探索更少——预算假设中程不支持",
       "next_lever": "探索侧：init_noise_std 上调（legs-only runner 0.4→0.8）或 is_terminated 减惧（-200→-100）或 entropy_coef 上调——非预算、非跟踪权重"
+    },
+    "noise_0_8": {
+      "config": "基座 + fat 1.0 + init_noise_std 0.4→0.8（探索侧杠杆：噪声塌缩证据直指）",
+      "status": "gate-ready（64×5 冒烟过门 082307）；训练排队等 2 万轮实验释放 GPU",
+      "expected": "初始探索半径翻倍——若 2000 轮内出现位移尝试（ep_len 首次 <1000）即探索侧得证"
     }
   }
 }

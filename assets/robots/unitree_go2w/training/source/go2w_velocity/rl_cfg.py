@@ -88,7 +88,10 @@ def unitree_go2w_flat_legs_only_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     experiment_name="go2w_legs_only",
     run_name="flat_walk",
     max_iterations=20001,
-    init_noise_std=0.4,
+    # 探索侧杠杆（2026-09-30）：2000 轮中程实测 actor 噪声 std 250 轮 0.239 →
+    # 6750 轮 0.138（-42% 塌缩）+ ep 满长零摔 + reward 平线 ⇒ 策略收敛死在『站立』。
+    # 初始噪声翻倍（0.4→0.8）给探索更高的出发点；同预算 2000 轮对照验证。
+    init_noise_std=0.8,
     learning_rate=5.0e-4,
     entropy_coef=0.003,
     max_grad_norm=0.5,
