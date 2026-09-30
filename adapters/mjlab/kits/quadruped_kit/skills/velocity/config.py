@@ -52,7 +52,7 @@ from ..binding import QuadrupedSkillBinding
 from ..mdp import rewards as shared_rewards
 from .profile import VelocityProfile
 
-TerrainProfile = Literal["rough", "flat"]
+TerrainProfile = Literal["rough", "flat", "stairs"]
 
 #: 基座传感器名（族级技能统一常量；奖励/终止/观测按名引用）。
 TERRAIN_SCAN = "terrain_scan"
@@ -498,8 +498,9 @@ def make_env_cfg(
     play: bool = False,
 ) -> ManagerBasedRlEnvCfg:
     """Build the family velocity task from its source implementation."""
-    if terrain_profile not in ("rough", "flat"):
-        raise ValueError(f"未知地形档 {terrain_profile!r}（族级 velocity 只装配 rough / flat）")
+    if terrain_profile not in ("rough", "flat", "stairs"):
+        raise ValueError(f"未知地形档 {terrain_profile!r}（族级 velocity 只装配 rough / flat / stairs）")
+
     cfg = make_velocity_env_cfg()
 
     cfg.sim.mujoco.ccd_iterations = 500
@@ -509,6 +510,14 @@ def make_env_cfg(
     cfg.sim.contact_sensor_maxmatch = 500
     if profile.contact_sensor_headroom:
         cfg.sim.nconmax = None  # full-body contact sensors need headroom
+
+    if terrain_profile == "stairs":
+        # 台阶档（2026-10-01 全族化）：走 registry 单一口径（mjlab_generator 过滤
+        # ROUGH_TERRAINS_CFG 的 pyramid_stairs/_inv 两子地形）——不在 Kit 里重复实现
+        # 地形构造；判据挂 stairs 地形档（越障类半地块线语义的载体）。
+        from adapters.mjlab.terrain_profiles import build_terrain_entity
+
+        cfg.scene.terrain = build_terrain_entity("stairs")
 
     cfg.scene.entities = {"robot": binding.base_entity_cfg()}
 

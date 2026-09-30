@@ -61,3 +61,8 @@ def lite3_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 def lite3_runner_cfg():
     """Official Lite3 PPO runner config —— **委托** `kits/quadruped_kit.ppo_runner_cfg`。"""
     return kit.ppo_runner_cfg("lite3_velocity")
+
+
+def make_lite3_stairs_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Lite3 台阶速度档（2026-10-01 stairs 全族化）：族级 velocity + stairs 地形档。"""
+    return kit_velocity.make_env_cfg(BINDING, PROFILE, terrain_profile="stairs", play=play)
