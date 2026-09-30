@@ -72,11 +72,9 @@ VELOCITY = kit_velocity_profile.VelocityProfile(
     base_height_target=0.29,
     base_height_weight=-1.0,
     orientation_weight=-0.5,
-    # 命令通道对齐（G4，2026-09-30）：lainlab trot 同款——heading 关（30% 环境 yaw 命令
-    # 被航向重写稀释学习信号，G1 产物 yaw 只跟 15% 的训练侧根因）+ yaw 范围全开 ±1.0。
-    command_heading=False,
-    command_rel_heading_envs=0.0,
-    command_ang_vel_range=(-1.0, 1.0),
+    # 命令通道（G4/G5 已证伪回滚，2026-09-30）：heading 关 + 范围大在 2000 轮内
+    # 反而更差（G5 vx 都反向）——lainlab trot 配方是完整一套（gait 整形+stand_still+
+    # default_pos+3000 轮），摘两片贴不上。字段保留（族级可用），默认回基座。
 )
 #: 【量纲校准轮结论（2026-09-28，E1/E2 已回滚）】-0.01/-0.005/-0.001 三档在当前标准模型上
 #: single 档直评 0.916/0.909/0.925——同噪声带、无显著效应；历史 0.02–0.22 是规范化前旧模型
