@@ -75,10 +75,13 @@ class ResolverTest(unittest.TestCase):
         with self.assertRaises(terrain_profiles.TerrainProfileError):
             terrain_profiles.build_terrain_entity("competition")
 
-    def test_family_kit_missing_family_is_caught(self):
-        # competition 在四足族是 missing ⇒ 要它给四足的构造必须报错（不得拿轮足的事实充数）
-        with self.assertRaises(terrain_profiles.TerrainProfileError):
-            terrain_profiles.build_terrain_entity("competition", family="quadruped")
+    def test_family_kit_quadruped_ready_returns_refs(self):
+        # 2026-09-30 起四足 ready（课程三件套上提 kits 共享层）：请求四足构造必须
+        # 返回共享层 refs（不得再报错）。防回归：改回 missing 而不删本测试属违规。
+        result = terrain_profiles.build_terrain_entity("competition", family="quadruped")
+        self.assertEqual(result["kind"], "family_kit")
+        refs = result["refs"]
+        self.assertIn("adapters.mjlab.kits", str(refs.get("curriculum", "")))
 
 
 if __name__ == "__main__":
