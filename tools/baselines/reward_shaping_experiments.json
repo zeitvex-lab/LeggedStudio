@@ -1095,6 +1095,14 @@
       "acceptance": "assets/robots/unitree_go2w/simulation/policies/unitree_velocity_legs.acceptance.json",
       "result": "全命令生存 1.0 且真在走：vx0.4 err 0.1 / vx0.8 err 0.106 / vy0.4 0.125 / ωz0.6 0.111，roll ≤0.3°",
       "meaning": "『任务不可行』假设被否——原配方能走，差距确证在我方训练口径/预算/探索，不在任务本身"
+    },
+    "noise_0_8_result": {
+      "config": "基座 + fat 1.0 + init_noise_std 0.8（run 092057，1024×2000）",
+      "train_reward": 73.7,
+      "midrun": "早期噪声确实造成探索（ep_len 曾 14.3/120.2）——探索发生了，但 ~940 轮起收敛回 ep 1000 平线",
+      "eval": "整体 pass（同 fat 组）：全命令生存 1.0、roll ≤3.2°、vx 仍零位移",
+      "verdict": "pass-但-无位移（与 fat 组同态）",
+      "series_position": "五组对照：站立局部最优对【噪声×2 / 跟踪权重×2 / 预算×2.3】全部稳健；未测杠杆仅剩 is_terminated 减惧与 fat 位移门控；更深层怀疑 = 我方 kit 装配与上游 velocity_env_cfg 的细微机制差（数值层已对齐但装配机制未逐行对拍）"
     }
   }
 }
