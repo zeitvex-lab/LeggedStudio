@@ -218,7 +218,7 @@ def evaluate_mode(metrics: dict, family: str, contract, criteria: dict,
 
 
 def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | None,
-                    criteria_all: dict, seconds: float, seed: int,
+                    criteria_all: dict, seconds: float, seed: int, named_policy: str = "",
                     gate_tracking: bool = False) -> dict:
     import mujoco
     import onnxruntime as ort
@@ -226,6 +226,13 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
     sim_cfg = json.loads((package_dir / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
     policies = sim_cfg.get("policies") or []
     policy_path = package_dir / policy_rel
+    # fail-closed（2026-10-01，R1 实证 bug）：终态条目（无 path、artifact 不在索引）会把
+    # policy_rel 解析成空串 → policy_path 是包目录（is_file()=False）→ match 回落错条目，
+    # 评的是别人的模型还报 pass（sha256 实证）。目录/不存在一律报错，不猜。
+    if not policy_path.is_file():
+        raise RuntimeError(
+            f"策略路径不是文件: {policy_rel!r}（声明解析为空=终态条目缺索引 blob，或路径写错）"
+        )
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
 
@@ -235,6 +242,14 @@ def evaluate_policy(engine, package_dir: Path, policy_rel: str, family: str | No
     entry = engine.match_policy_entry(policies, policy_path, package_dir)
     if entry is None:
         raise RuntimeError(f"策略文件对不上包内声明: {policy_rel}（包: {package_dir.name}）")
+    # 点名一致性（2026-10-01，R1/R2 实证 bug）：--policy 传的是条目 id 时，解析到的
+    # blob 若属于另一条声明（临时条目顶层 policy_id/provenance 残留他人），等于评了
+    # 别人的模型还报 pass。id 形态下强一致；文件名形态维持全等匹配语义。
+    if named_policy and entry.get("id") != named_policy             and Path(policy_rel).stem != named_policy and Path(policy_rel).name != named_policy:
+        raise RuntimeError(
+            f"点名 {named_policy!r} 但解析到条目 {entry.get('id')!r} 的 blob——"
+            f"声明身份键（policy_id/provenance.artifact_id）疑似残留他人，拒绝错评"
+        )
     contract = engine.PackageContract(package_dir, entry)
     contract.motion_loader = engine.load_motion_loader(contract, package_dir)
 
@@ -462,7 +477,8 @@ def main() -> int:
                 continue
             try:
                 report = evaluate_policy(engine, pkg, rel, args.task_type, criteria_all,
-                                         args.seconds, args.seed, args.gate_tracking)
+                                         args.seconds, args.seed, named_policy=str(args.policy or ""),
+                                         gate_tracking=args.gate_tracking)
             except Exception as exc:  # noqa: BLE001
                 report = {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
             record = {"robot": pkg.name, "policy": entry.get("id") or Path(rel).name, "onnx": rel, **report}
