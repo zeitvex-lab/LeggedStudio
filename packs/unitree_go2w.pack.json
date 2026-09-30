@@ -52,10 +52,10 @@
   },
   "scenario_ref": null,
   "policy_ref": {
-    "id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_062146_741000",
-    "path": "simulation/policies/unitree_go2w-trained-20260930-062146.onnx",
-    "sha256": "782a08b7cf28c82829c9072ce5878c47bff4a0ad177ba8f5ca882bc5e4b28b52",
-    "version": "unitree_go2w-trained-20260930-062146"
+    "id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_082307_506284",
+    "path": "simulation/policies/unitree_go2w-trained-20260930-082307.onnx",
+    "sha256": "e74bf28995c600da8656580d54220236c9a80c31e80bc39c1e065394539d10f2",
+    "version": "unitree_go2w-trained-20260930-082307"
   },
   "bindings": {
     "verify": {
