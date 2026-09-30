@@ -126,6 +126,14 @@ class VelocityProfile:
     #: flat 档无射线传感器时回落 env_origins）。lainlab trot 参照：target 0.29 / 权重 −5.0。
     base_height_target: float | None = None
     base_height_weight: float = -5.0
+    # --- 命令通道对齐（2026-09-30，lainlab trot 参照系：heading 关 + 范围全开）------
+    #: heading 模式（基座 True + rel_heading 0.3）：30% 环境的 yaw 命令被航向误差
+    #: 重写 → yaw 速率学习信号被稀释（G1 产物 yaw 只跟 15% 的训练侧根因）。
+    #: lainlab trot = heading False / rel 0.0。None = 基座默认。
+    command_heading: bool | None = None
+    command_rel_heading_envs: float | None = None
+    #: yaw 命令采样范围（基座 ±0.5；lainlab trot ±1.0）。None = 基座默认。
+    command_ang_vel_range: tuple[float, float] | None = None
     #: 投影重力倾斜平方惩罚（`shared_rewards.orientation_penalty`，lainlab trot
     #: 参照：权重 −2.0）。None = 不注册（保留基座 `upright` 1.0 原样）。
     orientation_weight: float | None = None

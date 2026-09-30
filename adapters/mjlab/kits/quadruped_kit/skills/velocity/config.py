@@ -430,6 +430,19 @@ def _configure_rewards(
     # `only_positive_rewards`（legged_gym 基座技巧）：mjlab 的裁剪开关，语义同名。
     cfg.clip_rewards_to_positive = bool(profile.only_positive_rewards)
 
+    # 命令通道对齐（lainlab trot 同款；None = 基座默认）。
+    if profile.command_heading is not None:
+        twist_cmd = cfg.commands["twist"]
+        twist_cmd.heading_command = bool(profile.command_heading)
+        if profile.command_rel_heading_envs is not None:
+            twist_cmd.rel_heading_envs = float(profile.command_rel_heading_envs)
+        if not profile.command_heading:
+            twist_cmd.ranges.heading = None
+    if profile.command_ang_vel_range is not None:
+        cfg.commands["twist"].ranges.ang_vel_z = (
+            float(profile.command_ang_vel_range[0]), float(profile.command_ang_vel_range[1]),
+        )
+
     # 姿态/定高对齐（lainlab trot 参照系同款；None = 不注册，基座保持原样）。
     # 蹲走根因：基座奖励表没有 base_height 项，纯速度奖励下「蹲低小碎步」是合法解
     # （2026-09-29 探针实证：G1 产物定高 0.17–0.20 vs 名义 0.29）。
