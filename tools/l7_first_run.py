@@ -79,7 +79,11 @@ def main() -> int:
         "device": "auto",
         "smoke": not args.product,
         "seed": args.seed,
-        "save_interval": 250,  # 冒烟/长训逐键一致（smoke_gate 除规模外逐键比对）
+        # checkpoint 磁盘纪律（2026-09-30，C 盘满员事故后立规）：落盘频率按预算
+        # 自适应——一轮训练至多 ~10 个中间 checkpoint（4 万轮 → 每 4000 轮一个，
+        # ≈45MB/run；旧固定 250 是 712MB/run，直接把 C 盘写满）。smoke_gate 已把
+        # save_interval 列入豁免（它不影响训练行为，只影响落盘节奏）。
+        "save_interval": max(250, args.iters // 10),
     }, headers={"Idempotency-Key": idem})
     print(f"[create] HTTP {status}: {json.dumps(resp, ensure_ascii=False)[:300]}")
     if status != 200:

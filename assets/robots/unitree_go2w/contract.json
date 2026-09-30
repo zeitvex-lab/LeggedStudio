@@ -133,27 +133,27 @@
   "actuator_profile": {
     "by_role": {
       "hip": {
-        "stiffness": 20.0,
-        "damping": 0.5,
-        "effort": 23.5,
+        "stiffness": 50.0,
+        "damping": 1.5,
+        "effort": 17.0,
         "mode": "position",
         "action_scale": 0.5,
         "armature": 0.01,
         "velocity_limit": 30.1
       },
       "thigh": {
-        "stiffness": 20.0,
-        "damping": 0.5,
-        "effort": 23.5,
+        "stiffness": 50.0,
+        "damping": 1.5,
+        "effort": 17.0,
         "mode": "position",
         "action_scale": 0.5,
         "armature": 0.01,
         "velocity_limit": 30.1
       },
       "calf": {
-        "stiffness": 20.0,
-        "damping": 0.5,
-        "effort": 35.5,
+        "stiffness": 50.0,
+        "damping": 1.5,
+        "effort": 17.0,
         "armature": 0.02,
         "mode": "position",
         "action_scale": 0.5,
@@ -161,12 +161,13 @@
       },
       "wheel": {
         "stiffness": 0.0,
-        "damping": 0.5,
-        "effort": 23.5,
+        "damping": 1.0,
+        "effort": 17.0,
         "armature": 0.01,
         "mode": "velocity",
         "action_scale": 35.0
-      }
+      },
+      "_note": "2026-09-30 对齐 rc_old 真机部署真值（kp50/kv1.5/±17，轮 kv1.0/±17）；此前 kp20/kv0.5 与上游训练部署不符致 PD 饱和塌陷"
     },
     "default": {
       "friction_loss": 0.2
@@ -269,8 +270,7 @@
     "unitree_go2w",
     "wheel_leg"
   ],
-  "source": "unitree_rl_mjlab_go2w_import"
-,
+  "source": "unitree_rl_mjlab_go2w_import",
   "physics_domain": {
     "contact": {
       "authority": "training_domain",

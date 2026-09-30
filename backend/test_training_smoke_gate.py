@@ -219,7 +219,7 @@ class CheckTest(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("冒烟", result["reason"])
         self.assertIn("64 envs × 5 iters", result["reason"])
-        self.assertIn("num_envs/max_iterations/smoke_preset", result["reason"])
+        self.assertIn("规模与 save_interval 外需逐键一致", result["reason"])
         self.assertIn(inputs["digest"][:12], result["reason"])  # 报出指纹，便于对账
 
     def test_long_run_with_same_config_smoke_passes_and_names_the_run(self):

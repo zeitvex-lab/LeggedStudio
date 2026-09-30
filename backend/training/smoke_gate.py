@@ -20,7 +20,7 @@
 派生落点一并剔除）后**逐键一致**。E8 的意图是
 "先在冒烟档跑通同一配置再长训"，而冒烟档必然把规模钳到 64×5（create.py）——若按
 逐字节指纹比对，真长训（规模更大）永远匹配不上任何冒烟 Run，门就从"先冒烟"
-劣化成"永远 409"。除规模之外的任何一键差异（seed / recipe / overrides / …）
+劣化成"永远 409"。除规模与落盘频率之外的任何一键差异（seed / recipe / overrides / …）
 仍会改变规范化摘要 → "沿用上次的冒烟结论"在结构上不可能发生
 （这正是把门挂在 B9 指纹上的价值）。
 
@@ -49,7 +49,10 @@ SMOKE_MAX_ITERS = 5
 
 #: 规范化比对时从 ``params`` 剔除的**规模三元组**：冒烟钳制（create.py）只动这三个键，
 #: 长训与冒烟在这三键上必然不同；其余任何一键都保留在比对里，改一个字就换摘要。
-SCALE_KEYS = ("num_envs", "max_iterations", "smoke_preset")
+#: 加 ``save_interval``（2026-09-30 checkpoint 磁盘纪律）：落盘频率**不影响训练行为**
+#: （只改 checkpoint 写盘节奏），且它按预算自适应（l7 驱动 ``max(250, iters // 10)``）
+#: ——不豁免的话"改间隔必重跑冒烟"就是假门禁。权重行为面照旧逐键比对。
+SCALE_KEYS = ("num_envs", "max_iterations", "smoke_preset", "save_interval")
 
 #: 只有"真的跑完"的任务才算证据。`TrainingManager` 的成功态是 ``completed``，
 #: worker（adapters/mjlab/native_worker.py）的实际完成词表是 ``train_completed``；
@@ -78,7 +81,7 @@ def _status_and_dir(candidate: Any) -> tuple[str, Path | None]:
 
 
 def _strip_scale(container: Any) -> Any:
-    """从一层 Mapping 里剔掉 ``SCALE_KEYS``（非 Mapping 原样返回，防御脏档案）。"""
+    """从一层 Mapping 里剔掉 ``SCALE_KEYS``（规模 + save_interval；非 Mapping 原样返回）。"""
     if not isinstance(container, Mapping):
         return container
     return {key: value for key, value in container.items() if key not in SCALE_KEYS}
@@ -123,7 +126,7 @@ def smoke_evidence(inputs: Mapping[str, Any], candidates: Iterable[Any]) -> dict
     """找一条**同配置（规模除外）· 已完成 · 冒烟档**的 Run —— 这就是"冒烟通过"的证据。
 
     「同配置」的判据是 `_match_digest(候选 inputs) == _match_digest(本次长训 inputs)`：
-    剔除 ``num_envs`` / ``max_iterations`` / ``smoke_preset`` 三键后逐键一致。
+    剔除规模三键与 ``save_interval`` 后逐键一致。
     读的是磁盘上的既有事实（`resolved-config.json` + 任务状态），不依赖任何内存状态，
     所以它在"重启后"、"别的进程刚跑完"这些场景下同样成立。
     """
@@ -183,7 +186,7 @@ def check(
         return {
             "required": True, "ok": True, "bypassed": False, "digest": digest, "evidence": evidence,
             "reason": (
-                "已找到同配置（除规模 num_envs/max_iterations/smoke_preset 外逐键一致）"
+                "已找到同配置（除规模与 save_interval 外逐键一致）"
                 f"的冒烟通过记录：{evidence['run_id']}"
             ),
         }
@@ -196,7 +199,7 @@ def check(
         "required": True, "ok": False, "bypassed": False, "digest": digest, "evidence": None,
         "reason": (
             "长训前必须先在**冒烟档**跑通同一配置（64 envs × 5 iters；与长训配置除规模 "
-            "num_envs/max_iterations/smoke_preset 外需逐键一致）："
+            "规模与 save_interval 外需逐键一致）："
             "冒烟几十秒就能暴露维度/布局/依赖/缺件错误，而长训要占 GPU 到小时级。"
             f"当前输入指纹 {digest[:12]}… 没有任何「已完成且成功」的同配置冒烟 Run；"
             "配置（规模除外）**改一个字**都会改变规范化比对，需重跑冒烟"
