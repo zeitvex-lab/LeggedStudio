@@ -592,7 +592,8 @@
         "task_type": "velocity",
         "control_modes": {
           "wheel": "velocity"
-        }
+        },
+        "velocity_scale": 5.0
       },
       "training_ref": {
         "profile": "go2w-flat",
@@ -785,7 +786,8 @@
         "clip_obs": 100.0,
         "control_modes": {
           "wheel": "velocity"
-        }
+        },
+        "velocity_scale": 5.0
       },
       "training_ref": {
         "profile": "go2w-flat",
@@ -979,7 +981,8 @@
         "clip_obs": 100.0,
         "control_modes": {
           "wheel": "velocity"
-        }
+        },
+        "velocity_scale": 5.0
       },
       "training_ref": {
         "profile": "go2w-flat",
@@ -1172,7 +1175,8 @@
         "clip_obs": 100.0,
         "control_modes": {
           "wheel": "velocity"
-        }
+        },
+        "velocity_scale": 5.0
       },
       "training_ref": {
         "profile": "go2w-flat",
@@ -1366,7 +1370,8 @@
         "clip_obs": 100.0,
         "control_modes": {
           "wheel": "velocity"
-        }
+        },
+        "velocity_scale": 5.0
       },
       "training_ref": {
         "profile": "go2w-flat",
