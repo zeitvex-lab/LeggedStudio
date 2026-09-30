@@ -433,6 +433,16 @@ class FamilyVelocityConfigTest(unittest.TestCase):
             self.assertTrue(legs_only.scene.sensors[0].track_air_time)
         else:
             self.assertNotIn("feet_air_time", legs_only.rewards)
+        # 杠杆⑤：腿动作低通开关（go2w 默认关——机制对拍首位嫌疑；族缺省 True）
+        action_cfg = legs_only.actions["joint_pos"]
+        want_lp = self.profiles.LEGS_ONLY.legs_only.leg_action_low_pass
+        self.assertEqual(
+            ("OrderedJointPositionLowPassActionCfg" if want_lp
+             else "OrderedJointPositionActionCfg"),
+            type(action_cfg).__name__,
+        )
+        if want_lp:
+            self.assertAlmostEqual(5.0, action_cfg.cut_off_frequency)
         # 学步第二杠杆：跟踪权重覆盖（None = 基座 2.5 原样；数值 = 线/角同值覆盖）
         override = self.profiles.LEGS_ONLY.legs_only.track_weight_override
         if override is not None:

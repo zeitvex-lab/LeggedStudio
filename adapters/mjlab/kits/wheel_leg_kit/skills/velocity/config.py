@@ -138,12 +138,16 @@ def _apply_actions(
     """腿段（位置）+ 轮段（速度）两段动作；纯腿变体只留腿段（缩放换 profile 值）。"""
     control_modes = dict(binding.control_modes)
     scale = dict(binding.action_scales)
+    leg_low_pass = True
     if _is_legs_only(variant):
         recipe = _legs_only_recipe(profile, variant)
         joint_order: tuple[str, ...] = binding.leg_joint_order
         term_names: tuple[str, ...] = ("joint_pos",)
         for joint in binding.leg_joint_order:
             scale[joint] = recipe.action_scale
+        # 杠杆⑤：纯腿档可关低通（上游纯腿档无滤波；机制对拍首位嫌疑）。
+        # 轮 15Hz 低通只在混合档存在——traversal NaN 防线不受影响。
+        leg_low_pass = recipe.leg_action_low_pass
     else:
         joint_order = binding.action_joint_order
         term_names = ("joint_pos", "wheel_vel")
@@ -155,7 +159,8 @@ def _apply_actions(
             term_names=term_names,
             # 上游 rc_mjlab 低通动作（腿 5Hz / 轮 15Hz）：平滑动作跳变，
             # 是 go2w-traversal 750 轮尾步物理爆炸（obs NaN）的上游防线。
-            low_pass=True,
+            # 纯腿档按 recipe.leg_action_low_pass 决定（缺省 True 不变行为）。
+            low_pass=leg_low_pass,
             control_frequency=float(cfg.sim.mujoco.timestep) and (
                 1.0 / (float(cfg.sim.mujoco.timestep) * (cfg.decimation or 4))
             ),

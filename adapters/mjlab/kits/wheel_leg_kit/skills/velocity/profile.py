@@ -142,6 +142,10 @@ class LegsOnlyRecipe:
     #: 线/角速度跟踪权重覆盖（None = 族基座 2.5 原样）。学步第二杠杆（2026-09-30）：
     #: 原地节律在"吃"跟踪差价（exp 核下不动也有 ~0.37 底分）——把位移报酬拉上去。
     track_weight_override: float | None = None
+    #: 腿动作低通开关（缺省 True = rc_mjlab 同款 5Hz 低通，traversal NaN 防线保留）。
+    #: 杠杆⑤（2026-09-30）：上游纯腿档无滤波——5Hz 截止会把快速摆腿在动作表达层滤掉
+    #: （机制对拍 diff 首位嫌疑）；False = 普通有序位置动作直配。
+    leg_action_low_pass: bool = True
 
 
 @dataclass(frozen=True)
