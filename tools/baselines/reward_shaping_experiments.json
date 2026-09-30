@@ -1103,6 +1103,13 @@
       "eval": "整体 pass（同 fat 组）：全命令生存 1.0、roll ≤3.2°、vx 仍零位移",
       "verdict": "pass-但-无位移（与 fat 组同态）",
       "series_position": "五组对照：站立局部最优对【噪声×2 / 跟踪权重×2 / 预算×2.3】全部稳健；未测杠杆仅剩 is_terminated 减惧与 fat 位移门控；更深层怀疑 = 我方 kit 装配与上游 velocity_env_cfg 的细微机制差（数值层已对齐但装配机制未逐行对拍）"
+    },
+    "mechanism_diff_findings": {
+      "tool": "tools/cfg_diff_dump.py（构建后对象逐属性 diff，两进程 import 隔离；ours 1208 键 / upstream 864 键 / 仅我方 599 / 仅上游 255 / 值不同 48）",
+      "finding_1_lowpass": "我方腿动作 = OrderedJointPositionLowPassActionCfg（control 50Hz、cut_off 5Hz 低通）vs 上游普通 JointPositionActionCfg 无滤波——快速摆腿被动作层滤掉，步态在表达层不可成立【最高嫌疑】",
+      "finding_2_pd": "执行器 PD 直进训练：calf k 20/d 0.5/effort 35.5 vs 上游 40/2.0/45；hip/thigh damping 0.5 vs 1.0；wheel armature 0.01 vs 0.02——软腿站立即最优【次高嫌疑，涉及契约真值裁决】",
+      "finding_3_minor": "轮关节匹配 FR_wheel_joint（字面）vs FR_(foot|wheel)_joint（正则，语义近似）；critic 三项观测用 lambda（数学待核）",
+      "next": "杠杆⑤=摘低通（普通有序位置动作直配）@2000 轮；PD 谱切换涉及契约真值裁决（硬物理参数记真值原则）留待用户/后续"
     }
   }
 }
