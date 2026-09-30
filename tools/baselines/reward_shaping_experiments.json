@@ -1089,6 +1089,12 @@
       "config": "基座 + fat 1.0 + init_noise_std 0.4→0.8（探索侧杠杆：噪声塌缩证据直指）",
       "status": "gate-ready（64×5 冒烟过门 082307）；训练排队等 2 万轮实验释放 GPU",
       "expected": "初始探索半径翻倍——若 2000 轮内出现位移尝试（ep_len 首次 <1000）即探索侧得证"
+    },
+    "upstream_artifact_anchor": {
+      "policy": "unitree_velocity_legs.onnx（vendored unitree_rl_mjlab_go2w velocity_legs_only/v0 产物，已入库）",
+      "acceptance": "assets/robots/unitree_go2w/simulation/policies/unitree_velocity_legs.acceptance.json",
+      "result": "全命令生存 1.0 且真在走：vx0.4 err 0.1 / vx0.8 err 0.106 / vy0.4 0.125 / ωz0.6 0.111，roll ≤0.3°",
+      "meaning": "『任务不可行』假设被否——原配方能走，差距确证在我方训练口径/预算/探索，不在任务本身"
     }
   }
 }
