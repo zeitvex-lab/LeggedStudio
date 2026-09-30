@@ -71,7 +71,7 @@
           "RL_thigh_joint": 0.9,
           "RL_calf_joint": -1.8
         },
-        "action_scale": 0.5,
+        "action_scale": 0.35,
         "scales": {
           "ang_vel": 1.0,
           "dof_pos": 1.0,
@@ -91,17 +91,18 @@
         "command_ranges": {
           "lin_vel_x": [
             -0.5,
-            1.0
+            0.8
           ],
           "lin_vel_y": [
-            -0.5,
-            0.5
+            -0.4,
+            0.4
           ],
           "ang_vel_z": [
-            -1.0,
-            1.0
+            -0.6,
+            0.6
           ]
-        }
+        },
+        "_note": "ranges/action_scale = deploy.yaml velocity_legs_only v0 部署真值"
       },
       "robot": "unitree_go2w",
       "policy_id": "go2w-upstream-legsonly-v0"
@@ -314,7 +315,22 @@
           "RL_hip_joint",
           "RL_thigh_joint",
           "RL_calf_joint"
-        ]
+        ],
+        "command_ranges": {
+          "lin_vel_x": [
+            -0.2,
+            0.5
+          ],
+          "lin_vel_y": [
+            0.0,
+            0.0
+          ],
+          "ang_vel_z": [
+            -0.5,
+            0.5
+          ]
+        },
+        "_note": "LEGS_ONLY 训练命令范围（vy 死轴）"
       },
       "observation_kind": "go2w_mjlab_legs_53"
     },

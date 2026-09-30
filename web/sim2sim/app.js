@@ -4682,7 +4682,10 @@ function updateCommand() {
   }
 
   for (let i = 0; i < 3; i += 1) {
-    const max = CONFIG.maxCmd[i];
+    // 契约命令范围钳制（与滑条同一分布边界）：死轴（如 legs-only 的 vy）= 0。
+    // 此前键盘只认 CONFIG.maxCmd（8/1.5/2.5），WASD 一按就拉出训练分布 → "y/yaw 死"。
+    const limit = velocityCommandAxisDead(i) ? 0 : velocityCommandMax(i);
+    const max = Math.min(CONFIG.maxCmd[i], limit);
     target[i] = clamp(target[i], -max, max);
     sim.cmd[i] = target[i];
   }
@@ -5696,13 +5699,25 @@ function velocityCommandMax(index) {
   return velocityCommandMaxDefault(index);
 }
 
-/** Max 滑条初始值：一律 1.0；vy 若契约范围上下限均为 0（无横移能力）则保持 0.5。 */
+/**
+ * Max 滑条初始值：优先**契约命令范围**的幅值（各策略训练/部署分布不同——
+ * rc 系原生 legs-only v0 = vx0.8/vy0.4/ωz0.6，自产 legs-only = vx0.5/vy0/ωz0.5，
+ * 全 dof 系 ±1.0；拉出分布即"y/yaw 一给就摔"的用户可感知根因，2026-09-30）。
+ * 死轴（范围 min==max==0，如 legs-only 的 vy）= 0；无契约回落 1.0（vy 死轴旧特例删除）。
+ */
 function velocityCommandMaxDefault(index) {
-  if (index === 1) {
-    const [dMin, dMax] = velocityCommandRanges()[index];
-    if (dMin === 0 && dMax === 0) return 0.5;
+  const [dMin, dMax] = velocityCommandRanges()[index];
+  if (dMin === 0 && dMax === 0) return 0;
+  if (Number.isFinite(dMin) && Number.isFinite(dMax) && (dMin !== 0 || dMax !== 0)) {
+    return Math.max(Math.abs(dMin), Math.abs(dMax));
   }
   return 1.0;
+}
+
+/** 契约范围声明该轴为死轴（min==max==0）时，禁用滑条——拉不出分布外命令。 */
+function velocityCommandAxisDead(index) {
+  const [dMin, dMax] = velocityCommandRanges()[index];
+  return dMin === 0 && dMax === 0;
 }
 
 /** contract.command_dims ≥ 3 时显示 vx/vy/ωz 滑条并同步范围与默认值（mjlab play 语义）。 */
@@ -5723,17 +5738,21 @@ function updateVelocityCommandControls() {
   for (let i = 0; i < 3; i += 1) {
     const [slider, output] = sliders[i];
     if (!slider) continue;
-    // Max 滑条：初始一律 1.0（vy 契约范围为 0 时 0.5），用户此后可调 0.1~10
+    // Max 滑条：初始 = 契约命令范围幅值（分布对齐），用户此后可调 0.1~10
     const maxEl = maxEls[i];
-    // 每次策略/机器人切换都重置为默认 Max（1.0），不继承上一策略的旧值（曾出现残留 5.1）。
+    // 每次策略/机器人切换都重置为默认 Max，不继承上一策略的旧值（曾出现残留 5.1）。
     if (maxEl) maxEl.value = String(velocityCommandMaxDefault(i));
     if (maxOuts[i]) maxOuts[i].textContent = Number(maxEl?.value || 0).toFixed(1);
-    const max = velocityCommandMax(i);
+    // 死轴（契约范围 min==max==0）：锁 0 并禁用滑条，输入与 UI 双侧防呆。
+    const dead = velocityCommandAxisDead(i);
+    if (slider.disabled !== dead) slider.disabled = dead;
+    const max = dead ? 0 : velocityCommandMax(i);
     slider.min = String(-max);
     slider.max = String(max);
     slider.step = "0.05";
     const value = clamp(Number(input.manualCmd[i]) || 0, -max, max);
     slider.value = String(value);
+    if (dead) input.manualCmd[i] = 0;
     if (output) output.textContent = formatSigned(value);
   }
 }
@@ -5806,7 +5825,9 @@ function applyVelocityCommandDefaults() {
 function applyManualCommand() {
   zeroCommand();
   for (let i = 0; i < 3; i += 1) {
-    const value = clamp(Number(input.manualCmd[i]) || 0, -CONFIG.maxCmd[i], CONFIG.maxCmd[i]);
+    // 契约范围钳制（与滑条/键盘同边界）：死轴恒 0。
+    const limit = velocityCommandAxisDead(i) ? 0 : velocityCommandMax(i);
+    const value = clamp(Number(input.manualCmd[i]) || 0, -limit, limit);
     sim.targetCmd[i] = value;
     sim.cmd[i] = value;
   }
