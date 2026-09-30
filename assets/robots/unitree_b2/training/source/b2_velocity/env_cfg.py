@@ -58,3 +58,8 @@ def b2_rough_env_cfg(*, play: bool = False):
 
 def b2_runner_cfg():
     return kit.ppo_runner_cfg("b2_velocity")
+
+
+def make_b2_stairs_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """B2 台阶速度档（2026-10-01 stairs 全族化）：族级 velocity + stairs 地形档。"""
+    return kit_velocity.make_env_cfg(BINDING, PROFILE, terrain_profile="stairs", play=play)

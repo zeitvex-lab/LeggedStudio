@@ -93,3 +93,8 @@ def unitree_go2_rough_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 def unitree_go2_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   """Create Unitree Go2 flat terrain velocity configuration."""
   return kit_velocity.make_env_cfg(GO2_VELOCITY, VELOCITY, terrain_profile="flat", play=play)
+
+
+def unitree_go2_stairs_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+  """Go2 台阶速度档（2026-10-01 stairs 全族化）：族级 velocity + stairs 地形档。"""
+  return kit_velocity.make_env_cfg(GO2_VELOCITY, VELOCITY, terrain_profile="stairs", play=play)
