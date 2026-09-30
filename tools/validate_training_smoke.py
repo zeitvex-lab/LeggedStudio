@@ -85,8 +85,10 @@ def validate_profile_subprocess(record, profile, num_envs, rollout_steps, mode, 
         # 于是本函数紧接着在 ``proc.stdout.strip()`` 上抛 AttributeError：**把真跑通的
         # profile 记成 crashed**（2026-09-19 实测：go2 全 profile 基线 18 档里 7 档是这样
         # 的假失败）。``errors="replace"`` 是第二道保险：即便子进程吐坏字节也只损失那几个字符。
+        import os as _os
+        _train_timeout = int(_os.environ.get("SMOKE_TRAIN_TIMEOUT_S", "1800"))
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800
+            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=_train_timeout
         )
         json_line = None
         for line in reversed(proc.stdout.strip().splitlines()):
