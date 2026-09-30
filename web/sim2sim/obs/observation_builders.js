@@ -51,22 +51,34 @@ function buildZexWObservation() {
   // Matches rc_mjlab/sim2sim.py: angular velocity, projected gravity,
   // command, 12 leg positions, 12 leg velocities, 4 wheel velocities,
   // then the raw 16-action history slot.
+  // 关节段遍历**策略槽序**（CONFIG.policyJointSlots：策略槽 → 平台槽；恒等映射时
+  // 为 null）。rc_old 原生序 FL,FR,RL,RR vs 平台 FR,FL,RR,RL —— 按平台槽写会把
+  // 整腿对置换进观测（2026-09-30 浏览器漂移/自旋根因，headless 同模型干净）。
+  const slots = (Array.isArray(CONFIG.policyJointSlots)
+    && CONFIG.policyJointSlots.length === CONFIG.numActions)
+    ? CONFIG.policyJointSlots
+    : null;
+  const slotOf = (p) => (slots ? slots[p] : p);
   for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
   for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
   for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
-  for (let i = 0; i < CONFIG.numActions; i += 1) {
+  for (let p = 0; p < CONFIG.numActions; p += 1) {
+    const i = slotOf(p);
     if (CONFIG.controlModes[i] === "velocity") continue;
     sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
   }
-  for (let i = 0; i < CONFIG.numActions; i += 1) {
+  for (let p = 0; p < CONFIG.numActions; p += 1) {
+    const i = slotOf(p);
     if (CONFIG.controlModes[i] === "velocity") continue;
     sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
   }
-  for (let i = 0; i < CONFIG.numActions; i += 1) {
+  for (let p = 0; p < CONFIG.numActions; p += 1) {
+    const i = slotOf(p);
     if (CONFIG.controlModes[i] !== "velocity") continue;
     sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
   }
-  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+  // 动作回填段 = 策略输出原序（sim.action 即策略序，与 Python last_action 同语义）。
+  for (let p = 0; p < CONFIG.numActions; p += 1) sim.obs[offset++] = sim.action[p];
 }
 
 function buildWheelLegGaitObservation() {
