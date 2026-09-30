@@ -26,6 +26,299 @@
   },
   "policies": [
     {
+      "id": "go2w-upstream-legsonly-v0",
+      "label": "上游原生 legs-only v0（unitree_rl_mjlab_go2w deploy 产物）",
+      "obs_dim": 53,
+      "action_dim": 12,
+      "history_len": 1,
+      "sim_ready": true,
+      "provenance": {
+        "artifact_id": "unitree_go2w__go2w-upstream-legsonly-v0",
+        "origin": "upstream-vendored",
+        "note": "deploy/robots/go2w/config/policy/velocity_legs_only/v0/exported/policy.onnx；obs=raw ang+grav+cmd+腿pos_rel+腿vel+轮pos_rel+轮vel+action12（deploy.yaml scales 全 1.0）；默认姿 FR+0.1/FL-0.1/RR+0.1/RL-0.1；action scale 0.5",
+        "installed_at": "2026-09-30T14:30:00+00:00"
+      },
+      "contract": {
+        "obs_dim": 53,
+        "action_dim": 12,
+        "history_len": 1,
+        "observation_kind": "go2w_mjlab_legs_53",
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ],
+        "default_joint_angles": {
+          "FR_hip_joint": 0.1,
+          "FR_thigh_joint": 0.9,
+          "FR_calf_joint": -1.8,
+          "FL_hip_joint": -0.1,
+          "FL_thigh_joint": 0.9,
+          "FL_calf_joint": -1.8,
+          "RR_hip_joint": 0.1,
+          "RR_thigh_joint": 0.9,
+          "RR_calf_joint": -1.8,
+          "RL_hip_joint": -0.1,
+          "RL_thigh_joint": 0.9,
+          "RL_calf_joint": -1.8
+        },
+        "action_scale": 0.5,
+        "scales": {
+          "ang_vel": 1.0,
+          "dof_pos": 1.0,
+          "dof_vel": 1.0,
+          "command": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "command_dims": 3,
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "command_ranges": {
+          "lin_vel_x": [
+            -0.5,
+            1.0
+          ],
+          "lin_vel_y": [
+            -0.5,
+            0.5
+          ],
+          "ang_vel_z": [
+            -1.0,
+            1.0
+          ]
+        }
+      },
+      "robot": "unitree_go2w",
+      "policy_id": "go2w-upstream-legsonly-v0"
+    },
+    {
+      "id": "unitree_go2w-trained-20260918-093550",
+      "path": "simulation/policies/unitree_go2w-trained-20260918-093550.onnx",
+      "sim_ready": false,
+      "sim_blocker": "**布局与动作口径已取证**（v0.59.0：obs 自训练源/既有帧逐项、动作自训练源与 ONNX 元数据），但**行为级实测不合格**：无头验收 5 档命令 **2/5**（存活 5/5、默认门 4/5——唯一短板是**不跟踪**：站得住不走） ⇒ B8 冒烟轮产物，不入可仿真清单；要入清单须重训后重评（补 builder 解决不了\"不走\"）。",
+      "provenance": {
+        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260918_093550_665376",
+        "run_id": "unitree_go2w_contract_v1_20260918_093550_665376",
+        "origin": "product-training",
+        "installed_at": "2026-09-18T01:37:28+00:00"
+      },
+      "label": "训练产物（run unitree_go2w_contract_v1_20260918_093550_665376）",
+      "obs_dim": 57,
+      "action_dim": 16,
+      "contract": {
+        "observation_kind": "unknown",
+        "obs_dim": 57,
+        "action_dim": 16,
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3
+          },
+          {
+            "source": "joint_pos",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_vel",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_pos",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "joint_vel",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "action"
+          }
+        ],
+        "action_scale": 0.5,
+        "velocity_scale": 35.0,
+        "control_modes": {
+          "wheel": "velocity"
+        }
+      },
+      "note": "B8 第二批冒烟产物。**2026-09-23 补齐取证（v0.59.0）**：obs 布局自训练源 adapters/mjlab/kits/wheel_leg_kit/velocity_env_cfg.py::policy_terms + 包内 `training/source/go2w_velocity/env_cfgs.py`（同上逐项序）；动作口径同源（腿 0.5、轮 35.0，包级 wheel 缩放是 5.0）；ONNX 元数据默认姿态与包级逐值一致 ⇒ 不重复声明。**行为级实测**：无头验收 5 档命令 **2/5**（存活 5/5、默认门 4/5——唯一短板是**不跟踪**：站得住不走）。"
+    },
+    {
+      "id": "unitree_go2w-uf-1500",
+      "label": "统一框架 1024×1500（go2w velocity 全 dof，家族装配器产物）",
+      "obs_dim": 57,
+      "action_dim": 16,
+      "history_len": 1,
+      "path": "simulation/policies/unitree_go2w-uf-1500.onnx",
+      "sim_ready": true,
+      "provenance": {
+        "origin": "product-training",
+        "note": "wheel_leg_kit velocity 统一框架 1024×1500；布局=ONNX observation_names 八段自证（ang3/grav3/cmd3/腿pos12/腿vel12/轮pos4/轮vel4/action16）；轮速度缩放 35.0=契约 actuator_profile.by_role.wheel.action_scale；效果 motion 0.063（未收敛，如实登记）"
+      },
+      "contract": {
+        "obs_dim": 57,
+        "action_dim": 16,
+        "history_len": 1,
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3
+          },
+          {
+            "source": "joint_pos",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_vel",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_pos",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "joint_vel",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "action"
+          }
+        ],
+        "action_joint_order": [
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "FL_wheel_joint",
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FR_wheel_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint",
+          "RL_wheel_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RR_wheel_joint"
+        ],
+        "default_joint_angles": {
+          "FL_hip_joint": -0.1,
+          "FL_thigh_joint": 0.9,
+          "FL_calf_joint": -1.8,
+          "FL_wheel_joint": 0.0,
+          "FR_hip_joint": 0.1,
+          "FR_thigh_joint": 0.9,
+          "FR_calf_joint": -1.8,
+          "FR_wheel_joint": 0.0,
+          "RL_hip_joint": -0.1,
+          "RL_thigh_joint": 0.9,
+          "RL_calf_joint": -1.8,
+          "RL_wheel_joint": 0.0,
+          "RR_hip_joint": 0.1,
+          "RR_thigh_joint": 0.9,
+          "RR_calf_joint": -1.8,
+          "RR_wheel_joint": 0.0
+        },
+        "action_scale": 0.5,
+        "control": {
+          "velocity_scale": 35.0
+        },
+        "command_dims": 3,
+        "default_command": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "command_ranges": {
+          "lin_vel_x": [
+            -0.5,
+            1.0
+          ],
+          "lin_vel_y": [
+            -0.5,
+            0.5
+          ],
+          "ang_vel_z": [
+            -1.0,
+            1.0
+          ]
+        },
+        "control_modes": {
+          "wheel": "velocity"
+        }
+      }
+    },
+    {
+      "id": "unitree_go2w-trained-20260930-062231",
+      "path": "simulation/policies/unitree_go2w-trained-20260930-062231.onnx",
+      "provenance": {
+        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_062231_995409",
+        "run_id": "unitree_go2w_contract_v1_20260930_062231_995409",
+        "origin": "product-training",
+        "installed_at": "2026-09-30T03:01:14+00:00"
+      },
+      "label": "训练产物（run unitree_go2w_contract_v1_20260930_062231_995409）",
+      "obs_dim": 53,
+      "action_dim": 12,
+      "contract": {
+        "obs_dim": 53,
+        "action_dim": 12,
+        "observation_kind": "go2w_mjlab_legs_53",
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ]
+      },
+      "observation_kind": "go2w_mjlab_legs_53"
+    },
+    {
       "id": "go2w-velocity-legs",
       "label": "Velocity Legs-Only (mjlab)",
       "obs_dim": 53,
@@ -1079,914 +1372,6 @@
         "profile": "go2w-flat",
         "match": "family",
         "upstream": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）"
-      }
-    },
-    {
-      "id": "unitree_go2w-trained-20260918-093550",
-      "path": "simulation/policies/unitree_go2w-trained-20260918-093550.onnx",
-      "sim_ready": false,
-      "sim_blocker": "**布局与动作口径已取证**（v0.59.0：obs 自训练源/既有帧逐项、动作自训练源与 ONNX 元数据），但**行为级实测不合格**：无头验收 5 档命令 **2/5**（存活 5/5、默认门 4/5——唯一短板是**不跟踪**：站得住不走） ⇒ B8 冒烟轮产物，不入可仿真清单；要入清单须重训后重评（补 builder 解决不了\"不走\"）。",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260918_093550_665376",
-        "run_id": "unitree_go2w_contract_v1_20260918_093550_665376",
-        "origin": "product-training",
-        "installed_at": "2026-09-18T01:37:28+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260918_093550_665376）",
-      "obs_dim": 57,
-      "action_dim": 16,
-      "contract": {
-        "observation_kind": "unknown",
-        "obs_dim": 57,
-        "action_dim": 16,
-        "observation_layout": [
-          {
-            "source": "ang_vel",
-            "width": 3
-          },
-          {
-            "source": "gravity"
-          },
-          {
-            "source": "cmd",
-            "width": 3
-          },
-          {
-            "source": "joint_pos",
-            "mode": "position",
-            "width": 12
-          },
-          {
-            "source": "joint_vel",
-            "mode": "position",
-            "width": 12
-          },
-          {
-            "source": "joint_pos",
-            "mode": "velocity",
-            "width": 4
-          },
-          {
-            "source": "joint_vel",
-            "mode": "velocity",
-            "width": 4
-          },
-          {
-            "source": "action"
-          }
-        ],
-        "action_scale": 0.5,
-        "velocity_scale": 35.0,
-        "control_modes": {
-          "wheel": "velocity"
-        }
-      },
-      "note": "B8 第二批冒烟产物。**2026-09-23 补齐取证（v0.59.0）**：obs 布局自训练源 adapters/mjlab/kits/wheel_leg_kit/velocity_env_cfg.py::policy_terms + 包内 `training/source/go2w_velocity/env_cfgs.py`（同上逐项序）；动作口径同源（腿 0.5、轮 35.0，包级 wheel 缩放是 5.0）；ONNX 元数据默认姿态与包级逐值一致 ⇒ 不重复声明。**行为级实测**：无头验收 5 档命令 **2/5**（存活 5/5、默认门 4/5——唯一短板是**不跟踪**：站得住不走）。"
-    },
-    {
-      "id": "unitree_go2w-uf-1500",
-      "label": "统一框架 1024×1500（go2w velocity 全 dof，家族装配器产物）",
-      "obs_dim": 57,
-      "action_dim": 16,
-      "history_len": 1,
-      "path": "simulation/policies/unitree_go2w-uf-1500.onnx",
-      "sim_ready": true,
-      "provenance": {
-        "origin": "product-training",
-        "note": "wheel_leg_kit velocity 统一框架 1024×1500；布局=ONNX observation_names 八段自证（ang3/grav3/cmd3/腿pos12/腿vel12/轮pos4/轮vel4/action16）；轮速度缩放 35.0=契约 actuator_profile.by_role.wheel.action_scale；效果 motion 0.063（未收敛，如实登记）"
-      },
-      "contract": {
-        "obs_dim": 57,
-        "action_dim": 16,
-        "history_len": 1,
-        "observation_layout": [
-          {
-            "source": "ang_vel",
-            "width": 3
-          },
-          {
-            "source": "gravity"
-          },
-          {
-            "source": "cmd",
-            "width": 3
-          },
-          {
-            "source": "joint_pos",
-            "mode": "position",
-            "width": 12
-          },
-          {
-            "source": "joint_vel",
-            "mode": "position",
-            "width": 12
-          },
-          {
-            "source": "joint_pos",
-            "mode": "velocity",
-            "width": 4
-          },
-          {
-            "source": "joint_vel",
-            "mode": "velocity",
-            "width": 4
-          },
-          {
-            "source": "action"
-          }
-        ],
-        "action_joint_order": [
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "FL_wheel_joint",
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FR_wheel_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint",
-          "RL_wheel_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RR_wheel_joint"
-        ],
-        "default_joint_angles": {
-          "FL_hip_joint": -0.1,
-          "FL_thigh_joint": 0.9,
-          "FL_calf_joint": -1.8,
-          "FL_wheel_joint": 0.0,
-          "FR_hip_joint": 0.1,
-          "FR_thigh_joint": 0.9,
-          "FR_calf_joint": -1.8,
-          "FR_wheel_joint": 0.0,
-          "RL_hip_joint": -0.1,
-          "RL_thigh_joint": 0.9,
-          "RL_calf_joint": -1.8,
-          "RL_wheel_joint": 0.0,
-          "RR_hip_joint": 0.1,
-          "RR_thigh_joint": 0.9,
-          "RR_calf_joint": -1.8,
-          "RR_wheel_joint": 0.0
-        },
-        "action_scale": 0.5,
-        "control": {
-          "velocity_scale": 35.0
-        },
-        "command_dims": 3,
-        "default_command": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "command_ranges": {
-          "lin_vel_x": [
-            -0.5,
-            1.0
-          ],
-          "lin_vel_y": [
-            -0.5,
-            0.5
-          ],
-          "ang_vel_z": [
-            -1.0,
-            1.0
-          ]
-        },
-        "control_modes": {
-          "wheel": "velocity"
-        }
-      }
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-005045",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-005045.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_005045_119414",
-        "run_id": "unitree_go2w_contract_v1_20260930_005045_119414",
-        "origin": "product-training",
-        "installed_at": "2026-09-29T17:20:41+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_005045_119414）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-004941",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-004941.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_004941_279551",
-        "run_id": "unitree_go2w_contract_v1_20260930_004941_279551",
-        "origin": "product-training",
-        "installed_at": "2026-09-29T17:22:21+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_004941_279551）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-021939",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-021939.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_021939_678608",
-        "run_id": "unitree_go2w_contract_v1_20260930_021939_678608",
-        "origin": "product-training",
-        "installed_at": "2026-09-29T18:47:35+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_021939_678608）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-032710",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-032710.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_032710_257870",
-        "run_id": "unitree_go2w_contract_v1_20260930_032710_257870",
-        "origin": "product-training",
-        "installed_at": "2026-09-29T19:27:44+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_032710_257870）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-032804",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-032804.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_032804_907883",
-        "run_id": "unitree_go2w_contract_v1_20260930_032804_907883",
-        "origin": "product-training",
-        "installed_at": "2026-09-29T19:53:49+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_032804_907883）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-042307",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-042307.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_042307_495439",
-        "run_id": "unitree_go2w_contract_v1_20260930_042307_495439",
-        "origin": "product-training",
-        "installed_at": "2026-09-29T20:23:41+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_042307_495439）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-042427",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-042427.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_042427_896057",
-        "run_id": "unitree_go2w_contract_v1_20260930_042427_896057",
-        "origin": "product-training",
-        "installed_at": "2026-09-29T20:50:22+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_042427_896057）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-052112",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-052112.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_052112_618674",
-        "run_id": "unitree_go2w_contract_v1_20260930_052112_618674",
-        "origin": "product-training",
-        "installed_at": "2026-09-29T21:21:46+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_052112_618674）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-052230",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-052230.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_052230_447476",
-        "run_id": "unitree_go2w_contract_v1_20260930_052230_447476",
-        "origin": "product-training",
-        "installed_at": "2026-09-29T21:48:05+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_052230_447476）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-062146",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-062146.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_062146_741000",
-        "run_id": "unitree_go2w_contract_v1_20260930_062146_741000",
-        "origin": "product-training",
-        "installed_at": "2026-09-29T22:22:20+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_062146_741000）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-082307",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-082307.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_082307_506284",
-        "run_id": "unitree_go2w_contract_v1_20260930_082307_506284",
-        "origin": "product-training",
-        "installed_at": "2026-09-30T00:23:42+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_082307_506284）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-092057",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-092057.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_092057_505690",
-        "run_id": "unitree_go2w_contract_v1_20260930_092057_505690",
-        "origin": "product-training",
-        "installed_at": "2026-09-30T02:07:17+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_092057_505690）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-105442",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-105442.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_105442_413825",
-        "run_id": "unitree_go2w_contract_v1_20260930_105442_413825",
-        "origin": "product-training",
-        "installed_at": "2026-09-30T02:55:16+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_105442_413825）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-062231",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-062231.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_062231_995409",
-        "run_id": "unitree_go2w_contract_v1_20260930_062231_995409",
-        "origin": "product-training",
-        "installed_at": "2026-09-30T03:01:14+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_062231_995409）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-105539",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-105539.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_105539_102248",
-        "run_id": "unitree_go2w_contract_v1_20260930_105539_102248",
-        "origin": "product-training",
-        "installed_at": "2026-09-30T03:23:47+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_105539_102248）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "unitree_go2w-trained-20260930-115002",
-      "path": "simulation/policies/unitree_go2w-trained-20260930-115002.onnx",
-      "provenance": {
-        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_115002_901784",
-        "run_id": "unitree_go2w_contract_v1_20260930_115002_901784",
-        "origin": "product-training",
-        "installed_at": "2026-09-30T03:50:36+00:00"
-      },
-      "label": "训练产物（run unitree_go2w_contract_v1_20260930_115002_901784）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ]
-      },
-      "observation_kind": "go2w_mjlab_legs_53"
-    },
-    {
-      "id": "rc-native-model6800",
-      "label": "rc_old 原生产物 model_6800（上游部署对照基准）",
-      "obs_dim": 53,
-      "action_dim": 16,
-      "history_len": 1,
-      "path": "simulation/policies/rc-native-model6800.onnx",
-      "sim_ready": true,
-      "provenance": {
-        "origin": "upstream-vendored",
-        "note": "00_resources/rc_old model_6800.onnx；obs=ang*0.25,grav,cmd,腿pos_rel,腿dq*0.05,轮dq*0.05,action16；action_scale hip0.125/thigh0.25/calf0.25/wheel5.0；PD 腿50/1.5 轮1.0（上游真机对齐）"
-      },
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 16,
-        "history_len": 1,
-        "observation_kind": "zexw_53",
-        "action_joint_order": [
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "FL_wheel_joint",
-          "FR_wheel_joint",
-          "RL_wheel_joint",
-          "RR_wheel_joint"
-        ],
-        "default_joint_angles": {
-          "FL_hip_joint": 0.0,
-          "FL_thigh_joint": 0.9,
-          "FL_calf_joint": -1.8,
-          "FL_wheel_joint": 0.0,
-          "FR_hip_joint": 0.0,
-          "FR_thigh_joint": 0.9,
-          "FR_calf_joint": -1.8,
-          "FR_wheel_joint": 0.0,
-          "RL_hip_joint": 0.0,
-          "RL_thigh_joint": 0.9,
-          "RL_calf_joint": -1.8,
-          "RL_wheel_joint": 0.0,
-          "RR_hip_joint": 0.0,
-          "RR_thigh_joint": 0.9,
-          "RR_calf_joint": -1.8,
-          "RR_wheel_joint": 0.0
-        },
-        "action_scale_by_joint": {
-          "FL_hip_joint": 0.125,
-          "FL_thigh_joint": 0.25,
-          "FL_calf_joint": 0.25,
-          "FL_wheel_joint": 5.0,
-          "FR_hip_joint": 0.125,
-          "FR_thigh_joint": 0.25,
-          "FR_calf_joint": 0.25,
-          "FR_wheel_joint": 5.0,
-          "RL_hip_joint": 0.125,
-          "RL_thigh_joint": 0.25,
-          "RL_calf_joint": 0.25,
-          "RL_wheel_joint": 5.0,
-          "RR_hip_joint": 0.125,
-          "RR_thigh_joint": 0.25,
-          "RR_calf_joint": 0.25,
-          "RR_wheel_joint": 5.0
-        },
-        "velocity_scale": 5.0,
-        "scales": {
-          "ang_vel": 0.25,
-          "dof_pos": 1.0,
-          "dof_vel": 0.05,
-          "command": [
-            1.0,
-            1.0,
-            1.0
-          ]
-        },
-        "command_dims": 3,
-        "default_command": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "command_ranges": {
-          "lin_vel_x": [
-            -0.5,
-            1.0
-          ],
-          "lin_vel_y": [
-            -0.5,
-            0.5
-          ],
-          "ang_vel_z": [
-            -1.0,
-            1.0
-          ]
-        },
-        "control_modes": {
-          "wheel": "velocity"
-        }
-      }
-    },
-    {
-      "id": "probe-model7000",
-      "label": "自产 40k 中途 checkpoint model_7000（修复后物理复评）",
-      "obs_dim": 53,
-      "action_dim": 12,
-      "history_len": 1,
-      "path": "simulation/policies/probe-model7000.onnx",
-      "sim_ready": true,
-      "provenance": {
-        "origin": "upstream-vendored",
-        "note": "run 115050 @ iter 7000；训练物理为旧 PD（kp20），部署物理已修",
-        "installed_at": "2026-09-30T14:05:00+00:00"
-      },
-      "contract": {
-        "obs_dim": 53,
-        "action_dim": 12,
-        "history_len": 1,
-        "observation_kind": "go2w_mjlab_legs_53",
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint"
-        ],
-        "default_joint_angles": {
-          "FR_hip_joint": -0.1,
-          "FR_thigh_joint": 0.9,
-          "FR_calf_joint": -1.8,
-          "FL_hip_joint": 0.1,
-          "FL_thigh_joint": 0.9,
-          "FL_calf_joint": -1.8,
-          "RR_hip_joint": -0.1,
-          "RR_thigh_joint": 0.9,
-          "RR_calf_joint": -1.8,
-          "RL_hip_joint": 0.1,
-          "RL_thigh_joint": 0.9,
-          "RL_calf_joint": -1.8
-        },
-        "action_scale_by_joint": {
-          "FR_hip_joint": 0.35,
-          "FR_thigh_joint": 0.35,
-          "FR_calf_joint": 0.35,
-          "FL_hip_joint": 0.35,
-          "FL_thigh_joint": 0.35,
-          "FL_calf_joint": 0.35,
-          "RR_hip_joint": 0.35,
-          "RR_thigh_joint": 0.35,
-          "RR_calf_joint": 0.35,
-          "RL_hip_joint": 0.35,
-          "RL_thigh_joint": 0.35,
-          "RL_calf_joint": 0.35
-        },
-        "velocity_scale": 5.0,
-        "scales": {
-          "ang_vel": 0.25,
-          "dof_pos": 1.0,
-          "dof_vel": 0.05,
-          "command": [
-            1.0,
-            1.0,
-            1.0
-          ]
-        },
-        "command_dims": 3,
-        "default_command": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "command_ranges": {
-          "lin_vel_x": [
-            -0.5,
-            1.0
-          ],
-          "lin_vel_y": [
-            -0.5,
-            0.5
-          ],
-          "ang_vel_z": [
-            -1.0,
-            1.0
-          ]
-        },
-        "control_modes": {}
       }
     }
   ],

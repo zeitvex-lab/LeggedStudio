@@ -2427,10 +2427,30 @@
       "run_id": "unitree_go2w_contract_v1_20260930_115002_901784",
       "schema": "policy-artifact-1.0",
       "source_onnx": "simulation/policies/unitree_go2w-trained-20260930-115002.onnx"
+    },
+    {
+      "schema": "policy-artifact-1.0",
+      "kind": "policies",
+      "artifact_id": "unitree_go2w__go2w-upstream-legsonly-v0",
+      "policy_id": "go2w-upstream-legsonly-v0",
+      "robot": "unitree_go2w",
+      "label": "上游原生 legs-only v0（unitree_rl_mjlab_go2w deploy 产物）",
+      "obs_dim": 53,
+      "action_dim": 12,
+      "history_len": 1,
+      "algorithm": null,
+      "declared_source": "unitree_rl_mjlab_go2w deploy velocity_legs_only v0（上游原生，2026-09-30 入库）",
+      "contract_digest": "f602a0c827c17e23473ac96bdadf953c0c91852ed9e73329a49b8df0e9130d64",
+      "onnx_bytes": 787633,
+      "onnx_sha256": "4756227477463b3aa7bcf396209075efd916b6eeb6b470867e5e2ce94686bf3f",
+      "source_onnx": "assets/robots/unitree_go2w/simulation/policies/go2w-upstream-legsonly-v0.onnx",
+      "aux_blobs": [],
+      "run_id": null,
+      "task_type": null
     }
   ],
   "blobs": "引用式：onnx 单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目在**安装进包之前**持真副本，安装后转为引用式（见 install_produced_policy）",
-  "count": 94,
+  "count": 95,
   "generated_at": "2026-09-30T03:50:36+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"

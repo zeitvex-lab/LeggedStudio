@@ -623,7 +623,7 @@ class RealRepoTest(unittest.TestCase):
     def test_repo_declarations_resolve_and_count_matches_blobs(self):
         """**B10 终态自检**：声明只留 `id`，解析一律经 `policies/index.json`。"""
         declarations = pa.scan_declarations()
-        self.assertEqual(46, len(declarations), "本仓 8 机型应有 46 条策略声明（2026-09-30 实测：+go2w legs-only 冒烟/产品两产物 004941/005045）")
+        self.assertEqual(46, len(declarations), "本仓 8 机型应有 46 条策略声明（2026-09-30 实测：go2w 清理后 10 条，含上游原生 legs-only v0）")
         index = pa.load_index()
         self.assertTrue(index, "先跑 build_all(write=True) 出库")
 

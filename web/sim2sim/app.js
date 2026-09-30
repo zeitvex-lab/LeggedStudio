@@ -139,6 +139,10 @@ const CONFIG = {
   commandDims: 3,
   dofReindex: null,
   actionReindex: null,
+  // 策略槽位 → 平台槽位映射（由契约 action_joint_order 与平台关节序按名派生）。
+  // rc_old 原生等"契约序 ≠ 平台序"的模型必需：obs 段按策略序写、动作下发经
+  // actionReindex（平台槽 → 策略槽），否则 FL/FR、RL/RR 整对置换（2026-09-30）。
+  policyJointSlots: null,
   // Motion-tracking contracts (LeggedSkillDeploy protocol)：策略槽位 → CSV/机器人
   // 关节列的排列、腰关节槽位（策略序）与观测裁剪界。
   motionJointMapping: null,
@@ -1905,6 +1909,27 @@ function applyRuntimeConfig(config) {
   const reindex = normalizeReindex(contract.reindex);
   CONFIG.dofReindex = reindex;
   CONFIG.actionReindex = reindex;
+  // 策略槽位 → 平台槽位按名派生（契约 action_joint_order 是唯一真值）：obs 段按
+  // 策略序写，动作下发经 actionReindex。契约未声明 reindex 而声明了关节序时自动
+  // 推导（rc_old 原生模型 FL,FR,RL,RR vs 平台 FR,FL,RR,RL —— 不推导则整腿对置换）。
+  const policyOrder = Array.isArray(contract?.action_joint_order)
+    && contract.action_joint_order.length === CONFIG.numActions
+    ? contract.action_joint_order.map((n) => String(n).toLowerCase())
+    : null;
+  if (policyOrder) {
+    const platformNames = Array.from({ length: CONFIG.numActions }, (_, i) => String(order[i] || "").toLowerCase());
+    const slots = policyOrder.map((n) => platformNames.indexOf(n));
+    CONFIG.policyJointSlots = slots.every((v) => v >= 0) ? slots : null;
+    if (!CONFIG.actionReindex && CONFIG.policyJointSlots) {
+      const derived = new Array(CONFIG.numActions);
+      CONFIG.policyJointSlots.forEach((plat, pol) => { derived[plat] = pol; });
+      const identity = derived.every((v, i) => v === i);
+      CONFIG.actionReindex = identity ? null : derived;
+      CONFIG.dofReindex = CONFIG.actionReindex;
+    }
+  } else {
+    CONFIG.policyJointSlots = null;
+  }
 
   const usedJobAngles = order.length >= CONFIG.numActions && Object.keys(defaults).length > 0;
   console.info(
@@ -2222,7 +2247,17 @@ function applyActuatorContract(contract, control, order) {
       jointScales[name],
       finiteNumber(roleScales[role], defaultPositionScale),
     );
-    CONFIG.velocityActionScales[i] = finiteNumber(roleScales[role], defaultVelocityScale);
+    // 轮速缩放回落链（与 Python PackageContract 同语义，2026-09-30）：
+    // role 表 → **逐关节表**（rc_old 原生 5.0 只在 action_scale_by_joint 里）→
+    // 契约顶层 velocity_scale → 缺省 20。缺逐关节读法时 rc 原生模型在浏览器
+    // 轮速被放大 4 倍 → 零指令漂移（headless 同模型干净，差异即此）。
+    CONFIG.velocityActionScales[i] = finiteNumber(
+      roleScales[role],
+      finiteNumber(
+        modes[i] === "velocity" ? jointScales[name] : undefined,
+        finiteNumber(contract?.velocity_scale, defaultVelocityScale),
+      ),
+    );
   }
 }
 
