@@ -1,0 +1,40 @@
+{
+  "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_105539_102248",
+  "contract": {
+    "action_dim": 12,
+    "action_joint_order": [
+      "FR_hip_joint",
+      "FR_thigh_joint",
+      "FR_calf_joint",
+      "FL_hip_joint",
+      "FL_thigh_joint",
+      "FL_calf_joint",
+      "RR_hip_joint",
+      "RR_thigh_joint",
+      "RR_calf_joint",
+      "RL_hip_joint",
+      "RL_thigh_joint",
+      "RL_calf_joint"
+    ],
+    "obs_dim": 53,
+    "observation_kind": "go2w_mjlab_legs_53"
+  },
+  "contract_digest": "4e8a9f9bfa2f7c584cdff6c026eb1bfc59e6c7a748395587f1be877b500b24cf",
+  "installed": {
+    "package_path": "simulation/policies/unitree_go2w-trained-20260930-105539.onnx",
+    "policy_id": "unitree_go2w-trained-20260930-105539",
+    "repo_path": "assets/robots/unitree_go2w/simulation/policies/unitree_go2w-trained-20260930-105539.onnx",
+    "robot": "unitree_go2w"
+  },
+  "kind": "produced",
+  "obs_dim": 53,
+  "obs_dim_source": "onnx",
+  "observation_kind": "go2w_mjlab_legs_53",
+  "onnx_bytes": 776409,
+  "onnx_sha256": "bf0c4f0ef1f3480d8eefb7f32fe48ee4c8cffbf8c4a65ce3a9bda84462759b90",
+  "policy_id": "unitree_go2w-trained-20260930-105539",
+  "robot": "unitree_go2w",
+  "run_id": "unitree_go2w_contract_v1_20260930_105539_102248",
+  "schema": "policy-artifact-1.0",
+  "source_onnx": "simulation/policies/unitree_go2w-trained-20260930-105539.onnx"
+}
