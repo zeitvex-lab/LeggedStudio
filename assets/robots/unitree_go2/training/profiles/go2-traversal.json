@@ -5,7 +5,7 @@
   "terrain_type": "rough",
   "algorithm": "PPO",
   "task_name": "traversal_obstacle_release",
-  "num_envs": 16,
+  "num_envs": 4096,
   "episode_length_s": 20.0,
   "terrain": {
     "type": "generator",
