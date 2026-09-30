@@ -7,8 +7,13 @@
       "display_name": "平地",
       "class": "basic",
       "summary": "无起伏退化的地形档；速度跟踪与特技（跳跃类）的默认档。",
-      "builder": { "kind": "flat" },
-      "availability": { "quadruped": "ready", "wheel_leg": "ready" },
+      "builder": {
+        "kind": "flat"
+      },
+      "availability": {
+        "quadruped": "ready",
+        "wheel_leg": "ready"
+      },
       "evidence": {
         "source": "adapters/mjlab/generic_task_builder.py（TerrainEntityCfg(terrain_type='plane')）",
         "note": "两族通用路径实测通过（8/8 机型装配 + b2 真 worker 1 iter，见 workspace/validation/）"
@@ -23,7 +28,10 @@
         "kind": "mjlab_generator",
         "cfg": "mjlab.terrains.config.ROUGH_TERRAINS_CFG"
       },
-      "availability": { "quadruped": "ready", "wheel_leg": "ready" },
+      "availability": {
+        "quadruped": "ready",
+        "wheel_leg": "ready"
+      },
       "evidence": {
         "source": "adapters/mjlab/generic_task_builder.py:375（replace(ROUGH_TERRAINS_CFG)）",
         "note": "子地形实测：flat / pyramid_stairs / pyramid_stairs_inv / hf_pyramid_slope(_inv) / random_rough / wave_terrain"
@@ -36,10 +44,16 @@
       "summary": "金字塔台阶（上/下）——越障的最小可判地形档；两族共用同一构造，不看技能叫什么名字。",
       "builder": {
         "kind": "mjlab_generator",
-        "sub_terrains": ["pyramid_stairs", "pyramid_stairs_inv"],
+        "sub_terrains": [
+          "pyramid_stairs",
+          "pyramid_stairs_inv"
+        ],
         "cfg": "mjlab.terrains.config.ROUGH_TERRAINS_CFG"
       },
-      "availability": { "quadruped": "ready", "wheel_leg": "ready" },
+      "availability": {
+        "quadruped": "ready",
+        "wheel_leg": "ready"
+      },
       "evidence": {
         "source": "mjlab.terrains：BoxPyramidStairsTerrainCfg / BoxInvertedPyramidStairsTerrainCfg；四足 parkour 亦用同名台阶族（quadruped_kit/skills/parkour/terrains.py）",
         "note": "轮足族 zex-w-rough 的 course 里本就含 pyramid_stairs（initial_terrains）"
@@ -53,15 +67,23 @@
       "builder": {
         "kind": "family_kit",
         "wheel_leg": {
-          "terrain_factory": "adapters.mjlab.kits.wheel_leg_kit.terrains.competition_terrains",
-          "curriculum": "adapters.mjlab.kits.wheel_leg_kit.mdp.terrain_curriculums.terrain_levels_obstacle_release",
+          "terrain_factory": "adapters.mjlab.kits.obstacle_course",
+          "curriculum": "adapters.mjlab.kits.terrain_curriculums.terrain_levels_obstacle_release",
           "env_cfg": "adapters.mjlab.kits.wheel_leg_kit.traversal_env_cfg"
+        },
+        "quadruped": {
+          "terrain_factory": "adapters.mjlab.kits.obstacle_course",
+          "curriculum": "adapters.mjlab.kits.terrain_curriculums.terrain_levels_obstacle_release"
         }
       },
-      "availability": { "quadruped": "missing", "wheel_leg": "ready" },
+      "availability": {
+        "quadruped": "ready",
+        "wheel_leg": "ready"
+      },
       "evidence": {
         "source": "workspace/validation/zexw-traversal-equivalence.json（上移等价 + 真环境课程按 4800/12000/16800 步释放 5→6→7→8）；b2w-traversal 冒烟 ok",
-        "note": "四足族的对应物（parkour 的地形课程）尚未接入本档"
+        "note": "四足族的对应物（parkour 的地形课程）尚未接入本档",
+        "quadruped_2026_09_30": "课程三件套上提 kits 共享层（terrain_curriculums/obstacle_terrains/obstacle_course，wheel_leg_kit 旧位置改再导出）；go2 包侧 traversal_env_cfg 绑定 rough 基座 + 共享工厂，go2-traversal 档入库。装配验证 = audit_terrain_profiles + test_terrain_profiles_assembly + 16×5 冒烟。"
       }
     },
     {
@@ -72,14 +94,22 @@
       "builder": {
         "kind": "family_kit",
         "wheel_leg": {
-          "terrain_factory": "adapters.mjlab.kits.wheel_leg_kit.terrains.competition_terrains",
+          "terrain_factory": "adapters.mjlab.kits.obstacle_course",
           "env_cfg": "adapters.mjlab.kits.wheel_leg_kit.traversal_env_cfg"
+        },
+        "quadruped": {
+          "terrain_factory": "adapters.mjlab.kits.obstacle_course",
+          "curriculum": "adapters.mjlab.kits.terrain_curriculums.terrain_levels_obstacle_release"
         }
       },
-      "availability": { "quadruped": "missing", "wheel_leg": "ready" },
+      "availability": {
+        "quadruped": "ready",
+        "wheel_leg": "ready"
+      },
       "evidence": {
         "source": "adapters/mjlab/kits/wheel_leg_kit/terrains/competition_terrains.py（自 zex-w 包内上移，上移等价已对拍）",
-        "note": "地图侧另有 assets/maps/robocon_dual_track.xml（整场导入，属场景层）"
+        "note": "地图侧另有 assets/maps/robocon_dual_track.xml（整场导入，属场景层）",
+        "quadruped_2026_09_30": "课程三件套上提 kits 共享层（terrain_curriculums/obstacle_terrains/obstacle_course，wheel_leg_kit 旧位置改再导出）；go2 包侧 traversal_env_cfg 绑定 rough 基座 + 共享工厂，go2-traversal 档入库。装配验证 = audit_terrain_profiles + test_terrain_profiles_assembly + 16×5 冒烟。"
       }
     }
   ]
