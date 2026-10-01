@@ -623,7 +623,7 @@ class RealRepoTest(unittest.TestCase):
     def test_repo_declarations_resolve_and_count_matches_blobs(self):
         """**B10 终态自检**：声明只留 `id`，解析一律经 `policies/index.json`。"""
         declarations = pa.scan_declarations()
-        self.assertEqual(46, len(declarations), "本仓 8 机型应有 46 条策略声明（2026-09-30 实测：go2w 清理后 10 条，含上游原生 legs-only v0）")
+        self.assertEqual(47, len(declarations), "本仓 8 机型应有 47 条策略声明（2026-10-01 +1：go2w-flatwalk-40k 入库；前序 2026-09-30 go2w 清理后 10 条）")
         index = pa.load_index()
         self.assertTrue(index, "先跑 build_all(write=True) 出库")
 
@@ -644,7 +644,7 @@ class RealRepoTest(unittest.TestCase):
         # 包内 41 个 onnx 实体（2026-09-23 实测；族架构收敛只留 8 机型后：
         # 59 → 41，删除的 18 个属于 microduck / tron1×3 / unitree_g1 / wuji_hand）。
         blobs = list(pa.iter_onnx_files())
-        self.assertEqual(44, len(blobs), "包内 onnx 实体数（2026-09-30：+go2w legs-only 冒烟/产品两产物）")
+        self.assertEqual(45, len(blobs), "包内 onnx 实体数（2026-10-01：+go2w-flatwalk-40k；前序 2026-09-30 +go2w legs-only 冒烟/产品两产物）")
         self.assertIsInstance(pa.unexported_onnx(), list)
 
     def test_artifact_ids_are_unique(self):
@@ -1151,3 +1151,121 @@ class RealRepoRuntimeCopyTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PromoteActionScaleSafetyNetTest(unittest.TestCase):
+    """入库缩放保险层（2026-10-01 go2w legs-only 40k 实证）：
+
+    导出器把 ONNX metadata 的 action_scale 写成**空串**（解析侧弃掉）⇒ 条目缺缩放
+    ⇒ 评测/浏览器回落机型契约 by_role（0.5=混合档的值），而纯腿训练真值 0.35
+    —— 43% 过幅驱动：8k 产物横走、40k 站桩。install 时 ONNX 没说就必须回填
+    **训练真值**（effective-config 的 actions.joint_pos.scale），并标注来源。
+    """
+
+    ONNX = b"produced-onnx-bytes"
+
+    def _make_run(self, root: Path, *, env_scale) -> Path:
+        from types import SimpleNamespace
+
+        from backend.training.runs import create_run_for_task
+
+        run_dir = root / "task_20261001_000000_000000"
+        contract = SimpleNamespace(robot_id="unitree_go2", compute_hash=lambda: "cafe1234")
+        create_run_for_task(
+            run_dir, contract=contract,
+            config={"robot_id": "unitree_go2", "seed": 7, "num_envs": 16, "max_iterations": 5},
+            task="training",
+        )
+        (run_dir / "status.json").write_text(
+            json.dumps({"status": "train_completed", "max_iterations": 5}), encoding="utf-8",
+        )
+        (run_dir / "exported").mkdir(parents=True)
+        (run_dir / "exported" / "policy.onnx").write_bytes(b"not-a-real-onnx")
+        (run_dir / "contract_snapshot.json").write_text(
+            json.dumps({
+                "action": {"dimension": 2, "joint_order": ["FL_hip_joint", "FR_hip_joint"]},
+            }, ensure_ascii=False), encoding="utf-8",
+        )
+        (run_dir / "effective-config.json").write_text(
+            json.dumps({"environment": {"actions": {"joint_pos": {"scale": env_scale}}}}),
+            encoding="utf-8",
+        )
+        return run_dir
+
+    def _repo_tree(self, root: Path) -> Path:
+        repo = root / "repo"
+        pkg = repo / "assets" / "robots" / "unitree_go2" / "simulation"
+        pkg.mkdir(parents=True)
+        (pkg / "config.json").write_text(json.dumps({"policies": []}), encoding="utf-8")
+        return repo
+
+    def test_missing_metadata_scale_falls_back_to_training_truth(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_dir = self._make_run(root / "ws", env_scale=0.35)
+            repo = self._repo_tree(root)
+            # install 的包定位走 robot_package_root（解析链优先运行期副本）——必须
+            # 重定向到临时树，否则测试条目装进 workspace/packages（2026-10-01 首跑实测）。
+            import backend.robot_packages as rp
+
+            def _fake_root(robot_id: str) -> Path:
+                return repo / "assets" / "robots" / robot_id
+
+            with unittest.mock.patch.object(pa, "ROOT", repo),                     unittest.mock.patch.object(rp, "robot_package_root", _fake_root):
+                artifact = pa.promote_from_run(
+                    run_dir, out_dir=root / "policies", policy_id="legs-035", install=True,
+                )
+            cfg = json.loads(
+                (repo / "assets" / "robots" / "unitree_go2" / "simulation" / "config.json")
+                .read_text(encoding="utf-8")
+            )
+            entry = next(p for p in cfg["policies"] if p["id"] == "legs-035")
+            self.assertEqual(0.35, entry["contract"]["action_scale"])
+            self.assertEqual("effective-config", entry["contract"]["action_scale_source"])
+
+    def test_uniform_check_uses_scalar_even_with_extra_joints(self):
+        """标量缩放按快照动作序展开成逐关节后仍判 uniform ⇒ 落标量（评测器默认链最短）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_dir = self._make_run(root / "ws", env_scale=0.5)
+            repo = self._repo_tree(root)
+            import backend.robot_packages as rp
+
+            def _fake_root(robot_id: str) -> Path:
+                return repo / "assets" / "robots" / robot_id
+
+            with unittest.mock.patch.object(pa, "ROOT", repo),                     unittest.mock.patch.object(rp, "robot_package_root", _fake_root):
+                pa.promote_from_run(
+                    run_dir, out_dir=root / "policies", policy_id="legs-050", install=True,
+                )
+            cfg = json.loads(
+                (repo / "assets" / "robots" / "unitree_go2" / "simulation" / "config.json")
+                .read_text(encoding="utf-8")
+            )
+            entry = next(p for p in cfg["policies"] if p["id"] == "legs-050")
+            self.assertEqual(0.5, entry["contract"]["action_scale"])
+
+    def test_no_env_scale_and_no_metadata_leaves_scale_absent(self):
+        """两处真值都没有 ⇒ 不编造：条目不带 action_scale（如实缺，不静默造数）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_dir = self._make_run(root / "ws", env_scale=None)
+            (run_dir / "effective-config.json").write_text(
+                json.dumps({"environment": {"actions": {}}}), encoding="utf-8",
+            )
+            repo = self._repo_tree(root)
+            import backend.robot_packages as rp
+
+            def _fake_root(robot_id: str) -> Path:
+                return repo / "assets" / "robots" / robot_id
+
+            with unittest.mock.patch.object(pa, "ROOT", repo),                     unittest.mock.patch.object(rp, "robot_package_root", _fake_root):
+                pa.promote_from_run(
+                    run_dir, out_dir=root / "policies", policy_id="legs-noscale", install=True,
+                )
+            cfg = json.loads(
+                (repo / "assets" / "robots" / "unitree_go2" / "simulation" / "config.json")
+                .read_text(encoding="utf-8")
+            )
+            entry = next(p for p in cfg["policies"] if p["id"] == "legs-noscale")
+            self.assertNotIn("action_scale", entry["contract"])
