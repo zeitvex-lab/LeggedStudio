@@ -82,7 +82,7 @@
         "waypoints_mode": "moving_target"
       },
       "criteria": {
-        "tool": "backend/follow_controller.py 参数（registry/motion_commands.json#follow_controller）",
+        "tool": "tools/run_task_profile.py --task follow_line（距离带随行名义模型探针）",
         "hold_ratio_min": 0.8,
         "distance_band_m": [
           1.0,
@@ -90,13 +90,15 @@
         ]
       },
       "availability": [
-        "browser"
+        "browser",
+        "headless",
+        "cli"
       ],
       "evidence": {
         "sources": [
           "00_resources/go2_unitree_ros2（跟随遥控语义）"
         ],
-        "note": "浏览器移动目标由场景脚本驱动；headless 判据工具待建（登记 gap）"
+        "note": "名义随行模型探针 hold_ratio 1.0（2026-10-01）；实机差距归控制器调参"
       },
       "plugin_id": null,
       "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。"
