@@ -510,6 +510,8 @@ const elements = {
   robotSelect: document.querySelector("#robotSelect"),
   taskDockSelect: document.querySelector("#taskDockSelect"),
   taskDockReadout: document.querySelector("#taskDockReadout"),
+  taskDockOpenEditor: document.querySelector("#taskDockOpenEditor"),
+  taskDockCli: document.querySelector("#taskDockCli"),
   modelSelect: document.querySelector("#modelSelect"),
   policySelect: document.querySelector("#policySelect"),
   configLink: document.querySelector("#configLink"),
@@ -889,6 +891,23 @@ if (SHOW_ADVANCED_PANELS && elements.taskDockSelect) {
         const data = await inst.json();
         const state = selectionState(pluginId, data.readiness, data.error);
         note.textContent = state.text;
+        // 判据出口：按插件 task_type 给 CLI 判据命令（三端口径同源）。
+        const cli = elements.taskDockCli;
+        if (cli) {
+          const taskType = String(data.task_type || "");
+          if (taskType === "traversal") {
+            cli.hidden = false;
+            cli.textContent = "判据: python tools/validate_traversal_progress.py --profile <档案> --checkpoint <model.pt>";
+          } else if (taskType === "navigation") {
+            cli.hidden = false;
+            cli.textContent = "判据: python tools/run_task_profile.py --task goal_nav_warehouse";
+          } else if (taskType === "velocity" || taskType === "parkour" || taskType === "balance") {
+            cli.hidden = false;
+            cli.textContent = "判据: adapters/mjlab/.venv/Scripts/python.exe tools/check_user_criteria.py --robot <机型> --policy <策略id>";
+          } else {
+            cli.hidden = true;
+          }
+        }
       } catch (err) {
         note.textContent = selectionState(pluginId, null, err).text;
       }
@@ -896,6 +915,13 @@ if (SHOW_ADVANCED_PANELS && elements.taskDockSelect) {
   } catch (err) {
     console.info("[sim2sim] 任务插件坞不可用:", err.message);
     elements.taskDockReadout.textContent = `任务插件清单不可用：${err.message}`;
+  }
+  if (elements.taskDockOpenEditor) {
+    elements.taskDockOpenEditor.addEventListener("click", () => {
+      // 场景编辑器与任务坞同在高级仿真面；编辑器是浮层（scenario_editor_ui.js），
+      // 这里只是把人送过去——插件实例化的完整表单流在那边（一键填入）。
+      window.location.href = "advanced_sim.html";
+    });
   }
 }
     if (elements.robotSelect) {

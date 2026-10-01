@@ -128,6 +128,15 @@
           <div class="dock-body">
             <div class="dock-readout" id="taskDockReadout">—</div>
           </div>
+          <details class="dock-plugins">
+            <summary>任务操作</summary>
+            <div class="dock-actions">
+              <!-- "应用感知绑定"走的是插件实例化（change 处理器已做）；这里给两个出口：
+                   ① 跳场景编辑器（那页有一键填入的完整表单流）；② 展示 CLI 判据命令。 -->
+              <button type="button" id="taskDockOpenEditor">在场景编辑器中打开</button>
+              <div class="dock-readout" id="taskDockCli" hidden></div>
+            </div>
+          </details>
         </div>
 
         <div class="model-card">

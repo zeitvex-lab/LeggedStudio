@@ -1686,3 +1686,16 @@ body.panel-hidden .panel-left { display: none !important; }
   font-size: 11px;
   color: rgba(255, 255, 255, 0.6);
 }
+
+/* 任务插件坞（高级仿真专属，与传感器坞同款风格）：操作区 + CLI 判据命令展示。 */
+.dock-actions { display: grid; gap: 6px; margin-top: 6px; }
+.dock-actions button {
+  padding: 3px 8px; border: 1px solid rgba(148, 178, 188, 0.28); border-radius: 4px;
+  background: transparent; color: #cfd8dc; font-size: 11px; cursor: pointer; text-align: left;
+}
+.dock-actions button:hover { color: inherit; border-color: var(--cyan, #2588df); }
+.dock-actions .dock-readout {
+  font: 10px Consolas, monospace; color: #8ea1ae; word-break: break-all;
+  padding: 4px; border: 1px dashed rgba(148, 178, 188, 0.2); border-radius: 4px;
+  user-select: all;
+}
