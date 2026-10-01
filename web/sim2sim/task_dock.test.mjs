@@ -51,11 +51,11 @@ test("taskToScenario：default_full → 全部航点", () => {
   assert.equal(s.waypoints.length, 3);
 });
 
-test("scenarioMessage：postMessage 协议封装（type/version/scenario）", () => {
+test("scenarioMessage：postMessage 协议封装（type/version/scenario；version 与接收端 scenario_run 的 SCENARIO_MESSAGE_VERSION=1 同步）", () => {
   const s = taskToScenario(PROFILES[0], [[0, 0], [6, 0]]);
   const msg = scenarioMessage(s);
   assert.equal(msg.type, "legged-studio:scenario");
-  assert.equal(msg.version, 2);
+  assert.equal(msg.version, 1);
   assert.equal(msg.scenario.scenario_id, s.scenario_id);
 });
 
