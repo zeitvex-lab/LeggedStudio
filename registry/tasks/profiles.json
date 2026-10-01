@@ -1,6 +1,6 @@
 {
   "schema_version": "task-profile-1.0",
-  "note": "任务档真值表。每条声明：怎么组装（map/command_source/waypoints/controller/executor）与怎么验收（判据工具 + 阈值）。controller/executor 名录与 backend/executors.py、registry/motion_commands.json 同源；判据工具挂任务类。availability 声明该任务当前可跑的端口（browser/headless/cli）。",
+  "note": "任务档真值表。每条声明：怎么组装（map/command_source/waypoints/controller/executor）与怎么验收（判据工具 + 阈值）。controller/executor 名录与 backend/executors.py、registry/motion_commands.json 同源；判据工具挂任务类。availability 声明该任务当前可跑的端口（browser/headless/cli）。 任务档可引用 task_plugins 的 plugin_id 做感知绑定（两层组合：插件=感知声明，任务档=可运行装配）。",
   "profiles": [
     {
       "task_id": "goal_nav_warehouse",
@@ -20,11 +20,21 @@
         "collision_max": 0,
         "arrival": "registry/arrival_criteria.json（waypoint tolerance 0.2m / 稳定 2 拍）"
       },
-      "availability": ["headless", "cli", "browser"],
+      "availability": [
+        "headless",
+        "cli",
+        "browser"
+      ],
       "evidence": {
-        "sources": ["00_resources/unitree-go2-slam-nav2（实机 Nav2 语义）", "00_resources/Odin-Nav-Stack（DWB critics）", "backend/follow_controller.py（H12）"],
+        "sources": [
+          "00_resources/unitree-go2-slam-nav2（实机 Nav2 语义）",
+          "00_resources/Odin-Nav-Stack（DWB critics）",
+          "backend/follow_controller.py（H12）"
+        ],
         "note": "H19 e2e 基线：warehouse full 路线 arrived 1/1（follow 控制器）"
-      }
+      },
+      "plugin_id": "odom-waypoint-nav",
+      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。"
     },
     {
       "task_id": "patrol_warehouse_full",
@@ -44,11 +54,20 @@
         "collision_max": 0,
         "max_total_time_s": 420
       },
-      "availability": ["headless", "cli", "browser"],
+      "availability": [
+        "headless",
+        "cli",
+        "browser"
+      ],
       "evidence": {
-        "sources": ["backend/navigation_plan.py（H3 导航闭环）", "backend/route_planner.py"],
+        "sources": [
+          "backend/navigation_plan.py（H3 导航闭环）",
+          "backend/route_planner.py"
+        ],
         "note": "H12 max_total_time_s 420 同源"
-      }
+      },
+      "plugin_id": "odom-waypoint-nav",
+      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。"
     },
     {
       "task_id": "follow_line",
@@ -65,13 +84,22 @@
       "criteria": {
         "tool": "backend/follow_controller.py 参数（registry/motion_commands.json#follow_controller）",
         "hold_ratio_min": 0.8,
-        "distance_band_m": [1.0, 2.5]
+        "distance_band_m": [
+          1.0,
+          2.5
+        ]
       },
-      "availability": ["browser"],
+      "availability": [
+        "browser"
+      ],
       "evidence": {
-        "sources": ["00_resources/go2_unitree_ros2（跟随遥控语义）"],
+        "sources": [
+          "00_resources/go2_unitree_ros2（跟随遥控语义）"
+        ],
         "note": "浏览器移动目标由场景脚本驱动；headless 判据工具待建（登记 gap）"
-      }
+      },
+      "plugin_id": null,
+      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。"
     },
     {
       "task_id": "traversal_obstacle_course",
@@ -90,11 +118,18 @@
         "tool": "tools/validate_traversal_progress.py（半地块线）",
         "progress_env_ratio_min": 0.5
       },
-      "availability": ["headless", "cli"],
+      "availability": [
+        "headless",
+        "cli"
+      ],
       "evidence": {
-        "sources": ["rc_old 障碍释放课程（三件套已上提共享层 6fc4a6de8）"],
+        "sources": [
+          "rc_old 障碍释放课程（三件套已上提共享层 6fc4a6de8）"
+        ],
         "note": "go2 首训即 0.859（2026-10-01）"
-      }
+      },
+      "plugin_id": "wheel-leg-terrain",
+      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。"
     }
   ]
 }

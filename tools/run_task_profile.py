@@ -42,6 +42,18 @@ def run_navigation(task: dict, controller: str) -> dict:
 
     w = MAPS[task["assembly"]["map_id"]]
     waypoints = w["default_waypoints"]
+    # 任务插件感知绑定（两层组合）：有 plugin_id 时实例化其 perception/command 声明，
+    # readiness 不 ok 就 fail-closed（"声明可跑"不等于"真能跑"）。
+    plugin_report = None
+    if task.get("plugin_id"):
+        from backend.task_plugins import instantiate_task_plugin
+
+        plugin_report = instantiate_task_plugin(task["plugin_id"])
+        readiness = plugin_report.get("readiness") or {}
+        if not readiness.get("ok", False):
+            return {"task_id": task["task_id"], "verdict": "blocked",
+                    "reason": f"任务插件 {task['plugin_id']} readiness 不通过",
+                    "blockers": readiness.get("blockers")}
     obstacles = [list(o) for o in (w.get("obstacles") or [])]
     from tools.route_regression import reference_path
     from tools.dwa_ab_check import DwaParams
@@ -67,6 +79,8 @@ def run_navigation(task: dict, controller: str) -> dict:
     ok = arrived and collisions <= crit["collision_max"]
     return {
         "task_id": task["task_id"],
+        "plugin_id": task.get("plugin_id"),
+        "plugin_readiness_ok": bool((plugin_report or {}).get("readiness", {}).get("ok")),
         "controller": controller,
         "map": task["assembly"]["map_id"],
         "waypoints": waypoints,
