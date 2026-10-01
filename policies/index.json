@@ -2429,29 +2429,74 @@
       "source_onnx": "simulation/policies/unitree_go2w-trained-20260930-115002.onnx"
     },
     {
-      "schema": "policy-artifact-1.0",
-      "kind": "policies",
+      "action_dim": 12,
+      "algorithm": null,
       "artifact_id": "unitree_go2w__go2w-upstream-legsonly-v0",
-      "policy_id": "go2w-upstream-legsonly-v0",
-      "robot": "unitree_go2w",
+      "aux_blobs": [],
+      "contract_digest": "f602a0c827c17e23473ac96bdadf953c0c91852ed9e73329a49b8df0e9130d64",
+      "declared_source": "unitree_rl_mjlab_go2w deploy velocity_legs_only v0（上游原生，2026-09-30 入库）",
+      "history_len": 1,
+      "kind": "policies",
       "label": "上游原生 legs-only v0（unitree_rl_mjlab_go2w deploy 产物）",
       "obs_dim": 53,
-      "action_dim": 12,
-      "history_len": 1,
-      "algorithm": null,
-      "declared_source": "unitree_rl_mjlab_go2w deploy velocity_legs_only v0（上游原生，2026-09-30 入库）",
-      "contract_digest": "f602a0c827c17e23473ac96bdadf953c0c91852ed9e73329a49b8df0e9130d64",
       "onnx_bytes": 787633,
       "onnx_sha256": "4756227477463b3aa7bcf396209075efd916b6eeb6b470867e5e2ce94686bf3f",
-      "source_onnx": "assets/robots/unitree_go2w/simulation/policies/go2w-upstream-legsonly-v0.onnx",
-      "aux_blobs": [],
+      "policy_id": "go2w-upstream-legsonly-v0",
+      "robot": "unitree_go2w",
       "run_id": null,
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "assets/robots/unitree_go2w/simulation/policies/go2w-upstream-legsonly-v0.onnx",
       "task_type": null
+    },
+    {
+      "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_132630_345638",
+      "contract": {
+        "action_dim": 12,
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ],
+        "obs_dim": 53,
+        "observation_kind": "go2w_mjlab_legs_53"
+      },
+      "contract_digest": "4e8a9f9bfa2f7c584cdff6c026eb1bfc59e6c7a748395587f1be877b500b24cf",
+      "installation": {
+        "package_path": "simulation/policies/go2w-flatwalk-40k.onnx",
+        "policy_id": "go2w-flatwalk-40k",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2w__produced-unitree_go2w_contract_v1_20260930_132630_345638\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/go2w-flatwalk-40k.onnx",
+        "policy_id": "go2w-flatwalk-40k",
+        "repo_path": "assets/robots/unitree_go2w/simulation/policies/go2w-flatwalk-40k.onnx",
+        "robot": "unitree_go2w"
+      },
+      "kind": "produced",
+      "obs_dim": 53,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2w_mjlab_legs_53",
+      "onnx_bytes": 776409,
+      "onnx_sha256": "7d9d58a650478fb46e7d0cd3b2385bde9487b3ed5a7899fc35425f7cbcfc25f7",
+      "policy_id": "go2w-flatwalk-40k",
+      "robot": "unitree_go2w",
+      "run_id": "unitree_go2w_contract_v1_20260930_132630_345638",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "simulation/policies/go2w-flatwalk-40k.onnx"
     }
   ],
   "blobs": "引用式：onnx 单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目在**安装进包之前**持真副本，安装后转为引用式（见 install_produced_policy）",
-  "count": 95,
-  "generated_at": "2026-09-30T03:50:36+00:00",
+  "count": 96,
+  "generated_at": "2026-10-01T15:18:03+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"
 }

@@ -180,6 +180,28 @@ def onnx_action_dim(onnx_path: Path | str) -> int | None:
     return width if width > 0 else None
 
 
+def _training_action_scale(run_dir: Path) -> dict[str, float] | None:
+    """Run 档案里的**训练动作缩放真值**（`effective-config.json` 的
+    ``environment.actions.joint_pos.scale``）：标量 → 按动作关节序展开；
+    逐关节 dict → 原样返回。缺失/形状不认识 → ``None``（调用方明说缺，不编造）。
+    """
+    cfg = _load_json(run_dir / "effective-config.json")
+    if not isinstance(cfg, Mapping):
+        return None
+    actions = ((cfg.get("environment") or {}).get("actions") or {})
+    term = actions.get("joint_pos") if isinstance(actions, Mapping) else None
+    if not isinstance(term, Mapping):
+        return None
+    raw = term.get("scale")
+    snapshot = _load_json(run_dir / "contract_snapshot.json")
+    joint_order = list((snapshot or {}).get("action", {}).get("joint_order") or []) if isinstance(snapshot, Mapping) else []
+    if isinstance(raw, (int, float)) and joint_order:
+        return {str(j): float(raw) for j in joint_order}
+    if isinstance(raw, Mapping):
+        return {str(k): float(v) for k, v in raw.items()}
+    return None
+
+
 def onnx_deploy_metadata(onnx_path: Path | str) -> dict[str, Any] | None:
     """导出时刻盖章进 ONNX ``metadata_props`` 的**部署真值**（B11-GAP-1 产品侧）。
 
@@ -1084,6 +1106,24 @@ def promote_from_run(
             scales = meta.get("action_scale")
             if scales and joint_order and len(scales) == len(joint_order):
                 contract_block["action_scale_by_joint"] = dict(zip(joint_order, scales))
+            if not contract_block.get("action_scale") and not contract_block.get("action_scale_by_joint"):
+                # 部署真值保险层（2026-10-01 go2w legs-only 40k 实证）：导出器曾把
+                # metadata 的 action_scale 写成**空串**（解析侧弃掉）⇒ 条目缺缩放 ⇒
+                # 评测/浏览器回落机型契约 by_role（0.5，混合档的值），而纯腿训练真值
+                # 是 0.35 —— 43% 过幅驱动，8k 产物横走、40k 站桩。ONNX 没说就回填
+                # **训练真值**（run 的 effective-config actions.joint_pos.scale），
+                # 单值时落标量、逐关节时落 by_joint；两处都没有就明说缺（不编造）。
+                env_scale = _training_action_scale(run_dir)
+                if env_scale is not None:
+                    uniform = len({round(v, 9) for v in env_scale.values()}) == 1
+                    if uniform:
+                        contract_block["action_scale"] = next(iter(env_scale.values()))
+                        contract_block["action_scale_source"] = "effective-config"
+                    else:
+                        by_joint = {j: env_scale[j] for j in joint_order if j in env_scale}
+                        if by_joint:
+                            contract_block["action_scale_by_joint"] = by_joint
+                            contract_block["action_scale_source"] = "effective-config"
             stiffness = meta.get("stiffness")
             damping = meta.get("damping")
             if stiffness and damping and joint_order and len(stiffness) == len(damping) == len(joint_order):

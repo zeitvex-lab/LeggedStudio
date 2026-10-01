@@ -330,7 +330,8 @@
             0.5
           ]
         },
-        "_note": "LEGS_ONLY 训练命令范围（vy 死轴）"
+        "_note": "LEGS_ONLY 训练命令范围（vy 死轴）",
+        "action_scale": 0.35
       },
       "observation_kind": "go2w_mjlab_legs_53"
     },
@@ -1394,6 +1395,40 @@
         "match": "family",
         "upstream": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）"
       }
+    },
+    {
+      "id": "go2w-flatwalk-40k",
+      "path": "simulation/policies/go2w-flatwalk-40k.onnx",
+      "provenance": {
+        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_132630_345638",
+        "run_id": "unitree_go2w_contract_v1_20260930_132630_345638",
+        "origin": "product-training",
+        "installed_at": "2026-10-01T15:18:03+00:00"
+      },
+      "label": "40k 纯腿产物（判负证据：用户判据 0/4——vx 反向、yaw/vy 站桩；缩放错位修正后首评，配方待改）",
+      "obs_dim": 53,
+      "action_dim": 12,
+      "contract": {
+        "obs_dim": 53,
+        "action_dim": 12,
+        "observation_kind": "go2w_mjlab_legs_53",
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ],
+        "action_scale": 0.35
+      },
+      "observation_kind": "go2w_mjlab_legs_53"
     }
   ],
   "default_map": "flat",

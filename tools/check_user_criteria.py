@@ -74,7 +74,10 @@ def run_case(sess, contract, model, cmd, total_s=CRIT["total_s"], judge_last=CRI
         cmag = abs(float(cmd[main]))
         err = abs(abs(mean[main]) - cmag) / cmag
         res["err%"] = round(err * 100, 1)
-        if err > CRIT["err_max"] * 100:
+        # 判据比较一律用**分数**（err ∈ [0,∞)，0.40 = 40%）——这里曾拿分数与
+        # `err_max * 100`（=40）比，主轴阈值实际成了 4000%，v_mean=0 也 PASS（fail-open，
+        # 2026-10-01 在 40k 产物上抓到：四命令全零速度却全 PASS）。
+        if err > CRIT["err_max"]:
             res["pass"] = False
             res["reason"] = "主轴误差%.0f%%>40%%" % (err * 100)
         for ax in range(3):
