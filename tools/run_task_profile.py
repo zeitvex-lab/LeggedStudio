@@ -25,11 +25,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-REGISTRY = ROOT / "registry" / "tasks" / "profiles.json"
+REGISTRY_TASKS = ROOT / "registry" / "tasks" / "profiles.json"
 
 
 def load_task(task_id: str) -> dict:
-    data = json.loads(REGISTRY.read_text(encoding="utf-8-sig"))
+    data = json.loads(REGISTRY_TASKS.read_text(encoding="utf-8-sig"))
     for p in data["profiles"]:
         if p["task_id"] == task_id:
             return p
@@ -167,7 +167,7 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.list or not args.task:
-        data = json.loads(REGISTRY.read_text(encoding="utf-8-sig"))
+        data = json.loads(REGISTRY_TASKS.read_text(encoding="utf-8-sig"))
         for p in data["profiles"]:
             print(f"  {p['task_id']:28s} [{p['class']:10s}] {p['display_name']} — {p['summary']}")
         return 0

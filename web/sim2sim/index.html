@@ -122,7 +122,7 @@
              任务清单来自 /api/task-plugins（后端注册表），选中即实例化并回显 readiness。 -->
         <div class="sensor-dock" id="taskDock" data-surface="advanced" hidden>
           <div class="dock-head">
-            <select id="taskDockSelect" aria-label="任务插件"></select>
+            <select id="taskDockSelect" aria-label="选择任务"></select>
             <button type="button" id="taskDockToggle" aria-label="收起或展开">−</button>
           </div>
           <div class="dock-body">
@@ -131,9 +131,8 @@
           <details class="dock-plugins">
             <summary>任务操作</summary>
             <div class="dock-actions">
-              <!-- "应用感知绑定"走的是插件实例化（change 处理器已做）；这里给两个出口：
-                   ① 跳场景编辑器（那页有一键填入的完整表单流）；② 展示 CLI 判据命令。 -->
-              <button type="button" id="taskDockOpenEditor">在场景编辑器中打开</button>
+              <button type="button" id="taskDockApply">应用到仿真</button>
+              <button type="button" id="taskDockOpenEditor">在场景编辑器中精配</button>
               <div class="dock-readout" id="taskDockCli" hidden></div>
             </div>
           </details>
