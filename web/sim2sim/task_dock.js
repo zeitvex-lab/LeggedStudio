@@ -41,15 +41,18 @@ export function taskOptions(indexPayload, profilesPayload) {
  *   * traversal → 空航点（terrain_profile=obstacle_release 地形即障碍）。
  */
 export function taskToScenario(task, defaultWaypoints) {
+  // registry/tasks 的 profile 用 task_id/class（无 id/cls）——兼容两种键。
+  const taskId = task.id || task.task_id;
+  const cls = task.class || task.cls || "";
   const mode = task.assembly.waypoints_mode;
   let waypoints = [];
   if (mode === "default_full") waypoints = defaultWaypoints;
   else if (mode === "goal") waypoints = defaultWaypoints.slice(0, 1).concat(defaultWaypoints.slice(-1));
   const scenario = {
     schema_version: "scenario-contract-1.1",
-    scenario_id: task.id,
+    scenario_id: taskId,
     map_id: task.assembly.map_id || "flat",
-    mode: task.cls === "navigation" ? "navigation" : "basic",
+    mode: cls === "navigation" ? "navigation" : "basic",
     command_source: task.assembly.command_source || "policy",
     waypoints,
   };
