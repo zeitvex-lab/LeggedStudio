@@ -1,0 +1,11 @@
+{
+  "schema_version": "task-profile-1.0",
+  "generated_at": "2026-10-01",
+  "note": "任务档显式清单（高级仿真 = 任务插件运行时，用户定位 2026-09-30）：任务 = 场景(地图/障碍/航点/command_source) × 控制器 × 执行器 × 判据 的**声明式组合**——与地形档/奖励档同一哲学：任务是数据不是代码。浏览器/CLI 选任务 → 挂机型+策略 → 基础仿真里跑 → 出判据；判据挂任务类（导航类=到达率/碰撞/时间；跟随类=距离保持；越障类=半地块线）。清单是权威：新增任务 = 此处登记 + profiles 写实现。",
+  "profiles": [
+    {"task_id": "goal_nav_warehouse", "path": "profiles.json#goal_nav_warehouse"},
+    {"task_id": "patrol_warehouse_full", "path": "profiles.json#patrol_warehouse_full"},
+    {"task_id": "follow_line", "path": "profiles.json#follow_line"},
+    {"task_id": "traversal_obstacle_course", "path": "profiles.json#traversal_obstacle_course"}
+  ]
+}
