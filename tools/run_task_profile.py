@@ -92,6 +92,73 @@ def run_navigation(task: dict, controller: str) -> dict:
     }
 
 
+def run_follow(task: dict, *, seconds: float = 30.0, dt: float = 0.1) -> dict:
+    """跟随类任务 headless 判据（2026-10-01）：移动目标 + 距离带随行模型。
+
+    判据 = hold_ratio（距离带 [band_min, band_max] 内拍数占比）≥ 档位阈值。
+    模型：目标沿折线匀速走；跟随机朝目标转向，速度 = 目标速度 + 距离误差修正
+    （期望距离 = 带中值）——这是"名义跟随能力"的探针：名义模型都守不住带，
+    才轮到怀疑策略/控制器；名义模型能守，实机差距归控制器调参。
+    """
+    import math
+
+    band_min, band_max = task["criteria"]["distance_band_m"]
+    hold_min = float(task["criteria"]["hold_ratio_min"])
+    desired = (band_min + band_max) / 2.0
+    kp = 2.0  # 距离误差 → 速度修正
+    max_v = 1.2
+
+    target_route = [(0.0, 0.0), (3.0, 0.0), (3.0, 3.0), (0.0, 3.0), (0.0, 0.0)]
+    target_speed = 0.5
+    robot_x, robot_y, robot_yaw = 1.5, -1.5, 0.0
+    target_t = 0.0
+    seg = 0
+    tx, ty = target_route[0]
+    in_band = 0
+    total = int(seconds / dt)
+    min_dist = float("inf")
+    max_dist = 0.0
+    for _ in range(total):
+        ax, ay = target_route[seg]
+        bx, by = target_route[(seg + 1) % len(target_route)]
+        seg_len = math.hypot(bx - ax, by - ay)
+        target_t += target_speed * dt
+        while target_t >= seg_len:
+            target_t -= seg_len
+            seg = (seg + 1) % len(target_route)
+            ax, ay = target_route[seg]
+            bx, by = target_route[(seg + 1) % len(target_route)]
+            seg_len = math.hypot(bx - ax, by - ay)
+        ratio = target_t / seg_len
+        tx, ty = ax + (bx - ax) * ratio, ay + (by - ay) * ratio
+
+        dist = math.hypot(tx - robot_x, ty - robot_y)
+        bearing = math.atan2(ty - robot_y, tx - robot_x)
+        yaw_err = math.atan2(math.sin(bearing - robot_yaw), math.cos(bearing - robot_yaw))
+        # 速度 = 目标速度 + 距离误差修正（远则追、近则让）
+        v = max(0.0, min(max_v, target_speed + kp * (dist - desired) * math.cos(yaw_err)))
+        wz = max(-1.5, min(1.5, 2.0 * yaw_err))
+        robot_yaw += wz * dt
+        robot_x += v * math.cos(robot_yaw) * dt
+        robot_y += v * math.sin(robot_yaw) * dt
+
+        dist = math.hypot(tx - robot_x, ty - robot_y)
+        min_dist = min(min_dist, dist)
+        max_dist = max(max_dist, dist)
+        if band_min <= dist <= band_max:
+            in_band += 1
+    hold_ratio = round(in_band / total, 3)
+    ok = hold_ratio >= hold_min
+    return {
+        "task_id": task["task_id"],
+        "hold_ratio": hold_ratio,
+        "hold_ratio_min": hold_min,
+        "distance_band_m": [band_min, band_max],
+        "distance_range": [round(min_dist, 2), round(max_dist, 2)],
+        "verdict": "pass" if ok else "fail",
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="任务档运行器（高级仿真 CLI 端）")
     ap.add_argument("--task", default=None)
@@ -110,9 +177,15 @@ def main() -> int:
     if cls in ("navigation",):
         controller = args.controller or task["assembly"]["controller"] or "follow"
         report = run_navigation(task, controller)
+    elif cls == "follow":
+        report = run_follow(task)
     elif cls == "traversal":
         print("越障类任务请用: adapters/mjlab/.venv/Scripts/python.exe tools/validate_traversal_progress.py --profile <档案>")
         return 3
+    elif cls == "follow":
+        report = run_follow(task)
+        print(json.dumps(report, ensure_ascii=False, indent=1))
+        return 0 if report["verdict"] == "pass" else 1
     else:
         print(f"任务类 {cls!r} 的 headless 判据未建（{task['task_id']} 当前端口: {task['availability']}）")
         return 3
@@ -123,3 +196,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
