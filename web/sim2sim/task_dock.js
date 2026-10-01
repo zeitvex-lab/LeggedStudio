@@ -62,11 +62,12 @@ export function taskToScenario(task, defaultWaypoints) {
   return scenario;
 }
 
-/** 场景消息封装（sim2sim postMessage 协议）。 */
+/** 场景消息封装（sim2sim postMessage 协议；version 与 scenario_run.js 的
+ *  SCENARIO_MESSAGE_VERSION 同步——接收端对不一致版本拒收）。 */
 export function scenarioMessage(scenario) {
   return {
     type: "legged-studio:scenario",
-    version: 2,
+    version: 1,
     scenario,
   };
 }

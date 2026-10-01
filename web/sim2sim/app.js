@@ -67,7 +67,7 @@ import {
   SENSOR_PLUGINS,
   sensorMount,
 } from "./sensor_dock.js?v=0.55.0";
-import { taskPluginOptions, selectionState } from "./task_dock.js?v=0.55.0";
+// 任务坞只消费服务端组装（/api/task-profiles）；task_dock.js 的纯函数归单测与 CLI 侧用。
 // A1 场景运行侧：交运消息解析 + 判据/度量/记录器产物（纯逻辑在那边，这里只接线）。
 import {
   buildRunSummary,
@@ -498,6 +498,15 @@ if (dockToggleBtn && dockRoot) {
     dockToggleBtn.textContent = dock.collapsed ? "+" : "−";
   });
 }
+// 任务坞自己的收起/展开（与传感器坞同一个 .collapsed 约定：body/plugins 藏、head 留）
+const taskDockEl = document.querySelector("#taskDock");
+const taskDockToggleBtn = document.querySelector("#taskDockToggle");
+if (taskDockEl && taskDockToggleBtn) {
+  taskDockToggleBtn.addEventListener("click", () => {
+    const collapsed = taskDockEl.classList.toggle("collapsed");
+    taskDockToggleBtn.textContent = collapsed ? "+" : "−";
+  });
+}
 const LATEST_POLICY_POLL_MS = 20000;
 const MAX_PAYLOAD_KG = 70;
 
@@ -510,6 +519,7 @@ const elements = {
   robotSelect: document.querySelector("#robotSelect"),
   taskDockSelect: document.querySelector("#taskDockSelect"),
   taskDockReadout: document.querySelector("#taskDockReadout"),
+  taskDockApply: document.querySelector("#taskDockApply"),
   taskDockOpenEditor: document.querySelector("#taskDockOpenEditor"),
   taskDockCli: document.querySelector("#taskDockCli"),
   modelSelect: document.querySelector("#modelSelect"),
@@ -862,62 +872,102 @@ async function init() {
     setStatus(elements.policyStatus, "ONNX 策略初始化中", "pending");
     sim.platformConfig = await loadPlatformConfig();
     applyPlatformLabels(sim.platformConfig);
-// 任务插件坞（高级仿真）：拉注册表填充下拉，选中即实例化并诚实回显 readiness。
-// 失败静默——后端不在/接口异常时页面照常跑（坞是增强件不是门槛）。
+// 任务坞（高级仿真）：任务档 = 机器人的插件。三步走，**每步都有服务端真值**：
+//   ① 选任务 → GET /api/task-profiles/{id}/assemble 组装完整场景（地图默认航点/
+//      感知绑定/判据由服务端派生，浏览器不自造）；
+//   ② 组装返回的 blockers 非空（端口未声明 / 执行器不支持）⇒ 只展示原因 + headless
+//      判据命令，「应用到仿真」禁用——声明可跑 ≠ 能跑；
+//   ③ blockers 为空 ⇒ 「应用到仿真」点亮，点了走 applyScenario（与场景编辑器同一条
+//      应用链），跑完由场景面板出判据报告。
+// 失败静默降级——后端不在/接口异常时页面照常跑（坞是增强件不是门槛）。
 if (SHOW_ADVANCED_PANELS && elements.taskDockSelect) {
+  const taskDockState = { assembled: null };
+  const setApplyEnabled = (ok) => {
+    if (elements.taskDockApply) elements.taskDockApply.disabled = !ok;
+  };
   try {
-    const [idxResp, proResp] = await Promise.all([
-      fetch("registry/tasks/index.json", { cache: "no-store" }),
-      fetch("registry/tasks/profiles.json", { cache: "no-store" }),
-    ]);
-    if (!idxResp.ok || !proResp.ok) throw new Error(`任务注册表加载失败 (${idxResp.status}/${proResp.status})`);
-    const options = taskOptions(await idxResp.json(), await proResp.json());
-    if (!options.length) throw new Error("注册表为空");
-    for (const opt of options) {
+    const listResp = await fetch("/api/task-profiles", { cache: "no-store" });
+    if (!listResp.ok) throw new Error(`任务档清单加载失败 (${listResp.status})`);
+    const listPayload = await listResp.json();
+    const profiles = Array.isArray(listPayload.profiles) ? listPayload.profiles : [];
+    if (!profiles.length) throw new Error("任务档注册表为空");
+    for (const item of profiles) {
       const el = document.createElement("option");
-      el.value = opt.id;
-      el.textContent = `${opt.label}（${opt.id}）`;
+      el.value = item.task_id;
+      el.textContent = `${item.display_name || item.task_id}（${item.task_id}）${item.browser_ok ? "" : " · 浏览器不可跑"}`;
       elements.taskDockSelect.appendChild(el);
     }
     elements.taskDockSelect.addEventListener("change", async () => {
       const note = elements.taskDockReadout;
-      if (!note) return;
-      const pluginId = elements.taskDockSelect.value;
-      if (!pluginId) { note.textContent = "—"; return; }
-      note.textContent = "实例化中…";
+      const taskId = elements.taskDockSelect.value;
+      if (!taskId) {
+        taskDockState.assembled = null;
+        setApplyEnabled(false);
+        if (note) note.textContent = "—";
+        return;
+      }
+      if (note) note.textContent = "组装中…";
       try {
-        const inst = await fetch(`/api/task-plugins/${encodeURIComponent(pluginId)}/instantiate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ robot_id: elements.robotSelect?.value || null }),
-        });
-        const data = await inst.json();
-        const state = selectionState(pluginId, data.readiness, data.error);
-        note.textContent = state.text;
-        // 判据出口：按插件 task_type 给 CLI 判据命令（三端口径同源）。
+        const resp = await fetch(`/api/task-profiles/${encodeURIComponent(taskId)}/assemble`, { cache: "no-store" });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || `组装失败 (${resp.status})`);
+        taskDockState.assembled = data;
+        const blockers = Array.isArray(data.blockers) ? data.blockers : [];
+        if (blockers.length) {
+          setApplyEnabled(false);
+          if (note) note.textContent = `浏览器不可跑：${blockers.join("；")}`;
+        } else {
+          setApplyEnabled(true);
+          const wpCount = (data.scenario?.waypoints || []).length;
+          if (note) {
+            note.textContent = `已组装：${wpCount} 个航点 · 指令源 ${data.scenario?.command_source || "?"}`
+              + ` —— 点「应用到仿真」开始执行`;
+          }
+          // 任务就绪就自动亮出操作区（应用按钮藏在收起的 <details> 里 = 多一步无谓的找）
+          const details = document.querySelector("#taskDock details.dock-plugins");
+          if (details) details.open = true;
+        }
         const cli = elements.taskDockCli;
         if (cli) {
-          const taskType = String(data.task_type || "");
-          if (taskType === "traversal") {
+          if (data.cli_criteria) {
             cli.hidden = false;
-            cli.textContent = "判据: python tools/validate_traversal_progress.py --profile <档案> --checkpoint <model.pt>";
-          } else if (taskType === "navigation") {
-            cli.hidden = false;
-            cli.textContent = "判据: python tools/run_task_profile.py --task goal_nav_warehouse";
-          } else if (taskType === "velocity" || taskType === "parkour" || taskType === "balance") {
-            cli.hidden = false;
-            cli.textContent = "判据: adapters/mjlab/.venv/Scripts/python.exe tools/check_user_criteria.py --robot <机型> --policy <策略id>";
+            cli.textContent = `判据: ${data.cli_criteria}`;
           } else {
             cli.hidden = true;
           }
         }
       } catch (err) {
-        note.textContent = selectionState(pluginId, null, err).text;
+        taskDockState.assembled = null;
+        setApplyEnabled(false);
+        if (note) note.textContent = `组装失败：${err.message}`;
       }
     });
+    if (elements.taskDockApply) {
+      elements.taskDockApply.addEventListener("click", async () => {
+        const note = elements.taskDockReadout;
+        const data = taskDockState.assembled;
+        if (!data) return;
+        setApplyEnabled(false);
+        if (note) note.textContent = "应用中…";
+        try {
+          const result = await applyScenario({ scenario: data.scenario });
+          if (result.ok) {
+            if (note) {
+              note.textContent = `已应用（${(result.applied || []).length} 项生效）——机器人开始执行任务，`
+                + `跑完或到时长上限后看场景面板的判据报告`;
+            }
+          } else {
+            if (note) note.textContent = `应用被拒：${result.reason}`;
+          }
+        } finally {
+          // 应用被拒也要允许改选后重试；应用成功时再点一次 = 重跑同一任务
+          setApplyEnabled(true);
+        }
+      });
+    }
   } catch (err) {
-    console.info("[sim2sim] 任务插件坞不可用:", err.message);
-    elements.taskDockReadout.textContent = `任务插件清单不可用：${err.message}`;
+    console.info("[sim2sim] 任务坞不可用:", err.message);
+    if (elements.taskDockReadout) elements.taskDockReadout.textContent = `任务档清单不可用：${err.message}`;
   }
   if (elements.taskDockOpenEditor) {
     elements.taskDockOpenEditor.addEventListener("click", () => {
