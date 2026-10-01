@@ -1,0 +1,100 @@
+{
+  "schema_version": "task-profile-1.0",
+  "note": "任务档真值表。每条声明：怎么组装（map/command_source/waypoints/controller/executor）与怎么验收（判据工具 + 阈值）。controller/executor 名录与 backend/executors.py、registry/motion_commands.json 同源；判据工具挂任务类。availability 声明该任务当前可跑的端口（browser/headless/cli）。",
+  "profiles": [
+    {
+      "task_id": "goal_nav_warehouse",
+      "display_name": "仓库定点导航",
+      "class": "navigation",
+      "summary": "给一个目标点，自主避障到达（最常见任务：实机送货/找物）。",
+      "assembly": {
+        "map_id": "warehouse",
+        "command_source": "planner",
+        "controller": "follow",
+        "executor": "policy",
+        "waypoints_mode": "goal"
+      },
+      "criteria": {
+        "tool": "tools/route_regression.py 口径（tools/dwa_ab_check.simulate 同一积分器与到达判据）",
+        "arrival_rate_min": 1.0,
+        "collision_max": 0,
+        "arrival": "registry/arrival_criteria.json（waypoint tolerance 0.2m / 稳定 2 拍）"
+      },
+      "availability": ["headless", "cli", "browser"],
+      "evidence": {
+        "sources": ["00_resources/unitree-go2-slam-nav2（实机 Nav2 语义）", "00_resources/Odin-Nav-Stack（DWB critics）", "backend/follow_controller.py（H12）"],
+        "note": "H19 e2e 基线：warehouse full 路线 arrived 1/1（follow 控制器）"
+      }
+    },
+    {
+      "task_id": "patrol_warehouse_full",
+      "display_name": "仓库全域巡检",
+      "class": "navigation",
+      "summary": "多点巡航（仓储巡检/安防巡逻类）：按序走完地图默认航点。",
+      "assembly": {
+        "map_id": "warehouse",
+        "command_source": "planner",
+        "controller": "follow",
+        "executor": "policy",
+        "waypoints_mode": "default_full"
+      },
+      "criteria": {
+        "tool": "tools/route_regression.py（N 路线分布回归）",
+        "arrival_rate_min": 0.8,
+        "collision_max": 0,
+        "max_total_time_s": 420
+      },
+      "availability": ["headless", "cli", "browser"],
+      "evidence": {
+        "sources": ["backend/navigation_plan.py（H3 导航闭环）", "backend/route_planner.py"],
+        "note": "H12 max_total_time_s 420 同源"
+      }
+    },
+    {
+      "task_id": "follow_line",
+      "display_name": "目标跟随",
+      "class": "follow",
+      "summary": "保持与移动目标的距离带（跟随拍摄/引导类）。",
+      "assembly": {
+        "map_id": "flat",
+        "command_source": "script",
+        "controller": "follow",
+        "executor": "policy",
+        "waypoints_mode": "moving_target"
+      },
+      "criteria": {
+        "tool": "backend/follow_controller.py 参数（registry/motion_commands.json#follow_controller）",
+        "hold_ratio_min": 0.8,
+        "distance_band_m": [1.0, 2.5]
+      },
+      "availability": ["browser"],
+      "evidence": {
+        "sources": ["00_resources/go2_unitree_ros2（跟随遥控语义）"],
+        "note": "浏览器移动目标由场景脚本驱动；headless 判据工具待建（登记 gap）"
+      }
+    },
+    {
+      "task_id": "traversal_obstacle_course",
+      "display_name": "障碍场地通过",
+      "class": "traversal",
+      "summary": "通过障碍释放课程地形（盲狗越障的运行时形态）。",
+      "assembly": {
+        "map_id": "rough",
+        "command_source": "policy",
+        "controller": null,
+        "executor": "policy",
+        "waypoints_mode": null,
+        "terrain_profile": "obstacle_release"
+      },
+      "criteria": {
+        "tool": "tools/validate_traversal_progress.py（半地块线）",
+        "progress_env_ratio_min": 0.5
+      },
+      "availability": ["headless", "cli"],
+      "evidence": {
+        "sources": ["rc_old 障碍释放课程（三件套已上提共享层 6fc4a6de8）"],
+        "note": "go2 首训即 0.859（2026-10-01）"
+      }
+    }
+  ]
+}
