@@ -117,6 +117,19 @@
           <div id="parkourStatus" class="task-panel-note" hidden>跑酷 · 在选定地形上到达目标</div>
         </div>
 
+        <!-- 任务插件坞：**高级仿真模块**（data-surface="advanced"，基础仿真不显示）——
+             同一 sensor-dock 模式：单一悬浮坞 + 下拉选任务插件 + 就绪度诚实显示。
+             任务清单来自 /api/task-plugins（后端注册表），选中即实例化并回显 readiness。 -->
+        <div class="sensor-dock" id="taskDock" data-surface="advanced" hidden>
+          <div class="dock-head">
+            <select id="taskDockSelect" aria-label="任务插件"></select>
+            <button type="button" id="taskDockToggle" aria-label="收起或展开">−</button>
+          </div>
+          <div class="dock-body">
+            <div class="dock-readout" id="taskDockReadout">—</div>
+          </div>
+        </div>
+
         <div class="model-card">
           <small>任务</small>
           <strong id="jobLabel">-</strong>
