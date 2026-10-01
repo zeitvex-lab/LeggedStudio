@@ -67,6 +67,7 @@ import {
   SENSOR_PLUGINS,
   sensorMount,
 } from "./sensor_dock.js?v=0.55.0";
+import { taskPluginOptions, selectionState } from "./task_dock.js?v=0.55.0";
 // A1 场景运行侧：交运消息解析 + 判据/度量/记录器产物（纯逻辑在那边，这里只接线）。
 import {
   buildRunSummary,
@@ -320,6 +321,7 @@ document.querySelectorAll('[data-surface="advanced"]').forEach((el) => {
 // 高级仿真：左上角是传感器悬浮窗（sensor-dock），品牌卡（top:16/left:16）会和它叠在一起
 // （embedded 入口本来就隐藏 .brand，直连 URL 没有 embedded 类 → 补一个等价类，见 styles.css）。
 if (SHOW_ADVANCED_PANELS) document.body.classList.add("surface-advanced");
+
 document.title = `${SURFACE_LABEL} · Legged Studio`;
 const surfaceTitle = document.querySelector("#surfaceTitle");
 if (surfaceTitle) surfaceTitle.textContent = SURFACE_LABEL;
@@ -506,6 +508,8 @@ const elements = {
   loadingBar: document.querySelector("#loadingBar"),
   terrainSelect: document.querySelector("#terrainSelect"),
   robotSelect: document.querySelector("#robotSelect"),
+  taskDockSelect: document.querySelector("#taskDockSelect"),
+  taskDockReadout: document.querySelector("#taskDockReadout"),
   modelSelect: document.querySelector("#modelSelect"),
   policySelect: document.querySelector("#policySelect"),
   configLink: document.querySelector("#configLink"),
@@ -856,6 +860,44 @@ async function init() {
     setStatus(elements.policyStatus, "ONNX 策略初始化中", "pending");
     sim.platformConfig = await loadPlatformConfig();
     applyPlatformLabels(sim.platformConfig);
+// 任务插件坞（高级仿真）：拉注册表填充下拉，选中即实例化并诚实回显 readiness。
+// 失败静默——后端不在/接口异常时页面照常跑（坞是增强件不是门槛）。
+if (SHOW_ADVANCED_PANELS && elements.taskDockSelect) {
+  try {
+    const resp = await fetch("/api/task-plugins", { cache: "no-store" });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const options = taskPluginOptions(await resp.json());
+    if (!options.length) throw new Error("注册表为空");
+    for (const opt of options) {
+      const el = document.createElement("option");
+      el.value = opt.id;
+      el.textContent = `${opt.label}（${opt.id}）`;
+      elements.taskDockSelect.appendChild(el);
+    }
+    elements.taskDockSelect.addEventListener("change", async () => {
+      const note = elements.taskDockReadout;
+      if (!note) return;
+      const pluginId = elements.taskDockSelect.value;
+      if (!pluginId) { note.textContent = "—"; return; }
+      note.textContent = "实例化中…";
+      try {
+        const inst = await fetch(`/api/task-plugins/${encodeURIComponent(pluginId)}/instantiate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ robot_id: elements.robotSelect?.value || null }),
+        });
+        const data = await inst.json();
+        const state = selectionState(pluginId, data.readiness, data.error);
+        note.textContent = state.text;
+      } catch (err) {
+        note.textContent = selectionState(pluginId, null, err).text;
+      }
+    });
+  } catch (err) {
+    console.info("[sim2sim] 任务插件坞不可用:", err.message);
+    elements.taskDockReadout.textContent = `任务插件清单不可用：${err.message}`;
+  }
+}
     if (elements.robotSelect) {
       // URL_ROBOT is a normalized key ("go2", "zex_w") that may not equal any
       // option value ("unitree_go2", "zex-w"); match the way loadRobotOptions
