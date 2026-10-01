@@ -17,7 +17,8 @@ export function taskOptions(indexPayload, profilesPayload) {
     ((indexPayload && Array.isArray(indexPayload.profiles)) ? indexPayload.profiles : [])
       .map((p) => [p.task_id, p]),
   );
-  const profiles = (profilesPayload && Array.isArray(profilesPayload.profiles)) ? profilesPayload.profiles : [];
+  console.error("[dbg] declared.size:", declared.size, "profiles.len:", profiles.length);
+const profiles = (profilesPayload && Array.isArray(profilesPayload.profiles)) ? profilesPayload.profiles : [];
   return profiles
     .filter((p) => p && p.task_id && declared.has(p.task_id))
     .filter((p) => {
@@ -41,18 +42,15 @@ export function taskOptions(indexPayload, profilesPayload) {
  *   * traversal → 空航点（terrain_profile=obstacle_release 地形即障碍）。
  */
 export function taskToScenario(task, defaultWaypoints) {
-  // registry/tasks 的 profile 用 task_id/class（无 id/cls）——兼容两种键。
-  const taskId = task.id || task.task_id;
-  const cls = task.class || task.cls || "";
   const mode = task.assembly.waypoints_mode;
   let waypoints = [];
   if (mode === "default_full") waypoints = defaultWaypoints;
   else if (mode === "goal") waypoints = defaultWaypoints.slice(0, 1).concat(defaultWaypoints.slice(-1));
   const scenario = {
     schema_version: "scenario-contract-1.1",
-    scenario_id: taskId,
+    scenario_id: task.id,
     map_id: task.assembly.map_id || "flat",
-    mode: cls === "navigation" ? "navigation" : "basic",
+    mode: task.cls === "navigation" ? "navigation" : "basic",
     command_source: task.assembly.command_source || "policy",
     waypoints,
   };

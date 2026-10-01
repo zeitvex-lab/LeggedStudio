@@ -26,7 +26,7 @@ const PROFILES = [
 ];
 
 test("taskOptions：只列注册表∩可跑（headless/cli）端口——follow(browser) 被剔除", () => {
-  const options = taskOptions(INDEX, PROFILES);
+  const options = taskOptions(INDEX, { profiles: PROFILES });
   assert.deepEqual(options.map((o) => o.id), ["goal_nav_warehouse"]);
   assert.equal(options[0].pluginId, "odom-waypoint-nav");
 });
