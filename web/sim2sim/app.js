@@ -866,9 +866,12 @@ async function init() {
 // 失败静默——后端不在/接口异常时页面照常跑（坞是增强件不是门槛）。
 if (SHOW_ADVANCED_PANELS && elements.taskDockSelect) {
   try {
-    const resp = await fetch("/api/task-plugins", { cache: "no-store" });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const options = taskPluginOptions(await resp.json());
+    const [idxResp, proResp] = await Promise.all([
+      fetch("registry/tasks/index.json", { cache: "no-store" }),
+      fetch("registry/tasks/profiles.json", { cache: "no-store" }),
+    ]);
+    if (!idxResp.ok || !proResp.ok) throw new Error(`任务注册表加载失败 (${idxResp.status}/${proResp.status})`);
+    const options = taskOptions(await idxResp.json(), await proResp.json());
     if (!options.length) throw new Error("注册表为空");
     for (const opt of options) {
       const el = document.createElement("option");
