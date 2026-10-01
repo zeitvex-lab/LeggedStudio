@@ -186,6 +186,13 @@
         "njmax": null
       },
       "sim_sizing_note": "sim 缓冲规模交给 mjwarp 按资产启发式定：源配方的 nconmax=35 / njmax=300 是按 go2w 那台资产手调的，换一台就溢出（实测 b2w 真跑 1 轮报 `nconmax overflow (nconmax must be >= 40)`）。缓冲不是物理量，族级装配统一声明 null，新机型无需为此写机型侧数据。"
+    },
+    "crawl": {
+      "env": "robot.config.env_cfgs:crawl_env_cfg",
+      "mount": "package-local（zex-w 包内实现，族级化待趴姿实体进 binding 层）",
+      "note": "低净空匍匐钻杆（rc_old 同源）：RCLowBar 低杆地形 + 匍匐高度奖励（≤0.22m 单边核）+ 腿关节强回默认 + 轮滚主推进 + 趴姿实体配置 get_robot_crawl_cfg。2026-10-01 冒烟复验 16×5 ok。",
+      "family_gap": "族级化议题：趴姿实体（不同默认姿/执行器谱）是机型×技能交叉数据，需 binding 层扩展 crawl 专属实体字段后上移 kit；照 stance 技能先例（四足 handstand 共享装配机制）。",
+      "verified": "zex-w 16×5 装配冒烟 ok（2026-10-01 复验）；未真训。"
     }
   },
   "skill_catalog_note": "族级技能的**装配表**（通用装配器 `adapters/mjlab/family_skill_builder.py` 读它）：按 `task_name` 声明env/runner 工厂与 profile 数据类；`derive` 声明「哪些 profile 参数由机型事实派生」（出生高 = 默认姿 FK 的站立高；轮半径/轮距 = 轮 body 与其几何）；`requires` 声明依赖哪些资产能力。新机型（含导入）只要契约 + 标准 MJCF 即可用这些技能，不需要机型专属 Python。`sim_sizing` 声明 sim 缓冲规模（nconmax/njmax；null = 交 mjwarp 按资产启发式定，因为源配方手调的缓冲值换一台资产就溢出）；带非零 geom margin 的资产由装配器按同一份资产判据条件关 MULTICCD/NATIVECCD（登记值 `warp_ccd_off`），margin 本身不抹。"
