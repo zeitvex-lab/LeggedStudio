@@ -79,6 +79,12 @@ _OBSERVATION_KIND_BY_SHAPE: dict[tuple[str, int], str] = {
     # 会压过专用构建器走通用解释器，而本策略契约的 action_joint_order 是 12 腿
     # （动作面收窄），轮段按名取关节在 12 名序里必然越界（2026-09-30 实测 IndexError）。
     ("unitree_go2w", 53): "go2w_mjlab_legs_53",
+    # go2w 混合轮驱（velocity 基座，2026-10-02 快照取证：actor 组序 base_ang_vel→
+    # projected_gravity→commands→joint_pos16→joint_vel16→last_action16，轮段并入
+    # 16 名序）。无专用构建器——走**声明式布局**通用解释器（ang_vel/gravity/cmd/
+    # joint_pos/joint_vel/action 全在既有词汇表内），评测器与浏览器 applyLayoutSpec
+    # 同一份数据装配。
+    ("unitree_go2w", 57): "go2w_mjlab_hybrid_57",
 }
 
 #: 观测布局的**声明式盖章**（与评测器 `_frame_*` 帧构建器逐段同序）：入库时随
@@ -97,6 +103,15 @@ _OBSERVATION_LAYOUT_BY_KIND: dict[str, list[dict[str, Any]]] = {
         {"source": "joint_vel", "width": 12},
         {"source": "action", "width": 12},
         {"source": "cmd", "width": 3},
+    ],
+    # go2w 混合 57（2026-10-02 快照取证，段序=训练 actor 组序；各段无缩放）：
+    "go2w_mjlab_hybrid_57": [
+        {"source": "ang_vel", "width": 3},
+        {"source": "gravity", "width": 3},
+        {"source": "cmd", "width": 3},
+        {"source": "joint_pos", "width": 16},
+        {"source": "joint_vel", "width": 16},
+        {"source": "action", "width": 16},
     ],
 }
 
