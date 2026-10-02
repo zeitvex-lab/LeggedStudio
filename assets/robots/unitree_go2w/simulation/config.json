@@ -1497,6 +1497,74 @@
         "action_scale_source": "effective-config"
       },
       "observation_kind": "go2w_mjlab_legs_53"
+    },
+    {
+      "id": "go2w-aligned-trend-250",
+      "path": "simulation/policies/go2w-aligned-trend-250.onnx",
+      "provenance": {
+        "origin": "trend-probe",
+        "run_id": "unitree_go2w_contract_v1_20261002_163810_605369",
+        "checkpoint": "model_250.pt"
+      },
+      "label": "对齐配方 4096×2500 趋势证据（checkpoint 250，~200 轮趋势点验收）",
+      "obs_dim": 53,
+      "action_dim": 12,
+      "contract": {
+        "obs_dim": 53,
+        "action_dim": 12,
+        "observation_kind": "go2w_mjlab_legs_53",
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ],
+        "action_scale": 0.35,
+        "action_scale_source": "effective-config"
+      },
+      "observation_kind": "go2w_mjlab_legs_53"
+    },
+    {
+      "id": "go2w-aligned-trend-final",
+      "path": "simulation/policies/go2w-aligned-trend-final.onnx",
+      "provenance": {
+        "origin": "trend-probe",
+        "run_id": "unitree_go2w_contract_v1_20261002_163810_605369",
+        "checkpoint": "model_final"
+      },
+      "label": "对齐配方 4096×2500 终版（配方判负对照件：250 轮与 2500 轮行为应无差）",
+      "obs_dim": 53,
+      "action_dim": 12,
+      "contract": {
+        "obs_dim": 53,
+        "action_dim": 12,
+        "observation_kind": "go2w_mjlab_legs_53",
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ],
+        "action_scale": 0.35,
+        "action_scale_source": "effective-config"
+      },
+      "observation_kind": "go2w_mjlab_legs_53"
     }
   ],
   "default_map": "flat",
