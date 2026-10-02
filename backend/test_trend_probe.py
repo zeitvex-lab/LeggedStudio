@@ -89,3 +89,38 @@ class TrendVerdictTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CurriculumCasesTest(unittest.TestCase):
+    """课程感知用例推导：趋势必须在**当期命令分布内**测（2026-10-02 实证教训）。"""
+
+    EFFECTIVE = {
+        "algorithm_config": {"num_steps_per_env": 24},
+        "environment": {
+            "commands": {"twist": {"ranges": {}}},
+            "curriculum": {"command_vel": {"params": {"velocity_stages": [
+                {"step": 0, "lin_vel_x": [-0.1, 0.25], "ang_vel_z": [-0.2, 0.2]},
+                {"step": 72000, "lin_vel_x": [-0.25, 0.5], "ang_vel_z": [-0.4, 0.4]},
+            ]}}},
+        },
+    }
+
+    def test_stage0_at_250_iters_uses_stage0_ceiling(self):
+        cases = tp.curriculum_cases(self.EFFECTIVE, 250)
+        # 250×24=6000 env-steps < 72000 ⇒ stage0：vx 0.25×0.8=0.2、wz 0.2×0.8=0.16；vy 零程跳过
+        self.assertEqual(["0.200,0,0", "0,0,0.160"], cases)
+
+    def test_stage1_after_72000_env_steps(self):
+        cases = tp.curriculum_cases(self.EFFECTIVE, 3000)  # 3000×24=72000 ⇒ stage1 生效
+        self.assertEqual(["0.400,0,0", "0,0,0.320"], cases)
+
+    def test_final_uses_actual_final_iteration_not_infinity(self):
+        # "final" = 本 run 的真实末轮（2499×24 < 72000 ⇒ 仍是 stage0）——
+        # 曾被当成无穷远迭代取了末段 stage（2026-10-02 实测修正）
+        self.assertEqual(["0.200,0,0", "0,0,0.160"],
+                         tp.curriculum_cases(self.EFFECTIVE, "final", final_iter=2499))
+        self.assertEqual(["0.400,0,0", "0,0,0.320"],
+                         tp.curriculum_cases(self.EFFECTIVE, "final", final_iter=4000))
+
+    def test_no_stages_returns_none(self):
+        self.assertIsNone(tp.curriculum_cases({"environment": {"commands": {"twist": {}}}}, 250))
