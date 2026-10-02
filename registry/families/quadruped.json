@@ -84,10 +84,11 @@
         "Mjlab-HIM-Rough-Unitree-Go2",
         "Unitree-Go2-DreamWaQ-Rough",
         "Mjlab-CTS-Rough-Unitree-B2",
-        "Unitree-B2-WTW"
+        "Unitree-B2-WTW",
+        "traversal_obstacle_release"
       ],
       "task_variants_ref": "registry/skills/velocity_base.json#tasks",
-      "note": "Mjlab-CTS/TS/HIM 与 DreamWaQ 四族的 task_name 亦归此技能——它们是**同技能的算法变体**（算法轴由 profile 的 backend/算法插件决定，不另立技能类）。"
+      "note": "Mjlab-CTS/TS/HIM 与 DreamWaQ 四族的 task_name 亦归此技能——它们是**同技能的算法变体**（算法轴由 profile 的 backend/算法插件决定，不另立技能类）。；2026-10-02 审计归位：go2-traversal（velocity 配方 × obstacle_release 释放课程，1024×4000 progress_env_ratio 0.859 达标）原是游离任务名，按事实归入本技能 task_names。"
     },
     {
       "skill_id": "traversal",
@@ -106,10 +107,8 @@
         "unitree_go2"
       ],
       "gap": "剩余缺口：①只有 go2 有档案 —— 第二台机型复用缺两样机器事实：(a) 它自己的深度相机档位声明（位姿/内参没有标定就不许编，声明缺项一律 fail-closed），(b) 足端 site（本配方的滑移惩罚与支撑高度按足端 site 取速度与位置；go1 的 MJCF 只有 imu 一个 site，缺失即能力缺失，不静默换口径）；②足端槽位序沿用 PIE 源配方的对角交织序（FR/FL/RR/RL，与契约腿序 FL/FR/RL/RR 不同），新机型接入按「必须是本机型腿标记的一个排列」校验，不符即报错；③b2 / lite3 未评估。",
-      "terrain_pending": [
-        "obstacle_release",
-        "competition"
-      ]
+      "terrain_pending": [],
+      "note": "；2026-10-02 审计归位：obstacle_release（go2-traversal 达标）与 competition（Kit 已上移 + RC 地图入库）从 terrain_pending 摘除——登记跟上事实。"
     },
     {
       "skill_id": "imitation",

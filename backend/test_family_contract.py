@@ -214,9 +214,22 @@ class FamilyAuditTest(unittest.TestCase):
         self.assertCaught("不在 registry/terrains")
 
     def test_skill_missing_terrain_without_pending_is_caught(self):
-        # competition 在四足族是 missing（见 registry/terrains），声明覆盖它就必须挂 terrain_pending
-        self._with_velocity_terrain(terrain_profiles=["plane", "competition"])
-        self.assertCaught("必须列进 terrain_pending")
+        # 本用例守的是**审计规则**（missing ⇒ 必须挂 terrain_pending），不是注册表的
+        # 就绪现状——competition 曾在四足族 missing（写用例时的事实），2026-10-02 起
+        # 五档对两族全 ready（RC 构件 Kit 上移 + go2-traversal 达标），真实素材消失。
+        # 用 patch 把 competition 控制成 missing，规则检验与注册表现状解耦。
+        from unittest import mock
+
+        import adapters.mjlab.terrain_profiles as _tp
+        real_availability = _tp.availability
+        with mock.patch.object(
+            _tp, "availability",
+            lambda profile_id, family: (
+                "missing" if profile_id == "competition" else real_availability(profile_id, family)
+            ),
+        ):
+            self._with_velocity_terrain(terrain_profiles=["plane", "competition"])
+            self.assertCaught("必须列进 terrain_pending")
 
     def test_skill_ready_terrain_left_in_pending_is_caught(self):
         self._with_velocity_terrain(terrain_profiles=["plane"], terrain_pending=["plane"])
