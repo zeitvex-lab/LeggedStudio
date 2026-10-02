@@ -30,6 +30,7 @@ assets/robots/unitree_go2w/training/source/go2w_velocity（flat_legs_only 档）
 from __future__ import annotations
 
 import argparse
+import importlib
 import os
 import shutil
 import sys
@@ -112,13 +113,40 @@ def build_env_and_runner(run_dir: Path, package_root: Path, num_envs: int, devic
     from mjlab.rl import RslRlVecEnvWrapper
     from mjlab.tasks.velocity.rl import VelocityOnPolicyRunner
 
-    from go2w_velocity import (
-        unitree_go2w_flat_legs_only_env_cfg,
-        unitree_go2w_flat_legs_only_ppo_runner_cfg,
-    )
+    # 档案入口**按 run 动态解析**（2026-10-02 实测：硬编码 legs-only 入口载混合
+    # 16 动作 checkpoint 必然 size mismatch）。解析链 = 包档案 JSON 的
+    # entrypoints（env/runner，与 native_worker 同源）→ 缺失回落 legs-only
+    # （历史行为，旧 run 无档案 JSON 时保底）。
+    import json  # 函数内局部：模块顶层未导入（历史代码只在分支内 import json）
 
-    env_cfg = unitree_go2w_flat_legs_only_env_cfg(play=False)
-    rl_cfg = unitree_go2w_flat_legs_only_ppo_runner_cfg()
+    env_factory = runner_factory = None
+    training_config = run_dir / "training_config.json"
+    profile_id = ""
+    if training_config.is_file():
+        try:
+            profile_id = str(json.loads(training_config.read_text(encoding="utf-8-sig")).get("profile_id") or "")
+        except Exception:
+            profile_id = ""
+    if profile_id:
+        profile_json = package_root / "training" / "profiles" / f"{profile_id}.json"
+        if profile_json.is_file():
+            entrypoints = (json.loads(profile_json.read_text(encoding="utf-8-sig")).get("entrypoints") or {})
+            env_ep = str(entrypoints.get("env") or "")
+            runner_ep = str(entrypoints.get("runner") or "")
+            if ":" in env_ep and ":" in runner_ep:
+                ensure_on_path(package_root / "training" / "source")
+                env_mod, env_fn = env_ep.split(":", 1)
+                run_mod, run_fn = runner_ep.split(":", 1)
+                env_factory = getattr(importlib.import_module(env_mod), env_fn)
+                runner_factory = getattr(importlib.import_module(run_mod), run_fn)
+    if env_factory is None or runner_factory is None:
+        from go2w_velocity import (
+            unitree_go2w_flat_legs_only_env_cfg as env_factory,
+            unitree_go2w_flat_legs_only_ppo_runner_cfg as runner_factory,
+        )
+
+    env_cfg = env_factory(play=False)
+    rl_cfg = runner_factory()
     # 装配口径对齐 assemble_training_config：只动 num_envs/seed（不影响网络与观测宽度）。
     env_cfg.scene.num_envs = max(1, int(num_envs))
     seed = 7

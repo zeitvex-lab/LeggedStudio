@@ -240,9 +240,10 @@ def main() -> int:
     model = pa.load_package_model(pkg, sim_cfg)
     model.opt.timestep = 1.0 / 50  # 由契约在 PackageContract 内覆写（与判据工具同口径）
 
-    # 合成条目的 contract 块：抄包内同 kind 的**已取证条目**（布局/关节序同源），不新造
-    ref_entry = next((e for e in sim_cfg["policies"]
-                      if (e.get("contract") or {}).get("observation_kind") == "go2w_mjlab_legs_53"), None)
+    # 合成条目的 contract 块：抄包内**同布局的已取证条目**（布局/关节序同源），不新造。
+    # 参照按「先 kind 后宽度」选——混合 57 与纯腿 53 的 action_joint_order 宽度不同，
+    # 抄错参照 = 动作序错位（2026-10-02 混合档实测：12 名序参照 → 16 checkpoint 越界）。
+    ref_entry = None
 
     exported_dir = run_dir / "exported"
     exported_dir.mkdir(exist_ok=True)
@@ -273,6 +274,13 @@ def main() -> int:
 
         width = onnx_obs_dim(onnx)
         kind = observation_kind_for(args.robot, width) if width else None
+        if ref_entry is None or (ref_entry.get("contract") or {}).get("observation_kind") != kind:
+            candidates = sim_cfg["policies"]
+            ref_entry = next((e for e in candidates
+                              if (e.get("contract") or {}).get("observation_kind") == kind), None)
+            if ref_entry is None and width:
+                ref_entry = next((e for e in candidates
+                                  if (e.get("contract") or {}).get("obs_dim") == width), None)
         contract_block = dict((ref_entry or {}).get("contract") or {})
         if kind:
             contract_block["observation_kind"] = kind
@@ -309,12 +317,16 @@ def main() -> int:
             main_axis = int(np.argmax(np.abs(cmd))) if np.abs(cmd).max() > 0 else -1
             cases_out.append({"command": cmd, "main_axis": main_axis,
                               "v_mean": r.get("v_mean"), "pass": r.get("pass"),
-                              "err%": r.get("err%")})
+                              "reason": r.get("reason"), "err%": r.get("err%")})
         checkpoints.append({"iter": iter_label, "onnx": str(onnx), "cases": cases_out})
+        def _v(c):
+            return c["v_mean"][c["main_axis"]] if c["v_mean"] else None
+
         walked = [c for c in cases_out if c["main_axis"] >= 0 and c["v_mean"]
                   and abs(c["v_mean"][c["main_axis"]]) > 1e-3]
         print(f"  ckpt {iter_label}: 主轴速度 " + ", ".join(
-            f"{c['v_mean'][c['main_axis']] if c['v_mean'] else 0:.3f}(cmd{c['command'][c['main_axis']]})"
+            (f"{_v(c):.3f}" if _v(c) is not None else "None(倒地/不足5s)")
+            + f"(cmd{c['command'][c['main_axis']]})"
             for c in cases_out if c["main_axis"] >= 0)
             + f" ｜ 有位移命令数 {len(walked)}/{len(cases_out)}")
 

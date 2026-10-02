@@ -793,6 +793,20 @@ def _frame_go2w_mjlab_legs_53(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]
     return out
 
 
+def _frame_go2w_mjlab_hybrid_57(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
+    """go2w 混合轮驱（mjlab velocity 基座，2026-10-02 快照取证）：
+    ang, gravity, cmd, joint_pos(16 = 12 腿 + 4 轮按契约序), joint_vel(16), last_action。"""
+    c = obs.contract
+    _, ang_b, _ = obs.base_state()
+    q = obs.data.qpos[3:7]
+    names = c.action_joint_order  # 16 名序 = 12 腿 + 4 轮（契约单一真值）
+    out = list(ang_b * c.ang_vel_scale) + list(projected_gravity(q)) + list(cmd * np.asarray(c.cmd_scale))
+    out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in names]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in names]
+    out += list(obs.last_action)
+    return out
+
+
 def _frame_go2w_53(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
     """go2w_sim2sim 混合：ang·0.25, gravity, cmd, 12 腿 pos_rel, 12 腿 dq·0.05, 4 轮 dq·0.05, 16 action。"""
     c = obs.contract
@@ -1146,6 +1160,7 @@ FRAME_BUILDERS = {
     "go1_playground_48": _frame_go1_playground_48,
     "go2w_53": _frame_go2w_53,
     "go2w_mjlab_legs_53": _frame_go2w_mjlab_legs_53,
+    "go2w_mjlab_hybrid_57": _frame_go2w_mjlab_hybrid_57,
     "go2w_rl_sdk_57": _frame_go2w_rl_sdk_57,
     "go2w_himloco_57": _frame_go2w_himloco_57,
     "zexw_53": _frame_zexw_53,
