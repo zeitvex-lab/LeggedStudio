@@ -457,7 +457,9 @@ syntax-check: &syntax-check
     # 密钥文件（格式见 https://cnb.cool/zeitvex/github-secrets/-/blob/main/github-secrets.yaml）：
     #   GITHUB_USER:  "your-github-username"
     #   GITHUB_TOKEN: "ghp_xxxxxxxxxxxxxxxxxxxx"
-    # 需要 push 到别的仓库时再加一行 `GITHUB_REPO: "owner/repo"`（缺省 = $GITHUB_USER/LeggedStudio）。
+    # 缺省目标 = 组织仓 zeitvex-lab/LeggedStudio（adapters/github/mirror.py 的
+    # DEFAULT_TARGET_SLUG；曾回落 $GITHUB_USER——个人账号，2026-10-02 实证会意外建仓）。
+    # 要镜像到别的仓库再加一行 `GITHUB_REPO: "owner/repo"`。
     - https://cnb.cool/zeitvex/github-secrets/-/blob/main/github-secrets.yaml
   stages:
     - name: mirror

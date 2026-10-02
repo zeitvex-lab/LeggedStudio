@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -158,9 +159,20 @@ class GuardRailTest(unittest.TestCase):
                 os.environ["GITHUB_MIRROR_BRANCHES"] = previous
 
     def test_slug_resolution(self):
+        """目标解析：--to-slug > GITHUB_REPO > **组织仓缺省**（不再是 $GITHUB_USER 回落——
+        2026-10-02 实证那会在个人账号下意外建仓 zeitvex/LeggedStudio）。"""
         creds = mirror.GithubCredentials("demo", "ghp_real123")
         self.assertEqual(mirror.resolve_slug(creds, "other/repo"), "other/repo")
-        self.assertEqual(mirror.resolve_slug(creds, None), "demo/LeggedStudio")
+        previous = os.environ.pop("GITHUB_REPO", None)
+        try:
+            # 缺省 = 组织仓（GITHUB_USER 不再参与目标决定，哪怕它是个人账号）
+            self.assertEqual(mirror.resolve_slug(creds, None), mirror.DEFAULT_TARGET_SLUG)
+            os.environ["GITHUB_REPO"] = "acme/mirror-target"
+            self.assertEqual(mirror.resolve_slug(creds, None), "acme/mirror-target")
+        finally:
+            os.environ.pop("GITHUB_REPO", None)
+            if previous is not None:
+                os.environ["GITHUB_REPO"] = previous
 
     def test_main_without_credentials_returns_zero(self):
         """**没配密钥不是失败**：本地/PR 跑这条命令必须 exit 0（输出 SKIPPED）。"""
