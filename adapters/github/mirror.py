@@ -19,7 +19,7 @@
 ## 命令
 
     python -m adapters.github.mirror --check             # 只看会做什么（只读 GitHub API）
-    python -m adapters.github.mirror --to-slug a/b       # 同步到 a/b（默认取 GITHUB_REPO / GITHUB_USER/LeggedStudio）
+    python -m adapters.github.mirror --to-slug a/b       # 同步到 a/b（默认 GITHUB_REPO / 组织仓 zeitvex-lab/LeggedStudio）
     python -m adapters.github.mirror --skip-tags         # 只同步分支
     python -m adapters.github.mirror --allow-empty       # 允许推空仓库（默认拒，见下）
 
@@ -51,6 +51,13 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 GITHUB_API = "https://api.github.com"
 DEFAULT_REPO_NAME = "LeggedStudio"
+
+#: 镜像默认目标（GitHub 侧真身）：本仓的 GitHub 侧在**组织** zeitvex-lab 下。
+#: 曾默认回落 ``$GITHUB_USER/LeggedStudio``——而密钥里的 GITHUB_USER 是个人账号，
+#: 2026-10-02 实证会在个人账号下**意外建仓**（zeitvex/LeggedStudio，镜像流水线
+#: push-to-create）。默认改为组织仓；``GITHUB_REPO``（密钥/环境）仍可覆盖，
+#: ``--to-slug`` 优先级最高。
+DEFAULT_TARGET_SLUG = "zeitvex-lab/LeggedStudio"
 
 #: 镜像分支白名单。默认只有仓库默认分支 —— 见模块文档「只镜像白名单 ref」。
 DEFAULT_MIRROR_BRANCHES = ("main",)
@@ -370,10 +377,9 @@ def resolve_slug(creds: GithubCredentials | None, explicit: str | None) -> str:
     env_slug = (os.environ.get("GITHUB_REPO") or "").strip().strip("/")
     if env_slug:
         return env_slug
-    user = (creds.user if creds else "") or (os.environ.get("GITHUB_USER") or "").strip()
-    if not user:
-        raise MirrorError("无法确定目标仓库：给 --to-slug，或在密钥里填 GITHUB_USER / GITHUB_REPO")
-    return f"{user}/{DEFAULT_REPO_NAME}"
+    # 缺省 = 组织仓（DEFAULT_TARGET_SLUG 注记了为什么不再是 $GITHUB_USER 回落）。
+    # GITHUB_USER 在此只参与凭据校验，不再决定目标——个人账号不是回落项。
+    return DEFAULT_TARGET_SLUG
 
 
 def mirror_branches() -> list[str]:
