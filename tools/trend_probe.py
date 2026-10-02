@@ -90,6 +90,42 @@ def detect_plateau(curve: list[tuple[int, float]], *, window: int = PLATEAU_WIND
     return None
 
 
+def curriculum_cases(effective: dict, iteration, final_iter: int | None = None) -> list[str] | None:
+    """从 run 的 effective-config 推**当期命令分布**的探针用例（课程感知）。
+
+    命令课程是配方数据：stage-0 训练分布里 vx∈[-0.1,0.25] 时，拿 0.5 测趋势
+    = 分布外测量（2026-10-02 实证：终版 vx 0.243 ≈ stage-0 上限 0.25 的 97%——
+    策略在精确跟踪课程，此前判「趋势晚」是测错了地方）。规则：
+      * checkpoint 迭代 × num_steps_per_env → 当期 stage（≤ 则取最后一个）；
+      * 每条非零程轴取当期上限的 80%（in-distribution 的"走到没有"）；
+      * 零程轴（如 vy≡0）跳过——命令域没有的维度判不出趋势；
+      * 无课程/无 stages → None（调用方回落显式 --cases）。
+    """
+    try:
+        env = effective.get("environment") or {}
+        twist = ((env.get("commands") or {}).get("twist")) or {}
+        stages = (((env.get("curriculum") or {}).get("command_vel") or {}).get("params") or {}).get("velocity_stages") or []
+        steps = ((effective.get("algorithm_config") or {}).get("num_steps_per_env")
+                 or effective.get("environment", {}).get("num_steps_per_env") or 24)
+        if not stages:
+            return None
+        it = (final_iter if final_iter else 10 ** 9) if iteration == "final" else int(iteration)
+        env_steps = it * int(steps)
+        stage = stages[0]
+        for s in stages:
+            if int(s.get("step") or 0) <= env_steps:
+                stage = s
+        cases: list[str] = []
+        for axis in ("lin_vel_x", "ang_vel_z"):
+            span = stage.get(axis) or [0.0, 0.0]
+            hi = float(span[1]) if len(span) > 1 else 0.0
+            if abs(hi) > 1e-9:
+                cases.append(f"{hi * 0.8:.3f},0,0" if axis == "lin_vel_x" else f"0,0,{hi * 0.8:.3f}")
+        return cases or None
+    except Exception:
+        return None
+
+
 def trend_verdict(checkpoints: list[dict], *, trend_iter: int, trend_ratio: float,
                   final_iter: int = 0) -> dict:
     """checkpoint 评测结果 → 趋势判决（纯函数，可测）。
@@ -175,7 +211,7 @@ def main() -> int:
     ap.add_argument("--checkpoints", default="auto")
     ap.add_argument("--trend-iter", type=int, default=TREND_ITER_DEFAULT)
     ap.add_argument("--trend-ratio", type=float, default=TREND_RATIO_DEFAULT)
-    ap.add_argument("--cases", default="0.5,0,0;0,0.4,0;0,0,0.6")
+    ap.add_argument("--cases", default="auto", help="auto = 按 run 命令课程的当期 stage 构造分布内用例（推荐）；否则分号分隔 vx,vy,wz")
     args = ap.parse_args()
 
     run_dir = Path(args.run)
@@ -210,8 +246,19 @@ def main() -> int:
 
     exported_dir = run_dir / "exported"
     exported_dir.mkdir(exist_ok=True)
+    effective = json.loads((run_dir / "effective-config.json").read_text(encoding="utf-8-sig"))         if (run_dir / "effective-config.json").is_file() else {}
+    curve = parse_reward_curve(run_dir / "training.log")
+    last_iter = curve[-1][0] if curve else 0
     checkpoints: list[dict] = []
     for ck in _pick_checkpoints(run_dir, args.checkpoints):
+        cases_for_this_ckpt = args.cases.split(";")
+        if args.cases.strip().lower() == "auto":
+            auto = curriculum_cases(
+                effective,
+                ck.replace("model_", "").replace(".pt", "") if ck != "model_final.pt" else "final",
+                final_iter=last_iter or None)
+            if auto:
+                cases_for_this_ckpt = auto
         if ck == "model_final.pt":
             onnx = exported_dir / "policy.onnx"
             if not onnx.is_file():
@@ -231,6 +278,19 @@ def main() -> int:
             contract_block["observation_kind"] = kind
         if width:
             contract_block["obs_dim"] = width
+        # run 真值补齐（否则 clamp/出生姿回落包级 ≠ 训练口径——2026-10-02 实测
+        # 缺 command_ranges 时 clamp 失效，0.64 分布外输入喂出 0.047 假读数）：
+        twist = ((effective.get("environment") or {}).get("commands") or {}).get("twist") or {}
+        ranges = twist.get("ranges") or {}
+        if ranges:
+            contract_block["command_ranges"] = {
+                k: [float(v[0]), float(v[1])] for k, v in ranges.items()
+                if isinstance(v, (list, tuple)) and len(v) == 2}
+        snapshot = json.loads((run_dir / "contract_snapshot.json").read_text(encoding="utf-8-sig"))             if (run_dir / "contract_snapshot.json").is_file() else {}
+        pose = ((snapshot.get("action") or {}).get("default_pose") or [])
+        order = (snapshot.get("action") or {}).get("joint_order") or []
+        if pose and order and len(pose) == len(order):
+            contract_block["default_joint_angles"] = dict(zip(order, [float(x) for x in pose]))
         entry = {"id": f"trend-probe-{Path(onnx).stem}", "path": str(onnx),
                  "contract": contract_block}
         blob = policy_blob_path(entry, robot_dir=pkg, index=load_index())
@@ -241,8 +301,10 @@ def main() -> int:
         contract = pa.PackageContract(pkg, entry)
         sess = ort.InferenceSession(str(blob), providers=["CPUExecutionProvider"])
         cases_out = []
-        for case in args.cases.split(";"):
+        for case in cases_for_this_ckpt:
             cmd = clamp_to_ranges([float(x) for x in case.split(",")], contract)
+            if float(np.abs(cmd).max()) <= 1e-9:
+                continue  # 全零命令判不出趋势（零程轴被契约钳平）
             r = run_case(sess, contract, model, tuple(cmd))
             main_axis = int(np.argmax(np.abs(cmd))) if np.abs(cmd).max() > 0 else -1
             cases_out.append({"command": cmd, "main_axis": main_axis,
@@ -256,9 +318,7 @@ def main() -> int:
             for c in cases_out if c["main_axis"] >= 0)
             + f" ｜ 有位移命令数 {len(walked)}/{len(cases_out)}")
 
-    curve = parse_reward_curve(run_dir / "training.log")
     plateau = detect_plateau(curve)
-    last_iter = curve[-1][0] if curve else 0
     verdict = trend_verdict(checkpoints, trend_iter=args.trend_iter, trend_ratio=args.trend_ratio,
                             final_iter=last_iter)
     report = {
