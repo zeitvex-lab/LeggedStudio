@@ -1429,6 +1429,74 @@
         "action_scale": 0.35
       },
       "observation_kind": "go2w_mjlab_legs_53"
+    },
+    {
+      "id": "unitree_go2w-trained-20261002-140342",
+      "path": "simulation/policies/unitree_go2w-trained-20261002-140342.onnx",
+      "provenance": {
+        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20261002_140342_824398",
+        "run_id": "unitree_go2w_contract_v1_20261002_140342_824398",
+        "origin": "product-training",
+        "installed_at": "2026-10-02T06:04:16+00:00"
+      },
+      "label": "训练产物（run unitree_go2w_contract_v1_20261002_140342_824398）",
+      "obs_dim": 53,
+      "action_dim": 12,
+      "contract": {
+        "obs_dim": 53,
+        "action_dim": 12,
+        "observation_kind": "go2w_mjlab_legs_53",
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ]
+      },
+      "observation_kind": "go2w_mjlab_legs_53"
+    },
+    {
+      "id": "go2w-flatwalk-aligned-2k",
+      "path": "simulation/policies/go2w-flatwalk-aligned-2k.onnx",
+      "provenance": {
+        "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20261002_140428_184434",
+        "run_id": "unitree_go2w_contract_v1_20261002_140428_184434",
+        "origin": "product-training",
+        "installed_at": "2026-10-02T06:39:08+00:00"
+      },
+      "label": "对齐后配方 2k 产物（0/4：稳定站立、行走未出——G 系已证预算是判别变量，20k 级验证待跑）",
+      "obs_dim": 53,
+      "action_dim": 12,
+      "contract": {
+        "obs_dim": 53,
+        "action_dim": 12,
+        "observation_kind": "go2w_mjlab_legs_53",
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint"
+        ],
+        "action_scale": 0.35,
+        "action_scale_source": "effective-config"
+      },
+      "observation_kind": "go2w_mjlab_legs_53"
     }
   ],
   "default_map": "flat",

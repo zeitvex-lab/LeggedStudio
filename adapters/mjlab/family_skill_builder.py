@@ -109,6 +109,13 @@ def family_skill_catalog(family_id: str) -> dict[str, FamilySkillRecipe]:
     for task_name, item in catalog.items():
         if not isinstance(item, dict):
             raise ValueError(f"{family_id}/{task_name}: 装配表项必须是对象")
+        if str(item.get("mount") or "").startswith("package-local"):
+            # **声明性条目**（如 wheel_leg/crawl）：实现还在机型包里（族级化待
+            # binding 层扩展，见条目自己的 family_gap），family_skill_builder
+            # 装配不了它——注册表登记它是为了"任务目录可见 + 现状诚实"，
+            # 不该被当成"族级可装配却缺数据"来报错。族级装配请求落到这种
+            # 任务名时依旧走"装配表无此项"路径（try_build 返回 None）。
+            continue
         missing = [key for key in ("env", "runner") if not item.get(key)]
         if not (item.get("profile") or item.get("profile_factory")):
             missing.append("profile 或 profile_factory")
