@@ -139,6 +139,10 @@ class LegsOnlyRecipe:
     feet_air_time_weight: float = 0.0
     #: 步态节律目标（单支撑/摆动相时长目标，秒）。
     feet_air_time_threshold: float = 0.4
+    #: feet_air_time 的命令有效阈（上游纯腿档 0.1，与 stand_still 的 0.05 **不同值**——
+    #: 2026-10-02 recipe_parity 抓到两者曾被耦合成一个字段）。缺省跟 stand_still 同值
+    #: 仅为兼容旧 profile 显式构造，新档应显式给上游值。
+    feet_air_time_command_threshold: float | None = None
     #: 线/角速度跟踪权重覆盖（None = 族基座 2.5 原样）。学步第二杠杆（2026-09-30）：
     #: 原地节律在"吃"跟踪差价（exp 核下不动也有 ~0.37 底分）——把位移报酬拉上去。
     track_weight_override: float | None = None
@@ -146,6 +150,10 @@ class LegsOnlyRecipe:
     #: 杠杆⑤（2026-09-30）：上游纯腿档无滤波——5Hz 截止会把快速摆腿在动作表达层滤掉
     #: （机制对拍 diff 首位嫌疑）；False = 普通有序位置动作直配。
     leg_action_low_pass: bool = True
+    #: 整体角动量惩罚权重（0 = 不加）。上游纯腿档保留 -0.025（velocity_env_cfg 基座项，
+    #: 轮足装配时被 _FOOTLESS 摘除——纯腿变体按上游**恢复**）。2026-10-02
+    #: recipe_parity 首跑抓到缺失（40k 站桩判负的配方嫌疑之一）。
+    angular_momentum_weight: float = 0.0
 
 
 @dataclass(frozen=True)

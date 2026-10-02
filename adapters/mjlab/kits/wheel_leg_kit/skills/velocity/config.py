@@ -45,6 +45,7 @@ from ....joint_actions import build_joint_actions
 from ...velocity_env_cfg import make_velocity_env_cfg as make_family_base_env_cfg
 from ...mdp import (
     adaptive_leg_motion_penalty,
+    angular_momentum_penalty,
     base_ang_vel,
     base_height_l2,
     base_height_tracking,
@@ -79,6 +80,8 @@ VARIANTS: tuple[str, ...] = (
 )
 #: 轮-地接触传感器的族级名字（奖励项按名字取它；族内统一，不随机型变）。
 WHEEL_GROUND_SENSOR = "wheel_ground_contact"
+#: 根角动量传感器的族级名字（angular_momentum 惩罚按名字取它；与基座 env 同名）。
+ROOT_ANGMOM_SENSOR = "robot/root_angmom"
 #: viewer 三元组（轮足 velocity 族口径：机身边框 1.5 m、俯角 -10°；body 走绑定）。
 VIEWER_DISTANCE = 1.5
 VIEWER_ELEVATION = -10.0
@@ -372,6 +375,8 @@ def _apply_rewards(
         if recipe.feet_air_time_weight:
             # 学步主正奖励（go2 G1 修复同款）：腿末端=轮，"步态"=轮接触节律。
             # 传感器计时由 _apply_sensors(track_air_time=True) 按同一开关开启。
+            # 命令有效阈与 stand_still **分字段**（上游纯腿档 0.1 vs 0.05 不同值——
+            # recipe_parity 2026-10-02 抓到耦合后拆开；None = 兼容旧 profile 跟随）。
             cfg.rewards["feet_air_time"] = RewardTermCfg(
                 func=feet_air_time,
                 weight=recipe.feet_air_time_weight,
@@ -379,8 +384,20 @@ def _apply_rewards(
                     "sensor_name": WHEEL_GROUND_SENSOR,
                     "threshold": recipe.feet_air_time_threshold,
                     "command_name": "twist",
-                    "command_threshold": recipe.stand_still_command_threshold,
+                    "command_threshold": (
+                        recipe.feet_air_time_command_threshold
+                        if recipe.feet_air_time_command_threshold is not None
+                        else recipe.stand_still_command_threshold
+                    ),
                 },
+            )
+        if recipe.angular_momentum_weight:
+            # 上游纯腿档保留整体角动量惩罚（-0.025；velocity_env_cfg 基座项，轮足装配
+            # 被 _FOOTLESS 摘除、纯腿变体按上游恢复）。recipe_parity 2026-10-02 抓缺。
+            cfg.rewards["angular_momentum"] = RewardTermCfg(
+                func=angular_momentum_penalty,
+                weight=recipe.angular_momentum_weight,
+                params={"sensor_name": ROOT_ANGMOM_SENSOR},
             )
     else:
         # 跟踪 economics 对齐（rc_old 源配方 2.5/2.5；None = 基座 1.0 原样）。

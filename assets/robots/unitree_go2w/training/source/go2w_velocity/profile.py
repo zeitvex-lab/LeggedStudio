@@ -123,6 +123,13 @@ LEGS_ONLY = replace(
         # 学步正激励（2026-09-30 杠杆②，go2 G1 修复同值 +1.0）：1024×2000 对照实证
         # 无此项时 reward+12 全变站稳、vx 零位移——腿末端=轮，"步态"=轮接触节律。
         feet_air_time_weight=1.0,
+        # 2026-10-02 recipe_parity 对齐上游逐字值（velocity_env_cfg 基座 0.3/0.1；
+        # 此前 0.4/0.05 且命令阈被耦合进 stand_still 字段）——对拍 delta 归零。
+        feet_air_time_threshold=0.3,
+        feet_air_time_command_threshold=0.1,
+        # 2026-10-02 recipe_parity 抓缺后补齐：上游纯腿档保留 angular_momentum -0.025
+        # （velocity_env_cfg 基座项；40k 站桩判负的配方嫌疑之一，逐字对齐）。
+        angular_momentum_weight=-0.025,
         # 杠杆③ 5.0 / 杠杆④ 3.5 @2000 轮双双判负（生存崩模式一致：vx/ωz 全摔，仅
         # 站立/侧移存活）——**判别变量不是权重数值，是预算**：2000 轮下任何高于基座
         # 的跟踪压都越过"稳定/探索"阈值。产品默认 None（2.5 + feet_air_time 1.0 =
