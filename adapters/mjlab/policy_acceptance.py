@@ -794,15 +794,24 @@ def _frame_go2w_mjlab_legs_53(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]
 
 
 def _frame_go2w_mjlab_hybrid_57(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
-    """go2w 混合轮驱（mjlab velocity 基座，2026-10-02 快照取证）：
-    ang, gravity, cmd, joint_pos(16 = 12 腿 + 4 轮按契约序), joint_vel(16), last_action。"""
+    """go2w 混合轮驱（mjlab velocity 基座）：**训练 actor 组序（env 自报实证 2026-10-02）**
+    ang, gravity, cmd, 腿 pos_rel(12), 腿 dq(12), 轮 pos wrap(4), 轮 dq(4), last_action(16)。
+    注意 contract_snapshot 的组件序是**部署视图**（joint_pos 16 融合）——快照序 ≠ 训练
+    观测序（本次布局错注册的根因）；真值 = 训练 env 的 ObservationManager 自报表。"""
     c = obs.contract
     _, ang_b, _ = obs.base_state()
     q = obs.data.qpos[3:7]
-    names = c.action_joint_order  # 16 名序 = 12 腿 + 4 轮（契约单一真值）
+    legs = c.action_joint_order[:12]
+    wheels = c.wrap_pi_joints or ["FR_wheel_joint", "FL_wheel_joint", "RR_wheel_joint", "RL_wheel_joint"]
     out = list(ang_b * c.ang_vel_scale) + list(projected_gravity(q)) + list(cmd * np.asarray(c.cmd_scale))
-    out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in names]
-    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in names]
+    out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in legs]
+    out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in legs]
+    for n in wheels:
+        a = obs.jadr.get(n)
+        out.append(wrap_pi(obs.data.qpos[a[0]]) if a else 0.0)
+    for n in wheels:
+        a = obs.jadr.get(n)
+        out.append(obs.data.qvel[a[1]] * c.dof_vel_scale if a else 0.0)
     out += list(obs.last_action)
     return out
 

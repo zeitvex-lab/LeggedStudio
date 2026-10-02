@@ -104,15 +104,10 @@ _OBSERVATION_LAYOUT_BY_KIND: dict[str, list[dict[str, Any]]] = {
         {"source": "action", "width": 12},
         {"source": "cmd", "width": 3},
     ],
-    # go2w 混合 57（2026-10-02 快照取证，段序=训练 actor 组序；各段无缩放）：
-    "go2w_mjlab_hybrid_57": [
-        {"source": "ang_vel", "width": 3},
-        {"source": "gravity", "width": 3},
-        {"source": "cmd", "width": 3},
-        {"source": "joint_pos", "width": 16},
-        {"source": "joint_vel", "width": 16},
-        {"source": "action", "width": 16},
-    ],
+    # go2w 混合 57 **不进布局表**（与 legs-53 同一裁决）：轮段 wrap 语义通用解释器
+    # 表达不了，走专用 builder（FRAME_BUILDERS["go2w_mjlab_hybrid_57"]）；
+    # 且 contract_snapshot 组件序是部署视图（16 融合）≠ 训练观测序（8 段），
+    # 按快照盖布局 = 错序喂策略（2026-10-02 实测教训）。
 }
 
 
