@@ -2590,11 +2590,33 @@
       "run_id": "unitree_go2w_contract_v1_20261002_140428_184434",
       "schema": "policy-artifact-1.0",
       "source_onnx": "simulation/policies/go2w-flatwalk-aligned-2k.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2w__trend-250",
+      "kind": "produced",
+      "onnx_bytes": 776409,
+      "onnx_sha256": "5fcf2f503f21fd1e3d2dd6512b8f834621de62965a01888ac8662314c821465e",
+      "policy_id": "go2w-aligned-trend-250",
+      "robot": "unitree_go2w",
+      "run_id": "unitree_go2w_contract_v1_20261002_163810_605369",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "policies/unitree_go2w__trend-250/policy.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2w__trend-final",
+      "kind": "produced",
+      "onnx_bytes": 776409,
+      "onnx_sha256": "11687256beb8f74fa07ee6a42b316ac07650261e8861d2d13231af60da3217ab",
+      "policy_id": "go2w-aligned-trend-final",
+      "robot": "unitree_go2w",
+      "run_id": "unitree_go2w_contract_v1_20261002_163810_605369",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "policies/unitree_go2w__trend-final/policy.onnx"
     }
   ],
   "blobs": "引用式：onnx 单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目在**安装进包之前**持真副本，安装后转为引用式（见 install_produced_policy）",
-  "count": 98,
-  "generated_at": "2026-10-02T06:39:08+00:00",
+  "count": 100,
+  "generated_at": "2026-10-02T10:41:52+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"
 }
