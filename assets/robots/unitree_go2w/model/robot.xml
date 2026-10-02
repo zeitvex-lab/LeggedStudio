@@ -381,6 +381,12 @@
 
     <framepos name="frame_pos" objtype="site" objname="imu" />
     <framelinvel name="frame_vel" objtype="site" objname="imu" />
+
+    <!-- 整体角动量（上游 legs-only 奖励表引用 robot/root_angmom；同族 go2.xml:159
+         同款——上游 go2w.xml 漏了这条，vendored mjlab Scene 把 MJCF 传感器自动
+         注册为 {entity}/{name}。2026-10-02 recipe_parity 补齐 angular_momentum
+         -0.025 时随项补传感器。 -->
+    <subtreeangmom name="root_angmom" body="base_link" />
   </sensor>
 
 </mujoco>

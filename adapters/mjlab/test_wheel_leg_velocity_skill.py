@@ -272,8 +272,11 @@ class Go2wBindingTest(unittest.TestCase):
         self.assertEqual("BuiltinPositionActuatorCfg", type(actuators[2]).__name__)
         self.assertEqual("BuiltinVelocityActuatorCfg", type(actuators[3]).__name__)
         self.assertAlmostEqual(20.0, actuators[0].stiffness)
-        self.assertAlmostEqual(35.5, actuators[2].effort_limit)
-        self.assertAlmostEqual(0.5, actuators[3].damping)
+        # 2026-09-30 PD 归正（de1c88878）：calf effort 23.5→45.0（上游 deploy.yaml 真值），
+        # 此断言曾在归正时漏改——2026-10-02 修测试期望（代码侧一直是对的）。
+        self.assertAlmostEqual(45.0, actuators[2].effort_limit)
+        # 轮 damping 同批归正：0.5→2.0（上游 wheel kv2.0）——测试期望漏改同 calf effort。
+        self.assertAlmostEqual(2.0, actuators[3].damping)
         self.assertAlmostEqual(0.9, cfg.articulation.soft_joint_pos_limit_factor)
 
     def test_pose_root_body_and_contact_pattern_are_declaration_derived(self):
