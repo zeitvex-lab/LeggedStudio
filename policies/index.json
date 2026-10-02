@@ -708,6 +708,7 @@
       "kind": "policies",
       "label": "Velocity 57D (rl_sar robot_lab)",
       "obs_dim": 57,
+      "observation_kind": "go2w_mjlab_hybrid_57",
       "onnx_bytes": 785066,
       "onnx_sha256": "4a60ebc74b24b162c4cc065aeb418999c2296606c7e6c984d2b2475113b2399f",
       "policy_id": "go2w-velocity-robotlab",
@@ -715,8 +716,7 @@
       "run_id": null,
       "schema": "policy-artifact-1.0",
       "source_onnx": "assets/robots/unitree_go2w/simulation/policies/robotlab_velocity_57.onnx",
-      "task_type": null,
-      "observation_kind": "go2w_mjlab_hybrid_57"
+      "task_type": null
     },
     {
       "action_dim": 16,
@@ -729,6 +729,7 @@
       "kind": "policies",
       "label": "Go2W HIMLoco locomotion",
       "obs_dim": 57,
+      "observation_kind": "go2w_mjlab_hybrid_57",
       "onnx_bytes": 1078609,
       "onnx_sha256": "a3132f2ffb3330969aff23595812eb37de0477e518014fc3a12c18ec2a4acc2d",
       "policy_id": "go2w-himloco-loco",
@@ -736,8 +737,7 @@
       "run_id": null,
       "schema": "policy-artifact-1.0",
       "source_onnx": "assets/robots/unitree_go2w/simulation/policies/go2w_himloco_loco.onnx",
-      "task_type": null,
-      "observation_kind": "go2w_mjlab_hybrid_57"
+      "task_type": null
     },
     {
       "action_dim": 16,
@@ -750,6 +750,7 @@
       "kind": "policies",
       "label": "Go2W HIMLoco 前腿站立行走",
       "obs_dim": 57,
+      "observation_kind": "go2w_mjlab_hybrid_57",
       "onnx_bytes": 1078609,
       "onnx_sha256": "8719eee8dcb7e9ac9a9ac2d8a803de70c4a5e9b0906fad250eee53ff5994b5d7",
       "policy_id": "go2w-himloco-stand-front",
@@ -757,8 +758,7 @@
       "run_id": null,
       "schema": "policy-artifact-1.0",
       "source_onnx": "assets/robots/unitree_go2w/simulation/policies/go2w_himloco_stand_front.onnx",
-      "task_type": null,
-      "observation_kind": "go2w_mjlab_hybrid_57"
+      "task_type": null
     },
     {
       "action_dim": 16,
@@ -771,6 +771,7 @@
       "kind": "policies",
       "label": "Go2W HIMLoco 倒立 (handstand)",
       "obs_dim": 57,
+      "observation_kind": "go2w_mjlab_hybrid_57",
       "onnx_bytes": 1078609,
       "onnx_sha256": "00a3532da43a4ce062facb41ac931422509a48f3458230226f64f34bbab6186d",
       "policy_id": "go2w-himloco-handstand",
@@ -778,8 +779,7 @@
       "run_id": null,
       "schema": "policy-artifact-1.0",
       "source_onnx": "assets/robots/unitree_go2w/simulation/policies/go2w_himloco_handstand.onnx",
-      "task_type": null,
-      "observation_kind": "go2w_mjlab_hybrid_57"
+      "task_type": null
     },
     {
       "action_dim": 16,
@@ -792,6 +792,7 @@
       "kind": "policies",
       "label": "Go2W HIMLoco 后腿站立 (leggedstand)",
       "obs_dim": 57,
+      "observation_kind": "go2w_mjlab_hybrid_57",
       "onnx_bytes": 1078609,
       "onnx_sha256": "845da825a8efae1934f2bdcf6bff3d945bcf9fc45b39bbc7ccd856d81e181a25",
       "policy_id": "go2w-himloco-leggedstand",
@@ -799,8 +800,7 @@
       "run_id": null,
       "schema": "policy-artifact-1.0",
       "source_onnx": "assets/robots/unitree_go2w/simulation/policies/go2w_himloco_leggedstand.onnx",
-      "task_type": null,
-      "observation_kind": "go2w_mjlab_hybrid_57"
+      "task_type": null
     },
     {
       "action_dim": 16,
@@ -1608,6 +1608,7 @@
       "kind": "policies",
       "label": "统一框架 1024×1500（go2w velocity 全 dof，家族装配器产物）",
       "obs_dim": 57,
+      "observation_kind": "go2w_mjlab_hybrid_57",
       "onnx_bytes": 786965,
       "onnx_sha256": "609513e4bc23fcdb873217fb52978a80eb400023a9603b8800725ddccee2616e",
       "policy_id": "unitree_go2w-uf-1500",
@@ -1615,8 +1616,7 @@
       "run_id": null,
       "schema": "policy-artifact-1.0",
       "source_onnx": "assets/robots/unitree_go2w/simulation/policies/unitree_go2w-uf-1500.onnx",
-      "task_type": null,
-      "observation_kind": "go2w_mjlab_hybrid_57"
+      "task_type": null
     },
     {
       "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20260930_005045_119414",
@@ -2691,11 +2691,129 @@
       "run_id": "unitree_go2w_contract_v1_20261002_200555_756620",
       "schema": "policy-artifact-1.0",
       "source_onnx": "simulation/policies/unitree_go2w-trained-20261002-200555.onnx"
+    },
+    {
+      "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20261002_200703_613273",
+      "contract": {
+        "action_dim": 16,
+        "action_joint_order": [
+          "FR_hip_joint",
+          "FR_thigh_joint",
+          "FR_calf_joint",
+          "FL_hip_joint",
+          "FL_thigh_joint",
+          "FL_calf_joint",
+          "RR_hip_joint",
+          "RR_thigh_joint",
+          "RR_calf_joint",
+          "RL_hip_joint",
+          "RL_thigh_joint",
+          "RL_calf_joint",
+          "FR_wheel_joint",
+          "FL_wheel_joint",
+          "RR_wheel_joint",
+          "RL_wheel_joint"
+        ],
+        "action_scale_by_joint": {
+          "FL_calf_joint": 0.5,
+          "FL_hip_joint": 0.5,
+          "FL_thigh_joint": 0.5,
+          "FL_wheel_joint": 35.0,
+          "FR_calf_joint": 0.5,
+          "FR_hip_joint": 0.5,
+          "FR_thigh_joint": 0.5,
+          "FR_wheel_joint": 35.0,
+          "RL_calf_joint": 0.5,
+          "RL_hip_joint": 0.5,
+          "RL_thigh_joint": 0.5,
+          "RL_wheel_joint": 35.0,
+          "RR_calf_joint": 0.5,
+          "RR_hip_joint": 0.5,
+          "RR_thigh_joint": 0.5,
+          "RR_wheel_joint": 35.0
+        },
+        "action_scale_source": "effective-config",
+        "control_modes": {
+          "FL_wheel_joint": "velocity",
+          "FR_wheel_joint": "velocity",
+          "RL_wheel_joint": "velocity",
+          "RR_wheel_joint": "velocity"
+        },
+        "default_joint_angles": {
+          "FL_calf_joint": 0.8999999761581421,
+          "FL_hip_joint": 0.0,
+          "FL_thigh_joint": 0.10000000149011612,
+          "FL_wheel_joint": 0.8999999761581421,
+          "FR_calf_joint": -1.7999999523162842,
+          "FR_hip_joint": -0.10000000149011612,
+          "FR_thigh_joint": 0.8999999761581421,
+          "FR_wheel_joint": 0.10000000149011612,
+          "RL_calf_joint": 0.0,
+          "RL_hip_joint": 0.8999999761581421,
+          "RL_thigh_joint": -1.7999999523162842,
+          "RL_wheel_joint": 0.0,
+          "RR_calf_joint": -0.10000000149011612,
+          "RR_hip_joint": -1.7999999523162842,
+          "RR_thigh_joint": 0.0,
+          "RR_wheel_joint": -1.7999999523162842
+        },
+        "obs_dim": 57,
+        "observation_kind": "go2w_mjlab_hybrid_57",
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3
+          },
+          {
+            "source": "gravity",
+            "width": 3
+          },
+          {
+            "source": "cmd",
+            "width": 3
+          },
+          {
+            "source": "joint_pos",
+            "width": 16
+          },
+          {
+            "source": "joint_vel",
+            "width": 16
+          },
+          {
+            "source": "action",
+            "width": 16
+          }
+        ]
+      },
+      "contract_digest": "522890cc54dfed8bcec3ad0ea307ebd6d9680ca38dccbfcc5e585b4b9f7b3619",
+      "installation": {
+        "package_path": "simulation/policies/go2w-hybrid-2500.onnx",
+        "policy_id": "go2w-hybrid-2500",
+        "removed_local_blob": "C:\\Users\\31560\\Documents\\00_open\\legged_studio\\policies\\unitree_go2w__produced-unitree_go2w_contract_v1_20261002_200703_613273\\policy.onnx"
+      },
+      "installed": {
+        "package_path": "simulation/policies/go2w-hybrid-2500.onnx",
+        "policy_id": "go2w-hybrid-2500",
+        "repo_path": "assets/robots/unitree_go2w/simulation/policies/go2w-hybrid-2500.onnx",
+        "robot": "unitree_go2w"
+      },
+      "kind": "produced",
+      "obs_dim": 57,
+      "obs_dim_source": "onnx",
+      "observation_kind": "go2w_mjlab_hybrid_57",
+      "onnx_bytes": 786789,
+      "onnx_sha256": "329e6ee115960404b7224b4a5314590806aee0f8bef69dd6aebb4f0970fe2f0a",
+      "policy_id": "go2w-hybrid-2500",
+      "robot": "unitree_go2w",
+      "run_id": "unitree_go2w_contract_v1_20261002_200703_613273",
+      "schema": "policy-artifact-1.0",
+      "source_onnx": "simulation/policies/go2w-hybrid-2500.onnx"
     }
   ],
   "blobs": "引用式：onnx 单副本留在包内（source_onnx + onnx_sha256 锁定），不复制二进制；produced 条目在**安装进包之前**持真副本，安装后转为引用式（见 install_produced_policy）",
-  "count": 101,
-  "generated_at": "2026-10-02T12:06:40+00:00",
+  "count": 102,
+  "generated_at": "2026-10-02T13:23:03+00:00",
   "problems": [],
   "schema": "policy-artifact-1.0"
 }
