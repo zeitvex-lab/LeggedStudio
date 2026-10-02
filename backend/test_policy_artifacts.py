@@ -623,7 +623,7 @@ class RealRepoTest(unittest.TestCase):
     def test_repo_declarations_resolve_and_count_matches_blobs(self):
         """**B10 终态自检**：声明只留 `id`，解析一律经 `policies/index.json`。"""
         declarations = pa.scan_declarations()
-        self.assertEqual(52, len(declarations), "本仓 8 机型应有 52 条策略声明（2026-10-02 晚 +1：go2w 混合档 4096×2500 冒烟产物；同日早 +4：对齐配方/冒烟/趋势对照×2；前序 2026-10-01 +1：go2w-flatwalk-40k）")
+        self.assertEqual(53, len(declarations), "本仓 8 机型应有 53 条策略声明（2026-10-02 晚 +2：go2w 混合档冒烟+2500 产品；同日早 +4：对齐配方/冒烟/趋势对照×2；前序 2026-10-01 +1：go2w-flatwalk-40k）")
         index = pa.load_index()
         self.assertTrue(index, "先跑 build_all(write=True) 出库")
 
@@ -644,7 +644,7 @@ class RealRepoTest(unittest.TestCase):
         # 包内 41 个 onnx 实体（2026-09-23 实测；族架构收敛只留 8 机型后：
         # 59 → 41，删除的 18 个属于 microduck / tron1×3 / unitree_g1 / wuji_hand）。
         blobs = list(pa.iter_onnx_files())
-        self.assertEqual(48, len(blobs), "包内 onnx 实体数（2026-10-02 晚 +1：go2w 混合档冒烟产物；同日趋势对照 ×2 走索引引用式〔B10〕）")
+        self.assertEqual(49, len(blobs), "包内 onnx 实体数（2026-10-02 晚 +2：go2w 混合档冒烟+2500 产品；同日趋势对照 ×2 走索引引用式〔B10〕）")
         self.assertIsInstance(pa.unexported_onnx(), list)
 
     def test_artifact_ids_are_unique(self):
@@ -1187,7 +1187,10 @@ class PromoteActionScaleSafetyNetTest(unittest.TestCase):
             }, ensure_ascii=False), encoding="utf-8",
         )
         (run_dir / "effective-config.json").write_text(
-            json.dumps({"environment": {"actions": {"joint_pos": {"scale": env_scale}}}}),
+            json.dumps({"environment": {"actions": {
+                "joint_pos": {"scale": env_scale,
+                              "actuator_names": ["FL_hip_joint", "FR_hip_joint"]},
+            }}}),
             encoding="utf-8",
         )
         return run_dir
@@ -1244,6 +1247,45 @@ class PromoteActionScaleSafetyNetTest(unittest.TestCase):
             )
             entry = next(p for p in cfg["policies"] if p["id"] == "legs-050")
             self.assertEqual(0.5, entry["contract"]["action_scale"])
+
+    def test_two_segment_actions_produce_by_joint_scales_and_velocity_modes(self):
+        """混合轮足形态（joint_pos 0.5×腿 + wheel_vel 35×轮〔velocity〕）：
+        2026-10-02 实测单段回填把轮缩放盖成 0.5 ⇒ 评测无轮驱、全命令倒地。
+        保险层必须逐段展开：by_joint 缩放 + control_modes 速度模式。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_dir = self._make_run(root / "ws", env_scale=0.5)
+            # 改造成双段：joint_pos 腿 ×0.5 + wheel_vel 轮 ×35（velocity）
+            (run_dir / "effective-config.json").write_text(json.dumps({
+                "environment": {"actions": {
+                    "joint_pos": {"scale": 0.5, "actuator_names": ["FL_hip_joint", "FR_hip_joint"]},
+                    "wheel_vel": {"scale": 35.0, "actuator_names": ["FL_wheel_joint", "FR_wheel_joint"]},
+                }}}, ensure_ascii=False), encoding="utf-8")
+            (run_dir / "contract_snapshot.json").write_text(json.dumps({
+                "action": {"dimension": 4,
+                           "joint_order": ["FL_hip_joint", "FR_hip_joint", "FL_wheel_joint", "FR_wheel_joint"]},
+            }), encoding="utf-8")
+            repo = self._repo_tree(root)
+            import backend.robot_packages as rp
+
+            def _fake_root(robot_id: str) -> Path:
+                return repo / "assets" / "robots" / robot_id
+
+            with unittest.mock.patch.object(pa, "ROOT", repo),                     unittest.mock.patch.object(rp, "robot_package_root", _fake_root):
+                pa.promote_from_run(
+                    run_dir, out_dir=root / "policies", policy_id="hybrid-two-seg", install=True,
+                )
+            cfg = json.loads(
+                (repo / "assets" / "robots" / "unitree_go2" / "simulation" / "config.json")
+                .read_text(encoding="utf-8")
+            )
+            entry = next(p for p in cfg["policies"] if p["id"] == "hybrid-two-seg")
+            ct = entry["contract"]
+            self.assertEqual({"FL_hip_joint": 0.5, "FR_hip_joint": 0.5,
+                              "FL_wheel_joint": 35.0, "FR_wheel_joint": 35.0},
+                             ct["action_scale_by_joint"])
+            self.assertEqual({"FL_wheel_joint": "velocity", "FR_wheel_joint": "velocity"},
+                             ct["control_modes"])
 
     def test_no_env_scale_and_no_metadata_leaves_scale_absent(self):
         """两处真值都没有 ⇒ 不编造：条目不带 action_scale（如实缺，不静默造数）。"""

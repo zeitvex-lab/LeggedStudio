@@ -195,26 +195,44 @@ def onnx_action_dim(onnx_path: Path | str) -> int | None:
     return width if width > 0 else None
 
 
-def _training_action_scale(run_dir: Path) -> dict[str, float] | None:
-    """Run 档案里的**训练动作缩放真值**（`effective-config.json` 的
-    ``environment.actions.joint_pos.scale``）：标量 → 按动作关节序展开；
-    逐关节 dict → 原样返回。缺失/形状不认识 → ``None``（调用方明说缺，不编造）。
+def _training_action_profile(run_dir: Path) -> dict[str, Any] | None:
+    """Run 档案里的**训练动作装配真值**（`effective-config.json` 的
+    ``environment.actions.*``）→ ``{"scales": {关节: 缩放}, "modes": {关节: 模式}}``。
+
+    多段动作（混合轮足 = joint_pos 0.5×腿〔position〕+ wheel_vel 35×轮〔velocity〕）
+    是常态：2026-10-02 实测单段回填把轮缩放盖成 0.5 ⇒ 评测无轮驱、全命令倒地。
+    项名含 ``vel`` 的动作段 → velocity 模式，其余 → position。识别不了 → ``None``
+    （调用方明说缺，不编造）。
     """
     cfg = _load_json(run_dir / "effective-config.json")
     if not isinstance(cfg, Mapping):
         return None
     actions = ((cfg.get("environment") or {}).get("actions") or {})
-    term = actions.get("joint_pos") if isinstance(actions, Mapping) else None
-    if not isinstance(term, Mapping):
+    if not isinstance(actions, Mapping) or not actions:
         return None
-    raw = term.get("scale")
-    snapshot = _load_json(run_dir / "contract_snapshot.json")
-    joint_order = list((snapshot or {}).get("action", {}).get("joint_order") or []) if isinstance(snapshot, Mapping) else []
-    if isinstance(raw, (int, float)) and joint_order:
-        return {str(j): float(raw) for j in joint_order}
-    if isinstance(raw, Mapping):
-        return {str(k): float(v) for k, v in raw.items()}
-    return None
+    scales: dict[str, float] = {}
+    modes: dict[str, str] = {}
+    for term_name, term in actions.items():
+        if not isinstance(term, Mapping):
+            continue
+        raw = term.get("scale")
+        if raw is None:
+            continue
+        names = [str(x) for x in (term.get("actuator_names") or term.get("joint_names") or [])]
+        if not names:
+            continue
+        mode = "velocity" if "vel" in str(term_name).lower() else "position"
+        values: list[float]
+        if isinstance(raw, (int, float)):
+            values = [float(raw)] * len(names)
+        elif isinstance(raw, Mapping):
+            values = [float(raw.get(n, raw.get("*", 0.0)) or 0.0) for n in names]
+        else:
+            continue
+        for n, v in zip(names, values):
+            scales[n] = v
+            modes[n] = mode
+    return {"scales": scales, "modes": modes} if scales else None
 
 
 def onnx_deploy_metadata(onnx_path: Path | str) -> dict[str, Any] | None:
@@ -1128,17 +1146,22 @@ def promote_from_run(
                 # 是 0.35 —— 43% 过幅驱动，8k 产物横走、40k 站桩。ONNX 没说就回填
                 # **训练真值**（run 的 effective-config actions.joint_pos.scale），
                 # 单值时落标量、逐关节时落 by_joint；两处都没有就明说缺（不编造）。
-                env_scale = _training_action_scale(run_dir)
-                if env_scale is not None:
-                    uniform = len({round(v, 9) for v in env_scale.values()}) == 1
-                    if uniform:
-                        contract_block["action_scale"] = next(iter(env_scale.values()))
+                profile = _training_action_profile(run_dir)
+                if profile is not None:
+                    scales, modes = profile["scales"], profile["modes"]
+                    in_order = {j: scales[j] for j in joint_order if j in scales}
+                    if not in_order:
+                        pass  # 缩放表与动作序无交集：不编造
+                    elif len({round(v, 9) for v in in_order.values()}) == 1 and not (
+                        any(modes.get(j) == "velocity" for j in in_order)):
+                        contract_block["action_scale"] = next(iter(in_order.values()))
                         contract_block["action_scale_source"] = "effective-config"
                     else:
-                        by_joint = {j: env_scale[j] for j in joint_order if j in env_scale}
-                        if by_joint:
-                            contract_block["action_scale_by_joint"] = by_joint
-                            contract_block["action_scale_source"] = "effective-config"
+                        contract_block["action_scale_by_joint"] = in_order
+                        contract_block["action_scale_source"] = "effective-config"
+                    wheel_modes = {j: m for j, m in modes.items() if m == "velocity" and j in in_order}
+                    if wheel_modes and not contract_block.get("control_modes"):
+                        contract_block["control_modes"] = wheel_modes
             stiffness = meta.get("stiffness")
             damping = meta.get("damping")
             if stiffness and damping and joint_order and len(stiffness) == len(damping) == len(joint_order):
