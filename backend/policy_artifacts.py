@@ -1032,6 +1032,24 @@ def promote_from_run(
             + "）"
         )
 
+    # assembly_parity 前哨（契约导出原则，2026-10-02）：装配段宽合计 ≠ ONNX 实测宽
+    # ⇒ 训练装配与产物不一致（本仓历史确有：57 装配 vs 53 产物的 PD-era 混件）——
+    # 新 run 一律 fail-closed 拦下，不让"config≠artifact"再静默入库。
+    from backend.assembly_emit import emit_assembly
+    _eff = _load_json(run_dir / "effective-config.json")
+    _snap = _load_json(run_dir / "contract_snapshot.json")
+    _assembly = emit_assembly(_eff if isinstance(_eff, Mapping) else {},
+                              _snap if isinstance(_snap, Mapping) else {})
+    if _assembly is not None:
+        _widths = [s.get("width") for s in _assembly.get("obs_segments", [])]
+        if all(isinstance(w, int) for w in _widths):
+            _measured = onnx_obs_dim(onnx)
+            if _measured is not None and sum(_widths) != int(_measured):
+                raise RuntimeError(
+                    f"装配对拍失败：effective-config 观测段宽合计 {sum(_widths)} "
+                    f"≠ ONNX 实测 {int(_measured)}（run {record.run_id}）——"
+                    "训练装配与产物不一致，拒绝入库（fail-closed）")
+
     robot_id = str(record.robot_id or "robot")
     final_id = artifact_id or artifact_id_for(robot_id, f"produced-{record.run_id}")
 
