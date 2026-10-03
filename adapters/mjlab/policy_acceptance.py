@@ -1065,7 +1065,10 @@ def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
       · `"mode": "position" | "velocity"`：只取该**控制模式**的关节（**必须显式给 width**，
         = 选中关节数，不符即抛——"猜宽度"正是静默错位的来源）；
       · `"zero_velocity_joints": true`：宽度不变，但速度控制关节写 0
-        （`go2w_rl_sdk_57` / `go2w_himloco_57` 的"轮位置清零"就是这一条）。
+        （`go2w_rl_sdk_57` / `go2w_himloco_57` 的"轮位置清零"就是这一条）；
+      · `"wrap_pi": true`（2026-10-04 补）：轮位 **wrap ±π**——值 = `wrap_pi(原始 qpos)`
+        （**不减默认位**；legs-53 轮段的配方语义）。此前通用解释器表达不了它，
+        legs-53 被迫留在专用 builder（⑪）；词汇补上后该布局回归声明式。
     """
     c = obs.contract
     order = c.action_joint_order
@@ -1120,6 +1123,11 @@ def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
                     f"段 {source!r} 的 width={width} ≠ mode={raw_mode} 选中的关节数 "
                     f"{len(picked)}（规格与契约不符）")
         zero_velocity = bool((seg or {}).get("zero_velocity_joints"))
+        wrap_pi_seg = bool((seg or {}).get("wrap_pi"))
+        if wrap_pi_seg and source != "joint_pos":
+            raise ValueError(
+                f'段 {source!r} 不支持 wrap_pi（±π 只有轮式 joint_pos 段有语义）；'
+                f"fail-closed 不静默忽略")
         scales = scale_values(source, (seg or {}).get("scale", 1.0))
         # 标量缩放 = 该段所有维同一个值（JS 侧 `Array.isArray` 分支同语义）；**少于宽度**才报错。
         if len(scales) == 1:
@@ -1147,9 +1155,14 @@ def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
             out.append(math.sin(angle) if source == "phase_sin" else math.cos(angle))
         elif source == "joint_pos":
             picked_order = order if picked is None else [order[i] for i in picked]
-            out += [0.0 if (zero_velocity and c.is_velocity_joint(n))
-                    else (obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * scales[i]
-                    for i, n in enumerate(picked_order[:width])]
+            if wrap_pi_seg:
+                # legs-53 轮段语义：wrap ±π 的**原始** qpos（不减默认位），缩放照乘（缺省 1）。
+                out += [wrap_pi(obs.data.qpos[obs.jadr[n][0]]) * scales[i]
+                        for i, n in enumerate(picked_order[:width])]
+            else:
+                out += [0.0 if (zero_velocity and c.is_velocity_joint(n))
+                        else (obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * scales[i]
+                        for i, n in enumerate(picked_order[:width])]
         elif source == "joint_vel":
             picked_order = order if picked is None else [order[i] for i in picked]
             out += [obs.data.qvel[obs.jadr[n][1]] * scales[i]
