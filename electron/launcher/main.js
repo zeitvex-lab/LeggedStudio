@@ -653,6 +653,19 @@ ipcMain.handle('backend:check', async () => {
     catch { return { ok: false }; }
 });
 ipcMain.handle('backend:url', () => `http://127.0.0.1:${activeBackendPort || configuredBackendPort()}`);
+
+// 面板注册表投影（Phase 7 插件化 v2.1）：桌面导航 = 同一注册表的 desktop 过滤投影；
+// 控制面不可达时返回 null（renderer 用静态清单兜底——诚实降级，不假跑）。
+ipcMain.handle('panels:registry', async () => {
+  const port = activeBackendPort || configuredBackendPort();
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/panels`, { signal: AbortSignal.timeout(3000) });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    if (!payload?.success || !Array.isArray(payload.navigation)) return null;
+    return payload.navigation.filter((item) => !item.disabled);
+  } catch { return null; }
+});
 ipcMain.handle('launcher:paths', () => ({ ...PATHS, backend: PATHS.backend, python: PATHS.python }));
 ipcMain.handle('launcher:version', () => {
     // 版本唯一真值源是仓库根 VERSION（与 release-check / 后端 version.py 同源）

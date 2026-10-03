@@ -997,6 +997,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("algorithms", help="list registered algorithms")
+    sub.add_parser("panels", help="list product-surface plugin panels (registry projection)")
     sub.add_parser("hardware", help="show CUDA and native MJLab capabilities")
     model = sub.add_parser("validate-model", help="validate a URDF/MJCF model")
     model.add_argument("path")
@@ -1317,6 +1318,16 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     # 离线命令：不走 HTTP，直接复用 backend/ 实现读仓库数据，处理完即返回
+    if args.command == "panels":
+        from backend.panel_registry import load_panels
+
+        panels = load_panels()
+        for item in panels:
+            cli = (item.get("cli") or {}).get("command") or "-"
+            print(f"  {item['id']:12s} [{item.get('group', '-')}] {item.get('title', '')}  (cli: {cli})")
+        print(f"  → {len(panels)} panels（registry/panels/index.json 是唯一来源；CLI 命令随声明投影）")
+        return 0
+
     if args.command == "pack":
         return _cmd_pack_list(args.json)
     if args.command == "run":

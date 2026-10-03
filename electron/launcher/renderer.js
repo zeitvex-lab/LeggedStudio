@@ -2,6 +2,21 @@ const api = window.leggedStudio;
 const state = { backendRunning: false, provisioning: false, health: null, assets: null, training: null, settings: null, paths: null, runtimeProfile: null, gpus: [], gpuError: '' };
 
 const $ = (selector) => document.querySelector(selector);
+
+// 面板注册表投影（Phase 7）：桌面导航 = /api/panels 的 desktop 投影；
+// 注册表不可达 = 静态导航原样（诚实降级）。桌面与 Web 的功能差异只是声明差异。
+(async () => {
+  try {
+    const nav = await window.leggedStudio?.panelsRegistry?.();
+    if (!Array.isArray(nav) || !nav.length) return;
+    const container = document.querySelector('#navigation');
+    if (!container) return;
+    container.innerHTML = nav.map((item, i) =>
+      `<button class="nav-item${i === 0 ? ' active' : ''}" data-page="${item.id}">` +
+      `<span class="nav-icon">${String(i + 1).padStart(2, '0')}</span><span>${item.title}</span></button>`
+    ).join('');
+  } catch { /* 静态导航兜底 */ }
+})();
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 function toast(message, kind = 'info') {
