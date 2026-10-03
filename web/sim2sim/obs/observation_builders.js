@@ -1170,6 +1170,39 @@ const OBSERVATION_BUILDERS = {
         throw new Error(`段 ${source} 不支持 wrap_pi（±π 只有轮式 joint_pos 段有语义）；fail-closed 不静默忽略`);
       }
       const wrapPi = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+      // 按名选段（与 Python `frame_from_spec` 逐字同规则）：`"joints": [关节名]`——名字
+      // **不必在动作序里**（legs-only 策略的轮子观测走模型级关节，mj_name2id 解析）。
+      // 与 mode 互斥（一次只许一种选法）；名单缺省即宽度；模型缺名即抛（不静默写 0）。
+      let nameAddrs = null;
+      const rawJoints = seg && seg.joints;
+      if (rawJoints !== undefined && rawJoints !== null) {
+        if (source !== "joint_pos" && source !== "joint_vel") {
+          throw new Error(`段 ${source} 不支持 "joints" 按名选段（只有关节段有语义）`);
+        }
+        if (jointIndex !== null) {
+          throw new Error(`段 ${source} 同时声明了 mode 与 joints——一次只许一种选法（fail-closed）`);
+        }
+        const names = rawJoints.map((n) => String(n));
+        if (!sim.specJointIdx) sim.specJointIdx = { byName: {} };
+        nameAddrs = names.map((name) => {
+          if (!(name in sim.specJointIdx.byName)) {
+            const addr = (() => {
+              const jid = Number(sim.mujoco.mj_name2id(sim.model, enumValue(sim.mujoco.mjtObj.mjOBJ_JOINT), name));
+              if (!(jid >= 0)) return null;
+              const q = sim.model.jnt_qposadr ? sim.model.jnt_qposadr[jid] : undefined;
+              const d = sim.model.jnt_dofadr ? sim.model.jnt_dofadr[jid] : undefined;
+              return q === undefined || d === undefined ? null : { q: Number(q), d: Number(d) };
+            })();
+            if (!addr) throw new Error(`段 ${source} 的 joints 引用了模型不存在的关节：${name}`);
+            sim.specJointIdx.byName[name] = addr;
+          }
+          return sim.specJointIdx.byName[name];
+        });
+        if (!(seg && seg.width)) width = nameAddrs.length;
+        else if (nameAddrs.length !== width) {
+          throw new Error(`段 ${source} 的 width=${width} ≠ joints 数 ${nameAddrs.length}（规格与契约不符）`);
+        }
+      }
       const writeJoint = (i) => (jointIndex === null ? i : jointIndex[i]);
       const isZeroed = (i) => zeroVelocity && CONFIG.controlModes[i] === "velocity";
       // scale 除字面量外认 "@contract"：用契约声明的缩放字段（同一 kind 跨机型时各按各的契约）。
@@ -1217,21 +1250,28 @@ const OBSERVATION_BUILDERS = {
           break;
         case "joint_pos":
           for (let i = 0; i < width; i += 1) {
-            const j = writeJoint(i);
             let v;
-            if (wrapSeg) {
-              // legs-53 轮段语义：wrap ±π 的**原始** qpos（不减默认位），缩放照乘（缺省 1）。
-              v = wrapPi(jointQpos(j)) * scaleAt(i);
-            } else if (isZeroed(j)) {
-              v = 0;
+            if (nameAddrs) {
+              const raw = sim.qpos[nameAddrs[i].q];
+              const defaultByName = Number(CONFIG.defaultJointAnglesByName?.[String(rawJoints[i]).toLowerCase()] ?? 0);
+              v = wrapSeg ? wrapPi(raw) * scaleAt(i) : (raw - defaultByName) * scaleAt(i);
             } else {
-              v = (jointQpos(j) - CONFIG.defaultAngles[j]) * scaleAt(i);
+              const j = writeJoint(i);
+              v = wrapSeg ? wrapPi(jointQpos(j)) * scaleAt(i)
+                : isZeroed(j) ? 0
+                : (jointQpos(j) - CONFIG.defaultAngles[j]) * scaleAt(i);
             }
             sim.obs[offset++] = v;
           }
           break;
         case "joint_vel":
-          for (let i = 0; i < width; i += 1) sim.obs[offset++] = jointQvel(writeJoint(i)) * scaleAt(i);
+          for (let i = 0; i < width; i += 1) {
+            if (nameAddrs) {
+              sim.obs[offset++] = sim.qvel[nameAddrs[i].d] * scaleAt(i);
+            } else {
+              sim.obs[offset++] = jointQvel(writeJoint(i)) * scaleAt(i);
+            }
+          }
           break;
         case "action":
           for (let i = 0; i < width; i += 1) sim.obs[offset++] = sim.action[i];

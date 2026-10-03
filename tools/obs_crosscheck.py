@@ -240,6 +240,10 @@ def build_state(engine, package_dir: Path, sim_cfg: dict, entry: dict, yaw_deg: 
             "njnt": int(model.njnt),
             "nbody": int(model.nbody),
             "joint_ids": _name_id_map(model, "joint"),
+            # 模型级关节地址全表（含非动作关节，如 legs-only 的轮子）——按名选段
+            # （"joints" 词汇）在浏览器侧解析地址的唯一真值来源。
+            "jnt_qposadr": [int(model.jnt_qposadr[j]) for j in range(int(model.njnt))],
+            "jnt_dofadr": [int(model.jnt_dofadr[j]) for j in range(int(model.njnt))],
             "body_ids": _name_id_map(model, "body"),
             # 软限位（`mjlab soft_joint_pos_limit_factor=0.9` 在两侧各自的实现里乘）
             "jnt_range": [[float(model.jnt_range[j, 0]), float(model.jnt_range[j, 1])]

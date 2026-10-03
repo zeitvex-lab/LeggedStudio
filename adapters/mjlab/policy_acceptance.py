@@ -1128,6 +1128,24 @@ def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
             raise ValueError(
                 f'段 {source!r} 不支持 wrap_pi（±π 只有轮式 joint_pos 段有语义）；'
                 f"fail-closed 不静默忽略")
+        # 按名选段（2026-10-04 补）：`"joints": [关节名]` ——名字**不必在动作序里**
+        # （legs-only 策略的轮子观测走模型级关节），与验收 ObsBuilder 的 jadr 同源。
+        declared_joints: list[str] | None = None
+        raw_joints = (seg or {}).get("joints")
+        if raw_joints is not None:
+            if source not in ("joint_pos", "joint_vel"):
+                raise ValueError(f'段 {source!r} 不支持 "joints" 按名选段（只有关节段有语义）')
+            if picked is not None:
+                raise ValueError(f'段 {source!r} 同时声明了 mode 与 joints——一次只许一种选法（fail-closed）')
+            declared_joints = [str(n) for n in raw_joints]
+            missing = [n for n in declared_joints if n not in obs.jadr]
+            if missing:
+                raise ValueError(f"段 {source!r} 的 joints 引用了模型不存在的关节：{missing}")
+            if not (seg or {}).get("width"):
+                width = len(declared_joints)  # 按名选段缺省宽 = 名单长（与 mode 的"必须显式"不同：名单本身就是宽度）
+            elif len(declared_joints) != width:
+                raise ValueError(
+                    f"段 {source!r} 的 width={width} ≠ joints 数 {len(declared_joints)}（规格与契约不符）")
         scales = scale_values(source, (seg or {}).get("scale", 1.0))
         # 标量缩放 = 该段所有维同一个值（JS 侧 `Array.isArray` 分支同语义）；**少于宽度**才报错。
         if len(scales) == 1:
@@ -1154,7 +1172,12 @@ def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
             angle = 2.0 * math.pi * phase
             out.append(math.sin(angle) if source == "phase_sin" else math.cos(angle))
         elif source == "joint_pos":
-            picked_order = order if picked is None else [order[i] for i in picked]
+            if declared_joints is not None:
+                picked_order = declared_joints
+            elif picked is not None:
+                picked_order = [order[i] for i in picked]
+            else:
+                picked_order = order
             if wrap_pi_seg:
                 # legs-53 轮段语义：wrap ±π 的**原始** qpos（不减默认位），缩放照乘（缺省 1）。
                 out += [wrap_pi(obs.data.qpos[obs.jadr[n][0]]) * scales[i]
@@ -1164,7 +1187,12 @@ def frame_from_spec(obs: "ObsBuilder", cmd: np.ndarray, spec) -> list[float]:
                         else (obs.data.qpos[obs.jadr[n][0]] - c.default_for(n)) * scales[i]
                         for i, n in enumerate(picked_order[:width])]
         elif source == "joint_vel":
-            picked_order = order if picked is None else [order[i] for i in picked]
+            if declared_joints is not None:
+                picked_order = declared_joints
+            elif picked is not None:
+                picked_order = [order[i] for i in picked]
+            else:
+                picked_order = order
             out += [obs.data.qvel[obs.jadr[n][1]] * scales[i]
                     for i, n in enumerate(picked_order[:width])]
         elif source == "action":

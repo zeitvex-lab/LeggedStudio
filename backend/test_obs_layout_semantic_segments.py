@@ -201,6 +201,71 @@ class WrapPiSegmentTest(unittest.TestCase):
         self.assertAlmostEqual(math.atan2(math.sin(raw), math.cos(raw)) * 2.0, out[3], places=6)
 
 
+class JointsByNameSegmentTest(unittest.TestCase):
+    """`joints` 按名选段（2026-10-04 补）：legs-only 策略的轮段声明化。
+
+    名字**不必在动作序里**（轮子在模型里、不在 legs-only 的 12 动作里）——
+    与验收 ObsBuilder 的 jadr 同源（模型级）。与 mode 互斥；模型缺名 fail-loud。
+    """
+
+    def setUp(self):
+        self.engine = _load_engine()
+
+    def test_joints_by_name_selects_model_joints_outside_action_order(self):
+        import math
+
+        contract, obs = _setup()
+        # 动作序 16 关节已含轮；用**乱序 + 部分选取**证明按名（不是按位置）
+        out = self.engine.frame_from_spec(
+            obs, np.zeros(3),
+            [{"source": "joint_pos", "joints": ["wheel3_joint", "wheel0_joint"], "wrap_pi": True}],
+        )
+        self.assertEqual(2, len(out))
+        rr, fr = 15 + 1, 12 + 1  # wheel3 = order[15]，wheel0 = order[12]；qpos = id+1
+        self.assertAlmostEqual(math.atan2(math.sin(rr), math.cos(rr)), out[0], places=6)
+        self.assertAlmostEqual(math.atan2(math.sin(fr), math.cos(fr)), out[1], places=6)
+
+    def test_joints_vel_by_name(self):
+        contract, obs = _setup()
+        out = self.engine.frame_from_spec(
+            obs, np.zeros(3), [{"source": "joint_vel", "joints": ["wheel2_joint"]}]
+        )
+        self.assertEqual([150.0], [round(v, 6) for v in out])  # wheel2 = order[14] ⇒ qvel = 10·15 = 150
+
+    def test_joints_without_width_defaults_to_name_count(self):
+        contract, obs = _setup()
+        out = self.engine.frame_from_spec(
+            obs, np.zeros(3), [{"source": "joint_vel", "joints": ["leg0_joint", "leg11_joint"]}]
+        )
+        self.assertEqual(2, len(out))
+
+    def test_joints_unknown_name_raises(self):
+        contract, obs = _setup()
+        with self.assertRaises(ValueError) as ctx:
+            self.engine.frame_from_spec(
+                obs, np.zeros(3), [{"source": "joint_vel", "joints": ["no_such_joint"]}]
+            )
+        self.assertIn("no_such_joint", str(ctx.exception))
+
+    def test_joints_and_mode_mutually_exclusive(self):
+        contract, obs = _setup()
+        with self.assertRaises(ValueError) as ctx:
+            self.engine.frame_from_spec(
+                obs, np.zeros(3),
+                [{"source": "joint_vel", "mode": "velocity", "width": 4,
+                  "joints": ["wheel0_joint"]}],
+            )
+        self.assertIn("一次只许一种选法", str(ctx.exception))
+
+    def test_joints_on_non_joint_segment_raises(self):
+        contract, obs = _setup()
+        with self.assertRaises(ValueError) as ctx:
+            self.engine.frame_from_spec(
+                obs, np.zeros(3), [{"source": "action", "joints": ["wheel0_joint"]}]
+            )
+        self.assertIn("按名选段", str(ctx.exception))
+
+
 class SemanticSegmentFailClosedTest(unittest.TestCase):
     """定位不了就抛：宽度不猜、未实现的模式不许静默当 position。"""
 
