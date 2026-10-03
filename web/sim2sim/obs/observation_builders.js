@@ -1112,12 +1112,15 @@ const OBSERVATION_BUILDERS = {
   //
   // **关节类段的语义筛选（2026-09-22 v0.58.0 补）**：原先关节段只能"按位置取前 N 个"
   // （`joint_pos` 永远是 `order[0..width)`），于是"轮位清零/按控制模式分列"这类**语义**
-  // 只能靠"腿恰好排在前 12"的位置巧合表达 —— 一旦契约换序就静默错位。新增两个**语义**
+  // 只能靠"腿恰好排在前 12"的位置巧合表达 —— 一旦契约换序就静默错位。新增**语义**
   // 选项（与 Python `frame_from_spec` 逐字同规则）：
   //   · `"mode": "position" | "velocity"`：只取该控制模式的关节（取哪个关节由**控制模式**定，
   //      不是由位置定）；**必须显式声明 `width`**（= 选中关节数，不符即抛，fail-closed）；
   //   · `"zero_velocity_joints": true`：宽度不变，但**速度控制**的关节写 0
-  //      （`go2w_rl_sdk_57` / `go2w_himloco_57` 的"轮位置清零"就是这一条）。
+  //      （`go2w_rl_sdk_57` / `go2w_himloco_57` 的"轮位置清零"就是这一条）；
+  //   · `"wrap_pi": true`（2026-10-04 补，joint_pos 专用）：轮位 wrap ±π——值 =
+  //      `wrap_pi(原始 qpos)`（**不减默认位**；legs-53 轮段的配方语义）。此前表达不了，
+  //      legs-53 被迫留在专用 builder（⑪）；词汇补上后该布局回归声明式。
   function applyLayoutSpec(spec) {
     const imu = readImuSample();
     const signs = input.imuAxisSigns;
@@ -1162,6 +1165,11 @@ const OBSERVATION_BUILDERS = {
         }
       }
       const zeroVelocity = Boolean(seg && seg.zero_velocity_joints);
+      const wrapSeg = Boolean(seg && seg.wrap_pi);
+      if (wrapSeg && source !== "joint_pos") {
+        throw new Error(`段 ${source} 不支持 wrap_pi（±π 只有轮式 joint_pos 段有语义）；fail-closed 不静默忽略`);
+      }
+      const wrapPi = (a) => Math.atan2(Math.sin(a), Math.cos(a));
       const writeJoint = (i) => (jointIndex === null ? i : jointIndex[i]);
       const isZeroed = (i) => zeroVelocity && CONFIG.controlModes[i] === "velocity";
       // scale 除字面量外认 "@contract"：用契约声明的缩放字段（同一 kind 跨机型时各按各的契约）。
@@ -1210,7 +1218,16 @@ const OBSERVATION_BUILDERS = {
         case "joint_pos":
           for (let i = 0; i < width; i += 1) {
             const j = writeJoint(i);
-            sim.obs[offset++] = isZeroed(j) ? 0 : (jointQpos(j) - CONFIG.defaultAngles[j]) * scaleAt(i);
+            let v;
+            if (wrapSeg) {
+              // legs-53 轮段语义：wrap ±π 的**原始** qpos（不减默认位），缩放照乘（缺省 1）。
+              v = wrapPi(jointQpos(j)) * scaleAt(i);
+            } else if (isZeroed(j)) {
+              v = 0;
+            } else {
+              v = (jointQpos(j) - CONFIG.defaultAngles[j]) * scaleAt(i);
+            }
+            sim.obs[offset++] = v;
           }
           break;
         case "joint_vel":

@@ -157,6 +157,50 @@ class BaseLinVelSegmentTest(unittest.TestCase):
         self.assertEqual([0.75, -1.25, 0.25], out)
 
 
+class WrapPiSegmentTest(unittest.TestCase):
+    """`wrap_pi`（2026-10-04 补）：轮位 ±π 语义进规格——legs-53 从专用 builder 回归声明式。
+
+    语义（与 JS `applyLayoutSpec` 逐字同规则）：值 = `wrap_pi(原始 qpos)`，**不减默认位**；
+    只许声明在 `joint_pos` 段上（其他段 fail-closed 不静默忽略）。
+    """
+
+    def setUp(self):
+        self.engine = _load_engine()
+
+    def test_wrap_pi_wraps_raw_qpos_without_default(self):
+        import math
+
+        contract, obs = _setup()
+        out = self.engine.frame_from_spec(
+            obs, np.zeros(3), [{"source": "joint_pos", "mode": "velocity", "width": 4, "wrap_pi": True}]
+        )
+        self.assertEqual(4, len(out))
+        for i in range(4):
+            raw = 12 + i + 1  # 轮 i 的 qpos = 13..16 rad
+            self.assertAlmostEqual(math.atan2(math.sin(raw), math.cos(raw)), out[i], places=6)
+        # 与"减默认位"路径可区分：wrap 值 ≠ raw - 0.1（default_for 的返回）
+        self.assertNotAlmostEqual(raw - 0.1, out[3], places=3)
+
+    def test_wrap_pi_on_non_joint_pos_raises(self):
+        contract, obs = _setup()
+        with self.assertRaises(ValueError) as ctx:
+            self.engine.frame_from_spec(
+                obs, np.zeros(3), [{"source": "joint_vel", "mode": "velocity", "width": 4, "wrap_pi": True}]
+            )
+        self.assertIn("wrap_pi", str(ctx.exception))
+
+    def test_wrap_pi_respects_scale(self):
+        import math
+
+        contract, obs = _setup()
+        out = self.engine.frame_from_spec(
+            obs, np.zeros(3),
+            [{"source": "joint_pos", "mode": "velocity", "width": 4, "wrap_pi": True, "scale": 2.0}],
+        )
+        raw = 16
+        self.assertAlmostEqual(math.atan2(math.sin(raw), math.cos(raw)) * 2.0, out[3], places=6)
+
+
 class SemanticSegmentFailClosedTest(unittest.TestCase):
     """定位不了就抛：宽度不猜、未实现的模式不许静默当 position。"""
 
