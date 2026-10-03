@@ -1,0 +1,25 @@
+{
+  "schema_version": "training-profile-1.0",
+  "profile_id": "go2w-flat-trend",
+  "display_name": "Go2-W Flat（趋势探针档：flat 层叠示范）",
+  "extends": "go2w-flat",
+  "overrides": {
+    "commands": {
+      "twist": {
+        "ranges": {
+          "lin_vel_x": [
+            -0.2,
+            0.5
+          ]
+        }
+      }
+    }
+  },
+  "source_root": "training/source",
+  "entrypoints": {
+    "env": "go2w_velocity:unitree_go2w_flat_env_cfg",
+    "runner": "go2w_velocity:unitree_go2w_ppo_runner_cfg",
+    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+  },
+  "source": "2026-10-02 Phase 2 层叠示范：extends go2w-flat，只覆盖命令域"
+}
