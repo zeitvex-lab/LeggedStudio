@@ -303,5 +303,10 @@
     ],
     "verified_on": "b2 八项全部装配成功；把出生高按逐档档案钉齐后，jump / backflip / handstand 与包内档案的**字面差异只有执行器分组写法（1 项）**、**解析集相同**（执行器目标关节集合逐项相等）。一台新包（契约 + 标准位置 MJCF + 标准布局，零机型代码）：jump / backflip 装配并真训 1 轮通过，其余项按体检给出具名能力缺口。",
     "init_base_height_policy": "**出生高**：通用装配按**默认姿 FK**推（把契约 `joints.default_pose` 灌进模型、量足端最低点到地面的距离 = 站立高），不做任何机型特判；逐档档案可在 `build_family_skill(..., init_base_height=…)` 钉死源配方值（b2 的 FK 站立高 0.5115 vs 逐档档案 0.54 —— 差的那点正是源配方参数）。"
+  },
+  "kit": {
+    "kit_module": "adapters.mjlab.kits.quadruped_kit",
+    "binding_from_contract": "adapters.mjlab.kits.quadruped_kit.skills:from_contract",
+    "_note": "kit 自描述（Phase 1 插件化，2026-10-02）：通用装配器从这里读绑定工厂，family_skill_builder 不再写死族字典——新族=登记 JSON+写 kit，零核心改动。"
   }
 }

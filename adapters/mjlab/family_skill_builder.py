@@ -31,25 +31,28 @@ from typing import Any, Callable
 # 训练栈（mjlab/mujoco）**全部惰性 import**：控制面（backend / tools 的轻量路径）
 # 也要能 import 本模块做诊断，不能因为缺 mjlab 就炸（与 generic_task_builder 同一条边界约定）。
 
-#: 族 id → 该族的**绑定工厂**（形态各一套 Kit，装配流程一致；装配表指向谁就装配谁）。
-_FAMILY_KITS = {
-    "quadruped": {
-        "kit": "adapters.mjlab.kits.quadruped_kit",
-        "binding_from_contract": "adapters.mjlab.kits.quadruped_kit.skills:from_contract",
-    },
-    "wheel_leg": {
-        "kit": "adapters.mjlab.kits.wheel_leg_kit",
-        "binding_from_contract": "adapters.mjlab.kits.wheel_leg_kit.skills:from_contract",
-    },
-}
-
-
 def _family_hooks(family_id: str) -> dict[str, str]:
-    hooks = _FAMILY_KITS.get(family_id)
-    if hooks is None:
+    """族 → 绑定工厂（**族注册表自描述**，Phase 1 插件化 2026-10-02）。
+
+    读 `registry/families/<family_id>.json` 的 `kit` 块（kit_module/binding_from_contract）——
+    此前是本文件的写死字典（新族=改核心，dsh "no privileged core" 的反面教材）；
+    现在**新族 = 登记族 JSON（含 kit 块）+ 写 Kit，零核心改动**。族文件不存在或缺
+    kit 块 = fail-loud 并列出已声明族。
+    """
+    families_dir = Path(__file__).resolve().parents[2] / "registry" / "families"
+    declared = sorted(p.stem for p in families_dir.glob("*.json") if p.stem != "index")
+    family_file = families_dir / f"{family_id}.json"
+    if not family_file.is_file():
         raise ValueError(
-            f"族 {family_id!r} 还没有通用装配的分派（可用：{sorted(_FAMILY_KITS)}）—— "
-            "新增形态时在这里登记绑定工厂即可，装配流程共用"
+            f"族 {family_id!r} 未在 registry/families 登记（已声明：{declared}）—— "
+            "新族 = 族 JSON（含 kit 块：kit_module/binding_from_contract）+ Kit 实现"
+        )
+    document = json.loads(family_file.read_text(encoding="utf-8-sig"))
+    hooks = document.get("kit") or {}
+    if not hooks.get("binding_from_contract"):
+        raise ValueError(
+            f"族 {family_id!r} 的注册表缺 `kit` 块（kit_module/binding_from_contract）—— "
+            "通用装配需要它来解析绑定工厂（族注册表自描述，不写核心）"
         )
     return hooks
 
