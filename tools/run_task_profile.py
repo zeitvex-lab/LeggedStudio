@@ -173,21 +173,32 @@ def main() -> int:
         return 0
 
     task = load_task(args.task)
-    cls = task["class"]
-    if cls in ("navigation",):
-        controller = args.controller or task["assembly"]["controller"] or "follow"
-        report = run_navigation(task, controller)
-    elif cls == "follow":
-        report = run_follow(task)
-    elif cls == "traversal":
-        print("越障类任务请用: adapters/mjlab/.venv/Scripts/python.exe tools/validate_traversal_progress.py --profile <档案>")
+    # Phase 1 插件化（2026-10-02）：分发按**数据**（registry/tasks 的 evaluator 字段），
+    # 不再 if class 链——新任务类 = 登记一行 evaluator；顺带消灭死分支
+    # （原 elif cls=="follow" 出现两次，第二段 JSON 输出永不可达）。
+    evaluator = task.get("evaluator") or {}
+    kind = str(evaluator.get("kind") or "")
+    if kind == "inproc":
+        import importlib
+
+        module_name, _, fn_name = str(evaluator["call"]).partition(":")
+        if not fn_name:
+            print(f"evaluator.call 形状错误（须 module:fn）：{evaluator['call']}")
+            return 3
+        fn = getattr(importlib.import_module(module_name), fn_name)
+        if task["class"] == "navigation":
+            controller = args.controller or task["assembly"]["controller"] or "follow"
+            report = fn(task, controller)
+        else:
+            report = fn(task)
+            print(json.dumps(report, ensure_ascii=False, indent=1))
+            return 0 if report["verdict"] == "pass" else 1
+    elif kind == "external":
+        print("越障类任务请用:", evaluator["call"])
         return 3
-    elif cls == "follow":
-        report = run_follow(task)
-        print(json.dumps(report, ensure_ascii=False, indent=1))
-        return 0 if report["verdict"] == "pass" else 1
     else:
-        print(f"任务类 {cls!r} 的 headless 判据未建（{task['task_id']} 当前端口: {task['availability']}）")
+        print(f"任务类 {task['class']!r} 未登记 evaluator（{task['task_id']} 当前端口: {task['availability']}）"
+              "——新任务类 = registry/tasks/profiles.json 登记 evaluator 字段")
         return 3
 
     print(json.dumps(report, ensure_ascii=False, indent=1))

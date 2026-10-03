@@ -1,6 +1,6 @@
 {
   "schema_version": "task-profile-1.0",
-  "note": "任务档真值表。每条声明：怎么组装（map/command_source/waypoints/controller/executor）与怎么验收（判据工具 + 阈值）。controller/executor 名录与 backend/executors.py、registry/motion_commands.json 同源；判据工具挂任务类。availability 声明该任务当前可跑的端口（browser/headless/cli）。 任务档可引用 task_plugins 的 plugin_id 做感知绑定（两层组合：插件=感知声明，任务档=可运行装配）。",
+  "note": "任务档真值表。每条声明：怎么组装（map/command_source/waypoints/controller/executor）与怎么验收（判据工具 + 阈值）。controller/executor 名录与 backend/executors.py、registry/motion_commands.json 同源；判据工具挂任务类。availability 声明该任务当前可跑的端口（browser/headless/cli）。 任务档可引用 task_plugins 的 plugin_id 做感知绑定（两层组合：插件=感知声明，任务档=可运行装配）。 2026-10-02 Phase 1 插件化：新增 evaluator 字段（任务类 → headless 执行器：inproc=本进程函数 / external=子进程命令），run_task_profile 按**数据**分发，不再 if class 链——新任务类 = 登记一行 evaluator。",
   "profiles": [
     {
       "task_id": "goal_nav_warehouse",
@@ -34,7 +34,11 @@
         "note": "H19 e2e 基线：warehouse full 路线 arrived 1/1（follow 控制器）"
       },
       "plugin_id": "odom-waypoint-nav",
-      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。"
+      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。",
+      "evaluator": {
+        "kind": "inproc",
+        "call": "tools.run_task_profile:run_navigation"
+      }
     },
     {
       "task_id": "patrol_warehouse_full",
@@ -67,7 +71,11 @@
         "note": "H12 max_total_time_s 420 同源"
       },
       "plugin_id": "odom-waypoint-nav",
-      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。"
+      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。",
+      "evaluator": {
+        "kind": "inproc",
+        "call": "tools.run_task_profile:run_navigation"
+      }
     },
     {
       "task_id": "follow_line",
@@ -101,7 +109,11 @@
         "note": "名义随行模型探针 hold_ratio 1.0（2026-10-01）；实机差距归控制器调参"
       },
       "plugin_id": null,
-      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。"
+      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。",
+      "evaluator": {
+        "kind": "inproc",
+        "call": "tools.run_task_profile:run_follow"
+      }
     },
     {
       "task_id": "traversal_obstacle_course",
@@ -131,7 +143,12 @@
         "note": "go2 首训即 0.859（2026-10-01）"
       },
       "plugin_id": "wheel-leg-terrain",
-      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。"
+      "note": "plugin_id 引用 registry/task_plugins 的感知/命令绑定声明；本档只补装配（地图/航点/控制器）与判据——两层组合，不合并。",
+      "evaluator": {
+        "kind": "external",
+        "call": "adapters/mjlab/.venv/Scripts/python.exe tools/validate_traversal_progress.py --profile <档案> --checkpoint <model.pt>",
+        "note": "需训练产物（checkpoint），不进本 runner 进程"
+      }
     }
   ]
 }
