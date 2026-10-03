@@ -1,312 +1,335 @@
 {
-  "schema_version": "family-1.0",
-  "family_id": "quadruped",
-  "display_name": "四足",
-  "note": "族级约定的**唯一真值**：族内任一机型据此复用同一套技能训练配方。成员与关节角色不在这里硬编码——成员由各契约的 morphology.id 派生，本文件声明的是约定（角色骨架、控制率、技能矩阵），audit_families.py 逐台核对。",
-  "morphology_ids": [
-    "quadruped_12dof"
+ "schema_version": "family-1.0",
+ "family_id": "quadruped",
+ "display_name": "四足",
+ "note": "族级约定的**唯一真值**：族内任一机型据此复用同一套技能训练配方。成员与关节角色不在这里硬编码——成员由各契约的 morphology.id 派生，本文件声明的是约定（角色骨架、控制率、技能矩阵），audit_families.py 逐台核对。",
+ "morphology_ids": [
+  "quadruped_12dof"
+ ],
+ "locomotion_type": "P",
+ "legs": 4,
+ "joint_roles": [
+  "hip_abduction",
+  "hip_pitch",
+  "knee"
+ ],
+ "role_aliases": {
+  "hip_abduction": [
+   "hip",
+   "hipx",
+   "hip_abduction"
   ],
-  "locomotion_type": "P",
-  "legs": 4,
-  "joint_roles": [
-    "hip_abduction",
-    "hip_pitch",
-    "knee"
+  "hip_pitch": [
+   "thigh",
+   "hipy",
+   "hip_pitch"
   ],
-  "role_aliases": {
-    "hip_abduction": [
-      "hip",
-      "hipx",
-      "hip_abduction"
+  "knee": [
+   "calf",
+   "knee"
+  ]
+ },
+ "control_hz": 50,
+ "observation_skeleton": {
+  "note": "族级观测骨架：actor 的**项序列**按此为准（顺序即布局，策略输入据此定宽）。宽度不写死——关节类项的宽度随族关节数（12）派生，其余为常量。critic_only 项只进评价网络（特权信息），不进 actor。（2026-09-24：族内观测已**统一**，原先登记的两处偏差（go1 的 base_lin_vel、zex-w 的轮速单列）已随统一消除——分支前训练的上游策略仍按各自声明布局运行（门禁归 `policy_explained`，不算包级错）。）",
+  "actor": [
+   "base_ang_vel",
+   "projected_gravity",
+   "commands",
+   "joint_pos",
+   "joint_vel",
+   "last_action"
+  ],
+  "critic_only": [
+   "base_lin_vel"
+  ],
+  "width_source": {
+   "base_ang_vel": 3,
+   "projected_gravity": 3,
+   "commands": 3,
+   "joint_pos": "legs × 每腿角色数（四足 = 12）",
+   "joint_vel": "同 joint_pos",
+   "last_action": "动作维 = 关节数（四足 = 12）"
+  },
+  "deviations": {}
+ },
+ "members": [
+  "unitree_go2",
+  "unitree_go1",
+  "unitree_b2",
+  "deeprobotics_lite3"
+ ],
+ "skills": [
+  {
+   "skill_id": "velocity",
+   "display_name": "速度跟踪",
+   "status": "generic",
+   "summary": "族级通用：任务变体表来自 registry/skills/velocity_base.json，奖励预设与观测由 Kit 与契约数据装配，任一成员可直接训。**2026-09-26**：`trot` 档已铺到四台四足（go2 / go1 / b2 / lite3，均族级 trot 技能 + 各自绑定）。",
+   "terrain_profiles": [
+    "plane",
+    "rough",
+    "stairs"
+   ],
+   "task_names": [
+    "velocity",
+    "velocity_rough",
+    "forward_walk",
+    "rough_terrain",
+    "stairs",
+    "trot",
+    "Unitree-Go2-WTW",
+    "Mjlab-CTS-Rough-Unitree-Go2",
+    "Mjlab-TS-Rough-Unitree-Go2",
+    "Mjlab-TS-Student-Rough-Unitree-Go2",
+    "Mjlab-HIM-Rough-Unitree-Go2",
+    "Unitree-Go2-DreamWaQ-Rough",
+    "Mjlab-CTS-Rough-Unitree-B2",
+    "Unitree-B2-WTW",
+    "traversal_obstacle_release"
+   ],
+   "task_variants_ref": "registry/skills/velocity_base.json#tasks",
+   "note": "Mjlab-CTS/TS/HIM 与 DreamWaQ 四族的 task_name 亦归此技能——它们是**同技能的算法变体**（算法轴由 profile 的 backend/算法插件决定，不另立技能类）。；2026-10-02 审计归位：go2-traversal（velocity 配方 × obstacle_release 释放课程，1024×4000 progress_env_ratio 0.859 达标）原是游离任务名，按事实归入本技能 task_names。",
+   "capability_task_split": {
+    "flat_tracking": [
+     "velocity",
+     "forward_walk"
     ],
-    "hip_pitch": [
-      "thigh",
-      "hipy",
-      "hip_pitch"
+    "rough_traversal": [
+     "velocity_rough",
+     "rough_terrain",
+     "stairs",
+     "trot",
+     "Unitree-Go2-WTW",
+     "Unitree-B2-WTW",
+     "Mjlab-CTS-Rough-Unitree-Go2",
+     "Mjlab-TS-Rough-Unitree-Go2",
+     "Mjlab-TS-Student-Rough-Unitree-Go2",
+     "Mjlab-HIM-Rough-Unitree-Go2",
+     "Unitree-Go2-DreamWaQ-Rough",
+     "Mjlab-CTS-Rough-Unitree-B2"
     ],
-    "knee": [
-      "calf",
-      "knee"
+    "obstacle_course": [
+     "traversal_obstacle_release"
     ]
+   }
   },
-  "control_hz": 50,
-  "observation_skeleton": {
-    "note": "族级观测骨架：actor 的**项序列**按此为准（顺序即布局，策略输入据此定宽）。宽度不写死——关节类项的宽度随族关节数（12）派生，其余为常量。critic_only 项只进评价网络（特权信息），不进 actor。（2026-09-24：族内观测已**统一**，原先登记的两处偏差（go1 的 base_lin_vel、zex-w 的轮速单列）已随统一消除——分支前训练的上游策略仍按各自声明布局运行（门禁归 `policy_explained`，不算包级错）。）",
-    "actor": [
-      "base_ang_vel",
-      "projected_gravity",
-      "commands",
-      "joint_pos",
-      "joint_vel",
-      "last_action"
-    ],
-    "critic_only": [
-      "base_lin_vel"
-    ],
-    "width_source": {
-      "base_ang_vel": 3,
-      "projected_gravity": 3,
-      "commands": 3,
-      "joint_pos": "legs × 每腿角色数（四足 = 12）",
-      "joint_vel": "同 joint_pos",
-      "last_action": "动作维 = 关节数（四足 = 12）"
-    },
-    "deviations": {}
+  {
+   "skill_id": "traversal",
+   "display_name": "越障",
+   "status": "robot-specific",
+   "summary": "深度感知越障（PIE parkour）：实现已上移为族级技能 —— `quadruped_kit/skills/parkour/`（场景/观测/奖励/课程/命令装配、PIE 模型与 PPO 扩展、专用 runner、地形集，逐字迁移）；相机与深度观测项改为消费 registry/cameras.json 的档位声明（name/parent_body/pos/quat/fovy/width/height 与观测项参数全来自声明，缺字段 fail-closed，技能层零相机字面量）。2026-09-25：go2 侧改薄委托且行为等价（迁移前后 env/runner 全字段 dump 逐项 0 差异，含可调用对象与字符串里的模块路径），go2-parkour 冒烟 + 真训 2 步通过（PIE-PPO 走族级类路径）。",
+   "terrain_profiles": [
+    "stairs",
+    "obstacle_release",
+    "competition"
+   ],
+   "task_names": [
+    "parkour"
+   ],
+   "members_with_recipe": [
+    "unitree_go2"
+   ],
+   "gap": "剩余缺口：①只有 go2 有档案 —— 第二台机型复用缺两样机器事实：(a) 它自己的深度相机档位声明（位姿/内参没有标定就不许编，声明缺项一律 fail-closed），(b) 足端 site（本配方的滑移惩罚与支撑高度按足端 site 取速度与位置；go1 的 MJCF 只有 imu 一个 site，缺失即能力缺失，不静默换口径）；②足端槽位序沿用 PIE 源配方的对角交织序（FR/FL/RR/RL，与契约腿序 FL/FR/RL/RR 不同），新机型接入按「必须是本机型腿标记的一个排列」校验，不符即报错；③b2 / lite3 未评估。",
+   "terrain_pending": [],
+   "note": "；2026-10-02 审计归位：obstacle_release（go2-traversal 达标）与 competition（Kit 已上移 + RC 地图入库）从 terrain_pending 摘除——登记跟上事实。"
   },
-  "members": [
+  {
+   "skill_id": "imitation",
+   "display_name": "动作模仿",
+   "status": "robot-specific",
+   "summary": "族级：AMP 判别器接线与专家动作加载器已上移为族级技能（`quadruped_kit/skills/imitation`：判别器/回放/归一化、AMP-PPO 更新、41→31 维状态切分、终止态记录器），可叠在任一速度跟踪宿主上且不含机型名/数值（关节序/髋关节名走契约绑定）。2026-09-24：go2 侧改薄委托且行为等价（迁移前后 env_cfg/runner_cfg 全字段 dump 逐项对比）；go1 以同关节序借用 go2 的 LLoco 数据在族内第二台机型上跑通。",
+   "terrain_profiles": [
+    "rough"
+   ],
+   "task_names": [
+    "Mjlab-AMP-CTS-Rough-Unitree-Go2",
+    "Unitree-Go2-AMP-DreamWaQ-Rough",
+    "Unitree-Go1-AMP-Rough",
+    "Mjlab-AMP-TS-Rough-Unitree-Go2"
+   ],
+   "members_with_recipe": [
+    "unitree_go2",
+    "unitree_go1"
+   ],
+   "requires": [
+    "motions"
+   ],
+   "gap": "剩余缺口：①**AMP 数据在族内只有一批**（go2 包内的 13 条 LLoco 专家动作，Apache-2.0；2026-09-26 已进 `registry/motions` 资源层并归 amp 侧；go1 按 `shared_amp_motion_root()` 复用同一批——它的关节名与序与 go2 相同）；**b2 / lite3 的关节序不同，需要重定向或另采数据**；②go1 的 AMP 档案是「rough velocity 宿主 + AMP 风格先验」，DreamWaQ 宿主（VAE）与 CTS/TS 变体仍只有 go2 档案；③**数据布局待收口**：这批数据物理上住在 go2 包内、go1 用一条指向它的相对路径读——属「族级资源寄居在某个机型的包里」，要不要搬到族级资源目录由用户裁决（涉及包索引 / 副本同步 / 许可登记三处）。"
+  },
+  {
+   "skill_id": "stunt",
+   "display_name": "特技",
+   "status": "robot-specific",
+   "summary": "特技/极限姿态（后空翻、跳跃、弹簧跳、倒立、三足站立）：五项**实现均已族级化**（`adapters/mjlab/kits/quadruped_kit/skills/`：trot + jump + spring_jump + backflip + stance，后两项各含两个变体档）—— 机型侧只剩绑定与数据。**档案覆盖（2026-09-26）**：go2 五项全有；go1 有 jump / backflip / trot；b2 有 jump / trot / spring_jump / backflip / handstand / leggedstand；lite3 有 jump / backflip / trot。",
+   "terrain_profiles": [
+    "plane"
+   ],
+   "task_names": [
+    "backflip",
+    "handstand",
+    "jump",
+    "leggedstand",
+    "spring_jump"
+   ],
+   "members_with_recipe": [
     "unitree_go2",
     "unitree_go1",
     "unitree_b2",
     "deeprobotics_lite3"
+   ],
+   "gap": "剩余缺口：①**复用档未标定** —— 除 go2 外各档的高度类目标（飞行 / 站姿 / `base_height_target`）与接触力、速度阈值、启动 DR 区间都取自 go2 几何（站姿 0.42 m）与质量量级，四台站姿各不相同（0.42 / 0.54 / 0.3 / 0.42），**能训 ≠ 训得好**（逐档登记在 `registry/porting_references.json`）；②**能力差异如实留痕**：站姿类（handstand / leggedstand）与 spring_jump 都**需要足端 site**（奖励核按 site 取足端高度）——go1 / lite3 的 MJCF 没有足端 site ⇒ 这两台在这三项技能上是能力缺口（b2 有 site，已接档）；③go1 的 `contract.default_pose` 与它 velocity 任务的初始姿（HIMLoco 口径）符号相反，属未裁决项。"
+  }
+ ],
+ "mjcf_conventions": {
+  "note": "族内 MJCF 约定（**规范化后**必须成立的口径；偏离逐条登记在 mjcf_deviations，登记了又与实测一致也判红——防静默统一/静默放宽）。摘要与基线落 tools/baselines/family_mjcf.json。",
+  "actuator_binding": "mjcf_wrapped",
+  "actuator_binding_note": "执行器声明归属：mjcf_wrapped = MJCF 为准、cfg 只包装（quadruped_kit.position_actuator_trio 的 XmlActuatorCfg，B28/B35 裁决）；cfg_declared = MJCF 不带执行器或一律撤掉、由 cfg/Kit 声明 builtin 组。",
+  "sensors_named": true,
+  "margin_policy": "zero",
+  "margin_policy_note": "zero = 模型不带非零 geom margin；带非零的由通用路径条件关 MULTICCD/NATIVECCD（登记为 warp_ccd_off），不抹 margin（那是物理参数）。",
+  "sensor_policy": "training_only",
+  "sensors_keep": [
+   "imu_ang_vel",
+   "imu_lin_vel",
+   "root_angmom"
   ],
-  "skills": [
-    {
-      "skill_id": "velocity",
-      "display_name": "速度跟踪",
-      "status": "generic",
-      "summary": "族级通用：任务变体表来自 registry/skills/velocity_base.json，奖励预设与观测由 Kit 与契约数据装配，任一成员可直接训。**2026-09-26**：`trot` 档已铺到四台四足（go2 / go1 / b2 / lite3，均族级 trot 技能 + 各自绑定）。",
-      "terrain_profiles": [
-        "plane",
-        "rough",
-        "stairs"
-      ],
-      "task_names": [
-        "velocity",
-        "velocity_rough",
-        "forward_walk",
-        "rough_terrain",
-        "stairs",
-        "trot",
-        "Unitree-Go2-WTW",
-        "Mjlab-CTS-Rough-Unitree-Go2",
-        "Mjlab-TS-Rough-Unitree-Go2",
-        "Mjlab-TS-Student-Rough-Unitree-Go2",
-        "Mjlab-HIM-Rough-Unitree-Go2",
-        "Unitree-Go2-DreamWaQ-Rough",
-        "Mjlab-CTS-Rough-Unitree-B2",
-        "Unitree-B2-WTW",
-        "traversal_obstacle_release"
-      ],
-      "task_variants_ref": "registry/skills/velocity_base.json#tasks",
-      "note": "Mjlab-CTS/TS/HIM 与 DreamWaQ 四族的 task_name 亦归此技能——它们是**同技能的算法变体**（算法轴由 profile 的 backend/算法插件决定，不另立技能类）。；2026-10-02 审计归位：go2-traversal（velocity 配方 × obstacle_release 释放课程，1024×4000 progress_env_ratio 0.859 达标）原是游离任务名，按事实归入本技能 task_names。"
-    },
-    {
-      "skill_id": "traversal",
-      "display_name": "越障",
-      "status": "robot-specific",
-      "summary": "深度感知越障（PIE parkour）：实现已上移为族级技能 —— `quadruped_kit/skills/parkour/`（场景/观测/奖励/课程/命令装配、PIE 模型与 PPO 扩展、专用 runner、地形集，逐字迁移）；相机与深度观测项改为消费 registry/cameras.json 的档位声明（name/parent_body/pos/quat/fovy/width/height 与观测项参数全来自声明，缺字段 fail-closed，技能层零相机字面量）。2026-09-25：go2 侧改薄委托且行为等价（迁移前后 env/runner 全字段 dump 逐项 0 差异，含可调用对象与字符串里的模块路径），go2-parkour 冒烟 + 真训 2 步通过（PIE-PPO 走族级类路径）。",
-      "terrain_profiles": [
-        "stairs",
-        "obstacle_release",
-        "competition"
-      ],
-      "task_names": [
-        "parkour"
-      ],
-      "members_with_recipe": [
-        "unitree_go2"
-      ],
-      "gap": "剩余缺口：①只有 go2 有档案 —— 第二台机型复用缺两样机器事实：(a) 它自己的深度相机档位声明（位姿/内参没有标定就不许编，声明缺项一律 fail-closed），(b) 足端 site（本配方的滑移惩罚与支撑高度按足端 site 取速度与位置；go1 的 MJCF 只有 imu 一个 site，缺失即能力缺失，不静默换口径）；②足端槽位序沿用 PIE 源配方的对角交织序（FR/FL/RR/RL，与契约腿序 FL/FR/RL/RR 不同），新机型接入按「必须是本机型腿标记的一个排列」校验，不符即报错；③b2 / lite3 未评估。",
-      "terrain_pending": [],
-      "note": "；2026-10-02 审计归位：obstacle_release（go2-traversal 达标）与 competition（Kit 已上移 + RC 地图入库）从 terrain_pending 摘除——登记跟上事实。"
-    },
-    {
-      "skill_id": "imitation",
-      "display_name": "动作模仿",
-      "status": "robot-specific",
-      "summary": "族级：AMP 判别器接线与专家动作加载器已上移为族级技能（`quadruped_kit/skills/imitation`：判别器/回放/归一化、AMP-PPO 更新、41→31 维状态切分、终止态记录器），可叠在任一速度跟踪宿主上且不含机型名/数值（关节序/髋关节名走契约绑定）。2026-09-24：go2 侧改薄委托且行为等价（迁移前后 env_cfg/runner_cfg 全字段 dump 逐项对比）；go1 以同关节序借用 go2 的 LLoco 数据在族内第二台机型上跑通。",
-      "terrain_profiles": [
-        "rough"
-      ],
-      "task_names": [
-        "Mjlab-AMP-CTS-Rough-Unitree-Go2",
-        "Unitree-Go2-AMP-DreamWaQ-Rough",
-        "Unitree-Go1-AMP-Rough",
-        "Mjlab-AMP-TS-Rough-Unitree-Go2"
-      ],
-      "members_with_recipe": [
-        "unitree_go2",
-        "unitree_go1"
-      ],
-      "requires": [
-        "motions"
-      ],
-      "gap": "剩余缺口：①**AMP 数据在族内只有一批**（go2 包内的 13 条 LLoco 专家动作，Apache-2.0；2026-09-26 已进 `registry/motions` 资源层并归 amp 侧；go1 按 `shared_amp_motion_root()` 复用同一批——它的关节名与序与 go2 相同）；**b2 / lite3 的关节序不同，需要重定向或另采数据**；②go1 的 AMP 档案是「rough velocity 宿主 + AMP 风格先验」，DreamWaQ 宿主（VAE）与 CTS/TS 变体仍只有 go2 档案；③**数据布局待收口**：这批数据物理上住在 go2 包内、go1 用一条指向它的相对路径读——属「族级资源寄居在某个机型的包里」，要不要搬到族级资源目录由用户裁决（涉及包索引 / 副本同步 / 许可登记三处）。"
-    },
-    {
-      "skill_id": "stunt",
-      "display_name": "特技",
-      "status": "robot-specific",
-      "summary": "特技/极限姿态（后空翻、跳跃、弹簧跳、倒立、三足站立）：五项**实现均已族级化**（`adapters/mjlab/kits/quadruped_kit/skills/`：trot + jump + spring_jump + backflip + stance，后两项各含两个变体档）—— 机型侧只剩绑定与数据。**档案覆盖（2026-09-26）**：go2 五项全有；go1 有 jump / backflip / trot；b2 有 jump / trot / spring_jump / backflip / handstand / leggedstand；lite3 有 jump / backflip / trot。",
-      "terrain_profiles": [
-        "plane"
-      ],
-      "task_names": [
-        "backflip",
-        "handstand",
-        "jump",
-        "leggedstand",
-        "spring_jump"
-      ],
-      "members_with_recipe": [
-        "unitree_go2",
-        "unitree_go1",
-        "unitree_b2",
-        "deeprobotics_lite3"
-      ],
-      "gap": "剩余缺口：①**复用档未标定** —— 除 go2 外各档的高度类目标（飞行 / 站姿 / `base_height_target`）与接触力、速度阈值、启动 DR 区间都取自 go2 几何（站姿 0.42 m）与质量量级，四台站姿各不相同（0.42 / 0.54 / 0.3 / 0.42），**能训 ≠ 训得好**（逐档登记在 `registry/porting_references.json`）；②**能力差异如实留痕**：站姿类（handstand / leggedstand）与 spring_jump 都**需要足端 site**（奖励核按 site 取足端高度）——go1 / lite3 的 MJCF 没有足端 site ⇒ 这两台在这三项技能上是能力缺口（b2 有 site，已接档）；③go1 的 `contract.default_pose` 与它 velocity 任务的初始姿（HIMLoco 口径）符号相反，属未裁决项。"
-    }
+  "sensor_policy_note": "training_only = 训练/仿真**按名消费**的 XML 传感器才留（`mdp.builtin_sensor` 的三处引用），其余声明全撤——撤掉的是没人读的 sensordata 声明，物理量不动；无名传感器也一并撤。实现：adapters/mjlab/spec_utils.py::normalize_for_training（两条训练路径与族 Kit 共用一个入口）。",
+  "naming": {
+   "root_body": "base_link",
+   "note": "**body 命名统一为 `base_link`**（2026-09-24 起点：契约资产里 go2 原为 `base`、lite3 原为 `TORSO`，其余 6 台已是 `base_link`；两处已随族约定改名并重签契约 `urdf.hash`）。joint / geom / site / sensor 名沿用上游资产（角色语义由契约 `action.joint_order` 与族 `role_aliases` 承载，碰撞具名由 CollisionCfg 按正则重建）——**不追求字符串一致，只统一被语义引用的名字**。"
+  }
+ },
+ "mjcf_deviations": {
+  "unitree_go2": {
+   "actuator_binding": {
+    "value": "cfg_declared",
+    "why": "go2 装配骨架在包内 local_tasks（P8 步 3 未迁）；执行器走 Builtin* 组，非 Kit 包装"
+   },
+   "margin_policy": {
+    "value": "warp_ccd_off",
+    "why": "model/robot.xml 的 default class 上 margin=0.001（上游资产），不抹物理量，由通用路径条件关 CCD 开关"
+   }
+  }
+ },
+ "skill_catalog": {
+  "velocity": {
+   "env": "adapters.mjlab.kits.quadruped_kit.skills.velocity.config:make_env_cfg",
+   "runner": "adapters.mjlab.kits.quadruped_kit.skills.velocity.config:make_runner_cfg",
+   "profile": "adapters.mjlab.kits.quadruped_kit.skills.velocity.profile:VelocityProfile",
+   "factory_kwargs": {
+    "terrain_profile": "flat"
+   },
+   "note": "平地基座；rough/stairs 等档位由 factory_kwargs 换（地形档见 registry/terrains）",
+   "adaptive_switches": {
+    "contact_supervision": "资产**没有具名腿杆碰撞几何**时置 False（该资产的接触监看只能按 body 匹配，而族级接触监看是几何名口径）—— 与 `binding.penalized_contact_match()` 同一先例：按资产事实选路，不按机型名"
+   },
+   "requires": [
+    "imu_sensors"
+   ]
+  },
+  "trot": {
+   "env": "adapters.mjlab.kits.quadruped_kit.skills.trot.config:make_env_cfg",
+   "runner": "adapters.mjlab.kits.quadruped_kit.skills.trot.config:make_runner_cfg",
+   "profile": "adapters.mjlab.kits.quadruped_kit.skills.trot.profile:TrotProfile",
+   "requires": [
+    "named_collision_geoms"
+   ]
+  },
+  "jump": {
+   "env": "adapters.mjlab.kits.quadruped_kit.skills.jump.config:make_env_cfg",
+   "runner": "adapters.mjlab.kits.quadruped_kit.skills.jump.config:make_runner_cfg",
+   "profile": "adapters.mjlab.kits.quadruped_kit.skills.jump.profile:JumpProfile"
+  },
+  "spring_jump": {
+   "env": "adapters.mjlab.kits.quadruped_kit.skills.spring_jump.config:make_env_cfg",
+   "runner": "adapters.mjlab.kits.quadruped_kit.skills.spring_jump.config:make_runner_cfg",
+   "profile": "adapters.mjlab.kits.quadruped_kit.skills.spring_jump.profile:SpringJumpProfile",
+   "requires": [
+    "foot_sites"
+   ]
+  },
+  "backflip": {
+   "env": "adapters.mjlab.kits.quadruped_kit.skills.backflip.config:make_env_cfg",
+   "runner": "adapters.mjlab.kits.quadruped_kit.skills.backflip.config:make_runner_cfg",
+   "profile": "adapters.mjlab.kits.quadruped_kit.skills.backflip.profile:BackflipProfile"
+  },
+  "handstand": {
+   "env": "adapters.mjlab.kits.quadruped_kit.skills.stance.config:make_env_cfg",
+   "runner": "adapters.mjlab.kits.quadruped_kit.skills.stance.config:make_runner_cfg",
+   "profile": "adapters.mjlab.kits.quadruped_kit.skills.stance.profile:StanceProfile",
+   "profile_kwargs": {
+    "variant": "handstand",
+    "display_name": "Handstand"
+   },
+   "note": "站姿类一份机制两个奖励档：variant 是数据",
+   "requires": [
+    "foot_sites"
+   ]
+  },
+  "leggedstand": {
+   "env": "adapters.mjlab.kits.quadruped_kit.skills.stance.config:make_env_cfg",
+   "runner": "adapters.mjlab.kits.quadruped_kit.skills.stance.config:make_runner_cfg",
+   "profile": "adapters.mjlab.kits.quadruped_kit.skills.stance.profile:StanceProfile",
+   "profile_kwargs": {
+    "variant": "rear_stand",
+    "display_name": "Rear Stand"
+   },
+   "requires": [
+    "foot_sites"
+   ]
+  },
+  "wtw": {
+   "env": "adapters.mjlab.kits.quadruped_kit.skills.wtw.config:make_env_cfg",
+   "runner": "adapters.mjlab.kits.quadruped_kit.skills.wtw.config:make_runner_cfg",
+   "profile": "adapters.mjlab.kits.quadruped_kit.skills.wtw.profile:WtwProfile",
+   "factory_kwargs": {
+    "terrain_profile": "flat"
+   },
+   "requires": [
+    "imu_sensors"
+   ]
+  },
+  "parkour": {
+   "env": "adapters.mjlab.kits.quadruped_kit.skills.parkour.config:make_env_cfg",
+   "runner": "adapters.mjlab.kits.quadruped_kit.skills.parkour.config:make_runner_cfg",
+   "profile": "adapters.mjlab.kits.quadruped_kit.skills.parkour.profile:ParkourProfile",
+   "factory_kwargs": {},
+   "note": "四类技能的「越障」入表（2026-09-28）：PIE 前视深度跑酷（判据=课程晋级线）；相机档位是 registry/cameras.json 的数据声明（registry/cameras.json#pie-front-depth-106x60）；robot_cfg 由装配器按签名注入；requires 足端 site —— 缺该项的机型（go1/lite3）会被体检拦下并说明缺什么（如实）",
+   "requires": [
+    "imu_sensors",
+    "foot_sites"
+   ],
+   "profile_kwargs": {
+    "camera_profile": "pie-front-depth-106x60"
+   }
+  },
+  "imitation": {
+   "env": "adapters.mjlab.kits.quadruped_kit.skills.imitation.catalog:make_env_cfg",
+   "runner": "adapters.mjlab.kits.quadruped_kit.skills.imitation.catalog:make_runner_cfg",
+   "profile": "adapters.mjlab.kits.quadruped_kit.skills.imitation.profile:AmpProfile",
+   "factory_kwargs": {
+    "terrain_profile": "rough"
+   },
+   "note": "四类技能的「动作模仿」入表（2026-09-28）：宿主=族级 velocity rough + AMP 增量（go1_amp 试点模式上移）；专家动作=族内共享库（go2 LLoco 数据），catalog 入口带关节序同构闸 —— 不同构的机型 fail-closed（需要自己的动作数据），不静默置换帧序；requires 实测核对（2026-09-28）：AMP 观测/判别器不消费 XML imu 传感器（terrain_scan 是 mjlab 基座传感器）—— 无资产能力硬需求，唯一闸是动作库关节序同构",
+   "requires": []
+  }
+ },
+ "skill_catalog_note": "族级技能的**装配表**（通用装配器 `adapters/mjlab/family_skill_builder.py` 读它）：按 `task_name` 成键，声明该任务用族 Kit 的哪个 env/runner 工厂与哪个 profile 数据类。新机型（含导入）只要契约 + 标准 MJCF，就能用这张表建出这些技能的 env/runner —— **不需要机型专属 Python 文件**；包内逐档档案只是把身份与少量数值钉死而已。未列入的技能：parkour（需要相机声明）、traversal 的轮足课程（在 wheel_leg 族里按其装配表处理）。 每项的 `requires` 声明该任务**依赖哪些资产能力**（体检项见 `robot_capabilities()`）：新机型进场先跑一次体检，就能知道哪些技能直接可用、哪些要先补资产。`sim_sizing` 声明 sim 缓冲规模（nconmax/njmax；null = 交 mjwarp 按资产启发式定，因为源配方手调的缓冲值换一台资产就溢出）；带非零 geom margin 的资产由装配器按同一份资产判据条件关 MULTICCD/NATIVECCD（登记值 `warp_ccd_off`），margin 本身不抹。机型侧资产 = 包声明的**训练资产**（`robot_package.json` 的 `model.training_path`，缺省 `model.path`）：族 MJCF 约定适用的是训练那份。`unitree_go2` 包内两份并存（上游 `model/robot.xml`：几何名 `FL_thigh_geom`、无足端 site、default class margin=0.001；`model/training.xml`：`*_collision` 几何 + `FL_foot_collision` + 足端 site），它所有既有训练路径用的都是后者 ⇒ 已声明 `training_path`，通用装配据此**8/8 技能装配成功、0 能力缺口**，velocity/jump/backflip/trot/wtw 各真跑 1 iter 通过，且与包内逐档档案对拍**解析集相同**（6 档各 1 项字面差异 = 执行器分组写法）。",
+ "member_intake": {
+  "note": "**新机型进场（含导入）**：只要契约 + 标准 MJCF 满足族约定，族级技能**无需任何机型专属 Python** 即可装配训练。装配表是 `skill_catalog`（数据），装配器 `adapters/mjlab/family_skill_builder.py`，进场体检与逐技能可用性报告 `tools/validate_family_skill_assembly.py`。",
+  "mjcf_requirements": [
+   "位置执行器（`<position joint=... kp=... kv=.../>`）—— 族级技能是位置控制配方；effort 模式（`<motor>`）需要另立动作档",
+   "保留观测引用的 IMU 传感器：`imu_lin_vel` / `imu_ang_vel`（契约声明 base 线/角速度时必需）",
+   "可碰撞几何名以 `_collision` 结尾（trot 档的摩擦 DR 与几何名口径）",
+   "足端 site（站姿类 handstand/leggedstand 与 spring_jump 需要；其余技能用足端几何名即可）",
+   "腿杆 body 名 `<腿>_<角色>` 或具名腿杆碰撞几何（腿杆触地惩罚二选一，几何未具名时按 body 匹配）"
   ],
-  "mjcf_conventions": {
-    "note": "族内 MJCF 约定（**规范化后**必须成立的口径；偏离逐条登记在 mjcf_deviations，登记了又与实测一致也判红——防静默统一/静默放宽）。摘要与基线落 tools/baselines/family_mjcf.json。",
-    "actuator_binding": "mjcf_wrapped",
-    "actuator_binding_note": "执行器声明归属：mjcf_wrapped = MJCF 为准、cfg 只包装（quadruped_kit.position_actuator_trio 的 XmlActuatorCfg，B28/B35 裁决）；cfg_declared = MJCF 不带执行器或一律撤掉、由 cfg/Kit 声明 builtin 组。",
-    "sensors_named": true,
-    "margin_policy": "zero",
-    "margin_policy_note": "zero = 模型不带非零 geom margin；带非零的由通用路径条件关 MULTICCD/NATIVECCD（登记为 warp_ccd_off），不抹 margin（那是物理参数）。",
-    "sensor_policy": "training_only",
-    "sensors_keep": [
-      "imu_ang_vel",
-      "imu_lin_vel",
-      "root_angmom"
-    ],
-    "sensor_policy_note": "training_only = 训练/仿真**按名消费**的 XML 传感器才留（`mdp.builtin_sensor` 的三处引用），其余声明全撤——撤掉的是没人读的 sensordata 声明，物理量不动；无名传感器也一并撤。实现：adapters/mjlab/spec_utils.py::normalize_for_training（两条训练路径与族 Kit 共用一个入口）。",
-    "naming": {
-      "root_body": "base_link",
-      "note": "**body 命名统一为 `base_link`**（2026-09-24 起点：契约资产里 go2 原为 `base`、lite3 原为 `TORSO`，其余 6 台已是 `base_link`；两处已随族约定改名并重签契约 `urdf.hash`）。joint / geom / site / sensor 名沿用上游资产（角色语义由契约 `action.joint_order` 与族 `role_aliases` 承载，碰撞具名由 CollisionCfg 按正则重建）——**不追求字符串一致，只统一被语义引用的名字**。"
-    }
-  },
-  "mjcf_deviations": {
-    "unitree_go2": {
-      "actuator_binding": {
-        "value": "cfg_declared",
-        "why": "go2 装配骨架在包内 local_tasks（P8 步 3 未迁）；执行器走 Builtin* 组，非 Kit 包装"
-      },
-      "margin_policy": {
-        "value": "warp_ccd_off",
-        "why": "model/robot.xml 的 default class 上 margin=0.001（上游资产），不抹物理量，由通用路径条件关 CCD 开关"
-      }
-    }
-  },
-  "skill_catalog": {
-    "velocity": {
-      "env": "adapters.mjlab.kits.quadruped_kit.skills.velocity.config:make_env_cfg",
-      "runner": "adapters.mjlab.kits.quadruped_kit.skills.velocity.config:make_runner_cfg",
-      "profile": "adapters.mjlab.kits.quadruped_kit.skills.velocity.profile:VelocityProfile",
-      "factory_kwargs": {
-        "terrain_profile": "flat"
-      },
-      "note": "平地基座；rough/stairs 等档位由 factory_kwargs 换（地形档见 registry/terrains）",
-      "adaptive_switches": {
-        "contact_supervision": "资产**没有具名腿杆碰撞几何**时置 False（该资产的接触监看只能按 body 匹配，而族级接触监看是几何名口径）—— 与 `binding.penalized_contact_match()` 同一先例：按资产事实选路，不按机型名"
-      },
-      "requires": [
-        "imu_sensors"
-      ]
-    },
-    "trot": {
-      "env": "adapters.mjlab.kits.quadruped_kit.skills.trot.config:make_env_cfg",
-      "runner": "adapters.mjlab.kits.quadruped_kit.skills.trot.config:make_runner_cfg",
-      "profile": "adapters.mjlab.kits.quadruped_kit.skills.trot.profile:TrotProfile",
-      "requires": [
-        "named_collision_geoms"
-      ]
-    },
-    "jump": {
-      "env": "adapters.mjlab.kits.quadruped_kit.skills.jump.config:make_env_cfg",
-      "runner": "adapters.mjlab.kits.quadruped_kit.skills.jump.config:make_runner_cfg",
-      "profile": "adapters.mjlab.kits.quadruped_kit.skills.jump.profile:JumpProfile"
-    },
-    "spring_jump": {
-      "env": "adapters.mjlab.kits.quadruped_kit.skills.spring_jump.config:make_env_cfg",
-      "runner": "adapters.mjlab.kits.quadruped_kit.skills.spring_jump.config:make_runner_cfg",
-      "profile": "adapters.mjlab.kits.quadruped_kit.skills.spring_jump.profile:SpringJumpProfile",
-      "requires": [
-        "foot_sites"
-      ]
-    },
-    "backflip": {
-      "env": "adapters.mjlab.kits.quadruped_kit.skills.backflip.config:make_env_cfg",
-      "runner": "adapters.mjlab.kits.quadruped_kit.skills.backflip.config:make_runner_cfg",
-      "profile": "adapters.mjlab.kits.quadruped_kit.skills.backflip.profile:BackflipProfile"
-    },
-    "handstand": {
-      "env": "adapters.mjlab.kits.quadruped_kit.skills.stance.config:make_env_cfg",
-      "runner": "adapters.mjlab.kits.quadruped_kit.skills.stance.config:make_runner_cfg",
-      "profile": "adapters.mjlab.kits.quadruped_kit.skills.stance.profile:StanceProfile",
-      "profile_kwargs": {
-        "variant": "handstand",
-        "display_name": "Handstand"
-      },
-      "note": "站姿类一份机制两个奖励档：variant 是数据",
-      "requires": [
-        "foot_sites"
-      ]
-    },
-    "leggedstand": {
-      "env": "adapters.mjlab.kits.quadruped_kit.skills.stance.config:make_env_cfg",
-      "runner": "adapters.mjlab.kits.quadruped_kit.skills.stance.config:make_runner_cfg",
-      "profile": "adapters.mjlab.kits.quadruped_kit.skills.stance.profile:StanceProfile",
-      "profile_kwargs": {
-        "variant": "rear_stand",
-        "display_name": "Rear Stand"
-      },
-      "requires": [
-        "foot_sites"
-      ]
-    },
-    "wtw": {
-      "env": "adapters.mjlab.kits.quadruped_kit.skills.wtw.config:make_env_cfg",
-      "runner": "adapters.mjlab.kits.quadruped_kit.skills.wtw.config:make_runner_cfg",
-      "profile": "adapters.mjlab.kits.quadruped_kit.skills.wtw.profile:WtwProfile",
-      "factory_kwargs": {
-        "terrain_profile": "flat"
-      },
-      "requires": [
-        "imu_sensors"
-      ]
-    },
-    "parkour": {
-      "env": "adapters.mjlab.kits.quadruped_kit.skills.parkour.config:make_env_cfg",
-      "runner": "adapters.mjlab.kits.quadruped_kit.skills.parkour.config:make_runner_cfg",
-      "profile": "adapters.mjlab.kits.quadruped_kit.skills.parkour.profile:ParkourProfile",
-      "factory_kwargs": {},
-      "note": "四类技能的「越障」入表（2026-09-28）：PIE 前视深度跑酷（判据=课程晋级线）；相机档位是 registry/cameras.json 的数据声明（registry/cameras.json#pie-front-depth-106x60）；robot_cfg 由装配器按签名注入；requires 足端 site —— 缺该项的机型（go1/lite3）会被体检拦下并说明缺什么（如实）",
-      "requires": [
-        "imu_sensors",
-        "foot_sites"
-      ],
-      "profile_kwargs": {
-        "camera_profile": "pie-front-depth-106x60"
-      }
-    },
-    "imitation": {
-      "env": "adapters.mjlab.kits.quadruped_kit.skills.imitation.catalog:make_env_cfg",
-      "runner": "adapters.mjlab.kits.quadruped_kit.skills.imitation.catalog:make_runner_cfg",
-      "profile": "adapters.mjlab.kits.quadruped_kit.skills.imitation.profile:AmpProfile",
-      "factory_kwargs": {
-        "terrain_profile": "rough"
-      },
-      "note": "四类技能的「动作模仿」入表（2026-09-28）：宿主=族级 velocity rough + AMP 增量（go1_amp 试点模式上移）；专家动作=族内共享库（go2 LLoco 数据），catalog 入口带关节序同构闸 —— 不同构的机型 fail-closed（需要自己的动作数据），不静默置换帧序；requires 实测核对（2026-09-28）：AMP 观测/判别器不消费 XML imu 传感器（terrain_scan 是 mjlab 基座传感器）—— 无资产能力硬需求，唯一闸是动作库关节序同构",
-      "requires": []
-    }
-  },
-  "skill_catalog_note": "族级技能的**装配表**（通用装配器 `adapters/mjlab/family_skill_builder.py` 读它）：按 `task_name` 成键，声明该任务用族 Kit 的哪个 env/runner 工厂与哪个 profile 数据类。新机型（含导入）只要契约 + 标准 MJCF，就能用这张表建出这些技能的 env/runner —— **不需要机型专属 Python 文件**；包内逐档档案只是把身份与少量数值钉死而已。未列入的技能：parkour（需要相机声明）、traversal 的轮足课程（在 wheel_leg 族里按其装配表处理）。 每项的 `requires` 声明该任务**依赖哪些资产能力**（体检项见 `robot_capabilities()`）：新机型进场先跑一次体检，就能知道哪些技能直接可用、哪些要先补资产。`sim_sizing` 声明 sim 缓冲规模（nconmax/njmax；null = 交 mjwarp 按资产启发式定，因为源配方手调的缓冲值换一台资产就溢出）；带非零 geom margin 的资产由装配器按同一份资产判据条件关 MULTICCD/NATIVECCD（登记值 `warp_ccd_off`），margin 本身不抹。机型侧资产 = 包声明的**训练资产**（`robot_package.json` 的 `model.training_path`，缺省 `model.path`）：族 MJCF 约定适用的是训练那份。`unitree_go2` 包内两份并存（上游 `model/robot.xml`：几何名 `FL_thigh_geom`、无足端 site、default class margin=0.001；`model/training.xml`：`*_collision` 几何 + `FL_foot_collision` + 足端 site），它所有既有训练路径用的都是后者 ⇒ 已声明 `training_path`，通用装配据此**8/8 技能装配成功、0 能力缺口**，velocity/jump/backflip/trot/wtw 各真跑 1 iter 通过，且与包内逐档档案对拍**解析集相同**（6 档各 1 项字面差异 = 执行器分组写法）。",
-  "member_intake": {
-    "note": "**新机型进场（含导入）**：只要契约 + 标准 MJCF 满足族约定，族级技能**无需任何机型专属 Python** 即可装配训练。装配表是 `skill_catalog`（数据），装配器 `adapters/mjlab/family_skill_builder.py`，进场体检与逐技能可用性报告 `tools/validate_family_skill_assembly.py`。",
-    "mjcf_requirements": [
-      "位置执行器（`<position joint=... kp=... kv=.../>`）—— 族级技能是位置控制配方；effort 模式（`<motor>`）需要另立动作档",
-      "保留观测引用的 IMU 传感器：`imu_lin_vel` / `imu_ang_vel`（契约声明 base 线/角速度时必需）",
-      "可碰撞几何名以 `_collision` 结尾（trot 档的摩擦 DR 与几何名口径）",
-      "足端 site（站姿类 handstand/leggedstand 与 spring_jump 需要；其余技能用足端几何名即可）",
-      "腿杆 body 名 `<腿>_<角色>` 或具名腿杆碰撞几何（腿杆触地惩罚二选一，几何未具名时按 body 匹配）"
-    ],
-    "verified_on": "b2 八项全部装配成功；把出生高按逐档档案钉齐后，jump / backflip / handstand 与包内档案的**字面差异只有执行器分组写法（1 项）**、**解析集相同**（执行器目标关节集合逐项相等）。一台新包（契约 + 标准位置 MJCF + 标准布局，零机型代码）：jump / backflip 装配并真训 1 轮通过，其余项按体检给出具名能力缺口。",
-    "init_base_height_policy": "**出生高**：通用装配按**默认姿 FK**推（把契约 `joints.default_pose` 灌进模型、量足端最低点到地面的距离 = 站立高），不做任何机型特判；逐档档案可在 `build_family_skill(..., init_base_height=…)` 钉死源配方值（b2 的 FK 站立高 0.5115 vs 逐档档案 0.54 —— 差的那点正是源配方参数）。"
-  },
-  "kit": {
-    "kit_module": "adapters.mjlab.kits.quadruped_kit",
-    "binding_from_contract": "adapters.mjlab.kits.quadruped_kit.skills:from_contract"
-  },
-  "kit_note": "kit 自描述（Phase 1 插件化，2026-10-02）：通用装配器从这里读绑定工厂，family_skill_builder 不再写死族字典——新族=登记 JSON+写 kit，零核心改动。"
+  "verified_on": "b2 八项全部装配成功；把出生高按逐档档案钉齐后，jump / backflip / handstand 与包内档案的**字面差异只有执行器分组写法（1 项）**、**解析集相同**（执行器目标关节集合逐项相等）。一台新包（契约 + 标准位置 MJCF + 标准布局，零机型代码）：jump / backflip 装配并真训 1 轮通过，其余项按体检给出具名能力缺口。",
+  "init_base_height_policy": "**出生高**：通用装配按**默认姿 FK**推（把契约 `joints.default_pose` 灌进模型、量足端最低点到地面的距离 = 站立高），不做任何机型特判；逐档档案可在 `build_family_skill(..., init_base_height=…)` 钉死源配方值（b2 的 FK 站立高 0.5115 vs 逐档档案 0.54 —— 差的那点正是源配方参数）。"
+ },
+ "kit": {
+  "kit_module": "adapters.mjlab.kits.quadruped_kit",
+  "binding_from_contract": "adapters.mjlab.kits.quadruped_kit.skills:from_contract"
+ },
+ "kit_note": "kit 自描述（Phase 1 插件化，2026-10-02）：通用装配器从这里读绑定工厂，family_skill_builder 不再写死族字典——新族=登记 JSON+写 kit，零核心改动。"
 }
