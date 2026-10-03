@@ -1,130 +1,150 @@
 {
-  "schema": "panel-registry-1.0",
-  "note": "产品面插件注册表（v2.1 裁决）：页面/面板/CLI 全部声明式——topnav/侧栏/桌面 launcher 由本表生成；requires.services 不可用 = 置灰+原因（诚实禁用）；机器人/功能零特判（框架不出现具体 id）。",
-  "panels": [
-    {
-      "id": "home",
-      "title": "首页",
-      "kind": "page",
-      "entry": "workbench.html#home",
-      "group": "工作台",
-      "order": 10,
-      "requires": {
-        "services": [
-          "backend"
-        ]
-      },
-      "desktop": true,
-      "cli": {
-        "command": "status",
-        "provider": "backend.cli_panels:home_status"
-      }
-    },
-    {
-      "id": "robot",
-      "title": "机器人工作台",
-      "kind": "page",
-      "entry": "workbench.html#robot",
-      "group": "工作台",
-      "order": 20,
-      "requires": {
-        "services": [
-          "backend"
-        ]
-      },
-      "desktop": true,
-      "cli": {
-        "command": "packages list",
-        "provider": "backend.cli_panels:packages_list"
-      }
-    },
-    {
-      "id": "config",
-      "title": "训练配置",
-      "kind": "page",
-      "entry": "training_create.html",
-      "group": "训练",
-      "order": 30,
-      "requires": {
-        "services": [
-          "backend"
-        ]
-      },
-      "desktop": true
-    },
-    {
-      "id": "training",
-      "title": "训练任务",
-      "kind": "page",
-      "entry": "training_list.html",
-      "group": "训练",
-      "order": 40,
-      "requires": {
-        "services": [
-          "backend"
-        ]
-      },
-      "desktop": true,
-      "cli": {
-        "command": "training list",
-        "provider": "backend.cli_panels:training_list"
-      }
-    },
-    {
-      "id": "simulation",
-      "title": "基础仿真",
-      "kind": "page",
-      "entry": "workbench.html#simulation",
-      "group": "仿真",
-      "order": 50,
-      "requires": {
-        "services": [
-          "backend"
-        ]
-      },
-      "desktop": true
-    },
-    {
-      "id": "navmap",
-      "title": "高级仿真",
-      "kind": "page",
-      "entry": "advanced_sim.html",
-      "group": "仿真",
-      "order": 60,
-      "requires": {
-        "services": [
-          "backend"
-        ]
-      },
-      "desktop": true
-    },
-    {
-      "id": "deploy",
-      "title": "部署",
-      "kind": "page",
-      "entry": "deploy.html",
-      "group": "产物",
-      "order": 70,
-      "requires": {
-        "services": [
-          "backend"
-        ]
-      },
-      "desktop": true
-    },
-    {
-      "id": "artifacts",
-      "title": "策略档案",
-      "kind": "page",
-      "entry": "artifacts.html",
-      "group": "产物",
-      "order": 80,
-      "requires": {
-        "services": [
-          "backend"
-        ]
-      },
-      "desktop": true
-    }
-  ]
+ "schema": "panel-registry-1.0",
+ "note": "产品面插件注册表（v2.1 裁决）：页面/面板/CLI 全部声明式——topnav/侧栏/桌面 launcher 由本表生成；requires.services 不可用 = 置灰+原因（诚实禁用）；机器人/功能零特判（框架不出现具体 id）。",
+ "panels": [
+  {
+   "id": "home",
+   "title": "首页",
+   "kind": "page",
+   "entry": "workbench.html#home",
+   "group": "工作台",
+   "order": 10,
+   "requires": {
+    "services": [
+     "backend"
+    ]
+   },
+   "desktop": true,
+   "cli": {
+    "command": "status",
+    "provider": "backend.cli_panels:home_status"
+   }
+  },
+  {
+   "id": "robot",
+   "title": "机器人工作台",
+   "kind": "page",
+   "entry": "workbench.html#robot",
+   "group": "工作台",
+   "order": 20,
+   "requires": {
+    "services": [
+     "backend"
+    ]
+   },
+   "desktop": true,
+   "cli": {
+    "command": "packages list",
+    "provider": "backend.cli_panels:packages_list"
+   }
+  },
+  {
+   "id": "config",
+   "title": "训练配置",
+   "kind": "page",
+   "entry": "training_create.html",
+   "group": "训练",
+   "order": 30,
+   "requires": {
+    "services": [
+     "backend"
+    ]
+   },
+   "desktop": true,
+   "cli": {
+    "command": "panel config",
+    "provider": "backend.cli_panels:config_list"
+   }
+  },
+  {
+   "id": "training",
+   "title": "训练任务",
+   "kind": "page",
+   "entry": "training_list.html",
+   "group": "训练",
+   "order": 40,
+   "requires": {
+    "services": [
+     "backend"
+    ]
+   },
+   "desktop": true,
+   "cli": {
+    "command": "training list",
+    "provider": "backend.cli_panels:training_list"
+   }
+  },
+  {
+   "id": "simulation",
+   "title": "基础仿真",
+   "kind": "page",
+   "entry": "workbench.html#simulation",
+   "group": "仿真",
+   "order": 50,
+   "requires": {
+    "services": [
+     "backend"
+    ]
+   },
+   "desktop": true,
+   "cli": {
+    "command": "panel simulation",
+    "provider": "backend.cli_panels:simulation_list"
+   }
+  },
+  {
+   "id": "navmap",
+   "title": "高级仿真",
+   "kind": "page",
+   "entry": "advanced_sim.html",
+   "group": "仿真",
+   "order": 60,
+   "requires": {
+    "services": [
+     "backend"
+    ]
+   },
+   "desktop": true,
+   "cli": {
+    "command": "panel navmap",
+    "provider": "backend.cli_panels:navmap_list"
+   }
+  },
+  {
+   "id": "deploy",
+   "title": "部署",
+   "kind": "page",
+   "entry": "deploy.html",
+   "group": "产物",
+   "order": 70,
+   "requires": {
+    "services": [
+     "backend"
+    ]
+   },
+   "desktop": true,
+   "cli": {
+    "command": "panel deploy",
+    "provider": "backend.cli_panels:deploy_summary"
+   }
+  },
+  {
+   "id": "artifacts",
+   "title": "策略档案",
+   "kind": "page",
+   "entry": "artifacts.html",
+   "group": "产物",
+   "order": 80,
+   "requires": {
+    "services": [
+     "backend"
+    ]
+   },
+   "desktop": true,
+   "cli": {
+    "command": "panel artifacts",
+    "provider": "backend.cli_panels:artifacts_list"
+   }
+  }
+ ]
 }

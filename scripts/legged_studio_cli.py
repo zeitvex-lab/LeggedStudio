@@ -998,6 +998,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("algorithms", help="list registered algorithms")
     sub.add_parser("panels", help="list product-surface plugin panels (registry projection)")
+    panel = sub.add_parser("panel", help="invoke a panel's CLI provider (declaration-driven)")
+    panel.add_argument("panel_id", help="panel id from registry/panels/index.json (see: panels)")
     sub.add_parser("hardware", help="show CUDA and native MJLab capabilities")
     model = sub.add_parser("validate-model", help="validate a URDF/MJCF model")
     model.add_argument("path")
@@ -1326,6 +1328,27 @@ def main(argv: list[str] | None = None) -> int:
             cli = (item.get("cli") or {}).get("command") or "-"
             print(f"  {item['id']:12s} [{item.get('group', '-')}] {item.get('title', '')}  (cli: {cli})")
         print(f"  → {len(panels)} panels（registry/panels/index.json 是唯一来源；CLI 命令随声明投影）")
+        return 0
+
+    if args.command == "panel":
+        # 一切皆插件：面板 CLI 表面 = 注册表声明（cli.provider）→ backend.cli_panels
+        # 惰性解析。面板没写 cli 声明 = 该面板没有 CLI 投影，如实报错而非编造输出。
+        from backend.cli_panels import resolve_provider
+        from backend.panel_registry import load_panels
+
+        entry = next((p for p in load_panels() if p.get("id") == args.panel_id), None)
+        if entry is None:
+            known = ", ".join(sorted(p.get("id", "?") for p in load_panels()))
+            raise SystemExit(f"panel 失败：未知面板 {args.panel_id!r}（已知：{known}）")
+        cli_decl = entry.get("cli") or {}
+        if not cli_decl.get("provider"):
+            raise SystemExit(
+                f"panel 失败：面板 {args.panel_id!r} 未声明 CLI 投影"
+                f"（registry/panels/index.json 缺 cli.provider；Web/桌面入口：{entry.get('entry', '-')}) "
+            )
+        payload = resolve_provider(cli_decl["provider"])()
+        print(json.dumps({"panel": args.panel_id, "command": cli_decl.get("command"), **payload},
+                         ensure_ascii=False, indent=2))
         return 0
 
     if args.command == "pack":
