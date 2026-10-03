@@ -724,6 +724,25 @@ if WEB_DIR.is_dir():
 # Health and system status
 # ============================================================================
 
+@app.get("/api/panels")
+async def api_panels(current: str | None = None):
+    """产品面插件注册表（Phase 5，v2.1）：导航/侧栏/桌面的**唯一来源**——
+    面板声明（registry/panels）→ 服务探测（诚实禁用）→ 导航结构。
+    前端 topnav/workbench 侧栏/桌面 launcher 消费同一份；机器人与功能零特判。"""
+    from backend.panel_registry import load_panels, render_navigation, service_unavailable
+
+    panels = load_panels()
+    unavailable = {
+        p["id"]: reason
+        for p in panels
+        for svc in ((p.get("requires") or {}).get("services") or [])
+        if (reason := service_unavailable(svc, probe=True)) is not None
+    }
+    nav = render_navigation(panels, current=current or "", unavailable=unavailable)
+    return {"success": True, "schema": "panel-registry-1.0", "navigation": nav,
+            "panels": panels, "unavailable": unavailable}
+
+
 @app.get("/health")
 async def health():
     optional = {
