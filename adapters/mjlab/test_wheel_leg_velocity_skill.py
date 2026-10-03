@@ -382,23 +382,25 @@ class FamilyVelocityConfigTest(unittest.TestCase):
             self.assertEqual("plane", cfg.scene.terrain.terrain_type)
             self.assertIsNone(cfg.scene.terrain.terrain_generator)
             self.assertNotIn("terrain_levels", cfg.curriculum)
-        # 奖励结构：轮变体 = 轮奖励 + 全 dof 档 base_height（2026-09-29 economics 对齐
-        # 补 −2.0@0.36，rc_old 源配方朴素 L2 形）；legs-only = 轮速限幅/身高/站立
-        for cfg in (rough, flat):
-            for name in ("wheel_roll_tracking", "wheel_contact_bonus", "leg_motion_penalty"):
-                self.assertIn(name, cfg.rewards)
-            for name in ("wheel_spin_limit", "stand_still", "low_base_height"):
-                self.assertNotIn(name, cfg.rewards)
-            # base_height：全 dof 档按 profile 数据落点（target/weight 来自族字段）
-            self.assertIn("base_height", cfg.rewards)
-            base_target = self.profiles.ROUGH.base_height_target
-            if base_target is not None:
-                self.assertAlmostEqual(
-                    float(base_target),
-                    float(cfg.rewards["base_height"].params["target_height"]),
-                )
-            for name in ("foot_air_time", "foot_clearance", "foot_slip", "soft_landing", "angular_momentum"):
-                self.assertNotIn(name, cfg.rewards)
+        # 奖励结构（2026-10-03 对齐 zex-w 族参考实证 0.637@250）：
+        #   rough 保留 base_height（全 dof 档 rc 同款定高）；flat 对齐 zex 参考——
+        #   无 base_height（定高由 pose 项承载）、track 权重回基座 1.0、leg_motion −0.08；
+        #   legs-only = 轮速限幅/身高/站立。
+        for name in ("wheel_roll_tracking", "wheel_contact_bonus", "leg_motion_penalty"):
+            self.assertIn(name, flat.rewards)
+        for name in ("wheel_spin_limit", "stand_still", "low_base_height"):
+            self.assertNotIn(name, flat.rewards)
+        # base_height −2.0@0.36：zex 参考装配同款（2026-10-03 对拍勘误后恢复）
+        self.assertIn("base_height", flat.rewards)
+        self.assertAlmostEqual(-2.0, flat.rewards["base_height"].weight)
+        self.assertAlmostEqual(1.0, flat.rewards["track_linear_velocity"].weight)
+        self.assertAlmostEqual(1.0, flat.rewards["track_angular_velocity"].weight)
+        self.assertAlmostEqual(-0.08, flat.rewards["leg_motion_penalty"].weight)
+        for name in ("wheel_roll_tracking", "wheel_contact_bonus", "leg_motion_penalty", "base_height"):
+            self.assertIn(name, rough.rewards)
+        for name in ("foot_air_time", "foot_clearance", "foot_slip", "soft_landing"):
+            self.assertNotIn(name, flat.rewards)
+            self.assertNotIn(name, rough.rewards)
         self.assertEqual("leg_motion_penalty", flat.rewards["leg_motion_penalty"].func.__name__)
         self.assertEqual("adaptive_leg_motion_penalty", rough.rewards["leg_motion_penalty"].func.__name__)
         for cfg in (legs_only, omni):
