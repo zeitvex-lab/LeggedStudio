@@ -101,16 +101,21 @@
    "not_yet_status": "已内化"
   }
  ],
- "gaps": [
-  "HIMLoco 蒸馏训练配方未上移（评测侧布局在）",
-  "47维×10帧历史观测族未引入（obs 结构选型）"
- ],
+ "gaps": [],
  "models_role_note": "上游成品模型的本仓身份 = 验证基建（B11 参照系 0.922/0.929、golden_env_parity 金标准锚、check_user_criteria 判据基线），不是产物；产物 = 用族级配方在任意同族机型上训出的策略。",
  "inventory_corrections": "2026-09-30 更正：初版台账扫描草率（只扫 velocity 技能），漏计族级 trot/parkour/imitation/jump/backflip/spring_jump/handstand/leggedstand/wtw 九技能与 cts/dreamwaq/him/ts/amp 五变体——用户指正后修正。实际存量：quadruped 10 技能 × 4 机型（go2 18 档/go1 6/lite3 4/b2 7）+ wheel_leg velocity × 4 机型。",
  "resolved": [
   {
    "gap": "wheel_leg 族技能目录仅 velocity 1 项 vs quadruped 10 项",
    "verdict": "2026-10-03 ⑱⑲ 复核订正：非资产缺口——rc_old（唯一轮足参考）训练面=velocity+crawl 与 Kit 严丝合缝；其余技能=参考缺位（有参考才接线）；能力面已按 skill×terrain 分类（capability_classes）"
+  },
+  {
+   "gap": "HIMLoco 蒸馏训练配方未上移（评测侧布局在）",
+   "verdict": "2026-10-04 复核闭账（登记误称）：HIMLoco 全库 grep 'distill' 0 命中——其机制是 HIM 估计器（him_ppo 联合训练：estimation_loss + swap_loss + PPO 双损失），非两阶段蒸馏。训练机制已内化：adapters/mjlab/algorithms/him 镜像 him_ppo 四损失；插件协议可达（registry 注册 + 训练栈 resolve_plugin('him')→HIMPlugin）；档案已接线且冒烟过（go2-him 档 algorithm_plugin: him，smoke-slice50 status ok）。评测侧 go2w_himloco_57 布局亦在。"
+  },
+  {
+   "gap": "47维×10帧历史观测族未引入（obs 结构选型）",
+   "verdict": "2026-10-04 复核闭账：47×10 历史结构已在四足 Kit——trot/stance 系 profile actor_frame_dim=47 / actor_history=10（TrotProfile 默认值），评测侧 47 宽条目（robotlab/himloco 系）已注册布局取证。选型面已具备，无未引入事实。"
   }
  ]
 }
