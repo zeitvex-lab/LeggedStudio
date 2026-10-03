@@ -62,6 +62,34 @@
     return hash ? file + '#' + hash : file;
   }
 
+  /** 服务端面板注册表（v2.1 插件化）：/api/panels 的导航投影覆盖 NAV_ITEMS。
+   *  拉取失败（后端未起/file://）⇒ 静态 NAV_ITEMS 原样兜底（诚实降级，不假跑）。 */
+  function applyRegistryNav(nav) {
+    if (!Array.isArray(nav) || !nav.length) return;
+    NAV_ITEMS.length = 0;
+    for (const item of nav) {
+      NAV_ITEMS.push({
+        key: item.id,
+        label: item.title,
+        href: item.href,
+        disabled: Boolean(item.disabled),
+        disabledReason: item.disabled_reason || '',
+      });
+    }
+  }
+
+  function refreshFromRegistry() {
+    if (typeof fetch !== 'function') return;
+    try {
+      fetch('/api/panels', { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (payload) {
+          if (payload && Array.isArray(payload.navigation)) applyRegistryNav(payload.navigation);
+        })
+        .catch(function () { /* 静态清单兜底（诚实降级） */ });
+    } catch (e) { /* 环境无 fetch */ }
+  }
+
   /** 纯字符串视图（node 可测；页面渲染即 innerHTML 这一次赋值）。 */
   function navHtml(current) {
     const items = NAV_ITEMS.map(function (item, index) {
@@ -132,5 +160,7 @@
     isCurrent: isCurrent,
     navHtml: navHtml,
     render: render,
+    applyRegistryNav: applyRegistryNav,
+    refreshFromRegistry: refreshFromRegistry,
   };
 });
