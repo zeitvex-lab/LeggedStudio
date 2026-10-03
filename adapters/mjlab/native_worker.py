@@ -232,11 +232,14 @@ def collect_curriculum_snapshot(env) -> dict:
     return snapshot
 
 
-def wrap_runner_with_checkpoint_export(runner_cls, metadata_builder):
+def wrap_runner_with_checkpoint_export(runner_cls, metadata_builder, hooks=None):
     """包一层 runner：每次 save checkpoint 时同步导出 onnx 并盖章部署元数据。
 
     仅对 MjlabOnPolicyRunner 及其子类生效；其他 runner 原样返回。
     metadata_builder(runner) 返回元数据 dict；导出失败只打印，不中断训练。
+    hooks（Phase 3 插件化，2026-10-03）：``on_checkpoint`` 切点位——每次 save 后
+    同步执行（adapters/mjlab/training_hooks.py::run_hooks，fail-soft 带超时预算）；
+    档案/config 的 ``hooks.on_checkpoint`` 声明消费者（首个 = tools.trend_probe_hook）。
     """
     try:
         from mjlab.rl import MjlabOnPolicyRunner
@@ -247,6 +250,7 @@ def wrap_runner_with_checkpoint_export(runner_cls, metadata_builder):
 
     class ExportingRunner(runner_cls):  # type: ignore[misc,valid-type]
         _deploy_metadata_builder = staticmethod(metadata_builder)
+        _hooks = list(hooks or [])
 
         def save(self, path: str, infos=None) -> None:
             super().save(path, infos)
@@ -263,6 +267,18 @@ def wrap_runner_with_checkpoint_export(runner_cls, metadata_builder):
                     attach_metadata_to_onnx(str(export_path), metadata)
             except Exception as exc:
                 print(f"[native_worker] checkpoint onnx export failed: {exc}")
+            if self._hooks:
+                try:
+                    from adapters.mjlab.training_hooks import run_hooks
+
+                    run_hooks("on_checkpoint", self._hooks, {
+                        "run_dir": str(Path(path).parent.parent),
+                        "checkpoint_path": str(path),
+                        "iteration": getattr(self, "current_learning_iteration", 0),
+                        "report": {k: self.report.get(k) for k in self.report} if hasattr(self, "report") else {},
+                    })
+                except Exception as exc:
+                    print(f"[native_worker] hooks dispatch failed: {exc}")
 
     return ExportingRunner
 
@@ -509,7 +525,10 @@ def run(config: dict, source: Path, output: Path, extension_root: Path | None = 
                 joint_names = action_joint_order(r.env.unwrapped, _contract)
                 return build_deploy_metadata(r.env.unwrapped, _rl_cfg, joint_names)
 
-            runner_type = wrap_runner_with_checkpoint_export(runner_type, _checkpoint_metadata)
+            from adapters.mjlab.training_hooks import load_hooks
+
+            _hooks = load_hooks(config, "on_checkpoint")
+            runner_type = wrap_runner_with_checkpoint_export(runner_type, _checkpoint_metadata, hooks=_hooks)
             runner = runner_type(wrapped, asdict(rl_cfg), str(output), device)
 
             # Resume-from-checkpoint (Feature 13): when the config carries a
