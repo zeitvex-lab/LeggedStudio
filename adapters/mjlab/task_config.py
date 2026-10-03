@@ -245,14 +245,16 @@ def find_training_profile(package: dict, profile_id: str | None) -> dict | None:
     if not profile_id:
         return None
     root = Path(str(package.get("package_root", ""))) / "training" / "profiles"
-    for path in sorted(root.glob("*.json")):
-        try:
-            profile = json.loads(path.read_text(encoding="utf-8-sig"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if profile.get("profile_id") == profile_id:
-            return profile
-    raise ValueError(f"training profile not found in robot package: {profile_id}")
+    from adapters.mjlab.profile_extends import find_profile_path, resolve_profile_extends
+
+    path = find_profile_path(root, profile_id)
+    if path is None:
+        raise ValueError(f"training profile not found in robot package: {profile_id}")
+    # Phase 2 插件化（2026-10-02）：extends 链在此展开——所有下游
+    # （load_profile_bundle/native_worker/冒烟指纹）看到的都是**全量视图**，
+    # 装配器无感知；无 extends 的档案原样返回（存量零迁移）。
+    raw = json.loads(path.read_text(encoding="utf-8-sig"))
+    return resolve_profile_extends(raw, root)
 
 
 def load_profile_bundle(profile: dict, package: dict, config: dict):
