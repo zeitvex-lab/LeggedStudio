@@ -1,6 +1,6 @@
 {
  "schema": "training-reachability-1.0",
- "generated_at": "2026-09-24T00:46:21+00:00",
+ "generated_at": "2026-10-03T07:34:16+00:00",
  "note": "「可达性」判据见 tools/audit_training_reachability.py 头部 docstring；deletable 只是候选，删前仍需 audit_porting_admission + 逐 profile 冒烟。",
  "robots": {
   "deeprobotics_lite3": {
@@ -9,11 +9,14 @@
     "assets/robots/deeprobotics_lite3/training/source"
    ],
    "seed_modules": [
+    "lite3_backflip.config",
+    "lite3_jump.config",
+    "lite3_trot.config",
     "lite3_velocity.env_cfg"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 4,
-   "reachable_count": 4,
+   "module_count": 15,
+   "reachable_count": 15,
    "unreachable_count": 0,
    "protected_ancestors": [],
    "deletable": [],
@@ -26,11 +29,13 @@
    ],
    "seed_modules": [
     "m20_dreamwaq.config",
-    "m20_velocity.env_cfgs"
+    "m20_velocity.env_cfgs",
+    "m20_velocity.rl_cfg",
+    "m20_velocity.traversal_env_cfg"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 18,
-   "reachable_count": 17,
+   "module_count": 20,
+   "reachable_count": 19,
    "unreachable_count": 1,
    "protected_ancestors": [],
    "deletable": [
@@ -44,11 +49,19 @@
     "assets/robots/unitree_b2/training/source"
    ],
    "seed_modules": [
-    "b2_velocity.env_cfg"
+    "b2_backflip.config",
+    "b2_cts.config",
+    "b2_hand_stand.config",
+    "b2_jump.config",
+    "b2_rear_stand.config",
+    "b2_spring_jump.config",
+    "b2_trot.config",
+    "b2_velocity.env_cfg",
+    "b2_wtw.env_cfg"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 3,
-   "reachable_count": 3,
+   "module_count": 28,
+   "reachable_count": 28,
    "unreachable_count": 0,
    "protected_ancestors": [],
    "deletable": [],
@@ -65,8 +78,8 @@
     "b2w_velocity.traversal_env_cfg"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 8,
-   "reachable_count": 8,
+   "module_count": 7,
+   "reachable_count": 7,
    "unreachable_count": 0,
    "protected_ancestors": [],
    "deletable": [],
@@ -79,12 +92,15 @@
    ],
    "seed_modules": [
     "go1_amp.config",
+    "go1_backflip.config",
     "go1_jump.config",
+    "go1_trot.config",
+    "go1_velocity",
     "go1_velocity.env_cfg"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 9,
-   "reachable_count": 9,
+   "module_count": 17,
+   "reachable_count": 17,
    "unreachable_count": 0,
    "protected_ancestors": [],
    "deletable": [],
@@ -105,7 +121,9 @@
     "local_tasks.robots.unitree.go2.tasks.go2_skills.rear_stand.config",
     "local_tasks.robots.unitree.go2.tasks.go2_skills.spring_jump.config",
     "local_tasks.robots.unitree.go2.tasks.go2_skills.trot.config",
+    "local_tasks.robots.unitree.go2.tasks.locomotion.traversal_env_cfg",
     "local_tasks.robots.unitree.go2.tasks.locomotion.variants",
+    "local_tasks.robots.unitree.go2.tasks.locomotion.velocity",
     "local_tasks.robots.unitree.go2.tasks.locomotion.wtw",
     "local_tasks.robots.unitree.go2.tasks.parkour.config.go2.env_cfgs",
     "local_tasks.robots.unitree.go2.tasks.parkour.config.go2.rl_cfg",
@@ -114,8 +132,8 @@
     "local_tasks.robots.unitree.go2.training.runner"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 142,
-   "reachable_count": 142,
+   "module_count": 117,
+   "reachable_count": 117,
    "unreachable_count": 0,
    "protected_ancestors": [],
    "deletable": [],
@@ -127,7 +145,9 @@
     "assets/robots/unitree_go2w/training/source"
    ],
    "seed_modules": [
-    "go2w_velocity"
+    "go2w_velocity",
+    "go2w_velocity.rl_cfg",
+    "go2w_velocity.traversal_env_cfg"
    ],
    "entrypoints_unresolved": [],
    "module_count": 7,
@@ -147,13 +167,11 @@
     "robot.config.rl_cfg"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 15,
-   "reachable_count": 14,
-   "unreachable_count": 1,
+   "module_count": 17,
+   "reachable_count": 17,
+   "unreachable_count": 0,
    "protected_ancestors": [],
-   "deletable": [
-    "robot.mdp.mode_command"
-   ],
+   "deletable": [],
    "warning": null
   }
  }
