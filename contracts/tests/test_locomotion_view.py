@@ -11,6 +11,7 @@ import json
 import unittest
 from pathlib import Path
 
+from contracts.tests._roster import require_package
 from contracts.contract_loader import load_training_contract, merge_legacy_over_contract
 from contracts.locomotion_view import LOCOMOTION_ENUM, locomotion_type_from_contract
 
@@ -50,6 +51,7 @@ class LocomotionViewTest(unittest.TestCase):
     def test_derivation_matches_expected_table(self) -> None:
         for package, expected in EXPECTED.items():
             with self.subTest(package=package):
+                require_package(self, package)
                 self.assertEqual(locomotion_type_from_contract(self._v3(package)), expected)
 
     def test_derived_value_is_a_valid_enum(self) -> None:

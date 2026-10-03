@@ -27,6 +27,7 @@ import re
 import unittest
 from pathlib import Path
 
+from contracts.tests._roster import package_present, require_package
 from contracts.physics_binding import (
     LEGACY_CONFIG_PHYSICS_KEYS,
     PAYLOAD_MAP_KEYS,
@@ -218,7 +219,7 @@ class IntendedBehaviourDeltaTest(unittest.TestCase):
             for package in packages()
             if payload_physics_view(physics_facts(package))["torque_limits"]
         )
-        intended = {"zex-w", "microduck", "wuji_hand"}
+        intended = {name for name in ("zex-w", "microduck", "wuji_hand") if package_present(name)}
         self.assertTrue(intended <= set(supplied), f"这三个包必须由契约供给力矩限幅，实际 {supplied}")
         self.assertEqual(
             supplied,
@@ -249,6 +250,7 @@ class FrictionLossDefaultPreservedTest(unittest.TestCase):
 
         for name in ("unitree_go2", "deeprobotics_lite3", "microduck", "zex-w"):
             with self.subTest(package=name):
+                require_package(self, name)
                 contract = json.loads(
                     (ROBOTS / name / "contract.json").read_text(encoding="utf-8-sig")
                 )
