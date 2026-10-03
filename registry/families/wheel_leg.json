@@ -1,204 +1,244 @@
 {
-  "schema_version": "family-1.0",
-  "family_id": "wheel_leg",
-  "display_name": "轮足",
-  "note": "族级约定的**唯一真值**：族内任一机型据此复用同一套技能训练配方。成员与关节角色不在这里硬编码——成员由各契约的 morphology.id 派生，本文件声明的是约定（角色骨架、控制率、技能矩阵），audit_families.py 逐台核对。",
-  "morphology_ids": [
-    "wheel_leg_16dof"
+ "schema_version": "family-1.0",
+ "family_id": "wheel_leg",
+ "display_name": "轮足",
+ "note": "族级约定的**唯一真值**：族内任一机型据此复用同一套技能训练配方。成员与关节角色不在这里硬编码——成员由各契约的 morphology.id 派生，本文件声明的是约定（角色骨架、控制率、技能矩阵），audit_families.py 逐台核对。",
+ "morphology_ids": [
+  "wheel_leg_16dof"
+ ],
+ "locomotion_type": "W",
+ "legs": 4,
+ "joint_roles": [
+  "hip_abduction",
+  "hip_pitch",
+  "knee",
+  "wheel"
+ ],
+ "role_aliases": {
+  "hip_abduction": [
+   "hip",
+   "hipx",
+   "hip_abduction"
   ],
-  "locomotion_type": "W",
-  "legs": 4,
-  "joint_roles": [
-    "hip_abduction",
-    "hip_pitch",
-    "knee",
-    "wheel"
+  "hip_pitch": [
+   "thigh",
+   "hipy",
+   "hip_pitch"
   ],
-  "role_aliases": {
-    "hip_abduction": [
-      "hip",
-      "hipx",
-      "hip_abduction"
+  "knee": [
+   "calf",
+   "knee"
+  ],
+  "wheel": [
+   "wheel"
+  ]
+ },
+ "control_hz": 50,
+ "observation_skeleton": {
+  "note": "族级观测骨架：actor 的**项序列**按此为准（顺序即布局，策略输入据此定宽）。宽度不写死——关节类项的宽度随族关节数（16 = 4 腿 × 4 角色）派生，其余为常量。critic_only 项只进评价网络（特权信息），不进 actor。（2026-09-24：族内观测已**统一**，原先登记的两处偏差（go1 的 base_lin_vel、zex-w 的轮速单列）已随统一消除——分支前训练的上游策略仍按各自声明布局运行（门禁归 `policy_explained`，不算包级错）。）",
+  "actor": [
+   "base_ang_vel",
+   "projected_gravity",
+   "commands",
+   "joint_pos",
+   "joint_vel",
+   "last_action"
+  ],
+  "critic_only": [
+   "base_lin_vel"
+  ],
+  "width_source": {
+   "base_ang_vel": 3,
+   "projected_gravity": 3,
+   "commands": 3,
+   "joint_pos": "legs × 每腿角色数（轮足 = 16，含轮）",
+   "joint_vel": "同 joint_pos",
+   "last_action": "动作维 = 关节数（轮足 = 16）"
+  },
+  "deviations": {}
+ },
+ "members": [
+  "deeprobotics_m20",
+  "unitree_b2w",
+  "unitree_go2w",
+  "zex-w"
+ ],
+ "skills": [
+  {
+   "skill_id": "velocity",
+   "display_name": "速度跟踪",
+   "status": "generic",
+   "summary": "族级通用：轮足 Kit（mdp/ + velocity_env_cfg）承载框架层，任务变体表来自 registry/skills/velocity_base.json，任一成员可直接训。",
+   "terrain_profiles": [
+    "plane",
+    "rough",
+    "stairs"
+   ],
+   "task_names": [
+    "velocity",
+    "velocity_rough",
+    "forward_walk",
+    "rough_terrain",
+    "stairs",
+    "go2w_velocity_flat",
+    "go2w_velocity_rough",
+    "go2w_velocity_legs_only",
+    "go2w_velocity_legs_only_omni",
+    "Unitree-M20-DreamWaQ-Rough"
+   ],
+   "task_variants_ref": "registry/skills/velocity_base.json#tasks",
+   "evidence": "2026-09-24 族内全员真跑冒烟通过（4/4）：`python tools/validate_training_smoke.py --robot <id> --profile <velocity 档>` —— m20-velocity / b2w-velocity / go2w-flat / zex-w-flat 各 1 ok。2026-09-29 追加：go2w-flat-legs-only / go2w-flat-legs-only-omni 两档 vendored 补登，16×5 训练冒烟各 1 ok（workspace/validation/go2w-legs-only-smoke.json / go2w-legs-omni-smoke.json）。",
+   "note": "M20 的 DreamWaQ 与 zex-w 的 crawl 档同归此技能（同技能的算法/步态变体，不另立技能类）。",
+   "capability_map": {
+    "plane": "flat_tracking",
+    "rough": "rough_traversal",
+    "stairs": "rough_traversal"
+   },
+   "capability_task_split": {
+    "flat_tracking": [
+     "velocity",
+     "forward_walk",
+     "go2w_velocity_flat",
+     "go2w_velocity_legs_only",
+     "go2w_velocity_legs_only_omni"
     ],
-    "hip_pitch": [
-      "thigh",
-      "hipy",
-      "hip_pitch"
-    ],
-    "knee": [
-      "calf",
-      "knee"
-    ],
-    "wheel": [
-      "wheel"
+    "rough_traversal": [
+     "velocity_rough",
+     "rough_terrain",
+     "stairs",
+     "go2w_velocity_rough",
+     "Unitree-M20-DreamWaQ-Rough"
     ]
+   },
+   "empirical_grades": {
+    "source": "用户（zex-w 代码作者本人，2026-10-03 口述真值，权威级）",
+    "flat_tracking": "一般——可用但非亮点",
+    "rough_traversal": "可用——zex-w-rough 实证锚点，轮足族当前最硬的能力证据",
+    "low_clearance": "不可用——crawl 档用户实测不可用（冒烟通过=装配成立≠能力成立）"
+   },
+   "empirical_grades_note": "产品含义：轮足族的越障产品路径应以 rough_traversal（zex-w-rough 配方 × 族级课程）为主轴——这是唯一有作者背书的可用档；flat_tracking 是可用基座；crawl 需重做或显式降级，不进产品档。"
   },
-  "control_hz": 50,
-  "observation_skeleton": {
-    "note": "族级观测骨架：actor 的**项序列**按此为准（顺序即布局，策略输入据此定宽）。宽度不写死——关节类项的宽度随族关节数（16 = 4 腿 × 4 角色）派生，其余为常量。critic_only 项只进评价网络（特权信息），不进 actor。（2026-09-24：族内观测已**统一**，原先登记的两处偏差（go1 的 base_lin_vel、zex-w 的轮速单列）已随统一消除——分支前训练的上游策略仍按各自声明布局运行（门禁归 `policy_explained`，不算包级错）。）",
-    "actor": [
-      "base_ang_vel",
-      "projected_gravity",
-      "commands",
-      "joint_pos",
-      "joint_vel",
-      "last_action"
-    ],
-    "critic_only": [
-      "base_lin_vel"
-    ],
-    "width_source": {
-      "base_ang_vel": 3,
-      "projected_gravity": 3,
-      "commands": 3,
-      "joint_pos": "legs × 每腿角色数（轮足 = 16，含轮）",
-      "joint_vel": "同 joint_pos",
-      "last_action": "动作维 = 关节数（轮足 = 16）"
-    },
-    "deviations": {}
-  },
-  "members": [
-    "deeprobotics_m20",
+  {
+   "skill_id": "traversal",
+   "display_name": "越障",
+   "status": "robot-specific",
+   "summary": "族级越障课程（竞赛地形集 + 障碍释放课程）已是**族级模块**：`adapters/mjlab/kits/wheel_leg_kit/traversal_env_cfg.py`（地形定义在 kit `terrains/`，课程项在 kit `mdp/terrain_curriculums.py`）；档案侧按机型装配，课程不再是某一台的包内实现。",
+   "terrain_profiles": [
+    "stairs",
+    "obstacle_release",
+    "competition"
+   ],
+   "task_names": [
+    "traversal_obstacle_release"
+   ],
+   "members_with_recipe": [
     "unitree_b2w",
     "unitree_go2w",
-    "zex-w"
+    "deeprobotics_m20"
+   ],
+   "gap": "剩余缺口：①**策略级越障验收尚未拿到「通过」** —— 验收器已端到端跑通（`tools/validate_traversal_progress.py`）：课程侧三档全过，策略侧在 `b2w-traversal` 上用 **300 迭代 × 1024 环境**的欠训策略**判 fail**（20 s 内位移均值 0.47 m / 最大 0.70 m，判据线是与课程晋级同一条的 4.0 m；地形等级均值 0.009）—— **判据会真的红，不是橡皮章**；要拿「通过」的证据需要一轮到位预算的训练（当前吞吐约 1.4 s/迭代 ⇒ 2000 迭代约 47 分钟）；②`zex-w` 不另立越障档案 —— 它的 `zex-w-rough` 已是**同一套族级课程**，只是 task_name 归速度跟踪；③四台的越障档都**未各自标定**课程节奏（释放步数与地块配比是族默认）。",
+   "partial_evidence": "真跑背书（2026-09-25）：`unitree_b2w--b2w-traversal` 冒烟通过 —— 与 `zex-w-rough` 用的是**同一套族级课程**（同一个课程工厂函数 + 同一组释放日程 4800/12000/16800 env steps + 同一份竞赛地形集），包内不复制课程数值；zex-w 侧等价性有逐项对拍证据（`workspace/validation/zexw-traversal-equivalence.json`，terrain+curriculum 0 差异）。",
+   "capability_map": {
+    "stairs": "rough_traversal",
+    "obstacle_release": "obstacle_course",
+    "competition": "obstacle_course"
+   }
+  },
+  {
+   "skill_id": "imitation",
+   "display_name": "动作模仿",
+   "status": "missing",
+   "summary": "轮足族暂无动作模仿配方。",
+   "terrain_profiles": [],
+   "task_names": [],
+   "members_with_recipe": [],
+   "requires": [
+    "motions"
+   ],
+   "gap": "族级化需要：动作库补齐轮足参考动作 + AMP 配方按族登记（当前 motions 与 AMP 档案均以四足 go2 为唯一来源）。"
+  },
+  {
+   "skill_id": "stunt",
+   "display_name": "特技",
+   "status": "missing",
+   "summary": "轮足族暂无特技配方。",
+   "terrain_profiles": [],
+   "task_names": [],
+   "members_with_recipe": [],
+   "gap": "族级化需要：先明确轮足特技的定义与判据（轮足能做哪些极限动作），再立项配方。"
+  }
+ ],
+ "mjcf_conventions": {
+  "note": "族内 MJCF 约定（**规范化后**必须成立的口径；偏离逐条登记在 mjcf_deviations，登记了又与实测一致也判红——防静默统一/静默放宽）。摘要与基线落 tools/baselines/family_mjcf.json。",
+  "actuator_binding": "cfg_declared",
+  "actuator_binding_note": "执行器声明归属：mjcf_wrapped = MJCF 为准、cfg 只包装（quadruped_kit.position_actuator_trio 的 XmlActuatorCfg，B28/B35 裁决）；cfg_declared = MJCF 不带执行器或一律撤掉、由 cfg/Kit 声明 builtin 组。",
+  "sensors_named": true,
+  "margin_policy": "zero",
+  "margin_policy_note": "zero = 模型不带非零 geom margin；带非零的由通用路径条件关 MULTICCD/NATIVECCD（登记为 warp_ccd_off），不抹 margin（那是物理参数）。",
+  "sensor_policy": "training_only",
+  "sensors_keep": [
+   "imu_ang_vel",
+   "imu_lin_vel",
+   "root_angmom"
   ],
-  "skills": [
-    {
-      "skill_id": "velocity",
-      "display_name": "速度跟踪",
-      "status": "generic",
-      "summary": "族级通用：轮足 Kit（mdp/ + velocity_env_cfg）承载框架层，任务变体表来自 registry/skills/velocity_base.json，任一成员可直接训。",
-      "terrain_profiles": [
-        "plane",
-        "rough",
-        "stairs"
-      ],
-      "task_names": [
-        "velocity",
-        "velocity_rough",
-        "forward_walk",
-        "rough_terrain",
-        "stairs",
-        "go2w_velocity_flat",
-        "go2w_velocity_rough",
-        "go2w_velocity_legs_only",
-        "go2w_velocity_legs_only_omni",
-        "Unitree-M20-DreamWaQ-Rough"
-      ],
-      "task_variants_ref": "registry/skills/velocity_base.json#tasks",
-      "evidence": "2026-09-24 族内全员真跑冒烟通过（4/4）：`python tools/validate_training_smoke.py --robot <id> --profile <velocity 档>` —— m20-velocity / b2w-velocity / go2w-flat / zex-w-flat 各 1 ok。2026-09-29 追加：go2w-flat-legs-only / go2w-flat-legs-only-omni 两档 vendored 补登，16×5 训练冒烟各 1 ok（workspace/validation/go2w-legs-only-smoke.json / go2w-legs-omni-smoke.json）。",
-      "note": "M20 的 DreamWaQ 与 zex-w 的 crawl 档同归此技能（同技能的算法/步态变体，不另立技能类）。"
-    },
-    {
-      "skill_id": "traversal",
-      "display_name": "越障",
-      "status": "robot-specific",
-      "summary": "族级越障课程（竞赛地形集 + 障碍释放课程）已是**族级模块**：`adapters/mjlab/kits/wheel_leg_kit/traversal_env_cfg.py`（地形定义在 kit `terrains/`，课程项在 kit `mdp/terrain_curriculums.py`）；档案侧按机型装配，课程不再是某一台的包内实现。",
-      "terrain_profiles": [
-        "stairs",
-        "obstacle_release",
-        "competition"
-      ],
-      "task_names": [
-        "traversal_obstacle_release"
-      ],
-      "members_with_recipe": [
-        "unitree_b2w",
-        "unitree_go2w",
-        "deeprobotics_m20"
-      ],
-      "gap": "剩余缺口：①**策略级越障验收尚未拿到「通过」** —— 验收器已端到端跑通（`tools/validate_traversal_progress.py`）：课程侧三档全过，策略侧在 `b2w-traversal` 上用 **300 迭代 × 1024 环境**的欠训策略**判 fail**（20 s 内位移均值 0.47 m / 最大 0.70 m，判据线是与课程晋级同一条的 4.0 m；地形等级均值 0.009）—— **判据会真的红，不是橡皮章**；要拿「通过」的证据需要一轮到位预算的训练（当前吞吐约 1.4 s/迭代 ⇒ 2000 迭代约 47 分钟）；②`zex-w` 不另立越障档案 —— 它的 `zex-w-rough` 已是**同一套族级课程**，只是 task_name 归速度跟踪；③四台的越障档都**未各自标定**课程节奏（释放步数与地块配比是族默认）。",
-      "partial_evidence": "真跑背书（2026-09-25）：`unitree_b2w--b2w-traversal` 冒烟通过 —— 与 `zex-w-rough` 用的是**同一套族级课程**（同一个课程工厂函数 + 同一组释放日程 4800/12000/16800 env steps + 同一份竞赛地形集），包内不复制课程数值；zex-w 侧等价性有逐项对拍证据（`workspace/validation/zexw-traversal-equivalence.json`，terrain+curriculum 0 差异）。"
-    },
-    {
-      "skill_id": "imitation",
-      "display_name": "动作模仿",
-      "status": "missing",
-      "summary": "轮足族暂无动作模仿配方。",
-      "terrain_profiles": [],
-      "task_names": [],
-      "members_with_recipe": [],
-      "requires": [
-        "motions"
-      ],
-      "gap": "族级化需要：动作库补齐轮足参考动作 + AMP 配方按族登记（当前 motions 与 AMP 档案均以四足 go2 为唯一来源）。"
-    },
-    {
-      "skill_id": "stunt",
-      "display_name": "特技",
-      "status": "missing",
-      "summary": "轮足族暂无特技配方。",
-      "terrain_profiles": [],
-      "task_names": [],
-      "members_with_recipe": [],
-      "gap": "族级化需要：先明确轮足特技的定义与判据（轮足能做哪些极限动作），再立项配方。"
-    }
-  ],
-  "mjcf_conventions": {
-    "note": "族内 MJCF 约定（**规范化后**必须成立的口径；偏离逐条登记在 mjcf_deviations，登记了又与实测一致也判红——防静默统一/静默放宽）。摘要与基线落 tools/baselines/family_mjcf.json。",
-    "actuator_binding": "cfg_declared",
-    "actuator_binding_note": "执行器声明归属：mjcf_wrapped = MJCF 为准、cfg 只包装（quadruped_kit.position_actuator_trio 的 XmlActuatorCfg，B28/B35 裁决）；cfg_declared = MJCF 不带执行器或一律撤掉、由 cfg/Kit 声明 builtin 组。",
-    "sensors_named": true,
-    "margin_policy": "zero",
-    "margin_policy_note": "zero = 模型不带非零 geom margin；带非零的由通用路径条件关 MULTICCD/NATIVECCD（登记为 warp_ccd_off），不抹 margin（那是物理参数）。",
-    "sensor_policy": "training_only",
-    "sensors_keep": [
-      "imu_ang_vel",
-      "imu_lin_vel",
-      "root_angmom"
-    ],
-    "sensor_policy_note": "training_only = 训练/仿真**按名消费**的 XML 传感器才留（`mdp.builtin_sensor` 的三处引用），其余声明全撤——撤掉的是没人读的 sensordata 声明，物理量不动；无名传感器也一并撤。实现：adapters/mjlab/spec_utils.py::normalize_for_training（两条训练路径与族 Kit 共用一个入口）。",
-    "naming": {
-      "root_body": "base_link",
-      "note": "**body 命名统一为 `base_link`**（2026-09-24 起点：契约资产里 go2 原为 `base`、lite3 原为 `TORSO`，其余 6 台已是 `base_link`；两处已随族约定改名并重签契约 `urdf.hash`）。joint / geom / site / sensor 名沿用上游资产（角色语义由契约 `action.joint_order` 与族 `role_aliases` 承载，碰撞具名由 CollisionCfg 按正则重建）——**不追求字符串一致，只统一被语义引用的名字**。"
-    }
+  "sensor_policy_note": "training_only = 训练/仿真**按名消费**的 XML 传感器才留（`mdp.builtin_sensor` 的三处引用），其余声明全撤——撤掉的是没人读的 sensordata 声明，物理量不动；无名传感器也一并撤。实现：adapters/mjlab/spec_utils.py::normalize_for_training（两条训练路径与族 Kit 共用一个入口）。",
+  "naming": {
+   "root_body": "base_link",
+   "note": "**body 命名统一为 `base_link`**（2026-09-24 起点：契约资产里 go2 原为 `base`、lite3 原为 `TORSO`，其余 6 台已是 `base_link`；两处已随族约定改名并重签契约 `urdf.hash`）。joint / geom / site / sensor 名沿用上游资产（角色语义由契约 `action.joint_order` 与族 `role_aliases` 承载，碰撞具名由 CollisionCfg 按正则重建）——**不追求字符串一致，只统一被语义引用的名字**。"
+  }
+ },
+ "mjcf_deviations": {
+  "unitree_b2w": {
+   "actuator_binding": {
+    "value": "mjcf_wrapped",
+    "why": "包内自建 XmlActuatorCfg 包装 MJCF 真值（b2w_constants.py），与四足口径一致但未走族 Kit —— 待收口"
+   }
   },
-  "mjcf_deviations": {
-    "unitree_b2w": {
-      "actuator_binding": {
-        "value": "mjcf_wrapped",
-        "why": "包内自建 XmlActuatorCfg 包装 MJCF 真值（b2w_constants.py），与四足口径一致但未走族 Kit —— 待收口"
-      }
-    },
-    "unitree_go2w": {
-      "margin_policy": {
-        "value": "warp_ccd_off",
-        "why": "model/robot.xml 的 default class 上 margin=0.001（上游资产），不抹物理量，由通用路径条件关 CCD 开关"
-      }
-    }
+  "unitree_go2w": {
+   "margin_policy": {
+    "value": "warp_ccd_off",
+    "why": "model/robot.xml 的 default class 上 margin=0.001（上游资产），不抹物理量，由通用路径条件关 CCD 开关"
+   }
+  }
+ },
+ "skill_catalog": {
+  "velocity": {
+   "env": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.config:make_env_cfg",
+   "runner": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.config:make_runner_cfg",
+   "derive": [
+    "init_base_height",
+    "wheel_radius",
+    "wheel_track"
+   ],
+   "note": "族级轮足 velocity（reference 配方的**平地档**）：机型只交三样事实（出生高 / 轮半径 / 轮距，`derive` 声明由装配器从契约 + MJCF 派生），其余用参考配方常量（`reference_flat_profile`）。rough / official / competition 等档位按同一先例挂新装配表项即可。",
+   "verified": "**装配 + 真训四台全通（2026-09-27）**：`unitree_b2w` / `unitree_go2w` / `deeprobotics_m20` / `zex-w` 都只凭契约 + MJCF（标准位置/速度执行器、轮 body 名含 `wheel`）装配出轮足 velocity 的 env/runner，机型侧零 Python；四台各自**真跑 1 iter PPO 通过**（`tools/validate_family_skill_assembly.py --iterations 1`，num_envs=1，各产出 model_0.pt）。其中 b2w / m20 与包内逐档档案对拍**解析集相同**（字面差异是执行器分组写法），go2w / zex-w 因档案 `task_name` 不是 `velocity` 跳过对拍。派生的事实：出生高（默认姿 FK）、轮半径/轮距（轮 body 与其几何；b2w 得 0.113 / 0.3833，与 F7 记的真值一致）、`actuator_binding`（执行器全在 MJCF ⇒ `mjcf_wrapped`，b2w 正是这一类）。**真训两处阻断已修（都是族级口径，不是机型胶水）**：① sim 缓冲规模 —— 源配方的 `nconmax=35 / njmax=300` 是按 go2w 手调的，b2w 真跑报 `nconmax overflow (nconmax must be >= 40)`；改为装配表声明 `sim_sizing`（null = 交 mjwarp 按资产启发式）。② 非零 margin 资产的 CCD 开关 —— 族注册表早已把 go2w 登记为 `warp_ccd_off`，但只有 `generic_task_builder` 那条路实现了该口径，族级装配漏了，go2w 真跑报 `NotImplementedError: geom pair (terrain_0, 559) has non-zero margin ((0.0, 0.001)) with MULTICCD enabled`；改为族级装配复用同一个资产判据（`generic_task_builder.ccd_disable_flags`），margin 本身不抹。",
+   "requires_note": "**不声明 `requires`**：轮足 velocity 的观测/传感器口径与四足不同，四足那条 `imu_sensors` 是抄来的、在本族被实测证伪（b2w/m20/go2w 都没有按名保留的 imu_lin_vel/imu_ang_vel，却能训）。待把本族的资产能力需求（轮-地接触几何命名等）量清后再声明。",
+   "profile_factory": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.profile:reference_flat_profile",
+   "sim_sizing": {
+    "nconmax": null,
+    "njmax": null
+   },
+   "sim_sizing_note": "sim 缓冲规模交给 mjwarp 按资产启发式定：源配方的 nconmax=35 / njmax=300 是按 go2w 那台资产手调的，换一台就溢出（实测 b2w 真跑 1 轮报 `nconmax overflow (nconmax must be >= 40)`）。缓冲不是物理量，族级装配统一声明 null，新机型无需为此写机型侧数据。"
   },
-  "skill_catalog": {
-    "velocity": {
-      "env": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.config:make_env_cfg",
-      "runner": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.config:make_runner_cfg",
-      "derive": [
-        "init_base_height",
-        "wheel_radius",
-        "wheel_track"
-      ],
-      "note": "族级轮足 velocity（reference 配方的**平地档**）：机型只交三样事实（出生高 / 轮半径 / 轮距，`derive` 声明由装配器从契约 + MJCF 派生），其余用参考配方常量（`reference_flat_profile`）。rough / official / competition 等档位按同一先例挂新装配表项即可。",
-      "verified": "**装配 + 真训四台全通（2026-09-27）**：`unitree_b2w` / `unitree_go2w` / `deeprobotics_m20` / `zex-w` 都只凭契约 + MJCF（标准位置/速度执行器、轮 body 名含 `wheel`）装配出轮足 velocity 的 env/runner，机型侧零 Python；四台各自**真跑 1 iter PPO 通过**（`tools/validate_family_skill_assembly.py --iterations 1`，num_envs=1，各产出 model_0.pt）。其中 b2w / m20 与包内逐档档案对拍**解析集相同**（字面差异是执行器分组写法），go2w / zex-w 因档案 `task_name` 不是 `velocity` 跳过对拍。派生的事实：出生高（默认姿 FK）、轮半径/轮距（轮 body 与其几何；b2w 得 0.113 / 0.3833，与 F7 记的真值一致）、`actuator_binding`（执行器全在 MJCF ⇒ `mjcf_wrapped`，b2w 正是这一类）。**真训两处阻断已修（都是族级口径，不是机型胶水）**：① sim 缓冲规模 —— 源配方的 `nconmax=35 / njmax=300` 是按 go2w 手调的，b2w 真跑报 `nconmax overflow (nconmax must be >= 40)`；改为装配表声明 `sim_sizing`（null = 交 mjwarp 按资产启发式）。② 非零 margin 资产的 CCD 开关 —— 族注册表早已把 go2w 登记为 `warp_ccd_off`，但只有 `generic_task_builder` 那条路实现了该口径，族级装配漏了，go2w 真跑报 `NotImplementedError: geom pair (terrain_0, 559) has non-zero margin ((0.0, 0.001)) with MULTICCD enabled`；改为族级装配复用同一个资产判据（`generic_task_builder.ccd_disable_flags`），margin 本身不抹。",
-      "requires_note": "**不声明 `requires`**：轮足 velocity 的观测/传感器口径与四足不同，四足那条 `imu_sensors` 是抄来的、在本族被实测证伪（b2w/m20/go2w 都没有按名保留的 imu_lin_vel/imu_ang_vel，却能训）。待把本族的资产能力需求（轮-地接触几何命名等）量清后再声明。",
-      "profile_factory": "adapters.mjlab.kits.wheel_leg_kit.skills.velocity.profile:reference_flat_profile",
-      "sim_sizing": {
-        "nconmax": null,
-        "njmax": null
-      },
-      "sim_sizing_note": "sim 缓冲规模交给 mjwarp 按资产启发式定：源配方的 nconmax=35 / njmax=300 是按 go2w 那台资产手调的，换一台就溢出（实测 b2w 真跑 1 轮报 `nconmax overflow (nconmax must be >= 40)`）。缓冲不是物理量，族级装配统一声明 null，新机型无需为此写机型侧数据。"
-    },
-    "crawl": {
-      "env": "robot.config.env_cfgs:crawl_env_cfg",
-      "mount": "package-local（zex-w 包内实现，族级化待趴姿实体进 binding 层）",
-      "note": "低净空匍匐钻杆（rc_old 同源）：RCLowBar 低杆地形 + 匍匐高度奖励（≤0.22m 单边核）+ 腿关节强回默认 + 轮滚主推进 + 趴姿实体配置 get_robot_crawl_cfg。2026-10-01 冒烟复验 16×5 ok。",
-      "family_gap": "族级化议题：趴姿实体（不同默认姿/执行器谱）是机型×技能交叉数据，需 binding 层扩展 crawl 专属实体字段后上移 kit；照 stance 技能先例（四足 handstand 共享装配机制）。",
-      "verified": "zex-w 16×5 装配冒烟 ok（2026-10-01 复验）；未真训。"
-    }
-  },
-  "skill_catalog_note": "族级技能的**装配表**（通用装配器 `adapters/mjlab/family_skill_builder.py` 读它）：按 `task_name` 声明env/runner 工厂与 profile 数据类；`derive` 声明「哪些 profile 参数由机型事实派生」（出生高 = 默认姿 FK 的站立高；轮半径/轮距 = 轮 body 与其几何）；`requires` 声明依赖哪些资产能力。新机型（含导入）只要契约 + 标准 MJCF 即可用这些技能，不需要机型专属 Python。`sim_sizing` 声明 sim 缓冲规模（nconmax/njmax；null = 交 mjwarp 按资产启发式定，因为源配方手调的缓冲值换一台资产就溢出）；带非零 geom margin 的资产由装配器按同一份资产判据条件关 MULTICCD/NATIVECCD（登记值 `warp_ccd_off`），margin 本身不抹。",
-  "kit": {
-    "kit_module": "adapters.mjlab.kits.wheel_leg_kit",
-    "binding_from_contract": "adapters.mjlab.kits.wheel_leg_kit.skills:from_contract"
-  },
-  "kit_note": "kit 自描述（Phase 1 插件化，2026-10-02）：通用装配器从这里读绑定工厂，family_skill_builder 不再写死族字典——新族=登记 JSON+写 kit，零核心改动。"
+  "crawl": {
+   "env": "robot.config.env_cfgs:crawl_env_cfg",
+   "mount": "package-local（zex-w 包内实现，族级化待趴姿实体进 binding 层）",
+   "note": "低净空匍匐钻杆（rc_old 同源）：RCLowBar 低杆地形 + 匍匐高度奖励（≤0.22m 单边核）+ 腿关节强回默认 + 轮滚主推进 + 趴姿实体配置 get_robot_crawl_cfg。2026-10-01 冒烟复验 16×5 ok。2026-10-03 用户实测裁决：crawl 档能力不可用（代码作者本人），冒烟通过只证装配成立；重做或降级属显式立项，不自动排期。",
+   "family_gap": "族级化议题：趴姿实体（不同默认姿/执行器谱）是机型×技能交叉数据，需 binding 层扩展 crawl 专属实体字段后上移 kit；照 stance 技能先例（四足 handstand 共享装配机制）。",
+   "verified": "zex-w 16×5 装配冒烟 ok（2026-10-01 复验）；未真训。"
+  }
+ },
+ "skill_catalog_note": "族级技能的**装配表**（通用装配器 `adapters/mjlab/family_skill_builder.py` 读它）：按 `task_name` 声明env/runner 工厂与 profile 数据类；`derive` 声明「哪些 profile 参数由机型事实派生」（出生高 = 默认姿 FK 的站立高；轮半径/轮距 = 轮 body 与其几何）；`requires` 声明依赖哪些资产能力。新机型（含导入）只要契约 + 标准 MJCF 即可用这些技能，不需要机型专属 Python。`sim_sizing` 声明 sim 缓冲规模（nconmax/njmax；null = 交 mjwarp 按资产启发式定，因为源配方手调的缓冲值换一台资产就溢出）；带非零 geom margin 的资产由装配器按同一份资产判据条件关 MULTICCD/NATIVECCD（登记值 `warp_ccd_off`），margin 本身不抹。",
+ "kit": {
+  "kit_module": "adapters.mjlab.kits.wheel_leg_kit",
+  "binding_from_contract": "adapters.mjlab.kits.wheel_leg_kit.skills:from_contract"
+ },
+ "kit_note": "kit 自描述（Phase 1 插件化，2026-10-02）：通用装配器从这里读绑定工厂，family_skill_builder 不再写死族字典——新族=登记 JSON+写 kit，零核心改动。",
+ "capability_classes": {
+  "flat_tracking": "平地速度跟踪（velocity × plane）",
+  "rough_traversal": "复杂地形通过 = 越障基础档（velocity × rough/stairs）——用户口径：这也是越障",
+  "obstacle_course": "专用越障课程（obstacle_release / competition：释放课程+竞赛地形集）",
+  "low_clearance": "低净空匍匐（crawl）"
+ },
+ "capability_classes_note": "能力 = 技能机制 × 地形类（用户裁决 2026-10-03：越障不是独立技能名，velocity 训在复杂地形上就是越障能力，分类必须显式表达）。技能条目用 capability_map（地形→能力类）与 capability_task_split（任务名按能力类分组）声明。"
 }
