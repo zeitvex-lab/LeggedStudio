@@ -371,7 +371,9 @@ def make_m20_dreamwaq_env_cfg(*, play: bool = False) -> ManagerBasedRlEnvCfg:
 
 
 def make_m20_dreamwaq_runner_cfg() -> RslRlOnPolicyRunnerCfg:
-  """Runner config wired to the local DreamWaQ actor/PPO extension."""
+  """Runner config（RslRl 默认 MLP actor/PPO——**不是** VAE 扩展。
+  包内 DreamWaQ VAE 扩展已删（不可达：从无 class_name 接线，本档实为
+  DreamWaQ 配方数值的 plain-PPO 档）；要真 VAE 走算法插件 dreamwaq。"""
   cfg = RslRlOnPolicyRunnerCfg(
     actor=RslRlModelCfg(
       hidden_dims=(512, 256, 128),
