@@ -20,7 +20,7 @@ import { resolveActuatorRolesAndModes, jointGroup } from "../web/sim2sim/obs/act
 
 const statePath = process.argv[2];
 if (!statePath) {
-  console.log(JSON.stringify({ ok: false, error: "用法: node tools/obs_crosscheck.mjs <state.json>" }));
+  console.log(JSON.stringify({ ok: false, error: `${error?.name || "Error"}: ${error?.message || error}` }));
   process.exit(2);
 }
 const D = JSON.parse(readFileSync(statePath, "utf8"));
@@ -64,7 +64,8 @@ const sim = {
   qvel,
   model: {
     njnt, geom_bodyid: null, jnt_bodyid: null,
-    jnt_qposadr: joints.map((j, i) => Number(j.qpos_adr ?? 7 + i)),
+    jnt_qposadr: mjState.jnt_qposadr || joints.map((j, i) => Number(j.qpos_adr ?? 7 + i)),
+    jnt_dofadr: mjState.jnt_dofadr || joints.map((j, i) => Number(j.dof_adr ?? 6 + i)),
     jnt_range: jntRange,
   },
   data: {
