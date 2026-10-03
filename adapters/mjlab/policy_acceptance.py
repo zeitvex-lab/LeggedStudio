@@ -361,6 +361,10 @@ class PackageContract:
             scale_by_joint.get(name.lower(), default_scale) for name in self.action_joint_order
         ]
         self.gait_period = float(self.contract.get("gait_period_s") or 0.6)
+        # 动作低通（部署契约的一部分，Phase 3 插件化 2026-10-03）：训练装配的
+        # cut_off/control 频率随 emit_assembly 下发；评测侧复刻同款滤波——
+        # 训练滤/评测不滤 = 同权重不同 Plant（混合档评测假摔根因之二）。
+        self.action_low_pass = self.contract.get("action_low_pass") or None
 
         self.velocity_scale = float(self.contract.get("velocity_scale") or self.sim.get("velocity_scale") or 1.0)
         # 双模型（encoder + policy）部署，如 LimX TRON1：encoder(proprio history) → latent
@@ -794,21 +798,22 @@ def _frame_go2w_mjlab_legs_53(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]
 
 
 def _frame_go2w_mjlab_hybrid_57(obs: "ObsBuilder", cmd: np.ndarray) -> list[float]:
-    """go2w 混合轮驱（mjlab velocity 基座）：**训练 actor 组序（env 自报实证 2026-10-02）**
-    ang, gravity, cmd, 腿 pos_rel(12), 腿 dq(12), 轮 pos wrap(4), 轮 dq(4), last_action(16)。
-    注意 contract_snapshot 的组件序是**部署视图**（joint_pos 16 融合）——快照序 ≠ 训练
-    观测序（本次布局错注册的根因）；真值 = 训练 env 的 ObservationManager 自报表。"""
+    """go2w 混合轮驱（mjlab velocity 基座）：**训练 actor 组序（env 自报实证 2026-10-03）**
+    ang, gravity, cmd, 腿 pos_rel(12), 腿 dq(12), 轮 pos_rel(4), 轮 dq(4), last_action(16)。
+    轮段 = kit `wheel_joint_pos_rel` = **plain joint_pos_rel（无 wrap）**——kit 观测项
+    定义即纯 pos-default；legs-53 的 wrap 是其配方语义，混合档不跟。
+    布局错注册教训：contract_snapshot 组件序是部署视图（16 融合）≠ 训练观测序。"""
     c = obs.contract
     _, ang_b, _ = obs.base_state()
     q = obs.data.qpos[3:7]
     legs = c.action_joint_order[:12]
-    wheels = c.wrap_pi_joints or ["FR_wheel_joint", "FL_wheel_joint", "RR_wheel_joint", "RL_wheel_joint"]
+    wheels = c.action_joint_order[12:]
     out = list(ang_b * c.ang_vel_scale) + list(projected_gravity(q)) + list(cmd * np.asarray(c.cmd_scale))
     out += [obs.data.qpos[obs.jadr[n][0]] - c.default_for(n) for n in legs]
     out += [obs.data.qvel[obs.jadr[n][1]] * c.dof_vel_scale for n in legs]
     for n in wheels:
         a = obs.jadr.get(n)
-        out.append(wrap_pi(obs.data.qpos[a[0]]) if a else 0.0)
+        out.append(obs.data.qpos[a[0]] - c.default_for(n) if a else 0.0)
     for n in wheels:
         a = obs.jadr.get(n)
         out.append(obs.data.qvel[a[1]] * c.dof_vel_scale if a else 0.0)
@@ -1564,11 +1569,58 @@ def actuator_for_joint(model, joint_name: str) -> int:
     return -1
 
 
+def _low_pass_alpha(cutoff_hz: float, control_hz: float, physics_hz: float) -> float:
+    """一阶低通离散系数 α = dt_eff/(rc + dt_eff)，rc = 1/(2π·fc)。
+
+    dt_eff = 1/control_hz（动作项自身的控制节拍，非物理步长）。"""
+    import math
+
+    dt_eff = 1.0 / max(control_hz, 1e-6)
+    rc = 1.0 / (2.0 * math.pi * max(cutoff_hz, 1e-6))
+    return dt_eff / (rc + dt_eff)
+
+
 def actuate(contract: PackageContract, model, data, obs: ObsBuilder, raw: np.ndarray) -> None:
     import mujoco
 
     c = contract
+    # 动作低通（训练装配 OrderedJointPosition/VelocityLowPassActionCfg 的评测复刻，
+    # Phase 3 插件化）：低通组按动作段声明（[{joints, cutoff_hz, control_frequency_hz}]），
+    # 滤波状态挂在 obs 上（每条 rollout 独立），无声明 = 直配（零行为差异）。
+    low_pass_groups = getattr(c, "action_low_pass", []) or []
+
+    def _lp_group(joint_name: str) -> dict | None:
+        for group in low_pass_groups:
+            if joint_name in (group.get("joints") or []):
+                return group
+        return None
+
+    if low_pass_groups and not hasattr(obs, "action_low_pass_state"):
+        obs.action_low_pass_state = {}
     if c.actuator_interface == "position_target":
+        for i, name in enumerate(c.action_joint_order):
+            aid = actuator_for_joint(model, name)
+            if aid < 0:
+                continue
+            if c.is_velocity_joint(name):
+                # 轮子速度控制（DreamWaQ/rc_mjlab 等）：ctrl = 期望速度 = action × velocity_scale
+                data.ctrl[aid] = raw[i] * c.velocity_scale
+            else:
+                target = raw[i] * c.action_scales[i] + c.default_for(name)
+                group = _lp_group(name)
+                if group:
+                    import math
+
+                    cutoff = float(group["cutoff_hz"])
+                    ctrl_hz = float(group["control_frequency_hz"])
+                    alpha = (1.0 / ctrl_hz) / (1.0 / (2 * math.pi * cutoff) + 1.0 / ctrl_hz)
+                    prev = obs.action_low_pass_state.get(name)
+                    if prev is not None:
+                        target = prev + alpha * (target - prev)
+                    obs.action_low_pass_state[name] = target
+                data.ctrl[aid] = target
+        # legs-only 契约里轮子无动作槽：ctrl 保持 0（速度执行器 = 阻尼被动）
+        return
         for i, name in enumerate(c.action_joint_order):
             aid = actuator_for_joint(model, name)
             if aid < 0:

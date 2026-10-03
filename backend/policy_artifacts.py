@@ -1175,6 +1175,26 @@ def promote_from_run(
                     wheel_modes = {j: m for j, m in modes.items() if m == "velocity" and j in in_order}
                     if wheel_modes and not contract_block.get("control_modes"):
                         contract_block["control_modes"] = wheel_modes
+                # 动作低通盖章（训练装配 OrderedJoint*LowPassActionCfg 的评测复刻数据）：
+                # 每个含 cut_off 的动作段一组 {joints, cutoff_hz, control_frequency_hz}
+                # （混合轮足 = 腿 5Hz + 轮 15Hz 两组）。
+                _actions = ((_eff or {}).get("environment") or {}).get("actions") or {}
+                _lp_groups = []
+                for _term_name, _term in _actions.items():
+                    if not isinstance(_term, Mapping):
+                        continue
+                    _cut = _term.get("cut_off_frequency")
+                    _cf = _term.get("control_frequency")
+                    if _cut and _cf:
+                        _joints = [str(x) for x in (_term.get("actuator_names") or _term.get("joint_names") or [])]
+                        if _joints:
+                            _lp_groups.append({
+                                "joints": _joints,
+                                "cutoff_hz": float(_cut),
+                                "control_frequency_hz": float(_cf),
+                            })
+                if _lp_groups:
+                    contract_block["action_low_pass"] = _lp_groups
             stiffness = meta.get("stiffness")
             damping = meta.get("damping")
             if stiffness and damping and joint_order and len(stiffness) == len(damping) == len(joint_order):

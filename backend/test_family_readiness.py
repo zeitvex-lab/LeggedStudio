@@ -86,7 +86,11 @@ class ReadinessTest(unittest.TestCase):
         report = readiness(self.root)
         self.assertEqual("ready", report["verdict"], report["checks"])
         self.assertEqual("quadruped", report["family"])
-        self.assertEqual(["plane", "rough", "stairs"], report["trainable_terrain_profiles"])
+        # 2026-10-02 起四足全族五档 ready（obstacle_release/competition 转正，
+        # 见 05 §2.3 审计收口）——fixture 前提同步为注册表现状
+        self.assertEqual(sorted(["plane", "rough", "stairs", "obstacle_release", "competition"]),
+                         sorted(report["trainable_terrain_profiles"]))
+        self.assertEqual(5, len(report["trainable_terrain_profiles"]))
 
     def test_missing_contract_is_caught(self):
         (self.root / "contract.json").unlink()
@@ -201,8 +205,9 @@ class RealRepoReadinessTest(unittest.TestCase):
             self.assertEqual("ready", verdict, f"{name} 未就绪")
             self.assertIn(family, {"quadruped", "wheel_leg"})
             self.assertGreaterEqual(terrains, 3, f"{name} 可训档过少")
-        # 轮足比四足多两档（障碍释放 / 竞赛地形）
-        self.assertEqual(3, results["unitree_go2"][2])
+        # 2026-10-02 起两族同权：五档全 ready（obstacle_release/competition 转正）——
+        # 「轮足比四足多两档」的历史差异随审计归位消失
+        self.assertEqual(5, results["unitree_go2"][2])
         self.assertEqual(5, results["unitree_b2w"][2])
 
 
