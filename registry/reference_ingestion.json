@@ -1,111 +1,116 @@
 {
-  "schema": "reference-ingestion-1.0",
-  "generated_at": "2026-09-30",
-  "note": "参考模型资产化台账（用户质问触发）：每个上游参考模型 → 内化为哪些族级资产 → 哪些机型在消费。模型本身不是资产；它背后的训练知识变成可迁移字段/契约真值/检测工具才是。'纯参照' = 只作验证基建（B11 参照系/金标准锚/判据 canary），未内化配方。消费证据按 2026-09-30 实测扫描。",
-  "ingestions": [
-    {
-      "reference": "LainLab trot（go2，B11 0.922 参照）",
-      "evidence": "00_resources/LainLab trot config.py/profile.py 逐项取证",
-      "internalized": {
-        "kit_fields": [
-          "velocity 技能: base_height_target/weight, orientation_weight, command_heading/rel/ang_vel_range",
-          "trot 技能(族级完整上移): trot_match 步态整形奖励, cycle_time 0.5, target_foot_height 0.06, base_height_target 0.29, feet_clearance, default_hip_pos, stand_still, contact_without_command(见 skills/trot/)"
-        ],
-        "location": "adapters/mjlab/kits/quadruped_kit/skills/velocity/profile.py + config.py 接线"
-      },
-      "consumers": [
-        "unitree_go2（G 系列实测）",
-        "b2w（base_height_target=0.32 在用）",
-        "go1/b2/lite3 同 VelocityProfile 类即刻可用（2026-09-30 扫描 7 包共用）"
-      ],
-      "not_yet": [
-        "47维×10帧历史观测族（lainlab 特有 obs 结构，四足族现行 48 维单帧）"
-      ],
-      "not_yet_status": "trot 技能已族级上移并四机型挂接（go2/go1/lite3/b2 各有 trot 档）；仅历史观测族未引入（属 obs 结构选型而非配方缺口）"
-    },
-    {
-      "reference": "rc_old（zex-w 源工程）",
-      "evidence": "00_resources/rc_old env_cfgs.py + sim2sim/mujoco_io.py 逐项取证",
-      "internalized": {
-        "kit_fields": [
-          "track_linear_weight 2.5",
-          "track_angular_weight 2.5",
-          "wheel_roll_tracking_weight/std",
-          "wheel_contact_bonus_weight",
-          "base_height_l2(target/weight)",
-          "low_pass_enabled 5/15Hz",
-          "base_contact_termination",
-          "only_positive_rewards",
-          "leg_motion_penalty 自适应"
-        ],
-        "location": "adapters/mjlab/kits/wheel_leg_kit（三道防线 + 轮足 economics，profile 数据驱动）"
-      },
-      "consumers": [
-        "unitree_go2w（G/学步系列）",
-        "zex-w / b2w / m20 同 kit 即刻可用"
-      ],
-      "not_yet": [],
-      "not_yet_status": "已完整内化"
-    },
-    {
-      "reference": "unitree_rl_mjlab_go2w（go2w 真上游）",
-      "internalized": {
-        "contract_truth": [
-          "PD by_role calf 40/2.0/±45、轮 kv2.0/±45（训练=部署单一真值）",
-          "velocity_scale 35",
-          "命令范围（含 vy 死轴语义）"
-        ],
-        "kit_fields": [
-          "feet_air_time_weight（LegsOnlyRecipe）",
-          "track_weight_override 机制（判负留档）"
-        ]
-      },
-      "consumers": [
-        "unitree_go2w 全系列训练/评测/浏览器",
-        "金标准锚模型 go2w-upstream-legsonly-v0（golden_env_parity.py 消费）"
-      ],
-      "not_yet": [],
-      "not_yet_status": "已内化（PD 谱真值待决事项就此闭合）"
-    },
-    {
-      "reference": "rl_sar 系（fan_rlsar robotlab/himloco 57 维）",
-      "internalized": {
-        "contract_truth": [
-          "velocity_scale 5.0（rl_sar 部署真值）",
-          "obs 缩放 0.25/1.0/0.05",
-          "action_scale 腿 0.125-0.25/轮 5.0 语义（by_role 承载）"
-        ]
-      },
-      "consumers": [
-        "go2w 57 维条目（headless/浏览器双端过判据）"
-      ],
-      "not_yet": [
-        "HIMLoco 观测蒸馏配方（himloco_57 帧构建器在评测侧，训练配方未上移）"
-      ],
-      "not_yet_status": "部署真值已内化；训练配方纯参照"
-    },
-    {
-      "reference": "go2_rl_gym / legged_gym 系（G1 对齐源）",
-      "internalized": {
-        "kit_fields": [
-          "air_time_weight 1.0",
-          "foot_clearance/swing/slip override 关停",
-          "action_rate_override -0.01",
-          "only_positive_rewards"
-        ]
-      },
-      "consumers": [
-        "unitree_go2 G1-G6b（自产首次行走/判据 vx+组合 PASS）"
-      ],
-      "not_yet": [],
-      "not_yet_status": "已内化"
-    }
-  ],
-  "gaps": [
-    "wheel_leg 族技能目录仅 velocity 1 项 vs quadruped 10 项——轮足族的技能面是最大资产缺口",
-    "HIMLoco 蒸馏训练配方未上移（评测侧布局在）",
-    "47维×10帧历史观测族未引入（obs 结构选型）"
-  ],
-  "models_role_note": "上游成品模型的本仓身份 = 验证基建（B11 参照系 0.922/0.929、golden_env_parity 金标准锚、check_user_criteria 判据基线），不是产物；产物 = 用族级配方在任意同族机型上训出的策略。",
-  "inventory_corrections": "2026-09-30 更正：初版台账扫描草率（只扫 velocity 技能），漏计族级 trot/parkour/imitation/jump/backflip/spring_jump/handstand/leggedstand/wtw 九技能与 cts/dreamwaq/him/ts/amp 五变体——用户指正后修正。实际存量：quadruped 10 技能 × 4 机型（go2 18 档/go1 6/lite3 4/b2 7）+ wheel_leg velocity × 4 机型。"
+ "schema": "reference-ingestion-1.0",
+ "generated_at": "2026-09-30",
+ "note": "参考模型资产化台账（用户质问触发）：每个上游参考模型 → 内化为哪些族级资产 → 哪些机型在消费。模型本身不是资产；它背后的训练知识变成可迁移字段/契约真值/检测工具才是。'纯参照' = 只作验证基建（B11 参照系/金标准锚/判据 canary），未内化配方。消费证据按 2026-09-30 实测扫描。",
+ "ingestions": [
+  {
+   "reference": "LainLab trot（go2，B11 0.922 参照）",
+   "evidence": "00_resources/LainLab trot config.py/profile.py 逐项取证",
+   "internalized": {
+    "kit_fields": [
+     "velocity 技能: base_height_target/weight, orientation_weight, command_heading/rel/ang_vel_range",
+     "trot 技能(族级完整上移): trot_match 步态整形奖励, cycle_time 0.5, target_foot_height 0.06, base_height_target 0.29, feet_clearance, default_hip_pos, stand_still, contact_without_command(见 skills/trot/)"
+    ],
+    "location": "adapters/mjlab/kits/quadruped_kit/skills/velocity/profile.py + config.py 接线"
+   },
+   "consumers": [
+    "unitree_go2（G 系列实测）",
+    "b2w（base_height_target=0.32 在用）",
+    "go1/b2/lite3 同 VelocityProfile 类即刻可用（2026-09-30 扫描 7 包共用）"
+   ],
+   "not_yet": [
+    "47维×10帧历史观测族（lainlab 特有 obs 结构，四足族现行 48 维单帧）"
+   ],
+   "not_yet_status": "trot 技能已族级上移并四机型挂接（go2/go1/lite3/b2 各有 trot 档）；仅历史观测族未引入（属 obs 结构选型而非配方缺口）"
+  },
+  {
+   "reference": "rc_old（zex-w 源工程）",
+   "evidence": "00_resources/rc_old env_cfgs.py + sim2sim/mujoco_io.py 逐项取证",
+   "internalized": {
+    "kit_fields": [
+     "track_linear_weight 2.5",
+     "track_angular_weight 2.5",
+     "wheel_roll_tracking_weight/std",
+     "wheel_contact_bonus_weight",
+     "base_height_l2(target/weight)",
+     "low_pass_enabled 5/15Hz",
+     "base_contact_termination",
+     "only_positive_rewards",
+     "leg_motion_penalty 自适应"
+    ],
+    "location": "adapters/mjlab/kits/wheel_leg_kit（三道防线 + 轮足 economics，profile 数据驱动）"
+   },
+   "consumers": [
+    "unitree_go2w（G/学步系列）",
+    "zex-w / b2w / m20 同 kit 即刻可用"
+   ],
+   "not_yet": [],
+   "not_yet_status": "已完整内化"
+  },
+  {
+   "reference": "unitree_rl_mjlab_go2w（go2w 真上游）",
+   "internalized": {
+    "contract_truth": [
+     "PD by_role calf 40/2.0/±45、轮 kv2.0/±45（训练=部署单一真值）",
+     "velocity_scale 35",
+     "命令范围（含 vy 死轴语义）"
+    ],
+    "kit_fields": [
+     "feet_air_time_weight（LegsOnlyRecipe）",
+     "track_weight_override 机制（判负留档）"
+    ]
+   },
+   "consumers": [
+    "unitree_go2w 全系列训练/评测/浏览器",
+    "金标准锚模型 go2w-upstream-legsonly-v0（golden_env_parity.py 消费）"
+   ],
+   "not_yet": [],
+   "not_yet_status": "已内化（PD 谱真值待决事项就此闭合）"
+  },
+  {
+   "reference": "rl_sar 系（fan_rlsar robotlab/himloco 57 维）",
+   "internalized": {
+    "contract_truth": [
+     "velocity_scale 5.0（rl_sar 部署真值）",
+     "obs 缩放 0.25/1.0/0.05",
+     "action_scale 腿 0.125-0.25/轮 5.0 语义（by_role 承载）"
+    ]
+   },
+   "consumers": [
+    "go2w 57 维条目（headless/浏览器双端过判据）"
+   ],
+   "not_yet": [
+    "HIMLoco 观测蒸馏配方（himloco_57 帧构建器在评测侧，训练配方未上移）"
+   ],
+   "not_yet_status": "部署真值已内化；训练配方纯参照"
+  },
+  {
+   "reference": "go2_rl_gym / legged_gym 系（G1 对齐源）",
+   "internalized": {
+    "kit_fields": [
+     "air_time_weight 1.0",
+     "foot_clearance/swing/slip override 关停",
+     "action_rate_override -0.01",
+     "only_positive_rewards"
+    ]
+   },
+   "consumers": [
+    "unitree_go2 G1-G6b（自产首次行走/判据 vx+组合 PASS）"
+   ],
+   "not_yet": [],
+   "not_yet_status": "已内化"
+  }
+ ],
+ "gaps": [
+  "HIMLoco 蒸馏训练配方未上移（评测侧布局在）",
+  "47维×10帧历史观测族未引入（obs 结构选型）"
+ ],
+ "models_role_note": "上游成品模型的本仓身份 = 验证基建（B11 参照系 0.922/0.929、golden_env_parity 金标准锚、check_user_criteria 判据基线），不是产物；产物 = 用族级配方在任意同族机型上训出的策略。",
+ "inventory_corrections": "2026-09-30 更正：初版台账扫描草率（只扫 velocity 技能），漏计族级 trot/parkour/imitation/jump/backflip/spring_jump/handstand/leggedstand/wtw 九技能与 cts/dreamwaq/him/ts/amp 五变体——用户指正后修正。实际存量：quadruped 10 技能 × 4 机型（go2 18 档/go1 6/lite3 4/b2 7）+ wheel_leg velocity × 4 机型。",
+ "resolved": [
+  {
+   "gap": "wheel_leg 族技能目录仅 velocity 1 项 vs quadruped 10 项",
+   "verdict": "2026-10-03 ⑱⑲ 复核订正：非资产缺口——rc_old（唯一轮足参考）训练面=velocity+crawl 与 Kit 严丝合缝；其余技能=参考缺位（有参考才接线）；能力面已按 skill×terrain 分类（capability_classes）"
+  }
+ ]
 }
