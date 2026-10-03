@@ -6,7 +6,7 @@
   "source_root": "training/source",
   "entrypoints": {
     "env": "go1_velocity.env_cfg:make_go1_stairs_env_cfg",
-    "runner": "go1_velocity.rl_cfg:go1_ppo_runner_cfg",
+    "runner": "go1_velocity.env_cfg:go1_runner_cfg",
     "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
   },
   "backend": "native_mjlab",

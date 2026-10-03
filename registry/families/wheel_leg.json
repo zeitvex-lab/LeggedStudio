@@ -198,7 +198,7 @@
   "skill_catalog_note": "族级技能的**装配表**（通用装配器 `adapters/mjlab/family_skill_builder.py` 读它）：按 `task_name` 声明env/runner 工厂与 profile 数据类；`derive` 声明「哪些 profile 参数由机型事实派生」（出生高 = 默认姿 FK 的站立高；轮半径/轮距 = 轮 body 与其几何）；`requires` 声明依赖哪些资产能力。新机型（含导入）只要契约 + 标准 MJCF 即可用这些技能，不需要机型专属 Python。`sim_sizing` 声明 sim 缓冲规模（nconmax/njmax；null = 交 mjwarp 按资产启发式定，因为源配方手调的缓冲值换一台资产就溢出）；带非零 geom margin 的资产由装配器按同一份资产判据条件关 MULTICCD/NATIVECCD（登记值 `warp_ccd_off`），margin 本身不抹。",
   "kit": {
     "kit_module": "adapters.mjlab.kits.wheel_leg_kit",
-    "binding_from_contract": "adapters.mjlab.kits.wheel_leg_kit.skills:from_contract",
-    "_note": "kit 自描述（Phase 1 插件化，2026-10-02）：通用装配器从这里读绑定工厂，family_skill_builder 不再写死族字典——新族=登记 JSON+写 kit，零核心改动。"
-  }
+    "binding_from_contract": "adapters.mjlab.kits.wheel_leg_kit.skills:from_contract"
+  },
+  "kit_note": "kit 自描述（Phase 1 插件化，2026-10-02）：通用装配器从这里读绑定工厂，family_skill_builder 不再写死族字典——新族=登记 JSON+写 kit，零核心改动。"
 }

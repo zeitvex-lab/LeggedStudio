@@ -306,7 +306,7 @@
   },
   "kit": {
     "kit_module": "adapters.mjlab.kits.quadruped_kit",
-    "binding_from_contract": "adapters.mjlab.kits.quadruped_kit.skills:from_contract",
-    "_note": "kit 自描述（Phase 1 插件化，2026-10-02）：通用装配器从这里读绑定工厂，family_skill_builder 不再写死族字典——新族=登记 JSON+写 kit，零核心改动。"
-  }
+    "binding_from_contract": "adapters.mjlab.kits.quadruped_kit.skills:from_contract"
+  },
+  "kit_note": "kit 自描述（Phase 1 插件化，2026-10-02）：通用装配器从这里读绑定工厂，family_skill_builder 不再写死族字典——新族=登记 JSON+写 kit，零核心改动。"
 }

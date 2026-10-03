@@ -279,6 +279,27 @@ function buildGo2wMjlabLegsObservation() {
 // ang_vel×0.25(body), gravity, cmd×1.0, (dof_pos-default)×1.0【轮位置清零】,
 // dof_vel×0.05（全 16）, 原始 action（未乘 scale，clip ±100 后）。
 // 输出端：腿 PD 目标 = a×scale+default（rl_kp20/rl_kd0.5）；轮 = a×5.0 纯速度目标（rl_kp=0）。
+// Go2-W mjlab 混合轮驱（57 维，16 动作）：训练 actor 组序（env 自报实证 2026-10-03）
+// ang, gravity, cmd, 腿 pos_rel(12), 腿 dq(12), 轮 pos_rel(4), 轮 dq(4), 原始 action(16)。
+// 轮段 = plain joint_pos_rel（无 wrap、无清零）——kit 观测项定义即纯 pos-default。
+// 注意：与 rl_sdk_57 的『轮位置清零』语义不同，不复用其 builder。
+function buildGo2wMjlabHybridObservation() {
+  if (CONFIG.numObs !== 57 || CONFIG.numActions !== 16) {
+    throw new Error(`go2w_mjlab_hybrid_57 requires 57 observations and 16 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
+  }
+  const imu = readImuSample();
+  sim.obs.fill(0);
+  let offset = 0;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.angular[i] * input.imuAxisSigns.angular[i] * CONFIG.angVelScale;
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = imu.gravity[i] * input.imuAxisSigns.gravity[i];
+  for (let i = 0; i < 3; i += 1) sim.obs[offset++] = sim.cmd[i] * CONFIG.cmdScale[i];
+  for (let i = 0; i < 12; i += 1) sim.obs[offset++] = (jointQpos(i) - CONFIG.defaultAngles[i]) * CONFIG.dofPosScale;
+  for (let i = 0; i < 12; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  for (let i = 12; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQpos(i) - CONFIG.defaultAngles[i];
+  for (let i = 12; i < CONFIG.numActions; i += 1) sim.obs[offset++] = jointQvel(i) * CONFIG.dofVelScale;
+  for (let i = 0; i < CONFIG.numActions; i += 1) sim.obs[offset++] = sim.action[i];
+}
+
 function buildGo2wRlSdkObservation() {
   if (CONFIG.numObs !== 57 || CONFIG.numActions !== 16) {
     throw new Error(`go2w_rl_sdk_57 requires 57 observations and 16 actions; got ${CONFIG.numObs}/${CONFIG.numActions}`);
@@ -1047,6 +1068,9 @@ const OBSERVATION_BUILDERS = {
     g1_amp_96: buildG1AmpObservation,
     go2w_53: buildGo2wLegsObservation,
     go2w_mjlab_legs_53: buildGo2wMjlabLegsObservation,
+    // 混合 57（mjlab velocity 基座）：训练序 ang/grav/cmd/joint_pos16/joint_vel16/action16
+    // 与 rl_sdk_57 同序（轮并入 16 名序、控制模式区分位置/速度）——复用同 builder。
+    go2w_mjlab_hybrid_57: buildGo2wMjlabHybridObservation,
     go2w_rl_sdk_57: buildGo2wRlSdkObservation,
     go2w_himloco_57: buildGo2wHimlocoObservation,
     go2_rl_sdk_45: buildGo2RlSdkObservation,

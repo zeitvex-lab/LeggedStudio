@@ -166,13 +166,13 @@
         "armature": 0.02,
         "mode": "velocity",
         "action_scale": 35.0
-      },
-      "_note": "2026-09-30 对齐 unitree_rl_mjlab_go2w 训练真值（hip/thigh 20/1.0/23.5，calf 40/2.0/45，轮 velocity kv2.0/45，armature calf/wheel 0.02）；此前 calf 20/0.5/35.5、wheel kv0.5 为移植错误——go2w 全系列曾在错 PD 下训练"
+      }
     },
     "default": {
       "friction_loss": 0.2
     },
-    "by_joint": {}
+    "by_joint": {},
+    "actuator_profile_note": "2026-09-30 对齐 unitree_rl_mjlab_go2w 训练真值（hip/thigh 20/1.0/23.5，calf 40/2.0/45，轮 velocity kv2.0/45，armature calf/wheel 0.02）；此前 calf 20/0.5/35.5、wheel kv0.5 为移植错误——go2w 全系列曾在错 PD 下训练"
   },
   "action": {
     "joint_order": [

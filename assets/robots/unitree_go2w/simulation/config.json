@@ -129,7 +129,43 @@
         "velocity_scale": 35.0,
         "control_modes": {
           "wheel": "velocity"
-        }
+        },
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3
+          },
+          {
+            "source": "joint_pos",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_vel",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_pos",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "joint_vel",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "action"
+          }
+        ]
       },
       "note": "B8 第二批冒烟产物。**2026-09-23 补齐取证（v0.59.0）**：obs 布局自训练源 adapters/mjlab/kits/wheel_leg_kit/velocity_env_cfg.py::policy_terms + 包内 `training/source/go2w_velocity/env_cfgs.py`（同上逐项序）；动作口径同源（腿 0.5、轮 35.0，包级 wheel 缩放是 5.0）；ONNX 元数据默认姿态与包级逐值一致 ⇒ 不重复声明。**行为级实测**：无头验收 5 档命令 **2/5**（存活 5/5、默认门 4/5——唯一短板是**不跟踪**：站得住不走）。"
     },
@@ -187,7 +223,53 @@
         },
         "action_scale": 0.5,
         "control": {
-          "velocity_scale": 35.0
+          "velocity_scale": 35.0,
+          "stiffness": {
+            "hip": 20.0,
+            "thigh": 20.0,
+            "calf": 40.0,
+            "wheel": 0.0,
+            "joint": 20.0,
+            "FR_hip_joint": 20.0,
+            "FL_hip_joint": 20.0,
+            "RR_hip_joint": 20.0,
+            "RL_hip_joint": 20.0,
+            "FR_thigh_joint": 20.0,
+            "FL_thigh_joint": 20.0,
+            "RR_thigh_joint": 20.0,
+            "RL_thigh_joint": 20.0,
+            "FR_calf_joint": 40.0,
+            "FL_calf_joint": 40.0,
+            "RR_calf_joint": 40.0,
+            "RL_calf_joint": 40.0,
+            "FR_wheel_joint": 0.0,
+            "FL_wheel_joint": 0.0,
+            "RR_wheel_joint": 0.0,
+            "RL_wheel_joint": 0.0
+          },
+          "damping": {
+            "hip": 1.0,
+            "thigh": 1.0,
+            "calf": 2.0,
+            "wheel": 2.0,
+            "joint": 1.0,
+            "FR_hip_joint": 1.0,
+            "FL_hip_joint": 1.0,
+            "RR_hip_joint": 1.0,
+            "RL_hip_joint": 1.0,
+            "FR_thigh_joint": 1.0,
+            "FL_thigh_joint": 1.0,
+            "RR_thigh_joint": 1.0,
+            "RL_thigh_joint": 1.0,
+            "FR_calf_joint": 2.0,
+            "FL_calf_joint": 2.0,
+            "RR_calf_joint": 2.0,
+            "RL_calf_joint": 2.0,
+            "FR_wheel_joint": 2.0,
+            "FL_wheel_joint": 2.0,
+            "RR_wheel_joint": 2.0,
+            "RL_wheel_joint": 2.0
+          }
         },
         "command_dims": 3,
         "default_command": [
@@ -212,7 +294,43 @@
         "control_modes": {
           "wheel": "velocity"
         },
-        "observation_kind": "go2w_mjlab_hybrid_57"
+        "observation_kind": "go2w_mjlab_hybrid_57",
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3
+          },
+          {
+            "source": "joint_pos",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_vel",
+            "mode": "position",
+            "width": 12
+          },
+          {
+            "source": "joint_pos",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "joint_vel",
+            "mode": "velocity",
+            "width": 4
+          },
+          {
+            "source": "action"
+          }
+        ]
       }
     },
     {
@@ -523,16 +641,48 @@
           "stiffness": {
             "hip": 20.0,
             "thigh": 20.0,
-            "calf": 20.0,
+            "calf": 40.0,
             "wheel": 0.0,
-            "joint": 20.0
+            "joint": 20.0,
+            "FR_hip_joint": 20.0,
+            "FL_hip_joint": 20.0,
+            "RR_hip_joint": 20.0,
+            "RL_hip_joint": 20.0,
+            "FR_thigh_joint": 20.0,
+            "FL_thigh_joint": 20.0,
+            "RR_thigh_joint": 20.0,
+            "RL_thigh_joint": 20.0,
+            "FR_calf_joint": 40.0,
+            "FL_calf_joint": 40.0,
+            "RR_calf_joint": 40.0,
+            "RL_calf_joint": 40.0,
+            "FR_wheel_joint": 0.0,
+            "FL_wheel_joint": 0.0,
+            "RR_wheel_joint": 0.0,
+            "RL_wheel_joint": 0.0
           },
           "damping": {
-            "hip": 0.5,
-            "thigh": 0.5,
-            "calf": 0.5,
-            "wheel": 0.5,
-            "joint": 0.5
+            "hip": 1.0,
+            "thigh": 1.0,
+            "calf": 2.0,
+            "wheel": 2.0,
+            "joint": 1.0,
+            "FR_hip_joint": 1.0,
+            "FL_hip_joint": 1.0,
+            "RR_hip_joint": 1.0,
+            "RL_hip_joint": 1.0,
+            "FR_thigh_joint": 1.0,
+            "FL_thigh_joint": 1.0,
+            "RR_thigh_joint": 1.0,
+            "RL_thigh_joint": 1.0,
+            "FR_calf_joint": 2.0,
+            "FL_calf_joint": 2.0,
+            "RR_calf_joint": 2.0,
+            "RL_calf_joint": 2.0,
+            "FR_wheel_joint": 2.0,
+            "FL_wheel_joint": 2.0,
+            "RR_wheel_joint": 2.0,
+            "RL_wheel_joint": 2.0
           }
         },
         "task_type": "velocity",
@@ -695,38 +845,48 @@
           "stiffness": {
             "FL_hip_joint": 20.0,
             "FL_thigh_joint": 20.0,
-            "FL_calf_joint": 20.0,
+            "FL_calf_joint": 40.0,
             "FL_wheel_joint": 0.0,
             "FR_hip_joint": 20.0,
             "FR_thigh_joint": 20.0,
-            "FR_calf_joint": 20.0,
+            "FR_calf_joint": 40.0,
             "FR_wheel_joint": 0.0,
             "RL_hip_joint": 20.0,
             "RL_thigh_joint": 20.0,
-            "RL_calf_joint": 20.0,
+            "RL_calf_joint": 40.0,
             "RL_wheel_joint": 0.0,
             "RR_hip_joint": 20.0,
             "RR_thigh_joint": 20.0,
-            "RR_calf_joint": 20.0,
-            "RR_wheel_joint": 0.0
+            "RR_calf_joint": 40.0,
+            "RR_wheel_joint": 0.0,
+            "hip": 20.0,
+            "thigh": 20.0,
+            "calf": 40.0,
+            "wheel": 0.0,
+            "joint": 20.0
           },
           "damping": {
-            "FL_hip_joint": 0.5,
-            "FL_thigh_joint": 0.5,
-            "FL_calf_joint": 0.5,
-            "FL_wheel_joint": 0.5,
-            "FR_hip_joint": 0.5,
-            "FR_thigh_joint": 0.5,
-            "FR_calf_joint": 0.5,
-            "FR_wheel_joint": 0.5,
-            "RL_hip_joint": 0.5,
-            "RL_thigh_joint": 0.5,
-            "RL_calf_joint": 0.5,
-            "RL_wheel_joint": 0.5,
-            "RR_hip_joint": 0.5,
-            "RR_thigh_joint": 0.5,
-            "RR_calf_joint": 0.5,
-            "RR_wheel_joint": 0.5
+            "FL_hip_joint": 1.0,
+            "FL_thigh_joint": 1.0,
+            "FL_calf_joint": 2.0,
+            "FL_wheel_joint": 2.0,
+            "FR_hip_joint": 1.0,
+            "FR_thigh_joint": 1.0,
+            "FR_calf_joint": 2.0,
+            "FR_wheel_joint": 2.0,
+            "RL_hip_joint": 1.0,
+            "RL_thigh_joint": 1.0,
+            "RL_calf_joint": 2.0,
+            "RL_wheel_joint": 2.0,
+            "RR_hip_joint": 1.0,
+            "RR_thigh_joint": 1.0,
+            "RR_calf_joint": 2.0,
+            "RR_wheel_joint": 2.0,
+            "hip": 1.0,
+            "thigh": 1.0,
+            "calf": 2.0,
+            "wheel": 2.0,
+            "joint": 1.0
           }
         },
         "clip_obs": 100.0,
@@ -890,38 +1050,48 @@
           "stiffness": {
             "FL_hip_joint": 20.0,
             "FL_thigh_joint": 20.0,
-            "FL_calf_joint": 20.0,
+            "FL_calf_joint": 40.0,
             "FL_wheel_joint": 0.0,
             "FR_hip_joint": 20.0,
             "FR_thigh_joint": 20.0,
-            "FR_calf_joint": 20.0,
+            "FR_calf_joint": 40.0,
             "FR_wheel_joint": 0.0,
             "RL_hip_joint": 20.0,
             "RL_thigh_joint": 20.0,
-            "RL_calf_joint": 20.0,
+            "RL_calf_joint": 40.0,
             "RL_wheel_joint": 0.0,
             "RR_hip_joint": 20.0,
             "RR_thigh_joint": 20.0,
-            "RR_calf_joint": 20.0,
-            "RR_wheel_joint": 0.0
+            "RR_calf_joint": 40.0,
+            "RR_wheel_joint": 0.0,
+            "hip": 20.0,
+            "thigh": 20.0,
+            "calf": 40.0,
+            "wheel": 0.0,
+            "joint": 20.0
           },
           "damping": {
-            "FL_hip_joint": 0.5,
-            "FL_thigh_joint": 0.5,
-            "FL_calf_joint": 0.5,
-            "FL_wheel_joint": 0.5,
-            "FR_hip_joint": 0.5,
-            "FR_thigh_joint": 0.5,
-            "FR_calf_joint": 0.5,
-            "FR_wheel_joint": 0.5,
-            "RL_hip_joint": 0.5,
-            "RL_thigh_joint": 0.5,
-            "RL_calf_joint": 0.5,
-            "RL_wheel_joint": 0.5,
-            "RR_hip_joint": 0.5,
-            "RR_thigh_joint": 0.5,
-            "RR_calf_joint": 0.5,
-            "RR_wheel_joint": 0.5
+            "FL_hip_joint": 1.0,
+            "FL_thigh_joint": 1.0,
+            "FL_calf_joint": 2.0,
+            "FL_wheel_joint": 2.0,
+            "FR_hip_joint": 1.0,
+            "FR_thigh_joint": 1.0,
+            "FR_calf_joint": 2.0,
+            "FR_wheel_joint": 2.0,
+            "RL_hip_joint": 1.0,
+            "RL_thigh_joint": 1.0,
+            "RL_calf_joint": 2.0,
+            "RL_wheel_joint": 2.0,
+            "RR_hip_joint": 1.0,
+            "RR_thigh_joint": 1.0,
+            "RR_calf_joint": 2.0,
+            "RR_wheel_joint": 2.0,
+            "hip": 1.0,
+            "thigh": 1.0,
+            "calf": 2.0,
+            "wheel": 2.0,
+            "joint": 1.0
           }
         },
         "clip_obs": 100.0,
@@ -1084,38 +1254,48 @@
           "stiffness": {
             "FL_hip_joint": 20.0,
             "FL_thigh_joint": 20.0,
-            "FL_calf_joint": 20.0,
+            "FL_calf_joint": 40.0,
             "FL_wheel_joint": 0.0,
             "FR_hip_joint": 20.0,
             "FR_thigh_joint": 20.0,
-            "FR_calf_joint": 20.0,
+            "FR_calf_joint": 40.0,
             "FR_wheel_joint": 0.0,
             "RL_hip_joint": 20.0,
             "RL_thigh_joint": 20.0,
-            "RL_calf_joint": 20.0,
+            "RL_calf_joint": 40.0,
             "RL_wheel_joint": 0.0,
             "RR_hip_joint": 20.0,
             "RR_thigh_joint": 20.0,
-            "RR_calf_joint": 20.0,
-            "RR_wheel_joint": 0.0
+            "RR_calf_joint": 40.0,
+            "RR_wheel_joint": 0.0,
+            "hip": 20.0,
+            "thigh": 20.0,
+            "calf": 40.0,
+            "wheel": 0.0,
+            "joint": 20.0
           },
           "damping": {
-            "FL_hip_joint": 0.5,
-            "FL_thigh_joint": 0.5,
-            "FL_calf_joint": 0.5,
-            "FL_wheel_joint": 0.5,
-            "FR_hip_joint": 0.5,
-            "FR_thigh_joint": 0.5,
-            "FR_calf_joint": 0.5,
-            "FR_wheel_joint": 0.5,
-            "RL_hip_joint": 0.5,
-            "RL_thigh_joint": 0.5,
-            "RL_calf_joint": 0.5,
-            "RL_wheel_joint": 0.5,
-            "RR_hip_joint": 0.5,
-            "RR_thigh_joint": 0.5,
-            "RR_calf_joint": 0.5,
-            "RR_wheel_joint": 0.5
+            "FL_hip_joint": 1.0,
+            "FL_thigh_joint": 1.0,
+            "FL_calf_joint": 2.0,
+            "FL_wheel_joint": 2.0,
+            "FR_hip_joint": 1.0,
+            "FR_thigh_joint": 1.0,
+            "FR_calf_joint": 2.0,
+            "FR_wheel_joint": 2.0,
+            "RL_hip_joint": 1.0,
+            "RL_thigh_joint": 1.0,
+            "RL_calf_joint": 2.0,
+            "RL_wheel_joint": 2.0,
+            "RR_hip_joint": 1.0,
+            "RR_thigh_joint": 1.0,
+            "RR_calf_joint": 2.0,
+            "RR_wheel_joint": 2.0,
+            "hip": 1.0,
+            "thigh": 1.0,
+            "calf": 2.0,
+            "wheel": 2.0,
+            "joint": 1.0
           }
         },
         "clip_obs": 100.0,
@@ -1279,38 +1459,48 @@
           "stiffness": {
             "FL_hip_joint": 20.0,
             "FL_thigh_joint": 20.0,
-            "FL_calf_joint": 20.0,
+            "FL_calf_joint": 40.0,
             "FL_wheel_joint": 0.0,
             "FR_hip_joint": 20.0,
             "FR_thigh_joint": 20.0,
-            "FR_calf_joint": 20.0,
+            "FR_calf_joint": 40.0,
             "FR_wheel_joint": 0.0,
             "RL_hip_joint": 20.0,
             "RL_thigh_joint": 20.0,
-            "RL_calf_joint": 20.0,
+            "RL_calf_joint": 40.0,
             "RL_wheel_joint": 0.0,
             "RR_hip_joint": 20.0,
             "RR_thigh_joint": 20.0,
-            "RR_calf_joint": 20.0,
-            "RR_wheel_joint": 0.0
+            "RR_calf_joint": 40.0,
+            "RR_wheel_joint": 0.0,
+            "hip": 20.0,
+            "thigh": 20.0,
+            "calf": 40.0,
+            "wheel": 0.0,
+            "joint": 20.0
           },
           "damping": {
-            "FL_hip_joint": 0.5,
-            "FL_thigh_joint": 0.5,
-            "FL_calf_joint": 0.5,
-            "FL_wheel_joint": 0.5,
-            "FR_hip_joint": 0.5,
-            "FR_thigh_joint": 0.5,
-            "FR_calf_joint": 0.5,
-            "FR_wheel_joint": 0.5,
-            "RL_hip_joint": 0.5,
-            "RL_thigh_joint": 0.5,
-            "RL_calf_joint": 0.5,
-            "RL_wheel_joint": 0.5,
-            "RR_hip_joint": 0.5,
-            "RR_thigh_joint": 0.5,
-            "RR_calf_joint": 0.5,
-            "RR_wheel_joint": 0.5
+            "FL_hip_joint": 1.0,
+            "FL_thigh_joint": 1.0,
+            "FL_calf_joint": 2.0,
+            "FL_wheel_joint": 2.0,
+            "FR_hip_joint": 1.0,
+            "FR_thigh_joint": 1.0,
+            "FR_calf_joint": 2.0,
+            "FR_wheel_joint": 2.0,
+            "RL_hip_joint": 1.0,
+            "RL_thigh_joint": 1.0,
+            "RL_calf_joint": 2.0,
+            "RL_wheel_joint": 2.0,
+            "RR_hip_joint": 1.0,
+            "RR_thigh_joint": 1.0,
+            "RR_calf_joint": 2.0,
+            "RR_wheel_joint": 2.0,
+            "hip": 1.0,
+            "thigh": 1.0,
+            "calf": 2.0,
+            "wheel": 2.0,
+            "joint": 1.0
           }
         },
         "clip_obs": 100.0,
@@ -1557,7 +1747,7 @@
         "artifact_id": "unitree_go2w__produced-unitree_go2w_contract_v1_20261002_200703_613273",
         "run_id": "unitree_go2w_contract_v1_20261002_200703_613273",
         "origin": "product-training",
-        "installed_at": "2026-10-02T13:23:03+00:00"
+        "installed_at": "2026-10-03T10:18:37+00:00"
       },
       "label": "训练产物（run unitree_go2w_contract_v1_20261002_200703_613273）",
       "obs_dim": 57,
@@ -1626,7 +1816,37 @@
           "FL_wheel_joint": "velocity",
           "RR_wheel_joint": "velocity",
           "RL_wheel_joint": "velocity"
-        }
+        },
+        "action_low_pass": [
+          {
+            "joints": [
+              "FR_hip_joint",
+              "FR_thigh_joint",
+              "FR_calf_joint",
+              "FL_hip_joint",
+              "FL_thigh_joint",
+              "FL_calf_joint",
+              "RR_hip_joint",
+              "RR_thigh_joint",
+              "RR_calf_joint",
+              "RL_hip_joint",
+              "RL_thigh_joint",
+              "RL_calf_joint"
+            ],
+            "cutoff_hz": 5.0,
+            "control_frequency_hz": 50.0
+          },
+          {
+            "joints": [
+              "FR_wheel_joint",
+              "FL_wheel_joint",
+              "RR_wheel_joint",
+              "RL_wheel_joint"
+            ],
+            "cutoff_hz": 15.0,
+            "control_frequency_hz": 50.0
+          }
+        ]
       },
       "observation_kind": "go2w_mjlab_hybrid_57"
     }
