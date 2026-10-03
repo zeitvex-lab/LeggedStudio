@@ -1621,17 +1621,6 @@ def actuate(contract: PackageContract, model, data, obs: ObsBuilder, raw: np.nda
                 data.ctrl[aid] = target
         # legs-only 契约里轮子无动作槽：ctrl 保持 0（速度执行器 = 阻尼被动）
         return
-        for i, name in enumerate(c.action_joint_order):
-            aid = actuator_for_joint(model, name)
-            if aid < 0:
-                continue
-            if c.is_velocity_joint(name):
-                # 轮子速度控制（DreamWaQ/rc_mjlab 等）：ctrl = 期望速度 = action × velocity_scale
-                data.ctrl[aid] = raw[i] * c.velocity_scale
-            else:
-                data.ctrl[aid] = raw[i] * c.action_scales[i] + c.default_for(name)
-        # legs-only 契约里轮子无动作槽：ctrl 保持 0（速度执行器 = 阻尼被动）
-        return
     # torque 接口：JS/训练端同款 PD（增益按关节名查表），再按 torque_limits 限幅
     for i, name in enumerate(c.action_joint_order):
         qa, da = obs.jadr[name]
