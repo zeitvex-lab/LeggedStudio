@@ -101,23 +101,48 @@ class DeployHelpTest(unittest.TestCase):
 
 
 class DeployGateTest(unittest.TestCase):
-    """``deploy gate``：一致即过、漂移必红、内置包的现状 deny 如实上报。"""
+    """``deploy gate``：一致即过、漂移必红、格式边界如实降 warn 不误杀。"""
 
-    def test_bundled_robot_deny_is_reported_honestly(self):
-        """内置包 v3 比 v2 丰富 ⇒ 硬约束字段不对称，必须如实 deny（退出码 1）。
+    def test_bundled_robot_schema_boundary_is_warn_not_deny(self):
+        """内置包 v3 比 v2 丰富 ⇒ 格式边界降 warn（SCHEMA_BOUNDARY），不再误 deny。
 
-        用**空临时 workspace** 让包根解析回落到内置 assets 树（确定性，不依赖
-        仓库 workspace 里副本的状态）。
+        v2 快照（robot-contract-2.0）从未记录过 actuator_profile / dict 形 components
+        ——缺这些字段是当时的 schema 装不下，不是"训练后契约被改"。v2 的 components
+        段名表与 v3 段名序一致 ⇒ 按名比对放行。真正的漂移（值/名对不上、v3 侧缺
+        v2 有值的字段）仍走 deny（见 test_tampered_control_hz_fails_with_blocker 等）。
+        用**空临时 workspace** 让包根解析回落到内置 assets 树（确定性）。
         """
 
         with tempfile.TemporaryDirectory() as tmp:
             ws = Path(tmp) / "empty_ws"
             ws.mkdir()
             proc = run_cli("deploy", "gate", GO2, "--workspace", str(ws))
+            self.assertEqual(0, proc.returncode, proc.stdout)
+            self.assertIn("✓ 通过", proc.stdout)
+            # v3-only 字段缺失 → 格式边界 warn（CLI 打 reason 文本；basis=SCHEMA_BOUNDARY#* 在 API JSON 的 entries 里）
+            self.assertIn("格式边界", proc.stdout)
+            self.assertIn("actuator_profile", proc.stdout)
+            self.assertNotIn("observation.components 不对称", proc.stdout)
+
+    def test_v3_side_missing_field_still_denies(self):
+        """v3 侧缺 v2 有值的字段（v3 本可携带）⇒ 仍 deny——格式边界豁免不外溢。
+
+        把 probe 的 v3 contract.json 删掉 control.control_hz（imported_fsdog1 的
+        真实欠账形态）：v3 schema 能记录却不记录 = 契约漂移，不是格式边界。
+        """
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = make_probe_workspace(Path(tmp))
+            probe = ws / "packages" / "go2_gate_probe"
+            payload = json.loads((probe / "contract.json").read_text(encoding="utf-8-sig"))
+            del payload["control"]["control_hz"]
+            (probe / "contract.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
+            )
+            proc = run_cli("deploy", "gate", GO2, "--workspace", str(ws))
             self.assertEqual(1, proc.returncode, proc.stdout)
             self.assertIn("不通过", proc.stdout)
-            self.assertIn("observation.components", proc.stdout)   # v3 有、v2 没有的字段
-            self.assertIn("deny", proc.stdout)
+            self.assertIn("control_hz", proc.stdout)
 
     def test_in_sync_package_passes(self):
         """v2 与 v3 一致的副本 ⇒ gate 通过（退出码 0）。"""
