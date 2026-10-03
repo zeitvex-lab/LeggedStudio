@@ -14,6 +14,7 @@ import json
 import unittest
 from pathlib import Path
 
+from contracts.tests._roster import package_present, require_package
 from contracts.role_resolver import RoleResolver
 from contracts.physics_binding import (
     CONTROL_KEYS,
@@ -108,12 +109,18 @@ class PhysicsFactsFromContractTest(unittest.TestCase):
             for package in packages()
         }
         overrides = {name: joints for name, joints in overrides.items() if joints}
-        self.assertEqual(
-            overrides,
-            {
+        # 期望表按声明名册过滤（缺席包不参与"特例集合"比对）
+        expected_overrides = {
+            package_id: joints
+            for package_id, joints in {
                 "limx_tron1_sf": ["ankle_L_Joint", "ankle_R_Joint"],
                 "limx_tron1_wf": ["wheel_L_Joint", "wheel_R_Joint"],
-            },
+            }.items()
+            if package_present(package_id)
+        }
+        self.assertEqual(
+            overrides,
+            expected_overrides,
             "逐关节特例集合发生变化：新增特例意味着角色表没覆盖到那类关节（或迁移顺序被改动）",
         )
 
@@ -169,6 +176,7 @@ class FrictionLossMigratedTest(unittest.TestCase):
 
         for package_id in ("limx_tron1_sf", "limx_tron1_wf"):
             with self.subTest(package=package_id):
+                require_package(self, package_id)
                 facts = physics_facts(ROBOTS / package_id)
                 # 特例层（by_joint override）：这两个包的具名摩擦就落在这里
                 named = dict(facts["by_joint_override"]["friction_loss"] or {})
@@ -319,6 +327,7 @@ class FrictionLossPopulatedTest(unittest.TestCase):
     def test_default_values_locked(self) -> None:
         for name, expected in self.EXPECTED_DEFAULT.items():
             with self.subTest(package=name):
+                require_package(self, name)
                 contract = load(ROBOTS / name / "contract.json")
                 default = (contract.get("actuator_profile") or {}).get("default") or {}
                 self.assertEqual(default.get("friction_loss"), expected)
@@ -326,6 +335,7 @@ class FrictionLossPopulatedTest(unittest.TestCase):
     def test_named_values_locked(self) -> None:
         for name, expected in self.EXPECTED_BY_JOINT.items():
             with self.subTest(package=name):
+                require_package(self, name)
                 contract = load(ROBOTS / name / "contract.json")
                 by_joint = (contract.get("actuator_profile") or {}).get("by_joint") or {}
                 values = {

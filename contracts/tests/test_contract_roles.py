@@ -14,6 +14,7 @@ import json
 import unittest
 from pathlib import Path
 
+from contracts.tests._roster import declared_members, package_present, require_package
 from contracts.generated import RobotContractV3, dump_v3, parse_contract
 from contracts.physics_binding import action_scale_facts, payload_action_scale_view
 from contracts.role_resolver import (
@@ -236,7 +237,8 @@ class ActuatorExpansionMatchesCurrentConfigTest(unittest.TestCase):
         packages = sorted(
             p.name for p in (WORKSPACE / "assets" / "robots").iterdir() if (p / "contract.json").exists()
         )
-        self.assertGreaterEqual(len(packages), 14, "内置包数量异常")
+        # 名册 = 族注册表声明的成员并集（声明驱动；族收敛后 14+ 的旧魔法数字作废）
+        self.assertEqual(set(packages), set(declared_members()), "在库名册 ≠ 族注册表声明成员")
         for package_id in packages:
             # 直接读 shipped v3 展开：`build_contract` 用的是 quadruped 模板，
             # 对灵巧手/轮足机型不适用（那会把"模板不适配"误报成"armature 缺失"）。
@@ -440,7 +442,7 @@ class MorphologyKernelFieldsB4Test(unittest.TestCase):
 
     def test_all_packages_declare_kernel_fields(self) -> None:
         contracts = self._all_contracts()
-        self.assertGreaterEqual(len(contracts), 14)
+        self.assertEqual(set(contracts), set(declared_members()), "在库名册 ≠ 族注册表声明成员")
         for name, contract in contracts.items():
             with self.subTest(package=name):
                 morphology = contract["morphology"]
@@ -455,9 +457,11 @@ class MorphologyKernelFieldsB4Test(unittest.TestCase):
         contracts = self._all_contracts()
         for name, expected in self.EXPECTED_FOOT_TYPE.items():
             with self.subTest(package=name, field="foot_type"):
+                require_package(self, name)
                 self.assertEqual(contracts[name]["morphology"]["foot_type"], expected)
         for name, expected in self.EXPECTED_WHEEL_INDICES.items():
             with self.subTest(package=name, field="wheel_indices"):
+                require_package(self, name)
                 self.assertEqual(contracts[name]["morphology"]["wheel_indices"], expected)
 
     def test_actuator_type_follows_wheel_presence(self) -> None:
@@ -512,6 +516,7 @@ class MorphologyKernelFieldsB4Test(unittest.TestCase):
     def test_foot_type_rejected_on_non_legged_morphology(self) -> None:
         import copy
 
+        require_package(self, "wuji_hand")
         base = self._load("wuji_hand")
         self.assertEqual(RoleResolver(base).validate(), [], "hand 构型不应因缺 foot_type 报错")
         contract = copy.deepcopy(base)
@@ -587,7 +592,7 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
 
     def test_every_actuated_joint_resolves_a_scale(self) -> None:
         contracts = self._contracts()
-        self.assertGreaterEqual(len(contracts), 14)
+        self.assertEqual(set(contracts), set(declared_members()), "在库名册 ≠ 族注册表声明成员")
         for name, contract in contracts.items():
             with self.subTest(package=name):
                 resolver = RoleResolver(contract)
@@ -611,11 +616,19 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
                     f"{name} 的 wheel 角色缺 action_scale——轮子会被腿的档位顶掉",
                 )
             checked += 1
-        self.assertEqual(checked, 5, "含轮机型应为 5 个（m20/b2w/go2w/zex-w/tron1_wf）")
+        expected_wheels = sum(
+            1 for name, roles in self.EXPECTED_ROLE_SCALE.items()
+            if "wheel" in roles and package_present(name)
+        )
+        self.assertEqual(
+            checked, expected_wheels,
+            f"含轮机型应为 {expected_wheels} 个（在库名册内的期望表条目）",
+        )
 
     def test_role_scale_matches_evidence(self) -> None:
         contracts = self._contracts()
         for name, expected_roles in self.EXPECTED_ROLE_SCALE.items():
+            require_package(self, name)
             contract = contracts[name]
             resolver = RoleResolver(contract)
             per_joint = resolver.action_scale_by_joint()
@@ -636,7 +649,8 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
             if any(abs(value - float(scalar)) > 1e-12 for value in per_joint.values()):
                 changed.add(name)
         self.assertEqual(
-            changed, self.EXPECTED_DELTA_ROBOTS,
+            changed,
+            {name for name in self.EXPECTED_DELTA_ROBOTS if package_present(name)},
             "有效 action_scale 的变更集合发生变化——新增变更必须先在证据表里列明",
         )
 
@@ -651,6 +665,7 @@ class ActionScaleRoleLevelB5Test(unittest.TestCase):
         因此用它把**两条独立来源**钉在一起——任一侧被改动都会在这里显形。
         """
 
+        require_package(self, "unitree_g1")
         g1 = self._contracts()["unitree_g1"]
         by_role = g1["actuator_profile"]["by_role"]
         for role, params in by_role.items():
@@ -733,6 +748,7 @@ class ActionScalePayloadViewB52Test(unittest.TestCase):
     def test_non_wheel_robots_do_not_claim_wheel(self) -> None:
         for package in ("unitree_g1", "unitree_go2", "wuji_hand"):
             with self.subTest(package=package):
+                require_package(self, package)
                 view = self._view(package)
                 self.assertFalse(view["wheel_scale_declared"])
                 self.assertNotIn("wheel", view["action_scale_by_role"])

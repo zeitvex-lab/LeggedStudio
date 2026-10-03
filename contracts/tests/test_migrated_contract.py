@@ -13,6 +13,7 @@ import json
 import unittest
 from pathlib import Path
 
+from contracts.tests._roster import declared_members, require_package
 from contracts.generated import parse_contract
 from contracts.role_resolver import RoleResolver
 
@@ -61,9 +62,10 @@ class MigratedContractTest(unittest.TestCase):
     def _packages(self) -> list[Path]:
         return sorted(p for p in ROBOTS.iterdir() if (p / "contract.json").exists())
 
-    def test_all_14_packages_migrated(self) -> None:
-        # agibot_d1 已下线删除、deeprobotics_x30 已按决策移出，内置包 16 → 14。
-        self.assertGreaterEqual(len(self._packages()), 14)
+    def test_roster_matches_declared_members(self) -> None:
+        # 名册 = 族注册表声明的成员并集（声明驱动；族收敛后旧魔法数字 14/16 作废，
+        # agibot_d1 下线、x30 移出、limx/microduck/wuji/g1 不在此分支名册）。
+        self.assertEqual({p.name for p in self._packages()}, set(declared_members()))
 
     def test_every_v3_contract_valid_and_expansion_matches_config(self) -> None:
         for package_dir in self._packages():
@@ -100,21 +102,23 @@ class MigratedContractTest(unittest.TestCase):
     def test_heterogeneous_packages_keep_structure(self) -> None:
         """异构包的 extra_roles / reindex / wheel 角色不被迁移丢失。"""
 
-        microduck = load_json(ROBOTS / "microduck" / "contract.json")
-        self.assertEqual(
-            microduck["morphology"]["extra_roles"],
-            ["neck_pitch", "head_pitch", "head_yaw", "head_roll"],
-        )
+        if require_package(self, "microduck"):
+            microduck = load_json(ROBOTS / "microduck" / "contract.json")
+            self.assertEqual(
+                microduck["morphology"]["extra_roles"],
+                ["neck_pitch", "head_pitch", "head_yaw", "head_roll"],
+            )
         m20 = load_json(ROBOTS / "deeprobotics_m20" / "contract.json")
         self.assertEqual(
             m20["action"]["reindex_from_model"],
             [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 3, 7, 11, 15],
         )
         self.assertIn("wheel", m20["morphology"]["leg_pattern"])
-        g1 = load_json(ROBOTS / "unitree_g1" / "contract.json")
-        self.assertEqual(g1["morphology"]["id"], "humanoid")
-        self.assertIn("waist_yaw", g1["morphology"]["extra_roles"])
-        self.assertIsNotNone(g1["action"]["reindex_from_model"])
+        if require_package(self, "unitree_g1"):
+            g1 = load_json(ROBOTS / "unitree_g1" / "contract.json")
+            self.assertEqual(g1["morphology"]["id"], "humanoid")
+            self.assertIn("waist_yaw", g1["morphology"]["extra_roles"])
+            self.assertIsNotNone(g1["action"]["reindex_from_model"])
 
 
 if __name__ == "__main__":
