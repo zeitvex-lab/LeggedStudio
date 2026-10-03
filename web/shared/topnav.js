@@ -25,17 +25,12 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  //: 与 workbench 侧栏同一套分类（分组：工作台 / 机器人 / 训练 / 仿真 / 产物）。
-  const NAV_ITEMS = [
-    { key: 'home', label: '首页', href: 'workbench.html#home' },
-    { key: 'robot', label: '机器人工作台', href: 'workbench.html#robot' },
-    { key: 'config', label: '训练配置', href: 'training_create.html' },
-    { key: 'training', label: '训练任务', href: 'training_list.html' },
-    { key: 'simulation', label: '基础仿真', href: 'workbench.html#simulation' },
-    { key: 'navmap', label: '高级仿真', href: 'advanced_sim.html' },
-    { key: 'deploy', label: '部署', href: 'deploy.html' },
-    { key: 'artifacts', label: '策略档案', href: 'artifacts.html' },
-  ];
+  //: 导航项**唯一来源 = 面板注册表**（/api/panels，Phase 4 彻底清理 2026-10-03：
+  //: 静态清单退役——任何写死的导航项都是"机器人/功能特判"的复活通道）。
+  //: 渲染流程：render() 先放 loading 占位 → refreshFromRegistry() 拉注册表投影
+  //: → applyRegistryNav 填充并重渲染。控制面不可达 = 顶栏如实显示
+  //: 「导航需要控制面」（fail-loud 的 UI 版，不降级到旧清单假跑）。
+  const NAV_ITEMS = [];
 
   const NAV_HTML_ID = 'lsTopNav';
   const STATUS_ID = 'lsTopNavStatus';
@@ -78,25 +73,29 @@
     }
   }
 
-  function refreshFromRegistry() {
-    if (typeof fetch !== 'function') return;
-    try {
-      fetch('/api/panels', { cache: 'no-store' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (payload) {
-          if (payload && Array.isArray(payload.navigation)) applyRegistryNav(payload.navigation);
-        })
-        .catch(function () { /* 静态清单兜底（诚实降级） */ });
-    } catch (e) { /* 环境无 fetch */ }
-  }
-
-  /** 纯字符串视图（node 可测；页面渲染即 innerHTML 这一次赋值）。 */
+  /** 纯字符串视图（node 可测；页面渲染即 innerHTML 这一次赋值）。
+   *  NAV_ITEMS 空 = 尚未从注册表到达 ⇒ 如实渲染"导航需要控制面"占位（fail-loud UI 版）。 */
   function navHtml(current) {
+    if (!NAV_ITEMS.length) {
+      return '<a class="ls-brand" href="workbench.html#home" aria-label="Legged Studio 首页">'
+        + '<span class="ls-brand-mark">LS</span>'
+        + '<span class="ls-brand-text"><strong>Legged Studio</strong><small>Robotics Workbench</small></span>'
+        + '</a>'
+        + '<nav class="ls-nav" aria-label="主功能"><span class="ls-nav-item is-current">导航需要控制面…</span></nav>'
+        + '<span class="ls-topnav-status" id="' + STATUS_ID + '" title="控制面状态探测中">'
+        + '<i></i><span>控制面…</span></span>';
+    }
+    if (!NAV_ITEMS.length) return '';
     const items = NAV_ITEMS.map(function (item, index) {
       const active = isCurrent(item, current);
       const indexText = String(index + 1).padStart(2, '0');
       // 高亮用 aria-current="true"（"集合中的当前项"）：训练监控这类**子页**会刻意
       // 高亮它的父类目，写 "page" 就成了"本页即训练任务列表"的假陈述。
+      if (item.disabled) {
+        // 诚实禁用：置灰不可点 + title 带原因原文（功能差异来自声明，不来自 if 机器人）
+        return '<span class="ls-nav-item is-disabled" title="' + (item.disabledReason || '不可用') + '">'
+          + '<span class="ls-nav-index">' + indexText + '</span>' + item.label + '</span>';
+      }
       return '<a class="ls-nav-item' + (active ? ' is-current' : '') + '" href="' + item.href + '"'
         + (active ? ' aria-current="true"' : '') + '>'
         + '<span class="ls-nav-index">' + indexText + '</span>' + item.label + '</a>';
@@ -150,6 +149,19 @@
     if (host.tagName !== 'HEADER') host.setAttribute('role', 'banner');
     host.innerHTML = navHtml(active);
     probeControlPlane(host);
+    // 注册表投影到达后重渲染（第一拍 = loading 占位；注册表是导航唯一来源）
+    if (typeof fetch === 'function') {
+      fetch('/api/panels', { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (payload) {
+          if (payload && Array.isArray(payload.navigation) && payload.navigation.length) {
+            applyRegistryNav(payload.navigation);
+            const currentHost = document.getElementById(mountId || NAV_HTML_ID);
+            if (currentHost) currentHost.innerHTML = navHtml(active);
+          }
+        })
+        .catch(function () { /* 占位文案保持——导航需要控制面（fail-loud UI 版） */ });
+    }
     return host;
   }
 
@@ -161,6 +173,5 @@
     navHtml: navHtml,
     render: render,
     applyRegistryNav: applyRegistryNav,
-    refreshFromRegistry: refreshFromRegistry,
   };
 });
