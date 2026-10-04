@@ -50,9 +50,11 @@ def run_case(sess, contract, model, cmd, total_s=CRIT["total_s"], judge_last=CRI
     if len(inputs) > 1:
         shape = inputs[1].shape
         if len(shape) == 2 and isinstance(shape[1], int) and shape[1] > 0:
-            first = ob.build(cmd)
+            # 注意 build 可能返回 (1, obs_dim)——obs_dim 必须取**展平后**的宽度，
+            # 否则 228 // 1 = 228 被当成帧数（2026-10-04 实测 284 之谜）。
+            first = np.asarray(ob.build(cmd), dtype=np.float32).reshape(-1)
             obs_dim = int(first.shape[0])
-            if shape[1] % obs_dim == 0 and shape[1] // obs_dim > 1:
+            if obs_dim > 0 and shape[1] % obs_dim == 0 and shape[1] // obs_dim > 1:
                 hist_frames = shape[1] // obs_dim
                 history = [np.zeros(obs_dim, dtype=np.float32) for _ in range(hist_frames)]
     for _ in range(steps):

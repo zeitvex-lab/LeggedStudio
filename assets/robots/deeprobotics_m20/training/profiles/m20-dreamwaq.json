@@ -19,5 +19,38 @@
  "algorithm_plugin_note": "2026-10-04 用户裁决：只有名字没有意义——本档接真 DreamWaQ VAE（算法插件 base 变体）。runner 工厂不写死类名；plugin 声明是算法唯一开关。",
  "algorithm_plugin": "dreamwaq",
  "algorithm_variant": "base",
- "algorithm_plugin_registry": "adapters/mjlab/algorithms/registry.json"
+ "algorithm_plugin_registry": "adapters/mjlab/algorithms/registry.json",
+ "observation_layout": [
+  {
+   "source": "cmd",
+   "width": 3,
+   "scale": [
+    2.0,
+    2.0,
+    0.25
+   ]
+  },
+  {
+   "source": "ang_vel",
+   "width": 3,
+   "scale": 0.25
+  },
+  {
+   "source": "gravity"
+  },
+  {
+   "source": "joint_pos",
+   "zero_velocity_joints": true
+  },
+  {
+   "source": "joint_vel",
+   "width": 16,
+   "scale": 0.05
+  },
+  {
+   "source": "action",
+   "width": 16
+  }
+ ],
+ "observation_layout_note": "2026-10-04 声明化：DreamWaQ M20 57 帧 = cmd·(2,2,0.25) + ang_vel·0.25 + gravity + joint_pos 轮位清零 + joint_vel·0.05 + action。run 创建时随契约快照携带。"
 }
