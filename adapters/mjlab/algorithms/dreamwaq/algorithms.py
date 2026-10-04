@@ -12,6 +12,7 @@ from adapters.mjlab.algorithms.common.auxiliary_ppo import (
   Go2AuxiliaryPPO,
   OptimizerMixin,
 )
+from adapters.mjlab.algorithms.amp.source_amp import AmpPpoMixin
 
 from .models import DreamWaQActorCritic
 
@@ -33,14 +34,16 @@ class DreamWaQPPO(Go2AuxiliaryPPO):
   auxiliary_kind = "dreamwaq"
 
 
-class AmpDreamWaQPPO(DreamWaQPPO):
-  uses_amp = True
-  amp_replay_buffer_size = 1_000_000
+class AmpDreamWaQPPO(AmpPpoMixin, DreamWaQPPO):
+  """DreamWaQ PPO + 源口径 AMP（与 go2 薄委托同一组合，2026-10-04 上移后插件化）。
 
-  def _auxiliary_update(self) -> dict[str, float]:
-    metrics = super()._auxiliary_update()
-    metrics.update(self._amp_update())
-    return metrics
+  机型量（amp_joint_order / amp_motion_root）由 runner cfg 的算法字段在构造期
+  传入（rsl_rl construct_algorithm 把 cfg 字段作为 kwargs）；类属性缺省为空、
+  缺失即在构造期 fail-loud（AmpPpoMixin 的双通道设计）。
+  """
+
+  amp_joint_order: tuple[str, ...] = ()
+  amp_motion_root: str | None = None
 
 
 __all__ = ["AmpDreamWaQPPO", "DreamWaQAlgorithm", "DreamWaQPPO"]
