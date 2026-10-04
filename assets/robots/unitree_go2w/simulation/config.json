@@ -2112,7 +2112,48 @@
      "FL_wheel_joint": 0.8999999761581421,
      "RR_wheel_joint": -1.7999999523162842,
      "RL_wheel_joint": 0.0
-    }
+    },
+    "observation_layout": [
+     {
+      "source": "ang_vel",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "gravity"
+     },
+     {
+      "source": "cmd",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "joint_pos",
+      "mode": "position",
+      "width": 12
+     },
+     {
+      "source": "joint_vel",
+      "mode": "position",
+      "width": 12,
+      "scale": "@contract"
+     },
+     {
+      "source": "joint_pos",
+      "mode": "velocity",
+      "width": 4
+     },
+     {
+      "source": "joint_vel",
+      "mode": "velocity",
+      "width": 4,
+      "scale": "@contract"
+     },
+     {
+      "source": "action",
+      "width": 16
+     }
+    ]
    },
    "observation_kind": "unknown"
   },
@@ -2221,6 +2262,47 @@
       ],
       "cutoff_hz": 15.0,
       "control_frequency_hz": 50.0
+     }
+    ],
+    "observation_layout": [
+     {
+      "source": "ang_vel",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "gravity"
+     },
+     {
+      "source": "cmd",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "joint_pos",
+      "mode": "position",
+      "width": 12
+     },
+     {
+      "source": "joint_vel",
+      "mode": "position",
+      "width": 12,
+      "scale": "@contract"
+     },
+     {
+      "source": "joint_pos",
+      "mode": "velocity",
+      "width": 4
+     },
+     {
+      "source": "joint_vel",
+      "mode": "velocity",
+      "width": 4,
+      "scale": "@contract"
+     },
+     {
+      "source": "action",
+      "width": 16
      }
     ]
    },
@@ -2331,6 +2413,47 @@
       ],
       "cutoff_hz": 15.0,
       "control_frequency_hz": 50.0
+     }
+    ],
+    "observation_layout": [
+     {
+      "source": "ang_vel",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "gravity"
+     },
+     {
+      "source": "cmd",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "joint_pos",
+      "mode": "position",
+      "width": 12
+     },
+     {
+      "source": "joint_vel",
+      "mode": "position",
+      "width": 12,
+      "scale": "@contract"
+     },
+     {
+      "source": "joint_pos",
+      "mode": "velocity",
+      "width": 4
+     },
+     {
+      "source": "joint_vel",
+      "mode": "velocity",
+      "width": 4,
+      "scale": "@contract"
+     },
+     {
+      "source": "action",
+      "width": 16
      }
     ]
    },
