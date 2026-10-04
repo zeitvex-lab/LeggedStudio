@@ -1,19 +1,20 @@
 {
-  "schema_version": "training-profile-1.0",
-  "profile_id": "m20-dreamwaq",
-  "display_name": "M20 DreamWaQ Rough",
-  "source": "package-local DreamWaQ task (field-verified M20 weights lineage)",
-  "source_root": "training/source",
-  "entrypoints": {
-    "env": "m20_dreamwaq.config:make_m20_dreamwaq_env_cfg",
-    "runner": "m20_dreamwaq.config:make_m20_dreamwaq_runner_cfg",
-    "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
-  },
-  "backend": "native_mjlab",
-  "task_name": "Unitree-M20-DreamWaQ-Rough",
-  "terrain_type": "rough",
-  "algorithm": "PPO",
-  "num_envs": 4096,
-  "episode_length_s": 20.0,
-  "sort_order": 11
+ "schema_version": "training-profile-1.0",
+ "profile_id": "m20-dreamwaq",
+ "display_name": "M20 DreamWaQ Rough",
+ "source": "package-local DreamWaQ task (field-verified M20 weights lineage)",
+ "source_root": "training/source",
+ "entrypoints": {
+  "env": "m20_dreamwaq.config:make_m20_dreamwaq_env_cfg",
+  "runner": "m20_dreamwaq.config:make_m20_dreamwaq_runner_cfg",
+  "runner_class": "mjlab.tasks.velocity.rl:VelocityOnPolicyRunner"
+ },
+ "backend": "native_mjlab",
+ "task_name": "Unitree-M20-DreamWaQ-Rough",
+ "terrain_type": "rough",
+ "algorithm": "PPO",
+ "num_envs": 4096,
+ "episode_length_s": 20.0,
+ "sort_order": 11,
+ "algorithm_plugin_note": "2026-10-04 用户裁决：只有名字没有意义——本档接真 DreamWaQ VAE（算法插件 base 变体），不再是 plain-PPO 档。"
 }

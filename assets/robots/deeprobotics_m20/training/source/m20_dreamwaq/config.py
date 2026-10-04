@@ -371,9 +371,11 @@ def make_m20_dreamwaq_env_cfg(*, play: bool = False) -> ManagerBasedRlEnvCfg:
 
 
 def make_m20_dreamwaq_runner_cfg() -> RslRlOnPolicyRunnerCfg:
-  """Runner config（RslRl 默认 MLP actor/PPO——**不是** VAE 扩展。
-  包内 DreamWaQ VAE 扩展已删（不可达：从无 class_name 接线，本档实为
-  DreamWaQ 配方数值的 plain-PPO 档）；要真 VAE 走算法插件 dreamwaq。"""
+  """Runner config；算法由 profile 的 algorithm_plugin 绑定（2026-10-04 用户裁决：
+  m20-dreamwaq 接真 DreamWaQ VAE = 算法插件 dreamwaq base 变体，bind 写入本 cfg 的
+  class_name）。**当前阻断**：env 物理级 warp 非法访存（rollout/train 双模式，
+  自 2026-09-25 all33 三轮同判；同机 velocity/traversal 双绿 ⇒ env 特异），
+  修复属专项（二分 scene：传感器/地形/命令）。"""
   cfg = RslRlOnPolicyRunnerCfg(
     actor=RslRlModelCfg(
       hidden_dims=(512, 256, 128),
