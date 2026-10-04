@@ -50,6 +50,7 @@
           <div class="view-heading"><div><span class="eyebrow">WORKSPACE / OVERVIEW</span><h1>统一的足式机器人实验工作台</h1><p>从模型 Contract 到 MJLab GPU 训练，再到 MuJoCo 交互仿真，所有状态在同一条工作流中可追踪。</p></div><div class="heading-actions"><button class="button primary" data-step="robot">开始一次实验</button></div></div>
 
           <div class="home-sections">
+            <div class="panel" id="panelCardsPanel"><div class="panel-title"><span>面板总览</span><button class="text-button" id="panelCardsRefresh">刷新</button></div><div id="panelCards" class="panel-card-grid"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
             <div class="hero-panel"><div class="hero-label"><span class="pulse"></span> NATIVE MJLAB PIPELINE</div><h2>让每次实验都可复现</h2><p>固定源代码、隔离 Torch 与 Warp 环境，Go2 / Go2W 使用统一 Contract 和训练接口。</p><div class="hero-actions"><button class="button primary" data-step="config">配置训练</button><button class="button ghost" data-step="simulation">打开仿真</button></div></div>
             <div class="system-panel"><div class="panel-title"><span>系统状态</span><button class="text-button" id="homeRefresh">刷新</button></div><div id="homeCapabilities" class="system-list"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
           </div>

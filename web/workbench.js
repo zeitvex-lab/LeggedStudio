@@ -722,11 +722,62 @@ function syncSimulationFrame() {
   frame.style.height = `${height}px`;
   frame.contentWindow.postMessage({ type: 'legged-studio:resize', width, height }, window.location.origin);
 }
+// 首页面板聚合（UI 即插件）：/api/panels/home 按注册表 home_card 声明聚合
+// 各面板的数据 provider（与 CLI 投影同一函数）；单面板故障只降级自己的卡片。
+function panelCardHtml(card) {
+  const data = card.data || {};
+  const rows = [];
+  const push = (label, value) => { if (value !== undefined && value !== null) rows.push(`<div class="panel-card-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`); };
+  if (Array.isArray(data.runs)) {
+    push("训练 Run", data.count ?? data.runs.length);
+    const running = data.runs.filter((r) => (r.status || "").includes("run"));
+    push("进行中", running.length);
+  } else if (Array.isArray(data.packages)) {
+    push("机器人包", data.count ?? data.packages.length);
+  } else if (Array.isArray(data.profiles)) {
+    push("任务档", data.count ?? data.profiles.length);
+    const ready = data.profiles.filter((p) => p.browser_ok !== false).length;
+    push("浏览器可跑", ready);
+  } else if (Array.isArray(data.maps)) {
+    push("地图", data.count ?? data.maps.length);
+  } else if (Array.isArray(data.robots)) {
+    push("机器人", data.count ?? data.robots.length);
+    push("就绪", data.ready ?? data.robots.filter((r) => r.ok !== false).length);
+  } else if (Array.isArray(data.artifacts)) {
+    push("产物", data.count ?? data.artifacts.length);
+    const produced = data.artifacts.filter((a) => a.produced).length;
+    if (produced) push("产品自产", produced);
+  } else if (data.packages !== undefined) {
+    push("机器人包", data.packages);
+    push("训练 Run", data.runs);
+    push("产物", data.artifacts);
+    push("面板", data.panels);
+  }
+  if (!rows.length) rows.push('<div class="panel-card-row"><span class="muted">（无汇总字段）</span></div>');
+  const state = card.ok === false ? `<div class="panel-card-error">${escapeHtml(card.error || "数据不可用")}</div>` : "";
+  const entry = card.entry ? ` <a class="panel-card-link" href="${escapeHtml(card.entry)}">打开 →</a>` : "";
+  return `<div class="panel-card" data-panel="${escapeHtml(card.id)}"><div class="panel-card-head"><strong>${escapeHtml(card.title)}</strong>${entry}</div>${rows.join("")}${state}</div>`;
+}
+
+async function loadPanelCards() {
+  const host = $("panelCards");
+  if (!host) return;
+  try {
+    const payload = await jsonFetch("/api/panels/home");
+    const cards = (payload && payload.cards) || [];
+    host.innerHTML = cards.length
+      ? cards.map(panelCardHtml).join("")
+      : '<div class="empty-state">没有声明 home_card 的面板（registry/panels/index.json）</div>';
+  } catch (error) {
+    host.innerHTML = `<div class="empty-state">面板聚合加载失败：${escapeHtml(error.message)}</div>`;
+  }
+}
+
 async function loadViewData(name) {
   if (loadedViews.has(name)) return;
   loadedViews.add(name);
   try {
-    if (name === 'home') await Promise.all([loadCapabilities(), loadRuns(), loadDemos()]);
+    if (name === 'home') await Promise.all([loadCapabilities(), loadRuns(), loadDemos(), loadPanelCards()]);
   } catch (error) {
     loadedViews.delete(name);
     console.error(`Failed to load ${name} data`, error);
@@ -1225,6 +1276,6 @@ function bindEvents() {
   document.querySelectorAll('[data-robot-tab]').forEach((tab) => tab.addEventListener('click', () => { document.querySelectorAll('.robot-tab').forEach((x) => x.classList.toggle('active', x === tab)); document.querySelectorAll('[data-robot-pane]').forEach((pane) => pane.classList.toggle('active-pane', pane.dataset.robotPane === tab.dataset.robotTab)); }));
   $('runInspection')?.addEventListener('click', runPackageInspection);
   $('saveRobotPackage')?.addEventListener('click', saveRobotPackage); $('refreshRobotPackages')?.addEventListener('click', () => loadPresets(selectedPreset?.robot_id)); $('deleteRobotPackage')?.addEventListener('click', async () => { if (!selectedPreset || selectedPreset.source !== 'workspace') return; if (!(await LSFeedback.confirm('删除当前机器人包？', { danger: true }))) return; await jsonFetch('/api/project/packages/' + encodeURIComponent(selectedPreset.robot_id), { method: 'DELETE' }); selectedPreset = null; await loadPresets(); });
-  $('validateBtn').addEventListener('click', validateModel); $('startSimulation')?.addEventListener('click', startSimulation); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
+  $('validateBtn').addEventListener('click', validateModel); $('startSimulation')?.addEventListener('click', startSimulation); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('panelCardsRefresh')?.addEventListener('click', loadPanelCards); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
 }
 document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home','robot','config','training','simulation','navmap','deploy','artifacts'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });
