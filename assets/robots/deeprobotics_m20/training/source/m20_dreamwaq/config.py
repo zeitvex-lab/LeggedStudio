@@ -301,6 +301,12 @@ def make_m20_dreamwaq_env_cfg(*, play: bool = False) -> ManagerBasedRlEnvCfg:
   # validate_training_smoke）。
   cfg.sim.mujoco.ccd_iterations = 500
   cfg.sim.contact_sensor_maxmatch = 64
+  # 2026-10-05 产品规模 sizing（1024 envs 档，用户裁决 rough 档用 1024）：
+  # 实测矩阵——启发式（None）@1024 OOM（单缓冲 1.3GB）；kit 手调 35/300 @1024
+  # 63 轮缓冲溢出崩；**80/800 @1024 稳定 120+ 轮**（每世界 80 接触槽对 16 关节
+  # 轮足充足）。4096 envs 档在 8GB 上超界，需更大显存机器。
+  cfg.sim.nconmax = 80
+  cfg.sim.njmax = 800
   cfg.scale_rewards_by_dt = True
   cfg.metrics = {}
   cfg.recorders = {}
