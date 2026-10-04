@@ -112,6 +112,48 @@ def validate_profile_subprocess(record, profile, num_envs, rollout_steps, mode, 
     return result
 
 
+_GPU_SUSPECT_PATTERNS = (
+    "vmm", "vbox", "virtualbox", "hyperv", "vmware", "qemu", "mumuvmm",
+    "bluestacks", "ldbox", "nox",
+)
+
+
+def _gpu_environment_warnings() -> list[str]:
+    """训练前 GPU 环境健康检查（规则化，2026-10-04 m20-dreamwaq 排障沉淀）。
+
+    GPU 上驻留虚拟机/hypervisor 类进程（MuMu/VirtualBox/Hyper-V/VMware…）时，
+    其显存与调度压力会和 warp 的图捕获/大块 mempool 分配交互，产生**时间窗式**
+    间歇非法访存（代码无关、红绿成簇）——此类"每次结果不一样"的问题靠本检查
+    在起跑前暴露，不再事后排障。检测是启发式（进程名模式），宁多报不漏报。
+    """
+    import shutil
+    import subprocess
+
+    nvidia_smi = shutil.which("nvidia-smi")
+    if not nvidia_smi:
+        return []
+    try:
+        proc = subprocess.run(
+            [nvidia_smi, "--query-compute-apps=pid,process_name", "--format=csv,noheader"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    warnings: list[str] = []
+    for line in proc.stdout.splitlines():
+        if "," not in line:
+            continue
+        pid, _, name = line.partition(",")
+        name_lower = name.strip().lower()
+        if any(pattern in name_lower for pattern in _GPU_SUSPECT_PATTERNS):
+            warnings.append(
+                f"GPU 上驻留虚拟机/hypervisor 进程（PID {pid.strip()} {name.strip()}）——"
+                "与其显存/调度压力交互会产生时间窗式间歇 CUDA 故障（红绿成簇、代码无关）；"
+                "训练期间建议关闭模拟器/虚拟机"
+            )
+    return warnings
+
+
 def _source_drift(record) -> list[str]:
     """包内 ``training/{profiles,source}`` 与内置源树的**文件集合**差异。
 
@@ -173,6 +215,9 @@ def main() -> None:
         args.iters = 2000
 
     started = datetime.now()
+    env_warnings = _gpu_environment_warnings()
+    for warning in env_warnings:
+        print(f"[env!] {warning}")
     # 源树 → workspace 副本的单向同步只在"索引重扫"时发生。改完包内训练源码就直接跑冒烟，
     # 验的可能是**旧副本**（2026-09-20 go2 去包化实况：删掉 23 个文件后首次回归等于没验，
     # 副本仍是 182 个 .py）。故这里先强制重建一次索引（会连带触发内容同步），
@@ -221,6 +266,7 @@ def main() -> None:
     report = {
         "started": started.isoformat(),
         "mode": args.mode,
+        "env_warnings": env_warnings,
         "num_envs": args.num_envs,
         "iters": args.iters,
         "total": len(results),
