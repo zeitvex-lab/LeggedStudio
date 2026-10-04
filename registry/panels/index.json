@@ -18,6 +18,11 @@
    "cli": {
     "command": "status",
     "provider": "backend.cli_panels:home_status"
+   },
+   "home_card": {
+    "provider": "backend.cli_panels:home_status",
+    "order": 10,
+    "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
    }
   },
   {
@@ -36,6 +41,11 @@
    "cli": {
     "command": "packages list",
     "provider": "backend.cli_panels:packages_list"
+   },
+   "home_card": {
+    "provider": "backend.cli_panels:packages_list",
+    "order": 20,
+    "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
    }
   },
   {
@@ -54,6 +64,11 @@
    "cli": {
     "command": "panel config",
     "provider": "backend.cli_panels:config_list"
+   },
+   "home_card": {
+    "provider": "backend.cli_panels:config_list",
+    "order": 30,
+    "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
    }
   },
   {
@@ -72,6 +87,11 @@
    "cli": {
     "command": "training list",
     "provider": "backend.cli_panels:training_list"
+   },
+   "home_card": {
+    "provider": "backend.cli_panels:training_list",
+    "order": 40,
+    "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
    }
   },
   {
@@ -90,6 +110,11 @@
    "cli": {
     "command": "panel simulation",
     "provider": "backend.cli_panels:simulation_list"
+   },
+   "home_card": {
+    "provider": "backend.cli_panels:simulation_list",
+    "order": 50,
+    "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
    }
   },
   {
@@ -108,6 +133,11 @@
    "cli": {
     "command": "panel navmap",
     "provider": "backend.cli_panels:navmap_list"
+   },
+   "home_card": {
+    "provider": "backend.cli_panels:navmap_list",
+    "order": 60,
+    "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
    }
   },
   {
@@ -126,6 +156,11 @@
    "cli": {
     "command": "panel deploy",
     "provider": "backend.cli_panels:deploy_summary"
+   },
+   "home_card": {
+    "provider": "backend.cli_panels:deploy_summary",
+    "order": 70,
+    "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
    }
   },
   {
@@ -144,6 +179,11 @@
    "cli": {
     "command": "panel artifacts",
     "provider": "backend.cli_panels:artifacts_list"
+   },
+   "home_card": {
+    "provider": "backend.cli_panels:artifacts_list",
+    "order": 80,
+    "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
    }
   }
  ]
