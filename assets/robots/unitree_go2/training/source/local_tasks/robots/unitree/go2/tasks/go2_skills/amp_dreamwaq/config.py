@@ -97,5 +97,8 @@ def make_amp_dreamwaq_runner_cfg():
   cfg.max_iterations = 20_000
   cfg.save_interval = 500
   cfg.algorithm = AmpDreamWaQAlgorithmCfg(**vars(cfg.algorithm))
+  # 本地 AmpDreamWaQPPO（AmpPpoMixin 源口径）仍为唯一可用实现——插件的 amp 变体
+  # 尚未上移该数据流（2026-10-04 冒烟实证接口不兼容），接管前本处 class_name 保留
+  # 并列入 runner_classname_rule 的显式豁免清单（具名债务，非静默例外）。
   cfg.algorithm.class_name = "local_tasks.robots.unitree.go2.tasks.go2_skills.amp_dreamwaq.rl:AmpDreamWaQPPO"
   return cfg
