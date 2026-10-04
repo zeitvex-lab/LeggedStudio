@@ -160,6 +160,22 @@ def build_env_and_runner(run_dir: Path, package_root: Path, num_envs: int, devic
             pass
     env_cfg.seed = seed
 
+    # 冒烟=产品同接线 规则的姊妹条：checkpoint 是**声明接线后**存下来的
+    # （DreamWaQ actor 76 维输入），导出 runner 必须同样应用 algorithm_plugin，
+    # 否则裸 PPO actor（57 维）载 76 维 checkpoint 必 size mismatch。
+    if profile_id:
+        profile_json = package_root / "training" / "profiles" / f"{profile_id}.json"
+        if profile_json.is_file():
+            decl = json.loads(profile_json.read_text(encoding="utf-8-sig"))
+            plugin_name = str(decl.get("algorithm_plugin") or "").strip()
+            if plugin_name:
+                from adapters.mjlab.algorithms.plugin_registry import apply_algorithm_plugin
+
+                apply_algorithm_plugin(
+                    rl_cfg, algorithm_plugin=plugin_name,
+                    variant=str(decl.get("algorithm_variant") or "") or None,
+                )
+
     env = ManagerBasedRlEnv(cfg=env_cfg, device=device)
     env.reset()
     wrapped = RslRlVecEnvWrapper(env, clip_actions=rl_cfg.clip_actions)

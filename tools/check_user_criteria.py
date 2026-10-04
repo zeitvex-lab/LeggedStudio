@@ -42,12 +42,37 @@ def run_case(sess, contract, model, cmd, total_s=CRIT["total_s"], judge_last=CRI
     vels = []
     fell = False
     obs_max = act_max = 0.0
+    # VAE 宿主多输入（DreamWaQ 系）：第二输入 = k×obs_dim 的**历史帧展平**
+    #（不含当前帧；训练里 history 由零初始化逐步填充——零初始化语义对齐）。
+    inputs = sess.get_inputs()
+    hist_frames = 0
+    history: list = []
+    if len(inputs) > 1:
+        shape = inputs[1].shape
+        if len(shape) == 2 and isinstance(shape[1], int) and shape[1] > 0:
+            first = ob.build(cmd)
+            obs_dim = int(first.shape[0])
+            if shape[1] % obs_dim == 0 and shape[1] // obs_dim > 1:
+                hist_frames = shape[1] // obs_dim
+                history = [np.zeros(obs_dim, dtype=np.float32) for _ in range(hist_frames)]
     for _ in range(steps):
-        obs = ob.build(cmd)
+        obs = np.asarray(ob.build(cmd), dtype=np.float32).reshape(-1)
         if not np.isfinite(obs).all():
             return {"pass": False, "reason": "输入爆(NaN)"}
         obs_max = max(obs_max, float(np.abs(obs).max()))
-        raw = sess.run(None, {sess.get_inputs()[0].name: obs})[0][0]
+        if hist_frames:
+            feed = {inputs[0].name: obs.reshape(1, -1)}
+        else:
+            feed = {inputs[0].name: obs}
+        if hist_frames:
+            history.append(np.asarray(obs, dtype=np.float32))
+            history = history[-hist_frames:]
+            cond = np.concatenate(
+                [np.zeros(obs_dim, dtype=np.float32)] * (hist_frames - len(history))
+                + history
+            )
+            feed[inputs[1].name] = cond.reshape(1, -1)
+        raw = sess.run(None, feed)[0][0]
         a = np.asarray(raw, dtype=np.float32)[: contract.action_dim]
         if not np.isfinite(a).all():
             return {"pass": False, "reason": "输出爆(NaN)"}
