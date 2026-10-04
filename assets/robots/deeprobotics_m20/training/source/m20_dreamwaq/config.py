@@ -293,11 +293,12 @@ def make_m20_dreamwaq_env_cfg(*, play: bool = False) -> ManagerBasedRlEnvCfg:
   # The shared preset's 500 CCD iterations allocate a very large EPA scratch
   # buffer across thousands of environments; 50 keeps terrain contact stable
   # (same trade-off as the Go2 DreamWaQ port).
-  # 2026-10-04 二分实证（16×50 加严口径）：**两个触发器叠加**——
-  # ① 延迟动作包装（已去，见 actions 注释）；② ccd_iterations=50 + maxmatch=500。
-  # 组合矩阵：包装+旧值 ~50-70% 红；无包装+旧值 2/4 红；无包装+本值 5/5 绿。
-  # ccd_iterations=500 / contact_sensor_maxmatch=64（mjlab 默认）为验证过的稳定组合；
-  # 大规模训练 scratch 显存吃紧时走 profile 的 sim_sizing 声明，不动本值。
+  # sim 值 = 2026-10-04 排障后的实证最优组合（去延迟包装 + ccd=500 + maxmatch=64）。
+  # 间歇故障最终定性（同日）：**机器环境级**——GPU 上驻留的 MuMu/VirtualBox
+  # hypervisor 进程（C+G）与 warp 图捕获/大块 mempool 分配交互，红绿呈时间窗
+  # 分布（代码无关；早前的"图理论"是窗效应假象——禁图开关实测无效已回退）。
+  # 处置：训练时关闭模拟器/虚拟机；冒烟 --repeat 门禁兜底（环境健康检查见
+  # validate_training_smoke）。
   cfg.sim.mujoco.ccd_iterations = 500
   cfg.sim.contact_sensor_maxmatch = 64
   cfg.scale_rewards_by_dt = True
