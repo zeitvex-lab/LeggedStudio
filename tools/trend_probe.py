@@ -299,6 +299,17 @@ def main() -> int:
             contract_block["command_ranges"] = {
                 k: [float(v[0]), float(v[1])] for k, v in ranges.items()
                 if isinstance(v, (list, tuple)) and len(v) == 2}
+        # run 契约快照若声明了 observation_layout（声明式布局），随 contract_block
+        # 携带——验收侧 frame_from_spec 按此构建（无参照策略的布局从这条走）。
+        run_contract = {}
+        _rc_path = run_dir / "contract.json"
+        if _rc_path.is_file():
+            try:
+                run_contract = json.loads(_rc_path.read_text(encoding="utf-8-sig"))
+            except Exception:  # noqa: BLE001
+                run_contract = {}
+        if run_contract.get("observation_layout"):
+            contract_block["observation_layout"] = run_contract["observation_layout"]
         snapshot = json.loads((run_dir / "contract_snapshot.json").read_text(encoding="utf-8-sig"))             if (run_dir / "contract_snapshot.json").is_file() else {}
         pose = ((snapshot.get("action") or {}).get("default_pose") or [])
         order = (snapshot.get("action") or {}).get("joint_order") or []
