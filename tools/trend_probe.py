@@ -168,11 +168,16 @@ def _adapter_python() -> Path:
     return adapter_python(default=ROOT / "adapters" / "mjlab" / ".venv")
 
 
-def _export_checkpoint(run_dir: Path, checkpoint: str, out: Path) -> Path:
+def _export_checkpoint(run_dir: Path, checkpoint: str, out: Path, robot_id: str) -> Path:
     cmd = [
         str(_adapter_python()), str(ROOT / "tools" / "export_checkpoint_onnx.py"),
         "--run", str(run_dir), "--checkpoint", checkpoint,
         "--out", str(out), "--no-verify",
+        # 包根随 run 的机器人走（缺省是 unitree_go2w——跨机型 run 会因此在
+        # 别的包里找 profile，找不到回落 legs-only ⇒ 装出 12 动作模型去载
+        # 16 动作 checkpoint 必炸 shape mismatch）。profile_id 从 training_config
+        # 读，包根由调用方按 --robot 传入。
+        "--package-root", str(ROOT / "assets" / "robots" / robot_id),
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
     if proc.returncode != 0 or not out.is_file():
@@ -263,13 +268,13 @@ def main() -> int:
         if ck == "model_final.pt":
             onnx = exported_dir / "policy.onnx"
             if not onnx.is_file():
-                onnx = _export_checkpoint(run_dir, ck, exported_dir / "policy.onnx")
+                onnx = _export_checkpoint(run_dir, ck, exported_dir / "policy.onnx", args.robot)
             iter_label = "final"
         else:
             iter_num = int(re.fullmatch(r"model_(\d+)\.pt", ck).group(1))
             onnx = exported_dir / f"model_{iter_num}.onnx"
             if not onnx.is_file():
-                onnx = _export_checkpoint(run_dir, ck, onnx)
+                onnx = _export_checkpoint(run_dir, ck, onnx, args.robot)
             iter_label = iter_num
 
         width = onnx_obs_dim(onnx)
