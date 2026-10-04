@@ -653,3 +653,10 @@ body.embedded .ls-topnav { display: none; }
   border-radius: 6px;
   padding: 4px 8px;
 }
+
+/* ---------- workbench 注册表驱动侧栏（UI 即插件容器） ---------- */
+.registry-side-nav { display: flex; flex-direction: column; gap: 2px; }
+.registry-side-nav .side-item.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
