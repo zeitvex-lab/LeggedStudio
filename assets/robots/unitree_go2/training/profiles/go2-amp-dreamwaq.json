@@ -16,5 +16,8 @@
  "num_envs": 1024,
  "episode_length_s": 20.0,
  "sort_order": 61,
- "max_iterations": 250
+ "max_iterations": 250,
+ "algorithm_plugin": "dreamwaq",
+ "algorithm_variant": "amp",
+ "algorithm_plugin_registry": "adapters/mjlab/algorithms/registry.json"
 }

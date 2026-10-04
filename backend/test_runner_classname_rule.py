@@ -25,14 +25,9 @@ _SOURCE_ROOT = _ROOT / "assets" / "robots"
 
 _ALLOWED_PREFIXES = ("mjlab.", "adapters.mjlab.algorithms.")
 
-# 具名债务豁免（每行 = 文件名 → 允许的类名；须附债务说明，接管即删行）：
-# dreamwaq amp 变体尚未上移 AmpPpoMixin 源口径实现（插件冒烟实证接口不兼容），
-# go2-amp-dreamwaq 在接管前继续用本地实现。
-_LEGACY_ALLOWLIST = {
-    "amp_dreamwaq": {
-        "local_tasks.robots.unitree.go2.tasks.go2_skills.amp_dreamwaq.rl:AmpDreamWaQPPO",
-    },
-}
+# 具名债务豁免（当前为空——amp_dreamwaq 债务已随插件 source_amp 上移清偿）。
+# 每行 = 目录名 → 允许的类名集合；须附债务说明，接管即删行。
+_LEGACY_ALLOWLIST: dict[str, set[str]] = {}
 
 
 def _config_files() -> list[Path]:
