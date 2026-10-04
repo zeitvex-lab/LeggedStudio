@@ -1,328 +1,356 @@
 {
-  "schema_version": "simulation-config-1.0",
-  "backend": "mujoco",
-  "scene_path": "simulation/scene.xml",
-  "initial_base_height": 0.52,
-  "actuator_interface": "position_target",
-  "velocity_scale": 5.0,
-  "control_modes": {
-    "fl_wheel_joint": "velocity",
-    "fr_wheel_joint": "velocity",
-    "hl_wheel_joint": "velocity",
-    "hr_wheel_joint": "velocity"
+ "schema_version": "simulation-config-1.0",
+ "backend": "mujoco",
+ "scene_path": "simulation/scene.xml",
+ "initial_base_height": 0.52,
+ "actuator_interface": "position_target",
+ "velocity_scale": 5.0,
+ "control_modes": {
+  "fl_wheel_joint": "velocity",
+  "fr_wheel_joint": "velocity",
+  "hl_wheel_joint": "velocity",
+  "hr_wheel_joint": "velocity"
+ },
+ "torque_limit": 76.4,
+ "joint_ids_map": [
+  0,
+  1,
+  2,
+  4,
+  5,
+  6,
+  8,
+  9,
+  10,
+  12,
+  13,
+  14,
+  3,
+  7,
+  11,
+  15
+ ],
+ "policies": [
+  {
+   "id": "m20-velocity-57",
+   "label": "Velocity 57D (official export)",
+   "obs_dim": 57,
+   "action_dim": 16,
+   "history_len": 1,
+   "source": "m20_rl_isaacsim exported/m20_new_policy.onnx（BSD-3，官方 checkpoint 导出，元数据内嵌）",
+   "contract": {
+    "observation_kind": "go2w_rl_sdk_57",
+    "observation_layout": [
+     {
+      "source": "ang_vel",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "gravity"
+     },
+     {
+      "source": "cmd",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "joint_pos",
+      "scale": "@contract",
+      "zero_velocity_joints": true
+     },
+     {
+      "source": "joint_vel",
+      "scale": "@contract"
+     },
+     {
+      "source": "action"
+     }
+    ],
+    "obs_dim": 57,
+    "action_dim": 16,
+    "history_len": 1,
+    "command_dims": 3,
+    "default_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "command_ranges": {
+     "lin_vel_x": [
+      -2.0,
+      2.0
+     ],
+     "lin_vel_y": [
+      -1.0,
+      1.0
+     ],
+     "ang_vel_z": [
+      -1.0,
+      1.0
+     ]
+    },
+    "action_joint_order": [
+     "fl_hipx_joint",
+     "fl_hipy_joint",
+     "fl_knee_joint",
+     "fr_hipx_joint",
+     "fr_hipy_joint",
+     "fr_knee_joint",
+     "hl_hipx_joint",
+     "hl_hipy_joint",
+     "hl_knee_joint",
+     "hr_hipx_joint",
+     "hr_hipy_joint",
+     "hr_knee_joint",
+     "fl_wheel_joint",
+     "fr_wheel_joint",
+     "hl_wheel_joint",
+     "hr_wheel_joint"
+    ],
+    "joint_ids_map": [
+     0,
+     1,
+     2,
+     4,
+     5,
+     6,
+     8,
+     9,
+     10,
+     12,
+     13,
+     14,
+     3,
+     7,
+     11,
+     15
+    ],
+    "default_joint_angles": {
+     "fl_hipx_joint": 0.0,
+     "fl_hipy_joint": -0.6,
+     "fl_knee_joint": 1.0,
+     "fr_hipx_joint": 0.0,
+     "fr_hipy_joint": -0.6,
+     "fr_knee_joint": 1.0,
+     "hl_hipx_joint": 0.0,
+     "hl_hipy_joint": 0.6,
+     "hl_knee_joint": -1.0,
+     "hr_hipx_joint": 0.0,
+     "hr_hipy_joint": 0.6,
+     "hr_knee_joint": -1.0,
+     "fl_wheel_joint": 0.0,
+     "fr_wheel_joint": 0.0,
+     "hl_wheel_joint": 0.0,
+     "hr_wheel_joint": 0.0
+    },
+    "action_scale": 0.25,
+    "action_scale_by_joint": {
+     "fl_hipx_joint": 0.125,
+     "fl_hipy_joint": 0.25,
+     "fl_knee_joint": 0.25,
+     "fr_hipx_joint": 0.125,
+     "fr_hipy_joint": 0.25,
+     "fr_knee_joint": 0.25,
+     "hl_hipx_joint": 0.125,
+     "hl_hipy_joint": 0.25,
+     "hl_knee_joint": 0.25,
+     "hr_hipx_joint": 0.125,
+     "hr_hipy_joint": 0.25,
+     "hr_knee_joint": 0.25,
+     "fl_wheel_joint": 5.0,
+     "fr_wheel_joint": 5.0,
+     "hl_wheel_joint": 5.0,
+     "hr_wheel_joint": 5.0
+    },
+    "scales": {
+     "ang_vel": 0.25,
+     "dof_pos": 1.0,
+     "dof_vel": 0.05,
+     "command": [
+      1.0,
+      1.0,
+      1.0
+     ]
+    },
+    "control": {
+     "stiffness": {
+      "fl_hipx_joint": 80.0,
+      "fl_hipy_joint": 80.0,
+      "fl_knee_joint": 80.0,
+      "fr_hipx_joint": 80.0,
+      "fr_hipy_joint": 80.0,
+      "fr_knee_joint": 80.0,
+      "hl_hipx_joint": 80.0,
+      "hl_hipy_joint": 80.0,
+      "hl_knee_joint": 80.0,
+      "hr_hipx_joint": 80.0,
+      "hr_hipy_joint": 80.0,
+      "hr_knee_joint": 80.0,
+      "fl_wheel_joint": 0.0,
+      "fr_wheel_joint": 0.0,
+      "hl_wheel_joint": 0.0,
+      "hr_wheel_joint": 0.0
+     },
+     "damping": {
+      "fl_hipx_joint": 2.0,
+      "fl_hipy_joint": 2.0,
+      "fl_knee_joint": 2.0,
+      "fr_hipx_joint": 2.0,
+      "fr_hipy_joint": 2.0,
+      "fr_knee_joint": 2.0,
+      "hl_hipx_joint": 2.0,
+      "hl_hipy_joint": 2.0,
+      "hl_knee_joint": 2.0,
+      "hr_hipx_joint": 2.0,
+      "hr_hipy_joint": 2.0,
+      "hr_knee_joint": 2.0,
+      "fl_wheel_joint": 0.6,
+      "fr_wheel_joint": 0.6,
+      "hl_wheel_joint": 0.6,
+      "hr_wheel_joint": 0.6
+     }
+    },
+    "autoplay": false,
+    "task_type": "velocity"
+   },
+   "training_ref": {
+    "profile": "m20-velocity",
+    "match": "family",
+    "upstream": "m20_rl_isaacsim + Dreamwaq/legged_gym/envs/M20"
+   }
   },
-  "torque_limit": 76.4,
-  "joint_ids_map": [
-    0,
-    1,
-    2,
-    4,
-    5,
-    6,
-    8,
-    9,
-    10,
-    12,
-    13,
-    14,
-    3,
-    7,
-    11,
-    15
-  ],
-  "policies": [
-    {
-      "id": "m20-velocity-57",
-      "label": "Velocity 57D (official export)",
-      "obs_dim": 57,
-      "action_dim": 16,
-      "history_len": 1,
-      "source": "m20_rl_isaacsim exported/m20_new_policy.onnx（BSD-3，官方 checkpoint 导出，元数据内嵌）",
-      "contract": {
-        "observation_kind": "go2w_rl_sdk_57",
-        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
-        "obs_dim": 57,
-        "action_dim": 16,
-        "history_len": 1,
-        "command_dims": 3,
-        "default_command": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "command_ranges": {
-          "lin_vel_x": [
-            -2.0,
-            2.0
-          ],
-          "lin_vel_y": [
-            -1.0,
-            1.0
-          ],
-          "ang_vel_z": [
-            -1.0,
-            1.0
-          ]
-        },
-        "action_joint_order": [
-          "fl_hipx_joint",
-          "fl_hipy_joint",
-          "fl_knee_joint",
-          "fr_hipx_joint",
-          "fr_hipy_joint",
-          "fr_knee_joint",
-          "hl_hipx_joint",
-          "hl_hipy_joint",
-          "hl_knee_joint",
-          "hr_hipx_joint",
-          "hr_hipy_joint",
-          "hr_knee_joint",
-          "fl_wheel_joint",
-          "fr_wheel_joint",
-          "hl_wheel_joint",
-          "hr_wheel_joint"
-        ],
-        "joint_ids_map": [
-          0,
-          1,
-          2,
-          4,
-          5,
-          6,
-          8,
-          9,
-          10,
-          12,
-          13,
-          14,
-          3,
-          7,
-          11,
-          15
-        ],
-        "default_joint_angles": {
-          "fl_hipx_joint": 0.0,
-          "fl_hipy_joint": -0.6,
-          "fl_knee_joint": 1.0,
-          "fr_hipx_joint": 0.0,
-          "fr_hipy_joint": -0.6,
-          "fr_knee_joint": 1.0,
-          "hl_hipx_joint": 0.0,
-          "hl_hipy_joint": 0.6,
-          "hl_knee_joint": -1.0,
-          "hr_hipx_joint": 0.0,
-          "hr_hipy_joint": 0.6,
-          "hr_knee_joint": -1.0,
-          "fl_wheel_joint": 0.0,
-          "fr_wheel_joint": 0.0,
-          "hl_wheel_joint": 0.0,
-          "hr_wheel_joint": 0.0
-        },
-        "action_scale": 0.25,
-        "action_scale_by_joint": {
-          "fl_hipx_joint": 0.125,
-          "fl_hipy_joint": 0.25,
-          "fl_knee_joint": 0.25,
-          "fr_hipx_joint": 0.125,
-          "fr_hipy_joint": 0.25,
-          "fr_knee_joint": 0.25,
-          "hl_hipx_joint": 0.125,
-          "hl_hipy_joint": 0.25,
-          "hl_knee_joint": 0.25,
-          "hr_hipx_joint": 0.125,
-          "hr_hipy_joint": 0.25,
-          "hr_knee_joint": 0.25,
-          "fl_wheel_joint": 5.0,
-          "fr_wheel_joint": 5.0,
-          "hl_wheel_joint": 5.0,
-          "hr_wheel_joint": 5.0
-        },
-        "scales": {
-          "ang_vel": 0.25,
-          "dof_pos": 1.0,
-          "dof_vel": 0.05,
-          "command": [
-            1.0,
-            1.0,
-            1.0
-          ]
-        },
-        "control": {
-          "stiffness": {
-            "fl_hipx_joint": 80.0,
-            "fl_hipy_joint": 80.0,
-            "fl_knee_joint": 80.0,
-            "fr_hipx_joint": 80.0,
-            "fr_hipy_joint": 80.0,
-            "fr_knee_joint": 80.0,
-            "hl_hipx_joint": 80.0,
-            "hl_hipy_joint": 80.0,
-            "hl_knee_joint": 80.0,
-            "hr_hipx_joint": 80.0,
-            "hr_hipy_joint": 80.0,
-            "hr_knee_joint": 80.0,
-            "fl_wheel_joint": 0.0,
-            "fr_wheel_joint": 0.0,
-            "hl_wheel_joint": 0.0,
-            "hr_wheel_joint": 0.0
-          },
-          "damping": {
-            "fl_hipx_joint": 2.0,
-            "fl_hipy_joint": 2.0,
-            "fl_knee_joint": 2.0,
-            "fr_hipx_joint": 2.0,
-            "fr_hipy_joint": 2.0,
-            "fr_knee_joint": 2.0,
-            "hl_hipx_joint": 2.0,
-            "hl_hipy_joint": 2.0,
-            "hl_knee_joint": 2.0,
-            "hr_hipx_joint": 2.0,
-            "hr_hipy_joint": 2.0,
-            "hr_knee_joint": 2.0,
-            "fl_wheel_joint": 0.6,
-            "fr_wheel_joint": 0.6,
-            "hl_wheel_joint": 0.6,
-            "hr_wheel_joint": 0.6
-          }
-        },
-        "autoplay": false,
-        "task_type": "velocity"
-      },
-      "training_ref": {
-        "profile": "m20-velocity",
-        "match": "family",
-        "upstream": "m20_rl_isaacsim + Dreamwaq/legged_gym/envs/M20"
-      }
+  {
+   "id": "m20-official-sdk",
+   "label": "M20 Velocity 57D（云深处官方 SDK 部署策略，轮速度动作）",
+   "obs_dim": 57,
+   "action_dim": 16,
+   "history_len": 1,
+   "source": "00_resources/sdk_deploy/src/M20_sdk_deploy/policy/policy.onnx（云深处官方部署包）；官方 run_policy/m20_policy_runner.hpp 为部署协议权威（轮位 obs 清零 policy 序 [12..15]、轮=速度动作 ×5）",
+   "training_ref": {
+    "profile": "m20-velocity",
+    "match": "ported",
+    "upstream": "00_resources/deep_rl rl_training wheeled/deeprobotics_m20（官方训练工程）+ 00_resources/sdk_deploy/src/M20_sdk_deploy（官方部署）"
+   },
+   "contract": {
+    "observation_kind": "go2w_rl_sdk_57",
+    "observation_layout": [
+     {
+      "source": "ang_vel",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "gravity"
+     },
+     {
+      "source": "cmd",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "joint_pos",
+      "scale": "@contract",
+      "zero_velocity_joints": true
+     },
+     {
+      "source": "joint_vel",
+      "scale": "@contract"
+     },
+     {
+      "source": "action"
+     }
+    ],
+    "obs_dim": 57,
+    "action_dim": 16,
+    "history_len": 1,
+    "command_dims": 3,
+    "task_type": "velocity",
+    "default_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "command_ranges": {
+     "lin_vel_x": [
+      -2.0,
+      2.0
+     ],
+     "lin_vel_y": [
+      -1.0,
+      1.0
+     ],
+     "ang_vel_z": [
+      -1.0,
+      1.0
+     ]
     },
-    {
-      "id": "m20-official-sdk",
-      "label": "M20 Velocity 57D（云深处官方 SDK 部署策略，轮速度动作）",
-      "obs_dim": 57,
-      "action_dim": 16,
-      "history_len": 1,
-      "source": "00_resources/sdk_deploy/src/M20_sdk_deploy/policy/policy.onnx（云深处官方部署包）；官方 run_policy/m20_policy_runner.hpp 为部署协议权威（轮位 obs 清零 policy 序 [12..15]、轮=速度动作 ×5）",
-      "training_ref": {
-        "profile": "m20-velocity",
-        "match": "ported",
-        "upstream": "00_resources/deep_rl rl_training wheeled/deeprobotics_m20（官方训练工程）+ 00_resources/sdk_deploy/src/M20_sdk_deploy（官方部署）"
-      },
-      "contract": {
-        "observation_kind": "go2w_rl_sdk_57",
-        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
-        "obs_dim": 57,
-        "action_dim": 16,
-        "history_len": 1,
-        "command_dims": 3,
-        "task_type": "velocity",
-        "default_command": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "command_ranges": {
-          "lin_vel_x": [
-            -2.0,
-            2.0
-          ],
-          "lin_vel_y": [
-            -1.0,
-            1.0
-          ],
-          "ang_vel_z": [
-            -1.0,
-            1.0
-          ]
-        },
-        "action_joint_order": [
-          "fl_hipx_joint",
-          "fl_hipy_joint",
-          "fl_knee_joint",
-          "fr_hipx_joint",
-          "fr_hipy_joint",
-          "fr_knee_joint",
-          "hl_hipx_joint",
-          "hl_hipy_joint",
-          "hl_knee_joint",
-          "hr_hipx_joint",
-          "hr_hipy_joint",
-          "hr_knee_joint",
-          "fl_wheel_joint",
-          "fr_wheel_joint",
-          "hl_wheel_joint",
-          "hr_wheel_joint"
-        ],
-        "default_joint_angles": {
-          "fl_hipx_joint": 0.0,
-          "fl_hipy_joint": -0.3,
-          "fl_knee_joint": 0.6,
-          "fr_hipx_joint": 0.0,
-          "fr_hipy_joint": -0.3,
-          "fr_knee_joint": 0.6,
-          "hl_hipx_joint": 0.0,
-          "hl_hipy_joint": 0.3,
-          "hl_knee_joint": -0.6,
-          "hr_hipx_joint": 0.0,
-          "hr_hipy_joint": 0.3,
-          "hr_knee_joint": -0.6,
-          "fl_wheel_joint": 0.0,
-          "fr_wheel_joint": 0.0,
-          "hl_wheel_joint": 0.0,
-          "hr_wheel_joint": 0.0
-        },
-        "action_scale": 0.25,
-        "action_scale_by_joint": {
-          "fl_hipx_joint": 0.125,
-          "fl_hipy_joint": 0.25,
-          "fl_knee_joint": 0.25,
-          "fr_hipx_joint": 0.125,
-          "fr_hipy_joint": 0.25,
-          "fr_knee_joint": 0.25,
-          "hl_hipx_joint": 0.125,
-          "hl_hipy_joint": 0.25,
-          "hl_knee_joint": 0.25,
-          "hr_hipx_joint": 0.125,
-          "hr_hipy_joint": 0.25,
-          "hr_knee_joint": 0.25,
-          "fl_wheel_joint": 5.0,
-          "fr_wheel_joint": 5.0,
-          "hl_wheel_joint": 5.0,
-          "hr_wheel_joint": 5.0
-        },
-        "scales": {
-          "ang_vel": 0.25,
-          "dof_pos": 1.0,
-          "dof_vel": 0.05,
-          "command": [
-            1.0,
-            1.0,
-            1.0
-          ]
-        }
-      }
+    "action_joint_order": [
+     "fl_hipx_joint",
+     "fl_hipy_joint",
+     "fl_knee_joint",
+     "fr_hipx_joint",
+     "fr_hipy_joint",
+     "fr_knee_joint",
+     "hl_hipx_joint",
+     "hl_hipy_joint",
+     "hl_knee_joint",
+     "hr_hipx_joint",
+     "hr_hipy_joint",
+     "hr_knee_joint",
+     "fl_wheel_joint",
+     "fr_wheel_joint",
+     "hl_wheel_joint",
+     "hr_wheel_joint"
+    ],
+    "default_joint_angles": {
+     "fl_hipx_joint": 0.0,
+     "fl_hipy_joint": -0.3,
+     "fl_knee_joint": 0.6,
+     "fr_hipx_joint": 0.0,
+     "fr_hipy_joint": -0.3,
+     "fr_knee_joint": 0.6,
+     "hl_hipx_joint": 0.0,
+     "hl_hipy_joint": 0.3,
+     "hl_knee_joint": -0.6,
+     "hr_hipx_joint": 0.0,
+     "hr_hipy_joint": 0.3,
+     "hr_knee_joint": -0.6,
+     "fl_wheel_joint": 0.0,
+     "fr_wheel_joint": 0.0,
+     "hl_wheel_joint": 0.0,
+     "hr_wheel_joint": 0.0
     },
-    {
-      "id": "deeprobotics_m20-trained-20260918-090509",
-      "path": "simulation/policies/deeprobotics_m20-trained-20260918-090509.onnx",
-      "sim_ready": false,
-      "sim_blocker": "**布局与动作口径已取证**（v0.59.0：obs 自训练源/既有帧逐项、动作自训练源与 ONNX 元数据），但**行为级实测不合格**：无头验收 5 档命令 **2/5**（存活 5/5、默认门 5/5——唯一短板是**不跟踪**） ⇒ B8 冒烟轮产物，不入可仿真清单；要入清单须重训后重评（补 builder 解决不了\"不走\"）。",
-      "provenance": {
-        "artifact_id": "deeprobotics_m20__produced-deeprobotics_m20_v1_20260918_090509_476414",
-        "run_id": "deeprobotics_m20_v1_20260918_090509_476414",
-        "origin": "product-training",
-        "installed_at": "2026-09-18T01:05:44+00:00"
-      },
-      "label": "训练产物（run deeprobotics_m20_v1_20260918_090509_476414）",
-      "obs_dim": 57,
-      "action_dim": 16,
-      "contract": {
-        "observation_kind": "unknown",
-        "obs_dim": 57,
-        "action_dim": 16,
-        "observation_layout": [{"source": "ang_vel", "width": 3}, {"source": "gravity"}, {"source": "cmd", "width": 3}, {"source": "joint_pos", "mode": "position", "width": 12}, {"source": "joint_vel", "mode": "position", "width": 12}, {"source": "joint_pos", "mode": "velocity", "width": 4}, {"source": "joint_vel", "mode": "velocity", "width": 4}, {"source": "action"}],
-        "velocity_scale": 5.0,
-        "action_scale_by_joint": {"fl_hipx_joint": 0.125, "fl_hipy_joint": 0.25, "fl_knee_joint": 0.25, "fr_hipx_joint": 0.125, "fr_hipy_joint": 0.25, "fr_knee_joint": 0.25, "hl_hipx_joint": 0.125, "hl_hipy_joint": 0.25, "hl_knee_joint": 0.25, "hr_hipx_joint": 0.125, "hr_hipy_joint": 0.25, "hr_knee_joint": 0.25}
-      },
-      "note": "B8 第二批冒烟产物。**2026-09-23 补齐取证（v0.59.0）**：obs 布局自训练源 adapters/mjlab/kits/wheel_leg_kit/velocity_env_cfg.py::policy_terms + 包内 `training/source/m20_velocity/env_cfgs.py`（同上逐项序）；动作口径同源（腿逐关节 `{{hipx: 0.125, 其余: 0.25}}`、轮 5.0）；ONNX 元数据默认姿态与包级逐值一致 ⇒ 不重复声明。**行为级实测**：无头验收 5 档命令 **2/5**（存活 5/5、默认门 5/5——唯一短板是**不跟踪**）。"
+    "action_scale": 0.25,
+    "action_scale_by_joint": {
+     "fl_hipx_joint": 0.125,
+     "fl_hipy_joint": 0.25,
+     "fl_knee_joint": 0.25,
+     "fr_hipx_joint": 0.125,
+     "fr_hipy_joint": 0.25,
+     "fr_knee_joint": 0.25,
+     "hl_hipx_joint": 0.125,
+     "hl_hipy_joint": 0.25,
+     "hl_knee_joint": 0.25,
+     "hr_hipx_joint": 0.125,
+     "hr_hipy_joint": 0.25,
+     "hr_knee_joint": 0.25,
+     "fl_wheel_joint": 5.0,
+     "fr_wheel_joint": 5.0,
+     "hl_wheel_joint": 5.0,
+     "hr_wheel_joint": 5.0
+    },
+    "scales": {
+     "ang_vel": 0.25,
+     "dof_pos": 1.0,
+     "dof_vel": 0.05,
+     "command": [
+      1.0,
+      1.0,
+      1.0
+     ]
     }
-  ]
+   }
+  }
+ ]
 }

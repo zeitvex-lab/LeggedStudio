@@ -1,189 +1,190 @@
 {
-  "schema_version": "simulation-config-1.0",
-  "backend": "mujoco",
-  "scene_path": "simulation/scene.xml",
-  "initial_base_height": 0.65,
-  "actuator_interface": "position_target",
-  "velocity_scale": 5.0,
-  "control_modes": {
-    "FR_wheel_joint": "velocity",
-    "FL_wheel_joint": "velocity",
-    "RR_wheel_joint": "velocity",
-    "RL_wheel_joint": "velocity"
-  },
-  "torque_limit": 200.0,
-  "default_map": {},
-  "settle_steps": 20,
-  "policies": [
-    {
-      "id": "b2w-velocity-robotlab",
-      "label": "Velocity 57D (rl_sar robot_lab)",
-      "obs_dim": 57,
-      "action_dim": 16,
-      "history_len": 1,
-      "source": "rl_sar policy/b2w/robot_lab（Apache-2.0，社区 IsaacLab 系训练基准）",
-      "contract": {
-        "observation_kind": "go2w_rl_sdk_57",
-        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "scale": "@contract", "zero_velocity_joints": true}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
-        "obs_dim": 57,
-        "action_dim": 16,
-        "history_len": 1,
-        "command_dims": 3,
-        "default_command": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "command_ranges": {
-          "lin_vel_x": [
-            -1.0,
-            1.0
-          ],
-          "lin_vel_y": [
-            -0.5,
-            0.5
-          ],
-          "ang_vel_z": [
-            -1.0,
-            1.0
-          ]
-        },
-        "action_joint_order": [
-          "FR_hip_joint",
-          "FR_thigh_joint",
-          "FR_calf_joint",
-          "FL_hip_joint",
-          "FL_thigh_joint",
-          "FL_calf_joint",
-          "RR_hip_joint",
-          "RR_thigh_joint",
-          "RR_calf_joint",
-          "RL_hip_joint",
-          "RL_thigh_joint",
-          "RL_calf_joint",
-          "FR_wheel_joint",
-          "FL_wheel_joint",
-          "RR_wheel_joint",
-          "RL_wheel_joint"
-        ],
-        "default_joint_angles": {
-          "FR_hip_joint": 0.0,
-          "FR_thigh_joint": 0.8,
-          "FR_calf_joint": -1.5,
-          "FL_hip_joint": 0.0,
-          "FL_thigh_joint": 0.8,
-          "FL_calf_joint": -1.5,
-          "RR_hip_joint": 0.0,
-          "RR_thigh_joint": 0.8,
-          "RR_calf_joint": -1.5,
-          "RL_hip_joint": 0.0,
-          "RL_thigh_joint": 0.8,
-          "RL_calf_joint": -1.5,
-          "FR_wheel_joint": 0.0,
-          "FL_wheel_joint": 0.0,
-          "RR_wheel_joint": 0.0,
-          "RL_wheel_joint": 0.0
-        },
-        "action_scale": 0.25,
-        "action_scale_by_joint": {
-          "FR_hip_joint": 0.125,
-          "FR_thigh_joint": 0.25,
-          "FR_calf_joint": 0.25,
-          "FL_hip_joint": 0.125,
-          "FL_thigh_joint": 0.25,
-          "FL_calf_joint": 0.25,
-          "RR_hip_joint": 0.125,
-          "RR_thigh_joint": 0.25,
-          "RR_calf_joint": 0.25,
-          "RL_hip_joint": 0.125,
-          "RL_thigh_joint": 0.25,
-          "RL_calf_joint": 0.25,
-          "FR_wheel_joint": 5.0,
-          "FL_wheel_joint": 5.0,
-          "RR_wheel_joint": 5.0,
-          "RL_wheel_joint": 5.0
-        },
-        "scales": {
-          "ang_vel": 0.25,
-          "dof_pos": 1.0,
-          "dof_vel": 0.05,
-          "command": [
-            1.0,
-            1.0,
-            1.0
-          ]
-        },
-        "control": {
-          "stiffness": {
-            "FR_hip_joint": 160.0,
-            "FR_thigh_joint": 160.0,
-            "FR_calf_joint": 160.0,
-            "FL_hip_joint": 160.0,
-            "FL_thigh_joint": 160.0,
-            "FL_calf_joint": 160.0,
-            "RR_hip_joint": 160.0,
-            "RR_thigh_joint": 160.0,
-            "RR_calf_joint": 160.0,
-            "RL_hip_joint": 160.0,
-            "RL_thigh_joint": 160.0,
-            "RL_calf_joint": 160.0,
-            "FR_wheel_joint": 0.0,
-            "FL_wheel_joint": 0.0,
-            "RR_wheel_joint": 0.0,
-            "RL_wheel_joint": 0.0
-          },
-          "damping": {
-            "FR_hip_joint": 5.0,
-            "FR_thigh_joint": 5.0,
-            "FR_calf_joint": 5.0,
-            "FL_hip_joint": 5.0,
-            "FL_thigh_joint": 5.0,
-            "FL_calf_joint": 5.0,
-            "RR_hip_joint": 5.0,
-            "RR_thigh_joint": 5.0,
-            "RR_calf_joint": 5.0,
-            "RL_hip_joint": 5.0,
-            "RL_thigh_joint": 5.0,
-            "RL_calf_joint": 5.0,
-            "FR_wheel_joint": 1.0,
-            "FL_wheel_joint": 1.0,
-            "RR_wheel_joint": 1.0,
-            "RL_wheel_joint": 1.0
-          }
-        },
-        "autoplay": false,
-        "task_type": "velocity"
-      },
-      "training_ref": {
-        "profile": "b2w-velocity",
-        "match": "family",
-        "upstream": "robot_lab/.../velocity/config/wheeled/unitree_b2w"
-      }
+ "schema_version": "simulation-config-1.0",
+ "backend": "mujoco",
+ "scene_path": "simulation/scene.xml",
+ "initial_base_height": 0.65,
+ "actuator_interface": "position_target",
+ "velocity_scale": 5.0,
+ "control_modes": {
+  "FR_wheel_joint": "velocity",
+  "FL_wheel_joint": "velocity",
+  "RR_wheel_joint": "velocity",
+  "RL_wheel_joint": "velocity"
+ },
+ "torque_limit": 200.0,
+ "default_map": {},
+ "settle_steps": 20,
+ "policies": [
+  {
+   "id": "b2w-velocity-robotlab",
+   "label": "Velocity 57D (rl_sar robot_lab)",
+   "obs_dim": 57,
+   "action_dim": 16,
+   "history_len": 1,
+   "source": "rl_sar policy/b2w/robot_lab（Apache-2.0，社区 IsaacLab 系训练基准）",
+   "contract": {
+    "observation_kind": "go2w_rl_sdk_57",
+    "observation_layout": [
+     {
+      "source": "ang_vel",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "gravity"
+     },
+     {
+      "source": "cmd",
+      "width": 3,
+      "scale": "@contract"
+     },
+     {
+      "source": "joint_pos",
+      "scale": "@contract",
+      "zero_velocity_joints": true
+     },
+     {
+      "source": "joint_vel",
+      "scale": "@contract"
+     },
+     {
+      "source": "action"
+     }
+    ],
+    "obs_dim": 57,
+    "action_dim": 16,
+    "history_len": 1,
+    "command_dims": 3,
+    "default_command": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "command_ranges": {
+     "lin_vel_x": [
+      -1.0,
+      1.0
+     ],
+     "lin_vel_y": [
+      -0.5,
+      0.5
+     ],
+     "ang_vel_z": [
+      -1.0,
+      1.0
+     ]
     },
-    {
-      "id": "unitree_b2w-trained-20260918-093241",
-      "path": "simulation/policies/unitree_b2w-trained-20260918-093241.onnx",
-      "sim_ready": false,
-      "sim_blocker": "**布局与动作口径已取证**（v0.59.0：obs 自训练源/既有帧逐项、动作自训练源与 ONNX 元数据），但**行为级实测不合格**：无头验收 5 档命令 **0/5**（默认门同为 0/5：vx 档摔倒） ⇒ B8 冒烟轮产物，不入可仿真清单；要入清单须重训后重评（补 builder 解决不了\"不走\"）。",
-      "provenance": {
-        "artifact_id": "unitree_b2w__produced-unitree_b2w_v1_20260918_093241_627441",
-        "run_id": "unitree_b2w_v1_20260918_093241_627441",
-        "origin": "product-training",
-        "installed_at": "2026-09-18T01:34:06+00:00"
-      },
-      "label": "训练产物（run unitree_b2w_v1_20260918_093241_627441）",
-      "obs_dim": 57,
-      "action_dim": 16,
-      "contract": {
-        "observation_kind": "unknown",
-        "obs_dim": 57,
-        "action_dim": 16,
-        "observation_layout": [{"source": "ang_vel", "width": 3}, {"source": "gravity"}, {"source": "cmd", "width": 3}, {"source": "joint_pos", "mode": "position", "width": 12}, {"source": "joint_vel", "mode": "position", "width": 12}, {"source": "joint_pos", "mode": "velocity", "width": 4}, {"source": "joint_vel", "mode": "velocity", "width": 4}, {"source": "action"}],
-        "action_scale": 0.5,
-        "velocity_scale": 35.0,
-        "default_joint_angles": {"fl_hip_joint": -0.1, "fl_thigh_joint": 0.8, "fl_calf_joint": -1.5, "fl_wheel_joint": 0.0, "fr_hip_joint": 0.1, "fr_thigh_joint": 0.8, "fr_calf_joint": -1.5, "fr_wheel_joint": 0.0, "rl_hip_joint": -0.1, "rl_thigh_joint": 0.8, "rl_calf_joint": -1.5, "rl_wheel_joint": 0.0, "rr_hip_joint": 0.1, "rr_thigh_joint": 0.8, "rr_calf_joint": -1.5, "rr_wheel_joint": 0.0}
-      },
-      "note": "B8 第二批冒烟产物。**2026-09-23 补齐取证（v0.59.0）**：obs 布局自训练源 adapters/mjlab/kits/wheel_leg_kit/velocity_env_cfg.py::policy_terms + 包内 `training/source/b2w_velocity/env_cfgs.py`（ang_vel / gravity / cmd / 腿 q12 / 腿 dq12 / 轮 q4 / 轮 dq4 / actions16）；动作口径同源（腿 `JointPositionActionCfg(scale=0.5)`、轮 `JointVelocityActionCfg(scale=35.0)`）；ONNX 元数据默认姿态（hip −0.1 / thigh 0.8 / calf −1.5）与包级（0.0 / 0.5 / −1.5）不同 ⇒ 逐关节声明。**行为级实测**：无头验收 5 档命令 **0/5**（默认门同为 0/5：vx 档摔倒）。"
-    }
-  ]
+    "action_joint_order": [
+     "FR_hip_joint",
+     "FR_thigh_joint",
+     "FR_calf_joint",
+     "FL_hip_joint",
+     "FL_thigh_joint",
+     "FL_calf_joint",
+     "RR_hip_joint",
+     "RR_thigh_joint",
+     "RR_calf_joint",
+     "RL_hip_joint",
+     "RL_thigh_joint",
+     "RL_calf_joint",
+     "FR_wheel_joint",
+     "FL_wheel_joint",
+     "RR_wheel_joint",
+     "RL_wheel_joint"
+    ],
+    "default_joint_angles": {
+     "FR_hip_joint": 0.0,
+     "FR_thigh_joint": 0.8,
+     "FR_calf_joint": -1.5,
+     "FL_hip_joint": 0.0,
+     "FL_thigh_joint": 0.8,
+     "FL_calf_joint": -1.5,
+     "RR_hip_joint": 0.0,
+     "RR_thigh_joint": 0.8,
+     "RR_calf_joint": -1.5,
+     "RL_hip_joint": 0.0,
+     "RL_thigh_joint": 0.8,
+     "RL_calf_joint": -1.5,
+     "FR_wheel_joint": 0.0,
+     "FL_wheel_joint": 0.0,
+     "RR_wheel_joint": 0.0,
+     "RL_wheel_joint": 0.0
+    },
+    "action_scale": 0.25,
+    "action_scale_by_joint": {
+     "FR_hip_joint": 0.125,
+     "FR_thigh_joint": 0.25,
+     "FR_calf_joint": 0.25,
+     "FL_hip_joint": 0.125,
+     "FL_thigh_joint": 0.25,
+     "FL_calf_joint": 0.25,
+     "RR_hip_joint": 0.125,
+     "RR_thigh_joint": 0.25,
+     "RR_calf_joint": 0.25,
+     "RL_hip_joint": 0.125,
+     "RL_thigh_joint": 0.25,
+     "RL_calf_joint": 0.25,
+     "FR_wheel_joint": 5.0,
+     "FL_wheel_joint": 5.0,
+     "RR_wheel_joint": 5.0,
+     "RL_wheel_joint": 5.0
+    },
+    "scales": {
+     "ang_vel": 0.25,
+     "dof_pos": 1.0,
+     "dof_vel": 0.05,
+     "command": [
+      1.0,
+      1.0,
+      1.0
+     ]
+    },
+    "control": {
+     "stiffness": {
+      "FR_hip_joint": 160.0,
+      "FR_thigh_joint": 160.0,
+      "FR_calf_joint": 160.0,
+      "FL_hip_joint": 160.0,
+      "FL_thigh_joint": 160.0,
+      "FL_calf_joint": 160.0,
+      "RR_hip_joint": 160.0,
+      "RR_thigh_joint": 160.0,
+      "RR_calf_joint": 160.0,
+      "RL_hip_joint": 160.0,
+      "RL_thigh_joint": 160.0,
+      "RL_calf_joint": 160.0,
+      "FR_wheel_joint": 0.0,
+      "FL_wheel_joint": 0.0,
+      "RR_wheel_joint": 0.0,
+      "RL_wheel_joint": 0.0
+     },
+     "damping": {
+      "FR_hip_joint": 5.0,
+      "FR_thigh_joint": 5.0,
+      "FR_calf_joint": 5.0,
+      "FL_hip_joint": 5.0,
+      "FL_thigh_joint": 5.0,
+      "FL_calf_joint": 5.0,
+      "RR_hip_joint": 5.0,
+      "RR_thigh_joint": 5.0,
+      "RR_calf_joint": 5.0,
+      "RL_hip_joint": 5.0,
+      "RL_thigh_joint": 5.0,
+      "RL_calf_joint": 5.0,
+      "FR_wheel_joint": 1.0,
+      "FL_wheel_joint": 1.0,
+      "RR_wheel_joint": 1.0,
+      "RL_wheel_joint": 1.0
+     }
+    },
+    "autoplay": false,
+    "task_type": "velocity"
+   },
+   "training_ref": {
+    "profile": "b2w-velocity",
+    "match": "family",
+    "upstream": "robot_lab/.../velocity/config/wheeled/unitree_b2w"
+   }
+  }
+ ]
 }
