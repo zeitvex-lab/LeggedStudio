@@ -382,8 +382,12 @@ def make_velocity_env_cfg(
       azimuth=90.0,
     ),
     sim=SimulationCfg(
-      nconmax=35,
-      njmax=300,
+      # 2026-10-04 规则化（用户「形成一套规则」）：nconmax/njmax 回归 mjlab 启发式
+      # （None = 按资产自动定）。原 35/300 是按 go2w 手调后跨资产手抄的值——正是族
+      # 注册表 sim_sizing 记载过的失效模式（换资产/地形/env 数就溢出 ⇒ warp 非法
+      # 访存或静默 NaN，m20-dreamwaq 1024 envs 63 轮发散实证）。缓冲只是"够大"，
+      # 不改物理；显存吃紧的机器走族装配表 sim_sizing 声明。
+      # mujoco 求解器参数（timestep/iterations/ls_iterations）是物理口径，保留源值。
       mujoco=MujocoCfg(
         timestep=0.005,
         iterations=10,
