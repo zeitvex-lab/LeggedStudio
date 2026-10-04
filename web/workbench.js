@@ -773,6 +773,40 @@ async function loadPanelCards() {
   }
 }
 
+// 注册表驱动侧栏（UI 即插件：与顶栏同一份 /api/panels 投影）。
+// workbench 内嵌视图（entry = workbench.html#<id>）⇒ data-step 按钮；
+// 指向其他页面的面板 ⇒ 外链 <a>（新页打开，单页壳不吞导航）。
+async function buildRegistrySideNav() {
+  const host = document.getElementById("registrySideNav");
+  if (!host) return;
+  try {
+    const payload = await jsonFetch("/api/panels");
+    const nav = (payload && payload.navigation) || [];
+    let html = "";
+    let lastGroup = "";
+    for (const item of nav) {
+      const m = String(item.href || "").split("#");
+      const file = m[0];
+      const anchor = m[1] || "";
+      if (item.group && item.group !== lastGroup) {
+        html += `<span class="side-group">${escapeHtml(item.group)}</span>`;
+        lastGroup = item.group;
+      }
+      if (file && file !== "workbench.html") {
+        html += item.disabled
+          ? `<span class="side-item is-disabled" title="${escapeHtml(item.disabled_reason || "不可用")}"><span class="side-ico">•</span><span>${escapeHtml(item.title)}</span></span>`
+          : `<a class="side-item" href="${escapeHtml(item.href)}" target="_blank" rel="noopener"><span class="side-ico">↗</span><span>${escapeHtml(item.title)}</span></a>`;
+      } else if (anchor && anchor !== "home") {
+        html += `<button class="side-item" data-step="${escapeHtml(anchor)}"><span class="side-ico">•</span><span>${escapeHtml(item.title)}</span></button>`;
+      }
+    }
+    host.innerHTML = html || '<div class="empty-state">导航需要控制面</div>';
+    host.querySelectorAll("[data-step]").forEach((item) => item.addEventListener("click", () => setView(item.dataset.step)));
+  } catch (error) {
+    host.innerHTML = `<div class="empty-state">侧栏加载失败：${escapeHtml(error.message)}</div>`;
+  }
+}
+
 async function loadViewData(name) {
   if (loadedViews.has(name)) return;
   loadedViews.add(name);
@@ -1278,4 +1312,4 @@ function bindEvents() {
   $('saveRobotPackage')?.addEventListener('click', saveRobotPackage); $('refreshRobotPackages')?.addEventListener('click', () => loadPresets(selectedPreset?.robot_id)); $('deleteRobotPackage')?.addEventListener('click', async () => { if (!selectedPreset || selectedPreset.source !== 'workspace') return; if (!(await LSFeedback.confirm('删除当前机器人包？', { danger: true }))) return; await jsonFetch('/api/project/packages/' + encodeURIComponent(selectedPreset.robot_id), { method: 'DELETE' }); selectedPreset = null; await loadPresets(); });
   $('validateBtn').addEventListener('click', validateModel); $('startSimulation')?.addEventListener('click', startSimulation); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('panelCardsRefresh')?.addEventListener('click', loadPanelCards); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
 }
-document.addEventListener('DOMContentLoaded', async () => { buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = ['home','robot','config','training','simulation','navmap','deploy','artifacts'].includes(hash) ? hash : 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });
+document.addEventListener('DOMContentLoaded', async () => { buildRegistrySideNav(); buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = hash || 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });
