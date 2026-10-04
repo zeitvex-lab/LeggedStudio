@@ -23,6 +23,10 @@ iters = int(sys.argv[sys.argv.index("--iters") + 1]) if "--iters" in sys.argv el
 # profile 声明的 runner 类（``entrypoints.runner_class``）。产品路径 native_worker.py 也是
 # 按这个字段导入的；这里以前写死 MjlabOnPolicyRunner，导致自定义算法一律被跳过。
 runner_class = sys.argv[sys.argv.index("--runner-class") + 1] if "--runner-class" in sys.argv else ""
+# profile 的算法插件声明（与产品路径同一绑定函数；冒烟必须验**声明后的接线**，
+# 否则"冒烟绿"只证明默认 PPO 能跑，声明了的算法从未被训练层验证过）。
+plugin_name = sys.argv[sys.argv.index("--algorithm-plugin") + 1] if "--algorithm-plugin" in sys.argv else ""
+plugin_variant = sys.argv[sys.argv.index("--algorithm-variant") + 1] if "--algorithm-variant" in sys.argv else ""
 
 
 def _import_entrypoint(value: str):
@@ -96,6 +100,13 @@ try:
         result["runner_class"] = runner_class or "mjlab.rl:MjlabOnPolicyRunner"
         result["algorithm_class_name"] = algo_class
 
+        if plugin_name:
+            from adapters.mjlab.algorithms.plugin_registry import apply_algorithm_plugin
+
+            result["algorithm_plugin"] = apply_algorithm_plugin(
+                runner_cfg, algorithm_plugin=plugin_name,
+                variant=plugin_variant or None,
+            )
         runner_cfg.max_iterations = iters
         runner_cfg.save_interval = 10_000
         # 离线冒烟默认走 TensorBoard，避免 wandb 在无网/未登录时中断

@@ -1,20 +1,20 @@
 {
-  "schema_version": "training-profile-1.0",
-  "profile_id": "go2-amp-dreamwaq",
-  "display_name": "Go2 AMP DreamWaQ Rough",
-  "source": "package-local AMP DreamWaQ task",
-  "source_root": "training/source",
-  "entrypoints": {
-    "env": "local_tasks.robots.unitree.go2.tasks.go2_skills.amp_dreamwaq.config:make_amp_dreamwaq_env_cfg",
-    "runner": "local_tasks.robots.unitree.go2.tasks.go2_skills.amp_dreamwaq.config:make_amp_dreamwaq_runner_cfg",
-    "runner_class": "local_tasks.robots.unitree.go2.training.runner:VelocityOnPolicyRunner"
-  },
-  "backend": "native_mjlab",
-  "task_name": "Unitree-Go2-AMP-DreamWaQ-Rough",
-  "terrain_type": "rough",
-  "algorithm": "PPO",
-  "num_envs": 1024,
-  "episode_length_s": 20.0,
-  "sort_order": 61,
-  "max_iterations": 250
+ "schema_version": "training-profile-1.0",
+ "profile_id": "go2-amp-dreamwaq",
+ "display_name": "Go2 AMP DreamWaQ Rough",
+ "source": "package-local AMP DreamWaQ task",
+ "source_root": "training/source",
+ "entrypoints": {
+  "env": "local_tasks.robots.unitree.go2.tasks.go2_skills.amp_dreamwaq.config:make_amp_dreamwaq_env_cfg",
+  "runner": "local_tasks.robots.unitree.go2.tasks.go2_skills.amp_dreamwaq.config:make_amp_dreamwaq_runner_cfg",
+  "runner_class": "local_tasks.robots.unitree.go2.training.runner:VelocityOnPolicyRunner"
+ },
+ "backend": "native_mjlab",
+ "task_name": "Unitree-Go2-AMP-DreamWaQ-Rough",
+ "terrain_type": "rough",
+ "algorithm": "PPO",
+ "num_envs": 1024,
+ "episode_length_s": 20.0,
+ "sort_order": 61,
+ "max_iterations": 250
 }

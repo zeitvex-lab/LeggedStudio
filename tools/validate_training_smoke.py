@@ -73,6 +73,9 @@ def validate_profile_subprocess(record, profile, num_envs, rollout_steps, mode, 
         # profile 声明的 runner 类透传给 worker（产品路径也是按它导入的）：
         # 不透传就只剩标准 PPO runner，自定义算法全部落进 skipped。
         "--runner-class", str(entry.get("runner_class") or ""),
+        # 算法插件声明随行：冒烟验的就是产品会用的那份接线（声明缺省 = 默认 PPO）
+        "--algorithm-plugin", str(profile.get("algorithm_plugin") or ""),
+        "--algorithm-variant", str(profile.get("algorithm_variant") or ""),
     ]
     if mode == "train":
         cmd += ["--train", "--iters", str(iters)]
@@ -154,6 +157,10 @@ def main() -> None:
     parser.add_argument("--rollout-steps", type=int, default=50)
     parser.add_argument("--mode", choices=["rollout", "train", "longtrain"], default="rollout")
     parser.add_argument("--iters", type=int, default=50)
+    parser.add_argument(
+        "--repeat", type=int, default=1,
+        help="每档重复跑 N 次；任何一次非 ok 即判 flaky（间歇性 CUDA 故障一次绿不算绿）",
+    )
     parser.add_argument("--profile", default=None, help="仅验证指定 profile_id（可用于长训聚焦）")
     parser.add_argument("--robot", default=None, help="仅验证指定 robot_id")
     parser.add_argument("--baseline", type=Path, default=None,
@@ -191,6 +198,17 @@ def main() -> None:
                 }
             else:
                 res = validate_profile_subprocess(record, profile, args.num_envs, args.rollout_steps, args.mode, args.iters)
+                for rep in range(2, args.repeat + 1):
+                    if res["status"] != "ok":
+                        break  # 已非绿，不必再跑
+                    rep_res = validate_profile_subprocess(record, profile, args.num_envs, args.rollout_steps, args.mode, args.iters)
+                    if rep_res["status"] != "ok":
+                        res = {
+                            **rep_res,
+                            "status": "flaky",
+                            "error": f"间歇性故障（repeat {rep}/{args.repeat} 首次非 ok）：{str(rep_res.get('error'))[:200]}",
+                        }
+                        break
             entry.update(res)
             flag = "OK " if res["status"] == "ok" else ("SK " if res["status"].startswith("skip") else "!! ")
             print(f"[{flag}] {entry['robot_id']}/{entry['profile_id']} -> {res['status']}")
@@ -207,6 +225,7 @@ def main() -> None:
         "iters": args.iters,
         "total": len(results),
         "ok": sum(1 for r in results if r["status"] == "ok"),
+        "flaky": sum(1 for r in results if r["status"] == "flaky"),
         "skipped": sum(1 for r in results if r["status"].startswith("skip")),
         "failed": [r for r in results if r["status"] not in ("ok",) and not r["status"].startswith("skip")],
         "results": results,

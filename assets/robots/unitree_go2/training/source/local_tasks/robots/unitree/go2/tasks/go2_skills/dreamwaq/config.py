@@ -105,6 +105,6 @@ def make_dreamwaq_env_cfg(*, play: bool = False) -> ManagerBasedRlEnvCfg:
 def make_dreamwaq_runner_cfg():
   cfg = make_ppo_runner_cfg(DREAMWAQ.experiment_name, max_iterations=20_000, save_interval=500)
   cfg.seed = 1; cfg.clip_actions = 100.; cfg.actor.obs_normalization = False; cfg.critic.obs_normalization = False
-  cfg.actor.class_name = "local_tasks.robots.unitree.go2.tasks.go2_skills.dreamwaq.mdp.rl:DreamWaQActor"
-  cfg.algorithm.class_name = "local_tasks.robots.unitree.go2.tasks.go2_skills.dreamwaq.mdp.rl:DreamWaQPPO"
+  # class_name 不写死（2026-10-04 规则：算法走 plugin 声明——dreamwaq base 变体，
+  # 见 go2-dreamwaq profile 的 algorithm_plugin；本包 rl.py 为过渡期副本，逐步退役）。
   return cfg

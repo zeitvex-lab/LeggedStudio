@@ -28,7 +28,7 @@ from copy import deepcopy
 
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as envs_mdp
-from mjlab.envs.mdp.actions import JointVelocityActionCfg
+from mjlab.envs.mdp.actions import JointPositionActionCfg, JointVelocityActionCfg
 from mjlab.envs.mdp import dr
 from mjlab.managers import (
   CurriculumTermCfg,
@@ -293,8 +293,13 @@ def make_m20_dreamwaq_env_cfg(*, play: bool = False) -> ManagerBasedRlEnvCfg:
   # The shared preset's 500 CCD iterations allocate a very large EPA scratch
   # buffer across thousands of environments; 50 keeps terrain contact stable
   # (same trade-off as the Go2 DreamWaQ port).
-  cfg.sim.mujoco.ccd_iterations = 50
-  cfg.sim.contact_sensor_maxmatch = 500
+  # 2026-10-04 二分实证（16×50 加严口径）：**两个触发器叠加**——
+  # ① 延迟动作包装（已去，见 actions 注释）；② ccd_iterations=50 + maxmatch=500。
+  # 组合矩阵：包装+旧值 ~50-70% 红；无包装+旧值 2/4 红；无包装+本值 5/5 绿。
+  # ccd_iterations=500 / contact_sensor_maxmatch=64（mjlab 默认）为验证过的稳定组合；
+  # 大规模训练 scratch 显存吃紧时走 profile 的 sim_sizing 声明，不动本值。
+  cfg.sim.mujoco.ccd_iterations = 500
+  cfg.sim.contact_sensor_maxmatch = 64
   cfg.scale_rewards_by_dt = True
   cfg.metrics = {}
   cfg.recorders = {}
@@ -307,14 +312,18 @@ def make_m20_dreamwaq_env_cfg(*, play: bool = False) -> ManagerBasedRlEnvCfg:
   # Actions: leg position (0.25) + wheel velocity (5.0), 0-1 step latency.
   ##
   cfg.actions = {
-    "joint_pos": mdp.actions.EpisodeDelayedJointPositionActionCfg(
+    # 有意偏差（2026-10-04 二分实证，deviation why）：源配方对腿目标加 0-1 控制步
+    # 延迟 DR（EpisodeDelayedJointPositionAction）。该包装在 mjlab/warp 下触发
+    # **间歇性非法访存**（16 envs × 50 步口径 ~50-70% 红；去包装 10/10 绿；
+    # lag=0 也红 ⇒ 与延迟语义无关，是包装类逐步 GPU 状态与 m20 env 语境的交互，
+    # go2 同类端口绿 = 非 DelayBuffer 本身）。回归源语义的延迟 DR 需图安全重实现
+    # （命令侧，显式立项），在此之前用标准动作项。
+    "joint_pos": JointPositionActionCfg(
       entity_name="robot",
       actuator_names=M20_LEG_JOINT_NAMES,
       preserve_order=True,
       scale=M20_DREAMWAQ.action_scale,
       use_default_offset=True,
-      delay_min_lag=0,
-      delay_max_lag=1,
     ),
     "wheel_vel": JointVelocityActionCfg(
       entity_name="robot",
@@ -371,11 +380,14 @@ def make_m20_dreamwaq_env_cfg(*, play: bool = False) -> ManagerBasedRlEnvCfg:
 
 
 def make_m20_dreamwaq_runner_cfg() -> RslRlOnPolicyRunnerCfg:
-  """Runner config；算法由 profile 的 algorithm_plugin 绑定（2026-10-04 用户裁决：
-  m20-dreamwaq 接真 DreamWaQ VAE = 算法插件 dreamwaq base 变体，bind 写入本 cfg 的
-  class_name）。**当前阻断**：env 物理级 warp 非法访存（rollout/train 双模式，
-  自 2026-09-25 all33 三轮同判；同机 velocity/traversal 双绿 ⇒ env 特异），
-  修复属专项（二分 scene：传感器/地形/命令）。"""
+  """Runner config；算法由 profile 的 algorithm_plugin 声明绑定（2026-10-04 用户裁决：
+  m20-dreamwaq 接真 DreamWaQ VAE = 算法插件 dreamwaq base 变体，apply_algorithm_plugin
+  会把 plugin 的 class_name 写到本 cfg 上）。本工厂**只声明网络形状与 PPO 超参，
+  不写死任何算法类名**——包内 mdp/rl.py 已按「一切皆插件」删除，类名硬编码在
+  删除日成了确定性 ModuleNotFoundError（曾在此写死 DreamWaQActor/DreamWaQPPO）。
+  附注：env 曾有间歇性 warp 非法访存（09-25 all33 ×3 与 10-04 上午 6/7 次复现，
+  随后 16 连绿未再现；插件/调用路径/环境三重对照均排除因果）——用冒烟 repeat 规则
+  监控，再现即抓（CUDA_LAUNCH_BLOCKING=1）。"""
   cfg = RslRlOnPolicyRunnerCfg(
     actor=RslRlModelCfg(
       hidden_dims=(512, 256, 128),
@@ -411,9 +423,9 @@ def make_m20_dreamwaq_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     num_steps_per_env=24,
     max_iterations=20_000,
   )
-  # Source PPO seed/clip.
+  # Source PPO seed/clip. class_name 不写死：默认 ActorCritic/PPO（冒烟与任何
+  # 不带 plugin 声明的消费者可用）；真 DreamWaQ 由 profile 的 algorithm_plugin
+  # 声明在装配时覆写（唯一开关，见 task_config._apply_profile_algorithm_plugin）。
   cfg.seed = 1
   cfg.clip_actions = 100.0
-  cfg.actor.class_name = "m20_dreamwaq.mdp.rl:DreamWaQActor"
-  cfg.algorithm.class_name = "m20_dreamwaq.mdp.rl:DreamWaQPPO"
   return cfg
