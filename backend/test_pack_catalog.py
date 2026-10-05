@@ -1,9 +1,13 @@
-"""B1 剩余项的 DoD：8 份 Capability Pack 全过校验、目录可列出、坏 Pack 能被抓住。
+"""B1 剩余项的 DoD：内置 Capability Pack 全过校验、目录可列出、坏 Pack 能被抓住。
 
 2026-09-12 实测：schema 与 Pack 已在位，缺的是「校验 + 列出」入口。本测试
 同时守住 schema 与本模块校验器的漂移——合成用例逐条对应 schema 的
 ``required`` / ``pattern`` / ``enum`` / ``additionalProperties``。
-（Pack 清单随 family-arch 收敛钉到 8：assets/robots 每个内置机型恰有一份默认 Pack。）
+（Pack 清单曾随 family-arch 收敛钉到 8：每内置机型一份；2026-10-05 ㊃ 死件清理
+−2——m20/b2w 两份 Pack 的 policy_ref 指向已退役的 20260918 死件产物（kind=unknown
+从未命名布局，不可验收不可评估），随条目/孤儿 onnx 一并出库（git 可回退）。
+pack 是**产物导出物**不是机型常量：没有可验收产物就没有 Pack，两机型下次
+出可验收产物时再生成。）
 """
 
 from __future__ import annotations
@@ -23,12 +27,10 @@ from backend.pack_catalog import (
     validate_pack,
 )
 
-# assets/robots 的 8 个内置机型（family-arch 收敛：4 四足 + 4 轮足）各一份默认 Pack。
+# 在库 Pack 清单（2026-10-05 起 6 份：8 机型 − m20/b2w 两份死件产物 Pack）。
 EXPECTED_PACK_IDS = (
     "deeprobotics_lite3-velocity",
-    "deeprobotics_m20-velocity",
     "unitree_b2-velocity",
-    "unitree_b2w-velocity",
     "unitree_go1-velocity",
     "unitree_go2-velocity",
     "unitree_go2w-velocity",

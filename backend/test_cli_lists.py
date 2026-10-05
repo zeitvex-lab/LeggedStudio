@@ -85,11 +85,13 @@ def make_run(root: Path, name: str = "unitree_go2_task_000000000000", *, status:
 class PackListTest(unittest.TestCase):
     """``pack list``：真实仓库为底（与 tools/validate_packs.py 同一份校验实现）。"""
 
-    def test_json_lists_all_8_packs_with_fields(self):
+    def test_json_lists_all_packs_with_fields(self):
         proc = run_cli("pack", "list", "--json")
         self.assertEqual(0, proc.returncode, proc.stderr)
         payload = json.loads(proc.stdout)                       # --json 输出必须可解析
-        self.assertEqual(payload["count"], 8, "本仓应有 8 个 Pack（2026-09-23 族架构收敛）")
+        self.assertEqual(payload["count"], 6,
+                         "本仓应有 6 个 Pack（2026-10-05 ㊃ 死件清理 −2：m20/b2w 死件产物 Pack 出库，"
+                         "pack 是产物导出物非机型常量）")
         ids = [pack["pack_id"] for pack in payload["packs"]]
         # 本仓真实 pack_id 带「-velocity」后缀（如 unitree_go2-velocity），按前缀匹配
         self.assertTrue(any(pid.startswith("unitree_go2") for pid in ids), ids)
