@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-09-24T02:07:28",
+ "generated_at": "2026-10-05T14:59:19",
  "spec": "_SPEC.md",
  "policy": {
   "keep": "源码/配置/文档/数据/URDF·MJCF/推理策略文件",
@@ -1084,6 +1084,48 @@
    },
    "readme": "deep_robotics_model/README.md"
   },
+  "dial-mpc": {
+   "source": "https://github.com/LeCAR-Lab/dial-mpc @ 871c84f1cefbe9fa9d83a06b05ab4f0243c1a05c",
+   "robots": [
+    "unitree_go2"
+   ],
+   "desc": "LeCAR-Lab DIAL-MPC：采样式全身 MPC（扩散式退火+MPPI，免训练；Go2/H1/Allegro；JAX/Brax/MJX）",
+   "license": "Apache-2.0",
+   "repo": "https://github.com/LeCAR-Lab/dial-mpc",
+   "commit": "871c84f1cefbe9fa9d83a06b05ab4f0243c1a05c",
+   "fetched": "2026-10-05",
+   "note": "控制插件轴 audit（registry/controllers）",
+   "in_git": true,
+   "kept": 128,
+   "kept_bytes": 52573127,
+   "omitted": 0,
+   "omitted_bytes": 0,
+   "policy_files": 0,
+   "per_category": {
+    "model": 87,
+    "contract": 1,
+    "training": 8,
+    "deploy": 12,
+    "terrain_scene": 0,
+    "motion": 0,
+    "evaluation": 0,
+    "misc": 20
+   },
+   "ext_top": {
+    ".stl": 35,
+    ".xml": 29,
+    ".py": 25,
+    ".obj": 16,
+    ".yaml": 10,
+    "(无扩展名)": 4,
+    ".png": 4,
+    ".md": 2,
+    ".cff": 1,
+    ".gif": 1,
+    ".yml": 1
+   },
+   "readme": "dial-mpc/README.md"
+  },
   "engineai_rl_workspace": {
    "source": "00_open/engineai_rl_workspace",
    "robots": [],
@@ -1853,6 +1895,53 @@
    },
    "readme": "lain_job/README.md"
   },
+  "legged_control": {
+   "source": "https://github.com/qiayuanl/legged_control @ a7f381c0367e98e31c01336e678eef47e304d40d",
+   "robots": [
+    "unitree_a1",
+    "unitree_go1"
+   ],
+   "desc": "qiayuanl legged_control：OCS2 质心 NMPC + WBC + 接触 KF（A1/Aliengo/Go1；ROS1；已停止维护）",
+   "license": "BSD-3-Clause",
+   "repo": "https://github.com/qiayuanl/legged_control",
+   "commit": "a7f381c0367e98e31c01336e678eef47e304d40d",
+   "fetched": "2026-10-05",
+   "note": "控制插件轴 audit",
+   "in_git": true,
+   "kept": 145,
+   "kept_bytes": 88239206,
+   "omitted": 0,
+   "omitted_bytes": 0,
+   "policy_files": 0,
+   "per_category": {
+    "model": 32,
+    "contract": 1,
+    "training": 15,
+    "deploy": 29,
+    "terrain_scene": 0,
+    "motion": 7,
+    "evaluation": 1,
+    "misc": 60
+   },
+   "ext_top": {
+    ".h": 40,
+    ".cpp": 25,
+    ".dae": 15,
+    ".xml": 13,
+    ".txt": 11,
+    ".info": 9,
+    ".xacro": 9,
+    ".launch": 7,
+    ".yaml": 6,
+    ".png": 4,
+    "(无扩展名)": 2,
+    ".sh": 1,
+    ".so": 1,
+    ".a": 1,
+    ".world": 1
+   },
+   "readme": "legged_control/README.md"
+  },
   "legged_gym": {
    "source": "00_open/legged_gym",
    "robots": [],
@@ -1881,6 +1970,101 @@
     ".pt": 1
    },
    "readme": "legged_gym/README.md"
+  },
+  "legged_mpc_control": {
+   "source": "https://github.com/zha0ming1e/legged_mpc_control @ 47ae868fbba99575b0c762dcfb3f75f9271a78cc",
+   "robots": [
+    "unitree_a1",
+    "unitree_go1"
+   ],
+   "desc": "CMU legged_mpc_control：Convex MPC（13 态 SRB+OSQP）+ CI-MPC 对照 + 分层 WBC（ROS1/Gazebo）",
+   "license": "GPL-3.0",
+   "repo": "https://github.com/zha0ming1e/legged_mpc_control",
+   "commit": "47ae868fbba99575b0c762dcfb3f75f9271a78cc",
+   "fetched": "2026-10-05",
+   "note": "控制插件轴 audit",
+   "in_git": true,
+   "kept": 155,
+   "kept_bytes": 88271798,
+   "omitted": 0,
+   "omitted_bytes": 0,
+   "policy_files": 0,
+   "per_category": {
+    "model": 46,
+    "contract": 4,
+    "training": 19,
+    "deploy": 2,
+    "terrain_scene": 0,
+    "motion": 1,
+    "evaluation": 4,
+    "misc": 79
+   },
+   "ext_top": {
+    ".cpp": 29,
+    ".h": 24,
+    ".dae": 17,
+    ".xacro": 16,
+    ".launch": 12,
+    ".yaml": 11,
+    ".txt": 8,
+    ".orig": 7,
+    ".xml": 6,
+    "(无扩展名)": 5,
+    ".hpp": 5,
+    ".info": 3,
+    ".py": 3,
+    ".urdf": 2,
+    ".png": 2,
+    ".json": 1,
+    ".bash": 1,
+    ".rst": 1,
+    ".rviz": 1,
+    ".cfg": 1
+   },
+   "readme": "legged_mpc_control/README.md"
+  },
+  "legged_perceptive": {
+   "source": "https://github.com/qiayuanl/legged_perceptive @ 0d42e402",
+   "robots": [
+    "unitree_a1",
+    "unitree_go1"
+   ],
+   "desc": "qiayuanl legged_perceptive：legged_control 感知扩展（高程图+凸平面分解+感知增强 MPC；已停止维护）",
+   "license": "unknown",
+   "repo": "https://github.com/qiayuanl/legged_perceptive",
+   "commit": "0d42e402",
+   "fetched": "2026-10-05",
+   "note": "控制插件轴 audit；无 LICENSE（零许可门禁已登记）",
+   "in_git": true,
+   "kept": 50,
+   "kept_bytes": 141967,
+   "omitted": 0,
+   "omitted_bytes": 0,
+   "policy_files": 0,
+   "per_category": {
+    "model": 10,
+    "contract": 0,
+    "training": 8,
+    "deploy": 21,
+    "terrain_scene": 0,
+    "motion": 0,
+    "evaluation": 0,
+    "misc": 11
+   },
+   "ext_top": {
+    ".cpp": 12,
+    ".h": 11,
+    ".launch": 5,
+    ".xacro": 5,
+    ".xml": 4,
+    ".yaml": 4,
+    ".txt": 3,
+    ".info": 2,
+    ".json": 2,
+    "(无扩展名)": 1,
+    ".rviz": 1
+   },
+   "readme": "legged_perceptive/README.md"
   },
   "legged_sim": {
    "source": "00_open/legged_sim",
@@ -2504,7 +2688,7 @@
    "note": "ONNX/PT 为 LFS 指针",
    "in_git": true,
    "kept": 45,
-   "kept_bytes": 9609,
+   "kept_bytes": 38167101,
    "omitted": 0,
    "omitted_bytes": 0,
    "policy_files": 41,
@@ -2576,6 +2760,57 @@
     ".sh": 26
    },
    "readme": "quadruped-robotics-stack/README.md"
+  },
+  "quaternion-mpc": {
+   "source": "https://github.com/zixinz990/quaternion-mpc @ bb4a5ee2",
+   "robots": [
+    "unitree_go1"
+   ],
+   "desc": "CMU quaternion-mpc：四元数（Lie 群）奇异自由质心 MPC（Go1 行走/攀爬/空中姿态；ICRA25）",
+   "license": "AGPL-3.0",
+   "repo": "https://github.com/zixinz990/quaternion-mpc",
+   "commit": "bb4a5ee2",
+   "fetched": "2026-10-05",
+   "note": "控制插件轴 audit",
+   "in_git": true,
+   "kept": 224,
+   "kept_bytes": 130751885,
+   "omitted": 0,
+   "omitted_bytes": 0,
+   "policy_files": 0,
+   "per_category": {
+    "model": 94,
+    "contract": 10,
+    "training": 12,
+    "deploy": 13,
+    "terrain_scene": 0,
+    "motion": 0,
+    "evaluation": 14,
+    "misc": 81
+   },
+   "ext_top": {
+    ".xacro": 39,
+    ".cpp": 38,
+    ".dae": 27,
+    ".h": 19,
+    ".launch": 17,
+    ".xml": 13,
+    ".txt": 12,
+    ".msg": 11,
+    ".yaml": 10,
+    ".json": 5,
+    ".rviz": 5,
+    ".urdf": 5,
+    ".world": 5,
+    ".hpp": 4,
+    "(无扩展名)": 3,
+    ".png": 3,
+    ".cc": 2,
+    ".so": 2,
+    ".bash": 1,
+    ".stl": 1
+   },
+   "readme": "quaternion-mpc/README.md"
   },
   "rc_old": {
    "source": "00_open/rc_old",
@@ -3899,6 +4134,10 @@
     "walk-these-ways",
     "Gymnasium",
     "rc_old",
+    "legged_mpc_control",
+    "quaternion-mpc",
+    "legged_control",
+    "legged_perceptive",
     "quadruped-locomotion-policy"
    ]
   },
@@ -3950,6 +4189,7 @@
     "genesislab",
     "Quad-Imaginarium",
     "quadruped-robotics-stack",
+    "dial-mpc",
     "quadruped-locomotion-policy"
    ]
   },

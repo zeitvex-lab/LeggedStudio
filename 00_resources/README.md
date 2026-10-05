@@ -13,10 +13,10 @@
 
 ## 总览
 
-- 收录项目 **97** 个　·　文件 **57074** 个　·　体积 **2342.7 MB**
+- 收录项目 **102** 个　·　文件 **57776** 个　·　体积 **2722.4 MB**
 - 省略文件 **22067** 个（**15656.9 MB**），均在原目录留有 `_OMITTED.md` 占位登记
 - 通用知识库 **1** 个　·　文件 436 个
-- 生成时间：2026-09-24 02:07
+- 生成时间：2026-10-05 14:59
 
 ## 项目清单（有什么 · 能帮什么 · 关联哪些机器人）
 
@@ -57,6 +57,7 @@
 | `kaiwu_rl` | 284 | 49 | 28.3 MB | 7 | `unitree_go2`、`unitree_g1` | [README](./kaiwu_rl/README.md) |
 | `genesislab` | 276 | 2 | 1.2 MB | 0 | `unitree_go2`、`unitree_g1` | [README](./genesislab/README.md) |
 | `mujoco_playground` | 243 | 53 | 6.7 MB | 6 | `unitree_go1`、`unitree_g1` | [README](./mujoco_playground/README.md) |
+| `quaternion-mpc` | 224 | 0 | 124.7 MB | 0 | `unitree_go1` | [README](./quaternion-mpc/README.md) |
 | `InstinctMJ` | 220 | 85 | 1.9 MB | 0 | `unitree_g1` | [README](./InstinctMJ/README.md) |
 | `him_dog` | 212 | 161 | 28.1 MB | 15 | `unitree_go1`、`unitree_go2` | [README](./him_dog/README.md) |
 | `Gymnasium-Robotics` | 199 | 181 | 1.2 MB | 0 | `wuji_hand` | [README](./Gymnasium-Robotics/README.md) |
@@ -70,13 +71,16 @@
 | `fan_rlsar` | 165 | 0 | 22.0 MB | 16 | `unitree_go2`、`unitree_go2w`、`unitree_b2`、`unitree_b2w`、`unitree_g1`、`deeprobotics_lite3` | [README](./fan_rlsar/README.md) |
 | `LeggedSkillDeploy` | 158 | 232 | 43.6 MB | 31 | `unitree_go2`、`unitree_go2w`、`unitree_go1`、`unitree_g1`、`deeprobotics_m20` | [README](./LeggedSkillDeploy/README.md) |
 | `wbc-mjlab` | 156 | 42 | 59.6 MB | 1 | `unitree_g1` | [README](./wbc-mjlab/README.md) |
+| `legged_mpc_control` | 155 | 0 | 84.2 MB | 0 | `unitree_a1`、`unitree_go1` | [README](./legged_mpc_control/README.md) |
 | `mujoco_ros2_control` | 155 | 9 | 1.1 MB | 0 | — | [README](./mujoco_ros2_control/README.md) |
 | `UFO` | 154 | 39 | 1.2 MB | 0 | `unitree_g1` | [README](./UFO/README.md) |
 | `robo_re` | 154 | 1393 | 100.2 MB | 0 | `unitree_g1` | [README](./robo_re/README.md) |
 | `go2w_sim2sim` | 148 | 95 | 110.4 MB | 35 | `unitree_go2w` | [README](./go2w_sim2sim/README.md) |
+| `legged_control` | 145 | 0 | 84.2 MB | 0 | `unitree_a1`、`unitree_go1` | [README](./legged_control/README.md) |
 | `AMP_mjlab` | 141 | 39 | 23.5 MB | 0 | `unitree_g1` | [README](./AMP_mjlab/README.md) |
 | `deep_rl` | 133 | 3 | 39.7 MB | 0 | `deeprobotics_lite3`、`deeprobotics_m20` | [README](./deep_rl/README.md) |
 | `rl_training` | 132 | 3 | 39.7 MB | 0 | `deeprobotics_lite3`、`deeprobotics_m20` | [README](./rl_training/README.md) |
+| `dial-mpc` | 128 | 0 | 50.1 MB | 0 | `unitree_go2` | [README](./dial-mpc/README.md) |
 | `Odin-Nav-Stack` | 103 | 3 | 14.7 MB | 1 | `unitree_go2` | [README](./Odin-Nav-Stack/README.md) |
 | `go2_rl_robotlab` | 103 | 27 | 12.8 MB | 2 | `unitree_go2` | [README](./go2_rl_robotlab/README.md) |
 | `tron1-robot-description` | 98 | 127 | 728 KB | 0 | `limx_tron1_pf`、`limx_tron1_sf`、`limx_tron1_wf` | [README](./tron1-robot-description/README.md) |
@@ -98,9 +102,10 @@
 | `microduck-simulator` | 57 | 147 | 7.4 MB | 9 | `microduck` | [README](./microduck-simulator/README.md) |
 | `unitree-go2-slam-nav2` | 52 | 0 | 140 KB | 0 | `unitree_go2` | [README](./unitree-go2-slam-nav2/README.md) |
 | `Dreamwaq` | 50 | 64 | 549 KB | 0 | `unitree_go2`、`deeprobotics_m20` | [README](./Dreamwaq/README.md) |
+| `legged_perceptive` | 50 | 0 | 139 KB | 0 | `unitree_a1`、`unitree_go1` | [README](./legged_perceptive/README.md) |
 | `humanoid-motion-planning` | 49 | 48 | 454 KB | 0 | `unitree_g1` | [README](./humanoid-motion-planning/README.md) |
 | `matrix_zsibot` | 46 | 0 | 792 KB | 0 | `unitree_go2`、`unitree_go2w`、`unitree_g1` | [README](./matrix_zsibot/README.md) |
-| `quadruped-locomotion-policy` | 45 | 0 | 9 KB | 41 | `unitree_go2`、`unitree_go1` | [README](./quadruped-locomotion-policy/README.md) |
+| `quadruped-locomotion-policy` | 45 | 0 | 36.4 MB | 41 | `unitree_go2`、`unitree_go1` | [README](./quadruped-locomotion-policy/README.md) |
 | `legged_gym` | 41 | 73 | 320 KB | 1 | — | [README](./legged_gym/README.md) |
 | `legged_sim` | 38 | 9 | 106 KB | 0 | `unitree_g1` | [README](./legged_sim/README.md) |
 | `mjlab-skillkit` | 37 | 0 | 165 KB | 0 | — | [README](./mjlab-skillkit/README.md) |
@@ -146,6 +151,7 @@
 - **`UFO`**：UFO：G1 人形工程
 - **`deep_rl`**：云深处 RL 训练工程
 - **`deep_robotics_model`**：云深处机型模型与描述文件
+- **`dial-mpc`**：LeCAR-Lab DIAL-MPC：采样式全身 MPC（扩散式退火+MPPI，免训练；Go2/H1/Allegro；JAX/Brax/MJX）
 - **`engineai_rl_workspace`**：EngineAI RL Workspace（深圳众擎机器人；GitHub 上可访问的快照为 MeredithRowe/engineai_rl_workspace 的 community 分支，上游 engineai-robotics/engineai_rl_workspace 已不可公开访问）：通用腿足 RL 框架（engineai_gym 环境 / engineai_rl 算法·网络·runner / engineai_rl_workspace 实验与脚本 / engineai_rl_lib 参考状态），训练与播放共用一套 runner 逻辑、run 记录与代码快照可复现、.pt→.onnx/.mnn 格式转换；含 PM01/SA01 双足与 quadruped 资产、actuator_nets 执行器网络
 - **`fan_rlsar`**：RL-SAR 的个人分支（多机型实验）
 - **`fan_robotlab`**：robot_lab 的个人分支（多机型实验）
@@ -166,7 +172,10 @@
 - **`jie_3d_nav`**：JIE 3D 导航栈（jie_octomap + octo_planner）：感知与规划参考
 - **`kaiwu_rl`**：开悟 RL 工程（Go2/G1）
 - **`lain_job`**：LLoco 技能式 RL 任务与部署（多机型）
+- **`legged_control`**：qiayuanl legged_control：OCS2 质心 NMPC + WBC + 接触 KF（A1/Aliengo/Go1；ROS1；已停止维护）
 - **`legged_gym`**：leggedrobotics/legged_gym：腿足 RL 训练的**上游范式**（`legged_robot` / `legged_robot_config` / `_get_envs` 任务注册 / `terrain` 生成 / MDP 组织），本库多个训练工程 （go2_rl_gym / LeggedGym-Ex / gym_ex / HIMLoco / EngineAI RL Workspace …）的共同祖先 —— 用于回答"某个写法/约定是哪来的"，并与各分支做差异对照
+- **`legged_mpc_control`**：CMU legged_mpc_control：Convex MPC（13 态 SRB+OSQP）+ CI-MPC 对照 + 分层 WBC（ROS1/Gazebo）
+- **`legged_perceptive`**：qiayuanl legged_perceptive：legged_control 感知扩展（高程图+凸平面分解+感知增强 MPC；已停止维护）
 - **`legged_sim`**：G1 仿真环境与场景
 - **`limxsdk-lowlevel`**：limxdynamics 官方低层 SDK（limxsdk：硬件接口/消息定义）
 - **`m20_rl_isaacsim`**：M20 轮足 IsaacSim RL 工程
@@ -185,6 +194,7 @@
 - **`parkour_mjlab`**：Go2/G1 的 parkour 任务（mjlab）：Go2 PIE 深度跑酷训练 + sim2sim + 发布策略
 - **`quadruped-locomotion-policy`**：HuggingFace Kyu3224：Isaac Lab 训练的四足策略集合（平 48 维 / 崎岖 235 维观测，12 维力矩动作；覆盖 go1/go2/anymal/spot/hound）；LFS 指针未拉
 - **`quadruped-robotics-stack`**：darshmenon/quadruped-robotics-stack：ROS2 + Gazebo + MuJoCo 四足工作区（PPO / CHAMP / NMPC 三后端，Go2 完整可用）；**本地参考，未纳入版本：405.2MB 超 400MB 红线**
+- **`quaternion-mpc`**：CMU quaternion-mpc：四元数（Lie 群）奇异自由质心 MPC（Go1 行走/攀爬/空中姿态；ICRA25）
 - **`rc_old`**：ZEX-W 轮足旧版工程（含 Go1/G1 分支）
 - **`references_1000framesai`**：1000frames.ai 参考素材（机型描述/示例）
 - **`rl_sar`**：RL-SAR：仿真到实机部署框架（多机型、含策略与 C++ 部署）
@@ -222,8 +232,8 @@
 
 ## 机型 → 项目反查
 
-- **unitree_go1**（宇树 Go1 四足）：[`unitree_mujoco`](./unitree_mujoco/README.md)、[`LeggedGym-Ex`](./LeggedGym-Ex/README.md)、[`gym_ex`](./gym_ex/README.md)、[`mjlab_new`](./mjlab_new/README.md)、[`unilab_new`](./unilab_new/README.md)、[`uni_rl`](./uni_rl/README.md)、[`lain_job`](./lain_job/README.md)、[`mjswan`](./mjswan/README.md)、[`mujoco_playground`](./mujoco_playground/README.md)、[`MGDP`](./MGDP/README.md)、[`LeggedSkillDeploy`](./LeggedSkillDeploy/README.md)、[`robot_lab`](./robot_lab/README.md)、[`fan_robotlab`](./fan_robotlab/README.md)、[`robot_mujoco`](./robot_mujoco/README.md)、[`robot-descriptions-quadruped`](./robot-descriptions-quadruped/README.md)、[`him_dog`](./him_dog/README.md)、[`HIMLoco`](./HIMLoco/README.md)、[`walk-these-ways`](./walk-these-ways/README.md)、[`Gymnasium`](./Gymnasium/README.md)、[`rc_old`](./rc_old/README.md)、[`quadruped-locomotion-policy`](./quadruped-locomotion-policy/README.md)
-- **unitree_go2**（宇树 Go2 四足）：[`go2_rl_gym`](./go2_rl_gym/README.md)、[`go2_rl_robotlab`](./go2_rl_robotlab/README.md)、[`unitree-go2-slam-nav2`](./unitree-go2-slam-nav2/README.md)、[`unitree_go2_nav`](./unitree_go2_nav/README.md)、[`references_1000framesai`](./references_1000framesai/README.md)、[`1000framesai.com`](./1000framesai.com/README.md)、[`sim.stackforce.cc`](./sim.stackforce.cc/README.md)、[`Odin-Nav-Stack`](./Odin-Nav-Stack/README.md)、[`LightNav-0`](./LightNav-0/README.md)、[`zsi_rl`](./zsi_rl/README.md)、[`unitree_rl_mjlab`](./unitree_rl_mjlab/README.md)、[`unitree_rl_mjlab_go2w`](./unitree_rl_mjlab_go2w/README.md)、[`unitree_mujoco`](./unitree_mujoco/README.md)、[`LeggedGym-Ex`](./LeggedGym-Ex/README.md)、[`gym_ex`](./gym_ex/README.md)、[`mjlab_new`](./mjlab_new/README.md)、[`unilab_new`](./unilab_new/README.md)、[`uni_rl`](./uni_rl/README.md)、[`lain_job`](./lain_job/README.md)、[`LainLab`](./LainLab/README.md)、[`kaiwu_rl`](./kaiwu_rl/README.md)、[`mjswan`](./mjswan/README.md)、[`parkour_mjlab`](./parkour_mjlab/README.md)、[`MGDP`](./MGDP/README.md)、[`Dreamwaq`](./Dreamwaq/README.md)、[`LeggedSkillDeploy`](./LeggedSkillDeploy/README.md)、[`robot_lab`](./robot_lab/README.md)、[`fan_robotlab`](./fan_robotlab/README.md)、[`rl_sar`](./rl_sar/README.md)、[`rl_sar_zoo`](./rl_sar_zoo/README.md)、[`fan_rlsar`](./fan_rlsar/README.md)、[`robot_mujoco`](./robot_mujoco/README.md)、[`robot-descriptions-quadruped`](./robot-descriptions-quadruped/README.md)、[`him_dog`](./him_dog/README.md)、[`tdt-nav-kit`](./tdt-nav-kit/README.md)、[`Gymnasium`](./Gymnasium/README.md)、[`habitat-sim`](./habitat-sim/README.md)、[`26Raicom`](./26Raicom/README.md)、[`go2_unitree_ros2`](./go2_unitree_ros2/README.md)、[`taggy`](./taggy/README.md)、[`unitree_go2_edu_movement`](./unitree_go2_edu_movement/README.md)、[`matrix_zsibot`](./matrix_zsibot/README.md)、[`genesislab`](./genesislab/README.md)、[`Quad-Imaginarium`](./Quad-Imaginarium/README.md)、[`quadruped-robotics-stack`](./quadruped-robotics-stack/README.md)、[`quadruped-locomotion-policy`](./quadruped-locomotion-policy/README.md)
+- **unitree_go1**（宇树 Go1 四足）：[`unitree_mujoco`](./unitree_mujoco/README.md)、[`LeggedGym-Ex`](./LeggedGym-Ex/README.md)、[`gym_ex`](./gym_ex/README.md)、[`mjlab_new`](./mjlab_new/README.md)、[`unilab_new`](./unilab_new/README.md)、[`uni_rl`](./uni_rl/README.md)、[`lain_job`](./lain_job/README.md)、[`mjswan`](./mjswan/README.md)、[`mujoco_playground`](./mujoco_playground/README.md)、[`MGDP`](./MGDP/README.md)、[`LeggedSkillDeploy`](./LeggedSkillDeploy/README.md)、[`robot_lab`](./robot_lab/README.md)、[`fan_robotlab`](./fan_robotlab/README.md)、[`robot_mujoco`](./robot_mujoco/README.md)、[`robot-descriptions-quadruped`](./robot-descriptions-quadruped/README.md)、[`him_dog`](./him_dog/README.md)、[`HIMLoco`](./HIMLoco/README.md)、[`walk-these-ways`](./walk-these-ways/README.md)、[`Gymnasium`](./Gymnasium/README.md)、[`rc_old`](./rc_old/README.md)、[`legged_mpc_control`](./legged_mpc_control/README.md)、[`quaternion-mpc`](./quaternion-mpc/README.md)、[`legged_control`](./legged_control/README.md)、[`legged_perceptive`](./legged_perceptive/README.md)、[`quadruped-locomotion-policy`](./quadruped-locomotion-policy/README.md)
+- **unitree_go2**（宇树 Go2 四足）：[`go2_rl_gym`](./go2_rl_gym/README.md)、[`go2_rl_robotlab`](./go2_rl_robotlab/README.md)、[`unitree-go2-slam-nav2`](./unitree-go2-slam-nav2/README.md)、[`unitree_go2_nav`](./unitree_go2_nav/README.md)、[`references_1000framesai`](./references_1000framesai/README.md)、[`1000framesai.com`](./1000framesai.com/README.md)、[`sim.stackforce.cc`](./sim.stackforce.cc/README.md)、[`Odin-Nav-Stack`](./Odin-Nav-Stack/README.md)、[`LightNav-0`](./LightNav-0/README.md)、[`zsi_rl`](./zsi_rl/README.md)、[`unitree_rl_mjlab`](./unitree_rl_mjlab/README.md)、[`unitree_rl_mjlab_go2w`](./unitree_rl_mjlab_go2w/README.md)、[`unitree_mujoco`](./unitree_mujoco/README.md)、[`LeggedGym-Ex`](./LeggedGym-Ex/README.md)、[`gym_ex`](./gym_ex/README.md)、[`mjlab_new`](./mjlab_new/README.md)、[`unilab_new`](./unilab_new/README.md)、[`uni_rl`](./uni_rl/README.md)、[`lain_job`](./lain_job/README.md)、[`LainLab`](./LainLab/README.md)、[`kaiwu_rl`](./kaiwu_rl/README.md)、[`mjswan`](./mjswan/README.md)、[`parkour_mjlab`](./parkour_mjlab/README.md)、[`MGDP`](./MGDP/README.md)、[`Dreamwaq`](./Dreamwaq/README.md)、[`LeggedSkillDeploy`](./LeggedSkillDeploy/README.md)、[`robot_lab`](./robot_lab/README.md)、[`fan_robotlab`](./fan_robotlab/README.md)、[`rl_sar`](./rl_sar/README.md)、[`rl_sar_zoo`](./rl_sar_zoo/README.md)、[`fan_rlsar`](./fan_rlsar/README.md)、[`robot_mujoco`](./robot_mujoco/README.md)、[`robot-descriptions-quadruped`](./robot-descriptions-quadruped/README.md)、[`him_dog`](./him_dog/README.md)、[`tdt-nav-kit`](./tdt-nav-kit/README.md)、[`Gymnasium`](./Gymnasium/README.md)、[`habitat-sim`](./habitat-sim/README.md)、[`26Raicom`](./26Raicom/README.md)、[`go2_unitree_ros2`](./go2_unitree_ros2/README.md)、[`taggy`](./taggy/README.md)、[`unitree_go2_edu_movement`](./unitree_go2_edu_movement/README.md)、[`matrix_zsibot`](./matrix_zsibot/README.md)、[`genesislab`](./genesislab/README.md)、[`Quad-Imaginarium`](./Quad-Imaginarium/README.md)、[`quadruped-robotics-stack`](./quadruped-robotics-stack/README.md)、[`dial-mpc`](./dial-mpc/README.md)、[`quadruped-locomotion-policy`](./quadruped-locomotion-policy/README.md)
 - **unitree_go2w**（宇树 Go2W 轮足）：[`go2w_sim2sim`](./go2w_sim2sim/README.md)、[`unitree_rl_mjlab`](./unitree_rl_mjlab/README.md)、[`unitree_rl_mjlab_go2w`](./unitree_rl_mjlab_go2w/README.md)、[`mjlab_new`](./mjlab_new/README.md)、[`unilab_new`](./unilab_new/README.md)、[`uni_rl`](./uni_rl/README.md)、[`LeggedSkillDeploy`](./LeggedSkillDeploy/README.md)、[`robot_lab`](./robot_lab/README.md)、[`fan_robotlab`](./fan_robotlab/README.md)、[`rl_sar`](./rl_sar/README.md)、[`rl_sar_zoo`](./rl_sar_zoo/README.md)、[`fan_rlsar`](./fan_rlsar/README.md)、[`robot_mujoco`](./robot_mujoco/README.md)、[`Gymnasium`](./Gymnasium/README.md)、[`matrix_zsibot`](./matrix_zsibot/README.md)
 - **unitree_b2**（宇树 B2 四足）：[`uni_rl`](./uni_rl/README.md)、[`robot_lab`](./robot_lab/README.md)、[`fan_robotlab`](./fan_robotlab/README.md)、[`rl_sar`](./rl_sar/README.md)、[`rl_sar_zoo`](./rl_sar_zoo/README.md)、[`fan_rlsar`](./fan_rlsar/README.md)、[`robot_mujoco`](./robot_mujoco/README.md)、[`robot-descriptions-quadruped`](./robot-descriptions-quadruped/README.md)、[`Gymnasium`](./Gymnasium/README.md)
 - **unitree_b2w**（宇树 B2W 轮足）：[`uni_rl`](./uni_rl/README.md)、[`robot_lab`](./robot_lab/README.md)、[`fan_robotlab`](./fan_robotlab/README.md)、[`rl_sar`](./rl_sar/README.md)、[`rl_sar_zoo`](./rl_sar_zoo/README.md)、[`fan_rlsar`](./fan_rlsar/README.md)、[`robot_mujoco`](./robot_mujoco/README.md)、[`robot-descriptions-quadruped`](./robot-descriptions-quadruped/README.md)、[`Gymnasium`](./Gymnasium/README.md)

@@ -1,7 +1,7 @@
 {
  "schema": "reference-ingestion-1.0",
- "generated_at": "2026-09-30",
- "note": "参考模型资产化台账（用户质问触发）：每个上游参考模型 → 内化为哪些族级资产 → 哪些机型在消费。模型本身不是资产；它背后的训练知识变成可迁移字段/契约真值/检测工具才是。'纯参照' = 只作验证基建（B11 参照系/金标准锚/判据 canary），未内化配方。消费证据按 2026-09-30 实测扫描。",
+ "generated_at": "2026-10-05",
+ "note": "参考模型资产化台账（用户质问触发）：每个上游参考模型 → 内化为哪些族级资产 → 哪些机型在消费。模型本身不是资产；它背后的训练知识变成可迁移字段/契约真值/检测工具才是。'纯参照' = 只作验证基建（B11 参照系/金标准锚/判据 canary），未内化配方。消费证据按 2026-09-30 实测扫描。 2026-10-05 增 MPC 控制轴：5 份上游 MPC 框架按控制插件注册表（registry/controllers/index.json）登记为 audit 级——取证快照与机制面在注册表，台账只记内化进度。",
  "ingestions": [
   {
    "reference": "LainLab trot（go2，B11 0.922 参照）",
@@ -99,6 +99,74 @@
    ],
    "not_yet": [],
    "not_yet_status": "已内化"
+  },
+  {
+   "reference": "DIAL-MPC（LeCAR-Lab，ICRA25）",
+   "evidence": "00_resources/dial-mpc 快照（871c84f1）+ 结构审计；控制注册表 dial-mpc 条目",
+   "internalized": {
+    "registry": "控制插件注册表 audit 条目（sampling_mpc，机制=dial_core.py 333 行 MB-DPI：并行 rollout+MPPI 加权+节点退火）",
+    "location": "registry/controllers/index.json"
+   },
+   "consumers": [],
+   "not_yet": [
+    "机制 torch/numpy 复刻（JAX→torch 改写面小；Windows 无 JAX GPU）",
+    "接入评测/部署面作 RL 策略对照基准"
+   ],
+   "not_yet_status": "audit 级（快照+取证+注册表声明已就绪；接线未立项）"
+  },
+  {
+   "reference": "legged_mpc_control（CMU）",
+   "evidence": "00_resources/legged_mpc_control 快照（47ae868f）；控制注册表条目",
+   "internalized": {
+    "registry": "控制插件注册表 audit 条目（centroidal_mpc，13 态 SRB+摩擦锥 QP，OsqpEigen）",
+    "location": "registry/controllers/index.json"
+   },
+   "consumers": [],
+   "not_yet": [
+    "凸 MPC 质心公式纯 Python 直译（osqp，约千行）",
+    "A1 专用 FK/腿长/惯量迁契约（物理真值唯一）"
+   ],
+   "not_yet_status": "audit 级；GPL-3.0 传染边界注意（公式级移植/进程隔离）"
+  },
+  {
+   "reference": "quaternion-mpc（CMU Manchester 组，ICRA25）",
+   "evidence": "00_resources/quaternion-mpc 快照（bb4a5ee2）；控制注册表条目",
+   "internalized": {
+    "registry": "控制插件注册表 audit 条目（centroidal_mpc 变体：四元数 Lie 群姿态参数化，奇异自由）",
+    "location": "registry/controllers/index.json"
+   },
+   "consumers": [],
+   "not_yet": [
+    "姿态流形处理与本仓观测词汇（euler/projected_gravity 段）对照取值"
+   ],
+   "not_yet_status": "audit 级；AGPL-3.0 传染性最强，只做公式级参考不做代码移植"
+  },
+  {
+   "reference": "legged_control（qiayuanl，OCS2 系）",
+   "evidence": "00_resources/legged_control 快照（a7f381c0）；控制注册表条目",
+   "internalized": {
+    "registry": "控制插件注册表 audit 条目（whole_body_mpc：OCS2 SQP NMPC + qpOASES WBC + 接触 KF）",
+    "location": "registry/controllers/index.json"
+   },
+   "consumers": [],
+   "not_yet": [
+    "WBC 层（Eigen+qpOASES，近零 ROS）平移评估",
+    "Linux 侧离线 MPC rollout 作 teacher→mjlab 学生蒸馏的路径评估"
+   ],
+   "not_yet_status": "audit 级；BSD-3-Clause 最宽松；上游已声明停止维护"
+  },
+  {
+   "reference": "legged_perceptive（qiayuanl，感知移动）",
+   "evidence": "00_resources/legged_perceptive 快照（0d42e402）；控制注册表条目",
+   "internalized": {
+    "registry": "控制插件注册表 audit 条目（perceptive_mpc：高程图+凸平面分解+感知增强 MPC）",
+    "location": "registry/controllers/index.json"
+   },
+   "consumers": [],
+   "not_yet": [
+    "高程图→可行走性代价机制概念对照（与 go2-pie-depth 立项同域）"
+   ],
+   "not_yet_status": "audit 级；无 LICENSE（已登记零许可门禁）——只做概念参考不做代码移植"
   }
  ],
  "gaps": [],
