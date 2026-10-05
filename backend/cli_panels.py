@@ -210,3 +210,10 @@ def artifacts_list() -> dict[str, Any]:
         "count": len(artifacts),
         "artifacts": artifacts,
     }
+
+
+def controllers_list() -> dict[str, Any]:
+    """控制插件（MPC 轴）：注册表读数——单一真值在 backend.controller_plugins。"""
+    from backend import controller_plugins
+
+    return controller_plugins.summary()

@@ -1,0 +1,222 @@
+{
+ "schema": "controller-registry-1.0",
+ "description": "控制插件注册表（MPC 轴，2026-10-05 立项）：一切皆插件原则在「控制」能力域的延伸——新增一种控制器 = 本表一行声明，零框架改动。每条 = 一份上游参考的**取证快照声明**：机制类（闭合词汇表，越界 fail-loud）、公式与求解器、源快照（HEAD 哈希 + 许可）、可移植面（机制文件 / 平台粘合 / 机器人侧三分）。status 词汇：audit（已取证未接线）/ wiring（接线中）/ internalized（机制已在产品链路可用）。本表只做声明与校验；执行体（若接线）另由 provider 声明解析，不在这里写死。",
+ "vocabulary": {
+  "mechanism_class": [
+   "sampling_mpc",
+   "centroidal_mpc",
+   "whole_body_mpc",
+   "perceptive_mpc"
+  ],
+  "status": [
+   "audit",
+   "wiring",
+   "internalized"
+  ]
+ },
+ "controllers": [
+  {
+   "controller_id": "dial-mpc",
+   "label": "DIAL-MPC 采样式全身 MPC（免训练，扩散式退火 + MPPI）",
+   "mechanism_class": "sampling_mpc",
+   "version": "1.0",
+   "evidence": "ICRA 2025（arXiv:2409.15610）。核心 = 并行 rollout + MPPI softmax 加权 + 节点级噪声退火 + 样条插值到控制序列（MBDPI 类，dial_mpc/core/dial_core.py 333 行）；无传统数值求解器，JAX/Brax/MJX 在 MuJoCo 模型上并行采样。",
+   "source": {
+    "path": "00_resources/dial-mpc",
+    "upstream": "https://github.com/LeCAR-Lab/dial-mpc",
+    "snapshot_head": "871c84f1",
+    "license": "Apache-2.0"
+   },
+   "formulation": {
+    "state": "全阶刚体（关节级力矩控制）",
+    "control": "力矩",
+    "horizon": "节点退火（Nsample/Hsample/Hnode/Ndiffuse 可声明）",
+    "solver": "jax-brax-mjx-parallel-rollout"
+   },
+   "language": "python",
+   "platform": {
+    "ros_required": false,
+    "windows_note": "JAX 原生不支持 Windows；机制本体（rollout+加权+退火）可在 torch/numpy + mujoco CPU 批量 step 复刻，jnp→torch 改写面小。"
+   },
+   "porting": {
+    "status": "audit",
+    "mechanism_files": [
+     "dial_mpc/core/dial_core.py",
+     "dial_mpc/core/dial_config.py"
+    ],
+    "glue_files": [
+     "dial_mpc/deploy/*"
+    ],
+    "robot_files": [
+     "dial_mpc/envs/*",
+     "dial_mpc/models/*"
+    ]
+   },
+   "consumers": [],
+   "note": "2026-10-05 审计：免训练 zero-shot 控制与本仓 RL 训练轴互补（可作为评测/部署侧控制器，或 RL 策略的对照基准）。机器人侧 env 类硬编码 feet site/keyframe 名与步态函数——接入 = 按目标机器人写 env 子类，属机器人侧数据而非框架改动。"
+  },
+  {
+   "controller_id": "legged_mpc_control",
+   "label": "Convex MPC（13 态 SRB 质心）+ CI-MPC 对照 + 分层 WBC",
+   "mechanism_class": "centroidal_mpc",
+   "version": "1.0",
+   "evidence": "CMU（2022）。ConvexMpc + ConvexQPSolver（src/legged_ctrl/src/mpc_ctrl/convex_mpc/，OsqpEigen 后端）= 13 状态单刚体质心动力学 + 摩擦锥约束 QP；另有接触隐式 MPC（Julia submodule）与 HoQp/WBC 底层（C++）。",
+   "source": {
+    "path": "00_resources/legged_mpc_control",
+    "upstream": "https://github.com/zha0ming1e/legged_mpc_control",
+    "snapshot_head": "47ae868f",
+    "license": "GPL-3.0"
+   },
+   "formulation": {
+    "state": "13 维单刚体（质心位置/姿态/线速/角速/足端接触）",
+    "control": "地面反力（足端）",
+    "horizon": "PLAN_HORIZON=30 节点（参数文件可声明）",
+    "solver": "osqp-qp（摩擦锥线性化）"
+   },
+   "language": "cpp",
+   "platform": {
+    "ros_required": true,
+    "windows_note": "入口/接口全绑 ROS1 + Linux Docker；CI-MPC 另绑 Julia sysimage。机制价值 = 凸 MPC 质心公式 + 约束/权重结构（q/r 权重可搬），可 osqp/quadprog 直译纯 Python（约千行核心）。"
+   },
+   "porting": {
+    "status": "audit",
+    "mechanism_files": [
+     "src/legged_ctrl/src/mpc_ctrl/convex_mpc/ConvexMpc.cpp",
+     "src/legged_ctrl/src/mpc_ctrl/convex_mpc/ConvexQPSolver.cpp",
+     "src/legged_ctrl/src/utils/LeggedContactFSM.cpp"
+    ],
+    "glue_files": [
+     "src/legged_ctrl/src/main.cpp",
+     "src/legged_ctrl/src/interfaces/*"
+    ],
+    "robot_files": [
+     "src/legged_ctrl/include/LeggedParams.h",
+     "src/legged_ctrl/include/utils/A1Kinematics.h",
+     "src/legged_ctrl/config/*"
+    ]
+   },
+   "consumers": [],
+   "note": "2026-10-05 审计：A1 专用 FK/雅可比与腿长/惯量硬编码在头文件——按「物理真值唯一」应迁入契约，非复制进插件。GPL-3.0 许可比照 Apache/BSD 严格，接线时注意传染边界（公式级移植/独立进程隔离）。"
+  },
+  {
+   "controller_id": "quaternion-mpc",
+   "label": "四元数（Lie 群）质心 MPC——奇异自由敏捷控制",
+   "mechanism_class": "centroidal_mpc",
+   "version": "1.0",
+   "evidence": "ICRA 2025（arXiv:2409.09940，CMU Manchester 组）。四元数姿态参数化替代欧拉角（奇异自由）的质心 MPC，C++ 实现；Go1 行走/攀爬/空中姿态多分支。ROS Noetic + Gazebo 栈。",
+   "source": {
+    "path": "00_resources/quaternion-mpc",
+    "upstream": "https://github.com/zixinz990/quaternion-mpc",
+    "snapshot_head": "bb4a5ee2",
+    "license": "AGPL-3.0"
+   },
+   "formulation": {
+    "state": "质心 + 四元数姿态（Lie 群流形上的 SRB）",
+    "control": "地面反力",
+    "horizon": "QP 序列（按 gait 分支）",
+    "solver": "qp（四元数动力学线性化）"
+   },
+   "language": "cpp",
+   "platform": {
+    "ros_required": true,
+    "windows_note": "ROS1 + Gazebo 硬绑定；机制（四元数流形 MPC 公式）可复刻，姿态流形处理对本仓 sim2sim 对拍（四元数观测段）有直接参考价值。"
+   },
+   "porting": {
+    "status": "audit",
+    "mechanism_files": [
+     "legged_ctrl/src/*（四元数 MPC 实现，C++）"
+    ],
+    "glue_files": [
+     "unitree_gazebo/*",
+     "unitree_legged_real/*"
+    ],
+    "robot_files": [
+     "robots/*"
+    ]
+   },
+   "consumers": [],
+   "note": "2026-10-05 审计：本仓观测词汇的 euler 段/四元数处理（projected_gravity 等）与其姿态参数化对照即可受益；AGPL-3.0 传染性最强，只做公式级参考不做代码移植。"
+  },
+  {
+   "controller_id": "legged_control",
+   "label": "全身质心 NMPC + WBC + KF 估计（OCS2 系框架）",
+   "mechanism_class": "whole_body_mpc",
+   "version": "1.0",
+   "evidence": "qiayuanl（已声明停止维护）。OCS2 SQP 解质心 NMPC（FullCentroidalDynamics + Pinocchio 自动微分）+ qpOASES 加权 WBC（legged_wbc 4 文件近零 ROS 逻辑）+ 接触辅助线性 KF；A1/Aliengo/Go1。",
+   "source": {
+    "path": "00_resources/legged_control",
+    "upstream": "https://github.com/qiayuanl/legged_control",
+    "snapshot_head": "a7f381c0",
+    "license": "BSD-3-Clause"
+   },
+   "formulation": {
+    "state": "质心模型（centroidalModelType 0）+ 全关节",
+    "control": "接触力 + 关节力矩（WBC 分配）",
+    "horizon": "OCS2 SQP（task.info 可声明）",
+    "solver": "ocs2-sqp + qpoases-wbc"
+   },
+   "language": "cpp",
+   "platform": {
+    "ros_required": true,
+    "windows_note": "catkin/roscpp/ros_control/Gazebo classic 深绑定，Windows 无现实路径；OCS2/Pinocchio/CppAD 工具链要求 Linux。WBC 层（Eigen+qpOASES）可原样平移；NMPC 公式在 OCS2 库不在本仓。"
+   },
+   "porting": {
+    "status": "audit",
+    "mechanism_files": [
+     "legged_controllers/../legged_wbc/src/WbcBase.cpp",
+     "legged_controllers/../legged_wbc/src/WeightedWbc.cpp",
+     "legged_controllers/../legged_interface/src/LeggedInterface.cpp"
+    ],
+    "glue_files": [
+     "legged_controllers/src/LeggedController.cpp",
+     "legged_gazebo/*",
+     "legged_unitree_hw/*"
+    ],
+    "robot_files": [
+     "legged_examples/legged_unitree/legged_unitree_description/*",
+     "legged_controllers/config/*"
+    ]
+   },
+   "consumers": [],
+   "note": "2026-10-05 审计：最现实的价值路径 = Linux 侧把 MPC 线程（setupMpc/advanceMpc）离线 rollout 生成参考轨迹，供 mjlab 学生策略蒸馏（teacher→RL），非整栈移植。BSD 许可最宽松。"
+  },
+  {
+   "controller_id": "legged_perceptive",
+   "label": "感知移动扩展（高程图 + 平面分解 + 感知增强 MPC）",
+   "mechanism_class": "perceptive_mpc",
+   "version": "1.0",
+   "evidence": "qiayuanl（已声明停止维护）。legged_control 的感知扩展：elevation_mapping 高程图 + convex_plane_decomposition 凸平面分解 → 感知增强 MPC；依赖 ANYbotics grid_map / realsense。51 文件，C++/ROS。",
+   "source": {
+    "path": "00_resources/legged_perceptive",
+    "upstream": "https://github.com/qiayuanl/legged_perceptive",
+    "snapshot_head": "0d42e402",
+    "license": null
+   },
+   "formulation": {
+    "state": "同 legged_control 质心模型 + 高程图约束项",
+    "control": "同 legged_control",
+    "horizon": "同 legged_control",
+    "solver": "ocs2-sqp（感知约束进代价/约束）"
+   },
+   "language": "cpp",
+   "platform": {
+    "ros_required": true,
+    "windows_note": "ROS + grid_map + realsense 全栈绑定；可提取的是机制概念（高程图融合 → 可行走性代价），本仓感知轴（depth/odom 传感器插件、PIE 深度档）与之同域不同实现。"
+   },
+   "porting": {
+    "status": "audit",
+    "mechanism_files": [
+     "legged_perceptive_interface/src/*"
+    ],
+    "glue_files": [
+     "legged_perceptive_controllers/launch/*"
+    ],
+    "robot_files": [
+     "legged_perceptive_description/*"
+    ]
+   },
+   "consumers": [],
+   "note": "2026-10-05 审计：无 LICENSE（已登记零许可门禁 EXPECTED_ZERO_LICENSE）——只做概念参考不做代码移植；与本仓 go2-pie-depth 立项（PIE 深度感知）同属感知移动域，可对照设计深度/高程观测词汇。"
+  }
+ ]
+}

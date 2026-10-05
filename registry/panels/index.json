@@ -185,6 +185,28 @@
     "order": 80,
     "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
    }
+  },
+  {
+   "id": "controllers",
+   "title": "控制插件",
+   "kind": "data",
+   "entry": "workbench.html#controllers",
+   "group": "工作台",
+   "order": 25,
+   "requires": {
+    "services": []
+   },
+   "desktop": true,
+   "cli": {
+    "command": "controllers",
+    "provider": "backend.cli_panels:controllers_list"
+   },
+   "home_card": {
+    "provider": "backend.cli_panels:controllers_list",
+    "order": 25,
+    "note": "控制插件（MPC 轴）卡片数据源——与 CLI 投影同一 provider"
+   },
+   "note": "MPC 参考插件族（2026-10-05 立项）：注册表 registry/controllers/index.json 声明驱动；纯离线面（无后端服务依赖），与 home_status 的 fail-soft 同口径"
   }
  ]
 }

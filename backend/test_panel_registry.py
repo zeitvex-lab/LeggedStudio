@@ -14,13 +14,14 @@ from backend.panel_registry import PanelRegistryError, load_panels, render_navig
 
 
 class PanelRegistryTest(unittest.TestCase):
-    def test_real_registry_loads_eight_panels_sorted(self):
+    def test_real_registry_loads_nine_panels_sorted(self):
+        """9 面板（2026-10-05 +controllers：MPC 控制插件轴，加面板 = 一行声明的实证）。"""
         panels = load_panels()
-        self.assertEqual(8, len(panels))
+        self.assertEqual(9, len(panels))
         orders = [p["order"] for p in panels]
         self.assertEqual(orders, sorted(orders))
         ids = [p["id"] for p in panels]
-        self.assertEqual(["home", "robot", "config", "training",
+        self.assertEqual(["home", "robot", "controllers", "config", "training",
                           "simulation", "navmap", "deploy", "artifacts"], ids)
 
     def test_duplicate_id_fails_loud(self):
