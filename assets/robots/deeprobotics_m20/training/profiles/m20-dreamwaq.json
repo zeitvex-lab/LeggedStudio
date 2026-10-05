@@ -52,5 +52,18 @@
    "width": 16
   }
  ],
- "observation_layout_note": "2026-10-04 声明化：DreamWaQ M20 57 帧 = cmd·(2,2,0.25) + ang_vel·0.25 + gravity + joint_pos 轮位清零 + joint_vel·0.05 + action。run 创建时随契约快照携带。"
+ "observation_layout_note": "2026-10-04 声明化：DreamWaQ M20 57 帧 = cmd·(2,2,0.25) + ang_vel·0.25 + gravity + joint_pos 轮位清零 + joint_vel·0.05 + action。run 创建时随契约快照携带。",
+ "criteria": {
+  "tracking": {
+   "cases": [
+    "0.5,0,0",
+    "0,0.4,0",
+    "0,0,0.5",
+    "0.4,0.2,0.4"
+   ],
+   "err_max": 0.4,
+   "cross_max": 0.2,
+   "basis": "用户验收判据 40%/20%（check_user_criteria.CRIT 同源）——2026-10-05 显式入档：完训≠达标，判定从档案声明读，不写死在工具里。cases 全部落在命令课程域内（vx≤1.2/vy≤0.6/wz≤1.0）。"
+  }
+ }
 }

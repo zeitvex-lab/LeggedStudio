@@ -28,13 +28,27 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-#: (robot, policy_id) —— 4 条 B8 冒烟产物（`provenance.origin == "product-training"`）
-ARTIFACTS = (
-    ("unitree_b2w", "unitree_b2w-trained-20260918-093241"),
-    ("unitree_go2w", "unitree_go2w-trained-20260918-093550"),
-    ("deeprobotics_m20", "deeprobotics_m20-trained-20260918-090509"),
-    ("unitree_b2", "unitree_b2-trained-20260918-015414"),
-)
+#: (robot, policy_id) 名册**声明驱动**（㉖ 先例）：从全仓 `origin=product-training`
+#: 的条目现取，不再硬编码 id——2026-10-05 ㊃ 审计删了 2 条死件（b2w-093241 /
+#: m20-090509，kind=unknown 从未命名布局，不可验收不可评估），硬编码名册随之全红；
+#: 名册再变（新产物入库/旧产物退役）本套件自动跟随。
+def _product_with_layout() -> list[tuple[str, dict]]:
+    return [(robot, e) for robot, e in _products()
+            if (e.get("contract") or {}).get("observation_layout")]
+
+
+def _product_with_forensics_note() -> list[tuple[str, dict]]:
+    """note 带「取证」留痕的产物——写取证话就必须写清来源（防照抄旧文案的那半句话）。"""
+    return [(robot, e) for robot, e in _products()
+            if "取证" in str(e.get("note") or "")]
+
+
+def _blocked_product_with_layout() -> tuple[str, dict] | None:
+    """sim_ready=False 且已声明布局的产物（对拍真跑的活体对象）。"""
+    for robot, e in _product_with_layout():
+        if e.get("sim_ready") is False:
+            return robot, e
+    return None
 
 
 def _entry(robot: str, policy: str) -> dict:
@@ -91,9 +105,9 @@ class LayoutForensicsTest(unittest.TestCase):
         engine = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(engine)
 
-        for robot, policy in ARTIFACTS:
-            with self.subTest(robot=robot, policy=policy):
-                entry = _entry(robot, policy)
+        for robot, entry in _product_with_layout():
+            with self.subTest(robot=robot, policy=entry["id"]):
+                policy = entry["id"]
                 package = ROOT / "assets" / "robots" / robot
                 sim_cfg = json.loads((package / "simulation" / "config.json").read_text(encoding="utf-8-sig"))
                 contract = engine.PackageContract(package, entry)
@@ -124,41 +138,53 @@ class LayoutForensicsTest(unittest.TestCase):
             self.skipTest("缺 onnxruntime")
 
         checked = 0
-        for robot, policy in ARTIFACTS:
-            entry = _entry(robot, policy)
+        for robot, entry in _product_with_layout():
             declared = (entry.get("contract") or {}).get("default_joint_angles")
             if not declared:
                 continue
+            policy = entry["id"]
+            onnx = ROOT / "assets" / "robots" / robot / "simulation" / "policies" / f"{policy}.onnx"
+            if not onnx.is_file():
+                continue  # ONNX 不在盘上的产物另有「影子/缺失」面（AuxBlobTest）守，这里只对在盘的防手抄
             with self.subTest(robot=robot, policy=policy):
-                onnx = ROOT / "assets" / "robots" / robot / "simulation" / "policies" / f"{policy}.onnx"
                 meta = ort.InferenceSession(str(onnx), providers=["CPUExecutionProvider"]
                                             ).get_modelmeta().custom_metadata_map
                 names = [n.strip().lower() for n in str(meta.get("joint_names") or "").split(",") if n.strip()]
                 values = [float(v) for v in str(meta.get("default_joint_pos") or "").split(",") if v.strip()]
                 expected = dict(zip(names, values))
-                self.assertEqual(set(expected), set(declared),
+                # 声明键与 ONNX 元数据键都归一小写比对（生产路径 PackageContract 加载时
+                # 本就 k.lower() 归一——大小写是书写风格不是关节身份）。
+                declared_norm = {str(k).lower(): float(v) for k, v in declared.items()}
+                self.assertEqual(set(expected), set(declared_norm),
                                  f"{robot}/{policy} 声明的默认姿态关节集合与 ONNX 元数据不一致")
-                for joint, value in declared.items():
+                for joint, value in declared_norm.items():
                     self.assertAlmostEqual(expected[joint], float(value), places=5,
                                            msg=f"{robot}/{policy} 的 {joint} 默认角与 ONNX 元数据不符")
             checked += 1
         self.assertGreaterEqual(checked, 1, "没有任何条目声明 default_joint_angles —— 抽取逻辑可能失效")
 
     def test_evidence_is_traceable_in_note(self):
-        for robot, policy in ARTIFACTS:
-            with self.subTest(robot=robot, policy=policy):
-                note = str(_entry(robot, policy).get("note") or "")
+        roster = _product_with_forensics_note()
+        self.assertGreaterEqual(len(roster), 1,
+                                "没有任何产物带「取证」留痕 —— 取证话本可能整代消失，先确认再改这条守卫")
+        for robot, entry in roster:
+            with self.subTest(robot=robot, policy=entry["id"]):
+                note = str(entry.get("note") or "")
                 self.assertTrue("kits/wheel_leg_kit" in note or "_frame_go2_mjlab_actor_48" in note,
-                                f"{robot}/{policy} 的 note 没有写清取证来源（训练源/既有帧）")
+                                f"{robot}/{entry['id']} 的 note 没有写清取证来源（训练源/既有帧）")
 
     def test_m20_per_joint_scales_follow_its_training_source(self):
-        """m20 的腿动作缩放是**逐关节**的（hipx 0.125，其余 0.25），与包级一刀切 0.25 不同。"""
+        """m20 的动作缩放是**逐关节**的（hipx 0.125 / 腿余 0.25 / 轮 5.0），与包级一刀切不同。
 
-        contract = _entry("deeprobotics_m20", "deeprobotics_m20-trained-20260918-090509")["contract"]
+        载体 = 现役声明条目 `m20-velocity-57`（㊃ 审计删掉的 20260918 死件产品曾是其载体，
+        契约真值不变，只是搬了家——2026-10-05 重钉）。
+        """
+
+        contract = _entry("deeprobotics_m20", "m20-velocity-57")["contract"]
         scales = contract.get("action_scale_by_joint") or {}
-        self.assertEqual({"0.125", "0.25"}, {f"{v}" for v in scales.values()})
+        self.assertEqual({"0.125", "0.25", "5.0"}, {f"{v}" for v in scales.values()})
         for joint, value in scales.items():
-            expected = 0.125 if "hipx" in joint else 0.25
+            expected = 0.125 if "hipx" in joint else (5.0 if "wheel" in joint else 0.25)
             self.assertAlmostEqual(expected, float(value), places=5, msg=joint)
 
 
@@ -174,9 +200,13 @@ class CrosscheckAppliesTest(unittest.TestCase):
         self.assertIn('entry.get("sim_ready") is False and not (entry.get("contract") or {}).get("observation_layout")',
                       source, "对拍工具对「已声明布局的阻断条目」仍会早退 —— 取证过的规格等于没验")
 
+        subject = _blocked_product_with_layout()
+        self.assertIsNotNone(subject,
+                             "没有任何「阻断且已声明布局」的产物 —— 对拍活体对象消失，先确认再改这条守卫")
+        robot, entry = subject
         done = subprocess.run(
-            [sys.executable, "tools/obs_crosscheck.py", "--robot", "deeprobotics_m20",
-             "--policy", "deeprobotics_m20-trained-20260918-090509"],
+            [sys.executable, "tools/obs_crosscheck.py", "--robot", robot,
+             "--policy", entry["id"]],
             cwd=ROOT, capture_output=True, text=True, timeout=600,
         )
         self.assertEqual(0, done.returncode, f"对拍未通过（两侧口径不一致）：\n{done.stdout[-1500:]}")

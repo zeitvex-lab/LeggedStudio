@@ -623,7 +623,7 @@ class RealRepoTest(unittest.TestCase):
     def test_repo_declarations_resolve_and_count_matches_blobs(self):
         """**B10 终态自检**：声明只留 `id`，解析一律经 `policies/index.json`。"""
         declarations = pa.scan_declarations()
-        self.assertEqual(54, len(declarations), "本仓 8 机型应有 54 条策略声明（2026-10-03 +1：go2w-hybrid-baseline 基线复现产品；前序 2026-10-02 晚 +2：混合档冒烟+2500 产品）")
+        self.assertEqual(52, len(declarations), "本仓 8 机型应有 52 条策略声明（2026-10-05 ㊃ 审计 −2 死件：b2w-093241 / m20-090509，kind=unknown 从未命名布局，不可验收不可评估，git 可回退）")
         index = pa.load_index()
         self.assertTrue(index, "先跑 build_all(write=True) 出库")
 
@@ -644,7 +644,7 @@ class RealRepoTest(unittest.TestCase):
         # 包内 41 个 onnx 实体（2026-09-23 实测；族架构收敛只留 8 机型后：
         # 59 → 41，删除的 18 个属于 microduck / tron1×3 / unitree_g1 / wuji_hand）。
         blobs = list(pa.iter_onnx_files())
-        self.assertEqual(50, len(blobs), "包内 onnx 实体数（2026-10-03 +1：go2w-hybrid-baseline；前序 2026-10-02 晚 +2：混合档冒烟+2500 产品）")
+        self.assertEqual(48, len(blobs), "包内 onnx 实体数（2026-10-05 ㊃ 审计 −2 影子件：死件条目的 onnx 随条目一并出库，git 可回退）")
         self.assertIsInstance(pa.unexported_onnx(), list)
 
     def test_artifact_ids_are_unique(self):

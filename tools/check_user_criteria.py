@@ -24,7 +24,10 @@ if str(ROOT) not in sys.path:
 CRIT = {"err_max": 0.40, "cross_max": 0.20, "hold_s": 5.0, "total_s": 8.0}
 
 
-def run_case(sess, contract, model, cmd, total_s=CRIT["total_s"], judge_last=CRIT["hold_s"]):
+def run_case(sess, contract, model, cmd, total_s=CRIT["total_s"], judge_last=CRIT["hold_s"],
+             err_max: float = CRIT["err_max"], cross_max: float = CRIT["cross_max"]):
+    """阈值可由档案声明覆盖（``criteria.tracking.err_max/cross_max``）——判据口径
+    「配方各自声明」而非写死在本工具（缺省 = CRIT，行业 40%/20% 口径不变）。"""
     import numpy as np
     import mujoco
     from adapters.mjlab import policy_acceptance as pa
@@ -104,16 +107,16 @@ def run_case(sess, contract, model, cmd, total_s=CRIT["total_s"], judge_last=CRI
         # 判据比较一律用**分数**（err ∈ [0,∞)，0.40 = 40%）——这里曾拿分数与
         # `err_max * 100`（=40）比，主轴阈值实际成了 4000%，v_mean=0 也 PASS（fail-open，
         # 2026-10-01 在 40k 产物上抓到：四命令全零速度却全 PASS）。
-        if err > CRIT["err_max"]:
+        if err > err_max:
             res["pass"] = False
-            res["reason"] = "主轴误差%.0f%%>40%%" % (err * 100)
+            res["reason"] = "主轴误差%.0f%%>%.0f%%" % (err * 100, err_max * 100)
         for ax in range(3):
             if ax == main:
                 continue
             cross = abs(mean[ax]) / cmag
-            if cross > CRIT["cross_max"]:
+            if cross > cross_max:
                 res["pass"] = False
-                res["reason"] = "串扰轴%d=%.0f%%>20%%" % (ax, cross * 100)
+                res["reason"] = "串扰轴%d=%.0f%%>%.0f%%" % (ax, cross * 100, cross_max * 100)
     if obs_max > 100 or act_max > 100:
         res["pass"] = False
         res["reason"] = "输入输出爆"
