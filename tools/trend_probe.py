@@ -194,6 +194,27 @@ def _available_checkpoints(run_dir: Path) -> list[int]:
     return iters
 
 
+def _profile_tracking_criteria(robot_id: str, effective: dict) -> dict | None:
+    """run → 档案声明的 ``criteria.tracking``（**完训≠达标**的判据来源）。
+
+    解析链：run 的 effective-config `provenance.profile_id` →
+    `assets/robots/<robot>/training/profiles/<id>.json` 的 `criteria.tracking`。
+    无档案 / 无声明 / 解析失败 = None（回落命令行口径，不猜）。
+    """
+    profile_id = str(((effective.get("provenance") or {}).get("profile_id")) or "")
+    if not profile_id:
+        return None
+    path = ROOT / "assets" / "robots" / robot_id / "training" / "profiles" / f"{profile_id}.json"
+    if not path.is_file():
+        return None
+    try:
+        profile = json.loads(path.read_text(encoding="utf-8-sig"))
+    except Exception:  # noqa: BLE001 — 档案坏了按无声明处理，探针不被档案语法卡死
+        return None
+    tracking = (profile.get("criteria") or {}).get("tracking")
+    return tracking if isinstance(tracking, dict) and tracking.get("cases") else None
+
+
 def _pick_checkpoints(run_dir: Path, spec: str) -> list[str]:
     """auto = ≥200 的最小 checkpoint + 终版；也接受 `250,1000` 显式清单。"""
     if spec != "auto":
@@ -239,7 +260,7 @@ def main() -> int:
         onnx_obs_dim,
         policy_blob_path,
     )
-    from tools.check_user_criteria import clamp_to_ranges, run_case
+    from tools.check_user_criteria import CRIT, clamp_to_ranges, run_case
 
     sim_cfg = json.loads((pkg / "simulation/config.json").read_text(encoding="utf-8-sig"))
     model = pa.load_package_model(pkg, sim_cfg)
@@ -253,18 +274,27 @@ def main() -> int:
     exported_dir = run_dir / "exported"
     exported_dir.mkdir(exist_ok=True)
     effective = json.loads((run_dir / "effective-config.json").read_text(encoding="utf-8-sig"))         if (run_dir / "effective-config.json").is_file() else {}
+    # 档案声明的验收判据（criteria.tracking）——**声明优先**：声明了 cases 就用声明的
+    # （那才是这个配方承认的验收口径），阈值同理；都没声明回落命令行/默认 40%/20%。
+    declared = _profile_tracking_criteria(args.robot, effective) or {}
+    decl_cases = [str(c) for c in (declared.get("cases") or [])]
+    decl_err = float(declared.get("err_max") or CRIT["err_max"])
+    decl_cross = float(declared.get("cross_max") or CRIT["cross_max"])
     curve = parse_reward_curve(run_dir / "training.log")
     last_iter = curve[-1][0] if curve else 0
     checkpoints: list[dict] = []
     for ck in _pick_checkpoints(run_dir, args.checkpoints):
         cases_for_this_ckpt = args.cases.split(";")
         if args.cases.strip().lower() == "auto":
-            auto = curriculum_cases(
-                effective,
-                ck.replace("model_", "").replace(".pt", "") if ck != "model_final.pt" else "final",
-                final_iter=last_iter or None)
-            if auto:
-                cases_for_this_ckpt = auto
+            if decl_cases:
+                cases_for_this_ckpt = decl_cases
+            else:
+                auto = curriculum_cases(
+                    effective,
+                    ck.replace("model_", "").replace(".pt", "") if ck != "model_final.pt" else "final",
+                    final_iter=last_iter or None)
+                if auto:
+                    cases_for_this_ckpt = auto
         if ck == "model_final.pt":
             onnx = exported_dir / "policy.onnx"
             if not onnx.is_file():
@@ -329,7 +359,8 @@ def main() -> int:
             cmd = clamp_to_ranges([float(x) for x in case.split(",")], contract)
             if float(np.abs(cmd).max()) <= 1e-9:
                 continue  # 全零命令判不出趋势（零程轴被契约钳平）
-            r = run_case(sess, contract, model, tuple(cmd))
+            r = run_case(sess, contract, model, tuple(cmd),
+                         err_max=decl_err, cross_max=decl_cross)
             main_axis = int(np.argmax(np.abs(cmd))) if np.abs(cmd).max() > 0 else -1
             cases_out.append({"command": cmd, "main_axis": main_axis,
                               "v_mean": r.get("v_mean"), "pass": r.get("pass"),
@@ -349,6 +380,21 @@ def main() -> int:
     plateau = detect_plateau(curve)
     verdict = trend_verdict(checkpoints, trend_iter=args.trend_iter, trend_ratio=args.trend_ratio,
                             final_iter=last_iter)
+    # 验收判据判定（档案声明了 criteria.tracking 才有）：终版 checkpoint 的逐用例
+    # 判定汇成 criteria_pass——「完训≠达标」在这一格显式出数（此前 train_completed
+    # 只证明"没 NaN"，退化策略（站着活）静默放行，2026-10-05 1024 rough 实测抓到）。
+    criteria_block = None
+    if decl_cases:
+        final_cases = next((c["cases"] for c in checkpoints if c["iter"] == "final"), None) \
+            or (checkpoints[-1]["cases"] if checkpoints else [])
+        evaluated = [c for c in final_cases if c.get("pass") is not None]
+        criteria_block = {
+            "source": f"assets/robots/{args.robot}/training/profiles/"
+                      f"{((effective.get('provenance') or {}).get('profile_id')) or ''}.json",
+            "cases": decl_cases, "err_max": decl_err, "cross_max": decl_cross,
+            "evaluated": len(evaluated),
+            "pass": bool(evaluated) and all(c["pass"] for c in evaluated),
+        }
     report = {
         "schema": "trend-probe-1.0",
         "run": str(run_dir),
@@ -359,10 +405,16 @@ def main() -> int:
         "checkpoints": checkpoints,
         **verdict,
     }
+    if criteria_block is not None:
+        report["criteria_tracking"] = criteria_block
     out = run_dir / "trend_probe.json"
     out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"[trend] verdict={verdict['verdict']} trend_at={verdict['trend_at_iter']} "
           f"plateau_at={plateau} → {out}")
+    if criteria_block is not None:
+        print(f"[criteria] pass={criteria_block['pass']} "
+              f"({criteria_block['evaluated']}/{len(decl_cases)} 用例参判，"
+              f"阈值 {decl_err:.0%}/{decl_cross:.0%}，来自档案声明)")
     return 0
 
 

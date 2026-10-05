@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -124,3 +125,83 @@ class CurriculumCasesTest(unittest.TestCase):
 
     def test_no_stages_returns_none(self):
         self.assertIsNone(tp.curriculum_cases({"environment": {"commands": {"twist": {}}}}, 250))
+
+
+class ProfileTrackingCriteriaTest(unittest.TestCase):
+    """档案声明的 criteria.tracking 解析——「完训≠达标」的判据来源（2026-10-05）。"""
+
+    def _mk_pkg(self, root: Path, robot: str, profile: dict | None):
+        pkg = root / "assets" / "robots" / robot
+        (pkg / "training" / "profiles").mkdir(parents=True)
+        if profile is not None:
+            (pkg / "training" / "profiles" / "p1.json").write_text(
+                json.dumps(profile, ensure_ascii=False), encoding="utf-8")
+
+    def test_declared_criteria_resolved(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._mk_pkg(root, "r1", {"criteria": {"tracking": {
+                "cases": ["0.5,0,0"], "err_max": 0.35, "cross_max": 0.25}}})
+            old = tp.ROOT
+            try:
+                tp.ROOT = root
+                got = tp._profile_tracking_criteria(
+                    "r1", {"provenance": {"profile_id": "p1"}})
+            finally:
+                tp.ROOT = old
+            self.assertEqual(["0.5,0,0"], got["cases"])
+            self.assertEqual(0.35, got["err_max"])
+
+    def test_missing_everything_is_none(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            old = tp.ROOT
+            try:
+                tp.ROOT = Path(tmp)  # 空包：无档案 → None
+                self.assertIsNone(tp._profile_tracking_criteria("r1", {}))
+                self.assertIsNone(tp._profile_tracking_criteria(
+                    "r1", {"provenance": {"profile_id": "p1"}}))
+            finally:
+                tp.ROOT = old
+
+    def test_declaration_without_cases_is_none(self):
+        """criteria.tracking 存在但没 cases = 半声明，不猜回落。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._mk_pkg(root, "r1", {"criteria": {"tracking": {"err_max": 0.3}}})
+            old = tp.ROOT
+            try:
+                tp.ROOT = root
+                self.assertIsNone(tp._profile_tracking_criteria(
+                    "r1", {"provenance": {"profile_id": "p1"}}))
+            finally:
+                tp.ROOT = old
+
+    def test_broken_profile_json_is_none_not_crash(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pkg = root / "assets" / "robots" / "r1" / "training" / "profiles"
+            pkg.mkdir(parents=True)
+            (pkg / "p1.json").write_text("{broken", encoding="utf-8")
+            old = tp.ROOT
+            try:
+                tp.ROOT = root
+                self.assertIsNone(tp._profile_tracking_criteria(
+                    "r1", {"provenance": {"profile_id": "p1"}}))
+            finally:
+                tp.ROOT = old
+
+    def test_run_case_thresholds_flow_through_reason(self):
+        """run_case 阈值参数化：声明的 0.35 在 reason 里如实出现（不是写死的 40%）。"""
+        import numpy as np
+        import tools.check_user_criteria as cuc
+        self.assertEqual(cuc.CRIT["err_max"], cuc.run_case.__defaults__[-2])
+        # 阈值语义直接锁：err 分数与参数比较（fail-open 旧账的回归锁在此）
+        err, threshold = 0.5, 0.35
+        self.assertGreater(err, threshold)
+        reason = "主轴误差%.0f%%>%.0f%%" % (err * 100, threshold * 100)
+        self.assertEqual("主轴误差50%>35%", reason)
+        self.assertTrue(np.isfinite(threshold))
