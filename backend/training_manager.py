@@ -189,6 +189,9 @@ class TrainingTask:
             ,"pid": status_info.get("pid")
             ,"exit_code": status_info.get("exit_code")
             ,"error": status_info.get("error")
+            # 「完训≠达标」：档案声明的验收判据判定（trend_probe 落在 run 目录的
+            # criteria_tracking 块；未声明判据的档案 / 探针未跑完 = None 如实缺省）
+            ,"criteria": _read_json_dict(self.task_dir / "trend_probe.json").get("criteria_tracking")
             ,"device": status_info.get("device", runtime_info.get("resolved"))
             ,"runtime": runtime_info
         }

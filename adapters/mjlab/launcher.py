@@ -11,6 +11,63 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime
 
+#: 仓库根（launcher 位于 adapters/mjlab/ 下两层）。
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def _profile_criteria_declared(task_dir: Path) -> Optional[dict]:
+    """task_dir → 档案声明的 ``criteria.tracking``（「完训≠达标」的判据来源）。
+
+    解析链：``training_config.json`` 的 ``profile_id`` + ``contract.json`` 的
+    ``robot_id`` → ``assets/robots/<robot_id>/training/profiles/<id>.json``。
+    未声明 / 缺文件 / 解析失败 = None（不发探针，不猜）。
+    """
+    try:
+        config = json.loads((task_dir / "training_config.json").read_text(encoding="utf-8-sig"))
+        contract = json.loads((task_dir / "contract.json").read_text(encoding="utf-8-sig"))
+        profile_id = str(config.get("profile_id") or "")
+        robot_id = str(contract.get("robot_id") or "")
+        if not profile_id or not robot_id:
+            return None
+        profile_path = (_REPO_ROOT / "assets" / "robots" / robot_id
+                        / "training" / "profiles" / f"{profile_id}.json")
+        if not profile_path.is_file():
+            return None
+        profile = json.loads(profile_path.read_text(encoding="utf-8-sig"))
+        tracking = (profile.get("criteria") or {}).get("tracking")
+        return tracking if isinstance(tracking, dict) and tracking.get("cases") else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _spawn_criteria_probe(task_dir: Path, python_exe: Path) -> bool:
+    """训练终态后按档案声明判据后台发一次趋势探针（出 criteria 判定）。
+
+    探针是**测量不是训练**——失败不影响训练状态（fail-soft），stdout 落
+    ``criteria_probe.log`` 留痕；产物 ``trend_probe.json`` 落 run 目录，
+    ``TrainingTask.to_dict`` 读到即把 ``criteria`` 判定暴露给 API。
+    """
+    if _profile_criteria_declared(task_dir) is None:
+        return False
+    if (task_dir / "trend_probe.json").is_file():
+        return False  # 已有判定（重发/续训场景不重复跑）
+    log_path = task_dir / "criteria_probe.log"
+    try:
+        with open(log_path, "w", encoding="utf-8") as log:
+            subprocess.Popen(
+                [str(python_exe), str(_REPO_ROOT / "tools" / "trend_probe.py"),
+                 "--run", str(task_dir), "--robot",
+                 str(json.loads((task_dir / "contract.json").read_text(encoding="utf-8-sig")).get("robot_id"))],
+                stdout=log, stderr=subprocess.STDOUT, cwd=_REPO_ROOT,
+            )
+        return True
+    except OSError as exc:
+        try:
+            log_path.write_text(f"probe spawn failed: {exc}\n", encoding="utf-8")
+        except OSError:
+            pass
+        return False
+
 
 class TrainingLauncher:
     """训练启动器 - 独立进程管理"""
@@ -104,6 +161,10 @@ class TrainingLauncher:
                 "error": current.get("error") if current.get("error") else (None if code == 0 else f"training worker exited with code {code}"),
             })
             self.processes.pop(identifier, None)
+            # 「完训≠达标」：档案声明了验收判据（criteria.tracking）就在终态后
+            # 后台发一次趋势探针出判定（fail-soft，不影响训练终态本身）。
+            if terminal_status == "train_completed":
+                _spawn_criteria_probe(directory, python_exe)
 
         # Popen has no callback API; a lightweight watcher keeps status.json
         # authoritative without blocking the control-plane request.

@@ -53,6 +53,7 @@ EXPECTED_ZERO_LICENSE: frozenset[str] = frozenset({
     "go2w_sim2sim",
     "humanoid-motion-planning",
     "jie_3d_nav",
+    "legged_perceptive",
     "matrix_zsibot",
     "microduck-simulator",
     "quadruped-locomotion-policy",
