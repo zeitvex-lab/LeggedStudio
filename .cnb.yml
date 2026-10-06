@@ -245,7 +245,7 @@ syntax-check: &syntax-check
       python tools/audit_skill_lift_equivalence.py --self-test
       # N6 验收判据可查性（文本级，守回归）
       python tools/audit_acceptance_verifiability.py
-      # 插件统一度门禁（00_know/08 v3.0：旧机制只许减少不许回涨；对照 tools/baselines/plugin_unification.json）
+      # 插件统一度门禁（00_know/06 插件篇 v3.0：旧机制只许减少不许回涨；对照 tools/baselines/plugin_unification.json）
       python tools/audit_plugin_unification.py --check
       # seam 图与总表一致性（机器生成的"新行为去哪"地图，漂移判红）
       python tools/gen_capability_seams.py --check

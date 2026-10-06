@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""seam 图生成器（``00_know/08`` v3.0 §4.7）：从插件总表派生"新行为去哪"地图。
+"""seam 图生成器（``00_know/06`` §14.7〔插件篇〕）：从插件总表派生"新行为去哪"地图。
 
 上游依据：dsh 的 ``docs/capability-seams.md``（机器生成、进 CI）——"框架零特判"
 从 grep 纪律升级为**机器可查结构**的门。本工具生成 ``docs/capability-seams.md``：
@@ -80,7 +80,7 @@ def render(master: dict) -> str:
         "",
         "# Capability Seams：能力面地图（机器生成）",
         "",
-        "一切即插件（`00_know/08` v3.0）：能力挂在 13 个冻结 seam 上，新增行为 = 加声明，不改框架。",
+        "一切即插件（`00_know/06` 插件篇 v3.0）：能力挂在 13 个冻结 seam 上，新增行为 = 加声明，不改框架。",
         f"真值：`registry/plugin-registry.json`（schema `plugin-registry-1.0`，",
         f"{len(master['registries'])} 条注册表条目 + `registry/plugins/` 插件清单目录）。",
         "",

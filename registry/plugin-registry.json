@@ -17,7 +17,7 @@
  ],
  "manifest_dir": "plugins",
  "manifest_schema": "legged-plugin-1.0",
- "note": "全仓注册表总表（00_know/08 v3.0 Phase 0c）：seam → 文件 → schema 三元组的唯一真值；runtime_registry 的档位清单与门禁/文档从这里派生，不各自维护。manifest_dir 下的插件清单（legged-plugin-1.0）按目录自动发现，不入 registries。",
+ "note": "全仓注册表总表（00_know/06 插件篇 v3.0 Phase 0c）：seam → 文件 → schema 三元组的唯一真值；runtime_registry 的档位清单与门禁/文档从这里派生，不各自维护。manifest_dir 下的插件清单（legged-plugin-1.0）按目录自动发现，不入 registries。",
  "registries": {
   "algorithms": {
    "seam": "algorithm",
