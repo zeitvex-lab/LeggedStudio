@@ -30,7 +30,9 @@ from backend.pack_catalog import (
 # 在库 Pack 清单（2026-10-05 起 6 份：8 机型 − m20/b2w 两份死件产物 Pack）。
 EXPECTED_PACK_IDS = (
     "deeprobotics_lite3-velocity",
+    "deeprobotics_m20-velocity",
     "unitree_b2-velocity",
+    "unitree_b2w-velocity",
     "unitree_go1-velocity",
     "unitree_go2-velocity",
     "unitree_go2w-velocity",

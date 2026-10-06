@@ -89,9 +89,11 @@ class PackListTest(unittest.TestCase):
         proc = run_cli("pack", "list", "--json")
         self.assertEqual(0, proc.returncode, proc.stderr)
         payload = json.loads(proc.stdout)                       # --json 输出必须可解析
-        self.assertEqual(payload["count"], 6,
-                         "本仓应有 6 个 Pack（2026-10-05 ㊃ 死件清理 −2：m20/b2w 死件产物 Pack 出库，"
-                         "pack 是产物导出物非机型常量）")
+        self.assertEqual(payload["count"], 8,
+                         "本仓应有 8 个 Pack（每台现役机型一个默认组合：morphology × skill；"
+                         "2026-10-06 修正 10-05 的过度删除——当时按“死件”删了 m20/b2w 的 Pack，"
+                         "但 Pack 是机型常量不是产物，产物只是回挂的 policy_ref（悬空引用已由"
+                         "generate_packs 的 sanitize 丢弃）；删 Pack 会砍断 promote 回挂链）")
         ids = [pack["pack_id"] for pack in payload["packs"]]
         # 本仓真实 pack_id 带「-velocity」后缀（如 unitree_go2-velocity），按前缀匹配
         self.assertTrue(any(pid.startswith("unitree_go2") for pid in ids), ids)
