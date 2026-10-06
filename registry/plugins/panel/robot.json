@@ -1,0 +1,28 @@
+{
+ "schema": "legged-plugin-1.0",
+ "id": "robot",
+ "seam": "panel",
+ "provides": [
+  "panel/robot"
+ ],
+ "title": "机器人工作台",
+ "kind": "page",
+ "entry": "workbench.html#robot",
+ "group": "工作台",
+ "order": 20,
+ "requires": {
+  "services": [
+   "backend"
+  ]
+ },
+ "desktop": true,
+ "cli": {
+  "command": "packages list",
+  "provider": "backend.cli_panels:packages_list"
+ },
+ "home_card": {
+  "provider": "backend.cli_panels:packages_list",
+  "order": 20,
+  "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
+ }
+}

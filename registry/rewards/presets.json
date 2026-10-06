@@ -1,5 +1,5 @@
 {
-  "schema_version": "reward-presets-1.0",
+  "schema": "reward-presets-1.0",
   "description": "任务级奖励权重预设（B7）：recipe_registry.resolve_recipe 按任务名取用；stairs 与 forward_walk 同参。",
   "presets": {
     "forward_walk": {

@@ -313,8 +313,8 @@ def audit() -> dict[str, Any]:
     extra = sorted(set(declared) - set(derived))
     if extra:
         problems.append(f"注册表里有派生不出的包：{', '.join(extra)}")
-    if recorded.get("schema_version") != SCHEMA_VERSION:
-        problems.append(f"schema_version 应为 {SCHEMA_VERSION!r}，得到 {recorded.get('schema_version')!r}")
+    if recorded.get("schema") != SCHEMA_VERSION:
+        problems.append(f"schema 应为 {SCHEMA_VERSION!r}，得到 {recorded.get('schema')!r}")
 
     components = sum(len(item["components"]) for item in derived.values())
     unknown = [
@@ -337,7 +337,7 @@ def apply_registry() -> dict[str, Any]:
 
     packages = derive()
     payload = {
-        "schema_version": SCHEMA_VERSION,
+        "schema": SCHEMA_VERSION,
         "generated_by": "tools/audit_licenses.py --apply",
         "rules": {
             "source": "出处取自 registry/porting_evidence.json（每台机器人的上游证据文件清单）",

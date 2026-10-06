@@ -4,10 +4,10 @@
   "title": "Skill Recipe 2.0",
   "description": "技能配方：任务变体 + 环境/奖励/runner 参数。base 通过 extends 被 patch 覆盖（深合并：dict 递归、标量与列表替换）。新增技能只写 JSON，不改代码。",
   "type": "object",
-  "required": ["schema_version", "recipe_id", "display_name"],
+  "required": ["schema", "recipe_id", "display_name"],
   "additionalProperties": true,
   "properties": {
-    "schema_version": {"const": "skill-recipe-2.0"},
+    "schema": {"const": "skill-recipe-2.0"},
     "recipe_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
     "display_name": {"type": "string", "minLength": 1},
     "description": {"type": "string"},

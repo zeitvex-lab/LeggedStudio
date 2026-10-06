@@ -522,7 +522,7 @@ def import_task_plugin(
         "plugin_file": _repo_relative(plugin_file),
         "plugin": plugin.model_dump(),
         "plugin_id": plugin.plugin_id,
-        "schema_version": plugin.schema_version,
+        "schema": plugin.schema,
         "integrity": integrity,
         "written": written,
     }

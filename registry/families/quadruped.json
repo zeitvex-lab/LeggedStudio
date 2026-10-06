@@ -1,5 +1,5 @@
 {
- "schema_version": "family-1.0",
+ "schema": "family-1.0",
  "family_id": "quadruped",
  "display_name": "四足",
  "note": "族级约定的**唯一真值**：族内任一机型据此复用同一套技能训练配方。成员与关节角色不在这里硬编码——成员由各契约的 morphology.id 派生，本文件声明的是约定（角色骨架、控制率、技能矩阵），audit_families.py 逐台核对。",

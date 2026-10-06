@@ -1,5 +1,5 @@
 {
-  "schema_version": "algorithm-plugin-registry-1.0",
+  "schema": "algorithm-plugin-registry-1.0",
   "description": "Algorithm plugin registry: algorithm name -> plugin module + metadata + runner-cfg variants. Unknown names must fail closed at load time (see plugin_registry.py).",
   "plugins": {
     "cts": {

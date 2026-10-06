@@ -1,5 +1,5 @@
 {
-  "schema_version": "reward-conflicts-1.0",
+  "schema": "reward-conflicts-1.0",
   "description": "奖励项的经典冲突（E3）：结构性冲突写在这个清单里，由 backend/training/reward_catalog.py 计算并在编辑器里提示。冲突**不是错误**（有时就是要这么配），但必须**看得见** —— 否则训练曲线会给出一个看似合理、实为目标打架的结果。",
   "conflicts": [
     {

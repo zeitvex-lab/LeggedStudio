@@ -41,7 +41,7 @@ class RegistryMatchesEvidenceTest(unittest.TestCase):
 
     def test_every_builtin_robot_is_recorded(self):
         recorded = json.loads(al.REGISTRY_PATH.read_text(encoding="utf-8"))
-        self.assertEqual(al.SCHEMA_VERSION, recorded["schema_version"])
+        self.assertEqual(al.SCHEMA_VERSION, recorded["schema"])
         self.assertEqual(sorted(al.evidence_files_per_robot()), sorted(recorded["packages"]))
 
     def test_license_evidence_is_reproducible(self):

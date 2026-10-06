@@ -35,7 +35,7 @@ SKILL_INDEX_PATH = SKILLS_DIR / "index.json"
 SKILL_INDEX_SCHEMA = "skill-index-1.0"
 SCHEMA_PATH = ROOT / "contracts" / "schema" / "skill-recipe-2.0.schema.json"
 
-REQUIRED_KEYS = ("schema_version", "recipe_id", "display_name")
+REQUIRED_KEYS = ("schema", "recipe_id", "display_name")
 KNOWN_ENUMS = {"algorithm": {"PPO", "SAC", "TD3"}}
 
 
@@ -67,9 +67,9 @@ def _validate_recipe(recipe: dict[str, Any], source: str) -> None:
     for key in REQUIRED_KEYS:
         if key not in recipe:
             raise SkillRegistryError(f"{source}: 缺少必填键 {key!r}")
-    if recipe.get("schema_version") != "skill-recipe-2.0":
+    if recipe.get("schema") != "skill-recipe-2.0":
         raise SkillRegistryError(
-            f"{source}: schema_version 必须为 skill-recipe-2.0（得到 {recipe.get('schema_version')!r}）"
+            f"{source}: schema 必须为 skill-recipe-2.0（得到 {recipe.get('schema')!r}）"
         )
     for key, allowed in KNOWN_ENUMS.items():
         if key in recipe and recipe[key] not in allowed:

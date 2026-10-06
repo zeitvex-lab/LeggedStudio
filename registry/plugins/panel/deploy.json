@@ -1,0 +1,28 @@
+{
+ "schema": "legged-plugin-1.0",
+ "id": "deploy",
+ "seam": "panel",
+ "provides": [
+  "panel/deploy"
+ ],
+ "title": "部署",
+ "kind": "page",
+ "entry": "deploy.html",
+ "group": "产物",
+ "order": 70,
+ "requires": {
+  "services": [
+   "backend"
+  ]
+ },
+ "desktop": true,
+ "cli": {
+  "command": "panel deploy",
+  "provider": "backend.cli_panels:deploy_summary"
+ },
+ "home_card": {
+  "provider": "backend.cli_panels:deploy_summary",
+  "order": 70,
+  "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
+ }
+}

@@ -1,0 +1,28 @@
+{
+ "schema": "legged-plugin-1.0",
+ "id": "config",
+ "seam": "panel",
+ "provides": [
+  "panel/config"
+ ],
+ "title": "训练配置",
+ "kind": "page",
+ "entry": "training_create.html",
+ "group": "训练",
+ "order": 30,
+ "requires": {
+  "services": [
+   "backend"
+  ]
+ },
+ "desktop": true,
+ "cli": {
+  "command": "panel config",
+  "provider": "backend.cli_panels:config_list"
+ },
+ "home_card": {
+  "provider": "backend.cli_panels:config_list",
+  "order": 30,
+  "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
+ }
+}

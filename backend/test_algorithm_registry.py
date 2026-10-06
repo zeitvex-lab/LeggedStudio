@@ -101,7 +101,7 @@ class RegistryControlPlaneTest(unittest.TestCase):
 
   def test_registry_loads_seven_plugins(self):
     registry = load_registry()
-    self.assertEqual(REGISTRY_SCHEMA_VERSION, registry["schema_version"])
+    self.assertEqual(REGISTRY_SCHEMA_VERSION, registry["schema"])
     self.assertEqual(sorted(EXPECTED_PLUGINS), sorted(registry["plugins"]))
 
   def test_every_plugin_metadata_declared(self):

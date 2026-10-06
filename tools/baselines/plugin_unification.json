@@ -1,0 +1,15 @@
+{
+ "schema": "plugin-unification-baseline-1.0",
+ "counts": {
+  "schema_version_fields": 0,
+  "registries_missing_schema": 0,
+  "unregistered_catalog_files": 0,
+  "master_entries_dangling": 0,
+  "hardcoded_registry_files": 0,
+  "fake_provider_resolution": 0,
+  "legacy_panel_index": 0,
+  "plugin_kernel_dead": 1,
+  "inline_routes_api_complete": 31
+ },
+ "written_by": "tools/audit_plugin_unification.py --write"
+}

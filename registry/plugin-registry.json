@@ -1,0 +1,186 @@
+{
+ "schema": "plugin-registry-1.0",
+ "seams": [
+  "algorithm",
+  "controller",
+  "evaluator",
+  "family",
+  "pack",
+  "panel",
+  "profile",
+  "reward",
+  "robot",
+  "sensor",
+  "skill",
+  "task",
+  "terrain"
+ ],
+ "manifest_dir": "plugins",
+ "manifest_schema": "legged-plugin-1.0",
+ "note": "全仓注册表总表（00_know/08 v3.0 Phase 0c）：seam → 文件 → schema 三元组的唯一真值；runtime_registry 的档位清单与门禁/文档从这里派生，不各自维护。manifest_dir 下的插件清单（legged-plugin-1.0）按目录自动发现，不入 registries。",
+ "registries": {
+  "algorithms": {
+   "seam": "algorithm",
+   "path": "../adapters/mjlab/algorithms/registry.json",
+   "schema": "algorithm-plugin-registry-1.0"
+  },
+  "arrival_criteria": {
+   "seam": "evaluator",
+   "path": "arrival_criteria.json",
+   "schema": "arrival-criteria-1.0",
+   "runtime": true
+  },
+  "cameras": {
+   "seam": "sensor",
+   "path": "cameras.json",
+   "schema": "camera-profile-1.0",
+   "runtime": true
+  },
+  "controllers": {
+   "seam": "controller",
+   "path": "controllers/index.json",
+   "schema": "controller-registry-1.0"
+  },
+  "effect_criterion": {
+   "seam": "evaluator",
+   "path": "effect_criterion.json",
+   "schema": "effect-criterion-1.0"
+  },
+  "family_index": {
+   "seam": "family",
+   "path": "families/index.json",
+   "schema": "family-index-1.0"
+  },
+  "family_quadruped": {
+   "seam": "family",
+   "path": "families/quadruped.json",
+   "schema": "family-1.0"
+  },
+  "family_wheel_leg": {
+   "seam": "family",
+   "path": "families/wheel_leg.json",
+   "schema": "family-1.0"
+  },
+  "licenses": {
+   "seam": "pack",
+   "path": "licenses.json",
+   "schema": "license-registry-1.0"
+  },
+  "motion_commands": {
+   "seam": "profile",
+   "path": "motion_commands.json",
+   "schema": "motion-command-profile-1.0",
+   "runtime": true
+  },
+  "motions": {
+   "seam": "skill",
+   "path": "motions/index.json",
+   "schema": "motion-registry-1.0"
+  },
+  "pack_dreamwaq_blind": {
+   "seam": "pack",
+   "path": "packs/dreamwaq_blind.json",
+   "schema": "resource-pack-1.0"
+  },
+  "pack_imitation_amp": {
+   "seam": "pack",
+   "path": "packs/imitation_amp.json",
+   "schema": "resource-pack-1.0"
+  },
+  "pack_perception_external": {
+   "seam": "pack",
+   "path": "packs/perception_external.json",
+   "schema": "resource-pack-1.0"
+  },
+  "pack_perception_obs": {
+   "seam": "pack",
+   "path": "packs/perception_obs.json",
+   "schema": "resource-pack-1.0"
+  },
+  "packs": {
+   "seam": "pack",
+   "path": "packs/index.json",
+   "schema": "resource-pack-index-1.0"
+  },
+  "perception_providers": {
+   "seam": "sensor",
+   "path": "perception_providers/index.json",
+   "schema": "perception-provider-index-1.0"
+  },
+  "porting_evidence": {
+   "seam": "pack",
+   "path": "porting_evidence.json",
+   "schema": "porting-evidence-1.0"
+  },
+  "porting_references": {
+   "seam": "pack",
+   "path": "porting_references.json",
+   "schema": "porting-references-1.0"
+  },
+  "reference_ingestion": {
+   "seam": "pack",
+   "path": "reference_ingestion.json",
+   "schema": "reference-ingestion-1.0"
+  },
+  "reference_recipes": {
+   "seam": "skill",
+   "path": "reference_recipes/unitree_rl_mjlab_go2w__velocity_flat_legs_only.json",
+   "schema": "reference-recipe-1.0"
+  },
+  "reward_conflicts": {
+   "seam": "reward",
+   "path": "rewards/conflicts.json",
+   "schema": "reward-conflicts-1.0"
+  },
+  "reward_presets": {
+   "seam": "reward",
+   "path": "rewards/presets.json",
+   "schema": "reward-presets-1.0"
+  },
+  "reward_terms": {
+   "seam": "reward",
+   "path": "rewards/reward_terms.json",
+   "schema": "reward-terms-1.0"
+  },
+  "skill_index": {
+   "seam": "skill",
+   "path": "skills/index.json",
+   "schema": "skill-index-1.0"
+  },
+  "skill_velocity_base": {
+   "seam": "skill",
+   "path": "skills/velocity_base.json",
+   "schema": "skill-recipe-2.0"
+  },
+  "skill_zexw_rough_patch": {
+   "seam": "skill",
+   "path": "skills/patches/zex-w-rough.json",
+   "schema": "skill-recipe-2.0"
+  },
+  "task_index": {
+   "seam": "profile",
+   "path": "tasks/index.json",
+   "schema": "task-profile-1.0"
+  },
+  "task_plugins": {
+   "seam": "task",
+   "path": "task_plugins/index.json",
+   "schema": "task-plugin-registry-1.0"
+  },
+  "task_profiles": {
+   "seam": "profile",
+   "path": "tasks/profiles.json",
+   "schema": "task-profile-1.0"
+  },
+  "terrain_index": {
+   "seam": "terrain",
+   "path": "terrains/index.json",
+   "schema": "terrain-index-1.0"
+  },
+  "terrain_profiles": {
+   "seam": "terrain",
+   "path": "terrains/profiles.json",
+   "schema": "terrain-profile-1.0"
+  }
+ }
+}

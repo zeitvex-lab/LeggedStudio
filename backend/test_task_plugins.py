@@ -99,7 +99,7 @@ class TaskPluginInstantiateTest(unittest.TestCase):
         """`command_source=perception` 两端都没执行器 ⇒ 进 blockers（A2 同一口径）。"""
 
         payload = {
-            "schema_version": "task-plugin-1.0",
+            "schema": "task-plugin-1.0",
             "plugin_id": "perception-decision",
             "label": "感知决策（未支持）",
             "evidence": "用于验证：契约允许但执行器不支持时必须拦住",
@@ -109,7 +109,7 @@ class TaskPluginInstantiateTest(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "index.json"
-            path.write_text(json.dumps({"schema_version": "task-plugin-registry-1.0", "plugins": [payload]}),
+            path.write_text(json.dumps({"schema": "task-plugin-registry-1.0", "plugins": [payload]}),
                             encoding="utf-8")
             result = tp.instantiate_task_plugin("perception-decision", load_path=path)
         self.assertFalse(result["readiness"]["ok"])
@@ -120,7 +120,7 @@ class TaskPluginInstantiateTest(unittest.TestCase):
         """声明了但今天没人执行的判据/记录器要**如实列出**，不能静默写进场景就算完。"""
 
         payload = {
-            "schema_version": "task-plugin-1.0",
+            "schema": "task-plugin-1.0",
             "plugin_id": "custom-checks",
             "label": "自定义判据",
             "evidence": "用于验证：未消费的判据名要单独报出来",
@@ -131,7 +131,7 @@ class TaskPluginInstantiateTest(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "index.json"
-            path.write_text(json.dumps({"schema_version": "task-plugin-registry-1.0", "plugins": [payload]}),
+            path.write_text(json.dumps({"schema": "task-plugin-registry-1.0", "plugins": [payload]}),
                             encoding="utf-8")
             result = tp.instantiate_task_plugin("custom-checks", load_path=path)
         self.assertEqual(["some_future_check"], result["readiness"]["unconsumed_checks"])

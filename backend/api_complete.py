@@ -727,7 +727,7 @@ if WEB_DIR.is_dir():
 @app.get("/api/panels")
 async def api_panels(current: str | None = None):
     """产品面插件注册表（Phase 5，v2.1）：导航/侧栏/桌面的**唯一来源**——
-    面板声明（registry/panels）→ 服务探测（诚实禁用）→ 导航结构。
+    面板插件清单（registry/plugins/panel/）→ 服务探测（诚实禁用）→ 导航结构。
     前端 topnav/workbench 侧栏/桌面 launcher 消费同一份；机器人与功能零特判。"""
     from backend.panel_registry import load_panels, render_navigation, service_unavailable
 

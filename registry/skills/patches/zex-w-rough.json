@@ -1,5 +1,5 @@
 {
-  "schema_version": "skill-recipe-2.0",
+  "schema": "skill-recipe-2.0",
   "recipe_id": "zex-w-rough",
   "display_name": "ZEX-W rough / obstacle curriculum",
   "description": "zex-w 粗糙地形技能补丁：extends velocity_base，覆盖地形课程 / 命令范围 / runner。对拍基准 = assets/robots/zex-w/training/profiles/rough.json。",

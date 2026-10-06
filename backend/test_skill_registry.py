@@ -164,10 +164,10 @@ class SkillManifestK4Test(unittest.TestCase):
                 encoding="utf-8",
             )
             (skills_dir / "listed.json").write_text(
-                json.dumps({"schema_version": "skill-recipe-2.0", "recipe_id": "listed",
+                json.dumps({"schema": "skill-recipe-2.0", "recipe_id": "listed",
                             "display_name": "listed"}), encoding="utf-8")
             (skills_dir / "orphan.json").write_text(
-                json.dumps({"schema_version": "skill-recipe-2.0", "recipe_id": "orphan",
+                json.dumps({"schema": "skill-recipe-2.0", "recipe_id": "orphan",
                             "display_name": "orphan"}), encoding="utf-8")
             skill_registry.SKILLS_DIR = skills_dir
             skill_registry.skill_manifest.cache_clear()

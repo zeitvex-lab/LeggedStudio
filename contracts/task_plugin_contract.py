@@ -118,7 +118,7 @@ class TaskPlugin(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: str = TASK_PLUGIN_SCHEMA
+    schema: str = TASK_PLUGIN_SCHEMA
     plugin_id: str
     label: str = Field(min_length=1)
     description: str = ""
@@ -142,11 +142,11 @@ class TaskPlugin(BaseModel):
     def _safe(cls, value: str) -> str:
         return _check_safe_id(value, what="任务插件 id")
 
-    @field_validator("schema_version")
+    @field_validator("schema")
     @classmethod
     def _schema(cls, value: str) -> str:
         if value != TASK_PLUGIN_SCHEMA:
-            raise TaskPluginError(f"schema_version 必须是 {TASK_PLUGIN_SCHEMA!r}，得到 {value!r}")
+            raise TaskPluginError(f"schema 必须是 {TASK_PLUGIN_SCHEMA!r}，得到 {value!r}")
         return value
 
     @model_validator(mode="after")
@@ -175,6 +175,9 @@ def validate_task_plugin_payload(payload: Any) -> TaskPlugin:
         return payload
     if not isinstance(payload, dict):
         raise TaskPluginError(f"任务插件声明必须是 JSON 对象，得到 {type(payload).__name__}")
+    if "schema_version" in payload and "schema" not in payload:
+        # 旧导出物兼容：字段已统一为 "schema"（08 v3.0 Phase 0），读侧认两种、写侧只出新名
+        payload = {**payload, "schema": payload["schema_version"]}
     try:
         return TaskPlugin(**payload)
     except ValidationError as exc:

@@ -48,7 +48,7 @@
   "skill_ref": {
     "id": "velocity_base",
     "path": "registry/skills/velocity_base.json",
-    "sha256": "1d6ff32cf83313c86dea2236f1f28496de54140ada52e44934ea9c9b8a4d410d"
+    "sha256": "872e5cca8ec5a1c79c135399b551494d09e009f94b6a8735d5cac783c1580003"
   },
   "scenario_ref": null,
   "policy_ref": {
