@@ -1,5 +1,5 @@
 {
-  "schema_version": "reward-terms-1.0",
+  "schema": "reward-terms-1.0",
   "description": "奖励项目录（B7）：env_factory.get_reward_terms 的数据真值。supported=false 的项在前端置灰，训练启动时报精确错误。",
   "terms": {
     "tracking_lin_vel": {"label": "线速度跟踪", "default": 1.5, "description": "鼓励沿 X 轴稳定前进", "supported": true},

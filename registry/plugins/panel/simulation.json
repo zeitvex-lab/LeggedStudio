@@ -1,0 +1,28 @@
+{
+ "schema": "legged-plugin-1.0",
+ "id": "simulation",
+ "seam": "panel",
+ "provides": [
+  "panel/simulation"
+ ],
+ "title": "基础仿真",
+ "kind": "page",
+ "entry": "workbench.html#simulation",
+ "group": "仿真",
+ "order": 50,
+ "requires": {
+  "services": [
+   "backend"
+  ]
+ },
+ "desktop": true,
+ "cli": {
+  "command": "panel simulation",
+  "provider": "backend.cli_panels:simulation_list"
+ },
+ "home_card": {
+  "provider": "backend.cli_panels:simulation_list",
+  "order": 50,
+  "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
+ }
+}

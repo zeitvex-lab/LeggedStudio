@@ -55,7 +55,7 @@ class KitDelegationGateTest(unittest.TestCase):
             (profiles / "p-velocity.json").write_text(
                 json.dumps({"profile_id": "p-velocity", "task_name": "velocity"}, ensure_ascii=False), encoding="utf-8")
         (self.families / "quadruped.json").write_text(json.dumps({
-            "schema_version": "family-1.0",
+            "schema": "family-1.0",
             "family_id": "quadruped",
             "morphology_ids": ["quadruped_12dof"],
             "locomotion_type": "P",

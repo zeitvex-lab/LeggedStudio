@@ -167,10 +167,11 @@ class PanelProjectionTest(unittest.TestCase):
         self.assertEqual(payload["count"], len(cp.list_controllers()))
 
     def test_panel_declared_in_registry(self):
-        panels = json.loads(
-            (ROOT / "registry" / "panels" / "index.json").read_text(encoding="utf-8-sig"))
-        entry = next((p for p in panels["panels"] if p["id"] == "controllers"), None)
-        self.assertIsNotNone(entry, "controllers 面板必须一行声明（加面板 = 一行）")
+        from backend.panel_registry import load_panels
+
+        entry = next((p for p in load_panels() if p["id"] == "controllers"), None)
+        self.assertIsNotNone(entry, "controllers 面板必须一行声明（加面板 = 一个 manifest）")
+        self.assertEqual(entry["seam"], "panel")
         self.assertEqual(entry["cli"]["provider"], "backend.cli_panels:controllers_list")
         self.assertEqual(entry["home_card"]["provider"], "backend.cli_panels:controllers_list")
 

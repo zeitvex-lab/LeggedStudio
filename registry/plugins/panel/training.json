@@ -1,0 +1,28 @@
+{
+ "schema": "legged-plugin-1.0",
+ "id": "training",
+ "seam": "panel",
+ "provides": [
+  "panel/training"
+ ],
+ "title": "训练任务",
+ "kind": "page",
+ "entry": "training_list.html",
+ "group": "训练",
+ "order": 40,
+ "requires": {
+  "services": [
+   "backend"
+  ]
+ },
+ "desktop": true,
+ "cli": {
+  "command": "training list",
+  "provider": "backend.cli_panels:training_list"
+ },
+ "home_card": {
+  "provider": "backend.cli_panels:training_list",
+  "order": 40,
+  "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
+ }
+}

@@ -88,7 +88,7 @@ class JudgeFamilyTest(unittest.TestCase):
                 "families": [{"family_id": "biped_demo", "path": "biped_demo.json"}],
             }, ensure_ascii=False), encoding="utf-8")
             (families_dir / "biped_demo.json").write_text(json.dumps({
-                "schema_version": "family-1.0",
+                "schema": "family-1.0",
                 "family_id": "biped_demo",
                 "legs": 2,
                 "joint_roles": ["hip", "knee"],

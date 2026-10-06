@@ -103,7 +103,7 @@ class RegistryLoadTest(unittest.TestCase):
 
   def test_registry_file_exists_and_validates(self):
     registry = load_registry()
-    self.assertEqual(REGISTRY_SCHEMA_VERSION, registry["schema_version"])
+    self.assertEqual(REGISTRY_SCHEMA_VERSION, registry["schema"])
     self.assertEqual(sorted(EXPECTED_PLUGINS), list_plugins())
 
   def test_every_plugin_entry_well_formed(self):
@@ -165,8 +165,8 @@ class RegistryFailClosedTest(unittest.TestCase):
     good = load_registry()
     cases = {
       "not-json": None,  # replaced below with invalid text
-      "bad-schema": {**good, "schema_version": "0.0-mismatch"},
-      "no-plugins": {"schema_version": REGISTRY_SCHEMA_VERSION, "plugins": {}},
+      "bad-schema": {**good, "schema": "0.0-mismatch"},
+      "no-plugins": {"schema": REGISTRY_SCHEMA_VERSION, "plugins": {}},
     }
     with tempfile.NamedTemporaryFile(
       "w", suffix=".json", delete=False, encoding="utf-8"

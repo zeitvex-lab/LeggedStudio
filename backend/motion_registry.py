@@ -461,7 +461,7 @@ def derive() -> dict[str, Any]:
 
     entries = [clips[key] for key in sorted(clips)]
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema": SCHEMA_VERSION,
         "generated_by": "tools/audit_motions.py --apply",
         "rules": {
             "scan": "assets/robots/<package>/**/motions/** 下的 .pkl/.npz（训练侧）"

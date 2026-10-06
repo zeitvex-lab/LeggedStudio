@@ -186,7 +186,7 @@ def instantiate_task_plugin(
     return {
         "success": True,
         "plugin_id": plugin.plugin_id,
-        "schema_version": plugin.schema_version,
+        "schema": plugin.schema,
         "task_type": plugin.task_type,
         "scenario": base,
         "obs_items": obs_items,

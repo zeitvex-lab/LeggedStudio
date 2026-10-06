@@ -1,5 +1,5 @@
 {
-  "schema_version": "terrain-profile-1.0",
+  "schema": "terrain-profile-1.0",
   "note": "地形档真值表。每条声明：怎么造（builder）、哪些族可用（availability，ready=已能装配/missing=还没有）、依据在哪（evidence）。**availability 是断言**：标 ready 的族必须能被 `adapters/mjlab/terrain_profiles.py` 装配出 TerrainEntityCfg（门禁 tools/audit_terrain_profiles.py 逐条验），标 missing 的不许被任何技能声明引用。",
   "profiles": [
     {

@@ -1,9 +1,11 @@
-"""面板 CLI 投影 provider（registry/panels/index.json 的 ``cli.provider`` 落点）。
+"""面板 CLI 投影 provider（面板插件清单 ``cli.provider`` 的落点之一）。
 
-一切皆插件：面板的 CLI 表面**完全声明驱动**——注册表里每条
-``cli: {command, provider}`` 指到本模块的一个函数；CLI 侧只有一条通用
-``panel <panel_id>`` 命令，按声明做 module:attr 惰性解析后调用并打印。
-新增面板 = 注册表加一行 + 本模块加一个 provider 函数，CLI 零改动。
+一切皆插件：面板的 CLI 表面**完全声明驱动**——清单里每条
+``cli: {command, provider}`` 指到一个 ``module:attr``；CLI 侧只有一条通用
+``panel <panel_id>`` 命令，按声明做 importlib 惰性解析后调用并打印。
+**provider 可指向任何模块**（v3.0 Phase 2b：真 ``module:attr`` 解析，
+取代 v2.1 锁死本模块 ``globals()`` 的假解析）——新增面板 provider
+= 新建任意模块文件，本文件与 CLI 零改动。
 
 每个 provider 都是**纯数据函数**（返回 JSON 可序列化对象，不做打印、
 不做退出码），并且**复用 backend 同一实现**（单一真值来源）——与 Web
@@ -15,27 +17,21 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-_PROVIDER_PREFIX = "backend.cli_panels:"
+from plugins.runtime import PluginError, resolve_attr
 
 
 def resolve_provider(spec: str) -> Callable[[], Any]:
-    """把 ``backend.cli_panels:fn_name`` 声明解析成可调用（fail-loud）。
+    """把 ``module:attr`` 声明解析成可调用（**委托内核唯一实现**，fail-loud）。
 
-    声明缺失、格式不对、目标不存在都直接抛错——绝不静默降级成空结果
+    解析逻辑的真值在 ``plugins.runtime.resolve_attr``（v3.0：一个真值——
+    产品面与装配面共用同一份 importlib 解析，不各写一份）。声明缺失、格式
+    不对、模块不可导入、目标不是可调用，都直接抛错——绝不静默降级成空结果
     （一条静默成功的面板命令比报错更误导）。
     """
-    if not spec.startswith(_PROVIDER_PREFIX):
-        raise ValueError(
-            f"provider 声明必须是 {_PROVIDER_PREFIX}<fn> 形式，收到 {spec!r}"
-        )
-    name = spec[len(_PROVIDER_PREFIX):]
-    fn = globals().get(name)
-    if not callable(fn):
-        available = sorted(
-            k for k, v in globals().items() if callable(v) and not k.startswith("_")
-        )
-        raise ValueError(f"provider {spec!r} 不存在；本模块可用：{available}")
-    return fn
+    try:
+        return resolve_attr(spec)
+    except PluginError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _workspace_root() -> Path:

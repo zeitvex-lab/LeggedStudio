@@ -1,0 +1,28 @@
+{
+ "schema": "legged-plugin-1.0",
+ "id": "artifacts",
+ "seam": "panel",
+ "provides": [
+  "panel/artifacts"
+ ],
+ "title": "策略档案",
+ "kind": "page",
+ "entry": "artifacts.html",
+ "group": "产物",
+ "order": 80,
+ "requires": {
+  "services": [
+   "backend"
+  ]
+ },
+ "desktop": true,
+ "cli": {
+  "command": "panel artifacts",
+  "provider": "backend.cli_panels:artifacts_list"
+ },
+ "home_card": {
+  "provider": "backend.cli_panels:artifacts_list",
+  "order": 80,
+  "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
+ }
+}

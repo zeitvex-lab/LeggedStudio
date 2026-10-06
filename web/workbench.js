@@ -767,7 +767,7 @@ async function loadPanelCards() {
     const cards = (payload && payload.cards) || [];
     host.innerHTML = cards.length
       ? cards.map(panelCardHtml).join("")
-      : '<div class="empty-state">没有声明 home_card 的面板（registry/panels/index.json）</div>';
+      : '<div class="empty-state">没有声明 home_card 的面板（registry/plugins/panel/）</div>';
   } catch (error) {
     host.innerHTML = `<div class="empty-state">面板聚合加载失败：${escapeHtml(error.message)}</div>`;
   }

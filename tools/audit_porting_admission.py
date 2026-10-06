@@ -170,6 +170,7 @@ def scan_training_evidence() -> dict[str, Any]:
                 if any(re.search(token, rel) for token in tokens):
                     evidence[robot].append(f"{project.name}/{rel}")
     return {
+        "schema": "porting-evidence-1.0",
         "generated_from": str(RESOURCES_ROOT),
         "available": True,
         "generated_at": datetime.now().isoformat(timespec="seconds"),

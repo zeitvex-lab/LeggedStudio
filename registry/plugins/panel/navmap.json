@@ -1,0 +1,28 @@
+{
+ "schema": "legged-plugin-1.0",
+ "id": "navmap",
+ "seam": "panel",
+ "provides": [
+  "panel/navmap"
+ ],
+ "title": "高级仿真",
+ "kind": "page",
+ "entry": "advanced_sim.html",
+ "group": "仿真",
+ "order": 60,
+ "requires": {
+  "services": [
+   "backend"
+  ]
+ },
+ "desktop": true,
+ "cli": {
+  "command": "panel navmap",
+  "provider": "backend.cli_panels:navmap_list"
+ },
+ "home_card": {
+  "provider": "backend.cli_panels:navmap_list",
+  "order": 60,
+  "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
+ }
+}

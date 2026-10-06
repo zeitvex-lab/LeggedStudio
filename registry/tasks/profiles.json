@@ -1,5 +1,5 @@
 {
-  "schema_version": "task-profile-1.0",
+  "schema": "task-profile-1.0",
   "note": "任务档真值表。每条声明：怎么组装（map/command_source/waypoints/controller/executor）与怎么验收（判据工具 + 阈值）。controller/executor 名录与 backend/executors.py、registry/motion_commands.json 同源；判据工具挂任务类。availability 声明该任务当前可跑的端口（browser/headless/cli）。 任务档可引用 task_plugins 的 plugin_id 做感知绑定（两层组合：插件=感知声明，任务档=可运行装配）。 2026-10-02 Phase 1 插件化：新增 evaluator 字段（任务类 → headless 执行器：inproc=本进程函数 / external=子进程命令），run_task_profile 按**数据**分发，不再 if class 链——新任务类 = 登记一行 evaluator。",
   "profiles": [
     {

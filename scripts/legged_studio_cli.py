@@ -999,7 +999,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("algorithms", help="list registered algorithms")
     sub.add_parser("panels", help="list product-surface plugin panels (registry projection)")
     panel = sub.add_parser("panel", help="invoke a panel's CLI provider (declaration-driven)")
-    panel.add_argument("panel_id", help="panel id from registry/panels/index.json (see: panels)")
+    panel.add_argument("panel_id", help="panel id from registry/plugins/panel/ (see: panels)")
     sub.add_parser("hardware", help="show CUDA and native MJLab capabilities")
     model = sub.add_parser("validate-model", help="validate a URDF/MJCF model")
     model.add_argument("path")
@@ -1327,7 +1327,7 @@ def main(argv: list[str] | None = None) -> int:
         for item in panels:
             cli = (item.get("cli") or {}).get("command") or "-"
             print(f"  {item['id']:12s} [{item.get('group', '-')}] {item.get('title', '')}  (cli: {cli})")
-        print(f"  → {len(panels)} panels（registry/panels/index.json 是唯一来源；CLI 命令随声明投影）")
+        print(f"  → {len(panels)} panels（registry/plugins/panel/ 清单目录是唯一来源；CLI 命令随声明投影）")
         return 0
 
     if args.command == "panel":
@@ -1344,7 +1344,7 @@ def main(argv: list[str] | None = None) -> int:
         if not cli_decl.get("provider"):
             raise SystemExit(
                 f"panel 失败：面板 {args.panel_id!r} 未声明 CLI 投影"
-                f"（registry/panels/index.json 缺 cli.provider；Web/桌面入口：{entry.get('entry', '-')}) "
+                f"（registry/plugins/panel/{panel_id}.json 缺 cli.provider；Web/桌面入口：{entry.get('entry', '-')}) "
             )
         payload = resolve_provider(cli_decl["provider"])()
         print(json.dumps({"panel": args.panel_id, "command": cli_decl.get("command"), **payload},

@@ -1,5 +1,5 @@
 {
-  "schema_version": "motion-registry-1.0",
+  "schema": "motion-registry-1.0",
   "generated_by": "tools/audit_motions.py --apply",
   "rules": {
     "scan": "assets/robots/<package>/**/motions/** 下的 .pkl/.npz（训练侧） + <...>/motions/<robot>_amp/*.txt（AMP 专家动作，2026-09-26 补） + assets/robots/<package>/simulation/policies/*_motion.csv（浏览器侧，M2 补）",

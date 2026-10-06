@@ -49,9 +49,9 @@ def load_registry(path: str | Path | None = None) -> dict[str, Any]:
     raise PluginRegistryError(f"algorithm plugin registry unreadable: {exc}") from exc
   if not isinstance(payload, dict):
     raise PluginRegistryError("algorithm plugin registry must be a JSON object")
-  if payload.get("schema_version") != REGISTRY_SCHEMA_VERSION:
+  if payload.get("schema") != REGISTRY_SCHEMA_VERSION:
     raise PluginRegistryError(
-      f"registry schema_version {payload.get('schema_version')!r} != expected "
+      f"registry schema {payload.get('schema')!r} != expected "
       f"{REGISTRY_SCHEMA_VERSION!r}"
     )
   plugins = payload.get("plugins")

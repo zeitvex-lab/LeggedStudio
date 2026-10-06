@@ -59,7 +59,7 @@ def _skill(skill_id: str, status: str, task_names: list[str], members: list[str]
 
 def _family() -> dict:
     return {
-        "schema_version": "family-1.0",
+        "schema": "family-1.0",
         "family_id": "quadruped",
         "morphology_ids": ["quadruped_12dof"],
         "locomotion_type": "P",
