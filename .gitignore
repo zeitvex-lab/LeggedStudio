@@ -105,3 +105,10 @@ native_worker_output/
 
 # IDE / 工具元数据（Qoder 会话与知识缓存，不进仓库）
 /.qoder/
+
+# 会话期探查转储不进仓（曾发生：.go2_scan.json 被 git add -A 卷入）——
+# 这类输出应写入 workspace/（已忽略）；根目录的扫描/调试转储一律挡下。
+/*_scan.json
+/.*_scan.json
+/*_dump.json
+/.*_dump.json
