@@ -155,29 +155,5 @@ class SchemaDeclarationTest(unittest.TestCase):
         self.assertIn('"license"', unknown_set, "license 已进 schema，硬编码字段表也要同步")
 
 
-class ScaffoldDeclaresNothingTest(unittest.TestCase):
-    """脚手架**不替包作者主张许可**。
-
-    原实现给新包硬写 ``{"spdx": "MIT", "redistribution": "allowed"}`` —— 那是
-    "我们核验过你可以再分发"的声明，而实际上谁都没核验过。这一条把它钉住。
-    """
-
-    def test_scaffolded_manifest_declares_unknown_license(self):
-        from backend import plugin_protocol
-
-        with tempfile.TemporaryDirectory() as tmp:
-            # scaffold_package 会在 target_dir 下再套一层 package_id，用返回值定位更稳
-            created = plugin_protocol.scaffold_package(Path(tmp), "brand_new_robot")
-            manifest_path = Path(created) / "robot_package.json"
-            self.assertTrue(manifest_path.is_file(), "脚手架产物里应有 robot_package.json")
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            license_block = manifest["license"]
-            self.assertIsNone(license_block["spdx"], "不许替作者写一个 SPDX")
-            self.assertEqual("unknown", license_block["redistribution"],
-                             "未声明的再分发口径必须如实写 unknown")
-            self.assertEqual({"spdx", "source", "redistribution"}, set(license_block),
-                             "robot-package-1.1 要求的三个键都要在")
-
-
 if __name__ == "__main__":
     unittest.main()

@@ -9,7 +9,7 @@
   "fake_provider_resolution": 0,
   "legacy_panel_index": 0,
   "plugin_kernel_dead": 0,
-  "inline_routes_api_complete": 31
+  "inline_routes_api_complete": 13
  },
  "written_by": "tools/audit_plugin_unification.py --write"
 }

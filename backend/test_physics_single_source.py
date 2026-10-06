@@ -64,8 +64,12 @@ class ConfigNoLongerHoldsPhysicsTests(unittest.TestCase):
         self.assertEqual(offenders, {}, f"simulation/config.json 又出现物理键：{offenders}")
 
     def test_save_chain_strips_legacy_keys_before_persisting(self):
-        """保存链必须剔除这组键，否则前端一保存就把重复写回来。"""
-        source = (ROOT / "backend" / "api_complete.py").read_text(encoding="utf-8")
+        """保存链必须剔除这组键，否则前端一保存就把重复写回来。
+
+        保存链 2026-10-06 起``backend/robots_api.py``（巨石拆解：
+        ``api_complete`` 只做装配，PUT /api/robots/packages/{id} 下沉域路由）。
+        """
+        source = (ROOT / "backend" / "robots_api.py").read_text(encoding="utf-8")
         self.assertIn("LEGACY_CONFIG_PHYSICS_KEYS", source)
         self.assertIn("persisted_simulation", source)
 

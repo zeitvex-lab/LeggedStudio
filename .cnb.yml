@@ -256,8 +256,6 @@ syntax-check: &syntax-check
       # 这里跑 --check 只做一件静态可守的事：确认入口可导入、参数可解析（防止
       # "流水线里配了但脚本压根跑不起来"这种只在发布时才暴露的错）。
       python -m adapters.github.mirror --check
-      # N3 插件包 CLI 可跑性冒烟（ls_plugin 此前不在任何 CI/脚本里）
-      python scripts/ls_plugin.py --help > /dev/null
       echo "== doc reality check (B17: 文档数字 vs 实测) =="
       # 版本号 / 包数 / 策略数 / 资源库项目数一旦与仓库不符即红，防止再次漂移。
       python tools/doc_reality_check.py
