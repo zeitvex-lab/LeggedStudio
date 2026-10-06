@@ -79,7 +79,7 @@ class _Model(BaseModel):
 
 
 class AssetRecord(_Model):
-    """One record from ``QUADRUPED_ASSET_INVENTORY.json``."""
+    """One record from the asset inventory（活扫描 ``assets/robots/`` 或 ``LEGGED_STUDIO_INVENTORY`` 指定的外部清单）。"""
 
     path: str
     format: str

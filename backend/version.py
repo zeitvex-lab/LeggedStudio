@@ -14,8 +14,9 @@ def get_version() -> str:
     try:
         value = version_file.read_text(encoding="utf-8").strip()
     except OSError:
-        value = "0.44.0"
-    return value or "0.44.0"
+        value = ""
+    # 读不到 VERSION 时如实标"未知"——不返回一个看着像真的旧版本号（0.44.0 曾在此宅了三个月）
+    return value or "0.0.0+unknown"
 
 
 APP_VERSION = get_version()
