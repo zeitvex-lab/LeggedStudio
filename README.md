@@ -85,7 +85,7 @@ legged_studio/
 ├── tools/                 # 离线工具链（URDF 校验/转 MJCF、策略转换、契约代码生成、移植准入审计）
 ├── packaging/             # electron-builder 两种发行变体配置
 ├── docs/                  # 产品文档（桌面程序 / Web 程序）
-├── 00_know/               # 知识库与决策文档（定位 / 规划 / 参考项目 / 参数标准 / 任务清单 / 统一架构方案 / 插件化重构）→ 00_know/README.md
+├── 00_know/               # 知识库与决策文档（定位 / 规划 / 参考项目 / 参数标准 / 任务清单 / 统一架构方案〔含一切即插件〕）→ 00_know/README.md
 └── 00_resources/          # 参考资源库（按来源项目组织的只读底座）→ 00_resources/README.md
 ```
 
@@ -252,8 +252,7 @@ npm run build:linux               # Linux AppImage
 - [参考项目与资源](00_know/03_参考项目与资源.md) —— 官方源克隆清单、跨源对照方法、MJCF 字段级差异、高级仿真切片
 - [参数真值标准](00_know/04_参数真值标准.md) —— 每个参数只有一个家；现役 8 机型来源对照与选定规则（已删 6 机型对照保留作历史）
 - [任务清单](00_know/05_任务清单.md) —— 现在什么状态 + 下一步做什么（现状锚点 + 主战场队列 + 活跃与挂账 + DoD；**2026-09-28 重排后只含活清单**，历史 166 行与进度流水在归档 08/09）
-- [统一架构方案](00_know/06_统一架构方案.md) —— 系统一页架构 + 统一什么 / 不统一什么 / 为什么（族架构设计与实证、教程锚点表）
-- [插件化重构分析](00_know/08_插件化重构分析.md) —— 一切即插件：13 seam 协议统一 / 面板四投影 / Phase 0–8 迁移（进行中）
+- [统一架构方案](00_know/06_统一架构方案.md) —— 系统一页架构 + 统一什么 / 不统一什么 / 为什么（族架构设计与实证、教程锚点表）**＋ 一切即插件**（竞品取证 / 13 seam 协议统一 / 面板四投影 / Phase 0–8 迁移；原 08 并入）
 - [参考资源库](00_resources/README.md) —— 按来源项目组织的参考资源、项目 × 机型矩阵与省略登记
 - 历史文档（已归档，只读）：[`00_know/90_归档/`](00_know/90_归档/) —— 参考项目评估、调研盘点、B 系列专题报告、重构方案 + **任务清单历史（08 阶段桶与队列 / 09 进度流水，2026-09-28 移入）**
 
@@ -266,4 +265,4 @@ npm run build:linux               # Linux AppImage
 3. **插件化训练后端**：`adapters/backend_adapter.py` 定义 `BackendAdapter` Protocol（env/runner/exporter 三入口），可扩展接入 IsaacGym / UniLab / RoboLab 等其他训练栈。
 4. **完全离线闭环**：浏览器 sim2sim 的 MuJoCo WASM、ONNX Runtime、Three.js 全部本地 vendor，训练 → 导出 → 验证全流程无需联网。
 5. **多输入 / 递归策略的部署契约**：本体观测之外的外部输入（历史缓冲、深度、命令、递归隐状态、episode 首帧标志）在**包内契约 `aux_inputs` 里逐项声明**（名 / 形状 / `produced_by` 来源），验收器与浏览器按声明喂入、按声明回传；遇到**导出器命名不可依赖**的产物（如 mjswan 的 `l_kwargs_*`）改按**位置槽表**映射（`contract.onnx_slots`），张量名一律不作为语义。
-6. **一切即插件（协议 v2，`00_know/08` v3.0）**：内核 `plugins/runtime.py`（服务上下文 + 事件五模式 + `mount` 拓扑装载 + patch 整行替换；AST 纯度门禁 ≤400 行/零业务词）+ 总表 `registry/plugin-registry.json`（13 seam）；面板是 `registry/plugins/panel/*.json` 清单（导航/HTTP/CLI/桌面四投影），provider 为**真 `module:attr`**（内核 `resolve_attr` 唯一实现）；统一度与 seam 图两道门禁进 CI，旧机制计数**只减不涨**。
+6. **一切即插件（协议 v2，`00_know/06` 插件篇 v3.0）**：内核 `plugins/runtime.py`（服务上下文 + 事件五模式 + `mount` 拓扑装载 + patch 整行替换；AST 纯度门禁 ≤400 行/零业务词）+ 总表 `registry/plugin-registry.json`（13 seam）；面板是 `registry/plugins/panel/*.json` 清单（导航/HTTP/CLI/桌面四投影），provider 为**真 `module:attr`**（内核 `resolve_attr` 唯一实现）；统一度与 seam 图两道门禁进 CI，旧机制计数**只减不涨**。

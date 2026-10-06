@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""插件统一度门禁（``00_know/08`` v3.0 §8 不变式 8）：旧机制残留**只许减少，不许回涨**。
+"""插件统一度门禁（``00_know/06`` §18〔插件篇〕不变式 8）：旧机制残留**只许减少，不许回涨**。
 
 v2.1 的教训（宣称 Phase 0–7 完成、实为零消费）根因是**没有机器判据**。本工具把
 "插件化真实进度"变成一行行可数的东西，与基线（``tools/baselines/plugin_unification.json``）
@@ -174,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     counts = collect()
-    print("插件统一度计数（00_know/08 v3.0）：")
+    print("插件统一度计数（00_know/06 插件篇 v3.0）：")
     for key, value in counts.items():
         marker = "" if key not in ZERO_TARGETS or value == 0 else "  ← 目标 0"
         print(f"  {key:32s} {value}{marker}")
