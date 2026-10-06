@@ -1,0 +1,48 @@
+{
+ "schema": "observation-kinds-1.0",
+ "note": "B44：(robot_id, ONNX 实测单帧宽度) → 评测侧已注册的 observation_kind（08 v3.0 Phase 5：从 backend/policy_artifacts.py 的硬表迁出——框架零特判，机型映射是数据）。kind 值必须在 adapters/mjlab/policy_acceptance.FRAME_BUILDERS 里（backend/test_policy_artifacts.py 守卫）。只登记逐项取证过的映射，其余布局 unknown 不编造。",
+ "kind_by_shape": [
+  {
+   "robot": "unitree_go2",
+   "obs_dim": 48,
+   "kind": "go2_mjlab_actor_48",
+   "evidence": "L7 产物走 official mjlab velocity：training.log actor 组逐项序 = base_lin_vel, base_ang_vel, projected_gravity, joint_pos, joint_vel, actions, command，48 维；ONNX 实测 obs[1,48] 双证"
+  },
+  {
+   "robot": "unitree_go2",
+   "obs_dim": 270,
+   "kind": "himloco_45_hist6",
+   "evidence": "HIM 45D×6 帧历史堆叠（2026-09-19 三十九轮移植）"
+  },
+  {
+   "robot": "unitree_b2",
+   "obs_dim": 48,
+   "kind": "go2_mjlab_actor_48",
+   "evidence": "与 go2 同走 official mjlab velocity actor 组序（B43 先例对齐）"
+  },
+  {
+   "robot": "unitree_go2w",
+   "obs_dim": 53,
+   "kind": "go2w_mjlab_legs_53",
+   "evidence": "go2w legs-only（纯腿步行/全向，2026-09-30 vendored 补登档 1024×300 首训实测 53）。kind 路由到既有专用构建器对：Python FRAME_BUILDERS['go2w_mjlab_legs_53'] + JS 同名 builder（web/sim2sim/obs/observation_builders.js）。注意不在 layout_by_kind 里给它盖声明式布局——declared 规格会压过专用构建器走通用解释器，而该策略契约的 action_joint_order 是 12 腿（动作面收窄），轮段按名取关节在 12 名序里必然越界（2026-09-30 实测 IndexError）"
+  },
+  {
+   "robot": "unitree_go2w",
+   "obs_dim": 57,
+   "kind": "go2w_mjlab_hybrid_57",
+   "evidence": "go2w 混合轮驱（velocity 基座，2026-10-02 快照取证：actor 组序 base_ang_vel→projected_gravity→commands→joint_pos16→joint_vel16→last_action16，轮段并入 16 名序）。无专用构建器——走声明式布局时由产物自带 contract.observation_layout（ang_vel/gravity/cmd/joint_pos/joint_vel/action 全在既有词汇表内），评测器与浏览器 applyLayoutSpec 同一份数据装配"
+  }
+ ],
+ "layout_by_kind": {
+  "go2_mjlab_actor_48": [
+   {"source": "base_lin_vel"},
+   {"source": "ang_vel", "width": 3},
+   {"source": "gravity"},
+   {"source": "joint_pos", "width": 12},
+   {"source": "joint_vel", "width": 12},
+   {"source": "action", "width": 12},
+   {"source": "cmd", "width": 3}
+  ]
+ },
+ "layout_notes": "观测布局的声明式盖章（与评测器 _frame_* 帧构建器逐段同序）：入库时随 contract 一并写进条目，浏览器 sim2sim 的 applyLayoutSpec（与 Python frame_from_spec 同词汇）即可装配观测——没有布局声明且无对应 JS builder 时 fail-closed 拒跑（2026-09-29 实测：全部自产产物因此完全不可用）。go2_mjlab_actor_48 = lin_vel(3), ang_vel(3), gravity(3), q_rel(12), dq(12), action(12), cmd(3)，各段无缩放（mjlab ObservationTermCfg 默认 1.0）。go2w 混合 57 与 legs-53 均不进布局表（同裁决：轮段 wrap 语义通用解释器表达不了 / 契约快照组件序是部署视图 ≠ 训练观测序，按快照盖布局 = 错序喂策略，2026-10-02 实测教训）"
+}

@@ -77,6 +77,11 @@
    "path": "motions/index.json",
    "schema": "motion-registry-1.0"
   },
+  "observation_kinds": {
+   "seam": "evaluator",
+   "path": "observation_kinds.json",
+   "schema": "observation-kinds-1.0"
+  },
   "pack_dreamwaq_blind": {
    "seam": "pack",
    "path": "packs/dreamwaq_blind.json",
