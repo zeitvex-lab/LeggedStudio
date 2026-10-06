@@ -110,18 +110,24 @@ def _morphology_id(contract_truth: dict) -> str | None:
     return str(morphology.get("id")) if isinstance(morphology, dict) and morphology.get("id") else None
 
 
-#: 本次生成中**被丢弃**的 ``policy_ref``（路径指向 gitignored 目录）。``main()`` 统一打印——
-#: "回挂被丢弃"必须在输出里可见，否则就成了静默丢数据。
+#: 本次生成中**被丢弃**的 ``policy_ref``（指向 gitignored 目录，或**解析不到真实文件**）。
+#: ``main()`` 统一打印——"回挂被丢弃"必须在输出里可见，否则就成了静默丢数据。
 DROPPED_POLICY_REFS: list[str] = []
 
 
-def sanitize_policy_ref(ref: dict | None) -> dict | None:
-    """回挂继承的卫生检查：**路径指向 gitignored 目录就丢弃**。
+def sanitize_policy_ref(ref: dict | None, package_dir: Path | None = None) -> dict | None:
+    """回挂继承的卫生检查：**指向 gitignored 目录、或解析不到真实文件的都丢弃**。
 
     为什么丢弃而不是原样继承（2026-09-19 收口）：``packs/*.pack.json`` 是随仓库分发的东西，
     而 ``workspace/**`` 在 ``.gitignore`` 里——继承它等于把"只有本机才有的路径"永久写进
     一份会被别人 clone 的文件（实测 go2 / lite3 两份 Pack 就是这么红的：本机 14/14、
     干净 clone 与 CI 12/14）。
+
+    **悬空引用同样丢弃（2026-10-06 补）**：引用必须能解析到真实文件——包内相对
+    （``assets/robots/<id>/<rel>``）与仓库相对（``<rel>``）各试一次，都不存在即丢弃。
+    实测教训：go2 20260928 与 m20/b2w 20260918 三份 Pack 的 ``policy_ref`` 只在生成机的
+    workspace 副本里能过（包内 onnx 从未进仓库），换台机/干净 clone 必红——"能过但换台机
+    必炸"的引用比没有引用更坏（promote 写入侧 ``_policy_ref_path`` 同口径拒绝）。
 
     丢弃是**如实**的：策略 blob 不在仓库里，Pack 就不该声称自己带策略；产物与出处仍完整
     记在 ``policies/index.json``（产物登记的家在索引，不在 Pack）。等价判据在
@@ -137,6 +143,13 @@ def sanitize_policy_ref(ref: dict | None) -> dict | None:
     blocker = gitignored_ref_prefix(rel) if rel else None
     if blocker:
         DROPPED_POLICY_REFS.append(f"{ref['id']} → {rel}（{blocker}** 在 .gitignore 里）")
+        return None
+    if rel:
+        if package_dir is not None and (Path(package_dir) / rel).is_file():
+            return dict(ref)
+        if (ROOT / rel).is_file():
+            return dict(ref)
+        DROPPED_POLICY_REFS.append(f"{ref['id']} → {rel}（解析不到真实文件：包内与仓库根都不存在）")
         return None
     return dict(ref)
 
@@ -155,7 +168,7 @@ def existing_policy_ref(package_dir: Path, out_dir: Path) -> dict | None:
         return None
     payload = _load_json(path)
     ref = payload.get("policy_ref") if isinstance(payload, dict) else None
-    return sanitize_policy_ref(ref)
+    return sanitize_policy_ref(ref, package_dir=package_dir)
 
 
 
@@ -242,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
     for pack_id in written:
         print(f"  - {pack_id}")
     if DROPPED_POLICY_REFS:
-        print(f"丢弃 {len(DROPPED_POLICY_REFS)} 条指向 gitignored 目录的 policy_ref（随仓分发的 Pack 不能引用机器本地状态）：")
+        print(f"丢弃 {len(DROPPED_POLICY_REFS)} 条不可随仓分发的 policy_ref（机器本地路径 / 解析不到真实文件）：")
         for item in DROPPED_POLICY_REFS:
             print(f"  ! {item}")
         print("  → 策略产物与出处仍在 policies/index.json；要进 Pack，先把产物安装进仓库内的机器人包。")

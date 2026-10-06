@@ -1413,6 +1413,17 @@ def _policy_ref_path(blob: str | Path, entry: Mapping[str, Any]) -> str:
     installed = entry.get("installed")
     package_rel = str((installed or {}).get("package_path") or "") if isinstance(installed, Mapping) else ""
     if package_rel and blob_path.as_posix().endswith("/" + package_rel):
+        # 悬空防护（2026-10-06）：pack 随仓分发，包内相对引用必须在**仓库内的包**里真实
+        # 存在——只在生成机的 workspace 副本里能解析的引用，换台机/干净 clone 必炸
+        # （2026-09-28 go2 实锤）。仓库内没有该包（测试夹具场景）则跳过检查。
+        robot = str((installed or {}).get("robot") or "") if isinstance(installed, Mapping) else ""
+        repo_package = ROOT / "assets" / "robots" / robot
+        if robot and repo_package.is_dir() and not (repo_package / package_rel).is_file():
+            raise ValueError(
+                f"产物 onnx 只在机器本地包副本里（workspace/**），仓库内的包缺这份文件："
+                f"assets/robots/{robot}/{package_rel}——先把产物安装进仓库内的机器人包再回挂"
+                "（否则 Pack 换台机必炸）"
+            )
         return package_rel
 
     repo_rel = _repo_relative_path(blob_path)

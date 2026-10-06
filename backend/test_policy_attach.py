@@ -276,7 +276,12 @@ class GeneratePacksPreservesAttachTest(unittest.TestCase):
         pack = json.loads(pack_path.read_text(encoding="utf-8"))
         self.assertIsNone(pack["policy_ref"])
 
-        ref = {"id": "demo_bot__produced-x", "path": "assets/robots/demo_bot/simulation/policies/demo.onnx",
+        # 回挂指向**包内相对的真实文件**（promote 写入侧同口径：包内相对优先）；
+        # 2026-10-06 起 sanitize 要求引用能解析到真实文件，"存活"用例必须造出该文件。
+        target = self.robots / "demo_bot" / "simulation" / "policies" / "demo.onnx"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"onnx-placeholder")
+        ref = {"id": "demo_bot__produced-x", "path": "simulation/policies/demo.onnx",
                "sha256": "a" * 64}
         pack["policy_ref"] = ref
         pack_path.write_text(json.dumps(pack, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -284,6 +289,29 @@ class GeneratePacksPreservesAttachTest(unittest.TestCase):
         self.assertEqual(0, self._generate())
         regenerated = json.loads(pack_path.read_text(encoding="utf-8"))
         self.assertEqual(ref, regenerated["policy_ref"], "重生成把回挂冲掉了")
+
+    def test_dangling_policy_ref_is_dropped_on_regeneration(self):
+        """引用解析不到真实文件（包内与仓库根都不存在）⇒ 丢弃并在输出里可见。
+
+        实测教训（2026-10-06 补）：go2 20260928 / m20·b2w 20260918 三份 Pack 的
+        ``policy_ref`` 只在生成机的 workspace 副本里能过、包内 onnx 从未进仓库——
+        "能过但换台机必炸"的引用比没有引用更坏。
+        """
+        self.assertEqual(0, self._generate())
+        pack_path = self.out / "demo_bot.pack.json"
+        pack = json.loads(pack_path.read_text(encoding="utf-8"))
+        pack["policy_ref"] = {"id": "demo_bot__produced-x",
+                              "path": "simulation/policies/never-installed.onnx",
+                              "sha256": "a" * 64}
+        pack_path.write_text(json.dumps(pack, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        self.assertEqual(0, self._generate())
+        regenerated = json.loads(pack_path.read_text(encoding="utf-8"))
+        self.assertIsNone(regenerated["policy_ref"], "悬空引用被继承了")
+        self.assertTrue(
+            any("never-installed.onnx" in item for item in self.module.DROPPED_POLICY_REFS),
+            f"丢弃必须可见：{self.module.DROPPED_POLICY_REFS}",
+        )
 
     def test_existing_policy_ref_helper_ignores_empty_ids(self):
         self.out.mkdir(parents=True, exist_ok=True)
