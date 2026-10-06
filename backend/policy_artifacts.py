@@ -63,52 +63,34 @@ _DEPLOY_FIELDS = (
 )
 
 #: B44：``(robot_id, ONNX 实测单帧宽度) → 评测侧已注册的 observation_kind``。
-#: 值必须是 ``adapters/mjlab/policy_acceptance.FRAME_BUILDERS`` 里的键（对齐口径，
-#: ``backend/test_policy_artifacts.py`` 有注册表守卫测试）。只登记**逐项取证过**的映射：
-#: go2/b2 的 L7 产物走 official mjlab velocity（training.log actor 组逐项序 =
-#: base_lin_vel, base_ang_vel, projected_gravity, joint_pos, joint_vel, actions, command，
-#: 48 维；ONNX 实测 obs[1,48] 双证）；其余布局沿用 B43 先例 ``unknown``，不编造。
-_OBSERVATION_KIND_BY_SHAPE: dict[tuple[str, int], str] = {
-    ("unitree_go2", 48): "go2_mjlab_actor_48",
-    ("unitree_go2", 270): "himloco_45_hist6",  # HIM 45D×6 帧历史堆叠（2026-09-19 三十九轮移植）
-    ("unitree_b2", 48): "go2_mjlab_actor_48",
-    # go2w legs-only（纯腿步行/全向，2026-09-30 vendored 补登档 1024×300 首训实测 53）。
-    # kind 路由到**既有专用构建器对**：Python `FRAME_BUILDERS["go2w_mjlab_legs_53"]`
-    # （policy_acceptance）+ JS 同名 builder（web/sim2sim/obs/observation_builders.js）。
-    # 注意**不**在 _OBSERVATION_LAYOUT_BY_KIND 里给它盖声明式布局——declared 规格
-    # 会压过专用构建器走通用解释器，而本策略契约的 action_joint_order 是 12 腿
-    # （动作面收窄），轮段按名取关节在 12 名序里必然越界（2026-09-30 实测 IndexError）。
-    ("unitree_go2w", 53): "go2w_mjlab_legs_53",
-    # go2w 混合轮驱（velocity 基座，2026-10-02 快照取证：actor 组序 base_ang_vel→
-    # projected_gravity→commands→joint_pos16→joint_vel16→last_action16，轮段并入
-    # 16 名序）。无专用构建器——走**声明式布局**通用解释器（ang_vel/gravity/cmd/
-    # joint_pos/joint_vel/action 全在既有词汇表内），评测器与浏览器 applyLayoutSpec
-    # 同一份数据装配。
-    ("unitree_go2w", 57): "go2w_mjlab_hybrid_57",
-}
+#: **真值在数据**：``registry/observation_kinds.json``（schema observation-kinds-1.0，
+#: 08 v3.0 Phase 5——机型映射是数据不是代码，取证注记随条目走）；本模块装载后
+#: 供 ``:func:observation_kind_for`` 与布局盖章消费。kind 值必须在
+#: ``adapters/mjlab/policy_acceptance.FRAME_BUILDERS`` 里（对齐口径，
+#: ``backend/test_policy_artifacts.py`` 有注册表守卫测试）。缺失/损坏 fail-loud。
+def _load_observation_kinds() -> tuple[dict[tuple[str, int], str], dict[str, list[dict[str, Any]]]]:
+    import json as _json
 
-#: 观测布局的**声明式盖章**（与评测器 `_frame_*` 帧构建器逐段同序）：入库时随
-#: contract 一并写进条目，浏览器 sim2sim 的 `applyLayoutSpec`（与 Python
-#: frame_from_spec 同词汇）即可装配观测——没有布局声明时浏览器端没有对应
-#: observation_kind 的 JS builder，会 fail-closed 拒跑（2026-09-29 实测：全部自产
-#: 产物因此"完全不可用"）。段序以评测器帧函数为唯一真值：
-#: go2_mjlab_actor_48 = lin_vel(3), ang_vel(3), gravity(3), q_rel(12), dq(12),
-#: action(12), cmd(3)，各段无缩放（mjlab ObservationTermCfg 默认 1.0）。
-_OBSERVATION_LAYOUT_BY_KIND: dict[str, list[dict[str, Any]]] = {
-    "go2_mjlab_actor_48": [
-        {"source": "base_lin_vel"},
-        {"source": "ang_vel", "width": 3},
-        {"source": "gravity"},
-        {"source": "joint_pos", "width": 12},
-        {"source": "joint_vel", "width": 12},
-        {"source": "action", "width": 12},
-        {"source": "cmd", "width": 3},
-    ],
-    # go2w 混合 57 **不进布局表**（与 legs-53 同一裁决）：轮段 wrap 语义通用解释器
-    # 表达不了，走专用 builder（FRAME_BUILDERS["go2w_mjlab_hybrid_57"]）；
-    # 且 contract_snapshot 组件序是部署视图（16 融合）≠ 训练观测序（8 段），
-    # 按快照盖布局 = 错序喂策略（2026-10-02 实测教训）。
-}
+    path = ROOT / "registry" / "observation_kinds.json"
+    try:
+        doc = _json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, _json.JSONDecodeError) as exc:
+        raise RuntimeError(f"observation_kinds 注册表缺失或不可解析：{path}（{exc}）") from exc
+    if not isinstance(doc, dict) or doc.get("schema") != "observation-kinds-1.0":
+        raise RuntimeError(f"observation_kinds 注册表 schema 必须是 observation-kinds-1.0：{path}")
+    by_shape: dict[tuple[str, int], str] = {}
+    for entry in doc.get("kind_by_shape") or []:
+        by_shape[(str(entry["robot"]), int(entry["obs_dim"]))] = str(entry["kind"])
+    if not by_shape:
+        raise RuntimeError(f"observation_kinds 注册表 kind_by_shape 为空：{path}")
+    layouts = {
+        str(kind): [dict(seg) for seg in (layout or [])]
+        for kind, layout in (doc.get("layout_by_kind") or {}).items()
+    }
+    return by_shape, layouts
+
+
+_OBSERVATION_KIND_BY_SHAPE, _OBSERVATION_LAYOUT_BY_KIND = _load_observation_kinds()
 
 
 def onnx_obs_dim(onnx_path: Path | str) -> int | None:
