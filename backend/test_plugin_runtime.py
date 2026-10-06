@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from plugins.runtime import Context, Entry, PluginError, load_entries, mount
+from plugins.runtime import Context, Entry, PluginError, load_entries, merge_entries, mount
 
 
 class ServiceContextTest(unittest.TestCase):
@@ -134,6 +134,62 @@ class DisposeTest(unittest.TestCase):
         self.assertIsNone(ctx.try_get("a/x"))
         ctx.dispose()
         self.assertEqual(["last"], order)
+
+
+class RegistryCompatTest(unittest.TestCase):
+    """v1 语义的存量断言（原 test_plugin_core.py 折叠而来——门面已随死件清理退役）。"""
+
+    def test_duplicate_registration_refused(self):
+        ctx = Context()
+        ctx.register("reward", "rc", object())
+        with self.assertRaisesRegex(PluginError, "已注册"):
+            ctx.register("reward", "rc", object())
+
+    def test_activate_callable_provider_receives_config(self):
+        ctx = Context()
+        seen = {}
+
+        def my_plugin(ctx, config):
+            seen["config"] = config
+            ctx.register("evaluator", "mine", lambda: "ran")
+
+        ctx.activate(Entry("e1", "evaluator", "mine", my_plugin, config={"every": 250}))
+        self.assertEqual(seen["config"], {"every": 250})
+        self.assertTrue(ctx.has("evaluator", "mine"))
+
+    def test_merge_same_id_later_wins_keeps_position(self):
+        def e(id_, key=None):
+            return Entry(id_, "robot", key or id_, lambda ctx, cfg: None)
+        merged = merge_entries([e("r1"), e("r2")], [e("r1", "r1-patched")])
+        self.assertEqual([x.id for x in merged], ["r1", "r2"])
+        self.assertEqual(merged[0].key, "r1-patched")
+
+    def test_load_entries_missing_field_fails_loud(self):
+        with self.assertRaisesRegex(PluginError, "缺必填字段"):
+            load_entries([{"id": "x", "seam": "s"}])
+
+    def test_patch_semantics_replace_and_insert(self):
+        base = load_entries([
+            {"id": "robot", "seam": "robot", "key": "go2", "provider": "json:loads"},
+            {"id": "reward", "seam": "reward", "key": "base", "provider": "json:loads"},
+        ])
+        patch = load_entries([
+            {"id": "reward", "seam": "reward", "key": "lainlab", "provider": "json:loads"},
+            {"id": "terrain", "seam": "terrain", "key": "stairs", "provider": "json:loads"},
+        ])
+        from plugins.runtime import apply_patch
+        out = apply_patch(base, patch)
+        by_id = {x.id: x for x in out}
+        self.assertEqual(by_id["reward"].key, "lainlab")   # id 命中 = 整行替换
+        self.assertIn("terrain", by_id)                    # 未命中 = 追加
+        self.assertEqual([x.id for x in out], ["robot", "reward", "terrain"])  # 保位 + 追加
+
+    def test_entry_mapping_roundtrip(self):
+        e = Entry("x", "s", "k", "json:loads", config={"a": 1},
+                  requires=[["terrain", "stairs"]])
+        e2 = Entry.from_mapping(e.to_mapping())
+        self.assertEqual(e.requires, e2.requires)
+        self.assertEqual(e.config, e2.config)
 
 
 if __name__ == "__main__":

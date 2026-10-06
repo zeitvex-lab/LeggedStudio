@@ -4,7 +4,7 @@
 
 观测组件 = ``(source, role[actor|critic|teacher|student], history, encoder, deployment_available)``。
 **部署观测 = 过滤 `deployment_available=true ∧ role=actor`** —— 这条规则让"训练能看、部署看不到"
-的特权信息无处可藏；`observation_convergence` 是同一规则的运行时校验器。
+的特权信息无处可藏；契约 schema 校验（`contracts/`）是同一规则的机器闸。
 
 ## 为什么这层必须"控制面安全"
 

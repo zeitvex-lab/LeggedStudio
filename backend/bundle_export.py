@@ -278,8 +278,7 @@ def export_skill(recipe_id: str, out_dir: Path | str, *, emit_manifest: bool = T
 def scenario_map_references(contract) -> dict[str, Any]:
     """场景引用的地图**能不能随包走**（H5 已登记的诚实边界 C4）。
 
-    规则与**运行时解析器同源**（`backend/simulation_resolver.py` 按
-    `assets/maps/<map_id>.xml` 解析）：`assets/maps/` 是**产品自带的公共地图库**
+    规则与**运行时同源**（地图按 `assets/maps/<map_id>.xml` 解析）：`assets/maps/` 是**产品自带的公共地图库**
     （`_index.json` 登记 + 随浏览器载荷下发，见 `simulation_browser.common_map_entries`）
     ⇒ 引用库内地图的场景在任何人机器上都能跑，**无需带**。
 

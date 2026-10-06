@@ -2910,7 +2910,7 @@ class ResolveOptions(_Strict):
     这里刻意**没有** ``strict_asset_digest`` 这类开关：:class:`ResolvedRunSpec` 无条件
     要求每个资产带摘要（否则无法在运行创建后重算发现漂移），一个「可以不算摘要」的
     旋钮只会承诺它做不到的事。唯一有意义的开关是 :attr:`require_probe` ——
-    ``False`` 表示「只做声明层校验」（见 :mod:`backend.simulation_resolver`），
+    ``False`` 表示「只做声明层校验」，
     它同样**不会**产出规格，因为无探测报告的规格在类型层就构造不出来。
     """
 

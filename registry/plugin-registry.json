@@ -157,11 +157,6 @@
    "path": "skills/patches/zex-w-rough.json",
    "schema": "skill-recipe-2.0"
   },
-  "task_index": {
-   "seam": "profile",
-   "path": "tasks/index.json",
-   "schema": "task-profile-1.0"
-  },
   "task_plugins": {
    "seam": "task",
    "path": "task_plugins/index.json",

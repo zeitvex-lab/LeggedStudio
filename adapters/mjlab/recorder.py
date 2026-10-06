@@ -30,7 +30,7 @@ from contracts import simulation_run_contract as rc
 
 __all__ = ["ChunkRecorder", "recorder_selftest"]
 
-#: 线协议 dtype → numpy dtype（与 :mod:`adapters.mjlab.policy_runtime` 同表口径）。
+#: 线协议 dtype → numpy dtype（训练侧线协议约定口径）。
 _PROTOCOL_TO_NP: dict[str, Any] = {
     "f4": np.float32,
     "f8": np.float64,

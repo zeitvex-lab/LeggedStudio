@@ -13,7 +13,7 @@
    大 tracking 权重→暴力追踪抖动、早期严罚接触→学会不动、tracking 与 Style 目标互斥。
 
 **冲突不是错误**：有时就是要那么配（比如故意做对比实验）。所以这里只**报**，不拦 ——
-除非它同时踩到 `training_invariants` 的硬约束（那是另一层的事）。
+除非它同时踩到契约层的硬约束（那是另一层的事）。
 """
 
 from __future__ import annotations

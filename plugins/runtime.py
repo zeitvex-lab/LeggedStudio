@@ -11,11 +11,12 @@
 * **patch**：entry 树按 id **整行替换**或插入，后写胜（:func:`apply_patch`）——不做
   merge：merge 产生"半覆盖"，正是缩放事故（0.35/0.5）那一类静默漂移的病根。
 
-## 与 v1（``plugins/core.py``）的兼容
+## 与 v1 的关系
 
 v1 的 Seam 桶（``register(seam, key, v)`` / ``resolve(seam, key)``）就是服务上下文的
-``"seam/key"`` 二段写法；``Entry`` 保留为装载行单元。``plugins/core.py`` 现为兼容门面，
-``backend/test_plugin_core.py`` 全绿即兼容证明。
+``"seam/key"`` 二段写法——**同一存储，不是两套 API**。v1 独立门面 ``plugins/core.py``
+已随死件清理退役（2026-10-06：唯一 import 方是它自己的测试）；v1 语义的存量断言
+折叠进 ``backend/test_plugin_runtime.py::RegistryCompatTest``。
 
 ## 铁律（不变式，``backend/test_plugin_kernel_purity.py`` 机器守卫）
 

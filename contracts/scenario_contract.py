@@ -440,8 +440,7 @@ class ScenarioContract(BaseModel):
 
         刻意**不做**的一件事：校验 ``events[].at_tick`` 是否超出 ``episode_length_s``。
         tick↔秒的换算需要物理率，而物理率只存在于机器人包的 ``contract.json``；
-        在场景层做这个换算就会造出第二个频率真值。该检查归解析器
-        （:mod:`backend.simulation_resolver`）。
+        在场景层做这个换算就会造出第二个频率真值。该检查归运行侧解析器。
         """
         advanced = self.advanced
         if advanced is None:

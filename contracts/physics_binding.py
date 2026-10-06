@@ -124,8 +124,7 @@ def facts_from_contract(contract_truth: dict[str, Any]) -> dict[str, Any]:
 
     **契约结构不完整时（半份契约）结构化降级，不抛 KeyError**：``joints`` /
     ``actuator_profile`` 缺失时旧行为是 ``RoleResolver`` 里
-    ``contract["joints"]["actuated"]`` 直接抛，而消费方（如
-    ``backend.simulation_resolver`` 的运行规格解析）的契约是"失败必须是结构化
+    ``contract["joints"]["actuated"]`` 直接抛，而消费方（运行规格解析链）的契约是"失败必须是结构化
     blocker + 修法"——崩溃会让整条链在路上死掉，页面/CLI 拿到的是 500 而不是
     "缺哪一段、怎么补"。**control 段照常读**：时间基（physics_hz/decimation/
     control_hz）与执行器画像是两件事，前者在 ``control`` 里、后者才需要

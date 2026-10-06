@@ -206,8 +206,8 @@ class PolicyRuntimeProtocol(Protocol):
 
     ``declared_inputs`` 是**从产物实际元数据读出来的**，不是从文件名/配置里抄的 ——
     解析器据此与 ``PolicyInputBinding`` 逐条对账（名称 + 形状 + dtype）。
-    只看"profile 里写了 depth"这种词形命中**不构成认证**（见
-    :mod:`backend.simulation_resolver` 的 certification 规则）。
+    只看"profile 里写了 depth"这种词形命中**不构成认证**（认证规则见
+    :attr:`require_probe` 与探测报告链）。
     """
 
     def load(self, *, model_bytes: bytes) -> None:

@@ -154,7 +154,7 @@ TELEMETRY_FIELDS: tuple[dict[str, str], ...] = (
     {"id": "cmd_vel_in", "label": "上层速度指令（进入仲裁前）", "level": "D4", "owner": "external",
      "shape": "float32[3]", "note": "D4 平地低速：看急停/watchdog 是否真的截断。"},
     {"id": "cmd_vel_out", "label": "仲裁/限幅后实际下发", "level": "D4", "owner": "repo",
-     "shape": "float32[3]", "note": "本仓已有：backend/motion_commands.py + backend/command_arbiter.py。"},
+     "shape": "float32[3]", "note": "本仓已有：backend/motion_commands.py（命令档位注册表）。"},
     {"id": "estop_state", "label": "急停状态", "level": "D4", "owner": "repo",
      "shape": "枚举（含触发源）", "note": "本仓已有：backend/deploy_pack.py 生成的 fsm_safety_template.py（ESTOP 分支）。"},
     {"id": "watchdog_state", "label": "看门狗状态与剩余时间", "level": "D4", "owner": "repo",
