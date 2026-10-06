@@ -16,7 +16,7 @@ Python 对 `{"a": 1, "a": 2}` **不报错、不警告**：后写的赢，先写�
 | `adapters/mjlab/policy_acceptance.py`（`FRAME_BUILDERS`） | `lite3_rl_sdk_hist6` | 先写的 `_std_frame` 死；后写的 `_frame_himloco_45` 才是注释想要的 |
 | `adapters/mjlab/native_worker.py`（reward 别名表） | `feet_air_time` | 先写的是自映射（`→ 自己`）死；后写的 `→ air_time` 生效 |
 | `adapters/mjlab/param_catalog.py`（段名标签表） | `clip` / `scale` | 扁平表装不下「观测/动作」两个同名段，后写的（动作）赢 |
-| `backend/plugin_protocol.py`（manifest 草稿） | `contract_path` | 先写的 `contract_legacy_v2.json` 死；真值应是 `contract.json` |
+| `backend/plugin_protocol.py`（manifest 草稿，2026-10-06 已随机制②退役） | `contract_path` | 先写的 `contract_legacy_v2.json` 死；真值应是 `contract.json` |
 
 ## 判据与边界
 
@@ -109,7 +109,6 @@ class NoDuplicateDictKeysTest(unittest.TestCase):
             "adapters/mjlab/policy_acceptance.py",
             "adapters/mjlab/native_worker.py",
             "adapters/mjlab/param_catalog.py",
-            "backend/plugin_protocol.py",
         ):
             self.assertIn(expected, scanned, f"扫描面漏了 {expected}")
 

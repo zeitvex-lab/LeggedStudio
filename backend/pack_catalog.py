@@ -2,9 +2,9 @@
 
 B1 的目标是「`capability-pack-1.0` schema + 14 个默认 Pack + 可列出」。2026-09-12
 实测发现前两半已在位、后一半缺失：`contracts/schema/capability-pack-1.0.schema.json`
-存在，`packs/*.pack.json` 14 份也能解析，但**没有任何入口**能校验它们或列出来——
-:func:`backend.plugin_protocol.generate_catalog` 汇总的是**机器人包**（catalog 只有
-``packages`` 键），`backend/` 下也没有 packs 路由。本模块补上这两件事：
+存在，`packs/*.pack.json` 14 份也能解析，但**没有任何入口**能校验它们或列出来
+（v2.1 期的机器人包 catalog 实验已随机制②退役，`backend/` 下也没有 packs 路由）。
+本模块补上这两件事：
 
 * :func:`validate_pack` —— 逐份做**语义校验**：schema 必填 / 正则 / 枚举 + 引用可解析 +
   ``sha256`` 对账，对应 schema 里「引用路径一律为相对路径 + sha256，保证 Pack 可跨机复现」；
