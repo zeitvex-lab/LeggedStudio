@@ -19,7 +19,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 KERNEL = ROOT / "plugins" / "runtime.py"
-FACADE = ROOT / "plugins" / "core.py"
 
 #: 内核禁词：机型 id（现行 + 已删族）、族词、以及易被特判的功能词
 FORBIDDEN_TOKENS = (
@@ -61,12 +60,10 @@ class KernelPurityTest(unittest.TestCase):
         hits = [t for t in FORBIDDEN_TOKENS if t in lowered]
         self.assertEqual([], hits, f"内核出现业务词（特判回潮）：{hits}")
 
-    def test_facade_only_reexports_runtime(self):
-        """门面不许重新实现——它只能 re-export，否则会出现两个真值。"""
-        tree = ast.parse(FACADE.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            self.assertNotIsInstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
-                                      "plugins/core.py 必须是纯 re-export 门面")
+    def test_kernel_dir_holds_only_the_kernel(self):
+        """内核目录只许有 runtime.py（防杂物回潮——门面已退役，不许复活兼容壳）。"""
+        extra = sorted(p.name for p in KERNEL.parent.glob("*.py") if p.name != "runtime.py")
+        self.assertEqual([], extra, f"plugins/ 出现内核外文件：{extra}")
 
     def test_kernel_exports_stable_surface(self):
         import plugins.runtime as rt

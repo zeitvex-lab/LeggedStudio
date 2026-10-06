@@ -8,7 +8,7 @@
   "hardcoded_registry_files": 0,
   "fake_provider_resolution": 0,
   "legacy_panel_index": 0,
-  "plugin_kernel_dead": 1,
+  "plugin_kernel_dead": 0,
   "inline_routes_api_complete": 31
  },
  "written_by": "tools/audit_plugin_unification.py --write"

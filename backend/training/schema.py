@@ -223,7 +223,7 @@ async def training_profile_schema(robot_id: str, profile_id: str):
 
     - ``schema`` / ``tree``: the raw config tree (expert mode renders it as
       dot-path override rows),
-    - ``params``: the curated descriptor catalog (:mod:`adapters.mjlab.param_registry`)
+    - ``params``: the curated descriptor catalog (:mod:`adapters.mjlab.param_descriptors`)
       resolved against the tree — 中文 label / unit / hint / type per commonly
       tuned parameter, expanded for reward weights, event params, action
       scales and termination thresholds. The 03 training page renders these

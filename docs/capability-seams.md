@@ -4,7 +4,7 @@
 
 一切即插件（`00_know/08` v3.0）：能力挂在 13 个冻结 seam 上，新增行为 = 加声明，不改框架。
 真值：`registry/plugin-registry.json`（schema `plugin-registry-1.0`，
-32 条注册表条目 + `registry/plugins/` 插件清单目录）。
+31 条注册表条目 + `registry/plugins/` 插件清单目录）。
 
 ## seam × 承载
 
@@ -16,7 +16,7 @@
 | family | 3 | 0 | ✓ 有承载 |
 | pack | 9 | 0 | ✓ 有承载 |
 | panel | 0 | 9 | ✓ 有承载 |
-| profile | 3 | 0 | ✓ 有承载 |
+| profile | 2 | 0 | ✓ 有承载 |
 | reward | 3 | 0 | ✓ 有承载 |
 | robot | 0 | 0 | —（该 seam 尚无声明，属待扩展位） |
 | sensor | 2 | 0 | ✓ 有承载 |
