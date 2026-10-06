@@ -4,7 +4,7 @@
 
 产品对外是三种形态、**同一份后端能力**：桌面壳负责运行时供应与后端生命周期，Web 工作台是全部业务界面（含浏览器内 sim2sim），CLI 面向自动化与 CI；三者共用同一份接口契约（详见下文「整体架构」与「详细文档」）。
 
-- 版本：`0.65.0`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
+- 版本：`0.66.0`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
 - 许可：MIT
 - 作者：zeitvex
 
@@ -74,6 +74,8 @@ legged_studio/
 │   ├── *_api.py           # deploy/export/evaluation/navigation/terrain 等路由
 │   └── package_*.py       # 机器人包与模型准入的领域服务（索引/同步/记录/准入，路由只做薄壳）
 ├── contracts/             # 稳定数据契约（JSON Schema + Pydantic 模型，零仿真依赖）
+├── plugins/               # 插件内核（runtime.py：服务上下文/事件五模式/patch——全仓唯一非插件件，纯度 AST 门禁）
+├── registry/              # 声明式注册表（plugin-registry.json 总表：13 seam × 32 条 + plugins/ 插件清单目录）
 ├── adapters/              # 训练后端插件层
 │   └── mjlab/             # 当前唯一实现：MJLab 训练后端（隔离 venv）
 ├── assets/robots/         # 8 个标准化机器人包（契约 + MJCF/URDF + 训练配置；2026-09-23 族架构收敛）
@@ -103,7 +105,7 @@ legged_studio/
 | 浏览器 sim2sim | MuJoCo WASM（pthread）+ ONNX Runtime Web 1.23.2 + Three.js，全部离线 vendor |
 | 数据契约 | JSON Schema ×8 + 生成的 Pydantic 模型 |
 | 资产准入 | 移植准入审计（训练/仿真须有 00_resources 上游训练源码佐证，包自包含与策略↔onnx 一致性检查），见 `tools/audit_porting_admission.py` |
-| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测（backend 全量 139 模块）、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、Capability Pack 校验、**族架构审计**（`audit_families` + 族 MJCF 约定 + 逐档案上游参考对照）、**文档数字对账**、前端 vendor 冒烟 |
+| CI | 腾讯云 CNB：Python 语法、契约漂移检查、单测（backend 全量 156 模块）、openapi 契约冒烟、无头 CPU sim2sim 基线门禁、移植准入审计、Capability Pack 校验、**族架构审计**（`audit_families` + 族 MJCF 约定 + 逐档案上游参考对照）、**插件协议统一度门禁**（`audit_plugin_unification`：旧机制计数只减不涨）+ **seam 图一致性**（`gen_capability_seams`）、**文档数字对账**、前端 vendor 冒烟 |
 | 云原生开发 | **CNB 默认镜像** + `.cnb.yml` 的 `vscode` 事件，一键起环境（依赖与 **mjlab CPU 训练栈**在启动阶段按需供应，浏览器 sim2sim 开箱可用）→ `docs/cloud-dev.md` |
 | 开发期 MCP | `.cnb/mcp/servers.json` 11 条（通用 6 + 机器人专用 5）+ `tools/mcp/` 4 个自研 server（契约 / MuJoCo / onnx / 资源库，零新增依赖）→ `.cnb/mcp/README.md` |
 
@@ -263,3 +265,4 @@ npm run build:linux               # Linux AppImage
 3. **插件化训练后端**：`adapters/backend_adapter.py` 定义 `BackendAdapter` Protocol（env/runner/exporter 三入口），可扩展接入 IsaacGym / UniLab / RoboLab 等其他训练栈。
 4. **完全离线闭环**：浏览器 sim2sim 的 MuJoCo WASM、ONNX Runtime、Three.js 全部本地 vendor，训练 → 导出 → 验证全流程无需联网。
 5. **多输入 / 递归策略的部署契约**：本体观测之外的外部输入（历史缓冲、深度、命令、递归隐状态、episode 首帧标志）在**包内契约 `aux_inputs` 里逐项声明**（名 / 形状 / `produced_by` 来源），验收器与浏览器按声明喂入、按声明回传；遇到**导出器命名不可依赖**的产物（如 mjswan 的 `l_kwargs_*`）改按**位置槽表**映射（`contract.onnx_slots`），张量名一律不作为语义。
+6. **一切即插件（协议 v2，`00_know/08` v3.0）**：内核 `plugins/runtime.py`（服务上下文 + 事件五模式 + `mount` 拓扑装载 + patch 整行替换；AST 纯度门禁 ≤400 行/零业务词）+ 总表 `registry/plugin-registry.json`（13 seam）；面板是 `registry/plugins/panel/*.json` 清单（导航/HTTP/CLI/桌面四投影），provider 为**真 `module:attr`**（内核 `resolve_attr` 唯一实现）；统一度与 seam 图两道门禁进 CI，旧机制计数**只减不涨**。
