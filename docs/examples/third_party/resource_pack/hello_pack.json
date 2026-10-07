@@ -1,0 +1,22 @@
+{
+  "schema": "resource-pack-1.0",
+  "pack_id": "hello_pack",
+  "label": "示范资源包（第三方：挂两个观测项）",
+  "purpose": "演示第三方资源包的最小形态：**只声明挂载**（观测项 / 奖励项 / 参数），实现留在使用方（对齐重构方案 §2.3 第 2 条：算法实现不内联进配置）。",
+  "mounts": {
+    "observations": [
+      "base_lin_vel",
+      "base_ang_vel"
+    ],
+    "reward_terms": [],
+    "params": {
+      "hello_weight": 1.0
+    }
+  },
+  "obs_dim_delta": 6,
+  "calibration": "示范包不做标定声明（calibration 只对参与验收判据的包有意义）。",
+  "requires": [],
+  "evidence": {
+    "observations": "base_lin_vel 3 + base_ang_vel 3 = 6（宽度真值来自仓内观测注册表，不由本包自述）"
+  }
+}
