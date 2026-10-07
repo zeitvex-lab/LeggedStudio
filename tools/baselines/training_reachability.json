@@ -1,6 +1,6 @@
 {
  "schema": "training-reachability-1.0",
- "generated_at": "2026-10-03T07:34:16+00:00",
+ "generated_at": "2026-10-07T17:26:41+00:00",
  "note": "「可达性」判据见 tools/audit_training_reachability.py 头部 docstring；deletable 只是候选，删前仍需 audit_porting_admission + 逐 profile 冒烟。",
  "robots": {
   "deeprobotics_lite3": {
@@ -34,13 +34,11 @@
     "m20_velocity.traversal_env_cfg"
    ],
    "entrypoints_unresolved": [],
-   "module_count": 20,
+   "module_count": 19,
    "reachable_count": 19,
-   "unreachable_count": 1,
+   "unreachable_count": 0,
    "protected_ancestors": [],
-   "deletable": [
-    "m20_dreamwaq.mdp.rl"
-   ],
+   "deletable": [],
    "warning": null
   },
   "unitree_b2": {
@@ -95,7 +93,6 @@
     "go1_backflip.config",
     "go1_jump.config",
     "go1_trot.config",
-    "go1_velocity",
     "go1_velocity.env_cfg"
    ],
    "entrypoints_unresolved": [],
@@ -133,10 +130,13 @@
    ],
    "entrypoints_unresolved": [],
    "module_count": 117,
-   "reachable_count": 117,
-   "unreachable_count": 0,
+   "reachable_count": 115,
+   "unreachable_count": 2,
    "protected_ancestors": [],
-   "deletable": [],
+   "deletable": [
+    "local_tasks.robots.unitree.go2.tasks.go2_skills.amp_dreamwaq.rl",
+    "local_tasks.robots.unitree.go2.tasks.go2_skills.dreamwaq.mdp.rl"
+   ],
    "warning": null
   },
   "unitree_go2w": {
