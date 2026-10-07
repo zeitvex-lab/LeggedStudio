@@ -1,0 +1,12 @@
+{
+  "schema": "resource-pack-index-1.0",
+  "generated_at": "2026-10-08",
+  "note": "示范：第三方资源包清单。K4 口径——**清单是权威**：文件在但没登记 = 未注册；登记了却不存在 = 报错。",
+  "packs": [
+    {
+      "pack_id": "hello_pack",
+      "path": "hello_pack.json",
+      "label": "示范资源包（第三方）"
+    }
+  ]
+}

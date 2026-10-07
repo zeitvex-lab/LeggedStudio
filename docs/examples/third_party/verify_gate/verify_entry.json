@@ -1,0 +1,11 @@
+{
+  "schema": "plugin-verify-1.0",
+  "note": "示范：把第三方门禁声明进目录（形状与 registry/verify/index.json 同口径，由 backend/verify_catalog.py 校验）。",
+  "gates": [
+    {
+      "command": "python3 docs/examples/third_party/verify_gate/check_hello.py",
+      "seam": "kernel",
+      "note": "第三方自带门禁示范（退出码即判据；env 留空 = 可进 unit-tests 段）"
+    }
+  ]
+}

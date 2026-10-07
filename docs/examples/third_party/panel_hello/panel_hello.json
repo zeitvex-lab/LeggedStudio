@@ -1,0 +1,28 @@
+{
+  "schema": "legged-plugin-1.0",
+  "id": "panel_hello",
+  "seam": "panel",
+  "provides": [
+    "panel/panel_hello"
+  ],
+  "title": "示范面板（第三方）",
+  "kind": "page",
+  "entry": "workbench.html#home",
+  "group": "示范",
+  "order": 990,
+  "requires": {
+    "services": [
+      "backend"
+    ]
+  },
+  "desktop": false,
+  "cli": {
+    "command": "panel panel_hello",
+    "provider": "panel_hello_provider:hello_summary"
+  },
+  "home_card": {
+    "provider": "panel_hello_provider:hello_summary",
+    "order": 990,
+    "note": "与 CLI 投影同一个 provider（三面一源：CLI / HTTP / 首页卡片）"
+  }
+}
