@@ -124,6 +124,12 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
     },
     "unitree_go2w": {
         "go2w-velocity-legs": "unitree_rl_mjlab_go2w（velocity_legs_only）",
+        # 2026-10-07 补登记（两条 2026-09-30 入库产物此前漏登记，规则 S 判红）：
+        # 上一条是上游原生产物（origin=upstream-vendored，非 product-training，自证链不适用）；
+        # 下一条是产品训练产物（origin=product-training）但 provenance 无 artifact_id，
+        # 出库索引解析不到 ⇒ 走人工裁定表登记（与 go2-loco-45 等「产物-only」同口径）。
+        "go2w-upstream-legsonly-v0": "unitree_rl_mjlab_go2w/deploy/robots/go2w/.../velocity_legs_only/v0（上游原生产物）",
+        "unitree_go2w-uf-1500": "包内 go2w velocity 统一框架训练产物（wheel_leg_kit 1024×1500；product-training，无 artifact_id）",
         "go2w-velocity-robotlab": "robot_lab/.../velocity/config/wheeled/unitree_go2w",
         "go2w-himloco-loco": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
         "go2w-himloco-stand-front": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",

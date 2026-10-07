@@ -89,6 +89,55 @@ _ASSET_OPEN_RE = re.compile(r"([ \t]*<asset>\s*\n)")
 _WORLDBODY_OPEN_RE = re.compile(r"([ \t]*<worldbody>\s*\n)")
 _TEXTURE_FILE_RE = re.compile(r"<texture\b[^>]*\bfile=\"([^\"]+)\"")
 _GEOM_TAG_RE = re.compile(r"<geom\b[^>]*?/>", re.DOTALL)
+_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def _comment_spans(text: str) -> list[tuple[int, int]]:
+    return [(m.start(), m.end()) for m in _COMMENT_RE.finditer(text)]
+
+
+def _in_comment(pos: int, spans: list[tuple[int, int]]) -> bool:
+    return any(start <= pos < end for start, end in spans)
+
+
+def _sub_safe(pattern: re.Pattern, replacement: Any, text: str, count: int | None = 1) -> str:
+    """与 ``pattern.sub`` 同义，但**跳过 XML 注释内的匹配**；``count=None`` = 全部。
+
+    动机（2026-10-07 实测判红）：``robocon_dual_track.xml`` 的文件头注释里出现了
+    ``<statistic>/<visual>/<asset>`` 这类**示意文字**，裸正则会把它们当成真标签替换 ——
+    注释被改坏 ⇒ 物理指纹复算抛 ``XML_ERROR_PARSING_COMMENT`` ⇒ ``--apply`` 回滚、CI 判红。
+    视觉统一只该动真元素，不动说明文字。
+    """
+    spans = _comment_spans(text)
+    pieces: list[str] = []
+    last = 0
+    done = 0
+    for match in pattern.finditer(text):
+        if count is not None and done >= count:
+            break
+        if _in_comment(match.start(), spans):
+            continue
+        pieces.append(text[last:match.start()])
+        pieces.append(replacement(match) if callable(replacement) else replacement)
+        last = match.end()
+        done += 1
+    pieces.append(text[last:])
+    return "".join(pieces)
+
+
+def _search_safe(pattern: re.Pattern, text: str) -> re.Match | None:
+    """与 ``pattern.search`` 同义，但只在注释之外找（注释里的示意标签不算数）。"""
+    spans = _comment_spans(text)
+    for match in pattern.finditer(text):
+        if not _in_comment(match.start(), spans):
+            return match
+    return None
+
+
+def _findall_safe(pattern: re.Pattern, text: str, group: int = 0) -> list[str]:
+    """与 ``pattern.findall`` 同义，但跳过注释内的匹配。``group`` 指定取哪个捕获组。"""
+    spans = _comment_spans(text)
+    return [m.group(group) for m in pattern.finditer(text) if not _in_comment(m.start(), spans)]
 
 
 def _geom_needs_material(tag: str) -> bool:
@@ -102,8 +151,8 @@ def terrain_material_is_visual_only(text: str) -> bool:
     这是"批量套材质"的安全前提：材质里若有 ``friction`` / ``solref`` 等，套到 181 个
     台阶 geom 上就变成了**物理变更**，而不是外观变更。
     """
-    match = re.search(
-        rf"<material\b[^>]*name=\"{TERRAIN_MATERIAL_NAME}\"[^>]*/>", text
+    match = _search_safe(
+        re.compile(rf"<material\b[^>]*name=\"{TERRAIN_MATERIAL_NAME}\"[^>]*/>"), text
     )
     if not match:
         return True  # 还没定义，由本工具按纯视觉版本写入
@@ -131,10 +180,13 @@ def fill_geom_material(text: str) -> tuple[str, int]:
         added += 1
         return f'{stripped[:-2].rstrip()} material="{TERRAIN_MATERIAL_NAME}" />'
 
-    out = _GEOM_TAG_RE.sub(replace, text)
-    if added and f'name="{TERRAIN_MATERIAL_NAME}"' not in out and _ASSET_OPEN_RE.search(out):
-        out = _ASSET_OPEN_RE.sub(
-            lambda m: m.group(1) + TERRAIN_MATERIAL_LINE + "\n", out, count=1
+    out = _sub_safe(_GEOM_TAG_RE, replace, text, count=None)
+    if added and f'name="{TERRAIN_MATERIAL_NAME}"' not in out and _search_safe(_ASSET_OPEN_RE, out):
+        out = _sub_safe(
+            _ASSET_OPEN_RE,
+            lambda m: m.group(1) + TERRAIN_MATERIAL_LINE + "\n",
+            out,
+            count=1,
         )
     return out, added
 
@@ -148,7 +200,7 @@ def missing_texture_files(text: str, base_dir: Path) -> list[str]:
     却没人发现。任何"贴图统一"如果不查这一项，等于把坏掉的东西统一成一样坏。
     """
     missing: list[str] = []
-    for rel in _TEXTURE_FILE_RE.findall(text):
+    for rel in _findall_safe(_TEXTURE_FILE_RE, text, group=1):
         if not (base_dir / rel).exists():
             missing.append(rel)
     return missing
@@ -165,11 +217,11 @@ def map_files(directory: Path | None = None) -> list[Path]:
 
 def inspect(text: str, base_dir: Path | None = None) -> dict[str, Any]:
     """报告一个文件里四类元素的现状 + 外部贴图是否齐全（纯文本分析，不改文件）。"""
-    visual = _VISUAL_RE.search(text)
-    light = _LIGHT_RE.search(text)
-    skybox = _SKYBOX_RE.search(text)
-    ground_tex = _GROUND_TEX_RE.search(text)
-    ground_mat = _GROUND_MAT_RE.search(text)
+    visual = _search_safe(_VISUAL_RE, text)
+    light = _search_safe(_LIGHT_RE, text)
+    skybox = _search_safe(_SKYBOX_RE, text)
+    ground_tex = _search_safe(_GROUND_TEX_RE, text)
+    ground_mat = _search_safe(_GROUND_MAT_RE, text)
     return {
         "has_visual": visual is not None,
         "visual_matches": bool(visual) and _normalize(visual.group(0)) == _normalize(UNIFIED_VISUAL),
@@ -190,10 +242,10 @@ def inspect(text: str, base_dir: Path | None = None) -> dict[str, Any]:
             )
         ),
         # 有 plane 几何体才算"需要地面材质"的地图；室内图（apartment）没有，就不该硬塞 checker 地面
-        "uses_plane_geom": bool(re.search(r"<geom[^>]*type=\"plane\"", text)),
+        "uses_plane_geom": bool(_search_safe(re.compile(r"<geom[^>]*type=\"plane\""), text)),
         "missing_textures": missing_texture_files(text, base_dir) if base_dir else [],
         # 既无 material 也无 rgba 的 geom 数 —— 它们渲染成 MuJoCo 默认中灰，看不出结构
-        "bare_geoms": sum(1 for tag in _GEOM_TAG_RE.findall(text) if _geom_needs_material(tag)),
+        "bare_geoms": sum(1 for tag in _findall_safe(_GEOM_TAG_RE, text) if _geom_needs_material(tag)),
         "terrain_material_visual_only": terrain_material_is_visual_only(text),
     }
 
@@ -208,25 +260,30 @@ def unify_text(text: str, report: dict[str, Any]) -> str:
 
     # ① <visual>：有就整块换，没有就插到 <mujoco ...> 之后（视觉基调必须一致）
     if report["has_visual"]:
-        out = _VISUAL_RE.sub(UNIFIED_VISUAL + "\n", out, count=1)
+        out = _sub_safe(_VISUAL_RE, UNIFIED_VISUAL + "\n", out, count=1)
     else:
-        out = _MUJOCO_OPEN_RE.sub(lambda m: m.group(1) + "\n" + UNIFIED_VISUAL, out, count=1)
+        out = _sub_safe(
+            _MUJOCO_OPEN_RE, lambda m: m.group(1) + "\n" + UNIFIED_VISUAL, out, count=1
+        )
 
     # ② skybox：有就换，没有插在 <asset> 开头
     if report["has_skybox"]:
-        out = _SKYBOX_RE.sub(UNIFIED_SKYBOX + "\n", out, count=1)
-    elif _ASSET_OPEN_RE.search(out):
-        out = _ASSET_OPEN_RE.sub(lambda m: m.group(1) + UNIFIED_SKYBOX + "\n", out, count=1)
+        out = _sub_safe(_SKYBOX_RE, UNIFIED_SKYBOX + "\n", out, count=1)
+    elif _search_safe(_ASSET_OPEN_RE, out):
+        out = _sub_safe(
+            _ASSET_OPEN_RE, lambda m: m.group(1) + UNIFIED_SKYBOX + "\n", out, count=1
+        )
 
     # ③ groundplane：**只在该文件真的用了平面地面时才统一**（室内图不硬塞 checker 地面）
     if report["has_groundplane"]:
-        if _GROUND_TEX_RE.search(out):
-            out = _GROUND_TEX_RE.sub(UNIFIED_GROUND_TEXTURE + "\n", out, count=1)
-        if _GROUND_MAT_RE.search(out):
-            out = _GROUND_MAT_RE.sub(UNIFIED_GROUND_MATERIAL + "\n", out, count=1)
-    elif report["uses_plane_geom"] and _ASSET_OPEN_RE.search(out):
+        if _search_safe(_GROUND_TEX_RE, out):
+            out = _sub_safe(_GROUND_TEX_RE, UNIFIED_GROUND_TEXTURE + "\n", out, count=1)
+        if _search_safe(_GROUND_MAT_RE, out):
+            out = _sub_safe(_GROUND_MAT_RE, UNIFIED_GROUND_MATERIAL + "\n", out, count=1)
+    elif report["uses_plane_geom"] and _search_safe(_ASSET_OPEN_RE, out):
         # 有平面地面却没定义材质：texture 与 material 必须**成对**插入（缺一个 MuJoCo 会拒编译）
-        out = _ASSET_OPEN_RE.sub(
+        out = _sub_safe(
+            _ASSET_OPEN_RE,
             lambda m: m.group(1)
             + UNIFIED_GROUND_TEXTURE
             + "\n"
@@ -238,9 +295,11 @@ def unify_text(text: str, report: dict[str, Any]) -> str:
 
     # ④ <light>：有就换（统一方向与投影范围），没有就插在 <worldbody> 开头
     if report["has_light"]:
-        out = _LIGHT_RE.sub(UNIFIED_LIGHT + "\n", out, count=1)
-    elif _WORLDBODY_OPEN_RE.search(out):
-        out = _WORLDBODY_OPEN_RE.sub(lambda m: m.group(1) + UNIFIED_LIGHT + "\n", out, count=1)
+        out = _sub_safe(_LIGHT_RE, UNIFIED_LIGHT + "\n", out, count=1)
+    elif _search_safe(_WORLDBODY_OPEN_RE, out):
+        out = _sub_safe(
+            _WORLDBODY_OPEN_RE, lambda m: m.group(1) + UNIFIED_LIGHT + "\n", out, count=1
+        )
 
     return out
 
