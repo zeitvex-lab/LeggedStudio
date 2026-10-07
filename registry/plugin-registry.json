@@ -157,11 +157,6 @@
    "path": "skills/velocity_base.json",
    "schema": "skill-recipe-2.0"
   },
-  "skill_zexw_rough_patch": {
-   "seam": "skill",
-   "path": "skills/patches/zex-w-rough.json",
-   "schema": "skill-recipe-2.0"
-  },
   "task_plugins": {
    "seam": "task",
    "path": "task_plugins/index.json",
@@ -181,6 +176,11 @@
    "seam": "terrain",
    "path": "terrains/profiles.json",
    "schema": "terrain-profile-1.0"
+  },
+  "verify_catalog": {
+   "seam": "evaluator",
+   "path": "verify/index.json",
+   "schema": "plugin-verify-1.0"
   }
  }
 }

@@ -1,0 +1,226 @@
+{
+ "schema": "plugin-verify-1.0",
+ "generated_at": "2026-10-07",
+ "note": "Phase 4 验证器目录（00_know/06 §14.6 / §17 的 `verify[]` 落点）：**门禁清单的唯一真值**。`tools/audit_plugin_verify.py` 从这里派生 `.cnb.yml` unit-tests 段的验证步骤——清单不再手维护（`--check` 断言 .cnb.yml 里不再出现手列的 `python tools/audit|validate|check_*`）。`env` 非空的条目**不进 unit-tests 段**（要训练栈 / 训练产物 / 可选依赖），但仍是目录的一部分（覆盖率按全部条目算：tools/ 下每个 audit/validate/check 工具都必须有家，不许游离）。新增能力 = 加一条声明。",
+ "universe": "tools/ 下匹配 `^(audit|validate|check)_*.py` 的全部文件",
+ "gates": [
+  {
+   "command": "python tools/audit_porting_admission.py",
+   "seam": "pack",
+   "note": "B8 移植准入（规则 T/S/C/X：上游训练源 + 产物 ↔ 训练任务对应）"
+  },
+  {
+   "command": "python tools/validate_packs.py",
+   "seam": "pack",
+   "note": "capability pack 校验 + 引用 sha256"
+  },
+  {
+   "command": "python tools/audit_licenses.py",
+   "seam": "pack",
+   "note": "许可与出处（缺许可的内置包不得进索引）"
+  },
+  {
+   "command": "python tools/audit_resource_licenses.py",
+   "seam": "pack",
+   "note": "资源库许可覆盖（新缺口/名单过期判红）"
+  },
+  {
+   "command": "python tools/audit_porting_references.py",
+   "seam": "pack",
+   "note": "逐档案上游参考对照与移植核对结论（参考仓必须在 00_resources 下）"
+  },
+  {
+   "command": "python tools/audit_families.py",
+   "seam": "family",
+   "note": "族架构：成员/族约定/技能覆盖/缺口留痕"
+  },
+  {
+   "command": "python tools/audit_family_mjcf.py --check",
+   "seam": "family",
+   "note": "族 MJCF 约定（执行器归属/根 body 命名/margin 政策/无名传感器，偏离须登记）"
+  },
+  {
+   "command": "python tools/audit_terrain_profiles.py",
+   "seam": "terrain",
+   "note": "地形档：声明（哪些族可用）vs 事实（能否真装配出地形实体）"
+  },
+  {
+   "command": "python tools/audit_map_duplication.py",
+   "seam": "terrain",
+   "note": "地图双链资源完整性（assets/maps ↔ web/sim2sim/assets/go2）"
+  },
+  {
+   "command": "python tools/audit_motions.py",
+   "seam": "skill",
+   "note": "Motion 一等资源（注册表 vs 磁盘逐文件对账）"
+  },
+  {
+   "command": "python tools/audit_skill_lift_equivalence.py --self-test",
+   "seam": "skill",
+   "note": "技能上移等价性取证工具的自检（归一有效/真差异必抓/同值不误报）"
+  },
+  {
+   "command": "python tools/audit_policy_families.py",
+   "seam": "skill",
+   "note": "策略 ↔ 技能族归属（族登记与产物声明一致）"
+  },
+  {
+   "command": "python tools/validate_motion_columns.py --self-test",
+   "seam": "skill",
+   "note": "N1 动作文件关节列校验的判据自检（对标 LainLab calibrate：列名须与契约 action.joint_order 同名同序；无列名不按宽度猜）"
+  },
+  {
+   "command": "python tools/audit_obs_group_names.py",
+   "seam": "robot",
+   "note": "B37 观测组名/API 残留（按机型包语义判定，静态扫描）"
+  },
+  {
+   "command": "python tools/check_control_consistency.py",
+   "seam": "robot",
+   "note": "P2 控制三件套口径（v3 自洽硬门禁；v2/profile 差异如实报告不判红）"
+  },
+  {
+   "command": "python tools/audit_policy_gains.py",
+   "seam": "robot",
+   "note": "策略 PD 增益来源链（policy.control → robot.actuator_profile → 契约）"
+  },
+  {
+   "command": "python tools/validate_mjcf_contract.py",
+   "seam": "robot",
+   "note": "MJCF 与契约一致（物理真值唯一：结构与契约逐项，硬失败/漂移分离）"
+  },
+  {
+   "command": "python tools/sync_legacy_observation.py",
+   "seam": "robot",
+   "note": "v2 契约（create 校验链与预设记录的输入）观测段 == v3 投影"
+  },
+  {
+   "command": "python tools/audit_sim_surface.py",
+   "seam": "sensor",
+   "note": "N5 仿真分层：data-surface 声明—消费两端"
+  },
+  {
+   "command": "python tools/audit_sim2sim_consistency.py",
+   "seam": "evaluator",
+   "note": "H23 四端同值（浏览器下发 ↔ 契约真值 ↔ 训练常量表 ↔ 电机参数卡）+ B3 物理键残留复检"
+  },
+  {
+   "command": "python tools/audit_observation_contract.py",
+   "seam": "evaluator",
+   "note": "观测契约：动作侧/观测侧缺口逐项（声明与消费一致）"
+  },
+  {
+   "command": "python tools/audit_policy_obs_width.py",
+   "seam": "evaluator",
+   "note": "策略 obs 宽度（声明布局/历史帧 ↔ ONNX 实测宽度）",
+   "env": "onnxruntime"
+  },
+  {
+   "command": "python tools/audit_training_config_layers.py",
+   "seam": "profile",
+   "note": "训练配置分层指针化（无残留、无双写）"
+  },
+  {
+   "command": "python tools/audit_training_entrypoints.py",
+   "seam": "profile",
+   "note": "训练 entrypoint 指向的符号静态存在"
+  },
+  {
+   "command": "python tools/audit_provision_phases.py",
+   "seam": "kernel",
+   "note": "A1 环境供应四段（只读启动/显式配置/镜像切换/离线 wheelhouse）静态契约核对"
+  },
+  {
+   "command": "python tools/audit_acceptance_verifiability.py",
+   "seam": "kernel",
+   "note": "N6 验收判据可查性（文本级线索，守回归）"
+  },
+  {
+   "command": "python tools/audit_plugin_unification.py --check",
+   "seam": "kernel",
+   "note": "插件统一度（旧机制计数只减不涨，对照 tools/baselines/plugin_unification.json）"
+  },
+  {
+   "command": "python tools/gen_capability_seams.py --check",
+   "seam": "kernel",
+   "note": "seam 图与总表一致性（机器生成的「新行为去哪」地图）"
+  },
+  {
+   "command": "python tools/audit_tools_inventory.py",
+   "seam": "kernel",
+   "note": "N7 tools/ 孤儿工具登记（文本级引用检测）"
+  },
+  {
+   "command": "python tools/audit_machine_literals.py",
+   "seam": "kernel",
+   "note": "Phase 5 余项：web/kits 机型字面量（Python 走 AST 不含 docstring / JS 剥注释），基线只减不涨（tools/baselines/machine_literals.json；词表从 assets/robots 包名派生，不含短键）"
+  },
+  {
+   "command": "python tools/doc_reality_check.py",
+   "seam": "kernel",
+   "note": "B17 文档数字 vs 实测（16 锚点）"
+  },
+  {
+   "command": "python tools/replay_gate.py --selftest",
+   "seam": "evaluator",
+   "note": "L1/G2 确定性回放判据自检（判据实现只有一处，先保证它不退化）"
+  },
+  {
+   "command": "python tools/route_regression.py --with-dwa --routes 1",
+   "seam": "task",
+   "note": "H19 路线回归（通过率/最小净空/超时，只守退化；含 DWA 对照）"
+  },
+  {
+   "command": "python tools/unify_map_visuals.py",
+   "seam": "terrain",
+   "note": "地图视觉基调统一（visual/skybox/groundplane/light；外部贴图必须存在）"
+  },
+  {
+   "command": "python -m adapters.github.mirror --check",
+   "seam": "kernel",
+   "note": "GitHub 镜像入口可导入/参数可解析（无密钥时打印 SKIPPED 并 exit 0）"
+  },
+  {
+   "command": "python tools/validate_training_smoke.py",
+   "seam": "profile",
+   "note": "训练冒烟（16×5 真实 PPO，需训练栈）",
+   "env": "training-venv"
+  },
+  {
+   "command": "python tools/validate_family_skill_assembly.py",
+   "seam": "skill",
+   "note": "族技能通用装配（真建 env，需 mjlab）",
+   "env": "mjlab"
+  },
+  {
+   "command": "python tools/validate_family_trainability.py",
+   "seam": "skill",
+   "note": "通用任务路径逐（机型×地形档）真跑矩阵（需 mjlab）",
+   "env": "mjlab"
+  },
+  {
+   "command": "python tools/validate_traversal_progress.py",
+   "seam": "task",
+   "note": "越障进度验收（需训练 checkpoint）",
+   "env": "artifact"
+  },
+  {
+   "command": "python tools/validate_stunt_progress.py",
+   "seam": "task",
+   "note": "特技进度验收（需训练 checkpoint）",
+   "env": "artifact"
+  },
+  {
+   "command": "python tools/check_user_criteria.py",
+   "seam": "evaluator",
+   "note": "用户判据（四命令主轴/串扰，需 ONNX 产物）",
+   "env": "artifact"
+  },
+  {
+   "command": "python tools/audit_training_reachability.py --check",
+   "seam": "profile",
+   "note": "B8 训练源可达性（--check 对照 tools/baselines/training_reachability.json）——基线待刷新，刷新是显式动作，故不进 unit-tests",
+   "env": "manual"
+  }
+ ]
+}

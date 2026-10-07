@@ -1,0 +1,28 @@
+{
+ "schema": "machine-literals-baseline-1.0",
+ "note": "web/kits 机型字面量基线（只减不涨）。刷新 = 显式动作（--write-baseline），与「判红」分开；词表从 assets/robots 包名派生，不含短键（见工具 docstring 的边界）。",
+ "vocabulary": [
+  "deeprobotics-lite3",
+  "deeprobotics_lite3",
+  "deeprobotics-m20",
+  "deeprobotics_m20",
+  "unitree-go2w",
+  "unitree_go2w",
+  "unitree-b2w",
+  "unitree-go1",
+  "unitree-go2",
+  "unitree_b2w",
+  "unitree_go1",
+  "unitree_go2",
+  "unitree-b2",
+  "unitree_b2",
+  "zex-w",
+  "zex_w"
+ ],
+ "counts": {
+  "adapters/mjlab/kits/quadruped_kit/skills/imitation/catalog.py": 1,
+  "web/sim2sim/app.js": 10,
+  "web/sim2sim/scenario_editor.js": 1,
+  "web/workbench.js": 4
+ }
+}
