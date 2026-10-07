@@ -53,7 +53,7 @@ MANIFEST_NAME = "manifest.json"
 SCENARIO_FILE = "scenario.json"
 #: 任务插件包里的插件声明文件名（**与注册表同一份契约**，见 `export_task_plugin`）。
 TASK_PLUGIN_FILE = "task-plugin.json"
-EXPORT_KINDS = ("morphology", "skill", "scenario", "policy", "bundle", "task_plugin")
+EXPORT_KINDS = ("morphology", "skill", "scenario", "policy", "bundle", "task_plugin", "project")
 
 #: 每类导出的**必需角色**（verify 据此判"到底导出了这一类没有"）。
 REQUIRED_ROLES: dict[str, frozenset[str]] = {
@@ -65,6 +65,8 @@ REQUIRED_ROLES: dict[str, frozenset[str]] = {
     # 没有它，PackageContract 建不起来，策略条目/执行器接口/初始高度全都无从谈起。
     "bundle": frozenset({"pack", "package_manifest", "contract", "simulation_config"}),
     "task_plugin": frozenset({"task_plugin"}),
+    # 单文件工程（N5）= Bundle 的内容 + 基线；必需角色同 Bundle（基线是可选附加）。
+    "project": frozenset({"pack", "package_manifest", "contract", "simulation_config"}),
 }
 
 #: 拷贝时跳过的目录（与导入侧同口径：VCS 元数据与字节码缓存不属于资产）。
@@ -1185,6 +1187,110 @@ def verify_export(out_dir: Path | str) -> dict[str, Any]:
         "player": player,
         "problems": problems,
     }
+
+
+#: N5 单文件工程的后缀。为什么是 zip：单文件、任何系统双击可看、`zipfile` 是标准库（零新依赖）；
+#: 否决 tar（Windows 双击体验差）与自定义二进制（不可读、不可审）—— 与 `01` §五「进出都留证据」同口径。
+PROJECT_SUFFIX = ".zip"
+#: 基线条目在工程里的角色名。
+BASELINE_ROLE = "baseline"
+
+
+def export_project(
+    pack_json: Path | str,
+    out_file: Path | str,
+    *,
+    baselines: Iterable[Path | str] = (),
+    out_dir_index: Path | None = None,
+) -> dict[str, Any]:
+    """**N5 单文件工程**：Bundle（包 + 档案）+ **基线** → 一个可分享的单文件 ``.zip``。
+
+    与 Bundle（目录）的差别只有两点：① ``kind=project`` 且把**基线**装进来；② 打成一个文件
+    —— 分享与校验只需对一个 sha256（目录版要逐文件比）。其余**全部复用**现有机制：
+    ``export_bundle`` 产内容、``ExportWriter`` 产哈希/角色、``verify_export`` 校验
+    （含幽灵文件检查）。这样"单文件工程"不是第三套导出实现。
+    """
+    import tempfile
+    import zipfile
+
+    out_path = Path(out_file).expanduser()
+    if out_path.suffix.lower() != PROJECT_SUFFIX:
+        raise ValueError(f"单文件工程的后缀必须是 {PROJECT_SUFFIX}（得到 {out_path.suffix!r}）")
+    baseline_list = [Path(item).expanduser() for item in baselines]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        staging = Path(tmp) / "project"
+        staging.mkdir(parents=True)
+        manifest = export_bundle(pack_json, staging, out_dir_index=out_dir_index)
+        entries = list(manifest.get("entries") or [])
+        notes = list(manifest.get("notes") or [])
+        for source in baseline_list:
+            if not source.is_file():
+                raise FileNotFoundError(f"基线文件不存在：{source}")
+            relative = f"baselines/{source.name}"
+            target = staging / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+            entries.append({
+                "path": relative,
+                "sha256": _sha256(target),
+                "bytes": target.stat().st_size,
+                "role": BASELINE_ROLE,
+                "source": _repo_relative(source),
+            })
+        notes.append(
+            f"单文件工程（N5）：{len(entries)} 个条目，其中基线 {len(baseline_list)} 份；"
+            "解包后走同一道 verify_export 校验"
+        )
+        merged = dict(manifest)
+        merged["kind"] = "project"
+        merged["entries"] = sorted(entries, key=lambda item: item["path"])
+        merged["notes"] = notes
+        _write_json(staging / MANIFEST_NAME, merged)
+
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as archive:
+            for path in sorted(staging.rglob("*")):
+                if path.is_file():
+                    archive.write(path, path.relative_to(staging).as_posix())
+
+    return {**merged, "file": str(out_path), "file_sha256": _sha256(out_path)}
+
+
+def verify_project(file_path: Path | str) -> dict[str, Any]:
+    """校验单文件工程：**解开到临时目录后走同一道闸**（:func:`verify_export`）。
+
+    单文件是**外部输入**（别人发来的），所以解压前先做 zip-slip 检查：绝对路径与 ``..``
+    一律拒 —— 否则一个包就能把文件写到解压目录之外（同 E7 skill 包"路径不可信"的纪律）。
+    """
+    import tempfile
+    import zipfile
+
+    path = Path(file_path).expanduser()
+    if not path.is_file():
+        return {"ok": False, "kind": None, "entries": 0, "file": str(path),
+                "problems": [f"文件不存在：{path}"]}
+    digest = _sha256(path)
+    try:
+        with zipfile.ZipFile(path) as archive:
+            names = archive.namelist()
+    except zipfile.BadZipFile as exc:
+        return {"ok": False, "kind": None, "entries": 0, "file": str(path),
+                "file_sha256": digest, "problems": [f"不是合法的 zip：{exc}"]}
+    unsafe = [name for name in names
+              if Path(name).is_absolute() or ".." in Path(name).parts]
+    if unsafe:
+        return {"ok": False, "kind": None, "entries": 0, "file": str(path),
+                "file_sha256": digest,
+                "problems": [f"工程内含越界路径（拒绝解压）：{unsafe[:5]}"]}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        with zipfile.ZipFile(path) as archive:
+            archive.extractall(tmp)
+        report = verify_export(Path(tmp))
+    report["file"] = str(path)
+    report["file_sha256"] = digest
+    return report
 
 
 def default_out_dir(kind: str, name: str) -> Path:
