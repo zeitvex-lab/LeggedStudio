@@ -29,7 +29,7 @@ function payload(overrides = {}) {
     arrival: { tolerance_m: 0.35, stable_ticks: 3, source: "registry/arrival_criteria.json" },
     // 镜像 registry/motion_commands.json#follow_controller（Python 侧有测试与注册表对拍）
     follow_controller: {
-      lookahead_m: 0.45, max_vx: 1.2, max_wz: 0.8,
+      lookahead_m: 0.45, node_consume_proj: 0.65, max_vx: 1.2, max_wz: 0.8,
       kp_dist: 0.8, kp_yaw: 1.8,
       // v0.55.48 接近减速（服务端 FollowParams.goal_slowdown_* 同真值）
       goal_slowdown_m: 2.4, goal_slowdown_min_scale: 0.2,
@@ -571,5 +571,85 @@ assert.throws(
   () => createNavigationRunner(stuckPayload(), { maxCmd: [8, 1.5, 2.5], controlDt: undefined }).tick(pose(0, 0, 0)),
   /controlDt/, "缺 controlDt ⇒ 第一次 tick 抛错（时间不许自造）",
 );
+
+// ===========================================================================
+// --- v0.55.49 切角消费（H12 短板「lookahead 0.45 拐角切角」收口；服务端
+//     backend/follow_controller.py::_node_bypassed 同判据）---
+// 语义：机器人**走过**某航点（投影越过 node_consume_proj、离下一航点更近、当前仍在
+// 前视半径内）⇒ 消费、waypointIndex 前进（**不**要容差/稳定拍数）；最后一个航点不消费
+// （goal 必须真到达）。不消费的后果（leg_2_3 实测）：waypointIndex 停在被绕过的节点 ⇒
+// 前视反复选中身后的点 ⇒ 航向 ±160° 双稳翻转 ⇒ 无限原地转至航点超时。
+// ===========================================================================
+
+// 缺 node_consume_proj ⇒ fail-closed（阈值只由服务端给，浏览器不自造）
+assert.throws(
+  () => createNavigationRunner(
+    payload({ follow_controller: { ...payload().follow_controller, node_consume_proj: undefined } }),
+  ),
+  /node_consume_proj/, "缺 node_consume_proj ⇒ 抛错",
+);
+
+// ① 走过（投影 0.42/0.6 = 0.7 > 0.65、离下一航点 0.18 更近、到本航点 0.42 < 前视 0.45）⇒ 消费
+const bypassRun = createNavigationRunner(
+  payload({
+    waypoints: [
+      { x: 0, y: 0, tolerance_m: 0.35 },
+      { x: 1.2, y: 0, tolerance_m: 0.2 },
+      { x: 1.2, y: 0.6, tolerance_m: 0.2 },
+      { x: 1.2, y: 1.2, tolerance_m: 0.2 },
+    ],
+    plan: { combined_path: [[0, 0], [0.6, 0], [1.2, 0], [1.2, 0.6], [1.2, 1.2]] },
+  }),
+  { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 },
+);
+bypassRun.tick(pose(1.2, 0.42, Math.PI / 2));
+assert.equal(bypassRun.status().waypoint_index, 2, "走过的航点 1 应被消费 ⇒ 推进到航点 2");
+assert.equal(bypassRun.status().state, "bypass", "消费那一拍的状态 = bypass（与服务端同名）");
+
+// ② 护栏：段长 3m ⇒ 投影 0.14 ≤ 0.65 ⇒ 不算走过（稀疏长段口径的边界，如实钉住）
+const longSegRun = createNavigationRunner(
+  payload({
+    waypoints: [
+      { x: 0, y: 0, tolerance_m: 0.35 },
+      { x: 1.2, y: 0, tolerance_m: 0.2 },
+      { x: 1.2, y: 3.0, tolerance_m: 0.2 },
+      { x: 1.2, y: 4.0, tolerance_m: 0.2 },
+    ],
+    plan: { combined_path: [[0, 0], [1.2, 0], [1.2, 3.0], [1.2, 4.0]] },
+  }),
+  { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 },
+);
+longSegRun.tick(pose(1.2, 0.42, Math.PI / 2));
+assert.equal(longSegRun.status().waypoint_index, 1, "米级长段上投影未过 65% ⇒ 不消费");
+
+// ③ 护栏：折返路线起点节点的投影一开始就"越过"，但机器人到它 2.0m ≫ 前视 ⇒ 不消费
+const foldRun = createNavigationRunner(
+  payload({
+    waypoints: [
+      { x: 0, y: 0, tolerance_m: 0.35 },
+      { x: 2, y: 0, tolerance_m: 0.35 },
+      { x: 0.5, y: 0, tolerance_m: 0.35 },
+    ],
+    plan: { combined_path: [[0, 0], [2, 0], [0.5, 0]] },
+  }),
+  { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 },
+);
+foldRun.tick(pose(0, 0, 0));
+assert.equal(foldRun.status().waypoint_index, 1, "起点处不得消费（护栏：须曾贴近）");
+
+// ④ 终点航点不参与消费：走过终点不许假装成功（goal 仍按 arrival 判据真到达）
+const pastGoalRun = createNavigationRunner(
+  payload({
+    waypoints: [
+      { x: 0, y: 0, tolerance_m: 0.35 },
+      { x: 1.0, y: 0, tolerance_m: 0.2 },
+    ],
+    plan: { combined_path: [[0, 0], [0.5, 0], [1.0, 0]] },
+  }),
+  { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 },
+);
+for (let i = 0; i < 6; i += 1) pastGoalRun.tick(pose(1.2, 0, 0));
+assert.notEqual(pastGoalRun.status().state, "bypass", "终点航点不许被消费（走过 ≠ 到达）");
+assert.equal(pastGoalRun.status().termination_reason, "complete", "终点仍按容差 + 稳定拍数真到达");
 
 console.log("navigation.test.mjs OK");
