@@ -190,7 +190,19 @@ class RealRunTest(unittest.TestCase):
             thresholds={"quality_score": 0.5},
         )
         self.assertEqual(qm.REPORT_SCHEMA, report["schema"])
-        self.assertEqual(sorted(qm.QUALITY_WEIGHTS), sorted(report["metrics"]))
+        # 报告口径（2026-10-08 修正）：`weights` = **加权八指标**（分数只由它们而来，抄上游
+        # `base_gauge_config.py::QUALITY_WEIGHTS`）；`metrics` = 那八项 **+ 两条运动条件
+        # 辅助项**（`lin_vel_err_motion` / `ang_vel_err_motion`，见 adapter
+        # `quality_metrics.py:448` 的上游 motion 口径，**不参与加权**）。
+        # 旧断言写成"报告只含加权八项"，而本用例在适配器 venv 缺席时走 SkipTest ⇒ 口径漂移
+        # 被跳过的门禁掩盖（供上 venv 后第一次真跑即判红）。改为**显式契约**：报告指标集必须
+        # 恰好等于这两组之和 —— 将来再加指标必须同步改这里，不许静默漂移。
+        self.assertEqual(sorted(qm.QUALITY_WEIGHTS), sorted(report["weights"]))
+        self.assertEqual(
+            set(qm.QUALITY_WEIGHTS) | {"lin_vel_err_motion", "ang_vel_err_motion"},
+            set(report["metrics"]),
+            "报告指标集 = 加权八指标 + 两条运动条件辅助项（新增项须显式登记）",
+        )
         for name, value in report["metrics"].items():
             self.assertTrue(0.0 <= value <= 1.0, f"{name}={value}")
         self.assertGreater(report["quality_score"], 0.5, report["metrics"])
