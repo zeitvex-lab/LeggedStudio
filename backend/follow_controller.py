@@ -13,6 +13,14 @@
   标定约束：``goal_slowdown_m`` 必须 > ``max_vx/kp_dist``（1.2/0.8 = 1.5m）上限才会真正
   压住自然律，取 2.4m ⇒ 等效达点时间常数 2.0s（1m→0.5 m/s、0.5m→0.25 m/s）。
 * 大误差**原地转**：``|yaw_err| ≥ 70°`` 进入、``≤ 18°`` 退出（滞回）；
+* **切角消费（v0.55.49，H12 登记短板「lookahead 0.45 拐角切角」收口）**：活跃航点若已被
+  **走过**（机器人在「该节点 → 下一节点」段上的投影 > ``node_consume_proj``，**且**离下一
+  节点更近）⇒ 视为消费、``index`` 前进（**不**要求 H10 容差/稳定拍数——人已走过，不是
+  "到达"；**最后一个节点不消费**，goal 仍须真到达）。判据抄参考实现 ``PathFollower`` 的
+  ``_advance_path_nodes`` / ``_point_is_behind_segment``。
+  不收口的后果（warehouse leg_2_3 实测）：``index`` 停在被绕过的节点 ⇒ 前视扫描反复把
+  **身后**那个候点选成目标 ⇒ 目标航向在 ≈±160° 间**双稳翻转** ⇒ ``turn_in_place`` 无限
+  旋转 ⇒ 30 s 航点超时、此后恒发零速。消费后 ``index`` 单调，前视不再回看 ⇒ 翻转消失。
 * **卡死恢复**：``stuck_timeout_s`` 内无"目标导向进展" ⇒ 发 2 s 恢复动作
   ``vx = -0.10, wz = 0.45·sign``（符号每轮翻转），至多 ``max_recoveries`` 轮。
   进展有两类口径（v0.55.46 收口裁决，修"拐角急转误触卡死"）：
@@ -53,11 +61,35 @@ def _clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
 
+def point_is_behind_segment(
+    x: float,
+    y: float,
+    point: Sequence[float],
+    next_point: Sequence[float],
+    proj_threshold: float,
+) -> bool:
+    """机器人是否已**走过** ``point``（在 ``point → next_point`` 段的方向上越过它）。
+
+    逐条对齐参考实现 ``nav_route_sim2sim_check.py::PathFollower._point_is_behind_segment``：
+    机器人在该段上的投影 > ``proj_threshold``（``node_consume_proj`` = 0.65）**且**离下一
+    节点比离本节点更近。两个条件缺一不可——只按投影会把"横向贴近段中段"误判成走过。
+    """
+    seg_x, seg_y = next_point[0] - point[0], next_point[1] - point[1]
+    seg_len_sq = seg_x * seg_x + seg_y * seg_y
+    if seg_len_sq <= 1.0e-9:
+        return False  # 退化段（两点重合）：没有方向可言，不消费
+    proj = ((x - point[0]) * seg_x + (y - point[1]) * seg_y) / seg_len_sq
+    if proj <= proj_threshold:
+        return False
+    return math.hypot(next_point[0] - x, next_point[1] - y) < math.hypot(point[0] - x, point[1] - y)
+
+
 @dataclass(frozen=True)
 class FollowParams:
     """跟随参数（全部来自 ``registry/motion_commands.json``）。"""
 
     lookahead_m: float
+    node_consume_proj: float
     max_vx: float
     max_vy: float
     max_wz: float
@@ -88,6 +120,8 @@ class FollowParams:
         recovery = spec.get("recovery_cmd") or {}
         fields = {
             "lookahead_m": spec.get("lookahead_m"),
+            # v0.55.49 切角消费（H12 短板收口）：投影判据阈值，与参考实现同源
+            "node_consume_proj": spec.get("node_consume_proj"),
             "max_vx": spec.get("max_vx"),
             "max_vy": spec.get("max_vy", 0.0),
             "max_wz": spec.get("max_wz"),
@@ -202,6 +236,25 @@ class FollowController:
                 return i
         return len(self.waypoints) - 1
 
+    def _node_bypassed(self, x: float, y: float) -> bool:
+        """活跃节点是否已被**切角绕过**（可消费、``index`` 前进）。
+
+        两条同时成立才算（缺一不消费——宁可让机器人回头补点，也不假装走过）：
+        ① **已走过**：``point_is_behind_segment``（参考实现 ``PathFollower`` 口径：在
+           「本节点 → 下一节点」段上的投影 > ``node_consume_proj``，且离下一节点更近）；
+        ② **当前仍在前视半径内**：到该节点 < ``lookahead_m``。前视的语义正是"跳掉
+           < lookahead 的点"，所以"前视会跳掉的点"与这条是同一集合；护栏挡掉的是
+           回头/折返路线里"起点节点在几何上恰好落在身后"的**误消费**（实测：路径
+           [0,0]→[2,0]→[0.5,0] 这类折返，机器人还在起点时投影就已越过 0.65 ⇒ 会把
+           「必须先去 (2,0)」的节点吞掉）。
+        """
+        point = self.waypoints[self.index]
+        if math.hypot(point[0] - x, point[1] - y) >= self.params.lookahead_m:
+            return False
+        return point_is_behind_segment(
+            x, y, point, self.waypoints[self.index + 1], self.params.node_consume_proj
+        )
+
     # ---------- 一拍 ----------
     def update(self, pose: Sequence[float], time_s: float) -> FollowStep:
         x, y, yaw = float(pose[0]), float(pose[1]), float(pose[2])
@@ -234,6 +287,29 @@ class FollowController:
                 return self._step([0.0, 0.0, 0.0], "advance", "arrived", time_s, distance)
             return self._step([0.0, 0.0, 0.0], None, "settling", time_s, distance)
         self.stable_count = 0
+
+        # 1b) 切角消费（v0.55.49，H12 短板「lookahead 0.45 拐角切角」收口）
+        #     活跃航点若已在**身后**（机器人在「本节点 → 下一节点」段上的投影越过
+        #     node_consume_proj、且离下一节点更近），它就是被切角绕过的节点：继续要求
+        #     "回到容差内"会让 index 永远停住，前视扫描于是反复把**身后的点**选成目标
+        #     （warehouse leg_2_3 实测：目标航向 ≈±160° 双稳翻转 ⇒ turn_in_place 无限
+        #     旋转 ⇒ 30 s 航点超时、此后恒发零速）。判据抄参考实现 ``PathFollower``。
+        #     消费语义：**不**要 H10 容差/稳定拍数（人已走过，不是"到达"）；**最后一个
+        #     节点不消费**（参考实现 _advance_path_nodes 的 while 上界同为 len-1）——
+        #     goal 必须按 H10 口径真到达，否则"走过终点"会假装成功。
+        bypassed = 0
+        while self.index < len(self.waypoints) - 1 and self._node_bypassed(x, y):
+            self.index += 1
+            bypassed += 1
+            self.turn_in_place = False
+            self.stable_count = 0
+            self.waypoint_start_time = time_s
+            self.best_distance = float("inf")
+            self.best_heading_err = float("inf")
+            self.progress_target_index = None
+            self.last_progress_time = time_s
+        if bypassed:
+            return self._step([0.0, 0.0, 0.0], "bypass", "bypass", time_s, distance)
 
         # 2) 单航点超时
         if time_s - self.waypoint_start_time > self.params.waypoint_timeout_s:

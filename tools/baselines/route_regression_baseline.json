@@ -30,13 +30,13 @@
     },
     "follow": {
       "collision_steps": 0,
-      "mean_time_s": 14.137,
+      "mean_time_s": 14.6,
       "min_clearance_m": 0.0212,
-      "pass_rate": 0.8,
-      "reached": 4,
+      "pass_rate": 1.0,
+      "reached": 5,
       "routes_below_footprint": 2,
       "runs": 5,
-      "timeouts": 1
+      "timeouts": 0
     },
     "geometric": {
       "collision_steps": 0,
@@ -90,7 +90,7 @@
           "reached": false,
           "time_s": 60.0,
           "timed_out": true,
-          "wall_time_s": 8.259
+          "wall_time_s": 8.358
         },
         "follow": {
           "collision_steps": 0,
@@ -171,7 +171,7 @@
           "reached": true,
           "time_s": 22.45,
           "timed_out": false,
-          "wall_time_s": 3.965
+          "wall_time_s": 3.947
         },
         "follow": {
           "collision_steps": 0,
@@ -244,7 +244,7 @@
           "reached": true,
           "time_s": 5.05,
           "timed_out": false,
-          "wall_time_s": 2.426
+          "wall_time_s": 2.437
         },
         "follow": {
           "collision_steps": 0,
@@ -253,7 +253,7 @@
           "reached": true,
           "time_s": 4.7,
           "timed_out": false,
-          "wall_time_s": 0.0
+          "wall_time_s": 0.001
         },
         "geometric": {
           "collision_steps": 0,
@@ -317,16 +317,16 @@
           "reached": false,
           "time_s": 60.0,
           "timed_out": true,
-          "wall_time_s": 19.874
+          "wall_time_s": 19.757
         },
         "follow": {
           "collision_steps": 0,
-          "final_distance_m": 3.6915,
+          "final_distance_m": 0.1948,
           "min_clearance_m": 0.0212,
-          "reached": false,
-          "time_s": 60.0,
-          "timed_out": true,
-          "wall_time_s": 0.004
+          "reached": true,
+          "time_s": 16.45,
+          "timed_out": false,
+          "wall_time_s": 0.002
         },
         "geometric": {
           "collision_steps": 0,
@@ -390,7 +390,7 @@
           "reached": true,
           "time_s": 8.4,
           "timed_out": false,
-          "wall_time_s": 5.786
+          "wall_time_s": 5.655
         },
         "follow": {
           "collision_steps": 0,
@@ -437,5 +437,5 @@
   ],
   "seed": 20260913,
   "tolerance_m": 0.2,
-  "wall_time_s": 40.87
+  "wall_time_s": 40.72
 }

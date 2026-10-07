@@ -82,6 +82,32 @@ function distance(a, b) {
   return Math.hypot(Number(a.x) - Number(b[0]), Number(a.y) - Number(b[1]));
 }
 
+/** 统一取坐标：路径点是数组、航点是对象，两种都要能用（服务端两处都是序列）。 */
+function xy(value) {
+  return Array.isArray(value)
+    ? [Number(value[0]), Number(value[1])]
+    : [Number(value.x), Number(value.y)];
+}
+
+/**
+ * 机器人是否已**走过** point（在 point → nextPoint 段的方向上越过它）。
+ *
+ * 逐条对齐服务端 `backend/follow_controller.py::point_is_behind_segment`（其本身抄参考
+ * 实现 `PathFollower._point_is_behind_segment`）：投影 > projThreshold **且** 离下一节点
+ * 更近。两个条件缺一不可——只按投影会把"横向贴近段中段"误判成走过。
+ */
+function pointIsBehindSegment(pose, point, nextPoint, projThreshold) {
+  const [px, py] = xy(point);
+  const [nx, ny] = xy(nextPoint);
+  const segX = nx - px;
+  const segY = ny - py;
+  const lenSq = segX * segX + segY * segY;
+  if (lenSq <= 1e-9) return false; // 退化段（两点重合）：没有方向可言，不消费
+  const proj = ((pose.x - px) * segX + (pose.y - py) * segY) / lenSq;
+  if (proj <= projThreshold) return false;
+  return Math.hypot(nx - pose.x, ny - pose.y) < Math.hypot(px - pose.x, py - pose.y);
+}
+
 function clampValue(value, limit) {
   const bound = Math.abs(Number(limit));
   if (!Number.isFinite(bound) || bound === 0) return 0;
@@ -132,6 +158,8 @@ export function createNavigationRunner(payload, options = {}) {
 
   const params = {
     lookahead_m: requiredNumber(follow, "lookahead_m", "follow_controller"),
+    // v0.55.49 切角消费（H12 短板收口）：服务端 FollowParams.node_consume_proj 同字段
+    node_consume_proj: requiredNumber(follow, "node_consume_proj", "follow_controller"),
     kp_dist: requiredNumber(follow, "kp_dist", "follow_controller"),
     kp_yaw: requiredNumber(follow, "kp_yaw", "follow_controller"),
     // v0.55.48 接近减速（服务端 FollowParams.goal_slowdown_* 同真值，registry 唯一来源；
@@ -225,11 +253,35 @@ export function createNavigationRunner(payload, options = {}) {
     return Number.isFinite(value) ? value : arrivalTolerance;
   }
 
+  /**
+   * 活跃节点是否已被**切角绕过**（可消费，游标/航点下标才前进）。
+   *
+   * 对齐服务端 `_node_bypassed`：① 已走过（`pointIsBehindSegment`）；② 当前仍在前视
+   * 半径内（前视的语义正是"跳掉 < lookahead 的点"，这条挡掉回头/折返路线里"起点节点
+   * 恰好落在身后"的误消费）。缺一不消费：宁可让机器人回头补点，也不假装走过。
+   */
+  function nodeBypassed(pose, point, nextPoint) {
+    const [px, py] = xy(point);
+    if (Math.hypot(px - pose.x, py - pose.y) >= params.lookahead_m) return false;
+    return pointIsBehindSegment(pose, point, nextPoint, params.node_consume_proj);
+  }
+
   function targetIndex(pose) {
-    // 先消费掉近处的路径点，再取第一个 ≥ 前视距离的点的**下标**（参考实现同法）。
+    // 先按投影消费掉已在身后的路径点，再取第一个 ≥ 前视距离的点的**下标**（参考实现同法）。
     // 返回下标：进展登记要识别"前视目标切换了"（切换 ⇒ 进展基准重记，同服务端
     // _lookahead_index 返回下标的理由——两个路径点可能坐标相同，下标才是稳定身份）。
-    while (cursor < path.length - 1 && distance(pose, path[cursor]) < params.lookahead_m * 0.5) cursor += 1;
+    // **2026-10-08（v0.55.49）**：此前这里是 `lookahead_m × 0.5` 的距离启发式——与服务端
+    // 不一致（服务端从自增的 index 起扫），H12 短板「lookahead 0.45 拐角切角」收口时
+    // 统一为同一投影判据：游标只有"消费"这一个前进理由，两个实现不再各有一套跳过规则。
+    // **分工**：游标是"我沿路径走到哪了"的估计器 —— 只用参考实现的投影判据（`tick` 的
+    // 1b 与 `nodeBypassed` 那条"曾贴近"护栏是**航点**下标的职责：巡检点语义不属于游标，
+    // 否则拐角处游标会因"刚离开就超半径"而卡住、前视回看身后节点）。
+    while (
+      cursor < path.length - 1
+      && pointIsBehindSegment(pose, path[cursor], path[cursor + 1], params.node_consume_proj)
+    ) {
+      cursor += 1;
+    }
     for (let i = cursor; i < path.length; i += 1) {
       if (distance(pose, path[i]) >= params.lookahead_m) return i;
     }
@@ -345,6 +397,33 @@ export function createNavigationRunner(payload, options = {}) {
       return status();
     }
     stableCount = 0;
+
+    // 1b) 切角消费（服务端 update「1b) 切角消费」同语义，v0.55.49 收口 H12 短板
+    //     「lookahead 0.45 拐角切角」）：活跃航点若已被走过（投影越过 node_consume_proj、
+    //     离下一航点更近、且当前仍在前视半径内）⇒ 消费、waypointIndex 前进。
+    //     消费**不**要容差/稳定拍数（人已走过，不是"到达"）；**最后一个航点不消费**
+    //     （服务端 while 上界同为 len-1）——goal 仍须按 H10 真到达，否则"走过终点"
+    //     会假装成功。不收口的后果（warehouse leg_2_3 实测）：waypointIndex 停在被绕过
+    //     的节点 ⇒ 前视反复选中身后的点 ⇒ 航向在 ≈±160° 双稳翻转 ⇒ 无限原地转至超时。
+    let bypassed = 0;
+    while (
+      waypointIndex < waypoints.length - 1
+      && nodeBypassed(pose, waypoints[waypointIndex], waypoints[waypointIndex + 1])
+    ) {
+      waypointIndex += 1;
+      bypassed += 1;
+      turnInPlace = false; // 换段重新判定朝向（与服务端消费分支同款）
+      stableCount = 0;
+      waypointStart_s = elapsed_s;
+      bestDistance = Number.POSITIVE_INFINITY;
+      bestHeadingErr = Number.POSITIVE_INFINITY;
+      lastProgress_s = elapsed_s;
+      progressTargetIndex = -1; // 前视目标基准对新节点重记（服务端 progress_target_index = None）
+    }
+    if (bypassed) {
+      lastState = "bypass";
+      return status();
+    }
 
     // 2) 单航点超时（服务端 215–217 行同语义）：策略结论，与预算截断分开记
     if (elapsed_s - waypointStart_s > stuckParams.waypoint_timeout_s) {
