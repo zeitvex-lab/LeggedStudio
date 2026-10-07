@@ -181,21 +181,21 @@
    "note": "GitHub 镜像入口可导入/参数可解析（无密钥时打印 SKIPPED 并 exit 0）"
   },
   {
-   "command": "python tools/validate_training_smoke.py",
+   "command": "python tools/validate_training_smoke.py --num-envs 16 --rollout-steps 5 --mode train --iters 5",
    "seam": "profile",
-   "note": "训练冒烟（16×5 真实 PPO，需训练栈）",
+   "note": "训练冒烟（16×5 真实 PPO，需训练栈）。**2026-10-08 实测校正**：本命令原先无参 ⇒ 跑的是默认全量（128×50、mode=rollout），与 note 声明的 16×5 不符、实测 15 分钟未出结果。现按声明口径补齐参数；全 profile 串行 ≈ 分钟级 × N，聚焦单机型加 `--robot <id>`。实测：unitree_go2 20 profile `20 ok / 0 failed`。",
    "env": "training-venv"
   },
   {
-   "command": "python tools/validate_family_skill_assembly.py",
+   "command": "$LEGGED_STUDIO_MJLAB_VENV/bin/python tools/validate_family_skill_assembly.py --robot unitree_go2 --skills velocity",
    "seam": "skill",
-   "note": "族技能通用装配（真建 env，需 mjlab）",
+   "note": "族技能通用装配（真建 env，需 mjlab）。**2026-10-08 实测校正**：本命令原先既缺必填 `--robot/--skills`（实测永远 exit 2「arguments are required」），也无法在控制面解释器下跑（`--robot unitree_go2` 报「环境缺训练栈：No module named 'mjlab'」）⇒ 必须以 **adapter venv 解释器**跑。`--iterations 0`（默认）= 只建 cfg；真训加 `--iterations N`；`--compare-profiles` 与包内逐档档案对拍。实测：exit 0 / `ok: true`。",
    "env": "mjlab"
   },
   {
-   "command": "python tools/validate_family_trainability.py",
+   "command": "$LEGGED_STUDIO_MJLAB_VENV/bin/python tools/validate_family_trainability.py --robot unitree_go2",
    "seam": "skill",
-   "note": "通用任务路径逐（机型×地形档）真跑矩阵（需 mjlab）",
+   "note": "通用任务路径逐（机型×地形档）真跑矩阵（需 mjlab）。**2026-10-08 实测校正（性质澄清）**：本工具**是基线刷新器、不是只读门禁** —— 它每次都重写 `tools/baselines/family_trainability.json`（`validate_family_trainability.py:152`），跑完打印「基线更新 N 行」并按退化行数给退出码。所以① 跑它之前先确认工作树干净（会脏一个受版本控制的文件）；② 必须以 adapter venv 解释器跑；③ 默认 8 台内置机型全跑（慢），聚焦加 `--robot`（可重复）、`--keep-going` 跑完再退出。",
    "env": "mjlab"
   },
   {
