@@ -191,7 +191,12 @@ def policy_side(env, cfg, entry: dict, checkpoint: Path, seconds: float, profile
     # 对它们原地写（如动作延时缓冲的 reset）—— 否则 `wrapped.reset()` 直接抛
     # `Inplace update to inference tensor outside InferenceMode`。
     best = torch.zeros(env.num_envs, device=env.device)
-    with torch.inference_mode():
+    # `no_grad` 而**不是** `inference_mode`：mjlab 的接触传感器在 buffer 上做就地写
+    # （`contact_sensor.py:365 buf[env_ids] = 0.0`），而 inference 张量出了推理模式就不许
+    # 就地更新 ⇒ torch 2.13 直接 `RuntimeError: Inplace update to inference tensor outside
+    # InferenceMode is not allowed`（2026-10-08 供上训练栈后首次真跑即判红，此前从未跑过）。
+    # 工作链（adapters/mjlab/native_worker.py）用的就是 `no_grad`，这里改为同款。
+    with torch.no_grad():
         obs, _ = wrapped.reset()
         for _ in range(steps):
             action = policy(obs)

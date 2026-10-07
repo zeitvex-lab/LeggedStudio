@@ -139,7 +139,10 @@ def rollout(env, cfg, profile: dict, task_name: str, entry: dict, checkpoint: Pa
         or 0.0
     )
     air_set = AIR_LEGS.get(task_name, ())
-    with torch.inference_mode():  # 同 traversal 工具：推理张量只允许在推理模式内原地写
+    # `no_grad` 而非 `inference_mode`：mjlab 接触传感器会在 buffer 上就地写，inference 张量
+    # 出了推理模式不许就地更新（torch 2.13 抛 RuntimeError）—— 与 traversal 工具同款修正，
+    # 也与工作链 adapters/mjlab/native_worker.py 的 `no_grad` 一致。
+    with torch.no_grad():
         obs, _ = wrapped.reset()
         for step in range(steps):
             action = policy(obs)

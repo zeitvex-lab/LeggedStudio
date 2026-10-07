@@ -199,27 +199,27 @@
    "env": "mjlab"
   },
   {
-   "command": "python tools/validate_traversal_progress.py",
+   "command": "$LEGGED_STUDIO_MJLAB_VENV/bin/python tools/validate_traversal_progress.py --profile go2-traversal --train-iters 5 --num-envs 16 --seconds 5",
    "seam": "task",
-   "note": "越障进度验收（需训练 checkpoint）",
+   "note": "越障进度验收（需训练 checkpoint）。**2026-10-08 实测校正**：原命令缺必填 `--profile`（永远 exit 2）；`--profile` 取的是**包内训练档案**（`assets/robots/*/training/profiles/*.json`，不是 `registry/tasks/profiles.json` 的任务档案）——仓内越障档 = `go2-traversal / m20-traversal / b2w-traversal / go2w-traversal`。**当前被环境阻塞（忠实登记）**：mjlab 接触传感器 reset 在 buffer 上就地写（`contact_sensor.py:365`），torch 2.13 对**推理张量**抛 `Inplace update to inference tensor outside InferenceMode`；工具内已把 `inference_mode` 改成工作链同款的 `no_grad`（`native_worker.py` 同款），仍不足以绕开 mjlab 内部创建的推理张量 ⇒ 需 mjlab 升级或 torch 版本对齐。",
    "env": "artifact"
   },
   {
-   "command": "python tools/validate_stunt_progress.py",
+   "command": "$LEGGED_STUDIO_MJLAB_VENV/bin/python tools/validate_stunt_progress.py --profile <本仓暂无特技档>",
    "seam": "task",
-   "note": "特技进度验收（需训练 checkpoint）",
+   "note": "特技进度验收（需训练 checkpoint）。**2026-10-08 实测校正**：原命令缺必填 `--profile`；并且本仓 `assets/robots/*/training/profiles/` 里**没有任何特技档**（带 traversal 的只有 4 个越障档）⇒ 该门禁当前**无对象**（属训练档缺失，不是工具缺陷）。参数与阻塞口径同越障进度（`--profile` 取包内训练档案；inference tensor 阻塞）。",
    "env": "artifact"
   },
   {
-   "command": "python tools/check_user_criteria.py",
+   "command": "$LEGGED_STUDIO_MJLAB_VENV/bin/python tools/check_user_criteria.py --robot unitree_go2w --policy go2w-velocity-robotlab",
    "seam": "evaluator",
-   "note": "用户判据（四命令主轴/串扰，需 ONNX 产物）",
+   "note": "用户判据（四命令主轴/串扰，需 ONNX 产物）。**2026-10-08 实测校正**：原命令缺必填 `--robot/--policy`（永远 exit 2；口径见工具自述用法），且必须在 adapter venv 解释器下跑（onnxruntime）。**顺带修掉工具自身一个真 bug**：单输入模型的 feed 缺 batch 维 ⇒ onnxruntime 直接 `Invalid rank for input: Got: 1 Expected: 2`（该 bug 一直存在，因为这条 env-gated 声明从没在环境齐时跑过）。修后实测 `go2w-velocity-robotlab` **3/4**：三条单轴命令 PASS（误差 8.4% / 18.8% / 24.9%），混合命令 `[0.4, 0.2, 0.4]` **FAIL**（串扰轴2 = 88% > 20%，误差 59.5%）。",
    "env": "artifact"
   },
   {
    "command": "python tools/audit_training_reachability.py --check",
    "seam": "profile",
-   "note": "B8 训练源可达性（--check 对照 tools/baselines/training_reachability.json）——基线待刷新，刷新是显式动作，故不进 unit-tests",
+   "note": "B8 训练源可达性（--check 对照 tools/baselines/training_reachability.json）——基线待刷新，刷新是显式动作，故不进 unit-tests。**2026-10-08 实测**：漂移 4 处 = m20 `module_count 20 → 19`、go2 `reachable_count 117 → 115`，并**新暴露 2 个可删模块**（`assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/tasks/go2_skills/amp_dreamwaq/rl.py` 与 `.../dreamwaq/mdp/rl.py`）⇒ 属「死件清理」待办：删除会动包内文件与 pack 哈希，需连同重签，因此**没有在本轮顺手删**（不把「顺手改绿」当收口）。",
    "env": "manual"
   }
  ]
