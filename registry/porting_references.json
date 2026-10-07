@@ -263,7 +263,7 @@
           "role": "数值实源（与移植逐值一致）"
         },
         {
-          "repo": "leggedgym-ex",
+          "repo": "LeggedGym-Ex",
           "path": "legged_gym/envs/go2",
           "role": "registry 原标的上游（框架级参考）"
         }
@@ -292,7 +292,7 @@
           "role": "数值实源"
         },
         {
-          "repo": "leggedgym-ex",
+          "repo": "LeggedGym-Ex",
           "path": "legged_gym/envs/go2",
           "role": "registry 原标的上游"
         }
@@ -320,7 +320,7 @@
           "role": "数值实源"
         },
         {
-          "repo": "leggedgym-ex",
+          "repo": "LeggedGym-Ex",
           "path": "legged_gym/envs/go2",
           "role": "registry 原标的上游（ts max_iterations=3000）"
         }
@@ -348,7 +348,7 @@
           "role": "数值实源"
         },
         {
-          "repo": "leggedgym-ex",
+          "repo": "LeggedGym-Ex",
           "path": "legged_gym/envs/go2",
           "role": "registry 原标的上游"
         }
@@ -371,7 +371,7 @@
       "checked_at": "2026-09-24",
       "references": [
         {
-          "repo": "leggedgym-ex",
+          "repo": "LeggedGym-Ex",
           "path": "legged_gym/envs/base/template_cfgs.py",
           "role": "学生侧配置参考"
         }
@@ -421,7 +421,7 @@
       "checked_at": "2026-09-24",
       "references": [
         {
-          "repo": "leggedgym-ex",
+          "repo": "LeggedGym-Ex",
           "path": "legged_gym/envs/go2/go2_wtw_config.py",
           "role": "Walk These Ways 源"
         }
@@ -444,7 +444,7 @@
       "checked_at": "2026-09-25",
       "references": [
         {
-          "repo": "leggedgym-ex",
+          "repo": "LeggedGym-Ex",
           "path": "legged_gym/envs/go2/go2_wtw_config.py",
           "role": "Walk These Ways 源（与 go2-wtw 同一份上游配方）"
         }
@@ -469,7 +469,7 @@
       "checked_at": "2026-09-25",
       "references": [
         {
-          "repo": "leggedgym-ex",
+          "repo": "LeggedGym-Ex",
           "path": "legged_gym/envs/go2/go2_cts_config.py",
           "role": "CTS 方法/框架参考（与 go2-cts 同一份上游；本仓没有 b2 专属 CTS 上游）"
         }

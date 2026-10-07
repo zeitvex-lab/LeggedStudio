@@ -45,7 +45,14 @@ ARTIFACT = re.compile(r"(tools/[\w./-]+\.py|test_[\w]+\.py|registry/[\w./-]+\.js
 VERIFY_WORDS = ("进 CI", "已进 CI", "门禁", "✓", "已达成", "全绿")
 
 #: **冻结基线**：有据可查的条数。下降 ⇒ 判红。
-BASELINE_MACHINE_TEXTUAL = 58  # 2026-09-28 结构性重排后重冻（活清单+归档合计扫描；上一冻结值 52）
+#:
+#: 2026-10-07 重冻 57（核对后同步，非橡皮章）：成因已定位 = 归档 08 的 **H20**（指令仲裁与整形）
+#: 行证据指针为 `backend/test_command_arbiter.py`，该文件随 2026-10-06 死件清理删除
+#: （`command_arbiter` 零生产 import 整簇退役）⇒ H20 失去当前存在的证据。归档为只读（不改历史行），
+#: 故基线跟随实测下调。核对副证：模拟「被删文件仍在」时计数回到 **60**（H20/B25/E6 三行，
+#: 其中 B25/E6 引用的 `test_training_probe_guard / test_training_dot_path` 在本分支从未存在，
+#: 本来就不计入）；旧冻结值 58 = 57 + H20（当时该文件尚在）。
+BASELINE_MACHINE_TEXTUAL = 57
 
 #: **解析覆盖基线**：能解析出的 4 列任务行数。行数掉了 ⇒ 判红（否则"条目被改成别的表形"会让统计静默失真）。
 BASELINE_PARSED_ROWS = 166  # 2026-09-28 结构性重排后重冻（归档 164 + 活跃 L4/L7；上一冻结值 139）

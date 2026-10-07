@@ -29,14 +29,14 @@
       "timeouts": 2
     },
     "follow": {
-      "collision_steps": 30,
-      "mean_time_s": 13.925,
-      "min_clearance_m": -0.0828,
+      "collision_steps": 0,
+      "mean_time_s": 14.137,
+      "min_clearance_m": 0.0212,
       "pass_rate": 0.8,
       "reached": 4,
       "routes_below_footprint": 2,
       "runs": 5,
-      "timeouts": 0
+      "timeouts": 1
     },
     "geometric": {
       "collision_steps": 0,
@@ -90,16 +90,16 @@
           "reached": false,
           "time_s": 60.0,
           "timed_out": true,
-          "wall_time_s": 9.543
+          "wall_time_s": 8.259
         },
         "follow": {
           "collision_steps": 0,
-          "final_distance_m": 0.1995,
+          "final_distance_m": 0.1947,
           "min_clearance_m": 0.0854,
           "reached": true,
-          "time_s": 28.35,
+          "time_s": 28.65,
           "timed_out": false,
-          "wall_time_s": 0.006
+          "wall_time_s": 0.004
         },
         "geometric": {
           "collision_steps": 0,
@@ -117,7 +117,7 @@
           "reached": false,
           "time_s": 60.0,
           "timed_out": true,
-          "wall_time_s": 0.008
+          "wall_time_s": 0.007
         }
       },
       "kind": "map_default",
@@ -171,14 +171,14 @@
           "reached": true,
           "time_s": 22.45,
           "timed_out": false,
-          "wall_time_s": 4.546
+          "wall_time_s": 3.965
         },
         "follow": {
           "collision_steps": 0,
-          "final_distance_m": 0.1965,
+          "final_distance_m": 0.1945,
           "min_clearance_m": 0.6977,
           "reached": true,
-          "time_s": 8.1,
+          "time_s": 8.35,
           "timed_out": false,
           "wall_time_s": 0.001
         },
@@ -244,16 +244,16 @@
           "reached": true,
           "time_s": 5.05,
           "timed_out": false,
-          "wall_time_s": 2.781
+          "wall_time_s": 2.426
         },
         "follow": {
           "collision_steps": 0,
-          "final_distance_m": 0.1924,
-          "min_clearance_m": 0.6923,
+          "final_distance_m": 0.1992,
+          "min_clearance_m": 0.6991,
           "reached": true,
-          "time_s": 4.55,
+          "time_s": 4.7,
           "timed_out": false,
-          "wall_time_s": 0.001
+          "wall_time_s": 0.0
         },
         "geometric": {
           "collision_steps": 0,
@@ -317,16 +317,16 @@
           "reached": false,
           "time_s": 60.0,
           "timed_out": true,
-          "wall_time_s": 22.272
+          "wall_time_s": 19.874
         },
         "follow": {
-          "collision_steps": 30,
-          "final_distance_m": 3.4598,
-          "min_clearance_m": -0.0828,
+          "collision_steps": 0,
+          "final_distance_m": 3.6915,
+          "min_clearance_m": 0.0212,
           "reached": false,
-          "time_s": 7.7,
-          "timed_out": false,
-          "wall_time_s": 0.001
+          "time_s": 60.0,
+          "timed_out": true,
+          "wall_time_s": 0.004
         },
         "geometric": {
           "collision_steps": 0,
@@ -344,7 +344,7 @@
           "reached": false,
           "time_s": 60.0,
           "timed_out": true,
-          "wall_time_s": 0.008
+          "wall_time_s": 0.007
         }
       },
       "kind": "map_leg",
@@ -390,14 +390,14 @@
           "reached": true,
           "time_s": 8.4,
           "timed_out": false,
-          "wall_time_s": 6.656
+          "wall_time_s": 5.786
         },
         "follow": {
           "collision_steps": 0,
-          "final_distance_m": 0.1942,
-          "min_clearance_m": 1.2471,
+          "final_distance_m": 0.1984,
+          "min_clearance_m": 1.2453,
           "reached": true,
-          "time_s": 14.7,
+          "time_s": 14.85,
           "timed_out": false,
           "wall_time_s": 0.001
         },
@@ -437,5 +437,5 @@
   ],
   "seed": 20260913,
   "tolerance_m": 0.2,
-  "wall_time_s": 46.7
+  "wall_time_s": 40.87
 }
