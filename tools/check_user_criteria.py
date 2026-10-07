@@ -65,10 +65,11 @@ def run_case(sess, contract, model, cmd, total_s=CRIT["total_s"], judge_last=CRI
         if not np.isfinite(obs).all():
             return {"pass": False, "reason": "输入爆(NaN)"}
         obs_max = max(obs_max, float(np.abs(obs).max()))
-        if hist_frames:
-            feed = {inputs[0].name: obs.reshape(1, -1)}
-        else:
-            feed = {inputs[0].name: obs}
+        # 主输入**永远补 batch 维**：ONNX 策略的输入形状是 (batch, features)。
+        # 2026-10-08 修正——单输入模型此前被喂 rank-1，onnxruntime 直接
+        # `INVALID_ARGUMENT: Invalid rank for input: Got: 1 Expected: 2`；
+        # 这个 bug 一直存在，只是"需 ONNX 产物"的 env-gated 声明从没在环境齐时跑过。
+        feed = {inputs[0].name: obs.reshape(1, -1)}
         if hist_frames:
             history.append(np.asarray(obs, dtype=np.float32))
             history = history[-hist_frames:]
