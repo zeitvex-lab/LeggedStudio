@@ -12,7 +12,7 @@
 |---|---:|---:|---|
 | algorithm | 1 | 0 | ✓ 有承载 |
 | controller | 1 | 0 | ✓ 有承载 |
-| evaluator | 3 | 0 | ✓ 有承载 |
+| evaluator | 4 | 0 | ✓ 有承载 |
 | family | 3 | 0 | ✓ 有承载 |
 | pack | 9 | 0 | ✓ 有承载 |
 | panel | 0 | 9 | ✓ 有承载 |
@@ -20,7 +20,7 @@
 | reward | 3 | 0 | ✓ 有承载 |
 | robot | 0 | 0 | —（该 seam 尚无声明，属待扩展位） |
 | sensor | 2 | 0 | ✓ 有承载 |
-| skill | 5 | 0 | ✓ 有承载 |
+| skill | 4 | 0 | ✓ 有承载 |
 | task | 1 | 0 | ✓ 有承载 |
 | terrain | 2 | 0 | ✓ 有承载 |
 

@@ -2,7 +2,9 @@
 
 数据真值 = ``registry/``：
   * ``registry/skills/index.json``     — **技能显式清单（K4 权威）**：recipe_id → 文件
-  * ``registry/skills/*.json``         — 技能配方（velocity_base 基座 + 机器人 patch）
+  * ``registry/skills/*.json``         — 技能配方（**只放族级基座** velocity_base；机型补丁的
+    家在 profile 层 ``assets/robots/<id>/training/profiles/`` —— Phase 6 2026-10-07 迁出，
+    ``patches/`` 目录已退役）
   * ``registry/rewards/reward_terms.json`` — 奖励项目录（label/default/supported）
   * ``registry/rewards/presets.json``      — 任务级奖励权重预设
 

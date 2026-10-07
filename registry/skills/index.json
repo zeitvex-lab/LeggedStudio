@@ -1,19 +1,13 @@
 {
   "schema": "skill-index-1.0",
-  "generated_at": "2026-09-13",
-  "note": "技能注册显式清单（K4）。此前注册表由 backend/skill_registry.py 扫描 registry/skills/**/*.json 隐式决定——文件放进去就算注册，改名/挪目录就静默改了契约。现在清单是权威：新增技能 = 在此登记一行 + 放入文件；文件存在但未登记即为未注册（由 unregistered_skill_files() 报出）。path 相对本文件所在目录。",
+  "generated_at": "2026-10-07",
+  "note": "技能注册显式清单（K4）。此前注册表由 backend/skill_registry.py 扫描 registry/skills/**/*.json 隐式决定——文件放进去就算注册，改名/挪目录就静默改了契约。现在清单是权威：新增技能 = 在此登记一行 + 放入文件；文件存在但未登记即为未注册（由 unregistered_skill_files() 报出）。path 相对本文件所在目录。**2026-10-07 Phase 6 收口**：本注册表**只放族级基座**——机型补丁（原 `patches/zex-w-rough.json`）已迁出：机型差异的家 = profile 层（`assets/robots/<id>/training/profiles/*.json`，支持 extends/overrides），且那里的 `zex-w-rough` 档案与旧 patch 在 11 个共享键上逐值相等（B6 对拍即证、迁移快照锁在 backend/test_skill_registry.py）。机型补丁不许回本注册表。",
   "skills": [
     {
       "recipe_id": "velocity_base",
       "path": "velocity_base.json",
       "role": "base",
       "summary": "速度跟踪基座配方（任务变体表 tasks 的真值来源）"
-    },
-    {
-      "recipe_id": "zex-w-rough",
-      "path": "patches/zex-w-rough.json",
-      "role": "patch",
-      "patch_of": "velocity_base"
     }
   ]
 }

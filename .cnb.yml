@@ -210,92 +210,12 @@ syntax-check: &syntax-check
       # discover，口径与 package.json 的 `npm test` 完全一致，不再留盲区。
       # 上面保留显式模块是有意的：核心用例失败时日志更短、定位更快。
       python -m unittest discover -s backend -p "test_*.py" 2>&1 | tail -30
-      echo "== B8 porting admission (rules T/S/C/X) =="
-      python tools/audit_porting_admission.py
-      echo "== capability packs (B1: 14 packs validate + refs sha256) =="
-      python tools/validate_packs.py
-      echo "== license registry (I5: 许可与出处，缺许可的内置包不得进索引) =="
-      python tools/audit_licenses.py
-      echo "== motion registry (M1: Motion 一等资源，注册表 vs 磁盘逐文件对账) =="
-      python tools/audit_motions.py
-      # A1 环境供应四段（只读启动/显式配置/镜像切换/离线 wheelhouse）—— 只做静态契约核对，
-      # 不代替 Windows 实机验证（脚本自己会把这一句打出来）
-      python tools/audit_provision_phases.py
-      # B37 观测组名/API 残留（按机型包语义判定；静态扫描，不运行 mjlab）
-      python tools/audit_obs_group_names.py
-      # N5 仿真分层：data-surface 声明—消费两端（静态扫描，不渲染浏览器）
-      python tools/audit_sim_surface.py
-      # H23 sim2sim 执行器/滤波一致性：浏览器下发 ↔ 契约真值 ↔ 训练常量表 ↔ 电机参数卡
-      # 四端同值 + B3 物理键残留复检 + 端点白名单接线钉住（rc_old 参考值只记录不判红）
-      python tools/audit_sim2sim_consistency.py
-      # N2 资源库许可覆盖（只看文件存在性；新缺口/名单过期判红）
-      python tools/audit_resource_licenses.py
-      # 族架构：同族机型可复用同一套技能训练（成员/族约定/技能覆盖/缺口留痕）
-      python tools/audit_families.py
-      # 地形档：声明（哪些族可用）vs 事实（能不能真装配出地形实体）
-      python tools/audit_terrain_profiles.py
-      # 族 MJCF 约定：规范化后逐台核对（执行器归属 / 根 body 命名 / margin 政策 / 无名传感器，
-      # 偏离必须登记在族声明的 mjcf_deviations）
-      python tools/audit_family_mjcf.py --check
-      # 逐档案上游参考对照与移植核对结论（参考仓必须在 00_resources 下；疑点必须带处置）
-      python tools/audit_porting_references.py
-      # v2 契约（create 校验链与预设记录的输入）观测段 == v3 投影
-      python tools/sync_legacy_observation.py
-      # 技能上移等价性取证工具的自检（归一有效 / 真差异必抓 / 同值不误报；不碰训练栈）
-      python tools/audit_skill_lift_equivalence.py --self-test
-      # N6 验收判据可查性（文本级，守回归）
-      python tools/audit_acceptance_verifiability.py
-      # 插件统一度门禁（00_know/06 插件篇 v3.0：旧机制只许减少不许回涨；对照 tools/baselines/plugin_unification.json）
-      python tools/audit_plugin_unification.py --check
-      # seam 图与总表一致性（机器生成的"新行为去哪"地图，漂移判红）
-      python tools/gen_capability_seams.py --check
-      # N7 tools/ 孤儿工具登记（文本级引用检测）
-      python tools/audit_tools_inventory.py
-      # GitHub 镜像：无密钥时打印 SKIPPED 并 exit 0（本地/CI 的常态），
-      # **有密钥时才有意义** —— 真正的同步由 push / tag_push 事件的 github-mirror 做。
-      # 这里跑 --check 只做一件静态可守的事：确认入口可导入、参数可解析（防止
-      # "流水线里配了但脚本压根跑不起来"这种只在发布时才暴露的错）。
-      python -m adapters.github.mirror --check
-      echo "== doc reality check (B17: 文档数字 vs 实测) =="
-      # 版本号 / 包数 / 策略数 / 资源库项目数一旦与仓库不符即红，防止再次漂移。
-      python tools/doc_reality_check.py
-      echo "== contracts suite (B18: 契约 / 物理绑定全量) =="
-      # 2026-09-13：此前 CI 只跑 contracts.tests.test_path_bootstrap 一个模块，其余
-      # 123 项（role_resolver 三级展开 / 物理载荷视图 / go2 冻结证据哈希 / 动作缩放…）
-      # 长期不在门禁内 —— 结果 38 项失败（16 FAIL + 22 ERROR）无人知晓。现按
-      # "迁移已完成"重写（把真值源从 simulation/config.json 换成 contract_truth，
-      # 并把"缺口"正面表述为"必须覆盖每个驱动关节"）后**全量接入**。
-      python -m unittest discover -s contracts/tests -p "test_*.py" 2>&1 | tail -30
-      echo "== deterministic replay gate (L1/G2: judge selfcheck) =="
-      # 判据实现只有一处（adapters/mjlab/replay_determinism.py）；这里跑它的自检，
-      # 保证"两次逐帧一致"的判定本身不退化。真实回放比对需两份 frame log（浏览器/无头产出）。
-      python tools/replay_gate.py --selftest
-      echo "== control rates consistency (P2: 控制三件套口径) =="
-      # v3 自洽（physics_hz == control_hz × decimation）是**硬门禁**；
-      # v2 / 训练 profile 的差异是"已登记的报告项"，不判红——但必须可见。
-      python tools/check_control_consistency.py
-      echo "== route regression (H19: 通过率 / 最小净空 / 本体侵入) =="
-      # 只守退化：与 tools/baselines/route_regression_baseline.json 对比，通过率下降 /
-      # 最小净空下降 / 新增超时或碰撞 / 本体侵入路线增加 / H13 后处理不再消掉 VIOLATION
-      # ——任一发生即 exit 2。基线刷新是**显式动作**（--write-baseline），避免顺手改绿。
-      # 含 dwa（采样式规划器约 9 s/条）：这是 H11「DWA 未到达」结论的唯一自动守卫点，
-      # 慢值得。CI 用 --routes 1 控制规模，本地可用 --routes 6 做更重的回归。
-      python tools/route_regression.py --with-dwa --routes 1
-      echo "== map visuals consistency (地图视觉基调：skybox / groundplane / light) =="
-      # 10 张图的视觉基调原本各写各的：apartment 连 <visual>/<light> 都没有，flat 用纯黑
-      # skybox、stairs 用 gradient，groundplane 的 reflectance 在 0.0/0.2 之间来回。
-      # 这里只**检查**是否仍与 mjlab 官方口径一致（exit 2 = 有漂移）；
-      # 刷新用 `python tools/unify_map_visuals.py --apply`。
-      # 同时守住「外部贴图必须存在」——cross_slope / cross_stairs 曾因 `imgs/` 没跟着 xml
-      # 一起拷过来而**长期编译不过**（引用了不存在的 label_*.png）。
-      python tools/unify_map_visuals.py
-      echo "== map dual-link audit (assets/maps vs web/sim2sim/assets/go2) =="
-      # 两套地图是**设计上并存**的：新链路=公共地图库（纯环境，服务端按机型注入机器人），
-      # 旧链路=内置 bundled flow（自带 go2 include，且与 Go2 策略的 reference MJCF 耦合）。
-      # 但地形几何同源、靠手工同步，已经出过「贴图没跟着拷 ⇒ cross_slope/cross_stairs
-      # 长期编译不过」的事故。这步守**资源完整性**（硬门禁）；地形几何差异只报告不判红
-      # ——差异可能是有意的（如 slope 的 friction）。
-      python tools/audit_map_duplication.py
+      echo "== 派生门禁（Phase 4：清单来自 registry/verify/index.json，不再手列） =="
+      # 00_know/06 §17 Phase 4：审计/校验脚本的“家”在 registry/verify/index.json，
+      # 由 tools/audit_plugin_verify.py 派生 —— 新增门禁 = 加一条声明，不改本文件。
+      # env 非空的 8 条（training-venv / mjlab / artifact / onnxruntime / manual）
+      # 不进本段，由各自的专项段或人工跑（见目录里的 note）。
+      python tools/audit_plugin_verify.py --run
   - name: browser-e2e-gate
     script: |
       set -eo pipefail

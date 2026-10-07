@@ -329,7 +329,18 @@
  },
  "kit": {
   "kit_module": "adapters.mjlab.kits.quadruped_kit",
-  "binding_from_contract": "adapters.mjlab.kits.quadruped_kit.skills:from_contract"
+  "binding_from_contract": "adapters.mjlab.kits.quadruped_kit.skills:from_contract",
+  "provides": [
+   "adapters.mjlab.kits.quadruped_kit:package_mjcf",
+   "adapters.mjlab.kits.quadruped_kit:position_actuator_trio",
+   "adapters.mjlab.kits.quadruped_kit:quadruped_foot_collision",
+   "adapters.mjlab.kits.quadruped_kit:action_scale_from_actuators",
+   "adapters.mjlab.kits.quadruped_kit:new_velocity_env_cfg",
+   "adapters.mjlab.kits.quadruped_kit:repoint_height_scan_sensors",
+   "adapters.mjlab.kits.quadruped_kit:apply_play_postlude",
+   "adapters.mjlab.kits.quadruped_kit:apply_flat_postlude",
+   "adapters.mjlab.kits.quadruped_kit:ppo_runner_cfg"
+  ]
  },
- "kit_note": "kit 自描述（Phase 1 插件化，2026-10-02）：通用装配器从这里读绑定工厂，family_skill_builder 不再写死族字典——新族=登记 JSON+写 kit，零核心改动。"
+ "kit_note": "kit 自描述（Phase 1 插件化，2026-10-02；Phase 3b 2026-10-07 补 `provides` = Kit 的公开入口点，**归属表数据化**：`adapters/mjlab/kits/__init__.py` 的归属表与 `backend/test_kits_registry.py` 都从这里派生，手写 docstring 退役）：通用装配器从这里读绑定工厂，family_skill_builder 不再写死族字典——新族=登记 JSON+写 kit，零核心改动。"
 }
