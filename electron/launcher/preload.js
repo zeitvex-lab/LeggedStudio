@@ -19,6 +19,9 @@ contextBridge.exposeInMainWorld('leggedStudio', {
     pickPython: () => ipcRenderer.invoke('settings:pick-python'),
     openPath: (key) => ipcRenderer.invoke('path:open', key),
     openExternal: (url) => ipcRenderer.invoke('external:open', url),
+    // 真托管（00_know/06 §追记 2026-10-12）：产品本体在 Electron 窗口内运行
+    openInWindow: (url) => ipcRenderer.invoke('window:load-url', url),
+    showLauncher: () => ipcRenderer.invoke('window:show-launcher'),
     minimize: () => ipcRenderer.invoke('window:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
     close: () => ipcRenderer.invoke('window:close'),

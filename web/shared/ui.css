@@ -637,7 +637,14 @@ body.embedded .ls-topnav { display: none; }
   gap: 8px;
 }
 .panel-card-head strong { font-size: 14px; color: var(--ls-text, #1f2933); }
-.panel-card-link { font-size: 12px; color: var(--ls-accent, #2563eb); text-decoration: none; }
+.panel-card-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ls-tap-sm);  /* 可量门禁：点击区 ≥24px（test_ui_metrics_gate） */
+  font-size: 12px;
+  color: var(--ls-accent, #2563eb);
+  text-decoration: none;
+}
 .panel-card-link:hover { text-decoration: underline; }
 .panel-card-row {
   display: flex;
@@ -660,3 +667,85 @@ body.embedded .ls-topnav { display: none; }
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* =========================================================================
+   设计系统 v2（2026-10-12）：「agent 工作台」暗色主题
+   —— 参考系：dsh(deepseek-harness) / Zed / Cursor / Claude Code 等开源 agent
+   工具的共同视觉语言：深墨底 + 1px 细边 + 紧凑密度 + 等宽字体元数据 +
+   单强调色 + 状态点（架构裁决见 00_know/06 §追记 2026-10-12）。
+   用法：页面在 <html data-theme="dark"> 声明即整页切换；tokens 全部同名派生，
+   不维护第二套组件。色值预挑 WCAG AA（正文 ≥4.5:1，tests/e2e/
+   test_ui_metrics_gate.py 是硬门）。
+   ========================================================================= */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ---------- 版面（深墨三阶：底 / 面 / 起） ---------- */
+  --ls-bg: #0b0e13;             /* 应用底（编辑器底色阶） */
+  --ls-surface: #11161d;        /* 面板 */
+  --ls-surface-raised: #182029; /* 浮起卡 / hover */
+  --ls-surface-soft: #141a22;   /* 凹陷 / 输入井 */
+  --ls-line: #232d3a;           /* 1px 主描边 */
+  --ls-line-soft: #1a232e;      /* 次级描边 / 分隔线 */
+  --ls-text: #dbe4ec;           /* 主文本（on #11161d ≈ 12:1） */
+  --ls-ink: #b9c5d1;            /* 按钮正文 */
+  --ls-muted: #7f8c9a;          /* 次级文本（on #11161d ≈ 5.1:1） */
+  --ls-faint: #7a8794;          /* 三级/微标签（≈4.7:1，不低于 AA） */
+
+  /* ---------- 强调色（agent 蓝：链接/主行动/激活态） ---------- */
+  --ls-accent: #5ea8ff;         /* on #11161d ≈ 7.4:1 */
+  --ls-accent-strong: #82bcff;
+  --ls-accent-soft: rgba(94, 168, 255, 0.12);
+  --ls-accent-line: rgba(94, 168, 255, 0.38);
+  --ls-accent-solid: #2f6fbd;   /* 实底主按钮：白字 ≈ 4.9:1 */
+  --ls-accent-solid-hover: #2a63a9;
+
+  /* ---------- 语义色（soft 底 + 实字，暗底全 AA） ---------- */
+  --ls-ok: #4ec98a;  --ls-ok-soft: rgba(78, 201, 138, 0.12);  --ls-ok-line: rgba(78, 201, 138, 0.35);
+  --ls-warn: #e0b159; --ls-warn-soft: rgba(224, 177, 89, 0.12); --ls-warn-line: rgba(224, 177, 89, 0.35);
+  --ls-err: #e5685e;  --ls-err-soft: rgba(229, 104, 94, 0.12);  --ls-err-line: rgba(229, 104, 94, 0.35);
+  --ls-muted-soft: rgba(127, 140, 154, 0.12);
+  --ls-muted-line: rgba(127, 140, 154, 0.3);
+
+  /* ---------- 侧栏（与内容同底、靠描边分层——Zed/Cursor 式一体化） ---------- */
+  --ls-side-bg: #0d1117;
+  --ls-side-raised: #131922;
+  --ls-side-line: var(--ls-line-soft);
+  --ls-side-text: var(--ls-text);
+  --ls-side-muted: var(--ls-muted);
+  --ls-side-accent: var(--ls-accent);
+  --ls-side-active-soft: var(--ls-accent-soft);
+
+  /* ---------- 字族：正文不变；元数据/ID/数值走等宽（agent 工具标志） ---------- */
+  --ls-font-mono: "SF Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  /* ---------- 暗色修正：阴影让位给描边；状态点用辉光 ---------- */
+  --ls-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* 暗色通用微调（只在 data-theme="dark" 页生效）：暗 UI 用描边分层、不用投影 */
+:root[data-theme="dark"] .ls-panel,
+:root[data-theme="dark"] .panel,
+:root[data-theme="dark"] .ls-card { box-shadow: none; }
+:root[data-theme="dark"] .ls-btn:focus-visible,
+:root[data-theme="dark"] .btn:focus-visible { outline-color: var(--ls-accent-strong); }
+
+/* 微标签（agent 风格的等宽大写小节签——已有 .eyebrow 的共享化） */
+.ls-eyebrow {
+  font-family: var(--ls-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ls-faint, var(--ls-muted));
+}
+
+/* 状态点（agent 状态灯：点 + 文本；颜色 = 语义 tokens，暗色下带辉光） */
+.ls-dot { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: var(--ls-muted); white-space: nowrap; }
+.ls-dot i { width: 7px; height: 7px; border-radius: 50%; background: var(--ls-faint); }
+.ls-dot.ok i { background: var(--ls-ok); box-shadow: 0 0 6px var(--ls-ok-line); }
+.ls-dot.warn i { background: var(--ls-warn); box-shadow: 0 0 6px var(--ls-warn-line); }
+.ls-dot.error i { background: var(--ls-err); box-shadow: 0 0 6px var(--ls-err-line); }
+
+/* 等宽元数据行（run id / 路径 / 数值） */
+.ls-mono { font-family: var(--ls-font-mono); font-size: 11px; color: var(--ls-muted); }
