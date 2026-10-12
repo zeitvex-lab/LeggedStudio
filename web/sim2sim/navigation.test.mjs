@@ -606,7 +606,9 @@ bypassRun.tick(pose(1.2, 0.42, Math.PI / 2));
 assert.equal(bypassRun.status().waypoint_index, 2, "走过的航点 1 应被消费 ⇒ 推进到航点 2");
 assert.equal(bypassRun.status().state, "bypass", "消费那一拍的状态 = bypass（与服务端同名）");
 
-// ② 护栏：段长 3m ⇒ 投影 0.14 ≤ 0.65 ⇒ 不算走过（稀疏长段口径的边界，如实钉住）
+// ② 稀疏长段：v0.55.50 起路径参数边界——机器人掠过拐角 0.42m（投影 0.42/3.0 = 0.14，
+//    v0.55.49 的双条件判据下永远消费不了 ⇒ waypointIndex 停住 ⇒ 双稳翻转至超时，
+//    00_know/05 §2.3 登记病象）。弧长游标越过 cum[1] 即消费。
 const longSegRun = createNavigationRunner(
   payload({
     waypoints: [
@@ -620,7 +622,23 @@ const longSegRun = createNavigationRunner(
   { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 },
 );
 longSegRun.tick(pose(1.2, 0.42, Math.PI / 2));
-assert.equal(longSegRun.status().waypoint_index, 1, "米级长段上投影未过 65% ⇒ 不消费");
+assert.equal(longSegRun.status().waypoint_index, 2, "米级长段上掠过拐角 ⇒ 弧长游标越过 cum[1] ⇒ 消费");
+
+// ②b 对照护栏：机器人还在**入向段**侧（最近点在入向段上）⇒ 游标够不到拐点，不消费
+const inboundRun = createNavigationRunner(
+  payload({
+    waypoints: [
+      { x: 0, y: 0, tolerance_m: 0.35 },
+      { x: 1.2, y: 0, tolerance_m: 0.2 },
+      { x: 1.2, y: 3.0, tolerance_m: 0.2 },
+      { x: 1.2, y: 4.0, tolerance_m: 0.2 },
+    ],
+    plan: { combined_path: [[0, 0], [1.2, 0], [1.2, 3.0], [1.2, 4.0]] },
+  }),
+  { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 },
+);
+inboundRun.tick(pose(0.6, 0.1, 0));
+assert.equal(inboundRun.status().waypoint_index, 1, "入向段侧 ⇒ 路径参数未越过拐点 ⇒ 不消费");
 
 // ③ 护栏：折返路线起点节点的投影一开始就"越过"，但机器人到它 2.0m ≫ 前视 ⇒ 不消费
 const foldRun = createNavigationRunner(
@@ -651,5 +669,41 @@ const pastGoalRun = createNavigationRunner(
 for (let i = 0; i < 6; i += 1) pastGoalRun.tick(pose(1.2, 0, 0));
 assert.notEqual(pastGoalRun.status().state, "bypass", "终点航点不许被消费（走过 ≠ 到达）");
 assert.equal(pastGoalRun.status().termination_reason, "complete", "终点仍按容差 + 稳定拍数真到达");
+
+// ⑤ 稀疏 L 形**全航线**仿真（v0.55.50 登记病象的浏览器侧复现器）：手填 1m 段航点 +
+//    密集 pursuit 折线。收口前 waypointIndex 卡在拐点（双条件互斥）⇒ 前视反复选中身后
+//    的点 ⇒ 30s 航点超时；收口后弧长游标越过拐点即消费 ⇒ 走完。差速积分 + 跟队巡航
+//    （ pursuit 折线上首节点 ≥ lookahead ⇒ vx ≈ kp_dist×0.5）。
+{
+  const lRoute = createNavigationRunner(
+    payload({
+      waypoints: [
+        { x: 0, y: 0, tolerance_m: 0.35 },
+        { x: 1, y: 0, tolerance_m: 0.2 },
+        { x: 1, y: 1, tolerance_m: 0.2 },
+      ],
+      plan: { combined_path: [[0, 0], [0.5, 0], [1, 0], [1, 0.5], [1, 1]] },
+    }),
+    { maxCmd: [8, 1.5, 2.5], controlDt: 0.05 },
+  );
+  let x = 0;
+  let y = 0;
+  let yaw = 0;
+  let t = 0;
+  const dt = 0.05;
+  for (let i = 0; i < 1200; i += 1) {
+    const status = lRoute.tick(pose(x, y, yaw));
+    if (status.finished || status.termination_reason) break;
+    const cmd = lRoute.command(pose(x, y, yaw));
+    x += cmd[0] * Math.cos(yaw) * dt;
+    y += cmd[0] * Math.sin(yaw) * dt;
+    yaw = wrapAngle(yaw + cmd[2] * dt);
+    t += dt;
+  }
+  const final = lRoute.status();
+  assert.equal(final.termination_reason, "complete", `L 形稀疏航线必须走完（实测 ${final.termination_reason}）`);
+  assert.ok(t < 30, `走完须远早于航点超时（实测 ${t.toFixed(1)}s）`);
+  assert.ok(Math.hypot(1 - x, 1 - y) < 0.2 + 1e-9, "终点在 H10 容差内");
+}
 
 console.log("navigation.test.mjs OK");

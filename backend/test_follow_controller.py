@@ -72,11 +72,11 @@ class FollowParamsTests(unittest.TestCase):
         self.assertEqual(params.max_recoveries, 4)
         self.assertEqual(params.recovery_vx_factor, -0.10)
         self.assertEqual(params.recovery_wz_factor, 0.45)
-        # v0.55.49 切角消费：投影阈值（与参考实现 PathFollower._point_is_behind_segment 同值）
-        self.assertEqual(params.node_consume_proj, 0.65)
         # 注册表与数据类不得漂移：逐字段对拍
+        # （v0.55.50 起 node_consume_proj 不再是服务端参数——切角消费改路径参数边界，
+        #  该字段只剩浏览器侧 pursuit 游标一个消费者；见 BypassConsumeTests 的说明）
         for field, key in (
-            ("lookahead_m", "lookahead_m"), ("node_consume_proj", "node_consume_proj"),
+            ("lookahead_m", "lookahead_m"),
             ("max_vx", "max_vx"), ("kp_dist", "kp_dist"),
             ("kp_yaw", "kp_yaw"), ("max_wz", "max_wz"), ("stuck_timeout_s", "stuck_timeout_s"),
             ("stuck_turn_progress_deg", "stuck_turn_progress_deg"),
@@ -99,15 +99,6 @@ class FollowParamsTests(unittest.TestCase):
             with self.assertRaises(ValueError) as ctx:
                 FollowParams.from_registry()
         self.assertIn("kp_yaw", str(ctx.exception))
-
-    def test_missing_node_consume_field_raises_and_names_it(self):
-        """切角消费阈值同走 fail-closed（缺了不许静默兜底成"从不消费"）。"""
-        spec = dict(follow_controller_spec())
-        spec.pop("node_consume_proj")
-        with mock.patch("backend.motion_commands.follow_controller_spec", return_value=spec):
-            with self.assertRaises(ValueError) as ctx:
-                FollowParams.from_registry()
-        self.assertIn("node_consume_proj", str(ctx.exception))
 
     def test_missing_slowdown_field_raises_and_names_it(self):
         """接近减速两参数同走 fail-closed（registry 唯一真值，缺了不许静默兜底）。"""
@@ -201,14 +192,26 @@ class NearGoalSlowdownTests(unittest.TestCase):
         self.assertLess(slowed.cmd[0], baseline.cmd[0], "vx 收紧而 wz 不动 ⇒ 分支只作用在 vx 上限")
 
     def test_mid_route_following_unchanged(self):
-        """中途航点：即使距最终航点已 < goal_slowdown_m 也不减速（门控在活跃航点==最终航点）。"""
-        # 活跃航点 (0.5,0) 不是最终航点，前视目标 (2,0)：自然律 0.8·1.75=1.4 ⇒ 顶满 max_vx。
-        # 若门控失效（按"距最终航点"减速），cap = 1.2·1.75/2.4 = 0.875，vx 就到不了 1.2。
-        controller = FollowController([[0.0, 0.0], [0.5, 0.0], [2.0, 0.0]])
+        """中途航点：即使距最终航点已 < goal_slowdown_m 也不减速（门控在活跃航点==最终航点）。
+
+        **v0.55.50 起前视目标 = 弧长点**（游标前方 lookahead 处）⇒ 跟队巡航速度 =
+        ``kp_dist·lookahead``（默认 0.36，与浏览器侧密集路径巡航同档），不再是"到远
+        航点的距离"。为让"减速门是否误生效"仍可判，用大 kp_dist 让自然律顶到
+        max_vx：门控若失效（按距最终航点减速）cap 会把它压到 0.875，一测现形。
+        """
+        aggressive = replace(FollowParams.from_registry(), kp_dist=5.0)
+        # 活跃航点 (0.5,0) 不是最终航点 ⇒ 无减速：自然律 5.0·0.45=2.25 顶满 max_vx。
+        controller = FollowController([[0.0, 0.0], [0.5, 0.0], [2.0, 0.0]], params=aggressive)
         step = controller.update([0.25, 0.0, 0.0], 0.0)
         self.assertAlmostEqual(step.cmd[0], controller.params.max_vx, places=9)
-        # 最终一段但距终点 ≥ goal_slowdown_m：同样不减速
-        far = FollowController([[0.0, 0.0], [5.0, 0.0]])
+        # 默认参数下中途就是巡航速度（不被任何上限压低）
+        plain = FollowController([[0.0, 0.0], [0.5, 0.0], [2.0, 0.0]])
+        plain_step = plain.update([0.25, 0.0, 0.0], 0.0)
+        self.assertAlmostEqual(
+            plain_step.cmd[0], plain.params.kp_dist * plain.params.lookahead_m, places=9
+        )
+        # 最终一段但距终点 ≥ goal_slowdown_m：同样不减速（自然律照发）
+        far = FollowController([[0.0, 0.0], [5.0, 0.0]], params=aggressive)
         step_far = far.update([1.0, 0.0, 0.0], 0.0)
         self.assertAlmostEqual(step_far.cmd[0], far.params.max_vx, places=9)
 
@@ -264,12 +267,13 @@ class CornerProgressTests(unittest.TestCase):
         )
         verdict = controller.verdict()
         self.assertEqual(verdict["recoveries_used"], 0)
-        # 切角几何上绕过了当前航点（H12 已登记的"lookahead 0.45 拐角切角"短板，
-        # 此前被误触卡死的挣扎掩盖）⇒ 终止是**航点超时**（策略结论），不是卡死——
-        # 终止原因分层不得因卡死口径修正而混淆。
-        self.assertEqual(verdict["termination_reason"], "timeout")
-        self.assertEqual(verdict["verdict"], "fail")
+        # v0.55.50 前：稀疏长段（2m/2.83m）的 135° 拐点无法消费（双条件判据互斥）⇒
+        #     index 停在拐点 ⇒ 前视反复选身后的点 ⇒ 双稳翻转至航点超时（登记病象）。
+        # v0.55.50 起：弧长目标贴路径跟踪，135° 拐角**真到达**（advance）⇒ 航线走完。
+        self.assertEqual(verdict["termination_reason"], "complete")
+        self.assertEqual(verdict["verdict"], "pass")
         self.assertTrue(verdict["details"]["is_strategy_verdict"])
+        self.assertIn("advance", {s.event for s in steps}, "135° 拐角须按 H10 真到达")
 
     def test_fold_back_slow_pivot_beyond_stuck_window_keeps_rotating(self):
         """180° 折返 + 转向跟踪打折（0.5×，真机滞后现场）：原地转远超 4s 不得误触恢复。"""
@@ -359,29 +363,22 @@ class SelftestTests(unittest.TestCase):
         self.assertEqual(report["arrival_source"], "registry/arrival_criteria.json")
 
 
-class BehindSegmentTests(unittest.TestCase):
-    """`point_is_behind_segment` 逐条对齐参考实现口径（proj > 阈值 **且** 离下一点更近）。"""
-
-    def test_matches_reference_formula(self):
-        from backend.follow_controller import point_is_behind_segment
-
-        # 投影越过 65% 且离下一节点更近 ⇒ 已走过
-        self.assertTrue(point_is_behind_segment(1.8, 0.9, (1.0, 0.0), (2.0, 1.0), 0.65))
-        # 只贴近段中段（投影 0.3 ≤ 0.65）⇒ 不算走过（不许拿"近"当"过"）
-        self.assertFalse(point_is_behind_segment(1.0, 0.3, (1.0, 0.0), (1.0, 1.0), 0.65))
-        # 投影够但离本节点仍更近 ⇒ 不算走过
-        self.assertFalse(point_is_behind_segment(1.3, 0.4, (1.0, 0.0), (2.0, 3.0), 0.65))
-        # 退化段（两点重合）⇒ 没有方向可言，不消费
-        self.assertFalse(point_is_behind_segment(5.0, 5.0, (1.0, 1.0), (1.0, 1.0), 0.65))
-
-
 class BypassConsumeTests(unittest.TestCase):
-    """v0.55.49 切角消费（H12 登记短板「lookahead 0.45 拐角切角」收口）。
+    """v0.55.50 切角消费改**路径参数边界**（H12 登记短板「稀疏长段路径 0.45 边界双稳翻转」收口）。
 
-    **口径**：密集路径（≈0.2m 节点间距）——A\\* 参考路径 / H19 回归 / 产品链路都走这个口径。
-    稀疏长段路径（手填航点、米级段长）**不在本轮范围**：那里的病象是"前视目标在 0.45 边界
-    双稳翻转"，与本条不同源（实测：L 形 1m 段、拐角被以 0.24~0.35m 掠过 ⇒ 收口前后逐字节
-    一致地超时），已如实登记在 ``00_know/05`` §2.3，不许把它当成"已修"。
+    **口径变迁**（v0.55.49 → v0.55.50）：消费判据从「投影 > node_consume_proj **且**
+    距节点 < lookahead」的双条件，改为**弧长游标越过节点的路径参数**（``progress_s >=
+    cum[index]``，最近点 + 单调游标）。换判据的理由 = 双条件在**垂直拐角**上互斥：
+    投影越过 0.65 要求越过拐点 0.65m，"须曾贴近"要求 < 0.45m——L 形 1m 段上永远不能
+    同时成立 ⇒ 拐点永远无法消费 ⇒ 前视扫描把**身后**的拐点选成目标 ⇒ 目标航向 ≈±160°
+    双稳翻转 ⇒ 无限原地转至 30s 航点超时（00_know/05 §2.3 登记：8 档横向偏移全等）。
+
+    **新判据的护栏由单调性提供**（不再需要"须曾贴近"那道距离护栏）：弧长游标只从
+    游标所在段起向后找最近段、且只单调不回退 ⇒ 折返路线起点处游标 = 0，够不到
+    ``cum[1]``，「必须先去 (2,0)」的节点不会被吞。
+
+    两条纪律不变：**最后一个节点不消费**（goal 按 H10 真到达）；消费**不**要容差/
+    稳定拍数（人已走过，不是"到达"）。
     """
 
     #: 收口复现器：warehouse ``leg_2_3`` 的 A\\* 参考路径（27 节点）+ 起点（静态抄录，
@@ -399,26 +396,73 @@ class BypassConsumeTests(unittest.TestCase):
     ]
 
     def test_corner_cut_node_is_consumed_and_route_completes(self):
+        """leg_2_3 复现器：27 节点密集路径必须走完（收口前 30s 超时）。
+
+        v0.55.50 起前视目标 = 弧长点，机器人贴路径跟踪 ⇒ 密集拐角改为**真到达**
+        （advance）而非切角（bypass）——对巡检语义更好；切角消费分支由
+        ``test_beside_corner_with_projection_past_it_is_consumed`` 等宽切用例守。
+        """
         controller = FollowController(self.LEG_2_3_PATH)
         steps, x, y, yaw, t = _simulate(controller, start=(3.2, 2.2, 0.0))
         verdict = controller.verdict()
-        self.assertIn("bypass", {s.event for s in steps},
-                      "切角消费必须真的发生（否则是别的路径走通的，用例没测到目标分支）")
         self.assertEqual(verdict["termination_reason"], "complete")
         self.assertEqual(verdict["verdict"], "pass")
+        self.assertIn("advance", {s.event for s in steps},
+                      "密集路径的节点须按 H10 真到达（弧长目标跟队跟踪的应有形态）")
         self.assertLess(t, 30.0, "必须在航点超时（30s）之前走完——超时正是收口前的病象")
         self.assertLess(math.hypot(6.0 - x, 0.0 - y), 0.2, "终点在 H10 容差内")
 
-    def test_guard_rejects_never_approached_node_in_foldback_route(self):
-        """护栏：折返路线里起点节点的投影一开始就"越过 65%"，但机器人从未贴近它 ⇒ 不消费。
+    def test_sparse_l_corner_route_completes(self):
+        """v0.55.50 主用例：稀疏长段 L 形航线（1m 段）——登记病象的直接复现器。
 
-        否则会把"必须先去 (2,0)"的巡检点直接吞掉（``index`` 一步跳到终点）。
+        收口前（2026-10-08 实测）：8 档横向偏移全等 timeout 31.4~32.5s、终点距
+        0.54~0.61m、状态切换 18~28 次（双稳翻转）。收口后：全部 complete。
+        弧长目标下机器人贴路径跟踪：贴线起步的档**真到达**拐角（advance），大偏移
+        起步的档宽切绕过（bypass）——两种都是"节点已过"的合法机制（真到达/切角消费
+        各有专门用例守），这里只锁**走完**。
+        """
+        for offset in (0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7):
+            with self.subTest(offset=offset):
+                controller = FollowController([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
+                steps, x, y, _, t = _simulate(controller, start=(0.0, offset, 0.0))
+                verdict = controller.verdict()
+                self.assertEqual(verdict["termination_reason"], "complete",
+                                 f"offset={offset} 必须走完（登记病象：此档曾超时）")
+                self.assertEqual(verdict["verdict"], "pass")
+                self.assertTrue(
+                    {"advance", "bypass"} & {s.event for s in steps},
+                    "拐角必须被走过（真到达或切角消费，二者任一即节点已过）",
+                )
+                self.assertLess(t, 30.0, "走完须远早于航点超时")
+                self.assertLess(math.hypot(1.0 - x, 1.0 - y), 0.2 + 1e-6, "终点在 H10 容差内")
+
+    def test_sparse_long_segment_route_completes(self):
+        """米级长段（2m）L 形：收口前 timeout/终点距 1.58m；收口后 complete。"""
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0], [2.0, 2.0]])
+        steps, x, y, _, t = _simulate(controller)
+        verdict = controller.verdict()
+        self.assertEqual(verdict["termination_reason"], "complete")
+        self.assertEqual(verdict["verdict"], "pass")
+        self.assertIn("advance", {s.event for s in steps})
+        self.assertLess(math.hypot(2.0 - x, 2.0 - y), 0.2 + 1e-6)
+
+    def test_guard_rejects_never_approached_node_in_foldback_route(self):
+        """护栏（由单调性提供）：折返路线起点节点的投影一开始就"越过"，但游标在 0 处
+        （机器人从未沿路径走过它）⇒ 不消费。否则会把"必须先去 (2,0)"的巡检点吞掉。
         """
         controller = FollowController([[0.0, 0.0], [2.0, 0.0], [0.5, 0.0]])
         steps, *_ = _simulate(controller, max_steps=400)
         early = steps[:5]
         self.assertEqual([s.event for s in early if s.event == "bypass"], [],
-                         "起点处到该节点 2.0m ≫ 前视 0.45m：护栏（须曾贴近）必须拦住消费")
+                         "起点处游标 = 0 < cum[1]=2.0：单调护栏必须拦住消费")
+
+    def test_foldback_route_still_completes(self):
+        """折返航线本身要能走完：到 (2,0) 真到达（advance）⇒ 回头去 (0.5,0) 真到达。"""
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0], [0.5, 0.0]])
+        steps, *_ = _simulate(controller)
+        verdict = controller.verdict()
+        self.assertEqual(verdict["termination_reason"], "complete")
+        self.assertIn("advance", {s.event for s in steps}, "折返点须按 H10 真到达（不是被消费）")
 
     def test_last_node_is_never_consumed(self):
         """终点节点不参与消费：goal 必须按 H10 真到达（否则"走过终点"会假装成功）。"""
@@ -427,11 +471,66 @@ class BypassConsumeTests(unittest.TestCase):
         self.assertEqual([s.event for s in steps if s.event == "bypass"], [])
         self.assertEqual(controller.verdict()["termination_reason"], "complete")
 
-    def test_beside_but_not_past_node_is_not_consumed(self):
-        """"已走过"才消费：贴在节点旁但投影没越过 65% ⇒ 不算走过（不许拿"近"当"过"）。"""
+    def test_beside_corner_with_projection_past_it_is_consumed(self):
+        """语义变更登记（v0.55.49 → v0.55.50）：机器人贴在拐角旁、但**最近点已落在
+        出向段上**（路径参数越过拐点）⇒ 消费。v0.55.49 的"投影没过 65% 就不算走过"
+        口径退役——那条判据正是稀疏拐角卡死的根因（投影 65% 与"距节点 < 0.45"互斥）。
+        """
         controller = FollowController([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
         steps, *_ = _simulate(controller, start=(0.9, 0.3, 0.0), max_steps=60)
-        self.assertEqual([s.event for s in steps[:10] if s.event == "bypass"], [])
+        self.assertIn("bypass", {s.event for s in steps[:10]},
+                      "最近点在出向段上（路径参数已越过拐点）⇒ 消费")
+
+    def test_robot_still_on_incoming_segment_is_not_consumed(self):
+        """对照护栏：机器人还在入向段侧（最近点在入向段上）⇒ 游标够不到拐点，不消费。"""
+        controller = FollowController([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
+        steps, *_ = _simulate(controller, start=(0.4, 0.1, 0.0), max_steps=40)
+        self.assertEqual([s.event for s in steps[:20] if s.event == "bypass"], [],
+                         "最近点在入向段上 ⇒ 路径参数未越过拐点 ⇒ 不消费")
+
+    def test_degenerate_duplicate_waypoint_is_consumable(self):
+        """重复航点（零长段）：v0.55.49 的投影判据对退化段恒 False ⇒ 永远卡死；路径参数
+        边界下与邻居共享弧长 ⇒ 游标一到即消费（弧长目标跟队跟踪时多经真到达）。"""
+        controller = FollowController([[0.0, 0.0], [1.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
+        steps, *_ = _simulate(controller, max_steps=1500)
+        verdict = controller.verdict()
+        self.assertEqual(verdict["termination_reason"], "complete")
+        self.assertEqual(verdict["verdict"], "pass")
+
+
+class ProjectionTests(unittest.TestCase):
+    """v0.55.50 弧长投影（``_project_onto_path``）单元锁：最近点 + 单调游标。"""
+
+    def test_projection_advances_along_straight_path(self):
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0]])
+        self.assertAlmostEqual(controller._project_onto_path(0.5, 0.1), 0.5, places=9)
+        self.assertAlmostEqual(controller._project_onto_path(1.7, -0.2), 1.7, places=9)
+
+    def test_projection_clamps_before_start_and_past_end(self):
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0]])
+        self.assertAlmostEqual(controller._project_onto_path(-1.0, 0.5), 0.0, places=9)
+        self.assertAlmostEqual(controller._project_onto_path(3.0, 0.0), 2.0, places=9)
+
+    def test_projection_takes_nearest_segment_at_corner(self):
+        """宽切角：离出向段更近 ⇒ 路径参数取段上的投影（不是入向段的投影）。"""
+        controller = FollowController([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]])
+        # (0.9, 0.75)：入向段投影 0.9（垂距 0.75）vs 出向段投影 1.75（垂距 0.1）⇒ 取近的
+        self.assertAlmostEqual(controller._project_onto_path(0.9, 0.75), 1.75, places=9)
+
+    def test_projection_does_not_look_behind_the_cursor(self):
+        """单调：游标已过的段不回看（折返路线入向段平行相邻，回看会把游标拉回起点）。"""
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0], [0.5, 0.0]])
+        controller.progress_s = 2.0  # 已到折返点
+        # 机器人在回程段上 (1.0, 0.0)：入向段 (0,0)→(2,0) 投影 1.0 更近，但不许回看
+        self.assertAlmostEqual(controller._project_onto_path(1.0, 0.0), 3.0, places=9)
+
+    def test_cursor_never_regresses(self):
+        """update 里游标取 max：恢复动作后退不倒扣。"""
+        controller = FollowController([[0.0, 0.0], [2.0, 0.0]])
+        controller.update([1.0, 0.0, 0.0], 0.0)
+        advanced = controller.progress_s
+        controller.update([0.5, 0.0, 0.0], 0.02)  # 后退
+        self.assertEqual(controller.progress_s, advanced, "游标单调不回退")
 
 
 if __name__ == "__main__":
