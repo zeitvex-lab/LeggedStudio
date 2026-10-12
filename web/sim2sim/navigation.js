@@ -158,7 +158,9 @@ export function createNavigationRunner(payload, options = {}) {
 
   const params = {
     lookahead_m: requiredNumber(follow, "lookahead_m", "follow_controller"),
-    // v0.55.49 切角消费（H12 短板收口）：服务端 FollowParams.node_consume_proj 同字段
+    // v0.55.49 切角消费（H12 短板收口）：pursuit 游标的投影阈值。
+    // v0.55.50 起它**只剩这一个消费者**——航点侧消费改弧长游标（projectOntoWaypoints），
+    // 服务端 FollowParams 不再读它（注册表 note 已登记）。
     node_consume_proj: requiredNumber(follow, "node_consume_proj", "follow_controller"),
     kp_dist: requiredNumber(follow, "kp_dist", "follow_controller"),
     kp_yaw: requiredNumber(follow, "kp_yaw", "follow_controller"),
@@ -219,10 +221,10 @@ export function createNavigationRunner(payload, options = {}) {
   let elapsed_s = 0; // 控制时间线（秒）：每控制拍累加 controlDt，对应服务端 update 的 time_s
   let terminationReason = null; // complete / timeout / stuck / truncated / undefined（LightNav 分层）
   let waypointStart_s = 0; // 当前航点的起始时刻（服务端 waypoint_start_time）
-  let bestDistance = Number.POSITIVE_INFINITY; // 本航点历史最近距离（服务端 best_distance）
+  let bestDistance = Number.POSITIVE_INFINITY; // 本航点历史最近距离（pursuit 折线节点的距离口径）
   // v0.55.46 收口第 2 条：进展按目标导向运动登记（服务端 update「3a) 进展登记」同语义）。
   let bestHeadingErr = Number.POSITIVE_INFINITY; // turn_in_place 期间历史最小航向误差（服务端 best_heading_err）
-  let progressTargetIndex = -1; // 当前登记进展所对的前视目标下标（服务端 progress_target_index）
+  let progressTargetIndex = -1; // 当前登记进展所对的前视目标下标（pursuit 折线节点口径）
   let lastProgress_s = 0; // 最近一次有进展的时刻（服务端 last_progress_time）
   let recoveryUntil_s = -1; // 恢复段截止时刻（服务端 recovery_until）
   let recoveryCount = 0; // 已用恢复轮数（服务端 recovery_count）
@@ -254,16 +256,67 @@ export function createNavigationRunner(payload, options = {}) {
   }
 
   /**
-   * 活跃节点是否已被**切角绕过**（可消费，游标/航点下标才前进）。
+   * v0.55.50 航点弧长游标（服务端 `backend/follow_controller.py::progress_s` 同判据）。
    *
-   * 对齐服务端 `_node_bypassed`：① 已走过（`pointIsBehindSegment`）；② 当前仍在前视
-   * 半径内（前视的语义正是"跳掉 < lookahead 的点"，这条挡掉回头/折返路线里"起点节点
-   * 恰好落在身后"的误消费）。缺一不消费：宁可让机器人回头补点，也不假装走过。
+   * **为什么航点侧也要弧长游标**：v0.55.49 的双条件投影消费（投影 > node_consume_proj
+   * 且距节点 < lookahead）在**垂直拐角**上互斥——稀疏手填航点的拐点永远无法消费 ⇒
+   * waypointIndex 停住 ⇒ 30s 航点超时（00_know/05 §2.3 登记：8 档横向偏移全等）。
+   * 路径参数边界（游标越过 cum[index] 即消费）取代之；折返起点护栏由**单调性**提供
+   * （起点处游标 = 0，够不到 cum[1]），不再需要"须曾贴近"那道距离护栏。
+   *
+   * 投影判据 = 服务端 `_project_onto_path` 的**两段窗口**（游标所在段 + 下一段）：
+   * ① 落在当前段内但严格更接近下一段（宽切角）⇒ 换段；② 越过段末且绕到拐角另一侧
+   * ⇒ 换段，还在外侧 ⇒ 钳在拐角节点。共线折返（180° 发卡弯）上两段等距不换段——
+   * 全路径最近点法在那里必然坏一头（实测否决，见服务端 docstring）。
    */
-  function nodeBypassed(pose, point, nextPoint) {
-    const [px, py] = xy(point);
-    if (Math.hypot(px - pose.x, py - pose.y) >= params.lookahead_m) return false;
-    return pointIsBehindSegment(pose, point, nextPoint, params.node_consume_proj);
+  const wpCum = [0];
+  const wpTrack = [];
+  for (let i = 0; i < waypoints.length - 1; i += 1) {
+    const [ax, ay] = xy(waypoints[i]);
+    const [bx, by] = xy(waypoints[i + 1]);
+    const length = Math.hypot(bx - ax, by - ay);
+    wpCum.push(wpCum[i] + length);
+    if (length > 1e-9) {
+      wpTrack.push({ ax, ay, ux: (bx - ax) / length, uy: (by - ay) / length, length, cumStart: wpCum[i] });
+    }
+  }
+  const wpTotal = wpCum[waypoints.length - 1];
+  let wpProgressS = 0;
+
+  /** 机器人位姿到航点多段线的弧长投影（单调游标：只从游标所在段起算，不回看）。 */
+  function projectOntoWaypoints(pose) {
+    if (!wpTrack.length) return 0;
+    let index = 0;
+    for (let k = wpTrack.length - 1; k >= 0; k -= 1) {
+      if (wpTrack[k].cumStart <= wpProgressS + 1e-9) {
+        index = k;
+        break;
+      }
+    }
+    while (index < wpTrack.length) {
+      const seg = wpTrack[index];
+      const t = (pose.x - seg.ax) * seg.ux + (pose.y - seg.ay) * seg.uy;
+      if (index === wpTrack.length - 1 || t < seg.length) {
+        if (index + 1 < wpTrack.length) {
+          const nxt = wpTrack[index + 1];
+          const tNext = (pose.x - nxt.ax) * nxt.ux + (pose.y - nxt.ay) * nxt.uy;
+          const tCurC = Math.max(0, Math.min(seg.length, t));
+          const tNextC = Math.max(0, Math.min(nxt.length, tNext));
+          const distCur = Math.hypot(pose.x - (seg.ax + seg.ux * tCurC), pose.y - (seg.ay + seg.uy * tCurC));
+          const distNext = Math.hypot(pose.x - (nxt.ax + nxt.ux * tNextC), pose.y - (nxt.ay + nxt.uy * tNextC));
+          if (tNext >= 0 && distNext < distCur - 1e-9) {
+            index += 1; // 规则①：机器人已切到下一段上（严格更近）
+            continue;
+          }
+        }
+        return seg.cumStart + Math.max(0, Math.min(seg.length, t));
+      }
+      const nxt = wpTrack[index + 1];
+      const tNext = (pose.x - nxt.ax) * nxt.ux + (pose.y - nxt.ay) * nxt.uy;
+      if (tNext < 0) return nxt.cumStart; // 规则②：还在拐角外侧 ⇒ 钳在拐角节点
+      index += 1;
+    }
+    return wpTotal;
   }
 
   function targetIndex(pose) {
@@ -273,9 +326,11 @@ export function createNavigationRunner(payload, options = {}) {
     // **2026-10-08（v0.55.49）**：此前这里是 `lookahead_m × 0.5` 的距离启发式——与服务端
     // 不一致（服务端从自增的 index 起扫），H12 短板「lookahead 0.45 拐角切角」收口时
     // 统一为同一投影判据：游标只有"消费"这一个前进理由，两个实现不再各有一套跳过规则。
-    // **分工**：游标是"我沿路径走到哪了"的估计器 —— 只用参考实现的投影判据（`tick` 的
-    // 1b 与 `nodeBypassed` 那条"曾贴近"护栏是**航点**下标的职责：巡检点语义不属于游标，
-    // 否则拐角处游标会因"刚离开就超半径"而卡住、前视回看身后节点）。
+    // **分工（v0.55.50 起）**：这个游标（cursor）是** pursuit 路径折线**（plan.combined_path，
+    // 密集）上"我沿路径走到哪了"的估计器——只用参考实现的投影判据；**航点下标**
+    // （waypointIndex，稀疏手填航点）的前进则走弧长游标 wpProgressS（路径参数边界，
+    // 见 projectOntoWaypoints）——v0.55.49 加在航点消费上的"曾贴近"护栏随双条件一起
+    // 退役（垂直拐角上它与投影阈值互斥，稀疏拐点永远无法消费，00_know/05 §2.3）。
     while (
       cursor < path.length - 1
       && pointIsBehindSegment(pose, path[cursor], path[cursor + 1], params.node_consume_proj)
@@ -368,6 +423,9 @@ export function createNavigationRunner(payload, options = {}) {
     if (elapsed_s > stuckParams.max_total_time_s) {
       return finish("truncated", "truncated");
     }
+    // 0b) 弧长游标推进（v0.55.50；服务端 update 顶部同语义）：每拍重算投影，单调
+    //     不回退。必须在到达判定/消费之前算——1b) 的消费判据读的就是它。
+    wpProgressS = Math.max(wpProgressS, projectOntoWaypoints(pose));
     const target = waypoints[waypointIndex];
     if (!target) {
       return finish("undefined", "done"); // 没有可追随的航点：判据未定义（不假装成功）
@@ -381,6 +439,10 @@ export function createNavigationRunner(payload, options = {}) {
         reached += 1;
         stableCount = 0;
         waypointIndex += 1;
+        // 游标 snap 到刚到达的节点（v0.55.50，服务端 advance 分支同语义）：容差带内
+        // 到达时机器人可能还差最多一个容差没到节点弧长，共线折返时游标会因此冻在
+        // 入向段上。到达即认可"走过该节点"，游标不许落在节点身后。
+        wpProgressS = Math.max(wpProgressS, wpCum[waypointIndex - 1]);
         turnInPlace = false; // 换段重新判定朝向
         // 新航点只重置计时/进展登记（服务端 advance 分支同语义：waypoint_start_time /
         // best_distance / best_heading_err / last_progress_time）——**不**清 recovery_until /
@@ -398,20 +460,21 @@ export function createNavigationRunner(payload, options = {}) {
     }
     stableCount = 0;
 
-    // 1b) 切角消费（服务端 update「1b) 切角消费」同语义，v0.55.49 收口 H12 短板
-    //     「lookahead 0.45 拐角切角」）：活跃航点若已被走过（投影越过 node_consume_proj、
-    //     离下一航点更近、且当前仍在前视半径内）⇒ 消费、waypointIndex 前进。
+    // 1b) 切角消费（v0.55.50 路径参数边界；服务端 update「1b) 切角消费」同语义）：
+    //     活跃航点若已被**走过**（弧长游标 wpProgressS 越过它的路径参数
+    //     wpCum[waypointIndex]）⇒ 消费、waypointIndex 前进。取代 v0.55.49 的
+    //     「投影越过 node_consume_proj、离下一航点更近、且当前仍在前视半径内」双条件
+    //     ——那两个条件在垂直拐角上互斥（稀疏拐点永远无法消费 ⇒ waypointIndex 停住
+    //     ⇒ 前视反复选中身后的点 ⇒ 双稳翻转至超时，00_know/05 §2.3 登记病象）。
     //     消费**不**要容差/稳定拍数（人已走过，不是"到达"）；**最后一个航点不消费**
     //     （服务端 while 上界同为 len-1）——goal 仍须按 H10 真到达，否则"走过终点"
-    //     会假装成功。不收口的后果（warehouse leg_2_3 实测）：waypointIndex 停在被绕过
-    //     的节点 ⇒ 前视反复选中身后的点 ⇒ 航向在 ≈±160° 双稳翻转 ⇒ 无限原地转至超时。
+    //     会假装成功。
     let bypassed = 0;
-    while (
-      waypointIndex < waypoints.length - 1
-      && nodeBypassed(pose, waypoints[waypointIndex], waypoints[waypointIndex + 1])
-    ) {
+    while (waypointIndex < waypoints.length - 1 && wpProgressS >= wpCum[waypointIndex] - 1e-9) {
       waypointIndex += 1;
       bypassed += 1;
+      // 游标 snap（同到达分支）：消费即认可"走过该节点"，游标不许落在节点身后
+      wpProgressS = Math.max(wpProgressS, wpCum[waypointIndex - 1]);
       turnInPlace = false; // 换段重新判定朝向（与服务端消费分支同款）
       stableCount = 0;
       waypointStart_s = elapsed_s;
@@ -516,6 +579,7 @@ export function createNavigationRunner(payload, options = {}) {
   function reset() {
     waypointIndex = 1;
     cursor = 1;
+    wpProgressS = 0; // v0.55.50 弧长游标归零（服务端 reset 同语义）
     stableCount = 0;
     reached = 1;
     finished = waypoints.length <= 1;

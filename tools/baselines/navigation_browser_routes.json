@@ -1,16 +1,16 @@
 {
   "schema": "navigation-browser-routes-1.1",
-  "generated_at": "2026-09-23T02:12:28",
+  "generated_at": "2026-10-12T15:51:31",
   "surface": "web/sim2sim/index.html（基础仿真，?debug=1&nav=warehouse&nav_waypoints=...）",
   "mode": "e2e",
   "provenance": {
-    "product_version": "0.62.0",
+    "product_version": "0.66.0",
     "git": {
-      "commit": "90f47e9d39b1ed6b1c80c0a763f1d5e742d60f58",
+      "commit": "a3d14498070b9ab92c3e2dbe537318ec27b8aedd",
       "dirty": true
     },
     "platform": "Linux-5.4.241-1-tlinux4-0025.10-x86_64-with-glibc2.41",
-    "python": "3.12.14",
+    "python": "3.12.15",
     "browser": "playwright chromium (headless)",
     "robot": "unitree_go2",
     "policy": "go2-rlsar-robotlab",
@@ -23,11 +23,11 @@
   },
   "summary": {
     "total": 7,
-    "arrived": 4,
-    "failed": 3,
+    "arrived": 7,
+    "failed": 0,
     "classification": {
-      "arrived": 4,
-      "h12_overshoot": 3,
+      "arrived": 7,
+      "h12_overshoot": 0,
       "h12_no_follow": 0,
       "link_defect": 0
     },
@@ -84,10 +84,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:60949/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/full.png",
-      "total_ms": 4893,
+      "total_ms": 5359,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -128,10 +128,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:60949/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_0_1.png",
-      "total_ms": 4020,
+      "total_ms": 4285,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -172,10 +172,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:60949/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_1_2.png",
-      "total_ms": 2214,
+      "total_ms": 2514,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -216,10 +216,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:60949/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_2_3.png",
-      "total_ms": 4224,
+      "total_ms": 4768,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -244,29 +244,29 @@
       "policy_wait_s": 0.2,
       "path_nonempty": true,
       "followed": true,
-      "arrived": false,
-      "termination_reason": "timeout",
+      "arrived": true,
+      "termination_reason": "complete",
       "recoveries_used": 0,
-      "sim_time_s": 30.0,
+      "sim_time_s": 10.0,
       "final_pose": [
-        -0.679,
-        2.154
+        0.221,
+        -1.656
       ],
-      "final_error_m": 4.083,
+      "final_error_m": 0.168,
       "path_len_m": 23.657,
       "lookahead_m": 0.45,
-      "ok": false,
+      "ok": true,
       "first_error": null,
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:60949/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_1.png",
-      "total_ms": 6270,
-      "classification": "h12_overshoot",
+      "total_ms": 4413,
+      "classification": "arrived",
       "link_ok": true,
-      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
+      "reason": null
     },
     {
       "route": "random_2",
@@ -288,29 +288,29 @@
       "policy_wait_s": 0.2,
       "path_nonempty": true,
       "followed": true,
-      "arrived": false,
-      "termination_reason": "timeout",
+      "arrived": true,
+      "termination_reason": "complete",
       "recoveries_used": 0,
-      "sim_time_s": 30.0,
+      "sim_time_s": 10.0,
       "final_pose": [
-        6.248,
-        2.518
+        1.448,
+        2.211
       ],
-      "final_error_m": 4.737,
+      "final_error_m": 0.17,
       "path_len_m": 28.485,
       "lookahead_m": 0.45,
-      "ok": false,
+      "ok": true,
       "first_error": null,
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:60949/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_2.png",
-      "total_ms": 4569,
-      "classification": "h12_overshoot",
+      "total_ms": 4312,
+      "classification": "arrived",
       "link_ok": true,
-      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
+      "reason": null
     },
     {
       "route": "random_3",
@@ -332,29 +332,29 @@
       "policy_wait_s": 0.2,
       "path_nonempty": true,
       "followed": true,
-      "arrived": false,
-      "termination_reason": "timeout",
+      "arrived": true,
+      "termination_reason": "complete",
       "recoveries_used": 0,
       "sim_time_s": 30.0,
       "final_pose": [
-        3.954,
-        -3.33
+        -0.121,
+        -1.322
       ],
-      "final_error_m": 4.716,
+      "final_error_m": 0.174,
       "path_len_m": 32.142,
       "lookahead_m": 0.45,
-      "ok": false,
+      "ok": true,
       "first_error": null,
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:60949/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_3.png",
-      "total_ms": 4858,
-      "classification": "h12_overshoot",
+      "total_ms": 6216,
+      "classification": "arrived",
       "link_ok": true,
-      "reason": "follow_controller limitation: overshoot/oscillation around waypoint (tolerance 0.2m, stable_ticks=2, vx_max=1.2 m/s)"
+      "reason": null
     }
   ]
 }

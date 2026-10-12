@@ -5,7 +5,14 @@
 （``SimConfig`` 在 81–117 行，跟随逻辑在 395–640 行）：
 
 * 朝前视点走：``wz = clamp(kp_yaw·yaw_err, ±max_wz)``；仅当 ``|yaw_err| ≤ 45°`` 才给
-  ``vx = clamp(kp_dist·dist·cos(yaw_err), 0, speed_limit)``（cos 门控，不是线性衰减）；
+  ``vx = clamp(kp_dist·dist·cos(yaw_err), 0, speed_limit)``（cos 门控，不是线性衰减）。
+  **前视点的取法（v0.55.50 改）**：目标 = 弧长游标前方 ``lookahead_m`` 处的**路径点**
+  （``_point_at``，纯追踪一族的口径）——不再是从 index 起扫第一个"距机器人 ≥ lookahead
+  的航点"。后者在 0.45 边界上**双稳翻转**（机器人距节点 < 0.45 ⇒ 该节点被跳过、目标
+  切成远节点；机器人转身漂移后距离 ≥ 0.45 ⇒ 目标翻回**身后**的节点 ⇒ 无限振荡至
+  超时，135° 稀疏拐角实测），弧长目标只沿路径向前，翻转从构造上消失。速度口径随之
+  从"到远航点的距离"变为"到 lookahead 点的距离"（跟队巡航 ≈ ``kp_dist·lookahead`` =
+  0.36 m/s，与浏览器侧密集路径上的既有巡航速度同档）；
 * **接近减速（v0.55.48，H12 登记短板「0.2m 容差过冲振荡」的收口）**：只在**最后一段**
   （活跃航点即最终航点）且距最终航点 ``< goal_slowdown_m`` 时，vx 上限按剩余距离比例
   收紧 ``vx_cap = max_vx·clamp(dist/goal_slowdown_m, goal_slowdown_min_scale, 1)``
@@ -13,21 +20,29 @@
   标定约束：``goal_slowdown_m`` 必须 > ``max_vx/kp_dist``（1.2/0.8 = 1.5m）上限才会真正
   压住自然律，取 2.4m ⇒ 等效达点时间常数 2.0s（1m→0.5 m/s、0.5m→0.25 m/s）。
 * 大误差**原地转**：``|yaw_err| ≥ 70°`` 进入、``≤ 18°`` 退出（滞回）；
-* **切角消费（v0.55.49，H12 登记短板「lookahead 0.45 拐角切角」收口）**：活跃航点若已被
-  **走过**（机器人在「该节点 → 下一节点」段上的投影 > ``node_consume_proj``，**且**离下一
-  节点更近）⇒ 视为消费、``index`` 前进（**不**要求 H10 容差/稳定拍数——人已走过，不是
-  "到达"；**最后一个节点不消费**，goal 仍须真到达）。判据抄参考实现 ``PathFollower`` 的
-  ``_advance_path_nodes`` / ``_point_is_behind_segment``。
-  不收口的后果（warehouse leg_2_3 实测）：``index`` 停在被绕过的节点 ⇒ 前视扫描反复把
-  **身后**那个候点选成目标 ⇒ 目标航向在 ≈±160° 间**双稳翻转** ⇒ ``turn_in_place`` 无限
-  旋转 ⇒ 30 s 航点超时、此后恒发零速。消费后 ``index`` 单调，前视不再回看 ⇒ 翻转消失。
+* **切角消费（v0.55.50，H12 登记短板「稀疏长段路径 0.45 边界双稳翻转」收口）**：活跃航点
+  若已被**走过**（弧长游标 ``progress_s`` 越过它的路径参数 ``cum[index]``）⇒ 视为消费、
+  ``index`` 前进（**不**要求 H10 容差/稳定拍数——人已走过，不是"到达"；**最后一个节点
+  不消费**，goal 仍须真到达）。判据 = **路径参数边界**（弧长投影），取代 v0.55.49 的
+  「投影 > ``node_consume_proj`` **且** 距节点 < lookahead」双条件——那两个条件在
+  **垂直拐角**上互斥（投影越过 0.65 要求越过拐点 0.65m，"须曾贴近"要求 < 0.45m；L 形
+  1m 段上永远不能同时成立）⇒ 拐点永远无法消费 ⇒ 前视扫描把**身后**的拐点选成目标 ⇒
+  目标航向在 ≈±160° 间**双稳翻转** ⇒ ``turn_in_place`` 无限旋转 ⇒ 30s 航点超时
+  （00_know/05 §2.3 登记的病象：8 档横向偏移全等 timeout）。弧长游标**单调向前**
+  （只从游标所在段起投影、不回看）："折返路线起点节点被误消费"由单调性天然挡住
+  （起点处游标 = 0，够不到 ``cum[1]``）；机器人绕到拐角另一侧（下一段投影 ≥ 0）游标
+  才继续向前，否则钳在拐角节点上（还在拐角外侧 = 没走过拐角）。
+  这是对参考实现 ``PathFollower._point_is_behind_segment`` 的**有意偏离**（其同为
+  距离/投影口径，同样过不了垂直拐角）——偏离理由 = 该判据在参考场景（密集路径）成立，
+  在本仓稀疏手填航点场景不成立；偏离与此登记同在，不回退。
 * **卡死恢复**：``stuck_timeout_s`` 内无"目标导向进展" ⇒ 发 2 s 恢复动作
   ``vx = -0.10, wz = 0.45·sign``（符号每轮翻转），至多 ``max_recoveries`` 轮。
   进展有两类口径（v0.55.46 收口裁决，修"拐角急转误触卡死"）：
-  朝**前视目标**逼近 ≥ ``stuck_progress_m``（不是到当前航点的距离——拐角切角后当前
-  航点在身后，距离不缩反涨，按旧口径 135° 拐角必误判）；或 ``turn_in_place`` 期间
-  航向误差收敛 ≥ ``stuck_turn_progress_deg``（真机 180° 急转超 4s，不能按位移判卡死；
-  朝向冻住的真卡死两项都不成立 ⇒ 照常触发恢复）；
+  **弧长游标推进 ≥ ``stuck_progress_m``**（v0.55.50 起的主口径——前视目标改成随机器人
+  前移的路径点后，"到目标距离缩短"被目标前移抵消，失去量尺意义；沿路径真实走了多少
+  才是进展。恢复后退不倒扣：游标单调）；或 ``turn_in_place`` 期间航向误差收敛 ≥
+  ``stuck_turn_progress_deg``（真机 180° 急转超 4s，不能按位移判卡死；朝向冻住的真
+  卡死两项都不成立 ⇒ 照常触发恢复）；
 * 判据三类：``complete``（走完全程）/ ``timeout``（单航点超时）/ ``stuck``（恢复用尽）。
 
 **判据/阈值的两个来源（都不在本文件里硬编码）**：
@@ -61,27 +76,20 @@ def _clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
 
-def point_is_behind_segment(
-    x: float,
-    y: float,
-    point: Sequence[float],
-    next_point: Sequence[float],
-    proj_threshold: float,
-) -> bool:
-    """机器人是否已**走过** ``point``（在 ``point → next_point`` 段的方向上越过它）。
+@dataclass(frozen=True)
+class _TrackSegment:
+    """路径的一段（退化段除外）：单位方向 + 长度 + 起点累计弧长。
 
-    逐条对齐参考实现 ``nav_route_sim2sim_check.py::PathFollower._point_is_behind_segment``：
-    机器人在该段上的投影 > ``proj_threshold``（``node_consume_proj`` = 0.65）**且**离下一
-    节点比离本节点更近。两个条件缺一不可——只按投影会把"横向贴近段中段"误判成走过。
+    弧长游标（``FollowController.progress_s``）的几何基础：投影只沿轨道段算，
+    两点重合的段没有方向，进不了轨道（它们的航点在 ``_cum`` 里共享同一个弧长）。
     """
-    seg_x, seg_y = next_point[0] - point[0], next_point[1] - point[1]
-    seg_len_sq = seg_x * seg_x + seg_y * seg_y
-    if seg_len_sq <= 1.0e-9:
-        return False  # 退化段（两点重合）：没有方向可言，不消费
-    proj = ((x - point[0]) * seg_x + (y - point[1]) * seg_y) / seg_len_sq
-    if proj <= proj_threshold:
-        return False
-    return math.hypot(next_point[0] - x, next_point[1] - y) < math.hypot(point[0] - x, point[1] - y)
+
+    ax: float
+    ay: float
+    ux: float
+    uy: float
+    length: float
+    cum_start: float
 
 
 @dataclass(frozen=True)
@@ -89,7 +97,6 @@ class FollowParams:
     """跟随参数（全部来自 ``registry/motion_commands.json``）。"""
 
     lookahead_m: float
-    node_consume_proj: float
     max_vx: float
     max_vy: float
     max_wz: float
@@ -120,8 +127,6 @@ class FollowParams:
         recovery = spec.get("recovery_cmd") or {}
         fields = {
             "lookahead_m": spec.get("lookahead_m"),
-            # v0.55.49 切角消费（H12 短板收口）：投影判据阈值，与参考实现同源
-            "node_consume_proj": spec.get("node_consume_proj"),
             "max_vx": spec.get("max_vx"),
             "max_vy": spec.get("max_vy", 0.0),
             "max_wz": spec.get("max_wz"),
@@ -188,6 +193,29 @@ class FollowController:
         if len(waypoints) < 2:
             raise ValueError("跟随至少需要两个航点（起点与目标）")
         self.waypoints = [[float(p[0]), float(p[1])] for p in waypoints]
+        # 弧长表（v0.55.50 路径参数边界的几何基础）：_cum[i] = 第 i 个航点的累计弧长；
+        # _track 只收非退化段（两点重合的段没有方向，投影无从谈起——其航点在 _cum 里
+        # 与邻居共享同一个弧长，消费判据 progress_s >= cum[index] 不受影响）。
+        self._cum: list[float] = [0.0]
+        track: list[_TrackSegment] = []
+        for i in range(len(self.waypoints) - 1):
+            ax, ay = self.waypoints[i]
+            bx, by = self.waypoints[i + 1]
+            length = math.hypot(bx - ax, by - ay)
+            self._cum.append(self._cum[-1] + length)
+            if length > 1.0e-9:
+                track.append(
+                    _TrackSegment(
+                        ax=ax,
+                        ay=ay,
+                        ux=(bx - ax) / length,
+                        uy=(by - ay) / length,
+                        length=length,
+                        cum_start=self._cum[i],
+                    )
+                )
+        self._track = track
+        self._total = self._cum[-1]
         self.params = params or FollowParams.from_registry()
 
         if tolerances is None or stable_ticks is None:
@@ -210,50 +238,129 @@ class FollowController:
         self.turn_in_place = False
         self.stable_count = 0
         self.waypoint_start_time = time_s
-        self.best_distance = float("inf")
         self.best_heading_err = float("inf")
-        self.progress_target_index: int | None = None
+        # v0.55.50：进展主口径 = 弧长游标推进（best_progress_s = 历史最远游标）；
+        # 到前视目标的距离不再是进展量尺（目标随机器人前移，距离被抵消）。
+        self.best_progress_s = 0.0
         self.last_progress_time = time_s
         self.recovery_until = -1.0
         self.recovery_count = 0
         self.recovery_sign = 1.0
         self.finished = len(self.waypoints) <= 1
         self.reason: TerminationReason | None = None
+        # 弧长游标（v0.55.50）：机器人沿路径走了多少（米）。单调不回退——恢复动作后退
+        # 不倒扣，绕到拐角另一侧才继续向前。消费判据 = 路径参数边界（见 _project_onto_path）。
+        self.progress_s = 0.0
 
     @property
     def active(self) -> list[float]:
         return self.waypoints[min(self.index, len(self.waypoints) - 1)]
 
-    def _lookahead_index(self, x: float, y: float) -> int:
-        """前视点**下标**：跳过近处已消费的点，取第一个 ≥ lookahead 的点（参考实现同法）。
+    def _segment_at(self, s: float) -> _TrackSegment | None:
+        """弧长 ``s`` 所在的轨道段（``s`` 恰在节点上时取从该节点出发的那段）。"""
+        for seg in reversed(self._track):
+            if seg.cum_start <= s + 1.0e-9:
+                return seg
+        return None
 
-        返回下标而不是坐标：进展登记要识别"前视目标切换了"（切换 ⇒ 换基准重记，
-        见 update 的进展登记段），下标是稳定身份（两个航点可能坐标相同）。
+    def _point_at(self, s: float) -> list[float]:
+        """弧长 ``s`` 处的路径点（超出范围钳到端点）——前视目标的取法（v0.55.50）。
+
+        前视目标 = ``progress_s + lookahead_m`` 处的路径点，即参考实现 ``PurePursuit``
+        一族的「追前方 lookahead 处的点」。取代 v0.55.49 前的「从 index 起扫第一个
+        距机器人 ≥ lookahead 的**航点**」——那个扫描在 0.45 边界上**双稳翻转**：机器人
+        距节点 < 0.45 时该节点被跳过、目标切成可能需要大转弯的远节点，机器人转身漂移
+        后距离又 ≥ 0.45、目标翻回**身后**的节点（135° 稀疏拐角实测：无限振荡至超时）。
+        弧长目标只沿路径向前，翻转从构造上消失。
         """
-        for i in range(min(self.index, len(self.waypoints) - 1), len(self.waypoints)):
-            wp = self.waypoints[i]
-            if math.hypot(wp[0] - x, wp[1] - y) >= self.params.lookahead_m:
-                return i
-        return len(self.waypoints) - 1
+        s = _clamp(s, 0.0, self._total)
+        for seg in self._track:
+            if s <= seg.cum_start + seg.length + 1.0e-12:
+                t = _clamp(s - seg.cum_start, 0.0, seg.length)
+                return [seg.ax + seg.ux * t, seg.ay + seg.uy * t]
+        return list(self.waypoints[-1])
 
-    def _node_bypassed(self, x: float, y: float) -> bool:
-        """活跃节点是否已被**切角绕过**（可消费、``index`` 前进）。
+    def _pursuit_target(self, x: float, y: float) -> list[float]:
+        """前视目标点（v0.55.50）：游标前方 ``lookahead_m`` 处的路径点 + 发卡弯护栏。
 
-        两条同时成立才算（缺一不消费——宁可让机器人回头补点，也不假装走过）：
-        ① **已走过**：``point_is_behind_segment``（参考实现 ``PathFollower`` 口径：在
-           「本节点 → 下一节点」段上的投影 > ``node_consume_proj``，且离下一节点更近）；
-        ② **当前仍在前视半径内**：到该节点 < ``lookahead_m``。前视的语义正是"跳掉
-           < lookahead 的点"，所以"前视会跳掉的点"与这条是同一集合；护栏挡掉的是
-           回头/折返路线里"起点节点在几何上恰好落在身后"的**误消费**（实测：路径
-           [0,0]→[2,0]→[0.5,0] 这类折返，机器人还在起点时投影就已越过 0.65 ⇒ 会把
-           「必须先去 (2,0)」的节点吞掉）。
+        **发卡弯护栏（阈值-free，两个条件同时成立才钳）**：
+        ① 目标所在的段相对机器人**当前段**掉头（两段方向点积 < 0，即弯角 > 90°）——
+           路径在 lookahead 窗口内折返，弧长目标会绕到**返程段**上；
+        ② 该拐角**仍是活跃航点**（拐角弧长 ≥ 活跃航点弧长）——还没被到达/消费。
+        两条齐了才把目标改取当前段的末端（拐角）：按 H10 真到达拐角后再转身追返程，
+        是发卡弯的标准走法。条件②挡的是"已到拐点却还被钳在拐点"的死锁：到达后
+        活跃航点前移，护栏自动让位，目标回到返程段上（实测 ``[[0,0]→[2,0]→[0.5,0]]``
+        缺它时 stuck@27s——机器人堵在拐点、游标差 1e-5 没跨过节点弧长）。
+        ≤90° 的斜切不受影响（点积 ≥ 0，照常切角；密集路径的 45° 折线全部不受影响）。
         """
-        point = self.waypoints[self.index]
-        if math.hypot(point[0] - x, point[1] - y) >= self.params.lookahead_m:
-            return False
-        return point_is_behind_segment(
-            x, y, point, self.waypoints[self.index + 1], self.params.node_consume_proj
-        )
+        lookahead_s = self.progress_s + self.params.lookahead_m
+        target = self._point_at(lookahead_s)
+        seg = self._segment_at(self.progress_s)
+        if seg is not None:
+            target_seg = self._segment_at(min(lookahead_s, self._total))
+            corner_s = seg.cum_start + seg.length
+            if (
+                target_seg is not seg
+                and (seg.ux * target_seg.ux + seg.uy * target_seg.uy) < 0.0
+                and corner_s >= self._cum[self.index] - 1.0e-9
+            ):
+                return [seg.ax + seg.ux * seg.length, seg.ay + seg.uy * seg.length]
+        return target
+
+    def _project_onto_path(self, x: float, y: float) -> float:
+        """机器人位姿到路径的**弧长投影**（路径参数边界的基础，v0.55.50）。
+
+        **游标所在段 + 两段窗口**（单调游标）：只把机器人投影到游标当前所在的轨道段
+        及其**下一段**上，两条换段规则——
+
+        ① 投影落在当前段内，但机器人**严格更接近下一段**（且已在下一段起点之前）
+           ⇒ 换段：宽切角时机器人切到出向段上，游标要能跟上（135° 稀疏拐角实测：
+             只按所在段投影会让游标冻在拐点前、目标随之冻住 ⇒ 停在半路）；
+        ② 投影越过当前段末（``t ≥ length``）且已绕到拐角另一侧（下一段投影 ≥ 0）
+           ⇒ 换段；还在拐角外侧（下一段投影 < 0）⇒ 钳在拐角节点上（没绕过拐角 =
+           没走过它，不许拿"贴着拐角外侧"当过）。
+
+        **为什么是两段窗口而不是全路径最近点**（2026-10-12 实测否决）：共线折返
+        （180° 发卡弯，入向段与返程段共线）上机器人每一点都到两段等距——全路径
+        最近点法无论同距取早取晚都要坏一头（取早：返程段上游标冻住；取晚：入向段
+        半途中游标被拉到拐点后、拐点被提前消费）。两段窗口只在"拐角处"看下一段，
+        共线折返的等距不触发换段（取早的语义只在拐角生效），返程段则靠机器人真
+        绕过拐角后的规则②换段——两头都对。
+
+        游标只单调不回退（恢复后退不倒扣）。
+        """
+        track = self._track
+        if not track:
+            return 0.0
+        # 游标所在段：cum_start ≤ progress_s 的**最后**一段（progress_s 恰在节点上时
+        # 取从该节点出发的那段——机器人一绕到拐角另一侧游标就能前进）。
+        index = 0
+        for k in range(len(track) - 1, -1, -1):
+            if track[k].cum_start <= self.progress_s + 1.0e-9:
+                index = k
+                break
+        while index < len(track):
+            seg = track[index]
+            t = (x - seg.ax) * seg.ux + (y - seg.ay) * seg.uy
+            if index == len(track) - 1 or t < seg.length:
+                if index + 1 < len(track):
+                    nxt = track[index + 1]
+                    t_next = (x - nxt.ax) * nxt.ux + (y - nxt.ay) * nxt.uy
+                    t_cur_c = _clamp(t, 0.0, seg.length)
+                    t_next_c = _clamp(t_next, 0.0, nxt.length)
+                    dist_cur = math.hypot(x - (seg.ax + seg.ux * t_cur_c), y - (seg.ay + seg.uy * t_cur_c))
+                    dist_next = math.hypot(x - (nxt.ax + nxt.ux * t_next_c), y - (nxt.ay + nxt.uy * t_next_c))
+                    if t_next >= 0.0 and dist_next < dist_cur - 1.0e-9:
+                        index += 1  # 规则①：机器人已切到下一段上（严格更近）
+                        continue
+                return seg.cum_start + _clamp(t, 0.0, seg.length)
+            # 规则②：越过段末——绕到拐角另一侧才继续向前
+            nxt = track[index + 1]
+            t_next = (x - nxt.ax) * nxt.ux + (y - nxt.ay) * nxt.uy
+            if t_next < 0.0:
+                return nxt.cum_start  # 还在拐角外侧 ⇒ 钳在拐角节点
+            index += 1
+        return self._total
 
     # ---------- 一拍 ----------
     def update(self, pose: Sequence[float], time_s: float) -> FollowStep:
@@ -266,6 +373,11 @@ class FollowController:
             self.reason = "truncated"
             return self._step([0.0, 0.0, 0.0], "truncated", "truncated", time_s, 0.0)
 
+        # 弧长游标推进（v0.55.50）：每拍重算投影，单调不回退。恢复动作后退不倒扣，
+        # 位姿冻结时游标不动（卡死判据的输入之一）。必须在到达判定/消费之前算——
+        # 1b) 的消费判据读的就是它。
+        self.progress_s = max(self.progress_s, self._project_onto_path(x, y))
+
         active = self.active
         dx, dy = active[0] - x, active[1] - y
         distance = math.hypot(dx, dy)
@@ -275,11 +387,16 @@ class FollowController:
             self.stable_count += 1
             if self.stable_count >= self.stable_ticks:
                 self.index += 1
+                # 游标 snap 到刚到达的节点（v0.55.50）：容差带内到达时机器人可能还差
+                # 最多一个容差没到节点弧长，共线折返时游标会因此冻在入向段上（实测：
+                # 1.80m 处到达拐点 ⇒ 转身后游标不动、目标冻住 ⇒ 停在半路）。到达即认可
+                # "走过该节点"，游标不许落在节点身后。
+                self.progress_s = max(self.progress_s, self._cum[self.index - 1])
                 self.turn_in_place = False
                 self.stable_count = 0
                 self.waypoint_start_time = time_s
-                self.best_distance = float("inf")
                 self.best_heading_err = float("inf")
+                self.best_progress_s = self.progress_s
                 self.last_progress_time = time_s
                 if self.index >= len(self.waypoints):
                     self.reason = "complete"
@@ -288,25 +405,33 @@ class FollowController:
             return self._step([0.0, 0.0, 0.0], None, "settling", time_s, distance)
         self.stable_count = 0
 
-        # 1b) 切角消费（v0.55.49，H12 短板「lookahead 0.45 拐角切角」收口）
-        #     活跃航点若已在**身后**（机器人在「本节点 → 下一节点」段上的投影越过
-        #     node_consume_proj、且离下一节点更近），它就是被切角绕过的节点：继续要求
-        #     "回到容差内"会让 index 永远停住，前视扫描于是反复把**身后的点**选成目标
-        #     （warehouse leg_2_3 实测：目标航向 ≈±160° 双稳翻转 ⇒ turn_in_place 无限
-        #     旋转 ⇒ 30 s 航点超时、此后恒发零速）。判据抄参考实现 ``PathFollower``。
+        # 1b) 切角消费（v0.55.50，路径参数边界）：活跃航点若已被**走过**（弧长游标
+        #     ``progress_s`` 越过它的路径参数 ``cum[index]``），它就是被切角绕过的
+        #     节点：继续要求"回到容差内"会让 index 永远停住，前视扫描于是反复把
+        #     **身后的点**选成目标（目标航向 ≈±160° 双稳翻转 ⇒ turn_in_place 无限
+        #     旋转 ⇒ 30 s 航点超时、此后恒发零速）。v0.55.49 的双条件投影判据在
+        #     **垂直拐角**上互斥（投影 > 0.65 与"距节点 < lookahead 0.45"不能同时
+        #     成立）⇒ 稀疏长段路径的拐点永远无法消费（00_know/05 §2.3 登记病象：
+        #     L 形 1m 段、拐角被以 0.24~0.35m 掠过 ⇒ 8 档横向偏移全等超时），故改
+        #     路径参数边界：弧长游标单调向前，"折返起点误消费"由单调性挡住。
         #     消费语义：**不**要 H10 容差/稳定拍数（人已走过，不是"到达"）；**最后一个
-        #     节点不消费**（参考实现 _advance_path_nodes 的 while 上界同为 len-1）——
+        #     节点不消费**（while 上界 len-1，与参考实现 _advance_path_nodes 同）——
         #     goal 必须按 H10 口径真到达，否则"走过终点"会假装成功。
         bypassed = 0
-        while self.index < len(self.waypoints) - 1 and self._node_bypassed(x, y):
+        while (
+            self.index < len(self.waypoints) - 1
+            and self.progress_s >= self._cum[self.index] - 1.0e-9
+        ):
             self.index += 1
             bypassed += 1
+            # 游标 snap（同到达分支）：消费即认可"走过该节点"，游标不许落在节点身后
+            # （共线折返时否则转身后游标冻在入向段、目标冻住）。
+            self.progress_s = max(self.progress_s, self._cum[self.index - 1])
             self.turn_in_place = False
             self.stable_count = 0
             self.waypoint_start_time = time_s
-            self.best_distance = float("inf")
             self.best_heading_err = float("inf")
-            self.progress_target_index = None
+            self.best_progress_s = self.progress_s
             self.last_progress_time = time_s
         if bypassed:
             return self._step([0.0, 0.0, 0.0], "bypass", "bypass", time_s, distance)
@@ -316,15 +441,8 @@ class FollowController:
             self.reason = "timeout"
             return self._step([0.0, 0.0, 0.0], "timeout", "timeout", time_s, distance)
 
-        # 3) 卡死恢复 —— 进展按"目标导向运动"登记（v0.55.46 收口裁决）
-        target_index = self._lookahead_index(x, y)
-        target = self.waypoints[target_index]
-        if target_index != self.progress_target_index:
-            # 前视目标切换 ⇒ 进展基准对新目标重记（切换本身既不算进展也不算倒退）。
-            # 浏览器镜像：web/sim2sim/navigation.js tick() 的 progressTargetIndex 同款。
-            self.progress_target_index = target_index
-            self.best_distance = float("inf")
-            self.best_heading_err = float("inf")
+        # 3) 卡死恢复 + 前视目标（v0.55.50：前视点按弧长投影取，见 _pursuit_target）
+        target = self._pursuit_target(x, y)
         pursuit_dx, pursuit_dy = target[0] - x, target[1] - y
         pursuit_distance = math.hypot(pursuit_dx, pursuit_dy)
         yaw_err = normalize_angle(math.atan2(pursuit_dy, pursuit_dx) - yaw)
@@ -338,13 +456,15 @@ class FollowController:
             self.turn_in_place = True
 
         # 3a) 进展登记，两类任一成立即刷新 last_progress_time：
-        #   * 朝前视目标逼近 ≥ stuck_progress_m（直线/弧线推进；拐角切角后机器人追的
-        #     是前视目标，到"身后当前航点"的距离不缩反涨——旧口径因此误判卡死）；
+        #   * **弧长游标推进 ≥ stuck_progress_m**（v0.55.50 起的主口径）：目标不再是
+        #     "抵达即切换"的航点而是随机器人前移的路径点，"到目标距离缩短"失去意义
+        #     （目标始终在 lookahead 前方，距离被目标前移抵消）⇒ 改量游标——沿路径
+        #     真实走了多少。恢复动作后退不倒扣（游标单调），位姿冻结时游标不动；
         #   * turn_in_place 期间航向误差收敛 ≥ stuck_turn_progress_deg（原地急转是
         #     目标导向运动，真机 180° 急转可超 4s）。被夹住转不动的真卡死两项都不
         #     成立 ⇒ 恢复照常触发，急转豁免不会吞掉真卡死。
-        if pursuit_distance + self.params.stuck_progress_m < self.best_distance:
-            self.best_distance = pursuit_distance
+        if self.progress_s > self.best_progress_s + self.params.stuck_progress_m:
+            self.best_progress_s = self.progress_s
             self.last_progress_time = time_s
         if self.turn_in_place:
             heading_err = abs(yaw_err)
