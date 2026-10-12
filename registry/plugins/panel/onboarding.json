@@ -1,0 +1,28 @@
+{
+  "schema": "legged-plugin-1.0",
+  "id": "onboarding",
+  "seam": "panel",
+  "provides": [
+    "panel/onboarding"
+  ],
+  "title": "接入向导",
+  "kind": "page",
+  "entry": "workbench.html#onboarding",
+  "group": "工作台",
+  "order": 15,
+  "requires": {
+    "services": [
+      "backend"
+    ]
+  },
+  "desktop": true,
+  "cli": {
+    "command": "panel onboarding",
+    "provider": "backend.onboarding:onboarding_overview"
+  },
+  "home_card": {
+    "provider": "backend.onboarding:onboarding_overview",
+    "order": 15,
+    "note": "首页卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）。接入 DoD 四步：包结构 / 契约校验 / 族判与体检 / 冒烟可训；四步全绿 = 可进产品面。"
+  }
+}

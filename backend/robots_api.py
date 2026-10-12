@@ -140,6 +140,19 @@ async def import_robot_package(payload: dict[str, Any]) -> dict[str, Any]:
     }}
 
 
+@router.get("/api/robots/packages/{robot_id}/onboarding")
+async def robot_package_onboarding(robot_id: str) -> dict[str, Any]:
+    """接入 DoD 四步读数（N4 厂商适配包入口；与 CLI `panel onboarding` / 首页卡片同源）。"""
+    from backend.onboarding import package_onboarding
+
+    try:
+        return package_onboarding(robot_id)
+    except KeyError as exc:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.delete("/api/robots/packages/{robot_id}")
 async def delete_robot_package(robot_id: str) -> dict[str, Any]:
     """Delete a workspace-resident package (shipped assets are read-only)."""
