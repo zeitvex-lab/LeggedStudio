@@ -514,6 +514,25 @@ async function waitForPortRelease(port, timeoutMs = 5000) {
     throw new Error(`Port ${port} did not become available after stopping the stale backend`);
 }
 
+// 真托管（00_know/06 §追记 2026-10-12）：产品本体（Web 工作台）直接在 Electron
+// 窗口内运行，不再甩给系统浏览器。只允许加载**本地后端**地址（127.0.0.1），
+// 其它一律拒载——托管面不变成任意网页浏览器。
+function isLocalBackendUrl(candidate) {
+    try {
+        const parsed = new URL(candidate);
+        return ['127.0.0.1', 'localhost'].includes(parsed.hostname);
+    } catch {
+        return false;
+    }
+}
+
+function loadWorkbenchInWindow(url) {
+    if (!launcherWindow) return { ok: false, error: '窗口未创建' };
+    if (!isLocalBackendUrl(url)) return { ok: false, error: `只允许加载本地后端地址：${url}` };
+    launcherWindow.loadURL(url);
+    return { ok: true };
+}
+
 function createLauncherWindow() {
     launcherWindow = new BrowserWindow({
         width: 1440,
@@ -539,6 +558,26 @@ function createLauncherWindow() {
         if (runningTasksCache.length) {
             const proceed = await confirmExitWithRunningTasks(event);
             if (!proceed) event.preventDefault();
+        }
+    });
+
+    const contents = launcherWindow.webContents;
+    // 托管态的导航纪律：站内（本地后端）随它走；站外链接一律交系统浏览器。
+    contents.setWindowOpenHandler(({ url }) => {
+        if (isLocalBackendUrl(url)) return { action: 'allow' };
+        shell.openExternal(url);
+        return { action: 'deny' };
+    });
+    contents.on('will-navigate', (event, url) => {
+        if (isLocalBackendUrl(url)) return;
+        event.preventDefault();
+        shell.openExternal(url);
+    });
+    // Ctrl+Shift+L：从托管的工作台返回启动器（诊断/设置/日志都在启动器页）。
+    contents.on('before-input-event', (event, input) => {
+        if (input.control && input.shift && input.type === 'keyDown' && input.key.toLowerCase() === 'l') {
+            launcherWindow.loadFile(path.join(__dirname, 'index.html'));
+            event.preventDefault();
         }
     });
 }
@@ -732,6 +771,14 @@ ipcMain.handle('settings:pick-python', async (event) => {
     return { ok: true, path: selected };
 });
 ipcMain.handle('path:open', (_event, key) => safeOpenPath(key));
+// 真托管 IPC：窗口内加载工作台 / 返回启动器（00_know/06 §追记 2026-10-12）
+ipcMain.handle('window:load-url', (_event, url) => loadWorkbenchInWindow(String(url || '')));
+ipcMain.handle('window:show-launcher', () => {
+    if (!launcherWindow) return { ok: false, error: '窗口未创建' };
+    launcherWindow.loadFile(path.join(__dirname, 'index.html'));
+    return { ok: true };
+});
+
 ipcMain.handle('external:open', (_event, url) => {
     if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) throw new Error('only http(s) URLs are allowed');
     return shell.openExternal(url);

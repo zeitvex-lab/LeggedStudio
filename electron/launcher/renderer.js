@@ -300,8 +300,8 @@ async function startBackend() {
         button.textContent = '✓ 控制平面运行中';
         renderHealth(result.health);
         await refreshState();
-        await api.openExternal(`${await api.backendUrl()}/web/workbench.html`);
-        toast('控制平面已启动', 'success');
+        await api.openInWindow(`${await api.backendUrl()}/web/workbench.html`);
+        toast('控制平面已启动（Ctrl+Shift+L 返回启动器）', 'success');
     } else {
         setBackendAvailability(false);
         button.disabled = false;
@@ -510,8 +510,10 @@ $('#navigation').addEventListener('click', (event) => {
     if (button) activatePage(button.dataset.page);
 });
 $('#start-backend').addEventListener('click', startBackend);
-$('#open-web').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/workbench.html`); });
-$('#open-web-training').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/workbench.html`); });
+// 真托管（00_know/06 §追记 2026-10-12）：产品入口一律窗口内加载（Ctrl+Shift+L 返回启动器）；
+// openExternal 只留给明确要系统浏览器的场景。
+$('#open-web').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/workbench.html`); });
+$('#open-web-training').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/workbench.html`); });
 $('#refresh-state').addEventListener('click', () => refreshState(true));
 $('#load-assets').addEventListener('click', () => refreshState(true));
 $('#load-training').addEventListener('click', () => refreshState(true));
@@ -520,10 +522,10 @@ $('#console-open-logs').addEventListener('click', () => api.openPath('logs'));
 $('#open-docs').addEventListener('click', () => api.openPath('docs'));
 $('#open-root').addEventListener('click', () => api.openPath('root'));
 $('#settings-open-root').addEventListener('click', () => api.openPath('root'));
-$('#open-assets-workbench').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/assets.html`); });
+$('#open-assets-workbench').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/assets.html`); });
 $('#open-packages-home')?.addEventListener('click', () => activatePage('assets'));
-$('#open-artifacts-workbench').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/artifacts.html`); });
-$('#open-evaluation').addEventListener('click', async () => { if (requireBackend()) api.openExternal(`${await api.backendUrl()}/web/evaluation.html`); });
+$('#open-artifacts-workbench').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/artifacts.html`); });
+$('#open-evaluation').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/evaluation.html`); });
 $('#probe-python').addEventListener('click', () => probePython(true));
 $('#pick-python').addEventListener('click', pickPython);
 $('#configure-runtime').addEventListener('click', configureRuntime);

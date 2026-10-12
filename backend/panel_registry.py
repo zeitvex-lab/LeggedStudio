@@ -25,8 +25,10 @@ MANIFEST_SCHEMA = "legged-plugin-1.0"
 PANEL_SEAM = "panel"
 
 SERVICE_PROBES = {
-    # 声明的 service → 探测路径（/health 派生；未来可扩）
-    "backend": "/health",
+    # 声明的 service → 探测方式。``"backend"`` = 控制面自身：进程内自证（见下方函数注释）。
+    # 未来外部服务（GPU / 训练栈）在此登记**进程内**探测（import 检查 / nvidia-smi 等），
+    # 不要用 HTTP 自访问。
+    "backend": "in-process",
 }
 
 
@@ -81,17 +83,22 @@ def load_panels(source: Path | None = None) -> list[dict]:
 
 
 def service_unavailable(service: str, *, probe: bool = False) -> str | None:
-    """声明服务的可用性探测：返回原因（不可用）或 None（可用）。"""
-    probe_path = SERVICE_PROBES.get(service)
-    if not probe_path or not probe:
-        return None  # 不探测 = 默认可用（静态生成场景）；运行期探测由 API 层做
-    try:
-        import urllib.request
+    """声明服务的可用性探测：返回原因（不可用）或 None（可用）。
 
-        with urllib.request.urlopen(f"http://127.0.0.1:8765{probe_path}", timeout=1.5) as resp:
-            return None if resp.status == 200 else f"/health {resp.status}"
-    except Exception as exc:  # noqa: BLE001
-        return f"控制面不可达：{type(exc).__name__}"
+    ``"backend"``（控制面自身）走**进程内自证**：本函数在控制面进程里被执行到，即
+    "控制面可达"的直接证明——不可用 HTTP 自访问。旧实现在 async 端点里用阻塞式
+    ``urllib.urlopen(http://127.0.0.1:8765/health)`` 自访问（2026-10-12 实测）：单
+    worker 下事件循环被阻塞调用占满，内部的 /health 反而永远等不到响应 ⇒ 每个探测
+    1.5s 超时 × 8 面板 ⇒ ``/api/panels`` 耗时 12s 且**全部误报「控制面不可达」**
+    （侧栏整排置灰、首页卡片空转）。诚实禁用的语义不变：探测结果不可用才置灰，
+    只是"自己探测自己"这件事本来就没有信息量为真的失败态。
+    """
+    probe_kind = SERVICE_PROBES.get(service)
+    if not probe_kind or not probe:
+        return None  # 不探测 = 默认可用（静态生成场景）；运行期探测由 API 层做
+    if probe_kind == "in-process":
+        return None  # 控制面自身：能执行到这里即存活（见 docstring 实测记录）
+    return f"未知服务探测方式：{service}（SERVICE_PROBES 未登记 in-process 实现）"
 
 
 def render_navigation(panels: list[dict], *, current: str = "",
