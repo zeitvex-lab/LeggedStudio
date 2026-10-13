@@ -118,8 +118,8 @@
     .toc-item .toc-edits {
       margin-left: auto;
       font: 11px Consolas, monospace;
-      color: var(--amber, #d88922);
-      background: rgba(216, 137, 34, 0.12);
+      color: var(--amber);
+      background: var(--amber-soft);
       border-radius: 999px;
       padding: 1px 7px;
     }
@@ -136,8 +136,8 @@
     .toc-edits + .dot { margin-left: 0; }
     .toc-item .toc-edits:not([hidden]) + .dot { margin-left: 6px; }
 
-    .toc-item .dot.ok { background: var(--green); box-shadow: 0 0 0 3px rgba(105, 224, 169, 0.14); }
-    .toc-item .dot.bad { background: var(--red); box-shadow: 0 0 0 3px rgba(255, 128, 120, 0.14); }
+    .toc-item .dot.ok { background: var(--green); box-shadow: 0 0 0 3px var(--ls-ok-soft); }
+    .toc-item .dot.bad { background: var(--red); box-shadow: 0 0 0 3px var(--ls-err-soft); }
 
     .nav-foot {
       margin-top: 4px;
@@ -187,7 +187,7 @@
     .param-group {
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #ffffff;
+      background: var(--surface);
       margin-bottom: 10px;
       overflow: hidden;
     }
@@ -204,7 +204,7 @@
     .param-group-head .g-title { font-size: 12px; font-weight: 700; color: var(--text); }
     .param-group-head .g-path { font: 11px Consolas, monospace; color: var(--faint); word-break: break-all; }
     .param-group-head .g-count { margin-left: auto; font: 11px Consolas, monospace; color: var(--muted); flex-shrink: 0; }
-    .param-group-head .g-edited { font: 11px Consolas, monospace; color: var(--amber, #d88922); flex-shrink: 0; }
+    .param-group-head .g-edited { font: 11px Consolas, monospace; color: var(--amber); flex-shrink: 0; }
 
     .param-rows { display: flex; flex-direction: column; }
 
@@ -213,7 +213,7 @@
       margin-top: 12px;
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #ffffff;
+      background: var(--surface);
     }
     .adv-fold > summary {
       list-style: none;
@@ -268,7 +268,7 @@
     }
     .param-row:last-child { border-bottom: 0; }
     .param-row:hover { background: var(--surface-input); }
-    .param-row.overridden { background: #f4f9ff; box-shadow: inset 2px 0 0 rgba(37, 136, 223, 0.55); }
+    .param-row.overridden { background: var(--ls-accent-soft); box-shadow: inset 2px 0 0 var(--ls-accent-line); }
     .param-row.adv { opacity: 0.72; }
     .param-main { min-width: 0; }
     .param-label { display: block; font-size: 12px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
@@ -304,7 +304,7 @@
       color: var(--text);
       font: 12px Consolas, monospace;
     }
-    .param-row input:focus { outline: none; border-color: var(--cyan, #2588df); }
+    .param-row input:focus { outline: none; border-color: var(--ls-accent); }
     /* 复选框命中盒（26px）走 ui.css 的 .ls-check；这里只管对齐 */
     .param-row input[type="checkbox"] { justify-self: start; }
     .ovr-status { color: var(--muted); font-size: 11px; }
@@ -312,7 +312,7 @@
     /* ========== 奖励四层看板（跟踪 / 正则化 / 风格 / 接触安全） ========== */
     .reward-board { display: flex; flex-direction: column; gap: 12px; }
 
-    .reward-layer { border: 1px solid var(--line-soft); border-radius: 8px; background: #ffffff; overflow: hidden; }
+    .reward-layer { border: 1px solid var(--line-soft); border-radius: 8px; background: var(--surface); overflow: hidden; }
 
     .reward-layer-head {
       display: flex;
@@ -329,10 +329,10 @@
       border-radius: 999px;
       letter-spacing: 0.4px;
     }
-    .reward-layer[data-layer="tracking"] .l-tag { color: #217a37; background: rgba(105, 224, 169, 0.13); }
-    .reward-layer[data-layer="regularization"] .l-tag { color: var(--red); background: rgba(255, 128, 120, 0.12); }
+    .reward-layer[data-layer="tracking"] .l-tag { color: var(--ls-ok); background: var(--ls-ok-soft); }
+    .reward-layer[data-layer="regularization"] .l-tag { color: var(--red); background: var(--ls-err-soft); }
     .reward-layer[data-layer="style"] .l-tag { color: var(--cyan); background: var(--cyan-dim); }
-    .reward-layer[data-layer="safety"] .l-tag { color: var(--amber, #d88922); background: rgba(216, 137, 34, 0.12); }
+    .reward-layer[data-layer="safety"] .l-tag { color: var(--amber); background: var(--amber-soft); }
 
     .reward-layer-head .l-desc { font-size: 11px; color: var(--faint); }
     .reward-layer-head .l-sum { margin-left: auto; font: 11px Consolas, monospace; color: var(--muted); flex-shrink: 0; }
@@ -372,9 +372,9 @@
     .reward-term .rt-main { min-width: 0; }
     .reward-term .rt-name { font-size: 12px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
     .reward-term-unsupported { opacity: 0.5; }
-.reward-term-unsupported .rt-name { color: var(--red, #b91c1c); }
+.reward-term-unsupported .rt-name { color: var(--ls-err); }
 .rt-uns-tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px;
-  font-size: 11px; color: var(--red, #b91c1c); border: 1px solid rgba(185, 28, 28, 0.35); }
+  font-size: 11px; color: var(--ls-err); border: 1px solid var(--ls-err-line); }
 .reward-term .rt-path { display: block; font: 11px Consolas, monospace; color: var(--faint); overflow-wrap: anywhere; }
     .reward-term .rt-bar {
       display: block;
@@ -404,9 +404,9 @@
     .reward-top-params { margin-top: 10px; }
 
     /* 奖励行浅色化（workbench.css 的 .reward 基础样式是深底，通用模式仍复用 .reward 结构） */
-    .reward { background: #ffffff; border: 1px solid var(--line-soft); }
+    .reward { background: var(--surface); border: 1px solid var(--line-soft); }
     .reward:hover { border-color: var(--cyan); }
-    .reward input[type="number"] { background: #ffffff; color: var(--text); }
+    .reward input[type="number"] { background: var(--surface); color: var(--text); }
     .reward-group { margin-bottom: 14px; }
     .reward-group-title { font-size: 12px; font-weight: 700; color: var(--muted); margin: 0 0 6px; }
     .reward-group-title small { color: var(--faint); font-weight: 400; margin-left: 6px; }
@@ -421,22 +421,22 @@
     /* ---------- E1：三段分区（物理只读 / 任务 Recipe / 运行参数） ---------- */
     .layer-block { margin: 24px 0 10px; }
     .layer-head { display: flex; align-items: baseline; gap: 10px; padding: 10px 12px;
-      border-left: 3px solid var(--cyan, #39c5bb); background: rgba(57, 197, 187, .06);
+      border-left: 3px solid var(--ls-accent); background: var(--ls-accent-soft);
       border-radius: 6px; }
     .layer-head h2 { margin: 0; font-size: 17px; }
-    .layer-index { font-size: 12px; letter-spacing: .08em; color: var(--cyan, #39c5bb); }
+    .layer-index { font-size: 12px; letter-spacing: .08em; color: var(--ls-accent); }
     .layer-note { margin-left: auto; font-size: 12px; opacity: .72; }
-    [data-layer="physics"] .layer-head { border-left-color: var(--amber, #d88922);
-      background: rgba(216, 137, 34, .06); }
-    [data-layer="physics"] .layer-index { color: var(--amber, #d88922); }
-    [data-layer="runtime"] .layer-head { border-left-color: var(--green, #69e0a9);
-      background: rgba(105, 224, 169, .06); }
-    [data-layer="runtime"] .layer-index { color: var(--green, #69e0a9); }
-    [data-layer="expert"] .layer-head { border-left-color: var(--cyan, #39c5bb);
-      background: rgba(57, 197, 187, .05); }
+    [data-layer="physics"] .layer-head { border-left-color: var(--amber);
+      background: var(--amber-soft); }
+    [data-layer="physics"] .layer-index { color: var(--amber); }
+    [data-layer="runtime"] .layer-head { border-left-color: var(--ls-ok);
+      background: var(--ls-ok-soft); }
+    [data-layer="runtime"] .layer-index { color: var(--ls-ok); }
+    [data-layer="expert"] .layer-head { border-left-color: var(--ls-accent);
+      background: var(--ls-accent-soft); }
     #expertOverrides { width: 100%; box-sizing: border-box; font-family: ui-monospace, monospace;
       font-size: 12.5px; line-height: 1.5; padding: 8px 10px; border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, .14); background: rgba(0, 0, 0, .18);
+      border: 1px solid var(--line); background: var(--surface-soft);
       color: inherit; resize: vertical; }
 
     /* 只读 KV 表（契约信息） */
@@ -573,9 +573,9 @@
       grid-column: 1 / -1;
       margin-top: 6px;
       padding: 6px 8px;
-      border: 1px solid var(--border, #d8dee6);
+      border: 1px solid var(--border);
       border-radius: 6px;
-      background: var(--panel-2, #f4f7fa);
+      background: var(--surface-raised);
       display: flex;
       flex-direction: column;
       gap: 4px;
@@ -583,10 +583,10 @@
     .obs-src-label { font: 600 11px sans-serif; color: var(--faint); text-transform: uppercase; letter-spacing: 0.03em; }
     .obs-src-opts { display: flex; gap: 6px; flex-wrap: wrap; }
     .obs-src-opt {
-      font: 600 11px sans-serif; color: var(--text); background: var(--panel, #fff);
-      border: 1px solid var(--border, #d8dee6); border-radius: 4px; padding: 2px 8px; min-height: 26px; cursor: pointer;
+      font: 600 11px sans-serif; color: var(--text); background: var(--surface);
+      border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; min-height: 26px; cursor: pointer;
     }
-    .obs-src-opt.sel { border-color: var(--cyan, #2588df); color: var(--cyan, #2588df); background: rgba(37,136,223,0.08); }
+    .obs-src-opt.sel { border-color: var(--ls-accent); color: var(--ls-accent); background: var(--accent-soft); }
     .obs-src-hint { font: 11px sans-serif; color: var(--faint); }
     .obs-expert-toggle {
       grid-column: 1 / -1;
@@ -647,7 +647,7 @@
       text-align: left;
     }
     .task-chip:hover { border-color: var(--cyan); }
-    .task-chip.selected { border-color: rgba(55, 214, 198, 0.6); background: var(--cyan-dim); }
+    .task-chip.selected { border-color: var(--ls-accent-line); background: var(--cyan-dim); }
     .task-chip strong { display: block; font-size: 12px; color: var(--text); }
     .task-chip small { font-size: 11px; color: var(--muted); font-family: Consolas, monospace; }
 
@@ -664,9 +664,9 @@
       max-width: 100%; overflow-wrap: anywhere;
     }
     .hw-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
-    .hw-badge.ok { border-color: rgba(105, 224, 169, 0.3); color: #217a37; }
+    .hw-badge.ok { border-color: var(--ls-ok-line); color: var(--ls-ok); }
     .hw-badge.ok .dot { background: var(--green); box-shadow: none; }
-    .hw-badge.warn { border-color: rgba(242, 189, 108, 0.3); color: #8a5a12; }
+    .hw-badge.warn { border-color: var(--ls-warn-line); color: var(--ls-warn); }
     .hw-badge.warn .dot { background: var(--amber); box-shadow: none; }
 
     /* ========== 右侧上下文栏（三项合并为一个「推导与检查」折叠面板） ========== */
@@ -686,7 +686,7 @@
     .ctx-block {
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #ffffff;
+      background: var(--surface);
       padding: 11px 13px;
     }
 
@@ -725,14 +725,14 @@
     }
     .ctx-warns li b { display: block; font-size: 11px; margin-bottom: 1px; }
     .ctx-warns li.info b { color: var(--cyan); }
-    .ctx-warns li.warn { border-color: rgba(242, 189, 108, 0.35); background: rgba(242, 189, 108, 0.06); }
-    .ctx-warns li.warn b { color: var(--amber, #d88922); }
+    .ctx-warns li.warn { border-color: var(--ls-warn-line); background: var(--ls-warn-soft); }
+    .ctx-warns li.warn b { color: var(--amber); }
     .ctx-warns li.none { color: var(--faint); }
 
     /* 配置预览抽屉（显式浅色底，覆盖 workbench.css .advanced 的深色底） */
-    .preview-drawer { scroll-margin-top: calc(var(--header-h) + 16px); background: #ffffff; }
+    .preview-drawer { scroll-margin-top: calc(var(--header-h) + 16px); background: var(--surface); }
     .preview-drawer summary { color: var(--text); }
-    .preview-drawer .chevron { background: #ffffff; }
+    .preview-drawer .chevron { background: var(--surface); }
     .preview-drawer summary {
       list-style: none;
       min-height: 50px;
@@ -792,15 +792,15 @@
       padding: 2px 9px; border-radius: 999px; font-size: 11px;
       border: 1px solid var(--line); color: var(--muted); margin-left: 8px;
     }
-    .valid-chip.ok { border-color: rgba(105, 224, 169, 0.4); color: #217a37; }
-    .valid-chip.bad { border-color: rgba(255, 128, 120, 0.4); color: var(--red); }
+    .valid-chip.ok { border-color: var(--ls-ok-line); color: var(--ls-ok); }
+    .valid-chip.bad { border-color: var(--ls-err-line); color: var(--ls-err); }
 
     /* 错误 / 提示 */
     .inline-error {
       display: none;
       margin: 0 0 14px;
       padding: 12px 16px;
-      border: 1px solid rgba(255, 128, 120, 0.35);
+      border: 1px solid var(--ls-err-line);
       border-radius: 6px;
       background: rgba(112, 32, 30, 0.2);
       color: var(--red);

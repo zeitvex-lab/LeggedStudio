@@ -20,6 +20,15 @@
     ? global.location.origin
     : 'http://127.0.0.1:8765';
 
+  // 画布 chrome 取色走设计系统 tokens（Phase II）：网格/轴/文字/tooltip 不再
+  // 写死深色 palette（白页上 slate-400 文字仅 2.8:1、深色 tooltip 与浅色产品
+  // 割裂）；tokens 在构造时解析（图表均在页面加载后构造，fallback = 浅色同值）。
+  const chartToken = (name, fallback) => (
+    (getComputedStyle(document.documentElement).getPropertyValue(name) || '').trim() || fallback
+  );
+
+  // 分类序列色：数据可视化调色板（多序列可区分是硬需求），不属于 UI chrome——
+  // 设计系统无分类色板，保持显式常量；序列名-颜色绑定由 runColor() 保证稳定。
   const CHART_COLORS = [
     '#2dd4bf', '#60a5fa', '#f59e0b', '#f472b6', '#a78bfa',
     '#34d399', '#fb7185', '#38bdf8', '#facc15', '#c084fc',
@@ -168,11 +177,11 @@
     style.textContent = [
       '@keyframes tsui-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }',
       '.tsui-breathe { animation: tsui-breathe 1.5s ease-in-out infinite; }',
-      '.tsui-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; flex-shrink: 0; }',
-      '.tsui-dot.running { background: #2dd4bf; }',
-      '.tsui-dot.completed { background: #60a5fa; }',
-      '.tsui-dot.failed { background: #f87171; }',
-      '.tsui-dot.stopped, .tsui-dot.pending, .tsui-dot.unknown, .tsui-dot.idle { background: #94a3b8; }',
+      '.tsui-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--ls-muted); flex-shrink: 0; }',
+      '.tsui-dot.running { background: var(--ls-accent); }',
+      '.tsui-dot.completed { background: var(--ls-ok); }',
+      '.tsui-dot.failed { background: var(--ls-err); }',
+      '.tsui-dot.stopped, .tsui-dot.pending, .tsui-dot.unknown, .tsui-dot.idle { background: var(--ls-muted); }',
     ].join('\n');
     document.head.appendChild(style);
   }
@@ -285,9 +294,9 @@
         xLabel: '迭代',
         yLabel: '',
         pad: { left: 58, right: 18, top: 14, bottom: 30 },
-        gridColor: 'rgba(148, 163, 184, 0.14)',
-        axisColor: 'rgba(148, 163, 184, 0.35)',
-        textColor: '#94a3b8',
+        gridColor: chartToken('--ls-line-soft', '#e8edf2'),
+        axisColor: chartToken('--ls-line', '#d9e0e7'),
+        textColor: chartToken('--ls-muted', '#5f6c79'),
         emptyText: '暂无曲线数据',
         font: '11px ui-monospace, SFMono-Regular, Consolas, monospace',
       }, options);
@@ -365,7 +374,7 @@
       ctx.stroke();
 
       if (!visible.length) {
-        ctx.fillStyle = '#475569';
+        ctx.fillStyle = chartToken('--ls-text', '#1f2933');
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(this.options.emptyText, area.x + area.w / 2, area.y + area.h / 2);
@@ -482,7 +491,7 @@
       if (!nearest) return;
 
       const cx = scale.xFor(nearest.x);
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
+      ctx.strokeStyle = chartToken('--ls-muted', '#5f6c79');
       ctx.setLineDash([4, 3]);
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -519,8 +528,10 @@
       if (bx + boxW > area.x + area.w) bx = cx - boxW - 12;
       if (by + boxH > area.ch) by = Math.max(area.y, area.ch - boxH - 4);
 
-      ctx.fillStyle = 'rgba(10, 13, 16, 0.92)';
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+      // Tooltip 浅色化（设计系统面板语言：surface + 1px 细边 + 正文色），
+      // 取代深色浮层（与浅色产品割裂）；序列色块保持分类色。
+      ctx.fillStyle = chartToken('--ls-surface', '#ffffff');
+      ctx.strokeStyle = chartToken('--ls-line', '#d9e0e7');
       ctx.beginPath();
       ctx.roundRect ? ctx.roundRect(bx, by, boxW, boxH, 6) : ctx.rect(bx, by, boxW, boxH);
       ctx.fill();
@@ -528,13 +539,13 @@
 
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillStyle = '#cbd5e1';
+      ctx.fillStyle = chartToken('--ls-text', '#1f2933');
       ctx.fillText(title, bx + 10, by + 6);
       rows.forEach((row, index) => {
         const y = by + 22 + index * 16;
         ctx.fillStyle = row.color;
         ctx.fillRect(bx + 10, y + 3, 8, 8);
-        ctx.fillStyle = '#e2e8f0';
+        ctx.fillStyle = chartToken('--ls-text', '#1f2933');
         ctx.fillText(`${row.name}: ${fmtMetric(row.value)}`, bx + 24, y);
       });
     }

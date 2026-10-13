@@ -15,35 +15,35 @@
     /* min-height（而非 height:100%）是粘性顶栏的前提：body 盒高被钉在视口高时，
        共享顶栏的粘性范围只够第一屏，滚过之后会脱粘。 */
     html, body { min-height: 100%; margin: 0; }
-    body { background: var(--bg, #0b1319); color: var(--text, #e6eef4); }
+    body { background: var(--bg); color: var(--text); }
     .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 20px 40px; }
     h1 { font-size: 20px; margin: 4px 0 2px; }
     h2 { font-size: 14px; margin: 0 0 8px; }
-    .sub { color: var(--muted, #8ea1ae); font-size: 12px; margin: 0 0 16px; }
-    .panel { border: 1px solid var(--border-soft, #23303a); border-radius: 8px;
-      background: var(--surface, #101a22); padding: 14px 16px; margin-bottom: 16px; }
+    .sub { color: var(--muted); font-size: 12px; margin: 0 0 16px; }
+    .panel { border: 1px solid var(--border-soft); border-radius: 8px;
+      background: var(--surface); padding: 14px 16px; margin-bottom: 16px; }
     .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
     .field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
-    .field > span { color: var(--muted, #8ea1ae); }
+    .field > span { color: var(--muted); }
     input, select, textarea, button { font: inherit; font-size: 12px; padding: 5px 7px;
-      border: 1px solid var(--border, #2c3a45); border-radius: 5px;
-      background: var(--bg, #0b1319); color: inherit; }
+      border: 1px solid var(--border); border-radius: 5px;
+      background: var(--bg); color: inherit; }
     textarea { font-family: ui-monospace, monospace; min-height: 60px; width: 100%; }
-    button { cursor: pointer; background: var(--surface-raised, #16222b); }
-    button.primary { border-color: var(--accent, #2588df); }
+    button { cursor: pointer; background: var(--surface-raised); }
+    button.primary { border-color: var(--accent); }
     button:disabled { opacity: .5; cursor: not-allowed; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border-soft, #23303a); }
-    th { color: var(--muted, #8ea1ae); font-weight: 500; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border-soft); }
+    th { color: var(--muted); font-weight: 500; }
     tr.bad td { color: var(--ls-err); }
     tr.clickable { cursor: pointer; }
-    tr.clickable:hover td { background: var(--surface-raised, #16222b); }
+    tr.clickable:hover td { background: var(--surface-raised); }
     .ok { color: var(--ls-ok); }
     /* 坏包标红：#e2725b 在浅底上只有 3.1:1（12px 正文判不可读），改用 ui.css 语义红 */
     .bad { color: var(--ls-err); }
-    .muted { color: var(--muted, #8ea1ae); }
+    .muted { color: var(--muted); }
     pre { white-space: pre-wrap; font-size: 11px; margin: 6px 0 0; }
-    .hint { color: var(--muted, #8ea1ae); font-size: 11px; line-height: 1.6; margin-top: 8px; }
+    .hint { color: var(--muted); font-size: 11px; line-height: 1.6; margin-top: 8px; }
     #detailBox, #actionBox { margin-top: 10px; }
   </style>
 </head>

@@ -15,26 +15,26 @@
     html, body { height: 100%; margin: 0; }
     body {
       display: flex; flex-direction: column; overflow: hidden;
-      background: var(--bg, #0b1319); color: var(--text, #e6eef4);
+      background: var(--bg); color: var(--text);
     }
     .adv-bar {
       display: flex; align-items: center; gap: 10px; flex: 0 0 auto;
-      padding: 7px 12px; border-bottom: 1px solid var(--border-soft, #23303a);
-      background: var(--surface, #101a22); font-size: 12px;
+      padding: 7px 12px; border-bottom: 1px solid var(--border-soft);
+      background: var(--surface); font-size: 12px;
     }
     .adv-bar strong { font-size: 13px; }
-    .adv-bar .hint { color: var(--muted, #8ea1ae); }
+    .adv-bar .hint { color: var(--muted); }
     .adv-bar .spacer { flex: 1; }
     .adv-btn {
       display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
-      border: 1px solid var(--border, #2c3a45); border-radius: var(--radius, 6px);
-      background: var(--surface-raised, #16222b); color: inherit;
+      border: 1px solid var(--border); border-radius: var(--radius, 6px);
+      background: var(--surface-raised); color: inherit;
       font-size: 12px; text-decoration: none; cursor: pointer;
     }
-    .adv-btn:hover { border-color: var(--accent, #2588df); }
+    .adv-btn:hover { border-color: var(--accent); }
     .adv-btn:disabled { opacity: .45; cursor: not-allowed; }
     #scTaskPlugin, #scTaskFill { min-height: 26px; }
-    .adv-btn.primary { border-color: var(--accent, #2588df); }
+    .adv-btn.primary { border-color: var(--accent); }
 
     /* **仿真视口永远占满宽度**（2026-09-23 用户口径：编辑器原先 `flex: 0 0 340px` 实占布局，
        一打开就把机器人视口挤掉 340px，"非常突兀、大幅挤占仿真空间"）。改成**浮层 + 可收起**：
@@ -44,7 +44,7 @@
     .adv-editor {
       position: absolute; top: 0; bottom: 0; left: 0; z-index: 6;
       width: min(360px, 92vw); overflow-y: auto; padding: 10px 12px 24px;
-      border-right: 1px solid var(--border-soft, #23303a); background: var(--surface, #101a22);
+      border-right: 1px solid var(--border-soft); background: var(--surface);
       box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
       font-size: 12px;
       transform: translateX(-102%); transition: transform .18s ease;
@@ -57,32 +57,32 @@
     .adv-editor section { margin-bottom: 14px; }
     .adv-editor h3 {
       margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .02em;
-      color: var(--accent, #2588df); text-transform: none;
+      color: var(--accent); text-transform: none;
     }
-    .adv-editor label { display: block; margin: 6px 0 2px; color: var(--muted, #8ea1ae); }
+    .adv-editor label { display: block; margin: 6px 0 2px; color: var(--muted); }
     .adv-editor input[type="text"], .adv-editor input[type="number"],
     .adv-editor select, .adv-editor textarea {
       width: 100%; box-sizing: border-box; padding: 4px 6px;
-      border: 1px solid var(--border, #2c3a45); border-radius: 4px;
-      background: var(--bg, #0b1319); color: inherit; font-size: 12px;
+      border: 1px solid var(--border); border-radius: 4px;
+      background: var(--bg); color: inherit; font-size: 12px;
     }
     .adv-editor textarea { min-height: 62px; resize: vertical; font-family: ui-monospace, monospace; }
     .adv-editor .row { display: flex; gap: 6px; }
     .adv-editor .row > * { flex: 1; }
     .adv-editor .inline { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--text); }
     .adv-editor .inline input { width: auto; }
-    .adv-editor .note { color: var(--muted, #8ea1ae); font-size: 11px; line-height: 1.5; margin-top: 6px; }
+    .adv-editor .note { color: var(--muted); font-size: 11px; line-height: 1.5; margin-top: 6px; }
     /* 步骤条（范式抄 references_1000framesai/shared_nav.js 的 STEPS：加一段 = 表加一条） */
     .adv-editor .sc-steps { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
     .adv-editor .sc-step {
       flex: 0 0 auto; padding: 3px 8px; font-size: 11px; cursor: pointer; min-height: 26px;
-      border: 1px solid var(--border, #2c3a45); border-radius: 999px;
-      background: var(--surface-raised, #16222b); color: var(--muted, #8ea1ae);
+      border: 1px solid var(--border); border-radius: 999px;
+      background: var(--surface-raised); color: var(--muted);
     }
-    .adv-editor .sc-step.active { border-color: var(--accent, #2588df); color: var(--text, #e6eef4); }
+    .adv-editor .sc-step.active { border-color: var(--accent); color: var(--text); }
     #scStepHint { min-height: 15px; margin-bottom: 6px; }
     .adv-editor .actions { display: flex; gap: 8px; position: sticky; bottom: 0;
-      padding: 8px 0; background: linear-gradient(transparent, var(--surface, #101a22) 30%); }
+      padding: 8px 0; background: linear-gradient(transparent, var(--surface) 30%); }
     #scReport { margin-top: 8px; line-height: 1.6; }
     #scReport ul { margin: 4px 0 4px 18px; padding: 0; }
     #scReport pre { white-space: pre-wrap; font-size: 11px; }
