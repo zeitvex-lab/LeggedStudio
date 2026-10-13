@@ -1,0 +1,20 @@
+{
+ "schema": "legged-plugin-1.0",
+ "id": "exports",
+ "seam": "panel",
+ "provides": [
+  "panel/exports"
+ ],
+ "title": "导出与分发",
+ "kind": "page",
+ "entry": "workbench.html#exports",
+ "group": "产物",
+ "order": 75,
+ "requires": {
+  "services": [
+   "backend"
+  ]
+ },
+ "desktop": true,
+ "note": "导出物清单 / 场景打包 / 收包校验的 Web 入口（2026-10-13 收编进壳：原为 deploy.html 页内普通链接跳转，侧栏高亮与 hash 不同步；判据与打包委托 /api/exports，与 CLI export 同一实现）。未声明 cli/home_card = 暂无 CLI/首页投影（合法声明，Web/桌面 only）。"
+}

@@ -30,6 +30,10 @@
           <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span><span>系统设置</span></button>
           <button class="nav-item" data-page="console"><span class="nav-icon">›_</span><span>控制台</span></button>
         </nav>
+        <!-- 产品面板组：/api/panels 投影（renderer.js），点击在窗口内打开产品壳对应
+             视图；注册表不可达时整组隐藏，本地导航不受影响。 -->
+        <div class="sidebar-heading" id="panelNavHeading" hidden>产品面板</div>
+        <nav id="panelNavigation" aria-label="产品面板" hidden></nav>
         <div class="sidebar-footer">
           <button class="sidebar-link" id="open-docs">文档</button>
           <button class="sidebar-link" id="open-root">打开项目目录</button>

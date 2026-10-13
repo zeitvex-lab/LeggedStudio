@@ -109,7 +109,9 @@
     <span class="spacer"></span>
     <button class="adv-btn primary" id="scStartTop" disabled>启动仿真</button>
     <button class="adv-btn" id="advEditorToggle" aria-expanded="false" aria-controls="scEditorPanel">场景编辑器</button>
-    <a class="adv-btn" id="advNavMapLink" href="navigation_editor.html?embedded=1" target="_blank" rel="noopener">导航地图编辑器</a>
+    <!-- 导航地图编辑器：壳内嵌时由壳切视图（2026-10-13 收编为面板，原 target=_blank
+         新标签页跳出单壳）；壳外直接打开本页时走普通导航。 -->
+    <a class="adv-btn" id="advNavMapLink" href="navigation_editor.html?embedded=1" data-shell-view="navigation-editor">导航地图编辑器</a>
   </div>
 
   <div class="adv-body">
@@ -235,6 +237,18 @@
   <script src="shared/api.js"></script>
   <script src="shared/topnav.js"></script>
   <script>window.LSTopNav.render('lsTopNav', 'navmap');</script>
+  <script>
+    // 壳内导航：iframe 内点「导航地图编辑器」由壳切视图（侧栏/hash 同步）；
+    // 壳外直接打开本页时保持普通导航。与 deploy.html 的 data-shell-view 同协议。
+    document.getElementById('advNavMapLink')?.addEventListener('click', (event) => {
+      if (window.parent === window) return;
+      event.preventDefault();
+      window.parent.postMessage(
+        { type: 'legged-studio:navigate', view: event.currentTarget.dataset.shellView },
+        window.location.origin,
+      );
+    });
+  </script>
   <script type="module" src="sim2sim/scenario_editor_ui.js"></script>
 </body>
 </html>

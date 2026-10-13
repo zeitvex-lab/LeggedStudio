@@ -224,7 +224,7 @@ body.embedded .content { padding-top: 16px; }
   color: var(--muted); font-size: 12.5px; text-align: left; width: 100%;
 }
 .side-item:hover { background: #f0f5fa; color: var(--text); }
-.side-item.active { border-color: var(--cyan-line); background: var(--cyan-dim); color: var(--blue); }
+.side-item.active { border-color: var(--cyan-line); background: var(--cyan-dim); color: var(--ls-accent-strong); }
 .side-ico { width: 20px; text-align: center; font-size: 14px; filter: grayscale(.2); }
 .sidebar-footer { margin-top: auto; padding: 12px 6px 4px; border-top: 1px solid var(--line-soft); }
 .sidebar-footer .top-status { justify-content: space-between; width: 100%; }

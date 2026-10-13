@@ -1,12 +1,12 @@
 {
   "schema": "navigation-browser-routes-1.1",
-  "generated_at": "2026-10-12T15:51:31",
+  "generated_at": "2026-10-13T19:45:54",
   "surface": "web/sim2sim/index.html（基础仿真，?debug=1&nav=warehouse&nav_waypoints=...）",
   "mode": "e2e",
   "provenance": {
-    "product_version": "0.66.0",
+    "product_version": "0.66.2",
     "git": {
-      "commit": "a3d14498070b9ab92c3e2dbe537318ec27b8aedd",
+      "commit": "8be4e1ee1c5885567b6799b524dea828c87594c4",
       "dirty": true
     },
     "platform": "Linux-5.4.241-1-tlinux4-0025.10-x86_64-with-glibc2.41",
@@ -84,10 +84,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/full.png",
-      "total_ms": 5359,
+      "total_ms": 4856,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -128,10 +128,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_0_1.png",
-      "total_ms": 4285,
+      "total_ms": 3777,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -161,10 +161,10 @@
       "recoveries_used": 0,
       "sim_time_s": 10.0,
       "final_pose": [
-        3.012,
-        2.175
+        3.014,
+        2.178
       ],
-      "final_error_m": 0.19,
+      "final_error_m": 0.187,
       "path_len_m": 8,
       "lookahead_m": 0.45,
       "ok": true,
@@ -172,10 +172,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_1_2.png",
-      "total_ms": 2514,
+      "total_ms": 3923,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -216,10 +216,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_2_3.png",
-      "total_ms": 4768,
+      "total_ms": 4564,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -260,10 +260,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_1.png",
-      "total_ms": 4413,
+      "total_ms": 3787,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -304,10 +304,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_2.png",
-      "total_ms": 4312,
+      "total_ms": 3765,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -348,10 +348,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:37495/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_3.png",
-      "total_ms": 6216,
+      "total_ms": 5436,
       "classification": "arrived",
       "link_ok": true,
       "reason": null

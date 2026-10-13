@@ -7,7 +7,7 @@
  ],
  "title": "高级仿真",
  "kind": "page",
- "entry": "advanced_sim.html",
+ "entry": "workbench.html#navmap",
  "group": "仿真",
  "order": 60,
  "requires": {

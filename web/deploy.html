@@ -44,8 +44,10 @@
     <div class="wizard-title">
       <h1>部署向导</h1>
       <p>唯一用向导的区——gate 必须按序过。一键生成 ≠ 一键上机。</p>
-      <!-- 出口互链：本页只负责"生成包"，导出物清单与场景打包在 exports.html（否则该页无入口）。 -->
-      <a class="ls-btn" href="exports.html">导出与分发 →</a>
+      <!-- 出口互链：本页只负责"生成包"，导出物清单与场景打包在 exports.html。
+           壳内嵌（workbench iframe）时由壳切视图（侧栏/hash 同步，见 workbench.js
+           message 监听）；壳外直接打开本页时走普通导航。 -->
+      <a class="ls-btn" href="exports.html" data-shell-view="exports">导出与分发 →</a>
     </div>
 
     <div class="steps">
@@ -201,6 +203,17 @@
     });
 
     loadRobots();
+
+    // 壳内导航互链：iframe 内点「导出与分发」由壳切视图（侧栏/hash 同步）；
+    // 壳外直接打开时保持普通导航（preventDefault 不执行）。
+    document.querySelector('[data-shell-view]')?.addEventListener('click', (event) => {
+      if (window.parent === window) return;
+      event.preventDefault();
+      window.parent.postMessage(
+        { type: 'legged-studio:navigate', view: event.currentTarget.dataset.shellView },
+        window.location.origin,
+      );
+    });
   </script>
 </body>
 </html>

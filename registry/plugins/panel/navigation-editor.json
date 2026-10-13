@@ -1,0 +1,20 @@
+{
+ "schema": "legged-plugin-1.0",
+ "id": "navigation-editor",
+ "seam": "panel",
+ "provides": [
+  "panel/navigation-editor"
+ ],
+ "title": "导航地图编辑器",
+ "kind": "page",
+ "entry": "workbench.html#navigation-editor",
+ "group": "仿真",
+ "order": 65,
+ "requires": {
+  "services": [
+   "backend"
+  ]
+ },
+ "desktop": true,
+ "note": "高级仿真的地图创作面（2026-10-13 收编进壳：原由 advanced_sim.html 以 target=_blank 新标签页打开，跳出单壳；地图真值 = /api/navigation/maps）。未声明 cli/home_card = 暂无 CLI/首页投影（合法声明，Web/桌面 only）。"
+}

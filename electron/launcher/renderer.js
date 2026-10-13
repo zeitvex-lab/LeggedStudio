@@ -2,20 +2,33 @@ const api = window.leggedStudio;
 const state = { backendRunning: false, provisioning: false, health: null, assets: null, training: null, settings: null, paths: null, runtimeProfile: null, gpus: [], gpuError: '' };
 
 const $ = (selector) => document.querySelector(selector);
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+));
 
-// 面板注册表投影（Phase 7）：桌面导航 = /api/panels 的 desktop 投影；
-// 注册表不可达 = 静态导航原样（诚实降级）。桌面与 Web 的功能差异只是声明差异。
+// 面板注册表投影（桌面「产品面板」组）：与 Web 侧同一份 /api/panels 投影，
+// 点击 = 在窗口内打开产品壳（workbench）对应视图——桌面与 Web 的功能差异
+// 只是声明差异。注册表不可达 = 该组整组隐藏（诚实降级）。
+// 历史教训（2026-10-13 修）：原实现把投影写进 #navigation，覆盖掉启动器本地
+// 导航（总览/包管理/设置/控制台整组消失），且投影按钮的点击处理器
+// activatePage(panelId) 对绝大多数面板 id 无效 = 一排死按钮。
 (async () => {
   try {
     const nav = await window.leggedStudio?.panelsRegistry?.();
     if (!Array.isArray(nav) || !nav.length) return;
-    const container = document.querySelector('#navigation');
-    if (!container) return;
-    container.innerHTML = nav.map((item, i) =>
-      `<button class="nav-item${i === 0 ? ' active' : ''}" data-page="${item.id}">` +
-      `<span class="nav-icon">${String(i + 1).padStart(2, '0')}</span><span>${item.title}</span></button>`
-    ).join('');
-  } catch { /* 静态导航兜底 */ }
+    const host = $('#panelNavigation');
+    if (!host) return;
+    host.innerHTML = nav.map((item) => {
+      if (item.desktop === false) return '';
+      const cls = item.disabled ? ' class="nav-item is-disabled"' : ' class="nav-item"';
+      const title = item.disabled ? ` title="${escapeHtml(item.disabled_reason || '不可用')}"` : '';
+      return `<button${cls} data-panel-href="${escapeHtml(item.href)}"${title}${item.disabled ? ' disabled' : ''}><span class="nav-icon">▸</span><span>${escapeHtml(item.title)}</span></button>`;
+    }).join('');
+    if (host.children.length) {
+      host.hidden = false;
+      $('#panelNavHeading')?.removeAttribute('hidden');
+    }
+  } catch { /* 注册表不可达：产品面板组保持隐藏，本地导航原样可用 */ }
 })();
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
@@ -506,14 +519,24 @@ function activatePage(page) {
 }
 
 $('#navigation').addEventListener('click', (event) => {
-    const button = event.target.closest('.nav-item');
-    if (button) activatePage(button.dataset.page);
+  const button = event.target.closest('.nav-item');
+  if (button) activatePage(button.dataset.page);
+});
+// 产品面板组：点击 = 窗口内打开产品壳（workbench）对应视图——与 Web 侧点击侧栏
+// 同一终点；入口唯一真值 = 面板清单 entry（现全部为 workbench.html#<view>）。
+$('#panelNavigation').addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-panel-href]');
+  if (!button || button.disabled) return;
+  if (!requireBackend()) return;
+  api.openInWindow(`${await api.backendUrl()}/web/${button.dataset.panelHref}`);
 });
 $('#start-backend').addEventListener('click', startBackend);
 // 真托管（00_know/06 §追记 2026-10-12）：产品入口一律窗口内加载（Ctrl+Shift+L 返回启动器）；
 // openExternal 只留给明确要系统浏览器的场景。
 $('#open-web').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/workbench.html`); });
-$('#open-web-training').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/workbench.html`); });
+// 与 #open-web 的差别 = 深链到训练视图（壳启动时读 location.hash，见 workbench.js
+// DOMContentLoaded），不再是两个打开同一个 URL 的重复按钮。
+$('#open-web-training').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/workbench.html#training`); });
 $('#refresh-state').addEventListener('click', () => refreshState(true));
 $('#load-assets').addEventListener('click', () => refreshState(true));
 $('#load-training').addEventListener('click', () => refreshState(true));
@@ -522,9 +545,14 @@ $('#console-open-logs').addEventListener('click', () => api.openPath('logs'));
 $('#open-docs').addEventListener('click', () => api.openPath('docs'));
 $('#open-root').addEventListener('click', () => api.openPath('root'));
 $('#settings-open-root').addEventListener('click', () => api.openPath('root'));
-$('#open-assets-workbench').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/assets.html`); });
+// 产物/资产入口改走壳内深链（workbench hash 路由）：artifacts 是壳内 frame 视图；
+// 资产库已原生并入首页 #assetLibraryGrid，不再有独立 assets 视图（见 workbench.js
+// setView 注释）。桌面与 Web 的入口由此收敛到同一壳。
+$('#open-assets-workbench').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/workbench.html#home`); });
 $('#open-packages-home')?.addEventListener('click', () => activatePage('assets'));
-$('#open-artifacts-workbench').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/artifacts.html`); });
+$('#open-artifacts-workbench').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/workbench.html#artifacts`); });
+// evaluation.html 是孤儿页（不在面板注册表、壳内无视图）——保留唯一直开入口，
+// 去留（注册为面板 / 并入壳 / 删除）待产品裁决，见 00_know/05 追记 2026-10-13。
 $('#open-evaluation').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/evaluation.html`); });
 $('#probe-python').addEventListener('click', () => probePython(true));
 $('#pick-python').addEventListener('click', pickPython);
