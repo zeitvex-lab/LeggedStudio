@@ -1,12 +1,12 @@
 {
   "schema": "navigation-browser-routes-1.1",
-  "generated_at": "2026-10-13T19:45:54",
+  "generated_at": "2026-10-13T23:05:41",
   "surface": "web/sim2sim/index.html（基础仿真，?debug=1&nav=warehouse&nav_waypoints=...）",
   "mode": "e2e",
   "provenance": {
-    "product_version": "0.66.2",
+    "product_version": "0.66.3",
     "git": {
-      "commit": "8be4e1ee1c5885567b6799b524dea828c87594c4",
+      "commit": "87ef7cf24837cda91a510b70b20ccbffcbcca0d5",
       "dirty": true
     },
     "platform": "Linux-5.4.241-1-tlinux4-0025.10-x86_64-with-glibc2.41",
@@ -84,10 +84,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:53125/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/full.png",
-      "total_ms": 4856,
+      "total_ms": 4789,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -128,10 +128,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:53125/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_0_1.png",
-      "total_ms": 3777,
+      "total_ms": 3708,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -172,10 +172,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:53125/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_1_2.png",
-      "total_ms": 3923,
+      "total_ms": 3929,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -216,10 +216,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:53125/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_2_3.png",
-      "total_ms": 4564,
+      "total_ms": 4079,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -260,10 +260,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:53125/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_1.png",
-      "total_ms": 3787,
+      "total_ms": 3765,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -304,10 +304,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:53125/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_2.png",
-      "total_ms": 3765,
+      "total_ms": 3645,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -348,10 +348,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:51273/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:53125/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_3.png",
-      "total_ms": 5436,
+      "total_ms": 5513,
       "classification": "arrived",
       "link_ok": true,
       "reason": null

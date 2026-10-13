@@ -567,7 +567,11 @@
     }
 
     // ===== T2.2：健康仪表盘 + 奖励分项（四层着色） =====
-    const LAYER_COLORS = { Tracking: '#2e9e5b', Regularization: '#d64545', Style: '#3b82d6', Contact: '#d88922', Other: '#8a94a0' };
+    // 四层着色：取值走设计系统 tokens（Phase II）——圆点与 canvas 火花线都在
+    // 运行时读 --ls-*，暗色激活时自动跟随，不再写死 hex。
+    const LAYER_TOKENS = { Tracking: '--ls-ok', Regularization: '--ls-err', Style: '--ls-accent', Contact: '--ls-warn', Other: '--ls-muted' };
+    const tokenColor = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#5f6c79';
+    const LAYER_COLORS = Object.fromEntries(Object.entries(LAYER_TOKENS).map(([layer, token]) => [layer, tokenColor(token)]));
     const LAYER_ORDER = ['Tracking', 'Regularization', 'Style', 'Contact', 'Other'];
     const LAYER_LABELS = { Tracking: '跟踪', Regularization: '正则化', Style: '风格', Contact: '接触安全', Other: '其他' };
     const GAUGE_BADGES = { pass: '✅', warn: '⚠', fail: '❌' };
@@ -877,7 +881,7 @@
             const box = document.createElement('div');
             box.id = 'artifactSummaryBox';
             box.className = 'artifact-summary';
-            box.style.cssText = 'font-size:12px;color:#1d2935;background:#f7fafc;border:1px solid #e8eff4;border-radius:6px;padding:8px;margin-top:8px;';
+            box.style.cssText = 'font-size:12px;color:var(--text);background:var(--surface-raised);border:1px solid var(--line-soft);border-radius:6px;padding:8px;margin-top:8px;';
             box.innerHTML = lines.map((line) => `<div>${line}</div>`).join('');
             const prevBox = document.getElementById('artifactSummaryBox');
             if (prevBox) prevBox.remove();  // 轮询/手动刷新会重跑此处：先摘旧盒再挂新盒，避免重复堆叠

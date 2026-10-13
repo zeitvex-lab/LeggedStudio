@@ -66,8 +66,8 @@
   display: none;
   margin: 12px 0;
   padding: 12px 16px;
-  border: 1px solid rgba(255, 128, 120, 0.35);
-  background: rgba(112, 32, 30, 0.2);
+  border: 1px solid var(--ls-err-line);
+  background: var(--ls-err-soft);
   color: var(--red);
   font: 12px/1.6 Consolas, monospace;
   word-break: break-all;
@@ -375,15 +375,15 @@
   text-align: center;
   padding: 3px 8px;
   border-radius: 6px;
-  border: 1px solid rgba(55, 214, 198, 0.3);
+  border: 1px solid var(--cyan-line);
   background: var(--cyan-dim);
   color: var(--cyan);
   font: 700 11px Consolas, monospace;
 }
 
 .ckpt-iter.onnx {
-  border-color: rgba(138, 180, 255, 0.3);
-  background: rgba(138, 180, 255, 0.08);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
   color: var(--blue);
 }
 
@@ -426,7 +426,7 @@
 
 .artifact-row b { color: var(--text); font-size: 12px; }
 .pill { padding: 2px 8px; border-radius: 999px; font: 700 11px Consolas, monospace; border: 1px solid var(--line); }
-.pill.ok { color: var(--green); border-color: rgba(105, 224, 169, 0.35); background: rgba(105, 224, 169, 0.08); }
+.pill.ok { color: var(--green); border-color: var(--ls-ok-line); background: var(--ls-ok-soft); }
 .pill.no { color: var(--faint); }
 
 /* ========== 缺少 ID ========== */
@@ -453,8 +453,8 @@
   gap: 16px;
   height: 34px;
   padding: 0 16px;
-  background: rgba(255, 255, 255, 0.94);
-  border-top: 1px solid var(--line, #d9e0e7);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
   font-size: 11px;
   color: var(--muted);
 }
@@ -485,28 +485,28 @@
 }
 
 /* ===== T2.2：健康仪表盘 + 奖励分项（浅色基线） ===== */
-.health-strip, .terms-strip { margin-bottom: 16px; padding: 10px 12px; border: 1px solid #e8eff4; border-radius: 8px; background: #fff; }
+.health-strip, .terms-strip { margin-bottom: 16px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 8px; background: var(--surface); }
 .health-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
 .health-gauges { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
-.gauge-card { display: flex; gap: 8px; align-items: flex-start; border: 1px solid #e8eff4; border-radius: 6px; padding: 8px; background: #f7fafc; }
-.gauge-card.status-pass { border-left: 3px solid #2e9e5b; }
-.gauge-card.status-warn { border-left: 3px solid #d99a2b; }
-.gauge-card.status-fail { border-left: 3px solid #d64545; }
-.gauge-body { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #1d2935; }
+.gauge-card { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--line-soft); border-radius: 6px; padding: 8px; background: var(--surface-raised); }
+.gauge-card.status-pass { border-left: 3px solid var(--green); }
+.gauge-card.status-warn { border-left: 3px solid var(--amber); }
+.gauge-card.status-fail { border-left: 3px solid var(--red); }
+.gauge-body { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text); }
 .gauge-value { font-family: Consolas, monospace; }
-.gauge-summary { color: #5a6672; }
+.gauge-summary { color: var(--muted); }
 .health-cards { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
-.symptom-card { border: 1px solid #f0d9ad; background: #fdf6e7; border-radius: 6px; padding: 6px 10px; font-size: 12px; }
+.symptom-card { border: 1px solid var(--ls-warn-line); background: var(--ls-warn-soft); border-radius: 6px; padding: 6px 10px; font-size: 12px; }
 .symptom-card summary { cursor: pointer; font-weight: 600; }
-.symptom-why { margin: 6px 0; color: #1d2935; }
-.symptom-steps { margin: 4px 0 0 18px; color: #1d2935; }
-.symptom-jump { color: #3b82d6; font-size: 11px; }
+.symptom-why { margin: 6px 0; color: var(--text); }
+.symptom-steps { margin: 4px 0 0 18px; color: var(--text); }
+.symptom-jump { color: var(--accent); font-size: 11px; }
 .terms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
-.term-layer { border: 1px solid #e8eff4; border-radius: 6px; padding: 8px; background: #f7fafc; }
-.term-layer-head { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; margin-bottom: 6px; color: #1d2935; }
+.term-layer { border: 1px solid var(--line-soft); border-radius: 6px; padding: 8px; background: var(--surface-raised); }
+.term-layer-head { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; margin-bottom: 6px; color: var(--text); }
 .term-layer-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .term-rows { display: flex; flex-direction: column; gap: 4px; }
 .term-row { display: grid; grid-template-columns: 100px 1fr auto; align-items: center; gap: 8px; font-size: 12px; }
-.term-spark { width: 100px; height: 24px; background: #fff; border: 1px solid #e8eff4; border-radius: 4px; }
+.term-spark { width: 100px; height: 24px; background: var(--surface); border: 1px solid var(--line-soft); border-radius: 4px; }
 .term-name { font-family: Consolas, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.term-last { font-family: Consolas, monospace; color: #5a6672; }
+.term-last { font-family: Consolas, monospace; color: var(--muted); }
