@@ -7,7 +7,7 @@
  ],
  "title": "策略档案",
  "kind": "page",
- "entry": "artifacts.html",
+ "entry": "workbench.html#artifacts",
  "group": "产物",
  "order": 80,
  "requires": {

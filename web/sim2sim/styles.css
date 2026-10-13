@@ -1,20 +1,18 @@
 :root {
   color-scheme: dark;
-  /* 色值与 shared/ui.css 暗色 tokens（--ls-*）同源——仿真页保持独立离线根
-     （00_know/06 §3.1 裁决不动），视觉并入统一 agent 调色板（§追记 2026-10-12）。 */
-  --bg: #0b0e13;
-  --panel: rgba(17, 22, 29, 0.84);
-  --panel-strong: rgba(17, 22, 29, 0.96);
+  --bg: #0a0d10;
+  --panel: rgba(15, 21, 27, 0.84);
+  --panel-strong: rgba(15, 21, 27, 0.96);
   --panel-soft: rgba(255, 255, 255, 0.08);
   --border: rgba(229, 235, 242, 0.14);
-  --text: #dbe4ec;
-  --muted: #7f8c9a;
-  --soft: #b9c5d1;
-  --green: #4ec98a;
+  --text: #eef4f8;
+  --muted: #9aa8b7;
+  --soft: #d4dee8;
+  --green: #42c68a;
   --teal: #3dd6c6;
-  --amber: #e0b159;
-  --red: #e5685e;
-  --blue: #5ea8ff;
+  --amber: #f0b45a;
+  --red: #ee6b64;
+  --blue: #72a7ff;
   --shadow: 0 22px 70px rgba(0, 0, 0, 0.34);
 }
 
@@ -158,15 +156,12 @@ input[type="checkbox"] {
 }
 
 .brand-mark {
-  display: grid;
-  place-items: center;
   width: 34px;
   height: 34px;
-  border: 1px solid rgba(94, 168, 255, 0.38);
   border-radius: 8px;
-  background: rgba(94, 168, 255, 0.12);
-  color: var(--blue);
-  font: 800 12px/1 Consolas, "SF Mono", ui-monospace, monospace;
+  background: linear-gradient(135deg, var(--teal), rgba(114, 167, 255, 0.88)),
+    #182027;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 .brand h1 {
@@ -1270,28 +1265,24 @@ body.embedded .panel-left {
   }
 }
 
-/* 深色 agent HUD（00_know/06 §追记 2026-10-12，取代原「Play 浅色层」）：
-   视口保持浅色渲染内容（3D 场景即内容），工具面统一为深色半透明面板——
-   dsh / Zed / Foxglove 式「深壳浅视口」；色值与 shared/ui.css 暗色 tokens 同源。 */
+/* MJLab Play-inspired workspace overrides. Keep the viewport dominant and
+   place the complete tool surface in one quiet panel on the right. */
 :root {
-  color-scheme: dark;
-  --bg: #0b0e13;
-  --panel: rgba(17, 22, 29, 0.88);
-  --panel-strong: #11161d;
-  --panel-soft: #141a22;
-  --border: #232d3a;
-  --text: #dbe4ec;
-  --muted: #7f8c9a;
-  --soft: #b9c5d1;
-  --green: #4ec98a;
-  --teal: #3dd6c6;
-  --amber: #e0b159;
-  --red: #e5685e;
-  --blue: #5ea8ff;
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
-  --btn-hover-bg: rgba(94, 168, 255, 0.12);
-  --btn-primary: #2f6fbd;
-  --btn-primary-hover: #2a63a9;
+  color-scheme: light;
+  --bg: #e7ebf0;
+  --panel: rgba(255, 255, 255, 0.97);
+  --panel-strong: #ffffff;
+  --panel-soft: #f3f6f9;
+  --border: #d5dde7;
+  --text: #1f2937;
+  --muted: #6b7788;
+  --soft: #334155;
+  --green: #16845b;
+  --teal: #2563eb;
+  --amber: #a16207;
+  --red: #c2413b;
+  --blue: #2563eb;
+  --shadow: 0 8px 24px rgba(32, 48, 70, 0.13);
 }
 
 body {
@@ -1323,13 +1314,12 @@ body {
 .brand-mark {
   width: 30px;
   height: 30px;
-  border: 1px solid rgba(94, 168, 255, 0.38);
   border-radius: 6px;
-  background: rgba(94, 168, 255, 0.12);
+  background: #2563eb;
   box-shadow: none;
 }
 .brand h1 {
-  color: var(--text);
+  color: #182230;
   font-size: 18px;
 }
 .brand p,
@@ -1355,25 +1345,20 @@ select,
   min-height: 34px;
   border-color: var(--border);
   border-radius: 5px;
-  background: var(--panel-strong);
+  background: #fff;
   color: var(--text);
 }
 button:hover,
 select:hover,
 .nav-button:hover {
-  border-color: var(--blue);
-  background: var(--btn-hover-bg);
+  border-color: #8aa9dc;
+  background: #f5f8ff;
 }
 #playButton,
 .toolbar .nav-button:first-child {
-  border-color: var(--btn-primary);
-  background: var(--btn-primary);
+  border-color: #2563eb;
+  background: #2563eb;
   color: #fff;
-}
-#playButton:hover,
-.toolbar .nav-button:first-child:hover {
-  border-color: var(--btn-primary-hover);
-  background: var(--btn-primary-hover);
 }
 .panel {
   border-radius: 6px;
@@ -1404,11 +1389,11 @@ select:hover,
 }
 .model-card strong,
 .metric-grid strong {
-  color: var(--text);
+  color: #1e293b;
 }
 .metric-grid > div {
   border-color: var(--border);
-  background: var(--panel-strong);
+  background: #fff;
 }
 input[type="range"] {
   accent-color: var(--blue);
@@ -1416,18 +1401,18 @@ input[type="range"] {
 .loading {
   border-color: var(--border);
   border-radius: 6px;
-  background: rgba(17, 22, 29, 0.96);
+  background: rgba(255, 255, 255, 0.98);
   box-shadow: var(--shadow);
   color: var(--text);
 }
 .loading strong {
-  color: var(--blue);
+  color: #1d4ed8;
 }
 .loading-bar {
-  background: var(--border);
+  background: #e5eaf1;
 }
 .loading-bar i {
-  background: var(--blue);
+  background: #2563eb;
 }
 .footer {
   left: 16px;
@@ -1445,7 +1430,7 @@ input[type="range"] {
   padding: 8px 11px;
   border-radius: 8px;
   overflow: visible;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(32, 48, 70, 0.1);
 }
 .footer #fitViewButton {
   margin-top: 2px;
@@ -1453,7 +1438,7 @@ input[type="range"] {
   padding: 2px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--panel-strong);
+  background: #fff;
   color: var(--text);
   font-size: 12px;
   cursor: pointer;

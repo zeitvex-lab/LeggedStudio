@@ -7,7 +7,7 @@
  ],
  "title": "训练任务",
  "kind": "page",
- "entry": "training_list.html",
+ "entry": "workbench.html#training",
  "group": "训练",
  "order": 40,
  "requires": {

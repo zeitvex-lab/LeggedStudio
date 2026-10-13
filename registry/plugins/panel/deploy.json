@@ -7,7 +7,7 @@
  ],
  "title": "部署",
  "kind": "page",
- "entry": "deploy.html",
+ "entry": "workbench.html#deploy",
  "group": "产物",
  "order": 70,
  "requires": {

@@ -1,15 +1,16 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Legged Studio</title>
-  <!-- data-theme="dark"：暗色「agent 工作台」主题（00_know/06 §追记 2026-10-12；
-       tokens 唯一真值 = shared/ui.css，workbench.css / play-overrides.css 消费同一组值） -->
-  <link rel="stylesheet" href="shared/ui.css?v=0.66.1">
-  <link rel="stylesheet" href="workbench.css?v=0.66.1">
-  <link rel="stylesheet" href="play-overrides.css?v=0.66.1">
-  <link rel="stylesheet" href="urdf-viewer.css?v=0.55.0">
+  <!-- 浅色为当前活跃皮肤（2026-10-13 回退裁决：暗色 Phase II 未完成前不做半迁移，
+       见 00_know/05 追记）。tokens 唯一真值 = shared/ui.css；暗色 agent 主题
+       tokens 保留在 ui.css [data-theme="dark"]，内容页全部就绪后可一行切换。 -->
+  <link rel="stylesheet" href="shared/ui.css?v=0.66.2">
+  <link rel="stylesheet" href="workbench.css?v=0.66.2">
+  <link rel="stylesheet" href="play-overrides.css?v=0.66.2">
+  <link rel="stylesheet" href="urdf-viewer.css?v=0.66.2">
   <!-- Warm the 1.3 MB three.js module during API calls so the first robot
        preview does not wait for a post-render download. -->
   <link rel="modulepreload" href="/web/sim2sim/vendor/three/build/three.module.js">
@@ -162,19 +163,31 @@
           <iframe id="navMapFrame" class="page-frame" title="高级仿真"></iframe>
         </section>
 
+        <section id="navigation-editor" class="view frame-view">
+          <iframe id="navEditorFrame" class="page-frame" title="导航地图编辑器"></iframe>
+        </section>
+
         <section id="deploy" class="view frame-view">
           <iframe id="deployFrame" class="page-frame" title="部署"></iframe>
         </section>
 
+        <section id="exports" class="view frame-view">
+          <iframe id="exportsFrame" class="page-frame" title="导出与分发"></iframe>
+        </section>
+
         <section id="artifacts" class="view frame-view">
           <iframe id="artifactsFrame" class="page-frame" title="策略档案"></iframe>
+        </section>
+
+        <section id="view-missing" class="view">
+          <div class="empty-state" style="margin-top:64px">该面板尚未提供壳内页面——CLI 与首页卡片投影已可用（数据同源），页面落地后此占位即消失。</div>
         </section>
       </div>
     </main>
   </div>
   <script src="shared/api.js"></script>
   <script src="shared/feedback.js"></script>
-  <script src="workbench.js?v=0.45.0"></script>
-  <script src="urdf-viewer.js?v=0.44.0"></script>
+  <script src="workbench.js?v=0.66.2"></script>
+  <script src="urdf-viewer.js?v=0.66.2"></script>
 </body>
 </html>

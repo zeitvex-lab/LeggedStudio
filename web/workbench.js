@@ -666,9 +666,11 @@ function setView(name, options = {}) {
   // identical across the functional areas. 资产库已原生并入首页
   // （#assetLibraryGrid），不再有独立 assets 视图。
   const framePages = {
-    navmap: ['navMapFrame', 'advanced_sim.html?v=0.46.0&embedded=1'],
-    deploy: ['deployFrame', 'deploy.html?v=0.44.0&embedded=1'],
-    artifacts: ['artifactsFrame', 'artifacts.html?v=0.44.0&embedded=1'],
+    navmap: ['navMapFrame', 'advanced_sim.html?v=0.66.2&embedded=1'],
+    'navigation-editor': ['navEditorFrame', 'navigation_editor.html?v=0.66.2&embedded=1'],
+    deploy: ['deployFrame', 'deploy.html?v=0.66.2&embedded=1'],
+    exports: ['exportsFrame', 'exports.html?v=0.66.2&embedded=1'],
+    artifacts: ['artifactsFrame', 'artifacts.html?v=0.66.2&embedded=1'],
   };
   if (name in framePages) {
     const [frameId, page] = framePages[name];
@@ -683,17 +685,22 @@ function setView(name, options = {}) {
     const robot = options.robot || selectedPreset?.robot_id || 'unitree_go2';
     // C2：带 task_id 时直接打开该 Run 的档案页（training_monitor）。
     const page = name === 'config'
-      ? `training_create.html?v=0.44.0&embedded=1&robot=${encodeURIComponent(robot)}`
+      ? `training_create.html?v=0.66.2&embedded=1&robot=${encodeURIComponent(robot)}`
       : options.task_id
-        ? `training_monitor.html?v=0.44.0&embedded=1&task_id=${encodeURIComponent(options.task_id)}`
-        : `training_list.html?v=0.44.0&embedded=1`;
+        ? `training_monitor.html?v=0.66.2&embedded=1&task_id=${encodeURIComponent(options.task_id)}`
+        : `training_list.html?v=0.66.2&embedded=1`;
     const expected = new URL(page, window.location.href).toString();
     if (frame.getAttribute('src') !== expected) frame.src = expected;
   }
-  document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active-view', view.id === name));
+  // 诚实降级：注册表驱动侧栏可能声明壳内尚未建设的视图（如 controllers /
+  // onboarding——CLI 与首页卡片投影已同源可用，Web 页未落地）——落到明确
+  // 占位页，而不是把所有视图藏掉、留下一个白屏内容区。
+  const hasShellView = Boolean(document.getElementById(name)?.classList.contains('view'));
+  const activeId = hasShellView ? name : 'view-missing';
+  document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active-view', view.id === activeId));
   // 全出血视图（iframe 内嵌页与 Sim2Sim）不带 content 内边距，精确填满
   // main-area 剩余高度；首页/机器人工作台保留常规卡片留白。
-  const fullBleed = ['config', 'training', 'simulation', 'navmap', 'deploy', 'artifacts'].includes(name);
+  const fullBleed = ['config', 'training', 'simulation', 'navmap', 'navigation-editor', 'deploy', 'exports', 'artifacts'].includes(name);
   document.querySelector('.content')?.classList.toggle('content-fullbleed', fullBleed);
   // Sidebar + workflow progress both carry data-step targets.
   document.querySelectorAll('.side-item').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
@@ -797,7 +804,11 @@ async function buildRegistrySideNav() {
           ? `<span class="side-item is-disabled" title="${escapeHtml(item.disabled_reason || "不可用")}"><span class="side-ico">•</span><span>${escapeHtml(item.title)}</span></span>`
           : `<a class="side-item" href="${escapeHtml(item.href)}" target="_blank" rel="noopener"><span class="side-ico">↗</span><span>${escapeHtml(item.title)}</span></a>`;
       } else if (anchor && anchor !== "home") {
-        html += `<button class="side-item" data-step="${escapeHtml(anchor)}"><span class="side-ico">•</span><span>${escapeHtml(item.title)}</span></button>`;
+        // 壳内视图：全部面板 entry 现均为 workbench.html#<view>（2026-10-13 收敛），
+        // 服务不可用（disabled）与外部页同口径——置灰 + title 带原因，不装能点。
+        html += item.disabled
+          ? `<span class="side-item is-disabled" title="${escapeHtml(item.disabled_reason || "不可用")}"><span class="side-ico">•</span><span>${escapeHtml(item.title)}</span></span>`
+          : `<button class="side-item" data-step="${escapeHtml(anchor)}"><span class="side-ico">•</span><span>${escapeHtml(item.title)}</span></button>`;
       }
     }
     host.innerHTML = html || '<div class="empty-state">导航需要控制面</div>';
@@ -1261,6 +1272,22 @@ function bindEvents() {
     setTimeout(syncSimulationFrame, 80);
   });
   window.addEventListener('resize', syncSimulationFrame);
+  // iframe 内普通链接的壳内导航（deploy→导出分发、高级仿真→导航编辑器）：
+  // 页面在壳内嵌时 postMessage 给壳切视图——侧栏高亮/hash 与实际内容一致；
+  // 壳外直接打开该页时走普通导航（window.parent === window 不发消息）。
+  // 只认同源消息：壳内 iframe 全部第一方，外来帧一律忽略。
+  window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin) return;
+    const data = event.data;
+    if (!data || data.type !== 'legged-studio:navigate' || typeof data.view !== 'string') return;
+    setView(data.view);
+  });
+  // hash 路由补齐：壳内手动改 hash（或外部深链落到已加载的壳）也切视图。
+  // setView 内部用 replaceState 写 hash——不触发 hashchange，不会成环。
+  window.addEventListener('hashchange', () => {
+    const name = window.location.hash.slice(1);
+    if (name) setView(name);
+  });
   if (simulation && 'ResizeObserver' in window) new ResizeObserver(syncSimulationFrame).observe(simulation);
   window.addEventListener('robot-viewer-progress', (event) => {
     const detail = event.detail || {};

@@ -7,7 +7,7 @@
  ],
  "title": "训练配置",
  "kind": "page",
- "entry": "training_create.html",
+ "entry": "workbench.html#config",
  "group": "训练",
  "order": 30,
  "requires": {
