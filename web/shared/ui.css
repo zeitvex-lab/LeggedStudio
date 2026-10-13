@@ -166,10 +166,14 @@ body {
 .ls-btn:disabled, .ls-btn[aria-disabled="true"],
 .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
 
+/* 实底主按钮：浅色用 accent 本身（#1769a9 白字 5.79:1），暗色必须换
+   --ls-accent-solid（#2f6fbd 白字 5.09:1）——暗色 accent #5ea8ff 是浅蓝，
+   白字配它只有 2.46:1（2026-10-13 暗色门禁实测红）。token 早已定义，此前
+   从未接线，本次补上；浅色无该 token，fallback 回 accent 原值。 */
 .ls-btn--primary,
-.btn.primary { border-color: var(--ls-accent); background: var(--ls-accent); color: #ffffff; }
+.btn.primary { border-color: var(--ls-accent-solid, var(--ls-accent)); background: var(--ls-accent-solid, var(--ls-accent)); color: #ffffff; }
 .ls-btn--primary:hover,
-.btn.primary:hover { border-color: var(--ls-accent-strong); background: var(--ls-accent-strong); color: #ffffff; }
+.btn.primary:hover { border-color: var(--ls-accent-solid-hover, var(--ls-accent-strong)); background: var(--ls-accent-solid-hover, var(--ls-accent-strong)); color: #ffffff; }
 
 .ls-btn--ghost { border-color: transparent; background: transparent; color: var(--ls-muted); }
 .ls-btn--ghost:hover { border-color: var(--ls-line); background: var(--ls-surface-soft); color: var(--ls-accent); }
@@ -689,8 +693,12 @@ body.embedded .ls-topnav { display: none; }
   --ls-line-soft: #1a232e;      /* 次级描边 / 分隔线 */
   --ls-text: #dbe4ec;           /* 主文本（on #11161d ≈ 12:1） */
   --ls-ink: #b9c5d1;            /* 按钮正文 */
-  --ls-muted: #7f8c9a;          /* 次级文本（on #11161d ≈ 5.1:1） */
-  --ls-faint: #7a8794;          /* 三级/微标签（≈4.7:1，不低于 AA） */
+  --ls-muted: #8fa0b0;          /* 次级文本（on #11161d ≈ 5.1:1） */
+  /* 三级/微标签：暗色下**无灰阶空间**——#7a8794（初版值）在 surface-raised
+     #182029 上实测 4.48:1，再暗一律跌破 AA；提亮到与 muted 同值（最亮常见
+     底上 4.79:1），层级改靠字号/字重/等宽区分（dsh/Zed 的 metadata 处理
+     正是如此，不靠第三层灰）。 */
+  --ls-faint: #8fa0b0;
 
   /* ---------- 强调色（agent 蓝：链接/主行动/激活态） ---------- */
   --ls-accent: #5ea8ff;         /* on #11161d ≈ 7.4:1 */

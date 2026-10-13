@@ -16,5 +16,14 @@
   ]
  },
  "desktop": true,
- "note": "高级仿真的地图创作面（2026-10-13 收编进壳：原由 advanced_sim.html 以 target=_blank 新标签页打开，跳出单壳；地图真值 = /api/navigation/maps）。未声明 cli/home_card = 暂无 CLI/首页投影（合法声明，Web/桌面 only）。"
+ "cli": {
+  "command": "panel navigation-editor",
+  "provider": "backend.cli_panels:navigation_maps_list"
+ },
+ "home_card": {
+  "provider": "backend.cli_panels:navigation_maps_list",
+  "order": 65,
+  "note": "地图库卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
+ },
+ "note": "高级仿真的地图创作面（2026-10-13 收编进壳：原由 advanced_sim.html 以 target=_blank 新标签页打开，跳出单壳；地图真值 = /api/navigation/maps，scenario_maps 唯一来源）。"
 }

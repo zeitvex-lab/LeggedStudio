@@ -1,0 +1,20 @@
+{
+ "schema": "legged-plugin-1.0",
+ "id": "evaluation",
+ "seam": "panel",
+ "provides": [
+  "panel/evaluation"
+ ],
+ "title": "策略验证",
+ "kind": "page",
+ "entry": "workbench.html#evaluation",
+ "group": "产物",
+ "order": 85,
+ "requires": {
+  "services": [
+   "backend"
+  ]
+ },
+ "desktop": true,
+ "note": "策略验证页（Sim2Sim 确定性回放 + 质量矩阵 B11 八指标两套独立入口）2026-10-13 收编进壳：原为孤儿页（不在注册表，唯一入口是桌面启动器「打开验证」直开新窗口）。未声明 cli/home_card = 该页核心是「发起一次验证」的动作面而非纯读数，暂无 CLI/首页投影（合法声明，Web/桌面 only）。"
+}

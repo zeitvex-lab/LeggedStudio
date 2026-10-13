@@ -21,6 +21,10 @@ contextBridge.exposeInMainWorld('leggedStudio', {
     openExternal: (url) => ipcRenderer.invoke('external:open', url),
     // 真托管（00_know/06 §追记 2026-10-12）：产品本体在 Electron 窗口内运行
     openInWindow: (url) => ipcRenderer.invoke('window:load-url', url),
+    // 主题（shared/theme.js 的 presenter 调用）：把 Web 侧偏好同步到 Electron
+    // 原生 chrome（nativeTheme.themeSource——滚动条/表单等 UA 控件跟随）。
+    // dsh 的 preload 同款转发（theme-presenter → nativeTheme）。
+    setThemeSource: (source) => ipcRenderer.invoke('theme:set-source', source),
     showLauncher: () => ipcRenderer.invoke('window:show-launcher'),
     minimize: () => ipcRenderer.invoke('window:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),

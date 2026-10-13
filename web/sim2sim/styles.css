@@ -1699,3 +1699,47 @@ body.panel-hidden .panel-left { display: none !important; }
   padding: 4px; border: 1px dashed rgba(148, 178, 188, 0.2); border-radius: 4px;
   user-select: all;
 }
+
+/* 暗色变体（00_know/06 §E 追记 2026-10-13）：dsh 单一 presenter 模式——壳切换
+   主题 → <html data-theme="dark"> → 本块接管浅色 Play 块里写死的组件值；独立
+   离线根直开（无该属性）时保持浅色 Play HUD。取值与 shared/ui.css 暗色 tokens
+   同源；3D 视口保持浅色渲染内容（Foxglove 式「深壳浅视口」，.viewer 渐变不动）。 */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0e13;
+  --panel: rgba(17, 22, 29, 0.88);
+  --panel-strong: #11161d;
+  --panel-soft: #141a22;
+  --border: #232d3a;
+  --text: #dbe4ec;
+  --muted: #7f8c9a;
+  --soft: #b9c5d1;
+  --green: #4ec98a;
+  --teal: #3dd6c6;
+  --amber: #e0b159;
+  --red: #e5685e;
+  --blue: #5ea8ff;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
+  --btn-hover-bg: rgba(94, 168, 255, 0.12);
+  --btn-primary: #2f6fbd;
+  --btn-primary-hover: #2a63a9;
+}
+:root[data-theme="dark"] .brand-mark { background: rgba(94, 168, 255, 0.12); }
+:root[data-theme="dark"] .brand h1 { color: var(--text); }
+:root[data-theme="dark"] button,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] .nav-button { background: var(--panel-strong); color: var(--text); }
+:root[data-theme="dark"] button:hover,
+:root[data-theme="dark"] select:hover,
+:root[data-theme="dark"] .nav-button:hover { border-color: var(--blue); background: var(--btn-hover-bg); }
+:root[data-theme="dark"] #playButton,
+:root[data-theme="dark"] .toolbar .nav-button:first-child { border-color: var(--btn-primary); background: var(--btn-primary); color: #fff; }
+:root[data-theme="dark"] #playButton:hover,
+:root[data-theme="dark"] .toolbar .nav-button:first-child:hover { border-color: var(--btn-primary-hover); background: var(--btn-primary-hover); }
+:root[data-theme="dark"] .model-card strong,
+:root[data-theme="dark"] .metric-grid strong { color: var(--text); }
+:root[data-theme="dark"] .metric-grid > div { background: var(--panel-strong); }
+:root[data-theme="dark"] .loading strong { color: var(--blue); }
+:root[data-theme="dark"] .loading-bar { background: var(--border); }
+:root[data-theme="dark"] .loading-bar i { background: var(--blue); }
+:root[data-theme="dark"] .footer #fitViewButton { background: var(--panel-strong); }

@@ -666,11 +666,12 @@ function setView(name, options = {}) {
   // identical across the functional areas. 资产库已原生并入首页
   // （#assetLibraryGrid），不再有独立 assets 视图。
   const framePages = {
-    navmap: ['navMapFrame', 'advanced_sim.html?v=0.66.4&embedded=1'],
-    'navigation-editor': ['navEditorFrame', 'navigation_editor.html?v=0.66.4&embedded=1'],
-    deploy: ['deployFrame', 'deploy.html?v=0.66.4&embedded=1'],
-    exports: ['exportsFrame', 'exports.html?v=0.66.4&embedded=1'],
-    artifacts: ['artifactsFrame', 'artifacts.html?v=0.66.4&embedded=1'],
+    navmap: ['navMapFrame', 'advanced_sim.html?v=0.66.5&embedded=1'],
+    'navigation-editor': ['navEditorFrame', 'navigation_editor.html?v=0.66.5&embedded=1'],
+    deploy: ['deployFrame', 'deploy.html?v=0.66.5&embedded=1'],
+    exports: ['exportsFrame', 'exports.html?v=0.66.5&embedded=1'],
+    artifacts: ['artifactsFrame', 'artifacts.html?v=0.66.5&embedded=1'],
+    evaluation: ['evaluationFrame', 'evaluation.html?v=0.66.5&embedded=1'],
   };
   if (name in framePages) {
     const [frameId, page] = framePages[name];
@@ -685,10 +686,10 @@ function setView(name, options = {}) {
     const robot = options.robot || selectedPreset?.robot_id || 'unitree_go2';
     // C2：带 task_id 时直接打开该 Run 的档案页（training_monitor）。
     const page = name === 'config'
-      ? `training_create.html?v=0.66.4&embedded=1&robot=${encodeURIComponent(robot)}`
+      ? `training_create.html?v=0.66.5&embedded=1&robot=${encodeURIComponent(robot)}`
       : options.task_id
-        ? `training_monitor.html?v=0.66.4&embedded=1&task_id=${encodeURIComponent(options.task_id)}`
-        : `training_list.html?v=0.66.4&embedded=1`;
+        ? `training_monitor.html?v=0.66.5&embedded=1&task_id=${encodeURIComponent(options.task_id)}`
+        : `training_list.html?v=0.66.5&embedded=1`;
     const expected = new URL(page, window.location.href).toString();
     if (frame.getAttribute('src') !== expected) frame.src = expected;
   }
@@ -700,7 +701,7 @@ function setView(name, options = {}) {
   document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active-view', view.id === activeId));
   // 全出血视图（iframe 内嵌页与 Sim2Sim）不带 content 内边距，精确填满
   // main-area 剩余高度；首页/机器人工作台保留常规卡片留白。
-  const fullBleed = ['config', 'training', 'simulation', 'navmap', 'navigation-editor', 'deploy', 'exports', 'artifacts'].includes(name);
+  const fullBleed = ['config', 'training', 'simulation', 'navmap', 'navigation-editor', 'deploy', 'exports', 'artifacts', 'evaluation'].includes(name);
   document.querySelector('.content')?.classList.toggle('content-fullbleed', fullBleed);
   // Sidebar + workflow progress both carry data-step targets.
   document.querySelectorAll('.side-item').forEach((item) => item.classList.toggle('active', item.dataset.step === name));
@@ -1264,6 +1265,14 @@ function startSimulation() {
   const frame = $('simBrowserFrame');
   if (frame) frame.src = `/web/sim2sim/index.html?embedded=1&robot=${encodeURIComponent(robot)}&view=workbench`;
 }
+// 主题按钮反映当前态（图标 + 中文态名；shared/theme.js 持有真值）
+function refreshThemeButton() {
+  const button = $('themeToggle');
+  if (!button || !window.LSTheme) return;
+  const mode = LSTheme.read();
+  button.textContent = LSTheme.ICONS[mode];
+  button.title = `主题：${LSTheme.LABELS[mode]}（点击切换 系统→浅色→深色）`;
+}
 function bindEvents() {
   const simulation = $('simulation');
   const simulationFrame = $('simBrowserFrame');
@@ -1338,5 +1347,8 @@ function bindEvents() {
   $('runInspection')?.addEventListener('click', runPackageInspection);
   $('saveRobotPackage')?.addEventListener('click', saveRobotPackage); $('refreshRobotPackages')?.addEventListener('click', () => loadPresets(selectedPreset?.robot_id)); $('deleteRobotPackage')?.addEventListener('click', async () => { if (!selectedPreset || selectedPreset.source !== 'workspace') return; if (!(await LSFeedback.confirm('删除当前机器人包？', { danger: true }))) return; await jsonFetch('/api/project/packages/' + encodeURIComponent(selectedPreset.robot_id), { method: 'DELETE' }); selectedPreset = null; await loadPresets(); });
   $('validateBtn').addEventListener('click', validateModel); $('startSimulation')?.addEventListener('click', startSimulation); $('homeRefresh').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('panelCardsRefresh')?.addEventListener('click', loadPanelCards); $('refreshApp').addEventListener('click', () => { loadCapabilities(); loadRuns(); }); $('copyContract').addEventListener('click', async () => navigator.clipboard?.writeText($('contractJson').value));
+  // 主题切换（shared/theme.js 是唯一实现：循环 system→light→dark，广播到全部
+  // iframe 内容页 + Electron nativeTheme；本按钮只反映当前态）
+  $('themeToggle')?.addEventListener('click', () => { LSTheme.cycle(); refreshThemeButton(); });
 }
-document.addEventListener('DOMContentLoaded', async () => { buildRegistrySideNav(); buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); const hash = window.location.hash.slice(1); const initialView = hash || 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });
+document.addEventListener('DOMContentLoaded', async () => { buildRegistrySideNav(); buildRobotWorkspace(); resetValidationWorkspace(); bindEvents(); refreshThemeButton(); const hash = window.location.hash.slice(1); const initialView = hash || 'home'; setView(initialView); try { await loadPresets(); resetValidationWorkspace(); } catch (error) { if ($('validationLog')) $('validationLog').textContent = `Initialization failed: ${error.message}`; } });

@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+  <script>
+  /* 主题引导（先于样式表执行，首帧不闪烁）——与 shared/theme.js 同一真值
+     （localStorage 'ls-theme'）；dsh boot-theme 同款：head 引导 + 脚本后安装。 */
+  (function(){try{var p=localStorage.getItem('ls-theme')||'system';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
+</script>
+<style>html{background:#f4f6f8}html[data-theme="dark"]{background:#0b0e13;color-scheme:dark}</style>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>训练任务 - Legged Studio</title>
@@ -350,6 +357,7 @@
   </div>
 
   <script src="shared/api.js"></script>
+  <script src="shared/theme.js"></script>
   <script src="shared/feedback.js"></script>
   <script src="training-common.js"></script>
   <script src="shared/topnav.js"></script>

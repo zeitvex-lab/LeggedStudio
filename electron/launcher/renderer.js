@@ -551,9 +551,8 @@ $('#settings-open-root').addEventListener('click', () => api.openPath('root'));
 $('#open-assets-workbench').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/workbench.html#home`); });
 $('#open-packages-home')?.addEventListener('click', () => activatePage('assets'));
 $('#open-artifacts-workbench').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/workbench.html#artifacts`); });
-// evaluation.html 是孤儿页（不在面板注册表、壳内无视图）——保留唯一直开入口，
-// 去留（注册为面板 / 并入壳 / 删除）待产品裁决，见 00_know/05 追记 2026-10-13。
-$('#open-evaluation').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/evaluation.html`); });
+// 策略验证已收编为壳内面板（2026-10-13）——深链进壳，不再直开孤儿页
+$('#open-evaluation').addEventListener('click', async () => { if (requireBackend()) api.openInWindow(`${await api.backendUrl()}/web/workbench.html#evaluation`); });
 $('#probe-python').addEventListener('click', () => probePython(true));
 $('#pick-python').addEventListener('click', pickPython);
 $('#configure-runtime').addEventListener('click', configureRuntime);

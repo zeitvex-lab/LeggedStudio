@@ -35,18 +35,19 @@ def _write_manifests(directory: Path, manifests: list[dict]) -> Path:
 
 
 class PanelRegistryTest(unittest.TestCase):
-    def test_real_registry_loads_twelve_panels_sorted(self):
-        """12 面板（2026-10-05 +controllers；2026-10-12 +onboarding；2026-10-13
-        +navigation-editor/exports 两个跳页/新标签页收编进壳）——加面板 = 一个 manifest 文件。
+    def test_real_registry_loads_thirteen_panels_sorted(self):
+        """13 面板（2026-10-05 +controllers；2026-10-12 +onboarding；2026-10-13
+        +navigation-editor/exports 收编进壳、+evaluation 孤儿页收编、两个新面板补
+        cli/home_card 投影）——加面板 = 一个 manifest 文件。
         注：onboarding 落地时本测试停在 9 未同步（存量红，2026-10-13 随收编一并订正）。"""
         panels = load_panels()
-        self.assertEqual(12, len(panels))
+        self.assertEqual(13, len(panels))
         orders = [p["order"] for p in panels]
         self.assertEqual(orders, sorted(orders))
         ids = [p["id"] for p in panels]
         self.assertEqual(["home", "onboarding", "robot", "controllers", "config", "training",
                           "simulation", "navmap", "navigation-editor", "deploy", "exports",
-                          "artifacts"], ids)
+                          "artifacts", "evaluation"], ids)
         for p in panels:
             self.assertEqual("panel", p["seam"])
             self.assertIn(f"panel/{p['id']}", p["provides"])

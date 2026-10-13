@@ -20,6 +20,8 @@
 
 from __future__ import annotations
 
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -170,12 +172,16 @@ def package_onboarding(robot_id: str) -> dict[str, Any]:
     }
 
 
-def onboarding_overview() -> dict[str, Any]:
-    """全包接入 DoD 一览（CLI ``panel onboarding`` 与首页卡片同源）。
+# 一览缓存：全包 DoD 读数不便宜（实测 8 包 ≈ 4.3s——每包都要过契约校验 +
+# 体检），而首页卡片每次打开页面都全量跑一遍 ⇒ 骨架转 4.5s（N4 落地后的体验
+# 回归，2026-10-13 暗色轮实测发现）。TTL 30s：载荷带 generated_at / age_s，
+# 陈旧可见——不把旧读数伪装成新读数（CLI 与首页同源同口径）。
+_OVERVIEW_TTL_S = 30.0
+_overview_cache: dict[str, Any] | None = None
+_overview_cache_at: float = 0.0
 
-    单包读数失败（如包目录被移动）不拖垮整张表：该行如实记 ``error``，
-    其余包照常——与首页聚合端点同一 fail-soft 口径（`06` §14.4 诚实禁用）。
-    """
+
+def _onboarding_overview_uncached() -> dict[str, Any]:
     from backend.robot_packages import list_robot_packages
 
     rows: list[dict[str, Any]] = []
@@ -203,3 +209,23 @@ def onboarding_overview() -> dict[str, Any]:
         "ready": counts.get("pass", 0),
         "note": "四步全绿 = 可进产品面（可训练 / 可仿真 / 可部署投影）",
     }
+
+
+def onboarding_overview(*, refresh: bool = False) -> dict[str, Any]:
+    """全包接入 DoD 一览（CLI ``panel onboarding`` 与首页卡片同源），带 30s TTL 缓存。
+
+    单包读数失败（如包目录被移动）不拖垮整张表：该行如实记 ``error``，
+    其余包照常——与首页聚合端点同一 fail-soft 口径（`06` §14.4 诚实禁用）。
+
+    ``refresh=True`` 强制重读（CLI 显式动作、导入包后立即可见的场景由调用方决定）；
+    载荷恒带 ``generated_at`` / ``age_s``——缓存服务时陈旧以秒计可见。
+    """
+    global _overview_cache, _overview_cache_at
+    now = time.time()
+    if refresh or _overview_cache is None or now - _overview_cache_at > _OVERVIEW_TTL_S:
+        _overview_cache = _onboarding_overview_uncached()
+        _overview_cache_at = now
+    payload = dict(_overview_cache)
+    payload["generated_at"] = datetime.fromtimestamp(_overview_cache_at, timezone.utc).isoformat()
+    payload["age_s"] = round(now - _overview_cache_at, 1)
+    return payload
