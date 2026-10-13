@@ -711,7 +711,7 @@ body.embedded .ls-topnav { display: none; }
   /* ---------- 语义色（soft 底 + 实字，暗底全 AA） ---------- */
   --ls-ok: #4ec98a;  --ls-ok-soft: rgba(78, 201, 138, 0.12);  --ls-ok-line: rgba(78, 201, 138, 0.35);
   --ls-warn: #e0b159; --ls-warn-soft: rgba(224, 177, 89, 0.12); --ls-warn-line: rgba(224, 177, 89, 0.35);
-  --ls-err: #e5685e;  --ls-err-soft: rgba(229, 104, 94, 0.12);  --ls-err-line: rgba(229, 104, 94, 0.35);
+  --ls-err: #ec7d74;  --ls-err-soft: rgba(229, 104, 94, 0.12);  --ls-err-line: rgba(229, 104, 94, 0.35);
   --ls-muted-soft: rgba(127, 140, 154, 0.12);
   --ls-muted-line: rgba(127, 140, 154, 0.3);
 

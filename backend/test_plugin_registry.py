@@ -102,10 +102,22 @@ class ManifestDirTest(unittest.TestCase):
 
     def test_panel_manifests_project_four_surfaces(self):
         panels = [p for p in _manifest_files() if p.parent.name == "panel"]
-        self.assertEqual(9, len(panels))
-        ids = {json.loads(p.read_text(encoding="utf-8-sig"))["id"] for p in panels}
-        self.assertEqual({"home", "robot", "controllers", "config", "training",
-                          "simulation", "navmap", "deploy", "artifacts"}, ids)
+        manifests = [json.loads(p.read_text(encoding="utf-8-sig")) for p in panels]
+        # 13 面板（2026-10-13：onboarding + navigation-editor/exports/evaluation
+        # 收编进壳）。注：本测试曾在 onboarding 落地时停在 9 未同步（存量红），
+        # 本轮订正——加面板必须同步盘点，这是本测试存在的理由。
+        self.assertEqual(13, len(panels))
+        ids = {m["id"] for m in manifests}
+        self.assertEqual({"home", "onboarding", "robot", "controllers", "config",
+                          "training", "simulation", "navmap", "navigation-editor",
+                          "deploy", "exports", "artifacts", "evaluation"}, ids)
+        # 四投影的不变式（名副其实的部分）：entry + desktop 是硬投影，人人必有；
+        # cli/home_card 是策略性投影（纯动作面/Web-only 面板可合法缺省，如
+        # evaluation——见各 manifest note），缺省必须留痕而非静默。
+        for m in manifests:
+            self.assertTrue(m.get("entry"), m["id"])
+            self.assertIn("desktop", m, m["id"])
+            self.assertIn("panel/%s" % m["id"], m.get("provides") or [], m["id"])
 
 
 if __name__ == "__main__":
