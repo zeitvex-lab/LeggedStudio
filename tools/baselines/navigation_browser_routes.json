@@ -1,12 +1,12 @@
 {
   "schema": "navigation-browser-routes-1.1",
-  "generated_at": "2026-10-14T02:55:21",
+  "generated_at": "2026-10-14T03:08:07",
   "surface": "web/sim2sim/index.html（基础仿真，?debug=1&nav=warehouse&nav_waypoints=...）",
   "mode": "e2e",
   "provenance": {
-    "product_version": "0.66.5",
+    "product_version": "0.66.6",
     "git": {
-      "commit": "cd134aa83bc0a5e3b5ad935935add16d136756b9",
+      "commit": "0eb4ba6b90ca219045654a68031690c7b6574eaa",
       "dirty": true
     },
     "platform": "Linux-5.4.241-1-tlinux4-0025.10-x86_64-with-glibc2.41",
@@ -84,10 +84,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:34811/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:40569/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/full.png",
-      "total_ms": 4631,
+      "total_ms": 4596,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -128,10 +128,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:34811/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:40569/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_0_1.png",
-      "total_ms": 3800,
+      "total_ms": 3630,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -172,10 +172,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:34811/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:40569/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_1_2.png",
-      "total_ms": 2520,
+      "total_ms": 2373,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -216,10 +216,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:34811/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:40569/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/leg_2_3.png",
-      "total_ms": 4129,
+      "total_ms": 4163,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -241,7 +241,7 @@
       "policy_id": "go2-rlsar-robotlab",
       "started": true,
       "nav_wired": true,
-      "policy_wait_s": 0.3,
+      "policy_wait_s": 0.2,
       "path_nonempty": true,
       "followed": true,
       "arrived": true,
@@ -260,10 +260,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:34811/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:40569/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_1.png",
-      "total_ms": 4570,
+      "total_ms": 3822,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -304,10 +304,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:34811/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:40569/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_2.png",
-      "total_ms": 3819,
+      "total_ms": 3693,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
@@ -348,10 +348,10 @@
       "page_errors": [],
       "console_errors": [],
       "resource_errors": [
-        "400 http://127.0.0.1:34811/api/perception/terrain/evaluate"
+        "400 http://127.0.0.1:40569/api/perception/terrain/evaluate"
       ],
       "screenshot": "workspace/e2e-screenshots/navigation-routes/random_3.png",
-      "total_ms": 5492,
+      "total_ms": 5305,
       "classification": "arrived",
       "link_ok": true,
       "reason": null
