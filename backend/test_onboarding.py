@@ -81,6 +81,23 @@ class OverviewTest(unittest.TestCase):
             if row["overall"] != "error":
                 self.assertEqual(sorted(row["steps"].keys()), ["contract", "inspection", "smoke", "structure"])
 
+    def test_overview_ttl_cache_serves_fast_and_marks_age(self):
+        """TTL 缓存：二次读取走缓存（全量 DoD ≈4.3s，首页等不起），且载荷恒带
+        generated_at/age_s——陈旧以秒计可见，不把旧读数伪装成新读数。"""
+        import time as _time
+
+        first = onboarding_overview(refresh=True)
+        self.assertIn("generated_at", first)
+        self.assertAlmostEqual(first["age_s"], 0.0, delta=1.0)
+        _time.sleep(0.05)
+        second = onboarding_overview()
+        self.assertGreater(second["age_s"], 0.0)
+        self.assertEqual(second["packages"], first["packages"])
+        self.assertEqual(second["generated_at"], first["generated_at"])  # 同一份缓存
+        # refresh=True 强制重读：时间戳必须前进
+        third = onboarding_overview(refresh=True)
+        self.assertGreaterEqual(third["generated_at"], first["generated_at"])
+
 
 class PanelProjectionTest(unittest.TestCase):
     def test_manifest_provider_resolves_and_callable(self):

@@ -45,7 +45,14 @@ PAGES = [
 #: `advanced_sim.html` 的场景编辑器**默认收起**（2026-09-23 布局修复），只量默认态等于
 #: 放弃覆盖那 360px 浮层里的全部控件 ⇒ 两个态都量。
 _OPEN_ADVANCED_EDITOR = "open-advanced-editor"
-CASES = [(name, None) for name in PAGES] + [("advanced_sim.html", _OPEN_ADVANCED_EDITOR)]
+#: 暗色态（2026-10-13 dsh 模式主题落地）：shared/theme.js 的 head 引导片段读
+#: localStorage 'ls-theme' ⇒ add_init_script 预置偏好即整页暗色（含首帧前）。
+#:  Phase I 曾"只测壳不测内容页"导致浅色回归被暗色通过掩盖——暗色激活的前提是
+#: **两态都过门禁**，不是只过一态。
+_DARK = "dark"
+CASES = ([(name, None) for name in PAGES]
+         + [("advanced_sim.html", _OPEN_ADVANCED_EDITOR)]
+         + [(name, _DARK) for name in PAGES])
 
 # 探针：在页面里跑，返回 7 类问题的逐条明细（空数组 = 该项达标）
 PROBE = r"""
@@ -146,6 +153,9 @@ CHECKS = ("contrast", "tiny_text", "tap_target", "a11y", "clipped", "offscreen",
 
 @pytest.mark.parametrize("name,prepare", CASES, ids=[f"{n}{'@' + p if p else ''}" for n, p in CASES])
 def test_page_ui_metrics_are_clean(name: str, prepare: str | None, base_url: str, page: Page) -> None:
+    if prepare == _DARK:
+        # 预置暗色偏好：head 引导片段先于样式表读 localStorage ⇒ 整页（含首帧）暗色
+        page.add_init_script("localStorage.setItem('ls-theme', 'dark')")
     page.goto(f"{base_url}/web/{name}", wait_until="domcontentloaded", timeout=60_000)
     page.wait_for_timeout(2500)
     if prepare == _OPEN_ADVANCED_EDITOR:

@@ -122,8 +122,29 @@ def _shutdown_training_workers() -> None:
         print(f"[Shutdown] 训练 worker 清理失败: {exc}")
 
 
+def _warm_onboarding_cache() -> None:
+    """启动预热 onboarding 一览缓存（后台线程，失败只日志不挡启动）。
+
+    为什么：全包 DoD 读数 ≈4.3s（每包过契约校验 + 体检），TTL 30s 后首位
+    用户仍会撞上一次冷读（首页骨架转近 5s）。启动时后台预热 = 把这一次冷读
+    挪到用户看不见的启动期；TTL 到期后的偶发冷读由 age_s 字段对用户可见。
+    """
+    import threading
+
+    def _warm() -> None:
+        try:
+            from backend.onboarding import onboarding_overview
+
+            onboarding_overview(refresh=True)
+        except Exception as exc:  # noqa: BLE001 — 预热失败不影响控制面可用性
+            print(f"[Warmup] onboarding 缓存预热失败: {exc}")
+
+    threading.Thread(target=_warm, name="onboarding-warmup", daemon=True).start()
+
+
 @asynccontextmanager
 async def _lifespan(_: FastAPI):
+    _warm_onboarding_cache()
     yield
     _shutdown_training_workers()
 

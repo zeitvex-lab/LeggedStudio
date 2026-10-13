@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, Tray, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Tray, nativeImage, nativeTheme } = require('electron');
 const { spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -706,6 +706,13 @@ ipcMain.handle('panels:registry', async () => {
   } catch { return null; }
 });
 ipcMain.handle('launcher:paths', () => ({ ...PATHS, backend: PATHS.backend, python: PATHS.python }));
+// 主题（shared/theme.js presenter 的桌面侧落点）：Web 侧偏好 → nativeTheme。
+// 'system' 直传即可（Electron 原生支持）；未知值回落 system，不静默失败。
+ipcMain.handle('theme:set-source', (_event, source) => {
+  const allowed = ['system', 'light', 'dark'];
+  nativeTheme.themeSource = allowed.includes(source) ? source : 'system';
+  return nativeTheme.themeSource;
+});
 ipcMain.handle('launcher:version', () => {
     // 版本唯一真值源是仓库根 VERSION（与 release-check / 后端 version.py 同源）
     try {

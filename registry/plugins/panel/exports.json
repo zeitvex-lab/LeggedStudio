@@ -16,5 +16,14 @@
   ]
  },
  "desktop": true,
- "note": "导出物清单 / 场景打包 / 收包校验的 Web 入口（2026-10-13 收编进壳：原为 deploy.html 页内普通链接跳转，侧栏高亮与 hash 不同步；判据与打包委托 /api/exports，与 CLI export 同一实现）。未声明 cli/home_card = 暂无 CLI/首页投影（合法声明，Web/桌面 only）。"
+ "cli": {
+  "command": "panel exports",
+  "provider": "backend.cli_panels:exports_list"
+ },
+ "home_card": {
+  "provider": "backend.cli_panels:exports_list",
+  "order": 75,
+  "note": "导出物卡片数据源（与 CLI 投影同一 provider——一处实现三面投影：CLI/HTTP/首页）"
+ },
+ "note": "导出物清单 / 场景打包 / 收包校验的 Web 入口（2026-10-13 收编进壳：原为 deploy.html 页内普通链接跳转，侧栏高亮与 hash 不同步；判据与打包委托 /api/exports，与 CLI export 同一实现）。"
 }

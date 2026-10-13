@@ -213,3 +213,37 @@ def controllers_list() -> dict[str, Any]:
     from backend import controller_plugins
 
     return controller_plugins.summary()
+
+
+def exports_list() -> dict[str, Any]:
+    """导出与分发：工作区导出物清单 + 逐项校验结论（bundle_export 同一实现——
+    与 /api/export/list、CLI `export` 同源，坏包显式 ok=False 不伪装成空）。"""
+    from backend.bundle_export import list_exports
+
+    exports = list_exports()
+    return {
+        "count": len(exports),
+        "ok": sum(1 for e in exports if e.get("ok")),
+        "exports": exports,
+    }
+
+
+def navigation_maps_list() -> dict[str, Any]:
+    """导航地图编辑器：地图库读数（scenario_maps 唯一真值）——编辑器创作面
+    关心的字段（标签/类型/模式/边界）。障碍与航点是**编辑器会话态**（用户当场
+    画），不在地图库里，故不投影；与高级仿真面板 navmap_list 同源不同投影。"""
+    from backend.scenario_maps import MAPS
+
+    maps = []
+    for map_id, meta in sorted(MAPS.items()):
+        maps.append({
+            "map_id": map_id,
+            "label": meta.get("label"),
+            "kind": meta.get("kind"),
+            "mode": meta.get("mode"),
+            "bounds": list(meta.get("bounds") or []),
+        })
+    return {
+        "count": len(maps),
+        "maps": maps,
+    }

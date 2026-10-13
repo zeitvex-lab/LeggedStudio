@@ -1,6 +1,13 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  <script>
+  /* 主题引导（先于样式表执行，首帧不闪烁）——与 shared/theme.js 同一真值
+     （localStorage 'ls-theme'）；dsh boot-theme 同款：head 引导 + 脚本后安装。 */
+  (function(){try{var p=localStorage.getItem('ls-theme')||'system';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
+</script>
+<style>html{background:#f4f6f8}html[data-theme="dark"]{background:#0b0e13;color-scheme:dark}</style>
+
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>导航地图编辑器 - Legged Studio</title>
@@ -18,7 +25,7 @@
     .side-panel h3{margin:0 0 10px;font-size:13px}
     .tool{display:flex;gap:8px;flex-wrap:wrap}
     .btn{padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-raised);color:var(--text);cursor:pointer;font-size:12px}
-    .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .btn.primary{background:var(--ls-accent-solid,var(--accent));color:#fff;border-color:var(--ls-accent-solid,var(--accent))}
     .btn.active{border-color:var(--accent);color:var(--accent)}
     .btn.small{padding:6px 10px;font-size:11px}
     .btn.danger{color:var(--ls-err);border-color:var(--ls-err-line)}
@@ -89,6 +96,7 @@
     </div>
   </main>
   <script src="shared/api.js"></script>
+  <script src="shared/theme.js"></script>
   <script src="shared/feedback.js"></script>
   <script src="shared/topnav.js"></script>
   <script>

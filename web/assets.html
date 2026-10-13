@@ -1,6 +1,13 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  <script>
+  /* 主题引导（先于样式表执行，首帧不闪烁）——与 shared/theme.js 同一真值
+     （localStorage 'ls-theme'）；dsh boot-theme 同款：head 引导 + 脚本后安装。 */
+  (function(){try{var p=localStorage.getItem('ls-theme')||'system';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
+</script>
+<style>html{background:#f4f6f8}html[data-theme="dark"]{background:#0b0e13;color-scheme:dark}</style>
+
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>包管理 - Legged Studio</title>
@@ -23,7 +30,7 @@
     .empty{padding:60px;text-align:center;color:var(--muted);border:1px dashed var(--border-soft)}
     .import-bar{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
     .import-bar input{flex:1;min-width:280px;padding:9px 12px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:12px}
-    .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .btn.primary{background:var(--ls-accent-solid,var(--accent));color:#fff;border-color:var(--ls-accent-solid,var(--accent))}
     /* 删除按钮：旧 #f85149 在浅底上只有 3.35:1（实测门禁红），改用 ui.css 语义红 */
     .btn.danger{color:var(--ls-err);border-color:var(--ls-err-line)}
     .profile-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
@@ -52,6 +59,7 @@
     <section id="packageList" class="package-grid"><div class="empty">正在读取机器人包...</div></section>
   </main>
   <script src="shared/api.js"></script>
+  <script src="shared/theme.js"></script>
   <script src="shared/feedback.js"></script>
   <script src="shared/topnav.js"></script>
   <script>

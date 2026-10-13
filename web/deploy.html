@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+  <script>
+  /* 主题引导（先于样式表执行，首帧不闪烁）——与 shared/theme.js 同一真值
+     （localStorage 'ls-theme'）；dsh boot-theme 同款：head 引导 + 脚本后安装。 */
+  (function(){try{var p=localStorage.getItem('ls-theme')||'system';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
+</script>
+<style>html{background:#f4f6f8}html[data-theme="dark"]{background:#0b0e13;color-scheme:dark}</style>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>部署向导 · Legged Studio</title>
@@ -23,9 +30,9 @@
     .panel { border: 1px solid var(--ls-line-soft); border-radius: var(--ls-radius); background: var(--ls-surface); padding: 14px; margin-bottom: 14px; }
     .panel h2 { font-size: 15px; margin: 0 0 10px; }
     select, button.primary { font-size: 14px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--ls-line-soft); }
-    button.primary { background: var(--ls-accent); color: #fff; border: none; cursor: pointer; }
+    button.primary { background: var(--ls-accent-solid, var(--ls-accent)); color: #fff; border: none; cursor: pointer; }
     /* 禁用态与设计系统同口径（.ls-btn:disabled = opacity .55），不再自造浅蓝底 */
-    button.primary:disabled { background: var(--ls-accent); opacity: .55; cursor: not-allowed; }
+    button.primary:disabled { background: var(--ls-accent-solid, var(--ls-accent)); opacity: .55; cursor: not-allowed; }
     button.ghost { background: var(--ls-surface); border: 1px solid var(--ls-line-soft); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
     .gate-list { list-style: none; padding: 0; margin: 8px 0 0; font-family: Consolas, monospace; font-size: 13px; }
     .gate-list li { padding: 4px 0; }
@@ -103,6 +110,7 @@
   </div>
 
   <script src="shared/api.js"></script>
+  <script src="shared/theme.js"></script>
   <script src="shared/topnav.js"></script>
   <script>
     window.LSTopNav.render('lsTopNav', 'deploy');

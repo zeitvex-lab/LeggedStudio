@@ -1,4 +1,11 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>策略验证 - Legged Studio</title><link rel="stylesheet" href="shared/ui.css"><style>
+<!doctype html><html lang="zh-CN"><head>
+  <script>
+  /* 主题引导（先于样式表执行，首帧不闪烁）——与 shared/theme.js 同一真值
+     （localStorage 'ls-theme'）；dsh boot-theme 同款：head 引导 + 脚本后安装。 */
+  (function(){try{var p=localStorage.getItem('ls-theme')||'system';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
+</script>
+<style>html{background:#f4f6f8}html[data-theme="dark"]{background:#0b0e13;color-scheme:dark}</style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>策略验证 - Legged Studio</title><link rel="stylesheet" href="shared/ui.css"><style>
 .eval-shell{max-width:1180px;margin:0 auto;padding:32px 24px}.eval-form,.result{padding:20px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);margin-top:18px}.eval-form{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.eval-form label{display:grid;gap:6px;color:var(--muted);font-size:12px}.eval-form select,.eval-form input{min-height:38px;padding:0 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-input);color:var(--text)}.result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px}.metric{padding:14px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-raised)}.metric span{display:block;color:var(--muted);font-size:11px}.metric strong{display:block;margin-top:4px;font-size:22px;color:var(--accent)}
 .block-head{margin:22px 0 0}.block-head h2{margin:0 0 4px;font-size:16px}.block-head .hint{margin-top:0}
 .quality-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -37,7 +44,8 @@
   <div id="q-out"><div class="empty-state">未评测</div></div>
   <h3>历史报告</h3>
   <div id="q-list"><div class="empty-state">加载中...</div></div>
-</section></main><script src="shared/api.js"></script><script src="shared/feedback.js"></script><script src="shared/topnav.js"></script><script>
+</section></main><script src="shared/api.js"></script>
+  <script src="shared/theme.js"></script><script src="shared/feedback.js"></script><script src="shared/topnav.js"></script><script>
 window.LSTopNav.render('lsTopNav', 'navmap');
 const API=(location.protocol==='http:'||location.protocol==='https:')?location.origin:'http://127.0.0.1:8765',taskEl=document.querySelector('#task'),resultEl=document.querySelector('#result');
 async function load(){

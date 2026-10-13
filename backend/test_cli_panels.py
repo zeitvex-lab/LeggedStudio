@@ -39,7 +39,7 @@ class ProviderResolutionTest(unittest.TestCase):
     def test_providers_return_json_serializable(self):
         # 纯数据读数，不碰 GPU/训练——全部离线可跑；只验证形状不验证数值。
         for name in ("home_status", "packages_list", "training_list", "config_list",
-                     "navmap_list", "artifacts_list"):
+                     "navmap_list", "artifacts_list", "exports_list", "navigation_maps_list"):
             payload = resolve_provider(f"backend.cli_panels:{name}")()
             self.assertIsInstance(payload, dict, name)
             json.dumps(payload, ensure_ascii=False)  # 不可序列化会在这里炸

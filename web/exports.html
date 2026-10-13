@@ -1,6 +1,13 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  <script>
+  /* 主题引导（先于样式表执行，首帧不闪烁）——与 shared/theme.js 同一真值
+     （localStorage 'ls-theme'）；dsh boot-theme 同款：head 引导 + 脚本后安装。 */
+  (function(){try{var p=localStorage.getItem('ls-theme')||'system';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';}catch(e){}})();
+</script>
+<style>html{background:#f4f6f8}html[data-theme="dark"]{background:#0b0e13;color-scheme:dark}</style>
+
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>打包与分发 · Legged Studio</title>
@@ -30,7 +37,7 @@
       background: var(--bg); color: inherit; }
     textarea { font-family: ui-monospace, monospace; min-height: 60px; width: 100%; }
     button { cursor: pointer; background: var(--surface-raised); }
-    button.primary { border-color: var(--accent); }
+    button.primary { border-color: var(--ls-accent-solid, var(--accent)); }
     button:disabled { opacity: .5; cursor: not-allowed; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border-soft); }
@@ -108,6 +115,7 @@
   </main>
 
   <script src="shared/api.js"></script>
+  <script src="shared/theme.js"></script>
   <script src="shared/topnav.js"></script>
   <script>
     window.LSTopNav.render('lsTopNav', 'deploy');
