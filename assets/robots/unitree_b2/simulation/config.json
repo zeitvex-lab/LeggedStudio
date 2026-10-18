@@ -15,7 +15,32 @@
       "source": "rl_sar（Apache-2.0，社区训练基准）",
       "contract": {
         "observation_kind": "go2_rl_sdk_45",
-          "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "scale": "@contract"}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}],
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_pos",
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_vel",
+            "scale": "@contract"
+          },
+          {
+            "source": "action"
+          }
+        ],
         "obs_dim": 45,
         "action_dim": 12,
         "history_len": 1,
@@ -148,12 +173,60 @@
       "contract": {
         "obs_dim": 48,
         "action_dim": 12,
-        "observation_layout": [{"source": "base_lin_vel", "width": 3}, {"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "joint_pos", "scale": "@contract"}, {"source": "joint_vel", "scale": "@contract"}, {"source": "action"}, {"source": "cmd", "width": 3, "scale": "@contract"}],
         "action_scale": 0.25,
-        "default_joint_angles": {"fl_hip_joint": -0.1, "fl_thigh_joint": 0.8, "fl_calf_joint": -1.5, "fr_hip_joint": 0.1, "fr_thigh_joint": 0.8, "fr_calf_joint": -1.5, "rl_hip_joint": -0.1, "rl_thigh_joint": 0.8, "rl_calf_joint": -1.5, "rr_hip_joint": 0.1, "rr_thigh_joint": 0.8, "rr_calf_joint": -1.5},
-        "observation_kind": "go2_mjlab_actor_48"
+        "default_joint_angles": {
+          "fl_hip_joint": -0.1,
+          "fl_thigh_joint": 0.8,
+          "fl_calf_joint": -1.5,
+          "fr_hip_joint": 0.1,
+          "fr_thigh_joint": 0.8,
+          "fr_calf_joint": -1.5,
+          "rl_hip_joint": -0.1,
+          "rl_thigh_joint": 0.8,
+          "rl_calf_joint": -1.5,
+          "rr_hip_joint": 0.1,
+          "rr_thigh_joint": 0.8,
+          "rr_calf_joint": -1.5
+        },
+        "observation_kind": "go2_mjlab_actor_48",
+        "observation_layout": [
+          {
+            "source": "base_lin_vel",
+            "width": 3
+          },
+          {
+            "source": "ang_vel",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "joint_pos",
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_vel",
+            "scale": "@contract"
+          },
+          {
+            "source": "action"
+          },
+          {
+            "source": "cmd",
+            "width": 3,
+            "scale": "@contract"
+          }
+        ]
       },
-      "note": "B8 第二批冒烟产物。**2026-09-23 补齐取证（v0.59.0）**：obs 布局 = 验收器既有 `_frame_go2_mjlab_actor_48` 的逐项序（training.log actor 组取证：lin_vel / ang_vel / gravity / q12 / dq12 / actions12 / cmd）；动作缩放自 ONNX 元数据 `action_scale`（逐关节 0.25）；ONNX 元数据默认姿态 hip −0.1（包级 0.0）+ thigh 0.8 / calf −1.5 ⇒ 逐关节声明。**行为级实测**：无头验收 5 档命令 **0/5**（默认门同为 0/5：各档均摔倒）。"
+      "note": "B8 第二批冒烟产物。**2026-09-23 补齐取证（v0.59.0）**：obs 布局 = 验收器既有 `_frame_go2_mjlab_actor_48` 的逐项序（training.log actor 组取证：lin_vel / ang_vel / gravity / q12 / dq12 / actions12 / cmd）；动作缩放自 ONNX 元数据 `action_scale`（逐关节 0.25）；ONNX 元数据默认姿态 hip −0.1（包级 0.0）+ thigh 0.8 / calf −1.5 ⇒ 逐关节声明。**行为级实测**：无头验收 5 档命令 **0/5**（默认门同为 0/5：各档均摔倒）。",
+      "training_ref": {
+        "profile": "b2-velocity",
+        "match": "product-training",
+        "upstream": "run unitree_b2_v1_20260918_015414_313841"
+      }
     }
-  ]
+  ],
+  "demo_policies": []
 }

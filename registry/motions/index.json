@@ -7,8 +7,8 @@
     "license": "与 I5 同口径：缺许可记录不得进注册表；确未取证须显式 status=unresolved + 依据"
   },
   "counts": {
-    "clips": 16,
-    "files": 16
+    "clips": 15,
+    "files": 15
   },
   "motions": [
     {
@@ -671,46 +671,6 @@
         "status": "unresolved",
         "spdx": null,
         "reason": "随包 demo 动作数据：出处见包内策略声明的 source（LeggedSkillDeploy go2_jump（第三方，无 LICENSE；仅内部研究）），**该动作数据本身的许可与再分发条件未取证**",
-        "evidence": [
-          "assets/robots/unitree_go2/simulation/config.json"
-        ]
-      }
-    },
-    {
-      "id": "unitree-go2-unknown-sideflip",
-      "robot": "unitree_go2",
-      "source": "unknown",
-      "format": "csv",
-      "layout": "browser-csv",
-      "fps": 50.0,
-      "dof_dim": 12,
-      "dof_layout": "unitree_dds_12",
-      "frames_min": 118,
-      "files": {
-        "browser": {
-          "path": "assets/robots/unitree_go2/simulation/policies/sideflip_motion.csv",
-          "sha256": "a3216d6236de9391286f1ff7493be161d00813b762d11a64aef1fa2ea370eb12",
-          "bytes": 31036,
-          "frames": 118
-        }
-      },
-      "frames_max": 118,
-      "conventions": {
-        "note": "无表头的逐帧 CSV（root 位姿 + 关节角）；列布局 / 参考系 / 四元数序以包内策略声明的 `motion_params`（`csv_layout` / `ref_axis`）为准 —— 本模块不替它猜"
-      },
-      "lineage": {
-        "pipeline": "浏览器侧随包 demo 动作（`simulation/policies/*_motion.csv`，由 `web/sim2sim/motion_loader.js` 消费）",
-        "raw": null,
-        "raw_note": "数据以 CSV 形式直接入库，仓内无更上游的原始来源",
-        "conversion_script": null,
-        "evidence": [
-          "assets/robots/unitree_go2/simulation/config.json"
-        ]
-      },
-      "license": {
-        "status": "unresolved",
-        "spdx": null,
-        "reason": "随包 demo 动作数据：出处见包内策略声明的 source（LeggedSkillDeploy go2_silde_filp（第三方，无 LICENSE；仅内部研究）），**该动作数据本身的许可与再分发条件未取证**",
         "evidence": [
           "assets/robots/unitree_go2/simulation/config.json"
         ]

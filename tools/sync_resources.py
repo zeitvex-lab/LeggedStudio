@@ -122,6 +122,27 @@ PROJECTS: dict[str, dict] = {
                          "desc": "1000frames.ai 站点镜像资源"},
     "sim.stackforce.cc": {"robots": ["unitree_go2"],
                           "desc": "stackforce 仿真站点参考资源"},
+    "robocraftai.cn": {"robots": [],
+                       "desc": "桥介数物 RoboCraft AI 通用机器人运动能力平台（视频动作提取/编排/训练/真机部署）"},
+    # ---------------- 2026-10-17 四足/轮足训练与 AMP/MPC 参考 ----------------
+    "legbot_lab_PPO": {"robots": ["unitree_go2"],
+                       "desc": "Legbot Lab PPO 分支：Isaac Lab 四足 RL 训练 + Sim2Real（含 Go2 资源；Apache-2.0）"},
+    "legbot_lab_PPO-CTS-MOE": {"robots": ["unitree_go2"],
+                               "desc": "Legbot Lab PPO+MoE+CTS 分支：四足 MoE-CTS 训练（含 Go2 资源；Apache-2.0）"},
+    "legbot_lab_WF-CTS-MOE": {"robots": ["unitree_go2", "unitree_go2w"],
+                              "desc": "Legbot Lab WF-CTS-MOE 分支：16-DOF 轮足 MoE-CTS 训练 + Go2/Go2W 资源（Apache-2.0）"},
+    "GO2_backflip": {"robots": ["unitree_go2"],
+                     "desc": "GO2_backflip PPO-backflip：相位条件后空翻训练与真机部署（MIT）"},
+    "extreme-parkour": {"robots": [],
+                        "desc": "Extreme Parkour：A1/ANYmal 极端地形跑酷（CC BY-NC 4.0，仅参考，不复制代码）"},
+    "dfki-quad": {"robots": ["unitree_go2"],
+                  "desc": "DFKI Quadruped：MPC/WBC/步态序列器与 Go2 仿真控制栈（BSD-3）"},
+    "legged_mpc_amp": {"robots": ["unitree_go2"],
+                       "desc": "legged_mpc_amp：NMPC+WBC 四足 AMP 数据生成器（BSD-3）"},
+    "beyondAMP": {"robots": [],
+                  "desc": "beyondAMP：AMP 接入 IsaacLab/mjlab 的统一管线（G1 示例；无许可证，仅参考）"},
+    "legged_robot_competition": {"robots": ["unitree_go2"],
+                                 "desc": "legged_robot_competition：基于 legged_gym 的 Go2 地形翻越比赛工程（无许可证，仅参考）"},
     "Odin-Nav-Stack": {"robots": ["unitree_go2"],
                        "desc": "Odin1 深度相机 + NeuPAN 局部规划的导航栈"},
     "LightNav-0": {"robots": ["unitree_go2"],
@@ -470,6 +491,22 @@ PROJECTS: dict[str, dict] = {
                                     "source": "https://huggingface.co/Kyu3224/quadruped-locomotion-policy @ 80bed8c5410c65d16eaed9cbc75f62200ee80fd6",
                                     "commit": "80bed8c5410c65d16eaed9cbc75f62200ee80fd6", "fetched": "2026-09-23",
                                     "note": "ONNX/PT 为 LFS 指针", "in_git": True},
+    # ---------------- 跨域工程参考（2026-10-18） ----------------
+    "deepseek-harness": {"robots": [],
+                         "desc": "DeepSeek Harness（dsh）：all-plugin Cordis agent harness"
+                                 "（service context/inject、patch、bundle/profile、session 持久化、MCP/工具、"
+                                 "Web/Desktop/SDK）；MIT；Legged Studio 插件协议与内容清单的上游参考",
+                         "license": "MIT", "repo": "https://github.com/deepseek-ai/deepseek-harness",
+                         "source": "https://github.com/deepseek-ai/deepseek-harness @ 687f282e8625c6b8d11ff58211a90524be2e4317",
+                         "commit": "687f282e8625c6b8d11ff58211a90524be2e4317", "fetched": "2026-10-18",
+                         "note": "agent harness / 插件协议参考；不作为腿足运行时依赖", "in_git": True},
+    "ComfyUI": {"robots": [],
+                "desc": "ComfyUI：节点式生成式 AI 工作流引擎（图像/视频/3D/音频/文本；自定义节点、"
+                        "API/队列、离线推理）；GPL-3.0；潜在用于仿真场景/资产/内容生成，非运行时依赖",
+                "license": "GPL-3.0", "repo": "https://github.com/Comfy-Org/ComfyUI",
+                "source": "https://github.com/Comfy-Org/ComfyUI @ c06bf5f569d268b80076e5f44126f87cdf835869",
+                "commit": "c06bf5f569d268b80076e5f44126f87cdf835869", "fetched": "2026-10-18",
+                "note": "内容生成 / 资产工作流参考；GPL-3.0，不并入产品运行时", "in_git": True},
 }
 
 # 非机型知识库：单独放在 00_resources/knowledge_base/<名称>/
@@ -901,6 +938,10 @@ def reindex_existing(dry: bool) -> int:
 # --------------------------------------------------------------------------
 README_HEAD = """# 00_resources/ — 参考资源整合库（以「项目」为单位）
 
+> **资源实体外置（2026-10-18）**：项目快照在独立仓 `zeitvex-lab/LeggedStudio-Resources`；
+> 主仓只保留本索引、`_index.json`、`_LICENSES.md`、`_SPEC.md`，用
+> `python tools/fetch_resources.py` 拉取。
+>
 > **组织方式**：一个来源项目 = 一个目录 `00_resources/<project>/`，**原样保留该项目的目录结构与组织思想**。
 > 项目内有用的内容（源码 / 配置 / 文档 / 数据 / **推理策略 onnx·pt·engine**）完整拷贝；
 > 网格、CAD、二进制、媒体、归档、日志与超大的无用文件不拷贝，但在**原目录**留下 `_OMITTED.md`

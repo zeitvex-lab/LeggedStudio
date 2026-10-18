@@ -40,11 +40,11 @@ const ARRIVAL = { source: "registry/arrival_criteria.json", tolerance_m: 0.2, st
 
 // 1) 交运消息：完整场景（含 checks/recorders/perception/command_source）原样带走
 {
-  const message = toScenarioMessage(SCENARIO, { robot: "unitree_go2", policy: "go2-loco-45" });
+  const message = toScenarioMessage(SCENARIO, { robot: "unitree_go2", policy: "go2-backflip-69" });
   assert.equal(message.type, SCENARIO_MESSAGE_TYPE);
   assert.equal(message.version, SCENARIO_MESSAGE_VERSION);
   assert.equal(message.robot, "unitree_go2");
-  assert.equal(message.policy, "go2-loco-45");
+  assert.equal(message.policy, "go2-backflip-69");
   assert.deepEqual(message.scenario.checks, ["arrival", "route_completion"], "判据必须随消息走");
   assert.deepEqual(message.scenario.recorders, ["trajectory", "metrics"], "记录器必须随消息走");
   assert.equal(message.scenario.command_source, "planner", "指令源必须随消息走");

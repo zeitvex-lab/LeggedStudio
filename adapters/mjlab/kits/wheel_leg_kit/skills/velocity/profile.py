@@ -112,6 +112,36 @@ class CommandRanges:
 
 
 @dataclass(frozen=True)
+class WheelStanceRecipe:
+    """可选的轮足站立/轮轴姿态奖励档（源自 legbot_lab WF-CTS-MOE，Apache-2.0）。
+
+    默认值 = 上游 WF 配方的权重与阈值；**不随现有 profile 默认启用**——
+    需要机型 profile 显式给 `wheel_stance=WheelStanceRecipe(...)` 才装配。
+    这些权重是上游任务的量级，换到本仓任务前必须按 `effect_criterion` 预算实测。
+    """
+
+    #: 髋外展关节的姿态 L1（静立时 × stand_still_scale）。
+    hip_pose_weight: float = -0.08
+    #: 大腿+小腿的姿态 L1（静立时 × stand_still_scale）。
+    leg_pose_weight: float = -0.01
+    stand_still_scale: float = 2.0
+    linear_threshold: float = 0.1
+    yaw_threshold: float = 0.1
+    #: 轮轴 toe/camber 对齐（静立全权重；直行 straight_scale；横移/转向关闭）。
+    wheel_axis_alignment_weight: float = -0.6
+    wheel_axis_alignment_std: float = 0.2
+    wheel_axis_alignment_deadzone_degrees: float = 2.0
+    wheel_axis_alignment_straight_scale: float = 0.25
+    #: 零命令时腿/轮不必要运动的惩罚。
+    standing_joint_vel_weight: float = -0.02
+    standing_leg_std: float = 1.0
+    standing_wheel_std: float = 5.0
+    #: 地形不平度削弱静立偏好；None = 只用 upright 项（平地/无扫描档）。
+    height_sensor: str | None = None
+    flatness_std: float = 0.03
+
+
+@dataclass(frozen=True)
 class LegsOnlyRecipe:
     """"纯腿行走"变体（去掉轮动作、换掉轮奖励）专属的源配方数值。"""
 
@@ -218,6 +248,8 @@ class VelocityProfile:
     leg_motion_min_penalty_scale: float = 0.2
     # --- 纯腿变体专属数值（不给 = 该档不可用，配置工厂会判红） ----------------------
     legs_only: LegsOnlyRecipe | None = None
+    # --- 可选的轮足站立/轮轴姿态奖励档（None = 不装配，保持既有行为） ---------------
+    wheel_stance: WheelStanceRecipe | None = None
 
 
 # ------------------------------------------------------------------------------

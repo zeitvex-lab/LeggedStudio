@@ -1,4 +1,4 @@
-{
+﻿{
   "schema_version": "simulation-config-1.0",
   "backend": "mujoco",
   "scene_path": "simulation/scene.xml",
@@ -85,7 +85,42 @@
       "history_len": 1,
       "contract": {
         "observation_kind": "zexw_53",
-        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "width": 12, "mode": "position", "scale": "@contract"}, {"source": "joint_vel", "width": 12, "mode": "position", "scale": "@contract"}, {"source": "joint_vel", "width": 4, "mode": "velocity", "scale": "@contract"}, {"source": "action"}],
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_pos",
+            "width": 12,
+            "mode": "position",
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_vel",
+            "width": 12,
+            "mode": "position",
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_vel",
+            "width": 4,
+            "mode": "velocity",
+            "scale": "@contract"
+          },
+          {
+            "source": "action"
+          }
+        ],
         "obs_dim": 53,
         "action_dim": 16,
         "history_len": 1,
@@ -105,7 +140,42 @@
       "history_len": 1,
       "contract": {
         "observation_kind": "zexw_53",
-        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "width": 12, "mode": "position", "scale": "@contract"}, {"source": "joint_vel", "width": 12, "mode": "position", "scale": "@contract"}, {"source": "joint_vel", "width": 4, "mode": "velocity", "scale": "@contract"}, {"source": "action"}],
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_pos",
+            "width": 12,
+            "mode": "position",
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_vel",
+            "width": 12,
+            "mode": "position",
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_vel",
+            "width": 4,
+            "mode": "velocity",
+            "scale": "@contract"
+          },
+          {
+            "source": "action"
+          }
+        ],
         "obs_dim": 53,
         "action_dim": 16,
         "history_len": 1,
@@ -125,7 +195,42 @@
       "history_len": 1,
       "contract": {
         "observation_kind": "zexw_53",
-        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "width": 12, "mode": "position", "scale": "@contract"}, {"source": "joint_vel", "width": 12, "mode": "position", "scale": "@contract"}, {"source": "joint_vel", "width": 4, "mode": "velocity", "scale": "@contract"}, {"source": "action"}],
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_pos",
+            "width": 12,
+            "mode": "position",
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_vel",
+            "width": 12,
+            "mode": "position",
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_vel",
+            "width": 4,
+            "mode": "velocity",
+            "scale": "@contract"
+          },
+          {
+            "source": "action"
+          }
+        ],
         "obs_dim": 53,
         "action_dim": 16,
         "history_len": 1,
@@ -145,7 +250,42 @@
       "history_len": 1,
       "contract": {
         "observation_kind": "zexw_53",
-        "observation_layout": [{"source": "ang_vel", "width": 3, "scale": "@contract"}, {"source": "gravity"}, {"source": "cmd", "width": 3, "scale": "@contract"}, {"source": "joint_pos", "width": 12, "mode": "position", "scale": "@contract"}, {"source": "joint_vel", "width": 12, "mode": "position", "scale": "@contract"}, {"source": "joint_vel", "width": 4, "mode": "velocity", "scale": "@contract"}, {"source": "action"}],
+        "observation_layout": [
+          {
+            "source": "ang_vel",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "gravity"
+          },
+          {
+            "source": "cmd",
+            "width": 3,
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_pos",
+            "width": 12,
+            "mode": "position",
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_vel",
+            "width": 12,
+            "mode": "position",
+            "scale": "@contract"
+          },
+          {
+            "source": "joint_vel",
+            "width": 4,
+            "mode": "velocity",
+            "scale": "@contract"
+          },
+          {
+            "source": "action"
+          }
+        ],
         "obs_dim": 53,
         "action_dim": 16,
         "history_len": 1,
@@ -171,5 +311,6 @@
       "path": "simulation/flat.xml"
     }
   ],
-  "viewer_camera_scale": 0.95
+  "viewer_camera_scale": 0.95,
+  "demo_policies": []
 }

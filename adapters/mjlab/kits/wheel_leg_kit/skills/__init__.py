@@ -45,6 +45,7 @@ from .velocity.profile import (
     OfficialVelocityProfile,
     SimOverride,
     VelocityProfile,
+    WheelStanceRecipe,
 )
 
 __all__ = [
@@ -67,6 +68,7 @@ __all__ = [
     "OfficialVelocityProfile",
     "SimOverride",
     "VelocityProfile",
+    "WheelStanceRecipe",
     "WheelLegSkillBinding",
     "from_contract",
     "make_velocity_env_cfg",

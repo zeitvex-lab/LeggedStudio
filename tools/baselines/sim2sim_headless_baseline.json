@@ -19,7 +19,8 @@
       "seed": 0,
       "gate_tracking": false
     },
-    "scope_note": "2026-09-23 族架构收敛（只留 8 机型）：14 → 8；已删除机型的行在此文件中移除（未重跑测量，其余行是原测量值）。"
+    "scope_note": "2026-09-23 族架构收敛（只留 8 机型）：14 → 8；已删除机型的行在此文件中移除（未重跑测量，其余行是原测量值）。",
+    "removal_note": "2026-10-17: 移除 go2-loco-45 / go2-side-flip-69（无训练源代码，移出可试玩清单）；可执行策略 42→40。"
   },
   "results": [
     {
@@ -194,18 +195,6 @@
       "robot": "unitree_go2",
       "policy": "go2-lainlab-handstand",
       "verdict": "fail",
-      "family": null
-    },
-    {
-      "robot": "unitree_go2",
-      "policy": "go2-loco-45",
-      "verdict": "pass",
-      "family": null
-    },
-    {
-      "robot": "unitree_go2",
-      "policy": "go2-side-flip-69",
-      "verdict": "pass",
       "family": null
     },
     {

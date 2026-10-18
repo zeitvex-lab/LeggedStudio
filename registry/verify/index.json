@@ -1,6 +1,6 @@
 {
  "schema": "plugin-verify-1.0",
- "generated_at": "2026-10-07",
+ "generated_at": "2026-10-17",
  "note": "Phase 4 验证器目录（00_know/06 §14.6 / §17 的 `verify[]` 落点）：**门禁清单的唯一真值**。`tools/audit_plugin_verify.py` 从这里派生 `.cnb.yml` unit-tests 段的验证步骤——清单不再手维护（`--check` 断言 .cnb.yml 里不再出现手列的 `python tools/audit|validate|check_*`）。`env` 非空的条目**不进 unit-tests 段**（要训练栈 / 训练产物 / 可选依赖），但仍是目录的一部分（覆盖率按全部条目算：tools/ 下每个 audit/validate/check 工具都必须有家，不许游离）。新增能力 = 加一条声明。",
  "universe": "tools/ 下匹配 `^(audit|validate|check)_*.py` 的全部文件",
  "gates": [
@@ -221,6 +221,11 @@
    "seam": "profile",
    "note": "B8 训练源可达性（--check 对照 tools/baselines/training_reachability.json）——基线待刷新，刷新是显式动作，故不进 unit-tests。**2026-10-08 实测**：漂移 4 处 = m20 `module_count 20 → 19`、go2 `reachable_count 117 → 115`，并**新暴露 2 个可删模块**（`assets/robots/unitree_go2/training/source/local_tasks/robots/unitree/go2/tasks/go2_skills/amp_dreamwaq/rl.py` 与 `.../dreamwaq/mdp/rl.py`）⇒ 属「死件清理」待办：删除会动包内文件与 pack 哈希，需连同重签，因此**没有在本轮顺手删**（不把「顺手改绿」当收口）。**同日核实后的裁决（已收口）**：那 2 个 go2 模块**不是死件** —— 模块 docstring 明写「保留类名/模块路径——runner 配置**与旧检查点**都按它解析」，而当前在仓配置已统一走 `local_tasks.learning.algorithms:AmpDreamWaQPPO`（`adapters/mjlab/algorithms/registry.json`）⇒ 静态不可达但**动态可达**，与 m20 同类「audit 静态盲区」先例一致 ⇒ **保留不删**；并按显式动作刷新基线（`--write` ⇒ `--check` 一致）。**口径提醒：名单里出现模块 ≠ 可以删——删之前先核动态引用（class_name / runner 配置 / 旧检查点）。**",
    "env": "manual"
+  },
+  {
+   "command": "python tools/audit_playable_policy_training.py",
+   "seam": "pack",
+   "note": "可试玩策略必须能回溯训练源（training_ref.profile + entrypoints.env；索引同步）"
   }
  ]
 }

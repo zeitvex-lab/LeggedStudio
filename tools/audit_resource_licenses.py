@@ -43,6 +43,7 @@ LICENSE_NAME = re.compile(r"^(licen[cs]e|copying)(\.(md|txt|rst|html))?$", re.IG
 EXPECTED_ZERO_LICENSE: frozenset[str] = frozenset({
     "1000framesai.com",
     "AMP_mjlab",
+    "beyondAMP",
     "Awesome_Quadrupedal_Robots",
     "Dreamwaq",
     "LeggedSkillDeploy",
@@ -58,6 +59,7 @@ EXPECTED_ZERO_LICENSE: frozenset[str] = frozenset({
     "microduck-simulator",
     "quadruped-locomotion-policy",
     "references_1000framesai",
+    "robocraftai.cn",
     "rl_sar_zoo",
     "robo_re",
     "robot_mujoco",

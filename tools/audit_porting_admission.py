@@ -115,21 +115,14 @@ POLICY_ADMISSION: dict[str, dict[str, str]] = {
         "go2-lainlab-spring-jump": "LainLab/src/tasks/robots/go2/skills/spring_jump（无相位项）",
         "go2-lainlab-rear-stand": "LainLab/src/tasks/robots/go2/skills/rear_stand",
         "go2-lainlab-handstand": "LainLab/src/tasks/robots/go2/skills/hand_stand",
-        # P 组 #8/#9（2026-09-20）：LeggedSkillDeploy 另两条产物——上游只给 config.yaml
-        # + policy.pt（无训练代码、无 LICENSE）⇒ 规则 S 产物-only：准入证据 = 上游部署
-        # 配置自身（observations 顺序/缩放/PD/joint_mapping 逐字段可取），登记口径见
-        # tools/register_legskill_go2.py。
-        "go2-loco-45": "LeggedSkillDeploy go2_loco/config.yaml（无训练代码；规则 S 产物-only）",
-        "go2-side-flip-69": "LeggedSkillDeploy go2_silde_filp/config.yaml + motion CSV（无训练代码；规则 S 产物-only）",
+        # 2026-10-17：go2-loco-45 / go2-side-flip-69 上游无训练代码，已移出可试玩清单
+        # （ONNX/来源保留作参考；规则 S 不再接受“产物-only”作为可试玩准入）。
     },
     "unitree_go2w": {
         "go2w-velocity-legs": "unitree_rl_mjlab_go2w（velocity_legs_only）",
-        # 2026-10-07 补登记（两条 2026-09-30 入库产物此前漏登记，规则 S 判红）：
-        # 上一条是上游原生产物（origin=upstream-vendored，非 product-training，自证链不适用）；
-        # 下一条是产品训练产物（origin=product-training）但 provenance 无 artifact_id，
-        # 出库索引解析不到 ⇒ 走人工裁定表登记（与 go2-loco-45 等「产物-only」同口径）。
+        # 2026-10-07 补登记：上游原生产物（origin=upstream-vendored，非 product-training）。
+        # 2026-10-17：unitree_go2w-uf-1500 无 run/artifact 证据，已移出可试玩清单。
         "go2w-upstream-legsonly-v0": "unitree_rl_mjlab_go2w/deploy/robots/go2w/.../velocity_legs_only/v0（上游原生产物）",
-        "unitree_go2w-uf-1500": "包内 go2w velocity 统一框架训练产物（wheel_leg_kit 1024×1500；product-training，无 artifact_id）",
         "go2w-velocity-robotlab": "robot_lab/.../velocity/config/wheeled/unitree_go2w",
         "go2w-himloco-loco": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
         "go2w-himloco-stand-front": "LeggedSkillDeploy go2w_himloco + 00_resources/HIMLoco（HIMLoco 训练工程）",
@@ -214,8 +207,14 @@ def package_inventory(package_root: Path) -> dict[str, Any]:
     # X 规则只覆盖**浏览器仿真策略**（simulation/ 下的 onnx）。包内 deploy/ 目录
     # 携带的是部署产物（如按上游部署布局存放的 policy.onnx/model.pt），不参与仿真准入。
     sim_root = package_root / "simulation"
+    # `simulation/legacy_policies/` 是 2026-10-17 移出可试玩的参考产物（无训练源），
+    # 不参与仿真准入一致性核对；它们仍留在包内作取证，但不再声明为可试玩策略。
     onnx = (
-        sorted(p.relative_to(package_root).as_posix() for p in sim_root.rglob("*.onnx"))
+        sorted(
+            p.relative_to(package_root).as_posix()
+            for p in sim_root.rglob("*.onnx")
+            if "legacy_policies" not in p.relative_to(package_root).as_posix()
+        )
         if sim_root.is_dir()
         else []
     )

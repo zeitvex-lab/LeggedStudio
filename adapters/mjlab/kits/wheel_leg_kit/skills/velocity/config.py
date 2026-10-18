@@ -52,9 +52,12 @@ from ...mdp import (
     base_lin_vel,
     contact_fraction_reward,
     feet_air_time,
+    joint_pose_l1_standing_scaled,
     leg_motion_penalty,
     root_height_below_minimum,
     stand_still,
+    standing_joint_vel_l2,
+    wheel_axis_alignment_l2,
     wheel_joint_pos_rel,
     wheel_joint_vel_rel,
     wheel_roll_tracking,
@@ -479,6 +482,92 @@ def _apply_play(cfg: ManagerBasedRlEnvCfg) -> None:
         generator.border_width = 10.0
 
 
+def _apply_wheel_stance(
+    cfg: ManagerBasedRlEnvCfg,
+    binding: WheelLegSkillBinding,
+    profile: VelocityProfile,
+) -> None:
+    """按 profile 的 `wheel_stance` 装配可选的轮足站立/轮轴奖励（默认不装配）。"""
+    stance = getattr(profile, "wheel_stance", None)
+    if stance is None:
+        return
+    sensor_name = stance.height_sensor
+    # 髋外展姿态 L1（静立放大）
+    if stance.hip_pose_weight:
+        cfg.rewards["hip_pose_standing"] = RewardTermCfg(
+            func=joint_pose_l1_standing_scaled,
+            weight=stance.hip_pose_weight,
+            params={
+                "command_name": "twist",
+                "asset_cfg": binding.role_scene_entity_cfg("hip_abduction"),
+                "stand_still_scale": stance.stand_still_scale,
+                "linear_threshold": stance.linear_threshold,
+                "yaw_threshold": stance.yaw_threshold,
+                "sensor_name": sensor_name,
+                "flatness_std": stance.flatness_std,
+            },
+        )
+    # 大腿 + 小腿姿态 L1（静立放大）；按族角色从契约动作序派生
+    if stance.leg_pose_weight:
+        leg_names: list[str] = []
+        for role in ("hip_pitch", "knee"):
+            leg_names.extend(
+                binding.action_joint_order[i]
+                for i in binding.role_joint_indices(role)
+            )
+        cfg.rewards["leg_pose_standing"] = RewardTermCfg(
+            func=joint_pose_l1_standing_scaled,
+            weight=stance.leg_pose_weight,
+            params={
+                "command_name": "twist",
+                "asset_cfg": SceneEntityCfg(
+                    "robot", joint_names=tuple(leg_names), preserve_order=True
+                ),
+                "stand_still_scale": stance.stand_still_scale,
+                "linear_threshold": stance.linear_threshold,
+                "yaw_threshold": stance.yaw_threshold,
+                "sensor_name": sensor_name,
+                "flatness_std": stance.flatness_std,
+            },
+        )
+    # 轮轴 toe/camber 对齐；轮 body 由绑定的轮接触正则派生
+    if stance.wheel_axis_alignment_weight:
+        cfg.rewards["wheel_axis_alignment"] = RewardTermCfg(
+            func=wheel_axis_alignment_l2,
+            weight=stance.wheel_axis_alignment_weight,
+            params={
+                "command_name": "twist",
+                "asset_cfg": SceneEntityCfg(
+                    "robot", body_names=(binding.wheel_contact_pattern,)
+                ),
+                "sensor_name": sensor_name,
+                "std": stance.wheel_axis_alignment_std,
+                "deadzone_degrees": stance.wheel_axis_alignment_deadzone_degrees,
+                "straight_scale": stance.wheel_axis_alignment_straight_scale,
+                "linear_threshold": stance.linear_threshold,
+                "yaw_threshold": stance.yaw_threshold,
+                "flatness_std": stance.flatness_std,
+            },
+        )
+    # 零命令时不必要的腿/轮速度
+    if stance.standing_joint_vel_weight:
+        cfg.rewards["standing_joint_vel"] = RewardTermCfg(
+            func=standing_joint_vel_l2,
+            weight=stance.standing_joint_vel_weight,
+            params={
+                "command_name": "twist",
+                "asset_cfg": binding.leg_joint_cfg(),
+                "wheel_asset_cfg": binding.wheel_joint_cfg(),
+                "sensor_name": sensor_name,
+                "leg_std": stance.standing_leg_std,
+                "wheel_std": stance.standing_wheel_std,
+                "linear_threshold": stance.linear_threshold,
+                "yaw_threshold": stance.yaw_threshold,
+                "flatness_std": stance.flatness_std,
+            },
+        )
+
+
 def make_env_cfg(
     binding: WheelLegSkillBinding,
     profile: VelocityProfile | OfficialVelocityProfile,
@@ -563,6 +652,7 @@ def _make_reference_env_cfg(
     _apply_observations(cfg, binding, profile)
     _apply_events(cfg, binding, variant, profile)
     _apply_rewards(cfg, binding, profile, variant)
+    _apply_wheel_stance(cfg, binding, profile)
     _apply_terminations(cfg, profile, variant)
     _apply_viewer(cfg, binding)
     if play:

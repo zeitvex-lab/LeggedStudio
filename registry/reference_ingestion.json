@@ -1,6 +1,6 @@
 {
  "schema": "reference-ingestion-1.0",
- "generated_at": "2026-10-05",
+ "generated_at": "2026-10-17",
  "note": "参考模型资产化台账（用户质问触发）：每个上游参考模型 → 内化为哪些族级资产 → 哪些机型在消费。模型本身不是资产；它背后的训练知识变成可迁移字段/契约真值/检测工具才是。'纯参照' = 只作验证基建（B11 参照系/金标准锚/判据 canary），未内化配方。消费证据按 2026-09-30 实测扫描。 2026-10-05 增 MPC 控制轴：5 份上游 MPC 框架按控制插件注册表（registry/controllers/index.json）登记为 audit 级——取证快照与机制面在注册表，台账只记内化进度。",
  "ingestions": [
   {
@@ -167,6 +167,25 @@
     "高程图→可行走性代价机制概念对照（与 go2-pie-depth 立项同域）"
    ],
    "not_yet_status": "audit 级；无 LICENSE（已登记零许可门禁）——只做概念参考不做代码移植"
+  },
+  {
+   "reference": "legbot_lab WF-CTS-MOE（16-DOF 轮足站立/轮轴奖励，Apache-2.0）",
+   "evidence": "00_resources/legbot_lab_WF-CTS-MOE/source/robot_lab/robot_lab/tasks/legbot/env/rewards.py（源实现）+ 00_resources/legbot_lab_WF-CTS-MOE/_SOURCE.md（分支 WF-CTS-MOE / commit a0fe9fe5 / Apache-2.0）",
+   "internalized": {
+    "kit_fields": [
+     "WheelStanceRecipe: hip_pose_weight/leg_pose_weight/stand_still_scale/wheel_axis_alignment_weight/std/deadzone_degrees/straight_scale/standing_joint_vel_weight/leg_std/wheel_std/height_sensor/flatness_std",
+     "奖励核: joint_pose_l1_standing_scaled / wheel_axis_alignment_l2 / standing_joint_vel_l2"
+    ],
+    "location": "adapters/mjlab/kits/wheel_leg_kit/mdp/wheel_rewards.py + skills/velocity/profile.py + skills/velocity/config.py"
+   },
+   "consumers": [
+    "wheel_leg_kit/skills/velocity/config.py（profile 显式给 wheel_stance 才装配；默认关闭）"
+   ],
+   "not_yet": [
+    "按本仓机型/预算标定权重",
+    "启用后的真训冒烟与 effect_criterion 数值"
+   ],
+   "not_yet_status": "能力已落、默认关闭；上游权重未按本仓机型标定"
   }
  ],
  "gaps": [],

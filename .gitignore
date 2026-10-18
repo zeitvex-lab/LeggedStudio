@@ -112,3 +112,11 @@ native_worker_output/
 /.*_scan.json
 /*_dump.json
 /.*_dump.json
+
+# 参考资源库实体外置（2026-10-18）：主仓只保留索引/规范/许可/抓取脚本；
+# 项目快照在 zeitvex-lab/LeggedStudio-Resources，由 tools/fetch_resources.py 拉取。
+00_resources/*
+!00_resources/README.md
+!00_resources/_index.json
+!00_resources/_LICENSES.md
+!00_resources/_SPEC.md

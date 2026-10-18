@@ -22,8 +22,11 @@ import json
 import re
 import sys
 import unittest
-from dataclasses import is_dataclass
+from dataclasses import is_dataclass, replace
 from pathlib import Path
+from types import SimpleNamespace
+
+import torch
 
 ROOT = Path(__file__).resolve().parents[2]
 GO2W_ROOT = ROOT / "assets" / "robots" / "unitree_go2w"
@@ -1350,6 +1353,98 @@ class ZexwCompetitionRecipeTest(unittest.TestCase):
                     self.assertEqual(333, obs["critic"].shape[-1])
                 finally:
                     env.close()
+
+
+class WheelStanceRecipeTest(unittest.TestCase):
+    """WF-CTS-MOE 站立/轮轴奖励：默认不启用；显式 profile 才装配。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.skills = _skills_module()
+        cls.binding = _go2w_binding().GO2W
+        cls.profiles = _go2w_profile()
+
+    def _cfg(self, profile):
+        return self.skills.make_velocity_env_cfg(
+            self.binding, profile, variant="flat"
+        )
+
+    def test_default_profile_does_not_add_stance_terms(self):
+        cfg = self._cfg(self.profiles.FLAT)
+        for name in (
+            "hip_pose_standing",
+            "leg_pose_standing",
+            "wheel_axis_alignment",
+            "standing_joint_vel",
+        ):
+            self.assertNotIn(name, cfg.rewards, "默认 profile 不应改变既有奖励表")
+
+    def test_wheel_stance_profile_adds_terms(self):
+        profile = replace(
+            self.profiles.FLAT, wheel_stance=self.skills.WheelStanceRecipe()
+        )
+        cfg = self._cfg(profile)
+        self.assertIn("hip_pose_standing", cfg.rewards)
+        self.assertIn("leg_pose_standing", cfg.rewards)
+        self.assertIn("wheel_axis_alignment", cfg.rewards)
+        self.assertIn("standing_joint_vel", cfg.rewards)
+        self.assertAlmostEqual(-0.08, cfg.rewards["hip_pose_standing"].weight)
+        self.assertAlmostEqual(-0.01, cfg.rewards["leg_pose_standing"].weight)
+        self.assertAlmostEqual(-0.6, cfg.rewards["wheel_axis_alignment"].weight)
+        self.assertAlmostEqual(-0.02, cfg.rewards["standing_joint_vel"].weight)
+        self.assertEqual(
+            (self.binding.wheel_contact_pattern,),
+            cfg.rewards["wheel_axis_alignment"].params["asset_cfg"].body_names,
+        )
+        self.assertEqual(
+            tuple(self.binding.leg_joint_order),
+            tuple(cfg.rewards["standing_joint_vel"].params["asset_cfg"].joint_names),
+        )
+
+    def test_wheel_stance_reward_math(self):
+        """纯 CPU 张量：静立时站立项为正、移动时为零；轮轴歪斜才产生代价。"""
+        from adapters.mjlab.kits.wheel_leg_kit.mdp.wheel_rewards import (
+            joint_pose_l1_standing_scaled,
+            standing_joint_vel_l2,
+            wheel_axis_alignment_l2,
+        )
+
+        n = 2
+        quat_identity = torch.tensor([1.0, 0.0, 0.0, 0.0])
+        quat_turned = torch.tensor([0.70710678, 0.0, 0.0, 0.70710678])
+        wheel_quat = quat_identity.repeat(n, 4, 1)
+        wheel_quat[1, 0] = quat_turned
+        asset = SimpleNamespace(
+            data=SimpleNamespace(
+                joint_vel=torch.ones(n, 16),
+                joint_pos=torch.full((n, 12), 0.1),
+                default_joint_pos=torch.zeros(n, 12),
+                projected_gravity_b=torch.tensor([[0.0, 0.0, -1.0]] * n),
+                body_link_quat_w=wheel_quat,
+                root_link_quat_w=quat_identity.repeat(n, 1),
+            )
+        )
+        command = torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+        env = SimpleNamespace(
+            device="cpu",
+            extras={"log": {}},
+            scene={"robot": asset},
+            command_manager=SimpleNamespace(get_command=lambda _name: command),
+        )
+        leg_cfg = SimpleNamespace(name="robot", joint_ids=list(range(12)))
+        wheel_cfg = SimpleNamespace(name="robot", joint_ids=list(range(12, 16)))
+        body_cfg = SimpleNamespace(name="robot", body_ids=list(range(4)))
+
+        vel = standing_joint_vel_l2(env, "twist", leg_cfg, wheel_cfg)
+        self.assertGreater(float(vel[0]), 0.0)
+        self.assertEqual(0.0, float(vel[1]))
+
+        pose = joint_pose_l1_standing_scaled(env, "twist", leg_cfg)
+        self.assertGreater(float(pose[0]), float(pose[1]))
+
+        axis = wheel_axis_alignment_l2(env, "twist", body_cfg)
+        self.assertEqual(0.0, float(axis[0]))
+        self.assertGreater(float(axis[1]), 0.0)
 
 
 if __name__ == "__main__":

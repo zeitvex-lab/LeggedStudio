@@ -238,7 +238,19 @@ def build_sideflip_entry(motion_csv: str, time_end: float) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true", help="只转换与推导，不落盘")
+    parser.add_argument(
+        "--allow-legacy",
+        action="store_true",
+        help="2026-10-17 起默认拒绝：两条策略无训练源代码，已移出可试玩清单",
+    )
     args = parser.parse_args()
+    if not args.allow_legacy:
+        print(
+            "DEPRECATED: go2-loco-45 / go2-side-flip-69 无训练源代码，已移出可试玩清单；"
+            "本脚本默认不写入 simulation/config.json（确需历史复现才加 --allow-legacy）。",
+            file=sys.stderr,
+        )
+        return 2
 
     staging = ROOT / "workspace" / "tmp_porting"
     staging.mkdir(parents=True, exist_ok=True)

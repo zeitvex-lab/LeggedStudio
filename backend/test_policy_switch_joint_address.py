@@ -98,8 +98,8 @@ class PolicySwitchJointAddressTest(unittest.TestCase):
             "没有任何策略声明与机型默认序不同的 action_joint_order —— 切换守卫失去了"
             "回归靶子（要么数据退化，要么这条测试该删）",
         )
-        # 具体登记在册的两条（LeggedSkillDeploy type-major 族），防止"有条目但认不出"
-        self.assertIn("unitree_go2/go2-loco-45", foreign)
+        # 具体登记在册的 type-major 策略，防止"有条目但认不出"。
+        # 2026-10-17：go2-loco-45 因无训练源代码移出可试玩清单，保留 go2-backflip-69 作靶子。
         self.assertIn("unitree_go2/go2-backflip-69", foreign)
 
 

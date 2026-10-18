@@ -5,6 +5,7 @@
 # ------------------------------------------------------------------------------
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 import torch
@@ -148,3 +149,165 @@ def contact_fraction_reward(
   assert sensor.data.found is not None
   in_contact = (sensor.data.found > 0).float()
   return torch.mean(in_contact, dim=1)
+
+# ------------------------------------------------------------------------------
+# 轮足站立/轮轴姿态奖励（2026-10-17 从 legbot_lab WF-CTS-MOE 提取，Apache-2.0）
+#
+# 来源：00_resources/legbot_lab_WF-CTS-MOE/source/robot_lab/robot_lab/tasks/legbot/env/rewards.py
+# 适配：Isaac Lab 的 `body_quat_w` → mjlab 的 `body_link_quat_w`；高度扫描改为可选
+# （没有 `ray_hits_w` 的档位只用 upright 项）；其余公式与阈值保持源实现。
+# 许可见 00_resources/legbot_lab_WF-CTS-MOE/_SOURCE.md。默认关闭，由 profile 的
+# `wheel_stance` 显式启用；上游权重未按本仓机型标定，启用前须按效果口径实测。
+# ------------------------------------------------------------------------------
+
+
+def _standing_mask(
+  command: torch.Tensor,
+  linear_threshold: float,
+  yaw_threshold: float,
+) -> torch.Tensor:
+  """线速度与角速度单位不同，分开判零命令（源实现同口径）。"""
+  return (torch.linalg.vector_norm(command[:, :2], dim=1) < linear_threshold) & (
+    torch.abs(command[:, 2]) < yaw_threshold
+  )
+
+
+def _flat_upright_weight(
+  env: ManagerBasedRlEnv,
+  sensor_name: str | None,
+  flatness_std: float,
+) -> torch.Tensor:
+  asset: Entity = env.scene["robot"]
+  upright = torch.clamp(-asset.data.projected_gravity_b[:, 2], 0.0, 0.7) / 0.7
+  if not sensor_name:
+    return upright
+  try:
+    sensor = env.scene[sensor_name]
+    heights = sensor.data.ray_hits_w[..., 2]
+  except (KeyError, AttributeError):
+    # 没有高度扫描数据的档位：只保留 upright 偏好，不产生 NaN。
+    return upright
+  valid = torch.isfinite(heights).all(dim=1) & (torch.abs(heights) < 1e6).all(dim=1)
+  safe = torch.nan_to_num(heights, nan=0.0, posinf=0.0, neginf=0.0).clamp(-1e6, 1e6)
+  variance = torch.mean(
+    torch.square(safe - safe.mean(dim=1, keepdim=True)), dim=1
+  )
+  flat = torch.exp(-variance / flatness_std**2)
+  return upright * flat * valid.to(upright.dtype)
+
+
+def joint_pose_l1_standing_scaled(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  asset_cfg: SceneEntityCfg,
+  stand_still_scale: float = 2.0,
+  linear_threshold: float = 0.1,
+  yaw_threshold: float = 0.1,
+  sensor_name: str | None = None,
+  flatness_std: float = 0.03,
+) -> torch.Tensor:
+  """静立且接近平地时，放大实测关节姿态的 L1 代价（源实现同口径）。"""
+  asset: Entity = env.scene[asset_cfg.name]
+  default_joint_pos = asset.data.default_joint_pos
+  assert default_joint_pos is not None, "joint_pose_l1_standing_scaled 需要默认关节角"
+  deviation = torch.sum(
+    torch.abs(
+      asset.data.joint_pos[:, asset_cfg.joint_ids]
+      - default_joint_pos[:, asset_cfg.joint_ids]
+    ),
+    dim=1,
+  )
+  command = env.command_manager.get_command(command_name)
+  assert command is not None, f"Command '{command_name}' not found."
+  standing = _standing_mask(command, linear_threshold, yaw_threshold)
+  extra = standing.to(deviation.dtype) * _flat_upright_weight(
+    env, sensor_name, flatness_std
+  )
+  return deviation * (1.0 + (stand_still_scale - 1.0) * extra)
+
+
+def wheel_axis_alignment_l2(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  asset_cfg: SceneEntityCfg,
+  sensor_name: str | None = None,
+  std: float = 0.2,
+  deadzone_degrees: float = 2.0,
+  straight_scale: float = 0.25,
+  linear_threshold: float = 0.1,
+  yaw_threshold: float = 0.1,
+  flatness_std: float = 0.03,
+) -> torch.Tensor:
+  """惩罚轮轴 toe/camber：静立全权重，直行弱，横移/转向关闭（源实现同口径）。
+
+  轮轴按轮 link 的局部 ±Y 轴计算（W1W 几何约定）；符号与轮子转向无关。
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  wheel_quat = asset.data.body_link_quat_w[:, asset_cfg.body_ids]
+  w, x, y, z = wheel_quat.unbind(dim=-1)
+  axle_w = torch.stack(
+    (
+      2.0 * (x * y - w * z),
+      1.0 - 2.0 * (x * x + z * z),
+      2.0 * (y * z + w * x),
+    ),
+    dim=-1,
+  )
+  bw, bx, by, bz = asset.data.root_link_quat_w.unbind(dim=-1)
+  forward_w = torch.stack(
+    (
+      1.0 - 2.0 * (by * by + bz * bz),
+      2.0 * (bx * by + bw * bz),
+      2.0 * (bx * bz - bw * by),
+    ),
+    dim=-1,
+  )
+  toe = torch.sum(axle_w * forward_w[:, None, :], dim=-1)
+  camber = axle_w[..., 2]
+  deadzone = math.sin(math.radians(deadzone_degrees))
+  error = torch.mean(
+    torch.square(torch.relu(torch.abs(toe) - deadzone))
+    + torch.square(torch.relu(torch.abs(camber) - deadzone)),
+    dim=1,
+  ) / std**2
+  command = env.command_manager.get_command(command_name)
+  assert command is not None, f"Command '{command_name}' not found."
+  standing = _standing_mask(command, linear_threshold, yaw_threshold)
+  straight = (torch.abs(command[:, 1]) < linear_threshold) & (
+    torch.abs(command[:, 2]) < yaw_threshold
+  )
+  context = torch.where(
+    standing, torch.ones_like(error), straight_scale * straight.to(error.dtype)
+  )
+  return error * context * _flat_upright_weight(env, sensor_name, flatness_std)
+
+
+def standing_joint_vel_l2(
+  env: ManagerBasedRlEnv,
+  command_name: str,
+  asset_cfg: SceneEntityCfg,
+  wheel_asset_cfg: SceneEntityCfg,
+  sensor_name: str | None = None,
+  leg_std: float = 1.0,
+  wheel_std: float = 5.0,
+  linear_threshold: float = 0.1,
+  yaw_threshold: float = 0.1,
+  flatness_std: float = 0.03,
+) -> torch.Tensor:
+  """只在校零命令时惩罚不必要的腿/轮速度（源实现同口径）。"""
+  asset: Entity = env.scene[asset_cfg.name]
+  leg_cost = torch.mean(
+    torch.square(asset.data.joint_vel[:, asset_cfg.joint_ids] / leg_std), dim=1
+  )
+  wheel_cost = torch.mean(
+    torch.square(
+      asset.data.joint_vel[:, wheel_asset_cfg.joint_ids] / wheel_std
+    ),
+    dim=1,
+  )
+  command = env.command_manager.get_command(command_name)
+  assert command is not None, f"Command '{command_name}' not found."
+  standing = _standing_mask(command, linear_threshold, yaw_threshold)
+  return (leg_cost + wheel_cost) * standing.to(leg_cost.dtype) * _flat_upright_weight(
+    env, sensor_name, flatness_std
+  )

@@ -87,7 +87,7 @@ class ReadinessTest(unittest.TestCase):
         self.assertEqual("ready", report["verdict"], report["checks"])
         self.assertEqual("quadruped", report["family"])
         # 2026-10-02 起四足全族五档 ready（obstacle_release/competition 转正，
-        # 见 05 §2.3 审计收口）——fixture 前提同步为注册表现状
+        # 见 00_know/90_归档/08_任务清单_阶段桶与队列_20260928.md 审计收口）——fixture 前提同步为注册表现状
         self.assertEqual(sorted(["plane", "rough", "stairs", "obstacle_release", "competition"]),
                          sorted(report["trainable_terrain_profiles"]))
         self.assertEqual(5, len(report["trainable_terrain_profiles"]))

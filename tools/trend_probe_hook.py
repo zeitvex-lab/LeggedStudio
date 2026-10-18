@@ -1,6 +1,6 @@
 """trend_probe 的**训练内钩子消费者**——Phase 3 首个 hooks.on_checkpoint 客户。
 
-架构位置（00_know/06 插件篇·追记「v2.1 仍然有效的结论」§2：钩子位）：native_worker 每次 save checkpoint 后调用
+架构位置（00_know/90_归档/11_插件化与交互层追记_20261006-14.md：钩子位）：native_worker 每次 save checkpoint 后调用
 本模块 `run`，趋势探针在训练进行中自动出 verdict——**判负早停的地基**
 （用户口径：~250 轮出趋势 / reward 50 轮 <2% 平台 = 收敛点错即配方判负）。
 

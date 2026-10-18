@@ -38,16 +38,13 @@ TOOLS_DIR = ROOT / "tools"
 #: （如 `adapters/github/mirror.py`）不在这套判据内 —— 它们由 `.cnb.yml` 的
 #: github-mirror pipeline 直接调用，属于"随适配器走"的成员，与
 #: `adapters/backend_adapter.py` 同惯例。
+#: 2026-10-18：00_know 活跃文档（01–07）的工具引用已迁入 `_manifest.json`；
+#: 这里只保留 manifest/README/归档/代码/测试，避免文档改名牵动工具清单。
 CONSUMERS = (
     "package.json",
     ".cnb.yml",
     "README.md",
-    "00_know/05_任务清单.md",
-    "00_know/01_项目定位.md",
-    "00_know/04_参数真值标准.md",
-    "00_know/03_参考项目与资源.md",
-    "00_know/02_项目规划.md",
-    "00_know/06_统一架构方案.md",
+    "00_know/_manifest.json",
     "00_know/README.md",
     # 2026-09-28 结构性重排：任务清单历史行整体归档，工具引用随行搬家——语料面跟着扩
     "00_know/90_归档/08_任务清单_阶段桶与队列_20260928.md",
@@ -69,6 +66,9 @@ EXPECTED_UNREFERENCED: frozenset[str] = frozenset({
     "migrate_contract.py",
     "stl_volume.py",
     "urdf_validator.py",
+    # 2026-10-17：go2-loco-45 / side-flip-69 无训练源代码，已移出可试玩清单；
+    # 本脚本保留作历史转换方法参考，默认拒绝写入包配置。
+    "register_legskill_go2.py",
 })
 
 

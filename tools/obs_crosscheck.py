@@ -25,7 +25,7 @@
 用法：
     python3 tools/obs_crosscheck.py                      # 默认 go2-rlsar-robotlab @ yaw=180°
     python3 tools/obs_crosscheck.py --yaw-deg 0          # 对照：yaw=0（此处两者本应恒等）
-    python3 tools/obs_crosscheck.py --policy go2-loco-45
+    python3 tools/obs_crosscheck.py --policy go2-backflip-69
     python3 tools/obs_crosscheck.py --keep               # 保留中间 JSON 供排查
 """
 

@@ -82,14 +82,15 @@ class ConsumerAuditTest(unittest.TestCase):
 
         2026-09-26 起 amp 侧不再为 0：go2 包内那 13 条 LLoco 专家动作（JSON-in-txt）
         纳入扫描口径并归到 amp 侧（go1 的 AMP 档案复用同一批）；tracking 侧 pkl 仍为 0
-        （随 unitree_g1 包删除，机制保留）。
+        （随 unitree_g1 包删除，机制保留）。2026-10-17：side-flip 随策略移出可试玩，
+        浏览器侧 CSV 3→2（文件移至 legacy_policies，不再进 motion 注册表）。
         """
 
         report = mr.consumer_audit()
         self.assertTrue(report["ok"], report["problems"])
         self.assertEqual(0, report["counts"]["tracking"], "仓内已无 tracking 侧 pkl（随 unitree_g1 删除）")
         self.assertEqual(13, report["counts"]["amp"], "amp 侧 = go2 的 13 条 AMP 专家动作（*.txt）")
-        self.assertEqual(3, report["counts"]["browser"])
+        self.assertEqual(2, report["counts"]["browser"])
 
     def test_declared_browser_motions_exist(self):
         """包内契约声明的 `motion_csv` 必须真的存在（否则浏览器侧静默 404）。"""

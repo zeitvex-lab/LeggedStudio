@@ -19,7 +19,7 @@ Motion 参考动作是愿景里的一等资源，但此前仓内**只有文件�
 
 `unitree_g1` 整包删除，随它退场的 **tracking（pkl，逐引擎变体）与 amp（npz）两侧数据在仓内
 一份不剩** —— 现存 motion 数据只有浏览器侧 CSV（`<包>/simulation/policies/*_motion.csv`，
-unitree_go2 自带三条）。因此本文件里此前针对 tracking/amp 两侧的断言（四条引擎变体、amp 分组、
+unitree_go2 自带两条可试玩 + 一条 legacy 参考）。因此本文件里此前针对 tracking/amp 两侧的断言（四条引擎变体、amp 分组、
 fps 分档、tracking 的 BSD-3 依据文件）已随数据删除；两类布局的**派生机制**仍在
 `backend/motion_registry.py` 里保留，重新引入参考动作库时按实测补回断言。
 
@@ -42,14 +42,14 @@ from backend import motion_registry as mr  # noqa: E402
 #  2026-09-16（M2）：33 → 38 条 / 78 → 83 份 —— 浏览器格式变体（
 #  `<包>/simulation/policies/*_motion.csv`）此前**不在扫描口径内**，M2 补上后进册。
 #  2026-09-23：38 → 3 条 / 83 → 3 份 —— g1 包删除（36 条：tracking 15 + amp 18 + 浏览器 3），
-#  剩下 go2 自带的三条浏览器 CSV。
+#  剩下 go2 自带的三条浏览器 CSV；2026-10-17 side-flip 随策略移出可试玩清单，CSV 移至 `simulation/legacy_policies/` 仅作参考，不再进 motion 注册表。
 #  2026-09-26：3 → 16 条 / 3 → 16 份 —— 把**族内共享的 AMP 专家动作**纳入扫描口径
 #  （`<...>/motions/<robot>_amp/*.txt`，JSON-in-txt，13 条；此前"文件有、资源层无"，
 #  族注册表的 imitation gap 点过这条）。它们同时是 go1 AMP 档案复用的同一批数据。
-EXPECTED_CLIPS = 16
-EXPECTED_FILES = 16
+EXPECTED_CLIPS = 15
+EXPECTED_FILES = 15
 #: 浏览器侧 CSV 变体：`simulation/policies/*_motion.csv`
-EXPECTED_BROWSER_CLIPS = 3
+EXPECTED_BROWSER_CLIPS = 2
 #: AMP 专家动作（JSON-in-txt）变体：`<...>/motions/<robot>_amp/*.txt`
 EXPECTED_AMP_JSON_CLIPS = 13
 

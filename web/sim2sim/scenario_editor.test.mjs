@@ -238,7 +238,7 @@ const SCHEMA = JSON.parse(
   state.commandSource = "planner";
   state.waypoints = [{ x: 1, y: 1 }, { x: 2, y: 2 }];
   const { scenario } = composeScenario(state);
-  const params = toSimParams(scenario, { robot: "unitree_go2", policy: "go2-loco-45" });
+  const params = toSimParams(scenario, { robot: "unitree_go2", policy: "go2-backflip-69" });
   // URL 里没有的字段不是"忘了发"——它们在 postMessage 的完整场景里（防回归：别把它们塞回 URL）
   for (const key of ["perception", "checks", "recorders", "command_source", "episode_length_s", "mode"]) {
     assert.ok(!(key in params), `${key} 不该出现在 URL 参数里（走 postMessage）`);

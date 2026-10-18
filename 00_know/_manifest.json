@@ -1,0 +1,159 @@
+{
+  "schema": "knowledge-manifest-1.0",
+  "description": "00_know 内容插件清单：id 是稳定身份，path 可变，aliases/renamed_from 记录逻辑别名与历史名；仓库不保留旧文件。tools 是文档引用的工具登记面，工具清单不再扫描活跃文档正文。",
+  "updated": "2026-10-18",
+  "docs": [
+    {
+      "id": "positioning",
+      "path": "00_know/01_项目定位.md",
+      "title": "项目定位",
+      "status": "active",
+      "aliases": [],
+      "depends_on": [],
+      "tools": [
+        "doc_reality_check.py"
+      ]
+    },
+    {
+      "id": "planning",
+      "path": "00_know/02_项目规划.md",
+      "title": "项目规划",
+      "status": "active",
+      "aliases": [],
+      "depends_on": ["positioning"],
+      "tools": [
+        "audit_porting_admission.py",
+        "audit_provision_phases.py",
+        "audit_training_config_layers.py",
+        "bake_mjcf_physics.py",
+        "cross_source_audit.py",
+        "doc_reality_check.py",
+        "effect_criterion.py",
+        "generate_contract_models.py",
+        "model_field_diff.py",
+        "replay_gate.py",
+        "validate_mjcf_contract.py",
+        "validate_packs.py"
+      ]
+    },
+    {
+      "id": "references",
+      "path": "00_know/03_参考项目与资源.md",
+      "title": "参考项目与资源索引",
+      "status": "active",
+      "aliases": [],
+      "depends_on": ["positioning"],
+      "tools": [
+        "audit_resource_licenses.py",
+        "bake_mjcf_physics.py",
+        "convert_policy.py",
+        "cross_source_audit.py",
+        "fetch_resources.py",
+        "mjcf_parity.py",
+        "model_field_diff.py",
+        "probe_motrixsim.py",
+        "replay_gate.py",
+        "sim2sim_headless.py",
+        "sync_resources.py"
+      ]
+    },
+    {
+      "id": "parameters",
+      "path": "00_know/04_参数真值标准.md",
+      "title": "参数真值标准",
+      "status": "active",
+      "aliases": [],
+      "depends_on": ["references"],
+      "tools": [
+        "audit_family_mjcf.py",
+        "audit_sim2sim_consistency.py",
+        "bake_mjcf_physics.py",
+        "check_control_consistency.py",
+        "cross_source_audit.py",
+        "model_field_diff.py",
+        "validate_mjcf_contract.py"
+      ]
+    },
+    {
+      "id": "tasks",
+      "path": "00_know/05_任务清单.md",
+      "title": "任务清单",
+      "status": "active",
+      "aliases": [],
+      "depends_on": ["positioning", "planning"],
+      "tools": [
+        "audit_families.py",
+        "audit_playable_policy_training.py",
+        "audit_policy_obs_width.py",
+        "audit_porting_admission.py",
+        "audit_sim2sim_consistency.py",
+        "bake_mjcf_physics.py",
+        "count_tasklist.py",
+        "doc_reality_check.py",
+        "effect_criterion.py",
+        "replay_gate.py",
+        "validate_family_skill_assembly.py",
+        "validate_mjcf_contract.py",
+        "validate_traversal_progress.py"
+      ]
+    },
+    {
+      "id": "architecture",
+      "path": "00_know/06_统一架构方案.md",
+      "title": "统一架构方案",
+      "status": "active",
+      "aliases": [],
+      "depends_on": ["positioning", "planning"],
+      "tools": [
+        "audit_families.py",
+        "audit_obs_group_names.py",
+        "audit_observation_contract.py",
+        "audit_plugin_unification.py",
+        "audit_plugin_verify.py",
+        "audit_policy_gains.py",
+        "audit_policy_obs_width.py",
+        "audit_sim2sim_consistency.py",
+        "bake_mjcf_physics.py",
+        "check_user_criteria.py",
+        "doc_reality_check.py",
+        "docs_manifest.py",
+        "effect_criterion.py",
+        "fix_policy_gains.py",
+        "gen_capability_seams.py",
+        "golden_env_parity.py",
+        "mjcf_parity.py",
+        "obs_crosscheck.py",
+        "recipe_parity.py",
+        "replay_gate.py",
+        "sim2sim_headless.py",
+        "trend_probe.py",
+        "validate_family_skill_assembly.py",
+        "validate_mjcf_contract.py",
+        "validate_stunt_progress.py",
+        "validate_traversal_progress.py"
+      ]
+    },
+    {
+      "id": "rl-survey",
+      "path": "00_know/07_腿足机器人强化学习综述.md",
+      "title": "腿足机器人强化学习综述",
+      "status": "active",
+      "aliases": [],
+      "renamed_from": ["00_know/07_训练架构与通用技能.md"],
+      "depends_on": ["positioning", "planning", "references", "parameters", "tasks", "architecture"],
+      "tools": [
+        "cfg_diff_dump.py",
+        "check_user_criteria.py",
+        "dump_effective_recipe.py",
+        "effect_criterion.py",
+        "print_runtime_limits.py",
+        "replay_gate.py",
+        "sim2sim_headless.py",
+        "trend_probe.py",
+        "validate_motion_columns.py",
+        "validate_stunt_progress.py",
+        "validate_traversal_progress.py"
+      ]
+    }
+  ]
+}
