@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-18T14:14:31",
+ "generated_at": "2026-10-19T00:58:08",
  "spec": "_SPEC.md",
  "policy": {
   "keep": "源码/配置/文档/数据/URDF·MJCF/推理策略文件",
@@ -214,6 +214,36 @@
    },
    "readme": "1000framesai.com/README.md"
   },
+  "26RC_Field": {
+   "source": "https://github.com/Ruixi-Cheng/26RC_Field @ 24273f038e66",
+   "robots": [],
+   "desc": "2026 ROBOCON 赛事场地三维模型（场景/地形参考）",
+   "license": "MIT",
+   "repo": "https://github.com/Ruixi-Cheng/26RC_Field",
+   "commit": "24273f038e66",
+   "fetched": "2026-10-18",
+   "note": "场地资产；大网格由 sync 省略",
+   "in_git": true,
+   "kept": 1,
+   "kept_bytes": 1083,
+   "omitted": 28,
+   "omitted_bytes": 2726297,
+   "policy_files": 0,
+   "per_category": {
+    "model": 0,
+    "contract": 0,
+    "training": 0,
+    "deploy": 0,
+    "terrain_scene": 0,
+    "motion": 0,
+    "evaluation": 0,
+    "misc": 1
+   },
+   "ext_top": {
+    "(无扩展名)": 1
+   },
+   "readme": "26RC_Field/README.md"
+  },
   "26Raicom": {
    "source": "00_open/26Raicom",
    "robots": [
@@ -250,6 +280,45 @@
     ".docx": 1
    },
    "readme": "26Raicom/README.md"
+  },
+  "A1-QP-MPC-Controller": {
+   "source": "https://github.com/ShuoYangRobotics/A1-QP-MPC-Controller @ 79c91302b585",
+   "robots": [],
+   "desc": "MIT 思路在 Unitree A1 上的 QP-MPC 控制器",
+   "license": "AGPL-3.0",
+   "repo": "https://github.com/ShuoYangRobotics/A1-QP-MPC-Controller",
+   "commit": "79c91302b585",
+   "fetched": "2026-10-18",
+   "note": "AGPL-3.0；reference-only",
+   "in_git": true,
+   "kept": 43,
+   "kept_bytes": 260036,
+   "omitted": 4,
+   "omitted_bytes": 1887436,
+   "policy_files": 0,
+   "per_category": {
+    "model": 0,
+    "contract": 3,
+    "training": 7,
+    "deploy": 0,
+    "terrain_scene": 0,
+    "motion": 0,
+    "evaluation": 4,
+    "misc": 29
+   },
+   "ext_top": {
+    ".cpp": 15,
+    ".h": 10,
+    ".yaml": 6,
+    "(无扩展名)": 5,
+    ".txt": 2,
+    ".bash": 1,
+    ".xml": 1,
+    ".launch": 1,
+    ".md": 1,
+    ".hpp": 1
+   },
+   "readme": "A1-QP-MPC-Controller/README.md"
   },
   "AMP_mjlab": {
    "source": "00_open/AMP_mjlab",
@@ -318,6 +387,55 @@
    },
    "readme": "Awesome_Quadrupedal_Robots/README.md"
   },
+  "Cheetah-Software": {
+   "source": "https://github.com/mit-biomimetics/Cheetah-Software @ c71c5a138d3e",
+   "robots": [],
+   "desc": "MIT Cheetah 经典控制软件栈（MPC/状态估计/步态）",
+   "license": "MIT",
+   "repo": "https://github.com/mit-biomimetics/Cheetah-Software",
+   "commit": "c71c5a138d3e",
+   "fetched": "2026-10-18",
+   "note": "经典模型控制参考",
+   "in_git": true,
+   "kept": 972,
+   "kept_bytes": 9320186,
+   "omitted": 11,
+   "omitted_bytes": 9542041,
+   "policy_files": 0,
+   "per_category": {
+    "model": 5,
+    "contract": 0,
+    "training": 50,
+    "deploy": 158,
+    "terrain_scene": 1,
+    "motion": 15,
+    "evaluation": 84,
+    "misc": 659
+   },
+   "ext_top": {
+    ".h": 298,
+    ".cpp": 191,
+    ".c": 85,
+    ".lcm": 67,
+    ".txt": 57,
+    ".hpp": 52,
+    ".rst": 40,
+    ".py": 32,
+    "(无扩展名)": 31,
+    ".sh": 22,
+    ".md": 13,
+    ".ipp": 11,
+    ".yaml": 10,
+    ".dat": 10,
+    ".cmake": 9,
+    ".m": 8,
+    ".in": 5,
+    ".mk": 5,
+    ".yml": 4,
+    ".jl": 4
+   },
+   "readme": "Cheetah-Software/README.md"
+  },
   "ComfyUI": {
    "source": "https://github.com/Comfy-Org/ComfyUI @ c06bf5f569d268b80076e5f44126f87cdf835869",
    "robots": [],
@@ -328,8 +446,8 @@
    "fetched": "2026-10-18",
    "note": "内容生成 / 资产工作流参考；GPL-3.0，不并入产品运行时",
    "in_git": true,
-   "kept": 1297,
-   "kept_bytes": 50870798,
+   "kept": 1299,
+   "kept_bytes": 50879079,
    "omitted": 4,
    "omitted_bytes": 64512,
    "policy_files": 0,
@@ -341,7 +459,7 @@
     "terrain_scene": 0,
     "motion": 32,
     "evaluation": 256,
-    "misc": 829
+    "misc": 831
    },
    "ext_top": {
     ".py": 1000,
@@ -349,8 +467,8 @@
     ".yml": 32,
     "(无扩展名)": 31,
     ".yaml": 16,
+    ".md": 14,
     ".frag": 14,
-    ".md": 12,
     ".txt": 10,
     ".bat": 10,
     ".pyi": 3,
@@ -392,6 +510,46 @@
     ".urdf": 2
    },
    "readme": "Dreamwaq/README.md"
+  },
+  "GMR": {
+   "source": "https://github.com/YanjieZe/GMR @ bb1bbe407747",
+   "robots": [
+    "unitree_g1"
+   ],
+   "desc": "GMR：CPU 实时通用动作重定向器（多机型人形）",
+   "license": "MIT",
+   "repo": "https://github.com/YanjieZe/GMR",
+   "commit": "bb1bbe407747",
+   "fetched": "2026-10-18",
+   "note": "重定向/动作数据链参考",
+   "in_git": true,
+   "kept": 303,
+   "kept_bytes": 6075357,
+   "omitted": 1589,
+   "omitted_bytes": 1236271104,
+   "policy_files": 0,
+   "per_category": {
+    "model": 164,
+    "contract": 0,
+    "training": 26,
+    "deploy": 0,
+    "terrain_scene": 1,
+    "motion": 70,
+    "evaluation": 5,
+    "misc": 37
+   },
+   "ext_top": {
+    ".py": 73,
+    ".xml": 67,
+    ".json": 56,
+    ".urdf": 48,
+    ".mtl": 38,
+    "(无扩展名)": 11,
+    ".md": 6,
+    ".txt": 3,
+    ".bvh": 1
+   },
+   "readme": "GMR/README.md"
   },
   "GO2_backflip": {
    "source": "00_open/GO2_backflip",
@@ -554,6 +712,46 @@
     ".xml": 1
    },
    "readme": "HIMLoco/README.md"
+  },
+  "HIMLoco-for-Go2W": {
+   "source": "https://github.com/TrackinBIT/HIMLoco-for-Go2W @ 011693738c61",
+   "robots": [
+    "unitree_go2w",
+    "unitree_go2"
+   ],
+   "desc": "HIMLoco for Go2W：Isaac Gym 训练 + MuJoCo 验证",
+   "license": "BSD-3-Clause",
+   "repo": "https://github.com/TrackinBIT/HIMLoco-for-Go2W",
+   "commit": "011693738c61",
+   "fetched": "2026-10-18",
+   "note": "LICENSE 为 BSD-3 文本",
+   "in_git": true,
+   "kept": 58,
+   "kept_bytes": 8372438,
+   "omitted": 48,
+   "omitted_bytes": 113665638,
+   "policy_files": 2,
+   "per_category": {
+    "model": 7,
+    "contract": 0,
+    "training": 11,
+    "deploy": 2,
+    "terrain_scene": 1,
+    "motion": 0,
+    "evaluation": 1,
+    "misc": 36
+   },
+   "ext_top": {
+    ".py": 40,
+    ".txt": 7,
+    "(无扩展名)": 4,
+    ".pt": 2,
+    ".xml": 2,
+    ".yaml": 1,
+    ".urdf": 1,
+    ".md": 1
+   },
+   "readme": "HIMLoco-for-Go2W/README.md"
   },
   "InstinctMJ": {
    "source": "00_open/InstinctMJ",
@@ -1044,6 +1242,55 @@
    },
    "readme": "QuadFM/README.md"
   },
+  "RC_WheelLeg": {
+   "source": "https://github.com/zeitvex/RC_WheelLeg @ 1bc9aa5999f2",
+   "robots": [],
+   "desc": "HYNova 轮足机器人：ROS 2 与强化学习工程（自研轮足参考）",
+   "license": "MIT",
+   "repo": "https://github.com/zeitvex/RC_WheelLeg",
+   "commit": "1bc9aa5999f2",
+   "fetched": "2026-10-18",
+   "note": "轮足机器人/ROS2/RL 参考",
+   "in_git": true,
+   "kept": 1021,
+   "kept_bytes": 39739281,
+   "omitted": 222,
+   "omitted_bytes": 346554368,
+   "policy_files": 14,
+   "per_category": {
+    "model": 9,
+    "contract": 0,
+    "training": 376,
+    "deploy": 413,
+    "terrain_scene": 21,
+    "motion": 2,
+    "evaluation": 95,
+    "misc": 105
+   },
+   "ext_top": {
+    ".py": 452,
+    ".md": 81,
+    ".xml": 51,
+    ".hpp": 51,
+    ".cpp": 50,
+    ".rst": 50,
+    ".yaml": 40,
+    ".sh": 32,
+    ".txt": 30,
+    ".json": 29,
+    ".h": 27,
+    "(无扩展名)": 23,
+    ".pyi": 19,
+    ".js": 13,
+    ".yml": 9,
+    ".onnx": 9,
+    ".srv": 8,
+    ".html": 7,
+    ".css": 6,
+    ".rviz": 6
+   },
+   "readme": "RC_WheelLeg/README.md"
+  },
   "T2QRM": {
    "source": "https://github.com/SCUT-BIP-Lab/T2QRM @ b74418fa424484dc72b4ad2e4d05f7ee3c339062",
    "robots": [],
@@ -1074,6 +1321,125 @@
     ".gif": 1
    },
    "readme": "T2QRM/README.md"
+  },
+  "TWIST": {
+   "source": "https://github.com/YanjieZe/TWIST @ 42d8c134739e",
+   "robots": [
+    "unitree_g1"
+   ],
+   "desc": "TWIST：Unitree G1 全身遥操作与教师-学生模仿学习",
+   "license": "MIT",
+   "repo": "https://github.com/YanjieZe/TWIST",
+   "commit": "42d8c134739e",
+   "fetched": "2026-10-18",
+   "note": "人形全身控制/模仿参考",
+   "in_git": true,
+   "kept": 151,
+   "kept_bytes": 7143452,
+   "omitted": 126,
+   "omitted_bytes": 110834483,
+   "policy_files": 1,
+   "per_category": {
+    "model": 21,
+    "contract": 1,
+    "training": 18,
+    "deploy": 15,
+    "terrain_scene": 1,
+    "motion": 6,
+    "evaluation": 4,
+    "misc": 85
+   },
+   "ext_top": {
+    ".py": 102,
+    ".xml": 12,
+    "(无扩展名)": 10,
+    ".txt": 8,
+    ".md": 6,
+    ".sh": 5,
+    ".urdf": 5,
+    ".yaml": 2,
+    ".pt": 1
+   },
+   "readme": "TWIST/README.md"
+  },
+  "TWIST2": {
+   "source": "https://github.com/amazon-far/TWIST2 @ b06178f19a22",
+   "robots": [
+    "unitree_g1"
+   ],
+   "desc": "TWIST2：基于 VR 的可扩展人形全身数据采集系统",
+   "license": "MIT",
+   "repo": "https://github.com/amazon-far/TWIST2",
+   "commit": "b06178f19a22",
+   "fetched": "2026-10-18",
+   "note": "遥操作/数据采集参考",
+   "in_git": true,
+   "kept": 186,
+   "kept_bytes": 13110981,
+   "omitted": 71,
+   "omitted_bytes": 60607692,
+   "policy_files": 2,
+   "per_category": {
+    "model": 17,
+    "contract": 1,
+    "training": 21,
+    "deploy": 29,
+    "terrain_scene": 1,
+    "motion": 18,
+    "evaluation": 7,
+    "misc": 92
+   },
+   "ext_top": {
+    ".py": 118,
+    ".pkl": 11,
+    ".xml": 11,
+    "(无扩展名)": 9,
+    ".sh": 9,
+    ".txt": 8,
+    ".urdf": 6,
+    ".md": 6,
+    ".yaml": 6,
+    ".onnx": 2
+   },
+   "readme": "TWIST2/README.md"
+  },
+  "TienKung-Lab": {
+   "source": "https://github.com/Open-X-Humanoid/TienKung-Lab @ e09a70b6b514",
+   "robots": [],
+   "desc": "TienKung-Lab：全尺寸人形 IsaacLab + AMP + 传感器控制工作流",
+   "license": "BSD-3-Clause",
+   "repo": "https://github.com/Open-X-Humanoid/TienKung-Lab",
+   "commit": "e09a70b6b514",
+   "fetched": "2026-10-18",
+   "note": "人形训练/传感器工作流参考",
+   "in_git": true,
+   "kept": 104,
+   "kept_bytes": 4847289,
+   "omitted": 41,
+   "omitted_bytes": 164626432,
+   "policy_files": 1,
+   "per_category": {
+    "model": 6,
+    "contract": 0,
+    "training": 24,
+    "deploy": 2,
+    "terrain_scene": 4,
+    "motion": 9,
+    "evaluation": 0,
+    "misc": 59
+   },
+   "ext_top": {
+    ".py": 71,
+    ".txt": 17,
+    "(无扩展名)": 7,
+    ".yaml": 4,
+    ".pt": 1,
+    ".xml": 1,
+    ".urdf": 1,
+    ".toml": 1,
+    ".md": 1
+   },
+   "readme": "TienKung-Lab/README.md"
   },
   "UFO": {
    "source": "00_open/UFO",
@@ -1110,6 +1476,71 @@
    },
    "readme": "UFO/README.md"
   },
+  "amp_go2": {
+   "source": "https://github.com/ak1raljl/amp_go2 @ 14cb83f778b3",
+   "robots": [
+    "unitree_go2"
+   ],
+   "desc": "AMP Go2 基础复现：训练、参考动作、Sim2Sim 与 Sim2Real 流程",
+   "license": "unknown",
+   "repo": "https://github.com/ak1raljl/amp_go2",
+   "commit": "14cb83f778b3",
+   "fetched": "2026-10-18",
+   "note": "无 LICENSE；reference-only",
+   "in_git": true,
+   "kept": 173,
+   "kept_bytes": 30828740,
+   "omitted": 116,
+   "omitted_bytes": 133903155,
+   "policy_files": 2,
+   "per_category": {
+    "model": 11,
+    "contract": 29,
+    "training": 16,
+    "deploy": 7,
+    "terrain_scene": 6,
+    "motion": 47,
+    "evaluation": 1,
+    "misc": 56
+   },
+   "ext_top": {
+    ".txt": 82,
+    ".py": 69,
+    ".urdf": 7,
+    ".xml": 6,
+    "(无扩展名)": 5,
+    ".yaml": 1,
+    ".onnx": 1,
+    ".md": 1,
+    ".pt": 1
+   },
+   "readme": "amp_go2/README.md"
+  },
+  "awesome-rl-for-legged-locomotion": {
+   "source": "00_open/awesome-rl-for-legged-locomotion",
+   "robots": [],
+   "desc": "Awesome RL for Legged Locomotion：33 篇经典论文/综述索引（ETH / KAIST 四足、parkour、AMP、WBC、人形）",
+   "kept": 3,
+   "kept_bytes": 23983,
+   "omitted": 0,
+   "omitted_bytes": 0,
+   "policy_files": 0,
+   "per_category": {
+    "model": 0,
+    "contract": 0,
+    "training": 0,
+    "deploy": 0,
+    "terrain_scene": 0,
+    "motion": 0,
+    "evaluation": 0,
+    "misc": 3
+   },
+   "ext_top": {
+    ".md": 2,
+    "(无扩展名)": 1
+   },
+   "readme": "awesome-rl-for-legged-locomotion/README.md"
+  },
   "beyondAMP": {
    "source": "00_open/beyondAMP",
    "robots": [],
@@ -1139,6 +1570,84 @@
     ".json": 1
    },
    "readme": "beyondAMP/README.md"
+  },
+  "blender-mujoco-hfield": {
+   "source": "https://github.com/Eterith/blender-mujoco-hfield @ f379506fdf7b",
+   "robots": [],
+   "desc": "Blender → MuJoCo height field / 网格 / 碰撞体导出工具",
+   "license": "Apache-2.0",
+   "repo": "https://github.com/Eterith/blender-mujoco-hfield",
+   "commit": "f379506fdf7b",
+   "fetched": "2026-10-18",
+   "note": "地形与场景资产工具",
+   "in_git": true,
+   "kept": 31,
+   "kept_bytes": 385776,
+   "omitted": 5,
+   "omitted_bytes": 10171187,
+   "policy_files": 0,
+   "per_category": {
+    "model": 0,
+    "contract": 0,
+    "training": 0,
+    "deploy": 0,
+    "terrain_scene": 3,
+    "motion": 0,
+    "evaluation": 15,
+    "misc": 13
+   },
+   "ext_top": {
+    ".py": 24,
+    ".md": 4,
+    "(无扩展名)": 2,
+    ".toml": 1
+   },
+   "readme": "blender-mujoco-hfield/README.md"
+  },
+  "champ": {
+   "source": "https://github.com/chvmp/champ @ 7f7d91724dc9",
+   "robots": [],
+   "desc": "CHAMP 四足控制框架（步态/控制器/ROS 集成）",
+   "license": "BSD-3-Clause",
+   "repo": "https://github.com/chvmp/champ",
+   "commit": "7f7d91724dc9",
+   "fetched": "2026-10-18",
+   "note": "经典四足控制框架参考",
+   "in_git": true,
+   "kept": 119,
+   "kept_bytes": 6895486,
+   "omitted": 16,
+   "omitted_bytes": 20132659,
+   "policy_files": 0,
+   "per_category": {
+    "model": 7,
+    "contract": 0,
+    "training": 0,
+    "deploy": 0,
+    "terrain_scene": 0,
+    "motion": 107,
+    "evaluation": 0,
+    "misc": 5
+   },
+   "ext_top": {
+    ".launch": 35,
+    ".yaml": 21,
+    ".msg": 9,
+    ".txt": 8,
+    ".xml": 8,
+    ".h": 7,
+    ".cpp": 7,
+    "(无扩展名)": 4,
+    ".py": 4,
+    ".world": 4,
+    ".xacro": 4,
+    ".urdf": 3,
+    ".rviz": 2,
+    ".yml": 1,
+    ".bash": 1,
+    ".ot": 1
+   },
+   "readme": "champ/README.md"
   },
   "deep_rl": {
    "source": "00_open/deep_rl",
@@ -1212,8 +1721,8 @@
    "fetched": "2026-10-18",
    "note": "agent harness / 插件协议参考；不作为腿足运行时依赖",
    "in_git": true,
-   "kept": 16218,
-   "kept_bytes": 128719687,
+   "kept": 16220,
+   "kept_bytes": 128726387,
    "omitted": 78,
    "omitted_bytes": 4508876,
    "policy_files": 0,
@@ -1225,11 +1734,11 @@
     "terrain_scene": 0,
     "motion": 100,
     "evaluation": 3298,
-    "misc": 10946
+    "misc": 10948
    },
    "ext_top": {
     ".ts": 5200,
-    ".md": 4506,
+    ".md": 4508,
     ".yaml": 1942,
     ".json": 1620,
     ".jsonl": 712,
@@ -1673,6 +2182,44 @@
     ".yml": 1
    },
    "readme": "genesislab/README.md"
+  },
+  "go2_flip_TO": {
+   "source": "https://github.com/yusongmin1/go2_flip_TO @ d12fb093dc39",
+   "robots": [
+    "unitree_go2"
+   ],
+   "desc": "Go2 空翻动作数据采集：SE(3) 全身轨迹优化生成参考动作",
+   "license": "BSD-2-Clause",
+   "repo": "https://github.com/yusongmin1/go2_flip_TO",
+   "commit": "d12fb093dc39",
+   "fetched": "2026-10-18",
+   "note": "特技动作数据参考",
+   "in_git": true,
+   "kept": 96,
+   "kept_bytes": 11988633,
+   "omitted": 352,
+   "omitted_bytes": 330616012,
+   "policy_files": 0,
+   "per_category": {
+    "model": 9,
+    "contract": 0,
+    "training": 0,
+    "deploy": 0,
+    "terrain_scene": 7,
+    "motion": 46,
+    "evaluation": 2,
+    "misc": 32
+   },
+   "ext_top": {
+    ".py": 69,
+    ".xml": 7,
+    ".urdf": 7,
+    ".txt": 6,
+    ".dae-backup": 4,
+    "(无扩展名)": 2,
+    ".md": 1
+   },
+   "readme": "go2_flip_TO/README.md"
   },
   "go2_rl_gym": {
    "source": "00_open/go2_rl_gym",
@@ -2586,6 +3133,36 @@
    },
    "readme": "limxsdk-lowlevel/README.md"
   },
+  "locowiki-open-source": {
+   "source": "https://github.com/LocoWiki/LocoWiki @ 302685b0f20c",
+   "robots": [],
+   "desc": "LoCoWiki 网络开源项目索引：44 个 GitHub/Gitee 链接的项目级对照（不含硬件区）",
+   "license": "unknown",
+   "repo": "https://github.com/LocoWiki/LocoWiki",
+   "commit": "302685b0f20c",
+   "fetched": "2026-10-18",
+   "note": "仅索引页；unknown license，reference-only",
+   "in_git": true,
+   "kept": 33,
+   "kept_bytes": 85026,
+   "omitted": 0,
+   "omitted_bytes": 0,
+   "policy_files": 0,
+   "per_category": {
+    "model": 0,
+    "contract": 0,
+    "training": 0,
+    "deploy": 1,
+    "terrain_scene": 0,
+    "motion": 3,
+    "evaluation": 0,
+    "misc": 29
+   },
+   "ext_top": {
+    ".md": 33
+   },
+   "readme": "locowiki-open-source/README.md"
+  },
   "m20_rl_isaacsim": {
    "source": "00_open/m20_rl_isaacsim",
    "robots": [
@@ -3216,6 +3793,51 @@
    },
    "readme": "quadruped-robotics-stack/README.md"
   },
+  "quadruped_robot_lab": {
+   "source": "https://github.com/Taojunfeng123/quadruped_robot_lab @ bc25831f3a07",
+   "robots": [],
+   "desc": "福州大学点足 12DOF 四足 RL 训练代码",
+   "license": "Apache-2.0",
+   "repo": "https://github.com/Taojunfeng123/quadruped_robot_lab",
+   "commit": "bc25831f3a07",
+   "fetched": "2026-10-18",
+   "note": "自定义 12DOF 四足参考",
+   "in_git": true,
+   "kept": 278,
+   "kept_bytes": 3649545,
+   "omitted": 574,
+   "omitted_bytes": 579338240,
+   "policy_files": 1,
+   "per_category": {
+    "model": 76,
+    "contract": 0,
+    "training": 29,
+    "deploy": 1,
+    "terrain_scene": 19,
+    "motion": 119,
+    "evaluation": 0,
+    "misc": 34
+   },
+   "ext_top": {
+    ".py": 186,
+    ".urdf": 33,
+    ".mtl": 27,
+    "(无扩展名)": 6,
+    ".yaml": 5,
+    ".md": 4,
+    ".toml": 3,
+    ".csv": 3,
+    ".txt": 2,
+    ".yml": 2,
+    ".launch": 2,
+    ".base": 1,
+    ".bak": 1,
+    ".xml": 1,
+    ".pt": 1,
+    ".npz": 1
+   },
+   "readme": "quadruped_robot_lab/README.md"
+  },
   "quaternion-mpc": {
    "source": "https://github.com/zixinz990/quaternion-mpc @ bb4a5ee2",
    "robots": [
@@ -3347,6 +3969,45 @@
     ".mjs": 1
    },
    "readme": "references_1000framesai/README.md"
+  },
+  "rl-mpc-locomotion": {
+   "source": "https://github.com/silvery107/rl-mpc-locomotion @ df944efacdd4",
+   "robots": [],
+   "desc": "高层策略 + 低层 MPC 的腿足运动训练框架",
+   "license": "MIT",
+   "repo": "https://github.com/silvery107/rl-mpc-locomotion",
+   "commit": "df944efacdd4",
+   "fetched": "2026-10-18",
+   "note": "RL+MPC 控制层参考",
+   "in_git": true,
+   "kept": 153,
+   "kept_bytes": 1019317,
+   "omitted": 42,
+   "omitted_bytes": 114189926,
+   "policy_files": 0,
+   "per_category": {
+    "model": 5,
+    "contract": 0,
+    "training": 25,
+    "deploy": 25,
+    "terrain_scene": 1,
+    "motion": 5,
+    "evaluation": 27,
+    "misc": 65
+   },
+   "ext_top": {
+    ".h": 50,
+    ".py": 48,
+    ".c": 34,
+    ".md": 7,
+    ".urdf": 4,
+    ".yaml": 4,
+    "(无扩展名)": 3,
+    ".cff": 1,
+    ".yml": 1,
+    ".cc": 1
+   },
+   "readme": "rl-mpc-locomotion/README.md"
   },
   "rl_sar": {
    "source": "00_open/rl_sar",
@@ -3841,6 +4502,44 @@
    },
    "readme": "sim.stackforce.cc/README.md"
   },
+  "smp": {
+   "source": "https://github.com/SUZ-tsinghua/smp @ 28d1dfd1b7b4",
+   "robots": [
+    "unitree_g1"
+   ],
+   "desc": "SMP：冻结扩散模型作为可复用运动奖励（G1 自然动作）",
+   "license": "unknown",
+   "repo": "https://github.com/SUZ-tsinghua/smp",
+   "commit": "28d1dfd1b7b4",
+   "fetched": "2026-10-18",
+   "note": "无 LICENSE；reference-only",
+   "in_git": true,
+   "kept": 53,
+   "kept_bytes": 8614319,
+   "omitted": 1,
+   "omitted_bytes": 587776,
+   "policy_files": 3,
+   "per_category": {
+    "model": 0,
+    "contract": 0,
+    "training": 24,
+    "deploy": 3,
+    "terrain_scene": 0,
+    "motion": 7,
+    "evaluation": 0,
+    "misc": 19
+   },
+   "ext_top": {
+    ".py": 38,
+    ".csv": 6,
+    "(无扩展名)": 3,
+    ".pt": 3,
+    ".yaml": 1,
+    ".toml": 1,
+    ".npz": 1
+   },
+   "readme": "smp/README.md"
+  },
   "taggy": {
    "source": "00_open/taggy",
    "robots": [
@@ -4054,6 +4753,48 @@
     ".md": 1
    },
    "readme": "tron1-robot-description/README.md"
+  },
+  "umi-on-legs": {
+   "source": "https://github.com/real-stanford/umi-on-legs @ d75c9c182d80",
+   "robots": [],
+   "desc": "UMI-on-Legs：真实与仿真数据结合的四足 loco-manipulation 框架",
+   "license": "MIT",
+   "repo": "https://github.com/real-stanford/umi-on-legs",
+   "commit": "d75c9c182d80",
+   "fetched": "2026-10-18",
+   "note": "四足操作/数据采集参考",
+   "in_git": true,
+   "kept": 146,
+   "kept_bytes": 831269,
+   "omitted": 46,
+   "omitted_bytes": 86192947,
+   "policy_files": 0,
+   "per_category": {
+    "model": 10,
+    "contract": 1,
+    "training": 57,
+    "deploy": 5,
+    "terrain_scene": 2,
+    "motion": 13,
+    "evaluation": 2,
+    "misc": 56
+   },
+   "ext_top": {
+    ".py": 56,
+    ".yaml": 53,
+    ".md": 12,
+    "(无扩展名)": 7,
+    ".mtl": 4,
+    ".msg": 3,
+    ".urdf": 2,
+    ".txt": 2,
+    ".xml": 2,
+    ".launch": 2,
+    ".yml": 1,
+    ".rviz": 1,
+    ".json": 1
+   },
+   "readme": "umi-on-legs/README.md"
   },
   "uni_rl": {
    "source": "00_open/uni_rl",
@@ -4411,6 +5152,46 @@
    },
    "readme": "urdf_tool/README.md"
   },
+  "uw-himloco": {
+   "source": "https://github.com/uwvwko-zzz/uw-himloco @ d77cf3fea770",
+   "robots": [],
+   "desc": "南华大学衡山Π：HIMLOCO 训练框架与 himdog 部署代码",
+   "license": "BSD-3-Clause",
+   "repo": "https://github.com/uwvwko-zzz/uw-himloco",
+   "commit": "d77cf3fea770",
+   "fetched": "2026-10-18",
+   "note": "HIMLOCO 自定义四足参考",
+   "in_git": true,
+   "kept": 110,
+   "kept_bytes": 1271407,
+   "omitted": 169,
+   "omitted_bytes": 179306496,
+   "policy_files": 0,
+   "per_category": {
+    "model": 31,
+    "contract": 0,
+    "training": 22,
+    "deploy": 0,
+    "terrain_scene": 11,
+    "motion": 2,
+    "evaluation": 4,
+    "misc": 40
+   },
+   "ext_top": {
+    ".py": 48,
+    ".urdf": 17,
+    ".xml": 15,
+    ".txt": 9,
+    ".yaml": 9,
+    ".launch": 4,
+    "(无扩展名)": 3,
+    ".csv": 2,
+    ".md": 1,
+    ".origin": 1,
+    ".bak": 1
+   },
+   "readme": "uw-himloco/README.md"
+  },
   "walk-these-ways": {
    "source": "00_open/walk-these-ways",
    "robots": [
@@ -4688,7 +5469,10 @@
     "Quad-Imaginarium",
     "quadruped-robotics-stack",
     "dial-mpc",
-    "quadruped-locomotion-policy"
+    "quadruped-locomotion-policy",
+    "amp_go2",
+    "HIMLoco-for-Go2W",
+    "go2_flip_TO"
    ]
   },
   "unitree_go2w": {
@@ -4709,7 +5493,8 @@
     "fan_rlsar",
     "robot_mujoco",
     "Gymnasium",
-    "matrix_zsibot"
+    "matrix_zsibot",
+    "HIMLoco-for-Go2W"
    ]
   },
   "unitree_b2": {

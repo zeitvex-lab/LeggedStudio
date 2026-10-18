@@ -71,7 +71,7 @@
 
 ## 6. 项目清单（收集范围）
 
-- **纳入**（脚本 `PROJECTS`，共 **89** 个条目 = 机型相关 **76** + 跨机型参考 **12** + 知识库 1〔`robo_know` → `knowledge_base/`〕，另加 `knowledge_base/Robotics_Tutorial`）：
+- **纳入**（脚本 `PROJECTS`，当前共 **134** 个条目；下列 **76 + 12 + 1** 为 2026-09-23 的分类口径，后续新增条目以脚本与 `_index.json` 为准）：
   1. **机型相关**（76 个）：与 14 个目标机型相关的参考项目，参与「机型 → 项目反查」；
   2. **跨机型参考**（10 个，`robots: []`，不进入机型反查）：
      - `urdf_tool` —— 机器人资产查看与验证工具参考（`robot_viewer` / `URDF-Studio`）；
@@ -100,6 +100,9 @@
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
+| v3.6 | 2026-10-18 | 补入 GMR、TWIST2、TienKung-Lab、quadruped_robot_lab、uw-himloco；LoCoWiki 快照合计 18 项，`PROJECTS` 计数 **134** |
+| v3.5 | 2026-10-18 | 新增 LoCoWiki 索引与 13 个可核对项目快照（AMP/Go2W HIMLoco/轮足/TWIST/RL-MPC/地形/经典控制栈等）；`PROJECTS` 计数 **129** |
+| v3.4 | 2026-10-18 | `PROJECTS` 实际计数对账为 **115**；新增 `awesome-rl-for-legged-locomotion`（CC0-1.0 文献索引，33 篇腿足 RL 论文），资源实体仍外置 |
 | v3.3 | 2026-09-23 | **新增 4 个跨机型参考项目**（用户指定外链：`MeredithRowe/engineai_rl_workspace`、`Link-U-OS/Link-U-OS` 及其 `.gitmodules` 点名的 **13 个子仓**，外加前者 README 致谢点名的上游 **`legged_gym` / `humanoid-gym`**）：均**不含 14 机型**（人形 / 四足 / OS 栈），`robots: []`；§6 计数同步为 **89** 条目（机型相关 76 + 跨机型参考 12 + 知识库 1）并把跨机型子列表补全（此前只列 4 条，`genesis-world`/`newton`/`PaddleX`/`mujoco_ros2_control` 未列）。源快照放在**工作区外** `<外部工作区>/00_open/`（用户口径：克隆不进当前工作区），`_SOURCE.md` 登记 4 仓 + 13 子仓的仓库地址与提交号；作用分析见 [`../00_know/03_参考项目与资源.md`](../00_know/03_参考项目与资源.md) §5.3 |
 | v3.2 | 2026-09-11 | **新增 4 个跨机型参考项目**（`urdf_tool` / `jie_3d_nav` / `mjlab-skillkit` / `wandb`）：资产查看与验证、导航与感知、Isaac→mjlab 移植、训练任务跟踪四类参考。`PROJECTS` 新增 `"src"`（源目录可指向嵌套路径）与 `"kind"`（参考类型）字段；这 4 项 `robots` 为空，不参与机型反查 |
 | v3.1 | 2026-09-11 | **目录由 `resources/` 改名为 `00_resources/`**（与 `00_know/` 同为「资料类目录」，`00_` 前缀表示不参与运行时加载）；脚本 `RES_ROOT`、根 README、`docs/`、`00_know/` 交叉引用与全部生成文档（项目 README / `_OMITTED.md`）同步更新。**提取规则本身未变** |

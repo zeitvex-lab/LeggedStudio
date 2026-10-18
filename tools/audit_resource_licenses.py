@@ -55,6 +55,7 @@ EXPECTED_ZERO_LICENSE: frozenset[str] = frozenset({
     "humanoid-motion-planning",
     "jie_3d_nav",
     "legged_perceptive",
+    "locowiki-open-source",
     "matrix_zsibot",
     "microduck-simulator",
     "quadruped-locomotion-policy",
@@ -64,6 +65,7 @@ EXPECTED_ZERO_LICENSE: frozenset[str] = frozenset({
     "robo_re",
     "robot_mujoco",
     "sim.stackforce.cc",
+    "smp",
     "unitree-go2-slam-nav2",
     "unitree_go2_edu_movement",
 })
@@ -159,10 +161,10 @@ def main(argv: list[str] | None = None) -> int:
         if report["problems"]:
             print("-" * 78)
             for item in report["problems"]:
-                print(f"✗ {item}")
+                print(f"[FAIL] {item}")
         else:
             print("-" * 78)
-            print("✓ 覆盖数字如实，零许可名单与事实一致（未出现新缺口、名单未过期）")
+            print("[OK] 覆盖数字如实，零许可名单与事实一致（未出现新缺口、名单未过期）")
         print("注意：**覆盖率不是目标值** —— 上游可能本就没有许可文件；本门禁守的是"
               "'不能悄悄恶化 + 名单必须显式'，且**不判断许可内容是否适用于我们的用法**"
               "（那是 I5 逐条取证的活）。")

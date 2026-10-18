@@ -4,7 +4,7 @@
 
 产品对外是三种形态、**同一份后端能力**：桌面壳负责运行时供应与后端生命周期，Web 工作台是全部业务界面（含浏览器内 sim2sim），CLI 面向自动化与 CI；三者共用同一份接口契约。
 
-- 版本：`0.66.6`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
+- 版本：`0.66.7`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
 - 许可：**AGPL-3.0-only**（项目代码）；`00_resources/` 各项目保留原始许可
 - 作者：zeitvex
 
@@ -190,7 +190,7 @@ npm run build:linux               # Linux AppImage
 | 索引 | [`00_resources/README.md`](00_resources/README.md)（项目清单 · 项目×机型矩阵 · 机型反查）+ `_index.json` |
 
 - 定位：**只读参考底座**；`assets/robots/<id>/` 才是按 contract v3 收敛后的可执行版本。
-- **资源实体外置**：114 个项目在私有仓 `zeitvex-lab/LeggedStudio-Resources`；主仓只保留索引、`_SPEC.md`、`_index.json` 与许可索引。首次或需要时运行 `python tools/fetch_resources.py`（可 `--project` 指定）。
+- **资源实体外置**：134 个项目在私有仓 `zeitvex-lab/LeggedStudio-Resources`；主仓只保留索引、`_SPEC.md`、`_index.json` 与许可索引。首次或需要时运行 `python tools/fetch_resources.py`（可 `--project` 指定）。
 - 同步脚本：`tools/sync_resources.py`；规范见 [`00_resources/_SPEC.md`](00_resources/_SPEC.md)。
 - **许可分层**：项目代码 AGPL-3.0-only；`00_resources/` 各项目保留原始许可。无根 LICENSE / CC BY-NC/SA 资源只作参考，不随产品再分发。
 
@@ -207,11 +207,11 @@ npm run build:linux               # Linux AppImage
 
 - [项目定位](00_know/01_项目定位.md) —— 为什么做 / 给谁做 / 做成什么 / 哪里不做
 - [项目规划](00_know/02_项目规划.md) —— 上游对齐、功能地图、架构、模块、流程、门禁、阶段计划与指标
-- [参考项目与资源](00_know/03_参考项目与资源.md) —— 资源地图、跨源对照、MJCF 字段级差异、11 篇综述出处
+- [参考项目与资源](00_know/03_参考项目与资源.md) —— 资源地图、跨源对照、MJCF 字段级差异、22 篇综述出处
 - [参数真值标准](00_know/04_参数真值标准.md) —— 参数取值的单一真值与现役机型来源对照
 - [任务清单](00_know/05_任务清单.md) —— 当前状态、队列、挂账、待决与 DoD；历史在归档 08/09/10
 - [统一架构方案](00_know/06_统一架构方案.md) —— 统一边界、族层、仿真/部署、插件协议与不变式
-- [腿足强化学习综述](00_know/07_腿足机器人强化学习综述.md) —— 四足/轮足为主、人形关键路线；11 篇综述校准 + `00_resources` 项目实证，覆盖任务/仿真/MDP/算法/训练系统/sim2real/演进方向
+- [腿足强化学习综述](00_know/07_腿足机器人强化学习综述.md) —— 文献版图 + 工程路径 + 证据；四足/轮足为主、人形关键路线；22 篇综述（11 基础 + 11 子方向）+ 33 条经典论文线 + LoCoWiki 补编 + `00_resources` 项目实证，覆盖任务/仿真/MDP/算法/训练系统/sim2real/演进方向
 - [参考资源库](00_resources/README.md) —— 按来源项目组织的参考资源与项目 × 机型矩阵
 
 > **文档身份**：`00_know/_manifest.json` 管理稳定 ID、别名与依赖；改名只改 manifest 并同步仓库内引用，旧名记录在 `renamed_from`，不保留旧文件。工具引用登记在 manifest 的 `tools` 字段。
