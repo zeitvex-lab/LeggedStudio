@@ -211,10 +211,10 @@ def main(argv: list[str] | None = None) -> int:
     if report["problems"]:
         print("-" * 78)
         for item in report["problems"]:
-            print(f"✗ {item}")
+            print(f"[FAIL] {item}")
     else:
         print("-" * 78)
-        print("✓ 没有未登记的孤儿工具")
+        print("[OK] 没有未登记的孤儿工具")
     print("注意：引用检测是**文本级**的（提一句也算），**不判断那次引用是否在跑**。")
     return 0 if report["ok"] else 1
 
