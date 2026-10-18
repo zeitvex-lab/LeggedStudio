@@ -14,7 +14,7 @@
 
 | 环节 | 能力 |
 |---|---|
-| 资产管理 | 内置 8 个标准化机器人包（四足：宇树 Go1/Go2/B2、云深处 Lite3；轮足：云深处 M20、宇树 Go2W/B2W、自研 ZEX-W），统一契约描述；同族机型共用族 Kit 与技能装配，成员由 `morphology.id` 派生；随仓附带参考资源库 [`00_resources/`](00_resources/README.md) |
+| 资产管理 | 内置 8 个标准化机器人包（四足：宇树 Go1/Go2/B2、云深处 Lite3；轮足：云深处 M20、宇树 Go2W/B2W、自研 ZEX-W），统一契约描述；同族机型共用族 Kit 与技能装配，成员由 `morphology.id` 派生；随仓附带参考资源索引（实体在独立仓，按需拉取） |
 | 模型检查与契约 | URDF/MJCF 校验、3D 可视化检查、契约 v3 合规校验、物理固化与校验（`bake_mjcf_physics` / `validate_mjcf_contract`）、族 MJCF 约定门禁 |
 | RL 训练 | 隔离子进程调用 MJLab（MuJoCo Warp + PyTorch）；PPO 为默认基线，CTS / AMP / DreamWaQ / HIM / HORA / distill / APPO 以算法插件接入；族 Kit + profile 数据 + 通用装配，新机型 + 标准 MJCF 即可开训；训练任务创建、监控、事件流与复现信息 |
 | 策略导出与验收 | 导出 ONNX 部署策略与部署契约；export gate；无头 sim2sim、确定性回放、效果口径（`effect_criterion`） |
@@ -77,7 +77,7 @@ legged_studio/
 ├── packaging/             # electron-builder 发行配置
 ├── docs/                  # 产品文档（桌面程序 / Web 程序）
 ├── 00_know/               # 知识库与决策文档（01–07 + _manifest.json）→ 00_know/README.md
-└── 00_resources/          # 参考资源库（按来源项目组织的只读底座）→ 00_resources/README.md
+└── 00_resources/          # 参考资源索引（实体在独立仓，fetch 拉取）→ 00_resources/README.md
 ```
 
 > `00_` 前缀 = **资料类目录**（非运行时加载）：`00_know/` 是"为什么这么做"，
@@ -190,6 +190,7 @@ npm run build:linux               # Linux AppImage
 | 索引 | [`00_resources/README.md`](00_resources/README.md)（项目清单 · 项目×机型矩阵 · 机型反查）+ `_index.json` |
 
 - 定位：**只读参考底座**；`assets/robots/<id>/` 才是按 contract v3 收敛后的可执行版本。
+- **资源实体外置**：114 个项目在私有仓 `zeitvex-lab/LeggedStudio-Resources`；主仓只保留索引、`_SPEC.md`、`_index.json` 与许可索引。首次或需要时运行 `python tools/fetch_resources.py`（可 `--project` 指定）。
 - 同步脚本：`tools/sync_resources.py`；规范见 [`00_resources/_SPEC.md`](00_resources/_SPEC.md)。
 - **许可分层**：项目代码 AGPL-3.0-only；`00_resources/` 各项目保留原始许可。无根 LICENSE / CC BY-NC/SA 资源只作参考，不随产品再分发。
 
