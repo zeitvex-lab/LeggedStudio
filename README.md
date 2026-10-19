@@ -4,7 +4,7 @@
 
 产品对外是三种形态、**同一份后端能力**：桌面壳负责运行时供应与后端生命周期，Web 工作台是全部业务界面（含浏览器内 sim2sim），CLI 面向自动化与 CI；三者共用同一份接口契约。
 
-- 版本：`0.67.0`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
+- 版本：`0.67.1`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
 - 许可：**AGPL-3.0-only**（项目代码）；`00_resources/` 各项目保留原始许可
 - 作者：zeitvex
 
