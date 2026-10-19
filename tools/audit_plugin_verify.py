@@ -205,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
             for problem in problems:
                 print(f"  - {problem}")
             return 1
-        print("\n✓ 目录完整、覆盖率 100%、.cnb.yml 未手列")
+        print("\n[OK] 目录完整、覆盖率 100%、.cnb.yml 未手列")
         return 0
     return 0
 

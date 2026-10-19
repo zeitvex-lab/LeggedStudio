@@ -116,6 +116,11 @@
    "env": "onnxruntime"
   },
   {
+   "command": "python tools/audit_observation_parity.py",
+   "seam": "evaluator",
+   "note": "观测真值：族骨架 ↔ 契约 ↔ generic 默认 ↔ 策略宽度（非标准宽度须在 registry/observation_legacy_policies.json 登记）"
+  },
+  {
    "command": "python tools/audit_training_config_layers.py",
    "seam": "profile",
    "note": "训练配置分层指针化（无残留、无双写）"

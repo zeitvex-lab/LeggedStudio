@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from adapters.mjlab.generic_task_builder import build_generic_task
+from adapters.mjlab.observation_contract import DEFAULT_ACTOR_TERMS
 
 
 def _cartpole_contract(path: Path, joint: str = "slider") -> dict:
@@ -73,6 +74,37 @@ class GenericTaskBuilderTests(unittest.TestCase):
         self.assertEqual(bundle.env_cfg.scene.num_envs, 3)
         self.assertEqual(bundle.env_cfg.actions["joint_pos"].actuator_names, ("slider",))
         self.assertEqual(bundle.diagnostics["xml_actuated_joints"], ["slider"])
+
+    def test_default_actor_uses_family_layout_and_lin_vel_is_critic_only(self):
+        contract = _cartpole_contract(self.xml)
+        contract["observation"].pop("components")
+        bundle = build_generic_task(contract, {"environment": {"terrain_type": "plane"}})
+        actor_terms = tuple(bundle.env_cfg.observations["actor"].terms)
+        expected = tuple("command" if term == "commands" else term for term in DEFAULT_ACTOR_TERMS)
+        self.assertEqual(actor_terms, expected)
+        self.assertNotIn("base_lin_vel", actor_terms)
+        self.assertIn("base_lin_vel", bundle.env_cfg.observations["critic"].terms)
+
+    def test_component_dicts_are_parsed_and_critic_roles_do_not_enter_actor(self):
+        contract = _cartpole_contract(self.xml)
+        contract["observation"]["components"] = [
+            {"name": "joint_pos", "role": "actor"},
+            {"name": "joint_vel", "role": "actor"},
+            {"name": "last_action", "role": "actor"},
+            {"name": "base_lin_vel", "role": "critic_only"},
+        ]
+        bundle = build_generic_task(contract, {"environment": {"terrain_type": "plane"}})
+        self.assertEqual(tuple(bundle.env_cfg.observations["actor"].terms), ("joint_pos", "joint_vel", "last_action"))
+        self.assertIn("base_lin_vel", bundle.env_cfg.observations["critic"].terms)
+
+    def test_rejects_base_lin_vel_in_actor_components(self):
+        contract = _cartpole_contract(self.xml)
+        contract["observation"]["components"] = [
+            {"name": "base_lin_vel", "role": "actor"},
+            {"name": "joint_pos", "role": "actor"},
+        ]
+        with self.assertRaisesRegex(ValueError, "critic-only"):
+            build_generic_task(contract, {"environment": {"terrain_type": "plane"}})
 
     def test_preset_reward_names_map_to_mjlab_terms(self):
         bundle = build_generic_task(

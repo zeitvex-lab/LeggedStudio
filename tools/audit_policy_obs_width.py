@@ -183,7 +183,7 @@ def main() -> int:
     if report["policy_wrong"]:
         print("\n**策略自己的 obs 声明与它的 onnx 不符**（声明或 blob 有一处是错的）：")
         for row in report["policy_wrong"]:
-            print(f"  ✗ {row['robot']:<22} {row['policy']:<28} 声明 {row['policy_dim']}"
+            print(f"  [FAIL] {row['robot']:<22} {row['policy']:<28} 声明 {row['policy_dim']}"
                   f"（history {row['policy_history']}） 实际 {row['width']}  [{row['policy_verdict']}]")
     if report["policy_undeclared"]:
         print(f"\n策略级未声明 obs_dim：{len(report['policy_undeclared'])} 条"
@@ -195,7 +195,7 @@ def main() -> int:
         print(f"\n多输入且**已用 aux_inputs 声明**：{len(aux_declared)} 条"
               "（名/形状/来源逐项在策略声明里，可核）")
         for row in aux_declared:
-            print(f"  ✓ {row['robot']:<22} {row['policy']:<28} inputs={row.get('inputs')}"
+            print(f"  [OK] {row['robot']:<22} {row['policy']:<28} inputs={row.get('inputs')}"
                   f" 首输入={row['width']}")
     if report["multi_input"]:
         print(f"\n**未声明**的多输入策略：{len(report['multi_input'])} 条"
@@ -211,7 +211,7 @@ def main() -> int:
     if report["mismatch"]:
         print("\n**对不上**（既不等、也不是整数倍）—— 声明或布局有一处是错的：")
         for row in report["mismatch"]:
-            print(f"  ✗ {row['robot']:<22} {row['policy']:<28} 声明 {row['declared']}"
+            print(f"  [FAIL] {row['robot']:<22} {row['policy']:<28} 声明 {row['declared']}"
                   f"  实际 {row['width']}")
     unknown = [r for r in report["rows"] if r["kind"] not in ("match", "history_stack", "mismatch")]
     if unknown:

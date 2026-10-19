@@ -435,14 +435,14 @@ def check_one(engine, robot: str, policy: str, yaw_deg: float, tol: float,
     if failures:
         if not quiet:
             print("-" * 74)
-            print(f"✗ 两份实现**不一致** {len(failures)} 处：")
+            print(f"[FAIL] 两份实现**不一致** {len(failures)} 处：")
             for item in failures:
                 print(f"  - {item}")
             print("  ⇒ 浏览器与验收器差一步（历史上正是这类缺陷造成\"转 180° 抽风\"）")
         return 1, f"max|Δ|={obs_worst:.3e}（{obs_detail}）"
     if not quiet:
         print("-" * 74)
-        print("✓ 一致：同一状态、同一条观测，两份实现逐维相同")
+        print("[OK] 一致：同一状态、同一条观测，两份实现逐维相同")
     return 0, f"max|Δ|={obs_worst:.3e}"
 
 
@@ -499,7 +499,7 @@ def main() -> int:
     print(f"汇总：{counts['ok']} 一致 / {counts['fail']} 不一致 / {counts['skip']} 不适用"
           f"（共 {sum(counts.values())} 条）")
     for item in reds:
-        print(f"  ✗ {item}")
+        print(f"  [FAIL] {item}")
     return 1 if counts["fail"] else 0
 
 

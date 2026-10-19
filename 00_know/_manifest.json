@@ -108,6 +108,7 @@
         "audit_families.py",
         "audit_obs_group_names.py",
         "audit_observation_contract.py",
+        "audit_observation_parity.py",
         "audit_plugin_unification.py",
         "audit_plugin_verify.py",
         "audit_policy_gains.py",

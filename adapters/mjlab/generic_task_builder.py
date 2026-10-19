@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .observation_contract import CRITIC_ONLY_TERMS, DEFAULT_ACTOR_TERMS
+
 
 @dataclass
 class GenericTaskBundle:
@@ -86,6 +88,18 @@ def _safe_id(value: str) -> str:
 
 def _component_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
+
+
+def _component_name(component: Any) -> str:
+    if isinstance(component, dict):
+        return str(component.get("name") or component.get("id") or "")
+    return str(component)
+
+
+def _component_role(component: Any) -> str:
+    if isinstance(component, dict):
+        return str(component.get("role") or "actor")
+    return "actor"
 
 
 def _recipe_environment(recipe: Any) -> dict[str, Any]:
@@ -307,19 +321,29 @@ def _build_observations(contract: Any):
     }
     requested = list(_contract_value(contract, "observation.components", []) or [])
     if not requested:
-        requested = ["base_lin_vel", "base_ang_vel", "projected_gravity", "joint_pos", "joint_vel", "last_action"]
+        requested = list(DEFAULT_ACTOR_TERMS)
     terms = {}
     unsupported = []
     for component in requested:
-        key = aliases.get(_component_key(component), _component_key(component))
+        if _component_role(component) != "actor":
+            continue
+        name = _component_name(component)
+        key = aliases.get(_component_key(name), _component_key(name))
+        if key == "base_lin_vel":
+            raise ValueError(
+                "base_lin_vel is critic-only; keep it out of actor observation components "
+                "(family skeleton: actor = base_ang_vel/projected_gravity/commands/joint_pos/joint_vel/last_action)"
+            )
         if key not in factories:
-            unsupported.append(str(component))
+            unsupported.append(str(name))
             continue
         terms.setdefault(key, factories[key]())
     if unsupported:
         raise ValueError(f"unsupported generic observation components: {', '.join(unsupported)}")
     actor = ObservationGroupCfg(terms=terms, concatenate_terms=True, enable_corruption=True)
-    critic = ObservationGroupCfg(terms=deepcopy(terms), concatenate_terms=True, enable_corruption=False)
+    critic_terms = deepcopy(terms)
+    critic_terms.update({name: factories[name]() for name in CRITIC_ONLY_TERMS})
+    critic = ObservationGroupCfg(terms=critic_terms, concatenate_terms=True, enable_corruption=False)
     return {"actor": actor, "critic": critic}, list(terms), unsupported
 
 
