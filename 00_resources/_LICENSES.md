@@ -12,7 +12,7 @@
 | `amp_go2` / `smp` / `locowiki-open-source` | unknown | **reference-only**：无 LICENSE 或未声明 |
 | `HIMLoco-for-Go2W` / `champ` | BSD-3-Clause | 可移植（保留版权/许可） |
 | `RC_WheelLeg` / `TWIST` / `TWIST2` / `GMR` / `rl-mpc-locomotion` / `umi-on-legs` / `Cheetah-Software` / `26RC_Field` | MIT | 可移植（保留版权/许可） |
-| `blender-mujoco-hfield` / `quadruped_robot_lab` | Apache-2.0 | 可移植（保留版权/许可/NOTICE） |
+| `blender-mujoco-hfield` / `quadruped_robot_lab` / `mjlab` | Apache-2.0 | 可移植（保留版权/许可/NOTICE） |
 | `TienKung-Lab` / `uw-himloco` | BSD-3-Clause | 可移植（保留版权/许可） |
 | `go2_flip_TO` | BSD-2-Clause | 可移植（保留版权/许可） |
 | `A1-QP-MPC-Controller` | AGPL-3.0 | reference-only / 独立参考；不并入闭源分发 |

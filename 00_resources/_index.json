@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-20T13:00:49",
+ "generated_at": "2026-10-20T13:12:13",
  "spec": "_SPEC.md",
  "policy": {
   "keep": "源码/配置/文档/数据/URDF·MJCF/推理策略文件",
@@ -795,8 +795,8 @@
    "fetched": "2026-10-19",
    "note": "BSD-3；isaaclab_mimic 为 Apache-2.0；Isaac Sim 组件/资产另按 NVIDIA 许可；reference-only",
    "in_git": true,
-   "kept": 3936,
-   "kept_bytes": 37281566,
+   "kept": 3937,
+   "kept_bytes": 37282107,
    "omitted": 631,
    "omitted_bytes": 31247564,
    "policy_files": 1,
@@ -808,7 +808,7 @@
     "terrain_scene": 46,
     "motion": 128,
     "evaluation": 709,
-    "misc": 1789
+    "misc": 1790
    },
    "ext_top": {
     ".py": 2534,
@@ -816,7 +816,7 @@
     ".rst": 260,
     ".pyi": 217,
     ".yaml": 132,
-    ".md": 105,
+    ".md": 106,
     "(无扩展名)": 69,
     ".yml": 42,
     ".sh": 21,
@@ -1535,8 +1535,8 @@
    "fetched": "2026-10-19",
    "note": "Apache-2.0；reference-only；取代 unilab_new 旧快照",
    "in_git": true,
-   "kept": 902,
-   "kept_bytes": 8057907,
+   "kept": 903,
+   "kept_bytes": 8058410,
    "omitted": 13,
    "omitted_bytes": 4089446,
    "policy_files": 0,
@@ -1548,11 +1548,11 @@
     "terrain_scene": 7,
     "motion": 74,
     "evaluation": 259,
-    "misc": 351
+    "misc": 352
    },
    "ext_top": {
     ".py": 541,
-    ".md": 253,
+    ".md": 254,
     ".yaml": 54,
     ".xml": 20,
     "(无扩展名)": 11,
@@ -3471,6 +3471,59 @@
     ".toml": 1
    },
    "readme": "microduck_rl/README.md"
+  },
+  "mjlab": {
+   "source": "https://github.com/mujocolab/mjlab @ 8bb2bc9e187797689ec82c78c35019afd2fd0376",
+   "robots": [
+    "unitree_go1",
+    "unitree_go2",
+    "unitree_go2w",
+    "unitree_g1"
+   ],
+   "desc": "mjlab 1.6.0：MuJoCo Warp + PyTorch 的轻量 GPU 训练框架（manager-based MDP；G1 velocity/tracking 等任务；上游最新快照）",
+   "license": "Apache-2.0",
+   "repo": "https://github.com/mujocolab/mjlab",
+   "commit": "8bb2bc9e187797689ec82c78c35019afd2fd0376",
+   "fetched": "2026-10-19",
+   "note": "上游 1.6.0 最新快照；mjlab_new 为旧快照",
+   "in_git": true,
+   "kept": 410,
+   "kept_bytes": 4228875,
+   "omitted": 106,
+   "omitted_bytes": 58510540,
+   "policy_files": 0,
+   "per_category": {
+    "model": 10,
+    "contract": 0,
+    "training": 78,
+    "deploy": 0,
+    "terrain_scene": 19,
+    "motion": 1,
+    "evaluation": 93,
+    "misc": 209
+   },
+   "ext_top": {
+    ".py": 291,
+    ".rst": 50,
+    ".md": 12,
+    ".xml": 12,
+    ".pyi": 10,
+    ".yml": 7,
+    "(无扩展名)": 6,
+    ".yaml": 6,
+    ".sh": 5,
+    ".ipynb": 2,
+    ".cff": 1,
+    ".toml": 1,
+    ".json": 1,
+    ".bib": 1,
+    ".css": 1,
+    ".html": 1,
+    ".service": 1,
+    ".timer": 1,
+    ".typed": 1
+   },
+   "readme": "mjlab/README.md"
   },
   "mjlab-skillkit": {
    "source": "00_open/mjlab-skillkit",
@@ -5504,7 +5557,8 @@
     "quaternion-mpc",
     "legged_control",
     "legged_perceptive",
-    "quadruped-locomotion-policy"
+    "quadruped-locomotion-policy",
+    "mjlab"
    ]
   },
   "unitree_go2": {
@@ -5566,7 +5620,8 @@
     "quadruped-locomotion-policy",
     "amp_go2",
     "HIMLoco-for-Go2W",
-    "go2_flip_TO"
+    "go2_flip_TO",
+    "mjlab"
    ]
   },
   "unitree_go2w": {
@@ -5588,7 +5643,8 @@
     "robot_mujoco",
     "Gymnasium",
     "matrix_zsibot",
-    "HIMLoco-for-Go2W"
+    "HIMLoco-for-Go2W",
+    "mjlab"
    ]
   },
   "unitree_b2": {

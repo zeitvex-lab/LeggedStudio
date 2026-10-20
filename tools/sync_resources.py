@@ -641,6 +641,12 @@ PROJECTS.update({
                "source": "https://github.com/unilabsim/UniLab @ 4370d6d69f66cba05e47655e25eba57229dd7dd8",
                "commit": "4370d6d69f66cba05e47655e25eba57229dd7dd8", "fetched": "2026-10-19",
                "note": "Apache-2.0；reference-only；取代 unilab_new 旧快照", "in_git": True},
+    "mjlab": {"robots": ["unitree_go1", "unitree_go2", "unitree_go2w", "unitree_g1"],
+              "desc": "mjlab 1.6.0：MuJoCo Warp + PyTorch 的轻量 GPU 训练框架（manager-based MDP；G1 velocity/tracking 等任务；上游最新快照）",
+              "license": "Apache-2.0", "repo": "https://github.com/mujocolab/mjlab",
+              "source": "https://github.com/mujocolab/mjlab @ 8bb2bc9e187797689ec82c78c35019afd2fd0376",
+              "commit": "8bb2bc9e187797689ec82c78c35019afd2fd0376", "fetched": "2026-10-19",
+              "note": "上游 1.6.0 最新快照；mjlab_new 为旧快照", "in_git": True},
 })
 KB_ROOT_NAME = "knowledge_base"
 KNOWLEDGE_BASES: dict[str, dict] = {
