@@ -73,7 +73,14 @@ EXPECTED_ZERO_LICENSE: frozenset[str] = frozenset({
 
 def _has_top_license(directory: Path) -> bool:
     try:
-        return any(item.is_file() and LICENSE_NAME.match(item.name) for item in directory.iterdir())
+        items = list(directory.iterdir())
+        if any(item.is_file() and LICENSE_NAME.match(item.name) for item in items):
+            return True
+        for item in items:
+            if item.is_dir() and item.name.lower() == "licenses":
+                if any(child.is_file() and child.stat().st_size > 0 for child in item.iterdir()):
+                    return True
+        return False
     except OSError:
         return False
 

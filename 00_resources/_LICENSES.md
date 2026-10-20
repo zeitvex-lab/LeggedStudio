@@ -14,6 +14,8 @@
 | `RC_WheelLeg` / `TWIST` / `TWIST2` / `GMR` / `rl-mpc-locomotion` / `umi-on-legs` / `Cheetah-Software` / `26RC_Field` | MIT | 可移植（保留版权/许可） |
 | `blender-mujoco-hfield` / `quadruped_robot_lab` / `mjlab` | Apache-2.0 | 可移植（保留版权/许可/NOTICE） |
 | `TienKung-Lab` / `uw-himloco` | BSD-3-Clause | 可移植（保留版权/许可） |
+| `microduck` / `microduck_rl` / `microduck-s288` / `Open_Duck_Mini` / `lerobot` / `SO-ARM100` | Apache-2.0 | 可移植（保留版权/许可）；`microduck_rl` 模型另见 LICENSE-MODELS，LeRobot 模型/数据集另核 |
+| `SO-ARM-102` | Apache-2.0 + CC-BY-4.0 + CERN-OHL-P-2.0 | 代码/文档/硬件三套许可，按 LICENSES/ 分别遵守 |
 | `go2_flip_TO` | BSD-2-Clause | 可移植（保留版权/许可） |
 | `A1-QP-MPC-Controller` | AGPL-3.0 | reference-only / 独立参考；不并入闭源分发 |
 | `IsaacLab` | BSD-3-Clause（`isaaclab_mimic` 为 Apache-2.0） | reference-only；Isaac Sim 组件/资产另按 NVIDIA 许可，不随产品分发 |

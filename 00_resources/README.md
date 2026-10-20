@@ -17,10 +17,10 @@
 
 ## 总览
 
-- 收录项目 **137** 个　·　文件 **91652** 个　·　体积 **3232.6 MB**
-- 省略文件 **28740** 个（**21169.1 MB**），均在原目录留有 `_OMITTED.md` 占位登记
+- 收录项目 **143** 个　·　文件 **93965** 个　·　体积 **3342.5 MB**
+- 省略文件 **29301** 个（**21784.1 MB**），均在原目录留有 `_OMITTED.md` 占位登记
 - 通用知识库 **1** 个　·　文件 436 个
-- 生成时间：2026-10-20 13:12
+- 生成时间：2026-10-20 18:32
 
 ## 项目清单（有什么 · 能帮什么 · 关联哪些机器人）
 
@@ -37,6 +37,7 @@
 | `quadruped-robotics-stack` | 2547 | 0 | 405.2 MB | 0 | `unitree_go2` | [README](./quadruped-robotics-stack/README.md) |
 | `g1-mujoco-ros2-nav-sim-G1-MuJoCo-ROS2-` | 2200 | 966 | 71.1 MB | 3 | `unitree_g1` | [README](./g1-mujoco-ros2-nav-sim-G1-MuJoCo-ROS2-/README.md) |
 | `ComfyUI` | 1299 | 4 | 48.5 MB | 0 | — | [README](./ComfyUI/README.md) |
+| `lerobot` | 1248 | 15 | 78.5 MB | 40 | — | [README](./lerobot/README.md) |
 | `motion-imitation` | 1246 | 0 | 165.1 MB | 0 | — | [README](./motion-imitation/README.md) |
 | `unilab_new` | 1131 | 21 | 8.1 MB | 0 | `unitree_go2`、`unitree_go2w`、`unitree_go1`、`unitree_g1`、`microduck`、`deeprobotics_m20`、`deeprobotics_lite3` | [README](./unilab_new/README.md) |
 | `legbot_lab_PPO` | 1066 | 359 | 11.4 MB | 0 | `unitree_go2` | [README](./legbot_lab_PPO/README.md) |
@@ -54,6 +55,7 @@
 | `MGDP` | 573 | 794 | 117.6 MB | 8 | `unitree_go1`、`unitree_go2`、`deeprobotics_lite3` | [README](./MGDP/README.md) |
 | `robosuite_new` | 535 | 806 | 10.3 MB | 0 | `wuji_hand`、`unitree_g1` | [README](./robosuite_new/README.md) |
 | `legged_robot_competition` | 505 | 680 | 4.3 MB | 1 | `unitree_go2` | [README](./legged_robot_competition/README.md) |
+| `microduck` | 461 | 8 | 9.9 MB | 16 | `microduck` | [README](./microduck/README.md) |
 | `Gymnasium` | 457 | 255 | 2.8 MB | 0 | `unitree_go1`、`unitree_go2`、`unitree_go2w`、`unitree_b2`、`unitree_b2w`、`unitree_g1`、`deeprobotics_lite3`、`deeprobotics_m20`、`limx_tron1_pf`、`limx_tron1_sf`、`limx_tron1_wf`、`microduck`、`wuji_hand`、`zex-w` | [README](./Gymnasium/README.md) |
 | `robo_know` | 437 | 1 | 47.0 MB | 0 | — | [README](./robo_know/README.md) |
 | `mjlab` | 410 | 106 | 4.0 MB | 0 | `unitree_go1`、`unitree_go2`、`unitree_go2w`、`unitree_g1` | [README](./mjlab/README.md) |
@@ -76,9 +78,11 @@
 | `genesislab` | 276 | 2 | 1.2 MB | 0 | `unitree_go2`、`unitree_g1` | [README](./genesislab/README.md) |
 | `mujoco_playground` | 243 | 53 | 6.7 MB | 6 | `unitree_go1`、`unitree_g1` | [README](./mujoco_playground/README.md) |
 | `quaternion-mpc` | 224 | 0 | 124.7 MB | 0 | `unitree_go1` | [README](./quaternion-mpc/README.md) |
+| `Open_Duck_Mini` | 222 | 188 | 7.8 MB | 2 | — | [README](./Open_Duck_Mini/README.md) |
 | `InstinctMJ` | 220 | 85 | 1.9 MB | 0 | `unitree_g1` | [README](./InstinctMJ/README.md) |
 | `him_dog` | 212 | 161 | 28.1 MB | 15 | `unitree_go1`、`unitree_go2` | [README](./him_dog/README.md) |
 | `Gymnasium-Robotics` | 199 | 181 | 1.2 MB | 0 | `wuji_hand` | [README](./Gymnasium-Robotics/README.md) |
+| `microduck_rl` | 199 | 55 | 2.1 MB | 0 | `microduck` | [README](./microduck_rl/README.md) |
 | `engineai_rl_workspace` | 196 | 92 | 1.4 MB | 1 | — | [README](./engineai_rl_workspace/README.md) |
 | `beyondAMP` | 189 | 4 | 14.2 MB | 0 | — | [README](./beyondAMP/README.md) |
 | `TWIST2` | 186 | 71 | 12.5 MB | 2 | `unitree_g1` | [README](./TWIST2/README.md) |
@@ -86,15 +90,16 @@
 | `LightNav-0` | 182 | 9 | 1.3 MB | 0 | `unitree_go2` | [README](./LightNav-0/README.md) |
 | `legbot_lab_PPO-CTS-MOE` | 181 | 709 | 20.1 MB | 2 | `unitree_go2` | [README](./legbot_lab_PPO-CTS-MOE/README.md) |
 | `robot-descriptions-quadruped` | 180 | 65 | 11.8 MB | 8 | `unitree_go1`、`unitree_go2`、`unitree_b2`、`unitree_b2w`、`deeprobotics_lite3`、`deeprobotics_m20` | [README](./robot-descriptions-quadruped/README.md) |
-| `microduck_rl` | 175 | 55 | 1.8 MB | 0 | `microduck` | [README](./microduck_rl/README.md) |
 | `amp_go2` | 173 | 116 | 29.4 MB | 2 | `unitree_go2` | [README](./amp_go2/README.md) |
 | `rl_sar` | 170 | 0 | 30.2 MB | 22 | `unitree_go2`、`unitree_go2w`、`unitree_b2`、`unitree_b2w`、`unitree_g1`、`deeprobotics_lite3` | [README](./rl_sar/README.md) |
 | `rl_sar_zoo` | 170 | 416 | 1.5 MB | 0 | `unitree_go2`、`unitree_go2w`、`unitree_b2`、`unitree_b2w`、`unitree_g1`、`deeprobotics_lite3` | [README](./rl_sar_zoo/README.md) |
 | `fan_rlsar` | 165 | 0 | 22.0 MB | 16 | `unitree_go2`、`unitree_go2w`、`unitree_b2`、`unitree_b2w`、`unitree_g1`、`deeprobotics_lite3` | [README](./fan_rlsar/README.md) |
 | `LeggedSkillDeploy` | 158 | 232 | 43.6 MB | 31 | `unitree_go2`、`unitree_go2w`、`unitree_go1`、`unitree_g1`、`deeprobotics_m20` | [README](./LeggedSkillDeploy/README.md) |
+| `microduck-s288` | 158 | 47 | 6.5 MB | 1 | `microduck` | [README](./microduck-s288/README.md) |
 | `wbc-mjlab` | 156 | 42 | 59.6 MB | 1 | `unitree_g1` | [README](./wbc-mjlab/README.md) |
 | `legged_mpc_control` | 155 | 0 | 84.2 MB | 0 | `unitree_a1`、`unitree_go1` | [README](./legged_mpc_control/README.md) |
 | `mujoco_ros2_control` | 155 | 9 | 1.1 MB | 0 | — | [README](./mujoco_ros2_control/README.md) |
+| `SO-ARM-102` | 154 | 108 | 5.4 MB | 0 | — | [README](./SO-ARM-102/README.md) |
 | `UFO` | 154 | 39 | 1.2 MB | 0 | `unitree_g1` | [README](./UFO/README.md) |
 | `robo_re` | 154 | 1393 | 100.2 MB | 0 | `unitree_g1` | [README](./robo_re/README.md) |
 | `rl-mpc-locomotion` | 153 | 42 | 995 KB | 0 | — | [README](./rl-mpc-locomotion/README.md) |
@@ -138,6 +143,7 @@
 | `Dreamwaq` | 50 | 64 | 549 KB | 0 | `unitree_go2`、`deeprobotics_m20` | [README](./Dreamwaq/README.md) |
 | `legged_perceptive` | 50 | 0 | 139 KB | 0 | `unitree_a1`、`unitree_go1` | [README](./legged_perceptive/README.md) |
 | `humanoid-motion-planning` | 49 | 48 | 454 KB | 0 | `unitree_g1` | [README](./humanoid-motion-planning/README.md) |
+| `SO-ARM100` | 46 | 195 | 1.5 MB | 0 | — | [README](./SO-ARM100/README.md) |
 | `matrix_zsibot` | 46 | 0 | 792 KB | 0 | `unitree_go2`、`unitree_go2w`、`unitree_g1` | [README](./matrix_zsibot/README.md) |
 | `quadruped-locomotion-policy` | 45 | 0 | 36.4 MB | 41 | `unitree_go2`、`unitree_go1` | [README](./quadruped-locomotion-policy/README.md) |
 | `A1-QP-MPC-Controller` | 43 | 4 | 254 KB | 0 | — | [README](./A1-QP-MPC-Controller/README.md) |
@@ -191,10 +197,13 @@
 - **`Link-U-OS`**：Link-U OS（智元/灵犀具身智能 OS 开源版，GitHub: Link-U-OS/Link-U-OS）：面向具身智能的操作系统栈——AimRT 通信中间件（RPC/Topic，Protobuf 与 ROS2 消息双格式）、Bazel 多仓构建与 x86_64→aarch64 一键交叉编译、Docker 开发环境、AimStudio 图形化部署工具，以及基于 MuJoCo/Isaac Gym 的人形站立·行走 RL 训练-仿真验证-实机部署全链；本目录同时收下 `.gitmodules` 点名的 13 个外链子仓（rl_training / rl_deploy / aimrt / aimrt_comm / aimrt_sensor / aimrt_protocol / aimrt_viz / aimrt_process_manager / aimrt_health_monitor / aimrt_prebuilt / rules_ros2 / integration / AimStudio）
 - **`MGDP`**：MGDP：通用深度感知四足运动控制（IsaacGym + Warp 深度传感器，跨机型迁移）
 - **`Odin-Nav-Stack`**：Odin1 深度相机 + NeuPAN 局部规划的导航栈
+- **`Open_Duck_Mini`**：Open Duck Mini v2：42 cm 开源迷你双足；MuJoCo PPO/GAIL/BC、ONNX 部署与 LeRobot 数据采集
 - **`PaddleX`**：PaddleX 3.x：飞桨低代码视觉工具链（200+ 预训练模型 / 33 条模型产线 / 39 个单功能模块），覆盖目标检测、开集检测、语义与实例分割、关键点、OCR 与文档解析；含高性能推理、服务化与端侧部署——B 类外挂感知（目标判定 / 标志识别 / 视觉触发）与「模型产线」资源组织形态参考
 - **`Quad-Imaginarium`**：GaoLii/Quad-Imaginarium（arXiv 2606.28237）：7488 段语言标注四足动作、18.5h@24fps、19 维状态；数据集待论文接收后发布（本快照仅 README）
 - **`QuadFM`**：GaoLii/QuadFM：四足运动基座模型项目快照——上游仅发布 README 与 Apache-2.0 许可、声明「released soon」，数据集未发布；占位登记
 - **`RC_WheelLeg`**：HYNova 轮足机器人：ROS 2 与强化学习工程（自研轮足参考）
+- **`SO-ARM-102`**：SO-ARM-102 社区升级：平行夹爪 85 mm、PET-CF 框架、底座 352°、臂展 483 mm；兼容 LeRobot
+- **`SO-ARM100`**：SO-ARM100：6-DOF 低成本 3D 打印机械臂（follower/leader），LeRobot 官方协作硬件
 - **`T2QRM`**：SCUT-BIP-Lab/T2QRM（ACM MM Asia 2024）：文本驱动四足动作生成；配套 DogML 8048 段 / 12072 条文本；代码与数据集均未发布（快照仅 README + demo）
 - **`TWIST`**：TWIST：Unitree G1 全身遥操作与教师-学生模仿学习
 - **`TWIST2`**：TWIST2：基于 VR 的可扩展人形全身数据采集系统
@@ -243,14 +252,17 @@
 - **`legged_perceptive`**：qiayuanl legged_perceptive：legged_control 感知扩展（高程图+凸平面分解+感知增强 MPC；已停止维护）
 - **`legged_robot_competition`**：legged_robot_competition：基于 legged_gym 的 Go2 地形翻越比赛工程（无许可证，仅参考）
 - **`legged_sim`**：G1 仿真环境与场景
+- **`lerobot`**：Hugging Face LeRobot：端到端机器人学习库（ACT/Diffusion Policy、HIL-SERL/TDMPC、VLA；统一数据集与 Hub）
 - **`limxsdk-lowlevel`**：limxdynamics 官方低层 SDK（limxsdk：硬件接口/消息定义）
 - **`locowiki-open-source`**：LoCoWiki 网络开源项目索引：44 个 GitHub/Gitee 链接的项目级对照（不含硬件区）
 - **`m20_rl_isaacsim`**：M20 轮足 IsaacSim RL 工程
 - **`matrix_zsibot`**：ZsiBot MATRiX 仿真平台源码快照的实现类子集（UE5 + MuJoCo + CARLA）：传感器声明、自定义/拼接场景、多机器人端口、相机与渲染协议、实景扫描 3DGS→PLY→MuJoCo proxy 流水线、G1 材质桥
+- **`microduck`**：MicroDuck 板载运行时：Rust 50 Hz 控制环、BLE、WebRTC/摄像头、ToF 与硬件规格
+- **`microduck-s288`**：MicroDuck S288 社区复刻：结构/电控/标定/RL 训练/真机部署 + 预训练 ONNX 与中文教程
 - **`microduck-simulator`**：MicroDuck 仿真器
 - **`microduck-studio`**：MicroDuck Studio（编辑/可视化）
 - **`microduck_all`**：MicroDuck 综合工程
-- **`microduck_rl`**：MicroDuck RL 训练
+- **`microduck_rl`**：MicroDuck 官方 RL 训练栈（MuJoCo + PPO；7 套出厂动作与 ONNX 部署）——2026-10-19 更新到最新快照
 - **`mjlab`**：mjlab 1.6.0：MuJoCo Warp + PyTorch 的轻量 GPU 训练框架（manager-based MDP；G1 velocity/tracking 等任务；上游最新快照）
 - **`mjlab-skillkit`**：mjlab 技能包（adapters / agents / shared）：Isaac Lab → mjlab 移植参考
 - **`mjlab_new`**：mjlab 新版：机型资产 + MuJoCo RL 任务
