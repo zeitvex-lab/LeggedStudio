@@ -172,10 +172,10 @@ def main(argv: list[str] | None = None) -> int:
     if report["problems"]:
         print("-" * 78)
         for item in report["problems"]:
-            print(f"✗ {item}")
+            print(f"[FAIL] {item}")
     else:
         print("-" * 78)
-        print("✓ 有据可查的条数没有倒退")
+        print("[OK] 有据可查的条数没有倒退")
     print("注意：**文本级**判定 —— 绿 = 有据可查的条数没倒退，**不 = 每条都被验证过**；"
           "精确的可机验性分类需要人工逐条判读。")
     return 0 if report["ok"] else 1
