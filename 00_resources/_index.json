@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-19T00:58:08",
+ "generated_at": "2026-10-20T13:00:49",
  "spec": "_SPEC.md",
  "policy": {
   "keep": "源码/配置/文档/数据/URDF·MJCF/推理策略文件",
@@ -785,6 +785,55 @@
    },
    "readme": "InstinctMJ/README.md"
   },
+  "IsaacLab": {
+   "source": "https://github.com/isaac-sim/IsaacLab @ e3f7d9ff1f5d7f8280de3ece9000b7117f66bcf4",
+   "robots": [],
+   "desc": "IsaacLab 3.0.0：NVIDIA GPU 加速机器人学习框架（Newton/OVRTX/OVPhysX/Isaac Sim 多后端；30+ 环境；RSL-RL/SKRL/RL Games/Stable Baselines）",
+   "license": "BSD-3-Clause",
+   "repo": "https://github.com/isaac-sim/IsaacLab",
+   "commit": "e3f7d9ff1f5d7f8280de3ece9000b7117f66bcf4",
+   "fetched": "2026-10-19",
+   "note": "BSD-3；isaaclab_mimic 为 Apache-2.0；Isaac Sim 组件/资产另按 NVIDIA 许可；reference-only",
+   "in_git": true,
+   "kept": 3936,
+   "kept_bytes": 37281566,
+   "omitted": 631,
+   "omitted_bytes": 31247564,
+   "policy_files": 1,
+   "per_category": {
+    "model": 221,
+    "contract": 39,
+    "training": 874,
+    "deploy": 130,
+    "terrain_scene": 46,
+    "motion": 128,
+    "evaluation": 709,
+    "misc": 1789
+   },
+   "ext_top": {
+    ".py": 2534,
+    ".txt": 458,
+    ".rst": 260,
+    ".pyi": 217,
+    ".yaml": 132,
+    ".md": 105,
+    "(无扩展名)": 69,
+    ".yml": 42,
+    ".sh": 21,
+    ".toml": 21,
+    ".json": 16,
+    ".csv": 9,
+    ".kit": 6,
+    ".urdf": 6,
+    ".css": 4,
+    ".jinja": 4,
+    ".base": 3,
+    ".js": 3,
+    ".npz": 3,
+    ".env": 3
+   },
+   "readme": "IsaacLab/README.md"
+  },
   "LainLab": {
    "source": "00_open/LainLab",
    "robots": [
@@ -1475,6 +1524,51 @@
     ".xml": 1
    },
    "readme": "UFO/README.md"
+  },
+  "UniLab": {
+   "source": "https://github.com/unilabsim/UniLab @ 4370d6d69f66cba05e47655e25eba57229dd7dd8",
+   "robots": [],
+   "desc": "UniLab 1.4.0：Hydra manager-term 任务 + SimBackend 契约 + CPU/GPU/external worker；MuJoCo/mjwarp/Genesis/IsaacGym/Motrix/Newton；SAC/FlashSAC",
+   "license": "Apache-2.0",
+   "repo": "https://github.com/unilabsim/UniLab",
+   "commit": "4370d6d69f66cba05e47655e25eba57229dd7dd8",
+   "fetched": "2026-10-19",
+   "note": "Apache-2.0；reference-only；取代 unilab_new 旧快照",
+   "in_git": true,
+   "kept": 902,
+   "kept_bytes": 8057907,
+   "omitted": 13,
+   "omitted_bytes": 4089446,
+   "policy_files": 0,
+   "per_category": {
+    "model": 21,
+    "contract": 24,
+    "training": 107,
+    "deploy": 59,
+    "terrain_scene": 7,
+    "motion": 74,
+    "evaluation": 259,
+    "misc": 351
+   },
+   "ext_top": {
+    ".py": 541,
+    ".md": 253,
+    ".yaml": 54,
+    ".xml": 20,
+    "(无扩展名)": 11,
+    ".yml": 7,
+    ".sh": 4,
+    ".toml": 2,
+    ".html": 2,
+    ".rst": 2,
+    ".txt": 1,
+    ".css": 1,
+    ".bash": 1,
+    ".zsh": 1,
+    ".typed": 1,
+    ".cpp": 1
+   },
+   "readme": "UniLab/README.md"
   },
   "amp_go2": {
    "source": "https://github.com/ak1raljl/amp_go2 @ 14cb83f778b3",
@@ -3144,7 +3238,7 @@
    "note": "仅索引页；unknown license，reference-only",
    "in_git": true,
    "kept": 33,
-   "kept_bytes": 85026,
+   "kept_bytes": 85062,
    "omitted": 0,
    "omitted_bytes": 0,
    "policy_files": 0,

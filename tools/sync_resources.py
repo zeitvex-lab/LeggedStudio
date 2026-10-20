@@ -629,6 +629,18 @@ PROJECTS.update({
                               "source": "https://github.com/LocoWiki/LocoWiki @ 302685b0f20c",
                               "commit": "302685b0f20c", "fetched": "2026-10-18",
                               "note": "仅索引页；unknown license，reference-only", "in_git": True},
+    "IsaacLab": {"robots": [],
+                 "desc": "IsaacLab 3.0.0：NVIDIA GPU 加速机器人学习框架（Newton/OVRTX/OVPhysX/Isaac Sim 多后端；30+ 环境；RSL-RL/SKRL/RL Games/Stable Baselines）",
+                 "license": "BSD-3-Clause", "repo": "https://github.com/isaac-sim/IsaacLab",
+                 "source": "https://github.com/isaac-sim/IsaacLab @ e3f7d9ff1f5d7f8280de3ece9000b7117f66bcf4",
+                 "commit": "e3f7d9ff1f5d7f8280de3ece9000b7117f66bcf4", "fetched": "2026-10-19",
+                 "note": "BSD-3；isaaclab_mimic 为 Apache-2.0；Isaac Sim 组件/资产另按 NVIDIA 许可；reference-only", "in_git": True},
+    "UniLab": {"robots": [],
+               "desc": "UniLab 1.4.0：Hydra manager-term 任务 + SimBackend 契约 + CPU/GPU/external worker；MuJoCo/mjwarp/Genesis/IsaacGym/Motrix/Newton；SAC/FlashSAC",
+               "license": "Apache-2.0", "repo": "https://github.com/unilabsim/UniLab",
+               "source": "https://github.com/unilabsim/UniLab @ 4370d6d69f66cba05e47655e25eba57229dd7dd8",
+               "commit": "4370d6d69f66cba05e47655e25eba57229dd7dd8", "fetched": "2026-10-19",
+               "note": "Apache-2.0；reference-only；取代 unilab_new 旧快照", "in_git": True},
 })
 KB_ROOT_NAME = "knowledge_base"
 KNOWLEDGE_BASES: dict[str, dict] = {

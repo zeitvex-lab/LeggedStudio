@@ -17,10 +17,10 @@
 
 ## 总览
 
-- 收录项目 **134** 个　·　文件 **86402** 个　·　体积 **3185.3 MB**
-- 省略文件 **27990** 个（**21079.6 MB**），均在原目录留有 `_OMITTED.md` 占位登记
+- 收录项目 **136** 个　·　文件 **91240** 个　·　体积 **3228.6 MB**
+- 省略文件 **28634** 个（**21113.3 MB**），均在原目录留有 `_OMITTED.md` 占位登记
 - 通用知识库 **1** 个　·　文件 436 个
-- 生成时间：2026-10-19 00:58
+- 生成时间：2026-10-20 13:00
 
 ## 项目清单（有什么 · 能帮什么 · 关联哪些机器人）
 
@@ -30,6 +30,7 @@
 | `urdf_tool` | 9115 | 2581 | 120.3 MB | 0 | — | [README](./urdf_tool/README.md) |
 | `sdk_deploy` | 8006 | 4460 | 75.9 MB | 2 | `deeprobotics_lite3`、`deeprobotics_m20` | [README](./sdk_deploy/README.md) |
 | `wandb` | 7473 | 20 | 90.9 MB | 0 | — | [README](./wandb/README.md) |
+| `IsaacLab` | 3936 | 631 | 35.6 MB | 1 | — | [README](./IsaacLab/README.md) |
 | `Link-U-OS` | 3911 | 684 | 17.1 MB | 0 | — | [README](./Link-U-OS/README.md) |
 | `legged_mpc_amp` | 3847 | 324 | 50.3 MB | 4 | `unitree_go2` | [README](./legged_mpc_amp/README.md) |
 | `PaddleX` | 2957 | 0 | 21.2 MB | 0 | — | [README](./PaddleX/README.md) |
@@ -45,6 +46,7 @@
 | `lain_job` | 962 | 626 | 47.7 MB | 4 | `unitree_go2`、`unitree_go1`、`unitree_g1`、`deeprobotics_m20` | [README](./lain_job/README.md) |
 | `newton` | 961 | 189 | 25.5 MB | 1 | — | [README](./newton/README.md) |
 | `rc_old` | 954 | 223 | 40.5 MB | 18 | `zex-w`、`unitree_go1`、`unitree_g1` | [README](./rc_old/README.md) |
+| `UniLab` | 902 | 13 | 7.7 MB | 0 | — | [README](./UniLab/README.md) |
 | `uni_rl` | 781 | 1573 | 32.2 MB | 5 | `unitree_go2`、`unitree_go2w`、`unitree_go1`、`unitree_b2`、`unitree_b2w`、`unitree_g1` | [README](./uni_rl/README.md) |
 | `habitat-sim` | 746 | 167 | 38.4 MB | 0 | `unitree_go2`、`limx_tron1_pf`、`limx_tron1_sf`、`limx_tron1_wf` | [README](./habitat-sim/README.md) |
 | `genesis-world` | 707 | 348 | 12.4 MB | 0 | — | [README](./genesis-world/README.md) |
@@ -179,6 +181,7 @@
 - **`HIMLoco`**：InternRobotics HIMLoco：四足高动态运动/越障 RL 训练工程（legged_gym + rsl_rl）
 - **`HIMLoco-for-Go2W`**：HIMLoco for Go2W：Isaac Gym 训练 + MuJoCo 验证
 - **`InstinctMJ`**：InstinctMJ：G1 人形 mjlab 工程
+- **`IsaacLab`**：IsaacLab 3.0.0：NVIDIA GPU 加速机器人学习框架（Newton/OVRTX/OVPhysX/Isaac Sim 多后端；30+ 环境；RSL-RL/SKRL/RL Games/Stable Baselines）
 - **`LainLab`**：LainLab：mjlab 1.6 多厂商资产/任务/部署层（go2 skills 全套 + OpenDoge 自研；Apache-2.0）
 - **`Learn-It-All-deployment-sim2real`**：youngboss2026/Learn-It-All 真机部署部分：Feetech 舵机四足上跑 ONNX 策略与开环步态（vendor 为舵机/IMU 支持库，GPL-3.0）
 - **`LeggedGym-Ex`**：legged_gym 扩展版：多机型训练环境与任务
@@ -196,6 +199,7 @@
 - **`TWIST2`**：TWIST2：基于 VR 的可扩展人形全身数据采集系统
 - **`TienKung-Lab`**：TienKung-Lab：全尺寸人形 IsaacLab + AMP + 传感器控制工作流
 - **`UFO`**：UFO：G1 人形工程
+- **`UniLab`**：UniLab 1.4.0：Hydra manager-term 任务 + SimBackend 契约 + CPU/GPU/external worker；MuJoCo/mjwarp/Genesis/IsaacGym/Motrix/Newton；SAC/FlashSAC
 - **`amp_go2`**：AMP Go2 基础复现：训练、参考动作、Sim2Sim 与 Sim2Real 流程
 - **`awesome-rl-for-legged-locomotion`**：Awesome RL for Legged Locomotion：33 篇经典论文/综述索引（ETH / KAIST 四足、parkour、AMP、WBC、人形）
 - **`beyondAMP`**：beyondAMP：AMP 接入 IsaacLab/mjlab 的统一管线（G1 示例；无许可证，仅参考）

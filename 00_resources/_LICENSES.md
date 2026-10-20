@@ -16,6 +16,8 @@
 | `TienKung-Lab` / `uw-himloco` | BSD-3-Clause | 可移植（保留版权/许可） |
 | `go2_flip_TO` | BSD-2-Clause | 可移植（保留版权/许可） |
 | `A1-QP-MPC-Controller` | AGPL-3.0 | reference-only / 独立参考；不并入闭源分发 |
+| `IsaacLab` | BSD-3-Clause（`isaaclab_mimic` 为 Apache-2.0） | reference-only；Isaac Sim 组件/资产另按 NVIDIA 许可，不随产品分发 |
+| `UniLab` | Apache-2.0 | 可移植（保留版权/许可/NOTICE）；reference-only 使用，不并入运行时 |
 | `ComfyUI` | GPL-3.0 | **reference-only / 独立 sidecar**：不把代码并入产品可执行/安装包；分发修改版需按 GPLv3 提供源码；模型权重/自定义节点另核 |
 | `dfki-quad` | BSD-3-Clause | 可移植（保留版权/许可；外部依赖另核） |
 | `legged_mpc_amp` | BSD-3-Clause + THIRD_PARTY_NOTICES | 可移植（保留 notices；qpOASES 为 LGPL-2.1，发布前替换或隔离） |

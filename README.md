@@ -4,7 +4,7 @@
 
 产品对外是三种形态、**同一份后端能力**：桌面壳负责运行时供应与后端生命周期，Web 工作台是全部业务界面（含浏览器内 sim2sim），CLI 面向自动化与 CI；三者共用同一份接口契约。
 
-- 版本：`0.67.1`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
+- 版本：`0.67.2`（见 `VERSION`；`pyproject.toml` / `package.json` 同源，核对命令见 `tools/doc_reality_check.py`）
 - 许可：**AGPL-3.0-only**（项目代码）；`00_resources/` 各项目保留原始许可
 - 作者：zeitvex
 
@@ -190,7 +190,7 @@ npm run build:linux               # Linux AppImage
 | 索引 | [`00_resources/README.md`](00_resources/README.md)（项目清单 · 项目×机型矩阵 · 机型反查）+ `_index.json` |
 
 - 定位：**只读参考底座**；`assets/robots/<id>/` 才是按 contract v3 收敛后的可执行版本。
-- **资源实体外置**：134 个项目在私有仓 `zeitvex-lab/LeggedStudio-Resources`；主仓只保留索引、`_SPEC.md`、`_index.json` 与许可索引。首次或需要时运行 `python tools/fetch_resources.py`（可 `--project` 指定）。
+- **资源实体外置**：136 个项目在私有仓 `zeitvex-lab/LeggedStudio-Resources`；主仓只保留索引、`_SPEC.md`、`_index.json` 与许可索引。首次或需要时运行 `python tools/fetch_resources.py`（可 `--project` 指定）。
 - 同步脚本：`tools/sync_resources.py`；规范见 [`00_resources/_SPEC.md`](00_resources/_SPEC.md)。
 - **许可分层**：项目代码 AGPL-3.0-only；`00_resources/` 各项目保留原始许可。无根 LICENSE / CC BY-NC/SA 资源只作参考，不随产品再分发。
 
